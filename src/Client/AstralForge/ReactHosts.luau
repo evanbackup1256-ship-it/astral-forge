@@ -1350,7 +1350,8 @@ local AUTO_WIDTH_PAD = 4
 local function estimateLabelWidth(text, textSize)
 	return math.max(4, math.ceil(#text * textSize * 0.7)) + AUTO_WIDTH_PAD
 end
-local SPINNER_FONT = Font.fromEnum(Enum.Font.RobotoMono)
+-- Builder Sans digits are even-width, so values roll cleanly without the gappy look of a monospace dot
+local SPINNER_FONT = Font.fromEnum(Enum.Font.BuilderSansBold)
 local function findSpinnerLayout(host)
 	for _, child in host:GetChildren() do
 		if not child:IsA("GuiObject") or child.Name == "NumberSpinnerGuide" then
@@ -1519,10 +1520,9 @@ local function setDigitTracking(spinner, scale, gap)
 	if spinner.Layout.Padding ~= padding then
 		spinner.Layout.Padding = padding
 	end
-	if scale >= 0.995 then
-		return nil
-	end
-	local baseWidth = math.max(6, math.floor(spinner.TextSize * 0.7 + 0.5))
+	-- digit cells follow the spinner font's real advance (Builder Sans digits are ~0.58 em),
+	-- so numbers never show the wide gaps a monospace cell leaves around narrower glyphs
+	local baseWidth = math.max(6, math.floor(spinner.TextSize * 0.6 + 0.5))
 	local width = math.max(6, math.floor(baseWidth * math.clamp(scale, 0.65, 1) + 0.5))
 	for _, child in spinner.Frame:GetChildren() do
 		if not child:IsA("Frame") or child.Name ~= "digit" then

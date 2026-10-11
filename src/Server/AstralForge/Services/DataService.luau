@@ -322,6 +322,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		if profile.Trade.FaultedJournal ~= nil and type(profile.Trade.FaultedJournal) ~= "table" then
 			profile.Trade.FaultedJournal = nil
 		end
+		-- completed-trade history: keep only well-formed, bounded entries
+		if profile.Trade.History ~= nil then
+			profile.Trade.History = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory")).public(profile.Trade)
+		end
 		profile.Trade.Day = math.floor(nonNegative(profile.Trade.Day))
 		profile.Trade.Completed = math.floor(nonNegative(profile.Trade.Completed))
 		if previousDataVersion < 5 then

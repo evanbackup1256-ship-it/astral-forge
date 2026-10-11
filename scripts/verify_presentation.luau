@@ -2,18 +2,45 @@ local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
 local accent = roblox.Color3.fromRGB(100, 200, 240)
-local wheelSource = fs.readFile("src/Client/AstralForge/AuthoredWheel.luau")
 local shop = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau")
 local consoleStart = assert(shop:find("local function WheelConsole(", 1, true))
 local consoleEnd = assert(shop:find("local function WheelView(", consoleStart, true))
 assert(not shop:sub(consoleStart, consoleEnd - 1):find("WheelPrizeViewport", 1, true), "the active reward console must not mount viewports")
-local palette = {}
-for _, name in { "ink", "cream", "creamSoft", "void", "panelRaised" } do palette[name] = accent end
-local function element(kind, props, ...)
-	assert(kind ~= "viewportframe", "the wheel must not create viewports")
-	return { kind = kind, props = props, children = { ... } }
+assert(shop:find("require(script.Parent.Parent.PrizeWheel)", 1, true), "the page mounts the UI-built wheel")
+assert(not fs.isFile("src/Client/AstralForge/AuthoredWheel.luau"), "the image-faced wheel renderer is retired")
+
+-- Wedges are painted by stacked half-disks inside two unrotated clips; prove the painting is exact.
+local Geometry = luau.load(fs.readFile("src/Client/AstralForge/WheelGeometry.luau"))()
+for count = 1, 20 do
+	local size = Geometry.segmentSize(count)
+	for winner = 0, count - 1 do
+		assert(Geometry.segmentAt(count, Geometry.rotationFor(count, winner), 0) == winner, "every server winner lands under the pointer")
+	end
+	for step = 0, 72 do
+		local rotation = step * 5.137 - 40
+		local plan = Geometry.plan(count, rotation)
+		assert(#plan.right <= Geometry.slotsPerHalf(count) and #plan.left <= Geometry.slotsPerHalf(count), "layer pools never overflow")
+		for sample = 0, 719 do
+			local angle = sample * 0.5 + 0.13
+			local wheelAngle = ((angle - rotation + size / 2) % 360 + 360) % 360
+			local nearEdge = math.min(wheelAngle % size, size - wheelAngle % size) < 0.05 or math.abs(angle - 180) < 0.05
+			if not nearEdge then
+				assert(Geometry.paintedAt(plan, angle) == Geometry.segmentAt(count, rotation, angle),
+					`half-disk stack paints the owning segment (count {count}, rotation {rotation}, angle {angle})`)
+			end
+		end
+	end
 end
-local wheelStart = assert(wheelSource:find("return function(props)", 1, true))
+
+local palette = {}
+for _, name in { "ink", "cream", "creamSoft", "void", "panelRaised", "violet" } do palette[name] = accent end
+local function element(kind, props, ...)
+	assert(kind ~= "viewportframe" and kind ~= "imagelabel" and kind ~= "imagebutton", "the wheel is built from UI primitives only")
+	if type(kind) == "function" then
+		return kind(props)
+	end
+	return { kind = kind, props = props or {}, children = { ... } }
+end
 local artSource = fs.readFile("src/Client/AstralForge/ArtKit.luau")
 local iconStart = assert(artSource:find("local function rewardIconKind(", 1, true))
 local iconEnd = assert(artSource:find("local function prizeShapeFromReward(", iconStart, true))
@@ -22,46 +49,75 @@ for field, expected in { Cores = "Core", Stardust = "Dust", Boost = "Boost", Fre
 	Keys = "Crate", CashMinutes = "Flux", Signals = "Command", Essence = "EchoForge" } do
 	assert(rewardIconKind({ [field] = 1 }) == expected, "reward art must describe the actual grant")
 end
-local wheel = luau.load(wheelSource:sub(wheelStart), {
-	environment = {
-		h = element, Ui = { Text = "Text" }, Palette = palette, FACE = "rbxassetid://74107873507267",
-		Art = { Icon = "Icon", rewardIconKind = rewardIconKind },
+local wheelSource = fs.readFile("src/Client/AstralForge/PrizeWheel.luau")
+assert(not wheelSource:find("rbxassetid", 1, true) and not wheelSource:find("Image", 1, true), "no hand-drawn wheel art")
+local fakeReact = {
+	createElement = element, Event = { Activated = "Activated" },
+	useRef = function(value) return { current = value } end,
+	useCallback = function(callback) return callback end,
+}
+local modules = {
+	UiCore = function() return { Text = "Text" } end,
+	CoreKit = function() return { Palette = palette, darken = function(color, amount) return color:Lerp(roblox.Color3.new(), amount) end } end,
+	ArtKit = function() return { Icon = "Icon", rewardIconKind = rewardIconKind } end,
+}
+local wheel = luau.load(wheelSource, {
+	environment = setmetatable({
+		game = { ReplicatedStorage = { rbxts_include = { node_modules = { ["@rbxts"] = { react = "react" } } } } },
+		script = { Parent = { UiCore = "UiCore", CoreKit = "CoreKit", ArtKit = "ArtKit", WheelGeometry = "WheelGeometry" } },
+		require = function(name)
+			if name == "react" then return fakeReact end
+			if name == "WheelGeometry" then return Geometry end
+			return modules[name]
+		end,
 		Color3 = roblox.Color3, UDim = roblox.UDim, UDim2 = roblox.UDim2, Vector2 = roblox.Vector2,
 		Enum = roblox.Enum, NumberSequence = roblox.NumberSequence, NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
-		ColorSequence = roblox.ColorSequence,
-	},
+	}, { __index = _G }),
 })()
+local function walk(node, visit)
+	if type(node) ~= "table" then return end
+	if node.kind ~= nil then
+		visit(node)
+		for _, child in node.children do walk(child, visit) end
+	else
+		for _, child in node do walk(child, visit) end
+	end
+end
+local function named(tree, name)
+	local found
+	walk(tree, function(node) if node.props.Name == name then found = found or node end end)
+	return assert(found, "missing " .. name)
+end
 local rewards = {}
-for index = 1, 20 do rewards[index] = { Id = "prize" .. index, Reward = { CashMinutes = index } } end
+for index = 1, 12 do
+	rewards[index] = { Id = "prize" .. index, Reward = { CashMinutes = index }, Color = roblox.Color3.fromRGB(index * 20, 90, 200) }
+end
 local function wheelBinding(value)
 	return { value = value, map = function(_, callback) return callback(value) end }
 end
 for _, diameter in { 140, 220, 340, 410 } do
 	for _, reduced in { false, true } do
-		for winner = 0, 19 do
-			local rotation = (360 - winner * 18) % 360
-			local controller = { winner = winner, rotation = wheelBinding(rotation), spinEnergy = wheelBinding(1), pointerKick = wheelBinding(0.5) }
-			local rendered = wheel({ controller = controller, rewards = rewards, diameter = diameter, reducedMotion = reduced })
-			local rotor = rendered.children[2]
-			assert(rotor.props.Rotation == controller.rotation, "the existing controller owns rotor motion")
-			assert(rotor.children[1].props.Image == "rbxassetid://74107873507267", "the authored wheel face is mounted")
-			local details = rotor.children[2].children[1]
-			for index = 1, 20 do
-				local prize = details["prize-prize" .. index]
-				local badge = prize.children[1]
-				assert((rotation + prize.props.Rotation + badge.props.Rotation) % 360 == 0, "prize labels remain upright")
-				if index - 1 == winner then
-					assert((rotation + prize.props.Rotation) % 360 == 0, "every server winner aligns exactly with the top pointer")
-				end
-				if diameter >= 220 then
-					local glyph = prize.children[3]
-					assert(glyph.props.Name == "RewardGlyph" and (rotation + prize.props.Rotation + glyph.props.Rotation) % 360 == 0,
-						"authored reward glyphs remain upright and do not change prize alignment")
-					assert(glyph.children[1].props.reducedMotion, "reward glyphs never run competing animation clocks")
+		for winner = 0, 11 do
+			local rotation = Geometry.rotationFor(12, winner)
+			local controller = { winner = winner, spinning = false, rotation = wheelBinding(rotation), spinEnergy = wheelBinding(1), pointerKick = wheelBinding(0.5) }
+			local tree = wheel({ controller = controller, rewards = rewards, diameter = diameter, reducedMotion = reduced, canSpin = true })
+			assert(named(tree, "Rotor").props.Rotation == controller.rotation, "the existing controller owns rotor motion")
+			assert(named(tree, "Prize" .. (winner + 1)).props.Rotation % 30 == 0 and (rotation + named(tree, "Prize" .. (winner + 1)).props.Rotation) % 360 == 0,
+				"the winning label sits under the pointer")
+			local plan = Geometry.plan(12, rotation)
+			for _, side in { "right", "left" } do
+				local clip = named(tree, if side == "right" then "RightHalf" else "LeftHalf")
+				assert(clip.props.ClipsDescendants and clip.props.Rotation == nil, "clips stay unrotated so clipping works")
+				for slot, layer in clip.children[1] do
+					local index = tonumber(string.match(slot, "%d+"))
+					local planned = plan[side][index]
+					assert((layer.props.BackgroundTransparency == 0) == (planned ~= nil), "unused layers are hidden")
+					if planned then
+						assert(layer.children[2].props.Rotation == planned.angle, "half-disk mask follows the plan")
+					end
 				end
 			end
-			local clicker = rendered.children[5]
-			assert(clicker.props.Rotation == (if reduced then 0 else -9), "reduced motion suppresses detail motion")
+			assert(named(tree, "Pointer").props.Rotation == (if reduced then 0 else -8), "reduced motion keeps the pointer still")
 		end
 	end
 end

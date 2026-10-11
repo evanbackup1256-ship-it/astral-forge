@@ -52,6 +52,8 @@ serviceFactories["GameService"] = function()
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
 	local TradeRecovery = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeRecovery")
+	local TradeHistory = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory"))
+	local ChatRules = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("ChatRules"))
 	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("CrateRoll")
 	local CrateRollResolver = require(script.Parent.Parent.Modules.CrateRollResolver)
 	local CrateConfig = require(ReplicatedStorage.AstralForge.Shared.CrateConfig)
@@ -105,6 +107,8 @@ serviceFactories["GameService"] = function()
 	local EncounterService = loadService("EncounterService")
 	local Specializations = loadService("SpecializationService")
 	local GuildCommunity = require(script.Parent:WaitForChild("GuildCommunity"))
+	local ChatService = require(script.Parent:WaitForChild("ChatService"))
+	local CrewService = require(script.Parent:WaitForChild("CrewService"))
 	local FluxSurgeService = loadService("FluxSurgeService")
 	local ServerEventService = loadService("ServerEventService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
@@ -477,6 +481,14 @@ serviceFactories["GameService"] = function()
 			if targetProfile and not self._trades:Unlocked(targetProfile) then
 				return responseError("They have not unlocked Trade Floor yet.")
 			end
+			-- the target's Social setting decides who may invite them
+			local tradePolicy = targetProfile and targetProfile.Settings and targetProfile.Settings.TradeInvitePolicy
+			if target and type(tradePolicy) == "number" and tradePolicy >= 0.25 then
+				local okFriend, isFriend = pcall(function() return target:IsFriendsWith(player.UserId) end)
+				if not ChatRules.allows(tradePolicy, okFriend and isFriend == true) then
+					return responseError(if tradePolicy >= 0.75 then `{target.DisplayName} isn't taking trade invites.` else `{target.DisplayName} only takes trade invites from friends.`)
+				end
+			end
 			local ok, err = self._trades:Invite(player, profile, userId, now)
 			if not ok then
 				return responseError(err)
@@ -548,6 +560,35 @@ serviceFactories["GameService"] = function()
 					return responseError(planErr or "That trade could not be settled.")
 				end
 
+				-- One side's record of this trade: what it gave and what it got, with item names.
+				local function tradeHistoryEntry(tradeSession, partner: Player, gave, gaveItems, got, gotItems, at: number)
+					local function names(snapshot)
+						local list = {}
+						for _, instance in (snapshot or {}) do
+							local definition = type(instance) == "table" and itemById[instance.DefinitionId]
+							table.insert(list, if definition then definition.Name else "an item")
+						end
+						return list
+					end
+					local function amount(value)
+						local number = tonumber(value)
+					if number == nil then
+						return require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath")).ToString(value)
+					end
+					for _, step in { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } do
+						if math.abs(number) >= step[1] then
+							return (string.gsub(string.format("%.1f%s", number / step[1], step[2]), "%.0(%a)", "%1"))
+						end
+					end
+					return tostring(math.floor(number))
+					end
+					return {
+						Id = tostring(tradeSession.Id), At = at, PartnerId = partner.UserId, Partner = partner.DisplayName,
+						Gave = TradeHistory.summarize(gave, names(gaveItems), amount),
+						Got = TradeHistory.summarize(got, names(gotItems), amount),
+					}
+				end
+
 				-- Durability hook: stamp a per-profile fault journal so a faulted trade
 				-- can be reconciled the next time the affected profile loads.
 				local function writeTradeJournal(targetPlayer: Player, side: string, status: string, reason: string?)
@@ -584,6 +625,8 @@ serviceFactories["GameService"] = function()
 							if applyErr then
 								return { ok = false, error = applyErr }
 							end
+							-- history commits in the same save as the exchange
+							TradeHistory.record(profile.Trade, tradeHistoryEntry(session, guest, plan.HostOffer, plan.HostItems, plan.GuestOffer, plan.GuestItems, plan.Now))
 							return { ok = true }
 						end, true, "trade-host")
 					end,
@@ -603,6 +646,7 @@ serviceFactories["GameService"] = function()
 							if applyErr then
 								return { ok = false, error = applyErr }
 							end
+							TradeHistory.record(profile.Trade, tradeHistoryEntry(session, host, plan.GuestOffer, plan.GuestItems, plan.HostOffer, plan.HostItems, plan.Now))
 							return { ok = true }
 						end, true, "trade-guest")
 					end,
@@ -616,6 +660,8 @@ serviceFactories["GameService"] = function()
 								plan.GuestItems,
 								plan.Now
 							)
+							-- a reverted side never happened, so its history entry goes too
+							TradeHistory.remove(profile.Trade, tostring(session.Id))
 							return { ok = true }
 						end, true, "trade-revert")
 						return TradeSettle.IsCommitOk(revertOk, revertResult)
@@ -760,6 +806,8 @@ serviceFactories["GameService"] = function()
 			self._effect:FireClient(target, { Type = "GuildBanned", GuildId = guildId })
 			return true, nil
 		end)
+		self._chat = ChatService.new(self._effect, self._data)
+		self._crews = CrewService.new(self._effect, self._data)
 		self._trades = TradeDesk.new()
 		self._random = Random.new()
 		self._heartbeat = nil
@@ -788,7 +836,7 @@ serviceFactories["GameService"] = function()
 			local lastToastAt = self._saveFailedToastAt[player] or 0
 			if os.clock() - lastToastAt < 120 then return end
 			self._saveFailedToastAt[player] = os.clock()
-			self:_toastPlayer(player, "Save trouble", "Your progress couldn't save just now — stay online and we'll keep retrying.", "Warning")
+			self:_toastPlayer(player, "Save trouble", "Your progress couldn't save just now. Stay online while we retry.", "Warning")
 		end
 		return self
 	end
@@ -853,7 +901,7 @@ serviceFactories["GameService"] = function()
 				ModuleLog.Every("feedback-webhook", 30, "Feedback", "A player note could not be delivered")
 			end
 		end)
-		return responseSuccess("Thanks for the feedback!")
+		return responseSuccess("Thanks. Your feedback was sent.")
 	end
 
 	local reportLedger = ReportLedger.new()
@@ -1106,7 +1154,7 @@ serviceFactories["GameService"] = function()
 				rebirths.Value = math.floor(progressionNumber(profile.Rebirths))
 			end
 		end
-		player:SetAttribute("ProductionPerSecond", progressionNumber(Economy.Mul(Economy.Production(profile), self._convergence:Multiplier() * self._events:ProductionMultiplier())))
+		player:SetAttribute("ProductionPerSecond", progressionNumber(Economy.Mul(Economy.Production(profile), self._convergence:Multiplier() * self._events:ProductionMultiplier() * self._crews:Multiplier(player))))
 		player:SetAttribute("CurrentZone", profile.CurrentZone)
 		if GameConfig.Operations.TitlesEnabled == false then
 			player:SetAttribute("EquippedTitle", nil)
@@ -1260,7 +1308,7 @@ serviceFactories["GameService"] = function()
 			local flux = fluxFor(checkpoint.FluxSeconds, checkpoint.MinFlux)
 			profile.Cash = Economy.Add(profile.Cash, flux)
 			progression.HalfwayPaidFor = nextStep.Level
-			self:_toastPlayer(player, string.format("Halfway to Level %d", nextStep.Level), string.format("+%s flux. Keep going!", Format.Number(flux)), "Success")
+			self:_toastPlayer(player, string.format("Halfway to Level %d", nextStep.Level), string.format("+%s flux.", Format.Number(flux)), "Success")
 			self._effect:FireClient(player, { Type = "LevelHalfway", Level = nextStep.Level, Flux = Economy.AsNumber(flux) })
 		end
 		local nextReward = nil
@@ -1299,7 +1347,7 @@ serviceFactories["GameService"] = function()
 		end
 		local now = os.time()
 		local baseProduction = Economy.Production(profile, now)
-		local production = Economy.Mul(baseProduction, self._convergence:Multiplier() * self._events:ProductionMultiplier())
+		local production = Economy.Mul(baseProduction, self._convergence:Multiplier() * self._events:ProductionMultiplier() * self._crews:Multiplier(player))
 		local capacity = Economy.Capacity(profile, now)
 		local prestigeReward = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault))
 		local domain = profile.Domain or { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0 }
@@ -1888,7 +1936,7 @@ serviceFactories["GameService"] = function()
 			local capacity = Economy.Capacity(profile)
 			local room = Economy.Sub(capacity, profile.Vault)
 			if Economy.Lte(room, 0.01) then
-				return responseError("Your vault is full—bank it first.")
+				return responseError("Your vault is full. Bank it first.")
 			end
 			local critical = self._random:NextNumber() <= Economy.CriticalChance(profile)
 			local amount = Economy.TapPower(profile)
@@ -2012,7 +2060,7 @@ serviceFactories["GameService"] = function()
 			profile.AutoForge.Reserve = reserve
 			profile.AutoForge.Bought = math.max(0, math.floor(tonumber(profile.AutoForge.Bought) or 0))
 			local state = payload.Enabled and "online" or "paused"
-			return responseSuccess(string.format("Auto-Forge %s — %s targeted with %d%% held in reserve.", state, machine.Name, math.floor(reserve * 100 + 0.5)))
+			return responseSuccess(string.format("Auto-Forge %s: buying %s and keeping %d%% in reserve.", state, machine.Name, math.floor(reserve * 100 + 0.5)))
 		end)
 	end
 
@@ -2581,7 +2629,7 @@ serviceFactories["GameService"] = function()
 					table.insert(parts, string.format("+%d%% vault", math.floor((passDef.CapacityBonus or 0) * 100 + 0.5)))
 				end
 				local detail = #parts > 0 and table.concat(parts, " · ") or "Pass linked"
-				return responseSuccess(passDef.Name .. " — " .. detail)
+				return responseSuccess(passDef.Name .. ": " .. detail)
 			end
 			assert(productDef ~= nil, "studio grant missing product")
 			local rewardText = self:_grantDevProduct(profile, productDef)
@@ -3176,7 +3224,7 @@ serviceFactories["GameService"] = function()
 			local milestone = (rank + 1) % GameConfig.Continuum.MilestoneEvery == 0
 			return responseSuccess(
 				string.format(
-					"Continuum rank %d online — production is now %s.",
+					"Continuum rank %d reached. Production is now %s.",
 					rank + 1,
 					Format.Number(nextProduction) .. "x"
 				),
@@ -4379,6 +4427,24 @@ serviceFactories["GameService"] = function()
 			return self:_setSetting(player, payload)
 		elseif action == Protocol.Actions.SetMobileLayout then
 			return self:_setMobileLayout(player, payload)
+		elseif action == Protocol.Actions.ChatOpenWhisper then
+			return self._chat:OpenWhisper(player, payload)
+		elseif action == Protocol.Actions.ChatGlobal then
+			return self._chat:SendGlobal(player, payload)
+		elseif action == Protocol.Actions.GetCrew then
+			return self._crews:Get(player)
+		elseif action == Protocol.Actions.CrewInvite then
+			return self._crews:Invite(player, payload)
+		elseif action == Protocol.Actions.CrewRespond then
+			return self._crews:Respond(player, payload)
+		elseif action == Protocol.Actions.CrewLeave then
+			return self._crews:Leave(player)
+		elseif action == Protocol.Actions.CrewKick then
+			return self._crews:Kick(player, payload)
+		elseif action == Protocol.Actions.CrewRename then
+			return self._crews:Rename(player, payload)
+		elseif action == Protocol.Actions.CrewClaim then
+			return self._crews:Claim(player, payload)
 		elseif action == Protocol.Actions.SetTutorialStep then
 			return self:_setTutorialStep(player, payload and payload.Step)
 		elseif action == Protocol.Actions.CompleteTutorial then
@@ -4653,7 +4719,7 @@ serviceFactories["GameService"] = function()
 					self:_toastPlayer(
 						player,
 						"Save is still syncing",
-						"Your data is still active on another server. Close any other open session — otherwise this clears on its own.",
+						"Your data is still active on another server. Close any other open session, or wait and it clears on its own.",
 						"Info"
 					)
 				end
@@ -4677,7 +4743,7 @@ serviceFactories["GameService"] = function()
 					self:_toastPlayer(
 						player,
 						"Still connecting",
-						"Your save is taking longer than usual to load. We'll keep retrying — you don't need to rejoin.",
+						"Your save is taking longer than usual to load. We'll keep retrying, so you don't need to rejoin.",
 						"Warning"
 					)
 				end
@@ -4852,7 +4918,7 @@ serviceFactories["GameService"] = function()
 					if active.EndsAt > 0 and active.EndsAt <= now then
 						profile.ActiveBoost = { Id = "", EndsAt = 0 }
 					end
-					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now) * self._events:ProductionMultiplier())
+					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now) * self._events:ProductionMultiplier() * self._crews:Multiplier(player))
 					local capacity = Economy.Capacity(profile, now)
 					local produced = Economy.Mul(production, step)
 					profile.Vault = Economy.Min(capacity, Economy.Add(profile.Vault, produced))
@@ -5198,6 +5264,7 @@ serviceFactories["GameService"] = function()
 					local profile = self._data:Get(player)
 					if profile then
 						self._convergence:RecordAction(player, tostring(action))
+						if action == Protocol.Actions.CollectVault then self._crews:RecordCollect(player) end
 						self._analytics:RecordAction(player, tostring(action), profile, (os.clock() - requestStartedAt) * 1000)
 						self._badges:Evaluate(player, profile, tostring(action))
 					end
@@ -5348,6 +5415,8 @@ serviceFactories["GameService"] = function()
 		self._convergence:Stop()
 		self._guilds:Destroy()
 		self._guildCommunity:Shutdown()
+		self._chat:Shutdown()
+		self._crews:Shutdown()
 		self._badges:Destroy()
 	end
 

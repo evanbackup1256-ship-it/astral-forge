@@ -217,6 +217,7 @@ function TradeDesk:StatePublic(profile, player: Player, now: number)
 			Invite = self:InvitePublic(player.UserId),
 			Outgoing = self:OutgoingPublic(player.UserId),
 			Daily = self:DailyPublic(profile, now),
+			History = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory")).public(profile.Trade),
 		}
 	end)
 	return ok and result or TradeDesk.LockedPublic()
@@ -440,7 +441,7 @@ function TradeDesk:UpdateOffer(player: Player, profile, rawOffer, now: number): 
 		return false, "That trade is already settling."
 	end
 	if session.Status == "RevertFailed" then
-		return false, "That trade needs to be cancelled — settle recovery failed."
+		return false, "This trade hit an error and has to be cancelled."
 	end
 	local offer = copyOffer(rawOffer)
 	local reason = self:_validateOffer(profile, offer, now, false)
@@ -1093,7 +1094,7 @@ end
 
 function TradeSettle.GuestLeftMessage(reverted: boolean): string
 	if reverted then
-		return "Guest left during settle — host side was reverted."
+		return "Your partner left before the trade finished. Your items were returned."
 	end
 	return "Guest left and host revert failed. Cancel and contact support."
 end

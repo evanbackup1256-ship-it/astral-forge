@@ -826,7 +826,7 @@ local function OverviewView(_param)
 		layoutOrder = 3,
 		size = UDim2.new(1, 0, 0, 10),
 	}), React.createElement(Text, {
-		value = if vaultFill >= 0.99 then "Vault full — machines stopped. Collect now." elseif firstRun then "Machines earn Flux into this vault. Collect it, then buy more." else `{compactNumber(state.Production)} Flux per second flowing in`,
+		value = if vaultFill >= 0.99 then "Vault full. Machines stop until you collect." elseif firstRun then "Machines earn Flux into this vault. Collect it, then buy more." else `{compactNumber(state.Production)} Flux per second flowing in`,
 		size = if stack then chrome.labelText else 11,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -1348,7 +1348,7 @@ local function OverviewView(_param)
 		weight = Enum.FontWeight.Heavy,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if opsClaims > 0 then `{opsClaims} ready to claim` else ((opsGuide and opsGuide.EmptyClaims) or "Nothing ready to claim — keep forging."),
+		value = if opsClaims > 0 then `{opsClaims} ready to claim` else ((opsGuide and opsGuide.EmptyClaims) or "Nothing to claim yet. Keep forging."),
 		size = if stack then 17 else 18,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,

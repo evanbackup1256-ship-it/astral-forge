@@ -781,12 +781,17 @@ end
 __defs["chat"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
-local MAX_MESSAGES = 120
-local MAX_INPUT = 160
 local ChatText = require(script.Parent.CoreKit)("chatText")
-local CHANNEL_NAME = "RBXGeneral"
+local sharedRoot = ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared")
+local ChatRules = require(sharedRoot:WaitForChild("ChatRules"))
+local Protocol = require(sharedRoot:WaitForChild("Protocol"))
+local MAX_MESSAGES = 200
+local MAX_INPUT = ChatRules.MAX_INPUT
+local TAB_KEYS = { "global", "server", "crew", "friends", "whispers" }
+local CHANNEL_LABEL = { global = "global chat", server = "this server", crew = "your crew", friends = "friends here" }
 local function readTitleAttrs(player)
 	if player == nil then
 		return {}
@@ -807,26 +812,25 @@ local function readTitleAttrs(player)
 		artifactColor = if hasArtifact and typeof(artifactColor) == "Color3" then artifactColor else nil,
 	}
 end
+local systemSerial = 0
 local function systemMessage(text)
+	systemSerial += 1
 	return {
-		id = `system-{os.clock()}`,
+		id = `system-{systemSerial}-{os.clock()}`,
 		userId = 0,
 		username = "System",
 		displayName = "System",
 		text = text,
+		at = os.time(),
 		world = 0,
+		channel = "system",
 		localPlayer = false,
 		system = true,
 	}
 end
 local function pushTrimmed(current, incoming)
-	local _array = {}
-	local _length = #_array
-	local _currentLength = #current
-	table.move(current, 1, _currentLength, _length + 1, _array)
-	_length += _currentLength
-	_array[_length + 1] = incoming
-	local updated = _array
+	local updated = table.clone(current)
+	table.insert(updated, incoming)
 	while #updated > MAX_MESSAGES do
 		table.remove(updated, 1)
 	end
@@ -834,125 +838,361 @@ local function pushTrimmed(current, incoming)
 end
 local function statusError(status)
 	if status == Enum.TextChatMessageStatus.Floodchecked then
-		return "Slow down — chat is rate limited."
+		return "Slow down, chat is rate limited."
 	end
 	if status == Enum.TextChatMessageStatus.MessageTooLong then
 		return "Message is too long."
 	end
 	if status == Enum.TextChatMessageStatus.TextFilterFailed then
-		return "Message blocked by Roblox chat filters."
+		return "Roblox chat filters blocked that message."
 	end
 	if status == Enum.TextChatMessageStatus.InvalidPrivacySettings then
 		return "Chat is unavailable for this account."
 	end
 	if status == Enum.TextChatMessageStatus.InvalidTextChannelPermissions then
-		return "You cannot send on this channel."
+		return "You can't send on this channel."
 	end
 	return "Message not sent."
 end
-local function useGameChat(active, enabled)
+local function rosterOf(selfId)
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		if player.UserId ~= selfId then
+			table.insert(list, { userId = player.UserId, name = player.Name, displayName = player.DisplayName })
+		end
+	end
+	return list
+end
+local function buildRecord(userId, text, channel, peerId, id)
+	local player = Players:GetPlayerByUserId(userId)
+	local title = readTitleAttrs(player)
+	local zone = if player ~= nil then player:GetAttribute("CurrentZone") else nil
+	return {
+		id = id,
+		userId = userId,
+		username = if player ~= nil then player.Name else `Player{userId}`,
+		displayName = if player ~= nil then player.DisplayName else `Player {userId}`,
+		text = text,
+		world = if type(zone) == "number" then zone else 1,
+		channel = channel,
+		peerId = peerId,
+		localPlayer = userId == Players.LocalPlayer.UserId,
+		at = os.time(),
+		-- someone else @mentioning you gets highlighted and a stronger sound
+		mention = userId ~= Players.LocalPlayer.UserId and ChatRules.mentions(text, Players.LocalPlayer.Name, Players.LocalPlayer.DisplayName),
+		titleId = title.titleId,
+		titleName = title.titleName,
+		titleFx = title.titleFx,
+		artifactName = title.artifactName,
+		artifactElement = title.artifactElement,
+		artifactColor = title.artifactColor,
+	}
+end
+local function emptyUnread()
+	return { global = 0, server = 0, crew = 0, friends = 0, whispers = 0 }
+end
+local function useGameChat(active, enabled, dispatch, settings)
 	if enabled == nil then
 		enabled = true
 	end
+	local selfId = Players.LocalPlayer.UserId
 	local messages, setMessages = React.useState({})
-	local unread, setUnread = React.useState(0)
+	local unreadByTab, setUnreadByTab = React.useState(emptyUnread)
 	local connected, setConnected = React.useState(false)
-	local channel = React.useRef()
+	local tab, setTabState = React.useState("all")
+	local peer, setPeerState = React.useState(nil)
+	local whispers, setWhispers = React.useState({})
+	local muted, setMuted = React.useState({})
+	local channelsRef = React.useRef({ server = nil, friends = nil, crew = {}, whisper = {} })
+	local pendingRef = React.useRef({})
+	local seenRef = React.useRef({ ids = {}, order = {} })
+	local lastWhisperRef = React.useRef(nil)
 	local activeRef = React.useRef(active)
+	local tabRef = React.useRef(tab)
+	local peerRef = React.useRef(peer)
+	local mutedRef = React.useRef(muted)
+	local dispatchRef = React.useRef(dispatch)
 	local aliveRef = React.useRef(true)
+	local settingsRef = React.useRef(settings)
+	settingsRef.current = settings
 	local sendWorkers = React.useRef({})
 	activeRef.current = active
+	tabRef.current = tab
+	peerRef.current = peer
+	mutedRef.current = muted
+	dispatchRef.current = dispatch
+	local clearSeen = React.useCallback(function(which, peerId)
+		setUnreadByTab(function(current)
+			if which == "all" then
+				return emptyUnread()
+			end
+			if current[which] == nil or current[which] == 0 then
+				return current
+			end
+			local nextValue = table.clone(current)
+			nextValue[which] = 0
+			return nextValue
+		end)
+		if which == "whispers" or which == "all" then
+			setWhispers(function(current)
+				local changed = false
+				local nextValue = {}
+				for index, entry in current do
+					if entry.unread > 0 and (peerId == nil or entry.userId == peerId) then
+						local copy = table.clone(entry)
+						copy.unread = 0
+						nextValue[index] = copy
+						changed = true
+					else
+						nextValue[index] = entry
+					end
+				end
+				return if changed then nextValue else current
+			end)
+		end
+	end, {})
 	React.useEffect(function()
 		if active then
-			setUnread(0)
+			clearSeen(tab, if tab == "whispers" then peer else nil)
 		end
-	end, { active })
+	end, { active, tab, peer })
+	local note = React.useCallback(function(text)
+		setMessages(function(current)
+			return pushTrimmed(current, systemMessage(text))
+		end)
+	end, {})
+	local touchWhisper = React.useCallback(function(peerId, text, incoming)
+		setWhispers(function(current)
+			local nextValue = {}
+			local found = nil
+			for _, entry in current do
+				if entry.userId == peerId then
+					found = table.clone(entry)
+				else
+					table.insert(nextValue, entry)
+				end
+			end
+			if found == nil then
+				local player = Players:GetPlayerByUserId(peerId)
+				found = {
+					userId = peerId,
+					name = if player ~= nil then player.Name else `Player{peerId}`,
+					displayName = if player ~= nil then player.DisplayName else `Player {peerId}`,
+					unread = 0,
+					lastText = "",
+				}
+			end
+			if text ~= nil then
+				found.lastText = text
+			end
+			found.online = channelsRef.current.whisper[peerId] ~= nil
+			if incoming then
+				local looking = activeRef.current and tabRef.current == "whispers" and peerRef.current == peerId
+				if not looking then
+					found.unread = math.min(99, found.unread + 1)
+				end
+			end
+			table.insert(nextValue, 1, found)
+			return nextValue
+		end)
+	end, {})
+	local ingestRecord = React.useCallback(function(record, quiet)
+		local seen = seenRef.current
+		if seen.ids[record.id] then
+			return nil
+		end
+		seen.ids[record.id] = true
+		table.insert(seen.order, record.id)
+		if #seen.order > MAX_MESSAGES * 2 then
+			seen.ids[table.remove(seen.order, 1)] = nil
+		end
+		setMessages(function(current)
+			return pushTrimmed(current, record)
+		end)
+		local tabKey = if record.channel == "whisper" then "whispers" else record.channel
+		if record.channel == "whisper" and record.peerId ~= nil then
+			touchWhisper(record.peerId, record.text, not record.localPlayer)
+			if not record.localPlayer then
+				lastWhisperRef.current = record.peerId
+			end
+		end
+		if record.localPlayer or quiet or mutedRef.current[record.userId] then
+			return nil
+		end
+		local prefs = settingsRef.current
+		if type(prefs) ~= "table" or prefs.ChatSounds == nil or prefs.ChatSounds >= 0.5 then
+			Audio:play(if record.mention then "notification" else "chatReceive")
+		end
+		local seeing = activeRef.current and (tabRef.current == "all" or tabRef.current == tabKey)
+		if record.channel == "whisper" and tabRef.current == "whispers" then
+			seeing = activeRef.current and peerRef.current == record.peerId
+		end
+		if not seeing then
+			setUnreadByTab(function(current)
+				local nextValue = table.clone(current)
+				nextValue[tabKey] = math.min(99, (nextValue[tabKey] or 0) + 1)
+				return nextValue
+			end)
+		end
+	end, {})
+	local sendOn = React.useCallback(function(target, text, done)
+		Audio:play("chatSend")
+		local worker
+		worker = task.defer(function()
+			local ok, result = pcall(function()
+				return target:SendAsync(text)
+			end)
+			if worker ~= nil then
+				sendWorkers.current[worker] = nil
+			end
+			worker = nil
+			if not aliveRef.current then
+				return nil
+			end
+			if not ok then
+				if done then
+					done(false, "Roblox could not send this message. Check your chat privacy settings and try again.")
+				end
+				return nil
+			end
+			if result == nil then
+				if done then
+					done(false, "Roblox did not confirm the message. Try again.")
+				end
+				return nil
+			end
+			if result.Status ~= Enum.TextChatMessageStatus.Success then
+				local name = tostring(result.Status)
+				if string.find(name, "Sending") == nil and string.find(name, "Pending") == nil then
+					if done then
+						done(false, statusError(result.Status))
+					end
+					return nil
+				end
+			end
+			if done then
+				done(true)
+			end
+		end)
+		sendWorkers.current[worker] = true
+	end, {})
 	React.useEffect(function()
 		if not enabled then
 			setConnected(false)
-			setUnread(0)
 			setMessages({ systemMessage("Chat is disabled in this experience.") })
 			return nil
 		end
 		aliveRef.current = true
 		local alive = true
-		local connection
-		local channelAdded
-		local ingest = function(message)
-			if not alive or message.TextSource == nil then
-				return nil
-			end
-			if message.Status ~= Enum.TextChatMessageStatus.Success then
+		local connections = {}
+		local channelConnections = {}
+		local function track(connection)
+			table.insert(connections, connection)
+			return connection
+		end
+		local function ingestText(message, channel, peerId)
+			if not alive or message.TextSource == nil or message.Status ~= Enum.TextChatMessageStatus.Success then
 				return nil
 			end
 			local userId = message.TextSource.UserId
-			local player = Players:GetPlayerByUserId(userId)
-			local localPlayer = userId == Players.LocalPlayer.UserId
-			local title = readTitleAttrs(player)
-			local _object = {
-				id = if message.MessageId ~= "" then message.MessageId else `{userId}-{os.clock()}`,
-				userId = userId,
-			}
-			local _left = "username"
-			local _result = player
-			if _result ~= nil then
-				_result = _result.Name
+			local id = if message.MessageId ~= "" then message.MessageId else `{userId}-{os.clock()}`
+			ingestRecord(buildRecord(userId, message.Text, channel, peerId, id), false)
+		end
+		local function attach(candidate)
+			if not alive or not candidate:IsA("TextChannel") or channelConnections[candidate] ~= nil then
+				return nil
 			end
-			local _condition = _result
-			if _condition == nil then
-				_condition = `Operator{userId}`
-			end
-			_object[_left] = _condition
-			local _left_1 = "displayName"
-			local _result_1 = player
-			if _result_1 ~= nil then
-				_result_1 = _result_1.DisplayName
-			end
-			local _condition_1 = _result_1
-			if _condition_1 == nil then
-				_condition_1 = `Operator {userId}`
-			end
-			_object[_left_1] = _condition_1
-			_object.text = message.Text
-			local _left_2 = "world"
-			local _result_2 = player
-			if _result_2 ~= nil then
-				_result_2 = _result_2:GetAttribute("CurrentZone")
-			end
-			_object[_left_2] = if type(_result_2) == "number" then player:GetAttribute("CurrentZone") else 1
-			_object.localPlayer = localPlayer
-			_object.titleId = title.titleId
-			_object.titleName = title.titleName
-			_object.titleFx = title.titleFx
-			_object.artifactName = title.artifactName
-			_object.artifactElement = title.artifactElement
-			_object.artifactColor = title.artifactColor
-			local record = _object
-			setMessages(function(current)
-				local _callback = function(entry)
-					return entry.id == record.id
-				end
-				local _result_3
-				for _i, _v in current do
-					if _callback(_v, _i - 1, current) == true then
-						_result_3 = _v
-						break
-					end
-				end
-				if _result_3 ~= nil then
-					return current
-				end
-				return pushTrimmed(current, record)
-			end)
-			if not localPlayer then
-				Audio:play("chatReceive")
-			end
-			if not activeRef.current and not localPlayer then
-				setUnread(function(current)
-					return math.min(99, current + 1)
+			local name = candidate.Name
+			local refs = channelsRef.current
+			if name == ChatRules.SERVER_CHANNEL then
+				refs.server = candidate
+				channelConnections[candidate] = candidate.MessageReceived:Connect(function(message)
+					ingestText(message, "server", nil)
 				end)
+				setConnected(true)
+			elseif name == ChatRules.FRIENDS_CHANNEL then
+				refs.friends = candidate
+				channelConnections[candidate] = candidate.MessageReceived:Connect(function(message)
+					ingestText(message, "friends", nil)
+				end)
+			elseif ChatRules.isCrewChannel(name) then
+				-- every crew channel replicates; only members receive its messages, and sending
+				-- picks the channel named for this player's own crew
+				refs.crew[name] = candidate
+				channelConnections[candidate] = candidate.MessageReceived:Connect(function(message)
+					ingestText(message, "crew", nil)
+				end)
+			else
+				local peerId = ChatRules.whisperPeer(name, selfId)
+				if peerId == nil then
+					return nil
+				end
+				refs.whisper[peerId] = candidate
+				channelConnections[candidate] = candidate.MessageReceived:Connect(function(message)
+					ingestText(message, "whisper", peerId)
+				end)
+				touchWhisper(peerId, nil, false)
+				local pending = pendingRef.current[peerId]
+				pendingRef.current[peerId] = nil
+				if type(pending) == "table" and pending.text ~= nil then
+					sendOn(candidate, pending.text, pending.done)
+				end
 			end
 		end
+		local function detach(candidate)
+			local connection = channelConnections[candidate]
+			if connection == nil then
+				return nil
+			end
+			connection:Disconnect()
+			channelConnections[candidate] = nil
+			local refs = channelsRef.current
+			if refs.server == candidate then
+				refs.server = nil
+				setConnected(false)
+			elseif refs.friends == candidate then
+				refs.friends = nil
+			elseif refs.crew[candidate.Name] == candidate then
+				refs.crew[candidate.Name] = nil
+			else
+				for peerId, channel in refs.whisper do
+					if channel == candidate then
+						refs.whisper[peerId] = nil
+						touchWhisper(peerId, nil, false)
+					end
+				end
+			end
+		end
+		local effect = nil
+		pcall(function()
+			effect = ReplicatedStorage:FindFirstChild(Protocol.FolderName)
+			effect = if effect ~= nil then effect:FindFirstChild(Protocol.EffectName) else nil
+		end)
+		local function onEffect(payload)
+			if not alive or type(payload) ~= "table" or payload.Type ~= "ChatGlobal" or type(payload.Messages) ~= "table" then
+				return nil
+			end
+			for _, entry in payload.Messages do
+				if type(entry) == "table" and type(entry.UserId) == "number" and type(entry.Text) == "string" then
+					local record = buildRecord(entry.UserId, entry.Text, "global", nil, `g-{tostring(entry.Id)}`)
+					if type(entry.Name) == "string" then
+						record.username = entry.Name
+					end
+					if type(entry.Display) == "string" then
+						record.displayName = entry.Display
+					end
+					record.remote = Players:GetPlayerByUserId(entry.UserId) == nil
+					if type(entry.At) == "number" then
+						record.at = entry.At
+					end
+					ingestRecord(record, payload.Backlog == true)
+				end
+			end
+		end
+		if effect ~= nil and effect:IsA("RemoteEvent") then
+			track(effect.OnClientEvent:Connect(onEffect))
+		end
+		setMessages({ systemMessage("Chat is connecting. This can take a moment on slower devices.") })
 		local connectWorker = task.spawn(function()
 			local channels = TextChatService:WaitForChild("TextChannels", 30)
 			if not alive then
@@ -960,158 +1200,296 @@ local function useGameChat(active, enabled)
 			end
 			if channels == nil then
 				setConnected(false)
-				setMessages({ systemMessage("Roblox chat did not start. Rejoin, then check Privacy > Communication if it still fails.") })
+				note("Roblox chat did not start. Rejoin, then check Privacy > Communication if it still fails.")
 				return nil
 			end
-			local attach = function(candidate)
-				if not alive or candidate.Name ~= CHANNEL_NAME or not candidate:IsA("TextChannel") or channel.current == candidate then
+			track(channels.ChildAdded:Connect(attach))
+			track(channels.ChildRemoved:Connect(detach))
+			for _, child in channels:GetChildren() do
+				attach(child)
+			end
+			if channelsRef.current.server == nil then
+				local general = channels:WaitForChild(ChatRules.SERVER_CHANNEL, 30)
+				if general == nil and alive then
+					note("Roblox chat is unavailable. Rejoin, then check Privacy > Communication if it still fails.")
 					return nil
 				end
-				local _result = connection
-				if _result ~= nil then
-					_result:Disconnect()
-				end
-				channel.current = candidate
-				connection = candidate.MessageReceived:Connect(ingest)
-				setConnected(true)
-				setMessages({ systemMessage("Chat is ready. Roblox filters every message. Type /help for shortcuts.") })
 			end
-			channelAdded = channels.ChildAdded:Connect(attach)
-			local existing = channels:FindFirstChild(CHANNEL_NAME)
-			if existing ~= nil then
-				attach(existing)
-			else
-				setConnected(false)
-				setMessages({ systemMessage("Chat is connecting. This can take a moment on slower devices.") })
-				local general = channels:WaitForChild(CHANNEL_NAME, 30)
-				if general ~= nil then
-					attach(general)
-				elseif alive then
-					setMessages({ systemMessage("Roblox chat is unavailable. Rejoin, then check Privacy > Communication if it still fails.") })
-				end
+			if alive then
+				note("Chat is ready. Roblox filters every message. Type / to see shortcuts.")
 			end
 		end)
 		return function()
 			alive = false
 			aliveRef.current = false
-			pcall(function()
-				return task.cancel(connectWorker)
-			end)
+			pcall(task.cancel, connectWorker)
 			for worker in sendWorkers.current do
-				pcall(function()
-					return task.cancel(worker)
-				end)
+				pcall(task.cancel, worker)
 			end
 			table.clear(sendWorkers.current)
-			local _result = channelAdded
-			if _result ~= nil then
-				_result:Disconnect()
+			for _, connection in connections do
+				connection:Disconnect()
 			end
-			local _result_1 = connection
-			if _result_1 ~= nil then
-				_result_1:Disconnect()
+			for _, connection in channelConnections do
+				connection:Disconnect()
 			end
-			channel.current = nil
+			channelsRef.current = { server = nil, friends = nil, crew = {}, whisper = {} }
 		end
 	end, { enabled })
-	local send = React.useCallback(function(raw, done)
-		if not enabled then
-			local _result = done
-			if _result ~= nil then
-				_result(false, "Chat is disabled in this experience.")
+	local setTab = React.useCallback(function(nextTab)
+		if table.find(ChatRules.CHANNELS, nextTab) == nil then
+			return nil
+		end
+		setTabState(nextTab)
+	end, {})
+	local setPeer = React.useCallback(function(userId)
+		setPeerState(userId)
+		if userId ~= nil then
+			setTabState("whispers")
+		end
+	end, {})
+	local openWhisper = React.useCallback(function(userId, text, done)
+		if type(userId) ~= "number" or userId == selfId then
+			if done then
+				done(false, "Pick another player to whisper.")
 			end
 			return nil
 		end
-		local forSend = ChatText.limit(raw, MAX_INPUT)
-		local trimmed = (string.gsub((string.gsub(forSend, "^%s+", "")), "%s+$", ""))
-		if trimmed == "" then
-			local _result = done
-			if _result ~= nil then
-				_result(false, "Type a message first.")
+		setPeerState(userId)
+		setTabState("whispers")
+		touchWhisper(userId, nil, false)
+		local existing = channelsRef.current.whisper[userId]
+		if existing ~= nil then
+			if text ~= nil then
+				sendOn(existing, text, done)
+			elseif done then
+				done(true)
 			end
 			return nil
 		end
-		if string.lower(trimmed) == "/clear" then
-			setMessages({ systemMessage("Local message history cleared.") })
-			local _result = done
-			if _result ~= nil then
-				_result(true)
+		local run = dispatchRef.current
+		if run == nil then
+			if done then
+				done(false, "Whispers are still starting.")
 			end
 			return nil
 		end
-		if string.lower(trimmed) == "/help" then
-			setMessages(function(current)
-				return pushTrimmed(current, systemMessage("Shortcuts: /clear removes messages on this device. /help shows this list."))
-			end)
-			local _result = done
-			if _result ~= nil then
-				_result(true)
+		pendingRef.current[userId] = { text = text, done = done }
+		run("ChatOpenWhisper", { UserId = userId }, function(response)
+			if type(response) ~= "table" or response.ok == false then
+				local pending = pendingRef.current[userId]
+				pendingRef.current[userId] = nil
+				local reason = if type(response) == "table" and type(response.error) == "string" then response.error else "Could not open that whisper."
+				if pending ~= nil and pending.done ~= nil then
+					pending.done(false, reason)
+				elseif text == nil then
+					note(reason)
+				end
+				return nil
 			end
-			return nil
-		end
-		local target = channel.current
-		if not target then
-			local _result = done
-			if _result ~= nil then
-				_result(false, "Chat is still connecting.")
+			-- the channel may have replicated before the reply landed
+			local ready = channelsRef.current.whisper[userId]
+			local pending = pendingRef.current[userId]
+			if ready ~= nil and pending ~= nil then
+				pendingRef.current[userId] = nil
+				if pending.text ~= nil then
+					sendOn(ready, pending.text, pending.done)
+				elseif pending.done ~= nil then
+					pending.done(true)
+				end
+			elseif pending ~= nil and pending.text == nil then
+				pendingRef.current[userId] = nil
+				if pending.done ~= nil then
+					pending.done(true)
+				end
+			end
+		end)
+	end, {})
+	local sendGlobal = React.useCallback(function(text, done)
+		local run = dispatchRef.current
+		if run == nil then
+			if done then
+				done(false, "Global chat is still starting.")
 			end
 			return nil
 		end
 		Audio:play("chatSend")
-		local worker
-		worker = task.defer(function()
-			local ok, result = pcall(function()
-				return target:SendAsync(forSend)
-			end)
-			if worker ~= nil then
-				local _current = sendWorkers.current
-				local _worker = worker
-				_current[_worker] = nil
-			end
-			worker = nil
-			if not aliveRef.current then
-				return nil
-			end
-			if not ok then
-				local _result = done
-				if _result ~= nil then
-					_result(false, "Roblox could not send this message. Check your chat privacy settings and try again.")
+		run("ChatGlobal", { Text = text }, function(response)
+			if type(response) == "table" and response.ok ~= false then
+				if done then
+					done(true)
 				end
-				return nil
-			end
-			local delivered = result
-			if delivered == nil then
-				if done then done(false, "Roblox did not confirm the message. Try again.") end
-				return nil
-			end
-			if delivered.Status ~= Enum.TextChatMessageStatus.Success then
-				local name = tostring(delivered.Status)
-				if (string.find(name, "Sending")) == nil and (string.find(name, "Pending")) == nil then
-					local _result = done
-					if _result ~= nil then
-						_result(false, statusError(delivered.Status))
-					end
-					return nil
-				end
-			end
-			local _result = done
-			if _result ~= nil then
-				_result(true)
+			elseif done then
+				done(false, if type(response) == "table" and type(response.error) == "string" then response.error else "Global chat did not take that message.")
 			end
 		end)
-		local _current = sendWorkers.current
-		local _worker = worker
-		_current[_worker] = true
+	end, {})
+	local setMute = React.useCallback(function(userId, value)
+		setMuted(function(current)
+			local nextValue = table.clone(current)
+			nextValue[userId] = if value then true else nil
+			return nextValue
+		end)
+	end, {})
+	local sendTo = function(where, text, done)
+		local refs = channelsRef.current
+		if where == "global" then
+			sendGlobal(text, done)
+		elseif where == "crew" then
+			local mine = require(script.Parent.CrewStore).get().crew
+			local channel = mine and refs.crew[mine.Channel]
+			if channel == nil then
+				if done then
+					done(false, "Join a crew on the Crew page to use crew chat.")
+				end
+				return nil
+			end
+			sendOn(channel, text, done)
+		elseif where == "friends" then
+			if refs.friends == nil then
+				if done then
+					done(false, "Friends chat is still connecting.")
+				end
+				return nil
+			end
+			sendOn(refs.friends, text, done)
+		elseif where == "whispers" then
+			local target = peerRef.current
+			if target == nil then
+				if done then
+					done(false, "Pick a conversation, or type /w name message.")
+				end
+				return nil
+			end
+			openWhisper(target, text, done)
+		else
+			if refs.server == nil then
+				if done then
+					done(false, "Chat is still connecting.")
+				end
+				return nil
+			end
+			sendOn(refs.server, text, done)
+		end
+	end
+	local send = React.useCallback(function(raw, done)
+		if not enabled then
+			if done then
+				done(false, "Chat is disabled in this experience.")
+			end
+			return nil
+		end
+		local command = ChatRules.parse(ChatText.limit(raw, MAX_INPUT + 40))
+		local kind = command.kind
+		local finish = function(ok, reason)
+			if done then
+				done(ok, reason)
+			end
+		end
+		if kind == "empty" then
+			finish(false, "Type a message first.")
+		elseif kind == "say" then
+			sendTo(tabRef.current, ChatText.limit(command.body, MAX_INPUT), done)
+		elseif kind == "clear" then
+			setMessages({ systemMessage("Messages on this device were cleared.") })
+			finish(true)
+		elseif kind == "help" then
+			local lines = {}
+			for _, info in ChatRules.COMMANDS do
+				table.insert(lines, info.usage)
+			end
+			note("Shortcuts: " .. table.concat(lines, "  ·  ") .. ". Search supports from:name and in:global.")
+			finish(true)
+		elseif kind == "w" then
+			local found = ChatRules.findPlayer(command.target, rosterOf(selfId))
+			if found == nil then
+				finish(false, if command.target == nil then "Who should get it? /w name message" else `No one here matches "{command.target}".`)
+				return nil
+			end
+			openWhisper(found.userId, if command.body ~= nil then ChatText.limit(command.body, MAX_INPUT) else nil, done)
+		elseif kind == "r" then
+			local target = lastWhisperRef.current
+			if target == nil then
+				finish(false, "No whisper to reply to yet.")
+				return nil
+			end
+			if command.body == nil then
+				setPeer(target)
+				finish(true)
+				return nil
+			end
+			openWhisper(target, ChatText.limit(command.body, MAX_INPUT), done)
+		elseif kind == "g" or kind == "s" or kind == "f" or kind == "c" then
+			local where = if kind == "g" then "global" elseif kind == "s" then "server" elseif kind == "c" then "crew" else "friends"
+			if command.body == nil then
+				setTabState(where)
+				finish(true)
+				return nil
+			end
+			sendTo(where, ChatText.limit(command.body, MAX_INPUT), done)
+		elseif kind == "mute" or kind == "unmute" then
+			local found = ChatRules.findPlayer(command.target, rosterOf(selfId))
+			if found == nil then
+				finish(false, if command.target == nil then `Who? /{kind} name` else `No one here matches "{command.target}".`)
+				return nil
+			end
+			setMute(found.userId, kind == "mute")
+			note(if kind == "mute" then `{found.displayName} is muted on this device.` else `{found.displayName} can be heard again.`)
+			finish(true)
+		else
+			finish(false, "Unknown shortcut. Type /help to see the list.")
+		end
 	end, { enabled })
 	local clear = React.useCallback(function()
-		return setMessages({ systemMessage("Local message history cleared.") })
+		setMessages({ systemMessage("Messages on this device were cleared.") })
 	end, {})
+	local suggest = React.useCallback(function(draft)
+		return ChatRules.suggest(draft, rosterOf(selfId), 5)
+	end, {})
+	local unread = 0
+	for _, key in TAB_KEYS do
+		unread += unreadByTab[key] or 0
+	end
+	local visible = messages
+	if next(muted) ~= nil then
+		visible = {}
+		for _, record in messages do
+			if not muted[record.userId] then
+				table.insert(visible, record)
+			end
+		end
+	end
+	local peerName = nil
+	if peer ~= nil then
+		for _, entry in whispers do
+			if entry.userId == peer then
+				peerName = entry.displayName
+			end
+		end
+	end
+	local placeholder = if tab == "whispers" then (if peerName ~= nil then `Whisper {peerName}...` else "Type /w name to start a whisper")
+		elseif tab == "global" then `Message every server (one every {ChatRules.GLOBAL_COOLDOWN}s)...`
+		else `Message {CHANNEL_LABEL[tab] or "this server"}... (/ for shortcuts)`
 	return {
-		messages = messages,
+		messages = visible,
 		unread = unread,
+		unreadByTab = unreadByTab,
 		connected = connected,
+		tab = tab,
+		setTab = setTab,
+		peer = peer,
+		setPeer = setPeer,
+		whispers = whispers,
+		muted = muted,
+		setMute = setMute,
+		openWhisper = openWhisper,
 		send = send,
 		clear = clear,
+		suggest = suggest,
+		placeholder = placeholder,
+		-- Social settings the page applies: global chat in the All tab, and message text size
+		showGlobal = type(settings) ~= "table" or settings.ChatShowGlobal == nil or settings.ChatShowGlobal >= 0.5,
+		textScale = if type(settings) == "table" and type(settings.ChatTextSize) == "number" then 0.85 + settings.ChatTextSize * 0.45 else 1.075,
 	}
 end
 return {

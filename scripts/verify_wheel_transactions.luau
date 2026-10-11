@@ -85,6 +85,21 @@ local daily = { Stardust = 0, Wheel = { LastSpinAt = 0, FreeSpins = 0 } }
 assert(progression.SpinWheel(daily, rng, 0))
 assert(progression.SpinWheel(daily, rng, 0) and not progression.SpinWheel(daily, rng, 1),
 	"saved cooldown spin replays but fresh cooldown spin rejects")
+-- spin history: newest first, bounded, cleaned on load, recorded by every spin
+do
+	local bag = WheelMath.Ensure(nil)
+	for index = 1, 12 do WheelMath.RecordHistory(bag, "prize" .. index, 1000 + index, index == 12) end
+	assert(#bag.History == WheelMath.HISTORY_LIMIT and bag.History[1].PrizeId == "prize12" and bag.History[1].Pity, "history keeps the newest spins first")
+	bag.History[3] = { PrizeId = 5 }
+	bag.History[4] = "junk"
+	bag.Spins = 0
+	WheelMath.Ensure(bag)
+	assert(#bag.History == WheelMath.HISTORY_LIMIT - 2, "malformed history entries are dropped on load")
+	assert(#WheelMath.Snapshot(2000, bag, 60, 8).History == #bag.History, "the snapshot carries the history")
+	local economy = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau")
+	assert(economy:find("function WheelMath.RecordHistory", 1, true) and economy:find("History = wheel.History or {}", 1, true), "spin history is kept and reaches the client")
+	assert(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau"):find("WheelMath.RecordHistory(ensureWheel(profile), selected.Id, os.time(), pityHit)", 1, true), "every spin records its prize")
+end
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(server:find("self._random, payload.ExpectedSpin", 1, true))
 assert(fs.readFile("src/Server/AstralForge/Services/DataService.luau"):find("profile.Wheel = WheelMath.Ensure(profile.Wheel)", 1, true))

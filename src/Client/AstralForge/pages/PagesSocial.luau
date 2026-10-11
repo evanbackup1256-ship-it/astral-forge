@@ -24,6 +24,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local unixNow = require(script.Parent.Parent.CoreKit)("deadlines").unixNow
+local TradeHistory = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory"))
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
@@ -791,6 +792,7 @@ local function TradeView(_param)
 	end
 	local yourLines = offerLines(draft, config, inventory)
 	local theirLines = if session ~= nil then offerLines(session.Them, config, inventory) else {}
+	local tradeWarnings = if session ~= nil then TradeHistory.warnings(draft, session.Them) else {}
 	local offerBody = function(editor, lines)
 		local _exp_2 = editor and not offerEmpty(draft) and React.createElement(Button, {
 			text = "CLEAR OFFER",
@@ -1449,13 +1451,13 @@ local function TradeView(_param)
 			gap = if chrome.landscape then 8 else Layout.stackGap,
 			sections = { {
 				id = "status",
-				height = if chrome.landscape then 52 else 60,
+				height = (if chrome.landscape then 52 else 60) + (if #tradeWarnings > 0 then 40 else 0),
 				element = React.createElement("frame", {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 				}, React.createElement(Text, {
-					value = if bothReady then "Both ready — confirm to finish." elseif youReadyLocal then `Waiting on {session.PartnerName}.` else "Add your offer, then tap Ready.",
+					value = if bothReady then "Both ready. Confirm to finish the trade." elseif youReadyLocal then `Waiting on {session.PartnerName}.` else "Add your offer, then select Ready.",
 					size = 13,
 					color = if bothReady then Palette.mango else Palette.creamSoft,
 					wrap = true,
@@ -1468,7 +1470,16 @@ local function TradeView(_param)
 					fit = true,
 					position = UDim2.fromOffset(0, 34),
 					sizeConstraint = UDim2.new(1, 0, 0, 18),
-				})),
+				}), #tradeWarnings > 0 and React.createElement(Text, {
+					-- one-sided offers are allowed (gifts), but never by accident
+					value = tradeWarnings[1],
+					size = 13,
+					color = Palette.coral,
+					weight = Enum.FontWeight.Bold,
+					wrap = true,
+					position = UDim2.fromOffset(0, 56),
+					sizeConstraint = UDim2.new(1, 0, 0, 36),
+				}) or nil),
 			}, {
 				id = "tabs",
 				height = TapTarget,
@@ -1818,6 +1829,39 @@ local function TradeView(_param)
 				id = "invite-cta",
 				height = TapTarget,
 				element = _condition_6,
+			})
+		end
+		-- completed trades, newest first: who, when, what changed hands
+		local history = if trade and type(trade.History) == "table" then trade.History else {}
+		table.insert(sections, {
+			id = "history-heading",
+			height = 30,
+			element = React.createElement(Text, {
+				value = if #history > 0 then "Recent trades" else "Recent trades: none yet. Finished trades show up here.",
+				size = 15, color = Palette.cream, weight = Enum.FontWeight.Heavy, wrap = true,
+				sizeConstraint = UDim2.new(1, 0, 0, 28),
+			}),
+		})
+		for index, entry in history do
+			local ago = math.max(0, os.time() - entry.At)
+			local when = if ago < 3600 then `{math.max(1, math.floor(ago / 60))}m ago` elseif ago < 86400 then `{math.floor(ago / 3600)}h ago` else `{math.floor(ago / 86400)}d ago`
+			table.insert(sections, {
+				id = "history-" .. index,
+				height = if phone then 104 else 84,
+				element = React.createElement(Panel, {
+					size = UDim2.fromScale(1, 1), accent = accent, background = Palette.panel, padding = 12, clips = false,
+				}, React.createElement(Text, {
+					value = `With {entry.Partner}  ·  {when}`, size = 14, color = Palette.cream, weight = Enum.FontWeight.Bold,
+					sizeConstraint = UDim2.new(1, -150, 0, 20),
+				}), React.createElement(Text, {
+					value = `You gave {entry.Gave}.\nYou got {entry.Got}.`, size = 13, color = Palette.muted, wrap = true,
+					position = UDim2.fromOffset(0, 24), sizeConstraint = UDim2.new(1, -150, 0, if phone then 56 else 40),
+				}), game:GetService("Players"):GetPlayerByUserId(entry.PartnerId) ~= nil and React.createElement(Button, {
+					-- the same partner is still here: one tap opens a fresh trade with them
+					text = "Trade again", icon = "Send", color = accent, textColor = Palette.ink,
+					size = UDim2.fromOffset(140, TapTarget), position = UDim2.new(1, -140, 0, 4), reducedMotion = reducedMotion,
+					onClick = function() dispatch("InviteTrade", { UserId = entry.PartnerId }) end,
+				}) or nil),
 			})
 		end
 		return React.createElement(PageScaffold, {
@@ -2201,6 +2245,152 @@ end
 local function sameCrewSnapshot(left, right)
 	return PageReadyMath.SameCrewSnapshot(left, right)
 end
+local CrewStore = require(script.Parent.Parent.CrewStore)
+local CrewMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("CrewMath"))
+
+-- The party block above the server roster: invite card, crew summary, members, goal and actions.
+local function crewPartySections(args)
+	local crewState, players, dispatch, stack, softMotion = args.crewState, args.players, args.dispatch, args.stack, args.softMotion
+	local renameDraft, setRenameDraft, note, setNote = args.renameDraft, args.setRenameDraft, args.note, args.setNote
+	local localId = Players.LocalPlayer.UserId
+	local crew, invite = crewState.crew, crewState.invite
+	local sections = {}
+	local function run(action, payload)
+		dispatch(action, payload or {}, function(response)
+			if type(response) ~= "table" then return end
+			if action == "GetCrew" or response.Crew ~= nil or response.Invite ~= nil then
+				CrewStore.set({ crew = response.Crew or CrewStore.NONE })
+			end
+			setNote(if response.ok == false then (response.error or "That didn't work.") else (response.message or ""))
+		end)
+	end
+	local function text(value, size, color, height, weight)
+		return React.createElement(Text, { value = value, size = size, color = color, wrap = true, weight = weight,
+			sizeConstraint = UDim2.new(1, 0, 0, height) })
+	end
+	if invite and (invite.ExpiresAt or 0) > os.time() then
+		table.insert(sections, { id = "crew-invite", height = if stack then 150 else 104, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.mango, background = Palette.panelRaised, padding = 14, clips = false,
+		}, text(`{invite.FromName} invited you to {invite.CrewName}.`, 17, Palette.cream, 44, Enum.FontWeight.Heavy),
+			React.createElement(Button, { text = "Join crew", icon = "Crew", color = Palette.mango, textColor = Palette.ink,
+				size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(160, TapTarget),
+				position = if stack then UDim2.fromOffset(0, 46) else UDim2.new(1, -330, 0, 34), reducedMotion = softMotion,
+				onClick = function() CrewStore.set({ invite = CrewStore.NONE }); run("CrewRespond", { Accept = true }) end }),
+			React.createElement(Button, { text = "Decline", color = Palette.panelSoft, textColor = Palette.cream, outline = true,
+				size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(160, TapTarget),
+				position = if stack then UDim2.fromOffset(0, 46 + TapTarget + 6) else UDim2.new(1, -160, 0, 34), reducedMotion = softMotion,
+				onClick = function() CrewStore.set({ invite = CrewStore.NONE }); run("CrewRespond", { Accept = false }) end })) })
+	end
+	local leader = crew ~= nil and crew.Leader == localId
+	if crew then
+		local bonus = math.floor((crew.Bonus or 0) * 100 + 0.5)
+		table.insert(sections, { id = "crew-summary", height = 96, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.green, background = Palette.panelRaised, padding = 14, clips = false,
+		}, text(crew.Name, 22, Palette.cream, 30, Enum.FontWeight.Heavy),
+			React.createElement(Text, { value = `{#crew.Members} of {crew.Max} members · +{bonus}% production while you play together · crew chat is in Chat`,
+				size = 14, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 34), sizeConstraint = UDim2.new(1, 0, 0, 40) })) })
+		for index, member in crew.Members do
+			table.insert(sections, { id = "crew-member-" .. member.UserId, height = 56, element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1), BackgroundColor3 = Palette.panel, BorderSizePixel = 0,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }),
+				React.createElement(Text, { value = member.DisplayName .. (if member.Leader then "  ·  leader" else "") .. (if member.UserId == localId then "  ·  you" else ""),
+					size = 16, color = Palette.cream, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(14, 6), sizeConstraint = UDim2.new(1, -140, 0, 22) }),
+				React.createElement(Text, { value = `{member.Collects} collect{if member.Collects == 1 then "" else "s"} today`,
+					size = 13, color = Palette.muted, position = UDim2.fromOffset(14, 30), sizeConstraint = UDim2.new(1, -140, 0, 18) }),
+				member.UserId ~= localId and React.createElement(Button, { text = "Visit", icon = "Visit", color = Palette.blue, textColor = Palette.ink,
+					size = UDim2.fromOffset(104, 44), position = UDim2.new(1, if leader then -228 else -110, 0.5, -22), reducedMotion = softMotion,
+					onClick = function() dispatch("VisitPlot", { UserId = member.UserId }) end }) or nil,
+				leader and member.UserId ~= localId and React.createElement(Button, { text = "Remove", color = Palette.panelSoft, textColor = Palette.cream,
+					outline = true, size = UDim2.fromOffset(112, 44), position = UDim2.new(1, -118, 0.5, -22), reducedMotion = softMotion,
+					onClick = function() run("CrewKick", { UserId = member.UserId }) end }) or nil) })
+		end
+		-- the daily goal: one meter to the next tier, then a claim button per tier
+		local nextTier = nil
+		for index, tier in crew.Tiers do
+			if crew.Pooled < tier.Target then nextTier = tier; break end
+		end
+		local mine = 0
+		for _, member in crew.Members do
+			if member.UserId == localId then mine = member.Collects end
+		end
+		local goalChildren = {
+			text(if nextTier then `Crew goal: {crew.Pooled} / {nextTier.Target} vault collects today` else `Every crew goal is done today ({crew.Pooled} collects).`,
+				16, Palette.cream, 22, Enum.FontWeight.Bold),
+			React.createElement(Meter, { value = if nextTier then math.clamp(crew.Pooled / nextTier.Target, 0, 1) else 1, color = Palette.green,
+				reducedMotion = softMotion, position = UDim2.fromOffset(0, 28), size = UDim2.new(1, 0, 0, 8) }),
+			React.createElement(Text, { value = if mine < crew.MinContribution then `Collect your vault {crew.MinContribution - mine} more time{if crew.MinContribution - mine == 1 then "" else "s"} to share the rewards.` else "You've pitched in enough to share every reward.",
+				size = 13, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 42), sizeConstraint = UDim2.new(1, 0, 0, 18) }),
+		}
+		local columns = if stack then 1 else 3
+		local cellW = 1 / columns
+		for index, tier in crew.Tiers do
+			local ready = crew.Pooled >= tier.Target and not tier.Claimed and mine >= crew.MinContribution
+			local col, row = (index - 1) % columns, math.floor((index - 1) / columns)
+			table.insert(goalChildren, React.createElement(Button, {
+				text = if tier.Claimed then `Claimed · {tier.Stardust} dust` elseif crew.Pooled >= tier.Target then `Claim {tier.Stardust} dust` else `{tier.Target} collects · {tier.Stardust} dust`,
+				color = if ready then Palette.green else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted,
+				disabled = not ready, highlight = ready, reducedMotion = softMotion,
+				size = UDim2.new(cellW, -6, 0, TapTarget), position = UDim2.new(col * cellW, 0, 0, 68 + row * (TapTarget + 6)),
+				onClick = function() run("CrewClaim", { Tier = index }) end,
+			}))
+		end
+		local goalRows = math.ceil(#crew.Tiers / columns)
+		table.insert(sections, { id = "crew-goal", height = 68 + goalRows * (TapTarget + 6) + 28, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.green, background = Palette.panelRaised, padding = 14, clips = false,
+		}, table.unpack(goalChildren)) })
+		local actions = {
+			React.createElement(Button, { text = "Leave crew", color = Palette.panelSoft, textColor = Palette.cream, outline = true,
+				size = UDim2.new(if leader and not stack then 0.3 else 1, -4, 0, TapTarget), position = if leader and not stack then UDim2.new(0.7, 4, 0, 0) elseif leader then UDim2.fromOffset(0, TapTarget + 6) else UDim2.new(),
+				reducedMotion = softMotion, onClick = function() run("CrewLeave") end }),
+		}
+		if leader then
+			table.insert(actions, React.createElement("textbox", {
+				Size = UDim2.new(if stack then 1 else 0.45, -4, 0, TapTarget), BackgroundColor3 = Palette.panel, BorderSizePixel = 0,
+				Text = renameDraft, PlaceholderText = "New crew name", PlaceholderColor3 = Palette.muted, TextColor3 = Palette.cream,
+				TextSize = 16, ClearTextOnFocus = false, FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+				Change = { Text = function(box) setRenameDraft(string.sub(box.Text, 1, 40)) end },
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 10) })))
+			if not stack then
+				table.insert(actions, React.createElement(Button, { text = "Rename", color = Palette.green, textColor = Palette.ink,
+					size = UDim2.new(0.25, -4, 0, TapTarget), position = UDim2.new(0.45, 4, 0, 0), reducedMotion = softMotion,
+					disabled = CrewMath.cleanName(renameDraft) == nil, onClick = function() run("CrewRename", { Name = renameDraft }); setRenameDraft("") end }))
+			end
+		end
+		table.insert(sections, { id = "crew-actions", height = if leader and stack then TapTarget * 2 + 6 else TapTarget,
+			element = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, table.unpack(actions)) })
+	end
+	-- recruiting: anyone here who isn't already in your crew
+	local canInvite = crew == nil or (leader and #crew.Members < crew.Max)
+	if canInvite then
+		local candidates = {}
+		local members = {}
+		if crew then for _, member in crew.Members do members[member.UserId] = true end end
+		for _, player in players do
+			if not player.IsLocal and not members[player.UserId] then table.insert(candidates, player) end
+		end
+		local intro = if crew then "Invite more players to your crew." else
+			`Start a crew with up to {CrewMath.MAX_MEMBERS - 1} other players here. Each crewmate adds {math.floor(CrewMath.BONUS_PER_MEMBER * 100)}% production, and you share a daily goal.`
+		local columns = if stack then 1 else 2
+		local rows = math.ceil(math.min(#candidates, 8) / columns)
+		local children = { text(if #candidates == 0 then intro .. " Nobody else is free right now." else intro, 15, Palette.creamSoft, 40) }
+		for index = 1, math.min(#candidates, 8) do
+			local player = candidates[index]
+			local col, row = (index - 1) % columns, math.floor((index - 1) / columns)
+			table.insert(children, React.createElement(Button, { text = `Invite {player.DisplayName}`, icon = "Crew",
+				color = Palette.blue, textColor = Palette.ink, reducedMotion = softMotion,
+				size = UDim2.new(1 / columns, -6, 0, TapTarget), position = UDim2.new(col / columns, 0, 0, 46 + row * (TapTarget + 6)),
+				onClick = function() run("CrewInvite", { UserId = player.UserId }) end }))
+		end
+		table.insert(sections, { id = "crew-recruit", height = 46 + rows * (TapTarget + 6) + 26, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.blue, background = Palette.panelRaised, padding = 14, clips = false,
+		}, table.unpack(children)) })
+	end
+	if note ~= "" then
+		table.insert(sections, { id = "crew-note", height = 40, element = text(note, 14, Palette.mango, 36) })
+	end
+	return sections
+end
+
 local function CrewView(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -2216,11 +2406,22 @@ local function CrewView(_param)
 	local mountedRef = React.useRef(true)
 	local visitAttemptRef = React.useRef(0)
 	local crewHostRef = React.useRef(nil)
+	local crewState = CrewStore.useCrew()
+	local renameDraft, setRenameDraft = React.useState("")
+	local crewNote, setCrewNote = React.useState("")
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
 			visitAttemptRef.current += 1
 		end
+	end, {})
+	-- the crew page asks once on open; afterwards CrewState effects keep the store current
+	React.useEffect(function()
+		dispatch("GetCrew", {}, function(response)
+			if type(response) == "table" and response.ok then
+				CrewStore.set({ crew = response.Crew or CrewStore.NONE, invite = response.Invite or CrewStore.NONE })
+			end
+		end)
 	end, {})
 	local refresh = React.useCallback(function()
 		return dispatch("GetPlayers", {}, function(response)
@@ -2428,7 +2629,7 @@ local function CrewView(_param)
 		position = UDim2.fromOffset(0, 20),
 		sizeConstraint = UDim2.new(1, if stack then -8 else -190, 0, 30),
 	}), React.createElement(Text, {
-		value = if visitorsHere > 0 then `{visitorsHere} visiting your forge. Pick someone below to visit or send a wave.` else "See what everyone's up to live, visit a forge, or send a wave. Invites and friend boosts live in Playerlist.",
+		value = if visitorsHere > 0 then `{visitorsHere} visiting your forge. Pick someone below to visit or send a wave.` else "Form a crew with players here for a production bonus and a shared daily goal, or visit someone's forge.",
 		size = chrome.labelText,
 		color = Palette.muted,
 		wrap = true,
@@ -2482,6 +2683,12 @@ local function CrewView(_param)
 			element = headerPanel,
 		},
 	}
+	for _, section in crewPartySections({
+		crewState = crewState, players = allPlayers, dispatch = dispatch, stack = stack, softMotion = softMotion,
+		renameDraft = renameDraft, setRenameDraft = setRenameDraft, note = crewNote, setNote = setCrewNote,
+	}) do
+		table.insert(sections, section)
+	end
 	if visitPanel then
 		table.insert(sections, {
 			id = "visit",
@@ -3031,7 +3238,7 @@ local function UpgradeCard(_param)
 	local _attributes = {}
 	local _result
 	if row.maxed then
-		_result = `{percentText(row.currentEffect)} — fully installed`
+		_result = `{percentText(row.currentEffect)}, fully installed`
 	else
 		local _exp_3 = percentText(row.currentEffect)
 		local _exp_4 = percentText(row.nextEffect)
@@ -5184,7 +5391,7 @@ local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
 local SearchField = _ui.SearchField
-local Browse = require(script.Parent.Parent.BrowseKit)
+local SegmentedTabs = _ui.SegmentedTabs
 local ElementFx = require(script.Parent.Parent.ElementFx).ElementFx
 local ARTIFACT_CHIP_W = 124
 local ROW_HEIGHT = 98
@@ -5198,11 +5405,68 @@ local SIDE_INSET = 12
 local STATUS_RESERVE = 128
 local NEAR_BOTTOM = 96
 local ChatText = require(script.Parent.Parent.CoreKit)("chatText")
+local ChatRules = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("ChatRules"))
+local DRAFT_LIMIT = ChatRules.MAX_INPUT + 40 -- room for "/w name " in front of a full message
+local TAB_ROW_H = 44
+local PEER_ROW_H = 40
+local SUGGEST_ROW_H = 40
+local TAB_DEFS = {
+	{ id = "all", label = "All" },
+	{ id = "global", label = "Global" },
+	{ id = "server", label = "Server" },
+	{ id = "crew", label = "Crew" },
+	{ id = "friends", label = "Friends" },
+	{ id = "whispers", label = "Whispers" },
+}
 local EMPTY_CHAT = {
-	messages = {}, unread = 0, connected = false,
+	messages = {}, unread = 0, unreadByTab = {}, connected = false,
+	tab = "all", setTab = function() end, peer = nil, setPeer = function() end, whispers = {},
 	send = function(_, done) if done then done(false, "Chat is still connecting.") end end,
 	clear = function() end,
+	suggest = function() return {} end,
 }
+-- one-row chip strip (whisper peers, autocomplete). Chat keeps no raw scrollers, so it clips:
+-- callers pass chips most-relevant first and the tail is what gets cut on narrow screens.
+local function chipRail(chips, zIndex)
+	local children = {
+		layout = React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		}),
+	}
+	for order, chip in chips do
+		children[chip.key] = React.createElement("frame", {
+			LayoutOrder = order,
+			Size = UDim2.new(0, 0, 1, -4),
+			AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundTransparency = 1,
+		}, chip.element)
+	end
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = zIndex,
+	}, children)
+end
+local function channelBadge(message)
+	if message.localPlayer then
+		return "YOU"
+	end
+	if message.channel == "global" then
+		return "GLOBAL"
+	elseif message.channel == "crew" then
+		return "CREW"
+	elseif message.channel == "whisper" then
+		return "WHISPER"
+	elseif message.channel == "friends" then
+		return "FRIEND"
+	end
+	return `WORLD {message.world}`
+end
 local TAG_COLORS = { Palette.cyan, Palette.mint, Palette.violet, Palette.mango, Palette.pink, Palette.blue }
 local function userColor(userId)
 	local authorId = tonumber(userId) or 0
@@ -5339,7 +5603,7 @@ local function MessageRow(_param)
 		Position = enter:map(function(amount)
 			return UDim2.fromOffset(math.round((1 - amount) * 14), cardY + math.round((1 - amount) * 10))
 		end),
-		BackgroundColor3 = if message.localPlayer then darken(accent, 0.88) else Palette.panel,
+		BackgroundColor3 = if message.mention then darken(Palette.mango, 0.8) elseif message.localPlayer then darken(accent, 0.88) else Palette.panel,
 		BackgroundTransparency = fade:map(function(amount)
 			return 0.04 + amount * 0.96
 		end),
@@ -5352,16 +5616,15 @@ local function MessageRow(_param)
 	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 12),
 	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1,
+		Color = if message.mention then Palette.mango else accent,
+		Thickness = if message.mention then 2 else 1,
 		Transparency = fade:map(function(amount)
-			return (if message.localPlayer then 0.32 else 0.58) + amount * 0.42
+			return (if message.mention then 0.1 elseif message.localPlayer then 0.32 else 0.58) + amount * 0.42
 		end),
 	}), message.artifactElement ~= nil and React.createElement(ElementFx, {
 		element = message.artifactElement,
 		size = UDim2.fromOffset(64, 64),
 		position = UDim2.fromOffset(33, 38),
-		tint = message.artifactColor,
 		transparency = 0.25,
 		reducedMotion = reducedMotion,
 	}), React.createElement("frame", {
@@ -5426,7 +5689,6 @@ local function MessageRow(_param)
 		element = message.artifactElement,
 		size = UDim2.fromOffset(22, 22),
 		position = UDim2.fromOffset(12, 10),
-		tint = message.artifactColor,
 		reducedMotion = reducedMotion,
 	}), React.createElement(Text, {
 		value = string.upper(message.artifactName),
@@ -5457,12 +5719,32 @@ local function MessageRow(_param)
 		sizeConstraint = UDim2.new(1, -80, 0, 16),
 		transparency = fade,
 	}), React.createElement(Badge, {
-		value = if message.localPlayer then "YOU" else `WORLD {message.world}`,
+		value = channelBadge(message),
 		accent = if message.titleFx ~= nil then titleFxAccent(message.titleFx) else accent,
 		filled = true,
 		position = UDim2.new(1, -72, 0, 10),
 		size = UDim2.fromOffset(62, 26),
-	}), message.titleName ~= nil and React.createElement(Text, {
+	}), React.createElement(Text, {
+		value = ChatRules.clock(message.at),
+		size = 11,
+		color = Palette.muted,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(1, -72, 0, 38),
+		sizeConstraint = UDim2.fromOffset(62, 16),
+		transparency = fade,
+	}), _param.onWhisper ~= nil and not message.localPlayer and React.createElement("textbutton", {
+		-- the author's name opens a private conversation with them
+		Name = "WhisperAuthor",
+		Size = UDim2.new(1, -(STATUS_RESERVE + 72), 0, 24),
+		Position = UDim2.fromOffset(66, 6),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 5,
+		[React.Event.Activated] = function()
+			_param.onWhisper(message.userId)
+		end,
+	}) or nil, message.titleName ~= nil and React.createElement(Text, {
 		value = `@{message.username}`,
 		size = 11,
 		color = Palette.muted,
@@ -5490,8 +5772,9 @@ local function ChatView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	local bodySize = if chrome.mobile then 16 else 15
-	local rowHeight = if chrome.mobile then 144 else ROW_HEIGHT
+	local textScale = chat.textScale or 1.075
+	local bodySize = math.floor((if chrome.mobile then 15 else 14) * textScale + 0.5)
+	local rowHeight = math.floor((if chrome.mobile then 144 else ROW_HEIGHT) * math.max(1, textScale * 0.95) + 0.5)
 	local condensed = chrome.landscape or viewport.keyboardOpen or viewport.height < 700
 	local showStatus = not condensed
 	local showBanner = not condensed and viewport.height >= 760
@@ -5520,17 +5803,32 @@ local function ChatView(_param)
 	local listFrame = React.useRef(nil)
 	local count = #chat.messages
 	local latestMessageId = if count > 0 then chat.messages[count].id else nil
+	local tab = chat.tab or "all"
+	local peer = if tab == "whispers" then chat.peer else nil
 	-- searching the log shows only matching lines; the live log keeps scrolling underneath
 	local filteringLog = searchOpen and not string.match(logQuery, "^%s*$")
 	local shownMessages = chat.messages
-	if filteringLog then
+	if filteringLog or tab ~= "all" or chat.showGlobal == false then
 		shownMessages = {}
 		for _, message in chat.messages do
-			if Browse.matches(logQuery, message.text, message.displayName, message.username) then
+			local channel = message.channel or "server"
+			local keep = ChatRules.inTab(channel, tab)
+				and not (tab == "all" and channel == "global" and chat.showGlobal == false)
+				and (peer == nil or channel == "system" or message.peerId == peer)
+			if keep and filteringLog then
+				keep = ChatRules.matches({
+					text = message.text or "",
+					username = message.username or "",
+					displayName = message.displayName or "",
+					channel = channel,
+				}, logQuery)
+			end
+			if keep then
 				table.insert(shownMessages, message)
 			end
 		end
 	end
+	local suggestions = if string.match(draft, "^%s*$") then {} else chat.suggest(draft)
 	local stackH = math.max(0, #shownMessages) * rowHeight
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
 	local renderedIds = {}
@@ -5597,12 +5895,26 @@ local function ChatView(_param)
 			scrollConn:Disconnect()
 		end
 	end, { listFrame, count, topPad })
+	-- reading history: new messages are counted instead of yanking the list, and a button jumps back
+	local unseen, setUnseen = React.useState(0)
 	React.useEffect(function()
 		if latestMessageId ~= lastMessageId.current then
+			if lastMessageId.current ~= nil and not stickBottom.current then
+				setUnseen(function(n) return math.min(99, n + 1) end)
+			end
 			scrollToBottom()
 		end
 		lastMessageId.current = latestMessageId
 	end, { latestMessageId, scrollToBottom })
+	React.useEffect(function()
+		local frame = listFrame.current
+		if not frame then return nil end
+		local connection = frame:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+			local maxY = math.max(0, frame.CanvasSize.Y.Offset - frame.AbsoluteWindowSize.Y)
+			if frame.CanvasPosition.Y >= maxY - NEAR_BOTTOM then setUnseen(0) end
+		end)
+		return function() connection:Disconnect() end
+	end, { listFrame, count })
 	React.useEffect(function()
 		scrollToBottom(true)
 	end, { scrollToBottom })
@@ -5652,7 +5964,22 @@ local function ChatView(_param)
 			end
 		end)
 	end
-	local canSend = chat.connected and (string.gsub(draft, "%s", "")) ~= ""
+	-- global and slash commands go through the server, so they don't wait on the TextChannel
+	local canSend = (string.gsub(draft, "%s", "")) ~= ""
+		and (chat.connected or tab == "global" or string.match(draft, "^%s*/") ~= nil)
+	local applySuggestion = function(fill)
+		setDraft(fill)
+		local box = input.current
+		if box ~= nil then
+			box.Text = fill
+			task.defer(function()
+				if input.current == box then
+					box:CaptureFocus()
+					box.CursorPosition = #fill + 1
+				end
+			end)
+		end
+	end
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -5673,7 +6000,7 @@ local function ChatView(_param)
 	end, { condensed, canSend })
 	local statusLabel = if chat.connected then "ONLINE" else "CONNECTING"
 	local statusAccent = if chat.connected then Palette.green else Palette.mango
-	local placeholder = if failure ~= "" then failure else "Say something... (/help)"
+	local placeholder = if failure ~= "" then failure else (chat.placeholder or "Say something... (/help)")
 	local statusElement = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,
@@ -5786,9 +6113,25 @@ local function ChatView(_param)
 				bodySize = bodySize,
 				animate = animate,
 				rowHeight = rowHeight,
+				onWhisper = if not message.system and chat.openWhisper ~= nil and not message.remote then function(userId)
+					chat.openWhisper(userId)
+				end else nil,
 			})
 		end,
 	})
+	if unseen > 0 then
+		messagesElement = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+		}, messagesElement, React.createElement(Button, {
+			text = `{unseen} new message{if unseen == 1 then "" else "s"}`, icon = "Chat",
+			color = Palette.cyan, textColor = Palette.ink, hug = true, reducedMotion = softMotion,
+			size = UDim2.fromOffset(0, 40), position = UDim2.new(0.5, -90, 1, -52), zIndex = 30,
+			onClick = function()
+				setUnseen(0)
+				scrollToBottom(true)
+			end,
+		}))
+	end
 	local bannerElement = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panel,
@@ -5864,10 +6207,10 @@ local function ChatView(_param)
 		TextScaled = false,
 		MultiLine = false,
 		TextEditable = true,
-		MaxVisibleGraphemes = 160,
+		MaxVisibleGraphemes = DRAFT_LIMIT,
 		Change = {
 			Text = function(box)
-				return setDraft(ChatText.limit(box.Text, 160))
+				return setDraft(ChatText.limit(box.Text, DRAFT_LIMIT))
 			end,
 		},
 		Event = {
@@ -5917,7 +6260,7 @@ local function ChatView(_param)
 			element = React.createElement(SearchField, {
 				value = logQuery,
 				onChange = setLogQuery,
-				placeholder = "Search the log by word or player",
+				placeholder = "Search words, from:name or in:global",
 				accent = Palette.cyan,
 				reducedMotion = softMotion,
 				size = UDim2.fromScale(1, 1),
@@ -5925,11 +6268,73 @@ local function ChatView(_param)
 			}),
 		})
 	end
+	local unreadByTab = chat.unreadByTab or {}
+	local tabOptions = {}
+	for _, def in TAB_DEFS do
+		local waiting = unreadByTab[def.id] or 0
+		table.insert(tabOptions, { id = def.id, label = if waiting > 0 then `{def.label} {waiting}` else def.label })
+	end
+	local tabColumns = if viewport.compact then 3 else #TAB_DEFS
+	local tabRows = math.ceil(#TAB_DEFS / tabColumns)
+	table.insert(sections, {
+		id = "tabs",
+		height = tabRows * TAB_ROW_H + (tabRows - 1) * 4,
+		element = React.createElement(SegmentedTabs, {
+			options = tabOptions,
+			value = tab,
+			onChange = chat.setTab,
+			accent = Palette.cyan,
+			columns = tabColumns,
+			gap = 4,
+			size = UDim2.fromScale(1, 1),
+			reducedMotion = softMotion,
+		}),
+	})
+	if tab == "whispers" and #chat.whispers > 0 then
+		local peerChips = {}
+		for _, entry in chat.whispers do
+			local selected = entry.userId == chat.peer
+			local label = entry.displayName
+			if entry.unread > 0 then
+				label = `{label} ({entry.unread})`
+			end
+			if entry.online == false then
+				label ..= " · away"
+			end
+			table.insert(peerChips, { key = `peer-{entry.userId}`, element = React.createElement(Button, {
+				text = label,
+				onClick = function()
+					chat.setPeer(entry.userId)
+				end,
+				color = if selected then Palette.violet else Palette.panelSoft,
+				textColor = if selected then Palette.ink else Palette.cream,
+				size = UDim2.fromOffset(0, PEER_ROW_H - 4),
+				hug = true,
+				reducedMotion = softMotion,
+			}) })
+		end
+		table.insert(sections, {
+			id = "peers",
+			height = PEER_ROW_H,
+			element = chipRail(peerChips, nil),
+		})
+	end
 	table.insert(sections, {
 		id = "messages",
 		fill = true,
 		minHeight = 120,
-		element = if filteringLog and #shownMessages == 0 then React.createElement(Text, {
+		element = if not filteringLog and #shownMessages == 0 then React.createElement(Text, {
+			value = if tab == "whispers" then "No whispers yet. Type /w name message to start one."
+				elseif tab == "friends" then "Nothing from friends in this server yet."
+				elseif tab == "crew" then "Crew chat is private to your crew. Start one on the Crew page."
+				elseif tab == "global" then "Global chat is quiet. Say hello to every server."
+				else "No messages yet.",
+			size = 14,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.new(1, 0, 0, 40),
+			position = UDim2.fromOffset(0, 20),
+		}) elseif filteringLog and #shownMessages == 0 then React.createElement(Text, {
 			value = `No messages match "{logQuery}".`,
 			size = 14,
 			color = Palette.muted,
@@ -5943,6 +6348,27 @@ local function ChatView(_param)
 			id = "banner",
 			height = BANNER_HEIGHT,
 			element = bannerElement,
+		})
+	end
+	if #suggestions > 0 then
+		local suggestChips = {}
+		for order, suggestion in suggestions do
+			table.insert(suggestChips, { key = `suggest-{order}`, element = React.createElement(Button, {
+				text = if suggestion.kind == "command" then suggestion.label else `{suggestion.label}  {suggestion.detail}`,
+				onClick = function()
+					applySuggestion(suggestion.fill)
+				end,
+				color = if order == 1 then Palette.cyan else Palette.panelSoft,
+				textColor = if order == 1 then Palette.ink else Palette.cream,
+				size = UDim2.fromOffset(0, SUGGEST_ROW_H - 4),
+				hug = true,
+				reducedMotion = softMotion,
+			}) })
+		end
+		table.insert(sections, {
+			id = "suggest",
+			height = SUGGEST_ROW_H,
+			element = chipRail(suggestChips, 24),
 		})
 	end
 	table.insert(sections, {

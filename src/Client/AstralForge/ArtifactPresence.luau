@@ -74,20 +74,8 @@ local function nameplate(info, adornee)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 3.6, 0)
 	gui.ResetOnSpawn = false
 
+	-- the companion's elemental light is lit into its own frames; nothing plays behind it
 	local sheet = ElementSprites.sheet(info.Element)
-	local aura
-	if sheet ~= nil and sheet.AuraImage ~= nil then
-		aura = Instance.new("ImageLabel")
-		aura.Name = "Aura"
-		aura.BackgroundTransparency = 1
-		aura.Size = UDim2.fromOffset(82, 82)
-		aura.Position = UDim2.fromOffset(-9, -6)
-		aura.Image = sheet.AuraImage
-		aura.ImageRectSize = Vector2.new(ElementSprites.FRAME, ElementSprites.FRAME)
-		aura.ImageTransparency = 0.52
-		aura.ZIndex = 1
-		aura.Parent = gui
-	end
 	local glyph = Instance.new("ImageLabel")
 	glyph.Name = "Glyph"
 	glyph.BackgroundTransparency = 1
@@ -99,7 +87,6 @@ local function nameplate(info, adornee)
 		glyph.Image = sheet.Image
 		glyph.ImageRectSize = Vector2.new(ElementSprites.FRAME, ElementSprites.FRAME)
 		glyph.ImageRectOffset = Vector2.new(0, 0)
-		if aura then aura.ImageRectOffset = glyph.ImageRectOffset end
 	end
 	glyph.Parent = gui
 
@@ -132,7 +119,7 @@ local function nameplate(info, adornee)
 	local effect = if type(info.Effect) == "string" and info.Effect ~= "" then ` · {info.Effect}` else ""
 	detail.Text = `{string.upper(info.Rarity)} LV{info.Level}{effect}`
 	detail.Parent = gui
-	return gui, glyph, sheet ~= nil, aura
+	return gui, glyph, sheet ~= nil
 end
 
 function ArtifactPresence.attach()
@@ -190,11 +177,10 @@ function ArtifactPresence.attach()
 			instances = {},
 		}
 
-		local plate, glyph, animated, aura = nameplate(info, head or root)
+		local plate, glyph, animated = nameplate(info, head or root)
 		plate.Parent = folder
 		table.insert(rig.instances, plate)
 		rig.glyph = if animated then glyph else nil
-		rig.aura = aura
 		rig.plate = plate
 
 		if rigBuilds[player] ~= buildToken or not alive or watchers[player] == nil
@@ -306,9 +292,7 @@ function ArtifactPresence.attach()
 		for _, rig in rigs do
 			if animated < MAX_ANIMATED_COMPANIONS and rig.glyph ~= nil and visibleRig(rig, camera) then
 				animated += 1
-				rig.glyph.ImageRectOffset = offset
-				if rig.aura then rig.aura.ImageRectOffset = offset end
-			end
+				rig.glyph.ImageRectOffset = offset			end
 		end
 	end))
 

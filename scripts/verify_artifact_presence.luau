@@ -96,9 +96,11 @@ local rigs = {}
 for i = 1, 30 do
 	rigs[i] = {
 		root = rig.root, plate = rig.plate,
-		glyph = {}, aura = {},
+		glyph = {},
 	}
 end
+assert(not presence:find("AuraImage", 1, true) and not presence:find('"Aura"', 1, true),
+	"world companions are one lit layer; no aura sheet plays behind them")
 local guiService = { ReducedMotionEnabled = false }
 local loopEnv = setmetatable({
 	ElementSprites = { FRAMERATE = 12, FRAME = 170.5, COUNT = 36, COLUMNS = 6 },
@@ -114,7 +116,6 @@ local count = 0
 for _, companion in rigs do
 	if companion.glyph.ImageRectOffset then
 		count += 1
-		assert(companion.aura.ImageRectOffset == companion.glyph.ImageRectOffset, "world character/aura remain synchronized")
 	end
 end
 assert(count == 12, "crowded worlds cap animated companions")

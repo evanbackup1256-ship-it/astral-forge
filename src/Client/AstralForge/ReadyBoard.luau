@@ -58,6 +58,25 @@ function Board.collect(state, config)
 	add("ForgePath", "Forge Path", "Step ready", if okPath and pathReady then 1 else 0, "Forge", Palette.violet)
 	local invite = state.Trade and state.Trade.Invite
 	add("Trade", "Trade", "Trade invite waiting", if invite ~= nil then 1 else 0, "Send", Palette.mint)
+	-- crews: an invite to answer, or crew-goal tiers this player can claim
+	local okCrew, crewState = pcall(function() return require(script.Parent.CrewStore).get() end)
+	if okCrew and type(crewState) == "table" then
+		local crew = crewState.crew
+		local claimable = 0
+		if crew and type(crew.Tiers) == "table" then
+			local mine = 0
+			for _, member in crew.Members or {} do
+				if member.UserId == game:GetService("Players").LocalPlayer.UserId then mine = member.Collects or 0 end
+			end
+			for _, tier in crew.Tiers do
+				if not tier.Claimed and (crew.Pooled or 0) >= tier.Target and mine >= (crew.MinContribution or 0) then
+					claimable += 1
+				end
+			end
+		end
+		local pending = crewState.invite and (crewState.invite.ExpiresAt or 0) > os.time()
+		add("Crew", "Crew", if pending then "Crew invite waiting" else "Crew goal ready", claimable + (if pending then 1 else 0), "Crew", Palette.green)
+	end
 	return list
 end
 

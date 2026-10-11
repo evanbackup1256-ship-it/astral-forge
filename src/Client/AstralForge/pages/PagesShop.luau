@@ -61,7 +61,7 @@ local SHOP_TABS = { "Featured", "Passes", "Supplies", "Codes" }
 local SHOP_TAB_TIPS = {
 	Featured = "What's on sale.",
 	Passes = "Permanent upgrades. Buy once, keep forever.",
-	Supplies = "One-time packs — flux, dust, boosts, and extras.",
+	Supplies = "One-time packs of flux, dust and boosts.",
 	Codes = "Type a promo code for a free reward.",
 }
 local PRODUCT_PENDING_FAILSAFE = 40
@@ -446,7 +446,7 @@ local function ShopView(_param)
 			end
 			setPurchasePhase("fail")
 			setBusyGate(false)
-			setBanner("That took too long — try again.")
+			setBanner("That took too long. Try again.")
 		end)
 	end
 	local finishPurchase = function(ok, detail)
@@ -480,7 +480,7 @@ local function ShopView(_param)
 					if response.ok == false then
 						local _condition_1 = response.error
 						if _condition_1 == nil then
-							_condition_1 = "Purchase pending — check again shortly."
+							_condition_1 = "Purchase pending. Roblox is still confirming it."
 						end
 						_result_1 = _condition_1
 					else
@@ -490,7 +490,7 @@ local function ShopView(_param)
 				end)
 			else
 				finishPurchase(false)
-				setBanner("Cancelled — no charge.")
+				setBanner("Cancelled. You weren't charged.")
 			end
 		end)
 		local passConn = MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
@@ -512,17 +512,17 @@ local function ShopView(_param)
 					if response.ok == false then
 						local _condition_1 = response.error
 						if _condition_1 == nil then
-							_condition_1 = "Pass pending — reopen Shop in a moment."
+							_condition_1 = "Pass pending. Reopen the Shop in a moment."
 						end
 						_result_1 = _condition_1
 					else
-						_result_1 = "Pass unlocked — bonuses are live."
+						_result_1 = "Pass unlocked. Its bonuses are active now."
 					end
 					setBanner(_result_1)
 				end)
 			else
 				finishPurchase(false)
-				setBanner("Cancelled — no charge.")
+				setBanner("Cancelled. You weren't charged.")
 			end
 		end)
 		return function()
@@ -2747,6 +2747,9 @@ local function ArtifactCard(props)
 		size = UDim2.fromOffset(fxSize, fxSize),
 		position = UDim2.fromScale(0.5, 0.5),
 		framerate = 24,
+		-- acquiring the artifact plays its companion's reveal
+		reaction = "reveal",
+		reactionKey = owned == true,
 		reducedMotion = props.reducedMotion,
 		zIndex = 2,
 	}), h(Badge, {
@@ -3446,7 +3449,7 @@ local function useWheelController(_param)
 	}
 end
 local function PrizeWheelMachine(props)
-	return React.createElement(require(script.Parent.Parent.AuthoredWheel), props)
+	return React.createElement(require(script.Parent.Parent.PrizeWheel), props)
 end
 local function WheelConsole(_param)
 	local state = _param.state
@@ -3517,7 +3520,7 @@ local function WheelConsole(_param)
 					if _condition_3 == nil then
 						_condition_3 = 0
 					end
-					_result_3 = (if _condition_3 > 0 then `{compactNumber(state.Wheel.FreeSpins)} free spin{if state.Wheel.FreeSpins == 1 then "" else "s"} ready.` elseif pityArmed then ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.PityArmed) or "Pity is armed — the next spin is weighted toward a better prize.") elseif compact then "Tap once to spin." else ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.Ready) or "Give it a spin and see what lands."))
+					_result_3 = (if _condition_3 > 0 then `{compactNumber(state.Wheel.FreeSpins)} free spin{if state.Wheel.FreeSpins == 1 then "" else "s"} ready.` elseif pityArmed then ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.PityArmed) or "Guarantee ready: your next spin lands Rare or better.") elseif compact then "Tap once to spin." else ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.Ready) or "Give it a spin and see what lands."))
 				else
 					_result_3 = cooldown
 				end
@@ -3854,6 +3857,14 @@ local function WheelView(props)
 	for _, reward in rewards do
 		weightTotal += reward.Weight or 0
 	end
+	local recentSpins = {}
+	for _, entry in (if type(state.Wheel.History) == "table" then state.Wheel.History else {}) do
+		local name = entry.PrizeId
+		for index, reward in rewards do
+			if reward.Id == entry.PrizeId then name = `{index}. {reward.Name or reward.Id}` end
+		end
+		table.insert(recentSpins, `{os.date("%b %d, %H:%M", entry.At)}   {name}{if entry.Pity then "  (guaranteed)" else ""}`)
+	end
 	-- One page scroll owns the complete legend: no clipped nested prize viewport.
 	local prizeRows = { layout = React.createElement("uilistlayout", {
 		SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6),
@@ -3946,6 +3957,21 @@ local function WheelView(props)
 					spinClaimHostRef = spinClaimHostRef,
 					compact = shortLandscape or chrome.contentStack,
 				}))),
+			},
+			{
+				-- the last spins this player made, newest first (server keeps 10)
+				id = "recent-spins",
+				height = 36 + math.max(1, #recentSpins) * 24,
+				element = React.createElement(Panel, {
+					size = UDim2.fromScale(1, 1), accent = Palette.mango, background = Palette.panel, padding = 12, clips = false,
+				}, React.createElement(Text, {
+					value = "Recent spins", size = 14, color = Palette.mango, weight = Enum.FontWeight.Heavy,
+					sizeConstraint = UDim2.new(1, 0, 0, 20),
+				}), React.createElement(Text, {
+					value = if #recentSpins == 0 then "No spins yet. Your prizes will be listed here." else table.concat(recentSpins, "\n"),
+					size = 13, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(0, 24),
+					sizeConstraint = UDim2.new(1, 0, 0, math.max(1, #recentSpins) * 24),
+				})),
 			},
 			{
 				id = "prizes-label",

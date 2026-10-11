@@ -699,6 +699,32 @@ function ConvergenceOpsMath.CanClaimTier(
 	return not already and math.max(0, tonumber(contribution) or 0) >= math.max(0, tonumber(required) or 0)
 end
 
+-- Stable shard (1..shards) for a server, so its writes always land on the same counter key.
+function ConvergenceOpsMath.ShardFor(jobId: string, shards: number): number
+	local count = math.max(1, math.floor(shards))
+	local hash = 5381
+	for index = 1, #jobId do
+		hash = (hash * 33 + string.byte(jobId, index)) % 2147483647
+	end
+	return hash % count + 1
+end
+
+function ConvergenceOpsMath.ShardKey(eventId: string, shard: number): string
+	return eventId .. "#" .. tostring(shard)
+end
+
+-- The global total: every shard plus any pre-shard total stored under the bare event id.
+function ConvergenceOpsMath.SumShards(shards: { [number]: any }, legacy: any): number
+	local total = math.max(0, tonumber(legacy) or 0)
+	for _, value in shards do
+		local amount = tonumber(value)
+		if amount and amount == amount and amount > 0 and amount ~= math.huge then
+			total += amount
+		end
+	end
+	return total
+end
+
 return table.freeze(ConvergenceOpsMath)
 end
 

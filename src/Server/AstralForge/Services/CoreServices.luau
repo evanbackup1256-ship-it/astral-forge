@@ -1459,7 +1459,7 @@ function GuildService:_findByTag(tag: string)
 			return guild
 		end)
 		if not ok then
-			if blockedLastMember then return false, "You're the last member — disband the guild instead of leaving." end
+			if blockedLastMember then return false, "You're the last member. Disband the guild instead of leaving." end
 			return false, message
 		end
 		profile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
@@ -2809,6 +2809,7 @@ return function()
 		ensureWheel(profile).LastReceipt = {
 			ExpectedSpin = sequence, PrizeIndex = selectedIndex, PrizeId = selected.Id, Message = label, Pity = pityHit,
 		}
+		WheelMath.RecordHistory(ensureWheel(profile), selected.Id, os.time(), pityHit)
 		return true, label, selectedIndex, selected.Id, pityHit
 	end
 

@@ -1179,7 +1179,7 @@ local function CommandViewReady(_param)
 	local activeStarted = _condition_2
 	local expeditionReady = activeId ~= "" and now >= activeEnds
 	local expeditionProgress = if activeId == "" then 0 else math.clamp((now - activeStarted) / math.max(1, activeEnds - activeStarted), 0, 1)
-	local statusLine = if activeId == "" then "Launch an unlocked adventure below." elseif expeditionReady then "Crew is home — collect rewards." else `Back in {clockText(math.max(0, activeEnds - now))}`
+	local statusLine = if activeId == "" then "Launch an unlocked adventure below." elseif expeditionReady then "Crew is back. Collect their rewards." else `Back in {clockText(math.max(0, activeEnds - now))}`
 	local claimLabel = if activeId == "" then "Choose below" elseif expeditionReady then "COLLECT" else clockText(math.max(0, activeEnds - now))
 	local firstReadyWeeklyId = nil
 	if type(command.Weekly) == "table" then
@@ -2162,6 +2162,9 @@ local function CommandViewReady(_param)
 				still = not owned,
 				transparency = if owned then 0 else 0.7,
 				reducedMotion = reducedMotion,
+				-- discovering the relic reveals its companion
+				reaction = "reveal",
+				reactionKey = owned ~= nil and owned ~= false,
 			})), React.createElement(Text, {
 				value = if owned then `{artifact.Rarity}  ·  {(elementSheet(artifact.Element) or { Label = "" }).Label}  ·  Lv {owned.Level}/10` else artifact.Rarity,
 				size = 11,

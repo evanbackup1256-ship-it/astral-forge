@@ -2160,7 +2160,19 @@ type WheelBag = {
 	PityMisses: number,
 	FreeSpins: number,
 	LastReceipt: { ExpectedSpin: number, PrizeIndex: number, PrizeId: string, Message: string, Pity: boolean }?,
+	History: { { PrizeId: string, At: number, Pity: boolean } }?,
 }
+
+WheelMath.HISTORY_LIMIT = 10
+
+-- Recent spins, newest first, bounded. Written in the same save as the spin itself.
+function WheelMath.RecordHistory(wheel: any, prizeId: string, at: number, pity: boolean)
+	if type(wheel) ~= "table" then return end
+	local list = if type(wheel.History) == "table" then wheel.History else {}
+	table.insert(list, 1, { PrizeId = prizeId, At = math.floor(at), Pity = pity == true })
+	while #list > WheelMath.HISTORY_LIMIT do table.remove(list) end
+	wheel.History = list
+end
 
 type PoolEntry = {
 	Index: number,
@@ -2194,6 +2206,18 @@ function WheelMath.Ensure(wheel: any): WheelBag
 			PrizeId = receipt.PrizeId, Message = receipt.Message, Pity = receipt.Pity,
 		}
 	end
+	if wheel.History ~= nil then
+		local clean = {}
+		if type(wheel.History) == "table" then
+			for _, entry in wheel.History do
+				if type(entry) == "table" and type(entry.PrizeId) == "string" and #entry.PrizeId >= 1 and #entry.PrizeId <= 64
+					and type(entry.At) == "number" and entry.At == entry.At and #clean < WheelMath.HISTORY_LIMIT then
+					table.insert(clean, { PrizeId = entry.PrizeId, At = math.floor(entry.At), Pity = entry.Pity == true })
+				end
+			end
+		end
+		wheel.History = clean
+	end
 	return wheel :: WheelBag
 end
 
@@ -2219,6 +2243,7 @@ function WheelMath.Snapshot(
 	PityAfter: number,
 	PityArmed: boolean,
 	LastReceipt: any?,
+	History: { any },
 }
 	local safeCooldown = math.max(0, math.floor(tonumber(cooldownSeconds) or 0))
 	local safePityAfter = math.max(1, math.floor(tonumber(pityAfter) or 8))
@@ -2235,6 +2260,7 @@ function WheelMath.Snapshot(
 		PityAfter = safePityAfter,
 		PityArmed = pityMisses + 1 >= safePityAfter,
 		LastReceipt = wheel.LastReceipt,
+		History = wheel.History or {},
 	}
 end
 

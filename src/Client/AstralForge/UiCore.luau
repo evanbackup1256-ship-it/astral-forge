@@ -123,7 +123,8 @@ local function Stroke(_param)
 		Color = gradientColor,
 	}))
 end
-local MIN_UI_TEXT_SIZE = 10
+-- the readability floor every Text owns; callers asking for 8-10 px get this instead
+local MIN_UI_TEXT_SIZE = 11
 local BUTTON_LABEL_SIZE = 15
 local buttonLabelWidthCache = {}
 local buttonLabelWidthCacheCount = 0
@@ -5567,7 +5568,7 @@ local function MainGame(_param)
 		elseif action == "ClaimAnomalyDirective" or action == "ClaimAnomalyMilestone" then
 			Audio:play("collect")
 			InteractionFeedback.reward()
-		elseif response.message ~= nil and action ~= "Overcharge" and action ~= "ActivateBoost" and action ~= "RouteLabPower" and action ~= "SetTutorialStep" and action ~= "ReplayTutorial" and action ~= "DismissRelease" and action ~= "OpenRelease" and action ~= "ReadStoryChapter" and action ~= "ReadMail" and action ~= "SetSetting" and action ~= "SetMobileLayout" and action ~= "VisitPlot" and action ~= "LeavePlot" and action ~= "SyncShop" and action ~= "GetPlayers" and action ~= "GetLeaderboard" and action ~= "GetGuildLeaderboard" and action ~= "GetGuild" and action ~= "GetGuildChatHistory" and action ~= "GetGuildAnnouncements" and action ~= "GetGuildSettings" and action ~= "GetGuildLogoReview" and action ~= "SendGuildChat" and action ~= "CreateGuildAnnouncement" and action ~= "EditGuildAnnouncement" and action ~= "PinGuildAnnouncement" and action ~= "ArchiveGuildAnnouncement" and action ~= "SetGuildAnnouncementExpiry" and action ~= "SetGuildSettings" and action ~= "MuteGuildMember" and action ~= "UnmuteGuildMember" and action ~= "BanGuildMember" and action ~= "UnbanGuildMember" and action ~= "UploadGuildLogo" and action ~= "ModerateGuildLogo" and action ~= "GetTrade" and action ~= "UpdateTradeOffer" and action ~= "SetTradeReady" and action ~= "VerifyCreatorFollow" and action ~= "RedeemCode" then
+		elseif response.message ~= nil and action ~= "Overcharge" and action ~= "ActivateBoost" and action ~= "RouteLabPower" and action ~= "SetTutorialStep" and action ~= "ReplayTutorial" and action ~= "DismissRelease" and action ~= "OpenRelease" and action ~= "ReadStoryChapter" and action ~= "ReadMail" and action ~= "SetSetting" and action ~= "SetMobileLayout" and action ~= "ChatOpenWhisper" and action ~= "ChatGlobal" and action ~= "VisitPlot" and action ~= "LeavePlot" and action ~= "SyncShop" and action ~= "GetPlayers" and action ~= "GetLeaderboard" and action ~= "GetGuildLeaderboard" and action ~= "GetGuild" and action ~= "GetGuildChatHistory" and action ~= "GetGuildAnnouncements" and action ~= "GetGuildSettings" and action ~= "GetGuildLogoReview" and action ~= "SendGuildChat" and action ~= "CreateGuildAnnouncement" and action ~= "EditGuildAnnouncement" and action ~= "PinGuildAnnouncement" and action ~= "ArchiveGuildAnnouncement" and action ~= "SetGuildAnnouncementExpiry" and action ~= "SetGuildSettings" and action ~= "MuteGuildMember" and action ~= "UnmuteGuildMember" and action ~= "BanGuildMember" and action ~= "UnbanGuildMember" and action ~= "UploadGuildLogo" and action ~= "ModerateGuildLogo" and action ~= "GetTrade" and action ~= "UpdateTradeOffer" and action ~= "SetTradeReady" and action ~= "VerifyCreatorFollow" and action ~= "RedeemCode" then
 			addNotice("Done", response.message, "Info")
 		end
 	end
@@ -5814,7 +5815,7 @@ local function MainGame(_param)
 		if state.Daily.CanClaim == true and state.Daily.Streak >= 1 then
 			streakToastSent.current = true
 			local day = state.Daily.Streak
-			addNotice("Daily streak", if day > 1 then `Day {day} is ready — claim it in Rewards.` else "Today’s daily is ready in Rewards.", "Special")
+			addNotice("Daily streak", if day > 1 then `Day {day} is ready to claim in Rewards.` else "Today’s daily is ready in Rewards.", "Special")
 		end
 	end
 	local _result_8 = state
@@ -5973,6 +5974,20 @@ local function MainGame(_param)
 					setVisit(value.Visit)
 				elseif kind == "VisitEnded" then
 					setVisit(nil)
+				elseif kind == "CrewState" then
+					local CrewStore = require(script.Parent.CrewStore)
+					local wasInCrew = CrewStore.get().crew ~= nil
+					CrewStore.set({ crew = if type(value.Crew) == "table" then value.Crew else CrewStore.NONE })
+					if value.Crew == nil and wasInCrew and type(value.Reason) == "string" then
+						addNotice("Crew", value.Reason, "Info")
+					end
+				elseif kind == "CrewInvite" then
+					local CrewStore = require(script.Parent.CrewStore)
+					CrewStore.set({ invite = { FromUserId = value.FromUserId, FromName = value.FromName, CrewName = value.CrewName, ExpiresAt = value.ExpiresAt } })
+					Audio:play("invite")
+					addNotice("Crew invite", `{tostring(value.FromName or "Someone")} invited you to {tostring(value.CrewName or "a crew")}. Open Crew to answer.`, "Special")
+				elseif kind == "CrewNotice" then
+					addNotice("Crew", tostring(value.Text or ""), "Info")
 				elseif kind == "CrewNudge" then
 					Audio:play("crewNudge")
 					InteractionFeedback.tap()
@@ -6122,7 +6137,7 @@ local function MainGame(_param)
 				attempt += 1
 				if alive and attempt >= 20 and os.clock() - lastConnectNotice > 30 then
 					lastConnectNotice = os.clock()
-					addNotice("Still connecting", "Your save is taking longer than usual to load — if Astral Forge is open on another device or Studio session, close it.", "Info", false)
+					addNotice("Still connecting", "Your save is taking longer than usual to load. If Astral Forge is open on another device, close it there.", "Info", false)
 				end
 				task.wait(math.min(0.2 + attempt * 0.08, 1.5))
 			end
@@ -6907,7 +6922,7 @@ local function AppShell(_param)
 	local arcadeBusy, setArcadeBusy = React.useState(false)
 	local hidden, setHidden = React.useState(false)
 	local buyAmount, setBuyAmount = React.useState(1)
-	local chat = useGameChat(page == "Chat", true)
+	local chat = useGameChat(page == "Chat", true, dispatch, state.Settings)
 	local offlineReceiptKey = if state.Offline ~= nil and state.Offline.Seconds >= 30 then `{math.floor(state.Offline.Seconds)}:{compactNumber(state.Offline.Reward)}` else ""
 	local dismissedOfflineKey, setDismissedOfflineKey = React.useState("")
 	local offlineDismissed = offlineReceiptKey ~= "" and dismissedOfflineKey == offlineReceiptKey
@@ -8068,6 +8083,12 @@ local function AppShell(_param)
 		onClose = function()
 			return setPlayerlistOpen(false)
 		end,
+		-- MESSAGE on a player card lands in Chat on a private thread with them
+		onMessage = function(userId)
+			setPlayerlistOpen(false)
+			navigate("Chat")
+			chat.openWhisper(userId)
+		end,
 		notify = function(title, body)
 			return addNotice(title, body, "Info")
 		end,
@@ -8328,7 +8349,7 @@ local function StatChip(_param)
 		_attributes.Text = _condition
 		_attributes.TextColor3 = ensureContrast(Palette.panel, Palette.cream)
 		_attributes.TextSize = valueSize
-		_attributes.FontFace = Font.fromEnum(Enum.Font.RobotoMono)
+		_attributes.FontFace = Font.fromEnum(Enum.Font.BuilderSansBold)
 		_attributes.TextXAlignment = Enum.TextXAlignment.Left
 		_attributes.TextYAlignment = Enum.TextYAlignment.Center
 		_attributes.LayoutOrder = 2
@@ -15738,8 +15759,9 @@ local function ActionButton(_param)
 end
 
 local function playerActionLayout(width)
+	local actionCount = 8 -- message, visit, crew, trade, wave, friend, block, report
 	local columns = if width < 440 then 2 else 4
-	local rows = math.ceil(4 / columns)
+	local rows = math.ceil(actionCount / columns)
 	return {
 		columns = columns,
 		rows = rows,
@@ -15784,6 +15806,9 @@ local function PlayerRow(_param)
 	if row.IsLocal then
 		table.insert(tags, "YOU")
 	end
+	if _param.crewmate then
+		table.insert(tags, "CREW")
+	end
 	if friend then
 		table.insert(tags, "FRIEND")
 	end
@@ -15814,6 +15839,36 @@ local function PlayerRow(_param)
 			CellPadding = UDim2.fromOffset(6, 6),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}), React.createElement(ActionButton, {
+			order = -2,
+			text = "MESSAGE",
+			icon = "Chat",
+			color = Palette.cyan,
+			disabled = blocked,
+			onClick = _param.onMessage,
+			reducedMotion = reducedMotion,
+		}), React.createElement(ActionButton, {
+			order = -1,
+			text = "VISIT",
+			icon = "Visit",
+			color = Palette.violet,
+			onClick = _param.onVisit,
+			reducedMotion = reducedMotion,
+		}), React.createElement(ActionButton, {
+			order = 0,
+			text = if _param.crewmate then "IN CREW" else "CREW",
+			icon = "Crew",
+			color = Palette.green,
+			disabled = _param.crewmate or blocked,
+			onClick = _param.onCrew,
+			reducedMotion = reducedMotion,
+		}), React.createElement(ActionButton, {
+			order = 3,
+			text = "WAVE",
+			icon = "Wave",
+			color = Palette.cyan,
+			onClick = _param.onWave,
+			reducedMotion = reducedMotion,
+		}), React.createElement(ActionButton, {
 			order = 1,
 			text = if friend then "UNFRIEND" else "ADD FRIEND",
 			icon = "Crew",
@@ -15828,7 +15883,7 @@ local function PlayerRow(_param)
 			onClick = _param.onTrade,
 			reducedMotion = reducedMotion,
 		}), React.createElement(ActionButton, {
-			order = 3,
+			order = 5,
 			text = if blocked then "UNBLOCK" else "BLOCK",
 			icon = "Close",
 			color = Palette.panelSoft,
@@ -15837,7 +15892,7 @@ local function PlayerRow(_param)
 			onClick = _param.onBlock,
 			reducedMotion = reducedMotion,
 		}), React.createElement(ActionButton, {
-			order = 4,
+			order = 6,
 			text = if reported then "REPORTED" else "REPORT",
 			icon = "Admin",
 			color = Palette.coral,
@@ -15896,6 +15951,9 @@ local function PlayerRow(_param)
 		transparency = 0.2,
 		reducedMotion = reducedMotion,
 		zIndex = 622,
+		-- a newly equipped or upgraded artifact pops on the player card
+		reaction = "equip",
+		reactionKey = `{artifact.Name}:{artifact.Level}`,
 	}), React.createElement(Avatar, {
 		userId = row.UserId,
 		accent = artifactColor or accent,
@@ -16433,6 +16491,7 @@ local function PlayerlistOverlay(_param)
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local onClose = _param.onClose
+	local onMessage = _param.onMessage
 	local notify = _param.notify
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -16691,6 +16750,13 @@ local function PlayerlistOverlay(_param)
 	local listH = math.max(80, height - listTop - 10)
 
 	local visible = Model.view(rows, sortId, query, friendsOnly, friends)
+	local crewState = require(script.Parent.CrewStore).useCrew()
+	local crewmates = {}
+	if crewState.crew then
+		for _, member in crewState.crew.Members do
+			crewmates[member.UserId] = true
+		end
+	end
 	local listChildren = {}
 	listChildren.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -16725,6 +16791,40 @@ local function PlayerlistOverlay(_param)
 			end,
 			onBlock = function()
 				promptCore(if blocked[row.UserId] then "PromptUnblockPlayer" else "PromptBlockPlayer", row)
+			end,
+			onMessage = function()
+				if peerOf(row) == nil or onMessage == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				onMessage(row.UserId)
+			end,
+			onVisit = function()
+				if peerOf(row) == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				dispatch("VisitPlot", { UserId = row.UserId })
+				onClose()
+			end,
+			crewmate = crewmates[row.UserId] == true,
+			onCrew = function()
+				if peerOf(row) == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				dispatch("CrewInvite", { UserId = row.UserId }, function(response)
+					if type(response) == "table" and notify then
+						notify("Crew", if response.ok then (response.message or "Invite sent.") else (response.error or "Couldn't send that invite."))
+					end
+				end)
+			end,
+			onWave = function()
+				if peerOf(row) == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				dispatch("NudgeCrew", { UserId = row.UserId })
 			end,
 			onTrade = function()
 				if peerOf(row) == nil then
@@ -19192,7 +19292,7 @@ local function AdminPrankOverlay(_param)
 		position = UDim2.fromOffset(0, 22),
 	}))), emptyBag and React.createElement(PrankCard, {
 		title = "Inventory",
-		body = "0 / 100 bag. No relics. This is a fake empty-bag card — your relics are still there.",
+		body = "0 / 100 bag. No relics. This empty bag is a prank. Your relics are safe.",
 		action = "CLOSE",
 		accent = Palette.violet,
 		height = 248,
@@ -20584,7 +20684,8 @@ end
 local SKY_STYLE = {
 	MeteorShower = { kind = "streak", burst = 16, ambient = 4, angle = 34 },
 	StardustRain = { kind = "dust", burst = 34, ambient = 12 },
-	CommunityForge = { kind = "ember", burst = 26, ambient = 9 },
+	-- embers stay few after the opening burst so they never crowd the pages
+	CommunityForge = { kind = "ember", burst = 22, ambient = 4 },
 }
 local SKY_BURST_SECONDS = 6
 
@@ -20664,7 +20765,6 @@ local function SkyParticle(p)
 	return h("frame", {
 		Size = UDim2.fromOffset(size, size),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = if rising then 45 else 0,
 		Position = clock:map(function(t)
 			local q = progress(t)
 			local y = if rising then hgt + 20 - q * (hgt * 0.7) else -20 + q * (hgt + 40)
@@ -20674,13 +20774,13 @@ local function SkyParticle(p)
 			local q = progress(t)
 			local fade = if rising then q else math.max(0, (q - 0.8) / 0.2)
 			local twinkle = if rising then 0 else (math.sin(t * 6 + i * 1.7) + 1) * 0.18
-			return math.clamp(0.1 + fade * 0.9 + twinkle, 0, 1)
+			return math.clamp((if rising then 0.35 else 0.1) + fade * 0.65 + twinkle, 0, 1)
 		end),
 		Visible = clock:map(alive),
 		BackgroundColor3 = if rising then Color3.fromRGB(255, 168, 92) else p.accent,
 		BorderSizePixel = 0,
 		ZIndex = 120,
-	}, h("uicorner", { CornerRadius = UDim.new(if rising then 0.2 else 1, 0) }))
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })) -- soft round embers, never diamonds
 end
 
 local function EventSkyFx(_param)

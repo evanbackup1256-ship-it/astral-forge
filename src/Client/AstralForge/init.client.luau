@@ -527,6 +527,8 @@ do
 		table.insert(_disposers, require(script.ButtonMotion).attach(playerGui))
 		-- equipped artifacts orbit every character so other players can see them in the world
 		table.insert(_disposers, require(script.ArtifactPresence).attach())
+		-- crewmates get a tag above their heads so you can find them in the world
+		table.insert(_disposers, require(script.CrewPresence).attach())
 		local shutdownLayer = Instance.new("ScreenGui")
 		shutdownLayer.Name = "AstralForgeShutdown"
 		shutdownLayer.ResetOnSpawn = false

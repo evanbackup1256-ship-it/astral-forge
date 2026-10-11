@@ -218,37 +218,7 @@ local function prizeShapeFromReward(reward, rarity)
 	end
 	return "flux"
 end
-local PRIZE_ICONS = {
-	flux = "Flux",
-	dust = "Dust",
-	core = "Core",
-	boost = "Boost",
-	jackpot = "Jackpot",
-}
 local Icon
-local function WheelPrizeViewport(_param)
-	local color = _param.color
-	local shape = _param.shape
-	local size = _param.size
-	if size == nil then
-		size = 36
-	end
-	local spin = _param.spin
-	if spin == nil then
-		spin = true
-	end
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(size, size),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(Icon, {
-		kind = PRIZE_ICONS[shape],
-		color = Palette.cream,
-		accent = color,
-		size = size,
-		spin = spin,
-	}))
-end
 local function GlyphFace(_param)
 	local kind = _param.kind
 	local color = _param.color
@@ -529,7 +499,6 @@ return {
 	itemIconKind = itemIconKind,
 	rewardIconKind = rewardIconKind,
 	prizeShapeFromReward = prizeShapeFromReward,
-	WheelPrizeViewport = WheelPrizeViewport,
 	PlayerMark = PlayerMark,
 	Icon = Icon,
 	VECTOR_ICON_ATLAS = VECTOR_ICON_ATLAS,

@@ -787,9 +787,9 @@ local function statusFor(phase)
 		return "Save locked in. Moving you to the fresh server."
 	end
 	if phase == "Waiting" then
-		return "Stay here — we'll hop you when the new server is ready."
+		return "Stay here. We'll move you when the new server is ready."
 	end
-	return "Don't leave yet — writing your save to the cloud."
+	return "Don't leave yet. Saving your progress."
 end
 local function cueFor(phase)
 	if phase == "Teleporting" then

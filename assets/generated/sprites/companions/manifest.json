@@ -1,0 +1,515 @@
+{
+  "Abyss": {
+    "assetId": 81491812550281,
+    "concept": "Lanternjaw: a deep-sea angler whose dangling lure is the light that paints its own face.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "d6eac8780baf494bc872abd2c1ab66ded676e80d59ed951ab673a2e1b5002d4b",
+    "size": 4096
+  },
+  "Aether": {
+    "assetId": 75134837642470,
+    "concept": "Drifter: a dandelion-seed spirit riding the air on its silk crown; it bobs and sways like it is carried.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "daf394fd7c58f9cf56963ce45205fc0c5149b1c69bf74aab7a417476e9c7322b",
+    "size": 4096
+  },
+  "Amber": {
+    "assetId": 121481191090012,
+    "concept": "Honey: a sleepy amber drop with a fossil leaf caught inside; light pools in its core and a drip stretches beneath.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "1efafc40d1c87dd28884388c0fa027596221d047b32dc99bb56ec8fad31030dd",
+    "size": 4096
+  },
+  "Arcane": {
+    "assetId": 82821286149310,
+    "concept": "Grimm: a floating spellbook with an eye on its cover; it flaps open to flash its pages and runes orbit its spine.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "8c322b3a7e972b42092a39b0d50774c1fd231510c4280dcca346e0d83754fb90",
+    "size": 4096
+  },
+  "Aurora": {
+    "assetId": 89801477760443,
+    "concept": "Vixen: a sitting sky-fox with a long pointed muzzle and a brush tail made of three aurora bands rippling in sequence.",
+    "count": 36,
+    "frame": 682,
+    "generator": "f2339e732b24fd5c65832ff62f11be86009ca437f585ab7c1b5ca63b27cf8daa",
+    "sha256": "e5958b7c9171b0ff30ac1b4aa0c3a7db18f6b29439a7a550fa58e1f5bfbb7410",
+    "size": 4096
+  },
+  "Blizzard": {
+    "assetId": 140246345276851,
+    "concept": "Flurry: a shaggy little yeti puffball; snowflakes orbit it and its fur ruffles in the wind.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "1f0912b44705f8d31877e59f8c6bbace7629f1a83d1329dcdee4fdf52d0f906a",
+    "size": 4096
+  },
+  "Blood": {
+    "assetId": 82635464008076,
+    "concept": "Ruby: a stout heart with stubby limbs; it beats lub-dub twice each loop and its light throbs with it.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "40a6eba95f5cf66f2c5af82cf20929c6073d40d87ba44bb46c36818ebbb3fdc6",
+    "size": 4096
+  },
+  "Bloom": {
+    "assetId": 126420413961469,
+    "concept": "Petal: a flower bud with a face; its petals breathe open and closed around it over the loop.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "89dddc1cea1fc70df43e0aec77f6ebc5c121f17e1e2f71f0f7472b2f7315d3ef",
+    "size": 4096
+  },
+  "Celestial": {
+    "assetId": 104801271795673,
+    "concept": "Astrolabe: an armillary sphere with a face at its core; its three rings turn on different axes.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "0ed96c5e476f375962be6cdfd3b013f4cc48681e4661e313ffde6c918147dbd2",
+    "size": 4096
+  },
+  "Chrono": {
+    "assetId": 113321010137837,
+    "concept": "Tock: a brass pocket-watch on two legs; its hands sweep the loop and it steps in time with the tick.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "78300531b34b59a58fcc307948bee40a130c08c3a7b9ee8ceaafaaf87a504e44",
+    "size": 4096
+  },
+  "Comet": {
+    "assetId": 96655617985846,
+    "concept": "Dash: a determined icy head racing forward; its tail streams back in long ribbons and sheds sparks.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "f157c5512f0f552305255f49f14c1f9069148e28f0a0da53d83709bd96327393",
+    "size": 4096
+  },
+  "Cosmic": {
+    "assetId": 72841188051895,
+    "concept": "Astro: a little blob in a space helmet whose visor holds a slowly turning galaxy; it floats and waves.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "f9f8dfbaa5f598a7b4506f9411af8b09236ebc88054980421090ca7e2356fcc4",
+    "size": 4096
+  },
+  "Crystal": {
+    "assetId": 124140209834773,
+    "concept": "Geode: a hermit crab carrying a crystal cluster for a shell; it snips its claws and the cluster catches its light.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "f333449a5e2a0598be023396c4e03160b0797320c05e71e60b2504617ab699e6",
+    "size": 4096
+  },
+  "Dream": {
+    "assetId": 76306812376311,
+    "concept": "Snooze: a cloud-wool sheep fast asleep on a pillow; its breath rises as little glowing z's.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "3176e33e0fd610c2dc36cbc9abda4543ba40fe507ae2b3505ea3a0bb1fca1e70",
+    "size": 4096
+  },
+  "Earth": {
+    "assetId": 108315651726917,
+    "concept": "Pebble: a mossy stone tortoise with a sprout on its shell; its head peeks out, looks around and tucks back in.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "ff44e2f445f2da7aee7ab08ccb6a62b0f9c23882824877983be565144ed58b71",
+    "size": 4096
+  },
+  "Eclipse": {
+    "assetId": 84763898664614,
+    "concept": "Corona: a dark moon-disc with glowing eyes; the corona's flares turn behind it and a bright bead circles its rim.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "6c709b0ec936896deeb15c618b31fa72bbdfbcece5a2c6d1f45fdb3431174141",
+    "size": 4096
+  },
+  "Feather": {
+    "assetId": 86669100104116,
+    "concept": "Plume: a round owlet made of soft layered feathers; it ruffles its wings and its ear tufts wiggle.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "b9d3667979199f9aaff9166f9f641453aad32273b9382ec7d27ed82f95abd91a",
+    "size": 4096
+  },
+  "Fire": {
+    "assetId": 103559340980670,
+    "concept": "Kindle: a teardrop flame imp whose three crown tongues flicker out of step; it sways and sheds embers.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "2bc19984caee39df335d10ad84d8dcf112b6f68da29a9d9f729e6678ead7ff6e",
+    "size": 4096
+  },
+  "Frostfire": {
+    "assetId": 96246143015158,
+    "concept": "Ember-Rime: a wisp split down the middle, one half crackling ice and the other flame, each flickering its own way.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "1f4a3a11c4da64162819131ac4998b63749751fa6f5bc668ce1213ac9a4bfa73",
+    "size": 4096
+  },
+  "Glitch": {
+    "assetId": 124509928671981,
+    "concept": "Bit: a blocky pixel critter that stutters; every few frames it tears into offset colour channels and snaps back.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "f6d27bc560f7c26beac222a46e90806cd158b12a30460ce9b29d623cdc2b29f0",
+    "size": 4096
+  },
+  "Gold": {
+    "assetId": 113188059263005,
+    "concept": "Doubloon: a cheeky coin with a face on one side and a star stamped on the other; it flips end over end.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "9a2f9bb7e565865842cb36499265a7071cd941ac857b0825d462c78c3933f550",
+    "size": 4096
+  },
+  "Gravity": {
+    "assetId": 89008930887194,
+    "concept": "Orbit: a tiny ringed planet with a sleepy face; two moons circle it, passing behind and in front.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "3cca9c48cf1e5afc0e5398d1d2b36eb3437ef69745830df7dbc75fecaf4bc904",
+    "size": 4096
+  },
+  "Hologram": {
+    "assetId": 131738215678265,
+    "concept": "Projection: a translucent wireframe sprite standing on a projector puck; scanlines climb through it.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "6882a1dcd5fb11069796371ab4855d9891df637e6c291f2f05c93f020a7a4873",
+    "size": 4096
+  },
+  "Ice": {
+    "assetId": 140564515768557,
+    "concept": "Nib: an ice-cube penguin with a snow cap; it waddles foot to foot and fogs the air with a breath.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "994709320b32503b212590773b002f6d89e967a7380517d28f1ccd26842b8b1e",
+    "size": 4096
+  },
+  "Ink": {
+    "assetId": 74053721441984,
+    "concept": "Quill: an ink-blot octopus holding a quill in one tentacle; it scribbles in the air while its arms curl.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "f5395777821b9025b526bcad060cd74c081566f381b4f22c18e7fddfa8941f82",
+    "size": 4096
+  },
+  "Lightning": {
+    "assetId": 88421973804283,
+    "concept": "Volt: a zig-zag imp with one wide eye; a live arc snaps between its horn tips and it twitches when it fires.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "61a624463cf6d759112046679ff03077edf287fd5de426425be067f2da84bf24",
+    "size": 4096
+  },
+  "Lunar": {
+    "assetId": 129560714847437,
+    "concept": "Nod: a crescent moon in a nightcap rocking like a cradle; little stars twinkle on and off around it.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "2d47a20e13e71e2a254ac32bbea4b2a3c2cb6eed6fda0f31da5c0b0b725a5761",
+    "size": 4096
+  },
+  "Magma": {
+    "assetId": 136228071865089,
+    "concept": "Slag: a squat boulder-toad with a cooled crust; molten cracks pulse with its breathing and lava drips off its chin.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "1c9f607ef052896d9b2d3812afdf39fffaa6a40c051d9debb1f9fc44009cb821",
+    "size": 4096
+  },
+  "Magnet": {
+    "assetId": 138033563150885,
+    "concept": "Polly: a horseshoe magnet with a red and a blue pole for feet; it hops, and field lines pulse between its poles.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "ccb914b4f7aaa06bf4cec46829a4a1b7b3b167c87bf1618974f854e2406aff16",
+    "size": 4096
+  },
+  "Mirror": {
+    "assetId": 135536979183555,
+    "concept": "Glint: a hand mirror with a polite face in the glass; a bright reflection sweeps across it and it winks.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "20264d95fe6c207a1b313a5c4f0c067c0798a2d86eae5886d8e34ffb57760a6a",
+    "size": 4096
+  },
+  "Nature": {
+    "assetId": 136263960261392,
+    "concept": "Sprig: a round seed spirit with two broad leaf arms and a branching twig crown; it waves, and a leaf drifts down.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "18405b7990392e202d2be09e5c5b1ee4c17af3acaee7d3bc6f72e1ac1a60a0b4",
+    "size": 4096
+  },
+  "Nebula": {
+    "assetId": 92795523523050,
+    "concept": "Drift: a gas-cloud jellyfish whose bell pulses as it swims; ribbon tendrils trail and ripple beneath.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "7bfd60ab0e25a41a661ce3830def4f9ab71d04fb4c4a055820032d0cb8e500e2",
+    "size": 4096
+  },
+  "Necrotic": {
+    "assetId": 85047016815719,
+    "concept": "Rattle: a small skull pup with a ghost-green glow behind its eye sockets; its jaw chatters and its tail wags.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "0920a2980f028cc96afe166a93fbcce5aff749bb49c4aa7e9124ac8a11968ed0",
+    "size": 4096
+  },
+  "Neon": {
+    "assetId": 101696418344609,
+    "concept": "Buzz: a cat drawn in a single bent neon tube on a dark backing; the tube hums and stutters when it warms up.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "0456fa1a344a6bcb7a30fc03bb54185d988239d61194222b2bf36e3de3cea5ad",
+    "size": 4096
+  },
+  "Plasma": {
+    "assetId": 95337307481245,
+    "concept": "Orbi: a wobbling jelly orb with a churning core; two charged rings orbit it on crossed tilts.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "ff07f7185262964d12195406b72e909aa54d70eb8fb20cd12cdfe3026cfa5ba4",
+    "size": 4096
+  },
+  "Poison": {
+    "assetId": 119141615859647,
+    "concept": "Toxi: a squat tree-frog with violet spots; its throat sac swells and glows, then it lets a drip fall.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "ed325b9748f80c6cada79040a7623f8b913ad81609b18113de8a25d527eda7b3",
+    "size": 4096
+  },
+  "Prism": {
+    "assetId": 96093526087774,
+    "concept": "Spectra: a crisp glass prism with a face; a white beam enters one side and a moving rainbow fans out of the other.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "d81fc46837b1656b1356271f3173a7d6fe4c1bc3d6db60057eb3971b5d190a6a",
+    "size": 4096
+  },
+  "Quantum": {
+    "assetId": 134357195128570,
+    "concept": "Spin: a smiling nucleus with three electrons on crossed orbits, each looping at its own speed.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "0154117c60535c63a0cfe6ac02853f9dfdbf1e1a6147fb3c9a3fde5cbec65626",
+    "size": 4096
+  },
+  "Radiance": {
+    "assetId": 72869662401440,
+    "concept": "Seraph: a serene light-orb with downy wings and a halo; its wings beat slowly and the halo turns above it.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "3fa279998c90c96cd68dc894d2ddb21244ece190b51b38a6cdbf6daf7fd8b1cd",
+    "size": 4096
+  },
+  "Rift": {
+    "assetId": 137614693641458,
+    "concept": "Peek: a zipped tear in space standing on its own; it unzips to peek out with one eye, then seals shut.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "c4207653fbf36a5006bd0067bea5c7436cfe081fd64aa7ff699eb2c28a029360",
+    "size": 4096
+  },
+  "Rune": {
+    "assetId": 89274334192386,
+    "concept": "Menhir: a little standing stone on stubby legs; the rune carved in its face lights stroke by stroke, then fades.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "07bbc9f04371ce09bbb9e2b674c8774f8d57ed4bc2e963cda2da9a95ed126549",
+    "size": 4096
+  },
+  "Sand": {
+    "assetId": 73003581488609,
+    "concept": "Dune: a lounging sphinx-cat in a striped headdress; its tail flicks and sand trickles through its paws.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "860200017f4e6f041180111d9b86a2bcb023af886fe02dcc65710853be9a3321",
+    "size": 4096
+  },
+  "Shadow": {
+    "assetId": 72352580755730,
+    "concept": "Shade: a hooded wisp with nothing inside but two eyes; its tattered hem flutters and its lantern-eyes glint.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "25de79b324febf00962428a0abd53aee2fdcfde91eb6bcfe02cec03ff71971e5",
+    "size": 4096
+  },
+  "Smoke": {
+    "assetId": 105883519911632,
+    "concept": "Curl: a lazy smoke-ring creature that slowly rolls over itself, trailing wisps from its rim.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "07fbab6cc998626bfbaa439eae839144bb1b96bd7872834d8bccaf0a03441235",
+    "size": 4096
+  },
+  "Solar": {
+    "assetId": 105208076927012,
+    "concept": "Sunny: a beaming sun-disc whose twelve rays turn a full step each loop while its warmth pulses outward.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "9824937ba265a99d4cb2a8fad1b1d1bdfaf0ff083ba5c92c6baee1122d2b62bd",
+    "size": 4096
+  },
+  "Sonic": {
+    "assetId": 71940175994938,
+    "concept": "Echo: a round pup with speaker-cone ears; every beat its ears thump and a ring of sound rolls off its call.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "49bdad0044e410cdaae4e18ae418bcb13c6719a78410da6f7ccd14575f873505",
+    "size": 4096
+  },
+  "Spirit": {
+    "assetId": 100225646785252,
+    "concept": "Wisp: a paper lantern on a hook with a friendly flame-spirit inside; it swings gently and the flame lights its paper.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "f2a31869f6d2c5d485bc9f36114902cc7bf0b20f26f319943d667ac7e4cb7fea",
+    "size": 4096
+  },
+  "Spore": {
+    "assetId": 100103082185058,
+    "concept": "Puffcap: a squat mushroom with a spotted cap; it bounces on its stalk and puffs a little cloud of glowing spores.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "64d7c9235d2fe9b97824be1665b90f56c8d0adfeb9502f1bd5064e49b19b4b03",
+    "size": 4096
+  },
+  "Starlight": {
+    "assetId": 118112368463240,
+    "concept": "Twinkle: a chubby five-point star that twirls on the spot; a twinkle hops from point to point.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "1f273fd5e2e44140b8839810f1238161c0828ef14b63b360f05e6ed704666365",
+    "size": 4096
+  },
+  "Steam": {
+    "assetId": 124112094986306,
+    "concept": "Puff: a round little teapot; its lid rattles on the boil and its spout breathes curling steam.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "076d2b91711ad0946202bdfaa111eecf8e963a9f8f117d0e9ac83bf145d579c9",
+    "size": 4096
+  },
+  "Steel": {
+    "assetId": 133844285515149,
+    "concept": "Rivet: a riveted boxy robot with a visor face; its antenna bulb blinks and its head tilts to listen.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "d0b647d0f1f3f33fd9806691a6a971a259fd9db02709e550def593c7cf5fe360",
+    "size": 4096
+  },
+  "Tempest": {
+    "assetId": 117811544655611,
+    "concept": "Grumble: a scowling thundercloud; rain streaks fall beneath it and every so often it flashes from within.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "f2dc1eb1cd1d5fbd7294d8c9f3d67387ccaf31e6476b9c8ee19a17c60f4e5d08",
+    "size": 4096
+  },
+  "Thorn": {
+    "assetId": 112122253552600,
+    "concept": "Prickle: a round cactus hedgehog with a single red flower; its spines bristle up and smooth down as it breathes.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "a5626857771070d6579332ef5a18f2d4068a13b5408fad89c3ec58c243e28f57",
+    "size": 4096
+  },
+  "Vital": {
+    "assetId": 105102439255721,
+    "concept": "Pulse: a cheerful bean with a cross-shaped badge; a heartbeat trace runs across its belly in time with its glow.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "26031f2fa582d2a605b930f2babef18f53057a0fc7596f5f06c702a7361d8934",
+    "size": 4096
+  },
+  "Void": {
+    "assetId": 128019553858074,
+    "concept": "Hollow: a cat-shaped window onto deep space; stars drift through its body and starlight rims its edges.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "d02ec18fc8b43c71a758d3b79d42f55b159432d0c8515c16fec22d20a74815f0",
+    "size": 4096
+  },
+  "Water": {
+    "assetId": 120440899954864,
+    "concept": "Ripple: a droplet axolotl; its six gill frills wave in sequence and bubbles rise past its grin.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "1427b65e3a0586dcfad61882c9ae21869bea97d9c32e2d475995f0fa4f855613",
+    "size": 4096
+  },
+  "Wind": {
+    "assetId": 124256621174881,
+    "concept": "Zephyr: a puff-cheeked gust spirit with a curl on its crown; it puffs up, then blows streaming breezes.",
+    "count": 36,
+    "frame": 682,
+    "generator": "7b8f7c167dfc3793ba859c73e173ca1c6fdb150863f62062a393260905de6e46",
+    "sha256": "e3bce0fdb7355371338219ce72901c13f5852751b2cf0868d0ce026fa815bbd1",
+    "size": 4096
+  }
+}

@@ -98,6 +98,21 @@ assert(ConvergenceOpsMath.CanClaimTier(19, 20, {}, 1) == false, "below required"
 assert(ConvergenceOpsMath.CanClaimTier(99, 20, { ["1"] = true }, 1) == false, "already claimed")
 assert(ConvergenceOpsMath.CanClaimTier(nil, 0, nil, 1) == true, "nil contribution + 0 required")
 
+-- Sharded global total: stable shards, spread writes, and a sum that keeps pre-shard totals.
+local shardSeen = {}
+for index = 1, 400 do
+	local shard = ConvergenceOpsMath.ShardFor("job-" .. index, 8)
+	assert(shard >= 1 and shard <= 8, "shard in range")
+	assert(ConvergenceOpsMath.ShardFor("job-" .. index, 8) == shard, "a server always writes the same shard")
+	shardSeen[shard] = (shardSeen[shard] or 0) + 1
+end
+for shard = 1, 8 do
+	assert((shardSeen[shard] or 0) > 20, "servers spread across every shard")
+end
+assert(ConvergenceOpsMath.ShardKey("Conv-7", 3) == "Conv-7#3", "shard key names the event and shard")
+assert(ConvergenceOpsMath.SumShards({ 10, nil, 5, 0 / 0, -4, math.huge }, 100) == 115, "sum ignores junk and keeps the legacy total")
+assert(ConvergenceOpsMath.SumShards({}, nil) == 0, "empty event")
+
 ------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
@@ -113,6 +128,9 @@ assert(string.find(serviceSrc, "ConvergenceOpsMath.CanClaimTier", 1, true), "Sta
 assert(string.find(serviceSrc, "ConvergenceOpsMath.EnsureRewardBags", 1, true), "Claim applyReward must EnsureRewardBags")
 assert(not string.find(serviceSrc, "local function eventProfile", 1, true), "inline eventProfile must be removed")
 assert(not string.find(serviceSrc, "local function readEventProfile", 1, true), "inline readEventProfile must be removed")
+assert(not string.find(serviceSrc, 'GetService("MessagingService")', 1, true), "the global total is polled from shards, never fanned out to every server")
+assert(string.find(serviceSrc, "ConvergenceOpsMath.ShardKey(manifest.EventId, self._shard)", 1, true), "each server writes only its own shard")
+assert(string.find(serviceSrc, "ConvergenceOpsMath.SumShards(", 1, true), "refresh sums every shard")
 
 assert(string.find(configSrc, "Wave18ConvergenceOps", 1, true), "DV21 lab Wave18ConvergenceOps")
 assert(string.find(configSrc, "Wave18ClaimClipsSoftMotion", 1, true), "DV21 lab Wave18ClaimClipsSoftMotion")

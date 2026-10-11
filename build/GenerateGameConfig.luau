@@ -80,11 +80,16 @@ local env = {
 }
 
 env.script = {
-	Parent = {
+	Parent = setmetatable({
 		WaitForChild = function(_self, name: string)
 			return "./build/" .. name
 		end,
-	},
+	}, {
+		-- direct child access (script.Parent.CrateExpansion) resolves like WaitForChild
+		__index = function(_self, name: string)
+			return "./build/" .. name
+		end,
+	}),
 }
 
 function env.require(path: any)
@@ -119,6 +124,30 @@ function env.require(path: any)
 			error("Failed to load " .. pureName .. ": " .. tostring(loadErr))
 		end
 		return chunk()
+	end
+	-- Crate expansion only appends item tables, which the generated output does not carry.
+	if type(path) == "string" and path:find("CrateExpansion$") then
+		return { extendItems = function() end }
+	end
+	-- GameConfig reaches pure shared modules through the SharedData bundle's member loader.
+	-- LiveOpsConfig keeps its build-time copy; other members load their slice of the bundle.
+	if type(path) == "string" and path:find("SharedData$") then
+		return function(member: string)
+			if member == "LiveOpsConfig" then
+				return env.require("./build/LiveOpsConfig")
+			end
+			local memberFs = require("../scripts/_memberfs")(fs)
+			local memberSource = memberFs.readFile("src/Shared/AstralForge/Shared/SharedData.luau#" .. member)
+			local okCompile, compiledOrErr = pcall(luau.compile, memberSource)
+			if not okCompile then
+				error("Failed to compile SharedData member " .. member .. ": " .. tostring(compiledOrErr))
+			end
+			local chunk, loadErr = luau.load(compiledOrErr, { debugName = member, environment = env })
+			if not chunk then
+				error("Failed to load SharedData member " .. member .. ": " .. tostring(loadErr))
+			end
+			return chunk()
+		end
 	end
 	error("Unsupported require: " .. tostring(path))
 end

@@ -2201,6 +2201,26 @@ PlayerlistModel.SORTS = table.freeze({
 PlayerlistModel.DETAILS_MAX = 400
 PlayerlistModel.SEARCH_MIN_ROWS = 6
 
+-- Output comparisons go through OmegaMath when it is loadable (in game); plain numbers otherwise.
+local omega: any = nil
+local function omegaMath()
+	if omega == nil then
+		local ok, loaded = pcall(function() return require(script.Parent:WaitForChild("OmegaMath", 5)) end)
+		omega = if ok and type(loaded) == "table" then loaded else false
+	end
+	return omega or nil
+end
+local function productionGreater(a: any, b: any): boolean
+	local math_ = omegaMath()
+	if math_ and math_.Gt then
+		local ok, result = pcall(math_.Gt, a, b)
+		if ok then return result == true end
+	end
+	return (tonumber(a) or 0) > (tonumber(b) or 0)
+end
+local function productionEqual(a: any, b: any): boolean
+	return not productionGreater(a, b) and not productionGreater(b, a)
+end
 local function num(value: any): number
 	if type(value) == "number" and value == value then
 		return value
@@ -2271,7 +2291,8 @@ function PlayerlistModel.clean(raw: any, skipUserId: number?)
 			CurrentZone = math.max(1, num(entry.CurrentZone)),
 			Zone = math.max(1, num(entry.Zone)),
 			Rebirths = num(entry.Rebirths),
-			Production = num(entry.Production),
+			-- big-number output (Googol and up) arrives as an encoded value; keep it for formatting and sorting
+			Production = if type(entry.Production) == "number" and entry.Production == entry.Production then entry.Production elseif type(entry.Production) == "string" and (string.match(entry.Production, "^%-?%d+%.?%d*e%-?%d+$") or entry.Production == "inf") then entry.Production else 0,
 			LifetimeCash = num(entry.LifetimeCash),
 			ItemCount = num(entry.ItemCount),
 			DomainRank = num(entry.DomainRank),
@@ -2313,8 +2334,8 @@ function PlayerlistModel.view(rows, sortId: string, query: string?, friendsOnly:
 			if left.Rebirths ~= right.Rebirths then
 				return left.Rebirths > right.Rebirths
 			end
-		elseif left.Production ~= right.Production then
-			return left.Production > right.Production
+		elseif not productionEqual(left.Production, right.Production) then
+			return productionGreater(left.Production, right.Production)
 		end
 		return left.UserId < right.UserId
 	end)
@@ -2391,7 +2412,7 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "collect",
 		title = "Collect your Flux",
-		say = "Click the glowing Collect button!",
+		say = "Collect the vault to turn its Flux into cash.",
 		body = "A full vault stops filling, so collect often.",
 		goal = "Collect the vault",
 		target = "OverviewVaultClaimActions",
@@ -2405,7 +2426,7 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "toWorkshop",
 		title = "Machines live in the Workshop",
-		say = "Now click Workshop. That's where you buy machines.",
+		say = "Now open the Workshop. That's where you buy machines.",
 		body = "Every page is in the menu. Workshop is the one you'll use most.",
 		goal = "Open the Workshop",
 		target = "Nav_Workshop",
@@ -2418,7 +2439,7 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "buy",
 		title = "Buy your first machine",
-		say = "Buy a machine here. More machines, more Flux every second!",
+		say = "Buy a machine here. Every machine adds Flux each second.",
 		body = "Each level adds Flux per second. Grey means you need more cash: collect the vault first.",
 		goal = "Buy a machine",
 		target = "WorkshopBuyClaim",
@@ -2430,7 +2451,7 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "amount",
 		title = "Buy many levels at once",
-		say = "Tap x5 or Max to buy lots of levels in one click.",
+		say = "Pick x5 or Max to buy several levels at once.",
 		body = "x1 buys one level, x5 buys five, Max buys everything you can afford.",
 		goal = "Pick x5 or Max",
 		target = "AmountToggleTarget",
@@ -2443,7 +2464,7 @@ TutorialScript.STEPS = table.freeze({
 		id = "level",
 		title = "Your forge level",
 		say = "This bar is your level. Each new level opens another part of the forge.",
-		body = "Click the bar any time to see every level and what it unlocks.",
+		body = "Open the bar any time to see every level and what it unlocks.",
 		goal = "Look at the level bar",
 		target = { "LevelBarTarget", "MobileHeader" },
 		page = "Workshop",
@@ -2452,7 +2473,7 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "toResearch",
 		title = "Research lasts forever",
-		say = "Click Research. Its bonuses stay even after you rebirth.",
+		say = "Open Research. Its bonuses stay even after you rebirth.",
 		body = "Research opens properly at level 2, but you can take a look now.",
 		goal = "Open Research",
 		target = "Nav_Research",
@@ -2485,7 +2506,7 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "rebirth",
 		title = "Rebirth makes every run faster",
-		say = "Later on, Rebirth trades your machines for Cores. Your research stays!",
+		say = "Later, Rebirth trades your machines for Cores. Your research stays.",
 		body = "The Overview shows how many Cores a rebirth pays before you confirm.",
 		goal = "Learn about rebirth",
 		target = { "Nav_Overview", "Nav_Menu" },
@@ -2496,7 +2517,7 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "finish",
 		title = "You're ready",
-		say = "That's the tour! Replay me from Settings, then Guide. Now go build something huge!",
+		say = "That's the tour. You can replay it from Settings, under Guide.",
 		body = "Collect, buy machines, research, rebirth. Finishing pays a small Flux bonus.",
 		goal = "Finish the guide",
 		target = { "Nav_Settings", "Nav_Menu" },
@@ -2506,11 +2527,11 @@ TutorialScript.STEPS = table.freeze({
 })
 
 TutorialScript.QUIPS = table.freeze({
-	idle = { "Need a hint? Follow my finger!", "The glowing box is the thing to click.", "Beep boop. That tickles!", "I run on Flux. Mostly." },
-	done = { "Nice! On to the next bit.", "You're a natural!", "Woo! Keep going!" },
-	dizzy = { "Whoa... the forge is spinning!", "Okay, okay, no more spins!", "Everything is sparkly now." },
-	pet = { "Hehe, that's nice!", "Bzzzt! Happy sparks!", "You're my favourite forger." },
-	wake = { "Huh? I'm awake! Totally awake.", "Zzz... oh! Where were we?" },
+	idle = { "Stuck? Follow my finger.", "The highlighted box is the next step.", "Careful, I'm ticklish.", "I run on Flux. Mostly." },
+	done = { "Nice. On to the next bit.", "You're a natural.", "That's it. Keep going." },
+	dizzy = { "Whoa. The forge is spinning.", "Okay, okay, no more spins.", "Hang on. Which way is up?" },
+	pet = { "Heh. That's nice.", "My circuits are humming.", "You're my favourite forger." },
+	wake = { "Huh? I'm awake. Totally awake.", "Oh. Where were we?" },
 })
 
 local function num(value: any, fallback: number): number
@@ -3293,6 +3314,7 @@ Schema.SECTIONS = table.freeze({
 	{ id = "display", label = "Graphics", icon = "Boost", accent = "pink", blurb = "Effects, glow and how lively the menus move." },
 	{ id = "interface", label = "Interface", icon = "Settings", accent = "cyan", blurb = "What the screen shows and how it is laid out." },
 	{ id = "accessibility", label = "Accessibility", icon = "Guide", accent = "mango", blurb = "Text size, contrast and color-safe signals." },
+	{ id = "social", label = "Social", icon = "Chat", accent = "violet", blurb = "Who can reach you, and how chat looks." },
 	{ id = "mobile", label = "Phone", icon = "Menu", accent = "blue", blurb = "Sizes and layout for touch screens.", touchOnly = true },
 })
 
@@ -3359,6 +3381,13 @@ Schema.ENTRIES = table.freeze({
 	toggle("ReducedTransparency", "accessibility", "Solid panels", "Less see-through backgrounds.", 0),
 	toggle("LargeTouchTargets", "accessibility", "Large buttons", "Bigger tap targets on touch screens.", 1),
 	slider("HapticIntensity", "accessibility", "Vibration", "How hard the phone buzzes on taps.", 0.65),
+	-- Social: the "who can reach you" choices are enforced by the server, not just hidden in the UI
+	toggle("ChatShowGlobal", "social", "Global chat", "Show messages from every server in the All tab.", 1),
+	toggle("ChatSounds", "social", "Chat sounds", "A soft sound when a message arrives.", 1),
+	choice("ChatTextSize", "social", "Chat text size", "Message text in the chat page.", 0.5, THREE("Small", "Normal", "Large", 0.2, 0.5, 0.85)),
+	toggle("WhispersFriendsOnly", "social", "Whispers from friends only", "Only Roblox friends can start a private chat with you.", 0),
+	choice("CrewInvitePolicy", "social", "Crew invites", "Who can invite you to a crew.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
+	choice("TradeInvitePolicy", "social", "Trade invites", "Who can invite you to trade.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
 	choice("MobileTextScale", "mobile", "Text size", "Text size on phones.", 0.5, SIZE4),
 	choice("MobileQuickReverse", "mobile", "Main thumb", "Which side the overcharge button sits on.", 0, { { label = "Right", value = 0 }, { label = "Left", value = 1 } }),
 	toggle("MobileQuickVisible", "mobile", "Quick buttons", "Vault and overcharge above the menu.", 1),

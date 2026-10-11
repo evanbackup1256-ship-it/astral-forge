@@ -13,9 +13,19 @@ local CHAT_LIMIT = 200
 local ANNOUNCEMENT_LIMIT = 50
 local LOGO_HISTORY_LIMIT = 12
 local CACHE_SECONDS = 8
--- cross-server relay: members on other servers see chat/announcements immediately
-local RELAY_TOPIC = "AF_GuildCommunity_v1"
+-- cross-server relay: members on other servers see chat/announcements immediately.
+-- One topic per guild, subscribed only by servers that currently host a member of that guild.
+-- A single shared topic would deliver every guild's traffic to every server, and that fan-out
+-- (publishes x servers) exhausts the experience-wide receive budget at high server counts.
+local RELAY_PREFIX = "AF_Guild_v2_"
 local RELAY_MAX_BYTES = 900 -- MessagingService caps a message at 1 kB
+local RELAY_RECONCILE_SECONDS = 5
+
+local function relayTopic(guildId: string): string?
+	local topic = RELAY_PREFIX .. guildId
+	-- MessagingService topics are at most 80 characters
+	return if #topic <= 80 and not string.find(guildId, "[^%w%-_]") then topic else nil
+end
 
 export type GuildAnnouncement = {
 	Id: string,
@@ -130,19 +140,58 @@ function GuildCommunity.new(guildService: any, dataService: any, security: any, 
 	self._studio = {} :: { [string]: CommunityDocument }
 	self._store = StoreAccess.data(STORE_NAME)
 	self._alive = true
-	self._relay = nil :: RBXScriptConnection?
+	-- guildId -> live subscription, or true while SubscribeAsync is still in flight
+	self._relays = {} :: { [string]: RBXScriptConnection | boolean }
 	if not StoreAccess.isPreview() then
 		task.spawn(function()
-			local ok, connection = pcall(function()
-				return MessagingService:SubscribeAsync(RELAY_TOPIC, function(envelope)
-					self:_onRelay(if type(envelope) == "table" then envelope.Data else nil)
-				end)
-			end)
-			if not ok then return end
-			if self._alive then self._relay = connection else connection:Disconnect() end
+			while self._alive do
+				self:_reconcileRelays()
+				task.wait(RELAY_RECONCILE_SECONDS)
+			end
 		end)
 	end
 	return self
+end
+
+-- Guilds with at least one member on this server.
+function GuildCommunity:_hostedGuilds(): { [string]: boolean }
+	local hosted = {}
+	for _, player in Players:GetPlayers() do
+		local profile = self._data:Get(player)
+		local guildId = profile and profile.Guild and profile.Guild.Id
+		if type(guildId) == "string" and guildId ~= "" then hosted[guildId] = true end
+	end
+	return hosted
+end
+
+function GuildCommunity:_reconcileRelays()
+	local hosted = self:_hostedGuilds()
+	for guildId, subscription in self._relays do
+		if not hosted[guildId] and typeof(subscription) == "RBXScriptConnection" then
+			subscription:Disconnect()
+			self._relays[guildId] = nil
+		end
+	end
+	for guildId in hosted do
+		local topic = relayTopic(guildId)
+		if topic and self._relays[guildId] == nil then
+			self._relays[guildId] = true
+			task.spawn(function()
+				local ok, connection = pcall(function()
+					return MessagingService:SubscribeAsync(topic, function(envelope)
+						self:_onRelay(if type(envelope) == "table" then envelope.Data else nil)
+					end)
+				end)
+				if not ok then
+					self._relays[guildId] = nil -- retried on the next reconcile
+				elseif self._alive and self._relays[guildId] == true then
+					self._relays[guildId] = connection
+				else
+					connection:Disconnect()
+				end
+			end)
+		end
+	end
 end
 
 function GuildCommunity:_read(guildId: string): CommunityDocument?
@@ -255,7 +304,8 @@ function GuildCommunity:_deliver(guildId: string, payload: any, document: Commun
 end
 
 function GuildCommunity:_publish(guildId: string, payload: any)
-	if self._relay == nil then return end
+	local topic = relayTopic(guildId)
+	if topic == nil or StoreAccess.isPreview() then return end
 	local okEncode, encoded = pcall(function()
 		return HttpService:JSONEncode({ Server = game.JobId, GuildId = guildId, Payload = payload })
 	end)
@@ -264,7 +314,7 @@ function GuildCommunity:_publish(guildId: string, payload: any)
 		encoded = HttpService:JSONEncode({ Server = game.JobId, GuildId = guildId, Refresh = payload.Type })
 	end
 	task.spawn(function()
-		pcall(function() MessagingService:PublishAsync(RELAY_TOPIC, encoded) end)
+		pcall(function() MessagingService:PublishAsync(topic, encoded) end)
 	end)
 end
 
@@ -534,10 +584,10 @@ end
 
 function GuildCommunity:Shutdown()
 	self._alive = false
-	if self._relay then
-		self._relay:Disconnect()
-		self._relay = nil
+	for _, subscription in self._relays do
+		if typeof(subscription) == "RBXScriptConnection" then subscription:Disconnect() end
 	end
+	table.clear(self._relays)
 	table.clear(self._cache)
 	table.clear(self._cacheAt)
 	table.clear(self._studio)

@@ -1408,13 +1408,17 @@ local function DetailPanel(props)
 		accent = style.accent,
 		position = UDim2.fromScale(0.5, 0.46),
 		zIndex = 32,
-		children = h(Icon, {
-			kind = style.icon,
-			color = style.accent,
-			size = 40,
-			spin = false,
+		-- the node's elemental companion: lit once bound, a dim still before that
+		children = h(require(script.Parent.ElementFx).ElementFx, {
+			element = style.element,
+			size = UDim2.fromScale(0.95, 0.95),
 			position = UDim2.fromScale(0.5, 0.5),
-			anchorPoint = Vector2.new(0.5, 0.5),
+			still = not owned,
+			transparency = if owned then 0 elseif available then 0.35 else 0.65,
+			reducedMotion = softMotion,
+			zIndex = 34,
+			reaction = "reveal",
+			reactionKey = owned,
 		}),
 	}), h(Text, {
 		value = `{string.upper(style.element)} AFFINITY`,
@@ -1586,7 +1590,8 @@ local function DomainSkillTree(_param)
 	local detailH = if stack then 250 else panelH - headerH - totalsH - 40
 	local canvasW = if stack then panelW - 24 else panelW - detailW - 36
 	local canvasViewH = if stack then math.max(180, panelH - headerH - totalsH - detailH - 40) else panelH - headerH - totalsH - 40
-	local canvasHost = h(DomainHexStage, {
+	-- the radial constellation replaced the flat hex grid; Hex still draws the detail panel's gem
+	local canvasHost = h(require(script.Parent.DomainConstellation).DomainConstellation, {
 		size = UDim2.fromOffset(canvasW, canvasViewH),
 		position = if stack then UDim2.new() else UDim2.fromOffset(12, headerH + 8),
 		tree = TREE,
@@ -1598,6 +1603,7 @@ local function DomainSkillTree(_param)
 		boundId = boundId,
 		boundToken = boundToken,
 		softMotion = softMotion,
+		coreLabel = `DOMAIN {(domain and domain.Rank) or 0}`,
 	})
 	local bodyChildren = {
 		Grid = canvasHost,

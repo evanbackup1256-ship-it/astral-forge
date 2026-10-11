@@ -1173,7 +1173,7 @@ local function LabView(_param)
 			background = Palette.panelRaised,
 			padding = 20,
 		}, React.createElement(Text, {
-			value = "Lab's still loading — hang on a sec.",
+			value = "Loading the Lab...",
 			size = 15,
 			color = Palette.creamSoft,
 			wrap = true,
@@ -2442,7 +2442,7 @@ local function SpotlightPanel(_param)
 		padding = if stack then 14 else 16, highlight = ready, reducedMotion = reducedMotion, clips = false,
 	}, React.createElement(Text, { value = if ready then "READY TO CLAIM" else "NEXT STEP", size = 10, color = if ready then step.Color else Palette.violet, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 16) }),
 	React.createElement(Text, { value = `Step {step.Step} · {effectLabel(step)}`, size = if stack then 18 else 22, color = Palette.cream, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(0, 18), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 28) }),
-	React.createElement(Text, { value = if needXp then ((guide and guide.NeedXp) or "Earn Forge Path XP by banking flux — it trickles in as you play.") else formatReward(step.Reward), size = 11, color = if needXp then Palette.creamSoft else Palette.mango, wrap = true, position = UDim2.fromOffset(0, 50), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 32) }),
+	React.createElement(Text, { value = if needXp then ((guide and guide.NeedXp) or "Bank flux to earn Forge Path XP.") else formatReward(step.Reward), size = 11, color = if needXp then Palette.creamSoft else Palette.mango, wrap = true, position = UDim2.fromOffset(0, 50), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 32) }),
 	React.createElement(Meter, { value = progressFrac, color = if ready then step.Color else Palette.violet, reducedMotion = reducedMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 96 else 92), size = UDim2.new(1, if stack then 0 else -180, 0, 8) }),
 	React.createElement(Text, { value = `{compactNumber(math.min(xp, step.XPCost))} / {compactNumber(step.XPCost)} XP`, size = 10, color = Palette.muted, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(0, if stack then 110 else 106), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 16) }),
 	if stack then React.createElement("frame", { Name = "ForgePathClaimActions", Size = UDim2.new(1, 0, 0, TapTarget), Position = UDim2.new(0, 0, 1, -TapTarget), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false, ref = claimHostRef },

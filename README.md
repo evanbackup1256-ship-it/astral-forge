@@ -384,17 +384,17 @@ Only run `python tools/spritegen/apply_elements_hq.py` after all 57 uploads
 finish. It verifies source hashes, dimensions, nonempty/distinct frames and
 uploaded IDs before changing the shared sprite configuration. A partial
 generation never replaces the working in-game atlas IDs.
-The active presentation pairs all 57 animated characters with these original
-effect atlases as a soft aura behind each companion. Characters are authored
-with `tools/spritegen/build_characters.py`; after both collections are uploaded,
-`tools/spritegen/apply_character_auras.py` pairs their IDs without replacing the
-characters. Do not use `apply_elements_hq.py` to activate the old effect-only
-presentation. UI auras share the character's playback speed and reduced-motion
-setting; public equipped-companion auras reuse the existing distance-gated
-animation clock. No additional particles, trails, or diamond overlays are added.
-Run `lune run scripts/verify_character_auras.luau` to check all asset pairs,
-layer order, reduced motion, crop sizes, and animation cleanup.
-The new paired presentation still needs an in-game visual check.
+The active presentation is 57 original companions, one per element, authored in
+`tools/spritegen/companions/` (one design function per element, grouped by family).
+Each has its own silhouette and idle animation, and its elemental light is lit into
+its own frames: per-frame light sources tint and rim-light the body and a halo bleeds
+off the outline, so nothing plays behind the character. The effect atlases above are
+no longer active. Rebuild with `python -m tools.spritegen.companions.build` (renders in
+parallel and verifies bounds and distinct frames), `--upload` to publish missing atlases,
+then `--apply` to point `ElementSprites.luau` at them. `preview` and `contact` render
+inspection sheets. Do not use `apply_elements_hq.py` to reactivate the effect atlases.
+Run `lune run scripts/verify_companions.luau` to check the 57 atlases, their concepts and
+single-layer playback. The companions still need an in-game visual check.
 
 ImageLabel playback uses
 **170.5-pixel crops** in the delivered 1024-square UI texture, not the

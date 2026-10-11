@@ -96,6 +96,15 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.SetAutoForge] = { Cost = 0.75, Cooldown = 0.22 },
 		[Protocol.Actions.SetSetting] = { Cost = 0.5, Cooldown = 0.12 },
 		[Protocol.Actions.SetMobileLayout] = { Cost = 0.75, Cooldown = 0.3 },
+		[Protocol.Actions.ChatOpenWhisper] = { Cost = 0.5, Cooldown = 0.5 },
+		[Protocol.Actions.ChatGlobal] = { Cost = 0.5, Cooldown = 1 },
+		[Protocol.Actions.GetCrew] = { Cost = 0.25, Cooldown = 0.3 },
+		[Protocol.Actions.CrewInvite] = { Cost = 1, Cooldown = 1.5 },
+		[Protocol.Actions.CrewRespond] = { Cost = 0.5, Cooldown = 0.5 },
+		[Protocol.Actions.CrewLeave] = { Cost = 0.5, Cooldown = 1 },
+		[Protocol.Actions.CrewKick] = { Cost = 1, Cooldown = 1 },
+		[Protocol.Actions.CrewRename] = { Cost = 1.5, Cooldown = 5 },
+		[Protocol.Actions.CrewClaim] = { Cost = 0.75, Cooldown = 0.75 },
 		[Protocol.Actions.SetTutorialStep] = { Cost = 0.5, Cooldown = 0.12 },
 		[Protocol.Actions.RedeemCode] = { Cost = 2, Cooldown = 1.4 },
 		[Protocol.Actions.VerifyCreatorFollow] = { Cost = 1, Cooldown = 0.8 },
@@ -680,6 +689,18 @@ return function(loadService: (string) -> any)
 			end
 		elseif action == Protocol.Actions.SendGuildChat then
 			if not stringField(payload, "Content", 1, 800) then return false, "invalid guild message" end
+		elseif action == Protocol.Actions.ChatOpenWhisper then
+			if not numberField(payload, "UserId", 1, 1e15, true) then return false, "invalid whisper target" end
+		elseif action == Protocol.Actions.CrewInvite or action == Protocol.Actions.CrewKick then
+			if not numberField(payload, "UserId", 1, 1e15, true) then return false, "invalid crew member" end
+		elseif action == Protocol.Actions.CrewRespond then
+			if type(payload) ~= "table" or type(payload.Accept) ~= "boolean" then return false, "invalid crew reply" end
+		elseif action == Protocol.Actions.CrewRename then
+			if not stringField(payload, "Name", 2, 80) then return false, "invalid crew name" end
+		elseif action == Protocol.Actions.CrewClaim then
+			if not numberField(payload, "Tier", 1, 3, true) then return false, "invalid crew goal" end
+		elseif action == Protocol.Actions.ChatGlobal then
+			if not stringField(payload, "Text", 1, 640) then return false, "invalid global message" end
 		elseif action == Protocol.Actions.GetGuildChatHistory then
 			if payload.BeforeId ~= nil and not stringField(payload, "BeforeId", 1, 64) then return false, "invalid guild history cursor" end
 			if payload.Limit ~= nil and not numberField(payload, "Limit", 1, 50, true) then return false, "invalid guild history limit" end

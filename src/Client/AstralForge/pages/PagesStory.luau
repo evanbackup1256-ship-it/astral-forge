@@ -363,7 +363,7 @@ local function StoryBeat(_param)
 	local action = if final then if claimed then onClose else onClaim else onNext
 	local actionText = if final then if claimed then "Done" else "Collect reward" else "Continue"
 	local actionIcon = if final then if claimed then "Check" else "Gift" else "Chevron"
-	local tipText = if replay then "Replay — browse freely" else `Part {index + 1} of {total}`
+	local tipText = if replay then "Replay: read any part" else `Part {index + 1} of {total}`
 	local decorated = illuminate(text, color)
 	local btnH = if stack then TapTarget else 48
 	local showTip = not condensed and (not stack or not tuned)
@@ -1184,7 +1184,7 @@ local function StoryView(_param)
 		position = UDim2.fromOffset(0, if stack then 112 else 128),
 		sizeConstraint = UDim2.new(1, 0, 0, if stack then 96 else 80),
 	}), not shortLandscape and React.createElement(Text, {
-		value = if finished then "Finished — open anytime to re-read." elseif locked then "Keep playing to unlock this chapter." elseif multi then "Pick a chapter, then start reading." else "Short chapters from under Bay Seven.",
+		value = if finished then "Finished. Open it any time to read again." elseif locked then "Keep playing to unlock this chapter." elseif multi then "Pick a chapter, then start reading." else "Short chapters from under Bay Seven.",
 		size = 13,
 		color = Palette.muted,
 		wrap = true,
@@ -3743,7 +3743,7 @@ local function MarketCard(_param)
 	local accent = if soldOut then Palette.muted else offer.Color
 	local stockBadge = if daily then (if soldOut then (if offer.Price <= 0 then "CLAIMED" else "BOUGHT") elseif stockMax > 1 then `DAILY {stock}/{stockMax}` else "DAILY") else (if soldOut then "SOLD OUT" else `STOCK {stock}`)
 	local stockBadgeAccent = if soldOut then Palette.coral elseif daily then Palette.cyan else Palette.violet
-	local statusLine = if daily then (if soldOut then (if offer.Price <= 0 then "Claimed for today — free key returns at restock." else "Daily buy used — comes back at restock.") else `Refreshes daily · {stock} of {stockMax} left`) else (if soldOut then "Scarce offer empty — wait for drip restock." else `Limited stock · {stock} of {stockMax} remaining`)
+	local statusLine = if daily then (if soldOut then (if offer.Price <= 0 then "Claimed today. The free key returns at restock." else "Bought today. Available again at restock.") else `Refreshes daily · {stock} of {stockMax} left`) else (if soldOut then "Scarce offer empty — wait for drip restock." else `Limited stock · {stock} of {stockMax} remaining`)
 	local buttonText = if soldOut then (if daily then "WAIT FOR RESTOCK" else "SOLD OUT") else "BUY"
 	local cardH = if stack then MARKET_CARD_H_STACK else MARKET_CARD_H
 	local textReserve = if stack then -(56 + 16) else -240
@@ -4849,7 +4849,7 @@ local function InventoryView(_param)
 			ListEmptyComponent = React.createElement(EmptyState, {
 				icon = "Crate",
 				title = "No crate channels",
-				body = "Crate channels unlock as you progress — check back after more story and lab work.",
+				body = "More crate channels open as you progress through the story and the Lab.",
 				accent = Palette.violet,
 				layoutOrder = 0,
 				reducedMotion = reducedMotion,
@@ -4905,7 +4905,7 @@ local function InventoryView(_param)
 			ListEmptyComponent = React.createElement(EmptyState, {
 				icon = "Shop",
 				title = "Market offline",
-				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now — check back after the next restock."),
+				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now. More arrive at the next restock."),
 				accent = Palette.mango,
 				layoutOrder = 0,
 				reducedMotion = reducedMotion,

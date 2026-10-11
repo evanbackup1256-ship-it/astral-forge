@@ -90,7 +90,7 @@ end
 ------------------------------------------------------------------------
 do
 	assert(
-		TradeSettle.GuestLeftMessage(true) == "Guest left during settle — host side was reverted.",
+		TradeSettle.GuestLeftMessage(true) == "Your partner left before the trade finished. Your items were returned.",
 		"guest-left reverted message"
 	)
 	assert(string.find(TradeSettle.GuestLeftMessage(false), "host revert failed", 1, true), "guest-left permanent message")

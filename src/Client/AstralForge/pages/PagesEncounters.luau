@@ -22,6 +22,7 @@ local function EncounterView(props)
 	local busy, setBusy = React.useState(false)
 	local pending = React.useRef(false)
 	local live = React.useRef(true)
+	local lastPreview = React.useRef(nil)
 	local timeout = React.useRef(nil)
 	local serial = React.useRef(0)
 	local width, setWidth = React.useState(320)
@@ -113,7 +114,8 @@ local function EncounterView(props)
 		end
 		add("companion", 180, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 14, accent = Palette.cyan },
 			h(ElementFx, { element = active.Element, size = UDim2.fromOffset(110, 110),
-				position = UDim2.fromOffset(55, 64), reducedMotion = props.reducedMotion }),
+				position = UDim2.fromOffset(55, 64), reducedMotion = props.reducedMotion,
+				reaction = "reveal", reactionKey = active.Id }),
 			h(Ui.Text, { value = if active.Element ~= "" then active.Element .. " companion" else "Solo salvage",
 				size = 18, wrap = true, position = UDim2.fromOffset(120, 0), sizeConstraint = UDim2.new(1, -120, 0, 64) }),
 			h(Ui.Text, { value = if active.Mode == "Trial" then trial.Rule
@@ -165,9 +167,14 @@ local function EncounterView(props)
 			end
 		elseif selected then
 			local trial = Encounters.Trials[Encounters.Family(selected.Element)]
+			-- the same companion gaining mastery spins; picking another companion bounces
+			local previous = lastPreview.current
+			local reaction = if previous and previous.Id == selected.Id and selected.Mastery > previous.Mastery then "mastery" else "select"
+			lastPreview.current = { Id = selected.Id, Mastery = selected.Mastery }
 			add("trial-preview", 320, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 14, accent = Palette.violet },
 				h(ElementFx, { element = selected.Element, size = UDim2.fromOffset(100, 100), position = UDim2.fromOffset(50, 60), reducedMotion = props.reducedMotion,
-					framerate = if selected.Mastery >= 7 then 16 elseif selected.Mastery >= 3 then 12 else 8 }),
+					framerate = if selected.Mastery >= 7 then 16 elseif selected.Mastery >= 3 then 12 else 8,
+					reaction = reaction, reactionKey = `{selected.Id}:{selected.Mastery}` }),
 				h(Ui.Text, { value = trial.Name .. `\nMastery {selected.Mastery}/7`, size = 20, wrap = true,
 					position = UDim2.fromOffset(118, 0), sizeConstraint = UDim2.new(1, -118, 0, 108) }),
 				h(Ui.Text, { value = trial.Rule .. "\n" .. trial.Voice, size = 15, wrap = true, color = Palette.muted,
