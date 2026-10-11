@@ -15322,7 +15322,11 @@ local function OfflineRewardsOverlay(_param)
 	local bigHaul = rate > 0 and rewardAmount >= rate * 3600
 	local rewardGlow = useGlowStroke(bigHaul, softMotion, 0.35, 0.15, 0.62, 1.6)
 	local cardWidth = math.min(if stack then math.max(280, viewport.width - chrome.sideSafe * 2 - 20) else 560, 560)
-	local cardHeight = math.min(if stack then 468 else 420, math.max(300, viewport.height - viewport.topInset - chrome.bottomSafe - 24))
+	local cardHeight = math.min(if stack then 468 else 420, math.max(240, viewport.height - viewport.topInset - chrome.bottomSafe - 24))
+	local innerHeight = cardHeight - 28
+	local statsBottom = if stack then 240 else 242
+	local shortCard = innerHeight < statsBottom + 48 + TapTarget * 2 + 8
+	local tinyCard = shortCard and innerHeight < statsBottom + 10 + TapTarget
 	local finish = React.useCallback(function(bankVault)
 		if closing then
 			return nil
@@ -15488,8 +15492,9 @@ local function OfflineRewardsOverlay(_param)
 		Position = UDim2.fromOffset(0, if stack then 162 else 172),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Visible = not tinyCard,
 	}, _newValue)
-	local _exp_11 = React.createElement(Text, {
+	local _exp_11 = if shortCard then nil else React.createElement(Text, {
 		value = copy,
 		size = 11,
 		color = Palette.creamSoft,
@@ -15512,8 +15517,8 @@ local function OfflineRewardsOverlay(_param)
 		end
 		_attributes.color = Palette.mint
 		_attributes.textColor = Palette.ink
-		_attributes.size = UDim2.new(1, 0, 0, TapTarget)
-		_attributes.position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8))
+		_attributes.size = if shortCard then UDim2.new(0.5, -5, 0, TapTarget) else UDim2.new(1, 0, 0, TapTarget)
+		_attributes.position = if shortCard then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(0, 0, 1, -(TapTarget * 2 + 8))
 		_attributes.reducedMotion = reducedMotion
 		_attributes.disabled = closing
 		_attributes.highlight = true
@@ -15527,8 +15532,8 @@ local function OfflineRewardsOverlay(_param)
 			end,
 			color = Palette.mint,
 			textColor = Palette.ink,
-			size = UDim2.new(1, 0, 0, TapTarget),
-			position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8)),
+			size = if shortCard then UDim2.new(0.5, -5, 0, TapTarget) else UDim2.new(1, 0, 0, TapTarget),
+			position = if shortCard then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(0, 0, 1, -(TapTarget * 2 + 8)),
 			reducedMotion = reducedMotion,
 			disabled = closing,
 			highlight = true,
@@ -15582,8 +15587,8 @@ local function OfflineRewardsOverlay(_param)
 		end,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
+		size = if shortCard then UDim2.new(0.5, -5, 0, TapTarget) else UDim2.new(1, 0, 0, TapTarget),
+		position = if shortCard then UDim2.new(0.5, 5, 1, -TapTarget) else UDim2.new(0, 0, 1, -TapTarget),
 		reducedMotion = reducedMotion,
 		disabled = closing,
 	})))))))

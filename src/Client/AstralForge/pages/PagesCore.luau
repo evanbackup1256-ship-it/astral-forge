@@ -684,7 +684,7 @@ local function OverviewView(_param)
 	local denseHero = chrome.short == true and wideOverview and not phone
 	local readoutRow = if denseHero then heroH - metricCardH - 8 else heroH
 	local ctaH = if denseHero then 40 else TapTarget
-	local heroReadoutH = if landscapePhone then 108 elseif phone then 168 else 0
+	local heroReadoutH = if landscapePhone then 118 elseif phone then 168 else 0
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
 	local opsButtonRows = if stack then 2 else 1
 	local opsButtonH = TapTarget * opsButtonRows + (if stack then 8 else 0)

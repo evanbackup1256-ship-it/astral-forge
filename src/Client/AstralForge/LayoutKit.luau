@@ -861,7 +861,7 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 	local layoutPanelGap = tonumber(flags.layoutPanelGap) or 14
 
 	local heroH = if landscapePhone
-		then 176
+		then 208
 		elseif phone then 272
 		elseif short and wideOverview then 260
 		elseif short then 248

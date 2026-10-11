@@ -68,7 +68,7 @@ local landscapePhone = LayoutSectionPlan.planOverview({
 	chromePanelGap = 8,
 	layoutPanelGap = 14,
 })
-assert(landscapePhone.heroH == 176, "landscape phone hero")
+assert(landscapePhone.heroH == 208, "landscape phone hero")
 assert(landscapePhone.notesH == 132, "landscape phone notes")
 assert(landscapePhone.opsH == 156, "landscape phone ops")
 assert(landscapePhone.countdownH == 128, "landscape phone countdown")
