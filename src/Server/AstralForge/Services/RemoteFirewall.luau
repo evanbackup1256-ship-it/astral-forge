@@ -787,6 +787,9 @@ return function(loadService: (string) -> any)
 			if payload.Option ~= nil and not stringField(payload, "Option", 0, 64) then
 				return false, "invalid admin command option"
 			end
+			if payload.DryRun ~= nil and type(payload.DryRun) ~= "boolean" then
+				return false, "invalid admin preview flag"
+			end
 		elseif action == Protocol.Actions.ReportClientIntegrity then
 			if
 				not stringField(payload, "ActionType", 1, 48)

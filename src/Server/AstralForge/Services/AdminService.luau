@@ -18,6 +18,7 @@ return function(loadService: (string) -> any)
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
+	local AdminPolicy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AdminPolicy"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ServerTelemetry = loadService("ServerTelemetry")
 
@@ -111,8 +112,8 @@ return function(loadService: (string) -> any)
 		ResetMachines = { Label = "Reset every machine", Option = false, Category = "Resets" },
 		MaxResearch = { Label = "Max every research", Option = false, Category = "Progress" },
 		ResetResearch = { Label = "Reset every research", Option = false, Category = "Resets" },
-		MaxGrid = { Label = "Max Star Grid", Option = false, Category = "Progress" },
-		ResetGrid = { Label = "Reset Star Grid", Option = false, Category = "Resets" },
+		MaxGrid = { Label = "Max legacy foundations", Option = false, Category = "Progress" },
+		ResetGrid = { Label = "Reset legacy foundations", Option = false, Category = "Resets" },
 		FillPityAll = { Label = "Max pity on every crate", Option = false, Category = "Items" },
 		ResetTrades = { Label = "Reset daily trades", Option = false, Category = "Resets" },
 		ResetDailies = { Label = "Reset all daily clocks", Option = false, Category = "Resets" },
@@ -545,6 +546,9 @@ return function(loadService: (string) -> any)
 		table.sort(online, function(left, right) return left.Name < right.Name end)
 		local commands = {}
 		for id, definition in COMMANDS do
+			if not AdminPolicy.Allows(role, id, definition) then
+				continue
+			end
 			table.insert(commands, {
 				Id = id,
 				Label = definition.Label,
@@ -1259,12 +1263,15 @@ return function(loadService: (string) -> any)
 		local command = CommandSchema.canonical(cleanText(payload.Command, 48), COMMANDS)
 		local definition = command and COMMANDS[command]
 		if not definition then return { ok = false, error = "Unknown admin command." } end
+		local permitted, permissionError = AdminPolicy.Allows(role, command :: string, definition)
+		if not permitted then return { ok = false, error = permissionError } end
+		local dryRun = payload.DryRun == true
 		local nonce = cleanText(payload.Nonce, 80)
 		if #nonce < 8 or not self:_consumeNonce(actor, nonce) then
 			return { ok = false, error = "This admin request was already processed." }
 		end
 		local reason = cleanText(payload.Reason, 96)
-		if #reason < 3 then return { ok = false, error = "Add a short audit reason." } end
+		if #reason < 3 and not dryRun then return { ok = false, error = "Add a short audit reason." } end
 		local option = cleanText(payload.Option, 64)
 		if definition.Moderation == true then
 			local duration, problem = CommandSchema.validate(command,definition,payload.Amount,option)
@@ -1273,6 +1280,16 @@ return function(loadService: (string) -> any)
 			if not targetUserId or targetUserId ~= math.floor(targetUserId) then
 				return { ok = false, error = "Pick a player to moderate." }
 			end
+			if dryRun then
+				local subject = Players:GetPlayerByUserId(targetUserId)
+				return {
+					ok = true,
+					DryRun = true,
+					message = `Preview: {definition.Label} → {if subject then subject.Name else tostring(targetUserId)}.`,
+					Preview = { `{definition.Label}: {if option ~= "" then option else tostring(duration)}` },
+					PreviewTotal = 1,
+				}
+			end
 			return self:_moderate(actor, command, targetUserId, duration, option, reason)
 		end
 		local target = onlinePlayer(payload.TargetUserId)
@@ -1280,6 +1297,36 @@ return function(loadService: (string) -> any)
 		if not self._data:Get(target) then return { ok = false, error = "Target profile is still loading." } end
 		local amount, inputError = CommandSchema.validate(command, definition, payload.Amount, option)
 		if amount == nil then return { ok = false, error = inputError } end
+
+		if dryRun then
+			if definition.World == true then
+				return {
+					ok = true,
+					DryRun = true,
+					message = `Preview: {definition.Label} plays on {target.Name}'s screen only. No saved data changes.`,
+					Preview = {},
+					PreviewTotal = 0,
+				}
+			end
+			local handler = profileHandlers[command]
+			if not handler then return { ok = false, error = "Admin command has no executor." } end
+			local before = AdminPolicy.DeepCopy(self._data:Get(target))
+			local scratch = AdminPolicy.DeepCopy(before)
+			local okRun, applied = pcall(handler, scratch, amount, option)
+			if not okRun then return { ok = false, error = "Preview failed: " .. tostring(applied) } end
+			if type(applied) == "table" and applied.ok == false then return applied end
+			local lines, total = AdminPolicy.Diff(before, scratch, 10)
+			local previewNote = if type(applied) == "table" and type(applied.note) == "string" then " " .. applied.note else ""
+			return {
+				ok = true,
+				DryRun = true,
+				message = (if total == 0
+					then `Preview: {definition.Label} would change nothing for {target.Name}.`
+					else `Preview: {total} saved value{if total == 1 then "" else "s"} change for {target.Name}.`) .. previewNote,
+				Preview = lines,
+				PreviewTotal = total,
+			}
+		end
 
 		if definition.World == true then
 			local ok, worldMessage = applyWorld(actor, target, command, amount, option)

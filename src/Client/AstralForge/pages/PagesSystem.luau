@@ -2777,6 +2777,7 @@ local function AdminViewReady(_param)
 	local shakeToken, setShakeToken = React.useState(0)
 	local lastNote, setLastNote = React.useState((admin and admin.LastAction and admin.LastAction.Message) or "")
 	local lastOk, setLastOk = React.useState((admin and admin.LastAction and admin.LastAction.Ok) or true)
+	local previewLines, setPreviewLines = React.useState({} :: { string })
 	local mountedRef = React.useRef(true)
 	local executeAttempt = React.useRef(0)
 	local enter = useEntrance(softMotion)
@@ -2821,6 +2822,7 @@ local function AdminViewReady(_param)
 
 	React.useEffect(function()
 		setArmed(false)
+		setPreviewLines({})
 	end, { amount, command, option, reason, targetId })
 
 	React.useEffect(function()
@@ -2878,18 +2880,12 @@ local function AdminViewReady(_param)
 	local reasonChoices = reasonsFor(command, selected and selected.Category)
 	local fieldSlots = (if fields.usesAmount then 1 else 0) + (if fields.usesOption then 1 else 0) + (if needsArm then 1 else 0)
 
-	local execute = function()
-		if busyRef.current then return end
-		if needsArm and not armed then
-			setArmed(true)
-			Audio:play("adminArm")
-			return
-		end
+	local send = function(dryRun: boolean)
 		busyRef.current = true
 		setBusy(true)
 		local attempt = executeAttempt.current + 1
 		executeAttempt.current = attempt
-		Audio:play("adminExecute")
+		Audio:play(if dryRun then "click" else "adminExecute")
 		local sendAmount = if amount == "Permanent" then "1" else (if amount ~= "" then amount else "1")
 		local sendOption = if amount == "Permanent" then "Permanent" else option
 		local sendTarget = if fields.overridesTarget then (tonumber(amount) or targetId) else targetId
@@ -2899,18 +2895,35 @@ local function AdminViewReady(_param)
 			Amount = sendAmount,
 			Option = sendOption,
 			Reason = reason,
+			DryRun = dryRun,
 			Nonce = HttpService:GenerateGUID(false),
 		}, function(response)
 			if not mountedRef.current or executeAttempt.current ~= attempt then return end
 			busyRef.current = false
 			setBusy(false)
-			setArmed(false)
+			if not dryRun then setArmed(false) end
 			setLastOk(response.ok == true)
 			setLastNote(if response.ok == true then (response.message or "Done.") else (response.error or "Failed."))
+			setPreviewLines(if dryRun and response.ok == true and type(response.Preview) == "table" then response.Preview else {})
 			if response.ok ~= true then
 				setShakeToken(function(t) return t + 1 end)
 			end
 		end)
+	end
+
+	local execute = function()
+		if busyRef.current then return end
+		if needsArm and not armed then
+			setArmed(true)
+			Audio:play("adminArm")
+			return
+		end
+		send(false)
+	end
+
+	local preview = function()
+		if busyRef.current then return end
+		send(true)
 	end
 
 	local runDisabled = busy or (if fields.overridesTarget then #fields.amountChoices == 0 else targetId == 0) or (needsArm and #reason < 3)
@@ -2920,7 +2933,7 @@ local function AdminViewReady(_param)
 	local FIELD_H = 50
 	local EXEC_TITLE = 120
 	local EXEC_BUTTON = 46
-	local EXEC_NOTE = 36
+	local EXEC_NOTE = 36 + math.min(#previewLines, 6) * 14
 	local executeH = EXEC_TITLE + math.max(0, fieldSlots) * FIELD_H + EXEC_BUTTON + EXEC_NOTE + 20
 
 	local INSPECT_TITLE = 34
@@ -3262,11 +3275,28 @@ local function AdminViewReady(_param)
 		ClipsDescendants = false,
 		ref = executeActionsHostRef,
 	}, React.createElement("frame", {
-		Name = "AdminConfirmRun",
-		Size = UDim2.fromScale(1, 1),
+		Name = "AdminPreviewRun",
+		Size = UDim2.new(0.34, -5, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
+	}, React.createElement(Button, {
+		text = "PREVIEW",
+		icon = "Search",
+		onClick = preview,
+		color = Palette.panelSoft,
+		textColor = Palette.text,
+		size = UDim2.new(1, 0, 0, 48),
+		position = UDim2.new(0, 0, 0.5, -24),
+		disabled = runDisabled,
+			reducedMotion = softMotion,
+	})), React.createElement("frame", {
+		Name = "AdminConfirmRun",
+		ClipsDescendants = false,
+		Size = UDim2.new(0.66, -5, 1, 0),
+		Position = UDim2.fromScale(0.34, 0) + UDim2.fromOffset(5, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
 	}, React.createElement(Button, {
 		text = runLabel,
 		icon = "Lock",
@@ -3281,7 +3311,8 @@ local function AdminViewReady(_param)
 		highlight = armed or not needsArm,
 			reducedMotion = softMotion,
 	}))), React.createElement(Text, {
-		value = if lastNote ~= "" then lastNote else (if needsArm then "Arm first. Dangerous commands need a second tap." else "Economy, progress, and item grants run on one tap."),
+		value = (if lastNote ~= "" then lastNote else (if needsArm then "Arm first. Dangerous commands need a second tap." else "Preview shows saved changes first. Run applies them."))
+			.. (if #previewLines > 0 then "\n• " .. table.concat(previewLines, "\n• ", 1, math.min(#previewLines, 6)) else ""),
 		size = 9,
 		color = if lastNote ~= "" then (if lastOk then Palette.mint else Palette.coral) else Palette.muted,
 		wrap = true,
@@ -3382,99 +3413,7 @@ local function AdminViewReady(_param)
 	})
 end
 local function AdminView(_param)
-	local state = _param.state
-	local config = _param.config
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local admin = state.Admin
-
-	local antilag = useAntilag()
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-
-	local targetId, setTargetId = React.useState((admin and admin.SelfUserId) or (admin and admin.Online and admin.Online[1] and admin.Online[1].UserId) or 0)
-	local command, setCommand = React.useState((admin and admin.Commands and admin.Commands[1] and admin.Commands[1].Id) or "GrantFlux")
-	local category, setCategory = React.useState("All")
-	local playerQuery, setPlayerQuery = React.useState("")
-	local commandQuery, setCommandQuery = React.useState("")
-	local amount, setAmount = React.useState("1000")
-	local option, setOption = React.useState("")
-	local reason, setReason = React.useState(reasonsFor("GrantFlux", "Economy")[1].id)
-	local armed, setArmed = React.useState(false)
-	local busy, setBusy = React.useState(false)
-	local busyRef = React.useRef(false)
-	local shakeToken, setShakeToken = React.useState(0)
-	local lastNote, setLastNote = React.useState((admin and admin.LastAction and admin.LastAction.Message) or "")
-	local lastOk, setLastOk = React.useState((admin and admin.LastAction and admin.LastAction.Ok) or true)
-	local mountedRef = React.useRef(true)
-	local executeAttempt = React.useRef(0)
-	local enter = useEntrance(softMotion)
-	local toolsReveal = useStagger(0, softMotion)
-
-	React.useEffect(function()
-		return function()
-			mountedRef.current = false
-			executeAttempt.current += 1
-		end
-	end, {})
-
-	React.useEffect(function()
-		if targetId == 0 and admin and admin.SelfUserId then
-			setTargetId(admin.SelfUserId)
-		end
-	end, { admin and admin.SelfUserId, targetId })
-
-	React.useEffect(function()
-		local online = (admin and admin.Online) or {}
-		if #online == 0 then return end
-		local found = false
-		for _, p in online do
-			if p.UserId == targetId then found = true break end
-		end
-		if not found then
-			setTargetId((admin and admin.SelfUserId) or online[1].UserId)
-		end
-	end, { admin and admin.Online, admin and admin.SelfUserId, targetId })
-
-	React.useEffect(function()
-		local commands = (admin and admin.Commands) or {}
-		if #commands == 0 then return end
-		local found = false
-		for _, c in commands do
-			if c.Id == command then found = true break end
-		end
-		if not found then
-			setCommand(commands[1].Id or "GrantFlux")
-		end
-	end, { admin and admin.Commands, command })
-
-	React.useEffect(function()
-		setArmed(false)
-	end, { amount, command, option, reason, targetId })
-
-	React.useEffect(function()
-		local layout = fieldsFor(command, config, admin and admin.Banned)
-		local commands = (admin and admin.Commands) or {}
-		local current = nil
-		for _, c in commands do
-			if c.Id == command then current = c break end
-		end
-		local reasonChoices = reasonsFor(command, current and current.Category)
-		setAmount(layout.defaultAmount)
-		setOption(layout.defaultOption)
-		setReason(reasonChoices[1] and reasonChoices[1].id or "Owner gameplay administration")
-		if layout.overridesTarget and layout.defaultAmount ~= "" then
-			local userId = tonumber(layout.defaultAmount)
-			if userId then setTargetId(userId) end
-		end
-	end, { command })
-
-	React.useEffect(function()
-		if not (admin and admin.LastAction) then return end
-		setLastNote(admin.LastAction.Message)
-		setLastOk(admin.LastAction.Ok)
-	end, { admin and admin.LastAction })
-
+	local admin = _param.state.Admin
 	if not (admin and admin.Access == true) then
 		return React.createElement(EmptyState, {
 			icon = "Lock",

@@ -5382,12 +5382,16 @@ local function MainGame(_param)
 		elseif action == "StudioGrantProduct" then
 			Audio:play("purchase")
 		elseif action == "AdminExecute" then
-			Audio:play("confirm")
 			local _condition_4 = response.message
 			if _condition_4 == nil then
 				_condition_4 = "Done."
 			end
-			addNotice("Change applied", _condition_4, "Success")
+			if response.DryRun == true then
+				addNotice("Preview ready", _condition_4, "Info")
+			else
+				Audio:play("confirm")
+				addNotice("Change applied", _condition_4, "Success")
+			end
 		elseif action == "InviteTrade" then
 			Audio:play("invite")
 			local _condition_4 = response.message

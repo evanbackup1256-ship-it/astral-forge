@@ -264,7 +264,7 @@ local GameConfig = {
 			{
 				Id = "GridSurvey",
 				Name = "Grid Survey",
-				Description = "Tune Star Grid routes until the lattice answers.",
+				Description = "Tune forge builds and survey routes until the lattice answers.",
 				Kind = "BuyLevels",
 				BaseTarget = 15,
 				ProductionSeconds = 0,
@@ -4823,12 +4823,12 @@ local GameConfig = {
 		{
 			Id = "stardust-map",
 			Title = "Stardust Map",
-			Chapter = "LORE: STAR GRID",
+			Chapter = "LORE: FOUNDATIONS",
 			Summary = "Why dust sticks after rebirth.",
 			Body = {
 				"Stardust isn't spare change. It's residue from pruned timelines — dense enough to solder permanent routes.",
-				"The Star Grid is Vale's slow constellation: output, vault, charge, critical, offline, automation.",
-				"Light the nodes in order. Skip ahead and the previous dark node eats the spark.",
+				"Vale's old constellation still hums under the floor: every route lit before the forge was rebuilt stays lit.",
+				"Today the dust goes into specializations. Pick a build, and the forge leans into it.",
 			},
 			Kind = "LifetimeCash",
 			Target = 5_000,
