@@ -25,13 +25,13 @@ end
 local research = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
 local wheel = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
 local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
-local star = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
+local builds = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
 local boot = fs.readFile("src/Client/AstralForge/BootKit.luau#BootScreen")
 local prank = fs.readFile("src/Client/AstralForge/UiCore.luau#AdminPrankOverlay")
 assert(string.find(research, "local softMotion = ", 1, true), "Research softMotion")
 assert(string.find(wheel, "local softMotion = ", 1, true), "Wheel softMotion")
 assert(string.find(chat, "local softMotion = ", 1, true) or string.find(chat, "local softMotion = reducedMotion", 1, true), "Chat softMotion")
-assert(string.find(star, "local softMotion = ", 1, true) or string.find(star, "local softMotion = reducedMotion", 1, true), "StarGrid softMotion")
+assert(string.find(builds, "reducedMotion = props.reducedMotion", 1, true), "Specializations reduced motion")
 assert(string.find(boot, "local softMotion = ", 1, true), "BootScreen softMotion")
 assert(string.find(prank, "local softMotion = ", 1, true), "AdminPrank softMotion")
 do
@@ -41,13 +41,8 @@ do
 	end
 	assert(soft >= 12, "Research softMotion densify, got " .. tostring(soft))
 end
-do
-	local soft = 0
-	for _ in string.gmatch(wheel, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 11, "Wheel softMotion (single scroll), got " .. tostring(soft))
-end
+assert(string.find(wheel, "if reducedMotion then", 1, true), "wheel reduced-motion landing")
+assert(string.find(wheel, "reducedMotion = reducedMotion", 1, true), "active renderer receives motion preference")
 do
 	local soft = 0
 	for _ in string.gmatch(boot, "softMotion") do
@@ -66,8 +61,8 @@ end
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = ', 1, true), "Chat DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = ', 1, true), "Research DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = ', 1, true), "StarGrid DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = ', 1, true), "Wheel DENSE floor")
+assert(string.find(playability, '"src/Client/AstralForge/pages/PagesSpecializations.luau"', 1, true), "Specializations hot-page coverage")
+assert(string.find(playability, "wheel controller must provide immediate reduced-motion landing", 1, true), "Wheel motion coverage")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave41-offline-brief"', 1, true), "Story wave41")

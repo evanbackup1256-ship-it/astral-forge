@@ -562,8 +562,6 @@ local function OverviewView(_param)
 	local missionsReady = PageReadyMath.CountReadyQuests(state.Quests)
 	local labReady = PageReadyMath.CountReadyLabOrders(state.Lab)
 	local pathReady = PageReadyMath.ForgePathReady(state, config)
-	local cipherGate = state.FeatureUnlocks and state.FeatureUnlocks.Cipher
-	local cipherOpen = (cipherGate == nil or cipherGate.Unlocked ~= false) and PageReadyMath.CipherOpen(state.Sky)
 	local opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, false)
 	local opsGuide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Overview else nil
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
@@ -1194,7 +1192,7 @@ local function OverviewView(_param)
 				end
 			end
 		end
-		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady, cipher = cipherOpen }) else nil
+		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady }) else nil
 		if adaptiveGoal then
 			title, body, fillLine = adaptiveGoal.title, adaptiveGoal.body, ""
 			meter, statValue, statLabel = adaptiveGoal.progress, adaptiveGoal.value, adaptiveGoal.label
@@ -1417,20 +1415,20 @@ local function OverviewView(_param)
 		highlight = pathReady,
 		layoutOrder = 2,
 	}), React.createElement(Button, {
-		text = if cipherOpen then "CIPHER · OPEN" else "CIPHER",
-		icon = "Code",
+		text = "BLACK MARKET",
+		icon = "Shop",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
-				_result = _result("Cipher")
+				_result = _result("Bazaar")
 			end
 			return _result
 		end,
-		color = if cipherOpen then Palette.pink else Palette.panelSoft,
-		textColor = if cipherOpen then Palette.ink else Palette.creamSoft,
+		color = Palette.panelSoft,
+		textColor = Palette.creamSoft,
 		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
-		highlight = cipherOpen,
+		highlight = false,
 		layoutOrder = 3,
 	}))),
 			},

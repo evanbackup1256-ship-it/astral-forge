@@ -2,16 +2,15 @@ local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
 local core = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@flamework"].core.out)
 local Reflect = core.Reflect
 local Controller = core.Controller
-local UserInputService = game:GetService("UserInputService")
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local Geom = require(script.Parent.LayoutKit)("layoutGeom")
 local Plan = require(script.Parent.LayoutKit)("layoutGuardPlan")
-local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
+local Diagnostics = require(script.Parent.LayoutDiagnostics)
+local diagnostics = Diagnostics.new(os.clock)
 local IGNORE_ATTRIBUTE = "LayoutGuardIgnore"
 local FIT_SLOP = 6
 local WILD_ASPECT_SLOP = 2
 local MAX_TRIES = Plan.MAX_TRIES
-local CANVAS_SHARP_EDGE = 512
 local stats = {
 	scans = 0,
 	freshChecked = 0,
@@ -41,21 +40,9 @@ local REPORT_EVERY = 60
 local FRAME_BUDGET_SECONDS = 0.0015
 local TEXT_COVER_SHARE = 0.08
 local TEXT_COVER_HEIGHT = 0.3
-local MIN_LABEL_WIDTH = 40
-local LABEL_GAP = 6
 local tryCount = setmetatable({}, { __mode = "k" })
 local abandoned = setmetatable({}, { __mode = "k" })
-local pendingFloor = setmetatable({}, { __mode = "k" })
-local floorRejected = setmetatable({}, { __mode = "k" })
-local followUp: ((Instance) -> ())? = nil
-local touchProfile = false
--- Online repair model. Every inspection is a labelled sample ("did this element need a
--- repair?") for its signature: class + name + parent name, which is stable across
--- remounts of the same React tree. Each signature keeps a running repair probability
--- (a 1/n mean that settles into an exponential average), so the guard learns which
--- parts of the UI actually break on this device and re-checks those between sweeps.
--- Signatures whose repairs keep getting undone by their owner are learned as
--- "fighting" and left alone instead of burning budget every frame.
+-- Inspection priority is learned from observed defects, not from changing the UI.
 local LEARN_RATE = 0.18
 local HOT_THRESHOLD = 0.3
 local HOT_CAP = 48
@@ -129,9 +116,6 @@ local function noteThrash(inst)
 		ClientLog:warnEvery(`layoutguard:fight:{signature}`, 120, "LayoutGuard", `{signature} keeps undoing repairs; learned to leave it alone`)
 	end
 end
-local function repairTotal()
-	return stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton + stats.textWrapped + stats.labelsUntangled + stats.stackSeparated + stats.pulledIntoView
-end
 local function isFiniteNumber(value)
 	return value == value and value ~= math.huge and value ~= -math.huge
 end
@@ -169,11 +153,15 @@ local function engineOwns(gui)
 	return false
 end
 local function allowWrite(inst)
+	if not Diagnostics.canRecover(inst, "Canvas") and not Diagnostics.canRecover(inst, "FloatingPanel") then
+		return false
+	end
 	if abandoned[inst] or suppressed(inst) then
 		return false
 	end
 	local tries = tryCount[inst] or 0
 	if tries >= MAX_TRIES then
+		diagnostics:record(inst, "OwnerConflict", "Scoped recovery repeatedly reset by owner; further writes suppressed")
 		abandoned[inst] = true
 		stats.gaveUp += 1
 		noteThrash(inst)
@@ -195,32 +183,6 @@ local function isTrackedClass(instance)
 	end
 	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame") or isFloatingPanel(instance)
 end
-local function applyTextFloor(label): boolean
-	local original = pendingFloor[label]
-	if original ~= nil then
-		pendingFloor[label] = nil
-		if not label.TextFits then
-			label.TextSize = original
-			floorRejected[label] = true
-			stats.textFloorReverted += 1
-		end
-		return true
-	end
-	if floorRejected[label] or not touchProfile or not label:IsA("TextLabel") and not label:IsA("TextButton") then
-		return false
-	end
-	local target = Plan.textFloor(touchProfile, label.TextSize, label.TextScaled)
-	if target == nil or not label.TextFits then
-		return false
-	end
-	pendingFloor[label] = label.TextSize
-	label.TextSize = target
-	stats.textFloorRaised += 1
-	if followUp ~= nil then
-		followUp(label)
-	end
-	return true
-end
 local function repairText(label)
 	if abandoned[label] or label:GetAttribute(IGNORE_ATTRIBUTE) == true then
 		return nil
@@ -232,46 +194,11 @@ local function repairText(label)
 	if size.X < 8 or size.Y < 8 or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
 		return nil
 	end
-	if applyTextFloor(label) then
-		return nil
-	end
 	if label.TextFits then
 		tryCount[label] = nil
 		return nil
 	end
-	if not allowWrite(label) then
-		return nil
-	end
-	if Plan.shouldWrap(label.TextSize, size.Y, label.TextWrapped, label.TextScaled) then
-		label.TextWrapped = true
-		stats.textWrapped += 1
-		if followUp ~= nil then
-			followUp(label)
-		end
-		return nil
-	end
-	local wrote = false
-	if not label.TextScaled then
-		label.TextScaled = true
-		wrote = true
-		local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
-		if constraint == nil then
-			constraint = Instance.new("UITextSizeConstraint")
-			constraint.Name = "LayoutGuardTextFit"
-			constraint.MinTextSize = if touchProfile then 9 else 8
-			constraint.MaxTextSize = math.clamp(label.TextSize, 8, 42)
-			constraint.Parent = label
-		end
-	elseif not label.TextWrapped and label.TextTruncate == Enum.TextTruncate.None then
-		label.TextTruncate = Enum.TextTruncate.AtEnd
-		wrote = true
-	end
-	if wrote then
-		stats.textFitFixed += 1
-	else
-		abandoned[label] = true
-		stats.gaveUp += 1
-	end
+	diagnostics:record(label, "TextOverflow", `Text {label.TextBounds.X}×{label.TextBounds.Y} exceeds box {size.X}×{size.Y}; owner must wrap, reflow or allocate space`)
 end
 local function repairButton(button)
 	if button:IsA("TextButton") then
@@ -305,16 +232,7 @@ local function repairButton(button)
 		tryCount[button] = nil
 		return nil
 	end
-	if not allowWrite(button) then
-		return nil
-	end
-	local fitted = Geom.fitRect(rect, box, button.AnchorPoint.X, button.AnchorPoint.Y, 28, 28)
-	local dw = Geom.rectWidth(fitted) - size.X
-	local dh = Geom.rectHeight(fitted) - size.Y
-	local shift = Geom.offsetDelta(button.AnchorPoint.X, button.AnchorPoint.Y, fitted.x0 - pos.X, fitted.y0 - pos.Y, dw, dh)
-	button.Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset + dw, button.Size.Y.Scale, button.Size.Y.Offset + dh)
-	button.Position = UDim2.new(button.Position.X.Scale, button.Position.X.Offset + shift.x, button.Position.Y.Scale, button.Position.Y.Offset + shift.y)
-	stats.outOfBoxFixed += 1
+	if parent.ClipsDescendants then diagnostics:record(button, "ClippedAction", "Action exceeds its clipped parent bounds") end
 end
 local function repairFloatingPanel(panel)
 	if abandoned[panel] or panel:GetAttribute(IGNORE_ATTRIBUTE) == true or not panel.Visible then
@@ -340,35 +258,13 @@ local function repairFloatingPanel(panel)
 		tryCount[panel] = nil
 		return nil
 	end
+	diagnostics:record(panel, "ViewportOverflow", `Panel exceeds viewport by {dx}, {dy} pixels`)
+	if not Diagnostics.canRecover(panel, "FloatingPanel") then return end
 	if not allowWrite(panel) then
 		return nil
 	end
 	panel.Position = UDim2.new(panel.Position.X.Scale, panel.Position.X.Offset + dx, panel.Position.Y.Scale, panel.Position.Y.Offset + dy)
 	stats.pulledIntoView += 1
-end
-local function repairCanvasGroup(group)
-	if abandoned[group] or group:GetAttribute(IGNORE_ATTRIBUTE) == true or engineOwns(group) then
-		return nil
-	end
-	local size = group.AbsoluteSize
-	local pos = group.AbsolutePosition
-	if not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y) or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
-		return nil
-	end
-	if math.max(size.X, size.Y) > CANVAS_SHARP_EDGE then
-		return nil
-	end
-	local dx = Geom.snapPixel(pos.X) - pos.X
-	local dy = Geom.snapPixel(pos.Y) - pos.Y
-	if math.abs(dx) < 0.05 and math.abs(dy) < 0.05 then
-		tryCount[group] = nil
-		return nil
-	end
-	if not allowWrite(group) then
-		return nil
-	end
-	group.Position = UDim2.new(group.Position.X.Scale, group.Position.X.Offset + dx, group.Position.Y.Scale, group.Position.Y.Offset + dy)
-	stats.canvasSharpFixed += 1
 end
 local function repairScrollingFrame(descendant)
 	if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
@@ -377,61 +273,66 @@ local function repairScrollingFrame(descendant)
 	local heldScroll = false
 	if not descendant.ScrollingEnabled and descendant:GetAttribute("LayoutGuardAllowDisabledScroll") ~= true then
 		heldScroll = true
-		if allowWrite(descendant) then
-			descendant.ScrollingEnabled = true
-			stats.scrollingReenabled += 1
-			ClientLog:warnEvery(`layoutguard:scrolldisabled:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} had ScrollingEnabled=false with no opt-out attribute — re-enabled`)
-		end
+		diagnostics:record(descendant, "DisabledScroll", "Owner disabled scrolling without LayoutGuardAllowDisabledScroll")
 	end
 	if descendant.AutomaticCanvasSize ~= Enum.AutomaticSize.None then
 		return nil
 	end
-	local maxBottom = 0
+	local maxBottom, maxRight = 0, 0
+	local size = descendant.AbsoluteSize
+	local pad = descendant:FindFirstChildOfClass("UIPadding")
+	local bottomPad = if pad then pad.PaddingBottom.Scale * size.Y + pad.PaddingBottom.Offset else 0
+	local rightPad = if pad then pad.PaddingRight.Scale * size.X + pad.PaddingRight.Offset else 0
 	for _, child in descendant:GetChildren() do
 		if child:IsA("UIListLayout") or child:IsA("UIGridLayout") then
 			local layoutContentHeight = child.AbsoluteContentSize.Y
-			if isFiniteNumber(layoutContentHeight) then
-				maxBottom = layoutContentHeight
-			end
-			break
+			local layoutContentWidth = child.AbsoluteContentSize.X
+			if isFiniteNumber(layoutContentHeight) then maxBottom = math.max(maxBottom, layoutContentHeight) end
+			if isFiniteNumber(layoutContentWidth) then maxRight = math.max(maxRight, layoutContentWidth) end
+		elseif child:IsA("GuiObject") and child.Visible then
+			local bottom = child.AbsolutePosition.Y - descendant.AbsolutePosition.Y + descendant.CanvasPosition.Y + child.AbsoluteSize.Y
+			local right = child.AbsolutePosition.X - descendant.AbsolutePosition.X + descendant.CanvasPosition.X + child.AbsoluteSize.X
+			if isFiniteNumber(bottom) then maxBottom = math.max(maxBottom, bottom) end
+			if isFiniteNumber(right) then maxRight = math.max(maxRight, right) end
 		end
 	end
-	if maxBottom <= 0 then
-		for _, child in descendant:GetChildren() do
-			if not child:IsA("GuiObject") or not child.Visible then
-				continue
-			end
-			local bottom = child.Position.Y.Scale * descendant.AbsoluteSize.Y + child.Position.Y.Offset + child.Size.Y.Scale * descendant.AbsoluteSize.Y + child.Size.Y.Offset
-			if isFiniteNumber(bottom) then
-				maxBottom = math.max(maxBottom, bottom)
-			end
-		end
-	end
-	if maxBottom <= 0 then
-		return nil
-	end
-	local currentCanvas = descendant.CanvasSize.Y.Offset
-	if currentCanvas + 24 >= maxBottom then
+	if maxBottom > 0 then maxBottom += bottomPad end
+	if maxRight > 0 then maxRight += rightPad end
+	local direction = descendant.ScrollingDirection
+	local xScroll = direction == Enum.ScrollingDirection.X or direction == Enum.ScrollingDirection.XY
+	local yScroll = direction ~= Enum.ScrollingDirection.X
+	local canvas = descendant.CanvasSize
+	local currentX = math.max(size.X, canvas.X.Scale * size.X + canvas.X.Offset)
+	local currentY = math.max(size.Y, canvas.Y.Scale * size.Y + canvas.Y.Offset)
+	local shortX = xScroll and currentX + 1 < maxRight
+	local shortY = yScroll and currentY + 1 < maxBottom
+	if not shortX and not shortY then
 		if not heldScroll then
 			tryCount[descendant] = nil
 		end
 		return nil
 	end
+	diagnostics:record(descendant, "CanvasOverflow", `Canvas {currentX}×{currentY}px is shorter than content {maxRight}×{maxBottom}px`)
+	if not Diagnostics.canRecover(descendant, "Canvas") then return end
 	if not allowWrite(descendant) then
 		return nil
 	end
-	descendant.CanvasSize = UDim2.new(descendant.CanvasSize.X.Scale, descendant.CanvasSize.X.Offset, 0, math.ceil(maxBottom))
+	descendant.CanvasSize = UDim2.new(
+		if shortX then 0 else canvas.X.Scale, if shortX then math.ceil(maxRight) else canvas.X.Offset,
+		if shortY then 0 else canvas.Y.Scale, if shortY then math.ceil(maxBottom) else canvas.Y.Offset
+	)
 	stats.canvasDesyncFixed += 1
-	ClientLog:warnEvery(`layoutguard:canvas:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} CanvasSize ({currentCanvas}px) was shorter than its content ({string.format("%.0f", maxBottom)}px) — resynced`)
+	ClientLog:warnEvery(`layoutguard:canvas:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} CanvasSize was shorter than its content; scoped recovery applied`)
 end
 local function checkOverlappingHitboxes(root)
 	local byParent = {}
 	local list = if typeof(root) == "table" then root else root:GetDescendants()
 	for _, descendant in list do
+		coroutine.yield()
 		if descendant.Parent == nil or not descendant:IsA("GuiButton") or not isTrackedClass(descendant) then
 			continue
 		end
-		if not descendant.Visible or not descendant.Active then
+		if not Diagnostics.visible(descendant) or not descendant.Active then
 			continue
 		end
 		if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
@@ -457,7 +358,11 @@ local function checkOverlappingHitboxes(root)
 				continue
 			end
 			for j = i + 1, #siblings do
+				coroutine.yield()
 				local b = siblings[j]
+				if a.Parent == nil or b.Parent ~= a.Parent or not Diagnostics.visible(a) or not Diagnostics.visible(b) then
+					continue
+				end
 				if a.ZIndex ~= b.ZIndex then
 					continue
 				end
@@ -471,12 +376,7 @@ local function checkOverlappingHitboxes(root)
 				if smaller <= 0 or overlap / smaller < 0.85 then
 					continue
 				end
-				if not allowWrite(b) then
-					continue
-				end
-				b.ZIndex = a.ZIndex + 1
-				stats.overlapDemoted += 1
-				ClientLog:warnEvery(`layoutguard:overlap:{a:GetFullName()}`, 30, "LayoutGuard", `{a.Name} and {b.Name} share ZIndex {a.ZIndex} and overlap {string.format("%.0f", (overlap / smaller) * 100)}% — separated so input reaches the top one`)
+				diagnostics:record(a, "ActionCollision", `Overlaps {b:GetFullName()} at the same input layer`)
 			end
 		end
 	end
@@ -511,33 +411,8 @@ local function textRectOf(label)
 	return { x0 = x0, y0 = y0, x1 = x0 + w, y1 = y0 + h }
 end
 local function clearTextOfButton(label, button, buttonRect)
-	if label:GetAttribute(IGNORE_ATTRIBUTE) == true or engineOwns(label) then
-		return false
-	end
-	local labelRect = rectOf(label)
-	local current = labelRect.x1 - labelRect.x0
-	local anchor = label.AnchorPoint.X
-	local target
-	if anchor == 0 and buttonRect.x0 > labelRect.x0 + MIN_LABEL_WIDTH then
-		target = buttonRect.x0 - labelRect.x0 - LABEL_GAP
-	elseif anchor == 1 and buttonRect.x1 < labelRect.x1 - MIN_LABEL_WIDTH then
-		target = labelRect.x1 - buttonRect.x1 - LABEL_GAP
-	else
-		return false
-	end
-	if target >= current - 2 or target < MIN_LABEL_WIDTH then
-		return false
-	end
-	if not allowWrite(label) then
-		return false
-	end
-	local size = label.Size
-	label.Size = UDim2.new(size.X.Scale, size.X.Offset + (target - current), size.Y.Scale, size.Y.Offset)
-	if not label.TextWrapped and not label.TextScaled and label.TextTruncate == Enum.TextTruncate.None then
-		label.TextTruncate = Enum.TextTruncate.AtEnd
-	end
-	stats.textClearedOfButton += 1
-	return true
+	diagnostics:record(label, "TextCollision", `Text overlaps {button:GetFullName()}; owner must reserve space`)
+	return false
 end
 local textPassLabels = {}
 local textPassButtons = {}
@@ -545,7 +420,8 @@ local function checkTextUnderButtons(list)
 	table.clear(textPassLabels)
 	table.clear(textPassButtons)
 	for _, inst in list do
-		if inst.Parent == nil or not isTrackedClass(inst) then
+		coroutine.yield()
+		if inst.Parent == nil or not isTrackedClass(inst) or not Diagnostics.visible(inst) then
 			continue
 		end
 		if inst:IsA("GuiButton") then
@@ -576,16 +452,17 @@ local function checkTextUnderButtons(list)
 				end
 				local leftText = textRectOf(left)
 				for j = 1, #labels do
+					coroutine.yield()
 					local right = labels[j]
+					if left.Parent == nil or right.Parent ~= left.Parent or not Diagnostics.visible(left) or not Diagnostics.visible(right) then
+						continue
+					end
 					if right == left or right.AbsoluteSize.X < 8 then
 						continue
 					end
 					local rightText = textRectOf(right)
 					if rightText.x0 > leftText.x0 + 4 and Plan.labelsCollide(leftText, rightText) then
-						if clearTextOfButton(left, right, rightText) then
-							stats.labelsUntangled += 1
-							ClientLog:warnEvery(`layoutguard:labels:{left:GetFullName()}`, 60, "LayoutGuard", `{left.Name} ran into {right.Name}; narrowed to clear it`)
-						end
+						clearTextOfButton(left, right, rightText)
 						break
 					end
 				end
@@ -606,6 +483,10 @@ local function checkTextUnderButtons(list)
 				continue
 			end
 			for _, button in buttons or {} do
+				coroutine.yield()
+				if label.Parent == nil or button.Parent ~= label.Parent or not Diagnostics.visible(label) or not Diagnostics.visible(button) then
+					continue
+				end
 				if button.ZIndex < label.ZIndex then
 					continue
 				end
@@ -616,16 +497,13 @@ local function checkTextUnderButtons(list)
 					continue
 				end
 				stats.textUnderButtonSeen += 1
-				if clearTextOfButton(label, button, buttonRect) then
-					ClientLog:warnEvery(`layoutguard:textcover:{label:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text was under {button.Name}; label narrowed to clear it`)
-				end
+				clearTextOfButton(label, button, buttonRect)
 				break
 			end
 		end
 	end
 end
 local SOLID_MIN_GAP = 4
-local MIN_LABEL_HEIGHT = 10
 local stackPassLabels = {}
 local stackPassSolids = {}
 local function isSolid(inst)
@@ -643,12 +521,6 @@ local function isSolid(inst)
 	end
 	return inst:FindFirstChildWhichIsA("TextBox") ~= nil or inst:FindFirstChildWhichIsA("GuiButton") ~= nil
 end
-local function innerBottom(parent)
-	local pad = parent:FindFirstChildOfClass("UIPadding")
-	local size = parent.AbsoluteSize
-	local bottom = if pad ~= nil then pad.PaddingBottom.Scale * size.Y + pad.PaddingBottom.Offset else 0
-	return parent.AbsolutePosition.Y + size.Y - bottom
-end
 local function separateStack(label, solid)
 	local textRect = textRectOf(label)
 	local solidRect = rectOf(solid)
@@ -664,40 +536,7 @@ local function separateStack(label, solid)
 	if intrude <= 0.5 then
 		return false
 	end
-	if engineOwns(solid) or engineOwns(label) then
-		return false
-	end
-	local parent = solid.Parent
-	local room = if parent ~= nil and parent:IsA("GuiObject") and not parent:IsA("ScrollingFrame") then innerBottom(parent) - solidRect.y1 else 0
-	if room >= intrude and allowWrite(solid) then
-		local shift = math.ceil(intrude)
-		solid.Position = UDim2.new(solid.Position.X.Scale, solid.Position.X.Offset, solid.Position.Y.Scale, solid.Position.Y.Offset + shift)
-		stats.stackSeparated += 1
-		ClientLog:warnEvery(`layoutguard:stack:{solid:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text ran into {solid.Name}; moved {solid.Name} down {shift}px`)
-		return true
-	end
-	local available = solidRect.y0 - SOLID_MIN_GAP - labelRect.y0
-	if available < MIN_LABEL_HEIGHT or not allowWrite(label) then
-		return false
-	end
-	local current = labelRect.y1 - labelRect.y0
-	local size = label.Size
-	label.Size = UDim2.new(size.X.Scale, size.X.Offset, size.Y.Scale, size.Y.Offset + (available - current))
-	if label.TextYAlignment == Enum.TextYAlignment.Center then
-		label.TextYAlignment = Enum.TextYAlignment.Top
-	end
-	if not label.TextScaled then
-		label.TextScaled = true
-		if label:FindFirstChildOfClass("UITextSizeConstraint") == nil then
-			local constraint = Instance.new("UITextSizeConstraint")
-			constraint.Name = "LayoutGuardTextFit"
-			constraint.MinTextSize = 8
-			constraint.MaxTextSize = math.clamp(label.TextSize, 8, 42)
-			constraint.Parent = label
-		end
-	end
-	stats.stackSeparated += 1
-	ClientLog:warnEvery(`layoutguard:stack:{label:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text ran into {solid.Name}; fitted the label above it`)
+	diagnostics:record(label, "StackCollision", `Text runs into {solid:GetFullName()} by {math.ceil(intrude)}px`)
 	return true
 end
 local function checkStackedText(list)
@@ -715,8 +554,9 @@ local function checkStackedText(list)
 		table.insert(bucket, solid)
 	end
 	for _, inst in list do
+		coroutine.yield()
 		local parent = inst.Parent
-		if parent == nil or not isTrackedClass(inst) then
+		if parent == nil or not isTrackedClass(inst) or not Diagnostics.visible(inst) then
 			continue
 		end
 		if inst:IsA("TextLabel") then
@@ -742,6 +582,10 @@ local function checkStackedText(list)
 				continue
 			end
 			for _, solid in solids do
+				coroutine.yield()
+				if label.Parent == nil or solid.Parent ~= label.Parent or not Diagnostics.visible(label) or not Diagnostics.visible(solid) then
+					continue
+				end
 				if separateStack(label, solid) then
 					break
 				end
@@ -753,25 +597,22 @@ local function checkStackedText(list)
 end
 local inspectOnce
 local function inspect(inst)
-	local before = repairTotal()
+	local before = diagnostics:observations()
 	inspectOnce(inst)
 	if inst.Parent ~= nil and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
-		learn(inst, repairTotal() > before)
+		learn(inst, diagnostics:observations() > before)
 	end
 end
 function inspectOnce(inst)
 	if inst.Parent == nil or not isTrackedClass(inst) then
 		return nil
 	end
+	if not Diagnostics.visible(inst) then return end
 	local size = inst.AbsoluteSize
 	local pos = inst.AbsolutePosition
 	local broken = not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y)
 	if broken and inst:IsA("GuiObject") and inst.Visible and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
-		if allowWrite(inst) then
-			inst.Visible = false
-			stats.degenerateHidden += 1
-			ClientLog:warnEvery(`layoutguard:degenerate:{inst:GetFullName()}`, 30, "LayoutGuard", `{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
-		end
+		diagnostics:record(inst, "InvalidGeometry", "Non-finite geometry; owner must reject invalid layout values")
 		return nil
 	end
 	if inst:IsA("ScrollingFrame") then
@@ -779,15 +620,12 @@ function inspectOnce(inst)
 	elseif isFloatingPanel(inst) then
 		repairFloatingPanel(inst)
 	elseif inst:IsA("CanvasGroup") then
-		repairCanvasGroup(inst)
+		return nil
 	elseif inst:IsA("GuiButton") then
 		repairButton(inst)
 	elseif inst:IsA("TextLabel") or inst:IsA("TextBox") then
 		repairText(inst)
 	end
-end
-local function readTouchProfile()
-	return UserInputService.TouchEnabled and not usesDesktopStructure()
 end
 local LayoutGuardController
 do
@@ -827,6 +665,7 @@ do
 		self.hotCursor = 1
 		self.deadline = math.huge
 		self.overlapPhase = 1
+		self.collisionWork = nil
 	end
 	function LayoutGuardController:hotPass(budget)
 		local cursor = self.hotCursor or 1
@@ -853,15 +692,6 @@ do
 	end
 	function LayoutGuardController:onInit()
 		self.armed = true
-		touchProfile = readTouchProfile()
-		followUp = function(instance)
-			self:enqueue(instance, Plan.SETTLE_FRAMES + 1)
-		end
-		local refresh = function()
-			touchProfile = readTouchProfile()
-		end
-		UserInputService:GetPropertyChangedSignal("TouchEnabled"):Connect(refresh)
-		UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
 	end
 	function LayoutGuardController:enqueue(instance, delay)
 		if self.freshSet[instance] or not isTrackedClass(instance) then
@@ -919,22 +749,37 @@ do
 			self:untrack(instance)
 			tryCount[instance] = nil
 			abandoned[instance] = nil
-			pendingFloor[instance] = nil
 		end))
 	end
 	function LayoutGuardController:bindRoot(root)
+		if self.diagnosticEndpoint then
+			self.diagnosticEndpoint:Destroy()
+			self.diagnosticEndpoint = nil
+		end
 		for _, connection in self.rootConnections do
 			connection:Disconnect()
 		end
 		table.clear(self.rootConnections)
 		table.clear(self.tracked)
 		table.clear(self.trackedIndex)
+		self.collisionWork = nil
 		self.watchedLayers = {}
 		if root == nil then
 			return nil
 		end
 		self:watchLayer(root)
 		local playerGui = root:FindFirstAncestorOfClass("PlayerGui")
+		local endpoint = Instance.new("BindableFunction")
+		endpoint.Name = "AstralForgeLayoutDiagnostics"
+		endpoint.OnInvoke = function()
+			return { Diagnostics = diagnostics:snapshot(), Stats = table.clone(stats), Tracked = #self.tracked }
+		end
+		-- React owns root descendants and removes children created before mounting.
+		endpoint.Parent = playerGui or root
+		self.diagnosticEndpoint = endpoint
+		table.insert(self.rootConnections, root.Destroying:Connect(function()
+			endpoint:Destroy()
+		end))
 		if playerGui ~= nil then
 			local function consider(layer)
 				if layer:IsA("LayerCollector") and layer ~= root and layer:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
@@ -968,17 +813,19 @@ do
 		self.lastWidth = size.X
 		self.lastHeight = size.Y
 		if not first then
+			diagnostics:reset()
 			table.clear(tryCount)
 			table.clear(abandoned)
-			-- A new viewport is new evidence: halve learned fights so they get re-tested.
+			-- A fight at the old size must not suppress repairs in the new layout.
 			for _, entry in model do
-				entry.thrash = entry.thrash // 2
+				entry.thrash = 0
 			end
 		end
 		self.cursor = 1
 		self.sinceSweep = Plan.MIN_SWEEP_SECONDS
 		self.pendingOverlap = false
 		self.overlapPhase = 1
+		self.collisionWork = nil
 		self.burstLeft = Plan.BURST_FRAMES
 		stats.bursts += 1
 		return true
@@ -1060,6 +907,7 @@ do
 		end
 		self.frame += 1
 		self.deadline = os.clock() + FRAME_BUDGET_SECONDS
+		diagnostics:beginPairs(self.deadline)
 		self.sinceSweep += _dt
 		self:checkResize(root)
 		local budget = Plan.budget(self.burstLeft, #self.fresh)
@@ -1073,17 +921,24 @@ do
 				if os.clock() >= self.deadline then
 					return nil
 				end
-				if self.overlapPhase == 1 then
-					checkOverlappingHitboxes(self.queue)
-				elseif self.overlapPhase == 2 then
-					checkTextUnderButtons(self.queue)
-				else
-					checkStackedText(self.queue)
-					table.clear(textPassLabels)
-					table.clear(textPassButtons)
-					self.pendingOverlap = false
+				if self.collisionWork == nil then
+					self.collisionWork = coroutine.create(function()
+						if self.overlapPhase == 1 then
+							checkOverlappingHitboxes(self.queue)
+						elseif self.overlapPhase == 2 then
+							checkTextUnderButtons(self.queue)
+						else
+							checkStackedText(self.queue)
+							table.clear(textPassLabels)
+							table.clear(textPassButtons)
+						end
+					end)
 				end
-				self.overlapPhase = self.overlapPhase % 3 + 1
+				if diagnostics:runWork(self.collisionWork) then
+					self.collisionWork = nil
+					if self.overlapPhase == 3 then self.pendingOverlap = false end
+					self.overlapPhase = self.overlapPhase % 3 + 1
+				end
 				self:report()
 				return nil
 			end
@@ -1118,13 +973,13 @@ do
 			return nil
 		end
 		self.lastReportAt = now
-		local total = repairTotal()
+		local total = diagnostics:total()
 		if total == self.reportedTotal then
 			return nil
 		end
 		local delta = total - self.reportedTotal
 		self.reportedTotal = total
-		ClientLog:info("LayoutGuard", `{delta} repair{if delta == 1 then "" else "s"} in the last {REPORT_EVERY}s`, {
+		ClientLog:info("LayoutGuard", `{delta} layout diagnostic{if delta == 1 then "" else "s"} in the last {REPORT_EVERY}s; component owners retain geometry`, {
 			tracked = #self.tracked,
 			textFit = stats.textFitFixed,
 			textOffButton = stats.textClearedOfButton,
@@ -1155,5 +1010,6 @@ local function layoutGuardStats()
 end
 return {
 	layoutGuardStats = layoutGuardStats,
+	layoutGuardDiagnostics = function() return diagnostics:snapshot() end,
 	LayoutGuardController = LayoutGuardController,
 }

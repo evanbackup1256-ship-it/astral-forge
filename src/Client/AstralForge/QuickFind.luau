@@ -40,14 +40,14 @@ local PAGE_WORDS = {
 	Settings = "options audio sound music graphics controls mobile accessibility",
 	Missions = "quests jobs tasks daily weekly",
 	Rewards = "daily login streak claim free timed gifts",
-	Wheel = "spin daily prize lucky",
-	Bazaar = "bank market lottery contracts deals interest",
-	Charts = "star charts constellation stardust plot sky",
-	Cipher = "signal cipher daily puzzle code glyph streak",
+	Wheel = "spin prize tokens cooldown",
+	Bazaar = "black market supplies stock deals restock materials keys boosts",
+	Salvage = "salvage runs wrecks freighter foundry observatory cargo encounters",
+	Trials = "artifact trials companions elemental mastery challenges",
 	Boosts = "potions buffs multiplier overdrive surge",
 	Worlds = "zones maps travel expedition",
 	Lab = "orders cells power",
-	StarGrid = "dust stardust grid nodes tree",
+	StarGrid = "forge specializations builds handcraft deep reserves night shift preserved bonuses",
 	Echoes = "echo forge keep",
 	ForgePath = "path pass track xp chests",
 	Milestones = "achievements goals badges",
@@ -77,7 +77,7 @@ local KIND_META = {
 	Story = { label = "Story", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
 	Letter = { label = "Letter", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
 	Section = { label = "Shop", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop" },
-	Deal = { label = "Bazaar", weight = 1.1, accent = "mint", route = "Bazaar", icon = "Shop" },
+	Deal = { label = "Black Market", weight = 1.1, accent = "violet", route = "Bazaar", icon = "Shop" },
 }
 
 local function accentOf(key)
@@ -176,10 +176,10 @@ local function buildStatic()
 		add("Section", section.id, section.title, section.body, section.words, section.icon, { route = "Shop", query = "", category = section.id })
 	end
 	for _, deal in {
-		{ id = "Bank", title = "Bank", body = "Deposit flux and earn interest", words = "deposit interest savings term", icon = "Vault" },
-		{ id = "Market", title = "Black market", body = "Rotating deals", words = "deals discount market buy", icon = "Shop" },
-		{ id = "Lottery", title = "Lottery", body = "Buy tickets for the draw", words = "tickets draw jackpot luck", icon = "Jackpot" },
-		{ id = "Contracts", title = "Contracts", body = "Daily jobs for rewards", words = "contracts jobs tasks daily", icon = "Mission" },
+		{ id = "Resources", title = "Market resources", body = "Stardust, cores, essence and fragments", words = "materials supplies stock", icon = "Dust" },
+		{ id = "Keys", title = "Market keys", body = "Keys from Forge to Echo", words = "keys crates shipment", icon = "Crate" },
+		{ id = "Boosts", title = "Market boosts", body = "Production cells and upgrades", words = "boosts power overdrive", icon = "Boost" },
+		{ id = "Command", title = "Command supplies", body = "Signals, field notes and streak shields", words = "command experience signals crew", icon = "Mission" },
 	} do
 		add("Deal", deal.id, deal.title, deal.body, deal.words, deal.icon, { route = "Bazaar", query = "", category = deal.id })
 	end

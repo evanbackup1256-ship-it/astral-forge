@@ -1,411 +1,309 @@
---!strict
+--!nonstrict
 local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 
-return function(loadService: (string) -> any)
-	local Players = game:GetService("Players")
-	local DataStoreService = game:GetService("DataStoreService")
+return function(loadService)
+	local Economy = require(script.Parent.Parent.Modules.EconomyMath)("Economy")
+	local Math = require(script.Parent.Parent.Modules.BazaarMath)
+	local Log = require(script.Parent.Parent.ModuleLog)
+	local Progression = loadService("ProgressionService")
+	local Service = {}
+	local rollover
+	local offerCounts = {}
+	local nextOfferCount = Math.MARKET_OFFERS
 
-	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
-	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
-	local ProgressionService = loadService("ProgressionService")
-	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
-
-	local BazaarService = {}
-
-	local DAY = 86400
-	local DEPOSIT_SHARES = { 0.1, 0.25, 0.5, 1 }
-	local WITHDRAW_SHARES = { 0.25, 0.5, 1 }
-	local TICKET_BATCH = { 1, 5, 20 }
-
-	local lottery = { Bucket = -1, Tickets = {} :: { [number]: number }, Pot = 0 :: any, Last = nil :: any, Pending = {} :: { [number]: any } }
-
-	-- Lottery rollover persistence: the pot and pending prizes live in server memory.
-	-- Use a dedicated DataStore key so the next server can roll them over after shutdown.
-	local LOTTERY_ROLLOVER_KEY = "AF_LotteryRollover_v1"
-	local LOTTERY_ROLLOVER_MAX_AGE = 86400
-	local lotteryStore = StoreAccess.data("AstralForgeBazaar")
-
-	local function loadLotteryRollover()
-		local ok, saved = pcall(function()
-			return lotteryStore:GetAsync(LOTTERY_ROLLOVER_KEY)
-		end)
+	task.defer(function()
+		local store = StoreAccess.data("AstralForgeBazaar")
+		for attempt = 1, 3 do
+			local ok, saved = pcall(function() return store:GetAsync("AF_LotteryRollover_v1") end)
+			if ok then
+				rollover = if type(saved) == "table" then saved else nil
+				return
+			end
+			Log.Warn("BlackMarket", "Legacy prize recovery failed: " .. tostring(saved))
+			if attempt < 3 then task.wait(attempt * 2) end
+		end
+	end)
+	task.defer(function()
+		local ok, snapshot = pcall(function() return game:GetService("ConfigService"):GetConfigAsync() end)
 		if not ok then
-			ModuleLog.Warn("Bazaar", "lottery rollover read failed: " .. tostring(saved))
+			Log.Warn("BlackMarket", "Experience Config unavailable; using catalog defaults: " .. tostring(snapshot))
 			return
 		end
-		if type(saved) == "table" then
-			local age = os.time() - (tonumber(saved.SavedAt) or 0)
-			if age < LOTTERY_ROLLOVER_MAX_AGE then
-				lottery.Pot = saved.Pot or lottery.Pot
-				lottery.Pending = saved.Pending or lottery.Pending
-				lottery.Tickets = saved.Tickets or lottery.Tickets
-				lottery.Bucket = saved.Bucket or lottery.Bucket
+		local function read()
+			local value = snapshot:GetValue("BlackMarketOfferCount")
+			if value == nil then nextOfferCount = Math.MARKET_OFFERS; return end
+			if type(value) ~= "number" or value ~= value or value < 12 or value > #Math.CATALOG or value % 1 ~= 0 then
+				Log.Warn("BlackMarket", "BlackMarketOfferCount must be an integer from 12 to " .. #Math.CATALOG)
+				return
 			end
+			nextOfferCount = value
 		end
-		local clearOk, clearErr = pcall(function()
-			lotteryStore:RemoveAsync(LOTTERY_ROLLOVER_KEY)
+		read()
+		snapshot.UpdateAvailable:Connect(function()
+			local refreshed, err = pcall(function() snapshot:Refresh() end)
+			if refreshed then read() else Log.Warn("BlackMarket", "Experience Config refresh failed: " .. tostring(err)) end
 		end)
-		if not clearOk then
-			ModuleLog.Warn("Bazaar", "lottery rollover clear failed: " .. tostring(clearErr))
-		end
-	end
-
-	local function saveLotteryRollover()
-		local ok, err = pcall(function()
-			lotteryStore:SetAsync(LOTTERY_ROLLOVER_KEY, {
-				Pot = lottery.Pot,
-				Pending = lottery.Pending,
-				Tickets = lottery.Tickets,
-				Bucket = lottery.Bucket,
-				SavedAt = os.time(),
-			})
-		end)
-		if not ok then
-			ModuleLog.Warn("Bazaar", "lottery rollover save failed: " .. tostring(err))
-		end
-	end
-
-	-- Attempt to recover the previous server's pot/pending prizes once at startup.
-	task.defer(loadLotteryRollover)
-
-	-- Record the current pot and any unclaimed prizes when this server shuts down.
-	game:BindToClose(function()
-		saveLotteryRollover()
 	end)
-
-	local function day(now: number): number
-		return math.floor(now / DAY)
+	local function countFor(bucket)
+		if not offerCounts[bucket] then
+			offerCounts[bucket] = nextOfferCount
+			for key in offerCounts do if key < bucket - 1 then offerCounts[key] = nil end end
+		end
+		return offerCounts[bucket]
 	end
-
-	local function ensure(profile): any
-		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
+	local function ensure(profile)
+		profile.Bazaar = Math.Ensure(profile.Bazaar)
 		return profile.Bazaar
 	end
-
-	local function take(profile, amount: any): boolean
-		if not Economy.Gte(profile.Cash, amount) then
-			return false
-		end
-		profile.Cash = Economy.Sub(profile.Cash, amount)
-		return true
+	local function price(profile, offer)
+		return Economy.Max(1000, Economy.Floor(Economy.Mul(Economy.SteadyProduction(profile), offer.Seconds * (1 - offer.Discount))))
 	end
-
-	local function bump(bazaar, counter: string, amount: number?)
-		bazaar.Counters[counter] = math.min(1e9, bazaar.Counters[counter] + (amount or 1))
+	local function rolloverAt()
+		local at = rollover and tonumber(rollover.SavedAt)
+		return if at and at == at and at > 0 and at < math.huge then at else nil
 	end
-
-	local function production(profile): any
-		return Economy.SteadyProduction(profile)
+	local function ticketShare(userId)
+		if not rollover or type(rollover.Tickets) ~= "table" then return 0 end
+		local total, owned = 0, 0
+		for id, raw in rollover.Tickets do
+			local owner, tickets = tonumber(id), tonumber(raw)
+			if owner and owner > 0 and owner < math.huge and owner % 1 == 0
+				and tickets and tickets == tickets and tickets > 0 and tickets <= Math.LOTTERY_MAX_TICKETS and tickets % 1 == 0 then
+				total += tickets
+				if owner == userId then owned += tickets end
+			end
+		end
+		if owned == 0 or total == 0 then return 0 end
+		local pot = Math.Ensure({ Bank = { Balance = rollover.Pot } }).Bank.Balance
+		return Economy.Mul(pot, owned / total)
 	end
-
-	local function bankCap(profile): any
-		return Economy.Max(1000, Economy.Mul(production(profile), BazaarMath.BANK.CapSeconds))
+	function Service.NeedsRecovery(profile, userId)
+		local bag = Math.Ensure(profile.Bazaar)
+		if not bag.Contracts.Retired then return true end
+		if Economy.Gt(bag.Bank.Balance, 0) or Economy.Gt(bag.Bank.Accrued, 0)
+			or Economy.Gt(bag.Bank.Term.Principal, 0) or Economy.Gt(bag.Lottery.PendingPrize, 0) then return true end
+		local savedAt = rolloverAt()
+		if not savedAt then return false end
+		if savedAt > bag.Market.RefundedTicketsAt and Economy.Gt(ticketShare(userId), 0) then return true end
+		return type(rollover.Pending) == "table" and savedAt > bag.Market.RefundedRolloverAt
+			and (rollover.Pending[userId] ~= nil or rollover.Pending[tostring(userId)] ~= nil)
 	end
-
-	local function accrue(profile, bazaar, now: number)
-		local bank = bazaar.Bank
-		if bank.Since <= 0 then
-			bank.Since = now
-			return
+	function Service.Roll(profile, now, userId)
+		local bag = ensure(profile)
+		local bank, term = bag.Bank, bag.Bank.Term
+		local interest = 0
+		if bank.Since > 0 and Economy.Gt(bank.Balance, 0) then
+			local cap = Economy.Max(1000, Economy.Mul(Economy.SteadyProduction(profile), Math.BANK.CapSeconds))
+			interest = Economy.Mul(Economy.Min(bank.Balance, cap), Math.BANK.SavingsRate * Math.AccrualHours(now - bank.Since))
 		end
-		local hours = BazaarMath.AccrualHours(now - bank.Since)
-		bank.Since = now
-		if hours <= 0 or not Economy.Gt(bank.Balance, 0) then
-			return
+		local principal = term.Principal
+		local info = Math.TermById(term.Id)
+		if info and now >= term.EndsAt then principal = Economy.Mul(principal, 1 + info.Rate * info.Hours) end
+		local refund = Economy.Add(Economy.Add(bank.Balance, bank.Accrued), Economy.Add(interest, principal))
+		refund = Economy.Add(refund, bag.Lottery.PendingPrize)
+		local savedAt = rolloverAt()
+		if rollover and type(rollover.Pending) == "table" and savedAt
+			and savedAt > bag.Market.RefundedRolloverAt then
+			local pending = rollover.Pending[userId] or rollover.Pending[tostring(userId)]
+			if pending then refund = Economy.Add(refund, Math.Ensure({ Lottery = { PendingPrize = pending } }).Lottery.PendingPrize) end
+			bag.Market.RefundedRolloverAt = savedAt
 		end
-		local base = Economy.Min(bank.Balance, bankCap(profile))
-		bank.Accrued = Economy.Persist(Economy.Add(bank.Accrued, Economy.Mul(base, BazaarMath.BANK.SavingsRate * hours)))
+		if savedAt and savedAt > bag.Market.RefundedTicketsAt then
+			refund = Economy.Add(refund, ticketShare(userId))
+			bag.Market.RefundedTicketsAt = savedAt
+		end
+		if Economy.Gt(refund, 0) then
+			local credited = Economy.Add(profile.Cash, refund)
+			if not Economy.Gt(credited, profile.Cash) then return false, "Your balance cannot represent the retired Bazaar refund. The claim is still owed." end
+			profile.Cash = credited
+			bag.Market.Refunded = Economy.Persist(Economy.Add(bag.Market.Refunded, refund))
+		end
+		if not bag.Contracts.Retired then
+			if bag.Contracts.Day >= 0 then
+				for _, contract in Math.ContractsFor(bag.Contracts.Day, userId) do
+					if not bag.Contracts.Claimed[contract.Id]
+						and bag.Counters[contract.Counter] - (bag.Contracts.Baseline[contract.Counter] or 0) >= contract.Target then
+						Progression.ApplyReward(profile, contract.Reward, Economy.SteadyProduction(profile))
+						bag.Contracts.Claimed[contract.Id] = true
+					end
+				end
+			end
+			bag.Contracts.Retired = true
+		end
+		bag.Bank = Math.Ensure(nil).Bank
+		bag.Lottery.PendingPrize = 0
+		return true, "Retired Bazaar balances and earned claims settled."
 	end
-
-	local function contractsFor(profile, bazaar, now: number, userId: number)
-		local contracts = bazaar.Contracts
-		if contracts.Day ~= day(now) then
-			contracts.Day, contracts.Claimed = day(now), {}
-			contracts.Baseline = {}
-			for _, name in BazaarMath.COUNTERS do
-				contracts.Baseline[name] = 0
-			end
-			for _, name in { "Deals", "Deposits", "Tickets", "Interest" } do
-				contracts.Baseline[name] = bazaar.Counters[name]
-			end
+	local function shelf(bag, bucket)
+		-- Standing earned during a shipment only raises stock from the next shipment, so sold-out shelves stay sold out.
+		local opening = bag.Counters.Deals
+		if bag.Market.Bucket == bucket then
+			for _, count in bag.Market.Bought do opening -= count end
 		end
-		return BazaarMath.ContractsFor(contracts.Day, userId)
-	end
-
-	local function currentOf(profile, bazaar, counter: string): number
-		return bazaar.Counters[counter]
-	end
-
-	local function present(userId: number): boolean
-		return Players:GetPlayerByUserId(userId) ~= nil
-	end
-
-	local function lotteryTick(now: number, random: Random?)
-		local bucket = BazaarMath.LotteryBucket(now)
-		if lottery.Bucket < 0 then
-			lottery.Bucket = bucket
-			return
-		end
-		if bucket <= lottery.Bucket then
-			return
-		end
-		local entries: { [number]: number } = {}
-		for userId, count in lottery.Tickets do
-			if present(userId) then
-				entries[userId] = count
-			end
-		end
-		local roll = if random ~= nil then random:NextNumber() else math.random()
-		local winner = BazaarMath.LotteryDraw(entries, roll)
-		if winner ~= nil and Economy.Gt(lottery.Pot, 0) then
-			local prize = Economy.Floor(Economy.Mul(lottery.Pot, 1 - BazaarMath.LOTTERY_RAKE))
-			lottery.Pending[winner] = Economy.Add(lottery.Pending[winner] or 0, prize)
-			local who = Players:GetPlayerByUserId(winner)
-			lottery.Last = { Winner = if who then who.DisplayName else "Someone", UserId = winner, Prize = Economy.Persist(prize), Bucket = lottery.Bucket }
-			lottery.Pot = 0
-		end
-		lottery.Tickets = {}
-		lottery.Bucket = bucket
-	end
-
-	local function ticketPrice(profile): any
-		return Economy.Max(100, Economy.Floor(Economy.Mul(profile.Cash, BazaarMath.LOTTERY_TICKET_SHARE)))
-	end
-
-	local function myTickets(userId: number): number
-		return lottery.Tickets[userId] or 0
-	end
-
-	local function bankAct(profile, bazaar, payload, now: number): (boolean, string, any?)
-		local bank = bazaar.Bank
-		accrue(profile, bazaar, now)
-		local op = payload.Op
-		if op == "Deposit" then
-			local share = DEPOSIT_SHARES[tonumber(payload.Tier) or 0]
-			if share == nil then
-				return false, "Pick how much to deposit."
-			end
-			local amount = Economy.Floor(Economy.Mul(profile.Cash, share))
-			if not Economy.Gt(amount, 0) or not take(profile, amount) then
-				return false, "Nothing to deposit."
-			end
-			bank.Balance = Economy.Persist(Economy.Add(bank.Balance, amount))
-			bump(bazaar, "Deposits")
-			return true, "Deposited.", { Game = "Bank", Amount = Economy.Persist(amount) }
-		elseif op == "Withdraw" then
-			local share = WITHDRAW_SHARES[tonumber(payload.Tier) or 0]
-			if share == nil then
-				return false, "Pick how much to withdraw."
-			end
-			local amount = Economy.Floor(Economy.Mul(bank.Balance, share))
-			if not Economy.Gt(amount, 0) then
-				return false, "Your savings are empty."
-			end
-			bank.Balance = Economy.Persist(Economy.Sub(bank.Balance, amount))
-			profile.Cash = Economy.Add(profile.Cash, amount)
-			return true, "Withdrawn.", { Game = "Bank", Amount = Economy.Persist(amount) }
-		elseif op == "Collect" then
-			if not Economy.Gt(bank.Accrued, 0) then
-				return false, "No interest to collect yet."
-			end
-			local amount = Economy.Floor(bank.Accrued)
-			if not Economy.Gt(amount, 0) then
-				return false, "No interest to collect yet."
-			end
-			bank.Accrued = 0
-			profile.Cash = Economy.Add(profile.Cash, amount)
-			bump(bazaar, "Interest")
-			return true, "Interest collected.", { Game = "Bank", Amount = Economy.Persist(amount), Interest = true }
-		elseif op == "Term" then
-			local term = BazaarMath.TermById(payload.Term)
-			local share = DEPOSIT_SHARES[tonumber(payload.Tier) or 0]
-			if term == nil or share == nil then
-				return false, "Pick a term and an amount."
-			end
-			if bank.Term.Id ~= "" then
-				return false, "You already have a term deposit open."
-			end
-			local amount = Economy.Floor(Economy.Mul(profile.Cash, share))
-			if not Economy.Gt(amount, 0) or not take(profile, amount) then
-				return false, "Nothing to lock away."
-			end
-			bank.Term = { Id = term.Id, Principal = Economy.Persist(amount), EndsAt = now + term.Hours * 3600 }
-			bump(bazaar, "Deposits")
-			return true, `Locked for {term.Hours} hour{if term.Hours == 1 then "" else "s"}.`, { Game = "Bank", Amount = Economy.Persist(amount) }
-		elseif op == "Redeem" or op == "Break" then
-			local open = bank.Term
-			local term = BazaarMath.TermById(open.Id)
-			if term == nil then
-				return false, "You have no term deposit."
-			end
-			local matured = now >= open.EndsAt
-			if op == "Redeem" and not matured then
-				return false, "That term has not matured yet."
-			end
-			local payout = open.Principal
-			if matured then
-				local interest = Economy.Floor(Economy.Mul(Economy.Min(open.Principal, bankCap(profile)), term.Rate * term.Hours))
-				payout = Economy.Add(open.Principal, interest)
-			end
-			profile.Cash = Economy.Add(profile.Cash, payout)
-			bank.Term = { Id = "", Principal = 0, EndsAt = 0 }
-			if matured then
-				bump(bazaar, "Interest")
-			end
-			return true, if matured then "Term paid out." else "Term broken: principal returned, no interest.", { Game = "Bank", Amount = Economy.Persist(payout), Interest = matured }
-		end
-		return false, "Unknown bank move."
-	end
-
-	local function marketAct(profile, bazaar, payload, now: number): (boolean, string, any?)
-		local market = bazaar.Market
-		local bucket = BazaarMath.MarketBucket(now)
-		if market.Bucket ~= bucket then
-			market.Bucket, market.Bought = bucket, {}
-		end
-		local offer = BazaarMath.OfferById(bucket, payload.Pick)
-		if offer == nil then
-			return false, "That deal is not on offer this hour."
-		end
-		local bought = market.Bought[offer.Id] or 0
-		if bought >= offer.Stock then
-			return false, "Sold out for this hour."
-		end
-		local price = Economy.Max(1000, Economy.Floor(Economy.Mul(production(profile), offer.Seconds * (1 - offer.Discount))))
-		if not take(profile, price) then
-			return false, "Not enough flux."
-		end
-		local message = ProgressionService.ApplyReward(profile, offer.Reward, production(profile))
-		market.Bought[offer.Id] = bought + 1
-		bump(bazaar, "Deals")
-		return true, `{offer.Name}: {message}`, { Game = "Market", Pick = offer.Id, Cost = Economy.Persist(price) }
-	end
-
-	local function lotteryAct(profile, bazaar, payload, now: number, random: Random, userId: number): (boolean, string, any?)
-		lotteryTick(now, random)
-		local op = payload.Op
-		if op == "Prize" then
-			local pending = lottery.Pending[userId]
-			if pending == nil or not Economy.Gt(pending, 0) then
-				return false, "No prize waiting."
-			end
-			lottery.Pending[userId] = nil
-			profile.Cash = Economy.Add(profile.Cash, pending)
-			return true, "Prize collected.", { Game = "Lottery", Amount = Economy.Persist(pending), Prize = true }
-		end
-		local count = TICKET_BATCH[tonumber(payload.Tier) or 0]
-		if count == nil then
-			return false, "Pick how many tickets."
-		end
-		local have = myTickets(userId)
-		count = math.min(count, BazaarMath.LOTTERY_MAX_TICKETS - have)
-		if count <= 0 then
-			return false, "You hold the most tickets allowed this draw."
-		end
-		local each = ticketPrice(profile)
-		local total = Economy.Mul(each, count)
-		if not take(profile, total) then
-			return false, "Not enough flux for those tickets."
-		end
-		lottery.Tickets[userId] = have + count
-		lottery.Pot = Economy.Add(lottery.Pot, total)
-		bump(bazaar, "Tickets", count)
-		return true, `Bought {count} ticket{if count == 1 then "" else "s"}.`, { Game = "Lottery", Count = count }
-	end
-
-	local function contractAct(profile, bazaar, payload, now: number, userId: number): (boolean, string, any?)
-		local list = contractsFor(profile, bazaar, now, userId)
-		local contract
-		for _, entry in list do
-			if entry.Id == payload.Pick then
-				contract = entry
-			end
-		end
-		if contract == nil then
-			return false, "That contract is not on your board today."
-		end
-		if bazaar.Contracts.Claimed[contract.Id] then
-			return false, "Already claimed."
-		end
-		local progress = currentOf(profile, bazaar, contract.Counter) - (bazaar.Contracts.Baseline[contract.Counter] or 0)
-		if progress < contract.Target then
-			return false, "That contract is not finished."
-		end
-		bazaar.Contracts.Claimed[contract.Id] = true
-		local message = ProgressionService.ApplyReward(profile, contract.Reward, production(profile))
-		return true, `{contract.Name}: {message}`, { Game = "Contracts", Pick = contract.Id }
-	end
-
-	function BazaarService.Roll(profile, now: number, userId: number)
-		contractsFor(profile, ensure(profile), now, userId)
-	end
-
-	function BazaarService.Play(profile, random: Random, payload: any, now: number, userId: number): (boolean, string, any?)
-		if type(payload) ~= "table" or type(payload.Game) ~= "string" then
-			return false, "Pick a counter.", nil
-		end
-		local bazaar = ensure(profile)
-		local gameName = payload.Game
-		if gameName == "Bank" then
-			return bankAct(profile, bazaar, payload, now)
-		elseif gameName == "Market" then
-			return marketAct(profile, bazaar, payload, now)
-		elseif gameName == "Lottery" then
-			return lotteryAct(profile, bazaar, payload, now, random, userId)
-		elseif gameName == "Contracts" then
-			return contractAct(profile, bazaar, payload, now, userId)
-		end
-		return false, "Unknown counter.", nil
-	end
-
-	function BazaarService.State(profile, now: number, userId: number): any
-		local bazaar = ensure(profile)
-		lotteryTick(now, nil)
-		local ghost = { Since = bazaar.Bank.Since, Balance = bazaar.Bank.Balance, Accrued = bazaar.Bank.Accrued }
-		if ghost.Since > 0 and Economy.Gt(ghost.Balance, 0) then
-			local hours = BazaarMath.AccrualHours(now - ghost.Since)
-			ghost.Accrued = Economy.Persist(Economy.Add(ghost.Accrued, Economy.Mul(Economy.Min(ghost.Balance, bankCap(profile)), BazaarMath.BANK.SavingsRate * hours)))
-		end
-		local term = bazaar.Bank.Term
-		local termInfo = BazaarMath.TermById(term.Id)
-		local bucket = BazaarMath.MarketBucket(now)
-		local bought = if bazaar.Market.Bucket == bucket then bazaar.Market.Bought else {}
+		local tier = Math.Reputation(math.max(0, opening))
 		local offers = {}
-		for _, offer in BazaarMath.Offers(bucket) do
-			local price = Economy.Max(1000, Economy.Floor(Economy.Mul(production(profile), offer.Seconds * (1 - offer.Discount))))
-			table.insert(offers, { Id = offer.Id, Name = offer.Name, Reward = offer.Reward, Discount = offer.Discount, Price = Economy.Persist(price), Left = offer.Stock - (bought[offer.Id] or 0), Stock = offer.Stock })
+		for _, offer in Math.Offers(bucket, countFor(bucket)) do
+			offer.Stock += tier.Bonus
+			table.insert(offers, offer)
 		end
-		local baseline = if bazaar.Contracts.Day == day(now) then bazaar.Contracts.Baseline else nil
-		local contracts = {}
-		for _, entry in BazaarMath.ContractsFor(day(now), userId) do
-			local start = if baseline then (baseline[entry.Counter] or 0) else currentOf(profile, bazaar, entry.Counter)
-			local progress = math.clamp(currentOf(profile, bazaar, entry.Counter) - start, 0, entry.Target)
-			local claimed = bazaar.Contracts.Day == day(now) and bazaar.Contracts.Claimed[entry.Id] == true
-			table.insert(contracts, { Id = entry.Id, Name = entry.Name, Text = entry.Text, Target = entry.Target, Progress = progress, Reward = entry.Reward, Claimed = claimed, Claimable = not claimed and progress >= entry.Target })
+		local procured = Math.ProcuredOffer(bag.Market.Procure, bucket, offers)
+		if procured then
+			procured.Stock += tier.Bonus
+			table.insert(offers, procured)
 		end
-		local pending = lottery.Pending[userId]
-		return {
-			Bank = {
-				Balance = bazaar.Bank.Balance,
-				Accrued = ghost.Accrued,
-				Rate = BazaarMath.BANK.SavingsRate,
-				Cap = Economy.Persist(bankCap(profile)),
-				Terms = BazaarMath.BANK.Terms,
-				Term = { Id = term.Id, Principal = term.Principal, EndsAt = term.EndsAt, Hours = if termInfo then termInfo.Hours else 0, Rate = if termInfo then termInfo.Rate else 0, Matured = termInfo ~= nil and now >= term.EndsAt },
-			},
-			Market = { Offers = offers, EndsAt = (bucket + 1) * BazaarMath.MARKET_SECONDS },
-			Lottery = {
-				Pot = Economy.Persist(lottery.Pot),
-				Mine = myTickets(userId),
-				Max = BazaarMath.LOTTERY_MAX_TICKETS,
-				Price = Economy.Persist(ticketPrice(profile)),
-				NextAt = (BazaarMath.LotteryBucket(now) + 1) * BazaarMath.LOTTERY_SECONDS,
-				Last = lottery.Last,
-				Prize = if pending ~= nil then Economy.Persist(pending) else 0,
-			},
-			Contracts = contracts,
+		local rare = Math.RareOffer(bucket)
+		if rare then table.insert(offers, rare) end
+		return offers, tier
+	end
+	local function shelfOffer(bag, bucket, id)
+		for _, offer in (shelf(bag, bucket)) do
+			if offer.Id == id then return offer end
+		end
+		return nil
+	end
+	function Service.Play(profile, _random, payload, now, userId)
+		local order, validationError = Math.ReadOrder(payload)
+		if not order then return false, validationError end
+		payload = order
+		local bucket = Math.MarketBucket(now)
+		local quantity = payload.Quantity
+		local bag = ensure(profile)
+		local market = bag.Market
+		local previous = market.Receipts[payload.RequestId]
+		if previous then
+			if previous.Pick ~= payload.Pick or previous.Quantity ~= quantity or previous.Bucket ~= payload.Bucket
+				or previous.Rotation ~= payload.Rotation then return false, "That request ID belongs to another order." end
+			if previous.Bucket < bucket - Math.RECEIPT_BUCKETS + 1 then
+				return false, "That order is outside the retry window. Check your purchase history."
+			end
+			return true, previous.Message, {
+				Game = "Market", Pick = previous.Pick, Quantity = previous.Quantity, Left = previous.Left, Cost = previous.Cost, Replayed = true,
+			}
+		end
+		if payload.Bucket ~= bucket then return false, "Stock refreshed. Review the new prices before buying." end
+		local rotation = `{bucket}:{countFor(bucket)}`
+		if payload.Rotation ~= rotation then return false, "This shipment changed. Refresh stock before buying." end
+		local offer = shelfOffer(bag, bucket, payload.Pick)
+		if not offer then return false, "That shipment is not on the current shelf." end
+		local bought = if market.Bucket == bucket then market.Bought[offer.Id] or 0 else 0
+		if bought + quantity > offer.Stock then return false, "Not enough stock left for that quantity." end
+		local unitPrice = price(profile, offer)
+		if not Economy.Gte(payload.UnitPrice, unitPrice) or not Economy.Gte(unitPrice, payload.UnitPrice) then
+			return false, "The price changed with your production. Review the updated quote."
+		end
+		if offer.Reward.Essence and (profile.Domain and profile.Domain.Essence or 0) + offer.Reward.Essence * quantity > 1_000_000 then
+			return false, "Your essence storage cannot hold that order."
+		end
+		local cost = Economy.Mul(unitPrice, quantity)
+		if not Economy.Gte(profile.Cash, cost) then return false, "Not enough flux for that order." end
+		if market.Bucket ~= bucket then market.Bucket, market.Bought = bucket, {} end
+		for id, receipt in market.Receipts do
+			if receipt.Bucket < bucket - Math.RECEIPT_BUCKETS + 1 then market.Receipts[id] = nil end
+		end
+		profile.Cash = Economy.Sub(profile.Cash, cost)
+		local description
+		for _ = 1, quantity do description = Progression.ApplyReward(profile, offer.Reward, Economy.SteadyProduction(profile)) end
+		market.Bought[offer.Id] = bought + quantity
+		if offer.Procured then market.Procure.Filled = bucket end
+		bag.Counters.Deals = math.min(1e9, bag.Counters.Deals + quantity)
+		local message = `{quantity} × {offer.Name}: {description} per unit.`
+		market.Receipts[payload.RequestId] = {
+			Pick = offer.Id, Quantity = quantity, Left = offer.Stock - bought - quantity, Cost = Economy.Persist(cost), Message = message,
+			Bucket = bucket, Rotation = rotation,
+		}
+		table.insert(market.History, 1, {
+			RequestId = payload.RequestId, Pick = offer.Id, Quantity = quantity, Cost = Economy.Persist(cost), At = now,
+		})
+		if #market.History > 50 then table.remove(market.History) end
+		return true, message, {
+			Game = "Market", Pick = offer.Id, Quantity = quantity, Left = offer.Stock - bought - quantity, Cost = Economy.Persist(cost),
 		}
 	end
-
-	return BazaarService
+	function Service.Procure(profile, payload, now)
+		if type(payload) ~= "table" or type(payload.Id) ~= "string" then return false, "Choose a supply to request." end
+		local bag = ensure(profile)
+		local procure = bag.Market.Procure
+		if payload.Id == "" then
+			if procure.Id == "" then return false, "There is no open request to cancel." end
+			bag.Market.Procure = { Id = "", Since = 0, Filled = 0 }
+			return true, "Supply request cancelled."
+		end
+		local entry = Math.RegularById(payload.Id)
+		if not entry then return false, "That supply cannot be requested." end
+		local _, index = Math.Reputation(bag.Counters.Deals)
+		if index < Math.PROCURE_TIER then
+			return false, `Requests open at {Math.REPUTATION[Math.PROCURE_TIER].Name} standing.`
+		end
+		if procure.Id == entry.Id and procure.Filled == 0 then return false, "That request is already open." end
+		bag.Market.Procure = { Id = entry.Id, Since = Math.MarketBucket(now), Filled = 0 }
+		return true, `Request placed. {entry.Name} arrives with the next shipment.`
+	end
+	function Service.SetFavorite(profile, payload)
+		if type(payload) ~= "table" or not Math.CatalogById(payload.Id) or type(payload.Saved) ~= "boolean" then
+			return false, "Choose a valid supply to save."
+		end
+		local bag = ensure(profile)
+		bag.Market.Saved[payload.Id] = if payload.Saved then true else nil
+		return true, if payload.Saved then "Supply saved for future shipments." else "Supply removed from saved items."
+	end
+	function Service.State(profile, now, userId)
+		local bag = ensure(profile)
+		local bucket = Math.MarketBucket(now)
+		local bought = if bag.Market.Bucket == bucket then bag.Market.Bought else {}
+		local offers = {}
+		local list, tier = shelf(bag, bucket)
+		local merchant = Math.Merchant(bucket)
+		local watched = {}
+		for _, offer in list do
+			local left = math.max(0, offer.Stock - (bought[offer.Id] or 0))
+			table.insert(offers, {
+				Id = offer.Id, Name = offer.Name, Category = offer.Category, Reward = offer.Reward,
+				Discount = offer.Discount, Price = Economy.Persist(price(profile, offer)),
+				Left = left, Stock = offer.Stock,
+				Holdings = Math.Holdings(profile, offer.Reward),
+				Rare = offer.Rare == true, Procured = offer.Procured == true,
+				Featured = not offer.Rare and offer.Category == merchant.Favors,
+			})
+			if bag.Market.Saved[offer.Id] and left > 0 then table.insert(watched, offer.Name) end
+		end
+		local standing, tierIndex, nextTier = Math.Reputation(bag.Counters.Deals)
+		local catalog = {}
+		for _, entry in Math.CATALOG do
+			table.insert(catalog, { Id = entry.Id, Name = entry.Name, Category = Math.Category(entry.Reward) })
+		end
+		local procure = bag.Market.Procure
+		local procureEntry = Math.RegularById(procure.Id)
+		local procureState = "None"
+		if procureEntry then
+			if procure.Filled > 0 and procure.Filled ~= bucket then procureState = "Filled"
+			elseif bucket > procure.Since + Math.PROCURE_BUCKETS then procureState = "Expired"
+			elseif bucket <= procure.Since then procureState = "Pending"
+			else procureState = "Listed" end
+		end
+		local history = {}
+		for _, entry in bag.Market.History do
+			local record = table.clone(entry)
+			record.Name = Math.CatalogById(entry.Pick).Name
+			table.insert(history, record)
+		end
+		return { Market = {
+			Offers = offers, Bucket = bucket, EndsAt = (bucket + 1) * Math.MARKET_SECONDS,
+			CatalogSize = #Math.CATALOG, Refunded = bag.Market.Refunded,
+			RecoveryPending = Service.NeedsRecovery(profile, userId),
+			Rotation = `{bucket}:{countFor(bucket)}`,
+			Saved = table.clone(bag.Market.Saved), History = history,
+			Merchant = { Name = merchant.Name, Title = merchant.Title, Favors = merchant.Favors, Accent = merchant.Accent, Line = merchant.Line },
+			Reputation = {
+				Name = standing.Name, Index = tierIndex, Units = bag.Counters.Deals, Bonus = standing.Bonus, ShelfBonus = tier.Bonus,
+				Next = if nextTier then nextTier.Name else nil, NextAt = if nextTier then nextTier.At else nil,
+				ProcureTier = Math.REPUTATION[Math.PROCURE_TIER].Name, CanProcure = tierIndex >= Math.PROCURE_TIER,
+			},
+			Procure = {
+				Id = procure.Id, Name = if procureEntry then procureEntry.Name else nil, State = procureState,
+				Since = procure.Since, ExpiresAt = (procure.Since + Math.PROCURE_BUCKETS + 1) * Math.MARKET_SECONDS,
+			},
+			Catalog = catalog, Watched = watched,
+		} }
+	end
+	return Service
 end

@@ -12,8 +12,9 @@ serviceFactories["AnomalyService"] = function() return require(script.Parent:Wai
 
 
 serviceFactories["BazaarService"] = function() return require(script.Parent:WaitForChild("BazaarService"))(loadService) end
+serviceFactories["EncounterService"] = function() return require(script.Parent:WaitForChild("EncounterService"))(loadService) end
+serviceFactories["SpecializationService"] = require(script.Parent:WaitForChild("SpecializationService"))
 
-serviceFactories["SkyService"] = function() return require(script.Parent:WaitForChild("SkyService"))(loadService) end
 
 serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("SecurityServices"))("AtomicState")
 
@@ -101,7 +102,8 @@ serviceFactories["GameService"] = function()
 	local PlayerBadges = loadService("PlayerBadges")
 	local ForgeEchoService = loadService("ForgeEchoService")
 	local BazaarService = loadService("BazaarService")
-	local SkyService = loadService("SkyService")
+	local EncounterService = loadService("EncounterService")
+	local Specializations = loadService("SpecializationService")
 	local GuildCommunity = require(script.Parent:WaitForChild("GuildCommunity"))
 	local FluxSurgeService = loadService("FluxSurgeService")
 	local ServerEventService = loadService("ServerEventService")
@@ -397,7 +399,7 @@ serviceFactories["GameService"] = function()
 	local PRESENCE_PAGES = {
 		Overview = true, Workshop = true, Inventory = true, Research = true, StarGrid = true,
 		Echoes = true, Continuum = true, Lab = true, Anomaly = true, Worlds = true,
-		Missions = true, Wheel = true, Bazaar = true, Charts = true, Cipher = true, Rewards = true, Command = true, Story = true, Mail = true,
+		Missions = true, Wheel = true, Bazaar = true, Salvage = true, Trials = true, Rewards = true, Command = true, Story = true, Mail = true,
 		Chat = true, Crew = true, Milestones = true, Convergence = true, Leaderboards = true,
 		Trade = true, Credits = true, Admin = true, Settings = true, Shop = true,
 	}
@@ -695,6 +697,7 @@ serviceFactories["GameService"] = function()
 		end
 		return responseError("That player is no longer in this server.")
 	end
+
 
 	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 	local getOrderedStore = StoreAccess.ordered
@@ -1277,11 +1280,26 @@ serviceFactories["GameService"] = function()
 
 	function GameService:_snapshot(player: Player)
 		local profile = self._data:Get(player)
+		local runtime = self._runtime[player]
 		if not profile then
 			return nil
 		end
+		if (not runtime or os.clock() >= (runtime.BazaarRecoveryRetryAt or 0)) and BazaarService.NeedsRecovery(profile, player.UserId) then
+			local recovered = self:_mutate(player, function(draft)
+				local ok, message = BazaarService.Roll(draft, os.time(), player.UserId)
+				return if ok then responseSuccess(message) else responseError(message)
+			end)
+			if not recovered.ok then
+				if runtime then runtime.BazaarRecoveryRetryAt = os.clock() + 30 end
+				ModuleLog.Every("legacy-refund:" .. player.UserId, 30, "BlackMarket",
+					"Legacy refund could not be committed for " .. player.UserId .. ": " .. tostring(recovered.error))
+			end
+			profile = self._data:Get(player)
+			if not profile then return nil end
+		end
 		local now = os.time()
-		local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._events:ProductionMultiplier())
+		local baseProduction = Economy.Production(profile, now)
+		local production = Economy.Mul(baseProduction, self._convergence:Multiplier() * self._events:ProductionMultiplier())
 		local capacity = Economy.Capacity(profile, now)
 		local prestigeReward = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault))
 		local domain = profile.Domain or { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0 }
@@ -1292,7 +1310,6 @@ serviceFactories["GameService"] = function()
 		local continuumRank = math.max(0, math.floor(tonumber(continuum.Rank) or 0))
 		local continuumFluxCost, continuumStardustCost = Economy.ContinuumCosts(continuumRank)
 		local continuumProduction, continuumCapacity, continuumTap, continuumOffline = Economy.ContinuumEffects(profile)
-		local runtime = self._runtime[player]
 		if runtime then
 			runtime.SnapshotId = (runtime.SnapshotId or 0) + 1
 		end
@@ -1424,6 +1441,9 @@ serviceFactories["GameService"] = function()
 			Machines = copyDictionary(profile.Machines),
 			Research = copyDictionary(profile.Research),
 			GridUpgrades = copyDictionary(profile.GridUpgrades),
+			Specialization = Specializations.Snapshot(profile, Economy, os.time(), runtime, {
+				Production = baseProduction, Capacity = capacity,
+			}),
 			BoostInventory = copyDictionary(profile.BoostInventory),
 			ActiveBoost = copyDictionary(profile.ActiveBoost),
 			Quests = copyDictionary(profile.Quests.Items),
@@ -1431,7 +1451,15 @@ serviceFactories["GameService"] = function()
 			Daily = ProgressionService.DailyState(profile),
 			Wheel = ProgressionService.WheelState(profile),
 			Bazaar = BazaarService.State(profile, os.time(), player.UserId),
-			Sky = SkyService.State(profile, os.time(), player.UserId),
+			Encounters = EncounterService.State(profile, os.time()),
+			Sky = {
+				Retired = true,
+				Plotted = table.clone(((profile.Sky or {}).Charts or {}).Plotted or {}),
+				Cipher = {
+					Solves = ((profile.Sky or {}).Cipher or {}).Solves or 0,
+					Best = ((profile.Sky or {}).Cipher or {}).Best or 0,
+				},
+			},
 			Command = ProgressionService.CommandState(profile),
 			ForgePath = ProgressionService.ForgePathState(profile),
 			TimedRewards = ProgressionService.TimedRewardState(profile),
@@ -1567,6 +1595,9 @@ serviceFactories["GameService"] = function()
 		end
 		if type(result) ~= "table" or type(result.ok) ~= "boolean" then
 			return responseError("Couldn't finish that.")
+		end
+		if result.ok and self._runtime[player] then
+			self._runtime[player].SpecializationPreviewKey = nil
 		end
 		return result
 	end
@@ -2100,63 +2131,6 @@ serviceFactories["GameService"] = function()
 		return result
 	end
 
-	function GameService:_buyGridUpgrade(player: Player, upgradeId: any, requestedAmount: any?)
-		if type(upgradeId) ~= "string" then
-			return responseError("Invalid Star Grid request.")
-		end
-		local upgrade = Economy.GetGridUpgrade(upgradeId)
-		if not upgrade then
-			return responseError("That Star Grid node does not exist.")
-		end
-		local result = self:_mutate(player, function(profile)
-			local level = profile.GridUpgrades[upgradeId] or 0
-			if level >= upgrade.MaxLevel then
-				return responseError("That Star Grid node is already complete.")
-			end
-			if not RebirthGate.MeetsRequired(profile.Rebirths, upgrade.RequiredRebirths) then
-				return responseError(RebirthGate.RequirementMessage(upgrade.RequiredRebirths))
-			end
-			if upgrade.PreviousId then
-				local previous = Economy.GetGridUpgrade(upgrade.PreviousId)
-				local previousLevel = profile.GridUpgrades[upgrade.PreviousId] or 0
-				if previous and previousLevel < previous.MaxLevel then
-					return responseError("Complete the previous node in this branch first.")
-				end
-			end
-
-			local remainingLevels = upgrade.MaxLevel - level
-			local count
-			local cost
-			if requestedAmount == "Max" then
-				count, cost = Economy.AffordableGridLevels(upgradeId, level, profile.Stardust, remainingLevels)
-			else
-				count = type(requestedAmount) == "number" and math.clamp(math.floor(requestedAmount), 1, 25) or 1
-				count = math.min(count, remainingLevels)
-				cost = Economy.GridBulkCost(upgradeId, level, count)
-			end
-			if count < 1 then
-				return responseError("You need more Stardust for this node.")
-			end
-			if Economy.Lt(profile.Stardust, cost) then
-				return responseError("You need " .. Format.Number(Economy.Sub(cost, profile.Stardust)) .. " more Stardust.")
-			end
-			profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost))
-			profile.GridUpgrades[upgradeId] = level + count
-			ProgressionService.AwardCommandXP(profile, count * 8)
-			ForgeEchoService.Record(profile, "Build", math.clamp(3 + count, 3, 12))
-			return responseSuccess(
-				string.format(
-					"%s gained %d levels and reached %d/%d.",
-					upgrade.Name,
-					count,
-					level + count,
-					upgrade.MaxLevel
-				)
-			)
-		end)
-		return result
-	end
-
 	function GameService:_unlockZone(player: Player, zoneId: any)
 		if type(zoneId) == "string" then
 			zoneId = tonumber(zoneId)
@@ -2343,7 +2317,8 @@ serviceFactories["GameService"] = function()
 	function GameService:_bazaarPlay(player: Player, payload: any)
 		return self:_mutate(player, function(profile)
 			local now = os.time()
-			BazaarService.Roll(profile, now, player.UserId)
+			local recovered, recoveryMessage = BazaarService.Roll(profile, now, player.UserId)
+			if not recovered then return responseError(recoveryMessage) end
 			local ok, message, extra = BazaarService.Play(profile, self._random, payload, now, player.UserId)
 			if not ok then
 				return responseError(message)
@@ -2352,29 +2327,10 @@ serviceFactories["GameService"] = function()
 		end)
 	end
 
-	function GameService:_plotStar(player: Player, payload: any)
+	function GameService:_spinWheel(player: Player, payload: any)
+		if type(payload) ~= "table" or type(payload.ExpectedSpin) ~= "number" then return responseError("Refresh the wheel before spinning.") end
 		return self:_mutate(player, function(profile)
-			local ok, message, extra = SkyService.PlotStar(profile, payload)
-			if not ok then
-				return responseError(message)
-			end
-			return responseSuccess(message, { Result = extra })
-		end)
-	end
-
-	function GameService:_submitCipher(player: Player, payload: any)
-		return self:_mutate(player, function(profile)
-			local ok, message, extra = SkyService.Guess(profile, payload, os.time(), player.UserId)
-			if not ok then
-				return responseError(message)
-			end
-			return responseSuccess(message, { Result = extra })
-		end)
-	end
-
-	function GameService:_spinWheel(player: Player)
-		return self:_mutate(player, function(profile)
-			local ok, message, prizeIndex, prizeId, pityHit = ProgressionService.SpinWheel(profile, self._random)
+			local ok, message, prizeIndex, prizeId, pityHit = ProgressionService.SpinWheel(profile, self._random, payload.ExpectedSpin)
 			if not ok then
 				return responseError(message)
 			end
@@ -4149,6 +4105,13 @@ serviceFactories["GameService"] = function()
 				or responseError("Performance sample was already received.")
 		end
 		local featureId = featureByAction[action]
+		if action == Protocol.Actions.BeginEncounter and payload and payload.Mode == "Trial" then
+			featureId = "Trials"
+		elseif action == Protocol.Actions.ChooseEncounter then
+			local encounterProfile = self._data:Get(player)
+			local active = encounterProfile and encounterProfile.Encounters and encounterProfile.Encounters.Active
+			if active and active.Mode == "Trial" then featureId = "Trials" end
+		end
 		if featureId then
 			local profile = self._data:Get(player)
 			local domainOpen = featureId == "Domain" and profile and profile.Domain and (tonumber(profile.Domain.Rank) or 0) >= 1
@@ -4174,6 +4137,7 @@ serviceFactories["GameService"] = function()
 			end
 		end
 		if action == Protocol.Actions.GetState then
+			if self._runtime[player] then self._runtime[player].BazaarRecoveryRetryAt = nil end
 			local snapshot = self:_snapshot(player)
 			return snapshot and responseSuccess(nil, { State = snapshot })
 				or responseError("Profile is still loading.")
@@ -4271,7 +4235,7 @@ serviceFactories["GameService"] = function()
 		elseif action == Protocol.Actions.BuyResearch then
 			return self:_buyResearch(player, payload and payload.Id, payload and payload.Amount)
 		elseif action == Protocol.Actions.BuyGridUpgrade then
-			return self:_buyGridUpgrade(player, payload and payload.Id, payload and payload.Amount)
+			return responseError("Star Grid purchases have retired. Your purchased bonuses remain active; choose a build in Forge Specializations.")
 		elseif action == Protocol.Actions.UpgradeContinuum then
 			return self:_upgradeContinuum(player)
 		elseif action == Protocol.Actions.CaptureEcho then
@@ -4305,13 +4269,42 @@ serviceFactories["GameService"] = function()
 		elseif action == Protocol.Actions.ClaimTimedReward then
 			return self:_claimTimedReward(player, payload and payload.Index)
 		elseif action == Protocol.Actions.SpinWheel then
-			return self:_spinWheel(player)
+			return self:_spinWheel(player, payload)
 		elseif action == Protocol.Actions.BazaarPlay then
 			return self:_bazaarPlay(player, payload)
-		elseif action == Protocol.Actions.PlotStar then
-			return self:_plotStar(player, payload)
-		elseif action == Protocol.Actions.SubmitCipher then
-			return self:_submitCipher(player, payload)
+		elseif action == Protocol.Actions.SelectSpecialization then
+			return self:_mutate(player, function(profile)
+				local selected, message = Specializations.Select(profile.Specialization, payload and payload.Id, os.time())
+				if not selected then return responseError(message) end
+				local previous = profile.Specialization
+				if selected.Focus == Specializations.Sanitize(previous).Focus then return responseSuccess(message) end
+				profile.Specialization = selected
+				if Economy.Gt(profile.Vault, Economy.Capacity(profile)) then
+					profile.Specialization = previous
+					return responseError("Collect your vault before equipping a build with a smaller capacity.")
+				end
+				return responseSuccess(message)
+			end)
+		elseif action == Protocol.Actions.BeginEncounter or action == Protocol.Actions.ChooseEncounter then
+			return self:_mutate(player, function(profile)
+				local ok, message
+				if action == Protocol.Actions.BeginEncounter then
+					ok, message = EncounterService.Begin(profile, payload, os.time())
+				else
+					ok, message = EncounterService.Choose(profile, payload)
+				end
+				return ok and responseSuccess(message) or responseError(message)
+			end)
+		elseif action == Protocol.Actions.SetMarketFavorite then
+			return self:_mutate(player, function(profile)
+				local ok, message = BazaarService.SetFavorite(profile, payload)
+				return ok and responseSuccess(message) or responseError(message)
+			end)
+		elseif action == Protocol.Actions.RequestProcurement then
+			return self:_mutate(player, function(profile)
+				local ok, message = BazaarService.Procure(profile, payload, os.time())
+				return ok and responseSuccess(message) or responseError(message)
+			end)
 		elseif action == Protocol.Actions.LaunchExpedition then
 			return self:_launchExpedition(player, payload and payload.Id)
 		elseif action == Protocol.Actions.ClaimExpedition then

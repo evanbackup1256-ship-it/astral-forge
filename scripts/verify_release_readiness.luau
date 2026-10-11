@@ -440,7 +440,7 @@ assert(string.find(pageBoardSrc, "function PageBoardHeights.Machine", 1, true), 
 local workshopReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopReleaseSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView PageBoardHeights residual for release")
 local overviewReleaseReady = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewReleaseReady, "PageReadyMath.CipherOpen", 1, true), "OverviewView CipherOpen residual for release")
+assert(not string.find(overviewReleaseReady, "PageReadyMath.CipherOpen", 1, true), "OverviewView must not surface retired minigames")
 assert(string.find(telemetrySrc, "function TelemetryMath.Encode", 1, true), "TelemetryMath.Encode missing")
 assert(string.find(ssReleaseSrc, "TelemetryMath.Encode", 1, true), "ServerServices Telemetry residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Day", 1, true), "UtcClockMath.Day missing")
@@ -1120,13 +1120,8 @@ do
 	end
 	assert(soft >= 12, "Research softMotion densify residual for release, got " .. tostring(soft))
 end
-do
-	local soft = 0
-	for _ in string.gmatch(wheelWave41, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 11, "Wheel softMotion (single scroll) residual for release, got " .. tostring(soft))
-end
+assert(string.find(wheelWave41, "if reducedMotion then", 1, true), "wheel reduced-motion landing remains integrated")
+assert(string.find(wheelWave41, "reducedMotion = reducedMotion", 1, true), "active 2D renderer receives motion preference")
 assert(string.find(cfg, 'Id = "wave41-offline-brief"', 1, true), "Story wave41 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail wave41 residual for release")
 mark("wave41 publicplayer settingsseal research wheel boot densify content residuals")
@@ -1169,15 +1164,9 @@ do
 	end
 	assert(soft >= 11, "Chat softMotion densify residual for release, got " .. tostring(soft))
 end
-local starWave43 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-assert(string.find(starWave43, "local softMotion = ", 1, true), "StarGridNode softMotion residual for release")
-do
-	local soft = 0
-	for _ in string.gmatch(starWave43, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 12, "StarGrid softMotion densify residual for release, got " .. tostring(soft))
-end
+local builds = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
+assert(string.find(builds, "reducedMotion = props.reducedMotion", 1, true), "Build buttons preserve release reduced-motion behavior")
+assert(not string.find(builds, "BuyGridUpgrade", 1, true), "Retired Star Grid purchases must not reappear")
 assert(string.find(cfg, 'Id = "wave43-offline-brief"', 1, true), "Story wave43 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave43-offline"', 1, true), "Mail wave43 residual for release")
 mark("wave43 snapshotenvelope chat convergence stargrid densify content residuals")

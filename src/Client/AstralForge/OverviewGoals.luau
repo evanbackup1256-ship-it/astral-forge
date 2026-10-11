@@ -18,9 +18,6 @@ return function(Math, compact)
 		if Math.Gte(state.PrestigeReward or 0, 1) and unlocked("Rebirth") then
 			return { title = "Rebirth rewards are ready", body = `Review the panel below to reset machines and collect {compact(state.PrestigeReward)} Cores. Research stays permanent.`, value = "+" .. compact(state.PrestigeReward), label = "CORES READY", progress = 1 }
 		end
-		if ready.cipher and unlocked("Cipher") then
-			return { title = "Today's signal is open", body = "Crack the daily Signal Cipher before the reset to grow your streak.", page = "Cipher", cta = "Open Signal Cipher", value = "NEW", label = "DAILY PUZZLE", progress = 0 }
-		end
 		local nextLevel = state.Level and state.Level.Next
 		if type(nextLevel) == "table" and type(nextLevel.Text) == "string" then
 			local progress = if Math.Gt(nextLevel.Target or 0, 0) then math.clamp(Math.ToNumber(Math.Div(nextLevel.Progress or 0, nextLevel.Target)), 0, 1) else 0

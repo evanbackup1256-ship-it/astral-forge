@@ -55,13 +55,12 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesSystem.luau#SettingsView",
 	"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
 	"src/Client/AstralForge/pages/PagesShop.luau#StoreFront",
-	"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
 	"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
 	"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
 	"src/Client/AstralForge/pages/PagesBazaar.luau#BazaarView",
-	"src/Client/AstralForge/pages/PagesSky.luau#StarChartsView",
-	"src/Client/AstralForge/pages/PagesSky.luau#CipherView",
+	"src/Client/AstralForge/pages/PagesEncounters.luau#SalvageView",
+	"src/Client/AstralForge/pages/PagesSpecializations.luau",
 }
 
 -- Playability scaffolding + hot pages must stay free of vendor/Packages coupling.
@@ -320,8 +319,9 @@ do
 	assert(string.find(invCrates, 'id = "crates"', 1, true), "Inventory Crates tab must stay named")
 	assert(string.find(invCrates, "crateStride", 1, true), "Inventory Crates must FlatList with crateStride")
 	assert(string.find(invCrates, "CRATE CHANNELS", 1, true), "Inventory Crates must keep CRATE CHANNELS header")
-	local starGrid = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-	assert(string.find(starGrid, "FlatList", 1, true), "StarGrid long node boards must FlatList")
+	local specializations = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
+	assert(string.find(specializations, "createElement(PageScaffold", 1, true), "Builds must share one page scroll")
+	assert(not string.find(specializations, "FlatList", 1, true), "Four builds must not create nested scrolling lists")
 	local boostsVirt = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
 	assert(string.find(boostsVirt, "FlatList", 1, true), "Boosts long inventory must FlatList")
 	local settingsVirt = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
@@ -367,7 +367,6 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
 	"src/Client/AstralForge/pages/PagesCore.luau#MissionsView",
 	"src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView",
-	"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView",
 	"src/Client/AstralForge/pages/PagesCore.luau#OverviewView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#WorldsView",
@@ -443,8 +442,6 @@ do
 		["src/Client/AstralForge/pages/PagesSystem.luau#CommandView"] = 12,
 		["src/Client/AstralForge/pages/PagesProgress.luau#LabView"] = 12,
 		["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = 12,
-		["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = 11,
-		["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#StoryView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = 12,
 		["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = 9,
@@ -476,7 +473,6 @@ do
 		"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
 		"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
 		"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
 		"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 		"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",
 		"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
@@ -492,7 +488,12 @@ do
 		end
 		local floor = DENSE[path] or 4
 		if string.find(src, "local function scaffold", 1, true) then floor = 3 end
-		assert(softUses >= floor, path .. " softMotion density too thin, got " .. tostring(softUses) .. " need >=" .. tostring(floor))
+		if path == "src/Client/AstralForge/pages/PagesShop.luau#WheelView" then
+			assert(string.find(src, "if reducedMotion then", 1, true), "wheel controller must provide immediate reduced-motion landing")
+			assert(string.find(src, "reducedMotion = reducedMotion", 1, true), "active wheel receives the motion preference")
+		else
+			assert(softUses >= floor, path .. " softMotion density too thin, got " .. tostring(softUses) .. " need >=" .. tostring(floor))
+		end
 	end
 	-- Footgun: Rebirth must not fold effectsPaused into the softMotion assignment line.
 	local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
@@ -526,8 +527,7 @@ end
 	assert(string.find(labSoft, "overscan = if softMotion then 0", 1, true), "Lab FlatList must softMotion-gate overscan")
 	local wheelSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
 	assert(not string.find(wheelSoft, "createElement(FlatList", 1, true), "Wheel prize table must not create a nested scroller")
-	local starSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-	assert(string.find(starSoft, "overscan = if softMotion then 0", 1, true), "StarGrid FlatList must softMotion-gate overscan")
+	assert(string.find(fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau"), "reducedMotion = props.reducedMotion", 1, true), "Build buttons must respect reduced motion")
 	local shopSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
 	assert(string.find(shopSoft, "overscan = if softMotion then 0", 1, true), "Shop FlatList must softMotion-gate overscan to 0")
 	-- Wave17: ForgePath/Echo/Story FlatList overscan softMotion-gated to 0.
@@ -640,18 +640,9 @@ do
 	assert(string.find(convergence, "GamepadNavigationService.FocusClaim", 1, true), "Convergence CLAIM must FocusClaim when ready")
 	assert(string.find(convergence, 'Name = "ConvergenceClaimActions"', 1, true), "Convergence CLAIM host must be named ConvergenceClaimActions")
 
-	local starGrid = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-	assert(string.find(starGrid, "GamepadNavigationService.FocusClaim", 1, true), "StarGrid BUY ALL must FocusClaim")
-	assert(string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true), "StarGrid BUY ALL host must be named StarGridBuyClaimActions")
-	do
-		local hostStart = string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true)
-		assert(hostStart, "StarGridBuyClaimActions host missing")
-		local hostSlice = string.sub(starGrid, hostStart, hostStart + 420)
-		assert(
-			string.find(hostSlice, "ClipsDescendants = false", 1, true),
-			"StarGridBuyClaimActions host must keep ClipsDescendants = false"
-		)
-	end
+	local builds = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
+	assert(string.find(builds, "h(Ui.Button", 1, true), "Build selection must use shared keyboard/gamepad buttons")
+	assert(not string.find(builds, "BuyGridUpgrade", 1, true), "Specializations must not offer retired purchases")
 
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 	assert(string.find(command, "GamepadNavigationService.FocusClaim", 1, true), "Command claim CTAs must FocusClaim when ready")
@@ -781,7 +772,6 @@ do
 		{ path = "src/Client/AstralForge/pages/PagesSystem.luau#CommandView", name = "CommandClaimActions" },
 		{ path = "src/Client/AstralForge/pages/PagesSocial.luau#GuildView", name = "GuildClaimActions" },
 		{ path = "src/Client/AstralForge/pages/PagesStory.luau#InventoryView", name = "InspectClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesProgress.luau#StarGridView", name = "StarGridBuyClaimActions" },
 	} do
 		local src = fs.readFile(entry.path)
 		local needle = 'Name = "' .. entry.name .. '"'
@@ -853,7 +843,6 @@ do
 		"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
 		"src/Client/AstralForge/pages/PagesSocial.luau#ChatView",
 		"src/Client/AstralForge/pages/PagesSystem.luau#CommandView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
 		"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
 		"src/Client/AstralForge/pages/PagesSocial.luau#CrewView",
 		"src/Client/AstralForge/pages/PagesProgress.luau#WorldsView",

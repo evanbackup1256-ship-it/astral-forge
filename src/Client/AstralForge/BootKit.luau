@@ -22,7 +22,8 @@ __defs["BootScreen"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
-local GAME_ICON_ASSET = require(script.Parent.ArtKit)("Icon").GAME_ICON_ASSET
+local BrandArt = require(script.Parent.ArtKit)("Icon")
+local useViewport = require(script.Parent.MotionKit)("motion").useViewport
 local EMBER_COUNT = 9
 local BootStageText = __load("BootStageText").BootStageText
 local _theme = require(script.Parent.CoreKit)("theme")
@@ -44,7 +45,7 @@ local LOADING_TIPS = {
 	"Research stays with you when you rebirth.",
 	"A full vault stops filling. Collect it often.",
 	"Overcharge a machine by tapping it fast.",
-	"The Star Grid's bonuses never reset.",
+	"Your Forge build keeps every bonus you've earned.",
 	"Boosts stack with research, so start one before a long session.",
 	"Rebirth when the Cores on offer would beat what you have now.",
 	"The wheel's pity counter guarantees a rare sooner or later.",
@@ -108,6 +109,10 @@ local function bootProgress(marks, assetsLoaded, assetsTotal, modulesLoaded, mod
 	return progressFor(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
 end
 local function BootScreen(_param)
+	local short = useViewport().height < 420
+	local centerY = if short then 0.32 else 0.4
+	local markSize = if short then 72 else 112
+	local contentOffset = if short then 62 else 92
 	local marks = _param.marks
 	local ready = _param.ready
 	local reducedMotion = _param.reducedMotion
@@ -159,15 +164,36 @@ local function BootScreen(_param)
 		end
 	end, {})
 	React.useEffect(function()
+		local probes = {}
+		for _, asset in { BrandArt.GAME_ICON_ASSET, BrandArt.WORDMARK_ASSET, BrandArt.COMPACT_MARK_ASSET } do
+			local probe = Instance.new("ImageLabel")
+			probe.Image = asset
+			table.insert(probes, probe)
+		end
+		local function dispose()
+			for _, probe in probes do
+				probe:Destroy()
+			end
+			table.clear(probes)
+		end
 		local preload = task.spawn(function()
-			pcall(function()
-				game:GetService("ContentProvider"):PreloadAsync({ GAME_ICON_ASSET })
+			local ok, reason = pcall(function()
+				game:GetService("ContentProvider"):PreloadAsync(probes, function(asset, status)
+					if status ~= Enum.AssetFetchStatus.Success then
+						warn(`[Branding] {asset} failed to load: {status.Name}`)
+					end
+				end)
 			end)
+			dispose()
+			if not ok then
+				warn(`[Branding] Preload failed: {tostring(reason)}`)
+			end
 		end)
 		return function()
 			if coroutine.status(preload) == "suspended" then
 				task.cancel(preload)
 			end
+			dispose()
 		end
 	end, {})
 	React.useEffect(function()
@@ -342,11 +368,10 @@ local function BootScreen(_param)
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 	}, embers), React.createElement("frame", {
-		Size = UDim2.fromOffset(112, 112),
-		Position = UDim2.new(0.5, 0, 0.4, -40),
+		Size = UDim2.fromOffset(markSize, markSize),
+		Position = UDim2.new(0.5, 0, centerY, if short then -30 else -40),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Color3.fromRGB(14, 10, 17),
-		BackgroundTransparency = fadeFrom(0),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 5,
 		Visible = showing,
@@ -354,49 +379,29 @@ local function BootScreen(_param)
 		Scale = React.joinBindings({ progressPulse, spinFade }):map(function(values)
 			return 1 + values[1] * 0.025 - values[2] * 0.08
 		end),
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.brass,
-		Thickness = 3,
-		Transparency = fadeFrom(0.05),
-	}, React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.mango, Palette.brassDeep),
-		Rotation = 90,
-	})), React.createElement("imagelabel", {
-		Size = UDim2.new(1, -10, 1, -10),
+	}), React.createElement("imagelabel", {
+		Size = UDim2.fromScale(1, 1),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		Image = GAME_ICON_ASSET,
+		Image = BrandArt.COMPACT_MARK_ASSET,
 		ImageTransparency = fadeFrom(0),
 		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 6,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))), React.createElement("textlabel", {
-		Size = UDim2.new(0.9, 0, 0, 40),
-		Position = UDim2.new(0.5, 0, 0.4, 34),
+	})), React.createElement("imagelabel", {
+		Name = "BootWordmark",
+		Size = UDim2.new(0.8, 0, 0, if short then 48 else 68),
+		Position = UDim2.new(0.5, 0, centerY, if short then 12 else 20),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
-		RichText = true,
-		Text = `<font color="#FCF7F0">ASTRAL</font> <font color="#FABE48">FORGE</font>`,
-		TextTransparency = fadeFrom(0),
-		TextSize = 34,
-		TextScaled = true,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		Image = BrandArt.WORDMARK_ASSET,
+		ImageTransparency = fadeFrom(0),
+		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 6,
 		Visible = showing,
-		}, React.createElement("uitextsizeconstraint", {
-			MaxTextSize = 34,
-			MinTextSize = 20,
-		}), React.createElement("uistroke", {
-		Color = Palette.void,
-		Thickness = 2,
-		Transparency = fadeFrom(0.3),
-	})), React.createElement("frame", {
+	}), React.createElement("frame", {
 		Size = UDim2.new(0.72, 0, 0, barH),
-		Position = UDim2.new(0.5, 0, 0.4, 92),
+		Position = UDim2.new(0.5, 0, centerY, contentOffset),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Palette.graphite,
 		BackgroundTransparency = fadeFrom(0),
@@ -429,7 +434,7 @@ local function BootScreen(_param)
 		}),
 	}))), React.createElement("frame", {
 		Size = UDim2.new(0.9, 0, 0, 20),
-		Position = UDim2.new(0.5, 0, 0.4, 112),
+		Position = UDim2.new(0.5, 0, centerY, contentOffset + 20),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		ZIndex = 6,
@@ -441,11 +446,10 @@ local function BootScreen(_param)
 		reducedMotion = reducedMotion,
 		textSize = 12,
 		color = Palette.creamSoft,
-		width = 340,
 		height = 20,
 	})), React.createElement("textlabel", {
 	Size = UDim2.new(0.9, 0, 0, 14),
-	Position = UDim2.new(0.5, 0, 0.4, 134),
+	Position = UDim2.new(0.5, 0, centerY, contentOffset + 42),
 	AnchorPoint = Vector2.new(0.5, 0),
 	BackgroundTransparency = 1,
 	Text = shownProgress:map(function(shown)
@@ -458,15 +462,16 @@ local function BootScreen(_param)
 		ZIndex = 6,
 		Visible = showing,
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(0.9, 0, 0, 18),
-		Position = UDim2.new(0.5, 0, 1, -40),
+		Size = UDim2.new(0.9, 0, 0, 36),
+		Position = UDim2.new(0.5, 0, 1, -20),
 		AnchorPoint = Vector2.new(0.5, 1),
 		BackgroundTransparency = 1,
 		Text = if stalled then "Still loading. Your save is safe." else tipText,
 		TextColor3 = Palette.muted,
 		TextTransparency = fadeFrom(0.05),
 		TextSize = 13,
-		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextTruncate = Enum.TextTruncate.None,
+		TextWrapped = true,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		ZIndex = 6,
 		Visible = showing,
@@ -528,7 +533,6 @@ type Props = {
 	reducedMotion: boolean?,
 	textSize: number?,
 	color: Color3?,
-	width: number?,
 	height: number?,
 }
 
@@ -539,7 +543,6 @@ local function BootStageText(props: Props)
 	local reducedMotion = props.reducedMotion == true
 	local textSize = props.textSize or 12
 	local color = props.color or Palette.muted
-	local width = props.width or 340
 	local height = props.height or 20
 	local idleLeave = React.useBinding(0)
 	local exitBinding = leaving or idleLeave
@@ -571,7 +574,7 @@ local function BootStageText(props: Props)
 	for i = 1, glyphCount do
 		local targetChar = targetChars[i] or " "
 		local fromChar = fromChars[i] or " "
-		local x = (i - 0.5) * CHAR_W + (width - glyphCount * CHAR_W) * 0.5
+		local x = (i - 0.5 - glyphCount * 0.5) * CHAR_W
 
 		local motion = React.joinBindings({
 			clock = clock,
@@ -596,7 +599,7 @@ local function BootStageText(props: Props)
 		children[i] = React.createElement("frame", {
 			key = `boot-ch-{i}`,
 			Size = UDim2.fromOffset(math.ceil(CHAR_W), height),
-			Position = UDim2.fromOffset(x, 0),
+			Position = UDim2.new(0.5, x, 0, 0),
 			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -643,7 +646,7 @@ local function BootStageText(props: Props)
 	end
 
 	return React.createElement("frame", {
-		Size = UDim2.fromOffset(width, height),
+		Size = UDim2.new(1, 0, 0, height),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
@@ -755,6 +758,8 @@ end
 
 __defs["SoftShutdownScreen"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local WORDMARK_ASSET = require(script.Parent.ArtKit)("Icon").WORDMARK_ASSET
+local useViewport = require(script.Parent.MotionKit)("motion").useViewport
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local LoadingDots = __load("LoadingDots").LoadingDots
@@ -796,6 +801,7 @@ local function cueFor(phase)
 	return "bootStart"
 end
 local function SoftShutdownScreen(_param)
+	local centerY = if useViewport().height < 420 then 0.32 else 0.44
 	local state = _param.state
 	local reducedMotion = _param.reducedMotion
 	local phase = phaseName(state.phase)
@@ -846,7 +852,7 @@ local function SoftShutdownScreen(_param)
 		ClipsDescendants = true,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(112, 26),
-		Position = UDim2.new(0.5, 0, 0.44, 0),
+		Position = UDim2.new(0.5, 0, centerY, 0),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -856,22 +862,20 @@ local function SoftShutdownScreen(_param)
 		ready = teleporting,
 		reducedMotion = reducedMotion,
 		compact = false,
-	})), React.createElement("textlabel", {
-		Size = UDim2.new(0, 320, 0, 24),
-		Position = UDim2.new(0.5, 0, 0.44, 28),
+	})), React.createElement("imagelabel", {
+		Name = "ShutdownWordmark",
+		Size = UDim2.new(0.8, 0, 0, 32),
+		Position = UDim2.new(0.5, 0, centerY, 20),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = "ASTRAL FORGE",
-		TextColor3 = Palette.cream,
-		TextTransparency = 0.08,
-		TextSize = 16,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		TextXAlignment = Enum.TextXAlignment.Center,
+		Image = WORDMARK_ASSET,
+		ImageTransparency = 0.08,
+		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 904,
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(0, 360, 0, 18),
-		Position = UDim2.new(0.5, 0, 0.44, 52),
+		Size = UDim2.new(0.9, 0, 0, 18),
+		Position = UDim2.new(0.5, 0, centerY, 52),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -884,7 +888,7 @@ local function SoftShutdownScreen(_param)
 		ZIndex = 904,
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(220, 4),
-		Position = UDim2.new(0.5, 0, 0.44, 78),
+		Position = UDim2.new(0.5, 0, centerY, 78),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Color3.fromRGB(46, 36, 50),
 		BackgroundTransparency = 0.15,
@@ -903,31 +907,36 @@ local function SoftShutdownScreen(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("textlabel", {
-		Size = UDim2.new(0, 420, 0, 18),
+		Name = "ShutdownStatus",
+		Size = UDim2.new(0.9, 0, 0, 36),
 		Position = UDim2.new(0.5, 0, 1, -52),
 		AnchorPoint = Vector2.new(0.5, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = statusFor(phase),
-		TextColor3 = Color3.fromRGB(140, 122, 128),
-		TextTransparency = 0.28,
-		TextSize = 11,
+		TextWrapped = true,
+		TextColor3 = Palette.creamSoft,
+		TextTransparency = 0.08,
+		TextSize = 12,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		ZIndex = 904,
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(0, 420, 0, 16),
-		Position = UDim2.new(0.5, 0, 1, -32),
+		Name = "ShutdownMessage",
+		Size = UDim2.new(0.9, 0, 0, 36),
+		Position = UDim2.new(0.5, 0, 1, -12),
 		AnchorPoint = Vector2.new(0.5, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = state.message,
-		TextColor3 = Color3.fromRGB(108, 92, 100),
-		TextTransparency = 0.4,
-		TextSize = 10,
+		Text = state.message or "",
+		Visible = state.message ~= nil and state.message ~= "",
+		TextColor3 = Palette.muted,
+		TextTransparency = 0.08,
+		TextSize = 12,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		TextXAlignment = Enum.TextXAlignment.Center,
-		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextTruncate = Enum.TextTruncate.None,
+		TextWrapped = true,
 		ZIndex = 904,
 	}))
 end

@@ -37,7 +37,10 @@ local function fadeWithPresence(local_, presence)
 end
 local Palette = require(script.Parent.CoreKit)("theme").Palette
 local VECTOR_ICON_ATLAS = "rbxassetid://139083324249955"
-local GAME_ICON_ASSET = "rbxassetid://70683024193057"
+local GAME_ICON_ASSET = "rbxassetid://77239367431949"
+local WORDMARK_ASSET = "rbxassetid://75854849112049"
+local COMPACT_MARK_ASSET = "rbxassetid://93834740732329"
+local LOCKUP_ASSET = "rbxassetid://94028186779182"
 local VECTOR_ICON_CELL = 128
 local VECTOR_ICON_COLUMNS = 8
 local VECTOR_ICON_INDEX = {
@@ -157,6 +160,17 @@ local ITEM_ICONS = {
 }
 local function itemIconKind(definitionId, slot)
 	return ITEM_ICONS[definitionId] or (if slot == "Machine" then "Forge" else "Research")
+end
+local function rewardIconKind(reward)
+	if reward.Cores then return "Core" end
+	if reward.Stardust then return "Dust" end
+	if reward.Boost then return "Boost" end
+	if reward.FreeSpins then return "Wheel" end
+	if reward.Keys then return "Crate" end
+	if reward.CashMinutes then return "Flux" end
+	if reward.Signals or reward.CommandXP then return "Command" end
+	if reward.Essence then return "EchoForge" end
+	return "Gift"
 end
 local function prizeShapeFromReward(reward, rarity)
 	if string.upper(rarity) == "MYTHIC" then
@@ -513,12 +527,16 @@ end
 return {
 	VectorIconFace = VectorIconFace,
 	itemIconKind = itemIconKind,
+	rewardIconKind = rewardIconKind,
 	prizeShapeFromReward = prizeShapeFromReward,
 	WheelPrizeViewport = WheelPrizeViewport,
 	PlayerMark = PlayerMark,
 	Icon = Icon,
 	VECTOR_ICON_ATLAS = VECTOR_ICON_ATLAS,
 	GAME_ICON_ASSET = GAME_ICON_ASSET,
+	WORDMARK_ASSET = WORDMARK_ASSET,
+	LOCKUP_ASSET = LOCKUP_ASSET,
+	COMPACT_MARK_ASSET = COMPACT_MARK_ASSET,
 	VECTOR_ICON_CELL = VECTOR_ICON_CELL,
 	VECTOR_ICON_COLUMNS = VECTOR_ICON_COLUMNS,
 	VECTOR_ICON_INDEX = VECTOR_ICON_INDEX,

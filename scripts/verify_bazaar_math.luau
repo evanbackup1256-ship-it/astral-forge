@@ -7,13 +7,13 @@ local BazaarMath = require("../src/Server/AstralForge/Modules/BazaarMath")
 -- --- black market ------------------------------------------------------------
 for bucket = 0, 400 do
 	local offers = BazaarMath.Offers(bucket)
-	assert(#offers == BazaarMath.MARKET_OFFERS, "four deals every hour")
+	assert(#offers == BazaarMath.MARKET_OFFERS and #offers >= 24, "at least 24 shipments every hour")
 	local seen: { [string]: boolean } = {}
 	for _, offer in offers do
 		assert(not seen[offer.Id], "no deal appears twice in an hour")
 		seen[offer.Id] = true
 		assert(offer.Discount >= 0.2 and offer.Discount <= 0.45, "discount between 20% and 45%")
-		assert(offer.Stock >= 1 and offer.Stock <= 3, "stock between 1 and 3")
+		assert(offer.Stock >= 2 and offer.Stock <= 8, "stock between 2 and 8")
 		assert(offer.Seconds > 0 and type(offer.Reward) == "table", "a priced reward")
 	end
 end

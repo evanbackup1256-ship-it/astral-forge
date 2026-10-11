@@ -10,8 +10,8 @@ local PAGE_SUITES = {
 	ConvergenceView = "PagesProgress",
 	CrateRevealStage = "PagesShop",
 	BazaarView = "PagesBazaar",
-	StarChartsView = "PagesSky",
-	CipherView = "PagesSky",
+	SalvageView = "PagesEncounters",
+	TrialsView = "PagesEncounters",
 	CrewView = "PagesSocial",
 	EchoForgeView = "PagesStory",
 	ForgePathView = "PagesProgress",
@@ -29,7 +29,7 @@ local PAGE_SUITES = {
 	SettingsView = "PagesSystem",
 	ShopView = "PagesShop",
 	StoreFront = "PagesShop",
-	StarGridView = "PagesProgress",
+	SpecializationsView = "PagesSpecializations",
 	StoryView = "PagesStory",
 	TradeView = "PagesSocial",
 	WheelView = "PagesShop",
@@ -61,7 +61,7 @@ local MilestonesView = lazyView("MilestonesView", "MilestonesView")
 local AnomalyView = lazyView("AnomalyView", "AnomalyView")
 local LabView = lazyView("LabView", "LabView")
 local StoryView = lazyView("StoryView", "StoryView")
-local StarGridView = lazyView("StarGridView", "StarGridView")
+local SpecializationsView = lazyView("SpecializationsView", "SpecializationsView")
 local CommandView = lazyView("CommandView", "CommandView")
 local MailboxView = lazyView("MailboxView", "MailboxView")
 local ChatView = lazyView("ChatView", "ChatView")
@@ -85,8 +85,8 @@ local WorldsView = lazyView("WorldsView", "WorldsView")
 local RewardsView = lazyView("RewardsView", "RewardsView")
 local WorkshopView = lazyView("WorkshopView", "WorkshopView")
 local BazaarView = lazyView("BazaarView", "BazaarView")
-local StarChartsView = lazyView("StarChartsView", "StarChartsView")
-local CipherView = lazyView("CipherView", "CipherView")
+local SalvageView = lazyView("SalvageView", "SalvageView")
+local TrialsView = lazyView("TrialsView", "TrialsView")
 
 local function PageContentInner(props)
 	local _binding = props
@@ -121,6 +121,11 @@ local function PageContentInner(props)
 			_attributes.navigate = props.navigate
 			return React.createElement(OverviewView, _attributes)
 		end
+		if page == "Salvage" or page == "Trials" then
+			return React.createElement(if page == "Salvage" then SalvageView else TrialsView, {
+				state = state, dispatch = dispatch, reducedMotion = reducedMotion,
+			})
+		end
 		if page == "Workshop" then
 			return React.createElement(WorkshopView, {
 				state = state,
@@ -142,7 +147,7 @@ local function PageContentInner(props)
 			})
 		end
 		if page == "StarGrid" then
-			return React.createElement(StarGridView, {
+			return React.createElement(SpecializationsView, {
 				state = state,
 				config = config,
 				dispatch = dispatch,
@@ -224,20 +229,6 @@ local function PageContentInner(props)
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 				onLand = props.onWheelLand,
-			})
-		end
-		if page == "Charts" then
-			return React.createElement(StarChartsView, {
-				state = state,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
-			})
-		end
-		if page == "Cipher" then
-			return React.createElement(CipherView, {
-				state = state,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
 			})
 		end
 		if page == "Bazaar" then

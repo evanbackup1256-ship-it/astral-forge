@@ -49,15 +49,13 @@ function Board.collect(state, config)
 	add("Missions", "Missions", "Finished missions", PageReadyMath.CountReadyQuests(state.Quests), "Mission", Palette.green)
 	add("Milestones", "Milestones", "Goals reached", readyCount(state.Achievements), "Milestone", Palette.mango)
 	if state.Wheel ~= nil and state.Wheel.CanSpin == true then
-		add("Wheel", "Wheel", "Free daily spin", 1, "Wheel", Palette.mango)
+		add("Wheel", "Wheel", "Free spin ready", 1, "Wheel", Palette.mango)
 	end
 	local unread = state.Mailbox and tonumber(state.Mailbox.Unread) or 0
 	add("Mail", "Mail", "Unread letters", unread, "Mail", Palette.cyan)
 	add("Lab", "Lab", "Finished orders", PageReadyMath.CountReadyLabOrders(state.Lab), "Lab", Palette.mint)
 	local okPath, pathReady = pcall(PageReadyMath.ForgePathReady, state, config)
 	add("ForgePath", "Forge Path", "Step ready", if okPath and pathReady then 1 else 0, "Forge", Palette.violet)
-	local okCipher, cipherOpen = pcall(PageReadyMath.CipherOpen, state.Sky)
-	add("Cipher", "Signal Cipher", "Today's signal is open", if okCipher and cipherOpen then 1 else 0, "Code", Palette.pink)
 	local invite = state.Trade and state.Trade.Invite
 	add("Trade", "Trade", "Trade invite waiting", if invite ~= nil then 1 else 0, "Send", Palette.mint)
 	return list

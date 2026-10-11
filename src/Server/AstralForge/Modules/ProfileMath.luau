@@ -1030,8 +1030,11 @@ ActionFeatureMaps.FEATURE = {
 	GetLeaderboard = "Leaderboards",
 	ClaimConvergenceReward = "Convergence",
 	BazaarPlay = "Bazaar",
-	PlotStar = "Charts",
-	SubmitCipher = "Cipher",
+	SetMarketFavorite = "Bazaar",
+	RequestProcurement = "Bazaar",
+	BeginEncounter = "Salvage",
+	ChooseEncounter = "Salvage",
+	SelectSpecialization = "StarGrid",
 }
 
 function ActionFeatureMaps.AnomalyCharge(action: string): number?

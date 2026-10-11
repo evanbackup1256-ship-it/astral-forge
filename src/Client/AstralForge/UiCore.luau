@@ -26,7 +26,8 @@ local Players = game:GetService("Players")
 local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 local _Icon = require(script.Parent.ArtKit)("Icon")
-local GAME_ICON_ASSET = _Icon.GAME_ICON_ASSET
+local WORDMARK_ASSET = _Icon.WORDMARK_ASSET
+local COMPACT_MARK_ASSET = _Icon.COMPACT_MARK_ASSET
 local Icon = _Icon.Icon
 local _motion = require(script.Parent.MotionKit)("motion")
 local ExitPresenceContext = _motion.ExitPresenceContext
@@ -148,7 +149,7 @@ local function buttonContentWidth(label, hasIcon)
 end
 local function pinButtonLabel(instance)
 	if instance ~= nil then
-		instance:SetAttribute("LayoutGuardIgnore", true)
+		instance.Name = "ButtonLabel"
 	end
 end
 local function pinLayoutGuardIgnore(instance)
@@ -350,10 +351,10 @@ local function Text(_param)
 	if fit then
 		local floorSize = minSize
 		if floorSize == nil then
-			floorSize = math.max(MIN_UI_TEXT_SIZE, size * 0.72)
+			floorSize = math.max(12, size * 0.85)
 		end
 		constraint = React.createElement("uitextsizeconstraint", {
-			MinTextSize = math.clamp(math.floor(floorSize * textScale), MIN_UI_TEXT_SIZE, scaledSize),
+			MinTextSize = math.clamp(math.floor(floorSize * textScale), math.min(12, scaledSize), scaledSize),
 			MaxTextSize = scaledSize,
 		})
 	end
@@ -372,7 +373,7 @@ local function Text(_param)
 		TextWrapped = wrap,
 		TextScaled = fit,
 		LineHeight = if wrap then 1.12 else 1,
-		TextTruncate = if wrap or fit then Enum.TextTruncate.None else Enum.TextTruncate.AtEnd,
+		TextTruncate = Enum.TextTruncate.None,
 		ZIndex = zIndex + 1,
 	}
 	local shadow = table.clone(face)
@@ -2376,9 +2377,9 @@ function Button(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		TextWrapped = false,
+		TextWrapped = true,
 		TextScaled = false,
-		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextTruncate = Enum.TextTruncate.None,
 		ZIndex = zIndex + 3,
 	})), not iconOnly and not hasIcon and React.createElement("textlabel", {
 		ref = pinButtonLabel,
@@ -2395,9 +2396,9 @@ function Button(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		TextWrapped = false,
+		TextWrapped = true,
 		TextScaled = false,
-		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextTruncate = Enum.TextTruncate.None,
 		ZIndex = zIndex + 3,
 	})), loading and React.createElement("frame", {
 		Size = UDim2.fromOffset(18, 18),
@@ -4427,47 +4428,13 @@ local function SearchField(_param)
 	})))
 end
 local function LogoLockup(_param)
-	local compact = _param.compact
-	if compact == nil then
-		compact = false
-	end
-	local micro = _param.micro
-	if micro == nil then
-		micro = false
-	end
-	local accent = _param.accent
-	if accent == nil then
-		accent = Palette.cyan
-	end
-	local position = _param.position
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
+	local micro = _param.micro == true
 	local mark = if micro then 40 else 48
-	local textX = mark + 12
-	local strokes = {}
-	for index, segment in {
-		{ 0.27, 0.75, 0.5, 0.23 },
-		{ 0.5, 0.23, 0.73, 0.75 },
-		{ 0.36, 0.55, 0.64, 0.55 },
-		{ 0.79, 0.18, 0.79, 0.36 },
-		{ 0.7, 0.27, 0.88, 0.27 },
-	} do
-		local delta = Vector2.new(segment[3] - segment[1], segment[4] - segment[2])
-		strokes[index] = React.createElement("frame", {
-			Size = UDim2.fromOffset(delta.Magnitude * mark, if index <= 3 then 2.5 else 1.5),
-			Position = UDim2.fromScale((segment[1] + segment[3]) / 2, (segment[2] + segment[4]) / 2),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = math.deg(math.atan2(delta.Y, delta.X)),
-			BackgroundColor3 = if index <= 3 then Palette.cream else accent,
-			BorderSizePixel = 0,
-			ZIndex = 2,
-		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))
-	end
+	local textX = mark + 10
 	return React.createElement("frame", {
+		Name = "AstralForgeBrand",
 		Size = UDim2.fromScale(1, 1),
-		Position = position,
+		Position = _param.position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -4475,38 +4442,27 @@ local function LogoLockup(_param)
 		Size = UDim2.fromOffset(mark, mark),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = Color3.fromRGB(14, 10, 17),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = accent,
-		Thickness = 1.25,
-		Transparency = 0.18,
-	}), React.createElement("frame", {
+	}, React.createElement("imagelabel", {
 		Name = "ForgeMonogram",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Image = COMPACT_MARK_ASSET,
+		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 2,
-	}, strokes)), not micro and React.createElement(Text, {
-		value = "ASTRAL",
-		size = if compact then 18 else 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.new(0, textX, 0.5, -18),
-		sizeConstraint = UDim2.new(1, -textX, 0, 22),
-	}), not micro and React.createElement(Text, {
-		value = "F O R G E",
-		size = 10,
-		color = accent,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.new(0, textX, 0.5, 7),
-		sizeConstraint = UDim2.new(1, -textX, 0, 12),
+	})), not micro and React.createElement("imagelabel", {
+		Name = "ForgeWordmark",
+		Image = WORDMARK_ASSET,
+		ScaleType = Enum.ScaleType.Fit,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, textX, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Size = UDim2.new(1, -textX, 0, 44),
+		ZIndex = 2,
 	}))
 end
 return {
@@ -5620,12 +5576,13 @@ local function MainGame(_param)
 		local value = if type(_payload) == "table" then payload else {}
 		local signature = AppHelpers:actionSignature(action, value)
 		local pipelined = NetworkPolicy.IsPipelined(action)
-		local reject = function(message)
+		local reject = function(message, uncertain)
 			local _result_8 = callback
 			if _result_8 ~= nil then
 				_result_8({
 					ok = false,
 					error = message,
+					Uncertain = uncertain == true,
 				})
 			end
 		end
@@ -5780,7 +5737,7 @@ local function MainGame(_param)
 			end
 			ClientLog:warnEvery(`timeout:{action}`, 8, "UI", `{action} timed out after {timeoutSeconds}s`)
 			addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Info", false)
-			reject("That took too long. Try again.")
+			reject("That took too long. Try again.", true)
 		end)
 		local _current_1 = requestTimeouts.current
 		local _requestTimeout = requestTimeout
@@ -5828,7 +5785,7 @@ local function MainGame(_param)
 			if _condition_7 then
 				ClientLog:warnEvery(`request:{action}`, 5, "UI", `{action} got no answer`)
 				addNotice("Connection hiccup", "That tap didn't go through. Try again.", "Info", false)
-				reject("That tap didn't go through. Try again.")
+				reject("That tap didn't go through. Try again.", true)
 				return nil
 			end
 			applyResponse(raw, action, callback)
@@ -8213,7 +8170,7 @@ local CHIP_TIPS = {
 	},
 	DUST = {
 		title = "Stardust",
-		body = "Premium dust from rebirths and rewards. Spend it on Star Grid routes.",
+		body = "Earn Stardust from rebirths and rewards. Spend it on artifacts and supplies in the Shop.",
 	},
 	CORES = {
 		title = "Astral cores",
@@ -9248,7 +9205,7 @@ local function TopBar(_param)
 		end
 		_condition_3 = React.createElement("scrollingframe", {
 			Name = "TopbarResourceRail",
-			Size = UDim2.fromOffset(math.max(48, width - edgePad * 2 - (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) - controlsW - 12), chipRowH + 4),
+			Size = UDim2.fromOffset(math.max(48, width - edgePad * 2 - (controlsW + controlsRight + 12) - (12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14)), chipRowH + 4),
 			AutomaticCanvasSize = Enum.AutomaticSize.X,
 			CanvasSize = UDim2.new(),
 			ScrollingDirection = Enum.ScrollingDirection.X,
@@ -9706,16 +9663,16 @@ local function RailButton(_param)
 		color = labelColor,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(56, if rowHeight <= 54 then 4 else 10),
-		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 18 else 22),
+		position = UDim2.fromOffset(56, if rowHeight <= 54 then 2 else 8),
+		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 22 else 26),
 	}), not collapsed and React.createElement(Text, {
 		value = entry.eyebrow,
 		size = 12,
 		color = eyebrowColor,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(56, if rowHeight <= 54 then 22 else 34),
-		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 14 else 18),
+		position = UDim2.fromOffset(56, if rowHeight <= 54 then 26 else 38),
+		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 16 else 20),
 	}), badge > 0 and React.createElement(CountBadge, {
 		count = badge,
 		zIndex = 12,
@@ -11393,7 +11350,7 @@ local function Workspace(_param)
 		position = enter:map(function(amount)
 			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, if chrome.landscape then 4 else 2)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 22 elseif chrome.stack then 24 elseif denseHeader then 22 else 28),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 26 elseif chrome.stack then 24 elseif denseHeader then 24 else 28),
 		reducedMotion = reducedMotion,
 		enabled = true,
 		periodSeconds = 4.2,
@@ -11404,7 +11361,7 @@ local function Workspace(_param)
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
 		position = enter:map(function(amount)
-			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 28 elseif denseHeader then 26 else 32)
+			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 28 elseif denseHeader then 28 else 32)
 		end),
 		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 elseif denseHeader then 16 else 28),
 		transparency = revealFade,
@@ -14963,7 +14920,7 @@ local function MobileHeader(_param)
 		zIndex = 21,
 	}), React.createElement("textlabel", {
 		Size = UDim2.new(1, -(8 + iconSize + 8 + chipsW + playersW + 22), 0, if short then barHeight else 20),
-		Position = UDim2.fromOffset(8 + iconSize + 8, if short then 0 else 4),
+		Position = UDim2.fromOffset(8 + iconSize + 8, if short then 0 else 2),
 		BackgroundTransparency = 1,
 		Text = entry.label,
 		TextColor3 = Palette.cream,
@@ -14972,16 +14929,12 @@ local function MobileHeader(_param)
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
 		ZIndex = 21,
-	}), not short and React.createElement("textbutton", {
-		Size = UDim2.fromOffset(64, 16),
-		Position = UDim2.fromOffset(8 + iconSize + 8, 24),
-		BackgroundColor3 = darken(accent, 0.55),
+	}), not short and React.createElement("imagebutton", {
+		Name = "MobileRoadmapButton",
+		Size = UDim2.new(1, -(chipsW + playersW + 22), 1, 0),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Text = `LV {level}`,
-		TextColor3 = Palette.cream,
-		TextSize = 10,
-		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
 		ZIndex = 22,
 		Event = {
 			Activated = function()
@@ -14989,6 +14942,17 @@ local function MobileHeader(_param)
 				roadmap.openRoadmap()
 			end,
 		},
+	}), not short and React.createElement("textlabel", {
+		Name = "MobileLevelLabel",
+		Size = UDim2.fromOffset(64, 16),
+		Position = UDim2.fromOffset(8 + iconSize + 8, 24),
+		BackgroundColor3 = darken(accent, 0.55),
+		BorderSizePixel = 0,
+		Text = `LV {level}`,
+		TextColor3 = Palette.cream,
+		TextSize = 10,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+		ZIndex = 22,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("scrollingframe", {
@@ -20811,10 +20775,10 @@ local function ServerEventHost(_param)
 	local accent = accentOf(def)
 	local stack = chrome.stack
 	local edge = math.max(chrome.sideSafe, 10)
-	local width = if stack then math.max(120, viewport.width - math.min(220, math.floor(viewport.width * 0.6)) - edge * 3)
+	local width = if stack then math.min(320, viewport.width - edge * 2)
 		elseif active then math.min(320, viewport.width - 120)
 		else 170
-	local height = if active then (if event.Goal ~= nil then 50 else 40) else 28
+	local height = if active then (if event.Goal ~= nil then 58 else 50) else 28
 	local top = viewport.topInset + 62
 	local skyFx = def ~= nil and event.Phase == "Live" and React.createElement(EventSkyFx, {
 		key = tostring(event.Id),
@@ -20833,6 +20797,7 @@ local function ServerEventHost(_param)
 		}))
 	end
 	local banner = React.createElement("textbutton", {
+		Name = "ServerEventBanner",
 		Size = UDim2.fromOffset(width, height),
 		Position = if stack then UDim2.new(0, edge, 1, -(chrome.tabBarH + 8)) else UDim2.new(0.5, 0, 0, top),
 		AnchorPoint = if stack then Vector2.new(0, 1) else Vector2.new(0.5, 0),
@@ -20863,7 +20828,8 @@ local function ServerEventHost(_param)
 		size = 24,
 		position = UDim2.fromOffset(10, 8),
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 18 else height),
+		Name = "ServerEventName",
+		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 22 else height),
 		Position = UDim2.fromOffset(if active then 40 else 8, if active then 4 else 0),
 		BackgroundTransparency = 1,
 		Text = if active then def.Name else "",
@@ -20871,12 +20837,13 @@ local function ServerEventHost(_param)
 		TextSize = 14,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextTruncate = Enum.TextTruncate.None,
+		TextWrapped = true,
 		Visible = active,
 		ZIndex = 239,
 	}), React.createElement("textlabel", {
 		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 16 else height),
-		Position = UDim2.fromOffset(if active then 40 else 8, if active then 21 else 0),
+		Position = UDim2.fromOffset(if active then 40 else 8, if active then 27 else 0),
 		BackgroundTransparency = 1,
 		Text = now:map(function(value)
 			return phaseLine(event, value)
@@ -20890,7 +20857,7 @@ local function ServerEventHost(_param)
 		value = (event.Progress or 0) / math.max(1, event.Goal),
 		color = accent,
 		size = UDim2.new(1, -52, 0, 5),
-		position = UDim2.fromOffset(40, 40),
+		position = UDim2.fromOffset(40, 46),
 		zIndex = 239,
 	}))
 	return React.createElement(React.Fragment, nil, skyFx, banner, splash ~= nil and React.createElement(LiveSplash, {

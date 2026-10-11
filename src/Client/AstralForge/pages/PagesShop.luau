@@ -75,7 +75,7 @@ local function loadMonetization()
 	local shared = _shared
 	local _catalogModule = shared
 	if _catalogModule ~= nil then
-		_catalogModule = _catalogModule:WaitForChild("MonetizationConfig", 6)
+		_catalogModule = _catalogModule:WaitForChild("SharedData", 6)
 	end
 	local catalogModule = _catalogModule
 	if catalogModule == nil or not catalogModule:IsA("ModuleScript") then
@@ -83,16 +83,18 @@ local function loadMonetization()
 		return {
 			DevProducts = {},
 			GamePasses = {},
+			Error = "The shop couldn't load. Close it and try again.",
 		}
 	end
 	local loaded, result = pcall(function()
-		return require(catalogModule)
+		return require(catalogModule)("MonetizationConfig")
 	end)
-	if not loaded then
+	if not loaded or type(result) ~= "table" or type(result.DevProducts) ~= "table" or type(result.GamePasses) ~= "table" then
 		ClientLog:warn("shop", `couldn't load shop catalog: {tostring(result)}`)
 		return {
 			DevProducts = {},
 			GamePasses = {},
+			Error = "The shop couldn't load. Close it and try again.",
 		}
 	end
 	return result
@@ -860,7 +862,7 @@ local function ShopView(_param)
 		position = UDim2.fromOffset(0, 26),
 		sizeConstraint = UDim2.new(1, 0, 0, 24),
 	}), React.createElement(Text, {
-		value = banner,
+		value = monetization.Error or banner,
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
@@ -894,7 +896,7 @@ local function ShopView(_param)
 		position = UDim2.fromOffset(0, 22),
 		sizeConstraint = UDim2.new(1, 0, 0, 32),
 	}), React.createElement(Text, {
-		value = banner,
+		value = monetization.Error or banner,
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
@@ -1266,9 +1268,12 @@ local SECTIONS = {
 	{ id = "Artifacts", label = "Artifacts" },
 	{ id = "Premium", label = "Premium" },
 }
--- assets/generated/artifact_flare_sheet.png (4x4 frames, 256px), uploaded through Studio
-local ARTIFACT_FLARE_SHEET_ID = 98407517239854
-local ARTIFACT_SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
+local function sectionTabLayout(width, rowHeight)
+	local gap = 6
+	local columns = math.clamp(math.floor((math.max(1, width) + gap) / (96 + gap)), 1, #SECTIONS)
+	local rows = math.ceil(#SECTIONS / columns)
+	return columns, rows * rowHeight + (rows - 1) * gap
+end
 local ARTIFACT_RARITY = {
 	COMMON = { rank = 1, color = Color3.fromRGB(200, 196, 188), label = "Common" },
 	UNCOMMON = { rank = 2, color = Color3.fromRGB(120, 220, 150), label = "Uncommon" },
@@ -1726,7 +1731,7 @@ local function DailySection(props)
 					position = UDim2.fromOffset(50, 0),
 					sizeConstraint = UDim2.new(1, if stack then -50 else -220, 0, 22),
 				}), h(Text, {
-					value = "Rare relics and odd stock from the Bazaar, restocked through the day.",
+					value = "Keys, materials and boosts from the Black Market's hourly shipments.",
 					size = 12,
 					color = Palette.creamSoft,
 					wrap = true,
@@ -2676,165 +2681,6 @@ local function CodexSection(props)
 	})
 end
 
-local RunService = game:GetService("RunService")
-
--- layered light rig: flipbook flare (once uploaded), counter-rotating beam fans, breathing halo, rising motes, glass sheen
-local function ArtifactLight(props)
-	local rank = props.rank
-	local color = props.color
-	local fanA = React.useRef(nil)
-	local fanB = React.useRef(nil)
-	local halo = React.useRef(nil)
-	local flare = React.useRef(nil)
-	local sheen = React.useRef(nil)
-	local motes = React.useRef(nil)
-	React.useEffect(function()
-		if props.reducedMotion then
-			return nil
-		end
-		local clock = (props.seed or 1) * 1.37
-		local speed = 0.6 + rank * 0.18
-		local moteList, moteField = nil, nil
-		local function refreshMotes(field)
-			moteField = field
-			moteList = if field then field:GetChildren() else nil
-		end
-		local connection = RunService.RenderStepped:Connect(function(dt)
-			clock += math.min(dt, 0.1)
-			if fanA.current then
-				fanA.current.Rotation = clock * 9 * speed
-			end
-			if fanB.current then
-				fanB.current.Rotation = -clock * 14 * speed + 22.5
-			end
-			if halo.current then
-				local breathe = 0.5 + 0.5 * math.sin(clock * (1.4 + rank * 0.2))
-				halo.current.ImageTransparency = 0.5 - breathe * 0.12 * rank / 6
-				halo.current.Size = UDim2.fromScale(0.92 + breathe * 0.08, 0.92 + breathe * 0.08)
-			end
-			if flare.current then
-				local frame = math.floor(clock * 14) % 16
-				flare.current.ImageRectOffset = Vector2.new((frame % 4) * 256, (frame // 4) * 256)
-			end
-			if sheen.current then
-				sheen.current.Offset = Vector2.new((clock * 0.32) % 1.6 * 2 - 1.6, 0)
-			end
-			local field = motes.current
-			if field ~= moteField then
-				refreshMotes(field)
-			end
-			if moteList then
-				for index, mote in moteList do
-					local phase = clock * (0.18 + (index % 3) * 0.07) + index * 0.61
-					local life = phase % 1
-					local lane = math.sin(index * 12.9898) * 0.5 + 0.5
-					mote.Position = UDim2.fromScale(0.15 + lane * 0.7 + math.sin(phase * 4) * 0.04, 0.85 - life * 0.7)
-					mote.ImageTransparency = 0.25 + math.abs(life - 0.5) * 1.5
-				end
-			end
-		end)
-		return function()
-			connection:Disconnect()
-		end
-	end, { props.reducedMotion, rank })
-	local beams = {}
-	local beamCount = 2 + rank
-	for index = 1, beamCount do
-		beams[`B{index}`] = h("frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(1.5, 0, 0, if index % 2 == 0 then 2 else 4),
-			Rotation = (index - 1) * 180 / beamCount,
-			BackgroundColor3 = color,
-			BorderSizePixel = 0,
-		}, h("uigradient", {
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 1),
-				NumberSequenceKeypoint.new(0.42, 0.55 + (6 - rank) * 0.06),
-				NumberSequenceKeypoint.new(0.5, 0.25),
-				NumberSequenceKeypoint.new(0.58, 0.55 + (6 - rank) * 0.06),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-		}))
-	end
-	local function fan(ref, name, scale)
-		return h("frame", {
-			Name = name,
-			ref = ref,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(scale, scale),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, beams)
-	end
-	local moteChildren = {}
-	for index = 1, math.min(8, 2 + rank) do
-		moteChildren[`M{index}`] = h("imagelabel", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Size = UDim2.fromOffset(10 + (index % 3) * 4, 10 + (index % 3) * 4),
-			Position = UDim2.fromScale(0.2 + (index * 0.13) % 0.6, 0.5),
-			BackgroundTransparency = 1,
-			Image = ARTIFACT_SPARKLE,
-			ImageColor3 = color:Lerp(Color3.new(1, 1, 1), 0.4),
-			ImageTransparency = if props.reducedMotion then 0.6 else 1,
-		})
-	end
-	return h("frame", {
-		Name = "ArtifactLight",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("imagelabel", {
-		Name = "Halo",
-		ref = halo,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.95, 0.95),
-		BackgroundTransparency = 1,
-		Image = ARTIFACT_SPARKLE,
-		ImageColor3 = color,
-		ImageTransparency = 0.5,
-	}), fan(fanA, "FanA", 1), if rank >= 3 then fan(fanB, "FanB", 0.8) else nil, if ARTIFACT_FLARE_SHEET_ID > 0
-		then h("imagelabel", {
-			Name = "Flare",
-			ref = flare,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(1.1, 1.1),
-			BackgroundTransparency = 1,
-			Image = `rbxassetid://{ARTIFACT_FLARE_SHEET_ID}`,
-			ImageRectSize = Vector2.new(256, 256),
-			ImageColor3 = color:Lerp(Color3.new(1, 1, 1), 0.35),
-			ImageTransparency = 0.15,
-		})
-		else nil, h("frame", {
-		Name = "Motes",
-		ref = motes,
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, moteChildren), h("frame", {
-		Name = "Sheen",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BackgroundTransparency = 0.88,
-		BorderSizePixel = 0,
-	}, h("uigradient", {
-		ref = sheen,
-		Rotation = 18,
-		Offset = Vector2.new(-1.6, 0),
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.45, 1),
-			NumberSequenceKeypoint.new(0.5, 0.2),
-			NumberSequenceKeypoint.new(0.55, 1),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	})))
-end
-
 local function artifactEffectText(artifact)
 	local per = tonumber(artifact.EffectPerLevel) or 0
 	if artifact.EffectKind == "OfflineHours" then
@@ -2863,7 +2709,7 @@ local function ArtifactCard(props)
 		else `ACQUIRE · {commas(cost)} DUST`
 	local hovered, setHovered = React.useState(false)
 	local lightH = if props.stack then 116 else 132
-	local fxSize = math.floor(lightH * 1.32)
+	local fxSize = lightH
 	local elementBadgeW = math.max(62, #(if sheet then sheet.Label else element) * 7 + 14)
 	return h("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -2896,51 +2742,14 @@ local function ArtifactCard(props)
 	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uigradient", {
 		Color = ColorSequence.new(darken(elementColor, 0.6), Palette.void),
 		Rotation = 90,
-	}), h("imagelabel", {
-		Name = "Halo",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.56),
-		Size = UDim2.fromOffset(fxSize, fxSize),
-		BackgroundTransparency = 1,
-		Image = ARTIFACT_SPARKLE,
-		ImageColor3 = elementGlow,
-		ImageTransparency = if hovered then 0.55 else 0.72,
-		ZIndex = 1,
-	}), if tone.rank >= 5
-		then h(ArtifactLight, {
-			rank = tone.rank,
-			color = elementColor,
-			seed = props.order,
-			reducedMotion = props.reducedMotion,
-		})
-		else nil, h(ElementFx, {
+	}), h(ElementFx, {
 		element = element,
 		size = UDim2.fromOffset(fxSize, fxSize),
-		position = UDim2.fromScale(0.5, 0.6),
-		framerate = if hovered then 36 else 24,
+		position = UDim2.fromScale(0.5, 0.5),
+		framerate = 24,
 		reducedMotion = props.reducedMotion,
 		zIndex = 2,
-	}), h("frame", {
-		Name = "IconDisc",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.56),
-		Size = UDim2.fromOffset(52, 52),
-		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = 0.35,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-		Color = elementGlow,
-		Transparency = if hovered then 0.15 else 0.5,
-		Thickness = 1,
-	}), h(Icon, {
-		kind = "Artifact",
-		color = Palette.cream,
-		accent = elementColor,
-		size = 34,
-		position = UDim2.fromOffset(9, 9),
-		spin = false,
-	})), h(Badge, {
+	}), h(Badge, {
 		value = string.upper(tone.label),
 		accent = tone.color,
 		filled = tone.rank >= 4,
@@ -2954,11 +2763,11 @@ local function ArtifactCard(props)
 		position = UDim2.new(1, -(elementBadgeW + 6), 0, 6),
 	}), if artifact.ShopOnly and not owned
 		then h(Badge, {
-			value = "VAULT ONLY",
+			value = "Shop exclusive",
 			accent = elementGlow,
 			filled = false,
-			size = UDim2.fromOffset(80, 18),
-			position = UDim2.new(1, -86, 1, -24),
+			size = UDim2.fromOffset(106, 18),
+			position = UDim2.new(1, -112, 1, -24),
 		})
 		else nil, if owned
 		then h(Badge, {
@@ -3055,7 +2864,7 @@ local function ArtifactsSection(props)
 			{ id = "Owned", label = "Owned", test = function(artifact)
 				return owned[artifact.Id] ~= nil
 			end },
-			{ id = "Exclusive", label = "Vault only", test = function(artifact)
+			{ id = "Exclusive", label = "Shop exclusive", test = function(artifact)
 				return artifact.ShopOnly == true
 			end },
 			{ id = "Affordable", label = "Affordable", test = function(artifact)
@@ -3159,6 +2968,24 @@ end
 
 local function StoreFront(props)
 	local viewport = useViewport()
+	local hostRef = React.useRef(nil)
+	local contentWidth, setContentWidth = React.useState(viewport.width)
+	React.useEffect(function()
+		local host = hostRef.current
+		if host == nil then
+			return nil
+		end
+		local function measure()
+			if host.AbsoluteSize.X > 0 then
+				setContentWidth(host.AbsoluteSize.X)
+			end
+		end
+		measure()
+		local connection = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+		return function()
+			connection:Disconnect()
+		end
+	end, {})
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local softMotion = props.reducedMotion
@@ -3176,7 +3003,7 @@ local function StoreFront(props)
 		Browse.Model.remember("Shop", { query = "", category = section })
 	end, { section })
 	local reveal = useStagger(0, softMotion)
-	local tabH = if stack then TapTarget else 44
+	local tabColumns, tabH = sectionTabLayout(contentWidth, if stack then TapTarget else 44)
 	local shared = {
 		key = section,
 		state = props.state or {},
@@ -3212,6 +3039,7 @@ local function StoreFront(props)
 	end
 	return h("frame", {
 		Name = "StoreFrontHost",
+		ref = hostRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -3228,7 +3056,7 @@ local function StoreFront(props)
 			setSection(entry)
 		end,
 		accent = Palette.mango,
-		columns = #SECTIONS,
+		columns = tabColumns,
 		gap = 6,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = softMotion,
@@ -3260,8 +3088,6 @@ local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
 local _Icon = require(script.Parent.Parent.ArtKit)("Icon")
 local Icon = _Icon.Icon
-local WheelPrizeViewport = _Icon.WheelPrizeViewport
-local prizeShapeFromReward = _Icon.prizeShapeFromReward
 local InteractionFeedback = require(script.Parent.Parent.CoreKit)("interaction").InteractionFeedback
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useFlash = _motion.useFlash
@@ -3286,8 +3112,6 @@ local Button = _ui.Button
 local Meter = _ui.Meter
 local Panel = _ui.Panel
 local Text = _ui.Text
-local IMPACT_RAYS = { 0, 60, 120, 180, 240, 300 }
-local RIM_NOTCHES = { 0, 45, 90, 135, 180, 225, 270, 315 }
 local WHEEL_OMEGA = 1440
 local WHEEL_OMEGA_LOW = 1080
 local WHEEL_LAUNCH_SECONDS = 0.65
@@ -3311,6 +3135,12 @@ end
 local function positiveModulo(value, modulus)
 	return ((value % modulus) + modulus) % modulus
 end
+local unresolvedSpin = nil
+local function wheelPrizeIndex(rewards, index, id)
+	if type(index) ~= "number" or index % 1 ~= 0 or index < 1 or index > #rewards then return nil end
+	if type(id) ~= "string" or rewards[index].Id ~= id then return nil end
+	return index - 1
+end
 local function useWheelController(_param)
 	local state = _param.state
 	local config = _param.config
@@ -3320,15 +3150,22 @@ local function useWheelController(_param)
 	local antilag = useAntilag()
 	local rewardCount = math.max(1, #config.Wheel.Rewards)
 	local segment = 360 / rewardCount
-	local phase, setPhase = React.useState("idle")
-	local winner, setWinner = React.useState(-1)
-	local failure, setFailure = React.useState()
+	local receipt = state.Wheel.LastReceipt
+	local restoredIndex = -1
+	if receipt then
+		restoredIndex = wheelPrizeIndex(config.Wheel.Rewards, receipt.PrizeIndex, receipt.PrizeId) or -1
+	end
+	local phase, setPhase = React.useState(if unresolvedSpin or (receipt and restoredIndex < 0) then "error" elseif restoredIndex >= 0 then "landed" else "idle")
+	local winner, setWinner = React.useState(restoredIndex)
+	local failure, setFailure = React.useState(if unresolvedSpin then "Confirm your interrupted spin before starting another."
+		elseif receipt and restoredIndex < 0 then "Your saved reward does not match this wheel. Refresh before spinning." else nil)
 	local launchNonce, setLaunchNonce = React.useState(0)
 	local impactNonce, setImpactNonce = React.useState(0)
-	local rotation, setRotation = React.useBinding(0)
+	local restoredRotation = if restoredIndex >= 0 then positiveModulo(360 - restoredIndex * segment, 360) else 0
+	local rotation, setRotation = React.useBinding(restoredRotation)
 	local pointerKick, setPointerKick = React.useBinding(0)
 	local spinEnergy, setSpinEnergy = React.useBinding(0)
-	local rotationValue = React.useRef(0)
+	local rotationValue = React.useRef(restoredRotation)
 	local pointerKickValue = React.useRef(0)
 	local busy = React.useRef(false)
 	local mounted = React.useRef(true)
@@ -3479,10 +3316,29 @@ local function useWheelController(_param)
 			end
 		end
 	end, {})
+	React.useEffect(function()
+		if busy.current or not receipt then return end
+		if unresolvedSpin and unresolvedSpin.ExpectedSpin == receipt.ExpectedSpin then unresolvedSpin = nil end
+		if unresolvedSpin then return end
+		local index = wheelPrizeIndex(config.Wheel.Rewards, receipt.PrizeIndex, receipt.PrizeId)
+		if index == nil then
+			setPhase("error")
+			setFailure("Your saved reward does not match this wheel. Refresh before spinning.")
+			return
+		end
+		local value = positiveModulo(360 - index * segment, 360)
+		rotationValue.current = value
+		setRotation(value)
+		setWinner(index)
+		setFailure(nil)
+		setPhase("landed")
+	end, { receipt, spinning, config.Wheel.Rewards, segment, setRotation })
 	local spin = function()
-		if busy.current or not state.Wheel.CanSpin then
+		if busy.current or (not unresolvedSpin and not state.Wheel.CanSpin) then
 			return nil
 		end
+		local order = unresolvedSpin or { ExpectedSpin = state.Wheel.Spins }
+		unresolvedSpin = order
 		busy.current = true
 		local requestToken = token.current + 1
 		token.current = requestToken
@@ -3529,10 +3385,11 @@ local function useWheelController(_param)
 			setPointerKick(0)
 			setSpinEnergy(0)
 			setPhase("error")
-			setFailure("That spin took too long. Check Rewards before trying again.")
+			setFailure("No result yet. Confirm the previous spin to check its saved reward.")
 			Audio:play("requestTimeout")
 		end)
-		dispatch("SpinWheel", {}, function(response)
+		dispatch("SpinWheel", order, function(response)
+			if response.Uncertain ~= true and unresolvedSpin == order then unresolvedSpin = nil end
 			if not mounted.current or token.current ~= requestToken then
 				return nil
 			end
@@ -3548,7 +3405,7 @@ local function useWheelController(_param)
 				setPointerKick(0)
 				setSpinEnergy(0)
 				setPhase("error")
-				local _condition = response.error
+				local _condition = if response.Uncertain then "Connection interrupted. Confirm the previous spin before starting another." else response.error
 				if _condition == nil then
 					_condition = "The draw could not be completed."
 				end
@@ -3556,8 +3413,16 @@ local function useWheelController(_param)
 				Audio:play("error")
 				return nil
 			end
+			local resultIndex = wheelPrizeIndex(config.Wheel.Rewards, response.PrizeIndex, response.PrizeId)
+			if resultIndex == nil then
+				busy.current = false
+				motor.current.active = false
+				setPhase("error")
+				setFailure("Your reward was saved, but its artwork is unavailable. Reopen the wheel to refresh.")
+				return
+			end
 			local result = {
-				index = math.clamp(math.floor(response.PrizeIndex) - 1, 0, rewardCount - 1),
+				index = resultIndex,
 				message = response.message,
 			}
 			pendingResult.current = result
@@ -3571,6 +3436,7 @@ local function useWheelController(_param)
 		spinning = spinning,
 		winner = winner,
 		failure = failure,
+		retry = unresolvedSpin ~= nil,
 		launchNonce = launchNonce,
 		impactNonce = impactNonce,
 		rotation = rotation,
@@ -3579,815 +3445,8 @@ local function useWheelController(_param)
 		spin = spin,
 	}
 end
-local function WheelBurst(_param)
-	local flash = _param.flash
-	local active = _param.active
-	local accent = _param.accent
-	local budget = _param.budget
-	local launch = _param.launch
-	if launch == nil then
-		launch = false
-	end
-	local contained = _param.contained
-	if contained == nil then
-		contained = false
-	end
-	if not active then
-		return React.createElement(React.Fragment)
-	end
-	local ringCount = if launch then (if budget >= 0.55 then 2 else 1) elseif budget >= 0.3 then 2 else 1
-	local rings = {}
-	for index = 0, ringCount - 1 do
-		local _index = index
-		table.insert(rings, _index)
-	end
-	local overscan = if contained then 0 else 80
-	local _exp = not launch and React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.cream,
-		BackgroundTransparency = flash:map(function(amount)
-			return 1 - amount * (0.035 + budget * 0.025)
-		end),
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))
-	local _newValue = table.create(#rings)
-	local _callback = function(ring)
-		return React.createElement("frame", {
-			key = `ring-{ring}`,
-			Size = flash:map(function(amount)
-				local decay = 1 - amount
-				local freeScale = 0.64 + ring * 0.14 + decay * (0.48 + ring * 0.14)
-				local scale = if contained then math.min(0.96, 0.54 + ring * 0.08 + decay * (0.3 + ring * 0.05)) else freeScale
-				return UDim2.fromScale(scale, scale)
-			end),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Rotation = ring * 17,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("uistroke", {
-			Color = if ring == 1 then Palette.cream else accent,
-			Thickness = if ring == 0 then 2.2 else 1.25,
-			Transparency = flash:map(function(amount)
-				return 1 - amount * (0.58 - ring * 0.1)
-			end),
-		}))
-	end
-	for _k, _v in rings do
-		_newValue[_k] = _callback(_v, _k - 1, rings)
-	end
-	local _condition = not launch and budget >= 0.62
-	if _condition then
-		local _newValue_1 = table.create(#IMPACT_RAYS)
-		local _callback_1 = function(angle, index)
-			return React.createElement("frame", {
-				key = `ray-{angle}`,
-				Size = flash:map(function(amount)
-					return UDim2.new(0, ((if contained then 38 else 50) + index % 3 * (if contained then 10 else 16)) * (1 - amount), 0, 2)
-				end),
-				Position = UDim2.fromScale(0.5, 0.5),
-				AnchorPoint = Vector2.new(0, 0.5),
-				Rotation = angle + 5,
-				BackgroundColor3 = if index % 3 == 0 then Palette.cream elseif index % 2 == 0 then accent else Palette.cyan,
-				BackgroundTransparency = flash:map(function(amount)
-					return 1 - amount * 0.48
-				end),
-				BorderSizePixel = 0,
-			}, React.createElement("uigradient", {
-				Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.08), NumberSequenceKeypoint.new(1, 1) }),
-			}))
-		end
-		for _k, _v in IMPACT_RAYS do
-			_newValue_1[_k] = _callback_1(_v, _k - 1, IMPACT_RAYS)
-		end
-		_condition = _newValue_1
-	end
-	return React.createElement("frame", {
-		Size = UDim2.new(1, overscan, 1, overscan),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Active = false,
-		ZIndex = 70,
-	}, _exp, _newValue, _condition)
-end
-local function FlatPrizeWheel(_param)
-	local rewards = _param.rewards
-	local controller = _param.controller
-	local diameter = _param.diameter
-	local canSpin = _param.canSpin
-	local reducedMotion = _param.reducedMotion
-	local containedEffects = _param.containedEffects
-	if containedEffects == nil then
-		containedEffects = false
-	end
-	local antilag = useAntilag()
-	local softMotion = reducedMotion
-	local count = math.max(1, #rewards)
-	local segment = 360 / count
-	local innerDiameter = math.floor(diameter * 0.84)
-	local compactMachine = diameter < 230
-	local roughRadius = innerDiameter / 2 - 24
-	local span = (2 * math.pi * math.max(48, roughRadius)) / count
-	local medallionSize = math.floor(math.clamp(math.min(diameter * 0.11, span * 0.56), 22, 40))
-	local hubSize = math.floor(math.clamp(diameter * 0.2, if compactMachine then 52 else 60, 84))
-	local orbitRadius = innerDiameter / 2 - medallionSize / 2 - 10
-	local landing = useFlash(controller.impactNonce, reducedMotion, if antilag.tier < 1 then 0.34 else 0.56)
-	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
-	local decorateOrbit = true
-	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, reducedMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
-	local idleOrbit = useRotation(not reducedMotion and not controller.spinning and canSpin and decorateOrbit, 5.5)
-	local reverseOrbit = idleOrbit:map(function(angle)
-		return -angle * 0.62
-	end)
-	local carrierScale = React.joinBindings({
-		landing = landing,
-		launch = launch,
-		energy = controller.spinEnergy,
-	}):map(function(_param_1)
-		local hit = _param_1.landing
-		local start = _param_1.launch
-		local energy = _param_1.energy
-		return 1 + hit * (0.045 + antilag.fxBudget * 0.025) - start * 0.025 + energy * 0.012
-	end)
-	local carrierPosition = React.joinBindings({
-		landing = landing,
-		energy = controller.spinEnergy,
-	}):map(function(_param_1)
-		local hit = _param_1.landing
-		local energy = _param_1.energy
-		return UDim2.new(0.5, 0, 0.5, -math.round(energy * 2) + math.round(math.sin((1 - hit) * math.pi * 3) * hit * 3))
-	end)
-	local pointerScale = React.joinBindings({
-		tick = controller.pointerKick,
-		landing = landing,
-	}):map(function(_param_1)
-		local tick = _param_1.tick
-		local hit = _param_1.landing
-		return 1 + tick * 0.16 + hit * 0.22
-	end)
-	local pointerY = React.joinBindings({
-		tick = controller.pointerKick,
-		landing = landing,
-	}):map(function(_param_1)
-		local tick = _param_1.tick
-		local hit = _param_1.landing
-		return UDim2.new(0.5, 0, 0, 10 - tick * 3 - hit * 3)
-	end)
-	local wheelGlow = controller.spinEnergy:map(function(energy)
-		return 0.95 - energy * 0.16 * antilag.glowScale
-	end)
-	local _exp = React.createElement(WheelBurst, {
-		flash = launch,
-		active = controller.launchNonce > 0 and not reducedMotion,
-		accent = Palette.mango,
-		budget = antilag.fxBudget,
-		launch = true,
-		contained = containedEffects,
-	})
-	local _attributes = {
-		flash = landing,
-		active = controller.impactNonce > 0 and not reducedMotion,
-	}
-	local _result = rewards[controller.winner + 1]
-	if _result ~= nil then
-		_result = _result.Color
-	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = Palette.mango
-	end
-	_attributes.accent = _condition
-	_attributes.budget = antilag.fxBudget
-	_attributes.contained = containedEffects
-	local _exp_1 = React.createElement(WheelBurst, _attributes)
-	local _exp_2 = React.createElement("uiscale", {
-		Scale = carrierScale,
-	})
-	local _exp_3 = React.createElement("frame", {
-		Size = UDim2.new(1, -16, 1, -16),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = idleOrbit,
-		BackgroundColor3 = Palette.mango,
-		BackgroundTransparency = wheelGlow,
-		BorderSizePixel = 0,
-		ZIndex = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.cyan, Palette.mango),
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.08), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 0.08) }),
-	}))
-	local _exp_4 = React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panelRaised, 0.72),
-		Rotation = 90,
-	}), React.createElement("uistroke", {
-		Color = Palette.lineSoft,
-		Thickness = 2,
-		Transparency = 0.2,
-	}))
-	local _exp_5 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})
-	local _exp_6 = React.createElement("uistroke", {
-		Color = Palette.mango,
-		Thickness = 2,
-		Transparency = 0.46,
-	})
-	local _newValue = table.create(#RIM_NOTCHES)
-	local _callback = function(angle)
-		return React.createElement("frame", {
-			key = `rim-{angle}`,
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = angle,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement("frame", {
-			Size = UDim2.fromOffset(if angle % 90 == 0 then 20 else 12, 4),
-			Position = UDim2.new(0.5, 0, 0, -2),
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundColor3 = if angle % 90 == 0 then Palette.mango else Palette.creamSoft,
-			BackgroundTransparency = 0.16,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		})))
-	end
-	for _k, _v in RIM_NOTCHES do
-		_newValue[_k] = _callback(_v, _k - 1, RIM_NOTCHES)
-	end
-	local _exp_7 = React.createElement("frame", {
-		Size = UDim2.new(1, -14, 1, -14),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Rotation = reverseOrbit,
-		ZIndex = 2,
-	}, _exp_5, _exp_6, _newValue)
-	local _exp_8 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})
-	local _exp_9 = React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(Palette.panel, 0.04), darken(Palette.ink, 0.22)),
-		Rotation = 90,
-	})
-	local _exp_10 = React.createElement("uistroke", {
-		Color = Palette.creamSoft,
-		Thickness = 1,
-		Transparency = 0.62,
-	})
-	local _exp_11 = React.createElement("frame", {
-		Size = UDim2.fromScale(0.66, 0.66),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.lineSoft,
-		Thickness = 1,
-		Transparency = 0.66,
-	}))
-	local _newValue_1 = table.create(#rewards)
-	local _callback_1 = function(reward, index)
-		return React.createElement("frame", {
-			key = `divider-{reward.Id}`,
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = index * segment - segment / 2,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement("frame", {
-			Size = UDim2.fromOffset(2, orbitRadius - hubSize * 0.22),
-			Position = UDim2.new(0.5, 0, 0.5, -(orbitRadius - hubSize * 0.22) / 2),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = reward.Color,
-			BackgroundTransparency = 0.58,
-			BorderSizePixel = 0,
-		}, React.createElement("uigradient", {
-			Rotation = 90,
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 1) }),
-		})))
-	end
-	for _k, _v in rewards do
-		_newValue_1[_k] = _callback_1(_v, _k - 1, rewards)
-	end
-	local _newValue_2 = table.create(#rewards)
-	local _callback_2 = function(reward, index)
-		local won = controller.winner == index
-		local counterRotation = controller.rotation:map(function(turn)
-			return -(turn + index * segment)
-		end)
-		return React.createElement("frame", {
-			key = reward.Id,
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = index * segment,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 4,
-		}, React.createElement("frame", {
-			Size = UDim2.new(0, medallionSize + 16, 0, 5),
-			Position = UDim2.new(0.5, 0, 0.5, -orbitRadius - 4),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = reward.Color,
-			BackgroundTransparency = if won then 0.02 else 0.26,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("uigradient", {
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.24, 0), NumberSequenceKeypoint.new(0.76, 0), NumberSequenceKeypoint.new(1, 1) }),
-		})), React.createElement("frame", {
-			Size = UDim2.fromOffset(medallionSize, medallionSize),
-			Position = UDim2.new(0.5, 0, 0.5, -orbitRadius),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = counterRotation,
-			BackgroundColor3 = darken(reward.Color, 0.72):Lerp(Palette.panelRaised, 0.42),
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-		}, won and React.createElement("uiscale", {
-			Scale = landing:map(function(amount)
-				return 1 + amount * 0.18
-			end),
-		}), React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, math.floor(medallionSize * 0.28)),
-		}), React.createElement("uigradient", {
-			Color = ColorSequence.new(lighten(Palette.panelRaised, 0.08), darken(Palette.panelRaised, 0.22)),
-			Rotation = 90,
-		}), React.createElement("uistroke", {
-			Color = if won then Palette.cream else reward.Color,
-			Thickness = if won then 2.5 else 1.25,
-			Transparency = if won then 0.02 else 0.18,
-		}), React.createElement("frame", {
-			Size = UDim2.new(1, -8, 1, -8),
-			Position = UDim2.fromOffset(4, 4),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(WheelPrizeViewport, {
-			color = reward.Color,
-			shape = prizeShapeFromReward(reward.Reward, reward.Rarity),
-			size = medallionSize - 8,
-			spin = won and not reducedMotion,
-		}))))
-	end
-	for _k, _v in rewards do
-		_newValue_2[_k] = _callback_2(_v, _k - 1, rewards)
-	end
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(diameter, diameter),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, _exp, _exp_1, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = carrierPosition,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, _exp_2, _exp_3, _exp_4, _exp_7, React.createElement("frame", {
-		Size = UDim2.fromOffset(innerDiameter, innerDiameter),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = controller.rotation,
-		BackgroundColor3 = Palette.ink,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-		ZIndex = 3,
-	}, _exp_8, _exp_9, _exp_10, _exp_11, _newValue_1, _newValue_2), React.createElement("frame", {
-		Size = UDim2.fromOffset(hubSize + 16, hubSize + 16),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.shadow,
-		BackgroundTransparency = 0.12,
-		BorderSizePixel = 0,
-		ZIndex = 6,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.mango,
-		Thickness = 2,
-		Transparency = 0.5,
-	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(hubSize, hubSize),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.panelRaised,
-		BorderSizePixel = 0,
-		ZIndex = 7,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panelRaised, 0.75),
-		Rotation = 90,
-	}), React.createElement("uistroke", {
-		Color = Palette.mango,
-		Thickness = 3,
-		Transparency = hubStroke,
-	}), React.createElement(Icon, {
-		kind = "Wheel",
-		color = Palette.cream,
-		accent = Palette.mango,
-		size = math.floor(hubSize * 0.58),
-		position = UDim2.fromScale(0.5, 0.5),
-		anchorPoint = Vector2.new(0.5, 0.5),
-		spin = controller.spinning,
-		clipSafe = true,
-		reducedMotion = reducedMotion,
-	}))), React.createElement("frame", {
-		Size = UDim2.fromOffset(38, 42),
-		Position = pointerY,
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 90,
-		ClipsDescendants = false,
-	}, React.createElement("uiscale", {
-		Scale = pointerScale,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(28, 18),
-		Position = UDim2.fromOffset(19, 2),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Palette.panelSoft,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 7),
-	}), React.createElement("uistroke", {
-		Color = Palette.creamSoft,
-		Thickness = 1,
-		Transparency = 0.28,
-	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(20, 20),
-		Position = UDim2.fromOffset(19, 18),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = 45,
-		BackgroundColor3 = Palette.mango,
-		BorderSizePixel = 0,
-		ZIndex = 91,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 5),
-	}), React.createElement("uistroke", {
-		Color = Palette.cream,
-		Thickness = 2,
-		Transparency = 0.08,
-	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(7, 7),
-		Position = UDim2.fromOffset(19, 18),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.ink,
-		BorderSizePixel = 0,
-		ZIndex = 92,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))))
-end
-local _kit = require(script.Parent.Parent.UiCore)("crateModel")
-local kitPiece = _kit.kitPiece
-local useKitReady = _kit.useKitReady
-local kitFolder = _kit.kitFolder
-local subscribeContinuous = _motion.subscribeContinuous
-local KIT_WEDGE_LIFT = 1.4714
-local KIT_WEDGE_DEPTH = -0.025
-local KIT_FACE_DEPTH = -0.125
-local KIT_FRAME_DEPTH = 0.005
-local KIT_POINTER_HINGE = 2.98
-local KIT_POINTER_CENTRE = 0.0838
-local KIT_POINTER_PIN = 0.42
-local KIT_BULB_RADIUS = 2.74
-local KIT_BULB_COUNT = 24
-local KIT_HALF_VIEW = 3.3
-local KIT_CAMERA_DISTANCE = 15
-local KIT_ICON_RADIUS = 1.5
-local BULB_WARM = Color3.fromRGB(255, 236, 190)
-local BULB_GOLD = Color3.fromRGB(255, 186, 72)
-local BULB_OFF = Color3.fromRGB(70, 44, 30)
-local PRIZE_LIGHT = Vector3.new(-0.35, -0.55, 1)
-local function prizeIcon(reward)
-	local prize = reward.Reward or {}
-	if reward.Rarity == "MYTHIC" then
-		return "Casino_Nova"
-	elseif prize.Cores ~= nil then
-		return "Casino_Core"
-	elseif prize.Stardust ~= nil then
-		return "Casino_Dust"
-	elseif prize.Boost == "Hyperdrive" then
-		return "Casino_Star"
-	elseif prize.Boost ~= nil then
-		return "Casino_Comet"
-	end
-	return "Casino_Coin"
-end
-local function wheelCamera(viewport, roll)
-	local camera = viewport.CurrentCamera
-	if camera == nil then
-		return
-	end
-	local spin = CFrame.Angles(0, 0, -math.rad(roll))
-	camera.CFrame = spin * CFrame.lookAt(Vector3.new(0, 0, -KIT_CAMERA_DISTANCE), Vector3.zero)
-	viewport.LightDirection = spin:VectorToWorldSpace(PRIZE_LIGHT)
-end
-local function newViewportCamera(viewport)
-	viewport:ClearAllChildren()
-	local camera = Instance.new("Camera")
-	camera.FieldOfView = math.deg(2 * math.atan(KIT_HALF_VIEW / KIT_CAMERA_DISTANCE))
-	camera.Parent = viewport
-	viewport.CurrentCamera = camera
-	local model = Instance.new("Model")
-	model.Parent = viewport
-	return model
-end
-local function buildSpinningWheel(viewport, rewards)
-	local model = newViewportCamera(viewport)
-	local count = math.max(1, #rewards)
-	local face = kitPiece("Casino_PrizeFace")
-	if face ~= nil then
-		face.CFrame = CFrame.new(0, 0, KIT_FACE_DEPTH)
-		face.Parent = model
-	end
-	local wedges = {}
-	for index, reward in rewards do
-		local angle = math.rad((index - 1) * 360 / count)
-		local wedge = kitPiece("Casino_PrizeWedge")
-		if wedge ~= nil then
-			for _, child in wedge:GetChildren() do
-				if child:IsA("SurfaceAppearance") then
-					child:Destroy()
-				end
-			end
-			pcall(function()
-				wedge.TextureID = ""
-			end)
-			wedge.Material = Enum.Material.SmoothPlastic
-			wedge.Color = reward.Color
-			wedge.CFrame = CFrame.Angles(0, 0, angle) * CFrame.new(0, KIT_WEDGE_LIFT, KIT_WEDGE_DEPTH)
-			wedge.Parent = model
-			wedges[index] = wedge
-		end
-		-- Prize artwork lives in the result card; sectors stay unobstructed.
-	end
-	return { wedges = wedges }
-end
-local function buildStaticWheel(viewport)
-	local model = newViewportCamera(viewport)
-	local frame = kitPiece("Casino_PrizeFrame")
-	if frame ~= nil then
-		frame.CFrame = CFrame.new(0, 0, KIT_FRAME_DEPTH)
-		frame.Parent = model
-	end
-	local bulbs = {}
-	for k = 0, KIT_BULB_COUNT - 1 do
-		local a = math.rad(360 * k / KIT_BULB_COUNT)
-		local bulb = Instance.new("Part")
-		bulb.Shape = Enum.PartType.Ball
-		bulb.Size = Vector3.one * 0.15
-		bulb.Anchored = true
-		bulb.CanCollide = false
-		bulb.CanQuery = false
-		bulb.CanTouch = false
-		bulb.CastShadow = false
-		bulb.Material = Enum.Material.Neon
-		bulb.Color = BULB_OFF
-		bulb.CFrame = CFrame.new(-math.sin(a) * KIT_BULB_RADIUS, math.cos(a) * KIT_BULB_RADIUS, -0.2)
-		bulb.Parent = model
-		bulbs[k + 1] = bulb
-	end
-	local pointer = kitPiece("Casino_PrizePointer")
-	local hinge = CFrame.new(0, KIT_POINTER_HINGE, -0.46)
-	if pointer ~= nil then
-		pointer.CFrame = hinge * CFrame.new(0, KIT_POINTER_CENTRE - KIT_POINTER_PIN, 0)
-		pointer.Parent = model
-	end
-	return { bulbs = bulbs, pointer = pointer, hinge = hinge }
-end
-local function bulbPattern(phase, mode)
-	local lit = {}
-	if mode == "celebrate" then
-		local on = math.floor(phase * 8) % 2 == 0
-		for k = 1, KIT_BULB_COUNT do
-			lit[k] = on
-		end
-		return lit, if on then 1 else 0
-	end
-	local step = math.floor(phase)
-	for k = 1, KIT_BULB_COUNT do
-		lit[k] = (k + step) % 3 == 0
-	end
-	return lit, step
-end
-local function KitPrizeWheel(_param)
-	local rewards = _param.rewards
-	local controller = _param.controller
-	local diameter = _param.diameter
-	local canSpin = _param.canSpin
-	local reducedMotion = _param.reducedMotion
-	local containedEffects = _param.containedEffects == true
-	local antilag = useAntilag()
-	local count = math.max(1, #rewards)
-	local spinHost = React.useRef(nil)
-	local staticHost = React.useRef(nil)
-	local scenes = React.useRef({})
-	local live = React.useRef({})
-	live.current.controller = controller
-	live.current.reducedMotion = reducedMotion
-	live.current.canSpin = canSpin
-	local landing = useFlash(controller.impactNonce, reducedMotion, 0.7)
-	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
-	local winnerColor = (rewards[controller.winner + 1] and rewards[controller.winner + 1].Color) or Palette.mango
-	React.useEffect(function()
-		local spinViewport = spinHost.current
-		local staticViewport = staticHost.current
-		if spinViewport == nil or staticViewport == nil then
-			return nil
-		end
-		local spinning = buildSpinningWheel(spinViewport, rewards)
-		local static = buildStaticWheel(staticViewport)
-		scenes.current = { spinning = spinning, static = static }
-		wheelCamera(spinViewport, 0)
-		wheelCamera(staticViewport, 0)
-		local state = { t = 0, chase = 0, lastStep = -1, lastRoll = nil, celebrateUntil = 0, lastImpact = 0, swing = 0, lastKick = 0, glowWinner = -1 }
-		local release = subscribeContinuous(function(dt)
-			local now = live.current
-			local ctl = now.controller
-			state.t += dt
-			local roll = ctl.rotation:getValue()
-			if roll ~= state.lastRoll then
-				state.lastRoll = roll
-				wheelCamera(spinViewport, roll)
-			end
-			if ctl.impactNonce ~= state.lastImpact then
-				state.lastImpact = ctl.impactNonce
-				if ctl.impactNonce > 0 then
-					state.celebrateUntil = state.t + 1.8
-				end
-			end
-			local energy = ctl.spinEnergy:getValue()
-			local celebrating = state.t < state.celebrateUntil
-			local rate = if now.reducedMotion then 2 elseif celebrating then 1 else 5 + energy * 22
-			state.chase += dt * rate
-			local lit, step = bulbPattern(if celebrating then state.t else state.chase, if celebrating then "celebrate" else "chase")
-			local stepKey = (if celebrating then 1000 else 0) + step
-			if stepKey ~= state.lastStep then
-				state.lastStep = stepKey
-				for k, bulb in static.bulbs do
-					bulb.Color = if lit[k] then (if k % 2 == 0 then BULB_WARM else BULB_GOLD) else BULB_OFF
-				end
-			end
-			local kick = ctl.pointerKick:getValue()
-			local target = -kick * 24
-			state.swing += (target - state.swing) * (1 - math.exp(-dt * 30))
-			if static.pointer ~= nil and math.abs(state.swing - state.lastKick) > 0.05 then
-				state.lastKick = state.swing
-				static.pointer.CFrame = static.hinge * CFrame.Angles(0, 0, math.rad(state.swing)) * CFrame.new(0, KIT_POINTER_CENTRE - KIT_POINTER_PIN, 0)
-			end
-			local winner = if celebrating then ctl.winner + 1 else -1
-			local pulse = if celebrating then 0.5 + 0.5 * math.sin(state.t * 18) else 0
-			if winner ~= state.glowWinner or celebrating then
-				state.glowWinner = winner
-				for index, wedge in spinning.wedges do
-					local base = rewards[index].Color
-					if winner == -1 then
-						wedge.Material = Enum.Material.SmoothPlastic
-						wedge.Color = base
-					elseif index == winner then
-						wedge.Material = Enum.Material.Neon
-						wedge.Color = base:Lerp(Color3.new(1, 1, 1), 0.15 + pulse * 0.35)
-					else
-						wedge.Material = Enum.Material.SmoothPlastic
-						wedge.Color = base:Lerp(Color3.new(0.05, 0.04, 0.08), 0.55)
-					end
-				end
-			end
-		end)
-		return function()
-			release()
-			spinViewport:ClearAllChildren()
-			staticViewport:ClearAllChildren()
-		end
-	end, { rewards })
-	local glow = React.joinBindings({ landing, controller.spinEnergy, launch }):map(function(values)
-		return math.clamp(0.92 - values[1] * 0.5 - values[2] * 0.12 * antilag.glowScale - values[3] * 0.15, 0.2, 1)
-	end)
-	local shake = React.joinBindings({ landing, controller.spinEnergy }):map(function(values)
-		local hit = values[1]
-		local wobble = math.sin((1 - hit) * math.pi * 5) * hit * 4
-		return UDim2.new(0.5, math.round(wobble), 0.5, -math.round(values[2] * 2))
-	end)
-	local labelRadius = diameter / 2 * (1.98 / KIT_HALF_VIEW)
-	local labels = {}
-	for index, reward in rewards do
-		local won = controller.winner == index - 1
-		labels[`label{index}`] = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = (index - 1) * 360 / count,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(Text, {
-			value = tostring(index),
-			size = math.clamp(math.floor(diameter * 0.045), 11, 18),
-			color = if won then Palette.cream else Color3.new(1, 1, 1),
-			weight = Enum.FontWeight.Heavy,
-			align = Enum.TextXAlignment.Center,
-			fit = true,
-			minSize = 8,
-			position = UDim2.new(0.5, -10, 0.5, -labelRadius - 10),
-			sizeConstraint = UDim2.fromOffset(20, 20),
-			zIndex = 6,
-		}))
-	end
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(diameter, diameter),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement(WheelBurst, {
-		flash = launch,
-		active = controller.launchNonce > 0 and not reducedMotion,
-		accent = Palette.mango,
-		budget = antilag.fxBudget,
-		launch = true,
-		contained = containedEffects,
-	}), React.createElement(WheelBurst, {
-		flash = landing,
-		active = controller.impactNonce > 0 and not reducedMotion,
-		accent = winnerColor,
-		budget = antilag.fxBudget,
-		contained = containedEffects,
-	}), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = shake,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(0.96, 0.96),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = if controller.winner >= 0 then winnerColor else Palette.mango,
-		BackgroundTransparency = glow,
-		BorderSizePixel = 0,
-		ZIndex = 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.5, 0.75), NumberSequenceKeypoint.new(1, 0.2) }),
-		Rotation = 45,
-	})), React.createElement("viewportframe", {
-		ref = spinHost,
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Ambient = Color3.fromRGB(200, 194, 206),
-		LightColor = Color3.fromRGB(205, 198, 186),
-		LightDirection = PRIZE_LIGHT,
-		ZIndex = 2,
-	}), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = controller.rotation,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, labels), React.createElement("viewportframe", {
-		ref = staticHost,
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Ambient = Color3.fromRGB(200, 194, 206),
-		LightColor = Color3.fromRGB(205, 198, 186),
-		LightDirection = PRIZE_LIGHT,
-		ZIndex = 4,
-	})))
-end
 local function PrizeWheelMachine(props)
-	local kitReady = useKitReady()
-	local hasPieces = kitReady and kitFolder() ~= nil and kitFolder():FindFirstChild("Casino_PrizeWedge") ~= nil
-	if hasPieces then
-		return React.createElement(KitPrizeWheel, props)
-	end
-	return React.createElement(FlatPrizeWheel, props)
+	return React.createElement(require(script.Parent.Parent.AuthoredWheel), props)
 end
 local function WheelConsole(_param)
 	local state = _param.state
@@ -4404,7 +3463,7 @@ local function WheelConsole(_param)
 		compact = false
 	end
 	local prize = if controller.winner >= 0 then config.Wheel.Rewards[controller.winner + 1] else nil
-	local canSpin = state.Wheel.CanSpin == true
+	local canSpin = state.Wheel.CanSpin == true or controller.retry
 	local _condition = state.Wheel.PityMisses
 	if _condition == nil then
 		_condition = 0
@@ -4427,7 +3486,7 @@ local function WheelConsole(_param)
 	local status = if controller.spinning then "SPINNING" elseif controller.failure ~= nil then "SPIN PAUSED" elseif prize ~= nil then "YOU WON" elseif canSpin then "READY TO SPIN" else "COOLING DOWN"
 	local _result
 	if controller.failure ~= nil then
-		_result = "Connection interrupted"
+		_result = if controller.retry then "Confirm your previous spin" else "Spin unavailable"
 	else
 		local _result_1 = prize
 		if _result_1 ~= nil then
@@ -4435,7 +3494,7 @@ local function WheelConsole(_param)
 		end
 		local _condition_2 = _result_1
 		if _condition_2 == nil then
-			_condition_2 = (if controller.spinning then "Forging your outcome" elseif canSpin then "Your daily draw is ready" else "The wheel is recharging")
+			_condition_2 = (if controller.spinning then "Your prize is on its way" elseif canSpin then "Your spin is ready" else "The wheel is recharging")
 		end
 		_result = _condition_2
 	end
@@ -4489,7 +3548,7 @@ local function WheelConsole(_param)
 	local prizeIcon = if compact then 44 else 54
 	local copyX = if compact then 78 else 98
 	local copyRight = if compact then 88 else 112
-	local statsTop = if compact then 92 else 106
+	local statsTop = if compact then 176 else 156
 	local statsHeight = if compact then 42 else 52
 	local buttonHeight = if compact then 48 else 50
 	local buttonBottom = if compact then 10 else 14
@@ -4531,11 +3590,13 @@ local function WheelConsole(_param)
 		Position = UDim2.fromOffset(iconInset, iconInset),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, React.createElement(WheelPrizeViewport, {
+	}, React.createElement(Icon, {
+		kind = _Icon.rewardIconKind(prize.Reward),
 		color = prize.Color,
-		shape = prizeShapeFromReward(prize.Reward, prize.Rarity),
+		accent = prize.Color,
 		size = prizeIcon,
-		spin = false,
+		reducedMotion = true,
+		clipSafe = true,
 	})) else React.createElement(Icon, {
 		kind = "Wheel",
 		color = Palette.cream,
@@ -4573,18 +3634,18 @@ local function WheelConsole(_param)
 	end
 	_attributes.color = _result_2
 	_attributes.weight = Enum.FontWeight.Heavy
-	_attributes.fit = true
-	_attributes.minSize = if compact then 9 else 11
+	_attributes.fit = false
+	_attributes.wrap = true
 	_attributes.position = UDim2.fromOffset(copyX, if compact then 38 else 44)
-	_attributes.sizeConstraint = UDim2.new(1, -copyRight, 0, if compact then 20 else 24)
+	_attributes.sizeConstraint = UDim2.new(1, -copyRight, 0, 42)
 	local _exp_6 = React.createElement(Text, _attributes)
 	local _exp_7 = React.createElement(Text, {
 		value = detail,
-		size = if compact then 9 else 11,
+		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(copyX, if compact then 59 else 69),
-		sizeConstraint = UDim2.new(1, -copyRight, 0, if compact then 28 else 36),
+		position = UDim2.fromOffset(copyX, if compact then 82 else 88),
+		sizeConstraint = UDim2.new(1, -copyRight, 0, if compact then 84 else 60),
 	})
 	local _exp_8 = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 9),
@@ -4599,7 +3660,7 @@ local function WheelConsole(_param)
 	if _condition_3 == nil then
 		_condition_3 = 0
 	end
-	_attributes_1.value = if _condition_3 > 0 then "FREE DRAWS" else "TOTAL DRAWS"
+	_attributes_1.value = if _condition_3 > 0 then "FREE SPINS" else "TOTAL SPINS"
 	_attributes_1.size = 12
 	_attributes_1.color = Palette.muted
 	_attributes_1.weight = Enum.FontWeight.Heavy
@@ -4643,14 +3704,14 @@ local function WheelConsole(_param)
 		Thickness = 1,
 		Transparency = if pityArmed then 0.28 else 0.64,
 	}), React.createElement(Text, {
-		value = if compact then "RARITY" else "RARITY PRESSURE",
+		value = "GUARANTEE",
 		size = 12,
 		color = if pityArmed then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Heavy,
 		position = UDim2.fromOffset(10, 5),
 		sizeConstraint = UDim2.new(0.65, -10, 0, 15),
 	}), React.createElement(Text, {
-		value = if pityArmed then "PRIMED" else `{pityMisses} / {pityAfter}`,
+		value = if pityArmed then "Ready" else `{pityMisses} / {pityAfter}`,
 		size = 12,
 		color = if pityArmed then Palette.mango else Palette.creamSoft,
 		weight = Enum.FontWeight.Heavy,
@@ -4673,7 +3734,8 @@ local function WheelConsole(_param)
 		ClipsDescendants = false,
 		ref = spinClaimHostRef,
 	}, React.createElement(Button, {
-		text = if controller.spinning then "SPINNING" elseif canSpin then (if pityArmed then (if compact then "SPIN · PITY" else "SPIN · PITY ARMED") elseif compact then "SPIN WHEEL" else "SPIN PRIZE WHEEL") else "DRAW NOT READY",
+		text = if controller.spinning then "Spinning..." elseif controller.retry then "Confirm previous spin"
+			elseif canSpin then (if pityArmed then "Spin · guaranteed rarity" else "Spin prize wheel") else "Next spin not ready",
 		icon = "Wheel",
 		onClick = onSpin,
 		color = if canSpin and not controller.spinning then Palette.mango else Palette.panelSoft,
@@ -4763,8 +3825,8 @@ local function WheelView(props)
 	local heightCap = if shortLandscape then 240 elseif split then 420 else 360
 	local wheelDiameter = math.floor(if shortLandscape then math.clamp(math.min(widthCap, heightCap), 190, 220) else math.clamp(math.min(widthCap, heightCap), if chrome.contentStack then 140 else 180, if split then 410 else 340))
 	wheelDiameter = math.max(100, math.min(wheelDiameter, widthCap))
-	local headerH = if shortLandscape then 64 elseif narrowPortrait then 90 else 82
-	local consoleH = if shortLandscape then 198 elseif chrome.contentStack then 230 else 232
+	local headerH = if shortLandscape then 74 elseif narrowPortrait then 100 else 92
+	local consoleH = if shortLandscape or chrome.contentStack then 300 else 280
 	local stageH = if split then math.max(wheelDiameter + 24, consoleH) else wheelDiameter + 40 + consoleH
 	local panelH = headerH + stageH + Layout.cardPadding * 2
 	-- The legend shares the page scroll, so the wheel no longer needs to shrink
@@ -4785,8 +3847,8 @@ local function WheelView(props)
 		_result = Palette.mango
 	end
 	local accent = _result
-	local headline = "Your daily prize draw"
-	local descriptor = if narrowPortrait then `{#rewards} prizes / rare-win protection` else `{#rewards} prizes  /  better odds after every miss`
+	local headline = "The prize wheel"
+	local descriptor = `{#rewards} prizes · free spin every {clockText(config.Wheel.CooldownSeconds)}`
 	local containedEffects = chrome.portrait or shortLandscape or viewport.width <= 420 or (landscape and viewport.height <= 480)
 	local weightTotal = 0
 	for _, reward in rewards do
@@ -4833,7 +3895,7 @@ local function WheelView(props)
 					clips = false,
 				}, React.createElement(Text, {
 					value = "PRIZE WHEEL",
-					size = if shortLandscape then 9 else 10,
+					size = 12,
 					color = Palette.mango,
 					weight = Enum.FontWeight.Heavy,
 					fit = false,
@@ -4844,18 +3906,17 @@ local function WheelView(props)
 					color = Palette.cream,
 					weight = Enum.FontWeight.Heavy,
 					fit = false,
-					minSize = if narrowPortrait then 10 else 15,
 					wrap = narrowPortrait,
 					position = UDim2.fromOffset(0, if shortLandscape then 14 else 18),
 					sizeConstraint = UDim2.new(1, 0, 0, if narrowPortrait then 36 elseif shortLandscape then 22 else 28),
 				}), React.createElement(Text, {
 					value = descriptor,
-					size = if narrowPortrait then 9 else 10,
+					size = 12,
 					color = Palette.muted,
 					fit = false,
-					wrap = narrowPortrait,
+					wrap = true,
 					position = UDim2.fromOffset(0, if narrowPortrait then 57 elseif shortLandscape then 36 else 46),
-					sizeConstraint = UDim2.new(1, 0, 0, if narrowPortrait then 18 else 16),
+					sizeConstraint = UDim2.new(1, 0, 0, 30),
 				}), React.createElement("frame", {
 					Size = UDim2.fromOffset(wheelDiameter, wheelDiameter),
 					Position = if split then UDim2.new(0.25, 0, 0, headerH + stageH / 2) else UDim2.new(0.5, 0, 0, headerH),
@@ -4883,18 +3944,27 @@ local function WheelView(props)
 					height = consoleH,
 						reducedMotion = softMotion,
 					spinClaimHostRef = spinClaimHostRef,
-					compact = shortLandscape,
+					compact = shortLandscape or chrome.contentStack,
 				}))),
 			},
 			{
 				id = "prizes-label",
-				height = 28,
+				height = 32,
 				element = React.createElement(Text, {
-					value = "PRIZE TABLE · MATCH THE SECTOR NUMBER",
-					size = 11,
+					value = "Prizes · standard odds",
+					size = 13,
 					color = Palette.mango,
 					weight = Enum.FontWeight.Heavy,
 					sizeConstraint = UDim2.new(1, 0, 0, 20),
+				}),
+			},
+			{
+				id = "prizes-odds",
+				height = 64,
+				element = React.createElement(Text, {
+					value = `Match each prize to its wheel number. Guaranteed spins draw only {config.Wheel.PityRarity or "RARE"} or better, using their relative weights.`,
+					size = 12, color = Palette.creamSoft, wrap = true, fit = false,
+					sizeConstraint = UDim2.new(1, 0, 1, 0),
 				}),
 			},
 			{

@@ -19,6 +19,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+	local Encounters = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Encounters"))
+	local Specializations = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
+	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ShopCatalog")
 	local AtomicState = loadService("AtomicState")
 	local ProfileIntegrity = loadService("ProfileIntegrity")
@@ -333,6 +336,11 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Settings.UIEffects = profile.Settings.EffectsIntensity > 0.001
 		profile.Settings.ReducedMotion = profile.Settings.MotionIntensity <= 0.03
 		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
+		profile.Encounters = Encounters.Sanitize(profile.Encounters)
+		profile.Specialization = Specializations.Sanitize(profile.Specialization)
+		for id in profile.Encounters.Mastery do
+			if not artifactById[id] then profile.Encounters.Mastery[id] = nil end
+		end
 		if type(profile.Wheel) ~= "table" then
 			profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
 		end
@@ -340,6 +348,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Wheel.Spins = math.floor(nonNegative(profile.Wheel.Spins))
 		profile.Wheel.PityMisses = math.floor(nonNegative(profile.Wheel.PityMisses))
 		profile.Wheel.FreeSpins = math.floor(nonNegative(profile.Wheel.FreeSpins))
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
 		ProfileBagMath.EnsureItems(profile)
 		profile.Items.NextId = math.max(1, math.floor(nonNegative(profile.Items.NextId)))
 		profile.Items.Essence = math.floor(nonNegative(profile.Items.Essence))

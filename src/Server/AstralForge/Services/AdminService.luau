@@ -16,6 +16,7 @@ return function(loadService: (string) -> any)
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
+	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -119,6 +120,9 @@ return function(loadService: (string) -> any)
 		GrantEchoCharge = { Label = "Grant echo charge", Option = false, Category = "Progress" },
 		MaxCrew = { Label = "Max command crew", Option = false, Category = "Progress" },
 		DiscoverArts = { Label = "Discover every artifact", Option = false, Category = "Items" },
+		InspectMarket = { Label = "Inspect Black Market", Option = false, Category = "Economy", Danger = "quick" },
+		ResetMarketPurchases = { Label = "Reset market shelf purchases", Option = false, Category = "Resets" },
+		CancelMarketRequest = { Label = "Cancel market supply request", Option = false, Category = "Resets" },
 		Blind = { Label = "Lights out overlay", Option = false, Category = "Troll", World = true },
 		FakeBan = { Label = "Fake ban screen", Option = false, Category = "Troll", World = true },
 		FakeCrash = { Label = "Fake crash card", Option = false, Category = "Troll", World = true },
@@ -1134,6 +1138,37 @@ return function(loadService: (string) -> any)
 				if profile.Trade then profile.Trade.Day = -1 end
 		return { ok = true, amount = changedAmount }
 	end
+	profileHandlers.InspectMarket = function(profile, amount, option)
+		local bag = BazaarMath.Ensure(profile.Bazaar)
+		profile.Bazaar = bag
+		local bucket = BazaarMath.MarketBucket(os.time())
+		local merchant = BazaarMath.Merchant(bucket)
+		local rare = BazaarMath.RareOffer(bucket)
+		local tier = BazaarMath.Reputation(bag.Counters.Deals)
+		local spent = 0
+		if bag.Market.Bucket == bucket then for _, count in bag.Market.Bought do spent += count end end
+		local request = BazaarMath.RegularById(bag.Market.Procure.Id)
+		local last = bag.Market.History[1]
+		local lastName = if last then (BazaarMath.CatalogById(last.Pick) or { Name = last.Pick }).Name else "none"
+		return { ok = true, amount = amount, note = string.format(
+			"Shipment %d by %s; rare: %s. %s standing (%d units), %d bought this shipment, %d receipts, last: %s. Request: %s.",
+			bucket, merchant.Name, if rare then rare.Name else "none", tier.Name, bag.Counters.Deals, spent,
+			#bag.Market.History, lastName, if request then request.Name else "none"
+		) }
+	end
+	profileHandlers.ResetMarketPurchases = function(profile, amount, option)
+		local bag = BazaarMath.Ensure(profile.Bazaar)
+		profile.Bazaar = bag
+		bag.Market.Bought = {}
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.CancelMarketRequest = function(profile, amount, option)
+		local bag = BazaarMath.Ensure(profile.Bazaar)
+		profile.Bazaar = bag
+		if bag.Market.Procure.Id == "" then return { ok = false, error = "That player has no open supply request." } end
+		bag.Market.Procure = { Id = "", Since = 0, Filled = 0 }
+		return { ok = true, amount = amount }
+	end
 	profileHandlers.ZeroZone = function(profile, amount, option)
 		local changedAmount = amount
 				profile.Zone = 1
@@ -1261,11 +1296,15 @@ return function(loadService: (string) -> any)
 		end
 
 		local changedAmount = amount
+		local note = ""
 		local success, result = self._data:AtomicUpdate(target, function(profile)
 			local handler = profileHandlers[command]
 			if not handler then return {ok=false,error="Admin command has no executor."} end
 			local applied = handler(profile,amount,option)
-			if applied.ok then changedAmount = applied.amount end
+			if applied.ok then
+				changedAmount = applied.amount
+				note = if type(applied.note) == "string" then " " .. applied.note else ""
+			end
 			return applied
 		end, true, "admin:" .. command)
 		if not success then return { ok = false, error = "Profile transaction failed: " .. tostring(result) } end
@@ -1277,11 +1316,12 @@ return function(loadService: (string) -> any)
 		return {
 			ok = true,
 			message = string.format(
-				"%s applied to %s (revision %d%s).",
+				"%s applied to %s (revision %d%s).%s",
 				definition.Label,
 				target.Name,
 				revision,
-				persisted and ", saved" or ", autosave retry queued"
+				persisted and ", saved" or ", autosave retry queued",
+				note
 			),
 			Admin = self:State(actor),
 			TargetUserId = target.UserId,

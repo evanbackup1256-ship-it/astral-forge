@@ -53,7 +53,7 @@ local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitFor
 local h = React.createElement
 local TAU = math.pi * 2
 local HOLD_SECONDS = 1.1
-local KEEPS = { "Research", "Star Grid", "Relics", "Crew", "Milestones", "Guild", "Stardust" }
+local KEEPS = { "Research", "Forge bonuses", "Relics", "Crew", "Milestones", "Guild", "Stardust" }
 local RESETS = { "Machines", "Flux", "Vault", "Worlds", "Rebirths spent", "Cores spent" }
 
 local function phase(value, from, to)

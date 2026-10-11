@@ -23,6 +23,7 @@ __defs["Economy"] = function()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+local Specializations = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
 local CapacityProjection = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("CapacityProjection")
 local LevelRewards = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
 local OfflineProjection = __load("OfflineProjection")
@@ -113,6 +114,7 @@ type ProfileLike = {
 	Machines: { [string]: number },
 	Research: { [string]: number },
 	GridUpgrades: { [string]: number },
+	Specialization: Specializations.State?,
 	ActiveBoost: { Id: string, EndsAt: number },
 	Items: {
 		Inventory: { [string]: { DefinitionId: string, Level: number, AcquiredAt: number } },
@@ -436,6 +438,7 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	local multiplier = OmegaMath.Mul(1 + efficiencyLevel * 0.15, zone.Multiplier)
 	multiplier = OmegaMath.Mul(multiplier, Economy.PermanentMultiplier(profile))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.GridEffect(profile, "GridProduction"))
+	multiplier = OmegaMath.Mul(multiplier, Specializations.Factor(profile.Specialization, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.EchoEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ArtifactEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ItemEffect(profile, "Production", "Research"))
@@ -474,6 +477,7 @@ function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
 		ZoneMultiplier = zone.Multiplier,
 		PermanentMultiplier = Economy.PermanentMultiplier(profile),
 		Additives = {
+			Specializations.Factor(profile.Specialization, "Production") - 1,
 			Economy.GridEffect(profile, "GridProduction"),
 			Economy.EchoEffect(profile, "Production"),
 			Economy.ArtifactEffect(profile, "Production"),
@@ -527,13 +531,13 @@ function Economy.Capacity(profile: ProfileLike, now: number?, _production: any):
 		DomainTreeCapacity = Economy.DomainTreeBonus(profile, "Capacity"),
 	})
 	local output = Economy.SteadyProduction(profile, now)
-	return CapacityProjection.Vault(
+	return OmegaMath.Mul(CapacityProjection.Vault(
 		OmegaMath,
 		GameConfig.Economy.BaseCapacity,
 		output,
 		seconds,
 		continuumCapacity
-	)
+	), Specializations.Factor(profile.Specialization, "Capacity"))
 end
 
 function Economy.CapacitySeconds(profile: ProfileLike, now: number?, _production: any): number
@@ -550,7 +554,7 @@ local function researchLevel(profile: ProfileLike, key: string): number
 end
 
 function Economy.TapPower(profile: ProfileLike, now: number?): Persist
-	return TapCritProjection.TapPower(OmegaMath, Economy.Production(profile, now), researchLevel(profile, "Overcharge"), {
+	return OmegaMath.Mul(TapCritProjection.TapPower(OmegaMath, Economy.Production(profile, now), researchLevel(profile, "Overcharge"), {
 		Grid = Economy.GridEffect(profile, "GridTap"),
 		Echo = Economy.EchoEffect(profile, "Tap"),
 		Artifact = Economy.ArtifactEffect(profile, "Tap"),
@@ -561,7 +565,7 @@ function Economy.TapPower(profile: ProfileLike, now: number?): Persist
 		Continuum = select(3, Economy.ContinuumEffects(profile)),
 		ForgePath = Economy.ForgePathEffect(profile, "TapPower"),
 		Ore = Economy.OreEffect(profile, "Tap"),
-	})
+	}), Specializations.Factor(profile.Specialization, "Tap"))
 end
 
 function Economy.CriticalChance(profile: ProfileLike): number
@@ -608,7 +612,7 @@ end
 
 function Economy.OfflineEfficiency(profile: ProfileLike, now: number?): number
 	local _, _, _, continuumOffline = Economy.ContinuumEffects(profile)
-	return EconomyEnvelopeMath.OfflineEfficiency(
+	return math.min(1, EconomyEnvelopeMath.OfflineEfficiency(
 		GameConfig.Economy.BaseOfflineEfficiency,
 		researchLevel(profile, "Offline"),
 		Economy.GridEffect(profile, "GridOffline"),
@@ -621,7 +625,7 @@ function Economy.OfflineEfficiency(profile: ProfileLike, now: number?): number
 		GameConfig.Domain.OfflineEfficiencyPerRank,
 		continuumOffline,
 		Economy.ForgePathEffect(profile, "Offline")
-	)
+	) * Specializations.Factor(profile.Specialization, "Offline"))
 end
 
 function Economy.OfflineEarnings(
@@ -2155,6 +2159,7 @@ type WheelBag = {
 	Spins: number,
 	PityMisses: number,
 	FreeSpins: number,
+	LastReceipt: { ExpectedSpin: number, PrizeIndex: number, PrizeId: string, Message: string, Pity: boolean }?,
 }
 
 type PoolEntry = {
@@ -2176,7 +2181,24 @@ function WheelMath.Ensure(wheel: any): WheelBag
 	wheel.Spins = math.max(0, math.floor(tonumber(wheel.Spins) or 0))
 	wheel.PityMisses = math.max(0, math.floor(tonumber(wheel.PityMisses) or 0))
 	wheel.FreeSpins = math.max(0, math.floor(tonumber(wheel.FreeSpins) or 0))
+	local receipt = wheel.LastReceipt
+	if type(receipt) ~= "table" or not WheelMath.ValidExpectedSpin(receipt.ExpectedSpin)
+		or receipt.ExpectedSpin + 1 ~= wheel.Spins
+		or type(receipt.PrizeIndex) ~= "number" or receipt.PrizeIndex < 1 or receipt.PrizeIndex > 1000 or receipt.PrizeIndex % 1 ~= 0
+		or type(receipt.PrizeId) ~= "string" or #receipt.PrizeId < 1 or #receipt.PrizeId > 64
+		or type(receipt.Message) ~= "string" or #receipt.Message > 1024 or type(receipt.Pity) ~= "boolean" then
+		wheel.LastReceipt = nil
+	else
+		wheel.LastReceipt = {
+			ExpectedSpin = receipt.ExpectedSpin, PrizeIndex = receipt.PrizeIndex,
+			PrizeId = receipt.PrizeId, Message = receipt.Message, Pity = receipt.Pity,
+		}
+	end
 	return wheel :: WheelBag
+end
+
+function WheelMath.ValidExpectedSpin(value: any): boolean
+	return type(value) == "number" and value == value and value >= 0 and value < 1e12 and value % 1 == 0
 end
 
 function WheelMath.RarityRank(rarity: any): number
@@ -2196,6 +2218,7 @@ function WheelMath.Snapshot(
 	PityMisses: number,
 	PityAfter: number,
 	PityArmed: boolean,
+	LastReceipt: any?,
 }
 	local safeCooldown = math.max(0, math.floor(tonumber(cooldownSeconds) or 0))
 	local safePityAfter = math.max(1, math.floor(tonumber(pityAfter) or 8))
@@ -2211,6 +2234,7 @@ function WheelMath.Snapshot(
 		PityMisses = pityMisses,
 		PityAfter = safePityAfter,
 		PityArmed = pityMisses + 1 >= safePityAfter,
+		LastReceipt = wheel.LastReceipt,
 	}
 end
 

@@ -139,7 +139,7 @@ local guard = source("src/Client/AstralForge/layoutGuard.luau")
 assert(guard:find("FRAME_BUDGET_SECONDS = 0.0015", 1, true))
 assert(guard:find("os.clock() < self.deadline", 1, true), "layout scanning yields to the frame deadline")
 assert(guard:find("elseif self.overlapPhase == 2 then", 1, true), "collision passes are spread across frames")
-local trackedClass = extract(guard, "local function isTrackedClass(", "local function applyTextFloor(")
+local trackedClass = extract(guard, "local function isTrackedClass(", "local function repairText(")
 local isTracked = load(trackedClass .. "\nreturn isTrackedClass", { IGNORE_ATTRIBUTE = "LayoutGuardIgnore", isFloatingPanel = function() return false end })
 local function instance(class, parent, ignored)
 	return {
@@ -155,8 +155,19 @@ assert(not isTracked(glyph), "layout-owned descendants inherit their ancestor's 
 root.GetAttribute = function() return false end
 assert(isTracked(glyph), "ordinary text still receives layout repairs")
 local presence = source("src/Client/AstralForge/ArtifactPresence.luau")
-local spriteStep = extract(presence, "spriteClock += dt", "local offset =")
+local spriteStep = extract(presence, "spriteClock += dt", "if not advance or GuiService.ReducedMotionEnabled")
 local sprites = load(source("src/Shared/AstralForge/Shared/ElementSprites.luau"), { Color3 = roblox.Color3, Vector2 = roblox.Vector2 })
+assert(#sprites.ORDER == 57 and sprites.SOURCE_FRAME == 682 and sprites.SOURCE_EDGE == 4096 and sprites.UI_EDGE == 1024 and sprites.FRAME == 170.5 and sprites.COLUMNS == 6 and sprites.COUNT == 36, "source resolution must not be confused with delivered UI crop coordinates")
+for _, element in sprites.ORDER do
+	local animation = sprites.animation(element)
+	assert(animation and animation.Spritesheet == sprites.sheet(element).Image)
+	assert(animation.SpriteSize == roblox.Vector2.new(170.5, 170.5) and animation.SpriteCount == 36)
+	for index = 0, sprites.COUNT - 1 do
+		local x, y = (index % sprites.COLUMNS) * sprites.FRAME, math.floor(index / sprites.COLUMNS) * sprites.FRAME
+		assert(x + sprites.FRAME <= 1024 and y + sprites.FRAME <= 1024, "every playback crop stays inside the delivered UI texture")
+		assert(x * 4 == (index % sprites.COLUMNS) * sprites.SOURCE_FRAME and y * 4 == math.floor(index / sprites.COLUMNS) * sprites.SOURCE_FRAME, "fractional playback coordinates must preserve exact source frame boundaries")
+	end
+end
 local tickSprite = load("return function(spriteClock, spriteFrame, dt)\nlocal frameStep = 1 / ElementSprites.FRAMERATE\n"
 	.. spriteStep .. "\nreturn spriteClock, spriteFrame\nend", { ElementSprites = sprites })
 for _, fps in { 15, 30, 60, 144 } do

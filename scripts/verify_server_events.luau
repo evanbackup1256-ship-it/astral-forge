@@ -71,4 +71,40 @@ for _, needle in { "local function ServerEventHost", "local function EventPanel"
 	assert(string.find(ui, needle, 1, true), "client has " .. needle)
 end
 
+local roblox = require("@lune/roblox")
+local hostStart = assert(ui:find("local function ServerEventHost", 1, true))
+local geometryStart = assert(ui:find('\tlocal active = def ~= nil and event.Phase ~= "Rest"', hostStart, true))
+local geometryEnd = assert(ui:find("\n\tlocal skyFx", geometryStart, true))
+local bannerStart = assert(ui:find('\tlocal banner = React.createElement("textbutton"', geometryEnd, true))
+local bannerEnd = assert(ui:find("\n\treturn React.createElement(React.Fragment, nil, skyFx, banner", bannerStart, true))
+local bannerSource = ui:sub(geometryStart, geometryEnd - 1) .. "\n" .. ui:sub(bannerStart, bannerEnd - 1) .. "\nreturn banner"
+for _, screen in { { 320, true }, { 359, true }, { 705, true }, { 1084, false } } do
+	for _, eventId in Events.ORDER do
+		local color = roblox.Color3.fromRGB(91, 214, 244)
+		local banner = luau.load(bannerSource, { environment = setmetatable({
+			event = { Id = eventId, Phase = "Live", Goal = 100, Progress = 20 },
+			def = Events.EVENTS[eventId],
+			ServerEvents = Events, viewport = { width = screen[1], topInset = 0 },
+			chrome = { stack = screen[2], sideSafe = 10, tabBarH = 58 },
+			accentOf = function() return color end,
+			darken = function() return color end,
+			Palette = { night = color, line = color, cream = color, muted = color },
+			pulse = { map = function() return 0 end }, now = { map = function() return "4:55 left" end },
+			React = { createElement = function(kind, props, ...) return { kind = kind, props = props, children = { ... } } end },
+			Icon = "Icon", ProgressBar = "ProgressBar",
+			UDim2 = roblox.UDim2, UDim = roblox.UDim, Vector2 = roblox.Vector2,
+			Enum = roblox.Enum, Font = roblox.Font,
+		}, { __index = _G }) })()
+		local title, time, progress = banner.children[4], banner.children[5], banner.children[6]
+		assert(title.props.Text == Events.EVENTS[eventId].Name)
+		assert(title.props.TextTruncate == roblox.Enum.TextTruncate.None and title.props.TextWrapped, "event name is not ellipsized")
+		if screen[2] then
+			assert(banner.props.Size.X.Offset >= screen[1] - 20 or banner.props.Size.X.Offset == 320, "phone notice uses available width")
+		end
+		assert(title.props.Position.Y.Offset + title.props.Size.Y.Offset <= time.props.Position.Y.Offset, "notice rows do not overlap")
+		assert(time.props.Position.Y.Offset + time.props.Size.Y.Offset <= progress.props.position.Y.Offset, "timer clears progress bar")
+		assert(progress.props.position.Y.Offset + progress.props.size.Y.Offset <= banner.props.Size.Y.Offset, "progress fits notice")
+	end
+end
+
 print("verify_server_events: ok")

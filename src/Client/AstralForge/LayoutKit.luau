@@ -982,8 +982,13 @@ local planFittedHeights = __load("pageScaffoldPlan").planFittedHeights
 local planOverflow = __load("pageScaffoldPlan").planOverflow
 local PageScrollContext = __load("scrolling").PageScrollContext
 local function SpringSection(props)
+	local sectionRef = React.useCallback(function(host)
+		if props.frameRef then props.frameRef.current = host end
+		if host then host:SetAttribute("LayoutOwner", "PageScaffold:" .. tostring(props.id or "PageSection")) end
+	end, { props.frameRef, props.id })
 	return React.createElement("frame", {
-		ref = props.frameRef,
+		Name = props.id or "PageSection",
+		ref = sectionRef,
 		Size = UDim2.new(1, 0, 0, math.max(0, props.height)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -1030,6 +1035,7 @@ local function PageScaffold(_param)
 		if host == nil then
 			return nil
 		end
+		host:SetAttribute("LayoutOwner", _param.owner or "PageScaffold")
 		local sync = function()
 			local height = math.max(0, math.floor(host.AbsoluteSize.Y + 0.5))
 			setAvailable(function(current)
@@ -1098,6 +1104,7 @@ local function PageScaffold(_param)
 	local _callback_2 = function(section, index)
 		local _attributes = {
 			key = section.id,
+			id = section.id,
 		}
 		local _result_3 = fittedHeights[index + 1]
 		if _result_3 == nil then

@@ -188,6 +188,10 @@ function StoryFixture.build(save: string?)
 		Story = { Chapters = {} },
 		Visitors = {},
 	}
+	if Economy then
+		local Specializations = require(shared:WaitForChild("Specializations"))
+		state.Specialization = Specializations.Snapshot(profile, Economy, now)
+	end
 	return state
 end
 

@@ -920,14 +920,15 @@ local function TabRail(_param)
 	local setActive = _param.setActive
 	local reducedMotion = _param.reducedMotion
 	local stack = _param.stack
+	local columns = _param.columns
 	return React.createElement(SegmentedTabs, {
-		options = if stack then TAB_OPTIONS_SHORT else TAB_OPTIONS,
+		options = TAB_OPTIONS,
 		value = active,
 		onChange = setActive,
 		accent = Palette.cyan,
-		columns = #TABS,
+		columns = columns or #TABS,
 		gap = 4,
-		size = UDim2.new(1, 0, 0, if stack then 52 else 48),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	})
 end
@@ -1018,7 +1019,7 @@ local CommandTitleCard = React.memo(function(props)
 	_attributes.fit = false
 	_attributes.align = Enum.TextXAlignment.Center
 	_attributes.position = UDim2.fromOffset(9, 58)
-	_attributes.sizeConstraint = UDim2.new(1, -18, 0, if props.stack then 27 else 23)
+	_attributes.sizeConstraint = UDim2.new(1, -18, 0, 52)
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = darkTitlePlate(props.fx),
@@ -1073,12 +1074,23 @@ local function CommandViewReady(_param)
 	local opsReveal = useStagger(2, softMotion)
 	local commandSoft = softMotion or overviewReveal == nil or expeditionsReveal == nil or opsReveal == nil
 	local claimHostRef = React.useRef(nil)
-	local stack = chrome.contentStack
+	local contentWidth, setContentWidth = React.useState(360)
+	local stack = chrome.contentStack or contentWidth < 760
 	local ops = config.Operations
 	local command = state.Command
 	local tab, setTab = React.useState("Overview")
 	local now, setNow = React.useState(workspace:GetServerTimeNow())
 	local scrollRef = React.useRef()
+	React.useEffect(function()
+		local host = scrollRef.current
+		if not host then return nil end
+		local function measure()
+			if host.AbsoluteSize.X > 0 then setContentWidth(host.AbsoluteSize.X) end
+		end
+		measure()
+		local connection = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+		return function() connection:Disconnect() end
+	end, {})
 	React.useEffect(function()
 		if tab ~= "Expeditions" then
 			return nil
@@ -1251,28 +1263,28 @@ local function CommandViewReady(_param)
 	local budget = chrome.contentBudget
 	local panelPad = 14
 	local gridGap = 8
-	local heroH = if stack then 156 else fitPanelHeight(168, budget, 168, if chrome.landscape then 0.4 else 0.5)
+	local heroH = if stack then 196 else 168
 	local crewCols = if stack then 1 else 3
-	local crewCellH = if stack then 108 else 120
+	local crewCellH = 136
 	local crewRows = math.max(1, math.ceil(#CREW_ROLES / crewCols))
 	local crewH = gridPanelHeight(54, crewRows, crewCellH, gridGap, panelPad)
 	local weeklyItemH = if stack then 148 else 92
 	local weeklyStride = if stack then 156 else 100
 	local weeklyCount = math.max(1, #command.Weekly)
 	local weeklyH = panelPad * 2 + 36 + (weeklyCount - 1) * weeklyStride + weeklyItemH
-	local titleCols = if stack then 1 else 4
-	local titleCellH = if stack then 142 else 126
+	local titleCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))))
+	local titleCellH = 176
 	local titleRows = math.max(1, math.ceil(math.max(1, #command.Titles) / titleCols))
 	local titlesH = if titlesEnabled then gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) else 112
-	local shopCols = if stack then 2 else 4
-	local shopCellH = if stack then 150 else 160
+	local shopCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (190 + gridGap))))
+	local shopCellH = 180
 	local shopRows = math.max(1, math.ceil(math.max(1, #command.Shop) / shopCols))
 	local shopH = gridPanelHeight(36, shopRows, shopCellH, gridGap, panelPad)
-	local masteryCols = if stack then 2 else 3
+	local masteryCols = math.max(1, math.min(3, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))))
 	local masteryCellH = 64
 	local masteryRows = math.max(1, math.ceil(math.max(1, #config.Machines) / masteryCols))
 	local masteryH = gridPanelHeight(36, masteryRows, masteryCellH, gridGap, panelPad)
-	local expeditionHeroH = fitPanelHeight(if stack then 180 else 140, budget, 120, 0.4)
+	local expeditionHeroH = if stack then 188 else 140
 	local expeditionRowH = if stack then 168 else 132
 	local artifactHeroH = 110
 	local artifactRowH = if stack then 180 else 140
@@ -1295,7 +1307,9 @@ local function CommandViewReady(_param)
 		listContent = #ops.SeasonTiers * seasonRowH + math.max(0, #ops.SeasonTiers - 1) * Layout.panelGap
 	end
 	local headerH = 56
-	local tabsH = if stack then 52 else 48
+	local tabColumns = math.max(1, math.min(#TABS, math.floor((contentWidth + 4) / 140)))
+	local tabRows = math.ceil(#TABS / tabColumns)
+	local tabsH = tabRows * 48 + (tabRows - 1) * 4
 	local commandTail = scrollTail(stack, chrome.bottomSafe, if stack then 72 else 48)
 	local useFillList = tab ~= "Overview"
 	local order = 0
@@ -1345,6 +1359,7 @@ local function CommandViewReady(_param)
 		setActive = changeTab,
 		reducedMotion = reducedMotion or commandSoft,
 		stack = stack,
+		columns = tabColumns,
 	}))
 	local _condition_3 = tab == "Overview"
 	if _condition_3 then
@@ -1413,8 +1428,9 @@ local function CommandViewReady(_param)
 			size = 12,
 			color = Palette.creamSoft,
 			fit = false,
-			position = UDim2.fromOffset(0, if stack then 100 else 112),
-			sizeConstraint = UDim2.new(1, 0, 0, 18),
+			wrap = true,
+			position = UDim2.fromOffset(0, if stack then 90 else 112),
+			sizeConstraint = UDim2.new(1, 0, 0, if stack then 34 else 18),
 		}), React.createElement("frame", {
 			Name = "CommandClaimActions",
 			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 46),
@@ -2020,7 +2036,7 @@ local function CommandViewReady(_param)
 					highlight = can,
 					reducedMotion = reducedMotion,
 				}, React.createElement(IconTile, _attributes_1), React.createElement(Text, {
-					value = `Lv {expedition.RequiredLevel}  ·  {clockText(expedition.Duration)}`,
+					value = `Lv {expedition.RequiredLevel}  ·  {clockText(math.max(10, math.floor(expedition.Duration * math.max(0.35, 1 - ((command.Crew.Pilot or 1) - 1) * 0.05))))}`,
 					size = 11,
 					color = expedition.Color,
 					weight = Enum.FontWeight.Bold,
@@ -2139,8 +2155,8 @@ local function CommandViewReady(_param)
 				Thickness = if equipped then 2 else 1,
 			}), React.createElement(ElementFx, {
 				element = artifact.Element,
-				size = UDim2.fromOffset(66, 66),
-				position = UDim2.fromScale(0.5, 0.6),
+				size = UDim2.fromOffset(48, 48),
+				position = UDim2.fromScale(0.5, 0.5),
 				-- undiscovered relics show a dim still of their element
 				still = not owned,
 				transparency = if owned then 0 else 0.7,
@@ -3577,18 +3593,18 @@ local BOARDS = { {
 	group = "Activity",
 }, {
 	id = "Stars",
-	label = "Stars Plotted",
-	short = "STARS",
-	description = "Stars fixed onto the Star Charts across every constellation.",
-	icon = "StarGrid",
+	label = "Ore Cuts",
+	short = "CUTS",
+	description = "Completed ore cuts. Includes progress earned before the workshop redesign.",
+	icon = "Dust",
 	accent = Palette.violet,
 	group = "Sky",
 }, {
 	id = "Cipher",
-	label = "Ciphers Cracked",
-	short = "CIPHERS",
-	description = "Daily signal ciphers decoded before the seventh guess.",
-	icon = "Code",
+	label = "Commissions Finished",
+	short = "COMMISSIONS",
+	description = "Daily forge commissions finished. Previous puzzle completions remain counted.",
+	icon = "Forge",
 	accent = Palette.cyan,
 	group = "Sky",
 } }

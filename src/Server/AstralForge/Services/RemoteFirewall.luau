@@ -9,6 +9,8 @@ return function(loadService: (string) -> any)
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local RemoteFirewallMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("RemoteFirewallMath")
+	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
+	local Encounters = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Encounters"))
 	local ServerTelemetry = loadService("ServerTelemetry")
 
 	type Rule = {
@@ -151,8 +153,11 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.CancelTrade] = { Cost = 0.45, Cooldown = 0.18 },
 		[Protocol.Actions.TradeViewAway] = { Cost = 0.2, Cooldown = 0.35 },
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
-		[Protocol.Actions.PlotStar] = { Cost = 0.6, Cooldown = 0.15 },
-		[Protocol.Actions.SubmitCipher] = { Cost = 1, Cooldown = 0.4 },
+		[Protocol.Actions.SetMarketFavorite] = { Cost = 0.5, Cooldown = 0.3 },
+		[Protocol.Actions.RequestProcurement] = { Cost = 1, Cooldown = 1 },
+		[Protocol.Actions.BeginEncounter] = { Cost = 1, Cooldown = 0.5 },
+		[Protocol.Actions.ChooseEncounter] = { Cost = 1, Cooldown = 0.3 },
+		[Protocol.Actions.SelectSpecialization] = { Cost = 1, Cooldown = 0.5 },
 		[Protocol.Actions.BuyDailyOffer] = { Cost = 1, Cooldown = 0.35 },
 		[Protocol.Actions.BuyCrateSkin] = { Cost = 1, Cooldown = 0.5 },
 		[Protocol.Actions.EquipCrateSkin] = { Cost = 0.5, Cooldown = 0.25 },
@@ -522,30 +527,25 @@ return function(loadService: (string) -> any)
 				return false, "invalid relic"
 			end
 		elseif action == Protocol.Actions.BazaarPlay then
-			local gameName = payload.Game
-			if not stringField(payload, "Game", 4, 12) or (gameName ~= "Bank" and gameName ~= "Market" and gameName ~= "Lottery" and gameName ~= "Contracts") then
-				return false, "invalid bazaar counter"
+			if BazaarMath.ReadOrder(payload) == nil then
+				return false, "invalid Black Market order"
 			end
-			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
-				return false, "invalid bazaar move"
+		elseif action == Protocol.Actions.SetMarketFavorite then
+			if not stringField(payload, "Id", 2, 24) or type(payload.Saved) ~= "boolean" then
+				return false, "invalid saved supply"
 			end
-			if payload.Tier ~= nil and not numberField(payload, "Tier", 1, 4, true) then
-				return false, "invalid bazaar amount"
+		elseif action == Protocol.Actions.RequestProcurement then
+			if not stringField(payload, "Id", 0, 24) then
+				return false, "invalid supply request"
 			end
-			if payload.Term ~= nil and not stringField(payload, "Term", 2, 4) then
-				return false, "invalid bank term"
-			end
-			if payload.Pick ~= nil and not stringField(payload, "Pick", 2, 24) then
-				return false, "invalid bazaar pick"
-			end
-		elseif action == Protocol.Actions.PlotStar then
-			if not stringField(payload, "Id", 2, 24) then
-				return false, "invalid constellation"
-			end
-		elseif action == Protocol.Actions.SubmitCipher then
-			if not stringField(payload, "Code", 4, 4) or not string.match(payload.Code, "^[1-6][1-6][1-6][1-6]$") then
-				return false, "invalid cipher"
-			end
+		elseif action == Protocol.Actions.BeginEncounter then
+			if not Encounters.ValidBegin(payload) then return false, "invalid encounter start" end
+		elseif action == Protocol.Actions.ChooseEncounter then
+			if not Encounters.ValidChoice(payload) then return false, "invalid encounter choice" end
+		elseif action == Protocol.Actions.SelectSpecialization then
+			if not stringField(payload, "Id", 1, 24) then return false, "invalid forge specialization" end
+		elseif action == Protocol.Actions.SpinWheel then
+			if not numberField(payload, "ExpectedSpin", 0, 1e12 - 1, true) then return false, "invalid wheel sequence" end
 		elseif action == Protocol.Actions.UpgradeCrew then
 			if not stringField(payload, "Role", 1, 64) then
 				return false, "invalid crew payload"

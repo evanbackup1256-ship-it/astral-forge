@@ -1,81 +1,68 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
-local source = fs.readFile("src/Client/AstralForge/SkyViewport.luau")
-local start = assert(source:find("local function piece(", 1, true))
-local body = source:sub(start)
-
-local function runScene(props, size)
-	local frameCallback, cleanup
-	local disconnected, destroyed, pivots = 0, 0, 0
-	local parts = {}
-	local viewport = { AbsoluteSize = size }
-	function viewport:GetPropertyChangedSignal()
-		return { Connect = function(_, callback)
-			return { Disconnect = function() disconnected += 1 end }
-		end }
-	end
-	local react = {
-		useRef = function() return { current = viewport } end,
-		useEffect = function(callback) cleanup = callback() end,
-	}
-	local instance = { new = function(class)
-		local object = { ClassName = class, CFrame = roblox.CFrame.identity }
-		function object:Destroy() destroyed += 1 end
-		function object:PivotTo(_) pivots += 1 end
-		if class == "Part" then table.insert(parts, object) end
-		return object
-	end }
-	local runService = { RenderStepped = { Connect = function(_, callback)
-		frameCallback = callback
-		return { Disconnect = function() disconnected += 1 end }
-	end } }
-	local palette = {}
-	for _, name in { "muted", "lineSoft", "creamSoft", "graphite", "ink" } do
-		palette[name] = roblox.Color3.fromRGB(90, 80, 100)
-	end
-	local component = luau.load(body, {
-		environment = {
-			React = react, Instance = instance, RunService = runService, P = palette,
-			h = function(kind, properties, children) return { kind = kind, props = properties, children = children } end,
-			Vector2 = roblox.Vector2, Vector3 = roblox.Vector3, Color3 = roblox.Color3,
-			CFrame = roblox.CFrame, UDim = roblox.UDim, UDim2 = roblox.UDim2, Enum = roblox.Enum,
-			Random = { new = function() return { NextNumber = function(_, low, high) return (low + high) / 2 end } end },
-		},
-	})()
-	local rendered = component(props)
-	local initialPivots = pivots
-	assert(rendered.kind == "viewportframe" and viewport.CurrentCamera, "scenes own an actual viewport camera")
-	assert(viewport.CurrentCamera.CFrame.Position.Z > 0, "aspect-aware camera remains in front of the scene")
-	for _, part in parts do
-		assert(part.Anchored and not part.CanCollide and not part.CastShadow, "preview models remain inert")
-		if props.entry and part.Name == "Star" .. (props.plotted + 1) then
-			assert(part.Material == roblox.Enum.Material.Neon and part.Color == props.accent, "the next star stays visibly highlighted even in reduced motion")
-		end
-	end
-	if props.reducedMotion then
-		assert(not frameCallback, "reduced motion must not subscribe to animation")
-	else
-		assert(frameCallback, "animated scenes subscribe exactly once")
-		frameCallback(1 / 60)
-		if props.entry then
-			assert(pivots - initialPivots == 1, "chart motion updates the shared scene, not individual GUI positions")
-		else
-			assert(pivots - initialPivots == 4, "each receiver signal physically animates as one model")
-		end
-	end
-	cleanup()
-	assert(viewport.CurrentCamera == nil and destroyed == 2, "unmount releases camera and WorldModel")
-	assert(disconnected == (if props.reducedMotion then 1 else 2), "all animation and resize subscriptions disconnect")
-	return #parts
-end
 local accent = roblox.Color3.fromRGB(100, 200, 240)
-local entry = { Id = "probe", Stars = { { 0.15, 0.2 }, { 0.5, 0.7 }, { 0.85, 0.25 } }, Edges = { { 1, 2 }, { 2, 3 } } }
-for _, size in { roblox.Vector2.new(300, 300), roblox.Vector2.new(337, 128), roblox.Vector2.new(128, 337) } do
+local wheelSource = fs.readFile("src/Client/AstralForge/AuthoredWheel.luau")
+local shop = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau")
+local consoleStart = assert(shop:find("local function WheelConsole(", 1, true))
+local consoleEnd = assert(shop:find("local function WheelView(", consoleStart, true))
+assert(not shop:sub(consoleStart, consoleEnd - 1):find("WheelPrizeViewport", 1, true), "the active reward console must not mount viewports")
+local palette = {}
+for _, name in { "ink", "cream", "creamSoft", "void", "panelRaised" } do palette[name] = accent end
+local function element(kind, props, ...)
+	assert(kind ~= "viewportframe", "the wheel must not create viewports")
+	return { kind = kind, props = props, children = { ... } }
+end
+local wheelStart = assert(wheelSource:find("return function(props)", 1, true))
+local artSource = fs.readFile("src/Client/AstralForge/ArtKit.luau")
+local iconStart = assert(artSource:find("local function rewardIconKind(", 1, true))
+local iconEnd = assert(artSource:find("local function prizeShapeFromReward(", iconStart, true))
+local rewardIconKind = luau.load(artSource:sub(iconStart, iconEnd - 1) .. "\nreturn rewardIconKind")()
+for field, expected in { Cores = "Core", Stardust = "Dust", Boost = "Boost", FreeSpins = "Wheel",
+	Keys = "Crate", CashMinutes = "Flux", Signals = "Command", Essence = "EchoForge" } do
+	assert(rewardIconKind({ [field] = 1 }) == expected, "reward art must describe the actual grant")
+end
+local wheel = luau.load(wheelSource:sub(wheelStart), {
+	environment = {
+		h = element, Ui = { Text = "Text" }, Palette = palette, FACE = "rbxassetid://74107873507267",
+		Art = { Icon = "Icon", rewardIconKind = rewardIconKind },
+		Color3 = roblox.Color3, UDim = roblox.UDim, UDim2 = roblox.UDim2, Vector2 = roblox.Vector2,
+		Enum = roblox.Enum, NumberSequence = roblox.NumberSequence, NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
+		ColorSequence = roblox.ColorSequence,
+	},
+})()
+local rewards = {}
+for index = 1, 20 do rewards[index] = { Id = "prize" .. index, Reward = { CashMinutes = index } } end
+local function wheelBinding(value)
+	return { value = value, map = function(_, callback) return callback(value) end }
+end
+for _, diameter in { 140, 220, 340, 410 } do
 	for _, reduced in { false, true } do
-		assert(runScene({ entry = entry, plotted = 1, accent = accent, reducedMotion = reduced }, size) == 37, "charts retain stars, links and a bounded backdrop")
-		assert(runScene({ glyphs = { 1, 2, 3, 4 }, colors = { accent, accent, accent, accent }, accent = accent, reducedMotion = reduced }, size) == 44, "cipher previews retain all four authored glyphs")
-		assert(runScene({ glyphs = { 4, 4, 4, 4 }, colors = { accent, accent, accent, accent }, accent = accent, reducedMotion = reduced }, size) <= 64, "receiver previews remain within their part budget")
+		for winner = 0, 19 do
+			local rotation = (360 - winner * 18) % 360
+			local controller = { winner = winner, rotation = wheelBinding(rotation), spinEnergy = wheelBinding(1), pointerKick = wheelBinding(0.5) }
+			local rendered = wheel({ controller = controller, rewards = rewards, diameter = diameter, reducedMotion = reduced })
+			local rotor = rendered.children[2]
+			assert(rotor.props.Rotation == controller.rotation, "the existing controller owns rotor motion")
+			assert(rotor.children[1].props.Image == "rbxassetid://74107873507267", "the authored wheel face is mounted")
+			local details = rotor.children[2].children[1]
+			for index = 1, 20 do
+				local prize = details["prize-prize" .. index]
+				local badge = prize.children[1]
+				assert((rotation + prize.props.Rotation + badge.props.Rotation) % 360 == 0, "prize labels remain upright")
+				if index - 1 == winner then
+					assert((rotation + prize.props.Rotation) % 360 == 0, "every server winner aligns exactly with the top pointer")
+				end
+				if diameter >= 220 then
+					local glyph = prize.children[3]
+					assert(glyph.props.Name == "RewardGlyph" and (rotation + prize.props.Rotation + glyph.props.Rotation) % 360 == 0,
+						"authored reward glyphs remain upright and do not change prize alignment")
+					assert(glyph.children[1].props.reducedMotion, "reward glyphs never run competing animation clocks")
+				end
+			end
+			local clicker = rendered.children[5]
+			assert(clicker.props.Rotation == (if reduced then 0 else -9), "reduced motion suppresses detail motion")
+		end
 	end
 end
 
@@ -245,4 +232,4 @@ reply = { ok = true }
 findButton("SEND REPORT").onClick()
 renderReport()
 assert(findButton("DONE") and blocked == 1 and reportedAt[123] ~= nil, "blocking happens only after a successful report")
-print("[INFO] [TEST] presentation passed | viewport lifecycle, reduced motion, aurora, Bolt, report retry/payload")
+print("[INFO] [TEST] presentation passed | 2D wheel landing/labels/reduced motion, aurora, Bolt, report retry/payload")

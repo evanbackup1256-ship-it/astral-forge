@@ -60,7 +60,7 @@ end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = ', 1, true), "Research DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = ', 1, true), "Wheel DENSE floor")
+assert(string.find(playability, "wheel controller must provide immediate reduced-motion landing", 1, true), "Wheel motion coverage")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = ', 1, true), "ForgePath DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

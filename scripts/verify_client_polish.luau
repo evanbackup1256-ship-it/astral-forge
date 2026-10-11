@@ -25,34 +25,56 @@ print("[TEST] client polish passed | Unicode chat limits + entrance timing + sof
 -- Two clicks before React's next render must issue only one request.
 local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
-for _, gameName in { "Bazaar" } do
-	local source = fs.readFile("src/Client/AstralForge/pages/Pages" .. gameName .. ".luau")
-	local start = assert(string.find(source, "\tlocal function play(", 1, true))
-	local stop = assert(string.find(source, "\n\tif " .. string.lower(gameName) .. " == nil", start, true))
+do
+	local source = fs.readFile("src/Client/AstralForge/pages/PagesBazaar.luau")
+	local start = assert(string.find(source, "\tlocal function request(", 1, true))
+	local stop = assert(string.find(source, "\n\tlocal sections = {}", start, true))
 	local body = string.sub(source, start, stop - 1)
-	local callbacks = {}
+	local calls, scheduled = {}, {}
 	local latch = { current = false }
+	local unresolved = { current = nil }
 	local env: any = {
-		busyRef = latch, mounted = { current = true }, bazaar = {},
-		stopWhir = {}, stopRoll = {}, slot = {}, coin = {}, wheel = {},
-		setBusy = function() end, sfx = function() end,
+		pending = latch, live = { current = true }, unresolved = unresolved,
+		nonce = { current = 0 }, timeout = { current = nil },
+		setBusy = function() end, setNote = function() end,
 		Audio = { play = function() end },
-		setSlot = function() end, setCoin = function() end, setWheel = function() end,
-		setMode = function() end, setNote = function() end,
-		fail = function() latch.current = false end,
-		conclude = function() latch.current = false end,
-		dispatch = function(_, _, callback) table.insert(callbacks, callback) end,
+		task = {
+			delay = function(_, callback)
+				local token = { callback = callback }
+				table.insert(scheduled, token)
+				return token
+			end,
+			cancel = function(token) token.cancelled = true end,
+		},
+		props = { dispatch = function(action, payload, callback)
+			table.insert(calls, { action = action, payload = payload, callback = callback })
+		end },
 	}
 	setmetatable(env, { __index = _G })
-	local play = luau.load(body .. "\nreturn play", { environment = env })()
-	play({})
-	play({})
-	assert(#callbacks == 1, gameName .. " double-dispatched before render")
-	callbacks[1]({ ok = false, error = "Simulated rejection" })
-	play({})
-	assert(#callbacks == 2, gameName .. " did not unlock after rejection")
+	local request, sessionOrder = luau.load(body .. "\nreturn request, function() return sessionOrder end", { environment = env })()
+	local original = { Pick = "core", Quantity = 1, RequestId = "original-order" }
+	request("BazaarPlay", original)
+	request("BazaarPlay", original)
+	assert(#calls == 1, "market double-dispatched before render")
+	calls[1].callback({ ok = false, error = "Simulated rejection" })
+	assert(not unresolved.current and not sessionOrder() and scheduled[1].cancelled, "conclusive rejection clears order and timeout")
+	request("BazaarPlay", original)
+	assert(#calls == 2, "market did not unlock after rejection")
+	calls[2].callback({ ok = false, Uncertain = true, error = "Simulated transport timeout" })
+	assert(unresolved.current == original and sessionOrder() == original, "transport failures retain the order ID")
+	request("BazaarPlay", { Pick = "keys", Quantity = 1, RequestId = "different-order" })
+	assert(#calls == 2, "an unresolved order cannot be replaced with another purchase")
+	request("BazaarPlay", { Pick = "core", Quantity = 1, RequestId = "new-id" })
+	assert(#calls == 3 and calls[3].payload.RequestId == "original-order", "retry reuses the original payload")
+	scheduled[#scheduled].callback()
+	assert(not latch.current and unresolved.current == original, "local timeout releases input but preserves the order")
+	request("BazaarPlay", original)
+	assert(#calls == 4)
+	env.live.current = false
+	calls[4].callback({ ok = true, message = "Completed" })
+	assert(not unresolved.current and not sessionOrder(), "confirmed orders clear even after the page closes")
 end
-print("[TEST] bazaar same-frame double-click and retry guards passed")
+print("[TEST] market actual request closure: same-frame latch, uncertain response, stable retry ID and close-time completion passed")
 
 -- Exercise the shell's actual visibility expression during a bazaar round.
 local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")

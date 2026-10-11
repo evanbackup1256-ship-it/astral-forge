@@ -17,13 +17,13 @@ assert(not string.find(main, "local isFiniteNumber = function", 1, true), "isFin
 
 local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 local convergence = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView")
-local star = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
+local builds = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
 assert(string.find(chat, "local softMotion = ", 1, true), "MessageRow softMotion")
 assert(string.find(chat, "local softMotion = ", 1, true), "ChatView softMotion")
 assert(string.find(convergence, "local softMotion = ", 1, true), "Convergence softMotion")
 assert(string.find(convergence, "local softMotion = ", 1, true), "ConvergenceTier softMotion")
-assert(string.find(star, "local softMotion = ", 1, true), "BranchHeader softMotion")
-assert(string.find(star, "local softMotion = ", 1, true), "StarGridNode softMotion")
+assert(string.find(builds, "reducedMotion = props.reducedMotion", 1, true), "Build selection reduced motion")
+assert(not string.find(builds, "RenderStepped", 1, true), "Build selection must not introduce a per-frame animation loop")
 do
 	local soft = 0
 	for _ in string.gmatch(chat, "softMotion") do
@@ -38,18 +38,11 @@ do
 	end
 	assert(soft >= 14, "Convergence softMotion densify, got " .. tostring(soft))
 end
-do
-	local soft = 0
-	for _ in string.gmatch(star, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 12, "StarGrid softMotion densify, got " .. tostring(soft))
-end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = ', 1, true), "Chat DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = ', 1, true), "Convergence DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = ', 1, true), "StarGrid DENSE floor")
+assert(string.find(playability, '"src/Client/AstralForge/pages/PagesSpecializations.luau"', 1, true), "Specializations hot-page coverage")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave43-offline-brief"', 1, true), "Story wave43")

@@ -115,7 +115,7 @@ assert(string.find(mainSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame Networ
 assert(string.find(mainSrc, "NetworkPolicy.IsPipelined", 1, true), "MainGame IsPipelined")
 assert(string.find(mainSrc, "(\"networkPolicy\")", 1, true), "MainGame require networkPolicy")
 assert(string.find(workshopSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView board heights")
-assert(string.find(overviewSrc, "PageReadyMath.CipherOpen", 1, true), "OverviewView CipherOpen")
+assert(not string.find(overviewSrc, "PageReadyMath.CipherOpen", 1, true), "OverviewView has no retired minigame CTA")
 assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView OpsClaims")
 assert(string.find(ssSrc, "TelemetryMath.Encode", 1, true), "ServerServices TelemetryMath")
 assert(string.find(ssSrc, "UtcClockMath.Day", 1, true), "ServerServices UtcClockMath")

@@ -1015,6 +1015,7 @@ return function()
 		return GuildMath.BonusesFromUpgrades(guild.Upgrades, GameConfig.Guild.Upgrades)
 	end
 
+
 	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 		local getOrderedStore = StoreAccess.ordered
 		local getDataStore = StoreAccess.data
@@ -2073,6 +2074,16 @@ return function()
 
 	function ProgressionService.ApplyReward(profile, reward, production: number?): string
 		local parts = {}
+		for _, currency in { "Stardust", "Cores" } do
+			local amount = reward[currency]
+			if type(amount) == "number" and amount > 0 then
+				local balance = tonumber(profile[currency]) or 0
+				local credited = balance + amount
+				if credited <= balance or credited >= math.huge then
+					error("Your " .. currency:lower() .. " balance cannot represent this reward. The claim has not been granted.")
+				end
+			end
+		end
 		if reward.Cash and reward.Cash > 0 then
 			profile.Cash = Economy.Add(profile.Cash, reward.Cash)
 			profile.RunCash = Economy.Add(profile.RunCash, reward.Cash)
@@ -2743,13 +2754,23 @@ return function()
 		)
 	end
 
-	function ProgressionService.SpinWheel(profile, random: Random): (boolean, string, number?, string?, boolean?)
+	function ProgressionService.SpinWheel(profile, random: Random, expectedSpin: number?): (boolean, string, number?, string?, boolean?)
 		local now = os.time()
 		local wheel = ensureWheel(profile)
+		if expectedSpin ~= nil then
+			if not WheelMath.ValidExpectedSpin(expectedSpin) then return false, "Refresh the wheel before spinning." end
+			local receipt = wheel.LastReceipt
+			if receipt and receipt.ExpectedSpin == expectedSpin then
+				return true, receipt.Message, receipt.PrizeIndex, receipt.PrizeId, receipt.Pity
+			end
+			if expectedSpin ~= wheel.Spins then return false, "That spin is already resolved. Refresh to see your latest result." end
+		end
+		if not WheelMath.ValidExpectedSpin(wheel.Spins) then return false, "Your spin counter needs support review." end
+		local sequence = wheel.Spins
 		local freeSpins = wheel.FreeSpins
 		local onCooldown = now < wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds
 		if freeSpins <= 0 and onCooldown then
-			return false, "The fortune reactor is still recharging."
+			return false, "Your next free wheel spin is not ready yet."
 		end
 
 		local pityAfter = math.max(1, math.floor(tonumber(GameConfig.Wheel.PityAfter) or 8))
@@ -2765,7 +2786,7 @@ return function()
 		local roll = random:NextNumber(0, totalWeight)
 		local selectedEntry = WheelMath.PickEntry(pool, totalWeight, roll)
 		if selectedEntry == nil then
-			return false, "The fortune reactor has no prizes configured."
+			return false, "The wheel has no prizes configured."
 		end
 
 		local selectedIndex = selectedEntry.Index
@@ -2785,6 +2806,9 @@ return function()
 		if pityHit then
 			label = label .. " (guaranteed)"
 		end
+		ensureWheel(profile).LastReceipt = {
+			ExpectedSpin = sequence, PrizeIndex = selectedIndex, PrizeId = selected.Id, Message = label, Pity = pityHit,
+		}
 		return true, label, selectedIndex, selected.Id, pityHit
 	end
 

@@ -95,6 +95,7 @@ function DataTemplate.New()
 			PityMisses = 0,
 			FreeSpins = 0,
 		},
+		Encounters = { Day = -1, Used = 0, History = {}, Mastery = {} },
 		Command = {
 			XP = 0,
 			Signals = 0,
@@ -120,6 +121,7 @@ function DataTemplate.New()
 			XPEarnedToday = 0,
 		},
 		GridUpgrades = {},
+		Specialization = { Focus = "Balanced", ChangedAt = 0 },
 		TimedRewards = {
 			Day = -1,
 			PlaySeconds = 0,
