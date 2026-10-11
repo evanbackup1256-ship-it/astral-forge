@@ -64,6 +64,7 @@ local VaultCollectEligibility = require(script.Parent.Parent.CoreKit)("vaultColl
 local PageReadyMath = require(script.Parent.Parent.LayoutKit)("pageReadyMath")
 local ReadyBoard = require(script.Parent.Parent.ReadyBoard)
 local ReleaseClockMath = require(script.Parent.Parent.CoreKit)("releaseClockMath")
+local JourneyMath = require(script.Parent.Parent.CoreKit)("journeyMath")
 
 local function ReleaseCountdown(_param)
 	local releaseAt = _param.releaseAt
@@ -687,6 +688,13 @@ local function OverviewView(_param)
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
 	local opsButtonRows = if stack then 2 else 1
 	local opsButtonH = TapTarget * opsButtonRows + (if stack then 8 else 0)
+	local journey = JourneyMath.Build(state)
+	local journeyNext = journey.Next
+	local journeyRecent = {}
+	for index = #journey.Done, math.max(1, #journey.Done - 2), -1 do
+		table.insert(journeyRecent, journey.Done[index].Title)
+	end
+	local journalH = (if phone then 118 else 104) + (if stack then chrome.cardPadding * 2 else 32)
 	local domain = state.Domain or {
 		Rank = 0,
 		Essence = 0,
@@ -1627,6 +1635,59 @@ local function OverviewView(_param)
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 				}),
+			},
+			{
+				id = "journal",
+				height = journalH,
+				element = React.createElement(Panel, {
+					layoutOrder = 7,
+					size = UDim2.fromScale(1, 1),
+					accent = Palette.mango,
+					background = Palette.panelRaised,
+					padding = if stack then chrome.cardPadding else 16,
+					reducedMotion = softMotion,
+					clips = true,
+				}, React.createElement(Text, {
+					value = `FORGE JOURNAL  ·  {journey.Count} / {journey.Total} CHAPTERS`,
+					size = 10,
+					color = Palette.mango,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					sizeConstraint = UDim2.new(1, 0, 0, 16),
+				}), React.createElement(Text, {
+					value = if journeyNext then `Next: {journeyNext.Title}` else "Every chapter written.",
+					size = if phone then 17 else 19,
+					color = Palette.cream,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					position = UDim2.fromOffset(0, 20),
+					sizeConstraint = UDim2.new(1, 0, 0, 26),
+				}), React.createElement(Text, {
+					value = if journeyNext
+						then `{journeyNext.Line}  {compactNumber(journeyNext.Have)} / {compactNumber(journeyNext.Target)} {journeyNext.Unit}`
+						else "The forge remembers everything you've done here.",
+					size = chrome.labelText,
+					color = Palette.creamSoft,
+					fit = false,
+					wrap = phone,
+					position = UDim2.fromOffset(0, 48),
+					sizeConstraint = UDim2.new(1, 0, 0, if phone then 32 else 16),
+				}), React.createElement(Meter, {
+					value = if journeyNext then journeyNext.Progress else 1,
+					color = Palette.mango,
+					reducedMotion = quietMotion,
+					shimmer = false,
+					position = UDim2.fromOffset(0, if phone then 84 else 70),
+					size = UDim2.new(1, 0, 0, 6),
+				}), React.createElement(Text, {
+					value = if #journeyRecent > 0 then `Written: {table.concat(journeyRecent, "  ·  ")}` else "Written: nothing yet. Buy a machine to start.",
+					size = chrome.labelText,
+					color = Palette.muted,
+					weight = Enum.FontWeight.Bold,
+					fit = false,
+					position = UDim2.fromOffset(0, if phone then 96 else 82),
+					sizeConstraint = UDim2.new(1, 0, 0, 16),
+				})),
 			},
 		}),
 	})))

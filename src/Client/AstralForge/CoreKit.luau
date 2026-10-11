@@ -1626,6 +1626,88 @@ end
 return table.freeze(NoticeMath)
 end
 
+__defs["journeyMath"] = function()
+--!strict
+-- Forge journal: chapters derived from saved lifetime stats, so no new save data is needed.
+local JourneyMath = {}
+
+local HOUR = 3600
+
+local function stat(state: any, key: string): number
+	local stats = if type(state) == "table" then state.Stats else nil
+	local value = if type(stats) == "table" then tonumber(stats[key]) else nil
+	return math.max(0, math.floor(value or 0))
+end
+
+local function rebirths(state: any): number
+	return math.max(0, math.floor(tonumber(if type(state) == "table" then state.Rebirths else nil) or 0))
+end
+
+local function domainRank(state: any): number
+	local domain = if type(state) == "table" then state.Domain else nil
+	return math.max(0, math.floor(tonumber(if type(domain) == "table" then domain.Rank else nil) or 0))
+end
+
+local function statReader(key: string): (any) -> number
+	return function(state)
+		return stat(state, key)
+	end
+end
+
+JourneyMath.CHAPTERS = table.freeze({
+	{ Id = "spark", Title = "First spark", Line = "Bought the first machine.", Target = 1, Unit = "machine", Read = statReader("MachinesBought") },
+	{ Id = "hands", Title = "Steady hands", Line = "Struck the forge 500 times.", Target = 500, Unit = "taps", Read = statReader("Taps") },
+	{ Id = "orders", Title = "Order book", Line = "Filled ten work orders.", Target = 10, Unit = "orders", Read = statReader("OrdersCompleted") },
+	{ Id = "reborn", Title = "Reborn", Line = "Melted it all down once.", Target = 1, Unit = "rebirth", Read = rebirths },
+	{ Id = "crates", Title = "Deep vault", Line = "Opened 25 crates.", Target = 25, Unit = "crates", Read = statReader("CratesOpened") },
+	{ Id = "scrap", Title = "Scrapper", Line = "Salvaged 50 pieces.", Target = 50, Unit = "salvaged", Read = statReader("ItemsSalvaged") },
+	{ Id = "shift", Title = "Night shift", Line = "Five hours at the anvil.", Target = 5 * HOUR, Unit = "hours", Scale = HOUR, Read = statReader("PlayTime") },
+	{ Id = "ten", Title = "Ten lives", Line = "Rebirthed ten times.", Target = 10, Unit = "rebirths", Read = rebirths },
+	{ Id = "gate", Title = "Gatekeeper", Line = "Opened the first domain gate.", Target = 1, Unit = "gate", Read = domainRank },
+	{ Id = "warden", Title = "Warden breaker", Line = "Beat five wardens.", Target = 5, Unit = "wardens", Read = statReader("WardenDefeats") },
+	{ Id = "haul", Title = "Long haul", Line = "A full day of forging.", Target = 24 * HOUR, Unit = "hours", Scale = HOUR, Read = statReader("PlayTime") },
+	{ Id = "fifty", Title = "Fifty lives", Line = "Rebirthed fifty times.", Target = 50, Unit = "rebirths", Read = rebirths },
+})
+
+export type Entry = {
+	Id: string,
+	Title: string,
+	Line: string,
+	Done: boolean,
+	Have: number,
+	Target: number,
+	Unit: string,
+	Progress: number,
+}
+
+function JourneyMath.Build(state: any): { Done: { Entry }, Next: Entry?, Count: number, Total: number }
+	local done: { Entry } = {}
+	local nextEntry: Entry? = nil
+	for _, chapter in JourneyMath.CHAPTERS do
+		local scale = chapter.Scale or 1
+		local raw = chapter.Read(state)
+		local entry: Entry = {
+			Id = chapter.Id,
+			Title = chapter.Title,
+			Line = chapter.Line,
+			Done = raw >= chapter.Target,
+			Have = math.floor(math.min(raw, chapter.Target) / scale),
+			Target = math.floor(chapter.Target / scale),
+			Unit = chapter.Unit,
+			Progress = math.clamp(raw / chapter.Target, 0, 1),
+		}
+		if entry.Done then
+			table.insert(done, entry)
+		elseif nextEntry == nil or entry.Progress > nextEntry.Progress then
+			nextEntry = entry
+		end
+	end
+	return { Done = done, Next = nextEntry, Count = #done, Total = #JourneyMath.CHAPTERS }
+end
+
+return table.freeze(JourneyMath)
+end
+
 __defs["deadlines"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Workspace = game:GetService("Workspace")
