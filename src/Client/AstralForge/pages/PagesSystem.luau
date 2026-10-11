@@ -759,6 +759,7 @@ local function SettingsView(_param)
 			setMobileEdit(false)
 		end,
 		slots = mobileSlots,
+		savedSlots = (state.Flags or {}).MobileLayoutSlots,
 		scales = {
 			quick = quickScale,
 			dock = dockScale,

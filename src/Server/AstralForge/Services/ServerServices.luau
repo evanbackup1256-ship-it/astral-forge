@@ -88,7 +88,7 @@ serviceFactories["GameService"] = function()
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("MonetizationConfig")
 	local ZoneUnlock = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ZoneUnlock")
-
+	local MobileLayoutSlots = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MobileLayoutSlots"))
 	local ProgressionService = loadService("ProgressionService")
 	local AnomalyService = loadService("AnomalyService")
 	local LabService = loadService("LabService")
@@ -3520,6 +3520,14 @@ serviceFactories["GameService"] = function()
 				if allowed[key] and type(value) == "number" then
 					profile.Settings[key] = math.clamp(value, 0, 1)
 				end
+			end
+			if payload.Slots ~= nil then
+				local normalized = MobileLayoutSlots.Normalize(payload.Slots)
+				if normalized == nil then
+					return responseError("Invalid layout memory.")
+				end
+				profile.Flags.MobileLayoutSlots = normalized
+				return responseSuccess("Layout memory saved.")
 			end
 			return responseSuccess("Mobile HUD layout saved.")
 		end)

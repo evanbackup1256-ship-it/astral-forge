@@ -2471,11 +2471,19 @@ local function safeSlotPosition(slot, position, width, height, sideInset, topIns
 	local bounds = slotBounds(slot, width, height, sideInset, topInset, bottomInset)
 	return Vector2.new(math.clamp(position.X, bounds.minX, bounds.maxX), math.clamp(position.Y, bounds.minY, bounds.maxY))
 end
--- Session-scoped layout memory; fractions so a stored layout survives rotation.
+-- Layout memory; fractions so a stored layout survives rotation. Seeded from the saved profile string.
+local MobileLayoutSlots = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MobileLayoutSlots"))
 local MOBILE_LAYOUT_MEMORY = {}
+local MOBILE_LAYOUT_SEEDED = false
 local function MobileControls(_param)
 	local slots = _param.slots
 	local dispatch = _param.dispatch
+	if not MOBILE_LAYOUT_SEEDED and type(_param.savedSlots) == "string" then
+		MOBILE_LAYOUT_SEEDED = true
+		for index, memory in MobileLayoutSlots.Decode(_param.savedSlots) do
+			MOBILE_LAYOUT_MEMORY[index] = memory
+		end
+	end
 	local reducedMotion = _param.reducedMotion
 	local visible = _param.visible
 	local onClose = _param.onClose
@@ -3191,6 +3199,10 @@ local function MobileControls(_param)
 		end
 		MOBILE_LAYOUT_MEMORY[memoryIndex] = stored
 		setMemoryRevision(memoryRevision + 1)
+		dispatch("SetMobileLayout", {
+			Values = {},
+			Slots = MobileLayoutSlots.Encode(MOBILE_LAYOUT_MEMORY),
+		})
 		Audio:play("copyDone")
 	end
 	local recallMemory = function()

@@ -200,6 +200,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		if type(profile.Flags.LastSeenVersion) ~= "string" then
 			profile.Flags.LastSeenVersion = ""
 		end
+		if type(profile.Flags.MobileLayoutSlots) ~= "string" or #profile.Flags.MobileLayoutSlots > 512 then
+			profile.Flags.MobileLayoutSlots = ""
+		end
 		profile.Settings.SoundVolume = math.clamp(nonNegative(profile.Settings.SoundVolume), 0, 1)
 		profile.Settings.MusicVolume = math.clamp(nonNegative(profile.Settings.MusicVolume ~= nil and profile.Settings.MusicVolume or 1), 0, 1)
 		profile.Settings.SfxVolume = math.clamp(nonNegative(profile.Settings.SfxVolume ~= nil and profile.Settings.SfxVolume or 1), 0, 1)

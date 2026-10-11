@@ -403,7 +403,10 @@ return function(loadService: (string) -> any)
 					return false, "invalid mobile layout value"
 				end
 			end
-			if count < 1 or count > 6 then
+			if payload.Slots ~= nil and not stringField(payload, "Slots", 0, 512) then
+				return false, "invalid mobile layout slots"
+			end
+			if count > 6 or (count < 1 and payload.Slots == nil) then
 				return false, "invalid mobile layout size"
 			end
 		elseif action == Protocol.Actions.RedeemCode then
