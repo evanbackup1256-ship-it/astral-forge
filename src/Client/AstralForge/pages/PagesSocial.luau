@@ -4465,7 +4465,31 @@ local FILTERS = {
 	{ id = "Unread", label = "Unread" },
 	{ id = "Gifts", label = "Gifts" },
 	{ id = "Collected", label = "Collected" },
+	{ id = "Alerts", label = "Alerts" },
 }
+local NoticeMath = require(script.Parent.Parent.CoreKit)("noticeMath")
+local ALERT_COLORS = { Success = "mint", Warning = "mango", Error = "coral", Special = "violet" }
+
+local function alertRows(query)
+	local rows = {}
+	for _, entry in NoticeMath.Entries() do
+		local subject = if entry.Count > 1 then `{entry.Title}  ×{entry.Count}` else entry.Title
+		local keep = query == "" or Browse.matches(query, entry.Title, entry.Body)
+		if keep then
+			local item = {
+				Id = entry.Id,
+				Subject = if subject ~= "" then subject else "Forge alert",
+				Sender = "Forge alerts",
+				Preview = entry.Body,
+				Date = os.date("%H:%M", entry.At),
+				Body = { if entry.Body ~= "" then entry.Body else entry.Title },
+				Color = Palette[ALERT_COLORS[entry.Tone] or "cyan"] or Palette.cyan,
+			}
+			table.insert(rows, { Id = entry.Id, item = item, mail = { Read = true, Claimed = false } })
+		end
+	end
+	return rows
+end
 
 local function paragraphHeight(value, width, size)
 	return math.max(20, measureWrappedTextHeight(value, width, size, Enum.FontWeight.Regular) + 6)
@@ -4753,6 +4777,16 @@ local function MailboxView(_param)
 	local filter, setFilter = React.useState("All")
 	local query, setQuery = Browse.useLinkedQuery("Mail")
 	local claimToken, setClaimToken = React.useState(0)
+	local alertRevision, setAlertRevision = React.useState(0)
+	React.useEffect(function()
+		return NoticeMath.Subscribe(function()
+			if mountedRef.current then
+				setAlertRevision(function(n)
+					return n + 1
+				end)
+			end
+		end)
+	end, {})
 	local messages = (state.Mailbox and state.Mailbox.Messages) or {}
 	local defs = {}
 	for _, def in config.Mail or {} do
@@ -4777,6 +4811,9 @@ local function MailboxView(_param)
 				table.insert(rows, { Id = item.Id, item = item, mail = mail })
 			end
 		end
+	end
+	if filter == "Alerts" and alertRevision >= 0 then
+		rows = alertRows(query)
 	end
 	local selectedId, setSelectedId = React.useState(if mobileRoute then "" else (rows[1] and rows[1].Id or ""))
 	local selected = nil
@@ -4897,8 +4934,8 @@ local function MailboxView(_param)
 		BackgroundTransparency = 1,
 	}, h(EmptyState, {
 		icon = if query ~= "" then "Search" else "Mail",
-		title = if query ~= "" then `No letters match "{query}"` elseif filter == "All" then "Your tray is empty" else "Nothing in " .. string.lower(filter),
-		body = if query ~= "" then "Try the sender's name or one word from the subject." else "Patch notes, letters and gifts land here.",
+		title = if query ~= "" then `No letters match "{query}"` elseif filter == "All" then "Your tray is empty" elseif filter == "Alerts" then "No recent alerts" else "Nothing in " .. string.lower(filter),
+		body = if query ~= "" then "Try the sender's name or one word from the subject." elseif filter == "Alerts" then "Pop-ups from this session are kept here so you can read them again." else "Patch notes, letters and gifts land here.",
 		accent = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = softMotion,

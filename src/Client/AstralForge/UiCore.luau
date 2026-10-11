@@ -4920,6 +4920,7 @@ local function MainGame(_param)
 			signature = signature,
 			at = now,
 		}
+		NoticeMath.Record(normalizedTitle, body, tone)
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
 		local maxNotices = NoticeMath.MaxNotices(toastDensityRef.current)
 		local _exp_1 = noticesLive.current

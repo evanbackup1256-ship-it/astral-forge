@@ -1559,6 +1559,70 @@ function NoticeMath.MaxNotices(toastDensity: number): number
 	return math.clamp(math.floor(2 + density * 3 + 0.5), 2, 5)
 end
 
+-- Recent toasts stay reviewable in the Mail page after they fade.
+NoticeMath.LOG_LIMIT = 40
+local logEntries: { any } = {}
+local logSequence = 0
+local logListeners: { [any]: boolean } = {}
+
+local function notifyLog()
+	for listener in logListeners do
+		if type(task) == "table" then
+			task.spawn(listener)
+		else
+			pcall(listener)
+		end
+	end
+end
+
+function NoticeMath.Record(title: any, body: any, tone: any, at: number?): any?
+	local heading = string.sub(if type(title) == "string" then title else tostring(title or ""), 1, 80)
+	local detail = string.sub(if type(body) == "string" then body elseif body == nil then "" else tostring(body), 1, 400)
+	if heading == "" and detail == "" then
+		return nil
+	end
+	local kind = if type(tone) == "string" then tone else "Info"
+	local stamp = if type(at) == "number" then at else os.time()
+	local newest = logEntries[1]
+	if newest ~= nil and newest.Title == heading and newest.Body == detail and newest.Tone == kind then
+		newest.Count += 1
+		newest.At = stamp
+		notifyLog()
+		return newest
+	end
+	logSequence += 1
+	local entry = { Id = `alert-{logSequence}`, Title = heading, Body = detail, Tone = kind, At = stamp, Count = 1 }
+	table.insert(logEntries, 1, entry)
+	while #logEntries > NoticeMath.LOG_LIMIT do
+		table.remove(logEntries)
+	end
+	notifyLog()
+	return entry
+end
+
+function NoticeMath.Entries(): { any }
+	local copy = table.create(#logEntries)
+	for index, entry in logEntries do
+		copy[index] = table.clone(entry)
+	end
+	return copy
+end
+
+function NoticeMath.ClearLog()
+	if #logEntries == 0 then
+		return
+	end
+	table.clear(logEntries)
+	notifyLog()
+end
+
+function NoticeMath.Subscribe(listener: () -> ()): () -> ()
+	logListeners[listener] = true
+	return function()
+		logListeners[listener] = nil
+	end
+end
+
 return table.freeze(NoticeMath)
 end
 
