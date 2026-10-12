@@ -8295,7 +8295,8 @@ local function StatChip(_param)
 	local iconSize = if tall then 28 else 24
 	local valueSize = if tall then 15 else 14
 	local _ = CHIP_TIPS[label]
-	local valueMaxW = if tall then 84 else 92
+	-- room for long scale names ("37.3 Googolchime"); FPS/ping only ever show a few digits
+	local valueMaxW = if _param.narrow then 40 elseif tall then 108 else 116
 	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 20 else 18)
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
@@ -8527,6 +8528,7 @@ local function PerformanceStats(_param)
 		animateValue = false,
 		placeholder = `{fps}`,
 		tall = tall,
+		narrow = true,
 		layoutOrder = 1,
 	})
 	local _condition = showPing
@@ -8546,6 +8548,7 @@ local function PerformanceStats(_param)
 		_attributes.animateValue = false
 		_attributes.placeholder = if ping == nil then "—" else `{ping}`
 		_attributes.tall = tall
+		_attributes.narrow = true
 		_attributes.layoutOrder = 2
 		_condition = React.createElement(StatChip, _attributes)
 	end
@@ -9032,7 +9035,7 @@ local function TopBar(_param)
 	local shortRow = barHeight <= 54 and width < 980
 	local micro = barHeight <= 54 and width < 620
 	local stacked = barHeight > Layout.topbarHeight
-	local chipWidthEstimate = if stacked then 148 elseif micro then 150 else 164
+	local chipWidthEstimate = if stacked then 172 elseif micro then 172 else 170
 	local logoCompact = tight or stacked or barHeight <= Layout.topbarHeight
 	local logoWidth = if micro then 48 elseif stacked then 156 elseif shortRow then 156 elseif logoCompact then 168 else 176
 	local pageTitleW = 0
@@ -9093,7 +9096,7 @@ local function TopBar(_param)
 		_condition_2 = 1
 	end
 	local performanceCount = _exp + (if _condition_2 >= 0.5 then 1 else 0)
-	local fullPerformanceW = if micro or performanceCount == 0 then 0 elseif performanceCount == 1 then (if stacked then 100 else 90) elseif stacked then 192 else 172
+	local fullPerformanceW = if micro or performanceCount == 0 then 0 elseif performanceCount == 1 then (if stacked then 96 else 90) elseif stacked then 200 else 188
 	local performanceGap = 10
 	local playerControlGap = if shortRow then 6 else 8
 	local playerControlW = if micro or stacked or width < 980 then SHELL_CHROME.topbarControl else 110
@@ -9115,7 +9118,7 @@ local function TopBar(_param)
 	if not stacked then
 		local railRoom = math.max(48, width - edgePad * 2 - (controlsW + controlsRight + 12) - (12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14))
 		local room = railRoom - (if performanceW > 0 then performanceW + 8 else 0) - (if visitPillWidth > 0 then visitPillWidth + 8 else 0)
-		local chipFitW = if micro then 150 else 146 -- a rendered desktop chip is ~142px; the estimate above keeps a margin
+		local chipFitW = if micro then 172 else 170 -- a rendered desktop chip is ~166px with the wider value box
 		local fits = math.max(0, math.floor((room + 8) / (chipFitW + 8)))
 		if fits < #allChips then
 			local rank = { FLUX = 1, CORES = 2, DUST = 3, EVENT = 4 }

@@ -10,7 +10,7 @@ local function digitSize(textSize: number): (number, number)
 
 	local h = math.max(14, math.floor(textSize + 4))
 
-	local w = math.max(6, math.floor(textSize * 0.7 + 0.5))
+	local w = math.max(5, math.ceil(textSize * 0.52)) -- Builder Sans digits are ~0.51 em; a wider cell leaves gaps
 	return w, h
 end
 
