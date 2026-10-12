@@ -2291,17 +2291,28 @@ local function crewPartySections(args)
 		return React.createElement(Text, { value = value, size = size, color = color, wrap = true, weight = weight,
 			sizeConstraint = UDim2.new(1, 0, 0, height) })
 	end
+	-- leaving or removing someone takes a second tap, so a stray click can't break up a crew
+	local confirmKey, setConfirmKey = args.confirmKey, args.setConfirmKey
+	local function confirmed(key, action, payload)
+		if confirmKey == key then
+			setConfirmKey(nil)
+			run(action, payload)
+		else
+			setConfirmKey(key)
+		end
+	end
+	local GAP = 10
 	if invite and (invite.ExpiresAt or 0) > os.time() then
-		table.insert(sections, { id = "crew-invite", height = if stack then 150 else 104, element = React.createElement(Panel, {
+		table.insert(sections, { id = "crew-invite", height = if stack then 46 + TapTarget * 2 + GAP + 28 else 104, element = React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1), accent = Palette.mango, background = Palette.panelRaised, padding = 14, clips = false,
 		}, text(`{invite.FromName} invited you to {invite.CrewName}.`, 17, Palette.cream, 44, Enum.FontWeight.Heavy),
 			React.createElement(Button, { text = "Join crew", icon = "Crew", color = Palette.mango, textColor = Palette.ink,
 				size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(160, TapTarget),
-				position = if stack then UDim2.fromOffset(0, 46) else UDim2.new(1, -330, 0, 34), reducedMotion = softMotion,
+				position = if stack then UDim2.fromOffset(0, 46) else UDim2.new(1, -330 - GAP, 0, 34), reducedMotion = softMotion,
 				onClick = function() CrewStore.set({ invite = CrewStore.NONE }); run("CrewRespond", { Accept = true }) end }),
 			React.createElement(Button, { text = "Decline", color = Palette.panelSoft, textColor = Palette.cream, outline = true,
 				size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(160, TapTarget),
-				position = if stack then UDim2.fromOffset(0, 46 + TapTarget + 6) else UDim2.new(1, -160, 0, 34), reducedMotion = softMotion,
+				position = if stack then UDim2.fromOffset(0, 46 + TapTarget + GAP) else UDim2.new(1, -160, 0, 34), reducedMotion = softMotion,
 				onClick = function() CrewStore.set({ invite = CrewStore.NONE }); run("CrewRespond", { Accept = false }) end })) })
 	end
 	local leader = crew ~= nil and crew.Leader == localId
@@ -2321,11 +2332,14 @@ local function crewPartySections(args)
 				React.createElement(Text, { value = `{member.Collects} collect{if member.Collects == 1 then "" else "s"} today`,
 					size = 13, color = Palette.muted, position = UDim2.fromOffset(14, 30), sizeConstraint = UDim2.new(1, -140, 0, 18) }),
 				member.UserId ~= localId and React.createElement(Button, { text = "Visit", icon = "Visit", color = Palette.blue, textColor = Palette.ink,
-					size = UDim2.fromOffset(104, 44), position = UDim2.new(1, if leader then -228 else -110, 0.5, -22), reducedMotion = softMotion,
+					size = UDim2.fromOffset(104, 44), position = UDim2.new(1, if leader then -236 else -110, 0.5, -22), reducedMotion = softMotion,
 					onClick = function() dispatch("VisitPlot", { UserId = member.UserId }) end }) or nil,
-				leader and member.UserId ~= localId and React.createElement(Button, { text = "Remove", color = Palette.panelSoft, textColor = Palette.cream,
-					outline = true, size = UDim2.fromOffset(112, 44), position = UDim2.new(1, -118, 0.5, -22), reducedMotion = softMotion,
-					onClick = function() run("CrewKick", { UserId = member.UserId }) end }) or nil) })
+				leader and member.UserId ~= localId and React.createElement(Button, {
+					text = if confirmKey == "kick-" .. member.UserId then "Sure?" else "Remove",
+					color = if confirmKey == "kick-" .. member.UserId then Palette.coral else Palette.panelSoft,
+					textColor = if confirmKey == "kick-" .. member.UserId then Palette.ink else Palette.cream,
+					outline = confirmKey ~= "kick-" .. member.UserId, size = UDim2.fromOffset(112, 44), position = UDim2.new(1, -118, 0.5, -22), reducedMotion = softMotion,
+					onClick = function() confirmed("kick-" .. member.UserId, "CrewKick", { UserId = member.UserId }) end }) or nil) })
 		end
 		-- the daily goal: one meter to the next tier, then a claim button per tier
 		local nextTier = nil
@@ -2353,33 +2367,36 @@ local function crewPartySections(args)
 				text = if tier.Claimed then `Claimed · {tier.Stardust} dust` elseif crew.Pooled >= tier.Target then `Claim {tier.Stardust} dust` else `{tier.Target} collects · {tier.Stardust} dust`,
 				color = if ready then Palette.green else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted,
 				disabled = not ready, highlight = ready, reducedMotion = softMotion,
-				size = UDim2.new(cellW, -6, 0, TapTarget), position = UDim2.new(col * cellW, 0, 0, 68 + row * (TapTarget + 6)),
+				size = UDim2.new(cellW, -GAP, 0, TapTarget), position = UDim2.new(col * cellW, 0, 0, 68 + row * (TapTarget + GAP)),
 				onClick = function() run("CrewClaim", { Tier = index }) end,
 			}))
 		end
 		local goalRows = math.ceil(#crew.Tiers / columns)
-		table.insert(sections, { id = "crew-goal", height = 68 + goalRows * (TapTarget + 6) + 28, element = React.createElement(Panel, {
+		table.insert(sections, { id = "crew-goal", height = 68 + goalRows * (TapTarget + GAP) + 28, element = React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1), accent = Palette.green, background = Palette.panelRaised, padding = 14, clips = false,
 		}, table.unpack(goalChildren)) })
 		local actions = {
-			React.createElement(Button, { text = "Leave crew", color = Palette.panelSoft, textColor = Palette.cream, outline = true,
-				size = UDim2.new(if leader and not stack then 0.3 else 1, -4, 0, TapTarget), position = if leader and not stack then UDim2.new(0.7, 4, 0, 0) elseif leader then UDim2.fromOffset(0, TapTarget + 6) else UDim2.new(),
-				reducedMotion = softMotion, onClick = function() run("CrewLeave") end }),
+			React.createElement(Button, {
+				text = if confirmKey == "leave" then "Tap again to leave" else "Leave crew",
+				color = if confirmKey == "leave" then Palette.coral else Palette.panelSoft,
+				textColor = if confirmKey == "leave" then Palette.ink else Palette.cream, outline = confirmKey ~= "leave",
+				size = UDim2.new(if leader and not stack then 0.3 else 1, -GAP / 2, 0, TapTarget), position = if leader and not stack then UDim2.new(0.7, GAP / 2, 0, 0) elseif leader then UDim2.fromOffset(0, TapTarget + GAP) else UDim2.new(),
+				reducedMotion = softMotion, onClick = function() confirmed("leave", "CrewLeave") end }),
 		}
 		if leader then
 			table.insert(actions, React.createElement("textbox", {
-				Size = UDim2.new(if stack then 1 else 0.45, -4, 0, TapTarget), BackgroundColor3 = Palette.panel, BorderSizePixel = 0,
+				Size = UDim2.new(if stack then 1 else 0.45, -GAP / 2, 0, TapTarget), BackgroundColor3 = Palette.panel, BorderSizePixel = 0,
 				Text = renameDraft, PlaceholderText = "New crew name", PlaceholderColor3 = Palette.muted, TextColor3 = Palette.cream,
 				TextSize = 16, ClearTextOnFocus = false, FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 				Change = { Text = function(box) setRenameDraft(string.sub(box.Text, 1, 40)) end },
 			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 10) })))
 			if not stack then
 				table.insert(actions, React.createElement(Button, { text = "Rename", color = Palette.green, textColor = Palette.ink,
-					size = UDim2.new(0.25, -4, 0, TapTarget), position = UDim2.new(0.45, 4, 0, 0), reducedMotion = softMotion,
+					size = UDim2.new(0.25, -GAP, 0, TapTarget), position = UDim2.new(0.45, GAP / 2, 0, 0), reducedMotion = softMotion,
 					disabled = CrewMath.cleanName(renameDraft) == nil, onClick = function() run("CrewRename", { Name = renameDraft }); setRenameDraft("") end }))
 			end
 		end
-		table.insert(sections, { id = "crew-actions", height = if leader and stack then TapTarget * 2 + 6 else TapTarget,
+		table.insert(sections, { id = "crew-actions", height = if leader and stack then TapTarget * 2 + GAP else TapTarget,
 			element = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, table.unpack(actions)) })
 	end
 	-- recruiting: anyone here who isn't already in your crew
@@ -2401,10 +2418,10 @@ local function crewPartySections(args)
 			local col, row = (index - 1) % columns, math.floor((index - 1) / columns)
 			table.insert(children, React.createElement(Button, { text = `Invite {player.DisplayName}`, icon = "Crew",
 				color = Palette.blue, textColor = Palette.ink, reducedMotion = softMotion,
-				size = UDim2.new(1 / columns, -6, 0, TapTarget), position = UDim2.new(col / columns, 0, 0, 46 + row * (TapTarget + 6)),
+				size = UDim2.new(1 / columns, -GAP, 0, TapTarget), position = UDim2.new(col / columns, 0, 0, 46 + row * (TapTarget + GAP)),
 				onClick = function() run("CrewInvite", { UserId = player.UserId }) end }))
 		end
-		table.insert(sections, { id = "crew-recruit", height = 46 + rows * (TapTarget + 6) + 26, element = React.createElement(Panel, {
+		table.insert(sections, { id = "crew-recruit", height = 46 + rows * (TapTarget + GAP) + 26, element = React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1), accent = Palette.blue, background = Palette.panelRaised, padding = 14, clips = false,
 		}, table.unpack(children)) })
 	end
@@ -2432,6 +2449,19 @@ local function CrewView(_param)
 	local crewState = CrewStore.useCrew()
 	local renameDraft, setRenameDraft = React.useState("")
 	local crewNote, setCrewNote = React.useState("")
+	local confirmKey, setConfirmKey = React.useState(nil)
+	-- an unanswered "tap again" quietly resets
+	React.useEffect(function()
+		if confirmKey == nil then
+			return nil
+		end
+		local reset = task.delay(4, function()
+			setConfirmKey(nil)
+		end)
+		return function()
+			pcall(task.cancel, reset)
+		end
+	end, { confirmKey })
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
@@ -2709,6 +2739,7 @@ local function CrewView(_param)
 	for _, section in crewPartySections({
 		crewState = crewState, players = allPlayers, dispatch = dispatch, stack = stack, softMotion = softMotion,
 		renameDraft = renameDraft, setRenameDraft = setRenameDraft, note = crewNote, setNote = setCrewNote,
+		confirmKey = confirmKey, setConfirmKey = setConfirmKey,
 	}) do
 		table.insert(sections, section)
 	end

@@ -54,4 +54,11 @@ assert(server:find("if action == Protocol.Actions.CollectVault then self._crews:
 local service = fs.readFile("src/Server/AstralForge/Services/CrewService.luau")
 assert(service:find("self._data:AtomicUpdate(player, function(profile)", 1, true), "goal claims save atomically")
 assert(service:find("CrewMath.canClaim(record, tier, pooled, contribution)", 1, true), "claims are validated inside the save")
+-- the page: leaving and removing take a second tap that resets on its own
+local page = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau")
+assert(page:find('confirmed("leave", "CrewLeave")', 1, true), "leaving needs a second tap")
+assert(page:find('confirmed("kick-" .. member.UserId, "CrewKick", { UserId = member.UserId })', 1, true), "removing a member needs a second tap")
+assert(not page:find('run("CrewLeave")', 1, true) and not page:find('run("CrewKick"', 1, true), "no one-tap leave or kick remains")
+assert(page:find("local reset = task.delay(4, function()", 1, true), "an unanswered confirm resets")
+assert(service:find("crew.Leader = crew.Members[1]", 1, true), "a leader leaving hands the crew on, as the confirm label says")
 print("[TEST] crews: bonus cap, daily goal tiers, single claims, contribution gate, names, chat channel and wiring passed")
