@@ -10,8 +10,6 @@ local PAGE_SUITES = {
 	ConvergenceView = "PagesProgress",
 	CrateRevealStage = "PagesShop",
 	BazaarView = "PagesBazaar",
-	SalvageView = "PagesEncounters",
-	TrialsView = "PagesEncounters",
 	CrewView = "PagesSocial",
 	EchoForgeView = "PagesStory",
 	ForgePathView = "PagesProgress",
@@ -85,8 +83,6 @@ local WorldsView = lazyView("WorldsView", "WorldsView")
 local RewardsView = lazyView("RewardsView", "RewardsView")
 local WorkshopView = lazyView("WorkshopView", "WorkshopView")
 local BazaarView = lazyView("BazaarView", "BazaarView")
-local SalvageView = lazyView("SalvageView", "SalvageView")
-local TrialsView = lazyView("TrialsView", "TrialsView")
 
 local function PageContentInner(props)
 	local _binding = props
@@ -120,11 +116,6 @@ local function PageContentInner(props)
 			_attributes.releaseAt = _condition
 			_attributes.navigate = props.navigate
 			return React.createElement(OverviewView, _attributes)
-		end
-		if page == "Salvage" or page == "Trials" then
-			return React.createElement(if page == "Salvage" then SalvageView else TrialsView, {
-				state = state, dispatch = dispatch, reducedMotion = reducedMotion,
-			})
 		end
 		if page == "Workshop" then
 			return React.createElement(WorkshopView, {

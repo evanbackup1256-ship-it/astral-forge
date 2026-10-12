@@ -19,8 +19,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
-	local Encounters = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Encounters"))
-	local Specializations = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
+		local Specializations = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ShopCatalog")
 	local AtomicState = loadService("AtomicState")
@@ -160,6 +159,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		if profile.Dungeons ~= nil then profile.Dungeons = nil end
 		if profile.Minigames ~= nil then profile.Minigames = nil end
+		if profile.Encounters ~= nil then profile.Encounters = nil end -- Salvage Runs and Artifact Trials were retired
 
 		profile.Domain.Rank = math.floor(nonNegative(profile.Domain.Rank))
 		profile.Continuum.Rank = math.clamp(
@@ -343,11 +343,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Settings.UIEffects = profile.Settings.EffectsIntensity > 0.001
 		profile.Settings.ReducedMotion = profile.Settings.MotionIntensity <= 0.03
 		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
-		profile.Encounters = Encounters.Sanitize(profile.Encounters)
 		profile.Specialization = Specializations.Sanitize(profile.Specialization)
-		for id in profile.Encounters.Mastery do
-			if not artifactById[id] then profile.Encounters.Mastery[id] = nil end
-		end
 		if type(profile.Wheel) ~= "table" then
 			profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
 		end

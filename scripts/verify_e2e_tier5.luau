@@ -187,7 +187,7 @@ Fw.register("T5-ADV-01", "Rapid modal transitions and drawer animations execute 
 	openModal("WorkshopDrawer")
 	openModal("DomainModal")
 	openModal("SettingsModal")
-	openModal("EncounterAlert")
+	openModal("ConfirmAlert")
 
 	-- Step 2: Adversarial rapid open/close churn (100 rapid state flips with variable dt)
 	local dtValues = { 0.016, 0.008, 0.033, 0.001, 0.050 }

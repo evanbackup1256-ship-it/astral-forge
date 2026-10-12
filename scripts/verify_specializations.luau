@@ -131,7 +131,7 @@ local Atomic = require("../src/Server/AstralForge/Services/SecurityServices")("A
 local serde = require("@lune/serde")
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local branch = assert(server:find("elseif action == Protocol.Actions.SelectSpecialization then", 1, true))
-local branchEnd = assert(server:find("\n\t\telseif action == Protocol.Actions.BeginEncounter", branch, true))
+local branchEnd = assert(server:find("\n\t\telseif action == Protocol.Actions.SetMarketFavorite", branch, true))
 local body = server:sub(assert(server:find("\n\t\t\treturn", branch, true)), branchEnd - 1)
 local clock = 2000
 local atom = Atomic.new({ Vault = 6000, RawOutput = 100, Research = {}, GridUpgrades = { Furnace_01 = 5 }, Cash = "1e405" })

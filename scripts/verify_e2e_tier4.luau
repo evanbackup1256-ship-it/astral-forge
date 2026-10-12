@@ -10,7 +10,6 @@ Vector3 = { new = function(x, y, z) return { X = x, Y = y, Z = z } end, zero = {
 local Fw = require("./verify_e2e_framework")
 local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
 local ForgeLevels = SharedData("ForgeLevels")
-local Encounters = require("../src/Shared/AstralForge/Shared/Encounters")
 local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
 local MotionTokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
@@ -142,72 +141,6 @@ Fw.register("T4-SCEN-01", "Full player onboarding from bootstrap to first rebirt
 	-- Step 9: Severity telemetry check
 	local log = string.format("[INFO] [PROGRESSION] Player Rebirth %d complete (LifetimeCash=$%d)", profile.Rebirths, profile.LifetimeCash)
 	Fw.assertTrue(string.find(log, "[INFO]", 1, true) ~= nil, "Telemetry format verified")
-end)
-
---------------------------------------------------------------------------------
--- SCENARIO 2: High-Strain Salvage Encounter & Reward (F2, F3, F8, F10, F17, F18)
---------------------------------------------------------------------------------
-Fw.setContext("Tier 4", "Scenario 2: High-Strain Salvage Encounter & Reward")
-
-Fw.register("T4-SCEN-02", "High-strain salvage encounter resolves choices, validates strain limits, and awards loot", function()
-	-- Step 1: Initialize encounter state at Freighter site
-	local rawState = { Day = 1, Used = 0, History = {}, Mastery = {} }
-	local state = Encounters.Sanitize(rawState)
-	Fw.assertNotNil(state, "Sanitized encounter state exists")
-
-	-- Step 2: High-strain salvage run choices: Power (2 cargo, 1 strain) -> Hold (3 cargo, 2 strain) -> Leave (0 strain)
-	local run: Encounters.Run = {
-		Id = "RUN_SALVAGE_FREIGHTER_01",
-		RequestId = "REQ_SALVAGE_001",
-		Mode = "Salvage",
-		Site = "Freighter",
-		Artifact = "",
-		Element = "Wind",
-		Family = "Current",
-		Step = 4,
-		Choices = { "Power", "Hold", "Leave" },
-		UnitReward = 50,
-	}
-
-	-- Step 3: Verify score calculation
-	local cargo, strain, objective = Encounters.Score(run)
-	Fw.assertEq(cargo, 5, "Collected 5 cargo total")
-	Fw.assertLte(strain, 3, "Total strain within maximum threshold 3")
-	Fw.assertTrue(Encounters.Passed(run), "Salvage run passes under strain budget")
-
-	-- Step 4: Concurrent spatial transitions - drawer slide + modal popup
-	local panelTransition = MotionTokens.feel(MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
-	Fw.assertGte(panelTransition.dampingRatio, 0.76, "Panel motion uses smooth spring feel")
-
-	-- Step 5: Glowing hover accent button state
-	local idleStroke = theme.Chrome.panelStrokeIdle
-	local hoverStroke = theme.Chrome.panelStrokeHover
-	Fw.assertTrue(hoverStroke < idleStroke, "Hover stroke glows with lower transparency")
-
-	-- Step 6: Atomic reward synthesis
-	local wallet = { Cash = 500, Stardust = 10, Shards = 0 }
-	local loot = { Cash = 2500, Stardust = 15, Shards = 2 }
-	wallet.Cash = Omega.ToNumber(Omega.Add(wallet.Cash, loot.Cash))
-	wallet.Stardust += loot.Stardust
-	wallet.Shards += loot.Shards
-	Fw.assertEq(wallet.Cash, 3000, "Cash awarded atomically")
-	Fw.assertEq(wallet.Stardust, 25, "Stardust awarded atomically")
-	Fw.assertEq(wallet.Shards, 2, "Shards awarded atomically")
-
-	-- Step 7: Negative branch: Strain exceed test
-	local failedRun: Encounters.Run = {
-		Id = "RUN_SALVAGE_OVERSTRAIN",
-		RequestId = "REQ_SALVAGE_002",
-		Mode = "Salvage",
-		Site = "Freighter",
-		Artifact = "",
-		Element = "Wind",
-		Family = "Current",
-		Step = 4,
-		Choices = { "Power", "Hold", "Rack" }, -- Rack adds 2 more strain = 5 total
-		UnitReward = 50,
-	}
-	Fw.assertFalse(Encounters.Passed(failedRun), "Overstrained salvage must fail")
 end)
 
 --------------------------------------------------------------------------------
@@ -562,42 +495,6 @@ end)
 -- SCENARIO 11: Elemental Trials Gauntlet Mastery & Reward Cascade (F1, F2, F3, F10, F17)
 --------------------------------------------------------------------------------
 Fw.setContext("Tier 4", "Scenario 11: Elemental Trials Gauntlet Mastery")
-
-Fw.register("T4-SCEN-11", "Consecutive trials across 3 elemental families increment mastery ranks and award cumulative loot", function()
-	local trials = {
-		{ family = "Ember", choices = { "Release", "Steady", "Release" } },
-		{ family = "Current", choices = { "Observe", "Release", "Steady" } },
-		{ family = "Shelter", choices = { "Release", "Steady", "Steady" } },
-	}
-
-	local state = Encounters.Sanitize({ Day = 1, Used = 0, History = {}, Mastery = {} })
-	local totalEssence = 0
-
-	for idx, t in trials do
-		local run: Encounters.Run = {
-			Id = `RUN_TRIAL_{t.family}`,
-			RequestId = `REQ_TRIAL_{idx}`,
-			Mode = "Trial",
-			Site = "",
-			Artifact = "",
-			Element = "",
-			Family = t.family,
-			Step = 4,
-			Choices = t.choices,
-			UnitReward = 100,
-		}
-		local passed = Encounters.Passed(run)
-		Fw.assertTrue(passed, `Trial {t.family} passed`)
-
-		state.Mastery[t.family] = math.min((state.Mastery[t.family] or 0) + 2, 7)
-		totalEssence += 50
-	end
-
-	Fw.assertEq(state.Mastery.Ember, 2, "Ember mastery updated")
-	Fw.assertEq(state.Mastery.Current, 2, "Current mastery updated")
-	Fw.assertEq(state.Mastery.Shelter, 2, "Shelter mastery updated")
-	Fw.assertEq(totalEssence, 150, "Total elemental essence awarded")
-end)
 
 --------------------------------------------------------------------------------
 -- SCENARIO 12: Adversarial Profile Corruption Recovery & Safe Reversion (F4, F18, F21, F22)

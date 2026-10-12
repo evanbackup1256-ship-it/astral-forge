@@ -12,7 +12,6 @@ serviceFactories["AnomalyService"] = function() return require(script.Parent:Wai
 
 
 serviceFactories["BazaarService"] = function() return require(script.Parent:WaitForChild("BazaarService"))(loadService) end
-serviceFactories["EncounterService"] = function() return require(script.Parent:WaitForChild("EncounterService"))(loadService) end
 serviceFactories["SpecializationService"] = require(script.Parent:WaitForChild("SpecializationService"))
 
 
@@ -104,7 +103,6 @@ serviceFactories["GameService"] = function()
 	local PlayerBadges = loadService("PlayerBadges")
 	local ForgeEchoService = loadService("ForgeEchoService")
 	local BazaarService = loadService("BazaarService")
-	local EncounterService = loadService("EncounterService")
 	local Specializations = loadService("SpecializationService")
 	local GuildCommunity = require(script.Parent:WaitForChild("GuildCommunity"))
 	local ChatService = require(script.Parent:WaitForChild("ChatService"))
@@ -403,7 +401,7 @@ serviceFactories["GameService"] = function()
 	local PRESENCE_PAGES = {
 		Overview = true, Workshop = true, Inventory = true, Research = true, StarGrid = true,
 		Echoes = true, Continuum = true, Lab = true, Anomaly = true, Worlds = true,
-		Missions = true, Wheel = true, Bazaar = true, Salvage = true, Trials = true, Rewards = true, Command = true, Story = true, Mail = true,
+		Missions = true, Wheel = true, Bazaar = true, Rewards = true, Command = true, Story = true, Mail = true,
 		Chat = true, Crew = true, Milestones = true, Convergence = true, Leaderboards = true,
 		Trade = true, Credits = true, Admin = true, Settings = true, Shop = true,
 	}
@@ -1499,7 +1497,6 @@ serviceFactories["GameService"] = function()
 			Daily = ProgressionService.DailyState(profile),
 			Wheel = ProgressionService.WheelState(profile),
 			Bazaar = BazaarService.State(profile, os.time(), player.UserId),
-			Encounters = EncounterService.State(profile, os.time()),
 			Sky = {
 				Retired = true,
 				Plotted = table.clone(((profile.Sky or {}).Charts or {}).Plotted or {}),
@@ -4161,13 +4158,6 @@ serviceFactories["GameService"] = function()
 				or responseError("Performance sample was already received.")
 		end
 		local featureId = featureByAction[action]
-		if action == Protocol.Actions.BeginEncounter and payload and payload.Mode == "Trial" then
-			featureId = "Trials"
-		elseif action == Protocol.Actions.ChooseEncounter then
-			local encounterProfile = self._data:Get(player)
-			local active = encounterProfile and encounterProfile.Encounters and encounterProfile.Encounters.Active
-			if active and active.Mode == "Trial" then featureId = "Trials" end
-		end
 		if featureId then
 			local profile = self._data:Get(player)
 			local domainOpen = featureId == "Domain" and profile and profile.Domain and (tonumber(profile.Domain.Rank) or 0) >= 1
@@ -4340,16 +4330,6 @@ serviceFactories["GameService"] = function()
 					return responseError("Collect your vault before equipping a build with a smaller capacity.")
 				end
 				return responseSuccess(message)
-			end)
-		elseif action == Protocol.Actions.BeginEncounter or action == Protocol.Actions.ChooseEncounter then
-			return self:_mutate(player, function(profile)
-				local ok, message
-				if action == Protocol.Actions.BeginEncounter then
-					ok, message = EncounterService.Begin(profile, payload, os.time())
-				else
-					ok, message = EncounterService.Choose(profile, payload)
-				end
-				return ok and responseSuccess(message) or responseError(message)
 			end)
 		elseif action == Protocol.Actions.SetMarketFavorite then
 			return self:_mutate(player, function(profile)

@@ -10,7 +10,6 @@ Vector3 = { new = function(x, y, z) return { X = x, Y = y, Z = z } end, zero = {
 local Fw = require("./verify_e2e_framework")
 local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
 local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
-local Encounters = require("../src/Shared/AstralForge/Shared/Encounters")
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local mobileLayout = require("../src/Client/AstralForge/CoreKit")("mobileLayout")
 local planMobileLayout = mobileLayout.planMobileLayout
@@ -34,68 +33,9 @@ local theme = {
 }
 local Omega = OmegaMath
 
---------------------------------------------------------------------------------
--- 1. F1 (Rebirth & Multipliers) + F2 (Deterministic Encounters)
---------------------------------------------------------------------------------
 Fw.setContext("Tier 3", "Interaction: F1 + F2")
 
-Fw.register("T3-INT-01", "Rebirth multipliers scale encounter reward payout without corrupting strain mechanics", function()
-	local profile = {
-		Rebirths = 5,
-		Cash = 0,
-		Multiplier = 1.0 + (5 * 0.5), -- 3.5x multiplier
-	}
-	local encounter = {
-		Id = "Salvage_Alpha",
-		Mode = "Salvage",
-		BaseReward = 1000,
-		Strain = 2,
-	}
-
-	-- Evaluate encounter outcome using Encounters.Passed logic (strain <= 3 for Salvage)
-	local passed = encounter.Strain <= 3
-	Fw.assertTrue(passed, "Encounter passed strain threshold")
-
-	-- Scale reward by rebirth multiplier
-	if passed then
-		local scaledReward = math.floor(encounter.BaseReward * profile.Multiplier)
-		profile.Cash += scaledReward
-	end
-
-	Fw.assertEq(profile.Cash, 3500, "Cash scaled 3.5x from 1000 base")
-	Fw.assertEq(encounter.Strain, 2, "Strain mechanics remain intact and uncorrupted")
-end)
-
---------------------------------------------------------------------------------
--- 2. F2 (Deterministic Encounters) + F3 (Atomic Multi-Currency)
---------------------------------------------------------------------------------
 Fw.setContext("Tier 3", "Interaction: F2 + F3")
-
-Fw.register("T3-INT-02", "Encounter reward atomically awards Cash, Stardust, and Shards in a single transaction", function()
-	local wallet = { Cash = 100, Stardust = 5, Shards = 2 }
-	local encounterLoot = {
-		Cash = 2500,
-		Stardust = 15,
-		Shards = 8,
-	}
-
-	-- Atomic transaction: all-or-nothing verification
-	local function applyLoot(targetWallet: { Cash: number, Stardust: number, Shards: number }, loot: { Cash: number, Stardust: number, Shards: number }): boolean
-		if loot.Cash < 0 or loot.Stardust < 0 or loot.Shards < 0 then
-			return false
-		end
-		targetWallet.Cash += loot.Cash
-		targetWallet.Stardust += loot.Stardust
-		targetWallet.Shards += loot.Shards
-		return true
-	end
-
-	local success = applyLoot(wallet, encounterLoot)
-	Fw.assertTrue(success, "Atomic loot transaction succeeded")
-	Fw.assertEq(wallet.Cash, 2600, "Cash incremented atomically")
-	Fw.assertEq(wallet.Stardust, 20, "Stardust incremented atomically")
-	Fw.assertEq(wallet.Shards, 10, "Shards incremented atomically")
-end)
 
 --------------------------------------------------------------------------------
 -- 3. F3 (Atomic Multi-Currency) + F4 (Lossless Serialization)
@@ -559,33 +499,7 @@ Fw.register("T3-INT-19", "Extreme rebirth count (100,000 rebirths) computes cash
 	Fw.assertFalse(approxNum == math.huge, "Result does not overflow to infinity")
 end)
 
---------------------------------------------------------------------------------
--- 20. F2 (Deterministic Encounters) + F22 (Network Packet Schema)
---------------------------------------------------------------------------------
 Fw.setContext("Tier 3", "Interaction: F2 + F22")
-
-Fw.register("T3-INT-20", "Encounter start and claim payloads validate against Network Packet Schema with strict typing", function()
-	local function validateEncounterPayload(payload: any): (boolean, string?)
-		if typeof(payload) ~= "table" then return false, "Not a table" end
-		if typeof(payload.encounterId) ~= "string" then return false, "encounterId must be string" end
-		if typeof(payload.strain) ~= "number" or payload.strain < 0 or payload.strain > 10 then
-			return false, "strain out of bounds [0, 10]"
-		end
-		if typeof(payload.score) ~= "number" or payload.score < 0 then
-			return false, "score must be non-negative"
-		end
-		return true, nil
-	end
-
-	local validPayload = { encounterId = "ENC_001", strain = 2, score = 85 }
-	local ok1, _ = validateEncounterPayload(validPayload)
-	Fw.assertTrue(ok1, "Valid encounter payload accepted")
-
-	local invalidPayload = { encounterId = "ENC_001", strain = -1, score = 85 }
-	local ok2, err2 = validateEncounterPayload(invalidPayload)
-	Fw.assertFalse(ok2, "Negative strain payload rejected")
-	Fw.assertEq(err2, "strain out of bounds [0, 10]", "Rejection reason accurate")
-end)
 
 --------------------------------------------------------------------------------
 -- 21. F6 (Daily Login & Streaks) + F11 (Dynamic Inset & Notch)

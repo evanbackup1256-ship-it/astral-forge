@@ -52,7 +52,7 @@ collectLuauFiles("src/Client", clientFiles)
 check("ARCH-01", "Zero imperative Frame, ImageLabel, TextLabel, TextButton, ImageButton in pages/*.luau", function()
 	local pageFiles = {}
 	collectLuauFiles("src/Client/AstralForge/pages", pageFiles)
-	assert(#pageFiles >= 10, `Expected at least 10 page files, found {#pageFiles}`)
+	assert(#pageFiles >= 9, `Expected at least 9 page files, found {#pageFiles}`)
 	for _, path in pageFiles do
 		local content = fs.readFile(path)
 		for _, widget in { "Frame", "ImageLabel", "TextLabel", "TextButton", "ImageButton", "TextBox", "ScrollingFrame" } do
@@ -193,7 +193,6 @@ check("TEL-01", "Telemetry log severity format conformance ([INFO], [WARN], [ERR
 		"src/Client/AstralForge/init.client.luau",
 		"src/Server/AstralForge/init.server.luau",
 		"src/Server/AstralForge/Services/DataService.luau",
-		"src/Server/AstralForge/Services/EncounterService.luau",
 	}
 	for _, path in sampleSources do
 		local content = fs.readFile(path)
@@ -286,8 +285,8 @@ require("./verify_e2e_tier4")
 check("DET-01", "Execute master E2E test runner 3 consecutive times with zero variance in pass count", function()
 	for run = 1, 3 do
 		local summary = verifyFramework.runAll()
-		assert(summary.total == 257, `Run {run}: Expected exactly 257 tests, executed {summary.total}`)
-		assert(summary.passed == 257, `Run {run}: Expected exactly 257 passes, got {summary.passed}`)
+		assert(summary.total == 242, `Run {run}: Expected exactly 242 tests, executed {summary.total}`)
+		assert(summary.passed == 242, `Run {run}: Expected exactly 242 passes, got {summary.passed}`)
 		assert(summary.failed == 0, `Run {run}: Expected 0 failures, got {summary.failed}`)
 	end
 end)

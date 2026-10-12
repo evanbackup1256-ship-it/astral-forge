@@ -1058,7 +1058,9 @@ local function PageScaffold(_param)
 			break
 		end
 	end
-	local overflowing = planOverflow(sections, available, gap, tailPad)
+	-- The inset padding sits inside the measured host, so plan against what is left after it.
+	local usable = if available > 0 then math.max(1, available - inset * 2) else 0
+	local overflowing = planOverflow(sections, usable, gap, tailPad)
 	local fillContent, setFillContent = React.useState(0)
 	local reportFill = React.useCallback(function(height)
 		local rounded = math.max(0, math.ceil(height))
@@ -1088,7 +1090,7 @@ local function PageScaffold(_param)
 			end
 		end
 	end
-	local fittedHeights = planFittedHeights(planSections, available, gap, tailPad)
+	local fittedHeights = planFittedHeights(planSections, usable, gap, tailPad)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,

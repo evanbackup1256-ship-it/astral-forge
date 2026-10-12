@@ -95,8 +95,7 @@ function DataTemplate.New()
 			PityMisses = 0,
 			FreeSpins = 0,
 		},
-		Encounters = { Day = -1, Used = 0, History = {}, Mastery = {} },
-		Command = {
+			Command = {
 			XP = 0,
 			Signals = 0,
 			StreakShields = 1,

@@ -4516,8 +4516,6 @@ local GameConfig = {
 		Wheel = { Name = "Prize draw" },
 		Inventory = { Name = "Inventory" },
 		Bazaar = { Name = "Black Market" },
-		Salvage = { Name = "Salvage Runs" },
-		Trials = { Name = "Artifact Trials" },
 		Rewards = { Name = "Rewards" },
 		Boosts = { Name = "Boosts" },
 		Story = { Name = "Story" },
@@ -6740,6 +6738,7 @@ local GameConfig = {
 					"The prize wheel is drawn fresh: clearer wedges, a precise pointer, and a hub you can tap to spin.",
 					"New Social settings: hide global chat, chat text size, and who can whisper, invite or trade with you.",
 					"Plainer wording across the game, and slightly larger minimum text.",
+					"Salvage Runs and Artifact Trials have been retired. The Black Market now sits under Home.",
 				},
 			},
 			{

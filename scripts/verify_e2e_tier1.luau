@@ -8,7 +8,6 @@ local fs = require("@lune/fs")
 -- Load system components
 local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
 local ForgeLevels = SharedData("ForgeLevels")
-local Encounters = require("../src/Shared/AstralForge/Shared/Encounters")
 local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
 local DataTemplate = {
@@ -126,66 +125,6 @@ Fw.register("T1-F1-05", "Domain unlocks strictly at Level 15 (10 Rebirths requir
 	Fw.assertNotNil(def15, "Level 15 must exist")
 	Fw.assertEq(def15.Goal.Kind, "Rebirths", "Level 15 goal must require Rebirths")
 	Fw.assertEq(def15.Goal.Target, 10, "Level 15 requires exactly 10 Rebirths matching first expansion cost")
-end)
-
---------------------------------------------------------------------------------
--- FEATURE 2: Interactive Encounters (R1)
---------------------------------------------------------------------------------
-Fw.setContext("Tier 1", "F2: Interactive Encounters")
-
-Fw.register("T1-F2-01", "Encounter state sanitization initializes valid defaults and clears invalid active runs", function()
-	local emptyState = Encounters.Sanitize(nil)
-	Fw.assertNotNil(emptyState, "Sanitized state must not be nil")
-	Fw.assertNil(emptyState.Active, "Active encounter should be nil initially")
-	Fw.assertEq(#emptyState.History, 0, "History should be empty")
-	Fw.assertEq(type(emptyState.Mastery), "table", "Mastery should be a table")
-end)
-
-Fw.register("T1-F2-02", "Salvage extraction passes with correct multi-step hazard choices", function()
-	local run = {
-		Mode = "Salvage",
-		Site = "Freighter",
-		Step = 4,
-		Strain = 1,
-		Choices = { "Beacon", "Case", "Rescue" },
-	}
-	Fw.assertTrue(Encounters.Passed(run), "Valid salvage choices within strain budget must pass")
-end)
-
-Fw.register("T1-F2-03", "All 6 Trial elemental families have solvable 3-action puzzle combinations", function()
-	local solutions = {
-		Ember = { "Release", "Steady", "Release" },
-		Current = { "Observe", "Release", "Steady" },
-		Growth = { "Observe", "Observe", "Steady" },
-		Shelter = { "Release", "Steady", "Steady" },
-		Shadow = { "Observe", "Release", "Observe" },
-		Focus = { "Observe", "Steady", "Release" },
-	}
-	for family, choices in solutions do
-		local run = { Mode = "Trial", Site = "", Step = 4, Family = family, Choices = choices }
-		Fw.assertTrue(Encounters.Passed(run), `Trial family {family} must pass with canonical solution`)
-	end
-end)
-
-Fw.register("T1-F2-04", "Trial with invalid action combination fails extraction", function()
-	local run = {
-		Mode = "Trial",
-		Site = "",
-		Step = 4,
-		Family = "Ember",
-		Choices = { "Observe", "Observe", "Observe" },
-	}
-	Fw.assertFalse(Encounters.Passed(run), "Incorrect actions must not pass Trial")
-end)
-
-Fw.register("T1-F2-05", "Mastery level rewards cap at rank 7 and record bounded history", function()
-	local state = Encounters.Sanitize({
-		Mastery = { SolarLens = 5 },
-		History = {},
-	})
-	Fw.assertEq(state.Mastery.SolarLens, 5, "Existing mastery retained")
-	state.Mastery.SolarLens = math.min(state.Mastery.SolarLens + 3, 7)
-	Fw.assertEq(state.Mastery.SolarLens, 7, "Mastery must cap at 7")
 end)
 
 --------------------------------------------------------------------------------

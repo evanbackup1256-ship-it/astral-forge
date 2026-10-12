@@ -15758,15 +15758,24 @@ local function ActionButton(_param)
 	}))
 end
 
+-- Two groups of four: the things people do with each other (message, trade, visit, crew) as full
+-- buttons, then quieter, shorter buttons for wave, friend, block and report, with room between.
 local function playerActionLayout(width)
-	local actionCount = 8 -- message, visit, crew, trade, wave, friend, block, report
+	local PLAYER_ACTION_GAP, PLAYER_GROUP_GAP, PLAYER_SECONDARY_H = 10, 14, 40
 	local columns = if width < 440 then 2 else 4
-	local rows = math.ceil(actionCount / columns)
+	local groupRows = math.ceil(4 / columns)
+	local primaryHeight = groupRows * TapTarget + (groupRows - 1) * PLAYER_ACTION_GAP
+	local secondaryHeight = groupRows * PLAYER_SECONDARY_H + (groupRows - 1) * PLAYER_ACTION_GAP
 	return {
 		columns = columns,
-		rows = rows,
-		cellWidth = math.floor((math.max(0, width - 16) - (columns - 1) * 6) / columns),
-		height = rows * TapTarget + (rows - 1) * 6,
+		rows = groupRows * 2,
+		gap = PLAYER_ACTION_GAP,
+		cellWidth = math.floor((math.max(0, width - 16) - (columns - 1) * PLAYER_ACTION_GAP) / columns),
+		primaryHeight = primaryHeight,
+		secondaryHeight = secondaryHeight,
+		secondaryCellHeight = PLAYER_SECONDARY_H,
+		groupGap = PLAYER_GROUP_GAP,
+		height = primaryHeight + PLAYER_GROUP_GAP + secondaryHeight,
 	}
 end
 
@@ -15827,78 +15836,103 @@ local function PlayerRow(_param)
 	local actions = nil
 	if not row.IsLocal then
 		local actionLayout = playerActionLayout(width)
+		local function actionGroup(name, top, height, cellHeight, children)
+			return React.createElement("frame", {
+				Name = name,
+				Size = UDim2.new(1, 0, 0, height),
+				Position = UDim2.fromOffset(0, top),
+				BackgroundTransparency = 1,
+				ZIndex = 625,
+			}, React.createElement("uigridlayout", {
+				CellSize = UDim2.fromOffset(actionLayout.cellWidth, cellHeight),
+				FillDirectionMaxCells = actionLayout.columns,
+				CellPadding = UDim2.fromOffset(actionLayout.gap, actionLayout.gap),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}), children)
+		end
 		actions = React.createElement("frame", {
 			Name = "PlayerActions",
 			Size = UDim2.new(1, -16, 0, actionLayout.height),
 			Position = UDim2.fromOffset(8, 8 + 2 * 40 + 6 + 22),
 			BackgroundTransparency = 1,
 			ZIndex = 625,
-		}, React.createElement("uigridlayout", {
-			CellSize = UDim2.fromOffset(actionLayout.cellWidth, TapTarget),
-			FillDirectionMaxCells = actionLayout.columns,
-			CellPadding = UDim2.fromOffset(6, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), React.createElement(ActionButton, {
-			order = -2,
-			text = "MESSAGE",
-			icon = "Chat",
-			color = Palette.cyan,
-			disabled = blocked,
-			onClick = _param.onMessage,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = -1,
-			text = "VISIT",
-			icon = "Visit",
-			color = Palette.violet,
-			onClick = _param.onVisit,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 0,
-			text = if _param.crewmate then "IN CREW" else "CREW",
-			icon = "Crew",
-			color = Palette.green,
-			disabled = _param.crewmate or blocked,
-			onClick = _param.onCrew,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 3,
-			text = "WAVE",
-			icon = "Wave",
-			color = Palette.cyan,
-			onClick = _param.onWave,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 1,
-			text = if friend then "UNFRIEND" else "ADD FRIEND",
-			icon = "Crew",
-			color = Palette.blue,
-			onClick = _param.onFriend,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 2,
-			text = "TRADE",
-			icon = "Send",
-			color = Palette.mint,
-			onClick = _param.onTrade,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 5,
-			text = if blocked then "UNBLOCK" else "BLOCK",
-			icon = "Close",
-			color = Palette.panelSoft,
-			textColor = Palette.creamSoft,
-			outline = true,
-			onClick = _param.onBlock,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 6,
-			text = if reported then "REPORTED" else "REPORT",
-			icon = "Admin",
-			color = Palette.coral,
-			disabled = reported,
-			onClick = _param.onReport,
-			reducedMotion = reducedMotion,
+		}, actionGroup("Primary", 0, actionLayout.primaryHeight, TapTarget, {
+			Message = React.createElement(ActionButton, {
+				order = 1,
+				text = "MESSAGE",
+				icon = "Chat",
+				color = Palette.cyan,
+				disabled = blocked,
+				onClick = _param.onMessage,
+				reducedMotion = reducedMotion,
+			}),
+			Trade = React.createElement(ActionButton, {
+				order = 2,
+				text = "TRADE",
+				icon = "Send",
+				color = Palette.mint,
+				onClick = _param.onTrade,
+				reducedMotion = reducedMotion,
+			}),
+			Visit = React.createElement(ActionButton, {
+				order = 3,
+				text = "VISIT",
+				icon = "Visit",
+				color = Palette.violet,
+				onClick = _param.onVisit,
+				reducedMotion = reducedMotion,
+			}),
+			Crew = React.createElement(ActionButton, {
+				order = 4,
+				text = if _param.crewmate then "IN CREW" else "CREW",
+				icon = "Crew",
+				color = Palette.green,
+				disabled = _param.crewmate or blocked,
+				onClick = _param.onCrew,
+				reducedMotion = reducedMotion,
+			}),
+		}), actionGroup("Secondary", actionLayout.primaryHeight + actionLayout.groupGap, actionLayout.secondaryHeight, actionLayout.secondaryCellHeight, {
+			Wave = React.createElement(ActionButton, {
+				order = 1,
+				text = "WAVE",
+				icon = "Wave",
+				color = Palette.panelSoft,
+				textColor = Palette.cream,
+				outline = true,
+				onClick = _param.onWave,
+				reducedMotion = reducedMotion,
+			}),
+			Friend = React.createElement(ActionButton, {
+				order = 2,
+				text = if friend then "UNFRIEND" else "ADD FRIEND",
+				icon = "Crew",
+				color = Palette.panelSoft,
+				textColor = Palette.cream,
+				outline = true,
+				onClick = _param.onFriend,
+				reducedMotion = reducedMotion,
+			}),
+			Block = React.createElement(ActionButton, {
+				order = 3,
+				text = if blocked then "UNBLOCK" else "BLOCK",
+				icon = "Close",
+				color = Palette.panelSoft,
+				textColor = Palette.creamSoft,
+				outline = true,
+				onClick = _param.onBlock,
+				reducedMotion = reducedMotion,
+			}),
+			Report = React.createElement(ActionButton, {
+				order = 4,
+				text = if reported then "REPORTED" else "REPORT",
+				icon = "Admin",
+				color = Palette.panelSoft,
+				textColor = Palette.coral,
+				outline = true,
+				disabled = reported,
+				onClick = _param.onReport,
+				reducedMotion = reducedMotion,
+			}),
 		}))
 	end
 	local relics = if #row.EquippedItems > 0 then table.concat(row.EquippedItems, " · ") else "No relics equipped"

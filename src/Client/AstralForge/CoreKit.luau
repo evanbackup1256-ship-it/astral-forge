@@ -300,11 +300,11 @@ local Layout = {
 	pagePadding = 18,
 	topbarClearance = 6,
 	minTopInset = 36,
-	panelGap = 14,
-	stackGap = 12,
-	controlGap = 14,
-	lineGap = 10,
-	cardPadding = 18,
+	panelGap = 18,
+	stackGap = 14,
+	controlGap = 16,
+	lineGap = 12,
+	cardPadding = 20,
 	cardRadius = 16,
 	buttonRadius = 11,
 	topbarHeight = 74,
@@ -645,9 +645,9 @@ local function planMobileLayout(input)
 	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 34 elseif tablet then 52 else 48
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else math.max(0, sideInset)
-	local panelGap = if landscape then 8 elseif phone then 12 elseif shortDesktop then 10 else 14
-	local pagePadding = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif shortDesktop or compact then 14 else 18
-	local contentInset = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif shortDesktop or compact then 14 else 18
+	local panelGap = if landscape then 10 elseif phone then 14 elseif shortDesktop then 14 else 18
+	local pagePadding = if landscape then 10 elseif phone then (if tablet then 18 else 14) elseif shortDesktop or compact then 16 else 20
+	local contentInset = if landscape then 10 elseif phone then (if tablet then 18 else 14) elseif shortDesktop or compact then 16 else 20
 	local workspaceHeaderH = if phone then 0 elseif shortDesktop then 62 else 86
 	local tabBarCore = if landscape then TAP_TARGET elseif tablet then 56 else 52
 	local tabBarH = if phone then tabBarCore + bottomSafe else 0
@@ -677,9 +677,9 @@ local function planMobileLayout(input)
 		tablet = tablet,
 		pagePadding = pagePadding,
 		contentInset = contentInset,
-		cardPadding = if landscape then 12 elseif phone then (if tablet then 16 else 14) elseif shortDesktop then 14 else 18,
+		cardPadding = if landscape then 14 elseif phone then (if tablet then 18 else 16) elseif shortDesktop then 16 else 20,
 		panelGap = panelGap,
-		controlGap = if landscape then 8 elseif phone then 10 else 14,
+		controlGap = if landscape then 10 elseif phone then 12 else 16,
 		railRow = if landscape then 52 elseif phone then 60 elseif shortDesktop or compact then 52 else 64,
 		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif shortDesktop or compact then 48 else 56,
 		railGap = if phone then 8 elseif compact then 10 else 12,
@@ -1165,8 +1165,6 @@ local GRANT_ACTIONS = {
 	["BazaarPlay"] = true,
 	["SetMarketFavorite"] = true,
 	["RequestProcurement"] = true,
-	["BeginEncounter"] = true,
-	["ChooseEncounter"] = true,
 	["SelectSpecialization"] = true,
 	["LaunchExpedition"] = true,
 	["ClaimExpedition"] = true,
@@ -4314,8 +4312,6 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "Rewards", label = "Rewards", eyebrow = "Dailies", icon = "Rewards", accentKey = "pink" },
 	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel", accentKey = "mango" },
 	{ id = "Bazaar", label = "Black Market", eyebrow = "Stock and supplies", icon = "Shop", accentKey = "violet" },
-	{ id = "Salvage", label = "Salvage Runs", eyebrow = "Explore wrecks", icon = "World", accentKey = "cyan" },
-	{ id = "Trials", label = "Artifact Trials", eyebrow = "Companion mastery", icon = "Command", accentKey = "violet" },
 	{ id = "Boosts", label = "Boosts", eyebrow = "Power up", icon = "Boost", accentKey = "pink" },
 	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
 	{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab", accentKey = "mint" },
@@ -4351,8 +4347,6 @@ local PAGE_ROUTES: { string } = {
 	"Milestones",
 	"Wheel",
 	"Bazaar",
-	"Salvage",
-	"Trials",
 	"Rewards",
 	"Boosts",
 	"Command",
@@ -4373,10 +4367,9 @@ local PAGE_ROUTES: { string } = {
 type NavGroup = { key: string, label: string, routes: { string } }
 
 local NAV_GROUPS: { NavGroup } = {
-	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop" } },
+	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop", "Bazaar" } },
 	{ key = "Daily", label = "Daily", routes = { "Missions", "Rewards", "Boosts", "Milestones", "Wheel" } },
 	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "ForgePath", "Story" } },
-	{ key = "Games", label = "Explore", routes = { "Salvage", "Trials", "Bazaar" } },
 	{ key = "Social", label = "Social", routes = { "Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards" } },
 	{ key = "System", label = "System", routes = { "Settings", "Credits", "Admin" } },
 }

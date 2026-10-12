@@ -187,17 +187,17 @@ check("STU-02", "SmokeBoundary error boundary isolates render errors and prevent
 	assert(mockCurrent.error == nil, "Subsequent page has no error")
 end)
 
-check("STU-03", "PageRouter registers all 31 canonical page routes and 34 view suites cleanly", function()
+check("STU-03", "PageRouter registers all 29 canonical page routes and 34 view suites cleanly", function()
 	local routerContent = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 	local canonicalRoutes = {
-		"Overview", "Workshop", "Research", "Salvage", "Trials",
+		"Overview", "Workshop", "Research",
 		"StarGrid", "Echoes", "Continuum", "Convergence", "Lab",
 		"Anomaly", "Worlds", "Missions", "Milestones", "Wheel",
 		"Bazaar", "Rewards", "Boosts", "Command", "Story",
 		"Mail", "Chat", "Crew", "Guild", "Leaderboards",
 		"Shop", "Inventory", "Trade", "Settings", "Admin", "ForgePath",
 	}
-	assert(#canonicalRoutes == 31, "Must test exactly 31 canonical routes")
+	assert(#canonicalRoutes == 29, "Must test exactly 29 canonical routes")
 	for _, route in canonicalRoutes do
 		local found = string.find(routerContent, `page == "{route}"`, 1, true) ~= nil
 			or string.find(routerContent, `page == '{route}'`, 1, true) ~= nil
@@ -214,7 +214,7 @@ end)
 
 check("STU-04", "All 10 page suite modules in src/Client/AstralForge/pages compile cleanly", function()
 	local pageFiles = {
-		"PagesCore.luau", "PagesProgress.luau", "PagesBazaar.luau", "PagesEncounters.luau",
+		"PagesCore.luau", "PagesProgress.luau", "PagesBazaar.luau",
 		"PagesSpecializations.luau", "PagesSystem.luau", "PagesSocial.luau", "PagesStory.luau",
 		"PagesShop.luau", "PageRouter.luau",
 	}
@@ -646,11 +646,11 @@ require("./verify_e2e_tier3")
 require("./verify_e2e_tier4")
 require("./verify_e2e_tier5")
 
-check("DET-01", "Execute master E2E test runner (Tiers 1-5, 268 tests) 3 consecutive times with zero variance", function()
+check("DET-01", "Execute master E2E test runner (Tiers 1-5, 253 tests) 3 consecutive times with zero variance", function()
 	for iteration = 1, 3 do
 		local summary = verifyFramework.runAll()
-		assert(summary.total == 268, `Run {iteration}: Expected 268 tests, executed {summary.total}`)
-		assert(summary.passed == 268, `Run {iteration}: Expected 268 passed, got {summary.passed}`)
+		assert(summary.total == 253, `Run {iteration}: Expected 253 tests, executed {summary.total}`)
+		assert(summary.passed == 253, `Run {iteration}: Expected 253 passed, got {summary.passed}`)
 		assert(summary.failed == 0, `Run {iteration}: Expected 0 failed, got {summary.failed}`)
 	end
 end)

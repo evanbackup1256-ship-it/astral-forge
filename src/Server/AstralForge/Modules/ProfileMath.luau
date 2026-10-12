@@ -939,7 +939,6 @@ ActionFeatureMaps.ANOMALY_CHARGE = {
 	UpgradeItem = 7,
 	EquipBestItems = 10,
 	BulkSalvageItems = 10,
-	ChooseEncounter = 8,
 }
 
 ActionFeatureMaps.ANOMALY_SIGNAL = {
@@ -961,7 +960,6 @@ ActionFeatureMaps.ANOMALY_SIGNAL = {
 	ClaimWeeklyDirective = "Reward",
 	ClaimSeasonTier = "Reward",
 	ClaimForgePathStep = "Reward",
-	ChooseEncounter = "Encounter",
 }
 
 ActionFeatureMaps.FEATURE = {
@@ -1042,8 +1040,6 @@ ActionFeatureMaps.FEATURE = {
 	BazaarPlay = "Bazaar",
 	SetMarketFavorite = "Bazaar",
 	RequestProcurement = "Bazaar",
-	BeginEncounter = "Salvage",
-	ChooseEncounter = "Salvage",
 	SelectSpecialization = "StarGrid",
 }
 

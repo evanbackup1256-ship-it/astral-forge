@@ -12,7 +12,6 @@ local fs = require("@lune/fs")
 -- Load system components
 local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
 local ForgeLevels = SharedData("ForgeLevels")
-local Encounters = require("../src/Shared/AstralForge/Shared/Encounters")
 local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
 local MotionTokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
@@ -99,59 +98,6 @@ Fw.register("T2-F1-05", "Unlocks table is frozen and throws on attempted runtime
 	Fw.assertThrows(function()
 		table.insert(def.Unlocks, "HackedFeature")
 	end, nil, "Attempting to modify frozen Unlocks table must throw")
-end)
-
---------------------------------------------------------------------------------
--- FEATURE 2: Interactive Encounters (R1) - Boundary Cases
---------------------------------------------------------------------------------
-Fw.setContext("Tier 2", "F2: Interactive Encounters")
-
-Fw.register("T2-F2-01", "Completely empty or nil state passed to Encounters.Sanitize returns valid baseline", function()
-	local sanitized = Encounters.Sanitize(nil)
-	Fw.assertNotNil(sanitized, "Sanitized state must exist")
-	Fw.assertNil(sanitized.Active, "No active encounter")
-	Fw.assertEq(#sanitized.History, 0, "Empty history table")
-	Fw.assertEq(type(sanitized.Mastery), "table", "Mastery table created")
-end)
-
-Fw.register("T2-F2-02", "Excessive strain threshold forces extraction failure (Passed = false)", function()
-	local failedRun = {
-		Mode = "Salvage",
-		Site = "Freighter",
-		Step = 4,
-		Strain = 10, -- Strain exceeds maximum allowed
-		Choices = { "Power", "Hold", "Rack" },
-	}
-	Fw.assertFalse(Encounters.Passed(failedRun), "Excess strain must fail run")
-end)
-
-Fw.register("T2-F2-03", "Maximum encounter history capacity strictly bounds to 10 entries", function()
-	local history = {}
-	for i = 1, 15 do
-		table.insert(history, 1, { RunId = `run-{i}`, Passed = true })
-		if #history > 10 then
-			table.remove(history)
-		end
-	end
-	Fw.assertEq(#history, 10, "History must stay bounded at maximum 10 entries")
-	Fw.assertEq(history[1].RunId, "run-15", "Latest entry is at top of history")
-end)
-
-Fw.register("T2-F2-04", "Mastery level clamps at 7 and does not overflow on repeated successes", function()
-	local mastery = 7
-	local nextMastery = math.min(mastery + 1, 7)
-	Fw.assertEq(nextMastery, 7, "Mastery must strictly clamp at 7")
-end)
-
-Fw.register("T2-F2-05", "Empty choices array in active encounter fails evaluation", function()
-	local emptyRun = {
-		Mode = "Trial",
-		Site = "",
-		Step = 1,
-		Family = "Ember",
-		Choices = {},
-	}
-	Fw.assertFalse(Encounters.Passed(emptyRun), "Empty choices cannot pass encounter")
 end)
 
 --------------------------------------------------------------------------------

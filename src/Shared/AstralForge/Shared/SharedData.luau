@@ -1709,7 +1709,7 @@ local LADDER: { LevelDef } = {
 		Level = 7,
 		Tier = "Apprentice",
 		Goal = { Kind = "LifetimeCash", Target = 2_500, Text = "Earn 2.5K flux in total" },
-		Unlocks = { "Worlds", "Shop", "Salvage" },
+		Unlocks = { "Worlds", "Shop" },
 	},
 	{
 		Level = 8,
@@ -1733,7 +1733,7 @@ local LADDER: { LevelDef } = {
 		Level = 11,
 		Tier = "Journeyman",
 		Goal = { Kind = "Rebirths", Target = 1, Text = "Complete your first rebirth" },
-		Unlocks = { "Anomaly", "Command", "Crew", "Trade", "Trials" },
+		Unlocks = { "Anomaly", "Command", "Crew", "Trade" },
 	},
 	{
 		Level = 12,

@@ -10,8 +10,7 @@ return function(loadService: (string) -> any)
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local RemoteFirewallMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("RemoteFirewallMath")
 	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
-	local Encounters = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Encounters"))
-	local ServerTelemetry = loadService("ServerTelemetry")
+		local ServerTelemetry = loadService("ServerTelemetry")
 
 	type Rule = {
 		Cost: number,
@@ -164,8 +163,6 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
 		[Protocol.Actions.SetMarketFavorite] = { Cost = 0.5, Cooldown = 0.3 },
 		[Protocol.Actions.RequestProcurement] = { Cost = 1, Cooldown = 1 },
-		[Protocol.Actions.BeginEncounter] = { Cost = 1, Cooldown = 0.5 },
-		[Protocol.Actions.ChooseEncounter] = { Cost = 1, Cooldown = 0.3 },
 		[Protocol.Actions.SelectSpecialization] = { Cost = 1, Cooldown = 0.5 },
 		[Protocol.Actions.BuyDailyOffer] = { Cost = 1, Cooldown = 0.35 },
 		[Protocol.Actions.BuyCrateSkin] = { Cost = 1, Cooldown = 0.5 },
@@ -550,10 +547,6 @@ return function(loadService: (string) -> any)
 			if not stringField(payload, "Id", 0, 24) then
 				return false, "invalid supply request"
 			end
-		elseif action == Protocol.Actions.BeginEncounter then
-			if not Encounters.ValidBegin(payload) then return false, "invalid encounter start" end
-		elseif action == Protocol.Actions.ChooseEncounter then
-			if not Encounters.ValidChoice(payload) then return false, "invalid encounter choice" end
 		elseif action == Protocol.Actions.SelectSpecialization then
 			if not stringField(payload, "Id", 1, 24) then return false, "invalid forge specialization" end
 		elseif action == Protocol.Actions.SpinWheel then

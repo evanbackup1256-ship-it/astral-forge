@@ -3929,7 +3929,7 @@ local function GuildCommunityPanel(_param)
 				ScrollBarImageColor3 = Palette.cyan,
 			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }),
 				React.createElement("uipadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }),
-				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }), chatRows),
+				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }), chatRows),
 			React.createElement("textbox", {
 				Size = UDim2.new(1, -112, 0, 42),
 				Position = UDim2.fromOffset(0, 344),
@@ -5801,7 +5801,7 @@ local function ChatView(_param)
 	local condensed = chrome.landscape or viewport.keyboardOpen or viewport.height < 700
 	local showStatus = not condensed
 	local showBanner = not condensed and viewport.height >= 760
-	local chromeGap = if condensed then 6 else GAP
+	local chromeGap = if condensed then 8 else GAP
 	local inputHeight = if condensed then 52 else INPUT_HEIGHT
 	local draft, setDraft = React.useState("")
 	local failure, setFailure = React.useState("")
@@ -6301,14 +6301,14 @@ local function ChatView(_param)
 	local tabRows = math.ceil(#TAB_DEFS / tabColumns)
 	table.insert(sections, {
 		id = "tabs",
-		height = tabRows * TAB_ROW_H + (tabRows - 1) * 4,
+		height = tabRows * TAB_ROW_H + (tabRows - 1) * 6,
 		element = React.createElement(SegmentedTabs, {
 			options = tabOptions,
 			value = tab,
 			onChange = chat.setTab,
 			accent = Palette.cyan,
 			columns = tabColumns,
-			gap = 4,
+			gap = 6,
 			size = UDim2.fromScale(1, 1),
 			reducedMotion = softMotion,
 		}),
