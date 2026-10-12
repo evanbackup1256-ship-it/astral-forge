@@ -322,7 +322,7 @@ local function ResearchView(_param)
 					position = UDim2.fromOffset(if stack then 0 else 72, if stack then 60 else 0),
 					sizeConstraint = UDim2.new(1, if stack then -8 else -332, 0, 16),
 				}), React.createElement(Text, {
-					value = if researchLocked then "Earn 100 Flux to begin research." else "Upgrades that survive rebirth.",
+					value = if researchLocked then "Earn 100 Flux to begin research." elseif nextEntry ~= nil then `Next: {nextEntry.config.Name}` else `{unlockedCount} of {#entries} researched`,
 					size = if stack then 18 else 24,
 					color = Palette.cream,
 					weight = Enum.FontWeight.Heavy,
@@ -330,7 +330,7 @@ local function ResearchView(_param)
 					position = UDim2.fromOffset(if stack then 0 else 72, if stack then 78 else 18),
 					sizeConstraint = UDim2.new(1, if stack then -8 else -332, 0, 32),
 				}), React.createElement(Text, {
-					value = `{unlockedCount} / {#entries} unlocked  ·  {maxedCount} maxed{if nextEntry ~= nil then `  ·  next: {nextEntry.config.Name}` else ""}`,
+					value = `{unlockedCount} of {#entries} unlocked  ·  {maxedCount} maxed  ·  every level survives rebirth`,
 					size = 11,
 					color = Palette.creamSoft,
 					wrap = true,
@@ -862,7 +862,7 @@ local function LabViewReady(_param)
 			sizeConstraint = UDim2.new(1, -(270 + ROW_RIGHT), 0, 16),
 		})
 		local _exp_4 = React.createElement(Text, {
-			value = "Orders and power cells.",
+			value = `{lab.AvailableCells} power cell{if lab.AvailableCells == 1 then "" else "s"} free`,
 			size = 22,
 			color = Palette.cream,
 			weight = Enum.FontWeight.Heavy,
@@ -2200,6 +2200,12 @@ local function WorkshopView(_param)
 		stellarLevel = 0
 	end
 	local firstMachine = stellarLevel < 1
+	local ownedMachines = 0
+	for _, machine in machines do
+		if (tonumber(state.Machines[machine.Id]) or 0) > 0 then
+			ownedMachines += 1
+		end
+	end
 	local chainLine = nil
 	if not firstMachine then
 		local names = {}
@@ -2269,7 +2275,7 @@ local function WorkshopView(_param)
 	end, { machines, state.Machines, state.Zone, state.Rebirths })
 	local featureHeight = if chromeFor(viewport).landscape then 128 elseif chromeFor(viewport).stack then 188 else 168
 	return React.createElement(UpgradeBoard, {
-		title = if firstMachine then "Buy a machine" else "More hands. Less waiting.",
+		title = if firstMachine then "Buy a machine" else `{ownedMachines} machine{if ownedMachines == 1 then "" else "s"} running`,
 		eyebrow = if firstMachine then "EARNS FLUX" else "BUILD QUEUE",
 		blurb = if firstMachine then "A machine earns Flux into your vault every second." elseif chainLine ~= nil then chainLine else "More machines = more flux, even while you're AFK.",
 		accent = Palette.coral,

@@ -3241,7 +3241,7 @@ local function MilestonesView(_param)
 		zIndex = 30,
 		clips = false,
 	}, if stack then React.createElement(Text, {
-		value = if counts.Ready > 0 then `{counts.Ready} to claim · {counts.Done} of {#list} done` else `{counts.Done} of {#list} done · they stay after a rebirth`,
+		value = "MILESTONES · KEPT THROUGH REBIRTH",
 		size = 13,
 		color = if counts.Ready > 0 then Palette.green else Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
@@ -3255,7 +3255,7 @@ local function MilestonesView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, -420, 0, 16),
 	}), React.createElement(Text, {
-		value = "Long-term goals.",
+		value = if counts.Ready > 0 then `{counts.Ready} ready to claim · {counts.Done} of {#list} done` else `{counts.Done} of {#list} reached`,
 		size = 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -3736,7 +3736,7 @@ local function MissionsView(_param)
 		zIndex = 30,
 		clips = false,
 	}, if stack then React.createElement(Text, {
-		value = if counts.Ready > 0 then `{counts.Ready} ready · {counts.Done} of {#quests} claimed today` else `{counts.Done} of {#quests} claimed · new missions every day`,
+		value = "TODAY'S MISSIONS · NEW EACH DAY",
 		size = 13,
 		color = if counts.Ready > 0 then Palette.green else Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
@@ -3750,7 +3750,7 @@ local function MissionsView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, -420, 0, 16),
 	}), React.createElement(Text, {
-		value = "Daily checklist.",
+		value = if counts.Ready > 0 then `{counts.Ready} ready to claim · {counts.Done} of {#quests} done` else `{counts.Done} of {#quests} done today`,
 		size = 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,

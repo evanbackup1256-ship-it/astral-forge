@@ -888,7 +888,7 @@ local function ShopView(_param)
 		filled = true,
 		size = UDim2.fromOffset(68, 20),
 	}), React.createElement(Text, {
-		value = "Passes, packs, and codes.",
+		value = "Passes, packs and codes",
 		size = 26,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
