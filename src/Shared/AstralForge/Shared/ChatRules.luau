@@ -332,4 +332,23 @@ function ChatRules.inTab(channel: string, tab: string): boolean
 	return channel == tab
 end
 
+-- Sent-message recall (Up / Down in the chat box). History is newest first; index 0 is the
+-- fresh draft, 1 the last message sent, and so on.
+ChatRules.RECALL_LIMIT = 20
+
+function ChatRules.remember(history: { string }, text: any)
+	if type(text) ~= "string" then return end
+	local clean = ChatRules.trim(text)
+	if clean == "" or history[1] == clean then return end
+	table.insert(history, 1, clean)
+	while #history > ChatRules.RECALL_LIMIT do
+		table.remove(history)
+	end
+end
+
+function ChatRules.recall(history: { string }, index: number, direction: number): (number, string)
+	local nextIndex = math.clamp(index + (if direction > 0 then 1 elseif direction < 0 then -1 else 0), 0, #history)
+	return nextIndex, if nextIndex == 0 then "" else history[nextIndex]
+end
+
 return table.freeze(ChatRules)

@@ -75,31 +75,6 @@ rejection and atomic rollback. It cannot recover a historical pot overwritten
 or removed by the former server's global rollover implementation; live
 multi-server migration and persistence-outage journeys remain unverified.
 
-### Active encounters (in-progress revamp)
-
-Salvage Runs unlock alongside Worlds at level 7: three authored wreck sites
-open in zones 1, 3 and 6, with three saved choices, elemental advantages,
-optional objectives and explicit strain/cargo outcomes. They are not timed
-Command expeditions. Artifact Trials unlock alongside Command at level 11
-and use owned Command artifacts, six family-specific rules and bounded
-mastery (seven successes). Stardust milestone payouts occur only at mastery
-1, 3 and 7 per companion; subsequent practice cannot farm the same reward.
-
-Optional Experience Config keys are `SalvageDailyLimit` (default 3, bounded
-1–12) and `EncounterStardustUnit` (default 4, bounded 1–100). Rewards are frozen
-when a run begins; daily allowance resets at midnight UTC. Choices, history
-and mastery persist under the additive `Encounters` profile field without
-changing DataVersion 21. Start/choice replay and reward grants use the existing
-atomic transaction owner. A balance too large to represent a small stardust
-increment rejects the final choice; players may explicitly finish without
-stardust rather than receive a false grant or become trapped.
-
-`scripts/verify_encounters.luau` executes actual encounter and reward code,
-all family rules, allowance/reset, save sanitization, replay mismatches,
-capacity rejection/explicit forfeiture and injected grant rollback, plus
-the actual client retry closure. Multiplayer and real persistence-outage
-journeys remain required before release sign-off.
-
 The 7.0 revamp removes casino gameplay and rebuilds the Black Market,
 inventory, crate perks and artifact presentation. Equipped artifacts are visible
 in the world, custom chat and player list. Guild community tools, domain-tree
@@ -243,9 +218,9 @@ trails use fractional coordinates rather than stepped pixel offsets.
 
 Star Charts and Signal Cipher have since been removed from active navigation,
 protocol actions, server dispatch and presentation. Their saved progress and
-historical leaderboard readers remain for compatibility. Salvage Runs and
-Artifact Trials replace them with server-authoritative decisions and retry
-protection. Forge Specializations replaces Star Grid while preserving earned
+historical leaderboard readers remain for compatibility. Their successors,
+Salvage Runs and Artifact Trials, were retired in 7.1 as well; saved encounter
+data is dropped on load. Forge Specializations replaces Star Grid while preserving earned
 grid bonuses; the bounded migration and save/rejoin checks are documented
 in the current sign-off.
 Reports and settings choices/navigation reuse the shared controls. Resource

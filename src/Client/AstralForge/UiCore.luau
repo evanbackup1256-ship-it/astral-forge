@@ -11367,7 +11367,7 @@ local function Workspace(_param)
 		ClipsDescendants = false,
 		ZIndex = 3,
 	}, React.createElement(ShimmerText, {
-		value = if entry.label == "Games" then "Mini Games" elseif entry.label == "Ranks" then "Leaderboards" else entry.label,
+		value = if entry.label == "Ranks" then "Leaderboards" else entry.label,
 		size = if chrome.stack then chrome.titleText elseif denseHeader then 20 else 24,
 		color = ensureContrast(Palette.panel, Palette.cream),
 		weight = Enum.FontWeight.Heavy,

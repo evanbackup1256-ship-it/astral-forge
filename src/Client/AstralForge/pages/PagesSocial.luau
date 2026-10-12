@@ -5812,6 +5812,9 @@ local function ChatView(_param)
 	local stickBottom = React.useRef(true)
 	local lastMessageId = React.useRef(nil)
 	local sendAttempt = React.useRef(0)
+	local sentHistory = React.useRef({})
+	local recallIndex = React.useRef(0)
+	local recallDraft = React.useRef("")
 	local chatClaimHostRef = React.useRef(nil)
 	local headerReveal = useStagger(0, softMotion)
 	local bannerReveal = useStagger(1, softMotion)
@@ -5949,6 +5952,8 @@ local function ChatView(_param)
 		end
 		local attempt = sendAttempt.current + 1
 		sendAttempt.current = attempt
+		ChatRules.remember(sentHistory.current, outgoing)
+		recallIndex.current = 0
 		setFailure("")
 		setDraft("")
 		if box ~= nil then
@@ -6003,6 +6008,41 @@ local function ChatView(_param)
 			end)
 		end
 	end
+	-- Up / Down in the focused chat box walks back through what you sent; coming back down past
+	-- the newest message restores whatever you had been typing.
+	React.useEffect(function()
+		local connection = UserInputService.InputBegan:Connect(function(inputObject)
+			local box = input.current
+			if box == nil or not box:IsFocused() then
+				return
+			end
+			local direction = if inputObject.KeyCode == Enum.KeyCode.Up then 1
+				elseif inputObject.KeyCode == Enum.KeyCode.Down then -1
+				else 0
+			if direction == 0 then
+				return
+			end
+			if recallIndex.current == 0 then
+				recallDraft.current = box.Text
+			end
+			local index, text = ChatRules.recall(sentHistory.current, recallIndex.current, direction)
+			if index == recallIndex.current then
+				return
+			end
+			recallIndex.current = index
+			local fill = if index == 0 then recallDraft.current else text
+			setDraft(fill)
+			box.Text = fill
+			task.defer(function()
+				if input.current == box then
+					box.CursorPosition = #fill + 1
+				end
+			end)
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, {})
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil

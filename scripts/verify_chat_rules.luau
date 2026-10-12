@@ -134,4 +134,31 @@ assert(not ChatRules.mentions("mail@nova.com", "NovaSmith", "Nova"), "an email a
 assert(not ChatRules.mentions("Nova without the at", "NovaSmith", "Nova") and not ChatRules.mentions(nil, "a", "b"), "plain text")
 assert(ChatRules.clock(nil) == "" and #ChatRules.clock(0) == 5, "message clock")
 
+-- sent-message recall
+do
+	local history = {}
+	ChatRules.remember(history, "  hello  ")
+	ChatRules.remember(history, "hello")
+	ChatRules.remember(history, "   ")
+	ChatRules.remember(history, nil)
+	ChatRules.remember(history, "/w nova gg")
+	assert(#history == 2 and history[1] == "/w nova gg" and history[2] == "hello", "newest first, trimmed, no repeats or blanks")
+	local index, text = ChatRules.recall(history, 0, 1)
+	assert(index == 1 and text == "/w nova gg", "Up recalls the last message")
+	index, text = ChatRules.recall(history, index, 1)
+	assert(index == 2 and text == "hello", "Up again goes further back")
+	index, text = ChatRules.recall(history, index, 1)
+	assert(index == 2 and text == "hello", "Up stops at the oldest")
+	index, text = ChatRules.recall(history, index, -1)
+	index, text = ChatRules.recall(history, index, -1)
+	assert(index == 0 and text == "", "Down returns to the draft")
+	assert(select(1, ChatRules.recall({}, 0, 1)) == 0, "nothing to recall")
+	for n = 1, 30 do ChatRules.remember(history, "m" .. n) end
+	assert(#history == ChatRules.RECALL_LIMIT and history[1] == "m30", "history is capped")
+end
+local socialSource = require("@lune/fs").readFile("src/Client/AstralForge/pages/PagesSocial.luau")
+assert(socialSource:find("ChatRules.remember(sentHistory.current, outgoing)", 1, true), "sending remembers the message")
+assert(socialSource:find("ChatRules.recall(sentHistory.current, recallIndex.current, direction)", 1, true), "Up/Down recall is wired")
+assert(socialSource:find("recallDraft.current = box.Text", 1, true), "the unsent draft is kept while recalling")
+
 print("verify_chat_rules: ok")

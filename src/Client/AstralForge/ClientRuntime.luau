@@ -1398,7 +1398,7 @@ local function useGameChat(active, enabled, dispatch, settings)
 			for _, info in ChatRules.COMMANDS do
 				table.insert(lines, info.usage)
 			end
-			note("Shortcuts: " .. table.concat(lines, "  ·  ") .. ". Search supports from:name and in:global.")
+			note("Shortcuts: " .. table.concat(lines, "  ·  ") .. ". Search supports from:name and in:global. Press Up to bring back a message you sent.")
 			finish(true)
 		elseif kind == "w" then
 			local found = ChatRules.findPlayer(command.target, rosterOf(selfId))

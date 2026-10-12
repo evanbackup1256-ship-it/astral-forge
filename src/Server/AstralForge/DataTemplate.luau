@@ -341,7 +341,6 @@ function DataTemplate.New()
 			Joins = 0,
 			OreMined = 0,
 			WardenDefeats = 0,
-			EncountersCompleted = 0,
 		},
 		Meta = {
 			CreatedAt = now,
