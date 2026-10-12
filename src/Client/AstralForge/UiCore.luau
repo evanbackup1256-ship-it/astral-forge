@@ -19374,7 +19374,8 @@ end
 
 __defs["notifications"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local _react_lifetime_component = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)
+local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
+local _react_lifetime_component = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)
 local LifetimeComponentImpl = _react_lifetime_component.LifetimeComponent
 local useComponentIsActive = _react_lifetime_component.useComponentIsActive
 local useComponentLifetime = _react_lifetime_component.useComponentLifetime

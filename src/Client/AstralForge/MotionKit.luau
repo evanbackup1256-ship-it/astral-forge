@@ -618,7 +618,8 @@ end
 
 __defs["motion"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local BezierCurve = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].bezierts).BezierCurve
+local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
+local BezierCurve = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].bezierts).BezierCurve
 local _flipper = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].flipper)
 local Instant = _flipper.Instant
 local SingleMotor = _flipper.SingleMotor

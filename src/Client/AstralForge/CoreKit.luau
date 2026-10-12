@@ -1808,7 +1808,8 @@ return table.freeze(VaultCollectEligibility)
 end
 
 __defs["inputPlatform"] = function()
-local _3a = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])
+local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
+local _3a = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])
 local Input = _3a.Input
 local InputMethod = _3a.InputMethod
 local UserInputService = game:GetService("UserInputService")

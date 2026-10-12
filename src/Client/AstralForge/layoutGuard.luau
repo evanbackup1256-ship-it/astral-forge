@@ -1,4 +1,5 @@
-local core = require(game.ReplicatedStorage.rbxts_include.node_modules["@flamework"].core.out)
+local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
+local core = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@flamework"].core.out)
 local Reflect = core.Reflect
 local Controller = core.Controller
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
