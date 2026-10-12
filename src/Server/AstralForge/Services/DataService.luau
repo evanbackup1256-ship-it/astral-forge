@@ -569,6 +569,27 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.ForgePath.XP = math.floor(nonNegative(profile.ForgePath.XP))
 		profile.ForgePath.XPDay = type(profile.ForgePath.XPDay) == "number" and math.floor(profile.ForgePath.XPDay) or -1
 		profile.ForgePath.XPEarnedToday = math.floor(nonNegative(profile.ForgePath.XPEarnedToday))
+		if type(profile.Progression) ~= "table" then
+			profile.Progression = {
+				RewardedLevel = -1,
+				HalfwayPaidFor = -1,
+				Surge = {
+					Multiplier = 1,
+					EndsAt = 0,
+				},
+			}
+		else
+			local rewarded = tonumber(profile.Progression.RewardedLevel) or -1
+			profile.Progression.RewardedLevel = if rewarded < 0 then -1 else math.clamp(math.floor(rewarded), 1, 18)
+			local halfway = tonumber(profile.Progression.HalfwayPaidFor) or -1
+			profile.Progression.HalfwayPaidFor = if halfway < 0 then -1 else math.clamp(math.floor(halfway), 1, 18)
+			if type(profile.Progression.Surge) ~= "table" then
+				profile.Progression.Surge = { Multiplier = 1, EndsAt = 0 }
+			else
+				profile.Progression.Surge.Multiplier = math.clamp(tonumber(profile.Progression.Surge.Multiplier) or 1, 1, 1.6)
+				profile.Progression.Surge.EndsAt = math.max(0, math.floor(nonNegative(profile.Progression.Surge.EndsAt)))
+			end
+		end
 		profile.Lab = LabOrderMath.Ensure(profile.Lab, GameConfig.Lab.Power.BaseCells)
 		profile.Lab.Day = type(profile.Lab.Day) == "number" and math.max(-1, math.floor(profile.Lab.Day)) or -1
 		for index, order in profile.Lab.Orders do

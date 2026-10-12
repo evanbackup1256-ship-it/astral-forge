@@ -1489,6 +1489,41 @@ local function scrollingAncestor(instance)
 	end
 	return nil
 end
+local function fallbackScrollingFrame()
+	local localPlayer = Players.LocalPlayer
+	local playerGui = if localPlayer then localPlayer:FindFirstChildOfClass("PlayerGui") else nil
+	if playerGui == nil then
+		return nil
+	end
+	local bestFrame = nil
+	local bestArea = 0
+	for _, desc in playerGui:GetDescendants() do
+		if desc:IsA("ScrollingFrame") and desc.Visible and desc.ScrollingEnabled then
+			local visible = true
+			local cursor = desc.Parent
+			while cursor ~= nil do
+				if cursor:IsA("GuiObject") and not (cursor :: GuiObject).Visible then
+					visible = false
+					break
+				end
+				if cursor:IsA("LayerCollector") and not (cursor :: LayerCollector).Enabled then
+					visible = false
+					break
+				end
+				cursor = cursor.Parent
+			end
+			if visible then
+				local size = desc.AbsoluteSize
+				local area = size.X * size.Y
+				if area > bestArea then
+					bestArea = area
+					bestFrame = desc
+				end
+			end
+		end
+	end
+	return bestFrame
+end
 local function frameUnderPointer(pointer)
 	if pointer == nil then
 		pointer = UserInputService:GetMouseLocation()
@@ -1590,18 +1625,30 @@ function ensureMotionDriver()
 				return nil
 			end
 		end
-		local selectedFrame = scrollingAncestor(GuiService.SelectedObject)
-		if selectedFrame ~= nil and gamepadAxis.Magnitude > 0.16 then
-			local speed = 260 + scrollPreference * 220
-			local _gamepadAxis = gamepadAxis
-			local _arg0 = speed * math.min(deltaTime, 0.05)
-			local delta = _gamepadAxis * _arg0
-			if selectedFrame.ScrollingDirection == Enum.ScrollingDirection.X then
-				delta = Vector2.new(delta.X, 0)
-			elseif selectedFrame.ScrollingDirection == Enum.ScrollingDirection.Y then
-				delta = Vector2.new(0, delta.Y)
+		if gamepadAxis.Magnitude > 0.16 then
+			local selectedFrame = scrollingAncestor(GuiService.SelectedObject)
+			if selectedFrame == nil then
+				local ok, nav = pcall(function()
+					return require(script.Parent.CoreKit)("GamepadNavigationService")
+				end)
+				if ok and nav and typeof(nav.GetScrollTarget) == "function" then
+					selectedFrame = nav.GetScrollTarget()
+				else
+					selectedFrame = fallbackScrollingFrame()
+				end
 			end
-			addImpulse(selectedFrame, delta, false)
+			if selectedFrame ~= nil then
+				local speed = 260 + scrollPreference * 220
+				local _gamepadAxis = gamepadAxis
+				local _arg0 = speed * math.min(deltaTime, 0.05)
+				local delta = _gamepadAxis * _arg0
+				if selectedFrame.ScrollingDirection == Enum.ScrollingDirection.X then
+					delta = Vector2.new(delta.X, 0)
+				elseif selectedFrame.ScrollingDirection == Enum.ScrollingDirection.Y then
+					delta = Vector2.new(0, delta.Y)
+				end
+				addImpulse(selectedFrame, delta, false)
+			end
 		end
 		local response = 14 - momentumPreference * 5
 		local alpha = 1 - math.exp(-response * math.min(deltaTime, 0.05))

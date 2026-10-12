@@ -555,7 +555,7 @@ From a Studio play session (see `init.server.luau` wiring):
 
 1. `ReleaseReadiness.RunQuick()` — Economy cost envelope soak + ProfileIntegrity recovery
 2. `ReleaseReadiness.RunSoak()` — long Studio-only economy soak (`RunService:IsStudio()` gated)
-3. Profile load/save with **copied** v4.12 and current save fixtures — never live player data
+3. Profile load/save with **copied** v5.0 and current save fixtures — never live player data
 
 UNTIL steps 0–3 have tip-SHA evidence, ENTIRE-game remains **not complete**
 even if `npm test` is green.

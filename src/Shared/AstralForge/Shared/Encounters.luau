@@ -78,6 +78,66 @@ Encounters.Sites = {
 			} },
 		},
 	},
+	{ Id = "OvergrowthStation", Name = "Overgrowth station", Zone = 8, Family = "Growth",
+		Description = "Harvest rare flora from an abandoned biosphere. Optional objective: secure the seed vault.",
+		Scenes = {
+			{ Title = "Tangled airlock", Text = "Dense alien vines entangle the outer hatch. A germination console flickers nearby.", Choices = {
+				choice("Clear", "Prune the outer vines", "1 cargo, no strain", 1, 0, 0),
+				choice("Force", "Force the overgrown hatch", "3 cargo, 2 strain; Growth companions remove 1 strain", 3, 2, 0),
+				choice("Console", "Access the seed vault console", "No cargo; advances the seed vault objective", 0, 0, 2),
+			} },
+			{ Title = "Spore bloom", Text = "A burst spore pod releases caustic mist across the central corridor.", Choices = {
+				choice("Canopy", "Harvest the upper canopy", "3 cargo, 2 strain", 3, 2, 0),
+				choice("Filter", "Activate environmental filters", "1 cargo, removes 1 strain", 1, -1, 0),
+				choice("Vault", "Protect the cryogenic seed bank", "1 cargo; advances the seed vault objective", 1, 0, 1),
+			} },
+			{ Title = "Canopy collapse", Text = "The glass biosphere shudders under the weight of root growth.", Choices = {
+				choice("Specimen", "Retrieve root specimens", "3 cargo, 2 strain", 3, 2, 0),
+				choice("Seal", "Seal the cryogenic vault", "1 cargo; advances the seed vault objective", 1, 0, 1),
+				choice("Depart", "Evacuate through service shaft", "No additional strain", 0, 0, 0),
+			} },
+		},
+	},
+	{ Id = "BastionVault", Name = "Bastion vault", Zone = 10, Family = "Shelter",
+		Description = "Salvage heavy alloy plating from a ruined military bunker. Optional objective: reinforce the bulkhead seal.",
+		Scenes = {
+			{ Title = "Reinforced blast gate", Text = "Heavy armored blast doors have buckled against structural support beams.", Choices = {
+				choice("Bypass", "Bypass the secondary latch", "1 cargo, no strain", 1, 0, 0),
+				choice("Breach", "Breach the armored plating", "3 cargo, 2 strain; Shelter companions remove 1 strain", 3, 2, 0),
+				choice("Brace", "Brace the primary bulkhead seal", "No cargo; advances the bulkhead seal objective", 0, 0, 2),
+			} },
+			{ Title = "Collapsing armor bay", Text = "Falling armor slabs threaten the inner magazine and primary structural struts.", Choices = {
+				choice("Ingots", "Extract dense armor ingots", "3 cargo, 2 strain", 3, 2, 0),
+				choice("Strut", "Reinforce support struts", "1 cargo, removes 1 strain", 1, -1, 0),
+				choice("Weld", "Weld the emergency bulkhead", "1 cargo; advances the bulkhead seal objective", 1, 0, 1),
+			} },
+			{ Title = "Final breach", Text = "Tremors shake the bunker foundation as the outer perimeter gives way.", Choices = {
+				choice("Plating", "Strip the command plating", "3 cargo, 2 strain", 3, 2, 0),
+				choice("Lockdown", "Engage magnetic bulkhead lockdown", "1 cargo; advances the bulkhead seal objective", 1, 0, 1),
+				choice("Withdraw", "Withdraw along fortified ramp", "Removes 1 strain", 0, -1, 0),
+			} },
+		},
+	},
+	{ Id = "EclipseRift", Name = "Eclipse rift", Zone = 12, Family = "Shadow",
+		Description = "Probe a derelict platform suspended in a dark matter fissure. Optional objective: stabilize the null core.",
+		Scenes = {
+			{ Title = "Event horizon platform", Text = "Gravitational shear tears at the docking ring. Null-phase containment is fluctuating.", Choices = {
+				choice("Probe", "Deploy a sensor probe", "1 cargo, no strain", 1, 0, 0),
+				choice("Siphon", "Siphon dark matter canisters", "3 cargo, 2 strain; Shadow companions remove 1 strain", 3, 2, 0),
+				choice("Harmonize", "Harmonize the null core", "No cargo; advances the null core objective", 0, 0, 2),
+			} },
+			{ Title = "Spatial distortion", Text = "Geometry folds inward as shadowy anomalies ripple through the science laboratory.", Choices = {
+				choice("Matter", "Capture exotic dark matter", "3 cargo, 2 strain", 3, 2, 0),
+				choice("Dampen", "Dampen gravimetric resonance", "1 cargo, removes 1 strain", 1, -1, 0),
+				choice("Contain", "Contain the null core fluctuation", "1 cargo; advances the null core objective", 1, 0, 1),
+			} },
+			{ Title = "Singularity collapse", Text = "The rift boundary begins closing. The escape corridor is decaying rapidly.", Choices = {
+				choice("Relic", "Pluck the singularity artifact", "3 cargo, 2 strain", 3, 2, 0),
+				choice("Anchor", "Anchor the stabilized null core", "1 cargo; advances the null core objective", 1, 0, 1),
+				choice("Escape", "Escape before horizon collapse", "No additional strain", 0, 0, 0),
+			} },
+		},
+	},
 } :: { Site }
 
 local familyOf: { [string]: string } = {}

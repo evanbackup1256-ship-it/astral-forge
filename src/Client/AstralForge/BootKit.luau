@@ -164,27 +164,15 @@ local function BootScreen(_param)
 		end
 	end, {})
 	React.useEffect(function()
-		local probes = {}
-		for _, asset in { BrandArt.GAME_ICON_ASSET, BrandArt.WORDMARK_ASSET, BrandArt.COMPACT_MARK_ASSET } do
-			local probe = Instance.new("ImageLabel")
-			probe.Image = asset
-			table.insert(probes, probe)
-		end
-		local function dispose()
-			for _, probe in probes do
-				probe:Destroy()
-			end
-			table.clear(probes)
-		end
+		local assetList = { BrandArt.GAME_ICON_ASSET, BrandArt.WORDMARK_ASSET, BrandArt.COMPACT_MARK_ASSET }
 		local preload = task.spawn(function()
 			local ok, reason = pcall(function()
-				game:GetService("ContentProvider"):PreloadAsync(probes, function(asset, status)
+				game:GetService("ContentProvider"):PreloadAsync(assetList, function(asset, status)
 					if status ~= Enum.AssetFetchStatus.Success then
 						warn(`[Branding] {asset} failed to load: {status.Name}`)
 					end
 				end)
 			end)
-			dispose()
 			if not ok then
 				warn(`[Branding] Preload failed: {tostring(reason)}`)
 			end
@@ -193,7 +181,6 @@ local function BootScreen(_param)
 			if coroutine.status(preload) == "suspended" then
 				task.cancel(preload)
 			end
-			dispose()
 		end
 	end, {})
 	React.useEffect(function()

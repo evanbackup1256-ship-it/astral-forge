@@ -27,6 +27,7 @@ local FORGE_PATH_MILESTONE_BOOSTS = {
 	[60] = "TwinCatalyst",
 	[70] = "MidnightForge",
 	[80] = "DomainSurge",
+	[90] = "Hyperdrive",
 }
 
 export type ForgePathStepConfig = {

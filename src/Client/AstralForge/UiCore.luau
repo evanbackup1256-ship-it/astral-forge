@@ -2380,7 +2380,7 @@ function Button(_param)
 		TextYAlignment = Enum.TextYAlignment.Center,
 		TextWrapped = true,
 		TextScaled = false,
-		TextTruncate = Enum.TextTruncate.None,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = zIndex + 3,
 	})), not iconOnly and not hasIcon and React.createElement("textlabel", {
 		ref = pinButtonLabel,
@@ -2399,7 +2399,7 @@ function Button(_param)
 		TextYAlignment = Enum.TextYAlignment.Center,
 		TextWrapped = true,
 		TextScaled = false,
-		TextTruncate = Enum.TextTruncate.None,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = zIndex + 3,
 	})), loading and React.createElement("frame", {
 		Size = UDim2.fromOffset(18, 18),
@@ -4176,7 +4176,7 @@ local function Dropdown(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Active = true,
+		Active = open,
 		Selectable = false,
 		ZIndex = zIndex + 5,
 		Event = {
@@ -8259,12 +8259,12 @@ local function StatChip(_param)
 		previous.current = value
 	end, { value, reactiveFlash })
 	local flash = useFlash(gains, reducedMotion)
-	local chipH = if tall then TapTarget else 54
-	local iconSize = if tall then 32 else 28
-	local valueSize = if tall then 16 else 16
+	local chipH = if tall then TapTarget else 44
+	local iconSize = if tall then 28 else 24
+	local valueSize = if tall then 15 else 14
 	local _ = CHIP_TIPS[label]
-	local valueMaxW = if tall then 84 else 96
-	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 22 else 20)
+	local valueMaxW = if tall then 84 else 92
+	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 20 else 18)
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	})
@@ -9082,7 +9082,7 @@ local function TopBar(_param)
 	local logoH = logoMark
 	local controlY = math.floor((row1H - SHELL_CHROME.topbarControl) / 2)
 	local logoY = controlY + math.floor((SHELL_CHROME.topbarControl - logoMark) / 2)
-	local chipRowH = if stacked then TapTarget else 50
+	local chipRowH = if stacked then 44 elseif shortRow then math.max(28, barHeight - 4) else 44
 	local _exp_1 = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
 	})
@@ -19308,8 +19308,7 @@ end
 
 __defs["notifications"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
-local _react_lifetime_component = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)
+local _react_lifetime_component = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)
 local LifetimeComponentImpl = _react_lifetime_component.LifetimeComponent
 local useComponentIsActive = _react_lifetime_component.useComponentIsActive
 local useComponentLifetime = _react_lifetime_component.useComponentLifetime
@@ -20015,7 +20014,7 @@ local function ToastRail(_param)
 	})), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = if stack and not useCustom then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom,
+		VerticalAlignment = if stack then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom,
 		Padding = UDim.new(0, 0),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(LifetimeHost, {
@@ -22618,7 +22617,7 @@ local Button = _ui.Button
 local Panel = _ui.Panel
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
-local CrateRevealStage = __load("CrateRevealStageSimple").CrateRevealStage
+local CrateRevealStage = require(script.Parent.pages.PagesShop)("CrateRevealStage").CrateRevealStage
 local CARD_W = 156
 local CARD_H = 132
 local CARD_GAP = 12

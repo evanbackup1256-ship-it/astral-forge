@@ -1,95 +1,128 @@
 --!nonstrict
 -- Crewmates in the world: a small "CREW" tag above each crewmate's head so you can find them.
--- Client-only and driven by CrewStore; at most three tags (a full crew minus you).
+-- 100% React declarative component driven by CrewStore.
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local React = require(ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ReactRoblox = require(ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
 local CrewStore = require(script.Parent.CrewStore)
 
 local CrewPresence = {}
 
-local TAG_NAME = "AF_CrewTag"
+local function CrewTag(props: { head: BasePart, name: string })
+	return React.createElement("BillboardGui", {
+		Name = "AF_CrewTag",
+		Adornee = props.head,
+		AlwaysOnTop = true,
+		LightInfluence = 0,
+		MaxDistance = 120,
+		Size = UDim2.fromOffset(150, 28),
+		StudsOffsetWorldSpace = Vector3.new(0, 5.4, 0),
+		ResetOnSpawn = false,
+	}, {
+		Pill = React.createElement("TextLabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Color3.fromRGB(28, 70, 52),
+			BackgroundTransparency = 0.15,
+			TextColor3 = Color3.fromRGB(150, 255, 200),
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+			TextSize = 14,
+			Text = "CREW · " .. props.name,
+		}, {
+			Corner = React.createElement("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+			Stroke = React.createElement("UIStroke", {
+				Color = Color3.fromRGB(110, 240, 170),
+				Transparency = 0.3,
+			}),
+		}),
+	})
+end
 
-local function tagFor(head: BasePart, name: string): BillboardGui
-	local gui = Instance.new("BillboardGui")
-	gui.Name = TAG_NAME
-	gui.Adornee = head
-	gui.AlwaysOnTop = true
-	gui.LightInfluence = 0
-	gui.MaxDistance = 120
-	gui.Size = UDim2.fromOffset(150, 28)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 5.4, 0)
-	gui.ResetOnSpawn = false
-	local pill = Instance.new("TextLabel")
-	pill.Size = UDim2.fromScale(1, 1)
-	pill.BackgroundColor3 = Color3.fromRGB(28, 70, 52)
-	pill.BackgroundTransparency = 0.15
-	pill.TextColor3 = Color3.fromRGB(150, 255, 200)
-	pill.FontFace = Font.fromEnum(Enum.Font.BuilderSansBold)
-	pill.TextSize = 14
-	pill.Text = "CREW · " .. name
-	pill.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = pill
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(110, 240, 170)
-	stroke.Transparency = 0.3
-	stroke.Parent = pill
-	return gui
+local function CrewPresenceTree()
+	local crewState, setCrewState = React.useState(function()
+		return CrewStore.get()
+	end)
+	local heads, setHeads = React.useState({})
+
+	React.useEffect(function()
+		return CrewStore.subscribe(function(nextState)
+			setCrewState(nextState)
+		end)
+	end, {})
+
+	React.useEffect(function()
+		local alive = true
+		local function updateHeads()
+			if not alive then
+				return
+			end
+			local members = (crewState and crewState.crew and crewState.crew.Members) or {}
+			local nextMap = {}
+			for _, member in members do
+				local uid = member.UserId
+				if uid ~= Players.LocalPlayer.UserId then
+					local player = Players:GetPlayerByUserId(uid)
+					local char = player and player.Character
+					local head = char and char:FindFirstChild("Head")
+					if head and head:IsA("BasePart") then
+						nextMap[uid] = { head = head, name = player.DisplayName }
+					end
+				end
+			end
+			setHeads(nextMap)
+		end
+
+		updateHeads()
+		local conns = {}
+		for _, player in Players:GetPlayers() do
+			if player ~= Players.LocalPlayer then
+				table.insert(conns, player.CharacterAdded:Connect(function()
+					task.wait(0.5)
+					updateHeads()
+				end))
+			end
+		end
+		table.insert(conns, Players.PlayerAdded:Connect(function(player)
+			table.insert(conns, player.CharacterAdded:Connect(function()
+				task.wait(0.5)
+				updateHeads()
+			end))
+		end))
+
+		return function()
+			alive = false
+			for _, c in conns do
+				c:Disconnect()
+			end
+		end
+	end, { crewState })
+
+	local elements = {}
+	for uid, data in heads do
+		elements["CrewTag_" .. tostring(uid)] = React.createElement(CrewTag, {
+			head = data.head,
+			name = data.name,
+		})
+	end
+	return React.createElement(React.Fragment, nil, elements)
 end
 
 function CrewPresence.attach()
-	local folder = Instance.new("Folder")
-	folder.Name = "AF_CrewTags"
-	folder.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local watched = {} -- userId -> { connection, gui }
-	local function clear(userId)
-		local entry = watched[userId]
-		if entry then
-			if entry.connection then entry.connection:Disconnect() end
-			if entry.gui then entry.gui:Destroy() end
-			watched[userId] = nil
-		end
-	end
-	local function place(userId, player)
-		local entry = watched[userId]
-		if entry.gui then entry.gui:Destroy(); entry.gui = nil end
-		local character = player.Character
-		local head = character and character:FindFirstChild("Head")
-		if head and head:IsA("BasePart") then
-			entry.gui = tagFor(head, player.DisplayName)
-			entry.gui.Parent = folder
-		end
-	end
-	local function sync(state)
-		local wanted = {}
-		local crew = state.crew
-		if crew then
-			for _, member in crew.Members or {} do
-				if member.UserId ~= Players.LocalPlayer.UserId then wanted[member.UserId] = true end
-			end
-		end
-		for userId in watched do
-			if not wanted[userId] then clear(userId) end
-		end
-		for userId in wanted do
-			local player = Players:GetPlayerByUserId(userId)
-			if player and watched[userId] == nil then
-				watched[userId] = {}
-				watched[userId].connection = player.CharacterAdded:Connect(function()
-					task.wait(0.5) -- the head appears a moment after the character
-					if watched[userId] then place(userId, player) end
-				end)
-				place(userId, player)
-			end
-		end
-	end
-	local unsubscribe = CrewStore.subscribe(sync)
-	sync(CrewStore.get())
+	-- BillboardGuis only render from PlayerGui (or the world), never nested inside a ScreenGui,
+	-- so the tags get their own folder rather than mounting into the app's screen
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local host = Instance.new("Folder")
+	host.Name = "AF_CrewTags"
+	host.Parent = playerGui
+	local root = ReactRoblox.createRoot(host)
+	root:render(React.createElement(CrewPresenceTree))
 	return function()
-		unsubscribe()
-		for userId in watched do clear(userId) end
-		folder:Destroy()
+		root:unmount()
+		host:Destroy()
 	end
 end
 
+CrewPresence.Component = CrewPresenceTree
 return CrewPresence

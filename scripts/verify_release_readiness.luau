@@ -5,7 +5,7 @@
 -- STUDIO-ONLY (not wired here — still required before publish):
 --   ReleaseReadiness.RunQuick()  — 50k economy soak (pure cost/integrity subset → verify_runquick_pure)
 --   ReleaseReadiness.RunSoak()   — long Studio-only economy soak (IsStudio gated)
---   Live profile load/save with copied v4.12 + current fixtures (never live player data)
+--   Live profile load/save with copied v5.0+ + current fixtures (never live player data)
 -- See README "Checks" for the Studio Device Simulator / Controller Emulator gate.
 -- HARD: DataVersion <= 21, PlatformBadges 0, no vendor/Packages.
 

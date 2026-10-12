@@ -642,7 +642,7 @@ local function planMobileLayout(input)
 	local phone = stack
 	local tablet = phone and width >= 700 and not landscape
 	local shortDesktop = desktop and (short or orientationHeight < 740)
-	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 34 elseif tablet then 52 else 46
+	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 34 elseif tablet then 52 else 48
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else math.max(0, sideInset)
 	local panelGap = if landscape then 8 elseif phone then 12 elseif shortDesktop then 10 else 14
@@ -1810,8 +1810,7 @@ return table.freeze(VaultCollectEligibility)
 end
 
 __defs["inputPlatform"] = function()
-local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
-local _3a = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])
+local _3a = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])
 local Input = _3a.Input
 local InputMethod = _3a.InputMethod
 local UserInputService = game:GetService("UserInputService")
@@ -4966,6 +4965,7 @@ __defs["GamepadNavigationService"] = function()
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local GamepadService = game:GetService("GamepadService")
+local Players = game:GetService("Players")
 
 local GamepadNavigationService = {}
 GamepadNavigationService.__index = GamepadNavigationService
@@ -4980,6 +4980,8 @@ local initialized = false
 local previousAutoSelect = false
 local previousNavigation = false
 local overlayFocusDepth = 0
+type OverlayFocusEntry = { target: GuiObject? }
+local overlaySelectionStack: { OverlayFocusEntry } = {}
 local overlayPreviousSelection: GuiObject? = nil
 
 local tabCycleCallback: ((delta: number) -> ())? = nil
@@ -5147,9 +5149,61 @@ function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
 	return target
 end
 
+function GamepadNavigationService.GetScrollTarget(): GuiObject?
+	local current = GuiService.SelectedObject
+	if current ~= nil then
+		local cursor: Instance? = current
+		while cursor ~= nil do
+			if cursor:IsA("ScrollingFrame") and (cursor :: GuiObject).Visible and (cursor :: any).ScrollingEnabled then
+				return cursor :: GuiObject
+			end
+			cursor = cursor.Parent
+		end
+	end
+	local localPlayer = Players.LocalPlayer
+	local playerGui = if localPlayer then localPlayer:FindFirstChildOfClass("PlayerGui") else nil
+	if playerGui ~= nil then
+		local bestFrame: GuiObject? = nil
+		local bestArea = 0
+		for _, desc in playerGui:GetDescendants() do
+			if desc:IsA("ScrollingFrame") and desc.Visible and desc.ScrollingEnabled then
+				local visible = true
+				local ancestor: Instance? = desc.Parent
+				while ancestor ~= nil do
+					if ancestor:IsA("GuiObject") and not (ancestor :: GuiObject).Visible then
+						visible = false
+						break
+					end
+					if ancestor:IsA("LayerCollector") and not (ancestor :: LayerCollector).Enabled then
+						visible = false
+						break
+					end
+					ancestor = ancestor.Parent
+				end
+				if visible then
+					local size = desc.AbsoluteSize
+					local area = size.X * size.Y
+					if area > bestArea then
+						bestArea = area
+						bestFrame = desc
+					end
+				end
+			end
+		end
+		return bestFrame
+	end
+	return nil
+end
+
+function GamepadNavigationService.ResolveScrollTarget(): GuiObject?
+	return GamepadNavigationService.GetScrollTarget()
+end
+
 function GamepadNavigationService.BeginOverlayFocus()
+	local current = GuiService.SelectedObject
+	table.insert(overlaySelectionStack, { target = current })
+	overlayPreviousSelection = current
 	if overlayFocusDepth == 0 then
-		overlayPreviousSelection = GuiService.SelectedObject
 		GuiService.GuiNavigationEnabled = false
 		GuiService.AutoSelectGuiEnabled = false
 		GamepadNavigationService.ClearSelection()
@@ -5162,17 +5216,17 @@ function GamepadNavigationService.EndOverlayFocus()
 		return
 	end
 	overlayFocusDepth -= 1
-	if overlayFocusDepth > 0 then
-		return
-	end
-	local restore = overlayPreviousSelection
-	overlayPreviousSelection = nil
-	if isConsoleMode then
-		GuiService.GuiNavigationEnabled = true
-		GuiService.AutoSelectGuiEnabled = true
-	else
-		GuiService.GuiNavigationEnabled = previousNavigation
-		GuiService.AutoSelectGuiEnabled = previousAutoSelect
+	local entry = table.remove(overlaySelectionStack)
+	local restore = if entry ~= nil then entry.target else nil
+	overlayPreviousSelection = if #overlaySelectionStack > 0 then overlaySelectionStack[#overlaySelectionStack].target else nil
+	if overlayFocusDepth == 0 then
+		if isConsoleMode then
+			GuiService.GuiNavigationEnabled = true
+			GuiService.AutoSelectGuiEnabled = true
+		else
+			GuiService.GuiNavigationEnabled = previousNavigation
+			GuiService.AutoSelectGuiEnabled = previousAutoSelect
+		end
 	end
 	if GamepadNavigationService.IsValidFocusTarget(restore) then
 		GamepadNavigationService.AssignSelection(restore)
@@ -5189,7 +5243,9 @@ function GamepadNavigationService.Init()
 	local function syncGamepadMode()
 		isConsoleMode = GuiService:IsTenFootInterface() or UserInputService.PreferredInput == Enum.PreferredInput.Gamepad
 		if isConsoleMode then
-			GamepadService:DisableGamepadCursor()
+			pcall(function()
+				GamepadService:DisableGamepadCursor()
+			end)
 			GuiService.AutoSelectGuiEnabled = true
 			GuiService.GuiNavigationEnabled = true
 		else
@@ -5234,6 +5290,7 @@ function GamepadNavigationService.Stop()
 	isConsoleMode = false
 	overlayFocusDepth = 0
 	overlayPreviousSelection = nil
+	table.clear(overlaySelectionStack)
 	tabCycleCallback = nil
 	modalCloseCallback = nil
 	quickVaultCallback = nil
@@ -5526,13 +5583,13 @@ function TouchGestureService.Init()
 			velocity = Vector2.zero,
 			startTime = now,
 			lastUpdateTime = now,
-			isConsumed = gameProcessed or isOnInteractiveGui(toGuiPosition(pos)),
+			isConsumed = gameProcessed or isOnInteractiveGui(pos),
 		}
 		activeTouches[input] = pointer
 
 		local cam = workspace.CurrentCamera
 		local vSize = if cam then cam.ViewportSize else Vector2.new(1000, 800)
-		if not pointer.isConsumed and not TouchGestureService.IsNearRegisteredTarget(toGuiPosition(pos)) and not thumbstickState.active and pos.X < (vSize.X * 0.45) and pos.Y > (vSize.Y * 0.50) then
+		if not pointer.isConsumed and not TouchGestureService.IsNearRegisteredTarget(pos) and not thumbstickState.active and pos.X < (vSize.X * 0.45) and pos.Y > (vSize.Y * 0.50) then
 			thumbstickTouch = input
 			thumbstickState.active = true
 			thumbstickState.origin = pos
@@ -5617,7 +5674,7 @@ function TouchGestureService.Init()
 		end
 
 		if not pointer.isConsumed and not wasThumbstick and duration <= TAP_MAX_DURATION and travel <= TAP_MAX_TRAVEL then
-			local handled = TouchGestureService.ResolveFatFingerHit(toGuiPosition(pointer.currentPos))
+			local handled = TouchGestureService.ResolveFatFingerHit(pointer.currentPos)
 			if not handled then
 				emit("Tap", pointer.currentPos)
 			end

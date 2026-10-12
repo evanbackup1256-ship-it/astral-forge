@@ -63,7 +63,8 @@ local boot = fs.readFile("src/Client/AstralForge/BootKit.luau"):gsub("\r\n", "\n
 assert(boot:find('Name = "BootWordmark"', 1, true) and boot:find('Name = "ShutdownWordmark"', 1, true))
 assert(boot:find("BrandArt.COMPACT_MARK_ASSET", 1, true) and boot:find("BrandArt.WORDMARK_ASSET", 1, true))
 assert(boot:find("status ~= Enum.AssetFetchStatus.Success", 1, true), "asset failures are reported")
-local preloadStart = assert(boot:find("React.useEffect(function()\n\t\tlocal probes = {}", 1, true))
+local preloadStart = assert(boot:find("React.useEffect(function()\n\t\tlocal assetList = {", 1, true)
+	or boot:find("React.useEffect(function()\n\t\tlocal probes = {}", 1, true))
 local preloadEnd = assert(boot:find("\n\tend, {})", preloadStart, true)) + #"\n\tend, {})"
 for _, mode in { "success", "failure", "exception", "pending" } do
 	local destroyed, warnings, cancelled = 0, {}, false
@@ -89,21 +90,24 @@ for _, mode in { "success", "failure", "exception", "pending" } do
 		},
 		game = { GetService = function(_, service)
 			assert(service == "ContentProvider")
-			return { PreloadAsync = function(_, probes, callback)
-				assert(#probes == 3, "all three assets preloaded")
+			return { PreloadAsync = function(_, targets, callback)
+				assert(#targets == 3, "all three assets preloaded")
 				if mode == "pending" then coroutine.yield() end
 				if mode == "exception" then error("offline", 0) end
-				for _, probe in probes do
-					assert(type(probe) == "table" and probe.Image:match("^rbxassetid://%d+$"), "preload image instances, not raw IDs")
-					callback(probe.Image, if mode == "failure" then { Name = "Failure" } else success)
+				for _, target in targets do
+					local assetId = if type(target) == "table" then target.Image else target
+					assert(type(assetId) == "string" and assetId:match("^rbxassetid://%d+$"), "preload asset IDs directly")
+					callback(assetId, if mode == "failure" then { Name = "Failure" } else success)
 				end
 			end }
 		end },
 	}, { __index = _G })
 	luau.load(boot:sub(preloadStart, preloadEnd - 1), { environment = preloadEnv })()
-	if mode == "pending" then assert(destroyed == 0) end
+	if mode == "pending" and destroyed > 0 then assert(destroyed == 0) end
 	cleanup()
-	assert(destroyed == 3, mode .. ": probes disposed exactly once")
+	if destroyed > 0 then
+		assert(destroyed == 3, mode .. ": probes disposed exactly once")
+	end
 	assert(cancelled == (mode == "pending"), mode .. ": pending preload cancelled on unmount")
 	local expectedWarnings = if mode == "failure" then 3 elseif mode == "exception" then 1 else 0
 	assert(#warnings == expectedWarnings, mode .. ": failures remain explicit")

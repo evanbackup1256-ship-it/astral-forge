@@ -130,6 +130,9 @@ return function(loadService: (string) -> any)
 		while #state.History > 10 do table.remove(state.History) end
 		state.Active = nil
 		profile.Encounters = state
+		if profile.Stats then
+			profile.Stats.EncountersCompleted = (tonumber(profile.Stats.EncountersCompleted) or 0) + 1
+		end
 		return true, message
 	end
 	function Service.State(profile: Profile, now: number)

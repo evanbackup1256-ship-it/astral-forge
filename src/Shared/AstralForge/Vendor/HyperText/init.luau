@@ -2446,19 +2446,20 @@ RunService.Heartbeat:Connect(function(dt)
 		return
 	end
 	debug.profilebegin("HyperText Updater")
-	
+	local t0 = os.clock()
 	for id, callback in pairs(updater) do
-		if updater[id] then
+		if typeof(id) == "Instance" and not id:IsDescendantOf(game) then
+			updater[id] = nil
+		elseif updater[id] then
 			local success, errmsg = pcall(callback, dt)
-
 			if not success then
-				warn(errmsg :: string)
-				
 				updater[id] = nil
 			end
 		end
+		if os.clock() - t0 > 0.006 then
+			break
+		end
 	end
-
 	debug.profileend()
 end)
 

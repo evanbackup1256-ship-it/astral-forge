@@ -1843,7 +1843,7 @@ function ForgeLevels.levelFor(progressOf: (string) -> number): number
 		local progress = cache[goal.Kind]
 		if progress == nil then
 			local read = progressOf(goal.Kind)
-			progress = if type(read) == "number" and read == read then read else 0
+			progress = if type(read) == "number" and read == read then math.max(0, read) else 0
 			cache[goal.Kind] = progress
 		end
 		if (progress :: number) >= goal.Target then
@@ -1861,7 +1861,7 @@ function ForgeLevels.snapshot(progressOf: (string) -> number): Snapshot
 	if nextDef ~= nil and nextDef.Goal ~= nil then
 		local goal = nextDef.Goal
 		local read = progressOf(goal.Kind)
-		local progress = if type(read) == "number" and read == read then read else 0
+		local progress = if type(read) == "number" and read == read then math.max(0, read) else 0
 		nextStep = {
 			Level = nextDef.Level,
 			Tier = nextDef.Tier,

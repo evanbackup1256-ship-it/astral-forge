@@ -939,6 +939,7 @@ ActionFeatureMaps.ANOMALY_CHARGE = {
 	UpgradeItem = 7,
 	EquipBestItems = 10,
 	BulkSalvageItems = 10,
+	ChooseEncounter = 8,
 }
 
 ActionFeatureMaps.ANOMALY_SIGNAL = {
@@ -960,6 +961,7 @@ ActionFeatureMaps.ANOMALY_SIGNAL = {
 	ClaimWeeklyDirective = "Reward",
 	ClaimSeasonTier = "Reward",
 	ClaimForgePathStep = "Reward",
+	ChooseEncounter = "Encounter",
 }
 
 ActionFeatureMaps.FEATURE = {
@@ -1030,6 +1032,7 @@ ActionFeatureMaps.FEATURE = {
 	RouteLabPower = "Lab",
 	ReadStoryChapter = "Story",
 	ClaimStoryChapter = "Story",
+	ClaimForgePathStep = "ForgePath",
 	ReadMail = "Mail",
 	ClaimMail = "Mail",
 	ClaimAllMail = "Mail",
