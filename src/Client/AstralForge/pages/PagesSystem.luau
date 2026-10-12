@@ -3601,7 +3601,7 @@ local BOARDS = { {
 	description = "Completed ore cuts. Includes progress earned before the workshop redesign.",
 	icon = "Dust",
 	accent = Palette.violet,
-	group = "Sky",
+	group = "Activity",
 }, {
 	id = "Cipher",
 	label = "Commissions Finished",
@@ -3609,7 +3609,7 @@ local BOARDS = { {
 	description = "Daily forge commissions finished. Previous puzzle completions remain counted.",
 	icon = "Forge",
 	accent = Palette.cyan,
-	group = "Sky",
+	group = "Activity",
 } }
 local BOARD_GROUP = {
 	Flux = "Economy",

@@ -21,7 +21,6 @@ local GROUPS={
 	{id="Progression",label="PROGRESSION",icon="Rebirth"},
 	{id="Activity",label="ACTIVITY",icon="Forge"},
 	{id="Collection",label="COLLECTION",icon="Crate"},
-	{id="Sky",label="SKY",icon="StarGrid"},
 	{id="Social",label="GUILDS",icon="Guild"},
 }
 local GUILD_META={id="Guilds",short="GUILDS",label="Guild Halls",icon="Guild",accent=P.violet,group="Social",description="Guild activity earned by banking and building together."}

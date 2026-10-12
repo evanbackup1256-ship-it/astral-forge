@@ -1198,7 +1198,8 @@ local function useGameChat(active, enabled, dispatch, settings)
 		if effect ~= nil and effect:IsA("RemoteEvent") then
 			track(effect.OnClientEvent:Connect(onEffect))
 		end
-		setMessages({ systemMessage("Chat is connecting. This can take a moment on slower devices.") })
+		local connecting = systemMessage("Chat is connecting. This can take a moment on slower devices.")
+		setMessages({ connecting })
 		local connectWorker = task.spawn(function()
 			local channels = TextChatService:WaitForChild("TextChannels", 30)
 			if not alive then
@@ -1222,7 +1223,13 @@ local function useGameChat(active, enabled, dispatch, settings)
 				end
 			end
 			if alive then
-				note("Chat is ready. Roblox filters every message. Type / to see shortcuts.")
+				setMessages(function(current)
+					local kept = {}
+					for _, message in current do
+						if message ~= connecting then table.insert(kept, message) end
+					end
+					return pushTrimmed(kept, systemMessage("Chat is ready. Roblox filters every message. Type / to see shortcuts."))
+				end)
 			end
 		end)
 		return function()

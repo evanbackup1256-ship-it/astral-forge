@@ -4100,8 +4100,15 @@ local function GuildView(_param)
 			if callback then callback(response) end
 		end)
 	end
+	-- the result of the last guild action; the panel only exists while there is one to show
 	local function statusSection()
-		return {id="guild-feedback",height=96,element=React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},React.createElement(Text,{value=if request.status~="" then request.status else "Guild actions show their results here. Your role determines which actions are available.",size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,64)}))}
+		if request.status == "" then return nil end
+		return {id="guild-feedback",height=72,element=React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},React.createElement(Text,{value=request.status,size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,40)}))}
+	end
+	local function withStatus(list, at)
+		local status = statusSection()
+		if status then table.insert(list, at, status) end
+		return list
 	end
 	if guild == nil or guild.Id == "" then
 		local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Guild else nil
@@ -4112,8 +4119,7 @@ local function GuildView(_param)
 			tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 80),
 			scrollBarColor = Palette.violet,
 			scrollBarThickness = 4,
-			sections = {
-				statusSection(),
+			sections = withStatus({
 				{
 					id = "empty-hero",
 					height = 128,
@@ -4170,7 +4176,7 @@ local function GuildView(_param)
 						cash = state.Cash,
 					})),
 				},
-			},
+			}, 1),
 		})
 	end
 	if pane == "Community" then
@@ -4652,11 +4658,10 @@ local function GuildView(_param)
 		tabs[index]=React.createElement(Button,{text=string.upper(id),size=UDim2.new(1/columns,-6,0,48),position=UDim2.new(((index-1)%columns)/columns,0,0,math.floor((index-1)/columns)*56),color=if pane==id then Palette.violet else Palette.panelSoft,onClick=function() setPane(id) end,reducedMotion=softMotion})
 	end
 	local navigationHeight=math.ceil(#guildTabs/columns)*56
-	local sections={
+	local sections=withStatus({
 		{id="hero",height=heroHeight,element=_exp_11},
-		statusSection(),
 		{id="guild-navigation",height=navigationHeight,element=React.createElement("frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},tabs)},
-	}
+	}, 2)
 	local function add(id,height,element) table.insert(sections,{id=id,height=height,element=element}) end
 	if pane=="Overview" then
 		add("hall-progress",174,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.mint},
