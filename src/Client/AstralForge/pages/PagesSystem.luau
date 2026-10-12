@@ -490,11 +490,13 @@ local function SettingsView(_param)
 		return slots
 	end, { chrome.quickBarH, chrome.stack, dockHeight, dockWidth, hudSafeTop, quickHeight, quickWidth, settings.MobileDockX, settings.MobileDockY, settings.MobileQuickX, settings.MobileQuickY, settings.MobileToastX, settings.MobileToastY, toastHeight, toastWidth, viewport.height })
 
-	local searchH = if stack then TapTarget else 38
+	-- Desktop keeps search and the view chips on one row beside each other; phones stack them.
+	local searchH = if stack then TapTarget else 40
 	local actionsY = 56
-	local searchY = if stack then actionsY + 40 + 10 else 64
-	local chipsY = searchY + searchH + 8
-	local headerH = chipsY + Browse.CHIP_H + 32
+	local searchY = if stack then actionsY + 40 + 10 else 60
+	local chipsX = if stack then 0 else 356
+	local chipsY = if stack then searchY + searchH + 8 else searchY + math.floor((searchH - Browse.CHIP_H) / 2)
+	local headerH = (if stack then chipsY + Browse.CHIP_H else searchY + math.max(searchH, Browse.CHIP_H)) + 32
 	local header = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,
@@ -573,8 +575,8 @@ local function SettingsView(_param)
 			setChangedOnly(id == "changed")
 		end,
 		accent = accent,
-		position = UDim2.fromOffset(0, chipsY),
-		size = UDim2.new(1, 0, 0, Browse.CHIP_H),
+		position = UDim2.fromOffset(chipsX, chipsY),
+		size = UDim2.new(1, -chipsX, 0, Browse.CHIP_H),
 	}))
 
 	local navButtons = {
