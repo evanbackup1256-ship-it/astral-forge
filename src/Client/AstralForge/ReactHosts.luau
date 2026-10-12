@@ -1841,21 +1841,26 @@ local function NumberSpinnerHost(_param)
 			end
 		end
 		local style = styleRef.current
-		local guide = fallback
-		if guide ~= nil then
-			guide.Size = if autoWidthRef.current then UDim2.new(0, 0, 1, 0) else UDim2.fromScale(1, 1)
-			guide.AutomaticSize = if autoWidthRef.current then Enum.AutomaticSize.X else Enum.AutomaticSize.None
-			guide.FontFace = SPINNER_FONT
-			guide.TextSize = style.size
-			guide.TextColor3 = style.color
-			guide.TextXAlignment = style.align
-			guide.TextYAlignment = Enum.TextYAlignment.Center
-			guide.TextScaled = false
-			guide.TextStrokeTransparency = 1
-			guide.Text = ""
-		end
+		-- The spinner takes over a guide label of its own. It must not be the fallback label:
+		-- the fallback is hidden once the spinner runs, and anything inside it would vanish too.
+		local guide = Instance.new("TextLabel")
+		guide.Name = "NumberSpinnerGuide"
+		guide.BackgroundTransparency = 1
+		guide.BorderSizePixel = 0
+		guide.Size = if autoWidthRef.current then UDim2.new(0, 0, 1, 0) else UDim2.fromScale(1, 1)
+		guide.AutomaticSize = if autoWidthRef.current then Enum.AutomaticSize.X else Enum.AutomaticSize.None
+		guide.FontFace = SPINNER_FONT
+		guide.TextSize = style.size
+		guide.TextColor3 = style.color
+		guide.TextXAlignment = style.align
+		guide.TextYAlignment = Enum.TextYAlignment.Center
+		guide.TextScaled = false
+		guide.TextStrokeTransparency = 1
+		guide.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		guide.Text = ""
+		guide.Parent = host
 		guideRef.current = guide
-		local spinner = if mod.fromGuiObject ~= nil and guide ~= nil then mod.fromGuiObject(guide) else (if mod.new ~= nil then mod.new() else nil)
+		local spinner = if mod.fromGuiObject ~= nil then mod.fromGuiObject(guide) else nil
 		if spinner == nil then
 			spinner = mod.new()
 			spinner.Parent = host

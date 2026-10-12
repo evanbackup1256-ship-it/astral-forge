@@ -117,20 +117,15 @@ end)
 --------------------------------------------------------------------------------
 print("\n--- SUITE 2: Pure Luau Require Imports & Legacy Import Elimination ---")
 
-check("REQ-01", "Elimination of TSImport / importTsModule in MotionKit.luau", function()
+check("REQ-01", "MotionKit loads bezierts through TSImport (roblox-ts modules need _G[script])", function()
 	local content = fs.readFile("src/Client/AstralForge/MotionKit.luau")
-	assert(string.find(content, "TSImport", 1, true) == nil, "MotionKit must have zero TSImport references")
-	assert(string.find(content, "importTsModule", 1, true) == nil, "MotionKit must have zero importTsModule references")
-	assert(string.find(content, "require(game.ReplicatedStorage.rbxts_include.node_modules", 1, true) ~= nil,
-		"MotionKit must use direct Luau require for bezierts")
+	assert(string.find(content, 'importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].bezierts)', 1, true) ~= nil,
+		"MotionKit must load bezierts through importTsModule; a plain require crashes the client at load")
 end)
-
-check("REQ-02", "Elimination of TSImport / importTsModule in CoreKit.luau", function()
+check("REQ-02", "CoreKit loads 3a through TSImport", function()
 	local content = fs.readFile("src/Client/AstralForge/CoreKit.luau")
-	assert(string.find(content, "TSImport", 1, true) == nil, "CoreKit must have zero TSImport references")
-	assert(string.find(content, "importTsModule", 1, true) == nil, "CoreKit must have zero importTsModule references")
-	assert(string.find(content, 'require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])', 1, true) ~= nil,
-		"CoreKit must use direct Luau require for 3a package")
+	assert(string.find(content, 'importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])', 1, true) ~= nil,
+		"CoreKit must load 3a through importTsModule")
 end)
 
 check("REQ-03", "Elimination of TSImport / importTsModule in framework.luau", function()

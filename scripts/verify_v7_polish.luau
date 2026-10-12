@@ -198,6 +198,10 @@ for _, kind in load("return " .. kinds) do
 end
 assert(count >= 37, "all title styles are exercised")
 local spinner = source("src/Client/AstralForge/ReactHosts.luau#NumberSpinnerHost")
+-- the spinner converts its own fresh guide label; reusing the (hidden) fallback label copied the
+-- hidden state and blanked every animated number in the top bar
+assert(spinner:find('local guide = Instance.new("TextLabel")', 1, true), "spinner guide is a fresh label")
+assert(not spinner:find("local guide = fallback", 1, true), "spinner never reuses the fallback label")
 local display = extract(spinner, "local function spinDisplay(", "local function formatRawLabel(")
 local callback = extract(spinner, "local pushDisplay = React.useCallback(", "local ensureSpinner =")
 local style = { current = { size = 20, color = "cream", align = "left", prefix = "+", extraSuffix = " FLUX", spacedSuffix = true } }
