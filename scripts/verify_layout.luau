@@ -205,10 +205,10 @@ print("[INFO] [TEST] pageScaffold fill/minHeight cases passed | Count: " .. tost
 
 local planFittedHeights = require("../src/Client/AstralForge/LayoutKit")("pageScaffoldPlan").planFittedHeights
 local fitted = planFittedHeights({
-	{ id = "hero", height = 278 },
+	{ id = "hero", height = 278, stretch = true },
 	{ id = "notes", height = 196 },
 }, 367, 8, 8)
-assert(fitted[1] == 359, "partial second section grows the first so the fold is clean, got " .. tostring(fitted[1]))
+assert(fitted[1] == 359, "a section that opts in grows so the fold is clean, got " .. tostring(fitted[1]))
 assert(fitted[2] == 196, "the following section keeps its height")
 local fittedAll = planFittedHeights({
 	{ id = "hero", height = 200 },
@@ -221,10 +221,10 @@ local fittedFirst = planFittedHeights({
 }, 367, 8, 8)
 assert(fittedFirst[1] == 420, "a section taller than the window is left unchanged")
 local unstretched = planFittedHeights({
-	{ id = "hero", height = 278, stretch = false },
+	{ id = "hero", height = 278 },
 	{ id = "notes", height = 196 },
 }, 367, 8, 8)
-assert(unstretched[1] == 278, "a section with stretch = false keeps its height at the fold")
+assert(unstretched[1] == 278, "by default no section is padded out with an empty band at the fold")
 print("[INFO] [TEST] pageScaffold fold fit passed")
 
 -- An inset scaffold must plan against the space left inside its padding, or the fill section

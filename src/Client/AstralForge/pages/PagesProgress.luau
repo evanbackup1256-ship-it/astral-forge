@@ -3706,12 +3706,6 @@ local function WorldRow(_param)
 		fit = false,
 		position = UDim2.fromOffset(0, 78),
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), current and React.createElement(Badge, {
-		value = "CURRENT WORLD",
-		accent = zone.Color,
-		filled = true,
-		position = UDim2.fromOffset(0, if costLine ~= nil then 98 else 84),
-		size = UDim2.fromOffset(136, 26),
 	})), React.createElement(Button, {
 		text = cta,
 		icon = "World",
@@ -3969,14 +3963,14 @@ local function WorldsView(_param)
 		layoutOrder = 0,
 		clips = false,
 	}, React.createElement(Text, {
-		value = "SCENE SELECT",
+		value = "WORLDS",
 		size = 10,
 		color = Palette.mint,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 18),
 	}), React.createElement(Text, {
-		value = "Pick a world.",
+		value = `You are on world {compactNumber(state.Zone)}`,
 		size = if stack then chrome.titleText else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -4005,7 +3999,7 @@ local function WorldsView(_param)
 		Padding = UDim.new(0, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Badge, {
-		value = `{state.Zone} / {catalogTotal}`,
+		value = `{compactNumber(catalogTotal)} worlds`,
 		accent = Palette.mint,
 		size = UDim2.fromOffset(118, 28),
 	}), React.createElement(Button, {
