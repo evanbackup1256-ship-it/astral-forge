@@ -1224,7 +1224,9 @@ local function planFittedHeights(sections: { any }, availableHeight: number, gap
 	if nextHeight == nil then
 		nextHeight = 0
 	end
-	if extra > 0 and extra <= 96 and extra < nextHeight then
+	-- a section can opt out of being stretched to the fold (stretch = false) when padding it
+	-- would only leave an empty panel
+	if extra > 0 and extra <= 96 and extra < nextHeight and sections[lastFit].stretch ~= false then
 		heights[lastFit] += extra
 	end
 	return heights

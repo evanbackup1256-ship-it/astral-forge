@@ -175,7 +175,7 @@ assert(not dispatch(failedOwner, {}, { Id = "Reserve" }).ok)
 
 local client = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
 local requestStart = assert(client:find("local function selectBuild(id: string)", 1, true))
-local requestEnd = assert(client:find('\n\tadd("heading"', requestStart, true))
+local requestEnd = assert(client:find('\n\tif not state then', requestStart, true))
 local function mount(order)
 	local calls, timers, notes = {}, {}, {}
 	local context = setmetatable({

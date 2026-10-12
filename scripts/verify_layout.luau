@@ -220,6 +220,11 @@ local fittedFirst = planFittedHeights({
 	{ id = "notes", height = 140 },
 }, 367, 8, 8)
 assert(fittedFirst[1] == 420, "a section taller than the window is left unchanged")
+local unstretched = planFittedHeights({
+	{ id = "hero", height = 278, stretch = false },
+	{ id = "notes", height = 196 },
+}, 367, 8, 8)
+assert(unstretched[1] == 278, "a section with stretch = false keeps its height at the fold")
 print("[INFO] [TEST] pageScaffold fold fit passed")
 
 -- An inset scaffold must plan against the space left inside its padding, or the fill section

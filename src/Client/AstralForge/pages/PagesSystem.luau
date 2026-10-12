@@ -45,6 +45,7 @@ local Button = _ui.Button
 local Panel = _ui.Panel
 local SearchField = _ui.SearchField
 local Slider = _ui.Slider
+local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
 local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
 local Browse = require(script.Parent.Parent.BrowseKit)
@@ -62,15 +63,29 @@ for _, section in Schema.SECTIONS do
 	SECTION_BY_ID[section.id] = section
 end
 
+-- The forge switch. One spring drives everything, so the track colour, halo, knob stretch and
+-- glyph all move together instead of snapping: the knob stretches like jelly mid-travel and
+-- settles with a small overshoot, the track fills with the section colour, a dot lights inside
+-- the knob when on. Hover brightens the edge; pressing squeezes the knob.
+local SWITCH_W, SWITCH_H, SWITCH_KNOB, SWITCH_PAD = 58, 30, 22, 4
 local function Switch(_param)
 	local on = _param.on
 	local accent = _param.accent
 	local softMotion = _param.softMotion
-	local knob = useFlipperSpring(if on then 1 else 0, softMotion, 640, 34)
+	local amount = useFlipperSpring(if on then 1 else 0, softMotion, 380, 24)
+	local hovered, setHovered = React.useState(false)
+	local pressed, setPressed = React.useState(false)
+	local hover = useFlipperSpring(if hovered then 1 else 0, softMotion, 700, 40)
+	local press = useFlipperSpring(if pressed then 1 else 0, softMotion, 1000, 42)
 	local anchor = _param.anchorPoint or Vector2.zero
 	local trackX = if anchor.X >= 0.5 then 1 else 0
+	local motion = React.joinBindings({ amount, press })
+	local travel = SWITCH_W - SWITCH_PAD * 2 - SWITCH_KNOB
+	local function settle(a)
+		return math.clamp(a, 0, 1)
+	end
 	return React.createElement("textbutton", {
-		Size = UDim2.fromOffset(60, TapTarget),
+		Size = UDim2.fromOffset(SWITCH_W + 10, TapTarget),
 		Position = _param.position,
 		AnchorPoint = anchor,
 		BackgroundTransparency = 1,
@@ -83,68 +98,113 @@ local function Switch(_param)
 				Audio:play(if on then "toggleOff" else "toggleOn")
 				_param.onToggle()
 			end,
+			MouseEnter = function() setHovered(true) end,
+			MouseLeave = function() setHovered(false); setPressed(false) end,
+			SelectionGained = function() setHovered(true) end,
+			SelectionLost = function() setHovered(false) end,
+			MouseButton1Down = function() setPressed(true) end,
+			MouseButton1Up = function() setPressed(false) end,
 		},
 	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(50, 28),
+		-- halo behind the track, only when on
+		Name = "Halo",
+		Size = UDim2.fromOffset(SWITCH_W + 8, SWITCH_H + 8),
+		Position = UDim2.new(trackX, if trackX == 1 then 4 else -4, 0.5, 0),
+		AnchorPoint = Vector2.new(trackX, 0.5),
+		BackgroundColor3 = accent,
+		BackgroundTransparency = amount:map(function(a) return 1 - 0.16 * settle(a) end),
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
+	React.createElement("frame", {
+		Name = "Track",
+		Size = UDim2.fromOffset(SWITCH_W, SWITCH_H),
 		Position = UDim2.fromScale(trackX, 0.5),
 		AnchorPoint = Vector2.new(trackX, 0.5),
-		BackgroundColor3 = if on then accent else Palette.graphite,
+		BackgroundColor3 = amount:map(function(a) return Palette.graphite:Lerp(accent, settle(a)) end),
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = if on then accent else Palette.lineSoft,
-		Transparency = if on then 0.2 else 0.35,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(22, 22),
-		Position = knob:map(function(amount)
-			return UDim2.new(0, 3 + math.clamp(amount, -0.1, 1.1) * 22, 0.5, 0)
-		end),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = if on then Palette.ink else Palette.creamSoft,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))))
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+		React.createElement("uigradient", {
+			Rotation = 90,
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.18) }),
+		}),
+		React.createElement("uistroke", {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Color = amount:map(function(a) return Palette.lineSoft:Lerp(accent, settle(a)) end),
+			Transparency = hover:map(function(h) return 0.4 - 0.32 * math.clamp(h, 0, 1) end),
+			Thickness = 1,
+		}),
+		React.createElement("frame", {
+			Name = "Knob",
+			-- stretches toward its direction of travel, squeezes while pressed
+			Size = motion:map(function(values)
+				local a, p = values[1], math.clamp(values[2], 0, 1)
+				local stretch = math.sin(math.pi * settle(a)) * 9
+				return UDim2.fromOffset(SWITCH_KNOB + stretch + p * 5, SWITCH_KNOB - p * 3)
+			end),
+			Position = amount:map(function(a)
+				return UDim2.new(0, SWITCH_PAD + SWITCH_KNOB / 2 + math.clamp(a, -0.08, 1.08) * travel, 0.5, 0)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = amount:map(function(a) return Palette.creamSoft:Lerp(Palette.cream, settle(a)) end),
+			BorderSizePixel = 0,
+			ZIndex = 2,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+			React.createElement("frame", {
+				-- off: a short dash
+				Name = "Off",
+				Size = UDim2.fromOffset(8, 2),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Palette.graphite,
+				BackgroundTransparency = amount:map(function(a) return 0.25 + 0.75 * settle(a) end),
+				BorderSizePixel = 0,
+				ZIndex = 3,
+			}),
+			React.createElement("frame", {
+				-- on: a lit dot in the section colour
+				Name = "On",
+				Size = amount:map(function(a) local d = 4 + 4 * settle(a); return UDim2.fromOffset(d, d) end),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = accent,
+				BackgroundTransparency = amount:map(function(a) return 1 - settle(a) end),
+				BorderSizePixel = 0,
+				ZIndex = 3,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })))))
 end
 
+-- Several fixed options: the shared segmented control, whose highlight slides between choices.
 local function Choice(_param)
 	local choices = _param.choices
 	local value = _param.value
-	local accent = _param.accent
-	local cells = {
-		layout = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 4),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
+	local options = {}
+	local picked = nil
 	for index, option in choices do
-		local picked = math.abs(option.value - value) < 0.02
-		cells["c" .. index] = React.createElement("frame", {
-			Size = UDim2.new(1 / #choices, -math.ceil(4 * (#choices - 1) / #choices), 1, 0),
-			LayoutOrder = index,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(Button, {
-			text = "", size = UDim2.fromScale(1, 1),
-			color = if picked then accent else Palette.panelSoft, highlight = picked,
-			reducedMotion = _param.softMotion, sound = if picked then false else "tabSwitch",
-			onClick = function() if not picked then _param.onPick(option.value) end end,
-			children = React.createElement(Text, {
-				value = option.label, size = 12, color = if picked then Palette.ink else Palette.creamSoft,
-				weight = Enum.FontWeight.Bold, fit = true, minSize = 9, align = Enum.TextXAlignment.Center,
-				position = UDim2.fromOffset(4, 4), sizeConstraint = UDim2.new(1, -8, 1, -8), zIndex = 11,
-			}),
-		}))
+		local id = tostring(index)
+		table.insert(options, { id = id, label = option.label })
+		if math.abs(option.value - value) < 0.02 then
+			picked = id
+		end
 	end
 	return React.createElement("frame", {
 		Size = _param.size,
 		Position = _param.position,
 		AnchorPoint = _param.anchorPoint,
 		BackgroundTransparency = 1,
-	}, cells)
+	}, React.createElement(SegmentedTabs, {
+		options = options,
+		value = picked,
+		accent = _param.accent,
+		gap = 4,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = _param.softMotion,
+		onChange = function(id)
+			local option = choices[tonumber(id) or 0]
+			if option ~= nil and id ~= picked then
+				_param.onPick(option.value)
+			end
+		end,
+	}))
 end
 
 local function SettingRow(_param)
@@ -162,7 +222,7 @@ local function SettingRow(_param)
 		setDraft(value)
 		dispatch("SetSetting", { Key = entry.key, Value = value })
 	end
-	local controlW = if entry.kind == "toggle" then 50 elseif entry.kind == "choice" then math.min(260, 64 * #(entry.choices or {})) else 240
+	local controlW = if entry.kind == "toggle" then 68 elseif entry.kind == "choice" then math.min(260, 64 * #(entry.choices or {})) else 240
 	local textRight = if stack then 0 else controlW + 20
 	local control
 	if entry.kind == "toggle" then
