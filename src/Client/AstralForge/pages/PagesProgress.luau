@@ -557,7 +557,8 @@ local function OrderRow(_param)
 		size = 11,
 		color = Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
-		fit = false,
+		fit = true,
+		minSize = 8,
 		position = UDim2.fromOffset(0, progressY),
 		sizeConstraint = UDim2.fromOffset(180, 16),
 	}), React.createElement(Meter, {
@@ -1267,7 +1268,7 @@ local function MachineRow(_param)
 			if _condition_1 == nil then
 				_condition_1 = 0
 			end
-			_result_1 = if level < 1 then `Earns {compactNumber(_condition_1)} Flux/sec once you buy it` else `{compactNumber(_condition_1)} Flux/sec · level {compactNumber(level)}`
+			_result_1 = if level < 1 then `+{compactNumber(_condition_1)} Flux/sec once bought` else `{compactNumber(_condition_1)} Flux/sec · level {compactNumber(level)}`
 		else
 			_result_1 = if maxed then `Level {compactNumber(level)} · maxed` else `Level {compactNumber(level)} · next {compactNumber(price)}`
 		end
@@ -1325,7 +1326,8 @@ local function MachineRow(_param)
 		size = if stack then chrome.labelText else 11,
 		color = accent,
 		weight = Enum.FontWeight.Bold,
-		fit = false,
+		fit = true,
+		minSize = 9,
 		position = UDim2.fromOffset(0, if stack then 72 else 64),
 		sizeConstraint = UDim2.new(1, -4, 0, 16),
 	}), running and buttonBesideText and React.createElement("frame", {

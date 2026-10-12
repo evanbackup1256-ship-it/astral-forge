@@ -3542,7 +3542,8 @@ local function MissionRow(_param)
 		size = 11,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
-		fit = false,
+		fit = true,
+		minSize = 8,
 		position = UDim2.fromOffset(0, progressY),
 		sizeConstraint = UDim2.new(0, 160, 0, 16),
 	}), React.createElement(Meter, {

@@ -9104,10 +9104,31 @@ local function TopBar(_param)
 	local controlsBeforeSearch = SHELL_CHROME.topbarControl + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0)
 	local controlsW = controlsBeforeSearch + (if searchControlW > 0 then feedbackControlGap + searchControlW else 0)
 	local fixedSingleRow = edgePad * 2 + (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) + controlsW + 12 + (if visitPillWidth > 0 then visitPillWidth + 6 else 0) + (if countdownW > 0 then countdownW + 10 else 0)
-	local minimumResourceRoom = if #allChips > 0 then chipWidthEstimate + 6 else 0
+	-- currencies matter more than FPS/ping: the performance readout only stays when at least two
+	-- resource chips (or all of them, if fewer) still fit beside it
+	local minimumResourceRoom = math.min(#allChips, 2) * (chipWidthEstimate + 8)
 	local performanceW = if not stacked and fullPerformanceW > 0 and width - fixedSingleRow - fullPerformanceW - performanceGap < minimumResourceRoom then 0 else fullPerformanceW
 	local chips = allChips
 	local controlsRight = edgePad + 4
+	-- Show only the chips that fit whole, most important first (flux, cores, dust, then the event),
+	-- instead of a scroller whose last chip is sliced by the edge and whose flux chip falls off it.
+	if not stacked then
+		local railRoom = math.max(48, width - edgePad * 2 - (controlsW + controlsRight + 12) - (12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14))
+		local room = railRoom - (if performanceW > 0 then performanceW + 8 else 0) - (if visitPillWidth > 0 then visitPillWidth + 8 else 0)
+		local chipFitW = if micro then 150 else 146 -- a rendered desktop chip is ~142px; the estimate above keeps a margin
+		local fits = math.max(0, math.floor((room + 8) / (chipFitW + 8)))
+		if fits < #allChips then
+			local rank = { FLUX = 1, CORES = 2, DUST = 3, EVENT = 4 }
+			local ranked = table.clone(allChips)
+			table.sort(ranked, function(a, b) return (rank[a.label] or 9) < (rank[b.label] or 9) end)
+			local keep = {}
+			for index = 1, fits do keep[ranked[index]] = true end
+			chips = {}
+			for _, chip in allChips do
+				if keep[chip] then table.insert(chips, chip) end
+			end
+		end
+	end
 	local hasRightCluster = not stacked and (#chips > 0 or visitPill ~= nil or performanceW > 0)
 	local row1H = if stacked then 62 else barHeight
 	local logoMark = if micro then 40 else SHELL_CHROME.topbarControl
@@ -19970,7 +19991,7 @@ local function ToastRail(_param)
 	local requestedVisible = if keyboardOpen then 1 else densityCap
 	local bottomReserve = plan.bottomSafe + plan.tabBarH + (if stack then 18 else 12)
 	local fittingVisible = math.max(1, math.floor((height - topInset - bottomReserve - 8) / math.max(1, cardH + cardGap)))
-	local maxVisible = math.max(1, math.min(requestedVisible, fittingVisible, if stack then MAX_VISIBLE_MOBILE + 1 else MAX_VISIBLE + 2))
+	local maxVisible = math.max(1, math.min(requestedVisible, fittingVisible, if stack then MAX_VISIBLE_MOBILE + 1 else 2))
 	local railHeight = maxVisible * (cardH + cardGap)
 	local minX = (plan.sideSafe + 8 + railW / 2) / width
 	local maxX = math.max(minX, 1 - minX)
@@ -20044,10 +20065,14 @@ local function ToastRail(_param)
 	local rendered = React.useMemo(_exp, { _result_1, plan.mobile, reducedMotion, remove, setHovered, stack, visible })
 	local hiddenCount = math.max(0, #live - maxVisible)
 	local useCustom = mobileLayout ~= nil
+	-- Desktop toasts sit at the top of the content area, centred in the page header's empty middle
+	-- (between the page title and the vault card), and stack downward. The old bottom-left spot
+	-- sat on top of whatever the page showed there.
+	local desktopTop = math.max(topbarInset, Layout.minTopInset) + Layout.topbarHeight + 12
 	local defaultPosition = if stack
 		then UDim2.new(0.5, 0, 0, topInset)
-		else UDim2.new(0, Layout.sidebarWidth + 16, 1, -(plan.bottomSafe + 16))
-	local defaultAnchor = if stack then Vector2.new(0.5, 0) else Vector2.new(0, 1)
+		else UDim2.new(0.5, math.floor(Layout.sidebarWidth / 2), 0, desktopTop)
+	local defaultAnchor = Vector2.new(0.5, 0)
 	return React.createElement("frame", {
 		Size = UDim2.new(0, railW, 0, railHeight),
 		Position = if useCustom then UDim2.fromScale(customX, customY) else defaultPosition,
@@ -20081,7 +20106,7 @@ local function ToastRail(_param)
 	})), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = if stack then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom,
+		VerticalAlignment = if stack or mobileLayout == nil then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom,
 		Padding = UDim.new(0, 0),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(LifetimeHost, {
