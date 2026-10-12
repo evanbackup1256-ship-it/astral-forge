@@ -1399,10 +1399,10 @@ local function CommandViewReady(_param)
 		BorderSizePixel = 0,
 		Active = false,
 	}, React.createElement(SectionLabel, {
-		value = ops.SeasonName,
+		value = "COMMAND · SEASON",
 		color = Palette.cyan,
 	}), React.createElement(Text, {
-		value = "Deep Space Command",
+		value = ops.SeasonName or "Deep Space Command",
 		size = if stack then 24 else 28,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,

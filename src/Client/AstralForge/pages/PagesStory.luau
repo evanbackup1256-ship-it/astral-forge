@@ -847,7 +847,7 @@ local function StoryView(_param)
 		end
 	end
 	local multi = chapterCount > 1
-	local railMarkH = if multi and not stack then (if shortLandscape then 76 else 180) else (if stack then markH else 0)
+	local railMarkH = if multi and not stack then 84 else (if stack then markH else 0) -- the mark is ~76px of content; taller only left an empty card
 	local readerPad = if shortLandscape then 12 elseif stack then (if started then 12 else 14) else Layout.contentInset
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
