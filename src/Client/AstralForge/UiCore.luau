@@ -15399,10 +15399,15 @@ local function OfflineRewardsOverlay(_param)
 	local bigHaul = rate > 0 and rewardAmount >= rate * 3600
 	local rewardGlow = useGlowStroke(bigHaul, softMotion, 0.35, 0.15, 0.62, 1.6)
 	local cardWidth = math.min(if stack then math.max(280, viewport.width - chrome.sideSafe * 2 - 20) else 560, 560)
-	local cardHeight = math.min(if stack then 468 else 420, math.max(240, viewport.height - viewport.topInset - chrome.bottomSafe - 24))
-	local innerHeight = cardHeight - 28
+	-- The card is as tall as the layout it can show: stats, the explanation and stacked buttons
+	-- when there is room, otherwise stats and side-by-side buttons with nothing left empty.
 	local statsBottom = if stack then 240 else 242
-	local shortCard = innerHeight < statsBottom + 48 + TapTarget * 2 + 8
+	local roomH = math.max(240, viewport.height - viewport.topInset - chrome.bottomSafe - 24)
+	local fullInner = statsBottom + 48 + TapTarget * 2 + 8
+	local shortInner = statsBottom + 14 + TapTarget
+	local cardHeight = if roomH >= fullInner + 28 then math.min(if stack then 468 else 420, roomH) else math.min(shortInner + 28, roomH)
+	local innerHeight = cardHeight - 28
+	local shortCard = innerHeight < fullInner
 	local tinyCard = shortCard and innerHeight < statsBottom + 10 + TapTarget
 	local finish = React.useCallback(function(bankVault)
 		if closing then
