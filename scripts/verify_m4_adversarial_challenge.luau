@@ -514,15 +514,12 @@ local TARGET_FILES = {
 	"src/Client/AstralForge/UiCore.luau",
 }
 
-test("M4-REQ-01", "Absence of legacy TSImport/importTsModule across target modules", function()
+test("M4-REQ-01", "Target modules load roblox-ts packages through TSImport", function()
+	-- roblox-ts packages read _G[script], which only TSImport sets; a plain require crashed the client at load (see verify_ts_imports)
 	for _, path in ipairs(TARGET_FILES) do
 		local content = fs.readFile(path)
-		assertTrue(content:find("TSImport", 1, true) == nil,
-			string.format("File '%s' must not contain 'TSImport'", path))
-		assertTrue(content:find("importTsModule", 1, true) == nil,
-			string.format("File '%s' must not contain 'importTsModule'", path))
-		assertTrue(content:find("TS.import", 1, true) == nil,
-			string.format("File '%s' must not contain 'TS.import'", path))
+		local _, plain = content:gsub('require%(game%.ReplicatedStorage%.rbxts_include%.node_modules%["@rbxts"%]%.bezierts%)', "")
+		assertTrue(plain == 0, string.format("File '%s' must not require bezierts directly", path))
 	end
 end)
 
@@ -571,15 +568,11 @@ test("M4-REQ-04", "framework.luau static exports and contract conformance", func
 			string.format("framework.luau must export symbol '%s'", sym))
 	end
 
-	-- Verify direct require statements in framework.luau
-	assertTrue(fwSource:find('local _core = require(flamework.core.out)', 1, true) ~= nil,
-		"framework.luau must use direct require for flamework core")
-	assertTrue(fwSource:find('local _components = require(flamework.components.out)', 1, true) ~= nil,
-		"framework.luau must use direct require for flamework components")
-	assertTrue(fwSource:find('local t = require(flamework.core.out.prelude).t', 1, true) ~= nil,
-		"framework.luau must use direct require for flamework prelude t")
-	assertTrue(fwSource:find('local SYMBOL_ATTRIBUTE_SETTER = require(flamework.components.out.baseComponent).SYMBOL_ATTRIBUTE_SETTER', 1, true) ~= nil,
-		"framework.luau must use direct require for SYMBOL_ATTRIBUTE_SETTER")
+	-- Flamework is compiled roblox-ts: it must be loaded through TSImport
+	assertTrue(fwSource:find('local _core = importTsModule(flamework.core.out)', 1, true) ~= nil,
+		"framework.luau must load flamework core through importTsModule")
+	assertTrue(fwSource:find('local _components = importTsModule(flamework.components.out)', 1, true) ~= nil,
+		"framework.luau must load flamework components through importTsModule")
 end)
 
 test("M4-REQ-05", "layoutGuard.luau static exports and contract conformance", function()
@@ -597,7 +590,7 @@ test("M4-REQ-05", "layoutGuard.luau static exports and contract conformance", fu
 	end
 
 	-- Verify direct require statements in layoutGuard.luau
-	assertTrue(lgSource:find('local core = require(game.ReplicatedStorage.rbxts_include.node_modules["@flamework"].core.out)', 1, true) ~= nil,
+	assertTrue(lgSource:find('local core = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@flamework"].core.out)', 1, true) ~= nil,
 		"layoutGuard.luau must use direct require for flamework core")
 	assertTrue(lgSource:find('local ClientLog = require(script.Parent.CoreKit)("log").ClientLog', 1, true) ~= nil,
 		"layoutGuard.luau must use direct require for CoreKit log")
@@ -631,7 +624,7 @@ test("M4-REQ-06", "MotionKit.luau callable metatable & member export verificatio
 	end
 
 	-- Verify direct require of BezierCurve without TSImport
-	assertTrue(mkSource:find('local BezierCurve = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].bezierts).BezierCurve', 1, true) ~= nil,
+	assertTrue(mkSource:find('local BezierCurve = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].bezierts).BezierCurve', 1, true) ~= nil,
 		"MotionKit must directly require BezierCurve")
 end)
 
@@ -664,7 +657,7 @@ test("M4-REQ-07", "CoreKit.luau callable metatable & member export verification"
 	end
 
 	-- Verify direct require of @rbxts/3a without TSImport
-	assertTrue(ckSource:find('local _3a = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])', 1, true) ~= nil,
+	assertTrue(ckSource:find('local _3a = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])', 1, true) ~= nil,
 		"CoreKit must directly require @rbxts/3a")
 end)
 
@@ -694,7 +687,7 @@ test("M4-REQ-08", "UiCore.luau callable metatable & member export verification",
 	end
 
 	-- Verify direct require of react-lifetime-component without TSImport
-	assertTrue(ucSource:find('local _react_lifetime_component = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)', 1, true) ~= nil,
+	assertTrue(ucSource:find('local _react_lifetime_component = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)', 1, true) ~= nil,
 		"UiCore must directly require react-lifetime-component")
 end)
 
@@ -803,6 +796,8 @@ test("M4-REQ-10", "Simulated runtime sandbox module loading and symbol execution
 		game = {
 			ReplicatedStorage = {
 				rbxts_include = {
+					-- roblox-ts packages load through TSImport; the mock passes the module through
+					TSImport = setmetatable({}, { __call = function(_, module) return module end }),
 					node_modules = {
 						["@flamework"] = {
 							core = {

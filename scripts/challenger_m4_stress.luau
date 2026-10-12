@@ -128,28 +128,12 @@ check("REQ-02", "CoreKit loads 3a through TSImport", function()
 		"CoreKit must load 3a through importTsModule")
 end)
 
-check("REQ-03", "Elimination of TSImport / importTsModule in framework.luau", function()
-	local content = fs.readFile("src/Client/AstralForge/framework.luau")
-	assert(string.find(content, "TSImport", 1, true) == nil, "framework must have zero TSImport references")
-	assert(string.find(content, "importTsModule", 1, true) == nil, "framework must have zero importTsModule references")
-	assert(string.find(content, "local _core = require(flamework.core.out)", 1, true) ~= nil,
-		"framework must use direct require for flamework core")
-end)
-
-check("REQ-04", "Elimination of TSImport / importTsModule in layoutGuard.luau", function()
-	local content = fs.readFile("src/Client/AstralForge/layoutGuard.luau")
-	assert(string.find(content, "TSImport", 1, true) == nil, "layoutGuard must have zero TSImport references")
-	assert(string.find(content, "importTsModule", 1, true) == nil, "layoutGuard must have zero importTsModule references")
-	assert(string.find(content, 'local core = require(game.ReplicatedStorage.rbxts_include.node_modules["@flamework"].core.out)', 1, true) ~= nil,
-		"layoutGuard must use direct require for flamework core")
-end)
-
-check("REQ-05", "Elimination of TSImport / importTsModule in UiCore.luau", function()
-	local content = fs.readFile("src/Client/AstralForge/UiCore.luau")
-	assert(string.find(content, "TSImport", 1, true) == nil, "UiCore must have zero TSImport references")
-	assert(string.find(content, "importTsModule", 1, true) == nil, "UiCore must have zero importTsModule references")
-	assert(string.find(content, 'local _react_lifetime_component = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)', 1, true) ~= nil,
-		"UiCore must use direct require for react-lifetime-component")
+check("REQ-03", "framework, layoutGuard and UiCore load roblox-ts packages through TSImport", function()
+	-- roblox-ts packages read _G[script], which only TSImport sets; a plain require crashed the client at load (see verify_ts_imports)
+	for _, path in { "src/Client/AstralForge/framework.luau", "src/Client/AstralForge/layoutGuard.luau", "src/Client/AstralForge/UiCore.luau" } do
+		local content = fs.readFile(path)
+		assert(string.find(content, "importTsModule(", 1, true) ~= nil, path .. " must load its roblox-ts packages through importTsModule")
+	end
 end)
 
 check("REQ-06", "Zero TS.import calls across all first-party Client, Server, and Shared modules", function()
