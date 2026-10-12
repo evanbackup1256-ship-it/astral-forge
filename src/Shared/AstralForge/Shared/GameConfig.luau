@@ -6732,6 +6732,7 @@ local GameConfig = {
 				Highlights = {
 					"Crews of up to four players in a server: +3% production per crewmate and a daily goal paid in stardust.",
 					"Chat channels for global, server, crew, friends and private messages. Type / for shortcuts like /w and /c.",
+					"On a keyboard, press / to start typing in chat, Tab for the player list, and Up to bring back a message you sent.",
 					"Player cards can message, visit, wave, invite to a crew, trade, friend, block and report.",
 					"Trade history shows your last 15 trades, and one-sided offers are flagged before you confirm.",
 					"Every element has its own companion character, lit by its own element, with pick, unlock, equip and mastery reactions.",

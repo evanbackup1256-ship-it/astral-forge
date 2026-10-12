@@ -160,5 +160,18 @@ local socialSource = require("@lune/fs").readFile("src/Client/AstralForge/pages/
 assert(socialSource:find("ChatRules.remember(sentHistory.current, outgoing)", 1, true), "sending remembers the message")
 assert(socialSource:find("ChatRules.recall(sentHistory.current, recallIndex.current, direction)", 1, true), "Up/Down recall is wired")
 assert(socialSource:find("recallDraft.current = box.Text", 1, true), "the unsent draft is kept while recalling")
+-- keyboard shortcuts: "/" opens chat focused, Tab toggles the player list, never while typing
+do
+	local shell = require("@lune/fs").readFile("src/Client/AstralForge/UiCore.luau")
+	local bind = assert(shell:find('local actionName = "AstralForgeKeyboard"', 1, true), "keyboard binding exists")
+	local body = shell:sub(bind, bind + 1600)
+	assert(body:find("UserInputService:GetFocusedTextBox() ~= nil then", 1, true), "shortcuts pass while a text box has focus")
+	assert(body:find('navigateRef.current("Chat")', 1, true) and body:find("requestChatFocus()", 1, true), "/ opens chat and asks for focus")
+	assert(body:find("Enum.KeyCode.Slash, Enum.KeyCode.Tab)", 1, true), "both keys are bound")
+	local runtime = require("@lune/fs").readFile("src/Client/AstralForge/ClientRuntime.luau")
+	assert(runtime:find("setFocusRequest(os.clock())", 1, true), "focus requests are timestamped")
+	assert(socialSource:find("os.clock() - requested > 1", 1, true), "a stale focus request is ignored")
+	assert(socialSource:find('if box.Text == "/" then', 1, true), "the slash that opened chat is not left in the box")
+end
 
 print("verify_chat_rules: ok")

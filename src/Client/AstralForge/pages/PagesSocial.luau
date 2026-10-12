@@ -6008,6 +6008,26 @@ local function ChatView(_param)
 			end)
 		end
 	end
+	-- The "/" key asks for the box; wait a frame so the slash itself isn't typed into it.
+	React.useEffect(function()
+		local requested = chat.focusRequest or 0
+		if requested <= 0 or os.clock() - requested > 1 then
+			return
+		end
+		local thread = task.delay(0.05, function()
+			local box = input.current
+			if box ~= nil and box:IsDescendantOf(game) then
+				box:CaptureFocus()
+				if box.Text == "/" then
+					box.Text = ""
+					setDraft("")
+				end
+			end
+		end)
+		return function()
+			task.cancel(thread)
+		end
+	end, { chat.focusRequest })
 	-- Up / Down in the focused chat box walks back through what you sent; coming back down past
 	-- the newest message restores whatever you had been typing.
 	React.useEffect(function()

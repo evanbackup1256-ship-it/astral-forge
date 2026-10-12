@@ -7497,6 +7497,38 @@ local function AppShell(_param)
 			return ContextActionService:UnbindAction(actionName)
 		end
 	end, { arcadeBusy, buyAmount, crateReveal, dispatch, domainOverlayActive, feedbackOpen, hidden, page, playerlistOpen, railOpen, showRelease, tutorialOpen, tutorialStep })
+	-- Keyboard: "/" opens chat ready to type, Tab shows or hides the player list. Roblox's own chat
+	-- bar and player list are turned off, so both keys are free.
+	local requestChatFocus = chat.requestFocus
+	React.useEffect(function()
+		local actionName = "AstralForgeKeyboard"
+		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState, input)
+			if inputState ~= Enum.UserInputState.Begin or UserInputService:GetFocusedTextBox() ~= nil then
+				return Enum.ContextActionResult.Pass
+			end
+			if crateReveal ~= nil or tutorialOpen or showRelease or domainOverlayActive then
+				return Enum.ContextActionResult.Pass
+			end
+			if input.KeyCode == Enum.KeyCode.Slash then
+				setPlayerlistOpen(false)
+				navigateRef.current("Chat")
+				if requestChatFocus ~= nil then
+					requestChatFocus()
+				end
+				return Enum.ContextActionResult.Sink
+			end
+			if input.KeyCode == Enum.KeyCode.Tab then
+				setPlayerlistOpen(function(current)
+					return not current
+				end)
+				return Enum.ContextActionResult.Sink
+			end
+			return Enum.ContextActionResult.Pass
+		end, false, 2100, Enum.KeyCode.Slash, Enum.KeyCode.Tab)
+		return function()
+			ContextActionService:UnbindAction(actionName)
+		end
+	end, { crateReveal, domainOverlayActive, requestChatFocus, showRelease, tutorialOpen })
 	local gamepadActive, setGamepadActive = React.useState(false)
 	React.useEffect(function()
 		local isPad = function(inputType)

@@ -903,6 +903,12 @@ local function useGameChat(active, enabled, dispatch, settings)
 	local peer, setPeerState = React.useState(nil)
 	local whispers, setWhispers = React.useState({})
 	local muted, setMuted = React.useState({})
+	-- stamped by the "/" key so the chat page focuses its box once it is open (a stale stamp,
+	-- from an earlier press, is ignored when the page is opened some other way later)
+	local focusRequest, setFocusRequest = React.useState(0)
+	local requestFocus = React.useCallback(function()
+		setFocusRequest(os.clock())
+	end, {})
 	local channelsRef = React.useRef({ server = nil, friends = nil, crew = {}, whisper = {} })
 	local pendingRef = React.useRef({})
 	local seenRef = React.useRef({ ids = {}, order = {} })
@@ -1487,6 +1493,8 @@ local function useGameChat(active, enabled, dispatch, settings)
 		clear = clear,
 		suggest = suggest,
 		placeholder = placeholder,
+		focusRequest = focusRequest,
+		requestFocus = requestFocus,
 		-- Social settings the page applies: global chat in the All tab, and message text size
 		showGlobal = type(settings) ~= "table" or settings.ChatShowGlobal == nil or settings.ChatShowGlobal >= 0.5,
 		textScale = if type(settings) == "table" and type(settings.ChatTextSize) == "number" then 0.85 + settings.ChatTextSize * 0.45 else 1.075,
