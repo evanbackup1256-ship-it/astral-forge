@@ -2,7 +2,7 @@
 -- Pure chat rules shared by the server relay and the client chat hook.
 -- No Roblox services here so the rules can be exercised from Lune.
 
-local ChatRules = {}
+local ChatRules = {} :: any
 
 ChatRules.MAX_INPUT = 160
 ChatRules.GLOBAL_COOLDOWN = 6

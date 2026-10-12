@@ -10,7 +10,7 @@
 -- segment under 0, then one half-disk per boundary in ascending order; the left clip [180, 360)
 -- does the same from 180. The last layer covering any angle is the segment that owns it.
 
-local WheelGeometry = {}
+local WheelGeometry = {} :: any
 
 export type Layer = { angle: number, segment: number }
 export type Plan = { right: { Layer }, left: { Layer } }

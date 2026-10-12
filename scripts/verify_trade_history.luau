@@ -43,6 +43,13 @@ assert(#TradeHistory.warnings(offer({ Stardust = 9 }), offer({ Cores = 1 })) == 
 local items = TradeHistory.warnings(offer({ ItemIds = { "1", "2", "3" } }), offer({ Stardust = 100 }))
 assert(#items == 1 and string.find(items[1], "3 items", 1, true), "giving many items for none is flagged")
 
+-- rarity: a Legendary/Mythic relic going out with nothing close coming back
+local relic = offer({ ItemIds = { "IT1" } })
+assert(#TradeHistory.warnings(relic, offer({ Stardust = 500 }), { "MYTHIC" }, {}) == 1, "a mythic for dust is flagged")
+assert(#TradeHistory.warnings(relic, offer({ ItemIds = { "x" } }), { "LEGENDARY" }, { "EPIC" }) == 0, "one tier apart is a fair swap")
+assert(#TradeHistory.warnings(relic, offer({ ItemIds = { "x" } }), { "MYTHIC" }, { "RARE" }) == 1, "two tiers apart is flagged")
+assert(#TradeHistory.warnings(relic, offer({ Stardust = 5 }), { "RARE" }, nil) == 0, "ordinary relics are not flagged")
+
 -- wiring: history is written in the same atomic saves that apply each side, and removed on revert
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local _, recorded = string.gsub(server, "TradeHistory%.record%(profile%.Trade, tradeHistoryEntry%(", "")

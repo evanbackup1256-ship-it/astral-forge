@@ -2,7 +2,7 @@
 -- Completed-trade history and pre-confirm warnings. Pure: the server records entries inside the
 -- same atomic save that applies each side of a trade; the client shows them on the Trade page.
 
-local TradeHistory = {}
+local TradeHistory = {} :: any
 
 TradeHistory.LIMIT = 15
 
@@ -105,8 +105,20 @@ function TradeHistory.public(trade: any): { Entry }
 	return out
 end
 
+local RARITY_RANK = { COMMON = 1, UNCOMMON = 2, RARE = 3, EPIC = 4, LEGENDARY = 5, MYTHIC = 6 }
+
+local function topRarity(list: { string }?): (number, string?)
+	local best, name = 0, nil
+	for _, rarity in list or {} do
+		local rank = RARITY_RANK[string.upper(tostring(rarity))] or 0
+		if rank > best then best, name = rank, rarity end
+	end
+	return best, name
+end
+
 -- Warnings shown above Confirm. They never block a trade; they make one-sided offers obvious.
-function TradeHistory.warnings(mine: any, theirs: any): { string }
+-- `myRarities` / `theirRarities` list the rarity of each relic on either side, when known.
+function TradeHistory.warnings(mine: any, theirs: any, myRarities: { string }?, theirRarities: { string }?): { string }
 	local out = {}
 	local giving, getting = not TradeHistory.isEmpty(mine), not TradeHistory.isEmpty(theirs)
 	if giving and not getting then
@@ -118,6 +130,13 @@ function TradeHistory.warnings(mine: any, theirs: any): { string }
 	local theirItems = if type(theirs) == "table" and type(theirs.ItemIds) == "table" then #theirs.ItemIds else 0
 	if myItems >= 3 and theirItems == 0 then
 		table.insert(out, `You're giving {myItems} items and getting none. Check the other side before you confirm.`)
+	end
+	-- a top-tier relic going out with nothing close to it coming back
+	local myTop, myName = topRarity(myRarities)
+	local theirTop = topRarity(theirRarities)
+	if myTop >= RARITY_RANK.LEGENDARY and theirTop < myTop - 1 then
+		local label = string.upper(string.sub(myName or "", 1, 1)) .. string.lower(string.sub(myName or "", 2))
+		table.insert(out, `You're giving a {label} relic and getting nothing close to it back.`)
 	end
 	return out
 end

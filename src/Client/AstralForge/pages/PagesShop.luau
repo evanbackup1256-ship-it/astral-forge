@@ -3988,7 +3988,7 @@ local function WheelView(props)
 				id = "prizes-odds",
 				height = 64,
 				element = React.createElement(Text, {
-					value = `Match each prize to its wheel number. Guaranteed spins draw only {config.Wheel.PityRarity or "RARE"} or better, using their relative weights.`,
+					value = `Match each prize to its wheel number. Guaranteed spins draw only {(function(r) return string.upper(string.sub(r, 1, 1)) .. string.lower(string.sub(r, 2)) end)(config.Wheel.PityRarity or "RARE")} or better, using their relative weights.`,
 					size = 12, color = Palette.creamSoft, wrap = true, fit = false,
 					sizeConstraint = UDim2.new(1, 0, 1, 0),
 				}),

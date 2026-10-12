@@ -7,7 +7,7 @@
 --   goal     : vault collects pooled by the crew each UTC day; tiers pay stardust once per
 --              player per day, and only to members who pitched in, so a parked alt earns nothing
 
-local CrewMath = {}
+local CrewMath = {} :: any
 
 CrewMath.MAX_MEMBERS = 4
 CrewMath.BONUS_PER_MEMBER = 0.03

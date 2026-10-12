@@ -792,7 +792,30 @@ local function TradeView(_param)
 	end
 	local yourLines = offerLines(draft, config, inventory)
 	local theirLines = if session ~= nil then offerLines(session.Them, config, inventory) else {}
-	local tradeWarnings = if session ~= nil then TradeHistory.warnings(draft, session.Them) else {}
+	local function raritiesOf(offer, fromInventory)
+		local list = {}
+		local definitions = config.Items and config.Items.Definitions or {}
+		local function rarityFor(definitionId)
+			for _, definition in definitions do
+				if definition.Id == definitionId then return definition.Rarity end
+			end
+			return nil
+		end
+		if fromInventory then
+			for _, uid in (offer and offer.ItemIds) or {} do
+				local instance = inventory[uid]
+				local rarity = instance and rarityFor(instance.DefinitionId)
+				if rarity then table.insert(list, rarity) end
+			end
+		else
+			for _, preview in (offer and offer.Items) or {} do
+				local rarity = rarityFor(preview.DefinitionId)
+				if rarity then table.insert(list, rarity) end
+			end
+		end
+		return list
+	end
+	local tradeWarnings = if session ~= nil then TradeHistory.warnings(draft, session.Them, raritiesOf(draft, true), raritiesOf(session.Them, false)) else {}
 	local offerBody = function(editor, lines)
 		local _exp_2 = editor and not offerEmpty(draft) and React.createElement(Button, {
 			text = "CLEAR OFFER",

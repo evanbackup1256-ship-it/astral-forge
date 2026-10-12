@@ -6,7 +6,7 @@
 -- longest prerequisite chain) and is spread evenly inside its sector on that ring, ordered by
 -- the angle of its parents so links cross as little as possible.
 
-local Math = {}
+local Math = {} :: any
 
 Math.CORE_RADIUS = 70 -- the empty middle where the core orb sits
 Math.RING_GAP = 100 -- distance between depth rings
