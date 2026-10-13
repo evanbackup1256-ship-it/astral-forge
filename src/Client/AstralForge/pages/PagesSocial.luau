@@ -3945,7 +3945,7 @@ local function GuildCommunityPanel(_param)
 	local sections = {
 		{ id = "guild-community-back", height = 48, element = React.createElement(Button, { text = "‹  GUILD OVERVIEW", onClick = onBack, color = Palette.panelSoft, textColor = Palette.cream, size = UDim2.new(1, 0, 0, 44), reducedMotion = reducedMotion }) },
 		{ id = "guild-community-chat", height = 430, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.cyan, padding = 14, reducedMotion = reducedMotion, clips = false },
-			React.createElement(Text, { value = `GUILD CHANNEL · {#messages} MESSAGES{if settings.SlowMode == true then " · SLOW MODE" else ""}`, size = 12, color = Palette.cyan, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, 0, 0, 20) }),
+			React.createElement(Text, { value = `GUILD CHANNEL · {#messages} MESSAGE{if #messages == 1 then "" else "S"}{if settings.SlowMode == true then " · SLOW MODE" else ""}`, size = 12, color = Palette.cyan, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, 0, 0, 20) }),
 			React.createElement("scrollingframe", {
 				ref = chatScroll,
 				Size = UDim2.new(1, 0, 0, 308),
@@ -4239,7 +4239,7 @@ local function GuildView(_param)
 	end
 	local goalContributors = _goalContributors
 	local pageGap = if stack then 12 else Layout.panelGap
-	local heroHeight = if stack then 218 else 188
+	local heroHeight = if stack then 218 else 132
 	local goalHeight = if guild.Goal == nil then 116 elseif stack then 234 else 196
 	local bankHeight = if stack then 310 else 216
 	local upgradeHeight = if stack then 180 else 140
@@ -4261,7 +4261,7 @@ local function GuildView(_param)
 	_attributes.size = 10
 	_attributes.color = ensureContrast(heroSurface, Palette.violet)
 	_attributes.weight = Enum.FontWeight.Heavy
-	_attributes.sizeConstraint = UDim2.new(1, -8, 0, 14)
+	_attributes.sizeConstraint = UDim2.new(1, if stack then -8 else -160, 0, 14)
 	local _exp_4 = React.createElement(Text, _attributes)
 	local _exp_5 = React.createElement(Text, {
 		value = guild.Name,
@@ -4271,7 +4271,7 @@ local function GuildView(_param)
 		fit = true,
 		minSize = 17,
 		position = UDim2.fromOffset(0, 20),
-		sizeConstraint = UDim2.new(1, -8, 0, 38),
+		sizeConstraint = UDim2.new(1, if stack then -8 else -160, 0, 38),
 	})
 	local _exp_6 = React.createElement(Text, {
 		value = `ACTIVITY {compactNumber(guild.Activity)}  •  YOU ARE {string.upper(myRole)}`,
@@ -4355,7 +4355,7 @@ local function GuildView(_param)
 		loading = busy,
 		shakeToken = shakeToken,
 		size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.fromOffset(140, 42),
-		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 1, -42),
+		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 0, 0),
 		reducedMotion = softMotion,
 	}) else React.createElement(Button, {
 		text = if confirmation.current and confirmation.current.key=="LeaveGuild:" then "CONFIRM LEAVE" else "LEAVE",
@@ -4370,7 +4370,7 @@ local function GuildView(_param)
 		loading = busy,
 		shakeToken = shakeToken,
 		size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.fromOffset(140, 42),
-		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 1, -42),
+		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 0, 0),
 		reducedMotion = softMotion,
 	}))
 	local _exp_12 = React.createElement(GuildGoalCard, {
@@ -4652,7 +4652,7 @@ local function GuildView(_param)
 	}), memberChildren)
 	local hall=Social.hall(guild)
 	local tabs={}
-	local columns=if stack then 2 else 3
+	local columns=if stack then 2 else 5
 	local guildTabs={"Overview","Treasury","Upgrades","Members","Community"}
 	for index,id in guildTabs do
 		tabs[index]=React.createElement(Button,{text=string.upper(id),size=UDim2.new(1/columns,-6,0,48),position=UDim2.new(((index-1)%columns)/columns,0,0,math.floor((index-1)/columns)*56),color=if pane==id then Palette.violet else Palette.panelSoft,onClick=function() setPane(id) end,reducedMotion=softMotion})
@@ -4664,10 +4664,10 @@ local function GuildView(_param)
 	}, 2)
 	local function add(id,height,element) table.insert(sections,{id=id,height=height,element=element}) end
 	if pane=="Overview" then
-		add("hall-progress",174,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.mint},
-			React.createElement(Text,{value=`HALL LEVEL {hall.Level} · {hall.Title}`,size=19,wrap=true,sizeConstraint=UDim2.new(1,0,0,42)}),
-			React.createElement(Meter,{value=hall.Progress,position=UDim2.fromOffset(0,52),size=UDim2.new(1,0,0,10),color=Palette.mint,reducedMotion=softMotion}),
-			React.createElement(Text,{value=`{hall.Remaining} more hall upgrades to level up. Every five installed upgrade levels earn a hall level. Hall titles celebrate progress; upgrade bonuses apply separately.`,position=UDim2.fromOffset(0,78),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,64)})))
+		add("hall-progress",if stack then 132 else 112,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.mint},
+			React.createElement(Text,{value=`HALL LEVEL {hall.Level} · {hall.Title}`,size=19,wrap=true,weight=Enum.FontWeight.Heavy,sizeConstraint=UDim2.new(1,0,0,26)}),
+			React.createElement(Meter,{value=hall.Progress,position=UDim2.fromOffset(0,34),size=UDim2.new(1,0,0,10),color=Palette.mint,reducedMotion=softMotion}),
+			React.createElement(Text,{value=`{hall.Remaining} more upgrade level{if hall.Remaining == 1 then "" else "s"} to the next hall level. Every five installed upgrade levels add one.`,position=UDim2.fromOffset(0,54),size=13,color=Palette.creamSoft,wrap=true,sizeConstraint=UDim2.new(1,0,0,if stack then 44 else 24)})))
 		add("goal",goalHeight,_exp_12)
 	elseif pane=="Treasury" then
 		add("bank",bankHeight,_exp_19)
@@ -4675,9 +4675,9 @@ local function GuildView(_param)
 		add("upgrades-label",sectionLabelH,_exp_20)
 		add("upgrades",upgradeBlockH,upgradeList)
 	else
-		add("role-policy",176,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
-			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,sizeConstraint=UDim2.new(1,0,0,28)}),
-			React.createElement(Text,{value="Leader: assigns roles and manages the hall. Officer: buys upgrades and removes members. Member: contributes and earns goal rewards. If the leader leaves, an officer succeeds first, then the earliest joiner; user ID breaks ties.",position=UDim2.fromOffset(0,40),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,104)})))
+		add("role-policy",if stack then 176 else 120,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
+			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,weight=Enum.FontWeight.Heavy,sizeConstraint=UDim2.new(1,0,0,24)}),
+			React.createElement(Text,{value="Leader assigns roles and manages the hall. Officers buy upgrades and remove members. Members contribute and earn goal rewards. If the leader leaves, an officer takes over, otherwise the earliest joiner.",position=UDim2.fromOffset(0,32),size=13,color=Palette.creamSoft,wrap=true,sizeConstraint=UDim2.new(1,0,0,if stack then 110 else 52)})))
 		if #members > 3 then
 			add("member-filter",memberSearchH + 8 + Browse.CHIP_H,memberFilter)
 		end
