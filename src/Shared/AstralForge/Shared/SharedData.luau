@@ -1910,7 +1910,7 @@ local CreditsConfig = {
 	CardMinWidth = 220,
 	CardHoverLift = true,
 
-	HideEmptyCategories = false,
+	HideEmptyCategories = true, -- no tabs or sections for roles nobody holds yet
 	DefaultEmptyText = "To be announced.",
 
 	EntranceStagger = true,
@@ -2026,7 +2026,7 @@ function CreditsModel.normalize(raw: any)
 		MaxColumns = math.floor(number(config.MaxColumns, 3, 1, 4)),
 		CardMinWidth = math.floor(number(config.CardMinWidth, 220, 140, 480)),
 		CardHoverLift = flag(config.CardHoverLift, true),
-		HideEmptyCategories = flag(config.HideEmptyCategories, false),
+		HideEmptyCategories = flag(config.HideEmptyCategories, true),
 		DefaultEmptyText = text(config.DefaultEmptyText, "To be announced."),
 		EntranceStagger = flag(config.EntranceStagger, true),
 		StaggerStep = number(config.StaggerStep, 0.035, 0, 0.1),

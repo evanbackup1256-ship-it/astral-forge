@@ -4321,7 +4321,7 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
 	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
 	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story", accentKey = "mint" },
-	{ id = "Command", label = "Command", eyebrow = "Crew", icon = "Command", accentKey = "cyan" },
+	{ id = "Command", label = "Command", eyebrow = "Expeditions", icon = "Command", accentKey = "cyan" },
 	{ id = "Convergence", label = "Converge", eyebrow = "Co-op", icon = "Domain", accentKey = "mango" },
 	{ id = "Guild", label = "Guild", eyebrow = "Hall", icon = "Crew", accentKey = "violet" },
 	{ id = "Crew", label = "Crew", eyebrow = "Online", icon = "Crew", accentKey = "blue" },

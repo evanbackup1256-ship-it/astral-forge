@@ -1520,7 +1520,7 @@ local function CommandViewReady(_param)
 			highlight = nextClaim ~= nil,
 		})))
 		local _exp_8 = React.createElement(Text, {
-			value = "Crew",
+			value = "Officers",
 			size = 18,
 			color = Palette.cream,
 			weight = Enum.FontWeight.Heavy,
@@ -1528,7 +1528,7 @@ local function CommandViewReady(_param)
 			sizeConstraint = UDim2.new(1, 0, 0, 24),
 		})
 		local _exp_9 = React.createElement(Text, {
-			value = "Spend signals to level Pilot, Engineer, and Navigator.",
+			value = "Spend signals to train the officers who run your expeditions.",
 			size = 12,
 			color = Palette.muted,
 			fit = false,
@@ -1581,8 +1581,15 @@ local function CommandViewReady(_param)
 				fit = false,
 				position = UDim2.fromOffset(10, 30),
 				sizeConstraint = UDim2.new(1, -20, 0, 16),
-			}), React.createElement(Button, {
-				text = if maxRole then "MAX" else `{compactNumber(cost)} sig`,
+			}), role.Description and React.createElement(Text, {
+				value = role.Description,
+				size = 11,
+				color = Palette.muted,
+				wrap = true,
+				position = UDim2.fromOffset(10, 50),
+				sizeConstraint = UDim2.new(1, -20, 0, 30),
+			}) or nil, React.createElement(Button, {
+				text = if maxRole then "MAX" else `Train · {compactNumber(cost)} signals`,
 				onClick = function()
 					return dispatch("UpgradeCrew", {
 						Role = roleId,
@@ -1696,7 +1703,7 @@ local function CommandViewReady(_param)
 					ClipsDescendants = false,
 					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
 				}, React.createElement(Button, {
-					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "IN PROGRESS",
 					onClick = function()
 						return dispatch("ClaimWeeklyDirective", {
 							Id = directive.Id,
@@ -1717,7 +1724,7 @@ local function CommandViewReady(_param)
 					ClipsDescendants = false,
 					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
 				}, React.createElement(Button, {
-					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "IN PROGRESS",
 					onClick = function()
 						return dispatch("ClaimWeeklyDirective", {
 							Id = directive.Id,
