@@ -10549,16 +10549,19 @@ local function NavGroup(_param)
 		local badgeW = if badgeTotal > 99 then 20 elseif badgeTotal >= 10 then 16 else 14
 		local countShift = if showBadge and not collapsed then badgeW + 6 else 0
 		if collapsed then
+			-- the collapsed rail is ~58px wide: short names, and room kept for the count badge
+			local SHORT = { Home = "HOME", Daily = "DAILY", Progress = "PROG", Social = "SOCIAL", System = "SYS", More = "MORE" }
+			local reserve = if showBadge then badgeW + 4 else 0
 			headerChildren.label = React.createElement(Text, {
-				value = string.upper(_param.label),
+				value = SHORT[_param.label] or string.upper(string.sub(_param.label, 1, 5)),
 				size = 9,
 				color = labelColor,
 				weight = Enum.FontWeight.Heavy,
 				align = Enum.TextXAlignment.Center,
 				fit = true,
-				minSize = 7,
+				minSize = 6,
 				position = UDim2.fromOffset(2, 0),
-				sizeConstraint = UDim2.new(1, -4, 1, -2),
+				sizeConstraint = UDim2.new(1, -(4 + reserve), 1, -2),
 			})
 			headerChildren.rule = React.createElement("frame", {
 				Size = UDim2.new(1, -12, 0, 1),
@@ -18391,11 +18394,24 @@ end
 local VERSION_ROW_H = 48
 local HIGHLIGHT_ROW_H = 46
 local VERSION_RIGHT_COLUMN_W = 72
-local function versionCardHeight(entry, expanded)
+-- Each highlight is as tall as its wrapped text, so one-line notes don't leave a gap under them.
+local HIGHLIGHT_GAP = 6
+local function highlightHeight(line, textWidth)
+	if type(textWidth) ~= "number" or textWidth <= 0 then
+		return HIGHLIGHT_ROW_H - HIGHLIGHT_GAP
+	end
+	-- measured as rendered: the 12px label draws at 14px bold once the text-size setting applies
+	return math.max(18, _ui.measureWrappedTextHeight(`•  {line}`, textWidth, 14, Enum.FontWeight.Bold) + 4)
+end
+local function versionCardHeight(entry, expanded, textWidth)
 	if not expanded then
 		return VERSION_ROW_H
 	end
-	return VERSION_ROW_H + #entry.Highlights * HIGHLIGHT_ROW_H + 18
+	local total = 0
+	for _, line in entry.Highlights do
+		total += highlightHeight(line, textWidth) + HIGHLIGHT_GAP
+	end
+	return VERSION_ROW_H + total + 12
 end
 local function VersionCard(_param)
 	local entry = _param.entry
@@ -18406,7 +18422,7 @@ local function VersionCard(_param)
 	local reducedMotion = _param.reducedMotion
 	local reveal = useStagger(index, reducedMotion, 0.03, 0.26)
 	local accent = if current then Palette.mint else Palette.violet
-	local height = versionCardHeight(entry, expanded)
+	local height = versionCardHeight(entry, expanded, _param.textWidth)
 	local _exp = React.createElement("textbutton", {
 		Size = UDim2.new(1, 0, 0, VERSION_ROW_H),
 		BackgroundTransparency = 1,
@@ -18547,7 +18563,7 @@ local function VersionCard(_param)
 				wrap = true,
 				fit = false,
 				layoutOrder = lineIndex,
-				sizeConstraint = UDim2.new(1, 0, 0, HIGHLIGHT_ROW_H - 6),
+				sizeConstraint = UDim2.new(1, 0, 0, highlightHeight(line, _param.textWidth)),
 				zIndex = 327,
 			})
 		end
@@ -18555,7 +18571,7 @@ local function VersionCard(_param)
 			_newValue[_k] = _callback(_v, _k - 1, _exp_7)
 		end
 		_condition = React.createElement("frame", {
-			Size = UDim2.new(1, -30, 0, #entry.Highlights * HIGHLIGHT_ROW_H),
+			Size = UDim2.new(1, -30, 0, height - VERSION_ROW_H),
 			Position = UDim2.fromOffset(20, VERSION_ROW_H),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -18646,6 +18662,8 @@ local function ReleaseNotesModal(_param)
 	local stackActions = onOpenMail ~= nil and (viewport.compact or width < 430) and height >= 320
 	local actionHeight = if stackActions then TapTarget * 2 + 8 else TapTarget
 	local headerHeight = if veryShort then 68 elseif condensed then 112 else 148
+	-- the width a highlight label really has inside the version card
+	local highlightTextWidth = math.max(120, width - padding * 2 - 30) -- matches the 577px the labels measure at 650 wide
 	local scrollHeight = math.max(1, contentHeight - headerHeight - actionHeight - 10)
 	local centerY = safeTop + math.max(0, (viewportHeight - safeTop - safeBottom) / 2)
 	local effectiveHistory = if #history > 0 then history else { {
@@ -18692,7 +18710,7 @@ local function ReleaseNotesModal(_param)
 		local _exp = total
 		local _exp_1 = entry
 		local _version = entry.Version
-		return _exp + versionCardHeight(_exp_1, (table.find(expandedVersions, _version) or 0) - 1 >= 0)
+		return _exp + versionCardHeight(_exp_1, (table.find(expandedVersions, _version) or 0) - 1 >= 0, highlightTextWidth)
 	end
 	for _i = 1, #effectiveHistory do
 		_result = _callback(_result, effectiveHistory[_i], _i - 1, effectiveHistory)
@@ -18768,7 +18786,7 @@ local function ReleaseNotesModal(_param)
 		zIndex = 325,
 	})
 	local _exp_4 = React.createElement(Text, {
-		value = `VERSION {version}`,
+		value = if type(history) == "table" and history[1] ~= nil and type(history[1].Title) == "string" then string.upper(history[1].Title) else `VERSION {version}`,
 		size = 10,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -18831,6 +18849,7 @@ local function ReleaseNotesModal(_param)
 			return toggleVersion(entry.Version)
 		end
 		_attributes.reducedMotion = reducedMotion
+		_attributes.textWidth = highlightTextWidth
 		return React.createElement(VersionCard, _attributes)
 	end
 	for _k, _v in effectiveHistory do
