@@ -10549,13 +10549,15 @@ local function NavGroup(_param)
 		local badgeW = if badgeTotal > 99 then 20 elseif badgeTotal >= 10 then 16 else 14
 		local countShift = if showBadge and not collapsed then badgeW + 6 else 0
 		if collapsed then
-			-- the collapsed rail is ~58px wide: short names, and room kept for the count badge
+			-- the collapsed header is ~38px wide: a short name, with the waiting count folded into it
+			-- (a separate badge would leave the name no room)
 			local SHORT = { Home = "HOME", Daily = "DAILY", Progress = "PROG", Social = "SOCIAL", System = "SYS", More = "MORE" }
-			local reserve = if showBadge then badgeW + 4 else 0
+			local short = SHORT[_param.label] or string.upper(string.sub(_param.label, 1, 5))
+			local reserve = 0
 			headerChildren.label = React.createElement(Text, {
-				value = SHORT[_param.label] or string.upper(string.sub(_param.label, 1, 5)),
+				value = if showBadge then `{short} {if badgeTotal > 99 then "99+" else tostring(badgeTotal)}` else short,
 				size = 9,
-				color = labelColor,
+				color = if showBadge then Palette.mango else labelColor,
 				weight = Enum.FontWeight.Heavy,
 				align = Enum.TextXAlignment.Center,
 				fit = true,
@@ -10605,7 +10607,7 @@ local function NavGroup(_param)
 				BorderSizePixel = 0,
 			})
 		end
-		if showBadge then
+		if showBadge and not collapsed then
 			headerChildren.badge = React.createElement(CountBadge, {
 				count = badgeTotal,
 				zIndex = 12,
