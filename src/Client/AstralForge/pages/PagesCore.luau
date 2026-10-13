@@ -3554,7 +3554,7 @@ local function MissionRow(_param)
 		fit = true,
 		minSize = 8,
 		position = UDim2.fromOffset(0, progressY),
-		sizeConstraint = UDim2.new(0, 160, 0, 16),
+		sizeConstraint = UDim2.new(0, 300, 0, 16),
 	}), React.createElement(Meter, {
 		value = if quest.Claimed or ready then 1 else progressFrac,
 		color = if quest.Claimed then Palette.muted else accent,
@@ -3614,7 +3614,8 @@ local function TaskSummary(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(Text, {
-		value = `{done} / {total}`,
+		-- the headline beside this already gives the count; lead with how far along you are
+		value = `{math.floor(fraction * 100 + 0.5)}%`,
 		size = 20,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
@@ -3622,7 +3623,7 @@ local function TaskSummary(_param)
 		align = Enum.TextXAlignment.Right,
 		sizeConstraint = UDim2.new(1, 0, 0, 26),
 	}), React.createElement(Text, {
-		value = `{math.floor(fraction * 100 + 0.5)}% complete`,
+		value = if done >= total and total > 0 then "all done" else "complete",
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,

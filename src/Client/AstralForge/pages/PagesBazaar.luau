@@ -238,13 +238,13 @@ local function BazaarView(props)
 		}))
 	end
 	if market and Format.compareFlux(market.Refunded or 0, 0) > 0 then
-		add("legacy-refund", 64, h(Ui.Text, {
+		add("legacy-refund", 36, h(Ui.Text, {
 			value = `{Format.compactNumber(market.Refunded)} flux returned from retired Bazaar savings, terms, prizes and held tickets.`,
 			size = 13, wrap = true, color = Palette.green, sizeConstraint = UDim2.fromScale(1, 1),
 		}))
 	end
 	if market and market.RecoveryPending then
-		add("legacy-pending", 96, h(Ui.Text, {
+		add("legacy-pending", 48, h(Ui.Text, {
 			value = "A retired Bazaar claim is awaiting settlement. It has not been discarded. Refresh to retry, or include this in a support report.",
 			size = 14, wrap = true, color = Palette.mango, sizeConstraint = UDim2.fromScale(1, 1),
 		}))

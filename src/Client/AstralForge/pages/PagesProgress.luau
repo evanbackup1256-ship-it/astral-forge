@@ -791,7 +791,7 @@ local function LabViewReady(_param)
 	local orderBlock = if #lab.Orders > 0 then #lab.Orders * orderH + math.max(0, #lab.Orders - 1) * ORDER_GAP else 160
 	local powerStride = if stack then POWER_ROW_STRIDE_STACK else POWER_ROW_STRIDE
 	local powerBoardH = POWER_ROW_START + #CHANNEL_IDS * powerStride + 10 + 28
-	local heroHeight = if stack then (if chrome.landscape then 156 else 188) else 168
+	local heroHeight = if stack then (if chrome.landscape then 156 else 188) else 132
 	local _exp_2 = not stack and React.createElement(IconTile, {
 		kind = "Lab",
 		accent = Palette.mint,
@@ -905,15 +905,11 @@ local function LabViewReady(_param)
 		_attributes.filled = true
 		_attributes.position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 12)
 		_attributes.size = UDim2.fromOffset(148, 26)
-		_result = React.createElement(React.Fragment, nil, _exp_3, _exp_4, _exp_5, _exp_6, React.createElement(Badge, _attributes), React.createElement(Badge, {
-			value = `{lab.AvailableCells} FREE CELLS`,
-			accent = Palette.mango,
-			position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 46),
-			size = UDim2.fromOffset(148, 24),
-		}), readyOrders > 0 and React.createElement("frame", {
+		-- the headline already says how many cells are free, so no separate badge for it
+		_result = React.createElement(React.Fragment, nil, _exp_3, _exp_4, _exp_5, _exp_6, React.createElement(Badge, _attributes), readyOrders > 0 and React.createElement("frame", {
 			Name = "LabClaimActions",
 			Size = UDim2.fromOffset(148, 36),
-			Position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 78),
+			Position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 46),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ClipsDescendants = false,
