@@ -16946,6 +16946,18 @@ local function PlayerlistOverlay(_param)
 			sizeConstraint = UDim2.new(1, 0, 0, 36),
 			zIndex = 620,
 		})
+	elseif #rows <= 1 then
+		-- alone in the server: say so, and what bringing people in is worth
+		listChildren.empty = React.createElement(Text, {
+			value = "Only you here right now. Friends who join add to the friend boost, and anyone here can trade, crew up or visit your forge.",
+			size = 12,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			wrap = true,
+			layoutOrder = 9999,
+			sizeConstraint = UDim2.new(1, -24, 0, 54),
+			zIndex = 620,
+		})
 	end
 
 	local chips = {}
