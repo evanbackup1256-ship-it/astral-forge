@@ -99,7 +99,11 @@ local function DomainConstellation(props)
 	local drag = React.useRef({ active = false, origin = Vector2.zero, start = Vector2.zero, moved = false })
 	local live = not props.softMotion
 	local clock = motion.useClock(live, 0.35, 1)
+	-- the how-to hint is for first look only: it fades once you've panned or zoomed
+	local learned, setLearned = React.useState(false)
+	local hintFade = motion.useFlipperSpring(if learned then 1 else 0, props.softMotion, 260, 30)
 	local function zoomBy(factor)
+		setLearned(true)
 		setZoom(math.clamp(zoom:getValue() * factor, 0.35, 1.8))
 	end
 	local function fit()
@@ -248,6 +252,7 @@ local function DomainConstellation(props)
 		[React.Event.InputBegan] = function(_, input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 				drag.current = { active = true, origin = pan:getValue(), start = Vector2.new(input.Position.X, input.Position.Y), moved = false }
+				setLearned(true)
 			end
 		end,
 		[React.Event.InputChanged] = function(_, input)
@@ -265,14 +270,28 @@ local function DomainConstellation(props)
 			Scale = h("uiscale", { Scale = zoom }),
 			Content = h("frame", { Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1 }, content),
 		}),
-		ZoomOut = h(ui.Button, { text = "-", onClick = function() zoomBy(1 / 1.2) end, size = UDim2.fromOffset(48, 48),
+		ZoomOut = h(ui.Button, { text = "−", onClick = function() zoomBy(1 / 1.2) end, size = UDim2.fromOffset(48, 48),
 			position = UDim2.new(0, 8, 1, -54), outline = true, color = P.cyan, reducedMotion = props.softMotion, zIndex = 720 }),
 		Fit = h(ui.Button, { text = "FIT", onClick = fit, size = UDim2.fromOffset(76, 48), position = UDim2.new(0, 64, 1, -54),
 			outline = true, color = P.cyan, reducedMotion = props.softMotion, zIndex = 720 }),
 		ZoomIn = h(ui.Button, { text = "+", onClick = function() zoomBy(1.2) end, size = UDim2.fromOffset(48, 48),
 			position = UDim2.new(0, 148, 1, -54), outline = true, color = P.cyan, reducedMotion = props.softMotion, zIndex = 720 }),
-		Hint = h(ui.Text, { value = "Drag to look around. Scroll or pinch to zoom.", size = 12, color = P.muted,
-			align = Enum.TextXAlignment.Right, position = UDim2.new(0, 210, 1, -44), sizeConstraint = UDim2.new(1, -222, 0, 28), zIndex = 720 }),
+		-- on a dark pill so it stays readable over nodes and links
+		Hint = h("frame", {
+			Size = UDim2.fromOffset(0, 28), AutomaticSize = Enum.AutomaticSize.X,
+			AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -14),
+			BackgroundColor3 = P.ink, BackgroundTransparency = hintFade:map(function(a) return 0.15 + 0.85 * math.clamp(a, 0, 1) end),
+			BorderSizePixel = 0, ZIndex = 719, Visible = hintFade:map(function(a) return a < 0.99 end),
+		}, {
+			Corner = h("uicorner", { CornerRadius = UDim.new(1, 0) }),
+			Pad = h("uipadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }),
+			Label = h("textlabel", {
+				Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 720,
+				Text = "Drag to look around · scroll or pinch to zoom", TextSize = 12, TextColor3 = P.creamSoft,
+				TextTransparency = hintFade:map(function(a) return math.clamp(a, 0, 1) end),
+				FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold),
+			}),
+		}),
 	})
 end
 

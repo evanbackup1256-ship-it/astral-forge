@@ -1230,10 +1230,11 @@ local function TotalsStrip(props)
 			totals[field] = (totals[field] or 0) + (tonumber(node[field]) or 0)
 		end
 	end
+	-- one row that scrolls sideways: a wrapped second row was cut in half by the strip's height
 	local chips = {
 		Layout = h("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
-			Wraps = true,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
 			Padding = UDim.new(0, 6),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
@@ -1275,11 +1276,19 @@ local function TotalsStrip(props)
 			FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		})
 	end
-	return h("frame", {
+	return h("scrollingframe", {
 		Size = props.size,
 		Position = props.position,
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
 		ClipsDescendants = true,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Palette.lineSoft,
+		ScrollBarImageTransparency = 0.4,
+		HorizontalScrollBarInset = Enum.ScrollBarInset.Always,
 		ZIndex = 30,
 	}, chips)
 end
@@ -1384,7 +1393,12 @@ local function DetailPanel(props)
 		sizeConstraint = UDim2.new(1, -78, 0, 18),
 		zIndex = 31,
 	}), h(Text, {
-		value = node.Description or "",
+		-- skipped when it only restates the effect line above it
+		value = (function()
+			local desc = node.Description or ""
+			local function bare(text) return string.lower((string.gsub(text, "[%s%.]", ""))) end
+			return if bare(desc) == bare(effectText(field, tonumber(node[field]) or 0)) then "" else desc
+		end)(),
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
@@ -1396,7 +1410,7 @@ local function DetailPanel(props)
 		Position = UDim2.fromOffset(12, 98),
 		BackgroundTransparency = 1,
 		ZIndex = 31,
-	}, prereqs), showH >= 150 and h("frame", {
+	}, prereqs), showH >= 96 and h("frame", {
 		Name = "Showcase",
 		Size = UDim2.fromOffset(width - 24, showH),
 		Position = UDim2.fromOffset(12, showTop),

@@ -40,7 +40,7 @@ assert(stage:find("path[node.Id] and (origin.id == \"core\" or path[origin.id])"
 assert(stage:find('Name = "SelectNode"', 1, true), "node selection retains a distinct hit area")
 assert(not stage:find('"viewportframe"', 1, true), "the constellation must not create 3D viewports")
 assert(stage:find('"LayoutGuardIgnore", true', 1, true) and stage:find('"NoMotion", true', 1, true), "the stage must own its geometry")
-for _, text in { "-", "FIT", "+" } do
+for _, text in { "\u{2212}", "FIT", "+" } do
 	assert(stage:find(`text = "{text}"`, 1, true), "touch view controls remain available")
 end
 assert(body:find('Name = "DomainMobileBody"', 1, true), "mobile details remain scrollable")
