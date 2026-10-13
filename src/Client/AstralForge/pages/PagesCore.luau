@@ -490,8 +490,15 @@ local function progressLadder(state, config, limit: number): { string }
 end
 
 -- puts the "Ready now" strip first when it is shown
+-- With the Ready strip on screen, the "ops" card (claims across Missions, Lab, Forge Path) only
+-- repeated it lower down, so it is left out.
 local function withReady(entry, sections)
 	if entry ~= nil then
+		for index = #sections, 1, -1 do
+			if sections[index].id == "ops" then
+				table.remove(sections, index)
+			end
+		end
 		table.insert(sections, 1, entry)
 	end
 	return sections
@@ -1512,7 +1519,9 @@ local function OverviewView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = "Spend this run to rank Domain.",
+		value = if domain.CanExpand then `Domain rank {domain.Rank + 1} is ready`
+			elseif asFlux(state.Rebirths) < asFlux(domain.RequiredRebirths) then `{compactNumber(math.max(1, asFlux(domain.RequiredRebirths) - asFlux(state.Rebirths)))} more rebirths to Domain rank {domain.Rank + 1}`
+			else `More astral cores for Domain rank {domain.Rank + 1}`,
 		size = if phone then 20 else 23,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -2094,14 +2103,14 @@ local function RebirthPanel(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement(Text, {
-		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH {rebirths + 1}`,
+		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH · {rebirths} DONE`,
 		size = 10,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if igniting then "Cancel now or the run resets." elseif confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Rebirth often: gates open by count.",
+		value = if igniting then "Cancel now or the run resets." elseif confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." elseif canRebirth then `Rebirth {rebirths + 1} is ready` else `{math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}% of the way to rebirth {rebirths + 1}`,
 		size = if stack then 19 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,

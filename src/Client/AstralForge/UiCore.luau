@@ -11152,7 +11152,7 @@ local function NextUnlockStrip(_param)
 		BackgroundTransparency = if hovered then 0.96 else 1,
 		BorderSizePixel = 0,
 	}), React.createElement(Text, {
-		value = `Level {level}`,
+		value = `Forge {level}`,
 		size = 13,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -11175,7 +11175,7 @@ local function NextUnlockStrip(_param)
 		BackgroundColor3 = Palette.lineSoft,
 		BorderSizePixel = 0,
 	}), React.createElement(Text, {
-		value = if nextStep ~= nil then nextStep.Text else "Every level reached",
+		value = if nextStep ~= nil then nextStep.Text else "Top forge level · every feature is open",
 		size = 12,
 		color = Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,

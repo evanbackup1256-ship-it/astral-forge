@@ -872,7 +872,7 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 		then (if phone then (if landscapePhone then 248 else 300) else (if ultraOverview then 220 else 208))
 		else 0
 	local domainH = if domainVisible
-		then (if phone then (if landscapePhone then 268 else 320) else (if ultraOverview then 236 else 224))
+		then (if phone then (if landscapePhone then 268 else 320) else (if ultraOverview then 196 else 188)) -- desktop content ends ~150px in
 		else 0
 	local notesH = if stack
 		then (if landscapePhone then 132 else 168)
