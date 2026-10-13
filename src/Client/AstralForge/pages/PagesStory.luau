@@ -1914,6 +1914,18 @@ local function EchoForgeView(_param)
 	React.useEffect(function()
 		return setArmedUid(nil)
 	end, { #echoes.Inventory })
+	-- an unanswered SURE? on Break quietly disarms
+	React.useEffect(function()
+		if armedUid == nil then
+			return nil
+		end
+		local lapse = task.delay(4, function()
+			setArmedUid(nil)
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { armedUid })
 	local linkedUids = {}
 	for _, slot in echoes.Equipped do
 		if slot.Echo ~= nil then
@@ -3203,6 +3215,18 @@ local function DetailPanel(_param)
 		end
 	end
 	local target, setTarget = React.useState(_condition_1)
+	local salvageArmedFor, setSalvageArmedFor = React.useState(nil)
+	React.useEffect(function()
+		if salvageArmedFor == nil then
+			return nil
+		end
+		local lapse = task.delay(4, function()
+			setSalvageArmedFor(nil)
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { salvageArmedFor })
 	React.useEffect(function()
 		setTarget(function(current)
 			if item.equippedOn ~= nil then
@@ -3314,11 +3338,18 @@ local function DetailPanel(_param)
 			highlight = canUpgrade,
 		})
 	end
+	-- salvaging destroys the relic, so it takes a second tap within a few seconds
+	local salvageArmed = salvageArmedFor == item.uid
 	local salvageBtn = function(size, position)
 		return React.createElement(Button, {
-			text = `SALVAGE  +{salvage}`,
+			text = if salvageArmed then `TAP AGAIN TO SALVAGE · +{salvage}` else `SALVAGE  +{salvage}`,
 			icon = "Dust",
 			onClick = function()
+				if not salvageArmed then
+					setSalvageArmedFor(item.uid)
+					return nil
+				end
+				setSalvageArmedFor(nil)
 				return dispatch("SalvageItem", {
 					Uid = item.uid,
 				})
