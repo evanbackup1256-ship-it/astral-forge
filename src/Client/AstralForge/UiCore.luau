@@ -15413,7 +15413,7 @@ local function OfflineRewardsOverlay(_param)
 	local roomH = math.max(240, viewport.height - viewport.topInset - chrome.bottomSafe - 24)
 	local fullInner = statsBottom + 48 + TapTarget * 2 + 8
 	local shortInner = statsBottom + 14 + TapTarget
-	local cardHeight = if roomH >= fullInner + 28 then math.min(if stack then 468 else 420, roomH) else math.min(shortInner + 28, roomH)
+	local cardHeight = if roomH >= fullInner + 28 then math.min(math.max(if stack then 468 else 420, fullInner + 28), roomH) else math.min(shortInner + 28, roomH)
 	local innerHeight = cardHeight - 28
 	local shortCard = innerHeight < fullInner
 	local tinyCard = shortCard and innerHeight < statsBottom + 10 + TapTarget
@@ -20750,9 +20750,10 @@ local function LiveSplash(_param)
 	local def = _param.def
 	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 420, 26, 0)
 	local accent = accentOf(def)
+	-- centred, below the toasts that open at the top of the page (they carry the how-to line)
 	return React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 120),
-		Position = UDim2.fromScale(0.5, 0.38),
+		Position = UDim2.fromScale(0.5, 0.56),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = darken(accent, 0.7),
 		BackgroundTransparency = show:map(function(amount)

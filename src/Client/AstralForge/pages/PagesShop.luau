@@ -777,7 +777,7 @@ local function ShopView(_param)
 	local codesH = codePanelH + Layout.panelGap + followPanelH
 	local pageGap = if stack then Layout.stackGap else Layout.panelGap
 	local offerStride = packedH + pageGap
-	local heroH = if stack then 104 else 124
+	local heroH = if stack then 104 else 92 -- same height as the other shop tabs' headers
 	local tabRowH = if stack then TapTarget else 50
 	local sectionLabelH = 34
 	local codeReady = (string.gsub(code, "%s", "")) ~= ""
@@ -871,36 +871,31 @@ local function ShopView(_param)
 	})) else React.createElement(React.Fragment, nil, React.createElement(IconTile, {
 		kind = "Shop",
 		accent = Palette.mango,
-		size = 52,
-		radius = 14,
-		position = UDim2.fromOffset(0, 16),
+		size = 44,
+		radius = 12,
+		position = UDim2.fromOffset(0, 4),
 		glow = true,
 		reducedMotion = softMotion,
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, -68, 0, 94),
-		Position = UDim2.fromOffset(64, 8),
+		Size = UDim2.new(1, -60, 0, 60),
+		Position = UDim2.fromOffset(60, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, React.createElement(Badge, {
-		value = "SHOP",
-		accent = Palette.mango,
-		filled = true,
-		size = UDim2.fromOffset(68, 20),
-	}), React.createElement(Text, {
+	}, React.createElement(Text, {
 		value = "Passes, packs and codes",
-		size = 26,
+		size = 24,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(0, 22),
-		sizeConstraint = UDim2.new(1, 0, 0, 32),
+		position = UDim2.fromOffset(0, 0),
+		sizeConstraint = UDim2.new(1, 0, 0, 30),
 	}), React.createElement(Text, {
 		value = monetization.Error or banner,
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(0, 58),
+		position = UDim2.fromOffset(0, 32),
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
 	}))))
 	local tabsBar = React.createElement(SegmentedTabs, {

@@ -4619,7 +4619,7 @@ local function InventoryView(_param)
 		position = UDim2.fromOffset(if stack then 50 else 56, 2),
 		sizeConstraint = UDim2.new(1, if stack then -58 else -20, 0, 16),
 	}), React.createElement(ShimmerText, {
-		value = "Relics, crates and loadout",
+		value = if tab == "Crates" then "Open crates for new relics" elseif tab == "Market" then "Crate keys and live stock" elseif tab == "Loadout" then "What your sockets add" else `{filled} of {limit} relics in your bag`,
 		size = if stack then 18 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
