@@ -4629,6 +4629,8 @@ local function InventoryView(_param)
 		enabled = not softMotion,
 		periodSeconds = 4.8,
 	}), React.createElement("frame", {
+		-- the Relics toolbar already shows bag and essence; the hero only repeats them on other tabs
+		Visible = tab ~= "Relics",
 		Size = if stack then UDim2.new(1, 0, 0, 28) else UDim2.fromOffset(220, 30),
 		Position = if stack then UDim2.new(0, 0, 1, -28) else UDim2.new(1, -220, 0.5, -15),
 		BackgroundTransparency = 1,
