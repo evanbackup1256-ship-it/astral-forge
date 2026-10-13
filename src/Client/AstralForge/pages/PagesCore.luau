@@ -1903,6 +1903,7 @@ local function RebirthPanel(_param)
 	local ignite, setIgnite = React.useBinding(0)
 	local mountedRef = React.useRef(true)
 	local ignitionRef = React.useRef(nil)
+	local confirmArmedRef = React.useRef(nil)
 	local rebirthClaimHostRef = React.useRef(nil)
 	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
 	local confirmReveal = useStagger(0, softMotion)
@@ -1949,6 +1950,19 @@ local function RebirthPanel(_param)
 			setConfirming(false)
 		end
 	end, { canRebirth })
+	React.useEffect(function()
+		if not confirming or igniting or busy then
+			return nil
+		end
+		local lapse = task.delay(6, function()
+			if mountedRef.current then
+				setConfirming(false)
+			end
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { confirming, igniting, busy })
 	local commit = function()
 		setBusy(true)
 		dispatch("Rebirth", {}, function(response)
@@ -2007,13 +2021,22 @@ local function RebirthPanel(_param)
 		setIgniting(false)
 		Audio:play("close")
 	end
+	-- The confirm step disarms itself: a second press only counts within CONFIRM_WINDOW seconds of the
+	-- first and not as part of the same double-click, so a stray tap later can never start a reset.
+	local CONFIRM_WINDOW, CONFIRM_MIN_GAP = 6, 0.35
 	local rebirth = function()
 		if not canRebirth or busy or igniting then
 			return nil
 		end
-		if not confirming then
+		local armedAt = confirmArmedRef.current
+		local elapsed = if armedAt ~= nil then os.clock() - armedAt else math.huge
+		if not confirming or elapsed > CONFIRM_WINDOW then
+			confirmArmedRef.current = os.clock()
 			setConfirming(true)
 			Audio:play("preview")
+			return nil
+		end
+		if elapsed < CONFIRM_MIN_GAP then
 			return nil
 		end
 		beginIgnition()

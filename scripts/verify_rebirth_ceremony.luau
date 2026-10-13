@@ -38,4 +38,13 @@ assert(not string.find(rebirthServer, "%d cores", 1, true), "rebirth message mus
 assert(string.find(rebirthServer, "MultiplierAfter = Economy.PermanentMultiplier(profile)", 1, true), "rebirth returns new multiplier")
 assert(string.find(rebirthServer, "Rebirths = profile.Rebirths", 1, true), "rebirth returns new count")
 
+-- the confirm step must disarm: a stray second press long after the first may not start a reset
+do
+	local panel = require("@lune/fs").readFile("src/Client/AstralForge/pages/PagesCore.luau")
+	assert(panel:find("local CONFIRM_WINDOW, CONFIRM_MIN_GAP = 6, 0.35", 1, true), "rebirth confirm has a time window")
+	assert(panel:find("if not confirming or elapsed > CONFIRM_WINDOW then", 1, true), "an expired confirm re-arms instead of firing")
+	assert(panel:find("if elapsed < CONFIRM_MIN_GAP then", 1, true), "a double-click cannot confirm itself")
+	assert(panel:find("local lapse = task.delay(6, function()", 1, true), "the armed state visibly lapses")
+end
+
 print("[INFO] [TEST] rebirth ceremony guards passed")
