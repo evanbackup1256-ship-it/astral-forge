@@ -9597,7 +9597,7 @@ local function RailButton(_param)
 		return math.clamp(value, 0, 1) * rowTilt
 	end)
 	local iconSize = if collapsed then 34 else 30
-	local iconX = if collapsed then math.floor((Layout.sidebarCollapsedWidth - SHELL_CHROME.railGutter * 2 - iconSize) / 2) else 12
+	local iconX = if collapsed then math.floor((Layout.sidebarCollapsedWidth - SHELL_CHROME.railGutter * 2 - 4 - iconSize) / 2) else 12
 	local markHover = function()
 		if disabled then
 			return nil
@@ -10549,20 +10549,23 @@ local function NavGroup(_param)
 		local badgeW = if badgeTotal > 99 then 20 elseif badgeTotal >= 10 then 16 else 14
 		local countShift = if showBadge and not collapsed then badgeW + 6 else 0
 		if collapsed then
+			headerChildren.label = React.createElement(Text, {
+				value = string.upper(_param.label),
+				size = 9,
+				color = labelColor,
+				weight = Enum.FontWeight.Heavy,
+				align = Enum.TextXAlignment.Center,
+				fit = true,
+				minSize = 7,
+				position = UDim2.fromOffset(2, 0),
+				sizeConstraint = UDim2.new(1, -4, 1, -2),
+			})
 			headerChildren.rule = React.createElement("frame", {
-				Size = UDim2.new(0.5, 0, 0, 2),
-				Position = UDim2.new(0.5, 0, 0, 4),
-				AnchorPoint = Vector2.new(0.5, 0),
-				BackgroundColor3 = selectionAccent,
-				BackgroundTransparency = if hasActive then 0.2 else 0.55,
+				Size = UDim2.new(1, -12, 0, 1),
+				Position = UDim2.new(0, 6, 1, -1),
+				BackgroundColor3 = if hasActive then selectionAccent else Palette.lineSoft,
+				BackgroundTransparency = if hasActive then 0.35 else 0.7,
 				BorderSizePixel = 0,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(1, 0),
-			}))
-			headerChildren.chevron = React.createElement(NavChevron, {
-				openAmount = openAmount,
-				color = Palette.muted,
-				position = UDim2.new(0.5, 0, 1, -5),
 			})
 		else
 			headerChildren.label = React.createElement(Text, {
@@ -10604,8 +10607,8 @@ local function NavGroup(_param)
 				count = badgeTotal,
 				zIndex = 12,
 				compact = true,
-				position = if collapsed then nil else UDim2.new(1, -8, 0.5, 0),
-				anchorPoint = if collapsed then nil else Vector2.new(1, 0.5),
+				position = if collapsed then UDim2.new(1, -1, 0, 1) else UDim2.new(1, -8, 0.5, 0),
+				anchorPoint = if collapsed then Vector2.new(1, 0) else Vector2.new(1, 0.5),
 			})
 		end
 		header = React.createElement("textbutton", {
@@ -10757,7 +10760,7 @@ local function Navigation(_param)
 	local boostReserve = if showBoost then boostHeight + SHELL_CHROME.railGutter * 2 else 0
 	local railScrollRef = React.useRef(nil)
 	local grouped = includeSecondary and not fromMore
-	local groupHeaderH = if collapsed then 18 else 30
+	local groupHeaderH = if collapsed then 22 else 30
 	local activeGroup = navGroupOf(page)
 	local groupOpen, setGroupOpen = React.useState(function()
 		return table.clone(railGroupMemory)
@@ -10876,12 +10879,12 @@ local function Navigation(_param)
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollBarThickness = 3,
+		ScrollBarThickness = if collapsed then 0 else 3,
 		ScrollBarImageColor3 = Palette.lineSoft,
 		ScrollBarImageTransparency = 0.28,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+		VerticalScrollBarInset = if collapsed then Enum.ScrollBarInset.None else Enum.ScrollBarInset.ScrollBar,
 		ClipsDescendants = true,
 		Active = true,
 		Selectable = false,
