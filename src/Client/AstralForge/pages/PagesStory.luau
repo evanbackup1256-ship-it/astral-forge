@@ -2794,7 +2794,7 @@ local function BulkDock(_param)
 		disabled = selectableCount == 0,
 		outline = true,
 	}), React.createElement(Button, {
-		text = if bulkBusy then "SALVAGING" elseif selectedCount > 0 then `DELETE {selectedCount}  +{compactNumber(selectionEssence)} ESS` else "CLEAR PICKS",
+		text = if bulkBusy then "SALVAGING" elseif selectedCount > 0 and _param.bulkArmed then `TAP AGAIN · SALVAGE {selectedCount}` elseif selectedCount > 0 then `SALVAGE {selectedCount}  +{compactNumber(selectionEssence)} ESS` else "CLEAR PICKS",
 		icon = "Dust",
 		onClick = if selectedCount > 0 then salvageSelected else clearSelection,
 		color = if selectedCount > 0 then Palette.coral else Palette.panelSoft,
@@ -4428,6 +4428,18 @@ local function InventoryView(_param)
 	local clearSelection = function()
 		return setBulkSelected({})
 	end
+	local bulkArmed, setBulkArmed = React.useState(false)
+	React.useEffect(function()
+		if not bulkArmed then
+			return nil
+		end
+		local lapse = task.delay(4, function()
+			setBulkArmed(false)
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { bulkArmed, #selectedForBulk })
 	local runAutoNow = function()
 		if autoBusy or bulkBusy or not passOwned or not autoRules.Enabled then
 			return nil
@@ -4467,6 +4479,12 @@ local function InventoryView(_param)
 		if #selectedForBulk == 0 or bulkBusy then
 			return nil
 		end
+		-- first press arms (the button asks again), the second within 4 seconds salvages
+		if not bulkArmed then
+			setBulkArmed(true)
+			return nil
+		end
+		setBulkArmed(false)
 		setBulkBusy(true)
 		local _object = {}
 		local _left = "Uids"
@@ -4790,6 +4808,7 @@ local function InventoryView(_param)
 					selectVisible = selectVisible,
 					clearSelection = clearSelection,
 					salvageSelected = salvageSelected,
+		bulkArmed = bulkArmed,
 					bulkBusy = bulkBusy,
 					reducedMotion = reducedMotion,
 				}),
