@@ -169,26 +169,27 @@ local function BazaarView(props)
 		end)
 	end
 	local sections = {}
+	local viewportWidth = if workspace.CurrentCamera then workspace.CurrentCamera.ViewportSize.X else nil
 	local function add(id, height, element) table.insert(sections, { id = id, height = height, element = element }) end
 	local left = if market then math.max(0, market.EndsAt - now) else 0
 	local expired = market ~= nil and left == 0
-	add("market-header", 218, h(Ui.Panel, {
+	-- one row: title on the left, the next shipment and Refresh on the right; one line of rules below
+	add("market-header", if viewportWidth ~= nil and viewportWidth < 760 then 148 else 112, h(Ui.Panel, {
 		size = UDim2.fromScale(1, 1), padding = 16, accent = Palette.violet, background = Palette.panelRaised,
 		reducedMotion = props.reducedMotion,
-	}, h(Ui.Text, { value = "Black Market", size = 28, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, 0, 0, 38) }),
+	}, h(Ui.Text, { value = "Black Market", size = 28, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, -300, 0, 38) }),
 		h(Ui.Text, {
-			value = if market then `{#market.Offers} shipments from a {market.CatalogSize}-item catalog. Stock limits are yours, not a race against other players.` else "Opening the supply ledger...",
-			size = 13, wrap = true, color = Palette.muted, position = UDim2.fromOffset(0, 44), sizeConstraint = UDim2.new(1, 0, 0, 48),
-		}), h(Ui.Text, {
-			value = "Prices use your steady production: the listed discount is applied to a fixed amount of production time, with a 1,000-flux minimum.",
-			size = 13, wrap = true, color = Palette.muted, position = UDim2.fromOffset(0, 148), sizeConstraint = UDim2.new(1, 0, 0, 54),
-		}), h(Ui.Text, {
 			value = if expired then "New stock is ready" elseif market then "Next shipment in " .. Format.clockText(left) else "Waiting for stock",
-			size = 13, color = Palette.violet, position = UDim2.fromOffset(0, 104), sizeConstraint = UDim2.new(1, -124, 0, 40), wrap = true,
+			size = 14, weight = Enum.FontWeight.Bold, color = Palette.violet, align = Enum.TextXAlignment.Right,
+			position = UDim2.new(1, -292, 0, 2), sizeConstraint = UDim2.fromOffset(170, 36),
 		}), h(Ui.Button, {
-			text = "Refresh", size = UDim2.fromOffset(112, 48), position = UDim2.new(1, -112, 0, 98),
+			text = "Refresh", size = UDim2.fromOffset(112, 40), position = UDim2.new(1, -112, 0, 0),
 			color = Palette.violet, disabled = busy, reducedMotion = props.reducedMotion,
 			onClick = function() request("GetState", {}) end,
+		}), h(Ui.Text, {
+			value = (if market then `{#market.Offers} shipments from a {market.CatalogSize}-item catalog. Stock limits are yours alone. ` else "Opening the supply ledger... ")
+				.. "Prices follow your steady production, with a 1,000-flux minimum.",
+			size = 13, wrap = true, color = Palette.muted, position = UDim2.fromOffset(0, 50), sizeConstraint = UDim2.new(1, 0, 0, 44),
 		})))
 	if note ~= "" then
 		add("receipt", 80, h(Ui.Text, { value = note, size = 14, wrap = true, sizeConstraint = UDim2.fromScale(1, 1), color = Palette.creamSoft }))

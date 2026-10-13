@@ -50,7 +50,7 @@ local bulkCost = _format.bulkCost
 local amountPayload = _format.amountPayload
 local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
 local VirtualGrid = require(script.Parent.Parent.LayoutKit)("scrolling").VirtualGrid
-local NODE_ROW_HEIGHT = 150
+local NODE_ROW_HEIGHT = 116 -- content ends at 86px plus padding; taller only added an empty band
 local NODE_ROW_HEIGHT_STACK = 190
 local CONNECTOR_HEIGHT = 22
 local function researchEffectLine(entry)
