@@ -24,7 +24,8 @@ local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local BrandArt = require(script.Parent.ArtKit)("Icon")
 local useViewport = require(script.Parent.MotionKit)("motion").useViewport
-local EMBER_COUNT = 9
+local STAR_COUNT = 30
+local TICK_COUNT = 36
 local BootStageText = __load("BootStageText").BootStageText
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
@@ -110,9 +111,7 @@ local function bootProgress(marks, assetsLoaded, assetsTotal, modulesLoaded, mod
 end
 local function BootScreen(_param)
 	local short = useViewport().height < 420
-	local centerY = if short then 0.32 else 0.4
-	local markSize = if short then 72 else 112
-	local contentOffset = if short then 62 else 92
+	local centerY = if short then 0.4 else 0.42
 	local marks = _param.marks
 	local ready = _param.ready
 	local reducedMotion = _param.reducedMotion
@@ -300,32 +299,194 @@ local function BootScreen(_param)
 		end)
 	end
 
-	local embers = {}
-	for index = 1, EMBER_COUNT do
+	-- the forge core: a ring of ticks that light up as loading goes, two counter-rotating orbits,
+	-- a breathing glow and stars streaming out of the middle
+	local coreSize = if short then 132 else 212
+	local coreY = if short then -34 else -54
+	local wordY = if short then 44 else 70
+	local statusY = if short then 92 else 142
+	local driftRate = if softMotion then 0.5 else 1
+	local orbitRate = if softMotion then 0.45 else 1
+
+	local stars = {}
+	for index = 1, STAR_COUNT do
 		local seed = math.abs(math.sin(index * 12.9898) * 43758.5453) % 1
 		local seedB = math.abs(math.sin(index * 78.233) * 12345.678) % 1
-		local speed = 0.05 + seedB * 0.05
-		local size = 2 + math.floor(seed * 2)
-		embers["ember" .. index] = React.createElement("frame", {
-			Size = UDim2.fromOffset(size, size),
+		local angle = seed * math.pi * 2
+		local speed = (0.05 + seedB * 0.07) * driftRate
+		local warm = index % 3 == 0
+		stars["star" .. index] = React.createElement("frame", {
+			Size = clock:map(function(t)
+				local r = (t * speed + seedB) % 1
+				local px = 1 + math.floor(r * 3)
+				return UDim2.fromOffset(px, px)
+			end),
 			Position = clock:map(function(t)
-				local rise = (t * speed + seed) % 1
-				local sway = math.sin(t * (0.6 + seedB) + index) * 0.01
-				return UDim2.fromScale(0.1 + seed * 0.8 + sway, 1.02 - rise * 0.5)
+				local r = (t * speed + seedB) % 1
+				local reach = 0.08 + r * r * 0.62
+				return UDim2.fromScale(0.5 + math.cos(angle) * reach, centerY + math.sin(angle) * reach * 1.3)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = if index % 2 == 0 then Palette.mango else Palette.ember,
+			BackgroundColor3 = if warm then Palette.mango else Palette.cream,
 			BackgroundTransparency = React.joinBindings({ clock, veilHide }):map(function(values)
-				local rise = (values[1] * speed + seed) % 1
-				return math.clamp(0.45 + rise * 1.2 + values[2], 0, 1)
+				local r = (values[1] * speed + seedB) % 1
+				local fade = if r < 0.15 then 1 - r / 0.15 else (if r > 0.85 then (r - 0.85) / 0.15 else 0)
+				return math.clamp(0.25 + fade * 0.75 + values[2], 0, 1)
 			end),
 			BorderSizePixel = 0,
 			ZIndex = 2,
-		})
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}))
 	end
 
-	local barW = 300
-	local barH = 10
+	local ticks = {}
+	for index = 0, TICK_COUNT - 1 do
+		local share = index / TICK_COUNT
+		local radians = math.rad(-90 + share * 360)
+		ticks["tick" .. index] = React.createElement("frame", {
+			Size = UDim2.fromOffset(if short then 3 else 4, if short then 9 else 13),
+			Position = UDim2.fromScale(0.5 + math.cos(radians) * 0.47, 0.5 + math.sin(radians) * 0.47),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = math.deg(radians) + 90,
+			BackgroundColor3 = shownProgress:map(function(shown)
+				if share < shown then
+					return if shown - share < 1 / TICK_COUNT * 2 then Palette.cream else Palette.mango
+				end
+				return Palette.graphite
+			end),
+			BackgroundTransparency = React.joinBindings({ shownProgress, progressPulse, hidden }):map(function(values)
+				local lit = share < values[1]
+				local base = if lit then 0.05 + values[2] * 0.15 else 0.35
+				return math.clamp(base + values[3], 0, 1)
+			end),
+			BorderSizePixel = 0,
+			ZIndex = 7,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}))
+	end
+
+	local function orbit(name, scale, rate, sparks, color)
+		local children = {
+			ring = React.createElement("uistroke", {
+				Color = color,
+				Thickness = 1,
+				Transparency = fadeFrom(0.62),
+			}),
+			corner = React.createElement("uicorner", {
+				CornerRadius = UDim.new(1, 0),
+			}),
+		}
+		for spark = 1, sparks do
+			local radians = (spark - 1) / sparks * math.pi * 2
+			children["spark" .. spark] = React.createElement("frame", {
+				Size = UDim2.fromOffset(if short then 5 else 7, if short then 5 else 7),
+				Position = UDim2.fromScale(0.5 + math.cos(radians) * 0.5, 0.5 + math.sin(radians) * 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = color,
+				BackgroundTransparency = fadeFrom(0),
+				BorderSizePixel = 0,
+				ZIndex = 8,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(1, 0),
+			}))
+		end
+		return React.createElement("frame", {
+			Name = name,
+			Size = UDim2.fromScale(scale, scale),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Rotation = clock:map(function(t)
+				return (t * rate * orbitRate) % 360
+			end),
+			ZIndex = 6,
+		}, children)
+	end
+
+	local core = React.createElement("frame", {
+		Name = "BootCore",
+		Size = UDim2.fromOffset(coreSize, coreSize),
+		Position = UDim2.new(0.5, 0, centerY, coreY),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+		Visible = showing,
+	}, React.createElement("uiscale", {
+		Scale = React.joinBindings({ progressPulse, spinFade }):map(function(values)
+			return 1 + values[1] * 0.012 + values[2] * 0.22
+		end),
+	}), React.createElement("frame", {
+		Name = "Glow",
+		Size = progressPulse:map(function(pulse)
+			local s = 0.78 + pulse * 0.06
+			return UDim2.fromScale(s, s)
+		end),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.ember,
+		BackgroundTransparency = React.joinBindings({ progressPulse, hidden }):map(function(values)
+			return math.clamp(0.8 - values[1] * 0.06 + values[2], 0, 1)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 5,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uigradient", {
+		Color = ColorSequence.new(Palette.mango, Palette.ember),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.6),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 0.6),
+		}),
+		Rotation = clock:map(function(t)
+			return (t * 40 * orbitRate) % 360
+		end),
+	})), React.createElement("frame", {
+		Name = "Ticks",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 7,
+	}, ticks), orbit("OuterOrbit", 0.8, 34, 3, Palette.mango), orbit("InnerOrbit", 0.62, -52, 2, Palette.cream), React.createElement("imagelabel", {
+		Size = UDim2.fromScale(0.42, 0.42),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Image = BrandArt.COMPACT_MARK_ASSET,
+		ImageTransparency = fadeFrom(0),
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 9,
+	}))
+
+	-- on ready a shockwave leaves the core before the veil lifts
+	local shockwave = React.createElement("frame", {
+		Size = spinFade:map(function(amount)
+			local s = coreSize * (1 + amount * 2.4)
+			return UDim2.fromOffset(s, s)
+		end),
+		Position = UDim2.new(0.5, 0, centerY, coreY),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 4,
+		Visible = spinFade:map(function(amount)
+			return amount > 0.01 and amount < 0.99
+		end),
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = Palette.mango,
+		Thickness = 3,
+		Transparency = spinFade:map(function(amount)
+			return math.clamp(0.1 + amount * 0.9, 0, 1)
+		end),
+	}))
+
+	local percent = shownProgress:map(function(shown)
+		return `{math.floor(math.clamp(shown, 0, 1) * 100 + 0.5)}%`
+	end)
+
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
@@ -337,55 +498,21 @@ local function BootScreen(_param)
 		Visible = veilFade:map(function(amount)
 			return amount < 0.995
 		end),
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1.4, 0.7),
-		Position = UDim2.fromScale(0.5, 1.12),
-		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundColor3 = Palette.ember,
-		BackgroundTransparency = React.joinBindings({ progressPulse, veilHide }):map(function(values)
-			return math.clamp(0.72 - values[1] * 0.05 + values[2], 0, 1)
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.mango, Palette.ember),
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.55, 0.55),
-			NumberSequenceKeypoint.new(1, 0.2),
+	}, React.createElement("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.void),
+			ColorSequenceKeypoint.new(0.5, Palette.night),
+			ColorSequenceKeypoint.new(1, Palette.void),
 		}),
 		Rotation = 90,
-	})), React.createElement("frame", {
+	}), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		ZIndex = 2,
-	}, embers), React.createElement("frame", {
-		Size = UDim2.fromOffset(markSize, markSize),
-		Position = UDim2.new(0.5, 0, centerY, if short then -30 else -40),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 5,
-		Visible = showing,
-	}, React.createElement("uiscale", {
-		Scale = React.joinBindings({ progressPulse, spinFade }):map(function(values)
-			return 1 + values[1] * 0.025 - values[2] * 0.08
-		end),
-	}), React.createElement("imagelabel", {
-		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		Image = BrandArt.COMPACT_MARK_ASSET,
-		ImageTransparency = fadeFrom(0),
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 6,
-	})), React.createElement("imagelabel", {
+	}, stars), core, shockwave, React.createElement("imagelabel", {
 		Name = "BootWordmark",
-		Size = UDim2.new(0.8, 0, 0, if short then 48 else 68),
-		Position = UDim2.new(0.5, 0, centerY, if short then 12 else 20),
+		Size = UDim2.new(0.8, 0, 0, if short then 40 else 60),
+		Position = UDim2.new(0.5, 0, centerY, wordY),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		Image = BrandArt.WORDMARK_ASSET,
@@ -394,41 +521,8 @@ local function BootScreen(_param)
 		ZIndex = 6,
 		Visible = showing,
 	}), React.createElement("frame", {
-		Size = UDim2.new(0.72, 0, 0, barH),
-		Position = UDim2.new(0.5, 0, centerY, contentOffset),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Palette.graphite,
-		BackgroundTransparency = fadeFrom(0),
-		BorderSizePixel = 0,
-		ZIndex = 6,
-		Visible = showing,
-		}, React.createElement("uisizeconstraint", {
-			MaxSize = Vector2.new(barW, barH),
-		}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.brassDeep,
-		Thickness = 1.5,
-		Transparency = fadeFrom(0.1),
-	}), React.createElement("frame", {
-		Size = shownProgress:map(function(shown)
-			return UDim2.new(math.clamp(shown, 0.02, 1), 0, 1, 0)
-		end),
-		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = fadeFrom(0),
-		BorderSizePixel = 0,
-		ZIndex = 7,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Palette.ember),
-			ColorSequenceKeypoint.new(0.7, Palette.mango),
-			ColorSequenceKeypoint.new(1, Palette.cream),
-		}),
-	}))), React.createElement("frame", {
 		Size = UDim2.new(0.9, 0, 0, 20),
-		Position = UDim2.new(0.5, 0, centerY, contentOffset + 20),
+		Position = UDim2.new(0.5, 0, centerY, statusY),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		ZIndex = 6,
@@ -437,31 +531,41 @@ local function BootScreen(_param)
 		text = status,
 		clock = clock,
 		leaving = hidden,
-		reducedMotion = reducedMotion,
-		textSize = 12,
+		reducedMotion = softMotion,
+		textSize = 13,
 		color = Palette.creamSoft,
 		height = 20,
 	})), React.createElement("textlabel", {
-	Size = UDim2.new(0.9, 0, 0, 14),
-	Position = UDim2.new(0.5, 0, centerY, contentOffset + 42),
-	AnchorPoint = Vector2.new(0.5, 0),
-	BackgroundTransparency = 1,
-	Text = shownProgress:map(function(shown)
-		return `{math.floor(math.clamp(shown, 0, 1) * 100 + 0.5)}%`
-	end),
-		TextColor3 = Palette.muted,
-		TextTransparency = fadeFrom(0.25),
-		TextSize = 11,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		Size = UDim2.new(0.9, 0, 0, 14),
+		Position = UDim2.new(0.5, 0, centerY, statusY + 22),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Text = percent,
+		TextColor3 = Palette.mango,
+		TextTransparency = fadeFrom(0.2),
+		TextSize = 12,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		ZIndex = 6,
 		Visible = showing,
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(0.9, 0, 0, 36),
-		Position = UDim2.new(0.5, 0, 1, -20),
+		Size = UDim2.new(0.86, 0, 0, 14),
+		Position = UDim2.new(0.5, 0, 1, if short then -46 else -62),
+		AnchorPoint = Vector2.new(0.5, 1),
+		BackgroundTransparency = 1,
+		Text = if stalled then "TAKING A WHILE" else "TIP",
+		TextColor3 = Palette.mango,
+		TextTransparency = fadeFrom(0.1),
+		TextSize = 11,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		ZIndex = 6,
+		Visible = showing,
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(0.86, 0, 0, 36),
+		Position = UDim2.new(0.5, 0, 1, if short then -10 else -22),
 		AnchorPoint = Vector2.new(0.5, 1),
 		BackgroundTransparency = 1,
 		Text = if stalled then "Still loading. Your save is safe." else tipText,
-		TextColor3 = Palette.muted,
+		TextColor3 = Palette.creamSoft,
 		TextTransparency = fadeFrom(0.05),
 		TextSize = 13,
 		TextTruncate = Enum.TextTruncate.None,
