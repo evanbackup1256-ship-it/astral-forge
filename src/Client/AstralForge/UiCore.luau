@@ -5940,6 +5940,9 @@ local function MainGame(_param)
 					end
 					lastComboTier.current = if combo >= comboMax then 4 else tier
 				end
+			elseif kind == "Ascension" then
+				Audio:play("discovery")
+				celebrate()
 			elseif kind == "FeatureUnlocked" and not purchasePresentationActive.current then
 				Audio:play("unlock")
 				InteractionFeedback.reward()

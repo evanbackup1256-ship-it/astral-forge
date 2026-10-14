@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 local Specializations = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
+local AscensionMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
 local CapacityProjection = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("CapacityProjection")
 local LevelRewards = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
 local OfflineProjection = __load("OfflineProjection")
@@ -430,6 +431,15 @@ function Economy.DomainRewards(rank: number): (number, number)
 	return ContinuumDomainMath.DomainRewards(GameConfig.Domain, rank)
 end
 
+-- Ascension multiplier for one effect (Production, Capacity, Tap, Cores, Essence, Aether).
+function Economy.AscensionEffect(profile: ProfileLike, kind: string): Persist
+	local state = (profile :: any).Ascension
+	if type(state) ~= "table" then
+		return 1
+	end
+	return AscensionMath.effect(AscensionMath.sanitize(state, OmegaMath), kind, OmegaMath)
+end
+
 function Economy.Production(profile: ProfileLike, now: number?): Persist
 	local research = profile.Research
 	local efficiencyLevel = (type(research) == "table" and research.Efficiency) or 0
@@ -452,6 +462,7 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	multiplier = OmegaMath.Mul(multiplier, Economy.MasteryMultiplier(profile))
 	multiplier = OmegaMath.Mul(multiplier, Economy.AnomalySurgeMultiplier(profile, now))
 	multiplier = OmegaMath.Mul(multiplier, select(1, Economy.ContinuumEffects(profile)))
+	multiplier = OmegaMath.Mul(multiplier, Economy.AscensionEffect(profile, "Production"))
 	local progression = profile.Progression
 	if type(progression) == "table" then
 		multiplier = OmegaMath.Mul(multiplier, 1 + LevelRewards.mastery(tonumber(progression.RewardedLevel) or 0))
@@ -490,7 +501,7 @@ function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
 		},
 		SocialMultiplier = profile.SocialBoost and profile.SocialBoost.Multiplier or 1,
 		MasteryMultiplier = Economy.MasteryMultiplier(profile),
-		ContinuumProduction = select(1, Economy.ContinuumEffects(profile)),
+		ContinuumProduction = OmegaMath.Mul(select(1, Economy.ContinuumEffects(profile)), Economy.AscensionEffect(profile, "Production")),
 	})
 end
 
@@ -537,7 +548,7 @@ function Economy.Capacity(profile: ProfileLike, now: number?, _production: any):
 		output,
 		seconds,
 		continuumCapacity
-	), Specializations.Factor(profile.Specialization, "Capacity"))
+	), OmegaMath.Mul(Specializations.Factor(profile.Specialization, "Capacity"), Economy.AscensionEffect(profile, "Capacity")))
 end
 
 function Economy.CapacitySeconds(profile: ProfileLike, now: number?, _production: any): number
@@ -565,7 +576,7 @@ function Economy.TapPower(profile: ProfileLike, now: number?): Persist
 		Continuum = select(3, Economy.ContinuumEffects(profile)),
 		ForgePath = Economy.ForgePathEffect(profile, "TapPower"),
 		Ore = Economy.OreEffect(profile, "Tap"),
-	}), Specializations.Factor(profile.Specialization, "Tap"))
+	}), OmegaMath.Mul(Specializations.Factor(profile.Specialization, "Tap"), Economy.AscensionEffect(profile, "Tap")))
 end
 
 function Economy.CriticalChance(profile: ProfileLike): number

@@ -35,6 +35,7 @@ local env = setmetatable({
 }, { __index = _G })
 for _, name in { "GridEffect", "EchoEffect", "ArtifactEffect", "ItemEffect", "AnomalyEffect", "ForgePathEffect" } do env.Economy[name] = function() return 0 end end
 env.Economy.ContinuumEffects = function() return 1, 1, 1, 0 end
+env.Economy.AscensionEffect = function() return 1 end
 local start = assert(source:find("function Economy.OfflineEfficiency", 1, true))
 local finish = assert(source:find("function Economy.OfflineEarnings", start, true))
 luau.load(source:sub(start, finish-1), { environment = env })()

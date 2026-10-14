@@ -4537,6 +4537,7 @@ local GameConfig = {
 		Echoes = { Name = "Forge Echoes" },
 		Convergence = { Name = "Forge Convergence" },
 		Continuum = { Name = "Continuum" },
+		Ascension = { Name = "Ascension" },
 		Domain = { Name = "Domain Expansion" },
 		Admin = { Name = "Admin", Kind = "Always", Target = 0, Requirement = "Owner access only" },
 	},

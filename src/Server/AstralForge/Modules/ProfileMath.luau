@@ -981,6 +981,8 @@ ActionFeatureMaps.FEATURE = {
 	DomainExpansion = "Domain",
 	UnlockDomainNode = "Domain",
 	UpgradeContinuum = "Continuum",
+	Ascend = "Ascension",
+	UpgradeSigil = "Ascension",
 	CaptureEcho = "Echoes",
 	ClaimEcho = "Echoes",
 	EquipEcho = "Echoes",
@@ -1123,6 +1125,7 @@ CommandActionValidators.HIGH_VALUE_GRANT = {
 	CollectVault = true,
 	Rebirth = true,
 	DomainExpansion = true,
+	Ascend = true,
 	RedeemCode = true,
 	AdminExecute = true,
 }

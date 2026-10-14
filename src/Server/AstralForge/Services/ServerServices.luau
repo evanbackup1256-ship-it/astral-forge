@@ -46,6 +46,8 @@ serviceFactories["GameService"] = function()
 	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
 	local SharedDataSuite = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 	local LevelRewards = SharedDataSuite("LevelRewards")
+local AscensionMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
+local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 	local ForgeLevels = SharedDataSuite("ForgeLevels")
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
@@ -1548,6 +1550,7 @@ serviceFactories["GameService"] = function()
 				Gte = Economy.Gte,
 			}),
 			ForgeEchoes = ForgeEchoService.State(profile),
+			Ascension = self:_ascensionPublic(profile),
 			RunCash = profile.RunCash,
 			LifetimeCash = profile.LifetimeCash,
 			Zone = profile.Zone,
@@ -2332,6 +2335,7 @@ serviceFactories["GameService"] = function()
 			local bankedVault = profile.Vault
 			local multiplierBefore = Economy.PermanentMultiplier(profile)
 			reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
+			reward = Economy.Floor(Economy.Mul(reward, Economy.AscensionEffect(profile, "Cores")))
 			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward))
 			local stardustScale = tonumber(rebirthConfig.StardustSqrtScale) or 5
 			local stardustMinimum = tonumber(rebirthConfig.StardustMinimum) or 4
@@ -3508,6 +3512,7 @@ serviceFactories["GameService"] = function()
 			profile.Domain.Nodes = type(profile.Domain.Nodes) == "table" and profile.Domain.Nodes or {}
 			profile.Domain.SkillPoints = math.max(0, math.floor(tonumber(profile.Domain.SkillPoints) or 0)) + (GameConfig.Domain.SkillPointPerRank or 2)
 			essenceReward += Economy.DomainTreeBonus(profile, "EssenceGain")
+			essenceReward = math.floor(math.min(1e300, essenceReward * math.max(1, Economy.AsNumber(Economy.AscensionEffect(profile, "Essence")))))
 			profile.Domain.Essence = math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0)) + essenceReward
 			profile.Domain.LastExpandedAt = os.time()
 			profile.Domain.TotalRebirthsSpent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0)) + spentRebirths
@@ -3584,6 +3589,122 @@ serviceFactories["GameService"] = function()
 			})
 		end
 		return result
+	end
+
+	-- Ascension: the infinite final reset. Resets the Domain, rebirths, cores and the run; pays Aether.
+	function GameService:_ascend(player: Player)
+		local details = nil
+		local result = self:_mutate(player, function(profile)
+			local state = AscensionMath.sanitize(profile.Ascension, OmegaMath)
+			local domainRank = math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0))
+			local now = os.time()
+			if now - state.LastAscendedAt < 10 then
+				return responseError("The forge is still settling from your last ascension.")
+			end
+			local nextState, gainOrReason = AscensionMath.ascend(state, domainRank, now, OmegaMath)
+			if nextState == nil then
+				return responseError(gainOrReason)
+			end
+			profile.Ascension = nextState
+			local domain = profile.Domain or {}
+			profile.Domain = {
+				Rank = 0,
+				Essence = 0,
+				LastExpandedAt = 0,
+				TotalRebirthsSpent = math.max(0, math.floor(tonumber(domain.TotalRebirthsSpent) or 0)),
+				TotalCoresSpent = math.max(0, math.floor(tonumber(domain.TotalCoresSpent) or 0)),
+				SkillPoints = 0,
+				Nodes = {},
+			}
+			profile.Cash = GameConfig.Economy.StartingCash
+			profile.Vault = 0
+			profile.Cores = 0
+			profile.Rebirths = 0
+			profile.RunCash = 0
+			profile.Zone = 1
+			profile.CurrentZone = 1
+			profile.Machines = { StellarCore = 1 }
+			if profile.AutoForge then
+				profile.AutoForge.Enabled = false
+				profile.AutoForge.MachineId = "StellarCore"
+			end
+			if profile.Items and profile.Items.Equipped then
+				for target in profile.Items.Equipped do
+					if string.match(target, "^(%a+):") == "Machine" then
+						profile.Items.Equipped[target] = nil
+					end
+				end
+			end
+			if profile.Lab then
+				profile.Lab.Routing = { Production = GameConfig.Lab.Power.BaseCells, Storage = 0, Tap = 0 }
+			end
+			details = { Rank = nextState.Rank, Aether = gainOrReason, DomainRank = domainRank }
+			return responseSuccess(
+				string.format("Ascension %d. +%s Aether.", nextState.Rank, Format.Number(gainOrReason)),
+				details
+			)
+		end)
+		if result.ok then
+			self._world:RefreshPlot(player, self._data:Get(player))
+			self._effect:FireAllClients({
+				Type = "Ascension",
+				UserId = player.UserId,
+				Rank = details and details.Rank or 0,
+				Position = self._world:GetPlotPosition(player),
+			})
+		end
+		return result
+	end
+
+	function GameService:_upgradeSigil(player: Player, payload: any)
+		local id = type(payload) == "table" and payload.Id or nil
+		return self:_mutate(player, function(profile)
+			local state = AscensionMath.sanitize(profile.Ascension, OmegaMath)
+			local nextState, costOrReason = AscensionMath.buy(state, id, OmegaMath)
+			if nextState == nil then
+				return responseError(costOrReason)
+			end
+			profile.Ascension = nextState
+			local sigil = AscensionMath.sigil(id)
+			return responseSuccess(string.format("%s is now level %d.", sigil and sigil.Name or id, nextState.Sigils[id]), { Id = id, Level = nextState.Sigils[id] })
+		end)
+	end
+
+	-- What the Ascension page shows.
+	function GameService:_ascensionPublic(profile)
+		local state = AscensionMath.sanitize(profile.Ascension, OmegaMath)
+		local domainRank = math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0))
+		local gain = AscensionMath.aetherGain(state, domainRank, OmegaMath)
+		local sigils = {}
+		for order, sigil in AscensionMath.SIGILS do
+			local level = state.Sigils[sigil.Id] or 0
+			local cost = AscensionMath.sigilCost(sigil.Id, level, OmegaMath)
+			table.insert(sigils, {
+				Id = sigil.Id,
+				Name = sigil.Name,
+				Line = sigil.Line,
+				Effect = sigil.Effect,
+				Order = order,
+				Level = level,
+				EffectiveLevel = AscensionMath.effectiveLevel(state, sigil.Id),
+				Multiplier = OmegaMath.Persist(AscensionMath.sigilMultiplier(state, sigil.Id, OmegaMath)),
+				Cost = OmegaMath.Persist(cost),
+				Affordable = OmegaMath.Gte(state.Aether, cost),
+			})
+		end
+		return {
+			Rank = state.Rank,
+			Aether = OmegaMath.Persist(state.Aether),
+			TotalAether = OmegaMath.Persist(state.TotalAether),
+			DomainRank = domainRank,
+			RequiredDomainRank = AscensionMath.requiredDomainRank(state.Rank),
+			CanAscend = gain ~= nil,
+			Gain = if gain ~= nil then OmegaMath.Persist(gain) else 0,
+			Harmony = AscensionMath.harmony(state),
+			Production = OmegaMath.Persist(AscensionMath.effect(state, "Production", OmegaMath)),
+			NextRankProduction = OmegaMath.Persist(OmegaMath.Pow(2 + state.Rank, AscensionMath.RANK_EXPONENT)),
+			Sigils = sigils,
+		}
 	end
 
 	function GameService:_verifyCreatorFollow(player: Player)
@@ -4361,6 +4482,10 @@ serviceFactories["GameService"] = function()
 			return self:_selectZone(player, payload and payload.Id)
 		elseif action == Protocol.Actions.Rebirth then
 			return self:_rebirth(player)
+		elseif action == Protocol.Actions.Ascend then
+			return self:_ascend(player)
+		elseif action == Protocol.Actions.UpgradeSigil then
+			return self:_upgradeSigil(player, payload)
 		elseif action == Protocol.Actions.DomainExpansion then
 			return self:_domainExpansion(player)
 		elseif action == Protocol.Actions.UnlockDomainNode then

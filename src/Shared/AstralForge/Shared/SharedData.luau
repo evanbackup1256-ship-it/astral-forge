@@ -1775,7 +1775,7 @@ local LADDER: { LevelDef } = {
 		Level = 18,
 		Tier = "Legend",
 		Goal = { Kind = "Domain", Target = 10, Text = "Reach domain rank 10" },
-		Unlocks = {},
+		Unlocks = { "Ascension" },
 	},
 }
 

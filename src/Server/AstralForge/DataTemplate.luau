@@ -33,6 +33,13 @@ function DataTemplate.New()
 			TotalFluxSpent = 0,
 			TotalStardustSpent = 0,
 		},
+		Ascension = {
+			Rank = 0,
+			Aether = 0,
+			TotalAether = 0,
+			Sigils = {},
+			LastAscendedAt = 0,
+		},
 		ForgeEchoes = {
 			Charge = 0,
 			Resonance = 0,

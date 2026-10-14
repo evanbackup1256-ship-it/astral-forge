@@ -144,6 +144,8 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.DomainExpansion] = { Cost = 5, Cooldown = 5 },
 		[Protocol.Actions.UnlockDomainNode] = { Cost = 1, Cooldown = 0.2 },
 		[Protocol.Actions.UpgradeContinuum] = { Cost = 1.5, Cooldown = 0.35 },
+		[Protocol.Actions.Ascend] = { Cost = 5, Cooldown = 5 },
+		[Protocol.Actions.UpgradeSigil] = { Cost = 1.5, Cooldown = 0.3 },
 		[Protocol.Actions.CaptureEcho] = { Cost = 2, Cooldown = 1.1 },
 		[Protocol.Actions.ClaimEcho] = { Cost = 1.5, Cooldown = 0.4 },
 		[Protocol.Actions.EquipEcho] = { Cost = 0.75, Cooldown = 0.18 },
@@ -222,6 +224,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.Rebirth] = true,
 		[Protocol.Actions.DomainExpansion] = true,
 		[Protocol.Actions.UpgradeContinuum] = true,
+		[Protocol.Actions.Ascend] = true,
 		[Protocol.Actions.CaptureEcho] = true,
 		[Protocol.Actions.ClaimDaily] = true,
 		[Protocol.Actions.ClaimExpedition] = true,
@@ -546,6 +549,8 @@ return function(loadService: (string) -> any)
 			if not stringField(payload, "Id", 0, 24) then
 				return false, "invalid supply request"
 			end
+		elseif action == Protocol.Actions.UpgradeSigil then
+			if not stringField(payload, "Id", 1, 24) then return false, "invalid sigil" end
 		elseif action == Protocol.Actions.SelectSpecialization then
 			if not stringField(payload, "Id", 1, 24) then return false, "invalid forge specialization" end
 		elseif action == Protocol.Actions.SpinWheel then

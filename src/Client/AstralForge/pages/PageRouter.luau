@@ -28,6 +28,7 @@ local PAGE_SUITES = {
 	ShopView = "PagesShop",
 	StoreFront = "PagesShop",
 	SpecializationsView = "PagesSpecializations",
+	AscensionView = "PagesAscension",
 	StoryView = "PagesStory",
 	TradeView = "PagesSocial",
 	WheelView = "PagesShop",
@@ -60,6 +61,7 @@ local AnomalyView = lazyView("AnomalyView", "AnomalyView")
 local LabView = lazyView("LabView", "LabView")
 local StoryView = lazyView("StoryView", "StoryView")
 local SpecializationsView = lazyView("SpecializationsView", "SpecializationsView")
+local AscensionView = lazyView("AscensionView", "AscensionView")
 local CommandView = lazyView("CommandView", "CommandView")
 local MailboxView = lazyView("MailboxView", "MailboxView")
 local ChatView = lazyView("ChatView", "ChatView")
@@ -134,6 +136,13 @@ local function PageContentInner(props)
 				dispatch = dispatch,
 				buyAmount = props.buyAmount,
 				setBuyAmount = props.setBuyAmount,
+				reducedMotion = reducedMotion,
+			})
+		end
+		if page == "Ascension" then
+			return React.createElement(AscensionView, {
+				state = state,
+				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 			})
 		end

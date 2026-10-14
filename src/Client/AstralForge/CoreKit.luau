@@ -1152,6 +1152,8 @@ local GRANT_ACTIONS = {
 	["DomainExpansion"] = true,
 	["UnlockDomainNode"] = true,
 	["UpgradeContinuum"] = true,
+	["Ascend"] = true,
+	["UpgradeSigil"] = true,
 	["CaptureEcho"] = true,
 	["ClaimEcho"] = true,
 	["EquipEcho"] = true,
@@ -4317,6 +4319,7 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
 	{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab", accentKey = "mint" },
 	{ id = "StarGrid", label = "Specializations", eyebrow = "Forge builds", icon = "Forge", accentKey = "mango" },
+	{ id = "Ascension", label = "Ascension", eyebrow = "Final rebirth", icon = "Rebirth", accentKey = "mango" },
 	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
 	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
@@ -4338,6 +4341,7 @@ local PAGE_ROUTES: { string } = {
 	"Workshop",
 	"Research",
 	"StarGrid",
+	"Ascension",
 	"Echoes",
 	"Continuum",
 	"Convergence",
@@ -4370,7 +4374,7 @@ type NavGroup = { key: string, label: string, routes: { string } }
 local NAV_GROUPS: { NavGroup } = {
 	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop", "Bazaar" } },
 	{ key = "Daily", label = "Daily", routes = { "Missions", "Rewards", "Boosts", "Milestones", "Wheel" } },
-	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "ForgePath", "Story" } },
+	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "ForgePath", "Story", "Ascension" } },
 	{ key = "Social", label = "Social", routes = { "Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards" } },
 	{ key = "System", label = "System", routes = { "Settings", "Credits", "Admin" } },
 }

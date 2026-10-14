@@ -46,6 +46,7 @@ local PAGE_WORDS = {
 	Worlds = "zones maps travel expedition",
 	Lab = "orders cells power",
 	StarGrid = "forge specializations builds handcraft deep reserves night shift preserved bonuses",
+	Ascension = "ascension ascend final rebirth aether sigils harmony prestige",
 	Echoes = "echo forge keep",
 	ForgePath = "path pass track xp chests",
 	Milestones = "achievements goals badges",

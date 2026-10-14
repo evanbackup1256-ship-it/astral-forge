@@ -54,6 +54,8 @@ local files = {
 	"src/Client/AstralForge/pages/PagesProgress.luau",
 	"src/Client/AstralForge/pages/PagesBazaar.luau",
 	"src/Client/AstralForge/pages/PagesSpecializations.luau",
+	"src/Client/AstralForge/pages/PagesAscension.luau",
+	"src/Shared/AstralForge/Shared/AscensionMath.luau",
 	"src/Server/AstralForge/Services/SpecializationService.luau",
 	"src/Shared/AstralForge/Shared/Specializations.luau",
 	"src/Shared/AstralForge/Shared/SkyCharts.luau",
