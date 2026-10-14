@@ -862,7 +862,7 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 
 	local heroH = if landscapePhone
 		then 208
-		elseif phone then 272
+		elseif phone then 320 -- readout 168 + two stacked buttons 108 + gaps + 16px padding each side
 		elseif short and wideOverview then 260
 		elseif short then 248
 		elseif ultraOverview then 268

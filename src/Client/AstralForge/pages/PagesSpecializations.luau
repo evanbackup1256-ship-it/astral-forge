@@ -187,16 +187,16 @@ local function SpecializationsView(props: Props)
 
 	-- status: switching is free, but the forge needs time to reconfigure between switches
 	local remaining = math.max(0, state.ReadyAt - now)
-	add("status", 76, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 16, accent = if cooling then Palette.mango else Palette.green },
+	add("status", 92, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 16, accent = if cooling then Palette.mango else Palette.green },
 		h(Ui.IconTile, { kind = if cooling then "Timer" else "Check", accent = if cooling then Palette.mango else Palette.green,
 			size = 40, reducedMotion = props.reducedMotion }),
 		h(Ui.Text, { value = if cooling then `Reconfiguring · next switch in {clock(remaining)}` else "Ready to switch. Changing builds is free.",
-			size = 16, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(54, 0), sizeConstraint = UDim2.new(1, -54, 0, 20) }),
+			size = 16, weight = Enum.FontWeight.Bold, fit = true, minSize = 12, position = UDim2.fromOffset(54, 0), sizeConstraint = UDim2.new(1, -54, 0, 20) }),
 		if cooling
 			then h(Ui.Meter, { value = 1 - remaining / math.max(1, state.Cooldown), color = Palette.mango, reducedMotion = props.reducedMotion,
 				position = UDim2.fromOffset(54, 30), size = UDim2.new(1, -54, 0, 8) })
 			else h(Ui.Text, { value = `After a switch the forge needs {math.ceil(state.Cooldown / 60)} minutes before the next one.`,
-				size = 13, color = Palette.muted, position = UDim2.fromOffset(54, 24), sizeConstraint = UDim2.new(1, -54, 0, 18) })))
+				size = 13, color = Palette.muted, wrap = true, position = UDim2.fromOffset(54, 24), sizeConstraint = UDim2.new(1, -54, 0, 36) })))
 
 	if unresolved then
 		add("retry", TapTarget, h(Ui.Button, { text = "Confirm your last build change", size = UDim2.fromScale(1, 1),

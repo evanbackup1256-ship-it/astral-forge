@@ -227,25 +227,32 @@ local function AscensionView(props)
 		return React.createElement(PageScaffold, { sections = sections, gap = GAP, tailPad = 72 })
 	end
 
-	-- hero
-	local heroH = if stack then 196 else 168
-	add("hero", heroH, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 20, accent = ACCENT, background = darken(ACCENT, 0.9), clips = true },
-		h(Orbit, { count = 12, radius = 52, dot = 6, speed = 1, color = ACCENT, position = UDim2.new(0, 60, 0.5, -20), softMotion = softMotion, zIndex = 2 }),
-		h(Orbit, { count = 7, radius = 30, dot = 5, speed = -1.6, color = lighten(ACCENT, 0.25), position = UDim2.new(0, 60, 0.5, -20), softMotion = softMotion, zIndex = 2 }),
-		h(Ui.Text, { value = tostring(state.Rank), size = 30, weight = Enum.FontWeight.Heavy, color = Palette.cream, align = Enum.TextXAlignment.Center,
-			position = UDim2.new(0, 30, 0.5, -38), sizeConstraint = UDim2.fromOffset(60, 36), zIndex = 3 }),
-		h(Ui.Text, { value = "ASCENSION", size = 12, weight = Enum.FontWeight.Heavy, color = ACCENT, position = UDim2.fromOffset(140, 0), sizeConstraint = UDim2.new(1, -140, 0, 16) }),
+	-- hero (phones: a smaller orbit and a narrower left column so the copy keeps its width)
+	local heroH = if stack then 216 else 168
+	local col = if stack then 104 else 140
+	local orbitX = if stack then 44 else 60
+	local outer = if stack then 38 else 52
+	local inner = if stack then 22 else 30
+	add("hero", heroH, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = if stack then 16 else 20, accent = ACCENT, background = darken(ACCENT, 0.9), clips = true },
+		h(Orbit, { count = 12, radius = outer, dot = 6, speed = 1, color = ACCENT, position = UDim2.new(0, orbitX, 0, outer + 12), softMotion = softMotion, zIndex = 2 }),
+		h(Orbit, { count = 7, radius = inner, dot = 5, speed = -1.6, color = lighten(ACCENT, 0.25), position = UDim2.new(0, orbitX, 0, outer + 12), softMotion = softMotion, zIndex = 2 }),
+		h(Ui.Text, { value = tostring(state.Rank), size = if stack then 24 else 30, weight = Enum.FontWeight.Heavy, color = Palette.cream, align = Enum.TextXAlignment.Center,
+			position = UDim2.new(0, orbitX - 30, 0, outer + 12 - 18), sizeConstraint = UDim2.fromOffset(60, 36), zIndex = 3 }),
+		h(Ui.Text, { value = "ASCENSION", size = 12, weight = Enum.FontWeight.Heavy, color = ACCENT, position = UDim2.fromOffset(col, 0), sizeConstraint = UDim2.new(1, -col, 0, 16) }),
 		h(Ui.Text, {
 			value = if state.Rank > 0 then `Ascended {state.Rank} time{if state.Rank == 1 then "" else "s"}` else "The final reset",
-			size = 26, weight = Enum.FontWeight.Heavy, position = UDim2.fromOffset(140, 18), sizeConstraint = UDim2.new(1, -140, 0, 32),
+			size = if stack then 22 else 26, weight = Enum.FontWeight.Heavy, fit = true, minSize = 16,
+			position = UDim2.fromOffset(col, 18), sizeConstraint = UDim2.new(1, -col, 0, 32),
 		}),
 		h(Ui.Text, {
 			value = `{compact(state.Aether)} Aether to spend  ·  ×{compact(state.Production)} production from Ascension`,
-			size = 14, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(140, 56), sizeConstraint = UDim2.new(1, -140, 0, 40),
+			size = 14, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(col, 56), sizeConstraint = UDim2.new(1, -col, 0, if stack then 58 else 40),
 		}),
 		h(Ui.Text, {
 			value = "Ascending resets your Domain, rebirths, cores and run. Research, relics, artifacts, Continuum and your sigils stay. It never caps.",
-			size = 12, color = Palette.muted, wrap = true, position = UDim2.fromOffset(140, if stack then 104 else 96), sizeConstraint = UDim2.new(1, -140, 0, 36),
+			size = 12, color = Palette.muted, wrap = true,
+			position = if stack then UDim2.fromOffset(0, 124) else UDim2.fromOffset(col, 96),
+			sizeConstraint = if stack then UDim2.new(1, 0, 0, 56) else UDim2.new(1, -col, 0, 36),
 		})))
 
 	-- ascend

@@ -185,7 +185,7 @@ local mobileHeader = luau.load(core:sub(mobileStart, mobileEnd - 1) .. "\nreturn
 			if properties and properties.Name == "MobileResourceRail" then rail = properties end
 			return { kind = kind, props = properties, children = { ... } }
 		end },
-		__load = function() return { readLevelState = function() return 4, nil, {} end, progressFraction = function() return 0.5 end } end,
+		__load = function(name) if name == "serverEventsUi" then return { useServerEvent = function() return nil end, EVENTS = {}, accentOf = function() return accent end, openServerEventPanel = function() end } end return { readLevelState = function() return 4, nil, {} end, progressFraction = function() return 0.5 end } end,
 		Chip = "Chip", Icon = "Icon", IconTile = "IconTile", Palette = mobilePalette,
 		darken = function(color) return color end,
 		UDim = roblox.UDim, UDim2 = roblox.UDim2, Vector2 = roblox.Vector2, Enum = roblox.Enum,

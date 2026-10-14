@@ -2664,7 +2664,7 @@ local function CrewView(_param)
 	end
 	local visitorsHere = _condition
 	local rowStride = if stack then 176 else 124
-	local headerH = (if stack then 130 else 112) + crewBarH
+	local headerH = (if stack then 182 else 112) + crewBarH -- phone: title, two-line blurb, then a full-width Refresh
 	local listGap = if visit ~= nil then math.max(chrome.panelGap, 18) else math.max(chrome.panelGap, 12)
 	local visitBlock = if visit ~= nil then PageBoardHeights.Visit(stack) else 0
 	local crewTail = scrollTail(stack, chrome.bottomSafe, 48)

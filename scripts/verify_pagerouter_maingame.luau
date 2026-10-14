@@ -33,7 +33,7 @@ local phonePortrait = LayoutSectionPlan.planOverview({
 	chromePanelGap = 10,
 	layoutPanelGap = 14,
 })
-assert(phonePortrait.heroH == 272, "phone portrait hero")
+assert(phonePortrait.heroH == 320, "phone portrait hero")
 assert(phonePortrait.rebirthH == 300, "phone portrait rebirth")
 assert(phonePortrait.domainH == 320, "phone portrait domain")
 assert(phonePortrait.notesH == 168, "phone portrait notes")
@@ -178,7 +178,7 @@ assert(landscapeWs.headerHeight == 0, "landscape keyboard collapses header")
 
 -- --- NavRouteTable -----------------------------------------------------------
 assert(#NavRouteTable.PRIMARY_ROUTES == 6, "primary route count")
-assert(#NavRouteTable.MORE_ROUTES == 23, "more routes carry no minigames (Salvage Runs, Artifact Trials and Sky were retired)")
+assert(#NavRouteTable.MORE_ROUTES == 25, "more routes carry no minigames (Salvage Runs, Artifact Trials and Sky were retired)")
 assert(NavRouteTable.PRIMARY_ROUTES[1].id == "Overview", "primary starts Overview")
 assert(NavRouteTable.find("Trade") ~= nil, "find Trade")
 assert(NavRouteTable.find("Trade").accentKey == "mint", "Trade accent key")

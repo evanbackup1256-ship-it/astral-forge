@@ -325,6 +325,8 @@ local function SectionButton(_param)
 		size = 14,
 		color = if active then Palette.cream else Palette.creamSoft,
 		weight = if active then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
+		fit = _param.compact == true, -- three to a row on phones: long names shrink to fit
+		minSize = 10,
 		position = UDim2.fromOffset(if _param.compact then 34 else 40, 0),
 		sizeConstraint = UDim2.new(1, if _param.compact then -38 else -70, 1, 0),
 		zIndex = 11,
@@ -1463,7 +1465,8 @@ local function CommandViewReady(_param)
 		_attributes.size = if stack then 18 else 22
 		_attributes.color = Palette.cream
 		_attributes.weight = Enum.FontWeight.Heavy
-		_attributes.fit = false
+		_attributes.fit = true
+		_attributes.minSize = 13
 		_attributes.position = UDim2.fromOffset(if stack then 88 else 114, 4)
 		_attributes.sizeConstraint = UDim2.new(1, heroInfoWidth, 0, 28)
 		local _exp_7 = React.createElement(Panel, {

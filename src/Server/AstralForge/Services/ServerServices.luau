@@ -3601,7 +3601,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			if now - state.LastAscendedAt < 10 then
 				return responseError("The forge is still settling from your last ascension.")
 			end
-			local nextState, gainOrReason = AscensionMath.ascend(state, domainRank, now, OmegaMath)
+			local nextState, gainOrReason = AscensionMath.ascend(state, domainRank, now, OmegaMath, tonumber(profile.Rebirths) or 0)
 			if nextState == nil then
 				return responseError(gainOrReason)
 			end

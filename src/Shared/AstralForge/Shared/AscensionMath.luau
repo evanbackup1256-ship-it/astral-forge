@@ -38,7 +38,8 @@ end
 
 AscensionMath.RANK_EXPONENT = 1.5 -- production x (1 + rank) ^ 1.5
 
-export type State = { Rank: number, Aether: any, TotalAether: any, Sigils: { [string]: number }, LastAscendedAt: number }
+-- BestDomainRank and RebirthsSpent keep milestone progress after an ascension resets Domain and rebirths.
+export type State = { Rank: number, Aether: any, TotalAether: any, Sigils: { [string]: number }, LastAscendedAt: number, BestDomainRank: number, RebirthsSpent: number }
 
 local function whole(value: any): number
 	local n = tonumber(value)
@@ -70,12 +71,20 @@ function AscensionMath.sanitize(raw: any, OmegaMath: any): State
 		end
 		return persisted
 	end
+	local rank = whole(source.Rank)
+	-- saves that ascended before BestDomainRank existed reached at least the last requirement
+	local best = whole(source.BestDomainRank)
+	if rank > 0 and best == 0 then
+		best = AscensionMath.requiredDomainRank(rank - 1)
+	end
 	return {
-		Rank = whole(source.Rank),
+		Rank = rank,
 		Aether = amount(source.Aether),
 		TotalAether = amount(source.TotalAether),
 		Sigils = sigils,
 		LastAscendedAt = whole(source.LastAscendedAt),
+		BestDomainRank = best,
+		RebirthsSpent = whole(source.RebirthsSpent),
 	}
 end
 
@@ -156,19 +165,15 @@ function AscensionMath.buy(state: State, id: string, OmegaMath: any): (State?, a
 	if OmegaMath.Lt(state.Aether, cost) then
 		return nil, `You need {OmegaMath.ToString(OmegaMath.Sub(cost, state.Aether))} more Aether.`
 	end
-	local nextSigils = table.clone(state.Sigils)
-	nextSigils[id] = level + 1
-	return {
-		Rank = state.Rank,
-		Aether = OmegaMath.Sub(state.Aether, cost),
-		TotalAether = state.TotalAether,
-		Sigils = nextSigils,
-		LastAscendedAt = state.LastAscendedAt,
-	}, cost
+	local nextState = table.clone(state)
+	nextState.Sigils = table.clone(state.Sigils)
+	nextState.Sigils[id] = level + 1
+	nextState.Aether = OmegaMath.Sub(state.Aether, cost)
+	return nextState, cost
 end
 
 -- The ascension itself (state side only; the caller resets the rest of the profile).
-function AscensionMath.ascend(state: State, domainRank: number, now: number, OmegaMath: any): (State?, any)
+function AscensionMath.ascend(state: State, domainRank: number, now: number, OmegaMath: any, rebirths: number?): (State?, any)
 	local gain = AscensionMath.aetherGain(state, domainRank, OmegaMath)
 	if gain == nil then
 		return nil, `Reach Domain rank {AscensionMath.requiredDomainRank(state.Rank)} to ascend.`
@@ -179,6 +184,8 @@ function AscensionMath.ascend(state: State, domainRank: number, now: number, Ome
 		TotalAether = OmegaMath.Add(state.TotalAether, gain),
 		Sigils = table.clone(state.Sigils),
 		LastAscendedAt = math.max(0, math.floor(now)),
+		BestDomainRank = math.max(state.BestDomainRank or 0, math.floor(domainRank)),
+		RebirthsSpent = (state.RebirthsSpent or 0) + whole(rebirths),
 	}, gain
 end
 

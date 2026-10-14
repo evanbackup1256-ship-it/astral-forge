@@ -32,6 +32,19 @@ assert(OmegaMath.Lte(gained, ascended.TotalAether), "lifetime Aether records the
 local refused, why = A.ascend(fresh, 3, 100, OmegaMath)
 assert(refused == nil and string.find(why, "Domain rank 25", 1, true), "refusal names the rank needed")
 
+-- milestones survive the reset: best Domain rank and the rebirths given up are kept
+local kept = A.ascend(fresh, 40, 100, OmegaMath, 12)
+assert(kept ~= nil and kept.BestDomainRank == 40 and kept.RebirthsSpent == 12, "ascending records the Domain rank and rebirths it reset")
+local again = A.buy(A.sanitize({ Aether = 50, BestDomainRank = 40, RebirthsSpent = 12 }, OmegaMath), "Sol", OmegaMath)
+assert(again ~= nil and again.BestDomainRank == 40 and again.RebirthsSpent == 12, "buying a sigil keeps the milestone record")
+assert(A.sanitize({ Rank = 2 }, OmegaMath).BestDomainRank >= A.requiredDomainRank(1), "older saves that ascended are backfilled")
+do
+	local fs = require("@lune/fs")
+	local gate = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau")
+	assert(string.find(gate, "ascension.BestDomainRank", 1, true) and string.find(gate, "ascension.RebirthsSpent", 1, true),
+		"milestone progress counts what an ascension reset, or Ascension would lock itself")
+end
+
 -- buying: costs rise, refuses when short, never caps
 local rich = A.sanitize({ Aether = 100 }, OmegaMath)
 local previousCost = 0

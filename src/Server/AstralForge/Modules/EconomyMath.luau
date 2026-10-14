@@ -1833,9 +1833,15 @@ function ProgressionGate.Progress(profile, kind: string): number
 		if type(profile.Domain) == "table" then
 			spent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0))
 		end
-		return current + spent
+		-- rebirths reset by an ascension still count toward milestones
+		local ascension = profile.Ascension
+		local ascended = if type(ascension) == "table" then math.max(0, math.floor(tonumber(ascension.RebirthsSpent) or 0)) else 0
+		return current + spent + ascended
 	elseif kind == "Domain" or kind == "DomainRank" then
-		return math.max(0, tonumber(profile.Domain and profile.Domain.Rank) or 0)
+		local rank = math.max(0, tonumber(profile.Domain and profile.Domain.Rank) or 0)
+		local ascension = profile.Ascension
+		local best = if type(ascension) == "table" then math.max(0, tonumber(ascension.BestDomainRank) or 0) else 0
+		return math.max(rank, best)
 	elseif kind == "Zone" then
 		return math.max(0, math.floor(tonumber(profile.Zone) or 0))
 	elseif kind == "PlayTime" then

@@ -4321,6 +4321,8 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "StarGrid", label = "Specializations", eyebrow = "Forge builds", icon = "Forge", accentKey = "mango" },
 	{ id = "Ascension", label = "Ascension", eyebrow = "Final rebirth", icon = "Rebirth", accentKey = "mango" },
 	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
+	{ id = "Continuum", label = "Continuum", eyebrow = "Ranks", icon = "Continuum", accentKey = "cyan" },
+	{ id = "Anomaly", label = "Reactor", eyebrow = "Rift", icon = "Anomaly", accentKey = "pink" },
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
 	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
 	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story", accentKey = "mint" },
@@ -4374,7 +4376,7 @@ type NavGroup = { key: string, label: string, routes: { string } }
 local NAV_GROUPS: { NavGroup } = {
 	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop", "Bazaar" } },
 	{ key = "Daily", label = "Daily", routes = { "Missions", "Rewards", "Boosts", "Milestones", "Wheel" } },
-	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "ForgePath", "Story", "Ascension" } },
+	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "Continuum", "Anomaly", "ForgePath", "Story", "Ascension" } },
 	{ key = "Social", label = "Social", routes = { "Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards" } },
 	{ key = "System", label = "System", routes = { "Settings", "Credits", "Admin" } },
 }

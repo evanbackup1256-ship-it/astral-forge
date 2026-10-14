@@ -3185,7 +3185,8 @@ local function SegmentedTabHit(_param)
 		color = textColor,
 		weight = if selected then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
 		align = if option.icon ~= nil then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
-		fit = false,
+		fit = true, -- long labels shrink in narrow tabs instead of spilling out
+		minSize = 10,
 		position = if option.icon ~= nil then UDim2.fromOffset(38, 0) else UDim2.fromOffset(8, 0),
 		sizeConstraint = UDim2.new(1, if option.icon ~= nil then -46 else -16, 1, 0),
 		zIndex = zIndex + 2,
@@ -3836,7 +3837,8 @@ local function Dropdown(_param)
 		size = optionText,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Bold,
-		fit = false,
+		fit = true,
+		minSize = 11,
 		position = UDim2.fromOffset(if selected ~= nil and selected.icon ~= nil then 36 else 14, 0),
 		sizeConstraint = UDim2.new(1, if selected ~= nil and selected.icon ~= nil then -78 else -52, 1, 0),
 		zIndex = zIndex + 1,
@@ -11121,7 +11123,7 @@ local function NextUnlockStrip(_param)
 	local progressW = if narrow then 72 else 88
 	local nextNames = if nextStep ~= nil then featureNames(state, nextStep.Unlocks) else {}
 	local nextText = if nextStep == nil then ""
-		elseif #nextNames == 0 then `Next: Level {nextStep.Level}`
+		elseif #nextNames == 0 then "Production bonus"
 		elseif #nextNames == 1 then `Opens {nextNames[1]}`
 		else `Opens {nextNames[1]} +{#nextNames - 1}`
 	local nextW = if narrow or nextText == "" then 0 else 150
@@ -14812,6 +14814,11 @@ local function MobileTabBar(_param)
 	for _, id in tabIds do
 		table.insert(tabs, byId[id])
 	end
+	local current = byId[page]
+	local pageOffBar = current ~= nil and table.find(tabIds, page) == nil
+	if pageOffBar and #tabs > 0 then
+		tabs[#tabs] = current
+	end
 	local onBar = {}
 	for _, entry in tabs do
 		onBar[entry.id] = true
@@ -14822,11 +14829,7 @@ local function MobileTabBar(_param)
 			menuBadge += AppHelpers:navBadge(entry, state, chatUnread)
 		end
 	end
-	local current = byId[page]
-	local menuShowsPage = current ~= nil and not onBar[page]
-	local menuEntry = if menuShowsPage
-		then { id = "Menu", label = current.label, icon = current.icon, accent = current.accent }
-		else { id = "Menu", label = "Menu", icon = "Menu", accent = Palette.cyan }
+	local menuEntry = { id = "Menu", label = "Menu", icon = "Menu", accent = Palette.cyan }
 	local compact = chrome.landscape
 	local items = {}
 	items.layout = React.createElement("uilistlayout", {
@@ -14854,7 +14857,7 @@ local function MobileTabBar(_param)
 		entry = menuEntry,
 		order = #tabs + 1,
 		size = tabSize,
-		active = menuShowsPage or menuOpen,
+		active = menuOpen,
 		badge = menuBadge,
 		compact = compact,
 		reducedMotion = reducedMotion,
@@ -14956,8 +14959,10 @@ local function MobileHeader(_param)
 	if AppHelpers:featureUnlocked(state, "Rebirth") then
 		table.insert(wanted, { key = "cores", value = state.Cores, accent = Palette.violet })
 	end
-	local titleMin = 110
-	local room = width - (8 + iconSize + 8 + titleMin + playersW + 22)
+	local titleMin = if width < 440 then 76 else 110
+	local room = width - (8 + iconSize + 8 + titleMin + playersW + 22) - (if eventDef ~= nil then playersW + 6 else 0)
+	-- narrow phones shrink the chips so every currency stays readable without scrolling
+	chipW = math.clamp(math.floor((room - math.max(0, #wanted - 1) * 6) / math.max(1, #wanted)), 58, chipW)
 	local chips = {}
 	chips.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
@@ -14978,6 +14983,11 @@ local function MobileHeader(_param)
 	local contentW = #wanted * chipW + math.max(0, #wanted - 1) * 6
 	local chipsW = math.min(contentW, math.max(48, room))
 	local visitors = if type(state.Visitors) == "table" then #state.Visitors else 0
+	local events = __load("serverEventsUi")
+	local liveEvent = events.useServerEvent(state.ServerEvent)
+	local eventDef = if liveEvent ~= nil and liveEvent.Phase ~= "Rest" then events.EVENTS[liveEvent.Id or ""] else nil
+	local eventAccent = events.accentOf(eventDef)
+	local eventW = if eventDef ~= nil then playersW + 6 else 0
 	local roadmap = __load("levelRoadmap")
 	local level, _tier, nextStep = roadmap.readLevelState(state)
 	local fill = if nextStep ~= nil then roadmap.progressFraction(nextStep) else 1
@@ -15004,8 +15014,8 @@ local function MobileHeader(_param)
 		reducedMotion = reducedMotion,
 		zIndex = 21,
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -(8 + iconSize + 8 + chipsW + playersW + 22), 0, if short then barHeight else 20),
-		Position = UDim2.fromOffset(8 + iconSize + 8, if short then 0 else 2),
+		Size = UDim2.new(1, -(8 + iconSize + 8 + chipsW + playersW + eventW + 22), 0, barHeight),
+		Position = UDim2.fromOffset(8 + iconSize + 8, 0),
 		BackgroundTransparency = 1,
 		Text = entry.label,
 		TextColor3 = Palette.cream,
@@ -15016,7 +15026,7 @@ local function MobileHeader(_param)
 		ZIndex = 21,
 	}), not short and React.createElement("imagebutton", {
 		Name = "MobileRoadmapButton",
-		Size = UDim2.new(1, -(chipsW + playersW + 22), 1, 0),
+		Size = UDim2.new(1, -(chipsW + playersW + eventW + 22), 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
@@ -15049,11 +15059,36 @@ local function MobileHeader(_param)
 		ScrollBarThickness = 2,
 		ScrollBarImageColor3 = accent,
 		Active = true,
-		Position = UDim2.new(1, -(playersW + 12), 0.5, 0),
+		Position = UDim2.new(1, -(playersW + eventW + 12), 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = 21,
-	}, chips), React.createElement("imagebutton", {
+	}, chips), eventDef ~= nil and React.createElement("imagebutton", {
+		Name = "MobileEventButton",
+		Size = UDim2.fromOffset(playersW, playersW),
+		Position = UDim2.new(1, -(playersW + 10), 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundColor3 = darken(eventAccent, 0.6),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		ZIndex = 22,
+		Event = {
+			Activated = events.openServerEventPanel,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 11),
+	}), React.createElement("uistroke", {
+		Color = eventAccent,
+		Thickness = 1.5,
+		Transparency = 0.2,
+	}), React.createElement(Icon, {
+		kind = eventDef.Icon,
+		color = Palette.cream,
+		accent = eventAccent,
+		size = math.floor(playersW * 0.62),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+	})), React.createElement("imagebutton", {
 		Name = "MobilePlayersButton",
 		Size = UDim2.fromOffset(playersW, playersW),
 		Position = UDim2.new(1, -4, 0.5, 0),
@@ -21024,7 +21059,7 @@ local function ServerEventHost(_param)
 		eventId = event.Id,
 		accent = accent,
 	})
-	if (stack and not active) or _param.inTopBar == true then
+	if stack or _param.inTopBar == true then
 		return React.createElement(React.Fragment, nil, skyFx, splash ~= nil and React.createElement(LiveSplash, {
 			def = splash,
 			leaving = splashLeaving,

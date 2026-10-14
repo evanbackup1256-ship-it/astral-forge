@@ -38,7 +38,7 @@ function Tools.ResearchControls(props)
 			position = if props.stack then UDim2.fromOffset(0, theme.TapTarget + 8) else UDim2.new(1, -208, 0, 0),
 			size = if props.stack then UDim2.new(1, 0, 0, theme.TapTarget) else UDim2.fromOffset(208, 36), zIndex = 44,
 		}),
-		React.createElement(ui.Text, { value = if props.batch.busy or props.batch.status ~= "" then props.batch.status else `{props.count} results · Batch {props.batch.count} upgrades · Max: shared budget, 50 levels each`, size = 11, color = theme.Palette.creamSoft, fit = true,
+		React.createElement(ui.Text, { value = if props.batch.busy or props.batch.status ~= "" then props.batch.status else `{props.count} shown · next batch buys {props.batch.count} {if props.batch.count == 1 then "upgrade" else "upgrades"}`, size = 11, color = theme.Palette.creamSoft, fit = true,
 			position = UDim2.fromOffset(0, if props.stack then height - 44 else 46), sizeConstraint = UDim2.new(1, 0, 0, 20) }))
 end
 
@@ -49,9 +49,9 @@ function Tools.Planner(props)
 	end
 	return React.createElement(ui.Panel, { accent = props.accent, size = UDim2.fromScale(1, 1) },
 		React.createElement(ui.Text, { value = if best then `BEST NEXT-LEVEL RETURN · {best.config.Name}` else "PLAN YOUR NEXT PURCHASE", size = 13, weight = Enum.FontWeight.Heavy, color = theme.Palette.cream, fit = true, sizeConstraint = UDim2.new(1, 0, 0, 24) }),
-		React.createElement(ui.Text, { value = if props.batch.busy or props.batch.status ~= "" then props.batch.status elseif props.batch.count > 0 then `Batch: {props.batch.count} upgrades · leaves {format.compactNumber(props.batch.remaining)} Flux` else "No upgrades fit your selected amount. Try a smaller amount or collect your vault.",
+		React.createElement(ui.Text, { value = if props.batch.busy or props.batch.status ~= "" then props.batch.status elseif props.batch.count > 0 then `Next batch: {props.batch.count} {if props.batch.count == 1 then "upgrade" else "upgrades"}, {format.compactNumber(props.batch.remaining)} Flux left after` else "No upgrades fit your selected amount. Try a smaller amount or collect your vault.",
 			size = 12, color = theme.Palette.creamSoft, wrap = true, position = UDim2.fromOffset(0, 30), sizeConstraint = UDim2.new(1, 0, 0, 34) }),
-		React.createElement(ui.Text, { value = "Up to 24 upgrades per batch. Max shares budget, up to 50 levels each. Return compares one next level, excludes bonuses.", size = 10, color = theme.Palette.muted, wrap = true, position = UDim2.fromOffset(0, 70), sizeConstraint = UDim2.new(1, 0, 0, 28) }))
+		React.createElement(ui.Text, { value = "A batch buys up to 24 upgrades. On Max, your Flux is split between them, 50 levels at most each.", size = 10, color = theme.Palette.muted, wrap = true, position = UDim2.fromOffset(0, 70), sizeConstraint = UDim2.new(1, 0, 0, 28) }))
 end
 
 return Tools

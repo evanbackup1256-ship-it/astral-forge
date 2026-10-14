@@ -39,6 +39,8 @@ function DataTemplate.New()
 			TotalAether = 0,
 			Sigils = {},
 			LastAscendedAt = 0,
+			BestDomainRank = 0,
+			RebirthsSpent = 0,
 		},
 		ForgeEchoes = {
 			Charge = 0,

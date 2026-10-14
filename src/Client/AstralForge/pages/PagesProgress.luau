@@ -3734,7 +3734,8 @@ local function WorldRow(_param)
 		value = zone.Tagline,
 		size = if stack then 13 else 11,
 		color = Palette.creamSoft,
-		fit = false,
+		fit = true,
+		minSize = 10,
 		position = UDim2.fromOffset(0, 30),
 		sizeConstraint = UDim2.new(1, 0, 0, 20),
 	}), React.createElement(Text, {
