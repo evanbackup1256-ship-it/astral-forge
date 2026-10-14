@@ -531,6 +531,54 @@ local function HoldButton(props)
 	}))
 end
 
+-- one requirement: name, have / need and a thin bar
+local function RequirementRow(props)
+	local have, need = asNumber(props.have), asNumber(props.need)
+	local done = have >= need
+	local fraction = if need <= 0 then 1 else math.clamp(have / need, 0, 1)
+	local accent = if done then Palette.mint else Palette.pink
+	return h("frame", {
+		Size = UDim2.new(1, 0, 0, 40),
+		BackgroundTransparency = 1,
+		LayoutOrder = props.order,
+	}, h(Text, {
+		value = props.label,
+		size = 14,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Bold,
+		sizeConstraint = UDim2.new(0.5, 0, 0, 20),
+	}), h(Text, {
+		value = if done then `{compactNumber(have)} / {compactNumber(need)}  ✓` else `{compactNumber(have)} / {compactNumber(need)}`,
+		size = 14,
+		color = if done then Palette.mint else Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Right,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromScale(0.5, 0),
+		sizeConstraint = UDim2.new(0.5, 0, 0, 20),
+	}), h("frame", {
+		Size = UDim2.new(1, 0, 0, 4),
+		Position = UDim2.fromOffset(0, 28),
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+		Size = UDim2.fromScale(math.max(fraction, 0.02), 1),
+		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))))
+end
+
+local function surgeLine()
+	local boost = GameConfig.Boosts and GameConfig.Boosts[GameConfig.Domain.SurgeBoostId or "DomainSurge"]
+	if boost == nil then
+		return "Production surge"
+	end
+	local minutes = math.floor((tonumber(boost.Duration) or 1800) / 60 + 0.5)
+	local mult = tonumber(boost.Multiplier) or tonumber(boost.ProductionMultiplier)
+	return if mult ~= nil then `{mult}x production for {minutes} min` else `Production surge for {minutes} min`
+end
+
 local function ConfirmView(props)
 	local cardRef = React.useRef(nil)
 	local parentSize = useGuiSize(cardRef, true)
@@ -538,120 +586,158 @@ local function ConfirmView(props)
 	local viewport = props.viewport
 	local softMotion = props.softMotion
 	local time = props.time
-	local wide = viewport.width >= 760 and viewport.height >= 470
+	local wide = viewport.width >= 700
 	local side = math.max(12, viewport.sideInset + 12)
-	local cardW = math.min(viewport.width - side * 2, 920)
+	local cardW = math.min(viewport.width - side * 2, 720)
 	local availH = viewport.height - math.max(12, viewport.topInset + 12) - math.max(12, viewport.bottomInset + 12)
-	local cardH = if wide then math.min(availH, 500) else availH
-	local portalSize = if wide then math.min(300, cardH - 80) else math.min(170, viewport.width * 0.42)
+	local cardH = math.min(availH, if wide then 452 else 640)
+	local pad = if wide then 28 else 18
 	local ready = domain.CanExpand == true
 	local rebirths, cores = asNumber(props.currentRebirths), asNumber(props.currentCores)
 	local needRebirths, needCores = asNumber(domain.RequiredRebirths), asNumber(domain.RequiredCores)
 	local lockedText = if rebirths < needRebirths then `NEED {compactNumber(needRebirths - rebirths)} MORE REBIRTHS` elseif cores < needCores then `NEED {compactNumber(needCores - cores)} MORE CORES` else "NOT READY YET"
-	local rewards = rewardsFor(domain, nil)
-	local tiles = {
-		Layout = h("uigridlayout", {
-			CellSize = UDim2.new(if wide then 1 / 3 else 0.5, -6, 0, 52),
-			CellPadding = UDim2.fromOffset(8, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
+	local nextRank = (tonumber(domain.Rank) or 0) + 1
+	local treeW = if props.onOpenTree ~= nil then 124 else 0
+	local headerReserve = TapTarget + 8 + treeW
+
+	local gains = {
+		`+{compactNumber(asNumber(domain.EssenceReward))} Domain essence`,
+		`+{compactNumber(asNumber(domain.StardustReward))} stardust`,
+		`+{GameConfig.Domain.SkillPointPerRank or 2} tree points`,
+		surgeLine(),
+		`+{GameConfig.Domain.Expansion and GameConfig.Domain.Expansion.FreeSpins or 3} free spins`,
 	}
-	for index, reward in rewards do
-		tiles[`r{index}`] = h(RewardTile, {
-			icon = reward.icon,
-			label = reward.label,
-			value = reward.value,
-			accent = reward.accent,
-			order = index,
+	local function heading(value, order)
+		return h(Text, {
+			value = value,
+			size = 11,
+			color = Palette.muted,
+			weight = Enum.FontWeight.Heavy,
+			layoutOrder = order,
+			sizeConstraint = UDim2.new(1, 0, 0, 16),
 		})
 	end
-	local tileRows = math.ceil(#rewards / (if wide then 3 else 2))
-	local details = {
-		Layout = h("uilistlayout", {
-			Padding = UDim.new(0, 10),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-		Eyebrow = h(Text, {
-			value = `DOMAIN {domain.Rank}  →  {domain.Rank + 1}`,
-			size = 12,
-			color = Palette.pink,
-			weight = Enum.FontWeight.Heavy,
-			layoutOrder = 1,
-			sizeConstraint = UDim2.new(1, -50, 0, 16),
-		}),
-		Title = h(Text, {
-			value = "Collapse this run into a new Domain",
-			size = if wide then 24 else 20,
+	local requirements = {
+		Layout = h("uilistlayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Title = heading("TO EXPAND", 0),
+		Rebirths = h(RequirementRow, { label = "Rebirths", have = rebirths, need = needRebirths, order = 1 }),
+		Cores = h(RequirementRow, { label = "Astral cores", have = cores, need = needCores, order = 2 }),
+	}
+	local gainList = {
+		Layout = h("uilistlayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Title = heading("YOU GET", 0),
+	}
+	for index, line in gains do
+		gainList[`g{index}`] = h("frame", {
+			Size = UDim2.new(1, 0, 0, 22),
+			BackgroundTransparency = 1,
+			LayoutOrder = index,
+		}, h("frame", {
+			Size = UDim2.fromOffset(6, 6),
+			Position = UDim2.new(0, 2, 0.5, 0),
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundColor3 = Palette.pink,
+			BorderSizePixel = 0,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h(Text, {
+			value = line,
+			size = 14,
 			color = Palette.cream,
-			weight = Enum.FontWeight.Heavy,
+			weight = Enum.FontWeight.Bold,
 			fit = true,
-			minSize = 14,
+			minSize = 11,
+			position = UDim2.fromOffset(16, 0),
+			sizeConstraint = UDim2.new(1, -16, 1, 0),
+		}))
+	end
+	local requirementsH = 16 + 6 + 40 * 2 + 6
+	local gainsH = 16 + #gains * 26
+	local columnsH = if wide then math.max(requirementsH, gainsH) else requirementsH + 18 + gainsH
+	local body = {
+		Layout = h("uilistlayout", { Padding = UDim.new(0, 18), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Columns = h("frame", {
+			Size = UDim2.new(1, 0, 0, columnsH),
+			BackgroundTransparency = 1,
+			LayoutOrder = 1,
+		}, h("frame", {
+			Size = if wide then UDim2.new(0.5, -14, 0, requirementsH) else UDim2.new(1, 0, 0, requirementsH),
+			BackgroundTransparency = 1,
+		}, requirements), h("frame", {
+			Size = if wide then UDim2.new(0.5, -14, 0, gainsH) else UDim2.new(1, 0, 0, gainsH),
+			Position = if wide then UDim2.new(0.5, 14, 0, 0) else UDim2.fromOffset(0, requirementsH + 18),
+			BackgroundTransparency = 1,
+		}, gainList)),
+		Kept = h(Text, {
+			value = "Kept: " .. string.lower(table.concat(KEEPS, ", ")) .. ".",
+			size = 13,
+			color = Palette.creamSoft,
+			wrap = true,
 			layoutOrder = 2,
-			sizeConstraint = UDim2.new(1, -50, 0, if wide then 30 else 26),
+			sizeConstraint = UDim2.new(1, 0, 0, if wide then 18 else 36),
 		}),
-		Meters = h("frame", {
-			Size = UDim2.new(1, 0, 0, if wide then 54 else 116),
-			BackgroundTransparency = 1,
-			LayoutOrder = 3,
-		}, h("uigridlayout", {
-			CellSize = if wide then UDim2.new(0.5, -5, 0, 54) else UDim2.new(1, 0, 0, 54),
-			CellPadding = UDim2.fromOffset(10, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), h(Meter, { label = "REBIRTHS", icon = "Rebirth", have = rebirths, need = needRebirths, accent = Palette.coral, order = 1 }),
-			h(Meter, { label = "ASTRAL CORES", icon = "Core", have = cores, need = needCores, accent = Palette.coral, order = 2 })),
-		RewardLabel = h(Text, {
-			value = "YOU GAIN",
-			size = 11,
-			color = Palette.mango,
-			weight = Enum.FontWeight.Heavy,
-			layoutOrder = 4,
-			sizeConstraint = UDim2.new(1, 0, 0, 14),
-		}),
-		Rewards = h("frame", {
-			Size = UDim2.new(1, 0, 0, tileRows * 52 + (tileRows - 1) * 8),
-			BackgroundTransparency = 1,
-			LayoutOrder = 5,
-		}, tiles),
-		Keeps = h(ChipRow, { title = "STAYS WITH YOU", items = KEEPS, accent = Palette.mint, height = if wide then 46 else 76, order = 6 }),
-		Resets = h(ChipRow, { title = "RESETS", items = RESETS, accent = Palette.coral, height = if wide then 46 else 76, order = 7 }),
-		Hold = h(HoldButton, {
-			size = UDim2.new(1, 0, 0, TapTarget + 8),
-			order = 8,
-			enabled = ready and not props.busy,
-			busy = props.busy,
-			text = "HOLD TO EXPAND",
-			lockedText = lockedText,
-			softMotion = softMotion,
-			onComplete = function()
-				Audio:play("domainImpact")
-				InteractionFeedback.reward()
-				props.onConfirm()
-			end,
+		Reset = h(Text, {
+			value = "Reset: machines, flux, vault and worlds. The rebirths and cores above are spent.",
+			size = 13,
+			color = Palette.muted,
+			wrap = true,
+			layoutOrder = 3,
+			sizeConstraint = UDim2.new(1, 0, 0, if wide then 18 else 36),
 		}),
 	}
-	local detailsW = if wide then cardW - portalSize - 72 else cardW - 32
-	local detailFrame
-	if wide then
-		detailFrame = h("frame", {
-			Size = UDim2.new(0, detailsW, 1, -40),
-			Position = UDim2.fromOffset(portalSize + 52, 20),
-			BackgroundTransparency = 1,
-			ZIndex = 30,
-		}, details)
-	else
-		detailFrame = h("scrollingframe", {
-			Size = UDim2.new(1, -32, 1, -(portalSize + 34)),
-			Position = UDim2.fromOffset(16, portalSize + 24),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = Palette.pink,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.new(),
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ZIndex = 30,
-		}, h("uipadding", { PaddingBottom = UDim.new(0, 12) }), details)
-	end
+	local headerH = 64
+	local holdH = TapTarget + 8
+	local hold = h("frame", {
+		Size = UDim2.new(1, -pad * 2, 0, holdH),
+		Position = UDim2.new(0, pad, 1, -(pad + holdH)),
+		BackgroundTransparency = 1,
+		ZIndex = 31,
+	}, h(HoldButton, {
+		size = UDim2.fromScale(1, 1),
+		order = 8,
+		enabled = ready and not props.busy,
+		busy = props.busy,
+		text = "HOLD TO EXPAND",
+		lockedText = lockedText,
+		softMotion = softMotion,
+		onComplete = function()
+			Audio:play("domainImpact")
+			InteractionFeedback.reward()
+			props.onConfirm()
+		end,
+	}))
+	-- the rank badge: one ring and a slow mote, nothing louder
+	local badge = h("frame", {
+		Size = UDim2.fromOffset(56, 56),
+		Position = UDim2.fromOffset(pad, pad + 2),
+		BackgroundColor3 = darken(Palette.pink, 0.8),
+		BorderSizePixel = 0,
+		ZIndex = 30,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = Palette.pink,
+		Thickness = 1.5,
+		Transparency = if ready then time:map(function(t) return 0.1 + (math.sin(t * 2.4) + 1) * 0.15 end) else 0.45,
+	}), h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Rotation = time:map(function(t) return (t * 40) % 360 end),
+		ZIndex = 31,
+	}, h("frame", {
+		Size = UDim2.fromOffset(6, 6),
+		Position = UDim2.fromScale(0.5, 0),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.cream,
+		BorderSizePixel = 0,
+		ZIndex = 32,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))), h(Text, {
+		value = `{nextRank}`,
+		size = 22,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		fit = true,
+		minSize = 12,
+		sizeConstraint = UDim2.fromScale(1, 1),
+		zIndex = 32,
+	}))
 	local cardIn = React.joinBindings({ props.enter, parentSize }):map(function(values)
 		return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 30)
 	end)
@@ -662,37 +748,68 @@ local function ConfirmView(props)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.night,
 		BackgroundTransparency = props.enter:map(function(a)
-			return 1 - a * 0.94
+			return 1 - a * 0.97
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 20,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 22) }), h("uistroke", {
-		Color = if ready then Palette.pink else Palette.violet,
-		Thickness = 2,
-		Transparency = time:map(function(t)
-			return if ready then 0.1 + math.sin(t * 2.6) * 0.1 else 0.4
-		end),
-	}), h("uigradient", {
-		Color = ColorSequence.new(darken(Palette.violet, 0.78), Palette.void),
-		Rotation = 25,
-	}), h(Portal, {
-		time = time,
-		size = portalSize,
-		softMotion = softMotion,
-		budget = props.budget,
-		position = if wide then UDim2.new(0, 24 + portalSize / 2, 0.5, 0) else UDim2.new(0.5, 0, 0, 14 + portalSize / 2),
-	}, h(Text, {
-		value = `{domain.Rank + 1}`,
-		size = math.floor(portalSize * 0.17),
+	}, h("uicorner", { CornerRadius = UDim.new(0, 18) }), h("uistroke", {
+		Color = Palette.line,
+		Thickness = 1,
+		Transparency = 0.3,
+	}), badge, h(Text, {
+		value = `Domain {nextRank}`,
+		size = if wide then 26 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.new(0, 0, 0.5, -math.floor(portalSize * 0.1)),
-		sizeConstraint = UDim2.new(1, 0, 0, math.floor(portalSize * 0.2)),
-		zIndex = 22,
-	})), detailFrame, h("frame", {
+		fit = true,
+		minSize = 16,
+		position = UDim2.fromOffset(pad + 72, pad),
+		sizeConstraint = UDim2.new(1, -(pad * 2 + 72 + headerReserve), 0, 32),
+		zIndex = 30,
+	}), h(Text, {
+		value = if ready then "Ready. Trade this run for permanent Domain power." else "Trade this run for permanent Domain power.",
+		size = 14,
+		color = Palette.muted,
+		fit = true,
+		minSize = 11,
+		position = UDim2.fromOffset(pad + 72, pad + 34),
+		sizeConstraint = UDim2.new(1, -(pad * 2 + 72 + headerReserve), 0, 20),
+		zIndex = 30,
+	}), h("frame", {
+		Size = UDim2.new(1, -pad * 2, 0, 1),
+		Position = UDim2.fromOffset(pad, pad + headerH + 4),
+		BackgroundColor3 = Palette.line,
+		BackgroundTransparency = 0.4,
+		BorderSizePixel = 0,
+		ZIndex = 30,
+	}), h("scrollingframe", {
+		Size = UDim2.new(1, -pad * 2, 1, -(pad + headerH + 22 + holdH + pad + 14)),
+		Position = UDim2.fromOffset(pad, pad + headerH + 22),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Palette.lineSoft,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ZIndex = 30,
+	}, body), hold, props.onOpenTree ~= nil and h("frame", {
+		Size = UDim2.fromOffset(treeW - 8, TapTarget),
+		Position = UDim2.new(1, -(pad + TapTarget + treeW), 0, pad),
+		BackgroundTransparency = 1,
+		ZIndex = 40,
+	}, h(Button, {
+		text = "VIEW TREE",
+		onClick = props.onOpenTree,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
+		zIndex = 41,
+	})), h("frame", {
 		Size = UDim2.fromOffset(TapTarget, TapTarget),
-		Position = UDim2.new(1, -(TapTarget + 10), 0, 10),
+		Position = UDim2.new(1, -(pad + TapTarget), 0, pad),
 		BackgroundTransparency = 1,
 		ZIndex = 40,
 	}, h(Button, {
@@ -1016,6 +1133,7 @@ local function DomainExpansionOverlay(_param)
 			busy = busy,
 			currentRebirths = _param.currentRebirths,
 			currentCores = _param.currentCores,
+			onOpenTree = _param.onOpenTree,
 			onConfirm = function()
 				if _param.onConfirm ~= nil then
 					_param.onConfirm()
@@ -1648,6 +1766,7 @@ local function DomainSkillTree(_param)
 		ZIndex = 705,
 	}, bodyChildren) else h(React.Fragment, nil, bodyChildren)
 	local nextPoints = GameConfig.Domain.SkillPointPerRank or 2
+	local expandW = if _param.onExpand ~= nil then 118 else 0
 	return h(OverlayPresence, {
 		amount = motion,
 	}, h("frame", {
@@ -1713,7 +1832,7 @@ local function DomainSkillTree(_param)
 		fit = true,
 		minSize = 8,
 		position = UDim2.fromOffset(56, 6),
-		sizeConstraint = UDim2.new(1, -(56 + 96 + TapTarget + 22), 0, 14),
+		sizeConstraint = UDim2.new(1, -(56 + 96 + TapTarget + 22 + expandW), 0, 14),
 	}), h(Text, {
 		value = if stack then `{boundCount}/{#TREE} bound` else `{boundCount} of {#TREE} bound  ·  +{nextPoints} points every expansion`,
 		size = if stack then 13 else 15,
@@ -1722,7 +1841,18 @@ local function DomainSkillTree(_param)
 		fit = true,
 		minSize = 10,
 		position = UDim2.fromOffset(56, 22),
-		sizeConstraint = UDim2.new(1, -(56 + 96 + TapTarget + 22), 0, 22),
+		sizeConstraint = UDim2.new(1, -(56 + 96 + TapTarget + 22 + expandW), 0, 22),
+	}), _param.onExpand ~= nil and h(Button, {
+		text = "EXPAND",
+		icon = "Domain",
+		onClick = function()
+			Audio:play("open")
+			_param.onExpand()
+		end,
+		color = Palette.pink,
+		size = UDim2.fromOffset(expandW - 8, 46),
+		position = UDim2.new(1, -(96 + TapTarget + 10 + expandW), 0, 4),
+		reducedMotion = softMotion,
 	}), h("frame", {
 		Size = UDim2.fromOffset(96, 46),
 		Position = UDim2.new(1, -(96 + TapTarget + 10), 0, 4),

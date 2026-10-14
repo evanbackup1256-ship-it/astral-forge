@@ -195,6 +195,9 @@ local function DomainApp(props)
 			domain = state.Domain,
 			dispatch = dispatch,
 			reducedMotion = false,
+			onExpand = if state.Domain.CanExpand == true then function()
+				dispatchStore(ClientActions.setDomainOverlay({ mode = "confirm" }))
+			end else nil,
 			onClose = function()
 				return dispatchStore(ClientActions.setDomainOverlay(nil))
 			end,
@@ -204,6 +207,9 @@ local function DomainApp(props)
 			domain = state.Domain,
 			currentRebirths = state.Rebirths,
 			currentCores = state.Cores,
+			onOpenTree = if overlay.mode == "confirm" and (tonumber(state.Domain.Rank) or 0) > 0 then function()
+				dispatchStore(ClientActions.setDomainOverlay({ mode = "tree" }))
+			end else nil,
 			result = if overlay.mode == "result" then overlay.result else nil,
 			busy = busy,
 			reducedMotion = false,

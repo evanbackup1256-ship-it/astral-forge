@@ -1,9 +1,12 @@
 --!nonstrict
 -- The Domain tree as a constellation: the Domain core in the middle, prerequisite depth as rings,
 -- each root branch in its own sector. Bound nodes show their element's companion and send energy
--- along bound links; available nodes breathe; binding plays a burst and the companion's reveal.
+-- along bound links; available nodes ripple; binding plays a burst and the companion's reveal.
+-- It is alive everywhere: stars twinkle behind it, motes orbit every ring, the core spins its own
+-- orbits, and the whole tree grows out of the core ring by ring when it opens.
 -- Drag to pan, wheel or pinch to zoom, tap a node to inspect it. Same props as DomainHexStage.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ui = require(script.Parent.UiCore)("ui")
 local motion = require(script.Parent.MotionKit)("motion")
@@ -15,21 +18,57 @@ local P = theme.Palette
 local h = React.createElement
 
 local ORB = 64
-local MAX_PULSES = 18 -- energy dots on bound links, bounded for busy trees
+local MAX_PULSES = 28 -- energy dots on links, bounded for busy trees
 local DRAG_SLOP = 6
+local STAR_COUNT = 42
+local MOTES_PER_RING = 4
+
+local function easeOutBack(x)
+	local c1 = 1.70158
+	local c3 = c1 + 1
+	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
+end
+
+local function seeded(index, salt)
+	return math.abs(math.sin(index * 12.9898 + salt * 78.233) * 43758.5453) % 1
+end
+
+-- how far into the entrance a ring is: ring 0 first, each next ring a beat later
+local function appearAt(intro, depth, rings)
+	local share = 1 / (rings + 1)
+	return math.clamp((intro - depth * share * 0.8) / (share * 1.6), 0, 1)
+end
+
+-- dots spaced around a circle; the frame they live in rotates
+local function dotRing(count, radius, dot, color, transparency)
+	local dots = {}
+	for index = 1, count do
+		local radians = (index - 1) / count * math.pi * 2
+		dots["d" .. index] = h("frame", {
+			Size = UDim2.fromOffset(dot, dot), AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, math.cos(radians) * radius, 0.5, math.sin(radians) * radius),
+			BackgroundColor3 = color, BackgroundTransparency = transparency, BorderSizePixel = 0,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+	end
+	return dots
+end
 
 local function Orb(props)
 	local hovered, setHovered = React.useState(false)
 	local style = props.style
 	local accent = if props.owned then style.accent elseif props.available then style.accent else P.lineSoft
 	local lift = motion.useFlipperSpring(if hovered or props.selected then 1 else 0, props.softMotion, 520, 40)
-	local breathe = motion.usePulse(props.available and not props.owned and not props.softMotion, 1.1)
+	local breathe = motion.usePulse(props.available and not props.owned, 1.1)
 	local burst = motion.useFlash(if props.bound then props.boundToken else 0, props.softMotion, 0.9)
-	return h("frame", {
-		Name = props.node.Id, Size = UDim2.fromOffset(ORB + 40, ORB + 40),
-		Position = UDim2.fromOffset(props.x, props.y), AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1, ZIndex = if props.selected then 30 else 20,
-	}, {
+	local seconds = props.seconds
+	local seed = props.seed
+	local children = {
+		Pop = h("uiscale", {
+			Scale = props.intro:map(function(v)
+				local a = appearAt(v, props.depth, props.rings)
+				return if a >= 1 then 1 else math.max(0.01, easeOutBack(a))
+			end),
+		}),
 		-- bind burst: a ring that races outward once
 		Burst = h("frame", {
 			Size = burst:map(function(v) return UDim2.fromOffset(ORB + (1 - v) * 90, ORB + (1 - v) * 90) end),
@@ -57,7 +96,7 @@ local function Orb(props)
 			Glow = h("uigradient", {
 				Color = ColorSequence.new(theme.lighten(accent, 0.1), P.ink),
 				Transparency = NumberSequence.new(if props.owned then 0.35 else 0.85, 0.95),
-				Rotation = 90,
+				Rotation = if props.owned then seconds:map(function(t) return (t * 30 + seed * 360) % 360 end) else 90,
 			}),
 			Companion = h(ElementFx, {
 				element = style.element, size = UDim2.fromScale(0.92, 0.92), position = UDim2.fromScale(0.5, 0.52),
@@ -87,7 +126,45 @@ local function Orb(props)
 			weight = Enum.FontWeight.Bold, align = Enum.TextXAlignment.Center, wrap = true,
 			position = UDim2.new(0, -20, 1, -16), sizeConstraint = UDim2.new(1, 40, 0, 30), zIndex = 31,
 		}),
-	})
+	}
+	if props.owned then
+		-- bound: three sparks circle the orb
+		children.Halo = h("frame", {
+			Size = UDim2.fromOffset(ORB + 22, ORB + 22), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1, ZIndex = 23,
+			Rotation = seconds:map(function(t) return (t * 46 + seed * 360) % 360 end),
+		}, dotRing(3, (ORB + 22) / 2, 5, theme.lighten(style.accent, 0.45), 0.1))
+	elseif props.available then
+		-- ready to bind: ripples leave the orb
+		for wave = 1, 2 do
+			children["Ripple" .. wave] = h("frame", {
+				Size = seconds:map(function(t)
+					local u = (t * 0.55 + seed + wave * 0.5) % 1
+					return UDim2.fromOffset(ORB + 10 + u * 34, ORB + 10 + u * 34)
+				end),
+				Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1, ZIndex = 19,
+			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+				Color = style.accent, Thickness = 1.5,
+				Transparency = seconds:map(function(t)
+					local u = (t * 0.55 + seed + wave * 0.5) % 1
+					return 0.35 + u * 0.65
+				end),
+			}))
+		end
+	end
+	if props.selected then
+		children.Focus = h("frame", {
+			Size = UDim2.fromOffset(ORB + 34, ORB + 34), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1, ZIndex = 24,
+			Rotation = seconds:map(function(t) return (-t * 32) % 360 end),
+		}, dotRing(10, (ORB + 34) / 2, 4, P.cyan, 0.15))
+	end
+	return h("frame", {
+		Name = props.node.Id, Size = UDim2.fromOffset(ORB + 40, ORB + 40),
+		Position = UDim2.fromOffset(props.x, props.y), AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1, ZIndex = if props.selected then 30 else 20,
+	}, children)
 end
 
 local function DomainConstellation(props)
@@ -97,8 +174,26 @@ local function DomainConstellation(props)
 	local pan, setPan = React.useBinding(Vector2.zero)
 	local hostRef = React.useRef(nil)
 	local drag = React.useRef({ active = false, origin = Vector2.zero, start = Vector2.zero, moved = false })
-	local live = not props.softMotion
-	local clock = motion.useClock(live, 0.35, 1)
+	-- Reduced Motion slows these clocks (through the motion settings) rather than stopping them
+	local clock = motion.useClock(true, 0.35, 1)
+	local seconds = motion.useClock(true, 1, 3600)
+	-- the tree grows out of the core when it opens
+	local intro, setIntro = React.useBinding(0)
+	React.useEffect(function()
+		local duration = if props.softMotion then 0.7 else 1.5
+		local elapsed = 0
+		setIntro(0)
+		local connection
+		connection = RunService.Heartbeat:Connect(function(dt)
+			elapsed += dt
+			local t = math.clamp(elapsed / duration, 0, 1)
+			setIntro(1 - (1 - t) ^ 3)
+			if t >= 1 then connection:Disconnect() end
+		end)
+		return function()
+			if connection.Connected then connection:Disconnect() end
+		end
+	end, { layout })
 	-- the how-to hint is for first look only: it fades once you've panned or zoomed
 	local learned, setLearned = React.useState(false)
 	local hintFade = motion.useFlipperSpring(if learned then 1 else 0, props.softMotion, 260, 30)
@@ -164,23 +259,71 @@ local function DomainConstellation(props)
 	end
 	if props.focusId then visit(props.focusId) end
 
+	-- stars behind everything; they pan at a quarter speed so the tree floats over them
+	local stars = {}
+	for index = 1, STAR_COUNT do
+		local sx, sy, phase = seeded(index, 1), seeded(index, 2), seeded(index, 3)
+		local size = if seeded(index, 4) > 0.8 then 3 else 2
+		local warm = index % 4 == 0
+		stars["s" .. index] = h("frame", {
+			Size = UDim2.fromOffset(size, size), AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = pan:map(function(offset)
+				return UDim2.new(sx, offset.X * 0.25, sy, offset.Y * 0.25)
+			end),
+			BackgroundColor3 = if warm then P.mango else P.cream, BorderSizePixel = 0, ZIndex = 704,
+			BackgroundTransparency = seconds:map(function(t)
+				return 0.35 + (math.sin(t * (0.8 + phase * 1.6) + phase * 6.28) + 1) * 0.3
+			end),
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+	end
+
 	local content = {}
-	-- depth rings
+	-- depth rings, each grown in on open, with motes orbiting it
 	for ring = 1, layout.rings do
 		local radius = Math.CORE_RADIUS + ring * Math.RING_GAP
 		content["ring" .. ring] = h("frame", {
-			Size = UDim2.fromOffset(radius * 2, radius * 2), Position = UDim2.fromOffset(0, 0), AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1, ZIndex = 2,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", { Color = P.lineSoft, Thickness = 1, Transparency = 0.82 }))
+			Size = intro:map(function(v)
+				local a = appearAt(v, ring - 1, layout.rings)
+				return UDim2.fromOffset(radius * 2 * a, radius * 2 * a)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 2,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", { Color = P.lineSoft, Thickness = 1, Transparency = 0.78 }))
+		local direction = if ring % 2 == 0 then -1 else 1
+		local speed = 7 / ring
+		content["motes" .. ring] = h("frame", {
+			Size = UDim2.fromOffset(radius * 2, radius * 2), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 3,
+			Rotation = seconds:map(function(t) return (t * speed * direction + ring * 37) % 360 end),
+			Visible = intro:map(function(v) return v > 0.6 end),
+		}, dotRing(MOTES_PER_RING, radius, 4, if ring % 2 == 0 then P.violet else P.cyan, 0.3))
 	end
-	-- the Domain core
+	-- the Domain core: a breathing halo with two orbits turning opposite ways
+	content.CoreHalo = h("frame", {
+		Size = seconds:map(function(t)
+			local s = 128 + math.sin(t * 1.4) * 8
+			return UDim2.fromOffset(s, s)
+		end),
+		AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = P.violet, BorderSizePixel = 0, ZIndex = 23,
+		BackgroundTransparency = seconds:map(function(t) return 0.8 + math.sin(t * 1.4) * 0.05 end),
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+	content.CoreOrbitOuter = h("frame", {
+		Size = UDim2.fromOffset(136, 136), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 24,
+		Rotation = seconds:map(function(t) return (t * 24) % 360 end),
+	}, dotRing(12, 66, 4, P.violet, 0.15))
+	content.CoreOrbitInner = h("frame", {
+		Size = UDim2.fromOffset(116, 116), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 24,
+		Rotation = seconds:map(function(t) return (-t * 40) % 360 end),
+	}, dotRing(3, 56, 6, P.cyan, 0))
 	content.Core = h("frame", {
 		Size = UDim2.fromOffset(96, 96), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = P.panelRaised, BorderSizePixel = 0, ZIndex = 25,
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", { Color = P.violet, Thickness = 2 }),
-		h("uigradient", { Color = ColorSequence.new(theme.lighten(P.violet, 0.2), P.ink), Rotation = 90 }),
+		h("uigradient", {
+			Color = ColorSequence.new(theme.lighten(P.violet, 0.2), P.ink),
+			Rotation = seconds:map(function(t) return (t * 18) % 360 end),
+		}),
 		h(ui.Text, { value = props.coreLabel or "DOMAIN", size = 13, color = P.cream, weight = Enum.FontWeight.Heavy,
 			align = Enum.TextXAlignment.Center, sizeConstraint = UDim2.fromScale(1, 1), zIndex = 26 }))
-	-- links: a soft glow under a crisp core; bound links carry travelling energy
+	-- links: a soft glow under a crisp core, drawn outward on open; bound links carry energy and
+	-- links into a node you can bind next carry a fainter flow
 	local pulses = 0
 	for _, node in props.tree do
 		local placed = layout.positions[node.Id]
@@ -199,34 +342,52 @@ local function DomainConstellation(props)
 			local dx, dy = placed.x - origin.x, placed.y - origin.y
 			local length = math.sqrt(dx * dx + dy * dy)
 			local bound = origin.owned and props.owned[node.Id] == true
+			local next = origin.owned and props.owned[node.Id] ~= true
 			local onPath = path[node.Id] and (origin.id == "core" or path[origin.id])
 			local color = if onPath then P.cyan elseif bound then style.accent elseif origin.owned then theme.darken(style.accent, 0.35) else P.lineSoft
 			local key = origin.id .. ">" .. node.Id
-			local mid = UDim2.fromOffset((origin.x + placed.x) / 2, (origin.y + placed.y) / 2)
 			local rotation = math.deg(math.atan2(dy, dx))
+			local depth = placed.depth
+			local function grow(thickness)
+				return intro:map(function(v)
+					local a = appearAt(v, depth, layout.rings)
+					return UDim2.fromOffset(length * a, thickness)
+				end)
+			end
+			local function from()
+				return intro:map(function(v)
+					local a = appearAt(v, depth, layout.rings)
+					return UDim2.fromOffset(origin.x + dx * a / 2, origin.y + dy * a / 2)
+				end)
+			end
 			content["glow" .. key] = h("frame", {
-				Size = UDim2.fromOffset(length, if bound or onPath then 8 else 4), Position = mid, AnchorPoint = Vector2.new(0.5, 0.5),
-				Rotation = rotation, BackgroundColor3 = color, BackgroundTransparency = if bound or onPath then 0.8 else 0.92,
+				Size = grow(if bound or onPath then 8 else 4), Position = from(), AnchorPoint = Vector2.new(0.5, 0.5),
+				Rotation = rotation, BackgroundColor3 = color,
+				BackgroundTransparency = if bound or onPath then seconds:map(function(t) return 0.74 + math.sin(t * 2 + depth) * 0.08 end) else 0.92,
 				BorderSizePixel = 0, ZIndex = 5,
 			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
 			content["link" .. key] = h("frame", {
-				Size = UDim2.fromOffset(length, if bound or onPath then 2 else 1), Position = mid, AnchorPoint = Vector2.new(0.5, 0.5),
+				Size = grow(if bound or onPath then 2 else 1), Position = from(), AnchorPoint = Vector2.new(0.5, 0.5),
 				Rotation = rotation, BackgroundColor3 = color, BackgroundTransparency = if bound or onPath then 0.05 else 0.55,
 				BorderSizePixel = 0, ZIndex = 6,
 			})
-			if bound and live and pulses < MAX_PULSES then
+			if (bound or next) and pulses < MAX_PULSES then
 				pulses += 1
 				local offset = (pulses * 0.37) % 1
+				local rate = if bound then 1 else 0.6
+				local dot = if bound then 7 else 5
 				content["pulse" .. key] = h("frame", {
-					Size = UDim2.fromOffset(7, 7), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = theme.lighten(style.accent, 0.5),
+					Size = UDim2.fromOffset(dot, dot), AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundColor3 = if bound then theme.lighten(style.accent, 0.5) else style.accent,
 					BorderSizePixel = 0, ZIndex = 7,
+					Visible = intro:map(function(v) return v >= 0.98 end),
 					Position = clock:map(function(t)
-						local u = (t + offset) % 1
+						local u = (t * rate + offset) % 1
 						return UDim2.fromOffset(origin.x + dx * u, origin.y + dy * u)
 					end),
 					BackgroundTransparency = clock:map(function(t)
-						local u = (t + offset) % 1
-						return 0.1 + math.abs(u - 0.5) * 1.2
+						local u = (t * rate + offset) % 1
+						return (if bound then 0.1 else 0.45) + math.abs(u - 0.5) * 1.1
 					end),
 				}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
 			end
@@ -243,6 +404,7 @@ local function DomainConstellation(props)
 			owned = props.owned[node.Id] == true, available = available, selected = props.focusId == node.Id,
 			softMotion = props.softMotion, onSelect = props.onSelect, bound = props.boundId == node.Id, boundToken = props.boundToken,
 			dragged = function() return drag.current.moved end,
+			seconds = seconds, intro = intro, depth = placed.depth, rings = layout.rings, seed = seeded(order, 5),
 		})
 	end
 
@@ -262,7 +424,16 @@ local function DomainConstellation(props)
 		end,
 	}, {
 		Corner = h("uicorner", { CornerRadius = UDim.new(0, 12) }),
-		Backdrop = h("uigradient", { Color = ColorSequence.new(theme.darken(P.violet, 0.82), P.ink), Rotation = 90 }),
+		-- the nebula turns slowly behind the stars
+		Backdrop = h("uigradient", {
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, theme.darken(P.violet, 0.8)),
+				ColorSequenceKeypoint.new(0.5, P.ink),
+				ColorSequenceKeypoint.new(1, theme.darken(P.cyan, 0.86)),
+			}),
+			Rotation = seconds:map(function(t) return (t * 4) % 360 end),
+		}),
+		Stars = h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 704 }, stars),
 		Stage = h("frame", {
 			Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1, ZIndex = 706,
 			Position = pan:map(function(offset) return UDim2.new(0.5, offset.X, 0.5, offset.Y - 24) end),
