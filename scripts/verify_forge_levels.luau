@@ -102,8 +102,9 @@ for featureId in seenFeature do
 end
 assert(not string.find(unlockBlock :: string, "LifetimeCash", 1, true), "Unlocks must not carry hand-written gates -- the ladder sets them")
 assert(
-	string.find(configSource, "for featureId, level in ForgeLevels.unlockLevels() do", 1, true),
-	"GameConfig must derive every level gate from ForgeLevels"
+	string.find(configSource, "for featureId, step in ForgeLevels.unlockLevels() do", 1, true)
+		and string.find(configSource, 'rule.Requirement = if goal ~= nil then goal.Text else ""', 1, true),
+	"every gate derives from its milestone and is described by that milestone's goal, never a level"
 )
 
 for routeId in string.gmatch(navSource, 'id = "(%w+)"') do

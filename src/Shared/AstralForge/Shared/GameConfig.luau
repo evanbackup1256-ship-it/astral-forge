@@ -7601,15 +7601,21 @@ if generatedOk then
 	end
 end
 
-for featureId, level in ForgeLevels.unlockLevels() do
+-- Every feature opens on its own milestone and says so ("Earn 100 flux in total"); players never
+-- see a level. The gate still counts the milestone OR any later one as reached, so a veteran whose
+-- early counter predates its stat keeps everything they already had.
+for featureId, step in ForgeLevels.unlockLevels() do
 	local rule = GameConfig.Unlocks[featureId]
 	if rule == nil then
 		rule = { Name = featureId }
 		GameConfig.Unlocks[featureId] = rule
 	end
+	local goal = ForgeLevels.goalFor(featureId)
 	rule.Kind = "Level"
-	rule.Target = level
-	rule.Requirement = ForgeLevels.requirementText(level)
+	rule.Target = step
+	rule.Requirement = if goal ~= nil then goal.Text else ""
+	rule.GoalKind = if goal ~= nil then goal.Kind else nil
+	rule.GoalTarget = if goal ~= nil then goal.Target else nil
 end
 
 require(script.Parent.CrateExpansion).extendItems(GameConfig.Items)

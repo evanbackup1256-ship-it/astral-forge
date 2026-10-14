@@ -355,6 +355,7 @@ local function Metric(_param)
 	end
 	return React.createElement(Panel, {
 		size = size,
+		accent = accent,
 		background = Palette.panelRaised,
 		padding = if compact then 8 else 10,
 		layoutOrder = layoutOrder,
@@ -801,15 +802,32 @@ local function OverviewView(_param)
 		Padding = UDim.new(0, if landscapePhone or denseHero then 4 else 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 16),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Text, {
 		value = if firstRun then "YOUR FORGE" else "CURRENT RUN",
 		size = 11,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		weight = Enum.FontWeight.Heavy,
-		fit = false,
+		fit = true,
 		layoutOrder = 0,
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), React.createElement(Text, {
+		sizeConstraint = UDim2.new(0, if phone then 80 else 100, 1, 0),
+	}), React.createElement(Badge, {
+		value = if vaultFill >= 0.99 then "SATURATED" elseif firstRun then "CALIBRATING" else "ACTIVE",
+		accent = if vaultFill >= 0.99 then Palette.mango else Palette.green,
+		size = UDim2.fromOffset(if phone then 72 else 82, 16),
+		filled = false,
+		layoutOrder = 1,
+	})), React.createElement(Text, {
 		value = compactNumber(state.Vault),
 		size = if landscapePhone then 32 elseif stack then 38 else 46,
 		color = Palette.cream,
@@ -1818,13 +1836,15 @@ local function ChargeDial(props)
 		children["d" .. i] = React.createElement("frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.new(0.5, math.cos(angle) * radius, 0.5, math.sin(angle) * radius),
-			Size = UDim2.fromOffset(4, 4),
+			Size = props.fill:map(function(amount)
+				return if amount >= threshold then UDim2.fromOffset(5, 5) else UDim2.fromOffset(3, 3)
+			end),
 			BorderSizePixel = 0,
 			BackgroundColor3 = props.fill:map(function(amount)
 				return if amount >= threshold then props.accent else Palette.panelSoft
 			end),
 			BackgroundTransparency = props.fill:map(function(amount)
-				return if amount >= threshold then 0 else 0.35
+				return if amount >= threshold then 0 else 0.4
 			end),
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
@@ -1849,6 +1869,23 @@ local function ChargeDial(props)
 		Thickness = 2,
 		Transparency = props.charge:map(function(amount)
 			return 1 - amount * 0.75
+		end),
+	})), React.createElement("frame", {
+		Name = "ChargeHalo",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = props.charge:map(function(amount)
+			return UDim2.fromOffset(size - 6 + amount * 8, size - 6 + amount * 8)
+		end),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = props.accent,
+		Thickness = 1,
+		Transparency = props.charge:map(function(amount)
+			return 1 - amount * 0.85
 		end),
 	})), props.children)
 end
@@ -2069,29 +2106,39 @@ local function RebirthPanel(_param)
 		return React.createElement("frame", {
 			Size = UDim2.new(0.5, -6, 1, 0),
 			Position = UDim2.new(x, if x > 0 then 6 else 0, 0, 0),
-			BackgroundTransparency = 1,
+			BackgroundColor3 = Palette.ink,
+			BackgroundTransparency = 0.35,
 			BorderSizePixel = 0,
-		}, React.createElement("frame", {
-			Size = UDim2.new(0, 2, 1, -2),
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 8),
+		}), React.createElement("uistroke", {
+			Color = tint,
+			Thickness = 1,
+			Transparency = 0.5,
+		}), React.createElement("frame", {
+			Size = UDim2.new(0, 3, 1, -8),
+			Position = UDim2.fromOffset(4, 4),
 			BackgroundColor3 = tint,
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = 0.15,
 			BorderSizePixel = 0,
-		}), React.createElement(Text, {
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		})), React.createElement(Text, {
 			value = title,
 			size = 10,
 			color = tint,
 			weight = Enum.FontWeight.Heavy,
 			fit = false,
-			position = UDim2.fromOffset(8, 0),
-			sizeConstraint = UDim2.new(1, -8, 0, 13),
+			position = UDim2.fromOffset(12, 4),
+			sizeConstraint = UDim2.new(1, -16, 0, 13),
 		}), React.createElement(Text, {
 			value = body,
 			size = if stack then 11 else 10,
 			color = Palette.creamSoft,
 			wrap = true,
 			fit = false,
-			position = UDim2.fromOffset(8, 14),
-			sizeConstraint = UDim2.new(1, -8, 1, -14),
+			position = UDim2.fromOffset(12, 18),
+			sizeConstraint = UDim2.new(1, -16, 1, -22),
 		}))
 	end
 	return React.createElement(Panel, {
@@ -2250,7 +2297,7 @@ local function RebirthPanel(_param)
 	}), React.createElement("frame", {
 		Name = "IgnitionBar",
 		Size = ignite:map(function(amount)
-			return UDim2.new(amount, 0, 0, 3)
+			return UDim2.new(amount, 0, 0, 4)
 		end),
 		Position = UDim2.new(0, 0, 0, ctaH + 2),
 		BackgroundColor3 = Palette.mango,
@@ -2258,6 +2305,11 @@ local function RebirthPanel(_param)
 		Visible = igniting,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.mango),
+			ColorSequenceKeypoint.new(1, Palette.cream),
+		}),
 	})), React.createElement(Button, {
 		text = if igniting then "STOP" elseif confirming then "CANCEL" else "OPEN WORKSHOP",
 		icon = if confirming or igniting then "Close" else "Forge",
@@ -3059,7 +3111,8 @@ local function MilestoneRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-			reducedMotion = softMotion,
+		filled = ready,
+		reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = achievement.Name,
@@ -3090,15 +3143,27 @@ local function MilestoneRow(_param)
 		interactive = true,
 		highlight = ready,
 		reducedMotion = softMotion,
-	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement(Text, {
-		value = reward,
+	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement("frame", {
+		Size = UDim2.fromOffset(math.min(220, #reward * 7 + 24), 20),
+		Position = UDim2.fromOffset(56, if stack then 66 else 56),
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 6),
+	}), React.createElement("uistroke", {
+		Color = Palette.mango,
+		Thickness = 1,
+		Transparency = 0.65,
+	}), React.createElement(Text, {
+		value = "★ " .. reward,
 		size = 11,
 		color = Palette.mango,
-		weight = Enum.FontWeight.Bold,
-		fit = false,
-		position = UDim2.fromOffset(56, if stack then 66 else 58),
-		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -182, 0, 16),
-	}), React.createElement(Text, {
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(6, 2),
+		sizeConstraint = UDim2.new(1, -12, 1, -4),
+	})), React.createElement(Text, {
 		value = if ready then "Reward ready" elseif achievement.Claimed then "Claimed" else `{compactNumber(achievement.Progress)} / {compactNumber(achievement.Target)}  ·  {math.floor(progressFrac * 100)}%`,
 		size = 11,
 		color = Palette.muted,
@@ -3530,7 +3595,8 @@ local function MissionRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-			reducedMotion = softMotion,
+		filled = ready,
+		reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = quest.Name,
@@ -3561,16 +3627,28 @@ local function MissionRow(_param)
 		interactive = true,
 		highlight = ready,
 		reducedMotion = softMotion,
-	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement(Text, {
-		value = reward,
-		size = 11,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Bold,
-		fit = false,
-		position = UDim2.fromOffset(56, if stack then 66 else 58),
-		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -182, 0, 16),
+	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement("frame", {
+		Size = UDim2.fromOffset(math.min(220, #reward * 7 + 24), 20),
+		Position = UDim2.fromOffset(56, if stack then 66 else 56),
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 6),
+	}), React.createElement("uistroke", {
+		Color = Palette.cyan,
+		Thickness = 1,
+		Transparency = 0.65,
 	}), React.createElement(Text, {
-		value = `{compactNumber(quest.Progress)} / {compactNumber(quest.Target)}`,
+		value = "★ " .. reward,
+		size = 11,
+		color = Palette.cyan,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(6, 2),
+		sizeConstraint = UDim2.new(1, -12, 1, -4),
+	})), React.createElement(Text, {
+		value = if ready then "Reward ready" elseif quest.Claimed then "Claimed" else `{compactNumber(quest.Progress)} / {compactNumber(quest.Target)}  ·  {math.floor(progressFrac * 100)}%`,
 		size = 11,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,

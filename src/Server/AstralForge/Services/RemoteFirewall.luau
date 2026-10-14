@@ -224,7 +224,6 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.UpgradeContinuum] = true,
 		[Protocol.Actions.CaptureEcho] = true,
 		[Protocol.Actions.ClaimDaily] = true,
-		[Protocol.Actions.SpinWheel] = true,
 		[Protocol.Actions.ClaimExpedition] = true,
 		[Protocol.Actions.CompleteTutorial] = true,
 		[Protocol.Actions.ReplayTutorial] = true,

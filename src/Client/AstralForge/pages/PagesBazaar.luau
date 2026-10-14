@@ -20,40 +20,107 @@ local CATEGORIES = {
 local ACCENTS = { Resources = Palette.mango, Keys = Palette.violet, Boosts = Palette.cyan, Command = Palette.green, Tokens = Palette.pink, Rare = Palette.creamSoft }
 local sessionOrder
 
+local FAVOR_ICONS = {
+	Resources = "Forge",
+	Keys = "Crate",
+	Command = "Command",
+	Boosts = "Boost",
+	Tokens = "Wheel",
+	Rare = "Artifact",
+}
+
 local function MerchantPortrait(props)
-	local accent = props.accent
+	local accent = props.accent or Palette.cyan
+	local favors = props.favors or "Resources"
+	local iconKind = FAVOR_ICONS[favors] or "Shop"
+	local tag = string.upper(props.favors or "MERCHANT")
 	local function round(radius) return h("uicorner", { CornerRadius = radius }) end
+
 	return h("frame", {
-		Size = props.size, Position = props.position, BackgroundColor3 = Palette.panelSoft, BorderSizePixel = 0, ClipsDescendants = true,
-	}, round(UDim.new(0, 12)), h("uistroke", { Color = accent, Thickness = 1, Transparency = 0.35 }),
+		Name = "MerchantPortrait",
+		Size = props.size,
+		Position = props.position,
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, round(UDim.new(0, 14)),
+		h("uistroke", { Color = accent, Thickness = 1.5, Transparency = 0.28 }),
+		-- Soft radial atmospheric glow from top
 		h("frame", {
-			Size = UDim2.fromScale(1, 0.55), Position = UDim2.fromScale(0, 0.45), BorderSizePixel = 0,
-			BackgroundColor3 = accent, BackgroundTransparency = 0.82,
+			Name = "Atmosphere",
+			Size = UDim2.fromScale(1, 0.78),
+			Position = UDim2.fromScale(0, 0),
+			BorderSizePixel = 0,
+			BackgroundColor3 = accent,
+			BackgroundTransparency = 0.88,
+		}, h("uigradient", {
+			Rotation = 90,
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0),
+				NumberSequenceKeypoint.new(0.65, 0.55),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		})),
+		-- Specular sheen glint
+		h("frame", {
+			Name = "Sheen",
+			Size = UDim2.fromScale(1.4, 0.3),
+			Position = UDim2.fromScale(-0.2, 0.05),
+			Rotation = -28,
+			BorderSizePixel = 0,
+			BackgroundColor3 = Palette.white,
+			BackgroundTransparency = 0.94,
 		}),
+		-- Top crest jeweler accent bar
 		h("frame", {
-			Size = UDim2.fromScale(0.78, 0.42), Position = UDim2.fromScale(0.11, 0.7), BorderSizePixel = 0,
-			BackgroundColor3 = Palette.panelRaised,
-		}, round(UDim.new(0.45, 0)), h("uistroke", { Color = accent, Thickness = 1.5, Transparency = 0.2 })),
+			Name = "CrestBar",
+			Size = UDim2.fromOffset(24, 3),
+			Position = UDim2.new(0.5, 0, 0, 7),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BorderSizePixel = 0,
+			BackgroundColor3 = accent,
+			BackgroundTransparency = 0.25,
+		}, round(UDim.new(1, 0))),
+		-- Centered Heraldic Sigil IconTile
 		h("frame", {
-			Size = UDim2.fromScale(0.16, 0.2), Position = UDim2.fromScale(0.42, 0.56), BorderSizePixel = 0,
-			BackgroundColor3 = Palette.panelRaised,
-		}),
+			Name = "SigilWell",
+			Size = UDim2.fromOffset(50, 50),
+			Position = UDim2.new(0.5, 0, 0.42, 0),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, h(Ui.IconTile, {
+			kind = iconKind,
+			accent = accent,
+			size = 50,
+			radius = 12,
+			glow = true,
+			filled = true,
+			reducedMotion = props.reducedMotion,
+		})),
+		-- Bottom Favors / Guild Ribbon
 		h("frame", {
-			Size = UDim2.fromScale(0.44, 0.44), Position = UDim2.fromScale(0.28, 0.18), BorderSizePixel = 0,
-			BackgroundColor3 = Palette.panelRaised,
-		}, round(UDim.new(0.5, 0)), h("uistroke", { Color = accent, Thickness = 1.5, Transparency = 0.2 })),
-		h("frame", {
-			Size = UDim2.fromScale(0.6, 0.08), Position = UDim2.fromScale(0.2, 0.2), BorderSizePixel = 0,
-			BackgroundColor3 = accent, BackgroundTransparency = 0.15, Rotation = props.tilt or -4,
-		}, round(UDim.new(0.5, 0))),
-		h("frame", {
-			Size = UDim2.fromScale(0.36, 0.14), Position = UDim2.fromScale(0.32, 0.09), BorderSizePixel = 0,
-			BackgroundColor3 = accent, BackgroundTransparency = 0.15, Rotation = props.tilt or -4,
-		}, round(UDim.new(0.3, 0))),
-		h("frame", {
-			Size = UDim2.fromScale(0.04, 0.22), Position = UDim2.fromScale(0.48, 0.76), BorderSizePixel = 0,
-			BackgroundColor3 = accent, BackgroundTransparency = 0.3,
-		}))
+			Name = "GuildRibbon",
+			Size = UDim2.new(1, -12, 0, 18),
+			Position = UDim2.new(0.5, 0, 1, -7),
+			AnchorPoint = Vector2.new(0.5, 1),
+			BackgroundColor3 = Palette.ink,
+			BackgroundTransparency = 0.15,
+			BorderSizePixel = 0,
+		}, round(UDim.new(0, 6)),
+			h("uistroke", { Color = accent, Thickness = 1, Transparency = 0.45 }),
+			h(Ui.Text, {
+				value = tag,
+				size = 9,
+				weight = Enum.FontWeight.Heavy,
+				color = accent,
+				align = Enum.TextXAlignment.Center,
+				position = UDim2.fromOffset(0, 1),
+				sizeConstraint = UDim2.new(1, 0, 1, -2),
+				fit = false,
+			})
+		)
+	)
 end
 
 local function orderTotal(price, quantity)
@@ -201,7 +268,15 @@ local function BazaarView(props)
 		local progress = if reputation.NextAt then reputation.Units / reputation.NextAt else 1
 		add("merchant", 212, h(Ui.Panel, {
 			size = UDim2.fromScale(1, 1), padding = 14, accent = accent, background = Palette.panel, reducedMotion = props.reducedMotion,
-		}, h(MerchantPortrait, { accent = accent, size = UDim2.fromOffset(84, 96), position = UDim2.fromOffset(0, 0), tilt = (#merchant.Name % 3 - 1) * 5 }),
+		}, h(MerchantPortrait, {
+			accent = accent,
+			size = UDim2.fromOffset(84, 96),
+			position = UDim2.fromOffset(0, 0),
+			tilt = (#merchant.Name % 3 - 1) * 5,
+			favors = merchant.Favors,
+			name = merchant.Name,
+			reducedMotion = props.reducedMotion,
+		}),
 			h(Ui.Text, {
 				value = merchant.Name, size = 19, weight = Enum.FontWeight.Heavy, position = UDim2.fromOffset(98, 0),
 				sizeConstraint = UDim2.new(1, -98, 0, 26),

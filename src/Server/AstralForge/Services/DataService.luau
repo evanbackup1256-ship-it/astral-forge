@@ -32,6 +32,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local UnlockedDocumentStore = Documents.UnlockedDocumentStore
 	local TradeSuite = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))
 	local TradeRecovery = TradeSuite("TradeRecovery")
+	local TradeHistory = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory"))
 
 	local DataService = {}
 	DataService.__index = DataService
@@ -113,8 +114,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local function sanitize(profile)
 		local previousDataVersion = math.floor(nonNegative(profile.DataVersion))
 		profile.DataVersion = GameConfig.Game.DataVersion
-		profile.Cores = nonNegative(profile.Cores)
-		profile.Stardust = nonNegative(profile.Stardust)
+		profile.Cores = math.clamp(nonNegative(profile.Cores), 0, 1e14)
+		profile.Stardust = math.clamp(nonNegative(profile.Stardust), 0, 1e14)
 		profile.Rebirths = math.min(10_000_000, math.floor(nonNegative(profile.Rebirths)))
 		profile.Zone = math.max(1, math.floor(nonNegative(profile.Zone)))
 		profile.CurrentZone = math.max(1, math.floor(nonNegative(profile.CurrentZone)))
@@ -324,7 +325,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		-- completed-trade history: keep only well-formed, bounded entries
 		if profile.Trade.History ~= nil then
-			profile.Trade.History = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory")).public(profile.Trade)
+			profile.Trade.History = TradeHistory.public(profile.Trade)
 		end
 		profile.Trade.Day = math.floor(nonNegative(profile.Trade.Day))
 		profile.Trade.Completed = math.floor(nonNegative(profile.Trade.Completed))
@@ -1134,6 +1135,12 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 
 			if self._releasing[player] then
 				return { ok = false, message = "Profile session is closing" }
+			end
+			if draft.Stardust and (tonumber(draft.Stardust) or 0) > 1e14 then
+				draft.Stardust = 1e14
+			end
+			if draft.Cores and (tonumber(draft.Cores) or 0) > 1e14 then
+				draft.Cores = 1e14
 			end
 			local callbackResult = callback(draft, revision)
 			if type(callbackResult) == "table" and callbackResult.ok == false then

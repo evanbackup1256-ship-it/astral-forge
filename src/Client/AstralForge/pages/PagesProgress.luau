@@ -1275,6 +1275,8 @@ local function MachineRow(_param)
 	local buttonBesideText = not stack and cardWidth >= 360
 	local absolute = y ~= nil or x ~= nil
 	local layoutY = if y == nil then 0 else y
+	local statusText = if not unlocked then "LOCKED" elseif maxed then "MAXED" elseif running then "ACTIVE" else "STANDBY"
+	local statusColor = if not unlocked then Palette.muted elseif maxed then Palette.cyan elseif running then Palette.mint else Palette.coral
 	return React.createElement("frame", {
 		Size = if absolute then (width or UDim2.new(1, 0, 0, rowH)) else UDim2.fromScale(1, 1),
 		Position = if x ~= nil then UDim2.new(x.X.Scale, x.X.Offset, 0, layoutY) else UDim2.fromOffset(0, layoutY),
@@ -1293,6 +1295,8 @@ local function MachineRow(_param)
 		size = 46,
 		radius = 12,
 		position = UDim2.fromOffset(0, if stack then 6 else 16),
+		glow = unlocked and running and ready and not softMotion,
+		filled = running,
 		spin = false,
 		reducedMotion = softMotion,
 	}), React.createElement("frame", {
@@ -1301,15 +1305,38 @@ local function MachineRow(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, React.createElement(Text, {
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 22),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}), React.createElement(Text, {
 		value = machine.Name,
 		size = if stack then 17 else 16,
 		color = if unlocked then Palette.cream else Palette.muted,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 11,
-		sizeConstraint = UDim2.new(1, -4, 0, 22),
-	}), React.createElement(Text, {
+		layoutOrder = 0,
+		sizeConstraint = UDim2.new(0, 160, 0, 22),
+	}), React.createElement(Badge, {
+		value = statusText,
+		accent = statusColor,
+		size = UDim2.fromOffset(54, 16),
+		filled = false,
+		layoutOrder = 1,
+	}), level > 0 and React.createElement(Badge, {
+		value = `LV {compactNumber(level)}`,
+		accent = accent,
+		size = UDim2.fromOffset(46, 16),
+		filled = true,
+		layoutOrder = 2,
+	})), React.createElement(Text, {
 		value = if unlocked then machine.Description else lockReason,
 		size = if stack then chrome.labelText else 11,
 		color = if unlocked then Palette.muted else machine.Color,
@@ -1326,9 +1353,9 @@ local function MachineRow(_param)
 		minSize = 9,
 		position = UDim2.fromOffset(0, if stack then 72 else 64),
 		sizeConstraint = UDim2.new(1, -4, 0, 16),
-	}), running and buttonBesideText and React.createElement("frame", {
+	}), running and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 2),
-		Position = UDim2.fromOffset(0, 84),
+		Position = UDim2.fromOffset(0, if stack or not buttonBesideText then 88 else 84),
 		BackgroundColor3 = Palette.line,
 		BackgroundTransparency = 0.4,
 		BorderSizePixel = 0,
@@ -3665,6 +3692,8 @@ local function WorldRow(_param)
 		radius = 14,
 		position = UDim2.fromOffset(0, if stack then 12 else 30),
 		spin = false,
+		glow = current or canUnlock,
+		filled = current,
 		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, -64, 0, 126) else UDim2.new(1, -200, 1, -6),
@@ -3672,14 +3701,36 @@ local function WorldRow(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, React.createElement(Text, {
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 26),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(Text, {
 		value = zone.Name,
 		size = if stack then 18 else 19,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		sizeConstraint = UDim2.new(1, 0, 0, 26),
-	}), React.createElement(Text, {
+		fit = true,
+		layoutOrder = 0,
+		sizeConstraint = UDim2.new(0, 0, 0, 26),
+	}), current and React.createElement(Badge, {
+		value = "ACTIVE",
+		accent = Palette.green,
+		filled = true,
+		size = UDim2.fromOffset(58, 18),
+		layoutOrder = 1,
+	}), canUnlock and React.createElement(Badge, {
+		value = "READY",
+		accent = Palette.mango,
+		filled = true,
+		size = UDim2.fromOffset(54, 18),
+		layoutOrder = 1,
+	})), React.createElement(Text, {
 		value = zone.Tagline,
 		size = if stack then 13 else 11,
 		color = Palette.creamSoft,
@@ -3966,7 +4017,9 @@ local function WorldsView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 18),
 	}), React.createElement(Text, {
-		value = `You are on world {compactNumber(state.Zone)}`,
+		value = if state.CurrentZone and state.CurrentZone ~= state.Zone
+			then `You are on World {compactNumber(state.CurrentZone)} (Farthest: World {compactNumber(state.Zone)})`
+			else `You are on World {compactNumber(state.CurrentZone or state.Zone)}`,
 		size = if stack then chrome.titleText else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,

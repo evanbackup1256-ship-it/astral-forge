@@ -7189,13 +7189,11 @@ local function AppShell(_param)
 			if _condition_6 == nil then
 				_condition_6 = "Not unlocked yet."
 			end
-			local levelNeeded = if lock ~= nil and type(lock.Level) == "number" then lock.Level else nil
-			if levelNeeded ~= nil then
-				local currentLevel, _tier, nextStep = readLevelState(state)
-				_exp_1 = `{_condition_5} opens at Level {levelNeeded}`
-				_condition_6 = if nextStep ~= nil
-					then `You're Level {currentLevel}. Next goal: {nextStep.Text} ({compactNumber(nextStep.Progress)}/{compactNumber(nextStep.Target)}). Tap the level bar to see every level.`
-					else `You're Level {currentLevel}.`
+			if lock ~= nil and type(lock.Requirement) == "string" and lock.Requirement ~= "" then
+				_exp_1 = `{_condition_5} is locked`
+				local done = if type(lock.Progress) == "number" and type(lock.Target) == "number"
+					then ` ({compactNumber(lock.Progress)}/{compactNumber(lock.Target)})` else ""
+				_condition_6 = `{lock.Requirement} to open it{done}.`
 			end
 			if pageId == "Research" then
 				_condition_6 ..= " Research bonuses stay after rebirth."
@@ -11160,8 +11158,8 @@ local function NextUnlockStrip(_param)
 		BackgroundTransparency = if hovered then 0.96 else 1,
 		BorderSizePixel = 0,
 	}), React.createElement(Text, {
-		value = `Forge {level}`,
-		size = 13,
+		value = "NEXT UNLOCK",
+		size = 11,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
@@ -11169,7 +11167,7 @@ local function NextUnlockStrip(_param)
 		position = UDim2.fromOffset(14, 0),
 		sizeConstraint = UDim2.new(0, levelW, 1, -3),
 	}), not narrow and React.createElement(Text, {
-		value = tier,
+		value = "",
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -11183,7 +11181,7 @@ local function NextUnlockStrip(_param)
 		BackgroundColor3 = Palette.lineSoft,
 		BorderSizePixel = 0,
 	}), React.createElement(Text, {
-		value = if nextStep ~= nil then nextStep.Text else "Top forge level · every feature is open",
+		value = if nextStep ~= nil then nextStep.Text else "Every feature is open",
 		size = 12,
 		color = Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
@@ -11304,6 +11302,9 @@ local function Workspace(_param)
 			setting = 1
 		end
 		showNextGoal = setting >= 0.5
+		if type(state.Level) == "table" and state.Level.Next == nil then
+			showNextGoal = false -- every feature is open: nothing left to point at
+		end
 	end
 	local workspacePlan = LayoutSectionPlan.planWorkspace({
 		keyboardCompact = keyboardCompact,
@@ -12312,7 +12313,7 @@ local function LevelRow(_param)
 	local ahead = status == "ahead"
 	local rightW = _param.rightW
 	local goalText = if def.Goal ~= nil and type(def.Goal.Text) == "string" then def.Goal.Text else "Where every forge starts"
-	local detail = if _param.opens ~= "" then `Level {def.Level} · Opens {_param.opens}` else `Level {def.Level}`
+	local detail = if _param.opens ~= "" then `Opens {_param.opens}` else "Permanent production bonus"
 	if def.Level > 1 and status ~= "done" and not here then
 		local LevelRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
 		local reward = LevelRewards.forLevel(def.Level, def.Tier)
@@ -12460,15 +12461,6 @@ local function LevelRoadmap(_param)
 	local reachedNodeY = 0
 	local lastTier = nil
 	for _, def in ladder do
-		if def.Tier ~= lastTier then
-			lastTier = def.Tier
-			rows[`Tier_{def.Tier}`] = React.createElement(TierHeading, {
-				tier = def.Tier,
-				blurb = blurbs[def.Tier] or "",
-				y = y,
-			})
-			y += TIER_H
-		end
 		local nodeY = y + 17
 		if firstNodeY == nil then
 			firstNodeY = nodeY
@@ -12596,7 +12588,7 @@ local function LevelRoadmap(_param)
 		BorderSizePixel = 0,
 		ZIndex = 473,
 	}, React.createElement(Text, {
-		value = "Forge Level",
+		value = "UNLOCKS",
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -12606,17 +12598,17 @@ local function LevelRoadmap(_param)
 		sizeConstraint = UDim2.new(1, -(TapTarget + UNIT * 3), 0, 16),
 		zIndex = 474,
 	}), React.createElement(Text, {
-		value = `Level {level}`,
+		value = if nextStep ~= nil then "What opens next" else "Everything is open",
 		size = if compact then 24 else 28,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 18,
 		position = UDim2.fromOffset(0, 18),
-		sizeConstraint = UDim2.fromOffset(if compact then 112 else 128, 34),
+		sizeConstraint = UDim2.new(1, -(TapTarget + UNIT * 3), 0, 34),
 		zIndex = 474,
 	}), React.createElement(Text, {
-		value = `{tier}  ·  {level} of {maxLevel}`,
+		value = "",
 		size = 13,
 		color = accent,
 		weight = Enum.FontWeight.Bold,
@@ -12663,7 +12655,7 @@ local function LevelRoadmap(_param)
 		position = UDim2.fromOffset(0, if nextStep ~= nil then 92 else 66),
 		zIndex = 474,
 	}), nextStep ~= nil and React.createElement(Text, {
-		value = if opensNext ~= "" then `Level {nextStep.Level} opens {opensNext}` else `Next: Level {nextStep.Level}`,
+		value = if opensNext ~= "" then `Opens {opensNext}` else "Adds a permanent production bonus",
 		size = 12,
 		color = Palette.muted,
 		fit = true,
@@ -12672,7 +12664,7 @@ local function LevelRoadmap(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 		zIndex = 474,
 	}), nextStep == nil and React.createElement(Text, {
-		value = "Every level reached. This is the top of the forge.",
+		value = "Every milestone is reached and every feature is open.",
 		size = 12,
 		color = Palette.muted,
 		fit = true,
@@ -15032,7 +15024,7 @@ local function MobileHeader(_param)
 				roadmap.openRoadmap()
 			end,
 		},
-	}), not short and React.createElement("textlabel", {
+	}), false and React.createElement("textlabel", { -- level chip retired with the level system
 		Name = "MobileLevelLabel",
 		Size = UDim2.fromOffset(64, 16),
 		Position = UDim2.fromOffset(8 + iconSize + 8, 24),
@@ -20273,14 +20265,12 @@ local function LevelCard(_param)
 		local seconds = math.max(0, (moment.SurgeEndsAt or 0) - Workspace:GetServerTimeNow())
 		add("surge", "Boost", Palette.pink, string.format("Forge Surge ×%.2f for %s", moment.SurgeMultiplier, clockText(seconds)))
 	end
-	add("mastery", "Forge", Palette.mint, string.format("+%d%% production, for good", math.floor(((moment.Level or 1) - 1) * 2 + 0.5)))
-	if type(moment.Names) == "table" and #moment.Names > 0 then
-		add("opens", "Lock", Palette.violet, "Opened: " .. table.concat(moment.Names, ", "))
-	end
+	local reachedCount = math.max(1, #(moment.Levels or {}))
+	add("mastery", "Forge", Palette.mint, string.format("+%d%% production, for good", reachedCount * 2))
 	local width = math.min(380, viewport.width - 28)
 	local height = 128 + count * 40
-	local levels = moment.Levels or {}
-	local title = if #levels > 1 then `Levels {levels[1]}–{levels[#levels]}` else `Level {moment.Level}`
+	local opened = if type(moment.Names) == "table" then moment.Names else {}
+	local title = if #opened > 0 then table.concat(opened, " · ") else "Milestone reached"
 	return React.createElement("textbutton", {
 		Size = UDim2.fromOffset(width, height),
 		Position = show:map(function(amount)
@@ -20340,7 +20330,7 @@ local function LevelCard(_param)
 		end
 		return React.createElement(React.Fragment, nil, rays)
 	end)()), React.createElement(Text, {
-		value = "LEVEL UP",
+		value = if #opened > 0 then "UNLOCKED" else "MILESTONE",
 		size = 12,
 		color = Palette.brass,
 		weight = Enum.FontWeight.Heavy,
@@ -20360,7 +20350,7 @@ local function LevelCard(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 36),
 		zIndex = 452,
 	}), React.createElement(Text, {
-		value = string.upper(moment.Tier or ""),
+		value = "",
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -22563,12 +22553,12 @@ local function RebirthCeremonyHost(props)
 		BackgroundColor3 = Palette.void,
 		BorderSizePixel = 0,
 		BackgroundTransparency = clock:map(function(t)
-			return 1 - 0.62 * ramp(t, 0, 0.3) * (1 - fadeOut(t))
+			return 1 - 0.78 * ramp(t, 0, 0.28) * (1 - fadeOut(t))
 		end),
 	}, React.createElement("uigradient", {
 		Transparency = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 0),
-			NumberSequenceKeypoint.new(0.5, 0.35),
+			NumberSequenceKeypoint.new(0.5, 0.22),
 			NumberSequenceKeypoint.new(1, 0),
 		}),
 		Rotation = 90,
@@ -22591,8 +22581,8 @@ local function RebirthCeremonyHost(props)
 		BackgroundColor3 = Palette.cream,
 		BorderSizePixel = 0,
 		Size = clock:map(function(t)
-			local grow = outCubic(ramp(t, 0.05, tl.shock)) * 30
-			local pop = math.sin(math.pi * ramp(t, tl.shock, tl.shock + 0.3)) * 46
+			local grow = outCubic(ramp(t, 0.05, tl.shock)) * 32
+			local pop = math.sin(math.pi * ramp(t, tl.shock, tl.shock + 0.3)) * 52
 			local gone = 1 - ramp(t, tl.shock + 0.15, tl.shock + 0.4)
 			local s = (grow + pop) * gone
 			return UDim2.fromOffset(s, s)
@@ -22601,34 +22591,81 @@ local function RebirthCeremonyHost(props)
 		Color = Palette.violet,
 		Thickness = 3,
 		Transparency = 0.25,
+	})), not calm and React.createElement("frame", {
+		Name = "ShockwaveBeam",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = clock:map(function(t)
+			local p = ramp(t, tl.shock, tl.shock + 0.36)
+			return UDim2.new(outCubic(p) * 1.8, 0, 0, math.floor(10 * (1 - p)))
+		end),
+		BackgroundColor3 = Palette.cream,
+		BorderSizePixel = 0,
+		BackgroundTransparency = clock:map(function(t)
+			if t < tl.shock then
+				return 1
+			end
+			return 0.12 + 0.88 * ramp(t, tl.shock + 0.04, tl.shock + 0.36)
+		end),
+	}, corner(), React.createElement("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.violet),
+			ColorSequenceKeypoint.new(0.5, Palette.cream),
+			ColorSequenceKeypoint.new(1, Palette.violet),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
 	})), not calm and React.createElement(Rings, { clock = clock, tl = tl }), streakCount > 0 and React.createElement(Streaks, { clock = clock, tl = tl, count = streakCount }), React.createElement("frame", {
 		Name = "Card",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Size = UDim2.fromOffset(420, 250),
-		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(450, 276),
+		BackgroundColor3 = Color3.fromRGB(12, 14, 22),
+		BackgroundTransparency = clock:map(function(t)
+			return 1 - 0.94 * contentIn(t) * (1 - fadeOut(t))
+		end),
 		BorderSizePixel = 0,
 		Position = clock:map(function(t)
 			local rise = outCubic(ramp(t, tl.ascend, tl.fade)) * 22 + fadeOut(t) * 18
 			return UDim2.new(0.5, 0, 0.5, (1 - contentIn(t)) * 18 - rise)
 		end),
-	}, React.createElement("uiscale", {
+	}, corner(UDim.new(0, 16)), React.createElement("uistroke", {
+		Color = Palette.violet,
+		Thickness = 1.5,
+		Transparency = clock:map(function(t)
+			return 0.2 + 0.8 * fadeOut(t)
+		end),
+	}), React.createElement("frame", {
+		Name = "TopJewelLine",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 0),
+		Size = UDim2.new(0.38, 0, 0, 2),
+		BackgroundColor3 = Palette.violet,
+		BorderSizePixel = 0,
+		BackgroundTransparency = clock:map(function(t)
+			return 1 - contentIn(t) * (1 - fadeOut(t))
+		end),
+	}, corner(UDim.new(1, 0))), React.createElement("uiscale", {
 		Scale = clock:map(function(t)
 			return 0.92 + 0.08 * outBack(ramp(t, tl.count0 - 0.18, tl.count0 + 0.3))
 		end),
 	}), React.createElement("textlabel", {
+		Position = UDim2.fromOffset(0, 12),
 		Size = UDim2.new(1, 0, 0, 20),
 		BackgroundTransparency = 1,
-		FontFace = BOLD,
-		Text = "REBIRTH",
-		TextSize = 14,
+		FontFace = HEAVY,
+		Text = "★  CELESTIAL REBIRTH  ★",
+		TextSize = 12,
 		TextColor3 = Palette.violet,
 		TextTransparency = clock:map(function(t)
 			return 1 - contentIn(t) * (1 - fadeOut(t))
 		end),
 	}), React.createElement("frame", {
 		Name = "Count",
-		Position = UDim2.fromOffset(0, 24),
-		Size = UDim2.new(1, 0, 0, 110),
+		Position = UDim2.fromOffset(0, 34),
+		Size = UDim2.new(1, 0, 0, 86),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 	}, React.createElement("textlabel", {
@@ -22636,7 +22673,7 @@ local function RebirthCeremonyHost(props)
 		BackgroundTransparency = 1,
 		FontFace = HEAVY,
 		Text = tostring(oldCount),
-		TextSize = 96,
+		TextSize = 84,
 		TextColor3 = Palette.muted,
 		Position = clock:map(function(t)
 			return UDim2.fromScale(0, -outCubic(ramp(t, tl.count0, tl.count0 + 0.3)))
@@ -22649,7 +22686,7 @@ local function RebirthCeremonyHost(props)
 		BackgroundTransparency = 1,
 		FontFace = HEAVY,
 		Text = tostring(newCount),
-		TextSize = 96,
+		TextSize = 84,
 		TextColor3 = Palette.cream,
 		Position = clock:map(function(t)
 			return UDim2.fromScale(0, 1 - outBack(ramp(t, tl.count0 + 0.06, tl.count0 + 0.42)))
@@ -22664,27 +22701,64 @@ local function RebirthCeremonyHost(props)
 			return 0.35 + 0.65 * fadeOut(t)
 		end),
 	}))), React.createElement("textlabel", {
-		Position = UDim2.fromOffset(0, 140),
-		Size = UDim2.new(1, 0, 0, 34),
+		Position = UDim2.fromOffset(0, 122),
+		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
-		FontFace = HEAVY,
-		TextSize = 30,
+		FontFace = BOLD,
+		Text = "PRESTIGE TIER " .. tostring(newCount),
+		TextSize = 11,
 		TextColor3 = Palette.mint,
-		Text = clock:map(function(t)
-			local k = outCubic(ramp(t, tl.count0, tl.count1))
-			return `{multiplierText(before)}  →  {multiplierText(blendMultiplier(before, after, k))}`
+		TextTransparency = clock:map(function(t)
+			return 1 - contentIn(t) * (1 - fadeOut(t))
 		end),
+	}), React.createElement("frame", {
+		Name = "MultiplierPlate",
+		Position = UDim2.fromOffset(24, 144),
+		Size = UDim2.new(1, -48, 0, 52),
+		BackgroundColor3 = Color3.fromRGB(18, 20, 32),
+		BackgroundTransparency = clock:map(function(t)
+			return 1 - 0.75 * contentIn(t) * (1 - fadeOut(t))
+		end),
+		BorderSizePixel = 0,
+	}, corner(UDim.new(0, 10)), React.createElement("uistroke", {
+		Color = Palette.line,
+		Thickness = 1,
+		Transparency = clock:map(function(t)
+			return 0.4 + 0.6 * fadeOut(t)
+		end),
+	}), React.createElement("textlabel", {
+		Position = UDim2.fromOffset(0, 6),
+		Size = UDim2.new(1, 0, 0, 12),
+		BackgroundTransparency = 1,
+		FontFace = BOLD,
+		Text = "PERMANENT PRODUCTION MULTIPLIER",
+		TextSize = 9,
+		TextColor3 = Palette.muted,
 		TextTransparency = clock:map(function(t)
 			return 1 - contentIn(t) * (1 - fadeOut(t))
 		end),
 	}), React.createElement("textlabel", {
-		Position = UDim2.fromOffset(0, 178),
+		Position = UDim2.fromOffset(0, 18),
+		Size = UDim2.new(1, 0, 0, 30),
+		BackgroundTransparency = 1,
+		FontFace = HEAVY,
+		TextSize = 24,
+		TextColor3 = Palette.mint,
+		Text = clock:map(function(t)
+			local k = outCubic(ramp(t, tl.count0, tl.count1))
+			return `{multiplierText(before)}   →   {multiplierText(blendMultiplier(before, after, k))}`
+		end),
+		TextTransparency = clock:map(function(t)
+			return 1 - contentIn(t) * (1 - fadeOut(t))
+		end),
+	})), React.createElement("textlabel", {
+		Position = UDim2.fromOffset(0, 204),
 		Size = UDim2.new(1, 0, 0, 22),
 		BackgroundTransparency = 1,
 		FontFace = BOLD,
-		TextSize = 17,
+		TextSize = 15,
 		TextColor3 = Palette.creamSoft,
-		Text = if #rewardLine > 0 then table.concat(rewardLine, "    ") else "Permanent production raised",
+		Text = if #rewardLine > 0 then table.concat(rewardLine, "    ·    ") else "Permanent production raised",
 		TextTransparency = clock:map(function(t)
 			return 1 - ramp(t, tl.count1 - 0.2, tl.count1 + 0.1) * (1 - fadeOut(t))
 		end),

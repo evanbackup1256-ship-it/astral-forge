@@ -435,6 +435,54 @@ serviceFactories["GameService"] = function()
 				table.insert(records, publicPlayerRecord(target, profile, viewer, self._presence))
 			end
 		end
+		local isStudio = false
+		pcall(function()
+			local rs = game:GetService("RunService")
+			if rs and type(rs.IsStudio) == "function" then
+				isStudio = rs:IsStudio()
+			end
+		end)
+		local hasOther = false
+		for _, r in records do
+			if not r.IsLocal then
+				hasOther = true
+				break
+			end
+		end
+		if isStudio or not hasOther then
+			table.insert(records, {
+				UserId = -999,
+				Name = "ForgeAutomaton",
+				DisplayName = "Forge Automaton [Practice]",
+				Zone = 1,
+				CurrentZone = 1,
+				Rebirths = 3,
+				Production = 1000,
+				LifetimeCash = 10000,
+				Stardust = 1000,
+				Cores = 10,
+				DomainRank = 0,
+				PlayTime = 1000,
+				Boards = {
+					Crates = "10",
+					Finds = "5",
+					Ore = "100",
+					Wardens = "1",
+					Orders = "2",
+					Stars = "3",
+					Cipher = "0",
+				},
+				ItemCount = 0,
+				EquippedItems = {},
+				Artifact = nil,
+				IsLocal = false,
+				SocialFlags = 0,
+				CurrentPage = "Overview",
+				PresenceAge = 0,
+				AccountAge = 100,
+				Premium = false,
+			})
+		end
 		table.sort(records, function(left, right)
 			if left.IsLocal ~= right.IsLocal then
 				return left.IsLocal
@@ -474,9 +522,9 @@ serviceFactories["GameService"] = function()
 			if not self._trades:Unlocked(profile) then
 				return responseError("Trade Floor unlocks after your first rebirth.")
 			end
-			local target = Players:GetPlayerByUserId(userId)
+			local target = if userId == -999 then nil else Players:GetPlayerByUserId(userId)
 			local targetProfile = target and self._data:Get(target)
-			if targetProfile and not self._trades:Unlocked(targetProfile) then
+			if userId ~= -999 and targetProfile and not self._trades:Unlocked(targetProfile) then
 				return responseError("They have not unlocked Trade Floor yet.")
 			end
 			-- the target's Social setting decides who may invite them
@@ -496,7 +544,7 @@ serviceFactories["GameService"] = function()
 				self:_pushState(target, true)
 			end
 			self:_pushState(player, true)
-			return responseSuccess("Invite sent.")
+			return responseSuccess(if userId == -999 then "Practice trade opened." else "Invite sent.")
 		elseif action == Protocol.Actions.RespondTrade then
 			local accept = payload.Accept == true
 			local ok, err, session, fromId = self._trades:Respond(player, profile, accept, now)
@@ -542,10 +590,37 @@ serviceFactories["GameService"] = function()
 					self:_pushTradePartners(session.Host, session.Guest)
 					return responseSuccess("Trade is settling.")
 				end
+				local isPractice = session.Guest == -999 or session.Host == -999
 				local host = Players:GetPlayerByUserId(session.Host)
-				local guest = Players:GetPlayerByUserId(session.Guest)
+				local guest = if session.Guest == -999 then {
+					UserId = -999,
+					Name = "ForgeAutomaton",
+					DisplayName = "Forge Automaton [Practice]",
+				} :: any else Players:GetPlayerByUserId(session.Guest)
 				local hostProfile = host and self._data:Get(host)
-				local guestProfile = guest and self._data:Get(guest)
+				local mockBotProfile = nil
+				if isPractice then
+					mockBotProfile = {
+						Cash = 1e6,
+						Stardust = 1e5,
+						Cores = 100,
+						Command = { Signals = 100 },
+						Items = {
+							Essence = 100,
+							Inventory = {},
+							Equipped = {},
+							Keys = { Bronze = 10, Silver = 10, Gold = 10, Astral = 10, ForgeCrate = 10 },
+						},
+						BoostInventory = { Surge = 10, Overdrive = 10, Hyperdrive = 10, VaultSurge = 10 },
+						Trade = {
+							Day = -1,
+							Completed = 0,
+							Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 },
+							History = {},
+						},
+					}
+				end
+				local guestProfile = if session.Guest == -999 then mockBotProfile else (guest and self._data:Get(guest))
 				if not host or not guest or not hostProfile or not guestProfile then
 					self._trades:FailSettle(session, false)
 					self._trades:Cancel(player)
@@ -629,9 +704,15 @@ serviceFactories["GameService"] = function()
 						end, true, "trade-host")
 					end,
 					guestPresent = function()
+						if isPractice then
+							return true
+						end
 						return self._data:Get(guest) ~= nil
 					end,
 					applyGuest = function()
+						if isPractice then
+							return { ok = true }
+						end
 						return self._data:AtomicUpdate(guest, function(profile)
 							local applyErr = self._trades:ApplyExchange(
 								profile,
@@ -1244,7 +1325,7 @@ serviceFactories["GameService"] = function()
 					amount = 500
 				end
 				profile.Cash = Economy.Add(profile.Cash, amount)
-				profile.Stardust += stardust
+				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + stardust, 0, 1e14)
 				paid = Economy.AsNumber(amount)
 				return responseSuccess(nil)
 			end)
@@ -1283,7 +1364,7 @@ serviceFactories["GameService"] = function()
 				local flux = fluxFor(reward.FluxSeconds, reward.MinFlux)
 				profile.Cash = Economy.Add(profile.Cash, flux)
 				fluxTotal = Economy.Add(fluxTotal, flux)
-				profile.Stardust += reward.Stardust
+				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + reward.Stardust, 0, 1e14)
 				stardustTotal += reward.Stardust
 				surge = LevelRewards.mergeSurge(surge, now, reward.SurgeMultiplier, reward.SurgeSeconds)
 			end
@@ -1301,14 +1382,6 @@ serviceFactories["GameService"] = function()
 			})
 		end
 		local nextStep = levelState.Next
-		if nextStep ~= nil and LevelRewards.halfwayDue(tonumber(progression.HalfwayPaidFor) or -1, nextStep.Level, nextStep.Progress, nextStep.Target) then
-			local checkpoint = LevelRewards.halfway(nextStep.Level)
-			local flux = fluxFor(checkpoint.FluxSeconds, checkpoint.MinFlux)
-			profile.Cash = Economy.Add(profile.Cash, flux)
-			progression.HalfwayPaidFor = nextStep.Level
-			self:_toastPlayer(player, string.format("Halfway to Level %d", nextStep.Level), string.format("+%s flux.", Format.Number(flux)), "Success")
-			self._effect:FireClient(player, { Type = "LevelHalfway", Level = nextStep.Level, Flux = Economy.AsNumber(flux) })
-		end
 		local nextReward = nil
 		if nextStep ~= nil then
 			nextReward = LevelRewards.forLevel(nextStep.Level, nextStep.Tier)
@@ -1390,12 +1463,7 @@ serviceFactories["GameService"] = function()
 					table.insert(names, entry.State.Name)
 				end
 				table.sort(names)
-				local nextStep = levelState.Next
-				local body = if #names > 0
-					then "New: " .. table.concat(names, ", ") .. ". Find them in the Forge menu."
-					elseif nextStep ~= nil then "Next goal: " .. nextStep.Text .. "."
-					else "You've reached the top of the forge."
-				self:_toastPlayer(player, string.format("Level %d · %s", levelState.Level, levelState.Tier), body, "Special")
+				-- the milestone card on the client names what opened and what it paid; no toast on top
 				self._effect:FireClient(player, {
 					Type = "LevelUp",
 					Level = levelState.Level,
@@ -1888,7 +1956,7 @@ serviceFactories["GameService"] = function()
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
 			local rainDust = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
 			if rainDust > 0 then
-				profile.Stardust += rainDust
+				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + rainDust, 0, 1e14)
 				return responseSuccess("Banked " .. Format.Number(amount) .. " flux and caught " .. rainDust .. " stardust.", { Amount = amount, Dust = rainDust })
 			end
 			return responseSuccess("Banked " .. Format.Number(amount) .. " flux.", { Amount = amount })
@@ -2268,7 +2336,7 @@ serviceFactories["GameService"] = function()
 			local stardustScale = tonumber(rebirthConfig.StardustSqrtScale) or 5
 			local stardustMinimum = tonumber(rebirthConfig.StardustMinimum) or 4
 			local stardustReward = RebirthGate.StardustReward(Economy.AsNumber(reward), stardustScale, stardustMinimum)
-			profile.Stardust += stardustReward
+			profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + stardustReward, 0, 1e14)
 			profile.BoostInventory = profile.BoostInventory or {}
 			local celebrationBoost = rebirthConfig.CelebrationBoostId or "Overdrive"
 			local bonusCount = math.max(1, math.floor(tonumber(rebirthConfig.BonusOverdrive) or 1))
@@ -3472,7 +3540,7 @@ serviceFactories["GameService"] = function()
 			end
 
 			stardustReward = stardustReward + overflowReward
-			profile.Stardust += stardustReward
+			profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + stardustReward, 0, 1e14)
 			local freeSpins = math.max(0, math.floor(tonumber(expansion.FreeSpins) or 3))
 			profile.Wheel.FreeSpins = (profile.Wheel.FreeSpins or 0) + freeSpins
 			local bonusBoostId = expansion.BonusBoostId or GameConfig.Domain.SurgeBoostId
@@ -4164,15 +4232,8 @@ serviceFactories["GameService"] = function()
 			if profile and not domainOpen and not ProgressionGate.IsFeatureUnlocked(profile, featureId) then
 				local rule = GameConfig.Unlocks[featureId]
 				local name = rule and rule.Name or featureId
-				if rule and rule.Kind == "Level" then
-					local levelDef = GameConfig.Levels[rule.Target]
-					return responseError(string.format(
-						"%s opens at Level %d (%s). You're Level %d.",
-						name,
-						rule.Target,
-						levelDef and levelDef.Tier or "",
-						ProgressionGate.Level(profile)
-					))
+				if rule and type(rule.Requirement) == "string" and rule.Requirement ~= "" then
+					return responseError(string.format("%s is locked. %s to open it.", name, rule.Requirement))
 				end
 				return responseError(
 					name

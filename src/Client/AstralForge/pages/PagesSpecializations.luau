@@ -77,6 +77,12 @@ local function statTile(label: string, value: string, tint: Color3?, size: UDim2
 	return h("frame", {
 		Size = size, Position = position, BackgroundColor3 = Palette.panelSoft, BackgroundTransparency = 0.25, BorderSizePixel = 0,
 	}, h("uicorner", { CornerRadius = UDim.new(0, 10) }),
+		h("uistroke", {
+			Color = tint or Palette.line,
+			Thickness = 1,
+			Transparency = if tint ~= nil then 0.5 else 0.8,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}),
 		h(Ui.Text, { value = string.upper(label), size = 11, color = Palette.muted, weight = Enum.FontWeight.Bold,
 			position = UDim2.fromOffset(12, 7), sizeConstraint = UDim2.new(1, -24, 0, 14) }),
 		h(Ui.Text, { value = value, size = 16, color = tint or Palette.cream, weight = Enum.FontWeight.Heavy,
@@ -229,7 +235,7 @@ local function SpecializationsView(props: Props)
 			BackgroundTransparency = 1,
 		}, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 16, accent = look.accent, clips = false,
 			highlight = equipped, reducedMotion = props.reducedMotion },
-			h(Ui.IconTile, { kind = look.icon, accent = look.accent, size = 44, filled = equipped, reducedMotion = props.reducedMotion }),
+			h(Ui.IconTile, { kind = look.icon, accent = look.accent, size = 44, filled = equipped, glow = equipped and not props.reducedMotion, reducedMotion = props.reducedMotion }),
 			h(Ui.Text, { value = build.Name, size = 19, weight = Enum.FontWeight.Heavy,
 				position = UDim2.fromOffset(58, 0), sizeConstraint = UDim2.new(1, -150, 0, 24) }),
 			h(Ui.Text, { value = look.tagline, size = 13, color = Palette.muted,

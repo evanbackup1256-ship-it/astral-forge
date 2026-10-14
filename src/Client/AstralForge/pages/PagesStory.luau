@@ -2437,6 +2437,7 @@ local Button = _ui.Button
 local Dropdown = _ui.Dropdown
 local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
+local Meter = _ui.Meter
 local Panel = _ui.Panel
 local SCROLL_EDGE = _ui.SCROLL_EDGE
 local SearchField = _ui.SearchField
@@ -3646,6 +3647,18 @@ local function CrateCard(_param)
 		position = UDim2.fromOffset(0, if stack then 8 else 24),
 		reducedMotion = reducedMotion,
 		glow = keys >= 1,
+		filled = keys >= 1,
+	}), React.createElement("frame", {
+		Position = UDim2.fromOffset(60, 4),
+		Size = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 24),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Text, {
 		value = crate.Name,
 		size = 18,
@@ -3653,23 +3666,35 @@ local function CrateCard(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 12,
-		position = UDim2.fromOffset(60, 4),
-		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 24),
-	}), React.createElement(Text, {
+		layoutOrder = 0,
+		sizeConstraint = UDim2.new(0, 150, 0, 24),
+	}), React.createElement(Badge, {
+		value = if keys > 0 then `{keys} KEYS` else "NO KEYS",
+		accent = if keys > 0 then crate.Color else Palette.muted,
+		size = UDim2.fromOffset(64, 18),
+		filled = keys > 0,
+		layoutOrder = 1,
+	})), React.createElement(Text, {
 		value = crate.Description,
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(60, 34),
-		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 40),
+		position = UDim2.fromOffset(60, 32),
+		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 36),
 	}), React.createElement(Text, {
-		value = `{keys} keys  ·  pity {pity}/{crate.PityAfter} → {crate.PityRarity}`,
-		size = 12,
+		value = `Guaranteed {crate.PityRarity} at {crate.PityAfter} ({pity}/{crate.PityAfter})`,
+		size = 11,
 		color = crate.Color,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(60, 84),
-		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 18),
+		position = UDim2.fromOffset(60, 72),
+		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 16),
+	}), React.createElement(Meter, {
+		value = math.clamp(pity / math.max(1, crate.PityAfter), 0, 1),
+		color = crate.Color,
+		reducedMotion = reducedMotion,
+		position = UDim2.fromOffset(60, 92),
+		size = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 4),
 	}), actions)
 end
 local MARKET_BANNER_H = 126

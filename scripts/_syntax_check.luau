@@ -28,6 +28,7 @@ local files = {
 	"src/Client/AstralForge/PrizeWheel.luau",
 	-- Client boot / shell
 	"src/Client/AstralForge/init.client.luau",
+	"src/Client/AstralForge/input/GamepadNavigationService.luau",
 	"src/Client/AstralForge/ReactHosts.luau",
 	"src/Client/AstralForge/CoreKit.luau",
 	"src/Client/AstralForge/BootKit.luau",
@@ -60,6 +61,7 @@ local files = {
 	"src/Client/AstralForge/pages/PagesSocial.luau",
 	"src/Client/AstralForge/pages/PagesStory.luau",
 	"src/Client/AstralForge/pages/PagesShop.luau",
+	"src/Client/AstralForge/pages/CrateRevealStage.luau",
 	-- Shared catalog (parse only — no require)
 	"src/Shared/AstralForge/Shared/GameConfig.luau",
 	-- Server trade desk (offer validation / exchange)

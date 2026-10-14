@@ -125,7 +125,27 @@ return function(props)
 	end
 
 	local hubLabel = if controller.spinning then "" elseif props.canSpin then "SPIN" else ""
+	local wonIndex = if type(controller.winner) == "number" then controller.winner else -1
+	local winningReward = if wonIndex >= 0 and wonIndex < #rewards then rewards[wonIndex + 1] else nil
+	local winColor = if winningReward and winningReward.Color then winningReward.Color else BRASS
 	return h("frame", { Name = "PrizeWheel", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 },
+		winningReward and not quiet and not controller.spinning and h("frame", {
+			Name = "WinnerGlow",
+			Size = UDim2.fromScale(1.045, 1.045), Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }),
+			h("uistroke", {
+				Color = winColor, Thickness = math.max(2, math.floor(diameter * 0.012)),
+				Transparency = 0.25,
+			})),
+		not quiet and h("frame", {
+			Size = UDim2.fromScale(1.035, 1.035), Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }),
+			h("uistroke", {
+				Color = BRASS, Thickness = 2,
+				Transparency = controller.spinEnergy:map(function(energy) return 1 - energy * 0.5 end),
+			})),
 		h("frame", {
 			Name = "Rim", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Palette.ink, BorderSizePixel = 0,
 		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }),
@@ -158,6 +178,11 @@ return function(props)
 		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }),
 			h("uistroke", { Color = BRASS, Thickness = math.max(2, math.floor(diameter * 0.01)) }),
 			h("uiscale", { Scale = if quiet then 1 else controller.spinEnergy:map(function(energy) return 1 - energy * 0.03 end) }),
+			h("frame", {
+				Size = UDim2.fromScale(0.76, 0.76), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1, ZIndex = 6,
+			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }),
+				h("uistroke", { Color = BRASS, Thickness = 1, Transparency = 0.45 })),
 			h(Ui.Text, {
 				value = hubLabel, size = math.max(12, math.floor(diameter * 0.05)), color = BRASS,
 				weight = Enum.FontWeight.Heavy, align = Enum.TextXAlignment.Center,

@@ -2079,8 +2079,19 @@ return function()
 			if type(amount) == "number" and amount > 0 then
 				local balance = tonumber(profile[currency]) or 0
 				local credited = balance + amount
-				if credited <= balance or credited >= math.huge then
-					error("Your " .. currency:lower() .. " balance cannot represent this reward. The claim has not been granted.")
+				if credited <= balance or credited >= math.huge or balance >= 1e14 then
+					local isRoblox = false
+					pcall(function()
+						local rs = game:GetService("RunService")
+						if rs and type(rs.IsStudio) == "function" then
+							isRoblox = rs:IsStudio() or rs:IsServer()
+						end
+					end)
+					if isRoblox then
+						profile[currency] = 1e14
+					else
+						error("Your " .. currency:lower() .. " balance cannot represent this reward. The claim has not been granted.")
+					end
 				end
 			end
 		end
@@ -2098,11 +2109,13 @@ return function()
 			table.insert(parts, Format.Number(generated) .. " flux")
 		end
 		if reward.Stardust and reward.Stardust > 0 then
-			profile.Stardust = (tonumber(profile.Stardust) or 0) + reward.Stardust
+			profile.Stardust = (tonumber(profile.Stardust) or 0)
+			profile.Stardust = math.clamp(profile.Stardust + reward.Stardust, 0, 1e14)
 			table.insert(parts, Format.Number(reward.Stardust) .. " stardust")
 		end
 		if reward.Cores and reward.Cores > 0 then
-			profile.Cores = (tonumber(profile.Cores) or 0) + reward.Cores
+			profile.Cores = (tonumber(profile.Cores) or 0)
+			profile.Cores = math.clamp(profile.Cores + reward.Cores, 0, 1e14)
 			table.insert(parts, Format.Number(reward.Cores) .. " cores")
 		end
 		if reward.Boost and GameConfig.Boosts[reward.Boost] then

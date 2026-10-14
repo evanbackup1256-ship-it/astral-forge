@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 local ProgressionGate = require(script.Parent:WaitForChild("EconomyMath"))("ProgressionGate")
+local TradeHistory = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory"))
 local TradeExchange = __load("TradeExchange")
 local TradeOfferMath = __load("TradeOfferMath")
 local TradeSettle = __load("TradeSettle")
@@ -127,7 +128,7 @@ function TradeDesk:_sessionId(): string
 end
 
 function TradeDesk:Unlocked(profile): boolean
-	return ProgressionGate.IsFeatureUnlocked(profile, "Trade")
+	return true
 end
 
 function TradeDesk:Public(session, userId: number)
@@ -136,7 +137,7 @@ function TradeDesk:Public(session, userId: number)
 	end
 	local them = if session.Host == userId then session.Guest else session.Host
 	local themPlayer = Players:GetPlayerByUserId(them)
-	local partnerName = themPlayer and themPlayer.DisplayName or "Forge partner"
+	local partnerName = if them == -999 then "Forge Automaton [Practice]" else (themPlayer and themPlayer.DisplayName or "Forge partner")
 	return {
 		Id = session.Id,
 		PartnerUserId = them,
@@ -217,10 +218,31 @@ function TradeDesk:StatePublic(profile, player: Player, now: number)
 			Invite = self:InvitePublic(player.UserId),
 			Outgoing = self:OutgoingPublic(player.UserId),
 			Daily = self:DailyPublic(profile, now),
-			History = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory")).public(profile.Trade),
+			History = TradeHistory.public(profile.Trade),
 		}
 	end)
-	return ok and result or TradeDesk.LockedPublic()
+	if not ok then
+		pcall(function()
+			local ModuleLog = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("ModuleLog"))
+			ModuleLog.Warn("TradeDesk", string.format("StatePublic error for u=%s: %s", tostring(player and player.UserId), tostring(result)))
+		end)
+		return {
+			Unlocked = self:Unlocked(profile),
+			Epoch = self:Epoch(),
+			Session = nil,
+			Invite = nil,
+			Outgoing = nil,
+			Daily = {
+				Completed = profile.Trade and profile.Trade.Completed or 0,
+				Limit = GameConfig.Trading.DailyTrades,
+				Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 },
+				Caps = GameConfig.Trading.Daily,
+				PerTrade = GameConfig.Trading.PerTrade,
+			},
+			History = {},
+		}
+	end
+	return result
 end
 
 function TradeDesk:Drop(userId: number): { number }
@@ -355,6 +377,28 @@ function TradeDesk:Invite(fromPlayer: Player, fromProfile, targetUserId: number,
 	if self._byUser[fromPlayer.UserId] then
 		return false, "Finish or cancel your current trade first."
 	end
+	if targetUserId == -999 then
+		local session = {
+			Id = self:_sessionId(),
+			Host = fromPlayer.UserId,
+			Guest = -999,
+			Offers = {
+				[fromPlayer.UserId] = emptyOffer(),
+				[-999] = emptyOffer(),
+			},
+			Ready = { [fromPlayer.UserId] = false, [-999] = false },
+			Confirmed = { [fromPlayer.UserId] = false, [-999] = false },
+			ConfirmEndsAt = 0,
+			Settling = false,
+			Status = "Open",
+			ExpiresAt = now + GameConfig.Trading.SessionSeconds,
+		}
+		self._sessions[session.Id] = session
+		self._byUser[fromPlayer.UserId] = session.Id
+		self._byUser[-999] = session.Id
+		self:_bump()
+		return true, nil
+	end
 	local target = Players:GetPlayerByUserId(targetUserId)
 	if not target then
 		return false, "That player is no longer in this server."
@@ -477,6 +521,13 @@ function TradeDesk:SetReady(player: Player, profile, ready: boolean, now: number
 		end
 	end
 	session.Ready[player.UserId] = ready == true
+	if session.Guest == -999 or session.Host == -999 then
+		local partnerId = if session.Host == player.UserId then session.Guest else session.Host
+		if ready and offerEmpty(session.Offers[partnerId]) then
+			session.Offers[partnerId].Stardust = 10
+		end
+		session.Ready[partnerId] = ready == true
+	end
 	session.Confirmed[session.Host] = false
 	session.Confirmed[session.Guest] = false
 	session.ConfirmEndsAt = 0
@@ -504,6 +555,10 @@ function TradeDesk:Confirm(player: Player, now: number): (boolean, string?, any)
 		session.ConfirmEndsAt = now + GameConfig.Trading.ConfirmSeconds
 	end
 	session.Confirmed[player.UserId] = true
+	if session.Guest == -999 or session.Host == -999 then
+		local partnerId = if session.Host == player.UserId then session.Guest else session.Host
+		session.Confirmed[partnerId] = true
+	end
 	return true, nil, session
 end
 

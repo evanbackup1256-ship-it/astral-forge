@@ -120,19 +120,29 @@ local function emptyOffer()
 	}
 end
 local function wireOffer(offer)
+	if type(offer) ~= "table" then
+		return emptyOffer()
+	end
 	local result = {
-		Cash = offer.Cash, Stardust = offer.Stardust, Cores = offer.Cores,
-		Signals = offer.Signals, Essence = offer.Essence,
-		Boosts = {}, Keys = {}, ItemIds = table.clone(offer.ItemIds),
+		Cash = tonumber(offer.Cash) or 0,
+		Stardust = tonumber(offer.Stardust) or 0,
+		Cores = tonumber(offer.Cores) or 0,
+		Signals = tonumber(offer.Signals) or 0,
+		Essence = tonumber(offer.Essence) or 0,
+		Boosts = {},
+		Keys = {},
+		ItemIds = if type(offer.ItemIds) == "table" then table.clone(offer.ItemIds) else {},
 	}
 	for _, id in BOOSTS do
-		if (offer.Boosts[id] or 0) > 0 then
-			result.Boosts[id] = offer.Boosts[id]
+		local amount = offer.Boosts and tonumber(offer.Boosts[id]) or 0
+		if amount > 0 then
+			result.Boosts[id] = amount
 		end
 	end
 	for _, id in KEYS do
-		if (offer.Keys[id] or 0) > 0 then
-			result.Keys[id] = offer.Keys[id]
+		local amount = offer.Keys and tonumber(offer.Keys[id]) or 0
+		if amount > 0 then
+			result.Keys[id] = amount
 		end
 	end
 	return result
@@ -348,7 +358,7 @@ local function AvatarMark(_param)
 		Position = UDim2.fromOffset(2, 2),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Image = `rbxthumb://type=AvatarHeadShot&id={userId}&w=150&h=150`,
+		Image = `rbxthumb://type=AvatarHeadShot&id={if userId > 0 then userId else 1}&w=150&h=150`,
 		ScaleType = Enum.ScaleType.Crop,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
@@ -3395,7 +3405,7 @@ local function MemberRow(_param)
 		accent = accent,
 		size = 34,
 		position = UDim2.fromOffset(0, 2),
-	}), React.createElement(Text, {
+	}), 	React.createElement(Text, {
 		value = name,
 		size = 14,
 		color = ensureContrast(surface, Palette.cream),
@@ -3404,27 +3414,32 @@ local function MemberRow(_param)
 		minSize = 10,
 		position = UDim2.fromOffset(44, 0),
 		sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 20),
-	}), React.createElement(Text, {
+	}), React.createElement(Badge, {
 		value = string.upper(role),
-		size = 9,
-		color = ensureContrast(surface, accent),
-		weight = Enum.FontWeight.Heavy,
+		accent = accent,
+		filled = role == "Leader" or role == "Officer",
 		position = UDim2.fromOffset(44, 20),
-		sizeConstraint = UDim2.new(0, 90, 0, 14),
+		size = UDim2.fromOffset(if role == "Leader" then 60 else (if role == "Officer" then 64 else 58), 16),
+	}), isLocal and React.createElement(Badge, {
+		value = "YOU",
+		accent = Palette.green,
+		filled = true,
+		position = UDim2.new(1, -48, 0, 2),
+		size = UDim2.fromOffset(44, 18),
 	}), React.createElement(Text, {
 		value = `{compactNumber(contributed)} banked  •  {math.floor(share * 100 + 0.5)}% of all deposits`,
 		size = 10,
 		color = ensureContrast(surface, Palette.muted),
 		fit = true,
 		minSize = 8,
-		position = UDim2.fromOffset(44, 36),
+		position = UDim2.fromOffset(44, 38),
 		sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 16),
 	}), goalShare > 0 and React.createElement(Text, {
 		value = `{compactNumber(goalShare)} toward this goal`,
 		size = 9,
 		color = ensureContrast(surface, Palette.mint),
 		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(44, 52),
+		position = UDim2.fromOffset(44, 54),
 		sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 14),
 	}), manageable and React.createElement(React.Fragment, nil, React.createElement(Button, {
 		text = if not canPromote then "LEADER ONLY" elseif role == "Officer" then "DEMOTE" else "PROMOTE",

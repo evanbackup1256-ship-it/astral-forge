@@ -24,6 +24,16 @@ return function(loadService)
 		end
 	end)
 	task.defer(function()
+		local isStudio = false
+		pcall(function()
+			local rs = game:GetService("RunService")
+			if rs and type(rs.IsStudio) == "function" then
+				isStudio = rs:IsStudio()
+			end
+		end)
+		if isStudio then
+			return
+		end
 		local ok, snapshot = pcall(function() return game:GetService("ConfigService"):GetConfigAsync() end)
 		if not ok then
 			Log.Warn("BlackMarket", "Experience Config unavailable; using catalog defaults: " .. tostring(snapshot))

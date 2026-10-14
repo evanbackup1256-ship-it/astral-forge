@@ -165,15 +165,22 @@ local function BootScreen(_param)
 	end, {})
 	React.useEffect(function()
 		local assetList = { BrandArt.GAME_ICON_ASSET, BrandArt.WORDMARK_ASSET, BrandArt.COMPACT_MARK_ASSET }
+		local isStudio = false
+		pcall(function()
+			local rs = game:GetService("RunService")
+			if rs and type(rs.IsStudio) == "function" then
+				isStudio = rs:IsStudio()
+			end
+		end)
 		local preload = task.spawn(function()
 			local ok, reason = pcall(function()
 				game:GetService("ContentProvider"):PreloadAsync(assetList, function(asset, status)
-					if status ~= Enum.AssetFetchStatus.Success then
+					if status ~= Enum.AssetFetchStatus.Success and not isStudio then
 						warn(`[Branding] {asset} failed to load: {status.Name}`)
 					end
 				end)
 			end)
-			if not ok then
+			if not ok and not isStudio then
 				warn(`[Branding] Preload failed: {tostring(reason)}`)
 			end
 		end)

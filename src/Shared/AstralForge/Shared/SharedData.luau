@@ -1674,7 +1674,7 @@ local TIER_BLURBS: { [string]: string } = {
 }
 
 local LADDER: { LevelDef } = {
-	{ Level = 1, Tier = "Beginner", Goal = nil, Unlocks = { "Overview", "Workshop", "Chat", "Settings" } },
+	{ Level = 1, Tier = "Beginner", Goal = nil, Unlocks = { "Overview", "Workshop", "Chat", "Settings", "Trade" } },
 	{
 		Level = 2,
 		Tier = "Beginner",
@@ -1733,7 +1733,7 @@ local LADDER: { LevelDef } = {
 		Level = 11,
 		Tier = "Journeyman",
 		Goal = { Kind = "Rebirths", Target = 1, Text = "Complete your first rebirth" },
-		Unlocks = { "Anomaly", "Command", "Crew", "Trade" },
+		Unlocks = { "Anomaly", "Command", "Crew" },
 	},
 	{
 		Level = 12,
@@ -1820,6 +1820,19 @@ function ForgeLevels.requirementText(level: number): string
 		return `Reach Level {level}`
 	end
 	return `Reach Level {level} ({def.Tier})`
+end
+
+-- The milestone that opens a feature (nil for features open from the start). Unlocks are no
+-- longer shown as levels: each feature names the one goal that opens it.
+function ForgeLevels.goalFor(featureId: string): Goal?
+	for _, def in LADDER do
+		for _, id in def.Unlocks do
+			if id == featureId then
+				return def.Goal
+			end
+		end
+	end
+	return nil
 end
 
 function ForgeLevels.unlockLevels(): { [string]: number }

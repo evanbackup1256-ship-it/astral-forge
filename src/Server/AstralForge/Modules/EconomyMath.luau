@@ -1175,7 +1175,7 @@ function RebirthGate.StardustReward(coreReward: number, scale: number, minimum: 
 	local reward = math.max(0, tonumber(coreReward) or 0)
 	local stardustScale = tonumber(scale) or 5
 	local stardustMinimum = tonumber(minimum) or 4
-	return math.max(stardustMinimum, math.floor(math.sqrt(reward) * stardustScale))
+	return math.clamp(math.max(stardustMinimum, math.floor(math.sqrt(reward) * stardustScale)), 0, 1e14)
 end
 
 function RebirthGate.NextPrestigeTarget(
@@ -1880,13 +1880,19 @@ function ProgressionGate.FeatureStates(profile)
 	local level = ProgressionGate.Level(profile)
 	for id, rule in GameConfig.Unlocks do
 		local progress = if rule.Kind == "Level" then level else ProgressionGate.Progress(profile, rule.Kind)
+		local unlocked = progress >= rule.Target
+		-- what the player sees is the milestone itself: its goal and how far along it they are
+		local shownProgress, shownTarget = progress, rule.Target
+		if rule.GoalKind ~= nil and rule.GoalTarget ~= nil then
+			shownTarget = rule.GoalTarget
+			shownProgress = if unlocked then rule.GoalTarget else math.min(ProgressionGate.Progress(profile, rule.GoalKind), rule.GoalTarget)
+		end
 		result[id] = {
-			Unlocked = progress >= rule.Target,
-			Progress = progress == math.huge and rule.Target or progress,
-			Target = rule.Target,
+			Unlocked = unlocked,
+			Progress = shownProgress == math.huge and shownTarget or shownProgress,
+			Target = shownTarget,
 			Requirement = rule.Requirement,
 			Name = rule.Name,
-			Level = if rule.Kind == "Level" then rule.Target else nil,
 		}
 	end
 	return result
