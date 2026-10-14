@@ -38,6 +38,9 @@ local stats = {
 }
 local REPORT_EVERY = 60
 local FRAME_BUDGET_SECONDS = 0.0015
+-- live servers: repairs only, on a third of the budget; the report-only overlap passes run in Studio
+local IS_STUDIO = game:GetService("RunService"):IsStudio()
+local LIVE_BUDGET_SECONDS = 0.0005
 local TEXT_COVER_SHARE = 0.08
 local TEXT_COVER_HEIGHT = 0.3
 local tryCount = setmetatable({}, { __mode = "k" })
@@ -906,7 +909,7 @@ do
 			return nil
 		end
 		self.frame += 1
-		self.deadline = os.clock() + FRAME_BUDGET_SECONDS
+		self.deadline = os.clock() + (if IS_STUDIO then FRAME_BUDGET_SECONDS else LIVE_BUDGET_SECONDS)
 		diagnostics:beginPairs(self.deadline)
 		self.sinceSweep += _dt
 		self:checkResize(root)
@@ -917,6 +920,9 @@ do
 		self:drainFresh(budget.fresh)
 		local tracked = self.tracked
 		if self.cursor > #tracked then
+			if self.pendingOverlap and not IS_STUDIO then
+				self.pendingOverlap = false
+			end
 			if self.pendingOverlap then
 				if os.clock() >= self.deadline then
 					return nil

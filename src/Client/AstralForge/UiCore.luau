@@ -9763,6 +9763,22 @@ local function RailButton(_param)
 		zIndex = 12,
 	})))))
 end
+-- rail buttons only re-render when what they show changes; onClick is rebuilt every render but
+-- always calls the same stable setPage, so it is left out of the comparison
+local function sameRailProps(previous, nextProps)
+	for key, value in previous do
+		if key ~= "onClick" and nextProps[key] ~= value then
+			return false
+		end
+	end
+	for key, value in nextProps do
+		if key ~= "onClick" and previous[key] ~= value then
+			return false
+		end
+	end
+	return true
+end
+RailButton = React.memo(RailButton, sameRailProps)
 local function MoreDockButton(_param)
 	local entry = _param.entry
 	local active = _param.active
