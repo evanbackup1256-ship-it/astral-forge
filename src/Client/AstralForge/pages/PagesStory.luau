@@ -2041,7 +2041,7 @@ local function EchoForgeView(_param)
 	local chargeAccent = if echoes.Ready or #echoes.Choices > 0 then Palette.mango else dominant.color
 	local heroSurface = darken(Palette.cyan, 0.95)
 	local chargeLabel = ensureContrast(heroSurface, chargeAccent)
-	local chargeCopy = if #echoes.Choices > 0 then "CHOOSE ONE ECHO BELOW" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
+	local chargeCopy = if #echoes.Choices > 0 then "YOUR ECHOES ARE READY" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
 	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not reducedMotion, 1.7)
 	local chargeReveal = useStagger(0, softMotion)
 	local inventoryReveal = useStagger(1, softMotion)
@@ -2115,7 +2115,7 @@ local function EchoForgeView(_param)
 		reducedMotion = softMotion,
 		shimmer = echoes.Ready,
 	}), React.createElement(Button, {
-		text = if #echoes.Choices > 0 then "CHOOSE AN ECHO BELOW" elseif echoes.Ready then "CAPTURE THIS PATTERN" else "KEEP FORGING",
+		text = if #echoes.Choices > 0 then "PICK ONE BELOW" elseif echoes.Ready then "CAPTURE THIS PATTERN" else "KEEP FORGING",
 		icon = "Wave",
 		onClick = function()
 			return dispatch("CaptureEcho")

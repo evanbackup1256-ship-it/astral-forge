@@ -1443,14 +1443,16 @@ end
 local function offerDetail(offer, config)
 	if offer.Kind == "Key" then
 		local crate = crateById(config, offer.CrateId)
-		return `{offer.Amount} key{if offer.Amount == 1 then "" else "s"} for the {if crate then crate.Name else offer.CrateId}. Open them under Crates.`
+		return `{offer.Amount} key{if offer.Amount == 1 then "" else "s"} for the {if crate then crate.Name else offer.CrateId}. Open {if offer.Amount == 1 then "it" else "them"} under Crates.`
 	elseif offer.Kind == "Essence" then
 		return `+{commas(offer.Amount)} relic essence, for levelling relics.`
 	elseif offer.Kind == "Flux" then
 		local span = if offer.Minutes >= 60 then `{offer.Minutes // 60} hour{if offer.Minutes >= 120 then "s" else ""}` else `{offer.Minutes} minutes`
 		return `{span} of your current flux output, paid at once.`
 	elseif offer.Kind == "Boost" then
-		return `{offer.Amount} charge of {offer.BoostId}. Fire it from Boosts.`
+		local boost = config and config.Boosts and config.Boosts[offer.BoostId]
+		local name = if boost and boost.Name then boost.Name else (string.gsub(tostring(offer.BoostId), "(%l)(%u)", "%1 %2"))
+		return `{offer.Amount} {name} {if offer.Amount == 1 then "charge" else "charges"}. Use it from Boosts.`
 	elseif offer.Kind == "Cache" then
 		return `One {offer.Rarity} relic, guaranteed, revealed on the spot.`
 	elseif offer.Kind == "Skin" then
@@ -3995,7 +3997,7 @@ local function WheelView(props)
 				id = "prizes-odds",
 				height = 64,
 				element = React.createElement(Text, {
-					value = `Match each prize to its wheel number. Guaranteed spins draw only {(function(r) return string.upper(string.sub(r, 1, 1)) .. string.lower(string.sub(r, 2)) end)(config.Wheel.PityRarity or "RARE")} or better, using their relative weights.`,
+					value = `Numbers match the wheel. Guaranteed spins only land {(function(r) return string.upper(string.sub(r, 1, 1)) .. string.lower(string.sub(r, 2)) end)(config.Wheel.PityRarity or "RARE")} or better.`,
 					size = 12, color = Palette.creamSoft, wrap = true, fit = false,
 					sizeConstraint = UDim2.new(1, 0, 1, 0),
 				}),

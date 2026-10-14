@@ -822,7 +822,7 @@ local function OverviewView(_param)
 		layoutOrder = 0,
 		sizeConstraint = UDim2.new(0, if phone then 80 else 100, 1, 0),
 	}), React.createElement(Badge, {
-		value = if vaultFill >= 0.99 then "SATURATED" elseif firstRun then "CALIBRATING" else "ACTIVE",
+		value = if vaultFill >= 0.99 then "FULL" elseif firstRun then "NEW" else "FILLING",
 		accent = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		size = UDim2.fromOffset(if phone then 72 else 82, 16),
 		filled = false,
@@ -959,7 +959,7 @@ local function OverviewView(_param)
 		reducedMotion = softMotion,
 		size = UDim2.new(1, 0, 0, 4),
 	}), React.createElement(Text, {
-		value = if not showOvercharge then comebackLine elseif overchargeLeft > 0.02 then `Ready in {string.format("%.1f", overchargeLeft)}s` else "Tap for a quick vault burst",
+		value = if not showOvercharge then comebackLine elseif overchargeLeft > 0.02 then `Ready in {string.format("%.1f", overchargeLeft)}s` else "Tap for an instant burst of flux",
 		size = 10,
 		color = if overchargeLeft > 0.02 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,

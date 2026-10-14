@@ -715,6 +715,31 @@ end
 __defs["format"] = function()
 local LN10 = math.log(10)
 local compactNumber
+-- display names for boosts and crates, read once from the shared config (absent under Lune tests)
+local displayNames = nil
+local function nameOf(id)
+	if displayNames == nil then
+		displayNames = {}
+		pcall(function()
+			local shared = game:GetService("ReplicatedStorage"):FindFirstChild("AstralForge")
+			shared = shared and shared:FindFirstChild("Shared")
+			local module = shared and shared:FindFirstChild("GameConfig")
+			if module == nil then return end
+			local config = require(module)
+			for key, boost in config.Boosts or {} do
+				if type(boost) == "table" and type(boost.Name) == "string" then displayNames[boost.Id or key] = boost.Name end
+			end
+			local items = config.Items or {}
+			for _, crate in items.Crates or config.Crates or {} do
+				if type(crate) == "table" and type(crate.Id) == "string" and type(crate.Name) == "string" then displayNames[crate.Id] = crate.Name end
+			end
+		end)
+	end
+	return displayNames[id] or (string.gsub(tostring(id), "(%l)(%u)", "%1 %2"))
+end
+local function plural(amount, one, many)
+	return if amount == 1 then one else many
+end
 local function formatReward(reward)
 	if not reward then
 		return ""
@@ -733,7 +758,7 @@ local function formatReward(reward)
 		table.insert(parts, _arg0)
 	end
 	if reward.Cores ~= nil and reward.Cores > 0 then
-		local _arg0 = `{compactNumber(reward.Cores)} cores`
+		local _arg0 = `{compactNumber(reward.Cores)} {plural(reward.Cores, "core", "cores")}`
 		table.insert(parts, _arg0)
 	end
 	if reward.Signals ~= nil and reward.Signals > 0 then
@@ -745,7 +770,7 @@ local function formatReward(reward)
 		table.insert(parts, _arg0)
 	end
 	if reward.StreakShield ~= nil and reward.StreakShield > 0 then
-		local _arg0 = `{reward.StreakShield} streak shield`
+		local _arg0 = `{reward.StreakShield} {plural(reward.StreakShield, "streak shield", "streak shields")}`
 		table.insert(parts, _arg0)
 	end
 	local essenceAmount = 0
@@ -768,13 +793,12 @@ local function formatReward(reward)
 	if type(reward.Keys) == "table" then
 		for crateId, amount in reward.Keys do
 			if type(crateId) == "string" and type(amount) == "number" and amount > 0 then
-				table.insert(parts, `{compactNumber(amount)} {crateId}`)
+				table.insert(parts, `{compactNumber(amount)} {nameOf(crateId)} {plural(amount, "key", "keys")}`)
 			end
 		end
 	end
 	if reward.Boost ~= nil then
-		local _boost = reward.Boost
-		table.insert(parts, _boost)
+		table.insert(parts, `{nameOf(reward.Boost)} boost`)
 	end
 	if #parts == 0 then
 		return ""

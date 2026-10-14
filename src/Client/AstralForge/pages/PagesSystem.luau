@@ -1490,7 +1490,7 @@ local function CommandViewReady(_param)
 			position = UDim2.fromOffset(if stack then 88 else 114, 60),
 			size = UDim2.new(1, heroInfoWidth, 0, 8),
 		}), React.createElement(Text, {
-			value = `{compactNumber(command.Signals)} signals  ·  {compactNumber(command.ExpeditionsCompleted)} trips  ·  {compactNumber(command.StreakShields)} shields`,
+			value = `{compactNumber(command.Signals)} signals  ·  {compactNumber(command.ExpeditionsCompleted)} {if command.ExpeditionsCompleted == 1 then "trip" else "trips"}  ·  {compactNumber(command.StreakShields)} {if command.StreakShields == 1 then "shield" else "shields"}`,
 			size = 12,
 			color = Palette.creamSoft,
 			fit = false,
@@ -1762,7 +1762,7 @@ local function CommandViewReady(_param)
 		local _result_5
 		if titlesEnabled then
 			_result_5 = React.createElement(React.Fragment, nil, React.createElement(Text, {
-				value = "Every card is a live preview of the name, motion, shine, and color you will wear.",
+				value = "Each card shows the title exactly as it will look on you.",
 				size = 11,
 				color = Palette.muted,
 				fit = false,
@@ -3520,7 +3520,7 @@ local BOARDS = { {
 	id = "Flux",
 	label = "Lifetime Flux",
 	short = "FLUX",
-	description = "Every unit of flux forged across all realities.",
+	description = "All the flux you have ever made.",
 	icon = "Flux",
 	accent = Palette.cyan,
 }, {

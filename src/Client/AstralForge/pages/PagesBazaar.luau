@@ -318,7 +318,7 @@ local function BazaarView(props)
 	end
 	if market and Format.compareFlux(market.Refunded or 0, 0) > 0 then
 		add("legacy-refund", 36, h(Ui.Text, {
-			value = `{Format.compactNumber(market.Refunded)} flux returned from retired Bazaar savings, terms, prizes and held tickets.`,
+			value = `{Format.compactNumber(market.Refunded)} flux refunded from old Bazaar savings and tickets.`,
 			size = 13, wrap = true, color = Palette.green, sizeConstraint = UDim2.fromScale(1, 1),
 		}))
 	end

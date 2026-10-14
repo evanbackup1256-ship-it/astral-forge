@@ -100,16 +100,16 @@ function Views.NextPlan(props)
 	local plan=Model.nextRank(state,config)
 	local busy,status,run=useAction(props.dispatch)
 	local function navigate(page) if props.navigate then props.navigate(page) end end
-	local missing=if plan.capped then "Your Continuum rank is at its current limit." elseif plan.ready then "Both costs are covered. This upgrade raises permanent bonuses without resetting your machines." else `Still needed: {compact(plan.flux)} Flux + {compact(plan.dust)} Stardust.`
+	local missing=if plan.capped then "Your Continuum rank is at its current limit." elseif plan.ready then "You can afford it. Ranking up raises permanent bonuses and keeps your machines." else `Still needed: {compact(plan.flux)} Flux + {compact(plan.dust)} Stardust.`
 	local sections={
 		section("next-plan",232,panel(P.pink,{
-			copy("NEXT PLAN · PERMANENT PROGRESSION",0,22,12,P.pink,true),
+			copy("CONTINUUM · PERMANENT",0,22,12,P.pink,true),
 			copy(`Continuum {plan.rank} → {plan.nextRank}`,30,38,24,P.cream,true),
 			copy(missing,78,66,14),
 			button(if busy then "UPGRADING…" elseif plan.capped then "RANK LIMIT" else "RAISE RANK",152,function() run("UpgradeContinuum",{}) end,busy or not plan.ready,P.pink),
 		})),
 		section("rank-costs",218,panel(P.cyan,{
-			copy("YOUR UPGRADE BUDGET",0,24,13,P.cyan,true),
+			copy("COST",0,24,13,P.cyan,true),
 			copy(`Flux · {compact(state.Cash)} / {compact(rank.FluxCost or 0)}`,34,32,14),
 			meter(plan.fluxProgress,72,P.cyan),
 			copy(`Stardust · {compact(state.Stardust)} / {compact(rank.StardustCost or 0)}`,96,32,14),
@@ -117,19 +117,22 @@ function Views.NextPlan(props)
 			copy(if plan.milestone then "Next rank includes the milestone production bonus." else `Production milestone: rank {plan.milestoneRank}.`,154,32,12,P.muted),
 		})),
 		section("rank-benefits",246,panel(P.mint,{
-			copy("WHAT CHANGES AT YOUR NEXT RANK",0,24,13,P.mint,true),
+			copy("NEXT RANK",0,24,13,P.mint,true),
 			copy(`Production · {compact(rank.ProductionMultiplier or 1)}× → {compact(Math.Mul(rank.ProductionMultiplier or 1,plan.production))}×`,34,36),
 			copy(`Vault capacity · {compact(rank.CapacityMultiplier or 1)}× → {compact(Math.Mul(rank.CapacityMultiplier or 1,plan.capacity))}×`,76,36),
 			copy(`Strike power · {compact(rank.TapMultiplier or 1)}× → {compact(Math.Mul(rank.TapMultiplier or 1,plan.tap))}×`,118,36),
 			copy(`Offline bonus · {string.format("%.2f",(rank.OfflineBonus or 0)*100)}% → {string.format("%.2f",plan.offline*100)}%`,160,36),
 		})),
-		section("rank-route",254,panel(P.mango,{
-			copy("BUILD THE MISSING RESOURCES",0,24,13,P.mango,true),
-			copy(if status ~= "" then status else "Collect earned rewards, bank a shift, or compare production upgrades. Choose the route that fills your shortfall.",32,64,14),
-			button("OPEN SHIFT PLAN",106,function() navigate("Anomaly") end,false,P.pink),
-			button("COMPARE WORKSHOP UPGRADES",166,function() navigate("Workshop") end,false,P.cyan),
-		})),
 	}
+	-- only when something is short: where to get it
+	if not plan.ready and not plan.capped then
+		table.insert(sections, section("rank-route",254,panel(P.mango,{
+			copy("SHORT ON FLUX OR STARDUST?",0,24,13,P.mango,true),
+			copy(if status ~= "" then status else "Rewards, banked reactor shifts and better machines all bring more in.",32,64,14),
+			button("OPEN REACTOR",106,function() navigate("Anomaly") end,false,P.pink),
+			button("OPEN WORKSHOP",166,function() navigate("Workshop") end,false,P.cyan),
+		})))
+	end
 	return scaffold(sections,viewport,props,"ContinuumClaimActions")
 end
 

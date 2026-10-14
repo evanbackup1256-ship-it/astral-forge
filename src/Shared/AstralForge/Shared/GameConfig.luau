@@ -1229,8 +1229,8 @@ local GameConfig = {
 			},
 			{
 				Id = "ActionWeave",
-				Name = "Action Weave",
-				Description = "Keep any productive forge action flowing.",
+				Name = "Busy Hands",
+				Description = "Do anything useful: buy, collect, tap or claim.",
 				Kind = "Action",
 				TargetMin = 18,
 				TargetMax = 34,
@@ -1241,7 +1241,7 @@ local GameConfig = {
 			{
 				Id = "ChainTheory",
 				Name = "Perfect Timing",
-				Description = "Reach the required Pulse combo streak.",
+				Description = "Build a Pulse combo this long.",
 				Kind = "Combo",
 				TargetMin = 8,
 				TargetMax = 20,
@@ -1251,8 +1251,8 @@ local GameConfig = {
 			},
 			{
 				Id = "VaultTransfer",
-				Name = "Vault Transfer",
-				Description = "Bank AFK vault fills.",
+				Name = "Full Vaults",
+				Description = "Collect your vault after it fills up.",
 				Kind = "Collect",
 				TargetMin = 3,
 				TargetMax = 7,
@@ -1262,8 +1262,8 @@ local GameConfig = {
 			},
 			{
 				Id = "UpgradeLattice",
-				Name = "Upgrade Lattice",
-				Description = "Purchase machine, research, grid, or item levels.",
+				Name = "Upgrades",
+				Description = "Buy levels of anything: machines, research, the grid or relics.",
 				Kind = "Upgrade",
 				TargetMin = 4,
 				TargetMax = 10,
@@ -1273,8 +1273,8 @@ local GameConfig = {
 			},
 			{
 				Id = "RewardSynthesis",
-				Name = "Reward Synthesis",
-				Description = "Claim missions, milestones, or operation rewards.",
+				Name = "Cash In",
+				Description = "Claim mission, milestone or event rewards.",
 				Kind = "Reward",
 				TargetMin = 2,
 				TargetMax = 6,
@@ -1284,8 +1284,8 @@ local GameConfig = {
 			},
 			{
 				Id = "StabilityProof",
-				Name = "Stability Proof",
-				Description = "Complete anomaly stabilization sequences.",
+				Name = "Steady Hands",
+				Description = "Stabilize the reactor.",
 				Kind = "Stabilize",
 				TargetMin = 1,
 				TargetMax = 3,

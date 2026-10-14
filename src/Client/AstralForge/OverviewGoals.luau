@@ -9,7 +9,7 @@ return function(Math, compact)
 		end
 		for _, reward in { {"Missions", ready.missions, "mission rewards"}, {"Lab", ready.lab, "Lab rewards"}, {"ForgePath", if ready.path then 1 else 0, "Forge Path reward"} } do
 			if reward[2] > 0 and unlocked(reward[1]) then
-				return { title = `Claim your {reward[3]}`, body = `{reward[2]} ready to collect. Bank these rewards before your next upgrade.`, page = reward[1], cta = "Open " .. (if reward[1] == "ForgePath" then "Forge Path" else reward[1]), value = tostring(reward[2]), label = "REWARDS READY", progress = 1 }
+				return { title = `Claim your {reward[3]}`, body = `{reward[2]} ready to collect.`, page = reward[1], cta = "Open " .. (if reward[1] == "ForgePath" then "Forge Path" else reward[1]), value = tostring(reward[2]), label = "REWARDS READY", progress = 1 }
 			end
 		end
 		if state.Domain and state.Domain.CanExpand then
