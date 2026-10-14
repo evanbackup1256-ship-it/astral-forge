@@ -111,7 +111,12 @@ local function bootProgress(marks, assetsLoaded, assetsTotal, modulesLoaded, mod
 end
 local function BootScreen(_param)
 	local short = useViewport().height < 420
-	local centerY = if short then 0.4 else 0.42
+	local centerY = if short then 0.36 else 0.42
+	-- core, wordmark and status offsets from centerY; short landscape keeps all of it above the tip
+	local coreSize = if short then 108 else 212
+	local coreY = if short then -36 else -54
+	local wordY = if short then 24 else 70
+	local statusY = if short then 64 else 142
 	local marks = _param.marks
 	local ready = _param.ready
 	local reducedMotion = _param.reducedMotion
@@ -301,10 +306,6 @@ local function BootScreen(_param)
 
 	-- the forge core: a ring of ticks that light up as loading goes, two counter-rotating orbits,
 	-- a breathing glow and stars streaming out of the middle
-	local coreSize = if short then 132 else 212
-	local coreY = if short then -34 else -54
-	local wordY = if short then 44 else 70
-	local statusY = if short then 92 else 142
 	local driftRate = if softMotion then 0.5 else 1
 	local orbitRate = if softMotion then 0.45 else 1
 
@@ -511,7 +512,7 @@ local function BootScreen(_param)
 		ZIndex = 2,
 	}, stars), core, shockwave, React.createElement("imagelabel", {
 		Name = "BootWordmark",
-		Size = UDim2.new(0.8, 0, 0, if short then 40 else 60),
+		Size = UDim2.new(0.8, 0, 0, if short then 36 else 60),
 		Position = UDim2.new(0.5, 0, centerY, wordY),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,

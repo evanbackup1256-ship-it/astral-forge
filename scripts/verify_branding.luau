@@ -115,13 +115,13 @@ end
 local layoutStart = assert(boot:find("\tlocal short = useViewport().height < 420", 1, true))
 local layoutEnd = assert(boot:find("\n\tlocal marks", layoutStart, true))
 for _, height in { 280, 660, 900 } do
-	local layout = luau.load(boot:sub(layoutStart, layoutEnd - 1) .. "\nreturn {short, centerY, markSize, contentOffset}", {
+	local layout = luau.load(boot:sub(layoutStart, layoutEnd - 1) .. "\nreturn {short, centerY, coreSize, coreY, statusY}", {
 		environment = setmetatable({ useViewport = function() return { height = height } end }, { __index = _G }),
 	})()
-	local short, center, mark, offset = table.unpack(layout)
-	local markTop = height * center + (if short then -30 else -40) - mark / 2
-	local progressBottom = height * center + offset + 42 + 14
-	local tipTop = height - 20 - 36
+	local short, center, core, coreY, statusY = table.unpack(layout)
+	local markTop = height * center + coreY - core / 2
+	local progressBottom = height * center + statusY + 22 + 14
+	local tipTop = height - (if short then 46 else 62) - 14
 	assert(markTop >= 0 and progressBottom < tipTop, "boot content and wrapped tips do not overlap in short landscape")
 end
 local stageStart = assert(boot:find("local ROLL =", 1, true))
