@@ -9988,6 +9988,7 @@ local function MoreDockButton(_param)
 	}))
 end
 local MoreCell
+MoreDockButton = React.memo(MoreDockButton, sameRailProps)
 local function MoreDockPopover(_param)
 	local entries = _param.entries
 	local page = _param.page
@@ -14486,6 +14487,16 @@ local function TabButton(_param)
 	}))
 end
 
+-- tab buttons only re-render when what they show changes (onClick is rebuilt each render)
+TabButton = React.memo(TabButton, function(previous, nextProps)
+	for key, value in previous do
+		if key ~= "onClick" and nextProps[key] ~= value then return false end
+	end
+	for key, value in nextProps do
+		if key ~= "onClick" and previous[key] ~= value then return false end
+	end
+	return true
+end)
 local function MenuCell(_param)
 	local entry = _param.entry
 	local active = _param.active
