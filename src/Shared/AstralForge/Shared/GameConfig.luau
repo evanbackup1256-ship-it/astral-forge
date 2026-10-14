@@ -101,9 +101,9 @@ local GameConfig = {
 	Game = {
 		Name = "ASTRAL FORGE",
 		Subtitle = "IDLE INDUSTRIES",
-		Version = "7.1.0",
+		Version = "7.2.0",
 		Update = {
-			Title = "Astral Forge 7.1",
+			Title = "Astral Forge 7.2",
 			Subtitle = "A rebuilt forge: artifacts, domains, guilds, inventory and cleaner feedback.",
 			TargetUnix = 1_788_195_600,
 		},
@@ -6710,8 +6710,8 @@ local GameConfig = {
 
 	Release = {
 		CountdownAt = 1788195600,
-		Season = "VERSION 7.1",
-		Announcement = "Astral Forge 7.1: crews, private messages, trade history, new companions and a rebuilt prize wheel.",
+		Season = "VERSION 7.2",
+		Announcement = "Astral Forge 7.2: Ascension, a final rebirth with no ceiling, plus a living Domain tree and a better game on phones.",
 		Notes = {
 			"Crews: team up with up to three other players here for a production bonus and a shared daily goal.",
 			"Chat has global, server, crew, friends and private channels, with autocomplete and search.",
@@ -6721,11 +6721,26 @@ local GameConfig = {
 			"The prize wheel is rebuilt, and new Social settings decide who can message, invite or trade with you.",
 		},
 		DeveloperNotes = {
-			"Release 7.1.0: crews, social channels, trade history and lit companions.",
-			"The release version is 7.1.0; save schema remains DataVersion 21.",
-			"Updating LastSeenVersion to 7.1.0 reopens the release notes for returning players.",
+			"Release 7.2.0: Ascension, milestone unlocks, Domain tree motion, phone navigation.",
+			"The release version is 7.2.0; save schema remains DataVersion 21 (Ascension fields are filled in on load).",
+			"Updating LastSeenVersion to 7.2.0 reopens the release notes for returning players.",
 		},
 		History = {
+			{
+				Version = "7.2.0",
+				Title = "Update 7.2: Ascension",
+				Date = "OCT 14",
+				Highlights = {
+					"Ascension: reach Domain rank 25 to reset Domain, rebirths and cores for Aether. Each ascension multiplies production and needs a higher rank, forever.",
+					"Six sigils to spend Aether on. Keep them level and Harmony lifts all of them at once.",
+					"Forge levels are gone. Features now open when you hit the milestone itself, like your first rebirth or Domain rank 10.",
+					"The Domain tree comes alive: it grows from the core, stars drift behind it and energy runs along your bound links.",
+					"The Domain screen is simpler, and the tree and the expansion screen now link to each other.",
+					"On phones the Menu button is always there, Continuum and the Reactor have menu entries, and a stack of overlapping layouts is fixed.",
+					"A new loading screen that fills as the game loads.",
+					"Rewards and shops name boosts and crate keys properly, and plenty of wording is plainer.",
+				},
+			},
 			{
 				Version = "7.1.0",
 				Title = "Update 7.1: Crews and conversations",
