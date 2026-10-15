@@ -346,6 +346,10 @@ local function Text(_param)
 		return withExitFade(transparency, presence)
 	end, { transparency, presence })
 	local scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42)
+	-- a larger text setting must never push a single line out of its own box
+	if not wrap and sizeConstraint ~= nil and sizeConstraint.Y.Scale == 0 and sizeConstraint.Y.Offset > 0 then
+		scaledSize = math.max(8, math.min(scaledSize, sizeConstraint.Y.Offset))
+	end
 	local font = if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold or boldText >= 0.5 then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
 	local painted = if surface ~= nil and typeof(color) == "Color3" then ensureContrast(surface, color) else color
 	local constraint = false
@@ -1097,18 +1101,22 @@ local function Badge(_param)
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(1, 1) }),
-	})), React.createElement(Text, {
-		value = value,
-		size = 13,
-		color = label,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		fit = compressLabel,
-		minSize = 12,
-		position = UDim2.fromOffset(7, 0),
-		sizeConstraint = UDim2.new(1, -12, 1, 0),
-		zIndex = zIndex + 1,
-	}))
+	})), React.createElement("textlabel", {
+		-- badges are small: the label always fits inside the box (the global text floor would push it out)
+		Size = UDim2.new(1, -10, 1, -4),
+		Position = UDim2.fromOffset(5, 2),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = value,
+		TextColor3 = label,
+		TextScaled = true,
+		TextWrapped = false,
+		FontFace = Font.fromEnum(if compressLabel then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansExtraBold),
+		ZIndex = zIndex + 1,
+	}, React.createElement("uitextsizeconstraint", {
+		MaxTextSize = 13,
+		MinTextSize = 7,
+	})))
 end
 local function CountBadge(_param)
 	local count = _param.count
@@ -5827,6 +5835,9 @@ local function MainGame(_param)
 				Juice.number(`+{compactNumber(session.TapPower)}`, Palette.mango, { icon = "Flux" })
 				Juice.coins("VAULT", Palette.mango, "Flux", 3)
 			end
+		elseif string.sub(action, 1, 5) == "Claim" then
+			-- a claim answers on the press; the amounts fly in when the server confirms
+			require(script.Parent.JuiceFx).burst(nil, Palette.mango, 0.7)
 		end
 		if NetworkPolicy.IsOptimistic(action) then
 			dispatchStore(ClientActions.applyOptimistic(action, value, config.Game.Version))
