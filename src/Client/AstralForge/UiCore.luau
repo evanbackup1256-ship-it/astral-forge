@@ -1131,17 +1131,30 @@ local function CountBadge(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local scaleRef = useSprScale(1, effectsPaused, 0.68, 0.64, 13)
 	local whole = if type(count) == "number" and count == count then math.floor(count) else 0
-	-- a hop when the count goes up, and a soft ping while something is waiting
+	-- a hop and three soft pings when the count goes up, then it sits still
 	local bumps, setBumps = React.useState(0)
+	local pinging, setPinging = React.useState(false)
 	local lastCount = React.useRef(whole)
 	React.useEffect(function()
 		if whole > lastCount.current then
 			setBumps(function(n) return n + 1 end)
+			setPinging(true)
 		end
 		lastCount.current = whole
 	end, { whole })
+	React.useEffect(function()
+		if not pinging then
+			return nil
+		end
+		local job = task.delay(3, function()
+			setPinging(false)
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { pinging, bumps })
 	local hop = useFlash(bumps, effectsPaused, 0.45)
-	local ping = useClock(whole > 0 and not effectsPaused, 0.45, 1)
+	local ping = useClock(pinging and whole > 0 and not effectsPaused, 0.45, 1)
 	if whole <= 0 then
 		return React.createElement("frame", {
 			Size = UDim2.fromOffset(0, 0),
@@ -1164,6 +1177,7 @@ local function CountBadge(_param)
 		ZIndex = zIndex,
 		ClipsDescendants = false,
 	}, React.createElement("frame", {
+		Visible = pinging,
 		Size = ping:map(function(t)
 			local s = 1 + t * 1.2
 			return UDim2.fromScale(s, s)
@@ -1336,7 +1350,8 @@ local function Panel(_param)
 		end)
 		return {
 			strokeColor = highlightOn:map(function(amount)
-				return if amount >= 0.45 then accentColor else Palette.lineSoft
+				local base = if accent ~= nil then accent:Lerp(Palette.lineSoft, 0.55) else Palette.lineSoft
+				return if amount >= 0.45 then accentColor else base
 			end),
 			shadowPosition = React.joinBindings({ surfaceY, panelSize }):map(function(values)
 				return pixelPosition(values[2], 0, -4, 0, 7 + values[1])
@@ -1402,11 +1417,8 @@ local function Panel(_param)
 			end,
 		} else {},
 	}, React.createElement("uiscale", {
-		-- island-style arrival: the card swells into place with a soft overshoot
 		Scale = activeReveal:map(function(amount)
-			local x = math.clamp(amount, 0, 1)
-			local back = 1 + 2.4 * (x - 1) ^ 3 + 1.4 * (x - 1) ^ 2
-			return 0.95 + back * 0.05
+			return 0.98 + 0.02 * math.clamp(amount, 0, 1)
 		end),
 	}), paintChrome and React.createElement("frame", {
 		Size = UDim2.new(1, 8, 1, -1),
@@ -1426,23 +1438,11 @@ local function Panel(_param)
 		ZIndex = zIndex,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		-- corners start rounder, like a capsule, and settle to the card's radius
-		CornerRadius = activeReveal:map(function(amount)
-			return UDim.new(0, radius + math.round((1 - math.clamp(amount, 0, 1)) * 18))
-		end),
+		CornerRadius = UDim.new(0, radius),
 	}), React.createElement("uigradient", {
 		Color = surfaceGradient(background, 0.92),
 		Rotation = 90,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -(radius + 6), 0, 1),
-		Position = UDim2.fromOffset(math.floor(radius * 0.5) + 3, 1),
-		BackgroundColor3 = Palette.cream,
-		BackgroundTransparency = 0.78,
-		BorderSizePixel = 0,
-		ZIndex = zIndex + 1,
-	}, React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) }),
-	})), stroke and React.createElement("frame", {
+	}), stroke and React.createElement("frame", {
 		Size = UDim2.new(1, -2, 1, -2),
 		Position = UDim2.fromOffset(1, 1),
 		BackgroundTransparency = 1,
@@ -1491,17 +1491,6 @@ local function Panel(_param)
 		ZIndex = zIndex + 1,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
-	})), accent ~= nil and React.createElement("frame", {
-		Size = UDim2.fromOffset(math.max(44, radius * 5), 2),
-		Position = UDim2.fromOffset(radius + 2, 0),
-		BackgroundColor3 = accent,
-		BackgroundTransparency = derived.hairlineTransparency,
-		BorderSizePixel = 0,
-		ZIndex = zIndex + 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.66, 0.18), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, -padding * 2, 1, -padding * 2),
 		Position = UDim2.fromOffset(padding, padding),
@@ -5028,27 +5017,8 @@ local function MainGame(_param)
 			at = now,
 		}
 		NoticeMath.Record(normalizedTitle, body, tone)
-		-- every notice morphs out of the island instead of sliding up as a toast
-		local Juice = require(script.Parent.JuiceFx)
-		if Juice.hasIsland() then
-			if playSound then
-				Audio:play(if tone == "Special" then "noticeSpecial" elseif tone == "Success" then "noticeSuccess" elseif tone == "Warning" or tone == "Error" then "noticeWarning" else "noticeInfo")
-			end
-			local bodyText = if type(body) == "string" then body else tostring(body or "")
-			local color, icon = Palette.cyan, "Guide"
-			if tone == "Special" then
-				color, icon = Palette.violet, "Boost"
-			elseif tone == "Success" then
-				color, icon = Palette.mint, "Check"
-			elseif tone == "Warning" then
-				color, icon = Palette.mango, "Lock"
-			elseif tone == "Error" then
-				color, icon = Palette.coral, "Close"
-			end
-			-- longer lines stay up long enough to read
-			local hold = math.clamp(1.4 + #bodyText * 0.035, 1.8, 4.2) * math.clamp((notificationDurationRef.current or 0.55) / 0.55, 0.6, 2)
-			Juice.banner(normalizedTitle, if bodyText ~= "" then bodyText else nil, color, icon, hold)
-			return nil
+		if playSound then
+			Audio:play(if tone == "Special" then "noticeSpecial" elseif tone == "Success" then "noticeSuccess" elseif tone == "Warning" or tone == "Error" then "noticeWarning" else "noticeInfo")
 		end
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
 		local maxNotices = NoticeMath.MaxNotices(toastDensityRef.current)
@@ -7282,7 +7252,7 @@ local function AppShell(_param)
 		return amount > 0.01
 	end)
 	local drawerPanelVisible = railWidth:map(function(width)
-		return not drawerNav or width > 36
+		return width > 6
 	end)
 	local dockVisible = railWidth:map(function(width)
 		return not drawerNav or width <= 4
@@ -8025,7 +7995,7 @@ local function AppShell(_param)
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Selectable = false,
-		Active = drawerScrimVisible,
+		Active = railOpen,
 		Visible = drawerScrimVisible,
 		ZIndex = 28,
 		Event = {
@@ -12094,10 +12064,7 @@ local function ConfettiBurst(_param)
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("uistroke", {
 			Color = if ring == 0 then Palette.mango else Palette.cyan,
-			Thickness = clock:map(function(seconds)
-				local _, thin = Fx.ring(seconds - ring * 0.08, 0.6)
-				return 1 + thin * (if ring == 0 then 3.5 else 2.5)
-			end),
+			Thickness = if ring == 0 then 3 else 2,
 			Transparency = clock:map(function(seconds)
 				local _, _, fade = Fx.ring(seconds - ring * 0.08, 0.6)
 				return 0.1 + fade * 0.9
@@ -19847,22 +19814,22 @@ local function AdminPrankOverlay(_param)
 		zIndex = 430,
 		clips = false,
 	}, React.createElement(Text, {
-		value = "Could not save",
+		value = "Ledger Sync",
 		size = 13,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Text, {
-		value = "The vault is fine. This toast is a joke.",
+		value = "Vault storage verification in progress. Balances secured.",
 		size = 11,
 		color = Palette.creamSoft,
 		wrap = true,
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
 		position = UDim2.fromOffset(0, 22),
 	}))), emptyBag and React.createElement(PrankCard, {
-		title = "Inventory",
-		body = "0 / 100 bag. No relics. This empty bag is a prank. Your relics are safe.",
-		action = "CLOSE",
+		title = "Relic Matrix",
+		body = "Relic inventory cache refreshed. All station conduits synced to core storage.",
+		action = "CONFIRM",
 		accent = Palette.violet,
 		height = 248,
 		reducedMotion = reducedMotion,
@@ -19956,11 +19923,11 @@ local function toneIcon(tone)
 	end
 	return "Wave"
 end
-local CARD_HEIGHT = 74
-local CARD_HEIGHT_MOBILE = 68
-local CARD_GAP = 8
-local CARD_GAP_MOBILE = 8
-local RAIL_WIDTH = 360
+local CARD_HEIGHT = 44
+local CARD_HEIGHT_MOBILE = 42
+local CARD_GAP = 6
+local CARD_GAP_MOBILE = 6
+local RAIL_WIDTH = 380
 local RAIL_WIDTH_MOBILE = 340
 local MAX_VISIBLE = 3
 local MAX_VISIBLE_MOBILE = 2
@@ -19971,6 +19938,7 @@ local function densityVisibleCap(density, stack)
 	end
 	return math.clamp(math.floor(2 + clamped * 3 + 0.5), 2, 5)
 end
+
 local function NoticeCard(props)
 	local slotRef = React.useRef(nil)
 	local slotSizePixels = useGuiSize(slotRef)
@@ -19986,11 +19954,8 @@ local function NoticeCard(props)
 	local color = toneColor(notice.tone)
 	local cardH = if props.compact then CARD_HEIGHT_MOBILE else CARD_HEIGHT
 	local cardGap = if props.compact then CARD_GAP_MOBILE else CARD_GAP
-	local titleSize = if props.compact then 14 else 15
-	local bodySize = if props.compact then 12 else 13
-	local dismiss = if props.touch then 34 else 28
-	local iconSize = if props.compact then 34 else 38
 	local hasBody = #notice.body > 0 and notice.body ~= notice.title
+	local count = if notice.count ~= nil then notice.count else 1
 	local swipeX, setSwipeX = React.useBinding(0)
 	local drag = React.useRef({
 		active = false,
@@ -19999,8 +19964,7 @@ local function NoticeCard(props)
 		v = 0,
 		mode = "idle",
 	})
-	local dragConn = React.useRef()
-	local dragEndConn = React.useRef()
+
 	React.useEffect(function()
 		local alive = true
 		local job = task.defer(function()
@@ -20013,33 +19977,7 @@ local function NoticeCard(props)
 			pcall(task.cancel, job)
 		end
 	end, {})
-	React.useEffect(function()
-		return function()
-			local _result = dragConn.current
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-			local _result_1 = dragEndConn.current
-			if _result_1 ~= nil then
-				_result_1:Disconnect()
-			end
-		end
-	end, {})
-	React.useEffect(function()
-		if leaving then
-			setHovered(false)
-			drag.current.active = false
-			drag.current.mode = "idle"
-			local _result = dragConn.current
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-			local _result_1 = dragEndConn.current
-			if _result_1 ~= nil then
-				_result_1:Disconnect()
-			end
-		end
-	end, { leaving })
+
 	React.useEffect(function()
 		local _result = props.setHovered
 		if _result ~= nil then
@@ -20053,6 +19991,7 @@ local function NoticeCard(props)
 			return _result_1
 		end
 	end, { hovered, notice.id, props.setHovered })
+
 	local plan = useIntent({ role = "toast", tone = notice.tone, emphasis = if notice.tone == "Special" then 0.5 else 0, reduced = props.reducedMotion })
 	React.useEffect(function()
 		if not visible or notice.sound == false then
@@ -20060,6 +19999,7 @@ local function NoticeCard(props)
 		end
 		Audio:play(plan.cue or toneCue(notice.tone))
 	end, { notice.sound, notice.tone, visible })
+
 	React.useEffect(function()
 		local connection = RunService.RenderStepped:Connect(function(dt)
 			local state = drag.current
@@ -20078,128 +20018,67 @@ local function NoticeCard(props)
 			return connection:Disconnect()
 		end
 	end, { setSwipeX })
+
 	local progress = useIntentSpring(if visible then 1 else 0, plan)
-	local hover = useFlipperSpring(if hovered and visible then 1 else 0, props.reducedMotion, plan.hover.stiffness, plan.hover.damping)
+	local hover = useFlipperSpring(if hovered and visible then 1 else 0, props.reducedMotion, 400, 32)
 	local life = useClock(visible, 1, 1000, true)
-	local surface = Palette.panelRaised
-	local titleColor = ensureContrast(surface, Palette.cream)
-	local bodyColor = ensureContrast(surface, Palette.creamSoft)
-	local mutedX = ensureContrast(surface, Palette.muted)
+
 	local slotSize = progress:map(function(shown)
 		local t = math.clamp(shown, 0, 1)
-		local squish = t * t
-		return UDim2.new(1, 0, 0, math.max(0, math.round(squish * cardH + (if t > 0.06 then cardGap else 0))))
+		return UDim2.new(1, 0, 0, math.max(0, math.round(t * cardH + (if t > 0.05 then cardGap else 0))))
 	end)
+
 	local cardSize = progress:map(function(shown)
 		local t = math.clamp(shown, 0, 1)
-		local squish = t * t
-		local widen = math.round((1 - t) * 16)
-		return UDim2.new(1, widen, 0, math.max(0, math.round(cardH * squish)))
+		return UDim2.new(1, math.round((1 - t) * -20), 0, cardH)
 	end)
+
 	local enterX = progress:map(function(shown)
-		return if leavingRef.current then 0 else (1 - math.clamp(shown, 0, 1)) * 22
+		return (1 - math.clamp(shown, 0, 1)) * 18
 	end)
-	local swipeFade = swipeX:map(function(amount)
-		return math.clamp(math.abs(amount) / SWIPE_DISMISS_PX, 0, 1) * 0.7
-	end)
+
 	local motionFade = progress:map(function(shown)
 		return 1 - math.clamp(shown, 0, 1)
 	end)
-	local backgroundTransparency = React.joinBindings({ motionFade, swipeFade }):map(function(values)
-		return math.clamp(1 - props.surfaceOpacity + values[1] * props.surfaceOpacity + values[2], 0, 1)
+
+	local surface = Color3.fromRGB(12, 14, 22)
+	local backgroundTransparency = motionFade:map(function(fade)
+		return math.clamp(0.06 + fade * 0.94, 0, 1)
 	end)
+
 	local drain = life:map(function(seconds)
-		local _exp = seconds
-		local _condition = notice.lifetime
-		if _condition == nil then
-			_condition = NOTICE_LIFETIME
-		end
-		return math.clamp(1 - _exp / _condition, 0, 1)
+		local lifetime = if notice.lifetime ~= nil then notice.lifetime else NOTICE_LIFETIME
+		return math.clamp(1 - seconds / lifetime, 0, 1)
 	end)
-	local fade = motionFade
+
 	local shownEnough = progress:map(function(shown)
-		return shown > 0.05
+		return shown > 0.02
 	end)
-	local _condition = notice.count
-	if _condition == nil then
-		_condition = 1
-	end
-	local count = _condition
+
 	local lift = hover:map(function(amount)
-		return -amount
+		return -amount * 2
 	end)
+
 	local cardPosition = React.joinBindings({ enterX, swipeX, lift, slotSizePixels }):map(function(values)
 		return pixelPosition(values[4], 0.5, values[1] + values[2], 0.5, values[3])
 	end)
-	local beginDrag = function(frame, input)
-		if leavingRef.current then
-			return nil
+
+	local onDismiss = function()
+		if not leavingRef.current then
+			props.remove(notice.id)
+			Audio:play("noticeClose")
 		end
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
-			return nil
-		end
-		local abs = frame.AbsolutePosition
-		local size = frame.AbsoluteSize
-		if input.Position.X >= abs.X + size.X - dismiss - 6 then
-			return nil
-		end
-		local state = drag.current
-		state.active = true
-		state.mode = "drag"
-		state.start = input.Position.X - state.x
-		state.v = 0
-		local _result = dragConn.current
-		if _result ~= nil then
-			_result:Disconnect()
-		end
-		dragConn.current = UserInputService.InputChanged:Connect(function(moved)
-			if not state.active then
-				return nil
-			end
-			if moved.UserInputType ~= Enum.UserInputType.MouseMovement and moved.UserInputType ~= Enum.UserInputType.Touch then
-				return nil
-			end
-			state.x = moved.Position.X - state.start
-			setSwipeX(state.x)
-		end)
-		local _result_1 = dragEndConn.current
-		if _result_1 ~= nil then
-			_result_1:Disconnect()
-		end
-		dragEndConn.current = UserInputService.InputEnded:Connect(function(ended)
-			if ended.UserInputType ~= Enum.UserInputType.MouseButton1 and ended.UserInputType ~= Enum.UserInputType.Touch then
-				return nil
-			end
-			local _result_2 = dragConn.current
-			if _result_2 ~= nil then
-				_result_2:Disconnect()
-			end
-			local _result_3 = dragEndConn.current
-			if _result_3 ~= nil then
-				_result_3:Disconnect()
-			end
-			state.active = false
-			if leavingRef.current then
-				return nil
-			end
-			if math.abs(state.x) >= SWIPE_DISMISS_PX then
-				Audio:play("noticeClose")
-				state.mode = "idle"
-				props.remove(notice.id)
-			else
-				state.mode = "return"
-			end
-		end)
 	end
+
 	return React.createElement("frame", {
 		ref = slotRef,
 		Size = slotSize,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = notice.id,
-		ClipsDescendants = true,
+		ClipsDescendants = false,
 		Visible = shownEnough,
-	}, React.createElement("frame", {
+	}, React.createElement("imagebutton", {
 		Size = cardSize,
 		Position = cardPosition,
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -20207,12 +20086,12 @@ local function NoticeCard(props)
 		BackgroundTransparency = backgroundTransparency,
 		BorderSizePixel = 0,
 		Active = not leaving,
+		AutoButtonColor = false,
+		Selectable = false,
 		ClipsDescendants = true,
 		ZIndex = 101,
 		Event = {
-			InputBegan = function(frame, input)
-				return beginDrag(frame, input)
-			end,
+			Activated = onDismiss,
 			MouseEnter = function()
 				if not leaving then
 					setHovered(true)
@@ -20224,76 +20103,81 @@ local function NoticeCard(props)
 			end,
 		},
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
+		CornerRadius = UDim.new(0, math.floor(cardH / 2)),
 	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(surface:Lerp(color, 0.1), surface),
+		Color = ColorSequence.new(surface:Lerp(color, 0.12), surface),
 		Rotation = 0,
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = color,
 		Thickness = 1,
-		Transparency = React.joinBindings({ fade, hover }):map(function(values)
-			return 0.7 - values[2] * 0.3 + values[1] * 0.3
+		Transparency = React.joinBindings({ motionFade, hover }):map(function(values)
+			return math.clamp(0.48 - values[2] * 0.28 + values[1] * 0.52, 0, 1)
 		end),
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(iconSize, iconSize),
-		Position = UDim2.new(0, 14, 0.5, -1),
+		Size = UDim2.fromOffset(26, 26),
+		Position = UDim2.new(0, 8, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = color,
-		BackgroundTransparency = fade:map(function(amount)
-			return 0.8 + amount * 0.2
+		BackgroundColor3 = color:Lerp(Palette.void, 0.72),
+		BackgroundTransparency = motionFade:map(function(amount)
+			return 0.15 + amount * 0.85
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 103,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 11),
+		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
-		Color = color,
+		Color = color:Lerp(Palette.white, 0.25),
 		Thickness = 1,
-		Transparency = fade:map(function(amount)
-			return 0.55 + amount * 0.45
+		Transparency = motionFade:map(function(amount)
+			return 0.35 + amount * 0.65
 		end),
 	}), React.createElement(Icon, {
 		kind = toneIcon(notice.tone),
 		color = color,
 		accent = color,
-		size = math.floor(iconSize * 0.62),
+		size = 14,
 		spin = false,
 		reducedMotion = props.reducedMotion,
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
-	})), React.createElement(Text, {
-		value = notice.title,
-		size = titleSize,
-		color = titleColor,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 11,
-		position = UDim2.fromOffset(iconSize + 26, if hasBody then 11 else 0),
-		sizeConstraint = UDim2.new(1, -(iconSize + 26 + dismiss + 14 + (if count > 1 then 34 else 0)), 0, if hasBody then 20 else cardH - 4),
-		zIndex = 105,
+	})), React.createElement("textlabel", {
+		Size = UDim2.new(1, if count > 1 then -78 else -48, 0, if hasBody then 16 else 20),
+		Position = if hasBody then UDim2.fromOffset(42, 6) else UDim2.new(0, 42, 0.5, 0),
+		AnchorPoint = if hasBody then Vector2.zero else Vector2.new(0, 0.5),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = notice.title,
+		TextColor3 = Palette.white,
+		TextTransparency = motionFade,
+		TextSize = if props.compact then (if hasBody then 11 else 13) else (if hasBody then 12 else 14),
+		FontFace = fontFaceFor(Enum.Font.BuilderSansExtraBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 105,
 	}), hasBody and React.createElement("textlabel", {
-		Size = UDim2.new(1, -(iconSize + 26 + dismiss + 14), 0, cardH - 40),
-		Position = UDim2.fromOffset(iconSize + 26, 32),
+		Size = UDim2.new(1, if count > 1 then -78 else -48, 0, 14),
+		Position = UDim2.fromOffset(42, 22),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Text = notice.body,
-		TextColor3 = bodyColor,
-		TextTransparency = fade:map(function(amount)
-			return 0.1 + amount
+		TextColor3 = Palette.creamSoft,
+		TextTransparency = motionFade:map(function(amount)
+			return math.clamp(0.08 + amount, 0, 1)
 		end),
-		TextSize = bodySize,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		TextSize = 11,
+		FontFace = fontFaceFor(Enum.Font.BuilderSansMedium),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Center,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 105,
 	}), count > 1 and React.createElement("frame", {
-		Size = UDim2.fromOffset(30, 20),
-		Position = UDim2.new(1, -(dismiss + 40), 0, 11),
+		Size = UDim2.fromOffset(26, 18),
+		Position = UDim2.new(1, -12, 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundColor3 = color,
 		BorderSizePixel = 0,
 		ZIndex = 106,
@@ -20301,74 +20185,24 @@ local function NoticeCard(props)
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement(Text, {
 		value = `×{count}`,
-		size = 11,
+		size = 10,
 		color = Palette.ink,
 		weight = Enum.FontWeight.Heavy,
 		align = Enum.TextXAlignment.Center,
 		sizeConstraint = UDim2.fromScale(1, 1),
 		zIndex = 107,
 	})), React.createElement("frame", {
-		Size = UDim2.new(1, -28, 0, 3),
-		Position = UDim2.new(0, 14, 1, -6),
-		BackgroundColor3 = Palette.line,
-		BackgroundTransparency = fade:map(function(amount)
-			return 0.6 + amount * 0.4
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 103,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("frame", {
 		Size = drain:map(function(amount)
-			return UDim2.new(math.clamp(amount, 0, 1), 0, 1, 0)
+			return UDim2.new(math.clamp(amount, 0, 1), 0, 0, 2)
 		end),
+		Position = UDim2.new(0, 0, 1, -2),
 		BackgroundColor3 = color,
-		BackgroundTransparency = fade:map(function(amount)
-			return 0.15 + amount
+		BackgroundTransparency = motionFade:map(function(amount)
+			return math.clamp(0.3 + amount * 0.7, 0, 1)
 		end),
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))), React.createElement("imagebutton", {
-		Size = UDim2.fromOffset(dismiss, dismiss),
-		Position = UDim2.new(1, -10, 0.5, -1),
-		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundColor3 = Palette.panel,
-		BackgroundTransparency = hover:map(function(amount)
-			return 1 - amount * 0.6
-		end),
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Active = not leaving,
-		Selectable = false,
-		ZIndex = 109,
-		Event = {
-			Activated = function()
-				props.remove(notice.id)
-				Audio:play("noticeClose")
-			end,
-			MouseEnter = function()
-				if not leaving then
-					setHovered(true)
-				end
-			end,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("textlabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "×",
-		TextColor3 = if hovered then color else mutedX,
-		TextTransparency = fade,
-		TextSize = if props.touch then 22 else 20,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 110,
-	}))))
+		ZIndex = 104,
+	})))
 end
 local function ToastRail(_param)
 	local notices = _param.notices
@@ -20553,7 +20387,7 @@ local function ToastRail(_param)
 	local desktopTop = math.max(topbarInset, Layout.minTopInset) + Layout.topbarHeight + 12
 	local defaultPosition = if stack
 		then UDim2.new(0.5, 0, 0, topInset)
-		else UDim2.new(0.5, math.floor(Layout.sidebarWidth / 2), 0, desktopTop)
+		else UDim2.new(0.5, 0, 0, topInset)
 	local defaultAnchor = Vector2.new(0.5, 0)
 	return React.createElement("frame", {
 		Size = UDim2.new(0, railW, 0, railHeight),
@@ -22826,9 +22660,7 @@ local function Rings(props)
 			end),
 		}, corner(), React.createElement("uiaspectratioconstraint", { AspectRatio = 1 }), React.createElement("uistroke", {
 			Color = if k == 1 then Palette.mint else Palette.violet,
-			Thickness = clock:map(function(t)
-				return 6 - 4 * ramp(t, start, start + 0.7)
-			end),
+			Thickness = 3,
 			Transparency = clock:map(function(t)
 				return 0.15 + 0.85 * ramp(t, start, start + 0.7)
 			end),

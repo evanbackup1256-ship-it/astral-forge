@@ -952,7 +952,7 @@ function BuffStrip.Island(props)
 	}, h("uiscale", {
 		Scale = jelly:map(function(v) return 1 + math.sin(v * math.pi) * 0.045 end),
 	}), h("uicorner", {
-		CornerRadius = height:map(function(v) return UDim.new(0, math.clamp(v / 2, 10, 22)) end),
+		CornerRadius = UDim.new(1, 0),
 	}), h("uistroke", {
 		Color = accent,
 		Thickness = if event or props.vaultFull or mode == "combo" then 2 else 1,

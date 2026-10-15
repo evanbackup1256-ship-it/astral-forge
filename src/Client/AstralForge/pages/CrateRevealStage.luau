@@ -345,9 +345,7 @@ local function ReelCard(_param: any)
 			ZIndex = cardZ - 1,
 		}, React.createElement("uistroke", {
 			Color = lighten(card.accent, 0.28),
-			Thickness = winnerScale:map(function(amt)
-				return 2 + amt * 2.5
-			end),
+			Thickness = 3,
 			Transparency = winnerScale:map(function(amt)
 				return math.clamp(1 - amt * 0.75, 0.05, 1)
 			end),

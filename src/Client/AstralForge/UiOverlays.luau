@@ -4441,10 +4441,7 @@ local function ShockRing(_param)
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("uistroke", {
 			Color = if ring == 1 then Palette.cream else lighten(color, if ring == 0 then 0.25 else 0),
-			Thickness = clock:map(function(seconds)
-				local _, thin = Fx.ring(seconds - delay, SHOCK_LIFE)
-				return 1 + thin * (if ring == 0 then 5 else 3)
-			end),
+			Thickness = if ring == 0 then 3 else 2,
 			Transparency = clock:map(function(seconds)
 				local _, _, fade = Fx.ring(seconds - delay, SHOCK_LIFE)
 				return 0.05 + fade * 0.95

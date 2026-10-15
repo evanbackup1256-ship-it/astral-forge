@@ -803,7 +803,7 @@ local function OverviewView(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 16),
+		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 0,
@@ -818,13 +818,13 @@ local function OverviewView(_param)
 		size = 11,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		weight = Enum.FontWeight.Heavy,
-		fit = true,
+		fit = false,
 		layoutOrder = 0,
-		sizeConstraint = UDim2.new(0, if phone then 80 else 100, 1, 0),
+		sizeConstraint = UDim2.new(0, if phone then 96 else 110, 1, 0),
 	}), React.createElement(Badge, {
 		value = if vaultFill >= 0.99 then "FULL" elseif firstRun then "NEW" else "FILLING",
 		accent = if vaultFill >= 0.99 then Palette.mango else Palette.green,
-		size = UDim2.fromOffset(if phone then 72 else 82, 16),
+		size = UDim2.fromOffset(if phone then 68 else 76, 18),
 		filled = false,
 		layoutOrder = 1,
 	})), React.createElement(Text, {
