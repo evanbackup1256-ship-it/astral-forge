@@ -632,9 +632,11 @@ local function Announcement(props)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		ZIndex = 63,
+		TextScaled = true,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, h("uigradient", { Color = ColorSequence.new(theme.lighten(info.color, 0.45), info.color), Rotation = 90 }), h("uitextsizeconstraint", { MaxTextSize = 22, MinTextSize = 14 })),
 		info.subtitle and h("textlabel", {
-		Size = UDim2.new(1, -86, 0, 18),
+		Size = UDim2.new(1, -86, 0, 17 * (info.lines or 1)),
 		Position = arrive:map(function(t) return UDim2.new(0, 72 + (1 - t) * 26, 0, 40) end),
 		BackgroundTransparency = 1,
 		Text = info.subtitle,
@@ -642,6 +644,8 @@ local function Announcement(props)
 		TextTransparency = arrive:map(function(t) return 1 - t end),
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = (info.lines or 1) > 1,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		ZIndex = 63,
@@ -710,6 +714,22 @@ local function ComboActivity(props)
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", { Color = ColorSequence.new(theme.lighten(color, 0.4), color) }))))
 end
 
+-- an announcement is only as wide as its words; a long line wraps onto a second row
+local TextService = game:GetService("TextService")
+local function textWidth(text, size, font)
+	local ok, bounds = pcall(TextService.GetTextSize, TextService, text, size, font, Vector2.new(4000, 100))
+	return if ok then bounds.X else #text * size * 0.55
+end
+local function measureEvent(info, maxWidth)
+	local cap = math.min(maxWidth or 560, 560)
+	local titleW = textWidth(info.title or "", 22, Enum.Font.BuilderSansExtraBold)
+	local subtitleW = if info.subtitle then textWidth(info.subtitle, 13, Enum.Font.BuilderSansBold) else 0
+	local width = math.clamp(math.ceil(92 + math.max(titleW, math.min(subtitleW, 380))), 240, cap)
+	local room = math.max(80, width - 92)
+	info.width = width
+	info.lines = if subtitleW > room then 2 else 1
+end
+
 -- props: state, config, currencies { {target, name, value, icon, color} }, perf { showFps, showPing },
 -- rate (flux per second), vaultFull, navigate, maxWidth, position, anchorPoint, restHidden, reducedMotion
 function BuffStrip.Island(props)
@@ -725,8 +745,19 @@ function BuffStrip.Island(props)
 	local queue = React.useRef({})
 	local playing = React.useRef(false)
 	local token = React.useRef(0)
-	local playNext
-	playNext = function()
+	local holdTimer = React.useRef(nil)
+	local alive = React.useRef(true)
+	local maxWidthRef = React.useRef(maxWidth)
+	maxWidthRef.current = maxWidth
+	local playNextRef = React.useRef(nil)
+	playNextRef.current = function()
+		if holdTimer.current then
+			pcall(task.cancel, holdTimer.current)
+			holdTimer.current = nil
+		end
+		if not alive.current then
+			return
+		end
 		local nextInfo = table.remove(queue.current, 1)
 		if nextInfo == nil then
 			playing.current = false
@@ -736,23 +767,90 @@ function BuffStrip.Island(props)
 		playing.current = true
 		token.current += 1
 		nextInfo.token = token.current
+		measureEvent(nextInfo, maxWidthRef.current)
 		setEvent(nextInfo)
-		local hold = nextInfo.duration or (if #queue.current > 1 then 1.7 else 2.6)
-		task.delay(hold, playNext)
+		-- a backlog plays through faster
+		local hold = (nextInfo.duration or 2.6) * (if #queue.current >= 3 then 0.55 elseif #queue.current >= 1 then 0.75 else 1)
+		holdTimer.current = task.delay(hold, function()
+			holdTimer.current = nil
+			playNextRef.current()
+		end)
 	end
 	React.useEffect(function()
+		alive.current = true
 		local stopBanner = Juice.onBanner(function(info)
+			-- the same line twice in a row only plays once
+			local last = queue.current[#queue.current]
+			if last and last.title == info.title and last.subtitle == info.subtitle then
+				return
+			end
 			if #queue.current >= 6 then
 				table.remove(queue.current, 1)
 			end
 			table.insert(queue.current, info)
 			if not playing.current then
-				playNext()
+				playNextRef.current()
 			end
 		end)
 		return function()
+			alive.current = false
 			stopBanner()
 			queue.current = {}
+			if holdTimer.current then
+				pcall(task.cancel, holdTimer.current)
+			end
+		end
+	end, {})
+	-- hover is read from the pointer itself: enter/leave events go stale when the capsule
+	-- changes size under the cursor, and touch never sends a leave
+	local islandRef = React.useRef(nil)
+	React.useEffect(function()
+		local UserInputService = game:GetService("UserInputService")
+		local GuiService = game:GetService("GuiService")
+		local wait = 0
+		local last = false
+		local connection = game:GetService("RunService").Heartbeat:Connect(function(dt)
+			wait += dt
+			if wait < 0.1 then
+				return
+			end
+			wait = 0
+			local island = islandRef.current
+			local over = false
+			local inputType = UserInputService:GetLastInputType()
+			local mouseInput = inputType == Enum.UserInputType.MouseMovement or inputType == Enum.UserInputType.MouseButton1 or inputType == Enum.UserInputType.MouseButton2 or inputType == Enum.UserInputType.MouseWheel
+			if island ~= nil and island.Parent ~= nil and mouseInput then
+				local screenGui = island:FindFirstAncestorOfClass("ScreenGui")
+				local inset = if screenGui ~= nil and screenGui.IgnoreGuiInset then Vector2.zero else GuiService:GetGuiInset()
+				local mouse = UserInputService:GetMouseLocation() - inset
+				local topLeft, size = island.AbsolutePosition, island.AbsoluteSize
+				-- a little slack once inside so the edge doesn't flicker
+				local slack = if last then 10 else 0
+				over = size.X > 4 and mouse.X >= topLeft.X - slack and mouse.X <= topLeft.X + size.X + slack and mouse.Y >= topLeft.Y - slack and mouse.Y <= topLeft.Y + size.Y + slack
+			end
+			if over ~= last then
+				last = over
+				setHovered(over)
+			end
+		end)
+		-- a tap anywhere else lets go of a pinned island
+		local began = UserInputService.InputBegan:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+				return
+			end
+			local island = islandRef.current
+			if island == nil then
+				return
+			end
+			local p, topLeft, size = input.Position, island.AbsolutePosition, island.AbsoluteSize
+			local inside = p.X >= topLeft.X and p.X <= topLeft.X + size.X and p.Y >= topLeft.Y and p.Y <= topLeft.Y + size.Y
+			if not inside then
+				setPinned(false)
+			end
+		end)
+		return function()
+			connection:Disconnect()
+			began:Disconnect()
 		end
 	end, {})
 	-- live activity: the overcharge combo
@@ -802,12 +900,12 @@ function BuffStrip.Island(props)
 		elseif hasContent then "compact"
 		else "hidden"
 	local compactW = math.min(maxWidth, plan.width)
-	local targetW = if mode == "event" then math.min(maxWidth, 520)
+	local targetW = if mode == "event" then math.min(maxWidth, event.width or 520)
 		elseif mode == "combo" then math.min(maxWidth, 360)
 		elseif mode == "expanded" then math.min(maxWidth, math.max(420, compactW))
 		elseif mode == "compact" then compactW
 		else 0
-	local targetH = if mode == "event" then EVENT_H
+	local targetH = if mode == "event" then EVENT_H + 17 * ((event.lines or 1) - 1)
 		elseif mode == "combo" then COMPACT_H + 4
 		elseif mode == "expanded" then expandedHeight(props, buffs)
 		elseif mode == "compact" then COMPACT_H
@@ -828,6 +926,7 @@ function BuffStrip.Island(props)
 		else nil
 	return h("imagebutton", {
 		Name = "BuffIsland",
+		ref = islandRef,
 		Size = React.joinBindings({ width, height }):map(function(values)
 			return UDim2.fromOffset(math.max(0, values[1]), math.max(0, values[2]))
 		end),
@@ -841,9 +940,14 @@ function BuffStrip.Island(props)
 		Visible = width:map(function(v) return v > 4 end),
 		ZIndex = 60,
 		Event = {
-			MouseEnter = function() setHovered(true) end,
-			MouseLeave = function() setHovered(false) end,
-			Activated = function() setPinned(not pinned) end,
+			Activated = function()
+				-- tapping an announcement moves on to the next one
+				if event ~= nil then
+					playNextRef.current()
+					return
+				end
+				setPinned(not pinned)
+			end,
 		},
 	}, h("uiscale", {
 		Scale = jelly:map(function(v) return 1 + math.sin(v * math.pi) * 0.045 end),

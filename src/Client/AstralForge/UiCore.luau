@@ -5003,13 +5003,26 @@ local function MainGame(_param)
 			at = now,
 		}
 		NoticeMath.Record(normalizedTitle, body, tone)
-		-- good news morphs out of the island instead of sliding up as a toast
+		-- every notice morphs out of the island instead of sliding up as a toast
 		local Juice = require(script.Parent.JuiceFx)
-		if (tone == "Success" or tone == "Special") and Juice.hasIsland() then
+		if Juice.hasIsland() then
 			if playSound then
-				Audio:play(if tone == "Special" then "noticeSpecial" else "noticeSuccess")
+				Audio:play(if tone == "Special" then "noticeSpecial" elseif tone == "Success" then "noticeSuccess" elseif tone == "Warning" or tone == "Error" then "noticeWarning" else "noticeInfo")
 			end
-			Juice.banner(normalizedTitle, body, if tone == "Special" then Palette.violet else Palette.mint, if tone == "Special" then "Boost" else "Check", if tone == "Success" then 1.8 else nil)
+			local bodyText = if type(body) == "string" then body else tostring(body or "")
+			local color, icon = Palette.cyan, "Guide"
+			if tone == "Special" then
+				color, icon = Palette.violet, "Boost"
+			elseif tone == "Success" then
+				color, icon = Palette.mint, "Check"
+			elseif tone == "Warning" then
+				color, icon = Palette.mango, "Lock"
+			elseif tone == "Error" then
+				color, icon = Palette.coral, "Close"
+			end
+			-- longer lines stay up long enough to read
+			local hold = math.clamp(1.4 + #bodyText * 0.035, 1.8, 4.2) * math.clamp((notificationDurationRef.current or 0.55) / 0.55, 0.6, 2)
+			Juice.banner(normalizedTitle, if bodyText ~= "" then bodyText else nil, color, icon, hold)
 			return nil
 		end
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
@@ -5276,9 +5289,11 @@ local function MainGame(_param)
 			if _condition_7 == nil then
 				_condition_7 = detail
 			end
-			addNotice(_exp_3, failureBody(_exp_4, _condition_7), "Info", false)
+			-- a short reason shows by the tap; a long one gets the island
 			if #detail <= 64 then
 				require(script.Parent.JuiceFx).status(detail, "error")
+			else
+				addNotice(_exp_3, failureBody(_exp_4, _condition_7), "Warning", false)
 			end
 			return nil
 		end
