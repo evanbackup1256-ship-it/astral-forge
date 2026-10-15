@@ -4855,11 +4855,36 @@ local function MainGame(_param)
 	local pendingPassive = React.useRef(nil)
 	local passiveFlushJob = React.useRef(nil)
 	local acceptStateRef = React.useRef(nil)
+	-- the last copy of every section the server sent; pushes leave out unchanged sections (listed in
+	-- Reused) and they are filled back in from here, keeping the same tables so nothing re-renders for them
+	local sectionCache = React.useRef({})
 	local acceptState = React.useCallback(function(rawSnapshot)
 		local _rawSnapshot = rawSnapshot
 		if not (type(_rawSnapshot) == "table") then
 			ClientLog:warnEvery("state-envelope", 10, "UI", "ignored a bad state packet")
 			return false
+		end
+		local cache = sectionCache.current
+		local reused = rawSnapshot.Reused
+		if reused ~= nil then
+			if type(reused) ~= "table" then
+				return false
+			end
+			for _, key in reused do
+				local kept = cache[key]
+				if kept == nil then
+					-- nothing to fill this from yet; a full snapshot will follow
+					ClientLog:warnEvery("state-reused", 10, "UI", "waiting for a full snapshot")
+					return false
+				end
+				rawSnapshot[key] = kept
+			end
+			rawSnapshot.Reused = nil
+		end
+		for key, value in rawSnapshot do
+			if type(value) == "table" then
+				cache[key] = value
+			end
 		end
 		local candidate = rawSnapshot
 		if not SnapshotEnvelopeMath.IsValidEnvelope(candidate) then

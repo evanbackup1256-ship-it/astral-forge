@@ -365,6 +365,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		self:_pushState(host)
 
 		local visitorSnap = self:_snapshot(visitor)
+		self:_forgetSentSections(visitor)
 		self:_pushState(visitor)
 		return responseSuccess("Visiting " .. host.DisplayName .. ".", { Visit = visit, State = visitorSnap })
 	end
@@ -1669,6 +1670,91 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		}
 	end
 
+	-- The full snapshot is ~350 KB (the star grid alone is ~200 KB) and goes out every few seconds.
+	-- Sections that are identical to the ones this player was last sent are left out and listed in
+	-- `Reused`; the client fills them back in from its previous copy. Every so often a full snapshot
+	-- goes out anyway so the two sides can never drift.
+	local FULL_SNAPSHOT_EVERY = 60
+	-- true = same, false = different, nil = no differences found but a shared table was met: the
+	-- very same table may have been edited in place since it was sent, so it can't vouch for itself
+	local function sameValue(left, right, depth)
+		if type(left) ~= "table" or type(right) ~= "table" then
+			return left == right
+		end
+		if rawequal(left, right) or depth > 24 then
+			return nil
+		end
+		local unsure = false
+		for key, value in next, left do
+			local verdict = sameValue(value, rawget(right, key), depth + 1)
+			if verdict == false then
+				return false
+			elseif verdict == nil then
+				unsure = true
+			end
+		end
+		for key in next, right do
+			if rawget(left, key) == nil then
+				return false
+			end
+		end
+		return if unsure then nil else true
+	end
+	local function fingerprint(value)
+		local ok, encoded = pcall(HttpService.JSONEncode, HttpService, value)
+		return if ok then encoded else nil
+	end
+	function GameService:_trimUnchangedSections(runtime, snapshot, force: boolean?)
+		if runtime == nil then
+			return snapshot
+		end
+		local now = os.clock()
+		local previous = runtime.LastSentSections
+		local previousPrints = runtime.LastSentPrints or {}
+		local sections = {}
+		for key, value in snapshot do
+			if type(value) == "table" then
+				sections[key] = value
+			end
+		end
+		runtime.LastSentSections = sections
+		local full = force or previous == nil or now - (runtime.LastFullSnapshotAt or 0) >= FULL_SNAPSHOT_EVERY
+		local prints = {}
+		local trimmed = table.clone(snapshot)
+		local reused = {}
+		for key, value in sections do
+			local verdict = if previous ~= nil and previous[key] ~= nil then sameValue(previous[key], value, 0) else false
+			if verdict == nil then
+				-- shares tables with something else: compare what was actually sent instead
+				local print = fingerprint(value)
+				prints[key] = print
+				verdict = print ~= nil and previousPrints[key] == print
+			end
+			if verdict and not full then
+				trimmed[key] = nil
+				table.insert(reused, key)
+			end
+		end
+		runtime.LastSentPrints = prints
+		if full then
+			runtime.LastFullSnapshotAt = now
+			return snapshot
+		end
+		if #reused == 0 then
+			return snapshot
+		end
+		trimmed.Reused = reused
+		return trimmed
+	end
+
+	-- a snapshot that leaves this server by another path (a GetState reply) makes the next push a full one
+	function GameService:_forgetSentSections(player: Player)
+		local runtime = self._runtime[player]
+		if runtime then
+			runtime.LastSentSections = nil
+		end
+	end
+
 	function GameService:_pushState(player: Player, force: boolean?)
 		if player.Parent ~= Players then
 			return
@@ -1685,7 +1771,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 				runtime.LastPushRevision = revision
 				runtime.LastPushAt = now
 			end
-			self._state:FireClient(player, snapshot)
+			self._state:FireClient(player, self:_trimUnchangedSections(runtime, snapshot, force))
 		end
 		self:_broadcastVisit(player)
 	end
@@ -4367,6 +4453,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		if action == Protocol.Actions.GetState then
 			if self._runtime[player] then self._runtime[player].BazaarRecoveryRetryAt = nil end
 			local snapshot = self:_snapshot(player)
+			self:_forgetSentSections(player)
 			return snapshot and responseSuccess(nil, { State = snapshot })
 				or responseError("Profile is still loading.")
 		elseif action == Protocol.Actions.MeasureLatency then

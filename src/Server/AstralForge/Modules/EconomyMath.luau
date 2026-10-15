@@ -839,18 +839,41 @@ function EconomyEnvelopeMath.ArtifactLevelEffect(artifact: any, owned: any, effe
 	return perLevel * math.max(0, level)
 end
 
+-- the star grid has thousands of nodes and this runs many times per player tick, so each effect
+-- kind keeps its own list of { id, per-level } and only that list is walked
+local gridKindIndex = setmetatable({}, { __mode = "k" })
+local function gridKindList(gridById: any, effectKind: any)
+	local byKind = gridKindIndex[gridById]
+	if byKind == nil then
+		byKind = {}
+		for id, upgrade in gridById do
+			if type(upgrade) == "table" and upgrade.EffectKind ~= nil then
+				local list = byKind[upgrade.EffectKind]
+				if list == nil then
+					list = {}
+					byKind[upgrade.EffectKind] = list
+				end
+				table.insert(list, { id, tonumber(upgrade.EffectPerLevel) or 0 })
+			end
+		end
+		gridKindIndex[gridById] = byKind
+	end
+	return byKind[effectKind]
+end
+
 function EconomyEnvelopeMath.GridEffect(levels: any, gridById: any, effectKind: any): number
 	if type(levels) ~= "table" or type(gridById) ~= "table" then
 		return 0
 	end
+	local list = gridKindList(gridById, effectKind)
+	if list == nil then
+		return 0
+	end
 	local total = 0
-	for id, level in levels do
+	for _, entry in list do
+		local level = levels[entry[1]]
 		if type(level) == "number" and level > 0 then
-			local upgrade = gridById[id]
-			if type(upgrade) == "table" and upgrade.EffectKind == effectKind then
-				local per = tonumber(upgrade.EffectPerLevel) or 0
-				total += level * per
-			end
+			total += level * entry[2]
 		end
 	end
 	return total
