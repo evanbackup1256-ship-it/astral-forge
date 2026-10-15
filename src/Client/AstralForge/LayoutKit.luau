@@ -981,11 +981,37 @@ local planFillHeight = __load("pageScaffoldPlan").planFillHeight
 local planFittedHeights = __load("pageScaffoldPlan").planFittedHeights
 local planOverflow = __load("pageScaffoldPlan").planOverflow
 local PageScrollContext = __load("scrolling").PageScrollContext
+-- sections rise into place one after another when a page opens (once; layout changes don't replay it)
+local function sectionEntrance(index)
+	local amount, setAmount = React.useBinding(0)
+	React.useEffect(function()
+		local start = os.clock() + math.min(index, 8) * 0.055
+		local connection
+		connection = game:GetService("RunService").RenderStepped:Connect(function()
+			local t = math.clamp((os.clock() - start) / 0.45, 0, 1)
+			setAmount(t)
+			if t >= 1 then
+				connection:Disconnect()
+			end
+		end)
+		return function()
+			if connection.Connected then
+				connection:Disconnect()
+			end
+		end
+	end, {})
+	return amount
+end
+local function easeOutBackSoft(x)
+	local c1, c3 = 1.2, 2.2
+	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
+end
 local function SpringSection(props)
 	local sectionRef = React.useCallback(function(host)
 		if props.frameRef then props.frameRef.current = host end
 		if host then host:SetAttribute("LayoutOwner", "PageScaffold:" .. tostring(props.id or "PageSection")) end
 	end, { props.frameRef, props.id })
+	local entrance = sectionEntrance(props.layoutOrder or 0)
 	return React.createElement("frame", {
 		Name = props.id or "PageSection",
 		ref = sectionRef,
@@ -994,7 +1020,15 @@ local function SpringSection(props)
 		BorderSizePixel = 0,
 		LayoutOrder = props.layoutOrder,
 		ClipsDescendants = false,
-	}, props.element)
+	}, React.createElement("frame", {
+		Name = "Rise",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = entrance:map(function(t)
+			return UDim2.fromOffset(0, math.round((1 - easeOutBackSoft(t)) * 22))
+		end),
+	}, props.element))
 end
 local function PageScaffold(_param)
 	local sections = _param.sections

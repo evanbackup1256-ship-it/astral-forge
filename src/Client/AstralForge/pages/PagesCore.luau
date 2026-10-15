@@ -1719,6 +1719,31 @@ local function OverviewView(_param)
 					sizeConstraint = UDim2.new(1, 0, 0, 16),
 				})),
 			},
+			{
+				-- this session, live
+				id = "session",
+				height = require(script.Parent.Parent.SessionStats).height(if phone then 2 else 4) + 56,
+				element = React.createElement(Panel, {
+					layoutOrder = 8,
+					size = UDim2.fromScale(1, 1),
+					accent = Palette.cyan,
+					background = Palette.panelRaised,
+					padding = if stack then chrome.cardPadding else 16,
+					reducedMotion = softMotion,
+					clips = true,
+				}, React.createElement(Text, {
+					value = "THIS SESSION",
+					size = 10,
+					color = Palette.cyan,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					sizeConstraint = UDim2.new(1, 0, 0, 16),
+				}), React.createElement(require(script.Parent.Parent.SessionStats).Card, {
+					columns = if phone then 2 else 4,
+					position = UDim2.fromOffset(0, 24),
+					reducedMotion = softMotion,
+				})),
+			},
 		}),
 	})))
 end

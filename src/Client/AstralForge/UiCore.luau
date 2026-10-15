@@ -1123,6 +1123,17 @@ local function CountBadge(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local scaleRef = useSprScale(1, effectsPaused, 0.68, 0.64, 13)
 	local whole = if type(count) == "number" and count == count then math.floor(count) else 0
+	-- a hop when the count goes up, and a soft ping while something is waiting
+	local bumps, setBumps = React.useState(0)
+	local lastCount = React.useRef(whole)
+	React.useEffect(function()
+		if whole > lastCount.current then
+			setBumps(function(n) return n + 1 end)
+		end
+		lastCount.current = whole
+	end, { whole })
+	local hop = useFlash(bumps, effectsPaused, 0.45)
+	local ping = useClock(whole > 0 and not effectsPaused, 0.45, 1)
 	if whole <= 0 then
 		return React.createElement("frame", {
 			Size = UDim2.fromOffset(0, 0),
@@ -1144,7 +1155,22 @@ local function CountBadge(_param)
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 		ClipsDescendants = false,
-	}, React.createElement(ScaleFromCenter, {
+	}, React.createElement("frame", {
+		Size = ping:map(function(t)
+			local s = 1 + t * 1.2
+			return UDim2.fromScale(s, s)
+		end),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = zIndex,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = Palette.coral,
+		Thickness = 1.5,
+		Transparency = ping:map(function(t) return 0.35 + t * 0.65 end),
+	})), React.createElement(ScaleFromCenter, {
 		scaleRef = scaleRef,
 		zIndex = zIndex,
 	}, React.createElement("frame", {
@@ -1153,7 +1179,9 @@ local function CountBadge(_param)
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 		ClipsDescendants = false,
-	}, React.createElement("uicorner", {
+	}, React.createElement("uiscale", {
+		Scale = hop:map(function(v) return 1 + v * 0.35 end),
+	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement(Stroke, {
 		color = Palette.cream,
@@ -5142,6 +5170,7 @@ local function MainGame(_param)
 		if combo <= 0 then
 			return nil
 		end
+		require(script.Parent.SessionStats).best("bestCombo", combo)
 		setComboReadout({
 			combo = combo,
 			comboMultiplier = comboMultiplier,
@@ -5238,6 +5267,12 @@ local function MainGame(_param)
 					big = bigMoment,
 					skipVault = true,
 				})
+				local Stats = require(script.Parent.SessionStats)
+				if rewarding then
+					Stats.bump("claims")
+				elseif spending then
+					Stats.bump("upgrades")
+				end
 				if rewarding and shown > 0 then
 					Juice.burst(nil, Palette.mango, if bigMoment then 1.6 else 1)
 				elseif spending then
@@ -5757,6 +5792,13 @@ local function MainGame(_param)
 			local store = require(script.Parent.CoreKit)("clientStore").getActiveClientStore()
 			local session = store and store:getState().session
 			local Juice = require(script.Parent.JuiceFx)
+			local Stats = require(script.Parent.SessionStats)
+			if action == "CollectVault" and session ~= nil and _format.asFlux(session.Vault) > 0 then
+				Stats.bump("collects")
+				Stats.addFlux(session.Vault)
+			elseif action == "Overcharge" then
+				Stats.bump("overcharges")
+			end
 			if session ~= nil and action == "CollectVault" and _format.asFlux(session.Vault) > 0 then
 				Juice.number(`+{compactNumber(session.Vault)} flux`, Palette.cyan, { icon = "Flux", big = true })
 				Juice.coins("FLUX", Palette.cyan, "Flux", 10)
@@ -6008,6 +6050,7 @@ local function MainGame(_param)
 				if value.Critical == true then
 					local Juice = require(script.Parent.JuiceFx)
 					Juice.status("CRITICAL!", "special")
+					require(script.Parent.SessionStats).bump("crits")
 					Juice.burst(nil, Palette.mango, 0.8)
 				end
 				local _combo = value.Combo
@@ -7863,6 +7906,7 @@ local function AppShell(_param)
 		page = page,
 		state = state,
 		dispatch = dispatch,
+		config = config,
 		reducedMotion = reducedMotion,
 	}, React.createElement(PageFrame, {
 		page = page,
@@ -11156,7 +11200,7 @@ local function VaultPill(_param)
 				local centre = Juice.centreOf(pill)
 				if centre then
 					Juice.number(`+{compactNumber(productionRef.current)}`, Palette.green, {
-						at = centre + Vector2.new(-190 + math.random(-40, 40), 40),
+						at = centre + Vector2.new(math.random(-70, 50), 44),
 						small = true,
 						icon = "Flux",
 					})
@@ -11611,6 +11655,14 @@ local function Workspace(_param)
 		reducedMotion = reducedMotion,
 		accent = accent,
 		top = vaultPillY,
+	}), not keyboardCompact and React.createElement(require(script.Parent.BuffStrip).Island, {
+		-- the island: buffs at rest, details on hover, announcements when something happens
+		state = state,
+		config = _param.config,
+		reducedMotion = reducedMotion,
+		maxWidth = if chrome.stack then math.max(200, viewport.width - 40) else math.max(220, viewport.width - (titleLeft + 260 + 660)),
+		position = if chrome.stack then UDim2.new(0.5, 0, 0, 6) else UDim2.new(0.5, (titleLeft + 260 - 330) / 2, 0, math.max(6, math.floor((headerHeight - 40) / 2))),
+		anchorPoint = Vector2.new(0.5, 0),
 	}), React.createElement("frame", {
 		Name = "VaultCollectClaim",
 		ref = vaultCollectHostRef,
@@ -23145,6 +23197,20 @@ local function playRevealCues(roll)
 		Audio:playCelebration({ plan.cue or "crateRevealEpic", if special then "crateRare" else "crateLand" }, 0.06)
 	else
 		Audio:play(if special then "crateRare" else "crateLand")
+	end
+	-- the reveal lands with light that scales with rarity
+	local Juice = require(script.Parent.JuiceFx)
+	local camera = workspace.CurrentCamera
+	local centre = if camera then camera.ViewportSize / 2 else nil
+	local accent = Palette[string.lower(tostring(roll.Rarity or ""))] or Palette.mango
+	if plan.weight >= 0.4 then
+		Juice.burst(centre, accent, 0.9 + plan.weight)
+	end
+	if plan.celebrate or plan.weight >= 0.75 then
+		Juice.flash(Palette.cream, if plan.celebrate then 0.55 else 0.3)
+		Juice.banner(`{string.upper(tostring(roll.Rarity or "RARE"))}!`, if special then "New to your collection." else nil, accent, "Crate")
+	elseif special then
+		Juice.status("NEW!", "special")
 	end
 end
 local function rarityColor(config, rarity)

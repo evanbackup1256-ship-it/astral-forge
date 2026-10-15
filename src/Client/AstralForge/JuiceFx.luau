@@ -184,7 +184,21 @@ function Juice.spark(at: Vector2, color: Color3?, size: number?)
 end
 
 -- a headline that drops in at the top ("REBIRTH 12!", "NEW WORLD!"), with a smaller line under it
+-- when the island is on screen it tells the story instead of a floating banner
+local bannerListeners = {}
+function Juice.onBanner(callback)
+	bannerListeners[callback] = true
+	return function()
+		bannerListeners[callback] = nil
+	end
+end
 function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: string?)
+	if next(bannerListeners) ~= nil then
+		for callback in bannerListeners do
+			task.spawn(callback, { title = title, subtitle = subtitle, color = color or P.mango, icon = icon })
+		end
+		return
+	end
 	push({ kind = "banner", title = title, subtitle = subtitle, color = color or P.mango, icon = icon })
 end
 
