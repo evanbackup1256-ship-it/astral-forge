@@ -201,7 +201,7 @@ end
 -- One row of jump buttons plus a Find button; height is fixed by the caller.
 function Board.Strip(props)
 	local list = props.list
-	local pillH = props.pillHeight or 40
+	local pillH = props.pillHeight or 44
 	local stripRef = React.useRef(nil)
 	local room, setRoom = React.useState(0)
 	React.useEffect(function()

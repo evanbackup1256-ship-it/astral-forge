@@ -502,6 +502,10 @@ do
 		if staleScreen ~= nil and staleScreen:IsA("ScreenGui") then
 			staleScreen:Destroy()
 		end
+		local staleFx = playerGui:FindFirstChild("AstralForgeFx")
+		if staleFx ~= nil and staleFx:IsA("ScreenGui") then
+			staleFx:Destroy()
+		end
 		local staleShutdown = playerGui:FindFirstChild("AstralForgeShutdown")
 		if staleShutdown ~= nil and staleShutdown:IsA("ScreenGui") then
 			staleShutdown:Destroy()
@@ -535,6 +539,23 @@ do
 		table.insert(_disposers, require(script.ArtifactPresence).attach())
 		-- crewmates get a tag above their heads so you can find them in the world
 		table.insert(_disposers, require(script.CrewPresence).attach())
+		-- game-feel layer: same insets as the main screen so effect positions line up with the UI
+		local fxLayer = Instance.new("ScreenGui")
+		fxLayer.Name = "AstralForgeFx"
+		fxLayer.ResetOnSpawn = false
+		fxLayer.IgnoreGuiInset = false
+		fxLayer.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+		fxLayer.ClipToDeviceSafeArea = true
+		fxLayer.SafeAreaCompatibility = Enum.SafeAreaCompatibility.None
+		fxLayer.DisplayOrder = 200
+		fxLayer.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		fxLayer.Parent = playerGui
+		local fxRoot = ReactRoblox.createRoot(fxLayer)
+		fxRoot:render(React.createElement(require(script.JuiceFx).Host))
+		table.insert(self.disposers, function()
+			fxRoot:unmount()
+			fxLayer:Destroy()
+		end)
 		local shutdownLayer = Instance.new("ScreenGui")
 		shutdownLayer.Name = "AstralForgeShutdown"
 		shutdownLayer.ResetOnSpawn = false

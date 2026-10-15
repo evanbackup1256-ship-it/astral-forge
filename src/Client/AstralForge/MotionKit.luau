@@ -3630,11 +3630,11 @@ end
 
 __defs["pageTransition"] = function()
 
-local SLIDE_DESKTOP = 18
-local SLIDE_PHONE = 28
+local SLIDE_DESKTOP = 24
+local SLIDE_PHONE = 36
 local SOFT_SCALE = 0.45
-local VEIL_PEAK = 0.62
-local VEIL_POWER = 2.2
+local VEIL_PEAK = 0.68
+local VEIL_POWER = 2.4
 
 local function clamp01(value)
 	if type(value) ~= "number" or value ~= value then

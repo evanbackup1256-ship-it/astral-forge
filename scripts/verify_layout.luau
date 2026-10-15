@@ -68,7 +68,7 @@ for _, case in cases do
 		assert(layout.topbarRows + layout.tabBarH < case.height * 0.7, case.name .. " chrome does not dominate viewport")
 		local tail = scrollTail(true, layout.bottomSafe, if layout.landscape then 48 else 56)
 		assert(tail >= layout.bottomSafe + 40, case.name .. " scrollTail clears chrome (" .. tostring(tail) .. ")")
-		assert(layout.topbarRows <= (if layout.landscape then 36 else 52), case.name .. " compact mobile header")
+		assert(layout.topbarRows <= (if layout.landscape then 44 else 52), case.name .. " compact mobile header")
 	else
 		assert(layout.tabBarH == 0, case.name .. " desktop has no tab bar")
 		assert(scrollTail(false, 0, 40) == 40, case.name .. " desktop scrollTail is base only")

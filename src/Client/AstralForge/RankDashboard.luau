@@ -273,7 +273,7 @@ return function(helpers)
 			Seat=text(standing,0,if narrow then 92 else 50,1,40,34,if personalIndex==1 then MEDAL[1] else P.cream,{weight=Enum.FontWeight.Heavy,align=Enum.TextXAlignment.Right}),
 			Score=text(`{if guildBoard then "Your hall" else "You"} · {valueText(own)}`,0,if narrow then 96 else 92,0.7,18,13,P.cream,{weight=Enum.FontWeight.SemiBold}),
 			Climb=bar(nextRatio,if personalIndex==1 then MEDAL[1] else meta.accent,UDim2.fromOffset(0,if narrow then 124 else 118),UDim2.new(1,0,0,6)),
-			Gap=text(if gap then `{compact(gap)} more to pass #{personalIndex-1} {ahead.Name or ""}` elseif personalIndex==1 then "You hold the top seat. Everyone else is chasing you." elseif personalIndex==nil and #rows>0 then `Outside the top {#rows}. Reach {valueText(rows[#rows].Value)} to enter the board.` else "No standings yet for this board.",0,if narrow then 136 else 130,1,18,11,P.creamSoft),
+			Gap=text(if gap then `{compact(gap)} more to pass #{personalIndex-1} {ahead.Name or ""}` elseif personalIndex==1 then "You're ranked #1." elseif personalIndex==nil and #rows>0 then `Outside the top {#rows}. Reach {valueText(rows[#rows].Value)} to enter the board.` else "No standings yet for this board.",0,if narrow then 136 else 130,1,18,11,P.creamSoft),
 		})
 
 		-- Category picker: group strip, then the boards inside the group.

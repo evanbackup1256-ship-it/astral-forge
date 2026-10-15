@@ -324,7 +324,7 @@ local function BazaarView(props)
 	end
 	if market and market.RecoveryPending then
 		add("legacy-pending", 48, h(Ui.Text, {
-			value = "A retired Bazaar claim is awaiting settlement. It has not been discarded. Refresh to retry, or include this in a support report.",
+			value = "This Bazaar claim is still pending. Refresh to retry. If it remains stuck, include it in a support report.",
 			size = 14, wrap = true, color = Palette.mango, sizeConstraint = UDim2.fromScale(1, 1),
 		}))
 	end

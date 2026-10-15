@@ -7,6 +7,7 @@ local Geom = require(script.Parent.LayoutKit)("layoutGeom")
 local Plan = require(script.Parent.LayoutKit)("layoutGuardPlan")
 local Diagnostics = require(script.Parent.LayoutDiagnostics)
 local diagnostics = Diagnostics.new(os.clock)
+local UserInputService = game:GetService("UserInputService")
 local IGNORE_ATTRIBUTE = "LayoutGuardIgnore"
 local FIT_SLOP = 6
 local WILD_ASPECT_SLOP = 2
@@ -35,10 +36,22 @@ local stats = {
 	learnedUpdates = 0,
 	hotChecked = 0,
 	signaturesSuppressed = 0,
+	smallTouchTargets = 0,
+	actionsOutsideViewport = 0,
+	actionsOutsideParent = 0,
+	actionCollisions = 0,
+	clippedActions = 0,
+	geometryChanges = 0,
+	dirtyDescendants = 0,
+	nestedScrollConflicts = 0,
 }
+local MIN_TOUCH_TARGET = 44
+local INPUT_SHIELD_SHARE = 0.8
+local COLLISION_CELL = 96
+local DIRTY_DESCENDANT_CAP = 128
 local REPORT_EVERY = 60
 local FRAME_BUDGET_SECONDS = 0.0015
--- live servers: repairs only, on a third of the budget; the report-only overlap passes run in Studio
+-- Live clients use a smaller budget; all diagnostics and bounded collision passes still run.
 local IS_STUDIO = game:GetService("RunService"):IsStudio()
 local LIVE_BUDGET_SECONDS = 0.0005
 local TEXT_COVER_SHARE = 0.08
@@ -186,6 +199,34 @@ local function isTrackedClass(instance)
 	end
 	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame") or isFloatingPanel(instance)
 end
+local interactionLayer
+local function isActionable(instance)
+	return (instance:IsA("GuiButton") and instance.Active) or (instance:IsA("TextBox") and instance.TextEditable)
+end
+local function recordViewportAction(instance, rect)
+	local layer = interactionLayer(instance)
+	if layer == nil then
+		return
+	end
+	local layerRect = rectOf(layer)
+	if Geom.overflowAmount(rect, layerRect) > FIT_SLOP then
+		if diagnostics:record(instance, "ActionOutsideViewport", "Active control extends beyond the visible viewport") then
+			stats.actionsOutsideViewport += 1
+		end
+	end
+end
+local function clippingAncestor(instance, rect)
+	local ancestor = instance.Parent
+	while ancestor ~= nil and not ancestor:IsA("LayerCollector") do
+		if ancestor:IsA("GuiObject") and ancestor.ClipsDescendants and not ancestor:IsA("ScrollingFrame") then
+			if Geom.overflowAmount(rect, rectOf(ancestor)) > FIT_SLOP then
+				return ancestor
+			end
+		end
+		ancestor = ancestor.Parent
+	end
+	return nil
+end
 local function repairText(label)
 	if abandoned[label] or label:GetAttribute(IGNORE_ATTRIBUTE) == true then
 		return nil
@@ -196,6 +237,20 @@ local function repairText(label)
 	local size = label.AbsoluteSize
 	if size.X < 8 or size.Y < 8 or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
 		return nil
+	end
+	local pos = label.AbsolutePosition
+	local rect = Geom.rectFromPosSize(pos.X, pos.Y, size.X, size.Y)
+	if isActionable(label) then
+		if UserInputService.TouchEnabled and (size.X < MIN_TOUCH_TARGET or size.Y < MIN_TOUCH_TARGET) then
+			if diagnostics:record(label, "SmallTouchTarget", `Editable field is {math.floor(size.X)}×{math.floor(size.Y)}px; touch fields need at least {MIN_TOUCH_TARGET}×{MIN_TOUCH_TARGET}px`) then
+				stats.smallTouchTargets += 1
+			end
+		end
+		recordViewportAction(label, rect)
+		local clippedBy = clippingAncestor(label, rect)
+		if clippedBy ~= nil and diagnostics:record(label, "ClippedAction", `Action exceeds clipped ancestor {clippedBy:GetFullName()}`) then
+			stats.clippedActions += 1
+		end
 	end
 	if label.TextFits then
 		tryCount[label] = nil
@@ -210,6 +265,24 @@ local function repairButton(button)
 	if abandoned[button] or button:GetAttribute(IGNORE_ATTRIBUTE) == true then
 		return nil
 	end
+	local pos = button.AbsolutePosition
+	local size = button.AbsoluteSize
+	if not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y) then
+		return nil
+	end
+	local rect = Geom.rectFromPosSize(pos.X, pos.Y, size.X, size.Y)
+	if isActionable(button) then
+		if UserInputService.TouchEnabled and (size.X < MIN_TOUCH_TARGET or size.Y < MIN_TOUCH_TARGET) then
+			if diagnostics:record(button, "SmallTouchTarget", `Active control is {math.floor(size.X)}×{math.floor(size.Y)}px; touch controls need at least {MIN_TOUCH_TARGET}×{MIN_TOUCH_TARGET}px`) then
+				stats.smallTouchTargets += 1
+			end
+		end
+		recordViewportAction(button, rect)
+		local clippedBy = clippingAncestor(button, rect)
+		if clippedBy ~= nil and diagnostics:record(button, "ClippedAction", `Action exceeds clipped ancestor {clippedBy:GetFullName()}`) then
+			stats.clippedActions += 1
+		end
+	end
 	local parent = button.Parent
 	if parent == nil or not parent:IsA("GuiObject") or parent:IsA("ScrollingFrame") or engineOwns(button) then
 		return nil
@@ -217,25 +290,25 @@ local function repairButton(button)
 	local pad = parent:FindFirstChildOfClass("UIPadding")
 	local parentSize = parent.AbsoluteSize
 	local parentPos = parent.AbsolutePosition
+	if not isFiniteNumber(parentSize.X) or not isFiniteNumber(parentSize.Y) or not isFiniteNumber(parentPos.X) or not isFiniteNumber(parentPos.Y) then
+		return nil
+	end
 	local left = if pad ~= nil then pad.PaddingLeft.Scale * parentSize.X + pad.PaddingLeft.Offset else 0
 	local top = if pad ~= nil then pad.PaddingTop.Scale * parentSize.Y + pad.PaddingTop.Offset else 0
 	local right = if pad ~= nil then pad.PaddingRight.Scale * parentSize.X + pad.PaddingRight.Offset else 0
 	local bottom = if pad ~= nil then pad.PaddingBottom.Scale * parentSize.Y + pad.PaddingBottom.Offset else 0
 	local box = Geom.rect(parentPos.X + left, parentPos.Y + top, parentPos.X + parentSize.X - right, parentPos.Y + parentSize.Y - bottom)
-	local pos = button.AbsolutePosition
-	local size = button.AbsoluteSize
-	if not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
-		return nil
-	end
-	local rect = Geom.rectFromPosSize(pos.X, pos.Y, size.X, size.Y)
 	if Geom.rectWidth(box) < 8 or Geom.rectHeight(box) < 8 then
 		return nil
 	end
-	if Geom.overflowAmount(rect, box) <= (if math.max(size.X, size.Y) < 64 then WILD_ASPECT_SLOP else FIT_SLOP) then
+	local parentOverflow = Geom.overflowAmount(rect, box)
+	if parentOverflow <= (if math.max(size.X, size.Y) < 64 then WILD_ASPECT_SLOP else FIT_SLOP) then
 		tryCount[button] = nil
 		return nil
 	end
-	if parent.ClipsDescendants then diagnostics:record(button, "ClippedAction", "Action exceeds its clipped parent bounds") end
+	if isActionable(button) and diagnostics:record(button, "ActionOutsideParent", `Action exceeds its padded parent by {math.ceil(parentOverflow)}px`) then
+		stats.actionsOutsideParent += 1
+	end
 end
 local function repairFloatingPanel(panel)
 	if abandoned[panel] or panel:GetAttribute(IGNORE_ATTRIBUTE) == true or not panel.Visible then
@@ -249,7 +322,7 @@ local function repairFloatingPanel(panel)
 	local pos = panel.AbsolutePosition
 	local size = panel.AbsoluteSize
 	local layerPos = layer.AbsolutePosition
-	if not isFiniteNumber(pos.X) or not isFiniteNumber(size.X) or size.X < 8 or size.Y < 8 then
+	if not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y) or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or size.X < 8 or size.Y < 8 then
 		return nil
 	end
 	if size.X >= screen.X - 2 and size.Y >= screen.Y - 2 then
@@ -272,6 +345,26 @@ end
 local function repairScrollingFrame(descendant)
 	if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
 		return nil
+	end
+	if descendant:GetAttribute("LayoutGuardAllowNestedScroll") ~= true then
+		local ancestor = descendant.Parent
+		while ancestor ~= nil and not ancestor:IsA("LayerCollector") do
+			if ancestor:IsA("ScrollingFrame") and ancestor.ScrollingEnabled and ancestor:GetAttribute("LayoutGuardAllowNestedScroll") ~= true then
+				local childDirection = descendant.ScrollingDirection
+				local parentDirection = ancestor.ScrollingDirection
+				local childX = childDirection == Enum.ScrollingDirection.X or childDirection == Enum.ScrollingDirection.XY
+				local childY = childDirection ~= Enum.ScrollingDirection.X
+				local parentX = parentDirection == Enum.ScrollingDirection.X or parentDirection == Enum.ScrollingDirection.XY
+				local parentY = parentDirection ~= Enum.ScrollingDirection.X
+				if (childX and parentX) or (childY and parentY) then
+					if diagnostics:record(descendant, "NestedScrollConflict", `Shares a scroll axis with {ancestor:GetFullName()}`) then
+						stats.nestedScrollConflicts += 1
+					end
+					break
+				end
+			end
+			ancestor = ancestor.Parent
+		end
 	end
 	local heldScroll = false
 	if not descendant.ScrollingEnabled and descendant:GetAttribute("LayoutGuardAllowDisabledScroll") ~= true then
@@ -327,8 +420,27 @@ local function repairScrollingFrame(descendant)
 	stats.canvasDesyncFixed += 1
 	ClientLog:warnEvery(`layoutguard:canvas:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} CanvasSize was shorter than its content; scoped recovery applied`)
 end
+function interactionLayer(instance)
+	local current = instance.Parent
+	while current ~= nil and not current:IsA("LayerCollector") do
+		current = current.Parent
+	end
+	return current
+end
+local function isAncestorOf(ancestor, instance)
+	local current = instance.Parent
+	while current ~= nil do
+		if current == ancestor then
+			return true
+		end
+		current = current.Parent
+	end
+	return false
+end
 local function checkOverlappingHitboxes(root)
-	local byParent = {}
+	local cellSize = COLLISION_CELL or 64
+	local shieldShare = INPUT_SHIELD_SHARE or 0.8
+	local byLayer = {}
 	local list = if typeof(root) == "table" then root else root:GetDescendants()
 	for _, descendant in list do
 		coroutine.yield()
@@ -341,55 +453,94 @@ local function checkOverlappingHitboxes(root)
 		if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
 			continue
 		end
-		local parent = descendant.Parent
-		local siblings = byParent[parent]
-		if siblings then
-			table.insert(siblings, descendant)
-		else
-			byParent[parent] = { descendant }
-		end
-	end
-	for _, siblings in byParent do
-		if #siblings < 2 then
+		local layer = interactionLayer(descendant)
+		if layer == nil then
 			continue
 		end
-		for i = 1, #siblings do
-			local a = siblings[i]
-			local rectA = rectOf(a)
-			local areaA = rectArea(rectA)
-			if areaA <= 0 then
-				continue
+		local rect = rectOf(descendant)
+		local area = rectArea(rect)
+		local layerArea = rectArea(rectOf(layer))
+		if area <= 0 or (layerArea > 0 and area >= layerArea * shieldShare) then
+			continue
+		end
+		local items = byLayer[layer]
+		if items == nil then
+			items = {}
+			byLayer[layer] = items
+		end
+		items[#items + 1] = { instance = descendant, rect = rect, area = area }
+	end
+	for _, items in byLayer do
+		if #items < 2 then
+			continue
+		end
+		local cells = {}
+		for index, item in items do
+			coroutine.yield()
+			local x0 = math.floor(item.rect.x0 / cellSize)
+			local x1 = math.floor((item.rect.x1 - 0.001) / cellSize)
+			local y0 = math.floor(item.rect.y0 / cellSize)
+			local y1 = math.floor((item.rect.y1 - 0.001) / cellSize)
+			for x = x0, x1 do
+				for y = y0, y1 do
+					local key = `{x}:{y}`
+					local bucket = cells[key]
+					if bucket == nil then
+						bucket = {}
+						cells[key] = bucket
+					end
+					bucket[#bucket + 1] = index
+				end
 			end
-			for j = i + 1, #siblings do
-				coroutine.yield()
-				local b = siblings[j]
-				if a.Parent == nil or b.Parent ~= a.Parent or not Diagnostics.visible(a) or not Diagnostics.visible(b) then
-					continue
+		end
+		local compared = {}
+		for _, bucket in cells do
+			for leftSlot = 1, #bucket do
+				for rightSlot = leftSlot + 1, #bucket do
+					coroutine.yield()
+					local leftIndex = bucket[leftSlot]
+					local rightIndex = bucket[rightSlot]
+					local pairKey = `{leftIndex}:{rightIndex}`
+					if compared[pairKey] then
+						continue
+					end
+					compared[pairKey] = true
+					local left = items[leftIndex]
+					local right = items[rightIndex]
+					local a = left.instance
+					local b = right.instance
+					if a.Parent == nil or b.Parent == nil or not Diagnostics.visible(a) or not Diagnostics.visible(b) then
+						continue
+					end
+					if isAncestorOf(a, b) or isAncestorOf(b, a) then
+						continue
+					end
+					local overlap = overlapArea(left.rect, right.rect)
+					local smaller = math.min(left.area, right.area)
+					local threshold = if a.Parent == b.Parent then 0.12 elseif a.ZIndex == b.ZIndex then 0.35 else 0.2
+					if smaller <= 0 or overlap < 64 or overlap / smaller < threshold then
+						continue
+					end
+					local culprit = a
+					local victim = b
+					if (a.ZIndex or 1) < (b.ZIndex or 1) then
+						culprit = b
+						victim = a
+					end
+					if diagnostics:record(culprit, "ActionCollision", `Overlaps {victim:GetFullName()} by {math.floor(overlap / smaller * 100 + 0.5)}% at the same input layer`) then
+						stats.actionCollisions += 1
+					end
 				end
-				if a.ZIndex ~= b.ZIndex then
-					continue
-				end
-				local rectB = rectOf(b)
-				local areaB = rectArea(rectB)
-				if areaB <= 0 then
-					continue
-				end
-				local overlap = overlapArea(rectA, rectB)
-				local smaller = math.min(areaA, areaB)
-				if smaller <= 0 or overlap / smaller < 0.85 then
-					continue
-				end
-				diagnostics:record(a, "ActionCollision", `Overlaps {b:GetFullName()} at the same input layer`)
 			end
 		end
 	end
 end
 local function paintsOver(button)
 	if button:IsA("TextButton") then
-		return button.BackgroundTransparency < 0.6 or button.Text ~= ""
+		return (button.BackgroundTransparency or 0) < 0.6 or (button.Text or "") ~= ""
 	end
 	if button:IsA("ImageButton") then
-		return button.BackgroundTransparency < 0.6 or (button.Image ~= "" and button.ImageTransparency < 0.6)
+		return (button.BackgroundTransparency or 0) < 0.6 or ((button.Image or "") ~= "" and (button.ImageTransparency or 0) < 0.6)
 	end
 	return false
 end
@@ -419,14 +570,19 @@ local function clearTextOfButton(label, button, buttonRect)
 end
 local textPassLabels = {}
 local textPassButtons = {}
+local textPassLayerLabels = {}
+local textPassLayerButtons = {}
 local function checkTextUnderButtons(list)
 	table.clear(textPassLabels)
 	table.clear(textPassButtons)
+	table.clear(textPassLayerLabels)
+	table.clear(textPassLayerButtons)
 	for _, inst in list do
 		coroutine.yield()
 		if inst.Parent == nil or not isTrackedClass(inst) or not Diagnostics.visible(inst) then
 			continue
 		end
+		local layer = interactionLayer(inst)
 		if inst:IsA("GuiButton") then
 			if inst.Visible and paintsOver(inst) and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
 				local bucket = textPassButtons[inst.Parent]
@@ -435,6 +591,14 @@ local function checkTextUnderButtons(list)
 					textPassButtons[inst.Parent] = bucket
 				end
 				table.insert(bucket, inst)
+				if layer ~= nil then
+					local layerBucket = textPassLayerButtons[layer]
+					if layerBucket == nil then
+						layerBucket = {}
+						textPassLayerButtons[layer] = layerBucket
+					end
+					table.insert(layerBucket, inst)
+				end
 			end
 		elseif inst:IsA("TextLabel") and inst.Visible and inst.Text ~= "" then
 			local bucket = textPassLabels[inst.Parent]
@@ -443,6 +607,14 @@ local function checkTextUnderButtons(list)
 				textPassLabels[inst.Parent] = bucket
 			end
 			table.insert(bucket, inst)
+			if layer ~= nil then
+				local layerBucket = textPassLayerLabels[layer]
+				if layerBucket == nil then
+					layerBucket = {}
+					textPassLayerLabels[layer] = layerBucket
+				end
+				table.insert(layerBucket, inst)
+			end
 		end
 	end
 	for parent, labels in textPassLabels do
@@ -505,6 +677,45 @@ local function checkTextUnderButtons(list)
 			end
 		end
 	end
+	for _, labels in textPassLayerLabels do
+		for _, label in labels do
+			local layer = interactionLayer(label)
+			local buttons = if layer ~= nil then textPassLayerButtons[layer] else nil
+			if buttons == nil then
+				continue
+			end
+			local size = label.AbsoluteSize
+			if size.X < 8 or size.Y < 8 or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
+				continue
+			end
+			local textRect = textRectOf(label)
+			local textWidth = textRect.x1 - textRect.x0
+			local textHeight = textRect.y1 - textRect.y0
+			if textWidth <= 0 or textHeight <= 0 then
+				continue
+			end
+			for _, button in buttons do
+				coroutine.yield()
+				if label.Parent == nil or button.Parent == nil or button.Parent == label.Parent or not Diagnostics.visible(label) or not Diagnostics.visible(button) then
+					continue
+				end
+				if isAncestorOf(label, button) or isAncestorOf(button, label) or (button.ZIndex or 1) < (label.ZIndex or 1) then
+					continue
+				end
+				local buttonRect = rectOf(button)
+				local hidden = math.max(0, math.min(textRect.x1, buttonRect.x1) - math.max(textRect.x0, buttonRect.x0))
+				local shared = math.max(0, math.min(textRect.y1, buttonRect.y1) - math.max(textRect.y0, buttonRect.y0))
+				if hidden / textWidth < TEXT_COVER_SHARE or shared / textHeight < TEXT_COVER_HEIGHT then
+					continue
+				end
+				stats.textUnderButtonSeen += 1
+				clearTextOfButton(label, button, buttonRect)
+				break
+			end
+		end
+	end
+	table.clear(textPassLayerLabels)
+	table.clear(textPassLayerButtons)
 end
 local SOLID_MIN_GAP = 4
 local stackPassLabels = {}
@@ -663,6 +874,11 @@ do
 		self.burstLeft = 0
 		self.armed = false
 		self.rootConnections = {}
+		self.geometryConnections = setmetatable({}, { __mode = "k" })
+		self.geometryReadyAt = setmetatable({}, { __mode = "k" })
+		self.geometryUsers = setmetatable({}, { __mode = "k" })
+		self.trackedAncestors = setmetatable({}, { __mode = "k" })
+		self.layerConnections = {}
 		self.watchedLayers = {}
 		self.pendingOverlap = false
 		self.hotCursor = 1
@@ -707,6 +923,98 @@ do
 		table.insert(self.fresh, instance)
 		table.insert(self.freshReady, self.frame + (delay or Plan.SETTLE_FRAMES))
 	end
+	function LayoutGuardController:queueGeometryDirty(instance)
+		local now = os.clock()
+		if now < (self.geometryReadyAt[instance] or 0) then
+			return
+		end
+		self.geometryReadyAt[instance] = now + 0.2
+		stats.geometryChanges += 1
+		self:markDirty(instance)
+		local parent = instance.Parent
+		if parent ~= nil and self.trackedIndex[parent] ~= nil then
+			self:enqueue(parent, Plan.SETTLE_FRAMES)
+		end
+		local queued = 0
+		if instance:IsA("GuiObject") then
+			for _, descendant in instance:GetDescendants() do
+				if self.trackedIndex[descendant] ~= nil and not self.freshSet[descendant] then
+					self:enqueue(descendant, Plan.SETTLE_FRAMES)
+					queued += 1
+					if queued >= DIRTY_DESCENDANT_CAP then
+						break
+					end
+				end
+			end
+		end
+		stats.dirtyDescendants += queued
+		if queued >= DIRTY_DESCENDANT_CAP then
+			self.sinceSweep = math.max(self.sinceSweep, Plan.MIN_SWEEP_SECONDS)
+		end
+		self.pendingOverlap = true
+	end
+	function LayoutGuardController:watchGeometry(instance)
+		if not instance:IsA("GuiObject") then
+			return
+		end
+		local users = (self.geometryUsers[instance] or 0) + 1
+		self.geometryUsers[instance] = users
+		if self.geometryConnections[instance] ~= nil then
+			return
+		end
+		local properties = { "Position", "Size", "Visible", "ClipsDescendants" }
+		if instance:IsA("GuiButton") then
+			table.insert(properties, "Active")
+			table.insert(properties, "Rotation")
+			table.insert(properties, "ZIndex")
+		elseif instance:IsA("TextLabel") or instance:IsA("TextBox") then
+			table.insert(properties, "Text")
+			table.insert(properties, "TextFits")
+			table.insert(properties, "TextWrapped")
+			table.insert(properties, "TextScaled")
+			table.insert(properties, "TextSize")
+			if instance:IsA("TextBox") then
+				table.insert(properties, "TextEditable")
+			end
+		elseif instance:IsA("ScrollingFrame") then
+			table.insert(properties, "AutomaticCanvasSize")
+			table.insert(properties, "CanvasPosition")
+			table.insert(properties, "CanvasSize")
+			table.insert(properties, "ScrollingDirection")
+			table.insert(properties, "ScrollingEnabled")
+		end
+		local connections = {}
+		for _, property in properties do
+			local ok, signal = pcall(function()
+				return instance:GetPropertyChangedSignal(property)
+			end)
+			if ok and signal ~= nil then
+				connections[#connections + 1] = signal:Connect(function()
+					self:queueGeometryDirty(instance)
+				end)
+			end
+		end
+		self.geometryConnections[instance] = connections
+	end
+	function LayoutGuardController:unwatchGeometry(instance)
+		local users = self.geometryUsers[instance]
+		if users == nil then
+			return
+		end
+		if users > 1 then
+			self.geometryUsers[instance] = users - 1
+			return
+		end
+		self.geometryUsers[instance] = nil
+		local connections = self.geometryConnections[instance]
+		if connections ~= nil then
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			self.geometryConnections[instance] = nil
+		end
+		self.geometryReadyAt[instance] = nil
+	end
 	function LayoutGuardController:track(instance)
 		if self.trackedIndex[instance] ~= nil or not isTrackedClass(instance) then
 			return nil
@@ -715,6 +1023,17 @@ do
 		local index = #tracked + 1
 		tracked[index] = instance
 		self.trackedIndex[instance] = index
+		local ancestors = {}
+		local ancestor = instance.Parent
+		while ancestor ~= nil and not ancestor:IsA("LayerCollector") do
+			if ancestor:IsA("GuiObject") then
+				ancestors[#ancestors + 1] = ancestor
+				self:watchGeometry(ancestor)
+			end
+			ancestor = ancestor.Parent
+		end
+		self.trackedAncestors[instance] = ancestors
+		self:watchGeometry(instance)
 	end
 	function LayoutGuardController:untrack(instance)
 		local index = self.trackedIndex[instance]
@@ -728,6 +1047,26 @@ do
 		self.trackedIndex[moved] = index
 		tracked[last] = nil
 		self.trackedIndex[instance] = nil
+		self:unwatchGeometry(instance)
+		local ancestors = self.trackedAncestors[instance]
+		if ancestors ~= nil then
+			for _, ancestor in ancestors do
+				self:unwatchGeometry(ancestor)
+			end
+			self.trackedAncestors[instance] = nil
+		end
+	end
+	function LayoutGuardController:releaseSubtree(instance)
+		self:untrack(instance)
+		local ok, descendants = pcall(function()
+			return instance:GetDescendants()
+		end)
+		if not ok or descendants == nil then
+			return
+		end
+		for _, descendant in descendants do
+			self:untrack(descendant)
+		end
 	end
 	function LayoutGuardController:markDirty(instance)
 		if instance ~= nil then
@@ -744,28 +1083,64 @@ do
 		for _, descendant in layer:GetDescendants() do
 			self:track(descendant)
 		end
-		table.insert(self.rootConnections, layer.DescendantAdded:Connect(function(instance)
+		local connections = {}
+		self.layerConnections[layer] = connections
+		table.insert(connections, layer.DescendantAdded:Connect(function(instance)
 			self:track(instance)
 			self:markDirty(instance)
 		end))
-		table.insert(self.rootConnections, layer.DescendantRemoving:Connect(function(instance)
-			self:untrack(instance)
+		table.insert(connections, layer.DescendantRemoving:Connect(function(instance)
+			self:releaseSubtree(instance)
 			tryCount[instance] = nil
 			abandoned[instance] = nil
 		end))
+	end
+	function LayoutGuardController:unwatchLayer(layer)
+		local connections = self.layerConnections[layer]
+		if connections ~= nil then
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			self.layerConnections[layer] = nil
+		end
+		if not self.watchedLayers[layer] then
+			return
+		end
+		self.watchedLayers[layer] = nil
+		self:releaseSubtree(layer)
 	end
 	function LayoutGuardController:bindRoot(root)
 		if self.diagnosticEndpoint then
 			self.diagnosticEndpoint:Destroy()
 			self.diagnosticEndpoint = nil
 		end
+		if self.layerConnections ~= nil then
+			for layer in self.layerConnections do
+				self:unwatchLayer(layer)
+			end
+		end
 		for _, connection in self.rootConnections do
 			connection:Disconnect()
+		end
+		for instance, connections in self.geometryConnections do
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			self.geometryConnections[instance] = nil
 		end
 		table.clear(self.rootConnections)
 		table.clear(self.tracked)
 		table.clear(self.trackedIndex)
+		table.clear(self.fresh)
+		table.clear(self.freshReady)
+		table.clear(self.freshSet)
+		table.clear(self.freshScratch)
+		table.clear(self.freshReadyScratch)
+		if self.geometryUsers ~= nil then table.clear(self.geometryUsers) end
+		if self.trackedAncestors ~= nil then table.clear(self.trackedAncestors) end
+		if self.geometryReadyAt ~= nil then table.clear(self.geometryReadyAt) end
 		self.collisionWork = nil
+		self.layerConnections = {}
 		self.watchedLayers = {}
 		if root == nil then
 			return nil
@@ -775,7 +1150,15 @@ do
 		local endpoint = Instance.new("BindableFunction")
 		endpoint.Name = "AstralForgeLayoutDiagnostics"
 		endpoint.OnInvoke = function()
-			return { Diagnostics = diagnostics:snapshot(), Stats = table.clone(stats), Tracked = #self.tracked }
+			return {
+				Diagnostics = diagnostics:snapshot(),
+				Stats = table.clone(stats),
+				Tracked = #self.tracked,
+				Fresh = #self.fresh,
+				Cursor = self.cursor,
+				PendingOverlap = self.pendingOverlap,
+				OverlapPhase = self.overlapPhase,
+			}
 		end
 		-- React owns root descendants and removes children created before mounting.
 		endpoint.Parent = playerGui or root
@@ -794,10 +1177,7 @@ do
 			end
 			table.insert(self.rootConnections, playerGui.ChildAdded:Connect(consider))
 			table.insert(self.rootConnections, playerGui.ChildRemoved:Connect(function(layer)
-				self.watchedLayers[layer] = nil
-				for _, descendant in layer:GetDescendants() do
-					self:untrack(descendant)
-				end
+				self:unwatchLayer(layer)
 			end))
 		end
 		table.insert(self.rootConnections, root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
@@ -920,9 +1300,6 @@ do
 		self:drainFresh(budget.fresh)
 		local tracked = self.tracked
 		if self.cursor > #tracked then
-			if self.pendingOverlap and not IS_STUDIO then
-				self.pendingOverlap = false
-			end
 			if self.pendingOverlap then
 				if os.clock() >= self.deadline then
 					return nil
@@ -1000,6 +1377,14 @@ do
 			hot = #hotList,
 			hotChecked = stats.hotChecked,
 			fighting = stats.signaturesSuppressed,
+			smallTouch = stats.smallTouchTargets,
+			outsideViewport = stats.actionsOutsideViewport,
+			outsideParent = stats.actionsOutsideParent,
+			actionCollisions = stats.actionCollisions,
+			clippedActions = stats.clippedActions,
+			geometryChanges = stats.geometryChanges,
+			dirtyDescendants = stats.dirtyDescendants,
+			nestedScroll = stats.nestedScrollConflicts,
 		})
 	end
 	do

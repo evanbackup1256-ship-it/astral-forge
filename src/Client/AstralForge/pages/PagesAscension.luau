@@ -249,7 +249,7 @@ local function AscensionView(props)
 			size = 14, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(col, 56), sizeConstraint = UDim2.new(1, -col, 0, if stack then 58 else 40),
 		}),
 		h(Ui.Text, {
-			value = "Ascending resets your Domain, rebirths, cores and run. Research, relics, artifacts, Continuum and your sigils stay. It never caps.",
+			value = "Ascension resets your Domain, rebirths, cores and current run. Research, relics, artifacts, Continuum and sigils stay. You can ascend again.",
 			size = 12, color = Palette.muted, wrap = true,
 			position = if stack then UDim2.fromOffset(0, 124) else UDim2.fromOffset(col, 96),
 			sizeConstraint = if stack then UDim2.new(1, 0, 0, 56) else UDim2.new(1, -col, 0, 36),

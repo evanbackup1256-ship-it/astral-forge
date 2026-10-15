@@ -33,37 +33,27 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local seedAntilagFromBoot = require(script.Parent.MotionKit)("antilag").seedAntilagFromBoot
-local AUDIO_ASSET_MANIFEST = require(script.Parent.AudioKit)("audio").AUDIO_ASSET_MANIFEST
 local FORGE_ASSET_MANIFEST = require(script.Parent.ArtKit)("ForgeAnvil2D").FORGE_ASSET_MANIFEST
 local _Icon = require(script.Parent.ArtKit)("Icon")
 local GAME_ICON_ASSET = _Icon.GAME_ICON_ASSET
 local VECTOR_ICON_ATLAS = _Icon.VECTOR_ICON_ATLAS
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
-local MUSIC_ASSET_MANIFEST = require(script.Parent.AudioKit)("musicDirector").MUSIC_ASSET_MANIFEST
 local PRELOAD_BATCH_SIZE = if UserInputService.TouchEnabled then 16 else 100
-local PRELOAD_FAIL_OPEN_SECONDS = if UserInputService.TouchEnabled then 30 else 120
+local PRELOAD_FAIL_OPEN_SECONDS = if UserInputService.TouchEnabled then 8 else 120
 local MAX_STABILITY_SWEEPS = if UserInputService.TouchEnabled then 2 else 4
 local REQUIRED_STABLE_SWEEPS = if UserInputService.TouchEnabled then 1 else 2
 local STABILITY_SWEEP_SECONDS = 0.25
 local FAILURE_RETRY_ROUNDS = 1
 local GOTHAM_FONT_FAMILY = "rbxasset://fonts/families/GothamSSm.json"
-local _array = { VECTOR_ICON_ATLAS, GAME_ICON_ASSET }
-local _length = #_array
-local _aUDIO_ASSET_MANIFESTLength = #AUDIO_ASSET_MANIFEST
-table.move(AUDIO_ASSET_MANIFEST, 1, _aUDIO_ASSET_MANIFESTLength, _length + 1, _array)
-_length += _aUDIO_ASSET_MANIFESTLength
-local _mUSIC_ASSET_MANIFESTLength = #MUSIC_ASSET_MANIFEST
-table.move(MUSIC_ASSET_MANIFEST, 1, _mUSIC_ASSET_MANIFESTLength, _length + 1, _array)
-_length += _mUSIC_ASSET_MANIFESTLength
-local _fORGE_ASSET_MANIFESTLength = #FORGE_ASSET_MANIFEST
-table.move(FORGE_ASSET_MANIFEST, 1, _fORGE_ASSET_MANIFESTLength, _length + 1, _array)
-_length += _fORGE_ASSET_MANIFESTLength
-_array[_length + 1] = GOTHAM_FONT_FAMILY
-_array[_length + 2] = "rbxasset://fonts/families/BuilderSans.json"
-_array[_length + 3] = "rbxasset://fonts/families/RobotoMono.json"
-local STATIC_ASSET_MANIFEST = _array
+local STATIC_ASSET_MANIFEST = {
+	VECTOR_ICON_ATLAS,
+	GAME_ICON_ASSET,
+	GOTHAM_FONT_FAMILY,
+	"rbxasset://fonts/families/BuilderSans.json",
+	"rbxasset://fonts/families/RobotoMono.json",
+}
 local function carriesContent(instance)
-	return instance:IsA("ImageLabel") or instance:IsA("ImageButton") or instance:IsA("ImageHandleAdornment") or instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") or instance:IsA("Decal") or instance:IsA("Texture") or instance:IsA("Sound") or instance:IsA("AudioPlayer") or instance:IsA("Animation") or instance:IsA("AnimationClip") or instance:IsA("MeshPart") or instance:IsA("SpecialMesh") or instance:IsA("UnionOperation") or instance:IsA("SurfaceAppearance") or instance:IsA("MaterialVariant") or instance:IsA("ParticleEmitter") or instance:IsA("Beam") or instance:IsA("Trail") or instance:IsA("VideoFrame") or instance:IsA("VideoPlayer") or instance:IsA("Sky") or instance:IsA("Shirt") or instance:IsA("Pants") or instance:IsA("ShirtGraphic") or instance:IsA("CharacterMesh") or instance:IsA("Accessory") or instance:IsA("AccessoryDescription") or instance:IsA("BodyPartDescription") or instance:IsA("Tool") or instance:IsA("HumanoidDescription") or instance:IsA("WrapLayer") or instance:IsA("WrapTarget")
+	return instance:IsA("ImageLabel") or instance:IsA("ImageButton") or instance:IsA("ImageHandleAdornment") or instance:IsA("Decal") or instance:IsA("Texture") or instance:IsA("Animation") or instance:IsA("AnimationClip") or instance:IsA("MeshPart") or instance:IsA("SpecialMesh") or instance:IsA("UnionOperation") or instance:IsA("SurfaceAppearance") or instance:IsA("MaterialVariant") or instance:IsA("ParticleEmitter") or instance:IsA("Beam") or instance:IsA("Trail") or instance:IsA("VideoFrame") or instance:IsA("VideoPlayer") or instance:IsA("Sky") or instance:IsA("Shirt") or instance:IsA("Pants") or instance:IsA("ShirtGraphic") or instance:IsA("CharacterMesh") or instance:IsA("Accessory") or instance:IsA("AccessoryDescription") or instance:IsA("BodyPartDescription") or instance:IsA("Tool") or instance:IsA("HumanoidDescription") or instance:IsA("WrapLayer") or instance:IsA("WrapTarget")
 end
 local function addContentId(contentId, seen, target)
 	local _condition = contentId == ""
@@ -86,6 +76,11 @@ local function collectStaticContent(seen, target)
 	for _, contentId in STATIC_ASSET_MANIFEST do
 		addContentId(contentId, seen, target)
 	end
+	if not UserInputService.TouchEnabled then
+		for _, contentId in FORGE_ASSET_MANIFEST do
+			addContentId(contentId, seen, target)
+		end
+	end
 	for _, player in Players:GetPlayers() do
 		local avatarSizes = if UserInputService.TouchEnabled then { { "AvatarHeadShot", 150 } } else { { "AvatarHeadShot", 150 }, { "AvatarBust", 420 } }
 		for _1, _binding in avatarSizes do
@@ -96,7 +91,23 @@ local function collectStaticContent(seen, target)
 	end
 end
 local function isUiElement(instance)
-	return instance:IsA("GuiObject") or instance:IsA("UIBase") or instance:IsA("LayerCollector") or carriesContent(instance)
+	return carriesContent(instance)
+end
+local function isVisibleUiContent(instance)
+	if not instance:IsA("GuiObject") then
+		return true
+	end
+	local current = instance
+	while current ~= nil do
+		if current:IsA("GuiObject") and not current.Visible then
+			return false
+		end
+		if current:IsA("LayerCollector") then
+			return current.Enabled
+		end
+		current = current.Parent
+	end
+	return false
 end
 local function collectMountedContent(seen, target, deepWorld)
 	if deepWorld == nil then
@@ -108,16 +119,21 @@ local function collectMountedContent(seen, target, deepWorld)
 		if root == nil then
 			continue
 		end
-		if not (seen[root] ~= nil) then
+		if seen[root] == nil then
 			seen[root] = true
-			table.insert(target, root)
 		end
 		for _1, instance in root:GetDescendants() do
 			if seen[instance] ~= nil or not isUiElement(instance) then
 				continue
 			end
-			seen[instance] = true
-			table.insert(target, instance)
+			if not UserInputService.TouchEnabled or isVisibleUiContent(instance) then
+				seen[instance] = true
+				if instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
+					addContentId(instance.Image, seen, target)
+				else
+					table.insert(target, instance)
+				end
+			end
 		end
 	end
 	if not deepWorld then
@@ -216,7 +232,9 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		local seenContentIds = {}
 		local queue = {}
 		collectStaticContent(seenContentIds, queue)
-		collectConfigContent(seenContentIds, queue)
+		if not UserInputService.TouchEnabled then
+			collectConfigContent(seenContentIds, queue)
+		end
 		collectMountedContent(seenInstances, queue, true)
 		local warmupTotal = 0
 		local _result = onProgress

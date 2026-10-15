@@ -1569,8 +1569,8 @@ local function OfferCard(props)
 		sizeConstraint = UDim2.fromOffset(80, 14),
 	}), h("frame", {
 		Name = "DailyBuy",
-		Size = UDim2.fromOffset(124, 40),
-		Position = UDim2.new(1, -124, 1, -40),
+		Size = UDim2.fromOffset(124, 48),
+		Position = UDim2.new(1, -124, 1, -48),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, h(Button, {

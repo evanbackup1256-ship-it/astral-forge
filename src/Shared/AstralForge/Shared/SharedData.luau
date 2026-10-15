@@ -2399,6 +2399,7 @@ __defs["TutorialScript"] = function()
 local TutorialScript = {}
 
 TutorialScript.PET_NAME = "Bolt"
+TutorialScript.EXPERIENCE_NAME = "GETTING STARTED"
 
 TutorialScript.STEPS = table.freeze({
 	{
@@ -2545,6 +2546,7 @@ TutorialScript.QUIPS = table.freeze({
 	dizzy = { "Whoa. The forge is spinning.", "Okay, okay, no more spins.", "Hang on. Which way is up?" },
 	pet = { "Heh. That's nice.", "My circuits are humming.", "You're my favourite forger." },
 	wake = { "Huh? I'm awake. Totally awake.", "Oh. Where were we?" },
+	missing = { "That control is still loading. I'll keep looking.", "I lost the target for a second. You can keep moving.", "Nothing to click yet. I'll point it out when it appears." },
 })
 
 local function num(value: any, fallback: number): number
@@ -2563,7 +2565,7 @@ function TutorialScript.goalMet(step, live, collected: boolean?): boolean
 	if watch == "continue" or watch == "finish" then
 		return true
 	elseif watch == "collect" then
-		return collected == true
+		return collected == true or (type(live.vaultFlux) == "number" and live.vaultFlux <= 0.01)
 	elseif watch == "buy" then
 		return num(live.ownedMachines, 0) > 0
 	elseif watch == "amount" then

@@ -615,7 +615,7 @@ local function OverviewView(_param)
 		setOverchargeLeft(0.45)
 		dispatch("Overcharge")
 	end
-	local overchargeLabel = if overchargeLeft > 0.02 then `WAIT {string.format("%.1f", overchargeLeft)}s` else "OVERCHARGE"
+	local overchargeLabel = if overchargeLeft > 0.02 then `WAIT {string.format("%.1f", overchargeLeft)}s` elseif state.TapPower ~= nil then `OVERCHARGE  +{compactNumber(state.TapPower)}` else "OVERCHARGE"
 	local vaultClaimHostRef = React.useRef(nil)
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
@@ -727,7 +727,7 @@ local function OverviewView(_param)
 		element = React.createElement(ReadyBoard.Strip, {
 			list = readyList,
 			compact = phone,
-			pillHeight = if phone then 38 else 40,
+			pillHeight = if phone then 48 else 44,
 			onOpen = navigate,
 			onFind = function()
 				require(script.Parent.Parent.QuickFind).open()
@@ -845,6 +845,7 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Meter, {
 		value = vaultFill,
+		rainbow = true,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		reducedMotion = softMotion,
 		shimmer = vaultFill >= 0.99 and not effectsPaused,
@@ -1586,6 +1587,7 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Meter, {
 		value = domainProgress,
+		rainbow = true,
 		color = Palette.pink,
 		reducedMotion = quietMotion,
 		shimmer = domain.CanExpand and not effectsPaused,
@@ -1641,6 +1643,7 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Meter, {
 		value = domainProgress,
+		rainbow = true,
 		color = Palette.pink,
 		reducedMotion = quietMotion,
 		shimmer = domain.CanExpand and not effectsPaused,
@@ -2211,6 +2214,7 @@ local function RebirthPanel(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), not stack and React.createElement(Meter, {
 		value = progress,
+		rainbow = true,
 		color = accent,
 		reducedMotion = softMotion or effectsPaused,
 		shimmer = canRebirth and not effectsPaused and not softMotion,
@@ -2246,6 +2250,7 @@ local function RebirthPanel(_param)
 		sizeConstraint = UDim2.new(1, -24, 0, 16),
 	}), React.createElement(Meter, {
 		value = progress,
+		rainbow = true,
 		color = accent,
 		reducedMotion = softMotion or effectsPaused,
 		shimmer = canRebirth and not effectsPaused and not softMotion,

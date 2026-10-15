@@ -22,6 +22,7 @@ local files = {
 	"src/Client/AstralForge/CrewStore.luau",
 	"src/Client/AstralForge/CrewPresence.luau",
 	"src/Client/AstralForge/DomainConstellation.luau",
+	"src/Client/AstralForge/JuiceFx.luau",
 	"src/Client/AstralForge/DomainConstellationMath.luau",
 	"src/Client/AstralForge/ClientRuntime.luau",
 	"src/Client/AstralForge/WheelGeometry.luau",

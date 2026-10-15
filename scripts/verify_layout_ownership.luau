@@ -71,16 +71,30 @@ assert(not source:find("TextScaled = true", 1, true) and not source:find("TextTr
 	and not source:find("MinTextSize =", 1, true), "guard never shrinks, truncates or installs text constraints")
 assert(not source:find("group.Position =", 1, true) and not source:find("button.Size =", 1, true)
 	and not source:find("solid.Position =", 1, true), "motion and component geometry remain owned")
-local first = assert(source:find("local function repairText(", 1, true))
+assert(not source:find("self.pendingOverlap and not IS_STUDIO", 1, true), "live clients must run bounded collision passes")
+assert(source:find('"Size", "Visible"', 1, true), "owner size and visibility changes trigger revalidation without animation storms")
+assert(source:find('"SmallTouchTarget"', 1, true) and source:find('"ActionOutsideViewport"', 1, true),
+	"touch size and viewport reachability are diagnosed")
+local first = assert(source:find("local interactionLayer", 1, true))
 local last = assert(source:find("local function checkOverlappingHitboxes(", first, true))
-local stats, tryCount = {}, {}
-local repairText, repairScrollingFrame = luau.load(source:sub(first, last - 1)
-	.. "\nreturn repairText, repairScrollingFrame", {
+local stats, tryCount = {
+	actionCollisions = 0, actionsOutsideParent = 0, clippedActions = 0, smallTouchTargets = 0,
+	actionsOutsideViewport = 0, nestedScrollConflicts = 0, textUnderButtonSeen = 0,
+}, {}
+local touch = { TouchEnabled = false }
+local repairText, repairScrollingFrame, repairButton = luau.load(source:sub(first, last - 1)
+	.. "\nreturn repairText, repairScrollingFrame, repairButton", {
 	environment = setmetatable({
 		diagnostics = diagnostics, Diagnostics = Diagnostics, Geom = Geom, Plan = Plan,
 		abandoned = {}, tryCount = tryCount, IGNORE_ATTRIBUTE = "LayoutGuardIgnore", stats = stats,
 		Enum = roblox.Enum, UDim2 = roblox.UDim2, FIT_SLOP = 6, WILD_ASPECT_SLOP = 2,
+		MIN_TOUCH_TARGET = 44,
+		UserInputService = touch,
 		isFiniteNumber = function(n) return n == n and math.abs(n) ~= math.huge end,
+		rectOf = function(o)
+			local p, s = o.AbsolutePosition, o.AbsoluteSize
+			return { x0 = p.X, y0 = p.Y, x1 = p.X + s.X, y1 = p.Y + s.Y }
+		end,
 		engineOwns = function() return false end,
 		allowWrite = function(o) return Diagnostics.canRecover(o, "Canvas") end,
 		ClientLog = { warnEvery = function() end },
@@ -177,6 +191,16 @@ local checkHitboxes = luau.load(source:sub(last, collisionEnd - 1) .. "\nreturn 
 		diagnostics = diagnostics, Diagnostics = Diagnostics, Plan = Plan, stats = stats,
 		IGNORE_ATTRIBUTE = "LayoutGuardIgnore",
 		isTrackedClass = function() return true end,
+		interactionLayer = function(o)
+			local current = o.Parent
+			while current and not current:IsA("LayerCollector") do current = current.Parent end
+			return current
+		end,
+		isAncestorOf = function(ancestor, o)
+			local current = o.Parent
+			while current do if current == ancestor then return true end; current = current.Parent end
+			return false
+		end,
 		rectOf = function(o)
 			local p, s = o.AbsolutePosition, o.AbsoluteSize
 			return { x0 = p.X, y0 = p.Y, x1 = p.X + s.X, y1 = p.Y + s.Y }
@@ -194,6 +218,7 @@ for index = 1, 40 do
 	actions[index] = instance("TextButton", "Action" .. index, actionHost, nil, {
 		Active = true, ZIndex = 1,
 		AbsolutePosition = roblox.Vector2.new((if index == 40 then 39 else index) * 300, 0),
+		AbsoluteSize = roblox.Vector2.new(48, 40),
 	})
 end
 diagnostics:reset()
@@ -203,13 +228,26 @@ repeat
 	frames += 1
 	diagnostics:beginPairs(clock + 1)
 until diagnostics:runWork(worker) or frames > 20
-assert(coroutine.status(worker) == "dead" and frames > 1 and frames <= 20,
-	"large collision groups resume across bounded frames rather than restart")
+assert(coroutine.status(worker) == "dead" and frames <= 20,
+	"spatial collision groups complete within bounded frames without restarting")
 local found = false
 for _, issue in diagnostics:snapshot().Issues do
 	if issue.Kind == "ActionCollision" and issue.Path:find("Action39", 1, true) then found = true end
 end
 assert(found, "late siblings beyond the first 256 comparisons must be inspected")
+local wrapperA = instance("Frame", "WrapperA", root)
+local wrapperB = instance("Frame", "WrapperB", root)
+local nestedA = instance("TextButton", "NestedA", wrapperA, nil, {
+	Active = true, ZIndex = 5, AbsolutePosition = roblox.Vector2.new(100, 100), AbsoluteSize = roblox.Vector2.new(100, 60),
+})
+local nestedB = instance("TextButton", "NestedB", wrapperB, nil, {
+	Active = true, ZIndex = 5, AbsolutePosition = roblox.Vector2.new(165, 100), AbsoluteSize = roblox.Vector2.new(100, 60),
+})
+diagnostics:reset()
+local nestedWorker = coroutine.create(function() checkHitboxes({ nestedA, nestedB }) end)
+repeat diagnostics:beginPairs(clock + 1) until diagnostics:runWork(nestedWorker)
+assert(diagnostics:snapshot().Issues[1] and diagnostics:snapshot().Issues[1].Kind == "ActionCollision",
+	"buttons in separate wrappers with substantial overlap must be detected")
 local resumed = false
 local blockedWorker = coroutine.create(function() resumed = true end)
 diagnostics:beginPairs(clock)
@@ -238,7 +276,10 @@ local binder = luau.load("local LayoutGuardController={}\n" .. source:sub(bindFi
 	}, { __index = _G }),
 })()
 local bound = setmetatable({
-	rootConnections = {}, tracked = {}, trackedIndex = {},
+	rootConnections = {}, geometryConnections = {}, geometryUsers = {}, trackedAncestors = {}, geometryReadyAt = {},
+	layerConnections = {}, watchedLayers = {}, fresh = {}, freshReady = {}, freshSet = {},
+	freshScratch = {}, freshReadyScratch = {}, cursor = 1, pendingOverlap = false, overlapPhase = 1,
+	tracked = {}, trackedIndex = {},
 	watchLayer = function(self) self.tracked[1] = label end,
 	checkResize = function() end,
 }, { __index = binder })

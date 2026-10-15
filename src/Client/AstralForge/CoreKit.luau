@@ -642,7 +642,7 @@ local function planMobileLayout(input)
 	local phone = stack
 	local tablet = phone and width >= 700 and not landscape
 	local shortDesktop = desktop and (short or orientationHeight < 740)
-	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 34 elseif tablet then 52 else 48
+	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 44 elseif tablet then 52 else 48
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else math.max(0, sideInset)
 	local panelGap = if landscape then 10 elseif phone then 14 elseif shortDesktop then 14 else 18

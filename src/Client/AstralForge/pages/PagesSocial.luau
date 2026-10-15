@@ -4013,7 +4013,7 @@ local function GuildCommunityPanel(_param)
 		table.insert(sections, { id = "guild-community-moderation", height = 146, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.coral, padding = 14, clips = false }, React.createElement(SectionLabel, { value = "MEMBER MODERATION · USER ID", color = Palette.coral }), input("Guild member user ID", moderationUserId, function(value) setModerationUserId(string.sub(value, 1, 20)) end, 42, UDim2.fromOffset(0, 28)), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 76), BackgroundTransparency = 1 }, moderationButtons)) })
 	end
 	if leader then
-		table.insert(sections, { id = "guild-community-settings", height = 160, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14 }, React.createElement(SectionLabel, { value = "GUILD RULES", color = Palette.violet }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 90), Position = UDim2.fromOffset(0, 26), BackgroundTransparency = 1 }, settingsRows), React.createElement(Text, { value = "Officer toggles decide whether officers may post news and moderate. Slow mode spaces member messages 6s apart.", size = 10, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 116), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
+		table.insert(sections, { id = "guild-community-settings", height = 160, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14 }, React.createElement(SectionLabel, { value = "GUILD RULES", color = Palette.violet }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 90), Position = UDim2.fromOffset(0, 26), BackgroundTransparency = 1 }, settingsRows), React.createElement(Text, { value = "Choose what officers can manage. Slow mode adds 6 seconds between member messages.", size = 11, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 116), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
 		local cooldownDays = math.floor((tonumber(guildConfig.RenameCooldownSeconds) or 604800) / 86400)
 		local renameReady = #renameName >= 3 or #renameTag >= 3
 		table.insert(sections, { id = "guild-community-rename", height = 178, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mango, padding = 14, clips = false },
@@ -4692,7 +4692,7 @@ local function GuildView(_param)
 	else
 		add("role-policy",if stack then 176 else 120,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
 			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,weight=Enum.FontWeight.Heavy,sizeConstraint=UDim2.new(1,0,0,24)}),
-			React.createElement(Text,{value="Leader assigns roles and manages the hall. Officers buy upgrades and remove members. Members contribute and earn goal rewards. If the leader leaves, an officer takes over, otherwise the earliest joiner.",position=UDim2.fromOffset(0,32),size=13,color=Palette.creamSoft,wrap=true,sizeConstraint=UDim2.new(1,0,0,if stack then 110 else 52)})))
+			React.createElement(Text,{value="Leaders manage roles and the hall. Officers handle upgrades and members. Everyone can contribute and claim goal rewards. Leadership passes to an officer, then the earliest member.",position=UDim2.fromOffset(0,32),size=13,color=Palette.creamSoft,wrap=true,sizeConstraint=UDim2.new(1,0,0,if stack then 110 else 52)})))
 		if #members > 3 then
 			add("member-filter",memberSearchH + 8 + Browse.CHIP_H,memberFilter)
 		end
@@ -5192,8 +5192,8 @@ local function MailboxView(_param)
 		highlight = true,
 		reducedMotion = softMotion,
 	}), h("frame", {
-		Size = if stack then UDim2.new(1, -24, 0, 40) else UDim2.new(1, -(380 + (if gifts > 0 then 164 else 12)), 0, 40),
-		Position = if stack then UDim2.fromOffset(12, headerH - 50) else UDim2.fromOffset(372, 12),
+		Size = if stack then UDim2.new(1, -24, 0, TapTarget + 8) else UDim2.new(1, -(380 + (if gifts > 0 then 164 else 12)), 0, 40),
+		Position = if stack then UDim2.fromOffset(12, headerH - TapTarget - 18) else UDim2.fromOffset(372, 12),
 		BackgroundTransparency = 1,
 	}, h(SegmentedTabs, {
 		options = FILTERS,
@@ -5853,7 +5853,7 @@ local function ChatView(_param)
 	local showStatus = not condensed
 	local showBanner = not condensed and viewport.height >= 760
 	local chromeGap = if condensed then 8 else GAP
-	local inputHeight = if condensed then 52 else INPUT_HEIGHT
+	local inputHeight = if condensed then 62 else INPUT_HEIGHT
 	local draft, setDraft = React.useState("")
 	local failure, setFailure = React.useState("")
 	local viewHeight, setViewHeight = React.useState(0)
@@ -6134,7 +6134,7 @@ local function ChatView(_param)
 	end, { condensed, canSend })
 	local statusLabel = if chat.connected then "ONLINE" else "CONNECTING"
 	local statusAccent = if chat.connected then Palette.green else Palette.mango
-	local placeholder = if failure ~= "" then failure else (chat.placeholder or "Say something... (/help)")
+	local placeholder = if failure ~= "" then failure elseif chrome.mobile then (if tab == "global" then "Message global…  (/help)" elseif tab == "server" then "Message server…  (/help)" elseif tab == "crew" then "Message crew…  (/help)" elseif tab == "friends" then "Message friends…  (/help)" elseif tab == "whispers" then "Private message…  (/help)" else "Message…  (/help)") else (chat.placeholder or "Say something... (/help)")
 	local statusElement = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,

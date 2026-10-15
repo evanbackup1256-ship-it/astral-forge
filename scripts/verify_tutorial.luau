@@ -13,6 +13,7 @@ local NavRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTabl
 local steps = Script.STEPS
 assert(#steps >= 10, "the tour should be thorough, got " .. #steps .. " steps")
 assert(#steps <= 15, "DataService clamps TutorialStep to 15")
+assert(Script.EXPERIENCE_NAME == "GETTING STARTED", "tutorial heading stays plain and human")
 assert(steps[#steps].watch == "finish", "the last step finishes the guide")
 
 -- Every Name the client UI sets, plus the Nav_<id> buttons.
@@ -73,6 +74,7 @@ local function step(watch)
 end
 assert(Script.goalMet(step("continue"), {}) and Script.goalMet(step("finish"), {}), "read steps are always met")
 assert(not Script.goalMet(step("collect"), {}) and Script.goalMet(step("collect"), {}, true), "collect waits for the vault to empty")
+assert(Script.goalMet(step("collect"), { vaultFlux = 0 }), "an already-empty vault cannot strand the tutorial")
 assert(not Script.goalMet(step("buy"), { ownedMachines = 0 }) and Script.goalMet(step("buy"), { ownedMachines = 2 }), "buy")
 assert(not Script.goalMet(step("amount"), { buyAmount = 1 }) and Script.goalMet(step("amount"), { buyAmount = 5 }), "amount")
 assert(Script.goalMet(step("page:Workshop"), { page = "Workshop" }) and not Script.goalMet(step("page:Workshop"), { page = "Overview" }), "page")
@@ -113,13 +115,16 @@ local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(string.find(shell, '("TutorialScript").STEPS', 1, true), "the shell uses the script")
 assert(string.find(shell, "tutorial.startPage == nil", 1, true), "only startPage steps navigate")
 local overlay = fs.readFile("src/Client/AstralForge/UiCore.luau#onboarding")
-for _, needle in { "local function findTarget", "wingPhase", "blink", "GetMouseLocation", "onPetClick", "MaxVisibleGraphemes", "dizzyUntil", "st.rub", "SLEEP_AFTER", "TutorialScript.dockPlacement", "AutomaticSize = Enum.AutomaticSize.Y" } do
+for _, needle in { "local PET_SIZE = 72", "statusItems", "live.production", "local function findTarget", "wingPhase", "blink", "GetMouseLocation", "onPetClick", "MaxVisibleGraphemes", "dizzyUntil", "st.rub", "SLEEP_AFTER", "TutorialScript.dockPlacement", "AutomaticSize = Enum.AutomaticSize.Y", "missingSince", "TutorialScript.QUIPS.missing", "overlayAlive.current", "f.pet.talking", "f.pet.celebrating" } do
 	assert(string.find(overlay, needle, 1, true), "tutorial overlay has " .. needle)
 end
 -- The card lays itself out top to bottom; nothing in it may sit at a hard-coded y again.
 local overlayFn = string.match(overlay, "local function TutorialOverlay%(_param%)(.-)\nlocal VERSION_ROW_H") or ""
 assert(not string.find(overlayFn, "dockH", 1, true), "the step card sizes itself from its content")
 assert(not string.find(overlayFn, "math.floor(t * 12)", 1, true), "wings flap continuously, not in stepped frames")
+assert(string.find(overlay, 'dots["d" .. n] = React.createElement("frame"', 1, true), "progress markers are visual and cannot skip required objectives")
+assert(string.find(overlay, "TextSize = 11", 1, true), "skip control remains readable")
+assert(string.find(overlay, "Size = UDim2.new(1, 0, 0, TapTarget)", 1, true), "tutorial actions keep full touch height")
 
 local confirmStart = assert(overlay:find('ContextActionService:BindActionAtPriority("AstralForgeTutorialConfirm", ', 1, true))
 local callbackStart = assert(overlay:find("function(_name, inputState)", confirmStart, true))
