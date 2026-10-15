@@ -8395,7 +8395,7 @@ local CHIP_TIPS = {
 	},
 	CORES = {
 		title = "Astral cores",
-		body = "Permanent rebirth currency. Multiplies future runs and unlocks prestige tech.",
+		body = "Earned from rebirths. Spend them on Domain expansions and Shop keys.",
 	},
 }
 
@@ -24197,7 +24197,7 @@ local function CrateRevealStage(props)
 	local showLadder = (climbing or landed) and ladderTarget >= 4
 	local accent = if landed then props.winnerAccent elseif climbing then props.climbColor or props.sessionAccent else props.sessionAccent
 	local resultTitle = if landed then props.winnerName elseif climbing then "Resonance rising" elseif props.phase == "spin" then "Attuning the astrolabe" elseif props.phase == "seal" then "Seal breaking" else "Unsealing crate"
-	local resultSubtitle = if landed then props.resultDetail elseif climbing then "Something rare is answering. Tap to skip." elseif props.phase == "spin" then "Tap anywhere to lock the ring" else "The forge is waking up"
+	local resultSubtitle = if landed then props.resultDetail elseif climbing then "Something rare is coming. Tap to skip." elseif props.phase == "spin" then "Tap anywhere to lock the ring" else "The forge is waking up"
 	local status = if props.phase == "spin" then "ATTUNING" elseif climbing then "RESONATING" elseif landed then "RELIC BOUND" else "UNSEALING"
 	local actionY = panelHeight - padding - actionHeight
 	local resultY = actionY - gap - resultHeight

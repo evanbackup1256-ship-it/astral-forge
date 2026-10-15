@@ -3738,7 +3738,7 @@ local function MarketBanner(_param)
 		position = UDim2.fromOffset(if stack then 56 else 64, 18),
 		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -16, 0, 24),
 	}), React.createElement(Text, {
-		value = "Daily keys restock at UTC midnight. Rarer offers keep live stock that drips back slowly.",
+		value = "Daily keys restock at UTC midnight. Rarer offers restock a little at a time.",
 		size = 11,
 		color = Palette.creamSoft,
 		wrap = true,

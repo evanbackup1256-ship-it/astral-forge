@@ -305,7 +305,7 @@ local function StartupFailure(_param)
 		Position = UDim2.fromOffset(18, 149),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = "REJOIN TO RETRY  //  CHECK SERVER OUTPUT IN STUDIO",
+		Text = "REJOIN TO TRY AGAIN",
 		TextColor3 = Palette.muted,
 		TextSize = 12,
 		FontFace = Font.fromEnum(Enum.Font.RobotoMono),

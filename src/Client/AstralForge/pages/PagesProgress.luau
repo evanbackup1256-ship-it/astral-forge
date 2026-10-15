@@ -2464,7 +2464,7 @@ local function SpotlightPanel(_param)
 	end
 	if step == nil then
 		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
-			React.createElement(EmptyState, { icon = "Forge", title = "No steps configured", body = "Forge Path steps come from GameConfig.", accent = Palette.violet, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
+			React.createElement(EmptyState, { icon = "Forge", title = "Forge Path isn't ready", body = "Check back in a moment.", accent = Palette.violet, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
 	end
 	local progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1)
 	local needXp = not ready and xp < step.XPCost
@@ -2541,8 +2541,8 @@ local function ForgePathViewComponent(_param)
 		size = UDim2.fromScale(1, 1),
 	}) elseif totalCount == 0 then React.createElement(EmptyState, {
 		icon = "Forge",
-		title = "Forge Path offline",
-		body = "Steps load from GameConfig.ForgePath.Steps.",
+		title = "Forge Path isn't ready",
+		body = "Check back in a moment.",
 		accent = Palette.violet,
 		reducedMotion = softMotion,
 	}) else React.createElement(FlatList, {

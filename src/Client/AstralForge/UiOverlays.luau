@@ -4173,7 +4173,7 @@ local function MobileControls(_param)
 		reducedMotion = reducedMotion,
 		disabled = exiting,
 	})), React.createElement(Text, {
-		value = "Move vault, dock, and alerts. Size, fade, lock, and snap stay. Nothing is removed.",
+		value = "Drag the vault, dock and alerts where you want them.",
 		size = 10,
 		color = Palette.muted,
 		wrap = true,

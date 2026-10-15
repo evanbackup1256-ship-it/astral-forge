@@ -462,7 +462,7 @@ local function BazaarView(props)
 			return if comparison ~= 0 then comparison < 0 else a.Offer.Name < b.Offer.Name
 		end)
 		add("comparison-heading", 76, h(Ui.Text, {
-			value = if #comparisons > 1 then "Same supply, compared by flux per reward unit. Sold-out offers remain listed for reference."
+			value = if #comparisons > 1 then "The same supply in every pack size, compared by price per unit."
 				else "No matching single-supply offers in this shipment. Mixed kits and different keys or boosts are not compared.",
 			size = 14, wrap = true, color = Palette.muted, sizeConstraint = UDim2.fromScale(1, 1),
 		}))

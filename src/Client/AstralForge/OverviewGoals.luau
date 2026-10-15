@@ -30,6 +30,6 @@ return function(Math, compact)
 			local opens = if #names > 0 then table.concat(names, " and ") else nil
 			return { title = if opens then `Unlock {opens}` else nextLevel.Text, body = `{nextLevel.Text} · {compact(nextLevel.Progress or 0)} / {compact(nextLevel.Target or 0)}`, page = page, cta = if page == "Domain" then "Review Domain" elseif page then "Build production" else nil, value = `{math.floor(progress * 100)}%`, label = "NEXT UNLOCK", progress = progress }
 		end
-		return { title = "Build your next production jump", body = "Compare machine returns and buy a budgeted batch. Research stays with you across rebirths.", page = "Workshop", cta = "Compare machines", value = "NEXT", label = "PRODUCTION", progress = 0 }
+		return { title = "Buy more machines", body = "Upgrade your best machine to raise production. Research stays through rebirths.", page = "Workshop", cta = "Compare machines", value = "NEXT", label = "PRODUCTION", progress = 0 }
 	end
 end

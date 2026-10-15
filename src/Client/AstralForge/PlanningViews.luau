@@ -145,7 +145,7 @@ function Views.ShiftPlan(props)
 	local pane,setPane=React.useState("Directives")
 	local sections={
 		section("shift-next",240,panel(P.pink,{
-			copy("SHIFT PLAN · DO THIS NEXT",0,22,12,P.pink,true),
+			copy("REACTOR · NEXT STEP",0,22,12,P.pink,true),
 			copy(plan.title,30,58,23,P.cream,true),
 			copy(if status ~= "" then status else plan.body,96,58,14),
 			button(if busy then "WORKING…" else (if plan.action == "PulseAnomaly" then "PULSE CHARGE" else "COLLECT REWARD"),160,function() run(plan.action,plan.payload) end,busy,P.pink),
@@ -154,12 +154,12 @@ function Views.ShiftPlan(props)
 			copy(`CHARGE · {math.floor(plan.charge*100)}%`,0,24,14,P.mint,true),
 			meter(plan.charge,34,P.pink),
 			copy(`{compact(anomaly.Charge or 0)} / {compact(anomaly.Target or 0)} · Combo {anomaly.Combo or 0} / {anomaly.ComboMax or 20}`,56,42),
-			copy(`{compact(anomaly.Fragments or 0)} fragments · {anomaly.Stabilizations or 0} shifts banked · Core tier {anomaly.CoreTier or 1}`,106,42),
-			button("BANK COMPLETED SHIFT",158,function() run("StabilizeAnomaly",{}) end,busy or not anomaly.Ready,P.mint),
+			copy(`{compact(anomaly.Fragments or 0)} fragments · {anomaly.Stabilizations or 0} stabilized · core tier {anomaly.CoreTier or 1}`,106,42),
+			button("STABILIZE",158,function() run("StabilizeAnomaly",{}) end,busy or not anomaly.Ready,P.mint),
 		})),
 	}
 	local compactTabs=viewport.width<760
-	local tabs={copy("SHIFT WORKBENCH",0,24,13,P.cyan,true)}
+	local tabs={copy("REACTOR",0,24,13,P.cyan,true)}
 	for index,id in {"Directives","Loadout","Milestones","Protocols"} do
 		local columns=if compactTabs then 2 else 4
 		local column=(index-1)%columns
@@ -192,10 +192,10 @@ function Views.ShiftPlan(props)
 		if pane~="Directives" then break end
 		local progress=Model.ratio(job.Progress,job.Target)
 		table.insert(sections,section("directive-"..job.Id,254,panel(job.Color or P.mango,{
-			copy("DAILY DIRECTIVE",0,20,11,P.mango,true),copy(job.Name,26,42,19,P.cream,true),
+			copy("DAILY TASK",0,20,11,P.mango,true),copy(job.Name,26,42,19,P.cream,true),
 			copy(job.Description or job.Kind,74,56,14),meter(progress,136,job.Color or P.mango),
 			copy(`{compact(job.Progress)} / {compact(job.Target)} · {math.floor(progress*100)}%`,152,22,12),
-			button(if progress>=1 then "CLAIM DIRECTIVE" else "DIRECTIVE IN PROGRESS",184,function() run("ClaimAnomalyDirective",{Id=job.Id}) end,busy or progress<1,job.Color or P.mango),
+			button(if progress>=1 then "CLAIM TASK" else "IN PROGRESS",184,function() run("ClaimAnomalyDirective",{Id=job.Id}) end,busy or progress<1,job.Color or P.mango),
 		})))
 	end
 	for index,milestone in plan.milestones do
@@ -203,10 +203,10 @@ function Views.ShiftPlan(props)
 		if index > 3 then break end
 		local ready=(anomaly.Stabilizations or 0)>=milestone.Required
 		table.insert(sections,section(`milestone-{milestone.Tier}`,172,panel(P.mint,{
-			copy(`SHIFT MILESTONE · TIER {milestone.Tier}`,0,26,13,P.mint,true),
-			copy(`{anomaly.Stabilizations or 0} / {milestone.Required} completed shifts`,34,36,14),
+			copy(`REACTOR MILESTONE · TIER {milestone.Tier}`,0,26,13,P.mint,true),
+			copy(`{anomaly.Stabilizations or 0} / {milestone.Required} stabilizations`,34,36,14),
 			meter(Model.ratio(anomaly.Stabilizations,milestone.Required),80,P.mint),
-			button(if ready then "CLAIM MILESTONE" else "KEEP BANKING SHIFTS",104,function() run("ClaimAnomalyMilestone",{Tier=milestone.Tier}) end,busy or not ready,P.mint),
+			button(if ready then "CLAIM MILESTONE" else "KEEP STABILIZING",104,function() run("ClaimAnomalyMilestone",{Tier=milestone.Tier}) end,busy or not ready,P.mint),
 		})))
 	end
 	for _,protocol in plan.protocols do
@@ -220,7 +220,7 @@ function Views.ShiftPlan(props)
 		})))
 	end
 	if pane=="Directives" and #plan.jobs==0 then
-		table.insert(sections,section("directives-complete",110,panel(P.mint,{copy("All daily directives collected",0,34,20,P.cream,true),copy("Keep building charge or explore permanent protocols while the next daily set approaches.",42,42,14)})))
+		table.insert(sections,section("directives-complete",110,panel(P.mint,{copy("All of today's tasks are done",0,34,20,P.cream,true),copy("New tasks arrive tomorrow. Keep charging the reactor until then.",42,42,14)})))
 	end
 	return scaffold(sections,viewport,props,"AnomalyClaimActions")
 end

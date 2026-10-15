@@ -4551,7 +4551,7 @@ local function GuildView(_param)
 		upgradeChildren[1] = React.createElement(EmptyState, {
 			key = "empty-upgrades",
 			title = "No hall upgrades",
-			body = "Upgrade definitions are still loading.",
+			body = "Hall upgrades are still loading.",
 			icon = "Forge",
 			accent = Palette.violet,
 			size = UDim2.new(1, 0, 0, 72),

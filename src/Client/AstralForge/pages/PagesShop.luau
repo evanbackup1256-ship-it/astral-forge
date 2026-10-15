@@ -854,7 +854,7 @@ local function ShopView(_param)
 		filled = true,
 		size = UDim2.fromOffset(68, 20),
 	}), React.createElement(Text, {
-		value = "Buy a pack. Keep the edge.",
+		value = "Support the game and speed up your forge.",
 		size = 18,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -1984,7 +1984,7 @@ local function CratesSection(props)
 	end, {})
 	local crate = crateById(config, selected) or crates[1]
 	if crate == nil then
-		return h(Text, { value = "No crates are configured.", size = 14, color = Palette.creamSoft })
+		return h(Text, { value = "No crates right now.", size = 14, color = Palette.creamSoft })
 	end
 	local skin = state.Cosmetics and state.Cosmetics.CrateSkin
 	local onOpen = function(count)
