@@ -40,7 +40,7 @@ function BuffStrip.list(state, config, now)
 	end
 	local event = state.ServerEvent
 	if type(event) == "table" and event.Phase == "Live" and type(event.Id) == "string" then
-		table.insert(list, { key = "event", icon = "Calendar", value = "Event", endsAt = event.PhaseEndsAt, color = P.mango, name = event.Id })
+		table.insert(list, { key = "event", icon = "Calendar", value = "Live", endsAt = event.PhaseEndsAt, color = P.mango, name = (string.gsub(event.Id, "(%l)(%u)", "%1 %2")) })
 	end
 	local ascension = state.Ascension
 	if type(ascension) == "table" and (tonumber(ascension.Rank) or 0) > 0 then

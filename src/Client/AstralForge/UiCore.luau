@@ -11277,7 +11277,7 @@ local function VaultPill(_param)
 				local centre = Juice.centreOf(pill)
 				if centre then
 					Juice.number(`+{compactNumber(productionRef.current)}`, Palette.green, {
-						at = centre + Vector2.new(-205 + math.random(-30, 30), 10),
+						at = centre + Vector2.new(-205 + math.random(-30, 30), 52),
 						small = true,
 						icon = "Flux",
 					})

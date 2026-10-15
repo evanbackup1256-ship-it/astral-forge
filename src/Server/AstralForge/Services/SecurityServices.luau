@@ -968,13 +968,20 @@ return function()
 	local CONTENTION_TIMEOUT_SECONDS = 2
 	local CONTENTION_POLL_SECONDS = 0.03
 
+	-- deep copy for rollback; the native shallow copy does the bulk of the work at each level, so
+	-- only nested tables cost a Lua call (profiles hold thousands of plain number entries)
 	local function clone(value)
 		if type(value) ~= "table" then
 			return value
 		end
-		local result = {}
+		local result = table.clone(value)
+		if getmetatable(result) ~= nil then
+			setmetatable(result, nil)
+		end
 		for key, child in value do
-			result[clone(key)] = clone(child)
+			if type(child) == "table" then
+				result[key] = clone(child)
+			end
 		end
 		return result
 	end
