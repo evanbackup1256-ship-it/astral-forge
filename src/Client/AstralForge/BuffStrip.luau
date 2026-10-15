@@ -175,7 +175,7 @@ end
 -- settles back. Size, corners and contents all spring between shapes.
 local Juice = require(script.Parent.JuiceFx)
 
-local COMPACT_H = 40
+local COMPACT_H = 44
 local EVENT_H = 72
 local ROW_H = 36
 
@@ -207,132 +207,378 @@ local function useArrive(key)
 	return amount
 end
 
+local telemetryHook = require(script.Parent.MotionKit)("antilag").usePerformanceTelemetry
+
+local PERF_W = 100
+local CURRENCY_W = 104
+local BUFF_W = 54
+local SEP_W = 13
+local VAULT_W = 92
+
+local function fpsColor(fps)
+	return if fps >= 54 then P.mint elseif fps >= 38 then P.mango else P.coral
+end
+local function pingColor(ping)
+	return if ping == nil then P.muted elseif ping <= 85 then P.mint elseif ping <= 165 then P.mango else P.coral
+end
+
+-- frame rate and ping: a status dot and two short numbers; only this re-renders on each sample
+local function PerfSegment(props)
+	local telemetry = telemetryHook()
+	local fps = math.max(0, math.floor(telemetry.fps + 0.5))
+	local ping = if telemetry.pingMs ~= nil then math.max(0, math.floor(telemetry.pingMs + 0.5)) else nil
+	local parts = {}
+	if props.showFps then table.insert(parts, `{fps} fps`) end
+	if props.showPing then table.insert(parts, if ping then `{ping} ms` else "-- ms") end
+	local worst = if props.showFps and fps < 38 then fpsColor(fps) elseif props.showPing then pingColor(ping) else fpsColor(fps)
+	return h("frame", {
+		Size = UDim2.fromOffset(PERF_W, COMPACT_H),
+		LayoutOrder = props.order,
+		BackgroundTransparency = 1,
+	}, h("frame", {
+		Size = UDim2.fromOffset(8, 8),
+		Position = UDim2.new(0, 4, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = worst,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = worst,
+		Thickness = 3,
+		Transparency = props.clock:map(function(t) return 0.55 + (math.sin(t * 3) + 1) * 0.2 end),
+	})), h("textlabel", {
+		Size = UDim2.new(1, -18, 1, 0),
+		Position = UDim2.fromOffset(18, 0),
+		BackgroundTransparency = 1,
+		Text = table.concat(parts, " · "),
+		TextColor3 = P.creamSoft,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+	}, h("uitextsizeconstraint", { MaxTextSize = 12, MinTextSize = 9 })))
+end
+
+-- one currency: flying coins land here and the value hops when they do
+local function CurrencySegment(props)
+	local currency = props.currency
+	local ref, bump = Juice.useTarget(currency.target)
+	local flash = motion.useFlash(format.asFlux(currency.value), props.reducedMotion, 0.45)
+	return h("frame", {
+		ref = ref,
+		Size = UDim2.fromOffset(CURRENCY_W, COMPACT_H),
+		LayoutOrder = props.order,
+		BackgroundTransparency = 1,
+	}, h("uiscale", {
+		Scale = bump:map(function(b) return 1 + math.sin(b * math.pi) * 0.16 end),
+	}), h("frame", {
+		Size = UDim2.fromOffset(24, 24),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = theme.darken(currency.color, 0.6),
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = currency.color,
+		Thickness = 1,
+		Transparency = flash:map(function(v) return 0.55 - v * 0.5 end),
+	}), h(Icon, {
+		kind = currency.icon,
+		color = P.cream,
+		accent = currency.color,
+		size = 16,
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		spin = false,
+	})), h("textlabel", {
+		Size = UDim2.new(1, -30, 1, 0),
+		Position = UDim2.fromOffset(30, 0),
+		BackgroundTransparency = 1,
+		Text = format.compactNumber(currency.value),
+		TextColor3 = flash:map(function(v) return P.cream:Lerp(theme.lighten(currency.color, 0.4), v) end),
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+	}, h("uitextsizeconstraint", { MaxTextSize = 15, MinTextSize = 10 })))
+end
+
+local function Separator(order)
+	return h("frame", {
+		Size = UDim2.fromOffset(1, 20),
+		LayoutOrder = order,
+		BackgroundColor3 = P.line,
+		BackgroundTransparency = 0.3,
+		BorderSizePixel = 0,
+	})
+end
+
+-- what fits in the compact capsule: performance and currencies first, then as many buffs as fit
+local function planCompact(props, buffs)
+	local currencies = props.currencies or {}
+	local perfOn = props.perf ~= nil and (props.perf.showFps or props.perf.showPing)
+	local width = 28 + #currencies * (CURRENCY_W + 10)
+	local showPerf = perfOn and width + PERF_W + SEP_W <= (props.maxWidth or 9999)
+	if showPerf then
+		width += PERF_W + SEP_W
+	end
+	local shownBuffs = {}
+	local room = (props.maxWidth or 9999) - width - (if #buffs > 0 then SEP_W else 0) - (if props.vaultFull then SEP_W + VAULT_W + 10 else 0)
+	for _, buff in buffs do
+		if room >= BUFF_W + 8 then
+			table.insert(shownBuffs, buff)
+			room -= BUFF_W + 8
+		end
+	end
+	if #shownBuffs > 0 then
+		width += SEP_W + #shownBuffs * (BUFF_W + 8)
+	end
+	if props.vaultFull then
+		width += SEP_W + VAULT_W + 10
+	end
+	if #currencies == 0 and not showPerf then
+		width = 24 + #shownBuffs * (BUFF_W + 8)
+	end
+	return { width = width, perf = showPerf, buffs = shownBuffs }
+end
+
 local function CompactRow(props)
 	local arrive = useArrive("compact")
+	local plan = props.plan
 	local items = {
 		layout = h("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
-			Padding = UDim.new(0, 12),
+			Padding = UDim.new(0, 10),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	}
-	for index, buff in props.buffs do
+	local order = 0
+	local function nextOrder()
+		order += 1
+		return order
+	end
+	if plan.perf then
+		items.perf = h(PerfSegment, { order = nextOrder(), clock = props.clock, showFps = props.perf.showFps, showPing = props.perf.showPing })
+		items.sep1 = Separator(nextOrder())
+	end
+	for _, currency in props.currencies or {} do
+		items["c" .. currency.target] = h(CurrencySegment, { order = nextOrder(), currency = currency, reducedMotion = props.reducedMotion })
+	end
+	if props.vaultFull then
+		items.sepVault = Separator(nextOrder())
+		items.vault = h("frame", {
+			Size = UDim2.fromOffset(VAULT_W, COMPACT_H),
+			LayoutOrder = nextOrder(),
+			BackgroundTransparency = 1,
+		}, h("frame", {
+			Size = UDim2.new(1, 0, 0, 26),
+			Position = UDim2.fromScale(0, 0.5),
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundColor3 = theme.darken(P.mango, 0.55),
+			BorderSizePixel = 0,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uiscale", {
+			Scale = props.clock:map(function(t) return 1 + math.max(0, math.sin(t * 5)) * 0.06 end),
+		}), h("textlabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = "VAULT FULL",
+			TextColor3 = P.mango,
+			TextSize = 12,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		})))
+	end
+	if #plan.buffs > 0 then
+		items.sep2 = Separator(nextOrder())
+	end
+	for index, buff in plan.buffs do
 		items[buff.key] = h("frame", {
-			Size = UDim2.fromOffset(52, COMPACT_H),
-			LayoutOrder = index,
+			Size = UDim2.fromOffset(BUFF_W, COMPACT_H),
+			LayoutOrder = nextOrder(),
 			BackgroundTransparency = 1,
 		}, h(Icon, {
 			kind = buff.icon,
 			color = P.cream,
 			accent = buff.color,
-			size = 20,
+			size = 18,
 			anchorPoint = Vector2.new(0, 0.5),
 			position = props.clock:map(function(t)
 				return UDim2.new(0, 0, 0.5, math.sin(t * 2.4 + index * 1.4) * 1.5)
 			end),
 			spin = false,
 		}), h("textlabel", {
-			Size = UDim2.new(1, -24, 1, 0),
-			Position = UDim2.fromOffset(24, 0),
+			Size = UDim2.new(1, -22, 1, 0),
+			Position = UDim2.fromOffset(22, 0),
 			BackgroundTransparency = 1,
 			Text = buff.value,
 			TextColor3 = theme.lighten(buff.color, 0.35),
-			TextSize = 13,
+			TextSize = 12,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		}, h("uitextsizeconstraint", { MaxTextSize = 13, MinTextSize = 9 })))
-	end
-	return h("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Position = arrive:map(function(t) return UDim2.fromOffset(0, (1 - t) * 6) end),
-		ZIndex = 62,
-	}, h("uiscale", { Scale = arrive:map(function(t) return 0.9 + t * 0.1 end) }), items)
-end
-
-local function ExpandedList(props)
-	local arrive = useArrive("expanded")
-	local rows = {
-		layout = h("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder }),
-		pad = h("uipadding", { PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16), PaddingTop = UDim.new(0, 10) }),
-		title = h("textlabel", {
-			Size = UDim2.new(1, 0, 0, 18),
-			LayoutOrder = 0,
-			BackgroundTransparency = 1,
-			Text = "BOOSTING YOU NOW",
-			TextColor3 = P.muted,
-			TextSize = 11,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		}),
-	}
-	for index, buff in props.buffs do
-		local timed = buff.endsAt ~= nil
-		rows[buff.key] = h("frame", {
-			Size = UDim2.new(1, 0, 0, ROW_H),
-			LayoutOrder = index,
-			BackgroundTransparency = 1,
-		}, h("uiscale", {
-			Scale = arrive:map(function(t)
-				local local_ = math.clamp(t * 1.6 - index * 0.12, 0, 1)
-				return 0.85 + easeOutBack(local_) * 0.15
-			end),
-		}), h("frame", {
-			Size = UDim2.fromOffset(26, 26),
-			Position = UDim2.new(0, 0, 0.5, 0),
-			AnchorPoint = Vector2.new(0, 0.5),
-			BackgroundColor3 = theme.darken(buff.color, 0.6),
-			BorderSizePixel = 0,
-		}, h("uicorner", { CornerRadius = UDim.new(0, 8) }), h(Icon, {
-			kind = buff.icon,
-			color = P.cream,
-			accent = buff.color,
-			size = 18,
-			position = UDim2.fromScale(0.5, 0.5),
-			anchorPoint = Vector2.new(0.5, 0.5),
-			spin = false,
-		})), h("textlabel", {
-			Size = UDim2.new(1, -150, 0, 18),
-			Position = UDim2.new(0, 36, 0, if timed then 2 else 9),
-			BackgroundTransparency = 1,
-			Text = buff.name,
-			TextColor3 = P.cream,
-			TextSize = 14,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		}), h("textlabel", {
-			Size = UDim2.fromOffset(110, 18),
-			Position = UDim2.new(1, -110, 0, if timed then 2 else 9),
-			BackgroundTransparency = 1,
-			Text = if timed then props.clock:map(function()
-				return `{buff.value}  ·  {clockText((tonumber(buff.endsAt) or 0) - workspace:GetServerTimeNow())}`
-			end) else buff.value,
-			TextColor3 = theme.lighten(buff.color, 0.35),
-			TextSize = 13,
-			TextXAlignment = Enum.TextXAlignment.Right,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		}), timed and buff.duration and h("frame", {
-			Size = UDim2.new(1, -36, 0, 3),
-			Position = UDim2.new(0, 36, 0, 25),
+		}, h("uitextsizeconstraint", { MaxTextSize = 12, MinTextSize = 8 })), buff.endsAt and buff.duration and h("frame", {
+			-- time left on a running buff
+			Size = UDim2.new(1, -4, 0, 2),
+			Position = UDim2.new(0, 0, 1, -7),
 			BackgroundColor3 = P.line,
 			BorderSizePixel = 0,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+		}, h("frame", {
 			Size = props.clock:map(function()
 				local left = (tonumber(buff.endsAt) or 0) - workspace:GetServerTimeNow()
 				return UDim2.fromScale(math.clamp(left / math.max(1, buff.duration), 0, 1), 1)
 			end),
 			BackgroundColor3 = buff.color,
 			BorderSizePixel = 0,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))))
+		})))
 	end
 	return h("frame", {
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.new(1, 0, 0, COMPACT_H),
+		BackgroundTransparency = 1,
+		Position = arrive:map(function(t) return UDim2.fromOffset(0, (1 - t) * 6) end),
+		ZIndex = 62,
+	}, items)
+end
+
+local SECTION_HEAD = 24
+
+local function sectionHeight(rows)
+	return SECTION_HEAD + rows * ROW_H + 6
+end
+
+local function expandedHeight(props, buffs)
+	local h_ = 10 + COMPACT_H
+	if props.currencies and #props.currencies > 0 then h_ += sectionHeight(#props.currencies) end
+	if props.perf and (props.perf.showFps or props.perf.showPing) then h_ += sectionHeight(1) end
+	if #buffs > 0 then h_ += sectionHeight(#buffs) end
+	return h_ + 8
+end
+
+local function Row(order, color, icon, name, value, valueColor, extra, onClick)
+	return h(if onClick then "textbutton" else "frame", {
+		Size = UDim2.new(1, 0, 0, ROW_H),
+		LayoutOrder = order,
+		BackgroundTransparency = 1,
+		Text = if onClick then "" else nil,
+		AutoButtonColor = if onClick then false else nil,
+		Event = if onClick then { Activated = onClick } else nil,
+	}, h("frame", {
+		Size = UDim2.fromOffset(26, 26),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = theme.darken(color, 0.6),
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 8) }), h(Icon, {
+		kind = icon,
+		color = P.cream,
+		accent = color,
+		size = 18,
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		spin = false,
+	})), h("textlabel", {
+		Size = UDim2.new(1, -170, 0, 18),
+		Position = UDim2.new(0, 36, 0, if extra then 2 else 9),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = P.cream,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+	}), h("textlabel", {
+		Size = UDim2.fromOffset(130, 18),
+		Position = UDim2.new(1, -130, 0, if extra then 2 else 9),
+		BackgroundTransparency = 1,
+		Text = value,
+		TextColor3 = valueColor,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+	}, h("uitextsizeconstraint", { MaxTextSize = 13, MinTextSize = 9 })), extra)
+end
+
+local function SectionTitle(order, text)
+	return h("textlabel", {
+		Size = UDim2.new(1, 0, 0, SECTION_HEAD),
+		LayoutOrder = order,
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = P.muted,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Bottom,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+	})
+end
+
+local function PerfRows(props)
+	local telemetry = telemetryHook()
+	local fps = math.max(0, math.floor(telemetry.fps + 0.5))
+	local ping = if telemetry.pingMs ~= nil then math.max(0, math.floor(telemetry.pingMs + 0.5)) else nil
+	local label = {}
+	if props.showFps then table.insert(label, `{fps} fps`) end
+	if props.showPing then table.insert(label, if ping then `{ping} ms ping` else "measuring ping") end
+	local smooth = fps >= 54 and (ping == nil or ping <= 85)
+	return Row(props.order, fpsColor(fps), "Timer", if smooth then "Running smoothly" else "Running a little slow", table.concat(label, "  ·  "), if smooth then P.mint else P.mango)
+end
+
+local function ExpandedList(props)
+	local arrive = useArrive("expanded")
+	local rows = {
+		layout = h("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder }),
+		pad = h("uipadding", { PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16), PaddingTop = UDim.new(0, 2) }),
+	}
+	local order = 0
+	local function nextOrder()
+		order += 1
+		return order
+	end
+	if props.currencies and #props.currencies > 0 then
+		rows.balanceTitle = SectionTitle(nextOrder(), "YOUR BALANCE")
+		for _, currency in props.currencies do
+			local rate = if currency.target == "FLUX" and props.rate ~= nil then `  +{format.compactNumber(props.rate)}/s` else ""
+			local destination = if currency.target == "FLUX" then "Workshop" elseif currency.target == "DUST" then "StarGrid" else "Overview"
+			rows["c" .. currency.target] = Row(nextOrder(), currency.color, currency.icon, currency.name or currency.target, format.compactNumber(currency.value) .. rate, theme.lighten(currency.color, 0.3), nil,
+				if props.navigate then function() props.navigate(destination) end else nil)
+		end
+	end
+	if props.perf and (props.perf.showFps or props.perf.showPing) then
+		rows.perfTitle = SectionTitle(nextOrder(), "CONNECTION")
+		rows.perf = h(PerfRows, { order = nextOrder(), showFps = props.perf.showFps, showPing = props.perf.showPing })
+	end
+	if #props.buffs > 0 then
+		rows.buffTitle = SectionTitle(nextOrder(), "BOOSTING YOU NOW")
+		for _, buff in props.buffs do
+			local timed = buff.endsAt ~= nil
+			rows[buff.key] = Row(nextOrder(), buff.color, buff.icon, buff.name,
+				if timed then props.clock:map(function()
+					return `{buff.value}  ·  {clockText((tonumber(buff.endsAt) or 0) - workspace:GetServerTimeNow())}`
+				end) else buff.value,
+				theme.lighten(buff.color, 0.35),
+				timed and buff.duration and h("frame", {
+					Size = UDim2.new(1, -36, 0, 3),
+					Position = UDim2.new(0, 36, 0, 25),
+					BackgroundColor3 = P.line,
+					BorderSizePixel = 0,
+				}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+					Size = props.clock:map(function()
+						local left = (tonumber(buff.endsAt) or 0) - workspace:GetServerTimeNow()
+						return UDim2.fromScale(math.clamp(left / math.max(1, buff.duration), 0, 1), 1)
+					end),
+					BackgroundColor3 = buff.color,
+					BorderSizePixel = 0,
+				}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))) or nil,
+				if props.navigate then function() props.navigate("Boosts") end else nil)
+		end
+	end
+	return h("frame", {
+		Size = UDim2.new(1, 0, 1, -(COMPACT_H + 6)),
+		Position = arrive:map(function(t) return UDim2.fromOffset(0, COMPACT_H + 6 + (1 - t) * 8) end),
 		BackgroundTransparency = 1,
 		ZIndex = 62,
-	}, rows)
+	}, h("frame", {
+		Size = UDim2.new(1, -32, 0, 1),
+		Position = UDim2.fromOffset(16, 0),
+		BackgroundColor3 = P.line,
+		BackgroundTransparency = 0.4,
+		BorderSizePixel = 0,
+	}), h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, rows))
 end
 
 local function Announcement(props)
@@ -402,34 +648,128 @@ local function Announcement(props)
 	}))
 end
 
+-- a live combo: the island widens into a meter that drains until the combo window runs out
+local function ComboActivity(props)
+	local combo = props.combo
+	local arrive = useArrive("combo" .. tostring(combo.count))
+	local hot = combo.count >= (combo.max or 12)
+	local color = if hot then P.coral else P.mango
+	return h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 62,
+	}, h("frame", {
+		Size = UDim2.fromOffset(30, 30),
+		Position = UDim2.new(0, 10, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = theme.darken(color, 0.55),
+		BorderSizePixel = 0,
+		ZIndex = 63,
+		Rotation = props.clock:map(function(t) return math.sin(t * 9) * (if hot then 10 else 4) end),
+	}, h("uiscale", { Scale = arrive:map(function(t) return 0.6 + easeOutBack(t) * 0.4 end) }), h("uicorner", { CornerRadius = UDim.new(1, 0) }), h(Icon, {
+		kind = "Overcharge",
+		color = P.white,
+		accent = color,
+		size = 20,
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		spin = false,
+	})), h("textlabel", {
+		Size = UDim2.fromOffset(150, 20),
+		Position = UDim2.fromOffset(48, 4),
+		BackgroundTransparency = 1,
+		Text = if hot then `MAX COMBO x{combo.count}` else `COMBO x{combo.count}`,
+		TextColor3 = theme.lighten(color, 0.35),
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		ZIndex = 63,
+	}, h("uiscale", { Scale = arrive:map(function(t) return 0.8 + easeOutBack(t) * 0.2 end) })), h("textlabel", {
+		Size = UDim2.fromOffset(120, 18),
+		Position = UDim2.new(1, -132, 0, 5),
+		BackgroundTransparency = 1,
+		Text = `{string.format("%.2f", combo.multiplier or 1)}x taps`,
+		TextColor3 = P.creamSoft,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		ZIndex = 63,
+	}), h("frame", {
+		Size = UDim2.new(1, -60, 0, 5),
+		Position = UDim2.new(0, 48, 1, -12),
+		BackgroundColor3 = P.line,
+		BorderSizePixel = 0,
+		ZIndex = 63,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+		Size = props.clock:map(function()
+			local left = combo.at + (combo.window or 1.8) - os.clock()
+			return UDim2.fromScale(math.clamp(left / (combo.window or 1.8), 0, 1), 1)
+		end),
+		BackgroundColor3 = color,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", { Color = ColorSequence.new(theme.lighten(color, 0.4), color) }))))
+end
+
+-- props: state, config, currencies { {target, name, value, icon, color} }, perf { showFps, showPing },
+-- rate (flux per second), vaultFull, navigate, maxWidth, position, anchorPoint, restHidden, reducedMotion
 function BuffStrip.Island(props)
 	local clock = motion.useClock(true, 1, 3600, true)
 	local now = workspace:GetServerTimeNow()
 	local buffs = BuffStrip.list(props.state, props.config, now)
-	local maxWidth = props.maxWidth or 520
-	local fit = math.max(0, math.floor((maxWidth - 32) / 64))
-	local shown = {}
-	for index, buff in buffs do
-		if index <= fit then
-			table.insert(shown, buff)
-		end
-	end
+	local maxWidth = props.maxWidth or 640
+	local plan = planCompact(props, buffs)
 	local hovered, setHovered = React.useState(false)
 	local pinned, setPinned = React.useState(false)
+	-- announcements queue up and play one after another
 	local event, setEvent = React.useState(nil)
-	local eventToken = React.useRef(0)
+	local queue = React.useRef({})
+	local playing = React.useRef(false)
+	local token = React.useRef(0)
+	local playNext
+	playNext = function()
+		local nextInfo = table.remove(queue.current, 1)
+		if nextInfo == nil then
+			playing.current = false
+			setEvent(nil)
+			return
+		end
+		playing.current = true
+		token.current += 1
+		nextInfo.token = token.current
+		setEvent(nextInfo)
+		local hold = nextInfo.duration or (if #queue.current > 1 then 1.7 else 2.6)
+		task.delay(hold, playNext)
+	end
 	React.useEffect(function()
-		return Juice.onBanner(function(info)
-			eventToken.current += 1
-			local token = eventToken.current
-			info.token = token
-			setEvent(info)
-			task.delay(2.9, function()
-				if eventToken.current == token then
-					setEvent(nil)
-				end
-			end)
+		local stopBanner = Juice.onBanner(function(info)
+			if #queue.current >= 6 then
+				table.remove(queue.current, 1)
+			end
+			table.insert(queue.current, info)
+			if not playing.current then
+				playNext()
+			end
 		end)
+		return function()
+			stopBanner()
+			queue.current = {}
+		end
+	end, {})
+	-- live activity: the overcharge combo
+	local combo, setCombo = React.useState(nil)
+	React.useEffect(function()
+		local stop = Juice.onActivity(function(kind, data)
+			if kind == "combo" and type(data) == "table" then
+				local entry = { count = data.combo or 0, multiplier = data.multiplier, max = data.max, window = data.window or 1.8, at = os.clock() }
+				setCombo(entry)
+				task.delay(entry.window + 0.15, function()
+					setCombo(function(current)
+						return if current == entry then nil else current
+					end)
+				end)
+			end
+		end)
+		return stop
 	end, {})
 	-- a buff that just started announces itself
 	local signature = {}
@@ -453,23 +793,38 @@ function BuffStrip.Island(props)
 		seen.current = current
 	end, { signatureText })
 
-	-- phones keep the island out of the way at rest: it only drops in to announce something
-	local mode = if event ~= nil then "event" elseif props.restHidden then "hidden" elseif (hovered or pinned) and #buffs > 0 then "expanded" elseif #shown > 0 then "compact" else "hidden"
-	local targetW = if mode == "event" then math.min(maxWidth, 440)
-		elseif mode == "expanded" then math.min(maxWidth, 340)
-		elseif mode == "compact" then 24 + #shown * 64 - 12 + 16
+	local hasContent = plan.width > 30 and ((props.currencies and #props.currencies > 0) or #plan.buffs > 0 or plan.perf)
+	local comboLive = combo ~= nil and combo.count >= 2
+	local mode = if event ~= nil then "event"
+		elseif comboLive and not (hovered or pinned) then "combo"
+		elseif props.restHidden then "hidden"
+		elseif hovered or pinned then "expanded"
+		elseif hasContent then "compact"
+		else "hidden"
+	local compactW = math.min(maxWidth, plan.width)
+	local targetW = if mode == "event" then math.min(maxWidth, 520)
+		elseif mode == "combo" then math.min(maxWidth, 360)
+		elseif mode == "expanded" then math.min(maxWidth, math.max(420, compactW))
+		elseif mode == "compact" then compactW
 		else 0
 	local targetH = if mode == "event" then EVENT_H
-		elseif mode == "expanded" then 18 + 14 + #buffs * ROW_H
+		elseif mode == "combo" then COMPACT_H + 4
+		elseif mode == "expanded" then expandedHeight(props, buffs)
 		elseif mode == "compact" then COMPACT_H
 		else 0
-	local width = motion.useFlipperSpring(targetW, props.reducedMotion, 300, 26)
-	local height = motion.useFlipperSpring(targetH, props.reducedMotion, 300, 26)
-	local glow = motion.usePulse(true, 1.6)
-	local accent = if event then event.color else P.lineSoft
+	local width = motion.useFlipperSpring(targetW, props.reducedMotion, 300, 24)
+	local height = motion.useFlipperSpring(targetH, props.reducedMotion, 300, 24)
+	-- jelly: each change of shape lands with a small squash and settles
+	local modeKey = mode .. (if event then tostring(event.token) else "") .. (if combo then tostring(combo.count) else "")
+	local jelly = motion.useFlash(modeKey, props.reducedMotion, 0.5)
+	local glow = motion.usePulse(true, if props.vaultFull then 3.2 else 1.6)
+	local accent = if event then event.color elseif mode == "combo" then P.mango elseif props.vaultFull then P.mango else P.lineSoft
 	local content = if mode == "event" then h(Announcement, { key = "event" .. event.token, info = event, token = event.token, clock = clock })
-		elseif mode == "expanded" then h(ExpandedList, { key = "expanded", buffs = buffs, clock = clock })
-		elseif mode == "compact" then h(CompactRow, { key = "compact", buffs = shown, clock = clock })
+		elseif mode == "combo" then h(ComboActivity, { key = "combo", combo = combo, clock = clock })
+		elseif mode == "expanded" then h(React.Fragment, nil,
+			h(CompactRow, { key = "top", plan = plan, currencies = props.currencies, perf = props.perf, vaultFull = props.vaultFull, clock = clock, reducedMotion = props.reducedMotion }),
+			h(ExpandedList, { key = "list", buffs = buffs, currencies = props.currencies, perf = props.perf, rate = props.rate, navigate = props.navigate, clock = clock }))
+		elseif mode == "compact" then h(CompactRow, { key = "top", plan = plan, currencies = props.currencies, perf = props.perf, vaultFull = props.vaultFull, clock = clock, reducedMotion = props.reducedMotion })
 		else nil
 	return h("imagebutton", {
 		Name = "BuffIsland",
@@ -490,14 +845,34 @@ function BuffStrip.Island(props)
 			MouseLeave = function() setHovered(false) end,
 			Activated = function() setPinned(not pinned) end,
 		},
-	}, h("uicorner", {
-		CornerRadius = height:map(function(v) return UDim.new(0, math.clamp(v / 2, 10, 24)) end),
+	}, h("uiscale", {
+		Scale = jelly:map(function(v) return 1 + math.sin(v * math.pi) * 0.045 end),
+	}), h("uicorner", {
+		CornerRadius = height:map(function(v) return UDim.new(0, math.clamp(v / 2, 10, 22)) end),
 	}), h("uistroke", {
 		Color = accent,
-		Thickness = if event then 2 else 1,
-		Transparency = glow:map(function(v) return if event then 0.05 + v * 0.3 else 0.45 + v * 0.25 end),
+		Thickness = if event or props.vaultFull or mode == "combo" then 2 else 1,
+		Transparency = glow:map(function(v) return if event or props.vaultFull or mode == "combo" then 0.05 + v * 0.35 else 0.45 + v * 0.25 end),
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}), content)
+	}), h("frame", {
+		-- a slow sheen crosses the capsule every few seconds
+		Size = UDim2.new(0.35, 0, 1, 0),
+		BackgroundColor3 = P.white,
+		BackgroundTransparency = 0.94,
+		BorderSizePixel = 0,
+		ZIndex = 61,
+		Position = clock:map(function(t)
+			local phase = (t % 7) / 1.1
+			return UDim2.fromScale(-0.4 + math.clamp(phase, 0, 1) * 1.8, 0)
+		end),
+	}, h("uigradient", {
+		Rotation = 20,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	})), content)
 end
 
 return BuffStrip

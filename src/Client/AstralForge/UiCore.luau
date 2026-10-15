@@ -1393,7 +1393,14 @@ local function Panel(_param)
 				setHovered(false)
 			end,
 		} else {},
-	}, paintChrome and React.createElement("frame", {
+	}, React.createElement("uiscale", {
+		-- island-style arrival: the card swells into place with a soft overshoot
+		Scale = activeReveal:map(function(amount)
+			local x = math.clamp(amount, 0, 1)
+			local back = 1 + 2.4 * (x - 1) ^ 3 + 1.4 * (x - 1) ^ 2
+			return 0.95 + back * 0.05
+		end),
+	}), paintChrome and React.createElement("frame", {
 		Size = UDim2.new(1, 8, 1, -1),
 		Position = derived.shadowPosition,
 		BackgroundColor3 = Palette.shadow,
@@ -1411,7 +1418,10 @@ local function Panel(_param)
 		ZIndex = zIndex,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, radius),
+		-- corners start rounder, like a capsule, and settle to the card's radius
+		CornerRadius = activeReveal:map(function(amount)
+			return UDim.new(0, radius + math.round((1 - math.clamp(amount, 0, 1)) * 18))
+		end),
 	}), React.createElement("uigradient", {
 		Color = surfaceGradient(background, 0.92),
 		Rotation = 90,
@@ -4985,6 +4995,15 @@ local function MainGame(_param)
 			at = now,
 		}
 		NoticeMath.Record(normalizedTitle, body, tone)
+		-- good news morphs out of the island instead of sliding up as a toast
+		local Juice = require(script.Parent.JuiceFx)
+		if (tone == "Success" or tone == "Special") and Juice.hasIsland() then
+			if playSound then
+				Audio:play(if tone == "Special" then "noticeSpecial" else "noticeSuccess")
+			end
+			Juice.banner(normalizedTitle, body, if tone == "Special" then Palette.violet else Palette.mint, if tone == "Special" then "Boost" else "Check", if tone == "Success" then 1.8 else nil)
+			return nil
+		end
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
 		local maxNotices = NoticeMath.MaxNotices(toastDensityRef.current)
 		local _exp_1 = noticesLive.current
@@ -5171,6 +5190,7 @@ local function MainGame(_param)
 			return nil
 		end
 		require(script.Parent.SessionStats).best("bestCombo", combo)
+		require(script.Parent.JuiceFx).activity("combo", { combo = combo, multiplier = comboMultiplier, max = comboMax, window = comboWindow })
 		setComboReadout({
 			combo = combo,
 			comboMultiplier = comboMultiplier,
@@ -7890,6 +7910,8 @@ local function AppShell(_param)
 		end
 		_attributes.releaseAt = _condition_18
 		_attributes.visit = visit
+		_attributes.config = config
+		_attributes.navigate = setPage
 		_attributes.openPlayerlist = function()
 			setFeedbackOpen(false)
 			setPlayerlistOpen(true)
@@ -9361,7 +9383,54 @@ local function TopBar(_param)
 		width = countdownW,
 		reducedMotion = reducedMotion,
 	}))
-	local _condition_3 = hasRightCluster
+	-- desktop: currencies, FPS/ping and buffs live in the island, centred between the logo and controls
+	local islandLeft = 12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14 + (if countdownW > 0 then countdownW + 10 else 0)
+	local islandRight = controlsW + controlsRight + 12 + (if visitPillWidth > 0 then visitPillWidth + 8 else 0)
+	local islandRoom = math.max(160, width - edgePad * 2 - islandLeft - islandRight)
+	local islandCurrencies = {}
+	for _, chip in allChips do
+		if not chip.event then
+			table.insert(islandCurrencies, 1, {
+				target = chip.label,
+				name = if chip.label == "FLUX" then "Flux" elseif chip.label == "DUST" then "Stardust" else "Cores",
+				value = chip.value,
+				icon = chip.icon,
+				color = chip.accent,
+			})
+		end
+	end
+	local islandElement = not stacked and React.createElement(React.Fragment, nil, React.createElement(require(script.Parent.BuffStrip).Island, {
+		state = state,
+		config = _param.config,
+		currencies = islandCurrencies,
+		perf = {
+			showFps = (state.Settings.ShowFps or 1) >= 0.5,
+			showPing = (state.Settings.ShowPing or 1) >= 0.5,
+		},
+		rate = state.Production,
+		vaultFull = asFlux(state.Capacity) > 0 and asFlux(state.Vault) >= asFlux(state.Capacity) * 0.99,
+		navigate = _param.navigate,
+		maxWidth = islandRoom,
+		position = UDim2.new(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
+		anchorPoint = Vector2.new(0.5, 0),
+		reducedMotion = reducedMotion,
+	}), visitPill ~= nil and React.createElement("frame", {
+		Size = UDim2.fromOffset(visitPillWidth, TapTarget),
+		Position = UDim2.new(1, -(controlsW + controlsRight + 12), 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 22,
+	}, React.createElement(Button, {
+		text = visitPill.label,
+		icon = "Crew",
+		onClick = openPlayerlist,
+		color = Palette.panelSoft,
+		textColor = visitPill.accent,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+	})))
+	local _condition_3 = hasRightCluster and stacked
 	if _condition_3 then
 		local _exp_9 = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
@@ -9539,7 +9608,7 @@ local function TopBar(_param)
 		BorderSizePixel = 0,
 		ZIndex = 20,
 		ClipsDescendants = false,
-	}, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, _exp_6, _exp_7, _exp_8, _condition_3, _condition_4, _condition_5, React.createElement("frame", {
+	}, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, _exp_6, _exp_7, _exp_8, _condition_3, islandElement, _condition_4, _condition_5, React.createElement("frame", {
 		Size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
 		Position = UDim2.new(1, -(SHELL_CHROME.topbarControl + controlsRight), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
 		BackgroundTransparency = 1,
@@ -11208,7 +11277,7 @@ local function VaultPill(_param)
 				local centre = Juice.centreOf(pill)
 				if centre then
 					Juice.number(`+{compactNumber(productionRef.current)}`, Palette.green, {
-						at = centre + Vector2.new(math.random(-70, 50), 44),
+						at = centre + Vector2.new(-205 + math.random(-30, 30), 10),
 						small = true,
 						icon = "Flux",
 					})
@@ -11663,14 +11732,6 @@ local function Workspace(_param)
 		reducedMotion = reducedMotion,
 		accent = accent,
 		top = vaultPillY,
-	}), not keyboardCompact and React.createElement(require(script.Parent.BuffStrip).Island, {
-		-- the island: buffs at rest, details on hover, announcements when something happens
-		state = state,
-		config = _param.config,
-		reducedMotion = reducedMotion,
-		maxWidth = if chrome.stack then math.max(200, viewport.width - 40) else math.max(220, viewport.width - (titleLeft + 260 + 660)),
-		position = if chrome.stack then UDim2.new(0.5, 0, 0, 6) else UDim2.new(0.5, (titleLeft + 260 - 330) / 2, 0, math.max(6, math.floor((headerHeight - 40) / 2))),
-		anchorPoint = Vector2.new(0.5, 0),
 	}), React.createElement("frame", {
 		Name = "VaultCollectClaim",
 		ref = vaultCollectHostRef,

@@ -192,10 +192,26 @@ function Juice.onBanner(callback)
 		bannerListeners[callback] = nil
 	end
 end
-function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: string?)
+function Juice.hasIsland(): boolean
+	return next(bannerListeners) ~= nil
+end
+-- live activities the island can show while they last ("combo" = { combo, multiplier, max, window })
+local activityListeners = {}
+function Juice.onActivity(callback)
+	activityListeners[callback] = true
+	return function()
+		activityListeners[callback] = nil
+	end
+end
+function Juice.activity(kind: string, data)
+	for callback in activityListeners do
+		task.spawn(callback, kind, data)
+	end
+end
+function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: string?, duration: number?)
 	if next(bannerListeners) ~= nil then
 		for callback in bannerListeners do
-			task.spawn(callback, { title = title, subtitle = subtitle, color = color or P.mango, icon = icon })
+			task.spawn(callback, { title = title, subtitle = subtitle, color = color or P.mango, icon = icon, duration = duration })
 		end
 		return
 	end
