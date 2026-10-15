@@ -453,7 +453,8 @@ function BuffStrip.Island(props)
 		seen.current = current
 	end, { signatureText })
 
-	local mode = if event ~= nil then "event" elseif (hovered or pinned) and #buffs > 0 then "expanded" elseif #shown > 0 then "compact" else "hidden"
+	-- phones keep the island out of the way at rest: it only drops in to announce something
+	local mode = if event ~= nil then "event" elseif props.restHidden then "hidden" elseif (hovered or pinned) and #buffs > 0 then "expanded" elseif #shown > 0 then "compact" else "hidden"
 	local targetW = if mode == "event" then math.min(maxWidth, 440)
 		elseif mode == "expanded" then math.min(maxWidth, 340)
 		elseif mode == "compact" then 24 + #shown * 64 - 12 + 16

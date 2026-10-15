@@ -7842,7 +7842,7 @@ local function AppShell(_param)
 			CornerRadius = UDim.new(1, 0),
 		}))
 	end
-	local _exp_4 = not keyboardShellCompact and mobileShell and React.createElement(MobileHeader, {
+	local _exp_4 = not keyboardShellCompact and mobileShell and React.createElement(React.Fragment, nil, React.createElement(MobileHeader, {
 		state = state,
 		page = page,
 		accent = accent,
@@ -7855,7 +7855,15 @@ local function AppShell(_param)
 			setFeedbackOpen(false)
 			setPlayerlistOpen(true)
 		end,
-	})
+	}), React.createElement(require(script.Parent.BuffStrip).Island, {
+		state = state,
+		config = config,
+		reducedMotion = softMotion,
+		restHidden = true,
+		maxWidth = viewport.width - edgePad * 2,
+		position = UDim2.new(0.5, 0, 0, topPad + topbarHeight + 6),
+		anchorPoint = Vector2.new(0.5, 0),
+	}))
 	local _condition_17 = not keyboardShellCompact and not mobileShell
 	if _condition_17 then
 		local _attributes = {
@@ -15179,7 +15187,7 @@ local function MobileHeader(_param)
 	local eventDef = if liveEvent ~= nil and liveEvent.Phase ~= "Rest" then events.EVENTS[liveEvent.Id or ""] else nil
 	local eventAccent = events.accentOf(eventDef)
 	local eventW = if eventDef ~= nil then playersW + 6 else 0
-	local titleMin = if width < 440 then 76 else 110
+	local titleMin = if width < 440 then 60 else 110
 	local room = width - (8 + iconSize + 8 + titleMin + playersW + eventW + 22)
 	-- narrow phones shrink the chips so every currency stays readable without scrolling
 	chipW = math.clamp(math.floor((room - math.max(0, #wanted - 1) * 6) / math.max(1, #wanted)), 58, chipW)
