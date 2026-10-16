@@ -144,6 +144,8 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.DomainExpansion] = { Cost = 5, Cooldown = 5 },
 		[Protocol.Actions.UnlockDomainNode] = { Cost = 1, Cooldown = 0.2 },
 		[Protocol.Actions.UpgradeContinuum] = { Cost = 1.5, Cooldown = 0.35 },
+		-- Star Foundry moves; Ignite is a timing tap, so the cooldown is short
+		[Protocol.Actions.FoundryAct] = { Cost = 0.45, Cooldown = 0.06 },
 		[Protocol.Actions.Ascend] = { Cost = 5, Cooldown = 5 },
 		[Protocol.Actions.UpgradeSigil] = { Cost = 1.5, Cooldown = 0.3 },
 		[Protocol.Actions.CaptureEcho] = { Cost = 2, Cooldown = 1.1 },
@@ -516,6 +518,19 @@ return function(loadService: (string) -> any)
 					return false, "invalid mail"
 				end
 				return false, "invalid action payload"
+			end
+		elseif action == Protocol.Actions.FoundryAct then
+			if type(payload) ~= "table" or not stringField(payload, "Op", 1, 12) then
+				return false, "invalid foundry move"
+			end
+			for _, field in { "From", "To", "At" } do
+				local value = payload[field]
+				if value ~= nil and (type(value) ~= "string" or #value < 1 or #value > 16) then
+					return false, "invalid foundry cell"
+				end
+			end
+			if payload.Back ~= nil and type(payload.Back) ~= "boolean" then
+				return false, "invalid foundry rotation"
 			end
 		elseif action == Protocol.Actions.SetAnomalyLoadout then
 			if not stringArrayField(payload, "Loadout", GameConfig.Anomalies.LoadoutSlots, 1, 32) then

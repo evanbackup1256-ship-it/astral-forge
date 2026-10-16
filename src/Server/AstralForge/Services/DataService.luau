@@ -144,6 +144,8 @@ local AscensionMath = require(game:GetService("ReplicatedStorage"):WaitForChild(
 		profile.Continuum.TotalFluxSpent = nonNegative(profile.Continuum.TotalFluxSpent)
 		profile.Ascension = AscensionMath.sanitize(profile.Ascension, OmegaMath)
 		profile.Continuum.TotalStardustSpent = nonNegative(profile.Continuum.TotalStardustSpent)
+		-- the Star Foundry is always valid after load (first load converts Continuum/Reactor progress)
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("FoundryService")).Ensure(profile)
 		local retired = type(profile.Infinite) == "table" and profile.Infinite or nil
 		if retired then
 			if retired.Active == true and type(retired.Legacy) == "table" then

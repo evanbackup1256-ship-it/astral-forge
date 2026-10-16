@@ -258,16 +258,13 @@ function Economy.GridEffect(profile: ProfileLike, effectKind: string): number
 	return EconomyEnvelopeMath.GridEffect(profile.GridUpgrades, gridById, effectKind)
 end
 
-function Economy.AnomalyEffect(profile: ProfileLike, effectKind: string, now: number?): number
-	local state = profile.Anomaly
-	if not state then
-		return 0
-	end
-	return AnomalyOpsMath.Effect(state, effectKind, GameConfig.Anomalies.Protocols, GameConfig.Anomalies.Channels, GameConfig.Anomalies.Types, GameConfig.Anomalies.CycleSeconds, now or os.time(), GameConfig.Anomalies.CoreTiers)
+-- The Reactor retired into the Star Foundry (its progress converted on load), so it adds nothing now.
+function Economy.AnomalyEffect(_profile: ProfileLike, _effectKind: string, _now: number?): number
+	return 0
 end
 
-function Economy.AnomalySurgeMultiplier(profile: ProfileLike, now: number?): number
-	return AnomalyOpsMath.SurgeMultiplier(profile.Anomaly, now or os.time(), GameConfig.Anomalies.SurgeMultiplier)
+function Economy.AnomalySurgeMultiplier(_profile: ProfileLike, _now: number?): number
+	return 1
 end
 
 function Economy.GetZone(id: number)
@@ -418,9 +415,12 @@ function Economy.ContinuumCosts(rank: number): (Persist, Persist)
 	return ContinuumDomainMath.ContinuumCosts(OmegaMath, GameConfig.Continuum, rank)
 end
 
-function Economy.ContinuumEffects(profile: ProfileLike): (Persist, Persist, Persist, number)
-	local rank = profile.Continuum and math.max(0, math.floor(profile.Continuum.Rank or 0)) or 0
-	return ContinuumDomainMath.ContinuumEffects(OmegaMath, GameConfig.Continuum, rank)
+-- Star Foundry replaced Continuum: production, capacity, tap and offline come from the board
+function Economy.FoundryEffects(profile: ProfileLike): (number, number, number, number)
+	return require(script.Parent:WaitForChild("FoundryService")).Effects(profile)
+end
+function Economy.ContinuumEffects(profile: ProfileLike): (number, number, number, number)
+	return Economy.FoundryEffects(profile)
 end
 
 function Economy.DomainRequirements(rank: number): (number, number)

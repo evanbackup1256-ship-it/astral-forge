@@ -95,7 +95,7 @@ assert(OmegaMath.Gte(higher, nextTarget), "next prestige must not regress with r
 -- Economy wiring residuals
 ------------------------------------------------------------------------
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
-assert(string.find(economySrc, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate")
+assert(string.find(economySrc, "return Economy.FoundryEffects(profile)", 1, true), "Economy ContinuumEffects must delegate")
 assert(string.find(economySrc, "ForgePathClaim.Effect", 1, true), "Economy ForgePathEffect must delegate")
 assert(string.find(economySrc, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.AutoCollectRate", 1, true), "Economy AutoCollectRate must delegate")

@@ -41,6 +41,7 @@ serviceFactories["GameService"] = function()
 
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local FoundryService = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("FoundryService"))
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
@@ -1535,6 +1536,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 					return Economy.DomainTreeBonus(profile, kind)
 				end,
 			}),
+			Foundry = FoundryService.State(profile, workspace:GetServerTimeNow()),
 			Continuum = ContinuumDomainMath.SnapshotContinuumPublic({
 				rank = continuumRank,
 				totalFluxSpent = continuum.TotalFluxSpent,
@@ -3341,6 +3343,18 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		return responseError("Unknown setting.")
 	end
 
+	-- Star Foundry: every move is one FoundryAct with an Op (rules in FoundryMath, moves in FoundryService)
+	function GameService:_foundryAct(player: Player, payload)
+		local now = workspace:GetServerTimeNow()
+		return self:_mutate(player, function(profile)
+			local ok, message, extra = FoundryService.Act(profile, payload, self._random, now)
+			if not ok then
+				return responseError(message or "That foundry move is not valid.")
+			end
+			return responseSuccess(message, extra or {})
+		end)
+	end
+
 	function GameService:_upgradeContinuum(player: Player)
 		return self:_mutate(player, function(profile)
 			profile.Continuum = profile.Continuum or {
@@ -4553,6 +4567,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			return responseError("Star Grid purchases have retired. Your purchased bonuses remain active; choose a build in Forge Specializations.")
 		elseif action == Protocol.Actions.UpgradeContinuum then
 			return self:_upgradeContinuum(player)
+		elseif action == Protocol.Actions.FoundryAct then
+			return self:_foundryAct(player, payload)
 		elseif action == Protocol.Actions.CaptureEcho then
 			return self:_captureEcho(player)
 		elseif action == Protocol.Actions.ClaimEcho then

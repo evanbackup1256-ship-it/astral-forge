@@ -311,7 +311,7 @@ print(string.format(
 -- ContinuumEffects / NextPrestigeTarget / OfflineHours pure parity
 ------------------------------------------------------------------------
 do
-	assert(string.find(economySrc, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate")
+	assert(string.find(economySrc, "return Economy.FoundryEffects(profile)", 1, true), "Economy ContinuumEffects must delegate")
 	assert(string.find(economySrc, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate")
 	assert(string.find(economySrc, "EconomyEnvelopeMath.OfflineHours", 1, true), "Economy OfflineHours must delegate")
 	local continuumFx = {

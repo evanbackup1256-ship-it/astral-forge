@@ -28,6 +28,8 @@ function DataTemplate.New()
 			SkillPoints = 0,
 			Nodes = {},
 		},
+		-- Star Foundry: built (and migrated from Continuum/Reactor) on first load by FoundryService.Ensure
+		Foundry = { Migrated = false },
 		Continuum = {
 			Rank = 0,
 			TotalFluxSpent = 0,

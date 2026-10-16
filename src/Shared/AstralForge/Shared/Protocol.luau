@@ -31,6 +31,7 @@ local Protocol = {
 		DomainExpansion = "DomainExpansion",
 		UnlockDomainNode = "UnlockDomainNode",
 		UpgradeContinuum = "UpgradeContinuum",
+		FoundryAct = "FoundryAct",
 		Ascend = "Ascend",
 		UpgradeSigil = "UpgradeSigil",
 		CaptureEcho = "CaptureEcho",
