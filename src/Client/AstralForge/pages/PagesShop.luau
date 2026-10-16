@@ -3113,13 +3113,21 @@ local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local Panel = _ui.Panel
 local Text = _ui.Text
+-- The spin, in five parts. Angles in degrees, time in seconds.
+--   windup  a short pull back against the spin
+--   launch  ease in up to cruise speed
+--   cruise  constant speed until the server has picked the prize
+--   brake   quartic ease-out onto the prize (+ a little overshoot); it starts at exactly the
+--           cruise speed so there is no hitch, and spends its last second crawling past pegs
+--   settle  the peg catches the overshoot and the wheel rocks back onto the prize
 local WHEEL_OMEGA = 1440
 local WHEEL_OMEGA_LOW = 1080
-local WHEEL_LAUNCH_SECONDS = 0.65
-local WHEEL_MIN_CRUISE_SECONDS = 0.35
-local WHEEL_WINDUP_SECONDS = 0.26
-local WHEEL_WINDUP_DEGREES = 16
-local WHEEL_SETTLE_DEGREES = 2.6
+local WHEEL_WINDUP_SECONDS = 0.3
+local WHEEL_WINDUP_DEGREES = 18
+local WHEEL_LAUNCH_SECONDS = 0.55
+local WHEEL_MIN_CRUISE_SECONDS = 0.45
+local WHEEL_SETTLE_SECONDS = 0.45
+local WHEEL_OVERSHOOT_DEGREES = 4
 local function sampleSpin(plan, elapsed)
 	local omega = plan.omega
 	if elapsed < WHEEL_WINDUP_SECONDS then
@@ -3129,9 +3137,23 @@ local function sampleSpin(plan, elapsed)
 	local start = plan.base - WHEEL_WINDUP_DEGREES
 	local launched = elapsed - WHEEL_WINDUP_SECONDS
 	if launched < WHEEL_LAUNCH_SECONDS then
-		return start + omega * launched * launched / (2 * WHEEL_LAUNCH_SECONDS), omega * launched / WHEEL_LAUNCH_SECONDS
+		local u = launched / WHEEL_LAUNCH_SECONDS
+		-- speed rises as u^2, so distance is the integral u^3 / 3
+		return start + omega * WHEEL_LAUNCH_SECONDS * u * u * u / 3, omega * u * u
 	end
-	return start + omega * WHEEL_LAUNCH_SECONDS / 2 + omega * (launched - WHEEL_LAUNCH_SECONDS), omega
+	return start + omega * WHEEL_LAUNCH_SECONDS / 3 + omega * (launched - WHEEL_LAUNCH_SECONDS), omega
+end
+-- brake + settle: where the wheel is `elapsed` seconds after braking began
+local function sampleBrake(plan, elapsed)
+	if elapsed < plan.duration then
+		local remaining = 1 - elapsed / plan.duration
+		local r3 = remaining * remaining * remaining
+		return plan.base + plan.distance * (1 - r3 * remaining), 4 * plan.distance / plan.duration * r3, false
+	end
+	local u = math.clamp((elapsed - plan.duration) / WHEEL_SETTLE_SECONDS, 0, 1)
+	-- from +overshoot back to the prize, rocking once past it
+	local rock = plan.overshoot * (1 - u) * math.cos(u * math.pi * 1.5)
+	return plan.base + plan.distance - plan.overshoot + rock, 0, u >= 1
 end
 local function positiveModulo(value, modulus)
 	return ((value % modulus) + modulus) % modulus
@@ -3229,17 +3251,22 @@ local function useWheelController(_param)
 		local now = os.clock()
 		local plan = motor.current
 		local current, speed = sampleSpin(plan, now - plan.startedAt)
+		speed = math.max(speed, 360)
 		local delta = positiveModulo(wanted - positiveModulo(current, 360), 360)
-		local distance = (if antilag.tier <= 1 then 720 else 1080) + delta
+		local overshoot = math.min(WHEEL_OVERSHOOT_DEGREES, segment * 0.3)
+		-- at least two full turns on the way down (three when the device has room for it)
+		local distance = (if antilag.tier <= 1 then 720 else 1080) + delta + overshoot
 		motor.current = {
 			active = true,
 			mode = "brake",
 			base = current,
 			omega = plan.omega,
 			distance = distance,
-			duration = 3 * distance / math.max(speed, 240),
+			overshoot = overshoot,
+			-- the quartic's opening speed is 4 * distance / duration: match the cruise exactly
+			duration = 4 * distance / speed,
 			startedAt = now,
-			lastSegment = math.floor(current / segment),
+			lastSegment = math.floor((current + segment / 2) / segment),
 			lastSoundAt = plan.lastSoundAt,
 			result = result,
 		}
@@ -3253,8 +3280,9 @@ local function useWheelController(_param)
 			return nil
 		end
 		local connection = RunService.RenderStepped:Connect(function(deltaTime)
+			-- the pointer springs back after each peg flicks it
 			if pointerKickValue.current > 0 then
-				pointerKickValue.current = math.max(0, pointerKickValue.current - deltaTime * 11.5)
+				pointerKickValue.current = math.max(0, pointerKickValue.current - deltaTime * 9)
 				setPointerKick(pointerKickValue.current)
 			end
 			local plan = motor.current
@@ -3264,30 +3292,27 @@ local function useWheelController(_param)
 			local now = os.clock()
 			local elapsed = now - plan.startedAt
 			local braking = plan.mode == "brake"
-			local value, speed, progress
+			local value, speed, settled
 			if braking then
-				progress = math.clamp(elapsed / plan.duration, 0, 1)
-				local remaining = 1 - progress
-				local u = math.clamp((progress - 0.82) / 0.18, 0, 1)
-				local settle = if u > 0 and u < 1 then WHEEL_SETTLE_DEGREES * math.sin(u * math.pi * 2.5) * (1 - u) else 0
-				value = plan.base + plan.distance * (1 - remaining * remaining * remaining) - settle
-				speed = 3 * plan.distance / plan.duration * remaining * remaining
+				value, speed, settled = sampleBrake(plan, elapsed)
 			else
-				progress = 0
 				value, speed = sampleSpin(plan, elapsed)
 			end
 			rotationValue.current = value
 			setRotation(value)
-			setSpinEnergy(math.clamp(speed / plan.omega, 0, 1))
-			local currentSegment = math.floor(value / segment)
+			local energy = math.clamp(speed / plan.omega, 0, 1)
+			setSpinEnergy(energy)
+			-- pegs sit on the segment edges; crossing one flicks the pointer and clicks
+			local currentSegment = math.floor((value + segment / 2) / segment)
 			if currentSegment ~= plan.lastSegment then
 				plan.lastSegment = currentSegment
-				pointerKickValue.current = if braking and progress > 0.66 then 1 else 0.58
+				-- a slow wheel gives the pointer time to swing further
+				pointerKickValue.current = math.max(pointerKickValue.current, 0.4 + (1 - energy) * 0.6)
 				setPointerKick(pointerKickValue.current)
-				local interval = if braking then 0.06 + progress * 0.16 else 0.14
+				local interval = if energy > 0.6 then 0.055 else 0
 				if audioTicksRef.current and now - plan.lastSoundAt >= interval then
 					plan.lastSoundAt = now
-					Audio:play(if braking and progress > 0.65 then "wheelSlow" else "wheelTick", 0.92 + (1 - progress) * 0.16)
+					Audio:play(if braking and energy < 0.25 then "wheelSlow" else "wheelTick", 0.86 + energy * 0.3)
 				end
 			end
 			if not braking then
@@ -3297,9 +3322,9 @@ local function useWheelController(_param)
 				end
 				return nil
 			end
-			if progress >= 1 then
+			if settled then
 				plan.active = false
-				completeLanding(plan.result, plan.base + plan.distance)
+				completeLanding(plan.result, plan.base + plan.distance - plan.overshoot)
 			end
 		end)
 		return function()
@@ -3366,7 +3391,7 @@ local function useWheelController(_param)
 				base = rotationValue.current,
 				omega = omegaRef.current,
 				startedAt = os.clock(),
-				lastSegment = math.floor(rotationValue.current / segment),
+				lastSegment = math.floor((rotationValue.current + segment / 2) / segment),
 				lastSoundAt = -math.huge,
 			}
 			setPhase("launch")
@@ -3496,7 +3521,7 @@ local function WheelConsole(_param)
 		end
 		local _condition_2 = _result_1
 		if _condition_2 == nil then
-			_condition_2 = (if controller.spinning then "Your prize is on its way" elseif canSpin then "Your spin is ready" else "The wheel is recharging")
+			_condition_2 = (if controller.spinning then "Spinning…" elseif canSpin then "Spin ready" else "Next spin soon")
 		end
 		_result = _condition_2
 	end
@@ -3511,7 +3536,7 @@ local function WheelConsole(_param)
 		if _condition_2 == nil then
 			local _result_2
 			if controller.spinning then
-				_result_2 = (if compact then "Your prize is coming up." else "The wheel is slowing down. Watch the pointer.")
+				_result_2 = ""
 			else
 				local _result_3
 				if canSpin then
@@ -3519,7 +3544,7 @@ local function WheelConsole(_param)
 					if _condition_3 == nil then
 						_condition_3 = 0
 					end
-					_result_3 = (if _condition_3 > 0 then `{compactNumber(state.Wheel.FreeSpins)} free spin{if state.Wheel.FreeSpins == 1 then "" else "s"} ready.` elseif pityArmed then ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.PityArmed) or "Guarantee ready: your next spin lands Rare or better.") elseif compact then "Tap once to spin." else ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.Ready) or "Give it a spin and see what lands."))
+					_result_3 = (if _condition_3 > 0 then `{compactNumber(state.Wheel.FreeSpins)} free spin{if state.Wheel.FreeSpins == 1 then "" else "s"} ready.` elseif pityArmed then ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.PityArmed) or "Guarantee ready: your next spin lands Rare or better.") elseif compact then "Tap once to spin." else ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.Ready) or "Tap SPIN in the middle of the wheel."))
 				else
 					_result_3 = cooldown
 				end

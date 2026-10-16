@@ -33,7 +33,7 @@ for count = 1, 20 do
 end
 
 local palette = {}
-for _, name in { "ink", "cream", "creamSoft", "void", "panelRaised", "violet" } do palette[name] = accent end
+for _, name in { "ink", "cream", "creamSoft", "void", "panelRaised", "violet", "white", "panel", "mango" } do palette[name] = accent end
 local function element(kind, props, ...)
 	assert(kind ~= "viewportframe" and kind ~= "imagelabel" and kind ~= "imagebutton", "the wheel is built from UI primitives only")
 	if type(kind) == "function" then
@@ -51,20 +51,32 @@ for field, expected in { Cores = "Core", Stardust = "Dust", Boost = "Boost", Fre
 end
 local wheelSource = fs.readFile("src/Client/AstralForge/PrizeWheel.luau")
 assert(not wheelSource:find("rbxassetid", 1, true) and not wheelSource:find("Image", 1, true), "no hand-drawn wheel art")
+local function joined(list)
+	return { map = function(_, callback)
+		local values = {}
+		for index, item in list do values[index] = item.value end
+		return callback(values)
+	end }
+end
 local fakeReact = {
 	createElement = element, Event = { Activated = "Activated" },
 	useRef = function(value) return { current = value } end,
 	useCallback = function(callback) return callback end,
+	joinBindings = joined,
 }
 local modules = {
 	UiCore = function() return { Text = "Text" } end,
 	CoreKit = function() return { Palette = palette, darken = function(color, amount) return color:Lerp(roblox.Color3.new(), amount) end } end,
 	ArtKit = function() return { Icon = "Icon", rewardIconKind = rewardIconKind } end,
+	MotionKit = function()
+		local still = { value = 0, map = function(self, callback) return callback(self.value) end }
+		return { useClock = function() return still end, useFlash = function() return still end }
+	end,
 }
 local wheel = luau.load(wheelSource, {
 	environment = setmetatable({
 		game = { ReplicatedStorage = { rbxts_include = { node_modules = { ["@rbxts"] = { react = "react" } } } } },
-		script = { Parent = { UiCore = "UiCore", CoreKit = "CoreKit", ArtKit = "ArtKit", WheelGeometry = "WheelGeometry" } },
+		script = { Parent = { UiCore = "UiCore", CoreKit = "CoreKit", ArtKit = "ArtKit", WheelGeometry = "WheelGeometry", MotionKit = "MotionKit" } },
 		require = function(name)
 			if name == "react" then return fakeReact end
 			if name == "WheelGeometry" then return Geometry end
@@ -72,6 +84,7 @@ local wheel = luau.load(wheelSource, {
 		end,
 		Color3 = roblox.Color3, UDim = roblox.UDim, UDim2 = roblox.UDim2, Vector2 = roblox.Vector2,
 		Enum = roblox.Enum, NumberSequence = roblox.NumberSequence, NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
+		ColorSequence = roblox.ColorSequence, ColorSequenceKeypoint = roblox.ColorSequenceKeypoint,
 	}, { __index = _G }),
 })()
 local function walk(node, visit)
@@ -101,21 +114,22 @@ for _, diameter in { 140, 220, 340, 410 } do
 			local rotation = Geometry.rotationFor(12, winner)
 			local controller = { winner = winner, spinning = false, rotation = wheelBinding(rotation), spinEnergy = wheelBinding(1), pointerKick = wheelBinding(0.5) }
 			local tree = wheel({ controller = controller, rewards = rewards, diameter = diameter, reducedMotion = reduced, canSpin = true })
-			assert(named(tree, "Rotor").props.Rotation == controller.rotation, "the existing controller owns rotor motion")
+			-- the face is painted at rest and turned as one CanvasGroup texture
+			local face = named(tree, "Face")
+			assert(face.kind == "canvasgroup" and face.props.Rotation == controller.rotation, "the controller turns the face as one texture")
 			assert(named(tree, "Prize" .. (winner + 1)).props.Rotation % 30 == 0 and (rotation + named(tree, "Prize" .. (winner + 1)).props.Rotation) % 360 == 0,
 				"the winning label sits under the pointer")
-			local plan = Geometry.plan(12, rotation)
+			local rest = Geometry.plan(12, 0)
 			for _, side in { "right", "left" } do
 				local clip = named(tree, if side == "right" then "RightHalf" else "LeftHalf")
-				assert(clip.props.ClipsDescendants and clip.props.Rotation == nil, "clips stay unrotated so clipping works")
+				assert(clip.props.ClipsDescendants and clip.props.Rotation == nil, "clips stay unrotated inside the face so clipping works")
+				local count = 0
 				for slot, layer in clip.children[1] do
+					count += 1
 					local index = tonumber(string.match(slot, "%d+"))
-					local planned = plan[side][index]
-					assert((layer.props.BackgroundTransparency == 0) == (planned ~= nil), "unused layers are hidden")
-					if planned then
-						assert(layer.children[2].props.Rotation == planned.angle, "half-disk mask follows the plan")
-					end
+					assert(layer.children[2].props.Rotation == rest[side][index].angle, "half-disk mask follows the rest plan")
 				end
+				assert(count == #rest[side], "one layer per planned half-disk")
 			end
 			assert(named(tree, "Pointer").props.Rotation == (if reduced then 0 else -8), "reduced motion keeps the pointer still")
 		end
