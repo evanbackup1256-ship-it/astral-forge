@@ -296,10 +296,9 @@ assert(report:find("pixelPosition(values[2], 0.5, 0, 0.5, (1 - math.clamp(values
 local playerlist = source("src/Client/AstralForge/UiCore.luau#PlayerlistOverlay")
 assert(playerlist:find("local listParentSize = useGuiSize(padFocus, true)", 1, true))
 assert(playerlist:find("pixelPosition(values[2], 1, -side + (1 - values[1]) * 24, 0, top)", 1, true))
+-- notices play in the island now; the old toast cards (and their slot measuring) are gone
 local notifications = source("src/Client/AstralForge/UiCore.luau#notifications")
-assert(notifications:find("local slotSizePixels = useGuiSize(slotRef)", 1, true))
-assert(notifications:find("ref = slotRef", 1, true))
-assert(notifications:find("pixelPosition(values[4], 0.5, values[1] + values[2], 0.5, values[3])", 1, true))
+assert(not notifications:find("NoticeCard", 1, true), "no toast cards are left behind")
 assert(feedback:find('Name = "Impact" .. level', 1, true), "feedback impact controls are individually identifiable")
 assert(feedback:find("value = tostring(level)", 1, true), "impact levels must be visible before selection")
 assert(feedback:find('Suggestion = "IDEA"', 1, true), "the suggestion category fits its selected tab")

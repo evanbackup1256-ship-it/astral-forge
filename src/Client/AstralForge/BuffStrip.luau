@@ -38,6 +38,11 @@ function BuffStrip.list(state, config, now)
 	if type(surge) == "table" and surge.Active == true then
 		table.insert(list, { key = "surge", icon = "Flux", value = `x{surge.Multiplier or 2}`, endsAt = surge.EndsAt, duration = surge.DurationSeconds, color = P.cyan, name = "Flux surge" })
 	end
+	local level = state.Level
+	local forgeSurge = type(level) == "table" and type(level.Progression) == "table" and level.Progression.Surge or nil
+	if type(forgeSurge) == "table" and (tonumber(forgeSurge.EndsAt) or 0) > now and (tonumber(forgeSurge.Multiplier) or 1) > 1 then
+		table.insert(list, { key = "forgeSurge", icon = "Boost", value = string.format("x%.2f", forgeSurge.Multiplier), endsAt = forgeSurge.EndsAt, duration = forgeSurge.DurationSeconds, color = P.pink, name = "Forge surge" })
+	end
 	local event = state.ServerEvent
 	if type(event) == "table" and event.Phase == "Live" and type(event.Id) == "string" then
 		table.insert(list, { key = "event", icon = "Calendar", value = "Live", endsAt = event.PhaseEndsAt, color = P.mango, name = (string.gsub(event.Id, "(%l)(%u)", "%1 %2")) })
@@ -103,6 +108,8 @@ local function Chip(props)
 		end) else buff.value,
 		TextColor3 = P.cream,
 		TextSize = 12,
+		TextScaled = true,
+		TextWrapped = false,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		ZIndex = 22,
 	}, h("uistroke", { Color = P.void, Thickness = 1.5, Transparency = 0.2 }), h("uitextsizeconstraint", { MaxTextSize = 12, MinTextSize = 9 })),
@@ -116,6 +123,8 @@ local function Chip(props)
 		Text = buff.value,
 		TextColor3 = P.ink,
 		TextSize = 10,
+		TextScaled = true,
+		TextWrapped = false,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		ZIndex = 24,
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uitextsizeconstraint", { MaxTextSize = 10, MinTextSize = 7 })))
@@ -176,7 +185,7 @@ end
 local Juice = require(script.Parent.JuiceFx)
 
 local COMPACT_H = 44
-local EVENT_H = 72
+local EVENT_H = 62
 local ROW_H = 36
 
 local function easeOutBack(x)
@@ -209,10 +218,10 @@ end
 
 local telemetryHook = require(script.Parent.MotionKit)("antilag").usePerformanceTelemetry
 
-local PERF_W = 100
+local PERF_W = 104
 local CURRENCY_W = 104
-local BUFF_W = 54
-local SEP_W = 13
+local BUFF_W = 58
+local SEP_W = 21
 local VAULT_W = 92
 
 local function fpsColor(fps)
@@ -243,7 +252,7 @@ local function PerfSegment(props)
 		BorderSizePixel = 0,
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
 		Color = worst,
-		Thickness = 3,
+		Thickness = 2,
 		Transparency = props.clock:map(function(t) return 0.55 + (math.sin(t * 3) + 1) * 0.2 end),
 	})), h("textlabel", {
 		Size = UDim2.new(1, -18, 1, 0),
@@ -252,6 +261,8 @@ local function PerfSegment(props)
 		Text = table.concat(parts, " · "),
 		TextColor3 = P.creamSoft,
 		TextSize = 12,
+		TextScaled = true,
+		TextWrapped = false,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 	}, h("uitextsizeconstraint", { MaxTextSize = 12, MinTextSize = 9 })))
@@ -294,6 +305,8 @@ local function CurrencySegment(props)
 		Text = format.compactNumber(currency.value),
 		TextColor3 = flash:map(function(v) return P.cream:Lerp(theme.lighten(currency.color, 0.4), v) end),
 		TextSize = 15,
+		TextScaled = true,
+		TextWrapped = false,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 	}, h("uitextsizeconstraint", { MaxTextSize = 15, MinTextSize = 10 })))
@@ -313,7 +326,7 @@ end
 local function planCompact(props, buffs)
 	local currencies = props.currencies or {}
 	local perfOn = props.perf ~= nil and (props.perf.showFps or props.perf.showPing)
-	local width = 28 + #currencies * (CURRENCY_W + 10)
+	local width = 32 + #currencies * (CURRENCY_W + 10)
 	local showPerf = perfOn and width + PERF_W + SEP_W <= (props.maxWidth or 9999)
 	if showPerf then
 		width += PERF_W + SEP_W
@@ -321,19 +334,19 @@ local function planCompact(props, buffs)
 	local shownBuffs = {}
 	local room = (props.maxWidth or 9999) - width - (if #buffs > 0 then SEP_W else 0) - (if props.vaultFull then SEP_W + VAULT_W + 10 else 0)
 	for _, buff in buffs do
-		if room >= BUFF_W + 8 then
+		if room >= BUFF_W + 10 then
 			table.insert(shownBuffs, buff)
-			room -= BUFF_W + 8
+			room -= BUFF_W + 10
 		end
 	end
 	if #shownBuffs > 0 then
-		width += SEP_W + #shownBuffs * (BUFF_W + 8)
+		width += SEP_W + #shownBuffs * (BUFF_W + 10)
 	end
 	if props.vaultFull then
 		width += SEP_W + VAULT_W + 10
 	end
 	if #currencies == 0 and not showPerf then
-		width = 24 + #shownBuffs * (BUFF_W + 8)
+		width = 28 + #shownBuffs * (BUFF_W + 10)
 	end
 	return { width = width, perf = showPerf, buffs = shownBuffs }
 end
@@ -410,6 +423,8 @@ local function CompactRow(props)
 			Text = buff.value,
 			TextColor3 = theme.lighten(buff.color, 0.35),
 			TextSize = 12,
+			TextScaled = true,
+			TextWrapped = false,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		}, h("uitextsizeconstraint", { MaxTextSize = 12, MinTextSize = 8 })), buff.endsAt and buff.duration and h("frame", {
@@ -488,6 +503,8 @@ local function Row(order, color, icon, name, value, valueColor, extra, onClick)
 		Text = value,
 		TextColor3 = valueColor,
 		TextSize = 13,
+		TextScaled = true,
+		TextWrapped = false,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 	}, h("uitextsizeconstraint", { MaxTextSize = 13, MinTextSize = 9 })), extra)
@@ -564,7 +581,11 @@ local function ExpandedList(props)
 					BackgroundColor3 = buff.color,
 					BorderSizePixel = 0,
 				}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))) or nil,
-				if props.navigate then function() props.navigate("Boosts") end else nil)
+				if buff.key == "event" then function()
+					-- the live event row opens the event's own panel
+					local ok, events = pcall(function() return require(script.Parent.UiCore)("serverEventsUi") end)
+					if ok and events and events.openServerEventPanel then events.openServerEventPanel() end
+				end elseif props.navigate then function() props.navigate("Boosts") end else nil)
 		end
 	end
 	return h("frame", {
@@ -581,75 +602,142 @@ local function ExpandedList(props)
 	}), h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, rows))
 end
 
+local Rainbow = require(script.Parent.Rainbow)
+
+-- how an announcement moves depends on what it says: errors shake, good news pops, milestones glow
+local function toneMotion(info, arrive, clock)
+	local tone = info.tone
+	if tone == "error" or tone == "Error" or tone == "Warning" then
+		return arrive:map(function(t)
+			local fade = 1 - math.clamp(t, 0, 1)
+			return UDim2.fromOffset(math.sin(t * 38) * 7 * fade, 0)
+		end)
+	end
+	return UDim2.fromOffset(0, 0)
+end
+
 local function Announcement(props)
 	local info = props.info
 	local arrive = useArrive(props.token)
+	local clock = props.clock
+	local style = info.style or "notice"
+	local moment = style == "moment"
+	local pill = style == "pill"
+	local iconBox = if moment then 52 elseif pill then 28 else 38
+	local textX = if moment then 84 elseif pill then 50 else 64
+	local startedAt = info.startedAt or os.clock()
+	local hold = math.max(0.5, info.hold or 2.6)
+	local titleColor = if moment then nil else ColorSequence.new(theme.lighten(info.color, 0.45), info.color)
 	return h("frame", {
 		Size = UDim2.fromScale(1, 1),
+		Position = toneMotion(info, arrive, clock),
 		BackgroundTransparency = 1,
 		ZIndex = 62,
-	}, h("frame", {
-		-- a band of light sweeps across once
-		Size = UDim2.new(0.5, 0, 1, 0),
-		BackgroundColor3 = info.color,
+	}, moment and h("frame", {
+		-- a wash of colour that breathes behind a milestone
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = P.white,
+		BackgroundTransparency = clock:map(function(t) return 0.9 + math.sin(t * 2.4) * 0.03 end),
 		BorderSizePixel = 0,
-		Position = arrive:map(function(t) return UDim2.fromScale(-0.6 + t * 1.8, 0) end),
-		BackgroundTransparency = 0.72,
 		ZIndex = 61,
 	}, h("uigradient", {
+		Color = Rainbow.SOFT,
+		Rotation = clock:map(function(t) return Rainbow.spin(t, 6) end),
 		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, 0.2),
-			NumberSequenceKeypoint.new(1, 1),
+			NumberSequenceKeypoint.new(0, 0.2),
+			NumberSequenceKeypoint.new(0.5, 0.75),
+			NumberSequenceKeypoint.new(1, 0.2),
 		}),
 	})), h("frame", {
-		Size = UDim2.fromOffset(46, 46),
-		Position = UDim2.new(0, 14, 0.5, 0),
+		Size = UDim2.fromOffset(iconBox, iconBox),
+		Position = UDim2.new(0, if pill then 10 else 14, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = theme.darken(info.color, 0.55),
 		BorderSizePixel = 0,
 		ZIndex = 63,
-		Rotation = props.clock:map(function(t) return math.sin(t * 5) * 6 end),
-	}, h("uiscale", { Scale = arrive:map(function(t) return 0.3 + easeOutBack(t) * 0.7 end) }), h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
-		Color = theme.lighten(info.color, 0.3),
-		Thickness = 2,
-	}), h(Icon, {
+		Rotation = if moment then arrive:map(function(t) return (1 - easeOutBack(t)) * -90 end) else 0,
+	}, h("uiscale", { Scale = arrive:map(function(t)
+		-- good news lands with a pop; everything else just settles in
+		local pop = if info.tone == "Success" or info.tone == "success" or moment then math.sin(math.clamp(t, 0, 1) * math.pi) * 0.25 else 0
+		return 0.5 + easeOutBack(t) * 0.5 + pop
+	end) }), h("uicorner", { CornerRadius = UDim.new(if pill then 1 else 0, if pill then 0 else (if moment then 16 else 12)) }), h("uistroke", {
+		Color = if moment then P.white else theme.lighten(info.color, 0.25),
+		Thickness = if moment then 2 else 1.5,
+		Transparency = 0.15,
+	}, moment and h("uigradient", {
+		Color = Rainbow.LOOP,
+		Rotation = clock:map(function(t) return Rainbow.spin(t, 1.6) end),
+	})), h(Icon, {
 		kind = info.icon or "Boost",
 		color = P.white,
 		accent = info.color,
-		size = 28,
+		size = math.floor(iconBox * 0.58),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		spin = false,
 	})), h("textlabel", {
-		Size = UDim2.new(1, -86, 0, 28),
-		Position = arrive:map(function(t) return UDim2.new(0, 72 + (1 - t) * 16, 0, if info.subtitle then 10 else 22) end),
+		Size = UDim2.new(1, -(textX + 16), 0, if moment then 30 elseif pill then 20 else 22),
+		Position = arrive:map(function(t)
+			local y = if pill then 12 elseif moment then (if info.subtitle then 16 else 33) else (if info.subtitle then 10 else 20)
+			return UDim2.new(0, textX + (1 - t) * 12, 0, y)
+		end),
 		BackgroundTransparency = 1,
 		Text = info.title,
 		TextColor3 = P.white,
 		TextTransparency = arrive:map(function(t) return 1 - t end),
-		TextSize = 22,
+		TextSize = if moment then 26 elseif pill then 15 else 16,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		ZIndex = 63,
 		TextScaled = true,
+		TextWrapped = false,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-	}, h("uigradient", { Color = ColorSequence.new(theme.lighten(info.color, 0.45), info.color), Rotation = 90 }), h("uitextsizeconstraint", { MaxTextSize = 22, MinTextSize = 14 })),
-		info.subtitle and h("textlabel", {
-		Size = UDim2.new(1, -86, 0, 17 * (info.lines or 1)),
-		Position = arrive:map(function(t) return UDim2.new(0, 72 + (1 - t) * 26, 0, 40) end),
+	}, h("uigradient", {
+		Color = if moment then clock:map(function(t) return Rainbow.at(t * 0.35, 0.45, 1) end) else titleColor,
+		Rotation = if moment then 0 else 90,
+	}), h("uitextsizeconstraint", { MaxTextSize = if moment then 26 elseif pill then 15 else 16, MinTextSize = 11 })),
+		info.subtitle and not pill and h("textlabel", {
+		Size = UDim2.new(1, -(textX + 16), 0, 16 * (info.lines or 1)),
+		Position = arrive:map(function(t) return UDim2.new(0, textX + (1 - t) * 18, 0, if moment then 50 else 33) end),
 		BackgroundTransparency = 1,
 		Text = info.subtitle,
 		TextColor3 = P.creamSoft,
 		TextTransparency = arrive:map(function(t) return 1 - t end),
-		TextSize = 13,
+		TextSize = if moment then 14 else 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
 		TextWrapped = (info.lines or 1) > 1,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		ZIndex = 63,
-	}))
+	}), not pill and h("frame", {
+		-- how long this stays up: a thin line that drains along the bottom edge
+		Size = UDim2.new(1, -40, 0, 2),
+		Position = UDim2.new(0, 20, 1, -5),
+		BackgroundColor3 = P.white,
+		BackgroundTransparency = 0.88,
+		BorderSizePixel = 0,
+		ZIndex = 63,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+		Size = clock:map(function()
+			return UDim2.fromScale(1 - math.clamp((os.clock() - startedAt) / hold, 0, 1), 1)
+		end),
+		BackgroundColor3 = if moment then P.white else info.color,
+		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), moment and h("uigradient", { Color = Rainbow.LOOP }))), (props.queued or 0) > 0 and h("textlabel", {
+		-- more waiting behind this one
+		Size = UDim2.fromOffset(26, 16),
+		Position = UDim2.new(1, -8, 0, 6),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundColor3 = P.white,
+		BackgroundTransparency = 0.86,
+		Text = `+{props.queued}`,
+		TextColor3 = P.creamSoft,
+		TextSize = 11,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		ZIndex = 64,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })))
 end
 
 -- a live combo: the island widens into a meter that drains until the combo window runs out
@@ -722,12 +810,23 @@ local function textWidth(text, size, font)
 end
 local function measureEvent(info, maxWidth)
 	local cap = math.min(maxWidth or 560, 560)
-	local titleW = textWidth(info.title or "", 22, Enum.Font.BuilderSansExtraBold)
-	local subtitleW = if info.subtitle then textWidth(info.subtitle, 13, Enum.Font.BuilderSansBold) else 0
-	local width = math.clamp(math.ceil(92 + math.max(titleW, math.min(subtitleW, 380))), 240, cap)
-	local room = math.max(80, width - 92)
+	local style = info.style or "notice"
+	if style == "pill" then
+		local titleW = textWidth(info.title or "", 15, Enum.Font.BuilderSansExtraBold)
+		info.width = math.clamp(math.ceil(66 + titleW), 150, cap)
+		info.lines = 1
+		info.height = COMPACT_H
+		return
+	end
+	local moment = style == "moment"
+	local textX = if moment then 84 else 64
+	local titleW = textWidth(info.title or "", if moment then 26 else 16, Enum.Font.BuilderSansExtraBold)
+	local subtitleW = if info.subtitle then textWidth(info.subtitle, if moment then 14 else 13, Enum.Font.BuilderSansBold) else 0
+	local width = math.clamp(math.ceil(textX + 24 + math.max(titleW, math.min(subtitleW, 400))), if moment then 320 else 240, cap)
+	local room = math.max(80, width - textX - 24)
 	info.width = width
 	info.lines = if subtitleW > room then 2 else 1
+	info.height = (if moment then 92 else EVENT_H) + 16 * (info.lines - 1)
 end
 
 -- props: state, config, currencies { {target, name, value, icon, color} }, perf { showFps, showPing },
@@ -742,6 +841,8 @@ function BuffStrip.Island(props)
 	local pinned, setPinned = React.useState(false)
 	-- announcements queue up and play one after another
 	local event, setEvent = React.useState(nil)
+	local queued, setQueued = React.useState(0)
+	local islandRef = React.useRef(nil)
 	local queue = React.useRef({})
 	local playing = React.useRef(false)
 	local token = React.useRef(0)
@@ -768,9 +869,22 @@ function BuffStrip.Island(props)
 		token.current += 1
 		nextInfo.token = token.current
 		measureEvent(nextInfo, maxWidthRef.current)
-		setEvent(nextInfo)
 		-- a backlog plays through faster
 		local hold = (nextInfo.duration or 2.6) * (if #queue.current >= 3 then 0.55 elseif #queue.current >= 1 then 0.75 else 1)
+		nextInfo.hold = hold
+		nextInfo.startedAt = os.clock()
+		setQueued(#queue.current)
+		setEvent(nextInfo)
+		if nextInfo.style == "moment" and islandRef.current then
+			-- a milestone throws sparks out of the island as it opens
+			task.delay(0.12, function()
+				local island = islandRef.current
+				if island and island.Parent then
+					local centre = island.AbsolutePosition + island.AbsoluteSize / 2
+					Juice.burst(centre, nextInfo.color, 0.9)
+				end
+			end)
+		end
 		holdTimer.current = task.delay(hold, function()
 			holdTimer.current = nil
 			playNextRef.current()
@@ -790,6 +904,8 @@ function BuffStrip.Island(props)
 			table.insert(queue.current, info)
 			if not playing.current then
 				playNextRef.current()
+			else
+				setQueued(#queue.current)
 			end
 		end)
 		return function()
@@ -803,7 +919,6 @@ function BuffStrip.Island(props)
 	end, {})
 	-- hover is read from the pointer itself: enter/leave events go stale when the capsule
 	-- changes size under the cursor, and touch never sends a leave
-	local islandRef = React.useRef(nil)
 	React.useEffect(function()
 		local UserInputService = game:GetService("UserInputService")
 		local GuiService = game:GetService("GuiService")
@@ -883,7 +998,7 @@ function BuffStrip.Island(props)
 		end
 		if seen.current ~= nil then
 			for key, buff in current do
-				if seen.current[key] == nil and (key == "boost" or key == "surge" or key == "event") then
+				if seen.current[key] == nil and (key == "boost" or key == "surge" or key == "event" or key == "forgeSurge") then
 					Juice.banner(`{string.upper(buff.name)} ON`, `{buff.value} production while it lasts`, buff.color, buff.icon)
 				end
 			end
@@ -905,7 +1020,7 @@ function BuffStrip.Island(props)
 		elseif mode == "expanded" then math.min(maxWidth, math.max(420, compactW))
 		elseif mode == "compact" then compactW
 		else 0
-	local targetH = if mode == "event" then EVENT_H + 17 * ((event.lines or 1) - 1)
+	local targetH = if mode == "event" then (event.height or EVENT_H)
 		elseif mode == "combo" then COMPACT_H + 4
 		elseif mode == "expanded" then expandedHeight(props, buffs)
 		elseif mode == "compact" then COMPACT_H
@@ -917,13 +1032,14 @@ function BuffStrip.Island(props)
 	local jelly = motion.useFlash(modeKey, props.reducedMotion, 0.5)
 	local glow = motion.usePulse(true, if props.vaultFull then 3.2 else 1.6)
 	local accent = if event then event.color elseif mode == "combo" then P.mango elseif props.vaultFull then P.mango else P.lineSoft
-	local content = if mode == "event" then h(Announcement, { key = "event" .. event.token, info = event, token = event.token, clock = clock })
+	local content = if mode == "event" then h(Announcement, { key = "event" .. event.token, info = event, token = event.token, clock = clock, queued = queued })
 		elseif mode == "combo" then h(ComboActivity, { key = "combo", combo = combo, clock = clock })
 		elseif mode == "expanded" then h(React.Fragment, nil,
 			h(CompactRow, { key = "top", plan = plan, currencies = props.currencies, perf = props.perf, vaultFull = props.vaultFull, clock = clock, reducedMotion = props.reducedMotion }),
-			h(ExpandedList, { key = "list", buffs = buffs, currencies = props.currencies, perf = props.perf, rate = props.rate, navigate = props.navigate, clock = clock }))
+			h(ExpandedList, { key = "list", buffs = buffs, currencies = props.currencies, perf = props.perf, rate = props.perf and props.rate or props.rate, navigate = props.navigate, clock = clock }))
 		elseif mode == "compact" then h(CompactRow, { key = "top", plan = plan, currencies = props.currencies, perf = props.perf, vaultFull = props.vaultFull, clock = clock, reducedMotion = props.reducedMotion })
 		else nil
+	local momentRim = event ~= nil and event.style == "moment"
 	return h("imagebutton", {
 		Name = "BuffIsland",
 		ref = islandRef,
@@ -940,6 +1056,9 @@ function BuffStrip.Island(props)
 		Visible = width:map(function(v) return v > 4 end),
 		ZIndex = 60,
 		Event = {
+			MouseEnter = function()
+				setHovered(true)
+			end,
 			Activated = function()
 				-- tapping an announcement moves on to the next one
 				if event ~= nil then
@@ -952,30 +1071,16 @@ function BuffStrip.Island(props)
 	}, h("uiscale", {
 		Scale = jelly:map(function(v) return 1 + math.sin(v * math.pi) * 0.045 end),
 	}), h("uicorner", {
-		CornerRadius = UDim.new(1, 0),
+		CornerRadius = UDim.new(0, if mode == "expanded" or mode == "event" then 18 else 22),
 	}), h("uistroke", {
-		Color = accent,
-		Thickness = if event or props.vaultFull or mode == "combo" then 2 else 1,
+		Color = if momentRim then P.white else accent,
+		Thickness = if momentRim then 2.5 elseif event or props.vaultFull or mode == "combo" then 2 else 1,
 		Transparency = glow:map(function(v) return if event or props.vaultFull or mode == "combo" then 0.05 + v * 0.35 else 0.45 + v * 0.25 end),
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}), h("frame", {
-		-- a slow sheen crosses the capsule every few seconds
-		Size = UDim2.new(0.35, 0, 1, 0),
-		BackgroundColor3 = P.white,
-		BackgroundTransparency = 0.94,
-		BorderSizePixel = 0,
-		ZIndex = 61,
-		Position = clock:map(function(t)
-			local phase = (t % 7) / 1.1
-			return UDim2.fromScale(-0.4 + math.clamp(phase, 0, 1) * 1.8, 0)
-		end),
-	}, h("uigradient", {
-		Rotation = 20,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, 0),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
+	}, momentRim and h("uigradient", {
+		-- a milestone's rim: the whole rainbow chasing round the capsule
+		Color = Rainbow.LOOP,
+		Rotation = clock:map(function(t) return Rainbow.spin(t, 1.4) end),
 	})), content)
 end
 

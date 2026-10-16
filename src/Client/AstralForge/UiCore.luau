@@ -2643,12 +2643,7 @@ local function Meter(_param)
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
 		Color = if rainbow then flow:map(function(t)
-			local keys = {}
-			for index = 0, 5 do
-				local share = index / 5
-				keys[index + 1] = ColorSequenceKeypoint.new(share, Color3.fromHSV((share * 0.85 + t) % 1, 0.62, 1))
-			end
-			return ColorSequence.new(keys)
+			return require(script.Parent.Rainbow).at(t)
 		end) else ColorSequence.new(lighten(color, 0.32), color),
 	}), React.createElement("frame", {
 		Size = if rushing ~= nil then React.joinBindings({ rushing, tipPulse }):map(function(values)
@@ -4600,7 +4595,6 @@ local _antilag = require(script.Parent.MotionKit)("antilag")
 local AntilagProvider = _antilag.AntilagProvider
 local _motion = require(script.Parent.MotionKit)("motion")
 local MotionSettingsContext = _motion.MotionSettingsContext
-local ToastRail = __load("notifications").ToastRail
 local _ui = __load("ui")
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
@@ -4643,7 +4637,6 @@ local friendlyActionResponse = ActionCopy.friendlyActionResponse
 local _AppShellChrome = __load("AppShellChrome")
 local Shell = _AppShellChrome.Shell
 local pausePassivePaints = _AppShellChrome.pausePassivePaints
-local EMPTY_NOTICES = table.freeze({})
 local NOOP = function() end
 local function MainGame(_param)
 	local remotes = _param.remotes
@@ -4729,22 +4722,6 @@ local function MainGame(_param)
 	local setVisit = React.useCallback(function(visitNext)
 		return dispatchStore(ClientActions.setVisit(visitNext))
 	end, { dispatchStore })
-	local notices, setNotices = React.useState({})
-	local hoveredNotices = React.useRef({})
-	local noticeTimers = React.useRef({})
-	local noticesLive = React.useRef({})
-	noticesLive.current = notices
-	local setNoticeHovered = React.useCallback(function(id, hovered)
-		if hovered then
-			local _current = hoveredNotices.current
-			local _id = id
-			_current[_id] = true
-		else
-			local _current = hoveredNotices.current
-			local _id = id
-			_current[_id] = nil
-		end
-	end, {})
 	local toastsSuppressed, setToastsSuppressed = React.useState(false)
 	local purchasePresentationActive = React.useRef(false)
 	local setPurchasePresentationActive = React.useCallback(function(active)
@@ -4823,7 +4800,6 @@ local function MainGame(_param)
 	local popId = React.useRef(0)
 	local comboReadout, setComboReadout = React.useState()
 	local lastComboTier = React.useRef(0)
-	local noticeId = React.useRef(0)
 	local lastNotice = React.useRef({
 		signature = "",
 		at = 0,
@@ -4861,9 +4837,14 @@ local function MainGame(_param)
 			end
 			for _, key in reused do
 				local kept = cache[key]
+				if kept == nil and type(state) == "table" then
+					kept = state[key]
+				end
 				if kept == nil then
 					-- nothing to fill this from yet; a full snapshot will follow
-					ClientLog:warnEvery("state-reused", 10, "UI", "waiting for a full snapshot")
+					if latestSnapshot.current >= 0 then
+						ClientLog:warnEvery("state-reused", 10, "UI", "waiting for a full snapshot")
+					end
 					return false
 				end
 				rawSnapshot[key] = kept
@@ -4942,40 +4923,6 @@ local function MainGame(_param)
 		return true
 	end, { dispatchStore })
 	acceptStateRef.current = acceptState
-	local dismissNotice = React.useCallback(function(id)
-		setNotices(function(current)
-			local _newValue = {}
-			local _callback = function(notice)
-				return notice.id ~= id
-			end
-			local _length = 0
-			for _k, _v in current do
-				if _callback(_v, _k - 1, current) == true then
-					_length += 1
-					_newValue[_length] = _v
-				end
-			end
-			return _newValue
-		end)
-	end, {})
-	local _result_3 = state
-	if _result_3 ~= nil then
-		_result_3 = _result_3.Settings.ToastDensity
-	end
-	local _condition = _result_3
-	if _condition == nil then
-		_condition = 0.55
-	end
-	local toastDensityRef = React.useRef(_condition)
-	local _result_4 = state
-	if _result_4 ~= nil then
-		_result_4 = _result_4.Settings.ToastDensity
-	end
-	local _condition_1 = _result_4
-	if _condition_1 == nil then
-		_condition_1 = 0.55
-	end
-	toastDensityRef.current = _condition_1
 	local _result_5 = state
 	if _result_5 ~= nil then
 		_result_5 = _result_5.Settings.NotificationDuration
@@ -5020,133 +4967,15 @@ local function MainGame(_param)
 		if playSound then
 			Audio:play(if tone == "Special" then "noticeSpecial" elseif tone == "Success" then "noticeSuccess" elseif tone == "Warning" or tone == "Error" then "noticeWarning" else "noticeInfo")
 		end
+		-- every notice plays in the island (queued until it mounts); there is no other toast surface
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
-		local maxNotices = NoticeMath.MaxNotices(toastDensityRef.current)
-		local _exp_1 = noticesLive.current
-		local _callback = function(notice)
-			return notice.leaving ~= true and notice.title == normalizedTitle and notice.body == body
-		end
-		local _result_7
-		for _i, _v in _exp_1 do
-			if _callback(_v, _i - 1, _exp_1) == true then
-				_result_7 = _v
-				break
-			end
-		end
-		local matching = _result_7
-		local dismissId = if matching ~= nil then matching.id else noticeId.current + 1
-		if matching == nil then
-			noticeId.current = dismissId
-		end
-		local priorTimer = noticeTimers.current[dismissId]
-		if priorTimer ~= nil then
-			pcall(function()
-				return task.cancel(priorTimer)
-			end)
-			deferredJobs.current[priorTimer] = nil
-			noticeTimers.current[dismissId] = nil
-		end
-		setNotices(function(current)
-			local _array = {}
-			local _length = #_array
-			table.move(current, 1, #current, _length + 1, _array)
-			local updated = _array
-			local _callback_1 = function(notice)
-				return notice.id == dismissId and notice.leaving ~= true
-			end
-			local _result_8 = -1
-			for _i, _v in updated do
-				if _callback_1(_v, _i - 1, updated) == true then
-					_result_8 = _i - 1
-					break
-				end
-			end
-			local index = _result_8
-			if index >= 0 then
-				local existing = updated[index + 1]
-				local _object = table.clone(existing)
-				setmetatable(_object, nil)
-				_object.body = body
-				_object.tone = tone
-				_object.lifetime = lifetime
-				_object.sound = false
-				local _left = "count"
-				local _condition_5 = existing.count
-				if _condition_5 == nil then
-					_condition_5 = 1
-				end
-				_object[_left] = _condition_5 + 1
-				updated[index + 1] = _object
-			else
-				local _arg0 = {
-					id = dismissId,
-					title = normalizedTitle,
-					body = body,
-					tone = tone,
-					lifetime = lifetime,
-					sound = playSound,
-					count = 1,
-				}
-				table.insert(updated, _arg0)
-			end
-			while #updated > maxNotices do
-				local _callback_2 = function(notice)
-					return notice.leaving ~= true and notice.id ~= dismissId
-				end
-				local _result_9
-				for _i, _v in updated do
-					if _callback_2(_v, _i - 1, updated) == true then
-						_result_9 = _v
-						break
-					end
-				end
-				local _condition_5 = _result_9
-				if _condition_5 == nil then
-					_condition_5 = updated[1]
-				end
-				local oldest = _condition_5
-				if oldest == nil then
-					break
-				end
-				local _current = noticeTimers.current
-				local _id = oldest.id
-				local oldTimer = _current[_id]
-				if oldTimer ~= nil then
-					pcall(function()
-						return task.cancel(oldTimer)
-					end)
-					deferredJobs.current[oldTimer] = nil
-					local _current_1 = noticeTimers.current
-					local _id_1 = oldest.id
-					_current_1[_id_1] = nil
-				end
-				local _arg0 = (table.find(updated, oldest) or 0) - 1
-				table.remove(updated, _arg0 + 1)
-			end
-			return updated
-		end)
-		local tryDismiss
-		tryDismiss = function()
-			local job = noticeTimers.current[dismissId]
-			if job ~= nil then
-				deferredJobs.current[job] = nil
-			end
-			noticeTimers.current[dismissId] = nil
-			if not appAlive.current then
-				return nil
-			end
-			if hoveredNotices.current[dismissId] ~= nil then
-				local wait = task.delay(0.45, tryDismiss)
-				noticeTimers.current[dismissId] = wait
-				deferredJobs.current[wait] = true
-				return nil
-			end
-			dismissNotice(dismissId)
-		end
-		local job = task.delay(lifetime, tryDismiss)
-		noticeTimers.current[dismissId] = job
-		deferredJobs.current[job] = true
-	end, { dismissNotice })
+		local Juice = require(script.Parent.JuiceFx)
+		local color = if tone == "Special" then Palette.violet elseif tone == "Success" then Palette.mint elseif tone == "Warning" then Palette.mango elseif tone == "Error" then Palette.coral else Palette.cyan
+		local icon = if tone == "Special" then "Gift" elseif tone == "Success" then "Check" elseif tone == "Warning" then "Timer" elseif tone == "Error" then "Close" else "Wave"
+		local bodyText = if type(body) == "string" then body else tostring(body or "")
+		Juice.banner(normalizedTitle, if bodyText ~= "" then bodyText else nil, color, icon, lifetime, tone)
+		return nil
+	end, {})
 	local celebrate = React.useCallback(function()
 		celebrationSeed.current += math.random(1, 3)
 		setConfettiNonce(celebrationSeed.current)
@@ -5284,12 +5113,7 @@ local function MainGame(_param)
 			if _condition_7 == nil then
 				_condition_7 = detail
 			end
-			-- a short reason shows by the tap; a long one gets the island
-			if #detail <= 64 then
-				require(script.Parent.JuiceFx).status(detail, "error")
-			else
-				addNotice(_exp_3, failureBody(_exp_4, _condition_7), "Warning", false)
-			end
+			addNotice(_exp_3, failureBody(_exp_4, _condition_7), "Warning", false)
 			return nil
 		end
 		do
@@ -5320,11 +5144,11 @@ local function MainGame(_param)
 			if bigMoment then
 				Juice.flash(Palette.cream, 0.45)
 				if action == "Rebirth" then
-					Juice.banner(`REBIRTH {response.Rebirths or ""}!`, "Production multiplier up.", Palette.violet, "Rebirth")
+					Juice.moment(`REBIRTH {response.Rebirths or ""}!`, "Production multiplier up.", Palette.violet, "Rebirth")
 				elseif action == "DomainExpansion" then
-					Juice.banner(`DOMAIN {response.DomainRank or ""}!`, "New tree points to spend.", Palette.pink, "Domain")
+					Juice.moment(`DOMAIN {response.DomainRank or ""}!`, "New tree points to spend.", Palette.pink, "Domain")
 				elseif action == "UnlockZone" then
-					Juice.banner("NEW WORLD!", response.message, Palette.cyan, "World")
+					Juice.moment("NEW WORLD!", response.message, Palette.cyan, "World")
 				end
 			end
 			if action == "OpenItemCrate" and type(response.Rolls) == "table" and #response.Rolls > 0 then
@@ -6090,7 +5914,7 @@ local function MainGame(_param)
 			elseif kind == "Overcharge" and amount > 0 then
 				if value.Critical == true then
 					local Juice = require(script.Parent.JuiceFx)
-					Juice.status("CRITICAL!", "special")
+					Juice.number("CRIT!", Palette.mango, { big = true })
 					require(script.Parent.SessionStats).bump("crits")
 					Juice.burst(nil, Palette.mango, 0.8)
 				end
@@ -6118,14 +5942,14 @@ local function MainGame(_param)
 				Audio:play("discovery")
 				celebrate()
 				if value.UserId == game:GetService("Players").LocalPlayer.UserId then
-					require(script.Parent.JuiceFx).banner(`ASCENSION {value.Rank or ""}!`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth")
+					require(script.Parent.JuiceFx).moment(`ASCENSION {value.Rank or ""}!`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth")
 				end
 			elseif kind == "FeatureUnlocked" and not purchasePresentationActive.current then
 				Audio:play("unlock")
 				InteractionFeedback.reward()
 				celebrate()
 				local featureName = value.Name or value.Feature or value.Id
-				require(script.Parent.JuiceFx).banner(if featureName then `{string.upper(tostring(featureName))} UNLOCKED!` else "NEW FEATURE!", "Find it in the menu.", Palette.mint, "Check")
+				require(script.Parent.JuiceFx).moment(if featureName then `{string.upper(tostring(featureName))} UNLOCKED!` else "NEW FEATURE!", "Find it in the menu.", Palette.mint, "Check")
 			elseif kind == "LevelUp" and not purchasePresentationActive.current then
 				__load("levelMoments").pushLevelMoment(value)
 				InteractionFeedback.reward()
@@ -6765,21 +6589,6 @@ local function MainGame(_param)
 		_result_38 = _result_38.Settings.ShimmerIntensity
 	end
 	local motionSettings = React.useMemo(_exp_6, { motionIntensity, softFeel, _result_31, _result_32, _result_33, _result_34, _result_35, _result_36, _result_37, _result_38, textScale, viewportSpeed })
-	local touchUi = isTouchUiHere
-	local _condition_7 = not touchUi
-	if not _condition_7 then
-		local _result_39 = state
-		if _result_39 ~= nil then
-			_result_39 = _result_39.Settings.MobileToastVisible
-		end
-		local _condition_8 = _result_39
-		if _condition_8 == nil then
-			_condition_8 = 1
-		end
-		_condition_7 = _condition_8 >= 0.5
-	end
-	local mobileToastsVisible = _condition_7
-	local mobileLayoutCache = React.useRef(nil)
 	local clearAdminPrank = React.useCallback(function()
 		setAdminPrank(nil)
 	end, {})
@@ -6815,68 +6624,7 @@ local function MainGame(_param)
 		_attributes.setToastsSuppressed = setToastsSuppressed
 		_attributes.setPurchasePresentationActive = setPurchasePresentationActive
 		local _exp_7 = React.createElement(Shell, _attributes)
-		local _attributes_1 = {
-			notices = if mobileToastsVisible and not toastsSuppressed then notices else EMPTY_NOTICES,
-			remove = dismissNotice,
-			setHovered = setNoticeHovered,
-			reducedMotion = false,
-			density = toastDensityRef.current,
-		}
-		local _result_41
-		if touchUi then
-			local _object = {}
-			local _left = "x"
-			local _condition_10 = state.Settings.MobileToastX
-			if _condition_10 == nil then
-				_condition_10 = 0.84
-			end
-			_object[_left] = _condition_10
-			local _left_1 = "y"
-			local _condition_11 = state.Settings.MobileToastY
-			if _condition_11 == nil then
-				_condition_11 = 0.27
-			end
-			_object[_left_1] = _condition_11
-			local _left_2 = "scale"
-			local _condition_12 = state.Settings.MobileToastScale
-			if _condition_12 == nil then
-				_condition_12 = state.Settings.MobileHudScale
-				if _condition_12 == nil then
-					_condition_12 = 0.5
-				end
-			end
-			_object[_left_2] = _condition_12
-			local _left_3 = "opacity"
-			local _condition_13 = state.Settings.ReducedTransparency
-			if _condition_13 == nil then
-				_condition_13 = 0
-			end
-			local _result_42
-			if _condition_13 >= 0.5 then
-				_result_42 = 1
-			else
-				local _condition_14 = state.Settings.MobileToastOpacity
-				if _condition_14 == nil then
-					_condition_14 = state.Settings.MobileHudOpacity
-					if _condition_14 == nil then
-						_condition_14 = 0.85
-					end
-				end
-				_result_42 = _condition_14
-			end
-			_object[_left_3] = _result_42
-			local cachedLayout = mobileLayoutCache.current
-			if cachedLayout ~= nil and cachedLayout.x == _object.x and cachedLayout.y == _object.y and cachedLayout.scale == _object.scale and cachedLayout.opacity == _object.opacity then
-				_result_41 = cachedLayout
-			else
-				mobileLayoutCache.current = _object
-				_result_41 = _object
-			end
-		else
-			_result_41 = nil
-		end
-		_attributes_1.mobileLayout = _result_41
-		_condition_8 = React.createElement(React.Fragment, nil, _exp_7, React.createElement(ToastRail, _attributes_1))
+		_condition_8 = _exp_7
 	end
 	local shellContent = _condition_8
 	local domainContent = if state ~= nil and shellMounted then React.createElement(AutoScale, nil, if domainUi ~= nil then domainUi.render(state, dispatch, shellContent) else shellContent) else shellContent
@@ -9344,23 +9092,8 @@ local function TopBar(_param)
 		Thickness = 1,
 		Transparency = 0.52,
 	})
-	local _exp_4 = React.createElement("frame", {
-		Size = UDim2.fromOffset(72, 2),
-		Position = UDim2.fromOffset(18, 0),
-		BackgroundColor3 = accent,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.7, 0.2), NumberSequenceKeypoint.new(1, 1) }),
-	}))
-	local _exp_5 = React.createElement("frame", {
-		Size = UDim2.new(1, -36, 0, 1),
-		Position = UDim2.fromOffset(18, 1),
-		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = 0.95,
-		BorderSizePixel = 0,
-	})
+	local _exp_4 = nil
+	local _exp_5 = nil
 	local _exp_6 = React.createElement("frame", {
 		Size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
 		Position = UDim2.fromOffset(12, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
@@ -11122,6 +10855,13 @@ local function Navigation(_param)
 	}), React.createElement("uigradient", {
 		Color = surfaceGradient(Palette.night, 0.5),
 		Rotation = 90,
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, -2, 1, -2),
+		Position = UDim2.fromOffset(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 9),
 	}), React.createElement("uistroke", {
 		Color = Palette.lineSoft,
 		Thickness = 1,
@@ -11131,7 +10871,7 @@ local function Navigation(_param)
 	}, React.createElement("uigradient", {
 		Rotation = 90,
 		Color = strokeGradient(Palette.lineSoft),
-	})), React.createElement("scrollingframe", {
+	}))), React.createElement("scrollingframe", {
 		ref = railScrollRef,
 		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2 + 4), 1, -(headerHeight + SHELL_CHROME.railGutter + boostReserve)),
 		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, headerHeight),
@@ -19843,619 +19583,20 @@ return {
 end
 
 __defs["notifications"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
-local _react_lifetime_component = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)
-local LifetimeComponentImpl = _react_lifetime_component.LifetimeComponent
-local useComponentIsActive = _react_lifetime_component.useComponentIsActive
-local useComponentLifetime = _react_lifetime_component.useComponentLifetime
-local LifetimeHost = LifetimeComponentImpl
-local GuiService = game:GetService("GuiService")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local Audio = require(script.Parent.AudioKit)("audio").Audio
-local Icon = require(script.Parent.ArtKit)("Icon").Icon
-local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
-local planMobileLayout = require(script.Parent.CoreKit)("mobileLayout").planMobileLayout
-local _motion = require(script.Parent.MotionKit)("motion")
-local useClock = _motion.useClock
-local useFlipperSpring = _motion.useFlipperSpring
-local useIntent = _motion.useIntent
-local useIntentSpring = _motion.useIntentSpring
-local MotionTokens = require(script.Parent.MotionKit)("motionTokens")
-local _theme = require(script.Parent.CoreKit)("theme")
-local Palette = _theme.Palette
-local ensureContrast = _theme.ensureContrast
-local Breakpoints = _theme.Breakpoints
-local Layout = _theme.Layout
-local _ui = __load("ui")
-local Stroke = _ui.Stroke
-local Text = _ui.Text
-local useGuiSize = _ui.useGuiSize
-local pixelPosition = _ui.pixelPosition
+-- notices are shown by the island (BuffStrip.Island via JuiceFx.banner); only the timings live here
 local NOTICE_LIFETIME = 4.2
 local NOTICE_EXIT_SECONDS = 0.24
-local SWIPE_DISMISS_PX = 56
-local SWIPE_RETURN_FEEL = { frequency = 3.3, dampingRatio = 0.86 }
-local function toneColor(tone)
-	if tone == "Success" then
-		return Palette.mint
-	end
-	if tone == "Warning" then
-		return Palette.mango
-	end
-	if tone == "Error" then
-		return Palette.coral
-	end
-	if tone == "Special" then
-		return Palette.violet
-	end
-	return Palette.cyan
-end
-local function toneCue(tone)
-	if tone == "Success" then
-		return "noticeSuccess"
-	end
-	if tone == "Warning" then
-		return "noticeWarning"
-	end
-	if tone == "Error" then
-		return "noticeError"
-	end
-	if tone == "Special" then
-		return "noticeSpecial"
-	end
-	return "noticeInfo"
-end
-local function toneIcon(tone)
-	if tone == "Success" then
-		return "Check"
-	end
-	if tone == "Warning" then
-		return "Timer"
-	end
-	if tone == "Error" then
-		return "Close"
-	end
-	if tone == "Special" then
-		return "Gift"
-	end
-	return "Wave"
-end
-local CARD_HEIGHT = 44
-local CARD_HEIGHT_MOBILE = 42
-local CARD_GAP = 6
-local CARD_GAP_MOBILE = 6
-local RAIL_WIDTH = 380
-local RAIL_WIDTH_MOBILE = 340
-local MAX_VISIBLE = 3
-local MAX_VISIBLE_MOBILE = 2
-local function densityVisibleCap(density, stack)
-	local clamped = math.clamp(if type(density) == "number" then density else 0.55, 0, 1)
-	if stack then
-		return math.clamp(math.floor(1 + clamped * 2 + 0.35), 1, 3)
-	end
-	return math.clamp(math.floor(2 + clamped * 3 + 0.5), 2, 5)
-end
-
-local function NoticeCard(props)
-	local slotRef = React.useRef(nil)
-	local slotSizePixels = useGuiSize(slotRef)
-	local isActive = useComponentIsActive(props)
-	useComponentLifetime(props, NOTICE_EXIT_SECONDS)
-	local notice = props.notice
-	local hovered, setHovered = React.useState(false)
-	local entered, setEntered = React.useState(false)
-	local leaving = not isActive or notice.leaving == true
-	local leavingRef = React.useRef(leaving)
-	leavingRef.current = leaving
-	local visible = not leaving and entered
-	local color = toneColor(notice.tone)
-	local cardH = if props.compact then CARD_HEIGHT_MOBILE else CARD_HEIGHT
-	local cardGap = if props.compact then CARD_GAP_MOBILE else CARD_GAP
-	local hasBody = #notice.body > 0 and notice.body ~= notice.title
-	local count = if notice.count ~= nil then notice.count else 1
-	local swipeX, setSwipeX = React.useBinding(0)
-	local drag = React.useRef({
-		active = false,
-		start = 0,
-		x = 0,
-		v = 0,
-		mode = "idle",
-	})
-
-	React.useEffect(function()
-		local alive = true
-		local job = task.defer(function()
-			if alive then
-				setEntered(true)
-			end
-		end)
-		return function()
-			alive = false
-			pcall(task.cancel, job)
-		end
-	end, {})
-
-	React.useEffect(function()
-		local _result = props.setHovered
-		if _result ~= nil then
-			_result(notice.id, hovered)
-		end
-		return function()
-			local _result_1 = props.setHovered
-			if _result_1 ~= nil then
-				_result_1 = _result_1(notice.id, false)
-			end
-			return _result_1
-		end
-	end, { hovered, notice.id, props.setHovered })
-
-	local plan = useIntent({ role = "toast", tone = notice.tone, emphasis = if notice.tone == "Special" then 0.5 else 0, reduced = props.reducedMotion })
-	React.useEffect(function()
-		if not visible or notice.sound == false then
-			return nil
-		end
-		Audio:play(plan.cue or toneCue(notice.tone))
-	end, { notice.sound, notice.tone, visible })
-
-	React.useEffect(function()
-		local connection = RunService.RenderStepped:Connect(function(dt)
-			local state = drag.current
-			if state.mode ~= "return" or leavingRef.current then
-				return nil
-			end
-			state.x, state.v = MotionTokens.step(state.x, state.v, 0, SWIPE_RETURN_FEEL, dt)
-			if math.abs(state.x) < 0.4 and math.abs(state.v) < 6 then
-				state.x = 0
-				state.v = 0
-				state.mode = "idle"
-			end
-			setSwipeX(state.x)
-		end)
-		return function()
-			return connection:Disconnect()
-		end
-	end, { setSwipeX })
-
-	local progress = useIntentSpring(if visible then 1 else 0, plan)
-	local hover = useFlipperSpring(if hovered and visible then 1 else 0, props.reducedMotion, 400, 32)
-	local life = useClock(visible, 1, 1000, true)
-
-	local slotSize = progress:map(function(shown)
-		local t = math.clamp(shown, 0, 1)
-		return UDim2.new(1, 0, 0, math.max(0, math.round(t * cardH + (if t > 0.05 then cardGap else 0))))
-	end)
-
-	local cardSize = progress:map(function(shown)
-		local t = math.clamp(shown, 0, 1)
-		return UDim2.new(1, math.round((1 - t) * -20), 0, cardH)
-	end)
-
-	local enterX = progress:map(function(shown)
-		return (1 - math.clamp(shown, 0, 1)) * 18
-	end)
-
-	local motionFade = progress:map(function(shown)
-		return 1 - math.clamp(shown, 0, 1)
-	end)
-
-	local surface = Color3.fromRGB(12, 14, 22)
-	local backgroundTransparency = motionFade:map(function(fade)
-		return math.clamp(0.06 + fade * 0.94, 0, 1)
-	end)
-
-	local drain = life:map(function(seconds)
-		local lifetime = if notice.lifetime ~= nil then notice.lifetime else NOTICE_LIFETIME
-		return math.clamp(1 - seconds / lifetime, 0, 1)
-	end)
-
-	local shownEnough = progress:map(function(shown)
-		return shown > 0.02
-	end)
-
-	local lift = hover:map(function(amount)
-		return -amount * 2
-	end)
-
-	local cardPosition = React.joinBindings({ enterX, swipeX, lift, slotSizePixels }):map(function(values)
-		return pixelPosition(values[4], 0.5, values[1] + values[2], 0.5, values[3])
-	end)
-
-	local onDismiss = function()
-		if not leavingRef.current then
-			props.remove(notice.id)
-			Audio:play("noticeClose")
-		end
-	end
-
-	return React.createElement("frame", {
-		ref = slotRef,
-		Size = slotSize,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = notice.id,
-		ClipsDescendants = false,
-		Visible = shownEnough,
-	}, React.createElement("imagebutton", {
-		Size = cardSize,
-		Position = cardPosition,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = surface,
-		BackgroundTransparency = backgroundTransparency,
-		BorderSizePixel = 0,
-		Active = not leaving,
-		AutoButtonColor = false,
-		Selectable = false,
-		ClipsDescendants = true,
-		ZIndex = 101,
-		Event = {
-			Activated = onDismiss,
-			MouseEnter = function()
-				if not leaving then
-					setHovered(true)
-					Audio:play("hover")
-				end
-			end,
-			MouseLeave = function()
-				return setHovered(false)
-			end,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, math.floor(cardH / 2)),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(surface:Lerp(color, 0.12), surface),
-		Rotation = 0,
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = color,
-		Thickness = 1,
-		Transparency = React.joinBindings({ motionFade, hover }):map(function(values)
-			return math.clamp(0.48 - values[2] * 0.28 + values[1] * 0.52, 0, 1)
-		end),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(26, 26),
-		Position = UDim2.new(0, 8, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = color:Lerp(Palette.void, 0.72),
-		BackgroundTransparency = motionFade:map(function(amount)
-			return 0.15 + amount * 0.85
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 103,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = color:Lerp(Palette.white, 0.25),
-		Thickness = 1,
-		Transparency = motionFade:map(function(amount)
-			return 0.35 + amount * 0.65
-		end),
-	}), React.createElement(Icon, {
-		kind = toneIcon(notice.tone),
-		color = color,
-		accent = color,
-		size = 14,
-		spin = false,
-		reducedMotion = props.reducedMotion,
-		position = UDim2.fromScale(0.5, 0.5),
-		anchorPoint = Vector2.new(0.5, 0.5),
-	})), React.createElement("textlabel", {
-		Size = UDim2.new(1, if count > 1 then -78 else -48, 0, if hasBody then 16 else 20),
-		Position = if hasBody then UDim2.fromOffset(42, 6) else UDim2.new(0, 42, 0.5, 0),
-		AnchorPoint = if hasBody then Vector2.zero else Vector2.new(0, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = notice.title,
-		TextColor3 = Palette.white,
-		TextTransparency = motionFade,
-		TextSize = if props.compact then (if hasBody then 11 else 13) else (if hasBody then 12 else 14),
-		FontFace = fontFaceFor(Enum.Font.BuilderSansExtraBold),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 105,
-	}), hasBody and React.createElement("textlabel", {
-		Size = UDim2.new(1, if count > 1 then -78 else -48, 0, 14),
-		Position = UDim2.fromOffset(42, 22),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		Text = notice.body,
-		TextColor3 = Palette.creamSoft,
-		TextTransparency = motionFade:map(function(amount)
-			return math.clamp(0.08 + amount, 0, 1)
-		end),
-		TextSize = 11,
-		FontFace = fontFaceFor(Enum.Font.BuilderSansMedium),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 105,
-	}), count > 1 and React.createElement("frame", {
-		Size = UDim2.fromOffset(26, 18),
-		Position = UDim2.new(1, -12, 0.5, 0),
-		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundColor3 = color,
-		BorderSizePixel = 0,
-		ZIndex = 106,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement(Text, {
-		value = `×{count}`,
-		size = 10,
-		color = Palette.ink,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.fromScale(1, 1),
-		zIndex = 107,
-	})), React.createElement("frame", {
-		Size = drain:map(function(amount)
-			return UDim2.new(math.clamp(amount, 0, 1), 0, 0, 2)
-		end),
-		Position = UDim2.new(0, 0, 1, -2),
-		BackgroundColor3 = color,
-		BackgroundTransparency = motionFade:map(function(amount)
-			return math.clamp(0.3 + amount * 0.7, 0, 1)
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 104,
-	})))
-end
-local function ToastRail(_param)
-	local notices = _param.notices
-	local remove = _param.remove
-	local setHovered = _param.setHovered
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
-	local mobileLayout = _param.mobileLayout
-	local density = _param.density
-	if density == nil then
-		density = 0.55
-	end
-	local screen, setScreen = React.useState(function()
-		local _result = Workspace.CurrentCamera
-		if _result ~= nil then
-			_result = _result.ViewportSize
-		end
-		local _condition = _result
-		if _condition == nil then
-			_condition = Vector2.new(1280, 720)
-		end
-		return _condition
-	end)
-	local topbarInset, setTopbarInset = React.useState(function()
-		return GuiService.TopbarInset.Height
-	end)
-	React.useEffect(function()
-		local viewportConnection
-		local bindCamera = function()
-			local _result = viewportConnection
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-			viewportConnection = nil
-			local camera = Workspace.CurrentCamera
-			if camera == nil then
-				return nil
-			end
-			local sync = function()
-				return setScreen(camera.ViewportSize)
-			end
-			sync()
-			viewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(sync)
-		end
-		bindCamera()
-		local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera)
-		return function()
-			cameraConnection:Disconnect()
-			local _result = viewportConnection
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-		end
-	end, {})
-	React.useEffect(function()
-		local sync = function()
-			return setTopbarInset(GuiService.TopbarInset.Height)
-		end
-		sync()
-		local connection = GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(sync)
-		return function()
-			return connection:Disconnect()
-		end
-	end, {})
-	local noticesRef = React.useRef(notices)
-	noticesRef.current = notices
-	React.useEffect(function()
-		local connection = UserInputService.InputBegan:Connect(function(input, processed)
-			if processed or input.KeyCode ~= Enum.KeyCode.Escape then
-				return nil
-			end
-			local live = noticesRef.current
-			local newest = live[#live]
-			if newest ~= nil then
-				remove(newest.id)
-			end
-		end)
-		return function()
-			return connection:Disconnect()
-		end
-	end, { remove })
-	local width = math.floor(screen.X)
-	local height = math.floor(screen.Y)
-	local plan = planMobileLayout({
-		width = width,
-		height = height,
-		compact = width < Breakpoints.compact,
-		tight = width < Breakpoints.tight,
-		short = height < Breakpoints.short,
-		desktop = usesDesktopStructure(width, height),
-	})
-	local stack = plan.stack
-	local layoutScale = if mobileLayout ~= nil then 0.88 + math.clamp(mobileLayout.scale, 0, 1) * 0.12 else 1
-	local railW = (if stack then math.min(RAIL_WIDTH_MOBILE, math.max(200, width - plan.sideSafe * 2 - 20)) else RAIL_WIDTH) * layoutScale
-	local cardH = if stack then CARD_HEIGHT_MOBILE else CARD_HEIGHT
-	local cardGap = if stack then math.max(4, CARD_GAP_MOBILE - math.floor(density * 2)) else CARD_GAP
-	local topInset = math.max(topbarInset, Layout.minTopInset) + (if stack then plan.topbarRows + 10 else Layout.topbarClearance + 12)
-	local keyboardOpen = UserInputService.TouchEnabled and UserInputService.OnScreenKeyboardVisible
-	local densityCap = densityVisibleCap(density, stack)
-	local requestedVisible = if keyboardOpen then 1 else densityCap
-	local bottomReserve = plan.bottomSafe + plan.tabBarH + (if stack then 18 else 12)
-	local fittingVisible = math.max(1, math.floor((height - topInset - bottomReserve - 8) / math.max(1, cardH + cardGap)))
-	local maxVisible = math.max(1, math.min(requestedVisible, fittingVisible, if stack then MAX_VISIBLE_MOBILE + 1 else 2))
-	local railHeight = maxVisible * (cardH + cardGap)
-	local minX = (plan.sideSafe + 8 + railW / 2) / width
-	local maxX = math.max(minX, 1 - minX)
-	local minY = topInset / height
-	local maxY = math.max(minY, (height - bottomReserve - railHeight - 8) / height)
-	local customX = if mobileLayout ~= nil then math.clamp(mobileLayout.x, minX, maxX) else 0.5
-	local customY = if mobileLayout ~= nil then math.clamp(mobileLayout.y, minY, maxY) else minY
-	local _newValue = {}
-	local _callback = function(notice)
-		return notice.leaving ~= true
-	end
-	local _length = 0
-	for _k, _v in notices do
-		if _callback(_v, _k - 1, notices) == true then
-			_length += 1
-			_newValue[_length] = _v
-		end
-	end
-	local live = _newValue
-	local _result
-	if #live > maxVisible then
-		local _newValue_1 = {}
-		local _callback_1 = function(_, i)
-			return i >= #live - maxVisible
-		end
-		local _length_1 = 0
-		for _k, _v in live do
-			if _callback_1(_v, _k - 1, live) == true then
-				_length_1 += 1
-				_newValue_1[_length_1] = _v
-			end
-		end
-		_result = _newValue_1
-	else
-		_result = live
-	end
-	local visible = _result
-	local _exp = function()
-		local entries = {}
-		local _callback_1 = function(notice)
-			local _exp_1 = tostring(notice.id)
-			local _attributes = {
-				notice = notice,
-				remove = remove,
-				setHovered = setHovered,
-				reducedMotion = reducedMotion,
-				compact = stack,
-				touch = plan.mobile,
-			}
-			local _result_1 = mobileLayout
-			if _result_1 ~= nil then
-				_result_1 = _result_1.opacity
-			end
-			local _condition = _result_1
-			if _condition == nil then
-				_condition = 1
-			end
-			_attributes.surfaceOpacity = _condition
-			local _arg1 = React.createElement(NoticeCard, _attributes)
-			entries[_exp_1] = _arg1
-		end
-		for _k, _v in visible do
-			_callback_1(_v, _k - 1, visible)
-		end
-		return entries
-	end
-	local _result_1 = mobileLayout
-	if _result_1 ~= nil then
-		_result_1 = _result_1.opacity
-	end
-	local rendered = React.useMemo(_exp, { _result_1, plan.mobile, reducedMotion, remove, setHovered, stack, visible })
-	local hiddenCount = math.max(0, #live - maxVisible)
-	local useCustom = mobileLayout ~= nil
-	-- Desktop toasts sit at the top of the content area, centred in the page header's empty middle
-	-- (between the page title and the vault card), and stack downward. The old bottom-left spot
-	-- sat on top of whatever the page showed there.
-	local desktopTop = math.max(topbarInset, Layout.minTopInset) + Layout.topbarHeight + 12
-	local defaultPosition = if stack
-		then UDim2.new(0.5, 0, 0, topInset)
-		else UDim2.new(0.5, 0, 0, topInset)
-	local defaultAnchor = Vector2.new(0.5, 0)
-	return React.createElement("frame", {
-		Size = UDim2.new(0, railW, 0, railHeight),
-		Position = if useCustom then UDim2.fromScale(customX, customY) else defaultPosition,
-		AnchorPoint = if useCustom then Vector2.new(0.5, 0) else defaultAnchor,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 250,
-		ClipsDescendants = false,
-	}, hiddenCount > 0 and React.createElement("frame", {
-		Size = UDim2.fromOffset(math.min(160, railW), if stack then 22 else 24),
-		Position = UDim2.new(0.5, 0, 0, -(if stack then 28 else 30)),
-		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundColor3 = Palette.panelRaised,
-		BackgroundTransparency = 0.12,
-		BorderSizePixel = 0,
-		ZIndex = 249,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement(Stroke, {
-		color = Palette.lineSoft,
-		thickness = 1,
-		transparency = 0.62,
-	}), React.createElement(Text, {
-		value = `+{hiddenCount} more`,
-		size = 11,
-		color = Palette.creamSoft,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		fit = false,
-		sizeConstraint = UDim2.fromScale(1, 1),
-	})), React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = if stack or mobileLayout == nil then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom,
-		Padding = UDim.new(0, 0),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), React.createElement(LifetimeHost, {
-		CanRecover = true,
-	}, rendered))
-end
 return {
-	ToastRail = ToastRail,
 	NOTICE_LIFETIME = NOTICE_LIFETIME,
 	NOTICE_EXIT_SECONDS = NOTICE_EXIT_SECONDS,
 }
 end
 
 __defs["levelMoments"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local Workspace = game:GetService("Workspace")
-local Audio = require(script.Parent.AudioKit)("audio").Audio
-local Icon = require(script.Parent.ArtKit)("Icon").Icon
-local _motion = require(script.Parent.MotionKit)("motion")
-local useClock = _motion.useClock
-local useFlipperSpring = _motion.useFlipperSpring
-local useViewport = _motion.useViewport
-local useWallClock = _motion.useWallClock
-local _theme = require(script.Parent.CoreKit)("theme")
-local Palette = _theme.Palette
-local chromeFor = _theme.chromeFor
-local darken = _theme.darken
+-- milestone rewards play in the island as a "moment"; a running forge surge shows as an island buff
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
-local Text = __load("ui").Text
+local Palette = require(script.Parent.CoreKit)("theme").Palette
 
-local CARD_SECONDS = 6.5
-
-local listeners = {}
 local pendingNames = {}
 local function pushLevelMoment(effect)
 	if type(effect) ~= "table" then
@@ -20468,290 +19609,24 @@ local function pushLevelMoment(effect)
 	if effect.Type ~= "LevelReward" then
 		return
 	end
-	local moment = table.clone(effect)
-	moment.Names = pendingNames
-	moment.At = os.clock()
+	local opened = pendingNames
 	pendingNames = {}
-	for listener in listeners do
-		listener(moment)
+	local parts = {}
+	if (tonumber(effect.Flux) or 0) > 0 then
+		table.insert(parts, `+{compactNumber(effect.Flux)} flux`)
 	end
-end
-
-local function clockText(seconds)
-	local total = math.max(0, math.floor(seconds))
-	return string.format("%d:%02d", total // 60, total % 60)
-end
-
-local function RewardRow(_param)
-	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 34),
-		LayoutOrder = _param.order,
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 452,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 9),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(26, 26),
-		Position = UDim2.new(0, 5, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = darken(_param.color, 0.55),
-		BorderSizePixel = 0,
-		ZIndex = 453,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 7),
-	}), React.createElement(Icon, {
-		kind = _param.icon,
-		color = Palette.cream,
-		accent = _param.color,
-		size = 26,
-	})), React.createElement(Text, {
-		value = _param.text,
-		size = 14,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(40, 0),
-		sizeConstraint = UDim2.new(1, -48, 1, 0),
-		zIndex = 453,
-	}))
-end
-
-local function LevelCard(_param)
-	local moment = _param.moment
-	local onClose = _param.onClose
-	local viewport = useViewport()
-	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 520, 30, 0)
-	local spin = useClock(true, 0.35, math.pi * 2)
-	local rows = {}
-	rows.layout = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 6),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	})
-	local count = 0
-	local function add(key, icon, color, text)
-		count += 1
-		rows[key] = React.createElement(RewardRow, { order = count, icon = icon, color = color, text = text })
+	if (tonumber(effect.Stardust) or 0) > 0 then
+		table.insert(parts, `+{compactNumber(effect.Stardust)} stardust`)
 	end
-	if (moment.Flux or 0) > 0 then
-		add("flux", "Flux", Palette.mango, `+{compactNumber(moment.Flux)} flux`)
+	if (tonumber(effect.SurgeMultiplier) or 1) > 1 then
+		table.insert(parts, string.format("x%.2f surge", effect.SurgeMultiplier))
 	end
-	if (moment.Stardust or 0) > 0 then
-		add("dust", "Dust", Palette.cyan, `+{compactNumber(moment.Stardust)} stardust`)
-	end
-	if (moment.SurgeMultiplier or 1) > 1 then
-		local seconds = math.max(0, (moment.SurgeEndsAt or 0) - Workspace:GetServerTimeNow())
-		add("surge", "Boost", Palette.pink, string.format("Forge Surge ×%.2f for %s", moment.SurgeMultiplier, clockText(seconds)))
-	end
-	local reachedCount = math.max(1, #(moment.Levels or {}))
-	add("mastery", "Forge", Palette.mint, string.format("+%d%% production, for good", reachedCount * 2))
-	local width = math.min(380, viewport.width - 28)
-	local height = 128 + count * 40
-	local opened = if type(moment.Names) == "table" then moment.Names else {}
-	local title = if #opened > 0 then table.concat(opened, " · ") else "Milestone reached"
-	return React.createElement("textbutton", {
-		Size = UDim2.fromOffset(width, height),
-		Position = show:map(function(amount)
-			return UDim2.new(0.5, 0, 0.42, math.round((1 - amount) * 30))
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.panelRaised,
-		BackgroundTransparency = show:map(function(amount)
-			return 1 - math.clamp(amount, 0, 1)
-		end),
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 450,
-		Event = {
-			Activated = onClose,
-		},
-	}, React.createElement("uiscale", {
-		Scale = show:map(function(amount)
-			return 0.85 + amount * 0.15
-		end),
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 18),
-	}), React.createElement("uistroke", {
-		Color = Palette.brass,
-		Thickness = 2,
-		Transparency = show:map(function(amount)
-			return 1 - amount * 0.8
-		end),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(220, 220),
-		Position = UDim2.new(0.5, 0, 0, 40),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = spin:map(function(angle)
-			return math.deg(angle)
-		end),
-		BackgroundTransparency = 1,
-		ZIndex = 450,
-	}, (function()
-		local rays = {}
-		for index = 1, 8 do
-			rays["ray" .. index] = React.createElement("frame", {
-				Size = UDim2.fromOffset(10, 110),
-				Position = UDim2.fromScale(0.5, 0.5),
-				AnchorPoint = Vector2.new(0.5, 1),
-				Rotation = index * 45,
-				BackgroundColor3 = Palette.mango,
-				BackgroundTransparency = show:map(function(amount)
-					return 1 - amount * 0.12
-				end),
-				BorderSizePixel = 0,
-				ZIndex = 450,
-			}, React.createElement("uigradient", {
-				Rotation = 90,
-				Transparency = NumberSequence.new(1, 0.4),
-			}))
-		end
-		return React.createElement(React.Fragment, nil, rays)
-	end)()), React.createElement(Text, {
-		value = if #opened > 0 then "UNLOCKED" else "MILESTONE",
-		size = 12,
-		color = Palette.brass,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 16),
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-		zIndex = 452,
-	}), React.createElement(Text, {
-		value = title,
-		size = 30,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 18,
-		position = UDim2.fromOffset(0, 34),
-		sizeConstraint = UDim2.new(1, 0, 0, 36),
-		zIndex = 452,
-	}), React.createElement(Text, {
-		value = "",
-		size = 12,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 72),
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-		zIndex = 452,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -28, 0, count * 40),
-		Position = UDim2.fromOffset(14, 98),
-		BackgroundTransparency = 1,
-		ZIndex = 451,
-	}, rows), React.createElement(Text, {
-		value = "Tap to continue",
-		size = 11,
-		color = Palette.muted,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.new(0, 0, 1, -24),
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-		zIndex = 452,
-	}))
-end
-
-local function SurgeChip(_param)
-	local surge = _param.surge
-	local now = useWallClock(true)
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local top = viewport.topInset + 64
-	local pulse = useClock(true, 2.4, math.pi * 2)
-	local stack = chrome.stack
-	local edge = math.max(chrome.sideSafe, 10)
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(if stack then math.max(120, viewport.width - math.min(220, math.floor(viewport.width * 0.6)) - edge * 3) else 168, 30),
-		Position = if stack then UDim2.new(0, edge, 1, -(chrome.tabBarH + 8 + 54)) else UDim2.new(1, -14, 0, top),
-		AnchorPoint = if stack then Vector2.new(0, 1) else Vector2.new(1, 0),
-		BackgroundColor3 = darken(Palette.pink, 0.62),
-		BorderSizePixel = 0,
-		Visible = now:map(function(value)
-			return surge.EndsAt > value
-		end),
-		ZIndex = 240,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.pink,
-		Thickness = 1.5,
-		Transparency = pulse:map(function(angle)
-			return 0.25 + (math.sin(angle) + 1) * 0.2
-		end),
-	}), React.createElement(Icon, {
-		kind = "Boost",
-		color = Palette.cream,
-		accent = Palette.pink,
-		size = 20,
-		position = UDim2.new(0, 8, 0.5, -10),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -38, 1, 0),
-		Position = UDim2.fromOffset(32, 0),
-		BackgroundTransparency = 1,
-		Text = now:map(function(value)
-			return string.format("SURGE ×%.2f  %s", surge.Multiplier, clockText(surge.EndsAt - value))
-		end),
-		TextColor3 = Palette.cream,
-		TextSize = 13,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 241,
-	}))
+	local title = if #opened > 0 then `{string.upper(table.concat(opened, " + "))} UNLOCKED` else "MILESTONE!"
+	require(script.Parent.JuiceFx).moment(title, if #parts > 0 then table.concat(parts, " · ") else nil, Palette.brass, "Forge")
 end
 
 local function LevelMomentHost(_param)
-	local state = _param.state
-	local queue, setQueue = React.useState({})
-	local leaving, setLeaving = React.useState(false)
-	React.useEffect(function()
-		local listener = function(moment)
-			Audio:play("achievementClaim")
-			setQueue(function(current)
-				local nextQueue = table.clone(current)
-				table.insert(nextQueue, moment)
-				return nextQueue
-			end)
-		end
-		listeners[listener] = true
-		return function()
-			listeners[listener] = nil
-		end
-	end, {})
-	local current = queue[1]
-	local close = React.useCallback(function()
-		setLeaving(true)
-		task.delay(0.25, function()
-			setLeaving(false)
-			setQueue(function(list)
-				local nextQueue = table.clone(list)
-				table.remove(nextQueue, 1)
-				return nextQueue
-			end)
-		end)
-	end, {})
-	React.useEffect(function()
-		if current == nil then
-			return nil
-		end
-		local job = task.delay(CARD_SECONDS, close)
-		return function()
-			pcall(task.cancel, job)
-		end
-	end, { current })
-	local level = state and state.Level
-	local progression = level and level.Progression
-	local surge = progression and progression.Surge
-	return React.createElement(React.Fragment, nil, surge ~= nil and (surge.EndsAt or 0) > 0 and React.createElement(SurgeChip, {
-		surge = surge,
-	}), current ~= nil and React.createElement(LevelCard, {
-		key = tostring(current.At),
-		moment = current,
-		leaving = leaving,
-		onClose = close,
-	}))
+	return nil
 end
 
 return {
@@ -21016,75 +19891,6 @@ local function EventPanel(_param)
 	}, rows)))
 end
 
-local function LiveSplash(_param)
-	local def = _param.def
-	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 420, 26, 0)
-	local accent = accentOf(def)
-	-- centred, below the toasts that open at the top of the page (they carry the how-to line)
-	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 120),
-		Position = UDim2.fromScale(0.5, 0.56),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = darken(accent, 0.7),
-		BackgroundTransparency = show:map(function(amount)
-			return 1 - amount * 0.25
-		end),
-		BorderSizePixel = 0,
-		Active = false,
-		ZIndex = 540,
-	}, React.createElement("uigradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.2, 0),
-			NumberSequenceKeypoint.new(0.8, 0),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	}), React.createElement("uiscale", {
-		Scale = show:map(function(amount)
-			return 0.8 + amount * 0.2
-		end),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 20),
-		Position = UDim2.fromOffset(0, 18),
-		BackgroundTransparency = 1,
-		Text = "SERVER EVENT",
-		TextColor3 = accent,
-		TextTransparency = show:map(function(amount)
-			return 1 - amount
-		end),
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		ZIndex = 541,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 48),
-		Position = UDim2.fromOffset(0, 38),
-		BackgroundTransparency = 1,
-		Text = string.upper(def.Name),
-		TextColor3 = Palette.cream,
-		TextTransparency = show:map(function(amount)
-			return 1 - amount
-		end),
-		TextSize = 42,
-		TextScaled = true,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		ZIndex = 541,
-	}, React.createElement("uitextsizeconstraint", {
-		MaxTextSize = 42,
-	})), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 18),
-		Position = UDim2.fromOffset(0, 90),
-		BackgroundTransparency = 1,
-		Text = def.Blurb,
-		TextColor3 = Palette.creamSoft,
-		TextTransparency = show:map(function(amount)
-			return 1 - amount
-		end),
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-		ZIndex = 541,
-	}))
-end
-
 -- Screen-space weather for live events. Every particle is a pure function of one time
 -- binding (no per-particle state), seeded so the pattern is stable between renders.
 local SKY_STYLE = {
@@ -21239,15 +20045,11 @@ local function EventSkyFx(_param)
 end
 
 local function ServerEventHost(_param)
+	-- The event itself lives in the island (a live buff whose row opens this panel); its start is
+	-- announced there as a moment. This host only draws the event weather and the detail panel.
 	local state = _param.state
 	local event = useServerEvent(state and state.ServerEvent)
-	local now = useWallClock(true)
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local pulse = useClock(true, 3, math.pi * 2)
 	local panelOpen, setPanelOpen = React.useState(false)
-	local splash, setSplash = React.useState(nil)
-	local splashLeaving, setSplashLeaving = React.useState(false)
 	local lastPhase = React.useRef(nil)
 	React.useEffect(function()
 		local opener = function()
@@ -21267,20 +20069,7 @@ local function ServerEventHost(_param)
 		if lastPhase.current ~= nil and lastPhase.current ~= key and event.Phase == "Live" then
 			local def = ServerEvents.EVENTS[event.Id or ""]
 			if def ~= nil then
-				Audio:play("noticeSpecial")
-				setSplashLeaving(false)
-				setSplash(def)
-				local leave = task.delay(2.4, function()
-					setSplashLeaving(true)
-				end)
-				local gone = task.delay(2.8, function()
-					setSplash(nil)
-				end)
-				lastPhase.current = key
-				return function()
-					pcall(task.cancel, leave)
-					pcall(task.cancel, gone)
-				end
+				require(script.Parent.JuiceFx).moment(string.upper(def.Name), def.Blurb, accentOf(def), def.Icon)
 			end
 		end
 		lastPhase.current = key
@@ -21290,99 +20079,12 @@ local function ServerEventHost(_param)
 		return nil
 	end
 	local def = ServerEvents.EVENTS[event.Id or ""]
-	local active = def ~= nil and event.Phase ~= "Rest"
-	local accent = accentOf(def)
-	local stack = chrome.stack
-	local edge = math.max(chrome.sideSafe, 10)
-	local width = if stack then math.min(320, viewport.width - edge * 2)
-		elseif active then math.min(320, viewport.width - 120)
-		else 170
-	local height = if active then (if event.Goal ~= nil then 58 else 50) else 28
-	local top = viewport.topInset + 62
 	local skyFx = def ~= nil and event.Phase == "Live" and React.createElement(EventSkyFx, {
 		key = tostring(event.Id),
 		eventId = event.Id,
-		accent = accent,
+		accent = accentOf(def),
 	})
-	if stack or _param.inTopBar == true then
-		return React.createElement(React.Fragment, nil, skyFx, splash ~= nil and React.createElement(LiveSplash, {
-			def = splash,
-			leaving = splashLeaving,
-		}), panelOpen and React.createElement(EventPanel, {
-			event = event,
-			onClose = function()
-				setPanelOpen(false)
-			end,
-		}))
-	end
-	local banner = React.createElement("textbutton", {
-		Name = "ServerEventBanner",
-		Size = UDim2.fromOffset(width, height),
-		Position = if stack then UDim2.new(0, edge, 1, -(chrome.tabBarH + 8)) else UDim2.new(0.5, 0, 0, top),
-		AnchorPoint = if stack then Vector2.new(0, 1) else Vector2.new(0.5, 0),
-		BackgroundColor3 = if active then darken(accent, 0.62) else Palette.night,
-		BackgroundTransparency = if active then 0.04 else 0.25,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 238,
-		Event = {
-			Activated = function()
-				Audio:play("open")
-				setPanelOpen(true)
-			end,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, if active then 12 else 14),
-	}), React.createElement("uistroke", {
-		Color = if active then accent else Palette.line,
-		Thickness = if active then 1.5 else 1,
-		Transparency = if active and event.Phase == "Live" then pulse:map(function(angle)
-			return 0.15 + (math.sin(angle) + 1) * 0.2
-		end) else 0.4,
-	}), active and React.createElement(Icon, {
-		kind = def.Icon,
-		color = Palette.cream,
-		accent = accent,
-		size = 24,
-		position = UDim2.fromOffset(10, 8),
-	}), React.createElement("textlabel", {
-		Name = "ServerEventName",
-		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 22 else height),
-		Position = UDim2.fromOffset(if active then 40 else 8, if active then 4 else 0),
-		BackgroundTransparency = 1,
-		Text = if active then def.Name else "",
-		TextColor3 = Palette.cream,
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.None,
-		TextWrapped = true,
-		Visible = active,
-		ZIndex = 239,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 16 else height),
-		Position = UDim2.fromOffset(if active then 40 else 8, if active then 27 else 0),
-		BackgroundTransparency = 1,
-		Text = now:map(function(value)
-			return phaseLine(event, value)
-		end),
-		TextColor3 = if active then accent else Palette.muted,
-		TextSize = if active then 12 else 11,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		TextXAlignment = if active then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
-		ZIndex = 239,
-	}), active and event.Goal ~= nil and React.createElement(ProgressBar, {
-		value = (event.Progress or 0) / math.max(1, event.Goal),
-		color = accent,
-		size = UDim2.new(1, -52, 0, 5),
-		position = UDim2.fromOffset(40, 46),
-		zIndex = 239,
-	}))
-	return React.createElement(React.Fragment, nil, skyFx, banner, splash ~= nil and React.createElement(LiveSplash, {
-		def = splash,
-		leaving = splashLeaving,
-	}), panelOpen and React.createElement(EventPanel, {
+	return React.createElement(React.Fragment, nil, skyFx, panelOpen and React.createElement(EventPanel, {
 		event = event,
 		onClose = function()
 			Audio:play("close")
@@ -23160,9 +21862,9 @@ local function playRevealCues(roll)
 	end
 	if plan.celebrate or plan.weight >= 0.75 then
 		Juice.flash(Palette.cream, if plan.celebrate then 0.55 else 0.3)
-		Juice.banner(`{string.upper(tostring(roll.Rarity or "RARE"))}!`, if special then "New to your collection." else nil, accent, "Crate")
+		Juice.moment(`{string.upper(tostring(roll.Rarity or "RARE"))}!`, if special then "New to your collection." else nil, accent, "Crate")
 	elseif special then
-		Juice.status("NEW!", "special")
+		Juice.status("New to your collection", "special")
 	end
 end
 local function rarityColor(config, rarity)

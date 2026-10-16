@@ -124,8 +124,9 @@ for _, feel in { { frequency = 3.3, dampingRatio = 0.86 }, { frequency = 6, damp
 	end
 	assert(math.abs(hx) < 0.5, "and it still comes to rest")
 end
+-- the toast stack is gone: every notice plays in the island
 local notifications = readSource("src/Client/AstralForge/UiCore.luau#notifications")
-assert(string.find(notifications, "MotionTokens.step(state.x, state.v, 0, SWIPE_RETURN_FEEL, dt)", 1, true), "toast swipe-back uses the exact step")
+assert(not string.find(notifications, "ToastRail", 1, true), "no toast stack is left behind")
 assert(not string.find(notifications, "state.v += accel * dt", 1, true), "the Euler swipe integration is gone")
 
 ------------------------------------------------------------------------

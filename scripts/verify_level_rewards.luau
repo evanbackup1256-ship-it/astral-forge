@@ -67,6 +67,8 @@ assert(not string.find(server, 'Type = "LevelHalfway"', 1, true) and not string.
 local template = fs.readFile("src/Server/AstralForge/DataTemplate.luau")
 assert(string.find(template, "RewardedLevel = -1", 1, true), "new saves start uninitialised")
 local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#levelMoments")
-assert(string.find(shell, "local function LevelCard", 1, true) and string.find(shell, "local function SurgeChip", 1, true), "client shows the card and the surge")
+assert(string.find(shell, ".moment(title", 1, true), "milestone rewards play in the island")
+local strip = fs.readFile("src/Client/AstralForge/BuffStrip.luau")
+assert(string.find(strip, "key = \"forgeSurge\"", 1, true), "a running forge surge shows as an island buff")
 
 print("verify_level_rewards: ok")

@@ -13,8 +13,8 @@ local h = React.createElement
 
 local Juice = {}
 
-local CAPS = { number = 22, coin = 40, burst = 5, status = 2, flash = 2, ring = 8, press = 6, spark = 16, banner = 1 }
-local LIFE = { number = 1.15, burst = 0.8, status = 1.8, flash = 0.4, ring = 0.55, press = 0.42, spark = 0.45, banner = 2.4 }
+local CAPS = { number = 22, coin = 40, burst = 5, flash = 2, ring = 8, press = 6, spark = 16 }
+local LIFE = { number = 1.15, burst = 0.8, flash = 0.4, ring = 0.55, press = 0.42, spark = 0.45 }
 local COIN_SCATTER = 0.22
 local COIN_FLIGHT = 0.55
 local COIN_STAGGER = 0.035
@@ -185,9 +185,24 @@ end
 
 -- a headline that drops in at the top ("REBIRTH 12!", "NEW WORLD!"), with a smaller line under it
 -- when the island is on screen it tells the story instead of a floating banner
+-- Every message in the game goes through the island. Anything sent before it mounts (or while it
+-- is between mounts, e.g. switching phone/desktop layouts) waits here and plays once it is back.
 local bannerListeners = {}
+local pendingBanners = {}
+local function deliver(info)
+	for callback in bannerListeners do
+		task.spawn(callback, info)
+	end
+end
 function Juice.onBanner(callback)
 	bannerListeners[callback] = true
+	if #pendingBanners > 0 then
+		local waiting = pendingBanners
+		pendingBanners = {}
+		for _, info in waiting do
+			task.spawn(callback, info)
+		end
+	end
 	return function()
 		bannerListeners[callback] = nil
 	end
@@ -208,23 +223,37 @@ function Juice.activity(kind: string, data)
 		task.spawn(callback, kind, data)
 	end
 end
-function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: string?, duration: number?)
+-- style: "notice" (title + line), "moment" (a big milestone: taller, rainbow rim), "pill" (one short line)
+function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: string?, duration: number?, tone: string?, style: string?)
+	local info = {
+		title = title,
+		subtitle = subtitle,
+		color = color or P.mango,
+		icon = icon,
+		duration = duration,
+		tone = tone,
+		style = style or "notice",
+	}
 	if next(bannerListeners) ~= nil then
-		for callback in bannerListeners do
-			task.spawn(callback, { title = title, subtitle = subtitle, color = color or P.mango, icon = icon, duration = duration })
-		end
+		deliver(info)
 		return
 	end
-	push({ kind = "banner", title = title, subtitle = subtitle, color = color or P.mango, icon = icon })
+	if #pendingBanners >= 8 then
+		table.remove(pendingBanners, 1)
+	end
+	table.insert(pendingBanners, info)
 end
 
--- a short line mid-screen ("No rewards to claim.")
+-- a big milestone ("REBIRTH 12!", "NEW WORLD!")
+function Juice.moment(title: string, subtitle: string?, color: Color3?, icon: string?)
+	Juice.banner(title, subtitle, color, icon, 3.2, "Special", "moment")
+end
+
+-- a short reply to a tap ("No rewards to claim."): a quick pill out of the island
 function Juice.status(text: string, tone: string?)
-	local color = if tone == "error" then Color3.fromRGB(255, 70, 86) elseif tone == "success" then P.mint elseif tone == "special" then P.mango else P.cream
-	local size = screenSize()
-	local tap = Juice.pointer()
-	local at = if tap then Vector2.new(math.clamp(tap.X, 160, size.X - 160), math.max(90, tap.Y - 64)) else Vector2.new(size.X / 2, size.Y * 0.6)
-	push({ kind = "status", text = text, color = color, at = at })
+	local color = if tone == "error" then P.coral elseif tone == "success" then P.mint elseif tone == "special" then P.mango else P.cream
+	local icon = if tone == "error" then "Close" elseif tone == "success" then "Check" elseif tone == "special" then "Boost" else "Wave"
+	Juice.banner(text, nil, color, icon, 1.5, tone, "pill")
 end
 
 function Juice.flash(color: Color3?, strength: number?)
@@ -655,56 +684,6 @@ local function renderEffect(effect, clock)
 			BackgroundTransparency = 1,
 			ZIndex = 25,
 		}, spokes)
-	elseif effect.kind == "banner" then
-		local t = age()
-		local life = LIFE.banner
-		local fade = t:map(function(a) return math.clamp((a - life * 0.8) / (life * 0.2), 0, 1) end)
-		return h("frame", {
-			key = effect.id,
-			Size = UDim2.fromOffset(640, 86),
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundTransparency = 1,
-			ZIndex = 36,
-			Position = t:map(function(a)
-				local drop = easeOutBack(math.clamp(a / 0.4, 0, 1))
-				local leave = easeInCubic(math.clamp((a - life * 0.82) / (life * 0.18), 0, 1))
-				return UDim2.new(0.5, 0, 0, -70 + drop * 150 - leave * 60)
-			end),
-		}, h("uiscale", {
-			Scale = t:map(function(a)
-				-- a little heartbeat while it holds
-				return 1 + math.max(0, math.sin(a * 7)) * 0.03 * (1 - math.clamp(a / life, 0, 1))
-			end),
-		}), effect.icon and h("frame", {
-			Size = UDim2.fromOffset(46, 46),
-			Position = UDim2.new(0.5, -(#effect.title * 9 + 34), 0, 2),
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundColor3 = theme.darken(effect.color, 0.55),
-			BorderSizePixel = 0,
-			ZIndex = 37,
-			Rotation = t:map(function(a) return math.sin(a * 5) * 8 end),
-		}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
-			Color = theme.lighten(effect.color, 0.3),
-			Thickness = 2,
-			Transparency = fade,
-		}), h(Icon, {
-			kind = effect.icon,
-			color = P.white,
-			accent = effect.color,
-			size = 30,
-			position = UDim2.fromScale(0.5, 0.5),
-			anchorPoint = Vector2.new(0.5, 0.5),
-			spin = false,
-		})), h("frame", {
-			Size = UDim2.new(1, 0, 0, 50),
-			BackgroundTransparency = 1,
-			ZIndex = 37,
-		}, outlined(effect.title, 36, effect.color, fade, 38)), effect.subtitle and h("frame", {
-			Size = UDim2.new(1, 0, 0, 26),
-			Position = UDim2.fromOffset(0, 52),
-			BackgroundTransparency = 1,
-			ZIndex = 37,
-		}, outlined(effect.subtitle, 18, P.cream, fade, 38)))
 	elseif effect.kind == "spark" then
 		local t = age()
 		return h("frame", {
@@ -718,24 +697,6 @@ local function renderEffect(effect, clock)
 		}, h("uiscale", {
 			Scale = t:map(function(a) return math.sin(math.clamp(a / LIFE.spark, 0, 1) * math.pi) * 1.3 + 0.01 end),
 		}), star(effect.size or 30, effect.color, 0, 34))
-	elseif effect.kind == "status" then
-		local t = age()
-		local size = screenSize()
-		return h("frame", {
-			key = effect.id,
-			Size = UDim2.fromOffset(math.min(560, size.X - 40), 34),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			ZIndex = 32,
-			Position = t:map(function(a)
-				local lift = easeOutCubic(math.clamp(a / LIFE.status, 0, 1)) * 26
-				return UDim2.fromOffset(effect.at.X, effect.at.Y - lift)
-			end),
-		}, h("uiscale", {
-			Scale = t:map(function(a) return 0.5 + easeOutBack(math.clamp(a / 0.25, 0, 1)) * 0.5 end),
-		}), outlined(effect.text, 21, effect.color, t:map(function(a)
-			return math.clamp((a - LIFE.status * 0.65) / (LIFE.status * 0.35), 0, 1)
-		end), 33))
 	elseif effect.kind == "flash" then
 		local t = age()
 		return h("frame", {

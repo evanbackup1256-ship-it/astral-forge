@@ -69,11 +69,11 @@ assert(string.find(shell, "local height = TapTarget + 14", 1, true), "quick acti
 
 -- Phone chrome placement
 local toasts = fs.readFile("src/Client/AstralForge/UiCore.luau#notifications")
-assert(string.find(toasts, "then UDim2.new(0.5, 0, 0, topInset)", 1, true), "phone toasts sit under the header")
+assert(not string.find(toasts, "ToastRail", 1, true), "phones get notices from the island under the header, not a toast stack")
 local events = fs.readFile("src/Client/AstralForge/UiCore.luau#serverEventsUi")
-assert(string.find(events, "UDim2.new(0, edge, 1, -(chrome.tabBarH + 8))", 1, true), "event banner in the status slot")
+assert(not string.find(events, "ServerEventBanner", 1, true), "phones see the event in the island, not a floating banner")
 local moments = fs.readFile("src/Client/AstralForge/UiCore.luau#levelMoments")
-assert(string.find(moments, "UDim2.new(0, edge, 1, -(chrome.tabBarH + 8 + 54))", 1, true), "surge chip above it")
+assert(not string.find(moments, "SurgeChip", 1, true), "the surge is an island buff, not a floating chip")
 local shellChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(not string.find(shellChrome, "MobilePreviewGate", 1, true), "the 'mobile is a preview' gate is gone")
 local eventWidthAt = assert(string.find(shell, "local eventW =", 1, true))
