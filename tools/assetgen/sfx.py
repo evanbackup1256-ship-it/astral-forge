@@ -854,7 +854,9 @@ def _build_voices():
     missing = sorted(n for n in V if n not in D)
     if missing:
         raise SystemExit('sound_design.py has no voice for: ' + ', '.join(missing))
-    return {name: D[name] for name in V}
+    # new voices that only exist in the design (Star Foundry) join the sheet too
+    names = list(V) + sorted(n for n in D if n not in V)
+    return {name: D[name] for name in names}
 
 
 RETIRED = ['bootAftershock', 'bootAnvilSplit', 'bootClang', 'bootDebris', 'bootFinaleFlip', 'bootFizz', 'bootFractureTail', 'bootGravity', 'bootIgnite', 'bootImpact', 'bootRumble', 'bootSlamAir', 'bootSlamCharge', 'bootSpark', 'bootStrike', 'bootTension', 'bootWhoosh', 'cardBlock', 'cardDraw', 'cardEndTurn', 'cardEndTurnHover', 'cardEnergy', 'cardEnergyHover', 'cardPlay', 'cardPower', 'cardPowerHover', 'curtainClose', 'curtainOpen', 'gameExit', 'gamePause', 'gamePauseHover', 'gameResume', 'gameResumeHover', 'noticeClose', 'oreCollect', 'oreMine', 'puzzleClear', 'puzzleTap', 'puzzleTapHover', 'reactorChannel', 'regionEnter', 'sanctuaryClick', 'sanctuaryHover', 'sanctuaryMenu', 'sanctuaryRecall', 'sanctuarySheetClose', 'velocitySlide', 'waystoneTravel']
