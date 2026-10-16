@@ -4689,7 +4689,7 @@ local GameConfig = {
 			Id = "room-for-stars",
 			Title = "Room for the Stars",
 			Chapter = "FINALE: PART ONE",
-			Summary = "Launch day — what the forge was for.",
+			Summary = "Launch day, and what the forge was built for.",
 			Body = {
 				"The vessel is a timeline wide enough that nothing has to be deleted to fit.",
 				"Vale's fragments join launch. She can't promise the Hollow Star trusts you. She only knows it has been alone with bad options too long.",

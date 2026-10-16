@@ -1706,7 +1706,7 @@ local function CommandViewReady(_param)
 					ClipsDescendants = false,
 					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
 				}, React.createElement(Button, {
-					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "IN PROGRESS",
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "NOT YET",
 					onClick = function()
 						return dispatch("ClaimWeeklyDirective", {
 							Id = directive.Id,
@@ -1727,7 +1727,7 @@ local function CommandViewReady(_param)
 					ClipsDescendants = false,
 					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
 				}, React.createElement(Button, {
-					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "IN PROGRESS",
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "NOT YET",
 					onClick = function()
 						return dispatch("ClaimWeeklyDirective", {
 							Id = directive.Id,
@@ -3277,7 +3277,7 @@ local function AdminViewReady(_param)
 			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(SectionTitle, {
-		value = if needsArm then "ARM TO RUN" else "READY",
+		value = if needsArm then "OFF" else "READY",
 		accent = if armed then Palette.coral else accent,
 	}), React.createElement(Text, {
 		value = (selected and selected.Label) or command,

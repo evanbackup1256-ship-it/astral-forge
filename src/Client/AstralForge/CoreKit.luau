@@ -337,7 +337,7 @@ local Breakpoints = {
 	compact = 1100,
 	short = 740,
 }
-local TapTarget = 48
+local TapTarget = 44
 local function mobileChrome(compact, tight, short, width, height, bottomInset, sideInset, desktop, orientationWidth, orientationHeight)
 	if short == nil then
 		short = false

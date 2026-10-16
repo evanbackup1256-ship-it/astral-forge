@@ -81,7 +81,7 @@ local function ArchiveMark(_param)
 	local pulse = usePulse(active and not reducedMotion, 1.2)
 	local enter = useEntrance(reducedMotion)
 	local progress = if active then meterFill(beat + 1, math.max(1, total)) elseif finished then 1 else math.clamp(unlockProgress, 0, 1)
-	local statusLabel = if not active and finished then "REPLAY" elseif active then "READING" elseif unlocked then "READY" else "LOCKED"
+	local statusLabel = if not active and finished then "REPLAY" elseif active then "OPEN" elseif unlocked then "READY" else "LOCKED"
 	local _result
 	if active then
 		_result = `Part {beat + 1} / {math.max(1, total)}`
@@ -3799,7 +3799,7 @@ local function MarketCard(_param)
 	local accent = if soldOut then Palette.muted else offer.Color
 	local stockBadge = if daily then (if soldOut then (if offer.Price <= 0 then "CLAIMED" else "BOUGHT") elseif stockMax > 1 then `DAILY {stock}/{stockMax}` else "DAILY") else (if soldOut then "SOLD OUT" else `STOCK {stock}`)
 	local stockBadgeAccent = if soldOut then Palette.coral elseif daily then Palette.cyan else Palette.violet
-	local statusLine = if daily then (if soldOut then (if offer.Price <= 0 then "Claimed today. The free key returns at restock." else "Bought today. Available again at restock.") else `Refreshes daily · {stock} of {stockMax} left`) else (if soldOut then "Scarce offer empty — wait for drip restock." else `Limited stock · {stock} of {stockMax} remaining`)
+	local statusLine = if daily then (if soldOut then (if offer.Price <= 0 then "Claimed today. The free key returns at restock." else "Bought today. Available again at restock.") else `Refreshes daily · {stock} of {stockMax} left`) else (if soldOut then "Sold out. More comes in at restock." else `Limited stock · {stock} of {stockMax} remaining`)
 	local buttonText = if soldOut then (if daily then "WAIT FOR RESTOCK" else "SOLD OUT") else "BUY"
 	local cardH = if stack then MARKET_CARD_H_STACK else MARKET_CARD_H
 	local textReserve = if stack then -(56 + 16) else -240

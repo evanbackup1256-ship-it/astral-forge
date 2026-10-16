@@ -195,7 +195,7 @@ function Views.ShiftPlan(props)
 			copy("DAILY TASK",0,20,11,P.mango,true),copy(job.Name,26,42,19,P.cream,true),
 			copy(job.Description or job.Kind,74,56,14),meter(progress,136,job.Color or P.mango),
 			copy(`{compact(job.Progress)} / {compact(job.Target)} · {math.floor(progress*100)}%`,152,22,12),
-			button(if progress>=1 then "CLAIM TASK" else "IN PROGRESS",184,function() run("ClaimAnomalyDirective",{Id=job.Id}) end,busy or progress<1,job.Color or P.mango),
+			button(if progress>=1 then "CLAIM TASK" else "NOT YET",184,function() run("ClaimAnomalyDirective",{Id=job.Id}) end,busy or progress<1,job.Color or P.mango),
 		})))
 	end
 	for index,milestone in plan.milestones do

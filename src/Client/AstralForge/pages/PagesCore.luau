@@ -821,10 +821,10 @@ local function OverviewView(_param)
 		fit = false,
 		layoutOrder = 0,
 		sizeConstraint = UDim2.new(0, if phone then 96 else 110, 1, 0),
-	}), React.createElement(Badge, {
-		value = if vaultFill >= 0.99 then "FULL" elseif firstRun then "NEW" else "FILLING",
-		accent = if vaultFill >= 0.99 then Palette.mango else Palette.green,
-		size = UDim2.fromOffset(if phone then 68 else 76, 18),
+	}), vaultFill >= 0.99 and React.createElement(Badge, {
+		value = "FULL",
+		accent = Palette.mango,
+		size = UDim2.fromOffset(if phone then 56 else 62, 18),
 		filled = false,
 		layoutOrder = 1,
 	})), React.createElement(Text, {
@@ -3701,7 +3701,7 @@ local function MissionRow(_param)
 		position = meterPosition,
 		size = meterSize,
 	}), if stack then React.createElement(Button, {
-		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "IN PROGRESS",
+		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "NOT YET",
 		icon = "Mission",
 		onClick = function()
 			return dispatch("ClaimQuest", {
@@ -3716,7 +3716,7 @@ local function MissionRow(_param)
 		disabled = quest.Claimed or not ready,
 		highlight = ready,
 	}) else React.createElement(Button, {
-		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "IN PROGRESS",
+		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "NOT YET",
 		icon = "Mission",
 		onClick = function()
 			return dispatch("ClaimQuest", {

@@ -569,7 +569,7 @@ local function OrderRow(_param)
 		reducedMotion = reducedMotion,
 		shimmer = ready or state.Claimed,
 	}), if stack then React.createElement(Button, {
-		text = if state.Claimed then "PAID" elseif ready then "COLLECT" else "IN PROGRESS",
+		text = if state.Claimed then "COLLECTED" elseif ready then "COLLECT" else "NOT YET",
 		icon = "Gift",
 		onClick = fireClaim,
 		color = if ready then config.Color else Palette.panelSoft,
@@ -580,7 +580,7 @@ local function OrderRow(_param)
 		reducedMotion = reducedMotion,
 		highlight = ready,
 	}) else React.createElement(Button, {
-		text = if state.Claimed then "PAID" elseif ready then "COLLECT" else "IN PROGRESS",
+		text = if state.Claimed then "COLLECTED" elseif ready then "COLLECT" else "NOT YET",
 		icon = "Gift",
 		onClick = fireClaim,
 		color = if ready then config.Color else Palette.panelSoft,
@@ -1275,8 +1275,6 @@ local function MachineRow(_param)
 	local buttonBesideText = not stack and cardWidth >= 360
 	local absolute = y ~= nil or x ~= nil
 	local layoutY = if y == nil then 0 else y
-	local statusText = if not unlocked then "LOCKED" elseif maxed then "MAXED" elseif running then "ACTIVE" else "STANDBY"
-	local statusColor = if not unlocked then Palette.muted elseif maxed then Palette.cyan elseif running then Palette.mint else Palette.coral
 	return React.createElement("frame", {
 		Size = if absolute then (width or UDim2.new(1, 0, 0, rowH)) else UDim2.fromScale(1, 1),
 		Position = if x ~= nil then UDim2.new(x.X.Scale, x.X.Offset, 0, layoutY) else UDim2.fromOffset(0, layoutY),
@@ -1323,19 +1321,13 @@ local function MachineRow(_param)
 		fit = true,
 		minSize = 11,
 		layoutOrder = 0,
-		sizeConstraint = UDim2.new(0, 160, 0, 22),
-	}), React.createElement(Badge, {
-		value = statusText,
-		accent = statusColor,
-		size = UDim2.fromOffset(54, 16),
-		filled = false,
-		layoutOrder = 1,
+		sizeConstraint = UDim2.new(1, if level > 0 then -66 else 0, 0, 22),
 	}), level > 0 and React.createElement(Badge, {
-		value = `LV {compactNumber(level)}`,
-		accent = accent,
-		size = UDim2.fromOffset(46, 16),
+		value = if maxed then "MAX" else `LV {compactNumber(level)}`,
+		accent = if maxed then Palette.cyan else accent,
+		size = UDim2.fromOffset(58, 18),
 		filled = true,
-		layoutOrder = 2,
+		layoutOrder = 1,
 	})), React.createElement(Text, {
 		value = if unlocked then machine.Description else lockReason,
 		size = if stack then chrome.labelText else 11,
@@ -2414,7 +2406,7 @@ local function ForgePathRow(_param)
 	local locked = not claimed and not unlockedForClaim
 	local accent = if claimed then Palette.muted elseif ready then step.Color else Palette.mango
 	local progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1)
-	local statusText = if claimed then "CLAIMED" elseif locked then "CLAIM THE PREVIOUS STEP FIRST" else `{compactNumber(math.min(xp, step.XPCost))} / {compactNumber(step.XPCost)} XP`
+	local statusText = if claimed then "CLAIMED" elseif locked then "CLAIM THE STEP BEFORE THIS" else `{compactNumber(math.min(xp, step.XPCost))} / {compactNumber(step.XPCost)} XP`
 	local rowH = if stack then STEP_ROW_HEIGHT_STACK else STEP_ROW_HEIGHT
 	local textW = if stack then -48 else -200
 	return React.createElement("frame", {

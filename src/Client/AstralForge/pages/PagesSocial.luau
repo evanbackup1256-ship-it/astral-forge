@@ -1154,7 +1154,7 @@ local function TradeView(_param)
 			position = UDim2.fromOffset(0, 22),
 			sizeConstraint = UDim2.new(1, 0, 0, 18),
 		}), React.createElement(Badge, {
-			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "EDITING",
+			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "NOT READY",
 			accent = if confirmed then Palette.mango elseif ready then Palette.mint else Palette.muted,
 			filled = confirmed or ready,
 			position = UDim2.fromOffset(0, 46),
@@ -1180,7 +1180,7 @@ local function TradeView(_param)
 			position = UDim2.fromOffset(0, 22),
 			sizeConstraint = UDim2.new(1, -120, 0, 18),
 		}), React.createElement(Badge, {
-			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "EDITING",
+			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "NOT READY",
 			accent = if confirmed then Palette.mango elseif ready then Palette.mint else Palette.muted,
 			filled = confirmed or ready,
 			position = UDim2.new(1, -108, 0, 8),
@@ -1287,7 +1287,7 @@ local function TradeView(_param)
 		}, not vertical and React.createElement("uiflexitem", {
 			FlexMode = Enum.UIFlexMode.Fill,
 		}), React.createElement(Button, {
-			text = if offerPending then "SYNCING OFFER" elseif youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
+			text = if offerPending then "SENDING…" elseif youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
 			onClick = onReadyClick,
 			color = if youReadyLocal then Palette.panelSoft else accent,
 			textColor = if youReadyLocal then Palette.cream else Palette.ink,
@@ -3206,7 +3206,7 @@ local function GuildGoalCardReady(_param)
 		ClipsDescendants = false,
 		ref = if canClaim then claimHostRef else nil,
 	}, React.createElement(Button, {
-		text = if claimed then "CLAIMED" elseif canClaim then "CLAIM REWARD" elseif goal.Completed then "NOT ELIGIBLE" else "IN PROGRESS",
+		text = if claimed then "CLAIMED" elseif canClaim then "CLAIM REWARD" elseif goal.Completed then "NOT ELIGIBLE" else "NOT YET",
 		icon = if claimed then "Check" else "Gift",
 		onClick = function()
 			if canClaim and not busy then
