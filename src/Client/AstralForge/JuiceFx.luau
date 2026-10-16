@@ -28,9 +28,6 @@ local arrivalListeners = {}
 local lastPointer = nil
 local lastPointerAt = -math.huge
 local reduced = false
-local Feedback = require(script.Parent.MotionKit)("feedback")
-local pressedButton = nil
-local pressedAt = -math.huge
 
 UserInputService.InputBegan:Connect(function(input)
 	local kind = input.UserInputType
@@ -46,42 +43,12 @@ UserInputService.InputBegan:Connect(function(input)
 			for _, object in playerGui:GetGuiObjectsAtPosition(at.X, at.Y) do
 				if object:IsA("GuiButton") and object.Active and object.Visible then
 					Juice.press(at, P.cream)
-					-- every button squashes under the finger and springs back on release (buttons that
-					-- animate themselves keep their own UIScale and are left alone)
-					local size = object.AbsoluteSize
-					local screen = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-					if size.X * size.Y < screen.X * screen.Y * 0.25 and size.X < 720 then
-						pressedButton = object
-						pressedAt = os.clock()
-						Feedback.press(object, "press")
-					end
 					return
 				end
 			end
 		end)
 	end
 end)
-UserInputService.InputEnded:Connect(function(input)
-	local kind = input.UserInputType
-	if (kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch) and pressedButton ~= nil then
-		local button = pressedButton
-		task.defer(function()
-			Feedback.press(button, "release")
-		end)
-	end
-end)
-
--- the button the player pressed last, if it was recent (failures shake it)
-function Juice.lastPressed(withinSeconds: number?): GuiObject?
-	if pressedButton ~= nil and pressedButton.Parent ~= nil and os.clock() - pressedAt <= (withinSeconds or 1.5) then
-		return pressedButton
-	end
-	return nil
-end
--- physical feedback on anything: "press" | "release" | "pop" | "bounce" | "pulse" | "shake" | "wiggle"
-function Juice.feedback(instance, kind: string)
-	Feedback.on(instance, kind)
-end
 
 local function now()
 	return os.clock()
@@ -124,7 +91,6 @@ end
 
 function Juice.setReducedMotion(value: boolean)
 	reduced = value == true
-	Feedback.setReduced(reduced)
 end
 
 local function screenSize()
