@@ -83,6 +83,11 @@ function FoundryService.Ensure(profile, now: number?)
 	end
 	f.Bench = bench
 	f.Shards = math.clamp(finite(f.Shards, 0), 0, MAX_SHARDS)
+	-- saves converted before the conversion was capped could start with trillions of Shards
+	if f.ShardsCapped ~= true then
+		f.ShardsCapped = true
+		f.Shards = math.min(f.Shards, 60_000)
+	end
 	f.Draws = math.clamp(math.floor(finite(f.Draws, 0)), 0, 10_000)
 	f.Combo = math.clamp(math.floor(finite(f.Combo, 0)), 0, 1000)
 	f.BestCombo = math.clamp(math.floor(finite(f.BestCombo, 0)), 0, 1_000_000)

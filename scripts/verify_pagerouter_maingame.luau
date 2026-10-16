@@ -178,7 +178,7 @@ assert(landscapeWs.headerHeight == 0, "landscape keyboard collapses header")
 
 -- --- NavRouteTable -----------------------------------------------------------
 assert(#NavRouteTable.PRIMARY_ROUTES == 6, "primary route count")
-assert(#NavRouteTable.MORE_ROUTES == 25, "more routes carry no minigames (Salvage Runs, Artifact Trials and Sky were retired)")
+assert(#NavRouteTable.MORE_ROUTES == 24, "more routes carry no minigames; the Reactor folded into the Star Foundry")
 assert(NavRouteTable.PRIMARY_ROUTES[1].id == "Overview", "primary starts Overview")
 assert(NavRouteTable.find("Trade") ~= nil, "find Trade")
 assert(NavRouteTable.find("Trade").accentKey == "mint", "Trade accent key")

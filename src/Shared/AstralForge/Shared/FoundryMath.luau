@@ -320,7 +320,10 @@ function FoundryMath.migrate(continuumRank: number, anomalyFragments: number, st
 		{ Kind = "Ember", Tier = 1, Facing = 0 },
 		{ Kind = "StrikeAnvil", Tier = 1, Facing = 0 },
 	}
-	local shards = math.floor(math.max(0, anomalyFragments or 0) * 4 + math.max(0, stabilizations or 0) * 25 + rank * 30)
+	-- old progress converts, capped: enough for a strong start, not enough to skip the game
+	local fragments = math.clamp(anomalyFragments or 0, 0, 2000)
+	local stabilized = math.clamp(stabilizations or 0, 0, 400)
+	local shards = math.floor(fragments * 4 + stabilized * 25 + math.min(rank, 200) * 30)
 	return { Radius = FoundryMath.MIN_RADIUS + (if rank >= 40 then 1 else 0), Pieces = pieces }, bench, shards
 end
 

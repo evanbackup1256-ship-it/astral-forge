@@ -7,6 +7,7 @@ local PAGE_SUITES = {
 	ChatView = "PagesSocial",
 	CommandView = "PagesSystem",
 	ContinuumView = "PagesProgress",
+	FoundryView = "PagesFoundry",
 	ConvergenceView = "PagesProgress",
 	CrateRevealStage = "PagesShop",
 	BazaarView = "PagesBazaar",
@@ -72,6 +73,7 @@ local LeaderboardsView = lazyView("LeaderboardsView", "LeaderboardsView")
 local TradeView = lazyView("TradeView", "TradeView")
 local SettingsView = lazyView("SettingsView", "SettingsView")
 local ContinuumView = lazyView("ContinuumView", "ContinuumView")
+local FoundryView = lazyView("FoundryView", "FoundryView")
 local ConvergenceView = lazyView("ConvergenceView", "ConvergenceView")
 local AdminView = lazyView("AdminView", "AdminView")
 local EchoForgeView = lazyView("EchoForgeView", "EchoForgeView")
@@ -163,8 +165,9 @@ local function PageContentInner(props)
 				reducedMotion = reducedMotion,
 			})
 		end
-		if page == "Continuum" then
-			return React.createElement(ContinuumView, {
+		if page == "Continuum" or page == "Foundry" then
+			-- the Star Foundry replaced Continuum (and the Reactor below)
+			return React.createElement(FoundryView, {
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
@@ -188,7 +191,7 @@ local function PageContentInner(props)
 			})
 		end
 		if page == "Anomaly" then
-			return React.createElement(AnomalyView, {
+			return React.createElement(FoundryView, {
 				state = state,
 				config = config,
 				dispatch = dispatch,
