@@ -682,7 +682,7 @@ local function Announcement(props)
 			return UDim2.new(0, textX + (1 - t) * 12, 0, y)
 		end),
 		BackgroundTransparency = 1,
-		Text = info.title,
+		Text = if (info.count or 1) > 1 then `{info.title}  ×{info.count}` else info.title,
 		TextColor3 = P.white,
 		TextTransparency = arrive:map(function(t) return 1 - t end),
 		TextSize = if moment then 26 elseif pill then 15 else 16,
@@ -839,84 +839,44 @@ function BuffStrip.Island(props)
 	local plan = planCompact(props, buffs)
 	local hovered, setHovered = React.useState(false)
 	local pinned, setPinned = React.useState(false)
-	-- announcements queue up and play one after another
-	local event, setEvent = React.useState(nil)
+	-- what the shared player (JuiceFx) is showing; the queue and its clock live there, so this
+	-- island can remount, or sit beside another island, and never lose or repeat a message
+	local live, setLive = React.useState(nil)
 	local queued, setQueued = React.useState(0)
 	local islandRef = React.useRef(nil)
-	local queue = React.useRef({})
-	local playing = React.useRef(false)
-	local token = React.useRef(0)
-	local holdTimer = React.useRef(nil)
-	local alive = React.useRef(true)
-	local maxWidthRef = React.useRef(maxWidth)
-	maxWidthRef.current = maxWidth
-	local playNextRef = React.useRef(nil)
-	playNextRef.current = function()
-		if holdTimer.current then
-			pcall(task.cancel, holdTimer.current)
-			holdTimer.current = nil
-		end
-		if not alive.current then
-			return
-		end
-		local nextInfo = table.remove(queue.current, 1)
-		if nextInfo == nil then
-			playing.current = false
-			setEvent(nil)
-			return
-		end
-		playing.current = true
-		token.current += 1
-		nextInfo.token = token.current
-		measureEvent(nextInfo, maxWidthRef.current)
-		-- a backlog plays through faster
-		local hold = (nextInfo.duration or 2.6) * (if #queue.current >= 3 then 0.55 elseif #queue.current >= 1 then 0.75 else 1)
-		nextInfo.hold = hold
-		nextInfo.startedAt = os.clock()
-		setQueued(#queue.current)
-		setEvent(nextInfo)
-		if nextInfo.style == "moment" and islandRef.current then
-			-- a milestone throws sparks out of the island as it opens
-			task.delay(0.12, function()
-				local island = islandRef.current
-				if island and island.Parent then
-					local centre = island.AbsolutePosition + island.AbsoluteSize / 2
-					Juice.burst(centre, nextInfo.color, 0.9)
-				end
-			end)
-		end
-		holdTimer.current = task.delay(hold, function()
-			holdTimer.current = nil
-			playNextRef.current()
-		end)
-	end
 	React.useEffect(function()
-		alive.current = true
-		local stopBanner = Juice.onBanner(function(info)
-			-- the same line twice in a row only plays once
-			local last = queue.current[#queue.current]
-			if last and last.title == info.title and last.subtitle == info.subtitle then
-				return
-			end
-			if #queue.current >= 6 then
-				table.remove(queue.current, 1)
-			end
-			table.insert(queue.current, info)
-			if not playing.current then
-				playNextRef.current()
-			else
-				setQueued(#queue.current)
+		return Juice.subscribeIsland(function(current, waiting)
+			setLive(current)
+			setQueued(waiting)
+		end)
+	end, {})
+	-- sized for this island's room (a copy: other islands may have a different width)
+	local event = React.useMemo(function()
+		if live == nil then
+			return nil
+		end
+		local shown = table.clone(live)
+		local ok = pcall(measureEvent, shown, maxWidth)
+		if not ok then
+			shown.width, shown.lines, shown.height = math.min(maxWidth, 420), 1, EVENT_H
+		end
+		return shown
+	end, { live, maxWidth })
+	-- a milestone throws sparks out of the island as it opens
+	React.useEffect(function()
+		if live == nil or live.style ~= "moment" then
+			return nil
+		end
+		local job = task.delay(0.12, function()
+			local island = islandRef.current
+			if island and island.Parent and island.AbsoluteSize.X > 4 then
+				Juice.burst(island.AbsolutePosition + island.AbsoluteSize / 2, live.color, 0.9)
 			end
 		end)
 		return function()
-			alive.current = false
-			stopBanner()
-			queue.current = {}
-			if holdTimer.current then
-				pcall(task.cancel, holdTimer.current)
-			end
+			pcall(task.cancel, job)
 		end
-	end, {})
+	end, { live and live.token })
 	-- hover is read from the pointer itself: enter/leave events go stale when the capsule
 	-- changes size under the cursor, and touch never sends a leave
 	React.useEffect(function()
@@ -1025,8 +985,13 @@ function BuffStrip.Island(props)
 		elseif mode == "expanded" then expandedHeight(props, buffs)
 		elseif mode == "compact" then COMPACT_H
 		else 0
-	local width = motion.useFlipperSpring(targetW, props.reducedMotion, 300, 24)
-	local height = motion.useFlipperSpring(targetH, props.reducedMotion, 300, 24)
+	-- messages land with a liquid wobble; settling back to the compact bar is calmer
+	local wobbly = mode == "event"
+	local width = motion.useFlipperSpring(targetW, props.reducedMotion, if wobbly then 260 else 300, if wobbly then 17 else 24)
+	local height = motion.useFlipperSpring(targetH, props.reducedMotion, if wobbly then 280 else 300, if wobbly then 16 else 24)
+	-- a combo that is still running when a message arrives splits off into a bubble beside it
+	local satelliteOn = mode == "event" and comboLive
+	local satellite = motion.useFlipperSpring(if satelliteOn then 1 else 0, props.reducedMotion, 340, 20)
 	-- jelly: each change of shape lands with a small squash and settles
 	local modeKey = mode .. (if event then tostring(event.token) else "") .. (if combo then tostring(combo.count) else "")
 	local jelly = motion.useFlash(modeKey, props.reducedMotion, 0.5)
@@ -1040,7 +1005,7 @@ function BuffStrip.Island(props)
 		elseif mode == "compact" then h(CompactRow, { key = "top", plan = plan, currencies = props.currencies, perf = props.perf, vaultFull = props.vaultFull, clock = clock, reducedMotion = props.reducedMotion })
 		else nil
 	local momentRim = event ~= nil and event.style == "moment"
-	return h("imagebutton", {
+	local capsule = h("imagebutton", {
 		Name = "BuffIsland",
 		ref = islandRef,
 		Size = React.joinBindings({ width, height }):map(function(values)
@@ -1062,7 +1027,7 @@ function BuffStrip.Island(props)
 			Activated = function()
 				-- tapping an announcement moves on to the next one
 				if event ~= nil then
-					playNextRef.current()
+					Juice.skipIsland()
 					return
 				end
 				setPinned(not pinned)
@@ -1082,6 +1047,40 @@ function BuffStrip.Island(props)
 		Color = Rainbow.LOOP,
 		Rotation = clock:map(function(t) return Rainbow.spin(t, 1.4) end),
 	})), content)
+	local anchor = props.anchorPoint or Vector2.new(0.5, 0)
+	local base = props.position or UDim2.new()
+	local bubble = h("frame", {
+		Name = "IslandSatellite",
+		Size = satellite:map(function(v)
+			local d = math.max(0, v) * 40
+			return UDim2.fromOffset(d, d)
+		end),
+		-- sits just off the capsule's right edge, sliding out of it as it splits
+		Position = React.joinBindings({ width, satellite }):map(function(values)
+			local rightEdge = values[1] * (1 - anchor.X)
+			return base + UDim2.fromOffset(rightEdge - 18 + values[2] * 28, 22)
+		end),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = Color3.fromRGB(6, 6, 10),
+		BorderSizePixel = 0,
+		Visible = satellite:map(function(v) return v > 0.04 end),
+		ZIndex = 60,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = P.mango,
+		Thickness = 2,
+		Transparency = glow:map(function(v) return 0.1 + v * 0.3 end),
+	}), h("textlabel", {
+		Size = UDim2.fromScale(0.8, 0.8),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Text = if combo then `x{combo.count}` else "",
+		TextColor3 = theme.lighten(P.mango, 0.35),
+		TextScaled = true,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		ZIndex = 61,
+	}, h("uitextsizeconstraint", { MaxTextSize = 15, MinTextSize = 8 })))
+	return h(React.Fragment, nil, capsule, bubble)
 end
 
 return BuffStrip

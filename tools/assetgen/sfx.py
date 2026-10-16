@@ -842,8 +842,17 @@ def _build_voices():
     V.update(extra_voices())
     # the interface family (pointer, press, page and panel sounds) replaces both sets above
     V.update(interface_voices())
+    # features that are gone from the game (the sanctuary hub, the Warden fight, the card table,
+    # the puzzle, the old boot sequence and the toast stack) no longer get a voice in the sheet
+    for name in list(V):
+        if name in RETIRED or name.startswith(RETIRED_PREFIX):
+            del V[name]
     return V
 
+
+RETIRED = ['bootAftershock', 'bootAnvilSplit', 'bootClang', 'bootDebris', 'bootFinaleFlip', 'bootFizz', 'bootFractureTail', 'bootGravity', 'bootIgnite', 'bootImpact', 'bootRumble', 'bootSlamAir', 'bootSlamCharge', 'bootSpark', 'bootStrike', 'bootTension', 'bootWhoosh', 'cardBlock', 'cardDraw', 'cardEndTurn', 'cardEndTurnHover', 'cardEnergy', 'cardEnergyHover', 'cardPlay', 'cardPower', 'cardPowerHover', 'curtainClose', 'curtainOpen', 'gameExit', 'gamePause', 'gamePauseHover', 'gameResume', 'gameResumeHover', 'noticeClose', 'oreCollect', 'oreMine', 'puzzleClear', 'puzzleTap', 'puzzleTapHover', 'reactorChannel', 'regionEnter', 'sanctuaryClick', 'sanctuaryHover', 'sanctuaryMenu', 'sanctuaryRecall', 'sanctuarySheetClose', 'velocitySlide', 'waystoneTravel']
+RETIRED = set(RETIRED)
+RETIRED_PREFIX = ('warden', 'oreMine', 'oreCollect', 'waystone', 'sanctuary')
 
 VOICES = _build_voices()
 

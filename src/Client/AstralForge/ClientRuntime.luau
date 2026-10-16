@@ -457,7 +457,6 @@ local function warmClientModules(onProgress)
 	local playerScripts = Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerScripts")
 	if playerScripts ~= nil then
 		collectModuleScripts(playerScripts:FindFirstChild("AstralForge"), seen, modules)
-		collectModuleScripts(playerScripts:FindFirstChild("SharedRuntime"), seen, modules)
 	end
 	local total = #modules
 	local loaded = 0

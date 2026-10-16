@@ -183,65 +183,197 @@ function Juice.spark(at: Vector2, color: Color3?, size: number?)
 	push({ kind = "spark", at = at, color = color or P.white, spin = math.random() * 45, size = size or 30 })
 end
 
--- a headline that drops in at the top ("REBIRTH 12!", "NEW WORLD!"), with a smaller line under it
--- when the island is on screen it tells the story instead of a floating banner
--- Every message in the game goes through the island. Anything sent before it mounts (or while it
--- is between mounts, e.g. switching phone/desktop layouts) waits here and plays once it is back.
-local bannerListeners = {}
-local pendingBanners = {}
-local function deliver(info)
-	for callback in bannerListeners do
-		task.spawn(callback, info)
+-- ===========================================================================================
+-- The island's player. Every message in the game goes through here and nowhere else.
+--
+-- One shared queue and one frame-driven clock, owned by this module rather than by any island:
+--   * an island that remounts (phone <-> desktop layouts, a page rebuild) picks up exactly where
+--     the player is; nothing queued is lost, nothing plays twice
+--   * any number of islands show the same thing at the same time
+--   * time, not a chain of callbacks, moves it on, so an error anywhere cannot stall it
+--   * input is cleaned (tostring, no newlines, capped length), repeats coalesce into "x3",
+--     milestones jump the queue, then warnings and errors, then everything else
+--   * with no island mounted, messages wait (up to QUEUE_CAP) and play when one appears
+-- ===========================================================================================
+local QUEUE_CAP = 10
+local TITLE_CAP = 64
+local SUBTITLE_CAP = 150
+local islandQueue = {}
+local islandCurrent = nil
+local islandSubscribers = {}
+local islandToken = 0
+local islandDriver = nil
+
+local function cleanText(value, cap)
+	if value == nil then
+		return nil
 	end
+	local text = string.gsub(tostring(value), "[\r\n\t]+", " ")
+	text = string.gsub(text, "%s%s+", " ")
+	text = string.match(text, "^%s*(.-)%s*$") or text
+	if text == "" then
+		return nil
+	end
+	if utf8.len(text) and utf8.len(text) > cap then
+		local cut = utf8.offset(text, cap) or (cap + 1)
+		text = string.sub(text, 1, cut - 1) .. "…"
+	end
+	return text
 end
-function Juice.onBanner(callback)
-	bannerListeners[callback] = true
-	if #pendingBanners > 0 then
-		local waiting = pendingBanners
-		pendingBanners = {}
-		for _, info in waiting do
-			task.spawn(callback, info)
+
+local function priorityOf(info)
+	if info.style == "moment" then
+		return 3
+	end
+	local tone = string.lower(tostring(info.tone or ""))
+	if tone == "error" or tone == "warning" then
+		return 2
+	end
+	return 1
+end
+
+local function islandNotify()
+	local queued = #islandQueue
+	-- a fresh copy each time, so a count going up still reads as a change
+	local snapshot = if islandCurrent ~= nil then table.clone(islandCurrent) else nil
+	for callback in islandSubscribers do
+		local ok, problem = pcall(callback, snapshot, queued)
+		if not ok then
+			warn("[Island] a subscriber failed: " .. tostring(problem))
 		end
 	end
-	return function()
-		bannerListeners[callback] = nil
+end
+
+local function holdFor(info)
+	local base = info.duration or (if info.style == "pill" then 1.5 elseif info.style == "moment" then 3.2 else 2.6)
+	-- a backlog plays through faster
+	local backlog = #islandQueue
+	return math.clamp(base * (if backlog >= 3 then 0.55 elseif backlog >= 1 then 0.75 else 1), 0.9, 6)
+end
+
+local function islandAdvance()
+	islandCurrent = nil
+	if next(islandSubscribers) ~= nil then
+		local nextInfo = table.remove(islandQueue, 1)
+		if nextInfo ~= nil then
+			islandToken += 1
+			nextInfo.token = islandToken
+			nextInfo.hold = holdFor(nextInfo)
+			nextInfo.startedAt = os.clock()
+			islandCurrent = nextInfo
+		end
 	end
+	islandNotify()
 end
-function Juice.hasIsland(): boolean
-	return next(bannerListeners) ~= nil
-end
--- live activities the island can show while they last ("combo" = { combo, multiplier, max, window })
-local activityListeners = {}
-function Juice.onActivity(callback)
-	activityListeners[callback] = true
-	return function()
-		activityListeners[callback] = nil
-	end
-end
-function Juice.activity(kind: string, data)
-	for callback in activityListeners do
-		task.spawn(callback, kind, data)
-	end
-end
--- style: "notice" (title + line), "moment" (a big milestone: taller, rainbow rim), "pill" (one short line)
-function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: string?, duration: number?, tone: string?, style: string?)
-	local info = {
-		title = title,
-		subtitle = subtitle,
-		color = color or P.mango,
-		icon = icon,
-		duration = duration,
-		tone = tone,
-		style = style or "notice",
-	}
-	if next(bannerListeners) ~= nil then
-		deliver(info)
+
+local function ensureDriver()
+	if islandDriver ~= nil then
 		return
 	end
-	if #pendingBanners >= 8 then
-		table.remove(pendingBanners, 1)
+	islandDriver = RunService.Heartbeat:Connect(function()
+		local ok, problem = pcall(function()
+			if islandCurrent ~= nil then
+				if os.clock() >= islandCurrent.startedAt + islandCurrent.hold then
+					islandAdvance()
+				end
+			elseif #islandQueue > 0 and next(islandSubscribers) ~= nil then
+				islandAdvance()
+			end
+			if islandCurrent == nil and #islandQueue == 0 and islandDriver ~= nil then
+				islandDriver:Disconnect()
+				islandDriver = nil
+			end
+		end)
+		if not ok then
+			-- never let one bad message wedge the player: drop it and carry on
+			warn("[Island] skipped a message: " .. tostring(problem))
+			islandCurrent = nil
+		end
+	end)
+end
+
+-- an island registers here; callback(current, queuedCount) runs now and on every change
+function Juice.subscribeIsland(callback)
+	islandSubscribers[callback] = true
+	pcall(callback, if islandCurrent ~= nil then table.clone(islandCurrent) else nil, #islandQueue)
+	ensureDriver()
+	return function()
+		islandSubscribers[callback] = nil
 	end
-	table.insert(pendingBanners, info)
+end
+
+-- tapping the island moves on to the next message
+function Juice.skipIsland()
+	if islandCurrent ~= nil then
+		islandAdvance()
+		ensureDriver()
+	end
+end
+
+function Juice.hasIsland(): boolean
+	return next(islandSubscribers) ~= nil
+end
+
+-- style: "notice" (title + line), "moment" (a big milestone: taller, rainbow rim), "pill" (one short line)
+function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: string?, duration: number?, tone: string?, style: string?)
+	local cleanTitle = cleanText(title, TITLE_CAP) or cleanText(subtitle, TITLE_CAP)
+	if cleanTitle == nil then
+		return
+	end
+	local cleanSubtitle = cleanText(subtitle, SUBTITLE_CAP)
+	if cleanSubtitle == cleanTitle then
+		cleanSubtitle = nil
+	end
+	local info = {
+		title = cleanTitle,
+		subtitle = cleanSubtitle,
+		color = if typeof(color) == "Color3" then color else P.mango,
+		icon = if type(icon) == "string" then icon else nil,
+		duration = if type(duration) == "number" and duration == duration then duration else nil,
+		tone = tone,
+		style = if style == "moment" or style == "pill" then style else "notice",
+		count = 1,
+	}
+	-- the same message again just counts up on the one already showing or waiting
+	local function same(other)
+		return other ~= nil and other.title == info.title and other.subtitle == info.subtitle
+	end
+	if same(islandCurrent) then
+		islandCurrent.count += 1
+		islandCurrent.startedAt = os.clock() -- and stays up a little longer
+		islandNotify()
+		return
+	end
+	for _, waiting in islandQueue do
+		if same(waiting) then
+			waiting.count += 1
+			islandNotify()
+			return
+		end
+	end
+	-- higher priority goes ahead of anything lower that is still waiting
+	local rank = priorityOf(info)
+	local at = #islandQueue + 1
+	for index, waiting in islandQueue do
+		if priorityOf(waiting) < rank then
+			at = index
+			break
+		end
+	end
+	table.insert(islandQueue, at, info)
+	while #islandQueue > QUEUE_CAP do
+		-- the oldest, least important message makes room
+		local drop, dropRank = #islandQueue, math.huge
+		for index, waiting in islandQueue do
+			local r = priorityOf(waiting)
+			if r < dropRank then
+				drop, dropRank = index, r
+			end
+		end
+		table.remove(islandQueue, drop)
+	end
+	islandNotify()
+	ensureDriver()
 end
 
 -- a big milestone ("REBIRTH 12!", "NEW WORLD!")
@@ -256,6 +388,19 @@ function Juice.status(text: string, tone: string?)
 	Juice.banner(text, nil, color, icon, 1.5, tone, "pill")
 end
 
+-- live activities the island can show while they last ("combo" = { combo, multiplier, max, window })
+local activityListeners = {}
+function Juice.onActivity(callback)
+	activityListeners[callback] = true
+	return function()
+		activityListeners[callback] = nil
+	end
+end
+function Juice.activity(kind: string, data)
+	for callback in activityListeners do
+		task.spawn(callback, kind, data)
+	end
+end
 function Juice.flash(color: Color3?, strength: number?)
 	if reduced then
 		return

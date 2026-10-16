@@ -32,3 +32,4 @@ assets/generated/bosses/*_prev_*.png
 /.aaa_*.txt
 /.freebuff/
 /_ul
+assets/generated/ui_preview/
