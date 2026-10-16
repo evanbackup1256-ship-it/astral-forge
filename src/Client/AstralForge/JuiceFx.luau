@@ -727,17 +727,9 @@ function Juice.Host(_props)
 	React.useEffect(function()
 		hostSetter = setList
 		clockSetter = setClock
-		-- ambient twinkles: a soft four-point star now and then, somewhere on screen
+		-- (no ambient twinkles: random sparks over buttons and text read as glitches)
 		local twinkling = true
-		task.spawn(function()
-			while twinkling do
-				task.wait(0.7 + math.random() * 1.1)
-				if twinkling and not reduced then
-					local size = screenSize()
-					Juice.spark(Vector2.new(math.random(40, math.max(41, size.X - 40)), math.random(80, math.max(81, size.Y - 60))), Color3.fromRGB(235, 225, 255), 14 + math.random() * 12)
-				end
-			end
-		end)
+		local lastCoinTick, coinRun = -math.huge, 0
 		local connection = RunService.RenderStepped:Connect(function()
 			if #effects == 0 then
 				return
@@ -751,6 +743,14 @@ function Juice.Host(_props)
 				if effect.kind == "coin" and not effect.arrived and age >= effect.delay + COIN_SCATTER + COIN_FLIGHT then
 					effect.arrived = true
 					arrive(effect.target)
+					-- the sound lands with the coin: a soft tick that climbs through a shower
+					if t - lastCoinTick > 0.035 then
+						coinRun = if t - lastCoinTick > 0.4 then 0 else coinRun + 1
+						lastCoinTick = t
+						pcall(function()
+							require(script.Parent.AudioKit)("audio").Audio:play("countTick", 1 + math.min(coinRun, 12) * 0.035 + (if effect.last then 0.12 else 0))
+						end)
+					end
 					if effect.last then
 						Juice.spark(effect.to + Vector2.new(math.random(-10, 10), math.random(-8, 8)), theme.lighten(effect.color, 0.5))
 					end

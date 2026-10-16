@@ -13231,138 +13231,6 @@ local function ForgeParticle(_param)
 		CornerRadius = UDim.new(1, 0),
 	})))
 end
-local function RewardReceipt(_param)
-	local style = _param.style
-	local time = _param.time
-	local duration = _param.duration
-	local reducedMotion = _param.reducedMotion
-	local compact = _param.compact
-	local motion = time:map(function(seconds)
-		local arrival = math.clamp(seconds / 0.18, 0, 1)
-		local departure = math.clamp((seconds - duration * 0.72) / math.max(0.18, duration * 0.25), 0, 1)
-		local settle = if reducedMotion then arrival else easeOutBack(arrival)
-		return {
-			scale = if reducedMotion then 1 else 0.72 + settle * 0.32 - departure * 0.1,
-			transparency = math.clamp(1 - arrival + departure, 0, 1),
-			rotation = if reducedMotion then 0 else (1 - settle) * -7 + math.sin(arrival * math.pi) * 2,
-			y = math.round((1 - settle) * 36 - departure * 40),
-		}
-	end)
-	local receiptW = if compact then 236 else 306
-	local receiptH = if compact then 70 else 84
-	local transparency = motion:map(function(value)
-		return value.transparency
-	end)
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(receiptW, receiptH),
-		Position = motion:map(function(value)
-			return UDim2.new(0.5, 0, if compact then 0.16 else 0.2, value.y)
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = motion:map(function(value)
-			return value.rotation
-		end),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 151,
-	}, React.createElement(ScaleFromCenter, {
-		scale = motion:map(function(value)
-			return value.scale
-		end),
-		zIndex = 151,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.panelRaised,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 151,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 13),
-	}), React.createElement("uistroke", {
-		Color = style.accent,
-		Thickness = 2,
-		Transparency = motion:map(function(value)
-			return math.clamp(value.transparency + 0.1, 0, 1)
-		end),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(darken(style.accent, 0.74), Palette.panelRaised),
-		Rotation = 18,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(if compact then 48 else 58, if compact then 48 else 58),
-		Position = UDim2.fromOffset(if compact then 11 else 13, if compact then 11 else 13),
-		BackgroundColor3 = darken(style.accent, 0.5),
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 153,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 11),
-	}), React.createElement("uistroke", {
-		Color = style.accent,
-		Thickness = 1.5,
-		Transparency = motion:map(function(value)
-			return math.clamp(value.transparency + 0.16, 0, 1)
-		end),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(if compact then 24 else 30, if compact then 24 else 30),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 154,
-		Visible = motion:map(function(value)
-			return value.transparency < 0.98
-		end),
-	}, React.createElement(VectorIconFace, {
-		kind = "Check",
-		color = Palette.cream,
-		transparency = transparency,
-	}))), React.createElement("textlabel", {
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "REWARD CLAIMED",
-		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy),
-		TextSize = if compact then 15 else 19,
-		TextColor3 = Palette.cream,
-		TextTransparency = transparency,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Position = UDim2.fromOffset(if compact then 70 else 84, if compact then 10 else 14),
-		Size = UDim2.new(1, if compact then -78 else -94, 0, if compact then 22 else 26),
-		ZIndex = 154,
-	}), React.createElement("textlabel", {
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "ADDED TO YOUR ACCOUNT",
-		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold),
-		TextSize = 12,
-		TextColor3 = style.accent,
-		TextTransparency = transparency,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Position = UDim2.fromOffset(if compact then 70 else 84, if compact then 34 else 43),
-		Size = UDim2.new(1, if compact then -78 else -94, 0, 18),
-		ZIndex = 154,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -24, 0, 3),
-		Position = UDim2.new(0.5, 0, 1, -7),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Palette.line,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 154,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("frame", {
-		Size = time:map(function(seconds)
-			return UDim2.new(math.clamp(seconds / math.max(0.1, duration), 0, 1), 0, 1, 0)
-		end),
-		BackgroundColor3 = style.accent,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 155,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))))))
-end
 local function CelebrationBurst(_param)
 	local seed = _param.seed
 	local intensity = _param.intensity
@@ -13501,13 +13369,8 @@ local function CelebrationBurst(_param)
 	for _k, _v in _newValue_2 do
 		_newValue_3[_k] = _callback_3(_v, _k - 1, _newValue_2)
 	end
-	local _exp_1 = React.createElement(RewardReceipt, {
-		style = style,
-		time = time,
-		duration = duration,
-		reducedMotion = reducedMotion,
-		compact = viewport.compact or viewport.tight,
-	})
+	-- the reward itself is announced by the island; this layer is light only
+	local _exp_1 = nil
 	local _newValue_4 = table.create(#particles)
 	local _callback_4 = function(particle, index)
 		return React.createElement(ForgeParticle, {

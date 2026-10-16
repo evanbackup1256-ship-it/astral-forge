@@ -1878,6 +1878,9 @@ setmetatable(UI_CUES, {
 		return string.sub(cue, 1, 3) == "nav" or string.sub(cue, -5) == "Hover" or string.sub(cue, -5) == "Press" or nil
 	end,
 })
+local CUE_ALIAS = {
+	crateReveal = "crateRevealEpic",
+}
 local function isHoverCue(cue)
 	return cue == "hover" or string.sub(cue, -5) == "Hover" or string.sub(cue, 1, 8) == "navHover"
 end
@@ -3079,6 +3082,14 @@ do
 		end
 		if SILENT_CUES[cue] then
 			return false
+		end
+		-- names that have no voice of their own borrow the closest one instead of playing nothing
+		if CUES[cue] == nil and SoundSheet.region(cue) == nil then
+			if CUE_ALIAS[cue] ~= nil then
+				cue = CUE_ALIAS[cue]
+			elseif string.sub(cue, 1, 7) == "navOpen" then
+				cue = "open"
+			end
 		end
 		if not self:ensureStarted() then
 			return false
