@@ -1,4 +1,4 @@
-"""Upload the four original soundtrack beds. Does not touch the SFX manifest."""
+"""Upload the original soundtrack beds. Does not touch the SFX manifest."""
 
 from __future__ import annotations
 
@@ -20,6 +20,10 @@ TRACKS = (
     ("SanctuaryDrift", "SanctuaryDrift.wav", "Astral Forge — Sanctuary Drift", "Original Astral Forge soundtrack. Sanctuary drift."),
     ("AstralOrbit", "AstralOrbit.wav", "Astral Forge — Astral Orbit", "Original Astral Forge soundtrack. Astral orbit."),
     ("BossSurge", "BossSurge.wav", "Astral Forge — Boss Surge", "Original Astral Forge soundtrack. Boss surge."),
+    ("StarlitAnvil", "StarlitAnvil.wav", "Astral Forge - Starlit Anvil", "Original Astral Forge soundtrack. Lo-fi forge."),
+    ("NebulaMarket", "NebulaMarket.wav", "Astral Forge - Nebula Market", "Original Astral Forge soundtrack. Market day."),
+    ("EmberDrive", "EmberDrive.wav", "Astral Forge - Ember Drive", "Original Astral Forge soundtrack. Synthwave drive."),
+    ("QuietOrbit", "QuietOrbit.wav", "Astral Forge - Quiet Orbit", "Original Astral Forge soundtrack. Ambient orbit."),
 )
 
 

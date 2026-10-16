@@ -1,5 +1,5 @@
 {
-  "SoundSheet": 0,
+  "SoundSheet": 90949921399160,
   "Ambience": 134085646747854,
   "Kit": 95516912278016,
   "KitPlaceholder": 0,
@@ -13,5 +13,9 @@
   "BrandWordmark": 75854849112049,
   "BrandCompactMark": 93834740732329,
   "BrandGameIcon": 77239367431949,
-  "BrandLockup": 94028186779182
+  "BrandLockup": 94028186779182,
+  "StarlitAnvil": 83224252725181,
+  "NebulaMarket": 125327402955633,
+  "EmberDrive": 132485327755002,
+  "QuietOrbit": 114299463363605
 }

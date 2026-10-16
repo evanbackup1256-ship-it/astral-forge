@@ -5114,6 +5114,9 @@ local function MainGame(_param)
 				_condition_7 = detail
 			end
 			addNotice(_exp_3, failureBody(_exp_4, _condition_7), "Warning", false)
+			-- the button you pressed shakes its head
+			local JuiceFx = require(script.Parent.JuiceFx)
+			JuiceFx.feedback(JuiceFx.lastPressed(), "shake")
 			return nil
 		end
 		do
@@ -5123,6 +5126,10 @@ local function MainGame(_param)
 			local bigMoment = action == "Rebirth" or action == "DomainExpansion" or action == "Ascend" or action == "UnlockZone"
 			local rewarding = string.sub(action, 1, 5) == "Claim" or action == "RedeemCode" or action == "StabilizeAnomaly" or action == "SalvageItem" or action == "BulkSalvageItems" or action == "SpinWheel" or bigMoment
 			local spending = string.sub(action, 1, 3) == "Buy" or string.sub(action, 1, 7) == "Upgrade" or action == "UnlockDomainNode"
+			if rewarding or spending then
+				-- and a press that worked lands: a hop for a reward, a pop for a purchase
+				Juice.feedback(Juice.lastPressed(), if rewarding then "bounce" else "pop")
+			end
 			if after ~= nil and (rewarding or spending) then
 				local shown = Juice.celebrateGains(juiceBefore, after, {
 					spend = spending,

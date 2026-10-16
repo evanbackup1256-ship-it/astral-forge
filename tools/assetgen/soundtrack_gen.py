@@ -689,14 +689,308 @@ def boss_surge() -> np.ndarray:
     return finish(song, make_reverb_ir(1.8, 6000, 4), 0.28, 0.32, 0.45, drive=1.35, target_rms=-12.5)
 
 
+# --------------------------------------------------------------------------
+# Four more: calmer, warmer beds for long sessions (7.2)
+# --------------------------------------------------------------------------
+
+def rhodes(freq: float, length: float, velocity: float = 1.0) -> np.ndarray:
+    """FM electric piano: a bell-ish attack that mellows, a faint tine, slow tremolo."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    index = 1.6 * velocity * np.exp(-t / 0.35) + 0.25
+    body = np.sin(2 * np.pi * freq * t + index * np.sin(2 * np.pi * freq * t))
+    tine = np.sin(2 * np.pi * freq * 13.9 * t) * np.exp(-t / 0.018) * 0.12 * velocity
+    trem = 1.0 + 0.12 * np.sin(2 * np.pi * 4.6 * t)
+    return (body * 0.5 + tine) * trem * env_ad(n, 0.003, length * 0.55 + 0.4) * 0.3 * velocity
+
+
+def marimba(freq: float, length: float = 0.6, velocity: float = 1.0) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    out = np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.32)
+    out += np.sin(2 * np.pi * freq * 3.93 * t) * np.exp(-t / 0.07) * 0.35
+    out += np.sin(2 * np.pi * freq * 9.2 * t) * np.exp(-t / 0.02) * 0.15
+    return out * env_ad(n, 0.002, 10) * 0.32 * velocity
+
+
+def felt_piano(freq: float, length: float, velocity: float = 1.0) -> np.ndarray:
+    """A soft, felted piano note: fundamental and gentle partials, rounded by a low-pass."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    out = np.zeros(n)
+    for k, amp, decay in ((1, 1.0, 2.2), (2, 0.42, 1.2), (3, 0.18, 0.7), (4, 0.08, 0.4)):
+        out += np.sin(2 * np.pi * freq * k * t * (1 + 0.0004 * k)) * amp * np.exp(-t / decay)
+    out += fft_filter(noise(n), low=300, high=2400) * np.exp(-t / 0.01) * 0.08
+    return fft_filter(out, high=2600) * env_ad(n, 0.006, 10) * 0.26 * velocity
+
+
+def warm_bass(freq: float, length: float) -> np.ndarray:
+    n = int(length * SR)
+    body = sine(freq, n) * 0.9 + sine(freq * 2, n) * 0.18 + saw(freq, n, cutoff=380) * 0.25
+    return body * env_pad(n, 0.01, min(0.12, length * 0.4)) * 0.8
+
+
+def rim() -> np.ndarray:
+    n = int(0.09 * SR)
+    t = np.arange(n) / SR
+    tone = np.sin(2 * np.pi * 1700 * t) * np.exp(-t / 0.012)
+    click = fft_filter(noise(n), low=2000, high=8000) * np.exp(-t / 0.008)
+    return (tone * 0.5 + click * 0.6) * 0.5
+
+
+def soft_kick() -> np.ndarray:
+    return fft_filter(kick(0.75, 0.38), high=2200)
+
+
+def vinyl_bed(seconds: float, amount: float = 1.0) -> np.ndarray:
+    """Quiet hiss with the odd crackle: the room a lo-fi track sits in."""
+    n = int(seconds * SR)
+    hiss = fft_filter(noise(n), low=1800, high=9000) * 0.012
+    crackle = np.zeros(n)
+    for at in RNG.integers(0, n - 200, int(seconds * 7)):
+        crackle[at:at + 60] += RNG.uniform(-1, 1) * np.exp(-np.arange(60) / 9.0) * RNG.uniform(0.05, 0.22)
+    return (hiss + fft_filter(crackle, low=900)) * amount
+
+
+def swung(song: Song, bar: int, eighth: int, swing: float = 0.16) -> float:
+    beat = eighth * 0.5 + (swing if eighth % 2 == 1 else 0.0)
+    return song.at(bar, beat)
+
+
+def starlit_anvil() -> np.ndarray:
+    """Lo-fi: swung Rhodes in D, soft kick and rim, warm bass, vinyl air, a bell line on top."""
+    song = Song(82, 28)
+    m = song.mix
+    song.sections({"keys": (0, 28), "drums": (2, 26), "bass": (2, 26), "bell": (10, 24), "vinyl": (0, 28)})
+    chords = [
+        [midi(x) for x in ("D3", "F#3", "A3", "C#4", "E4")],
+        [midi(x) for x in ("B2", "D3", "F#3", "A3", "C#4")],
+        [midi(x) for x in ("E3", "G3", "B3", "D4", "F#4")],
+        [midi(x) for x in ("A2", "C#3", "E3", "G3", "B3")],
+    ]
+    roots = [midi("D2"), midi("B1"), midi("E2"), midi("A1")]
+    bell_line = [
+        [(0.5, "F#5", 1.0), (2.0, "A5", 1.5)],
+        [(1.0, "D5", 1.0), (2.5, "C#5", 1.0)],
+        [(0.0, "B4", 1.5), (2.0, "D5", 1.0), (3.0, "E5", 1.0)],
+        [(1.0, "C#5", 2.0)],
+    ]
+    k, rm, hh = soft_kick(), rim(), hat()
+    kick_times = []
+    m.add("dry", vinyl_bed(song.seconds), 0.0, 1.0)
+    for bar in range(song.bars):
+        idx = bar % 4
+        if song.on("keys", bar):
+            # a stab on 1 and a softer push on the "and" of 2, notes slightly rolled
+            for hit, vel in ((0.0, 1.0), (1.5 + 0.16, 0.7)):
+                for order, note_ in enumerate(chords[idx]):
+                    t = song.at(bar, hit) + order * 0.012
+                    r = rhodes(hz(note_), 2.4 * song.beat, vel)
+                    m.add("dry", r, t, 0.55, (order - 2) * 0.22)
+                    m.add("verb", r, t, 0.25)
+        if song.on("drums", bar):
+            for beat in (0, 2):
+                m.add("dry", k, song.at(bar, beat), 0.8)
+                kick_times.append(song.at(bar, beat))
+            if bar % 2 == 1:
+                m.add("dry", k, swung(song, bar, 5), 0.45)
+            for beat in (1, 3):
+                m.add("dry", rm, song.at(bar, beat), 0.55, 0.15)
+                m.add("verb", rm, song.at(bar, beat), 0.3)
+            for eighth in range(8):
+                m.add("dry", hh, swung(song, bar, eighth), 0.22 if eighth % 2 else 0.32, -0.3)
+        if song.on("bass", bar):
+            for beat_pos, semis, dur in ((0.0, 0, 1.4), (1.66, 7, 0.4), (2.0, 12, 0.9), (3.16, 10, 0.6)):
+                m.add("dry", warm_bass(hz(roots[idx] + semis), dur * song.beat), song.at(bar, beat_pos), 0.7)
+        if song.on("bell", bar):
+            for beat_pos, name, dur in bell_line[idx]:
+                b = bell(hz(midi(name)), 2.2, 0.5)
+                m.add("dry", b, song.at(bar, beat_pos), 0.32, 0.35)
+                m.add("echo", b, song.at(bar, beat_pos), 0.45)
+                m.add("verb", b, song.at(bar, beat_pos), 0.5)
+    duck = sidechain(kick_times, m.n, 0.18, 0.15)
+    m.dry *= duck[None, :]
+    out = finish(song, make_reverb_ir(2.4, 4200, 11), 0.36, 0.4, 0.2, drive=1.05, target_rms=-16.0)
+    return fft_filter_stereo(out, high=11000)
+
+
+def nebula_market() -> np.ndarray:
+    """Bright and bouncy: marimba ostinato in F, pluck bass, clap and shaker, glass bells."""
+    song = Song(104, 36)
+    m = song.mix
+    song.sections({"marimba": (0, 36), "kick": (4, 34), "clap": (8, 34), "shaker": (4, 34), "bass": (4, 34), "bells": (12, 32), "pad": (0, 36)})
+    chords = [chord("F3", "M"), chord("A2", "m"), chord("A#2", "M"), chord("C3", "M")]
+    roots = [midi("F1"), midi("A1"), midi("A#1"), midi("C2")]
+    pattern = [0, 12, 7, 12, 4, 12, 7, 16]
+    bells = [
+        [(0.0, "C6", 1.0), (1.5, "A5", 0.5), (2.0, "F5", 2.0)],
+        [(0.0, "E5", 1.0), (1.0, "G5", 1.0), (2.0, "A5", 2.0)],
+        [(0.0, "D6", 1.5), (1.5, "C6", 0.5), (2.0, "A#5", 2.0)],
+        [(0.0, "G5", 1.0), (1.0, "A5", 1.0), (2.0, "C6", 2.0)],
+    ]
+    k, cl, sh = kick(0.8, 0.34), clap(), shaker()
+    kick_times = []
+    for bar in range(song.bars):
+        idx = bar % 4
+        if song.on("pad", bar):
+            l, r = pad_chord(chords[idx], 4 * song.beat + 0.5, 1300, 0.6, 1.0)
+            m.add_stereo("dry", l, r, song.at(bar, 0), 0.5)
+            m.add_stereo("verb", l, r, song.at(bar, 0), 0.4)
+        if song.on("marimba", bar):
+            for step, semis in enumerate(pattern):
+                note_ = chords[idx][0] + 12 + semis
+                mb = marimba(hz(note_), 0.55, 1.0 if step % 4 == 0 else 0.75)
+                t = song.at(bar, step * 0.5)
+                m.add("dry", mb, t, 0.5, 0.5 if step % 2 else -0.5)
+                m.add("echo", mb, t, 0.25)
+        for beat in range(4):
+            t = song.at(bar, beat)
+            if song.on("kick", bar) and beat in (0, 2):
+                m.add("dry", k, t, 0.8)
+                kick_times.append(t)
+            if song.on("clap", bar) and beat in (1, 3):
+                m.add("dry", cl, t, 0.5)
+                m.add("verb", cl, t, 0.35)
+            if song.on("shaker", bar):
+                m.add("dry", sh, song.at(bar, beat + 0.5), 0.45, 0.4)
+                m.add("dry", sh, song.at(bar, beat + 0.75), 0.2, -0.4)
+        if song.on("bass", bar):
+            for step in range(8):
+                semis = (0, 12, 0, 7, 0, 12, 10, 7)[step]
+                pl = pluck(hz(roots[idx] + 12 + semis), 0.28, 0.25)
+                m.add("dry", pl, song.at(bar, step * 0.5), 0.75)
+        if song.on("bells", bar):
+            for beat_pos, name, dur in bells[idx]:
+                b = bell(hz(midi(name)), 1.8, 0.8)
+                m.add("dry", b, song.at(bar, beat_pos), 0.3, -0.25)
+                m.add("verb", b, song.at(bar, beat_pos), 0.45)
+    duck = sidechain(kick_times, m.n, 0.3, 0.11)
+    m.dry *= duck[None, :]
+    return finish(song, make_reverb_ir(2.0, 5200, 12), 0.34, 0.4, 0.3, target_rms=-14.5)
+
+
+def ember_drive() -> np.ndarray:
+    """Warm synthwave: gated pads in E minor, octave bass, a big roomy snare, a singing lead."""
+    song = Song(100, 32)
+    m = song.mix
+    song.sections({"pad": (0, 32), "kick": (4, 30), "snare": (4, 30), "hat": (8, 30), "bass": (2, 30), "lead": (12, 28), "arp": (8, 30)})
+    chords = [chord("E3", "m"), chord("C3", "M"), chord("G3", "M"), chord("D3", "M")]
+    roots = [midi("E1"), midi("C2"), midi("G1"), midi("D2")]
+    lead_line = [
+        [(0.0, "B4", 1.5), (1.5, "E5", 0.5), (2.0, "D5", 2.0)],
+        [(0.0, "C5", 1.0), (1.0, "E5", 1.0), (2.0, "G5", 2.0)],
+        [(0.0, "B4", 1.0), (1.0, "D5", 1.0), (2.0, "G5", 1.5), (3.5, "F#5", 0.5)],
+        [(0.0, "F#5", 2.0), (2.0, "A5", 1.0), (3.0, "F#5", 1.0)],
+    ]
+    k, sn, hh = kick(1.0, 0.4), snare(0.34, 175), hat()
+    kick_times = []
+    for bar in range(song.bars):
+        idx = bar % 4
+        if song.on("pad", bar):
+            # sixteenth gate on the pad: the pulse synthwave runs on
+            l, r = pad_chord(chords[idx] + [chords[idx][0] + 12], 4 * song.beat + 0.3, 2400, 0.05, 0.3)
+            n = len(l)
+            step = int(song.beat / 4 * SR)
+            gate = np.ones(n)
+            for i in range(0, n, step):
+                gate[i + int(step * 0.6): i + step] = 0.35
+            gate = moving_average(gate, 220)
+            m.add_stereo("dry", l * gate, r * gate, song.at(bar, 0), 0.7)
+            m.add_stereo("verb", l, r, song.at(bar, 0), 0.25)
+        for beat in range(4):
+            t = song.at(bar, beat)
+            if song.on("kick", bar) and beat in (0, 2):
+                m.add("dry", k, t, 0.9)
+                kick_times.append(t)
+            if song.on("snare", bar) and beat in (1, 3):
+                m.add("dry", sn, t, 0.55)
+                m.add("verb", sn, t, 0.9)
+            if song.on("hat", bar):
+                m.add("dry", hh, song.at(bar, beat + 0.5), 0.3, 0.25)
+        if song.on("bass", bar):
+            for step in range(8):
+                semis = 12 if step % 2 else 0
+                m.add("dry", sub_bass(hz(roots[idx] + 12 + semis), song.beat * 0.45), song.at(bar, step * 0.5), 0.75)
+        if song.on("arp", bar):
+            for step in range(16):
+                semis = (0, 7, 12, 7)[step % 4] + (3 if idx == 0 and step >= 8 else 0)
+                pl = pluck(hz(chords[idx][0] + 12 + semis), 0.2, 0.8)
+                m.add("dry", pl, song.at(bar, step * 0.25), 0.22, -0.55 if step % 2 else 0.55)
+                m.add("echo", pl, song.at(bar, step * 0.25), 0.3)
+        if song.on("lead", bar):
+            for beat_pos, name, dur in lead_line[idx]:
+                ld = lead(hz(midi(name)), dur * song.beat * 0.96, vibrato=1.4)
+                m.add("dry", ld, song.at(bar, beat_pos), 0.45, 0.05)
+                m.add("echo", ld, song.at(bar, beat_pos), 0.5)
+                m.add("verb", ld, song.at(bar, beat_pos), 0.55)
+    duck = sidechain(kick_times, m.n, 0.4, 0.13)
+    m.dry *= duck[None, :]
+    return finish(song, make_reverb_ir(2.8, 4800, 13), 0.42, 0.45, 0.4, drive=1.15, target_rms=-14.0)
+
+
+def quiet_orbit() -> np.ndarray:
+    """Ambient: slow A major pads, sparse felt piano, sub swells; no drums."""
+    song = Song(68, 24)
+    m = song.mix
+    song.sections({"pad": (0, 24), "piano": (2, 24), "sub": (4, 22), "glass": (8, 20)})
+    chords = [
+        [midi(x) for x in ("A2", "E3", "B3", "C#4", "G#4")],
+        [midi(x) for x in ("F#2", "C#3", "E3", "A3", "G#4")],
+        [midi(x) for x in ("D3", "A3", "C#4", "E4", "F#4")],
+        [midi(x) for x in ("E2", "B2", "D3", "A3", "B3")],
+    ]
+    motif = [[(0.0, 4), (1.5, 3), (2.5, 2)], [(0.5, 4), (2.0, 3)], [(0.0, 3), (1.0, 4), (3.0, 2)], [(1.0, 4), (2.5, 3)]]
+    for bar in range(song.bars):
+        idx = bar % 4
+        if song.on("pad", bar):
+            l, r = pad_chord(chords[idx][:4], 4 * song.beat + 2.5, 900, 2.0, 2.5)
+            m.add_stereo("dry", l, r, song.at(bar, 0), 0.75)
+            m.add_stereo("verb", l, r, song.at(bar, 0), 0.8)
+        if song.on("piano", bar):
+            for beat_pos, which in motif[idx]:
+                note_ = chords[idx][which] + 12
+                fp = felt_piano(hz(note_), 4.0, 0.9)
+                t = song.at(bar, beat_pos)
+                m.add("dry", fp, t, 0.6, (which - 2.5) * 0.2)
+                m.add("verb", fp, t, 0.7)
+                m.add("echo", fp, t, 0.25)
+        if song.on("sub", bar):
+            n = int(4 * song.beat * SR)
+            swell = sine(hz(chords[idx][0] - 12), n) * env_pad(n, 1.6, 2.0) * 0.35
+            m.add("dry", swell, song.at(bar, 0), 1.0)
+        if song.on("glass", bar) and bar % 2 == 1:
+            b = bell(hz(chords[idx][4] + 12), 4.0, 0.4)
+            m.add("verb", b, song.at(bar, 2.0), 0.6)
+            m.add("dry", b, song.at(bar, 2.0), 0.15, -0.5)
+    return finish(song, make_reverb_ir(4.5, 3600, 14), 0.6, 0.35, 0.0, drive=1.0, target_rms=-17.0)
+
+
+def fft_filter_stereo(stereo: np.ndarray, low=None, high=None) -> np.ndarray:
+    return np.stack([fft_filter(stereo[0], low=low, high=high), fft_filter(stereo[1], low=low, high=high)])
+
+
+NEW_TRACKS = {
+    "StarlitAnvil.wav": starlit_anvil,
+    "NebulaMarket.wav": nebula_market,
+    "EmberDrive.wav": ember_drive,
+    "QuietOrbit.wav": quiet_orbit,
+}
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    import sys
+
     tracks = {
         "ForgePulse.wav": forge_pulse,
         "SanctuaryDrift.wav": sanctuary_drift,
         "AstralOrbit.wav": astral_orbit,
         "BossSurge.wav": boss_surge,
     }
+    tracks.update(NEW_TRACKS)
+    if "--new" in sys.argv:
+        # only the 7.2 additions; the first four are already uploaded
+        tracks = dict(NEW_TRACKS)
     for name, build in tracks.items():
         path = os.path.join(OUT, name)
         print(f"rendering {name} ...", flush=True)

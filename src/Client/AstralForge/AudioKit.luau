@@ -3946,31 +3946,28 @@ type Track = {
 	high: number,
 }
 
+-- Seven originals (tools/assetgen/soundtrack_gen.py) take turns with eleven calm space beds from the
+-- library. Off-theme library tracks (Hawaiian synth, action trailers, arcade synthwave, the eerie
+-- liminal ones) are out: every track here should sit under hours of play.
 local TRACKS: { Track } = {
+	{ name = "Starlit Anvil", asset = "rbxassetid://83224252725181", gain = 0.95, low = 0, mid = 0, high = 0 },
 	{ name = "Space Ambient", asset = "rbxassetid://140533822783920", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Galactic Market", asset = "rbxassetid://85922328966318", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Nebula Market", asset = "rbxassetid://125327402955633", gain = 0.82, low = 0, mid = 0, high = 0 },
 	{ name = "Slow Breathing Aurora (Space Ambient)", asset = "rbxassetid://140041908508788", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Return Signal Hopeful Future Ambient Music", asset = "rbxassetid://134433077845062", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Ember Drive", asset = "rbxassetid://132485327755002", gain = 0.85, low = 0, mid = 0, high = 0 },
 	{ name = "Cosmic Cafe", asset = "rbxassetid://136898642923218", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Zero Gravity", asset = "rbxassetid://102039057339088", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Twilight’s Soothing Cascade", asset = "rbxassetid://139804134367647", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Quiet Orbit", asset = "rbxassetid://114299463363605", gain = 1.0, low = 0, mid = 0, high = 0 },
 	{ name = "Nebula Dream Theta Waves", asset = "rbxassetid://139793680497894", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Deep Space Ocean", asset = "rbxassetid://136827064604146", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Liminal Space Ambient (Lost in the Halls)", asset = "rbxassetid://133670858533628", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Forge Pulse", asset = "rbxassetid://85607718934391", gain = 0.78, low = 0, mid = 0, high = 0 },
 	{ name = "Space Station '98", asset = "rbxassetid://128285716110465", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Hello in There Space Ambient", asset = "rbxassetid://111560725873026", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Adrenaline Arcade Synthwave", asset = "rbxassetid://138551890276730", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Feedback", asset = "rbxassetid://122703970718439", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Desperation", asset = "rbxassetid://81466105858478", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Resistance", asset = "rbxassetid://99903926483608", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Automated", asset = "rbxassetid://93964414292507", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Aloha Sunset (Hawaiian Synth)", asset = "rbxassetid://118508726012870", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Celestial String Awakening 2", asset = "rbxassetid://101244629093073", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Astral Orbit", asset = "rbxassetid://84797482092417", gain = 0.84, low = 0, mid = 0, high = 0 },
 	{ name = "Calm Cinematic Space", asset = "rbxassetid://137911990035159", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Soft Intro Reflections", asset = "rbxassetid://87900257498941", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Temple of Silent Light 2", asset = "rbxassetid://86497547233756", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "River of Soft Gold 2", asset = "rbxassetid://114636840398015", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Silent Cinematic Prelude", asset = "rbxassetid://85227514374326", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Sanctuary Drift", asset = "rbxassetid://98919050616365", gain = 0.9, low = 0, mid = 0, high = 0 },
 }
 
 local Soundtrack = {}
