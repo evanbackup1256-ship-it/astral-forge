@@ -53,7 +53,7 @@ UserInputService.InputBegan:Connect(function(input)
 					if size.X * size.Y < screen.X * screen.Y * 0.25 and size.X < 720 then
 						pressedButton = object
 						pressedAt = os.clock()
-						Feedback.play(object, "press")
+						Feedback.press(object, "press")
 					end
 					return
 				end
@@ -66,7 +66,7 @@ UserInputService.InputEnded:Connect(function(input)
 	if (kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch) and pressedButton ~= nil then
 		local button = pressedButton
 		task.defer(function()
-			Feedback.play(button, "release")
+			Feedback.press(button, "release")
 		end)
 	end
 end)
@@ -80,7 +80,7 @@ function Juice.lastPressed(withinSeconds: number?): GuiObject?
 end
 -- physical feedback on anything: "press" | "release" | "pop" | "bounce" | "pulse" | "shake" | "wiggle"
 function Juice.feedback(instance, kind: string)
-	Feedback.play(instance, kind)
+	Feedback.on(instance, kind)
 end
 
 local function now()

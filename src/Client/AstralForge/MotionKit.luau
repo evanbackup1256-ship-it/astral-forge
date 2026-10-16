@@ -2545,6 +2545,108 @@ local function step(dt)
 	stopDriver()
 end
 
+-- The thing a player sees as "the button". Hit areas are often a transparent overlay on top of
+-- the card that draws the button, so animating the overlay alone would move the label away from
+-- its card (it looks doubled). Walk up to the outermost ancestor with the same footprint.
+local function visualRoot(instance: GuiObject): GuiObject
+	local root = instance
+	local size = instance.AbsoluteSize
+	local position = instance.AbsolutePosition
+	local parent = instance.Parent
+	while parent ~= nil and parent:IsA("GuiObject") do
+		local delta = (parent.AbsoluteSize - size).Magnitude + (parent.AbsolutePosition - position).Magnitude
+		if delta > 8 then
+			break
+		end
+		root = parent
+		parent = parent.Parent
+	end
+	return root
+end
+
+local function centred(object: GuiObject): boolean
+	return math.abs(object.AnchorPoint.X - 0.5) < 0.01 and math.abs(object.AnchorPoint.Y - 0.5) < 0.01
+end
+
+-- A soft light that fills the button's own shape (its corner radius) and fades: feedback that
+-- moves nothing, for buttons that cannot scale around their centre.
+local glowing = {}
+local function glow(target: GuiObject, strength: number)
+	if glowing[target] then
+		return
+	end
+	glowing[target] = true
+	local light = Instance.new("Frame")
+	light.Name = "FeedbackGlow"
+	light.Size = UDim2.fromScale(1, 1)
+	light.BackgroundColor3 = Color3.new(1, 1, 1)
+	light.BackgroundTransparency = 1 - strength
+	light.BorderSizePixel = 0
+	light.ZIndex = target.ZIndex + 20
+	light.Active = false
+	local corner = target:FindFirstChildOfClass("UICorner")
+	if corner ~= nil then
+		local copy = Instance.new("UICorner")
+		copy.CornerRadius = corner.CornerRadius
+		copy.Parent = light
+	end
+	light.Parent = target
+	local start = os.clock()
+	local link
+	link = RunService.RenderStepped:Connect(function()
+		local u = math.clamp((os.clock() - start) / 0.28, 0, 1)
+		light.BackgroundTransparency = 1 - strength * (1 - u) * (1 - u)
+		if u >= 1 or light.Parent == nil then
+			link:Disconnect()
+			light:Destroy()
+			glowing[target] = nil
+		end
+	end)
+end
+
+-- Press feedback chosen per button: a centred squash where the visual root is centre-anchored
+-- (UIScale scales about the anchor, so anything else would lurch toward a corner), otherwise a
+-- glow inside the button's own shape.
+function Feedback.press(button: Instance?, phase: string)
+	if reduced or button == nil or not button:IsA("GuiObject") or button.Parent == nil then
+		return
+	end
+	local root = visualRoot(button)
+	local ownScale = root:FindFirstChildOfClass("UIScale")
+	if ownScale ~= nil and ownScale.Name ~= SCALE_NAME then
+		-- this button animates its own press already
+		return
+	end
+	if centred(root) then
+		Feedback.play(root, if phase == "release" then "release" else "press")
+	elseif phase ~= "release" then
+		glow(root, 0.12)
+	end
+end
+
+-- Any other effect, aimed at the visual root; scale effects only where they stay centred.
+function Feedback.on(target: Instance?, kind: string)
+	if reduced or target == nil or not target:IsA("GuiObject") or target.Parent == nil then
+		return
+	end
+	local root = visualRoot(target)
+	local spec = KINDS[kind]
+	if spec == nil then
+		return
+	end
+	if spec.scale ~= nil and not centred(root) then
+		-- rotation turns about the centre whatever the anchor; light needs no anchor at all
+		if kind == "bounce" or kind == "pop" then
+			Feedback.play(root, "wiggle")
+			glow(root, 0.16)
+		else
+			glow(root, 0.12)
+		end
+		return
+	end
+	Feedback.play(root, kind)
+end
+
 function Feedback.play(instance: Instance?, kind: string)
 	if reduced or instance == nil or not instance:IsA("GuiObject") or instance.Parent == nil then
 		return
