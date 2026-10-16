@@ -847,7 +847,14 @@ def _build_voices():
     for name in list(V):
         if name in RETIRED or name.startswith(RETIRED_PREFIX):
             del V[name]
-    return V
+    # 7.2: every voice comes from the one palette in sound_design.py; nothing may fall back
+    from sound_design import voices as designed
+
+    D = designed(list(V))
+    missing = sorted(n for n in V if n not in D)
+    if missing:
+        raise SystemExit('sound_design.py has no voice for: ' + ', '.join(missing))
+    return {name: D[name] for name in V}
 
 
 RETIRED = ['bootAftershock', 'bootAnvilSplit', 'bootClang', 'bootDebris', 'bootFinaleFlip', 'bootFizz', 'bootFractureTail', 'bootGravity', 'bootIgnite', 'bootImpact', 'bootRumble', 'bootSlamAir', 'bootSlamCharge', 'bootSpark', 'bootStrike', 'bootTension', 'bootWhoosh', 'cardBlock', 'cardDraw', 'cardEndTurn', 'cardEndTurnHover', 'cardEnergy', 'cardEnergyHover', 'cardPlay', 'cardPower', 'cardPowerHover', 'curtainClose', 'curtainOpen', 'gameExit', 'gamePause', 'gamePauseHover', 'gameResume', 'gameResumeHover', 'noticeClose', 'oreCollect', 'oreMine', 'puzzleClear', 'puzzleTap', 'puzzleTapHover', 'reactorChannel', 'regionEnter', 'sanctuaryClick', 'sanctuaryHover', 'sanctuaryMenu', 'sanctuaryRecall', 'sanctuarySheetClose', 'velocitySlide', 'waystoneTravel']
