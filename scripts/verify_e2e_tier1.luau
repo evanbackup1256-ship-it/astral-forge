@@ -22,7 +22,7 @@ local DataTemplate = {
 			RunCash = 0,
 			LifetimeCash = 0,
 			Zone = 1,
-			Domain = { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0, SkillPoints = 0, Nodes = {} },
+			Domain = { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0, SkillPoints = 0, Links = {} },
 			Continuum = { Rank = 0, TotalFluxSpent = 0, TotalStardustSpent = 0 },
 			Anomaly = { Cycle = 0, Charge = 0, Fragments = 0, Stabilizations = 0, Loadout = {}, Protocols = {} },
 			Machines = { StellarCore = 1 },
@@ -233,7 +233,7 @@ end)
 
 Fw.register("T1-F5-03", "UiOverlays exports specialized domain and modal overlays", function()
 	local overlaySource = fs.readFile("src/Client/AstralForge/UiOverlays.luau")
-	local overlays = { "DomainExpansionOverlay", "DomainSkillTree", "purchaseOverlay", "MobileControls" }
+	local overlays = { "DomainChamber", "purchaseOverlay", "MobileControls" }
 	for _, ov in overlays do
 		Fw.assertTrue(string.find(overlaySource, `__defs["{ov}"]`, 1, true) ~= nil, `UiOverlays component {ov} must exist`)
 	end

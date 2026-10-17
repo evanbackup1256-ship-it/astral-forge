@@ -48,6 +48,7 @@ serviceFactories["GameService"] = function()
 	local SharedDataSuite = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 	local LevelRewards = SharedDataSuite("LevelRewards")
 local AscensionMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
+local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainLattice"))
 local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 	local ForgeLevels = SharedDataSuite("ForgeLevels")
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
@@ -3537,41 +3538,47 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		end)
 	end
 
-	function GameService:_unlockDomainNode(player: Player, nodeId: any)
-		if type(nodeId) ~= "string" or nodeId == "" then
-			return responseError("Invalid domain node.")
+	-- the Domain Lattice: Op "Etch" spends points on the link between anchors A and B,
+	-- Op "Clear" refunds every link (once per domain rank)
+	function GameService:_domainLattice(player: Player, payload: any)
+		local op = type(payload) == "table" and payload.Op or nil
+		if op ~= "Etch" and op ~= "Clear" then
+			return responseError("Unknown lattice action.")
 		end
 		return self:_mutate(player, function(profile)
-			if (profile.Domain and profile.Domain.Rank or 0) < 1 then
+			local domain = ProfileBagMath.EnsureDomain(profile)
+			if domain.Rank < 1 then
 				return responseError("Expand your domain first.")
 			end
-			profile.Domain.Nodes = type(profile.Domain.Nodes) == "table" and profile.Domain.Nodes or {}
-			if profile.Domain.Nodes[nodeId] == true or profile.Domain.Nodes[nodeId] == 1 then
-				return responseError("That branch is already open.")
-			end
-			local definition = nil
-			for _, node in GameConfig.Domain.Tree do
-				if node.Id == nodeId then
-					definition = node
-					break
+			domain.Links = DomainLattice.sanitize(domain.Links)
+			local etched = DomainLattice.count(domain.Links)
+			if op == "Clear" then
+				if etched == 0 then
+					return responseError("Nothing is etched yet.")
 				end
-			end
-			if not definition then
-				return responseError("Unknown domain branch.")
-			end
-			for _, required in (definition.Requires or {}) do
-				if profile.Domain.Nodes[required] ~= true and profile.Domain.Nodes[required] ~= 1 then
-					return responseError("Open the earlier branch first.")
+				if (tonumber(domain.LatticeClearedAtRank) or 0) >= domain.Rank then
+					return responseError("You can clear the lattice again after your next expansion.")
 				end
+				domain.SkillPoints += DomainLattice.spent(etched)
+				domain.Links = {}
+				domain.LatticeClearedAtRank = domain.Rank
+				return responseSuccess("Lattice cleared. Every point is back.", { Links = domain.Links, SkillPoints = domain.SkillPoints })
 			end
-			local cost = math.max(1, math.floor(tonumber(definition.Cost) or 1))
-			local points = math.max(0, math.floor(tonumber(profile.Domain.SkillPoints) or 0))
-			if points < cost then
-				return responseError(string.format("Need %d domain points.", cost))
+			local a, b = tonumber(payload.A), tonumber(payload.B)
+			local ok, reason = DomainLattice.canEtch(domain.Links, a, b, domain.SkillPoints)
+			if not ok then
+				return responseError(reason or "That link can't be etched.")
 			end
-			profile.Domain.SkillPoints = points - cost
-			profile.Domain.Nodes[nodeId] = true
-			return responseSuccess(definition.Name .. " bound to your domain.")
+			local cost = DomainLattice.linkCost(etched)
+			local key = DomainLattice.key(math.floor(a :: number), math.floor(b :: number))
+			local facetsBefore = #DomainLattice.facets(domain.Links)
+			domain.SkillPoints -= cost
+			domain.Links[key] = true
+			local facetsAfter = #DomainLattice.facets(domain.Links)
+			return responseSuccess(
+				if facetsAfter > facetsBefore then "Facet closed." else "Link etched.",
+				{ Link = key, Links = domain.Links, SkillPoints = domain.SkillPoints, Facets = facetsAfter, ClosedFacet = facetsAfter > facetsBefore }
+			)
 		end)
 	end
 
@@ -3609,7 +3616,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			local overflowReward = math.floor(overflowRebirths * overflowRebirthScale + math.sqrt(overflowCores) * overflowCoreScale)
 			local nextRank = rank + 1
 			profile.Domain.Rank = nextRank
-			profile.Domain.Nodes = type(profile.Domain.Nodes) == "table" and profile.Domain.Nodes or {}
+			profile.Domain.Links = type(profile.Domain.Links) == "table" and profile.Domain.Links or {}
 			profile.Domain.SkillPoints = math.max(0, math.floor(tonumber(profile.Domain.SkillPoints) or 0)) + (GameConfig.Domain.SkillPointPerRank or 2)
 			essenceReward += Economy.DomainTreeBonus(profile, "EssenceGain")
 			essenceReward = math.floor(math.min(1e300, essenceReward * math.max(1, Economy.AsNumber(Economy.AscensionEffect(profile, "Essence")))))
@@ -3714,7 +3721,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 				TotalRebirthsSpent = math.max(0, math.floor(tonumber(domain.TotalRebirthsSpent) or 0)),
 				TotalCoresSpent = math.max(0, math.floor(tonumber(domain.TotalCoresSpent) or 0)),
 				SkillPoints = 0,
-				Nodes = {},
+				Links = {},
+				LatticeClearedAtRank = 0,
 			}
 			profile.Cash = GameConfig.Economy.StartingCash
 			profile.Vault = 0
@@ -4591,8 +4599,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			return self:_upgradeSigil(player, payload)
 		elseif action == Protocol.Actions.DomainExpansion then
 			return self:_domainExpansion(player)
-		elseif action == Protocol.Actions.UnlockDomainNode then
-			return self:_unlockDomainNode(player, payload and payload.Id)
+		elseif action == Protocol.Actions.DomainLattice then
+			return self:_domainLattice(player, payload)
 		elseif action == Protocol.Actions.ClaimConvergenceReward then
 			return self._convergence:Claim(player, payload and payload.Tier)
 		elseif action == Protocol.Actions.ClaimQuest then

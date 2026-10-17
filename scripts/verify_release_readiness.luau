@@ -1075,19 +1075,13 @@ assert(string.find(visitSnapWave40, "function VisitSnapshot.Build", 1, true), "V
 local serverWave40 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(serverWave40, '("VisitSnapshot")', 1, true), "ServerServices VisitSnapshot require residual for release")
 assert(string.find(serverWave40, "VisitSnapshot.Build", 1, true), "ServerServices VisitSnapshot.Build residual for release")
-local domainWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
+local domainWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainChamber")
 local purchaseWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#purchaseOverlay")
 local boostsWave40 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
-assert(string.find(domainWave40, "local softMotion = ", 1, true), "DomainExpansion softMotion residual for release")
+assert(string.find(domainWave40, "local reduced = props.reducedMotion == true", 1, true), "the Domain chamber honours reduced motion")
 assert(string.find(purchaseWave40, "local softMotion = ", 1, true), "Purchase softMotion residual for release")
 assert(string.find(boostsWave40, "local softMotion = ", 1, true), "Boosts softMotion residual for release")
-do
-	local soft = 0
-	for _ in string.gmatch(domainWave40, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 11, "DomainExpansion softMotion densify residual for release, got " .. tostring(soft))
-end
+assert(string.find(domainWave40, "if not props.reduced then", 1, true), "the lattice's travelling beats stop under reduced motion")
 do
 	local soft = 0
 	for _ in string.gmatch(boostsWave40, "softMotion") do

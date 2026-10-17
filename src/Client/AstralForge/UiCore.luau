@@ -5132,7 +5132,7 @@ local function MainGame(_param)
 			local after = response.State
 			local bigMoment = action == "Rebirth" or action == "DomainExpansion" or action == "Ascend" or action == "UnlockZone"
 			local rewarding = string.sub(action, 1, 5) == "Claim" or action == "RedeemCode" or action == "StabilizeAnomaly" or action == "SalvageItem" or action == "BulkSalvageItems" or action == "SpinWheel" or bigMoment
-			local spending = string.sub(action, 1, 3) == "Buy" or string.sub(action, 1, 7) == "Upgrade" or action == "UnlockDomainNode"
+			local spending = string.sub(action, 1, 3) == "Buy" or string.sub(action, 1, 7) == "Upgrade" or action == "DomainLattice"
 			if after ~= nil and (rewarding or spending) then
 				local shown = Juice.celebrateGains(juiceBefore, after, {
 					spend = spending,

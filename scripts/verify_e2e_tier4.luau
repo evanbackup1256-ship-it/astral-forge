@@ -62,7 +62,7 @@ local function createBootstrapProfile()
 		RunCash = 0,
 		LifetimeCash = 0,
 		Zone = 1,
-		Domain = { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0, SkillPoints = 0, Nodes = {} },
+		Domain = { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0, SkillPoints = 0, Links = {} },
 		Continuum = { Rank = 0, TotalFluxSpent = 0, TotalStardustSpent = 0 },
 		Anomaly = { Cycle = 0, Charge = 0, Fragments = 0, Stabilizations = 0, Loadout = {}, Protocols = {} },
 		Machines = { StellarCore = 1 },
@@ -394,27 +394,31 @@ Fw.register("T4-SCEN-08", "Domain constellation expansion unlocks nodes, allocat
 	end)
 	Fw.assertGte(level, 15, "Rebirths qualify for Level 15 Domain unlock")
 
-	-- Expand Domain: spend 10 Rebirths, get 5 SkillPoints
+	-- Expand Domain: spend 10 Rebirths, get 5 points
 	local expansionCost = 10
 	Fw.assertGte(profile.Rebirths, expansionCost, "Sufficient rebirths for domain expansion")
 	profile.Domain.TotalRebirthsSpent += expansionCost
 	profile.Domain.Rank += 1
 	profile.Domain.SkillPoints += 5
 
-	-- Allocate points to Node_A (cost 2) and Node_B (cost 3)
-	profile.Domain.Nodes["Node_A"] = true
-	profile.Domain.Nodes["Node_B"] = true
-	profile.Domain.SkillPoints -= (2 + 3)
-	Fw.assertEq(profile.Domain.SkillPoints, 0, "All skill points allocated")
+	-- Etch five links out of the Hearth with the real lattice rules
+	local Lattice = require("../src/Shared/AstralForge/Shared/DomainLattice")
+	for _, pair in { { 1, 2 }, { 1, 3 }, { 2, 3 }, { 1, 4 }, { 3, 4 } } do
+		local ok = Lattice.canEtch(profile.Domain.Links, pair[1], pair[2], profile.Domain.SkillPoints)
+		Fw.assertEq(ok, true, "link " .. pair[1] .. "-" .. pair[2] .. " can be etched")
+		profile.Domain.SkillPoints -= Lattice.linkCost(Lattice.count(profile.Domain.Links))
+		profile.Domain.Links[Lattice.key(pair[1], pair[2])] = true
+	end
+	Fw.assertEq(profile.Domain.SkillPoints, 0, "All points etched")
+	Fw.assertEq(#Lattice.facets(profile.Domain.Links), 2, "Two facets closed")
 
-	-- Perform full respec: clear nodes, restore points
-	local pointsToRefund = 5
-	profile.Domain.Nodes = {}
-	profile.Domain.SkillPoints += pointsToRefund
+	-- Clear the lattice: every point comes back
+	profile.Domain.SkillPoints += Lattice.spent(Lattice.count(profile.Domain.Links))
+	profile.Domain.Links = {}
 
-	Fw.assertEq(profile.Domain.SkillPoints, 5, "5 skill points refunded")
-	Fw.assertEq(next(profile.Domain.Nodes), nil, "All constellation nodes cleared")
-	Fw.assertEq(profile.Domain.Rank, 1, "Domain rank preserved across respec")
+	Fw.assertEq(profile.Domain.SkillPoints, 5, "5 points refunded")
+	Fw.assertEq(next(profile.Domain.Links), nil, "Every link cleared")
+	Fw.assertEq(profile.Domain.Rank, 1, "Domain rank preserved across a clear")
 end)
 
 --------------------------------------------------------------------------------

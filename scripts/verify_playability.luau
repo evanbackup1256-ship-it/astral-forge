@@ -256,13 +256,12 @@ end
 ------------------------------------------------------------------------
 local FOCUS_OVERLAYS = {
 	"src/Client/AstralForge/UiCore.luau#OfflineRewardsOverlay",
-	"src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay",
+	"src/Client/AstralForge/UiOverlays.luau#DomainChamber",
 	"src/Client/AstralForge/UiCore.luau#FeedbackOverlay",
 	"src/Client/AstralForge/UiOverlays.luau#purchaseOverlay",
 	"src/Client/AstralForge/UiCore.luau#CrateRevealOverlay",
 	"src/Client/AstralForge/UiCore.luau#AdminPrankOverlay",
 	"src/Client/AstralForge/UiCore.luau#CreditsView",
-	"src/Client/AstralForge/UiOverlays.luau#DomainSkillTree",
 	"src/Client/AstralForge/UiCore.luau#onboarding",
 }
 -- Non-modal / persistent HUD overlays intentionally omit FocusClaim:

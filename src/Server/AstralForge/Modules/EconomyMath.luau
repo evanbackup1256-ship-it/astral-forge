@@ -27,6 +27,7 @@ local Specializations = require(ReplicatedStorage:WaitForChild("AstralForge"):Wa
 local AscensionMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
 local CapacityProjection = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("CapacityProjection")
 local LevelRewards = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
+local DomainLattice = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainLattice"))
 local OfflineProjection = __load("OfflineProjection")
 local TapCritProjection = __load("TapCritProjection")
 local UpgradeCostReason = __load("UpgradeCostReason")
@@ -279,9 +280,10 @@ function Economy.GetExpedition(id: string)
 	return GameConfig.ResolveExpedition(id)
 end
 
+-- what the Domain Lattice adds to one kind of bonus ("Production", "Capacity", ...)
 function Economy.DomainTreeBonus(profile: ProfileLike, field: string): number
 	local domain = profile.Domain
-	return EconomyEnvelopeMath.DomainTreeBonus(domain and domain.Nodes, GameConfig.Domain.Tree, field)
+	return DomainLattice.bonus(domain and domain.Links, field)
 end
 
 function Economy.MachineCost(id: string, currentLevel: number): number
@@ -790,22 +792,6 @@ function EconomyEnvelopeMath.MasteryMultiplier(machineMastery: any): number
 		end
 	end
 	return 1 + math.min(0.5, points * 0.002)
-end
-
-function EconomyEnvelopeMath.DomainTreeBonus(nodes: any, tree: any, field: string): number
-	if type(nodes) ~= "table" or type(tree) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for _, node in tree do
-		if type(node) == "table" and nodes[node.Id] == true then
-			local amount = node[field]
-			if type(amount) == "number" then
-				total += amount
-			end
-		end
-	end
-	return total
 end
 
 function EconomyEnvelopeMath.LabPowerEffect(routing: any, channelId: any, channel: any): number
@@ -1534,7 +1520,8 @@ function ContinuumDomainMath.SnapshotDomainPublic(args: {
 			args.DomainTreeBonus("Offline")
 		),
 		SkillPoints = ints.SkillPoints,
-		Nodes = type(bag.Nodes) == "table" and bag.Nodes or {},
+		Links = type(bag.Links) == "table" and bag.Links or {},
+		LatticeClearedAtRank = ContinuumDomainMath.NonNegativeInt(bag.LatticeClearedAtRank),
 	}
 end
 

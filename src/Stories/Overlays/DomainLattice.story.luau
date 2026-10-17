@@ -2,37 +2,45 @@ local StoryKit = require(script.Parent.Parent.StoryKit)
 local React = StoryKit.React
 local UILabs = StoryKit.UILabs
 
-local tree = require(StoryKit.client:WaitForChild("UiOverlays"))("DomainSkillTree")
+local chamber = require(StoryKit.client:WaitForChild("UiOverlays"))("DomainChamber")
+local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainLattice"))
 
 return StoryKit.story({
 	name = "Domain lattice",
-	summary = "The Domain skill tree, built from GameConfig.Domain.Tree.",
+	summary = "The lattice: etch links out from the Hearth, close facets, read what it gives.",
 	controls = {
 		Points = UILabs.Slider(6, 0, 40, 1),
-		Bound = UILabs.Slider(5, 0, 20, 1),
+		Etched = UILabs.Slider(8, 0, 30, 1),
 	},
 }, function(controls, kit)
-	local nodes = {}
+	-- grow a connected set of links out from the Hearth, in figure order
+	local links = {}
 	local count = 0
-	for _, node in kit.config.Domain.Tree do
-		if count >= controls.Bound then
-			break
-		end
-		local ready = true
-		for _, id in node.Requires or {} do
-			if not nodes[id] then
-				ready = false
+	local grew = true
+	while grew and count < controls.Etched do
+		grew = false
+		local degree = DomainLattice.degrees(links)
+		for _, e in DomainLattice.EDGES do
+			if count >= controls.Etched then
+				break
+			end
+			if not links[e.key] and (e.a == DomainLattice.HEARTH or (degree[e.a] or 0) > 0 or (degree[e.b] or 0) > 0) then
+				links[e.key] = true
+				count += 1
+				grew = true
+				break
 			end
 		end
-		if ready then
-			nodes[node.Id] = true
-			count += 1
-		end
 	end
-	return React.createElement(tree.DomainSkillTree, {
-		domain = { Rank = 7, SkillPoints = controls.Points, Nodes = nodes },
+	return React.createElement(chamber.DomainChamber, {
+		mode = "lattice",
+		domain = { Rank = 7, SkillPoints = controls.Points, Links = links, ProductionMultiplier = 1 + 7 * 1.5, LatticeClearedAtRank = 0 },
 		dispatch = kit.dispatch,
 		reducedMotion = kit.reducedMotion,
+		onConfirm = function() end,
+		onMode = function(mode)
+			print("[story] mode", mode)
+		end,
 		onClose = function()
 			print("[story] lattice closed")
 		end,

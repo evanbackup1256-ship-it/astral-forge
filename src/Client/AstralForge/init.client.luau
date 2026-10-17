@@ -28,9 +28,7 @@ local destroyClientStore = _clientStore.destroyClientStore
 local useClientDispatch = _clientStore.useClientDispatch
 local useClientSelector = _clientStore.useClientSelector
 task.wait()
-local DomainExpansionOverlay = require(script.UiOverlays)("DomainExpansionOverlay").DomainExpansionOverlay
-task.wait()
-local DomainSkillTree = require(script.UiOverlays)("DomainSkillTree").DomainSkillTree
+local DomainChamber = require(script.UiOverlays)("DomainChamber").DomainChamber
 task.wait()
 local initializeClientFramework = require(script.frameworkBridge).initializeClientFramework
 local _log = require(script.CoreKit)("log")
@@ -191,52 +189,26 @@ local function DomainApp(props)
 				dispatchStore(ClientActions.setDomainOverlay(_object))
 			end)
 		end
-		return React.createElement(React.Fragment, nil, children, state.Domain ~= nil and overlay ~= nil and overlay.mode == "tree" and React.createElement(DomainSkillTree, {
+		return React.createElement(React.Fragment, nil, children, state.Domain ~= nil and overlay ~= nil and React.createElement(DomainChamber, {
+			mode = if overlay.mode == "tree" then "lattice" else overlay.mode,
 			domain = state.Domain,
-			dispatch = dispatch,
-			reducedMotion = false,
-			onExpand = if state.Domain.CanExpand == true then function()
-				dispatchStore(ClientActions.setDomainOverlay({ mode = "confirm" }))
-			end else nil,
-			onClose = function()
-				return dispatchStore(ClientActions.setDomainOverlay(nil))
-			end,
-		}), state.Domain ~= nil and overlay ~= nil and overlay.mode ~= "tree" and React.createElement(DomainExpansionOverlay, {
-			key = overlay.mode,
-			mode = overlay.mode,
-			domain = state.Domain,
-			currentRebirths = state.Rebirths,
-			currentCores = state.Cores,
-			onOpenTree = if overlay.mode == "confirm" and (tonumber(state.Domain.Rank) or 0) > 0 then function()
-				dispatchStore(ClientActions.setDomainOverlay({ mode = "tree" }))
-			end else nil,
+			rebirths = state.Rebirths,
+			cores = state.Cores,
 			result = if overlay.mode == "result" then overlay.result else nil,
 			busy = busy,
+			dispatch = dispatch,
 			reducedMotion = false,
 			onConfirm = confirm,
+			onMode = function(mode)
+				dispatchStore(ClientActions.setDomainOverlay({
+					mode = if mode == "lattice" then "tree" else mode,
+				}))
+			end,
 			onClose = function()
 				if busy then
 					return nil
 				end
-				local _condition = overlay.mode == "result"
-				if _condition then
-					local _result = state.Domain
-					if _result ~= nil then
-						_result = _result.Rank
-					end
-					local _condition_1 = _result
-					if _condition_1 == nil then
-						_condition_1 = 0
-					end
-					_condition = _condition_1 > 0
-				end
-				if _condition then
-					dispatchStore(ClientActions.setDomainOverlay({
-						mode = "tree",
-					}))
-				else
-					dispatchStore(ClientActions.setDomainOverlay(nil))
-				end
+				dispatchStore(ClientActions.setDomainOverlay(nil))
 			end,
 		}))
 	end, { busy, dispatchStore, overlay })

@@ -26,7 +26,8 @@ function DataTemplate.New()
 			TotalRebirthsSpent = 0,
 			TotalCoresSpent = 0,
 			SkillPoints = 0,
-			Nodes = {},
+			Links = {},
+			LatticeClearedAtRank = 0,
 		},
 		-- Star Foundry: built (and migrated from Continuum/Reactor) on first load by FoundryService.Ensure
 		Foundry = { Migrated = false },

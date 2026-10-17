@@ -20,6 +20,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 local AscensionMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
+local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainLattice"))
 		local Specializations = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ShopCatalog")
@@ -135,6 +136,15 @@ local AscensionMath = require(game:GetService("ReplicatedStorage"):WaitForChild(
 		profile.Domain.LastExpandedAt = math.floor(nonNegative(profile.Domain.LastExpandedAt))
 		profile.Domain.TotalRebirthsSpent = math.floor(nonNegative(profile.Domain.TotalRebirthsSpent))
 		profile.Domain.TotalCoresSpent = math.floor(nonNegative(profile.Domain.TotalCoresSpent))
+		-- the node tree became the lattice: whatever was spent on nodes comes back as points
+		if type(profile.Domain.Nodes) == "table" then
+			profile.Domain.SkillPoints += DomainLattice.oldTreeRefund(profile.Domain.Nodes)
+			profile.Domain.Nodes = nil
+		end
+		local links, refund = DomainLattice.sanitize(profile.Domain.Links)
+		profile.Domain.Links = links
+		profile.Domain.SkillPoints += refund
+		profile.Domain.LatticeClearedAtRank = math.floor(nonNegative(profile.Domain.LatticeClearedAtRank))
 		ProfileBagMath.EnsureContinuum(profile)
 		profile.Continuum.Rank = math.clamp(
 			math.floor(nonNegative(profile.Continuum.Rank)),

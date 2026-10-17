@@ -228,10 +228,10 @@ function ProfileBagMath.EnsureDomain(profile: any): any
 			TotalRebirthsSpent = 0,
 			TotalCoresSpent = 0,
 			SkillPoints = 0,
-			Nodes = {},
+			Links = {},
 		}
-	elseif type(profile.Domain.Nodes) ~= "table" then
-		profile.Domain.Nodes = {}
+	elseif type(profile.Domain.Links) ~= "table" then
+		profile.Domain.Links = {}
 	end
 	profile.Domain.Rank = math.max(0, math.floor(tonumber(profile.Domain.Rank) or 0))
 	profile.Domain.Essence = math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0))

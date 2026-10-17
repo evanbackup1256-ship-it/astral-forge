@@ -142,7 +142,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.UploadGuildLogo] = { Cost = 0.25, Cooldown = 0.5 },
 		[Protocol.Actions.ModerateGuildLogo] = { Cost = 0.5, Cooldown = 1 },
 		[Protocol.Actions.DomainExpansion] = { Cost = 5, Cooldown = 5 },
-		[Protocol.Actions.UnlockDomainNode] = { Cost = 1, Cooldown = 0.2 },
+		[Protocol.Actions.DomainLattice] = { Cost = 1, Cooldown = 0.15 },
 		[Protocol.Actions.UpgradeContinuum] = { Cost = 1.5, Cooldown = 0.35 },
 		-- Star Foundry moves; Ignite is a timing tap, so the cooldown is short
 		[Protocol.Actions.FoundryAct] = { Cost = 0.45, Cooldown = 0.06 },
@@ -531,6 +531,13 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Back ~= nil and type(payload.Back) ~= "boolean" then
 				return false, "invalid foundry rotation"
+			end
+		elseif action == Protocol.Actions.DomainLattice then
+			if type(payload) ~= "table" or (payload.Op ~= "Etch" and payload.Op ~= "Clear") then
+				return false, "invalid lattice action"
+			end
+			if payload.Op == "Etch" and not (numberField(payload, "A", 1, 13, true) and numberField(payload, "B", 1, 13, true)) then
+				return false, "invalid lattice anchors"
 			end
 		elseif action == Protocol.Actions.SetAnomalyLoadout then
 			if not stringArrayField(payload, "Loadout", GameConfig.Anomalies.LoadoutSlots, 1, 32) then
