@@ -2,6 +2,8 @@
 -- Quick Find: one search box over every page, setting, machine, research, relic, world,
 -- boost, milestone and story chapter. Ctrl+K opens it, the top bar has a button.
 -- Picking a result opens its page with that page's search already filled in.
+-- It opens out of a molten seam, results cascade in, one slab glides between rows and a
+-- spark flies off the caret with every keypress.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -64,19 +66,19 @@ local PAGE_WORDS = {
 }
 
 local KIND_META = {
-	Action = { label = "Action", weight = 1.35, accent = "mint" },
-	Page = { label = "Page", weight = 1.3, accent = "cyan" },
-	Setting = { label = "Setting", weight = 1.05, accent = "violet" },
-	Machine = { label = "Machine", weight = 1, accent = "coral", route = "Workshop", icon = "Forge" },
-	Research = { label = "Research", weight = 1, accent = "cyan", route = "Research", icon = "Research" },
-	Relic = { label = "Relic", weight = 0.95, accent = "violet", route = "Inventory", icon = "Inventory" },
-	World = { label = "World", weight = 0.95, accent = "mint", route = "Worlds", icon = "World" },
-	Boost = { label = "Boost", weight = 0.95, accent = "pink", route = "Boosts", icon = "Boost" },
-	Milestone = { label = "Milestone", weight = 0.85, accent = "mango", route = "Milestones", icon = "Milestone" },
-	Story = { label = "Story", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
-	Letter = { label = "Letter", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
-	Section = { label = "Shop", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop" },
-	Deal = { label = "Black Market", weight = 1.1, accent = "violet", route = "Bazaar", icon = "Shop" },
+	Action = { label = "Action", group = "ACTIONS", weight = 1.35, accent = "mint" },
+	Page = { label = "Page", group = "PAGES", weight = 1.3, accent = "cyan" },
+	Setting = { label = "Setting", group = "SETTINGS", weight = 1.05, accent = "violet" },
+	Machine = { label = "Machine", group = "MACHINES", weight = 1, accent = "coral", route = "Workshop", icon = "Forge" },
+	Research = { label = "Research", group = "RESEARCH", weight = 1, accent = "cyan", route = "Research", icon = "Research" },
+	Relic = { label = "Relic", group = "RELICS", weight = 0.95, accent = "violet", route = "Inventory", icon = "Inventory" },
+	World = { label = "World", group = "WORLDS", weight = 0.95, accent = "mint", route = "Worlds", icon = "World" },
+	Boost = { label = "Boost", group = "BOOSTS", weight = 0.95, accent = "pink", route = "Boosts", icon = "Boost" },
+	Milestone = { label = "Milestone", group = "MILESTONES", weight = 0.85, accent = "mango", route = "Milestones", icon = "Milestone" },
+	Story = { label = "Story", group = "STORY", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
+	Letter = { label = "Letter", group = "MAIL", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
+	Section = { label = "Shop", group = "SHOP", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop" },
+	Deal = { label = "Black Market", group = "BLACK MARKET", weight = 1.1, accent = "violet", route = "Bazaar", icon = "Shop" },
 }
 
 local function accentOf(key)
@@ -254,19 +256,58 @@ local function buildLive(state, chatUnread)
 	return list
 end
 
+local RunService = game:GetService("RunService")
+local WHITE_HOT = Color3.fromRGB(255, 244, 222)
+local MAX_RESULTS = 40
+local ROW_H = 52
+local HEADER_H = 28
+local ROW_GAP = 2
+local CASCADE_ROWS = 14
+
+local function easeOut(t)
+	local u = 1 - math.clamp(t, 0, 1)
+	return 1 - u * u * u
+end
+
+-- y of every row inside the list (headers, rows and the gap between them)
+local function rowOffsets(sections)
+	local ys = {}
+	local y = 0
+	local index = 0
+	for s, section in sections do
+		if s > 1 then
+			y += ROW_GAP
+		end
+		y += HEADER_H + ROW_GAP
+		for r in section.entries do
+			index += 1
+			if r > 1 then
+				y += ROW_GAP
+			end
+			ys[index] = y
+			y += ROW_H
+		end
+	end
+	return ys, y
+end
+QuickFind.rowOffsets = rowOffsets
+
 local function Row(props)
 	local entry = props.entry
-	local selected = props.selected
 	local meta = KIND_META[entry.kind]
+	local appearAt = props.appearAt
+	local arrive = props.tick:map(function(now)
+		return if appearAt == nil then 1 else easeOut((now - appearAt) / 0.24)
+	end)
+	local selected = props.selected
 	return h("textbutton", {
-		Size = UDim2.new(1, 0, 0, props.height),
+		Size = UDim2.new(1, 0, 0, ROW_H),
 		LayoutOrder = props.layoutOrder,
-		BackgroundColor3 = if selected then Palette.panelRaised else Palette.panel,
-		BackgroundTransparency = if selected then 0 else 1,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
-		ZIndex = 503,
+		ZIndex = 504,
 		Event = {
 			Activated = function()
 				props.onPick(entry)
@@ -275,23 +316,37 @@ local function Row(props)
 				props.onHover(props.index)
 			end,
 		},
-	}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), selected and h("uistroke", {
-		Color = entry.accent,
-		Transparency = 0.45,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}), h("frame", {
+	}, h("frame", {
+		-- everything in the row rides in together
+		Size = UDim2.fromScale(1, 1),
+		Position = arrive:map(function(a)
+			return UDim2.fromOffset((1 - a) * 14, 0)
+		end),
+		BackgroundTransparency = 1,
+		ZIndex = 504,
+	}, h("frame", {
 		Size = UDim2.fromOffset(34, 34),
-		Position = UDim2.new(0, 10, 0.5, 0),
+		Position = UDim2.new(0, 12, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = theme.darken(entry.accent, 0.62),
+		BackgroundTransparency = arrive:map(function(a)
+			return 1 - a
+		end),
 		BorderSizePixel = 0,
-		ZIndex = 504,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 9) }), h("frame", {
+		ZIndex = 505,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 9) }), h("uiscale", {
+		Scale = props.tick:map(function(now)
+			if not selected then
+				return 1
+			end
+			return 1 + math.sin(now * 5) * 0.035
+		end),
+	}), h("frame", {
 		Size = UDim2.fromOffset(20, 20),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		ZIndex = 505,
+		ZIndex = 506,
 	}, h(Icon, {
 		kind = if entry.locked then "Lock" else entry.icon,
 		color = if entry.locked then Palette.muted else entry.accent,
@@ -299,58 +354,108 @@ local function Row(props)
 		size = 20,
 		spin = false,
 	}))), h("textlabel", {
-		Size = UDim2.new(1, -(56 + props.rightW), 0, 20),
-		Position = UDim2.fromOffset(54, 7),
+		Size = UDim2.new(1, -(60 + props.rightW), 0, 20),
+		Position = UDim2.fromOffset(58, 7),
 		BackgroundTransparency = 1,
 		Text = Model.highlight(entry.title, props.query, "#" .. entry.accent:ToHex()),
 		RichText = true,
 		TextSize = 15,
 		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Bold),
-		TextColor3 = if entry.locked then Palette.creamSoft else Palette.cream,
+		TextColor3 = if entry.locked then Palette.creamSoft elseif selected then WHITE_HOT else Palette.cream,
+		TextTransparency = arrive:map(function(a)
+			return 1 - a
+		end),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 505,
+		ZIndex = 506,
 	}), h("textlabel", {
-		Size = UDim2.new(1, -(56 + props.rightW), 0, 16),
-		Position = UDim2.fromOffset(54, 28),
+		Size = UDim2.new(1, -(60 + props.rightW), 0, 16),
+		Position = UDim2.fromOffset(58, 28),
 		BackgroundTransparency = 1,
 		Text = entry.subtitle or "",
 		TextSize = 12,
 		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Medium),
 		TextColor3 = Palette.muted,
+		TextTransparency = arrive:map(function(a)
+			return 1 - a
+		end),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 505,
-	}), props.rightW > 0 and h("textlabel", {
+		ZIndex = 506,
+	}), props.rightW > 0 and h("frame", {
 		Size = UDim2.fromOffset(props.rightW - 12, 22),
-		Position = UDim2.new(1, -10, 0.5, 0),
+		Position = UDim2.new(1, -12, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
-		Text = if (entry.badge or 0) > 0 then `{entry.badge} new  ·  {meta.label}` else meta.label,
+		ZIndex = 506,
+	}, h("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), (entry.badge or 0) > 0 and h("textlabel", {
+		Size = UDim2.fromOffset(0, 18),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 1,
+		BackgroundColor3 = Palette.mango,
+		Text = tostring(entry.badge),
+		TextSize = 11,
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
+		TextColor3 = Palette.ink,
+		ZIndex = 507,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uipadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) })), h("textlabel", {
+		Size = UDim2.fromOffset(0, 18),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 2,
+		BackgroundTransparency = 1,
+		Text = meta.label,
 		TextSize = 12,
 		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Bold),
-		TextColor3 = if (entry.badge or 0) > 0 then Palette.mango else Palette.muted,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		ZIndex = 505,
-	}))
+		TextColor3 = if selected then entry.accent else Palette.muted,
+		TextTransparency = arrive:map(function(a)
+			return 1 - a
+		end),
+		ZIndex = 507,
+	}))))
 end
 
+-- a section title with a rule that draws itself out to the right
 local function Header(props)
-	return h("textlabel", {
-		Size = UDim2.new(1, 0, 0, 26),
+	local appearAt = props.appearAt
+	local arrive = props.tick:map(function(now)
+		return if appearAt == nil then 1 else easeOut((now - appearAt) / 0.4)
+	end)
+	return h("frame", {
+		Size = UDim2.new(1, 0, 0, HEADER_H),
 		LayoutOrder = props.layoutOrder,
+		BackgroundTransparency = 1,
+		ZIndex = 503,
+	}, h("textlabel", {
+		Size = UDim2.new(0, 0, 0, 14),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Position = UDim2.new(0, 12, 1, -8),
+		AnchorPoint = Vector2.new(0, 1),
 		BackgroundTransparency = 1,
 		Text = props.text,
 		TextSize = 11,
 		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
-		TextColor3 = Palette.muted,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Bottom,
-		ZIndex = 503,
-	}, h("uipadding", { PaddingLeft = UDim.new(0, 10), PaddingBottom = UDim.new(0, 4) }))
+		TextColor3 = Palette.mango,
+		TextTransparency = arrive:map(function(a)
+			return 1 - a
+		end),
+		ZIndex = 504,
+	}), h("frame", {
+		Size = arrive:map(function(a)
+			return UDim2.new(a, -(24 + props.labelW), 0, 1)
+		end),
+		Position = UDim2.new(0, 20 + props.labelW, 1, -14),
+		BackgroundColor3 = Palette.lineSoft,
+		BackgroundTransparency = 0.3,
+		BorderSizePixel = 0,
+		ZIndex = 504,
+	}))
 end
-
-local MAX_RESULTS = 40
 
 function QuickFind.QuickFind(props)
 	local state = props.state
@@ -360,8 +465,13 @@ function QuickFind.QuickFind(props)
 	local boxRef = React.useRef(nil)
 	local listRef = React.useRef(nil)
 	local viewport = useViewport()
-	local show = useFlipperSpring(if open then 1 else 0, props.reducedMotion, 460, 28)
+	local reduced = props.reducedMotion == true
+	local show = useFlipperSpring(if open then 1 else 0, reduced, 420, 30)
 	local enabled = props.enabled ~= false
+	local tick, setTick = React.useBinding(os.clock())
+	-- when the current results arrived (rows cascade from here) and when a row was picked
+	local resultsAt = React.useRef(os.clock())
+	local pickedAt = React.useRef(-10)
 
 	local close = React.useCallback(function()
 		setOpen(false)
@@ -376,6 +486,7 @@ function QuickFind.QuickFind(props)
 			if enabled then
 				setQuery("")
 				setSelected(1)
+				resultsAt.current = os.clock() + 0.12
 				setOpen(true)
 				Audio:play("open")
 			end
@@ -395,7 +506,23 @@ function QuickFind.QuickFind(props)
 		end
 	end, { enabled })
 
-	-- keyboard: Ctrl+K or / opens, Escape closes, arrows move, Enter picks
+	-- one clock while it is on screen (and a little after, for the fold-away)
+	React.useEffect(function()
+		local closingUntil = os.clock() + 0.6
+		local connection
+		connection = RunService.RenderStepped:Connect(function()
+			local now = os.clock()
+			setTick(now)
+			if not open and now > closingUntil then
+				connection:Disconnect()
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { open })
+
+	-- keyboard: Ctrl+K opens, Escape closes, arrows move, Enter picks
 	local resultsRef = React.useRef({})
 	React.useEffect(function()
 		local connection = UserInputService.InputBegan:Connect(function(input, processed)
@@ -419,10 +546,12 @@ function QuickFind.QuickFind(props)
 				close()
 				Audio:play("close")
 			elseif key == Enum.KeyCode.Down then
+				Audio:play("tick")
 				setSelected(function(current)
 					return math.min(#resultsRef.current, current + 1)
 				end)
 			elseif key == Enum.KeyCode.Up then
+				Audio:play("tick")
 				setSelected(function(current)
 					return math.max(1, current - 1)
 				end)
@@ -451,6 +580,7 @@ function QuickFind.QuickFind(props)
 	-- build and rank
 	local sections = {}
 	local flat = {}
+	local totalMatches = 0
 	if open then
 		local live = buildLive(state, props.chatUnread)
 		local byKey = {}
@@ -527,11 +657,25 @@ function QuickFind.QuickFind(props)
 				end
 				return a.entry.title < b.entry.title
 			end)
-			local top = {}
+			totalMatches = #scored
+			-- best match first, then the rest grouped by what they are
+			local byKind, kinds = {}, {}
 			for i = 1, math.min(MAX_RESULTS, #scored) do
-				table.insert(top, scored[i].entry)
+				local entry = scored[i].entry
+				if i == 1 then
+					table.insert(sections, { title = "BEST MATCH", entries = { entry } })
+				else
+					local label = KIND_META[entry.kind].group
+					if byKind[label] == nil then
+						byKind[label] = { title = label, entries = {} }
+						table.insert(kinds, byKind[label])
+					end
+					table.insert(byKind[label].entries, entry)
+				end
 			end
-			table.insert(sections, { title = if #scored > MAX_RESULTS then `TOP {MAX_RESULTS} OF {#scored}` else `{#scored} RESULT{if #scored == 1 then "" else "S"}`, entries = top })
+			for _, section in kinds do
+				table.insert(sections, section)
+			end
 		end
 		for _, section in sections do
 			for _, entry in section.entries do
@@ -541,11 +685,21 @@ function QuickFind.QuickFind(props)
 	end
 	resultsRef.current = flat
 	local pickIndex = math.clamp(selected, 1, math.max(1, #flat))
+	local rowYs, listHeight = rowOffsets(sections)
+
+	-- a new set of results cascades in
+	local signature = query .. "#" .. tostring(#flat)
+	local lastSignature = React.useRef(signature)
+	if lastSignature.current ~= signature then
+		lastSignature.current = signature
+		resultsAt.current = os.clock()
+	end
 
 	local pick = function(entry)
 		if entry == nil then
 			return
 		end
+		pickedAt.current = os.clock()
 		Model.pushRecent(entry.key)
 		close()
 		if entry.kind == "Action" then
@@ -560,82 +714,120 @@ function QuickFind.QuickFind(props)
 	end
 
 	-- keep the highlighted row in view while arrowing
-	local rowH = 52
 	React.useEffect(function()
 		local list = listRef.current
-		if list == nil or not open then
+		local top = rowYs[pickIndex]
+		if list == nil or not open or top == nil then
 			return
 		end
-		local y = 0
-		local index = 0
-		for _, section in sections do
-			y += 26
-			for _ in section.entries do
-				index += 1
-				if index == pickIndex then
-					local top = y
-					local bottom = y + rowH
-					local view = list.AbsoluteWindowSize.Y
-					if top < list.CanvasPosition.Y then
-						list.CanvasPosition = Vector2.new(0, top)
-					elseif bottom > list.CanvasPosition.Y + view then
-						list.CanvasPosition = Vector2.new(0, bottom - view)
-					end
-					return
-				end
-				y += rowH + 2
-			end
+		local bottom = top + ROW_H
+		local view = list.AbsoluteWindowSize.Y
+		if top - HEADER_H < list.CanvasPosition.Y then
+			list.CanvasPosition = Vector2.new(0, math.max(0, top - HEADER_H))
+		elseif bottom > list.CanvasPosition.Y + view then
+			list.CanvasPosition = Vector2.new(0, bottom - view)
 		end
 	end, { pickIndex, open, query })
 
-	local children = {
+	-- the selection slab glides to the highlighted row
+	local slabY = useFlipperSpring(rowYs[pickIndex] or 0, reduced, 760, 44)
+	local slabAccent = (flat[pickIndex] and flat[pickIndex].accent) or Palette.mango
+
+	local rows = {
 		layout = h("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 2),
+			Padding = UDim.new(0, ROW_GAP),
 		}),
 	}
 	local order = 0
 	local index = 0
 	local width = math.min(680, viewport.width - 24)
-	local rightW = if width >= 520 then 110 else 0
+	local rightW = if width >= 520 then 120 else 0
+	local cascadeFrom = if reduced then nil else resultsAt.current
 	for s, section in sections do
 		order += 1
-		children["h" .. s] = h(Header, { text = section.title, layoutOrder = order })
+		local labelW = 0
+		pcall(function()
+			labelW = game:GetService("TextService"):GetTextSize(section.title, 11, Enum.Font.BuilderSansExtraBold, Vector2.new(400, 20)).X
+		end)
+		rows["h" .. s] = h(Header, {
+			text = section.title,
+			labelW = labelW,
+			layoutOrder = order,
+			tick = tick,
+			appearAt = if cascadeFrom then cascadeFrom + math.min(index, CASCADE_ROWS) * 0.02 else nil,
+		})
 		for _, entry in section.entries do
 			order += 1
 			index += 1
 			local rowIndex = index
-			children[entry.key .. "#" .. s] = h(Row, {
+			rows[entry.key .. "#" .. s] = h(Row, {
 				entry = entry,
 				selected = rowIndex == pickIndex,
 				index = rowIndex,
-				height = rowH,
 				rightW = rightW,
 				query = query,
 				layoutOrder = order,
 				onPick = pick,
 				onHover = setSelected,
+				tick = tick,
+				appearAt = if cascadeFrom and rowIndex <= CASCADE_ROWS then cascadeFrom + rowIndex * 0.022 else nil,
 			})
 		end
 	end
-	if open and #flat == 0 then
-		children.empty = h("textlabel", {
-			Size = UDim2.new(1, 0, 0, 90),
-			LayoutOrder = order + 1,
-			BackgroundTransparency = 1,
-			Text = `Nothing found for "{query}".\nTry a page name, a setting, a relic or a machine.`,
-			TextSize = 14,
-			TextWrapped = true,
-			FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Medium),
-			TextColor3 = Palette.muted,
-			ZIndex = 503,
-		})
-	end
+
+	local empty = open and #flat == 0 and h("frame", {
+		Size = UDim2.new(1, 0, 0, 120),
+		BackgroundTransparency = 1,
+		ZIndex = 503,
+	}, h("textlabel", {
+		Size = UDim2.new(1, -24, 0, 22),
+		Position = UDim2.fromOffset(12, 26),
+		BackgroundTransparency = 1,
+		Text = `Nothing matches "{query}"`,
+		TextSize = 16,
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Bold),
+		TextColor3 = Palette.cream,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 504,
+	}), h("textlabel", {
+		Size = UDim2.new(1, -24, 0, 40),
+		Position = UDim2.fromOffset(12, 52),
+		BackgroundTransparency = 1,
+		Text = "Search works on page names, settings, relics, machines and research. Try \"music\", \"vault\" or a relic's name.",
+		TextSize = 13,
+		TextWrapped = true,
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Medium),
+		TextColor3 = Palette.muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 504,
+	}))
 
 	local inset = GuiService:GetGuiInset()
 	local height = math.min(560, viewport.height - inset.Y - 48)
 	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	-- the seam ignites first, then the panel unfolds down out of it
+	local seam = show:map(function(amount)
+		return math.clamp(amount * 1.8, 0, 1)
+	end)
+	local unfold = show:map(function(amount)
+		return math.clamp((amount - 0.3) / 0.7, 0, 1)
+	end)
+	local shownCount = React.useRef(0)
+	local countText = tick:map(function()
+		local target = if query == "" then #flat else totalMatches
+		shownCount.current += (target - shownCount.current) * 0.35
+		if math.abs(target - shownCount.current) < 0.5 then
+			shownCount.current = target
+		end
+		if query == "" then
+			return ""
+		end
+		local n = math.floor(shownCount.current + 0.5)
+		return `{n} found`
+	end)
 	return h("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -647,7 +839,7 @@ function QuickFind.QuickFind(props)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = show:map(function(amount)
-			return 1 - math.clamp(amount, 0, 1) * 0.45
+			return 1 - math.clamp(amount, 0, 1) * 0.5
 		end),
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
@@ -661,11 +853,33 @@ function QuickFind.QuickFind(props)
 			end,
 		},
 	}), h("frame", {
-		Name = "QuickFind",
-		Size = UDim2.fromOffset(width, height),
-		Position = show:map(function(amount)
-			return UDim2.new(0.5, 0, 0, inset.Y + 24 - (1 - math.clamp(amount, 0, 1)) * 16)
+		-- the seam: a molten line the palette opens out of
+		Size = seam:map(function(a)
+			return UDim2.fromOffset(width * a, 2)
 		end),
+		Position = UDim2.new(0.5, 0, 0, inset.Y + 24),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.white,
+		BackgroundTransparency = show:map(function(amount)
+			return 1 - math.clamp(amount * 2, 0, 1)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 510,
+	}, h("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.ember),
+			ColorSequenceKeypoint.new(0.5, WHITE_HOT),
+			ColorSequenceKeypoint.new(1, Palette.ember),
+		}),
+		Offset = tick:map(function(now)
+			return Vector2.new(math.sin(now * 1.7) * 0.35, 0)
+		end),
+	})), h("frame", {
+		Name = "QuickFind",
+		Size = unfold:map(function(a)
+			return UDim2.fromOffset(width, math.max(2, height * a))
+		end),
+		Position = UDim2.new(0.5, 0, 0, inset.Y + 24),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
@@ -682,19 +896,25 @@ function QuickFind.QuickFind(props)
 		BackgroundColor3 = Palette.panelSoft,
 		BorderSizePixel = 0,
 		ZIndex = 502,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("frame", {
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
+		Color = Palette.mango,
+		Thickness = 1,
+		Transparency = tick:map(function(now)
+			return 0.55 + math.sin(now * 2.2) * 0.15
+		end),
+	}), h("frame", {
 		Size = UDim2.fromOffset(22, 22),
 		Position = UDim2.new(0, 14, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = 503,
-	}, h(Icon, { kind = "Search", color = Palette.cyan, accent = Palette.cyan, size = 22, spin = false })), h("textbox", {
+	}, h(Icon, { kind = "Search", color = Palette.mango, accent = Palette.mango, size = 22, spin = false })), h("textbox", {
 		ref = boxRef,
-		Size = UDim2.new(1, -(48 + (if touch then 52 else 70)), 1, 0),
+		Size = UDim2.new(1, -(48 + (if touch then 52 else 70) + 80), 1, 0),
 		Position = UDim2.fromOffset(46, 0),
 		BackgroundTransparency = 1,
 		Text = query,
-		PlaceholderText = "Search pages, settings, relics, machines…",
+		PlaceholderText = "Pages, settings, relics, machines…",
 		PlaceholderColor3 = Palette.muted,
 		TextColor3 = Palette.cream,
 		TextSize = 17,
@@ -708,6 +928,14 @@ function QuickFind.QuickFind(props)
 				if box.Text ~= query then
 					if box:IsFocused() and #box.Text > #query then
 						Audio:play("searchType")
+						-- every keypress throws a spark off the end of the text
+						if not reduced then
+							pcall(function()
+								local Juice = require(script.Parent.JuiceFx)
+								local at = box.AbsolutePosition + Vector2.new(math.min(box.TextBounds.X, box.AbsoluteSize.X) + 2, box.AbsoluteSize.Y / 2)
+								Juice.spark(at, Palette.mango, 9 + math.random() * 5)
+							end)
+						end
 					end
 					setQuery(box.Text)
 					setSelected(1)
@@ -721,6 +949,17 @@ function QuickFind.QuickFind(props)
 				end
 			end,
 		},
+	}), h("textlabel", {
+		Size = UDim2.fromOffset(76, 30),
+		Position = UDim2.new(1, -(if touch then 60 else 76), 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundTransparency = 1,
+		Text = countText,
+		TextSize = 12,
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Bold),
+		TextColor3 = Palette.muted,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		ZIndex = 503,
 	}), h("textbutton", {
 		Size = UDim2.fromOffset(if touch then 44 else 58, 30),
 		Position = UDim2.new(1, -10, 0.5, 0),
@@ -728,7 +967,7 @@ function QuickFind.QuickFind(props)
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Text = if touch then "✕" else "ESC",
+		Text = if touch then "Close" else "Esc",
 		TextSize = 12,
 		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Bold),
 		TextColor3 = Palette.muted,
@@ -745,17 +984,49 @@ function QuickFind.QuickFind(props)
 		Position = UDim2.fromOffset(8, 70),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromOffset(0, if #flat == 0 then 120 else listHeight + 6),
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = Palette.muted,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ZIndex = 502,
-	}, children), not touch and h("textlabel", {
+	}, #flat > 0 and h("frame", {
+		-- the selection slab: one plate that glides between rows, its edge glowing in the row's colour
+		Size = UDim2.new(1, -4, 0, ROW_H),
+		Position = slabY:map(function(y)
+			return UDim2.fromOffset(0, y)
+		end),
+		BackgroundColor3 = tick:map(function(now)
+			local flash = 1 - math.clamp((now - pickedAt.current) / 0.25, 0, 1)
+			return Palette.panelRaised:Lerp(WHITE_HOT, flash * 0.7)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 502,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), h("uistroke", {
+		Color = slabAccent,
+		Transparency = 0.5,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	}), h("frame", {
+		Size = UDim2.new(0, 3, 1, -16),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = slabAccent,
+		BorderSizePixel = 0,
+		ZIndex = 504,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
+		Rotation = 90,
+		Color = ColorSequence.new(slabAccent, WHITE_HOT),
+		Offset = tick:map(function(now)
+			return Vector2.new(0, math.sin(now * 3) * 0.4)
+		end),
+	}))), h("frame", {
+		Size = UDim2.new(1, 0, 0, if #flat == 0 then 120 else listHeight),
+		BackgroundTransparency = 1,
+		ZIndex = 504,
+	}, rows, empty)), not touch and h("textlabel", {
 		Size = UDim2.new(1, -24, 0, 22),
 		Position = UDim2.new(0, 12, 1, -26),
 		BackgroundTransparency = 1,
-		Text = "↑ ↓ to move  ·  Enter to open  ·  Ctrl+K from anywhere",
+		Text = "Up and Down to move  ·  Enter to open  ·  Ctrl+K from anywhere",
 		TextSize = 12,
 		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Medium),
 		TextColor3 = Palette.muted,
