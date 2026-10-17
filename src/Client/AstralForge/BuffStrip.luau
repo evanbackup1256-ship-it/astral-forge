@@ -804,6 +804,82 @@ end
 
 -- an announcement is only as wide as its words; a long line wraps onto a second row
 local TextService = game:GetService("TextService")
+-- a pinned live readout (Juice.live): icon, what is happening, its value and a draining/filling bar
+local function LiveActivity(props)
+	local live = props.live
+	local arrive = useArrive(live.key .. tostring(live.updatedAt))
+	local color = live.color or P.mango
+	local function remaining()
+		if live.serverEndsAt then
+			return live.serverEndsAt - workspace:GetServerTimeNow()
+		elseif live.endsAt then
+			return live.endsAt - os.clock()
+		end
+		return nil
+	end
+	return h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 62,
+	}, h("frame", {
+		Size = UDim2.fromOffset(30, 30),
+		Position = UDim2.new(0, 10, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = theme.darken(color, 0.55),
+		BorderSizePixel = 0,
+		ZIndex = 63,
+	}, h("uiscale", { Scale = arrive:map(function(t) return 0.6 + easeOutBack(t) * 0.4 end) }), h("uicorner", { CornerRadius = UDim.new(1, 0) }),
+		h("uistroke", { Color = color, Thickness = 1.5, Transparency = props.clock:map(function(t) return 0.2 + (math.sin(t * 5) + 1) * 0.2 end) }),
+		h(Icon, { kind = live.icon or "Boost", color = P.white, accent = color, size = 18, position = UDim2.fromScale(0.5, 0.5), anchorPoint = Vector2.new(0.5, 0.5), spin = false })),
+		h("textlabel", {
+			Size = UDim2.new(1, -150, 0, 18),
+			Position = arrive:map(function(t) return UDim2.fromOffset(48 + (1 - t) * 10, 6) end),
+			BackgroundTransparency = 1,
+			Text = live.title or "",
+			TextColor3 = theme.lighten(color, 0.35),
+			TextTransparency = arrive:map(function(t) return 1 - t end),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+			ZIndex = 63,
+		}, h("uitextsizeconstraint", { MaxTextSize = 15, MinTextSize = 10 })),
+		h("textlabel", {
+			Size = UDim2.fromOffset(110, 18),
+			Position = UDim2.new(1, -120, 0, 6),
+			BackgroundTransparency = 1,
+			Text = props.clock:map(function()
+				local left = remaining()
+				if live.value then
+					return tostring(live.value)
+				end
+				return if left then clockText(math.max(0, left)) else ""
+			end),
+			TextColor3 = P.cream,
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+			ZIndex = 63,
+		}, h("uitextsizeconstraint", { MaxTextSize = 14, MinTextSize = 9 })),
+		h("frame", {
+			Size = UDim2.new(1, -60, 0, 4),
+			Position = UDim2.new(0, 48, 1, -11),
+			BackgroundColor3 = P.line,
+			BorderSizePixel = 0,
+			ZIndex = 63,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+			Size = props.clock:map(function()
+				local fill = live.progress
+				if fill == nil then
+					local left = remaining()
+					fill = if left and live.span then left / live.span else 1
+				end
+				return UDim2.fromScale(math.clamp(fill, 0, 1), 1)
+			end),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", { Color = ColorSequence.new(theme.lighten(color, 0.45), color) }))))
+end
+
 local function textWidth(text, size, font)
 	local ok, bounds = pcall(TextService.GetTextSize, TextService, text, size, font, Vector2.new(4000, 100))
 	return if ok then bounds.X else #text * size * 0.55
@@ -862,6 +938,25 @@ function BuffStrip.Island(props)
 		end
 		return shown
 	end, { live, maxWidth })
+	-- every new message sheds a few embers off the bottom edge
+	React.useEffect(function()
+		if live == nil then
+			return nil
+		end
+		local job = task.delay(0.08, function()
+			local island = islandRef.current
+			if island and island.Parent and island.AbsoluteSize.X > 40 and not props.reducedMotion then
+				local p, sz = island.AbsolutePosition, island.AbsoluteSize
+				for index = 1, 3 do
+					local x = p.X + sz.X * (0.2 + 0.3 * (index - 1) + math.random() * 0.1)
+					Juice.spark(Vector2.new(x, p.Y + sz.Y + 2), theme.lighten(live.color or P.mango, 0.4), 12 + math.random() * 8)
+				end
+			end
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { live and live.token })
 	-- a milestone throws sparks out of the island as it opens
 	React.useEffect(function()
 		if live == nil or live.style ~= "moment" then
@@ -944,6 +1039,23 @@ function BuffStrip.Island(props)
 		end)
 		return stop
 	end, {})
+	-- pinned live readouts (Juice.live)
+	local liveEntry, setLiveEntry = React.useState(nil)
+	React.useEffect(function()
+		return Juice.subscribeLive(setLiveEntry)
+	end, {})
+	-- a timed buff in its last fifteen seconds counts down in the island on its own
+	local ending = nil
+	for _, buff in buffs do
+		if buff.endsAt and buff.duration then
+			local left = buff.endsAt - now
+			if left > 0 and left <= 15 and (ending == nil or left < ending.left) then
+				ending = { key = "ending:" .. buff.key, title = `{string.upper(buff.name)} ENDING`, icon = buff.icon, color = buff.color,
+					serverEndsAt = buff.endsAt, span = 15, priority = 1, updatedAt = buff.endsAt, left = left }
+			end
+		end
+	end
+	local activity = liveEntry or ending
 	-- a buff that just started announces itself
 	local signature = {}
 	for _, buff in buffs do
@@ -970,6 +1082,7 @@ function BuffStrip.Island(props)
 	local comboLive = combo ~= nil and combo.count >= 2
 	local mode = if event ~= nil then "event"
 		elseif comboLive and not (hovered or pinned) then "combo"
+		elseif activity ~= nil and not (hovered or pinned) then "live"
 		elseif props.restHidden then "hidden"
 		elseif hovered or pinned then "expanded"
 		elseif hasContent then "compact"
@@ -977,11 +1090,12 @@ function BuffStrip.Island(props)
 	local compactW = math.min(maxWidth, plan.width)
 	local targetW = if mode == "event" then math.min(maxWidth, event.width or 520)
 		elseif mode == "combo" then math.min(maxWidth, 360)
+		elseif mode == "live" then math.min(maxWidth, 380)
 		elseif mode == "expanded" then math.min(maxWidth, math.max(420, compactW))
 		elseif mode == "compact" then compactW
 		else 0
 	local targetH = if mode == "event" then (event.height or EVENT_H)
-		elseif mode == "combo" then COMPACT_H + 4
+		elseif mode == "combo" or mode == "live" then COMPACT_H + 4
 		elseif mode == "expanded" then expandedHeight(props, buffs)
 		elseif mode == "compact" then COMPACT_H
 		else 0
@@ -996,9 +1110,10 @@ function BuffStrip.Island(props)
 	local modeKey = mode .. (if event then tostring(event.token) else "") .. (if combo then tostring(combo.count) else "")
 	local jelly = motion.useFlash(modeKey, props.reducedMotion, 0.5)
 	local glow = motion.usePulse(true, if props.vaultFull then 3.2 else 1.6)
-	local accent = if event then event.color elseif mode == "combo" then P.mango elseif props.vaultFull then P.mango else P.lineSoft
+	local accent = if event then event.color elseif mode == "combo" then P.mango elseif mode == "live" then (activity.color or P.mango) elseif props.vaultFull then P.mango else Color3.fromRGB(150, 92, 52)
 	local content = if mode == "event" then h(Announcement, { key = "event" .. event.token, info = event, token = event.token, clock = clock, queued = queued })
 		elseif mode == "combo" then h(ComboActivity, { key = "combo", combo = combo, clock = clock })
+		elseif mode == "live" then h(LiveActivity, { key = "live" .. activity.key, live = activity, clock = clock })
 		elseif mode == "expanded" then h(React.Fragment, nil,
 			h(CompactRow, { key = "top", plan = plan, currencies = props.currencies, perf = props.perf, vaultFull = props.vaultFull, clock = clock, reducedMotion = props.reducedMotion }),
 			h(ExpandedList, { key = "list", buffs = buffs, currencies = props.currencies, perf = props.perf, rate = props.perf and props.rate or props.rate, navigate = props.navigate, clock = clock }))
@@ -1040,12 +1155,25 @@ function BuffStrip.Island(props)
 	}), h("uistroke", {
 		Color = if momentRim then P.white else accent,
 		Thickness = if momentRim then 2.5 elseif event or props.vaultFull or mode == "combo" then 2 else 1,
-		Transparency = glow:map(function(v) return if event or props.vaultFull or mode == "combo" then 0.05 + v * 0.35 else 0.45 + v * 0.25 end),
+		Transparency = glow:map(function(v) return if event or props.vaultFull or mode == "combo" or mode == "live" then 0.05 + v * 0.3 else 0.3 + v * 0.2 end),
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}, momentRim and h("uigradient", {
+	}, if momentRim then h("uigradient", {
 		-- a milestone's rim: the whole rainbow chasing round the capsule
 		Color = Rainbow.LOOP,
 		Rotation = clock:map(function(t) return Rainbow.spin(t, 1.4) end),
+	}) else h("uigradient", {
+		-- molten rim: a band of heat travelling round the edge, quick when something is happening
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, theme.darken(accent, 0.35)),
+			ColorSequenceKeypoint.new(0.42, accent),
+			ColorSequenceKeypoint.new(0.5, theme.lighten(accent, 0.7)),
+			ColorSequenceKeypoint.new(0.58, accent),
+			ColorSequenceKeypoint.new(1, theme.darken(accent, 0.35)),
+		}),
+		Rotation = clock:map(function(t)
+			local busy = event ~= nil or mode == "combo" or mode == "live"
+			return (t * (if busy then 260 else 40)) % 360
+		end),
 	})), content)
 	local anchor = props.anchorPoint or Vector2.new(0.5, 0)
 	local base = props.position or UDim2.new()

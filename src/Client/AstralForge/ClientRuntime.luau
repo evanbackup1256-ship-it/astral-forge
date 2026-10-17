@@ -1050,6 +1050,21 @@ local function useGameChat(active, enabled, dispatch, settings)
 		if record.channel == "whisper" and tabRef.current == "whispers" then
 			seeing = activeRef.current and peerRef.current == record.peerId
 		end
+		-- a whisper or a mention you are not looking at comes out of the island with who sent it
+		if not seeing and (record.channel == "whisper" or record.mention) then
+			pcall(function()
+				local Juice = require(script.Parent.JuiceFx)
+				local theme = require(script.Parent.CoreKit)("theme")
+				Juice.banner(
+					if record.channel == "whisper" then `{record.displayName} whispered` else `{record.displayName} mentioned you`,
+					record.text,
+					if record.channel == "whisper" then theme.Palette.violet else theme.Palette.cyan,
+					"Chat",
+					3.2,
+					"Info"
+				)
+			end)
+		end
 		if not seeing then
 			setUnreadByTab(function(current)
 				local nextValue = table.clone(current)

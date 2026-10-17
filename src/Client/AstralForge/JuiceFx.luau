@@ -474,6 +474,57 @@ function Juice.status(text: string, tone: string?)
 	Juice.banner(text, nil, color, icon, 1.5, tone, "pill")
 end
 
+-- Live readouts any feature can pin to the island while something is happening:
+--   Juice.live("wheel", { title = "SPINNING", value = "…", icon = "Wheel", color = c,
+--                         endsAt = os.clock() + 4 (a draining bar) | progress = 0.4, priority = 2 })
+--   Juice.live("wheel", nil)  -- done
+-- The island shows the most important live one whenever no message is playing. Entries expire on
+-- their own (endsAt, or `ttl` seconds after the last update, default 8) so nothing can stick.
+local liveEntries = {}
+local liveSubscribers = {}
+local function liveNotify()
+	local list = {}
+	local clock = os.clock()
+	for key, entry in liveEntries do
+		if (entry.endsAt and clock > entry.endsAt + 0.2) or clock > entry.expiresAt then
+			liveEntries[key] = nil
+		else
+			table.insert(list, entry)
+		end
+	end
+	table.sort(list, function(a, b)
+		if (a.priority or 1) ~= (b.priority or 1) then
+			return (a.priority or 1) > (b.priority or 1)
+		end
+		return a.updatedAt > b.updatedAt
+	end)
+	local top = list[1]
+	for callback in liveSubscribers do
+		pcall(callback, if top then table.clone(top) else nil)
+	end
+end
+function Juice.live(key: string, data)
+	if data == nil then
+		liveEntries[key] = nil
+	else
+		local entry = table.clone(data)
+		entry.key = key
+		entry.updatedAt = os.clock()
+		entry.expiresAt = os.clock() + (entry.ttl or 8)
+		liveEntries[key] = entry
+		local delay = math.max(0.25, (entry.endsAt or entry.expiresAt) - os.clock() + 0.3)
+		task.delay(delay, liveNotify)
+	end
+	liveNotify()
+end
+function Juice.subscribeLive(callback)
+	liveSubscribers[callback] = true
+	liveNotify()
+	return function()
+		liveSubscribers[callback] = nil
+	end
+end
+
 -- live activities the island can show while they last ("combo" = { combo, multiplier, max, window })
 local activityListeners = {}
 function Juice.onActivity(callback)

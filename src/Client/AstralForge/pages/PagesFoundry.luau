@@ -431,6 +431,13 @@ local function FoundryView(props)
 				Audio:play(response.Sound or "foundryPlace")
 				if response.Combo ~= nil or payload.Op == "ignite" then
 					setCombo(response.Combo or 0)
+					-- a running Ignite combo is pinned to the island; a miss clears it
+					local Juice = require(script.Parent.Parent.JuiceFx)
+					if (response.Combo or 0) > 0 then
+						Juice.live("foundryIgnite", { title = `IGNITE ×{response.Combo}`, icon = "Boost", color = ACCENT, endsAt = os.clock() + FoundryMath.IGNITE_PERIOD + 0.4, span = FoundryMath.IGNITE_PERIOD + 0.4, priority = 2 })
+					else
+						Juice.live("foundryIgnite", nil)
+					end
 				end
 				if response.message and not quiet then
 					setNote(response.message)

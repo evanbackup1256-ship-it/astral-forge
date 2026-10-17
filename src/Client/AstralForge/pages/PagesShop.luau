@@ -3231,6 +3231,7 @@ local function useWheelController(_param)
 		setPhase("landed")
 		busy.current = false
 		pendingResult.current = nil
+		pcall(function() require(script.Parent.Parent.JuiceFx).live("wheel", nil) end)
 		Audio:play("wheelLand")
 		InteractionFeedback.reward()
 		local _result = onLand
@@ -3335,6 +3336,7 @@ local function useWheelController(_param)
 		return function()
 			mounted.current = false
 			busy.current = false
+			pcall(function() require(script.Parent.Parent.JuiceFx).live("wheel", nil) end)
 			token.current += 1
 			motor.current.active = false
 			motor.current.onComplete = nil
@@ -3380,6 +3382,10 @@ local function useWheelController(_param)
 		end)
 		Audio:play("wheelStart")
 		InteractionFeedback.tap()
+		-- the spin is pinned to the island until it lands (or 14 s at most)
+		pcall(function()
+			require(script.Parent.Parent.JuiceFx).live("wheel", { title = "WHEEL SPINNING", value = "…", icon = "Wheel", color = Palette.mango, ttl = 14, priority = 2 })
+		end)
 		if reducedMotion then
 			launchFinished.current = true
 			motor.current.active = false
