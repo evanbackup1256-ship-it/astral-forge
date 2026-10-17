@@ -1175,6 +1175,7 @@ local GRANT_ACTIONS = {
 	["Rebirth"] = true,
 	["DomainExpansion"] = true,
 	["DomainLattice"] = true,
+	["EventAct"] = true,
 	["UpgradeContinuum"] = true,
 	["FoundryAct"] = true,
 	["Ascend"] = true,

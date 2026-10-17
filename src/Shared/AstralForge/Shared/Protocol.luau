@@ -30,6 +30,7 @@ local Protocol = {
 		Rebirth = "Rebirth",
 		DomainExpansion = "DomainExpansion",
 		DomainLattice = "DomainLattice",
+		EventAct = "EventAct",
 		UpgradeContinuum = "UpgradeContinuum",
 		FoundryAct = "FoundryAct",
 		Ascend = "Ascend",

@@ -44,7 +44,7 @@ assert(string.find(uiSource, "return math.clamp(1 - amount * 0.78, 0.18, 1)", 1,
 assert(string.find(uiSource, "useFlipperSpring(activeColumn, reducedMotion, 860, 42)", 1, true), "tab selection glides instead of snapping")
 assert(string.find(uiSource, "useFlash(activeIndex + 1, reducedMotion, 0.3)", 1, true), "tab selection feedback remains readable")
 local eventFxSource = fs.readFile("src/Client/AstralForge/UiCore.luau#serverEventsUi")
-assert(string.find(eventFxSource, "if style == nil then\n\t\t\treturn nil\n\t\tend\n\t\tlocal conn = RunService.Heartbeat:Connect", 1, true), "idle event effects must not retain a frame heartbeat")
+assert(string.find(eventFxSource, "if not live then\n\t\t\treturn nil\n\t\tend\n\t\tlocal conn = RunService.Heartbeat:Connect", 1, true), "idle event effects must not retain a frame heartbeat")
 do
 	local source = fs.readFile("src/Client/AstralForge/pages/PagesBazaar.luau")
 	local start = assert(string.find(source, "\tlocal function request(", 1, true))

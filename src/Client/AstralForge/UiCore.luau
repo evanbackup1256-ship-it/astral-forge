@@ -8085,6 +8085,7 @@ local function AppShell(_param)
 		state = state,
 	}), React.createElement(ServerEventHost, {
 		state = state,
+		dispatch = dispatch,
 		inTopBar = not keyboardShellCompact and not mobileShell,
 	}), _condition_24), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
 		session = crateReveal,
@@ -18561,27 +18562,26 @@ return {
 end
 
 __defs["serverEventsUi"] = function()
+-- Server events on screen: the island carries the live readout, the screen gets each event's own
+-- weather, Falling Stars and Supply Drop put things to grab on screen, and a panel explains the
+-- event in full with its live standings.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local h = React.createElement
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _motion = require(script.Parent.MotionKit)("motion")
-local useClock = _motion.useClock
 local useFlipperSpring = _motion.useFlipperSpring
 local useViewport = _motion.useViewport
 local useWallClock = _motion.useWallClock
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
-local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
-local _ui = __load("ui")
-local Button = _ui.Button
-local Text = _ui.Text
 local ServerEvents = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ServerEvents")
+local WHITE_HOT = Color3.fromRGB(255, 244, 222)
 
 local latest = nil
 local listeners = {}
@@ -18625,115 +18625,493 @@ end
 local function accentOf(def)
 	return Palette[def and def.Accent or "cyan"] or Palette.cyan
 end
-local function phaseLine(event, now)
-	local left = (event.PhaseEndsAt or now) - now
-	if event.Phase == "Warning" then
-		return `Starts in {clockText(left)}`
-	elseif event.Phase == "Live" then
-		return `{clockText(left)} left`
-	elseif event.Phase == "Results" then
-		return if event.Completed then "Goal reached!" elseif event.Goal ~= nil then "Time's up" else "Finished"
-	end
-	return `Next event in {clockText(left)}`
+local function hash01(i, salt)
+	local x = math.sin(i * 12.9898 + salt * 78.233) * 43758.5453
+	return x - math.floor(x)
+end
+local function easeOut(t)
+	local u = 1 - math.clamp(t, 0, 1)
+	return 1 - u * u * u
+end
+local function serverNow()
+	return workspace:GetServerTimeNow()
 end
 
-local function ProgressBar(_param)
-	local fill = math.clamp(_param.value, 0, 1)
-	return React.createElement("frame", {
-		Size = _param.size,
-		Position = _param.position,
+-- what the island says about the event right now
+local function liveValue(event, def)
+	local kind = def.Kind
+	if kind == "goal" then
+		return `{math.floor(100 * (event.Progress or 0) / math.max(1, event.Goal or 1))}%`
+	elseif kind == "titan" then
+		return `{compactNumber(math.max(0, (event.Goal or 0) - (event.Progress or 0)))} HP`
+	elseif kind == "race" then
+		return if event.YourRank then `#{event.YourRank}` else "unranked"
+	elseif kind == "draw" then
+		return `{event.Tickets or 0} tickets`
+	elseif kind == "stars" then
+		return `{event.Caught or 0}/{event.MaxStars or def.MaxStars}`
+	end
+	return nil
+end
+
+------------------------------------------------------------------------------------------------
+-- weather: each event has its own sky; every particle is a pure function of one clock
+------------------------------------------------------------------------------------------------
+local SKY = {
+	MeteorShower = { kind = "streak", count = 14, angle = 34 },
+	StardustRain = { kind = "fall", count = 30 },
+	CommunityForge = { kind = "rise", count = 10 },
+	Overheat = { kind = "rise", count = 22, hot = true },
+	CriticalMass = { kind = "spark", count = 16 },
+	ComboFever = { kind = "pulse", count = 3 },
+	TwinSuns = { kind = "suns", count = 2 },
+	GoldenVault = { kind = "fall", count = 18, gold = true },
+	CoreSeam = { kind = "rise", count = 12 },
+	KeyCache = { kind = "fall", count = 10 },
+	IronTitan = { kind = "streak", count = 6, angle = 80 },
+	ForgeRace = { kind = "streak", count = 10, angle = 4 },
+	LuckyDraw = { kind = "spark", count = 12 },
+	FallingStars = { kind = "fall", count = 8 },
+	SupplyDrop = { kind = "rise", count = 6 },
+}
+
+local function Particle(p)
+	local i, style, clock, w, ht, color = p.index, p.style, p.clock, p.width, p.height, p.color
+	if style.kind == "streak" then
+		local a = math.rad(style.angle)
+		local dx, dy = -math.cos(a), math.sin(a)
+		local len = 70 + hash01(i, 3) * 100
+		local period = 1.8 + hash01(i, 1) * 2
+		local sx = w * (0.15 + hash01(i, 5) * 1.1)
+		local travel = math.max(w, ht) * 1.4
+		local function at(t)
+			local q = ((t + hash01(i, 2) * period) % period) / period / 0.6
+			return sx + dx * travel * q, -60 + dy * travel * q, q
+		end
+		return h("frame", {
+			Size = UDim2.fromOffset(len, if hash01(i, 4) > 0.7 then 3 else 2),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = 180 - style.angle,
+			Position = clock:map(function(t)
+				local x, y = at(t)
+				return UDim2.fromOffset(x - dx * len / 2, y - dy * len / 2)
+			end),
+			Visible = clock:map(function(t)
+				local _, _, q = at(t)
+				return q <= 1
+			end),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BorderSizePixel = 0,
+			ZIndex = 120,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
+			Color = ColorSequence.new(color, WHITE_HOT),
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.7, 0.4), NumberSequenceKeypoint.new(1, 0) }),
+		}))
+	elseif style.kind == "pulse" then
+		-- rings breathing out from the bottom corners: the beat you're keeping
+		local period = 2.4
+		return h("frame", {
+			Size = clock:map(function(t)
+				local q = ((t + i * period / 3) % period) / period
+				local s = 120 + q * math.max(w, ht) * 0.9
+				return UDim2.fromOffset(s, s)
+			end),
+			Position = UDim2.fromScale(if i % 2 == 0 then 0 else 1, 1),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			ZIndex = 119,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+			Color = color,
+			Thickness = 2,
+			Transparency = clock:map(function(t)
+				return 0.35 + ((t + i * period / 3) % period) / period * 0.65
+			end),
+		}))
+	elseif style.kind == "suns" then
+		local s = 260 - i * 70
+		return h("frame", {
+			Size = UDim2.fromOffset(s, s),
+			Position = clock:map(function(t)
+				return UDim2.new(if i == 1 then 0.12 else 0.88, math.sin(t * 0.3 + i) * 20, 0, -s * 0.25 + math.cos(t * 0.25 + i) * 10)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = if i == 1 then Palette.mango else WHITE_HOT,
+			BackgroundTransparency = 0.82,
+			BorderSizePixel = 0,
+			ZIndex = 118,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
+			Rotation = 90,
+		}))
+	end
+	-- motes: falling (rain, gold, keys), rising (embers, heat) or flickering sparks
+	local size = 2 + math.floor(hash01(i, 3) * 4)
+	local period = 4 + hash01(i, 1) * 4
+	local baseX = w * hash01(i, 5)
+	local rising = style.kind == "rise"
+	local spark = style.kind == "spark"
+	return h("frame", {
+		Size = UDim2.fromOffset(size, size),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = if spark then 45 else 0,
+		Position = clock:map(function(t)
+			local q = ((t + hash01(i, 2) * period) % period) / period
+			if spark then
+				return UDim2.fromOffset(baseX, ht * (0.1 + hash01(i, 7) * 0.8))
+			end
+			local y = if rising then ht + 10 - q * ht * 0.8 else -10 + q * (ht + 20)
+			return UDim2.fromOffset(baseX + math.sin(t * 0.8 + i) * 18, y)
+		end),
+		BackgroundTransparency = clock:map(function(t)
+			local q = ((t + hash01(i, 2) * period) % period) / period
+			if spark then
+				return 0.2 + (math.sin(t * 7 + i * 2.3) + 1) * 0.4
+			end
+			return math.clamp(0.25 + (if rising then q else math.max(0, (q - 0.8) / 0.2)) * 0.75, 0, 1)
+		end),
+		BackgroundColor3 = if style.gold then Palette.mango elseif style.hot then Palette.coral else color,
+		BorderSizePixel = 0,
+		ZIndex = 120,
+	}, not spark and h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+end
+
+local function Sky(props)
+	local style = SKY[props.eventId]
+	local viewport = useViewport()
+	local antilag = useAntilag()
+	local clock = props.clock
+	if style == nil then
+		return nil
+	end
+	local budget = if antilag.tier <= 1 then 0.45 elseif antilag.allowAmbient == false then 0.7 else 1
+	local count = if style.kind == "pulse" or style.kind == "suns" then style.count else math.max(1, math.floor(style.count * budget))
+	local particles = {}
+	for i = 1, count do
+		particles["p" .. i] = h(Particle, { index = i, style = style, clock = clock, width = viewport.width, height = viewport.height, color = props.color })
+	end
+	return h("frame", {
+		Name = "EventSky",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Active = false,
+		ZIndex = 118,
+	}, particles)
+end
+
+------------------------------------------------------------------------------------------------
+-- Falling Stars: stars cross the screen; a tap catches one (the server counts and pays)
+------------------------------------------------------------------------------------------------
+local STAR_SLOTS = 6
+local STAR_FLIGHT = 4.2
+local function StarField(props)
+	local viewport = useViewport()
+	local clock = props.clock
+	local caught = React.useRef({})
+	local busy = React.useRef(false)
+	local stars = {}
+	for slot = 1, STAR_SLOTS do
+		local function wave(t)
+			-- each slot launches a new star every flight, offset so they don't arrive together
+			local n = math.floor((t + slot * 0.7) / STAR_FLIGHT)
+			local q = ((t + slot * 0.7) % STAR_FLIGHT) / STAR_FLIGHT
+			return n, q
+		end
+		local function place(t)
+			local n, q = wave(t)
+			local x0 = viewport.width * (0.08 + hash01(n * 7 + slot, 1) * 0.84)
+			local drift = (hash01(n * 7 + slot, 2) - 0.5) * 220
+			return x0 + drift * q, -40 + q * (viewport.height + 80), n
+		end
+		stars["s" .. slot] = h("textbutton", {
+			Size = UDim2.fromOffset(46, 46),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = clock:map(function(t)
+				local x, y = place(t)
+				return UDim2.fromOffset(x, y)
+			end),
+			Visible = clock:map(function(t)
+				local _, _, n = place(t)
+				return not caught.current[slot .. ":" .. n]
+			end),
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 140,
+			Event = {
+				Activated = function(rbx)
+					local now = os.clock()
+					local _, _, n = place(now)
+					local key = slot .. ":" .. n
+					if caught.current[key] or busy.current then
+						return
+					end
+					caught.current[key] = true
+					busy.current = true
+					local at = rbx.AbsolutePosition + rbx.AbsoluteSize / 2
+					props.dispatch("EventAct", { Op = "Catch" }, function(response)
+						busy.current = false
+						local Juice = require(script.Parent.JuiceFx)
+						if response.ok then
+							Audio:play("countTick")
+							Juice.burst(at, Palette.mango, 0.8)
+							Juice.number(`+{response.Dust or 3}`, Palette.violet, { at = at, small = true })
+						else
+							Juice.status(response.message or "Missed.", "error")
+						end
+					end)
+				end,
+			},
+		}, h("frame", {
+			-- a four-point star: two long thin diamonds crossed, with a hot core
+			Size = UDim2.fromOffset(10, 34),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = clock:map(function(t)
+				return (t * 60 + slot * 30) % 360
+			end),
+			BackgroundColor3 = Palette.mango,
+			BorderSizePixel = 0,
+			ZIndex = 141,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h("frame", {
+			Size = UDim2.fromOffset(34, 10),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = clock:map(function(t)
+				return (t * 60 + slot * 30) % 360
+			end),
+			BackgroundColor3 = Palette.mango,
+			BorderSizePixel = 0,
+			ZIndex = 141,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h("frame", {
+			Size = UDim2.fromOffset(12, 12),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = WHITE_HOT,
+			BorderSizePixel = 0,
+			ZIndex = 142,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })))
+	end
+	return h("frame", {
+		Name = "StarField",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 140,
+	}, stars)
+end
+
+------------------------------------------------------------------------------------------------
+-- Supply Drop: a crate floats down on a chute while it's down; the first three to tap it win
+------------------------------------------------------------------------------------------------
+local function SupplyCrates(props)
+	local event, clock = props.event, props.clock
+	local viewport = useViewport()
+	local pending = React.useRef({})
+	local crates = {}
+	for _, drop in event.Drops or {} do
+		local id = drop.Id
+		local x = viewport.width * (0.2 + hash01(id, 9) * 0.6)
+		local function age(now)
+			return serverNow() - drop.At
+		end
+		local open = drop.Left > 0 and not drop.Mine
+		crates["c" .. id] = h("textbutton", {
+			Size = UDim2.fromOffset(84, 110),
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = clock:map(function(now)
+				local a = age(now)
+				local land = easeOut(a / 2.2)
+				return UDim2.fromOffset(x + math.sin(now * 1.6 + id) * 8 * (1 - land), -20 + land * viewport.height * 0.62)
+			end),
+			Visible = clock:map(function(now)
+				local a = age(now)
+				return a >= 0 and a <= (drop.EndsAt - drop.At) and open and not pending.current[id]
+			end),
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 150,
+			Event = {
+				Activated = function(rbx)
+					if pending.current[id] then
+						return
+					end
+					pending.current[id] = true
+					local at = rbx.AbsolutePosition + rbx.AbsoluteSize / 2
+					props.dispatch("EventAct", { Op = "Claim", Drop = id }, function(response)
+						local Juice = require(script.Parent.JuiceFx)
+						if response.ok then
+							Audio:play("crateOpen")
+							Juice.burst(at, Palette.mint, 1.2)
+							Juice.number("+1 key", Palette.mint, { at = at })
+						else
+							pending.current[id] = nil
+							Juice.status(response.message or "Missed it.", "error")
+						end
+					end)
+				end,
+			},
+		}, h("frame", {
+			-- the chute
+			Size = UDim2.fromOffset(84, 34),
+			BackgroundColor3 = Palette.mint,
+			BackgroundTransparency = 0.25,
+			BorderSizePixel = 0,
+			ZIndex = 151,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h("frame", {
+			Size = UDim2.fromOffset(2, 40),
+			Position = UDim2.fromOffset(14, 30),
+			Rotation = 14,
+			BackgroundColor3 = Palette.creamSoft,
+			BorderSizePixel = 0,
+			ZIndex = 151,
+		}), h("frame", {
+			Size = UDim2.fromOffset(2, 40),
+			Position = UDim2.fromOffset(68, 30),
+			Rotation = -14,
+			BackgroundColor3 = Palette.creamSoft,
+			BorderSizePixel = 0,
+			ZIndex = 151,
+		}), h("frame", {
+			-- the crate: banded box with a glowing seam
+			Size = UDim2.fromOffset(52, 44),
+			Position = UDim2.new(0.5, 0, 1, 0),
+			AnchorPoint = Vector2.new(0.5, 1),
+			BackgroundColor3 = darken(Palette.mango, 0.45),
+			BorderSizePixel = 0,
+			ZIndex = 152,
+		}, h("uicorner", { CornerRadius = UDim.new(0, 6) }), h("uistroke", { Color = Palette.mango, Thickness = 2 }), h("frame", {
+			Size = UDim2.new(1, 0, 0, 4),
+			Position = UDim2.fromScale(0, 0.45),
+			BackgroundColor3 = WHITE_HOT,
+			BackgroundTransparency = clock:map(function(now)
+				return 0.2 + (math.sin(now * 5 + id) + 1) * 0.25
+			end),
+			BorderSizePixel = 0,
+			ZIndex = 153,
+		}), h("textlabel", {
+			Size = UDim2.new(1, 20, 0, 16),
+			Position = UDim2.new(0.5, 0, 1, 6),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundTransparency = 1,
+			Text = `Grab it · {drop.Left} left`,
+			TextSize = 12,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+			TextColor3 = Palette.mint,
+			ZIndex = 153,
+		})))
+	end
+	return h("frame", {
+		Name = "SupplyCrates",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 150,
+	}, crates)
+end
+
+------------------------------------------------------------------------------------------------
+-- the panel: what's happening, what to do, and the live standings
+------------------------------------------------------------------------------------------------
+local function Line(props)
+	return h("textlabel", {
+		Size = UDim2.new(1, 0, 0, props.height or 18),
+		LayoutOrder = props.order,
+		BackgroundTransparency = 1,
+		Text = props.text,
+		TextSize = props.size or 13,
+		TextWrapped = true,
+		FontFace = Font.fromEnum(if props.bold then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium),
+		TextColor3 = props.color or Palette.creamSoft,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 563,
+	})
+end
+local function Bar(props)
+	return h("frame", {
+		Size = UDim2.new(1, 0, 0, 10),
+		LayoutOrder = props.order,
 		BackgroundColor3 = Palette.graphite,
 		BorderSizePixel = 0,
-		ZIndex = _param.zIndex,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("frame", {
-		Size = UDim2.fromScale(math.max(fill, 0.02), 1),
-		BackgroundColor3 = _param.color,
+		ZIndex = 563,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+		Size = UDim2.fromScale(math.clamp(props.value, 0.02, 1), 1),
+		BackgroundColor3 = props.color,
 		BorderSizePixel = 0,
-		ZIndex = _param.zIndex,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})))
+		ZIndex = 564,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", { Color = ColorSequence.new(props.color, WHITE_HOT) })))
 end
 
-local function EventPanel(_param)
-	local event = _param.event
+local function EventPanel(props)
+	local event = props.event
 	local def = ServerEvents.EVENTS[event.Id or ""]
 	local now = useWallClock(true)
 	local viewport = useViewport()
 	local show = useFlipperSpring(1, false, 560, 34, 0)
 	local accent = accentOf(def)
-	local width = math.min(440, viewport.width - 24)
+	local width = math.min(460, viewport.width - 24)
 	local rows = {}
-	rows.layout = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	})
 	local order = 0
-	local function line(key, text, color, size, height)
+	local function add(element)
 		order += 1
-		rows[key] = React.createElement(Text, {
-			value = text,
-			size = size or 13,
-			color = color or Palette.creamSoft,
-			wrap = true,
-			fit = false,
-			sizeConstraint = UDim2.new(1, 0, 0, height or 34),
-			layoutOrder = order,
-			zIndex = 562,
-		})
+		rows["r" .. order] = element
 	end
-	local height = 150
-	if def == nil then
-		line("rest", "No event right now. Events run every few minutes: when one is coming, a banner appears at the top of the screen.", Palette.creamSoft, 13, 52)
-		height += 60
-	else
-		line("how", def.How, Palette.creamSoft, 13, 40)
-		height += 48
-		if def.Id == "MeteorShower" then
-			line("effect", string.format("Effect: everyone's output ×%.1f while it lasts.", def.Multiplier), Palette.mango, 13, 20)
-			height += 28
-		elseif def.Id == "StardustRain" then
-			line("effect", string.format("Effect: every vault collect drops up to %d stardust.", def.MaxDustPerCollect), Palette.violet, 13, 20)
-			height += 28
-		elseif def.Id == "CommunityForge" then
-			line("reward", string.format("Reward for everyone who helps: %d seconds of your output in flux and %d stardust. Top 3 get +%d / +%d / +%d stardust.", def.RewardFluxSeconds, def.RewardStardust, def.TopBonusStardust[1], def.TopBonusStardust[2], def.TopBonusStardust[3]), Palette.cyan, 12, 34)
-			height += 42
-			if event.Goal ~= nil then
-				order += 1
-				rows.goal = React.createElement("frame", {
-					Size = UDim2.new(1, 0, 0, 36),
-					LayoutOrder = order,
-					BackgroundTransparency = 1,
-					ZIndex = 562,
-				}, React.createElement(Text, {
-					value = `{compactNumber(event.Progress or 0)} / {compactNumber(event.Goal)} points  ·  yours {compactNumber(event.Yours or 0)}`,
-					size = 12,
-					color = Palette.cream,
-					weight = Enum.FontWeight.Bold,
-					sizeConstraint = UDim2.new(1, 0, 0, 16),
-					zIndex = 563,
-				}), React.createElement(ProgressBar, {
-					value = (event.Progress or 0) / math.max(1, event.Goal),
-					color = accent,
-					size = UDim2.new(1, 0, 0, 10),
-					position = UDim2.fromOffset(0, 22),
-					zIndex = 563,
-				}))
-				height += 44
-				for index, entry in event.Top or {} do
-					line("top" .. index, `#{index}  {entry.Name}  ·  {compactNumber(entry.Points)} pts`, if index <= 3 then Palette.mango else Palette.muted, 12, 16)
-					height += 24
-				end
-			end
-		elseif EVENT_DESCRIPTIONS[def.Id] then
-			line("effect", EVENT_DESCRIPTIONS[def.Id], accent, 13, 24)
-			height += 30
+	local function line(text, color, opts)
+		local o = opts or {}
+		add(h(Line, { text = text, color = color, order = order + 1, height = o.height, size = o.size, bold = o.bold }))
+	end
+	local function standings(list, unit)
+		for index, entry in list or {} do
+			line(`{index}.  {entry.Name}  ·  {compactNumber(entry.Points)} {unit}`, if index <= 3 then Palette.mango else Palette.muted, { size = 12 })
 		end
 	end
-	return React.createElement("textbutton", {
+	if def == nil then
+		line("No event right now. One starts every few minutes; the island warns you a minute before.", Palette.creamSoft, { height = 40 })
+	else
+		line(def.How, Palette.cream, { height = 54, size = 14 })
+		local kind = def.Kind
+		if kind == "goal" or kind == "titan" then
+			local goal = math.max(1, event.Goal or 1)
+			local progress = event.Progress or 0
+			if kind == "titan" then
+				line(if event.Completed then "It's down." else `{compactNumber(goal - progress)} of {compactNumber(goal)} health left`, Palette.cream, { bold = true })
+				add(h(Bar, { value = 1 - progress / goal, color = accent, order = order + 1 }))
+				line(`You've hit it for {compactNumber(event.Yours or 0)}.`, Palette.muted, { size = 12 })
+			else
+				line(if event.Completed then "Order filled." else `{compactNumber(progress)} of {compactNumber(goal)} points`, Palette.cream, { bold = true })
+				add(h(Bar, { value = progress / goal, color = accent, order = order + 1 }))
+				line(`You've added {compactNumber(event.Yours or 0)}.`, Palette.muted, { size = 12 })
+			end
+			line("Pays everyone who helped " .. def.RewardFluxSeconds // 60 .. " minutes of output and " .. def.RewardStardust .. " Stardust, more for the top three.", Palette.muted, { size = 12, height = 32 })
+			standings(event.Top, if kind == "titan" then "damage" else "pts")
+		elseif kind == "race" then
+			line(if event.YourRank then `You're #{event.YourRank} with {compactNumber(event.Yours or 0)} points.` else "Bank your vault to get on the board.", Palette.cream, { bold = true })
+			line("Prizes: 1st 120 Stardust and 6 Cores, 2nd 80 and 4, 3rd 50 and 2. Everyone who scores gets 10 Stardust.", Palette.muted, { size = 12, height = 32 })
+			standings(event.Top, "pts")
+		elseif kind == "draw" then
+			line(`You hold {event.Tickets or 0} of {event.Pool or 0} tickets.`, Palette.cream, { bold = true })
+			if event.Winners and #event.Winners > 0 then
+				line("Drawn:", Palette.mango, { bold = true })
+				for index, winner in event.Winners do
+					line(`{index}.  {winner.Name}`, Palette.mango)
+				end
+			else
+				line("Three winners get 150 Stardust and 5 Cores each. Everyone else with a ticket gets 5 Stardust.", Palette.muted, { size = 12, height = 32 })
+			end
+		elseif kind == "stars" then
+			line(`Caught {event.Caught or 0} of {event.MaxStars or def.MaxStars}.`, Palette.cream, { bold = true })
+		elseif kind == "supply" then
+			local nextAt = nil
+			for _, drop in event.Drops or {} do
+				if drop.At > serverNow() and (nextAt == nil or drop.At < nextAt) then
+					nextAt = drop.At
+				end
+			end
+			line(if nextAt then `Next crate in {clockText(nextAt - serverNow())}.` else "No more crates this time.", Palette.cream, { bold = true })
+		elseif kind == "drops" and def.Drops.Dust then
+			line(`Up to {def.Drops.Dust} Stardust per collect.`, accent)
+		end
+	end
+	return h("textbutton", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = show:map(function(amount)
@@ -18742,11 +19120,9 @@ local function EventPanel(_param)
 		AutoButtonColor = false,
 		Text = "",
 		ZIndex = 558,
-		Event = {
-			Activated = _param.onClose,
-		},
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(width, math.min(height, viewport.height - 40)),
+		Event = { Activated = props.onClose },
+	}, h("frame", {
+		Size = UDim2.fromOffset(width, math.min(460, viewport.height - 40)),
 		Position = show:map(function(amount)
 			return UDim2.new(0.5, 0, 0.5, math.round((1 - amount) * 24))
 		end),
@@ -18756,252 +19132,70 @@ local function EventPanel(_param)
 		Active = true,
 		ClipsDescendants = true,
 		ZIndex = 560,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
-	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1.5,
-		Transparency = 0.3,
-	}), React.createElement("frame", {
+	}, h("uicorner", { CornerRadius = UDim.new(0, 16) }), h("uistroke", { Color = accent, Thickness = 1.5, Transparency = 0.3 }), h("frame", {
 		Size = UDim2.fromOffset(52, 52),
-		Position = UDim2.fromOffset(16, 16),
+		Position = UDim2.fromOffset(18, 18),
 		BackgroundColor3 = darken(accent, 0.55),
 		BorderSizePixel = 0,
 		ZIndex = 561,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	}), React.createElement(Icon, {
-		kind = def and def.Icon or "Calendar",
-		color = Palette.cream,
-		accent = accent,
-		size = 52,
-	})), React.createElement(Text, {
-		value = if def then def.Name else "Server events",
-		size = 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 14,
-		position = UDim2.fromOffset(80, 18),
-		sizeConstraint = UDim2.new(1, -140, 0, 26),
-		zIndex = 561,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -140, 0, 18),
-		Position = UDim2.fromOffset(80, 46),
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h(Icon, { kind = def and def.Icon or "Calendar", color = Palette.cream, accent = accent, size = 52 })), h("textlabel", {
+		Size = UDim2.new(1, -150, 0, 26),
+		Position = UDim2.fromOffset(82, 18),
 		BackgroundTransparency = 1,
-		Text = now:map(function(value)
-			return phaseLine(event, value)
-		end),
-		TextColor3 = accent,
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		Text = if def then def.Name else "Server events",
+		TextSize = 21,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextColor3 = Palette.cream,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 561,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(40, 40),
-		Position = UDim2.new(1, -52, 0, 12),
+	}), h("textlabel", {
+		Size = UDim2.new(1, -150, 0, 18),
+		Position = UDim2.fromOffset(82, 46),
 		BackgroundTransparency = 1,
-		ZIndex = 562,
-	}, React.createElement(Button, {
-		text = "",
-		icon = "Close",
-		onClick = _param.onClose,
-		color = Palette.panel,
-		textColor = Palette.cream,
-		outline = true,
-		size = UDim2.fromScale(1, 1),
-		zIndex = 563,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, -32, 1, -96),
-		Position = UDim2.fromOffset(16, 84),
-		BackgroundTransparency = 1,
+		Text = now:map(function(value)
+			local left = (event.PhaseEndsAt or value) - value
+			return if event.Phase == "Warning" then `Starts in {clockText(left)}`
+				elseif event.Phase == "Live" then `{clockText(left)} left`
+				elseif event.Phase == "Results" then "Finished"
+				else `Next event in {clockText(left)}`
+		end),
+		TextSize = 14,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextColor3 = accent,
+		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 561,
-	}, rows)))
-end
-
-local EVENT_DESCRIPTIONS = {
-	CelestialAlignment = "Effect: Vault capacity increased by +50% and collects award bonus stardust.",
-	SolarFlareEruption = "Effect: Solar radiation supercharges the grid with rapid stardust surges.",
-	SupernovaHarvest = "Effect: Collect flux to harvest cosmic embers for the Star Foundry.",
-	VoidRiftIncursion = "Effect: Rift resonance harmonizes production lines across the forge.",
-	AstralTide = "Effect: Gravitational tides wash through the dockyard, pulsing cadence.",
-	ChronosEcho = "Effect: Temporal echoes accelerate forge clockwork cycles.",
-	NebulaBloom = "Effect: Ionized nebula gas deposits extra stardust on every collection.",
-	GlitchConvergence = "Effect: Sub-space conduits surge with high-voltage power spikes.",
-	StarlightCaravan = "Effect: Wandering merchants deliver stardust shipments to active forges.",
-	HyperdriveOverload = "Effect: High-output plasma conduits burn bright with surging energy.",
-}
-
--- Screen-space weather for live events. Every particle is a pure function of one time
--- binding (no per-particle state), seeded so the pattern is stable between renders.
-local SKY_STYLE = {
-	MeteorShower = { kind = "streak", burst = 16, ambient = 4, angle = 34 },
-	StardustRain = { kind = "dust", burst = 34, ambient = 12 },
-	-- embers stay few after the opening burst so they never crowd the pages
-	CommunityForge = { kind = "ember", burst = 22, ambient = 4 },
-	CelestialAlignment = { kind = "dust", burst = 28, ambient = 8 },
-	SolarFlareEruption = { kind = "streak", burst = 20, ambient = 6, angle = 45 },
-	SupernovaHarvest = { kind = "ember", burst = 30, ambient = 8 },
-	VoidRiftIncursion = { kind = "dust", burst = 24, ambient = 6 },
-	AstralTide = { kind = "dust", burst = 30, ambient = 10 },
-	ChronosEcho = { kind = "streak", burst = 14, ambient = 4, angle = 12 },
-	NebulaBloom = { kind = "dust", burst = 36, ambient = 14 },
-	GlitchConvergence = { kind = "streak", burst = 22, ambient = 6, angle = 70 },
-	StarlightCaravan = { kind = "dust", burst = 26, ambient = 8 },
-	HyperdriveOverload = { kind = "ember", burst = 26, ambient = 6 },
-}
-local SKY_BURST_SECONDS = 6
-
-local function hash01(i, salt)
-	local x = math.sin(i * 12.9898 + salt * 78.233) * 43758.5453
-	return x - math.floor(x)
-end
-
-local function SkyParticle(p)
-	local i, style, clock = p.index, p.style, p.clock
-	local w, hgt = p.width, p.height
-	local period = if style.kind == "streak" then 1.6 + hash01(i, 1) * 1.8 elseif style.kind == "dust" then 5 + hash01(i, 1) * 4 else 4 + hash01(i, 1) * 3
-	local phase0 = hash01(i, 2) * period
-	local function progress(t)
-		return ((t + phase0) % period) / period
-	end
-	local function alive(t)
-		local active = if t - p.since < SKY_BURST_SECONDS then style.burst else style.ambient
-		return i <= active
-	end
-	if style.kind == "streak" then
-		local a = math.rad(style.angle)
-		local dx, dy = -math.cos(a), math.sin(a)
-		local len = 70 + hash01(i, 3) * 110
-		local thick = if hash01(i, 4) > 0.75 then 3 else 2
-		local sx = w * (0.25 + hash01(i, 5) * 1.05)
-		local travel = (hgt + 160) / dy
-		-- a meteor flies for the first 55% of its period, then rests off-screen
-		local function head(t)
-			local q = progress(t) / 0.55
-			return sx + dx * travel * q, -80 + dy * travel * q, q
-		end
-		return h("frame", {
-			Size = UDim2.fromOffset(len, thick),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = 180 - style.angle,
-			Position = clock:map(function(t)
-				local x, y = head(t)
-				return UDim2.fromOffset(x - dx * len / 2, y - dy * len / 2)
-			end),
-			Visible = clock:map(function(t)
-				local _, _, q = head(t)
-				return alive(t) and q <= 1
-			end),
-			BackgroundColor3 = Color3.new(1, 1, 1),
-			BorderSizePixel = 0,
-			ZIndex = 120,
-		},
-			h("uicorner", { CornerRadius = UDim.new(1, 0) }),
-			h("uigradient", {
-				Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, p.accent),
-					ColorSequenceKeypoint.new(0.8, Color3.fromRGB(255, 236, 200)),
-					ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
-				}),
-				Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 1),
-					NumberSequenceKeypoint.new(0.7, 0.45),
-					NumberSequenceKeypoint.new(1, 0),
-				}),
-			}),
-			h("frame", {
-				Size = UDim2.fromOffset(thick * 3, thick * 3),
-				Position = UDim2.fromScale(1, 0.5),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundColor3 = Color3.fromRGB(255, 244, 220),
-				BackgroundTransparency = 0.1,
-				BorderSizePixel = 0,
-				ZIndex = 121,
-			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
-		)
-	end
-	local size = if style.kind == "dust" then 2 + math.round(hash01(i, 3) * 3) else 3 + math.round(hash01(i, 3) * 3)
-	local baseX = w * hash01(i, 5)
-	local sway = 10 + hash01(i, 6) * 26
-	local rising = style.kind == "ember"
-	return h("frame", {
-		Size = UDim2.fromOffset(size, size),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = clock:map(function(t)
-			local q = progress(t)
-			local y = if rising then hgt + 20 - q * (hgt * 0.7) else -20 + q * (hgt + 40)
-			return UDim2.fromOffset(baseX + math.sin(t * 0.9 + i) * sway, y)
-		end),
-		BackgroundTransparency = clock:map(function(t)
-			local q = progress(t)
-			local fade = if rising then q else math.max(0, (q - 0.8) / 0.2)
-			local twinkle = if rising then 0 else (math.sin(t * 6 + i * 1.7) + 1) * 0.18
-			return math.clamp((if rising then 0.35 else 0.1) + fade * 0.65 + twinkle, 0, 1)
-		end),
-		Visible = clock:map(alive),
-		BackgroundColor3 = if rising then Color3.fromRGB(255, 168, 92) else p.accent,
-		BorderSizePixel = 0,
-		ZIndex = 120,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })) -- soft round embers, never diamonds
-end
-
-local function EventSkyFx(_param)
-	local style = SKY_STYLE[_param.eventId]
-	local viewport = useViewport()
-	local antilag = useAntilag()
-	local clock, setClock = React.useBinding(os.clock())
-	local since = React.useMemo(os.clock, { _param.eventId })
-	React.useEffect(function()
-		if style == nil then
-			return nil
-		end
-		local conn = RunService.Heartbeat:Connect(function()
-			setClock(os.clock())
-		end)
-		return function()
-			conn:Disconnect()
-		end
-	end, { style })
-	if style == nil then
-		return nil
-	end
-	local budget = if antilag.tier <= 1 then 0.45 elseif antilag.allowAmbient == false then 0.7 else 1
-	local tuned = {
-		kind = style.kind,
-		angle = style.angle,
-		burst = math.max(1, math.floor(style.burst * budget)),
-		ambient = math.max(1, math.floor(style.ambient * budget)),
-	}
-	local particles = {}
-	for i = 1, tuned.burst do
-		particles[i] = h(SkyParticle, {
-			key = i,
-			index = i,
-			style = tuned,
-			clock = clock,
-			since = since,
-			width = viewport.width,
-			height = viewport.height,
-			accent = _param.accent,
-		})
-	end
-	return h("frame", {
-		Name = "EventSkyFx",
-		Size = UDim2.fromScale(1, 1),
+	}), h("textbutton", {
+		Size = UDim2.fromOffset(60, 26),
+		Position = UDim2.new(1, -18, 0, 18),
+		AnchorPoint = Vector2.new(1, 0),
 		BackgroundTransparency = 1,
-		Active = false,
-		ZIndex = 120,
-	}, table.unpack(particles))
+		Text = "Close",
+		TextSize = 13,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextColor3 = Palette.muted,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		ZIndex = 562,
+		Event = { Activated = props.onClose },
+	}), h("scrollingframe", {
+		Size = UDim2.new(1, -36, 1, -100),
+		Position = UDim2.fromOffset(18, 86),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 3,
+		ZIndex = 562,
+	}, h("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }), rows)))
 end
 
-local function ServerEventHost(_param)
-	-- The event itself lives in the island (a live buff whose row opens this panel); its start is
-	-- announced there as a moment. This host only draws the event weather and the detail panel.
-	local state = _param.state
+local function ServerEventHost(props)
+	local state = props.state
 	local event = useServerEvent(state and state.ServerEvent)
 	local panelOpen, setPanelOpen = React.useState(false)
 	local lastPhase = React.useRef(nil)
+	local def = event and ServerEvents.EVENTS[event.Id or ""]
+	local live = def ~= nil and event.Phase == "Live"
+	local clock, setClock = React.useBinding(os.clock())
 	React.useEffect(function()
 		local opener = function()
 			Audio:play("open")
@@ -19013,35 +19207,70 @@ local function ServerEventHost(_param)
 		end
 	end, {})
 	React.useEffect(function()
+		if not live then
+			return nil
+		end
+		local conn = RunService.Heartbeat:Connect(function()
+			setClock(os.clock())
+		end)
+		return function()
+			conn:Disconnect()
+		end
+	end, { live })
+	-- a new event lands as a moment out of the island
+	React.useEffect(function()
 		if event == nil then
 			return nil
 		end
 		local key = tostring(event.Phase) .. ":" .. tostring(event.Id)
-		if lastPhase.current ~= nil and lastPhase.current ~= key and event.Phase == "Live" then
-			local def = ServerEvents.EVENTS[event.Id or ""]
-			if def ~= nil then
-				require(script.Parent.JuiceFx).moment(string.upper(def.Name), def.Blurb, accentOf(def), def.Icon)
-			end
+		if lastPhase.current ~= nil and lastPhase.current ~= key and event.Phase == "Live" and def ~= nil then
+			require(script.Parent.JuiceFx).moment(string.upper(def.Name), def.How, accentOf(def), def.Icon)
 		end
 		lastPhase.current = key
 		return nil
 	end, { event and event.Phase, event and event.Id })
+	-- while it runs, the island carries it: name, countdown and how it's going
+	React.useEffect(function()
+		local Juice = require(script.Parent.JuiceFx)
+		if not live then
+			pcall(Juice.live, "serverEvent", nil)
+			return nil
+		end
+		local goal = event.Goal
+		local progress = nil
+		if def.Kind == "goal" and goal then
+			progress = (event.Progress or 0) / math.max(1, goal)
+		elseif def.Kind == "titan" and goal then
+			progress = 1 - (event.Progress or 0) / math.max(1, goal)
+		end
+		pcall(Juice.live, "serverEvent", {
+			title = string.upper(def.Name),
+			value = liveValue(event, def),
+			icon = def.Icon,
+			color = accentOf(def),
+			serverEndsAt = event.PhaseEndsAt,
+			span = ServerEvents.LIVE_SECONDS,
+			progress = progress,
+			priority = 1,
+			ttl = ServerEvents.LIVE_SECONDS + 5,
+		})
+		return nil
+	end, { live, event and event.Id, event and event.Progress, event and event.Caught, event and event.Tickets, event and event.YourRank, event and event.PhaseEndsAt })
 	if event == nil then
 		return nil
 	end
-	local def = ServerEvents.EVENTS[event.Id or ""]
-	local skyFx = def ~= nil and event.Phase == "Live" and React.createElement(EventSkyFx, {
-		key = tostring(event.Id),
-		eventId = event.Id,
-		accent = accentOf(def),
-	})
-	return React.createElement(React.Fragment, nil, skyFx, panelOpen and React.createElement(EventPanel, {
-		event = event,
-		onClose = function()
-			Audio:play("close")
-			setPanelOpen(false)
-		end,
-	}))
+	local accent = accentOf(def)
+	return h(React.Fragment, nil,
+		live and h(Sky, { key = event.Id, eventId = event.Id, clock = clock, color = accent }),
+		live and def.Kind == "stars" and props.dispatch and h(StarField, { clock = clock, dispatch = props.dispatch }),
+		live and def.Kind == "supply" and props.dispatch and h(SupplyCrates, { event = event, clock = clock, dispatch = props.dispatch }),
+		panelOpen and h(EventPanel, {
+			event = event,
+			onClose = function()
+				Audio:play("close")
+				setPanelOpen(false)
+			end,
+		}))
 end
 
 return {
@@ -19054,7 +19283,6 @@ return {
 	EVENTS = ServerEvents.EVENTS,
 }
 end
-
 __defs["CreditsView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

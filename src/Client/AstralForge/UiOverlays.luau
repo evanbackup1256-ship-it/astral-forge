@@ -19,6 +19,7 @@ local function __load(name: string): any
 end
 
 __defs["DomainChamber"] = function()
+-- (ZIndex 600+: the main screen sorts globally and the chamber has to sit over the whole shell)
 -- The Domain, one screen: the lattice on the left, and on the right whatever you're doing with it.
 --   mode "lattice": etch links between anchors, read what the lattice gives, clear it once per rank
 --   mode "confirm": the expansion rite; hold to expand, with what it costs, keeps and pays
@@ -131,7 +132,7 @@ local function Lattice(props)
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			ZIndex = 2,
+			ZIndex = 602,
 		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
 			Color = Palette.line,
 			Thickness = 1,
@@ -150,7 +151,7 @@ local function Lattice(props)
 		Visible = props.flare:map(function(f)
 			return f > 0.001 and f < 1
 		end),
-		ZIndex = 9,
+		ZIndex = 609,
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
 		Color = WHITE_HOT,
 		Thickness = props.flare:map(function(f)
@@ -187,7 +188,7 @@ local function Lattice(props)
 				BackgroundColor3 = Palette.ember,
 				BackgroundTransparency = 0.78,
 				BorderSizePixel = 0,
-				ZIndex = 3,
+				ZIndex = 603,
 			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
 			children["core" .. key] = h("frame", {
 				Size = tick:map(function(now)
@@ -201,7 +202,7 @@ local function Lattice(props)
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundColor3 = Palette.white,
 				BorderSizePixel = 0,
-				ZIndex = 4,
+				ZIndex = 604,
 			}, h("uigradient", {
 				Color = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Palette.mango),
@@ -226,7 +227,7 @@ local function Lattice(props)
 						return if drawn(now) < 1 then 1 else 0.1
 					end),
 					BorderSizePixel = 0,
-					ZIndex = 5,
+					ZIndex = 605,
 				}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
 			end
 		else
@@ -241,7 +242,7 @@ local function Lattice(props)
 					return 0.35 + (math.sin(now * 3 + e.a + e.b) + 1) * 0.2
 				end) else 0.55,
 				BorderSizePixel = 0,
-				ZIndex = 3,
+				ZIndex = 603,
 			})
 			if open then
 				local hitSize, hitPos = line(x1, y1, x2, y2, 22, 0.7)
@@ -253,7 +254,7 @@ local function Lattice(props)
 					BackgroundTransparency = 1,
 					Text = "",
 					AutoButtonColor = false,
-					ZIndex = 6,
+					ZIndex = 606,
 					Event = {
 						Activated = function()
 							props.onLink(e.key)
@@ -279,7 +280,7 @@ local function Lattice(props)
 				Rotation = 45,
 				BackgroundColor3 = Palette.mango,
 				BorderSizePixel = 0,
-				ZIndex = 5,
+				ZIndex = 605,
 			}, h("uiscale", {
 				Scale = tick:map(function(now)
 					local at = props.facetAt[index]
@@ -311,7 +312,7 @@ local function Lattice(props)
 				BackgroundColor3 = if pip <= d then color else Palette.lineSoft,
 				BackgroundTransparency = if pip <= d then 0 else 0.4,
 				BorderSizePixel = 0,
-				ZIndex = 8,
+				ZIndex = 608,
 			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
 		end
 		children["anchor" .. index] = h("textbutton", {
@@ -324,7 +325,7 @@ local function Lattice(props)
 			BackgroundTransparency = 1,
 			Text = "",
 			AutoButtonColor = false,
-			ZIndex = 7,
+			ZIndex = 607,
 			Event = {
 				Activated = function()
 					props.onAnchor(index)
@@ -337,7 +338,7 @@ local function Lattice(props)
 			Rotation = 45,
 			BackgroundColor3 = darken(color, 0.62),
 			BorderSizePixel = 0,
-			ZIndex = 8,
+			ZIndex = 608,
 		}, h("uicorner", { CornerRadius = UDim.new(0, 4) }), h("uistroke", {
 			Color = if picked then WHITE_HOT else color,
 			Thickness = if picked then 2.5 else 1.5,
@@ -349,11 +350,11 @@ local function Lattice(props)
 			BackgroundColor3 = if fill >= 1 then WHITE_HOT else color,
 			BackgroundTransparency = if d > 0 or isHearth then 0 else 0.7,
 			BorderSizePixel = 0,
-			ZIndex = 9,
+			ZIndex = 609,
 		}, h("uicorner", { CornerRadius = UDim.new(0, 2) }))), h("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			ZIndex = 8,
+			ZIndex = 608,
 		}, pips), picked and h("frame", {
 			-- a bracket that turns slowly around the picked anchor
 			Size = UDim2.fromScale(1.05, 1.05),
@@ -363,7 +364,7 @@ local function Lattice(props)
 				return (now * 40) % 360
 			end),
 			BackgroundTransparency = 1,
-			ZIndex = 7,
+			ZIndex = 607,
 		}, h("uistroke", { Color = WHITE_HOT, Thickness = 1, Transparency = 0.35 })), h("textlabel", {
 			Size = UDim2.fromOffset(110, 14),
 			Position = UDim2.new(0.5, 0, 1, if isHearth then 0 else -2),
@@ -373,7 +374,7 @@ local function Lattice(props)
 			TextSize = if isHearth then 13 else 11,
 			FontFace = Font.fromEnum(if isHearth then Enum.Font.BuilderSansExtraBold else Enum.Font.BuilderSansBold),
 			TextColor3 = if d > 0 or isHearth then Palette.cream else Palette.muted,
-			ZIndex = 9,
+			ZIndex = 609,
 		}))
 	end
 	return h("frame", {
@@ -381,7 +382,7 @@ local function Lattice(props)
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		ZIndex = 2,
+		ZIndex = 602,
 	}, h("uiaspectratioconstraint", { AspectRatio = 1 }), children)
 end
 
@@ -390,7 +391,7 @@ local function Row(props)
 		Size = UDim2.new(1, 0, 0, props.height or 22),
 		LayoutOrder = props.order,
 		BackgroundTransparency = 1,
-		ZIndex = 32,
+		ZIndex = 632,
 	}, h("textlabel", {
 		Size = UDim2.new(1, -110, 1, 0),
 		BackgroundTransparency = 1,
@@ -401,7 +402,7 @@ local function Row(props)
 		TextColor3 = props.labelColor or Palette.creamSoft,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTransparency = props.fade or 0,
-		ZIndex = 33,
+		ZIndex = 633,
 	}), props.value ~= nil and h("textlabel", {
 		Size = UDim2.new(0, 110, 1, 0),
 		Position = UDim2.fromScale(1, 0),
@@ -413,7 +414,7 @@ local function Row(props)
 		TextColor3 = props.valueColor or Palette.cream,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextTransparency = props.fade or 0,
-		ZIndex = 33,
+		ZIndex = 633,
 	}))
 end
 
@@ -427,7 +428,7 @@ local function Heading(props)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		TextColor3 = props.color or Palette.mango,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 33,
+		ZIndex = 633,
 	})
 end
 
@@ -789,7 +790,7 @@ local function DomainChamber(props)
 				BackgroundColor3 = darken(Palette.mango, 0.55),
 				AutoButtonColor = false,
 				Text = "",
-				ZIndex = 34,
+				ZIndex = 634,
 				Event = {
 					InputBegan = function(_, input)
 						if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -816,7 +817,7 @@ local function DomainChamber(props)
 				end),
 				BackgroundColor3 = Palette.white,
 				BorderSizePixel = 0,
-				ZIndex = 35,
+				ZIndex = 635,
 			}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), h("uigradient", {
 				Color = ColorSequence.new(Palette.mango, WHITE_HOT),
 			})), h("textlabel", {
@@ -826,7 +827,7 @@ local function DomainChamber(props)
 				TextSize = 15,
 				FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				TextColor3 = Palette.cream,
-				ZIndex = 36,
+				ZIndex = 636,
 			}))
 		elseif action.quiet then
 			buttons["a" .. index] = h("textbutton", {
@@ -838,7 +839,7 @@ local function DomainChamber(props)
 				FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 				TextColor3 = if action.disabled then Palette.lineSoft else Palette.muted,
 				AutoButtonColor = false,
-				ZIndex = 34,
+				ZIndex = 634,
 				Event = {
 					Activated = function()
 						if not action.disabled and action.onClick then
@@ -852,7 +853,7 @@ local function DomainChamber(props)
 				Size = UDim2.new(1, 0, 0, height),
 				LayoutOrder = index,
 				BackgroundTransparency = 1,
-				ZIndex = 34,
+				ZIndex = 634,
 			}, h(Button, {
 				text = action.text,
 				onClick = action.onClick,
@@ -879,7 +880,7 @@ local function DomainChamber(props)
 		BackgroundColor3 = Palette.panel,
 		BackgroundTransparency = 0.08,
 		BorderSizePixel = 0,
-		ZIndex = 30,
+		ZIndex = 630,
 	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
 		Color = Palette.lineSoft,
 		Transparency = 0.25,
@@ -899,7 +900,7 @@ local function DomainChamber(props)
 		TextColor3 = Palette.muted,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Visible = mode ~= "result",
-		ZIndex = 34,
+		ZIndex = 634,
 		Event = {
 			Activated = function()
 				if not props.busy then
@@ -915,7 +916,7 @@ local function DomainChamber(props)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		TextColor3 = Palette.mango,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 33,
+		ZIndex = 633,
 	}), h("textlabel", {
 		Size = UDim2.new(1, 0, 0, 52),
 		Position = UDim2.fromOffset(0, 14),
@@ -928,7 +929,7 @@ local function DomainChamber(props)
 		TextTransparency = if numberSlam then numberSlam:map(function(s)
 			return if s <= 0 then 1 else 0
 		end) else 0,
-		ZIndex = 33,
+		ZIndex = 633,
 	}, numberSlam and h("uiscale", { Scale = numberSlam:map(function(s)
 		return math.max(0.01, s)
 	end) })), h("scrollingframe", {
@@ -940,7 +941,7 @@ local function DomainChamber(props)
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = Palette.muted,
-		ZIndex = 32,
+		ZIndex = 632,
 	}, h("uipadding", { PaddingRight = UDim.new(0, 12) }), h("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -951,7 +952,7 @@ local function DomainChamber(props)
 		Position = UDim2.fromScale(0, 1),
 		AnchorPoint = Vector2.new(0, 1),
 		BackgroundTransparency = 1,
-		ZIndex = 33,
+		ZIndex = 633,
 	}, h("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		VerticalAlignment = Enum.VerticalAlignment.Bottom,
@@ -967,7 +968,7 @@ local function DomainChamber(props)
 		BackgroundTransparency = 0.04,
 		BorderSizePixel = 0,
 		Active = true,
-		ZIndex = 20,
+		ZIndex = 620,
 	}, h("frame", {
 		-- the forge floor glows with the hold and the landing
 		Size = UDim2.fromScale(1, 0.7),
@@ -979,7 +980,7 @@ local function DomainChamber(props)
 			return math.clamp(0.86 - v[1] * 0.4 - landing * 0.5, 0, 1)
 		end),
 		BorderSizePixel = 0,
-		ZIndex = 21,
+		ZIndex = 621,
 	}, h("uigradient", {
 		Rotation = -90,
 		Transparency = NumberSequence.new({
@@ -991,13 +992,13 @@ local function DomainChamber(props)
 		Size = if stacked then UDim2.new(1, -24, 0.5, -12) else UDim2.new(1, -(panelW + 72), 1, -48),
 		Position = UDim2.fromOffset(if stacked then 12 else 24, if stacked then 12 else 24),
 		BackgroundTransparency = 1,
-		ZIndex = 22,
+		ZIndex = 622,
 	}, h("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		ZIndex = 22,
+		ZIndex = 622,
 	}, h(Lattice, {
 		links = links,
 		tick = tick,

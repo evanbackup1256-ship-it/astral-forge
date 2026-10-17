@@ -871,10 +871,19 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 					self._effect:FireClient(online, { Type = "ServerEvent", Event = self._events:State(online) })
 				end
 			end,
-			payout = function(ranking, def)
-				self:_payCommunityForge(ranking, def)
+			pay = function(entries, def, why)
+				self:_payEvent(entries, def, why)
 			end,
 		})
+		-- Studio only: start any event by id to try it (ServerScriptService.EventDebug:Invoke("IronTitan"))
+		if game:GetService("RunService"):IsStudio() then
+			local debug = Instance.new("BindableFunction")
+			debug.Name = "EventDebug"
+			debug.OnInvoke = function(id)
+				return self._events:Start(id)
+			end
+			debug.Parent = game:GetService("ServerScriptService")
+		end
 		self._guilds = GuildService.new()
 		self._guildCommunity = GuildCommunity.new(self._guilds, dataService, self._security, self._effect, function(target: Player, guildId: string)
 			local updated, result = self._data:AtomicUpdate(target, function(targetProfile)
@@ -1303,39 +1312,73 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 	function GameService:_announceServerEvent(phase: string, def)
 		local title, body, tone
 		if phase == "Warning" then
-			title, body, tone = def.Name .. " in 1 minute", def.Blurb, "Info"
+			title, body, tone = def.Name .. " in a minute", def.Blurb, "Info"
 		elseif phase == "Live" then
-			title, body, tone = def.Name .. " has started!", def.How, "Special"
+			-- the client lands a live event as a moment out of the island; a toast would repeat it
+			return
 		elseif phase == "Completed" then
-			title, body, tone = "Community goal reached!", "Everyone who helped has been paid. Nice work, forge.", "Success"
+			title, body, tone = "Order filled", "Everyone who helped has been paid.", "Success"
+		elseif phase == "Defeated" then
+			title, body, tone = "The Titan is down", "Everyone who hit it has been paid.", "Success"
 		else
-			title, body, tone = def.Name .. " is over", "Thanks for playing. The next event is on its way.", "Info"
+			title, body, tone = def.Name .. " is over", "The next event is a few minutes away.", "Info"
 		end
 		for _, online in Players:GetPlayers() do
 			self:_toastPlayer(online, title, body, tone)
 		end
 	end
 
-	function GameService:_payCommunityForge(ranking, def)
-		for rank, entry in ranking do
+	-- pays whoever an event says earned something; one toast each, saying exactly what came in
+	function GameService:_payEvent(entries, def, why)
+		for _, entry in entries do
 			local player = Players:GetPlayerByUserId(entry.UserId)
 			if player == nil then
 				continue
 			end
-			local stardust = def.RewardStardust + (def.TopBonusStardust[rank] or 0)
-			local paid = 0
+			local fluxPaid = 0
 			self:_mutate(player, function(profile)
-				local amount = Economy.Mul(Economy.Production(profile), def.RewardFluxSeconds)
-				if Economy.AsNumber(amount) < 500 then
-					amount = 500
+				if (entry.FluxSeconds or 0) > 0 then
+					local amount = Economy.Mul(Economy.Production(profile), entry.FluxSeconds)
+					if Economy.AsNumber(amount) < 500 then
+						amount = 500
+					end
+					profile.Cash = Economy.Add(profile.Cash, amount)
+					profile.RunCash = Economy.Add(profile.RunCash, amount)
+					profile.LifetimeCash = Economy.Add(profile.LifetimeCash, amount)
+					fluxPaid = Economy.AsNumber(amount)
 				end
-				profile.Cash = Economy.Add(profile.Cash, amount)
-				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + stardust, 0, 1e14)
-				paid = Economy.AsNumber(amount)
+				if (entry.Stardust or 0) > 0 then
+					profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + entry.Stardust, 0, 1e14)
+				end
+				if (entry.Cores or 0) > 0 then
+					profile.Cores = Economy.Add(profile.Cores, entry.Cores)
+				end
+				if (entry.Keys or 0) > 0 and entry.KeyCrate and profile.Items and profile.Items.Keys then
+					profile.Items.Keys[entry.KeyCrate] = (tonumber(profile.Items.Keys[entry.KeyCrate]) or 0) + entry.Keys
+				end
 				return responseSuccess(nil)
 			end)
-			local placing = if rank <= 3 then string.format(" You placed #%d!", rank) else ""
-			self:_toastPlayer(player, "Community Forge paid out", string.format("+%s flux and +%d stardust.%s", Format.Number(paid), stardust, placing), "Success")
+			local parts = {}
+			if fluxPaid > 0 then
+				table.insert(parts, "+" .. Format.Number(fluxPaid) .. " flux")
+			end
+			if (entry.Stardust or 0) > 0 then
+				table.insert(parts, "+" .. entry.Stardust .. " stardust")
+			end
+			if (entry.Cores or 0) > 0 then
+				table.insert(parts, "+" .. entry.Cores .. " cores")
+			end
+			local title
+			if why == "race" then
+				title = if entry.Rank and entry.Rank <= 3 then string.format("Forge Race: #%d", entry.Rank) else "Forge Race: you scored"
+			elseif why == "draw" then
+				title = if entry.Rank then "Your ticket was drawn" else "Lucky Draw: thanks for playing"
+			elseif why == "titan" then
+				title = if entry.Rank and entry.Rank <= 3 then string.format("Titan down: #%d hitter", entry.Rank) else "Titan down"
+			else
+				title = if entry.Rank and entry.Rank <= 3 then string.format("Order filled: #%d", entry.Rank) else "Order filled"
+			end
+			self:_toastPlayer(player, title, table.concat(parts, ", "), "Success")
 		end
 	end
 
@@ -2046,10 +2089,29 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 				ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP)
 			)
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
-			local rainDust = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
-			if rainDust > 0 then
-				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + rainDust, 0, 1e14)
-				return responseSuccess("Banked " .. Format.Number(amount) .. " flux and caught " .. rainDust .. " stardust.", { Amount = amount, Dust = rainDust })
+			local extra = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
+			local notes = {}
+			if extra.FluxBonus > 0 then
+				local bonus = Economy.Mul(amount, extra.FluxBonus)
+				profile.Cash = Economy.Add(profile.Cash, bonus)
+				profile.RunCash = Economy.Add(profile.RunCash, bonus)
+				profile.LifetimeCash = Economy.Add(profile.LifetimeCash, bonus)
+				table.insert(notes, "+" .. Format.Number(bonus) .. " golden flux")
+			end
+			if extra.Dust > 0 then
+				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + extra.Dust, 0, 1e14)
+				table.insert(notes, extra.Dust .. " stardust")
+			end
+			if extra.Cores > 0 then
+				profile.Cores = Economy.Add(profile.Cores, extra.Cores)
+				table.insert(notes, extra.Cores .. (if extra.Cores == 1 then " core" else " cores"))
+			end
+			if extra.Keys > 0 and extra.KeyCrate and profile.Items and profile.Items.Keys then
+				profile.Items.Keys[extra.KeyCrate] = (tonumber(profile.Items.Keys[extra.KeyCrate]) or 0) + extra.Keys
+				table.insert(notes, "a crate key")
+			end
+			if #notes > 0 then
+				return responseSuccess("Banked " .. Format.Number(amount) .. " flux and found " .. table.concat(notes, ", ") .. ".", { Amount = amount, Dust = extra.Dust, Cores = extra.Cores, Keys = extra.Keys })
 			end
 			return responseSuccess("Banked " .. Format.Number(amount) .. " flux.", { Amount = amount })
 		end)
@@ -2059,12 +2121,40 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		return result
 	end
 
+	-- Op "Catch" (Falling Stars) or "Claim" with Drop (Supply Drop)
+	function GameService:_eventAct(player: Player, payload: any)
+		local op = type(payload) == "table" and payload.Op or nil
+		if op == "Catch" then
+			local dust, reason = self._events:CatchStar(player)
+			if dust == nil then
+				return responseError(reason or "Missed.")
+			end
+			return self:_mutate(player, function(profile)
+				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + dust, 0, 1e14)
+				return responseSuccess(nil, { Dust = dust })
+			end)
+		elseif op == "Claim" then
+			local reward, reason = self._events:ClaimSupply(player, payload.Drop)
+			if reward == nil then
+				return responseError(reason or "Missed it.")
+			end
+			return self:_mutate(player, function(profile)
+				profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + (reward.Stardust or 0), 0, 1e14)
+				if (reward.Keys or 0) > 0 and profile.Items and profile.Items.Keys then
+					profile.Items.Keys[reward.KeyCrate] = (tonumber(profile.Items.Keys[reward.KeyCrate]) or 0) + reward.Keys
+				end
+				return responseSuccess("Got it: a crate key and " .. (reward.Stardust or 0) .. " stardust.", { Dust = reward.Stardust, Keys = reward.Keys })
+			end)
+		end
+		return responseError("Unknown event action.")
+	end
+
 	function GameService:_overchargeCombo(runtime, profile): (number, number)
 		if not runtime then
 			return 0, 1
 		end
 		local combo = math.max(0, math.floor(tonumber(runtime.TapCombo) or 0))
-		if combo > 0 and os.clock() - (tonumber(runtime.LastTap) or 0) > overchargeComboWindow(profile) then
+		if combo > 0 and os.clock() - (tonumber(runtime.LastTap) or 0) > overchargeComboWindow(profile) * self._events:ComboWindowMultiplier() then
 			return 0, 1
 		end
 		return combo, overchargeComboMultiplier(profile, combo)
@@ -2081,7 +2171,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			return responseError("Overcharge is cooling down.")
 		end
 		local previousCombo = math.max(0, math.floor(tonumber(runtime.TapCombo) or 0))
-		if nowClock - runtime.LastTap > overchargeComboWindow(profileForCombo) then
+		if nowClock - runtime.LastTap > overchargeComboWindow(profileForCombo) * self._events:ComboWindowMultiplier() then
 			previousCombo = 0
 		end
 		local combo = math.min(OVERCHARGE_COMBO_MAX, previousCombo + 1)
@@ -2095,8 +2185,12 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			if Economy.Lte(room, 0.01) then
 				return responseError("Your vault is full. Bank it first.")
 			end
-			local critical = self._random:NextNumber() <= Economy.CriticalChance(profile)
+			local critical = self._random:NextNumber() <= Economy.CriticalChance(profile) + self._events:CritBonus()
 			local amount = Economy.TapPower(profile)
+			local eventTap = self._events:TapMultiplier()
+			if eventTap ~= 1 then
+				amount = Economy.Mul(amount, eventTap)
+			end
 			if critical then
 				amount = Economy.Mul(amount, Economy.CriticalMultiplier(profile))
 			end
@@ -2116,10 +2210,11 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 				Combo = combo,
 				ComboMultiplier = comboMultiplier,
 				ComboMax = OVERCHARGE_COMBO_MAX,
-				ComboWindow = overchargeComboWindow(profile),
+				ComboWindow = overchargeComboWindow(profile) * self._events:ComboWindowMultiplier(),
 			})
 		end, false)
 		if result.ok then
+			self._events:OnTap(player)
 			self._effect:FireClient(player, {
 				Type = "Overcharge",
 				Amount = result.Amount,
@@ -4601,6 +4696,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			return self:_domainExpansion(player)
 		elseif action == Protocol.Actions.DomainLattice then
 			return self:_domainLattice(player, payload)
+		elseif action == Protocol.Actions.EventAct then
+			return self:_eventAct(player, payload)
 		elseif action == Protocol.Actions.ClaimConvergenceReward then
 			return self._convergence:Claim(player, payload and payload.Tier)
 		elseif action == Protocol.Actions.ClaimQuest then

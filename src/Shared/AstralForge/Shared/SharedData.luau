@@ -2514,6 +2514,16 @@ end
 
 __defs["ServerEvents"] = function()
 
+-- Server events: every few minutes the whole server gets one. Each event below does exactly what
+-- its text says; the numbers here are the rules the server applies and the screen shows.
+--   Kind "mod"    changes how the forge behaves (production, overcharge, crits, combo, collects)
+--   Kind "drops"  vault collects drop something extra
+--   Kind "goal"   the server fills one shared order together
+--   Kind "titan"  the server beats down one shared health bar
+--   Kind "race"   collects score points; the top three win
+--   Kind "draw"   collects earn tickets; three are drawn at the end
+--   Kind "stars"  stars fall across everyone's screen; catch them
+--   Kind "supply" crates drop a few times; the first three to grab each one win it
 local ServerEvents = {}
 
 ServerEvents.REST_SECONDS = 8 * 60
@@ -2522,134 +2532,112 @@ ServerEvents.LIVE_SECONDS = 5 * 60
 ServerEvents.RESULTS_SECONDS = 20
 ServerEvents.FIRST_REST_SECONDS = 3 * 60
 
+local function def(t)
+	return table.freeze(t)
+end
+
 ServerEvents.EVENTS = table.freeze({
-	MeteorShower = table.freeze({
-		Id = "MeteorShower",
-		Name = "Meteor Shower",
-		Blurb = "Meteors are hitting the forge. Everyone's output is boosted!",
-		How = "Just keep earning: every machine produces more while it lasts.",
-		Icon = "Boost",
-		Accent = "mango",
-		Multiplier = 1.5,
+	MeteorShower = def({
+		Id = "MeteorShower", Name = "Meteor Shower", Kind = "mod", Icon = "Boost", Accent = "mango",
+		Blurb = "Meteors are hitting the forge.",
+		How = "Every machine on the server makes 50% more while it lasts.",
+		Mods = { Production = 1.5 },
 	}),
-	CommunityForge = table.freeze({
-		Id = "CommunityForge",
-		Name = "Community Forge",
-		Blurb = "The whole server works on one giant order. Collect your vault to help!",
-		How = "Every vault collect adds points. Fill the bar together to pay everyone who helped.",
-		Icon = "Crew",
-		Accent = "cyan",
-		PointsPerPlayer = 900,
-		MinGoal = 900,
+	StardustRain = def({
+		Id = "StardustRain", Name = "Stardust Rain", Kind = "drops", Icon = "Dust", Accent = "violet",
+		Blurb = "Stardust is coming down over the forge.",
+		How = "Every vault collect catches stardust. Bigger collects catch more, up to 25.",
+		Drops = { Dust = 25 },
+	}),
+	CommunityForge = def({
+		Id = "CommunityForge", Name = "Community Forge", Kind = "goal", Icon = "Crew", Accent = "cyan",
+		Blurb = "The server has one big order to fill.",
+		How = "Vault collects add points to the order. Fill it before time runs out and everyone who helped gets paid.",
+		PointsPerPlayer = 900, MinGoal = 900, MaxPointsPerCollect = 600,
+		RewardFluxSeconds = 300, RewardStardust = 30, TopBonusStardust = { 40, 25, 15 },
+	}),
+	Overheat = def({
+		Id = "Overheat", Name = "Overheat", Kind = "mod", Icon = "Overcharge", Accent = "coral",
+		Blurb = "The forge is running hot.",
+		How = "Overcharge taps hit three times as hard.",
+		Mods = { Tap = 3 },
+	}),
+	CriticalMass = def({
+		Id = "CriticalMass", Name = "Critical Mass", Kind = "mod", Icon = "Jackpot", Accent = "pink",
+		Blurb = "Every strike is close to splitting.",
+		How = "Overcharge taps have a 25% better chance to crit.",
+		Mods = { Crit = 0.25 },
+	}),
+	ComboFever = def({
+		Id = "ComboFever", Name = "Combo Fever", Kind = "mod", Icon = "Timer", Accent = "mint",
+		Blurb = "Your rhythm holds longer.",
+		How = "Overcharge combos stay alive twice as long between taps.",
+		Mods = { ComboWindow = 2 },
+	}),
+	TwinSuns = def({
+		Id = "TwinSuns", Name = "Twin Suns", Kind = "mod", Icon = "StarGrid", Accent = "mango",
+		Blurb = "Two suns are up over the forge.",
+		How = "Production up 25% and overcharge taps up 50%.",
+		Mods = { Production = 1.25, Tap = 1.5 },
+	}),
+	GoldenVault = def({
+		Id = "GoldenVault", Name = "Golden Vault", Kind = "mod", Icon = "Vault", Accent = "mango",
+		Blurb = "Vaults are paying out in gold.",
+		How = "Every vault collect pays 50% extra flux on top.",
+		Mods = { Collect = 0.5 },
+	}),
+	CoreSeam = def({
+		Id = "CoreSeam", Name = "Core Seam", Kind = "drops", Icon = "Core", Accent = "violet",
+		Blurb = "A seam of Cores runs under the forge.",
+		How = "Vault collects have a 30% chance to dig up 1 to 3 Cores.",
+		Drops = { CoreChance = 0.3, CoreMax = 3 },
+	}),
+	KeyCache = def({
+		Id = "KeyCache", Name = "Key Cache", Kind = "drops", Icon = "Crate", Accent = "cyan",
+		Blurb = "Someone left a box of keys in the vaults.",
+		How = "Vault collects have a 15% chance to turn up a Forge crate key.",
+		Drops = { KeyChance = 0.15, KeyCrate = "ForgeCrate" },
+	}),
+	IronTitan = def({
+		Id = "IronTitan", Name = "The Iron Titan", Kind = "titan", Icon = "Forge", Accent = "coral",
+		Blurb = "Something huge has walked into the forge.",
+		How = "Overcharge taps hit it for 1 and vault collects hit it harder. Bring it down before time's up and everyone who hit it gets paid.",
+		HealthPerPlayer = 500, MinHealth = 600, MaxCollectHit = 60, TapsPerSecond = 8,
+		RewardFluxSeconds = 300, RewardStardust = 40, TopBonusStardust = { 30, 20, 10 }, TopBonusCores = { 3, 2, 1 },
+	}),
+	ForgeRace = def({
+		Id = "ForgeRace", Name = "Forge Race", Kind = "race", Icon = "Leaderboard", Accent = "cyan",
+		Blurb = "Five minutes. Most banked wins.",
+		How = "Vault collects score points. The top three when it ends win Stardust and Cores; everyone who scores gets a little.",
 		MaxPointsPerCollect = 600,
-		RewardFluxSeconds = 300,
-		RewardStardust = 30,
-		TopBonusStardust = { 40, 25, 15 },
+		Prizes = { { Stardust = 120, Cores = 6 }, { Stardust = 80, Cores = 4 }, { Stardust = 50, Cores = 2 } },
+		Consolation = { Stardust = 10 },
 	}),
-	StardustRain = table.freeze({
-		Id = "StardustRain",
-		Name = "Stardust Rain",
-		Blurb = "Stardust is falling. Every vault collect drops some!",
-		How = "Collect your vault as often as you can while it rains.",
-		Icon = "Dust",
-		Accent = "violet",
-		MaxDustPerCollect = 25,
+	LuckyDraw = def({
+		Id = "LuckyDraw", Name = "Lucky Draw", Kind = "draw", Icon = "Gift", Accent = "pink",
+		Blurb = "Tickets are on the counter.",
+		How = "Every vault collect is a ticket, up to 25. Three tickets are drawn when it ends.",
+		MaxTickets = 25, Winners = 3,
+		Prize = { Stardust = 150, Cores = 5 },
+		Consolation = { Stardust = 5 },
 	}),
-	CelestialAlignment = table.freeze({
-		Id = "CelestialAlignment",
-		Name = "Celestial Alignment",
-		Blurb = "Planets align over the forge. Vault capacity and stardust intake expand!",
-		How = "Your vault holds 50% more flux and collects award bonus stardust.",
-		Icon = "StarGrid",
-		Accent = "cyan",
+	FallingStars = def({
+		Id = "FallingStars", Name = "Falling Stars", Kind = "stars", Icon = "Milestone", Accent = "mango",
+		Blurb = "Stars are falling past the forge.",
+		How = "Tap the stars as they fall. Each one is 3 Stardust, up to 40 stars.",
+		DustPerStar = 3, MaxStars = 40, MinGap = 0.45,
 	}),
-	SolarFlareEruption = table.freeze({
-		Id = "SolarFlareEruption",
-		Name = "Solar Flare",
-		Blurb = "Solar radiation supercharges the grid. Rapid bonus stardust surges!",
-		How = "Solar bursts trigger stardust rain drops during vault collections.",
-		Icon = "Overcharge",
-		Accent = "mango",
-	}),
-	SupernovaHarvest = table.freeze({
-		Id = "SupernovaHarvest",
-		Name = "Supernova Harvest",
-		Blurb = "A distant star collapses, scattering rich stellar embers across space!",
-		How = "Collect flux to gather cosmic embers for the Star Foundry.",
-		Icon = "Jackpot",
-		Accent = "coral",
-	}),
-	VoidRiftIncursion = table.freeze({
-		Id = "VoidRiftIncursion",
-		Name = "Void Rift",
-		Blurb = "A rift opens in deep space, harmonizing the forge resonance!",
-		How = "Stabilize your machines to reap pure core resonance.",
-		Icon = "Core",
-		Accent = "violet",
-	}),
-	AstralTide = table.freeze({
-		Id = "AstralTide",
-		Name = "Astral Tide",
-		Blurb = "Gravitational tides wash through the dockyard, pulsing the machinery!",
-		How = "Machine cadence surges with wave pulses.",
-		Icon = "Wave",
-		Accent = "mint",
-	}),
-	ChronosEcho = table.freeze({
-		Id = "ChronosEcho",
-		Name = "Chronos Echo",
-		Blurb = "Temporal echoes accelerate the forge clockwork cycles!",
-		How = "Cycles synchronize into accelerated production intervals.",
-		Icon = "Timer",
-		Accent = "cyan",
-	}),
-	NebulaBloom = table.freeze({
-		Id = "NebulaBloom",
-		Name = "Nebula Bloom",
-		Blurb = "Ionized nebula gas blankets the sector with sparkling stardust clouds!",
-		How = "Gather rich nebula gas deposits on every vault collection.",
-		Icon = "Dust",
-		Accent = "pink",
-	}),
-	GlitchConvergence = table.freeze({
-		Id = "GlitchConvergence",
-		Name = "Glitch Convergence",
-		Blurb = "Sub-space energy spikes ripple through the forge terminal systems!",
-		How = "Sub-space conduits surge with erratic high-voltage power.",
-		Icon = "Anomaly",
-		Accent = "cream",
-	}),
-	StarlightCaravan = table.freeze({
-		Id = "StarlightCaravan",
-		Name = "Starlight Caravan",
-		Blurb = "Wandering cosmic merchants pass through, sharing stellar supplies!",
-		How = "Merchant trade routes deliver stardust supplies to active forges.",
-		Icon = "Shop",
-		Accent = "mango",
-	}),
-	HyperdriveOverload = table.freeze({
-		Id = "HyperdriveOverload",
-		Name = "Hyperdrive Overload",
-		Blurb = "Plasma conduits supercharge beyond standard safety thresholds!",
-		How = "Hyperdrive conduits burn bright with high-output plasma.",
-		Icon = "Forge",
-		Accent = "coral",
+	SupplyDrop = def({
+		Id = "SupplyDrop", Name = "Supply Drop", Kind = "supply", Icon = "Crate", Accent = "mint",
+		Blurb = "Supply crates are coming down.",
+		How = "Four crates land during the event. The first three players to grab each one get a crate key and Stardust.",
+		DropAt = { 0.12, 0.38, 0.62, 0.86 }, DropSeconds = 12, ClaimsPerDrop = 3,
+		Reward = { Keys = 1, KeyCrate = "ForgeCrate", Stardust = 25 },
 	}),
 })
 ServerEvents.ORDER = table.freeze({
-	"MeteorShower",
-	"CommunityForge",
-	"StardustRain",
-	"CelestialAlignment",
-	"SolarFlareEruption",
-	"SupernovaHarvest",
-	"VoidRiftIncursion",
-	"AstralTide",
-	"ChronosEcho",
-	"NebulaBloom",
-	"GlitchConvergence",
-	"StarlightCaravan",
-	"HyperdriveOverload",
+	"MeteorShower", "StardustRain", "CommunityForge", "Overheat", "CriticalMass", "ComboFever", "TwinSuns", "GoldenVault",
+	"CoreSeam", "KeyCache", "IronTitan", "ForgeRace", "LuckyDraw", "FallingStars", "SupplyDrop",
 })
 
 function ServerEvents.pick(lastId: string?, roll: number): string
@@ -2674,41 +2662,92 @@ function ServerEvents.advance(state, now: number, roll: number)
 		local id = ServerEvents.pick(state.LastId, roll)
 		return { Phase = "Warning", Id = id, PhaseEndsAt = now + ServerEvents.WARNING_SECONDS, LastId = state.LastId }, true
 	elseif state.Phase == "Warning" then
-		return { Phase = "Live", Id = state.Id, PhaseEndsAt = now + ServerEvents.LIVE_SECONDS, LastId = state.LastId }, true
+		return { Phase = "Live", Id = state.Id, PhaseEndsAt = now + ServerEvents.LIVE_SECONDS, StartedAt = now, LastId = state.LastId }, true
 	elseif state.Phase == "Live" then
 		return { Phase = "Results", Id = state.Id, PhaseEndsAt = now + ServerEvents.RESULTS_SECONDS, LastId = state.Id }, true
 	end
 	return { Phase = "Rest", Id = nil, PhaseEndsAt = now + ServerEvents.REST_SECONDS, LastId = state.LastId }, true
 end
 
-function ServerEvents.productionMultiplier(state): number
-	if state ~= nil and state.Phase == "Live" and state.Id == "MeteorShower" then
-		return ServerEvents.EVENTS.MeteorShower.Multiplier
+local function liveDef(state)
+	if state == nil or state.Phase ~= "Live" or state.Id == nil then
+		return nil
 	end
-	return 1
+	return ServerEvents.EVENTS[state.Id]
+end
+-- a modifier of the live event, or the neutral value
+function ServerEvents.mod(state, name: string): number
+	local d = liveDef(state)
+	local value = d and d.Mods and d.Mods[name]
+	if type(value) == "number" then
+		return value
+	end
+	return if name == "Crit" or name == "Collect" then 0 else 1
+end
+function ServerEvents.productionMultiplier(state): number
+	return ServerEvents.mod(state, "Production")
+end
+
+-- what a collect is worth in "seconds of output", the unit every collect-driven event scores in
+function ServerEvents.collectSeconds(collected: number, perSecond: number): number
+	if collected <= 0 then
+		return 0
+	end
+	return if perSecond > 0 then collected / perSecond else 1
+end
+function ServerEvents.collectPoints(collected: number, perSecond: number, cap: number?): number
+	if collected <= 0 then
+		return 0
+	end
+	return math.clamp(math.floor(ServerEvents.collectSeconds(collected, perSecond)), 1, cap or ServerEvents.EVENTS.CommunityForge.MaxPointsPerCollect)
+end
+
+-- what a collect drops during a "drops" event; rolls are 0..1
+function ServerEvents.drops(id: string?, collected: number, perSecond: number, rollA: number, rollB: number)
+	local d = id and ServerEvents.EVENTS[id]
+	local out = { Dust = 0, Cores = 0, Keys = 0, KeyCrate = nil }
+	if d == nil or d.Kind ~= "drops" or collected <= 0 then
+		return out
+	end
+	local drops = d.Drops
+	if drops.Dust then
+		out.Dust = math.clamp(math.floor(math.sqrt(ServerEvents.collectSeconds(collected, perSecond))), 1, drops.Dust)
+	end
+	if drops.CoreChance and rollA < drops.CoreChance then
+		out.Cores = 1 + math.floor(rollB * drops.CoreMax * 0.999)
+	end
+	if drops.KeyChance and rollA < drops.KeyChance then
+		out.Keys = 1
+		out.KeyCrate = drops.KeyCrate
+	end
+	return out
+end
+function ServerEvents.rainDust(collected: number, perSecond: number): number
+	return ServerEvents.drops("StardustRain", collected, perSecond, 1, 0).Dust
 end
 
 function ServerEvents.communityGoal(players: number): number
-	local def = ServerEvents.EVENTS.CommunityForge
-	return math.max(def.MinGoal, math.max(1, math.floor(players)) * def.PointsPerPlayer)
+	local d = ServerEvents.EVENTS.CommunityForge
+	return math.max(d.MinGoal, math.max(1, math.floor(players)) * d.PointsPerPlayer)
+end
+function ServerEvents.communityStardust(rank: number): number
+	local d = ServerEvents.EVENTS.CommunityForge
+	return d.RewardStardust + (d.TopBonusStardust[rank] or 0)
 end
 
-function ServerEvents.collectPoints(collected: number, perSecond: number): number
+function ServerEvents.titanHealth(players: number): number
+	local d = ServerEvents.EVENTS.IronTitan
+	return math.max(d.MinHealth, math.max(1, math.floor(players)) * d.HealthPerPlayer)
+end
+function ServerEvents.titanCollectHit(collected: number, perSecond: number): number
 	if collected <= 0 then
 		return 0
 	end
-	local seconds = if perSecond > 0 then collected / perSecond else 1
-	return math.clamp(math.floor(seconds), 1, ServerEvents.EVENTS.CommunityForge.MaxPointsPerCollect)
+	local seconds = ServerEvents.collectSeconds(collected, perSecond)
+	return math.clamp(math.floor(math.sqrt(seconds) * 2), 1, ServerEvents.EVENTS.IronTitan.MaxCollectHit)
 end
 
-function ServerEvents.rainDust(collected: number, perSecond: number): number
-	if collected <= 0 then
-		return 0
-	end
-	local seconds = if perSecond > 0 then collected / perSecond else 1
-	return math.clamp(math.floor(math.sqrt(seconds)), 1, ServerEvents.EVENTS.StardustRain.MaxDustPerCollect)
-end
-
+-- highest first; ties go to whoever has the lower user id so the order never flickers
 function ServerEvents.ranking(points: { [number]: number })
 	local list = {}
 	for userId, value in points do
@@ -2725,9 +2764,55 @@ function ServerEvents.ranking(points: { [number]: number })
 	return list
 end
 
-function ServerEvents.communityStardust(rank: number): number
-	local def = ServerEvents.EVENTS.CommunityForge
-	return def.RewardStardust + (def.TopBonusStardust[rank] or 0)
+function ServerEvents.racePrize(rank: number)
+	local d = ServerEvents.EVENTS.ForgeRace
+	return d.Prizes[rank] or d.Consolation
+end
+
+-- Lucky Draw: `rolls` (0..1 each) pick tickets; a player can win once
+function ServerEvents.drawWinners(tickets: { [number]: number }, rolls: { number }, count: number?)
+	local pool = {}
+	for userId, n in tickets do
+		if n > 0 then
+			table.insert(pool, { UserId = userId, Tickets = n })
+		end
+	end
+	table.sort(pool, function(a, b)
+		return a.UserId < b.UserId
+	end)
+	local winners = {}
+	for index = 1, math.min(count or ServerEvents.EVENTS.LuckyDraw.Winners, #pool) do
+		local total = 0
+		for _, entry in pool do
+			total += entry.Tickets
+		end
+		if total <= 0 then
+			break
+		end
+		local target = (rolls[index] or 0) * total
+		local pickAt = #pool
+		local run = 0
+		for at, entry in pool do
+			run += entry.Tickets
+			if target < run then
+				pickAt = at
+				break
+			end
+		end
+		table.insert(winners, pool[pickAt].UserId)
+		table.remove(pool, pickAt)
+	end
+	return winners
+end
+
+-- Supply Drop: when each crate lands, as seconds after the event went live
+function ServerEvents.supplyTimes(): { number }
+	local d = ServerEvents.EVENTS.SupplyDrop
+	local times = {}
+	for _, fraction in d.DropAt do
+		table.insert(times, math.floor(ServerEvents.LIVE_SECONDS * fraction))
+	end
+	return times
 end
 
 function ServerEvents.secondsLeft(state, now: number): number
