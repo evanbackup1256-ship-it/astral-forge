@@ -2210,26 +2210,16 @@ __defs["TutorialScript"] = function()
 
 local TutorialScript = {}
 
-TutorialScript.PET_NAME = "Bolt"
 TutorialScript.EXPERIENCE_NAME = "GETTING STARTED"
 
+-- Each step points at one real control. `watch` says what finishes it:
+--   continue / finish  read it and press Next
+--   collect / buy / amount / page:<id>  the player does it and the step ticks itself off
 TutorialScript.STEPS = table.freeze({
-	{
-		id = "hello",
-		title = "Welcome to Astral Forge",
-		say = "Hi, I'm Bolt! I'll show you around the forge. Click me any time for a hint.",
-		body = "This guide points at exactly what to click. You can go back, skip or replay it from Settings.",
-		goal = "Say hi to Bolt",
-		startPage = "Overview",
-		page = "Overview",
-		watch = "continue",
-	},
 	{
 		id = "vault",
 		title = "This is your vault",
-		say = "Machines pour Flux into this vault, even while you're away.",
-		body = "Stored Flux isn't money yet. Collect it to turn it into cash you can spend.",
-		goal = "Find the vault",
+		line = "Your machines pour Flux in here, even while you're offline.",
 		target = "OverviewVaultClaimActions",
 		startPage = "Overview",
 		page = "Overview",
@@ -2237,24 +2227,22 @@ TutorialScript.STEPS = table.freeze({
 	},
 	{
 		id = "collect",
-		title = "Collect your Flux",
-		say = "Collect the vault to turn its Flux into cash.",
-		body = "A full vault stops filling, so collect often.",
-		goal = "Collect the vault",
+		title = "Collect it",
+		line = "Stored Flux becomes cash you can spend. A full vault stops filling.",
+		task = "Collect the vault",
 		target = "OverviewVaultClaimActions",
 		page = "Overview",
 		watch = "collect",
 		auto = true,
 		cta = "collect",
-		ctaLabel = "Collect stored Flux",
-		controls = "Keyboard: E  ·  Xbox: Y",
+		ctaLabel = "Collect",
+		controls = "Keyboard E  ·  Controller Y",
 	},
 	{
 		id = "toWorkshop",
-		title = "Machines live in the Workshop",
-		say = "Now open the Workshop. That's where you buy machines.",
-		body = "Every page is in the menu. Workshop is the one you'll use most.",
-		goal = "Open the Workshop",
+		title = "Open the Workshop",
+		line = "Machines are bought here. It's the page you'll use most.",
+		task = "Open the Workshop",
 		target = "Nav_Workshop",
 		page = "Workshop",
 		watch = "page:Workshop",
@@ -2264,10 +2252,9 @@ TutorialScript.STEPS = table.freeze({
 	},
 	{
 		id = "buy",
-		title = "Buy your first machine",
-		say = "Buy a machine here. Every machine adds Flux each second.",
-		body = "Each level adds Flux per second. Grey means you need more cash: collect the vault first.",
-		goal = "Buy a machine",
+		title = "Buy a machine",
+		line = "Every level adds Flux per second. Greyed out means collect first.",
+		task = "Buy any machine",
 		target = "WorkshopBuyClaim",
 		startPage = "Workshop",
 		page = "Workshop",
@@ -2276,32 +2263,28 @@ TutorialScript.STEPS = table.freeze({
 	},
 	{
 		id = "amount",
-		title = "Buy many levels at once",
-		say = "Pick x5 or Max to buy several levels at once.",
-		body = "x1 buys one level, x5 buys five, Max buys everything you can afford.",
-		goal = "Pick x5 or Max",
+		title = "Buy in bulk",
+		line = "x5 buys five levels at once. Max buys everything you can afford.",
+		task = "Switch to x5 or Max",
 		target = "AmountToggleTarget",
 		page = "Workshop",
 		watch = "amount",
 		auto = true,
-		controls = "Xbox: LT / RT",
+		controls = "Controller LT / RT",
 	},
 	{
 		id = "level",
-		title = "Your forge level",
-		say = "This bar is your level. Each new level opens another part of the forge.",
-		body = "Open the bar any time to see every level and what it unlocks.",
-		goal = "Look at the level bar",
+		title = "Your level",
+		line = "Levels open new parts of the forge. Tap the bar to see what each one unlocks.",
 		target = { "LevelBarTarget", "MobileHeader" },
 		page = "Workshop",
 		watch = "continue",
 	},
 	{
 		id = "toResearch",
-		title = "Research lasts forever",
-		say = "Open Research. Its bonuses stay even after you rebirth.",
-		body = "Research opens properly at level 2, but you can take a look now.",
-		goal = "Open Research",
+		title = "Open Research",
+		line = "Research bonuses are permanent. They stay when you rebirth.",
+		task = "Open Research",
 		target = "Nav_Research",
 		page = "Research",
 		watch = "page:Research",
@@ -2310,55 +2293,22 @@ TutorialScript.STEPS = table.freeze({
 		ctaLabel = "Open Research",
 	},
 	{
-		id = "research",
-		title = "Buy the lit bonuses",
-		say = "When a bonus lights up, you can afford it. Buy them in order.",
-		body = "Research is the best long-term use of your cash.",
-		goal = "Read the research page",
-		target = "ResearchBuyClaimActions",
-		page = "Research",
-		watch = "continue",
-	},
-	{
 		id = "menu",
-		title = "Everything is in the menu",
-		say = "Every page is in the menu, grouped into sections. On a phone, it's the Menu tab.",
-		body = "Home, Daily, Progress, Games & Deals, Social and System. New pages appear as you level up.",
-		goal = "Look over the menu",
+		title = "Every page is here",
+		line = "New pages join the menu as you level up. On a phone it's the Menu tab.",
 		target = { "RailNavClaim", "Nav_Menu" },
 		page = "Research",
 		watch = "continue",
 	},
 	{
-		id = "rebirth",
-		title = "Rebirth makes every run faster",
-		say = "Later, Rebirth trades your machines for Cores. Your research stays.",
-		body = "The Overview shows how many Cores a rebirth pays before you confirm.",
-		goal = "Learn about rebirth",
+		id = "finish",
+		title = "That's the loop",
+		line = "Collect, buy, research, and rebirth for Cores when the run slows down. Replay this from Settings.",
 		target = { "Nav_Overview", "Nav_Menu" },
 		startPage = "Overview",
 		page = "Overview",
-		watch = "continue",
-	},
-	{
-		id = "finish",
-		title = "You're ready",
-		say = "That's the tour. You can replay it from Settings, under Guide.",
-		body = "Collect, buy machines, research, rebirth. Finishing pays a small Flux bonus.",
-		goal = "Finish the guide",
-		target = { "Nav_Settings", "Nav_Menu" },
-		page = "Overview",
 		watch = "finish",
 	},
-})
-
-TutorialScript.QUIPS = table.freeze({
-	idle = { "Stuck? Follow my finger.", "The highlighted box is the next step.", "Careful, I'm ticklish.", "I run on Flux. Mostly." },
-	done = { "Nice. On to the next bit.", "You're a natural.", "That's it. Keep going." },
-	dizzy = { "Whoa. The forge is spinning.", "Okay, okay, no more spins.", "Hang on. Which way is up?" },
-	pet = { "Heh. That's nice.", "My circuits are humming.", "You're my favourite forger." },
-	wake = { "Huh? I'm awake. Totally awake.", "Oh. Where were we?" },
-	missing = { "That control is still loading. I'll keep looking.", "I lost the target for a second. You can keep moving.", "Nothing to click yet. I'll point it out when it appears." },
 })
 
 local function num(value: any, fallback: number): number
@@ -2392,86 +2342,69 @@ function TutorialScript.needsAction(step): boolean
 	return step ~= nil and step.watch ~= "continue" and step.watch ~= "finish"
 end
 
-function TutorialScript.petPose(rect, screenW: number, screenH: number, petSize: number, dock)
-	local margin = 14
-	local half = petSize / 2
-	local function clampPoint(x, y)
-		return math.clamp(x, half + 6, math.max(half + 6, screenW - half - 6)), math.clamp(y, half + 6, math.max(half + 6, screenH - half - 6))
-	end
-	local dockH = if dock ~= nil then num(dock.h, 0) else 0
-	local function onDock(x, y): boolean
-		if dock == nil or dockH <= 0 then
-			return false
-		end
-		local pad = 8
-		return x + half > dock.x - pad and x - half < dock.x + dock.w + pad and y + half > dock.y - pad and y - half < dock.y + dockH + pad
-	end
-	if rect == nil then
-		local dockTop = if dock ~= nil then dock.y else screenH * 0.7
-		local dockX = if dock ~= nil then dock.x + dock.w - half - 10 else screenW / 2
-		local below = dock ~= nil and dockH > 0 and dockTop + dockH / 2 < screenH / 2
-		local x, y = clampPoint(dockX, if below then dockTop + dockH + half + 10 else dockTop - half - 10)
-		return x, y, if below then -90 else 90, "dock"
-	end
-	local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
-	local room = petSize + margin * 2
-	local candidates: { { any } } = {
-		{ "right", screenW - (rect.x + rect.w) >= room, rect.x + rect.w + margin + half, cy },
-		{ "left", rect.x >= room, rect.x - margin - half, cy },
-		{ "below", screenH - (rect.y + rect.h) >= room, cx, rect.y + rect.h + margin + half },
-		{ "above", rect.y >= room, cx, rect.y - margin - half },
-	}
-	local side, x, y
-	for _, candidate in candidates do
-		if candidate[2] then
-			local px, py = clampPoint(candidate[3], candidate[4])
-			if not onDock(px, py) then
-				side, x, y = candidate[1], px, py
-				break
-			end
-		end
-	end
-	if side == nil then
-		for _, candidate in candidates do
-			if candidate[2] then
-				side, x, y = candidate[1], candidate[3], candidate[4]
-				break
-			end
-		end
-	end
-	if side == nil then
-		side, x, y = "above", cx, rect.y - margin - half
-	end
-	x, y = clampPoint(x, y)
-	local px = math.clamp(x, rect.x, rect.x + rect.w)
-	local py = math.clamp(y, rect.y, rect.y + rect.h)
-	local angle = math.deg(math.atan2(py - y, px - x))
-	if px == x and py == y then
-		angle = 90
-	end
-	return x, y, angle, side
-end
-
-function TutorialScript.dockPlacement(rect, screenH: number, cardH: number, topInset: number, bottomInset: number)
-	local gap = 12
-	local bottomY = screenH - math.max(gap, bottomInset) - cardH
-	local topY = math.max(gap, topInset + 8)
-	if rect == nil then
-		return bottomY, "bottom"
-	end
-	local function overlap(y: number): number
-		return math.max(0, math.min(y + cardH + gap, rect.y + rect.h) - math.max(y - gap, rect.y))
-	end
-	local atBottom = overlap(bottomY)
-	if atBottom > 0 and overlap(topY) < atBottom then
-		return topY, "top"
-	end
-	return bottomY, "bottom"
-end
-
 function TutorialScript.progress(index: number, count: number, met: boolean): number
 	local total = math.max(1, count)
 	return math.clamp((index - (if met then 0 else 0.5)) / total, 0, 1)
+end
+
+-- Where the callout card goes: beside the target with room for the leader line (right, left,
+-- below, above), else docked at the bottom or top, whichever covers less of the target.
+-- Returns x, y and the side ("right" | "left" | "below" | "above" | "dock").
+TutorialScript.LEADER_GAP = 34
+function TutorialScript.calloutPlacement(rect, screenW: number, screenH: number, cardW: number, cardH: number, topInset: number?, bottomInset: number?)
+	local edge = 12
+	local gap = TutorialScript.LEADER_GAP
+	local minY = math.max(edge, num(topInset, 0) + 8)
+	local maxY = math.max(minY, screenH - math.max(edge, num(bottomInset, 0)) - cardH)
+	local minX = edge
+	local maxX = math.max(minX, screenW - edge - cardW)
+	local centreX = (screenW - cardW) / 2
+	if rect == nil then
+		return centreX, maxY, "dock"
+	end
+	local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
+	local fitsY = cardH <= screenH - minY - math.max(edge, num(bottomInset, 0))
+	if fitsY and rect.x + rect.w + gap + cardW <= screenW - edge then
+		return rect.x + rect.w + gap, math.clamp(cy - cardH / 2, minY, maxY), "right"
+	end
+	if fitsY and rect.x - gap - cardW >= edge then
+		return rect.x - gap - cardW, math.clamp(cy - cardH / 2, minY, maxY), "left"
+	end
+	if rect.y + rect.h + gap + cardH <= screenH - math.max(edge, num(bottomInset, 0)) then
+		return math.clamp(cx - cardW / 2, minX, maxX), rect.y + rect.h + gap, "below"
+	end
+	if rect.y - gap - cardH >= minY then
+		return math.clamp(cx - cardW / 2, minX, maxX), rect.y - gap - cardH, "above"
+	end
+	local function overlap(y: number): number
+		return math.max(0, math.min(y + cardH, rect.y + rect.h) - math.max(y, rect.y))
+	end
+	if overlap(maxY) > overlap(minY) then
+		return centreX, minY, "dock"
+	end
+	return centreX, maxY, "dock"
+end
+
+-- The leader line for a placed card: from the card's edge facing the target to the target's edge.
+function TutorialScript.leader(rect, side: string, cardX: number, cardY: number, cardW: number, cardH: number)
+	if rect == nil or side == "dock" then
+		return nil
+	end
+	local inset = 18
+	if side == "right" or side == "left" then
+		local y = math.clamp(rect.y + rect.h / 2, cardY + inset, cardY + cardH - inset)
+		local ty = math.clamp(y, rect.y + 4, rect.y + rect.h - 4)
+		if side == "right" then
+			return cardX, y, rect.x + rect.w, ty
+		end
+		return cardX + cardW, y, rect.x, ty
+	end
+	local x = math.clamp(rect.x + rect.w / 2, cardX + inset, cardX + cardW - inset)
+	local tx = math.clamp(x, rect.x + 4, rect.x + rect.w - 4)
+	if side == "below" then
+		return x, cardY, tx, rect.y + rect.h
+	end
+	return x, cardY + cardH, tx, rect.y
 end
 
 return TutorialScript

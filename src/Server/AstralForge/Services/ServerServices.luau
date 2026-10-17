@@ -3875,14 +3875,14 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			profile.Flags.TutorialDone = true
 			profile.Flags.TutorialStep = 15
 			if profile.Flags.TutorialRewardClaimed then
-				return responseSuccess("Guide done. 250 flux is yours.")
+				return responseSuccess("Guide finished.")
 			end
 			profile.Flags.TutorialRewardClaimed = true
 			local reward = GameConfig.Economy.TutorialReward
 			profile.Cash = Economy.Add(profile.Cash, reward)
 			profile.RunCash = Economy.Add(profile.RunCash, reward)
 			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, reward)
-			return responseSuccess("Tutorial done. +" .. Format.Number(reward) .. " flux!")
+			return responseSuccess("Guide finished. +" .. Format.Number(reward) .. " Flux")
 		end)
 	end
 

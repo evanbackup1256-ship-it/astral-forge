@@ -177,7 +177,6 @@ assert(#component({ intensity = 1 }).children == 8, "constrained devices use few
 antialag.allowAmbient = false
 assert(component({ intensity = 1 }).children == nil, "disabled ambient decoration creates no curtains")
 assert(not clockEnabled, "disabled ambient decoration stops its clock")
-assert(core:find('Name = "BoltSprite"', 1, true) and core:find('Image = "rbxassetid://70681368255210"', 1, true), "Bolt uses the uploaded authored atlas")
 assert(core:find('Name = "TopbarResourceRail"', 1, true) and core:find("local chips = allChips", 1, true), "topbar resources must not be pruned")
 local mobileStart = assert(core:find("local function MobileHeader(", 1, true))
 local mobileEnd = assert(core:find("local function MobileQuickActions(", mobileStart, true))
@@ -302,4 +301,4 @@ reply = { ok = true }
 findButton("SEND REPORT").onClick()
 renderReport()
 assert(findButton("DONE") and blocked == 1 and reportedAt[123] ~= nil, "blocking happens only after a successful report")
-print("[INFO] [TEST] presentation passed | 2D wheel landing/labels/reduced motion, aurora, Bolt, report retry/payload")
+print("[INFO] [TEST] presentation passed | 2D wheel landing/labels/reduced motion, aurora, report retry/payload")

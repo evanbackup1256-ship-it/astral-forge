@@ -16710,38 +16710,23 @@ local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local PET_SIZE = 72
-local TYPE_RATE = 46
-local AUTO_ADVANCE_SECONDS = 1.1
-local SPARKS = 12
-local HEARTS = 5
-local TRAIL = 9
-local ZZZ = 3
-local SLEEP_AFTER = 14
-local pixelPosition = _ui.pixelPosition
-local useGuiSize = _ui.useGuiSize
+local CARD_W = 360
+local AUTO_ADVANCE_SECONDS = 0.9
+local MISSING_NOTE_AFTER = 2.5
+local WHITE_HOT = Color3.fromRGB(255, 244, 222)
 local function approach(current, goal, rate, dt)
 	return current + (goal - current) * (1 - math.exp(-rate * dt))
+end
+local function easeOut(t)
+	local u = 1 - math.clamp(t, 0, 1)
+	return 1 - u * u * u
 end
 local function blankFrame(width, height)
 	return {
 		spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
-		pet = {
-			x = width * 0.5, y = height * 0.6, tilt = 0, sx = 1, sy = 1, lookX = 0, lookY = 0, pupil = 7, blink = 0,
-			point = 90, reach = 0, poke = 0, wingA = 0, wingL = 0.7, mouth = 3, mouthW = 11, happy = 0, glow = 0,
-			tipX = 0, tipY = 0, shadow = 1, sleep = 0,
-		},
-		chars = 0,
-		sparks = {},
-		hearts = {},
-		trail = {},
-		zzz = 0,
-		dockY = height - 260,
-		dockTop = false,
-		bubbleX = 8,
-		bubbleY = 0,
-		bubbleAbove = true,
-		bubbleScale = 1,
+		card = { x = (width - CARD_W) / 2, y = height - 240 },
+		leader = nil,
+		missing = false,
 		t = 0,
 	}
 end
@@ -16792,6 +16777,31 @@ local function findTarget(name)
 		end
 	end
 	return nil
+end
+
+-- the task box's check: two strokes stamped in when the player does the thing
+local function StampedCheck(props)
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(20, 20),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 406,
+	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement("frame", {
+		Size = UDim2.fromOffset(7, 3),
+		Position = UDim2.fromOffset(3, 10),
+		Rotation = 45,
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+		ZIndex = 406,
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(12, 3),
+		Position = UDim2.fromOffset(7, 8),
+		Rotation = -52,
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+		ZIndex = 406,
+	}))
 end
 
 local function TutorialOverlay(_param)
@@ -16849,11 +16859,6 @@ local function TutorialOverlay(_param)
 		Audio:play(if step == 1 then "modalOpen" else "tutorialStep")
 	end, { step })
 	React.useEffect(function()
-		if met and needsAction then
-			Audio:play("successChime")
-		end
-	end, { met, needsAction, step })
-	React.useEffect(function()
 		if not (met and needsAction and copy.auto) then
 			return nil
 		end
@@ -16897,47 +16902,24 @@ local function TutorialOverlay(_param)
 		end
 	end, {})
 
-	local sideInset = math.max(10, viewport.sideInset)
 	local phone = viewport.width < 720 or viewport.height < 560
-	local dockW = math.min(if phone then viewport.width - sideInset * 2 else 520, viewport.width - sideInset * 2)
-	local innerW = dockW - 28
+	local cardW = math.min(CARD_W, viewport.width - 24)
+	local innerW = cardW - 32
 	local hasCta = ctaLabel ~= nil and onCta ~= nil and needsAction and not met
 	local layoutRef = React.useRef({})
-	layoutRef.current = { dockW = dockW, top = viewport.topInset, bottom = viewport.bottomInset }
+	layoutRef.current = { cardW = cardW, top = viewport.topInset, bottom = viewport.bottomInset }
 
 	local rootRef = React.useRef(nil)
-	local rootSize = useGuiSize(rootRef, false)
 	local probeRef = React.useRef(nil)
 	local dockRef = React.useRef(nil)
 	local frame, setFrame = React.useBinding(blankFrame(viewport.width, viewport.height))
-	local sizedFrame = React.joinBindings({ frame, rootSize })
-	local petState = React.useRef(nil)
-	if petState.current == nil then
-		local sparks, hearts, trail = {}, {}, {}
-		for i = 1, SPARKS do
-			sparks[i] = { x = 0, y = 0, vx = 0, vy = 0, age = 1, life = 1 }
-		end
-		for i = 1, HEARTS do
-			hearts[i] = { x = 0, y = 0, vx = 0, vy = 0, age = 1, life = 1 }
-		end
-		for i = 1, TRAIL do
-			trail[i] = { x = -100, y = -100, age = 1, life = 1 }
-		end
-		petState.current = {
-			x = viewport.width * 0.5, y = viewport.height * 0.6, vx = 0, vy = 0,
+	local guide = React.useRef(nil)
+	if guide.current == nil then
+		guide.current = {
 			spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
-			target = nil, targetName = nil, lastSearch = 0, missingSince = 0, missingQuipStep = 0,
-			nextBlink = 1.5, blinkAt = -10, doubleBlink = false,
-			chars = 0, lastTick = 0,
-			mouse = Vector2.new(-1000, -1000), mouseMovedAt = 0, nearPet = false,
-			spinAt = -10, celebrateAt = -10, hopAt = -10, clickTimes = {}, dizzyUntil = -10,
-			rub = 0, lastHeart = -10, lastPetQuip = -10, sleeping = false,
-			tipX = 0, tipY = 0, tipVX = 0, tipVY = 0,
-			wingPhase = 0, flapRate = 10, mouthH = 3, mouthW = 11, happy = 0, glow = 0, pupil = 7,
-			lookX = 0, lookY = 0, reach = 0, sleep = 0, tilt = 0, squash = 0, squashV = 0,
-			sparks = sparks, sparkNext = 1, hearts = hearts, heartNext = 1, trail = trail, trailNext = 1, trailAt = 0,
-			dockY = nil, bubblePopAt = 0,
-			t = 0,
+			card = nil,
+			target = nil, targetName = nil, lastSearch = 0, missingSince = 0,
+			stepAt = 0, stampAt = -10, t = 0,
 		}
 	end
 	React.useEffect(function()
@@ -16945,7 +16927,7 @@ local function TutorialOverlay(_param)
 		local function constrainSelection()
 			if redirecting or not UserInputService.GamepadEnabled then return end
 			local selected = GuiService.SelectedObject
-			local root, target = rootRef.current, petState.current.target
+			local root, target = rootRef.current, guide.current.target
 			if selected == nil or (root and selected:IsDescendantOf(root)) or (target and (selected == target or selected:IsDescendantOf(target))) then return end
 			redirecting = true
 			local assigned = target and GamepadNavigationService.AssignSelection(target)
@@ -16963,109 +16945,74 @@ local function TutorialOverlay(_param)
 		constrainSelection()
 		return function() connection:Disconnect() end
 	end, {})
-	local quip, setQuip = React.useState(nil)
-	local quipToken = React.useRef(0)
-	local overlayAlive = React.useRef(true)
 	React.useEffect(function()
-		overlayAlive.current = true
-		return function()
-			overlayAlive.current = false
-			quipToken.current += 1
-		end
-	end, {})
-	local sayQuip = React.useCallback(function(pool)
-		if type(pool) ~= "table" or #pool == 0 then
-			return
-		end
-		quipToken.current += 1
-		local token = quipToken.current
-		setQuip(pool[math.random(1, #pool)])
-		task.delay(2.8, function()
-			if overlayAlive.current and quipToken.current == token then
-				setQuip(nil)
-			end
-		end)
-	end, {})
-	local say = quip or copy.say or copy.body
+		guide.current.stepAt = guide.current.t
+	end, { step })
+	-- doing the thing: the check stamps in and the target throws a burst
 	React.useEffect(function()
-		local st = petState.current
-		st.chars = 0
-		st.bubblePopAt = st.t
-	end, { say })
-	local burst = React.useCallback(function(amount, speedMin, speedMax)
-		local st = petState.current
-		for _ = 1, amount do
-			local spark = st.sparks[st.sparkNext]
-			st.sparkNext = st.sparkNext % SPARKS + 1
-			local angle = math.random() * math.pi * 2
-			local speed = speedMin + math.random() * (speedMax - speedMin)
-			spark.x, spark.y = 0, 0
-			spark.vx, spark.vy = math.cos(angle) * speed, math.sin(angle) * speed - 40
-			spark.age, spark.life = 0, 0.6 + math.random() * 0.35
+		if not (met and needsAction) then
+			return nil
 		end
-	end, {})
-	React.useEffect(function()
-		if met and needsAction then
-			local st = petState.current
-			st.celebrateAt = st.t
-			st.squashV += 5
-			burst(SPARKS, 90, 170)
+		local g = guide.current
+		g.stampAt = g.t
+		Audio:play("successChime")
+		local target = g.target
+		if target ~= nil and shown(target) and not reducedMotion then
+			pcall(function()
+				local Juice = require(script.Parent.JuiceFx)
+				Juice.burst(target.AbsolutePosition + target.AbsoluteSize / 2, Palette.mango, 1.1)
+			end)
 		end
+		return nil
 	end, { met, needsAction, step })
 
 	React.useEffect(function()
-		-- reused every frame so the pet loop does not allocate
 		local rectBuf = { x = 0, y = 0, w = 0, h = 0 }
-		local dockRect = { x = 0, y = 0, w = 0, h = 0 }
 		local connection = RunService.RenderStepped:Connect(function(rawDt)
 			local dt = math.min(rawDt, 1 / 20)
-			local st = petState.current
+			local g = guide.current
 			local root = rootRef.current
 			local probe = probeRef.current
 			if root == nil or probe == nil then
 				return
 			end
-			st.t += dt
-			local t = st.t
+			g.t += dt
+			local t = g.t
 			local k = math.max(0.01, probe.AbsoluteSize.X / 100)
 			local origin = root.AbsolutePosition
 			local screenW = root.AbsoluteSize.X / k
 			local screenH = root.AbsoluteSize.Y / k
-			local amp = if soft then 0.65 else 1
 			local layout = layoutRef.current
 
-			if st.targetName ~= copy.target then
-				st.targetName = copy.target
-				st.target = nil
-				st.lastSearch = 0
+			if g.targetName ~= copy.target then
+				g.targetName = copy.target
+				g.target = nil
+				g.lastSearch = 0
 			end
-			if (st.target == nil or not shown(st.target)) and t - st.lastSearch > 0.25 then
-				st.lastSearch = t
-				st.target = findTarget(copy.target)
+			if (g.target == nil or not shown(g.target)) and t - g.lastSearch > 0.25 then
+				g.lastSearch = t
+				g.target = findTarget(copy.target)
 			end
 			local rect = nil
-			if st.target ~= nil and shown(st.target) then
+			if g.target ~= nil and shown(g.target) then
 				local pad = 6
-				local p = (st.target.AbsolutePosition - origin) / k
-				local s = st.target.AbsoluteSize / k
+				local p = (g.target.AbsolutePosition - origin) / k
+				local s = g.target.AbsoluteSize / k
 				rectBuf.x, rectBuf.y, rectBuf.w, rectBuf.h = p.X - pad, p.Y - pad, s.X + pad * 2, s.Y + pad * 2
 				rect = rectBuf
 			end
 			if copy.target ~= nil and rect == nil then
-				if st.missingSince <= 0 then
-					st.missingSince = t
-				elseif t - st.missingSince > 2.5 and st.missingQuipStep ~= step then
-					st.missingQuipStep = step
-					sayQuip(TutorialScript.QUIPS.missing)
+				if g.missingSince <= 0 then
+					g.missingSince = t
 				end
 			else
-				st.missingSince = 0
+				g.missingSince = 0
 			end
-			local spot = st.spot
+			local spot = g.spot
 			local ease = 1 - math.exp(-dt * 11)
 			if rect ~= nil then
 				if spot.a < 0.02 then
-					spot.x, spot.y, spot.w, spot.h = rect.x - 30, rect.y - 30, rect.w + 60, rect.h + 60
+					spot.x, spot.y, spot.w, spot.h = rect.x - 40, rect.y - 40, rect.w + 80, rect.h + 80
 				end
 				spot.x += (rect.x - spot.x) * ease
 				spot.y += (rect.y - spot.y) * ease
@@ -17075,290 +17022,33 @@ local function TutorialOverlay(_param)
 			else
 				spot.a += (0 - spot.a) * ease
 			end
-			local lit = if spot.a > 0.3 then rect else nil
+			local lit = if spot.a > 0.3 then spot else nil
 
 			local dock = dockRef.current
 			local cardH = if dock ~= nil and dock.AbsoluteSize.Y > 1 then dock.AbsoluteSize.Y / k else 220
-			local goalDockY, dockSide = TutorialScript.dockPlacement(lit, screenH, cardH, layout.top / k, layout.bottom / k)
-			st.dockY = if st.dockY == nil then goalDockY else approach(st.dockY, goalDockY, 10, dt)
-			dockRect.x, dockRect.y, dockRect.w, dockRect.h = (screenW - layout.dockW) / 2, st.dockY, layout.dockW, cardH
-
-			local mouseScreen = UserInputService:GetMouseLocation()
-			if st.screenGui == nil then
-				st.screenGui = root:FindFirstAncestorOfClass("ScreenGui")
+			local goalX, goalY, side = TutorialScript.calloutPlacement(lit, screenW, screenH, layout.cardW, cardH, layout.top / k, layout.bottom / k)
+			if g.card == nil then
+				g.card = { x = goalX, y = goalY }
 			end
-			local screenGui = st.screenGui
-			local inset = if screenGui ~= nil and screenGui.IgnoreGuiInset then Vector2.zero else GuiService:GetGuiInset()
-			local mouse = (mouseScreen - inset - origin) / k
-			local moved = (mouse - st.mouse).Magnitude
-			local mouseDistance = (Vector2.new(st.x, st.y) - mouse).Magnitude
-			local hovering = mouseDistance < PET_SIZE * 0.6
-			if moved > 2 then
-				local speed = moved / math.max(dt, 1e-3)
-				st.mouse = mouse
-				if st.sleeping then
-					st.sleeping = false
-					st.vy -= 200
-					st.squashV -= 5
-					Audio:play("modalPop")
-					sayQuip(TutorialScript.QUIPS.wake)
-				end
-				st.mouseMovedAt = t
-				if speed > 2400 and mouseDistance < 90 and t - st.hopAt > 0.8 then
-					st.hopAt = t
-					st.vy -= 260
-					st.squashV -= 4
-					Audio:play("hoverTick")
-				end
-				if hovering then
-					st.rub += moved
-				end
-			end
-			st.rub *= math.exp(-dt * 1.4)
-			if st.rub > 240 and t - st.lastHeart > 0.32 then
-				st.lastHeart = t
-				st.rub = 110
-				local heart = st.hearts[st.heartNext]
-				st.heartNext = st.heartNext % HEARTS + 1
-				heart.x, heart.y = (math.random() - 0.5) * 24, -PET_SIZE * 0.35
-				heart.vx, heart.vy = (math.random() - 0.5) * 30, -70 - math.random() * 30
-				heart.age, heart.life = 0, 1.1
-				st.happy = 1
-				Audio:play("hoverTick")
-				if t - st.lastPetQuip > 5 then
-					st.lastPetQuip = t
-					sayQuip(TutorialScript.QUIPS.pet)
-				end
-			end
-			if hovering and not st.nearPet then
-				Audio:play("hoverTick")
-				st.squashV += 2.5
-			end
-			st.nearPet = hovering
-
-			local total = utf8.len(say) or #say
-			if st.chars < total then
-				local before = math.floor(st.chars)
-				st.chars = math.min(total, st.chars + dt * TYPE_RATE)
-				if math.floor(st.chars) // 5 > before // 5 and t - st.lastTick > 0.07 then
-					st.lastTick = t
-					Audio:play("tick")
-				end
-			end
-			local talking = st.chars < total
-			if not talking and not st.sleeping and t - st.mouseMovedAt > SLEEP_AFTER and t - st.celebrateAt > 3 then
-				st.sleeping = true
-			end
-			st.sleep = approach(st.sleep, if st.sleeping then 1 else 0, if st.sleeping then 1.6 else 9, dt)
-			local dizzy = t < st.dizzyUntil
-
-			local goalX, goalY, pointAngle = TutorialScript.petPose(lit, screenW, screenH, PET_SIZE, dockRect)
-			if mouseDistance < 140 and mouseDistance > 1 and not st.sleeping then
-				local away = (Vector2.new(st.x, st.y) - mouse).Unit
-				local push = (1 - mouseDistance / 140) * 22 * amp
-				goalX += away.X * push
-				goalY += away.Y * push
-			end
-			goalY += st.sleep * 10
-			local steps = math.max(1, math.ceil(dt / (1 / 120)))
-			local h = dt / steps
-			for _ = 1, steps do
-				st.vx += ((goalX - st.x) * 55 - st.vx * 11.5) * h
-				st.vy += ((goalY - st.y) * 55 - st.vy * 11.5) * h
-				st.x += st.vx * h
-				st.y += st.vy * h
-				st.squashV += (-st.squash * 380 - st.squashV * 13) * h
-				st.squash += st.squashV * h
-				st.tipVX += ((-st.vx * 0.02 - st.tipX) * 120 - st.tipVX * 10) * h
-				st.tipVY += ((-st.vy * 0.02 - st.tipY) * 120 - st.tipVY * 10) * h
-				st.tipX += st.tipVX * h
-				st.tipY += st.tipVY * h
-			end
-			local speed = math.sqrt(st.vx * st.vx + st.vy * st.vy)
-			local breathe = 1 - st.sleep * 0.6
-			local bob = (math.sin(t * 2.3) * 5 + math.sin(t * 3.7) * 1.5) * amp * breathe
-
-			local flapGoal = (9 + math.clamp(speed / 110, 0, 9) + (if t - st.celebrateAt < 1.2 then 6 else 0)) * (1 - st.sleep * 0.7)
-			st.flapRate = approach(st.flapRate, flapGoal, 4, dt)
-			st.wingPhase += dt * st.flapRate
-			local wingA = math.sin(st.wingPhase) * 30 * amp
-			local wingL = 0.7 + math.sin(st.wingPhase + 0.9) * 0.12
-
-			if t >= st.nextBlink then
-				st.blinkAt = t
-				st.doubleBlink = math.random() < 0.22
-				st.nextBlink = t + 2 + math.random() * 3
-			end
-			local since = t - st.blinkAt
-			local blink = 0
-			if since < 0.16 then
-				blink = math.sin(since / 0.16 * math.pi)
-			elseif st.doubleBlink and since > 0.22 and since < 0.38 then
-				blink = math.sin((since - 0.22) / 0.16 * math.pi)
-			end
-			blink = math.max(blink, st.sleep * 0.88)
-
-			local lookAt = if t - st.mouseMovedAt < 1.6 then mouse elseif rect ~= nil then Vector2.new(rect.x + rect.w / 2, rect.y + rect.h / 2) else Vector2.new(st.x, st.y + 40)
-			local look = lookAt - Vector2.new(st.x, st.y + bob)
-			local lookUnit = if look.Magnitude > 1 then look.Unit * math.min(1, look.Magnitude / 60) else Vector2.zero
-			local lookGoalX = if dizzy then math.cos(t * 9) * 3 else lookUnit.X * 3.2
-			local lookGoalY = if dizzy then math.sin(t * 9) * 3 else lookUnit.Y * 3.2
-			st.lookX = approach(st.lookX, lookGoalX, if dizzy then 40 else 16, dt)
-			st.lookY = approach(st.lookY, lookGoalY, if dizzy then 40 else 16, dt)
-			st.pupil = approach(st.pupil, if hovering then 8.5 elseif dizzy then 5.5 else 7, 12, dt)
-
-			local celebrate = t - st.celebrateAt
-			local happyGoal = if hovering or celebrate < 1.6 or met or st.rub > 60 then 1 else 0
-			st.happy = approach(st.happy, happyGoal, 6, dt)
-			st.glow = approach(st.glow, if hovering then 1 else 0, 10, dt)
-			local mouthGoal = if talking then 3.5 + 3.2 * (0.5 + 0.5 * math.sin(t * 17)) * (0.6 + 0.4 * math.sin(t * 5.3))
-				elseif st.sleeping then 3
-				elseif dizzy then 4
-				elseif st.happy > 0.5 then 6
-				else 3
-			st.mouthH = approach(st.mouthH, mouthGoal, 22, dt)
-			st.mouthW = approach(st.mouthW, if st.happy > 0.5 and not talking then 16 elseif st.sleeping then 6 else 11, 14, dt)
-
-			-- audit-ignore: per-frame (setFrame needs fresh tables each frame or React skips the render)
-			local sparkOut = {}
-			for i, spark in st.sparks do
-				if spark.age < spark.life then
-					spark.age += dt
-					spark.vy += 260 * dt
-					spark.vx *= math.exp(-dt * 1.2)
-					spark.x += spark.vx * dt
-					spark.y += spark.vy * dt
-					sparkOut[i] = { x = spark.x, y = spark.y, a = spark.age / spark.life }
-				end
-			end
-			local heartOut = {}
-			for i, heart in st.hearts do
-				if heart.age < heart.life then
-					heart.age += dt
-					heart.x += (heart.vx + math.sin(heart.age * 9 + i) * 24) * dt
-					heart.y += heart.vy * dt
-					heartOut[i] = { x = heart.x, y = heart.y, a = heart.age / heart.life }
-				end
-			end
-			if speed > 240 and t - st.trailAt > 0.035 then
-				st.trailAt = t
-				local mote = st.trail[st.trailNext]
-				st.trailNext = st.trailNext % TRAIL + 1
-				mote.x, mote.y, mote.age, mote.life = st.x, st.y + bob, 0, 0.42
-			end
-			local trailOut = {}
-			for i, mote in st.trail do
-				if mote.age < mote.life then
-					mote.age += dt
-					trailOut[i] = { x = mote.x, y = mote.y, a = mote.age / mote.life }
-				end
-			end
-
-			local spinAge = t - st.spinAt
-			local spin = 0
-			if spinAge < 0.6 then
-				local s = spinAge / 0.6
-				spin = 360 * (1 + 2.2 * (s - 1) ^ 3 + 1.2 * (s - 1) ^ 2)
-			end
-			local tiltGoal = math.clamp(st.vx * 0.05, -18, 18) * amp + (if dizzy then math.sin(t * 7) * 14 * amp else 0) + st.sleep * 12
-			st.tilt = approach(st.tilt, tiltGoal, 12, dt)
-			local hop = if celebrate < 0.5 then math.sin(celebrate / 0.5 * math.pi) * 18 * amp else 0
-			local stretch = math.clamp(math.abs(st.vy) / 900, 0, 0.1) * amp
-			local squash = st.squash * amp
-			local breath = math.sin(t * 2.1) * 0.02 * breathe
-
-			st.reach = approach(st.reach, if lit ~= nil and not st.sleeping then 1 else 0, 9, dt)
-
-			local bubbleW = math.min(250, screenW - 16)
-			local bubbleH = 64
-			local petY = st.y + bob - hop
-			local aboveY = petY - PET_SIZE / 2 - 12 - bubbleH
-			local belowY = petY + PET_SIZE / 2 + 12
-			local function hitsCard(y)
-				return y < dockRect.y + dockRect.h and y + bubbleH > dockRect.y
-			end
-			local above = aboveY > 8 and not hitsCard(aboveY)
-			if not above and (belowY + bubbleH > screenH - 8 or hitsCard(belowY)) and aboveY > 8 then
-				above = true
-			end
-			local popAge = t - st.bubblePopAt
-			local bubbleScale = if popAge < 0.35 then 1 + 2.4 * ((popAge / 0.35) - 1) ^ 3 + 1.4 * ((popAge / 0.35) - 1) ^ 2 else 1
-
+			g.card.x = approach(g.card.x, goalX, 12, dt)
+			g.card.y = approach(g.card.y, goalY, 12, dt)
+			local x1, y1, x2, y2 = TutorialScript.leader(lit, side, g.card.x, g.card.y, layout.cardW, cardH)
 			setFrame({
 				spot = { x = spot.x, y = spot.y, w = spot.w, h = spot.h, a = spot.a },
-				pet = {
-					x = st.x,
-					y = petY,
-					tilt = st.tilt + spin,
-					sx = 1 + squash - stretch * 0.5 - breath * 0.5,
-					sy = 1 - squash + stretch + breath,
-					lookX = st.lookX,
-					lookY = st.lookY,
-					pupil = st.pupil,
-					blink = blink,
-					point = pointAngle,
-					reach = st.reach,
-					poke = (math.sin(t * 6) + 1) * 0.5,
-					wingA = wingA,
-					wingL = wingL,
-					mouth = st.mouthH,
-					mouthW = st.mouthW,
-					happy = st.happy,
-					glow = st.glow,
-					tipX = st.tipX,
-					tipY = st.tipY,
-					shadow = 1 - (bob + hop) * 0.012,
-					sleep = st.sleep,
-					talking = talking,
-					dizzy = dizzy,
-					moving = speed > 180,
-					celebrating = celebrate >= 0 and celebrate < 1.6,
-				},
-				chars = math.floor(st.chars),
-				sparks = sparkOut,
-				hearts = heartOut,
-				trail = trailOut,
-				zzz = st.sleep,
-				dockY = st.dockY,
-				dockTop = dockSide == "top",
-				bubbleX = math.clamp(st.x - bubbleW / 2, 8, math.max(8, screenW - bubbleW - 8)),
-				bubbleY = if above then petY - PET_SIZE / 2 - 12 else belowY,
-				bubbleAbove = above,
-				bubbleScale = math.max(0.01, bubbleScale),
+				card = { x = g.card.x, y = g.card.y },
+				leader = if x1 ~= nil then { x1 = x1, y1 = y1, x2 = x2, y2 = y2 } else nil,
+				missing = g.missingSince > 0 and t - g.missingSince > MISSING_NOTE_AFTER,
 				t = t,
+				stepAge = t - g.stepAt,
+				stampAge = t - g.stampAt,
 			})
 		end)
 		return function()
 			connection:Disconnect()
 		end
-	end, { copy, say, met, soft, sayQuip })
+	end, { copy })
 
-	local onPetClick = function()
-		local st = petState.current
-		local now = st.t
-		table.insert(st.clickTimes, now)
-		while #st.clickTimes > 0 and now - st.clickTimes[1] > 1.2 do
-			table.remove(st.clickTimes, 1)
-		end
-		st.squashV += 6
-		st.sleeping = false
-		st.mouseMovedAt = now
-		burst(5, 60, 110)
-		if #st.clickTimes >= 3 then
-			st.clickTimes = {}
-			st.dizzyUntil = now + 1.8
-			st.spinAt = now
-			Audio:play("locked")
-			sayQuip(TutorialScript.QUIPS.dizzy)
-			return
-		end
-		st.spinAt = now
-		Audio:play("modalPop")
-		sayQuip(if met then TutorialScript.QUIPS.done else TutorialScript.QUIPS.idle)
-	end
-
-	local dimColor = Palette.void
-	local dimAlpha = 1
+	-- the dim around the target (blocks taps outside it, never takes gamepad focus)
 	local function dim(key, sizeFn, posFn)
 		return React.createElement("textbutton", {
 			key = key,
@@ -17367,14 +17057,42 @@ local function TutorialOverlay(_param)
 			Selectable = false,
 			Size = frame:map(sizeFn),
 			Position = frame:map(posFn),
-			BackgroundColor3 = dimColor,
-			BackgroundTransparency = React.joinBindings({ frame, reveal }):map(function(values)
-				return 1 - math.clamp(values[2], 0, 1) * dimAlpha
+			BackgroundColor3 = Palette.void,
+			BackgroundTransparency = reveal:map(function(amount)
+				return 1 - math.clamp(amount, 0, 1) * 0.74
 			end),
 			BorderSizePixel = 0,
 			Active = true,
 			ZIndex = 380,
 		})
+	end
+	-- registration marks on the target's corners, breathing in and out
+	local corners = {}
+	for index, corner in { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } } do
+		local cx, cy = corner[1], corner[2]
+		local function at(f)
+			local breathe = 5 + math.sin(f.t * 3.4) * 2
+			local x = f.spot.x + cx * f.spot.w + (if cx == 0 then -breathe else breathe)
+			local y = f.spot.y + cy * f.spot.h + (if cy == 0 then -breathe else breathe)
+			return x, y
+		end
+		for arm = 1, 2 do
+			local horizontal = arm == 1
+			corners[`c{index}{arm}`] = React.createElement("frame", {
+				Size = UDim2.fromOffset(if horizontal then 16 else 3, if horizontal then 3 else 16),
+				Position = frame:map(function(f)
+					local x, y = at(f)
+					return UDim2.fromOffset(x, y)
+				end),
+				AnchorPoint = Vector2.new(if horizontal then cx else (if cx == 0 then 0 else 1), if horizontal then (if cy == 0 then 0 else 1) else cy),
+				BackgroundColor3 = WHITE_HOT,
+				BackgroundTransparency = frame:map(function(f)
+					return 1 - math.clamp(f.spot.a, 0, 1)
+				end),
+				BorderSizePixel = 0,
+				ZIndex = 383,
+			})
+		end
 	end
 	local spotlight = React.createElement(React.Fragment, nil, dim("top", function(f)
 		return UDim2.new(1, 0, 0, math.max(0, f.spot.y))
@@ -17393,14 +17111,13 @@ local function TutorialOverlay(_param)
 	end, function(f)
 		return UDim2.fromOffset(f.spot.x + f.spot.w, f.spot.y)
 	end), React.createElement("frame", {
-		key = "ring",
+		-- a fuse of heat running round the outline
+		key = "fuse",
 		Size = frame:map(function(f)
-			local grow = 3 + math.sin(f.t * 3.2) * 3
-			return UDim2.fromOffset(f.spot.w + grow * 2, f.spot.h + grow * 2)
+			return UDim2.fromOffset(f.spot.w, f.spot.h)
 		end),
 		Position = frame:map(function(f)
-			local grow = 3 + math.sin(f.t * 3.2) * 3
-			return UDim2.fromOffset(f.spot.x - grow, f.spot.y - grow)
+			return UDim2.fromOffset(f.spot.x, f.spot.y)
 		end),
 		BackgroundTransparency = 1,
 		Active = false,
@@ -17409,388 +17126,272 @@ local function TutorialOverlay(_param)
 		end),
 		ZIndex = 381,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(0, 10),
 	}), React.createElement("uistroke", {
-		Color = Palette.mango,
-		Thickness = 2.5,
+		Color = Palette.white,
+		Thickness = 2,
 		Transparency = frame:map(function(f)
-			return 1 - math.clamp(f.spot.a, 0, 1) * (0.55 + 0.45 * (math.sin(f.t * 3.2) + 1) * 0.5)
+			return 1 - math.clamp(f.spot.a, 0, 1)
 		end),
 	}, React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.mango, Palette.cream),
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.ember),
+			ColorSequenceKeypoint.new(0.44, Palette.mango),
+			ColorSequenceKeypoint.new(0.5, WHITE_HOT),
+			ColorSequenceKeypoint.new(0.56, Palette.mango),
+			ColorSequenceKeypoint.new(1, Palette.ember),
+		}),
 		Rotation = frame:map(function(f)
-			return (f.t * 90) % 360
+			return (f.t * (if reducedMotion or soft then 60 else 150)) % 360
 		end),
-	}))))
+	}))), React.createElement(React.Fragment, nil, corners))
 
-	local petColor = Palette.mango
-	local petShade = Palette.ember
-	local petLine = Color3.fromRGB(74, 36, 18)
-	local function outline(thickness)
-		return React.createElement("uistroke", {
-			Color = petLine,
-			Thickness = thickness or 2,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		})
+	-- the leader line from the card to the target, with a beat travelling along it
+	local function leaderValue(f, fallback, fn)
+		local l = f.leader
+		if l == nil then
+			return fallback
+		end
+		return fn(l, l.x2 - l.x1, l.y2 - l.y1)
 	end
-	local function poolLabels(prefix, n, getList, build)
-		local out = {}
-		for i = 1, n do
-			out[prefix .. i] = build(i, function(f)
-				return getList(f)[i]
+	local leader = React.createElement(React.Fragment, nil, React.createElement("frame", {
+		key = "line",
+		Size = frame:map(function(f)
+			return leaderValue(f, UDim2.new(), function(_, dx, dy)
+				return UDim2.fromOffset(math.sqrt(dx * dx + dy * dy), 2)
 			end)
-		end
-		return out
-	end
-	local sparkEls = poolLabels("s", SPARKS, function(f)
-		return f.sparks
-	end, function(i, get)
-		return React.createElement("frame", {
-			Size = frame:map(function(f)
-				local spark = get(f)
-				local size = if spark == nil then 0 else 7 * (1 - spark.a * 0.6)
-				return UDim2.fromScale(size / PET_SIZE, size / PET_SIZE)
-			end),
-			Position = frame:map(function(f)
-				local spark = get(f)
-				return if spark == nil then UDim2.fromOffset(-50, -50) else UDim2.fromScale(0.5 + spark.x / PET_SIZE, 0.5 + spark.y / PET_SIZE)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = 45,
-			BackgroundColor3 = if i % 3 == 0 then Palette.mango elseif i % 3 == 1 then Palette.cream else Palette.ember,
-			BackgroundTransparency = frame:map(function(f)
-				local spark = get(f)
-				return if spark == nil then 1 else spark.a ^ 1.6
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 418,
-		})
-	end)
-	local heartEls = poolLabels("h", HEARTS, function(f)
-		return f.hearts
-	end, function(_i, get)
-		return React.createElement("textlabel", {
-			Size = UDim2.fromOffset(18, 18),
-			Position = frame:map(function(f)
-				local heart = get(f)
-				return if heart == nil then UDim2.fromOffset(-50, -50) else UDim2.fromScale(0.5 + heart.x / PET_SIZE, 0.5 + heart.y / PET_SIZE)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Text = "♥",
-			TextColor3 = Palette.pink,
-			TextSize = frame:map(function(f)
-				local heart = get(f)
-				return if heart == nil then 1 else 12 + 8 * math.min(1, heart.a * 4)
-			end),
-			TextTransparency = frame:map(function(f)
-				local heart = get(f)
-				return if heart == nil then 1 else heart.a ^ 2
-			end),
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-			ZIndex = 418,
-		})
-	end)
-	local zzzEls = {}
-	for i = 1, ZZZ do
-		zzzEls["z" .. i] = React.createElement("textlabel", {
-			Size = UDim2.fromOffset(16, 16),
-			Position = frame:map(function(f)
-				local phase = (f.t * 0.45 + i / ZZZ) % 1
-				return UDim2.fromScale(0.82 + (phase * 18 + math.sin(phase * 6 + i) * 4) / PET_SIZE, 0.08 - phase * 34 / PET_SIZE)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Text = "z",
-			TextColor3 = Palette.creamSoft,
-			TextSize = frame:map(function(f)
-				local phase = (f.t * 0.45 + i / ZZZ) % 1
-				return 10 + phase * 8
-			end),
-			TextTransparency = frame:map(function(f)
-				local phase = (f.t * 0.45 + i / ZZZ) % 1
-				return 1 - f.zzz * math.sin(phase * math.pi)
-			end),
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-			ZIndex = 418,
-		})
-	end
-	local effectEls = {}
-	for _, pool in { sparkEls, heartEls, zzzEls } do
-		for key, element in pool do
-			effectEls[key] = element
-		end
-	end
-	local trailEls = {}
-	for i = 1, TRAIL do
-		trailEls["t" .. i] = React.createElement("frame", {
-			Size = sizedFrame:map(function(values)
-				local mote = values[1].trail[i]
-				local size = if mote == nil then 0 else 7 * (1 - mote.a)
-				return pixelPosition(values[2], 0, size, 0, size)
-			end),
-			Position = sizedFrame:map(function(values)
-				local mote = values[1].trail[i]
-				return if mote == nil then UDim2.fromOffset(-100, -100) else pixelPosition(values[2], 0, mote.x, 0, mote.y + PET_SIZE * 0.2)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = if i % 2 == 0 then petColor else petShade,
-			BackgroundTransparency = frame:map(function(f)
-				local mote = f.trail[i]
-				return if mote == nil then 1 else 0.15 + mote.a * 0.85
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 403,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}))
-	end
-	local pet = React.createElement("frame", {
-		Name = "Bolt",
-		Size = UDim2.fromOffset(PET_SIZE, PET_SIZE),
-		Position = sizedFrame:map(function(values)
-			return pixelPosition(values[2], 0, values[1].pet.x, 0, values[1].pet.y)
 		end),
-		AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 405,
-	}, React.createElement("frame", {
-		Size = frame:map(function(f) return UDim2.fromScale(0.7 * f.pet.shadow, 0.12 * f.pet.shadow) end),
-		Position = UDim2.new(0.5, 0, 0.5, PET_SIZE * 0.7), AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.void, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 406,
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
-	React.createElement("frame", {
-		Name = "BoltPointer",
-		Size = frame:map(function(f) return UDim2.fromScale((PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach / PET_SIZE, 5 / PET_SIZE) end),
 		Position = frame:map(function(f)
-			local length = (PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach
-			local angle = math.rad(f.pet.point)
-			return UDim2.fromScale(0.5 + math.cos(angle) * length / (2 * PET_SIZE), 0.5 + math.sin(angle) * length / (2 * PET_SIZE))
+			return leaderValue(f, UDim2.new(), function(l)
+				return UDim2.fromOffset((l.x1 + l.x2) / 2, (l.y1 + l.y2) / 2)
+			end)
+		end),
+		Rotation = frame:map(function(f)
+			return leaderValue(f, 0, function(_, dx, dy)
+				return math.deg(math.atan2(dy, dx))
+			end)
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = frame:map(function(f) return f.pet.point end),
-		BackgroundColor3 = petColor, BorderSizePixel = 0, ZIndex = 410,
-		Visible = frame:map(function(f) return f.pet.reach > 0.03 end),
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), outline(1.5)),
-	React.createElement("textbutton", {
-		Name = "BoltTouchTarget", Text = "", BackgroundTransparency = 1, AutoButtonColor = false, BorderSizePixel = 0,
-		Size = frame:map(function(f) return UDim2.fromScale(f.pet.sx, f.pet.sy) end),
-		Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = frame:map(function(f) return f.pet.tilt end), ZIndex = 412,
-		Event = { Activated = onPetClick },
-	}, React.createElement("imagelabel", {
-		Name = "BoltSprite", Image = "rbxassetid://70681368255210", ImageRectSize = Vector2.new(128, 128),
-		ImageRectOffset = frame:map(function(f)
-			local phase = if reducedMotion or soft then 0 else math.floor(f.t * (if f.pet.talking then 12 elseif f.pet.moving then 10 else 8)) % 4
-			local index
-			if f.pet.sleep > 0.5 then
-				index = 6 + phase % 2
-			elseif f.pet.dizzy then
-				index = 8 + phase
-			elseif f.pet.blink > 0.5 then
-				index = 4 + phase % 2
-			elseif f.pet.celebrating or f.pet.happy > 0.4 then
-				index = 8 + phase
-			elseif f.pet.talking then
-				index = 2 + phase % 2
-			elseif f.pet.reach > 0.5 then
-				index = 1 + phase % 3
-			else
-				index = phase
-			end
-			return Vector2.new((index % 4) * 128, math.floor(index / 4) * 128)
+		BackgroundColor3 = Palette.mango,
+		BackgroundTransparency = React.joinBindings({ frame, reveal }):map(function(values)
+			return if values[1].leader == nil then 1 else 1 - math.clamp(values[1].spot.a, 0, 1) * math.clamp(values[2], 0, 1) * 0.85
 		end),
-		Size = UDim2.fromScale(2, 2), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.625),
-		BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 413,
-	})), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 417,
-	}, effectEls))
-
-	local bubbleW = math.min(250, viewport.width - 24)
-	local bubble = React.createElement("frame", {
-		Size = UDim2.fromOffset(bubbleW, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		Position = sizedFrame:map(function(values)
-			return pixelPosition(values[2], 0, values[1].bubbleX, 0, values[1].bubbleY)
-		end),
-		AnchorPoint = frame:map(function(f)
-			return Vector2.new(0, if f.bubbleAbove then 1 else 0)
-		end),
-		BackgroundColor3 = Palette.cream,
 		BorderSizePixel = 0,
-		ZIndex = 420,
-	}, React.createElement("uiscale", {
-		Scale = frame:map(function(f)
-			return f.bubbleScale
+		ZIndex = 384,
+	}), React.createElement("frame", {
+		key = "beat",
+		Size = UDim2.fromOffset(6, 6),
+		Position = frame:map(function(f)
+			return leaderValue(f, UDim2.fromOffset(-20, -20), function(l)
+				local p = (f.t * 0.9) % 1
+				return UDim2.fromOffset(l.x1 + (l.x2 - l.x1) * p, l.y1 + (l.y2 - l.y1) * p)
+			end)
 		end),
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement("uistroke", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = WHITE_HOT,
+		BackgroundTransparency = frame:map(function(f)
+			return if f.leader == nil or reducedMotion then 1 else 1 - math.clamp(f.spot.a, 0, 1)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 385,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })), React.createElement("frame", {
+		key = "pin",
+		Size = frame:map(function(f)
+			local d = 9 + math.sin(f.t * 5) * 2
+			return UDim2.fromOffset(d, d)
+		end),
+		Position = frame:map(function(f)
+			return leaderValue(f, UDim2.fromOffset(-20, -20), function(l)
+				return UDim2.fromOffset(l.x2, l.y2)
+			end)
+		end),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = WHITE_HOT,
+		BackgroundTransparency = frame:map(function(f)
+			return if f.leader == nil then 1 else 1 - math.clamp(f.spot.a, 0, 1)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 385,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), React.createElement("uistroke", {
 		Color = Palette.mango,
-		Thickness = 1.5,
-		Transparency = 0.45,
-	}), React.createElement("uipadding", {
-		PaddingTop = UDim.new(0, 8),
-		PaddingBottom = UDim.new(0, 8),
-		PaddingLeft = UDim.new(0, 10),
-		PaddingRight = UDim.new(0, 10),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		Text = say,
-		MaxVisibleGraphemes = frame:map(function(f)
-			return f.chars
-		end),
-		TextColor3 = Palette.ink,
-		TextSize = 14,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		ZIndex = 421,
-	}))
+		Thickness = 2,
+	})))
 
-	local dots = {}
-	dots.layout = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 4),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-	})
+	-- the card
+	local segments = {}
 	for n = 1, count do
-		dots["d" .. n] = React.createElement("frame", {
-			Size = UDim2.new(1 / count, -4, 1, 0),
-			LayoutOrder = n,
-			BackgroundTransparency = 1,
+		segments["s" .. n] = React.createElement("frame", {
+			Size = UDim2.new(1 / count, -3, 1, 0),
+			Position = UDim2.new((n - 1) / count, 0, 0, 0),
+			BackgroundColor3 = if n < step or (n == step and met and needsAction) then Palette.mango elseif n == step then WHITE_HOT else Palette.lineSoft,
+			BackgroundTransparency = if n == step then frame:map(function(f)
+				return 0.15 + (math.sin(f.t * 4) + 1) * 0.2
+			end) else 0,
 			BorderSizePixel = 0,
-			Active = false,
 			ZIndex = 403,
-		}, React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, if n == step then 8 else 5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = if n < step or (n == step and met and needsAction) then Palette.mint elseif n == step then Palette.mango else Palette.lineSoft,
-			BorderSizePixel = 0,
-			ZIndex = 404,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		})))
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))
 	end
-	local primary
-	if met or not needsAction then
-		primary = {
-			text = if step >= count then "FINISH" elseif met and needsAction then "NICE! CONTINUE" else "CONTINUE",
-			icon = if step >= count then "Check" else nil,
-			color = Palette.mint,
-			textColor = Palette.ink,
-			highlight = true,
-			onClick = requestNext,
-		}
-	elseif hasCta then
-		primary = {
-			text = string.upper(ctaLabel),
-			icon = "Play",
-			color = Palette.mango,
-			textColor = Palette.ink,
-			highlight = true,
-			onClick = onCta,
-		}
-	else
-		primary = {
-			text = "DO IT TO CONTINUE",
-			icon = nil,
-			color = Palette.panelSoft,
-			textColor = Palette.muted,
-			highlight = false,
-			onClick = function()
-				local st = petState.current
-				st.spinAt = st.t
-				st.squashV += 5
-				st.chars = 0
-				Audio:play("locked")
-			end,
-		}
+	local textArrive = frame:map(function(f)
+		return easeOut((f.stepAge or 1) / 0.32)
+	end)
+	local function arriving(base)
+		return React.joinBindings({ textArrive, reveal }):map(function(values)
+			return math.clamp(base + (1 - values[1]) + (1 - math.clamp(values[2], 0, 1)), 0, 1)
+		end)
 	end
 	local goalDone = met and needsAction
-	local statusItems = {
-		{ label = "PAGE", value = tostring(live.page or "Overview") },
-		{ label = "CASH", value = tostring(live.cash or "0") },
-		{ label = "OUTPUT", value = `{tostring(live.production or "0")}/s` },
-	}
-	local statusCells = {
-		layout = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-	for index, item in statusItems do
-		statusCells[item.label] = React.createElement("frame", {
-			Size = UDim2.new(1 / #statusItems, -4, 1, 0),
-			LayoutOrder = index,
-			BackgroundColor3 = Palette.panel,
-			BorderSizePixel = 0,
-			ZIndex = 402,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 7),
-		}), React.createElement(Text, {
-			value = `{item.label}  {item.value}`,
-			size = 10,
-			color = Palette.creamSoft,
-			weight = Enum.FontWeight.Bold,
-			align = Enum.TextXAlignment.Center,
-			fit = true,
-			minSize = 8,
-			sizeConstraint = UDim2.fromScale(1, 1),
-			zIndex = 403,
-		}))
+	local primary = nil
+	if met or not needsAction then
+		primary = { text = if step >= count then "Finish" else "Next", color = Palette.mango, onClick = requestNext }
+	elseif hasCta then
+		primary = { text = ctaLabel, color = Palette.mango, onClick = onCta }
 	end
+	local stampScale = frame:map(function(f)
+		local age = f.stampAge or 99
+		if not goalDone then
+			return 0
+		end
+		return 1 + (1 - easeOut(age / 0.26)) * 0.9
+	end)
+	local taskRow = needsAction and React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 26),
+		LayoutOrder = 4,
+		BackgroundTransparency = 1,
+		ZIndex = 402,
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(22, 22),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = if goalDone then Palette.mint else Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 404,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 5) }), React.createElement("uistroke", {
+		Color = if goalDone then Palette.mint else Palette.mango,
+		Thickness = 1.5,
+		Transparency = if goalDone then 0 else frame:map(function(f)
+			return 0.2 + (math.sin(f.t * 4) + 1) * 0.25
+		end),
+	}), goalDone and React.createElement(StampedCheck, { scale = stampScale })), React.createElement(Text, {
+		value = copy.task or copy.title,
+		size = 13,
+		color = if goalDone then Palette.mint else Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromOffset(32, 0),
+		sizeConstraint = UDim2.new(1, -32, 1, 0),
+		zIndex = 403,
+	}))
+	local missingRow = needsAction and not met and React.createElement("textlabel", {
+		Size = UDim2.new(1, 0, 0, 14),
+		BackgroundTransparency = 1,
+		Text = "Waiting for it to appear on screen.",
+		TextColor3 = Palette.muted,
+		TextSize = 11,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Visible = frame:map(function(f)
+			return f.missing
+		end),
+		LayoutOrder = 5,
+		ZIndex = 402,
+	})
+	local buttons = React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		LayoutOrder = 7,
+		BackgroundTransparency = 1,
+		ZIndex = 402,
+	}, step > 1 and React.createElement("textbutton", {
+		Size = UDim2.new(0, 70, 1, 0),
+		BackgroundTransparency = 1,
+		Text = "Back",
+		TextColor3 = Palette.muted,
+		TextSize = 13,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 403,
+		Event = {
+			Activated = function()
+				if not exiting then
+					onBack()
+				end
+			end,
+		},
+	}), if primary ~= nil then React.createElement("frame", {
+		Size = UDim2.new(0, math.min(170, innerW * 0.55), 1, 0),
+		Position = UDim2.fromScale(1, 0),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundTransparency = 1,
+	}, React.createElement(Button, {
+		text = primary.text,
+		onClick = primary.onClick,
+		color = primary.color,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+		disabled = exiting,
+		highlight = true,
+		zIndex = 403,
+	})) else React.createElement(Text, {
+		value = "Use the highlighted control",
+		size = 12,
+		color = Palette.mango,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Right,
+		fit = true,
+		minSize = 9,
+		position = UDim2.new(1, -200, 0, 0),
+		sizeConstraint = UDim2.new(0, 200, 1, 0),
+		zIndex = 403,
+	}))
 	local dock = React.createElement("frame", {
 		ref = dockRef,
-		Size = UDim2.fromOffset(dockW, 0),
+		Size = UDim2.fromOffset(cardW, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Position = React.joinBindings({ frame, reveal }):map(function(values)
 			local f = values[1]
-			local slide = (1 - math.clamp(values[2], 0, 1)) * 24
-			return UDim2.new(0.5, 0, 0, f.dockY + (if f.dockTop then -slide else slide))
+			local slide = (1 - math.clamp(values[2], 0, 1)) * 18
+			return UDim2.fromOffset(f.card.x, f.card.y + slide)
 		end),
-		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		Active = true,
 		ZIndex = 400,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
+		CornerRadius = UDim.new(0, 14),
 	}), React.createElement("uistroke", {
 		Color = Palette.mango,
 		Thickness = 1.5,
-		Transparency = 0.35,
+		Transparency = 0.45,
 	}), React.createElement("uipadding", {
 		PaddingTop = UDim.new(0, 12),
-		PaddingBottom = UDim.new(0, 14),
-		PaddingLeft = UDim.new(0, 14),
-		PaddingRight = UDim.new(0, 14),
+		PaddingBottom = UDim.new(0, 12),
+		PaddingLeft = UDim.new(0, 16),
+		PaddingRight = UDim.new(0, 16),
 	}), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 44),
+		Size = UDim2.new(1, 0, 0, 28),
 		LayoutOrder = 1,
 		BackgroundTransparency = 1,
 		ZIndex = 402,
-	}, React.createElement(Text, {
-		value = `STEP {step} OF {count}  ·  {TutorialScript.EXPERIENCE_NAME}`,
-		size = 10,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 8,
-		sizeConstraint = UDim2.new(1, -96, 1, 0),
-		zIndex = 402,
+	}, React.createElement("textlabel", {
+		Size = UDim2.new(0, 120, 1, 0),
+		BackgroundTransparency = 1,
+		RichText = true,
+		Text = `{string.format("%02d", step)}<font color="#8c7a80" size="13"> / {string.format("%02d", count)}</font>`,
+		TextColor3 = Palette.mango,
+		TextSize = 24,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 403,
 	}), React.createElement("textbutton", {
 		Size = UDim2.new(0, 90, 1, 0),
 		Position = UDim2.new(1, -90, 0, 0),
 		BackgroundTransparency = 1,
-		Text = "SKIP GUIDE",
+		Text = "Skip guide",
 		TextColor3 = Palette.muted,
 		TextSize = 11,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
@@ -17800,113 +17401,49 @@ local function TutorialOverlay(_param)
 			Activated = requestSkip,
 		},
 	})), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 28),
+		Size = UDim2.new(1, 0, 0, 3),
 		LayoutOrder = 2,
 		BackgroundTransparency = 1,
 		ZIndex = 402,
-	}, dots), React.createElement(Text, {
+	}, segments), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = 3,
+		BackgroundTransparency = 1,
+		ZIndex = 402,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 4),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(Text, {
 		value = copy.title,
-		size = if phone then 16 else 18,
+		size = if phone then 17 else 19,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 12,
+		transparency = arriving(0),
 		sizeConstraint = UDim2.new(1, 0, 0, 24),
-		layoutOrder = 3,
+		layoutOrder = 1,
 		zIndex = 402,
 	}), React.createElement(AutoHeightText, {
-		value = copy.body,
+		value = copy.line,
 		width = innerW,
-		size = 12,
+		size = 13,
 		color = Palette.creamSoft,
-		layoutOrder = 4,
+		transparency = arriving(0.05),
+		layoutOrder = 2,
 		zIndex = 402,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 30),
-		LayoutOrder = 5,
-		BackgroundTransparency = 1,
-		ZIndex = 402,
-	}, statusCells), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 22),
-		LayoutOrder = 6,
-		BackgroundTransparency = 1,
-		ZIndex = 402,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(18, 18),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = if goalDone then Palette.mint else Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 403,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 5),
-	}), React.createElement("uistroke", {
-		Color = if goalDone then Palette.mint else Palette.lineSoft,
-		Transparency = 0.2,
-	}), goalDone and React.createElement(Icon, {
-		kind = "Check",
-		color = Palette.ink,
-		accent = Palette.ink,
-		size = 18,
-	})), React.createElement(Text, {
-		value = string.upper(copy.goal or ""),
-		size = 11,
-		color = if goalDone then Palette.mint else Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 9,
-		position = UDim2.fromOffset(28, 0),
-		sizeConstraint = UDim2.new(1, -28, 1, 0),
-		zIndex = 403,
-	})), copy.controls ~= nil and React.createElement(Text, {
+	})), taskRow, missingRow, copy.controls ~= nil and React.createElement(Text, {
 		value = copy.controls,
 		size = 10,
 		color = Palette.muted,
 		fit = true,
 		minSize = 9,
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
-		layoutOrder = 7,
+		layoutOrder = 6,
 		zIndex = 402,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, TapTarget),
-		LayoutOrder = 8,
-		BackgroundTransparency = 1,
-		ZIndex = 402,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), step > 1 and React.createElement("frame", {
-		Size = UDim2.new(0.28, -4, 1, 0),
-		LayoutOrder = 1,
-		BackgroundTransparency = 1,
-	}, React.createElement(Button, {
-		text = "BACK",
-		icon = "Back",
-		onClick = onBack,
-		color = Palette.panelSoft,
-		textColor = Palette.creamSoft,
-		outline = true,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		disabled = exiting,
-		zIndex = 403,
-	})), React.createElement("frame", {
-		Size = UDim2.new(if step > 1 then 0.72 else 1, if step > 1 then -4 else 0, 1, 0),
-		LayoutOrder = 2,
-		BackgroundTransparency = 1,
-	}, React.createElement(Button, {
-		text = primary.text,
-		icon = primary.icon,
-		onClick = primary.onClick,
-		color = primary.color,
-		textColor = primary.textColor,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		disabled = exiting,
-		highlight = primary.highlight,
-		zIndex = 403,
-	}))))
+	}), buttons)
 
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
@@ -17924,12 +17461,7 @@ local function TutorialOverlay(_param)
 		BackgroundTransparency = 1,
 		Visible = true,
 		Active = false,
-	}), spotlight, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Active = false,
-		ZIndex = 403,
-	}, trailEls), dock, pet, bubble))
+	}), spotlight, leader, dock))
 end
 local VERSION_ROW_H = 48
 local HIGHLIGHT_ROW_H = 46
