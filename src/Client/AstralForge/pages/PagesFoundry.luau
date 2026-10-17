@@ -105,15 +105,16 @@ local function Halo(props)
 	}, discs)
 end
 
--- tier shown as pips under the piece (a number past five)
+-- tier shown as pips under the piece (a compact corner badge when cells are small or tier > 5)
 local function TierMark(props)
 	local tier = props.tier
 	local color = props.color
-	if tier > 5 then
+	local d = props.cellSize or 40
+	if d < 32 or tier > 5 then
 		return h("textlabel", {
-			Size = UDim2.fromOffset(22, 12),
-			Position = UDim2.new(0.5, 0, 1, 2),
-			AnchorPoint = Vector2.new(0.5, 0),
+			Size = UDim2.fromOffset(if d < 32 then 18 else 22, if d < 32 then 10 else 12),
+			Position = if d < 32 then UDim2.new(1, -1, 0, 1) else UDim2.new(0.5, 0, 1, 2),
+			AnchorPoint = if d < 32 then Vector2.new(1, 0) else Vector2.new(0.5, 0),
 			BackgroundColor3 = darken(color, 0.7),
 			Text = tostring(tier),
 			TextColor3 = lighten(color, 0.5),
@@ -224,7 +225,7 @@ local function PieceFace(props)
 			BorderSizePixel = 0,
 			ZIndex = z,
 		}, h("uigradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) }) })),
-		h(TierMark, { tier = piece.Tier, color = color, zIndex = z + 3 }))
+		h(TierMark, { tier = piece.Tier, color = color, cellSize = d, zIndex = z + 3 }))
 end
 
 local function Board(props)
@@ -449,7 +450,12 @@ local function FoundryView(props)
 			return
 		end
 		if selected == key then
-			setSelected(nil)
+			-- double-tap a selected board piece to rotate it directly
+			if string.sub(key, 1, 6) ~= "bench:" then
+				act({ Op = "rotate", At = key }, true)
+			else
+				setSelected(nil)
+			end
 			return
 		end
 		local fromBench = string.sub(selected, 1, 6) == "bench:"
@@ -460,6 +466,7 @@ local function FoundryView(props)
 	local flow = FoundryMath.flow({ Radius = foundry.Radius, Pieces = foundry.Pieces })
 	local effects = foundry.Effects or {}
 	local surgeLeft = math.max(0, (foundry.SurgeEndsAt or 0) - workspace:GetServerTimeNow())
+	local dormant = (flow.Delivered or 0) <= 0
 
 	-- hero: what the board is worth right now
 	local chipW = if stack then UDim2.new(0.5, -6, 0, 50) else UDim2.new(0.25, -9, 0, 50)
@@ -481,8 +488,8 @@ local function FoundryView(props)
 	add("hero", if stack then 186 else 128, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 16, accent = ACCENT, background = darken(ACCENT, 0.9) },
 		h(Ui.Text, { value = "STAR FOUNDRY", size = 12, weight = Enum.FontWeight.Heavy, color = ACCENT, sizeConstraint = UDim2.new(1, 0, 0, 16) }),
 		h(Ui.Text, {
-			value = `{compact(foundry.Shards)} Shards  ·  +{string.format("%.1f", (foundry.ShardRate or 0) * 60)} a minute`,
-			size = if stack then 19 else 22, weight = Enum.FontWeight.Heavy, fit = true, minSize = 14,
+			value = `{compact(foundry.Shards)} Shards  ·  ` .. (if dormant then "Dormant (rotate Ember to an Anvil)" else `+{string.format("%.1f", (foundry.ShardRate or 0) * 60)}/min`),
+			size = if stack then 17 else 22, weight = Enum.FontWeight.Heavy, fit = true, minSize = 13,
 			position = UDim2.fromOffset(0, 20), sizeConstraint = UDim2.new(1, 0, 0, 30),
 		}),
 		h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, chipEls)))
@@ -510,28 +517,85 @@ local function FoundryView(props)
 	-- controls for a selected board piece
 	if selected ~= nil and string.sub(selected, 1, 6) ~= "bench:" and foundry.Pieces[selected] then
 		local piece = foundry.Pieces[selected]
-		local look = KIND_LOOK[piece.Kind]
-		add("selected", 64, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 12, accent = look.color, background = Palette.panel },
-			h(Ui.Text, { value = `{look.name} · tier {piece.Tier}`, size = 15, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, -330, 0, 20) }),
-			h(Ui.Text, { value = look.line, size = 12, color = Palette.muted, position = UDim2.fromOffset(0, 22), sizeConstraint = UDim2.new(1, -330, 0, 16) }),
-			h(Ui.Button, { text = "⟲", onClick = function() act({ Op = "rotate", At = selected, Back = true }, true) end, size = UDim2.fromOffset(56, 40), position = UDim2.new(1, -320, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion }),
-			h(Ui.Button, { text = "⟳", onClick = function() act({ Op = "rotate", At = selected }, true) end, size = UDim2.fromOffset(56, 40), position = UDim2.new(1, -258, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion }),
-			h(Ui.Button, { text = "TO BENCH", onClick = function() act({ Op = "store", From = selected }, true); setSelected(nil) end, size = UDim2.fromOffset(120, 40), position = UDim2.new(1, -196, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion, disabled = #foundry.Bench >= FoundryMath.BENCH_CAP }),
-			h(Ui.Button, { text = "×", onClick = function() setSelected(nil) end, size = UDim2.fromOffset(64, 40), position = UDim2.new(1, -68, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion })))
+		local look = KIND_LOOK[piece.Kind] or KIND_LOOK.Conduit
+		local panelH = if stack then 96 else 64
+		add("selected", panelH, h(Ui.Panel, { size = UDim2.fromScale(1, 1), padding = 12, accent = look.color, background = Palette.panel },
+			if stack then
+				h(React.Fragment, nil,
+					h(Ui.Text, { value = `{look.name} · Tier {piece.Tier}`, size = 15, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, -44, 0, 18) }),
+					h(Ui.Button, { text = "×", onClick = function() setSelected(nil) end, size = UDim2.fromOffset(36, 26), position = UDim2.new(1, -36, 0, -2), color = Palette.panelSoft, reducedMotion = softMotion }),
+					h(Ui.Text, { value = look.line, size = 11, color = Palette.muted, position = UDim2.fromOffset(0, 18), sizeConstraint = UDim2.new(1, -44, 0, 14) }),
+					h("frame", {
+						Size = UDim2.new(1, 0, 0, 36),
+						Position = UDim2.fromOffset(0, 38),
+						BackgroundTransparency = 1,
+					},
+						h(Ui.Button, { text = "⟲ LEFT", onClick = function() act({ Op = "rotate", At = selected, Back = true }, true) end, size = UDim2.new(0.28, -4, 1, 0), position = UDim2.new(0, 0, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion }),
+						h(Ui.Button, { text = "⟳ RIGHT", onClick = function() act({ Op = "rotate", At = selected }, true) end, size = UDim2.new(0.28, -4, 1, 0), position = UDim2.new(0.28, 0, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion }),
+						h(Ui.Button, { text = "TO BENCH", onClick = function() act({ Op = "store", From = selected }, true); setSelected(nil) end, size = UDim2.new(0.44, 0, 1, 0), position = UDim2.new(0.56, 4, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion, disabled = #foundry.Bench >= FoundryMath.BENCH_CAP })
+					))
+			else
+				h(React.Fragment, nil,
+					h(Ui.Text, { value = `{look.name} · Tier {piece.Tier}`, size = 15, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, -330, 0, 20) }),
+					h(Ui.Text, { value = look.line, size = 12, color = Palette.muted, position = UDim2.fromOffset(0, 22), sizeConstraint = UDim2.new(1, -330, 0, 16) }),
+					h(Ui.Button, { text = "⟲", onClick = function() act({ Op = "rotate", At = selected, Back = true }, true) end, size = UDim2.fromOffset(56, 40), position = UDim2.new(1, -320, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion }),
+					h(Ui.Button, { text = "⟳", onClick = function() act({ Op = "rotate", At = selected }, true) end, size = UDim2.fromOffset(56, 40), position = UDim2.new(1, -258, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion }),
+					h(Ui.Button, { text = "TO BENCH", onClick = function() act({ Op = "store", From = selected }, true); setSelected(nil) end, size = UDim2.fromOffset(120, 40), position = UDim2.new(1, -196, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion, disabled = #foundry.Bench >= FoundryMath.BENCH_CAP }),
+					h(Ui.Button, { text = "×", onClick = function() setSelected(nil) end, size = UDim2.fromOffset(64, 40), position = UDim2.new(1, -68, 0, 0), color = Palette.panelSoft, reducedMotion = softMotion })
+				)
+		))
 	end
 
-	-- the bench
-	local slotSize = if stack then math.floor((viewport.width - 24 - 11 * 6) / 6) else 58
+	-- actions: ignite, draw, expand (placed directly below board on mobile for instant visibility)
+	local canDraw = foundry.Shards >= (foundry.DrawCost or math.huge) and #foundry.Bench < FoundryMath.BENCH_CAP
+	local canExpand = foundry.ExpandCost ~= nil and foundry.Shards >= foundry.ExpandCost
+	local buttonH = TapTarget
+	local function renderActions()
+		return h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 },
+			h(Ui.Button, {
+				text = if surgeLeft > 0 then `SURGE {math.ceil(surgeLeft)}s · IGNITE` else (if combo > 0 then `IGNITE · ×{combo}` else "IGNITE"),
+				icon = "Boost", onClick = function() act({ Op = "ignite" }, true) end, color = ACCENT, textColor = Palette.ink, highlight = true,
+				size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.4, -8, 0, buttonH), position = UDim2.fromOffset(0, 0), reducedMotion = softMotion,
+			}),
+			h(Ui.Button, {
+				text = if #foundry.Bench >= FoundryMath.BENCH_CAP then "BENCH FULL" else `DRAW · {compact(foundry.DrawCost or 0)}`,
+				icon = "Crate", onClick = function() act({ Op = "draw" }) end, color = Palette.panelSoft, disabled = not canDraw or busy,
+				size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.3, -8, 0, buttonH),
+				position = if stack then UDim2.fromOffset(0, buttonH + 10) else UDim2.new(0.4, 0, 0, 0), reducedMotion = softMotion,
+			}),
+			h(Ui.Button, {
+				text = if foundry.ExpandCost == nil then "FULL SIZE" else `EXPAND · {compact(foundry.ExpandCost)}`,
+				icon = "World", onClick = function() act({ Op = "expand" }) end, color = Palette.panelSoft, disabled = not canExpand or busy,
+				size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.3, -8, 0, buttonH),
+				position = if stack then UDim2.fromOffset(0, (buttonH + 10) * 2) else UDim2.new(0.7, 0, 0, 0), reducedMotion = softMotion,
+			}),
+			not stack and h(Ui.Text, {
+				value = "Ignite when the white hand crosses the gold marker. Ten on the beat in a row: a surge.",
+				size = 12, color = Palette.muted, position = UDim2.fromOffset(0, buttonH + 8), sizeConstraint = UDim2.new(1, 0, 0, 16),
+			}))
+	end
+
+	if stack then
+		add("actions", buttonH * 3 + 20, renderActions())
+	end
+
+	-- the bench (centered with exact 5-gap math so slots hit 48-52px touch targets)
+	local benchCols = 6
+	local slotGap = 6
+	local innerW = if stack then viewport.width - 24 else 380
+	local slotSize = if stack then math.clamp(math.floor((innerW - (benchCols - 1) * slotGap) / benchCols), 44, 58) else 58
+	local totalRowW = if stack then benchCols * slotSize + (benchCols - 1) * slotGap else benchCols * (58 + 6)
+	local rowOffset = if stack then math.max(0, math.floor((innerW - totalRowW) / 2)) else 0
 	local benchRows = if stack then 2 else 1
 	local benchEls = {}
 	for index = 1, FoundryMath.BENCH_CAP do
 		local piece = foundry.Bench[index]
-		local col = if stack then (index - 1) % 6 else index - 1
-		local row = if stack then (index - 1) // 6 else 0
+		local col = if stack then (index - 1) % benchCols else index - 1
+		local row = if stack then (index - 1) // benchCols else 0
 		local key = `bench:{index}`
 		benchEls["slot" .. index] = h("textbutton", {
 			Size = UDim2.fromOffset(slotSize, slotSize),
-			Position = UDim2.fromOffset(col * (slotSize + 6), 24 + row * (slotSize + 6)),
+			Position = UDim2.fromOffset(rowOffset + col * (slotSize + slotGap), 24 + row * (slotSize + slotGap)),
 			BackgroundColor3 = Palette.panelRaised,
 			BackgroundTransparency = if piece then 0.6 else 0.3,
 			BorderSizePixel = 0,
@@ -551,37 +615,14 @@ local function FoundryView(props)
 		}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", { Color = if selected == key then Palette.white else Palette.lineSoft, Thickness = if selected == key then 2 else 1, Transparency = 0.4 }),
 			piece and h(PieceFace, { piece = piece, size = math.floor(slotSize * 0.82), selected = selected == key, zIndex = 2 }))
 	end
-	local benchH = 24 + benchRows * (slotSize + 6)
+	local benchH = 24 + benchRows * (slotSize + slotGap)
 	add("bench", benchH, h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 },
 		h(Ui.Text, { value = `BENCH  ·  {#foundry.Bench}/{FoundryMath.BENCH_CAP}  ·  tap a piece, then a cell`, size = 12, weight = Enum.FontWeight.Bold, color = Palette.muted, sizeConstraint = UDim2.new(1, 0, 0, 18) }),
 		h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, benchEls)))
 
-	-- actions: ignite, draw, expand
-	local canDraw = foundry.Shards >= (foundry.DrawCost or math.huge) and #foundry.Bench < FoundryMath.BENCH_CAP
-	local canExpand = foundry.ExpandCost ~= nil and foundry.Shards >= foundry.ExpandCost
-	local buttonH = TapTarget
-	add("actions", if stack then buttonH * 3 + 24 else buttonH + 30, h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 },
-		h(Ui.Button, {
-			text = if surgeLeft > 0 then `SURGE {math.ceil(surgeLeft)}s · IGNITE` else (if combo > 0 then `IGNITE · ×{combo}` else "IGNITE"),
-			icon = "Boost", onClick = function() act({ Op = "ignite" }, true) end, color = ACCENT, textColor = Palette.ink, highlight = true,
-			size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.4, -8, 0, buttonH), position = UDim2.fromOffset(0, 0), reducedMotion = softMotion,
-		}),
-		h(Ui.Button, {
-			text = if #foundry.Bench >= FoundryMath.BENCH_CAP then "BENCH FULL" else `DRAW · {compact(foundry.DrawCost or 0)}`,
-			icon = "Crate", onClick = function() act({ Op = "draw" }) end, color = Palette.panelSoft, disabled = not canDraw or busy,
-			size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.3, -8, 0, buttonH),
-			position = if stack then UDim2.fromOffset(0, buttonH + 12) else UDim2.new(0.4, 0, 0, 0), reducedMotion = softMotion,
-		}),
-		h(Ui.Button, {
-			text = if foundry.ExpandCost == nil then "FULL SIZE" else `EXPAND · {compact(foundry.ExpandCost)}`,
-			icon = "World", onClick = function() act({ Op = "expand" }) end, color = Palette.panelSoft, disabled = not canExpand or busy,
-			size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.3, -8, 0, buttonH),
-			position = if stack then UDim2.fromOffset(0, (buttonH + 12) * 2) else UDim2.new(0.7, 0, 0, 0), reducedMotion = softMotion,
-		}),
-		not stack and h(Ui.Text, {
-			value = "Ignite when the white hand crosses the gold marker. Ten on the beat in a row: a surge.",
-			size = 12, color = Palette.muted, position = UDim2.fromOffset(0, buttonH + 8), sizeConstraint = UDim2.new(1, 0, 0, 16),
-		})))
+	if not stack then
+		add("actions", buttonH + 30, renderActions())
+	end
 	if note ~= "" then
 		add("note", 26, h(Ui.Text, { value = note, size = 14, color = Palette.creamSoft, sizeConstraint = UDim2.new(1, 0, 0, 22) }))
 	end

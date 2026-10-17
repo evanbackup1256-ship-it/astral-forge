@@ -681,7 +681,7 @@ local function useCursorProximity(elementRef, maxRadius)
 		end
 		local active = true
 		local frame = 0
-		local stride = 3
+		local stride = 6
 		local conn = RunService.RenderStepped:Connect(function()
 			if not active or not elementRef.current then
 				return nil
@@ -1223,7 +1223,17 @@ function ensureDriver()
 				flipperScratch[index] = nil
 				if flipperMotors[motor] ~= nil then
 					local token = flipperToken[motor]
-					if motor:step(clamped) then
+					local SUBSTEP_MAX_DT = 1 / 60
+					local steps = math.clamp(math.ceil(clamped / SUBSTEP_MAX_DT), 1, 3)
+					local subDt = clamped / steps
+					local completed = false
+					for _ = 1, steps do
+						if motor:step(subDt) then
+							completed = true
+							break
+						end
+					end
+					if completed then
 						disarmFlipper(motor, token)
 					end
 				end

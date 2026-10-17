@@ -13,8 +13,8 @@ local h = React.createElement
 
 local Juice = {}
 
-local CAPS = { number = 22, coin = 40, burst = 5, flash = 2, ring = 8, press = 6, spark = 16 }
-local LIFE = { number = 1.15, burst = 0.8, flash = 0.4, ring = 0.55, press = 0.42, spark = 0.45 }
+local CAPS = { number = 32, coin = 60, burst = 10, flash = 3, ring = 12, press = 10, spark = 32, shockwave = 8, gem = 16 }
+local LIFE = { number = 1.25, burst = 0.95, flash = 0.45, ring = 0.65, press = 0.48, spark = 0.55, shockwave = 0.72, gem = 1.15 }
 local COIN_SCATTER = 0.22
 local COIN_FLIGHT = 0.55
 local COIN_STAGGER = 0.035
@@ -181,6 +181,37 @@ end
 -- a little four-point sparkle (where coins land, and drifting around the screen)
 function Juice.spark(at: Vector2, color: Color3?, size: number?)
 	push({ kind = "spark", at = at, color = color or P.white, spin = math.random() * 45, size = size or 30 })
+end
+
+-- an expanding sonic shockwave ring
+function Juice.shockwave(at: Vector2?, color: Color3?, scale: number?)
+	push({ kind = "shockwave", at = at or defaultOrigin(), color = color or P.cyan, scale = scale or 1 })
+end
+
+-- 3D tumbling faceted gemstones that arc dynamically into a target counter
+function Juice.gem(target: string, color: Color3?, icon: string?, count: number?, from: Vector2?)
+	local destination = centreOf(targets[target]) or defaultOrigin()
+	local origin = from or defaultOrigin()
+	local total = math.clamp(math.floor(count or 4), 1, 8)
+	for index = 1, total do
+		local angle = -math.pi / 2 + (index - (total + 1) / 2) * 0.38 + math.random() * 0.2 - 0.1
+		local reach = 55 + math.random() * 45
+		push({
+			kind = "gem",
+			target = target,
+			color = color or P.violet,
+			icon = icon or "Core",
+			from = origin,
+			scatter = Vector2.new(math.cos(angle) * reach, math.sin(angle) * reach),
+			to = destination,
+			delay = (index - 1) * 0.05,
+			bend = math.random(-90, 90),
+			spin = math.random(180, 540),
+			arrived = false,
+			last = index == total,
+		})
+	end
+	return true
 end
 
 -- ===========================================================================================
@@ -503,7 +534,14 @@ function Juice.celebrateGains(before, after, options: { spend: boolean?, big: bo
 		local at = origin + Vector2.new(0, -shown * 40)
 		if O.Gt(delta, 0) then
 			Juice.number(`+{compactNumber(O.Persist(delta))} {currency.unit}`, currency.color, { at = at, big = opts.big, icon = currency.icon })
-			Juice.coins(currency.target, currency.color, currency.icon, opts.coins or (if opts.big then 10 else 6), origin)
+			if currency.field == "Cores" or (currency.field == "Stardust" and opts.big) then
+				Juice.gem(currency.target, currency.color, currency.icon, opts.coins or 5, origin)
+			else
+				Juice.coins(currency.target, currency.color, currency.icon, opts.coins or (if opts.big then 10 else 6), origin)
+			end
+			if opts.big then
+				Juice.shockwave(origin, currency.color, 0.85)
+			end
 			shown += 1
 		elseif opts.spend and not currency.gainOnly and O.Lt(delta, 0) then
 			Juice.number(`-{compactNumber(O.Persist(O.Sub(0, delta)))} {currency.unit}`, P.coral, { at = at })
@@ -854,13 +892,93 @@ local function renderEffect(effect, clock)
 				return 1 - effect.strength * (1 - math.clamp(a / LIFE.flash, 0, 1))
 			end),
 		})
+	elseif effect.kind == "shockwave" then
+		local t = age()
+		local s = effect.scale or 1
+		local progress = t:map(function(a) return math.clamp(a / LIFE.shockwave, 0, 1) end)
+		return h("frame", {
+			key = effect.id,
+			Size = progress:map(function(p)
+				local d = (24 + easeOutCubic(p) * 200) * s
+				return UDim2.fromOffset(d, d)
+			end),
+			Position = UDim2.fromOffset(effect.at.X, effect.at.Y),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			ZIndex = 25,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+			Color = effect.color,
+			Thickness = progress:map(function(p) return math.max(1, (1 - p) * 3.5) end),
+			Transparency = progress:map(function(p) return 0.15 + p * 0.85 end),
+		}))
+	elseif effect.kind == "gem" then
+		local t = age()
+		local size = 28
+		return h("frame", {
+			key = effect.id,
+			Size = UDim2.fromOffset(size, size),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			ZIndex = 28,
+			Position = t:map(function(a)
+				local local_ = a - effect.delay
+				if local_ <= 0 then
+					return UDim2.fromOffset(effect.from.X, effect.from.Y)
+				end
+				if local_ < COIN_SCATTER then
+					local p = easeOutCubic(local_ / COIN_SCATTER)
+					local spot = effect.from + effect.scatter * p
+					return UDim2.fromOffset(spot.X, spot.Y)
+				end
+				local p = easeInCubic(math.clamp((local_ - COIN_SCATTER) / COIN_FLIGHT, 0, 1))
+				local start = effect.from + effect.scatter
+				local mid = (start + effect.to) / 2 + Vector2.new(effect.bend, -110)
+				local a1 = start:Lerp(mid, p)
+				local a2 = mid:Lerp(effect.to, p)
+				local spot = a1:Lerp(a2, p)
+				return UDim2.fromOffset(spot.X, spot.Y)
+			end),
+			Rotation = t:map(function(a)
+				local local_ = math.max(0, a - effect.delay)
+				return (local_ * (effect.spin or 360)) % 360
+			end),
+			Visible = t:map(function(a) return a >= effect.delay end),
+		}, h("uiscale", {
+			Scale = t:map(function(a)
+				local local_ = a - effect.delay
+				local grow = easeOutBack(math.clamp(local_ / 0.16, 0, 1))
+				local shrink = 1 - 0.4 * math.clamp((local_ - COIN_SCATTER - COIN_FLIGHT * 0.6) / (COIN_FLIGHT * 0.4), 0, 1)
+				local tumble = 0.8 + math.abs(math.cos(local_ * 12)) * 0.35
+				return math.max(0.05, grow * shrink * tumble)
+			end),
+		}), h("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = theme.darken(effect.color, 0.6),
+			BorderSizePixel = 0,
+			Rotation = 45,
+			ZIndex = 28,
+		}, h("uicorner", { CornerRadius = UDim.new(0, 5) }), h("uistroke", {
+			Color = theme.lighten(effect.color, 0.4),
+			Thickness = 2.5,
+		}), h("uigradient", {
+			Color = ColorSequence.new(theme.lighten(effect.color, 0.5), theme.darken(effect.color, 0.4)),
+			Rotation = 45,
+		}), effect.icon and h(Icon, {
+			kind = effect.icon,
+			color = P.white,
+			accent = effect.color,
+			size = size - 8,
+			position = UDim2.fromScale(0.5, 0.5),
+			anchorPoint = Vector2.new(0.5, 0.5),
+			spin = false,
+		})))
 	end
 	return nil
 end
 
 local function lifeOf(effect)
-	if effect.kind == "coin" then
-		return effect.delay + COIN_SCATTER + COIN_FLIGHT + 0.02
+	if effect.kind == "coin" or effect.kind == "gem" then
+		return effect.delay + COIN_SCATTER + COIN_FLIGHT + 0.04
 	end
 	return LIFE[effect.kind] or 1
 end
@@ -885,19 +1003,29 @@ function Juice.Host(_props)
 			for index = #effects, 1, -1 do
 				local effect = effects[index]
 				local age = t - effect.born
-				if effect.kind == "coin" and not effect.arrived and age >= effect.delay + COIN_SCATTER + COIN_FLIGHT then
+				if (effect.kind == "coin" or effect.kind == "gem") and not effect.arrived and age >= effect.delay + COIN_SCATTER + COIN_FLIGHT then
 					effect.arrived = true
 					arrive(effect.target)
-					-- the sound lands with the coin: a soft tick that climbs through a shower
-					if t - lastCoinTick > 0.035 then
-						coinRun = if t - lastCoinTick > 0.4 then 0 else coinRun + 1
-						lastCoinTick = t
-						pcall(function()
-							require(script.Parent.AudioKit)("audio").Audio:play("countTick", 1 + math.min(coinRun, 12) * 0.035 + (if effect.last then 0.12 else 0))
-						end)
-					end
-					if effect.last then
-						Juice.spark(effect.to + Vector2.new(math.random(-10, 10), math.random(-8, 8)), theme.lighten(effect.color, 0.5))
+					if effect.kind == "gem" then
+						Juice.spark(effect.to, theme.lighten(effect.color, 0.5), 36)
+						if effect.last then
+							Juice.shockwave(effect.to, effect.color, 0.75)
+							pcall(function()
+								require(script.Parent.AudioKit)("audio").Audio:play("successChime")
+							end)
+						end
+					else
+						-- the sound lands with the coin: a soft tick that climbs through a shower
+						if t - lastCoinTick > 0.035 then
+							coinRun = if t - lastCoinTick > 0.4 then 0 else coinRun + 1
+							lastCoinTick = t
+							pcall(function()
+								require(script.Parent.AudioKit)("audio").Audio:play("countTick", 1 + math.min(coinRun, 12) * 0.035 + (if effect.last then 0.12 else 0))
+							end)
+						end
+						if effect.last then
+							Juice.spark(effect.to + Vector2.new(math.random(-10, 10), math.random(-8, 8)), theme.lighten(effect.color, 0.5))
+						end
 					end
 				end
 				if age >= lifeOf(effect) then

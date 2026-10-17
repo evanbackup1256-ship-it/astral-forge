@@ -59,6 +59,9 @@ return function(loadService: (string) -> any)
 		GrantContinuumRanks = { Label = "Grant Continuum ranks", Option = false, Category = "Progress" },
 		GrantAnomalyCharge = { Label = "Grant reactor charge", Option = false, Category = "Progress" },
 		GrantAnomalyStabilizations = { Label = "Grant reactor stabilizations", Option = false, Category = "Progress" },
+		GrantShards = { Label = "Grant Star Foundry shards", Option = false, Category = "Progress" },
+		SetFoundryRadius = { Label = "Set Foundry board radius", Option = false, Category = "Progress" },
+		GrantFoundryPiece = { Label = "Grant Foundry piece", Option = true, Category = "Progress" },
 		GrantFreeSpins = { Label = "Grant wheel spins", Option = false, Category = "Items" },
 		GrantCrateKeys = { Label = "Grant crate keys", Option = true, Category = "Items" },
 		GrantAllCrateKeys = { Label = "Grant every crate key", Option = false, Category = "Items" },
@@ -795,6 +798,42 @@ return function(loadService: (string) -> any)
 				local n = math.floor(amount)
 				ProfileBagMath.EnsureAnomaly(profile).Stabilizations += n
 				ProfileBagMath.BumpStat(profile, "AnomalyStabilizations", n)
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantShards = function(profile, amount, option)
+		local changedAmount = amount
+		local foundry = ProfileBagMath.EnsureFoundry(profile)
+		foundry.Shards = (tonumber(foundry.Shards) or 0) + math.floor(amount)
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetFoundryRadius = function(profile, amount, option)
+		local changedAmount = amount
+		local foundry = ProfileBagMath.EnsureFoundry(profile)
+		foundry.Radius = math.clamp(math.floor(amount), 2, 4)
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantFoundryPiece = function(profile, amount, option)
+		local changedAmount = amount
+		local foundry = ProfileBagMath.EnsureFoundry(profile)
+		if type(foundry.Bench) ~= "table" then
+			foundry.Bench = {}
+		end
+		local kind = "Ember"
+		local tier = 1
+		if type(option) == "string" and option ~= "" then
+			local k, t = string.match(option, "([^:]+):?(%d*)")
+			if k and k ~= "" then
+				kind = k
+			end
+			if t and tonumber(t) then
+				tier = math.clamp(tonumber(t) :: number, 1, 9)
+			end
+		end
+		for _ = 1, math.clamp(math.floor(amount), 1, 10) do
+			if #foundry.Bench < 12 then
+				table.insert(foundry.Bench, { Kind = kind, Tier = tier, Rotation = 0 })
+			end
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantFreeSpins = function(profile, amount, option)

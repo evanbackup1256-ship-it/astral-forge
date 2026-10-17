@@ -360,7 +360,7 @@ function QuickFind.QuickFind(props)
 	local boxRef = React.useRef(nil)
 	local listRef = React.useRef(nil)
 	local viewport = useViewport()
-	local show = useFlipperSpring(if open then 1 else 0, props.reducedMotion, 900, 40)
+	local show = useFlipperSpring(if open then 1 else 0, props.reducedMotion, 460, 28)
 	local enabled = props.enabled ~= false
 
 	local close = React.useCallback(function()

@@ -12916,7 +12916,7 @@ local STYLES = { {
 	colors = { Palette.cyan, Palette.mint, Palette.white, Palette.violet },
 	duration = 1.94,
 } }
-local MAX_PARTICLES = 18
+local MAX_PARTICLES = 28
 local MINIMAL_DURATION = 1.05
 local function noise(seed, index, salt)
 	local raw = math.sin(seed * 0.019 + (index + 1) * 12.9898 + salt * 78.233) * 43758.5453
@@ -12934,20 +12934,23 @@ local function styleForSeed(seed)
 	return STYLES[math.abs(math.floor(seed)) % #STYLES + 1]
 end
 local function shapeForRoll(roll)
-	if roll < 0.28 then
+	if roll < 0.22 then
 		return "Spark"
 	end
-	if roll < 0.46 then
+	if roll < 0.38 then
 		return "Star"
 	end
-	if roll < 0.62 then
+	if roll < 0.52 then
 		return "Shard"
 	end
-	if roll < 0.76 then
+	if roll < 0.66 then
 		return "Ember"
 	end
-	if roll < 0.88 then
+	if roll < 0.78 then
 		return "Coin"
+	end
+	if roll < 0.88 then
+		return "Gem"
 	end
 	return "Needle"
 end
@@ -13029,6 +13032,9 @@ local function sizeFor(shape, base, progress)
 	end
 	if shape == "Shard" then
 		return UDim2.fromOffset(math.max(1, base * 0.72 * arrival), math.max(1, base * 1.45 * arrival))
+	end
+	if shape == "Gem" then
+		return UDim2.fromOffset(math.max(2, base * 1.35 * pulse * arrival), math.max(2, base * 1.35 * pulse * arrival))
 	end
 	return UDim2.fromOffset(math.max(1, base * 0.72 * pulse * arrival), math.max(1, base * 0.72 * pulse * arrival))
 end
@@ -13194,6 +13200,28 @@ local function ForgeParticle(_param)
 			Rotation = 90,
 		})))
 	end
+	if particle.shape == "Gem" then
+		return React.createElement("frame", {
+			Size = size,
+			Position = position,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = rotation,
+			BackgroundColor3 = particle.color,
+			BackgroundTransparency = transparency,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+			ZIndex = zIndex,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 4),
+		}), React.createElement("uistroke", {
+			Color = Palette.white,
+			Thickness = 1.2,
+			Transparency = glowTransparency,
+		}), React.createElement("uigradient", {
+			Color = ColorSequence.new(lighten(particle.color, 0.5), darken(particle.color, 0.3)),
+			Rotation = 45,
+		}))
+	end
 	return React.createElement("frame", {
 		Size = size,
 		Position = position,
@@ -13305,8 +13333,8 @@ local function CelebrationBurst(_param)
 	local impact = time:map(function(seconds)
 		return easeOutBack(math.clamp(seconds / 0.28, 0, 1))
 	end)
-	local rayCount = if minimal then 0 elseif constrained then (if antilag.quality >= 0.55 then 2 else 0) elseif antilag.quality >= 0.62 then 4 elseif antilag.quality >= 0.28 then 2 else 0
-	local rays = if rayCount == 4 then { 0, 90, 180, 270 } elseif rayCount == 2 then { 0, 180 } else {}
+	local rayCount = if minimal then 0 elseif constrained then (if antilag.quality >= 0.55 then 4 else 0) elseif antilag.quality >= 0.62 then 8 elseif antilag.quality >= 0.28 then 4 else 0
+	local rays = if rayCount == 8 then { 0, 45, 90, 135, 180, 225, 270, 315 } elseif rayCount == 4 then { 0, 90, 180, 270 } elseif rayCount == 2 then { 0, 180 } else {}
 	local _newValue_1 = table.create(#rays)
 	local _callback_1 = function(angle, index)
 		return React.createElement("frame", {
@@ -15653,6 +15681,7 @@ local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
 local useGuiSize = _ui.useGuiSize
 local pixelPosition = _ui.pixelPosition
+local Stroke = _ui.Stroke
 
 local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 local Model = SharedData("PlayerlistModel")
@@ -16126,9 +16155,29 @@ local function PlayerRow(_param)
 		fit = true,
 		minSize = 8,
 		position = UDim2.fromOffset(10, 8 + 2 * 40 + 8),
-		sizeConstraint = UDim2.new(1, -20, 0, 16),
+		sizeConstraint = UDim2.new(1, -150, 0, 16),
 		zIndex = 625,
-	}), actions))
+	}), React.createElement("textbutton", {
+		Size = UDim2.new(0, 120, 0, 20),
+		Position = UDim2.new(1, -128, 0, 8 + 2 * 40 + 6),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		Text = "INSPECT GEAR 🔍",
+		TextColor3 = Palette.cyan,
+		TextSize = 10,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		AutoButtonColor = false,
+		ZIndex = 626,
+		Event = {
+			Activated = function()
+				Audio:play("tick")
+				if _param.onInspect then
+					_param.onInspect(row)
+				end
+			end,
+		},
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 4) }),
+	React.createElement("uistroke", { Color = Palette.cyan, Thickness = 1, Transparency = 0.5 })), actions))
 end
 
 local function ReportSheet(_param)
@@ -16524,6 +16573,157 @@ local function ReportSheet(_param)
 	}, body))))
 end
 
+local function PlayerInventoryViewerModal(_param)
+	local p = _param.player
+	local onClose = _param.onClose
+	local viewport = useViewport()
+	local show = useFlipperSpring(1, _param.reducedMotion, 560, 36, 0)
+	local width = math.min(480, viewport.width - 24)
+	local height = math.min(540, viewport.height - 48)
+	local items = if type(p.DetailedInventory) == "table" and #p.DetailedInventory > 0 then p.DetailedInventory else {}
+	local relicRows = {}
+	for idx, item in items do
+		local rColor = if item.Rarity == "MYTHIC" then Palette.mango elseif item.Rarity == "LEGENDARY" then Palette.coral elseif item.Rarity == "EPIC" then Palette.violet elseif item.Rarity == "RARE" then Palette.cyan else Palette.muted
+		table.insert(relicRows, React.createElement("frame", {
+			key = item.Uid or idx,
+			Size = UDim2.new(1, 0, 0, 34),
+			BackgroundColor3 = Palette.panelSoft,
+			BorderSizePixel = 0,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 6) }),
+		React.createElement(Stroke, { color = rColor, thickness = 1, transparency = 0.6 }),
+		React.createElement(Text, {
+			value = item.Name or "Relic",
+			size = 13,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Bold,
+			position = UDim2.fromOffset(10, 8),
+			sizeConstraint = UDim2.new(1, -120, 0, 18),
+		}),
+		React.createElement(Text, {
+			value = `LV {item.Level or 1} · {item.Rarity or "COMMON"}{if item.Equipped then "  [EQUIPPED]" else ""}`,
+			size = 10,
+			color = if item.Equipped then Palette.mint else rColor,
+			weight = Enum.FontWeight.Heavy,
+			align = Enum.TextXAlignment.Right,
+			position = UDim2.new(1, -130, 0, 8),
+			sizeConstraint = UDim2.fromOffset(120, 18),
+		})))
+	end
+	return React.createElement("textbutton", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = show:map(function(v) return 1 - v * 0.65 end),
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 800,
+		Event = { Activated = onClose },
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(width, height),
+		Position = show:map(function(v) return UDim2.new(0.5, 0, 0.5, math.round((1 - v) * 28)) end),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.panelRaised,
+		BorderSizePixel = 0,
+		Active = true,
+		ClipsDescendants = true,
+		ZIndex = 801,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 16) }),
+	React.createElement(Stroke, { color = Palette.cyan, thickness = 1.5, transparency = 0.35 }),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 68),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 802,
+	}, React.createElement("uipadding", { PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16) }),
+	React.createElement(Avatar, { userId = p.UserId, accent = Palette.cyan, size = 48 }),
+	React.createElement(Text, {
+		value = p.DisplayName or p.Name or "Player",
+		size = 16,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(60, 4),
+		sizeConstraint = UDim2.new(1, -120, 0, 20),
+		zIndex = 803,
+	}),
+	React.createElement(Text, {
+		value = `LIVE MIRROR  ·  WORLD {p.CurrentZone or 1}  ·  {compactNumber(p.Rebirths or 0)} REBIRTHS  ·  {p.CurrentPage or "Dock"}`,
+		size = 11,
+		color = Palette.mint,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(60, 26),
+		sizeConstraint = UDim2.new(1, -120, 0, 16),
+		zIndex = 803,
+	}),
+	React.createElement("frame", {
+		Size = UDim2.fromOffset(36, 36),
+		Position = UDim2.new(1, -36, 0, 6),
+		BackgroundTransparency = 1,
+		ZIndex = 804,
+	}, React.createElement(Button, {
+		text = "",
+		icon = "Close",
+		onClick = onClose,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		zIndex = 805,
+	}))),
+	React.createElement("scrollingframe", {
+		Size = UDim2.new(1, -32, 1, -84),
+		Position = UDim2.fromOffset(16, 76),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.fromOffset(0, math.max(200, #relicRows * 38 + 140)),
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Palette.cyan,
+		ZIndex = 802,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+	p.Artifact ~= nil and React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 52),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 8) }),
+	React.createElement(Stroke, { color = Palette.violet, thickness = 1, transparency = 0.5 }),
+	React.createElement(Text, {
+		value = `EQUIPPED ARTIFACT: {string.upper(p.Artifact.Name)} (LV {p.Artifact.Level})`,
+		size = 13,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(10, 8),
+		sizeConstraint = UDim2.new(1, -20, 0, 18),
+	}),
+	React.createElement(Text, {
+		value = `Rarity: {p.Artifact.Rarity or "COMMON"}  ·  Element: {p.Artifact.Element or "Cosmic"}`,
+		size = 11,
+		color = Palette.violet,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(10, 28),
+		sizeConstraint = UDim2.new(1, -20, 0, 16),
+	})) or nil,
+	React.createElement(Text, {
+		value = `STORED RELICS & GEAR ({#relicRows})`,
+		size = 12,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Heavy,
+		layoutOrder = 2,
+		sizeConstraint = UDim2.new(1, 0, 0, 20),
+	}),
+	#relicRows == 0 and React.createElement(Text, {
+		value = "No unequipped relics currently stored in this player's vault.",
+		size = 12,
+		color = Palette.muted,
+		wrap = true,
+		layoutOrder = 3,
+		sizeConstraint = UDim2.new(1, 0, 0, 32),
+	}) or nil,
+	table.unpack(relicRows))))
+end
+
 local function PlayerlistOverlay(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -16555,6 +16755,7 @@ local function PlayerlistOverlay(_param)
 	local friends, setFriends = React.useState({})
 	local blocked, setBlocked = React.useState({})
 	local reportTarget, setReportTarget = React.useState(nil)
+	local inspectedPlayer, setInspectedPlayer = React.useState(nil)
 	local inviteBusy, setInviteBusy = React.useState(false)
 	local awayTick, setAwayTick = React.useState(0)
 	local alive = React.useRef(true)
@@ -16875,6 +17076,9 @@ local function PlayerlistOverlay(_param)
 				Audio:play("dangerPress")
 				setReportTarget(row)
 			end,
+			onInspect = function()
+				setInspectedPlayer(row)
+			end,
 		})
 	end
 	if #visible <= 1 and (query ~= "" or friendsOnly) then
@@ -17140,6 +17344,12 @@ local function PlayerlistOverlay(_param)
 		end,
 		onClose = function()
 			setReportTarget(nil)
+		end,
+	}), inspectedPlayer ~= nil and React.createElement(PlayerInventoryViewerModal, {
+		player = inspectedPlayer,
+		reducedMotion = reducedMotion,
+		onClose = function()
+			setInspectedPlayer(nil)
 		end,
 	}))))
 end
@@ -19666,6 +19876,9 @@ local function EventPanel(_param)
 					height += 24
 				end
 			end
+		elseif EVENT_DESCRIPTIONS[def.Id] then
+			line("effect", EVENT_DESCRIPTIONS[def.Id], accent, 13, 24)
+			height += 30
 		end
 	end
 	return React.createElement("textbutton", {
@@ -19754,6 +19967,19 @@ local function EventPanel(_param)
 	}, rows)))
 end
 
+local EVENT_DESCRIPTIONS = {
+	CelestialAlignment = "Effect: Vault capacity increased by +50% and collects award bonus stardust.",
+	SolarFlareEruption = "Effect: Solar radiation supercharges the grid with rapid stardust surges.",
+	SupernovaHarvest = "Effect: Collect flux to harvest cosmic embers for the Star Foundry.",
+	VoidRiftIncursion = "Effect: Rift resonance harmonizes production lines across the forge.",
+	AstralTide = "Effect: Gravitational tides wash through the dockyard, pulsing cadence.",
+	ChronosEcho = "Effect: Temporal echoes accelerate forge clockwork cycles.",
+	NebulaBloom = "Effect: Ionized nebula gas deposits extra stardust on every collection.",
+	GlitchConvergence = "Effect: Sub-space conduits surge with high-voltage power spikes.",
+	StarlightCaravan = "Effect: Wandering merchants deliver stardust shipments to active forges.",
+	HyperdriveOverload = "Effect: High-output plasma conduits burn bright with surging energy.",
+}
+
 -- Screen-space weather for live events. Every particle is a pure function of one time
 -- binding (no per-particle state), seeded so the pattern is stable between renders.
 local SKY_STYLE = {
@@ -19761,6 +19987,16 @@ local SKY_STYLE = {
 	StardustRain = { kind = "dust", burst = 34, ambient = 12 },
 	-- embers stay few after the opening burst so they never crowd the pages
 	CommunityForge = { kind = "ember", burst = 22, ambient = 4 },
+	CelestialAlignment = { kind = "dust", burst = 28, ambient = 8 },
+	SolarFlareEruption = { kind = "streak", burst = 20, ambient = 6, angle = 45 },
+	SupernovaHarvest = { kind = "ember", burst = 30, ambient = 8 },
+	VoidRiftIncursion = { kind = "dust", burst = 24, ambient = 6 },
+	AstralTide = { kind = "dust", burst = 30, ambient = 10 },
+	ChronosEcho = { kind = "streak", burst = 14, ambient = 4, angle = 12 },
+	NebulaBloom = { kind = "dust", burst = 36, ambient = 14 },
+	GlitchConvergence = { kind = "streak", burst = 22, ambient = 6, angle = 70 },
+	StarlightCaravan = { kind = "dust", burst = 26, ambient = 8 },
+	HyperdriveOverload = { kind = "ember", burst = 26, ambient = 6 },
 }
 local SKY_BURST_SECONDS = 6
 
@@ -20186,7 +20422,10 @@ local function MemberCard(_param)
 	}, React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = React.joinBindings({ lift, arrive }):map(function(values)
-			return UDim2.fromOffset(0, math.round(-values[1] * 3 + (1 - math.clamp(values[2], 0, 1)) * 12))
+			return UDim2.fromOffset(0, math.round(-values[1] * 6 + (1 - math.clamp(values[2], 0, 1)) * 14))
+		end),
+		Rotation = lift:map(function(v)
+			return v * (if _param.index % 2 == 0 then 1.4 else -1.4)
 		end),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
@@ -20194,6 +20433,7 @@ local function MemberCard(_param)
 		Active = true,
 		Event = {
 			MouseEnter = function()
+				Audio:play("hover")
 				setHovered(true)
 			end,
 			MouseLeave = function()
@@ -20201,8 +20441,10 @@ local function MemberCard(_param)
 			end,
 		},
 	}, React.createElement("uiscale", {
-		Scale = arrive:map(function(amount)
-			return 0.94 + math.clamp(amount, 0, 1) * 0.06
+		Scale = React.joinBindings({ arrive, lift }):map(function(values)
+			local arr = 0.94 + math.clamp(values[1], 0, 1) * 0.06
+			local lft = values[2] * 0.03
+			return arr + lft
 		end),
 	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 12),
@@ -20210,10 +20452,14 @@ local function MemberCard(_param)
 		Color = ColorSequence.new(Palette.panelRaised, Palette.panel),
 		Rotation = 90,
 	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1,
+		Color = lift:map(function(v)
+			return Palette.panelRaised:Lerp(lighten(accent, 0.4), v)
+		end),
+		Thickness = lift:map(function(v)
+			return 1 + v * 0.75
+		end),
 		Transparency = lift:map(function(amount)
-			return 0.78 - math.clamp(amount, 0, 1) * 0.45
+			return 0.75 - math.clamp(amount, 0, 1) * 0.65
 		end),
 	}), MODEL.ShowAvatars and React.createElement(Avatar, {
 		member = member,

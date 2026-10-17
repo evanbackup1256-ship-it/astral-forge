@@ -317,4 +317,24 @@ function ProfileBagMath.EnsureContinuum(profile: any): any
 	return profile.Continuum
 end
 
+function ProfileBagMath.EnsureFoundry(profile: any): any
+	if type(profile.Foundry) ~= "table" then
+		profile.Foundry = {
+			Migrated = true,
+			Radius = 2,
+			Pieces = {},
+			Bench = {},
+			Shards = 0,
+			Draws = 0,
+			Combo = 0,
+			BestCombo = 0,
+			IgniteAt = 0,
+			SurgeEndsAt = 0,
+			LastAt = 0,
+			Version = 0,
+		}
+	end
+	return profile.Foundry
+end
+
 return table.freeze(ProfileBagMath)

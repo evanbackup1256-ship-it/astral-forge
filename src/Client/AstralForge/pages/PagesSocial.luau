@@ -430,6 +430,216 @@ local function RelicPick(_param)
 		highlight = picked,
 	})
 end
+
+local TRADE_QUICK_PRESETS = {
+	"Fair deal! 👍",
+	"Add more stardust?",
+	"Ready when you are! ⚡",
+	"Looking for Relics 💎",
+	"Need boost charges!",
+	"Thanks for trading! ✨",
+}
+
+local function calcOfferValue(offer)
+	if type(offer) ~= "table" then return 0 end
+	local total = (tonumber(offer.Cash) or 0) / 10000
+		+ (tonumber(offer.Stardust) or 0) * 10
+		+ (tonumber(offer.Cores) or 0) * 1000
+		+ (tonumber(offer.Signals) or 0) * 20
+		+ (tonumber(offer.Essence) or 0) * 15
+	if type(offer.Boosts) == "table" then
+		for _, count in pairs(offer.Boosts) do
+			total += (tonumber(count) or 0) * 450
+		end
+	end
+	if type(offer.Keys) == "table" then
+		for _, count in pairs(offer.Keys) do
+			total += (tonumber(count) or 0) * 350
+		end
+	end
+	if type(offer.ItemIds) == "table" then
+		total += #offer.ItemIds * 800
+	end
+	return math.round(total)
+end
+
+local function TradeFairnessMeter(props)
+	local yourScore = calcOfferValue(props.draft)
+	local theirScore = calcOfferValue(props.them)
+	local total = yourScore + theirScore
+	local yourRatio = if total > 0 then yourScore / total else 0.5
+	local balanceText, balanceColor
+	if total == 0 then
+		balanceText = "Place items or currencies on the table to compare cosmic trade balance."
+		balanceColor = Palette.muted
+	elseif yourRatio >= 0.42 and yourRatio <= 0.58 then
+		balanceText = "Fair Exchange · Equal Cosmic Weight"
+		balanceColor = Palette.mint
+	elseif yourRatio > 0.58 then
+		local adv = math.round((yourRatio - 0.5) * 200)
+		balanceText = `Generous Offer (+{adv}% extra value to partner)`
+		balanceColor = Palette.mango
+	else
+		local adv = math.round((0.5 - yourRatio) * 200)
+		balanceText = `Favorable Offer (+{adv}% extra value to you)`
+		balanceColor = Palette.cyan
+	end
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 48),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 8) }),
+	React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 6),
+		PaddingBottom = UDim.new(0, 6),
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
+	}),
+	React.createElement(Text, {
+		value = balanceText,
+		size = 12,
+		color = balanceColor,
+		weight = Enum.FontWeight.Bold,
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 8),
+		Position = UDim2.fromOffset(0, 24),
+		BackgroundColor3 = Palette.graphite,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+	React.createElement("frame", {
+		Size = UDim2.new(yourRatio, 0, 1, 0),
+		BackgroundColor3 = Palette.mango,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
+	React.createElement("frame", {
+		Size = UDim2.new(1 - yourRatio, 0, 1, 0),
+		Position = UDim2.new(yourRatio, 0, 0, 0),
+		BackgroundColor3 = Palette.cyan,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))))
+end
+
+local function TradeChatStream(props)
+	local messages, setMessages = React.useState({
+		{ sender = "Dock", text = "Secure trade frequency active. Keep deals fair.", isSystem = true },
+	})
+	local inputVal, setInputVal = React.useState("")
+	local onSend = function(text)
+		local clean = string.gsub(text or "", "^%s*(.-)%s*$", "%1")
+		if clean == "" then return end
+		Audio:play("chatSend")
+		local updated = table.clone(messages)
+		table.insert(updated, { sender = "You", text = clean, isYou = true })
+		if #updated > 6 then table.remove(updated, 1) end
+		setMessages(updated)
+		setInputVal("")
+	end
+	local pills = {}
+	for idx, preset in TRADE_QUICK_PRESETS do
+		table.insert(pills, React.createElement("textbutton", {
+			key = idx,
+			Text = preset,
+			Size = UDim2.new(0, #preset * 7 + 16, 0, 24),
+			BackgroundColor3 = Palette.panelSoft,
+			TextColor3 = Palette.cream,
+			TextSize = 11,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Event = {
+				Activated = function()
+					onSend(preset)
+				end,
+			},
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+		React.createElement(Stroke, { color = Palette.line, thickness = 1, transparency = 0.5 })))
+	end
+	local msgElements = {}
+	for idx, msg in messages do
+		table.insert(msgElements, React.createElement("frame", {
+			key = idx,
+			Size = UDim2.new(1, 0, 0, 18),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(Text, {
+			value = `[{msg.sender}] {msg.text}`,
+			size = 11,
+			color = if msg.isSystem then Palette.cyan elseif msg.isYou then Palette.mint else Palette.creamSoft,
+			weight = if msg.isYou then Enum.FontWeight.Bold else Enum.FontWeight.Regular,
+			wrap = true,
+			sizeConstraint = UDim2.new(1, 0, 0, 18),
+		})))
+	end
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 108),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
+	React.createElement(Stroke, { color = Palette.cyan, thickness = 1, transparency = 0.5 }),
+	React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 6),
+		PaddingBottom = UDim.new(0, 6),
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
+	}),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundTransparency = 1,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 6),
+	}), table.unpack(pills)),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 40),
+		Position = UDim2.fromOffset(0, 30),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 1),
+	}), table.unpack(msgElements)),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 24),
+		Position = UDim2.fromOffset(0, 74),
+		BackgroundTransparency = 1,
+	}, React.createElement("textbox", {
+		Size = UDim2.new(1, -64, 1, 0),
+		BackgroundColor3 = Palette.graphite,
+		TextColor3 = Palette.cream,
+		PlaceholderText = `Message {props.partnerName or "partner"}...`,
+		PlaceholderColor3 = Palette.muted,
+		Text = inputVal,
+		TextSize = 12,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ClearTextOnFocus = false,
+		BorderSizePixel = 0,
+		Change = {
+			Text = function(rbx)
+				setInputVal(rbx.Text)
+			end,
+		},
+		Event = {
+			FocusLost = function(_, enterPressed)
+				if enterPressed then onSend(inputVal) end
+			end,
+		},
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 6) }),
+	React.createElement("uipadding", { PaddingLeft = UDim.new(0, 8) })),
+	React.createElement(Button, {
+		text = "SEND",
+		onClick = function() onSend(inputVal) end,
+		color = Palette.cyan,
+		textColor = Palette.void,
+		size = UDim2.new(0, 58, 1, 0),
+		position = UDim2.new(1, -58, 0, 0),
+	})))
+end
+
 local function TradeView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -1513,6 +1723,19 @@ local function TradeView(_param)
 					position = UDim2.fromOffset(0, 56),
 					sizeConstraint = UDim2.new(1, 0, 0, 36),
 				}) or nil),
+			}, {
+				id = "meter",
+				height = 54,
+				element = React.createElement(TradeFairnessMeter, {
+					draft = draft,
+					them = session.Them,
+				}),
+			}, {
+				id = "chat",
+				height = 114,
+				element = React.createElement(TradeChatStream, {
+					partnerName = session.PartnerName,
+				}),
 			}, {
 				id = "tabs",
 				height = TapTarget,
