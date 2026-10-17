@@ -33,6 +33,7 @@ local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigati
 local useViewport = require(script.Parent.MotionKit)("motion").useViewport
 local _ui = require(script.Parent.UiCore)("ui")
 local Button = _ui.Button
+local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
 local darken = _theme.darken
@@ -51,6 +52,11 @@ local KIND_COLOR = {
 	Critical = Palette.pink, EchoCharge = Palette.mint, ContinuumDiscount = Palette.mango, Offline = Palette.cyan,
 	Luck = Palette.mint, WorldDiscount = Palette.violet, EssenceGain = Palette.pink, ForgePathXP = Palette.mango,
 	CommandXP = Palette.coral,
+}
+local KIND_ICON = {
+	Production = "Flux", Capacity = "Vault", Tap = "Overcharge", RebirthYield = "Rebirth", Critical = "Jackpot",
+	EchoCharge = "Wave", ContinuumDiscount = "Continuum", Offline = "Timer", Luck = "Gift", WorldDiscount = "World",
+	EssenceGain = "Artifact", ForgePathXP = "Milestone", CommandXP = "Command",
 }
 local KEEPS = "Research, relics, Stardust, milestones, your crew and guild"
 local RESETS = "Machines, Flux, the vault, worlds, and the rebirths and Cores you spend"
@@ -274,12 +280,10 @@ local function Lattice(props)
 				cy += y / 3
 			end
 			children["facet" .. index] = h("frame", {
-				Size = UDim2.fromOffset(9, 9),
+				Size = UDim2.fromOffset(16, 16),
 				Position = UDim2.fromScale(cx, cy),
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Rotation = 45,
-				BackgroundColor3 = Palette.mango,
-				BorderSizePixel = 0,
+				BackgroundTransparency = 1,
 				ZIndex = 605,
 			}, h("uiscale", {
 				Scale = tick:map(function(now)
@@ -287,7 +291,7 @@ local function Lattice(props)
 					local pop = if at == nil then 0 else 1 - easeOut((now - at) / 0.4)
 					return 1 + pop * 1.6 + math.sin(now * 2 + index) * 0.08
 				end),
-			}), h("uistroke", { Color = WHITE_HOT, Thickness = 1, Transparency = 0.3 }))
+			}), h(Icon, { kind = "StarGrid", color = Palette.mango, accent = WHITE_HOT, size = 16, spin = false }))
 		end
 	end
 	-- the anchors: a cut stone, filled as its links are etched, with a pip for every link it can take
@@ -332,26 +336,26 @@ local function Lattice(props)
 				end,
 			},
 		}, h("frame", {
-			Size = UDim2.fromOffset(stone, stone),
+			-- a plate that warms with the anchor's links, carrying its bonus's icon
+			Size = UDim2.fromOffset(stone + 6, stone + 6),
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = 45,
-			BackgroundColor3 = darken(color, 0.62),
+			BackgroundColor3 = darken(color, 0.7 - fill * 0.35),
 			BorderSizePixel = 0,
 			ZIndex = 608,
-		}, h("uicorner", { CornerRadius = UDim.new(0, 4) }), h("uistroke", {
-			Color = if picked then WHITE_HOT else color,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+			Color = if picked or fill >= 1 then WHITE_HOT else color,
 			Thickness = if picked then 2.5 else 1.5,
 			Transparency = if d > 0 or isHearth then 0 else 0.45,
-		}), h("frame", {
-			Size = UDim2.fromScale(0.22 + fill * 0.62, 0.22 + fill * 0.62),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = if fill >= 1 then WHITE_HOT else color,
-			BackgroundTransparency = if d > 0 or isHearth then 0 else 0.7,
-			BorderSizePixel = 0,
-			ZIndex = 609,
-		}, h("uicorner", { CornerRadius = UDim.new(0, 2) }))), h("frame", {
+		}), h(Icon, {
+			kind = KIND_ICON[anchor.kind] or "Domain",
+			color = if d > 0 or isHearth then Palette.cream else Palette.muted,
+			accent = color,
+			size = stone - 4,
+			spin = false,
+			position = UDim2.fromScale(0.5, 0.5),
+			anchorPoint = Vector2.new(0.5, 0.5),
+		})), h("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			ZIndex = 608,

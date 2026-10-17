@@ -16780,7 +16780,7 @@ local function findTarget(name)
 	return nil
 end
 
--- the task box's check: two strokes stamped in when the player does the thing
+-- the task box's check, stamped in when the player does the thing
 local function StampedCheck(props)
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(20, 20),
@@ -16788,20 +16788,11 @@ local function StampedCheck(props)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = 406,
-	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement("frame", {
-		Size = UDim2.fromOffset(7, 3),
-		Position = UDim2.fromOffset(3, 10),
-		Rotation = 45,
-		BackgroundColor3 = Palette.ink,
-		BorderSizePixel = 0,
-		ZIndex = 406,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(12, 3),
-		Position = UDim2.fromOffset(7, 8),
-		Rotation = -52,
-		BackgroundColor3 = Palette.ink,
-		BorderSizePixel = 0,
-		ZIndex = 406,
+	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement(Icon, {
+		kind = "Check",
+		color = Palette.ink,
+		size = 20,
+		spin = false,
 	}))
 end
 
@@ -18862,34 +18853,15 @@ local function StarField(props)
 				end,
 			},
 		}, h("frame", {
-			-- a four-point star: two long thin diamonds crossed, with a hot core
-			Size = UDim2.fromOffset(10, 34),
+			Size = UDim2.fromOffset(40, 40),
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Rotation = clock:map(function(t)
 				return (t * 60 + slot * 30) % 360
 			end),
-			BackgroundColor3 = Palette.mango,
-			BorderSizePixel = 0,
+			BackgroundTransparency = 1,
 			ZIndex = 141,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h("frame", {
-			Size = UDim2.fromOffset(34, 10),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = clock:map(function(t)
-				return (t * 60 + slot * 30) % 360
-			end),
-			BackgroundColor3 = Palette.mango,
-			BorderSizePixel = 0,
-			ZIndex = 141,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h("frame", {
-			Size = UDim2.fromOffset(12, 12),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = WHITE_HOT,
-			BorderSizePixel = 0,
-			ZIndex = 142,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })))
+		}, h(Icon, { kind = "Milestone", color = Palette.mango, accent = WHITE_HOT, size = 40, spin = false })))
 	end
 	return h("frame", {
 		Name = "StarField",
@@ -18950,55 +18922,25 @@ local function SupplyCrates(props)
 					end)
 				end,
 			},
-		}, h("frame", {
-			-- the chute
-			Size = UDim2.fromOffset(84, 34),
-			BackgroundColor3 = Palette.mint,
-			BackgroundTransparency = 0.25,
-			BorderSizePixel = 0,
-			ZIndex = 151,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h("frame", {
-			Size = UDim2.fromOffset(2, 40),
-			Position = UDim2.fromOffset(14, 30),
-			Rotation = 14,
-			BackgroundColor3 = Palette.creamSoft,
-			BorderSizePixel = 0,
-			ZIndex = 151,
-		}), h("frame", {
-			Size = UDim2.fromOffset(2, 40),
-			Position = UDim2.fromOffset(68, 30),
-			Rotation = -14,
-			BackgroundColor3 = Palette.creamSoft,
-			BorderSizePixel = 0,
-			ZIndex = 151,
-		}), h("frame", {
-			-- the crate: banded box with a glowing seam
-			Size = UDim2.fromOffset(52, 44),
-			Position = UDim2.new(0.5, 0, 1, 0),
-			AnchorPoint = Vector2.new(0.5, 1),
-			BackgroundColor3 = darken(Palette.mango, 0.45),
-			BorderSizePixel = 0,
-			ZIndex = 152,
-		}, h("uicorner", { CornerRadius = UDim.new(0, 6) }), h("uistroke", { Color = Palette.mango, Thickness = 2 }), h("frame", {
-			Size = UDim2.new(1, 0, 0, 4),
-			Position = UDim2.fromScale(0, 0.45),
-			BackgroundColor3 = WHITE_HOT,
-			BackgroundTransparency = clock:map(function(now)
-				return 0.2 + (math.sin(now * 5 + id) + 1) * 0.25
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 153,
+		}, h(Icon, {
+			kind = "Crate",
+			color = Palette.mango,
+			accent = Palette.mint,
+			size = 64,
+			spin = false,
+			position = UDim2.new(0.5, 0, 1, -22),
+			anchorPoint = Vector2.new(0.5, 1),
 		}), h("textlabel", {
 			Size = UDim2.new(1, 20, 0, 16),
-			Position = UDim2.new(0.5, 0, 1, 6),
-			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 1, 0),
+			AnchorPoint = Vector2.new(0.5, 1),
 			BackgroundTransparency = 1,
 			Text = `Grab it · {drop.Left} left`,
 			TextSize = 12,
 			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			TextColor3 = Palette.mint,
 			ZIndex = 153,
-		})))
+		}))
 	end
 	return h("frame", {
 		Name = "SupplyCrates",

@@ -348,7 +348,7 @@ local function TipText(props)
 	}, children)
 end
 
--- a check drawn from two strokes (stamped when a station finishes)
+-- the station check (stamped in when a station finishes)
 local function CheckGlyph(props)
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(12, 12),
@@ -356,22 +356,11 @@ local function CheckGlyph(props)
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = 9,
-	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement("frame", {
-		Size = UDim2.fromOffset(5, 2),
-		Position = UDim2.fromOffset(1, 7),
-		Rotation = 45,
-		BackgroundColor3 = props.color,
-		BackgroundTransparency = props.transparency,
-		BorderSizePixel = 0,
-		ZIndex = 9,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(9, 2),
-		Position = UDim2.fromOffset(4, 5),
-		Rotation = -50,
-		BackgroundColor3 = props.color,
-		BackgroundTransparency = props.transparency,
-		BorderSizePixel = 0,
-		ZIndex = 9,
+	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement(BrandArt.Icon, {
+		kind = "Check",
+		color = props.color,
+		size = 12,
+		spin = false,
 	}))
 end
 
