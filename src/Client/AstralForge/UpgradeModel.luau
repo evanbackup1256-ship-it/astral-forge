@@ -2,11 +2,29 @@
 -- Pure purchasing/read-model logic. Currency stays in OmegaMath at every tier.
 return function(Math)
 	local Model = {}
+	-- a price only depends on the item, its level and how many: boards re-quote every row on each
+	-- cash tick, so the geometric sums are remembered per item (weak, so old configs fall away)
+	local costMemo = setmetatable({}, { __mode = "k" })
+	local function costOf(item, level, count)
+		local byItem = costMemo[item]
+		if byItem == nil or byItem.size > 256 then
+			byItem = { size = 0 }
+			costMemo[item] = byItem
+		end
+		local key = `{level}:{count}`
+		local cost = byItem[key]
+		if cost == nil then
+			cost = if count > 0 then Math.GeometricSum(item.BaseCost, item.CostScale, level, count) else Math.ScaledCost(item.BaseCost, item.CostScale, level)
+			byItem[key] = cost
+			byItem.size += 1
+		end
+		return cost
+	end
 	function Model.quote(entry, amount, cash)
 		local item = entry.config
 		local remaining = math.max(0, item.MaxLevel - entry.level)
 		local count = if amount == 0 then Math.AffordableCount(item.BaseCost, item.CostScale, entry.level, cash, remaining) else math.min(amount, 50, remaining)
-		local cost = if count > 0 then Math.GeometricSum(item.BaseCost, item.CostScale, entry.level, count) else Math.ScaledCost(item.BaseCost, item.CostScale, entry.level)
+		local cost = costOf(item, entry.level, count)
 		return { count = count, cost = cost, ready = entry.unlocked and not entry.maxed and count > 0 and Math.Gte(cash, cost) }
 	end
 	function Model.returnScore(entry)
