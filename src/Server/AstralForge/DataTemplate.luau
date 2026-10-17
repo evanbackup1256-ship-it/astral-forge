@@ -265,6 +265,7 @@ function DataTemplate.New()
 			WhispersFriendsOnly = 0,
 			CrewInvitePolicy = 0,
 			TradeInvitePolicy = 0,
+			InventoryViewPolicy = 0,
 			ShowFps = 1,
 			ShowPing = 1,
 			ShowResourceLabels = 1,

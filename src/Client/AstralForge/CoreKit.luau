@@ -1181,6 +1181,7 @@ local GRANT_ACTIONS = {
 	["Ascend"] = true,
 	["UpgradeSigil"] = true,
 	["EchoAct"] = true,
+	["WatchInventory"] = true,
 	["TradeChat"] = true,
 	["TradeRequest"] = true,
 	["ClaimQuest"] = true,

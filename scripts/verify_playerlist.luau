@@ -9,6 +9,31 @@ local fs = require("./_memberfs")(require("@lune/fs"))
 
 local Model = luau.load(fs.readFile("src/Shared/AstralForge/Shared/SharedData.luau#PlayerlistModel"), { chunkName = "PlayerlistModel" })() :: any
 local Ledger = luau.load(fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ReportLedger"), { chunkName = "ReportLedger" })() :: any
+local InventoryWatchMath = require("../src/Server/AstralForge/Modules/InventoryWatchMath")
+local ChatRules = require("../src/Shared/AstralForge/Shared/ChatRules")
+
+local inventoryView = InventoryWatchMath.Build({
+	Items = {
+		Inventory = {
+			RID_Z = { DefinitionId = "IonCoupler", Level = 5, Locked = true },
+			RID_A = { DefinitionId = "FluxLens", Level = 2 },
+		},
+		Equipped = { "RID_A" },
+		Keys = { ForgeCrate = 2, CrystalCrate = -1 },
+		Essence = 37,
+	},
+	BoostInventory = { Overdrive = 3 },
+}, {
+	IonCoupler = { Id = "IonCoupler", Name = "Ion Coupler", Rarity = "Legendary" },
+	FluxLens = { Id = "FluxLens", Name = "Flux Lens", Rarity = "Mythic" },
+}, 8)
+assert(inventoryView.Count == 2 and inventoryView.Limit == 8, "inventory watch reports its current size and limit")
+assert(inventoryView.Relics[1].Uid == "RID_A" and inventoryView.Relics[1].Equipped, "inventory watch sorts relics and identifies equipped items")
+assert(inventoryView.Relics[1].DefinitionId == "FluxLens" and inventoryView.Relics[1].Rarity == "MYTHIC", "inventory watch exposes the resolved relic definition")
+assert(inventoryView.Relics[2].Locked and inventoryView.Relics[2].Level == 5, "inventory watch preserves lock and level state")
+assert(inventoryView.Keys.ForgeCrate == 2 and inventoryView.Keys.CrystalCrate == nil, "inventory watch omits empty or invalid key counts")
+assert(inventoryView.Boosts.Overdrive == 3 and inventoryView.Essence == 37, "inventory watch includes boosts and essence")
+assert(ChatRules.allows(0, false) and ChatRules.allows(0.5, true) and not ChatRules.allows(0.5, false) and not ChatRules.allows(1, true), "inventory privacy follows the shared anyone/friends/nobody policy")
 
 -- Rows
 local rows = Model.clean({
@@ -85,8 +110,32 @@ assert(ledger:canReport(4, 100, now + 2), "leaving clears a reporter's history")
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(server, "reportLedger:canReport(player.UserId, targetUserId, now)", 1, true), "server checks the ledger")
 assert(string.find(server, "reportLedger:record(player.UserId, targetUserId, reason, now)", 1, true), "server records reports")
+assert(string.find(server, 'elseif action == Protocol.Actions.WatchInventory then', 1, true), "server routes inventory watches")
+assert(string.find(server, "ChatRules.allows(policy, isFriend)", 1, true), "server enforces the target's inventory privacy policy")
+assert(string.find(server, "now - lastPush < 0.25", 1, true), "inventory snapshots are throttled")
+assert(string.find(server, "self:_clearInventoryWatchersForTarget(player.UserId, \"Unavailable\")", 1, true), "target departure clears inventory watchers")
+local pushState = assert(server:find("function GameService:_pushState", 1, true))
+local inventoryPush = assert(server:find("self:_pushInventoryWatch(player)", pushState, true))
+local stateSnapshot = assert(server:find("local snapshot = self:_snapshot(player)", pushState, true))
+assert(inventoryPush < stateSnapshot, "inventory watches update before the ordinary state push can early-return")
+local protocol = fs.readFile("src/Shared/AstralForge/Shared/Protocol.luau")
+assert(string.find(protocol, 'WatchInventory = "WatchInventory"', 1, true), "inventory watch action is in Protocol")
+local firewall = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
+assert(string.find(firewall, "[Protocol.Actions.WatchInventory] = { Cost = 0.35, Cooldown = 0.2 }", 1, true), "inventory watch has a firewall rule")
+assert(string.find(firewall, 'numberField(payload, "UserId", 0, RemoteFirewallMath.MAX_SAFE_USER_ID, true)', 1, true), "inventory watch validates its target")
+local publicRecord = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#PublicPlayerRecord")
+for _, field in { "DetailedInventory", "EquippedItems", "ItemCount", "Boosts =" } do
+	assert(not string.find(publicRecord, field, 1, true), "public player records must not expose " .. field)
+end
 local view = fs.readFile("src/Client/AstralForge/UiCore.luau#PlayerlistOverlay")
 assert(string.find(view, 'SharedData("PlayerlistModel")', 1, true), "player list uses the model")
+assert(string.find(view, 'dispatch("WatchInventory"', 1, true), "opening inventory subscribes to a live server view")
+assert(string.find(view, 'packet.Type ~= "InventoryWatch"', 1, true), "player list listens for inventory updates")
+assert(string.find(view, 'Kind = "arrived"', 1, true) and string.find(view, 'Kind = "departed"', 1, true), "inventory changes are highlighted in both directions")
+assert(string.find(view, "resourceSummary(view.Keys)", 1, true) and string.find(view, "resourceSummary(view.Boosts)", 1, true), "live viewer shows keys and boosts")
+assert(string.find(view, "item.Locked", 1, true), "live viewer distinguishes locked relics")
+local coreKit = fs.readFile("src/Client/AstralForge/CoreKit.luau#session")
+assert(string.find(coreKit, '["WatchInventory"] = true', 1, true), "inventory watch uses session grant fields")
 assert(string.find(view, "local function ReportSheet", 1, true), "report sheet")
 local start = assert(view:find("local function playerActionLayout(", 1, true))
 local finish = assert(view:find("local function PlayerRow(", start, true))

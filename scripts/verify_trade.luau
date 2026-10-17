@@ -5,7 +5,11 @@
 local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local TradeExchange = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeExchange")
+local TradeSuite = require("../src/Server/AstralForge/Modules/TradeSuite")
+local TradeExchange = TradeSuite("TradeExchange")
+local TradeChatMath = TradeSuite("TradeChatMath")
+local TradeRequestMath = TradeSuite("TradeRequestMath")
+local TradeChatFilter = TradeSuite("TradeChatFilter")
 local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
 
 local gameConfig = {
@@ -326,5 +330,47 @@ do
 	end
 	assert(getCount >= 4, "Hello/Beat/Txn helpers should share _get")
 end
+
+assert(TradeChatMath.CanSend(nil, 10), "first trade line is not delayed")
+assert(not TradeChatMath.CanSend(10, 10.59), "trade chat cooldown blocks a quick repeat")
+assert(TradeChatMath.CanSend(10, 10.61), "trade chat unlocks after its cooldown")
+
+local request = TradeRequestMath.Normalize({
+	ItemIds = { "IT1", "IT2", "IT3", "IT4", "IT5", "IT6", "IT7", "IT1" },
+	Cash = 9_000_000,
+	Stardust = 3_000,
+	Cores = 100,
+}, gameConfig.Trading.PerTrade, TradeExchange.CURRENCIES)
+assert(#request.ItemIds == gameConfig.Trading.PerTrade.Items and request.ItemIds[6] == "IT6", "trade requests stop at the PerTrade relic cap")
+assert(request.Cash == gameConfig.Trading.PerTrade.Cash and request.Stardust == gameConfig.Trading.PerTrade.Stardust, "trade requests clamp currency suggestions to PerTrade")
+assert(request.Cores == gameConfig.Trading.PerTrade.Cores, "trade requests clamp core suggestions to PerTrade")
+
+local filterCall = nil
+local filterService = {
+	FilterStringAsync = function(_, text, userId, context)
+		filterCall = { Text = text, UserId = userId, Context = context }
+		return {
+			GetNonChatStringForBroadcastAsync = function()
+				return "filtered message"
+			end,
+		}
+	end,
+}
+local filterOk, filtered = TradeChatFilter.Apply(filterService, string.rep("x", 200), 42, "PrivateChat")
+assert(filterOk and filtered == "filtered message", "trade chat returns only Roblox-filtered text")
+assert(#filterCall.Text == 140 and filterCall.UserId == 42 and filterCall.Context == "PrivateChat", "trade chat filters the bounded text in the sender's context")
+local filterFailed, blocked = TradeChatFilter.Apply({
+	FilterStringAsync = function()
+		error("filter unavailable")
+	end,
+}, "raw", 42, "PrivateChat")
+assert(not filterFailed and blocked == nil, "trade chat fails closed when filtering is unavailable")
+
+local tradeDeskSource = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
+assert(string.find(tradeDeskSource, "TradeChatMath.CanSend", 1, true), "TradeDesk enforces its per-player chat cooldown")
+assert(string.find(tradeDeskSource, "TradeRequestMath.Normalize", 1, true), "TradeDesk normalizes requests with PerTrade caps")
+local serverTradeSource = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(serverTradeSource, "TradeChatFilter.Apply", 1, true), "server trade chat uses the tested filter path")
+assert(string.find(serverTradeSource, "self._trades:Say(player, text", 1, true), "filtered text is passed into TradeDesk")
 
 print("[INFO] [TEST] trade exchange roundtrip + settle invariants passed")

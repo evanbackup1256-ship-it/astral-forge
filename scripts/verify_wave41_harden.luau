@@ -113,8 +113,9 @@ local rec = PublicPlayerRecord.Build(fakePlayer, profile, viewer, nil, {
 })
 assert(rec.UserId == 3, "public UserId")
 assert(rec.Production == 9, "public Production")
-assert(rec.ItemCount == 1, "public ItemCount")
-assert(rec.EquippedItems[1] == "Relic A", "public EquippedItems")
+for _, field in { "ItemCount", "EquippedItems", "DetailedInventory", "Boosts" } do
+	assert(rec[field] == nil, "public player records keep " .. field .. " private")
+end
 assert(rec.IsLocal == true, "public IsLocal")
 SettingsSeal.Apply(profile)
 assert(profile.Settings.SoundEffects == true, "seal SoundEffects")

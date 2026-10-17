@@ -136,37 +136,7 @@ local PublicPlayerRecord = {}
 local GeneralBoardValue = __load("GeneralBoardValue")
 
 function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, presence, deps)
-	local EnsureItems = deps.EnsureItems
-	local itemById = deps.itemById
 	local Economy = deps.Economy
-	local items = EnsureItems(profile)
-	local itemCount = 0
-	for _ in items.Inventory do
-		itemCount += 1
-	end
-	local equippedItems = {}
-	for _, uid in items.Equipped do
-		local instance = items.Inventory[uid]
-		local definition = instance and itemById[instance.DefinitionId]
-		if definition then
-			table.insert(equippedItems, definition.Name)
-		end
-	end
-	local detailedInventory = {}
-	for uid, instance in items.Inventory do
-		local definition = instance and itemById[instance.DefinitionId]
-		if definition then
-			table.insert(detailedInventory, {
-				Uid = uid,
-				DefinitionId = instance.DefinitionId,
-				Name = tostring(definition.Name),
-				Rarity = tostring(definition.Rarity or "COMMON"),
-				Level = math.max(1, math.floor(tonumber(instance.Level) or 1)),
-				Equipped = table.find(items.Equipped, uid) ~= nil,
-			})
-		end
-		if #detailedInventory >= 32 then break end
-	end
 	local liveEntry = presence and presence[player.UserId]
 	local artifact = nil
 	local command = profile.Command
@@ -204,12 +174,8 @@ function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, prese
 			Stars = GeneralBoardValue.Of(profile, "Stars", tostring),
 			Cipher = GeneralBoardValue.Of(profile, "Cipher", tostring),
 		},
-		ItemCount = itemCount,
-		EquippedItems = equippedItems,
-		DetailedInventory = detailedInventory,
 		Shards = profile.Foundry and profile.Foundry.Shards or 0,
 		FoundryPieces = profile.Foundry and type(profile.Foundry.Inventory) == "table" and #profile.Foundry.Inventory or 0,
-		Boosts = if type(profile.BoostInventory) == "table" then profile.BoostInventory else {},
 		Artifact = artifact,
 		IsLocal = player == viewer,
 		SocialFlags = 0,

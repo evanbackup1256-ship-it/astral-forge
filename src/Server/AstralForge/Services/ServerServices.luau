@@ -54,6 +54,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
+	local TradeChatFilter = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeChatFilter")
 	local TradeRecovery = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeRecovery")
 	local TradeHistory = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory"))
 	local ChatRules = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("ChatRules"))
@@ -85,6 +86,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ContinuumDomainMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ContinuumDomainMath")
 	local ItemLoadoutMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemLoadoutMath")
+	local InventoryWatchMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("InventoryWatchMath"))
 	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildMath")
 	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ForgePathClaim")
 	local OfflineProjection = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("OfflineProjection")
@@ -270,8 +272,6 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 
 	local function publicPlayerRecord(player: Player, profile, viewer: Player, presence)
 		return PublicPlayerRecord.Build(player, profile, viewer, presence, {
-			EnsureItems = ProfileBagMath.EnsureItems,
-			itemById = itemById,
 			Economy = Economy,
 		})
 	end
@@ -782,11 +782,13 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			if type(payload.Text) == "string" and #payload.Text > 0 then
 				-- free text goes through Roblox's filter for the partner before anyone sees it
 				local raw = string.sub(payload.Text, 1, 140)
-				local okFilter, filtered = pcall(function()
-					local result = game:GetService("TextService"):FilterStringAsync(raw, player.UserId, Enum.TextFilterContext.PrivateChat)
-					return result:GetNonChatStringForBroadcastAsync()
-				end)
-				if not okFilter or type(filtered) ~= "string" then
+				local okFilter, filtered = TradeChatFilter.Apply(
+					game:GetService("TextService"),
+					raw,
+					player.UserId,
+					Enum.TextFilterContext.PrivateChat
+				)
+				if not okFilter then
 					return responseError("That message couldn't be sent.")
 				end
 				text = filtered
@@ -876,6 +878,9 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		self._visiting = {}
 		self._visitors = {}
 		self._presence = {}
+		self._inventoryWatchers = {}
+		self._inventoryWatchTarget = {}
+		self._inventoryWatchLastPush = {}
 		self._matter = MatterRuntime.new(self)
 		self._matterAccumulator = 0
 		self._rankPingAccumulator = 0
@@ -1833,10 +1838,171 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		end
 	end
 
+	function GameService:_canViewInventory(viewer: Player, target: Player, profile): boolean
+		if viewer == target then
+			return true
+		end
+		local settings = profile and profile.Settings
+		local policy = settings and settings.InventoryViewPolicy
+		local isFriend = false
+		if type(policy) == "number" and policy >= 0.25 and policy < 0.75 then
+			local low = math.min(viewer.UserId, target.UserId)
+			local high = math.max(viewer.UserId, target.UserId)
+			local key = tostring(low) .. ":" .. tostring(high)
+			local now = os.clock()
+			local cached = self._friendshipCache[key]
+			if cached and cached.ExpiresAt > now then
+				isFriend = cached.Value
+			else
+				local ok, result = pcall(function()
+					return target:IsFriendsWith(viewer.UserId)
+				end)
+				isFriend = ok and result == true
+				self._friendshipCache[key] = {
+					Value = isFriend,
+					ExpiresAt = now + (ok and GameConfig.Social.FriendshipCacheSeconds or 20),
+				}
+			end
+		end
+		return ChatRules.allows(policy, isFriend)
+	end
+
+	function GameService:_removeInventoryWatcher(viewer: Player, reason: string?, notify: boolean?)
+		local userId = self._inventoryWatchTarget[viewer]
+		if userId == nil then
+			return
+		end
+		self._inventoryWatchTarget[viewer] = nil
+		local watchers = self._inventoryWatchers[userId]
+		if watchers then
+			watchers[viewer] = nil
+			if next(watchers) == nil then
+				self._inventoryWatchers[userId] = nil
+				self._inventoryWatchLastPush[userId] = nil
+			end
+		end
+		if notify ~= false and viewer.Parent == Players then
+			self._effect:FireClient(viewer, {
+				Type = "InventoryWatch",
+				UserId = userId,
+				View = nil,
+				Reason = reason or "Stopped",
+			})
+		end
+	end
+
+	function GameService:_clearInventoryWatchersForTarget(userId: number, reason: string)
+		local watchers = self._inventoryWatchers[userId]
+		self._inventoryWatchers[userId] = nil
+		self._inventoryWatchLastPush[userId] = nil
+		if not watchers then
+			return
+		end
+		for watcher in watchers do
+			if self._inventoryWatchTarget[watcher] == userId then
+				self._inventoryWatchTarget[watcher] = nil
+			end
+			if watcher.Parent == Players then
+				self._effect:FireClient(watcher, {
+					Type = "InventoryWatch",
+					UserId = userId,
+					View = nil,
+					Reason = reason,
+				})
+			end
+		end
+	end
+
+	function GameService:_pushInventoryWatch(target: Player, force: boolean?)
+		local userId = target.UserId
+		local watchers = self._inventoryWatchers[userId]
+		if not watchers then
+			return
+		end
+		local now = os.clock()
+		local lastPush = self._inventoryWatchLastPush[userId]
+		if not force and type(lastPush) == "number" and now - lastPush < 0.25 then
+			return
+		end
+		local profile = self._data:Get(target)
+		if not profile then
+			self:_clearInventoryWatchersForTarget(userId, "Unavailable")
+			return
+		end
+		self._inventoryWatchLastPush[userId] = now
+		local view = InventoryWatchMath.Build(profile, itemById, GameConfig.Items.InventoryLimit)
+		for watcher in watchers do
+			if watcher.Parent ~= Players or self._inventoryWatchTarget[watcher] ~= userId then
+				watchers[watcher] = nil
+				if self._inventoryWatchTarget[watcher] == userId then
+					self._inventoryWatchTarget[watcher] = nil
+				end
+			elseif not self:_canViewInventory(watcher, target, profile) then
+				watchers[watcher] = nil
+				self._inventoryWatchTarget[watcher] = nil
+				self._effect:FireClient(watcher, {
+					Type = "InventoryWatch",
+					UserId = userId,
+					View = nil,
+					Reason = "Private",
+				})
+			else
+				self._effect:FireClient(watcher, {
+					Type = "InventoryWatch",
+					UserId = userId,
+					View = view,
+				})
+			end
+		end
+		if next(watchers) == nil then
+			self._inventoryWatchers[userId] = nil
+			self._inventoryWatchLastPush[userId] = nil
+		end
+	end
+
+	function GameService:_watchInventory(viewer: Player, payload: any)
+		local userId = type(payload) == "table" and payload.UserId or nil
+		if type(userId) ~= "number" or userId ~= math.floor(userId) or userId < 0 then
+			return responseError("Choose a player to inspect.")
+		end
+		if userId == 0 then
+			self:_removeInventoryWatcher(viewer, "Stopped")
+			return responseSuccess(nil)
+		end
+		self:_removeInventoryWatcher(viewer, "Stopped")
+		local target = Players:GetPlayerByUserId(userId)
+		if not target then
+			return responseError("That player is no longer in this server.")
+		end
+		local profile = self._data:Get(target)
+		if not profile then
+			return responseError("Their profile is still loading.")
+		end
+		if not self:_canViewInventory(viewer, target, profile) then
+			self._effect:FireClient(viewer, {
+				Type = "InventoryWatch",
+				UserId = userId,
+				View = nil,
+				Reason = "Private",
+			})
+			return responseError("That player's inventory is private.")
+		end
+		local watchers = self._inventoryWatchers[userId]
+		if not watchers then
+			watchers = {}
+			self._inventoryWatchers[userId] = watchers
+		end
+		watchers[viewer] = true
+		self._inventoryWatchTarget[viewer] = userId
+		self:_pushInventoryWatch(target, true)
+		return responseSuccess(nil)
+	end
+
 	function GameService:_pushState(player: Player, force: boolean?)
 		if player.Parent ~= Players then
 			return
 		end
+		self:_pushInventoryWatch(player)
 		local snapshot = self:_snapshot(player)
 		if snapshot then
 			local runtime = self._runtime[player]
@@ -4585,6 +4751,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			return self:_reportPlayer(player, payload)
 		elseif action == Protocol.Actions.GetPlayers then
 			return self:_getPlayers(player)
+		elseif action == Protocol.Actions.WatchInventory then
+			return self:_watchInventory(player, payload)
 		elseif action == Protocol.Actions.GetPlayerMirror then
 			return self:_getPlayerMirror(player, payload)
 		elseif action == Protocol.Actions.VisitPlot then
@@ -5138,6 +5306,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		ModuleLog.Player(player, "left — saving")
 		self._joining[player] = nil
 		self._saveFailedToastAt[player] = nil
+		self:_removeInventoryWatcher(player, "Stopped", false)
+		self:_clearInventoryWatchersForTarget(player.UserId, "Unavailable")
 		local characterConnection = self._characterConnections[player]
 		if characterConnection then characterConnection:Disconnect() end
 		self._characterConnections[player] = nil

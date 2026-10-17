@@ -18,6 +18,67 @@ local function __load(name: string): any
 	return value
 end
 
+__defs["TradeChatMath"] = function()
+	local TradeChatMath = {}
+
+	function TradeChatMath.CanSend(lastAt: number?, now: number, cooldown: number?): boolean
+		if type(lastAt) ~= "number" or lastAt ~= lastAt then
+			return true
+		end
+		return now - lastAt >= (cooldown or 0.6)
+	end
+
+	return table.freeze(TradeChatMath)
+end
+
+__defs["TradeRequestMath"] = function()
+	local TradeRequestMath = {}
+
+	function TradeRequestMath.Normalize(raw: any, caps: { [string]: number }, currencies: { string }): any
+		local request = { ItemIds = {} }
+		local itemCap = math.min(8, math.max(0, math.floor(tonumber(caps.Items) or 0)))
+		local seen = {}
+		if type(raw) == "table" and type(raw.ItemIds) == "table" then
+			for _, uid in raw.ItemIds do
+				if type(uid) == "string" and #uid > 0 and #uid <= 48 and not seen[uid] and #request.ItemIds < itemCap then
+					seen[uid] = true
+					table.insert(request.ItemIds, uid)
+				end
+			end
+		end
+		for _, key in currencies do
+			local amount = type(raw) == "table" and tonumber(raw[key]) or 0
+			if type(amount) == "number" and amount == amount and amount > 0 then
+				request[key] = math.min(math.floor(amount), math.max(0, math.floor(tonumber(caps[key]) or 0)))
+			end
+		end
+		return request
+	end
+
+	return table.freeze(TradeRequestMath)
+end
+
+__defs["TradeChatFilter"] = function()
+	local TradeChatFilter = {}
+
+	function TradeChatFilter.Apply(textService: any, raw: any, userId: number, context: any): (boolean, string?)
+		if type(raw) ~= "string" or #raw == 0 then
+			return false, nil
+		end
+		local text = string.sub(raw, 1, 140)
+		local ok, filtered = pcall(function()
+			local result = textService:FilterStringAsync(text, userId, context)
+			return result:GetNonChatStringForBroadcastAsync()
+		end)
+		if not ok or type(filtered) ~= "string" then
+			return false, nil
+		end
+		return true, filtered
+	end
+
+	return table.freeze(TradeChatFilter)
+end
+
 __defs["TradeDesk"] = function()
 
 local Players = game:GetService("Players")
@@ -30,6 +91,8 @@ local TradeHistory = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitF
 local TradeExchange = __load("TradeExchange")
 local TradeOfferMath = __load("TradeOfferMath")
 local TradeSettle = __load("TradeSettle")
+local TradeChatMath = __load("TradeChatMath")
+local TradeRequestMath = __load("TradeRequestMath")
 
 local TradeDesk = {}
 TradeDesk.__index = TradeDesk
@@ -208,7 +271,7 @@ function TradeDesk:Say(player: Player, text: string?, phrase: number?, now: numb
 	end
 	session.LastSay = session.LastSay or {}
 	local clock = os.clock()
-	if clock - (session.LastSay[player.UserId] or 0) < 0.6 then
+	if not TradeChatMath.CanSend(session.LastSay[player.UserId], clock) then
 		return false, "Slow down a little."
 	end
 	local line
@@ -238,20 +301,7 @@ function TradeDesk:Request(player: Player, raw, now: number): (boolean, string?,
 		return false, "That trade is already settling."
 	end
 	local caps = GameConfig.Trading.PerTrade
-	local request = { ItemIds = {} }
-	if type(raw) == "table" and type(raw.ItemIds) == "table" then
-		for _, uid in raw.ItemIds do
-			if type(uid) == "string" and #uid <= 48 and #request.ItemIds < math.min(8, caps.Items) then
-				table.insert(request.ItemIds, uid)
-			end
-		end
-	end
-	for _, key in CURRENCIES do
-		local amount = type(raw) == "table" and tonumber(raw[key]) or 0
-		if amount and amount == amount and amount > 0 then
-			request[key] = math.min(math.floor(amount), caps[key] or 0)
-		end
-	end
+	local request = TradeRequestMath.Normalize(raw, caps, CURRENCIES)
 	session.Requests = session.Requests or {}
 	session.Requests[player.UserId] = request
 	return true, nil, session
