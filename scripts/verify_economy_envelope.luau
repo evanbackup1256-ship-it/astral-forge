@@ -107,7 +107,7 @@ assert(
 )
 assert(string.find(economySrc, "EconomyEnvelopeMath.ArtifactLevelEffect", 1, true), "Economy ArtifactEffect must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.PermanentMultiplier", 1, true), "Economy PermanentMultiplier must delegate")
-assert(string.find(economySrc, "ForgeEchoMath.EquippedEffect", 1, true), "Economy EchoEffect must delegate EquippedEffect")
+assert(string.find(economySrc, "EchoMath.total(profile.ForgeEchoes, effectKind)", 1, true), "Economy EchoEffect reads the echo chord")
 
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")

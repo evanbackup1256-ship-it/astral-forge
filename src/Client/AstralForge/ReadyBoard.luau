@@ -307,7 +307,7 @@ function Board.Strip(props)
 		Position = UDim2.new(0, if props.compact then (findW - 18) / 2 else 12, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundTransparency = 1,
-	}, h(Icon, { kind = "Search", color = Palette.cream, accent = Palette.cyan, size = 18, spin = false })), not props.compact and h("textlabel", {
+	}, h(Icon, { kind = "Search.10", color = Palette.cream, accent = Palette.cyan, size = 18, spin = false })), not props.compact and h("textlabel", {
 		Size = UDim2.new(1, -40, 1, 0),
 		Position = UDim2.fromOffset(36, 0),
 		BackgroundTransparency = 1,

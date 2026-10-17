@@ -885,7 +885,7 @@ local function OverviewView(_param)
 		highlight = primaryHighlight,
 	}), showOvercharge and React.createElement(Button, {
 		text = overchargeLabel,
-		icon = "Overcharge",
+		icon = "Overcharge.3",
 		onClick = fireOvercharge,
 		sound = "reactorPulse",
 		color = if overchargeLeft > 0.02 then Palette.panelSoft else Palette.mango,
@@ -946,7 +946,7 @@ local function OverviewView(_param)
 		highlight = primaryHighlight,
 	}), showOvercharge and React.createElement(Button, {
 		text = overchargeLabel,
-		icon = "Overcharge",
+		icon = "Overcharge.4",
 		onClick = fireOvercharge,
 		sound = "reactorPulse",
 		color = if overchargeLeft > 0.02 then Palette.panelSoft else Palette.mango,
@@ -1402,7 +1402,7 @@ local function OverviewView(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
 		text = if missionsReady > 0 then `MISSIONS · {missionsReady}` else "MISSIONS",
-		icon = "Mission",
+		icon = "Mission.2",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
@@ -1418,7 +1418,7 @@ local function OverviewView(_param)
 		layoutOrder = 0,
 	}), React.createElement(Button, {
 		text = if labReady > 0 then `LAB · {labReady}` else "LAB",
-		icon = "Lab",
+		icon = "Lab.3",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
@@ -1434,7 +1434,7 @@ local function OverviewView(_param)
 		layoutOrder = 1,
 	}), React.createElement(Button, {
 		text = if pathReady then "FORGE PATH · READY" else "FORGE PATH",
-		icon = "Forge",
+		icon = "Forge.6",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
@@ -1450,7 +1450,7 @@ local function OverviewView(_param)
 		layoutOrder = 2,
 	}), React.createElement(Button, {
 		text = "BLACK MARKET",
-		icon = "Shop",
+		icon = "Shop.3",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
@@ -1604,7 +1604,7 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
 	}), React.createElement(Button, {
 		text = if domain.CanExpand then "OPEN DOMAIN GATE" else "VIEW DOMAIN",
-		icon = "Domain",
+		icon = "Domain.2",
 		onClick = openDomain,
 		color = if domain.CanExpand then Palette.pink else Palette.panelSoft,
 		textColor = if domain.CanExpand then Palette.ink else Palette.cream,
@@ -1651,7 +1651,7 @@ local function OverviewView(_param)
 		size = UDim2.new(1, 0, 0, 8),
 	}), React.createElement(Button, {
 		text = if domain.CanExpand then "OPEN DOMAIN GATE" else "VIEW REQUIREMENTS",
-		icon = "Domain",
+		icon = "Domain.3",
 		onClick = openDomain,
 		color = if domain.CanExpand then Palette.pink else Palette.panelSoft,
 		textColor = if domain.CanExpand then Palette.ink else Palette.cream,
@@ -2314,7 +2314,7 @@ local function RebirthPanel(_param)
 		ref = rebirthClaimHostRef,
 	}, React.createElement(Button, {
 		text = if busy then "REBIRTHING…" elseif igniting then "IGNITING…" elseif confirming then "IGNITE REBIRTH" elseif canRebirth then "REBIRTH NOW" else "NOT READY",
-		icon = "Rebirth",
+		icon = "Rebirth.5",
 		onClick = rebirth,
 		color = if canRebirth then accent else Palette.panelSoft,
 		textColor = if canRebirth then Palette.ink else Palette.muted,
@@ -2342,7 +2342,7 @@ local function RebirthPanel(_param)
 		}),
 	})), React.createElement(Button, {
 		text = if igniting then "STOP" elseif confirming then "CANCEL" else "OPEN WORKSHOP",
-		icon = if confirming or igniting then "Close" else "Forge",
+		icon = if confirming or igniting then "Close.2" else "Forge.7",
 		onClick = if igniting then cancelIgnition elseif confirming then function()
 			return setConfirming(false)
 		end else openWorkshop,
@@ -2536,7 +2536,7 @@ local function StreakStrip(_param)
 			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 		}, React.createElement(Icon, {
-			kind = "Check",
+			kind = "Check.3",
 			color = Palette.muted,
 			accent = Palette.muted,
 			size = 18,
@@ -2613,7 +2613,7 @@ local function TimedTimeline(_param)
 			sizeConstraint = UDim2.new(1, -20, 0, 18),
 		}), if ready then React.createElement(Button, {
 			text = "CLAIM",
-			icon = "Timer",
+			icon = "Timer.2",
 			onClick = function()
 				dispatch("ClaimTimedReward", { Index = entry.Index })
 			end,
@@ -2781,7 +2781,7 @@ local function RewardsView(_param)
 		ref = rewardsClaimHostRef,
 	}, React.createElement(Button, {
 		text = `CLAIM EVERYTHING · {readyCount}`,
-		icon = "Gift",
+		icon = "Gift.2",
 		onClick = claimEverything,
 		color = Palette.pink,
 		textColor = Palette.ink,
@@ -2846,7 +2846,7 @@ local function RewardsView(_param)
 		ref = if dailyReady and readyCount == 0 then rewardsClaimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if dailyReady then "Claim" else "Claimed",
-		icon = "Calendar",
+		icon = "Calendar.2",
 		onClick = function()
 			return dispatch("ClaimDaily")
 		end,
@@ -2916,7 +2916,7 @@ local function RewardsView(_param)
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = if timedReady then "CLAIM" elseif nextTimed == nil then "DONE" else `IN {clockText(nextTimed.Seconds - played)}`,
-		icon = "Timer",
+		icon = "Timer.3",
 		onClick = function()
 			if nextTimed ~= nil then
 				dispatch("ClaimTimedReward", {
@@ -2964,10 +2964,10 @@ local function RewardsView(_param)
 	})))
 
 	local shortcuts = {
-		{ id = "Wheel", label = "SPIN THE WHEEL", icon = "Wheel", accent = Palette.mango },
-		{ id = "Missions", label = "MISSIONS", icon = "Mission", accent = Palette.green, badge = readyMissions },
-		{ id = "Milestones", label = "MILESTONES", icon = "Milestone", accent = Palette.mango, badge = readyMilestones },
-		{ id = "Boosts", label = "BOOSTS", icon = "Boost", accent = Palette.pink },
+		{ id = "Wheel", label = "SPIN THE WHEEL", icon = "Wheel.3", accent = Palette.mango },
+		{ id = "Missions", label = "MISSIONS", icon = "Mission.3", accent = Palette.green, badge = readyMissions },
+		{ id = "Milestones", label = "MILESTONES", icon = "Milestone.2", accent = Palette.mango, badge = readyMilestones },
+		{ id = "Boosts", label = "BOOSTS", icon = "Boost.9", accent = Palette.pink },
 	}
 	local shortcutCols = if stack then 2 else 4
 	local shortcutChildren = {
@@ -3225,7 +3225,7 @@ local function MilestoneRow(_param)
 		ref = if ready then claimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM REWARD" else "LOCKED",
-		icon = "Wheel",
+		icon = "Wheel.4",
 		onClick = function()
 			return dispatch("ClaimAchievement", {
 				Id = achievement.Id,
@@ -3247,7 +3247,7 @@ local function MilestoneRow(_param)
 		ref = if ready then claimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM REWARD" else "LOCKED",
-		icon = "Wheel",
+		icon = "Wheel.5",
 		onClick = function()
 			return dispatch("ClaimAchievement", {
 				Id = achievement.Id,
@@ -3412,7 +3412,7 @@ local function MilestonesView(_param)
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = `CLAIM ALL · {counts.Ready}`,
-		icon = "Gift",
+		icon = "Gift.3",
 		onClick = claimAllReady,
 		color = Palette.green,
 		textColor = Palette.ink,
@@ -3456,7 +3456,7 @@ local function MilestonesView(_param)
 		ListEmptyComponent = if #visible == 0 then React.createElement(Browse.NoResults, {
 			browse = browse,
 			noun = "milestones",
-			icon = "Milestone",
+			icon = "Milestone.3",
 			emptyBody = "Keep playing and they will show up.",
 			accent = Palette.mango,
 			reducedMotion = softMotion,
@@ -3702,7 +3702,7 @@ local function MissionRow(_param)
 		size = meterSize,
 	}), if stack then React.createElement(Button, {
 		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "NOT YET",
-		icon = "Mission",
+		icon = "Mission.4",
 		onClick = function()
 			return dispatch("ClaimQuest", {
 				Id = quest.Id,
@@ -3717,7 +3717,7 @@ local function MissionRow(_param)
 		highlight = ready,
 	}) else React.createElement(Button, {
 		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "NOT YET",
-		icon = "Mission",
+		icon = "Mission.5",
 		onClick = function()
 			return dispatch("ClaimQuest", {
 				Id = quest.Id,
@@ -3922,7 +3922,7 @@ local function MissionsView(_param)
 		ref = missionClaimHostRef,
 	}, React.createElement(Button, {
 		text = `CLAIM ALL · {counts.Ready}`,
-		icon = "Gift",
+		icon = "Gift.4",
 		onClick = claimAllReady,
 		color = Palette.green,
 		textColor = Palette.ink,
@@ -3964,7 +3964,7 @@ local function MissionsView(_param)
 		ListEmptyComponent = if #visible == 0 then React.createElement(Browse.NoResults, {
 			browse = browse,
 			noun = "missions",
-			icon = "Mission",
+			icon = "Mission.6",
 			emptyBody = (guide and guide.EmptyNone) or "New dailies land at reset.",
 			filteredBody = (guide and guide.EmptyFilter) or "Switch the filter back to All.",
 			accent = Palette.cyan,

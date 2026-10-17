@@ -124,7 +124,7 @@ local function ArchiveMark(_param)
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(0, 2),
 		})), React.createElement(Icon, {
-			kind = "Story",
+			kind = "Story.2",
 			color = Palette.cream,
 			accent = accent,
 			size = 32,
@@ -194,7 +194,7 @@ local function ArchiveMark(_param)
 		Thickness = 1,
 		Transparency = 0.28,
 	}), React.createElement(Icon, {
-		kind = "Story",
+		kind = "Story.3",
 		color = Palette.cream,
 		accent = accent,
 		size = 48,
@@ -587,7 +587,7 @@ local function StoryBeat(_param)
 		LayoutOrder = 1,
 	}, React.createElement(Button, {
 		text = "Back",
-		icon = "Back",
+		icon = "Back.2",
 		onClick = onBack,
 		color = Palette.panelSoft,
 		textColor = Palette.creamSoft,
@@ -1128,7 +1128,7 @@ local function StoryView(_param)
 			height = TapTarget,
 			element = React.createElement(Button, {
 				text = if locked then "Locked" elseif finished then "Open selected" else "Read selected",
-				icon = "Story",
+				icon = "Story.4",
 				onClick = begin,
 				color = if locked then Palette.panelSoft else story.Color,
 				textColor = if locked then Palette.muted else Palette.ink,
@@ -1192,7 +1192,7 @@ local function StoryView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 40),
 	}), React.createElement(Button, {
 		text = if locked then "Locked" elseif finished then "Replay" else "Start reading",
-		icon = "Story",
+		icon = "Story.5",
 		onClick = begin,
 		color = if locked then Palette.panelSoft else story.Color,
 		textColor = if locked then Palette.muted else Palette.ink,
@@ -1261,640 +1261,180 @@ return {
 end
 
 __defs["EchoForgeView"] = function()
+-- The Echoes page: the loom (charge and the four tracks), the strike, the chord, every echo you
+-- keep, and the journal. Every rule shown here is EchoMath's, so the numbers match the server.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
-local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
-local AutoGrid = require(script.Parent.Parent.LayoutKit)("scrolling").AutoGrid
-local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
-local _format = require(script.Parent.Parent.CoreKit)("format")
-local compactNumber = _format.compactNumber
-local gteFlux = _format.gteFlux
-local levelCapLabel = _format.levelCapLabel
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Icon = require(script.Parent.Parent.ArtKit)("Icon").Icon
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local usePulse = _motion.usePulse
-local useRotation = _motion.useRotation
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
-local ensureContrast = _theme.ensureContrast
-local Layout = _theme.Layout
-local lighten = _theme.lighten
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local compactNumber = require(script.Parent.Parent.CoreKit)("format").compactNumber
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 local _ui = require(script.Parent.Parent.UiCore)("ui")
-local Badge = _ui.Badge
 local Button = _ui.Button
 local Meter = _ui.Meter
-local OrbitDot = _ui.OrbitDot
 local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
-local SweptRing = _ui.SweptRing
 local Text = _ui.Text
-local SECTION_LABEL_H = 30
-local INVENTORY_CARD_H = 196
-local Browse = require(script.Parent.Parent.BrowseKit)
-local VIRT_INVENTORY_MIN = 6
-local VIRT_INVENTORY_VISIBLE_ROWS = 4
-local EMPTY_ECHOES = {
-	Charge = 0,
-	ChargeTarget = 100,
-	Ready = false,
-	Resonance = 0,
-	Captures = 0,
-	InventoryLimit = 18,
-	MaxLevel = 20,
-	SlotsUnlocked = 1,
-	Harmony = false,
-	HarmonyBonus = 0,
-	DominantPattern = "Collect",
-	Pattern = {
-		Collect = 0,
-		Surge = 0,
-		Build = 0,
-		Explore = 0,
-	},
-	DraftId = "",
-	Choices = {},
-	Inventory = {},
-	Equipped = { {
-		Slot = 1,
-		Unlocked = true,
-	}, {
-		Slot = 2,
-		Unlocked = false,
-	}, {
-		Slot = 3,
-		Unlocked = false,
-	} },
+local EchoMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("EchoMath"))
+local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
+local UserInputService = game:GetService("UserInputService")
+local h = React.createElement
+
+local TIER_COLOR = { Faint = Palette.muted, Clear = Palette.cyan, Vivid = Palette.violet, Perfect = Palette.mango }
+local TRACK_ART = {
+	Collect = { icon = "Collect.echoTrack", color = Palette.mint, label = "Collecting" },
+	Surge = { icon = "Overcharge.echoTrack", color = Palette.coral, label = "Overcharging" },
+	Build = { icon = "Forge.echoTrack", color = Palette.mango, label = "Building" },
+	Explore = { icon = "World.echoTrack", color = Palette.violet, label = "Exploring" },
 }
-local PATTERN_COPY = {
-	Collect = {
-		label = "BANKING",
-		body = "vault collections",
-		color = Palette.cyan,
-		icon = "Vault",
+-- each place a trait appears in has its own art for it
+local TRAIT_ART = {
+	draft = {
+		FurnaceMemory = { icon = "Ember.echoDraftFurnace" },
+		DeepReservoir = { icon = "Vault.echoDraftReservoir" },
+		StrikeGhost = { icon = "Overcharge.echoDraftGhost" },
+		LuckyAfterimage = { icon = "Jackpot.echoDraftAfterimage" },
+		ClockworkEcho = { icon = "Timer.echoDraftClockwork" },
+		LatticeRecall = { icon = "Domain.echoDraftLattice" },
+		NightShift = { icon = "Anomaly.echoDraftNight" },
+		VoidPulse = { icon = "Continuum.echoDraftVoid" },
 	},
-	Surge = {
-		label = "SURGE",
-		body = "overcharge strikes",
-		color = Palette.mango,
-		icon = "Overcharge",
+	chord = {
+		FurnaceMemory = { icon = "Ember.echoChordFurnace" },
+		DeepReservoir = { icon = "Vault.echoChordReservoir" },
+		StrikeGhost = { icon = "Overcharge.echoChordGhost" },
+		LuckyAfterimage = { icon = "Jackpot.echoChordAfterimage" },
+		ClockworkEcho = { icon = "Timer.echoChordClockwork" },
+		LatticeRecall = { icon = "Domain.echoChordLattice" },
+		NightShift = { icon = "Anomaly.echoChordNight" },
+		VoidPulse = { icon = "Continuum.echoChordVoid" },
 	},
-	Build = {
-		label = "CRAFT",
-		body = "machines and research",
-		color = Palette.mint,
-		icon = "Forge",
+	vault = {
+		FurnaceMemory = { icon = "Ember.echoVaultFurnace" },
+		DeepReservoir = { icon = "Vault.echoVaultReservoir" },
+		StrikeGhost = { icon = "Overcharge.echoVaultGhost" },
+		LuckyAfterimage = { icon = "Jackpot.echoVaultAfterimage" },
+		ClockworkEcho = { icon = "Timer.echoVaultClockwork" },
+		LatticeRecall = { icon = "Domain.echoVaultLattice" },
+		NightShift = { icon = "Anomaly.echoVaultNight" },
+		VoidPulse = { icon = "Continuum.echoVaultVoid" },
 	},
-	Explore = {
-		label = "EXPLORE",
-		body = "worlds and rebirths",
-		color = Palette.violet,
-		icon = "World",
+	journal = {
+		FurnaceMemory = { icon = "Ember.echoJournalFurnace" },
+		DeepReservoir = { icon = "Vault.echoJournalReservoir" },
+		StrikeGhost = { icon = "Overcharge.echoJournalGhost" },
+		LuckyAfterimage = { icon = "Jackpot.echoJournalAfterimage" },
+		ClockworkEcho = { icon = "Timer.echoJournalClockwork" },
+		LatticeRecall = { icon = "Domain.echoJournalLattice" },
+		NightShift = { icon = "Anomaly.echoJournalNight" },
+		VoidPulse = { icon = "Continuum.echoJournalVoid" },
 	},
 }
-local function effectIcon(kind)
-	repeat
-		if kind == "Production" then
-			return "Flux"
-		end
-		if kind == "Capacity" then
-			return "Vault"
-		end
-		if kind == "Tap" then
-			return "Overcharge"
-		end
-		if kind == "Critical" then
-			return "Artifact"
-		end
-		if kind == "Automation" then
-			return "Grid"
-		end
-		if kind == "Offline" then
-			return "Timer"
-		end
-	until true
+local function traitIcon(place, traitId)
+	local art = TRAIT_ART[place] and TRAIT_ART[place][traitId]
+	return if art then art.icon else nil
 end
-local function effectText(item)
-	local label = if item.EffectKind == "Tap" then "OVERCHARGE" else string.upper(item.EffectKind)
-	return `+{string.format(if item.EffectValue < 0.02 then "%.2f" else "%.1f", item.EffectValue * 100)}% {label}`
+local KIND_WORDS = {
+	Production = "production", Capacity = "vault capacity", Tap = "overcharge power",
+	Critical = "critical chance", Automation = "auto-collect", Offline = "offline earnings",
+}
+local function pct(value)
+	local p = value * 100
+	return if p >= 10 then string.format("+%d%%", math.floor(p + 0.5)) else string.format("+%.1f%%", p)
 end
-local function quality(item)
-	if item.Strength >= 1.2 then
-		return {
-			label = "RESONANT",
-			color = Palette.pink,
-		}
+local function effectLines(effects)
+	local lines = {}
+	for _, kind in EchoMath.KINDS do
+		local v = effects[kind]
+		if v and v > 0 then
+			table.insert(lines, `{pct(v)} {KIND_WORDS[kind]}`)
+		end
 	end
-	if item.Strength >= 1.06 then
-		return {
-			label = "CLEAR",
-			color = Palette.cyan,
-		}
-	end
-	return {
-		label = "FAINT",
-		color = Palette.muted,
-	}
+	return table.concat(lines, "  ·  ")
 end
-local function EchoLoom(_param)
-	local size = _param.size
-	local active = _param.active
-	local reducedMotion = _param.reducedMotion
-	local animate = true
-	local outer = useRotation(animate, 26)
-	local inner = useRotation(animate, -38)
-	local drift = useRotation(animate, 9)
-	local pulse = usePulse(active and animate, 1.05)
-	local breathe = usePulse(animate, 0.32)
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(size, size),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, React.createElement("frame", {
-		Size = breathe:map(function(amount)
-			return UDim2.fromScale(0.92 + amount * 0.03, 0.92 + amount * 0.03)
-		end),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = if active then Palette.mango else Palette.cyan,
-		BackgroundTransparency = breathe:map(function(amount)
-			return if active then 0.88 - amount * 0.06 else 0.94 - amount * 0.03
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Rotation = drift,
-		ZIndex = 1,
-	}, React.createElement(SweptRing, {
-		scale = 0.86,
-		color = Palette.cyan,
-		thickness = 1.5,
-		spin = outer,
-		sweepWidth = 0.3,
-	})), React.createElement(SweptRing, {
-		scale = 0.62,
-		color = Palette.violet,
-		thickness = 1.5,
-		spin = inner,
-		sweepWidth = 0.34,
-	}), React.createElement("frame", {
-		Size = UDim2.fromScale(0.86, 0.86),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Rotation = outer,
-		ZIndex = 3,
-	}, React.createElement(OrbitDot, {
-		radiusScale = 0.5,
-		angleDeg = 0,
-		size = 7,
-		color = Palette.mango,
-		glow = active,
-	}), React.createElement(OrbitDot, {
-		radiusScale = 0.5,
-		angleDeg = 120,
-		size = 5,
-		color = Palette.pink,
-		glow = false,
-	}), React.createElement(OrbitDot, {
-		radiusScale = 0.5,
-		angleDeg = 240,
-		size = 5,
-		color = Palette.mango,
-		glow = false,
-	})), React.createElement("frame", {
-		Size = UDim2.fromScale(0.62, 0.62),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Rotation = inner,
-		ZIndex = 3,
-	}, React.createElement(OrbitDot, {
-		radiusScale = 0.5,
-		angleDeg = 0,
-		size = 6,
-		color = Palette.violet,
-		glow = false,
-	}), React.createElement(OrbitDot, {
-		radiusScale = 0.5,
-		angleDeg = 180,
-		size = 6,
-		color = Palette.cyan,
-		glow = false,
-	})), React.createElement("frame", {
-		Size = pulse:map(function(value)
-			return UDim2.fromOffset(math.floor(size * (0.42 + value * 0.035)), math.floor(size * (0.42 + value * 0.035)))
-		end),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = darken(Palette.cyan, 0.62),
-		BorderSizePixel = 0,
-		ZIndex = 4,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(Palette.violet, 0.05), darken(Palette.cyan, 0.35)),
-		Rotation = 45,
-	}), React.createElement("uistroke", {
-		Color = if active then Palette.mango else Palette.cyan,
-		Thickness = 2,
-		Transparency = pulse:map(function(value)
-			return 0.22 + (1 - value) * 0.34
-		end),
-	}), React.createElement(Icon, {
-		kind = "Wave",
-		color = Palette.cream,
-		accent = if active then Palette.mango else Palette.cyan,
-		size = math.floor(size * 0.31),
-		spin = false,
-		reducedMotion = reducedMotion,
-		position = UDim2.fromScale(0.5, 0.5),
-		anchorPoint = Vector2.new(0.5, 0.5),
-	})))
+local function chip(text, color, order)
+	return h("textlabel", {
+		Size = UDim2.fromOffset(0, 22),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = order,
+		BackgroundColor3 = darken(color, 0.6),
+		Text = text,
+		TextSize = 12,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextColor3 = color,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uipadding", { PaddingLeft = UDim.new(0, 9), PaddingRight = UDim.new(0, 9) }))
 end
-local function PatternCell(_param)
-	local id = _param.id
-	local value = _param.value
-	local total = _param.total
-	local dominant = _param.dominant
-	local index = _param.index
-	local reducedMotion = _param.reducedMotion
-	local copy = PATTERN_COPY[id]
-	local fill = if total > 0 then value / total else 0
-	local surface = darken(copy.color, 0.93)
-	local reveal = useStagger(index, reducedMotion, 0.05, 0.24)
-	return React.createElement(Panel, {
+
+-- one echo as a card: trait art, name, tier, level, what it does, and what you can do with it
+local function EchoCard(props)
+	local echo = props.echo
+	local trait = EchoMath.trait(echo.Trait)
+	local tierColor = TIER_COLOR[echo.Tier] or Palette.cream
+	local effects = echo.Effects or EchoMath.effects(echo)
+	local reveal = useStagger(props.index or 0, props.reducedMotion)
+	return h(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = copy.color,
-		background = surface,
-		padding = 11,
-		highlight = dominant,
-		reveal = reveal,
-		reducedMotion = reducedMotion,
-	}, React.createElement(Icon, {
-		kind = copy.icon,
-		color = ensureContrast(surface, Palette.creamSoft),
-		accent = copy.color,
-		size = 25,
-		spin = false,
-		position = UDim2.fromOffset(0, 1),
-	}), React.createElement(Text, {
-		value = copy.label,
-		size = 10,
-		color = ensureContrast(surface, copy.color),
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(34, 0),
-		sizeConstraint = UDim2.new(1, -42, 0, 16),
-	}), React.createElement(Text, {
-		value = copy.body,
-		size = 9,
-		color = ensureContrast(surface, Palette.muted),
-		fit = true,
-		position = UDim2.fromOffset(34, 17),
-		sizeConstraint = UDim2.new(1, -42, 0, 14),
-	}), React.createElement(Meter, {
-		value = fill,
-		color = copy.color,
-		position = UDim2.new(0, 0, 1, -9),
-		size = UDim2.new(1, 0, 0, 6),
-		reducedMotion = reducedMotion,
-		shimmer = dominant,
-	}))
-end
-local function ChoiceCard(_param)
-	local item = _param.item
-	local index = _param.index
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local tier = quality(item)
-	local reveal = useStagger(index, reducedMotion, 0.06, 0.3)
-	return React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = item.Color,
-		background = darken(item.Color, 0.91),
-		padding = 14,
-		highlight = true,
-		interactive = true,
-		reveal = reveal,
-		reducedMotion = reducedMotion,
-		clips = false,
-	}, React.createElement(Icon, {
-		kind = effectIcon(item.EffectKind),
-		color = Palette.cream,
-		accent = item.Color,
-		size = 38,
-		spin = false,
-		position = UDim2.fromOffset(0, 0),
-	}), React.createElement(Badge, {
-		value = tier.label,
-		accent = tier.color,
-		filled = true,
-		position = UDim2.new(1, -92, 0, 0),
-		size = UDim2.fromOffset(92, 25),
-	}), React.createElement(Text, {
-		value = item.Name,
-		size = 18,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 12,
-		position = UDim2.fromOffset(0, 49),
-		sizeConstraint = UDim2.new(1, 0, 0, 27),
-	}), React.createElement(Text, {
-		value = item.Description,
-		size = 10,
-		color = Palette.creamSoft,
-		wrap = true,
-		position = UDim2.fromOffset(0, 78),
-		sizeConstraint = UDim2.new(1, 0, 0, 38),
-	}), React.createElement(Text, {
-		value = effectText(item),
-		size = 11,
-		color = item.Color,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.new(0, 0, 1, -76),
-		sizeConstraint = UDim2.new(1, 0, 0, 18),
-	}), React.createElement(Button, {
-		text = "KEEP THIS ECHO",
-		icon = "Check",
-		onClick = function()
-			return dispatch("ClaimEcho", {
-				ChoiceId = item.Uid,
-			})
-		end,
-		color = item.Color,
-		textColor = Palette.ink,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = softMotion,
-		highlight = true,
-	}))
-end
-local function SlotCard(_param)
-	local slot = _param.slot
-	local reducedMotion = _param.reducedMotion
-	local item = slot.Echo
-	local _result
-	if not slot.Unlocked then
-		_result = Palette.lineSoft
-	else
-		local _result_1 = item
-		if _result_1 ~= nil then
-			_result_1 = _result_1.Color
-		end
-		local _condition = _result_1
-		if _condition == nil then
-			_condition = Palette.violet
-		end
-		_result = _condition
-	end
-	local accent = _result
-	return React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = accent,
-		background = if item then darken(accent, 0.93) else Palette.panel,
+		accent = tierColor,
+		background = Palette.panel,
 		padding = 12,
-		reducedMotion = reducedMotion,
-	}, React.createElement(Badge, {
-		value = `SLOT {slot.Slot}`,
-		accent = accent,
+		reveal = reveal,
+		reducedMotion = props.reducedMotion,
+	}, h(Icon, {
+		kind = traitIcon(props.place, echo.Trait) or "Wave.echoUnknown",
+		size = 44,
 		position = UDim2.fromOffset(0, 0),
-		size = UDim2.fromOffset(70, 23),
-	}), if not slot.Unlocked then React.createElement(React.Fragment, nil, React.createElement(Icon, {
-		kind = "Lock",
-		color = Palette.muted,
-		accent = Palette.lineSoft,
-		size = 30,
-		spin = false,
-		position = UDim2.new(1, -34, 0, 0),
-	}), React.createElement(Text, {
-		value = "LOCKED SLOT",
-		size = 12,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(0, 38),
-		sizeConstraint = UDim2.new(1, 0, 0, 20),
-	})) elseif item then React.createElement(React.Fragment, nil, React.createElement(Icon, {
-		kind = effectIcon(item.EffectKind),
-		color = Palette.cream,
-		accent = item.Color,
-		size = 30,
-		spin = false,
-		position = UDim2.new(1, -34, 0, 0),
-	}), React.createElement(Text, {
-		value = item.Name,
+	}), h(Text, {
+		value = trait and trait.Name or echo.Trait,
 		size = 15,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		position = UDim2.fromOffset(0, 34),
-		sizeConstraint = UDim2.new(1, 0, 0, 23),
-	}), React.createElement(Text, {
-		value = `LV {item.Level}  ·  {effectText(item)}`,
-		size = 10,
-		color = item.Color,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		position = UDim2.fromOffset(0, 60),
-		sizeConstraint = UDim2.new(1, 0, 0, 17),
-	})) else React.createElement(React.Fragment, nil, React.createElement(Icon, {
-		kind = "Wave",
-		color = Palette.muted,
-		accent = Palette.violet,
-		size = 30,
-		spin = false,
-		position = UDim2.new(1, -34, 0, 0),
-	}), React.createElement(Text, {
-		value = "EMPTY SLOT",
-		size = 12,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(0, 38),
-		sizeConstraint = UDim2.new(1, 0, 0, 20),
-	})))
-end
-local function InventoryCard(_param)
-	local item = _param.item
-	local echoes = _param.echoes
-	local state = _param.state
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local armed = _param.armed
-	local arm = _param.arm
-	local index = _param.index
-	local linkHostRef = _param.linkHostRef
-	local _exp = echoes.Equipped
-	local _callback = function(slot)
-		local _result = slot.Echo
-		if _result ~= nil then
-			_result = _result.Uid
-		end
-		return _result == item.Uid
-	end
-	local _result
-	for _i, _v in _exp do
-		if _callback(_v, _i - 1, _exp) == true then
-			_result = _v
-			break
-		end
-	end
-	local _current = _result
-	if _current ~= nil then
-		_current = _current.Slot
-	end
-	local current = _current
-	local _exp_1 = echoes.Equipped
-	local _callback_1 = function(slot)
-		return slot.Unlocked and slot.Echo == nil
-	end
-	local _result_1
-	for _i, _v in _exp_1 do
-		if _callback_1(_v, _i - 1, _exp_1) == true then
-			_result_1 = _v
-			break
-		end
-	end
-	local _open = _result_1
-	if _open ~= nil then
-		_open = _open.Slot
-	end
-	local open = _open
-	local _result_2
-	if current ~= nil then
-		_result_2 = current % math.max(1, echoes.SlotsUnlocked) + 1
-	else
-		local _condition = open
-		if _condition == nil then
-			_condition = 1
-		end
-		_result_2 = _condition
-	end
-	local nextSlot = _result_2
-	local maxed = item.Level >= echoes.MaxLevel
-	local canUpgrade = not maxed and gteFlux(state.Stardust, item.UpgradeCost)
-	local reveal = useStagger(index, reducedMotion, 0.04, 0.22)
-	local surface = Palette.panel
-	return React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = item.Color,
-		background = surface,
-		padding = 13,
-		interactive = true,
-		reducedMotion = reducedMotion,
-		reveal = reveal,
-		clips = false,
-	}, React.createElement(Icon, {
-		kind = effectIcon(item.EffectKind),
-		color = ensureContrast(surface, Palette.cream),
-		accent = item.Color,
-		size = 38,
-		spin = false,
-		position = UDim2.fromOffset(0, 0),
-	}), React.createElement(Text, {
-		value = item.Name,
-		size = 16,
-		color = ensureContrast(surface, Palette.cream),
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(48, 0),
-		sizeConstraint = UDim2.new(1, -56, 0, 24),
-	}), React.createElement(Text, {
-		value = `{item.Affinity} · {quality(item).label} · LV {item.Level}/{levelCapLabel(echoes.MaxLevel)}`,
-		size = 9,
-		color = ensureContrast(surface, item.Color),
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		position = UDim2.fromOffset(48, 25),
-		sizeConstraint = UDim2.new(1, -56, 0, 15),
-	}), React.createElement(Text, {
-		value = item.Description,
-		size = 10,
-		color = ensureContrast(surface, Palette.creamSoft),
-		wrap = true,
-		position = UDim2.fromOffset(0, 51),
-		sizeConstraint = UDim2.new(1, 0, 0, 28),
-	}), React.createElement(Text, {
-		value = effectText(item),
+		minSize = 11,
+		position = UDim2.fromOffset(54, 0),
+		sizeConstraint = UDim2.new(1, -54, 0, 20),
+	}), h(Text, {
+		value = `{string.upper(echo.Tier)}  ·  LEVEL {echo.Level}{if echo.Locked then "  ·  LOCKED" else ""}`,
 		size = 11,
-		color = ensureContrast(surface, item.Color),
+		color = tierColor,
 		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(0, 82),
+		position = UDim2.fromOffset(54, 22),
+		sizeConstraint = UDim2.new(1, -54, 0, 16),
+	}), h(Text, {
+		value = effectLines(effects),
+		size = 12,
+		color = Palette.creamSoft,
+		wrap = true,
+		position = UDim2.fromOffset(0, 52),
+		sizeConstraint = UDim2.new(1, 0, 0, 34),
+	}), #(echo.Imprints or {}) > 0 and h(Text, {
+		value = "Imprints: " .. table.concat((function()
+			local words = {}
+			for _, kind in echo.Imprints do
+				table.insert(words, KIND_WORDS[kind] or kind)
+			end
+			return words
+		end)(), ", "),
+		size = 11,
+		color = Palette.muted,
+		position = UDim2.fromOffset(0, 86),
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), React.createElement("frame", {
-		Name = "EchoClaimActions",
-		Size = UDim2.new(0.48, -4, 0, TapTarget),
-		Position = UDim2.new(0, 0, 1, -TapTarget),
+	}), props.actions and h("frame", {
+		Size = UDim2.new(1, 0, 0, props.actionsHeight or TapTarget),
+		Position = UDim2.new(0, 0, 1, 0),
+		AnchorPoint = Vector2.new(0, 1),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-		ref = linkHostRef,
-	}, React.createElement(Button, {
-		text = if current ~= nil and echoes.SlotsUnlocked == 1 then "LINKED" else `LINK SLOT {nextSlot}`,
-		icon = "Wave",
-		onClick = function()
-			return dispatch("EquipEcho", {
-				Uid = item.Uid,
-				Slot = nextSlot,
-			})
-		end,
-		color = if current ~= nil and echoes.SlotsUnlocked == 1 then Palette.panelSoft else item.Color,
-		textColor = Palette.cream,
-		disabled = current ~= nil and echoes.SlotsUnlocked == 1,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-	})), React.createElement(Button, {
-		text = if maxed then "MAX" else `{compactNumber(item.UpgradeCost)} DUST`,
-		icon = "Research",
-		onClick = function()
-			return dispatch("UpgradeEcho", {
-				Uid = item.Uid,
-			})
-		end,
-		color = if canUpgrade then Palette.violet else Palette.panelSoft,
-		textColor = Palette.cream,
-		disabled = not canUpgrade,
-		size = UDim2.new(0.32, -4, 0, TapTarget),
-		position = UDim2.new(0.48, 4, 1, -TapTarget),
-		reducedMotion = reducedMotion,
-	}), React.createElement(Button, {
-		text = if armed then "SURE?" else "BREAK",
-		icon = "Close",
-		onClick = function()
-			return if armed then dispatch("DismantleEcho", {
-				Uid = item.Uid,
-			}) else arm()
-		end,
-		color = if armed then Palette.coral else Palette.panelSoft,
-		textColor = Palette.cream,
-		size = UDim2.new(0.2, -4, 0, TapTarget),
-		position = UDim2.new(0.8, 4, 1, -TapTarget),
-		reducedMotion = reducedMotion,
-	}))
+	}, props.actions))
 end
+
 local function EchoForgeView(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -1902,499 +1442,415 @@ local function EchoForgeView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	local antilag = useAntilag()
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	local boardReveal = useStagger(0, softMotion)
-	local slotsReveal = useStagger(1, softMotion)
-	local inventoryGateReveal = useStagger(2, softMotion)
-	local echoSoft = reducedMotion or boardReveal == nil or slotsReveal == nil or inventoryGateReveal == nil
-	local echoes = state.ForgeEchoes or EMPTY_ECHOES
-	local armedUid, setArmedUid = React.useState()
+	local echoes = state.ForgeEchoes or {}
+	-- a controller lands on Strike the moment the charge is full
+	local strikeHost = React.useRef(nil)
 	React.useEffect(function()
-		return setArmedUid(nil)
-	end, { #echoes.Inventory })
-	-- an unanswered SURE? on Break quietly disarms
+		if not (echoes.Ready and UserInputService.GamepadEnabled) then
+			return nil
+		end
+		local job = task.defer(function()
+			if strikeHost.current ~= nil and strikeHost.current.Parent ~= nil then
+				GamepadNavigationService.FocusClaim(strikeHost.current)
+			end
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { echoes.Ready })
+	local armed, setArmed = React.useState(nil)
+	local slotting, setSlotting = React.useState(nil)
+	local readyPulse = usePulse(echoes.Ready == true and not softMotion, 1.6)
 	React.useEffect(function()
-		if armedUid == nil then
+		if armed == nil then
 			return nil
 		end
 		local lapse = task.delay(4, function()
-			setArmedUid(nil)
+			setArmed(nil)
 		end)
 		return function()
 			pcall(task.cancel, lapse)
 		end
-	end, { armedUid })
-	local linkedUids = {}
-	for _, slot in echoes.Equipped do
-		if slot.Echo ~= nil then
-			linkedUids[slot.Echo.Uid] = true
-		end
+	end, { armed })
+	local function act(payload)
+		dispatch("EchoAct", payload)
 	end
-	local echoBrowse = Browse.useBrowse({
-		id = "Echoes",
-		items = echoes.Inventory,
-		text = function(item)
-			return { item.Name, effectText(item), quality(item).label, item.Pattern }
-		end,
-		categories = {
-			{ id = "All", label = "All" },
-			{ id = "Linked", label = "Linked", test = function(item)
-				return linkedUids[item.Uid] == true
-			end },
-			{ id = "Resonant", label = "Resonant", test = function(item)
-				return item.Strength >= 1.2
-			end },
-			{ id = "Clear", label = "Clear", test = function(item)
-				return item.Strength >= 1.06 and item.Strength < 1.2
-			end },
-			{ id = "Faint", label = "Faint", test = function(item)
-				return item.Strength < 1.06
-			end },
-		},
-		sorts = {
-			{ id = "Newest", label = "Vault order" },
-			{ id = "Strongest", label = "Strongest", compare = function(a, b)
-				return (tonumber(a.EffectValue) or 0) > (tonumber(b.EffectValue) or 0)
-			end },
-			{ id = "Level", label = "Highest level", compare = function(a, b)
-				return (tonumber(a.Level) or 0) > (tonumber(b.Level) or 0)
-			end },
-		},
-	})
-	local vaultItems = echoBrowse.results
-	local showVaultBar = #echoes.Inventory >= 4
-	local vaultBarH = if showVaultBar then Browse.barHeight(stack, true) + 10 else 0
-	local linkHostRef = React.useRef(nil)
-	local firstLinkUid = nil
-	for _, item in echoes.Inventory do
-		local alreadySoloLinked = false
-		if echoes.SlotsUnlocked == 1 then
-			for _, slot in echoes.Equipped do
-				local echo = slot.Echo
-				if echo ~= nil and echo.Uid == item.Uid then
-					alreadySoloLinked = true
-					break
-				end
-			end
-		end
-		if not alreadySoloLinked then
-			firstLinkUid = item.Uid
-			break
-		end
-	end
-	React.useEffect(function()
-		if firstLinkUid == nil or not UserInputService.GamepadEnabled then
-			return nil
-		end
-		local cancelled = false
-		local claimed = false
-		local heartbeat = nil
-		local tryClaim = function()
-			if cancelled or claimed then
-				return
-			end
-			local host = linkHostRef.current
-			if host == nil or host.Parent == nil then
-				return
-			end
-			claimed = true
-			GamepadNavigationService.FocusClaim(host)
-			if heartbeat ~= nil then
-				heartbeat:Disconnect()
-				heartbeat = nil
-			end
-		end
-		local selectJob = task.defer(tryClaim)
-		heartbeat = RunService.Heartbeat:Connect(tryClaim)
-		return function()
-			cancelled = true
-			pcall(task.cancel, selectJob)
-			if heartbeat ~= nil then
-				heartbeat:Disconnect()
-			end
-		end
-	end, { firstLinkUid, #echoes.Inventory, echoes.SlotsUnlocked })
-	local patternTotal = echoes.Pattern.Collect + echoes.Pattern.Surge + echoes.Pattern.Build + echoes.Pattern.Explore
-	local sectionGap = if stack then chrome.panelGap else Layout.panelGap
-	local heroH = if stack then 264 else 278
-	local choiceRows = if #echoes.Choices > 0 then (if stack then #echoes.Choices else 1) else 0
-	local choiceGridH = choiceRows * 214 + math.max(0, choiceRows - 1) * sectionGap
-	local choiceSectionH = if choiceRows > 0 then 30 + choiceGridH else 0
-	local slotRows = if stack then #echoes.Equipped else 1
-	local slotGridH = slotRows * 116 + math.max(0, slotRows - 1) * sectionGap
-	local slotSectionH = 30 + slotGridH
-	local patternRows = if stack then 2 else 1
-	local patternSectionH = 30 + patternRows * 88 + math.max(0, patternRows - 1) * sectionGap
-	local inventoryColumns = if stack then 1 else 2
-	local EMPTY_VAULT_H = 96
-	local inventoryRows = if #vaultItems == 0 then 0 elseif stack then #vaultItems else math.ceil(#vaultItems / inventoryColumns)
-	local inventoryGridH = if inventoryRows == 0 then EMPTY_VAULT_H else inventoryRows * INVENTORY_CARD_H + math.max(0, inventoryRows - 1) * sectionGap
-	local virtInventory = #vaultItems >= VIRT_INVENTORY_MIN
-	local inventoryRowStride = INVENTORY_CARD_H + sectionGap
-	local inventoryViewportRows = if virtInventory then math.min(inventoryRows, VIRT_INVENTORY_VISIBLE_ROWS) else inventoryRows
-	local inventoryViewportH = if #vaultItems == 0 then EMPTY_VAULT_H elseif virtInventory then inventoryViewportRows * inventoryRowStride else inventoryGridH
-	local inventorySectionH = 30 + vaultBarH + inventoryViewportH
-	local dominant = PATTERN_COPY[echoes.DominantPattern]
-	local chargeFill = echoes.Charge / math.max(1, echoes.ChargeTarget)
-	local chargeAccent = if echoes.Ready or #echoes.Choices > 0 then Palette.mango else dominant.color
-	local heroSurface = darken(Palette.cyan, 0.95)
-	local chargeLabel = ensureContrast(heroSurface, chargeAccent)
-	local chargeCopy = if #echoes.Choices > 0 then "YOUR ECHOES ARE READY" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
-	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not reducedMotion, 1.7)
-	local chargeReveal = useStagger(0, softMotion)
-	local inventoryReveal = useStagger(1, softMotion)
-	local loomSize = if stack then 72 else 128
-	local heroPanel = React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = chargeAccent,
-		background = heroSurface,
-		padding = if stack then 15 else Layout.cardPadding,
-		highlight = echoes.Ready and not echoSoft,
-		reveal = if reducedMotion then boardReveal else chargeReveal,
-		reducedMotion = softMotion,
-		clips = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(loomSize, loomSize),
-		Position = if stack then UDim2.new(0.5, -loomSize / 2, 0, 4) else UDim2.fromOffset(4, 10),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(EchoLoom, {
-		size = loomSize,
-		active = echoes.Ready or #echoes.Choices > 0,
-		reducedMotion = softMotion,
-	})), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, 154) else UDim2.new(1, -(loomSize + 34), 0, 202),
-		Position = if stack then UDim2.fromOffset(0, loomSize + 8) else UDim2.fromOffset(loomSize + 24, 8),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(Text, {
-		value = "HOW YOU PLAY",
-		size = 10,
-		color = ensureContrast(heroSurface, Palette.cyan),
-		weight = Enum.FontWeight.Heavy,
-		sizeConstraint = UDim2.new(1, -110, 0, 16),
-	}), React.createElement(Badge, {
-		value = `{compactNumber(echoes.Resonance)} RESONANCE`,
-		accent = Palette.violet,
-		position = UDim2.new(1, -116, 0, 0),
-		size = UDim2.fromOffset(116, 22),
-	}), React.createElement(Text, {
-		value = "Forge Echoes",
-		size = if stack then 20 else 30,
-		color = ensureContrast(heroSurface, Palette.cream),
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 16,
-		position = UDim2.fromOffset(0, 18),
-		sizeConstraint = UDim2.new(1, 0, 0, 28),
-	}), React.createElement(Text, {
-		value = "Play normally. The forge records what you do, then shapes three permanent echoes around your habits.",
-		size = 11,
-		color = ensureContrast(heroSurface, Palette.creamSoft),
-		wrap = true,
-		position = UDim2.fromOffset(0, 48),
-		sizeConstraint = UDim2.new(1, 0, 0, if stack then 28 else 38),
-	}), React.createElement(Text, {
-		value = chargeCopy,
-		size = 10,
-		color = chargeLabel,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(0, if stack then 80 else 102),
-		sizeConstraint = UDim2.new(1, 0, 0, 15),
-		transparency = if echoes.Ready then chargePulse:map(function(amount)
-			return 0.04 + (1 - amount) * 0.16
-		end) else 0,
-	}), React.createElement(Meter, {
-		value = chargeFill,
-		color = chargeAccent,
-		position = UDim2.fromOffset(0, if stack then 98 else 120),
-		size = UDim2.new(1, 0, 0, 7),
-		reducedMotion = softMotion,
-		shimmer = echoes.Ready,
-	}), React.createElement(Button, {
-		text = if #echoes.Choices > 0 then "PICK ONE BELOW" elseif echoes.Ready then "CAPTURE THIS PATTERN" else "KEEP FORGING",
-		icon = "Wave",
-		onClick = function()
-			return dispatch("CaptureEcho")
-		end,
-		color = if echoes.Ready and #echoes.Choices == 0 then Palette.mango else Palette.panelSoft,
-		textColor = if echoes.Ready and #echoes.Choices == 0 then Palette.ink else ensureContrast(Palette.panelSoft, Palette.muted),
-		disabled = not echoes.Ready or #echoes.Choices > 0,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = reducedMotion,
-		highlight = echoes.Ready,
-	})))
-	local sections = {
-		{
-			id = "hero",
-			height = heroH,
-			element = heroPanel,
-		},
-	}
-	if choiceRows > 0 then
-		local _exp_5 = echoes.Choices
-		local _newValue = table.create(#_exp_5)
-		local _callback = function(item, index)
-			return React.createElement(ChoiceCard, {
-				key = item.Uid,
-				item = item,
-				index = index,
-				dispatch = dispatch,
-				reducedMotion = softMotion,
-			})
-		end
-		for _k, _v in _exp_5 do
-			_newValue[_k] = _callback(_v, _k - 1, _exp_5)
-		end
-		table.insert(sections, {
-			id = "choices",
-			height = choiceSectionH,
-			element = React.createElement("frame", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-			}, React.createElement(SectionLabel, {
-				value = "PICK ONE ECHO",
-				color = Palette.mango,
-			}), React.createElement("frame", {
-				Size = UDim2.new(1, 0, 0, choiceGridH),
-				Position = UDim2.fromOffset(0, SECTION_LABEL_H),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-			}, React.createElement(AutoGrid, {
-				columns = if stack then 1 else 3,
-				cellHeight = 214,
-				gap = sectionGap,
-			}), _newValue)),
-		})
-	end
-	local _exp_5 = echoes.Equipped
-	local _newValue = table.create(#_exp_5)
-	local _callback = function(slot)
-		return React.createElement(SlotCard, {
-			key = `slot-{slot.Slot}`,
-			slot = slot,
-			reducedMotion = reducedMotion,
-		})
-	end
-	for _k, _v in _exp_5 do
-		_newValue[_k] = _callback(_v, _k - 1, _exp_5)
-	end
-	table.insert(sections, {
-		id = "slots",
-		height = slotSectionH,
-		element = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(SectionLabel, {
-			value = if echoes.Harmony then `LINKED ECHOES · HARMONY +{math.floor(echoes.HarmonyBonus * 100 + 0.5)}%` else `LINKED ECHOES · {echoes.SlotsUnlocked}/3 OPEN`,
-			color = if echoes.Harmony then Palette.mint else Palette.violet,
-		}), React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, slotGridH),
-			Position = UDim2.fromOffset(0, SECTION_LABEL_H),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(AutoGrid, {
-			columns = if stack then 1 else 3,
-			cellHeight = 116,
-			gap = sectionGap,
-		}), _newValue)),
-	})
-	local _exp_9 = ({ "Collect", "Surge", "Build", "Explore" })
-	local _newValue_1 = table.create(#_exp_9)
-	local _callback_1 = function(id, index)
-		return React.createElement(PatternCell, {
-			key = id,
-			id = id,
-			value = echoes.Pattern[id],
-			total = patternTotal,
-			dominant = id == echoes.DominantPattern,
-			index = index,
-			reducedMotion = reducedMotion,
-		})
-	end
-	for _k, _v in _exp_9 do
-		_newValue_1[_k] = _callback_1(_v, _k - 1, _exp_9)
-	end
-	table.insert(sections, {
-		id = "pattern",
-		height = patternSectionH,
-		element = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(SectionLabel, {
-			value = "CURRENT PROGRESS",
-			color = dominant.color,
-		}), React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, patternSectionH - SECTION_LABEL_H),
-			Position = UDim2.fromOffset(0, SECTION_LABEL_H),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(AutoGrid, {
-			columns = if stack then 2 else 4,
-			cellHeight = 88,
-			gap = sectionGap,
-		}), _newValue_1)),
-	})
-	local inventoryBody
-	if #vaultItems > 0 then
-		local makeCard = function(item, index)
-			return React.createElement(InventoryCard, {
-				key = item.Uid,
-				item = item,
-				echoes = echoes,
-				state = state,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
-				armed = armedUid == item.Uid,
-				arm = function()
-					return setArmedUid(item.Uid)
-				end,
-				index = index,
-				linkHostRef = if item.Uid == firstLinkUid then linkHostRef else nil,
-			})
-		end
-		if virtInventory then
-			local offerRows = {}
-			local index = 1
-			while index <= #vaultItems do
-				local row = {
-					Id = `echo-row-{index}`,
-					cells = {},
-				}
-				for col = 0, inventoryColumns - 1 do
-					local item = vaultItems[index]
-					if item == nil then
-						break
-					end
-					table.insert(row.cells, {
-						item = item,
-						index = index - 1,
-						col = col,
-					})
-					index += 1
-				end
-				table.insert(offerRows, row)
-			end
-			local rowStride = inventoryRowStride
-			inventoryBody = React.createElement(FlatList, {
-				data = offerRows,
-				itemHeight = rowStride,
-				overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
-				canvasTail = 4,
-				Size = UDim2.fromScale(1, 1),
-				scrollBarColor = Palette.cyan,
-				scrollBarThickness = 3,
-				keyExtractor = function(row)
-					return row.Id
-				end,
-				renderItem = function(_param_1)
-					local row = _param_1.item
-					local cells = {}
-					local columns = inventoryColumns
-					for cellIndex, cell in row.cells do
-						local col = cell.col
-						cells[cellIndex] = React.createElement("frame", {
-							key = cell.item.Uid,
-							Size = UDim2.new(1 / columns, -(sectionGap * (columns - 1)) / columns, 0, INVENTORY_CARD_H),
-							Position = UDim2.new(col / columns, (col * sectionGap) / columns, 0, 0),
-							BackgroundTransparency = 1,
-							BorderSizePixel = 0,
-						}, makeCard(cell.item, cell.index))
-					end
-					return React.createElement("frame", {
-						Size = UDim2.new(1, 0, 0, INVENTORY_CARD_H),
-						BackgroundTransparency = 1,
-						BorderSizePixel = 0,
-					}, cells)
-				end,
-			})
-		else
-			local _newValue_2 = table.create(#vaultItems)
-			for _k, _v in vaultItems do
-				_newValue_2[_k] = makeCard(_v, _k - 1)
-			end
-			inventoryBody = _newValue_2
-		end
-	elseif #echoes.Inventory > 0 then
-		inventoryBody = React.createElement(Browse.NoResults, {
-			browse = echoBrowse,
-			noun = "echoes",
-			icon = "Wave",
-			accent = Palette.cyan,
-			reducedMotion = softMotion,
-			compact = true,
-			size = UDim2.new(1, 0, 0, EMPTY_VAULT_H),
-		})
-	else
-		inventoryBody = React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, EMPTY_VAULT_H),
-			accent = Palette.lineSoft,
-			padding = 14,
-		}, React.createElement(Icon, {
-			kind = "Wave",
-			color = Palette.muted,
-			accent = Palette.cyan,
-			size = 34,
-			spin = false,
-			position = UDim2.fromOffset(0, 0),
-		}), React.createElement(Text, {
-			value = "NO ECHOES YET",
+	if echoes.Version ~= 2 then
+		return h(Panel, { size = UDim2.new(1, 0, 0, 120), accent = Palette.cyan, padding = 16 }, h(Text, {
+			value = "Your echoes are being carried over to the new forge. Give it a moment.",
 			size = 14,
 			color = Palette.creamSoft,
-			weight = Enum.FontWeight.Heavy,
-			position = UDim2.fromOffset(46, 0),
-			sizeConstraint = UDim2.new(1, -54, 0, 22),
-		}), React.createElement(Text, {
-			value = "Keep playing to shape your first echo.",
-			size = 11,
-			color = Palette.muted,
 			wrap = true,
-			position = UDim2.fromOffset(46, 24),
-			sizeConstraint = UDim2.new(1, -54, 0, 28),
+			sizeConstraint = UDim2.fromScale(1, 1),
 		}))
 	end
+	local sections = {}
+	local gap = if stack then 10 else 14
+
+	-- the loom: charge, tracks, strike
+	local tracks = {}
+	local trackTotal = 0
+	for _, track in EchoMath.TRACKS do
+		trackTotal += echoes.Tracks[track] or 0
+	end
+	for index, track in EchoMath.TRACKS do
+		local art = TRACK_ART[track]
+		local share = (echoes.Tracks[track] or 0) / math.max(1, trackTotal)
+		tracks["t" .. track] = h("frame", {
+			Size = UDim2.new(1, 0, 0, 30),
+			LayoutOrder = index,
+			BackgroundTransparency = 1,
+		}, h(Icon, { kind = art.icon, size = 26, position = UDim2.fromOffset(0, 2) }), h(Text, {
+			value = art.label .. (if echoes.Dominant == track and trackTotal > 0 then "  ·  leading" else ""),
+			size = 12,
+			color = if echoes.Dominant == track and trackTotal > 0 then art.color else Palette.creamSoft,
+			weight = Enum.FontWeight.Bold,
+			position = UDim2.fromOffset(34, 0),
+			sizeConstraint = UDim2.new(0.45, -34, 0, 16),
+		}), h(Meter, {
+			value = share,
+			color = art.color,
+			size = UDim2.new(0.55, -10, 0, 6),
+			position = UDim2.new(0.45, 10, 0, 12),
+		}))
+	end
+	local charge = echoes.Charge / math.max(1, echoes.ChargeTarget)
 	table.insert(sections, {
-		id = "inventory",
-		height = inventorySectionH,
-		element = React.createElement(Panel, {
+		id = "loom",
+		height = if stack then 300 else 236,
+		element = h(Panel, {
 			size = UDim2.fromScale(1, 1),
 			accent = Palette.cyan,
 			background = Palette.panel,
-			padding = 0,
-			reveal = inventoryReveal,
-			reducedMotion = reducedMotion,
-			clips = false,
-		}, React.createElement(SectionLabel, {
-			value = `ECHO VAULT · {#echoes.Inventory}/{echoes.InventoryLimit}`,
-			color = Palette.cyan,
-		}), showVaultBar and React.createElement(Browse.BrowseBar, {
-			browse = echoBrowse,
-			placeholder = "Search echoes by bonus",
-			accent = Palette.cyan,
-			stack = stack,
+			padding = 16,
 			reducedMotion = softMotion,
-			position = UDim2.fromOffset(0, SECTION_LABEL_H),
-			zIndex = 30,
-		}), React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, inventoryViewportH),
-			Position = UDim2.fromOffset(0, SECTION_LABEL_H + vaultBarH),
+		}, h(SectionLabel, { value = "THE LOOM", color = Palette.cyan }), h(Text, {
+			value = if echoes.Ready then "The charge is full. Strike to see what answers." else `{math.floor(charge * 100)}% charged. Play leaves a trace: whatever you do most shapes the first echo.`,
+			size = 13,
+			color = Palette.creamSoft,
+			wrap = true,
+			position = UDim2.fromOffset(0, 28),
+			sizeConstraint = UDim2.new(1, 0, 0, 36),
+		}), h(Meter, {
+			value = charge,
+			color = if echoes.Ready then Palette.mango else Palette.cyan,
+			size = UDim2.new(1, 0, 0, 10),
+			position = UDim2.fromOffset(0, 70),
+		}), h("frame", {
+			Size = UDim2.new(if stack then 1 else 0.6, 0, 0, 4 * 34),
+			Position = UDim2.fromOffset(0, 92),
 			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, if #vaultItems > 0 and not virtInventory then React.createElement(AutoGrid, {
-			columns = inventoryColumns,
-			cellHeight = INVENTORY_CARD_H,
-			gap = sectionGap,
-		}) else nil, inventoryBody)),
+		}, h("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }), tracks), h("frame", {
+			Name = "EchoClaimActions",
+			ref = strikeHost,
+			ClipsDescendants = false,
+			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.36, 0, 0, TapTarget),
+			Position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, 0, 0, 100),
+			AnchorPoint = if stack then Vector2.zero else Vector2.new(1, 0),
+			BackgroundTransparency = 1,
+		}, h("uiscale", { Scale = readyPulse:map(function(p)
+			return 1 + p * 0.03
+		end) }), h(Button, {
+			text = if #(echoes.Draft or {}) > 0 then "Pick an echo below" elseif echoes.Ready then "Strike" else "Charging",
+			onClick = function()
+				act({ Op = "Strike" })
+			end,
+			disabled = not echoes.Ready or #(echoes.Draft or {}) > 0,
+			color = Palette.mango,
+			textColor = Palette.ink,
+			highlight = echoes.Ready,
+			size = UDim2.fromScale(1, 1),
+			reducedMotion = softMotion,
+		}))),
 	})
+
+	-- the strike: three echoes, keep one (or reroll once for resonance)
+	if #(echoes.Draft or {}) > 0 then
+		local cards = {}
+		for index, choice in echoes.Draft do
+			cards["c" .. index] = h("frame", {
+				Size = if stack then UDim2.new(1, 0, 0, 170) else UDim2.new(1 / 3, -8, 1, 0),
+				LayoutOrder = index,
+				BackgroundTransparency = 1,
+			}, h(EchoCard, {
+				echo = choice,
+				place = "draft",
+				index = index,
+				reducedMotion = softMotion,
+				actions = h(Button, {
+					text = "Keep this one",
+					onClick = function()
+						act({ Op = "Keep", Choice = index })
+					end,
+					color = TIER_COLOR[choice.Tier] or Palette.mango,
+					textColor = Palette.ink,
+					size = UDim2.fromScale(1, 1),
+					reducedMotion = softMotion,
+				}),
+			}))
+		end
+		local cardsH = if stack then 3 * 178 else 178
+		table.insert(sections, {
+			id = "draft",
+			height = 32 + cardsH + 8 + TapTarget,
+			element = h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, h(SectionLabel, {
+				value = "WHAT ANSWERED",
+				color = Palette.mango,
+			}), h("frame", {
+				Size = UDim2.new(1, 0, 0, cardsH),
+				Position = UDim2.fromOffset(0, 32),
+				BackgroundTransparency = 1,
+			}, h("uilistlayout", {
+				FillDirection = if stack then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
+				Padding = UDim.new(0, 8),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}), cards), h("frame", {
+				Size = UDim2.new(0, 260, 0, TapTarget),
+				Position = UDim2.new(1, 0, 1, 0),
+				AnchorPoint = Vector2.new(1, 1),
+				BackgroundTransparency = 1,
+			}, h(Button, {
+				text = if echoes.Rerolled then "Already rerolled" else `Reroll for {EchoMath.REROLL_RESONANCE} resonance`,
+				onClick = function()
+					act({ Op = "Reroll" })
+				end,
+				disabled = echoes.Rerolled or echoes.Resonance < EchoMath.REROLL_RESONANCE,
+				color = Palette.panelSoft,
+				textColor = Palette.cream,
+				size = UDim2.fromScale(1, 1),
+				reducedMotion = softMotion,
+			}))),
+		})
+	end
+
+	-- the chord: four slots, its bonuses and what it all adds up to
+	local byUid = {}
+	for _, echo in echoes.Inventory do
+		byUid[echo.Uid] = echo
+	end
+	local slots = {}
+	for _, slot in echoes.Chord do
+		local echo = byUid[slot.Uid]
+		local placing = slotting ~= nil and slot.Open
+		slots["s" .. slot.Slot] = h("textbutton", {
+			Size = if stack then UDim2.new(0.5, -4, 0, 96) else UDim2.new(0.25, -6, 1, 0),
+			LayoutOrder = slot.Slot,
+			BackgroundColor3 = if placing then darken(Palette.mango, 0.6) else Palette.panelSoft,
+			AutoButtonColor = false,
+			Text = "",
+			Event = {
+				Activated = function()
+					if slotting ~= nil and slot.Open then
+						act({ Op = "Slot", Slot = slot.Slot, Uid = slotting })
+						setSlotting(nil)
+					elseif echo ~= nil then
+						act({ Op = "Slot", Slot = slot.Slot, Uid = "" })
+					end
+				end,
+			},
+		}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
+			Color = if echo then (TIER_COLOR[echo.Tier] or Palette.line) elseif placing then Palette.mango else Palette.line,
+			Thickness = if placing then 2 else 1,
+		}), h("uipadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 10) }), if echo then h(Icon, {
+			kind = traitIcon("chord", echo.Trait) or "Wave.echoChordUnknown",
+			size = 34,
+		}) else nil, h(Text, {
+			value = if echo then EchoMath.trait(echo.Trait).Name elseif slot.Open then (if placing then "Put it here" else "Empty") else `Opens at {slot.NeedsCaptures} kept`,
+			size = 12,
+			color = if echo then Palette.cream else Palette.muted,
+			weight = Enum.FontWeight.Bold,
+			fit = true,
+			minSize = 9,
+			position = UDim2.fromOffset(0, if echo then 40 else 8),
+			sizeConstraint = UDim2.new(1, 0, 0, 16),
+		}), echo and h(Text, {
+			value = `{echo.Tier} · L{echo.Level}`,
+			size = 11,
+			color = TIER_COLOR[echo.Tier] or Palette.muted,
+			position = UDim2.fromOffset(0, 58),
+			sizeConstraint = UDim2.new(1, 0, 0, 14),
+		}))
+	end
+	local bonusChips = {}
+	local order = 0
+	for _, entry in { { "Harmony", "HARMONY +15%", Palette.mint }, { "Unison", "UNISON +10%", Palette.cyan }, { "Spectrum", "SPECTRUM +20%", Palette.mango } } do
+		if echoes.Bonuses and echoes.Bonuses[entry[1]] then
+			order += 1
+			bonusChips["b" .. order] = chip(entry[2], entry[3], order)
+		end
+	end
+	local totals = {}
+	for _, kind in EchoMath.KINDS do
+		local v = echoes.Totals and echoes.Totals[kind] or 0
+		if v > 0 then
+			table.insert(totals, `{pct(v)} {KIND_WORDS[kind]}`)
+		end
+	end
+	local slotsH = if stack then 200 else 110
+	table.insert(sections, {
+		id = "chord",
+		height = 32 + slotsH + 8 + 22 + 8 + 36,
+		element = h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, h(SectionLabel, {
+			value = if slotting then "THE CHORD · PICK A SLOT" else "THE CHORD",
+			color = Palette.violet,
+		}), h("frame", {
+			Size = UDim2.new(1, 0, 0, slotsH),
+			Position = UDim2.fromOffset(0, 32),
+			BackgroundTransparency = 1,
+		}, h("uigridlayout", {
+			CellSize = if stack then UDim2.new(0.5, -4, 0, 96) else UDim2.new(0.25, -6, 1, 0),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}), slots), h("frame", {
+			Size = UDim2.new(1, 0, 0, 22),
+			Position = UDim2.fromOffset(0, 32 + slotsH + 8),
+			BackgroundTransparency = 1,
+		}, h("uilistlayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }), bonusChips), h(Text, {
+			value = if #totals > 0 then "The chord adds " .. table.concat(totals, ", ") .. "." else "Put echoes in the chord to feel them. Matching affinities add Harmony; a matched pair adds Unison; four different affinities make a Spectrum.",
+			size = 12,
+			color = Palette.creamSoft,
+			wrap = true,
+			position = UDim2.fromOffset(0, 32 + slotsH + 8 + 26),
+			sizeConstraint = UDim2.new(1, 0, 0, 36),
+		})),
+	})
+
+	-- the vault: every echo you keep
+	local columns = if stack then 1 elseif viewport.width >= 1500 then 3 else 2
+	local cardH = 186
+	local vault = {}
+	for index, echo in echoes.Inventory do
+		local partner = nil
+		for _, other in echoes.Inventory do
+			if other.Uid ~= echo.Uid and other.Trait == echo.Trait and other.Tier == echo.Tier and not other.Locked then
+				partner = other
+			end
+		end
+		local canFuse = partner ~= nil and not echo.Locked and EchoMath.nextTier(echo.Tier) ~= nil
+		local isArmed = armed == echo.Uid
+		local actionList = {
+			{ "Slot", function()
+				setSlotting(if slotting == echo.Uid then nil else echo.Uid)
+			end, Palette.violet, false },
+			{ `Tune · {compactNumber(echo.TuneCost)}`, function()
+				act({ Op = "Tune", Uid = echo.Uid })
+			end, Palette.cyan, (tonumber(state.Stardust) or 0) < echo.TuneCost or echo.Level >= EchoMath.MAX_LEVEL },
+			{ "Fuse", function()
+				act({ Op = "Fuse", A = echo.Uid, B = partner.Uid })
+			end, Palette.mango, not canFuse },
+			{ if echo.Locked then "Unlock" else "Lock", function()
+				act({ Op = "Lock", Uid = echo.Uid })
+			end, Palette.panelSoft, false },
+			{ if isArmed then "Sure?" else `Break · +{echo.Resonance}`, function()
+				if isArmed then
+					setArmed(nil)
+					act({ Op = "Dismantle", Uid = echo.Uid })
+				else
+					setArmed(echo.Uid)
+				end
+			end, if isArmed then Palette.coral else Palette.panelSoft, echo.Locked },
+		}
+		local buttons = {}
+		for i, a in actionList do
+			buttons["a" .. i] = h("frame", {
+				Size = UDim2.new(1 / #actionList, -6, 1, 0),
+				LayoutOrder = i,
+				BackgroundTransparency = 1,
+			}, h(Button, {
+				text = a[1],
+				onClick = a[2],
+				color = a[3],
+				textColor = if a[3] == Palette.panelSoft then Palette.cream else Palette.ink,
+				disabled = a[4],
+				size = UDim2.fromScale(1, 1),
+				reducedMotion = softMotion,
+			}))
+		end
+		vault["v" .. echo.Uid] = h("frame", {
+			LayoutOrder = index,
+			BackgroundTransparency = 1,
+		}, h(EchoCard, {
+			echo = echo,
+			place = "vault",
+			index = index,
+			reducedMotion = softMotion,
+			actionsHeight = 34,
+			actions = h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, h("uilistlayout", {
+				FillDirection = Enum.FillDirection.Horizontal,
+				Padding = UDim.new(0, 6),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}), buttons),
+		}))
+	end
+	local rows = math.max(1, math.ceil(#echoes.Inventory / columns))
+	table.insert(sections, {
+		id = "vault",
+		height = 32 + (if #echoes.Inventory == 0 then 80 else rows * cardH + (rows - 1) * 8),
+		element = h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, h(SectionLabel, {
+			value = `KEPT · {#echoes.Inventory}/{echoes.InventoryLimit}  ·  {compactNumber(echoes.Resonance)} RESONANCE`,
+			color = Palette.cyan,
+		}), h("frame", {
+			Size = UDim2.new(1, 0, 1, -32),
+			Position = UDim2.fromOffset(0, 32),
+			BackgroundTransparency = 1,
+		}, #echoes.Inventory > 0 and h("uigridlayout", {
+			CellSize = UDim2.new(1 / columns, -8 * (columns - 1) / columns, 0, cardH),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}), if #echoes.Inventory > 0 then vault else h(Text, {
+			value = "Nothing kept yet. Fill the charge and strike.",
+			size = 13,
+			color = Palette.muted,
+			sizeConstraint = UDim2.new(1, 0, 0, 20),
+		}))),
+	})
+
+	-- the journal: every trait at every tier
+	local journalRows = {}
+	for index, trait in EchoMath.TRAITS do
+		local reached = echoes.Journal and echoes.Journal[trait.Id] or 0
+		local pips = {}
+		for t, tier in EchoMath.TIERS do
+			pips["p" .. t] = chip(string.upper(tier), if t <= reached then TIER_COLOR[tier] else Palette.lineSoft, t)
+		end
+		journalRows["j" .. index] = h("frame", {
+			Size = UDim2.new(1, 0, 0, 30),
+			LayoutOrder = index,
+			BackgroundTransparency = 1,
+		}, h(Icon, { kind = traitIcon("journal", trait.Id), size = 24, position = UDim2.fromOffset(0, 3) }), h(Text, {
+			value = trait.Name .. (if reached >= #EchoMath.TIERS then "  ·  complete, +3% for good" else ""),
+			size = 12,
+			color = if reached >= #EchoMath.TIERS then Palette.mango else Palette.creamSoft,
+			weight = Enum.FontWeight.Bold,
+			fit = true,
+			minSize = 9,
+			position = UDim2.fromOffset(32, 7),
+			sizeConstraint = UDim2.new(0.4, -32, 0, 16),
+		}), h("frame", {
+			Size = UDim2.new(0.6, 0, 1, 0),
+			Position = UDim2.fromScale(0.4, 0),
+			BackgroundTransparency = 1,
+		}, h("uilistlayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center }), pips))
+	end
+	table.insert(sections, {
+		id = "journal",
+		height = 32 + #EchoMath.TRAITS * 34 + 16,
+		element = h(Panel, {
+			size = UDim2.fromScale(1, 1),
+			accent = Palette.lineSoft,
+			background = Palette.panel,
+			padding = 14,
+		}, h(SectionLabel, { value = "JOURNAL · KEEP EVERY TIER OF A TRAIT FOR A PERMANENT BONUS", color = Palette.mango }), h("frame", {
+			Size = UDim2.new(1, 0, 1, -30),
+			Position = UDim2.fromOffset(0, 30),
+			BackgroundTransparency = 1,
+		}, h("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }), journalRows)),
+	})
+
 	return React.createElement(PageScaffold, {
-		gap = sectionGap,
+		gap = gap,
 		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, if stack then 72 else 56),
 		scrollBarColor = Palette.cyan,
 		scrollBarThickness = 4,
@@ -2718,7 +2174,7 @@ local function InventoryTools(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
 		text = if stack then "BEST" else "EQUIP BEST",
-		icon = "Loadout",
+		icon = "Loadout.2",
 		onClick = equipBest,
 		color = Palette.mint,
 		textColor = Palette.ink,
@@ -2727,7 +2183,7 @@ local function InventoryTools(_param)
 		highlight = true,
 	}), React.createElement(Button, {
 		text = if bulkMode then "DONE" elseif stack then "SELECT" else "MULTI SALVAGE",
-		icon = if bulkMode then "Check" else "Dust",
+		icon = if bulkMode then "Check.18" else "Dust.5",
 		onClick = function()
 			setBulkMode(not bulkMode)
 			setAutoOpen(false)
@@ -2739,7 +2195,7 @@ local function InventoryTools(_param)
 		outline = not bulkMode,
 	}), React.createElement(Button, {
 		text = if stack then "RECYCLE" else "AUTO-SALVAGE",
-		icon = "Inventory",
+		icon = "Inventory.5",
 		onClick = function()
 			setAutoOpen(not autoOpen)
 			setBulkMode(false)
@@ -2786,7 +2242,7 @@ local function BulkDock(_param)
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Button, {
 		text = if selectableCount > 0 then `SELECT {math.min(25, selectableCount)}` else "NONE TO PICK",
-		icon = "Check",
+		icon = "Check.19",
 		onClick = selectVisible,
 		color = Palette.violet,
 		textColor = Palette.cream,
@@ -2796,7 +2252,7 @@ local function BulkDock(_param)
 		outline = true,
 	}), React.createElement(Button, {
 		text = if bulkBusy then "SALVAGING" elseif selectedCount > 0 and _param.bulkArmed then `TAP AGAIN · SALVAGE {selectedCount}` elseif selectedCount > 0 then `SALVAGE {selectedCount}  +{compactNumber(selectionEssence)} ESS` else "CLEAR PICKS",
-		icon = "Dust",
+		icon = "Dust.6",
 		onClick = if selectedCount > 0 then salvageSelected else clearSelection,
 		color = if selectedCount > 0 then Palette.coral else Palette.panelSoft,
 		textColor = if selectedCount > 0 then Palette.ink else Palette.muted,
@@ -2910,7 +2366,7 @@ local function AutoSalvageSheet(_param)
 		BorderSizePixel = 0,
 	}, React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.7",
 		onClick = onClose,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
@@ -2929,7 +2385,7 @@ local function AutoSalvageSheet(_param)
 			sizeConstraint = UDim2.new(1, 0, 0, if stack then 32 else 18),
 		}), React.createElement(Button, {
 			text = "VIEW PASS",
-			icon = "Shop",
+			icon = "Shop.10",
 			onClick = openShop,
 			color = Palette.mango,
 			textColor = Palette.ink,
@@ -2950,7 +2406,7 @@ local function AutoSalvageSheet(_param)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}), React.createElement(Button, {
 			text = if autoBusy then "SAVING" elseif rules.Enabled then "ON" else "OFF",
-			icon = if rules.Enabled then "Check" else "Inventory",
+			icon = if rules.Enabled then "Check.20" else "Inventory.6",
 			onClick = function()
 				local _object = table.clone(rules)
 				setmetatable(_object, nil)
@@ -2965,7 +2421,7 @@ local function AutoSalvageSheet(_param)
 			outline = not rules.Enabled,
 		}), React.createElement(Button, {
 			text = if rules.KeepNew then "KEEP NEW" else "RECYCLE NEW",
-			icon = if rules.KeepNew then "Lock" else "Dust",
+			icon = if rules.KeepNew then "Lock.12" else "Dust.7",
 			onClick = function()
 				local _object = table.clone(rules)
 				setmetatable(_object, nil)
@@ -2980,7 +2436,7 @@ local function AutoSalvageSheet(_param)
 			outline = true,
 		}), React.createElement(Button, {
 			text = "RUN",
-			icon = "Dust",
+			icon = "Dust.8",
 			onClick = runNow,
 			color = Palette.mango,
 			textColor = Palette.ink,
@@ -3289,7 +2745,7 @@ local function DetailPanel(_param)
 	local socketBtn = function(size, position)
 		return if equipped then React.createElement(Button, {
 			text = "DETACH",
-			icon = "Close",
+			icon = "Close.8",
 			onClick = function()
 				return dispatch("UnequipItem", {
 					Target = item.equippedOn,
@@ -3303,7 +2759,7 @@ local function DetailPanel(_param)
 			outline = true,
 		}) else React.createElement(Button, {
 			text = "SOCKET",
-			icon = "Loadout",
+			icon = "Loadout.3",
 			onClick = function()
 				if target ~= "" then
 					dispatch("EquipItem", {
@@ -3324,7 +2780,7 @@ local function DetailPanel(_param)
 	local upgradeBtn = function(size, position)
 		return React.createElement(Button, {
 			text = if maxed then "MAXED" else `UPGRADE  {compactNumber(cost)}`,
-			icon = "StarGrid",
+			icon = "StarGrid.5",
 			onClick = function()
 				return dispatch("UpgradeItem", {
 					Uid = item.uid,
@@ -3344,7 +2800,7 @@ local function DetailPanel(_param)
 	local salvageBtn = function(size, position)
 		return React.createElement(Button, {
 			text = if salvageArmed then `TAP AGAIN TO SALVAGE · +{salvage}` else `SALVAGE  +{salvage}`,
-			icon = "Dust",
+			icon = "Dust.9",
 			onClick = function()
 				if not salvageArmed then
 					setSalvageArmedFor(item.uid)
@@ -3367,7 +2823,7 @@ local function DetailPanel(_param)
 	local lockBtn = function(size, position)
 		return React.createElement(Button, {
 			text = if locked then "UNPROTECT" else "PROTECT",
-			icon = "Lock",
+			icon = "Lock.13",
 			onClick = function()
 				Audio:play(if locked then "favoriteOff" else "favoriteOn")
 				return dispatch("ToggleItemLock", {
@@ -3564,7 +3020,7 @@ local function CrateCard(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
 		text = if busy then "…" else "OPEN 1",
-		icon = "Crate",
+		icon = "Crate.7",
 		onClick = function()
 			return onOpen(1)
 		end,
@@ -3577,7 +3033,7 @@ local function CrateCard(_param)
 		highlight = keys >= 1 and not busy,
 	}), React.createElement(Button, {
 		text = if busy then "…" else "OPEN 5",
-		icon = "Crate",
+		icon = "Crate.8",
 		onClick = function()
 			return onOpen(5)
 		end,
@@ -3603,7 +3059,7 @@ local function CrateCard(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
 		text = if busy then "…" else "OPEN 1",
-		icon = "Crate",
+		icon = "Crate.9",
 		onClick = function()
 			return onOpen(1)
 		end,
@@ -3617,7 +3073,7 @@ local function CrateCard(_param)
 		highlight = keys >= 1 and not busy,
 	}), React.createElement(Button, {
 		text = if busy then "…" else "OPEN 5",
-		icon = "Crate",
+		icon = "Crate.10",
 		onClick = function()
 			return onOpen(5)
 		end,
@@ -3874,7 +3330,7 @@ local function MarketCard(_param)
 		sizeConstraint = UDim2.new(1, textReserve, 0, 14),
 	})), if stack then React.createElement(Button, {
 		text = buttonText,
-		icon = if soldOut then "Lock" else "Shop",
+		icon = if soldOut then "Lock.14" else "Shop.11",
 		onClick = function()
 			return dispatch("BuyItemOffer", {
 				Id = offer.Id,
@@ -3897,7 +3353,7 @@ local function MarketCard(_param)
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = buttonText,
-		icon = if soldOut then "Lock" else "Shop",
+		icon = if soldOut then "Lock.15" else "Shop.12",
 		onClick = function()
 			return dispatch("BuyItemOffer", {
 				Id = offer.Id,
@@ -4776,7 +4232,7 @@ local function InventoryView(_param)
 				return React.createElement(RelicRow, _attributes)
 			end,
 			ListEmptyComponent = React.createElement(EmptyState, {
-				icon = "Loadout",
+				icon = "Loadout.4",
 				title = if #owned == 0 then "No relics yet" else "Nothing matches",
 				body = if #owned == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyItems) or "Open crates or buy a starter coupler from the Market tab.") else "Clear the search or set the filters back to All relics.",
 				accent = Palette.violet,
@@ -4924,7 +4380,7 @@ local function InventoryView(_param)
 				layoutOrder = 0,
 			}),
 			ListEmptyComponent = React.createElement(EmptyState, {
-				icon = "Crate",
+				icon = "Crate.11",
 				title = "No crate channels",
 				body = "More crate channels open as you progress through the story and the Lab.",
 				accent = Palette.violet,
@@ -4980,7 +4436,7 @@ local function InventoryView(_param)
 				stack = stack,
 			}),
 			ListEmptyComponent = React.createElement(EmptyState, {
-				icon = "Shop",
+				icon = "Shop.13",
 				title = "Market offline",
 				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now. More arrive at the next restock."),
 				accent = Palette.mango,

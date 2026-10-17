@@ -151,7 +151,120 @@ function TradeDesk:Public(session, userId: number)
 		ConfirmEndsAt = session.ConfirmEndsAt,
 		Status = session.Status,
 		ExpiresAt = session.ExpiresAt,
+		Chat = table.clone(session.Chat or {}),
+		YourRequest = session.Requests and session.Requests[userId] or nil,
+		TheirRequest = session.Requests and session.Requests[them] or nil,
+		PartnerRelics = self:_tradeableRelics(them),
+		PartnerAway = session.Away and session.Away[them] == true or false,
 	}
+end
+
+-- the relics a player could put on the table (not locked, not equipped), for the partner to browse
+function TradeDesk:_tradeableRelics(userId: number)
+	local profileOf = self.ProfileOf
+	local profile = profileOf and profileOf(userId)
+	local inventory = profile and profile.Items and profile.Items.Inventory
+	local list = {}
+	if type(inventory) ~= "table" then
+		return list
+	end
+	local rarityOf = {}
+	for _, definition in (GameConfig.Items and GameConfig.Items.Definitions) or {} do
+		if type(definition) == "table" and definition.Id then
+			rarityOf[definition.Id] = definition.Rarity
+		end
+	end
+	for uid, instance in inventory do
+		if type(instance) == "table" and instance.Locked ~= true and not itemEquipped(profile, uid) then
+			table.insert(list, {
+				Uid = uid,
+				DefinitionId = instance.DefinitionId,
+				Name = itemNameFor(tostring(instance.DefinitionId or "")),
+				Rarity = rarityOf[instance.DefinitionId] or "Common",
+				Level = tonumber(instance.Level) or 1,
+			})
+		end
+		if #list >= 60 then
+			break
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.Uid < b.Uid
+	end)
+	return list
+end
+
+-- quick phrases anyone can send without typing (never filtered, never misread)
+TradeDesk.PHRASES = {
+	"Deal?", "Can you add a little more?", "That's fair.", "Not for that.",
+	"Let me look.", "Ready when you are.", "Thanks for the trade.", "One sec.",
+}
+
+-- a line of table talk: `text` arrives already filtered by the caller; `phrase` is an index
+function TradeDesk:Say(player: Player, text: string?, phrase: number?, now: number): (boolean, string?, any)
+	local session = self:SessionFor(player.UserId)
+	if not session or session.ExpiresAt < now then
+		return false, "That trade is no longer open."
+	end
+	session.LastSay = session.LastSay or {}
+	local clock = os.clock()
+	if clock - (session.LastSay[player.UserId] or 0) < 0.6 then
+		return false, "Slow down a little."
+	end
+	local line
+	if type(phrase) == "number" and TradeDesk.PHRASES[phrase] then
+		line = TradeDesk.PHRASES[phrase]
+	elseif type(text) == "string" and #text > 0 then
+		line = string.sub(text, 1, 140)
+	else
+		return false, "Say something first."
+	end
+	session.LastSay[player.UserId] = clock
+	session.Chat = session.Chat or {}
+	table.insert(session.Chat, { From = player.UserId, Name = player.DisplayName, Text = line, At = now, Phrase = phrase ~= nil })
+	while #session.Chat > 40 do
+		table.remove(session.Chat, 1)
+	end
+	return true, nil, session
+end
+
+-- what you'd like from your partner: some of their relics and some amounts; they can add it in one tap
+function TradeDesk:Request(player: Player, raw, now: number): (boolean, string?, any)
+	local session = self:SessionFor(player.UserId)
+	if not session or session.ExpiresAt < now then
+		return false, "That trade is no longer open."
+	end
+	if session.Settling == true or session.Status == "Settling" then
+		return false, "That trade is already settling."
+	end
+	local caps = GameConfig.Trading.PerTrade
+	local request = { ItemIds = {} }
+	if type(raw) == "table" and type(raw.ItemIds) == "table" then
+		for _, uid in raw.ItemIds do
+			if type(uid) == "string" and #uid <= 48 and #request.ItemIds < math.min(8, caps.Items) then
+				table.insert(request.ItemIds, uid)
+			end
+		end
+	end
+	for _, key in CURRENCIES do
+		local amount = type(raw) == "table" and tonumber(raw[key]) or 0
+		if amount and amount == amount and amount > 0 then
+			request[key] = math.min(math.floor(amount), caps[key] or 0)
+		end
+	end
+	session.Requests = session.Requests or {}
+	session.Requests[player.UserId] = request
+	return true, nil, session
+end
+
+function TradeDesk:SetAway(player: Player, away: boolean)
+	local session = self:SessionFor(player.UserId)
+	if not session then
+		return nil
+	end
+	session.Away = session.Away or {}
+	session.Away[player.UserId] = away == true
+	return session
 end
 
 function TradeDesk:InvitePublic(userId: number)

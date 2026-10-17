@@ -48,13 +48,6 @@ do
 	end
 	assert(soft >= 14, "Mailbox softMotion densify, got " .. tostring(soft))
 end
-do
-	local soft = 0
-	for _ in string.gmatch(echo, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 14, "Echo softMotion densify, got " .. tostring(soft))
-end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#MailboxView"] = ', 1, true), "Mailbox DENSE floor")

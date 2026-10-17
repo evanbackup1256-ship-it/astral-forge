@@ -4063,7 +4063,7 @@ local function Dropdown(_param)
 				BackgroundTransparency = 1,
 				ZIndex = zIndex + 8,
 			}, React.createElement(Icon, {
-				kind = "Check",
+				kind = "Check.21",
 				color = Palette.cream,
 				accent = accent,
 				size = 16,
@@ -4203,7 +4203,7 @@ local function Dropdown(_param)
 				BackgroundTransparency = 1,
 				ZIndex = zIndex + 8,
 			}, React.createElement(Icon, {
-				kind = "Check",
+				kind = "Check.22",
 				color = Palette.cream,
 				accent = accent,
 				size = 16,
@@ -4380,7 +4380,7 @@ local function SearchField(_param)
 		BackgroundTransparency = 1,
 		ZIndex = zIndex + 1,
 	}, React.createElement(Icon, {
-		kind = "Search",
+		kind = "Search.11",
 		color = focus:map(function(amount)
 			return Palette.muted:Lerp(accent, amount)
 		end),
@@ -4484,7 +4484,7 @@ local function SearchField(_param)
 		Thickness = 1,
 		Transparency = 0.65,
 	}), React.createElement(Icon, {
-		kind = "Close",
+		kind = "Close.9",
 		color = Palette.creamSoft,
 		accent = Palette.muted,
 		size = 14,
@@ -4980,7 +4980,7 @@ local function MainGame(_param)
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
 		local Juice = require(script.Parent.JuiceFx)
 		local color = if tone == "Special" then Palette.violet elseif tone == "Success" then Palette.mint elseif tone == "Warning" then Palette.mango elseif tone == "Error" then Palette.coral else Palette.cyan
-		local icon = if tone == "Special" then "Gift" elseif tone == "Success" then "Check" elseif tone == "Warning" then "Timer" elseif tone == "Error" then "Close" else "Wave"
+		local icon = if tone == "Special" then "Gift.17" elseif tone == "Success" then "Check.23" elseif tone == "Warning" then "Timer.7" elseif tone == "Error" then "Close.10" else "Wave.14"
 		local bodyText = if type(body) == "string" then body else tostring(body or "")
 		Juice.banner(normalizedTitle, if bodyText ~= "" then bodyText else nil, color, icon, lifetime, tone)
 		return nil
@@ -5154,11 +5154,11 @@ local function MainGame(_param)
 			if bigMoment then
 				Juice.flash(Palette.cream, 0.45)
 				if action == "Rebirth" then
-					Juice.moment(`REBIRTH {response.Rebirths or ""}!`, "Production multiplier up.", Palette.violet, "Rebirth")
+					Juice.moment(`REBIRTH {response.Rebirths or ""}!`, "Production multiplier up.", Palette.violet, "Rebirth.8")
 				elseif action == "DomainExpansion" then
-					Juice.moment(`DOMAIN {response.DomainRank or ""}!`, "New tree points to spend.", Palette.pink, "Domain")
+					Juice.moment(`DOMAIN {response.DomainRank or ""}!`, "New tree points to spend.", Palette.pink, "Domain.5")
 				elseif action == "UnlockZone" then
-					Juice.moment("NEW WORLD!", response.message, Palette.cyan, "World")
+					Juice.moment("NEW WORLD!", response.message, Palette.cyan, "World.11")
 				end
 			end
 			if action == "OpenItemCrate" and type(response.Rolls) == "table" and #response.Rolls > 0 then
@@ -5274,38 +5274,9 @@ local function MainGame(_param)
 				_condition_4 = "Dust recovered."
 			end
 			addNotice("Salvaged", _condition_4, "Success")
-		elseif action == "CaptureEcho" then
-			Audio:play("echoCapture")
-			local _condition_4 = response.message
-			if _condition_4 == nil then
-				_condition_4 = "Got three echoes."
-			end
-			addNotice("Pattern captured", _condition_4, "Special")
-		elseif action == "ClaimEcho" then
-			Audio:play("echoClaim")
-			InteractionFeedback.reward()
-			celebrate()
-		elseif action == "EquipEcho" then
-			Audio:play("echoEquip")
-			local _condition_4 = response.message
-			if _condition_4 == nil then
-				_condition_4 = "Loadout updated."
-			end
-			addNotice("Echo linked", _condition_4, "Info")
-		elseif action == "UpgradeEcho" then
-			Audio:play("echoTune")
-			local _condition_4 = response.message
-			if _condition_4 == nil then
-				_condition_4 = "It's stronger now."
-			end
-			addNotice("Echo tuned", _condition_4, "Success")
-		elseif action == "DismantleEcho" then
-			Audio:play("echoDismantle")
-			local _condition_4 = response.message
-			if _condition_4 == nil then
-				_condition_4 = "Resonance recovered."
-			end
-			addNotice("Memory released", _condition_4, "Info")
+		elseif action == "EchoAct" then
+			-- the echoes screen plays its own moments; the reply only needs a sound
+			Audio:play(if response.Choices then "echoCapture" elseif response.Level then "echoTune" elseif response.Resonance then "echoDismantle" elseif response.Uid then "echoClaim" else "echoEquip")
 		elseif action == "LaunchExpedition" then
 			Audio:play("expeditionLaunch")
 			local _condition_4 = response.message
@@ -5672,11 +5643,11 @@ local function MainGame(_param)
 				Stats.bump("overcharges")
 			end
 			if session ~= nil and action == "CollectVault" and _format.asFlux(session.Vault) > 0 then
-				Juice.number(`+{compactNumber(session.Vault)} flux`, Palette.cyan, { icon = "Flux", big = true })
+				Juice.number(`+{compactNumber(session.Vault)} flux`, Palette.cyan, { icon = "Flux.19", big = true })
 				Juice.coins("FLUX", Palette.cyan, "Flux", 10)
 				Juice.burst(nil, Palette.cyan, 1)
 			elseif session ~= nil and action == "Overcharge" and session.TapPower ~= nil then
-				Juice.number(`+{compactNumber(session.TapPower)}`, Palette.mango, { icon = "Flux" })
+				Juice.number(`+{compactNumber(session.TapPower)}`, Palette.mango, { icon = "Flux.20" })
 				Juice.coins("VAULT", Palette.mango, "Flux", 3)
 			end
 		elseif string.sub(action, 1, 5) == "Claim" then
@@ -5952,14 +5923,14 @@ local function MainGame(_param)
 				Audio:play("discovery")
 				celebrate()
 				if value.UserId == game:GetService("Players").LocalPlayer.UserId then
-					require(script.Parent.JuiceFx).moment(`ASCENSION {value.Rank or ""}!`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth")
+					require(script.Parent.JuiceFx).moment(`ASCENSION {value.Rank or ""}!`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth.9")
 				end
 			elseif kind == "FeatureUnlocked" and not purchasePresentationActive.current then
 				Audio:play("unlock")
 				InteractionFeedback.reward()
 				celebrate()
 				local featureName = value.Name or value.Feature or value.Id
-				require(script.Parent.JuiceFx).moment(if featureName then `{string.upper(tostring(featureName))} UNLOCKED!` else "NEW FEATURE!", "Find it in the menu.", Palette.mint, "Check")
+				require(script.Parent.JuiceFx).moment(if featureName then `{string.upper(tostring(featureName))} UNLOCKED!` else "NEW FEATURE!", "Find it in the menu.", Palette.mint, "Check.24")
 			elseif kind == "LevelUp" and not purchasePresentationActive.current then
 				__load("levelMoments").pushLevelMoment(value)
 				InteractionFeedback.reward()
@@ -7895,7 +7866,7 @@ local function AppShell(_param)
 		ZIndex = 200,
 	}, React.createElement(Button, {
 		text = "SHOW UI  ( ` )",
-		icon = "Hide",
+		icon = "Hide.2",
 		onClick = function()
 			return setHidden(false)
 		end,
@@ -8417,7 +8388,7 @@ local function ServerEventChip(_param)
 		label = if active then string.upper(def.Name) else "NEXT EVENT",
 		value = 0,
 		placeholder = value,
-		icon = if active then def.Icon else "Calendar",
+		icon = if active then def.Icon else "Calendar.5",
 		accent = if active then events.accentOf(def) else Palette.blue,
 		reducedMotion = _param.reducedMotion,
 		reactiveFlash = false,
@@ -8455,7 +8426,7 @@ local function PerformanceStats(_param)
 	local _exp_1 = showFps and React.createElement(StatChip, {
 		label = "FPS",
 		value = fps,
-		icon = "Timer",
+		icon = "Timer.8",
 		accent = fpsAccent,
 		reducedMotion = reducedMotion,
 		reactiveFlash = false,
@@ -8475,7 +8446,7 @@ local function PerformanceStats(_param)
 			_condition_1 = 0
 		end
 		_attributes.value = _condition_1
-		_attributes.icon = "Wave"
+		_attributes.icon = "Wave.15"
 		_attributes.accent = pingAccent
 		_attributes.reducedMotion = reducedMotion
 		_attributes.reactiveFlash = false
@@ -8847,7 +8818,7 @@ local function TopbarReleaseCountdown(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement(Icon, {
-		kind = "Calendar",
+		kind = "Calendar.6",
 		color = Palette.cream,
 		accent = if live then Palette.mint else Palette.cyan,
 		size = 26,
@@ -8997,7 +8968,7 @@ local function TopBar(_param)
 		local _arg0 = {
 			label = "CORES",
 			value = state.Cores,
-			icon = "Core",
+			icon = "Core.8",
 			accent = Palette.violet,
 		}
 		table.insert(allChips, _arg0)
@@ -9006,7 +8977,7 @@ local function TopBar(_param)
 		local _arg0 = {
 			label = "DUST",
 			value = state.Stardust,
-			icon = "Dust",
+			icon = "Dust.13",
 			accent = Palette.mango,
 		}
 		table.insert(allChips, _arg0)
@@ -9014,7 +8985,7 @@ local function TopBar(_param)
 	local _arg0 = {
 		label = "FLUX",
 		value = state.Cash,
-		icon = "Flux",
+		icon = "Flux.21",
 		accent = Palette.cyan,
 	}
 	table.insert(allChips, _arg0)
@@ -9096,7 +9067,7 @@ local function TopBar(_param)
 		ZIndex = 22,
 	}, React.createElement(Button, {
 		text = "",
-		icon = if railOpen then "Close" else "Menu",
+		icon = if railOpen then "Close.11" else "Menu.1",
 		onClick = toggleRail,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
@@ -9104,7 +9075,7 @@ local function TopBar(_param)
 		reducedMotion = reducedMotion,
 		motion = resolvePressMotion({
 			text = "",
-			icon = if railOpen then "Close" else "Menu",
+			icon = if railOpen then "Close.12" else "Menu.2",
 			size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
 		}),
 	}))
@@ -9171,7 +9142,7 @@ local function TopBar(_param)
 		ZIndex = 22,
 	}, React.createElement(Button, {
 		text = visitPill.label,
-		icon = "Crew",
+		icon = "Crew.13",
 		onClick = openPlayerlist,
 		color = Palette.panelSoft,
 		textColor = visitPill.accent,
@@ -9213,7 +9184,7 @@ local function TopBar(_param)
 			BorderSizePixel = 0,
 		}, React.createElement(Button, {
 			text = visitPill.label,
-			icon = "Crew",
+			icon = "Crew.14",
 			onClick = openPlayerlist,
 			color = Palette.panelSoft,
 			textColor = visitPill.accent,
@@ -9364,7 +9335,7 @@ local function TopBar(_param)
 		ZIndex = 22,
 	}, React.createElement(Button, {
 		text = "",
-		icon = "Hide",
+		icon = "Hide.3",
 		onClick = hideUI,
 		color = Palette.panelSoft,
 		textColor = accent,
@@ -9372,7 +9343,7 @@ local function TopBar(_param)
 		reducedMotion = reducedMotion,
 		motion = resolvePressMotion({
 			text = "",
-			icon = "Hide",
+			icon = "Hide.4",
 			size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
 		}),
 	})), React.createElement("frame", {
@@ -9382,7 +9353,7 @@ local function TopBar(_param)
 		ZIndex = 22,
 	}, React.createElement(Button, {
 		text = if playerControlW > SHELL_CHROME.topbarControl then "PLAYERS" else "",
-		icon = "Pilot",
+		icon = "Pilot.3",
 		onClick = openPlayerlist,
 		color = Palette.panelSoft,
 		textColor = Palette.cyan,
@@ -9390,7 +9361,7 @@ local function TopBar(_param)
 		reducedMotion = reducedMotion,
 		motion = resolvePressMotion({
 			text = if playerControlW > SHELL_CHROME.topbarControl then "PLAYERS" else "",
-			icon = "Pilot",
+			icon = "Pilot.4",
 			size = UDim2.fromOffset(playerControlW, SHELL_CHROME.topbarControl),
 		}),
 	})), showFeedbackControl and React.createElement("frame", {
@@ -9400,7 +9371,7 @@ local function TopBar(_param)
 		ZIndex = 22,
 	}, React.createElement(Button, {
 		text = if feedbackControlW > SHELL_CHROME.topbarControl then "FEEDBACK" else "",
-		icon = "Chat",
+		icon = "Chat.5",
 		onClick = openFeedback,
 		color = Palette.panelSoft,
 		textColor = Palette.mint,
@@ -9408,7 +9379,7 @@ local function TopBar(_param)
 		reducedMotion = reducedMotion,
 		motion = resolvePressMotion({
 			text = if feedbackControlW > SHELL_CHROME.topbarControl then "FEEDBACK" else "",
-			icon = "Chat",
+			icon = "Chat.6",
 			size = UDim2.fromOffset(feedbackControlW, SHELL_CHROME.topbarControl),
 		}),
 	})), searchControlW > 0 and React.createElement("frame", {
@@ -9419,7 +9390,7 @@ local function TopBar(_param)
 		ZIndex = 22,
 	}, React.createElement(Button, {
 		text = if searchControlW > SHELL_CHROME.topbarControl then "FIND" else "",
-		icon = "Search",
+		icon = "Search.12",
 		onClick = function()
 			require(script.Parent.QuickFind).open()
 		end,
@@ -9429,7 +9400,7 @@ local function TopBar(_param)
 		reducedMotion = reducedMotion,
 		motion = resolvePressMotion({
 			text = if searchControlW > SHELL_CHROME.topbarControl then "FIND" else "",
-			icon = "Search",
+			icon = "Search.13",
 			size = UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
 		}),
 	})))
@@ -10403,7 +10374,7 @@ local function MoreDock(_param)
 			id = "Overview",
 			label = "MORE",
 			eyebrow = "",
-			icon = "Menu",
+			icon = "Menu.3",
 			accent = Palette.muted,
 		},
 		active = moreTriggerActive,
@@ -11058,7 +11029,7 @@ local function VaultPill(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 8),
 	}), React.createElement(Icon, {
-		kind = "Vault",
+		kind = "Vault.8",
 		color = Palette.cream,
 		accent = bar,
 		size = 18,
@@ -11471,7 +11442,7 @@ local function Workspace(_param)
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = "",
-		icon = "Collect",
+		icon = "Collect.1",
 		onClick = function()
 			return dispatch("CollectVault")
 		end,
@@ -11482,7 +11453,7 @@ local function Workspace(_param)
 		reducedMotion = reducedMotion,
 		motion = resolvePressMotion({
 			text = "",
-			icon = "Collect",
+			icon = "Collect.2",
 			size = UDim2.fromOffset(vaultBtn, vaultBtn),
 		}),
 		highlight = asFlux(state.Vault) >= asFlux(state.Capacity) * VaultCollectEligibility.NEAR_FULL,
@@ -11619,7 +11590,7 @@ local function TradeReturnPill(_param)
 		end),
 	}), React.createElement(Button, {
 		text = "BACK TO TRADE",
-		icon = "Visit",
+		icon = "Visit.5",
 		onClick = onReturn,
 		sound = "open",
 		color = Palette.mint,
@@ -12615,7 +12586,7 @@ local function LevelRoadmap(_param)
 		zIndex = 474,
 	}), React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.13",
 		onClick = close,
 		color = Palette.panel,
 		textColor = Palette.creamSoft,
@@ -12977,7 +12948,7 @@ local function ComboBadge(_param)
 		scale = iconScale,
 		zIndex = zIndex + 1,
 	}, React.createElement(Icon, {
-		kind = "Overcharge",
+		kind = "Overcharge.9",
 		color = Palette.cream,
 		accent = accent,
 		size = 17,
@@ -13311,7 +13282,7 @@ local function FeedbackOverlay(_param)
 	})
 	local _exp_6 = React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.14",
 		onClick = close,
 		color = Palette.ink,
 		textColor = Palette.coral,
@@ -13545,7 +13516,7 @@ local function FeedbackOverlay(_param)
 		zIndex = 475,
 	})), if sent then React.createElement(Button, {
 		text = "DONE",
-		icon = "Check",
+		icon = "Check.25",
 		onClick = close,
 		color = Palette.mint,
 		textColor = Palette.ink,
@@ -13557,7 +13528,7 @@ local function FeedbackOverlay(_param)
 		highlight = true,
 	}) else React.createElement(Button, {
 		text = if sending then "SENDING..." elseif #trimmed < 8 then "WRITE A LITTLE MORE" else "SEND FEEDBACK",
-		icon = "Send",
+		icon = "Send.5",
 		onClick = submit,
 		color = if canSend then Palette.cyan else Palette.panelSoft,
 		textColor = if canSend then Palette.ink else Palette.muted,
@@ -14000,7 +13971,7 @@ local function MenuSheet(_param)
 		ZIndex = 510,
 	}, React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.15",
 		onClick = _param.onClose,
 		color = Palette.panel,
 		textColor = Palette.cream,
@@ -14076,7 +14047,7 @@ local function MobileTabBar(_param)
 			menuBadge += AppHelpers:navBadge(entry, state, chatUnread)
 		end
 	end
-	local menuEntry = { id = "Menu", label = "Menu", icon = "Menu", accent = Palette.cyan }
+	local menuEntry = { id = "Menu", label = "Menu", icon = "Menu.4", accent = Palette.cyan }
 	local compact = chrome.landscape
 	local items = {}
 	items.layout = React.createElement("uilistlayout", {
@@ -14360,7 +14331,7 @@ local function MobileHeader(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 11),
 	}), React.createElement(Icon, {
-		kind = "Crew",
+		kind = "Crew.15",
 		color = Palette.cream,
 		accent = Palette.cyan,
 		size = math.floor(playersW * 0.62),
@@ -14492,7 +14463,7 @@ local function MobileQuickActions(_param)
 		BackgroundTransparency = 1,
 	}, React.createElement(Button, {
 		text = if vaultReady then `BANK {compactNumber(state.Vault)}` else "EMPTY",
-		icon = "Flux",
+		icon = "Flux.22",
 		onClick = bank,
 		color = if vaultReady then Palette.green else Palette.panelSoft,
 		textColor = if vaultReady then Palette.ink else Palette.muted,
@@ -14522,7 +14493,7 @@ local function MobileQuickActions(_param)
 			return 1 - math.clamp(value, 0, 1) * 0.06
 		end),
 	}), React.createElement(Icon, {
-		kind = "Forge",
+		kind = "Forge.26",
 		color = Palette.ink,
 		accent = Palette.ink,
 		size = 20,
@@ -14885,7 +14856,7 @@ local function OfflineRewardsOverlay(_param)
 			_condition_3 = 0
 		end
 		_attributes.text = `BANK VAULT  {compactNumber(_condition_3)}`
-		_attributes.icon = "Collect"
+		_attributes.icon = "Collect.3"
 		_attributes.onClick = function()
 			return finish(true)
 		end
@@ -14900,7 +14871,7 @@ local function OfflineRewardsOverlay(_param)
 	else
 		_result_1 = React.createElement(Button, {
 			text = "CONTINUE",
-			icon = "Collect",
+			icon = "Collect.4",
 			onClick = function()
 				return finish(false)
 			end,
@@ -14955,7 +14926,7 @@ local function OfflineRewardsOverlay(_param)
 		ZIndex = 464,
 	}, _exp_6, _exp_7, _exp_8, _exp_9, _exp_10, _exp_11, _result_1, React.createElement(Button, {
 		text = if canBankVault then "KEEP VAULT" else "CLOSE",
-		icon = "Close",
+		icon = "Close.16",
 		onClick = function()
 			return finish(false)
 		end,
@@ -15214,7 +15185,7 @@ local function PlayerRow(_param)
 			Message = React.createElement(ActionButton, {
 				order = 1,
 				text = "MESSAGE",
-				icon = "Chat",
+				icon = "Chat.7",
 				color = Palette.cyan,
 				disabled = blocked,
 				onClick = _param.onMessage,
@@ -15223,7 +15194,7 @@ local function PlayerRow(_param)
 			Trade = React.createElement(ActionButton, {
 				order = 2,
 				text = "TRADE",
-				icon = "Send",
+				icon = "Send.6",
 				color = Palette.mint,
 				onClick = _param.onTrade,
 				reducedMotion = reducedMotion,
@@ -15231,7 +15202,7 @@ local function PlayerRow(_param)
 			Visit = React.createElement(ActionButton, {
 				order = 3,
 				text = "VISIT",
-				icon = "Visit",
+				icon = "Visit.6",
 				color = Palette.violet,
 				onClick = _param.onVisit,
 				reducedMotion = reducedMotion,
@@ -15239,7 +15210,7 @@ local function PlayerRow(_param)
 			Crew = React.createElement(ActionButton, {
 				order = 4,
 				text = if _param.crewmate then "IN CREW" else "CREW",
-				icon = "Crew",
+				icon = "Crew.16",
 				color = Palette.green,
 				disabled = _param.crewmate or blocked,
 				onClick = _param.onCrew,
@@ -15249,7 +15220,7 @@ local function PlayerRow(_param)
 			Wave = React.createElement(ActionButton, {
 				order = 1,
 				text = "WAVE",
-				icon = "Wave",
+				icon = "Wave.16",
 				color = Palette.panelSoft,
 				textColor = Palette.cream,
 				outline = true,
@@ -15259,7 +15230,7 @@ local function PlayerRow(_param)
 			Friend = React.createElement(ActionButton, {
 				order = 2,
 				text = if friend then "UNFRIEND" else "ADD FRIEND",
-				icon = "Crew",
+				icon = "Crew.17",
 				color = Palette.panelSoft,
 				textColor = Palette.cream,
 				outline = true,
@@ -15269,7 +15240,7 @@ local function PlayerRow(_param)
 			Block = React.createElement(ActionButton, {
 				order = 3,
 				text = if blocked then "UNBLOCK" else "BLOCK",
-				icon = "Close",
+				icon = "Close.17",
 				color = Palette.panelSoft,
 				textColor = Palette.creamSoft,
 				outline = true,
@@ -15279,7 +15250,7 @@ local function PlayerRow(_param)
 			Report = React.createElement(ActionButton, {
 				order = 4,
 				text = if reported then "REPORTED" else "REPORT",
-				icon = "Admin",
+				icon = "Admin.2",
 				color = Palette.panelSoft,
 				textColor = Palette.coral,
 				outline = true,
@@ -15677,7 +15648,7 @@ local function ReportSheet(_param)
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement(Icon, {
-			kind = "Check",
+			kind = "Check.26",
 			color = Palette.cream,
 			accent = Palette.mint,
 			size = 56,
@@ -15706,7 +15677,7 @@ local function ReportSheet(_param)
 			ZIndex = 704,
 		}, React.createElement(Button, {
 			text = "DONE",
-			icon = "Check",
+			icon = "Check.27",
 			onClick = _param.onClose,
 			color = Palette.mint,
 			textColor = Palette.ink,
@@ -15793,7 +15764,7 @@ local function ReportSheet(_param)
 			ZIndex = 704,
 		}, React.createElement(Button, {
 			text = `Also block {target.DisplayName}: {if alsoBlock then "ON" else "OFF"}`,
-			icon = if alsoBlock then "Check" else "Lock",
+			icon = if alsoBlock then "Check.28" else "Lock.19",
 			size = UDim2.fromScale(1, 1),
 			color = if alsoBlock then darken(Palette.coral, 0.45) else Palette.panelSoft,
 			textColor = Palette.creamSoft, highlight = alsoBlock, reducedMotion = reducedMotion,
@@ -15839,7 +15810,7 @@ local function ReportSheet(_param)
 			BackgroundTransparency = 1,
 		}, React.createElement(Button, {
 			text = if phase == "sending" then "SENDING..." elseif reason == nil then "PICK A REASON" else "SEND REPORT",
-			icon = "Admin",
+			icon = "Admin.3",
 			onClick = send,
 			color = Palette.coral,
 			textColor = Palette.ink,
@@ -15981,7 +15952,7 @@ local function PlayerInventoryViewerModal(_param)
 		ZIndex = 804,
 	}, React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.18",
 		onClick = onClose,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
@@ -16520,7 +16491,7 @@ local function PlayerlistOverlay(_param)
 		Thickness = 1.25,
 		Transparency = 0.55,
 	}), React.createElement(Icon, {
-		kind = "Crew",
+		kind = "Crew.18",
 		color = Palette.cream,
 		accent = Palette.cyan,
 		size = 30,
@@ -16550,7 +16521,7 @@ local function PlayerlistOverlay(_param)
 		ZIndex = 614,
 	}, React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.19",
 		onClick = close,
 		color = Palette.panel,
 		textColor = Palette.cream,
@@ -16611,7 +16582,7 @@ local function PlayerlistOverlay(_param)
 		ZIndex = 614,
 	}, React.createElement(Button, {
 		text = if inviteBusy then "OPENING" else "INVITE",
-		icon = "Crew",
+		icon = "Crew.19",
 		onClick = invite,
 		color = Palette.mint,
 		textColor = Palette.ink,
@@ -16789,7 +16760,7 @@ local function StampedCheck(props)
 		BackgroundTransparency = 1,
 		ZIndex = 406,
 	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement(Icon, {
-		kind = "Check",
+		kind = "Check.29",
 		color = Palette.ink,
 		size = 20,
 		spin = false,
@@ -17884,7 +17855,7 @@ local function ReleaseNotesModal(_param)
 		ZIndex = 328,
 	}, React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.20",
 		onClick = closeOnce,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
@@ -17977,7 +17948,7 @@ local function ReleaseNotesModal(_param)
 		ZIndex = 327,
 	}, React.createElement(Button, {
 		text = "GOT IT",
-		icon = "Close",
+		icon = "Close.21",
 		onClick = closeOnce,
 		color = Palette.violet,
 		textColor = Palette.ink,
@@ -17987,7 +17958,7 @@ local function ReleaseNotesModal(_param)
 		zIndex = 327,
 	}), onOpenMail ~= nil and React.createElement(Button, {
 		text = "OPEN MAIL",
-		icon = "Mail",
+		icon = "Mail.6",
 		onClick = openMail,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
@@ -18005,7 +17976,7 @@ local function ReleaseNotesModal(_param)
 		ZIndex = 327,
 	}, onOpenMail ~= nil and React.createElement(Button, {
 		text = "OPEN MAIL",
-		icon = "Mail",
+		icon = "Mail.7",
 		onClick = openMail,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
@@ -18016,7 +17987,7 @@ local function ReleaseNotesModal(_param)
 		zIndex = 327,
 	}), React.createElement(Button, {
 		text = "GOT IT",
-		icon = "Close",
+		icon = "Close.22",
 		onClick = closeOnce,
 		color = Palette.violet,
 		textColor = Palette.ink,
@@ -18539,7 +18510,7 @@ local function pushLevelMoment(effect)
 		table.insert(parts, string.format("x%.2f surge", effect.SurgeMultiplier))
 	end
 	local title = if #opened > 0 then `{string.upper(table.concat(opened, " + "))} UNLOCKED` else "MILESTONE!"
-	require(script.Parent.JuiceFx).moment(title, if #parts > 0 then table.concat(parts, " · ") else nil, Palette.brass, "Forge")
+	require(script.Parent.JuiceFx).moment(title, if #parts > 0 then table.concat(parts, " · ") else nil, Palette.brass, "Forge.27")
 end
 
 local function LevelMomentHost(_param)
@@ -18861,7 +18832,7 @@ local function StarField(props)
 			end),
 			BackgroundTransparency = 1,
 			ZIndex = 141,
-		}, h(Icon, { kind = "Milestone", color = Palette.mango, accent = WHITE_HOT, size = 40, spin = false })))
+		}, h(Icon, { kind = "Milestone.6", color = Palette.mango, accent = WHITE_HOT, size = 40, spin = false })))
 	end
 	return h("frame", {
 		Name = "StarField",
@@ -18923,7 +18894,7 @@ local function SupplyCrates(props)
 				end,
 			},
 		}, h(Icon, {
-			kind = "Crate",
+			kind = "Crate.17",
 			color = Palette.mango,
 			accent = Palette.mint,
 			size = 64,
@@ -19080,7 +19051,7 @@ local function EventPanel(props)
 		BackgroundColor3 = darken(accent, 0.55),
 		BorderSizePixel = 0,
 		ZIndex = 561,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h(Icon, { kind = def and def.Icon or "Calendar", color = Palette.cream, accent = accent, size = 52 })), h("textlabel", {
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h(Icon, { kind = def and def.Icon or "Calendar.7", color = Palette.cream, accent = accent, size = 52 })), h("textlabel", {
 		Size = UDim2.new(1, -150, 0, 26),
 		Position = UDim2.fromOffset(82, 18),
 		BackgroundTransparency = 1,
@@ -19820,7 +19791,7 @@ local function CreditsOverlay(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
 		text = "CLOSE",
-		icon = "Close",
+		icon = "Close.23",
 		onClick = requestClose,
 		color = tone(MODEL.Accent, Palette.violet),
 		textColor = Palette.ink,
@@ -19935,7 +19906,7 @@ local function CreditsOverlay(_param)
 		zIndex = 322,
 	}), React.createElement(Button, {
 		text = "",
-		icon = "Close",
+		icon = "Close.24",
 		onClick = requestClose,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
@@ -20993,7 +20964,7 @@ local function playRevealCues(roll)
 	end
 	if plan.celebrate or plan.weight >= 0.75 then
 		Juice.flash(Palette.cream, if plan.celebrate then 0.55 else 0.3)
-		Juice.moment(`{string.upper(tostring(roll.Rarity or "RARE"))}!`, if special then "New to your collection." else nil, accent, "Crate")
+		Juice.moment(`{string.upper(tostring(roll.Rarity or "RARE"))}!`, if special then "New to your collection." else nil, accent, "Crate.18")
 	elseif special then
 		Juice.status("New to your collection", "special")
 	end
@@ -21723,7 +21694,7 @@ local function EmptyCrateReveal(_param)
 		zIndex = 412,
 	}), React.createElement(Button, {
 		text = "BACK TO INVENTORY",
-		icon = "Close",
+		icon = "Close.25",
 		onClick = onClose,
 		color = Palette.coral,
 		textColor = Palette.ink,

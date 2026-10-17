@@ -149,11 +149,9 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.FoundryAct] = { Cost = 0.45, Cooldown = 0.06 },
 		[Protocol.Actions.Ascend] = { Cost = 5, Cooldown = 5 },
 		[Protocol.Actions.UpgradeSigil] = { Cost = 1.5, Cooldown = 0.3 },
-		[Protocol.Actions.CaptureEcho] = { Cost = 2, Cooldown = 1.1 },
-		[Protocol.Actions.ClaimEcho] = { Cost = 1.5, Cooldown = 0.4 },
-		[Protocol.Actions.EquipEcho] = { Cost = 0.75, Cooldown = 0.18 },
-		[Protocol.Actions.UpgradeEcho] = { Cost = 1, Cooldown = 0.24 },
-		[Protocol.Actions.DismantleEcho] = { Cost = 1.5, Cooldown = 0.5 },
+		[Protocol.Actions.EchoAct] = { Cost = 0.8, Cooldown = 0.15 },
+		[Protocol.Actions.TradeChat] = { Cost = 0.8, Cooldown = 0.5 },
+		[Protocol.Actions.TradeRequest] = { Cost = 0.6, Cooldown = 0.3 },
 		[Protocol.Actions.ReportClientIntegrity] = { Cost = 0.25, Cooldown = 30 },
 		[Protocol.Actions.ReportPerformance] = { Cost = 0.1, Cooldown = 45 },
 		[Protocol.Actions.ClaimConvergenceReward] = { Cost = 1, Cooldown = 0.35 },
@@ -228,7 +226,6 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.DomainExpansion] = true,
 		[Protocol.Actions.UpgradeContinuum] = true,
 		[Protocol.Actions.Ascend] = true,
-		[Protocol.Actions.CaptureEcho] = true,
 		[Protocol.Actions.ClaimDaily] = true,
 		[Protocol.Actions.ClaimExpedition] = true,
 		[Protocol.Actions.CompleteTutorial] = true,
@@ -597,17 +594,40 @@ return function(loadService: (string) -> any)
 			then
 				return false, "invalid auto-forge payload"
 			end
-		elseif action == Protocol.Actions.ClaimEcho then
-			if not stringField(payload, "ChoiceId", 1, 56) then
-				return false, "invalid echo choice"
+		elseif action == Protocol.Actions.TradeChat then
+			if type(payload) ~= "table" then
+				return false, "invalid trade chat"
 			end
-		elseif action == Protocol.Actions.EquipEcho then
-			if not stringField(payload, "Uid", 1, 48) or not numberField(payload, "Slot", 1, 3, true) then
-				return false, "invalid echo slot"
+			if payload.Text ~= nil and (type(payload.Text) ~= "string" or #payload.Text > 200) then
+				return false, "invalid trade message"
 			end
-		elseif action == Protocol.Actions.UpgradeEcho or action == Protocol.Actions.DismantleEcho then
-			if not stringField(payload, "Uid", 1, 48) then
-				return false, "invalid echo payload"
+			if payload.Phrase ~= nil and not numberField(payload, "Phrase", 1, 16, true) then
+				return false, "invalid trade phrase"
+			end
+		elseif action == Protocol.Actions.TradeRequest then
+			if type(payload) ~= "table" or type(payload.Request) ~= "table" then
+				return false, "invalid trade request"
+			end
+			local ids = payload.Request.ItemIds
+			if ids ~= nil and (type(ids) ~= "table" or #ids > 16) then
+				return false, "invalid requested relics"
+			end
+		elseif action == Protocol.Actions.EchoAct then
+			local op = type(payload) == "table" and payload.Op or nil
+			local ops = { Strike = true, Reroll = true, Keep = true, Slot = true, Tune = true, Fuse = true, Lock = true, Dismantle = true }
+			if type(op) ~= "string" or not ops[op] then
+				return false, "invalid echo action"
+			end
+			for _, field in { "Uid", "A", "B" } do
+				local value = payload[field]
+				if value ~= nil and (type(value) ~= "string" or #value > 16) then
+					return false, "invalid echo"
+				end
+			end
+			for _, field in { "Choice", "Slot", "Times" } do
+				if payload[field] ~= nil and not numberField(payload, field, 0, 10, true) then
+					return false, "invalid echo number"
+				end
 			end
 		elseif
 			action == Protocol.Actions.BuyMachine

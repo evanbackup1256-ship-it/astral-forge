@@ -533,7 +533,7 @@ local function SettingsView(_param)
 		ref = settingsClaimHostRef,
 	}, React.createElement(Button, {
 		text = "REPLAY TOUR",
-		icon = "Guide",
+		icon = "Guide.1",
 		onClick = function()
 			dispatch("ReplayTutorial")
 		end,
@@ -544,7 +544,7 @@ local function SettingsView(_param)
 		reducedMotion = softMotion,
 	}), React.createElement(Button, {
 		text = "PATCH NOTES",
-		icon = "Gift",
+		icon = "Gift.14",
 		onClick = function()
 			dispatch("OpenRelease")
 		end,
@@ -564,8 +564,8 @@ local function SettingsView(_param)
 		reducedMotion = softMotion,
 	}), React.createElement(Browse.ChipRow, {
 		options = {
-			{ id = "sections", label = "By section", icon = "Settings" },
-			{ id = "changed", label = "Changed from default", icon = "Refresh" },
+			{ id = "sections", label = "By section", icon = "Settings.2" },
+			{ id = "changed", label = "Changed from default", icon = "Refresh.4" },
 		},
 		value = if changedOnly then "changed" else "sections",
 		counts = { changed = #changedEntries },
@@ -642,7 +642,7 @@ local function SettingsView(_param)
 		sizeConstraint = UDim2.new(1, -110, 0, 16),
 	}), (not searching or showChanged) and React.createElement(Button, {
 		text = if showChanged then "RESET ALL" else "RESET",
-		icon = "Refresh",
+		icon = "Refresh.5",
 		onClick = if showChanged then function()
 			local values = {}
 			for _, entry in changedEntries do
@@ -709,7 +709,7 @@ local function SettingsView(_param)
 	if not listing and (hiddenAdvanced > 0 or advancedOpen[activeSection]) then
 		add("advanced", React.createElement(Button, {
 			text = if advancedOpen[activeSection] then "HIDE ADVANCED" else `SHOW {hiddenAdvanced} ADVANCED`,
-			icon = if advancedOpen[activeSection] then "Hide" else "Chevron",
+			icon = if advancedOpen[activeSection] then "Hide.1" else "Chevron.3",
 			onClick = function()
 				local nextOpen = table.clone(advancedOpen)
 				nextOpen[activeSection] = not advancedOpen[activeSection]
@@ -726,7 +726,7 @@ local function SettingsView(_param)
 	if not listing and activeSection == "mobile" and mobileHudAvailable then
 		add("hud", React.createElement(Button, {
 			text = "MOVE PHONE BUTTONS",
-			icon = "Settings",
+			icon = "Settings.3",
 			onClick = function()
 				setMobileEdit(true)
 			end,
@@ -1094,7 +1094,7 @@ local CommandTitleCard = React.memo(function(props)
 		ClipsDescendants = true,
 	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement(Text, _attributes), if props.unlocked and not props.equipped then React.createElement(Button, {
 		text = "WEAR TITLE",
-		icon = "Loadout",
+		icon = "Loadout.5",
 		onClick = equip,
 		color = Palette.cyan,
 		textColor = Palette.ink,
@@ -1507,7 +1507,7 @@ local function CommandViewReady(_param)
 			ref = if nextClaim ~= nil then claimHostRef else nil,
 		}, React.createElement(Button, {
 			text = if nextClaim ~= nil then `Claim level {nextClaim}` else "Rank gifts complete",
-			icon = "Gift",
+			icon = "Gift.15",
 			onClick = function()
 				if nextClaim ~= nil then
 					dispatch("ClaimCommanderReward", {
@@ -2044,7 +2044,7 @@ local function CommandViewReady(_param)
 			ref = if expeditionReady then claimHostRef else nil,
 		}, React.createElement(Button, {
 			text = claimLabel,
-			icon = "Gift",
+			icon = "Gift.16",
 			onClick = function()
 				return dispatch("ClaimExpedition")
 			end,
@@ -2065,7 +2065,7 @@ local function CommandViewReady(_param)
 		}), #expeditionList == 0 and React.createElement(Browse.NoResults, {
 			browse = expeditionBrowse,
 			noun = "adventures",
-			icon = "World",
+			icon = "World.7",
 			accent = Palette.cyan,
 			reducedMotion = softMotion,
 			layoutOrder = nextOrder(),
@@ -2703,7 +2703,7 @@ local function PlayerRow(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement(Icon, {
-		kind = "Crew",
+		kind = "Crew.10",
 		color = if selected then Palette.mint else Palette.muted,
 		accent = Palette.mint,
 		size = 18,
@@ -3358,7 +3358,7 @@ local function AdminViewReady(_param)
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = "PREVIEW",
-		icon = "Search",
+		icon = "Search.8",
 		onClick = preview,
 		color = Palette.panelSoft,
 		textColor = Palette.text,
@@ -3375,7 +3375,7 @@ local function AdminViewReady(_param)
 		BorderSizePixel = 0,
 	}, React.createElement(Button, {
 		text = runLabel,
-		icon = "Lock",
+		icon = "Lock.16",
 		onClick = execute,
 		color = runColor,
 		textColor = Palette.ink,
@@ -3492,7 +3492,7 @@ local function AdminView(_param)
 	local admin = _param.state.Admin
 	if not (admin and admin.Access == true) then
 		return React.createElement(EmptyState, {
-			icon = "Lock",
+			icon = "Lock.17",
 			title = "Owner tools locked",
 			body = "Only the game owner can open this page.",
 			accent = Palette.coral,
@@ -3521,49 +3521,49 @@ local BOARDS = { {
 	label = "Lifetime Flux",
 	short = "FLUX",
 	description = "All the flux you have ever made.",
-	icon = "Flux",
+	icon = "Flux.16",
 	accent = Palette.cyan,
 }, {
 	id = "Rebirths",
 	label = "Most Rebirths",
 	short = "REBIRTHS",
 	description = "Pilots who have restarted the forge the most.",
-	icon = "Rebirth",
+	icon = "Rebirth.6",
 	accent = Palette.violet,
 }, {
 	id = "PlayTime",
 	label = "Time Played",
 	short = "PLAYTIME",
 	description = "Total time spent playing.",
-	icon = "Command",
+	icon = "Command.4",
 	accent = Palette.mint,
 }, {
 	id = "Dust",
 	label = "Most Stardust",
 	short = "DUST",
 	description = "Current stardust reserves held by each pilot.",
-	icon = "Dust",
+	icon = "Dust.10",
 	accent = Palette.mango,
 }, {
 	id = "Cores",
 	label = "Most Cores",
 	short = "CORES",
 	description = "Current astral cores ready for permanent upgrades.",
-	icon = "Core",
+	icon = "Core.7",
 	accent = Palette.violet,
 }, {
 	id = "Domain",
 	label = "Domain Rank",
 	short = "DOMAIN",
 	description = "The deepest realities established through mega rebirths.",
-	icon = "Domain",
+	icon = "Domain.4",
 	accent = Palette.pink,
 }, {
 	id = "Worlds",
 	label = "Farthest World",
 	short = "WORLDS",
 	description = "The farthest forge worlds unlocked.",
-	icon = "World",
+	icon = "World.8",
 	accent = Palette.green,
 	group = "Progression",
 }, {
@@ -3571,7 +3571,7 @@ local BOARDS = { {
 	label = "Crates Opened",
 	short = "CRATES",
 	description = "Every sealed crate cracked open, any tier, any skin.",
-	icon = "Crate",
+	icon = "Crate.12",
 	accent = Palette.mango,
 	group = "Collection",
 }, {
@@ -3579,7 +3579,7 @@ local BOARDS = { {
 	label = "Items Found",
 	short = "FINDS",
 	description = "Relics, tools and oddities pulled into the vault.",
-	icon = "Artifact",
+	icon = "Artifact.7",
 	accent = Palette.cyan,
 	group = "Collection",
 }, {
@@ -3587,7 +3587,7 @@ local BOARDS = { {
 	label = "Ore Mined",
 	short = "ORE",
 	description = "Raw ore hauled out of the deep veins.",
-	icon = "Forge",
+	icon = "Forge.21",
 	accent = Palette.mango,
 	group = "Activity",
 }, {
@@ -3595,7 +3595,7 @@ local BOARDS = { {
 	label = "Wardens Felled",
 	short = "WARDENS",
 	description = "Vault wardens brought down in combat.",
-	icon = "Milestone",
+	icon = "Milestone.4",
 	accent = Palette.pink,
 	group = "Activity",
 }, {
@@ -3603,7 +3603,7 @@ local BOARDS = { {
 	label = "Orders Filled",
 	short = "ORDERS",
 	description = "Contracts and work orders delivered on time.",
-	icon = "Mission",
+	icon = "Mission.7",
 	accent = Palette.mint,
 	group = "Activity",
 }, {
@@ -3611,7 +3611,7 @@ local BOARDS = { {
 	label = "Ore Cuts",
 	short = "CUTS",
 	description = "Completed ore cuts. Includes progress earned before the workshop redesign.",
-	icon = "Dust",
+	icon = "Dust.11",
 	accent = Palette.violet,
 	group = "Activity",
 }, {
@@ -3619,7 +3619,7 @@ local BOARDS = { {
 	label = "Commissions Finished",
 	short = "COMMISSIONS",
 	description = "Daily forge commissions finished. Previous puzzle completions remain counted.",
-	icon = "Forge",
+	icon = "Forge.22",
 	accent = Palette.cyan,
 	group = "Activity",
 } }

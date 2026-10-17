@@ -35,7 +35,7 @@ local RebirthGate = __load("RebirthGate")
 local ContinuumDomainMath = __load("ContinuumDomainMath")
 local ForgePathClaim = __load("ForgePathClaim")
 local EconomyEnvelopeMath = __load("EconomyEnvelopeMath")
-local ForgeEchoMath = require(script.Parent:WaitForChild("ForgeEchoMath"))
+local EchoMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("EchoMath"))
 local AnomalyOpsMath = __load("AnomalyOpsMath")
 local OreMath = require(script.Parent:WaitForChild("OreMath"))
 
@@ -140,11 +140,7 @@ type ProfileLike = {
 	OwnedPasses: { [string]: boolean }?,
 	GuildBonuses: { Production: number, Capacity: number, Offline: number, Automation: number, Tap: number }?,
 	SocialBoost: { FriendCount: number, FriendBonus: number, Premium: boolean, PremiumBonus: number, Multiplier: number }?,
-	ForgeEchoes: {
-		Captures: number,
-		Inventory: { [string]: { TraitId: string, Level: number, Strength: number } },
-		Equipped: { [string]: string },
-	}?,
+	ForgeEchoes: any?,
 	ForgePath: {
 		ClaimedSteps: { [string]: boolean },
 		XP: number,
@@ -403,14 +399,9 @@ function Economy.OreEffect(profile: ProfileLike, effectKind: string): number
 	return OreMath.Effect((profile :: any).OreUpgrades, effectKind, GameConfig.Ore)
 end
 
+-- what the echo chord (and the journal) adds to one kind of bonus
 function Economy.EchoEffect(profile: ProfileLike, effectKind: string): number
-	return ForgeEchoMath.EquippedEffect(
-		profile.ForgeEchoes,
-		effectKind,
-		GameConfig.ForgeEchoes.Traits,
-		GameConfig.ForgeEchoes.MaxLevel,
-		GameConfig.ForgeEchoes.HarmonyBonus
-	)
+	return EchoMath.total(profile.ForgeEchoes, effectKind)
 end
 
 function Economy.ContinuumCosts(rank: number): (Persist, Persist)

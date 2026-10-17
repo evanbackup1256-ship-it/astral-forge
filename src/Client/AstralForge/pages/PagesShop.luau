@@ -338,7 +338,7 @@ local function OfferTile(_param)
 		BorderSizePixel = 0,
 	}, React.createElement(Button, {
 		text = cta,
-		icon = if disabled then "Lock" else "Shop",
+		icon = if disabled then "Lock.6" else "Shop.4",
 		onClick = onClick,
 		color = if disabled then Palette.panelSoft else accent,
 		textColor = if disabled then Palette.creamSoft else Palette.ink,
@@ -1007,7 +1007,7 @@ local function ShopView(_param)
 		ref = if tab == "Codes" then shopHostRef else nil,
 	}, React.createElement(Button, {
 		text = if busy then "CHECKING…" else "CLAIM CODE",
-		icon = "Code",
+		icon = "Code.1",
 		onClick = redeem,
 		color = Palette.cyan,
 		textColor = Palette.ink,
@@ -1033,7 +1033,7 @@ local function ShopView(_param)
 		padding = 16,
 		reducedMotion = softMotion,
 	}, React.createElement(Icon, {
-		kind = "Pilot",
+		kind = "Pilot.1",
 		color = Palette.cream,
 		accent = Palette.mint,
 		size = if stack then 38 else 42,
@@ -1056,7 +1056,7 @@ local function ShopView(_param)
 		sizeConstraint = UDim2.new(1, if stack then -52 else -230, 0, if stack then 42 else 36),
 	}), React.createElement(Button, {
 		text = if followClaimed then "CLAIMED" elseif followBusy then "CHECKING…" else "CHECK FOLLOW",
-		icon = if followClaimed then "Check" else "Search",
+		icon = if followClaimed then "Check.10" else "Search.5",
 		onClick = verifyFollow,
 		color = if followClaimed then Palette.panelSoft else Palette.mint,
 		textColor = if followClaimed then Palette.muted else Palette.ink,
@@ -1141,7 +1141,7 @@ local function ShopView(_param)
 		end,
 		ListEmptyComponent = React.createElement(EmptyState, {
 			key = "shop-empty",
-			icon = "Shop",
+			icon = "Shop.5",
 			title = "Nothing listed",
 			body = "Nothing listed in this tab right now.",
 			accent = Palette.mango,
@@ -1511,7 +1511,7 @@ local function OfferCard(props)
 		spin = true,
 		zoom = 0.95,
 	}) else h(Icon, {
-		kind = KIND_ICON[offer.Kind] or "Shop",
+		kind = KIND_ICON[offer.Kind] or "Shop.6",
 		color = Palette.cream,
 		accent = accent,
 		size = 38,
@@ -1548,7 +1548,7 @@ local function OfferCard(props)
 		position = UDim2.fromOffset(0, 74),
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), h(Icon, {
-		kind = CURRENCY_ICON[offer.Currency] or "Dust",
+		kind = CURRENCY_ICON[offer.Currency] or "Dust.3",
 		color = Palette.cream,
 		accent = currencyColor(offer.Currency),
 		size = 22,
@@ -1575,7 +1575,7 @@ local function OfferCard(props)
 		BorderSizePixel = 0,
 	}, h(Button, {
 		text = cta,
-		icon = if soldOut then "Check" elseif short > 0 then "Lock" else "Shop",
+		icon = if soldOut then "Check.11" elseif short > 0 then "Lock.7" else "Shop.7",
 		onClick = props.onBuy,
 		color = if canBuy then accent else Palette.panelSoft,
 		textColor = if canBuy then Palette.ink else Palette.creamSoft,
@@ -1680,7 +1680,7 @@ local function DailySection(props)
 					title = "Daily Shop",
 					body = "Six offers picked for you each day. The first is the Deal of the Day.",
 					accent = Palette.mango,
-					icon = "Calendar",
+					icon = "Calendar.3",
 					state = state,
 					stack = stack,
 					reveal = props.reveal,
@@ -1714,7 +1714,7 @@ local function DailySection(props)
 					reducedMotion = props.reducedMotion,
 					clips = false,
 				}, h(Icon, {
-					kind = "Jackpot",
+					kind = "Jackpot.3",
 					color = Palette.cream,
 					accent = Palette.coral,
 					size = 38,
@@ -1736,7 +1736,7 @@ local function DailySection(props)
 					sizeConstraint = UDim2.new(1, if stack then -50 else -220, 0, 36),
 				}), h(Button, {
 					text = "VISIT MARKET",
-					icon = "Visit",
+					icon = "Visit.1",
 					onClick = function()
 						if props.navigate then
 							props.navigate("Bazaar")
@@ -1822,7 +1822,7 @@ local function CrateStage(props)
 		local can = keys >= count and not props.busy
 		return h(Button, {
 			text = if keys >= count then `OPEN {count}` else `NEED {count - keys} KEY{if count - keys == 1 then "" else "S"}`,
-			icon = if keys >= count then "Crate" else "Lock",
+			icon = if keys >= count then "Crate.2" else "Lock.8",
 			onClick = function()
 				props.onOpen(count)
 			end,
@@ -1933,7 +1933,7 @@ local function CrateChip(props)
 		Thickness = if props.selected then 2 else 1,
 		Transparency = if props.selected then 0 else 0.6,
 	}), h(Icon, {
-		kind = "Crate",
+		kind = "Crate.3",
 		color = Palette.cream,
 		accent = accent,
 		size = 30,
@@ -2035,7 +2035,7 @@ local function CratesSection(props)
 					title = "Crates",
 					body = "Every crate's odds, all the way up to Celestial and Astral. Your crate skin opens every one.",
 					accent = Palette.violet,
-					icon = "Crate",
+					icon = "Crate.4",
 					state = state,
 					stack = stack,
 					reveal = props.reveal,
@@ -2175,7 +2175,7 @@ local function SkinPreview(props)
 		BorderSizePixel = 0,
 	}, h(Button, {
 		text = label,
-		icon = if equipped then "Check" elseif enabled then "Shop" else "Lock",
+		icon = if equipped then "Check.12" elseif enabled then "Shop.8" else "Lock.9",
 		onClick = function()
 			if action ~= nil then
 				props.onAction(action, skin.Id)
@@ -2316,7 +2316,7 @@ local function SkinsSection(props)
 					title = "Crate Skins",
 					body = "Dress the crate you open. The Celestial Ark only ever turns up in the Daily Shop.",
 					accent = Palette.cyan,
-					icon = "Crate",
+					icon = "Crate.5",
 					state = state,
 					stack = stack,
 					reveal = props.reveal,
@@ -2477,7 +2477,7 @@ local function RelicCell(props)
 		sizeConstraint = UDim2.new(1, -20, 0, 16),
 	}), props.canFuse and h(Button, {
 		text = "FUSE",
-		icon = "Forge",
+		icon = "Forge.14",
 		onClick = props.onFuse,
 		color = color,
 		textColor = Palette.ink,
@@ -2573,7 +2573,7 @@ local function CodexSection(props)
 				title = "Relic Codex",
 				body = `Every relic in the forge. Fuse a spare copy into a relic for a star: +{math.floor(((config.Items and config.Items.StarBonus) or 0.25) * 100)}% effect each, up to {maxStars}.`,
 				accent = Palette.mint,
-				icon = "Artifact",
+				icon = "Artifact.2",
 				state = state,
 				stack = stack,
 				reveal = props.reveal,
@@ -2616,7 +2616,7 @@ local function CodexSection(props)
 			element = h(Browse.NoResults, {
 				browse = codexBrowse,
 				noun = "relics",
-				icon = "Artifact",
+				icon = "Artifact.3",
 				accent = Palette.mint,
 				reducedMotion = props.reducedMotion,
 				size = UDim2.fromScale(1, 1),
@@ -2807,7 +2807,7 @@ local function ArtifactCard(props)
 		BorderSizePixel = 0,
 	}, h(Button, {
 		text = label,
-		icon = if enabled then "Shop" else "Lock",
+		icon = if enabled then "Shop.9" else "Lock.10",
 		onClick = function()
 			if enabled then
 				props.onBuy(artifact)
@@ -2917,7 +2917,7 @@ local function ArtifactsSection(props)
 				title = "Artifact Vault",
 				body = `Buy rare artifacts outright for stardust. Ones you hold restock as upgrade fragments. {ownedCount}/{#artifacts} held.`,
 				accent = Palette.violet,
-				icon = "Artifact",
+				icon = "Artifact.4",
 				state = state,
 				stack = stack,
 				reveal = props.reveal,
@@ -2944,7 +2944,7 @@ local function ArtifactsSection(props)
 			element = h(Browse.NoResults, {
 				browse = browse,
 				noun = "artifacts",
-				icon = "Artifact",
+				icon = "Artifact.5",
 				accent = Palette.violet,
 				reducedMotion = props.reducedMotion,
 				size = UDim2.fromScale(1, 1),
@@ -3384,7 +3384,7 @@ local function useWheelController(_param)
 		InteractionFeedback.tap()
 		-- the spin is pinned to the island until it lands (or 14 s at most)
 		pcall(function()
-			require(script.Parent.Parent.JuiceFx).live("wheel", { title = "WHEEL SPINNING", value = "…", icon = "Wheel", color = Palette.mango, ttl = 14, priority = 2 })
+			require(script.Parent.Parent.JuiceFx).live("wheel", { title = "WHEEL SPINNING", value = "…", icon = "Wheel.6", color = Palette.mango, ttl = 14, priority = 2 })
 		end)
 		if reducedMotion then
 			launchFinished.current = true
@@ -3631,7 +3631,7 @@ local function WheelConsole(_param)
 		reducedMotion = true,
 		clipSafe = true,
 	})) else React.createElement(Icon, {
-		kind = "Wheel",
+		kind = "Wheel.7",
 		color = Palette.cream,
 		accent = Palette.mango,
 		size = if compact then 40 else 48,
@@ -3769,7 +3769,7 @@ local function WheelConsole(_param)
 	}, React.createElement(Button, {
 		text = if controller.spinning then "Spinning..." elseif controller.retry then "Confirm previous spin"
 			elseif canSpin then (if pityArmed then "Spin · guaranteed rarity" else "Spin prize wheel") else "Next spin not ready",
-		icon = "Wheel",
+		icon = "Wheel.8",
 		onClick = onSpin,
 		color = if canSpin and not controller.spinning then Palette.mango else Palette.panelSoft,
 		textColor = if canSpin and not controller.spinning then Palette.ink else Palette.muted,

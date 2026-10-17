@@ -201,7 +201,7 @@ local function offerLines(offer, config, inventory)
 			label = `{compactNumber(offer.Cash)} Flux`,
 			detail = "Currency",
 			accent = Palette.cyan,
-			icon = "Flux",
+			icon = "Flux.15",
 		}
 		table.insert(lines, _arg0)
 	end
@@ -211,7 +211,7 @@ local function offerLines(offer, config, inventory)
 			label = `{compactNumber(offer.Stardust)} Stardust`,
 			detail = "Dust",
 			accent = Palette.mango,
-			icon = "Dust",
+			icon = "Dust.4",
 		}
 		table.insert(lines, _arg0)
 	end
@@ -221,7 +221,7 @@ local function offerLines(offer, config, inventory)
 			label = `{offer.Cores} Cores`,
 			detail = "Prestige",
 			accent = Palette.violet,
-			icon = "Core",
+			icon = "Core.6",
 		}
 		table.insert(lines, _arg0)
 	end
@@ -231,7 +231,7 @@ local function offerLines(offer, config, inventory)
 			label = `{offer.Signals} Signals`,
 			detail = "Command",
 			accent = Palette.cyan,
-			icon = "Command",
+			icon = "Command.3",
 		}
 		table.insert(lines, _arg0)
 	end
@@ -241,7 +241,7 @@ local function offerLines(offer, config, inventory)
 			label = `{offer.Essence} Essence`,
 			detail = "Relic craft",
 			accent = Palette.pink,
-			icon = "Artifact",
+			icon = "Artifact.6",
 		}
 		table.insert(lines, _arg0)
 	end
@@ -263,7 +263,7 @@ local function offerLines(offer, config, inventory)
 			_object[_left] = `{count}× {_condition_1}`
 			_object.detail = "Boost"
 			_object.accent = Palette.coral
-			_object.icon = "Boost"
+			_object.icon = "Boost.17"
 			table.insert(lines, _object)
 		end
 	end
@@ -285,7 +285,7 @@ local function offerLines(offer, config, inventory)
 			_object[_left] = `{count}× {_condition_1}`
 			_object.detail = "Crate key"
 			_object.accent = Palette.mango
-			_object.icon = "Crate"
+			_object.icon = "Crate.6"
 			table.insert(lines, _object)
 		end
 	end
@@ -297,7 +297,7 @@ local function offerLines(offer, config, inventory)
 				label = preview.Name,
 				detail = "Relic",
 				accent = Palette.mint,
-				icon = "Inventory",
+				icon = "Inventory.2",
 			}
 			table.insert(lines, _arg0)
 		end
@@ -309,7 +309,7 @@ local function offerLines(offer, config, inventory)
 				label = if instance ~= nil then itemName(config, instance.DefinitionId) else "Relic",
 				detail = "Relic",
 				accent = Palette.mint,
-				icon = "Inventory",
+				icon = "Inventory.3",
 			}
 			table.insert(lines, _arg0)
 		end
@@ -421,7 +421,7 @@ local function RelicPick(_param)
 	end
 	return React.createElement(Button, {
 		text = `{if picked then "IN OFFER  ·  " else ""}{name}`,
-		icon = "Inventory",
+		icon = "Inventory.4",
 		onClick = onToggle,
 		color = if picked then Palette.mint else Palette.panelSoft,
 		textColor = if picked then Palette.ink else Palette.cream,
@@ -431,14 +431,6 @@ local function RelicPick(_param)
 	})
 end
 
-local TRADE_QUICK_PRESETS = {
-	"Fair deal! 👍",
-	"Add more stardust?",
-	"Ready when you are! ⚡",
-	"Looking for Relics 💎",
-	"Need boost charges!",
-	"Thanks for trading! ✨",
-}
 
 local function calcOfferValue(offer)
 	if type(offer) ~= "table" then return 0 end
@@ -522,122 +514,368 @@ local function TradeFairnessMeter(props)
 	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))))
 end
 
+-- quick phrases: the same list as the server's (TradeDesk.PHRASES), sent by index so they never need filtering
+local TRADE_PHRASES = {
+	"Deal?", "Can you add a little more?", "That's fair.", "Not for that.",
+	"Let me look.", "Ready when you are.", "Thanks for the trade.", "One sec.",
+}
+
+-- table talk: the real conversation from the server, quick phrases, and a filtered line of your own
 local function TradeChatStream(props)
-	local messages, setMessages = React.useState({
-		{ sender = "Dock", text = "Secure trade frequency active. Keep deals fair.", isSystem = true },
-	})
+	local session = props.session
+	local dispatch = props.dispatch
 	local inputVal, setInputVal = React.useState("")
-	local onSend = function(text)
-		local clean = string.gsub(text or "", "^%s*(.-)%s*$", "%1")
-		if clean == "" then return end
+	local scrollRef = React.useRef(nil)
+	local lines = session.Chat or {}
+	local myId = Players.LocalPlayer.UserId
+	local seen = React.useRef(#lines)
+	React.useEffect(function()
+		-- a new line from them gets a sound; the list stays pinned to the newest line
+		if #lines > seen.current and lines[#lines] and lines[#lines].From ~= myId then
+			Audio:play("chatReceive")
+		end
+		seen.current = #lines
+		local list = scrollRef.current
+		if list then
+			task.defer(function()
+				list.CanvasPosition = Vector2.new(0, math.max(0, list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y))
+			end)
+		end
+	end, { #lines })
+	local function send(text, phrase)
+		local clean = if text then string.gsub(text, "^%s*(.-)%s*$", "%1") else nil
+		if phrase == nil and (clean == nil or clean == "") then
+			return
+		end
 		Audio:play("chatSend")
-		local updated = table.clone(messages)
-		table.insert(updated, { sender = "You", text = clean, isYou = true })
-		if #updated > 6 then table.remove(updated, 1) end
-		setMessages(updated)
+		dispatch("TradeChat", if phrase then { Phrase = phrase } else { Text = string.sub(clean, 1, 140) })
 		setInputVal("")
 	end
-	local pills = {}
-	for idx, preset in TRADE_QUICK_PRESETS do
-		table.insert(pills, React.createElement("textbutton", {
-			key = idx,
-			Text = preset,
-			Size = UDim2.new(0, #preset * 7 + 16, 0, 24),
+	local pills = {
+		layout = React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index, phrase in TRADE_PHRASES do
+		pills["p" .. index] = React.createElement("textbutton", {
+			LayoutOrder = index,
+			Text = phrase,
+			Size = UDim2.fromOffset(0, 26),
+			AutomaticSize = Enum.AutomaticSize.X,
 			BackgroundColor3 = Palette.panelSoft,
 			TextColor3 = Palette.cream,
-			TextSize = 11,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-			BorderSizePixel = 0,
+			TextSize = 12,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 			AutoButtonColor = false,
 			Event = {
 				Activated = function()
-					onSend(preset)
+					send(nil, index)
 				end,
 			},
-		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
-		React.createElement(Stroke, { color = Palette.line, thickness = 1, transparency = 0.5 })))
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), React.createElement("uipadding", {
+			PaddingLeft = UDim.new(0, 10),
+			PaddingRight = UDim.new(0, 10),
+		}))
 	end
-	local msgElements = {}
-	for idx, msg in messages do
-		table.insert(msgElements, React.createElement("frame", {
-			key = idx,
-			Size = UDim2.new(1, 0, 0, 18),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(Text, {
-			value = `[{msg.sender}] {msg.text}`,
-			size = 11,
-			color = if msg.isSystem then Palette.cyan elseif msg.isYou then Palette.mint else Palette.creamSoft,
-			weight = if msg.isYou then Enum.FontWeight.Bold else Enum.FontWeight.Regular,
-			wrap = true,
+	local rows = {
+		layout = React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			Padding = UDim.new(0, 4),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	if #lines == 0 then
+		rows.empty = React.createElement(Text, {
+			value = `Nothing said yet. Talk it through with {session.PartnerName}.`,
+			size = 12,
+			color = Palette.muted,
 			sizeConstraint = UDim2.new(1, 0, 0, 18),
+		})
+	end
+	for index, line in lines do
+		local mine = line.From == myId
+		rows["l" .. index] = React.createElement("frame", {
+			LayoutOrder = index,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+		}, React.createElement("textlabel", {
+			Size = UDim2.new(0.82, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Position = UDim2.fromScale(if mine then 1 else 0, 0),
+			AnchorPoint = Vector2.new(if mine then 1 else 0, 0),
+			BackgroundColor3 = if mine then darken(Palette.mint, 0.6) else Palette.panelSoft,
+			Text = (if mine then "" else `<b>{line.Name}</b>  `) .. line.Text,
+			RichText = true,
+			TextWrapped = true,
+			TextSize = 13,
+			FontFace = Font.fromEnum(if line.Phrase then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium),
+			TextColor3 = Palette.cream,
+			TextXAlignment = if mine then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", {
+			PaddingTop = UDim.new(0, 6),
+			PaddingBottom = UDim.new(0, 6),
+			PaddingLeft = UDim.new(0, 10),
+			PaddingRight = UDim.new(0, 10),
 		})))
 	end
 	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 108),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
-		ZIndex = 4,
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
-	React.createElement(Stroke, { color = Palette.cyan, thickness = 1, transparency = 0.5 }),
-	React.createElement("uipadding", {
-		PaddingTop = UDim.new(0, 6),
-		PaddingBottom = UDim.new(0, 6),
-		PaddingLeft = UDim.new(0, 10),
-		PaddingRight = UDim.new(0, 10),
-	}),
-	React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 24),
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }), React.createElement(Stroke, {
+		color = Palette.line,
+		thickness = 1,
+		transparency = 0.4,
+	}), React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 10),
+		PaddingBottom = UDim.new(0, 10),
+		PaddingLeft = UDim.new(0, 12),
+		PaddingRight = UDim.new(0, 12),
+	}), React.createElement(Text, {
+		value = if session.PartnerAway then `TABLE TALK  ·  {string.upper(session.PartnerName)} STEPPED AWAY` else "TABLE TALK",
+		size = 11,
+		color = if session.PartnerAway then Palette.coral else Palette.mint,
+		weight = Enum.FontWeight.Heavy,
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
+	}), React.createElement("scrollingframe", {
+		ref = scrollRef,
+		Size = UDim2.new(1, 0, 1, -(18 + 32 + 38)),
+		Position = UDim2.fromOffset(0, 18),
 		BackgroundTransparency = 1,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 6),
-	}), table.unpack(pills)),
-	React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 40),
-		Position = UDim2.fromOffset(0, 30),
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Palette.muted,
+	}, rows), React.createElement("scrollingframe", {
+		Size = UDim2.new(1, 0, 0, 30),
+		Position = UDim2.new(0, 0, 1, -(32 + 36)),
 		BackgroundTransparency = 1,
-		ClipsDescendants = true,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 1),
-	}), table.unpack(msgElements)),
-	React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 24),
-		Position = UDim2.fromOffset(0, 74),
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		ScrollBarThickness = 0,
+	}, pills), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 32),
+		Position = UDim2.new(0, 0, 1, -32),
 		BackgroundTransparency = 1,
 	}, React.createElement("textbox", {
-		Size = UDim2.new(1, -64, 1, 0),
+		Size = UDim2.new(1, -78, 1, 0),
 		BackgroundColor3 = Palette.graphite,
 		TextColor3 = Palette.cream,
-		PlaceholderText = `Message {props.partnerName or "partner"}...`,
+		PlaceholderText = `Say something to {session.PartnerName}`,
 		PlaceholderColor3 = Palette.muted,
 		Text = inputVal,
-		TextSize = 12,
+		TextSize = 13,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ClearTextOnFocus = false,
 		BorderSizePixel = 0,
 		Change = {
 			Text = function(rbx)
+				if #rbx.Text > 140 then
+					rbx.Text = string.sub(rbx.Text, 1, 140)
+				end
 				setInputVal(rbx.Text)
 			end,
 		},
 		Event = {
 			FocusLost = function(_, enterPressed)
-				if enterPressed then onSend(inputVal) end
+				if enterPressed then
+					send(inputVal)
+				end
 			end,
 		},
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 6) }),
-	React.createElement("uipadding", { PaddingLeft = UDim.new(0, 8) })),
-	React.createElement(Button, {
-		text = "SEND",
-		onClick = function() onSend(inputVal) end,
-		color = Palette.cyan,
-		textColor = Palette.void,
-		size = UDim2.new(0, 58, 1, 0),
-		position = UDim2.new(1, -58, 0, 0),
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 8) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 10) })), React.createElement(Button, {
+		text = "Send",
+		onClick = function()
+			send(inputVal)
+		end,
+		color = Palette.mint,
+		textColor = Palette.ink,
+		size = UDim2.new(0, 70, 1, 0),
+		position = UDim2.new(1, -70, 0, 0),
 	})))
+end
+
+-- asking: browse what they could trade and ask for it; see what they asked of you and add it in one tap
+local RARITY_COLOR = {
+	Common = Palette.muted, Uncommon = Palette.mint, Rare = Palette.cyan, Epic = Palette.violet,
+	Legendary = Palette.mango, Mythic = Palette.pink,
+}
+local function TradeAsks(props)
+	local session = props.session
+	local myRelics = props.myRelics
+	local asked, setAsked = React.useState(function()
+		local set = {}
+		for _, uid in (session.YourRequest and session.YourRequest.ItemIds) or {} do
+			set[uid] = true
+		end
+		return set
+	end)
+	local askCount = 0
+	for _ in asked do
+		askCount += 1
+	end
+	local relicNames = {}
+	for _, relic in session.PartnerRelics or {} do
+		relicNames[relic.Uid] = relic.Name
+	end
+	-- what they asked you for, and how much of it you actually have
+	local theirs = session.TheirRequest
+	local theirLine = nil
+	if theirs then
+		local parts = {}
+		for _, key in { "Cash", "Stardust", "Cores", "Signals", "Essence" } do
+			if (tonumber(theirs[key]) or 0) > 0 then
+				table.insert(parts, `{compactNumber(theirs[key])} {if key == "Cash" then "Flux" else key}`)
+			end
+		end
+		local mine = {}
+		for _, relic in myRelics do
+			mine[relic.uid] = relic.name
+		end
+		for _, uid in theirs.ItemIds or {} do
+			if mine[uid] then
+				table.insert(parts, mine[uid])
+			end
+		end
+		theirLine = if #parts > 0 then table.concat(parts, ", ") else nil
+	end
+	local chips = {
+		layout = React.createElement("uigridlayout", {
+			CellSize = UDim2.new(0.5, -4, 0, 40),
+			CellPadding = UDim2.fromOffset(8, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index, relic in session.PartnerRelics or {} do
+		local on = asked[relic.Uid] == true
+		local color = RARITY_COLOR[relic.Rarity] or Palette.muted
+		chips["r" .. relic.Uid] = React.createElement("textbutton", {
+			LayoutOrder = index,
+			BackgroundColor3 = if on then darken(color, 0.55) else Palette.panelSoft,
+			AutoButtonColor = false,
+			Text = "",
+			Event = {
+				Activated = function()
+					Audio:play("tick")
+					setAsked(function(current)
+						local nextSet = table.clone(current)
+						nextSet[relic.Uid] = if nextSet[relic.Uid] then nil else true
+						return nextSet
+					end)
+				end,
+			},
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement(Stroke, {
+			color = if on then color else Palette.line,
+			thickness = if on then 2 else 1,
+			transparency = if on then 0 else 0.5,
+		}), React.createElement(Text, {
+			value = relic.Name,
+			size = 12,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Bold,
+			fit = true,
+			minSize = 9,
+			position = UDim2.fromOffset(10, 4),
+			sizeConstraint = UDim2.new(1, -20, 0, 16),
+		}), React.createElement(Text, {
+			value = `{string.upper(relic.Rarity)}  ·  L{relic.Level}{if on then "  ·  ASKED" else ""}`,
+			size = 10,
+			color = color,
+			weight = Enum.FontWeight.Heavy,
+			position = UDim2.fromOffset(10, 21),
+			sizeConstraint = UDim2.new(1, -20, 0, 14),
+		}))
+	end
+	local partnerCount = #(session.PartnerRelics or {})
+	local gridRows = math.ceil(partnerCount / 2)
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }), React.createElement(Stroke, {
+		color = Palette.line,
+		thickness = 1,
+		transparency = 0.4,
+	}), React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 10),
+		PaddingBottom = UDim.new(0, 10),
+		PaddingLeft = UDim.new(0, 12),
+		PaddingRight = UDim.new(0, 12),
+	}), React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), theirLine and React.createElement("frame", {
+		LayoutOrder = 1,
+		Size = UDim2.new(1, 0, 0, 58),
+		BackgroundColor3 = darken(Palette.mango, 0.7),
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement(Text, {
+		value = `{string.upper(session.PartnerName)} ASKED FOR`,
+		size = 10,
+		color = Palette.mango,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(10, 6),
+		sizeConstraint = UDim2.new(1, -150, 0, 14),
+	}), React.createElement(Text, {
+		value = theirLine,
+		size = 13,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(10, 24),
+		sizeConstraint = UDim2.new(1, -150, 0, 26),
+	}), React.createElement(Button, {
+		text = "Add to my offer",
+		onClick = function()
+			props.onAddRequested(theirs)
+		end,
+		color = Palette.mango,
+		textColor = Palette.ink,
+		size = UDim2.fromOffset(130, 36),
+		position = UDim2.new(1, -140, 0.5, -18),
+	})) or nil, React.createElement(Text, {
+		value = if partnerCount == 0 then `{session.PartnerName} has no relics they could trade right now.` else `ASK {string.upper(session.PartnerName)} FOR THEIR RELICS`,
+		size = 11,
+		color = Palette.mint,
+		weight = Enum.FontWeight.Heavy,
+		layoutOrder = 2,
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}), partnerCount > 0 and React.createElement("frame", {
+		LayoutOrder = 3,
+		Size = UDim2.new(1, 0, 0, gridRows * 46),
+		BackgroundTransparency = 1,
+	}, chips) or nil, partnerCount > 0 and React.createElement("frame", {
+		LayoutOrder = 4,
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		BackgroundTransparency = 1,
+	}, React.createElement(Button, {
+		text = if askCount > 0 then `Ask for {askCount} {if askCount == 1 then "relic" else "relics"}` else "Pick relics to ask for",
+		onClick = function()
+			local ids = {}
+			for uid in asked do
+				table.insert(ids, uid)
+			end
+			props.dispatch("TradeRequest", { Request = { ItemIds = ids } })
+		end,
+		disabled = askCount == 0,
+		color = Palette.mint,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+	})) or nil)
+end
+-- how tall TradeAsks wants to be
+local function tradeAsksHeight(session)
+	local partnerCount = #(session.PartnerRelics or {})
+	return 20 + (if session.TheirRequest then 66 else 0) + 24 + (if partnerCount > 0 then math.ceil(partnerCount / 2) * 46 + 8 + TapTarget else 0)
 end
 
 local function TradeView(_param)
@@ -1010,6 +1248,43 @@ local function TradeView(_param)
 			break
 		end
 	end
+	local function addRequested(request)
+		if type(request) ~= "table" then
+			return
+		end
+		local offer = table.clone(draft)
+		offer.Boosts = table.clone(draft.Boosts or {})
+		offer.Keys = table.clone(draft.Keys or {})
+		offer.ItemIds = table.clone(draft.ItemIds or {})
+		local owned = {
+			Cash = asFlux(state.Cash),
+			Stardust = tonumber(state.Stardust) or 0,
+			Cores = asFlux(state.Cores),
+			Signals = state.Command and tonumber(state.Command.Signals) or 0,
+			Essence = state.Items and tonumber(state.Items.Essence) or 0,
+		}
+		for key, have in owned do
+			local want = tonumber(request[key]) or 0
+			if want > 0 then
+				offer[key] = math.max(offer[key] or 0, math.min(want, cap(key, have)))
+			end
+		end
+		local mine = {}
+		for _, relic in relics do
+			mine[relic.uid] = true
+		end
+		local already = {}
+		for _, uid in offer.ItemIds do
+			already[uid] = true
+		end
+		for _, uid in request.ItemIds or {} do
+			if mine[uid] and not already[uid] then
+				table.insert(offer.ItemIds, uid)
+			end
+		end
+		Audio:play("tick")
+		queueOffer(offer)
+	end
 	local yourLines = offerLines(draft, config, inventory)
 	local theirLines = if session ~= nil then offerLines(session.Them, config, inventory) else {}
 	local function raritiesOf(offer, fromInventory)
@@ -1039,7 +1314,7 @@ local function TradeView(_param)
 	local offerBody = function(editor, lines)
 		local _exp_2 = editor and not offerEmpty(draft) and React.createElement(Button, {
 			text = "CLEAR OFFER",
-			icon = "Refresh",
+			icon = "Refresh.1",
 			onClick = function()
 				return queueOffer(emptyOffer())
 			end,
@@ -1732,9 +2007,19 @@ local function TradeView(_param)
 				}),
 			}, {
 				id = "chat",
-				height = 114,
+				height = if compactTrade then 200 else 230,
 				element = React.createElement(TradeChatStream, {
-					partnerName = session.PartnerName,
+					session = session,
+					dispatch = dispatch,
+				}),
+			}, {
+				id = "asks",
+				height = tradeAsksHeight(session),
+				element = React.createElement(TradeAsks, {
+					session = session,
+					dispatch = dispatch,
+					myRelics = relics,
+					onAddRequested = addRequested,
 				}),
 			}, {
 				id = "tabs",
@@ -1900,7 +2185,7 @@ local function TradeView(_param)
 			reducedMotion = reducedMotion,
 			layoutOrder = 3,
 		}, React.createElement(Icon, {
-			kind = "Timer",
+			kind = "Timer.4",
 			color = Palette.mango,
 			accent = Palette.mango,
 			size = 22,
@@ -1951,7 +2236,7 @@ local function TradeView(_param)
 			reducedMotion = reducedMotion,
 		}), React.createElement(Button, {
 			text = "",
-			icon = "Refresh",
+			icon = "Refresh.2",
 			onClick = function()
 				return loadRoster()
 			end,
@@ -1962,7 +2247,7 @@ local function TradeView(_param)
 			reducedMotion = reducedMotion,
 		}))
 		local _exp_8 = session == nil and #visibleRows == 0 and React.createElement(EmptyState, {
-			icon = "Crew",
+			icon = "Crew.4",
 			title = if #rows == 0 then "Server is quiet" else "No match",
 			body = if #rows == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Trade and config.ClientPageGuides.Trade.EmptySession) or "Nobody else is in this server. Invites only work here.") else "Try a different name.",
 			accent = accent,
@@ -1975,7 +2260,7 @@ local function TradeView(_param)
 		if _condition_6 then
 			local _attributes = {
 				text = if selectedRow ~= nil then `INVITE  {string.upper(selectedRow.DisplayName)}` else "CHOOSE SOMEONE",
-				icon = "Send",
+				icon = "Send.2",
 				onClick = function()
 					if selected ~= 0 then
 						run("InviteTrade", {
@@ -2114,7 +2399,7 @@ local function TradeView(_param)
 					position = UDim2.fromOffset(0, 24), sizeConstraint = UDim2.new(1, -150, 0, if phone then 56 else 40),
 				}), game:GetService("Players"):GetPlayerByUserId(entry.PartnerId) ~= nil and React.createElement(Button, {
 					-- the same partner is still here: one tap opens a fresh trade with them
-					text = "Trade again", icon = "Send", color = accent, textColor = Palette.ink,
+					text = "Trade again", icon = "Send.3", color = accent, textColor = Palette.ink,
 					size = UDim2.fromOffset(140, TapTarget), position = UDim2.new(1, -140, 0, 4), reducedMotion = reducedMotion,
 					onClick = function() dispatch("InviteTrade", { UserId = entry.PartnerId }) end,
 				}) or nil),
@@ -2289,7 +2574,7 @@ local function CrewRow(_param)
 		BorderSizePixel = 0,
 	}, React.createElement(Button, {
 		text = "WAVE",
-		icon = "Wave",
+		icon = "Wave.5",
 		onClick = onNudge,
 		color = Palette.cyan,
 		textColor = Palette.ink,
@@ -2304,7 +2589,7 @@ local function CrewRow(_param)
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = if visiting then "HERE" else "VISIT",
-		icon = "Visit",
+		icon = "Visit.2",
 		onClick = onVisit,
 		color = if visiting then Palette.green else Palette.blue,
 		textColor = Palette.ink,
@@ -2327,7 +2612,7 @@ local function CrewRow(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
 		text = "WAVE",
-		icon = "Wave",
+		icon = "Wave.6",
 		onClick = onNudge,
 		color = Palette.cyan,
 		textColor = Palette.ink,
@@ -2344,7 +2629,7 @@ local function CrewRow(_param)
 		LayoutOrder = 2,
 	}, React.createElement(Button, {
 		text = if visiting then "HERE" else "VISIT",
-		icon = "Visit",
+		icon = "Visit.3",
 		onClick = onVisit,
 		color = if visiting then Palette.green else Palette.blue,
 		textColor = Palette.ink,
@@ -2401,7 +2686,7 @@ local function VisitPanel(_param)
 	})
 	local _exp_3 = React.createElement(Button, {
 		text = "LEAVE",
-		icon = "Close",
+		icon = "Close.3",
 		onClick = function()
 			return dispatch("LeavePlot")
 		end,
@@ -2539,7 +2824,7 @@ local function crewPartySections(args)
 		table.insert(sections, { id = "crew-invite", height = if stack then 46 + TapTarget * 2 + GAP + 28 else 104, element = React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1), accent = Palette.mango, background = Palette.panelRaised, padding = 14, clips = false,
 		}, text(`{invite.FromName} invited you to {invite.CrewName}.`, 17, Palette.cream, 44, Enum.FontWeight.Heavy),
-			React.createElement(Button, { text = "Join crew", icon = "Crew", color = Palette.mango, textColor = Palette.ink,
+			React.createElement(Button, { text = "Join crew", icon = "Crew.5", color = Palette.mango, textColor = Palette.ink,
 				size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(160, TapTarget),
 				position = if stack then UDim2.fromOffset(0, 46) else UDim2.new(1, -330 - GAP, 0, 34), reducedMotion = softMotion,
 				onClick = function() CrewStore.set({ invite = CrewStore.NONE }); run("CrewRespond", { Accept = true }) end }),
@@ -2564,7 +2849,7 @@ local function crewPartySections(args)
 					size = 16, color = Palette.cream, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(14, 6), sizeConstraint = UDim2.new(1, -140, 0, 22) }),
 				React.createElement(Text, { value = `{member.Collects} collect{if member.Collects == 1 then "" else "s"} today`,
 					size = 13, color = Palette.muted, position = UDim2.fromOffset(14, 30), sizeConstraint = UDim2.new(1, -140, 0, 18) }),
-				member.UserId ~= localId and React.createElement(Button, { text = "Visit", icon = "Visit", color = Palette.blue, textColor = Palette.ink,
+				member.UserId ~= localId and React.createElement(Button, { text = "Visit", icon = "Visit.4", color = Palette.blue, textColor = Palette.ink,
 					size = UDim2.fromOffset(104, 44), position = UDim2.new(1, if leader then -236 else -110, 0.5, -22), reducedMotion = softMotion,
 					onClick = function() dispatch("VisitPlot", { UserId = member.UserId }) end }) or nil,
 				leader and member.UserId ~= localId and React.createElement(Button, {
@@ -2649,7 +2934,7 @@ local function crewPartySections(args)
 		for index = 1, math.min(#candidates, 8) do
 			local player = candidates[index]
 			local col, row = (index - 1) % columns, math.floor((index - 1) / columns)
-			table.insert(children, React.createElement(Button, { text = `Invite {player.DisplayName}`, icon = "Crew",
+			table.insert(children, React.createElement(Button, { text = `Invite {player.DisplayName}`, icon = "Crew.6",
 				color = Palette.blue, textColor = Palette.ink, reducedMotion = softMotion,
 				size = UDim2.new(1 / columns, -GAP, 0, TapTarget), position = UDim2.new(col / columns, 0, 0, 46 + row * (TapTarget + GAP)),
 				onClick = function() run("CrewInvite", { UserId = player.UserId }) end }))
@@ -2923,7 +3208,7 @@ local function CrewView(_param)
 		sizeConstraint = UDim2.new(1, if stack then -8 else -190, 0, 38),
 	}), React.createElement(Button, {
 		text = if stack then "REFRESH" else "REFRESH CREW",
-		icon = "Refresh",
+		icon = "Refresh.3",
 		onClick = refresh,
 		sound = "tick",
 		color = Palette.blue,
@@ -2948,7 +3233,7 @@ local function CrewView(_param)
 		stack = stack,
 	})
 	local emptyPanel = if #allPlayers == 0 then React.createElement(EmptyState, {
-		icon = "Crew",
+		icon = "Crew.7",
 		title = "No one else is on shift",
 		body = "Crew shows up here once someone else is online with you.",
 		accent = Palette.blue,
@@ -2956,7 +3241,7 @@ local function CrewView(_param)
 	}) elseif #players == 0 then React.createElement(Browse.NoResults, {
 		browse = crewBrowse,
 		noun = "crew",
-		icon = "Crew",
+		icon = "Crew.8",
 		accent = Palette.blue,
 		reducedMotion = softMotion,
 		size = UDim2.fromScale(1, 1),
@@ -3430,7 +3715,7 @@ local function GuildGoalCardReady(_param)
 		ref = if canClaim then claimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if claimed then "CLAIMED" elseif canClaim then "CLAIM REWARD" elseif goal.Completed then "NOT ELIGIBLE" else "NOT YET",
-		icon = if claimed then "Check" else "Gift",
+		icon = if claimed then "Check.13" else "Gift.9",
 		onClick = function()
 			if canClaim and not busy then
 				dispatch("ClaimGuildGoal", {})
@@ -3570,7 +3855,7 @@ local function UpgradeCard(_param)
 		sizeConstraint = UDim2.new(1, if stack then 0 else -260, 0, 16),
 	}), React.createElement(Button, {
 		text = if row.maxed then "MAXED" elseif row.affordable then `BUY {compactNumber(row.cost)}` else "NEED MORE",
-		icon = if row.maxed then "Check" else "Forge",
+		icon = if row.maxed then "Check.14" else "Forge.15",
 		onClick = function()
 			if actionable and not busy then
 				dispatch("BuyGuildUpgrade", {
@@ -3861,7 +4146,7 @@ local function JoinOrCreate(_param)
 		PaddingRight = UDim.new(0, 12),
 	})), React.createElement(Button, {
 		text = if not canAfford then `NEED {compactNumber(createCost)} FLUX` else "CHARTER GUILD",
-		icon = "Forge",
+		icon = "Forge.16",
 		onClick = charter,
 		color = if canCharter then Palette.violet else Palette.panelSoft,
 		textColor = if canCharter then Palette.ink else Palette.muted,
@@ -3932,7 +4217,7 @@ local function JoinOrCreate(_param)
 		PaddingRight = UDim.new(0, 12),
 	})), React.createElement(Button, {
 		text = "JOIN GUILD",
-		icon = "Crew",
+		icon = "Crew.9",
 		onClick = join,
 		color = if canJoin then Palette.mint else Palette.panelSoft,
 		textColor = if canJoin then Palette.ink else Palette.muted,
@@ -4775,7 +5060,7 @@ local function GuildView(_param)
 			key = "empty-upgrades",
 			title = "No hall upgrades",
 			body = "Hall upgrades are still loading.",
-			icon = "Forge",
+			icon = "Forge.17",
 			accent = Palette.violet,
 			size = UDim2.new(1, 0, 0, 72),
 			layoutOrder = 1,
@@ -4876,7 +5161,7 @@ local function GuildView(_param)
 	local memberList = if #shownMembers == 0 then React.createElement(EmptyState, {
 		title = if #members > 0 then "No members match" else "No members",
 		body = if #members > 0 then "Clear the search or pick Everyone." else "Members show up here.",
-		icon = "Pilot",
+		icon = "Pilot.2",
 		accent = Palette.cyan,
 		size = UDim2.new(1, 0, 0, 72),
 	}) else React.createElement("frame", {
@@ -5140,7 +5425,7 @@ local function MailRow(props)
 		BackgroundColor3 = Palette.mint,
 		BorderSizePixel = 0,
 	}, h("uicorner", { CornerRadius = UDim.new(0, 6) }), h(Icon, {
-		kind = "Gift",
+		kind = "Gift.10",
 		color = Palette.ink,
 		accent = Palette.mint,
 		size = 14,
@@ -5152,7 +5437,7 @@ local function MailRow(props)
 		BackgroundColor3 = Palette.panelSoft,
 		BorderSizePixel = 0,
 	}, h("uicorner", { CornerRadius = UDim.new(0, 6) }), h(Icon, {
-		kind = "Check",
+		kind = "Check.15",
 		color = Palette.mint,
 		accent = Palette.mint,
 		size = 14,
@@ -5193,7 +5478,7 @@ local function Parcel(props)
 			return 1 + a * 0.3
 		end),
 	}), h(Icon, {
-		kind = if claimed then "Check" else "Gift",
+		kind = if claimed then "Check.16" else "Gift.11",
 		color = if claimed then Palette.mint else Palette.ink,
 		accent = item.Color,
 		size = 28,
@@ -5232,7 +5517,7 @@ local function Parcel(props)
 		ClipsDescendants = false,
 	}, h(Button, {
 		text = if claimed then "COLLECTED" else "CLAIM GIFT",
-		icon = "Gift",
+		icon = "Gift.12",
 		onClick = props.onClaim,
 		color = if claimed then Palette.panelSoft else item.Color,
 		textColor = if claimed then Palette.muted else Palette.ink,
@@ -5247,7 +5532,7 @@ local function Parcel(props)
 		BackgroundTransparency = 1,
 	}, h(Button, {
 		text = "ARCHIVE",
-		icon = "Close",
+		icon = "Close.4",
 		onClick = props.onArchive,
 		color = Palette.coral,
 		textColor = if claimed then Palette.cream else Palette.muted,
@@ -5375,7 +5660,7 @@ local function MailboxView(_param)
 		BackgroundColor3 = darken(Palette.cyan, 0.6),
 		BorderSizePixel = 0,
 	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h(Icon, {
-		kind = "Mail",
+		kind = "Mail.2",
 		color = Palette.cream,
 		accent = Palette.cyan,
 		size = 24,
@@ -5400,7 +5685,7 @@ local function MailboxView(_param)
 		sizeConstraint = UDim2.new(if stack then 1 else 0, if stack then -(62 + 150) else 260, 0, 22),
 	}), gifts > 0 and h(Button, {
 		text = `CLAIM ALL ({gifts})`,
-		icon = "Gift",
+		icon = "Gift.13",
 		onClick = function()
 			Audio:play("mailClaim")
 			setClaimToken(function(n)
@@ -5437,7 +5722,7 @@ local function MailboxView(_param)
 		Position = UDim2.fromOffset(0, searchH + 12),
 		BackgroundTransparency = 1,
 	}, h(EmptyState, {
-		icon = if query ~= "" then "Search" else "Mail",
+		icon = if query ~= "" then "Search.6" else "Mail.3",
 		title = if query ~= "" then `No letters match "{query}"` elseif filter == "All" then "Your tray is empty" elseif filter == "Alerts" then "No recent alerts" else "Nothing in " .. string.lower(filter),
 		body = if query ~= "" then "Try the sender's name or one word from the subject." elseif filter == "Alerts" then "Pop-ups from this session are kept here so you can read them again." else "Patch notes, letters and gifts land here.",
 		accent = Palette.cyan,
@@ -5499,7 +5784,7 @@ local function MailboxView(_param)
 			BorderSizePixel = 0,
 		}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), mobileRoute and h(Button, {
 			text = "",
-			icon = "Back",
+			icon = "Back.1",
 			onClick = function()
 				setSelectedId("")
 			end,
@@ -5599,7 +5884,7 @@ local function MailboxView(_param)
 		})))
 	elseif not mobileRoute then
 		bodyArea = h(EmptyState, {
-			icon = "Mail",
+			icon = "Mail.4",
 			title = "Pick a letter",
 			body = "Choose a message on the left to read it.",
 			accent = Palette.cyan,
@@ -5863,7 +6148,7 @@ local function MessageRow(_param)
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(0, 10),
 		}), React.createElement(Icon, {
-			kind = "Chat",
+			kind = "Chat.2",
 			color = Palette.ink,
 			accent = accent,
 			size = 22,
@@ -6389,7 +6674,7 @@ local function ChatView(_param)
 		Color = ColorSequence.new(lighten(Palette.cyan, 0.15), darken(Palette.cyan, 0.45)),
 		Rotation = 120,
 	}), React.createElement(Icon, {
-		kind = "Chat",
+		kind = "Chat.3",
 		color = Palette.ink,
 		accent = Palette.cyan,
 		size = 26,
@@ -6425,7 +6710,7 @@ local function ChatView(_param)
 		end),
 	})), React.createElement(Button, {
 		text = "",
-		icon = if searchOpen then "Close" else "Search",
+		icon = if searchOpen then "Close.5" else "Search.7",
 		onClick = function()
 			if searchOpen then
 				setLogQuery("")
@@ -6480,7 +6765,7 @@ local function ChatView(_param)
 		messagesElement = React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
 		}, messagesElement, React.createElement(Button, {
-			text = `{unseen} new message{if unseen == 1 then "" else "s"}`, icon = "Chat",
+			text = `{unseen} new message{if unseen == 1 then "" else "s"}`, icon = "Chat.4",
 			color = Palette.cyan, textColor = Palette.ink, hug = true, reducedMotion = softMotion,
 			size = UDim2.fromOffset(0, 40), position = UDim2.new(0.5, -90, 1, -52), zIndex = 30,
 			onClick = function()
@@ -6509,7 +6794,7 @@ local function ChatView(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 2),
 	})), React.createElement(Icon, {
-		kind = "Forge",
+		kind = "Forge.18",
 		color = Palette.ink,
 		accent = Palette.mango,
 		size = 24,
@@ -6592,7 +6877,7 @@ local function ChatView(_param)
 		ref = chatClaimHostRef,
 	}, React.createElement(Button, {
 		text = "SEND",
-		icon = "Send",
+		icon = "Send.4",
 		onClick = submit,
 		color = Palette.cyan,
 		textColor = Palette.ink,

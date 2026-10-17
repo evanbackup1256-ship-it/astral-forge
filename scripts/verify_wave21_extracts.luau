@@ -8,7 +8,6 @@
 local fs = require("./_memberfs")(require("@lune/fs"))
 
 local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
-local ForgeEchoMath = require("../src/Server/AstralForge/Modules/ForgeEchoMath")
 local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
 local AdminGrantMath = require("../src/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
@@ -38,54 +37,6 @@ do
 	end
 	assert(select(1, RemoteFirewallMath.Inspect(big)) == false, "budget rejected")
 end
-
-------------------------------------------------------------------------
--- ForgeEchoMath.EquippedEffect
-------------------------------------------------------------------------
-local traits = {
-	{ Id = "Spark", Affinity = "Impulse", EffectKind = "Production", BaseEffect = 0.1, EffectPerLevel = 0.05 },
-	{ Id = "Coil", Affinity = "Craft", EffectKind = "Tap", BaseEffect = 0.2, EffectPerLevel = 0.1 },
-}
-local echoes = {
-	Inventory = {
-		A = { TraitId = "Spark", Level = 2, Strength = 1 },
-		B = { TraitId = "Coil", Level = 1, Strength = 1 },
-	},
-	Equipped = { ["1"] = "A", ["2"] = "B" },
-}
-assert(math.abs(ForgeEchoMath.EquippedEffect(echoes, "Production", traits, 10, 0.25) - 0.1875) < 1e-9, "equipped production with harmony")
-assert(ForgeEchoMath.EquippedEffect(nil, "Production", traits, 10, 0.25) == 0, "nil echoes")
--- Same affinity on two slots → no harmony; distinct affinities → harmony.
-local same = {
-	Inventory = {
-		A = { TraitId = "Spark", Level = 1, Strength = 1 },
-		C = { TraitId = "Spark", Level = 1, Strength = 1 },
-	},
-	Equipped = { ["1"] = "A", ["2"] = "C" },
-}
-assert(
-	math.abs(ForgeEchoMath.EquippedEffect(same, "Production", traits, 10, 0.5) - 0.2) < 1e-9,
-	"same affinity no harmony"
-)
-local spark2 = {
-	Id = "Spark2",
-	Affinity = "Industry",
-	EffectKind = "Production",
-	BaseEffect = 0.1,
-	EffectPerLevel = 0,
-}
-local harmonyTraits = { traits[1], spark2 }
-local distinct = {
-	Inventory = {
-		A = { TraitId = "Spark", Level = 1, Strength = 1 },
-		D = { TraitId = "Spark2", Level = 1, Strength = 1 },
-	},
-	Equipped = { ["1"] = "A", ["2"] = "D" },
-}
-assert(
-	math.abs(ForgeEchoMath.EquippedEffect(distinct, "Production", harmonyTraits, 10, 0.5) - 0.3) < 1e-9,
-	"distinct affinity harmony"
-)
 
 ------------------------------------------------------------------------
 -- EconomyEnvelopeMath.PermanentMultiplier
@@ -155,7 +106,7 @@ assert(string.find(adminSrc, "AdminGrantMath.BuildRelicInstance", 1, true), "Adm
 assert(string.find(progressionSrc, "UtcClockMath.Week", 1, true), "Progression Week residual")
 assert(string.find(progressionSrc, "UtcClockMath.Day", 1, true), "Progression Day residual")
 assert(string.find(economySrc, "EconomyEnvelopeMath.PermanentMultiplier", 1, true), "Economy PermanentMultiplier residual")
-assert(string.find(economySrc, "ForgeEchoMath.EquippedEffect", 1, true), "Economy EquippedEffect residual")
+assert(string.find(economySrc, "EchoMath.total(", 1, true), "Economy echo residual")
 assert(string.find(invViewSrc, "InventoryMath.UpgradeState", 1, true), "InventoryView UpgradeState residual")
 
 assert(string.find(configSrc, "Wave21FirewallEchoExtract", 1, true), "DV21 lab Wave21FirewallEchoExtract")

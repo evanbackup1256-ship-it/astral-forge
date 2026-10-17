@@ -132,14 +132,14 @@ function SessionStats.Card(props)
 	local clock = motion.useClock(true, 1, 86400, true)
 	local columns = props.columns or 4
 	local entries = {
-		{ key = "time", label = "Played", icon = "Timer", accent = P.cyan, live = clock:map(function() return clockText(os.clock() - startedAt) end) },
-		{ key = "flux", label = "Flux collected", icon = "Flux", accent = P.cyan, text = fluxText, value = fluxText },
-		{ key = "collects", label = "Vault collects", icon = "Vault", accent = P.green, text = stats.collects },
-		{ key = "overcharges", label = "Overcharges", icon = "Overcharge", accent = P.mango, text = stats.overcharges },
-		{ key = "crits", label = "Critical taps", icon = "Boost", accent = P.mango, text = stats.crits },
-		{ key = "combo", label = "Best combo", icon = "Wave", accent = P.pink, text = `x{stats.bestCombo}` },
-		{ key = "claims", label = "Rewards claimed", icon = "Rewards", accent = P.pink, text = stats.claims },
-		{ key = "upgrades", label = "Upgrades bought", icon = "Forge", accent = P.violet, text = stats.upgrades },
+		{ key = "time", label = "Played", icon = "Timer.6", accent = P.cyan, live = clock:map(function() return clockText(os.clock() - startedAt) end) },
+		{ key = "flux", label = "Flux collected", icon = "Flux.18", accent = P.cyan, text = fluxText, value = fluxText },
+		{ key = "collects", label = "Vault collects", icon = "Vault.7", accent = P.green, text = stats.collects },
+		{ key = "overcharges", label = "Overcharges", icon = "Overcharge.8", accent = P.mango, text = stats.overcharges },
+		{ key = "crits", label = "Critical taps", icon = "Boost.20", accent = P.mango, text = stats.crits },
+		{ key = "combo", label = "Best combo", icon = "Wave.13", accent = P.pink, text = `x{stats.bestCombo}` },
+		{ key = "claims", label = "Rewards claimed", icon = "Rewards.2", accent = P.pink, text = stats.claims },
+		{ key = "upgrades", label = "Upgrades bought", icon = "Forge.25", accent = P.violet, text = stats.upgrades },
 	}
 	local rows = math.ceil(#entries / columns)
 	local grid = {

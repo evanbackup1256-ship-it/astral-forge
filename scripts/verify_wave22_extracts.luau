@@ -11,7 +11,6 @@ local fs = require("./_memberfs")(require("@lune/fs"))
 
 local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
 local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
-local ForgeEchoMath = require("../src/Server/AstralForge/Modules/ForgeEchoMath")
 local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 local ItemLoadoutMath = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemLoadoutMath")
 local ProgressionOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ProgressionOpsMath")
@@ -43,38 +42,6 @@ local dirty = DataSanitizeMath.ClampAutoForge({
 assert(dirty.MachineId == "StellarCore", "unknown machine → default")
 assert(dirty.Reserve == 0.9 and dirty.Bought == 0, "reserve/bought clamp")
 assert(dirty.Enabled == true, "enabled kept")
-
-------------------------------------------------------------------------
--- ForgeEchoMath.Sanitize
-------------------------------------------------------------------------
-local traits = { Spark = { Id = "Spark", Affinity = "Impulse" } }
-local sanitized = ForgeEchoMath.Sanitize({
-	Charge = 999,
-	Resonance = -2,
-	Captures = 1.7,
-	NextId = 0,
-	Pattern = { Collect = 3, Ghost = 9 },
-	Inventory = {
-		E1 = { TraitId = "Spark", Level = 99, Strength = 9, CapturedAt = -1 },
-		Bad = { TraitId = "Nope", Level = 1 },
-	},
-	Equipped = { ["1"] = "E1", ["9"] = "E1", ["2"] = "missing" },
-	Draft = {
-		Id = string.rep("x", 60),
-		Choices = {
-			{ TraitId = "Spark", Uid = "C1", Strength = 2, CapturedAt = 5 },
-			{ TraitId = "Nope", Uid = "C2" },
-		},
-	},
-}, traits, { ChargeTarget = 100, MaxLevel = 10, InventoryLimit = 8, MaxSlots = 3 })
-assert(sanitized.Charge == 100, "charge capped")
-assert(sanitized.Resonance == 0 and sanitized.Captures == 1 and sanitized.NextId == 1, "echo scalars")
-assert(sanitized.Pattern.Collect == 3 and sanitized.Pattern.Ghost == nil, "pattern scrub")
-assert(sanitized.Inventory.E1 ~= nil and sanitized.Inventory.Bad == nil, "inventory scrub")
-assert(sanitized.Inventory.E1.Level == 10 and sanitized.Inventory.E1.Strength == 1.5, "instance clamp")
-assert(sanitized.Equipped["1"] == "E1" and sanitized.Equipped["2"] == "" and sanitized.Equipped["9"] == nil, "equip slots")
-assert(#sanitized.Draft.Id == 48 and #sanitized.Draft.Choices == 1, "draft scrub")
-assert(sanitized.Draft.Choices[1].Strength == 1.32, "draft strength clamp")
 
 ------------------------------------------------------------------------
 -- EconomyEnvelopeMath.ItemEffect
@@ -184,7 +151,7 @@ local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(firewallSrc, "RemoteFirewallMath.IsSessionOnlyPayload", 1, true), "Firewall session residual")
-assert(string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService Sanitize residual")
+assert(string.find(dataSrc, "EchoMath.ensure", 1, true), "DataService echo sanitize residual")
 assert(string.find(dataSrc, "DataSanitizeMath.ClampAutoForge", 1, true), "DataService AutoForge residual")
 assert(string.find(econSrc, "EconomyEnvelopeMath.ItemEffect", 1, true), "Economy ItemEffect residual")
 assert(string.find(ssSrc, "ItemLoadoutMath.PlanEquipBest", 1, true), "ServerServices EquipBest residual")
@@ -215,7 +182,7 @@ for _, body in {
 	routerSrc,
 	fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ItemLoadoutMath"),
 	fs.readFile("src/Client/AstralForge/CoreKit.luau#releaseClockMath"),
-	fs.readFile("src/Server/AstralForge/Modules/ForgeEchoMath.luau"),
+	fs.readFile("src/Shared/AstralForge/Shared/EchoMath.luau"),
 } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")

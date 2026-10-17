@@ -15,7 +15,7 @@ return function(loadService: (string) -> any)
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
-	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
+	local EchoMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("EchoMath"))
 	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local AdminPolicy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AdminPolicy"))
@@ -1220,7 +1220,7 @@ return function(loadService: (string) -> any)
 	end
 	profileHandlers.GrantEchoCharge = function(profile, amount, option)
 		local changedAmount = amount
-				local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
+				local echoes = EchoMath.ensure(profile.ForgeEchoes)
 				profile.ForgeEchoes = echoes
 				echoes.Charge += math.floor(amount)
 		return { ok = true, amount = changedAmount }

@@ -27,14 +27,14 @@ local h = React.createElement
 local ACCENT = Color3.fromRGB(255, 176, 92)
 local GAP = 14
 local KIND_LOOK = {
-	Ember = { name = "Ember", color = Color3.fromRGB(255, 132, 64), icon = "Flux", line = "Sends energy the way it faces" },
-	Conduit = { name = "Conduit", color = Color3.fromRGB(120, 196, 255), icon = "Travel", line = "Carries energy onward" },
-	Lens = { name = "Lens", color = Color3.fromRGB(150, 236, 255), icon = "Boost", line = "Focuses energy, stronger" },
-	Prism = { name = "Prism", color = Color3.fromRGB(200, 150, 255), icon = "StarGrid", line = "Splits energy three ways" },
-	ForgeAnvil = { name = "Forge Anvil", color = Color3.fromRGB(255, 196, 84), icon = "Forge", line = "Energy becomes production" },
-	StrikeAnvil = { name = "Strike Anvil", color = Color3.fromRGB(255, 104, 112), icon = "Overcharge", line = "Energy becomes tap power" },
-	VaultAnvil = { name = "Vault Anvil", color = Color3.fromRGB(96, 220, 168), icon = "Vault", line = "Energy becomes vault capacity" },
-	EchoAnvil = { name = "Echo Anvil", color = Color3.fromRGB(176, 140, 255), icon = "Continuum", line = "Energy becomes offline income" },
+	Ember = { name = "Ember", color = Color3.fromRGB(255, 132, 64), icon = "Flux.5", line = "Sends energy the way it faces" },
+	Conduit = { name = "Conduit", color = Color3.fromRGB(120, 196, 255), icon = "Travel.1", line = "Carries energy onward" },
+	Lens = { name = "Lens", color = Color3.fromRGB(150, 236, 255), icon = "Boost.10", line = "Focuses energy, stronger" },
+	Prism = { name = "Prism", color = Color3.fromRGB(200, 150, 255), icon = "StarGrid.3", line = "Splits energy three ways" },
+	ForgeAnvil = { name = "Forge Anvil", color = Color3.fromRGB(255, 196, 84), icon = "Forge.8", line = "Energy becomes production" },
+	StrikeAnvil = { name = "Strike Anvil", color = Color3.fromRGB(255, 104, 112), icon = "Overcharge.5", line = "Energy becomes tap power" },
+	VaultAnvil = { name = "Vault Anvil", color = Color3.fromRGB(96, 220, 168), icon = "Vault.4", line = "Energy becomes vault capacity" },
+	EchoAnvil = { name = "Echo Anvil", color = Color3.fromRGB(176, 140, 255), icon = "Continuum.3", line = "Energy becomes offline income" },
 }
 
 local function compact(value)
@@ -434,7 +434,7 @@ local function FoundryView(props)
 					-- a running Ignite combo is pinned to the island; a miss clears it
 					local Juice = require(script.Parent.Parent.JuiceFx)
 					if (response.Combo or 0) > 0 then
-						Juice.live("foundryIgnite", { title = `IGNITE ×{response.Combo}`, icon = "Boost", color = ACCENT, endsAt = os.clock() + FoundryMath.IGNITE_PERIOD + 0.4, span = FoundryMath.IGNITE_PERIOD + 0.4, priority = 2 })
+						Juice.live("foundryIgnite", { title = `IGNITE ×{response.Combo}`, icon = "Boost.11", color = ACCENT, endsAt = os.clock() + FoundryMath.IGNITE_PERIOD + 0.4, span = FoundryMath.IGNITE_PERIOD + 0.4, priority = 2 })
 					else
 						Juice.live("foundryIgnite", nil)
 					end
@@ -561,18 +561,18 @@ local function FoundryView(props)
 		return h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 },
 			h(Ui.Button, {
 				text = if surgeLeft > 0 then `SURGE {math.ceil(surgeLeft)}s · IGNITE` else (if combo > 0 then `IGNITE · ×{combo}` else "IGNITE"),
-				icon = "Boost", onClick = function() act({ Op = "ignite" }, true) end, color = ACCENT, textColor = Palette.ink, highlight = true,
+				icon = "Boost.12", onClick = function() act({ Op = "ignite" }, true) end, color = ACCENT, textColor = Palette.ink, highlight = true,
 				size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.4, -8, 0, buttonH), position = UDim2.fromOffset(0, 0), reducedMotion = softMotion,
 			}),
 			h(Ui.Button, {
 				text = if #foundry.Bench >= FoundryMath.BENCH_CAP then "BENCH FULL" else `DRAW · {compact(foundry.DrawCost or 0)}`,
-				icon = "Crate", onClick = function() act({ Op = "draw" }) end, color = Palette.panelSoft, disabled = not canDraw or busy,
+				icon = "Crate.1", onClick = function() act({ Op = "draw" }) end, color = Palette.panelSoft, disabled = not canDraw or busy,
 				size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.3, -8, 0, buttonH),
 				position = if stack then UDim2.fromOffset(0, buttonH + 10) else UDim2.new(0.4, 0, 0, 0), reducedMotion = softMotion,
 			}),
 			h(Ui.Button, {
 				text = if foundry.ExpandCost == nil then "FULL SIZE" else `EXPAND · {compact(foundry.ExpandCost)}`,
-				icon = "World", onClick = function() act({ Op = "expand" }) end, color = Palette.panelSoft, disabled = not canExpand or busy,
+				icon = "World.3", onClick = function() act({ Op = "expand" }) end, color = Palette.panelSoft, disabled = not canExpand or busy,
 				size = if stack then UDim2.new(1, 0, 0, buttonH) else UDim2.new(0.3, -8, 0, buttonH),
 				position = if stack then UDim2.fromOffset(0, (buttonH + 10) * 2) else UDim2.new(0.7, 0, 0, 0), reducedMotion = softMotion,
 			}),

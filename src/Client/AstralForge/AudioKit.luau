@@ -1679,6 +1679,10 @@ local function labelEquals(label, ...)
 	return _result
 end
 local function buttonAudioCue(label, icon)
+	-- icons are unique per use (concept.use); the sound follows the concept
+	if type(icon) == "string" then
+		icon = string.match(icon, "^[^.]+")
+	end
 	if labelEquals(label, "FLUX", "REBIRTHS", "PLAYTIME", "DUST", "CORES", "DOMAIN", "WORLDS") then
 		return "leaderboardSwitch"
 	end

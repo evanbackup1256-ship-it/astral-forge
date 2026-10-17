@@ -1438,7 +1438,7 @@ local GameConfig = {
 			RequiredRebirths = 0,
 			Color = Color3.fromRGB(70, 225, 255),
 			Accent = Color3.fromRGB(96, 113, 255),
-			Icon = "Core",
+			Icon = "Core.9",
 		},
 		{
 			Id = "LunarExtractor",
@@ -1456,7 +1456,7 @@ local GameConfig = {
 			PreviousLevel = 5,
 			Color = Color3.fromRGB(175, 119, 255),
 			Accent = Color3.fromRGB(86, 59, 186),
-			Icon = "Dust",
+			Icon = "Dust.14",
 		},
 		{
 			Id = "PrismRefinery",
@@ -1474,7 +1474,7 @@ local GameConfig = {
 			PreviousLevel = 8,
 			Color = Color3.fromRGB(255, 92, 191),
 			Accent = Color3.fromRGB(255, 176, 72),
-			Icon = "Crate",
+			Icon = "Crate.19",
 		},
 		{
 			Id = "SolarReactor",
@@ -1492,7 +1492,7 @@ local GameConfig = {
 			PreviousLevel = 10,
 			Color = Color3.fromRGB(255, 183, 65),
 			Accent = Color3.fromRGB(255, 84, 73),
-			Icon = "Overcharge",
+			Icon = "Overcharge.11",
 		},
 		{
 			Id = "VoidSingularity",
@@ -1510,7 +1510,7 @@ local GameConfig = {
 			PreviousLevel = 15,
 			Color = Color3.fromRGB(110, 81, 255),
 			Accent = Color3.fromRGB(231, 77, 255),
-			Icon = "Anomaly",
+			Icon = "Anomaly.2",
 		},
 		{
 			Id = "ChronoArray",
@@ -1528,7 +1528,7 @@ local GameConfig = {
 			PreviousLevel = 20,
 			Color = Color3.fromRGB(76, 255, 194),
 			Accent = Color3.fromRGB(46, 176, 255),
-			Icon = "Timer",
+			Icon = "Timer.10",
 		},
 		{
 			Id = "HelixColliders",
@@ -1546,7 +1546,7 @@ local GameConfig = {
 			PreviousLevel = 18,
 			Color = Color3.fromRGB(255, 112, 168),
 			Accent = Color3.fromRGB(168, 72, 255),
-			Icon = "Anomaly",
+			Icon = "Anomaly.3",
 		},
 		{
 			Id = "AstralLoom",
@@ -1564,7 +1564,7 @@ local GameConfig = {
 			PreviousLevel = 16,
 			Color = Color3.fromRGB(120, 196, 255),
 			Accent = Color3.fromRGB(72, 130, 255),
-			Icon = "Wave",
+			Icon = "Wave.18",
 		},
 		{
 			Id = "OmegaAnvil",
@@ -1582,7 +1582,7 @@ local GameConfig = {
 			PreviousLevel = 16,
 			Color = Color3.fromRGB(255, 210, 96),
 			Accent = Color3.fromRGB(255, 128, 64),
-			Icon = "Forge",
+			Icon = "Forge.29",
 		},
 		{
 			Id = "OriginPress",
@@ -1600,7 +1600,7 @@ local GameConfig = {
 			PreviousLevel = 14,
 			Color = Color3.fromRGB(255, 88, 196),
 			Accent = Color3.fromRGB(120, 64, 255),
-			Icon = "Domain",
+			Icon = "Domain.7",
 		},
 	},
 
@@ -1616,7 +1616,7 @@ local GameConfig = {
 			RequiredRebirths = 0,
 			RequiredZone = 1,
 			Color = Color3.fromRGB(74, 224, 255),
-			Icon = "Flux",
+			Icon = "Flux.25",
 		},
 		{
 			Id = "Storage",
@@ -1631,7 +1631,7 @@ local GameConfig = {
 			PreviousId = "Efficiency",
 			PreviousLevel = 3,
 			Color = Color3.fromRGB(133, 124, 255),
-			Icon = "Vault",
+			Icon = "Vault.10",
 		},
 		{
 			Id = "Offline",
@@ -1646,7 +1646,7 @@ local GameConfig = {
 			PreviousId = "Storage",
 			PreviousLevel = 3,
 			Color = Color3.fromRGB(255, 109, 200),
-			Icon = "Wave",
+			Icon = "Wave.19",
 		},
 		{
 
@@ -1662,7 +1662,7 @@ local GameConfig = {
 			PreviousId = "Offline",
 			PreviousLevel = 1,
 			Color = Color3.fromRGB(255, 194, 70),
-			Icon = "Overcharge",
+			Icon = "Overcharge.12",
 		},
 		{
 			Id = "Critical",
@@ -1677,7 +1677,7 @@ local GameConfig = {
 			PreviousId = "Overcharge",
 			PreviousLevel = 10,
 			Color = Color3.fromRGB(255, 94, 112),
-			Icon = "Jackpot",
+			Icon = "Jackpot.5",
 		},
 		{
 			Id = "Automation",
@@ -1692,7 +1692,7 @@ local GameConfig = {
 			PreviousId = "Offline",
 			PreviousLevel = 10,
 			Color = Color3.fromRGB(80, 255, 180),
-			Icon = "Grid",
+			Icon = "Grid.2",
 		},
 		{
 			Id = "Insight",
@@ -1707,7 +1707,7 @@ local GameConfig = {
 			PreviousId = "Critical",
 			PreviousLevel = 10,
 			Color = Color3.fromRGB(224, 94, 170),
-			Icon = "Rebirth",
+			Icon = "Rebirth.11",
 		},
 		{
 			Id = "Impact",
@@ -1722,7 +1722,7 @@ local GameConfig = {
 			PreviousId = "Insight",
 			PreviousLevel = 5,
 			Color = Color3.fromRGB(255, 94, 112),
-			Icon = "Jackpot",
+			Icon = "Jackpot.6",
 		},
 	},
 
@@ -4371,100 +4371,7 @@ local GameConfig = {
 		},
 	},
 
-	ForgeEchoes = {
-		ChargeTarget = 100,
-		InventoryLimit = 18,
-		MaxLevel = ENDLESS_LEVEL_CAP,
-		MaxSlots = 3,
-		SlotCaptureRequirements = { 0, 3, 8 },
-		UpgradeBaseDust = 14,
-		UpgradeScale = 1.42,
-		HarmonyBonus = 0.15,
-		ResonancePerDismantleLevel = 4,
-		MaxResonanceQualityBonus = 0.18,
-		Traits = {
-			{
-				Id = "FurnaceMemory",
-				Name = "Furnace Memory",
-				Description = "Raises production.",
-				Affinity = "Industry",
-				EffectKind = "Production",
-				BaseEffect = 0.045,
-				EffectPerLevel = 0.009,
-				Color = Color3.fromRGB(45, 197, 255),
-			},
-			{
-				Id = "DeepReservoir",
-				Name = "Deep Reservoir",
-				Description = "Raises vault capacity.",
-				Affinity = "Industry",
-				EffectKind = "Capacity",
-				BaseEffect = 0.08,
-				EffectPerLevel = 0.014,
-				Color = Color3.fromRGB(111, 92, 255),
-			},
-			{
-				Id = "StrikeGhost",
-				Name = "Strike Ghost",
-				Description = "Makes overcharge taps stronger.",
-				Affinity = "Impulse",
-				EffectKind = "Tap",
-				BaseEffect = 0.07,
-				EffectPerLevel = 0.012,
-				Color = Color3.fromRGB(255, 181, 73),
-			},
-			{
-				Id = "LuckyAfterimage",
-				Name = "Lucky Afterimage",
-				Description = "Raises critical chance.",
-				Affinity = "Impulse",
-				EffectKind = "Critical",
-				BaseEffect = 0.009,
-				EffectPerLevel = 0.0015,
-				Color = Color3.fromRGB(255, 78, 125),
-			},
-			{
-				Id = "ClockworkEcho",
-				Name = "Clockwork Echo",
-				Description = "Speeds up auto-collect.",
-				Affinity = "Craft",
-				EffectKind = "Automation",
-				BaseEffect = 0.018,
-				EffectPerLevel = 0.0025,
-				Color = Color3.fromRGB(82, 224, 164),
-			},
-			{
-				Id = "NightShift",
-				Name = "Night Shift",
-				Description = "Raises offline earnings.",
-				Affinity = "Void",
-				EffectKind = "Offline",
-				BaseEffect = 0.035,
-				EffectPerLevel = 0.006,
-				Color = Color3.fromRGB(203, 105, 255),
-			},
-			{
-				Id = "LatticeRecall",
-				Name = "Lattice Recall",
-				Description = "Raises vault capacity.",
-				Affinity = "Industry",
-				EffectKind = "Capacity",
-				BaseEffect = 0.06,
-				EffectPerLevel = 0.011,
-				Color = Color3.fromRGB(120, 190, 255),
-			},
-			{
-				Id = "SurgeMnemonic",
-				Name = "Surge Mnemonic",
-				Description = "Makes overcharge taps stronger.",
-				Affinity = "Impulse",
-				EffectKind = "Tap",
-				BaseEffect = 0.055,
-				EffectPerLevel = 0.01,
-				Color = Color3.fromRGB(255, 160, 90),
-			},
-		},
-	},
+	-- Forge Echoes' rules and traits live in Shared/EchoMath
 
 	TimedRewards = {
 		{ Minutes = 2, Reward = { CashMinutes = 2, Stardust = 2 } },

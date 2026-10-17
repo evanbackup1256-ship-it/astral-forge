@@ -45,8 +45,8 @@ local artSource = fs.readFile("src/Client/AstralForge/ArtKit.luau")
 local iconStart = assert(artSource:find("local function rewardIconKind(", 1, true))
 local iconEnd = assert(artSource:find("local function prizeShapeFromReward(", iconStart, true))
 local rewardIconKind = luau.load(artSource:sub(iconStart, iconEnd - 1) .. "\nreturn rewardIconKind")()
-for field, expected in { Cores = "Core", Stardust = "Dust", Boost = "Boost", FreeSpins = "Wheel",
-	Keys = "Crate", CashMinutes = "Flux", Signals = "Command", Essence = "EchoForge" } do
+for field, expected in { Cores = "Core.reward", Stardust = "Dust.reward", Boost = "Boost.reward", FreeSpins = "Wheel.reward",
+	Keys = "Crate.reward", CashMinutes = "Flux.reward", Signals = "Command.reward", Essence = "Artifact.reward" } do
 	assert(rewardIconKind({ [field] = 1 }) == expected, "reward art must describe the actual grant")
 end
 local wheelSource = fs.readFile("src/Client/AstralForge/PrizeWheel.luau")

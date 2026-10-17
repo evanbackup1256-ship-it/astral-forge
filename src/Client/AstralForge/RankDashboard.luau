@@ -17,13 +17,13 @@ local UserInputService=game:GetService("UserInputService")
 local GamepadNavigationService=require(script.Parent.CoreKit)("GamepadNavigationService")
 
 local GROUPS={
-	{id="Economy",label="ECONOMY",icon="Flux"},
-	{id="Progression",label="PROGRESSION",icon="Rebirth"},
-	{id="Activity",label="ACTIVITY",icon="Forge"},
-	{id="Collection",label="COLLECTION",icon="Crate"},
-	{id="Social",label="GUILDS",icon="Guild"},
+	{id="Economy",label="ECONOMY",icon="Flux.17"},
+	{id="Progression",label="PROGRESSION",icon="Rebirth.7"},
+	{id="Activity",label="ACTIVITY",icon="Forge.24"},
+	{id="Collection",label="COLLECTION",icon="Crate.16"},
+	{id="Social",label="GUILDS",icon="Guild.2"},
 }
-local GUILD_META={id="Guilds",short="GUILDS",label="Guild Halls",icon="Guild",accent=P.violet,group="Social",description="Guild activity earned by banking and building together."}
+local GUILD_META={id="Guilds",short="GUILDS",label="Guild Halls",icon="Guild.3",accent=P.violet,group="Social",description="Guild activity earned by banking and building together."}
 local PODIUM_ORDER={2,1,3}
 local PODIUM_LIFT={[1]=1,[2]=0.74,[3]=0.56}
 local MEDAL={[1]=Color3.fromRGB(255,196,92),[2]=Color3.fromRGB(196,212,230),[3]=Color3.fromRGB(214,146,98)}
@@ -139,7 +139,7 @@ local function AvatarView(props)
 		Status=status and e(ui.Text,{value=status,size=11,color=P.creamSoft,wrap=true,align=Enum.TextXAlignment.Center,position=UDim2.fromOffset(0,8),sizeConstraint=UDim2.new(1,0,1,-62)}),
 		Turn=e(ui.Button,{
 			text=if status and status~="Loading avatar…" then "RETRY" else "TURN",
-			icon=if status then "Refresh" else "Crew",color=props.accent,outline=true,
+			icon=if status then "Refresh.6" else "Crew.11",color=props.accent,outline=true,
 			size=UDim2.new(1,0,0,48),position=UDim2.new(0,0,1,-48),
 			disabled=status=="Loading avatar…",reducedMotion=props.reducedMotion,
 			onClick=function()
@@ -266,7 +266,7 @@ return function(helpers)
 		local nextRatio=if ahead then share(own,ahead.Value) elseif personalIndex==1 then 1 else share(own,top)
 		local standing=if personalIndex then `#{personalIndex}` else "—"
 		section("rank-standing",narrow and 220 or 190,{
-			Icon=e(Art.Icon,{kind=meta.icon or "Leaderboard",color=meta.accent,accent=meta.accent,size=28,spin=false,position=UDim2.fromOffset(0,2)}),
+			Icon=e(Art.Icon,{kind=meta.icon or "Leaderboard.2",color=meta.accent,accent=meta.accent,size=28,spin=false,position=UDim2.fromOffset(0,2)}),
 			Eyebrow=text(`RANKS · {string.upper(group)} · {if guildBoard then "GUILD HALLS" else string.upper(scope)}`,40,0,1,16,11,meta.accent,{weight=Enum.FontWeight.Bold}),
 			Title=text(meta.label,40,16,1,28,22,P.cream,{weight=Enum.FontWeight.Bold}),
 			About=text(meta.description,0,50,if narrow then 1 else 0.62,34,12,P.creamSoft),
@@ -302,14 +302,14 @@ return function(helpers)
 		-- Scope and refresh.
 		local controls={Status=text(result.status or "Rankings unavailable.",0,0,1,18,11,P.creamSoft)}
 		for index,id in {"Global","Server"} do
-			controls[id]=chip({text=if id=="Global" then "GLOBAL" else "THIS SERVER",icon=if id=="Global" then "World" else "Command",accent=meta.accent,active=scope==id and not guildBoard,
+			controls[id]=chip({text=if id=="Global" then "GLOBAL" else "THIS SERVER",icon=if id=="Global" then "World.10" else "Command.5",accent=meta.accent,active=scope==id and not guildBoard,
 				position=UDim2.new((index-1)/3,2,0,24),size=UDim2.new(1/3,-8,0,48),disabled=guildBoard,reducedMotion=reducedMotion,onClick=function() if not guildBoard then setScope(id) end end})
 		end
 		controls.Refresh=e(ui.Button,{text=if result.loading then "LOADING…" else "REFRESH",position=UDim2.new(2/3,2,0,24),size=UDim2.new(1/3,-8,0,48),disabled=result.loading,reducedMotion=reducedMotion,onClick=function() reload(function(v) return v+1 end) end,color=P.mint})
 		section("rank-controls",110,controls)
 		section("rank-find",154,{
 			Search=e(ui.SearchField,{value=query,onChange=setQuery,placeholder=if guildBoard then "Find a guild or tag" else "Find a player or user ID",accent=meta.accent,reducedMotion=reducedMotion,size=UDim2.new(1,0,0,48)}),
-			Mine=e(ui.Button,{text=if mineOnly then "SHOW EVERYONE" else "MY STANDING",icon="Crew",color=P.mint,outline=not mineOnly,reducedMotion=reducedMotion,position=UDim2.fromOffset(0,60),size=UDim2.new(1,0,0,48),onClick=function() setMineOnly(function(v) return not v end) end}),
+			Mine=e(ui.Button,{text=if mineOnly then "SHOW EVERYONE" else "MY STANDING",icon="Crew.12",color=P.mint,outline=not mineOnly,reducedMotion=reducedMotion,position=UDim2.fromOffset(0,60),size=UDim2.new(1,0,0,48),onClick=function() setMineOnly(function(v) return not v end) end}),
 		})
 
 		if #rows==0 then

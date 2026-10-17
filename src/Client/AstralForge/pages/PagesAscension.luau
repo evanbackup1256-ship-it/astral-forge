@@ -180,7 +180,7 @@ local function SigilCard(props)
 		}),
 		h(Ui.Button, {
 			text = `Upgrade · {compact(sigil.Cost)} Aether`,
-			icon = "StarGrid",
+			icon = "StarGrid.2",
 			color = if sigil.Affordable then color else Palette.panelSoft,
 			textColor = if sigil.Affordable then Palette.ink else Palette.muted,
 			disabled = not sigil.Affordable or props.busy,

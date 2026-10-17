@@ -28,10 +28,10 @@ local unresolved: { Id: string }? = nil
 
 -- how each build looks, and what its trade-off stats are called on screen
 local LOOK: { [string]: { icon: string, accent: Color3, tagline: string } } = {
-	Balanced = { icon = "Forge", accent = Palette.cyan, tagline = "Even rates, no trade-offs" },
-	Handcraft = { icon = "Overcharge", accent = Palette.mango, tagline = "For players who tap" },
-	Reserve = { icon = "Vault", accent = Palette.violet, tagline = "For longer gaps between collects" },
-	NightShift = { icon = "Timer", accent = Palette.blue, tagline = "For time away from the game" },
+	Balanced = { icon = "Forge.19", accent = Palette.cyan, tagline = "Even rates, no trade-offs" },
+	Handcraft = { icon = "Overcharge.6", accent = Palette.mango, tagline = "For players who tap" },
+	Reserve = { icon = "Vault.5", accent = Palette.violet, tagline = "For longer gaps between collects" },
+	NightShift = { icon = "Timer.5", accent = Palette.blue, tagline = "For time away from the game" },
 }
 local STAT_NAME = { Tap = "overcharge", Production = "production", Capacity = "vault size", Offline = "offline earnings" }
 local STATS = {

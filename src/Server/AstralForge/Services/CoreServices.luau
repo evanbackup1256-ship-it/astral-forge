@@ -949,236 +949,249 @@ __defs["ForgeEchoService"] = function()
 
 return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
-	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
+	local EchoMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("EchoMath"))
 
+	-- Forge Echoes on the server: recording play, and one Act for everything the player does
+	-- (Strike, Keep, Reroll, Slot, Tune, Fuse, Lock, Dismantle). The rules are EchoMath's.
 	local ForgeEchoService = {}
-	local Config = GameConfig.ForgeEchoes
-
-	local traitById = {}
-	for _, trait in Config.Traits do
-		traitById[trait.Id] = trait
-	end
-
-	local patternAffinity = ForgeEchoMath.PATTERN_AFFINITY
 
 	local function ensure(profile)
-		profile.ForgeEchoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
+		profile.ForgeEchoes = EchoMath.ensure(profile.ForgeEchoes)
 		return profile.ForgeEchoes
 	end
 
-	local function display(instance, uidOverride: string?)
-		local trait = traitById[instance.TraitId]
-		if not trait then return nil end
-		local level = math.clamp(math.floor(tonumber(instance.Level) or 1), 1, Config.MaxLevel)
-		return {
-			Uid = tostring(uidOverride or instance.Uid or ""),
-			TraitId = trait.Id,
-			Name = trait.Name,
-			Description = trait.Description,
-			Affinity = trait.Affinity,
-			EffectKind = trait.EffectKind,
-			Level = level,
-			Strength = math.clamp(tonumber(instance.Strength) or 1, 0.75, 1.5),
-			EffectValue = ForgeEchoMath.EffectValue(instance, trait, Config.MaxLevel),
-			UpgradeCost = ForgeEchoMath.UpgradeCost(level, Config.MaxLevel, Config.UpgradeBaseDust, Config.UpgradeScale),
-			Color = trait.Color,
-			CapturedAt = math.max(0, math.floor(tonumber(instance.CapturedAt) or 0)),
-			Origin = tostring(instance.Origin or "Collect"),
-		}
+	function ForgeEchoService.Record(profile, track: string, weight: number): boolean
+		if not ProgressionGate.IsFeatureUnlocked(profile, "Echoes") then
+			return false
+		end
+		local bag = ensure(profile)
+		return EchoMath.record(bag, track, weight, Economy.DomainTreeBonus(profile, "EchoCharge")) > 0
 	end
 
-	function ForgeEchoService.Record(profile, patternId: string, weight: number): boolean
-		if not ProgressionGate.IsFeatureUnlocked(profile, "Echoes") then return false end
-		if not patternAffinity[patternId] then return false end
-		local echoes = ensure(profile)
-		if #(echoes.Draft.Choices) > 0 then return false end
-		local safeWeight = math.clamp(tonumber(weight) or 0, 0, 14)
-		if safeWeight <= 0 then return false end
-		echoes.Pattern[patternId] = math.min(1e9, (tonumber(echoes.Pattern[patternId]) or 0) + safeWeight)
-		echoes.Charge = math.min(Config.ChargeTarget, (tonumber(echoes.Charge) or 0) + safeWeight)
-		return true
+	local function keepInJournal(bag, echo)
+		local index = EchoMath.tierIndex(echo.Tier)
+		bag.Journal[echo.Trait] = math.max(tonumber(bag.Journal[echo.Trait]) or 0, index)
 	end
-
-	function ForgeEchoService.Capture(profile, random: Random): (boolean, string, any?)
-		local echoes = ensure(profile)
-		if #(echoes.Draft.Choices) > 0 then return false, "Choose one of the echoes already waiting." end
-		if ForgeEchoMath.InventoryCount(echoes.Inventory) >= Config.InventoryLimit then return false, "Your echo vault is full. Dismantle one first." end
-		if (tonumber(echoes.Charge) or 0) < Config.ChargeTarget then return false, "The forge has not recorded a complete pattern yet." end
-		local origin, affinity = ForgeEchoMath.DominantPattern(echoes.Pattern, patternAffinity)
-		local pool = table.clone(Config.Traits)
-		local selected = {}
-		local used = {}
-		local preferred = {}
-		for _, trait in pool do if trait.Affinity == affinity then table.insert(preferred, trait) end end
-		-- Guard empty preferred list; if no trait matches the dominant affinity, fall back
-		-- to a uniform pick from the full pool so capture never hard-errors.
-		local firstPool = if #preferred > 0 then preferred else pool
-		local first = firstPool[random:NextInteger(1, #firstPool)]
-		if not first then return false, "No echo traits available for capture.", nil end
-		table.insert(selected, first)
-		used[first.Id] = true
-		while #selected < 3 do
-			local candidate = pool[random:NextInteger(1, #pool)]
-			if not used[candidate.Id] then
-				used[candidate.Id] = true
-				table.insert(selected, candidate)
+	local function newId(bag)
+		local id = "E" .. bag.NextId
+		bag.NextId += 1
+		return id
+	end
+	local function unslot(bag, uid)
+		for slot = 1, 4 do
+			if bag.Chord[slot] == uid then
+				bag.Chord[slot] = ""
 			end
 		end
-		local qualityBonus = math.min(
-			Config.MaxResonanceQualityBonus,
-			math.sqrt(math.max(0, tonumber(echoes.Resonance) or 0)) * 0.006
-		)
-		local draftId = string.format("D%d_%d", os.time(), random:NextInteger(1000, 9999))
-		local choices = {}
-		for index, trait in selected do
-			local strength = math.clamp(0.9 + random:NextNumber() * 0.22 + qualityBonus, 0.9, 1.32)
-			choices[index] = {
-				Uid = draftId .. "_" .. tostring(index),
-				TraitId = trait.Id,
-				Level = 1,
-				Strength = strength,
-				CapturedAt = os.time(),
-				Origin = origin,
-			}
-		end
-		echoes.Draft = { Id = draftId, Choices = choices }
-		echoes.Charge = 0
-		echoes.Pattern = { Collect = 0, Surge = 0, Build = 0, Explore = 0 }
-		return true, "Three echoes answered your forge pattern.", { Origin = origin }
 	end
 
-	function ForgeEchoService.Claim(profile, choiceId: any): (boolean, string, any?)
-		if type(choiceId) ~= "string" then return false, "That echo is not part of this capture." end
-		local echoes = ensure(profile)
-		local picked = nil
-		for _, choice in echoes.Draft.Choices do
-			if choice.Uid == choiceId then picked = choice break end
+	-- returns ok, message, extra
+	function ForgeEchoService.Act(profile, payload, random: Random)
+		if not ProgressionGate.IsFeatureUnlocked(profile, "Echoes") then
+			return false, "Echoes open later in the forge."
 		end
-		if not picked or not traitById[picked.TraitId] then return false, "That echo is no longer available." end
-		if ForgeEchoMath.InventoryCount(echoes.Inventory) >= Config.InventoryLimit then return false, "Your echo vault is full." end
-		local uid = "E" .. tostring(math.max(1, math.floor(tonumber(echoes.NextId) or 1)))
-		echoes.NextId = math.max(1, math.floor(tonumber(echoes.NextId) or 1)) + 1
-		picked.Uid = uid
-		echoes.Inventory[uid] = picked
-		echoes.Captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0)) + 1
-		echoes.Draft = { Id = "", Choices = {} }
-		local slots = ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots)
-		for slot = 1, slots do
-			local key = tostring(slot)
-			if not echoes.Equipped[key] or echoes.Equipped[key] == "" then
-				echoes.Equipped[key] = uid
-				break
+		local bag = ensure(profile)
+		local op = type(payload) == "table" and payload.Op or nil
+		local rand = function()
+			return random:NextNumber()
+		end
+		if op == "Strike" then
+			if #bag.Draft.Choices > 0 then
+				return false, "Pick one of the echoes already waiting."
 			end
+			if bag.Charge < EchoMath.CHARGE_TARGET then
+				return false, "The charge isn't full yet."
+			end
+			bag.Draft = { Choices = EchoMath.strike(bag, rand), Rerolled = false }
+			bag.Charge = 0
+			bag.Tracks = { Collect = 0, Surge = 0, Build = 0, Explore = 0 }
+			return true, "Three echoes answered.", { Choices = bag.Draft.Choices }
+		elseif op == "Reroll" then
+			if #bag.Draft.Choices == 0 then
+				return false, "Strike first."
+			end
+			if bag.Draft.Rerolled then
+				return false, "You've already rerolled this strike."
+			end
+			if bag.Resonance < EchoMath.REROLL_RESONANCE then
+				return false, `Rerolling takes {EchoMath.REROLL_RESONANCE} resonance.`
+			end
+			bag.Resonance -= EchoMath.REROLL_RESONANCE
+			bag.Draft = { Choices = EchoMath.strike(bag, rand), Rerolled = true }
+			return true, "Three new echoes.", { Choices = bag.Draft.Choices }
+		elseif op == "Keep" then
+			local choice = bag.Draft.Choices[tonumber(payload.Choice) or 0]
+			if choice == nil then
+				return false, "That echo isn't waiting."
+			end
+			if EchoMath.count(bag.Inventory) >= EchoMath.INVENTORY_LIMIT then
+				return false, "Your echoes are full. Dismantle or fuse one first."
+			end
+			local uid = newId(bag)
+			bag.Inventory[uid] = { Trait = choice.Trait, Tier = choice.Tier, Level = 1, Imprints = choice.Imprints or {}, Locked = false, At = os.time() }
+			bag.Captures += 1
+			bag.Draft = { Choices = {}, Rerolled = false }
+			keepInJournal(bag, bag.Inventory[uid])
+			-- an open slot takes it straight away
+			for slot = 1, EchoMath.slots(bag.Captures) do
+				if bag.Chord[slot] == "" then
+					bag.Chord[slot] = uid
+					break
+				end
+			end
+			return true, "Kept.", { Uid = uid }
+		elseif op == "Slot" then
+			local slot = tonumber(payload.Slot)
+			if slot == nil or slot ~= math.floor(slot) or slot < 1 or slot > EchoMath.slots(bag.Captures) then
+				return false, "That slot isn't open yet."
+			end
+			local uid = payload.Uid
+			if uid == "" or uid == nil then
+				bag.Chord[slot] = ""
+				return true, "Slot cleared."
+			end
+			if type(uid) ~= "string" or bag.Inventory[uid] == nil then
+				return false, "That echo isn't yours."
+			end
+			unslot(bag, uid)
+			bag.Chord[slot] = uid
+			return true, "In the chord."
+		elseif op == "Tune" then
+			local echo = type(payload.Uid) == "string" and bag.Inventory[payload.Uid]
+			if not echo then
+				return false, "That echo isn't yours."
+			end
+			local times = math.clamp(math.floor(tonumber(payload.Times) or 1), 1, 10)
+			local tuned, spent = 0, 0
+			for _ = 1, times do
+				if echo.Level >= EchoMath.MAX_LEVEL then
+					break
+				end
+				local cost = EchoMath.tuneCost(echo.Level)
+				if (tonumber(profile.Stardust) or 0) < cost then
+					break
+				end
+				profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost))
+				echo.Level += 1
+				tuned += 1
+				spent += cost
+			end
+			if tuned == 0 then
+				return false, if echo.Level >= EchoMath.MAX_LEVEL then "Already fully tuned." else `Tuning takes {EchoMath.tuneCost(echo.Level)} Stardust.`
+			end
+			return true, `Tuned to level {echo.Level}.`, { Level = echo.Level, Spent = spent }
+		elseif op == "Fuse" then
+			local a, b = payload.A, payload.B
+			local ea = type(a) == "string" and bag.Inventory[a]
+			local eb = type(b) == "string" and bag.Inventory[b]
+			if not ea or not eb or a == b then
+				return false, "Pick two of your echoes."
+			end
+			if ea.Trait ~= eb.Trait or ea.Tier ~= eb.Tier then
+				return false, "Only two echoes of the same trait and tier fuse."
+			end
+			local nextTier = EchoMath.nextTier(ea.Tier)
+			if nextTier == nil then
+				return false, "Perfect echoes can't go higher."
+			end
+			if ea.Locked or eb.Locked then
+				return false, "Unlock them first."
+			end
+			local trait = EchoMath.trait(ea.Trait)
+			ea.Tier = nextTier
+			ea.Level = math.max(ea.Level, eb.Level)
+			ea.Imprints = EchoMath.rollImprints(trait, nextTier, rand)
+			local wasSlotted = false
+			for slot = 1, 4 do
+				if bag.Chord[slot] == b then
+					wasSlotted = true
+				end
+			end
+			unslot(bag, b)
+			bag.Inventory[b] = nil
+			keepInJournal(bag, ea)
+			return true, `Fused into a {nextTier} echo.`, { Uid = a, Tier = nextTier, FreedSlot = wasSlotted }
+		elseif op == "Lock" then
+			local echo = type(payload.Uid) == "string" and bag.Inventory[payload.Uid]
+			if not echo then
+				return false, "That echo isn't yours."
+			end
+			echo.Locked = not echo.Locked
+			return true, if echo.Locked then "Locked." else "Unlocked."
+		elseif op == "Dismantle" then
+			local uid = payload.Uid
+			local echo = type(uid) == "string" and bag.Inventory[uid]
+			if not echo then
+				return false, "That echo isn't yours."
+			end
+			if echo.Locked then
+				return false, "It's locked."
+			end
+			local gained = EchoMath.dismantleResonance(echo)
+			unslot(bag, uid)
+			bag.Inventory[uid] = nil
+			bag.Resonance += gained
+			return true, `+{gained} resonance.`, { Resonance = gained }
 		end
-		local shown = display(picked)
-		return true, "Captured " .. (shown and shown.Name or "a forge echo") .. ".", { EchoUid = uid }
+		return false, "Unknown echo action."
 	end
 
-	function ForgeEchoService.Equip(profile, uid: any, slot: any): (boolean, string)
-		if type(uid) ~= "string" or type(slot) ~= "number" or slot ~= math.floor(slot) then return false, "Choose a valid echo slot." end
-		local echoes = ensure(profile)
-		if not echoes.Inventory[uid] then return false, "That echo is not in your vault." end
-		if slot < 1 or slot > ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots) then
-			return false, "That echo slot has not stabilized yet."
-		end
-		for key, equippedUid in echoes.Equipped do if equippedUid == uid then echoes.Equipped[key] = "" end end
-		echoes.Equipped[tostring(slot)] = uid
-		return true, "Echo linked to slot " .. tostring(slot) .. "."
-	end
-
-	function ForgeEchoService.UpgradeCost(instance): number
-		return ForgeEchoMath.UpgradeCost(
-			instance and instance.Level,
-			Config.MaxLevel,
-			Config.UpgradeBaseDust,
-			Config.UpgradeScale
-		)
-	end
-
-	function ForgeEchoService.Upgrade(profile, uid: any): (boolean, string, any?)
-		if type(uid) ~= "string" then return false, "Choose an echo to tune." end
-		local echoes = ensure(profile)
-		local instance = echoes.Inventory[uid]
-		if not instance or not traitById[instance.TraitId] then return false, "That echo is not in your vault." end
-		local level = math.clamp(math.floor(tonumber(instance.Level) or 1), 1, Config.MaxLevel)
-		if level >= Config.MaxLevel then return false, "That echo is already perfectly tuned." end
-		local cost = ForgeEchoService.UpgradeCost(instance)
-		if Economy.Lt(profile.Stardust, cost) then return false, "You need more stardust to tune that echo." end
-		profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost))
-		instance.Level = level + 1
-		return true, "Echo tuned to level " .. tostring(instance.Level) .. ".", { Cost = cost, EchoUid = uid }
-	end
-
-	function ForgeEchoService.Dismantle(profile, uid: any): (boolean, string, any?)
-		if type(uid) ~= "string" then return false, "Choose an echo to dismantle." end
-		local echoes = ensure(profile)
-		local instance = echoes.Inventory[uid]
-		if not instance then return false, "That echo is not in your vault." end
-		for key, equippedUid in echoes.Equipped do if equippedUid == uid then echoes.Equipped[key] = "" end end
-		local level = math.max(1, math.floor(tonumber(instance.Level) or 1))
-		local gained = 5 + level * Config.ResonancePerDismantleLevel
-		echoes.Resonance = math.max(0, math.floor(tonumber(echoes.Resonance) or 0)) + gained
-		echoes.Inventory[uid] = nil
-		return true, "Echo returned " .. tostring(gained) .. " resonance.", { Resonance = gained }
-	end
-
+	-- what the screen needs: charge and tracks, the draft, every echo with its effects, the chord
 	function ForgeEchoService.State(profile)
-		local echoes = ensure(profile)
+		local bag = ensure(profile)
+		local slots = EchoMath.slots(bag.Captures)
 		local inventory = {}
-		for uid, instance in echoes.Inventory do
-			local shown = display(instance, uid)
-			if shown then table.insert(inventory, shown) end
+		for uid, echo in bag.Inventory do
+			table.insert(inventory, {
+				Uid = uid, Trait = echo.Trait, Tier = echo.Tier, Level = echo.Level, Imprints = echo.Imprints, Locked = echo.Locked,
+				Effects = EchoMath.effects(echo), TuneCost = EchoMath.tuneCost(echo.Level), Resonance = EchoMath.dismantleResonance(echo),
+			})
 		end
-		table.sort(inventory, function(a, b)
-			if a.Level == b.Level then return a.Uid < b.Uid end
-			return a.Level > b.Level
+		table.sort(inventory, function(x, y)
+			local tx, ty = EchoMath.tierIndex(x.Tier), EchoMath.tierIndex(y.Tier)
+			if tx ~= ty then
+				return tx > ty
+			end
+			if x.Level ~= y.Level then
+				return x.Level > y.Level
+			end
+			return x.Uid < y.Uid
 		end)
-		local choices = {}
-		for index, choice in echoes.Draft.Choices do choices[index] = display(choice) end
-		local slots = ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots)
-		local equipped = {}
-		local affinities = {}
-		local equippedCount = 0
-		for slot = 1, Config.MaxSlots do
-			local uid = echoes.Equipped[tostring(slot)] or ""
-			local shown = uid ~= "" and echoes.Inventory[uid] and display(echoes.Inventory[uid], uid) or nil
-			equipped[slot] = { Slot = slot, Unlocked = slot <= slots, Echo = shown }
-			if shown and slot <= slots then
-				equippedCount += 1
-				affinities[shown.Affinity] = true
+		local chord = {}
+		local chordEchoes = {}
+		for slot = 1, 4 do
+			local uid = bag.Chord[slot] or ""
+			chord[slot] = { Slot = slot, Open = slot <= slots, Uid = uid, NeedsCaptures = EchoMath.SLOT_CAPTURES[slot] }
+			if slot <= slots and uid ~= "" and bag.Inventory[uid] then
+				table.insert(chordEchoes, bag.Inventory[uid])
 			end
 		end
-		local affinityCount = 0
-		for _ in affinities do affinityCount += 1 end
-		local harmony = equippedCount >= 2 and affinityCount == equippedCount
-		local origin, _ = ForgeEchoMath.DominantPattern(echoes.Pattern, patternAffinity)
-		local nextRequirement = slots < Config.MaxSlots and Config.SlotCaptureRequirements[slots + 1] or nil
+		local totals = {}
+		for _, kind in EchoMath.KINDS do
+			totals[kind] = EchoMath.total(bag, kind)
+		end
+		local dominant = EchoMath.dominant(bag.Tracks)
 		return {
-			Charge = math.clamp(tonumber(echoes.Charge) or 0, 0, Config.ChargeTarget),
-			ChargeTarget = Config.ChargeTarget,
-			Ready = (tonumber(echoes.Charge) or 0) >= Config.ChargeTarget,
-			Resonance = math.max(0, math.floor(tonumber(echoes.Resonance) or 0)),
-			Captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0)),
-			InventoryLimit = Config.InventoryLimit,
-			MaxLevel = Config.MaxLevel,
-			SlotsUnlocked = slots,
-			NextSlotAt = nextRequirement,
-			Harmony = harmony,
-			HarmonyBonus = harmony and Config.HarmonyBonus or 0,
-			DominantPattern = origin,
-			Pattern = {
-				Collect = math.max(0, tonumber(echoes.Pattern.Collect) or 0),
-				Surge = math.max(0, tonumber(echoes.Pattern.Surge) or 0),
-				Build = math.max(0, tonumber(echoes.Pattern.Build) or 0),
-				Explore = math.max(0, tonumber(echoes.Pattern.Explore) or 0),
-			},
-			DraftId = tostring(echoes.Draft.Id or ""),
-			Choices = choices,
+			Version = 2,
+			Charge = bag.Charge,
+			ChargeTarget = EchoMath.CHARGE_TARGET,
+			Ready = bag.Charge >= EchoMath.CHARGE_TARGET,
+			Tracks = table.clone(bag.Tracks),
+			Dominant = dominant,
+			Resonance = bag.Resonance,
+			Captures = bag.Captures,
+			Slots = slots,
+			Draft = bag.Draft.Choices,
+			Rerolled = bag.Draft.Rerolled,
 			Inventory = inventory,
-			Equipped = equipped,
+			InventoryLimit = EchoMath.INVENTORY_LIMIT,
+			Chord = chord,
+			Bonuses = EchoMath.chordBonuses(chordEchoes),
+			Totals = totals,
+			Journal = table.clone(bag.Journal),
+			Odds = EchoMath.tierOdds(bag.Resonance),
 		}
 	end
 

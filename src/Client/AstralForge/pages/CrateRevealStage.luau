@@ -1041,7 +1041,7 @@ local function CrateRevealStage(props: any)
 				ZIndex = 455,
 			}, React.createElement(Button, {
 				text = "SKIP TO RESULT",
-				icon = "Chevron",
+				icon = "Chevron.1",
 				onClick = props.onQuickLand,
 				color = Palette.panelSoft,
 				textColor = Palette.creamSoft,
@@ -1069,7 +1069,7 @@ local function CrateRevealStage(props: any)
 				ZIndex = 456,
 			}, React.createElement(Button, {
 				text = props.claimText,
-				icon = "Gift",
+				icon = "Gift.1",
 				onClick = props.onClaim,
 				color = props.sessionAccent,
 				textColor = Palette.ink,

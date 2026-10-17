@@ -12,7 +12,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
-	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
+	local EchoMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("EchoMath"))
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
 	local OreMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OreMath"))
@@ -57,8 +57,7 @@ local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild(
 	local labOrderById = {}
 	local storyById = {}
 	local mailById = {}
-	local echoTraitById = {}
-	for _, item in GameConfig.Machines do
+		for _, item in GameConfig.Machines do
 		machineById[item.Id] = item
 	end
 	for _, item in GameConfig.Research do
@@ -96,9 +95,6 @@ local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild(
 	end
 	for _, message in GameConfig.Mail do
 		mailById[message.Id] = message
-	end
-	for _, trait in GameConfig.ForgeEchoes.Traits do
-		echoTraitById[trait.Id] = trait
 	end
 
 	local function deepCopy(value)
@@ -182,12 +178,7 @@ local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild(
 			0,
 			GameConfig.Continuum.MaxRank
 		)
-		profile.ForgeEchoes = ForgeEchoMath.Sanitize(profile.ForgeEchoes, echoTraitById, {
-			ChargeTarget = GameConfig.ForgeEchoes.ChargeTarget,
-			MaxLevel = GameConfig.ForgeEchoes.MaxLevel,
-			InventoryLimit = GameConfig.ForgeEchoes.InventoryLimit,
-			MaxSlots = GameConfig.ForgeEchoes.MaxSlots,
-		}, nonNegative)
+		profile.ForgeEchoes = EchoMath.ensure(profile.ForgeEchoes)
 		profile.Zone = math.clamp(math.floor(nonNegative(profile.Zone)), 1, GameConfig.MaxZone)
 		profile.CurrentZone = math.clamp(math.floor(nonNegative(profile.CurrentZone)), 1, profile.Zone)
 		DataSanitizeMath.ClampLevelBag(profile.Machines, machineById, nonNegative)

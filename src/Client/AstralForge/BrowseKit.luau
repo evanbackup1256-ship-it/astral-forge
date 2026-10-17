@@ -442,7 +442,7 @@ function Kit.NoResults(props)
 		BackgroundTransparency = 1,
 		LayoutOrder = props.layoutOrder,
 	}, h(ui.EmptyState, {
-		icon = props.icon or "Search",
+		icon = props.icon or "Search.1",
 		title = title,
 		body = body,
 		accent = props.accent,
@@ -456,7 +456,7 @@ function Kit.NoResults(props)
 		BackgroundTransparency = 1,
 	}, h(ui.Button, {
 		text = if browse.searching and browse.matched > 0 then "Show all matches" else "Clear filters",
-		icon = "Search",
+		icon = "Search.2",
 		color = Palette.panelRaised,
 		textColor = Palette.cream,
 		size = UDim2.fromScale(1, 1),

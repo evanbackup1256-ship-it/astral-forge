@@ -32,35 +32,35 @@ function BuffStrip.list(state, config, now)
 	if type(boost) == "table" and type(boost.Id) == "string" and boost.Id ~= "" and (tonumber(boost.EndsAt) or 0) > now then
 		local def = config and config.Boosts and config.Boosts[boost.Id]
 		local mult = def and (tonumber(def.Multiplier) or tonumber(def.ProductionMultiplier))
-		table.insert(list, { key = "boost", icon = "Boost", value = if mult then `x{mult}` else "Boost", endsAt = boost.EndsAt, duration = def and def.Duration, color = P.pink, name = def and def.Name or "Boost" })
+		table.insert(list, { key = "boost", icon = "Boost.1", value = if mult then `x{mult}` else "Boost.2", endsAt = boost.EndsAt, duration = def and def.Duration, color = P.pink, name = def and def.Name or "Boost.3" })
 	end
 	local surge = state.FluxSurge
 	if type(surge) == "table" and surge.Active == true then
-		table.insert(list, { key = "surge", icon = "Flux", value = `x{surge.Multiplier or 2}`, endsAt = surge.EndsAt, duration = surge.DurationSeconds, color = P.cyan, name = "Flux surge" })
+		table.insert(list, { key = "surge", icon = "Flux.2", value = `x{surge.Multiplier or 2}`, endsAt = surge.EndsAt, duration = surge.DurationSeconds, color = P.cyan, name = "Flux surge" })
 	end
 	local level = state.Level
 	local forgeSurge = type(level) == "table" and type(level.Progression) == "table" and level.Progression.Surge or nil
 	if type(forgeSurge) == "table" and (tonumber(forgeSurge.EndsAt) or 0) > now and (tonumber(forgeSurge.Multiplier) or 1) > 1 then
-		table.insert(list, { key = "forgeSurge", icon = "Boost", value = string.format("x%.2f", forgeSurge.Multiplier), endsAt = forgeSurge.EndsAt, duration = forgeSurge.DurationSeconds, color = P.pink, name = "Forge surge" })
+		table.insert(list, { key = "forgeSurge", icon = "Boost.4", value = string.format("x%.2f", forgeSurge.Multiplier), endsAt = forgeSurge.EndsAt, duration = forgeSurge.DurationSeconds, color = P.pink, name = "Forge surge" })
 	end
 	local event = state.ServerEvent
 	if type(event) == "table" and event.Phase == "Live" and type(event.Id) == "string" then
-		table.insert(list, { key = "event", icon = "Calendar", value = "Live", endsAt = event.PhaseEndsAt, color = P.mango, name = (string.gsub(event.Id, "(%l)(%u)", "%1 %2")) })
+		table.insert(list, { key = "event", icon = "Calendar.1", value = "Live", endsAt = event.PhaseEndsAt, color = P.mango, name = (string.gsub(event.Id, "(%l)(%u)", "%1 %2")) })
 	end
 	local ascension = state.Ascension
 	if type(ascension) == "table" and (tonumber(ascension.Rank) or 0) > 0 then
-		table.insert(list, { key = "ascension", icon = "Rebirth", value = `x{format.compactNumber(ascension.Production or 1)}`, color = P.mango, name = "Ascension" })
+		table.insert(list, { key = "ascension", icon = "Rebirth.2", value = `x{format.compactNumber(ascension.Production or 1)}`, color = P.mango, name = "Ascension" })
 	end
 	local continuum = state.Continuum
 	if type(continuum) == "table" and format.asFlux(continuum.ProductionMultiplier or 1) > 1 then
-		table.insert(list, { key = "continuum", icon = "Continuum", value = `x{format.compactNumber(continuum.ProductionMultiplier)}`, color = P.cyan, name = "Continuum" })
+		table.insert(list, { key = "continuum", icon = "Continuum.1", value = `x{format.compactNumber(continuum.ProductionMultiplier)}`, color = P.cyan, name = "Continuum.2" })
 	end
 	if format.asFlux(state.PermanentMultiplier or 1) > 1 then
-		table.insert(list, { key = "rebirth", icon = "Core", value = `x{format.compactNumber(state.PermanentMultiplier)}`, color = P.violet, name = "Rebirths" })
+		table.insert(list, { key = "rebirth", icon = "Core.2", value = `x{format.compactNumber(state.PermanentMultiplier)}`, color = P.violet, name = "Rebirths" })
 	end
 	local guild = state.GuildBonuses
 	if type(guild) == "table" and (tonumber(guild.Production) or 0) > 0 then
-		table.insert(list, { key = "guild", icon = "Crew", value = `+{math.floor((tonumber(guild.Production) or 0) * 100 + 0.5)}%`, color = P.mint, name = "Guild" })
+		table.insert(list, { key = "guild", icon = "Crew.1", value = `+{math.floor((tonumber(guild.Production) or 0) * 100 + 0.5)}%`, color = P.mint, name = "Guild.1" })
 	end
 	return list
 end
@@ -668,7 +668,7 @@ local function Announcement(props)
 		Color = Rainbow.LOOP,
 		Rotation = clock:map(function(t) return Rainbow.spin(t, 1.6) end),
 	})), h(Icon, {
-		kind = info.icon or "Boost",
+		kind = info.icon or "Boost.5",
 		color = P.white,
 		accent = info.color,
 		size = math.floor(iconBox * 0.58),
@@ -759,7 +759,7 @@ local function ComboActivity(props)
 		ZIndex = 63,
 		Rotation = props.clock:map(function(t) return math.sin(t * 9) * (if hot then 10 else 4) end),
 	}, h("uiscale", { Scale = arrive:map(function(t) return 0.6 + easeOutBack(t) * 0.4 end) }), h("uicorner", { CornerRadius = UDim.new(1, 0) }), h(Icon, {
-		kind = "Overcharge",
+		kind = "Overcharge.1",
 		color = P.white,
 		accent = color,
 		size = 20,
@@ -830,7 +830,7 @@ local function LiveActivity(props)
 		ZIndex = 63,
 	}, h("uiscale", { Scale = arrive:map(function(t) return 0.6 + easeOutBack(t) * 0.4 end) }), h("uicorner", { CornerRadius = UDim.new(1, 0) }),
 		h("uistroke", { Color = color, Thickness = 1.5, Transparency = props.clock:map(function(t) return 0.2 + (math.sin(t * 5) + 1) * 0.2 end) }),
-		h(Icon, { kind = live.icon or "Boost", color = P.white, accent = color, size = 18, position = UDim2.fromScale(0.5, 0.5), anchorPoint = Vector2.new(0.5, 0.5), spin = false })),
+		h(Icon, { kind = live.icon or "Boost.6", color = P.white, accent = color, size = 18, position = UDim2.fromScale(0.5, 0.5), anchorPoint = Vector2.new(0.5, 0.5), spin = false })),
 		h("textlabel", {
 			Size = UDim2.new(1, -150, 0, 18),
 			Position = arrive:map(function(t) return UDim2.fromOffset(48 + (1 - t) * 10, 6) end),
@@ -1053,9 +1053,9 @@ function BuffStrip.Island(props)
 				friend = okFriend and friend == true
 				local name = player.DisplayName
 				if arriving then
-					Juice.banner(if friend then `Your friend {name} is here` else `{name} joined`, nil, if friend then P.mint else P.cyan, "Wave", 1.6, "Info", "pill")
+					Juice.banner(if friend then `Your friend {name} is here` else `{name} joined`, nil, if friend then P.mint else P.cyan, "Wave.1", 1.6, "Info", "pill")
 				else
-					Juice.banner(`{name} left`, nil, P.muted, "Wave", 1.3, "Info", "pill")
+					Juice.banner(`{name} left`, nil, P.muted, "Wave.2", 1.3, "Info", "pill")
 				end
 			end)
 		end

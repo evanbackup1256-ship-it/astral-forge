@@ -149,10 +149,12 @@ end
 -- raw-scroll allowlist stays empty — reintroduce entries only with a >40-char justification.
 local RAW_SCROLL_ALLOWLIST = {
 	["src/Client/AstralForge/pages/PagesSocial.luau#GuildView"] = "Guild channel log is a fixed-height inner pane inside one section card; it must scroll and pin to newest independently of the page scaffold.",
+	["src/Client/AstralForge/pages/PagesSocial.luau#TradeView"] = "Trade table talk is a fixed-height log that pins to the newest line, plus one sideways row of quick phrases; both scroll inside their card, not the page.",
 }
 
 local RAW_SCROLL_BUDGET = {
 	["src/Client/AstralForge/pages/PagesSocial.luau#GuildView"] = 1,
+	["src/Client/AstralForge/pages/PagesSocial.luau#TradeView"] = 2,
 }
 
 local function countRawScrollingFrames(src)
@@ -443,7 +445,7 @@ do
 		["src/Client/AstralForge/pages/PagesProgress.luau#LabView"] = 12,
 		["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#StoryView"] = 12,
-		["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = 12,
+		["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = 4,
 		["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = 9,
 		["src/Client/AstralForge/pages/PagesCore.luau#OverviewView"] = 12,
 		["src/Client/AstralForge/UiCore.luau#FeedbackOverlay"] = 12,
@@ -533,8 +535,6 @@ end
 	-- Wave17: ForgePath/Echo/Story FlatList overscan softMotion-gated to 0.
 	local forgeSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView")
 	assert(string.find(forgeSoft, "overscan = if softMotion then 0", 1, true), "ForgePath FlatList must softMotion-gate overscan")
-	local echoSoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView")
-	assert(string.find(echoSoft, "overscan = if softMotion then 0", 1, true), "EchoForge FlatList must softMotion-gate overscan")
 	local storySoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#StoryView")
 	assert(string.find(storySoft, "overscan = if softMotion then 0", 1, true), "Story FlatList must softMotion-gate overscan")
 	-- Wave18: Missions/Mailbox/Guild/Trade/Admin FlatList overscan softMotion-gated.
@@ -598,14 +598,8 @@ do
 	assert(string.find(inv, "EndOverlayFocus", 1, true), "Inventory AutoSalvage sheet must EndOverlayFocus")
 
 	local echo = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView")
-	-- Inventory echo cards pin LINK/UPGRADE/BREAK to the panel floor — clips=true was a footgun.
-	assert(
-		string.find(echo, "LINK SLOT", 1, true) and string.find(echo, "clips = false", 1, true),
-		"EchoForge inventory cards must keep clips = false near LINK SLOT CTAs"
-	)
-	assert(string.find(echo, "GamepadNavigationService.FocusClaim", 1, true), "EchoForge LINK must FocusClaim when actionable")
-	assert(string.find(echo, 'Name = "EchoClaimActions"', 1, true), "EchoForge LINK host must be named EchoClaimActions")
-	assert(string.find(echo, "FlatList", 1, true), "EchoForge vault must FlatList long inventory catalogs")
+	assert(string.find(echo, "GamepadNavigationService.FocusClaim", 1, true), "Echoes Strike must FocusClaim when the charge is full")
+	assert(string.find(echo, 'Name = "EchoClaimActions"', 1, true), "Echoes Strike host must be named EchoClaimActions")
 
 	local research = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
 	assert(string.find(research, "GamepadNavigationService.FocusClaim", 1, true), "Research BUY ALL must FocusClaim when affordable")

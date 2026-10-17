@@ -255,7 +255,7 @@ function Juice.gem(target: string, color: Color3?, icon: string?, count: number?
 			kind = "gem",
 			target = target,
 			color = color or P.violet,
-			icon = icon or "Core",
+			icon = icon or "Core.3",
 			from = origin,
 			scatter = Vector2.new(math.cos(angle) * reach, math.sin(angle) * reach),
 			to = destination,
@@ -470,12 +470,12 @@ end
 -- a short reply to a tap ("No rewards to claim."): a quick pill out of the island
 function Juice.status(text: string, tone: string?)
 	local color = if tone == "error" then P.coral elseif tone == "success" then P.mint elseif tone == "special" then P.mango else P.cream
-	local icon = if tone == "error" then "Close" elseif tone == "success" then "Check" elseif tone == "special" then "Boost" else "Wave"
+	local icon = if tone == "error" then "Close.1" elseif tone == "success" then "Check.2" elseif tone == "special" then "Boost.8" else "Wave.4"
 	Juice.banner(text, nil, color, icon, 1.5, tone, "pill")
 end
 
 -- Live readouts any feature can pin to the island while something is happening:
---   Juice.live("wheel", { title = "SPINNING", value = "…", icon = "Wheel", color = c,
+--   Juice.live("wheel", { title = "SPINNING", value = "…", icon = <its own icon id>, color = c,
 --                         endsAt = os.clock() + 4 (a draining bar) | progress = 0.4, priority = 2 })
 --   Juice.live("wheel", nil)  -- done
 -- The island shows the most important live one whenever no message is playing. Entries expire on
@@ -617,10 +617,10 @@ local function omega()
 end
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
 local CURRENCIES = {
-	{ field = "Cash", target = "FLUX", icon = "Flux", color = P.cyan, unit = "flux" },
-	{ field = "Stardust", target = "DUST", icon = "Dust", color = P.mango, unit = "stardust" },
-	{ field = "Cores", target = "CORES", icon = "Core", color = P.violet, unit = "cores" },
-	{ field = "Vault", target = "VAULT", icon = "Flux", color = P.green, unit = "flux stored", gainOnly = true },
+	{ field = "Cash", target = "FLUX", icon = "Flux.3", color = P.cyan, unit = "flux" },
+	{ field = "Stardust", target = "DUST", icon = "Dust.1", color = P.mango, unit = "stardust" },
+	{ field = "Cores", target = "CORES", icon = "Core.4", color = P.violet, unit = "cores" },
+	{ field = "Vault", target = "VAULT", icon = "Flux.4", color = P.green, unit = "flux stored", gainOnly = true },
 }
 function Juice.celebrateGains(before, after, options: { spend: boolean?, big: boolean?, coins: number?, skipVault: boolean? }?)
 	local O = omega()

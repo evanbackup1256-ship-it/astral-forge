@@ -337,13 +337,13 @@ mark("inventory math salvage filter residuals")
 
 -- DataService / Admin / Progression / RemoteFirewall residuals for release past checks=16.
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual for release")
-assert(string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService ForgeEchoMath residual for release")
+assert(string.find(dataSrc, "EchoMath.ensure", 1, true), "DataService echoes residual for release")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual for release")
 assert(string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true), "DataService DataSanitizeMath residual for release")
 assert(string.find(dataSrc, "DataSanitizeMath.Reconcile", 1, true), "DataService Reconcile residual for release")
 local adminReleaseSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 assert(string.find(adminReleaseSrc, "ProfileBagMath.EnsureFlags", 1, true), "Admin EnsureFlags residual for release")
-assert(string.find(adminReleaseSrc, "ForgeEchoMath.Ensure", 1, true), "Admin ForgeEchoMath residual for release")
+assert(string.find(adminReleaseSrc, "EchoMath.ensure", 1, true), "Admin echoes residual for release")
 assert(string.find(adminReleaseSrc, "AdminGrantMath.PlayerFacingReason", 1, true), "Admin PlayerFacingReason residual for release")
 local progressionReleaseSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.WeeklyValue", 1, true), "Progression WeeklyValue residual for release")
@@ -503,9 +503,9 @@ mark("wave21 clamp quest trade admin story residuals")
 -- ClampLevelBag, Admin relic uid, UtcClock Week, Inventory UpgradeState.
 assert(string.find(firewallMathSrc, "function RemoteFirewallMath.Inspect", 1, true), "RemoteFirewallMath.Inspect missing")
 assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.Inspect", 1, true), "RemoteFirewall Inspect residual for release")
-local forgeEchoRelease = fs.readFile("src/Server/AstralForge/Modules/ForgeEchoMath.luau")
-assert(string.find(forgeEchoRelease, "function ForgeEchoMath.EquippedEffect", 1, true), "ForgeEchoMath.EquippedEffect missing")
-assert(string.find(economyBody, "ForgeEchoMath.EquippedEffect", 1, true), "Economy EquippedEffect residual for release")
+local forgeEchoRelease = fs.readFile("src/Shared/AstralForge/Shared/EchoMath.luau")
+assert(string.find(forgeEchoRelease, "function EchoMath.total", 1, true), "EchoMath.total missing")
+assert(string.find(economyBody, "EchoMath.total(", 1, true), "Economy echo residual for release")
 assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.PermanentMultiplier", 1, true), "EconomyEnvelopeMath.PermanentMultiplier missing")
 assert(string.find(economyBody, "EconomyEnvelopeMath.PermanentMultiplier", 1, true), "Economy PermanentMultiplier residual for release")
 assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampLevelBag", 1, true), "DataSanitizeMath.ClampLevelBag missing")
@@ -519,7 +519,7 @@ assert(string.find(inventoryMathSrc, "function InventoryMath.UpgradeState", 1, t
 assert(string.find(invViewSrc, "InventoryMath.UpgradeState", 1, true), "InventoryView UpgradeState residual for release")
 assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick PrestigeReward still present for wave21 adjacency")
 assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for wave21 adjacency")
-assert(not string.find(forgeEchoRelease, "GetService", 1, true), "ForgeEchoMath must stay pure")
+assert(not string.find(forgeEchoRelease, "GetService", 1, true), "EchoMath must stay pure")
 assert(not string.find(adminGrantRelease, "GetService", 1, true), "AdminGrantMath must stay pure")
 mark("wave21 extract firewall echo envelope residuals")
 
@@ -539,8 +539,8 @@ mark("wave22 lab anomaly domain mail inspect residuals")
 -- Wave22 extract-checks residuals (complement wave22-harden Lab/Anomaly/clips):
 assert(string.find(firewallMathSrc, "function RemoteFirewallMath.IsSessionOnlyPayload", 1, true), "RemoteFirewallMath.IsSessionOnlyPayload missing")
 assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.IsSessionOnlyPayload", 1, true), "RemoteFirewall session residual for release")
-assert(string.find(forgeEchoRelease, "function ForgeEchoMath.Sanitize", 1, true), "ForgeEchoMath.Sanitize missing")
-assert(string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService Sanitize residual for release")
+assert(string.find(forgeEchoRelease, "function EchoMath.ensure", 1, true), "EchoMath.ensure missing")
+assert(string.find(dataSrc, "EchoMath.ensure", 1, true), "DataService echo sanitize residual for release")
 assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampAutoForge", 1, true), "DataSanitizeMath.ClampAutoForge missing")
 assert(string.find(dataSrc, "DataSanitizeMath.ClampAutoForge", 1, true), "DataService ClampAutoForge residual for release")
 assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.ItemEffect", 1, true), "EconomyEnvelopeMath.ItemEffect missing")
@@ -1185,13 +1185,6 @@ do
 end
 local echoWave44 = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView")
 assert(string.find(echoWave44, "local softMotion = ", 1, true), "EchoCharge softMotion residual for release")
-do
-	local soft = 0
-	for _ in string.gmatch(echoWave44, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 14, "Echo softMotion densify residual for release, got " .. tostring(soft))
-end
 assert(string.find(cfg, 'Id = "wave44-offline-brief"', 1, true), "Story wave44 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave44-offline"', 1, true), "Mail wave44 residual for release")
 mark("wave44 unlimitedmoney storymail overview feedback mailbox echo densify content residuals")

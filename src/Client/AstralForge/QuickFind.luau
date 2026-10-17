@@ -69,16 +69,16 @@ local KIND_META = {
 	Action = { label = "Action", group = "ACTIONS", weight = 1.35, accent = "mint" },
 	Page = { label = "Page", group = "PAGES", weight = 1.3, accent = "cyan" },
 	Setting = { label = "Setting", group = "SETTINGS", weight = 1.05, accent = "violet" },
-	Machine = { label = "Machine", group = "MACHINES", weight = 1, accent = "coral", route = "Workshop", icon = "Forge" },
-	Research = { label = "Research", group = "RESEARCH", weight = 1, accent = "cyan", route = "Research", icon = "Research" },
-	Relic = { label = "Relic", group = "RELICS", weight = 0.95, accent = "violet", route = "Inventory", icon = "Inventory" },
-	World = { label = "World", group = "WORLDS", weight = 0.95, accent = "mint", route = "Worlds", icon = "World" },
-	Boost = { label = "Boost", group = "BOOSTS", weight = 0.95, accent = "pink", route = "Boosts", icon = "Boost" },
-	Milestone = { label = "Milestone", group = "MILESTONES", weight = 0.85, accent = "mango", route = "Milestones", icon = "Milestone" },
-	Story = { label = "Story", group = "STORY", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
-	Letter = { label = "Letter", group = "MAIL", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
-	Section = { label = "Shop", group = "SHOP", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop" },
-	Deal = { label = "Black Market", group = "BLACK MARKET", weight = 1.1, accent = "violet", route = "Bazaar", icon = "Shop" },
+	Machine = { label = "Machine", group = "MACHINES", weight = 1, accent = "coral", route = "Workshop", icon = "Forge.23" },
+	Research = { label = "Research", group = "RESEARCH", weight = 1, accent = "cyan", route = "Research", icon = "Research.4" },
+	Relic = { label = "Relic", group = "RELICS", weight = 0.95, accent = "violet", route = "Inventory", icon = "Inventory.7" },
+	World = { label = "World", group = "WORLDS", weight = 0.95, accent = "mint", route = "Worlds", icon = "World.9" },
+	Boost = { label = "Boost", group = "BOOSTS", weight = 0.95, accent = "pink", route = "Boosts", icon = "Boost.18" },
+	Milestone = { label = "Milestone", group = "MILESTONES", weight = 0.85, accent = "mango", route = "Milestones", icon = "Milestone.5" },
+	Story = { label = "Story", group = "STORY", weight = 0.85, accent = "mint", route = "Story", icon = "Story.6" },
+	Letter = { label = "Letter", group = "MAIL", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail.5" },
+	Section = { label = "Shop", group = "SHOP", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop.14" },
+	Deal = { label = "Black Market", group = "BLACK MARKET", weight = 1.1, accent = "violet", route = "Bazaar", icon = "Shop.15" },
 }
 
 local function accentOf(key)
@@ -168,19 +168,19 @@ local function buildStatic()
 		end
 	end
 	for _, section in {
-		{ id = "Daily", title = "Daily shop", body = "Today's rotating offers", words = "deals daily offers rotation", icon = "Calendar" },
-		{ id = "Crates", title = "Crates", body = "Open crates with your keys", words = "keys open loot boxes", icon = "Crate" },
-		{ id = "Skins", title = "Crate skins", body = "Change how your crates look", words = "cosmetics skins looks", icon = "Crate" },
-		{ id = "Codex", title = "Relic codex", body = "Every relic, fusing and stars", words = "collection codex fuse stars relics", icon = "Artifact" },
-		{ id = "Premium", title = "Premium shop", body = "Packs, passes and codes", words = "robux gamepass passes packs codes redeem", icon = "Shop" },
+		{ id = "Daily", title = "Daily shop", body = "Today's rotating offers", words = "deals daily offers rotation", icon = "Calendar.4" },
+		{ id = "Crates", title = "Crates", body = "Open crates with your keys", words = "keys open loot boxes", icon = "Crate.13" },
+		{ id = "Skins", title = "Crate skins", body = "Change how your crates look", words = "cosmetics skins looks", icon = "Crate.14" },
+		{ id = "Codex", title = "Relic codex", body = "Every relic, fusing and stars", words = "collection codex fuse stars relics", icon = "Artifact.8" },
+		{ id = "Premium", title = "Premium shop", body = "Packs, passes and codes", words = "robux gamepass passes packs codes redeem", icon = "Shop.16" },
 	} do
 		add("Section", section.id, section.title, section.body, section.words, section.icon, { route = "Shop", query = "", category = section.id })
 	end
 	for _, deal in {
-		{ id = "Resources", title = "Market resources", body = "Stardust, cores, essence and fragments", words = "materials supplies stock", icon = "Dust" },
-		{ id = "Keys", title = "Market keys", body = "Keys from Forge to Echo", words = "keys crates shipment", icon = "Crate" },
-		{ id = "Boosts", title = "Market boosts", body = "Production cells and upgrades", words = "boosts power overdrive", icon = "Boost" },
-		{ id = "Command", title = "Command supplies", body = "Signals, field notes and streak shields", words = "command experience signals crew", icon = "Mission" },
+		{ id = "Resources", title = "Market resources", body = "Stardust, cores, essence and fragments", words = "materials supplies stock", icon = "Dust.12" },
+		{ id = "Keys", title = "Market keys", body = "Keys from Forge to Echo", words = "keys crates shipment", icon = "Crate.15" },
+		{ id = "Boosts", title = "Market boosts", body = "Production cells and upgrades", words = "boosts power overdrive", icon = "Boost.19" },
+		{ id = "Command", title = "Command supplies", body = "Signals, field notes and streak shields", words = "command experience signals crew", icon = "Mission.8" },
 	} do
 		add("Deal", deal.id, deal.title, deal.body, deal.words, deal.icon, { route = "Bazaar", query = "", category = deal.id })
 	end
@@ -348,7 +348,7 @@ local function Row(props)
 		BackgroundTransparency = 1,
 		ZIndex = 506,
 	}, h(Icon, {
-		kind = if entry.locked then "Lock" else entry.icon,
+		kind = if entry.locked then "Lock.18" else entry.icon,
 		color = if entry.locked then Palette.muted else entry.accent,
 		accent = entry.accent,
 		size = 20,
@@ -908,7 +908,7 @@ function QuickFind.QuickFind(props)
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = 503,
-	}, h(Icon, { kind = "Search", color = Palette.mango, accent = Palette.mango, size = 22, spin = false })), h("textbox", {
+	}, h(Icon, { kind = "Search.9", color = Palette.mango, accent = Palette.mango, size = 22, spin = false })), h("textbox", {
 		ref = boxRef,
 		Size = UDim2.new(1, -(48 + (if touch then 52 else 70) + 80), 1, 0),
 		Position = UDim2.fromOffset(46, 0),

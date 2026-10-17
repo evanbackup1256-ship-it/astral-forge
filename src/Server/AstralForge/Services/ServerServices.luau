@@ -777,8 +777,35 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 				self:_pushTradePartners(session.Host, session.Guest)
 			end
 			return responseSuccess("Confirmation noted.")
+		elseif action == Protocol.Actions.TradeChat then
+			local text = nil
+			if type(payload.Text) == "string" and #payload.Text > 0 then
+				-- free text goes through Roblox's filter for the partner before anyone sees it
+				local raw = string.sub(payload.Text, 1, 140)
+				local okFilter, filtered = pcall(function()
+					local result = game:GetService("TextService"):FilterStringAsync(raw, player.UserId, Enum.TextFilterContext.PrivateChat)
+					return result:GetNonChatStringForBroadcastAsync()
+				end)
+				if not okFilter or type(filtered) ~= "string" then
+					return responseError("That message couldn't be sent.")
+				end
+				text = filtered
+			end
+			local ok, err, session = self._trades:Say(player, text, tonumber(payload.Phrase), now)
+			if not ok then
+				return responseError(err)
+			end
+			self:_pushTradePartners(session.Host, session.Guest)
+			return responseSuccess()
+		elseif action == Protocol.Actions.TradeRequest then
+			local ok, err, session = self._trades:Request(player, payload.Request, now)
+			if not ok then
+				return responseError(err)
+			end
+			self:_pushTradePartners(session.Host, session.Guest)
+			return responseSuccess("Request sent.")
 		elseif action == Protocol.Actions.TradeViewAway then
-			local session = self._trades:SessionFor(player.UserId)
+			local session = self._trades:SetAway(player, payload and payload.Away == true)
 			if not session then
 				return responseSuccess()
 			end
@@ -902,6 +929,11 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		self._chat = ChatService.new(self._effect, self._data)
 		self._crews = CrewService.new(self._effect, self._data)
 		self._trades = TradeDesk.new()
+		-- the trade table shows each side the other's tradeable relics
+		self._trades.ProfileOf = function(userId)
+			local other = Players:GetPlayerByUserId(userId)
+			return other and self._data:Get(other) or nil
+		end
 		self._random = Random.new()
 		self._heartbeat = nil
 		self._playerAddedConnection = nil
@@ -2020,48 +2052,19 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		return result
 	end
 
-	function GameService:_captureEcho(player: Player)
+	-- Forge Echoes: every echo action goes through EchoMath's rules in ForgeEchoService.Act
+	function GameService:_echoAct(player: Player, payload: any)
+		local op = type(payload) == "table" and payload.Op or ""
 		local result = self:_mutate(player, function(profile)
-			local ok, message, payload = ForgeEchoService.Capture(profile, self._random)
-			return ok and responseSuccess(message, payload) or responseError(message)
+			local ok, message, extra = ForgeEchoService.Act(profile, payload, self._random)
+			if not ok then
+				return responseError(message)
+			end
+			return responseSuccess(message, extra)
 		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoCapture" }) end
-		return result
-	end
-
-	function GameService:_claimEcho(player: Player, choiceId: any)
-		local result = self:_mutate(player, function(profile)
-			local ok, message, payload = ForgeEchoService.Claim(profile, choiceId)
-			return ok and responseSuccess(message, payload) or responseError(message)
-		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoClaim", Uid = result.EchoUid }) end
-		return result
-	end
-
-	function GameService:_equipEcho(player: Player, uid: any, slot: any)
-		local result = self:_mutate(player, function(profile)
-			local ok, message = ForgeEchoService.Equip(profile, uid, slot)
-			return ok and responseSuccess(message) or responseError(message)
-		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoEquip" }) end
-		return result
-	end
-
-	function GameService:_upgradeEcho(player: Player, uid: any)
-		local result = self:_mutate(player, function(profile)
-			local ok, message, payload = ForgeEchoService.Upgrade(profile, uid)
-			return ok and responseSuccess(message, payload) or responseError(message)
-		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoUpgrade" }) end
-		return result
-	end
-
-	function GameService:_dismantleEcho(player: Player, uid: any)
-		local result = self:_mutate(player, function(profile)
-			local ok, message, payload = ForgeEchoService.Dismantle(profile, uid)
-			return ok and responseSuccess(message, payload) or responseError(message)
-		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoDismantle" }) end
+		if result.ok then
+			self._effect:FireClient(player, { Type = "EchoAct", Op = op })
+		end
 		return result
 	end
 
@@ -4654,6 +4657,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			or action == Protocol.Actions.ConfirmTrade
 			or action == Protocol.Actions.CancelTrade
 			or action == Protocol.Actions.TradeViewAway
+			or action == Protocol.Actions.TradeChat
+			or action == Protocol.Actions.TradeRequest
 		then
 			return self:_tradeAction(player, action, payload or {})
 		elseif action == Protocol.Actions.CollectVault then
@@ -4672,16 +4677,8 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			return self:_upgradeContinuum(player)
 		elseif action == Protocol.Actions.FoundryAct then
 			return self:_foundryAct(player, payload)
-		elseif action == Protocol.Actions.CaptureEcho then
-			return self:_captureEcho(player)
-		elseif action == Protocol.Actions.ClaimEcho then
-			return self:_claimEcho(player, payload and payload.ChoiceId)
-		elseif action == Protocol.Actions.EquipEcho then
-			return self:_equipEcho(player, payload and payload.Uid, payload and payload.Slot)
-		elseif action == Protocol.Actions.UpgradeEcho then
-			return self:_upgradeEcho(player, payload and payload.Uid)
-		elseif action == Protocol.Actions.DismantleEcho then
-			return self:_dismantleEcho(player, payload and payload.Uid)
+		elseif action == Protocol.Actions.EchoAct then
+			return self:_echoAct(player, payload)
 		elseif action == Protocol.Actions.UnlockZone then
 			return self:_unlockZone(player, payload and payload.Id)
 		elseif action == Protocol.Actions.SelectZone then

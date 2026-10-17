@@ -162,7 +162,7 @@ local ResearchNode = React.memo(function(props)
 		size = UDim2.new(1, 0, 0, TapTarget),
 	}) else React.createElement(Button, {
 		text = buyLabel,
-		icon = if entry.unlocked then "Flux" else "Lock",
+		icon = if entry.unlocked then "Flux.6" else "Lock.2",
 		onClick = function()
 			if not ready then
 				return nil
@@ -184,7 +184,7 @@ local ResearchNode = React.memo(function(props)
 		size = UDim2.fromOffset(130, 32),
 	}) else React.createElement(Button, {
 		text = buyLabel,
-		icon = if entry.unlocked then "Flux" else "Lock",
+		icon = if entry.unlocked then "Flux.7" else "Lock.3",
 		onClick = function()
 			if not ready then
 				return nil
@@ -353,7 +353,7 @@ local function ResearchView(_param)
 					ref = if canBuyAll then buyAllHostRef else nil,
 				}, React.createElement(Button, {
 					text = if batch.busy then batch.status else `BUY BATCH · {batch.count}`,
-					icon = "Flux",
+					icon = "Flux.8",
 					onClick = onBuyAll,
 					color = if canBuyAll then Palette.cyan else Palette.panelSoft,
 					textColor = if canBuyAll then Palette.ink else Palette.muted,
@@ -378,7 +378,7 @@ local function ResearchView(_param)
 					ref = if canBuyAll then buyAllHostRef else nil,
 				}, React.createElement(Button, {
 					text = if batch.busy then "…" else `BUY {batch.count}`,
-					icon = "Flux",
+					icon = "Flux.9",
 					onClick = onBuyAll,
 					color = if canBuyAll then Palette.cyan else Palette.panelSoft,
 					textColor = if canBuyAll then Palette.ink else Palette.muted,
@@ -396,7 +396,7 @@ local function ResearchView(_param)
 			{
 				id = "chain",
 				height = chainH,
-				element = if #visible == 0 then React.createElement(_ui.EmptyState, { title = "No matching research", body = "Try another search or choose All research.", icon = "Research", accent = Palette.cyan, reducedMotion = softMotion, size = UDim2.fromScale(1, 1) }) else React.createElement(VirtualGrid, {
+				element = if #visible == 0 then React.createElement(_ui.EmptyState, { title = "No matching research", body = "Try another search or choose All research.", icon = "Research.2", accent = Palette.cyan, reducedMotion = softMotion, size = UDim2.fromScale(1, 1) }) else React.createElement(VirtualGrid, {
 					scrollRef = scrollRef,
 					count = chainCount,
 					columns = 1,
@@ -570,7 +570,7 @@ local function OrderRow(_param)
 		shimmer = ready or state.Claimed,
 	}), if stack then React.createElement(Button, {
 		text = if state.Claimed then "COLLECTED" elseif ready then "COLLECT" else "NOT YET",
-		icon = "Gift",
+		icon = "Gift.5",
 		onClick = fireClaim,
 		color = if ready then config.Color else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
@@ -581,7 +581,7 @@ local function OrderRow(_param)
 		highlight = ready,
 	}) else React.createElement(Button, {
 		text = if state.Claimed then "COLLECTED" elseif ready then "COLLECT" else "NOT YET",
-		icon = "Gift",
+		icon = "Gift.6",
 		onClick = fireClaim,
 		color = if ready then config.Color else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
@@ -916,7 +916,7 @@ local function LabViewReady(_param)
 			ref = labClaimHostRef,
 		}, React.createElement(Button, {
 			text = `CLAIM ALL · {readyOrders}`,
-			icon = "Gift",
+			icon = "Gift.7",
 			onClick = claimAllOrders,
 			color = Palette.mint,
 			textColor = Palette.ink,
@@ -981,7 +981,7 @@ local function LabViewReady(_param)
 	local orderStride = orderH + ORDER_GAP
 	local virtOrders = #_exp_5 >= 6
 	local ordersBlock = if #lab.Orders == 0 then React.createElement(EmptyState, {
-		icon = "Lab",
+		icon = "Lab.4",
 		title = "No orders yet",
 		body = (guide and guide.EmptyOrders) or "Orders refresh at the lab reset clock.",
 		accent = Palette.mint,
@@ -989,7 +989,7 @@ local function LabViewReady(_param)
 	}) elseif #_exp_5 == 0 then React.createElement(require(script.Parent.Parent.BrowseKit).NoResults, {
 		browse = orderBrowse,
 		noun = "orders",
-		icon = "Lab",
+		icon = "Lab.5",
 		accent = Palette.mint,
 		reducedMotion = softMotion,
 		compact = true,
@@ -1367,7 +1367,7 @@ local function MachineRow(_param)
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.1), NumberSequenceKeypoint.new(1, 1) }),
 	})))), if not ready and unlocked and not maxed then React.createElement(Button, {
 		text = buyLabel,
-		icon = "Flux",
+		icon = "Flux.10",
 		onClick = onBuy,
 		color = Palette.panelSoft,
 		textColor = Palette.creamSoft,
@@ -1378,7 +1378,7 @@ local function MachineRow(_param)
 		highlight = false,
 	}) else React.createElement(Button, {
 		text = buyLabel,
-		icon = if unlocked then "Flux" else "Lock",
+		icon = if unlocked then "Flux.11" else "Lock.4",
 		onClick = onBuy,
 		color = if ready then machine.Color else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
@@ -1617,7 +1617,7 @@ local function UpgradeBoard(_param)
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
 		text = if batch.busy then batch.status elseif batch.count > 0 then `Buy batch · {batch.count}` else "Nothing to buy yet",
-		icon = "Flux",
+		icon = "Flux.12",
 		onClick = function()
 			local _result_3 = onBuyAll
 			if _result_3 ~= nil then
@@ -1686,7 +1686,7 @@ local function UpgradeBoard(_param)
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
 		text = if batch.busy then batch.status elseif batch.count > 0 then `Buy batch · {batch.count}` else "Nothing to buy",
-		icon = "Flux",
+		icon = "Flux.13",
 		onClick = function()
 			local _result_3 = onBuyAll
 			if _result_3 ~= nil then
@@ -1736,14 +1736,14 @@ local function UpgradeBoard(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(EmptyState, {
-		icon = "Forge",
+		icon = "Forge.9",
 		title = if needle ~= "" or filter ~= "All" then "Nothing matches" elseif filter == "Affordable" then "Can't afford a machine yet" else "No machines to show",
 		body = if needle ~= "" then "Clear the search to see the machines again." elseif filter == "Affordable" then "Collect Flux on Overview, then come back to buy the next machine." elseif filter ~= "All" then "Switch the filter back to Near unlocks." else "Buy a machine to start earning Flux into your vault.",
 		accent = accent,
 		size = UDim2.fromScale(1, 1),
 	}), filter == "Affordable" and affordableCount == 0 and React.createElement(Button, {
 		text = "Show next machines",
-		icon = "Forge",
+		icon = "Forge.10",
 		onClick = function()
 			setFilter("All")
 		end,
@@ -2180,7 +2180,7 @@ local function AutoForgePanel(_param)
 		ZIndex = 26,
 	}, React.createElement(Button, {
 		text = if queue.Enabled then "PAUSE QUEUE" else "START QUEUE",
-		icon = if queue.Enabled then "Pause" else "Play",
+		icon = if queue.Enabled then "Pause.1" else "Play.1",
 		onClick = function()
 			return apply(not queue.Enabled)
 		end,
@@ -2370,11 +2370,11 @@ local function effectLabel(step)
 end
 local function rewardChips(reward, accent)
 	local chips = {}
-	if (reward.Cash or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Cash)} flux`, icon = "Flux" }) end
-	if (reward.Stardust or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Stardust)} dust`, icon = "Dust" }) end
-	if (reward.Cores or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Cores)} cores`, icon = "Core" }) end
-	if (reward.Essence or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Essence)} essence`, icon = "StarGrid" }) end
-	if reward.Boost ~= nil then table.insert(chips, { label = reward.Boost, icon = "Boost" }) end
+	if (reward.Cash or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Cash)} flux`, icon = "Flux.14" }) end
+	if (reward.Stardust or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Stardust)} dust`, icon = "Dust.2" }) end
+	if (reward.Cores or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Cores)} cores`, icon = "Core.5" }) end
+	if (reward.Essence or 0) > 0 then table.insert(chips, { label = `{compactNumber(reward.Essence)} essence`, icon = "StarGrid.4" }) end
+	if reward.Boost ~= nil then table.insert(chips, { label = reward.Boost, icon = "Boost.13" }) end
 	local nodes = table.create(#chips)
 	for index, chip in chips do
 		nodes[index] = React.createElement("frame", {
@@ -2423,9 +2423,9 @@ local function ForgePathRow(_param)
 	React.createElement(Meter, { value = if claimed then 1 else progressFrac, color = accent, reducedMotion = reducedMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 98 else 104), size = UDim2.new(1, if stack then 0 else -200, 0, 8) }),
 	React.createElement(Text, { value = statusText, size = 10, color = if ready then step.Color else Palette.muted, weight = Enum.FontWeight.Bold, fit = false, position = UDim2.fromOffset(0, if stack then 112 else 118), sizeConstraint = UDim2.new(1, if stack then 0 else -200, 0, 16) }),
 	if stack then (if claimed then React.createElement(Badge, { value = "CLAIMED", accent = Palette.muted, filled = true, size = UDim2.new(1, 0, 0, TapTarget), position = UDim2.new(0, 0, 1, -TapTarget) })
-		else React.createElement(Button, { text = if ready then "CLAIM STEP" elseif locked then "LOCKED" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.new(1, 0, 0, TapTarget), position = UDim2.new(0, 0, 1, -TapTarget), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
+		else React.createElement(Button, { text = if ready then "CLAIM STEP" elseif locked then "LOCKED" else "NEED XP", icon = "Check.4", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.new(1, 0, 0, TapTarget), position = UDim2.new(0, 0, 1, -TapTarget), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
 	else (if claimed then React.createElement(Badge, { value = "CLAIMED", accent = Palette.muted, filled = true, position = UDim2.new(1, -150, 0, 26), size = UDim2.fromOffset(140, 32) })
-		else React.createElement(Button, { text = if ready then "CLAIM" elseif locked then "LOCKED" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromOffset(140, 32), position = UDim2.new(1, -150, 0, 26), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))))
+		else React.createElement(Button, { text = if ready then "CLAIM" elseif locked then "LOCKED" else "NEED XP", icon = "Check.5", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromOffset(140, 32), position = UDim2.new(1, -150, 0, 26), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))))
 end
 local function SpotlightPanel(_param)
 	local step, xp, ready, complete, guide = _param.step, _param.xp, _param.ready, _param.complete, _param.guide
@@ -2452,11 +2452,11 @@ local function SpotlightPanel(_param)
 	end, { ready, complete, if step ~= nil then step.Step else 0 })
 	if complete then
 		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mint, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
-			React.createElement(EmptyState, { icon = "Check", title = "Forge Path complete", body = (guide and guide.Complete) or "Path cleared. Permanent bonuses stay through rebirth.", accent = Palette.mint, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
+			React.createElement(EmptyState, { icon = "Check.6", title = "Forge Path complete", body = (guide and guide.Complete) or "Path cleared. Permanent bonuses stay through rebirth.", accent = Palette.mint, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
 	end
 	if step == nil then
 		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
-			React.createElement(EmptyState, { icon = "Forge", title = "Forge Path isn't ready", body = "Check back in a moment.", accent = Palette.violet, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
+			React.createElement(EmptyState, { icon = "Forge.11", title = "Forge Path isn't ready", body = "Check back in a moment.", accent = Palette.violet, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
 	end
 	local progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1)
 	local needXp = not ready and xp < step.XPCost
@@ -2469,9 +2469,9 @@ local function SpotlightPanel(_param)
 	React.createElement(Meter, { value = progressFrac, color = if ready then step.Color else Palette.violet, reducedMotion = reducedMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 96 else 92), size = UDim2.new(1, if stack then 0 else -180, 0, 8) }),
 	React.createElement(Text, { value = `{compactNumber(math.min(xp, step.XPCost))} / {compactNumber(step.XPCost)} XP`, size = 10, color = Palette.muted, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(0, if stack then 110 else 106), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 16) }),
 	if stack then React.createElement("frame", { Name = "ForgePathClaimActions", Size = UDim2.new(1, 0, 0, TapTarget), Position = UDim2.new(0, 0, 1, -TapTarget), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false, ref = claimHostRef },
-		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED MORE XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
+		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED MORE XP", icon = "Check.7", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
 	else React.createElement("frame", { Name = "ForgePathClaimActions", Size = UDim2.fromOffset(160, TapTarget), Position = UDim2.new(1, -160, 0.5, -TapTarget / 2), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false, ref = claimHostRef },
-		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready })))
+		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED XP", icon = "Check.8", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready })))
 end
 local function ForgePathViewComponent(_param)
 	local state, config, dispatch, reducedMotion = _param.state, _param.config, _param.dispatch, _param.reducedMotion
@@ -2527,12 +2527,12 @@ local function ForgePathViewComponent(_param)
 	local stepsElement = if totalCount > 0 and #browse.results == 0 then React.createElement(Browse.NoResults, {
 		browse = browse,
 		noun = "steps",
-		icon = "Forge",
+		icon = "Forge.12",
 		accent = Palette.violet,
 		reducedMotion = softMotion,
 		size = UDim2.fromScale(1, 1),
 	}) elseif totalCount == 0 then React.createElement(EmptyState, {
-		icon = "Forge",
+		icon = "Forge.13",
 		title = "Forge Path isn't ready",
 		body = "Check back in a moment.",
 		accent = Palette.violet,
@@ -2812,7 +2812,7 @@ local function ConvergenceViewReady(_param)
 			ref = if tier.Tier == firstClaimTier then claimHostRef else nil,
 		}, React.createElement(Button, {
 			text = if tier.Claimed then "CLAIMED" elseif tier.CanClaim then "CLAIM" else "LOCKED",
-			icon = if tier.Claimed then "Check" else "Gift",
+			icon = if tier.Claimed then "Check.9" else "Gift.8",
 			onClick = function()
 				if tier.CanClaim then
 					dispatch("ClaimConvergenceReward", {
@@ -3205,7 +3205,7 @@ local function IdleBay(props)
 		ref = props.activateHostRef,
 	}, h(Button, {
 		text = `FIRE {string.upper(pick.boost.Name)}`,
-		icon = "Boost",
+		icon = "Boost.14",
 		onClick = function()
 			Audio:play("boostActivate")
 			props.dispatch("ActivateBoost", { Id = pick.boost.Id })
@@ -3337,7 +3337,7 @@ local function BoostCard(props)
 		ref = if ready and props.focus then props.activateHostRef else nil,
 	}, h(Button, {
 		text = if owned <= 0 then "NONE STORED" elseif props.canActivate then "ACTIVATE" else props.busyText,
-		icon = if ready then "Boost" else "Lock",
+		icon = if ready then "Boost.15" else "Lock.5",
 		onClick = function()
 			Audio:play("boostActivate")
 			props.dispatch("ActivateBoost", { Id = boost.Id })
@@ -3484,7 +3484,7 @@ local function BoostsView(_param)
 	local grid = if #boosts == 0 then h(Browse.NoResults, {
 		browse = browse,
 		noun = "boosts",
-		icon = "Boost",
+		icon = "Boost.16",
 		filteredTitle = if filter == "Owned" then "Nothing stored" else nil,
 		filteredBody = if filter == "Owned" then "Win boosts from the prize wheel and daily rewards." else nil,
 		accent = Palette.cyan,
@@ -3748,7 +3748,7 @@ local function WorldRow(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	})), React.createElement(Button, {
 		text = cta,
-		icon = "World",
+		icon = "World.4",
 		onClick = onSelect,
 		color = btnColor,
 		textColor = btnText,
@@ -3966,7 +3966,7 @@ local function WorldsView(_param)
 			key = "none",
 			browse = browse,
 			noun = "worlds",
-			icon = "World",
+			icon = "World.5",
 			accent = Palette.mint,
 			reducedMotion = softMotion,
 			size = UDim2.new(1, 0, 0, rowHeight),
@@ -4046,7 +4046,7 @@ local function WorldsView(_param)
 		size = UDim2.fromOffset(118, 28),
 	}), React.createElement(Button, {
 		text = "FIND CURRENT",
-		icon = "Search",
+		icon = "Search.3",
 		onClick = function()
 			browse.reset()
 			browse.setSort("Order")
@@ -4059,7 +4059,7 @@ local function WorldsView(_param)
 		reducedMotion = softMotion,
 	})), stack and React.createElement(Button, {
 		text = "FIND CURRENT",
-		icon = "Search",
+		icon = "Search.4",
 		onClick = function()
 			browse.reset()
 			browse.setSort("Order")
@@ -4096,7 +4096,7 @@ local function WorldsView(_param)
 				BorderSizePixel = 0,
 			}, React.createElement(Button, {
 				text = moreLabel,
-				icon = "Chevron",
+				icon = "Chevron.2",
 				onClick = showMore,
 				color = Palette.panelSoft,
 				textColor = Palette.cream,

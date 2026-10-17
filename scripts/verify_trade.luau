@@ -247,7 +247,20 @@ do
 	assert(string.find(view, "GamepadNavigationService.FocusClaim", 1, true), "session actions must FocusClaim")
 	assert(string.find(view, "GamepadNavigationService.BeginOverlayFocus", 1, true), "session actions must BeginOverlayFocus")
 	assert(string.find(view, "GamepadNavigationService.EndOverlayFocus", 1, true), "session actions must EndOverlayFocus on exit")
-	assert(not string.find(view, 'createElement("scrollingframe"', 1, true), "TradeView must have zero raw scrollingframes")
+	do
+		-- only table talk scrolls on its own: the log (pinned to the newest line) and the phrase row
+		local chatStart = assert(string.find(view, "local function TradeChatStream(", 1, true))
+		local chatEnd = assert(string.find(view, "local function TradeAsks(", chatStart, true))
+		local outside, inside = 0, 0
+		local at = 1
+		while true do
+			local hit = string.find(view, 'createElement("scrollingframe"', at, true)
+			if not hit then break end
+			if hit > chatStart and hit < chatEnd then inside += 1 else outside += 1 end
+			at = hit + 1
+		end
+		assert(outside == 0 and inside <= 2, "TradeView scrolls only inside table talk")
+	end
 	assert(string.find(view, "FlatList", 1, true), "Trade roster must FlatList long catalogs")
 	assert(
 		string.find(view, 'Position = UDim2.new(0, 0, 1, -actionH)', 1, true),

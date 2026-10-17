@@ -357,7 +357,7 @@ local function CheckGlyph(props)
 		BackgroundTransparency = 1,
 		ZIndex = 9,
 	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement(BrandArt.Icon, {
-		kind = "Check",
+		kind = "Check.1",
 		color = props.color,
 		size = 12,
 		spin = false,

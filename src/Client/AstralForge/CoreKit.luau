@@ -1180,11 +1180,9 @@ local GRANT_ACTIONS = {
 	["FoundryAct"] = true,
 	["Ascend"] = true,
 	["UpgradeSigil"] = true,
-	["CaptureEcho"] = true,
-	["ClaimEcho"] = true,
-	["EquipEcho"] = true,
-	["UpgradeEcho"] = true,
-	["DismantleEcho"] = true,
+	["EchoAct"] = true,
+	["TradeChat"] = true,
+	["TradeRequest"] = true,
 	["ClaimQuest"] = true,
 	["ClaimAchievement"] = true,
 	["ClaimDaily"] = true,
@@ -1466,17 +1464,17 @@ end
 __defs["types"] = function()
 
 local FORGE_PATH_EFFECT_DISPLAY = {
-	Production = { label = "Output", unit = "%", noun = "production", icon = "Forge", color = Color3.fromRGB(242, 96, 112) },
-	TapPower = { label = "Strike", unit = "%", noun = "tap power", icon = "Overcharge", color = Color3.fromRGB(241, 177, 65) },
-	Capacity = { label = "Reserve", unit = "%", noun = "vault capacity", icon = "Vault", color = Color3.fromRGB(145, 112, 238) },
-	CriticalChance = { label = "Precision", unit = "%", noun = "critical chance", icon = "Jackpot", color = Color3.fromRGB(90, 205, 232) },
-	AutoCollect = { label = "Auto", unit = "%", noun = "auto-collect rate", icon = "Vault", color = Color3.fromRGB(145, 112, 238) },
-	Offline = { label = "Idle", unit = "%", noun = "offline income", icon = "Timer", color = Color3.fromRGB(90, 205, 232) },
-	CriticalMultiplier = { label = "Impact", unit = "%", noun = "critical multiplier", icon = "Jackpot", color = Color3.fromRGB(241, 177, 65) },
-	RebirthMultiplier = { label = "Cycle", unit = "%", noun = "rebirth multiplier", icon = "Rebirth", color = Color3.fromRGB(224, 94, 170) },
+	Production = { label = "Output", unit = "%", noun = "production", icon = "Forge.1", color = Color3.fromRGB(242, 96, 112) },
+	TapPower = { label = "Strike", unit = "%", noun = "tap power", icon = "Overcharge.2", color = Color3.fromRGB(241, 177, 65) },
+	Capacity = { label = "Reserve", unit = "%", noun = "vault capacity", icon = "Vault.2", color = Color3.fromRGB(145, 112, 238) },
+	CriticalChance = { label = "Precision", unit = "%", noun = "critical chance", icon = "Jackpot.1", color = Color3.fromRGB(90, 205, 232) },
+	AutoCollect = { label = "Auto", unit = "%", noun = "auto-collect rate", icon = "Vault.3", color = Color3.fromRGB(145, 112, 238) },
+	Offline = { label = "Idle", unit = "%", noun = "offline income", icon = "Timer.1", color = Color3.fromRGB(90, 205, 232) },
+	CriticalMultiplier = { label = "Impact", unit = "%", noun = "critical multiplier", icon = "Jackpot.2", color = Color3.fromRGB(241, 177, 65) },
+	RebirthMultiplier = { label = "Cycle", unit = "%", noun = "rebirth multiplier", icon = "Rebirth.3", color = Color3.fromRGB(224, 94, 170) },
 }
 
-local FALLBACK_DISPLAY = { label = "Bonus", unit = "%", noun = "bonus", icon = "Forge", color = Color3.fromRGB(145, 112, 238) }
+local FALLBACK_DISPLAY = { label = "Bonus", unit = "%", noun = "bonus", icon = "Forge.2", color = Color3.fromRGB(145, 112, 238) }
 
 local function forgePathEffectDisplay(effectKind)
 	return FORGE_PATH_EFFECT_DISPLAY[effectKind] or FALLBACK_DISPLAY
@@ -1899,11 +1897,7 @@ NetworkPolicy.ACTION_COOLDOWNS = {
 	FuseRelics = 0.4,
 	UpgradeContinuum = 0.4,
 	FoundryAct = 0.06,
-	CaptureEcho = 1.2,
-	ClaimEcho = 0.48,
-	EquipEcho = 0.24,
-	UpgradeEcho = 0.3,
-	DismantleEcho = 0.6,
+	EchoAct = 0.15,
 	SetAutoForge = 0.28,
 	SetItemAutoSalvage = 0.2,
 	BulkSalvageItems = 0.35,
@@ -3250,7 +3244,7 @@ local function banChoices(banned)
 		local _arg0 = {
 			id = tostring(entry.UserId),
 			label = `{entry.Name}  ·  {entry.Scope} {window}`,
-			icon = "Lock",
+			icon = "Lock.1",
 		}
 		table.insert(choices, _arg0)
 	end
@@ -4329,39 +4323,39 @@ type RouteDef = {
 }
 
 local PRIMARY_ROUTES: { RouteDef } = {
-	{ id = "Overview", label = "Overview", eyebrow = "Your vault", icon = "Overview", accentKey = "green" },
-	{ id = "Workshop", label = "Workshop", eyebrow = "Buy machines", icon = "Forge", accentKey = "coral" },
-	{ id = "Inventory", label = "Inventory", eyebrow = "Relics", icon = "Inventory", accentKey = "violet" },
-	{ id = "Research", label = "Research", eyebrow = "Permanent bonuses", icon = "Research", accentKey = "cyan" },
-	{ id = "Shop", label = "Shop", eyebrow = "Packs", icon = "Shop", accentKey = "mango" },
-	{ id = "Settings", label = "Settings", eyebrow = "Options", icon = "Settings", accentKey = "violet" },
+	{ id = "Overview", label = "Overview", eyebrow = "Your vault", icon = "Overview.1", accentKey = "green" },
+	{ id = "Workshop", label = "Workshop", eyebrow = "Buy machines", icon = "Forge.3", accentKey = "coral" },
+	{ id = "Inventory", label = "Inventory", eyebrow = "Relics", icon = "Inventory.1", accentKey = "violet" },
+	{ id = "Research", label = "Research", eyebrow = "Permanent bonuses", icon = "Research.1", accentKey = "cyan" },
+	{ id = "Shop", label = "Shop", eyebrow = "Packs", icon = "Shop.1", accentKey = "mango" },
+	{ id = "Settings", label = "Settings", eyebrow = "Options", icon = "Settings.1", accentKey = "violet" },
 }
 
 local MORE_ROUTES: { RouteDef } = {
-	{ id = "Missions", label = "Missions", eyebrow = "Jobs", icon = "Mission", accentKey = "cyan" },
-	{ id = "Rewards", label = "Rewards", eyebrow = "Dailies", icon = "Rewards", accentKey = "pink" },
-	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel", accentKey = "mango" },
-	{ id = "Bazaar", label = "Black Market", eyebrow = "Stock and supplies", icon = "Shop", accentKey = "violet" },
-	{ id = "Boosts", label = "Boosts", eyebrow = "Power up", icon = "Boost", accentKey = "pink" },
-	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
-	{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab", accentKey = "mint" },
-	{ id = "StarGrid", label = "Specializations", eyebrow = "Forge builds", icon = "Forge", accentKey = "mango" },
-	{ id = "Ascension", label = "Ascension", eyebrow = "Final rebirth", icon = "Rebirth", accentKey = "mango" },
-	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
-	{ id = "Continuum", label = "Star Foundry", eyebrow = "Board", icon = "StarGrid", accentKey = "mango" },
-	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
-	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
-	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story", accentKey = "mint" },
-	{ id = "Command", label = "Command", eyebrow = "Expeditions", icon = "Command", accentKey = "cyan" },
-	{ id = "Convergence", label = "Converge", eyebrow = "Co-op", icon = "Domain", accentKey = "mango" },
-	{ id = "Guild", label = "Guild", eyebrow = "Hall", icon = "Crew", accentKey = "violet" },
-	{ id = "Crew", label = "Crew", eyebrow = "Online", icon = "Crew", accentKey = "blue" },
-	{ id = "Chat", label = "Chat", eyebrow = "Talk", icon = "Chat", accentKey = "mint" },
-	{ id = "Mail", label = "Mail", eyebrow = "Inbox", icon = "Mail", accentKey = "cyan" },
-	{ id = "Trade", label = "Trade", eyebrow = "Swap", icon = "Send", accentKey = "mint" },
-	{ id = "Leaderboards", label = "Ranks", eyebrow = "Top 25", icon = "Leaderboard", accentKey = "cyan" },
-	{ id = "Credits", label = "Credits", eyebrow = "About", icon = "Credits", accentKey = "violet" },
-	{ id = "Admin", label = "Admin", eyebrow = "Owner", icon = "Admin", accentKey = "coral" },
+	{ id = "Missions", label = "Missions", eyebrow = "Jobs", icon = "Mission.1", accentKey = "cyan" },
+	{ id = "Rewards", label = "Rewards", eyebrow = "Dailies", icon = "Rewards.1", accentKey = "pink" },
+	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel.1", accentKey = "mango" },
+	{ id = "Bazaar", label = "Black Market", eyebrow = "Stock and supplies", icon = "Shop.2", accentKey = "violet" },
+	{ id = "Boosts", label = "Boosts", eyebrow = "Power up", icon = "Boost.7", accentKey = "pink" },
+	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World.2", accentKey = "mint" },
+	{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab.2", accentKey = "mint" },
+	{ id = "StarGrid", label = "Specializations", eyebrow = "Forge builds", icon = "Forge.4", accentKey = "mango" },
+	{ id = "Ascension", label = "Ascension", eyebrow = "Final rebirth", icon = "Rebirth.4", accentKey = "mango" },
+	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave.3", accentKey = "cyan" },
+	{ id = "Continuum", label = "Star Foundry", eyebrow = "Board", icon = "StarGrid.1", accentKey = "mango" },
+	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge.5", accentKey = "violet" },
+	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone.1", accentKey = "mango" },
+	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story.1", accentKey = "mint" },
+	{ id = "Command", label = "Command", eyebrow = "Expeditions", icon = "Command.2", accentKey = "cyan" },
+	{ id = "Convergence", label = "Converge", eyebrow = "Co-op", icon = "Domain.1", accentKey = "mango" },
+	{ id = "Guild", label = "Guild", eyebrow = "Hall", icon = "Crew.2", accentKey = "violet" },
+	{ id = "Crew", label = "Crew", eyebrow = "Online", icon = "Crew.3", accentKey = "blue" },
+	{ id = "Chat", label = "Chat", eyebrow = "Talk", icon = "Chat.1", accentKey = "mint" },
+	{ id = "Mail", label = "Mail", eyebrow = "Inbox", icon = "Mail.1", accentKey = "cyan" },
+	{ id = "Trade", label = "Trade", eyebrow = "Swap", icon = "Send.1", accentKey = "mint" },
+	{ id = "Leaderboards", label = "Ranks", eyebrow = "Top 25", icon = "Leaderboard.1", accentKey = "cyan" },
+	{ id = "Credits", label = "Credits", eyebrow = "About", icon = "Credits.1", accentKey = "violet" },
+	{ id = "Admin", label = "Admin", eyebrow = "Owner", icon = "Admin.1", accentKey = "coral" },
 }
 
 local PAGE_ROUTES: { string } = {
@@ -4759,7 +4753,7 @@ AppHelpers = {
 			end
 			local _result_1 = echoes
 			if _result_1 ~= nil then
-				_result_1 = _result_1.Choices
+				_result_1 = _result_1.Draft
 				if _result_1 ~= nil then
 					_result_1 = #_result_1
 				end

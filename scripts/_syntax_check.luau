@@ -74,7 +74,7 @@ local files = {
 	"src/Server/AstralForge/Modules/EconomyMath.luau",
 	"src/Server/AstralForge/Modules/LabOrderMath.luau",
 	"src/Server/AstralForge/Modules/OpsMath.luau",
-	"src/Server/AstralForge/Modules/ForgeEchoMath.luau",
+	"src/Shared/AstralForge/Shared/EchoMath.luau",
 	"src/Server/AstralForge/Modules/CommandMath.luau",
 	"src/Server/AstralForge/Modules/ProfileBagMath.luau",
 	"src/Server/AstralForge/Modules/ProfileMath.luau",

@@ -54,9 +54,9 @@ local KIND_COLOR = {
 	CommandXP = Palette.coral,
 }
 local KIND_ICON = {
-	Production = "Flux", Capacity = "Vault", Tap = "Overcharge", RebirthYield = "Rebirth", Critical = "Jackpot",
-	EchoCharge = "Wave", ContinuumDiscount = "Continuum", Offline = "Timer", Luck = "Gift", WorldDiscount = "World",
-	EssenceGain = "Artifact", ForgePathXP = "Milestone", CommandXP = "Command",
+	Production = "Flux.23", Capacity = "Vault.9", Tap = "Overcharge.10", RebirthYield = "Rebirth.10", Critical = "Jackpot.4",
+	EchoCharge = "Wave.17", ContinuumDiscount = "Continuum.4", Offline = "Timer.9", Luck = "Gift.18", WorldDiscount = "World.12",
+	EssenceGain = "Artifact.9", ForgePathXP = "Milestone.7", CommandXP = "Command.6",
 }
 local KEEPS = "Research, relics, Stardust, milestones, your crew and guild"
 local RESETS = "Machines, Flux, the vault, worlds, and the rebirths and Cores you spend"
@@ -291,7 +291,7 @@ local function Lattice(props)
 					local pop = if at == nil then 0 else 1 - easeOut((now - at) / 0.4)
 					return 1 + pop * 1.6 + math.sin(now * 2 + index) * 0.08
 				end),
-			}), h(Icon, { kind = "StarGrid", color = Palette.mango, accent = WHITE_HOT, size = 16, spin = false }))
+			}), h(Icon, { kind = "StarGrid.6", color = Palette.mango, accent = WHITE_HOT, size = 16, spin = false }))
 		end
 	end
 	-- the anchors: a cut stone, filled as its links are etched, with a pip for every link it can take
@@ -348,7 +348,7 @@ local function Lattice(props)
 			Thickness = if picked then 2.5 else 1.5,
 			Transparency = if d > 0 or isHearth then 0 else 0.45,
 		}), h(Icon, {
-			kind = KIND_ICON[anchor.kind] or "Domain",
+			kind = KIND_ICON[anchor.kind] or "Domain.6",
 			color = if d > 0 or isHearth then Palette.cream else Palette.muted,
 			accent = color,
 			size = stone - 4,
@@ -3482,7 +3482,7 @@ local function MobileQuickBar(_param)
 		LayoutOrder = if reversed then 2 else 1,
 	}, React.createElement(Button, {
 		text = if vaultReady then `BANK  {compactNumber(state.Vault)}` else "VAULT EMPTY",
-		icon = "Flux",
+		icon = "Flux.24",
 		onClick = bank,
 		color = if vaultReady then Palette.green else Palette.panelSoft,
 		textColor = if vaultReady then Palette.ink else Palette.muted,
@@ -3497,7 +3497,7 @@ local function MobileQuickBar(_param)
 		LayoutOrder = if reversed then 1 else 2,
 	}, React.createElement(Button, {
 		text = if tapLeft > 0.02 then string.format("%.1fs", tapLeft) else "TAP",
-		icon = "Forge",
+		icon = "Forge.28",
 		onClick = tap,
 		color = if tapLeft > 0.02 then Palette.panelSoft else Palette.cyan,
 		textColor = if tapLeft > 0.02 then Palette.muted else Palette.ink,

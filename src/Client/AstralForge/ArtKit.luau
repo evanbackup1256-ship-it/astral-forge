@@ -145,32 +145,32 @@ local function VectorIconFace(_param)
 	})
 end
 local ITEM_ICONS = {
-	IonCoupler = "Command",
-	FluxLens = "Flux",
-	CapacityCoil = "Vault",
-	PulseInjector = "Anomaly",
-	AutoRelay = "Grid",
-	ChronoSeal = "Rebirth",
-	CriticalPrism = "Artifact",
-	StarDrive = "World",
-	QuantumCatalyst = "Lab",
-	VaultHeart = "Core",
-	SingularityCore = "Brand",
-	Omniframe = "Loadout",
+	IonCoupler = "Command.1",
+	FluxLens = "Flux.1",
+	CapacityCoil = "Vault.1",
+	PulseInjector = "Anomaly.1",
+	AutoRelay = "Grid.1",
+	ChronoSeal = "Rebirth.1",
+	CriticalPrism = "Artifact.1",
+	StarDrive = "World.1",
+	QuantumCatalyst = "Lab.1",
+	VaultHeart = "Core.1",
+	SingularityCore = "Brand.1",
+	Omniframe = "Loadout.1",
 }
 local function itemIconKind(definitionId, slot)
-	return ITEM_ICONS[definitionId] or (if slot == "Machine" then "Forge" else "Research")
+	return ITEM_ICONS[definitionId] or (if slot == "Machine" then "Forge.item" else "Research.item")
 end
 local function rewardIconKind(reward)
-	if reward.Cores then return "Core" end
-	if reward.Stardust then return "Dust" end
-	if reward.Boost then return "Boost" end
-	if reward.FreeSpins then return "Wheel" end
-	if reward.Keys then return "Crate" end
-	if reward.CashMinutes then return "Flux" end
-	if reward.Signals or reward.CommandXP then return "Command" end
-	if reward.Essence then return "EchoForge" end
-	return "Gift"
+	if reward.Cores then return "Core.reward" end
+	if reward.Stardust then return "Dust.reward" end
+	if reward.Boost then return "Boost.reward" end
+	if reward.FreeSpins then return "Wheel.reward" end
+	if reward.Keys then return "Crate.reward" end
+	if reward.CashMinutes then return "Flux.reward" end
+	if reward.Signals or reward.CommandXP then return "Command.reward" end
+	if reward.Essence then return "Artifact.reward" end
+	return "Gift.reward"
 end
 local function prizeShapeFromReward(reward, rarity)
 	if string.upper(rarity) == "MYTHIC" then
@@ -219,6 +219,7 @@ local function prizeShapeFromReward(reward, rarity)
 	return "flux"
 end
 local Icon
+local artFor
 local function GlyphFace(_param)
 	local kind = _param.kind
 	local color = _param.color
@@ -375,6 +376,10 @@ local function PlayerMark(_param)
 	local position = _param.position
 	local anchorPoint = _param.anchorPoint
 	local seed = math.abs(math.floor(userId))
+	local mark = "Pilot.mark"
+	if artFor(mark) ~= nil then
+		return React.createElement(Icon, { kind = mark, size = size, position = position, anchorPoint = anchorPoint })
+	end
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
 		Position = position,
@@ -403,10 +408,60 @@ local function PlayerMark(_param)
 		color = accent,
 	})))
 end
+-- Every icon id (a concept, a dot, then its use) has its own art in IconManifest: a body and a
+-- light layer that moves (spin, pulse, twinkle, bob, beat or a glint sweep). One shared clock
+-- drives every mounted icon at 30 fps; reduced motion holds them still. Ids that aren't drawn yet
+-- fall back to their concept's base icon, then to the old vector atlas.
+local IconManifest = require(script.Parent.IconManifest)
+local RunService = game:GetService("RunService")
+local iconClock, setIconClock = React.createBinding(0)
+local iconUsers = 0
+local iconConnection = nil
+local iconLast = 0
+local function useIconClock(enabled)
+	React.useEffect(function()
+		if not enabled then
+			return nil
+		end
+		iconUsers += 1
+		if iconConnection == nil then
+			iconConnection = RunService.Heartbeat:Connect(function()
+				local now = os.clock()
+				if now - iconLast >= 1 / 30 then
+					iconLast = now
+					setIconClock(now)
+				end
+			end)
+		end
+		return function()
+			iconUsers -= 1
+			if iconUsers <= 0 and iconConnection ~= nil then
+				iconConnection:Disconnect()
+				iconConnection = nil
+				iconUsers = 0
+			end
+		end
+	end, { enabled })
+	return iconClock
+end
+local function conceptOf(kind)
+	return if type(kind) == "string" then (string.match(kind, "^[^.]+") or kind) else "Guide"
+end
+function artFor(kind)
+	local icons = IconManifest.Icons
+	local entry = icons[kind] or icons[conceptOf(kind)]
+	if entry == nil then
+		return nil
+	end
+	local sheet = IconManifest.Sheets[entry.b[1] + 1]
+	local lightSheet = IconManifest.Sheets[entry.l[1] + 1]
+	if sheet == nil or sheet == "" or lightSheet == nil or lightSheet == "" then
+		return nil
+	end
+	return entry, sheet, lightSheet
+end
 function Icon(_param)
 	local kind = _param.kind
-	local color = _param.color
-	local accent = _param.accent
 	local size = _param.size
 	if size == nil then
 		size = 28
@@ -416,83 +471,104 @@ function Icon(_param)
 		spin = true
 	end
 	local hoverAmount = _param.hoverAmount
-	local clipSafe = _param.clipSafe
-	if clipSafe == nil then
-		clipSafe = false
-	end
 	local position = _param.position
 	local anchorPoint = _param.anchorPoint
-	local antilag = useAntilag()
 	local _binding = useMotionSettings()
-	local viewportScale = _binding.viewportScale
-	local iconScale = _binding.iconScale
-	if iconScale == nil then
-		iconScale = 1
+	local motionScale = _binding.motionScale or 1
+	local entry, sheet, lightSheet = artFor(kind)
+	local still = motionScale < 0.05 or _binding.reducedMotion == true
+	local clock = useIconClock(entry ~= nil and not still)
+	if entry == nil then
+		-- not drawn yet: the old flat glyph
+		return React.createElement("frame", {
+			Size = UDim2.fromOffset(size, size),
+			Position = position,
+			AnchorPoint = anchorPoint,
+			BackgroundTransparency = 1,
+		}, React.createElement(GlyphFace, { kind = conceptOf(kind), color = _param.color or coloredFace(conceptOf(kind), _param.accent) }))
 	end
-	local faceColor = color or coloredFace(kind, accent)
-	local animated = kind == "Brand" or kind == "World" or kind == "Wheel" or kind == "StarGrid" or kind == "Anomaly" or kind == "Rebirth" or kind == "Flux" or kind == "Core" or kind == "Dust" or kind == "Boost" or kind == "Jackpot"
-	local speed = if kind == "Brand" then 13 elseif kind == "Wheel" then 11 elseif kind == "Anomaly" then 7 elseif kind == "Rebirth" then 9 else 5
-	local scrollSafe = clipSafe or hoverAmount ~= nil
-	local orbitEnabled = iconScale > 0.02 and spin and animated and not scrollSafe
-	local rotation = useRotation(orbitEnabled, speed * math.clamp(viewportScale * iconScale, 0, 2))
-	local restingHover = React.useBinding(0)
-	local hover = hoverAmount or restingHover
-	local direction = vectorIconDirection(kind)
-	local visualRotation = rotation:map(function(turn)
-		return if orbitEnabled then turn else 0
+	local cell = IconManifest.Cell
+	local anim = entry.a
+	local phase = entry.p * 10
+	local speed = entry.s * (if spin then 1 else 0.5)
+	local hover = hoverAmount
+	local function t(now)
+		return (now + phase) * speed
+	end
+	local lift = if anim == "bob" then clock:map(function(now)
+		return UDim2.new(0.5, 0, 0.5, math.sin(t(now) * 2.2) * size * 0.04)
+	end) else UDim2.fromScale(0.5, 0.5)
+	local scale = clock:map(function(now)
+		local s = 1
+		if anim == "beat" then
+			local q = (t(now) * 0.8) % 1
+			s += (if q < 0.12 then math.sin(q / 0.12 * math.pi) * 0.07 else 0)
+		elseif anim == "pulse" then
+			s += math.sin(t(now) * 3) * 0.025
+		end
+		return s
 	end)
-	local visualSize = hover:map(function(raw)
-		local amount = math.clamp(raw, 0, 1)
-		local base = 0.94
-		return UDim2.fromScale(base + amount * 0.045, base - amount * 0.018)
+	if hover ~= nil then
+		scale = React.joinBindings({ scale, hover }):map(function(v)
+			return v[1] + math.clamp(v[2], 0, 1) * 0.06
+		end)
+	end
+	local lightTransparency = clock:map(function(now)
+		local x = t(now)
+		if anim == "pulse" then
+			return 0.3 - math.sin(x * 3) * 0.3
+		elseif anim == "twinkle" then
+			return math.clamp(0.15 + math.sin(x * 5.3) * 0.25 + math.sin(x * 8.1) * 0.2, 0, 0.9)
+		end
+		return 0.12
 	end)
-	local visualPosition = hover:map(function(raw)
-		local amount = math.clamp(raw, 0, 1)
-		return UDim2.new(0.5, direction * amount * 0.7, 0.5, -math.round(amount * 1.25))
-	end)
-	local rimPosition = hover:map(function(raw)
-		local amount = math.clamp(raw, 0, 1)
-		return UDim2.new(0.5, direction * (0.25 + amount * 0.65), 0.5, 0.25 + amount * 0.65)
-	end)
-	local rimTransparency = hover:map(function(raw)
-		return 1 - math.clamp(raw, 0, 1) * 0.88
-	end)
-	local showDepth = hoverAmount ~= nil and antilag.tier >= 2
+	local light = React.createElement("imagelabel", {
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Image = lightSheet,
+		ImageRectOffset = Vector2.new(entry.l[2], entry.l[3]),
+		ImageRectSize = Vector2.new(cell, cell),
+		ImageTransparency = if still then 0.12 else lightTransparency,
+		Rotation = if anim == "spin" and not still then clock:map(function(now)
+			return (t(now) * 36) % 360
+		end) else 0,
+		ZIndex = 2,
+	}, anim == "shine" and not still and React.createElement("uigradient", {
+		-- a glint crossing the light layer every few seconds
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.55),
+			NumberSequenceKeypoint.new(0.45, 0.55),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(0.55, 0.55),
+			NumberSequenceKeypoint.new(1, 0.55),
+		}),
+		Rotation = 35,
+		Offset = clock:map(function(now)
+			local q = (t(now) * 0.35) % 1
+			return Vector2.new(-1 + q * 2.6, 0)
+		end),
+	}))
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
 		Position = position,
 		AnchorPoint = anchorPoint,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = not scrollSafe,
 	}, React.createElement("frame", {
-		Size = visualSize,
-		Position = visualPosition,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = visualRotation,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = not scrollSafe,
-	}, showDepth and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		Position = rimPosition,
+		Position = if still then UDim2.fromScale(0.5, 0.5) else lift,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 2,
-	}, React.createElement(GlyphFace, {
-		kind = kind,
-		color = Palette.cream,
-		transparency = rimTransparency,
-	})), React.createElement("frame", {
+	}, React.createElement("uiscale", { Scale = if still then 1 else scale }), React.createElement("imagelabel", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, React.createElement(GlyphFace, {
-		kind = kind,
-		color = faceColor,
-	}))))
+		Image = sheet,
+		ImageRectOffset = Vector2.new(entry.b[2], entry.b[3]),
+		ImageRectSize = Vector2.new(cell, cell),
+		ZIndex = 1,
+	}), light))
 end
 return {
 	VectorIconFace = VectorIconFace,
@@ -501,6 +577,7 @@ return {
 	prizeShapeFromReward = prizeShapeFromReward,
 	PlayerMark = PlayerMark,
 	Icon = Icon,
+	iconConcept = conceptOf,
 	VECTOR_ICON_ATLAS = VECTOR_ICON_ATLAS,
 	GAME_ICON_ASSET = GAME_ICON_ASSET,
 	WORDMARK_ASSET = WORDMARK_ASSET,
