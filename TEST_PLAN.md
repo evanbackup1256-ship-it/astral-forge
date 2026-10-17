@@ -16,7 +16,7 @@ argon build default.project.json -x -o "Astral Forge v2.rbxlx"
 
 | System | Unit / extract tests | Boundary tests | Cross-system tests | Studio QA | Sign-off |
 |--------|---------------------|----------------|-------------------|-----------|----------|
-| Data stores | `verify_project.luau` profile version guards, sanitize, DataService residual gates | Max stacks, zero currency, overflow, session-lock steal simulation | Save/load roundtrip, migration DV21, trade recovery | Profile load/save with copied v4.12 fixture | Pending |
+| Data stores | `verify_project.luau` profile version guards, sanitize, DataService residual gates | Max stacks, zero currency, overflow, session-lock steal simulation | Save/load roundtrip, migration DV21, trade recovery | Profile load/save with copied v5.0 fixture | Pending |
 | Remotes | Session gate production path, RemoteFirewall residual | Replay/Gen/N nonce, high-value nonce, rate-limit overflow | Admin commands, economy mutations, trade handshake | Device Simulator + Controller Emulator | Pending |
 | Replication | State push/pull extracts | Large state payload, partial state, schema drift | Mobile/console, low-FPS, high-ping | Join/leave stress | Pending |
 | Currency | Economy/admin regress, envelope extract, Omega budgets | Zero, negative, NaN, `math.huge`, max persisted number | Inventory, trade, bazaar, casino, rebirth | Real purchase flow in sandbox | Pending |

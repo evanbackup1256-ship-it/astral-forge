@@ -9,7 +9,8 @@ return function(loadService: (string) -> any)
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local RemoteFirewallMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("RemoteFirewallMath")
-	local ServerTelemetry = loadService("ServerTelemetry")
+	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
+		local ServerTelemetry = loadService("ServerTelemetry")
 
 	type Rule = {
 		Cost: number,
@@ -94,6 +95,15 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.SetAutoForge] = { Cost = 0.75, Cooldown = 0.22 },
 		[Protocol.Actions.SetSetting] = { Cost = 0.5, Cooldown = 0.12 },
 		[Protocol.Actions.SetMobileLayout] = { Cost = 0.75, Cooldown = 0.3 },
+		[Protocol.Actions.ChatOpenWhisper] = { Cost = 0.5, Cooldown = 0.5 },
+		[Protocol.Actions.ChatGlobal] = { Cost = 0.5, Cooldown = 1 },
+		[Protocol.Actions.GetCrew] = { Cost = 0.25, Cooldown = 0.3 },
+		[Protocol.Actions.CrewInvite] = { Cost = 1, Cooldown = 1.5 },
+		[Protocol.Actions.CrewRespond] = { Cost = 0.5, Cooldown = 0.5 },
+		[Protocol.Actions.CrewLeave] = { Cost = 0.5, Cooldown = 1 },
+		[Protocol.Actions.CrewKick] = { Cost = 1, Cooldown = 1 },
+		[Protocol.Actions.CrewRename] = { Cost = 1.5, Cooldown = 5 },
+		[Protocol.Actions.CrewClaim] = { Cost = 0.75, Cooldown = 0.75 },
 		[Protocol.Actions.SetTutorialStep] = { Cost = 0.5, Cooldown = 0.12 },
 		[Protocol.Actions.RedeemCode] = { Cost = 2, Cooldown = 1.4 },
 		[Protocol.Actions.VerifyCreatorFollow] = { Cost = 1, Cooldown = 0.8 },
@@ -132,8 +142,13 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.UploadGuildLogo] = { Cost = 0.25, Cooldown = 0.5 },
 		[Protocol.Actions.ModerateGuildLogo] = { Cost = 0.5, Cooldown = 1 },
 		[Protocol.Actions.DomainExpansion] = { Cost = 5, Cooldown = 5 },
-		[Protocol.Actions.UnlockDomainNode] = { Cost = 1, Cooldown = 0.2 },
+		[Protocol.Actions.DomainLattice] = { Cost = 1, Cooldown = 0.15 },
+		[Protocol.Actions.EventAct] = { Cost = 0.4, Cooldown = 0.2 },
 		[Protocol.Actions.UpgradeContinuum] = { Cost = 1.5, Cooldown = 0.35 },
+		-- Star Foundry moves; Ignite is a timing tap, so the cooldown is short
+		[Protocol.Actions.FoundryAct] = { Cost = 0.45, Cooldown = 0.06 },
+		[Protocol.Actions.Ascend] = { Cost = 5, Cooldown = 5 },
+		[Protocol.Actions.UpgradeSigil] = { Cost = 1.5, Cooldown = 0.3 },
 		[Protocol.Actions.CaptureEcho] = { Cost = 2, Cooldown = 1.1 },
 		[Protocol.Actions.ClaimEcho] = { Cost = 1.5, Cooldown = 0.4 },
 		[Protocol.Actions.EquipEcho] = { Cost = 0.75, Cooldown = 0.18 },
@@ -151,8 +166,9 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.CancelTrade] = { Cost = 0.45, Cooldown = 0.18 },
 		[Protocol.Actions.TradeViewAway] = { Cost = 0.2, Cooldown = 0.35 },
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
-		[Protocol.Actions.PlotStar] = { Cost = 0.6, Cooldown = 0.15 },
-		[Protocol.Actions.SubmitCipher] = { Cost = 1, Cooldown = 0.4 },
+		[Protocol.Actions.SetMarketFavorite] = { Cost = 0.5, Cooldown = 0.3 },
+		[Protocol.Actions.RequestProcurement] = { Cost = 1, Cooldown = 1 },
+		[Protocol.Actions.SelectSpecialization] = { Cost = 1, Cooldown = 0.5 },
 		[Protocol.Actions.BuyDailyOffer] = { Cost = 1, Cooldown = 0.35 },
 		[Protocol.Actions.BuyCrateSkin] = { Cost = 1, Cooldown = 0.5 },
 		[Protocol.Actions.EquipCrateSkin] = { Cost = 0.5, Cooldown = 0.25 },
@@ -211,9 +227,9 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.Rebirth] = true,
 		[Protocol.Actions.DomainExpansion] = true,
 		[Protocol.Actions.UpgradeContinuum] = true,
+		[Protocol.Actions.Ascend] = true,
 		[Protocol.Actions.CaptureEcho] = true,
 		[Protocol.Actions.ClaimDaily] = true,
-		[Protocol.Actions.SpinWheel] = true,
 		[Protocol.Actions.ClaimExpedition] = true,
 		[Protocol.Actions.CompleteTutorial] = true,
 		[Protocol.Actions.ReplayTutorial] = true,
@@ -398,7 +414,10 @@ return function(loadService: (string) -> any)
 					return false, "invalid mobile layout value"
 				end
 			end
-			if count < 1 or count > 6 then
+			if payload.Slots ~= nil and not stringField(payload, "Slots", 0, 512) then
+				return false, "invalid mobile layout slots"
+			end
+			if count > 6 or (count < 1 and payload.Slots == nil) then
 				return false, "invalid mobile layout size"
 			end
 		elseif action == Protocol.Actions.RedeemCode then
@@ -501,6 +520,33 @@ return function(loadService: (string) -> any)
 				end
 				return false, "invalid action payload"
 			end
+		elseif action == Protocol.Actions.FoundryAct then
+			if type(payload) ~= "table" or not stringField(payload, "Op", 1, 12) then
+				return false, "invalid foundry move"
+			end
+			for _, field in { "From", "To", "At" } do
+				local value = payload[field]
+				if value ~= nil and (type(value) ~= "string" or #value < 1 or #value > 16) then
+					return false, "invalid foundry cell"
+				end
+			end
+			if payload.Back ~= nil and type(payload.Back) ~= "boolean" then
+				return false, "invalid foundry rotation"
+			end
+		elseif action == Protocol.Actions.EventAct then
+			if type(payload) ~= "table" or (payload.Op ~= "Catch" and payload.Op ~= "Claim") then
+				return false, "invalid event action"
+			end
+			if payload.Op == "Claim" and not numberField(payload, "Drop", 1, 8, true) then
+				return false, "invalid supply drop"
+			end
+		elseif action == Protocol.Actions.DomainLattice then
+			if type(payload) ~= "table" or (payload.Op ~= "Etch" and payload.Op ~= "Clear") then
+				return false, "invalid lattice action"
+			end
+			if payload.Op == "Etch" and not (numberField(payload, "A", 1, 13, true) and numberField(payload, "B", 1, 13, true)) then
+				return false, "invalid lattice anchors"
+			end
 		elseif action == Protocol.Actions.SetAnomalyLoadout then
 			if not stringArrayField(payload, "Loadout", GameConfig.Anomalies.LoadoutSlots, 1, 32) then
 				return false, "invalid reactor loadout payload"
@@ -522,30 +568,23 @@ return function(loadService: (string) -> any)
 				return false, "invalid relic"
 			end
 		elseif action == Protocol.Actions.BazaarPlay then
-			local gameName = payload.Game
-			if not stringField(payload, "Game", 4, 12) or (gameName ~= "Bank" and gameName ~= "Market" and gameName ~= "Lottery" and gameName ~= "Contracts") then
-				return false, "invalid bazaar counter"
+			if BazaarMath.ReadOrder(payload) == nil then
+				return false, "invalid Black Market order"
 			end
-			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
-				return false, "invalid bazaar move"
+		elseif action == Protocol.Actions.SetMarketFavorite then
+			if not stringField(payload, "Id", 2, 24) or type(payload.Saved) ~= "boolean" then
+				return false, "invalid saved supply"
 			end
-			if payload.Tier ~= nil and not numberField(payload, "Tier", 1, 4, true) then
-				return false, "invalid bazaar amount"
+		elseif action == Protocol.Actions.RequestProcurement then
+			if not stringField(payload, "Id", 0, 24) then
+				return false, "invalid supply request"
 			end
-			if payload.Term ~= nil and not stringField(payload, "Term", 2, 4) then
-				return false, "invalid bank term"
-			end
-			if payload.Pick ~= nil and not stringField(payload, "Pick", 2, 24) then
-				return false, "invalid bazaar pick"
-			end
-		elseif action == Protocol.Actions.PlotStar then
-			if not stringField(payload, "Id", 2, 24) then
-				return false, "invalid constellation"
-			end
-		elseif action == Protocol.Actions.SubmitCipher then
-			if not stringField(payload, "Code", 4, 4) or not string.match(payload.Code, "^[1-6][1-6][1-6][1-6]$") then
-				return false, "invalid cipher"
-			end
+		elseif action == Protocol.Actions.UpgradeSigil then
+			if not stringField(payload, "Id", 1, 24) then return false, "invalid sigil" end
+		elseif action == Protocol.Actions.SelectSpecialization then
+			if not stringField(payload, "Id", 1, 24) then return false, "invalid forge specialization" end
+		elseif action == Protocol.Actions.SpinWheel then
+			if not numberField(payload, "ExpectedSpin", 0, 1e12 - 1, true) then return false, "invalid wheel sequence" end
 		elseif action == Protocol.Actions.UpgradeCrew then
 			if not stringField(payload, "Role", 1, 64) then
 				return false, "invalid crew payload"
@@ -677,6 +716,18 @@ return function(loadService: (string) -> any)
 			end
 		elseif action == Protocol.Actions.SendGuildChat then
 			if not stringField(payload, "Content", 1, 800) then return false, "invalid guild message" end
+		elseif action == Protocol.Actions.ChatOpenWhisper then
+			if not numberField(payload, "UserId", 1, 1e15, true) then return false, "invalid whisper target" end
+		elseif action == Protocol.Actions.CrewInvite or action == Protocol.Actions.CrewKick then
+			if not numberField(payload, "UserId", 1, 1e15, true) then return false, "invalid crew member" end
+		elseif action == Protocol.Actions.CrewRespond then
+			if type(payload) ~= "table" or type(payload.Accept) ~= "boolean" then return false, "invalid crew reply" end
+		elseif action == Protocol.Actions.CrewRename then
+			if not stringField(payload, "Name", 2, 80) then return false, "invalid crew name" end
+		elseif action == Protocol.Actions.CrewClaim then
+			if not numberField(payload, "Tier", 1, 3, true) then return false, "invalid crew goal" end
+		elseif action == Protocol.Actions.ChatGlobal then
+			if not stringField(payload, "Text", 1, 640) then return false, "invalid global message" end
 		elseif action == Protocol.Actions.GetGuildChatHistory then
 			if payload.BeforeId ~= nil and not stringField(payload, "BeforeId", 1, 64) then return false, "invalid guild history cursor" end
 			if payload.Limit ~= nil and not numberField(payload, "Limit", 1, 50, true) then return false, "invalid guild history limit" end
@@ -786,6 +837,9 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Option ~= nil and not stringField(payload, "Option", 0, 64) then
 				return false, "invalid admin command option"
+			end
+			if payload.DryRun ~= nil and type(payload.DryRun) ~= "boolean" then
+				return false, "invalid admin preview flag"
 			end
 		elseif action == Protocol.Actions.ReportClientIntegrity then
 			if

@@ -16,7 +16,7 @@ local function digitSize(textSize: number): (number, number)
 	-- (ClipsDescendants + flush height made adjacent-strip edges look like a black shadow.)
 	local h = math.max(14, math.floor(textSize + 4))
 	-- Slightly roomier than condensed metrics so columns don't shear into neighbors.
-	local w = math.max(6, math.floor(textSize * 0.7 + 0.5))
+	local w = math.max(5, math.ceil(textSize * 0.52)) -- Builder Sans digits are ~0.51 em; a wider cell leaves gaps
 	return w, h
 end
 

@@ -1,0 +1,458 @@
+{
+  "fire": {
+    "sha256": "7976dab7d32b0582dba2a8a844009647f18c25cda0cb331daca1e9df799348db",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 75976026803717
+  },
+  "lightning": {
+    "sha256": "8053b9698a482bb93950a30c58e9550fb25372aebcd98b374207f3c15a5d4dbe",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 88673805033416
+  },
+  "ice": {
+    "sha256": "8652201ef4a9fc42fa29fd8bc19af1aab8be2428c652137b02713b721a24c012",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 129231182369214
+  },
+  "earth": {
+    "sha256": "41d86e440a08ae17f4da4130ee1b0543c28fbc06b4b2944da8f85421bdf99cbf",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 122858791536550
+  },
+  "void": {
+    "sha256": "fcd29ae83436fc70f3689ebc52319cd70bb94daf80b98ab6fc33928003fd8de1",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 105059923981820
+  },
+  "poison": {
+    "sha256": "bc45b7bd82d691f7509e28942f7839b17f4515c5aaf2b66582ab2bca474efd04",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 132948266732245
+  },
+  "water": {
+    "sha256": "85e3521b748b792f0289db32686cafd69fe958933786c87073fa4cd2ad77d165",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 73443894351938
+  },
+  "radiance": {
+    "sha256": "4adce39db04b2b4f7abf49acaeb5350943d973d92d5702be9b964df8ccb9755a",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 96066433332861
+  },
+  "shadow": {
+    "sha256": "ed7538491fd8b175607b661b4b84d4f4179bc4523e9279f6d3480f57260a0e54",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 113400821734037
+  },
+  "arcane": {
+    "sha256": "bc4bd1f31af41508ed54e2e6a803e4ba6debbb6bb507d785206f028f984ea25c",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 131564360744318
+  },
+  "wind": {
+    "sha256": "d195ca0cf6aff8fcced17cf2a6a10929c31f15ae5494e199263133b343fac815",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 121274743923130
+  },
+  "nature": {
+    "sha256": "0b4d22af70fffa0ba1205a699bc53e3d9a0c59d2cff78f82d06b8072427388c4",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 74138078270385
+  },
+  "blood": {
+    "sha256": "6afc9b9dc6d3098376c218125e4ce62259ecabd9d6cabf2ec8f35ce1e4f3b3dd",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 129638345849457
+  },
+  "plasma": {
+    "sha256": "1bd31fdd582d7da42377c8ffe9ca3a3e40e6d6a4f029ba68c3169d853b562aa5",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 135720362312706
+  },
+  "prism": {
+    "sha256": "46ea039de07e7833d055b9ea2c180d9bfc4a0120ceaeffa6085709d173a27ca1",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 93759688256571
+  },
+  "magma": {
+    "sha256": "8c5de737c882a371e986052cc3f0d17e2c9d54420b4db712e943fb4178166532",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 127417954982692
+  },
+  "blizzard": {
+    "sha256": "a8b530587193d2fb9e509ee38ed6fc0c725e0449d6e3fc618b53046c919b6cd2",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 83201051020045
+  },
+  "solar": {
+    "sha256": "3416bcee3df4a15b4fca5b8a1ec5b733ece459359caba355e11df1b64bfe1732",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 139355283956152
+  },
+  "cosmic": {
+    "sha256": "d8364eb999dd8ae44aa5e0f244be1e75d2d2c5a4abc562d197c8f2a2cc39ae24",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 123233648515802
+  },
+  "sand": {
+    "sha256": "235fbf88a2b3e3d4f69ed80c13564437ab717862f159330bb4284b2cd4caf181",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 139581563905463
+  },
+  "steam": {
+    "sha256": "29f6102484e2556f65a91e1348cb491495f65dff1327ac9c88ddc5601b3b3981",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 103405037811070
+  },
+  "spirit": {
+    "sha256": "9f7bac19696fc949eafcc1b3cdb93747bcf0ea4b0ff37b11e921d7c72c25f343",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 89291263140092
+  },
+  "sonic": {
+    "sha256": "be0acca07be2e64bc097f3157361bed4e02dcd962ab4d0f736d19dec7f7650bb",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 117070978419793
+  },
+  "chrono": {
+    "sha256": "c4bf45a939e2ba37511c199dd267e09617b050662f38866e7c9b952c73f8b88f",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 109164077592690
+  },
+  "crystal": {
+    "sha256": "295ecc072998ee8555add01e38353717603d7c1be256e4aa685fb90ce57bed21",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 85653486652604
+  },
+  "steel": {
+    "sha256": "a2b9da7f98e9218e6f199c3b73b8b2795382bbde434f74c0322816d0dea3295f",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 121048122298265
+  },
+  "gold": {
+    "sha256": "cec964a2c8e858947e1a1e8ec291b10eeee7e6743b1f1c26ddaa74417327755d",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 75829326038387
+  },
+  "amber": {
+    "sha256": "5bd6cd5c236f5199d6352703c99f3799b0b03428d8c8f736d972115f16256683",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 86616488471621
+  },
+  "magnet": {
+    "sha256": "a88613ef1215d81c75c2ce7d9d605868e4f04fe13b201b441fc7a775901522c6",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 71975623647599
+  },
+  "gravity": {
+    "sha256": "f5a6dcc14b94995beed82f3f2939b05216912c01a075ef032bc2d43e830b0531",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 71846469221496
+  },
+  "nebula": {
+    "sha256": "18bddeb5ebcda608e9c7f52db74a3bb5bfa21337efffb4d210dceb83112df3d6",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 89805335155299
+  },
+  "aurora": {
+    "sha256": "e5a4f38feb525e280a6371c85c49d6101f211d54356819e633fe6008f027359f",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 128165425037666
+  },
+  "lunar": {
+    "sha256": "ecd691705d765c5aecc30c215e20892e783ea9bb41abe776fafcc1aaa2865e10",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 88606774613245
+  },
+  "comet": {
+    "sha256": "7aa70ab965f9d37ff2a8af5d84e7c6e048e7c9534ae68ba16010a601a6add3b6",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 116086221045089
+  },
+  "eclipse": {
+    "sha256": "72a0ef5dc2beae7d93cd17c66cd600bd128293a9a25d92d47b06bb1286c3c4cd",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 91462422412033
+  },
+  "starlight": {
+    "sha256": "2d0d31ca5428f11a787eed1ebadb61c6e6a454d36ec26079babf9d88ff6e51d7",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 70546963687596
+  },
+  "celestial": {
+    "sha256": "7535b50d5de20911462aad1e8e17092509e429428c8924fabe16cf85f647b636",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 119516804604438
+  },
+  "tempest": {
+    "sha256": "83fe08642d3420743c71adf1c41844142ec7328a96488fa2f7f6b573ab5c99df",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 135957868917787
+  },
+  "rift": {
+    "sha256": "6610bb71630b23843179cd304a569ed700310f887d308a705f089a78b3b2f097",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 125939388500796
+  },
+  "quantum": {
+    "sha256": "36b7ebba95017b50be87e78e5db2b1aef64fce2d61b38a3623b1fe519e1601b5",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 120814296458865
+  },
+  "aether": {
+    "sha256": "d2c44fc751c88956fc445a14d987554a64aebd4740efd54320096d27d38ca44a",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 113068955894142
+  },
+  "glitch": {
+    "sha256": "6ae537196d89ad72e4263da58ce35365f96c8c2f7139c584546e84c73a7501ed",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 80818500840586
+  },
+  "vital": {
+    "sha256": "38b425894938c1258aa83316e85643aaa6949a70a557e51c67c78d501e104a65",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 98648302970918
+  },
+  "neon": {
+    "sha256": "04e505c3a7d8d29107f8fa847fa9ee38f283b609a89f8d3ac566e653bb127ff2",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 100379758242650
+  },
+  "hologram": {
+    "sha256": "69d1b43bbd7da8ab39f2fbddb1b831e7030da00d90bf90cfbb5cbc7c0f3169d2",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 75118498064865
+  },
+  "thorn": {
+    "sha256": "8f9fa3d17398a514c8bdf742dc88c781289aeb8321472c7652f6981e714044fa",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 92051415824932
+  },
+  "spore": {
+    "sha256": "ddafc553d53fa54d579295c16b46292617d9fe26f9564580a3ae455a8cca78ad",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 136569081698512
+  },
+  "bloom": {
+    "sha256": "76abb96d47d969e7d73de538b701e75827a795d29b8d111b17736225922e4ea7",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 104878672921031
+  },
+  "dream": {
+    "sha256": "a75c15b0c43a54c653edabe53ab2512d5b17c619a3717ff51baa0944b1e2ef0b",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 108401326257307
+  },
+  "feather": {
+    "sha256": "a0bf2f2574697d45402f855aca17cac8e9376b905b3c9da7ff74313d63ff4d6b",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 100678135005461
+  },
+  "abyss": {
+    "sha256": "147bbcf4de0a48fa4df7500b8f4a9be9e466ba0d140bdcec48240a37f5c07152",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 124972307990143
+  },
+  "smoke": {
+    "sha256": "0f4c2f17d6279ada16c25922d9d00a36c32acdea5733cda63046ae650b089875",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 114574867468789
+  },
+  "necrotic": {
+    "sha256": "46ef6af54d8b27e45cececdf0fb8d7af8f911a65f84575d4e33e9cded7d84de3",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 131273690422408
+  },
+  "rune": {
+    "sha256": "af016f9fc54843feefcef73a2dda51418b15afa95acd7f9e515a7571594845d1",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 102990790708245
+  },
+  "mirror": {
+    "sha256": "dfd3c949839130353922f42b0cb06c3e73e3753a1b240eb718f4c66bcf554c98",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 71473902613386
+  },
+  "ink": {
+    "sha256": "d67c2ca4aba0d6980fbe328dac7e31f844883c7642163627b1f2142a1a742ac2",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 88272604991650
+  },
+  "frostfire": {
+    "sha256": "b3502e2697a617de529169e5b44af95051700031c6d022906516476f62f8237c",
+    "generator": "05a5ec06161be10adebb83f7230ae32676eed60ab58c5032b938924002ce0d63",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "assetId": 88041958452929
+  }
+}

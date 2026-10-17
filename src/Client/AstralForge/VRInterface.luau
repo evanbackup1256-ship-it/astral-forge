@@ -7,7 +7,16 @@ local Workspace=game:GetService("Workspace")
 local VRInterface={Width=1440,Height=960}
 
 function VRInterface.mount(playerGui,screen,changed,forcePreview)
+	local isVR = VRService.VREnabled or forcePreview == true
 	local host={active=false,disposed=false,connections={}}
+	function host.dispose()
+		host.disposed = true
+		for _, c in host.connections do pcall(function() c:Disconnect() end) end
+		table.clear(host.connections)
+	end
+	if not isVR then
+		return host
+	end
 	local surface=Instance.new("SurfaceGui")
 	surface.Name="AstralForgeVR"
 	surface.Face=Enum.NormalId.Front

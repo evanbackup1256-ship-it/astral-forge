@@ -147,7 +147,7 @@ local EXPECTED: { [string]: string } = {
 	error = "denial",
 	chatReceive = "social",
 	reactorPulse = "reactor",
-	bootImpact = "ceremony",
+	bootFinaleBang = "ceremony",
 	wheelTick = "chrome",
 	page = "motion",
 }

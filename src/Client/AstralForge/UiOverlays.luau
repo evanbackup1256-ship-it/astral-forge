@@ -18,1499 +18,503 @@ local function __load(name: string): any
 	return value
 end
 
-__defs["DomainExpansionOverlay"] = function()
+__defs["DomainChamber"] = function()
+-- (ZIndex 600+: the main screen sorts globally and the chamber has to sit over the whole shell)
+-- The Domain, one screen: the lattice on the left, and on the right whatever you're doing with it.
+--   mode "lattice": etch links between anchors, read what the lattice gives, clear it once per rank
+--   mode "confirm": the expansion rite; hold to expand, with what it costs, keeps and pays
+--   mode "result":  a ring of heat leaves the Hearth, the new rank lands and the rewards count in
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
-local InteractionFeedback = require(script.Parent.CoreKit)("interaction").InteractionFeedback
 local Audio = require(script.Parent.AudioKit)("audio").Audio
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
-local _motion = require(script.Parent.MotionKit)("motion")
-local easeOutBack = _motion.easeOutBack
-local easeOutCubic = _motion.easeOutCubic
-local easeOutQuart = _motion.easeOutQuart
-local useExitTransition = _motion.useExitTransition
-local useViewport = _motion.useViewport
-local CanvasEnergyField = require(script.Parent.UiCore)("effects").CanvasEnergyField
+local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
+local useViewport = require(script.Parent.MotionKit)("motion").useViewport
 local _ui = require(script.Parent.UiCore)("ui")
 local Button = _ui.Button
-local OverlayPresence = _ui.OverlayPresence
-local Text = _ui.Text
-local useGuiSize = _ui.useGuiSize
-local pixelPosition = _ui.pixelPosition
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
 local darken = _theme.darken
-local lighten = _theme.lighten
 local TapTarget = _theme.TapTarget
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
-local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+local shared = ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared")
+local GameConfig = require(shared:WaitForChild("GameConfig"))
+local DomainLattice = require(shared:WaitForChild("DomainLattice"))
 
 local h = React.createElement
-local TAU = math.pi * 2
+local WHITE_HOT = Color3.fromRGB(255, 244, 222)
 local HOLD_SECONDS = 1.1
-local KEEPS = { "Research", "Star Grid", "Relics", "Crew", "Milestones", "Guild", "Stardust" }
-local RESETS = { "Machines", "Flux", "Vault", "Worlds", "Rebirths spent", "Cores spent" }
+local SCALE = 0.5 / 2.2
+local KIND_COLOR = {
+	Production = Palette.mango, Capacity = Palette.cyan, Tap = Palette.coral, RebirthYield = Palette.violet,
+	Critical = Palette.pink, EchoCharge = Palette.mint, ContinuumDiscount = Palette.mango, Offline = Palette.cyan,
+	Luck = Palette.mint, WorldDiscount = Palette.violet, EssenceGain = Palette.pink, ForgePathXP = Palette.mango,
+	CommandXP = Palette.coral,
+}
+local KIND_ICON = {
+	Production = "Flux", Capacity = "Vault", Tap = "Overcharge", RebirthYield = "Rebirth", Critical = "Jackpot",
+	EchoCharge = "Wave", ContinuumDiscount = "Continuum", Offline = "Timer", Luck = "Gift", WorldDiscount = "World",
+	EssenceGain = "Artifact", ForgePathXP = "Milestone", CommandXP = "Command",
+}
+local KEEPS = "Research, relics, Stardust, milestones, your crew and guild"
+local RESETS = "Machines, Flux, the vault, worlds, and the rebirths and Cores you spend"
 
-local function phase(value, from, to)
-	return math.clamp((value - from) / math.max(0.001, to - from), 0, 1)
+local function easeOut(t)
+	local u = 1 - math.clamp(t, 0, 1)
+	return 1 - u * u * u
 end
-
-local function pulse(value, start, peak, finish)
-	if value <= peak then
-		return phase(value, start, peak)
-	end
-	return 1 - phase(value, peak, finish)
-end
-
 local function asNumber(value)
 	local n = tonumber(value)
 	return if n ~= nil and n == n then n else 0
 end
-
-local function surgeText()
+local function spot(index)
+	local x, y = DomainLattice.position(index)
+	return 0.5 + x * SCALE, 0.5 + y * SCALE
+end
+local function colorOf(index)
+	local anchor = DomainLattice.ANCHORS[index]
+	return (anchor and KIND_COLOR[anchor.kind]) or Palette.mango
+end
+local function splitKey(key)
+	local a, b = string.match(key, "^(%d+)%-(%d+)$")
+	return tonumber(a), tonumber(b)
+end
+-- a line between two points of the square canvas, drawn `p` of the way from the first
+local function line(x1, y1, x2, y2, thickness, p)
+	local dx, dy = (x2 - x1) * p, (y2 - y1) * p
+	local length = math.sqrt(dx * dx + dy * dy)
+	return UDim2.new(length, 0, 0, thickness), UDim2.fromScale(x1 + dx / 2, y1 + dy / 2), math.deg(math.atan2(y2 - y1, x2 - x1))
+end
+local function surgeLabel()
 	local boost = GameConfig.Boosts and GameConfig.Boosts[GameConfig.Domain.SurgeBoostId or "DomainSurge"]
 	if boost == nil then
-		return "6x surge"
+		return "Domain Surge"
 	end
 	local minutes = math.floor((tonumber(boost.Duration) or 1800) / 60 + 0.5)
-	local mult = tonumber(boost.Multiplier) or tonumber(boost.ProductionMultiplier)
-	return if mult ~= nil then `{mult}x · {minutes}m` else `{minutes}m surge`
+	return `Domain Surge for {minutes} min`
 end
 
--- The portal: a halo, three counter-rotating rings, a swirling accretion disk, an event horizon and
--- orbiting motes. `collapse` (0..1) pulls everything into the core; `children` sit in the middle.
-local function Portal(props)
-	local time = props.time
-	local size = props.size
-	local softMotion = props.softMotion
-	local budget = props.budget or 1
-	local collapse = props.collapse
-	local function shrink(map)
-		if collapse == nil then
-			return time:map(function(t)
-				return map(t, 0)
-			end)
-		end
-		return React.joinBindings({ time, collapse }):map(function(values)
-			return map(values[1], math.clamp(values[2], 0, 1))
-		end)
+-- what etching a link would change, for the preview
+local function etchPreview(links, key)
+	local a, b = splitKey(key)
+	local degree = DomainLattice.degrees(links)
+	local lines = {}
+	for _, index in { a, b } do
+		local anchor = DomainLattice.ANCHORS[index]
+		local d = degree[index] or 0
+		local gain = DomainLattice.anchorBonus(index, d + 1) - DomainLattice.anchorBonus(index, d)
+		table.insert(lines, { color = colorOf(index), text = `{anchor.name}: {DomainLattice.describe(anchor.kind, gain)}` })
 	end
-	local rings = {}
-	local ringColors = { Palette.violet, Palette.pink, Palette.cyan }
-	for index = 1, 3 do
-		local scale = 1 - (index - 1) * 0.13
-		rings[`ring{index}`] = h("frame", {
-			Size = shrink(function(_t, c)
-				local s = scale * (1 - c * 0.88)
-				return UDim2.fromScale(s, s)
-			end),
+	local after = table.clone(links)
+	after[key] = true
+	local closes = #DomainLattice.facets(after) - #DomainLattice.facets(links)
+	if closes > 0 then
+		table.insert(lines, { color = Palette.mango, text = `Closes {if closes == 1 then "a facet" else closes .. " facets"}: {DomainLattice.describe("Production", closes * DomainLattice.FACET_PRODUCTION)}` })
+	end
+	return lines
+end
+
+local function Lattice(props)
+	local links, tick, selected = props.links, props.tick, props.selected
+	local degree = DomainLattice.degrees(links)
+	local facetSet = {}
+	for _, index in DomainLattice.facets(links) do
+		facetSet[index] = true
+	end
+	local reached = { [DomainLattice.HEARTH] = true }
+	for index, d in degree do
+		if d > 0 then
+			reached[index] = true
+		end
+	end
+	local children = {}
+	-- the figure's guide rings, faint like a drafting sheet
+	for ring, radius in { 1, 1.92 } do
+		local s = radius * SCALE * 2
+		children["guide" .. ring] = h("frame", {
+			Size = UDim2.fromScale(s, s),
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = time:map(function(t)
-				local speed = if softMotion then 6 else (14 + index * 9)
-				return t * speed * (if index % 2 == 0 then -1 else 1) + index * 40
-			end),
 			BackgroundTransparency = 1,
-			ZIndex = 4 + index,
+			ZIndex = 602,
 		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-			Color = Color3.new(1, 1, 1),
-			Thickness = if index == 1 then 3 else 2,
-			Transparency = time:map(function(t)
-				return math.clamp(0.18 + (index - 1) * 0.14 + math.sin(t * 2.4 + index) * 0.08, 0.05, 0.7)
-			end),
-		}, h("uigradient", {
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, ringColors[index]),
-				ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)),
-				ColorSequenceKeypoint.new(1, ringColors[index]),
-			}),
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0),
-				NumberSequenceKeypoint.new(0.45, 0.85),
-				NumberSequenceKeypoint.new(0.55, 0.85),
-				NumberSequenceKeypoint.new(1, 0),
-			}),
-		})))
+			Color = Palette.line,
+			Thickness = 1,
+			Transparency = 0.55,
+		}))
 	end
-	local motes = {}
-	local moteCount = if softMotion then 5 elseif budget < 0.4 then 7 else 12
-	for index = 1, moteCount do
-		local radius = 0.34 + (index % 4) * 0.05
-		local speed = 0.35 + (index % 3) * 0.12
-		motes[`mote{index}`] = h("frame", {
-			Size = UDim2.fromOffset(if index % 3 == 0 then 6 else 4, if index % 3 == 0 then 6 else 4),
-			Position = shrink(function(t, c)
-				local a = t * speed * (if index % 2 == 0 then 1 else -1) + index * (TAU / moteCount)
-				local r = radius * (1 - c * 0.9)
-				return UDim2.fromScale(0.5 + math.cos(a) * r, 0.5 + math.sin(a) * r * 0.42)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = if index % 3 == 0 then Color3.new(1, 1, 1) elseif index % 2 == 0 then Palette.cyan else Palette.pink,
-			BackgroundTransparency = time:map(function(t)
-				return 0.15 + (math.sin(t * 3 + index) * 0.5 + 0.5) * 0.5
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 12,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
-	end
-	return h("frame", {
-		Size = UDim2.fromOffset(size, size),
-		Position = props.position or UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		ZIndex = 2,
-	}, h("frame", {
-		Name = "Halo",
-		Size = UDim2.fromScale(1.5, 1.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.violet,
-		BackgroundTransparency = shrink(function(t, c)
-			return math.clamp(0.82 + math.sin(t * 1.3) * 0.04 + c * 0.15, 0, 1)
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 2,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, 0.2),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		Rotation = time:map(function(t)
-			return (t * 8) % 360
-		end),
-	})), h("frame", {
-		Name = "Disk",
-		Size = shrink(function(_t, c)
-			return UDim2.fromScale(1.25 * (1 - c * 0.9), 0.34 * (1 - c * 0.9))
-		end),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = -14,
-		BackgroundColor3 = Palette.pink,
-		BackgroundTransparency = 0.2,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Palette.violet),
-			ColorSequenceKeypoint.new(0.3, Palette.pink),
-			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 236, 220)),
-			ColorSequenceKeypoint.new(0.7, Palette.cyan),
-			ColorSequenceKeypoint.new(1, Palette.violet),
-		}),
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.3, 0.35),
-			NumberSequenceKeypoint.new(0.5, 0.1),
-			NumberSequenceKeypoint.new(0.7, 0.35),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		Offset = time:map(function(t)
-			return Vector2.new(math.sin(t * (if softMotion then 0.4 else 1.1)) * 0.18, 0)
-		end),
-	})), rings, motes, h("frame", {
-		Name = "Horizon",
-		Size = shrink(function(_t, c)
-			local s = 0.42 * (1 - c * 0.7)
+	-- the heat ring that leaves the Hearth when a rank lands
+	children.flare = h("frame", {
+		Size = props.flare:map(function(f)
+			local s = easeOut(f) * 1.3
 			return UDim2.fromScale(s, s)
 		end),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.void,
-		BorderSizePixel = 0,
-		ZIndex = 10,
+		BackgroundTransparency = 1,
+		Visible = props.flare:map(function(f)
+			return f > 0.001 and f < 1
+		end),
+		ZIndex = 609,
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-		Color = Color3.fromRGB(255, 230, 245),
-		Thickness = 2,
-		Transparency = time:map(function(t)
-			return 0.15 + math.sin(t * 4) * 0.1
+		Color = WHITE_HOT,
+		Thickness = props.flare:map(function(f)
+			return 2 + (1 - f) * 10
 		end),
-	}), h("uigradient", {
-		Color = ColorSequence.new(darken(Palette.violet, 0.7), Palette.void),
-		Rotation = 90,
-	})), h("frame", {
-		Name = "Center",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		ZIndex = 20,
-	}, props.children))
-end
-
-local function Meter(props)
-	local have, need = asNumber(props.have), asNumber(props.need)
-	local fraction = if need <= 0 then 1 else math.clamp(have / need, 0, 1)
-	local ready = have >= need
-	local accent = if ready then Palette.mint else props.accent
-	return h("frame", {
-		Size = UDim2.new(1, 0, 0, 54),
-		BackgroundColor3 = darken(accent, 0.86),
-		BorderSizePixel = 0,
-		LayoutOrder = props.order,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
-		Color = accent,
-		Transparency = 0.55,
-	}), h(Icon, {
-		kind = if ready then "Check" else props.icon,
-		color = Palette.cream,
-		accent = accent,
-		size = 22,
-		position = UDim2.fromOffset(12, 9),
-		spin = false,
-	}), h(Text, {
-		value = props.label,
-		size = 11,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(42, 8),
-		sizeConstraint = UDim2.new(0.5, -42, 0, 14),
-	}), h(Text, {
-		value = if ready then "Ready" else `{compactNumber(need - have)} more`,
-		size = 11,
-		color = accent,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Right,
-		position = UDim2.new(0.5, 0, 0, 8),
-		sizeConstraint = UDim2.new(0.5, -12, 0, 14),
-	}), h(Text, {
-		value = `{compactNumber(have)} / {compactNumber(need)}`,
-		size = 15,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(42, 22),
-		sizeConstraint = UDim2.new(1, -54, 0, 18),
-	}), h("frame", {
-		Size = UDim2.new(1, -24, 0, 5),
-		Position = UDim2.new(0, 12, 1, -10),
-		BackgroundColor3 = Palette.ink,
-		BorderSizePixel = 0,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
-		Size = UDim2.fromScale(fraction, 1),
-		BackgroundColor3 = accent,
-		BorderSizePixel = 0,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
-		Color = ColorSequence.new(lighten(accent, 0.25), accent),
-	}))))
-end
-
-local function RewardTile(props)
-	local reveal = props.reveal
-	return h("frame", {
-		BackgroundColor3 = darken(props.accent, 0.8),
-		BackgroundTransparency = if reveal ~= nil then reveal:map(function(a)
-			return 1 - a * 0.96
-		end) else 0.04,
-		BorderSizePixel = 0,
-		LayoutOrder = props.order,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
-		Color = props.accent,
-		Thickness = 1.5,
-		Transparency = if reveal ~= nil then reveal:map(function(a)
-			return 1 - a * 0.6
-		end) else 0.4,
-	}), h("uiscale", {
-		Scale = if reveal ~= nil then reveal:map(function(a)
-			return 0.7 + easeOutBack(a) * 0.3
-		end) else 1,
-	}), h(Icon, {
-		kind = props.icon,
-		color = Palette.cream,
-		accent = props.accent,
-		size = 24,
-		position = UDim2.new(0, 10, 0.5, -12),
-		spin = false,
-	}), h(Text, {
-		value = props.value,
-		size = 16,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(42, 6),
-		sizeConstraint = UDim2.new(1, -48, 0, 20),
-		transparency = if reveal ~= nil then reveal:map(function(a)
-			return 1 - a
-		end) else nil,
-	}), h(Text, {
-		value = props.label,
-		size = 10,
-		color = props.accent,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 8,
-		position = UDim2.fromOffset(42, 26),
-		sizeConstraint = UDim2.new(1, -48, 0, 14),
-		transparency = if reveal ~= nil then reveal:map(function(a)
-			return 1 - a
-		end) else nil,
+		Transparency = props.flare:map(function(f)
+			return f
+		end),
 	}))
-end
-
-local function rewardsFor(domain, result)
-	local essence = if result ~= nil then result.essence else domain.EssenceReward
-	local stardust = if result ~= nil then result.stardust else domain.StardustReward
-	local spins = if result ~= nil then result.freeSpins else (GameConfig.Domain.Expansion and GameConfig.Domain.Expansion.FreeSpins or 3)
-	return {
-		{ icon = "Domain", label = "DOMAIN ESSENCE", value = `+{compactNumber(asNumber(essence))}`, accent = Palette.pink },
-		{ icon = "Dust", label = if result ~= nil and asNumber(result.overflow) > 0 then `STARDUST · +{compactNumber(result.overflow)} EXCESS` else "STARDUST", value = `+{compactNumber(asNumber(stardust))}`, accent = Palette.violet },
-		{ icon = "StarGrid", label = "LATTICE POINTS", value = `+{GameConfig.Domain.SkillPointPerRank or 2}`, accent = Palette.mango },
-		{ icon = "Boost", label = "DOMAIN SURGE", value = surgeText(), accent = Palette.cyan },
-		{ icon = "Wheel", label = "FREE SPINS", value = `+{asNumber(spins)}`, accent = Palette.mint },
-	}
-end
-
-local function ChipRow(props)
-	local chips = {
-		Layout = h("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Wraps = true,
-			Padding = UDim.new(0, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-	for index, label in props.items do
-		chips[`c{index}`] = h("frame", {
-			Size = UDim2.fromOffset(0, 24),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundColor3 = darken(props.accent, 0.82),
-			BorderSizePixel = 0,
-			LayoutOrder = index,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uipadding", {
-			PaddingLeft = UDim.new(0, 10),
-			PaddingRight = UDim.new(0, 10),
-		}), h("textlabel", {
-			Size = UDim2.fromScale(0, 1),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundTransparency = 1,
-			Text = label,
-			TextColor3 = lighten(props.accent, 0.2),
-			TextSize = 12,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		}))
-	end
-	return h("frame", {
-		Size = UDim2.new(1, 0, 0, props.height),
-		BackgroundTransparency = 1,
-		LayoutOrder = props.order,
-	}, h(Text, {
-		value = props.title,
-		size = 11,
-		color = props.accent,
-		weight = Enum.FontWeight.Heavy,
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-	}), h("frame", {
-		Size = UDim2.new(1, 0, 1, -18),
-		Position = UDim2.fromOffset(0, 18),
-		BackgroundTransparency = 1,
-	}, chips))
-end
-
--- Expansion can't be undone, so it asks for a held press: the bar fills over HOLD_SECONDS and drains
--- if you let go.
-local function HoldButton(props)
-	local progress, setProgress = React.useBinding(0)
-	local holding, setHolding = React.useState(false)
-	local holdingRef = React.useRef(false)
-	local valueRef = React.useRef(0)
-	local firedRef = React.useRef(false)
-	local propsRef = React.useRef(props)
-	propsRef.current = props
-	local function setHold(on)
-		if on and not propsRef.current.enabled then
-			Audio:play("locked")
-			return
-		end
-		if holdingRef.current == on then
-			return
-		end
-		holdingRef.current = on
-		setHolding(on)
-		if on then
-			Audio:play("domainCharge")
-			InteractionFeedback.tap()
-		end
-	end
-	React.useEffect(function()
-		local connection = RunService.RenderStepped:Connect(function(dt)
-			local now = propsRef.current
-			local target = if holdingRef.current and now.enabled then 1 else 0
-			local current = valueRef.current
-			if target == current then
-				return
+	for _, e in DomainLattice.EDGES do
+		local x1, y1 = spot(e.a)
+		local x2, y2 = spot(e.b)
+		local etched = links[e.key] == true
+		local open = not etched and (reached[e.a] or reached[e.b])
+		local picked = selected ~= nil and selected.kind == "link" and selected.id == e.key
+		if etched then
+			-- molten: a glow, a hot core drawing itself in from the Hearth's side, and a beat running outward
+			local key = e.key
+			local function drawn(now)
+				local at = props.etchedAt[key]
+				return if at == nil then 1 else easeOut((now - at) / 0.42)
 			end
-			local rate = if target > current then 1 / HOLD_SECONDS else 2.6
-			local step = math.min(math.abs(target - current), dt * rate)
-			local nextValue = current + (if target > current then step else -step)
-			if math.floor(nextValue * 4) > math.floor(current * 4) and target > current then
-				Audio:play("tick", 0.9 + nextValue * 0.4)
-			end
-			valueRef.current = nextValue
-			setProgress(nextValue)
-			if nextValue >= 1 and not firedRef.current then
-				firedRef.current = true
-				holdingRef.current = false
-				setHolding(false)
-				valueRef.current = 0
-				setProgress(0)
-				now.onComplete()
-			elseif nextValue < 1 then
-				firedRef.current = false
-			end
-		end)
-		local released = UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.ButtonA or input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.Space then
-				setHold(false)
-			end
-		end)
-		return function()
-			connection:Disconnect()
-			released:Disconnect()
-		end
-	end, {})
-	local enabled = props.enabled
-	local accent = if enabled then Palette.pink else Palette.panelSoft
-	return h("imagebutton", {
-		Name = "DomainClaim",
-		Size = props.size,
-		Position = props.position,
-		BackgroundColor3 = if enabled then darken(Palette.pink, 0.55) else Palette.panelSoft,
-		AutoButtonColor = false,
-		BorderSizePixel = 0,
-		Selectable = true,
-		LayoutOrder = props.order,
-		ClipsDescendants = true,
-		Event = {
-			InputBegan = function(_gui, input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.ButtonA or input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.Space then
-					setHold(true)
-				end
-			end,
-			InputEnded = function(_gui, input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.ButtonA then
-					setHold(false)
-				end
-			end,
-		},
-	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
-		Color = accent,
-		Thickness = 2,
-		Transparency = if enabled then 0.1 else 0.5,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}), h("frame", {
-		Size = progress:map(function(p)
-			return UDim2.fromScale(p, 1)
-		end),
-		BackgroundColor3 = Palette.pink,
-		BorderSizePixel = 0,
-	}, h("uigradient", {
-		Color = ColorSequence.new(Palette.violet, Palette.pink),
-	})), h(Icon, {
-		kind = if enabled then "Domain" else "Lock",
-		color = Palette.cream,
-		accent = accent,
-		size = 22,
-		position = UDim2.new(0, 14, 0.5, -11),
-		spin = holding and not props.softMotion,
-	}), h(Text, {
-		value = if not enabled then props.lockedText elseif props.busy then "OPENING THE DOMAIN…" elseif holding then "KEEP HOLDING…" else props.text,
-		size = 15,
-		color = if enabled then Palette.cream else Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(44, 0),
-		sizeConstraint = UDim2.new(1, -88, 1, 0),
-	}))
-end
-
-local function ConfirmView(props)
-	local cardRef = React.useRef(nil)
-	local parentSize = useGuiSize(cardRef, true)
-	local domain = props.domain
-	local viewport = props.viewport
-	local softMotion = props.softMotion
-	local time = props.time
-	local wide = viewport.width >= 760 and viewport.height >= 470
-	local side = math.max(12, viewport.sideInset + 12)
-	local cardW = math.min(viewport.width - side * 2, 920)
-	local availH = viewport.height - math.max(12, viewport.topInset + 12) - math.max(12, viewport.bottomInset + 12)
-	local cardH = if wide then math.min(availH, 500) else availH
-	local portalSize = if wide then math.min(300, cardH - 80) else math.min(170, viewport.width * 0.42)
-	local ready = domain.CanExpand == true
-	local rebirths, cores = asNumber(props.currentRebirths), asNumber(props.currentCores)
-	local needRebirths, needCores = asNumber(domain.RequiredRebirths), asNumber(domain.RequiredCores)
-	local lockedText = if rebirths < needRebirths then `NEED {compactNumber(needRebirths - rebirths)} MORE REBIRTHS` elseif cores < needCores then `NEED {compactNumber(needCores - cores)} MORE CORES` else "NOT READY YET"
-	local rewards = rewardsFor(domain, nil)
-	local tiles = {
-		Layout = h("uigridlayout", {
-			CellSize = UDim2.new(if wide then 1 / 3 else 0.5, -6, 0, 52),
-			CellPadding = UDim2.fromOffset(8, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-	for index, reward in rewards do
-		tiles[`r{index}`] = h(RewardTile, {
-			icon = reward.icon,
-			label = reward.label,
-			value = reward.value,
-			accent = reward.accent,
-			order = index,
-		})
-	end
-	local tileRows = math.ceil(#rewards / (if wide then 3 else 2))
-	local details = {
-		Layout = h("uilistlayout", {
-			Padding = UDim.new(0, 10),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-		Eyebrow = h(Text, {
-			value = `DOMAIN {domain.Rank}  →  {domain.Rank + 1}`,
-			size = 12,
-			color = Palette.pink,
-			weight = Enum.FontWeight.Heavy,
-			layoutOrder = 1,
-			sizeConstraint = UDim2.new(1, -50, 0, 16),
-		}),
-		Title = h(Text, {
-			value = "Collapse this run into a new Domain",
-			size = if wide then 24 else 20,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Heavy,
-			fit = true,
-			minSize = 14,
-			layoutOrder = 2,
-			sizeConstraint = UDim2.new(1, -50, 0, if wide then 30 else 26),
-		}),
-		Meters = h("frame", {
-			Size = UDim2.new(1, 0, 0, if wide then 54 else 116),
-			BackgroundTransparency = 1,
-			LayoutOrder = 3,
-		}, h("uigridlayout", {
-			CellSize = if wide then UDim2.new(0.5, -5, 0, 54) else UDim2.new(1, 0, 0, 54),
-			CellPadding = UDim2.fromOffset(10, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), h(Meter, { label = "REBIRTHS", icon = "Rebirth", have = rebirths, need = needRebirths, accent = Palette.coral, order = 1 }),
-			h(Meter, { label = "ASTRAL CORES", icon = "Core", have = cores, need = needCores, accent = Palette.coral, order = 2 })),
-		RewardLabel = h(Text, {
-			value = "YOU GAIN",
-			size = 11,
-			color = Palette.mango,
-			weight = Enum.FontWeight.Heavy,
-			layoutOrder = 4,
-			sizeConstraint = UDim2.new(1, 0, 0, 14),
-		}),
-		Rewards = h("frame", {
-			Size = UDim2.new(1, 0, 0, tileRows * 52 + (tileRows - 1) * 8),
-			BackgroundTransparency = 1,
-			LayoutOrder = 5,
-		}, tiles),
-		Keeps = h(ChipRow, { title = "STAYS WITH YOU", items = KEEPS, accent = Palette.mint, height = if wide then 46 else 76, order = 6 }),
-		Resets = h(ChipRow, { title = "RESETS", items = RESETS, accent = Palette.coral, height = if wide then 46 else 76, order = 7 }),
-		Hold = h(HoldButton, {
-			size = UDim2.new(1, 0, 0, TapTarget + 8),
-			order = 8,
-			enabled = ready and not props.busy,
-			busy = props.busy,
-			text = "HOLD TO EXPAND",
-			lockedText = lockedText,
-			softMotion = softMotion,
-			onComplete = function()
-				Audio:play("domainImpact")
-				InteractionFeedback.reward()
-				props.onConfirm()
-			end,
-		}),
-	}
-	local detailsW = if wide then cardW - portalSize - 72 else cardW - 32
-	local detailFrame
-	if wide then
-		detailFrame = h("frame", {
-			Size = UDim2.new(0, detailsW, 1, -40),
-			Position = UDim2.fromOffset(portalSize + 52, 20),
-			BackgroundTransparency = 1,
-			ZIndex = 30,
-		}, details)
-	else
-		detailFrame = h("scrollingframe", {
-			Size = UDim2.new(1, -32, 1, -(portalSize + 34)),
-			Position = UDim2.fromOffset(16, portalSize + 24),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = Palette.pink,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.new(),
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ZIndex = 30,
-		}, h("uipadding", { PaddingBottom = UDim.new(0, 12) }), details)
-	end
-	local cardIn = React.joinBindings({ props.enter, parentSize }):map(function(values)
-		return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 30)
-	end)
-	return h("frame", {
-		ref = cardRef,
-		Size = UDim2.fromOffset(cardW, cardH),
-		Position = cardIn,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.night,
-		BackgroundTransparency = props.enter:map(function(a)
-			return 1 - a * 0.94
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 20,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 22) }), h("uistroke", {
-		Color = if ready then Palette.pink else Palette.violet,
-		Thickness = 2,
-		Transparency = time:map(function(t)
-			return if ready then 0.1 + math.sin(t * 2.6) * 0.1 else 0.4
-		end),
-	}), h("uigradient", {
-		Color = ColorSequence.new(darken(Palette.violet, 0.78), Palette.void),
-		Rotation = 25,
-	}), h(Portal, {
-		time = time,
-		size = portalSize,
-		softMotion = softMotion,
-		budget = props.budget,
-		position = if wide then UDim2.new(0, 24 + portalSize / 2, 0.5, 0) else UDim2.new(0.5, 0, 0, 14 + portalSize / 2),
-	}, h(Text, {
-		value = `{domain.Rank + 1}`,
-		size = math.floor(portalSize * 0.17),
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.new(0, 0, 0.5, -math.floor(portalSize * 0.1)),
-		sizeConstraint = UDim2.new(1, 0, 0, math.floor(portalSize * 0.2)),
-		zIndex = 22,
-	})), detailFrame, h("frame", {
-		Size = UDim2.fromOffset(TapTarget, TapTarget),
-		Position = UDim2.new(1, -(TapTarget + 10), 0, 10),
-		BackgroundTransparency = 1,
-		ZIndex = 40,
-	}, h(Button, {
-		text = "",
-		icon = "Close",
-		onClick = props.onClose,
-		color = Palette.panelSoft,
-		textColor = Palette.cream,
-		outline = true,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
-		zIndex = 41,
-	})))
-end
-
-local function ResultView(props)
-	local domain = props.domain
-	local result = props.result or {}
-	local viewport = props.viewport
-	local softMotion = props.softMotion
-	local time = props.time
-	local compact = viewport.width < 640 or viewport.height < 500
-	local portalSize = if compact then math.min(220, viewport.width * 0.55) else 300
-	local rank = result.rank or domain.Rank
-	local collapse = time:map(function(t)
-		local inward = easeOutQuart(phase(t, 0, 0.8))
-		local outward = easeOutBack(phase(t, 0.95, 1.6))
-		return math.clamp(inward - outward, 0, 1)
-	end)
-	local impact = time:map(function(t)
-		return pulse(t, 0.82, 0.92, 1.5)
-	end)
-	local titleIn = time:map(function(t)
-		return easeOutBack(phase(t, 1.05, 1.6))
-	end)
-	local shards = {}
-	local shardCount = if softMotion then 6 elseif (props.budget or 1) < 0.4 then 10 else 18
-	for index = 1, shardCount do
-		local angle = index / shardCount * TAU + (index % 3) * 0.2
-		local distance = (if compact then 140 else 220) + (index % 4) * 40
-		shards[`s{index}`] = h("frame", {
-			Size = UDim2.fromOffset(4 + index % 3, 16 + (index % 4) * 8),
-			Position = time:map(function(t)
-				local fly = easeOutQuart(phase(t, 0.88, 2.4))
-				return UDim2.new(0.5, math.cos(angle) * distance * fly, 0.5, math.sin(angle) * distance * fly)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = math.deg(angle) + 90,
-			BackgroundColor3 = if index % 3 == 0 then Palette.cyan elseif index % 2 == 0 then Palette.pink else Color3.new(1, 1, 1),
-			BackgroundTransparency = time:map(function(t)
-				return 1 - pulse(t, 0.86, 1.0, 2.6) * 0.9
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 8,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
-	end
-	local waves = {}
-	for index = 1, 3 do
-		waves[`w{index}`] = h("frame", {
-			Size = time:map(function(t)
-				local grow = easeOutQuart(phase(t, 0.86 + index * 0.08, 1.9 + index * 0.1))
-				local px = grow * math.max(viewport.width, viewport.height) * 1.2
-				return UDim2.fromOffset(px, px)
-			end),
-			Position = UDim2.fromScale(0.5, 0.45),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			ZIndex = 7,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-			Color = if index == 2 then Palette.cyan else Palette.pink,
-			Thickness = 3,
-			Transparency = time:map(function(t)
-				return 0.1 + phase(t, 0.9 + index * 0.08, 2.0 + index * 0.1) * 0.9
-			end),
-		}))
-	end
-	local rewards = rewardsFor(domain, result)
-	local tiles = {
-		Layout = h("uigridlayout", {
-			CellSize = UDim2.new(if compact then 0.5 else 0.2, -8, 0, 54),
-			CellPadding = UDim2.fromOffset(8, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		}),
-	}
-	for index, reward in rewards do
-		tiles[`r{index}`] = h(RewardTile, {
-			icon = reward.icon,
-			label = reward.label,
-			value = reward.value,
-			accent = reward.accent,
-			order = index,
-			reveal = time:map(function(t)
-				return if softMotion then phase(t, 1.5, 1.7) else phase(t, 1.6 + index * 0.1, 1.95 + index * 0.1)
-			end),
-		})
-	end
-	local rows = math.ceil(#rewards / (if compact then 2 else 5))
-	local tilesW = math.min(viewport.width - 32, if compact then 400 else 860)
-	local nextLine = if asNumber(result.nextRebirths) > 0 then `Next Domain: {compactNumber(result.nextRebirths)} rebirths + {compactNumber(result.nextCores)} cores` else ""
-	return h("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		ZIndex = 5,
-	}, waves, shards, h(Portal, {
-		time = time,
-		size = portalSize,
-		softMotion = softMotion,
-		budget = props.budget,
-		collapse = collapse,
-		position = UDim2.fromScale(0.5, if compact then 0.3 else 0.32),
-	}), h("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BackgroundTransparency = impact:map(function(a)
-			return 1 - a * 0.85
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 60,
-	}), h("frame", {
-		Size = UDim2.new(1, -32, 0, 100),
-		Position = titleIn:map(function(a)
-			return UDim2.new(0.5, 0, if compact then 0.3 else 0.32, math.round((1 - a) * 40))
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		ZIndex = 50,
-	}, h(Text, {
-		value = `DOMAIN {rank}`,
-		size = if compact then 40 else 58,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 24,
-		sizeConstraint = UDim2.new(1, 0, 0, if compact then 46 else 64),
-		transparency = titleIn:map(function(a)
-			return 1 - math.clamp(a, 0, 1)
-		end),
-		zIndex = 51,
-	}), h(Text, {
-		value = "EXPANSION COMPLETE",
-		size = if compact then 14 else 18,
-		color = Palette.pink,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, if compact then 48 else 66),
-		sizeConstraint = UDim2.new(1, 0, 0, 22),
-		transparency = titleIn:map(function(a)
-			return 1 - math.clamp(a, 0, 1)
-		end),
-		zIndex = 51,
-	})), h("frame", {
-		Size = UDim2.fromOffset(tilesW, rows * 54 + (rows - 1) * 8),
-		Position = UDim2.new(0.5, 0, if compact then 0.56 else 0.62, 0),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundTransparency = 1,
-		ZIndex = 52,
-	}, tiles), nextLine ~= "" and h(Text, {
-		value = nextLine,
-		size = 12,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.new(0, 16, 1, -(math.max(viewport.bottomInset, 12) + TapTarget + 40)),
-		sizeConstraint = UDim2.new(1, -32, 0, 16),
-		zIndex = 52,
-	}), h("frame", {
-		Size = UDim2.fromOffset(math.min(300, viewport.width - 32), TapTarget),
-		Position = UDim2.new(0.5, 0, 1, -(math.max(viewport.bottomInset, 12) + TapTarget + 12)),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundTransparency = 1,
-		ZIndex = 70,
-	}, h(Button, {
-		text = if props.canClose then "OPEN THE LATTICE" else "…",
-		icon = "Domain",
-		onClick = props.onClose,
-		color = if props.canClose then Palette.pink else Palette.panelSoft,
-		textColor = if props.canClose then Palette.cream else Palette.muted,
-		size = UDim2.fromScale(1, 1),
-		disabled = not props.canClose,
-		highlight = props.canClose,
-		reducedMotion = softMotion,
-		zIndex = 71,
-	})))
-end
-
-local function DomainExpansionOverlay(_param)
-	local mode = _param.mode
-	local domain = _param.domain
-	local busy = _param.busy == true
-	local reducedMotion = _param.reducedMotion
-	local softMotion = reducedMotion
-	local onClose = _param.onClose
-	local viewport = useViewport()
-	local antilag = useAntilag()
-	local resultMode = mode == "result"
-	local time, setTime = React.useBinding(0)
-	local _binding = useExitTransition(softMotion, 0.32)
-	local leave = _binding[1]
-	local leaving = _binding[2]
-	local beginExit = _binding[3]
-	local canClose, setCanClose = React.useState(not resultMode)
-	local hostRef = React.useRef(nil)
-	local leavingRef = React.useRef(leaving)
-	leavingRef.current = leaving
-	React.useEffect(function()
-		local started = os.clock()
-		local speed = if softMotion then 1.6 else 1
-		local connection = RunService.RenderStepped:Connect(function()
-			if not leavingRef.current then
-				setTime((os.clock() - started) * speed)
-			end
-		end)
-		return function()
-			connection:Disconnect()
-		end
-	end, { softMotion })
-	React.useEffect(function()
-		Audio:play("domainCharge")
-		if not resultMode then
-			return nil
-		end
-		local alive = true
-		local scale = if softMotion then 1 / 1.6 else 1
-		local jobs = {
-			task.delay(0.6 * scale, function()
-				if alive then
-					Audio:play("domainCrack")
-				end
-			end),
-			task.delay(0.86 * scale, function()
-				if alive then
-					Audio:play("domainImpact")
-					InteractionFeedback.reward()
-				end
-			end),
-			task.delay(1.6 * scale, function()
-				if alive then
-					Audio:play("domainReward")
-				end
-			end),
-			task.delay(2.5 * scale, function()
-				if alive then
-					setCanClose(true)
-				end
-			end),
-		}
-		return function()
-			alive = false
-			for _, job in jobs do
-				pcall(task.cancel, job)
-			end
-		end
-	end, { resultMode, softMotion })
-	local close = React.useCallback(function()
-		if busy or leaving or (resultMode and not canClose) then
-			return nil
-		end
-		Audio:play("close")
-		beginExit(onClose)
-	end, { beginExit, busy, canClose, leaving, onClose, resultMode })
-	React.useEffect(function()
-		local actionName = "AstralForgeDomainClose"
-		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState)
-			if inputState == Enum.UserInputState.Begin then
-				close()
-			end
-			return Enum.ContextActionResult.Sink
-		end, false, 2300, Enum.KeyCode.ButtonB)
-		return function()
-			ContextActionService:UnbindAction(actionName)
-		end
-	end, { close })
-	React.useEffect(function()
-		GamepadNavigationService.BeginOverlayFocus()
-		return function()
-			GamepadNavigationService.EndOverlayFocus()
-		end
-	end, {})
-	React.useEffect(function()
-		if not UserInputService.GamepadEnabled then
-			return nil
-		end
-		local host = hostRef.current
-		if host == nil then
-			return nil
-		end
-		local job = task.defer(function()
-			if host.Parent ~= nil then
-				GamepadNavigationService.FocusClaim(host)
-			end
-		end)
-		return function()
-			pcall(task.cancel, job)
-		end
-	end, { resultMode, canClose, domain.CanExpand })
-	local enter = React.joinBindings({ time, leave }):map(function(values)
-		return math.clamp(math.min(easeOutCubic(phase(values[1], 0, 0.35)), values[2]), 0, 1)
-	end)
-	local body
-	if resultMode then
-		body = h(ResultView, {
-			domain = domain,
-			result = _param.result,
-			viewport = viewport,
-			softMotion = softMotion,
-			time = time,
-			budget = antilag.fxBudget,
-			canClose = canClose,
-			onClose = close,
-		})
-	else
-		body = h(ConfirmView, {
-			domain = domain,
-			viewport = viewport,
-			softMotion = softMotion,
-			time = time,
-			enter = enter,
-			budget = antilag.fxBudget,
-			busy = busy,
-			currentRebirths = _param.currentRebirths,
-			currentCores = _param.currentCores,
-			onConfirm = function()
-				if _param.onConfirm ~= nil then
-					_param.onConfirm()
-				end
-			end,
-			onClose = close,
-		})
-	end
-	return h(OverlayPresence, {
-		amount = enter,
-	}, h("frame", {
-		ref = hostRef,
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = enter:map(function(a)
-			return 1 - a * 0.86
-		end),
-		BorderSizePixel = 0,
-		Active = true,
-		ZIndex = 700,
-		ClipsDescendants = true,
-		Visible = enter:map(function(a)
-			return a > 0.02
-		end),
-	}, h("imagebutton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		AutoButtonColor = false,
-		Selectable = false,
-		Active = true,
-		ZIndex = 700,
-	}), h("frame", {
-		Size = UDim2.fromScale(1.6, 1.6),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = darken(Palette.violet, 0.7),
-		BackgroundTransparency = 0.6,
-		BorderSizePixel = 0,
-		ZIndex = 701,
-	}, h("uigradient", {
-		Color = ColorSequence.new(darken(Palette.pink, 0.6), Palette.void),
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.2),
-			NumberSequenceKeypoint.new(0.6, 0.85),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		Rotation = time:map(function(t)
-			return 30 + math.sin(t * 0.3) * 20
-		end),
-	})), h(CanvasEnergyField, {
-		time = time,
-		enabled = not softMotion and antilag.fxBudget >= 0.5,
-		reducedMotion = softMotion,
-		zIndex = 702,
-	}), h("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		ZIndex = 710,
-	}, body)))
-end
-
-return {
-	DomainExpansionOverlay = DomainExpansionOverlay,
-}
-end
-
-__defs["DomainSkillTree"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local ContextActionService = game:GetService("ContextActionService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-local Audio = require(script.Parent.AudioKit)("audio").Audio
-local Icon = require(script.Parent.ArtKit)("Icon").Icon
-local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
-local InteractionFeedback = require(script.Parent.CoreKit)("interaction").InteractionFeedback
-local _motion = require(script.Parent.MotionKit)("motion")
-local composePresence = _motion.composePresence
-local useEntrance = _motion.useEntrance
-local useExitTransition = _motion.useExitTransition
-local useViewport = _motion.useViewport
-local _theme = require(script.Parent.CoreKit)("theme")
-local chromeFor = _theme.chromeFor
-local darken = _theme.darken
-local lighten = _theme.lighten
-local Palette = _theme.Palette
-local TapTarget = _theme.TapTarget
-local _ui = require(script.Parent.UiCore)("ui")
-local Button = _ui.Button
-local OverlayPresence = _ui.OverlayPresence
-local Text = _ui.Text
-local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-local useGuiSize = _ui.useGuiSize
-local pixelPosition = _ui.pixelPosition
-local _hex = require(script.Parent.DomainHexStage)
-local DomainHexStage = _hex.DomainHexStage
-local Hex = _hex.Hex
-local useMotionSettings = _motion.useMotionSettings
-
-local h = React.createElement
-local TREE = (GameConfig.Domain and GameConfig.Domain.Tree) or {}
-local FIELD_ORDER = { "Production", "Capacity", "Tap", "Offline", "Luck", "EchoCharge", "WorldDiscount", "RebirthYield", "EssenceGain", "ContinuumDiscount", "Critical", "ForgePathXP", "CommandXP" }
--- element: the animated aura a bound node of that field burns with (Shared/ElementSprites)
-local FIELD_STYLE = {
-	Production = { icon = "Flux", accent = Palette.cyan, label = "production", element = "Lightning" },
-	Capacity = { icon = "Vault", accent = Palette.mango, label = "vault capacity", element = "Earth" },
-	Tap = { icon = "Overcharge", accent = Palette.coral, label = "overcharge power", element = "Fire" },
-	Offline = { icon = "Timer", accent = Palette.violet, label = "offline yield", element = "Cosmic" },
-	Luck = { icon = "Crate", accent = Palette.pink, label = "crate & market luck", element = "Prism" },
-	EchoCharge = { icon = "Wave", accent = Palette.mint, label = "echo charge speed", element = "Sonic" },
-	WorldDiscount = { icon = "World", accent = Palette.violet, label = "off world unlocks", element = "Void" },
-	RebirthYield = { icon = "Core", accent = Palette.mango, label = "rebirth cores", element = "Magma" },
-	EssenceGain = { icon = "Domain", accent = Palette.pink, label = "essence per expansion", flat = true, element = "Spirit" },
-	ContinuumDiscount = { icon = "Rebirth", accent = Palette.cyan, label = "off continuum ranks", element = "Chrono" },
-	Critical = { icon = "Jackpot", accent = Palette.coral, label = "critical chance", element = "Blood" },
-	ForgePathXP = { icon = "Forge", accent = Palette.mango, label = "forge path XP", element = "Solar" },
-	CommandXP = { icon = "Mission", accent = Palette.mint, label = "command XP", element = "Arcane" },
-}
-
-local function fieldOf(node)
-	for _, field in FIELD_ORDER do
-		if node[field] ~= nil then
-			return field
-		end
-	end
-	return "Production"
-end
-
-local function effectText(field, value)
-	local style = FIELD_STYLE[field] or FIELD_STYLE.Production
-	if style.flat then
-		return `+{value} {style.label}`
-	end
-	return `+{math.floor(value * 100 + 0.5)}% {style.label}`
-end
-
--- Tiers by longest prerequisite chain; within a tier, nodes sit near the average of their parents so the
--- links cross as little as possible.
-local function buildLayout()
-	local byId = {}
-	for _, node in TREE do
-		byId[node.Id] = node
-	end
-	local depth = {}
-	local function depthOf(id, guard)
-		if depth[id] ~= nil then
-			return depth[id]
-		end
-		if guard[id] then
-			return 0
-		end
-		guard[id] = true
-		local node = byId[id]
-		local d = 0
-		for _, parent in (node and node.Requires) or {} do
-			if byId[parent] ~= nil then
-				d = math.max(d, depthOf(parent, guard) + 1)
-			end
-		end
-		depth[id] = d
-		return d
-	end
-	local tiers = {}
-	local maxDepth = 0
-	for _, node in TREE do
-		local d = depthOf(node.Id, {})
-		maxDepth = math.max(maxDepth, d)
-		tiers[d + 1] = tiers[d + 1] or {}
-		table.insert(tiers[d + 1], node.Id)
-	end
-	local position = {}
-	for tierIndex = 1, maxDepth + 1 do
-		local tier = tiers[tierIndex] or {}
-		if tierIndex > 1 then
-			local order = {}
-			for i, id in tier do
-				local sum, count = 0, 0
-				for _, parent in byId[id].Requires or {} do
-					if position[parent] ~= nil then
-						sum += position[parent]
-						count += 1
-					end
-				end
-				order[id] = if count > 0 then sum / count else i / #tier
-			end
-			table.sort(tier, function(a, b)
-				return order[a] < order[b]
-			end)
-		end
-		for i, id in tier do
-			position[id] = (i - 0.5) / #tier
-		end
-		tiers[tierIndex] = tier
-	end
-	local slot = {}
-	local widest = 1
-	for tierIndex, tier in tiers do
-		widest = math.max(widest, #tier)
-		for i, id in tier do
-			slot[id] = { tier = tierIndex - 1, index = i, count = #tier }
-		end
-	end
-	return { byId = byId, tiers = tiers, slot = slot, tierCount = #tiers, widest = widest }
-end
-local LAYOUT = buildLayout()
-
--- Front-facing terraces keep prerequisites legible while retaining depth when orbiting.
-local function TotalsStrip(props)
-	local totals = {}
-	for _, node in TREE do
-		if props.owned[node.Id] then
-			local field = fieldOf(node)
-			totals[field] = (totals[field] or 0) + (tonumber(node[field]) or 0)
-		end
-	end
-	local chips = {
-		Layout = h("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Wraps = true,
-			Padding = UDim.new(0, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-	local count = 0
-	for order, field in FIELD_ORDER do
-		local value = totals[field]
-		if value ~= nil and value > 0 then
-			count += 1
-			local style = FIELD_STYLE[field]
-			chips[field] = h("frame", {
-				Size = UDim2.fromOffset(0, 24),
-				AutomaticSize = Enum.AutomaticSize.X,
-				BackgroundColor3 = darken(style.accent, 0.8),
+			local _, _, rot = line(x1, y1, x2, y2, 10, 1)
+			children["glow" .. key] = h("frame", {
+				Size = tick:map(function(now)
+					return (line(x1, y1, x2, y2, 10, drawn(now)))
+				end),
+				Position = tick:map(function(now)
+					local _, pos = line(x1, y1, x2, y2, 10, drawn(now))
+					return pos
+				end),
+				Rotation = rot,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Palette.ember,
+				BackgroundTransparency = 0.78,
 				BorderSizePixel = 0,
-				LayoutOrder = order,
-			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uipadding", {
-				PaddingLeft = UDim.new(0, 10),
-				PaddingRight = UDim.new(0, 10),
-			}), h("textlabel", {
-				Size = UDim2.fromScale(0, 1),
-				AutomaticSize = Enum.AutomaticSize.X,
-				BackgroundTransparency = 1,
-				Text = effectText(field, value),
-				TextColor3 = lighten(style.accent, 0.2),
-				TextSize = 12,
-				FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+				ZIndex = 603,
+			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+			children["core" .. key] = h("frame", {
+				Size = tick:map(function(now)
+					return (line(x1, y1, x2, y2, 3, drawn(now)))
+				end),
+				Position = tick:map(function(now)
+					local _, pos = line(x1, y1, x2, y2, 3, drawn(now))
+					return pos
+				end),
+				Rotation = rot,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Palette.white,
+				BorderSizePixel = 0,
+				ZIndex = 604,
+			}, h("uigradient", {
+				Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Palette.mango),
+					ColorSequenceKeypoint.new(0.5, WHITE_HOT),
+					ColorSequenceKeypoint.new(1, Palette.mango),
+				}),
+				Offset = tick:map(function(now)
+					return Vector2.new(math.sin(now * 1.3 + e.a) * 0.4, 0)
+				end),
 			}))
+			if not props.reduced then
+				local phase = (e.a * 0.37 + e.b * 0.21) % 1
+				children["beat" .. key] = h("frame", {
+					Size = UDim2.fromOffset(5, 5),
+					Position = tick:map(function(now)
+						local p = (now * 0.55 + phase) % 1
+						return UDim2.fromScale(x1 + (x2 - x1) * p, y1 + (y2 - y1) * p)
+					end),
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundColor3 = WHITE_HOT,
+					BackgroundTransparency = tick:map(function(now)
+						return if drawn(now) < 1 then 1 else 0.1
+					end),
+					BorderSizePixel = 0,
+					ZIndex = 605,
+				}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+			end
+		else
+			local size, pos, rot = line(x1, y1, x2, y2, if open then (if picked then 3 else 2) else 1, 1)
+			children["line" .. e.key] = h("frame", {
+				Size = size,
+				Position = pos,
+				Rotation = rot,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = if picked then WHITE_HOT elseif open then Palette.mango else Palette.lineSoft,
+				BackgroundTransparency = if picked then 0 elseif open then tick:map(function(now)
+					return 0.35 + (math.sin(now * 3 + e.a + e.b) + 1) * 0.2
+				end) else 0.55,
+				BorderSizePixel = 0,
+				ZIndex = 603,
+			})
+			if open then
+				local hitSize, hitPos = line(x1, y1, x2, y2, 22, 0.7)
+				children["hit" .. e.key] = h("textbutton", {
+					Size = hitSize,
+					Position = hitPos,
+					Rotation = rot,
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundTransparency = 1,
+					Text = "",
+					AutoButtonColor = false,
+					ZIndex = 606,
+					Event = {
+						Activated = function()
+							props.onLink(e.key)
+						end,
+					},
+				})
+			end
 		end
 	end
-	if count == 0 then
-		chips.Empty = h("textlabel", {
-			Size = UDim2.fromOffset(0, 24),
-			AutomaticSize = Enum.AutomaticSize.X,
+	-- facets: a lit mark in the middle of every closed triangle
+	for index, t in DomainLattice.TRIANGLES do
+		if facetSet[index] then
+			local cx, cy = 0, 0
+			for _, corner in t do
+				local x, y = spot(corner)
+				cx += x / 3
+				cy += y / 3
+			end
+			children["facet" .. index] = h("frame", {
+				Size = UDim2.fromOffset(16, 16),
+				Position = UDim2.fromScale(cx, cy),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				ZIndex = 605,
+			}, h("uiscale", {
+				Scale = tick:map(function(now)
+					local at = props.facetAt[index]
+					local pop = if at == nil then 0 else 1 - easeOut((now - at) / 0.4)
+					return 1 + pop * 1.6 + math.sin(now * 2 + index) * 0.08
+				end),
+			}), h(Icon, { kind = "StarGrid", color = Palette.mango, accent = WHITE_HOT, size = 16, spin = false }))
+		end
+	end
+	-- the anchors: a cut stone, filled as its links are etched, with a pip for every link it can take
+	for _, anchor in DomainLattice.ANCHORS do
+		local index = anchor.index
+		local x, y = spot(index)
+		local color = KIND_COLOR[anchor.kind] or Palette.mango
+		local d = degree[index] or 0
+		local maxD = DomainLattice.maxDegree(index)
+		local fill = d / math.max(1, maxD)
+		local isHearth = index == DomainLattice.HEARTH
+		local stone = if isHearth then 34 else 24
+		local picked = selected ~= nil and selected.kind == "anchor" and selected.id == index
+		local pips = {}
+		for pip = 1, maxD do
+			local a = math.rad(-90 + (pip - 1) * 360 / maxD)
+			local r = if isHearth then 0.5 else 0.42
+			pips["p" .. pip] = h("frame", {
+				Size = UDim2.fromOffset(4, 4),
+				Position = UDim2.fromScale(0.5 + math.cos(a) * r, 0.5 + math.sin(a) * r),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = if pip <= d then color else Palette.lineSoft,
+				BackgroundTransparency = if pip <= d then 0 else 0.4,
+				BorderSizePixel = 0,
+				ZIndex = 608,
+			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+		end
+		children["anchor" .. index] = h("textbutton", {
+			ref = function(instance)
+				props.anchorRefs[index] = instance
+			end,
+			Size = UDim2.fromOffset(if isHearth then 64 else 50, if isHearth then 64 else 50),
+			Position = UDim2.fromScale(x, y),
+			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Text = "Nothing bound yet. Pick a glowing node to start.",
-			TextColor3 = Palette.muted,
-			TextSize = 12,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-		})
-	end
-	return h("frame", {
-		Size = props.size,
-		Position = props.position,
-		BackgroundTransparency = 1,
-		ClipsDescendants = true,
-		ZIndex = 30,
-	}, chips)
-end
-
-local function DetailPanel(props)
-	local node = props.node
-	local softMotion = props.softMotion
-	if node == nil then
-		return h("frame", { Size = props.size, Position = props.position, BackgroundTransparency = 1 })
-	end
-	local field = fieldOf(node)
-	local style = FIELD_STYLE[field]
-	local owned = props.owned[node.Id] == true
-	local prereqs = {
-		Layout = h("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Wraps = true,
-			Padding = UDim.new(0, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-	local missing = 0
-	for index, id in node.Requires or {} do
-		local parent = LAYOUT.byId[id]
-		local done = props.owned[id] == true
-		if not done then
-			missing += 1
-		end
-		prereqs[id] = h("frame", {
-			Size = UDim2.fromOffset(0, 22),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundColor3 = if done then darken(Palette.mint, 0.78) else darken(Palette.coral, 0.8),
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 607,
+			Event = {
+				Activated = function()
+					props.onAnchor(index)
+				end,
+			},
+		}, h("frame", {
+			-- a plate that warms with the anchor's links, carrying its bonus's icon
+			Size = UDim2.fromOffset(stone + 6, stone + 6),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = darken(color, 0.7 - fill * 0.35),
 			BorderSizePixel = 0,
-			LayoutOrder = index,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uipadding", {
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
-		}), h("textlabel", {
-			Size = UDim2.fromScale(0, 1),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundTransparency = 1,
-			Text = (if done then "✓ " else "✕ ") .. (if parent then parent.Name else id),
-			TextColor3 = if done then Palette.mint else Palette.coral,
-			TextSize = 12,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		}))
-	end
-	local points = props.points
-	local available = missing == 0
-	local canBind = not owned and available and points >= node.Cost and not props.busy
-	local status = if owned then "Bound to your Domain." elseif missing > 0 then "Bind the linked branches first." elseif points < node.Cost then `Needs {node.Cost - points} more point{if node.Cost - points == 1 then "" else "s"}.` else `Costs {node.Cost} point{if node.Cost == 1 then "" else "s"}.`
-	-- the tall side panel has room between the text and the button for the gem itself
-	local width, height = props.size.X.Offset, props.size.Y.Offset
-	local showTop = if #(node.Requires or {}) > 0 then 156 else 104
-	local showH = height - (TapTarget + 44) - showTop
-	local stage = math.min(showH, width - 24)
-	return h("frame", {
-		Name = "DomainClaimActions",
-		Size = props.size,
-		Position = props.position,
-		BackgroundColor3 = Palette.ink,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-		ZIndex = 30,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
-		Color = style.accent,
-		Transparency = 0.45,
-	}), h("frame", {
-		Size = UDim2.fromOffset(44, 44),
-		Position = UDim2.fromOffset(12, 12),
-		BackgroundColor3 = darken(style.accent, 0.6),
-		BorderSizePixel = 0,
-		ZIndex = 31,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-		Color = style.accent,
-		Transparency = 0.4,
-	}), h(Icon, {
-		kind = style.icon,
-		color = style.accent,
-		spin = false,
-		size = 26,
-		position = UDim2.fromScale(0.5, 0.5),
-		anchorPoint = Vector2.new(0.5, 0.5),
-	})), h(Text, {
-		value = node.Name,
-		size = 17,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 12,
-		position = UDim2.fromOffset(66, 12),
-		sizeConstraint = UDim2.new(1, -78, 0, 22),
-		zIndex = 31,
-	}), h(Text, {
-		value = effectText(field, tonumber(node[field]) or 0),
-		size = 13,
-		color = style.accent,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(66, 36),
-		sizeConstraint = UDim2.new(1, -78, 0, 18),
-		zIndex = 31,
-	}), h(Text, {
-		value = node.Description or "",
-		size = 12,
-		color = Palette.creamSoft,
-		wrap = true,
-		position = UDim2.fromOffset(12, 64),
-		sizeConstraint = UDim2.new(1, -24, 0, 32),
-		zIndex = 31,
-	}), #(node.Requires or {}) > 0 and h("frame", {
-		Size = UDim2.new(1, -24, 0, 50),
-		Position = UDim2.fromOffset(12, 98),
-		BackgroundTransparency = 1,
-		ZIndex = 31,
-	}, prereqs), showH >= 150 and h("frame", {
-		Name = "Showcase",
-		Size = UDim2.fromOffset(width - 24, showH),
-		Position = UDim2.fromOffset(12, showTop),
-		BackgroundTransparency = 1,
-		ZIndex = 31,
-	}, h(Hex, {
-		radius = math.min(58, stage * 0.3),
-		fill = Palette.panel,
-		accent = style.accent,
-		position = UDim2.fromScale(0.5, 0.46),
-		zIndex = 32,
-		children = h(Icon, {
-			kind = style.icon,
-			color = style.accent,
-			size = 40,
+			ZIndex = 608,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+			Color = if picked or fill >= 1 then WHITE_HOT else color,
+			Thickness = if picked then 2.5 else 1.5,
+			Transparency = if d > 0 or isHearth then 0 else 0.45,
+		}), h(Icon, {
+			kind = KIND_ICON[anchor.kind] or "Domain",
+			color = if d > 0 or isHearth then Palette.cream else Palette.muted,
+			accent = color,
+			size = stone - 4,
 			spin = false,
 			position = UDim2.fromScale(0.5, 0.5),
 			anchorPoint = Vector2.new(0.5, 0.5),
-		}),
-	}), h(Text, {
-		value = `{string.upper(style.element)} AFFINITY`,
-		size = 11,
-		color = if owned then style.accent else Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.new(0, 0, 1, -16),
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-		zIndex = 33,
-	})), h(Text, {
-		value = status,
-		size = 12,
-		color = if owned then Palette.mint elseif canBind then Palette.mango else Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.new(0, 12, 1, -(TapTarget + 34)),
-		sizeConstraint = UDim2.new(1, -24, 0, 16),
-		zIndex = 31,
-	}), h("frame", {
-		Name = "DomainClaim",
-		Size = UDim2.new(1, -24, 0, TapTarget),
-		Position = UDim2.new(0, 12, 1, -(TapTarget + 12)),
+		})), h("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ZIndex = 608,
+		}, pips), picked and h("frame", {
+			-- a bracket that turns slowly around the picked anchor
+			Size = UDim2.fromScale(1.05, 1.05),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = tick:map(function(now)
+				return (now * 40) % 360
+			end),
+			BackgroundTransparency = 1,
+			ZIndex = 607,
+		}, h("uistroke", { Color = WHITE_HOT, Thickness = 1, Transparency = 0.35 })), h("textlabel", {
+			Size = UDim2.fromOffset(110, 14),
+			Position = UDim2.new(0.5, 0, 1, if isHearth then 0 else -2),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundTransparency = 1,
+			Text = anchor.name,
+			TextSize = if isHearth then 13 else 11,
+			FontFace = Font.fromEnum(if isHearth then Enum.Font.BuilderSansExtraBold else Enum.Font.BuilderSansBold),
+			TextColor3 = if d > 0 or isHearth then Palette.cream else Palette.muted,
+			ZIndex = 609,
+		}))
+	end
+	return h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		ClipsDescendants = false,
-		ZIndex = 32,
-	}, h(Button, {
-		text = if owned then "BOUND" elseif props.busy then "BINDING…" else `BIND · {node.Cost}`,
-		icon = if owned then "Check" else "Domain",
-		onClick = props.onBind,
-		color = if canBind then style.accent else Palette.panelSoft,
-		textColor = if canBind then Palette.ink else Palette.muted,
-		size = UDim2.fromScale(1, 1),
-		disabled = not canBind,
-		highlight = canBind,
-		reducedMotion = softMotion,
-		zIndex = 33,
-	})))
+		ZIndex = 602,
+	}, h("uiaspectratioconstraint", { AspectRatio = 1 }), children)
 end
 
-local function DomainSkillTree(_param)
-	local domain = _param.domain
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	-- the host passes no preference, so honour the player's motion setting from context
-	local softMotion = reducedMotion or useMotionSettings().soft == true
-	local onClose = _param.onClose
+local function Row(props)
+	return h("frame", {
+		Size = UDim2.new(1, 0, 0, props.height or 22),
+		LayoutOrder = props.order,
+		BackgroundTransparency = 1,
+		ZIndex = 632,
+	}, h("textlabel", {
+		Size = UDim2.new(1, -110, 1, 0),
+		BackgroundTransparency = 1,
+		Text = props.label,
+		TextSize = props.size or 13,
+		TextWrapped = true,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		TextColor3 = props.labelColor or Palette.creamSoft,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTransparency = props.fade or 0,
+		ZIndex = 633,
+	}), props.value ~= nil and h("textlabel", {
+		Size = UDim2.new(0, 110, 1, 0),
+		Position = UDim2.fromScale(1, 0),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundTransparency = 1,
+		Text = props.value,
+		TextSize = props.size or 13,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextColor3 = props.valueColor or Palette.cream,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextTransparency = props.fade or 0,
+		ZIndex = 633,
+	}))
+end
+
+local function Heading(props)
+	return h("textlabel", {
+		Size = UDim2.new(1, 0, 0, 16),
+		LayoutOrder = props.order,
+		BackgroundTransparency = 1,
+		Text = props.text,
+		TextSize = 11,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextColor3 = props.color or Palette.mango,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 633,
+	})
+end
+
+local function DomainChamber(props)
+	local domain = props.domain or {}
+	local mode = props.mode
+	local rank = math.max(0, math.floor(asNumber(domain.Rank)))
+	if rank < 1 and mode == "lattice" then
+		mode = "confirm"
+	end
 	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local stack = viewport.width < 760
-	local enter = useEntrance(softMotion)
-	local _binding = useExitTransition(softMotion, 0.28)
-	local leave = _binding[1]
-	local leaving = _binding[2]
-	local beginExit = _binding[3]
-	local motion = composePresence(enter, leave)
-	local hostRef = React.useRef(nil)
-	local hostSize = useGuiSize(hostRef)
-	local alive = React.useRef(true)
-	local nodes = domain.Nodes or {}
-	local owned = {}
-	for id, value in nodes do
-		if value == true then
-			owned[id] = true
-		end
-	end
-	local points = math.max(0, math.floor(tonumber(domain.SkillPoints) or 0))
-	local function availableFor(node)
-		for _, id in node.Requires or {} do
-			if not owned[id] then
-				return false
-			end
-		end
-		return true
-	end
-	local firstReady = nil
-	for _, node in TREE do
-		if firstReady == nil and not owned[node.Id] and availableFor(node) then
-			firstReady = node.Id
-		end
-	end
-	local selectedId, setSelectedId = React.useState(firstReady or (TREE[1] and TREE[1].Id))
-	local busy, setBusy = React.useState(false)
-	local boundId, setBoundId = React.useState(nil)
-	local boundToken, setBoundToken = React.useState(0)
-	local boundCount = 0
-	for _, node in TREE do
-		if owned[node.Id] then
-			boundCount += 1
-		end
-	end
+	local stacked = viewport.width < 760 or viewport.width < viewport.height
+	local reduced = props.reducedMotion == true
+	local tick, setTick = React.useBinding(os.clock())
+	local flare, setFlare = React.useBinding(0)
+	local hold, setHold = React.useBinding(0)
+	local selected, setSelected = React.useState(nil)
+	local override, setOverride = React.useState(nil)
+	local note, setNote = React.useState(nil)
+	local etchedAt = React.useRef({})
+	local facetAt = React.useRef({})
+	local anchorRefs = React.useRef({})
+	local resultAt = React.useRef(0)
+	local holding = React.useRef(nil)
+	local fired = React.useRef(false)
+	local requesting = React.useRef(false)
+
 	React.useEffect(function()
-		alive.current = true
-		Audio:play("domainCrack")
+		setOverride(nil)
+	end, { domain.Links, domain.SkillPoints })
+	local links = if override then override.links else (if type(domain.Links) == "table" then domain.Links else {})
+	local points = if override then override.points else math.floor(asNumber(domain.SkillPoints))
+	local etched = DomainLattice.count(links)
+	local nextCost = DomainLattice.linkCost(etched)
+	local canClear = rank >= 1 and etched > 0 and asNumber(domain.LatticeClearedAtRank) < rank
+
+	React.useEffect(function()
+		if mode == "result" then
+			resultAt.current = os.clock()
+			Audio:play("domainImpact")
+		elseif mode == "confirm" then
+			Audio:play("open")
+		end
+		fired.current = false
+		holding.current = nil
+		setHold(0)
+	end, { mode })
+
+	-- one clock drives everything on screen, plus the hold and the result's flare
+	React.useEffect(function()
+		local connection = RunService.RenderStepped:Connect(function()
+			local now = os.clock()
+			setTick(now)
+			if mode == "result" then
+				setFlare(math.clamp((now - resultAt.current) / 1.1, 0, 1))
+			else
+				setFlare(0)
+			end
+			local startedAt = holding.current
+			if startedAt ~= nil and not fired.current then
+				local p = math.clamp((now - startedAt) / HOLD_SECONDS, 0, 1)
+				setHold(p)
+				if p >= 1 then
+					fired.current = true
+					holding.current = nil
+					Audio:play("domainCrack")
+					props.onConfirm()
+				end
+			elseif startedAt == nil and not fired.current then
+				setHold(0)
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { mode, props.onConfirm })
+
+	-- a controller lands on the chamber's own buttons whenever the mode changes
+	local actionsRef = React.useRef(nil)
+	React.useEffect(function()
 		GamepadNavigationService.BeginOverlayFocus()
 		return function()
-			alive.current = false
 			GamepadNavigationService.EndOverlayFocus()
 		end
 	end, {})
@@ -1518,230 +522,503 @@ local function DomainSkillTree(_param)
 		if not UserInputService.GamepadEnabled then
 			return nil
 		end
-		local host = hostRef.current
-		if host == nil then
-			return nil
-		end
 		local job = task.defer(function()
-			if host.Parent ~= nil then
+			local host = actionsRef.current
+			if host ~= nil and host.Parent ~= nil then
 				GamepadNavigationService.FocusClaim(host)
 			end
 		end)
 		return function()
 			pcall(task.cancel, job)
 		end
-	end, {})
-	local close = function()
-		if leaving then
-			return nil
-		end
-		Audio:play("close")
-		beginExit(onClose)
-	end
+	end, { mode })
+
+	-- Escape backs out: the rite returns to the lattice, the lattice closes
 	React.useEffect(function()
-		local actionName = "AstralForgeLatticeClose"
-		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState)
-			if inputState == Enum.UserInputState.Begin then
-				close()
-			end
-			return Enum.ContextActionResult.Sink
-		end, false, 2300, Enum.KeyCode.ButtonB)
-		return function()
-			ContextActionService:UnbindAction(actionName)
-		end
-	end, { leaving })
-	local selected = LAYOUT.byId[selectedId]
-	local bind = function()
-		if selected == nil or busy or owned[selected.Id] or not availableFor(selected) or points < selected.Cost then
-			return
-		end
-		setBusy(true)
-		Audio:play("domainImpact")
-		local id = selected.Id
-		dispatch("UnlockDomainNode", { Id = id }, function(response)
-			if not alive.current then
+		local connection = UserInputService.InputBegan:Connect(function(input)
+			if input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.ButtonB then
 				return
 			end
-			setBusy(false)
-			if type(response) == "table" and response.ok then
-				Audio:play("domainBind")
-				Audio:play("domainReward")
-				InteractionFeedback.reward()
-				setBoundId(id)
-				setBoundToken(function(n)
-					return n + 1
-				end)
-			else
+			if mode == "confirm" and rank >= 1 then
+				props.onMode("lattice")
+			elseif mode ~= "result" then
+				props.onClose()
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { mode, rank })
+
+	local function burstAt(index, color, scale)
+		if reduced then
+			return
+		end
+		local instance = anchorRefs.current[index]
+		if instance ~= nil and instance.Parent ~= nil then
+			pcall(function()
+				require(script.Parent.JuiceFx).burst(instance.AbsolutePosition + instance.AbsoluteSize / 2, color, scale)
+			end)
+		end
+	end
+
+	local function etch(key)
+		if requesting.current then
+			return
+		end
+		local a, b = splitKey(key)
+		local ok, reason = DomainLattice.canEtch(links, a, b, points)
+		if not ok then
+			setNote(reason)
+			Audio:play("locked")
+			return
+		end
+		requesting.current = true
+		local before = DomainLattice.facets(links)
+		props.dispatch("DomainLattice", { Op = "Etch", A = a, B = b }, function(response)
+			requesting.current = false
+			if not response.ok or type(response.Links) ~= "table" then
+				setNote(response.message or "That link didn't take.")
 				Audio:play("locked")
+				return
+			end
+			local now = os.clock()
+			etchedAt.current[key] = now
+			local was = {}
+			for _, index in before do
+				was[index] = true
+			end
+			for _, index in DomainLattice.facets(response.Links) do
+				if not was[index] then
+					facetAt.current[index] = now + 0.3
+				end
+			end
+			setOverride({ links = response.Links, points = math.floor(asNumber(response.SkillPoints)) })
+			setNote(nil)
+			setSelected({ kind = "anchor", id = b })
+			Audio:play(if response.ClosedFacet then "domainImpact" else "domainBind")
+			task.delay(0.36, function()
+				burstAt(b, colorOf(b), if response.ClosedFacet then 1.2 else 0.8)
+			end)
+		end)
+	end
+	local function clear()
+		if requesting.current or not canClear then
+			return
+		end
+		requesting.current = true
+		props.dispatch("DomainLattice", { Op = "Clear" }, function(response)
+			requesting.current = false
+			if response.ok and type(response.Links) == "table" then
+				etchedAt.current = {}
+				facetAt.current = {}
+				setOverride({ links = response.Links, points = math.floor(asNumber(response.SkillPoints)) })
+				setSelected(nil)
+				Audio:play("domainReward")
+			else
+				setNote(response.message or "Couldn't clear the lattice.")
 			end
 		end)
 	end
+	local onLink = function(key)
+		if selected ~= nil and selected.kind == "link" and selected.id == key then
+			etch(key)
+		else
+			Audio:play("tick")
+			setNote(nil)
+			setSelected({ kind = "link", id = key })
+		end
+	end
+	local onAnchor = function(index)
+		Audio:play("tick")
+		setNote(nil)
+		setSelected({ kind = "anchor", id = index })
+	end
 
-	local side = math.max(10, chrome.sideSafe + 8)
-	local panelW = math.min(viewport.width - side * 2, 1180)
-	local panelH = math.min(viewport.height - math.max(16, viewport.topInset + 10) - math.max(16, viewport.bottomInset + 10), 760)
-	local headerH = 64
-	local totalsH = if stack then 56 else 34
-	local detailW = if stack then panelW - 24 else 300
-	local detailH = if stack then 250 else panelH - headerH - totalsH - 40
-	local canvasW = if stack then panelW - 24 else panelW - detailW - 36
-	local canvasViewH = if stack then math.max(180, panelH - headerH - totalsH - detailH - 40) else panelH - headerH - totalsH - 40
-	local canvasHost = h(DomainHexStage, {
-		size = UDim2.fromOffset(canvasW, canvasViewH),
-		position = if stack then UDim2.new() else UDim2.fromOffset(12, headerH + 8),
-		tree = TREE,
-		layout = LAYOUT,
-		styleFor = function(node) return FIELD_STYLE[fieldOf(node)] end,
-		owned = owned,
-		focusId = selectedId,
-		onSelect = setSelectedId,
-		boundId = boundId,
-		boundToken = boundToken,
-		softMotion = softMotion,
-	})
-	local bodyChildren = {
-		Grid = canvasHost,
-		Totals = h(TotalsStrip, {
-			owned = owned,
-			size = UDim2.new(0, canvasW, 0, totalsH),
-			position = if stack then UDim2.fromOffset(0, canvasViewH + 8) else UDim2.fromOffset(12, headerH + 14 + canvasViewH),
-		}),
-		Detail = h(DetailPanel, {
-			node = selected,
-			owned = owned,
-			points = points,
-			busy = busy,
-			softMotion = softMotion,			onBind = bind,
-			size = UDim2.fromOffset(detailW, detailH),
-			position = if stack then UDim2.fromOffset(0, canvasViewH + totalsH + 20) else UDim2.fromOffset(panelW - detailW - 12, headerH + 8),
-		}),
-	}
-	local body = if stack then h("scrollingframe", {
-		Name = "DomainMobileBody",
-		Size = UDim2.fromOffset(panelW - 24, panelH - headerH - 20),
-		Position = UDim2.fromOffset(12, headerH + 8),
-		CanvasSize = UDim2.fromOffset(0, canvasViewH + totalsH + detailH + 32),
+	-- the side panel
+	local rows = {}
+	local order = 0
+	local function add(element)
+		order += 1
+		rows["r" .. order] = element
+		return order
+	end
+	local function heading(text, color)
+		add(h(Heading, { text = text, color = color, order = order + 1 }))
+	end
+	local function row(label, value, extra)
+		local r = extra or {}
+		r.label, r.value, r.order = label, value, order + 1
+		add(h(Row, r))
+	end
+	local function gap(px)
+		add(h("frame", { Size = UDim2.new(1, 0, 0, px), BackgroundTransparency = 1, LayoutOrder = order + 1 }))
+	end
+
+	local panelTitle, panelNumber
+	local actions = {}
+	if mode == "lattice" then
+		panelTitle, panelNumber = "DOMAIN", tostring(rank)
+		row("Production from your domain", `x{string.format("%.2f", asNumber(domain.ProductionMultiplier))}`, { valueColor = Palette.mango })
+		row("Domain points", tostring(points), { valueColor = if points > 0 then Palette.mango else Palette.cream })
+		row("Next link costs", if nextCost == 1 then "1 point" else `{nextCost} points`)
+		gap(6)
+		if selected ~= nil and selected.kind == "link" and links[selected.id] ~= true then
+			local a, b = splitKey(selected.id)
+			heading(`ETCH {string.upper(DomainLattice.ANCHORS[a].name)} TO {string.upper(DomainLattice.ANCHORS[b].name)}`)
+			for _, preview in etchPreview(links, selected.id) do
+				row(preview.text, nil, { labelColor = preview.color })
+			end
+			local ok, reason = DomainLattice.canEtch(links, a, b, points)
+			table.insert(actions, {
+				text = if ok then (if nextCost == 1 then "Etch for 1 point" else `Etch for {nextCost} points`) else (reason or "Can't etch"),
+				primary = true,
+				disabled = not ok,
+				onClick = function()
+					etch(selected.id)
+				end,
+			})
+		elseif selected ~= nil and selected.kind == "anchor" then
+			local anchor = DomainLattice.ANCHORS[selected.id]
+			local d = DomainLattice.degrees(links)[anchor.index] or 0
+			local maxD = DomainLattice.maxDegree(anchor.index)
+			heading(string.upper(anchor.name), KIND_COLOR[anchor.kind])
+			row("Gives now", DomainLattice.describe(anchor.kind, DomainLattice.anchorBonus(anchor.index, d)), { valueColor = KIND_COLOR[anchor.kind] })
+			row("Links", `{d} of {maxD}`)
+			row("With every link etched", DomainLattice.describe(anchor.kind, anchor.full))
+			if anchor.index == DomainLattice.HEARTH then
+				gap(4)
+				row("Every closed triangle in the lattice adds " .. DomainLattice.describe("Production", DomainLattice.FACET_PRODUCTION) .. ".", nil, { height = 36, size = 12, labelColor = Palette.muted })
+			end
+		else
+			heading("WHAT YOUR LATTICE GIVES")
+			local any = false
+			for _, anchor in DomainLattice.ANCHORS do
+				local total = DomainLattice.bonus(links, anchor.kind)
+				if total > 0 and (anchor.kind ~= "Production" or anchor.index == DomainLattice.HEARTH) then
+					any = true
+					row(DomainLattice.describe(anchor.kind, total), nil, { labelColor = KIND_COLOR[anchor.kind] })
+				end
+			end
+			local facets = #DomainLattice.facets(links)
+			if facets > 0 then
+				row(`{facets} closed {if facets == 1 then "facet" else "facets"}`, nil, { labelColor = Palette.muted, size = 12 })
+			end
+			if not any then
+				row("Tap a glowing line next to the Hearth to start. Links grow outward from it.", nil, { height = 40, labelColor = Palette.muted })
+			end
+		end
+		if note ~= nil then
+			gap(4)
+			row(note, nil, { labelColor = Palette.coral, height = 30, size = 12 })
+		end
+		if domain.CanExpand == true then
+			table.insert(actions, {
+				text = `Expand to Domain {rank + 1}`,
+				primary = #actions == 0,
+				onClick = function()
+					props.onMode("confirm")
+				end,
+			})
+		end
+		table.insert(actions, {
+			text = if canClear then `Clear lattice (refunds {DomainLattice.spent(etched)})` elseif etched > 0 then "Cleared this rank" else "Clear lattice",
+			quiet = true,
+			disabled = not canClear,
+			onClick = clear,
+		})
+	elseif mode == "confirm" then
+		panelTitle, panelNumber = "EXPAND TO DOMAIN", tostring(rank + 1)
+		local needR, needC = asNumber(domain.RequiredRebirths), asNumber(domain.RequiredCores)
+		local haveR, haveC = asNumber(props.rebirths), asNumber(props.cores)
+		heading("IT TAKES")
+		row("Rebirths", `{compactNumber(haveR)} / {compactNumber(needR)}`, { valueColor = if haveR >= needR then Palette.mint else Palette.coral })
+		row("Cores", `{compactNumber(haveC)} / {compactNumber(needC)}`, { valueColor = if haveC >= needC then Palette.mint else Palette.coral })
+		gap(6)
+		heading("YOU GET")
+		row("Domain essence", `+{compactNumber(asNumber(domain.EssenceReward))}`, { valueColor = Palette.pink })
+		row("Stardust (more for every extra rebirth)", `+{compactNumber(asNumber(domain.StardustReward))}`, { valueColor = Palette.cyan, size = 12 })
+		row("Domain points", `+{GameConfig.Domain.SkillPointPerRank or 2}`, { valueColor = Palette.mango })
+		row("Wheel spins", `+{(GameConfig.Domain.Expansion and GameConfig.Domain.Expansion.FreeSpins) or 3}`)
+		row(surgeLabel(), nil, { labelColor = Palette.mango })
+		gap(6)
+		row("Keeps: " .. KEEPS .. ".", nil, { height = 34, size = 12, labelColor = Palette.mint })
+		row("Resets: " .. RESETS .. ".", nil, { height = 34, size = 12, labelColor = Palette.coral })
+		table.insert(actions, {
+			text = if domain.CanExpand == true then (if props.busy then "Expanding…" else "Hold to expand") else "Not ready yet",
+			primary = true,
+			hold = domain.CanExpand == true and not props.busy,
+			disabled = domain.CanExpand ~= true or props.busy,
+		})
+		if rank >= 1 then
+			table.insert(actions, { text = "Back to the lattice", quiet = true, onClick = function()
+				props.onMode("lattice")
+			end })
+		end
+	else
+		local result = props.result or {}
+		panelTitle, panelNumber = "DOMAIN", tostring(result.rank or rank)
+		heading("THE EXPANSION PAID")
+		local lines = {
+			{ "Domain essence", `+{compactNumber(asNumber(result.essence))}`, Palette.pink },
+			{ "Stardust", `+{compactNumber(asNumber(result.stardust))}`, Palette.cyan },
+			{ "Domain points", `+{GameConfig.Domain.SkillPointPerRank or 2}`, Palette.mango },
+			{ "Wheel spins", `+{compactNumber(asNumber(result.freeSpins))}`, Palette.cream },
+		}
+		for index, item in lines do
+			local delay = 0.7 + index * 0.18
+			row(item[1], item[2], {
+				valueColor = item[3],
+				fade = tick:map(function(now)
+					return 1 - easeOut((now - resultAt.current - delay) / 0.3)
+				end),
+			})
+		end
+		if asNumber(result.overflow) > 0 then
+			row(`{compactNumber(asNumber(result.overflow))} of that Stardust came from rebirths past the requirement.`, nil, { height = 34, size = 12, labelColor = Palette.muted })
+		end
+		gap(6)
+		row(`Next expansion: {compactNumber(asNumber(result.nextRebirths))} rebirths and {compactNumber(asNumber(result.nextCores))} Cores.`, nil, { height = 34, size = 12, labelColor = Palette.muted })
+		table.insert(actions, { text = "Etch your new points", primary = true, onClick = function()
+			props.onMode("lattice")
+		end })
+	end
+
+	local buttons = {}
+	for index, action in actions do
+		local height = if action.quiet then 30 else TapTarget
+		if action.hold then
+			buttons["a" .. index] = h("textbutton", {
+				Size = UDim2.new(1, 0, 0, TapTarget),
+				LayoutOrder = index,
+				BackgroundColor3 = darken(Palette.mango, 0.55),
+				AutoButtonColor = false,
+				Text = "",
+				ZIndex = 634,
+				Event = {
+					InputBegan = function(_, input)
+						if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+							holding.current = os.clock()
+							Audio:play("domainCharge")
+						end
+					end,
+					InputEnded = function(_, input)
+						if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+							holding.current = nil
+						end
+					end,
+					Activated = function(_, input)
+						-- a controller press can't be held, so it confirms straight away
+						if input ~= nil and input.UserInputType ~= nil and string.find(input.UserInputType.Name, "Gamepad", 1, true) and not fired.current then
+							fired.current = true
+							props.onConfirm()
+						end
+					end,
+				},
+			}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), h("frame", {
+				Size = hold:map(function(p)
+					return UDim2.fromScale(p, 1)
+				end),
+				BackgroundColor3 = Palette.white,
+				BorderSizePixel = 0,
+				ZIndex = 635,
+			}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), h("uigradient", {
+				Color = ColorSequence.new(Palette.mango, WHITE_HOT),
+			})), h("textlabel", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Text = action.text,
+				TextSize = 15,
+				FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+				TextColor3 = Palette.cream,
+				ZIndex = 636,
+			}))
+		elseif action.quiet then
+			buttons["a" .. index] = h("textbutton", {
+				Size = UDim2.new(1, 0, 0, height),
+				LayoutOrder = index,
+				BackgroundTransparency = 1,
+				Text = action.text,
+				TextSize = 12,
+				FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+				TextColor3 = if action.disabled then Palette.lineSoft else Palette.muted,
+				AutoButtonColor = false,
+				ZIndex = 634,
+				Event = {
+					Activated = function()
+						if not action.disabled and action.onClick then
+							action.onClick()
+						end
+					end,
+				},
+			})
+		else
+			buttons["a" .. index] = h("frame", {
+				Size = UDim2.new(1, 0, 0, height),
+				LayoutOrder = index,
+				BackgroundTransparency = 1,
+				ZIndex = 634,
+			}, h(Button, {
+				text = action.text,
+				onClick = action.onClick,
+				color = if action.primary then Palette.mango else Palette.panelSoft,
+				textColor = if action.primary then Palette.ink else Palette.cream,
+				size = UDim2.fromScale(1, 1),
+				disabled = action.disabled,
+				reducedMotion = reduced,
+				highlight = action.primary,
+				zIndex = 35,
+			}))
+		end
+	end
+
+	local panelW = if stacked then viewport.width - 24 else 360
+	local numberSlam = if mode == "result" then tick:map(function(now)
+		local t = (now - resultAt.current - 0.35) / 0.32
+		return if t < 0 then 0 else 1 + (1 - easeOut(t)) * 1.4
+	end) else nil
+	local panel = h("frame", {
+		Size = if stacked then UDim2.new(1, -24, 0.48, -12) else UDim2.new(0, panelW, 1, -48),
+		Position = if stacked then UDim2.new(0, 12, 0.52, 0) else UDim2.new(1, -24, 0, 24),
+		AnchorPoint = if stacked then Vector2.zero else Vector2.new(1, 0),
+		BackgroundColor3 = Palette.panel,
+		BackgroundTransparency = 0.08,
+		BorderSizePixel = 0,
+		ZIndex = 630,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
+		Color = Palette.lineSoft,
+		Transparency = 0.25,
+	}), h("uipadding", {
+		PaddingTop = UDim.new(0, 16),
+		PaddingBottom = UDim.new(0, 16),
+		PaddingLeft = UDim.new(0, 18),
+		PaddingRight = UDim.new(0, 18),
+	}), h("textbutton", {
+		Size = UDim2.fromOffset(60, 24),
+		Position = UDim2.fromScale(1, 0),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundTransparency = 1,
+		Text = "Close",
+		TextSize = 12,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextColor3 = Palette.muted,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Visible = mode ~= "result",
+		ZIndex = 634,
+		Event = {
+			Activated = function()
+				if not props.busy then
+					props.onClose()
+				end
+			end,
+		},
+	}), h("textlabel", {
+		Size = UDim2.new(1, -60, 0, 14),
+		BackgroundTransparency = 1,
+		Text = panelTitle,
+		TextSize = 11,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextColor3 = Palette.mango,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 633,
+	}), h("textlabel", {
+		Size = UDim2.new(1, 0, 0, 52),
+		Position = UDim2.fromOffset(0, 14),
+		BackgroundTransparency = 1,
+		Text = panelNumber,
+		TextSize = 50,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextColor3 = if mode == "result" then WHITE_HOT else Palette.cream,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTransparency = if numberSlam then numberSlam:map(function(s)
+			return if s <= 0 then 1 else 0
+		end) else 0,
+		ZIndex = 633,
+	}, numberSlam and h("uiscale", { Scale = numberSlam:map(function(s)
+		return math.max(0.01, s)
+	end) })), h("scrollingframe", {
+		Size = UDim2.new(1, 0, 1, -(78 + #actions * (TapTarget + 8))),
+		Position = UDim2.fromOffset(0, 74),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 3,
-		ZIndex = 705,
-	}, bodyChildren) else h(React.Fragment, nil, bodyChildren)
-	local nextPoints = GameConfig.Domain.SkillPointPerRank or 2
-	return h(OverlayPresence, {
-		amount = motion,
-	}, h("frame", {
-		ref = hostRef,
-		Size = UDim2.fromScale(1, 1),
+		ScrollBarImageColor3 = Palette.muted,
+		ZIndex = 632,
+	}, h("uipadding", { PaddingRight = UDim.new(0, 12) }), h("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 4),
+	}), rows), h("frame", {
+		ref = actionsRef,
+		Size = UDim2.new(1, 0, 0, #actions * (TapTarget + 8)),
+		Position = UDim2.fromScale(0, 1),
+		AnchorPoint = Vector2.new(0, 1),
 		BackgroundTransparency = 1,
-		ZIndex = 700,
-		ClipsDescendants = true,
-		Visible = motion:map(function(a)
-			return a > 0.003
-		end),
-	}, h("imagebutton", {
+		ZIndex = 633,
+	}, h("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 8),
+	}), buttons))
+
+	local heat = React.joinBindings({ hold, flare })
+	return h("frame", {
+		Name = "DomainChamber",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = motion:map(function(a)
-			return 1 - a * 0.6
-		end),
-		AutoButtonColor = false,
-		Selectable = false,
+		BackgroundTransparency = 0.04,
+		BorderSizePixel = 0,
 		Active = true,
-		ZIndex = 700,
-	}), h("frame", {
-		Size = UDim2.fromOffset(panelW, panelH),
-		Position = React.joinBindings({ motion, hostSize }):map(function(values)
-			return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 22)
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.night,
-		BorderSizePixel = 0,
-		ZIndex = 701,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 18) }), h("uistroke", {
-		Color = Palette.pink,
-		Thickness = 2,
-		Transparency = 0.3,
-	}), h("uigradient", {
-		Color = ColorSequence.new(darken(Palette.violet, 0.8), Palette.night),
-		Rotation = 90,
-	}), h("frame", {
-		Name = "Header",
-		Size = UDim2.new(1, -24, 0, headerH - 8),
-		Position = UDim2.fromOffset(12, 8),
-		BackgroundTransparency = 1,
-		ZIndex = 710,
+		ZIndex = 620,
 	}, h("frame", {
-		Size = UDim2.fromOffset(46, 46),
-		Position = UDim2.fromOffset(0, 4),
-		BackgroundColor3 = darken(Palette.pink, 0.55),
+		-- the forge floor glows with the hold and the landing
+		Size = UDim2.fromScale(1, 0.7),
+		Position = UDim2.fromScale(0, 1),
+		AnchorPoint = Vector2.new(0, 1),
+		BackgroundColor3 = Palette.ember,
+		BackgroundTransparency = heat:map(function(v)
+			local landing = if v[2] > 0 then 1 - v[2] else 0
+			return math.clamp(0.86 - v[1] * 0.4 - landing * 0.5, 0, 1)
+		end),
 		BorderSizePixel = 0,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-		Color = Palette.pink,
-	}), h(Text, {
-		value = `{domain.Rank or 0}`,
-		size = 16,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.fromScale(1, 1),
-	})), h(Text, {
-		value = "DOMAIN TREE",
-		size = 11,
-		color = Palette.pink,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 8,
-		position = UDim2.fromOffset(56, 6),
-		sizeConstraint = UDim2.new(1, -(56 + 96 + TapTarget + 22), 0, 14),
-	}), h(Text, {
-		value = if stack then `{boundCount}/{#TREE} bound` else `{boundCount} of {#TREE} bound  ·  +{nextPoints} points every expansion`,
-		size = if stack then 13 else 15,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(56, 22),
-		sizeConstraint = UDim2.new(1, -(56 + 96 + TapTarget + 22), 0, 22),
-	}), h("frame", {
-		Size = UDim2.fromOffset(96, 46),
-		Position = UDim2.new(1, -(96 + TapTarget + 10), 0, 4),
-		BackgroundColor3 = Palette.ink,
-		BorderSizePixel = 0,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), h("uistroke", {
-		Color = Palette.mango,
-		Transparency = 0.35,
-	}), h(Text, {
-		value = `{points}`,
-		size = 20,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 2),
-		sizeConstraint = UDim2.new(1, 0, 0, 24),
-	}), h(Text, {
-		value = "POINTS",
-		size = 10,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 27),
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-	})), h(Button, {
-		text = "",
-		icon = "Close",
-		onClick = close,
-		color = Palette.panelSoft,
-		textColor = Palette.cream,
-		outline = true,
-		size = UDim2.fromOffset(TapTarget, TapTarget),
-		position = UDim2.new(1, -TapTarget, 0, 5),
-		reducedMotion = softMotion,
-	})), body)))
+		ZIndex = 621,
+	}, h("uigradient", {
+		Rotation = -90,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.5, 0.75),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	})), h("frame", {
+		Size = if stacked then UDim2.new(1, -24, 0.5, -12) else UDim2.new(1, -(panelW + 72), 1, -48),
+		Position = UDim2.fromOffset(if stacked then 12 else 24, if stacked then 12 else 24),
+		BackgroundTransparency = 1,
+		ZIndex = 622,
+	}, h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 622,
+	}, h(Lattice, {
+		links = links,
+		tick = tick,
+		flare = flare,
+		selected = if mode == "lattice" then selected else nil,
+		etchedAt = etchedAt.current,
+		facetAt = facetAt.current,
+		anchorRefs = anchorRefs.current,
+		reduced = reduced,
+		onLink = if mode == "lattice" then onLink else function() end,
+		onAnchor = if mode == "lattice" then onAnchor else function() end,
+	}))), panel)
 end
 
 return {
-	DomainSkillTree = DomainSkillTree,
+	DomainChamber = DomainChamber,
 }
 end
 
@@ -2471,11 +1748,19 @@ local function safeSlotPosition(slot, position, width, height, sideInset, topIns
 	local bounds = slotBounds(slot, width, height, sideInset, topInset, bottomInset)
 	return Vector2.new(math.clamp(position.X, bounds.minX, bounds.maxX), math.clamp(position.Y, bounds.minY, bounds.maxY))
 end
--- Session-scoped layout memory; fractions so a stored layout survives rotation.
+-- Layout memory; fractions so a stored layout survives rotation. Seeded from the saved profile string.
+local MobileLayoutSlots = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MobileLayoutSlots"))
 local MOBILE_LAYOUT_MEMORY = {}
+local MOBILE_LAYOUT_SEEDED = false
 local function MobileControls(_param)
 	local slots = _param.slots
 	local dispatch = _param.dispatch
+	if not MOBILE_LAYOUT_SEEDED and type(_param.savedSlots) == "string" then
+		MOBILE_LAYOUT_SEEDED = true
+		for index, memory in MobileLayoutSlots.Decode(_param.savedSlots) do
+			MOBILE_LAYOUT_MEMORY[index] = memory
+		end
+	end
 	local reducedMotion = _param.reducedMotion
 	local visible = _param.visible
 	local onClose = _param.onClose
@@ -3191,6 +2476,10 @@ local function MobileControls(_param)
 		end
 		MOBILE_LAYOUT_MEMORY[memoryIndex] = stored
 		setMemoryRevision(memoryRevision + 1)
+		dispatch("SetMobileLayout", {
+			Values = {},
+			Slots = MobileLayoutSlots.Encode(MOBILE_LAYOUT_MEMORY),
+		})
 		Audio:play("copyDone")
 	end
 	local recallMemory = function()
@@ -4011,7 +3300,7 @@ local function MobileControls(_param)
 		reducedMotion = reducedMotion,
 		disabled = exiting,
 	})), React.createElement(Text, {
-		value = "Move vault, dock, and alerts. Size, fade, lock, and snap stay. Nothing is removed.",
+		value = "Drag the vault, dock and alerts where you want them.",
 		size = 10,
 		color = Palette.muted,
 		wrap = true,
@@ -4279,10 +3568,7 @@ local function ShockRing(_param)
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("uistroke", {
 			Color = if ring == 1 then Palette.cream else lighten(color, if ring == 0 then 0.25 else 0),
-			Thickness = clock:map(function(seconds)
-				local _, thin = Fx.ring(seconds - delay, SHOCK_LIFE)
-				return 1 + thin * (if ring == 0 then 5 else 3)
-			end),
+			Thickness = if ring == 0 then 3 else 2,
 			Transparency = clock:map(function(seconds)
 				local _, _, fade = Fx.ring(seconds - delay, SHOCK_LIFE)
 				return 0.05 + fade * 0.95

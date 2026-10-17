@@ -3,7 +3,7 @@
     python tools/spritegen/build_elements.py            # all six
     python tools/spritegen/build_elements.py fire void  # some
 
-Each sheet is 6 x 6 frames of 170 px (1020 x 1020, no padding, under Roblox's 1024 limit), RGBA with
+Each legacy sheet is 6 x 6 frames of 170 px, RGBA with
 straight alpha, and loops seamlessly: every time-varying term is periodic over the 36 frames.
 Output: assets/generated/sprites/<element>.png and previews/<element>_preview.png (over a dark panel).
 """
@@ -23,7 +23,10 @@ OUT = os.path.join(ROOT, "assets", "generated", "sprites")
 PREVIEWS = os.path.join(OUT, "previews")
 os.makedirs(PREVIEWS, exist_ok=True)
 
-FRAME = 170
+FRAME = int(os.environ.get("AF_ELEMENT_FRAME", "170"))
+if FRAME not in (170, 682):
+    raise ValueError("AF_ELEMENT_FRAME must be 170 (legacy) or 682 (4K atlas)")
+PIXEL_SCALE = FRAME / 170
 COLUMNS = 6
 FRAMES = 36
 TAU = math.tau
@@ -119,9 +122,14 @@ def particles():
 
 def glow(image: Image.Image, radius: float, strength: float) -> Image.Image:
     """Additive-looking bloom: blur the layer and lay it under itself."""
-    blurred = image.filter(ImageFilter.GaussianBlur(radius))
+    # High-resolution sheets retain the emissive halo without burying the sharp core.
+    hq = FRAME > 170
+    layer = image.convert("RGBa") if hq else image
+    blurred = layer.filter(ImageFilter.GaussianBlur(radius * PIXEL_SCALE * (0.65 if hq else 1)))
+    if hq:
+        blurred = blurred.convert("RGBA")
     arr = np.asarray(blurred).astype(np.float32) / 255
-    arr[..., 3] = np.clip(arr[..., 3] * strength, 0, 1)
+    arr[..., 3] = np.clip(arr[..., 3] * strength * (0.7 if hq else 1), 0, 1)
     return over(to_image(arr), image)
 
 
@@ -486,7 +494,7 @@ class Canvas:
         return float(self.half * (1 + x)), float(self.half * (1 - y))
 
     def w(self, pixels):
-        return max(1, round(pixels * self.S))
+        return max(1, round(pixels * self.S * PIXEL_SCALE))
 
     def _pairs(self, fill, outline=None):
         def mask(c):

@@ -7,11 +7,10 @@ local PAGE_SUITES = {
 	ChatView = "PagesSocial",
 	CommandView = "PagesSystem",
 	ContinuumView = "PagesProgress",
+	FoundryView = "PagesFoundry",
 	ConvergenceView = "PagesProgress",
 	CrateRevealStage = "PagesShop",
 	BazaarView = "PagesBazaar",
-	StarChartsView = "PagesSky",
-	CipherView = "PagesSky",
 	CrewView = "PagesSocial",
 	EchoForgeView = "PagesStory",
 	ForgePathView = "PagesProgress",
@@ -29,7 +28,8 @@ local PAGE_SUITES = {
 	SettingsView = "PagesSystem",
 	ShopView = "PagesShop",
 	StoreFront = "PagesShop",
-	StarGridView = "PagesProgress",
+	SpecializationsView = "PagesSpecializations",
+	AscensionView = "PagesAscension",
 	StoryView = "PagesStory",
 	TradeView = "PagesSocial",
 	WheelView = "PagesShop",
@@ -61,7 +61,8 @@ local MilestonesView = lazyView("MilestonesView", "MilestonesView")
 local AnomalyView = lazyView("AnomalyView", "AnomalyView")
 local LabView = lazyView("LabView", "LabView")
 local StoryView = lazyView("StoryView", "StoryView")
-local StarGridView = lazyView("StarGridView", "StarGridView")
+local SpecializationsView = lazyView("SpecializationsView", "SpecializationsView")
+local AscensionView = lazyView("AscensionView", "AscensionView")
 local CommandView = lazyView("CommandView", "CommandView")
 local MailboxView = lazyView("MailboxView", "MailboxView")
 local ChatView = lazyView("ChatView", "ChatView")
@@ -72,6 +73,7 @@ local LeaderboardsView = lazyView("LeaderboardsView", "LeaderboardsView")
 local TradeView = lazyView("TradeView", "TradeView")
 local SettingsView = lazyView("SettingsView", "SettingsView")
 local ContinuumView = lazyView("ContinuumView", "ContinuumView")
+local FoundryView = lazyView("FoundryView", "FoundryView")
 local ConvergenceView = lazyView("ConvergenceView", "ConvergenceView")
 local AdminView = lazyView("AdminView", "AdminView")
 local EchoForgeView = lazyView("EchoForgeView", "EchoForgeView")
@@ -85,8 +87,6 @@ local WorldsView = lazyView("WorldsView", "WorldsView")
 local RewardsView = lazyView("RewardsView", "RewardsView")
 local WorkshopView = lazyView("WorkshopView", "WorkshopView")
 local BazaarView = lazyView("BazaarView", "BazaarView")
-local StarChartsView = lazyView("StarChartsView", "StarChartsView")
-local CipherView = lazyView("CipherView", "CipherView")
 
 local function PageContentInner(props)
 	local _binding = props
@@ -141,8 +141,15 @@ local function PageContentInner(props)
 				reducedMotion = reducedMotion,
 			})
 		end
+		if page == "Ascension" then
+			return React.createElement(AscensionView, {
+				state = state,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+			})
+		end
 		if page == "StarGrid" then
-			return React.createElement(StarGridView, {
+			return React.createElement(SpecializationsView, {
 				state = state,
 				config = config,
 				dispatch = dispatch,
@@ -158,8 +165,9 @@ local function PageContentInner(props)
 				reducedMotion = reducedMotion,
 			})
 		end
-		if page == "Continuum" then
-			return React.createElement(ContinuumView, {
+		if page == "Continuum" or page == "Foundry" then
+			-- the Star Foundry replaced Continuum (and the Reactor below)
+			return React.createElement(FoundryView, {
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
@@ -183,7 +191,7 @@ local function PageContentInner(props)
 			})
 		end
 		if page == "Anomaly" then
-			return React.createElement(AnomalyView, {
+			return React.createElement(FoundryView, {
 				state = state,
 				config = config,
 				dispatch = dispatch,
@@ -224,20 +232,6 @@ local function PageContentInner(props)
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 				onLand = props.onWheelLand,
-			})
-		end
-		if page == "Charts" then
-			return React.createElement(StarChartsView, {
-				state = state,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
-			})
-		end
-		if page == "Cipher" then
-			return React.createElement(CipherView, {
-				state = state,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
 			})
 		end
 		if page == "Bazaar" then

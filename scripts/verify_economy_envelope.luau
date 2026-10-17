@@ -23,12 +23,6 @@ assert(EconomyEnvelopeMath.SumNumericLevels({ A = 2, B = 3, C = "x" }) == 5, "su
 assert(EconomyEnvelopeMath.MasteryMultiplier(nil) == 1, "nil mastery → 1")
 near(EconomyEnvelopeMath.MasteryMultiplier({ Drill = 100, Pump = 150 }), 1.5, "mastery soft-caps +50%")
 near(EconomyEnvelopeMath.MasteryMultiplier({ Drill = 10 }), 1.02, "mastery 10 pts → +2%")
-assert(
-	EconomyEnvelopeMath.DomainTreeBonus({ NodeA = true }, { { Id = "NodeA", Production = 0.05 } }, "Production")
-		== 0.05,
-	"domain tree bonus"
-)
-assert(EconomyEnvelopeMath.DomainTreeBonus(nil, {}, "Production") == 0, "nil nodes → 0")
 near(EconomyEnvelopeMath.AutoCollectRate(10, 0.1, 0, 0, 0, 0, 0, 0.05), math.min(0.8, 0.2 + 0.1 + 0.05), "auto collect")
 assert(EconomyEnvelopeMath.AutoCollectRate(1000, 1, 1, 1, 1, 1, 1, 1) == 0.8, "auto collect soft-cap")
 near(EconomyEnvelopeMath.OfflineHours(4, 2, 0.5, 24), 4 + 2.5 + 0.5, "offline hours")
@@ -95,7 +89,7 @@ assert(OmegaMath.Gte(higher, nextTarget), "next prestige must not regress with r
 -- Economy wiring residuals
 ------------------------------------------------------------------------
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
-assert(string.find(economySrc, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate")
+assert(string.find(economySrc, "return Economy.FoundryEffects(profile)", 1, true), "Economy ContinuumEffects must delegate")
 assert(string.find(economySrc, "ForgePathClaim.Effect", 1, true), "Economy ForgePathEffect must delegate")
 assert(string.find(economySrc, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.AutoCollectRate", 1, true), "Economy AutoCollectRate must delegate")
@@ -103,7 +97,7 @@ assert(string.find(economySrc, "EconomyEnvelopeMath.OfflineHours", 1, true), "Ec
 assert(string.find(economySrc, "EconomyEnvelopeMath.OfflineEfficiency", 1, true), "Economy OfflineEfficiency must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.SumNumericLevels", 1, true), "Economy totals must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.MasteryMultiplier", 1, true), "Economy MasteryMultiplier must delegate")
-assert(string.find(economySrc, "EconomyEnvelopeMath.DomainTreeBonus", 1, true), "Economy DomainTreeBonus must delegate")
+assert(string.find(economySrc, "DomainLattice.bonus(domain and domain.Links, field)", 1, true), "Economy DomainTreeBonus reads the lattice")
 assert(string.find(economySrc, "EconomyEnvelopeMath.LabPowerEffect", 1, true), "Economy LabPowerEffect must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.GridEffect", 1, true), "Economy GridEffect must delegate")
 assert(

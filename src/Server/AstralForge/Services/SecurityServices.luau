@@ -40,26 +40,82 @@ return function()
 		return result
 	end
 
+	-- Keys sort by type name first (boolean < number < string < anything else), then by value
+	-- (numbers numerically, everything else by tostring). Strings and numbers - nearly every key -
+	-- are sorted with the built-in comparison, which gives the same order far faster than a Lua
+	-- comparator on big bags like the 6,000-node star grid.
+	local function byText(left, right)
+		return tostring(left) < tostring(right)
+	end
 	local function orderedKeys(source): { any }
-		local keys = {}
-		for key in source do table.insert(keys, key) end
-		table.sort(keys, function(left, right)
+		local numbers, strings, others = {}, {}, nil
+		for key in source do
+			local kind = type(key)
+			if kind == "string" then
+				table.insert(strings, key)
+			elseif kind == "number" then
+				table.insert(numbers, key)
+			else
+				others = others or {}
+				table.insert(others :: { any }, key)
+			end
+		end
+		table.sort(numbers)
+		table.sort(strings)
+		if others == nil then
+			table.move(strings, 1, #strings, #numbers + 1, numbers)
+			return numbers
+		end
+		local rest = others :: { any }
+		table.sort(rest, function(left, right)
 			local leftType, rightType = type(left), type(right)
 			if leftType ~= rightType then return leftType < rightType end
-			if leftType == "number" then return left < right end
-			return tostring(left) < tostring(right)
+			return byText(left, right)
 		end)
+		local keys = {}
+		for _, key in rest do if type(key) < "number" then table.insert(keys, key) end end
+		for _, key in numbers do table.insert(keys, key) end
+		for _, key in rest do if type(key) > "number" and type(key) < "string" then table.insert(keys, key) end end
+		for _, key in strings do table.insert(keys, key) end
+		for _, key in rest do if type(key) > "string" then table.insert(keys, key) end end
 		return keys
 	end
 
+	-- Adler-32 over the canonical text. Bytes are read eight at a time and the sums are reduced once
+	-- per batch: every intermediate stays an exact integer far below 2^53, so the result is the
+	-- same as reducing after every byte.
 	local function feed(state, text: string)
-		for index = 1, #text do
-			state.A = (state.A + string.byte(text, index)) % MOD_ADLER
-			state.B = (state.B + state.A) % MOD_ADLER
+		local a, b = state.A, state.B
+		local length = #text
+		local index = 1
+		while index + 7 <= length do
+			local c1, c2, c3, c4, c5, c6, c7, c8 = string.byte(text, index, index + 7)
+			a += c1 b += a
+			a += c2 b += a
+			a += c3 b += a
+			a += c4 b += a
+			a += c5 b += a
+			a += c6 b += a
+			a += c7 b += a
+			a += c8 b += a
+			a %= MOD_ADLER
+			b %= MOD_ADLER
+			index += 8
 		end
+		while index <= length do
+			a = (a + string.byte(text, index)) % MOD_ADLER
+			b = (b + a) % MOD_ADLER
+			index += 1
+		end
+		state.A, state.B = a, b
 	end
 
-	local function digestValue(state, value: any, depth: number, parentKey: string?, path: string?)
+	-- the path is only needed for an error message, so it is kept as a stack of keys and joined on failure
+	local function pathText(stack: { string }): string
+		return if #stack == 0 then "?" else table.concat(stack)
+	end
+
+	local function digestValue(state, value: any, depth: number, parentKey: string?, stack: { string })
 		state.Nodes += 1
 		if state.Nodes > MAX_NODES or depth > 18 then
 			error("profile exceeds integrity traversal budget")
@@ -68,20 +124,24 @@ return function()
 		if kind == "nil" then feed(state, "n;")
 		elseif kind == "boolean" then feed(state, value and "b1;" or "b0;")
 		elseif kind == "number" then
-			if not finite(value) then error("profile contains a non-finite number at " .. (path or "?")) end
+			if not finite(value) then error("profile contains a non-finite number at " .. pathText(stack)) end
 			feed(state, "d" .. string.format("%.17g", value) .. ";")
 		elseif kind == "string" then
 			feed(state, "s" .. tostring(#value) .. ":" .. value .. ";")
 		elseif kind == "table" then
 			feed(state, "{")
+			local isMeta = parentKey == "Meta"
+			local top = #stack + 1
 			for _, key in orderedKeys(value) do
-
-				local excluded = parentKey == "Meta" and (key == "Integrity" or key == "Transactions")
+				local excluded = isMeta and (key == "Integrity" or key == "Transactions")
 				if not excluded then
-					digestValue(state, key, depth + 1, nil, (path or "") .. "<key>")
-					digestValue(state, value[key], depth + 1, type(key) == "string" and key or nil, (path or "") .. "." .. tostring(key))
+					stack[top] = "<key>"
+					digestValue(state, key, depth + 1, nil, stack)
+					stack[top] = "." .. tostring(key)
+					digestValue(state, value[key], depth + 1, type(key) == "string" and key or nil, stack)
 				end
 			end
+			stack[top] = nil
 			feed(state, "}")
 		else
 			error("profile contains unsupported value type " .. kind)
@@ -90,7 +150,7 @@ return function()
 
 	function ProfileIntegrity.Hash(value: any): string
 		local state = { A = 1, B = 0, Nodes = 0 }
-		digestValue(state, value, 0, nil)
+		digestValue(state, value, 0, nil, {})
 		return string.format("%08x", state.B * 65536 + state.A)
 	end
 
@@ -968,13 +1028,20 @@ return function()
 	local CONTENTION_TIMEOUT_SECONDS = 2
 	local CONTENTION_POLL_SECONDS = 0.03
 
+	-- deep copy for rollback; the native shallow copy does the bulk of the work at each level, so
+	-- only nested tables cost a Lua call (profiles hold thousands of plain number entries)
 	local function clone(value)
 		if type(value) ~= "table" then
 			return value
 		end
-		local result = {}
+		local result = table.clone(value)
+		if getmetatable(result) ~= nil then
+			setmetatable(result, nil)
+		end
 		for key, child in value do
-			result[clone(key)] = clone(child)
+			if type(child) == "table" then
+				result[key] = clone(child)
+			end
 		end
 		return result
 	end

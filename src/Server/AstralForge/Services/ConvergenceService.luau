@@ -3,7 +3,6 @@
 return function()
 	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 	local MemoryStoreService = game:GetService("MemoryStoreService")
-	local MessagingService = game:GetService("MessagingService")
 	local Players = game:GetService("Players")
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -15,7 +14,11 @@ return function()
 	ConvergenceService.__index = ConvergenceService
 
 	local MAP_NAME = "AF_Convergence_v1"
-	local TOPIC = "AF_ConvergenceChanged_v1"
+	-- The global total is split across shard keys so a thousand servers never contend on one
+	-- key; each server writes its own shard and sums all shards on its 15 s refresh. Nothing is
+	-- broadcast: a MessagingService fan-out costs (publishes x servers) against the experience-wide
+	-- receive budget, which does not survive high server counts.
+	local SHARDS = 8
 	local SHUTDOWN_FLUSH_SECONDS = 2.5
 	local BINDTOCLOSE_FLUSH_SECONDS = 10
 
@@ -46,8 +49,8 @@ return function()
 			_pendingGlobal = 0,
 			_global = 0,
 			_eventId = "",
+			_shard = ConvergenceOpsMath.ShardFor(game.JobId, SHARDS),
 			_running = false,
-			_subscription = nil,
 			_worker = nil,
 			_shutdownBound = false,
 		}, ConvergenceService)
@@ -103,15 +106,13 @@ return function()
 			return
 		end
 		local expiry = math.max(60, manifest.EndsAt - os.time() + 86_400)
+		local key = ConvergenceOpsMath.ShardKey(manifest.EventId, self._shard)
 		local ok, total = pcall(function()
-			return self._map:UpdateAsync(manifest.EventId, function(previous)
+			return self._map:UpdateAsync(key, function(previous)
 				return math.max(0, tonumber(previous) or 0) + amount
 			end, expiry)
 		end)
-		if ok and type(total) == "number" then
-			self._global = total
-			pcall(function() MessagingService:PublishAsync(TOPIC, { EventId = manifest.EventId, Total = total }) end)
-		else
+		if not (ok and type(total) == "number") then
 			self._pendingGlobal += amount
 			ModuleLog.Every("convergence-flush", 30, "LiveOps", tostring(total))
 		end
@@ -120,8 +121,19 @@ return function()
 	function ConvergenceService:_refresh()
 		if self._map == nil then return end
 		local manifest = self:_manifest()
-		local ok, total = pcall(function() return self._map:GetAsync(manifest.EventId) end)
-		if ok then self._global = math.max(self._global, tonumber(total) or 0) end
+		local shards = {}
+		for shard = 1, SHARDS do
+			local ok, value = pcall(function()
+				return self._map:GetAsync(ConvergenceOpsMath.ShardKey(manifest.EventId, shard))
+			end)
+			-- a failed shard read keeps the last known total rather than dropping it
+			if not ok then return end
+			shards[shard] = value
+		end
+		-- events that began before sharding kept their total under the bare event id
+		local okLegacy, legacy = pcall(function() return self._map:GetAsync(manifest.EventId) end)
+		if not okLegacy then return end
+		self._global = math.max(self._global, ConvergenceOpsMath.SumShards(shards, legacy))
 	end
 
 	function ConvergenceService:Multiplier(): number
@@ -180,18 +192,7 @@ return function()
 	function ConvergenceService:Start()
 		if self._running then return end
 		self._running = true
-		local ok, subscription = false, nil
-		if self._map ~= nil then
-			ok, subscription = pcall(function()
-			return MessagingService:SubscribeAsync(TOPIC, function(message)
-				local data = message.Data
-				if type(data) == "table" and data.EventId == self:_manifest().EventId then
-					self._global = math.max(self._global, tonumber(data.Total) or 0)
-				end
-			end)
-		end)
-		end
-		if ok then self._subscription = subscription end
+		task.spawn(function() self:_refresh() end)
 		self._worker = task.spawn(function()
 			while self._running do
 				task.wait(15)
@@ -300,7 +301,6 @@ return function()
 				ModuleLog.Warn("LiveOps", "skipped the convergence write — shutdown is already late")
 			end
 		end
-		if self._subscription then self._subscription:Disconnect(); self._subscription = nil end
 	end
 
 	return ConvergenceService

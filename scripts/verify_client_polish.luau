@@ -25,34 +25,76 @@ print("[TEST] client polish passed | Unicode chat limits + entrance timing + sof
 -- Two clicks before React's next render must issue only one request.
 local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
-for _, gameName in { "Bazaar" } do
-	local source = fs.readFile("src/Client/AstralForge/pages/Pages" .. gameName .. ".luau")
-	local start = assert(string.find(source, "\tlocal function play(", 1, true))
-	local stop = assert(string.find(source, "\n\tif " .. string.lower(gameName) .. " == nil", start, true))
+local runtimeSource = fs.readFile("src/Client/AstralForge/ClientRuntime.luau")
+assert(string.find(runtimeSource, "local PRELOAD_FAIL_OPEN_SECONDS = if UserInputService.TouchEnabled then 24 else 120", 1, true), "touch startup opens the game before a slow connection stalls the player")
+assert(string.find(runtimeSource, "\t\tcollectStaticContent(seenContentIds, queue)\n\t\tcollectConfigContent(seenContentIds, queue)\n\t\tcollectMountedContent(seenInstances, queue, true)", 1, true), "every device loads the whole game: config art, mounted art and the world")
+assert(not string.find(runtimeSource, "unresolved assets will stream on demand\")\n\t\t\tmarkBootReady()\n\t\t\tif worker ~= nil then", 1, true), "the deadline opens the game but the rest keeps loading behind it")
+assert(string.find(runtimeSource, "local function isUiElement(instance)\n\treturn carriesContent(instance)\nend", 1, true), "preload discovery must ignore layout-only UI instances")
+assert(not string.find(runtimeSource, "table.insert(target, root)", 1, true), "preloading a service root recursively fetches unrelated descendants")
+assert(string.find(runtimeSource, "addContentId(instance.Image, seen, target, \"art\", label)", 1, true), "image preloading must deduplicate content IDs instead of recursively loading UI trees")
+assert(string.find(runtimeSource, "Ledger.part(\"art\", \"images\", done.art, totals.art, lastLabel.art)", 1, true), "the loading screen gets real per-station counts and names")
+assert(not string.find(runtimeSource, "AUDIO_ASSET_MANIFEST", 1, true) and not string.find(runtimeSource, "MUSIC_ASSET_MANIFEST", 1, true), "the shell preloader must not duplicate audio preloading")
+assert(string.find(runtimeSource, "\tfor _, contentId in FORGE_ASSET_MANIFEST do\n\t\taddContentId(contentId, seen, target, \"art\", \"Forge\")", 1, true), "forge art loads on every device")
+local uiSource = fs.readFile("src/Client/AstralForge/UiCore.luau#ui")
+assert(string.find(uiSource, "useFlash(popTrigger, softMotion, if touchChrome then 0.24 else 0.32)", 1, true), "button impacts remain visible through the release")
+assert(string.find(uiSource, "local hoverGain = 0", 1, true), "button feedback must not grow into adjacent controls")
+assert(not string.find(uiSource, "local kick = math.clamp(values[2]", 1, true), "button impact feedback must stay inside its layout slot")
+assert(string.find(uiSource, "Thickness = impact:map(function(amount)", 1, true), "buttons must show a restrained impact ring")
+assert(string.find(uiSource, "return math.clamp(1 - amount * 0.78, 0.18, 1)", 1, true), "button impact feedback must fade cleanly")
+assert(string.find(uiSource, "useFlipperSpring(activeColumn, reducedMotion, 860, 42)", 1, true), "tab selection glides instead of snapping")
+assert(string.find(uiSource, "useFlash(activeIndex + 1, reducedMotion, 0.3)", 1, true), "tab selection feedback remains readable")
+local eventFxSource = fs.readFile("src/Client/AstralForge/UiCore.luau#serverEventsUi")
+assert(string.find(eventFxSource, "if not live then\n\t\t\treturn nil\n\t\tend\n\t\tlocal conn = RunService.Heartbeat:Connect", 1, true), "idle event effects must not retain a frame heartbeat")
+do
+	local source = fs.readFile("src/Client/AstralForge/pages/PagesBazaar.luau")
+	local start = assert(string.find(source, "\tlocal function request(", 1, true))
+	local stop = assert(string.find(source, "\n\tlocal sections = {}", start, true))
 	local body = string.sub(source, start, stop - 1)
-	local callbacks = {}
+	local calls, scheduled = {}, {}
 	local latch = { current = false }
+	local unresolved = { current = nil }
 	local env: any = {
-		busyRef = latch, mounted = { current = true }, bazaar = {},
-		stopWhir = {}, stopRoll = {}, slot = {}, coin = {}, wheel = {},
-		setBusy = function() end, sfx = function() end,
+		pending = latch, live = { current = true }, unresolved = unresolved,
+		nonce = { current = 0 }, timeout = { current = nil },
+		setBusy = function() end, setNote = function() end,
 		Audio = { play = function() end },
-		setSlot = function() end, setCoin = function() end, setWheel = function() end,
-		setMode = function() end, setNote = function() end,
-		fail = function() latch.current = false end,
-		conclude = function() latch.current = false end,
-		dispatch = function(_, _, callback) table.insert(callbacks, callback) end,
+		task = {
+			delay = function(_, callback)
+				local token = { callback = callback }
+				table.insert(scheduled, token)
+				return token
+			end,
+			cancel = function(token) token.cancelled = true end,
+		},
+		props = { dispatch = function(action, payload, callback)
+			table.insert(calls, { action = action, payload = payload, callback = callback })
+		end },
 	}
 	setmetatable(env, { __index = _G })
-	local play = luau.load(body .. "\nreturn play", { environment = env })()
-	play({})
-	play({})
-	assert(#callbacks == 1, gameName .. " double-dispatched before render")
-	callbacks[1]({ ok = false, error = "Simulated rejection" })
-	play({})
-	assert(#callbacks == 2, gameName .. " did not unlock after rejection")
+	local request, sessionOrder = luau.load(body .. "\nreturn request, function() return sessionOrder end", { environment = env })()
+	local original = { Pick = "core", Quantity = 1, RequestId = "original-order" }
+	request("BazaarPlay", original)
+	request("BazaarPlay", original)
+	assert(#calls == 1, "market double-dispatched before render")
+	calls[1].callback({ ok = false, error = "Simulated rejection" })
+	assert(not unresolved.current and not sessionOrder() and scheduled[1].cancelled, "conclusive rejection clears order and timeout")
+	request("BazaarPlay", original)
+	assert(#calls == 2, "market did not unlock after rejection")
+	calls[2].callback({ ok = false, Uncertain = true, error = "Simulated transport timeout" })
+	assert(unresolved.current == original and sessionOrder() == original, "transport failures retain the order ID")
+	request("BazaarPlay", { Pick = "keys", Quantity = 1, RequestId = "different-order" })
+	assert(#calls == 2, "an unresolved order cannot be replaced with another purchase")
+	request("BazaarPlay", { Pick = "core", Quantity = 1, RequestId = "new-id" })
+	assert(#calls == 3 and calls[3].payload.RequestId == "original-order", "retry reuses the original payload")
+	scheduled[#scheduled].callback()
+	assert(not latch.current and unresolved.current == original, "local timeout releases input but preserves the order")
+	request("BazaarPlay", original)
+	assert(#calls == 4)
+	env.live.current = false
+	calls[4].callback({ ok = true, message = "Completed" })
+	assert(not unresolved.current and not sessionOrder(), "confirmed orders clear even after the page closes")
 end
-print("[TEST] bazaar same-frame double-click and retry guards passed")
+print("[TEST] market actual request closure: same-frame latch, uncertain response, stable retry ID and close-time completion passed")
 
 -- Exercise the shell's actual visibility expression during a bazaar round.
 local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")

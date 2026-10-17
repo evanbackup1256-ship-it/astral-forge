@@ -9,7 +9,7 @@ return function(Math, compact)
 		end
 		for _, reward in { {"Missions", ready.missions, "mission rewards"}, {"Lab", ready.lab, "Lab rewards"}, {"ForgePath", if ready.path then 1 else 0, "Forge Path reward"} } do
 			if reward[2] > 0 and unlocked(reward[1]) then
-				return { title = `Claim your {reward[3]}`, body = `{reward[2]} ready to collect. Bank these rewards before your next upgrade.`, page = reward[1], cta = "Open " .. (if reward[1] == "ForgePath" then "Forge Path" else reward[1]), value = tostring(reward[2]), label = "REWARDS READY", progress = 1 }
+				return { title = `Claim your {reward[3]}`, body = `{reward[2]} ready to collect.`, page = reward[1], cta = "Open " .. (if reward[1] == "ForgePath" then "Forge Path" else reward[1]), value = tostring(reward[2]), label = "REWARDS READY", progress = 1 }
 			end
 		end
 		if state.Domain and state.Domain.CanExpand then
@@ -18,15 +18,18 @@ return function(Math, compact)
 		if Math.Gte(state.PrestigeReward or 0, 1) and unlocked("Rebirth") then
 			return { title = "Rebirth rewards are ready", body = `Review the panel below to reset machines and collect {compact(state.PrestigeReward)} Cores. Research stays permanent.`, value = "+" .. compact(state.PrestigeReward), label = "CORES READY", progress = 1 }
 		end
-		if ready.cipher and unlocked("Cipher") then
-			return { title = "Today's signal is open", body = "Crack the daily Signal Cipher before the reset to grow your streak.", page = "Cipher", cta = "Open Signal Cipher", value = "NEW", label = "DAILY PUZZLE", progress = 0 }
-		end
 		local nextLevel = state.Level and state.Level.Next
 		if type(nextLevel) == "table" and type(nextLevel.Text) == "string" then
 			local progress = if Math.Gt(nextLevel.Target or 0, 0) then math.clamp(Math.ToNumber(Math.Div(nextLevel.Progress or 0, nextLevel.Target)), 0, 1) else 0
 			local page = if nextLevel.Kind == "Domain" then "Domain" elseif nextLevel.Kind == "Rebirths" then nil else "Workshop"
-			return { title = `Forge level {nextLevel.Level}`, body = `{nextLevel.Text} · {compact(nextLevel.Progress or 0)} / {compact(nextLevel.Target or 0)}`, page = page, cta = if page == "Domain" then "Review Domain" elseif page then "Build production" else nil, value = `{math.floor(progress * 100)}%`, label = "LEVEL PROGRESS", progress = progress }
+			local names = {}
+			for _, id in (if type(nextLevel.Unlocks) == "table" then nextLevel.Unlocks else {}) do
+				local lock = state.FeatureUnlocks and state.FeatureUnlocks[id]
+				table.insert(names, if lock and type(lock.Name) == "string" then lock.Name else id)
+			end
+			local opens = if #names > 0 then table.concat(names, " and ") else nil
+			return { title = if opens then `Unlock {opens}` else nextLevel.Text, body = `{nextLevel.Text} · {compact(nextLevel.Progress or 0)} / {compact(nextLevel.Target or 0)}`, page = page, cta = if page == "Domain" then "Review Domain" elseif page then "Build production" else nil, value = `{math.floor(progress * 100)}%`, label = "NEXT UNLOCK", progress = progress }
 		end
-		return { title = "Build your next production jump", body = "Compare machine returns and buy a budgeted batch. Research stays with you across rebirths.", page = "Workshop", cta = "Compare machines", value = "NEXT", label = "PRODUCTION", progress = 0 }
+		return { title = "Buy more machines", body = "Upgrade your best machine to raise production. Research stays through rebirths.", page = "Workshop", cta = "Compare machines", value = "NEXT", label = "PRODUCTION", progress = 0 }
 	end
 end

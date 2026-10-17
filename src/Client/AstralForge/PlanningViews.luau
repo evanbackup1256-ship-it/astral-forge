@@ -100,16 +100,16 @@ function Views.NextPlan(props)
 	local plan=Model.nextRank(state,config)
 	local busy,status,run=useAction(props.dispatch)
 	local function navigate(page) if props.navigate then props.navigate(page) end end
-	local missing=if plan.capped then "Your Continuum rank is at its current limit." elseif plan.ready then "Both costs are covered. This upgrade raises permanent bonuses without resetting your machines." else `Still needed: {compact(plan.flux)} Flux + {compact(plan.dust)} Stardust.`
+	local missing=if plan.capped then "Your Continuum rank is at its current limit." elseif plan.ready then "You can afford it. Ranking up raises permanent bonuses and keeps your machines." else `Still needed: {compact(plan.flux)} Flux + {compact(plan.dust)} Stardust.`
 	local sections={
 		section("next-plan",232,panel(P.pink,{
-			copy("NEXT PLAN · PERMANENT PROGRESSION",0,22,12,P.pink,true),
+			copy("CONTINUUM · PERMANENT",0,22,12,P.pink,true),
 			copy(`Continuum {plan.rank} → {plan.nextRank}`,30,38,24,P.cream,true),
 			copy(missing,78,66,14),
 			button(if busy then "UPGRADING…" elseif plan.capped then "RANK LIMIT" else "RAISE RANK",152,function() run("UpgradeContinuum",{}) end,busy or not plan.ready,P.pink),
 		})),
 		section("rank-costs",218,panel(P.cyan,{
-			copy("YOUR UPGRADE BUDGET",0,24,13,P.cyan,true),
+			copy("COST",0,24,13,P.cyan,true),
 			copy(`Flux · {compact(state.Cash)} / {compact(rank.FluxCost or 0)}`,34,32,14),
 			meter(plan.fluxProgress,72,P.cyan),
 			copy(`Stardust · {compact(state.Stardust)} / {compact(rank.StardustCost or 0)}`,96,32,14),
@@ -117,19 +117,22 @@ function Views.NextPlan(props)
 			copy(if plan.milestone then "Next rank includes the milestone production bonus." else `Production milestone: rank {plan.milestoneRank}.`,154,32,12,P.muted),
 		})),
 		section("rank-benefits",246,panel(P.mint,{
-			copy("WHAT CHANGES AT YOUR NEXT RANK",0,24,13,P.mint,true),
+			copy("NEXT RANK",0,24,13,P.mint,true),
 			copy(`Production · {compact(rank.ProductionMultiplier or 1)}× → {compact(Math.Mul(rank.ProductionMultiplier or 1,plan.production))}×`,34,36),
 			copy(`Vault capacity · {compact(rank.CapacityMultiplier or 1)}× → {compact(Math.Mul(rank.CapacityMultiplier or 1,plan.capacity))}×`,76,36),
 			copy(`Strike power · {compact(rank.TapMultiplier or 1)}× → {compact(Math.Mul(rank.TapMultiplier or 1,plan.tap))}×`,118,36),
 			copy(`Offline bonus · {string.format("%.2f",(rank.OfflineBonus or 0)*100)}% → {string.format("%.2f",plan.offline*100)}%`,160,36),
 		})),
-		section("rank-route",254,panel(P.mango,{
-			copy("BUILD THE MISSING RESOURCES",0,24,13,P.mango,true),
-			copy(if status ~= "" then status else "Collect earned rewards, bank a shift, or compare production upgrades. Choose the route that fills your shortfall.",32,64,14),
-			button("OPEN SHIFT PLAN",106,function() navigate("Anomaly") end,false,P.pink),
-			button("COMPARE WORKSHOP UPGRADES",166,function() navigate("Workshop") end,false,P.cyan),
-		})),
 	}
+	-- only when something is short: where to get it
+	if not plan.ready and not plan.capped then
+		table.insert(sections, section("rank-route",254,panel(P.mango,{
+			copy("SHORT ON FLUX OR STARDUST?",0,24,13,P.mango,true),
+			copy(if status ~= "" then status else "Rewards, banked reactor shifts and better machines all bring more in.",32,64,14),
+			button("OPEN REACTOR",106,function() navigate("Anomaly") end,false,P.pink),
+			button("OPEN WORKSHOP",166,function() navigate("Workshop") end,false,P.cyan),
+		})))
+	end
 	return scaffold(sections,viewport,props,"ContinuumClaimActions")
 end
 
@@ -142,7 +145,7 @@ function Views.ShiftPlan(props)
 	local pane,setPane=React.useState("Directives")
 	local sections={
 		section("shift-next",240,panel(P.pink,{
-			copy("SHIFT PLAN · DO THIS NEXT",0,22,12,P.pink,true),
+			copy("REACTOR · NEXT STEP",0,22,12,P.pink,true),
 			copy(plan.title,30,58,23,P.cream,true),
 			copy(if status ~= "" then status else plan.body,96,58,14),
 			button(if busy then "WORKING…" else (if plan.action == "PulseAnomaly" then "PULSE CHARGE" else "COLLECT REWARD"),160,function() run(plan.action,plan.payload) end,busy,P.pink),
@@ -151,12 +154,12 @@ function Views.ShiftPlan(props)
 			copy(`CHARGE · {math.floor(plan.charge*100)}%`,0,24,14,P.mint,true),
 			meter(plan.charge,34,P.pink),
 			copy(`{compact(anomaly.Charge or 0)} / {compact(anomaly.Target or 0)} · Combo {anomaly.Combo or 0} / {anomaly.ComboMax or 20}`,56,42),
-			copy(`{compact(anomaly.Fragments or 0)} fragments · {anomaly.Stabilizations or 0} shifts banked · Core tier {anomaly.CoreTier or 1}`,106,42),
-			button("BANK COMPLETED SHIFT",158,function() run("StabilizeAnomaly",{}) end,busy or not anomaly.Ready,P.mint),
+			copy(`{compact(anomaly.Fragments or 0)} fragments · {anomaly.Stabilizations or 0} stabilized · core tier {anomaly.CoreTier or 1}`,106,42),
+			button("STABILIZE",158,function() run("StabilizeAnomaly",{}) end,busy or not anomaly.Ready,P.mint),
 		})),
 	}
 	local compactTabs=viewport.width<760
-	local tabs={copy("SHIFT WORKBENCH",0,24,13,P.cyan,true)}
+	local tabs={copy("REACTOR",0,24,13,P.cyan,true)}
 	for index,id in {"Directives","Loadout","Milestones","Protocols"} do
 		local columns=if compactTabs then 2 else 4
 		local column=(index-1)%columns
@@ -189,10 +192,10 @@ function Views.ShiftPlan(props)
 		if pane~="Directives" then break end
 		local progress=Model.ratio(job.Progress,job.Target)
 		table.insert(sections,section("directive-"..job.Id,254,panel(job.Color or P.mango,{
-			copy("DAILY DIRECTIVE",0,20,11,P.mango,true),copy(job.Name,26,42,19,P.cream,true),
+			copy("DAILY TASK",0,20,11,P.mango,true),copy(job.Name,26,42,19,P.cream,true),
 			copy(job.Description or job.Kind,74,56,14),meter(progress,136,job.Color or P.mango),
 			copy(`{compact(job.Progress)} / {compact(job.Target)} · {math.floor(progress*100)}%`,152,22,12),
-			button(if progress>=1 then "CLAIM DIRECTIVE" else "DIRECTIVE IN PROGRESS",184,function() run("ClaimAnomalyDirective",{Id=job.Id}) end,busy or progress<1,job.Color or P.mango),
+			button(if progress>=1 then "CLAIM TASK" else "NOT YET",184,function() run("ClaimAnomalyDirective",{Id=job.Id}) end,busy or progress<1,job.Color or P.mango),
 		})))
 	end
 	for index,milestone in plan.milestones do
@@ -200,10 +203,10 @@ function Views.ShiftPlan(props)
 		if index > 3 then break end
 		local ready=(anomaly.Stabilizations or 0)>=milestone.Required
 		table.insert(sections,section(`milestone-{milestone.Tier}`,172,panel(P.mint,{
-			copy(`SHIFT MILESTONE · TIER {milestone.Tier}`,0,26,13,P.mint,true),
-			copy(`{anomaly.Stabilizations or 0} / {milestone.Required} completed shifts`,34,36,14),
+			copy(`REACTOR MILESTONE · TIER {milestone.Tier}`,0,26,13,P.mint,true),
+			copy(`{anomaly.Stabilizations or 0} / {milestone.Required} stabilizations`,34,36,14),
 			meter(Model.ratio(anomaly.Stabilizations,milestone.Required),80,P.mint),
-			button(if ready then "CLAIM MILESTONE" else "KEEP BANKING SHIFTS",104,function() run("ClaimAnomalyMilestone",{Tier=milestone.Tier}) end,busy or not ready,P.mint),
+			button(if ready then "CLAIM MILESTONE" else "KEEP STABILIZING",104,function() run("ClaimAnomalyMilestone",{Tier=milestone.Tier}) end,busy or not ready,P.mint),
 		})))
 	end
 	for _,protocol in plan.protocols do
@@ -217,7 +220,7 @@ function Views.ShiftPlan(props)
 		})))
 	end
 	if pane=="Directives" and #plan.jobs==0 then
-		table.insert(sections,section("directives-complete",110,panel(P.mint,{copy("All daily directives collected",0,34,20,P.cream,true),copy("Keep building charge or explore permanent protocols while the next daily set approaches.",42,42,14)})))
+		table.insert(sections,section("directives-complete",110,panel(P.mint,{copy("All of today's tasks are done",0,34,20,P.cream,true),copy("New tasks arrive tomorrow. Keep charging the reactor until then.",42,42,14)})))
 	end
 	return scaffold(sections,viewport,props,"AnomalyClaimActions")
 end

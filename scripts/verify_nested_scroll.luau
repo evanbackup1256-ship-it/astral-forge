@@ -34,7 +34,7 @@ assert(heights[2] == 1500, "the fill section grows to hold every embedded row, g
 
 local scaffold = fs.readFile("src/Client/AstralForge/LayoutKit.luau#pageScaffold")
 assert(string.find(scaffold, "PageScrollContext.Provider", 1, true), "the fill section receives the page scroll context")
-assert(string.find(scaffold, "planOverflow(sections, available, gap, tailPad)", 1, true), "overflow comes from the plan")
+assert(string.find(scaffold, "planOverflow(sections, usable, gap, tailPad)", 1, true), "overflow comes from the plan")
 
 local list = fs.readFile("src/Client/AstralForge/LayoutKit.luau#virtualizedList")
 assert(string.find(list, "React.useContext(PageScrollContext)", 1, true), "lists read the page scroll context")

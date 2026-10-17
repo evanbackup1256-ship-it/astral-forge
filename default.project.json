@@ -119,9 +119,6 @@
         },
         "PlayerScriptsLoader": {
           "$path": "src/Client/PlayerScriptsLoader.client.luau"
-        },
-        "SharedRuntime": {
-          "$path": "src/Client/SharedRuntime"
         }
       }
     }

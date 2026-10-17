@@ -26,12 +26,24 @@ function DataTemplate.New()
 			TotalRebirthsSpent = 0,
 			TotalCoresSpent = 0,
 			SkillPoints = 0,
-			Nodes = {},
+			Links = {},
+			LatticeClearedAtRank = 0,
 		},
+		-- Star Foundry: built (and migrated from Continuum/Reactor) on first load by FoundryService.Ensure
+		Foundry = { Migrated = false },
 		Continuum = {
 			Rank = 0,
 			TotalFluxSpent = 0,
 			TotalStardustSpent = 0,
+		},
+		Ascension = {
+			Rank = 0,
+			Aether = 0,
+			TotalAether = 0,
+			Sigils = {},
+			LastAscendedAt = 0,
+			BestDomainRank = 0,
+			RebirthsSpent = 0,
 		},
 		ForgeEchoes = {
 			Charge = 0,
@@ -95,7 +107,7 @@ function DataTemplate.New()
 			PityMisses = 0,
 			FreeSpins = 0,
 		},
-		Command = {
+			Command = {
 			XP = 0,
 			Signals = 0,
 			StreakShields = 1,
@@ -120,6 +132,7 @@ function DataTemplate.New()
 			XPEarnedToday = 0,
 		},
 		GridUpgrades = {},
+		Specialization = { Focus = "Balanced", ChangedAt = 0 },
 		TimedRewards = {
 			Day = -1,
 			PlaySeconds = 0,
@@ -246,6 +259,12 @@ function DataTemplate.New()
 			ScrollSpeed = 0.65,
 			ScrollMomentum = 0.75,
 			HapticIntensity = 0.65,
+			ChatShowGlobal = 1,
+			ChatSounds = 1,
+			ChatTextSize = 0.5,
+			WhispersFriendsOnly = 0,
+			CrewInvitePolicy = 0,
+			TradeInvitePolicy = 0,
 			ShowFps = 1,
 			ShowPing = 1,
 			ShowResourceLabels = 1,

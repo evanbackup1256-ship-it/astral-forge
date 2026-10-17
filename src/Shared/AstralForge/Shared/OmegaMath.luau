@@ -292,7 +292,7 @@ end
 
 function OmegaMath.Compare(left: any, right: any): number
 	if plain(left) and plain(right) then
-		if left == right then
+		if left == right or math.abs(left - right) <= math.max(1, math.abs(left)) * 1e-12 then
 			return 0
 		end
 		return if left > right then 1 else -1
@@ -311,7 +311,7 @@ function OmegaMath.Compare(left: any, right: any): number
 	if a.s ~= b.s then
 		return a.s > 0 and 1 or -1
 	end
-	if a.e == b.e then
+	if a.e == b.e or math.abs(a.e - b.e) < 1e-12 then
 		return 0
 	end
 	if a.s > 0 then

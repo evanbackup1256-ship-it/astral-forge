@@ -47,6 +47,8 @@ end
 local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#MobileShell")
 for _, needle in {
 	"local function MenuSheet",
+	"TextWrapped = true",
+	"Position = UDim2.new(0.5, 0, 0, 69)",
 	"for order, group in NAV_GROUPS do",
 	'addSection("More", "More", loose',
 	"SHEET_SWIPE_CLOSE",
@@ -67,12 +69,26 @@ assert(string.find(shell, "local height = TapTarget + 14", 1, true), "quick acti
 
 -- Phone chrome placement
 local toasts = fs.readFile("src/Client/AstralForge/UiCore.luau#notifications")
-assert(string.find(toasts, "then UDim2.new(0.5, 0, 0, topInset)", 1, true), "phone toasts sit under the header")
+assert(not string.find(toasts, "ToastRail", 1, true), "phones get notices from the island under the header, not a toast stack")
 local events = fs.readFile("src/Client/AstralForge/UiCore.luau#serverEventsUi")
-assert(string.find(events, "UDim2.new(0, edge, 1, -(chrome.tabBarH + 8))", 1, true), "event banner in the status slot")
+assert(not string.find(events, "ServerEventBanner", 1, true), "phones see the event in the island, not a floating banner")
 local moments = fs.readFile("src/Client/AstralForge/UiCore.luau#levelMoments")
-assert(string.find(moments, "UDim2.new(0, edge, 1, -(chrome.tabBarH + 8 + 54))", 1, true), "surge chip above it")
+assert(not string.find(moments, "SurgeChip", 1, true), "the surge is an island buff, not a floating chip")
 local shellChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(not string.find(shellChrome, "MobilePreviewGate", 1, true), "the 'mobile is a preview' gate is gone")
+local eventWidthAt = assert(string.find(shell, "local eventW =", 1, true))
+local resourceRoomAt = assert(string.find(shell, "local room =", 1, true))
+assert(eventWidthAt < resourceRoomAt, "active event width is reserved before sizing mobile resources")
+assert(string.find(shell, "+ playersW + eventW + 22", 1, true), "mobile resources reserve the event button")
+assert(string.find(shell, "local playersW = math.min(44, barHeight)", 1, true), "mobile header actions keep a 44px touch target")
+local ui = fs.readFile("src/Client/AstralForge/UiCore.luau#ui")
+assert(string.find(ui, "local fieldInset = if chrome.stack or (not searchViewport.desktop and UserInputService.TouchEnabled) then 0 else 4", 1, true), "mobile search fields use their full touch height")
+local social = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
+assert(string.find(social, "local inputHeight = if condensed then 62 else INPUT_HEIGHT", 1, true), "mobile chat textbox keeps a 48px focus target")
+assert(string.find(social, '"Message server…  (/help)"', 1, true), "mobile chat uses a readable short placeholder")
+local mail = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
+assert(string.find(mail, "Size = if stack then UDim2.new(1, -24, 0, TapTarget + 8)", 1, true), "mobile mail filters compensate for page scaling")
+local shop = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau")
+assert(string.find(shop, 'Name = "DailyBuy",\n\t\tSize = UDim2.fromOffset(124, 48)', 1, true), "daily shop buy buttons keep a 48px touch target")
 
 print("verify_mobile_shell: ok")

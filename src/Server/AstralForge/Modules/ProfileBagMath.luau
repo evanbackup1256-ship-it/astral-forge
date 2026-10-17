@@ -228,10 +228,10 @@ function ProfileBagMath.EnsureDomain(profile: any): any
 			TotalRebirthsSpent = 0,
 			TotalCoresSpent = 0,
 			SkillPoints = 0,
-			Nodes = {},
+			Links = {},
 		}
-	elseif type(profile.Domain.Nodes) ~= "table" then
-		profile.Domain.Nodes = {}
+	elseif type(profile.Domain.Links) ~= "table" then
+		profile.Domain.Links = {}
 	end
 	profile.Domain.Rank = math.max(0, math.floor(tonumber(profile.Domain.Rank) or 0))
 	profile.Domain.Essence = math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0))
@@ -315,6 +315,26 @@ function ProfileBagMath.EnsureContinuum(profile: any): any
 	end
 	profile.Continuum.Rank = math.max(0, math.floor(tonumber(profile.Continuum.Rank) or 0))
 	return profile.Continuum
+end
+
+function ProfileBagMath.EnsureFoundry(profile: any): any
+	if type(profile.Foundry) ~= "table" then
+		profile.Foundry = {
+			Migrated = true,
+			Radius = 2,
+			Pieces = {},
+			Bench = {},
+			Shards = 0,
+			Draws = 0,
+			Combo = 0,
+			BestCombo = 0,
+			IgniteAt = 0,
+			SurgeEndsAt = 0,
+			LastAt = 0,
+			Version = 0,
+		}
+	end
+	return profile.Foundry
 end
 
 return table.freeze(ProfileBagMath)

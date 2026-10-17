@@ -573,6 +573,11 @@ return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local ServerEvents = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ServerEvents")
 
+	-- Runs the server's events. Hooks:
+	--   random()                     a 0..1 roll
+	--   announce(phase, def)         tell everyone (Warning / Live / Results / Completed / Defeated)
+	--   broadcast()                  push State() to every player
+	--   pay(entries, def, why)       entries = { { UserId, FluxSeconds, Stardust, Cores, Keys, KeyCrate, Rank } }
 	local ServerEventService = {}
 	ServerEventService.__index = ServerEventService
 
@@ -580,20 +585,46 @@ return function()
 		local self = setmetatable({}, ServerEventService)
 		self._hooks = hooks
 		self._state = nil
+		self._accumulator = 0
+		self._broadcastDue = false
+		self._lastBroadcast = 0
+		self:_reset()
+		return self
+	end
+
+	-- per-event scratch: who scored what, the shared bar, tickets, catches, crates
+	function ServerEventService:_reset()
 		self._points = {}
 		self._names = {}
 		self._goal = 0
 		self._progress = 0
 		self._completed = false
-		self._accumulator = 0
-		self._broadcastDue = false
-		self._lastBroadcast = 0
-		return self
+		self._tickets = {}
+		self._winners = nil
+		self._caught = {}
+		self._lastCatch = {}
+		self._tapWindow = {}
+		self._drops = {}
 	end
 
 	function ServerEventService:_def()
 		local state = self._state
 		return state and state.Id and ServerEvents.EVENTS[state.Id] or nil
+	end
+	function ServerEventService:_live(kind: string?)
+		local state = self._state
+		local d = self:_def()
+		if state == nil or state.Phase ~= "Live" or d == nil then
+			return nil
+		end
+		if kind ~= nil and d.Kind ~= kind then
+			return nil
+		end
+		return d
+	end
+	function ServerEventService:_touch(player: Player)
+		self._names[player.UserId] = player.DisplayName
+		self._broadcastDue = true
 	end
 
 	function ServerEventService:Step(dt: number)
@@ -609,6 +640,16 @@ return function()
 			self._state = nextState
 			self:_enter(previous, nextState)
 		end
+		-- a supply crate landing is news for everyone
+		local d = self:_live("supply")
+		if d ~= nil then
+			for _, drop in self._drops do
+				if not drop.Announced and now >= drop.At then
+					drop.Announced = true
+					self._broadcastDue = true
+				end
+			end
+		end
 		if self._broadcastDue and os.clock() - self._lastBroadcast >= 1 then
 			self._broadcastDue = false
 			self._lastBroadcast = os.clock()
@@ -617,52 +658,210 @@ return function()
 	end
 
 	function ServerEventService:_enter(previous, state)
-		local def = self:_def()
-		if state.Phase == "Live" and state.Id == "CommunityForge" then
-			self._points = {}
-			self._names = {}
-			self._progress = 0
-			self._completed = false
-			self._goal = ServerEvents.communityGoal(#Players:GetPlayers())
+		local d = self:_def()
+		if state.Phase == "Live" then
+			self:_reset()
+			if d and d.Kind == "goal" then
+				self._goal = ServerEvents.communityGoal(#Players:GetPlayers())
+			elseif d and d.Kind == "titan" then
+				self._goal = ServerEvents.titanHealth(#Players:GetPlayers())
+			elseif d and d.Kind == "supply" then
+				local started = state.StartedAt or os.time()
+				for index, offset in ServerEvents.supplyTimes() do
+					table.insert(self._drops, { Id = index, At = started + offset, Claimed = {}, Left = d.ClaimsPerDrop })
+				end
+			end
+		elseif state.Phase == "Results" and d ~= nil then
+			self:_settle(d)
 		end
-		if state.Phase == "Results" and state.Id == "CommunityForge" and not self._completed then
-			self._completed = false
-		end
-		if def ~= nil and (state.Phase == "Warning" or state.Phase == "Live" or state.Phase == "Results") then
-			self._hooks.announce(state.Phase, def)
+		if d ~= nil and (state.Phase == "Warning" or state.Phase == "Live" or state.Phase == "Results") then
+			self._hooks.announce(state.Phase, d)
 		end
 		self._hooks.broadcast()
 		self._lastBroadcast = os.clock()
 		self._broadcastDue = false
 	end
 
-	function ServerEventService:ProductionMultiplier(): number
-		return ServerEvents.productionMultiplier(self._state)
-	end
-
-	function ServerEventService:OnCollect(player: Player, collected: number, perSecond: number): number
-		local state = self._state
-		if state == nil or state.Phase ~= "Live" then
-			return 0
-		end
-		if state.Id == "StardustRain" then
-			return ServerEvents.rainDust(collected, perSecond)
-		end
-		if state.Id == "CommunityForge" and not self._completed then
-			local points = ServerEvents.collectPoints(collected, perSecond)
-			self._points[player.UserId] = (self._points[player.UserId] or 0) + points
-			self._names[player.UserId] = player.DisplayName
-			self._progress += points
-			self._broadcastDue = true
-			if self._progress >= self._goal then
-				self._completed = true
-				local ranking = ServerEvents.ranking(self._points)
-				self._hooks.payout(ranking, ServerEvents.EVENTS.CommunityForge)
-				self._hooks.announce("Completed", ServerEvents.EVENTS.CommunityForge)
-				self._hooks.broadcast()
+	-- the end of an event that pays by standing
+	function ServerEventService:_settle(d)
+		if d.Kind == "race" then
+			local entries = {}
+			for rank, entry in ServerEvents.ranking(self._points) do
+				local prize = ServerEvents.racePrize(rank)
+				table.insert(entries, { UserId = entry.UserId, Stardust = prize.Stardust, Cores = prize.Cores, Rank = rank })
+			end
+			if #entries > 0 then
+				self._hooks.pay(entries, d, "race")
+			end
+		elseif d.Kind == "draw" then
+			local rolls = {}
+			for index = 1, d.Winners do
+				rolls[index] = self._hooks.random()
+			end
+			local winners = ServerEvents.drawWinners(self._tickets, rolls, d.Winners)
+			self._winners = {}
+			local won = {}
+			local entries = {}
+			for rank, userId in winners do
+				won[userId] = true
+				table.insert(self._winners, { UserId = userId, Name = self._names[userId] or tostring(userId) })
+				table.insert(entries, { UserId = userId, Stardust = d.Prize.Stardust, Cores = d.Prize.Cores, Rank = rank })
+			end
+			for userId, n in self._tickets do
+				if n > 0 and not won[userId] then
+					table.insert(entries, { UserId = userId, Stardust = d.Consolation.Stardust })
+				end
+			end
+			if #entries > 0 then
+				self._hooks.pay(entries, d, "draw")
 			end
 		end
-		return 0
+	end
+
+	-- the community order filled, or the titan brought down: pay everyone who helped, by standing
+	function ServerEventService:_payShared(d, why)
+		local entries = {}
+		for rank, entry in ServerEvents.ranking(self._points) do
+			table.insert(entries, {
+				UserId = entry.UserId,
+				FluxSeconds = d.RewardFluxSeconds,
+				Stardust = d.RewardStardust + (d.TopBonusStardust[rank] or 0),
+				Cores = if d.TopBonusCores then (d.TopBonusCores[rank] or 0) else 0,
+				Rank = rank,
+			})
+		end
+		self._hooks.pay(entries, d, why)
+	end
+
+	function ServerEventService:ProductionMultiplier(): number
+		return ServerEvents.mod(self._state, "Production")
+	end
+	function ServerEventService:TapMultiplier(): number
+		return ServerEvents.mod(self._state, "Tap")
+	end
+	function ServerEventService:CritBonus(): number
+		return ServerEvents.mod(self._state, "Crit")
+	end
+	function ServerEventService:ComboWindowMultiplier(): number
+		return ServerEvents.mod(self._state, "ComboWindow")
+	end
+
+	-- a vault collect: returns what the event adds to it { Dust, Cores, Keys, KeyCrate, FluxBonus }
+	function ServerEventService:OnCollect(player: Player, collected: number, perSecond: number)
+		local out = { Dust = 0, Cores = 0, Keys = 0, KeyCrate = nil, FluxBonus = 0 }
+		local d = self:_live()
+		if d == nil or collected <= 0 then
+			return out
+		end
+		if d.Kind == "drops" then
+			local drops = ServerEvents.drops(d.Id, collected, perSecond, self._hooks.random(), self._hooks.random())
+			out.Dust, out.Cores, out.Keys, out.KeyCrate = drops.Dust, drops.Cores, drops.Keys, drops.KeyCrate
+		elseif d.Kind == "mod" and d.Mods.Collect then
+			out.FluxBonus = d.Mods.Collect
+		elseif d.Kind == "goal" and not self._completed then
+			local points = ServerEvents.collectPoints(collected, perSecond, d.MaxPointsPerCollect)
+			self._points[player.UserId] = (self._points[player.UserId] or 0) + points
+			self._progress += points
+			self:_touch(player)
+			if self._progress >= self._goal then
+				self._completed = true
+				self:_payShared(d, "goal")
+				self._hooks.announce("Completed", d)
+				self._hooks.broadcast()
+			end
+		elseif d.Kind == "titan" and not self._completed then
+			self:_hitTitan(player, ServerEvents.titanCollectHit(collected, perSecond))
+		elseif d.Kind == "race" then
+			self._points[player.UserId] = (self._points[player.UserId] or 0) + ServerEvents.collectPoints(collected, perSecond, d.MaxPointsPerCollect)
+			self:_touch(player)
+		elseif d.Kind == "draw" then
+			self._tickets[player.UserId] = math.min(d.MaxTickets, (self._tickets[player.UserId] or 0) + 1)
+			self:_touch(player)
+		end
+		return out
+	end
+
+	function ServerEventService:_hitTitan(player: Player, damage: number)
+		local d = self:_live("titan")
+		if d == nil or self._completed or damage <= 0 then
+			return
+		end
+		damage = math.min(damage, self._goal - self._progress)
+		self._points[player.UserId] = (self._points[player.UserId] or 0) + damage
+		self._progress += damage
+		self:_touch(player)
+		if self._progress >= self._goal then
+			self._completed = true
+			self:_payShared(d, "titan")
+			self._hooks.announce("Defeated", d)
+			self._hooks.broadcast()
+		end
+	end
+
+	-- an overcharge tap: only the titan cares (a few hits a second at most)
+	function ServerEventService:OnTap(player: Player)
+		local d = self:_live("titan")
+		if d == nil or self._completed then
+			return
+		end
+		local second = math.floor(os.clock())
+		local window = self._tapWindow[player.UserId]
+		if window == nil or window.Second ~= second then
+			window = { Second = second, Count = 0 }
+			self._tapWindow[player.UserId] = window
+		end
+		if window.Count >= d.TapsPerSecond then
+			return
+		end
+		window.Count += 1
+		self:_hitTitan(player, 1)
+	end
+
+	-- Falling Stars: a catch is worth Stardust; returns the amount or nil and why
+	function ServerEventService:CatchStar(player: Player): (number?, string?)
+		local d = self:_live("stars")
+		if d == nil then
+			return nil, "No stars are falling right now."
+		end
+		local caught = self._caught[player.UserId] or 0
+		if caught >= d.MaxStars then
+			return nil, "You've caught every star you can this time."
+		end
+		local now = os.clock()
+		if now - (self._lastCatch[player.UserId] or 0) < d.MinGap then
+			return nil, "Too quick."
+		end
+		self._lastCatch[player.UserId] = now
+		self._caught[player.UserId] = caught + 1
+		self:_touch(player)
+		return d.DustPerStar, nil
+	end
+
+	-- Supply Drop: the first players to grab a landed crate each get the reward
+	function ServerEventService:ClaimSupply(player: Player, dropId: any)
+		local d = self:_live("supply")
+		if d == nil then
+			return nil, "There's no supply drop right now."
+		end
+		local now = os.time()
+		for _, drop in self._drops do
+			if drop.Id == dropId then
+				if now < drop.At or now > drop.At + d.DropSeconds then
+					return nil, "That crate isn't down."
+				end
+				if drop.Claimed[player.UserId] then
+					return nil, "You already grabbed this one."
+				end
+				if drop.Left <= 0 then
+					return nil, "Someone beat you to it."
+				end
+				drop.Left -= 1
+				drop.Claimed[player.UserId] = true
+				self:_touch(player)
+				return d.Reward, nil
+			end
+		end
+		return nil, "That crate isn't down."
 	end
 
 	function ServerEventService:Start(id: string)
@@ -670,9 +869,21 @@ return function()
 			return false
 		end
 		local previous = self._state
-		self._state = { Phase = "Live", Id = id, PhaseEndsAt = os.time() + ServerEvents.LIVE_SECONDS, LastId = previous and previous.LastId }
+		local now = os.time()
+		self._state = { Phase = "Live", Id = id, PhaseEndsAt = now + ServerEvents.LIVE_SECONDS, StartedAt = now, LastId = previous and previous.LastId }
 		self:_enter(previous, self._state)
 		return true
+	end
+
+	local function topOf(self, points)
+		local top = {}
+		for index, entry in ServerEvents.ranking(points) do
+			if index > 5 then
+				break
+			end
+			table.insert(top, { Name = self._names[entry.UserId] or tostring(entry.UserId), Points = entry.Points, UserId = entry.UserId })
+		end
+		return top
 	end
 
 	function ServerEventService:State(player: Player?)
@@ -681,25 +892,51 @@ return function()
 		if state == nil then
 			return { Phase = "Rest", PhaseEndsAt = now + ServerEvents.FIRST_REST_SECONDS }
 		end
+		local d = self:_def()
 		local public = {
 			Phase = state.Phase,
 			Id = state.Id,
+			Kind = d and d.Kind or nil,
 			PhaseEndsAt = state.PhaseEndsAt,
+			StartedAt = state.StartedAt,
 			Multiplier = ServerEvents.productionMultiplier(state),
 		}
-		if state.Id == "CommunityForge" and (state.Phase == "Live" or state.Phase == "Results") then
-			local top = {}
-			for index, entry in ServerEvents.ranking(self._points) do
-				if index > 5 then
-					break
-				end
-				table.insert(top, { Name = self._names[entry.UserId] or tostring(entry.UserId), Points = entry.Points, UserId = entry.UserId })
-			end
+		local userId = if player ~= nil then player.UserId else 0
+		if d == nil or (state.Phase ~= "Live" and state.Phase ~= "Results") then
+			return public
+		end
+		if d.Kind == "goal" or d.Kind == "titan" then
 			public.Goal = self._goal
 			public.Progress = math.min(self._progress, self._goal)
 			public.Completed = self._completed
-			public.Yours = if player ~= nil then (self._points[player.UserId] or 0) else 0
-			public.Top = top
+			public.Yours = self._points[userId] or 0
+			public.Top = topOf(self, self._points)
+		elseif d.Kind == "race" then
+			public.Top = topOf(self, self._points)
+			public.Yours = self._points[userId] or 0
+			for rank, entry in ServerEvents.ranking(self._points) do
+				if entry.UserId == userId then
+					public.YourRank = rank
+					break
+				end
+			end
+		elseif d.Kind == "draw" then
+			public.Tickets = self._tickets[userId] or 0
+			local pool = 0
+			for _, n in self._tickets do
+				pool += n
+			end
+			public.Pool = pool
+			public.Winners = self._winners
+		elseif d.Kind == "stars" then
+			public.Caught = self._caught[userId] or 0
+			public.MaxStars = d.MaxStars
+		elseif d.Kind == "supply" then
+			local drops = {}
+			for _, drop in self._drops do
+				table.insert(drops, { Id = drop.Id, At = drop.At, EndsAt = drop.At + d.DropSeconds, Left = drop.Left, Mine = drop.Claimed[userId] == true })
+			end
+			public.Drops = drops
 		end
 		return public
 	end
@@ -1014,6 +1251,7 @@ return function()
 		end
 		return GuildMath.BonusesFromUpgrades(guild.Upgrades, GameConfig.Guild.Upgrades)
 	end
+
 
 	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 		local getOrderedStore = StoreAccess.ordered
@@ -1458,7 +1696,7 @@ function GuildService:_findByTag(tag: string)
 			return guild
 		end)
 		if not ok then
-			if blockedLastMember then return false, "You're the last member — disband the guild instead of leaving." end
+			if blockedLastMember then return false, "You're the last member. Disband the guild instead of leaving." end
 			return false, message
 		end
 		profile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
@@ -2073,6 +2311,27 @@ return function()
 
 	function ProgressionService.ApplyReward(profile, reward, production: number?): string
 		local parts = {}
+		for _, currency in { "Stardust", "Cores" } do
+			local amount = reward[currency]
+			if type(amount) == "number" and amount > 0 then
+				local balance = tonumber(profile[currency]) or 0
+				local credited = balance + amount
+				if credited <= balance or credited >= math.huge or balance >= 1e14 then
+					local isRoblox = false
+					pcall(function()
+						local rs = game:GetService("RunService")
+						if rs and type(rs.IsStudio) == "function" then
+							isRoblox = rs:IsStudio() or rs:IsServer()
+						end
+					end)
+					if isRoblox then
+						profile[currency] = 1e14
+					else
+						error("Your " .. currency:lower() .. " balance cannot represent this reward. The claim has not been granted.")
+					end
+				end
+			end
+		end
 		if reward.Cash and reward.Cash > 0 then
 			profile.Cash = Economy.Add(profile.Cash, reward.Cash)
 			profile.RunCash = Economy.Add(profile.RunCash, reward.Cash)
@@ -2087,11 +2346,13 @@ return function()
 			table.insert(parts, Format.Number(generated) .. " flux")
 		end
 		if reward.Stardust and reward.Stardust > 0 then
-			profile.Stardust = (tonumber(profile.Stardust) or 0) + reward.Stardust
+			profile.Stardust = (tonumber(profile.Stardust) or 0)
+			profile.Stardust = math.clamp(profile.Stardust + reward.Stardust, 0, 1e14)
 			table.insert(parts, Format.Number(reward.Stardust) .. " stardust")
 		end
 		if reward.Cores and reward.Cores > 0 then
-			profile.Cores = (tonumber(profile.Cores) or 0) + reward.Cores
+			profile.Cores = (tonumber(profile.Cores) or 0)
+			profile.Cores = math.clamp(profile.Cores + reward.Cores, 0, 1e14)
 			table.insert(parts, Format.Number(reward.Cores) .. " cores")
 		end
 		if reward.Boost and GameConfig.Boosts[reward.Boost] then
@@ -2743,13 +3004,23 @@ return function()
 		)
 	end
 
-	function ProgressionService.SpinWheel(profile, random: Random): (boolean, string, number?, string?, boolean?)
+	function ProgressionService.SpinWheel(profile, random: Random, expectedSpin: number?): (boolean, string, number?, string?, boolean?)
 		local now = os.time()
 		local wheel = ensureWheel(profile)
+		if expectedSpin ~= nil then
+			if not WheelMath.ValidExpectedSpin(expectedSpin) then return false, "Refresh the wheel before spinning." end
+			local receipt = wheel.LastReceipt
+			if receipt and receipt.ExpectedSpin == expectedSpin then
+				return true, receipt.Message, receipt.PrizeIndex, receipt.PrizeId, receipt.Pity
+			end
+			if expectedSpin ~= wheel.Spins then return false, "That spin is already resolved. Refresh to see your latest result." end
+		end
+		if not WheelMath.ValidExpectedSpin(wheel.Spins) then return false, "Your spin counter needs support review." end
+		local sequence = wheel.Spins
 		local freeSpins = wheel.FreeSpins
 		local onCooldown = now < wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds
 		if freeSpins <= 0 and onCooldown then
-			return false, "The fortune reactor is still recharging."
+			return false, "Your next free wheel spin is not ready yet."
 		end
 
 		local pityAfter = math.max(1, math.floor(tonumber(GameConfig.Wheel.PityAfter) or 8))
@@ -2765,7 +3036,7 @@ return function()
 		local roll = random:NextNumber(0, totalWeight)
 		local selectedEntry = WheelMath.PickEntry(pool, totalWeight, roll)
 		if selectedEntry == nil then
-			return false, "The fortune reactor has no prizes configured."
+			return false, "The wheel has no prizes configured."
 		end
 
 		local selectedIndex = selectedEntry.Index
@@ -2785,6 +3056,10 @@ return function()
 		if pityHit then
 			label = label .. " (guaranteed)"
 		end
+		ensureWheel(profile).LastReceipt = {
+			ExpectedSpin = sequence, PrizeIndex = selectedIndex, PrizeId = selected.Id, Message = label, Pity = pityHit,
+		}
+		WheelMath.RecordHistory(ensureWheel(profile), selected.Id, os.time(), pityHit)
 		return true, label, selectedIndex, selected.Id, pityHit
 	end
 

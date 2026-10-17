@@ -64,6 +64,7 @@ local VaultCollectEligibility = require(script.Parent.Parent.CoreKit)("vaultColl
 local PageReadyMath = require(script.Parent.Parent.LayoutKit)("pageReadyMath")
 local ReadyBoard = require(script.Parent.Parent.ReadyBoard)
 local ReleaseClockMath = require(script.Parent.Parent.CoreKit)("releaseClockMath")
+local JourneyMath = require(script.Parent.Parent.CoreKit)("journeyMath")
 
 local function ReleaseCountdown(_param)
 	local releaseAt = _param.releaseAt
@@ -354,6 +355,7 @@ local function Metric(_param)
 	end
 	return React.createElement(Panel, {
 		size = size,
+		accent = accent,
 		background = Palette.panelRaised,
 		padding = if compact then 8 else 10,
 		layoutOrder = layoutOrder,
@@ -489,8 +491,15 @@ local function progressLadder(state, config, limit: number): { string }
 end
 
 -- puts the "Ready now" strip first when it is shown
+-- With the Ready strip on screen, the "ops" card (claims across Missions, Lab, Forge Path) only
+-- repeated it lower down, so it is left out.
 local function withReady(entry, sections)
 	if entry ~= nil then
+		for index = #sections, 1, -1 do
+			if sections[index].id == "ops" then
+				table.remove(sections, index)
+			end
+		end
 		table.insert(sections, 1, entry)
 	end
 	return sections
@@ -562,8 +571,6 @@ local function OverviewView(_param)
 	local missionsReady = PageReadyMath.CountReadyQuests(state.Quests)
 	local labReady = PageReadyMath.CountReadyLabOrders(state.Lab)
 	local pathReady = PageReadyMath.ForgePathReady(state, config)
-	local cipherGate = state.FeatureUnlocks and state.FeatureUnlocks.Cipher
-	local cipherOpen = (cipherGate == nil or cipherGate.Unlocked ~= false) and PageReadyMath.CipherOpen(state.Sky)
 	local opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, false)
 	local opsGuide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Overview else nil
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
@@ -608,7 +615,7 @@ local function OverviewView(_param)
 		setOverchargeLeft(0.45)
 		dispatch("Overcharge")
 	end
-	local overchargeLabel = if overchargeLeft > 0.02 then `WAIT {string.format("%.1f", overchargeLeft)}s` else "OVERCHARGE"
+	local overchargeLabel = if overchargeLeft > 0.02 then `WAIT {string.format("%.1f", overchargeLeft)}s` elseif state.TapPower ~= nil then `OVERCHARGE  +{compactNumber(state.TapPower)}` else "OVERCHARGE"
 	local vaultClaimHostRef = React.useRef(nil)
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
@@ -685,10 +692,17 @@ local function OverviewView(_param)
 	local denseHero = chrome.short == true and wideOverview and not phone
 	local readoutRow = if denseHero then heroH - metricCardH - 8 else heroH
 	local ctaH = if denseHero then 40 else TapTarget
-	local heroReadoutH = if landscapePhone then 108 elseif phone then 168 else 0
+	local heroReadoutH = if landscapePhone then 118 elseif phone then 168 else 0
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
 	local opsButtonRows = if stack then 2 else 1
 	local opsButtonH = TapTarget * opsButtonRows + (if stack then 8 else 0)
+	local journey = JourneyMath.Build(state)
+	local journeyNext = journey.Next
+	local journeyRecent = {}
+	for index = #journey.Done, math.max(1, #journey.Done - 2), -1 do
+		table.insert(journeyRecent, journey.Done[index].Title)
+	end
+	local journalH = (if phone then 118 else 104) + (if stack then chrome.cardPadding * 2 else 32)
 	local domain = state.Domain or {
 		Rank = 0,
 		Essence = 0,
@@ -713,7 +727,7 @@ local function OverviewView(_param)
 		element = React.createElement(ReadyBoard.Strip, {
 			list = readyList,
 			compact = phone,
-			pillHeight = if phone then 38 else 40,
+			pillHeight = if phone then 48 else 44,
 			onOpen = navigate,
 			onFind = function()
 				require(script.Parent.Parent.QuickFind).open()
@@ -788,6 +802,17 @@ local function OverviewView(_param)
 		Padding = UDim.new(0, if landscapePhone or denseHero then 4 else 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 18),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Text, {
 		value = if firstRun then "YOUR FORGE" else "CURRENT RUN",
 		size = 11,
@@ -795,8 +820,14 @@ local function OverviewView(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		layoutOrder = 0,
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), React.createElement(Text, {
+		sizeConstraint = UDim2.new(0, if phone then 96 else 110, 1, 0),
+	}), vaultFill >= 0.99 and React.createElement(Badge, {
+		value = "FULL",
+		accent = Palette.mango,
+		size = UDim2.fromOffset(if phone then 56 else 62, 18),
+		filled = false,
+		layoutOrder = 1,
+	})), React.createElement(Text, {
 		value = compactNumber(state.Vault),
 		size = if landscapePhone then 32 elseif stack then 38 else 46,
 		color = Palette.cream,
@@ -814,13 +845,14 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Meter, {
 		value = vaultFill,
+		rainbow = true,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		reducedMotion = softMotion,
 		shimmer = vaultFill >= 0.99 and not effectsPaused,
 		layoutOrder = 3,
 		size = UDim2.new(1, 0, 0, 10),
 	}), React.createElement(Text, {
-		value = if vaultFill >= 0.99 then "Vault full — machines stopped. Collect now." elseif firstRun then "Machines earn Flux into this vault. Collect it, then buy more." else `{compactNumber(state.Production)} Flux per second flowing in`,
+		value = if vaultFill >= 0.99 then "Vault full. Machines stop until you collect." elseif firstRun then "Machines earn Flux into this vault. Collect it, then buy more." else `{compactNumber(state.Production)} Flux per second flowing in`,
 		size = if stack then chrome.labelText else 11,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -928,7 +960,7 @@ local function OverviewView(_param)
 		reducedMotion = softMotion,
 		size = UDim2.new(1, 0, 0, 4),
 	}), React.createElement(Text, {
-		value = if not showOvercharge then comebackLine elseif overchargeLeft > 0.02 then `Ready in {string.format("%.1f", overchargeLeft)}s` else "Tap for a quick vault burst",
+		value = if not showOvercharge then comebackLine elseif overchargeLeft > 0.02 then `Ready in {string.format("%.1f", overchargeLeft)}s` else "Tap for an instant burst of flux",
 		size = 10,
 		color = if overchargeLeft > 0.02 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -1194,7 +1226,7 @@ local function OverviewView(_param)
 				end
 			end
 		end
-		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady, cipher = cipherOpen }) else nil
+		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady }) else nil
 		if adaptiveGoal then
 			title, body, fillLine = adaptiveGoal.title, adaptiveGoal.body, ""
 			meter, statValue, statLabel = adaptiveGoal.progress, adaptiveGoal.value, adaptiveGoal.label
@@ -1342,7 +1374,7 @@ local function OverviewView(_param)
 		weight = Enum.FontWeight.Heavy,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if opsClaims > 0 then `{opsClaims} ready to claim` else ((opsGuide and opsGuide.EmptyClaims) or "Nothing ready to claim — keep forging."),
+		value = if opsClaims > 0 then `{opsClaims} ready to claim` else ((opsGuide and opsGuide.EmptyClaims) or "Nothing to claim yet. Keep forging."),
 		size = if stack then 17 else 18,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -1417,20 +1449,20 @@ local function OverviewView(_param)
 		highlight = pathReady,
 		layoutOrder = 2,
 	}), React.createElement(Button, {
-		text = if cipherOpen then "CIPHER · OPEN" else "CIPHER",
-		icon = "Code",
+		text = "BLACK MARKET",
+		icon = "Shop",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
-				_result = _result("Cipher")
+				_result = _result("Bazaar")
 			end
 			return _result
 		end,
-		color = if cipherOpen then Palette.pink else Palette.panelSoft,
-		textColor = if cipherOpen then Palette.ink else Palette.creamSoft,
+		color = Palette.panelSoft,
+		textColor = Palette.creamSoft,
 		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
-		highlight = cipherOpen,
+		highlight = false,
 		layoutOrder = 3,
 	}))),
 			},
@@ -1506,7 +1538,9 @@ local function OverviewView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = "Spend this run to rank Domain.",
+		value = if domain.CanExpand then `Domain rank {domain.Rank + 1} is ready`
+			elseif asFlux(state.Rebirths) < asFlux(domain.RequiredRebirths) then `{compactNumber(math.max(1, asFlux(domain.RequiredRebirths) - asFlux(state.Rebirths)))} more rebirths to Domain rank {domain.Rank + 1}`
+			else `More astral cores for Domain rank {domain.Rank + 1}`,
 		size = if phone then 20 else 23,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -1553,6 +1587,7 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Meter, {
 		value = domainProgress,
+		rainbow = true,
 		color = Palette.pink,
 		reducedMotion = quietMotion,
 		shimmer = domain.CanExpand and not effectsPaused,
@@ -1608,6 +1643,7 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Meter, {
 		value = domainProgress,
+		rainbow = true,
 		color = Palette.pink,
 		reducedMotion = quietMotion,
 		shimmer = domain.CanExpand and not effectsPaused,
@@ -1629,6 +1665,84 @@ local function OverviewView(_param)
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 				}),
+			},
+			{
+				id = "journal",
+				height = journalH,
+				element = React.createElement(Panel, {
+					layoutOrder = 7,
+					size = UDim2.fromScale(1, 1),
+					accent = Palette.mango,
+					background = Palette.panelRaised,
+					padding = if stack then chrome.cardPadding else 16,
+					reducedMotion = softMotion,
+					clips = true,
+				}, React.createElement(Text, {
+					value = `FORGE JOURNAL  ·  {journey.Count} / {journey.Total} CHAPTERS`,
+					size = 10,
+					color = Palette.mango,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					sizeConstraint = UDim2.new(1, 0, 0, 16),
+				}), React.createElement(Text, {
+					value = if journeyNext then `Next: {journeyNext.Title}` else "Every chapter written.",
+					size = if phone then 17 else 19,
+					color = Palette.cream,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					position = UDim2.fromOffset(0, 20),
+					sizeConstraint = UDim2.new(1, 0, 0, 26),
+				}), React.createElement(Text, {
+					value = if journeyNext
+						then `{journeyNext.Line}  {compactNumber(journeyNext.Have)} / {compactNumber(journeyNext.Target)} {journeyNext.Unit}`
+						else "The forge remembers everything you've done here.",
+					size = chrome.labelText,
+					color = Palette.creamSoft,
+					fit = false,
+					wrap = phone,
+					position = UDim2.fromOffset(0, 48),
+					sizeConstraint = UDim2.new(1, 0, 0, if phone then 32 else 16),
+				}), React.createElement(Meter, {
+					value = if journeyNext then journeyNext.Progress else 1,
+					color = Palette.mango,
+					reducedMotion = quietMotion,
+					shimmer = false,
+					position = UDim2.fromOffset(0, if phone then 84 else 70),
+					size = UDim2.new(1, 0, 0, 6),
+				}), React.createElement(Text, {
+					value = if #journeyRecent > 0 then `Written: {table.concat(journeyRecent, "  ·  ")}` else "Written: nothing yet. Buy a machine to start.",
+					size = chrome.labelText,
+					color = Palette.muted,
+					weight = Enum.FontWeight.Bold,
+					fit = false,
+					position = UDim2.fromOffset(0, if phone then 96 else 82),
+					sizeConstraint = UDim2.new(1, 0, 0, 16),
+				})),
+			},
+			{
+				-- this session, live
+				id = "session",
+				height = require(script.Parent.Parent.SessionStats).height(if phone then 2 else 4) + 56,
+				element = React.createElement(Panel, {
+					layoutOrder = 8,
+					size = UDim2.fromScale(1, 1),
+					accent = Palette.cyan,
+					background = Palette.panelRaised,
+					padding = if stack then chrome.cardPadding else 16,
+					reducedMotion = softMotion,
+					clips = true,
+				}, React.createElement(Text, {
+					value = "THIS SESSION",
+					size = 10,
+					color = Palette.cyan,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					sizeConstraint = UDim2.new(1, 0, 0, 16),
+				}), React.createElement(require(script.Parent.Parent.SessionStats).Card, {
+					columns = if phone then 2 else 4,
+					position = UDim2.fromOffset(0, 24),
+					reducedMotion = softMotion,
+				})),
 			},
 		}),
 	})))
@@ -1750,13 +1864,15 @@ local function ChargeDial(props)
 		children["d" .. i] = React.createElement("frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.new(0.5, math.cos(angle) * radius, 0.5, math.sin(angle) * radius),
-			Size = UDim2.fromOffset(4, 4),
+			Size = props.fill:map(function(amount)
+				return if amount >= threshold then UDim2.fromOffset(5, 5) else UDim2.fromOffset(3, 3)
+			end),
 			BorderSizePixel = 0,
 			BackgroundColor3 = props.fill:map(function(amount)
 				return if amount >= threshold then props.accent else Palette.panelSoft
 			end),
 			BackgroundTransparency = props.fill:map(function(amount)
-				return if amount >= threshold then 0 else 0.35
+				return if amount >= threshold then 0 else 0.4
 			end),
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
@@ -1781,6 +1897,23 @@ local function ChargeDial(props)
 		Thickness = 2,
 		Transparency = props.charge:map(function(amount)
 			return 1 - amount * 0.75
+		end),
+	})), React.createElement("frame", {
+		Name = "ChargeHalo",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = props.charge:map(function(amount)
+			return UDim2.fromOffset(size - 6 + amount * 8, size - 6 + amount * 8)
+		end),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = props.accent,
+		Thickness = 1,
+		Transparency = props.charge:map(function(amount)
+			return 1 - amount * 0.85
 		end),
 	})), props.children)
 end
@@ -1835,6 +1968,7 @@ local function RebirthPanel(_param)
 	local ignite, setIgnite = React.useBinding(0)
 	local mountedRef = React.useRef(true)
 	local ignitionRef = React.useRef(nil)
+	local confirmArmedRef = React.useRef(nil)
 	local rebirthClaimHostRef = React.useRef(nil)
 	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
 	local confirmReveal = useStagger(0, softMotion)
@@ -1881,6 +2015,19 @@ local function RebirthPanel(_param)
 			setConfirming(false)
 		end
 	end, { canRebirth })
+	React.useEffect(function()
+		if not confirming or igniting or busy then
+			return nil
+		end
+		local lapse = task.delay(6, function()
+			if mountedRef.current then
+				setConfirming(false)
+			end
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { confirming, igniting, busy })
 	local commit = function()
 		setBusy(true)
 		dispatch("Rebirth", {}, function(response)
@@ -1939,13 +2086,22 @@ local function RebirthPanel(_param)
 		setIgniting(false)
 		Audio:play("close")
 	end
+	-- The confirm step disarms itself: a second press only counts within CONFIRM_WINDOW seconds of the
+	-- first and not as part of the same double-click, so a stray tap later can never start a reset.
+	local CONFIRM_WINDOW, CONFIRM_MIN_GAP = 6, 0.35
 	local rebirth = function()
 		if not canRebirth or busy or igniting then
 			return nil
 		end
-		if not confirming then
+		local armedAt = confirmArmedRef.current
+		local elapsed = if armedAt ~= nil then os.clock() - armedAt else math.huge
+		if not confirming or elapsed > CONFIRM_WINDOW then
+			confirmArmedRef.current = os.clock()
 			setConfirming(true)
 			Audio:play("preview")
+			return nil
+		end
+		if elapsed < CONFIRM_MIN_GAP then
 			return nil
 		end
 		beginIgnition()
@@ -1978,29 +2134,39 @@ local function RebirthPanel(_param)
 		return React.createElement("frame", {
 			Size = UDim2.new(0.5, -6, 1, 0),
 			Position = UDim2.new(x, if x > 0 then 6 else 0, 0, 0),
-			BackgroundTransparency = 1,
+			BackgroundColor3 = Palette.ink,
+			BackgroundTransparency = 0.35,
 			BorderSizePixel = 0,
-		}, React.createElement("frame", {
-			Size = UDim2.new(0, 2, 1, -2),
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 8),
+		}), React.createElement("uistroke", {
+			Color = tint,
+			Thickness = 1,
+			Transparency = 0.5,
+		}), React.createElement("frame", {
+			Size = UDim2.new(0, 3, 1, -8),
+			Position = UDim2.fromOffset(4, 4),
 			BackgroundColor3 = tint,
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = 0.15,
 			BorderSizePixel = 0,
-		}), React.createElement(Text, {
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		})), React.createElement(Text, {
 			value = title,
 			size = 10,
 			color = tint,
 			weight = Enum.FontWeight.Heavy,
 			fit = false,
-			position = UDim2.fromOffset(8, 0),
-			sizeConstraint = UDim2.new(1, -8, 0, 13),
+			position = UDim2.fromOffset(12, 4),
+			sizeConstraint = UDim2.new(1, -16, 0, 13),
 		}), React.createElement(Text, {
 			value = body,
 			size = if stack then 11 else 10,
 			color = Palette.creamSoft,
 			wrap = true,
 			fit = false,
-			position = UDim2.fromOffset(8, 14),
-			sizeConstraint = UDim2.new(1, -8, 1, -14),
+			position = UDim2.fromOffset(12, 18),
+			sizeConstraint = UDim2.new(1, -16, 1, -22),
 		}))
 	end
 	return React.createElement(Panel, {
@@ -2035,14 +2201,14 @@ local function RebirthPanel(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement(Text, {
-		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH {rebirths + 1}`,
+		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH · {rebirths} DONE`,
 		size = 10,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if igniting then "Cancel now or the run resets." elseif confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Rebirth often: gates open by count.",
+		value = if igniting then "Cancel now or the run resets." elseif confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." elseif canRebirth then `Rebirth {rebirths + 1} is ready` else `{math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}% of the way to rebirth {rebirths + 1}`,
 		size = if stack then 19 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -2073,6 +2239,7 @@ local function RebirthPanel(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), not stack and React.createElement(Meter, {
 		value = progress,
+		rainbow = true,
 		color = accent,
 		reducedMotion = softMotion or effectsPaused,
 		shimmer = canRebirth and not effectsPaused and not softMotion,
@@ -2108,6 +2275,7 @@ local function RebirthPanel(_param)
 		sizeConstraint = UDim2.new(1, -24, 0, 16),
 	}), React.createElement(Meter, {
 		value = progress,
+		rainbow = true,
 		color = accent,
 		reducedMotion = softMotion or effectsPaused,
 		shimmer = canRebirth and not effectsPaused and not softMotion,
@@ -2159,7 +2327,7 @@ local function RebirthPanel(_param)
 	}), React.createElement("frame", {
 		Name = "IgnitionBar",
 		Size = ignite:map(function(amount)
-			return UDim2.new(amount, 0, 0, 3)
+			return UDim2.new(amount, 0, 0, 4)
 		end),
 		Position = UDim2.new(0, 0, 0, ctaH + 2),
 		BackgroundColor3 = Palette.mango,
@@ -2167,6 +2335,11 @@ local function RebirthPanel(_param)
 		Visible = igniting,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.mango),
+			ColorSequenceKeypoint.new(1, Palette.cream),
+		}),
 	})), React.createElement(Button, {
 		text = if igniting then "STOP" elseif confirming then "CANCEL" else "OPEN WORKSHOP",
 		icon = if confirming or igniting then "Close" else "Forge",
@@ -2968,7 +3141,8 @@ local function MilestoneRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-			reducedMotion = softMotion,
+		filled = ready,
+		reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = achievement.Name,
@@ -2999,15 +3173,27 @@ local function MilestoneRow(_param)
 		interactive = true,
 		highlight = ready,
 		reducedMotion = softMotion,
-	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement(Text, {
-		value = reward,
+	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement("frame", {
+		Size = UDim2.fromOffset(math.min(220, #reward * 7 + 24), 20),
+		Position = UDim2.fromOffset(56, if stack then 66 else 56),
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 6),
+	}), React.createElement("uistroke", {
+		Color = Palette.mango,
+		Thickness = 1,
+		Transparency = 0.65,
+	}), React.createElement(Text, {
+		value = "★ " .. reward,
 		size = 11,
 		color = Palette.mango,
-		weight = Enum.FontWeight.Bold,
-		fit = false,
-		position = UDim2.fromOffset(56, if stack then 66 else 58),
-		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -182, 0, 16),
-	}), React.createElement(Text, {
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(6, 2),
+		sizeConstraint = UDim2.new(1, -12, 1, -4),
+	})), React.createElement(Text, {
 		value = if ready then "Reward ready" elseif achievement.Claimed then "Claimed" else `{compactNumber(achievement.Progress)} / {compactNumber(achievement.Target)}  ·  {math.floor(progressFrac * 100)}%`,
 		size = 11,
 		color = Palette.muted,
@@ -3182,7 +3368,7 @@ local function MilestonesView(_param)
 		zIndex = 30,
 		clips = false,
 	}, if stack then React.createElement(Text, {
-		value = if counts.Ready > 0 then `{counts.Ready} to claim · {counts.Done} of {#list} done` else `{counts.Done} of {#list} done · they stay after a rebirth`,
+		value = "MILESTONES · KEPT THROUGH REBIRTH",
 		size = 13,
 		color = if counts.Ready > 0 then Palette.green else Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
@@ -3196,7 +3382,7 @@ local function MilestonesView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, -420, 0, 16),
 	}), React.createElement(Text, {
-		value = "Long-term goals.",
+		value = if counts.Ready > 0 then `{counts.Ready} ready to claim · {counts.Done} of {#list} done` else `{counts.Done} of {#list} reached`,
 		size = 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -3439,7 +3625,8 @@ local function MissionRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-			reducedMotion = softMotion,
+		filled = ready,
+		reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = quest.Name,
@@ -3470,22 +3657,35 @@ local function MissionRow(_param)
 		interactive = true,
 		highlight = ready,
 		reducedMotion = softMotion,
-	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement(Text, {
-		value = reward,
-		size = 11,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Bold,
-		fit = false,
-		position = UDim2.fromOffset(56, if stack then 66 else 58),
-		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -182, 0, 16),
+	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement("frame", {
+		Size = UDim2.fromOffset(math.min(220, #reward * 7 + 24), 20),
+		Position = UDim2.fromOffset(56, if stack then 66 else 56),
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 6),
+	}), React.createElement("uistroke", {
+		Color = Palette.cyan,
+		Thickness = 1,
+		Transparency = 0.65,
 	}), React.createElement(Text, {
-		value = `{compactNumber(quest.Progress)} / {compactNumber(quest.Target)}`,
+		value = "★ " .. reward,
+		size = 11,
+		color = Palette.cyan,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(6, 2),
+		sizeConstraint = UDim2.new(1, -12, 1, -4),
+	})), React.createElement(Text, {
+		value = if ready then "Reward ready" elseif quest.Claimed then "Claimed" else `{compactNumber(quest.Progress)} / {compactNumber(quest.Target)}  ·  {math.floor(progressFrac * 100)}%`,
 		size = 11,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
-		fit = false,
+		fit = true,
+		minSize = 8,
 		position = UDim2.fromOffset(0, progressY),
-		sizeConstraint = UDim2.new(0, 160, 0, 16),
+		sizeConstraint = UDim2.new(0, 300, 0, 16),
 	}), React.createElement(Meter, {
 		value = if quest.Claimed or ready then 1 else progressFrac,
 		color = if quest.Claimed then Palette.muted else accent,
@@ -3501,7 +3701,7 @@ local function MissionRow(_param)
 		position = meterPosition,
 		size = meterSize,
 	}), if stack then React.createElement(Button, {
-		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "IN PROGRESS",
+		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "NOT YET",
 		icon = "Mission",
 		onClick = function()
 			return dispatch("ClaimQuest", {
@@ -3516,7 +3716,7 @@ local function MissionRow(_param)
 		disabled = quest.Claimed or not ready,
 		highlight = ready,
 	}) else React.createElement(Button, {
-		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "IN PROGRESS",
+		text = if quest.Claimed then "CLAIMED" elseif ready then "CLAIM" else "NOT YET",
 		icon = "Mission",
 		onClick = function()
 			return dispatch("ClaimQuest", {
@@ -3545,7 +3745,8 @@ local function TaskSummary(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(Text, {
-		value = `{done} / {total}`,
+		-- the headline beside this already gives the count; lead with how far along you are
+		value = `{math.floor(fraction * 100 + 0.5)}%`,
 		size = 20,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
@@ -3553,7 +3754,7 @@ local function TaskSummary(_param)
 		align = Enum.TextXAlignment.Right,
 		sizeConstraint = UDim2.new(1, 0, 0, 26),
 	}), React.createElement(Text, {
-		value = `{math.floor(fraction * 100 + 0.5)}% complete`,
+		value = if done >= total and total > 0 then "all done" else "complete",
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -3676,7 +3877,7 @@ local function MissionsView(_param)
 		zIndex = 30,
 		clips = false,
 	}, if stack then React.createElement(Text, {
-		value = if counts.Ready > 0 then `{counts.Ready} ready · {counts.Done} of {#quests} claimed today` else `{counts.Done} of {#quests} claimed · new missions every day`,
+		value = "TODAY'S MISSIONS · NEW EACH DAY",
 		size = 13,
 		color = if counts.Ready > 0 then Palette.green else Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
@@ -3690,7 +3891,7 @@ local function MissionsView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, -420, 0, 16),
 	}), React.createElement(Text, {
-		value = "Daily checklist.",
+		value = if counts.Ready > 0 then `{counts.Ready} ready to claim · {counts.Done} of {#quests} done` else `{counts.Done} of {#quests} done today`,
 		size = 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,

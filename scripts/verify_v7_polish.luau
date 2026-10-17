@@ -139,7 +139,7 @@ local guard = source("src/Client/AstralForge/layoutGuard.luau")
 assert(guard:find("FRAME_BUDGET_SECONDS = 0.0015", 1, true))
 assert(guard:find("os.clock() < self.deadline", 1, true), "layout scanning yields to the frame deadline")
 assert(guard:find("elseif self.overlapPhase == 2 then", 1, true), "collision passes are spread across frames")
-local trackedClass = extract(guard, "local function isTrackedClass(", "local function applyTextFloor(")
+local trackedClass = extract(guard, "local function isTrackedClass(", "local function repairText(")
 local isTracked = load(trackedClass .. "\nreturn isTrackedClass", { IGNORE_ATTRIBUTE = "LayoutGuardIgnore", isFloatingPanel = function() return false end })
 local function instance(class, parent, ignored)
 	return {
@@ -155,8 +155,19 @@ assert(not isTracked(glyph), "layout-owned descendants inherit their ancestor's 
 root.GetAttribute = function() return false end
 assert(isTracked(glyph), "ordinary text still receives layout repairs")
 local presence = source("src/Client/AstralForge/ArtifactPresence.luau")
-local spriteStep = extract(presence, "spriteClock += dt", "local offset =")
+local spriteStep = extract(presence, "spriteClock += dt", "if not advance or GuiService.ReducedMotionEnabled")
 local sprites = load(source("src/Shared/AstralForge/Shared/ElementSprites.luau"), { Color3 = roblox.Color3, Vector2 = roblox.Vector2 })
+assert(#sprites.ORDER == 57 and sprites.SOURCE_FRAME == 682 and sprites.SOURCE_EDGE == 4096 and sprites.UI_EDGE == 1024 and sprites.FRAME == 170.5 and sprites.COLUMNS == 6 and sprites.COUNT == 36, "source resolution must not be confused with delivered UI crop coordinates")
+for _, element in sprites.ORDER do
+	local animation = sprites.animation(element)
+	assert(animation and animation.Spritesheet == sprites.sheet(element).Image)
+	assert(animation.SpriteSize == roblox.Vector2.new(170.5, 170.5) and animation.SpriteCount == 36)
+	for index = 0, sprites.COUNT - 1 do
+		local x, y = (index % sprites.COLUMNS) * sprites.FRAME, math.floor(index / sprites.COLUMNS) * sprites.FRAME
+		assert(x + sprites.FRAME <= 1024 and y + sprites.FRAME <= 1024, "every playback crop stays inside the delivered UI texture")
+		assert(x * 4 == (index % sprites.COLUMNS) * sprites.SOURCE_FRAME and y * 4 == math.floor(index / sprites.COLUMNS) * sprites.SOURCE_FRAME, "fractional playback coordinates must preserve exact source frame boundaries")
+	end
+end
 local tickSprite = load("return function(spriteClock, spriteFrame, dt)\nlocal frameStep = 1 / ElementSprites.FRAMERATE\n"
 	.. spriteStep .. "\nreturn spriteClock, spriteFrame\nend", { ElementSprites = sprites })
 for _, fps in { 15, 30, 60, 144 } do
@@ -187,6 +198,10 @@ for _, kind in load("return " .. kinds) do
 end
 assert(count >= 37, "all title styles are exercised")
 local spinner = source("src/Client/AstralForge/ReactHosts.luau#NumberSpinnerHost")
+-- the spinner converts its own fresh guide label; reusing the (hidden) fallback label copied the
+-- hidden state and blanked every animated number in the top bar
+assert(spinner:find('local guide = Instance.new("TextLabel")', 1, true), "spinner guide is a fresh label")
+assert(not spinner:find("local guide = fallback", 1, true), "spinner never reuses the fallback label")
 local display = extract(spinner, "local function spinDisplay(", "local function formatRawLabel(")
 local callback = extract(spinner, "local pushDisplay = React.useCallback(", "local ensureSpinner =")
 local style = { current = { size = 20, color = "cream", align = "left", prefix = "+", extraSuffix = " FLUX", spacedSuffix = true } }
@@ -260,13 +275,9 @@ assert(panel:find("local panelSize = useGuiSize(panelRef)", 1, true), "shared pa
 assert(panel:find("ref = panelRef", 1, true), "panel measurement is attached to its stable outer frame")
 assert(panel:find("pixelPosition(values[2], 0, -4, 0, 7 + values[1])", 1, true), "panel shadows preserve fractional entrance and hover travel")
 assert(panel:find("pixelPosition(values[2], 0, 0, 0, values[1])", 1, true), "panel surfaces preserve fractional entrance and hover travel")
-local domainTree = source("src/Client/AstralForge/UiOverlays.luau#DomainSkillTree")
-local domainExpansion = source("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
-assert(domainTree:find("local hostSize = useGuiSize(hostRef)", 1, true), "domain tree measures its overlay host")
-assert(domainTree:find("pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 22)", 1, true), "domain tree transitions retain fractional pixels")
-assert(domainExpansion:find("local parentSize = useGuiSize(cardRef, true)", 1, true), "domain confirmation measures its card parent")
-assert(domainExpansion:find("ref = cardRef", 1, true), "domain confirmation attaches its measurement ref")
-assert(domainExpansion:find("pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 30)", 1, true), "domain confirmation transitions retain fractional pixels")
+local domainChamber = source("src/Client/AstralForge/UiOverlays.luau#DomainChamber")
+assert(domainChamber:find('h("uiaspectratioconstraint", { AspectRatio = 1 })', 1, true), "the lattice stays square at any screen size")
+assert(domainChamber:find("local stacked = viewport.width < 760 or viewport.width < viewport.height", 1, true), "phones stack the lattice over the panel")
 local roadmap = source("src/Client/AstralForge/UiCore.luau#levelRoadmap")
 assert(roadmap:find("local parentSize = useGuiSize(cardRef, true)", 1, true))
 assert(roadmap:find("cardRef.current = node", 1, true), "roadmap preserves focus while measuring its parent")
@@ -281,10 +292,9 @@ assert(report:find("pixelPosition(values[2], 0.5, 0, 0.5, (1 - math.clamp(values
 local playerlist = source("src/Client/AstralForge/UiCore.luau#PlayerlistOverlay")
 assert(playerlist:find("local listParentSize = useGuiSize(padFocus, true)", 1, true))
 assert(playerlist:find("pixelPosition(values[2], 1, -side + (1 - values[1]) * 24, 0, top)", 1, true))
+-- notices play in the island now; the old toast cards (and their slot measuring) are gone
 local notifications = source("src/Client/AstralForge/UiCore.luau#notifications")
-assert(notifications:find("local slotSizePixels = useGuiSize(slotRef)", 1, true))
-assert(notifications:find("ref = slotRef", 1, true))
-assert(notifications:find("pixelPosition(values[4], 0.5, values[1] + values[2], 0.5, values[3])", 1, true))
+assert(not notifications:find("NoticeCard", 1, true), "no toast cards are left behind")
 assert(feedback:find('Name = "Impact" .. level', 1, true), "feedback impact controls are individually identifiable")
 assert(feedback:find("value = tostring(level)", 1, true), "impact levels must be visible before selection")
 assert(feedback:find('Suggestion = "IDEA"', 1, true), "the suggestion category fits its selected tab")

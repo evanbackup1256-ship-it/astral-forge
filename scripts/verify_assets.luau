@@ -101,7 +101,8 @@ for cue in string.gmatch(cueBlock, "\n\t(%w+) = {") do
 	assert(voices[voice], "cue " .. cue .. " maps to " .. voice .. ", which isn't on the sheet")
 	mapped += 1
 end
-assert(cueCount >= 180, "the CUES scan found too few cues -- did the pattern drift?")
+-- (retired features -- the sanctuary, the Warden, the card table -- took ~40 cues with them)
+assert(cueCount >= 150, "the CUES scan found too few cues -- did the pattern drift?")
 for voice in string.gmatch(sheet, '= "([%w_]+)"') do
 	assert(voices[voice], "soundSheet names unknown voice " .. voice)
 end

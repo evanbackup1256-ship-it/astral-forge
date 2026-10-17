@@ -23,8 +23,11 @@ __defs["Economy"] = function()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+local Specializations = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
+local AscensionMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
 local CapacityProjection = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("CapacityProjection")
 local LevelRewards = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
+local DomainLattice = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainLattice"))
 local OfflineProjection = __load("OfflineProjection")
 local TapCritProjection = __load("TapCritProjection")
 local UpgradeCostReason = __load("UpgradeCostReason")
@@ -113,6 +116,7 @@ type ProfileLike = {
 	Machines: { [string]: number },
 	Research: { [string]: number },
 	GridUpgrades: { [string]: number },
+	Specialization: Specializations.State?,
 	ActiveBoost: { Id: string, EndsAt: number },
 	Items: {
 		Inventory: { [string]: { DefinitionId: string, Level: number, AcquiredAt: number } },
@@ -255,16 +259,13 @@ function Economy.GridEffect(profile: ProfileLike, effectKind: string): number
 	return EconomyEnvelopeMath.GridEffect(profile.GridUpgrades, gridById, effectKind)
 end
 
-function Economy.AnomalyEffect(profile: ProfileLike, effectKind: string, now: number?): number
-	local state = profile.Anomaly
-	if not state then
-		return 0
-	end
-	return AnomalyOpsMath.Effect(state, effectKind, GameConfig.Anomalies.Protocols, GameConfig.Anomalies.Channels, GameConfig.Anomalies.Types, GameConfig.Anomalies.CycleSeconds, now or os.time(), GameConfig.Anomalies.CoreTiers)
+-- The Reactor retired into the Star Foundry (its progress converted on load), so it adds nothing now.
+function Economy.AnomalyEffect(_profile: ProfileLike, _effectKind: string, _now: number?): number
+	return 0
 end
 
-function Economy.AnomalySurgeMultiplier(profile: ProfileLike, now: number?): number
-	return AnomalyOpsMath.SurgeMultiplier(profile.Anomaly, now or os.time(), GameConfig.Anomalies.SurgeMultiplier)
+function Economy.AnomalySurgeMultiplier(_profile: ProfileLike, _now: number?): number
+	return 1
 end
 
 function Economy.GetZone(id: number)
@@ -279,9 +280,10 @@ function Economy.GetExpedition(id: string)
 	return GameConfig.ResolveExpedition(id)
 end
 
+-- what the Domain Lattice adds to one kind of bonus ("Production", "Capacity", ...)
 function Economy.DomainTreeBonus(profile: ProfileLike, field: string): number
 	local domain = profile.Domain
-	return EconomyEnvelopeMath.DomainTreeBonus(domain and domain.Nodes, GameConfig.Domain.Tree, field)
+	return DomainLattice.bonus(domain and domain.Links, field)
 end
 
 function Economy.MachineCost(id: string, currentLevel: number): number
@@ -415,9 +417,12 @@ function Economy.ContinuumCosts(rank: number): (Persist, Persist)
 	return ContinuumDomainMath.ContinuumCosts(OmegaMath, GameConfig.Continuum, rank)
 end
 
-function Economy.ContinuumEffects(profile: ProfileLike): (Persist, Persist, Persist, number)
-	local rank = profile.Continuum and math.max(0, math.floor(profile.Continuum.Rank or 0)) or 0
-	return ContinuumDomainMath.ContinuumEffects(OmegaMath, GameConfig.Continuum, rank)
+-- Star Foundry replaced Continuum: production, capacity, tap and offline come from the board
+function Economy.FoundryEffects(profile: ProfileLike): (number, number, number, number)
+	return require(script.Parent:WaitForChild("FoundryService")).Effects(profile)
+end
+function Economy.ContinuumEffects(profile: ProfileLike): (number, number, number, number)
+	return Economy.FoundryEffects(profile)
 end
 
 function Economy.DomainRequirements(rank: number): (number, number)
@@ -428,6 +433,15 @@ function Economy.DomainRewards(rank: number): (number, number)
 	return ContinuumDomainMath.DomainRewards(GameConfig.Domain, rank)
 end
 
+-- Ascension multiplier for one effect (Production, Capacity, Tap, Cores, Essence, Aether).
+function Economy.AscensionEffect(profile: ProfileLike, kind: string): Persist
+	local state = (profile :: any).Ascension
+	if type(state) ~= "table" then
+		return 1
+	end
+	return AscensionMath.effect(AscensionMath.sanitize(state, OmegaMath), kind, OmegaMath)
+end
+
 function Economy.Production(profile: ProfileLike, now: number?): Persist
 	local research = profile.Research
 	local efficiencyLevel = (type(research) == "table" and research.Efficiency) or 0
@@ -436,6 +450,7 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	local multiplier = OmegaMath.Mul(1 + efficiencyLevel * 0.15, zone.Multiplier)
 	multiplier = OmegaMath.Mul(multiplier, Economy.PermanentMultiplier(profile))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.GridEffect(profile, "GridProduction"))
+	multiplier = OmegaMath.Mul(multiplier, Specializations.Factor(profile.Specialization, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.EchoEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ArtifactEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ItemEffect(profile, "Production", "Research"))
@@ -449,6 +464,7 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	multiplier = OmegaMath.Mul(multiplier, Economy.MasteryMultiplier(profile))
 	multiplier = OmegaMath.Mul(multiplier, Economy.AnomalySurgeMultiplier(profile, now))
 	multiplier = OmegaMath.Mul(multiplier, select(1, Economy.ContinuumEffects(profile)))
+	multiplier = OmegaMath.Mul(multiplier, Economy.AscensionEffect(profile, "Production"))
 	local progression = profile.Progression
 	if type(progression) == "table" then
 		multiplier = OmegaMath.Mul(multiplier, 1 + LevelRewards.mastery(tonumber(progression.RewardedLevel) or 0))
@@ -474,6 +490,7 @@ function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
 		ZoneMultiplier = zone.Multiplier,
 		PermanentMultiplier = Economy.PermanentMultiplier(profile),
 		Additives = {
+			Specializations.Factor(profile.Specialization, "Production") - 1,
 			Economy.GridEffect(profile, "GridProduction"),
 			Economy.EchoEffect(profile, "Production"),
 			Economy.ArtifactEffect(profile, "Production"),
@@ -486,7 +503,7 @@ function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
 		},
 		SocialMultiplier = profile.SocialBoost and profile.SocialBoost.Multiplier or 1,
 		MasteryMultiplier = Economy.MasteryMultiplier(profile),
-		ContinuumProduction = select(1, Economy.ContinuumEffects(profile)),
+		ContinuumProduction = OmegaMath.Mul(select(1, Economy.ContinuumEffects(profile)), Economy.AscensionEffect(profile, "Production")),
 	})
 end
 
@@ -527,13 +544,13 @@ function Economy.Capacity(profile: ProfileLike, now: number?, _production: any):
 		DomainTreeCapacity = Economy.DomainTreeBonus(profile, "Capacity"),
 	})
 	local output = Economy.SteadyProduction(profile, now)
-	return CapacityProjection.Vault(
+	return OmegaMath.Mul(CapacityProjection.Vault(
 		OmegaMath,
 		GameConfig.Economy.BaseCapacity,
 		output,
 		seconds,
 		continuumCapacity
-	)
+	), OmegaMath.Mul(Specializations.Factor(profile.Specialization, "Capacity"), Economy.AscensionEffect(profile, "Capacity")))
 end
 
 function Economy.CapacitySeconds(profile: ProfileLike, now: number?, _production: any): number
@@ -550,7 +567,7 @@ local function researchLevel(profile: ProfileLike, key: string): number
 end
 
 function Economy.TapPower(profile: ProfileLike, now: number?): Persist
-	return TapCritProjection.TapPower(OmegaMath, Economy.Production(profile, now), researchLevel(profile, "Overcharge"), {
+	return OmegaMath.Mul(TapCritProjection.TapPower(OmegaMath, Economy.Production(profile, now), researchLevel(profile, "Overcharge"), {
 		Grid = Economy.GridEffect(profile, "GridTap"),
 		Echo = Economy.EchoEffect(profile, "Tap"),
 		Artifact = Economy.ArtifactEffect(profile, "Tap"),
@@ -561,7 +578,7 @@ function Economy.TapPower(profile: ProfileLike, now: number?): Persist
 		Continuum = select(3, Economy.ContinuumEffects(profile)),
 		ForgePath = Economy.ForgePathEffect(profile, "TapPower"),
 		Ore = Economy.OreEffect(profile, "Tap"),
-	})
+	}), OmegaMath.Mul(Specializations.Factor(profile.Specialization, "Tap"), Economy.AscensionEffect(profile, "Tap")))
 end
 
 function Economy.CriticalChance(profile: ProfileLike): number
@@ -608,7 +625,7 @@ end
 
 function Economy.OfflineEfficiency(profile: ProfileLike, now: number?): number
 	local _, _, _, continuumOffline = Economy.ContinuumEffects(profile)
-	return EconomyEnvelopeMath.OfflineEfficiency(
+	return math.min(1, EconomyEnvelopeMath.OfflineEfficiency(
 		GameConfig.Economy.BaseOfflineEfficiency,
 		researchLevel(profile, "Offline"),
 		Economy.GridEffect(profile, "GridOffline"),
@@ -621,7 +638,7 @@ function Economy.OfflineEfficiency(profile: ProfileLike, now: number?): number
 		GameConfig.Domain.OfflineEfficiencyPerRank,
 		continuumOffline,
 		Economy.ForgePathEffect(profile, "Offline")
-	)
+	) * Specializations.Factor(profile.Specialization, "Offline"))
 end
 
 function Economy.OfflineEarnings(
@@ -777,22 +794,6 @@ function EconomyEnvelopeMath.MasteryMultiplier(machineMastery: any): number
 	return 1 + math.min(0.5, points * 0.002)
 end
 
-function EconomyEnvelopeMath.DomainTreeBonus(nodes: any, tree: any, field: string): number
-	if type(nodes) ~= "table" or type(tree) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for _, node in tree do
-		if type(node) == "table" and nodes[node.Id] == true then
-			local amount = node[field]
-			if type(amount) == "number" then
-				total += amount
-			end
-		end
-	end
-	return total
-end
-
 function EconomyEnvelopeMath.LabPowerEffect(routing: any, channelId: any, channel: any): number
 	if type(routing) ~= "table" or type(channel) ~= "table" or type(channelId) ~= "string" then
 		return 0
@@ -824,18 +825,41 @@ function EconomyEnvelopeMath.ArtifactLevelEffect(artifact: any, owned: any, effe
 	return perLevel * math.max(0, level)
 end
 
+-- the star grid has thousands of nodes and this runs many times per player tick, so each effect
+-- kind keeps its own list of { id, per-level } and only that list is walked
+local gridKindIndex = setmetatable({}, { __mode = "k" })
+local function gridKindList(gridById: any, effectKind: any)
+	local byKind = gridKindIndex[gridById]
+	if byKind == nil then
+		byKind = {}
+		for id, upgrade in gridById do
+			if type(upgrade) == "table" and upgrade.EffectKind ~= nil then
+				local list = byKind[upgrade.EffectKind]
+				if list == nil then
+					list = {}
+					byKind[upgrade.EffectKind] = list
+				end
+				table.insert(list, { id, tonumber(upgrade.EffectPerLevel) or 0 })
+			end
+		end
+		gridKindIndex[gridById] = byKind
+	end
+	return byKind[effectKind]
+end
+
 function EconomyEnvelopeMath.GridEffect(levels: any, gridById: any, effectKind: any): number
 	if type(levels) ~= "table" or type(gridById) ~= "table" then
 		return 0
 	end
+	local list = gridKindList(gridById, effectKind)
+	if list == nil then
+		return 0
+	end
 	local total = 0
-	for id, level in levels do
+	for _, entry in list do
+		local level = levels[entry[1]]
 		if type(level) == "number" and level > 0 then
-			local upgrade = gridById[id]
-			if type(upgrade) == "table" and upgrade.EffectKind == effectKind then
-				local per = tonumber(upgrade.EffectPerLevel) or 0
-				total += level * per
-			end
+			total += level * entry[2]
 		end
 	end
 	return total
@@ -1171,7 +1195,7 @@ function RebirthGate.StardustReward(coreReward: number, scale: number, minimum: 
 	local reward = math.max(0, tonumber(coreReward) or 0)
 	local stardustScale = tonumber(scale) or 5
 	local stardustMinimum = tonumber(minimum) or 4
-	return math.max(stardustMinimum, math.floor(math.sqrt(reward) * stardustScale))
+	return math.clamp(math.max(stardustMinimum, math.floor(math.sqrt(reward) * stardustScale)), 0, 1e14)
 end
 
 function RebirthGate.NextPrestigeTarget(
@@ -1496,7 +1520,8 @@ function ContinuumDomainMath.SnapshotDomainPublic(args: {
 			args.DomainTreeBonus("Offline")
 		),
 		SkillPoints = ints.SkillPoints,
-		Nodes = type(bag.Nodes) == "table" and bag.Nodes or {},
+		Links = type(bag.Links) == "table" and bag.Links or {},
+		LatticeClearedAtRank = ContinuumDomainMath.NonNegativeInt(bag.LatticeClearedAtRank),
 	}
 end
 
@@ -1818,9 +1843,15 @@ function ProgressionGate.Progress(profile, kind: string): number
 		if type(profile.Domain) == "table" then
 			spent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0))
 		end
-		return current + spent
+		-- rebirths reset by an ascension still count toward milestones
+		local ascension = profile.Ascension
+		local ascended = if type(ascension) == "table" then math.max(0, math.floor(tonumber(ascension.RebirthsSpent) or 0)) else 0
+		return current + spent + ascended
 	elseif kind == "Domain" or kind == "DomainRank" then
-		return math.max(0, tonumber(profile.Domain and profile.Domain.Rank) or 0)
+		local rank = math.max(0, tonumber(profile.Domain and profile.Domain.Rank) or 0)
+		local ascension = profile.Ascension
+		local best = if type(ascension) == "table" then math.max(0, tonumber(ascension.BestDomainRank) or 0) else 0
+		return math.max(rank, best)
 	elseif kind == "Zone" then
 		return math.max(0, math.floor(tonumber(profile.Zone) or 0))
 	elseif kind == "PlayTime" then
@@ -1876,13 +1907,19 @@ function ProgressionGate.FeatureStates(profile)
 	local level = ProgressionGate.Level(profile)
 	for id, rule in GameConfig.Unlocks do
 		local progress = if rule.Kind == "Level" then level else ProgressionGate.Progress(profile, rule.Kind)
+		local unlocked = progress >= rule.Target
+		-- what the player sees is the milestone itself: its goal and how far along it they are
+		local shownProgress, shownTarget = progress, rule.Target
+		if rule.GoalKind ~= nil and rule.GoalTarget ~= nil then
+			shownTarget = rule.GoalTarget
+			shownProgress = if unlocked then rule.GoalTarget else math.min(ProgressionGate.Progress(profile, rule.GoalKind), rule.GoalTarget)
+		end
 		result[id] = {
-			Unlocked = progress >= rule.Target,
-			Progress = progress == math.huge and rule.Target or progress,
-			Target = rule.Target,
+			Unlocked = unlocked,
+			Progress = shownProgress == math.huge and shownTarget or shownProgress,
+			Target = shownTarget,
 			Requirement = rule.Requirement,
 			Name = rule.Name,
-			Level = if rule.Kind == "Level" then rule.Target else nil,
 		}
 	end
 	return result
@@ -2155,7 +2192,20 @@ type WheelBag = {
 	Spins: number,
 	PityMisses: number,
 	FreeSpins: number,
+	LastReceipt: { ExpectedSpin: number, PrizeIndex: number, PrizeId: string, Message: string, Pity: boolean }?,
+	History: { { PrizeId: string, At: number, Pity: boolean } }?,
 }
+
+WheelMath.HISTORY_LIMIT = 10
+
+-- Recent spins, newest first, bounded. Written in the same save as the spin itself.
+function WheelMath.RecordHistory(wheel: any, prizeId: string, at: number, pity: boolean)
+	if type(wheel) ~= "table" then return end
+	local list = if type(wheel.History) == "table" then wheel.History else {}
+	table.insert(list, 1, { PrizeId = prizeId, At = math.floor(at), Pity = pity == true })
+	while #list > WheelMath.HISTORY_LIMIT do table.remove(list) end
+	wheel.History = list
+end
 
 type PoolEntry = {
 	Index: number,
@@ -2176,7 +2226,36 @@ function WheelMath.Ensure(wheel: any): WheelBag
 	wheel.Spins = math.max(0, math.floor(tonumber(wheel.Spins) or 0))
 	wheel.PityMisses = math.max(0, math.floor(tonumber(wheel.PityMisses) or 0))
 	wheel.FreeSpins = math.max(0, math.floor(tonumber(wheel.FreeSpins) or 0))
+	local receipt = wheel.LastReceipt
+	if type(receipt) ~= "table" or not WheelMath.ValidExpectedSpin(receipt.ExpectedSpin)
+		or receipt.ExpectedSpin + 1 ~= wheel.Spins
+		or type(receipt.PrizeIndex) ~= "number" or receipt.PrizeIndex < 1 or receipt.PrizeIndex > 1000 or receipt.PrizeIndex % 1 ~= 0
+		or type(receipt.PrizeId) ~= "string" or #receipt.PrizeId < 1 or #receipt.PrizeId > 64
+		or type(receipt.Message) ~= "string" or #receipt.Message > 1024 or type(receipt.Pity) ~= "boolean" then
+		wheel.LastReceipt = nil
+	else
+		wheel.LastReceipt = {
+			ExpectedSpin = receipt.ExpectedSpin, PrizeIndex = receipt.PrizeIndex,
+			PrizeId = receipt.PrizeId, Message = receipt.Message, Pity = receipt.Pity,
+		}
+	end
+	if wheel.History ~= nil then
+		local clean = {}
+		if type(wheel.History) == "table" then
+			for _, entry in wheel.History do
+				if type(entry) == "table" and type(entry.PrizeId) == "string" and #entry.PrizeId >= 1 and #entry.PrizeId <= 64
+					and type(entry.At) == "number" and entry.At == entry.At and #clean < WheelMath.HISTORY_LIMIT then
+					table.insert(clean, { PrizeId = entry.PrizeId, At = math.floor(entry.At), Pity = entry.Pity == true })
+				end
+			end
+		end
+		wheel.History = clean
+	end
 	return wheel :: WheelBag
+end
+
+function WheelMath.ValidExpectedSpin(value: any): boolean
+	return type(value) == "number" and value == value and value >= 0 and value < 1e12 and value % 1 == 0
 end
 
 function WheelMath.RarityRank(rarity: any): number
@@ -2196,6 +2275,8 @@ function WheelMath.Snapshot(
 	PityMisses: number,
 	PityAfter: number,
 	PityArmed: boolean,
+	LastReceipt: any?,
+	History: { any },
 }
 	local safeCooldown = math.max(0, math.floor(tonumber(cooldownSeconds) or 0))
 	local safePityAfter = math.max(1, math.floor(tonumber(pityAfter) or 8))
@@ -2211,6 +2292,8 @@ function WheelMath.Snapshot(
 		PityMisses = pityMisses,
 		PityAfter = safePityAfter,
 		PityArmed = pityMisses + 1 >= safePityAfter,
+		LastReceipt = wheel.LastReceipt,
+		History = wheel.History or {},
 	}
 end
 

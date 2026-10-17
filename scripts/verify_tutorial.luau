@@ -2,7 +2,7 @@
 -- The guided tutorial (SharedData#TutorialScript):
 --  * fits the server's 15-step clamp and every step is complete,
 --  * every spotlight target is a Name the UI really sets,
---  * goals, progress and Bolt's placement behave.
+--  * goals, progress and the callout card's placement and leader line behave.
 
 local luau = require("@lune/luau")
 local fs = require("./_memberfs")(require("@lune/fs"))
@@ -11,8 +11,9 @@ local Script = luau.load(fs.readFile("src/Shared/AstralForge/Shared/SharedData.l
 local NavRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
 
 local steps = Script.STEPS
-assert(#steps >= 10, "the tour should be thorough, got " .. #steps .. " steps")
+assert(#steps >= 8, "the tour covers the core loop, got " .. #steps .. " steps")
 assert(#steps <= 15, "DataService clamps TutorialStep to 15")
+assert(Script.EXPERIENCE_NAME == "GETTING STARTED", "tutorial heading stays plain and human")
 assert(steps[#steps].watch == "finish", "the last step finishes the guide")
 
 -- Every Name the client UI sets, plus the Nav_<id> buttons.
@@ -36,10 +37,15 @@ for index, step in steps do
 	local label = "step " .. index .. " (" .. tostring(step.id) .. ")"
 	assert(type(step.id) == "string" and not ids[step.id], label .. " needs a unique id")
 	ids[step.id] = true
-	for _, field in { "title", "say", "body", "goal", "watch" } do
+	for _, field in { "title", "line", "watch" } do
 		assert(type(step[field]) == "string" and step[field] ~= "", label .. " needs " .. field)
 	end
-	assert(#step.say <= 140, label .. ": Bolt's line should fit the bubble")
+	assert(#step.title <= 28, label .. ": the title fits one line of the card")
+	assert(#step.line <= 110, label .. ": one or two lines, not a paragraph")
+	assert(not string.find(step.title .. step.line, "!", 1, true), label .. ": plain copy, no exclamation marks")
+	if step.watch ~= "continue" and step.watch ~= "finish" then
+		assert(type(step.task) == "string" and step.task ~= "", label .. ": an action step names its task")
+	end
 	if step.target ~= nil then
 		local names = if type(step.target) == "table" then step.target else { step.target }
 		for _, name in names do
@@ -73,6 +79,7 @@ local function step(watch)
 end
 assert(Script.goalMet(step("continue"), {}) and Script.goalMet(step("finish"), {}), "read steps are always met")
 assert(not Script.goalMet(step("collect"), {}) and Script.goalMet(step("collect"), {}, true), "collect waits for the vault to empty")
+assert(Script.goalMet(step("collect"), { vaultFlux = 0 }), "an already-empty vault cannot strand the tutorial")
 assert(not Script.goalMet(step("buy"), { ownedMachines = 0 }) and Script.goalMet(step("buy"), { ownedMachines = 2 }), "buy")
 assert(not Script.goalMet(step("amount"), { buyAmount = 1 }) and Script.goalMet(step("amount"), { buyAmount = 5 }), "amount")
 assert(Script.goalMet(step("page:Workshop"), { page = "Workshop" }) and not Script.goalMet(step("page:Workshop"), { page = "Overview" }), "page")
@@ -80,46 +87,56 @@ assert(not Script.goalMet(nil, {}) and not Script.goalMet(step("mystery"), {}), 
 assert(Script.needsAction(step("buy")) and not Script.needsAction(step("continue")), "needsAction")
 assert(Script.progress(1, 10, false) == 0.05 and Script.progress(10, 10, true) == 1, "progress")
 
--- Bolt's placement
-local x, y, angle, side = Script.petPose({ x = 100, y = 100, w = 80, h = 40 }, 1000, 600, 56)
-assert(side == "right" and x > 180 and math.abs(y - 120) < 1, "room on the right: Bolt sits there")
-assert(math.abs(angle - 180) < 1, "and points left at it, got " .. angle)
-x, y, angle, side = Script.petPose({ x = 900, y = 100, w = 90, h = 40 }, 1000, 600, 56)
-assert(side == "left" and x < 900, "no room right: left")
-x, y, angle, side = Script.petPose({ x = 0, y = 10, w = 1000, h = 40 }, 1000, 600, 56)
-assert(side == "below" and y > 50 and math.abs(angle + 90) < 1, "full-width target: below, pointing up")
-x, y = Script.petPose({ x = -500, y = -500, w = 10, h = 10 }, 400, 300, 56)
-assert(x >= 28 and y >= 28 and x <= 372 and y <= 272, "Bolt stays on screen")
-local _, _, dockAngle, dockSide = Script.petPose(nil, 800, 600, 56, { x = 100, y = 400, w = 500 })
-assert(dockSide == "dock" and dockAngle == 90, "no target: Bolt waits by the card")
-local _, topY, topAngle = Script.petPose(nil, 800, 600, 56, { x = 100, y = 20, w = 500, h = 180 })
-assert(topY > 200 and topAngle == -90, "card at the top: Bolt waits under it, pointing up")
--- Never on the card: the screenshot case, a wide target on the right with the card beside it on the left.
-local cardRect = { x = 250, y = 40, w = 520, h = 300 }
-local px, py, _, pside = Script.petPose({ x = 700, y = 270, w = 890, h = 160 }, 1640, 730, 56, cardRect)
-local onCard = px + 28 > cardRect.x - 8 and px - 28 < cardRect.x + cardRect.w + 8 and py + 28 > cardRect.y - 8 and py - 28 < cardRect.y + cardRect.h + 8
-assert(not onCard, "Bolt must not sit on the card (side " .. tostring(pside) .. ")")
-
--- The card: bottom by default, top only when the bottom would cover the target
-local y, where = Script.dockPlacement({ x = 700, y = 270, w = 890, h = 160 }, 730, 230, 0, 0)
-assert(where == "bottom" and y + 230 <= 730 - 12 + 0.01, "target in the upper half: the card stays at the bottom")
-y, where = Script.dockPlacement({ x = 100, y = 600, w = 300, h = 60 }, 730, 230, 0, 0)
-assert(where == "top" and y < 100, "target at the bottom: the card moves to the top")
-y, where = Script.dockPlacement(nil, 730, 230, 0, 30)
-assert(where == "bottom" and math.abs(y - (730 - 30 - 230)) < 0.01, "no target: bottom, above the safe inset")
+-- The callout card: beside the target with room for the leader, else docked away from it
+local W, H, CW, CH = 1600, 900, 360, 200
+local function inside(x, y)
+	return x >= 12 - 0.01 and y >= 0 and x + CW <= W - 12 + 0.01 and y + CH <= H + 0.01
+end
+local function clear(rect, x, y)
+	return x + CW <= rect.x or x >= rect.x + rect.w or y + CH <= rect.y or y >= rect.y + rect.h
+end
+for _, case in {
+	{ rect = { x = 100, y = 300, w = 200, h = 60 }, side = "right" },
+	{ rect = { x = 1300, y = 300, w = 250, h = 60 }, side = "left" },
+	{ rect = { x = 40, y = 40, w = 1520, h = 120 }, side = "below" },
+	{ rect = { x = 40, y = 700, w = 1520, h = 160 }, side = "above" },
+} do
+	local x, y, side = Script.calloutPlacement(case.rect, W, H, CW, CH, 0, 0)
+	assert(side == case.side, "expected " .. case.side .. ", got " .. side)
+	assert(inside(x, y), side .. ": the card stays on screen")
+	assert(clear(case.rect, x, y), side .. ": the card never covers its target")
+	local x1, y1, x2, y2 = Script.leader(case.rect, side, x, y, CW, CH)
+	assert(x1 ~= nil, side .. ": a leader line joins card and target")
+	assert(x1 >= x - 0.01 and x1 <= x + CW + 0.01 and y1 >= y - 0.01 and y1 <= y + CH + 0.01, side .. ": the line starts on the card")
+	local r = case.rect
+	assert(x2 >= r.x - 0.01 and x2 <= r.x + r.w + 0.01 and y2 >= r.y - 0.01 and y2 <= r.y + r.h + 0.01, side .. ": the line ends on the target")
+end
+local huge = { x = 0, y = 0, w = W, h = 700 }
+local _, hy, hside = Script.calloutPlacement(huge, W, H, CW, CH, 0, 0)
+assert(hside == "dock" and hy + CH <= H, "no room beside a huge target: docked")
+assert(Script.leader(huge, "dock", 0, 0, CW, CH) == nil, "a docked card draws no leader")
+local _, ny, nside = Script.calloutPlacement(nil, W, H, CW, CH, 0, 40)
+assert(nside == "dock" and math.abs(ny - (H - 40 - CH)) < 0.01, "no target: docked above the safe inset")
+local _, ty = Script.calloutPlacement({ x = 0, y = 640, w = W, h = 260 }, W, H, CW, CH, 30, 0)
+assert(ty <= 640 - CH, "target filling the bottom: the card docks at the top")
 
 -- Wiring
 local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(string.find(shell, '("TutorialScript").STEPS', 1, true), "the shell uses the script")
 assert(string.find(shell, "tutorial.startPage == nil", 1, true), "only startPage steps navigate")
 local overlay = fs.readFile("src/Client/AstralForge/UiCore.luau#onboarding")
-for _, needle in { "local function findTarget", "wingPhase", "blink", "GetMouseLocation", "onPetClick", "MaxVisibleGraphemes", "dizzyUntil", "st.rub", "SLEEP_AFTER", "TutorialScript.dockPlacement", "AutomaticSize = Enum.AutomaticSize.Y" } do
+for _, needle in { "local function findTarget", "TutorialScript.calloutPlacement", "TutorialScript.leader", "AutomaticSize = Enum.AutomaticSize.Y", "missingSince", "StampedCheck", "Juice.burst" } do
 	assert(string.find(overlay, needle, 1, true), "tutorial overlay has " .. needle)
+end
+for _, gone in { "PET_SIZE", "QUIPS", "Bolt", "dizzyUntil", "SLEEP_AFTER" } do
+	assert(not string.find(overlay, gone, 1, true), "the mascot is gone: " .. gone)
 end
 -- The card lays itself out top to bottom; nothing in it may sit at a hard-coded y again.
 local overlayFn = string.match(overlay, "local function TutorialOverlay%(_param%)(.-)\nlocal VERSION_ROW_H") or ""
 assert(not string.find(overlayFn, "dockH", 1, true), "the step card sizes itself from its content")
-assert(not string.find(overlayFn, "math.floor(t * 12)", 1, true), "wings flap continuously, not in stepped frames")
+assert(string.find(overlay, 'segments["s" .. n] = React.createElement("frame"', 1, true), "progress markers are visual and cannot skip required objectives")
+assert(string.find(overlay, "TextSize = 11", 1, true), "skip control remains readable")
+assert(string.find(overlay, "Size = UDim2.new(1, 0, 0, TapTarget)", 1, true), "tutorial actions keep full touch height")
 
 local confirmStart = assert(overlay:find('ContextActionService:BindActionAtPriority("AstralForgeTutorialConfirm", ', 1, true))
 local callbackStart = assert(overlay:find("function(_name, inputState)", confirmStart, true))
@@ -163,13 +180,13 @@ end
 local root, target, dock = node(nil, false), node(nil, true), node(nil, false)
 local targetChild, dockButton, outside = node(target, true), node(root, true), node(nil, true)
 dock.children = { dockButton }
-local rootRef, petState, dockRef = { current = root }, { current = { target = target } }, { current = dock }
+local rootRef, guide, dockRef = { current = root }, { current = { target = target } }, { current = dock }
 local gui = { SelectedObject = outside }
 local input = { GamepadEnabled = true }
 local redirects, clears = 0, 0
 local constrain = luau.load("local redirecting = false\n" .. overlay:sub(focusStart, focusEnd - 1) .. "\nreturn constrainSelection", {
 	environment = {
-		rootRef = rootRef, petState = petState, dockRef = dockRef, GuiService = gui, UserInputService = input,
+		rootRef = rootRef, guide = guide, dockRef = dockRef, GuiService = gui, UserInputService = input,
 		GamepadNavigationService = {
 			AssignSelection = function(candidate)
 				if not candidate.selectable then return false end
@@ -189,7 +206,7 @@ assert(redirects == 1, "required target descendants retain focus")
 gui.SelectedObject = dockButton
 constrain()
 assert(redirects == 1, "tutorial controls retain focus")
-petState.current.target = nil
+guide.current.target = nil
 gui.SelectedObject = outside
 constrain()
 assert(gui.SelectedObject == dockButton and redirects == 2, "missing target falls back to tutorial controls")
@@ -205,6 +222,5 @@ local maskStart = assert(overlay:find("local function dim(", 1, true))
 local maskEnd = assert(overlay:find("local spotlight =", maskStart, true))
 local masks = overlay:sub(maskStart, maskEnd - 1)
 assert(masks:find('createElement("textbutton"', 1, true) and masks:find("Selectable = false", 1, true), "tutorial masks block pointers without becoming gamepad targets")
-assert(overlay:find("local sizedFrame = React.joinBindings({ frame, rootSize })", 1, true), "Bolt and trails use measured fractional coordinates")
 
 print("verify_tutorial: ok")

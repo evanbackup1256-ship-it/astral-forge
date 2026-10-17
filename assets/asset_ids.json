@@ -1,5 +1,5 @@
 {
-  "SoundSheet": 120416738421118,
+  "SoundSheet": 89052196079187,
   "Ambience": 134085646747854,
   "Kit": 95516912278016,
   "KitPlaceholder": 0,
@@ -8,6 +8,14 @@
   "SanctuaryDrift": 98919050616365,
   "AstralOrbit": 84797482092417,
   "BossSurge": 76558769649423,
-  "SoundSheetPrevious": 78085647329544,
-  "CrateKit": 88755990794383
+  "SoundSheetPrevious": 90949921399160,
+  "CrateKit": 88755990794383,
+  "BrandWordmark": 75854849112049,
+  "BrandCompactMark": 93834740732329,
+  "BrandGameIcon": 77239367431949,
+  "BrandLockup": 94028186779182,
+  "StarlitAnvil": 83224252725181,
+  "NebulaMarket": 125327402955633,
+  "EmberDrive": 132485327755002,
+  "QuietOrbit": 114299463363605
 }

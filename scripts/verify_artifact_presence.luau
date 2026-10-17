@@ -63,4 +63,68 @@ for _, state in { "current", "newer-build", "departed", "respawned", "unequipped
 	assert(destroyed == (if state == "current" then 0 else 2), state .. ": rejected builds destroy every partial visual")
 end
 
+local roblox = require("@lune/roblox")
+local visibleStart = assert(presence:find("local function visibleRig", 1, true))
+local visibleEnd = assert(presence:find("\nlocal function nameplate", visibleStart, true))
+local visible = luau.load(presence:sub(visibleStart, visibleEnd - 1) .. "\nreturn visibleRig", {
+	environment = setmetatable({ DRAW_DISTANCE = 140 }, { __index = _G }),
+})()
+local origin = roblox.Vector3.zero
+local camera = {
+	CFrame = { Position = origin }, ViewportSize = roblox.Vector2.new(359, 718),
+	projected = roblox.Vector3.new(180, 360, 10),
+}
+function camera:WorldToViewportPoint() return self.projected end
+local rig = {
+	root = { Parent = {} },
+	plate = { Enabled = true, MaxDistance = 80, StudsOffsetWorldSpace = origin,
+		Adornee = { Parent = {}, Position = roblox.Vector3.new(0, 0, 20) } },
+}
+assert(visible(rig, camera))
+camera.projected = roblox.Vector3.new(180, 360, -10); assert(not visible(rig, camera), "behind-camera companions pause")
+camera.projected = roblox.Vector3.new(600, 360, 10); assert(not visible(rig, camera), "offscreen companions pause")
+camera.projected = roblox.Vector3.new(-80, 360, 10); assert(visible(rig, camera), "partially visible billboard margin")
+rig.plate.Adornee.Position = roblox.Vector3.new(0, 0, 81); assert(not visible(rig, camera), "actual billboard draw distance respected")
+rig.plate.Adornee.Position = roblox.Vector3.new(0, 0, 20)
+rig.plate.Enabled = false; assert(not visible(rig, camera)); rig.plate.Enabled = true
+rig.root.Parent = nil; assert(not visible(rig, camera)); rig.root.Parent = {}
+assert(not visible(rig, nil), "camera replacement gaps pause")
+local loopStart = assert(presence:find("local frameStep =", 1, true))
+local loopEnd = assert(presence:find("\n\treturn function()", loopStart, true))
+local tick
+local rigs = {}
+for i = 1, 30 do
+	rigs[i] = {
+		root = rig.root, plate = rig.plate,
+		glyph = {},
+	}
+end
+assert(not presence:find("AuraImage", 1, true) and not presence:find('"Aura"', 1, true),
+	"world companions are one lit layer; no aura sheet plays behind them")
+local guiService = { ReducedMotionEnabled = false }
+local loopEnv = setmetatable({
+	ElementSprites = { FRAMERATE = 12, FRAME = 170.5, COUNT = 36, COLUMNS = 6 },
+	RunService = { RenderStepped = { Connect = function(_, callback) tick = callback; return {} end } },
+	GuiService = guiService, connections = {}, rigs = rigs,
+	workspace = { CurrentCamera = camera }, spriteClock = 0, spriteFrame = 0,
+	visibleRig = visible, MAX_ANIMATED_COMPANIONS = 12, Vector2 = roblox.Vector2,
+}, { __index = _G })
+camera.projected = roblox.Vector3.new(180, 360, 10)
+luau.load(presence:sub(loopStart, loopEnd - 1), { environment = loopEnv })()
+tick(0.1)
+local count = 0
+for _, companion in rigs do
+	if companion.glyph.ImageRectOffset then
+		count += 1
+	end
+end
+assert(count == 12, "crowded worlds cap animated companions")
+local previous = {}
+for i, companion in rigs do previous[i] = companion.glyph.ImageRectOffset end
+guiService.ReducedMotionEnabled = true; tick(0.2)
+for i, companion in rigs do assert(companion.glyph.ImageRectOffset == previous[i], "world reduced motion stops writes") end
+guiService.ReducedMotionEnabled = false
+camera.projected = roblox.Vector3.new(180, 360, -10); tick(0.2)
+for i, companion in rigs do assert(companion.glyph.ImageRectOffset == previous[i], "world offscreen stops writes") end
+
 print("artifact presence ok")

@@ -19,12 +19,12 @@ do
 	assert(not string.find(slice, "MachineKinds = machineCount", 1, true), "visit machine loop must leave ServerServices")
 end
 
-local domain = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
+local domain = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainChamber")
 local purchase = fs.readFile("src/Client/AstralForge/UiOverlays.luau#purchaseOverlay")
 local boosts = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
 local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
 local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
-assert(string.find(domain, "local softMotion = ", 1, true), "DomainExpansion softMotion")
+assert(string.find(domain, "local reduced = props.reducedMotion == true", 1, true), "Domain chamber reduced motion")
 assert(string.find(purchase, "local softMotion = ", 1, true), "Purchase softMotion")
 assert(string.find(boosts, "local softMotion = ", 1, true), "Boosts softMotion")
 assert(string.find(credits, "local softMotion = ", 1, true), "Credits softMotion")
@@ -33,13 +33,6 @@ assert(
 	not string.find(rebirth, "local softMotion = reducedMotion or effectsPaused", 1, true),
 	"Rebirth must keep effectsPaused off softMotion assignment"
 )
-do
-	local soft = 0
-	for _ in string.gmatch(domain, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 11, "DomainExpansion softMotion densify, got " .. tostring(soft))
-end
 do
 	local soft = 0
 	for _ in string.gmatch(purchase, "softMotion") do

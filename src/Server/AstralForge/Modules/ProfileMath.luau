@@ -152,6 +152,21 @@ function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, prese
 			table.insert(equippedItems, definition.Name)
 		end
 	end
+	local detailedInventory = {}
+	for uid, instance in items.Inventory do
+		local definition = instance and itemById[instance.DefinitionId]
+		if definition then
+			table.insert(detailedInventory, {
+				Uid = uid,
+				DefinitionId = instance.DefinitionId,
+				Name = tostring(definition.Name),
+				Rarity = tostring(definition.Rarity or "COMMON"),
+				Level = math.max(1, math.floor(tonumber(instance.Level) or 1)),
+				Equipped = table.find(items.Equipped, uid) ~= nil,
+			})
+		end
+		if #detailedInventory >= 32 then break end
+	end
 	local liveEntry = presence and presence[player.UserId]
 	local artifact = nil
 	local command = profile.Command
@@ -191,6 +206,10 @@ function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, prese
 		},
 		ItemCount = itemCount,
 		EquippedItems = equippedItems,
+		DetailedInventory = detailedInventory,
+		Shards = profile.Foundry and profile.Foundry.Shards or 0,
+		FoundryPieces = profile.Foundry and type(profile.Foundry.Inventory) == "table" and #profile.Foundry.Inventory or 0,
+		Boosts = if type(profile.BoostInventory) == "table" then profile.BoostInventory else {},
 		Artifact = artifact,
 		IsLocal = player == viewer,
 		SocialFlags = 0,
@@ -966,14 +985,23 @@ ActionFeatureMaps.FEATURE = {
 	VisitPlot = "Crew",
 	LeavePlot = "Crew",
 	NudgeCrew = "Crew",
+	GetCrew = "Crew",
+	CrewInvite = "Crew",
+	CrewRespond = "Crew",
+	CrewLeave = "Crew",
+	CrewKick = "Crew",
+	CrewRename = "Crew",
+	CrewClaim = "Crew",
 	BuyResearch = "Research",
 	BuyGridUpgrade = "StarGrid",
 	UnlockZone = "Worlds",
 	SelectZone = "Worlds",
 	Rebirth = "Rebirth",
 	DomainExpansion = "Domain",
-	UnlockDomainNode = "Domain",
+	DomainLattice = "Domain",
 	UpgradeContinuum = "Continuum",
+	Ascend = "Ascension",
+	UpgradeSigil = "Ascension",
 	CaptureEcho = "Echoes",
 	ClaimEcho = "Echoes",
 	EquipEcho = "Echoes",
@@ -1023,6 +1051,7 @@ ActionFeatureMaps.FEATURE = {
 	RouteLabPower = "Lab",
 	ReadStoryChapter = "Story",
 	ClaimStoryChapter = "Story",
+	ClaimForgePathStep = "ForgePath",
 	ReadMail = "Mail",
 	ClaimMail = "Mail",
 	ClaimAllMail = "Mail",
@@ -1030,8 +1059,9 @@ ActionFeatureMaps.FEATURE = {
 	GetLeaderboard = "Leaderboards",
 	ClaimConvergenceReward = "Convergence",
 	BazaarPlay = "Bazaar",
-	PlotStar = "Charts",
-	SubmitCipher = "Cipher",
+	SetMarketFavorite = "Bazaar",
+	RequestProcurement = "Bazaar",
+	SelectSpecialization = "StarGrid",
 }
 
 function ActionFeatureMaps.AnomalyCharge(action: string): number?
@@ -1081,6 +1111,13 @@ CommandActionValidators.READ_ONLY = {
 	VisitPlot = true,
 	LeavePlot = true,
 	NudgeCrew = true,
+	GetCrew = true,
+	CrewInvite = true,
+	CrewRespond = true,
+	CrewLeave = true,
+	CrewKick = true,
+	CrewRename = true,
+	CrewClaim = true,
 	ReportPresence = true,
 	GetGuild = true,
 	GetGuildChatHistory = true,
@@ -1092,6 +1129,8 @@ CommandActionValidators.READ_ONLY = {
 	GetAdminState = true,
 	GetTrade = true,
 	TradeViewAway = true,
+	ChatOpenWhisper = true,
+	ChatGlobal = true,
 	ReportClientIntegrity = true,
 	ReportPerformance = true,
 	SetTutorialStep = true,
@@ -1105,6 +1144,7 @@ CommandActionValidators.HIGH_VALUE_GRANT = {
 	CollectVault = true,
 	Rebirth = true,
 	DomainExpansion = true,
+	Ascend = true,
 	RedeemCode = true,
 	AdminExecute = true,
 }

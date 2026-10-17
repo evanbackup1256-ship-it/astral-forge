@@ -345,14 +345,6 @@ local CUES = {
 		cooldown = 0.15,
 		stopAfter = 0.45,
 	},
-	velocitySlide = {
-		asset = UI_SLIDE,
-		volume = 0.28,
-		speed = 1.05,
-		variance = 0.02,
-		cooldown = 0.08,
-		stopAfter = 0.35,
-	},
 	modalPop = {
 		asset = UI_POP_IN,
 		volume = 0.35,
@@ -400,70 +392,6 @@ local CUES = {
 		variance = 0,
 		cooldown = 0.16,
 		stopAfter = 0.88,
-	},
-	puzzleClear = {
-		asset = SFX_POP2,
-		volume = 0.4,
-		speed = 1.12,
-		variance = 0.008,
-		cooldown = 0.2,
-		stopAfter = 0.7,
-	},
-	puzzleTap = {
-		asset = UI_SNAP,
-		volume = 0.3,
-		speed = 1.22,
-		variance = 0.03,
-		cooldown = 0.04,
-		stopAfter = 0.16,
-	},
-	cardPlay = {
-		asset = SFX_SWEEP,
-		volume = 0.26,
-		speed = 1.18,
-		variance = 0.02,
-		cooldown = 0.08,
-		stopAfter = 0.28,
-	},
-	cardDraw = {
-		asset = UI_HOVER,
-		volume = 0.18,
-		speed = 1.34,
-		variance = 0.03,
-		cooldown = 0.05,
-		stopAfter = 0.1,
-	},
-	cardEndTurn = {
-		asset = UI_DOWN,
-		volume = 0.24,
-		speed = 0.92,
-		variance = 0.006,
-		cooldown = 0.16,
-		stopAfter = 0.42,
-	},
-	cardEnergy = {
-		asset = UI_CHIME,
-		volume = 0.22,
-		speed = 1.28,
-		variance = 0.016,
-		cooldown = 0.1,
-		stopAfter = 0.28,
-	},
-	cardBlock = {
-		asset = UI_SELECT,
-		volume = 0.2,
-		speed = 0.86,
-		variance = 0.01,
-		cooldown = 0.12,
-		stopAfter = 0.2,
-	},
-	cardPower = {
-		asset = SFX_PULSE,
-		volume = 0.28,
-		speed = 1.08,
-		variance = 0.012,
-		cooldown = 0.14,
-		stopAfter = 0.42,
 	},
 	discovery = {
 		asset = SFX_TRAVEL,
@@ -513,78 +441,6 @@ local CUES = {
 		cooldown = 0.34,
 		stopAfter = 0.52,
 	},
-	bootIgnite = {
-		asset = SFX_WHOOSH,
-		volume = 0.2,
-		speed = 1.08,
-		variance = 0.006,
-		cooldown = 0.28,
-		stopAfter = 0.72,
-	},
-	bootTension = {
-		asset = UI_HOVER,
-		volume = 0.1,
-		speed = 1.2,
-		variance = 0.012,
-		cooldown = 0.16,
-		stopAfter = 0.12,
-	},
-	bootWhoosh = {
-		asset = SFX_SWEEP,
-		volume = 0.23,
-		speed = 1.12,
-		variance = 0.008,
-		cooldown = 0.18,
-		stopAfter = 0.56,
-	},
-	bootStrike = {
-		asset = SFX_IMPACT,
-		volume = 0.19,
-		speed = 1.08,
-		variance = 0.018,
-		cooldown = 0.12,
-		stopAfter = 0.3,
-	},
-	bootClang = {
-		asset = UI_HOVER,
-		volume = 0.08,
-		speed = 1.26,
-		variance = 0.01,
-		cooldown = 0.12,
-		stopAfter = 0.1,
-	},
-	bootSpark = {
-		asset = SFX_PULSE,
-		volume = 0.1,
-		speed = 1.06,
-		variance = 0.012,
-		cooldown = 0.1,
-		stopAfter = 0.2,
-	},
-	bootFizz = {
-		asset = SFX_MOTOR,
-		volume = 0.14,
-		speed = 1.34,
-		variance = 0.02,
-		cooldown = 0.1,
-		stopAfter = 0.34,
-	},
-	bootRumble = {
-		asset = UI_DOWN,
-		volume = 0.16,
-		speed = 0.82,
-		variance = 0.004,
-		cooldown = 0.38,
-		stopAfter = 0.5,
-	},
-	bootImpact = {
-		asset = SFX_IMPACT,
-		volume = 0.28,
-		speed = 1.02,
-		variance = 0,
-		cooldown = 0.26,
-		stopAfter = 0.62,
-	},
 	bootReady = {
 		asset = UI_CONFIRM,
 		volume = 0.18,
@@ -593,14 +449,6 @@ local CUES = {
 		cooldown = 0.38,
 		stopAfter = 0.5,
 	},
-	bootFinaleFlip = {
-		asset = SFX_SWEEP,
-		volume = 0.28,
-		speed = 0.96,
-		variance = 0,
-		cooldown = 0.8,
-		stopAfter = 0.78,
-	},
 	bootFinaleBang = {
 		asset = SFX_IMPACT,
 		volume = 0.27,
@@ -608,62 +456,6 @@ local CUES = {
 		variance = 0,
 		cooldown = 0.9,
 		stopAfter = 0.5,
-	},
-	bootAnvilSplit = {
-		asset = UI_DOWN,
-		volume = 0.14,
-		speed = 1.12,
-		variance = 0,
-		cooldown = 0.9,
-		stopAfter = 0.26,
-	},
-	bootSlamCharge = {
-		asset = SFX_TRAVEL,
-		volume = 0.28,
-		speed = 0.72,
-		variance = 0,
-		cooldown = 0.9,
-		stopAfter = 0.98,
-	},
-	bootSlamAir = {
-		asset = SFX_SWEEP,
-		volume = 0.3,
-		speed = 0.86,
-		variance = 0,
-		cooldown = 0.1,
-		stopAfter = 0.62,
-	},
-	bootDebris = {
-		asset = UI_DOWN,
-		volume = 0.3,
-		speed = 0.72,
-		variance = 0.018,
-		cooldown = 0.65,
-		stopAfter = 0.58,
-	},
-	bootFractureTail = {
-		asset = SFX_TRAVEL,
-		volume = 0.2,
-		speed = 0.88,
-		variance = 0,
-		cooldown = 0.8,
-		stopAfter = 0.72,
-	},
-	bootGravity = {
-		asset = SFX_RAMP,
-		volume = 0.26,
-		speed = 0.68,
-		variance = 0,
-		cooldown = 1.4,
-		stopAfter = 1.1,
-	},
-	bootAftershock = {
-		asset = SFX_IMPACT,
-		volume = 0.25,
-		speed = 0.72,
-		variance = 0,
-		cooldown = 1,
-		stopAfter = 0.78,
 	},
 	wheelStart = {
 		asset = SFX_RAMP,
@@ -1265,30 +1057,6 @@ local CUES = {
 		cooldown = 0.45,
 		stopAfter = 1.1,
 	},
-	gamePause = {
-		asset = UI_DOWN,
-		volume = 0.24,
-		speed = 1.06,
-		variance = 0,
-		cooldown = 0.14,
-		stopAfter = 0.36,
-	},
-	gameResume = {
-		asset = UI_CHIME,
-		volume = 0.24,
-		speed = 1.14,
-		variance = 0.008,
-		cooldown = 0.14,
-		stopAfter = 0.38,
-	},
-	gameExit = {
-		asset = UI_DOWN,
-		volume = 0.18,
-		speed = 1.02,
-		variance = 0,
-		cooldown = 0.18,
-		stopAfter = 0.34,
-	},
 	modalOpen = {
 		asset = SFX_RAMP,
 		volume = 0.21,
@@ -1313,14 +1081,6 @@ local CUES = {
 		cooldown = 0.4,
 		stopAfter = 0.88,
 	},
-	reactorChannel = {
-		asset = SFX_PULSE,
-		volume = 0.16,
-		speed = 1.08,
-		variance = 0.008,
-		cooldown = 0.1,
-		stopAfter = 0.25,
-	},
 	reactorSurge = {
 		asset = SFX_WHOOSH,
 		volume = 0.28,
@@ -1328,102 +1088,6 @@ local CUES = {
 		variance = 0.008,
 		cooldown = 0.35,
 		stopAfter = 0.82,
-	},
-	oreMine = {
-		asset = SFX_IMPACT,
-		volume = 0.34,
-		speed = 1.02,
-		variance = 0.04,
-		cooldown = 0.1,
-		stopAfter = 0.45,
-	},
-	oreCollect = {
-		asset = SFX_GLINT,
-		volume = 0.3,
-		speed = 1.06,
-		variance = 0.02,
-		cooldown = 0.12,
-		stopAfter = 0.7,
-	},
-	wardenForming = {
-		asset = SFX_RAMP,
-		volume = 0.36,
-		speed = 0.62,
-		variance = 0,
-		cooldown = 2,
-		stopAfter = 1.6,
-	},
-	wardenAwake = {
-		asset = SFX_DEEP,
-		volume = 0.44,
-		speed = 0.7,
-		variance = 0,
-		cooldown = 1,
-		stopAfter = 1.2,
-	},
-	wardenStrike = {
-		asset = SFX_IMPACT,
-		volume = 0.3,
-		speed = 1.12,
-		variance = 0.05,
-		cooldown = 0.08,
-		stopAfter = 0.32,
-	},
-	wardenCrit = {
-		asset = SFX_IMPACT,
-		volume = 0.4,
-		speed = 0.94,
-		variance = 0.02,
-		cooldown = 0.08,
-		stopAfter = 0.5,
-	},
-	wardenSlamCharge = {
-		asset = SFX_RAMP,
-		volume = 0.34,
-		speed = 0.78,
-		variance = 0,
-		cooldown = 0.6,
-		stopAfter = 1.5,
-	},
-	wardenSlam = {
-		asset = SFX_THUD,
-		volume = 0.5,
-		speed = 0.72,
-		variance = 0.02,
-		cooldown = 0.4,
-		stopAfter = 0.9,
-	},
-	wardenDefeat = {
-		asset = SFX_BLOOM,
-		volume = 0.5,
-		speed = 0.8,
-		variance = 0,
-		cooldown = 2,
-		stopAfter = 1.8,
-	},
-	wardenEscape = {
-		asset = SFX_WHOOSH,
-		volume = 0.34,
-		speed = 0.66,
-		variance = 0,
-		cooldown = 2,
-		stopAfter = 1.3,
-	},
-	waystoneTravel = {
-		asset = SFX_TRAVEL,
-		volume = 0.34,
-		speed = 0.86,
-		variance = 0.01,
-		cooldown = 0.5,
-		stopAfter = 1.1,
-	},
-	regionEnter = {
-		asset = UI_CHIME,
-		volume = 0.22,
-		speed = 0.9,
-		variance = 0,
-		cooldown = 1,
-		stopAfter = 0.9,
 	},
 	purchaseResult = {
 		asset = UI_CONFIRM,
@@ -1529,14 +1193,6 @@ local CUES = {
 		cooldown = 0.14,
 		stopAfter = 0.62,
 	},
-	noticeClose = {
-		asset = UI_DESELECT,
-		volume = 0.22,
-		speed = 1.1,
-		variance = 0,
-		cooldown = 0.07,
-		stopAfter = 0.2,
-	},
 	echoCapture = {
 		asset = SFX_TRAVEL,
 		volume = 0.38,
@@ -1576,46 +1232,6 @@ local CUES = {
 		variance = 0.008,
 		cooldown = 0.18,
 		stopAfter = 0.52,
-	},
-	curtainOpen = {
-		asset = SFX_RAMP,
-		volume = 0.34,
-		speed = 0.88,
-		variance = 0.006,
-		cooldown = 0.5,
-		stopAfter = 0.95,
-	},
-	curtainClose = {
-		asset = SFX_SWEEP,
-		volume = 0.3,
-		speed = 0.92,
-		variance = 0.006,
-		cooldown = 0.45,
-		stopAfter = 0.8,
-	},
-	sanctuaryHover = {
-		asset = UI_HOVER,
-		volume = 0.16,
-		speed = 1.18,
-		variance = 0.014,
-		cooldown = 0.07,
-		stopAfter = 0.1,
-	},
-	sanctuaryClick = {
-		asset = UI_CLICK,
-		volume = 0.36,
-		speed = 0.92,
-		variance = 0.01,
-		cooldown = 0.05,
-		stopAfter = 0.16,
-	},
-	sanctuaryRecall = {
-		asset = UI_CLICK,
-		volume = 0.26,
-		speed = 1,
-		variance = 0.006,
-		cooldown = 0.2,
-		stopAfter = 0.7,
 	},
 	navHover = {
 		asset = UI_HOVER,
@@ -1849,6 +1465,102 @@ local CUES = {
 		cooldown = 0.6,
 		stopAfter = 1.25,
 	},
+	foundryOpen = {
+		asset = UI_CONFIRM,
+		volume = 0.42,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.2,
+		stopAfter = 0.9,
+	},
+	foundryPlace = {
+		asset = UI_CONFIRM,
+		volume = 0.42,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.05,
+		stopAfter = 0.4,
+	},
+	foundryPickUp = {
+		asset = UI_CONFIRM,
+		volume = 0.3,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.05,
+		stopAfter = 0.25,
+	},
+	foundryRotate = {
+		asset = UI_CONFIRM,
+		volume = 0.28,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.04,
+		stopAfter = 0.2,
+	},
+	foundryFuse = {
+		asset = UI_CONFIRM,
+		volume = 0.5,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.12,
+		stopAfter = 1.4,
+	},
+	foundryDraw = {
+		asset = UI_CONFIRM,
+		volume = 0.44,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.1,
+		stopAfter = 0.9,
+	},
+	foundryDrawRare = {
+		asset = UI_CONFIRM,
+		volume = 0.5,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.15,
+		stopAfter = 1.6,
+	},
+	foundryExpand = {
+		asset = UI_CONFIRM,
+		volume = 0.52,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.3,
+		stopAfter = 2.2,
+	},
+	foundryIgnite = {
+		asset = UI_CONFIRM,
+		volume = 0.4,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.06,
+		stopAfter = 0.6,
+	},
+	foundryIgniteMiss = {
+		asset = UI_CONFIRM,
+		volume = 0.3,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.06,
+		stopAfter = 0.4,
+	},
+	foundrySurge = {
+		asset = UI_CONFIRM,
+		volume = 0.52,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.3,
+		stopAfter = 2.0,
+	},
+	foundryFlow = {
+		asset = UI_CONFIRM,
+		volume = 0.18,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.08,
+		stopAfter = 0.2,
+	},
 }
 local UI_CUES = {}
 for _, cue in {
@@ -1858,10 +1570,10 @@ for _, cue in {
 	"amountChange", "modalOpen", "modalPop", "modalDismiss", "purchaseExit",
 	"playerlistOpen", "playerlistSelect", "playerlistAction", "playerlistClose",
 	"noticeInfo", "noticeSuccess", "noticeWarning", "noticeError", "noticeSpecial",
-	"noticeClose", "chatSend", "chatReceive", "hoverTick", "successChime",
-	"errorBuzz", "velocitySlide", "purchase", "purchasePress", "reward",
+	"chatSend", "chatReceive", "hoverTick", "successChime",
+	"errorBuzz", "purchase", "purchasePress", "reward",
 	"collect", "travel", "researchUnlock", "claimPress",
-	"sanctuaryHover", "sanctuaryClick", "navHover", "curtainOpen", "curtainClose",
+	"navHover", 
 	"dropdownOpen", "dropdownClose", "copyDone", "dragGrab", "dragDrop", "dragSnap",
 	"favoriteOn", "favoriteOff", "ratingStar", "reportSubmit", "feedbackSubmit", "searchType",
 	"countTick", "badgeEarn", "stepNext", "stepBack", "guildAnnounce",
@@ -1878,6 +1590,9 @@ setmetatable(UI_CUES, {
 		return string.sub(cue, 1, 3) == "nav" or string.sub(cue, -5) == "Hover" or string.sub(cue, -5) == "Press" or nil
 	end,
 })
+local CUE_ALIAS = {
+	crateReveal = "crateRevealEpic",
+}
 local function isHoverCue(cue)
 	return cue == "hover" or string.sub(cue, -5) == "Hover" or string.sub(cue, 1, 8) == "navHover"
 end
@@ -2402,6 +2117,11 @@ do
 					if not ok then
 						failedBatches += 1
 					end
+					-- the loading screen counts the bank in
+					pcall(function()
+						local done = math.min(#channels, offset + #batch)
+						require(script.Parent.BootKit)("BootLedger").part("sound", "bank", done, #channels, `Sound effects {done} of {#channels}`)
+					end)
 					if not priorityPublished and offset + PRELOAD_BATCH_SIZE >= priorityCount then
 						priorityPublished = true
 						self:markWarmFor(lifecycle)
@@ -3079,6 +2799,14 @@ do
 		end
 		if SILENT_CUES[cue] then
 			return false
+		end
+		-- names that have no voice of their own borrow the closest one instead of playing nothing
+		if CUES[cue] == nil and SoundSheet.region(cue) == nil then
+			if CUE_ALIAS[cue] ~= nil then
+				cue = CUE_ALIAS[cue]
+			elseif string.sub(cue, 1, 7) == "navOpen" then
+				cue = "open"
+			end
 		end
 		if not self:ensureStarted() then
 			return false
@@ -3795,30 +3523,30 @@ end
 
 assign("chrome", {
 	"hover", "hoverTick", "scroll", "tick", "sliderStep", "filterPick",
-	"amountChange", "cardDraw", "storyPage", "wheelTick", "crateTick",
-	"navHover", "sanctuaryHover",
+	"amountChange", "storyPage", "wheelTick", "crateTick",
+	"navHover", 
 })
 
 assign("interface", {
 	"click", "confirm", "settings", "toggleOn", "toggleOff", "sliderCommit",
 	"inputFocus", "inputClear", "claimPress", "equip", "itemLink", "itemUnlink",
-	"cardBlock", "playerlistSelect", "playerlistAction", "roleChange",
+	"playerlistSelect", "playerlistAction", "roleChange",
 	"tutorialStep", "codeSubmit", "machineInstall", "mailRead",
-	"sanctuaryClick",
+	
 })
 
 assign("motion", {
 	"page", "tabSwitch", "open", "close", "modalOpen", "modalPop", "modalDismiss",
-	"filterOpen", "travel", "preview", "velocitySlide", "mail", "playerlistOpen",
+	"filterOpen", "travel", "preview", "mail", "playerlistOpen",
 	"playerlistClose", "purchaseExit", "zoneSelect", "expeditionLaunch",
-	"expeditionReturn", "boostOpen", "cardPlay", "gameExit",
-	"waystoneTravel",
+	"expeditionReturn", "boostOpen", 
+	
 })
 
 assign("forge", {
 	"salvage", "salvageCrunch", "reset", "memberRemove", "adminArm",
-	"adminExecute", "cardEndTurn", "echoDismantle", "labRoute", "autoForge",
-	"oreMine", "wardenStrike", "wardenCrit",
+	"adminExecute", "echoDismantle", "labRoute", "autoForge",
+	
 })
 
 assign("currency", {
@@ -3829,22 +3557,22 @@ assign("currency", {
 assign("reward", {
 	"reward", "unlock", "successChime", "dailyClaim", "timedClaim",
 	"seasonClaim", "missionClaim", "achievementClaim", "mailClaim", "codeReward",
-	"tutorialFinish", "discovery", "researchUnlock", "zoneUnlock", "puzzleClear",
+	"tutorialFinish", "discovery", "researchUnlock", "zoneUnlock", 
 	"comboMilestone", "offlineCollect", "offlineOpen", "crateClaim", "crateRare",
-	"wheelLand", "crateLand", "echoClaim", "oreCollect",
+	"wheelLand", "crateLand", "echoClaim", 
 })
 
 assign("arcane", {
 	"prestige", "rebirthCharge", "rebirthBloom", "domainCharge", "domainCrack",
 	"domainImpact", "domainReward", "domainBind", "echoCapture", "echoTune",
-	"echoEquip", "cardPower", "storyReveal",
-	"wardenForming", "wardenAwake", "wardenSlamCharge", "wardenSlam",
-	"wardenDefeat", "wardenEscape",
+	"echoEquip", "storyReveal",
+	
+	
 })
 
 assign("reactor", {
-	"reactor", "reactorReady", "reactorPulse", "reactorChannel",
-	"reactorStabilize", "reactorSurge", "cardEnergy",
+	"reactor", "reactorReady", "reactorPulse", 
+	"reactorStabilize", "reactorSurge", 
 })
 
 assign("denial", {
@@ -3853,26 +3581,26 @@ assign("denial", {
 })
 
 assign("alert", {
-	"noticeWarning", "systemAlert", "gamePause",
+	"noticeWarning", "systemAlert", 
 })
 
 assign("notice", {
-	"notification", "noticeInfo", "noticeSuccess", "noticeSpecial", "noticeClose",
-	"gameResume", "boostReady", "boostActivate", "queueStart", "queueStop",
-	"regionEnter",
+	"notification", "noticeInfo", "noticeSuccess", "noticeSpecial", 
+	"boostReady", "boostActivate", "queueStart", "queueStop",
+	
 })
 
 assign("ceremony", {
-	"boot", "bootStart", "bootIgnite", "bootTension", "bootWhoosh", "bootStrike",
-	"bootClang", "bootSpark", "bootFizz", "bootRumble", "bootImpact", "bootReady",
-	"bootFinaleFlip", "bootFinaleBang", "bootAnvilSplit", "bootSlamCharge",
-	"bootSlamAir", "bootDebris", "bootFractureTail", "bootGravity",
-	"bootAftershock", "storyOpen", "story", "storyBeat",
+	"boot", "bootStart", 
+	"bootReady",
+	"bootFinaleBang", 
+	
+	"storyOpen", "story", "storyBeat",
 })
 
 assign("mechanism", {
 	"wheelStart", "wheelCharge", "wheelSlow", "wheelBrake", "crateOpen",
-	"crateCharge", "crateNear", "crateBrake", "puzzleTap", "leaderboardSwitch",
+	"crateCharge", "crateNear", "crateBrake", "leaderboardSwitch",
 })
 
 assign("social", {
@@ -3919,10 +3647,6 @@ local LAYERS: { [string]: Layer } = {
 	error = { source = "click", pitch = 0.4, volume = 0.36, delay = 0.02 },
 	requestTimeout = { source = "click", pitch = 0.38, volume = 0.34, delay = 0.025 },
 	bootFinaleBang = { source = "click", pitch = 0.4, volume = 0.5, delay = 0.014 },
-	bootImpact = { source = "click", pitch = 0.48, volume = 0.44, delay = 0.012 },
-	wardenSlam = { source = "click", pitch = 0.4, volume = 0.5, delay = 0.012 },
-	wardenDefeat = { source = "confirm", pitch = 1.46, volume = 0.36, delay = 0.05 },
-	wardenCrit = { source = "hover", pitch = 1.6, volume = 0.28, delay = 0.03 },
 }
 
 function Voicing.layerFor(cue: string): Layer?
@@ -3986,10 +3710,8 @@ SoundSheet.VOICE = table.freeze({
 	noticeWarning = "noticeWarning",
 	noticeError = "noticeError",
 	noticeSpecial = "noticeSpecial",
-	noticeClose = "noticeClose",
 	chatSend = "chatSend",
 	chatReceive = "chatReceive",
-	velocitySlide = "velocitySlide",
 	purchasePress = "purchasePress",
 	claimPress = "claimPress",
 	dangerPress = "dangerPress",
@@ -4002,9 +3724,6 @@ SoundSheet.VOICE = table.freeze({
 	leaderboardSwitch = "leaderboardSwitch",
 	requestBlocked = "requestBlocked",
 	requestTimeout = "requestTimeout",
-	gamePause = "gamePause",
-	gameResume = "gameResume",
-	gameExit = "gameExit",
 	notification = "notification",
 	systemAlert = "systemAlert",
 	crewNudge = "crewNudge",
@@ -4030,15 +3749,7 @@ SoundSheet.VOICE = table.freeze({
 	storyBeat = "storyBeat",
 	crate = "crate",
 	crateNear = "crateNear",
-	puzzleTap = "puzzleTap",
-	cardEndTurn = "cardEndTurn",
-	cardBlock = "cardBlock",
 	travel = "travel",
-	curtainOpen = "curtainOpen",
-	curtainClose = "curtainClose",
-	sanctuaryHover = "sanctuaryHover",
-	sanctuaryClick = "sanctuaryClick",
-	sanctuaryRecall = "sanctuaryRecall",
 	navHover = "navHover",
 	dropdownOpen = "dropdownOpen",
 	dropdownClose = "dropdownClose",
@@ -4105,7 +3816,6 @@ SoundSheet.VOICE = table.freeze({
 	crateRare = "crateRare",
 	crateClaim = "crateClaim",
 	domainReward = "domainReward",
-	puzzleClear = "puzzleClear",
 
 	salvage = "salvage",
 	salvageCrunch = "salvageCrunch",
@@ -4116,7 +3826,6 @@ SoundSheet.VOICE = table.freeze({
 	crateBrake = "crateBrake",
 	reactor = "reactor",
 	reactorPulse = "reactorPulse",
-	reactorChannel = "reactorChannel",
 	reactorSurge = "reactorSurge",
 	rebirthCharge = "rebirthCharge",
 	adminExecute = "adminExecute",
@@ -4134,45 +3843,12 @@ SoundSheet.VOICE = table.freeze({
 	domainCrack = "domainCrack",
 	domainImpact = "domainImpact",
 	domainBind = "domainBind",
-	cardPlay = "cardPlay",
-	cardDraw = "cardDraw",
-	cardEnergy = "cardEnergy",
-	cardPower = "cardPower",
 
 	boot = "boot",
 	bootStart = "bootStart",
-	bootIgnite = "bootIgnite",
-	bootTension = "bootTension",
-	bootWhoosh = "bootWhoosh",
-	bootStrike = "bootStrike",
-	bootClang = "bootClang",
-	bootSpark = "bootSpark",
-	bootFizz = "bootFizz",
-	bootRumble = "bootRumble",
-	bootImpact = "bootImpact",
 	bootReady = "bootReady",
-	bootFinaleFlip = "bootFinaleFlip",
 	bootFinaleBang = "bootFinaleBang",
-	bootAnvilSplit = "bootAnvilSplit",
-	bootSlamCharge = "bootSlamCharge",
-	bootSlamAir = "bootSlamAir",
-	bootDebris = "bootDebris",
-	bootFractureTail = "bootFractureTail",
-	bootGravity = "bootGravity",
-	bootAftershock = "bootAftershock",
 
-	oreMine = "oreMine",
-	oreCollect = "oreCollect",
-	wardenForming = "wardenForming",
-	wardenAwake = "wardenAwake",
-	wardenStrike = "wardenStrike",
-	wardenCrit = "wardenCrit",
-	wardenSlamCharge = "wardenSlamCharge",
-	wardenSlam = "wardenSlam",
-	wardenDefeat = "wardenDefeat",
-	wardenEscape = "wardenEscape",
-	waystoneTravel = "waystoneTravel",
-	regionEnter = "regionEnter",
 	navOpenOverview = "navOpenOverview",
 	navHoverOverview = "navHoverOverview",
 	navOpenWorkshop = "navOpenWorkshop",
@@ -4241,19 +3917,6 @@ SoundSheet.VOICE = table.freeze({
 	navHoverCharts = "navHoverContinuum",
 	navOpenCipher = "navOpenAnomaly",
 	navHoverCipher = "navHoverAnomaly",
-	oreMineEmberite = "oreMineEmberite",
-	oreCollectEmberite = "oreCollectEmberite",
-	oreMineVoidglass = "oreMineVoidglass",
-	oreCollectVoidglass = "oreCollectVoidglass",
-	oreMineStarsteel = "oreMineStarsteel",
-	oreCollectStarsteel = "oreCollectStarsteel",
-	waystoneHeart = "waystoneHeart",
-	waystoneEmberreach = "waystoneEmberreach",
-	waystoneHollows = "waystoneHollows",
-	waystoneSpire = "waystoneSpire",
-	waystoneRiftmaw = "waystoneRiftmaw",
-	sanctuaryMenu = "sanctuaryMenu",
-	sanctuarySheetClose = "sanctuarySheetClose",
 	clickHover = "clickHover",
 	confirmHover = "confirmHover",
 	settingsHover = "settingsHover",
@@ -4264,8 +3927,6 @@ SoundSheet.VOICE = table.freeze({
 	labRouteHover = "labRouteHover",
 	playerlistActionHover = "playerlistActionHover",
 	playerlistSelectHover = "playerlistSelectHover",
-	puzzleTapHover = "puzzleTapHover",
-	sanctuaryClickHover = "sanctuaryClickHover",
 	equipHover = "equipHover",
 	dangerPressHover = "dangerPressHover",
 	closeHover = "closeHover",
@@ -4280,16 +3941,11 @@ SoundSheet.VOICE = table.freeze({
 	errorHover = "errorHover",
 	prestigeHover = "prestigeHover",
 	domainChargeHover = "domainChargeHover",
-	cardEndTurnHover = "cardEndTurnHover",
-	cardPowerHover = "cardPowerHover",
-	cardEnergyHover = "cardEnergyHover",
 	vaultBankHover = "vaultBankHover",
 	guildCreateHover = "guildCreateHover",
 	guildJoinHover = "guildJoinHover",
 	inviteHover = "inviteHover",
 	travelHover = "travelHover",
-	gameResumeHover = "gameResumeHover",
-	gamePauseHover = "gamePauseHover",
 	queueStopHover = "queueStopHover",
 	queueStartHover = "queueStartHover",
 	boostHover = "boostHover",
@@ -4319,6 +3975,18 @@ SoundSheet.VOICE = table.freeze({
 	continuumPress = "continuumPress",
 	missionPress = "missionPress",
 	overviewPress = "overviewPress",
+	foundryOpen = "foundryOpen",
+	foundryPlace = "foundryPlace",
+	foundryPickUp = "foundryPickUp",
+	foundryRotate = "foundryRotate",
+	foundryFuse = "foundryFuse",
+	foundryDraw = "foundryDraw",
+	foundryDrawRare = "foundryDrawRare",
+	foundryExpand = "foundryExpand",
+	foundryIgnite = "foundryIgnite",
+	foundryIgniteMiss = "foundryIgniteMiss",
+	foundrySurge = "foundrySurge",
+	foundryFlow = "foundryFlow",
 })
 
 local Primary = Manifest.SoundSheet
@@ -4391,31 +4059,28 @@ type Track = {
 	high: number,
 }
 
+-- Seven originals (tools/assetgen/soundtrack_gen.py) take turns with eleven calm space beds from the
+-- library. Off-theme library tracks (Hawaiian synth, action trailers, arcade synthwave, the eerie
+-- liminal ones) are out: every track here should sit under hours of play.
 local TRACKS: { Track } = {
+	{ name = "Starlit Anvil", asset = "rbxassetid://83224252725181", gain = 0.95, low = 0, mid = 0, high = 0 },
 	{ name = "Space Ambient", asset = "rbxassetid://140533822783920", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Galactic Market", asset = "rbxassetid://85922328966318", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Nebula Market", asset = "rbxassetid://125327402955633", gain = 0.82, low = 0, mid = 0, high = 0 },
 	{ name = "Slow Breathing Aurora (Space Ambient)", asset = "rbxassetid://140041908508788", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Return Signal Hopeful Future Ambient Music", asset = "rbxassetid://134433077845062", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Ember Drive", asset = "rbxassetid://132485327755002", gain = 0.85, low = 0, mid = 0, high = 0 },
 	{ name = "Cosmic Cafe", asset = "rbxassetid://136898642923218", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Zero Gravity", asset = "rbxassetid://102039057339088", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Twilight’s Soothing Cascade", asset = "rbxassetid://139804134367647", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Quiet Orbit", asset = "rbxassetid://114299463363605", gain = 1.0, low = 0, mid = 0, high = 0 },
 	{ name = "Nebula Dream Theta Waves", asset = "rbxassetid://139793680497894", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Deep Space Ocean", asset = "rbxassetid://136827064604146", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Liminal Space Ambient (Lost in the Halls)", asset = "rbxassetid://133670858533628", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Forge Pulse", asset = "rbxassetid://85607718934391", gain = 0.78, low = 0, mid = 0, high = 0 },
 	{ name = "Space Station '98", asset = "rbxassetid://128285716110465", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Hello in There Space Ambient", asset = "rbxassetid://111560725873026", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Adrenaline Arcade Synthwave", asset = "rbxassetid://138551890276730", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Feedback", asset = "rbxassetid://122703970718439", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Desperation", asset = "rbxassetid://81466105858478", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Resistance", asset = "rbxassetid://99903926483608", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Automated", asset = "rbxassetid://93964414292507", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Aloha Sunset (Hawaiian Synth)", asset = "rbxassetid://118508726012870", gain = 0.8, low = 0, mid = 0, high = 0 },
 	{ name = "Celestial String Awakening 2", asset = "rbxassetid://101244629093073", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Astral Orbit", asset = "rbxassetid://84797482092417", gain = 0.84, low = 0, mid = 0, high = 0 },
 	{ name = "Calm Cinematic Space", asset = "rbxassetid://137911990035159", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Soft Intro Reflections", asset = "rbxassetid://87900257498941", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Temple of Silent Light 2", asset = "rbxassetid://86497547233756", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "River of Soft Gold 2", asset = "rbxassetid://114636840398015", gain = 0.8, low = 0, mid = 0, high = 0 },
-	{ name = "Silent Cinematic Prelude", asset = "rbxassetid://85227514374326", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Sanctuary Drift", asset = "rbxassetid://98919050616365", gain = 0.9, low = 0, mid = 0, high = 0 },
 }
 
 local Soundtrack = {}

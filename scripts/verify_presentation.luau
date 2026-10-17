@@ -1,81 +1,138 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
-local source = fs.readFile("src/Client/AstralForge/SkyViewport.luau")
-local start = assert(source:find("local function piece(", 1, true))
-local body = source:sub(start)
-
-local function runScene(props, size)
-	local frameCallback, cleanup
-	local disconnected, destroyed, pivots = 0, 0, 0
-	local parts = {}
-	local viewport = { AbsoluteSize = size }
-	function viewport:GetPropertyChangedSignal()
-		return { Connect = function(_, callback)
-			return { Disconnect = function() disconnected += 1 end }
-		end }
-	end
-	local react = {
-		useRef = function() return { current = viewport } end,
-		useEffect = function(callback) cleanup = callback() end,
-	}
-	local instance = { new = function(class)
-		local object = { ClassName = class, CFrame = roblox.CFrame.identity }
-		function object:Destroy() destroyed += 1 end
-		function object:PivotTo(_) pivots += 1 end
-		if class == "Part" then table.insert(parts, object) end
-		return object
-	end }
-	local runService = { RenderStepped = { Connect = function(_, callback)
-		frameCallback = callback
-		return { Disconnect = function() disconnected += 1 end }
-	end } }
-	local palette = {}
-	for _, name in { "muted", "lineSoft", "creamSoft", "graphite", "ink" } do
-		palette[name] = roblox.Color3.fromRGB(90, 80, 100)
-	end
-	local component = luau.load(body, {
-		environment = {
-			React = react, Instance = instance, RunService = runService, P = palette,
-			h = function(kind, properties, children) return { kind = kind, props = properties, children = children } end,
-			Vector2 = roblox.Vector2, Vector3 = roblox.Vector3, Color3 = roblox.Color3,
-			CFrame = roblox.CFrame, UDim = roblox.UDim, UDim2 = roblox.UDim2, Enum = roblox.Enum,
-			Random = { new = function() return { NextNumber = function(_, low, high) return (low + high) / 2 end } end },
-		},
-	})()
-	local rendered = component(props)
-	local initialPivots = pivots
-	assert(rendered.kind == "viewportframe" and viewport.CurrentCamera, "scenes own an actual viewport camera")
-	assert(viewport.CurrentCamera.CFrame.Position.Z > 0, "aspect-aware camera remains in front of the scene")
-	for _, part in parts do
-		assert(part.Anchored and not part.CanCollide and not part.CastShadow, "preview models remain inert")
-		if props.entry and part.Name == "Star" .. (props.plotted + 1) then
-			assert(part.Material == roblox.Enum.Material.Neon and part.Color == props.accent, "the next star stays visibly highlighted even in reduced motion")
-		end
-	end
-	if props.reducedMotion then
-		assert(not frameCallback, "reduced motion must not subscribe to animation")
-	else
-		assert(frameCallback, "animated scenes subscribe exactly once")
-		frameCallback(1 / 60)
-		if props.entry then
-			assert(pivots - initialPivots == 1, "chart motion updates the shared scene, not individual GUI positions")
-		else
-			assert(pivots - initialPivots == 4, "each receiver signal physically animates as one model")
-		end
-	end
-	cleanup()
-	assert(viewport.CurrentCamera == nil and destroyed == 2, "unmount releases camera and WorldModel")
-	assert(disconnected == (if props.reducedMotion then 1 else 2), "all animation and resize subscriptions disconnect")
-	return #parts
-end
 local accent = roblox.Color3.fromRGB(100, 200, 240)
-local entry = { Id = "probe", Stars = { { 0.15, 0.2 }, { 0.5, 0.7 }, { 0.85, 0.25 } }, Edges = { { 1, 2 }, { 2, 3 } } }
-for _, size in { roblox.Vector2.new(300, 300), roblox.Vector2.new(337, 128), roblox.Vector2.new(128, 337) } do
+local shop = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau")
+local consoleStart = assert(shop:find("local function WheelConsole(", 1, true))
+local consoleEnd = assert(shop:find("local function WheelView(", consoleStart, true))
+assert(not shop:sub(consoleStart, consoleEnd - 1):find("WheelPrizeViewport", 1, true), "the active reward console must not mount viewports")
+assert(shop:find("require(script.Parent.Parent.PrizeWheel)", 1, true), "the page mounts the UI-built wheel")
+assert(not fs.isFile("src/Client/AstralForge/AuthoredWheel.luau"), "the image-faced wheel renderer is retired")
+
+-- Wedges are painted by stacked half-disks inside two unrotated clips; prove the painting is exact.
+local Geometry = luau.load(fs.readFile("src/Client/AstralForge/WheelGeometry.luau"))()
+for count = 1, 20 do
+	local size = Geometry.segmentSize(count)
+	for winner = 0, count - 1 do
+		assert(Geometry.segmentAt(count, Geometry.rotationFor(count, winner), 0) == winner, "every server winner lands under the pointer")
+	end
+	for step = 0, 72 do
+		local rotation = step * 5.137 - 40
+		local plan = Geometry.plan(count, rotation)
+		assert(#plan.right <= Geometry.slotsPerHalf(count) and #plan.left <= Geometry.slotsPerHalf(count), "layer pools never overflow")
+		for sample = 0, 719 do
+			local angle = sample * 0.5 + 0.13
+			local wheelAngle = ((angle - rotation + size / 2) % 360 + 360) % 360
+			local nearEdge = math.min(wheelAngle % size, size - wheelAngle % size) < 0.05 or math.abs(angle - 180) < 0.05
+			if not nearEdge then
+				assert(Geometry.paintedAt(plan, angle) == Geometry.segmentAt(count, rotation, angle),
+					`half-disk stack paints the owning segment (count {count}, rotation {rotation}, angle {angle})`)
+			end
+		end
+	end
+end
+
+local palette = {}
+for _, name in { "ink", "cream", "creamSoft", "void", "panelRaised", "violet", "white", "panel", "mango" } do palette[name] = accent end
+local function element(kind, props, ...)
+	assert(kind ~= "viewportframe" and kind ~= "imagelabel" and kind ~= "imagebutton", "the wheel is built from UI primitives only")
+	if type(kind) == "function" then
+		return kind(props)
+	end
+	return { kind = kind, props = props or {}, children = { ... } }
+end
+local artSource = fs.readFile("src/Client/AstralForge/ArtKit.luau")
+local iconStart = assert(artSource:find("local function rewardIconKind(", 1, true))
+local iconEnd = assert(artSource:find("local function prizeShapeFromReward(", iconStart, true))
+local rewardIconKind = luau.load(artSource:sub(iconStart, iconEnd - 1) .. "\nreturn rewardIconKind")()
+for field, expected in { Cores = "Core", Stardust = "Dust", Boost = "Boost", FreeSpins = "Wheel",
+	Keys = "Crate", CashMinutes = "Flux", Signals = "Command", Essence = "EchoForge" } do
+	assert(rewardIconKind({ [field] = 1 }) == expected, "reward art must describe the actual grant")
+end
+local wheelSource = fs.readFile("src/Client/AstralForge/PrizeWheel.luau")
+assert(not wheelSource:find("rbxassetid", 1, true) and not wheelSource:find("Image", 1, true), "no hand-drawn wheel art")
+local function joined(list)
+	return { map = function(_, callback)
+		local values = {}
+		for index, item in list do values[index] = item.value end
+		return callback(values)
+	end }
+end
+local fakeReact = {
+	createElement = element, Event = { Activated = "Activated" },
+	useRef = function(value) return { current = value } end,
+	useCallback = function(callback) return callback end,
+	joinBindings = joined,
+}
+local modules = {
+	UiCore = function() return { Text = "Text" } end,
+	CoreKit = function() return { Palette = palette, darken = function(color, amount) return color:Lerp(roblox.Color3.new(), amount) end } end,
+	ArtKit = function() return { Icon = "Icon", rewardIconKind = rewardIconKind } end,
+	MotionKit = function()
+		local still = { value = 0, map = function(self, callback) return callback(self.value) end }
+		return { useClock = function() return still end, useFlash = function() return still end }
+	end,
+}
+local wheel = luau.load(wheelSource, {
+	environment = setmetatable({
+		game = { ReplicatedStorage = { rbxts_include = { node_modules = { ["@rbxts"] = { react = "react" } } } } },
+		script = { Parent = { UiCore = "UiCore", CoreKit = "CoreKit", ArtKit = "ArtKit", WheelGeometry = "WheelGeometry", MotionKit = "MotionKit" } },
+		require = function(name)
+			if name == "react" then return fakeReact end
+			if name == "WheelGeometry" then return Geometry end
+			return modules[name]
+		end,
+		Color3 = roblox.Color3, UDim = roblox.UDim, UDim2 = roblox.UDim2, Vector2 = roblox.Vector2,
+		Enum = roblox.Enum, NumberSequence = roblox.NumberSequence, NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
+		ColorSequence = roblox.ColorSequence, ColorSequenceKeypoint = roblox.ColorSequenceKeypoint,
+	}, { __index = _G }),
+})()
+local function walk(node, visit)
+	if type(node) ~= "table" then return end
+	if node.kind ~= nil then
+		visit(node)
+		for _, child in node.children do walk(child, visit) end
+	else
+		for _, child in node do walk(child, visit) end
+	end
+end
+local function named(tree, name)
+	local found
+	walk(tree, function(node) if node.props.Name == name then found = found or node end end)
+	return assert(found, "missing " .. name)
+end
+local rewards = {}
+for index = 1, 12 do
+	rewards[index] = { Id = "prize" .. index, Reward = { CashMinutes = index }, Color = roblox.Color3.fromRGB(index * 20, 90, 200) }
+end
+local function wheelBinding(value)
+	return { value = value, map = function(_, callback) return callback(value) end }
+end
+for _, diameter in { 140, 220, 340, 410 } do
 	for _, reduced in { false, true } do
-		assert(runScene({ entry = entry, plotted = 1, accent = accent, reducedMotion = reduced }, size) == 37, "charts retain stars, links and a bounded backdrop")
-		assert(runScene({ glyphs = { 1, 2, 3, 4 }, colors = { accent, accent, accent, accent }, accent = accent, reducedMotion = reduced }, size) == 44, "cipher previews retain all four authored glyphs")
-		assert(runScene({ glyphs = { 4, 4, 4, 4 }, colors = { accent, accent, accent, accent }, accent = accent, reducedMotion = reduced }, size) <= 64, "receiver previews remain within their part budget")
+		for winner = 0, 11 do
+			local rotation = Geometry.rotationFor(12, winner)
+			local controller = { winner = winner, spinning = false, rotation = wheelBinding(rotation), spinEnergy = wheelBinding(1), pointerKick = wheelBinding(0.5) }
+			local tree = wheel({ controller = controller, rewards = rewards, diameter = diameter, reducedMotion = reduced, canSpin = true })
+			-- the face is painted at rest and turned as one CanvasGroup texture
+			local face = named(tree, "Face")
+			assert(face.kind == "canvasgroup" and face.props.Rotation == controller.rotation, "the controller turns the face as one texture")
+			assert(named(tree, "Prize" .. (winner + 1)).props.Rotation % 30 == 0 and (rotation + named(tree, "Prize" .. (winner + 1)).props.Rotation) % 360 == 0,
+				"the winning label sits under the pointer")
+			local rest = Geometry.plan(12, 0)
+			for _, side in { "right", "left" } do
+				local clip = named(tree, if side == "right" then "RightHalf" else "LeftHalf")
+				assert(clip.props.ClipsDescendants and clip.props.Rotation == nil, "clips stay unrotated inside the face so clipping works")
+				local count = 0
+				for slot, layer in clip.children[1] do
+					count += 1
+					local index = tonumber(string.match(slot, "%d+"))
+					assert(layer.children[2].props.Rotation == rest[side][index].angle, "half-disk mask follows the rest plan")
+				end
+				assert(count == #rest[side], "one layer per planned half-disk")
+			end
+			assert(named(tree, "Pointer").props.Rotation == (if reduced then 0 else -8), "reduced motion keeps the pointer still")
+		end
 	end
 end
 
@@ -120,7 +177,6 @@ assert(#component({ intensity = 1 }).children == 8, "constrained devices use few
 antialag.allowAmbient = false
 assert(component({ intensity = 1 }).children == nil, "disabled ambient decoration creates no curtains")
 assert(not clockEnabled, "disabled ambient decoration stops its clock")
-assert(core:find('Name = "BoltSprite"', 1, true) and core:find('Image = "rbxassetid://70681368255210"', 1, true), "Bolt uses the uploaded authored atlas")
 assert(core:find('Name = "TopbarResourceRail"', 1, true) and core:find("local chips = allChips", 1, true), "topbar resources must not be pruned")
 local mobileStart = assert(core:find("local function MobileHeader(", 1, true))
 local mobileEnd = assert(core:find("local function MobileQuickActions(", mobileStart, true))
@@ -142,7 +198,7 @@ local mobileHeader = luau.load(core:sub(mobileStart, mobileEnd - 1) .. "\nreturn
 			if properties and properties.Name == "MobileResourceRail" then rail = properties end
 			return { kind = kind, props = properties, children = { ... } }
 		end },
-		__load = function() return { readLevelState = function() return 4, nil, {} end, progressFraction = function() return 0.5 end } end,
+		__load = function(name) if name == "serverEventsUi" then return { useServerEvent = function() return nil end, EVENTS = {}, accentOf = function() return accent end, openServerEventPanel = function() end } end return { readLevelState = function() return 4, nil, {} end, progressFraction = function() return 0.5 end } end,
 		Chip = "Chip", Icon = "Icon", IconTile = "IconTile", Palette = mobilePalette,
 		darken = function(color) return color end,
 		UDim = roblox.UDim, UDim2 = roblox.UDim2, Vector2 = roblox.Vector2, Enum = roblox.Enum,
@@ -245,4 +301,4 @@ reply = { ok = true }
 findButton("SEND REPORT").onClick()
 renderReport()
 assert(findButton("DONE") and blocked == 1 and reportedAt[123] ~= nil, "blocking happens only after a successful report")
-print("[INFO] [TEST] presentation passed | viewport lifecycle, reduced motion, aurora, Bolt, report retry/payload")
+print("[INFO] [TEST] presentation passed | 2D wheel landing/labels/reduced motion, aurora, report retry/payload")

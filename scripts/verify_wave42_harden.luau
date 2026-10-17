@@ -42,7 +42,7 @@ assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#M
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorldsView"] = ', 1, true), "Worlds DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = ', 1, true), "Rebirth DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = ', 1, true), "Chat DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = ', 1, true), "StarGrid DENSE floor")
+assert(string.find(playability, '"src/Client/AstralForge/pages/PagesSpecializations.luau"', 1, true), "Specializations hot-page coverage")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = ', 1, true), "Convergence DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

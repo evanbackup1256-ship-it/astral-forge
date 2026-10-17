@@ -81,7 +81,7 @@ local function ArchiveMark(_param)
 	local pulse = usePulse(active and not reducedMotion, 1.2)
 	local enter = useEntrance(reducedMotion)
 	local progress = if active then meterFill(beat + 1, math.max(1, total)) elseif finished then 1 else math.clamp(unlockProgress, 0, 1)
-	local statusLabel = if not active and finished then "REPLAY" elseif active then "READING" elseif unlocked then "READY" else "LOCKED"
+	local statusLabel = if not active and finished then "REPLAY" elseif active then "OPEN" elseif unlocked then "READY" else "LOCKED"
 	local _result
 	if active then
 		_result = `Part {beat + 1} / {math.max(1, total)}`
@@ -363,7 +363,7 @@ local function StoryBeat(_param)
 	local action = if final then if claimed then onClose else onClaim else onNext
 	local actionText = if final then if claimed then "Done" else "Collect reward" else "Continue"
 	local actionIcon = if final then if claimed then "Check" else "Gift" else "Chevron"
-	local tipText = if replay then "Replay — browse freely" else `Part {index + 1} of {total}`
+	local tipText = if replay then "Replay: read any part" else `Part {index + 1} of {total}`
 	local decorated = illuminate(text, color)
 	local btnH = if stack then TapTarget else 48
 	local showTip = not condensed and (not stack or not tuned)
@@ -847,7 +847,7 @@ local function StoryView(_param)
 		end
 	end
 	local multi = chapterCount > 1
-	local railMarkH = if multi and not stack then (if shortLandscape then 76 else 180) else (if stack then markH else 0)
+	local railMarkH = if multi and not stack then 84 else (if stack then markH else 0) -- the mark is ~76px of content; taller only left an empty card
 	local readerPad = if shortLandscape then 12 elseif stack then (if started then 12 else 14) else Layout.contentInset
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
@@ -1184,7 +1184,7 @@ local function StoryView(_param)
 		position = UDim2.fromOffset(0, if stack then 112 else 128),
 		sizeConstraint = UDim2.new(1, 0, 0, if stack then 96 else 80),
 	}), not shortLandscape and React.createElement(Text, {
-		value = if finished then "Finished — open anytime to re-read." elseif locked then "Keep playing to unlock this chapter." elseif multi then "Pick a chapter, then start reading." else "Short chapters from under Bay Seven.",
+		value = if finished then "Finished. Open it any time to read again." elseif locked then "Keep playing to unlock this chapter." elseif multi then "Pick a chapter, then start reading." else "Short chapters from under Bay Seven.",
 		size = 13,
 		color = Palette.muted,
 		wrap = true,
@@ -1914,6 +1914,18 @@ local function EchoForgeView(_param)
 	React.useEffect(function()
 		return setArmedUid(nil)
 	end, { #echoes.Inventory })
+	-- an unanswered SURE? on Break quietly disarms
+	React.useEffect(function()
+		if armedUid == nil then
+			return nil
+		end
+		local lapse = task.delay(4, function()
+			setArmedUid(nil)
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { armedUid })
 	local linkedUids = {}
 	for _, slot in echoes.Equipped do
 		if slot.Echo ~= nil then
@@ -2029,7 +2041,7 @@ local function EchoForgeView(_param)
 	local chargeAccent = if echoes.Ready or #echoes.Choices > 0 then Palette.mango else dominant.color
 	local heroSurface = darken(Palette.cyan, 0.95)
 	local chargeLabel = ensureContrast(heroSurface, chargeAccent)
-	local chargeCopy = if #echoes.Choices > 0 then "CHOOSE ONE ECHO BELOW" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
+	local chargeCopy = if #echoes.Choices > 0 then "YOUR ECHOES ARE READY" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
 	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not reducedMotion, 1.7)
 	local chargeReveal = useStagger(0, softMotion)
 	local inventoryReveal = useStagger(1, softMotion)
@@ -2103,7 +2115,7 @@ local function EchoForgeView(_param)
 		reducedMotion = softMotion,
 		shimmer = echoes.Ready,
 	}), React.createElement(Button, {
-		text = if #echoes.Choices > 0 then "CHOOSE AN ECHO BELOW" elseif echoes.Ready then "CAPTURE THIS PATTERN" else "KEEP FORGING",
+		text = if #echoes.Choices > 0 then "PICK ONE BELOW" elseif echoes.Ready then "CAPTURE THIS PATTERN" else "KEEP FORGING",
 		icon = "Wave",
 		onClick = function()
 			return dispatch("CaptureEcho")
@@ -2425,6 +2437,7 @@ local Button = _ui.Button
 local Dropdown = _ui.Dropdown
 local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
+local Meter = _ui.Meter
 local Panel = _ui.Panel
 local SCROLL_EDGE = _ui.SCROLL_EDGE
 local SearchField = _ui.SearchField
@@ -2782,7 +2795,7 @@ local function BulkDock(_param)
 		disabled = selectableCount == 0,
 		outline = true,
 	}), React.createElement(Button, {
-		text = if bulkBusy then "SALVAGING" elseif selectedCount > 0 then `DELETE {selectedCount}  +{compactNumber(selectionEssence)} ESS` else "CLEAR PICKS",
+		text = if bulkBusy then "SALVAGING" elseif selectedCount > 0 and _param.bulkArmed then `TAP AGAIN · SALVAGE {selectedCount}` elseif selectedCount > 0 then `SALVAGE {selectedCount}  +{compactNumber(selectionEssence)} ESS` else "CLEAR PICKS",
 		icon = "Dust",
 		onClick = if selectedCount > 0 then salvageSelected else clearSelection,
 		color = if selectedCount > 0 then Palette.coral else Palette.panelSoft,
@@ -3203,6 +3216,18 @@ local function DetailPanel(_param)
 		end
 	end
 	local target, setTarget = React.useState(_condition_1)
+	local salvageArmedFor, setSalvageArmedFor = React.useState(nil)
+	React.useEffect(function()
+		if salvageArmedFor == nil then
+			return nil
+		end
+		local lapse = task.delay(4, function()
+			setSalvageArmedFor(nil)
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { salvageArmedFor })
 	React.useEffect(function()
 		setTarget(function(current)
 			if item.equippedOn ~= nil then
@@ -3314,11 +3339,18 @@ local function DetailPanel(_param)
 			highlight = canUpgrade,
 		})
 	end
+	-- salvaging destroys the relic, so it takes a second tap within a few seconds
+	local salvageArmed = salvageArmedFor == item.uid
 	local salvageBtn = function(size, position)
 		return React.createElement(Button, {
-			text = `SALVAGE  +{salvage}`,
+			text = if salvageArmed then `TAP AGAIN TO SALVAGE · +{salvage}` else `SALVAGE  +{salvage}`,
 			icon = "Dust",
 			onClick = function()
+				if not salvageArmed then
+					setSalvageArmedFor(item.uid)
+					return nil
+				end
+				setSalvageArmedFor(nil)
 				return dispatch("SalvageItem", {
 					Uid = item.uid,
 				})
@@ -3615,6 +3647,18 @@ local function CrateCard(_param)
 		position = UDim2.fromOffset(0, if stack then 8 else 24),
 		reducedMotion = reducedMotion,
 		glow = keys >= 1,
+		filled = keys >= 1,
+	}), React.createElement("frame", {
+		Position = UDim2.fromOffset(60, 4),
+		Size = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 24),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Text, {
 		value = crate.Name,
 		size = 18,
@@ -3622,23 +3666,35 @@ local function CrateCard(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 12,
-		position = UDim2.fromOffset(60, 4),
-		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 24),
-	}), React.createElement(Text, {
+		layoutOrder = 0,
+		sizeConstraint = UDim2.new(0, 150, 0, 24),
+	}), React.createElement(Badge, {
+		value = if keys > 0 then `{keys} KEYS` else "NO KEYS",
+		accent = if keys > 0 then crate.Color else Palette.muted,
+		size = UDim2.fromOffset(64, 18),
+		filled = keys > 0,
+		layoutOrder = 1,
+	})), React.createElement(Text, {
 		value = crate.Description,
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(60, 34),
-		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 40),
+		position = UDim2.fromOffset(60, 32),
+		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 36),
 	}), React.createElement(Text, {
-		value = `{keys} keys  ·  pity {pity}/{crate.PityAfter} → {crate.PityRarity}`,
-		size = 12,
+		value = `Guaranteed {crate.PityRarity} at {crate.PityAfter} ({pity}/{crate.PityAfter})`,
+		size = 11,
 		color = crate.Color,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(60, 84),
-		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 18),
+		position = UDim2.fromOffset(60, 72),
+		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 16),
+	}), React.createElement(Meter, {
+		value = math.clamp(pity / math.max(1, crate.PityAfter), 0, 1),
+		color = crate.Color,
+		reducedMotion = reducedMotion,
+		position = UDim2.fromOffset(60, 92),
+		size = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 4),
 	}), actions)
 end
 local MARKET_BANNER_H = 126
@@ -3682,7 +3738,7 @@ local function MarketBanner(_param)
 		position = UDim2.fromOffset(if stack then 56 else 64, 18),
 		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -16, 0, 24),
 	}), React.createElement(Text, {
-		value = "Daily keys restock at UTC midnight. Rarer offers keep live stock that drips back slowly.",
+		value = "Daily keys restock at UTC midnight. Rarer offers restock a little at a time.",
 		size = 11,
 		color = Palette.creamSoft,
 		wrap = true,
@@ -3743,7 +3799,7 @@ local function MarketCard(_param)
 	local accent = if soldOut then Palette.muted else offer.Color
 	local stockBadge = if daily then (if soldOut then (if offer.Price <= 0 then "CLAIMED" else "BOUGHT") elseif stockMax > 1 then `DAILY {stock}/{stockMax}` else "DAILY") else (if soldOut then "SOLD OUT" else `STOCK {stock}`)
 	local stockBadgeAccent = if soldOut then Palette.coral elseif daily then Palette.cyan else Palette.violet
-	local statusLine = if daily then (if soldOut then (if offer.Price <= 0 then "Claimed for today — free key returns at restock." else "Daily buy used — comes back at restock.") else `Refreshes daily · {stock} of {stockMax} left`) else (if soldOut then "Scarce offer empty — wait for drip restock." else `Limited stock · {stock} of {stockMax} remaining`)
+	local statusLine = if daily then (if soldOut then (if offer.Price <= 0 then "Claimed today. The free key returns at restock." else "Bought today. Available again at restock.") else `Refreshes daily · {stock} of {stockMax} left`) else (if soldOut then "Sold out. More comes in at restock." else `Limited stock · {stock} of {stockMax} remaining`)
 	local buttonText = if soldOut then (if daily then "WAIT FOR RESTOCK" else "SOLD OUT") else "BUY"
 	local cardH = if stack then MARKET_CARD_H_STACK else MARKET_CARD_H
 	local textReserve = if stack then -(56 + 16) else -240
@@ -4397,6 +4453,18 @@ local function InventoryView(_param)
 	local clearSelection = function()
 		return setBulkSelected({})
 	end
+	local bulkArmed, setBulkArmed = React.useState(false)
+	React.useEffect(function()
+		if not bulkArmed then
+			return nil
+		end
+		local lapse = task.delay(4, function()
+			setBulkArmed(false)
+		end)
+		return function()
+			pcall(task.cancel, lapse)
+		end
+	end, { bulkArmed, #selectedForBulk })
 	local runAutoNow = function()
 		if autoBusy or bulkBusy or not passOwned or not autoRules.Enabled then
 			return nil
@@ -4436,6 +4504,12 @@ local function InventoryView(_param)
 		if #selectedForBulk == 0 or bulkBusy then
 			return nil
 		end
+		-- first press arms (the button asks again), the second within 4 seconds salvages
+		if not bulkArmed then
+			setBulkArmed(true)
+			return nil
+		end
+		setBulkArmed(false)
 		setBulkBusy(true)
 		local _object = {}
 		local _left = "Uids"
@@ -4619,7 +4693,7 @@ local function InventoryView(_param)
 		position = UDim2.fromOffset(if stack then 50 else 56, 2),
 		sizeConstraint = UDim2.new(1, if stack then -58 else -20, 0, 16),
 	}), React.createElement(ShimmerText, {
-		value = "Relics, crates, and sockets.",
+		value = if tab == "Crates" then "Open crates for new relics" elseif tab == "Market" then "Crate keys and live stock" elseif tab == "Loadout" then "What your sockets add" else `{filled} of {limit} relics in your bag`,
 		size = if stack then 18 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -4629,6 +4703,8 @@ local function InventoryView(_param)
 		enabled = not softMotion,
 		periodSeconds = 4.8,
 	}), React.createElement("frame", {
+		-- the Relics toolbar already shows bag and essence; the hero only repeats them on other tabs
+		Visible = tab ~= "Relics",
 		Size = if stack then UDim2.new(1, 0, 0, 28) else UDim2.fromOffset(220, 30),
 		Position = if stack then UDim2.new(0, 0, 1, -28) else UDim2.new(1, -220, 0.5, -15),
 		BackgroundTransparency = 1,
@@ -4757,6 +4833,7 @@ local function InventoryView(_param)
 					selectVisible = selectVisible,
 					clearSelection = clearSelection,
 					salvageSelected = salvageSelected,
+		bulkArmed = bulkArmed,
 					bulkBusy = bulkBusy,
 					reducedMotion = reducedMotion,
 				}),
@@ -4849,7 +4926,7 @@ local function InventoryView(_param)
 			ListEmptyComponent = React.createElement(EmptyState, {
 				icon = "Crate",
 				title = "No crate channels",
-				body = "Crate channels unlock as you progress — check back after more story and lab work.",
+				body = "More crate channels open as you progress through the story and the Lab.",
 				accent = Palette.violet,
 				layoutOrder = 0,
 				reducedMotion = reducedMotion,
@@ -4905,7 +4982,7 @@ local function InventoryView(_param)
 			ListEmptyComponent = React.createElement(EmptyState, {
 				icon = "Shop",
 				title = "Market offline",
-				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now — check back after the next restock."),
+				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now. More arrive at the next restock."),
 				accent = Palette.mango,
 				layoutOrder = 0,
 				reducedMotion = reducedMotion,

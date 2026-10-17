@@ -5,7 +5,7 @@
 -- STUDIO-ONLY (not wired here — still required before publish):
 --   ReleaseReadiness.RunQuick()  — 50k economy soak (pure cost/integrity subset → verify_runquick_pure)
 --   ReleaseReadiness.RunSoak()   — long Studio-only economy soak (IsStudio gated)
---   Live profile load/save with copied v4.12 + current fixtures (never live player data)
+--   Live profile load/save with copied v5.0+ + current fixtures (never live player data)
 -- See README "Checks" for the Studio Device Simulator / Controller Emulator gate.
 -- HARD: DataVersion <= 21, PlatformBadges 0, no vendor/Packages.
 
@@ -311,7 +311,7 @@ mark("runquick pure production capacity tapPower parity")
 
 -- Pure RunQuick continuum effects / prestige target / offline envelope parity.
 assert(string.find(continuumMathSrc, "function ContinuumDomainMath.ContinuumEffects", 1, true), "ContinuumDomainMath.ContinuumEffects missing")
-assert(string.find(economyBody, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate for release")
+assert(string.find(economyBody, "return Economy.FoundryEffects(profile)", 1, true), "Economy ContinuumEffects must come from the Star Foundry")
 assert(string.find(rebirthGateSrc, "function RebirthGate.NextPrestigeTarget", 1, true), "RebirthGate.NextPrestigeTarget missing")
 assert(string.find(economyBody, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate for release")
 local envelopeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#EconomyEnvelopeMath")
@@ -440,7 +440,7 @@ assert(string.find(pageBoardSrc, "function PageBoardHeights.Machine", 1, true), 
 local workshopReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopReleaseSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView PageBoardHeights residual for release")
 local overviewReleaseReady = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewReleaseReady, "PageReadyMath.CipherOpen", 1, true), "OverviewView CipherOpen residual for release")
+assert(not string.find(overviewReleaseReady, "PageReadyMath.CipherOpen", 1, true), "OverviewView must not surface retired minigames")
 assert(string.find(telemetrySrc, "function TelemetryMath.Encode", 1, true), "TelemetryMath.Encode missing")
 assert(string.find(ssReleaseSrc, "TelemetryMath.Encode", 1, true), "ServerServices Telemetry residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Day", 1, true), "UtcClockMath.Day missing")
@@ -528,8 +528,8 @@ assert(string.find(labOrderRelease, "tonumber(state and state.Progress)", 1, tru
 assert(string.find(dataSrc, "nonNegative(tonumber(order.Progress)", 1, true), "DataService Progress coerce residual")
 local anomalyOpsRelease = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#AnomalyOpsMath")
 assert(string.find(anomalyOpsRelease, "function AnomalyOpsMath.Effect", 1, true), "AnomalyOpsMath.Effect missing")
-assert(string.find(economyBody, "AnomalyOpsMath.Effect", 1, true), "Economy AnomalyEffect residual")
-assert(string.find(economyBody, "AnomalyOpsMath.SurgeMultiplier", 1, true), "Economy Surge residual")
+assert(string.find(economyBody, "function Economy.AnomalyEffect(_profile", 1, true), "the retired Reactor adds no effect")
+assert(string.find(economyBody, "function Economy.AnomalySurgeMultiplier(_profile", 1, true), "the retired Reactor adds no surge")
 local continuumDomainRelease = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
 assert(string.find(continuumDomainRelease, "function ContinuumDomainMath.DomainProductionMultiplier", 1, true), "DomainProductionMultiplier missing")
 assert(string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ssReleaseSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true), "SS DomainProduction residual")
@@ -630,15 +630,9 @@ assert(guildSoft >= 8, "Guild softMotion density residual for release, got " .. 
 mark("wave24 crew flatlist focusclaim overview softmotion residuals")
 
 -- Wave25: Leaderboards FocusClaim + CrateRevealStage softMotion + DV21 content.
-local boardsRelease = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-assert(string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true), "LeaderboardConfirm host missing for release")
-do
-	local hostStart = string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true)
-	assert(hostStart, "LeaderboardConfirm host missing")
-	local hostSlice = string.sub(boardsRelease, hostStart, hostStart + 420)
-	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "LeaderboardConfirm clips residual for release")
-end
-assert(string.find(boardsRelease, 'Name = "LeaderboardConfirmFilters"', 1, true), "LeaderboardConfirmFilters residual for release")
+local boardsRelease = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
+assert(string.find(boardsRelease, 'Name="RankDashboard"', 1, true), "Ranks host missing for release")
+assert(string.find(boardsRelease, "ClipsDescendants=false", 1, true), "Ranks host clips residual for release")
 assert(string.find(boardsRelease, "GamepadNavigationService.FocusClaim", 1, true), "Leaderboards FocusClaim residual for release")
 local stageRelease = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage")
 assert(
@@ -986,11 +980,11 @@ end
 local crewWave38 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
 local missionsWave38 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 local milestonesWave38 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
-local boardsWave38 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
+local boardsWave38 = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
 assert(string.find(crewWave38, "local softMotion = ", 1, true), "Crew softMotion residual for release")
 assert(string.find(missionsWave38, "local softMotion = ", 1, true), "Missions softMotion residual for release")
 assert(string.find(milestonesWave38, "local softMotion = ", 1, true), "Milestones softMotion residual for release")
-assert(string.find(boardsWave38, "local softMotion = ", 1, true), "Leaderboards softMotion residual for release")
+assert(string.find(boardsWave38, "if animate and not props.reducedMotion then", 1, true), "Ranks reduced-motion gate for release")
 do
 	local soft = 0
 	for _ in string.gmatch(crewWave38, "softMotion") do
@@ -1011,13 +1005,6 @@ do
 		soft += 1
 	end
 	assert(soft >= 10, "Milestones softMotion densify residual for release, got " .. tostring(soft))
-end
-do
-	local soft = 0
-	for _ in string.gmatch(boardsWave38, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 12, "Leaderboards softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave38-offline-brief"', 1, true), "Story wave38 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave38-offline"', 1, true), "Mail wave38 residual for release")
@@ -1088,19 +1075,13 @@ assert(string.find(visitSnapWave40, "function VisitSnapshot.Build", 1, true), "V
 local serverWave40 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(serverWave40, '("VisitSnapshot")', 1, true), "ServerServices VisitSnapshot require residual for release")
 assert(string.find(serverWave40, "VisitSnapshot.Build", 1, true), "ServerServices VisitSnapshot.Build residual for release")
-local domainWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
+local domainWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainChamber")
 local purchaseWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#purchaseOverlay")
 local boostsWave40 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
-assert(string.find(domainWave40, "local softMotion = ", 1, true), "DomainExpansion softMotion residual for release")
+assert(string.find(domainWave40, "local reduced = props.reducedMotion == true", 1, true), "the Domain chamber honours reduced motion")
 assert(string.find(purchaseWave40, "local softMotion = ", 1, true), "Purchase softMotion residual for release")
 assert(string.find(boostsWave40, "local softMotion = ", 1, true), "Boosts softMotion residual for release")
-do
-	local soft = 0
-	for _ in string.gmatch(domainWave40, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 11, "DomainExpansion softMotion densify residual for release, got " .. tostring(soft))
-end
+assert(string.find(domainWave40, "if not props.reduced then", 1, true), "the lattice's travelling beats stop under reduced motion")
 do
 	local soft = 0
 	for _ in string.gmatch(boostsWave40, "softMotion") do
@@ -1133,13 +1114,8 @@ do
 	end
 	assert(soft >= 12, "Research softMotion densify residual for release, got " .. tostring(soft))
 end
-do
-	local soft = 0
-	for _ in string.gmatch(wheelWave41, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 11, "Wheel softMotion (single scroll) residual for release, got " .. tostring(soft))
-end
+assert(string.find(wheelWave41, "if reducedMotion then", 1, true), "wheel reduced-motion landing remains integrated")
+assert(string.find(wheelWave41, "reducedMotion = reducedMotion", 1, true), "active 2D renderer receives motion preference")
 assert(string.find(cfg, 'Id = "wave41-offline-brief"', 1, true), "Story wave41 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail wave41 residual for release")
 mark("wave41 publicplayer settingsseal research wheel boot densify content residuals")
@@ -1182,15 +1158,9 @@ do
 	end
 	assert(soft >= 11, "Chat softMotion densify residual for release, got " .. tostring(soft))
 end
-local starWave43 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-assert(string.find(starWave43, "local softMotion = ", 1, true), "StarGridNode softMotion residual for release")
-do
-	local soft = 0
-	for _ in string.gmatch(starWave43, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 12, "StarGrid softMotion densify residual for release, got " .. tostring(soft))
-end
+local builds = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
+assert(string.find(builds, "reducedMotion = props.reducedMotion", 1, true), "Build buttons preserve release reduced-motion behavior")
+assert(not string.find(builds, "BuyGridUpgrade", 1, true), "Retired Star Grid purchases must not reappear")
 assert(string.find(cfg, 'Id = "wave43-offline-brief"', 1, true), "Story wave43 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave43-offline"', 1, true), "Mail wave43 residual for release")
 mark("wave43 snapshotenvelope chat convergence stargrid densify content residuals")

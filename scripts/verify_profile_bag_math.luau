@@ -56,7 +56,7 @@ flags.UnlimitedMoney = true
 assert(flags.UnlimitedMoney == true, "flags")
 
 local domain = ProfileBagMath.EnsureDomain({})
-assert(domain.Rank == 0 and type(domain.Nodes) == "table", "domain defaults")
+assert(domain.Rank == 0 and type(domain.Links) == "table" and domain.Nodes == nil, "domain defaults: a lattice, not the old node list")
 local anomaly = ProfileBagMath.EnsureAnomaly({ Anomaly = { Fragments = 9 } })
 assert(anomaly.Fragments == 9 and type(anomaly.Protocols) == "table", "anomaly Protocols rebuild")
 assert(type(anomaly.Discoveries) == "table", "anomaly Discoveries rebuild")

@@ -842,8 +842,26 @@ def _build_voices():
     V.update(extra_voices())
     # the interface family (pointer, press, page and panel sounds) replaces both sets above
     V.update(interface_voices())
-    return V
+    # features that are gone from the game (the sanctuary hub, the Warden fight, the card table,
+    # the puzzle, the old boot sequence and the toast stack) no longer get a voice in the sheet
+    for name in list(V):
+        if name in RETIRED or name.startswith(RETIRED_PREFIX):
+            del V[name]
+    # 7.2: every voice comes from the one palette in sound_design.py; nothing may fall back
+    from sound_design import voices as designed
 
+    D = designed(list(V))
+    missing = sorted(n for n in V if n not in D)
+    if missing:
+        raise SystemExit('sound_design.py has no voice for: ' + ', '.join(missing))
+    # new voices that only exist in the design (Star Foundry) join the sheet too
+    names = list(V) + sorted(n for n in D if n not in V)
+    return {name: D[name] for name in names}
+
+
+RETIRED = ['bootAftershock', 'bootAnvilSplit', 'bootClang', 'bootDebris', 'bootFinaleFlip', 'bootFizz', 'bootFractureTail', 'bootGravity', 'bootIgnite', 'bootImpact', 'bootRumble', 'bootSlamAir', 'bootSlamCharge', 'bootSpark', 'bootStrike', 'bootTension', 'bootWhoosh', 'cardBlock', 'cardDraw', 'cardEndTurn', 'cardEndTurnHover', 'cardEnergy', 'cardEnergyHover', 'cardPlay', 'cardPower', 'cardPowerHover', 'curtainClose', 'curtainOpen', 'gameExit', 'gamePause', 'gamePauseHover', 'gameResume', 'gameResumeHover', 'noticeClose', 'oreCollect', 'oreMine', 'puzzleClear', 'puzzleTap', 'puzzleTapHover', 'reactorChannel', 'regionEnter', 'sanctuaryClick', 'sanctuaryHover', 'sanctuaryMenu', 'sanctuaryRecall', 'sanctuarySheetClose', 'velocitySlide', 'waystoneTravel']
+RETIRED = set(RETIRED)
+RETIRED_PREFIX = ('warden', 'oreMine', 'oreCollect', 'waystone', 'sanctuary')
 
 VOICES = _build_voices()
 

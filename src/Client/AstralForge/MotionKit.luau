@@ -239,6 +239,54 @@ __defs["vfxMath"] = function()
 return __load("motionTokens").fx
 end
 
+local function readSafeInsets(): { top: number, bottom: number, left: number, right: number }
+	local top, bottom, left, right = 0, 0, 0, 0
+	local vpX, vpY = 1920, 1080
+	pcall(function()
+		local ws = if typeof(workspace) ~= "nil" then workspace elseif typeof(game) ~= "nil" then game:GetService("Workspace") else nil
+		local cam = if ws then ws.CurrentCamera else nil
+		if cam and cam.ViewportSize then
+			vpX = cam.ViewportSize.X
+			vpY = cam.ViewportSize.Y
+		end
+	end)
+
+	-- 1. Query DeviceSafeInsets (hardware notches, cutouts, dynamic island, home bars)
+	pcall(function()
+		local GuiService = if typeof(game) ~= "nil" then game:GetService("GuiService") else nil
+		if GuiService then
+			local safeArea = GuiService:GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets)
+			if safeArea and typeof(safeArea) == "Rect" then
+				left = math.max(0, safeArea.Min.X)
+				top = math.max(0, safeArea.Min.Y)
+				right = math.max(0, vpX - safeArea.Max.X)
+				bottom = math.max(0, vpY - safeArea.Max.Y)
+			end
+		end
+	end)
+
+	-- 2. Query GetGuiInset (CoreGui topbar)
+	pcall(function()
+		local GuiService = if typeof(game) ~= "nil" then game:GetService("GuiService") else nil
+		if GuiService then
+			local topLeft, bottomRight = GuiService:GetGuiInset()
+			if typeof(topLeft) == "Vector2" and typeof(bottomRight) == "Vector2" then
+				top = math.max(top, topLeft.Y)
+				left = math.max(left, topLeft.X)
+				bottom = math.max(bottom, bottomRight.Y)
+				right = math.max(right, bottomRight.X)
+			end
+		end
+	end)
+
+	return {
+		top = math.round(top),
+		bottom = math.round(bottom),
+		left = math.round(left),
+		right = math.round(right),
+	}
+end
+
 __defs["autoScale"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local GuiService = game:GetService("GuiService")
@@ -267,9 +315,7 @@ local function useViewportScale()
 	end
 	return _condition
 end
-local function readSafeInsets()
-	return { top = 0, bottom = 0, left = 0, right = 0 }
-end
+-- readSafeInsets is defined at MotionKit module scope
 local function keyboardTop(screenHeight, screenOriginY)
 	if not UserInputService.TouchEnabled or not UserInputService.OnScreenKeyboardVisible then
 		return screenHeight
@@ -560,9 +606,14 @@ end
 return {
 	computeViewportScale = computeViewportScale,
 	useViewportScale = useViewportScale,
+	readSafeInsets = readSafeInsets,
 	AutoScale = AutoScale,
 	ViewportScaleContext = ViewportScaleContext,
 }
+end
+
+__defs["readSafeInsets"] = function()
+	return readSafeInsets
 end
 
 __defs["motion"] = function()
@@ -630,7 +681,7 @@ local function useCursorProximity(elementRef, maxRadius)
 		end
 		local active = true
 		local frame = 0
-		local stride = 3
+		local stride = 6
 		local conn = RunService.RenderStepped:Connect(function()
 			if not active or not elementRef.current then
 				return nil
@@ -1172,7 +1223,17 @@ function ensureDriver()
 				flipperScratch[index] = nil
 				if flipperMotors[motor] ~= nil then
 					local token = flipperToken[motor]
-					if motor:step(clamped) then
+					local SUBSTEP_MAX_DT = 1 / 60
+					local steps = math.clamp(math.ceil(clamped / SUBSTEP_MAX_DT), 1, 3)
+					local subDt = clamped / steps
+					local completed = false
+					for _ = 1, steps do
+						if motor:step(subDt) then
+							completed = true
+							break
+						end
+					end
+					if completed then
 						disarmFlipper(motor, token)
 					end
 				end
@@ -3579,11 +3640,11 @@ end
 
 __defs["pageTransition"] = function()
 
-local SLIDE_DESKTOP = 18
-local SLIDE_PHONE = 28
+local SLIDE_DESKTOP = 24
+local SLIDE_PHONE = 36
 local SOFT_SCALE = 0.45
-local VEIL_PEAK = 0.62
-local VEIL_POWER = 2.2
+local VEIL_PEAK = 0.68
+local VEIL_POWER = 2.4
 
 local function clamp01(value)
 	if type(value) ~= "number" or value ~= value then

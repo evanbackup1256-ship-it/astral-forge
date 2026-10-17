@@ -215,7 +215,7 @@ assert(string.find(economySrc, "ContinuumDomainMath.ContinuumCosts", 1, true), "
 assert(string.find(economySrc, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy must delegate DomainRequirements")
 assert(string.find(economySrc, "ContinuumDomainMath.DomainRewards", 1, true), "Economy must delegate DomainRewards")
 assert(string.find(economySrc, "RebirthGate.PrestigeReward", 1, true), "Economy PrestigeReward must stay pure-delegated")
-assert(string.find(economySrc, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects residual")
+assert(string.find(economySrc, "return Economy.FoundryEffects(profile)", 1, true), "Economy ContinuumEffects residual")
 assert(string.find(economySrc, "ForgePathClaim.Effect", 1, true), "Economy ForgePathClaim.Effect residual")
 assert(string.find(economySrc, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget residual")
 assert(string.find(economySrc, "EconomyEnvelopeMath.OfflineHours", 1, true), "Economy OfflineHours residual")

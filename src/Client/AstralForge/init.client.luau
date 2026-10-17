@@ -28,9 +28,7 @@ local destroyClientStore = _clientStore.destroyClientStore
 local useClientDispatch = _clientStore.useClientDispatch
 local useClientSelector = _clientStore.useClientSelector
 task.wait()
-local DomainExpansionOverlay = require(script.UiOverlays)("DomainExpansionOverlay").DomainExpansionOverlay
-task.wait()
-local DomainSkillTree = require(script.UiOverlays)("DomainSkillTree").DomainSkillTree
+local DomainChamber = require(script.UiOverlays)("DomainChamber").DomainChamber
 task.wait()
 local initializeClientFramework = require(script.frameworkBridge).initializeClientFramework
 local _log = require(script.CoreKit)("log")
@@ -191,46 +189,26 @@ local function DomainApp(props)
 				dispatchStore(ClientActions.setDomainOverlay(_object))
 			end)
 		end
-		return React.createElement(React.Fragment, nil, children, state.Domain ~= nil and overlay ~= nil and overlay.mode == "tree" and React.createElement(DomainSkillTree, {
+		return React.createElement(React.Fragment, nil, children, state.Domain ~= nil and overlay ~= nil and React.createElement(DomainChamber, {
+			mode = if overlay.mode == "tree" then "lattice" else overlay.mode,
 			domain = state.Domain,
-			dispatch = dispatch,
-			reducedMotion = false,
-			onClose = function()
-				return dispatchStore(ClientActions.setDomainOverlay(nil))
-			end,
-		}), state.Domain ~= nil and overlay ~= nil and overlay.mode ~= "tree" and React.createElement(DomainExpansionOverlay, {
-			key = overlay.mode,
-			mode = overlay.mode,
-			domain = state.Domain,
-			currentRebirths = state.Rebirths,
-			currentCores = state.Cores,
+			rebirths = state.Rebirths,
+			cores = state.Cores,
 			result = if overlay.mode == "result" then overlay.result else nil,
 			busy = busy,
+			dispatch = dispatch,
 			reducedMotion = false,
 			onConfirm = confirm,
+			onMode = function(mode)
+				dispatchStore(ClientActions.setDomainOverlay({
+					mode = if mode == "lattice" then "tree" else mode,
+				}))
+			end,
 			onClose = function()
 				if busy then
 					return nil
 				end
-				local _condition = overlay.mode == "result"
-				if _condition then
-					local _result = state.Domain
-					if _result ~= nil then
-						_result = _result.Rank
-					end
-					local _condition_1 = _result
-					if _condition_1 == nil then
-						_condition_1 = 0
-					end
-					_condition = _condition_1 > 0
-				end
-				if _condition then
-					dispatchStore(ClientActions.setDomainOverlay({
-						mode = "tree",
-					}))
-				else
-					dispatchStore(ClientActions.setDomainOverlay(nil))
-				end
+				dispatchStore(ClientActions.setDomainOverlay(nil))
 			end,
 		}))
 	end, { busy, dispatchStore, overlay })
@@ -299,7 +277,7 @@ local function StartupFailure(_param)
 		Position = UDim2.fromOffset(18, 149),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = "REJOIN TO RETRY  //  CHECK SERVER OUTPUT IN STUDIO",
+		Text = "REJOIN TO TRY AGAIN",
 		TextColor3 = Palette.muted,
 		TextSize = 12,
 		FontFace = Font.fromEnum(Enum.Font.RobotoMono),
@@ -496,6 +474,10 @@ do
 		if staleScreen ~= nil and staleScreen:IsA("ScreenGui") then
 			staleScreen:Destroy()
 		end
+		local staleFx = playerGui:FindFirstChild("AstralForgeFx")
+		if staleFx ~= nil and staleFx:IsA("ScreenGui") then
+			staleFx:Destroy()
+		end
 		local staleShutdown = playerGui:FindFirstChild("AstralForgeShutdown")
 		if staleShutdown ~= nil and staleShutdown:IsA("ScreenGui") then
 			staleShutdown:Destroy()
@@ -527,6 +509,25 @@ do
 		table.insert(_disposers, require(script.ButtonMotion).attach(playerGui))
 		-- equipped artifacts orbit every character so other players can see them in the world
 		table.insert(_disposers, require(script.ArtifactPresence).attach())
+		-- crewmates get a tag above their heads so you can find them in the world
+		table.insert(_disposers, require(script.CrewPresence).attach())
+		-- game-feel layer: same insets as the main screen so effect positions line up with the UI
+		local fxLayer = Instance.new("ScreenGui")
+		fxLayer.Name = "AstralForgeFx"
+		fxLayer.ResetOnSpawn = false
+		fxLayer.IgnoreGuiInset = false
+		fxLayer.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+		fxLayer.ClipToDeviceSafeArea = true
+		fxLayer.SafeAreaCompatibility = Enum.SafeAreaCompatibility.None
+		fxLayer.DisplayOrder = 200
+		fxLayer.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		fxLayer.Parent = playerGui
+		local fxRoot = ReactRoblox.createRoot(fxLayer)
+		fxRoot:render(React.createElement(require(script.JuiceFx).Host))
+		table.insert(self.disposers, function()
+			fxRoot:unmount()
+			fxLayer:Destroy()
+		end)
 		local shutdownLayer = Instance.new("ScreenGui")
 		shutdownLayer.Name = "AstralForgeShutdown"
 		shutdownLayer.ResetOnSpawn = false

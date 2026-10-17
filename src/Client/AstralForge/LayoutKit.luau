@@ -861,8 +861,8 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 	local layoutPanelGap = tonumber(flags.layoutPanelGap) or 14
 
 	local heroH = if landscapePhone
-		then 176
-		elseif phone then 272
+		then 208
+		elseif phone then 320 -- readout 168 + two stacked buttons 108 + gaps + 16px padding each side
 		elseif short and wideOverview then 260
 		elseif short then 248
 		elseif ultraOverview then 268
@@ -872,7 +872,7 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 		then (if phone then (if landscapePhone then 248 else 300) else (if ultraOverview then 220 else 208))
 		else 0
 	local domainH = if domainVisible
-		then (if phone then (if landscapePhone then 268 else 320) else (if ultraOverview then 236 else 224))
+		then (if phone then (if landscapePhone then 268 else 320) else (if ultraOverview then 196 else 188)) -- desktop content ends ~150px in
 		else 0
 	local notesH = if stack
 		then (if landscapePhone then 132 else 168)
@@ -981,15 +981,54 @@ local planFillHeight = __load("pageScaffoldPlan").planFillHeight
 local planFittedHeights = __load("pageScaffoldPlan").planFittedHeights
 local planOverflow = __load("pageScaffoldPlan").planOverflow
 local PageScrollContext = __load("scrolling").PageScrollContext
+-- sections rise into place one after another when a page opens (once; layout changes don't replay it)
+local function sectionEntrance(index)
+	local amount, setAmount = React.useBinding(0)
+	React.useEffect(function()
+		local start = os.clock() + math.min(index, 8) * 0.055
+		local connection
+		connection = game:GetService("RunService").RenderStepped:Connect(function()
+			local t = math.clamp((os.clock() - start) / 0.45, 0, 1)
+			setAmount(t)
+			if t >= 1 then
+				connection:Disconnect()
+			end
+		end)
+		return function()
+			if connection.Connected then
+				connection:Disconnect()
+			end
+		end
+	end, {})
+	return amount
+end
+local function easeOutBackSoft(x)
+	local c1, c3 = 1.2, 2.2
+	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
+end
 local function SpringSection(props)
+	local sectionRef = React.useCallback(function(host)
+		if props.frameRef then props.frameRef.current = host end
+		if host then host:SetAttribute("LayoutOwner", "PageScaffold:" .. tostring(props.id or "PageSection")) end
+	end, { props.frameRef, props.id })
+	local entrance = sectionEntrance(props.layoutOrder or 0)
 	return React.createElement("frame", {
-		ref = props.frameRef,
+		Name = props.id or "PageSection",
+		ref = sectionRef,
 		Size = UDim2.new(1, 0, 0, math.max(0, props.height)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = props.layoutOrder,
 		ClipsDescendants = false,
-	}, props.element)
+	}, React.createElement("frame", {
+		Name = "Rise",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = entrance:map(function(t)
+			return UDim2.fromOffset(0, math.round((1 - easeOutBackSoft(t)) * 22))
+		end),
+	}, props.element))
 end
 local function PageScaffold(_param)
 	local sections = _param.sections
@@ -1030,6 +1069,7 @@ local function PageScaffold(_param)
 		if host == nil then
 			return nil
 		end
+		host:SetAttribute("LayoutOwner", _param.owner or "PageScaffold")
 		local sync = function()
 			local height = math.max(0, math.floor(host.AbsoluteSize.Y + 0.5))
 			setAvailable(function(current)
@@ -1052,7 +1092,9 @@ local function PageScaffold(_param)
 			break
 		end
 	end
-	local overflowing = planOverflow(sections, available, gap, tailPad)
+	-- The inset padding sits inside the measured host, so plan against what is left after it.
+	local usable = if available > 0 then math.max(1, available - inset * 2) else 0
+	local overflowing = planOverflow(sections, usable, gap, tailPad)
 	local fillContent, setFillContent = React.useState(0)
 	local reportFill = React.useCallback(function(height)
 		local rounded = math.max(0, math.ceil(height))
@@ -1082,7 +1124,7 @@ local function PageScaffold(_param)
 			end
 		end
 	end
-	local fittedHeights = planFittedHeights(planSections, available, gap, tailPad)
+	local fittedHeights = planFittedHeights(planSections, usable, gap, tailPad)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1098,6 +1140,7 @@ local function PageScaffold(_param)
 	local _callback_2 = function(section, index)
 		local _attributes = {
 			key = section.id,
+			id = section.id,
 		}
 		local _result_3 = fittedHeights[index + 1]
 		if _result_3 == nil then
@@ -1215,7 +1258,9 @@ local function planFittedHeights(sections: { any }, availableHeight: number, gap
 	if nextHeight == nil then
 		nextHeight = 0
 	end
-	if extra > 0 and extra <= 96 and extra < nextHeight then
+	-- only a section that asks for it (stretch = true) is padded out to the fold; padding any other
+	-- section just leaves an empty band inside its panel
+	if extra > 0 and extra <= 96 and extra < nextHeight and sections[lastFit].stretch == true then
 		heights[lastFit] += extra
 	end
 	return heights
@@ -1482,6 +1527,41 @@ local function scrollingAncestor(instance)
 	end
 	return nil
 end
+local function fallbackScrollingFrame()
+	local localPlayer = Players.LocalPlayer
+	local playerGui = if localPlayer then localPlayer:FindFirstChildOfClass("PlayerGui") else nil
+	if playerGui == nil then
+		return nil
+	end
+	local bestFrame = nil
+	local bestArea = 0
+	for _, desc in playerGui:GetDescendants() do
+		if desc:IsA("ScrollingFrame") and desc.Visible and desc.ScrollingEnabled then
+			local visible = true
+			local cursor = desc.Parent
+			while cursor ~= nil do
+				if cursor:IsA("GuiObject") and not (cursor :: GuiObject).Visible then
+					visible = false
+					break
+				end
+				if cursor:IsA("LayerCollector") and not (cursor :: LayerCollector).Enabled then
+					visible = false
+					break
+				end
+				cursor = cursor.Parent
+			end
+			if visible then
+				local size = desc.AbsoluteSize
+				local area = size.X * size.Y
+				if area > bestArea then
+					bestArea = area
+					bestFrame = desc
+				end
+			end
+		end
+	end
+	return bestFrame
+end
 local function frameUnderPointer(pointer)
 	if pointer == nil then
 		pointer = UserInputService:GetMouseLocation()
@@ -1583,18 +1663,30 @@ function ensureMotionDriver()
 				return nil
 			end
 		end
-		local selectedFrame = scrollingAncestor(GuiService.SelectedObject)
-		if selectedFrame ~= nil and gamepadAxis.Magnitude > 0.16 then
-			local speed = 260 + scrollPreference * 220
-			local _gamepadAxis = gamepadAxis
-			local _arg0 = speed * math.min(deltaTime, 0.05)
-			local delta = _gamepadAxis * _arg0
-			if selectedFrame.ScrollingDirection == Enum.ScrollingDirection.X then
-				delta = Vector2.new(delta.X, 0)
-			elseif selectedFrame.ScrollingDirection == Enum.ScrollingDirection.Y then
-				delta = Vector2.new(0, delta.Y)
+		if gamepadAxis.Magnitude > 0.16 then
+			local selectedFrame = scrollingAncestor(GuiService.SelectedObject)
+			if selectedFrame == nil then
+				local ok, nav = pcall(function()
+					return require(script.Parent.CoreKit)("GamepadNavigationService")
+				end)
+				if ok and nav and typeof(nav.GetScrollTarget) == "function" then
+					selectedFrame = nav.GetScrollTarget()
+				else
+					selectedFrame = fallbackScrollingFrame()
+				end
 			end
-			addImpulse(selectedFrame, delta, false)
+			if selectedFrame ~= nil then
+				local speed = 260 + scrollPreference * 220
+				local _gamepadAxis = gamepadAxis
+				local _arg0 = speed * math.min(deltaTime, 0.05)
+				local delta = _gamepadAxis * _arg0
+				if selectedFrame.ScrollingDirection == Enum.ScrollingDirection.X then
+					delta = Vector2.new(delta.X, 0)
+				elseif selectedFrame.ScrollingDirection == Enum.ScrollingDirection.Y then
+					delta = Vector2.new(0, delta.Y)
+				end
+				addImpulse(selectedFrame, delta, false)
+			end
 		end
 		local response = 14 - momentumPreference * 5
 		local alpha = 1 - math.exp(-response * math.min(deltaTime, 0.05))

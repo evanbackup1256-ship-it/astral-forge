@@ -65,7 +65,7 @@ assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 do
 	local domain = ContinuumDomainMath.SnapshotDomainPublic({
-		domain = { Essence = 2, Nodes = { A = 1 }, SkillPoints = 3 },
+		domain = { Essence = 2, Links = { ["1-2"] = true }, SkillPoints = 3, LatticeClearedAtRank = 1 },
 		rank = 1,
 		requiredRebirths = 5,
 		requiredCores = 10,
@@ -89,7 +89,7 @@ do
 			return 0
 		end,
 	})
-	assert(domain.CanExpand == true and domain.Rank == 1 and domain.Nodes.A == 1, "domain public")
+	assert(domain.CanExpand == true and domain.Rank == 1 and domain.Links["1-2"] == true and domain.LatticeClearedAtRank == 1 and domain.Nodes == nil, "domain public carries the lattice")
 end
 do
 	local continuumBag = ContinuumDomainMath.SnapshotContinuumPublic({

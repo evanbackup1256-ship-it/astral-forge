@@ -26,7 +26,8 @@ local Players = game:GetService("Players")
 local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 local _Icon = require(script.Parent.ArtKit)("Icon")
-local GAME_ICON_ASSET = _Icon.GAME_ICON_ASSET
+local WORDMARK_ASSET = _Icon.WORDMARK_ASSET
+local COMPACT_MARK_ASSET = _Icon.COMPACT_MARK_ASSET
 local Icon = _Icon.Icon
 local _motion = require(script.Parent.MotionKit)("motion")
 local ExitPresenceContext = _motion.ExitPresenceContext
@@ -122,7 +123,8 @@ local function Stroke(_param)
 		Color = gradientColor,
 	}))
 end
-local MIN_UI_TEXT_SIZE = 10
+-- the readability floor every Text owns; callers asking for 8-10 px get this instead
+local MIN_UI_TEXT_SIZE = 11
 local BUTTON_LABEL_SIZE = 15
 local buttonLabelWidthCache = {}
 local buttonLabelWidthCacheCount = 0
@@ -148,7 +150,7 @@ local function buttonContentWidth(label, hasIcon)
 end
 local function pinButtonLabel(instance)
 	if instance ~= nil then
-		instance:SetAttribute("LayoutGuardIgnore", true)
+		instance.Name = "ButtonLabel"
 	end
 end
 local function pinLayoutGuardIgnore(instance)
@@ -344,16 +346,20 @@ local function Text(_param)
 		return withExitFade(transparency, presence)
 	end, { transparency, presence })
 	local scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42)
+	-- a larger text setting must never push a single line out of its own box
+	if not wrap and sizeConstraint ~= nil and sizeConstraint.Y.Scale == 0 and sizeConstraint.Y.Offset > 0 then
+		scaledSize = math.max(8, math.min(scaledSize, sizeConstraint.Y.Offset))
+	end
 	local font = if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold or boldText >= 0.5 then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
 	local painted = if surface ~= nil and typeof(color) == "Color3" then ensureContrast(surface, color) else color
 	local constraint = false
 	if fit then
 		local floorSize = minSize
 		if floorSize == nil then
-			floorSize = math.max(MIN_UI_TEXT_SIZE, size * 0.72)
+			floorSize = math.max(12, size * 0.85)
 		end
 		constraint = React.createElement("uitextsizeconstraint", {
-			MinTextSize = math.clamp(math.floor(floorSize * textScale), MIN_UI_TEXT_SIZE, scaledSize),
+			MinTextSize = math.clamp(math.floor(floorSize * textScale), math.min(12, scaledSize), scaledSize),
 			MaxTextSize = scaledSize,
 		})
 	end
@@ -372,7 +378,7 @@ local function Text(_param)
 		TextWrapped = wrap,
 		TextScaled = fit,
 		LineHeight = if wrap then 1.12 else 1,
-		TextTruncate = if wrap or fit then Enum.TextTruncate.None else Enum.TextTruncate.AtEnd,
+		TextTruncate = Enum.TextTruncate.None,
 		ZIndex = zIndex + 1,
 	}
 	local shadow = table.clone(face)
@@ -1095,18 +1101,22 @@ local function Badge(_param)
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(1, 1) }),
-	})), React.createElement(Text, {
-		value = value,
-		size = 13,
-		color = label,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		fit = compressLabel,
-		minSize = 12,
-		position = UDim2.fromOffset(7, 0),
-		sizeConstraint = UDim2.new(1, -12, 1, 0),
-		zIndex = zIndex + 1,
-	}))
+	})), React.createElement("textlabel", {
+		-- badges are small: the label always fits inside the box (the global text floor would push it out)
+		Size = UDim2.new(1, -10, 1, -4),
+		Position = UDim2.fromOffset(5, 2),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = value,
+		TextColor3 = label,
+		TextScaled = true,
+		TextWrapped = false,
+		FontFace = Font.fromEnum(if compressLabel then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansExtraBold),
+		ZIndex = zIndex + 1,
+	}, React.createElement("uitextsizeconstraint", {
+		MaxTextSize = 13,
+		MinTextSize = 7,
+	})))
 end
 local function CountBadge(_param)
 	local count = _param.count
@@ -1121,6 +1131,30 @@ local function CountBadge(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local scaleRef = useSprScale(1, effectsPaused, 0.68, 0.64, 13)
 	local whole = if type(count) == "number" and count == count then math.floor(count) else 0
+	-- a hop and three soft pings when the count goes up, then it sits still
+	local bumps, setBumps = React.useState(0)
+	local pinging, setPinging = React.useState(false)
+	local lastCount = React.useRef(whole)
+	React.useEffect(function()
+		if whole > lastCount.current then
+			setBumps(function(n) return n + 1 end)
+			setPinging(true)
+		end
+		lastCount.current = whole
+	end, { whole })
+	React.useEffect(function()
+		if not pinging then
+			return nil
+		end
+		local job = task.delay(3, function()
+			setPinging(false)
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { pinging, bumps })
+	local hop = useFlash(bumps, effectsPaused, 0.45)
+	local ping = useClock(pinging and whole > 0 and not effectsPaused, 0.45, 1)
 	if whole <= 0 then
 		return React.createElement("frame", {
 			Size = UDim2.fromOffset(0, 0),
@@ -1142,7 +1176,23 @@ local function CountBadge(_param)
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 		ClipsDescendants = false,
-	}, React.createElement(ScaleFromCenter, {
+	}, React.createElement("frame", {
+		Visible = pinging,
+		Size = ping:map(function(t)
+			local s = 1 + t * 1.2
+			return UDim2.fromScale(s, s)
+		end),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = zIndex,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = Palette.coral,
+		Thickness = 1.5,
+		Transparency = ping:map(function(t) return 0.35 + t * 0.65 end),
+	})), React.createElement(ScaleFromCenter, {
 		scaleRef = scaleRef,
 		zIndex = zIndex,
 	}, React.createElement("frame", {
@@ -1151,7 +1201,9 @@ local function CountBadge(_param)
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 		ClipsDescendants = false,
-	}, React.createElement("uicorner", {
+	}, React.createElement("uiscale", {
+		Scale = hop:map(function(v) return 1 + v * 0.35 end),
+	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement(Stroke, {
 		color = Palette.cream,
@@ -1298,7 +1350,8 @@ local function Panel(_param)
 		end)
 		return {
 			strokeColor = highlightOn:map(function(amount)
-				return if amount >= 0.45 then accentColor else Palette.lineSoft
+				local base = if accent ~= nil then accent:Lerp(Palette.lineSoft, 0.55) else Palette.lineSoft
+				return if amount >= 0.45 then accentColor else base
 			end),
 			shadowPosition = React.joinBindings({ surfaceY, panelSize }):map(function(values)
 				return pixelPosition(values[2], 0, -4, 0, 7 + values[1])
@@ -1363,7 +1416,11 @@ local function Panel(_param)
 				setHovered(false)
 			end,
 		} else {},
-	}, paintChrome and React.createElement("frame", {
+	}, React.createElement("uiscale", {
+		Scale = activeReveal:map(function(amount)
+			return 0.98 + 0.02 * math.clamp(amount, 0, 1)
+		end),
+	}), paintChrome and React.createElement("frame", {
 		Size = UDim2.new(1, 8, 1, -1),
 		Position = derived.shadowPosition,
 		BackgroundColor3 = Palette.shadow,
@@ -1385,16 +1442,7 @@ local function Panel(_param)
 	}), React.createElement("uigradient", {
 		Color = surfaceGradient(background, 0.92),
 		Rotation = 90,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -(radius + 6), 0, 1),
-		Position = UDim2.fromOffset(math.floor(radius * 0.5) + 3, 1),
-		BackgroundColor3 = Palette.cream,
-		BackgroundTransparency = 0.78,
-		BorderSizePixel = 0,
-		ZIndex = zIndex + 1,
-	}, React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) }),
-	})), stroke and React.createElement("frame", {
+	}), stroke and React.createElement("frame", {
 		Size = UDim2.new(1, -2, 1, -2),
 		Position = UDim2.fromOffset(1, 1),
 		BackgroundTransparency = 1,
@@ -1443,17 +1491,6 @@ local function Panel(_param)
 		ZIndex = zIndex + 1,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
-	})), accent ~= nil and React.createElement("frame", {
-		Size = UDim2.fromOffset(math.max(44, radius * 5), 2),
-		Position = UDim2.fromOffset(radius + 2, 0),
-		BackgroundColor3 = accent,
-		BackgroundTransparency = derived.hairlineTransparency,
-		BorderSizePixel = 0,
-		ZIndex = zIndex + 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.66, 0.18), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, -padding * 2, 1, -padding * 2),
 		Position = UDim2.fromOffset(padding, padding),
@@ -1559,13 +1596,11 @@ local function resolvePressMotion(spec)
 			kind = "text"
 		end
 	end
-	local hoverGain = 0.04
+	local hoverGain = 0
 	local pressDrop = 0.07
 	local tilt = 0
 	if kind == "icon" then
 		tilt = -1
-	elseif kind == "row" then
-		hoverGain = 0.02
 	end
 	-- semantic role from the label: destructive actions stay calm, confirm/claim actions feel springier
 	local role = spec.role
@@ -1579,7 +1614,6 @@ local function resolvePressMotion(spec)
 		tilt = 0
 		pressStiffness, pressDamping, hoverStiffness, hoverDamping = 1700, 60, 980, 52
 	elseif role == "primaryButton" or role == "reward" or role == "reveal" or role == "ceremony" then
-		hoverGain += 0.01
 		pressDrop = 0.08
 		pressStiffness, pressDamping, hoverStiffness, hoverDamping = 1400, 46, 820, 38
 	end
@@ -1655,7 +1689,7 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		return -value * 1.1
 	end)
 	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, true, springSoft, 760, 32)
-	local impact = useFlash(popTrigger, softMotion, if touchChrome then 0.2 else 0.26)
+	local impact = useFlash(popTrigger, softMotion, if touchChrome then 0.24 else 0.32)
 	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not effectsPaused and (idleShimmer or hovered or gamepadFocused)
 	local shimmer = useClock(shimmerWanted, ShimmerMath.sweepSpeed(shimmerScale), 1, false)
 	local shimmerLinger, setShimmerLinger = React.useState(false)
@@ -1685,11 +1719,10 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local tiltDegrees = pressMotion.tilt
 	local touchScale = React.joinBindings({ pose, impact }):map(function(values)
 		local value = values[1]
-		local kick = math.clamp(values[2], 0, 1) * 0.035
 		if value >= 0 then
-			return 1 + math.clamp(value, 0, 1) * hoverGain + kick
+			return 1 + math.clamp(value, 0, 1) * hoverGain
 		end
-		return 1 - math.clamp(-value, 0, 1) * pressDrop + kick
+		return 1 - math.clamp(-value, 0, 1) * pressDrop
 	end)
 	local tilt = pose:map(function(value)
 		return math.clamp(value, 0, 1) * tiltDegrees
@@ -2120,7 +2153,7 @@ function Button(_param)
 	local buttonRef = React.useRef()
 	local hostSize = useGuiSize(buttonRef)
 	local visualPosition = React.joinBindings({ arrival, shakeOffsetX, hostSize }):map(function(values)
-		return pixelPosition(values[3], 0.5, values[2], 0.5, (1 - math.clamp(values[1], 0, 1)) * 8)
+		return pixelPosition(values[3], 0.5, values[2], 0.5, (1 - math.clamp(values[1], 0, 1)) * 12)
 	end)
 	local surfacePosition = React.joinBindings({ offsetY, hostSize }):map(function(values)
 		return pixelPosition(values[2], 0, 0, 0, values[1])
@@ -2304,6 +2337,26 @@ function Button(_param)
 		end),
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
+	})), active and React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = zIndex + 5,
+		Visible = impact:map(function(amount)
+			return amount > 0.03
+		end),
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, Layout.buttonRadius),
+	}), React.createElement("uistroke", {
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Color = color,
+		Thickness = impact:map(function(amount)
+			return 1 + amount * 2
+		end),
+		Transparency = impact:map(function(amount)
+			return math.clamp(1 - amount * 0.78, 0.18, 1)
+		end),
 	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.coral,
@@ -2376,7 +2429,7 @@ function Button(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		TextWrapped = false,
+		TextWrapped = true,
 		TextScaled = false,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = zIndex + 3,
@@ -2395,7 +2448,7 @@ function Button(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		TextWrapped = false,
+		TextWrapped = true,
 		TextScaled = false,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = zIndex + 3,
@@ -2547,8 +2600,14 @@ local function Meter(_param)
 		end
 		return UDim2.new(t, 0, 1, 0)
 	end)
-	local wantShimmer = shimmer and shimmerScale > 0.02 and not empty and not effectsPaused
-	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then 1 else 0, true, lowMotion, 400, 34)
+	-- every bar with something in it is alive: a soft glint always sweeps it, and `shimmer` makes
+	-- it bright (ready states); `rainbow` makes the colours flow along the fill
+	local rainbow = _param.rainbow == true
+	local wantShimmer = shimmerScale > 0.02 and not empty and not effectsPaused
+	local glintStrength = if shimmer then 1 else 0.45
+	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then glintStrength else 0, true, lowMotion, 400, 34)
+	local flow = useClock(rainbow and not empty, 0.18, 1, false)
+	local tipPulse = usePulse(not empty and not effectsPaused, 2.6)
 	local readyPulse = usePulse(wantShimmer, 2)
 	local shimmerPhase = useClock(wantShimmer, ShimmerMath.sweepSpeed(shimmerScale), 1, false)
 	local _exp = React.createElement("uisizeconstraint", {
@@ -2583,18 +2642,23 @@ local function Meter(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(color, 0.32), color),
+		Color = if rainbow then flow:map(function(t)
+			return require(script.Parent.Rainbow).at(t)
+		end) else ColorSequence.new(lighten(color, 0.32), color),
 	}), React.createElement("frame", {
-		Size = if rushing ~= nil then rushing:map(function(amount)
-			local d = 3 + amount * 5
+		Size = if rushing ~= nil then React.joinBindings({ rushing, tipPulse }):map(function(values)
+			local d = 5 + values[1] * 5 + values[2] * 2
 			return UDim2.fromOffset(d, d)
-		end) else UDim2.fromOffset(3, 3),
+		end) else tipPulse:map(function(pulse)
+			local d = 5 + pulse * 2
+			return UDim2.fromOffset(d, d)
+		end),
 		Position = UDim2.new(1, -4, 0.5, 0),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.white,
 		BackgroundTransparency = if rushing ~= nil then rushing:map(function(amount)
-			return 0.22 - amount * 0.2
-		end) else 0.22,
+			return 0.12 - amount * 0.1
+		end) else 0.12,
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	}, React.createElement("uicorner", {
@@ -3183,7 +3247,8 @@ local function SegmentedTabHit(_param)
 		color = textColor,
 		weight = if selected then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
 		align = if option.icon ~= nil then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
-		fit = false,
+		fit = true, -- long labels shrink in narrow tabs instead of spilling out
+		minSize = 10,
 		position = if option.icon ~= nil then UDim2.fromOffset(38, 0) else UDim2.fromOffset(8, 0),
 		sizeConstraint = UDim2.new(1, if option.icon ~= nil then -46 else -16, 1, 0),
 		zIndex = zIndex + 2,
@@ -3258,10 +3323,10 @@ local function SegmentedTabs(_param)
 	end
 	local activeColumn = activeIndex % columnCount
 	local activeRow = math.floor(activeIndex / columnCount)
-	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 1100, 48)
-	local columnTrail = useFlipperSpring(activeColumn, reducedMotion, 480, 46)
-	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
-	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
+	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 860, 42)
+	local columnTrail = useFlipperSpring(activeColumn, reducedMotion, 390, 38)
+	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 720, 32)
+	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.3)
 	local tabsEffectsPaused = React.useContext(UiEffectsPausedContext)
 	local tabSweep = useClock(reducedMotion ~= true and not tabsEffectsPaused, SHIMMER_SWEEP_SPEED, 1, false)
 	local _result = options[activeIndex + 1]
@@ -3834,7 +3899,8 @@ local function Dropdown(_param)
 		size = optionText,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Bold,
-		fit = false,
+		fit = true,
+		minSize = 11,
 		position = UDim2.fromOffset(if selected ~= nil and selected.icon ~= nil then 36 else 14, 0),
 		sizeConstraint = UDim2.new(1, if selected ~= nil and selected.icon ~= nil then -78 else -52, 1, 0),
 		zIndex = zIndex + 1,
@@ -4174,7 +4240,7 @@ local function Dropdown(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Active = true,
+		Active = open,
 		Selectable = false,
 		ZIndex = zIndex + 5,
 		Event = {
@@ -4270,6 +4336,7 @@ local function SearchField(_param)
 	local hasQuery = draft ~= ""
 	local clearReveal = useFlipperSpring(if hasQuery then 1 else 0, reducedMotion, 760, 40, if hasQuery then 1 else 0)
 	local clearSize = if chrome.stack or (not searchViewport.desktop and UserInputService.TouchEnabled) then math.max(40, math.min(TapTarget, if size.Y.Offset > 0 then size.Y.Offset else TapTarget)) else 32
+	local fieldInset = if chrome.stack or (not searchViewport.desktop and UserInputService.TouchEnabled) then 0 else 4
 	local fieldText = if chrome.stack then 16 else 16
 	return React.createElement("frame", {
 		Size = size,
@@ -4323,9 +4390,9 @@ local function SearchField(_param)
 	})), React.createElement("textbox", {
 		ref = boxRef,
 		Size = clearReveal:map(function(amount)
-			return UDim2.new(1, -(52 + (clearSize + 6) * math.clamp(amount, 0, 1)), 1, -8)
+			return UDim2.new(1, -(52 + (clearSize + 6) * math.clamp(amount, 0, 1)), 1, -(fieldInset * 2))
 		end),
-		Position = UDim2.fromOffset(42, 4),
+		Position = UDim2.fromOffset(42, fieldInset),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = draft,
@@ -4427,47 +4494,13 @@ local function SearchField(_param)
 	})))
 end
 local function LogoLockup(_param)
-	local compact = _param.compact
-	if compact == nil then
-		compact = false
-	end
-	local micro = _param.micro
-	if micro == nil then
-		micro = false
-	end
-	local accent = _param.accent
-	if accent == nil then
-		accent = Palette.cyan
-	end
-	local position = _param.position
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
+	local micro = _param.micro == true
 	local mark = if micro then 40 else 48
-	local textX = mark + 12
-	local strokes = {}
-	for index, segment in {
-		{ 0.27, 0.75, 0.5, 0.23 },
-		{ 0.5, 0.23, 0.73, 0.75 },
-		{ 0.36, 0.55, 0.64, 0.55 },
-		{ 0.79, 0.18, 0.79, 0.36 },
-		{ 0.7, 0.27, 0.88, 0.27 },
-	} do
-		local delta = Vector2.new(segment[3] - segment[1], segment[4] - segment[2])
-		strokes[index] = React.createElement("frame", {
-			Size = UDim2.fromOffset(delta.Magnitude * mark, if index <= 3 then 2.5 else 1.5),
-			Position = UDim2.fromScale((segment[1] + segment[3]) / 2, (segment[2] + segment[4]) / 2),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = math.deg(math.atan2(delta.Y, delta.X)),
-			BackgroundColor3 = if index <= 3 then Palette.cream else accent,
-			BorderSizePixel = 0,
-			ZIndex = 2,
-		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))
-	end
+	local textX = mark + 10
 	return React.createElement("frame", {
+		Name = "AstralForgeBrand",
 		Size = UDim2.fromScale(1, 1),
-		Position = position,
+		Position = _param.position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -4475,38 +4508,27 @@ local function LogoLockup(_param)
 		Size = UDim2.fromOffset(mark, mark),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = Color3.fromRGB(14, 10, 17),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = accent,
-		Thickness = 1.25,
-		Transparency = 0.18,
-	}), React.createElement("frame", {
+	}, React.createElement("imagelabel", {
 		Name = "ForgeMonogram",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Image = COMPACT_MARK_ASSET,
+		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 2,
-	}, strokes)), not micro and React.createElement(Text, {
-		value = "ASTRAL",
-		size = if compact then 18 else 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.new(0, textX, 0.5, -18),
-		sizeConstraint = UDim2.new(1, -textX, 0, 22),
-	}), not micro and React.createElement(Text, {
-		value = "F O R G E",
-		size = 10,
-		color = accent,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.new(0, textX, 0.5, 7),
-		sizeConstraint = UDim2.new(1, -textX, 0, 12),
+	})), not micro and React.createElement("imagelabel", {
+		Name = "ForgeWordmark",
+		Image = WORDMARK_ASSET,
+		ScaleType = Enum.ScaleType.Fit,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, textX, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Size = UDim2.new(1, -textX, 0, 44),
+		ZIndex = 2,
 	}))
 end
 return {
@@ -4573,7 +4595,6 @@ local _antilag = require(script.Parent.MotionKit)("antilag")
 local AntilagProvider = _antilag.AntilagProvider
 local _motion = require(script.Parent.MotionKit)("motion")
 local MotionSettingsContext = _motion.MotionSettingsContext
-local ToastRail = __load("notifications").ToastRail
 local _ui = __load("ui")
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
@@ -4616,7 +4637,6 @@ local friendlyActionResponse = ActionCopy.friendlyActionResponse
 local _AppShellChrome = __load("AppShellChrome")
 local Shell = _AppShellChrome.Shell
 local pausePassivePaints = _AppShellChrome.pausePassivePaints
-local EMPTY_NOTICES = table.freeze({})
 local NOOP = function() end
 local function MainGame(_param)
 	local remotes = _param.remotes
@@ -4702,22 +4722,6 @@ local function MainGame(_param)
 	local setVisit = React.useCallback(function(visitNext)
 		return dispatchStore(ClientActions.setVisit(visitNext))
 	end, { dispatchStore })
-	local notices, setNotices = React.useState({})
-	local hoveredNotices = React.useRef({})
-	local noticeTimers = React.useRef({})
-	local noticesLive = React.useRef({})
-	noticesLive.current = notices
-	local setNoticeHovered = React.useCallback(function(id, hovered)
-		if hovered then
-			local _current = hoveredNotices.current
-			local _id = id
-			_current[_id] = true
-		else
-			local _current = hoveredNotices.current
-			local _id = id
-			_current[_id] = nil
-		end
-	end, {})
 	local toastsSuppressed, setToastsSuppressed = React.useState(false)
 	local purchasePresentationActive = React.useRef(false)
 	local setPurchasePresentationActive = React.useCallback(function(active)
@@ -4771,6 +4775,15 @@ local function MainGame(_param)
 			return _result_2
 		end)
 	end, {})
+	-- the loading screen's stations follow the checklist
+	React.useEffect(function()
+		local Ledger = require(script.Parent.BootKit)("BootLedger")
+		for key, value in bootMarks do
+			if value then
+				Ledger.mark(key)
+			end
+		end
+	end, { bootMarks })
 	local bootReady = Boot.bootChecklistReady(bootMarks)
 	local bootFill = Boot.bootProgress(bootMarks)
 	local bootReducedMotion = false
@@ -4796,7 +4809,6 @@ local function MainGame(_param)
 	local popId = React.useRef(0)
 	local comboReadout, setComboReadout = React.useState()
 	local lastComboTier = React.useRef(0)
-	local noticeId = React.useRef(0)
 	local lastNotice = React.useRef({
 		signature = "",
 		at = 0,
@@ -4817,11 +4829,41 @@ local function MainGame(_param)
 	local pendingPassive = React.useRef(nil)
 	local passiveFlushJob = React.useRef(nil)
 	local acceptStateRef = React.useRef(nil)
+	-- the last copy of every section the server sent; pushes leave out unchanged sections (listed in
+	-- Reused) and they are filled back in from here, keeping the same tables so nothing re-renders for them
+	local sectionCache = React.useRef({})
 	local acceptState = React.useCallback(function(rawSnapshot)
 		local _rawSnapshot = rawSnapshot
 		if not (type(_rawSnapshot) == "table") then
 			ClientLog:warnEvery("state-envelope", 10, "UI", "ignored a bad state packet")
 			return false
+		end
+		local cache = sectionCache.current
+		local reused = rawSnapshot.Reused
+		if reused ~= nil then
+			if type(reused) ~= "table" then
+				return false
+			end
+			for _, key in reused do
+				local kept = cache[key]
+				if kept == nil and type(state) == "table" then
+					kept = state[key]
+				end
+				if kept == nil then
+					-- nothing to fill this from yet; a full snapshot will follow
+					if latestSnapshot.current >= 0 then
+						ClientLog:warnEvery("state-reused", 10, "UI", "waiting for a full snapshot")
+					end
+					return false
+				end
+				rawSnapshot[key] = kept
+			end
+			rawSnapshot.Reused = nil
+		end
+		for key, value in rawSnapshot do
+			if type(value) == "table" then
+				cache[key] = value
+			end
 		end
 		local candidate = rawSnapshot
 		if not SnapshotEnvelopeMath.IsValidEnvelope(candidate) then
@@ -4890,40 +4932,6 @@ local function MainGame(_param)
 		return true
 	end, { dispatchStore })
 	acceptStateRef.current = acceptState
-	local dismissNotice = React.useCallback(function(id)
-		setNotices(function(current)
-			local _newValue = {}
-			local _callback = function(notice)
-				return notice.id ~= id
-			end
-			local _length = 0
-			for _k, _v in current do
-				if _callback(_v, _k - 1, current) == true then
-					_length += 1
-					_newValue[_length] = _v
-				end
-			end
-			return _newValue
-		end)
-	end, {})
-	local _result_3 = state
-	if _result_3 ~= nil then
-		_result_3 = _result_3.Settings.ToastDensity
-	end
-	local _condition = _result_3
-	if _condition == nil then
-		_condition = 0.55
-	end
-	local toastDensityRef = React.useRef(_condition)
-	local _result_4 = state
-	if _result_4 ~= nil then
-		_result_4 = _result_4.Settings.ToastDensity
-	end
-	local _condition_1 = _result_4
-	if _condition_1 == nil then
-		_condition_1 = 0.55
-	end
-	toastDensityRef.current = _condition_1
 	local _result_5 = state
 	if _result_5 ~= nil then
 		_result_5 = _result_5.Settings.NotificationDuration
@@ -4964,136 +4972,23 @@ local function MainGame(_param)
 			signature = signature,
 			at = now,
 		}
+		NoticeMath.Record(normalizedTitle, body, tone)
+		if playSound then
+			Audio:play(if tone == "Special" then "noticeSpecial" elseif tone == "Success" then "noticeSuccess" elseif tone == "Warning" or tone == "Error" then "noticeWarning" else "noticeInfo")
+		end
+		-- every notice plays in the island (queued until it mounts); there is no other toast surface
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
-		local maxNotices = NoticeMath.MaxNotices(toastDensityRef.current)
-		local _exp_1 = noticesLive.current
-		local _callback = function(notice)
-			return notice.leaving ~= true and notice.title == normalizedTitle and notice.body == body
-		end
-		local _result_7
-		for _i, _v in _exp_1 do
-			if _callback(_v, _i - 1, _exp_1) == true then
-				_result_7 = _v
-				break
-			end
-		end
-		local matching = _result_7
-		local dismissId = if matching ~= nil then matching.id else noticeId.current + 1
-		if matching == nil then
-			noticeId.current = dismissId
-		end
-		local priorTimer = noticeTimers.current[dismissId]
-		if priorTimer ~= nil then
-			pcall(function()
-				return task.cancel(priorTimer)
-			end)
-			deferredJobs.current[priorTimer] = nil
-			noticeTimers.current[dismissId] = nil
-		end
-		setNotices(function(current)
-			local _array = {}
-			local _length = #_array
-			table.move(current, 1, #current, _length + 1, _array)
-			local updated = _array
-			local _callback_1 = function(notice)
-				return notice.id == dismissId and notice.leaving ~= true
-			end
-			local _result_8 = -1
-			for _i, _v in updated do
-				if _callback_1(_v, _i - 1, updated) == true then
-					_result_8 = _i - 1
-					break
-				end
-			end
-			local index = _result_8
-			if index >= 0 then
-				local existing = updated[index + 1]
-				local _object = table.clone(existing)
-				setmetatable(_object, nil)
-				_object.body = body
-				_object.tone = tone
-				_object.lifetime = lifetime
-				_object.sound = false
-				local _left = "count"
-				local _condition_5 = existing.count
-				if _condition_5 == nil then
-					_condition_5 = 1
-				end
-				_object[_left] = _condition_5 + 1
-				updated[index + 1] = _object
-			else
-				local _arg0 = {
-					id = dismissId,
-					title = normalizedTitle,
-					body = body,
-					tone = tone,
-					lifetime = lifetime,
-					sound = playSound,
-					count = 1,
-				}
-				table.insert(updated, _arg0)
-			end
-			while #updated > maxNotices do
-				local _callback_2 = function(notice)
-					return notice.leaving ~= true and notice.id ~= dismissId
-				end
-				local _result_9
-				for _i, _v in updated do
-					if _callback_2(_v, _i - 1, updated) == true then
-						_result_9 = _v
-						break
-					end
-				end
-				local _condition_5 = _result_9
-				if _condition_5 == nil then
-					_condition_5 = updated[1]
-				end
-				local oldest = _condition_5
-				if oldest == nil then
-					break
-				end
-				local _current = noticeTimers.current
-				local _id = oldest.id
-				local oldTimer = _current[_id]
-				if oldTimer ~= nil then
-					pcall(function()
-						return task.cancel(oldTimer)
-					end)
-					deferredJobs.current[oldTimer] = nil
-					local _current_1 = noticeTimers.current
-					local _id_1 = oldest.id
-					_current_1[_id_1] = nil
-				end
-				local _arg0 = (table.find(updated, oldest) or 0) - 1
-				table.remove(updated, _arg0 + 1)
-			end
-			return updated
-		end)
-		local tryDismiss
-		tryDismiss = function()
-			local job = noticeTimers.current[dismissId]
-			if job ~= nil then
-				deferredJobs.current[job] = nil
-			end
-			noticeTimers.current[dismissId] = nil
-			if not appAlive.current then
-				return nil
-			end
-			if hoveredNotices.current[dismissId] ~= nil then
-				local wait = task.delay(0.45, tryDismiss)
-				noticeTimers.current[dismissId] = wait
-				deferredJobs.current[wait] = true
-				return nil
-			end
-			dismissNotice(dismissId)
-		end
-		local job = task.delay(lifetime, tryDismiss)
-		noticeTimers.current[dismissId] = job
-		deferredJobs.current[job] = true
-	end, { dismissNotice })
+		local Juice = require(script.Parent.JuiceFx)
+		local color = if tone == "Special" then Palette.violet elseif tone == "Success" then Palette.mint elseif tone == "Warning" then Palette.mango elseif tone == "Error" then Palette.coral else Palette.cyan
+		local icon = if tone == "Special" then "Gift" elseif tone == "Success" then "Check" elseif tone == "Warning" then "Timer" elseif tone == "Error" then "Close" else "Wave"
+		local bodyText = if type(body) == "string" then body else tostring(body or "")
+		Juice.banner(normalizedTitle, if bodyText ~= "" then bodyText else nil, color, icon, lifetime, tone)
+		return nil
+	end, {})
 	local celebrate = React.useCallback(function()
-		celebrationSeed.current += math.random(1, 3)
-		setConfettiNonce(celebrationSeed.current)
+		-- the reward itself flies as droplets and sparks (JuiceFx) and is announced by the island;
+		-- this only warms the screen for a moment
+		require(script.Parent.JuiceFx).flash(Palette.cream, 0.14)
 	end, {})
 	local clearConfetti = React.useCallback(function(expectedSeed)
 		setConfettiNonce(function(current)
@@ -5149,6 +5044,8 @@ local function MainGame(_param)
 		if combo <= 0 then
 			return nil
 		end
+		require(script.Parent.SessionStats).best("bestCombo", combo)
+		require(script.Parent.JuiceFx).activity("combo", { combo = combo, multiplier = comboMultiplier, max = comboMax, window = comboWindow })
 		setComboReadout({
 			combo = combo,
 			comboMultiplier = comboMultiplier,
@@ -5158,6 +5055,7 @@ local function MainGame(_param)
 		})
 	end, {})
 	local _exp_1 = function(response, action, callback)
+		local juiceBefore = lastAcceptedSnapshot.current
 		local _action = action
 		if GRANT_ACTIONS[_action] ~= nil then
 			adopt(response)
@@ -5225,8 +5123,47 @@ local function MainGame(_param)
 			if _condition_7 == nil then
 				_condition_7 = detail
 			end
-			addNotice(_exp_3, failureBody(_exp_4, _condition_7), "Info", false)
+			addNotice(_exp_3, failureBody(_exp_4, _condition_7), "Warning", false)
 			return nil
+		end
+		do
+			-- game feel: what you gained flies into its counter, what you spent pops in red
+			local Juice = require(script.Parent.JuiceFx)
+			local after = response.State
+			local bigMoment = action == "Rebirth" or action == "DomainExpansion" or action == "Ascend" or action == "UnlockZone"
+			local rewarding = string.sub(action, 1, 5) == "Claim" or action == "RedeemCode" or action == "StabilizeAnomaly" or action == "SalvageItem" or action == "BulkSalvageItems" or action == "SpinWheel" or bigMoment
+			local spending = string.sub(action, 1, 3) == "Buy" or string.sub(action, 1, 7) == "Upgrade" or action == "DomainLattice"
+			if after ~= nil and (rewarding or spending) then
+				local shown = Juice.celebrateGains(juiceBefore, after, {
+					spend = spending,
+					big = bigMoment,
+					skipVault = true,
+				})
+				local Stats = require(script.Parent.SessionStats)
+				if rewarding then
+					Stats.bump("claims")
+				elseif spending then
+					Stats.bump("upgrades")
+				end
+				if rewarding and shown > 0 then
+					Juice.burst(nil, Palette.mango, if bigMoment then 1.6 else 1)
+				elseif spending then
+					Juice.ring(nil, Palette.cyan)
+				end
+			end
+			if bigMoment then
+				Juice.flash(Palette.cream, 0.45)
+				if action == "Rebirth" then
+					Juice.moment(`REBIRTH {response.Rebirths or ""}!`, "Production multiplier up.", Palette.violet, "Rebirth")
+				elseif action == "DomainExpansion" then
+					Juice.moment(`DOMAIN {response.DomainRank or ""}!`, "New tree points to spend.", Palette.pink, "Domain")
+				elseif action == "UnlockZone" then
+					Juice.moment("NEW WORLD!", response.message, Palette.cyan, "World")
+				end
+			end
+			if action == "OpenItemCrate" and type(response.Rolls) == "table" and #response.Rolls > 0 then
+				Juice.burst(nil, Palette.violet, 1.2)
+			end
 		end
 		local machinePurchase = action == "BuyMachine"
 		local progressionPurchase = action == "BuyResearch" or action == "BuyGridUpgrade" or action == "BuyAnomalyProtocol" or action == "UpgradeContinuum" or action == "UpgradeArtifact" or action == "BuyArtifact" or action == "UpgradeCrew" or action == "BuyGuildUpgrade" or action == "UpgradeItem"
@@ -5426,12 +5363,16 @@ local function MainGame(_param)
 		elseif action == "StudioGrantProduct" then
 			Audio:play("purchase")
 		elseif action == "AdminExecute" then
-			Audio:play("confirm")
 			local _condition_4 = response.message
 			if _condition_4 == nil then
 				_condition_4 = "Done."
 			end
-			addNotice("Change applied", _condition_4, "Success")
+			if response.DryRun == true then
+				addNotice("Preview ready", _condition_4, "Info")
+			else
+				Audio:play("confirm")
+				addNotice("Change applied", _condition_4, "Success")
+			end
 		elseif action == "InviteTrade" then
 			Audio:play("invite")
 			local _condition_4 = response.message
@@ -5606,7 +5547,7 @@ local function MainGame(_param)
 		elseif action == "ClaimAnomalyDirective" or action == "ClaimAnomalyMilestone" then
 			Audio:play("collect")
 			InteractionFeedback.reward()
-		elseif response.message ~= nil and action ~= "Overcharge" and action ~= "ActivateBoost" and action ~= "RouteLabPower" and action ~= "SetTutorialStep" and action ~= "ReplayTutorial" and action ~= "DismissRelease" and action ~= "OpenRelease" and action ~= "ReadStoryChapter" and action ~= "ReadMail" and action ~= "SetSetting" and action ~= "SetMobileLayout" and action ~= "VisitPlot" and action ~= "LeavePlot" and action ~= "SyncShop" and action ~= "GetPlayers" and action ~= "GetLeaderboard" and action ~= "GetGuildLeaderboard" and action ~= "GetGuild" and action ~= "GetGuildChatHistory" and action ~= "GetGuildAnnouncements" and action ~= "GetGuildSettings" and action ~= "GetGuildLogoReview" and action ~= "SendGuildChat" and action ~= "CreateGuildAnnouncement" and action ~= "EditGuildAnnouncement" and action ~= "PinGuildAnnouncement" and action ~= "ArchiveGuildAnnouncement" and action ~= "SetGuildAnnouncementExpiry" and action ~= "SetGuildSettings" and action ~= "MuteGuildMember" and action ~= "UnmuteGuildMember" and action ~= "BanGuildMember" and action ~= "UnbanGuildMember" and action ~= "UploadGuildLogo" and action ~= "ModerateGuildLogo" and action ~= "GetTrade" and action ~= "UpdateTradeOffer" and action ~= "SetTradeReady" and action ~= "VerifyCreatorFollow" and action ~= "RedeemCode" then
+		elseif response.message ~= nil and action ~= "Overcharge" and action ~= "ActivateBoost" and action ~= "RouteLabPower" and action ~= "SetTutorialStep" and action ~= "ReplayTutorial" and action ~= "DismissRelease" and action ~= "OpenRelease" and action ~= "ReadStoryChapter" and action ~= "ReadMail" and action ~= "SetSetting" and action ~= "SetMobileLayout" and action ~= "ChatOpenWhisper" and action ~= "ChatGlobal" and action ~= "VisitPlot" and action ~= "LeavePlot" and action ~= "SyncShop" and action ~= "GetPlayers" and action ~= "GetLeaderboard" and action ~= "GetGuildLeaderboard" and action ~= "GetGuild" and action ~= "GetGuildChatHistory" and action ~= "GetGuildAnnouncements" and action ~= "GetGuildSettings" and action ~= "GetGuildLogoReview" and action ~= "SendGuildChat" and action ~= "CreateGuildAnnouncement" and action ~= "EditGuildAnnouncement" and action ~= "PinGuildAnnouncement" and action ~= "ArchiveGuildAnnouncement" and action ~= "SetGuildAnnouncementExpiry" and action ~= "SetGuildSettings" and action ~= "MuteGuildMember" and action ~= "UnmuteGuildMember" and action ~= "BanGuildMember" and action ~= "UnbanGuildMember" and action ~= "UploadGuildLogo" and action ~= "ModerateGuildLogo" and action ~= "GetTrade" and action ~= "UpdateTradeOffer" and action ~= "SetTradeReady" and action ~= "VerifyCreatorFollow" and action ~= "RedeemCode" then
 			addNotice("Done", response.message, "Info")
 		end
 	end
@@ -5620,12 +5561,13 @@ local function MainGame(_param)
 		local value = if type(_payload) == "table" then payload else {}
 		local signature = AppHelpers:actionSignature(action, value)
 		local pipelined = NetworkPolicy.IsPipelined(action)
-		local reject = function(message)
+		local reject = function(message, uncertain)
 			local _result_8 = callback
 			if _result_8 ~= nil then
 				_result_8({
 					ok = false,
 					error = message,
+					Uncertain = uncertain == true,
 				})
 			end
 		end
@@ -5717,6 +5659,30 @@ local function MainGame(_param)
 				end
 				sentAtCount.current = remaining
 			end
+		if action == "CollectVault" or action == "Overcharge" then
+			-- instant game feel on the press itself, from the state the player is looking at
+			local store = require(script.Parent.CoreKit)("clientStore").getActiveClientStore()
+			local session = store and store:getState().session
+			local Juice = require(script.Parent.JuiceFx)
+			local Stats = require(script.Parent.SessionStats)
+			if action == "CollectVault" and session ~= nil and _format.asFlux(session.Vault) > 0 then
+				Stats.bump("collects")
+				Stats.addFlux(session.Vault)
+			elseif action == "Overcharge" then
+				Stats.bump("overcharges")
+			end
+			if session ~= nil and action == "CollectVault" and _format.asFlux(session.Vault) > 0 then
+				Juice.number(`+{compactNumber(session.Vault)} flux`, Palette.cyan, { icon = "Flux", big = true })
+				Juice.coins("FLUX", Palette.cyan, "Flux", 10)
+				Juice.burst(nil, Palette.cyan, 1)
+			elseif session ~= nil and action == "Overcharge" and session.TapPower ~= nil then
+				Juice.number(`+{compactNumber(session.TapPower)}`, Palette.mango, { icon = "Flux" })
+				Juice.coins("VAULT", Palette.mango, "Flux", 3)
+			end
+		elseif string.sub(action, 1, 5) == "Claim" then
+			-- a claim answers on the press; the amounts fly in when the server confirms
+			require(script.Parent.JuiceFx).burst(nil, Palette.mango, 0.7)
+		end
 		if NetworkPolicy.IsOptimistic(action) then
 			dispatchStore(ClientActions.applyOptimistic(action, value, config.Game.Version))
 		end
@@ -5780,7 +5746,7 @@ local function MainGame(_param)
 			end
 			ClientLog:warnEvery(`timeout:{action}`, 8, "UI", `{action} timed out after {timeoutSeconds}s`)
 			addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Info", false)
-			reject("That took too long. Try again.")
+			reject("That took too long. Try again.", true)
 		end)
 		local _current_1 = requestTimeouts.current
 		local _requestTimeout = requestTimeout
@@ -5828,7 +5794,7 @@ local function MainGame(_param)
 			if _condition_7 then
 				ClientLog:warnEvery(`request:{action}`, 5, "UI", `{action} got no answer`)
 				addNotice("Connection hiccup", "That tap didn't go through. Try again.", "Info", false)
-				reject("That tap didn't go through. Try again.")
+				reject("That tap didn't go through. Try again.", true)
 				return nil
 			end
 			applyResponse(raw, action, callback)
@@ -5852,7 +5818,7 @@ local function MainGame(_param)
 		if state.Daily.CanClaim == true and state.Daily.Streak >= 1 then
 			streakToastSent.current = true
 			local day = state.Daily.Streak
-			addNotice("Daily streak", if day > 1 then `Day {day} is ready — claim it in Rewards.` else "Today’s daily is ready in Rewards.", "Special")
+			addNotice("Daily streak", if day > 1 then `Day {day} is ready to claim in Rewards.` else "Today’s daily is ready in Rewards.", "Special")
 		end
 	end
 	local _result_8 = state
@@ -5954,9 +5920,14 @@ local function MainGame(_param)
 			local _amount = value.Amount
 			local amount = if type(_amount) == "number" then value.Amount else 0
 			if kind == "Collect" and amount > 0 then
-				addPop(`+{compactNumber(amount)}`, Palette.green, false)
+				-- the press already showed the gain where you tapped (JuiceFx)
 			elseif kind == "Overcharge" and amount > 0 then
-				addPop(`+{compactNumber(amount)}`, if value.Critical == true then Palette.mango else Palette.cyan, value.Critical == true)
+				if value.Critical == true then
+					local Juice = require(script.Parent.JuiceFx)
+					Juice.number("CRIT!", Palette.mango, { big = true })
+					require(script.Parent.SessionStats).bump("crits")
+					Juice.burst(nil, Palette.mango, 0.8)
+				end
 				local _combo = value.Combo
 				local combo = if type(_combo) == "number" then value.Combo else nil
 				local _comboMultiplier = value.ComboMultiplier
@@ -5977,10 +5948,18 @@ local function MainGame(_param)
 					end
 					lastComboTier.current = if combo >= comboMax then 4 else tier
 				end
+			elseif kind == "Ascension" then
+				Audio:play("discovery")
+				celebrate()
+				if value.UserId == game:GetService("Players").LocalPlayer.UserId then
+					require(script.Parent.JuiceFx).moment(`ASCENSION {value.Rank or ""}!`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth")
+				end
 			elseif kind == "FeatureUnlocked" and not purchasePresentationActive.current then
 				Audio:play("unlock")
 				InteractionFeedback.reward()
 				celebrate()
+				local featureName = value.Name or value.Feature or value.Id
+				require(script.Parent.JuiceFx).moment(if featureName then `{string.upper(tostring(featureName))} UNLOCKED!` else "NEW FEATURE!", "Find it in the menu.", Palette.mint, "Check")
 			elseif kind == "LevelUp" and not purchasePresentationActive.current then
 				__load("levelMoments").pushLevelMoment(value)
 				InteractionFeedback.reward()
@@ -6011,6 +5990,20 @@ local function MainGame(_param)
 					setVisit(value.Visit)
 				elseif kind == "VisitEnded" then
 					setVisit(nil)
+				elseif kind == "CrewState" then
+					local CrewStore = require(script.Parent.CrewStore)
+					local wasInCrew = CrewStore.get().crew ~= nil
+					CrewStore.set({ crew = if type(value.Crew) == "table" then value.Crew else CrewStore.NONE })
+					if value.Crew == nil and wasInCrew and type(value.Reason) == "string" then
+						addNotice("Crew", value.Reason, "Info")
+					end
+				elseif kind == "CrewInvite" then
+					local CrewStore = require(script.Parent.CrewStore)
+					CrewStore.set({ invite = { FromUserId = value.FromUserId, FromName = value.FromName, CrewName = value.CrewName, ExpiresAt = value.ExpiresAt } })
+					Audio:play("invite")
+					addNotice("Crew invite", `{tostring(value.FromName or "Someone")} invited you to {tostring(value.CrewName or "a crew")}. Open Crew to answer.`, "Special")
+				elseif kind == "CrewNotice" then
+					addNotice("Crew", tostring(value.Text or ""), "Info")
 				elseif kind == "CrewNudge" then
 					Audio:play("crewNudge")
 					InteractionFeedback.tap()
@@ -6160,7 +6153,7 @@ local function MainGame(_param)
 				attempt += 1
 				if alive and attempt >= 20 and os.clock() - lastConnectNotice > 30 then
 					lastConnectNotice = os.clock()
-					addNotice("Still connecting", "Your save is taking longer than usual to load — if Astral Forge is open on another device or Studio session, close it.", "Info", false)
+					addNotice("Still connecting", "Your save is taking longer than usual to load. If Astral Forge is open on another device, close it there.", "Info", false)
 				end
 				task.wait(math.min(0.2 + attempt * 0.08, 1.5))
 			end
@@ -6606,21 +6599,6 @@ local function MainGame(_param)
 		_result_38 = _result_38.Settings.ShimmerIntensity
 	end
 	local motionSettings = React.useMemo(_exp_6, { motionIntensity, softFeel, _result_31, _result_32, _result_33, _result_34, _result_35, _result_36, _result_37, _result_38, textScale, viewportSpeed })
-	local touchUi = isTouchUiHere
-	local _condition_7 = not touchUi
-	if not _condition_7 then
-		local _result_39 = state
-		if _result_39 ~= nil then
-			_result_39 = _result_39.Settings.MobileToastVisible
-		end
-		local _condition_8 = _result_39
-		if _condition_8 == nil then
-			_condition_8 = 1
-		end
-		_condition_7 = _condition_8 >= 0.5
-	end
-	local mobileToastsVisible = _condition_7
-	local mobileLayoutCache = React.useRef(nil)
 	local clearAdminPrank = React.useCallback(function()
 		setAdminPrank(nil)
 	end, {})
@@ -6656,68 +6634,7 @@ local function MainGame(_param)
 		_attributes.setToastsSuppressed = setToastsSuppressed
 		_attributes.setPurchasePresentationActive = setPurchasePresentationActive
 		local _exp_7 = React.createElement(Shell, _attributes)
-		local _attributes_1 = {
-			notices = if mobileToastsVisible and not toastsSuppressed then notices else EMPTY_NOTICES,
-			remove = dismissNotice,
-			setHovered = setNoticeHovered,
-			reducedMotion = false,
-			density = toastDensityRef.current,
-		}
-		local _result_41
-		if touchUi then
-			local _object = {}
-			local _left = "x"
-			local _condition_10 = state.Settings.MobileToastX
-			if _condition_10 == nil then
-				_condition_10 = 0.84
-			end
-			_object[_left] = _condition_10
-			local _left_1 = "y"
-			local _condition_11 = state.Settings.MobileToastY
-			if _condition_11 == nil then
-				_condition_11 = 0.27
-			end
-			_object[_left_1] = _condition_11
-			local _left_2 = "scale"
-			local _condition_12 = state.Settings.MobileToastScale
-			if _condition_12 == nil then
-				_condition_12 = state.Settings.MobileHudScale
-				if _condition_12 == nil then
-					_condition_12 = 0.5
-				end
-			end
-			_object[_left_2] = _condition_12
-			local _left_3 = "opacity"
-			local _condition_13 = state.Settings.ReducedTransparency
-			if _condition_13 == nil then
-				_condition_13 = 0
-			end
-			local _result_42
-			if _condition_13 >= 0.5 then
-				_result_42 = 1
-			else
-				local _condition_14 = state.Settings.MobileToastOpacity
-				if _condition_14 == nil then
-					_condition_14 = state.Settings.MobileHudOpacity
-					if _condition_14 == nil then
-						_condition_14 = 0.85
-					end
-				end
-				_result_42 = _condition_14
-			end
-			_object[_left_3] = _result_42
-			local cachedLayout = mobileLayoutCache.current
-			if cachedLayout ~= nil and cachedLayout.x == _object.x and cachedLayout.y == _object.y and cachedLayout.scale == _object.scale and cachedLayout.opacity == _object.opacity then
-				_result_41 = cachedLayout
-			else
-				mobileLayoutCache.current = _object
-				_result_41 = _object
-			end
-		else
-			_result_41 = nil
-		end
-		_attributes_1.mobileLayout = _result_41
-		_condition_8 = React.createElement(React.Fragment, nil, _exp_7, React.createElement(ToastRail, _attributes_1))
+		_condition_8 = _exp_7
 	end
 	local shellContent = _condition_8
 	local domainContent = if state ~= nil and shellMounted then React.createElement(AutoScale, nil, if domainUi ~= nil then domainUi.render(state, dispatch, shellContent) else shellContent) else shellContent
@@ -6788,7 +6705,6 @@ local FlexItem = _flexbox.FlexItem
 local _effects = __load("effects")
 local EffectLayer = _effects.EffectLayer
 local StarField = _effects.StarField
-local CelebrationBurst = __load("CelebrationBurst").CelebrationBurst
 local ComboBadge = __load("ComboBadge").ComboBadge
 local _antilag = require(script.Parent.MotionKit)("antilag")
 local AntilagContext = _antilag.AntilagContext
@@ -6945,7 +6861,7 @@ local function AppShell(_param)
 	local arcadeBusy, setArcadeBusy = React.useState(false)
 	local hidden, setHidden = React.useState(false)
 	local buyAmount, setBuyAmount = React.useState(1)
-	local chat = useGameChat(page == "Chat", true)
+	local chat = useGameChat(page == "Chat", true, dispatch, state.Settings)
 	local offlineReceiptKey = if state.Offline ~= nil and state.Offline.Seconds >= 30 then `{math.floor(state.Offline.Seconds)}:{compactNumber(state.Offline.Reward)}` else ""
 	local dismissedOfflineKey, setDismissedOfflineKey = React.useState("")
 	local offlineDismissed = offlineReceiptKey ~= "" and dismissedOfflineKey == offlineReceiptKey
@@ -7093,7 +7009,7 @@ local function AppShell(_param)
 		return amount > 0.01
 	end)
 	local drawerPanelVisible = railWidth:map(function(width)
-		return not drawerNav or width > 36
+		return width > 6
 	end)
 	local dockVisible = railWidth:map(function(width)
 		return not drawerNav or width <= 4
@@ -7212,13 +7128,11 @@ local function AppShell(_param)
 			if _condition_6 == nil then
 				_condition_6 = "Not unlocked yet."
 			end
-			local levelNeeded = if lock ~= nil and type(lock.Level) == "number" then lock.Level else nil
-			if levelNeeded ~= nil then
-				local currentLevel, _tier, nextStep = readLevelState(state)
-				_exp_1 = `{_condition_5} opens at Level {levelNeeded}`
-				_condition_6 = if nextStep ~= nil
-					then `You're Level {currentLevel}. Next goal: {nextStep.Text} ({compactNumber(nextStep.Progress)}/{compactNumber(nextStep.Target)}). Tap the level bar to see every level.`
-					else `You're Level {currentLevel}.`
+			if lock ~= nil and type(lock.Requirement) == "string" and lock.Requirement ~= "" then
+				_exp_1 = `{_condition_5} is locked`
+				local done = if type(lock.Progress) == "number" and type(lock.Target) == "number"
+					then ` ({compactNumber(lock.Progress)}/{compactNumber(lock.Target)})` else ""
+				_condition_6 = `{lock.Requirement} to open it{done}.`
 			end
 			if pageId == "Research" then
 				_condition_6 ..= " Research bonuses stay after rebirth."
@@ -7520,6 +7434,38 @@ local function AppShell(_param)
 			return ContextActionService:UnbindAction(actionName)
 		end
 	end, { arcadeBusy, buyAmount, crateReveal, dispatch, domainOverlayActive, feedbackOpen, hidden, page, playerlistOpen, railOpen, showRelease, tutorialOpen, tutorialStep })
+	-- Keyboard: "/" opens chat ready to type, Tab shows or hides the player list. Roblox's own chat
+	-- bar and player list are turned off, so both keys are free.
+	local requestChatFocus = chat.requestFocus
+	React.useEffect(function()
+		local actionName = "AstralForgeKeyboard"
+		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState, input)
+			if inputState ~= Enum.UserInputState.Begin or UserInputService:GetFocusedTextBox() ~= nil then
+				return Enum.ContextActionResult.Pass
+			end
+			if crateReveal ~= nil or tutorialOpen or showRelease or domainOverlayActive then
+				return Enum.ContextActionResult.Pass
+			end
+			if input.KeyCode == Enum.KeyCode.Slash then
+				setPlayerlistOpen(false)
+				navigateRef.current("Chat")
+				if requestChatFocus ~= nil then
+					requestChatFocus()
+				end
+				return Enum.ContextActionResult.Sink
+			end
+			if input.KeyCode == Enum.KeyCode.Tab then
+				setPlayerlistOpen(function(current)
+					return not current
+				end)
+				return Enum.ContextActionResult.Sink
+			end
+			return Enum.ContextActionResult.Pass
+		end, false, 2100, Enum.KeyCode.Slash, Enum.KeyCode.Tab)
+		return function()
+			ContextActionService:UnbindAction(actionName)
+		end
+	end, { crateReveal, domainOverlayActive, requestChatFocus, showRelease, tutorialOpen })
 	local gamepadActive, setGamepadActive = React.useState(false)
 	React.useEffect(function()
 		local isPad = function(inputType)
@@ -7694,7 +7640,7 @@ local function AppShell(_param)
 			CornerRadius = UDim.new(1, 0),
 		}))
 	end
-	local _exp_4 = not keyboardShellCompact and mobileShell and React.createElement(MobileHeader, {
+	local _exp_4 = not keyboardShellCompact and mobileShell and React.createElement(React.Fragment, nil, React.createElement(MobileHeader, {
 		state = state,
 		page = page,
 		accent = accent,
@@ -7707,7 +7653,15 @@ local function AppShell(_param)
 			setFeedbackOpen(false)
 			setPlayerlistOpen(true)
 		end,
-	})
+	}), React.createElement(require(script.Parent.BuffStrip).Island, {
+		state = state,
+		config = config,
+		reducedMotion = softMotion,
+		restHidden = true,
+		maxWidth = viewport.width - edgePad * 2,
+		position = UDim2.new(0.5, 0, 0, topPad + topbarHeight + 6),
+		anchorPoint = Vector2.new(0.5, 0),
+	}))
 	local _condition_17 = not keyboardShellCompact and not mobileShell
 	if _condition_17 then
 		local _attributes = {
@@ -7734,6 +7688,8 @@ local function AppShell(_param)
 		end
 		_attributes.releaseAt = _condition_18
 		_attributes.visit = visit
+		_attributes.config = config
+		_attributes.navigate = setPage
 		_attributes.openPlayerlist = function()
 			setFeedbackOpen(false)
 			setPlayerlistOpen(true)
@@ -7758,6 +7714,7 @@ local function AppShell(_param)
 		page = page,
 		state = state,
 		dispatch = dispatch,
+		config = config,
 		reducedMotion = reducedMotion,
 	}, React.createElement(PageFrame, {
 		page = page,
@@ -7795,7 +7752,7 @@ local function AppShell(_param)
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Selectable = false,
-		Active = drawerScrimVisible,
+		Active = railOpen,
 		Visible = drawerScrimVisible,
 		ZIndex = 28,
 		Event = {
@@ -7911,22 +7868,7 @@ local function AppShell(_param)
 	local _exp_11 = renderEffectsScale > 0.05 and React.createElement(EffectLayer, {
 		pops = visiblePops,
 	})
-	local _condition_22 = confettiNonce > 0
-	if _condition_22 then
-		local _attributes = {
-			key = confettiNonce,
-			seed = confettiNonce,
-			intensity = math.max(0.08, renderEffectsScale),
-			reducedMotion = softMotion,
-		}
-		local _condition_23 = state.Settings.ConfettiEnabled
-		if _condition_23 == nil then
-			_condition_23 = 1
-		end
-		_attributes.particlesEnabled = _condition_23 >= 0.5
-		_attributes.onDone = clearConfetti
-		_condition_22 = React.createElement(CelebrationBurst, _attributes)
-	end
+	local _condition_22 = nil
 	local _exp_12 = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = hideAmount:map(function(amount)
@@ -7984,6 +7926,7 @@ local function AppShell(_param)
 		reducedMotion = reducedMotion,
 		live = {
 			page = page,
+			cash = compactNumber(state.Cash),
 			vault = compactNumber(state.Vault),
 			vaultFlux = asFlux(state.Vault),
 			production = compactNumber(state.Production),
@@ -7998,14 +7941,6 @@ local function AppShell(_param)
 		end elseif tutorial.cta == "research" then function()
 			return navigate("Research")
 		end else nil,
-		onJump = function(n)
-			local targetStep = math.clamp(math.floor(n), 1, #TUTORIAL_STEPS)
-			tutorialHold.current = targetStep
-			setTutorialStep(targetStep)
-			dispatch("SetTutorialStep", {
-				Step = targetStep,
-			})
-		end,
 		onBack = function()
 			local targetStep = math.max(1, tutorialStep - 1)
 			Audio:play("stepBack")
@@ -8106,6 +8041,12 @@ local function AppShell(_param)
 		onClose = function()
 			return setPlayerlistOpen(false)
 		end,
+		-- MESSAGE on a player card lands in Chat on a private thread with them
+		onMessage = function(userId)
+			setPlayerlistOpen(false)
+			navigate("Chat")
+			chat.openWhisper(userId)
+		end,
 		notify = function(title, body)
 			return addNotice(title, body, "Info")
 		end,
@@ -8144,6 +8085,7 @@ local function AppShell(_param)
 		state = state,
 	}), React.createElement(ServerEventHost, {
 		state = state,
+		dispatch = dispatch,
 		inTopBar = not keyboardShellCompact and not mobileShell,
 	}), _condition_24), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
 		session = crateReveal,
@@ -8213,11 +8155,11 @@ local CHIP_TIPS = {
 	},
 	DUST = {
 		title = "Stardust",
-		body = "Premium dust from rebirths and rewards. Spend it on Star Grid routes.",
+		body = "Earn Stardust from rebirths and rewards. Spend it on artifacts and supplies in the Shop.",
 	},
 	CORES = {
 		title = "Astral cores",
-		body = "Permanent rebirth currency. Multiplies future runs and unlocks prestige tech.",
+		body = "Earned from rebirths. Spend them on Domain expansions and Shop keys.",
 	},
 }
 
@@ -8276,12 +8218,15 @@ local function StatChip(_param)
 		previous.current = value
 	end, { value, reactiveFlash })
 	local flash = useFlash(gains, reducedMotion)
-	local chipH = if tall then TapTarget else 54
-	local iconSize = if tall then 32 else 28
-	local valueSize = if tall then 16 else 16
+	-- flying coins land here; the chip bounces each time they do
+	local juiceRef, juiceBump = require(script.Parent.JuiceFx).useTarget(label)
+	local chipH = if tall then TapTarget else 44
+	local iconSize = if tall then 28 else 24
+	local valueSize = if tall then 15 else 14
 	local _ = CHIP_TIPS[label]
-	local valueMaxW = if tall then 84 else 96
-	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 22 else 20)
+	-- room for long scale names ("37.3 Googolchime"); FPS/ping only ever show a few digits
+	local valueMaxW = if _param.narrow then 40 elseif tall then 108 else 116
+	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 20 else 18)
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	})
@@ -8366,7 +8311,7 @@ local function StatChip(_param)
 		_attributes.Text = _condition
 		_attributes.TextColor3 = ensureContrast(Palette.panel, Palette.cream)
 		_attributes.TextSize = valueSize
-		_attributes.FontFace = Font.fromEnum(Enum.Font.RobotoMono)
+		_attributes.FontFace = Font.fromEnum(Enum.Font.BuilderSansBold)
 		_attributes.TextXAlignment = Enum.TextXAlignment.Left
 		_attributes.TextYAlignment = Enum.TextYAlignment.Center
 		_attributes.LayoutOrder = 2
@@ -8395,7 +8340,11 @@ local function StatChip(_param)
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-	}, _exp, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, React.createElement("frame", {
+	}, React.createElement("uiscale", {
+		Scale = juiceBump:map(function(b)
+			return 1 + math.sin(b * math.pi) * 0.14
+		end),
+	}), _exp, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, React.createElement("frame", {
 		Size = UDim2.fromOffset(valueMaxW, 34),
 		AutomaticSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
@@ -8412,6 +8361,7 @@ local function StatChip(_param)
 		ZIndex = 22,
 		ClipsDescendants = false,
 		Name = label,
+		ref = juiceRef,
 	}, React.createElement("uipadding", {
 		PaddingLeft = UDim.new(0, 2),
 		PaddingRight = UDim.new(0, 2),
@@ -8512,6 +8462,7 @@ local function PerformanceStats(_param)
 		animateValue = false,
 		placeholder = `{fps}`,
 		tall = tall,
+		narrow = true,
 		layoutOrder = 1,
 	})
 	local _condition = showPing
@@ -8531,6 +8482,7 @@ local function PerformanceStats(_param)
 		_attributes.animateValue = false
 		_attributes.placeholder = if ping == nil then "—" else `{ping}`
 		_attributes.tall = tall
+		_attributes.narrow = true
 		_attributes.layoutOrder = 2
 		_condition = React.createElement(StatChip, _attributes)
 	end
@@ -9017,7 +8969,7 @@ local function TopBar(_param)
 	local shortRow = barHeight <= 54 and width < 980
 	local micro = barHeight <= 54 and width < 620
 	local stacked = barHeight > Layout.topbarHeight
-	local chipWidthEstimate = if stacked then 148 elseif micro then 150 else 164
+	local chipWidthEstimate = if stacked then 172 elseif micro then 172 else 170
 	local logoCompact = tight or stacked or barHeight <= Layout.topbarHeight
 	local logoWidth = if micro then 48 elseif stacked then 156 elseif shortRow then 156 elseif logoCompact then 168 else 176
 	local pageTitleW = 0
@@ -9078,7 +9030,7 @@ local function TopBar(_param)
 		_condition_2 = 1
 	end
 	local performanceCount = _exp + (if _condition_2 >= 0.5 then 1 else 0)
-	local fullPerformanceW = if micro or performanceCount == 0 then 0 elseif performanceCount == 1 then (if stacked then 100 else 90) elseif stacked then 192 else 172
+	local fullPerformanceW = if micro or performanceCount == 0 then 0 elseif performanceCount == 1 then (if stacked then 96 else 90) elseif stacked then 200 else 188
 	local performanceGap = 10
 	local playerControlGap = if shortRow then 6 else 8
 	local playerControlW = if micro or stacked or width < 980 then SHELL_CHROME.topbarControl else 110
@@ -9089,17 +9041,38 @@ local function TopBar(_param)
 	local controlsBeforeSearch = SHELL_CHROME.topbarControl + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0)
 	local controlsW = controlsBeforeSearch + (if searchControlW > 0 then feedbackControlGap + searchControlW else 0)
 	local fixedSingleRow = edgePad * 2 + (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) + controlsW + 12 + (if visitPillWidth > 0 then visitPillWidth + 6 else 0) + (if countdownW > 0 then countdownW + 10 else 0)
-	local minimumResourceRoom = if #allChips > 0 then chipWidthEstimate + 6 else 0
+	-- currencies matter more than FPS/ping: the performance readout only stays when at least two
+	-- resource chips (or all of them, if fewer) still fit beside it
+	local minimumResourceRoom = math.min(#allChips, 2) * (chipWidthEstimate + 8)
 	local performanceW = if not stacked and fullPerformanceW > 0 and width - fixedSingleRow - fullPerformanceW - performanceGap < minimumResourceRoom then 0 else fullPerformanceW
 	local chips = allChips
 	local controlsRight = edgePad + 4
+	-- Show only the chips that fit whole, most important first (flux, cores, dust, then the event),
+	-- instead of a scroller whose last chip is sliced by the edge and whose flux chip falls off it.
+	if not stacked then
+		local railRoom = math.max(48, width - edgePad * 2 - (controlsW + controlsRight + 12) - (12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14))
+		local room = railRoom - (if performanceW > 0 then performanceW + 8 else 0) - (if visitPillWidth > 0 then visitPillWidth + 8 else 0)
+		local chipFitW = if micro then 172 else 170 -- a rendered desktop chip is ~166px with the wider value box
+		local fits = math.max(0, math.floor((room + 8) / (chipFitW + 8)))
+		if fits < #allChips then
+			local rank = { FLUX = 1, CORES = 2, DUST = 3, EVENT = 4 }
+			local ranked = table.clone(allChips)
+			table.sort(ranked, function(a, b) return (rank[a.label] or 9) < (rank[b.label] or 9) end)
+			local keep = {}
+			for index = 1, fits do keep[ranked[index]] = true end
+			chips = {}
+			for _, chip in allChips do
+				if keep[chip] then table.insert(chips, chip) end
+			end
+		end
+	end
 	local hasRightCluster = not stacked and (#chips > 0 or visitPill ~= nil or performanceW > 0)
 	local row1H = if stacked then 62 else barHeight
 	local logoMark = if micro then 40 else SHELL_CHROME.topbarControl
 	local logoH = logoMark
 	local controlY = math.floor((row1H - SHELL_CHROME.topbarControl) / 2)
 	local logoY = controlY + math.floor((SHELL_CHROME.topbarControl - logoMark) / 2)
-	local chipRowH = if stacked then TapTarget else 50
+	local chipRowH = if stacked then 44 elseif shortRow then math.max(28, barHeight - 4) else 44
 	local _exp_1 = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
 	})
@@ -9114,23 +9087,8 @@ local function TopBar(_param)
 		Thickness = 1,
 		Transparency = 0.52,
 	})
-	local _exp_4 = React.createElement("frame", {
-		Size = UDim2.fromOffset(72, 2),
-		Position = UDim2.fromOffset(18, 0),
-		BackgroundColor3 = accent,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.7, 0.2), NumberSequenceKeypoint.new(1, 1) }),
-	}))
-	local _exp_5 = React.createElement("frame", {
-		Size = UDim2.new(1, -36, 0, 1),
-		Position = UDim2.fromOffset(18, 1),
-		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = 0.95,
-		BorderSizePixel = 0,
-	})
+	local _exp_4 = nil
+	local _exp_5 = nil
 	local _exp_6 = React.createElement("frame", {
 		Size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
 		Position = UDim2.fromOffset(12, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
@@ -9174,7 +9132,54 @@ local function TopBar(_param)
 		width = countdownW,
 		reducedMotion = reducedMotion,
 	}))
-	local _condition_3 = hasRightCluster
+	-- desktop: currencies, FPS/ping and buffs live in the island, centred between the logo and controls
+	local islandLeft = 12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14 + (if countdownW > 0 then countdownW + 10 else 0)
+	local islandRight = controlsW + controlsRight + 12 + (if visitPillWidth > 0 then visitPillWidth + 8 else 0)
+	local islandRoom = math.max(160, width - edgePad * 2 - islandLeft - islandRight)
+	local islandCurrencies = {}
+	for _, chip in allChips do
+		if not chip.event then
+			table.insert(islandCurrencies, 1, {
+				target = chip.label,
+				name = if chip.label == "FLUX" then "Flux" elseif chip.label == "DUST" then "Stardust" else "Cores",
+				value = chip.value,
+				icon = chip.icon,
+				color = chip.accent,
+			})
+		end
+	end
+	local islandElement = not stacked and React.createElement(React.Fragment, nil, React.createElement(require(script.Parent.BuffStrip).Island, {
+		state = state,
+		config = _param.config,
+		currencies = islandCurrencies,
+		perf = {
+			showFps = (state.Settings.ShowFps or 1) >= 0.5,
+			showPing = (state.Settings.ShowPing or 1) >= 0.5,
+		},
+		rate = state.Production,
+		vaultFull = asFlux(state.Capacity) > 0 and asFlux(state.Vault) >= asFlux(state.Capacity) * 0.99,
+		navigate = _param.navigate,
+		maxWidth = islandRoom,
+		position = UDim2.new(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
+		anchorPoint = Vector2.new(0.5, 0),
+		reducedMotion = reducedMotion,
+	}), visitPill ~= nil and React.createElement("frame", {
+		Size = UDim2.fromOffset(visitPillWidth, TapTarget),
+		Position = UDim2.new(1, -(controlsW + controlsRight + 12), 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 22,
+	}, React.createElement(Button, {
+		text = visitPill.label,
+		icon = "Crew",
+		onClick = openPlayerlist,
+		color = Palette.panelSoft,
+		textColor = visitPill.accent,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+	})))
+	local _condition_3 = hasRightCluster and stacked
 	if _condition_3 then
 		local _exp_9 = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
@@ -9248,7 +9253,7 @@ local function TopBar(_param)
 		end
 		_condition_3 = React.createElement("scrollingframe", {
 			Name = "TopbarResourceRail",
-			Size = UDim2.fromOffset(math.max(48, width - edgePad * 2 - (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) - controlsW - 12), chipRowH + 4),
+			Size = UDim2.fromOffset(math.max(48, width - edgePad * 2 - (controlsW + controlsRight + 12) - (12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14)), chipRowH + 4),
 			AutomaticCanvasSize = Enum.AutomaticSize.X,
 			CanvasSize = UDim2.new(),
 			ScrollingDirection = Enum.ScrollingDirection.X,
@@ -9352,7 +9357,7 @@ local function TopBar(_param)
 		BorderSizePixel = 0,
 		ZIndex = 20,
 		ClipsDescendants = false,
-	}, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, _exp_6, _exp_7, _exp_8, _condition_3, _condition_4, _condition_5, React.createElement("frame", {
+	}, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, _exp_6, _exp_7, _exp_8, _condition_3, islandElement, _condition_4, _condition_5, React.createElement("frame", {
 		Size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
 		Position = UDim2.new(1, -(SHELL_CHROME.topbarControl + controlsRight), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
 		BackgroundTransparency = 1,
@@ -9558,7 +9563,7 @@ local function RailButton(_param)
 		return math.clamp(value, 0, 1) * rowTilt
 	end)
 	local iconSize = if collapsed then 34 else 30
-	local iconX = if collapsed then math.floor((Layout.sidebarCollapsedWidth - SHELL_CHROME.railGutter * 2 - iconSize) / 2) else 12
+	local iconX = if collapsed then math.floor((Layout.sidebarCollapsedWidth - SHELL_CHROME.railGutter * 2 - 4 - iconSize) / 2) else 12
 	local markHover = function()
 		if disabled then
 			return nil
@@ -9706,21 +9711,37 @@ local function RailButton(_param)
 		color = labelColor,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(56, if rowHeight <= 54 then 4 else 10),
-		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 18 else 22),
+		position = UDim2.fromOffset(56, if rowHeight <= 54 then 2 else 8),
+		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 22 else 26),
 	}), not collapsed and React.createElement(Text, {
 		value = entry.eyebrow,
 		size = 12,
 		color = eyebrowColor,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(56, if rowHeight <= 54 then 22 else 34),
-		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 14 else 18),
+		position = UDim2.fromOffset(56, if rowHeight <= 54 then 26 else 38),
+		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 16 else 20),
 	}), badge > 0 and React.createElement(CountBadge, {
 		count = badge,
 		zIndex = 12,
 	})))))
 end
+-- rail buttons only re-render when what they show changes; onClick is rebuilt every render but
+-- always calls the same stable setPage, so it is left out of the comparison
+local function sameRailProps(previous, nextProps)
+	for key, value in previous do
+		if key ~= "onClick" and nextProps[key] ~= value then
+			return false
+		end
+	end
+	for key, value in nextProps do
+		if key ~= "onClick" and previous[key] ~= value then
+			return false
+		end
+	end
+	return true
+end
+RailButton = React.memo(RailButton, sameRailProps)
 local function MoreDockButton(_param)
 	local entry = _param.entry
 	local active = _param.active
@@ -9930,6 +9951,7 @@ local function MoreDockButton(_param)
 	}))
 end
 local MoreCell
+MoreDockButton = React.memo(MoreDockButton, sameRailProps)
 local function MoreDockPopover(_param)
 	local entries = _param.entries
 	local page = _param.page
@@ -10510,20 +10532,28 @@ local function NavGroup(_param)
 		local badgeW = if badgeTotal > 99 then 20 elseif badgeTotal >= 10 then 16 else 14
 		local countShift = if showBadge and not collapsed then badgeW + 6 else 0
 		if collapsed then
+			-- the collapsed header is ~38px wide: a short name, with the waiting count folded into it
+			-- (a separate badge would leave the name no room)
+			local SHORT = { Home = "HOME", Daily = "DAILY", Progress = "PROG", Social = "SOCIAL", System = "SYS", More = "MORE" }
+			local short = SHORT[_param.label] or string.upper(string.sub(_param.label, 1, 5))
+			local reserve = 0
+			headerChildren.label = React.createElement(Text, {
+				value = if showBadge then `{short} {if badgeTotal > 99 then "99+" else tostring(badgeTotal)}` else short,
+				size = 9,
+				color = if showBadge then Palette.mango else labelColor,
+				weight = Enum.FontWeight.Heavy,
+				align = Enum.TextXAlignment.Center,
+				fit = true,
+				minSize = 6,
+				position = UDim2.fromOffset(2, 0),
+				sizeConstraint = UDim2.new(1, -(4 + reserve), 1, -2),
+			})
 			headerChildren.rule = React.createElement("frame", {
-				Size = UDim2.new(0.5, 0, 0, 2),
-				Position = UDim2.new(0.5, 0, 0, 4),
-				AnchorPoint = Vector2.new(0.5, 0),
-				BackgroundColor3 = selectionAccent,
-				BackgroundTransparency = if hasActive then 0.2 else 0.55,
+				Size = UDim2.new(1, -12, 0, 1),
+				Position = UDim2.new(0, 6, 1, -1),
+				BackgroundColor3 = if hasActive then selectionAccent else Palette.lineSoft,
+				BackgroundTransparency = if hasActive then 0.35 else 0.7,
 				BorderSizePixel = 0,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(1, 0),
-			}))
-			headerChildren.chevron = React.createElement(NavChevron, {
-				openAmount = openAmount,
-				color = Palette.muted,
-				position = UDim2.new(0.5, 0, 1, -5),
 			})
 		else
 			headerChildren.label = React.createElement(Text, {
@@ -10560,13 +10590,13 @@ local function NavGroup(_param)
 				BorderSizePixel = 0,
 			})
 		end
-		if showBadge then
+		if showBadge and not collapsed then
 			headerChildren.badge = React.createElement(CountBadge, {
 				count = badgeTotal,
 				zIndex = 12,
 				compact = true,
-				position = if collapsed then nil else UDim2.new(1, -8, 0.5, 0),
-				anchorPoint = if collapsed then nil else Vector2.new(1, 0.5),
+				position = if collapsed then UDim2.new(1, -1, 0, 1) else UDim2.new(1, -8, 0.5, 0),
+				anchorPoint = if collapsed then Vector2.new(1, 0) else Vector2.new(1, 0.5),
 			})
 		end
 		header = React.createElement("textbutton", {
@@ -10718,7 +10748,7 @@ local function Navigation(_param)
 	local boostReserve = if showBoost then boostHeight + SHELL_CHROME.railGutter * 2 else 0
 	local railScrollRef = React.useRef(nil)
 	local grouped = includeSecondary and not fromMore
-	local groupHeaderH = if collapsed then 18 else 30
+	local groupHeaderH = if collapsed then 22 else 30
 	local activeGroup = navGroupOf(page)
 	local groupOpen, setGroupOpen = React.useState(function()
 		return table.clone(railGroupMemory)
@@ -10820,6 +10850,13 @@ local function Navigation(_param)
 	}), React.createElement("uigradient", {
 		Color = surfaceGradient(Palette.night, 0.5),
 		Rotation = 90,
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, -2, 1, -2),
+		Position = UDim2.fromOffset(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 9),
 	}), React.createElement("uistroke", {
 		Color = Palette.lineSoft,
 		Thickness = 1,
@@ -10829,7 +10866,7 @@ local function Navigation(_param)
 	}, React.createElement("uigradient", {
 		Rotation = 90,
 		Color = strokeGradient(Palette.lineSoft),
-	})), React.createElement("scrollingframe", {
+	}))), React.createElement("scrollingframe", {
 		ref = railScrollRef,
 		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2 + 4), 1, -(headerHeight + SHELL_CHROME.railGutter + boostReserve)),
 		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, headerHeight),
@@ -10837,12 +10874,12 @@ local function Navigation(_param)
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollBarThickness = 3,
+		ScrollBarThickness = if collapsed then 0 else 3,
 		ScrollBarImageColor3 = Palette.lineSoft,
 		ScrollBarImageTransparency = 0.28,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+		VerticalScrollBarInset = if collapsed then Enum.ScrollBarInset.None else Enum.ScrollBarInset.ScrollBar,
 		ClipsDescendants = true,
 		Active = true,
 		Selectable = false,
@@ -10977,6 +11014,8 @@ local function VaultPill(_param)
 		previousVault.current = state.Vault
 	end, { state.Vault })
 	local vaultFlash = useFlash(gains, softMotion, 0.5)
+	local juiceRef, juiceBump = require(script.Parent.JuiceFx).useTarget("VAULT")
+	-- (no per-second number over the header: the island's counters already roll up with income)
 	local vaultTextColor = vaultFlash:map(function(amount)
 		return ensureContrast(Palette.panelRaised, if ready then Palette.cream else Palette.muted):Lerp(bar, amount * 0.7)
 	end)
@@ -10986,7 +11025,12 @@ local function VaultPill(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 22,
-	}, React.createElement("frame", {
+		ref = juiceRef,
+	}, React.createElement("uiscale", {
+		Scale = juiceBump:map(function(b)
+			return 1 + math.sin(b * math.pi) * 0.08
+		end),
+	}), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
@@ -11073,7 +11117,7 @@ local function NextUnlockStrip(_param)
 	local progressW = if narrow then 72 else 88
 	local nextNames = if nextStep ~= nil then featureNames(state, nextStep.Unlocks) else {}
 	local nextText = if nextStep == nil then ""
-		elseif #nextNames == 0 then `Next: Level {nextStep.Level}`
+		elseif #nextNames == 0 then "Production bonus"
 		elseif #nextNames == 1 then `Opens {nextNames[1]}`
 		else `Opens {nextNames[1]} +{#nextNames - 1}`
 	local nextW = if narrow or nextText == "" then 0 else 150
@@ -11113,8 +11157,8 @@ local function NextUnlockStrip(_param)
 		BackgroundTransparency = if hovered then 0.96 else 1,
 		BorderSizePixel = 0,
 	}), React.createElement(Text, {
-		value = `Level {level}`,
-		size = 13,
+		value = "NEXT UNLOCK",
+		size = 11,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
@@ -11122,7 +11166,7 @@ local function NextUnlockStrip(_param)
 		position = UDim2.fromOffset(14, 0),
 		sizeConstraint = UDim2.new(0, levelW, 1, -3),
 	}), not narrow and React.createElement(Text, {
-		value = tier,
+		value = "",
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -11136,7 +11180,7 @@ local function NextUnlockStrip(_param)
 		BackgroundColor3 = Palette.lineSoft,
 		BorderSizePixel = 0,
 	}), React.createElement(Text, {
-		value = if nextStep ~= nil then nextStep.Text else "Every level reached",
+		value = if nextStep ~= nil then nextStep.Text else "Every feature is open",
 		size = 12,
 		color = Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
@@ -11257,6 +11301,9 @@ local function Workspace(_param)
 			setting = 1
 		end
 		showNextGoal = setting >= 0.5
+		if type(state.Level) == "table" and state.Level.Next == nil then
+			showNextGoal = false -- every feature is open: nothing left to point at
+		end
 	end
 	local workspacePlan = LayoutSectionPlan.planWorkspace({
 		keyboardCompact = keyboardCompact,
@@ -11384,7 +11431,7 @@ local function Workspace(_param)
 		ClipsDescendants = false,
 		ZIndex = 3,
 	}, React.createElement(ShimmerText, {
-		value = if entry.label == "Games" then "Mini Games" elseif entry.label == "Ranks" then "Leaderboards" else entry.label,
+		value = if entry.label == "Ranks" then "Leaderboards" else entry.label,
 		size = if chrome.stack then chrome.titleText elseif denseHeader then 20 else 24,
 		color = ensureContrast(Palette.panel, Palette.cream),
 		weight = Enum.FontWeight.Heavy,
@@ -11393,7 +11440,7 @@ local function Workspace(_param)
 		position = enter:map(function(amount)
 			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, if chrome.landscape then 4 else 2)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 22 elseif chrome.stack then 24 elseif denseHeader then 22 else 28),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 26 elseif chrome.stack then 24 elseif denseHeader then 24 else 28),
 		reducedMotion = reducedMotion,
 		enabled = true,
 		periodSeconds = 4.2,
@@ -11404,7 +11451,7 @@ local function Workspace(_param)
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
 		position = enter:map(function(amount)
-			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 28 elseif denseHeader then 26 else 32)
+			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 28 elseif denseHeader then 28 else 32)
 		end),
 		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 elseif denseHeader then 16 else 28),
 		transparency = revealFade,
@@ -11724,10 +11771,7 @@ local function ConfettiBurst(_param)
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("uistroke", {
 			Color = if ring == 0 then Palette.mango else Palette.cyan,
-			Thickness = clock:map(function(seconds)
-				local _, thin = Fx.ring(seconds - ring * 0.08, 0.6)
-				return 1 + thin * (if ring == 0 then 3.5 else 2.5)
-			end),
+			Thickness = if ring == 0 then 3 else 2,
 			Transparency = clock:map(function(seconds)
 				local _, _, fade = Fx.ring(seconds - ring * 0.08, 0.6)
 				return 0.1 + fade * 0.9
@@ -12265,7 +12309,7 @@ local function LevelRow(_param)
 	local ahead = status == "ahead"
 	local rightW = _param.rightW
 	local goalText = if def.Goal ~= nil and type(def.Goal.Text) == "string" then def.Goal.Text else "Where every forge starts"
-	local detail = if _param.opens ~= "" then `Level {def.Level} · Opens {_param.opens}` else `Level {def.Level}`
+	local detail = if _param.opens ~= "" then `Opens {_param.opens}` else "Permanent production bonus"
 	if def.Level > 1 and status ~= "done" and not here then
 		local LevelRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
 		local reward = LevelRewards.forLevel(def.Level, def.Tier)
@@ -12413,15 +12457,6 @@ local function LevelRoadmap(_param)
 	local reachedNodeY = 0
 	local lastTier = nil
 	for _, def in ladder do
-		if def.Tier ~= lastTier then
-			lastTier = def.Tier
-			rows[`Tier_{def.Tier}`] = React.createElement(TierHeading, {
-				tier = def.Tier,
-				blurb = blurbs[def.Tier] or "",
-				y = y,
-			})
-			y += TIER_H
-		end
 		local nodeY = y + 17
 		if firstNodeY == nil then
 			firstNodeY = nodeY
@@ -12549,7 +12584,7 @@ local function LevelRoadmap(_param)
 		BorderSizePixel = 0,
 		ZIndex = 473,
 	}, React.createElement(Text, {
-		value = "Forge Level",
+		value = "UNLOCKS",
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -12559,17 +12594,17 @@ local function LevelRoadmap(_param)
 		sizeConstraint = UDim2.new(1, -(TapTarget + UNIT * 3), 0, 16),
 		zIndex = 474,
 	}), React.createElement(Text, {
-		value = `Level {level}`,
+		value = if nextStep ~= nil then "What opens next" else "Everything is open",
 		size = if compact then 24 else 28,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 18,
 		position = UDim2.fromOffset(0, 18),
-		sizeConstraint = UDim2.fromOffset(if compact then 112 else 128, 34),
+		sizeConstraint = UDim2.new(1, -(TapTarget + UNIT * 3), 0, 34),
 		zIndex = 474,
 	}), React.createElement(Text, {
-		value = `{tier}  ·  {level} of {maxLevel}`,
+		value = "",
 		size = 13,
 		color = accent,
 		weight = Enum.FontWeight.Bold,
@@ -12616,7 +12651,7 @@ local function LevelRoadmap(_param)
 		position = UDim2.fromOffset(0, if nextStep ~= nil then 92 else 66),
 		zIndex = 474,
 	}), nextStep ~= nil and React.createElement(Text, {
-		value = if opensNext ~= "" then `Level {nextStep.Level} opens {opensNext}` else `Next: Level {nextStep.Level}`,
+		value = if opensNext ~= "" then `Opens {opensNext}` else "Adds a permanent production bonus",
 		size = 12,
 		color = Palette.muted,
 		fit = true,
@@ -12625,7 +12660,7 @@ local function LevelRoadmap(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 		zIndex = 474,
 	}), nextStep == nil and React.createElement(Text, {
-		value = "Every level reached. This is the top of the forge.",
+		value = "Every milestone is reached and every feature is open.",
 		size = 12,
 		color = Palette.muted,
 		fit = true,
@@ -12711,761 +12746,6 @@ return {
 	readLevelState = readLevelState,
 	joinNames = joinNames,
 	progressFraction = progressFraction,
-}
-end
-
-__defs["CelebrationBurst"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
-local VectorIconFace = require(script.Parent.ArtKit)("Icon").VectorIconFace
-local _motion = require(script.Parent.MotionKit)("motion")
-local ScaleFromCenter = _motion.ScaleFromCenter
-local useClock = _motion.useClock
-local MotionTokens = require(script.Parent.MotionKit)("motionTokens")
-local useViewport = _motion.useViewport
-local _theme = require(script.Parent.CoreKit)("theme")
-local Palette = _theme.Palette
-local darken = _theme.darken
-local lighten = _theme.lighten
-local STYLES = { {
-	pattern = "AnvilStrike",
-	accent = Palette.mango,
-	secondary = Palette.cream,
-	colors = { Palette.cream, Palette.mango, Palette.coral, Palette.cyan },
-	duration = 1.95,
-}, {
-	pattern = "SparkCrown",
-	accent = Palette.coral,
-	secondary = Palette.mango,
-	colors = { Palette.mango, Palette.coral, Palette.cream, Palette.mint },
-	duration = 2.1,
-}, {
-	pattern = "AstralTemper",
-	accent = Palette.violet,
-	secondary = Palette.cyan,
-	colors = { Palette.cream, Palette.violet, Palette.cyan, Palette.pink },
-	duration = 2.2,
-}, {
-	pattern = "Starfall",
-	accent = Palette.cyan,
-	secondary = Palette.mint,
-	colors = { Palette.white, Palette.cyan, Palette.mint, Palette.violet },
-	duration = 2.15,
-}, {
-	pattern = "ShockRing",
-	accent = Palette.mint,
-	secondary = Palette.cyan,
-	colors = { Palette.mint, Palette.cyan, Palette.cream, Palette.white },
-	duration = 1.85,
-}, {
-	pattern = "HelixLift",
-	accent = Palette.violet,
-	secondary = Palette.pink,
-	colors = { Palette.violet, Palette.pink, Palette.cyan, Palette.cream },
-	duration = 2.25,
-}, {
-	pattern = "EmberWell",
-	accent = Palette.coral,
-	secondary = Palette.mango,
-	colors = { Palette.coral, Palette.mango, Palette.cream, Palette.pink },
-	duration = 2.05,
-}, {
-	pattern = "CoinBurst",
-	accent = Palette.mango,
-	secondary = Palette.cream,
-	colors = { Palette.mango, Palette.cream, Palette.white, Palette.cyan },
-	duration = 1.9,
-}, {
-	pattern = "LatticeCrack",
-	accent = Palette.cyan,
-	secondary = Palette.violet,
-	colors = { Palette.cyan, Palette.violet, Palette.mint, Palette.cream },
-	duration = 2.0,
-}, {
-	pattern = "NovaPulse",
-	accent = Palette.white,
-	secondary = Palette.cyan,
-	colors = { Palette.white, Palette.cyan, Palette.mint, Palette.violet },
-	duration = 1.8,
-}, {
-	pattern = "DriftMotes",
-	accent = Palette.mint,
-	secondary = Palette.cream,
-	colors = { Palette.mint, Palette.cream, Palette.cyan, Palette.violet },
-	duration = 2.3,
-}, {
-	pattern = "HammerArc",
-	accent = Palette.mango,
-	secondary = Palette.coral,
-	colors = { Palette.mango, Palette.coral, Palette.cream, Palette.violet },
-	duration = 1.88,
-}, {
-	pattern = "PrismSplit",
-	accent = Palette.pink,
-	secondary = Palette.cyan,
-	colors = { Palette.pink, Palette.cyan, Palette.mango, Palette.mint },
-	duration = 2.12,
-}, {
-	pattern = "VortexPull",
-	accent = Palette.violet,
-	secondary = Palette.mint,
-	colors = { Palette.violet, Palette.mint, Palette.cyan, Palette.cream },
-	duration = 2.08,
-}, {
-	pattern = "RibbonLash",
-	accent = Palette.coral,
-	secondary = Palette.pink,
-	colors = { Palette.coral, Palette.pink, Palette.mango, Palette.cream },
-	duration = 1.92,
-}, {
-	pattern = "OrbitBeads",
-	accent = Palette.cyan,
-	secondary = Palette.mango,
-	colors = { Palette.cyan, Palette.mango, Palette.white, Palette.violet },
-	duration = 2.18,
-}, {
-	pattern = "TideWash",
-	accent = Palette.mint,
-	secondary = Palette.blue,
-	colors = { Palette.mint, Palette.cyan, Palette.blue, Palette.cream },
-	duration = 2.05,
-}, {
-	pattern = "FlintSpray",
-	accent = Palette.mango,
-	secondary = Palette.white,
-	colors = { Palette.mango, Palette.white, Palette.coral, Palette.cyan },
-	duration = 1.78,
-}, {
-	pattern = "CrownFlare",
-	accent = Palette.cream,
-	secondary = Palette.mango,
-	colors = { Palette.cream, Palette.mango, Palette.pink, Palette.violet },
-	duration = 2.0,
-}, {
-	pattern = "PulseGrid",
-	accent = Palette.cyan,
-	secondary = Palette.mint,
-	colors = { Palette.cyan, Palette.mint, Palette.white, Palette.violet },
-	duration = 1.94,
-} }
-local MAX_PARTICLES = 18
-local MINIMAL_DURATION = 1.05
-local function noise(seed, index, salt)
-	local raw = math.sin(seed * 0.019 + (index + 1) * 12.9898 + salt * 78.233) * 43758.5453
-	return raw - math.floor(raw)
-end
-local function easeOutCubic(value)
-	return MotionTokens.EASE.decelerate(math.clamp(value, 0, 1))
-end
-local function easeOutBack(value)
-	local overshoot = 1.55
-	local shifted = math.clamp(value, 0, 1) - 1
-	return 1 + (overshoot + 1) * shifted * shifted * shifted + overshoot * shifted * shifted
-end
-local function styleForSeed(seed)
-	return STYLES[math.abs(math.floor(seed)) % #STYLES + 1]
-end
-local function shapeForRoll(roll)
-	if roll < 0.28 then
-		return "Spark"
-	end
-	if roll < 0.46 then
-		return "Star"
-	end
-	if roll < 0.62 then
-		return "Shard"
-	end
-	if roll < 0.76 then
-		return "Ember"
-	end
-	if roll < 0.88 then
-		return "Coin"
-	end
-	return "Needle"
-end
-local function makeParticles(seed, style)
-	local particles = {}
-	for index = 0, MAX_PARTICLES - 1 do
-		local _arg0 = {
-			shape = shapeForRoll(noise(seed, index, 1)),
-			lane = noise(seed, index, 2) * 2 - 1,
-			phase = noise(seed, index, 3) * math.pi * 2,
-			energy = noise(seed, index, 4),
-			delay = noise(seed, index, 5) * 0.1 + (index % 4) * 0.018,
-			size = 5 + math.floor(noise(seed, index, 6) * 6),
-			spin = (noise(seed, index, 7) * 2 - 1) * (280 + noise(seed, index, 8) * 520),
-			color = style.colors[index % #style.colors + 1],
-		}
-		table.insert(particles, _arg0)
-	end
-	return particles
-end
-local function positionFor(pattern, particle, progress, index)
-	local travel = easeOutCubic(progress)
-	if pattern == "SparkCrown" then
-		local spread = particle.lane * (0.12 + travel * (0.35 + particle.energy * 0.16))
-		local lift = progress * (0.72 + particle.energy * 0.34)
-		local gravity = progress * progress * (0.42 + particle.energy * 0.24)
-		return UDim2.fromScale(0.5 + spread + math.sin(progress * 8 + particle.phase) * 0.012, 0.58 - lift + gravity)
-	end
-	if pattern == "AstralTemper" or pattern == "OrbitBeads" or pattern == "VortexPull" then
-		local direction = if index % 2 == 0 then 1 else -1
-		local spin = if pattern == "VortexPull" then -1.8 else 1.1
-		local angle = particle.phase + progress * direction * (spin + particle.energy * 0.9)
-		local radius = if pattern == "VortexPull" then 0.32 - travel * (0.22 + particle.energy * 0.1) else 0.035 + travel * (0.28 + particle.energy * 0.2)
-		return UDim2.fromScale(0.5 + math.cos(angle) * radius, 0.54 + math.sin(angle) * radius * 0.72 - progress * 0.05)
-	end
-	if pattern == "Starfall" or pattern == "DriftMotes" or pattern == "TideWash" then
-		local drift = if pattern == "TideWash" then math.sin(progress * 3 + particle.phase) * 0.08 else 0
-		local x = 0.5 + particle.lane * 0.5 + math.sin(progress * 7 + particle.phase) * (0.01 + particle.energy * 0.018) + drift
-		local y = -0.06 - particle.energy * 0.12 + progress * (0.82 + particle.energy * 0.28)
-		return UDim2.fromScale(x, y)
-	end
-	if pattern == "HelixLift" or pattern == "CrownFlare" then
-		local angle = particle.phase + progress * 4.2
-		local radius = 0.04 + (1 - progress) * (0.22 + particle.energy * 0.12)
-		return UDim2.fromScale(0.5 + math.cos(angle) * radius, 0.62 - travel * (0.42 + particle.energy * 0.18))
-	end
-	if pattern == "EmberWell" or pattern == "FlintSpray" then
-		local spread = particle.lane * (0.08 + travel * 0.4)
-		return UDim2.fromScale(0.5 + spread, 0.62 - travel * 0.18 + progress * progress * 0.38)
-	end
-	if pattern == "CoinBurst" or pattern == "NovaPulse" or pattern == "ShockRing" or pattern == "PulseGrid" then
-		local angle = particle.phase + (if pattern == "PulseGrid" then math.floor(index / 4) * 0.4 else 0)
-		local distance = travel * (0.18 + particle.energy * 0.28)
-		return UDim2.fromScale(0.5 + math.cos(angle) * distance, 0.5 + math.sin(angle) * distance * 0.7)
-	end
-	if pattern == "HammerArc" or pattern == "RibbonLash" then
-		local arc = -0.9 + travel * 1.8
-		return UDim2.fromScale(0.5 + particle.lane * 0.28 + math.cos(arc) * 0.16, 0.48 + math.sin(arc) * 0.22 + progress * 0.12)
-	end
-	if pattern == "PrismSplit" or pattern == "LatticeCrack" then
-		local col = (index % 5) - 2
-		local row = math.floor(index / 5) - 1
-		return UDim2.fromScale(0.5 + col * 0.07 * travel, 0.48 + row * 0.08 * travel + progress * 0.06)
-	end
-	local angle = -math.pi + (particle.phase / (math.pi * 2)) * math.pi
-	local distance = travel * (0.26 + particle.energy * 0.32)
-	local x = 0.5 + math.cos(angle) * distance
-	local y = 0.55 + math.sin(angle) * distance * 0.82 + progress * progress * (0.12 + particle.energy * 0.08)
-	return UDim2.fromScale(x, y)
-end
-local function sizeFor(shape, base, progress)
-	local arrival = math.clamp(progress / 0.08, 0, 1)
-	local pulse = 0.9 + math.sin(progress * math.pi * 5) * 0.1
-	if shape == "Spark" then
-		return UDim2.fromOffset(math.max(1, base * (3.3 - progress * 1.5) * arrival), math.max(2, base * 0.3 * arrival))
-	end
-	if shape == "Star" then
-		return UDim2.fromOffset(math.max(1, base * 1.25 * pulse * arrival), math.max(1, base * 1.25 * pulse * arrival))
-	end
-	if shape == "Shard" then
-		return UDim2.fromOffset(math.max(1, base * 0.72 * arrival), math.max(1, base * 1.45 * arrival))
-	end
-	return UDim2.fromOffset(math.max(1, base * 0.72 * pulse * arrival), math.max(1, base * 0.72 * pulse * arrival))
-end
-local function ForgeParticle(_param)
-	local style = _param.style
-	local particle = _param.particle
-	local index = _param.index
-	local time = _param.time
-	local duration = _param.duration
-	local detailed = _param.detailed
-	local motion = time:map(function(seconds)
-		local progress = math.clamp((seconds - particle.delay) / math.max(0.2, duration - 0.2 - particle.delay), 0, 1)
-		local arrival = MotionTokens.EASE.decelerate(math.clamp(progress / 0.07, 0, 1))
-		local departure = MotionTokens.EASE.accelerate(math.clamp((progress - 0.68) / 0.32, 0, 1))
-		local visibility = arrival * (1 - departure)
-		local rotation = if style.pattern == "Starfall" then 24 + particle.lane * 20 + progress * particle.spin * 0.18 else particle.phase * 57.2958 + progress * particle.spin
-		return {
-			position = positionFor(style.pattern, particle, progress, index),
-			rotation = rotation,
-			size = sizeFor(particle.shape, particle.size, progress),
-			transparency = 1 - visibility,
-			glowTransparency = math.clamp(1 - visibility * 0.18, 0.78, 1),
-		}
-	end)
-	local position = motion:map(function(value)
-		return value.position
-	end)
-	local rotation = motion:map(function(value)
-		return value.rotation
-	end)
-	local size = motion:map(function(value)
-		return value.size
-	end)
-	local transparency = motion:map(function(value)
-		return value.transparency
-	end)
-	local glowTransparency = motion:map(function(value)
-		return value.glowTransparency
-	end)
-	local zIndex = 146 + index % 3
-	if particle.shape == "Star" then
-		return React.createElement("frame", {
-			Size = size,
-			Position = position,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = rotation,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			ZIndex = zIndex,
-		}, detailed and React.createElement("frame", {
-			Size = UDim2.fromScale(2.2, 2.2),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = 45,
-			BackgroundColor3 = particle.color,
-			BackgroundTransparency = glowTransparency,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 3),
-		})), React.createElement("frame", {
-			Size = UDim2.new(0, 2, 1, 0),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = particle.color,
-			BackgroundTransparency = transparency,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		})), React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 2),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = particle.color,
-			BackgroundTransparency = transparency,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		})), React.createElement("frame", {
-			Size = UDim2.fromOffset(3, 3),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = 45,
-			BackgroundColor3 = Palette.white,
-			BackgroundTransparency = transparency,
-			BorderSizePixel = 0,
-		}))
-	end
-	if particle.shape == "Coin" then
-		return React.createElement("frame", {
-			Size = size,
-			Position = position,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = rotation,
-			BackgroundColor3 = particle.color,
-			BackgroundTransparency = transparency,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			ZIndex = zIndex,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("uistroke", {
-			Color = Palette.cream,
-			Thickness = 1,
-			Transparency = glowTransparency,
-		}), React.createElement("frame", {
-			Size = UDim2.fromScale(0.42, 0.42),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = Palette.cream,
-			BackgroundTransparency = transparency,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		})))
-	end
-	if particle.shape == "Needle" then
-		return React.createElement("frame", {
-			Size = size,
-			Position = position,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = rotation,
-			BackgroundColor3 = particle.color,
-			BackgroundTransparency = transparency,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			ZIndex = zIndex,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("uigradient", {
-			Color = ColorSequence.new(Palette.white, particle.color),
-			Rotation = 90,
-		}))
-	end
-	if particle.shape == "Ember" then
-		return React.createElement("frame", {
-			Size = size,
-			Position = position,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = rotation,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			ZIndex = zIndex,
-		}, detailed and React.createElement("frame", {
-			Size = UDim2.fromScale(2.8, 2.8),
-			Position = UDim2.fromScale(0.5, 0.5),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = particle.color,
-			BackgroundTransparency = glowTransparency,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		})), React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = particle.color,
-			BackgroundTransparency = transparency,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("uigradient", {
-			Color = ColorSequence.new(Palette.cream, particle.color),
-			Rotation = 90,
-		})))
-	end
-	return React.createElement("frame", {
-		Size = size,
-		Position = position,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = rotation,
-		BackgroundColor3 = particle.color,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-		ZIndex = zIndex,
-	}, React.createElement("uicorner", {
-		CornerRadius = if particle.shape == "Spark" then UDim.new(1, 0) else UDim.new(0, 2),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(particle.color, 0.42), darken(particle.color, 0.25)),
-		Rotation = if particle.shape == "Spark" then 0 else 90,
-	}), detailed and React.createElement("frame", {
-		Size = if particle.shape == "Spark" then UDim2.new(0, 3, 2.4, 0) else UDim2.fromScale(2.1, 2.1),
-		Position = if particle.shape == "Spark" then UDim2.fromScale(0.08, 0.5) else UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = particle.color,
-		BackgroundTransparency = glowTransparency,
-		BorderSizePixel = 0,
-		ZIndex = zIndex - 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
-		Size = if particle.shape == "Spark" then UDim2.new(0, 3, 1, 0) else UDim2.new(1, -2, 0, 2),
-		Position = if particle.shape == "Spark" then UDim2.fromScale(0.08, 0.5) else UDim2.fromScale(0.5, 0.24),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = zIndex + 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})))
-end
-local function RewardReceipt(_param)
-	local style = _param.style
-	local time = _param.time
-	local duration = _param.duration
-	local reducedMotion = _param.reducedMotion
-	local compact = _param.compact
-	local motion = time:map(function(seconds)
-		local arrival = math.clamp(seconds / 0.18, 0, 1)
-		local departure = math.clamp((seconds - duration * 0.72) / math.max(0.18, duration * 0.25), 0, 1)
-		local settle = if reducedMotion then arrival else easeOutBack(arrival)
-		return {
-			scale = if reducedMotion then 1 else 0.72 + settle * 0.32 - departure * 0.1,
-			transparency = math.clamp(1 - arrival + departure, 0, 1),
-			rotation = if reducedMotion then 0 else (1 - settle) * -7 + math.sin(arrival * math.pi) * 2,
-			y = math.round((1 - settle) * 36 - departure * 40),
-		}
-	end)
-	local receiptW = if compact then 236 else 306
-	local receiptH = if compact then 70 else 84
-	local transparency = motion:map(function(value)
-		return value.transparency
-	end)
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(receiptW, receiptH),
-		Position = motion:map(function(value)
-			return UDim2.new(0.5, 0, if compact then 0.16 else 0.2, value.y)
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = motion:map(function(value)
-			return value.rotation
-		end),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 151,
-	}, React.createElement(ScaleFromCenter, {
-		scale = motion:map(function(value)
-			return value.scale
-		end),
-		zIndex = 151,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.panelRaised,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 151,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 13),
-	}), React.createElement("uistroke", {
-		Color = style.accent,
-		Thickness = 2,
-		Transparency = motion:map(function(value)
-			return math.clamp(value.transparency + 0.1, 0, 1)
-		end),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(darken(style.accent, 0.74), Palette.panelRaised),
-		Rotation = 18,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(if compact then 48 else 58, if compact then 48 else 58),
-		Position = UDim2.fromOffset(if compact then 11 else 13, if compact then 11 else 13),
-		BackgroundColor3 = darken(style.accent, 0.5),
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 153,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 11),
-	}), React.createElement("uistroke", {
-		Color = style.accent,
-		Thickness = 1.5,
-		Transparency = motion:map(function(value)
-			return math.clamp(value.transparency + 0.16, 0, 1)
-		end),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(if compact then 24 else 30, if compact then 24 else 30),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 154,
-		Visible = motion:map(function(value)
-			return value.transparency < 0.98
-		end),
-	}, React.createElement(VectorIconFace, {
-		kind = "Check",
-		color = Palette.cream,
-		transparency = transparency,
-	}))), React.createElement("textlabel", {
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "REWARD CLAIMED",
-		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy),
-		TextSize = if compact then 15 else 19,
-		TextColor3 = Palette.cream,
-		TextTransparency = transparency,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Position = UDim2.fromOffset(if compact then 70 else 84, if compact then 10 else 14),
-		Size = UDim2.new(1, if compact then -78 else -94, 0, if compact then 22 else 26),
-		ZIndex = 154,
-	}), React.createElement("textlabel", {
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "DELIVERED TO YOUR FORGE",
-		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold),
-		TextSize = 12,
-		TextColor3 = style.accent,
-		TextTransparency = transparency,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Position = UDim2.fromOffset(if compact then 70 else 84, if compact then 34 else 43),
-		Size = UDim2.new(1, if compact then -78 else -94, 0, 18),
-		ZIndex = 154,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -24, 0, 3),
-		Position = UDim2.new(0.5, 0, 1, -7),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Palette.line,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 154,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("frame", {
-		Size = time:map(function(seconds)
-			return UDim2.new(math.clamp(seconds / math.max(0.1, duration), 0, 1), 0, 1, 0)
-		end),
-		BackgroundColor3 = style.accent,
-		BackgroundTransparency = transparency,
-		BorderSizePixel = 0,
-		ZIndex = 155,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))))))
-end
-local function CelebrationBurst(_param)
-	local seed = _param.seed
-	local intensity = _param.intensity
-	if intensity == nil then
-		intensity = 1
-	end
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
-	local particlesEnabled = _param.particlesEnabled
-	if particlesEnabled == nil then
-		particlesEnabled = true
-	end
-	local onDone = _param.onDone
-	local antilag = useAntilag()
-	local viewport = useViewport()
-	local style = React.useMemo(function()
-		return styleForSeed(seed)
-	end, { seed })
-	local specs = React.useMemo(function()
-		return makeParticles(seed, style)
-	end, { seed, style })
-	local visible = intensity > 0.02
-	local minimal = reducedMotion or not particlesEnabled
-	local duration = if minimal then MINIMAL_DURATION else style.duration
-	local time = useClock(visible, 1, 1000, true)
-	local onDoneRef = React.useRef(onDone)
-	onDoneRef.current = onDone
-	React.useEffect(function()
-		if not visible then
-			local completion = task.defer(function()
-				return onDoneRef.current(seed)
-			end)
-			return function()
-				pcall(task.cancel, completion)
-			end
-		end
-		local completion = task.delay(duration + 0.06, function()
-			return onDoneRef.current(seed)
-		end)
-		return function()
-			pcall(task.cancel, completion)
-		end
-	end, { duration, seed, visible })
-	if not visible then
-		return React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Active = false,
-		})
-	end
-	local constrained = antilag.constrained == true or viewport.compact or viewport.tight
-	local mobileCap = if constrained then (if antilag.tier <= 1 then 5 else 7) else 12
-	local desired = math.floor(MAX_PARTICLES * math.clamp(intensity, 0.12, 1) * math.max(0.4, antilag.fxBudget))
-	local budgetCap = if minimal then 0 else math.max(if constrained then 2 else 4, antilag.particleBudget)
-	local activeCount = math.clamp(math.min(desired, budgetCap, mobileCap), 0, MAX_PARTICLES)
-	local _newValue = {}
-	local _callback = function(_, index)
-		return index < activeCount
-	end
-	local _length = 0
-	for _k, _v in specs do
-		if _callback(_v, _k - 1, specs) == true then
-			_length += 1
-			_newValue[_length] = _v
-		end
-	end
-	local particles = _newValue
-	local detailed = not minimal and not constrained and antilag.quality >= 0.72 and antilag.glowScale >= 0.45 and activeCount <= 10
-	local impact = time:map(function(seconds)
-		return easeOutBack(math.clamp(seconds / 0.28, 0, 1))
-	end)
-	local rayCount = if minimal then 0 elseif constrained then (if antilag.quality >= 0.55 then 2 else 0) elseif antilag.quality >= 0.62 then 4 elseif antilag.quality >= 0.28 then 2 else 0
-	local rays = if rayCount == 4 then { 0, 90, 180, 270 } elseif rayCount == 2 then { 0, 180 } else {}
-	local _newValue_1 = table.create(#rays)
-	local _callback_1 = function(angle, index)
-		return React.createElement("frame", {
-			key = `forge-ray-{angle}`,
-			Size = impact:map(function(value)
-				return UDim2.fromOffset(value * (if viewport.compact then 72 else 120 + index % 2 * 24), 2)
-			end),
-			Position = UDim2.fromScale(0.5, if viewport.compact or viewport.tight then 0.16 else 0.2),
-			AnchorPoint = Vector2.new(0, 0.5),
-			Rotation = angle,
-			BackgroundColor3 = if index % 3 == 0 then Palette.cream elseif index % 2 == 0 then style.accent else style.secondary,
-			BackgroundTransparency = time:map(function(seconds)
-				return math.clamp(0.72 + seconds * 1.8, 0.72, 1)
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 142,
-		}, React.createElement("uigradient", {
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(1, 1) }),
-		}))
-	end
-	for _k, _v in rays do
-		_newValue_1[_k] = _callback_1(_v, _k - 1, rays)
-	end
-	local _exp = { 0, 1 }
-	local _newValue_2 = {}
-	local _callback_2 = function(ring)
-		return not minimal or ring == 0
-	end
-	local _length_1 = 0
-	for _k, _v in _exp do
-		if _callback_2(_v, _k - 1, _exp) == true then
-			_length_1 += 1
-			_newValue_2[_length_1] = _v
-		end
-	end
-	local _newValue_3 = table.create(#_newValue_2)
-	local _callback_3 = function(ring)
-		return React.createElement("frame", {
-			key = `forge-ring-{ring}`,
-			Size = impact:map(function(value)
-				local delayed = math.clamp((value - ring * 0.14) / math.max(0.01, 1 - ring * 0.14), 0, 1)
-				local diameter = (if viewport.compact then 18 else 24) + delayed * ((if viewport.compact then 104 else 152) + ring * (if viewport.compact then 44 else 68))
-				return UDim2.fromOffset(diameter, diameter)
-			end),
-			Position = UDim2.fromScale(0.5, if viewport.compact or viewport.tight then 0.16 else 0.2),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 141,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("uistroke", {
-			Color = if ring == 1 then style.secondary else style.accent,
-			Thickness = if minimal then 1 else 1.8 - ring * 0.3,
-			Transparency = impact:map(function(value)
-				return math.clamp(0.58 + value * 0.42 + ring * 0.06, 0, 1)
-			end),
-		}))
-	end
-	for _k, _v in _newValue_2 do
-		_newValue_3[_k] = _callback_3(_v, _k - 1, _newValue_2)
-	end
-	local _exp_1 = React.createElement(RewardReceipt, {
-		style = style,
-		time = time,
-		duration = duration,
-		reducedMotion = reducedMotion,
-		compact = viewport.compact or viewport.tight,
-	})
-	local _newValue_4 = table.create(#particles)
-	local _callback_4 = function(particle, index)
-		return React.createElement(ForgeParticle, {
-			key = `{style.pattern}-{index}`,
-			style = style,
-			particle = particle,
-			index = index,
-			time = time,
-			duration = duration,
-			detailed = detailed,
-		})
-	end
-	for _k, _v in particles do
-		_newValue_4[_k] = _callback_4(_v, _k - 1, particles)
-	end
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = 140,
-		Active = false,
-	}, _newValue_1, _newValue_3, _exp_1, _newValue_4)
-end
-return {
-	CelebrationBurst = CelebrationBurst,
 }
 end
 
@@ -14426,6 +13706,16 @@ local function TabButton(_param)
 	}))
 end
 
+-- tab buttons only re-render when what they show changes (onClick is rebuilt each render)
+TabButton = React.memo(TabButton, function(previous, nextProps)
+	for key, value in previous do
+		if key ~= "onClick" and nextProps[key] ~= value then return false end
+	end
+	for key, value in nextProps do
+		if key ~= "onClick" and previous[key] ~= value then return false end
+	end
+	return true
+end)
 local function MenuCell(_param)
 	local entry = _param.entry
 	local active = _param.active
@@ -14461,24 +13751,25 @@ local function MenuCell(_param)
 		spin = false,
 		zIndex = 513,
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -8, 0, 16),
-		Position = UDim2.new(0.5, 0, 0, 48),
+		Size = UDim2.new(1, -8, 0, 24),
+		Position = UDim2.new(0.5, 0, 0, 44),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		Text = entry.label,
 		TextColor3 = Palette.cream,
 		TextSize = 13,
+		TextWrapped = true,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
 		ZIndex = 513,
 	}), React.createElement("textlabel", {
 		Size = UDim2.new(1, -8, 0, 12),
-		Position = UDim2.new(0.5, 0, 0, 64),
+		Position = UDim2.new(0.5, 0, 0, 69),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		Text = entry.eyebrow or "",
 		TextColor3 = Palette.muted,
-		TextSize = 10,
+		TextSize = 11,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium),
 		ZIndex = 513,
@@ -14770,6 +14061,11 @@ local function MobileTabBar(_param)
 	for _, id in tabIds do
 		table.insert(tabs, byId[id])
 	end
+	local current = byId[page]
+	local pageOffBar = current ~= nil and table.find(tabIds, page) == nil
+	if pageOffBar and #tabs > 0 then
+		tabs[#tabs] = current
+	end
 	local onBar = {}
 	for _, entry in tabs do
 		onBar[entry.id] = true
@@ -14780,11 +14076,7 @@ local function MobileTabBar(_param)
 			menuBadge += AppHelpers:navBadge(entry, state, chatUnread)
 		end
 	end
-	local current = byId[page]
-	local menuShowsPage = current ~= nil and not onBar[page]
-	local menuEntry = if menuShowsPage
-		then { id = "Menu", label = current.label, icon = current.icon, accent = current.accent }
-		else { id = "Menu", label = "Menu", icon = "Menu", accent = Palette.cyan }
+	local menuEntry = { id = "Menu", label = "Menu", icon = "Menu", accent = Palette.cyan }
 	local compact = chrome.landscape
 	local items = {}
 	items.layout = React.createElement("uilistlayout", {
@@ -14812,7 +14104,7 @@ local function MobileTabBar(_param)
 		entry = menuEntry,
 		order = #tabs + 1,
 		size = tabSize,
-		active = menuShowsPage or menuOpen,
+		active = menuOpen,
 		badge = menuBadge,
 		compact = compact,
 		reducedMotion = reducedMotion,
@@ -14859,13 +14151,19 @@ local function MobileTabBar(_param)
 end
 
 local function Chip(_param)
+	local juiceRef, juiceBump = require(script.Parent.JuiceFx).useTarget(_param.target or "")
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(_param.width, _param.height),
 		LayoutOrder = _param.order,
 		BackgroundColor3 = Palette.panelSoft,
 		BorderSizePixel = 0,
 		ZIndex = 22,
-	}, React.createElement("uicorner", {
+		ref = juiceRef,
+	}, React.createElement("uiscale", {
+		Scale = juiceBump:map(function(b)
+			return 1 + math.sin(b * math.pi) * 0.16
+		end),
+	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 9),
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(6, 6),
@@ -14887,7 +14185,7 @@ local function Chip(_param)
 		ZIndex = 23,
 	}, React.createElement("uitextsizeconstraint", {
 		MaxTextSize = 13,
-		MinTextSize = 9,
+		MinTextSize = 11,
 	})))
 end
 
@@ -14905,17 +14203,25 @@ local function MobileHeader(_param)
 	local width = viewport.width - edgePad * 2
 	local chipH = if short then 24 else 30
 	local chipW = if short then 84 else 96
-	local playersW = barHeight - 8
+	local playersW = math.min(44, barHeight)
 	local iconSize = if short then 24 else 30
-	local wanted = { { key = "flux", value = state.Cash, accent = Palette.cyan } }
+	local wanted = { { key = "flux", target = "FLUX", value = state.Cash, accent = Palette.cyan } }
 	if AppHelpers:featureUnlocked(state, "StarGrid") then
-		table.insert(wanted, { key = "dust", value = state.Stardust, accent = Palette.mango })
+		table.insert(wanted, { key = "dust", target = "DUST", value = state.Stardust, accent = Palette.mango })
 	end
 	if AppHelpers:featureUnlocked(state, "Rebirth") then
-		table.insert(wanted, { key = "cores", value = state.Cores, accent = Palette.violet })
+		table.insert(wanted, { key = "cores", target = "CORES", value = state.Cores, accent = Palette.violet })
 	end
-	local titleMin = 110
-	local room = width - (8 + iconSize + 8 + titleMin + playersW + 22)
+	local visitors = if type(state.Visitors) == "table" then #state.Visitors else 0
+	local events = __load("serverEventsUi")
+	local liveEvent = events.useServerEvent(state.ServerEvent)
+	local eventDef = if liveEvent ~= nil and liveEvent.Phase ~= "Rest" then events.EVENTS[liveEvent.Id or ""] else nil
+	local eventAccent = events.accentOf(eventDef)
+	local eventW = if eventDef ~= nil then playersW + 6 else 0
+	local titleMin = if width < 440 then 60 else 110
+	local room = width - (8 + iconSize + 8 + titleMin + playersW + eventW + 22)
+	-- narrow phones shrink the chips so every currency stays readable without scrolling
+	chipW = math.clamp(math.floor((room - math.max(0, #wanted - 1) * 6) / math.max(1, #wanted)), 58, chipW)
 	local chips = {}
 	chips.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
@@ -14929,13 +14235,13 @@ local function MobileHeader(_param)
 			order = index,
 			value = item.value,
 			accent = item.accent,
+			target = item.target,
 			width = chipW,
 			height = chipH,
 		})
 	end
 	local contentW = #wanted * chipW + math.max(0, #wanted - 1) * 6
 	local chipsW = math.min(contentW, math.max(48, room))
-	local visitors = if type(state.Visitors) == "table" then #state.Visitors else 0
 	local roadmap = __load("levelRoadmap")
 	local level, _tier, nextStep = roadmap.readLevelState(state)
 	local fill = if nextStep ~= nil then roadmap.progressFraction(nextStep) else 1
@@ -14962,8 +14268,8 @@ local function MobileHeader(_param)
 		reducedMotion = reducedMotion,
 		zIndex = 21,
 	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -(8 + iconSize + 8 + chipsW + playersW + 22), 0, if short then barHeight else 20),
-		Position = UDim2.fromOffset(8 + iconSize + 8, if short then 0 else 4),
+		Size = UDim2.new(1, -(8 + iconSize + 8 + chipsW + playersW + eventW + 22), 0, barHeight),
+		Position = UDim2.fromOffset(8 + iconSize + 8, 0),
 		BackgroundTransparency = 1,
 		Text = entry.label,
 		TextColor3 = Palette.cream,
@@ -14972,16 +14278,12 @@ local function MobileHeader(_param)
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
 		ZIndex = 21,
-	}), not short and React.createElement("textbutton", {
-		Size = UDim2.fromOffset(64, 16),
-		Position = UDim2.fromOffset(8 + iconSize + 8, 24),
-		BackgroundColor3 = darken(accent, 0.55),
+	}), not short and React.createElement("imagebutton", {
+		Name = "MobileRoadmapButton",
+		Size = UDim2.new(1, -(chipsW + playersW + eventW + 22), 1, 0),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Text = `LV {level}`,
-		TextColor3 = Palette.cream,
-		TextSize = 10,
-		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
 		ZIndex = 22,
 		Event = {
 			Activated = function()
@@ -14989,6 +14291,17 @@ local function MobileHeader(_param)
 				roadmap.openRoadmap()
 			end,
 		},
+	}), false and React.createElement("textlabel", { -- level chip retired with the level system
+		Name = "MobileLevelLabel",
+		Size = UDim2.fromOffset(64, 16),
+		Position = UDim2.fromOffset(8 + iconSize + 8, 24),
+		BackgroundColor3 = darken(accent, 0.55),
+		BorderSizePixel = 0,
+		Text = `LV {level}`,
+		TextColor3 = Palette.cream,
+		TextSize = 10,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+		ZIndex = 22,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("scrollingframe", {
@@ -15000,11 +14313,36 @@ local function MobileHeader(_param)
 		ScrollBarThickness = 2,
 		ScrollBarImageColor3 = accent,
 		Active = true,
-		Position = UDim2.new(1, -(playersW + 12), 0.5, 0),
+		Position = UDim2.new(1, -(playersW + eventW + 12), 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = 21,
-	}, chips), React.createElement("imagebutton", {
+	}, chips), eventDef ~= nil and React.createElement("imagebutton", {
+		Name = "MobileEventButton",
+		Size = UDim2.fromOffset(playersW, playersW),
+		Position = UDim2.new(1, -(playersW + 10), 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundColor3 = darken(eventAccent, 0.6),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		ZIndex = 22,
+		Event = {
+			Activated = events.openServerEventPanel,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 11),
+	}), React.createElement("uistroke", {
+		Color = eventAccent,
+		Thickness = 1.5,
+		Transparency = 0.2,
+	}), React.createElement(Icon, {
+		kind = eventDef.Icon,
+		color = Palette.cream,
+		accent = eventAccent,
+		size = math.floor(playersW * 0.62),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+	})), React.createElement("imagebutton", {
 		Name = "MobilePlayersButton",
 		Size = UDim2.fromOffset(playersW, playersW),
 		Position = UDim2.new(1, -4, 0.5, 0),
@@ -15353,7 +14691,16 @@ local function OfflineRewardsOverlay(_param)
 	local bigHaul = rate > 0 and rewardAmount >= rate * 3600
 	local rewardGlow = useGlowStroke(bigHaul, softMotion, 0.35, 0.15, 0.62, 1.6)
 	local cardWidth = math.min(if stack then math.max(280, viewport.width - chrome.sideSafe * 2 - 20) else 560, 560)
-	local cardHeight = math.min(if stack then 468 else 420, math.max(300, viewport.height - viewport.topInset - chrome.bottomSafe - 24))
+	-- The card is as tall as the layout it can show: stats, the explanation and stacked buttons
+	-- when there is room, otherwise stats and side-by-side buttons with nothing left empty.
+	local statsBottom = if stack then 240 else 242
+	local roomH = math.max(240, viewport.height - viewport.topInset - chrome.bottomSafe - 24)
+	local fullInner = statsBottom + 48 + TapTarget * 2 + 8
+	local shortInner = statsBottom + 14 + TapTarget
+	local cardHeight = if roomH >= fullInner + 28 then math.min(math.max(if stack then 468 else 420, fullInner + 28), roomH) else math.min(shortInner + 28, roomH)
+	local innerHeight = cardHeight - 28
+	local shortCard = innerHeight < fullInner
+	local tinyCard = shortCard and innerHeight < statsBottom + 10 + TapTarget
 	local finish = React.useCallback(function(bankVault)
 		if closing then
 			return nil
@@ -15519,8 +14866,9 @@ local function OfflineRewardsOverlay(_param)
 		Position = UDim2.fromOffset(0, if stack then 162 else 172),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Visible = not tinyCard,
 	}, _newValue)
-	local _exp_11 = React.createElement(Text, {
+	local _exp_11 = if shortCard then nil else React.createElement(Text, {
 		value = copy,
 		size = 11,
 		color = Palette.creamSoft,
@@ -15543,8 +14891,8 @@ local function OfflineRewardsOverlay(_param)
 		end
 		_attributes.color = Palette.mint
 		_attributes.textColor = Palette.ink
-		_attributes.size = UDim2.new(1, 0, 0, TapTarget)
-		_attributes.position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8))
+		_attributes.size = if shortCard then UDim2.new(0.5, -5, 0, TapTarget) else UDim2.new(1, 0, 0, TapTarget)
+		_attributes.position = if shortCard then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(0, 0, 1, -(TapTarget * 2 + 8))
 		_attributes.reducedMotion = reducedMotion
 		_attributes.disabled = closing
 		_attributes.highlight = true
@@ -15558,8 +14906,8 @@ local function OfflineRewardsOverlay(_param)
 			end,
 			color = Palette.mint,
 			textColor = Palette.ink,
-			size = UDim2.new(1, 0, 0, TapTarget),
-			position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8)),
+			size = if shortCard then UDim2.new(0.5, -5, 0, TapTarget) else UDim2.new(1, 0, 0, TapTarget),
+			position = if shortCard then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(0, 0, 1, -(TapTarget * 2 + 8)),
 			reducedMotion = reducedMotion,
 			disabled = closing,
 			highlight = true,
@@ -15613,8 +14961,8 @@ local function OfflineRewardsOverlay(_param)
 		end,
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
+		size = if shortCard then UDim2.new(0.5, -5, 0, TapTarget) else UDim2.new(1, 0, 0, TapTarget),
+		position = if shortCard then UDim2.new(0.5, 5, 1, -TapTarget) else UDim2.new(0, 0, 1, -TapTarget),
 		reducedMotion = reducedMotion,
 		disabled = closing,
 	})))))))
@@ -15654,6 +15002,7 @@ local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
 local useGuiSize = _ui.useGuiSize
 local pixelPosition = _ui.pixelPosition
+local Stroke = _ui.Stroke
 
 local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 local Model = SharedData("PlayerlistModel")
@@ -15763,14 +15112,24 @@ local function ActionButton(_param)
 	}))
 end
 
+-- Two groups of four: the things people do with each other (message, trade, visit, crew) as full
+-- buttons, then quieter, shorter buttons for wave, friend, block and report, with room between.
 local function playerActionLayout(width)
+	local PLAYER_ACTION_GAP, PLAYER_GROUP_GAP, PLAYER_SECONDARY_H = 10, 14, 40
 	local columns = if width < 440 then 2 else 4
-	local rows = math.ceil(4 / columns)
+	local groupRows = math.ceil(4 / columns)
+	local primaryHeight = groupRows * TapTarget + (groupRows - 1) * PLAYER_ACTION_GAP
+	local secondaryHeight = groupRows * PLAYER_SECONDARY_H + (groupRows - 1) * PLAYER_ACTION_GAP
 	return {
 		columns = columns,
-		rows = rows,
-		cellWidth = math.floor((math.max(0, width - 16) - (columns - 1) * 6) / columns),
-		height = rows * TapTarget + (rows - 1) * 6,
+		rows = groupRows * 2,
+		gap = PLAYER_ACTION_GAP,
+		cellWidth = math.floor((math.max(0, width - 16) - (columns - 1) * PLAYER_ACTION_GAP) / columns),
+		primaryHeight = primaryHeight,
+		secondaryHeight = secondaryHeight,
+		secondaryCellHeight = PLAYER_SECONDARY_H,
+		groupGap = PLAYER_GROUP_GAP,
+		height = primaryHeight + PLAYER_GROUP_GAP + secondaryHeight,
 	}
 end
 
@@ -15810,6 +15169,9 @@ local function PlayerRow(_param)
 	if row.IsLocal then
 		table.insert(tags, "YOU")
 	end
+	if _param.crewmate then
+		table.insert(tags, "CREW")
+	end
 	if friend then
 		table.insert(tags, "FRIEND")
 	end
@@ -15828,48 +15190,103 @@ local function PlayerRow(_param)
 	local actions = nil
 	if not row.IsLocal then
 		local actionLayout = playerActionLayout(width)
+		local function actionGroup(name, top, height, cellHeight, children)
+			return React.createElement("frame", {
+				Name = name,
+				Size = UDim2.new(1, 0, 0, height),
+				Position = UDim2.fromOffset(0, top),
+				BackgroundTransparency = 1,
+				ZIndex = 625,
+			}, React.createElement("uigridlayout", {
+				CellSize = UDim2.fromOffset(actionLayout.cellWidth, cellHeight),
+				FillDirectionMaxCells = actionLayout.columns,
+				CellPadding = UDim2.fromOffset(actionLayout.gap, actionLayout.gap),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}), children)
+		end
 		actions = React.createElement("frame", {
 			Name = "PlayerActions",
 			Size = UDim2.new(1, -16, 0, actionLayout.height),
 			Position = UDim2.fromOffset(8, 8 + 2 * 40 + 6 + 22),
 			BackgroundTransparency = 1,
 			ZIndex = 625,
-		}, React.createElement("uigridlayout", {
-			CellSize = UDim2.fromOffset(actionLayout.cellWidth, TapTarget),
-			FillDirectionMaxCells = actionLayout.columns,
-			CellPadding = UDim2.fromOffset(6, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), React.createElement(ActionButton, {
-			order = 1,
-			text = if friend then "UNFRIEND" else "ADD FRIEND",
-			icon = "Crew",
-			color = Palette.blue,
-			onClick = _param.onFriend,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 2,
-			text = "TRADE",
-			icon = "Send",
-			color = Palette.mint,
-			onClick = _param.onTrade,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 3,
-			text = if blocked then "UNBLOCK" else "BLOCK",
-			icon = "Close",
-			color = Palette.panelSoft,
-			textColor = Palette.creamSoft,
-			outline = true,
-			onClick = _param.onBlock,
-			reducedMotion = reducedMotion,
-		}), React.createElement(ActionButton, {
-			order = 4,
-			text = if reported then "REPORTED" else "REPORT",
-			icon = "Admin",
-			color = Palette.coral,
-			disabled = reported,
-			onClick = _param.onReport,
-			reducedMotion = reducedMotion,
+		}, actionGroup("Primary", 0, actionLayout.primaryHeight, TapTarget, {
+			Message = React.createElement(ActionButton, {
+				order = 1,
+				text = "MESSAGE",
+				icon = "Chat",
+				color = Palette.cyan,
+				disabled = blocked,
+				onClick = _param.onMessage,
+				reducedMotion = reducedMotion,
+			}),
+			Trade = React.createElement(ActionButton, {
+				order = 2,
+				text = "TRADE",
+				icon = "Send",
+				color = Palette.mint,
+				onClick = _param.onTrade,
+				reducedMotion = reducedMotion,
+			}),
+			Visit = React.createElement(ActionButton, {
+				order = 3,
+				text = "VISIT",
+				icon = "Visit",
+				color = Palette.violet,
+				onClick = _param.onVisit,
+				reducedMotion = reducedMotion,
+			}),
+			Crew = React.createElement(ActionButton, {
+				order = 4,
+				text = if _param.crewmate then "IN CREW" else "CREW",
+				icon = "Crew",
+				color = Palette.green,
+				disabled = _param.crewmate or blocked,
+				onClick = _param.onCrew,
+				reducedMotion = reducedMotion,
+			}),
+		}), actionGroup("Secondary", actionLayout.primaryHeight + actionLayout.groupGap, actionLayout.secondaryHeight, actionLayout.secondaryCellHeight, {
+			Wave = React.createElement(ActionButton, {
+				order = 1,
+				text = "WAVE",
+				icon = "Wave",
+				color = Palette.panelSoft,
+				textColor = Palette.cream,
+				outline = true,
+				onClick = _param.onWave,
+				reducedMotion = reducedMotion,
+			}),
+			Friend = React.createElement(ActionButton, {
+				order = 2,
+				text = if friend then "UNFRIEND" else "ADD FRIEND",
+				icon = "Crew",
+				color = Palette.panelSoft,
+				textColor = Palette.cream,
+				outline = true,
+				onClick = _param.onFriend,
+				reducedMotion = reducedMotion,
+			}),
+			Block = React.createElement(ActionButton, {
+				order = 3,
+				text = if blocked then "UNBLOCK" else "BLOCK",
+				icon = "Close",
+				color = Palette.panelSoft,
+				textColor = Palette.creamSoft,
+				outline = true,
+				onClick = _param.onBlock,
+				reducedMotion = reducedMotion,
+			}),
+			Report = React.createElement(ActionButton, {
+				order = 4,
+				text = if reported then "REPORTED" else "REPORT",
+				icon = "Admin",
+				color = Palette.panelSoft,
+				textColor = Palette.coral,
+				outline = true,
+				disabled = reported,
+				onClick = _param.onReport,
+				reducedMotion = reducedMotion,
+			}),
 		}))
 	end
 	local relics = if #row.EquippedItems > 0 then table.concat(row.EquippedItems, " · ") else "No relics equipped"
@@ -15922,6 +15339,9 @@ local function PlayerRow(_param)
 		transparency = 0.2,
 		reducedMotion = reducedMotion,
 		zIndex = 622,
+		-- a newly equipped or upgraded artifact pops on the player card
+		reaction = "equip",
+		reactionKey = `{artifact.Name}:{artifact.Level}`,
 	}), React.createElement(Avatar, {
 		userId = row.UserId,
 		accent = artifactColor or accent,
@@ -16056,9 +15476,29 @@ local function PlayerRow(_param)
 		fit = true,
 		minSize = 8,
 		position = UDim2.fromOffset(10, 8 + 2 * 40 + 8),
-		sizeConstraint = UDim2.new(1, -20, 0, 16),
+		sizeConstraint = UDim2.new(1, -150, 0, 16),
 		zIndex = 625,
-	}), actions))
+	}), React.createElement("textbutton", {
+		Size = UDim2.new(0, 120, 0, 20),
+		Position = UDim2.new(1, -128, 0, 8 + 2 * 40 + 6),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		Text = "INSPECT GEAR 🔍",
+		TextColor3 = Palette.cyan,
+		TextSize = 10,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		AutoButtonColor = false,
+		ZIndex = 626,
+		Event = {
+			Activated = function()
+				Audio:play("tick")
+				if _param.onInspect then
+					_param.onInspect(row)
+				end
+			end,
+		},
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 4) }),
+	React.createElement("uistroke", { Color = Palette.cyan, Thickness = 1, Transparency = 0.5 })), actions))
 end
 
 local function ReportSheet(_param)
@@ -16454,11 +15894,163 @@ local function ReportSheet(_param)
 	}, body))))
 end
 
+local function PlayerInventoryViewerModal(_param)
+	local p = _param.player
+	local onClose = _param.onClose
+	local viewport = useViewport()
+	local show = useFlipperSpring(1, _param.reducedMotion, 560, 36, 0)
+	local width = math.min(480, viewport.width - 24)
+	local height = math.min(540, viewport.height - 48)
+	local items = if type(p.DetailedInventory) == "table" and #p.DetailedInventory > 0 then p.DetailedInventory else {}
+	local relicRows = {}
+	for idx, item in items do
+		local rColor = if item.Rarity == "MYTHIC" then Palette.mango elseif item.Rarity == "LEGENDARY" then Palette.coral elseif item.Rarity == "EPIC" then Palette.violet elseif item.Rarity == "RARE" then Palette.cyan else Palette.muted
+		table.insert(relicRows, React.createElement("frame", {
+			key = item.Uid or idx,
+			Size = UDim2.new(1, 0, 0, 34),
+			BackgroundColor3 = Palette.panelSoft,
+			BorderSizePixel = 0,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 6) }),
+		React.createElement(Stroke, { color = rColor, thickness = 1, transparency = 0.6 }),
+		React.createElement(Text, {
+			value = item.Name or "Relic",
+			size = 13,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Bold,
+			position = UDim2.fromOffset(10, 8),
+			sizeConstraint = UDim2.new(1, -120, 0, 18),
+		}),
+		React.createElement(Text, {
+			value = `LV {item.Level or 1} · {item.Rarity or "COMMON"}{if item.Equipped then "  [EQUIPPED]" else ""}`,
+			size = 10,
+			color = if item.Equipped then Palette.mint else rColor,
+			weight = Enum.FontWeight.Heavy,
+			align = Enum.TextXAlignment.Right,
+			position = UDim2.new(1, -130, 0, 8),
+			sizeConstraint = UDim2.fromOffset(120, 18),
+		})))
+	end
+	return React.createElement("textbutton", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = show:map(function(v) return 1 - v * 0.65 end),
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 800,
+		Event = { Activated = onClose },
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(width, height),
+		Position = show:map(function(v) return UDim2.new(0.5, 0, 0.5, math.round((1 - v) * 28)) end),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.panelRaised,
+		BorderSizePixel = 0,
+		Active = true,
+		ClipsDescendants = true,
+		ZIndex = 801,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 16) }),
+	React.createElement(Stroke, { color = Palette.cyan, thickness = 1.5, transparency = 0.35 }),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 68),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 802,
+	}, React.createElement("uipadding", { PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16) }),
+	React.createElement(Avatar, { userId = p.UserId, accent = Palette.cyan, size = 48 }),
+	React.createElement(Text, {
+		value = p.DisplayName or p.Name or "Player",
+		size = 16,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(60, 4),
+		sizeConstraint = UDim2.new(1, -120, 0, 20),
+		zIndex = 803,
+	}),
+	React.createElement(Text, {
+		value = `LIVE MIRROR  ·  WORLD {p.CurrentZone or 1}  ·  {compactNumber(p.Rebirths or 0)} REBIRTHS  ·  {p.CurrentPage or "Dock"}`,
+		size = 11,
+		color = Palette.mint,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(60, 26),
+		sizeConstraint = UDim2.new(1, -120, 0, 16),
+		zIndex = 803,
+	}),
+	React.createElement("frame", {
+		Size = UDim2.fromOffset(36, 36),
+		Position = UDim2.new(1, -36, 0, 6),
+		BackgroundTransparency = 1,
+		ZIndex = 804,
+	}, React.createElement(Button, {
+		text = "",
+		icon = "Close",
+		onClick = onClose,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		zIndex = 805,
+	}))),
+	React.createElement("scrollingframe", {
+		Size = UDim2.new(1, -32, 1, -84),
+		Position = UDim2.fromOffset(16, 76),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.fromOffset(0, math.max(200, #relicRows * 38 + 140)),
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Palette.cyan,
+		ZIndex = 802,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+	p.Artifact ~= nil and React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 52),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 8) }),
+	React.createElement(Stroke, { color = Palette.violet, thickness = 1, transparency = 0.5 }),
+	React.createElement(Text, {
+		value = `EQUIPPED ARTIFACT: {string.upper(p.Artifact.Name)} (LV {p.Artifact.Level})`,
+		size = 13,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(10, 8),
+		sizeConstraint = UDim2.new(1, -20, 0, 18),
+	}),
+	React.createElement(Text, {
+		value = `Rarity: {p.Artifact.Rarity or "COMMON"}  ·  Element: {p.Artifact.Element or "Cosmic"}`,
+		size = 11,
+		color = Palette.violet,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(10, 28),
+		sizeConstraint = UDim2.new(1, -20, 0, 16),
+	})) or nil,
+	React.createElement(Text, {
+		value = `STORED RELICS & GEAR ({#relicRows})`,
+		size = 12,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Heavy,
+		layoutOrder = 2,
+		sizeConstraint = UDim2.new(1, 0, 0, 20),
+	}),
+	#relicRows == 0 and React.createElement(Text, {
+		value = "No unequipped relics currently stored in this player's vault.",
+		size = 12,
+		color = Palette.muted,
+		wrap = true,
+		layoutOrder = 3,
+		sizeConstraint = UDim2.new(1, 0, 0, 32),
+	}) or nil,
+	table.unpack(relicRows))))
+end
+
 local function PlayerlistOverlay(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local onClose = _param.onClose
+	local onMessage = _param.onMessage
 	local notify = _param.notify
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -16484,6 +16076,7 @@ local function PlayerlistOverlay(_param)
 	local friends, setFriends = React.useState({})
 	local blocked, setBlocked = React.useState({})
 	local reportTarget, setReportTarget = React.useState(nil)
+	local inspectedPlayer, setInspectedPlayer = React.useState(nil)
 	local inviteBusy, setInviteBusy = React.useState(false)
 	local awayTick, setAwayTick = React.useState(0)
 	local alive = React.useRef(true)
@@ -16717,6 +16310,13 @@ local function PlayerlistOverlay(_param)
 	local listH = math.max(80, height - listTop - 10)
 
 	local visible = Model.view(rows, sortId, query, friendsOnly, friends)
+	local crewState = require(script.Parent.CrewStore).useCrew()
+	local crewmates = {}
+	if crewState.crew then
+		for _, member in crewState.crew.Members do
+			crewmates[member.UserId] = true
+		end
+	end
 	local listChildren = {}
 	listChildren.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -16752,6 +16352,40 @@ local function PlayerlistOverlay(_param)
 			onBlock = function()
 				promptCore(if blocked[row.UserId] then "PromptUnblockPlayer" else "PromptBlockPlayer", row)
 			end,
+			onMessage = function()
+				if peerOf(row) == nil or onMessage == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				onMessage(row.UserId)
+			end,
+			onVisit = function()
+				if peerOf(row) == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				dispatch("VisitPlot", { UserId = row.UserId })
+				onClose()
+			end,
+			crewmate = crewmates[row.UserId] == true,
+			onCrew = function()
+				if peerOf(row) == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				dispatch("CrewInvite", { UserId = row.UserId }, function(response)
+					if type(response) == "table" and notify then
+						notify("Crew", if response.ok then (response.message or "Invite sent.") else (response.error or "Couldn't send that invite."))
+					end
+				end)
+			end,
+			onWave = function()
+				if peerOf(row) == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				dispatch("NudgeCrew", { UserId = row.UserId })
+			end,
 			onTrade = function()
 				if peerOf(row) == nil then
 					return nil
@@ -16763,6 +16397,9 @@ local function PlayerlistOverlay(_param)
 				Audio:play("dangerPress")
 				setReportTarget(row)
 			end,
+			onInspect = function()
+				setInspectedPlayer(row)
+			end,
 		})
 	end
 	if #visible <= 1 and (query ~= "" or friendsOnly) then
@@ -16772,6 +16409,18 @@ local function PlayerlistOverlay(_param)
 			color = Palette.muted,
 			align = Enum.TextXAlignment.Center,
 			sizeConstraint = UDim2.new(1, 0, 0, 36),
+			zIndex = 620,
+		})
+	elseif #rows <= 1 then
+		-- alone in the server: say so, and what bringing people in is worth
+		listChildren.empty = React.createElement(Text, {
+			value = "You're alone in this server. Invite friends for a production boost, trading, crews and forge visits.",
+			size = 12,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			wrap = true,
+			layoutOrder = 9999,
+			sizeConstraint = UDim2.new(1, -24, 0, 54),
 			zIndex = 620,
 		})
 	end
@@ -17017,6 +16666,12 @@ local function PlayerlistOverlay(_param)
 		onClose = function()
 			setReportTarget(nil)
 		end,
+	}), inspectedPlayer ~= nil and React.createElement(PlayerInventoryViewerModal, {
+		player = inspectedPlayer,
+		reducedMotion = reducedMotion,
+		onClose = function()
+			setInspectedPlayer(nil)
+		end,
 	}))))
 end
 return {
@@ -17056,38 +16711,23 @@ local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local PET_SIZE = 56
-local TYPE_RATE = 46
-local AUTO_ADVANCE_SECONDS = 1.1
-local SPARKS = 12
-local HEARTS = 5
-local TRAIL = 9
-local ZZZ = 3
-local SLEEP_AFTER = 14
-local pixelPosition = _ui.pixelPosition
-local useGuiSize = _ui.useGuiSize
+local CARD_W = 360
+local AUTO_ADVANCE_SECONDS = 0.9
+local MISSING_NOTE_AFTER = 2.5
+local WHITE_HOT = Color3.fromRGB(255, 244, 222)
 local function approach(current, goal, rate, dt)
 	return current + (goal - current) * (1 - math.exp(-rate * dt))
+end
+local function easeOut(t)
+	local u = 1 - math.clamp(t, 0, 1)
+	return 1 - u * u * u
 end
 local function blankFrame(width, height)
 	return {
 		spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
-		pet = {
-			x = width * 0.5, y = height * 0.6, tilt = 0, sx = 1, sy = 1, lookX = 0, lookY = 0, pupil = 7, blink = 0,
-			point = 90, reach = 0, poke = 0, wingA = 0, wingL = 0.7, mouth = 3, mouthW = 11, happy = 0, glow = 0,
-			tipX = 0, tipY = 0, shadow = 1, sleep = 0,
-		},
-		chars = 0,
-		sparks = {},
-		hearts = {},
-		trail = {},
-		zzz = 0,
-		dockY = height - 260,
-		dockTop = false,
-		bubbleX = 8,
-		bubbleY = 0,
-		bubbleAbove = true,
-		bubbleScale = 1,
+		card = { x = (width - CARD_W) / 2, y = height - 240 },
+		leader = nil,
+		missing = false,
 		t = 0,
 	}
 end
@@ -17140,6 +16780,22 @@ local function findTarget(name)
 	return nil
 end
 
+-- the task box's check, stamped in when the player does the thing
+local function StampedCheck(props)
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(20, 20),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 406,
+	}, React.createElement("uiscale", { Scale = props.scale }), React.createElement(Icon, {
+		kind = "Check",
+		color = Palette.ink,
+		size = 20,
+		spin = false,
+	}))
+end
+
 local function TutorialOverlay(_param)
 	local copy = _param.copy
 	local step = _param.step
@@ -17150,7 +16806,6 @@ local function TutorialOverlay(_param)
 	local onNext = _param.onNext
 	local onBack = _param.onBack
 	local onSkip = _param.onSkip
-	local onJump = _param.onJump
 	local viewport = useViewport()
 	local soft = React.useContext(_motion.MotionSettingsContext).soft == true
 	local live = if type(_param.live) == "table" then _param.live else {}
@@ -17196,11 +16851,6 @@ local function TutorialOverlay(_param)
 		Audio:play(if step == 1 then "modalOpen" else "tutorialStep")
 	end, { step })
 	React.useEffect(function()
-		if met and needsAction then
-			Audio:play("successChime")
-		end
-	end, { met, needsAction, step })
-	React.useEffect(function()
 		if not (met and needsAction and copy.auto) then
 			return nil
 		end
@@ -17244,47 +16894,24 @@ local function TutorialOverlay(_param)
 		end
 	end, {})
 
-	local sideInset = math.max(10, viewport.sideInset)
 	local phone = viewport.width < 720 or viewport.height < 560
-	local dockW = math.min(if phone then viewport.width - sideInset * 2 else 520, viewport.width - sideInset * 2)
-	local innerW = dockW - 28
+	local cardW = math.min(CARD_W, viewport.width - 24)
+	local innerW = cardW - 32
 	local hasCta = ctaLabel ~= nil and onCta ~= nil and needsAction and not met
 	local layoutRef = React.useRef({})
-	layoutRef.current = { dockW = dockW, top = viewport.topInset, bottom = viewport.bottomInset }
+	layoutRef.current = { cardW = cardW, top = viewport.topInset, bottom = viewport.bottomInset }
 
 	local rootRef = React.useRef(nil)
-	local rootSize = useGuiSize(rootRef, false)
 	local probeRef = React.useRef(nil)
 	local dockRef = React.useRef(nil)
 	local frame, setFrame = React.useBinding(blankFrame(viewport.width, viewport.height))
-	local sizedFrame = React.joinBindings({ frame, rootSize })
-	local petState = React.useRef(nil)
-	if petState.current == nil then
-		local sparks, hearts, trail = {}, {}, {}
-		for i = 1, SPARKS do
-			sparks[i] = { x = 0, y = 0, vx = 0, vy = 0, age = 1, life = 1 }
-		end
-		for i = 1, HEARTS do
-			hearts[i] = { x = 0, y = 0, vx = 0, vy = 0, age = 1, life = 1 }
-		end
-		for i = 1, TRAIL do
-			trail[i] = { x = -100, y = -100, age = 1, life = 1 }
-		end
-		petState.current = {
-			x = viewport.width * 0.5, y = viewport.height * 0.6, vx = 0, vy = 0,
+	local guide = React.useRef(nil)
+	if guide.current == nil then
+		guide.current = {
 			spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
-			target = nil, targetName = nil, lastSearch = 0,
-			nextBlink = 1.5, blinkAt = -10, doubleBlink = false,
-			chars = 0, lastTick = 0,
-			mouse = Vector2.new(-1000, -1000), mouseMovedAt = 0, nearPet = false,
-			spinAt = -10, celebrateAt = -10, hopAt = -10, clickTimes = {}, dizzyUntil = -10,
-			rub = 0, lastHeart = -10, lastPetQuip = -10, sleeping = false,
-			tipX = 0, tipY = 0, tipVX = 0, tipVY = 0,
-			wingPhase = 0, flapRate = 10, mouthH = 3, mouthW = 11, happy = 0, glow = 0, pupil = 7,
-			lookX = 0, lookY = 0, reach = 0, sleep = 0, tilt = 0, squash = 0, squashV = 0,
-			sparks = sparks, sparkNext = 1, hearts = hearts, heartNext = 1, trail = trail, trailNext = 1, trailAt = 0,
-			dockY = nil, bubblePopAt = 0,
-			t = 0,
+			card = nil,
+			target = nil, targetName = nil, lastSearch = 0, missingSince = 0,
+			stepAt = 0, stampAt = -10, t = 0,
 		}
 	end
 	React.useEffect(function()
@@ -17292,7 +16919,7 @@ local function TutorialOverlay(_param)
 		local function constrainSelection()
 			if redirecting or not UserInputService.GamepadEnabled then return end
 			local selected = GuiService.SelectedObject
-			local root, target = rootRef.current, petState.current.target
+			local root, target = rootRef.current, guide.current.target
 			if selected == nil or (root and selected:IsDescendantOf(root)) or (target and (selected == target or selected:IsDescendantOf(target))) then return end
 			redirecting = true
 			local assigned = target and GamepadNavigationService.AssignSelection(target)
@@ -17310,91 +16937,74 @@ local function TutorialOverlay(_param)
 		constrainSelection()
 		return function() connection:Disconnect() end
 	end, {})
-	local quip, setQuip = React.useState(nil)
-	local quipToken = React.useRef(0)
-	local sayQuip = React.useCallback(function(pool)
-		if type(pool) ~= "table" or #pool == 0 then
-			return
-		end
-		quipToken.current += 1
-		local token = quipToken.current
-		setQuip(pool[math.random(1, #pool)])
-		task.delay(2.8, function()
-			if quipToken.current == token then
-				setQuip(nil)
-			end
-		end)
-	end, {})
-	local say = quip or copy.say or copy.body
 	React.useEffect(function()
-		local st = petState.current
-		st.chars = 0
-		st.bubblePopAt = st.t
-	end, { say })
-	local burst = React.useCallback(function(amount, speedMin, speedMax)
-		local st = petState.current
-		for _ = 1, amount do
-			local spark = st.sparks[st.sparkNext]
-			st.sparkNext = st.sparkNext % SPARKS + 1
-			local angle = math.random() * math.pi * 2
-			local speed = speedMin + math.random() * (speedMax - speedMin)
-			spark.x, spark.y = 0, 0
-			spark.vx, spark.vy = math.cos(angle) * speed, math.sin(angle) * speed - 40
-			spark.age, spark.life = 0, 0.6 + math.random() * 0.35
-		end
-	end, {})
+		guide.current.stepAt = guide.current.t
+	end, { step })
+	-- doing the thing: the check stamps in and the target throws a burst
 	React.useEffect(function()
-		if met and needsAction then
-			local st = petState.current
-			st.celebrateAt = st.t
-			st.squashV += 5
-			burst(SPARKS, 90, 170)
+		if not (met and needsAction) then
+			return nil
 		end
+		local g = guide.current
+		g.stampAt = g.t
+		Audio:play("successChime")
+		local target = g.target
+		if target ~= nil and shown(target) and not reducedMotion then
+			pcall(function()
+				local Juice = require(script.Parent.JuiceFx)
+				Juice.burst(target.AbsolutePosition + target.AbsoluteSize / 2, Palette.mango, 1.1)
+			end)
+		end
+		return nil
 	end, { met, needsAction, step })
 
 	React.useEffect(function()
-		-- reused every frame so the pet loop does not allocate
 		local rectBuf = { x = 0, y = 0, w = 0, h = 0 }
-		local dockRect = { x = 0, y = 0, w = 0, h = 0 }
 		local connection = RunService.RenderStepped:Connect(function(rawDt)
 			local dt = math.min(rawDt, 1 / 20)
-			local st = petState.current
+			local g = guide.current
 			local root = rootRef.current
 			local probe = probeRef.current
 			if root == nil or probe == nil then
 				return
 			end
-			st.t += dt
-			local t = st.t
+			g.t += dt
+			local t = g.t
 			local k = math.max(0.01, probe.AbsoluteSize.X / 100)
 			local origin = root.AbsolutePosition
 			local screenW = root.AbsoluteSize.X / k
 			local screenH = root.AbsoluteSize.Y / k
-			local amp = if soft then 0.65 else 1
 			local layout = layoutRef.current
 
-			if st.targetName ~= copy.target then
-				st.targetName = copy.target
-				st.target = nil
-				st.lastSearch = 0
+			if g.targetName ~= copy.target then
+				g.targetName = copy.target
+				g.target = nil
+				g.lastSearch = 0
 			end
-			if (st.target == nil or not shown(st.target)) and t - st.lastSearch > 0.25 then
-				st.lastSearch = t
-				st.target = findTarget(copy.target)
+			if (g.target == nil or not shown(g.target)) and t - g.lastSearch > 0.25 then
+				g.lastSearch = t
+				g.target = findTarget(copy.target)
 			end
 			local rect = nil
-			if st.target ~= nil and shown(st.target) then
+			if g.target ~= nil and shown(g.target) then
 				local pad = 6
-				local p = (st.target.AbsolutePosition - origin) / k
-				local s = st.target.AbsoluteSize / k
+				local p = (g.target.AbsolutePosition - origin) / k
+				local s = g.target.AbsoluteSize / k
 				rectBuf.x, rectBuf.y, rectBuf.w, rectBuf.h = p.X - pad, p.Y - pad, s.X + pad * 2, s.Y + pad * 2
 				rect = rectBuf
 			end
-			local spot = st.spot
+			if copy.target ~= nil and rect == nil then
+				if g.missingSince <= 0 then
+					g.missingSince = t
+				end
+			else
+				g.missingSince = 0
+			end
+			local spot = g.spot
 			local ease = 1 - math.exp(-dt * 11)
 			if rect ~= nil then
 				if spot.a < 0.02 then
-					spot.x, spot.y, spot.w, spot.h = rect.x - 30, rect.y - 30, rect.w + 60, rect.h + 60
+					spot.x, spot.y, spot.w, spot.h = rect.x - 40, rect.y - 40, rect.w + 80, rect.h + 80
 				end
 				spot.x += (rect.x - spot.x) * ease
 				spot.y += (rect.y - spot.y) * ease
@@ -17404,286 +17014,33 @@ local function TutorialOverlay(_param)
 			else
 				spot.a += (0 - spot.a) * ease
 			end
-			local lit = if spot.a > 0.3 then rect else nil
+			local lit = if spot.a > 0.3 then spot else nil
 
 			local dock = dockRef.current
 			local cardH = if dock ~= nil and dock.AbsoluteSize.Y > 1 then dock.AbsoluteSize.Y / k else 220
-			local goalDockY, dockSide = TutorialScript.dockPlacement(lit, screenH, cardH, layout.top / k, layout.bottom / k)
-			st.dockY = if st.dockY == nil then goalDockY else approach(st.dockY, goalDockY, 10, dt)
-			dockRect.x, dockRect.y, dockRect.w, dockRect.h = (screenW - layout.dockW) / 2, st.dockY, layout.dockW, cardH
-
-			local mouseScreen = UserInputService:GetMouseLocation()
-			if st.screenGui == nil then
-				st.screenGui = root:FindFirstAncestorOfClass("ScreenGui")
+			local goalX, goalY, side = TutorialScript.calloutPlacement(lit, screenW, screenH, layout.cardW, cardH, layout.top / k, layout.bottom / k)
+			if g.card == nil then
+				g.card = { x = goalX, y = goalY }
 			end
-			local screenGui = st.screenGui
-			local inset = if screenGui ~= nil and screenGui.IgnoreGuiInset then Vector2.zero else GuiService:GetGuiInset()
-			local mouse = (mouseScreen - inset - origin) / k
-			local moved = (mouse - st.mouse).Magnitude
-			local mouseDistance = (Vector2.new(st.x, st.y) - mouse).Magnitude
-			local hovering = mouseDistance < PET_SIZE * 0.6
-			if moved > 2 then
-				local speed = moved / math.max(dt, 1e-3)
-				st.mouse = mouse
-				if st.sleeping then
-					st.sleeping = false
-					st.vy -= 200
-					st.squashV -= 5
-					Audio:play("modalPop")
-					sayQuip(TutorialScript.QUIPS.wake)
-				end
-				st.mouseMovedAt = t
-				if speed > 2400 and mouseDistance < 90 and t - st.hopAt > 0.8 then
-					st.hopAt = t
-					st.vy -= 260
-					st.squashV -= 4
-					Audio:play("hoverTick")
-				end
-				if hovering then
-					st.rub += moved
-				end
-			end
-			st.rub *= math.exp(-dt * 1.4)
-			if st.rub > 240 and t - st.lastHeart > 0.32 then
-				st.lastHeart = t
-				st.rub = 110
-				local heart = st.hearts[st.heartNext]
-				st.heartNext = st.heartNext % HEARTS + 1
-				heart.x, heart.y = (math.random() - 0.5) * 24, -PET_SIZE * 0.35
-				heart.vx, heart.vy = (math.random() - 0.5) * 30, -70 - math.random() * 30
-				heart.age, heart.life = 0, 1.1
-				st.happy = 1
-				Audio:play("hoverTick")
-				if t - st.lastPetQuip > 5 then
-					st.lastPetQuip = t
-					sayQuip(TutorialScript.QUIPS.pet)
-				end
-			end
-			if hovering and not st.nearPet then
-				Audio:play("hoverTick")
-				st.squashV += 2.5
-			end
-			st.nearPet = hovering
-
-			local total = utf8.len(say) or #say
-			if st.chars < total then
-				local before = math.floor(st.chars)
-				st.chars = math.min(total, st.chars + dt * TYPE_RATE)
-				if math.floor(st.chars) // 5 > before // 5 and t - st.lastTick > 0.07 then
-					st.lastTick = t
-					Audio:play("tick")
-				end
-			end
-			local talking = st.chars < total
-			if not talking and not st.sleeping and t - st.mouseMovedAt > SLEEP_AFTER and t - st.celebrateAt > 3 then
-				st.sleeping = true
-			end
-			st.sleep = approach(st.sleep, if st.sleeping then 1 else 0, if st.sleeping then 1.6 else 9, dt)
-			local dizzy = t < st.dizzyUntil
-
-			local goalX, goalY, pointAngle = TutorialScript.petPose(lit, screenW, screenH, PET_SIZE, dockRect)
-			if mouseDistance < 140 and mouseDistance > 1 and not st.sleeping then
-				local away = (Vector2.new(st.x, st.y) - mouse).Unit
-				local push = (1 - mouseDistance / 140) * 22 * amp
-				goalX += away.X * push
-				goalY += away.Y * push
-			end
-			goalY += st.sleep * 10
-			local steps = math.max(1, math.ceil(dt / (1 / 120)))
-			local h = dt / steps
-			for _ = 1, steps do
-				st.vx += ((goalX - st.x) * 55 - st.vx * 11.5) * h
-				st.vy += ((goalY - st.y) * 55 - st.vy * 11.5) * h
-				st.x += st.vx * h
-				st.y += st.vy * h
-				st.squashV += (-st.squash * 380 - st.squashV * 13) * h
-				st.squash += st.squashV * h
-				st.tipVX += ((-st.vx * 0.02 - st.tipX) * 120 - st.tipVX * 10) * h
-				st.tipVY += ((-st.vy * 0.02 - st.tipY) * 120 - st.tipVY * 10) * h
-				st.tipX += st.tipVX * h
-				st.tipY += st.tipVY * h
-			end
-			local speed = math.sqrt(st.vx * st.vx + st.vy * st.vy)
-			local breathe = 1 - st.sleep * 0.6
-			local bob = (math.sin(t * 2.3) * 5 + math.sin(t * 3.7) * 1.5) * amp * breathe
-
-			local flapGoal = (9 + math.clamp(speed / 110, 0, 9) + (if t - st.celebrateAt < 1.2 then 6 else 0)) * (1 - st.sleep * 0.7)
-			st.flapRate = approach(st.flapRate, flapGoal, 4, dt)
-			st.wingPhase += dt * st.flapRate
-			local wingA = math.sin(st.wingPhase) * 30 * amp
-			local wingL = 0.7 + math.sin(st.wingPhase + 0.9) * 0.12
-
-			if t >= st.nextBlink then
-				st.blinkAt = t
-				st.doubleBlink = math.random() < 0.22
-				st.nextBlink = t + 2 + math.random() * 3
-			end
-			local since = t - st.blinkAt
-			local blink = 0
-			if since < 0.16 then
-				blink = math.sin(since / 0.16 * math.pi)
-			elseif st.doubleBlink and since > 0.22 and since < 0.38 then
-				blink = math.sin((since - 0.22) / 0.16 * math.pi)
-			end
-			blink = math.max(blink, st.sleep * 0.88)
-
-			local lookAt = if t - st.mouseMovedAt < 1.6 then mouse elseif rect ~= nil then Vector2.new(rect.x + rect.w / 2, rect.y + rect.h / 2) else Vector2.new(st.x, st.y + 40)
-			local look = lookAt - Vector2.new(st.x, st.y + bob)
-			local lookUnit = if look.Magnitude > 1 then look.Unit * math.min(1, look.Magnitude / 60) else Vector2.zero
-			local lookGoalX = if dizzy then math.cos(t * 9) * 3 else lookUnit.X * 3.2
-			local lookGoalY = if dizzy then math.sin(t * 9) * 3 else lookUnit.Y * 3.2
-			st.lookX = approach(st.lookX, lookGoalX, if dizzy then 40 else 16, dt)
-			st.lookY = approach(st.lookY, lookGoalY, if dizzy then 40 else 16, dt)
-			st.pupil = approach(st.pupil, if hovering then 8.5 elseif dizzy then 5.5 else 7, 12, dt)
-
-			local celebrate = t - st.celebrateAt
-			local happyGoal = if hovering or celebrate < 1.6 or met or st.rub > 60 then 1 else 0
-			st.happy = approach(st.happy, happyGoal, 6, dt)
-			st.glow = approach(st.glow, if hovering then 1 else 0, 10, dt)
-			local mouthGoal = if talking then 3.5 + 3.2 * (0.5 + 0.5 * math.sin(t * 17)) * (0.6 + 0.4 * math.sin(t * 5.3))
-				elseif st.sleeping then 3
-				elseif dizzy then 4
-				elseif st.happy > 0.5 then 6
-				else 3
-			st.mouthH = approach(st.mouthH, mouthGoal, 22, dt)
-			st.mouthW = approach(st.mouthW, if st.happy > 0.5 and not talking then 16 elseif st.sleeping then 6 else 11, 14, dt)
-
-			-- audit-ignore: per-frame (setFrame needs fresh tables each frame or React skips the render)
-			local sparkOut = {}
-			for i, spark in st.sparks do
-				if spark.age < spark.life then
-					spark.age += dt
-					spark.vy += 260 * dt
-					spark.vx *= math.exp(-dt * 1.2)
-					spark.x += spark.vx * dt
-					spark.y += spark.vy * dt
-					sparkOut[i] = { x = spark.x, y = spark.y, a = spark.age / spark.life }
-				end
-			end
-			local heartOut = {}
-			for i, heart in st.hearts do
-				if heart.age < heart.life then
-					heart.age += dt
-					heart.x += (heart.vx + math.sin(heart.age * 9 + i) * 24) * dt
-					heart.y += heart.vy * dt
-					heartOut[i] = { x = heart.x, y = heart.y, a = heart.age / heart.life }
-				end
-			end
-			if speed > 240 and t - st.trailAt > 0.035 then
-				st.trailAt = t
-				local mote = st.trail[st.trailNext]
-				st.trailNext = st.trailNext % TRAIL + 1
-				mote.x, mote.y, mote.age, mote.life = st.x, st.y + bob, 0, 0.42
-			end
-			local trailOut = {}
-			for i, mote in st.trail do
-				if mote.age < mote.life then
-					mote.age += dt
-					trailOut[i] = { x = mote.x, y = mote.y, a = mote.age / mote.life }
-				end
-			end
-
-			local spinAge = t - st.spinAt
-			local spin = 0
-			if spinAge < 0.6 then
-				local s = spinAge / 0.6
-				spin = 360 * (1 + 2.2 * (s - 1) ^ 3 + 1.2 * (s - 1) ^ 2)
-			end
-			local tiltGoal = math.clamp(st.vx * 0.05, -18, 18) * amp + (if dizzy then math.sin(t * 7) * 14 * amp else 0) + st.sleep * 12
-			st.tilt = approach(st.tilt, tiltGoal, 12, dt)
-			local hop = if celebrate < 0.5 then math.sin(celebrate / 0.5 * math.pi) * 18 * amp else 0
-			local stretch = math.clamp(math.abs(st.vy) / 900, 0, 0.1) * amp
-			local squash = st.squash * amp
-			local breath = math.sin(t * 2.1) * 0.02 * breathe
-
-			st.reach = approach(st.reach, if lit ~= nil and not st.sleeping then 1 else 0, 9, dt)
-
-			local bubbleW = math.min(250, screenW - 16)
-			local bubbleH = 64
-			local petY = st.y + bob - hop
-			local aboveY = petY - PET_SIZE / 2 - 12 - bubbleH
-			local belowY = petY + PET_SIZE / 2 + 12
-			local function hitsCard(y)
-				return y < dockRect.y + dockRect.h and y + bubbleH > dockRect.y
-			end
-			local above = aboveY > 8 and not hitsCard(aboveY)
-			if not above and (belowY + bubbleH > screenH - 8 or hitsCard(belowY)) and aboveY > 8 then
-				above = true
-			end
-			local popAge = t - st.bubblePopAt
-			local bubbleScale = if popAge < 0.35 then 1 + 2.4 * ((popAge / 0.35) - 1) ^ 3 + 1.4 * ((popAge / 0.35) - 1) ^ 2 else 1
-
+			g.card.x = approach(g.card.x, goalX, 12, dt)
+			g.card.y = approach(g.card.y, goalY, 12, dt)
+			local x1, y1, x2, y2 = TutorialScript.leader(lit, side, g.card.x, g.card.y, layout.cardW, cardH)
 			setFrame({
 				spot = { x = spot.x, y = spot.y, w = spot.w, h = spot.h, a = spot.a },
-				pet = {
-					x = st.x,
-					y = petY,
-					tilt = st.tilt + spin,
-					sx = 1 + squash - stretch * 0.5 - breath * 0.5,
-					sy = 1 - squash + stretch + breath,
-					lookX = st.lookX,
-					lookY = st.lookY,
-					pupil = st.pupil,
-					blink = blink,
-					point = pointAngle,
-					reach = st.reach,
-					poke = (math.sin(t * 6) + 1) * 0.5,
-					wingA = wingA,
-					wingL = wingL,
-					mouth = st.mouthH,
-					mouthW = st.mouthW,
-					happy = st.happy,
-					glow = st.glow,
-					tipX = st.tipX,
-					tipY = st.tipY,
-					shadow = 1 - (bob + hop) * 0.012,
-					sleep = st.sleep,
-				},
-				chars = math.floor(st.chars),
-				sparks = sparkOut,
-				hearts = heartOut,
-				trail = trailOut,
-				zzz = st.sleep,
-				dockY = st.dockY,
-				dockTop = dockSide == "top",
-				bubbleX = math.clamp(st.x - bubbleW / 2, 8, math.max(8, screenW - bubbleW - 8)),
-				bubbleY = if above then petY - PET_SIZE / 2 - 12 else belowY,
-				bubbleAbove = above,
-				bubbleScale = math.max(0.01, bubbleScale),
+				card = { x = g.card.x, y = g.card.y },
+				leader = if x1 ~= nil then { x1 = x1, y1 = y1, x2 = x2, y2 = y2 } else nil,
+				missing = g.missingSince > 0 and t - g.missingSince > MISSING_NOTE_AFTER,
 				t = t,
+				stepAge = t - g.stepAt,
+				stampAge = t - g.stampAt,
 			})
 		end)
 		return function()
 			connection:Disconnect()
 		end
-	end, { copy, say, met, soft, sayQuip })
+	end, { copy })
 
-	local onPetClick = function()
-		local st = petState.current
-		local now = st.t
-		table.insert(st.clickTimes, now)
-		while #st.clickTimes > 0 and now - st.clickTimes[1] > 1.2 do
-			table.remove(st.clickTimes, 1)
-		end
-		st.squashV += 6
-		st.sleeping = false
-		st.mouseMovedAt = now
-		burst(5, 60, 110)
-		if #st.clickTimes >= 3 then
-			st.clickTimes = {}
-			st.dizzyUntil = now + 1.8
-			st.spinAt = now
-			Audio:play("locked")
-			sayQuip(TutorialScript.QUIPS.dizzy)
-			return
-		end
-		st.spinAt = now
-		Audio:play("modalPop")
-		sayQuip(if met then TutorialScript.QUIPS.done else TutorialScript.QUIPS.idle)
-	end
-
-	local dimColor = Palette.void
-	local dimAlpha = 1
+	-- the dim around the target (blocks taps outside it, never takes gamepad focus)
 	local function dim(key, sizeFn, posFn)
 		return React.createElement("textbutton", {
 			key = key,
@@ -17692,14 +17049,42 @@ local function TutorialOverlay(_param)
 			Selectable = false,
 			Size = frame:map(sizeFn),
 			Position = frame:map(posFn),
-			BackgroundColor3 = dimColor,
-			BackgroundTransparency = React.joinBindings({ frame, reveal }):map(function(values)
-				return 1 - math.clamp(values[2], 0, 1) * dimAlpha
+			BackgroundColor3 = Palette.void,
+			BackgroundTransparency = reveal:map(function(amount)
+				return 1 - math.clamp(amount, 0, 1) * 0.74
 			end),
 			BorderSizePixel = 0,
 			Active = true,
 			ZIndex = 380,
 		})
+	end
+	-- registration marks on the target's corners, breathing in and out
+	local corners = {}
+	for index, corner in { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } } do
+		local cx, cy = corner[1], corner[2]
+		local function at(f)
+			local breathe = 5 + math.sin(f.t * 3.4) * 2
+			local x = f.spot.x + cx * f.spot.w + (if cx == 0 then -breathe else breathe)
+			local y = f.spot.y + cy * f.spot.h + (if cy == 0 then -breathe else breathe)
+			return x, y
+		end
+		for arm = 1, 2 do
+			local horizontal = arm == 1
+			corners[`c{index}{arm}`] = React.createElement("frame", {
+				Size = UDim2.fromOffset(if horizontal then 16 else 3, if horizontal then 3 else 16),
+				Position = frame:map(function(f)
+					local x, y = at(f)
+					return UDim2.fromOffset(x, y)
+				end),
+				AnchorPoint = Vector2.new(if horizontal then cx else (if cx == 0 then 0 else 1), if horizontal then (if cy == 0 then 0 else 1) else cy),
+				BackgroundColor3 = WHITE_HOT,
+				BackgroundTransparency = frame:map(function(f)
+					return 1 - math.clamp(f.spot.a, 0, 1)
+				end),
+				BorderSizePixel = 0,
+				ZIndex = 383,
+			})
+		end
 	end
 	local spotlight = React.createElement(React.Fragment, nil, dim("top", function(f)
 		return UDim2.new(1, 0, 0, math.max(0, f.spot.y))
@@ -17718,14 +17103,13 @@ local function TutorialOverlay(_param)
 	end, function(f)
 		return UDim2.fromOffset(f.spot.x + f.spot.w, f.spot.y)
 	end), React.createElement("frame", {
-		key = "ring",
+		-- a fuse of heat running round the outline
+		key = "fuse",
 		Size = frame:map(function(f)
-			local grow = 3 + math.sin(f.t * 3.2) * 3
-			return UDim2.fromOffset(f.spot.w + grow * 2, f.spot.h + grow * 2)
+			return UDim2.fromOffset(f.spot.w, f.spot.h)
 		end),
 		Position = frame:map(function(f)
-			local grow = 3 + math.sin(f.t * 3.2) * 3
-			return UDim2.fromOffset(f.spot.x - grow, f.spot.y - grow)
+			return UDim2.fromOffset(f.spot.x, f.spot.y)
 		end),
 		BackgroundTransparency = 1,
 		Active = false,
@@ -17734,343 +17118,274 @@ local function TutorialOverlay(_param)
 		end),
 		ZIndex = 381,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(0, 10),
 	}), React.createElement("uistroke", {
-		Color = Palette.mango,
-		Thickness = 2.5,
+		Color = Palette.white,
+		Thickness = 2,
 		Transparency = frame:map(function(f)
-			return 1 - math.clamp(f.spot.a, 0, 1) * (0.55 + 0.45 * (math.sin(f.t * 3.2) + 1) * 0.5)
+			return 1 - math.clamp(f.spot.a, 0, 1)
 		end),
 	}, React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.mango, Palette.cream),
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.ember),
+			ColorSequenceKeypoint.new(0.44, Palette.mango),
+			ColorSequenceKeypoint.new(0.5, WHITE_HOT),
+			ColorSequenceKeypoint.new(0.56, Palette.mango),
+			ColorSequenceKeypoint.new(1, Palette.ember),
+		}),
 		Rotation = frame:map(function(f)
-			return (f.t * 90) % 360
+			return (f.t * (if reducedMotion or soft then 60 else 150)) % 360
 		end),
-	}))))
+	}))), React.createElement(React.Fragment, nil, corners))
 
-	local petColor = Palette.mango
-	local petShade = Palette.ember
-	local petLine = Color3.fromRGB(74, 36, 18)
-	local function outline(thickness)
-		return React.createElement("uistroke", {
-			Color = petLine,
-			Thickness = thickness or 2,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		})
+	-- the leader line from the card to the target, with a beat travelling along it
+	local function leaderValue(f, fallback, fn)
+		local l = f.leader
+		if l == nil then
+			return fallback
+		end
+		return fn(l, l.x2 - l.x1, l.y2 - l.y1)
 	end
-	local function poolLabels(prefix, n, getList, build)
-		local out = {}
-		for i = 1, n do
-			out[prefix .. i] = build(i, function(f)
-				return getList(f)[i]
+	local leader = React.createElement(React.Fragment, nil, React.createElement("frame", {
+		key = "line",
+		Size = frame:map(function(f)
+			return leaderValue(f, UDim2.new(), function(_, dx, dy)
+				return UDim2.fromOffset(math.sqrt(dx * dx + dy * dy), 2)
 			end)
-		end
-		return out
-	end
-	local sparkEls = poolLabels("s", SPARKS, function(f)
-		return f.sparks
-	end, function(i, get)
-		return React.createElement("frame", {
-			Size = frame:map(function(f)
-				local spark = get(f)
-				local size = if spark == nil then 0 else 7 * (1 - spark.a * 0.6)
-				return UDim2.fromScale(size / PET_SIZE, size / PET_SIZE)
-			end),
-			Position = frame:map(function(f)
-				local spark = get(f)
-				return if spark == nil then UDim2.fromOffset(-50, -50) else UDim2.fromScale(0.5 + spark.x / PET_SIZE, 0.5 + spark.y / PET_SIZE)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = 45,
-			BackgroundColor3 = if i % 3 == 0 then Palette.mango elseif i % 3 == 1 then Palette.cream else Palette.ember,
-			BackgroundTransparency = frame:map(function(f)
-				local spark = get(f)
-				return if spark == nil then 1 else spark.a ^ 1.6
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 418,
-		})
-	end)
-	local heartEls = poolLabels("h", HEARTS, function(f)
-		return f.hearts
-	end, function(_i, get)
-		return React.createElement("textlabel", {
-			Size = UDim2.fromOffset(18, 18),
-			Position = frame:map(function(f)
-				local heart = get(f)
-				return if heart == nil then UDim2.fromOffset(-50, -50) else UDim2.fromScale(0.5 + heart.x / PET_SIZE, 0.5 + heart.y / PET_SIZE)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Text = "♥",
-			TextColor3 = Palette.pink,
-			TextSize = frame:map(function(f)
-				local heart = get(f)
-				return if heart == nil then 1 else 12 + 8 * math.min(1, heart.a * 4)
-			end),
-			TextTransparency = frame:map(function(f)
-				local heart = get(f)
-				return if heart == nil then 1 else heart.a ^ 2
-			end),
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-			ZIndex = 418,
-		})
-	end)
-	local zzzEls = {}
-	for i = 1, ZZZ do
-		zzzEls["z" .. i] = React.createElement("textlabel", {
-			Size = UDim2.fromOffset(16, 16),
-			Position = frame:map(function(f)
-				local phase = (f.t * 0.45 + i / ZZZ) % 1
-				return UDim2.fromScale(0.82 + (phase * 18 + math.sin(phase * 6 + i) * 4) / PET_SIZE, 0.08 - phase * 34 / PET_SIZE)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Text = "z",
-			TextColor3 = Palette.creamSoft,
-			TextSize = frame:map(function(f)
-				local phase = (f.t * 0.45 + i / ZZZ) % 1
-				return 10 + phase * 8
-			end),
-			TextTransparency = frame:map(function(f)
-				local phase = (f.t * 0.45 + i / ZZZ) % 1
-				return 1 - f.zzz * math.sin(phase * math.pi)
-			end),
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-			ZIndex = 418,
-		})
-	end
-	local effectEls = {}
-	for _, pool in { sparkEls, heartEls, zzzEls } do
-		for key, element in pool do
-			effectEls[key] = element
-		end
-	end
-	local trailEls = {}
-	for i = 1, TRAIL do
-		trailEls["t" .. i] = React.createElement("frame", {
-			Size = sizedFrame:map(function(values)
-				local mote = values[1].trail[i]
-				local size = if mote == nil then 0 else 7 * (1 - mote.a)
-				return pixelPosition(values[2], 0, size, 0, size)
-			end),
-			Position = sizedFrame:map(function(values)
-				local mote = values[1].trail[i]
-				return if mote == nil then UDim2.fromOffset(-100, -100) else pixelPosition(values[2], 0, mote.x, 0, mote.y + PET_SIZE * 0.2)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = if i % 2 == 0 then petColor else petShade,
-			BackgroundTransparency = frame:map(function(f)
-				local mote = f.trail[i]
-				return if mote == nil then 1 else 0.15 + mote.a * 0.85
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 403,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}))
-	end
-	local pet = React.createElement("frame", {
-		Name = "Bolt",
-		Size = UDim2.fromOffset(PET_SIZE, PET_SIZE),
-		Position = sizedFrame:map(function(values)
-			return pixelPosition(values[2], 0, values[1].pet.x, 0, values[1].pet.y)
 		end),
-		AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 405,
-	}, React.createElement("frame", {
-		Size = frame:map(function(f) return UDim2.fromScale(0.7 * f.pet.shadow, 0.12 * f.pet.shadow) end),
-		Position = UDim2.new(0.5, 0, 0.5, PET_SIZE * 0.7), AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.void, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 406,
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
-	React.createElement("frame", {
-		Name = "BoltPointer",
-		Size = frame:map(function(f) return UDim2.fromScale((PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach / PET_SIZE, 5 / PET_SIZE) end),
 		Position = frame:map(function(f)
-			local length = (PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach
-			local angle = math.rad(f.pet.point)
-			return UDim2.fromScale(0.5 + math.cos(angle) * length / (2 * PET_SIZE), 0.5 + math.sin(angle) * length / (2 * PET_SIZE))
+			return leaderValue(f, UDim2.new(), function(l)
+				return UDim2.fromOffset((l.x1 + l.x2) / 2, (l.y1 + l.y2) / 2)
+			end)
+		end),
+		Rotation = frame:map(function(f)
+			return leaderValue(f, 0, function(_, dx, dy)
+				return math.deg(math.atan2(dy, dx))
+			end)
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = frame:map(function(f) return f.pet.point end),
-		BackgroundColor3 = petColor, BorderSizePixel = 0, ZIndex = 410,
-		Visible = frame:map(function(f) return f.pet.reach > 0.03 end),
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), outline(1.5)),
-	React.createElement("textbutton", {
-		Name = "BoltTouchTarget", Text = "", BackgroundTransparency = 1, AutoButtonColor = false, BorderSizePixel = 0,
-		Size = frame:map(function(f) return UDim2.fromScale(f.pet.sx, f.pet.sy) end),
-		Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = frame:map(function(f) return f.pet.tilt end), ZIndex = 412,
-		Event = { Activated = onPetClick },
-	}, React.createElement("imagelabel", {
-		Name = "BoltSprite", Image = "rbxassetid://70681368255210", ImageRectSize = Vector2.new(128, 128),
-		ImageRectOffset = frame:map(function(f)
-			local phase = if reducedMotion or soft then 0 else math.floor(f.t * 8) % 4
-			local index = if f.pet.sleep > 0.5 then 6 + phase % 2 elseif f.pet.blink > 0.5 then 4 + phase % 2 elseif f.pet.happy > 0.4 then 8 + phase else phase
-			return Vector2.new((index % 4) * 128, math.floor(index / 4) * 128)
+		BackgroundColor3 = Palette.mango,
+		BackgroundTransparency = React.joinBindings({ frame, reveal }):map(function(values)
+			return if values[1].leader == nil then 1 else 1 - math.clamp(values[1].spot.a, 0, 1) * math.clamp(values[2], 0, 1) * 0.85
 		end),
-		Size = UDim2.fromScale(2, 2), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.625),
-		BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 413,
-	})), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 417,
-	}, effectEls))
-
-	local bubbleW = math.min(250, viewport.width - 24)
-	local bubble = React.createElement("frame", {
-		Size = UDim2.fromOffset(bubbleW, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		Position = sizedFrame:map(function(values)
-			return pixelPosition(values[2], 0, values[1].bubbleX, 0, values[1].bubbleY)
-		end),
-		AnchorPoint = frame:map(function(f)
-			return Vector2.new(0, if f.bubbleAbove then 1 else 0)
-		end),
-		BackgroundColor3 = Palette.cream,
 		BorderSizePixel = 0,
-		ZIndex = 420,
-	}, React.createElement("uiscale", {
-		Scale = frame:map(function(f)
-			return f.bubbleScale
+		ZIndex = 384,
+	}), React.createElement("frame", {
+		key = "beat",
+		Size = UDim2.fromOffset(6, 6),
+		Position = frame:map(function(f)
+			return leaderValue(f, UDim2.fromOffset(-20, -20), function(l)
+				local p = (f.t * 0.9) % 1
+				return UDim2.fromOffset(l.x1 + (l.x2 - l.x1) * p, l.y1 + (l.y2 - l.y1) * p)
+			end)
 		end),
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement("uistroke", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = WHITE_HOT,
+		BackgroundTransparency = frame:map(function(f)
+			return if f.leader == nil or reducedMotion then 1 else 1 - math.clamp(f.spot.a, 0, 1)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 385,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })), React.createElement("frame", {
+		key = "pin",
+		Size = frame:map(function(f)
+			local d = 9 + math.sin(f.t * 5) * 2
+			return UDim2.fromOffset(d, d)
+		end),
+		Position = frame:map(function(f)
+			return leaderValue(f, UDim2.fromOffset(-20, -20), function(l)
+				return UDim2.fromOffset(l.x2, l.y2)
+			end)
+		end),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = WHITE_HOT,
+		BackgroundTransparency = frame:map(function(f)
+			return if f.leader == nil then 1 else 1 - math.clamp(f.spot.a, 0, 1)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 385,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), React.createElement("uistroke", {
 		Color = Palette.mango,
-		Thickness = 1.5,
-		Transparency = 0.45,
-	}), React.createElement("uipadding", {
-		PaddingTop = UDim.new(0, 8),
-		PaddingBottom = UDim.new(0, 8),
-		PaddingLeft = UDim.new(0, 10),
-		PaddingRight = UDim.new(0, 10),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		Text = say,
-		MaxVisibleGraphemes = frame:map(function(f)
-			return f.chars
-		end),
-		TextColor3 = Palette.ink,
-		TextSize = 14,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		ZIndex = 421,
-	}))
+		Thickness = 2,
+	})))
 
-	local dots = {}
-	dots.layout = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 4),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-	})
+	-- the card
+	local segments = {}
 	for n = 1, count do
-		dots["d" .. n] = React.createElement("textbutton", {
-			Size = UDim2.new(1 / count, -4, 0, if n == step then 8 else 5),
-			LayoutOrder = n,
-			BackgroundColor3 = if n < step or (n == step and met and needsAction) then Palette.mint elseif n == step then Palette.mango else Palette.lineSoft,
+		segments["s" .. n] = React.createElement("frame", {
+			Size = UDim2.new(1 / count, -3, 1, 0),
+			Position = UDim2.new((n - 1) / count, 0, 0, 0),
+			BackgroundColor3 = if n < step or (n == step and met and needsAction) then Palette.mango elseif n == step then WHITE_HOT else Palette.lineSoft,
+			BackgroundTransparency = if n == step then frame:map(function(f)
+				return 0.15 + (math.sin(f.t * 4) + 1) * 0.2
+			end) else 0,
 			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
 			ZIndex = 403,
-			Event = {
-				Activated = function()
-					if n ~= step and not exiting then
-						onJump(n)
-					end
-				end,
-			},
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}))
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))
 	end
-	local primary
-	if met or not needsAction then
-		primary = {
-			text = if step >= count then "FINISH" elseif met and needsAction then "NICE! CONTINUE" else "CONTINUE",
-			icon = if step >= count then "Check" else nil,
-			color = Palette.mint,
-			textColor = Palette.ink,
-			highlight = true,
-			onClick = requestNext,
-		}
-	elseif hasCta then
-		primary = {
-			text = string.upper(ctaLabel),
-			icon = "Play",
-			color = Palette.mango,
-			textColor = Palette.ink,
-			highlight = true,
-			onClick = onCta,
-		}
-	else
-		primary = {
-			text = "DO IT TO CONTINUE",
-			icon = nil,
-			color = Palette.panelSoft,
-			textColor = Palette.muted,
-			highlight = false,
-			onClick = function()
-				local st = petState.current
-				st.spinAt = st.t
-				st.squashV += 5
-				st.chars = 0
-				Audio:play("locked")
-			end,
-		}
+	local textArrive = frame:map(function(f)
+		return easeOut((f.stepAge or 1) / 0.32)
+	end)
+	local function arriving(base)
+		return React.joinBindings({ textArrive, reveal }):map(function(values)
+			return math.clamp(base + (1 - values[1]) + (1 - math.clamp(values[2], 0, 1)), 0, 1)
+		end)
 	end
 	local goalDone = met and needsAction
+	local primary = nil
+	if met or not needsAction then
+		primary = { text = if step >= count then "Finish" else "Next", color = Palette.mango, onClick = requestNext }
+	elseif hasCta then
+		primary = { text = ctaLabel, color = Palette.mango, onClick = onCta }
+	end
+	local stampScale = frame:map(function(f)
+		local age = f.stampAge or 99
+		if not goalDone then
+			return 0
+		end
+		return 1 + (1 - easeOut(age / 0.26)) * 0.9
+	end)
+	local taskRow = needsAction and React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 26),
+		LayoutOrder = 4,
+		BackgroundTransparency = 1,
+		ZIndex = 402,
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(22, 22),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = if goalDone then Palette.mint else Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 404,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 5) }), React.createElement("uistroke", {
+		Color = if goalDone then Palette.mint else Palette.mango,
+		Thickness = 1.5,
+		Transparency = if goalDone then 0 else frame:map(function(f)
+			return 0.2 + (math.sin(f.t * 4) + 1) * 0.25
+		end),
+	}), goalDone and React.createElement(StampedCheck, { scale = stampScale })), React.createElement(Text, {
+		value = copy.task or copy.title,
+		size = 13,
+		color = if goalDone then Palette.mint else Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromOffset(32, 0),
+		sizeConstraint = UDim2.new(1, -32, 1, 0),
+		zIndex = 403,
+	}))
+	local missingRow = needsAction and not met and React.createElement("textlabel", {
+		Size = UDim2.new(1, 0, 0, 14),
+		BackgroundTransparency = 1,
+		Text = "Waiting for it to appear on screen.",
+		TextColor3 = Palette.muted,
+		TextSize = 11,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Visible = frame:map(function(f)
+			return f.missing
+		end),
+		LayoutOrder = 5,
+		ZIndex = 402,
+	})
+	local buttons = React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		LayoutOrder = 7,
+		BackgroundTransparency = 1,
+		ZIndex = 402,
+	}, step > 1 and React.createElement("textbutton", {
+		Size = UDim2.new(0, 70, 1, 0),
+		BackgroundTransparency = 1,
+		Text = "Back",
+		TextColor3 = Palette.muted,
+		TextSize = 13,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 403,
+		Event = {
+			Activated = function()
+				if not exiting then
+					onBack()
+				end
+			end,
+		},
+	}), if primary ~= nil then React.createElement("frame", {
+		Size = UDim2.new(0, math.min(170, innerW * 0.55), 1, 0),
+		Position = UDim2.fromScale(1, 0),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundTransparency = 1,
+	}, React.createElement(Button, {
+		text = primary.text,
+		onClick = primary.onClick,
+		color = primary.color,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+		disabled = exiting,
+		highlight = true,
+		zIndex = 403,
+	})) else React.createElement(Text, {
+		value = "Use the highlighted control",
+		size = 12,
+		color = Palette.mango,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Right,
+		fit = true,
+		minSize = 9,
+		position = UDim2.new(1, -200, 0, 0),
+		sizeConstraint = UDim2.new(0, 200, 1, 0),
+		zIndex = 403,
+	}))
 	local dock = React.createElement("frame", {
 		ref = dockRef,
-		Size = UDim2.fromOffset(dockW, 0),
+		Size = UDim2.fromOffset(cardW, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Position = React.joinBindings({ frame, reveal }):map(function(values)
 			local f = values[1]
-			local slide = (1 - math.clamp(values[2], 0, 1)) * 24
-			return UDim2.new(0.5, 0, 0, f.dockY + (if f.dockTop then -slide else slide))
+			local slide = (1 - math.clamp(values[2], 0, 1)) * 18
+			return UDim2.fromOffset(f.card.x, f.card.y + slide)
 		end),
-		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		Active = true,
 		ZIndex = 400,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
+		CornerRadius = UDim.new(0, 14),
 	}), React.createElement("uistroke", {
 		Color = Palette.mango,
 		Thickness = 1.5,
-		Transparency = 0.35,
+		Transparency = 0.45,
 	}), React.createElement("uipadding", {
 		PaddingTop = UDim.new(0, 12),
-		PaddingBottom = UDim.new(0, 14),
-		PaddingLeft = UDim.new(0, 14),
-		PaddingRight = UDim.new(0, 14),
+		PaddingBottom = UDim.new(0, 12),
+		PaddingLeft = UDim.new(0, 16),
+		PaddingRight = UDim.new(0, 16),
 	}), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 16),
+		Size = UDim2.new(1, 0, 0, 28),
 		LayoutOrder = 1,
 		BackgroundTransparency = 1,
 		ZIndex = 402,
-	}, React.createElement(Text, {
-		value = `STEP {step} OF {count}  ·  {string.upper(TutorialScript.PET_NAME)}'S TOUR`,
-		size = 10,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 8,
-		sizeConstraint = UDim2.new(1, -96, 1, 0),
-		zIndex = 402,
+	}, React.createElement("textlabel", {
+		Size = UDim2.new(0, 120, 1, 0),
+		BackgroundTransparency = 1,
+		RichText = true,
+		Text = `{string.format("%02d", step)}<font color="#8c7a80" size="13"> / {string.format("%02d", count)}</font>`,
+		TextColor3 = Palette.mango,
+		TextSize = 24,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 403,
 	}), React.createElement("textbutton", {
 		Size = UDim2.new(0, 90, 1, 0),
 		Position = UDim2.new(1, -90, 0, 0),
 		BackgroundTransparency = 1,
-		Text = "SKIP GUIDE",
+		Text = "Skip guide",
 		TextColor3 = Palette.muted,
-		TextSize = 10,
+		TextSize = 11,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Right,
 		ZIndex = 403,
@@ -18078,60 +17393,40 @@ local function TutorialOverlay(_param)
 			Activated = requestSkip,
 		},
 	})), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 8),
+		Size = UDim2.new(1, 0, 0, 3),
 		LayoutOrder = 2,
 		BackgroundTransparency = 1,
 		ZIndex = 402,
-	}, dots), React.createElement(Text, {
+	}, segments), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = 3,
+		BackgroundTransparency = 1,
+		ZIndex = 402,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 4),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(Text, {
 		value = copy.title,
-		size = if phone then 16 else 18,
+		size = if phone then 17 else 19,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 12,
+		transparency = arriving(0),
 		sizeConstraint = UDim2.new(1, 0, 0, 24),
-		layoutOrder = 3,
+		layoutOrder = 1,
 		zIndex = 402,
 	}), React.createElement(AutoHeightText, {
-		value = copy.body,
+		value = copy.line,
 		width = innerW,
-		size = 12,
+		size = 13,
 		color = Palette.creamSoft,
-		layoutOrder = 4,
+		transparency = arriving(0.05),
+		layoutOrder = 2,
 		zIndex = 402,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 22),
-		LayoutOrder = 5,
-		BackgroundTransparency = 1,
-		ZIndex = 402,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(18, 18),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = if goalDone then Palette.mint else Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 403,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 5),
-	}), React.createElement("uistroke", {
-		Color = if goalDone then Palette.mint else Palette.lineSoft,
-		Transparency = 0.2,
-	}), goalDone and React.createElement(Icon, {
-		kind = "Check",
-		color = Palette.ink,
-		accent = Palette.ink,
-		size = 18,
-	})), React.createElement(Text, {
-		value = string.upper(copy.goal or ""),
-		size = 11,
-		color = if goalDone then Palette.mint else Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 9,
-		position = UDim2.fromOffset(28, 0),
-		sizeConstraint = UDim2.new(1, -28, 1, 0),
-		zIndex = 403,
-	})), copy.controls ~= nil and React.createElement(Text, {
+	})), taskRow, missingRow, copy.controls ~= nil and React.createElement(Text, {
 		value = copy.controls,
 		size = 10,
 		color = Palette.muted,
@@ -18140,46 +17435,7 @@ local function TutorialOverlay(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
 		layoutOrder = 6,
 		zIndex = 402,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 40),
-		LayoutOrder = 7,
-		BackgroundTransparency = 1,
-		ZIndex = 402,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), step > 1 and React.createElement("frame", {
-		Size = UDim2.new(0.28, -4, 1, 0),
-		LayoutOrder = 1,
-		BackgroundTransparency = 1,
-	}, React.createElement(Button, {
-		text = "BACK",
-		icon = "Back",
-		onClick = onBack,
-		color = Palette.panelSoft,
-		textColor = Palette.creamSoft,
-		outline = true,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		disabled = exiting,
-		zIndex = 403,
-	})), React.createElement("frame", {
-		Size = UDim2.new(if step > 1 then 0.72 else 1, if step > 1 then -4 else 0, 1, 0),
-		LayoutOrder = 2,
-		BackgroundTransparency = 1,
-	}, React.createElement(Button, {
-		text = primary.text,
-		icon = primary.icon,
-		onClick = primary.onClick,
-		color = primary.color,
-		textColor = primary.textColor,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		disabled = exiting,
-		highlight = primary.highlight,
-		zIndex = 403,
-	}))))
+	}), buttons)
 
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
@@ -18197,21 +17453,29 @@ local function TutorialOverlay(_param)
 		BackgroundTransparency = 1,
 		Visible = true,
 		Active = false,
-	}), spotlight, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Active = false,
-		ZIndex = 403,
-	}, trailEls), dock, pet, bubble))
+	}), spotlight, leader, dock))
 end
 local VERSION_ROW_H = 48
 local HIGHLIGHT_ROW_H = 46
 local VERSION_RIGHT_COLUMN_W = 72
-local function versionCardHeight(entry, expanded)
+-- Each highlight is as tall as its wrapped text, so one-line notes don't leave a gap under them.
+local HIGHLIGHT_GAP = 6
+local function highlightHeight(line, textWidth)
+	if type(textWidth) ~= "number" or textWidth <= 0 then
+		return HIGHLIGHT_ROW_H - HIGHLIGHT_GAP
+	end
+	-- measured as rendered: the 12px label draws at 14px bold once the text-size setting applies
+	return math.max(18, _ui.measureWrappedTextHeight(`•  {line}`, textWidth, 14, Enum.FontWeight.Bold) + 4)
+end
+local function versionCardHeight(entry, expanded, textWidth)
 	if not expanded then
 		return VERSION_ROW_H
 	end
-	return VERSION_ROW_H + #entry.Highlights * HIGHLIGHT_ROW_H + 18
+	local total = 0
+	for _, line in entry.Highlights do
+		total += highlightHeight(line, textWidth) + HIGHLIGHT_GAP
+	end
+	return VERSION_ROW_H + total + 12
 end
 local function VersionCard(_param)
 	local entry = _param.entry
@@ -18222,7 +17486,7 @@ local function VersionCard(_param)
 	local reducedMotion = _param.reducedMotion
 	local reveal = useStagger(index, reducedMotion, 0.03, 0.26)
 	local accent = if current then Palette.mint else Palette.violet
-	local height = versionCardHeight(entry, expanded)
+	local height = versionCardHeight(entry, expanded, _param.textWidth)
 	local _exp = React.createElement("textbutton", {
 		Size = UDim2.new(1, 0, 0, VERSION_ROW_H),
 		BackgroundTransparency = 1,
@@ -18363,7 +17627,7 @@ local function VersionCard(_param)
 				wrap = true,
 				fit = false,
 				layoutOrder = lineIndex,
-				sizeConstraint = UDim2.new(1, 0, 0, HIGHLIGHT_ROW_H - 6),
+				sizeConstraint = UDim2.new(1, 0, 0, highlightHeight(line, _param.textWidth)),
 				zIndex = 327,
 			})
 		end
@@ -18371,7 +17635,7 @@ local function VersionCard(_param)
 			_newValue[_k] = _callback(_v, _k - 1, _exp_7)
 		end
 		_condition = React.createElement("frame", {
-			Size = UDim2.new(1, -30, 0, #entry.Highlights * HIGHLIGHT_ROW_H),
+			Size = UDim2.new(1, -30, 0, height - VERSION_ROW_H),
 			Position = UDim2.fromOffset(20, VERSION_ROW_H),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -18462,6 +17726,8 @@ local function ReleaseNotesModal(_param)
 	local stackActions = onOpenMail ~= nil and (viewport.compact or width < 430) and height >= 320
 	local actionHeight = if stackActions then TapTarget * 2 + 8 else TapTarget
 	local headerHeight = if veryShort then 68 elseif condensed then 112 else 148
+	-- the width a highlight label really has inside the version card
+	local highlightTextWidth = math.max(120, width - padding * 2 - 30) -- matches the 577px the labels measure at 650 wide
 	local scrollHeight = math.max(1, contentHeight - headerHeight - actionHeight - 10)
 	local centerY = safeTop + math.max(0, (viewportHeight - safeTop - safeBottom) / 2)
 	local effectiveHistory = if #history > 0 then history else { {
@@ -18508,7 +17774,7 @@ local function ReleaseNotesModal(_param)
 		local _exp = total
 		local _exp_1 = entry
 		local _version = entry.Version
-		return _exp + versionCardHeight(_exp_1, (table.find(expandedVersions, _version) or 0) - 1 >= 0)
+		return _exp + versionCardHeight(_exp_1, (table.find(expandedVersions, _version) or 0) - 1 >= 0, highlightTextWidth)
 	end
 	for _i = 1, #effectiveHistory do
 		_result = _callback(_result, effectiveHistory[_i], _i - 1, effectiveHistory)
@@ -18584,7 +17850,7 @@ local function ReleaseNotesModal(_param)
 		zIndex = 325,
 	})
 	local _exp_4 = React.createElement(Text, {
-		value = `VERSION {version}`,
+		value = if type(history) == "table" and history[1] ~= nil and type(history[1].Title) == "string" then string.upper(history[1].Title) else `VERSION {version}`,
 		size = 10,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -18647,6 +17913,7 @@ local function ReleaseNotesModal(_param)
 			return toggleVersion(entry.Version)
 		end
 		_attributes.reducedMotion = reducedMotion
+		_attributes.textWidth = highlightTextWidth
 		return React.createElement(VersionCard, _attributes)
 	end
 	for _k, _v in effectiveHistory do
@@ -19204,22 +18471,22 @@ local function AdminPrankOverlay(_param)
 		zIndex = 430,
 		clips = false,
 	}, React.createElement(Text, {
-		value = "Could not save",
+		value = "Ledger Sync",
 		size = 13,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Text, {
-		value = "The vault is fine. This toast is a joke.",
+		value = "Vault storage verification in progress. Balances secured.",
 		size = 11,
 		color = Palette.creamSoft,
 		wrap = true,
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
 		position = UDim2.fromOffset(0, 22),
 	}))), emptyBag and React.createElement(PrankCard, {
-		title = "Inventory",
-		body = "0 / 100 bag. No relics. This is a fake empty-bag card — your relics are still there.",
-		action = "CLOSE",
+		title = "Relic Matrix",
+		body = "Relic inventory cache refreshed. All station conduits synced to core storage.",
+		action = "CONFIRM",
 		accent = Palette.violet,
 		height = 248,
 		reducedMotion = reducedMotion,
@@ -19233,748 +18500,20 @@ return {
 end
 
 __defs["notifications"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
-local _react_lifetime_component = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-lifetime-component"].out)
-local LifetimeComponentImpl = _react_lifetime_component.LifetimeComponent
-local useComponentIsActive = _react_lifetime_component.useComponentIsActive
-local useComponentLifetime = _react_lifetime_component.useComponentLifetime
-local LifetimeHost = LifetimeComponentImpl
-local GuiService = game:GetService("GuiService")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local Audio = require(script.Parent.AudioKit)("audio").Audio
-local Icon = require(script.Parent.ArtKit)("Icon").Icon
-local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
-local planMobileLayout = require(script.Parent.CoreKit)("mobileLayout").planMobileLayout
-local _motion = require(script.Parent.MotionKit)("motion")
-local useClock = _motion.useClock
-local useFlipperSpring = _motion.useFlipperSpring
-local useIntent = _motion.useIntent
-local useIntentSpring = _motion.useIntentSpring
-local MotionTokens = require(script.Parent.MotionKit)("motionTokens")
-local _theme = require(script.Parent.CoreKit)("theme")
-local Palette = _theme.Palette
-local ensureContrast = _theme.ensureContrast
-local Breakpoints = _theme.Breakpoints
-local Layout = _theme.Layout
-local _ui = __load("ui")
-local Stroke = _ui.Stroke
-local Text = _ui.Text
-local useGuiSize = _ui.useGuiSize
-local pixelPosition = _ui.pixelPosition
+-- notices are shown by the island (BuffStrip.Island via JuiceFx.banner); only the timings live here
 local NOTICE_LIFETIME = 4.2
 local NOTICE_EXIT_SECONDS = 0.24
-local SWIPE_DISMISS_PX = 56
-local SWIPE_RETURN_FEEL = { frequency = 3.3, dampingRatio = 0.86 }
-local function toneColor(tone)
-	if tone == "Success" then
-		return Palette.mint
-	end
-	if tone == "Warning" then
-		return Palette.mango
-	end
-	if tone == "Error" then
-		return Palette.coral
-	end
-	if tone == "Special" then
-		return Palette.violet
-	end
-	return Palette.cyan
-end
-local function toneCue(tone)
-	if tone == "Success" then
-		return "noticeSuccess"
-	end
-	if tone == "Warning" then
-		return "noticeWarning"
-	end
-	if tone == "Error" then
-		return "noticeError"
-	end
-	if tone == "Special" then
-		return "noticeSpecial"
-	end
-	return "noticeInfo"
-end
-local function toneIcon(tone)
-	if tone == "Success" then
-		return "Check"
-	end
-	if tone == "Warning" then
-		return "Timer"
-	end
-	if tone == "Error" then
-		return "Close"
-	end
-	if tone == "Special" then
-		return "Gift"
-	end
-	return "Wave"
-end
-local CARD_HEIGHT = 74
-local CARD_HEIGHT_MOBILE = 68
-local CARD_GAP = 8
-local CARD_GAP_MOBILE = 8
-local RAIL_WIDTH = 360
-local RAIL_WIDTH_MOBILE = 340
-local MAX_VISIBLE = 3
-local MAX_VISIBLE_MOBILE = 2
-local function densityVisibleCap(density, stack)
-	local clamped = math.clamp(if type(density) == "number" then density else 0.55, 0, 1)
-	if stack then
-		return math.clamp(math.floor(1 + clamped * 2 + 0.35), 1, 3)
-	end
-	return math.clamp(math.floor(2 + clamped * 3 + 0.5), 2, 5)
-end
-local function NoticeCard(props)
-	local slotRef = React.useRef(nil)
-	local slotSizePixels = useGuiSize(slotRef)
-	local isActive = useComponentIsActive(props)
-	useComponentLifetime(props, NOTICE_EXIT_SECONDS)
-	local notice = props.notice
-	local hovered, setHovered = React.useState(false)
-	local entered, setEntered = React.useState(false)
-	local leaving = not isActive or notice.leaving == true
-	local leavingRef = React.useRef(leaving)
-	leavingRef.current = leaving
-	local visible = not leaving and entered
-	local color = toneColor(notice.tone)
-	local cardH = if props.compact then CARD_HEIGHT_MOBILE else CARD_HEIGHT
-	local cardGap = if props.compact then CARD_GAP_MOBILE else CARD_GAP
-	local titleSize = if props.compact then 14 else 15
-	local bodySize = if props.compact then 12 else 13
-	local dismiss = if props.touch then 34 else 28
-	local iconSize = if props.compact then 34 else 38
-	local hasBody = #notice.body > 0 and notice.body ~= notice.title
-	local swipeX, setSwipeX = React.useBinding(0)
-	local drag = React.useRef({
-		active = false,
-		start = 0,
-		x = 0,
-		v = 0,
-		mode = "idle",
-	})
-	local dragConn = React.useRef()
-	local dragEndConn = React.useRef()
-	React.useEffect(function()
-		local alive = true
-		local job = task.defer(function()
-			if alive then
-				setEntered(true)
-			end
-		end)
-		return function()
-			alive = false
-			pcall(task.cancel, job)
-		end
-	end, {})
-	React.useEffect(function()
-		return function()
-			local _result = dragConn.current
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-			local _result_1 = dragEndConn.current
-			if _result_1 ~= nil then
-				_result_1:Disconnect()
-			end
-		end
-	end, {})
-	React.useEffect(function()
-		if leaving then
-			setHovered(false)
-			drag.current.active = false
-			drag.current.mode = "idle"
-			local _result = dragConn.current
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-			local _result_1 = dragEndConn.current
-			if _result_1 ~= nil then
-				_result_1:Disconnect()
-			end
-		end
-	end, { leaving })
-	React.useEffect(function()
-		local _result = props.setHovered
-		if _result ~= nil then
-			_result(notice.id, hovered)
-		end
-		return function()
-			local _result_1 = props.setHovered
-			if _result_1 ~= nil then
-				_result_1 = _result_1(notice.id, false)
-			end
-			return _result_1
-		end
-	end, { hovered, notice.id, props.setHovered })
-	local plan = useIntent({ role = "toast", tone = notice.tone, emphasis = if notice.tone == "Special" then 0.5 else 0, reduced = props.reducedMotion })
-	React.useEffect(function()
-		if not visible or notice.sound == false then
-			return nil
-		end
-		Audio:play(plan.cue or toneCue(notice.tone))
-	end, { notice.sound, notice.tone, visible })
-	React.useEffect(function()
-		local connection = RunService.RenderStepped:Connect(function(dt)
-			local state = drag.current
-			if state.mode ~= "return" or leavingRef.current then
-				return nil
-			end
-			state.x, state.v = MotionTokens.step(state.x, state.v, 0, SWIPE_RETURN_FEEL, dt)
-			if math.abs(state.x) < 0.4 and math.abs(state.v) < 6 then
-				state.x = 0
-				state.v = 0
-				state.mode = "idle"
-			end
-			setSwipeX(state.x)
-		end)
-		return function()
-			return connection:Disconnect()
-		end
-	end, { setSwipeX })
-	local progress = useIntentSpring(if visible then 1 else 0, plan)
-	local hover = useFlipperSpring(if hovered and visible then 1 else 0, props.reducedMotion, plan.hover.stiffness, plan.hover.damping)
-	local life = useClock(visible, 1, 1000, true)
-	local surface = Palette.panelRaised
-	local titleColor = ensureContrast(surface, Palette.cream)
-	local bodyColor = ensureContrast(surface, Palette.creamSoft)
-	local mutedX = ensureContrast(surface, Palette.muted)
-	local slotSize = progress:map(function(shown)
-		local t = math.clamp(shown, 0, 1)
-		local squish = t * t
-		return UDim2.new(1, 0, 0, math.max(0, math.round(squish * cardH + (if t > 0.06 then cardGap else 0))))
-	end)
-	local cardSize = progress:map(function(shown)
-		local t = math.clamp(shown, 0, 1)
-		local squish = t * t
-		local widen = math.round((1 - t) * 16)
-		return UDim2.new(1, widen, 0, math.max(0, math.round(cardH * squish)))
-	end)
-	local enterX = progress:map(function(shown)
-		return if leavingRef.current then 0 else (1 - math.clamp(shown, 0, 1)) * 22
-	end)
-	local swipeFade = swipeX:map(function(amount)
-		return math.clamp(math.abs(amount) / SWIPE_DISMISS_PX, 0, 1) * 0.7
-	end)
-	local motionFade = progress:map(function(shown)
-		return 1 - math.clamp(shown, 0, 1)
-	end)
-	local backgroundTransparency = React.joinBindings({ motionFade, swipeFade }):map(function(values)
-		return math.clamp(1 - props.surfaceOpacity + values[1] * props.surfaceOpacity + values[2], 0, 1)
-	end)
-	local drain = life:map(function(seconds)
-		local _exp = seconds
-		local _condition = notice.lifetime
-		if _condition == nil then
-			_condition = NOTICE_LIFETIME
-		end
-		return math.clamp(1 - _exp / _condition, 0, 1)
-	end)
-	local fade = motionFade
-	local shownEnough = progress:map(function(shown)
-		return shown > 0.05
-	end)
-	local _condition = notice.count
-	if _condition == nil then
-		_condition = 1
-	end
-	local count = _condition
-	local lift = hover:map(function(amount)
-		return -amount
-	end)
-	local cardPosition = React.joinBindings({ enterX, swipeX, lift, slotSizePixels }):map(function(values)
-		return pixelPosition(values[4], 0.5, values[1] + values[2], 0.5, values[3])
-	end)
-	local beginDrag = function(frame, input)
-		if leavingRef.current then
-			return nil
-		end
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
-			return nil
-		end
-		local abs = frame.AbsolutePosition
-		local size = frame.AbsoluteSize
-		if input.Position.X >= abs.X + size.X - dismiss - 6 then
-			return nil
-		end
-		local state = drag.current
-		state.active = true
-		state.mode = "drag"
-		state.start = input.Position.X - state.x
-		state.v = 0
-		local _result = dragConn.current
-		if _result ~= nil then
-			_result:Disconnect()
-		end
-		dragConn.current = UserInputService.InputChanged:Connect(function(moved)
-			if not state.active then
-				return nil
-			end
-			if moved.UserInputType ~= Enum.UserInputType.MouseMovement and moved.UserInputType ~= Enum.UserInputType.Touch then
-				return nil
-			end
-			state.x = moved.Position.X - state.start
-			setSwipeX(state.x)
-		end)
-		local _result_1 = dragEndConn.current
-		if _result_1 ~= nil then
-			_result_1:Disconnect()
-		end
-		dragEndConn.current = UserInputService.InputEnded:Connect(function(ended)
-			if ended.UserInputType ~= Enum.UserInputType.MouseButton1 and ended.UserInputType ~= Enum.UserInputType.Touch then
-				return nil
-			end
-			local _result_2 = dragConn.current
-			if _result_2 ~= nil then
-				_result_2:Disconnect()
-			end
-			local _result_3 = dragEndConn.current
-			if _result_3 ~= nil then
-				_result_3:Disconnect()
-			end
-			state.active = false
-			if leavingRef.current then
-				return nil
-			end
-			if math.abs(state.x) >= SWIPE_DISMISS_PX then
-				Audio:play("noticeClose")
-				state.mode = "idle"
-				props.remove(notice.id)
-			else
-				state.mode = "return"
-			end
-		end)
-	end
-	return React.createElement("frame", {
-		ref = slotRef,
-		Size = slotSize,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = notice.id,
-		ClipsDescendants = true,
-		Visible = shownEnough,
-	}, React.createElement("frame", {
-		Size = cardSize,
-		Position = cardPosition,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = surface,
-		BackgroundTransparency = backgroundTransparency,
-		BorderSizePixel = 0,
-		Active = not leaving,
-		ClipsDescendants = true,
-		ZIndex = 101,
-		Event = {
-			InputBegan = function(frame, input)
-				return beginDrag(frame, input)
-			end,
-			MouseEnter = function()
-				if not leaving then
-					setHovered(true)
-					Audio:play("hover")
-				end
-			end,
-			MouseLeave = function()
-				return setHovered(false)
-			end,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(surface:Lerp(color, 0.1), surface),
-		Rotation = 0,
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = color,
-		Thickness = 1,
-		Transparency = React.joinBindings({ fade, hover }):map(function(values)
-			return 0.7 - values[2] * 0.3 + values[1] * 0.3
-		end),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(iconSize, iconSize),
-		Position = UDim2.new(0, 14, 0.5, -1),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = color,
-		BackgroundTransparency = fade:map(function(amount)
-			return 0.8 + amount * 0.2
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 103,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 11),
-	}), React.createElement("uistroke", {
-		Color = color,
-		Thickness = 1,
-		Transparency = fade:map(function(amount)
-			return 0.55 + amount * 0.45
-		end),
-	}), React.createElement(Icon, {
-		kind = toneIcon(notice.tone),
-		color = color,
-		accent = color,
-		size = math.floor(iconSize * 0.62),
-		spin = false,
-		reducedMotion = props.reducedMotion,
-		position = UDim2.fromScale(0.5, 0.5),
-		anchorPoint = Vector2.new(0.5, 0.5),
-	})), React.createElement(Text, {
-		value = notice.title,
-		size = titleSize,
-		color = titleColor,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 11,
-		position = UDim2.fromOffset(iconSize + 26, if hasBody then 11 else 0),
-		sizeConstraint = UDim2.new(1, -(iconSize + 26 + dismiss + 14 + (if count > 1 then 34 else 0)), 0, if hasBody then 20 else cardH - 4),
-		zIndex = 105,
-	}), hasBody and React.createElement("textlabel", {
-		Size = UDim2.new(1, -(iconSize + 26 + dismiss + 14), 0, cardH - 40),
-		Position = UDim2.fromOffset(iconSize + 26, 32),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		Text = notice.body,
-		TextColor3 = bodyColor,
-		TextTransparency = fade:map(function(amount)
-			return 0.1 + amount
-		end),
-		TextSize = bodySize,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		TextWrapped = true,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 105,
-	}), count > 1 and React.createElement("frame", {
-		Size = UDim2.fromOffset(30, 20),
-		Position = UDim2.new(1, -(dismiss + 40), 0, 11),
-		BackgroundColor3 = color,
-		BorderSizePixel = 0,
-		ZIndex = 106,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement(Text, {
-		value = `×{count}`,
-		size = 11,
-		color = Palette.ink,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.fromScale(1, 1),
-		zIndex = 107,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, -28, 0, 3),
-		Position = UDim2.new(0, 14, 1, -6),
-		BackgroundColor3 = Palette.line,
-		BackgroundTransparency = fade:map(function(amount)
-			return 0.6 + amount * 0.4
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 103,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("frame", {
-		Size = drain:map(function(amount)
-			return UDim2.new(math.clamp(amount, 0, 1), 0, 1, 0)
-		end),
-		BackgroundColor3 = color,
-		BackgroundTransparency = fade:map(function(amount)
-			return 0.15 + amount
-		end),
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))), React.createElement("imagebutton", {
-		Size = UDim2.fromOffset(dismiss, dismiss),
-		Position = UDim2.new(1, -10, 0.5, -1),
-		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundColor3 = Palette.panel,
-		BackgroundTransparency = hover:map(function(amount)
-			return 1 - amount * 0.6
-		end),
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Active = not leaving,
-		Selectable = false,
-		ZIndex = 109,
-		Event = {
-			Activated = function()
-				props.remove(notice.id)
-				Audio:play("noticeClose")
-			end,
-			MouseEnter = function()
-				if not leaving then
-					setHovered(true)
-				end
-			end,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("textlabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "×",
-		TextColor3 = if hovered then color else mutedX,
-		TextTransparency = fade,
-		TextSize = if props.touch then 22 else 20,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 110,
-	}))))
-end
-local function ToastRail(_param)
-	local notices = _param.notices
-	local remove = _param.remove
-	local setHovered = _param.setHovered
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
-	local mobileLayout = _param.mobileLayout
-	local density = _param.density
-	if density == nil then
-		density = 0.55
-	end
-	local screen, setScreen = React.useState(function()
-		local _result = Workspace.CurrentCamera
-		if _result ~= nil then
-			_result = _result.ViewportSize
-		end
-		local _condition = _result
-		if _condition == nil then
-			_condition = Vector2.new(1280, 720)
-		end
-		return _condition
-	end)
-	local topbarInset, setTopbarInset = React.useState(function()
-		return GuiService.TopbarInset.Height
-	end)
-	React.useEffect(function()
-		local viewportConnection
-		local bindCamera = function()
-			local _result = viewportConnection
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-			viewportConnection = nil
-			local camera = Workspace.CurrentCamera
-			if camera == nil then
-				return nil
-			end
-			local sync = function()
-				return setScreen(camera.ViewportSize)
-			end
-			sync()
-			viewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(sync)
-		end
-		bindCamera()
-		local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera)
-		return function()
-			cameraConnection:Disconnect()
-			local _result = viewportConnection
-			if _result ~= nil then
-				_result:Disconnect()
-			end
-		end
-	end, {})
-	React.useEffect(function()
-		local sync = function()
-			return setTopbarInset(GuiService.TopbarInset.Height)
-		end
-		sync()
-		local connection = GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(sync)
-		return function()
-			return connection:Disconnect()
-		end
-	end, {})
-	local noticesRef = React.useRef(notices)
-	noticesRef.current = notices
-	React.useEffect(function()
-		local connection = UserInputService.InputBegan:Connect(function(input, processed)
-			if processed or input.KeyCode ~= Enum.KeyCode.Escape then
-				return nil
-			end
-			local live = noticesRef.current
-			local newest = live[#live]
-			if newest ~= nil then
-				remove(newest.id)
-			end
-		end)
-		return function()
-			return connection:Disconnect()
-		end
-	end, { remove })
-	local width = math.floor(screen.X)
-	local height = math.floor(screen.Y)
-	local plan = planMobileLayout({
-		width = width,
-		height = height,
-		compact = width < Breakpoints.compact,
-		tight = width < Breakpoints.tight,
-		short = height < Breakpoints.short,
-		desktop = usesDesktopStructure(width, height),
-	})
-	local stack = plan.stack
-	local layoutScale = if mobileLayout ~= nil then 0.88 + math.clamp(mobileLayout.scale, 0, 1) * 0.12 else 1
-	local railW = (if stack then math.min(RAIL_WIDTH_MOBILE, math.max(200, width - plan.sideSafe * 2 - 20)) else RAIL_WIDTH) * layoutScale
-	local cardH = if stack then CARD_HEIGHT_MOBILE else CARD_HEIGHT
-	local cardGap = if stack then math.max(4, CARD_GAP_MOBILE - math.floor(density * 2)) else CARD_GAP
-	local topInset = math.max(topbarInset, Layout.minTopInset) + (if stack then plan.topbarRows + 10 else Layout.topbarClearance + 12)
-	local keyboardOpen = UserInputService.TouchEnabled and UserInputService.OnScreenKeyboardVisible
-	local densityCap = densityVisibleCap(density, stack)
-	local requestedVisible = if keyboardOpen then 1 else densityCap
-	local bottomReserve = plan.bottomSafe + plan.tabBarH + (if stack then 18 else 12)
-	local fittingVisible = math.max(1, math.floor((height - topInset - bottomReserve - 8) / math.max(1, cardH + cardGap)))
-	local maxVisible = math.max(1, math.min(requestedVisible, fittingVisible, if stack then MAX_VISIBLE_MOBILE + 1 else MAX_VISIBLE + 2))
-	local railHeight = maxVisible * (cardH + cardGap)
-	local minX = (plan.sideSafe + 8 + railW / 2) / width
-	local maxX = math.max(minX, 1 - minX)
-	local minY = topInset / height
-	local maxY = math.max(minY, (height - bottomReserve - railHeight - 8) / height)
-	local customX = if mobileLayout ~= nil then math.clamp(mobileLayout.x, minX, maxX) else 0.5
-	local customY = if mobileLayout ~= nil then math.clamp(mobileLayout.y, minY, maxY) else minY
-	local _newValue = {}
-	local _callback = function(notice)
-		return notice.leaving ~= true
-	end
-	local _length = 0
-	for _k, _v in notices do
-		if _callback(_v, _k - 1, notices) == true then
-			_length += 1
-			_newValue[_length] = _v
-		end
-	end
-	local live = _newValue
-	local _result
-	if #live > maxVisible then
-		local _newValue_1 = {}
-		local _callback_1 = function(_, i)
-			return i >= #live - maxVisible
-		end
-		local _length_1 = 0
-		for _k, _v in live do
-			if _callback_1(_v, _k - 1, live) == true then
-				_length_1 += 1
-				_newValue_1[_length_1] = _v
-			end
-		end
-		_result = _newValue_1
-	else
-		_result = live
-	end
-	local visible = _result
-	local _exp = function()
-		local entries = {}
-		local _callback_1 = function(notice)
-			local _exp_1 = tostring(notice.id)
-			local _attributes = {
-				notice = notice,
-				remove = remove,
-				setHovered = setHovered,
-				reducedMotion = reducedMotion,
-				compact = stack,
-				touch = plan.mobile,
-			}
-			local _result_1 = mobileLayout
-			if _result_1 ~= nil then
-				_result_1 = _result_1.opacity
-			end
-			local _condition = _result_1
-			if _condition == nil then
-				_condition = 1
-			end
-			_attributes.surfaceOpacity = _condition
-			local _arg1 = React.createElement(NoticeCard, _attributes)
-			entries[_exp_1] = _arg1
-		end
-		for _k, _v in visible do
-			_callback_1(_v, _k - 1, visible)
-		end
-		return entries
-	end
-	local _result_1 = mobileLayout
-	if _result_1 ~= nil then
-		_result_1 = _result_1.opacity
-	end
-	local rendered = React.useMemo(_exp, { _result_1, plan.mobile, reducedMotion, remove, setHovered, stack, visible })
-	local hiddenCount = math.max(0, #live - maxVisible)
-	local useCustom = mobileLayout ~= nil
-	local defaultPosition = if stack
-		then UDim2.new(0.5, 0, 0, topInset)
-		else UDim2.new(0, Layout.sidebarWidth + 16, 1, -(plan.bottomSafe + 16))
-	local defaultAnchor = if stack then Vector2.new(0.5, 0) else Vector2.new(0, 1)
-	return React.createElement("frame", {
-		Size = UDim2.new(0, railW, 0, railHeight),
-		Position = if useCustom then UDim2.fromScale(customX, customY) else defaultPosition,
-		AnchorPoint = if useCustom then Vector2.new(0.5, 0) else defaultAnchor,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 250,
-		ClipsDescendants = false,
-	}, hiddenCount > 0 and React.createElement("frame", {
-		Size = UDim2.fromOffset(math.min(160, railW), if stack then 22 else 24),
-		Position = UDim2.new(0.5, 0, 0, -(if stack then 28 else 30)),
-		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundColor3 = Palette.panelRaised,
-		BackgroundTransparency = 0.12,
-		BorderSizePixel = 0,
-		ZIndex = 249,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement(Stroke, {
-		color = Palette.lineSoft,
-		thickness = 1,
-		transparency = 0.62,
-	}), React.createElement(Text, {
-		value = `+{hiddenCount} more`,
-		size = 11,
-		color = Palette.creamSoft,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		fit = false,
-		sizeConstraint = UDim2.fromScale(1, 1),
-	})), React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = if stack and not useCustom then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom,
-		Padding = UDim.new(0, 0),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), React.createElement(LifetimeHost, {
-		CanRecover = true,
-	}, rendered))
-end
 return {
-	ToastRail = ToastRail,
 	NOTICE_LIFETIME = NOTICE_LIFETIME,
 	NOTICE_EXIT_SECONDS = NOTICE_EXIT_SECONDS,
 }
 end
 
 __defs["levelMoments"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local Workspace = game:GetService("Workspace")
-local Audio = require(script.Parent.AudioKit)("audio").Audio
-local Icon = require(script.Parent.ArtKit)("Icon").Icon
-local _motion = require(script.Parent.MotionKit)("motion")
-local useClock = _motion.useClock
-local useFlipperSpring = _motion.useFlipperSpring
-local useViewport = _motion.useViewport
-local useWallClock = _motion.useWallClock
-local _theme = require(script.Parent.CoreKit)("theme")
-local Palette = _theme.Palette
-local chromeFor = _theme.chromeFor
-local darken = _theme.darken
+-- milestone rewards play in the island as a "moment"; a running forge surge shows as an island buff
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
-local Text = __load("ui").Text
+local Palette = require(script.Parent.CoreKit)("theme").Palette
 
-local CARD_SECONDS = 6.5
-
-local listeners = {}
 local pendingNames = {}
 local function pushLevelMoment(effect)
 	if type(effect) ~= "table" then
@@ -19987,292 +18526,24 @@ local function pushLevelMoment(effect)
 	if effect.Type ~= "LevelReward" then
 		return
 	end
-	local moment = table.clone(effect)
-	moment.Names = pendingNames
-	moment.At = os.clock()
+	local opened = pendingNames
 	pendingNames = {}
-	for listener in listeners do
-		listener(moment)
+	local parts = {}
+	if (tonumber(effect.Flux) or 0) > 0 then
+		table.insert(parts, `+{compactNumber(effect.Flux)} flux`)
 	end
-end
-
-local function clockText(seconds)
-	local total = math.max(0, math.floor(seconds))
-	return string.format("%d:%02d", total // 60, total % 60)
-end
-
-local function RewardRow(_param)
-	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 34),
-		LayoutOrder = _param.order,
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 452,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 9),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(26, 26),
-		Position = UDim2.new(0, 5, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = darken(_param.color, 0.55),
-		BorderSizePixel = 0,
-		ZIndex = 453,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 7),
-	}), React.createElement(Icon, {
-		kind = _param.icon,
-		color = Palette.cream,
-		accent = _param.color,
-		size = 26,
-	})), React.createElement(Text, {
-		value = _param.text,
-		size = 14,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(40, 0),
-		sizeConstraint = UDim2.new(1, -48, 1, 0),
-		zIndex = 453,
-	}))
-end
-
-local function LevelCard(_param)
-	local moment = _param.moment
-	local onClose = _param.onClose
-	local viewport = useViewport()
-	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 520, 30, 0)
-	local spin = useClock(true, 0.35, math.pi * 2)
-	local rows = {}
-	rows.layout = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 6),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	})
-	local count = 0
-	local function add(key, icon, color, text)
-		count += 1
-		rows[key] = React.createElement(RewardRow, { order = count, icon = icon, color = color, text = text })
+	if (tonumber(effect.Stardust) or 0) > 0 then
+		table.insert(parts, `+{compactNumber(effect.Stardust)} stardust`)
 	end
-	if (moment.Flux or 0) > 0 then
-		add("flux", "Flux", Palette.mango, `+{compactNumber(moment.Flux)} flux`)
+	if (tonumber(effect.SurgeMultiplier) or 1) > 1 then
+		table.insert(parts, string.format("x%.2f surge", effect.SurgeMultiplier))
 	end
-	if (moment.Stardust or 0) > 0 then
-		add("dust", "Dust", Palette.cyan, `+{compactNumber(moment.Stardust)} stardust`)
-	end
-	if (moment.SurgeMultiplier or 1) > 1 then
-		local seconds = math.max(0, (moment.SurgeEndsAt or 0) - Workspace:GetServerTimeNow())
-		add("surge", "Boost", Palette.pink, string.format("Forge Surge ×%.2f for %s", moment.SurgeMultiplier, clockText(seconds)))
-	end
-	add("mastery", "Forge", Palette.mint, string.format("+%d%% production, for good", math.floor(((moment.Level or 1) - 1) * 2 + 0.5)))
-	if type(moment.Names) == "table" and #moment.Names > 0 then
-		add("opens", "Lock", Palette.violet, "Opened: " .. table.concat(moment.Names, ", "))
-	end
-	local width = math.min(380, viewport.width - 28)
-	local height = 128 + count * 40
-	local levels = moment.Levels or {}
-	local title = if #levels > 1 then `Levels {levels[1]}–{levels[#levels]}` else `Level {moment.Level}`
-	return React.createElement("textbutton", {
-		Size = UDim2.fromOffset(width, height),
-		Position = show:map(function(amount)
-			return UDim2.new(0.5, 0, 0.42, math.round((1 - amount) * 30))
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.panelRaised,
-		BackgroundTransparency = show:map(function(amount)
-			return 1 - math.clamp(amount, 0, 1)
-		end),
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 450,
-		Event = {
-			Activated = onClose,
-		},
-	}, React.createElement("uiscale", {
-		Scale = show:map(function(amount)
-			return 0.85 + amount * 0.15
-		end),
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 18),
-	}), React.createElement("uistroke", {
-		Color = Palette.brass,
-		Thickness = 2,
-		Transparency = show:map(function(amount)
-			return 1 - amount * 0.8
-		end),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(220, 220),
-		Position = UDim2.new(0.5, 0, 0, 40),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = spin:map(function(angle)
-			return math.deg(angle)
-		end),
-		BackgroundTransparency = 1,
-		ZIndex = 450,
-	}, (function()
-		local rays = {}
-		for index = 1, 8 do
-			rays["ray" .. index] = React.createElement("frame", {
-				Size = UDim2.fromOffset(10, 110),
-				Position = UDim2.fromScale(0.5, 0.5),
-				AnchorPoint = Vector2.new(0.5, 1),
-				Rotation = index * 45,
-				BackgroundColor3 = Palette.mango,
-				BackgroundTransparency = show:map(function(amount)
-					return 1 - amount * 0.12
-				end),
-				BorderSizePixel = 0,
-				ZIndex = 450,
-			}, React.createElement("uigradient", {
-				Rotation = 90,
-				Transparency = NumberSequence.new(1, 0.4),
-			}))
-		end
-		return React.createElement(React.Fragment, nil, rays)
-	end)()), React.createElement(Text, {
-		value = "LEVEL UP",
-		size = 12,
-		color = Palette.brass,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 16),
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-		zIndex = 452,
-	}), React.createElement(Text, {
-		value = title,
-		size = 30,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 18,
-		position = UDim2.fromOffset(0, 34),
-		sizeConstraint = UDim2.new(1, 0, 0, 36),
-		zIndex = 452,
-	}), React.createElement(Text, {
-		value = string.upper(moment.Tier or ""),
-		size = 12,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 72),
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-		zIndex = 452,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -28, 0, count * 40),
-		Position = UDim2.fromOffset(14, 98),
-		BackgroundTransparency = 1,
-		ZIndex = 451,
-	}, rows), React.createElement(Text, {
-		value = "Tap to continue",
-		size = 11,
-		color = Palette.muted,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.new(0, 0, 1, -24),
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-		zIndex = 452,
-	}))
-end
-
-local function SurgeChip(_param)
-	local surge = _param.surge
-	local now = useWallClock(true)
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local top = viewport.topInset + 64
-	local pulse = useClock(true, 2.4, math.pi * 2)
-	local stack = chrome.stack
-	local edge = math.max(chrome.sideSafe, 10)
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(if stack then math.max(120, viewport.width - math.min(220, math.floor(viewport.width * 0.6)) - edge * 3) else 168, 30),
-		Position = if stack then UDim2.new(0, edge, 1, -(chrome.tabBarH + 8 + 54)) else UDim2.new(1, -14, 0, top),
-		AnchorPoint = if stack then Vector2.new(0, 1) else Vector2.new(1, 0),
-		BackgroundColor3 = darken(Palette.pink, 0.62),
-		BorderSizePixel = 0,
-		Visible = now:map(function(value)
-			return surge.EndsAt > value
-		end),
-		ZIndex = 240,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.pink,
-		Thickness = 1.5,
-		Transparency = pulse:map(function(angle)
-			return 0.25 + (math.sin(angle) + 1) * 0.2
-		end),
-	}), React.createElement(Icon, {
-		kind = "Boost",
-		color = Palette.cream,
-		accent = Palette.pink,
-		size = 20,
-		position = UDim2.new(0, 8, 0.5, -10),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -38, 1, 0),
-		Position = UDim2.fromOffset(32, 0),
-		BackgroundTransparency = 1,
-		Text = now:map(function(value)
-			return string.format("SURGE ×%.2f  %s", surge.Multiplier, clockText(surge.EndsAt - value))
-		end),
-		TextColor3 = Palette.cream,
-		TextSize = 13,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 241,
-	}))
+	local title = if #opened > 0 then `{string.upper(table.concat(opened, " + "))} UNLOCKED` else "MILESTONE!"
+	require(script.Parent.JuiceFx).moment(title, if #parts > 0 then table.concat(parts, " · ") else nil, Palette.brass, "Forge")
 end
 
 local function LevelMomentHost(_param)
-	local state = _param.state
-	local queue, setQueue = React.useState({})
-	local leaving, setLeaving = React.useState(false)
-	React.useEffect(function()
-		local listener = function(moment)
-			Audio:play("achievementClaim")
-			setQueue(function(current)
-				local nextQueue = table.clone(current)
-				table.insert(nextQueue, moment)
-				return nextQueue
-			end)
-		end
-		listeners[listener] = true
-		return function()
-			listeners[listener] = nil
-		end
-	end, {})
-	local current = queue[1]
-	local close = React.useCallback(function()
-		setLeaving(true)
-		task.delay(0.25, function()
-			setLeaving(false)
-			setQueue(function(list)
-				local nextQueue = table.clone(list)
-				table.remove(nextQueue, 1)
-				return nextQueue
-			end)
-		end)
-	end, {})
-	React.useEffect(function()
-		if current == nil then
-			return nil
-		end
-		local job = task.delay(CARD_SECONDS, close)
-		return function()
-			pcall(task.cancel, job)
-		end
-	end, { current })
-	local level = state and state.Level
-	local progression = level and level.Progression
-	local surge = progression and progression.Surge
-	return React.createElement(React.Fragment, nil, surge ~= nil and (surge.EndsAt or 0) > 0 and React.createElement(SurgeChip, {
-		surge = surge,
-	}), current ~= nil and React.createElement(LevelCard, {
-		key = tostring(current.At),
-		moment = current,
-		leaving = leaving,
-		onClose = close,
-	}))
+	return nil
 end
 
 return {
@@ -20282,27 +18553,26 @@ return {
 end
 
 __defs["serverEventsUi"] = function()
+-- Server events on screen: the island carries the live readout, the screen gets each event's own
+-- weather, Falling Stars and Supply Drop put things to grab on screen, and a panel explains the
+-- event in full with its live standings.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local h = React.createElement
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _motion = require(script.Parent.MotionKit)("motion")
-local useClock = _motion.useClock
 local useFlipperSpring = _motion.useFlipperSpring
 local useViewport = _motion.useViewport
 local useWallClock = _motion.useWallClock
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
-local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
-local _ui = __load("ui")
-local Button = _ui.Button
-local Text = _ui.Text
 local ServerEvents = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ServerEvents")
+local WHITE_HOT = Color3.fromRGB(255, 244, 222)
 
 local latest = nil
 local listeners = {}
@@ -20346,112 +18616,444 @@ end
 local function accentOf(def)
 	return Palette[def and def.Accent or "cyan"] or Palette.cyan
 end
-local function phaseLine(event, now)
-	local left = (event.PhaseEndsAt or now) - now
-	if event.Phase == "Warning" then
-		return `Starts in {clockText(left)}`
-	elseif event.Phase == "Live" then
-		return `{clockText(left)} left`
-	elseif event.Phase == "Results" then
-		return if event.Completed then "Goal reached!" elseif event.Goal ~= nil then "Time's up" else "Finished"
-	end
-	return `Next event in {clockText(left)}`
+local function hash01(i, salt)
+	local x = math.sin(i * 12.9898 + salt * 78.233) * 43758.5453
+	return x - math.floor(x)
+end
+local function easeOut(t)
+	local u = 1 - math.clamp(t, 0, 1)
+	return 1 - u * u * u
+end
+local function serverNow()
+	return workspace:GetServerTimeNow()
 end
 
-local function ProgressBar(_param)
-	local fill = math.clamp(_param.value, 0, 1)
-	return React.createElement("frame", {
-		Size = _param.size,
-		Position = _param.position,
+-- what the island says about the event right now
+local function liveValue(event, def)
+	local kind = def.Kind
+	if kind == "goal" then
+		return `{math.floor(100 * (event.Progress or 0) / math.max(1, event.Goal or 1))}%`
+	elseif kind == "titan" then
+		return `{compactNumber(math.max(0, (event.Goal or 0) - (event.Progress or 0)))} HP`
+	elseif kind == "race" then
+		return if event.YourRank then `#{event.YourRank}` else "unranked"
+	elseif kind == "draw" then
+		return `{event.Tickets or 0} tickets`
+	elseif kind == "stars" then
+		return `{event.Caught or 0}/{event.MaxStars or def.MaxStars}`
+	end
+	return nil
+end
+
+------------------------------------------------------------------------------------------------
+-- weather: each event has its own sky; every particle is a pure function of one clock
+------------------------------------------------------------------------------------------------
+local SKY = {
+	MeteorShower = { kind = "streak", count = 14, angle = 34 },
+	StardustRain = { kind = "fall", count = 30 },
+	CommunityForge = { kind = "rise", count = 10 },
+	Overheat = { kind = "rise", count = 22, hot = true },
+	CriticalMass = { kind = "spark", count = 16 },
+	ComboFever = { kind = "pulse", count = 3 },
+	TwinSuns = { kind = "suns", count = 2 },
+	GoldenVault = { kind = "fall", count = 18, gold = true },
+	CoreSeam = { kind = "rise", count = 12 },
+	KeyCache = { kind = "fall", count = 10 },
+	IronTitan = { kind = "streak", count = 6, angle = 80 },
+	ForgeRace = { kind = "streak", count = 10, angle = 4 },
+	LuckyDraw = { kind = "spark", count = 12 },
+	FallingStars = { kind = "fall", count = 8 },
+	SupplyDrop = { kind = "rise", count = 6 },
+}
+
+local function Particle(p)
+	local i, style, clock, w, ht, color = p.index, p.style, p.clock, p.width, p.height, p.color
+	if style.kind == "streak" then
+		local a = math.rad(style.angle)
+		local dx, dy = -math.cos(a), math.sin(a)
+		local len = 70 + hash01(i, 3) * 100
+		local period = 1.8 + hash01(i, 1) * 2
+		local sx = w * (0.15 + hash01(i, 5) * 1.1)
+		local travel = math.max(w, ht) * 1.4
+		local function at(t)
+			local q = ((t + hash01(i, 2) * period) % period) / period / 0.6
+			return sx + dx * travel * q, -60 + dy * travel * q, q
+		end
+		return h("frame", {
+			Size = UDim2.fromOffset(len, if hash01(i, 4) > 0.7 then 3 else 2),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = 180 - style.angle,
+			Position = clock:map(function(t)
+				local x, y = at(t)
+				return UDim2.fromOffset(x - dx * len / 2, y - dy * len / 2)
+			end),
+			Visible = clock:map(function(t)
+				local _, _, q = at(t)
+				return q <= 1
+			end),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BorderSizePixel = 0,
+			ZIndex = 120,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
+			Color = ColorSequence.new(color, WHITE_HOT),
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.7, 0.4), NumberSequenceKeypoint.new(1, 0) }),
+		}))
+	elseif style.kind == "pulse" then
+		-- rings breathing out from the bottom corners: the beat you're keeping
+		local period = 2.4
+		return h("frame", {
+			Size = clock:map(function(t)
+				local q = ((t + i * period / 3) % period) / period
+				local s = 120 + q * math.max(w, ht) * 0.9
+				return UDim2.fromOffset(s, s)
+			end),
+			Position = UDim2.fromScale(if i % 2 == 0 then 0 else 1, 1),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			ZIndex = 119,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+			Color = color,
+			Thickness = 2,
+			Transparency = clock:map(function(t)
+				return 0.35 + ((t + i * period / 3) % period) / period * 0.65
+			end),
+		}))
+	elseif style.kind == "suns" then
+		local s = 260 - i * 70
+		return h("frame", {
+			Size = UDim2.fromOffset(s, s),
+			Position = clock:map(function(t)
+				return UDim2.new(if i == 1 then 0.12 else 0.88, math.sin(t * 0.3 + i) * 20, 0, -s * 0.25 + math.cos(t * 0.25 + i) * 10)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = if i == 1 then Palette.mango else WHITE_HOT,
+			BackgroundTransparency = 0.82,
+			BorderSizePixel = 0,
+			ZIndex = 118,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
+			Rotation = 90,
+		}))
+	end
+	-- motes: falling (rain, gold, keys), rising (embers, heat) or flickering sparks
+	local size = 2 + math.floor(hash01(i, 3) * 4)
+	local period = 4 + hash01(i, 1) * 4
+	local baseX = w * hash01(i, 5)
+	local rising = style.kind == "rise"
+	local spark = style.kind == "spark"
+	return h("frame", {
+		Size = UDim2.fromOffset(size, size),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = if spark then 45 else 0,
+		Position = clock:map(function(t)
+			local q = ((t + hash01(i, 2) * period) % period) / period
+			if spark then
+				return UDim2.fromOffset(baseX, ht * (0.1 + hash01(i, 7) * 0.8))
+			end
+			local y = if rising then ht + 10 - q * ht * 0.8 else -10 + q * (ht + 20)
+			return UDim2.fromOffset(baseX + math.sin(t * 0.8 + i) * 18, y)
+		end),
+		BackgroundTransparency = clock:map(function(t)
+			local q = ((t + hash01(i, 2) * period) % period) / period
+			if spark then
+				return 0.2 + (math.sin(t * 7 + i * 2.3) + 1) * 0.4
+			end
+			return math.clamp(0.25 + (if rising then q else math.max(0, (q - 0.8) / 0.2)) * 0.75, 0, 1)
+		end),
+		BackgroundColor3 = if style.gold then Palette.mango elseif style.hot then Palette.coral else color,
+		BorderSizePixel = 0,
+		ZIndex = 120,
+	}, not spark and h("uicorner", { CornerRadius = UDim.new(1, 0) }))
+end
+
+local function Sky(props)
+	local style = SKY[props.eventId]
+	local viewport = useViewport()
+	local antilag = useAntilag()
+	local clock = props.clock
+	if style == nil then
+		return nil
+	end
+	local budget = if antilag.tier <= 1 then 0.45 elseif antilag.allowAmbient == false then 0.7 else 1
+	local count = if style.kind == "pulse" or style.kind == "suns" then style.count else math.max(1, math.floor(style.count * budget))
+	local particles = {}
+	for i = 1, count do
+		particles["p" .. i] = h(Particle, { index = i, style = style, clock = clock, width = viewport.width, height = viewport.height, color = props.color })
+	end
+	return h("frame", {
+		Name = "EventSky",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Active = false,
+		ZIndex = 118,
+	}, particles)
+end
+
+------------------------------------------------------------------------------------------------
+-- Falling Stars: stars cross the screen; a tap catches one (the server counts and pays)
+------------------------------------------------------------------------------------------------
+local STAR_SLOTS = 6
+local STAR_FLIGHT = 4.2
+local function StarField(props)
+	local viewport = useViewport()
+	local clock = props.clock
+	local caught = React.useRef({})
+	local busy = React.useRef(false)
+	local stars = {}
+	for slot = 1, STAR_SLOTS do
+		local function wave(t)
+			-- each slot launches a new star every flight, offset so they don't arrive together
+			local n = math.floor((t + slot * 0.7) / STAR_FLIGHT)
+			local q = ((t + slot * 0.7) % STAR_FLIGHT) / STAR_FLIGHT
+			return n, q
+		end
+		local function place(t)
+			local n, q = wave(t)
+			local x0 = viewport.width * (0.08 + hash01(n * 7 + slot, 1) * 0.84)
+			local drift = (hash01(n * 7 + slot, 2) - 0.5) * 220
+			return x0 + drift * q, -40 + q * (viewport.height + 80), n
+		end
+		stars["s" .. slot] = h("textbutton", {
+			Size = UDim2.fromOffset(46, 46),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = clock:map(function(t)
+				local x, y = place(t)
+				return UDim2.fromOffset(x, y)
+			end),
+			Visible = clock:map(function(t)
+				local _, _, n = place(t)
+				return not caught.current[slot .. ":" .. n]
+			end),
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 140,
+			Event = {
+				Activated = function(rbx)
+					local now = os.clock()
+					local _, _, n = place(now)
+					local key = slot .. ":" .. n
+					if caught.current[key] or busy.current then
+						return
+					end
+					caught.current[key] = true
+					busy.current = true
+					local at = rbx.AbsolutePosition + rbx.AbsoluteSize / 2
+					props.dispatch("EventAct", { Op = "Catch" }, function(response)
+						busy.current = false
+						local Juice = require(script.Parent.JuiceFx)
+						if response.ok then
+							Audio:play("countTick")
+							Juice.burst(at, Palette.mango, 0.8)
+							Juice.number(`+{response.Dust or 3}`, Palette.violet, { at = at, small = true })
+						else
+							Juice.status(response.message or "Missed.", "error")
+						end
+					end)
+				end,
+			},
+		}, h("frame", {
+			Size = UDim2.fromOffset(40, 40),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = clock:map(function(t)
+				return (t * 60 + slot * 30) % 360
+			end),
+			BackgroundTransparency = 1,
+			ZIndex = 141,
+		}, h(Icon, { kind = "Milestone", color = Palette.mango, accent = WHITE_HOT, size = 40, spin = false })))
+	end
+	return h("frame", {
+		Name = "StarField",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 140,
+	}, stars)
+end
+
+------------------------------------------------------------------------------------------------
+-- Supply Drop: a crate floats down on a chute while it's down; the first three to tap it win
+------------------------------------------------------------------------------------------------
+local function SupplyCrates(props)
+	local event, clock = props.event, props.clock
+	local viewport = useViewport()
+	local pending = React.useRef({})
+	local crates = {}
+	for _, drop in event.Drops or {} do
+		local id = drop.Id
+		local x = viewport.width * (0.2 + hash01(id, 9) * 0.6)
+		local function age(now)
+			return serverNow() - drop.At
+		end
+		local open = drop.Left > 0 and not drop.Mine
+		crates["c" .. id] = h("textbutton", {
+			Size = UDim2.fromOffset(84, 110),
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = clock:map(function(now)
+				local a = age(now)
+				local land = easeOut(a / 2.2)
+				return UDim2.fromOffset(x + math.sin(now * 1.6 + id) * 8 * (1 - land), -20 + land * viewport.height * 0.62)
+			end),
+			Visible = clock:map(function(now)
+				local a = age(now)
+				return a >= 0 and a <= (drop.EndsAt - drop.At) and open and not pending.current[id]
+			end),
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 150,
+			Event = {
+				Activated = function(rbx)
+					if pending.current[id] then
+						return
+					end
+					pending.current[id] = true
+					local at = rbx.AbsolutePosition + rbx.AbsoluteSize / 2
+					props.dispatch("EventAct", { Op = "Claim", Drop = id }, function(response)
+						local Juice = require(script.Parent.JuiceFx)
+						if response.ok then
+							Audio:play("crateOpen")
+							Juice.burst(at, Palette.mint, 1.2)
+							Juice.number("+1 key", Palette.mint, { at = at })
+						else
+							pending.current[id] = nil
+							Juice.status(response.message or "Missed it.", "error")
+						end
+					end)
+				end,
+			},
+		}, h(Icon, {
+			kind = "Crate",
+			color = Palette.mango,
+			accent = Palette.mint,
+			size = 64,
+			spin = false,
+			position = UDim2.new(0.5, 0, 1, -22),
+			anchorPoint = Vector2.new(0.5, 1),
+		}), h("textlabel", {
+			Size = UDim2.new(1, 20, 0, 16),
+			Position = UDim2.new(0.5, 0, 1, 0),
+			AnchorPoint = Vector2.new(0.5, 1),
+			BackgroundTransparency = 1,
+			Text = `Grab it · {drop.Left} left`,
+			TextSize = 12,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+			TextColor3 = Palette.mint,
+			ZIndex = 153,
+		}))
+	end
+	return h("frame", {
+		Name = "SupplyCrates",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 150,
+	}, crates)
+end
+
+------------------------------------------------------------------------------------------------
+-- the panel: what's happening, what to do, and the live standings
+------------------------------------------------------------------------------------------------
+local function Line(props)
+	return h("textlabel", {
+		Size = UDim2.new(1, 0, 0, props.height or 18),
+		LayoutOrder = props.order,
+		BackgroundTransparency = 1,
+		Text = props.text,
+		TextSize = props.size or 13,
+		TextWrapped = true,
+		FontFace = Font.fromEnum(if props.bold then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium),
+		TextColor3 = props.color or Palette.creamSoft,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 563,
+	})
+end
+local function Bar(props)
+	return h("frame", {
+		Size = UDim2.new(1, 0, 0, 10),
+		LayoutOrder = props.order,
 		BackgroundColor3 = Palette.graphite,
 		BorderSizePixel = 0,
-		ZIndex = _param.zIndex,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("frame", {
-		Size = UDim2.fromScale(math.max(fill, 0.02), 1),
-		BackgroundColor3 = _param.color,
+		ZIndex = 563,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+		Size = UDim2.fromScale(math.clamp(props.value, 0.02, 1), 1),
+		BackgroundColor3 = props.color,
 		BorderSizePixel = 0,
-		ZIndex = _param.zIndex,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})))
+		ZIndex = 564,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", { Color = ColorSequence.new(props.color, WHITE_HOT) })))
 end
 
-local function EventPanel(_param)
-	local event = _param.event
+local function EventPanel(props)
+	local event = props.event
 	local def = ServerEvents.EVENTS[event.Id or ""]
 	local now = useWallClock(true)
 	local viewport = useViewport()
 	local show = useFlipperSpring(1, false, 560, 34, 0)
 	local accent = accentOf(def)
-	local width = math.min(440, viewport.width - 24)
+	local width = math.min(460, viewport.width - 24)
 	local rows = {}
-	rows.layout = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	})
 	local order = 0
-	local function line(key, text, color, size, height)
+	local function add(element)
 		order += 1
-		rows[key] = React.createElement(Text, {
-			value = text,
-			size = size or 13,
-			color = color or Palette.creamSoft,
-			wrap = true,
-			fit = false,
-			sizeConstraint = UDim2.new(1, 0, 0, height or 34),
-			layoutOrder = order,
-			zIndex = 562,
-		})
+		rows["r" .. order] = element
 	end
-	local height = 150
-	if def == nil then
-		line("rest", "No event right now. Events run every few minutes: when one is coming, a banner appears at the top of the screen.", Palette.creamSoft, 13, 52)
-		height += 60
-	else
-		line("how", def.How, Palette.creamSoft, 13, 40)
-		height += 48
-		if def.Id == "MeteorShower" then
-			line("effect", string.format("Effect: everyone's output ×%.1f while it lasts.", def.Multiplier), Palette.mango, 13, 20)
-			height += 28
-		elseif def.Id == "StardustRain" then
-			line("effect", string.format("Effect: every vault collect drops up to %d stardust.", def.MaxDustPerCollect), Palette.violet, 13, 20)
-			height += 28
-		elseif def.Id == "CommunityForge" then
-			line("reward", string.format("Reward for everyone who helps: %d seconds of your output in flux and %d stardust. Top 3 get +%d / +%d / +%d stardust.", def.RewardFluxSeconds, def.RewardStardust, def.TopBonusStardust[1], def.TopBonusStardust[2], def.TopBonusStardust[3]), Palette.cyan, 12, 34)
-			height += 42
-			if event.Goal ~= nil then
-				order += 1
-				rows.goal = React.createElement("frame", {
-					Size = UDim2.new(1, 0, 0, 36),
-					LayoutOrder = order,
-					BackgroundTransparency = 1,
-					ZIndex = 562,
-				}, React.createElement(Text, {
-					value = `{compactNumber(event.Progress or 0)} / {compactNumber(event.Goal)} points  ·  yours {compactNumber(event.Yours or 0)}`,
-					size = 12,
-					color = Palette.cream,
-					weight = Enum.FontWeight.Bold,
-					sizeConstraint = UDim2.new(1, 0, 0, 16),
-					zIndex = 563,
-				}), React.createElement(ProgressBar, {
-					value = (event.Progress or 0) / math.max(1, event.Goal),
-					color = accent,
-					size = UDim2.new(1, 0, 0, 10),
-					position = UDim2.fromOffset(0, 22),
-					zIndex = 563,
-				}))
-				height += 44
-				for index, entry in event.Top or {} do
-					line("top" .. index, `#{index}  {entry.Name}  ·  {compactNumber(entry.Points)} pts`, if index <= 3 then Palette.mango else Palette.muted, 12, 16)
-					height += 24
-				end
-			end
+	local function line(text, color, opts)
+		local o = opts or {}
+		add(h(Line, { text = text, color = color, order = order + 1, height = o.height, size = o.size, bold = o.bold }))
+	end
+	local function standings(list, unit)
+		for index, entry in list or {} do
+			line(`{index}.  {entry.Name}  ·  {compactNumber(entry.Points)} {unit}`, if index <= 3 then Palette.mango else Palette.muted, { size = 12 })
 		end
 	end
-	return React.createElement("textbutton", {
+	if def == nil then
+		line("No event right now. One starts every few minutes; the island warns you a minute before.", Palette.creamSoft, { height = 40 })
+	else
+		line(def.How, Palette.cream, { height = 54, size = 14 })
+		local kind = def.Kind
+		if kind == "goal" or kind == "titan" then
+			local goal = math.max(1, event.Goal or 1)
+			local progress = event.Progress or 0
+			if kind == "titan" then
+				line(if event.Completed then "It's down." else `{compactNumber(goal - progress)} of {compactNumber(goal)} health left`, Palette.cream, { bold = true })
+				add(h(Bar, { value = 1 - progress / goal, color = accent, order = order + 1 }))
+				line(`You've hit it for {compactNumber(event.Yours or 0)}.`, Palette.muted, { size = 12 })
+			else
+				line(if event.Completed then "Order filled." else `{compactNumber(progress)} of {compactNumber(goal)} points`, Palette.cream, { bold = true })
+				add(h(Bar, { value = progress / goal, color = accent, order = order + 1 }))
+				line(`You've added {compactNumber(event.Yours or 0)}.`, Palette.muted, { size = 12 })
+			end
+			line("Pays everyone who helped " .. def.RewardFluxSeconds // 60 .. " minutes of output and " .. def.RewardStardust .. " Stardust, more for the top three.", Palette.muted, { size = 12, height = 32 })
+			standings(event.Top, if kind == "titan" then "damage" else "pts")
+		elseif kind == "race" then
+			line(if event.YourRank then `You're #{event.YourRank} with {compactNumber(event.Yours or 0)} points.` else "Bank your vault to get on the board.", Palette.cream, { bold = true })
+			line("Prizes: 1st 120 Stardust and 6 Cores, 2nd 80 and 4, 3rd 50 and 2. Everyone who scores gets 10 Stardust.", Palette.muted, { size = 12, height = 32 })
+			standings(event.Top, "pts")
+		elseif kind == "draw" then
+			line(`You hold {event.Tickets or 0} of {event.Pool or 0} tickets.`, Palette.cream, { bold = true })
+			if event.Winners and #event.Winners > 0 then
+				line("Drawn:", Palette.mango, { bold = true })
+				for index, winner in event.Winners do
+					line(`{index}.  {winner.Name}`, Palette.mango)
+				end
+			else
+				line("Three winners get 150 Stardust and 5 Cores each. Everyone else with a ticket gets 5 Stardust.", Palette.muted, { size = 12, height = 32 })
+			end
+		elseif kind == "stars" then
+			line(`Caught {event.Caught or 0} of {event.MaxStars or def.MaxStars}.`, Palette.cream, { bold = true })
+		elseif kind == "supply" then
+			local nextAt = nil
+			for _, drop in event.Drops or {} do
+				if drop.At > serverNow() and (nextAt == nil or drop.At < nextAt) then
+					nextAt = drop.At
+				end
+			end
+			line(if nextAt then `Next crate in {clockText(nextAt - serverNow())}.` else "No more crates this time.", Palette.cream, { bold = true })
+		elseif kind == "drops" and def.Drops.Dust then
+			line(`Up to {def.Drops.Dust} Stardust per collect.`, accent)
+		end
+	end
+	return h("textbutton", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = show:map(function(amount)
@@ -20460,11 +19062,9 @@ local function EventPanel(_param)
 		AutoButtonColor = false,
 		Text = "",
 		ZIndex = 558,
-		Event = {
-			Activated = _param.onClose,
-		},
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(width, math.min(height, viewport.height - 40)),
+		Event = { Activated = props.onClose },
+	}, h("frame", {
+		Size = UDim2.fromOffset(width, math.min(460, viewport.height - 40)),
 		Position = show:map(function(amount)
 			return UDim2.new(0.5, 0, 0.5, math.round((1 - amount) * 24))
 		end),
@@ -20474,298 +19074,70 @@ local function EventPanel(_param)
 		Active = true,
 		ClipsDescendants = true,
 		ZIndex = 560,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
-	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1.5,
-		Transparency = 0.3,
-	}), React.createElement("frame", {
+	}, h("uicorner", { CornerRadius = UDim.new(0, 16) }), h("uistroke", { Color = accent, Thickness = 1.5, Transparency = 0.3 }), h("frame", {
 		Size = UDim2.fromOffset(52, 52),
-		Position = UDim2.fromOffset(16, 16),
+		Position = UDim2.fromOffset(18, 18),
 		BackgroundColor3 = darken(accent, 0.55),
 		BorderSizePixel = 0,
 		ZIndex = 561,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	}), React.createElement(Icon, {
-		kind = def and def.Icon or "Calendar",
-		color = Palette.cream,
-		accent = accent,
-		size = 52,
-	})), React.createElement(Text, {
-		value = if def then def.Name else "Server events",
-		size = 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 14,
-		position = UDim2.fromOffset(80, 18),
-		sizeConstraint = UDim2.new(1, -140, 0, 26),
-		zIndex = 561,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -140, 0, 18),
-		Position = UDim2.fromOffset(80, 46),
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h(Icon, { kind = def and def.Icon or "Calendar", color = Palette.cream, accent = accent, size = 52 })), h("textlabel", {
+		Size = UDim2.new(1, -150, 0, 26),
+		Position = UDim2.fromOffset(82, 18),
 		BackgroundTransparency = 1,
-		Text = now:map(function(value)
-			return phaseLine(event, value)
-		end),
-		TextColor3 = accent,
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		Text = if def then def.Name else "Server events",
+		TextSize = 21,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextColor3 = Palette.cream,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 561,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(40, 40),
-		Position = UDim2.new(1, -52, 0, 12),
+	}), h("textlabel", {
+		Size = UDim2.new(1, -150, 0, 18),
+		Position = UDim2.fromOffset(82, 46),
 		BackgroundTransparency = 1,
-		ZIndex = 562,
-	}, React.createElement(Button, {
-		text = "",
-		icon = "Close",
-		onClick = _param.onClose,
-		color = Palette.panel,
-		textColor = Palette.cream,
-		outline = true,
-		size = UDim2.fromScale(1, 1),
-		zIndex = 563,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, -32, 1, -96),
-		Position = UDim2.fromOffset(16, 84),
-		BackgroundTransparency = 1,
-		ZIndex = 561,
-	}, rows)))
-end
-
-local function LiveSplash(_param)
-	local def = _param.def
-	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 420, 26, 0)
-	local accent = accentOf(def)
-	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 120),
-		Position = UDim2.fromScale(0.5, 0.38),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = darken(accent, 0.7),
-		BackgroundTransparency = show:map(function(amount)
-			return 1 - amount * 0.25
+		Text = now:map(function(value)
+			local left = (event.PhaseEndsAt or value) - value
+			return if event.Phase == "Warning" then `Starts in {clockText(left)}`
+				elseif event.Phase == "Live" then `{clockText(left)} left`
+				elseif event.Phase == "Results" then "Finished"
+				else `Next event in {clockText(left)}`
 		end),
-		BorderSizePixel = 0,
-		Active = false,
-		ZIndex = 540,
-	}, React.createElement("uigradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.2, 0),
-			NumberSequenceKeypoint.new(0.8, 0),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	}), React.createElement("uiscale", {
-		Scale = show:map(function(amount)
-			return 0.8 + amount * 0.2
-		end),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 20),
-		Position = UDim2.fromOffset(0, 18),
-		BackgroundTransparency = 1,
-		Text = "SERVER EVENT",
+		TextSize = 14,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextColor3 = accent,
-		TextTransparency = show:map(function(amount)
-			return 1 - amount
-		end),
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		ZIndex = 541,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 48),
-		Position = UDim2.fromOffset(0, 38),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 561,
+	}), h("textbutton", {
+		Size = UDim2.fromOffset(60, 26),
+		Position = UDim2.new(1, -18, 0, 18),
+		AnchorPoint = Vector2.new(1, 0),
 		BackgroundTransparency = 1,
-		Text = string.upper(def.Name),
-		TextColor3 = Palette.cream,
-		TextTransparency = show:map(function(amount)
-			return 1 - amount
-		end),
-		TextSize = 42,
-		TextScaled = true,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		ZIndex = 541,
-	}, React.createElement("uitextsizeconstraint", {
-		MaxTextSize = 42,
-	})), React.createElement("textlabel", {
-		Size = UDim2.new(1, 0, 0, 18),
-		Position = UDim2.fromOffset(0, 90),
+		Text = "Close",
+		TextSize = 13,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextColor3 = Palette.muted,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		ZIndex = 562,
+		Event = { Activated = props.onClose },
+	}), h("scrollingframe", {
+		Size = UDim2.new(1, -36, 1, -100),
+		Position = UDim2.fromOffset(18, 86),
 		BackgroundTransparency = 1,
-		Text = def.Blurb,
-		TextColor3 = Palette.creamSoft,
-		TextTransparency = show:map(function(amount)
-			return 1 - amount
-		end),
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-		ZIndex = 541,
-	}))
-end
-
--- Screen-space weather for live events. Every particle is a pure function of one time
--- binding (no per-particle state), seeded so the pattern is stable between renders.
-local SKY_STYLE = {
-	MeteorShower = { kind = "streak", burst = 16, ambient = 4, angle = 34 },
-	StardustRain = { kind = "dust", burst = 34, ambient = 12 },
-	CommunityForge = { kind = "ember", burst = 26, ambient = 9 },
-}
-local SKY_BURST_SECONDS = 6
-
-local function hash01(i, salt)
-	local x = math.sin(i * 12.9898 + salt * 78.233) * 43758.5453
-	return x - math.floor(x)
-end
-
-local function SkyParticle(p)
-	local i, style, clock = p.index, p.style, p.clock
-	local w, hgt = p.width, p.height
-	local period = if style.kind == "streak" then 1.6 + hash01(i, 1) * 1.8 elseif style.kind == "dust" then 5 + hash01(i, 1) * 4 else 4 + hash01(i, 1) * 3
-	local phase0 = hash01(i, 2) * period
-	local function progress(t)
-		return ((t + phase0) % period) / period
-	end
-	local function alive(t)
-		local active = if t - p.since < SKY_BURST_SECONDS then style.burst else style.ambient
-		return i <= active
-	end
-	if style.kind == "streak" then
-		local a = math.rad(style.angle)
-		local dx, dy = -math.cos(a), math.sin(a)
-		local len = 70 + hash01(i, 3) * 110
-		local thick = if hash01(i, 4) > 0.75 then 3 else 2
-		local sx = w * (0.25 + hash01(i, 5) * 1.05)
-		local travel = (hgt + 160) / dy
-		-- a meteor flies for the first 55% of its period, then rests off-screen
-		local function head(t)
-			local q = progress(t) / 0.55
-			return sx + dx * travel * q, -80 + dy * travel * q, q
-		end
-		return h("frame", {
-			Size = UDim2.fromOffset(len, thick),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = 180 - style.angle,
-			Position = clock:map(function(t)
-				local x, y = head(t)
-				return UDim2.fromOffset(x - dx * len / 2, y - dy * len / 2)
-			end),
-			Visible = clock:map(function(t)
-				local _, _, q = head(t)
-				return alive(t) and q <= 1
-			end),
-			BackgroundColor3 = Color3.new(1, 1, 1),
-			BorderSizePixel = 0,
-			ZIndex = 120,
-		},
-			h("uicorner", { CornerRadius = UDim.new(1, 0) }),
-			h("uigradient", {
-				Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, p.accent),
-					ColorSequenceKeypoint.new(0.8, Color3.fromRGB(255, 236, 200)),
-					ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
-				}),
-				Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 1),
-					NumberSequenceKeypoint.new(0.7, 0.45),
-					NumberSequenceKeypoint.new(1, 0),
-				}),
-			}),
-			h("frame", {
-				Size = UDim2.fromOffset(thick * 3, thick * 3),
-				Position = UDim2.fromScale(1, 0.5),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundColor3 = Color3.fromRGB(255, 244, 220),
-				BackgroundTransparency = 0.1,
-				BorderSizePixel = 0,
-				ZIndex = 121,
-			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
-		)
-	end
-	local size = if style.kind == "dust" then 2 + math.round(hash01(i, 3) * 3) else 3 + math.round(hash01(i, 3) * 3)
-	local baseX = w * hash01(i, 5)
-	local sway = 10 + hash01(i, 6) * 26
-	local rising = style.kind == "ember"
-	return h("frame", {
-		Size = UDim2.fromOffset(size, size),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = if rising then 45 else 0,
-		Position = clock:map(function(t)
-			local q = progress(t)
-			local y = if rising then hgt + 20 - q * (hgt * 0.7) else -20 + q * (hgt + 40)
-			return UDim2.fromOffset(baseX + math.sin(t * 0.9 + i) * sway, y)
-		end),
-		BackgroundTransparency = clock:map(function(t)
-			local q = progress(t)
-			local fade = if rising then q else math.max(0, (q - 0.8) / 0.2)
-			local twinkle = if rising then 0 else (math.sin(t * 6 + i * 1.7) + 1) * 0.18
-			return math.clamp(0.1 + fade * 0.9 + twinkle, 0, 1)
-		end),
-		Visible = clock:map(alive),
-		BackgroundColor3 = if rising then Color3.fromRGB(255, 168, 92) else p.accent,
 		BorderSizePixel = 0,
-		ZIndex = 120,
-	}, h("uicorner", { CornerRadius = UDim.new(if rising then 0.2 else 1, 0) }))
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 3,
+		ZIndex = 562,
+	}, h("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }), rows)))
 end
 
-local function EventSkyFx(_param)
-	local style = SKY_STYLE[_param.eventId]
-	local viewport = useViewport()
-	local antilag = useAntilag()
-	local clock, setClock = React.useBinding(os.clock())
-	local since = React.useMemo(os.clock, { _param.eventId })
-	React.useEffect(function()
-		local conn = RunService.Heartbeat:Connect(function()
-			setClock(os.clock())
-		end)
-		return function()
-			conn:Disconnect()
-		end
-	end, {})
-	if style == nil then
-		return nil
-	end
-	local budget = if antilag.tier <= 1 then 0.45 elseif antilag.allowAmbient == false then 0.7 else 1
-	local tuned = {
-		kind = style.kind,
-		angle = style.angle,
-		burst = math.max(1, math.floor(style.burst * budget)),
-		ambient = math.max(1, math.floor(style.ambient * budget)),
-	}
-	local particles = {}
-	for i = 1, tuned.burst do
-		particles[i] = h(SkyParticle, {
-			key = i,
-			index = i,
-			style = tuned,
-			clock = clock,
-			since = since,
-			width = viewport.width,
-			height = viewport.height,
-			accent = _param.accent,
-		})
-	end
-	return h("frame", {
-		Name = "EventSkyFx",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Active = false,
-		ZIndex = 120,
-	}, table.unpack(particles))
-end
-
-local function ServerEventHost(_param)
-	local state = _param.state
+local function ServerEventHost(props)
+	local state = props.state
 	local event = useServerEvent(state and state.ServerEvent)
-	local now = useWallClock(true)
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local pulse = useClock(true, 3, math.pi * 2)
 	local panelOpen, setPanelOpen = React.useState(false)
-	local splash, setSplash = React.useState(nil)
-	local splashLeaving, setSplashLeaving = React.useState(false)
 	local lastPhase = React.useRef(nil)
+	local def = event and ServerEvents.EVENTS[event.Id or ""]
+	local live = def ~= nil and event.Phase == "Live"
+	local clock, setClock = React.useBinding(os.clock())
 	React.useEffect(function()
 		local opener = function()
 			Audio:play("open")
@@ -20777,132 +19149,70 @@ local function ServerEventHost(_param)
 		end
 	end, {})
 	React.useEffect(function()
+		if not live then
+			return nil
+		end
+		local conn = RunService.Heartbeat:Connect(function()
+			setClock(os.clock())
+		end)
+		return function()
+			conn:Disconnect()
+		end
+	end, { live })
+	-- a new event lands as a moment out of the island
+	React.useEffect(function()
 		if event == nil then
 			return nil
 		end
 		local key = tostring(event.Phase) .. ":" .. tostring(event.Id)
-		if lastPhase.current ~= nil and lastPhase.current ~= key and event.Phase == "Live" then
-			local def = ServerEvents.EVENTS[event.Id or ""]
-			if def ~= nil then
-				Audio:play("noticeSpecial")
-				setSplashLeaving(false)
-				setSplash(def)
-				local leave = task.delay(2.4, function()
-					setSplashLeaving(true)
-				end)
-				local gone = task.delay(2.8, function()
-					setSplash(nil)
-				end)
-				lastPhase.current = key
-				return function()
-					pcall(task.cancel, leave)
-					pcall(task.cancel, gone)
-				end
-			end
+		if lastPhase.current ~= nil and lastPhase.current ~= key and event.Phase == "Live" and def ~= nil then
+			require(script.Parent.JuiceFx).moment(string.upper(def.Name), def.How, accentOf(def), def.Icon)
 		end
 		lastPhase.current = key
 		return nil
 	end, { event and event.Phase, event and event.Id })
+	-- while it runs, the island carries it: name, countdown and how it's going
+	React.useEffect(function()
+		local Juice = require(script.Parent.JuiceFx)
+		if not live then
+			pcall(Juice.live, "serverEvent", nil)
+			return nil
+		end
+		local goal = event.Goal
+		local progress = nil
+		if def.Kind == "goal" and goal then
+			progress = (event.Progress or 0) / math.max(1, goal)
+		elseif def.Kind == "titan" and goal then
+			progress = 1 - (event.Progress or 0) / math.max(1, goal)
+		end
+		pcall(Juice.live, "serverEvent", {
+			title = string.upper(def.Name),
+			value = liveValue(event, def),
+			icon = def.Icon,
+			color = accentOf(def),
+			serverEndsAt = event.PhaseEndsAt,
+			span = ServerEvents.LIVE_SECONDS,
+			progress = progress,
+			priority = 1,
+			ttl = ServerEvents.LIVE_SECONDS + 5,
+		})
+		return nil
+	end, { live, event and event.Id, event and event.Progress, event and event.Caught, event and event.Tickets, event and event.YourRank, event and event.PhaseEndsAt })
 	if event == nil then
 		return nil
 	end
-	local def = ServerEvents.EVENTS[event.Id or ""]
-	local active = def ~= nil and event.Phase ~= "Rest"
 	local accent = accentOf(def)
-	local stack = chrome.stack
-	local edge = math.max(chrome.sideSafe, 10)
-	local width = if stack then math.max(120, viewport.width - math.min(220, math.floor(viewport.width * 0.6)) - edge * 3)
-		elseif active then math.min(320, viewport.width - 120)
-		else 170
-	local height = if active then (if event.Goal ~= nil then 50 else 40) else 28
-	local top = viewport.topInset + 62
-	local skyFx = def ~= nil and event.Phase == "Live" and React.createElement(EventSkyFx, {
-		key = tostring(event.Id),
-		eventId = event.Id,
-		accent = accent,
-	})
-	if (stack and not active) or _param.inTopBar == true then
-		return React.createElement(React.Fragment, nil, skyFx, splash ~= nil and React.createElement(LiveSplash, {
-			def = splash,
-			leaving = splashLeaving,
-		}), panelOpen and React.createElement(EventPanel, {
+	return h(React.Fragment, nil,
+		live and h(Sky, { key = event.Id, eventId = event.Id, clock = clock, color = accent }),
+		live and def.Kind == "stars" and props.dispatch and h(StarField, { clock = clock, dispatch = props.dispatch }),
+		live and def.Kind == "supply" and props.dispatch and h(SupplyCrates, { event = event, clock = clock, dispatch = props.dispatch }),
+		panelOpen and h(EventPanel, {
 			event = event,
 			onClose = function()
+				Audio:play("close")
 				setPanelOpen(false)
 			end,
 		}))
-	end
-	local banner = React.createElement("textbutton", {
-		Size = UDim2.fromOffset(width, height),
-		Position = if stack then UDim2.new(0, edge, 1, -(chrome.tabBarH + 8)) else UDim2.new(0.5, 0, 0, top),
-		AnchorPoint = if stack then Vector2.new(0, 1) else Vector2.new(0.5, 0),
-		BackgroundColor3 = if active then darken(accent, 0.62) else Palette.night,
-		BackgroundTransparency = if active then 0.04 else 0.25,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 238,
-		Event = {
-			Activated = function()
-				Audio:play("open")
-				setPanelOpen(true)
-			end,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, if active then 12 else 14),
-	}), React.createElement("uistroke", {
-		Color = if active then accent else Palette.line,
-		Thickness = if active then 1.5 else 1,
-		Transparency = if active and event.Phase == "Live" then pulse:map(function(angle)
-			return 0.15 + (math.sin(angle) + 1) * 0.2
-		end) else 0.4,
-	}), active and React.createElement(Icon, {
-		kind = def.Icon,
-		color = Palette.cream,
-		accent = accent,
-		size = 24,
-		position = UDim2.fromOffset(10, 8),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 18 else height),
-		Position = UDim2.fromOffset(if active then 40 else 8, if active then 4 else 0),
-		BackgroundTransparency = 1,
-		Text = if active then def.Name else "",
-		TextColor3 = Palette.cream,
-		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Visible = active,
-		ZIndex = 239,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 16 else height),
-		Position = UDim2.fromOffset(if active then 40 else 8, if active then 21 else 0),
-		BackgroundTransparency = 1,
-		Text = now:map(function(value)
-			return phaseLine(event, value)
-		end),
-		TextColor3 = if active then accent else Palette.muted,
-		TextSize = if active then 12 else 11,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		TextXAlignment = if active then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
-		ZIndex = 239,
-	}), active and event.Goal ~= nil and React.createElement(ProgressBar, {
-		value = (event.Progress or 0) / math.max(1, event.Goal),
-		color = accent,
-		size = UDim2.new(1, -52, 0, 5),
-		position = UDim2.fromOffset(40, 40),
-		zIndex = 239,
-	}))
-	return React.createElement(React.Fragment, nil, skyFx, banner, splash ~= nil and React.createElement(LiveSplash, {
-		def = splash,
-		leaving = splashLeaving,
-	}), panelOpen and React.createElement(EventPanel, {
-		event = event,
-		onClose = function()
-			Audio:play("close")
-			setPanelOpen(false)
-		end,
-	}))
 end
 
 return {
@@ -20915,7 +19225,6 @@ return {
 	EVENTS = ServerEvents.EVENTS,
 }
 end
-
 __defs["CreditsView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21135,7 +19444,10 @@ local function MemberCard(_param)
 	}, React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = React.joinBindings({ lift, arrive }):map(function(values)
-			return UDim2.fromOffset(0, math.round(-values[1] * 3 + (1 - math.clamp(values[2], 0, 1)) * 12))
+			return UDim2.fromOffset(0, math.round(-values[1] * 6 + (1 - math.clamp(values[2], 0, 1)) * 14))
+		end),
+		Rotation = lift:map(function(v)
+			return v * (if _param.index % 2 == 0 then 1.4 else -1.4)
 		end),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
@@ -21143,6 +19455,7 @@ local function MemberCard(_param)
 		Active = true,
 		Event = {
 			MouseEnter = function()
+				Audio:play("hover")
 				setHovered(true)
 			end,
 			MouseLeave = function()
@@ -21150,8 +19463,10 @@ local function MemberCard(_param)
 			end,
 		},
 	}, React.createElement("uiscale", {
-		Scale = arrive:map(function(amount)
-			return 0.94 + math.clamp(amount, 0, 1) * 0.06
+		Scale = React.joinBindings({ arrive, lift }):map(function(values)
+			local arr = 0.94 + math.clamp(values[1], 0, 1) * 0.06
+			local lft = values[2] * 0.03
+			return arr + lft
 		end),
 	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 12),
@@ -21159,10 +19474,14 @@ local function MemberCard(_param)
 		Color = ColorSequence.new(Palette.panelRaised, Palette.panel),
 		Rotation = 90,
 	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1,
+		Color = lift:map(function(v)
+			return Palette.panelRaised:Lerp(lighten(accent, 0.4), v)
+		end),
+		Thickness = lift:map(function(v)
+			return 1 + v * 0.75
+		end),
 		Transparency = lift:map(function(amount)
-			return 0.78 - math.clamp(amount, 0, 1) * 0.45
+			return 0.75 - math.clamp(amount, 0, 1) * 0.65
 		end),
 	}), MODEL.ShowAvatars and React.createElement(Avatar, {
 		member = member,
@@ -22174,9 +20493,7 @@ local function Rings(props)
 			end),
 		}, corner(), React.createElement("uiaspectratioconstraint", { AspectRatio = 1 }), React.createElement("uistroke", {
 			Color = if k == 1 then Palette.mint else Palette.violet,
-			Thickness = clock:map(function(t)
-				return 6 - 4 * ramp(t, start, start + 0.7)
-			end),
+			Thickness = 3,
 			Transparency = clock:map(function(t)
 				return 0.15 + 0.85 * ramp(t, start, start + 0.7)
 			end),
@@ -22350,12 +20667,12 @@ local function RebirthCeremonyHost(props)
 		BackgroundColor3 = Palette.void,
 		BorderSizePixel = 0,
 		BackgroundTransparency = clock:map(function(t)
-			return 1 - 0.62 * ramp(t, 0, 0.3) * (1 - fadeOut(t))
+			return 1 - 0.78 * ramp(t, 0, 0.28) * (1 - fadeOut(t))
 		end),
 	}, React.createElement("uigradient", {
 		Transparency = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 0),
-			NumberSequenceKeypoint.new(0.5, 0.35),
+			NumberSequenceKeypoint.new(0.5, 0.22),
 			NumberSequenceKeypoint.new(1, 0),
 		}),
 		Rotation = 90,
@@ -22378,8 +20695,8 @@ local function RebirthCeremonyHost(props)
 		BackgroundColor3 = Palette.cream,
 		BorderSizePixel = 0,
 		Size = clock:map(function(t)
-			local grow = outCubic(ramp(t, 0.05, tl.shock)) * 30
-			local pop = math.sin(math.pi * ramp(t, tl.shock, tl.shock + 0.3)) * 46
+			local grow = outCubic(ramp(t, 0.05, tl.shock)) * 32
+			local pop = math.sin(math.pi * ramp(t, tl.shock, tl.shock + 0.3)) * 52
 			local gone = 1 - ramp(t, tl.shock + 0.15, tl.shock + 0.4)
 			local s = (grow + pop) * gone
 			return UDim2.fromOffset(s, s)
@@ -22388,34 +20705,81 @@ local function RebirthCeremonyHost(props)
 		Color = Palette.violet,
 		Thickness = 3,
 		Transparency = 0.25,
+	})), not calm and React.createElement("frame", {
+		Name = "ShockwaveBeam",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = clock:map(function(t)
+			local p = ramp(t, tl.shock, tl.shock + 0.36)
+			return UDim2.new(outCubic(p) * 1.8, 0, 0, math.floor(10 * (1 - p)))
+		end),
+		BackgroundColor3 = Palette.cream,
+		BorderSizePixel = 0,
+		BackgroundTransparency = clock:map(function(t)
+			if t < tl.shock then
+				return 1
+			end
+			return 0.12 + 0.88 * ramp(t, tl.shock + 0.04, tl.shock + 0.36)
+		end),
+	}, corner(), React.createElement("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.violet),
+			ColorSequenceKeypoint.new(0.5, Palette.cream),
+			ColorSequenceKeypoint.new(1, Palette.violet),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
 	})), not calm and React.createElement(Rings, { clock = clock, tl = tl }), streakCount > 0 and React.createElement(Streaks, { clock = clock, tl = tl, count = streakCount }), React.createElement("frame", {
 		Name = "Card",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Size = UDim2.fromOffset(420, 250),
-		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(450, 276),
+		BackgroundColor3 = Color3.fromRGB(12, 14, 22),
+		BackgroundTransparency = clock:map(function(t)
+			return 1 - 0.94 * contentIn(t) * (1 - fadeOut(t))
+		end),
 		BorderSizePixel = 0,
 		Position = clock:map(function(t)
 			local rise = outCubic(ramp(t, tl.ascend, tl.fade)) * 22 + fadeOut(t) * 18
 			return UDim2.new(0.5, 0, 0.5, (1 - contentIn(t)) * 18 - rise)
 		end),
-	}, React.createElement("uiscale", {
+	}, corner(UDim.new(0, 16)), React.createElement("uistroke", {
+		Color = Palette.violet,
+		Thickness = 1.5,
+		Transparency = clock:map(function(t)
+			return 0.2 + 0.8 * fadeOut(t)
+		end),
+	}), React.createElement("frame", {
+		Name = "TopJewelLine",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 0),
+		Size = UDim2.new(0.38, 0, 0, 2),
+		BackgroundColor3 = Palette.violet,
+		BorderSizePixel = 0,
+		BackgroundTransparency = clock:map(function(t)
+			return 1 - contentIn(t) * (1 - fadeOut(t))
+		end),
+	}, corner(UDim.new(1, 0))), React.createElement("uiscale", {
 		Scale = clock:map(function(t)
 			return 0.92 + 0.08 * outBack(ramp(t, tl.count0 - 0.18, tl.count0 + 0.3))
 		end),
 	}), React.createElement("textlabel", {
+		Position = UDim2.fromOffset(0, 12),
 		Size = UDim2.new(1, 0, 0, 20),
 		BackgroundTransparency = 1,
-		FontFace = BOLD,
-		Text = "REBIRTH",
-		TextSize = 14,
+		FontFace = HEAVY,
+		Text = "★  CELESTIAL REBIRTH  ★",
+		TextSize = 12,
 		TextColor3 = Palette.violet,
 		TextTransparency = clock:map(function(t)
 			return 1 - contentIn(t) * (1 - fadeOut(t))
 		end),
 	}), React.createElement("frame", {
 		Name = "Count",
-		Position = UDim2.fromOffset(0, 24),
-		Size = UDim2.new(1, 0, 0, 110),
+		Position = UDim2.fromOffset(0, 34),
+		Size = UDim2.new(1, 0, 0, 86),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 	}, React.createElement("textlabel", {
@@ -22423,7 +20787,7 @@ local function RebirthCeremonyHost(props)
 		BackgroundTransparency = 1,
 		FontFace = HEAVY,
 		Text = tostring(oldCount),
-		TextSize = 96,
+		TextSize = 84,
 		TextColor3 = Palette.muted,
 		Position = clock:map(function(t)
 			return UDim2.fromScale(0, -outCubic(ramp(t, tl.count0, tl.count0 + 0.3)))
@@ -22436,7 +20800,7 @@ local function RebirthCeremonyHost(props)
 		BackgroundTransparency = 1,
 		FontFace = HEAVY,
 		Text = tostring(newCount),
-		TextSize = 96,
+		TextSize = 84,
 		TextColor3 = Palette.cream,
 		Position = clock:map(function(t)
 			return UDim2.fromScale(0, 1 - outBack(ramp(t, tl.count0 + 0.06, tl.count0 + 0.42)))
@@ -22451,27 +20815,64 @@ local function RebirthCeremonyHost(props)
 			return 0.35 + 0.65 * fadeOut(t)
 		end),
 	}))), React.createElement("textlabel", {
-		Position = UDim2.fromOffset(0, 140),
-		Size = UDim2.new(1, 0, 0, 34),
+		Position = UDim2.fromOffset(0, 122),
+		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
-		FontFace = HEAVY,
-		TextSize = 30,
+		FontFace = BOLD,
+		Text = "PRESTIGE TIER " .. tostring(newCount),
+		TextSize = 11,
 		TextColor3 = Palette.mint,
-		Text = clock:map(function(t)
-			local k = outCubic(ramp(t, tl.count0, tl.count1))
-			return `{multiplierText(before)}  →  {multiplierText(blendMultiplier(before, after, k))}`
+		TextTransparency = clock:map(function(t)
+			return 1 - contentIn(t) * (1 - fadeOut(t))
 		end),
+	}), React.createElement("frame", {
+		Name = "MultiplierPlate",
+		Position = UDim2.fromOffset(24, 144),
+		Size = UDim2.new(1, -48, 0, 52),
+		BackgroundColor3 = Color3.fromRGB(18, 20, 32),
+		BackgroundTransparency = clock:map(function(t)
+			return 1 - 0.75 * contentIn(t) * (1 - fadeOut(t))
+		end),
+		BorderSizePixel = 0,
+	}, corner(UDim.new(0, 10)), React.createElement("uistroke", {
+		Color = Palette.line,
+		Thickness = 1,
+		Transparency = clock:map(function(t)
+			return 0.4 + 0.6 * fadeOut(t)
+		end),
+	}), React.createElement("textlabel", {
+		Position = UDim2.fromOffset(0, 6),
+		Size = UDim2.new(1, 0, 0, 12),
+		BackgroundTransparency = 1,
+		FontFace = BOLD,
+		Text = "PERMANENT PRODUCTION MULTIPLIER",
+		TextSize = 9,
+		TextColor3 = Palette.muted,
 		TextTransparency = clock:map(function(t)
 			return 1 - contentIn(t) * (1 - fadeOut(t))
 		end),
 	}), React.createElement("textlabel", {
-		Position = UDim2.fromOffset(0, 178),
+		Position = UDim2.fromOffset(0, 18),
+		Size = UDim2.new(1, 0, 0, 30),
+		BackgroundTransparency = 1,
+		FontFace = HEAVY,
+		TextSize = 24,
+		TextColor3 = Palette.mint,
+		Text = clock:map(function(t)
+			local k = outCubic(ramp(t, tl.count0, tl.count1))
+			return `{multiplierText(before)}   →   {multiplierText(blendMultiplier(before, after, k))}`
+		end),
+		TextTransparency = clock:map(function(t)
+			return 1 - contentIn(t) * (1 - fadeOut(t))
+		end),
+	})), React.createElement("textlabel", {
+		Position = UDim2.fromOffset(0, 204),
 		Size = UDim2.new(1, 0, 0, 22),
 		BackgroundTransparency = 1,
 		FontFace = BOLD,
-		TextSize = 17,
+		TextSize = 15,
 		TextColor3 = Palette.creamSoft,
-		Text = if #rewardLine > 0 then table.concat(rewardLine, "    ") else "Permanent production raised",
+		Text = if #rewardLine > 0 then table.concat(rewardLine, "    ·    ") else "Permanent production raised",
 		TextTransparency = clock:map(function(t)
 			return 1 - ramp(t, tl.count1 - 0.2, tl.count1 + 0.1) * (1 - fadeOut(t))
 		end),
@@ -22541,7 +20942,7 @@ local Button = _ui.Button
 local Panel = _ui.Panel
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
-local CrateRevealStage = __load("CrateRevealStageSimple").CrateRevealStage
+local CrateRevealStage = require(script.Parent.pages.PagesShop)("CrateRevealStage").CrateRevealStage
 local CARD_W = 156
 local CARD_H = 132
 local CARD_GAP = 12
@@ -22581,6 +20982,20 @@ local function playRevealCues(roll)
 		Audio:playCelebration({ plan.cue or "crateRevealEpic", if special then "crateRare" else "crateLand" }, 0.06)
 	else
 		Audio:play(if special then "crateRare" else "crateLand")
+	end
+	-- the reveal lands with light that scales with rarity
+	local Juice = require(script.Parent.JuiceFx)
+	local camera = workspace.CurrentCamera
+	local centre = if camera then camera.ViewportSize / 2 else nil
+	local accent = Palette[string.lower(tostring(roll.Rarity or ""))] or Palette.mango
+	if plan.weight >= 0.4 then
+		Juice.burst(centre, accent, 0.9 + plan.weight)
+	end
+	if plan.celebrate or plan.weight >= 0.75 then
+		Juice.flash(Palette.cream, if plan.celebrate then 0.55 else 0.3)
+		Juice.moment(`{string.upper(tostring(roll.Rarity or "RARE"))}!`, if special then "New to your collection." else nil, accent, "Crate")
+	elseif special then
+		Juice.status("New to your collection", "special")
 	end
 end
 local function rarityColor(config, rarity)
@@ -23498,7 +21913,7 @@ local function CrateRevealStage(props)
 	local showLadder = (climbing or landed) and ladderTarget >= 4
 	local accent = if landed then props.winnerAccent elseif climbing then props.climbColor or props.sessionAccent else props.sessionAccent
 	local resultTitle = if landed then props.winnerName elseif climbing then "Resonance rising" elseif props.phase == "spin" then "Attuning the astrolabe" elseif props.phase == "seal" then "Seal breaking" else "Unsealing crate"
-	local resultSubtitle = if landed then props.resultDetail elseif climbing then "Something rare is answering. Tap to skip." elseif props.phase == "spin" then "Tap anywhere to lock the ring" else "The forge is waking up"
+	local resultSubtitle = if landed then props.resultDetail elseif climbing then "Something rare is coming. Tap to skip." elseif props.phase == "spin" then "Tap anywhere to lock the ring" else "The forge is waking up"
 	local status = if props.phase == "spin" then "ATTUNING" elseif climbing then "RESONATING" elseif landed then "RELIC BOUND" else "UNSEALING"
 	local actionY = panelHeight - padding - actionHeight
 	local resultY = actionY - gap - resultHeight

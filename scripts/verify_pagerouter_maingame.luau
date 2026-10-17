@@ -33,7 +33,7 @@ local phonePortrait = LayoutSectionPlan.planOverview({
 	chromePanelGap = 10,
 	layoutPanelGap = 14,
 })
-assert(phonePortrait.heroH == 272, "phone portrait hero")
+assert(phonePortrait.heroH == 320, "phone portrait hero")
 assert(phonePortrait.rebirthH == 300, "phone portrait rebirth")
 assert(phonePortrait.domainH == 320, "phone portrait domain")
 assert(phonePortrait.notesH == 168, "phone portrait notes")
@@ -68,7 +68,7 @@ local landscapePhone = LayoutSectionPlan.planOverview({
 	chromePanelGap = 8,
 	layoutPanelGap = 14,
 })
-assert(landscapePhone.heroH == 176, "landscape phone hero")
+assert(landscapePhone.heroH == 208, "landscape phone hero")
 assert(landscapePhone.notesH == 132, "landscape phone notes")
 assert(landscapePhone.opsH == 156, "landscape phone ops")
 assert(landscapePhone.countdownH == 128, "landscape phone countdown")
@@ -178,7 +178,7 @@ assert(landscapeWs.headerHeight == 0, "landscape keyboard collapses header")
 
 -- --- NavRouteTable -----------------------------------------------------------
 assert(#NavRouteTable.PRIMARY_ROUTES == 6, "primary route count")
-assert(#NavRouteTable.MORE_ROUTES == 24, "more route count (the casino closed)")
+assert(#NavRouteTable.MORE_ROUTES == 24, "more routes carry no minigames; the Reactor folded into the Star Foundry")
 assert(NavRouteTable.PRIMARY_ROUTES[1].id == "Overview", "primary starts Overview")
 assert(NavRouteTable.find("Trade") ~= nil, "find Trade")
 assert(NavRouteTable.find("Trade").accentKey == "mint", "Trade accent key")
@@ -187,10 +187,11 @@ assert(NavRouteTable.isNavRoute("Credits") == true, "Credits is nav")
 assert(NavRouteTable.isPageRoute("Credits") == false, "Credits not PageRouter page")
 assert(NavRouteTable.isPageRoute("Overview") == true, "Overview is page")
 assert(NavRouteTable.isPageRoute("Workshop") == true, "Workshop is page")
-assert(#NavRouteTable.PAGE_ROUTES == 31, "page route count")
+assert(#NavRouteTable.PAGE_ROUTES == 30, "page routes carry no minigames")
+assert(NavRouteTable.find("Charts") == nil and NavRouteTable.find("Cipher") == nil and NavRouteTable.find("Salvage") == nil and NavRouteTable.find("Trials") == nil, "retired minigames have no navigation")
 
 local ids = NavRouteTable.allNavIds()
-assert(#ids == 30, "all nav ids")
+assert(#ids == #NavRouteTable.PRIMARY_ROUTES + #NavRouteTable.MORE_ROUTES, "all nav ids")
 local seen = {}
 for _, id in ids do
 	assert(seen[id] == nil, "duplicate nav id " .. id)
@@ -232,7 +233,7 @@ assert(string.find(overviewSrc, "LayoutSectionPlan.planOverview", 1, true), "Ove
 assert(string.find(overviewSrc, "VaultCollectEligibility.isEligible", 1, true), "OverviewView must use vault eligibility")
 assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView must use OpsClaims")
 assert(string.find(overviewSrc, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
-assert(string.find(overviewSrc, "PageReadyMath.CipherOpen", 1, true), "OverviewView must use CipherOpen (Signal Cipher replaced Shift Plan)")
+assert(not string.find(overviewSrc, "PageReadyMath.CipherOpen", 1, true), "OverviewView must not advertise retired minigames")
 assert(not string.find(overviewSrc, "PageReadyMath.AnomalyReady", 1, true), "OverviewView must not surface the retired Shift Plan")
 local workshopSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView must use PageBoardHeights")

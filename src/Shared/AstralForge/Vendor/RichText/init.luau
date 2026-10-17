@@ -1339,17 +1339,20 @@ end
 
 RunService.Heartbeat:Connect(function(dt)
 	debug.profilebegin("RichText Updater")
-	
+	local t0 = os.clock()
 	for frame, callback in pairs(updater) do
-		if updater[frame] then
+		if typeof(frame) == "Instance" and not frame:IsDescendantOf(game) then
+			updater[frame] = nil
+		elseif updater[frame] then
 			local success, errmsg : string? = pcall(callback, dt)
-
 			if not success then
-				warn("RichText updater callback error: " .. errmsg :: string)
+				updater[frame] = nil
 			end
 		end
+		if os.clock() - t0 > 0.006 then
+			break
+		end
 	end
-
 	debug.profileend()
 end)
 

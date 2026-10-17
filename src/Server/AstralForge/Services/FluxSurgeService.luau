@@ -16,7 +16,7 @@ return function()
 			Duration = math.max(10, math.floor(tonumber(config and config.DurationSeconds) or 60)),
 			Multiplier = math.max(1, tonumber(config and config.Multiplier) or 2),
 			ToastTitle = (config and config.ToastTitle) or "Flux Surge!",
-			ToastBody = (config and config.ToastBody) or "All production is doubled for 60 seconds!",
+			ToastBody = (config and config.ToastBody) or "All production is doubled for 60 seconds.",
 			EndTitle = (config and config.EndTitle) or "Flux Surge ended",
 			EndBody = (config and config.EndBody) or "Production returned to normal.",
 		}

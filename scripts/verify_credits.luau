@@ -52,6 +52,8 @@ assert(#messy.Categories[1].Members == 1 and messy.Categories[1].Members[1].Disp
 assert(Model.normalize(nil).Title ~= "", "a missing config still renders")
 
 -- Tabs, search and empty categories
+assert(messy.HideEmptyCategories == true, "roles nobody holds are hidden by default")
+messy.HideEmptyCategories = false
 local tabs = Model.tabs(messy)
 assert(tabs[1].id == "All" and tabs[1].count == 1, "All tab counts everyone")
 assert(#tabs == 3, "empty categories get a tab when shown")

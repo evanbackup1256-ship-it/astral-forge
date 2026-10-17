@@ -300,11 +300,11 @@ local Layout = {
 	pagePadding = 18,
 	topbarClearance = 6,
 	minTopInset = 36,
-	panelGap = 14,
-	stackGap = 12,
-	controlGap = 14,
-	lineGap = 10,
-	cardPadding = 18,
+	panelGap = 18,
+	stackGap = 14,
+	controlGap = 16,
+	lineGap = 12,
+	cardPadding = 20,
 	cardRadius = 16,
 	buttonRadius = 11,
 	topbarHeight = 74,
@@ -337,7 +337,7 @@ local Breakpoints = {
 	compact = 1100,
 	short = 740,
 }
-local TapTarget = 48
+local TapTarget = 44
 local function mobileChrome(compact, tight, short, width, height, bottomInset, sideInset, desktop, orientationWidth, orientationHeight)
 	if short == nil then
 		short = false
@@ -642,12 +642,12 @@ local function planMobileLayout(input)
 	local phone = stack
 	local tablet = phone and width >= 700 and not landscape
 	local shortDesktop = desktop and (short or orientationHeight < 740)
-	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 34 elseif tablet then 52 else 46
+	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 44 elseif tablet then 52 else 48
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else math.max(0, sideInset)
-	local panelGap = if landscape then 8 elseif phone then 12 elseif shortDesktop then 10 else 14
-	local pagePadding = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif shortDesktop or compact then 14 else 18
-	local contentInset = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif shortDesktop or compact then 14 else 18
+	local panelGap = if landscape then 10 elseif phone then 14 elseif shortDesktop then 14 else 18
+	local pagePadding = if landscape then 10 elseif phone then (if tablet then 18 else 14) elseif shortDesktop or compact then 16 else 20
+	local contentInset = if landscape then 10 elseif phone then (if tablet then 18 else 14) elseif shortDesktop or compact then 16 else 20
 	local workspaceHeaderH = if phone then 0 elseif shortDesktop then 62 else 86
 	local tabBarCore = if landscape then TAP_TARGET elseif tablet then 56 else 52
 	local tabBarH = if phone then tabBarCore + bottomSafe else 0
@@ -677,9 +677,9 @@ local function planMobileLayout(input)
 		tablet = tablet,
 		pagePadding = pagePadding,
 		contentInset = contentInset,
-		cardPadding = if landscape then 12 elseif phone then (if tablet then 16 else 14) elseif shortDesktop then 14 else 18,
+		cardPadding = if landscape then 14 elseif phone then (if tablet then 18 else 16) elseif shortDesktop then 16 else 20,
 		panelGap = panelGap,
-		controlGap = if landscape then 8 elseif phone then 10 else 14,
+		controlGap = if landscape then 10 elseif phone then 12 else 16,
 		railRow = if landscape then 52 elseif phone then 60 elseif shortDesktop or compact then 52 else 64,
 		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif shortDesktop or compact then 48 else 56,
 		railGap = if phone then 8 elseif compact then 10 else 12,
@@ -715,6 +715,31 @@ end
 __defs["format"] = function()
 local LN10 = math.log(10)
 local compactNumber
+-- display names for boosts and crates, read once from the shared config (absent under Lune tests)
+local displayNames = nil
+local function nameOf(id)
+	if displayNames == nil then
+		displayNames = {}
+		pcall(function()
+			local shared = game:GetService("ReplicatedStorage"):FindFirstChild("AstralForge")
+			shared = shared and shared:FindFirstChild("Shared")
+			local module = shared and shared:FindFirstChild("GameConfig")
+			if module == nil then return end
+			local config = require(module)
+			for key, boost in config.Boosts or {} do
+				if type(boost) == "table" and type(boost.Name) == "string" then displayNames[boost.Id or key] = boost.Name end
+			end
+			local items = config.Items or {}
+			for _, crate in items.Crates or config.Crates or {} do
+				if type(crate) == "table" and type(crate.Id) == "string" and type(crate.Name) == "string" then displayNames[crate.Id] = crate.Name end
+			end
+		end)
+	end
+	return displayNames[id] or (string.gsub(tostring(id), "(%l)(%u)", "%1 %2"))
+end
+local function plural(amount, one, many)
+	return if amount == 1 then one else many
+end
 local function formatReward(reward)
 	if not reward then
 		return ""
@@ -733,7 +758,7 @@ local function formatReward(reward)
 		table.insert(parts, _arg0)
 	end
 	if reward.Cores ~= nil and reward.Cores > 0 then
-		local _arg0 = `{compactNumber(reward.Cores)} cores`
+		local _arg0 = `{compactNumber(reward.Cores)} {plural(reward.Cores, "core", "cores")}`
 		table.insert(parts, _arg0)
 	end
 	if reward.Signals ~= nil and reward.Signals > 0 then
@@ -745,7 +770,7 @@ local function formatReward(reward)
 		table.insert(parts, _arg0)
 	end
 	if reward.StreakShield ~= nil and reward.StreakShield > 0 then
-		local _arg0 = `{reward.StreakShield} streak shield`
+		local _arg0 = `{reward.StreakShield} {plural(reward.StreakShield, "streak shield", "streak shields")}`
 		table.insert(parts, _arg0)
 	end
 	local essenceAmount = 0
@@ -768,13 +793,12 @@ local function formatReward(reward)
 	if type(reward.Keys) == "table" then
 		for crateId, amount in reward.Keys do
 			if type(crateId) == "string" and type(amount) == "number" and amount > 0 then
-				table.insert(parts, `{compactNumber(amount)} {crateId}`)
+				table.insert(parts, `{compactNumber(amount)} {nameOf(crateId)} {plural(amount, "key", "keys")}`)
 			end
 		end
 	end
 	if reward.Boost ~= nil then
-		local _boost = reward.Boost
-		table.insert(parts, _boost)
+		table.insert(parts, `{nameOf(reward.Boost)} boost`)
 	end
 	if #parts == 0 then
 		return ""
@@ -1150,8 +1174,12 @@ local GRANT_ACTIONS = {
 	["SelectZone"] = true,
 	["Rebirth"] = true,
 	["DomainExpansion"] = true,
-	["UnlockDomainNode"] = true,
+	["DomainLattice"] = true,
+	["EventAct"] = true,
 	["UpgradeContinuum"] = true,
+	["FoundryAct"] = true,
+	["Ascend"] = true,
+	["UpgradeSigil"] = true,
 	["CaptureEcho"] = true,
 	["ClaimEcho"] = true,
 	["EquipEcho"] = true,
@@ -1163,8 +1191,9 @@ local GRANT_ACTIONS = {
 	["ClaimTimedReward"] = true,
 	["SpinWheel"] = true,
 	["BazaarPlay"] = true,
-	["PlotStar"] = true,
-	["SubmitCipher"] = true,
+	["SetMarketFavorite"] = true,
+	["RequestProcurement"] = true,
+	["SelectSpecialization"] = true,
 	["LaunchExpedition"] = true,
 	["ClaimExpedition"] = true,
 	["EquipArtifact"] = true,
@@ -1556,7 +1585,153 @@ function NoticeMath.MaxNotices(toastDensity: number): number
 	return math.clamp(math.floor(2 + density * 3 + 0.5), 2, 5)
 end
 
+-- Recent toasts stay reviewable in the Mail page after they fade.
+NoticeMath.LOG_LIMIT = 40
+local logEntries: { any } = {}
+local logSequence = 0
+local logListeners: { [any]: boolean } = {}
+
+local function notifyLog()
+	for listener in logListeners do
+		if type(task) == "table" then
+			task.spawn(listener)
+		else
+			pcall(listener)
+		end
+	end
+end
+
+function NoticeMath.Record(title: any, body: any, tone: any, at: number?): any?
+	local heading = string.sub(if type(title) == "string" then title else tostring(title or ""), 1, 80)
+	local detail = string.sub(if type(body) == "string" then body elseif body == nil then "" else tostring(body), 1, 400)
+	if heading == "" and detail == "" then
+		return nil
+	end
+	local kind = if type(tone) == "string" then tone else "Info"
+	local stamp = if type(at) == "number" then at else os.time()
+	local newest = logEntries[1]
+	if newest ~= nil and newest.Title == heading and newest.Body == detail and newest.Tone == kind then
+		newest.Count += 1
+		newest.At = stamp
+		notifyLog()
+		return newest
+	end
+	logSequence += 1
+	local entry = { Id = `alert-{logSequence}`, Title = heading, Body = detail, Tone = kind, At = stamp, Count = 1 }
+	table.insert(logEntries, 1, entry)
+	while #logEntries > NoticeMath.LOG_LIMIT do
+		table.remove(logEntries)
+	end
+	notifyLog()
+	return entry
+end
+
+function NoticeMath.Entries(): { any }
+	local copy = table.create(#logEntries)
+	for index, entry in logEntries do
+		copy[index] = table.clone(entry)
+	end
+	return copy
+end
+
+function NoticeMath.ClearLog()
+	if #logEntries == 0 then
+		return
+	end
+	table.clear(logEntries)
+	notifyLog()
+end
+
+function NoticeMath.Subscribe(listener: () -> ()): () -> ()
+	logListeners[listener] = true
+	return function()
+		logListeners[listener] = nil
+	end
+end
+
 return table.freeze(NoticeMath)
+end
+
+__defs["journeyMath"] = function()
+--!strict
+-- Forge journal: chapters derived from saved lifetime stats, so no new save data is needed.
+local JourneyMath = {}
+
+local HOUR = 3600
+
+local function stat(state: any, key: string): number
+	local stats = if type(state) == "table" then state.Stats else nil
+	local value = if type(stats) == "table" then tonumber(stats[key]) else nil
+	return math.max(0, math.floor(value or 0))
+end
+
+local function rebirths(state: any): number
+	return math.max(0, math.floor(tonumber(if type(state) == "table" then state.Rebirths else nil) or 0))
+end
+
+local function domainRank(state: any): number
+	local domain = if type(state) == "table" then state.Domain else nil
+	return math.max(0, math.floor(tonumber(if type(domain) == "table" then domain.Rank else nil) or 0))
+end
+
+local function statReader(key: string): (any) -> number
+	return function(state)
+		return stat(state, key)
+	end
+end
+
+JourneyMath.CHAPTERS = table.freeze({
+	{ Id = "spark", Title = "First spark", Line = "Bought the first machine.", Target = 1, Unit = "machine", Read = statReader("MachinesBought") },
+	{ Id = "hands", Title = "Steady hands", Line = "Struck the forge 500 times.", Target = 500, Unit = "taps", Read = statReader("Taps") },
+	{ Id = "orders", Title = "Order book", Line = "Filled ten work orders.", Target = 10, Unit = "orders", Read = statReader("OrdersCompleted") },
+	{ Id = "reborn", Title = "Reborn", Line = "Melted it all down once.", Target = 1, Unit = "rebirth", Read = rebirths },
+	{ Id = "crates", Title = "Deep vault", Line = "Opened 25 crates.", Target = 25, Unit = "crates", Read = statReader("CratesOpened") },
+	{ Id = "scrap", Title = "Scrapper", Line = "Salvaged 50 pieces.", Target = 50, Unit = "salvaged", Read = statReader("ItemsSalvaged") },
+	{ Id = "shift", Title = "Night shift", Line = "Five hours at the anvil.", Target = 5 * HOUR, Unit = "hours", Scale = HOUR, Read = statReader("PlayTime") },
+	{ Id = "ten", Title = "Ten lives", Line = "Rebirthed ten times.", Target = 10, Unit = "rebirths", Read = rebirths },
+	{ Id = "gate", Title = "Gatekeeper", Line = "Opened the first domain gate.", Target = 1, Unit = "gate", Read = domainRank },
+	{ Id = "warden", Title = "Warden breaker", Line = "Beat five wardens.", Target = 5, Unit = "wardens", Read = statReader("WardenDefeats") },
+	{ Id = "haul", Title = "Long haul", Line = "A full day of forging.", Target = 24 * HOUR, Unit = "hours", Scale = HOUR, Read = statReader("PlayTime") },
+	{ Id = "fifty", Title = "Fifty lives", Line = "Rebirthed fifty times.", Target = 50, Unit = "rebirths", Read = rebirths },
+})
+
+export type Entry = {
+	Id: string,
+	Title: string,
+	Line: string,
+	Done: boolean,
+	Have: number,
+	Target: number,
+	Unit: string,
+	Progress: number,
+}
+
+function JourneyMath.Build(state: any): { Done: { Entry }, Next: Entry?, Count: number, Total: number }
+	local done: { Entry } = {}
+	local nextEntry: Entry? = nil
+	for _, chapter in JourneyMath.CHAPTERS do
+		local scale = chapter.Scale or 1
+		local raw = chapter.Read(state)
+		local entry: Entry = {
+			Id = chapter.Id,
+			Title = chapter.Title,
+			Line = chapter.Line,
+			Done = raw >= chapter.Target,
+			Have = math.floor(math.min(raw, chapter.Target) / scale),
+			Target = math.floor(chapter.Target / scale),
+			Unit = chapter.Unit,
+			Progress = math.clamp(raw / chapter.Target, 0, 1),
+		}
+		if entry.Done then
+			table.insert(done, entry)
+		elseif nextEntry == nil or entry.Progress > nextEntry.Progress then
+			nextEntry = entry
+		end
+	end
+	return { Done = done, Next = nextEntry, Count = #done, Total = #JourneyMath.CHAPTERS }
+end
+
+return table.freeze(JourneyMath)
 end
 
 __defs["deadlines"] = function()
@@ -1723,6 +1898,7 @@ NetworkPolicy.ACTION_COOLDOWNS = {
 	EquipCrateSkin = 0.3,
 	FuseRelics = 0.4,
 	UpgradeContinuum = 0.4,
+	FoundryAct = 0.06,
 	CaptureEcho = 1.2,
 	ClaimEcho = 0.48,
 	EquipEcho = 0.24,
@@ -1764,6 +1940,8 @@ NetworkPolicy.ACTION_COOLDOWNS = {
 	JoinGuild = 1.1,
 	GetGuild = 0.32,
 	SendGuildChat = 0.45,
+	ChatOpenWhisper = 0.4,
+	ChatGlobal = 0.8,
 	GetGuildChatHistory = 0.25,
 	GetGuildAnnouncements = 0.3,
 	GetGuildSettings = 0.6,
@@ -4163,18 +4341,18 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "Missions", label = "Missions", eyebrow = "Jobs", icon = "Mission", accentKey = "cyan" },
 	{ id = "Rewards", label = "Rewards", eyebrow = "Dailies", icon = "Rewards", accentKey = "pink" },
 	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel", accentKey = "mango" },
-	{ id = "Bazaar", label = "Bazaar", eyebrow = "Bank and deals", icon = "Shop", accentKey = "mint" },
+	{ id = "Bazaar", label = "Black Market", eyebrow = "Stock and supplies", icon = "Shop", accentKey = "violet" },
 	{ id = "Boosts", label = "Boosts", eyebrow = "Power up", icon = "Boost", accentKey = "pink" },
 	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
 	{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab", accentKey = "mint" },
-	{ id = "Charts", label = "Star Charts", eyebrow = "Plot the sky", icon = "Dust", accentKey = "pink" },
-	{ id = "Cipher", label = "Signal Cipher", eyebrow = "Daily puzzle", icon = "Code", accentKey = "pink" },
-	{ id = "StarGrid", label = "Star Grid", eyebrow = "Dust", icon = "StarGrid", accentKey = "mango" },
+	{ id = "StarGrid", label = "Specializations", eyebrow = "Forge builds", icon = "Forge", accentKey = "mango" },
+	{ id = "Ascension", label = "Ascension", eyebrow = "Final rebirth", icon = "Rebirth", accentKey = "mango" },
 	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
+	{ id = "Continuum", label = "Star Foundry", eyebrow = "Board", icon = "StarGrid", accentKey = "mango" },
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
 	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
 	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story", accentKey = "mint" },
-	{ id = "Command", label = "Command", eyebrow = "Crew", icon = "Command", accentKey = "cyan" },
+	{ id = "Command", label = "Command", eyebrow = "Expeditions", icon = "Command", accentKey = "cyan" },
 	{ id = "Convergence", label = "Converge", eyebrow = "Co-op", icon = "Domain", accentKey = "mango" },
 	{ id = "Guild", label = "Guild", eyebrow = "Hall", icon = "Crew", accentKey = "violet" },
 	{ id = "Crew", label = "Crew", eyebrow = "Online", icon = "Crew", accentKey = "blue" },
@@ -4191,6 +4369,7 @@ local PAGE_ROUTES: { string } = {
 	"Workshop",
 	"Research",
 	"StarGrid",
+	"Ascension",
 	"Echoes",
 	"Continuum",
 	"Convergence",
@@ -4201,8 +4380,6 @@ local PAGE_ROUTES: { string } = {
 	"Milestones",
 	"Wheel",
 	"Bazaar",
-	"Charts",
-	"Cipher",
 	"Rewards",
 	"Boosts",
 	"Command",
@@ -4223,10 +4400,9 @@ local PAGE_ROUTES: { string } = {
 type NavGroup = { key: string, label: string, routes: { string } }
 
 local NAV_GROUPS: { NavGroup } = {
-	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop" } },
+	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop", "Bazaar" } },
 	{ key = "Daily", label = "Daily", routes = { "Missions", "Rewards", "Boosts", "Milestones", "Wheel" } },
-	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "ForgePath", "Story" } },
-	{ key = "Games", label = "Games & Deals", routes = { "Bazaar", "Charts", "Cipher" } },
+	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "Continuum", "ForgePath", "Story", "Ascension" } },
 	{ key = "Social", label = "Social", routes = { "Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards" } },
 	{ key = "System", label = "System", routes = { "Settings", "Credits", "Admin" } },
 }
@@ -4815,6 +4991,7 @@ __defs["GamepadNavigationService"] = function()
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local GamepadService = game:GetService("GamepadService")
+local Players = game:GetService("Players")
 
 local GamepadNavigationService = {}
 GamepadNavigationService.__index = GamepadNavigationService
@@ -4829,6 +5006,8 @@ local initialized = false
 local previousAutoSelect = false
 local previousNavigation = false
 local overlayFocusDepth = 0
+type OverlayFocusEntry = { target: GuiObject? }
+local overlaySelectionStack: { OverlayFocusEntry } = {}
 local overlayPreviousSelection: GuiObject? = nil
 
 local tabCycleCallback: ((delta: number) -> ())? = nil
@@ -4996,9 +5175,61 @@ function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
 	return target
 end
 
+function GamepadNavigationService.GetScrollTarget(): GuiObject?
+	local current = GuiService.SelectedObject
+	if current ~= nil then
+		local cursor: Instance? = current
+		while cursor ~= nil do
+			if cursor:IsA("ScrollingFrame") and (cursor :: GuiObject).Visible and (cursor :: any).ScrollingEnabled then
+				return cursor :: GuiObject
+			end
+			cursor = cursor.Parent
+		end
+	end
+	local localPlayer = Players.LocalPlayer
+	local playerGui = if localPlayer then localPlayer:FindFirstChildOfClass("PlayerGui") else nil
+	if playerGui ~= nil then
+		local bestFrame: GuiObject? = nil
+		local bestArea = 0
+		for _, desc in playerGui:GetDescendants() do
+			if desc:IsA("ScrollingFrame") and desc.Visible and desc.ScrollingEnabled then
+				local visible = true
+				local ancestor: Instance? = desc.Parent
+				while ancestor ~= nil do
+					if ancestor:IsA("GuiObject") and not (ancestor :: GuiObject).Visible then
+						visible = false
+						break
+					end
+					if ancestor:IsA("LayerCollector") and not (ancestor :: LayerCollector).Enabled then
+						visible = false
+						break
+					end
+					ancestor = ancestor.Parent
+				end
+				if visible then
+					local size = desc.AbsoluteSize
+					local area = size.X * size.Y
+					if area > bestArea then
+						bestArea = area
+						bestFrame = desc
+					end
+				end
+			end
+		end
+		return bestFrame
+	end
+	return nil
+end
+
+function GamepadNavigationService.ResolveScrollTarget(): GuiObject?
+	return GamepadNavigationService.GetScrollTarget()
+end
+
 function GamepadNavigationService.BeginOverlayFocus()
+	local current = GuiService.SelectedObject
+	table.insert(overlaySelectionStack, { target = current })
+	overlayPreviousSelection = current
 	if overlayFocusDepth == 0 then
-		overlayPreviousSelection = GuiService.SelectedObject
 		GuiService.GuiNavigationEnabled = false
 		GuiService.AutoSelectGuiEnabled = false
 		GamepadNavigationService.ClearSelection()
@@ -5011,17 +5242,17 @@ function GamepadNavigationService.EndOverlayFocus()
 		return
 	end
 	overlayFocusDepth -= 1
-	if overlayFocusDepth > 0 then
-		return
-	end
-	local restore = overlayPreviousSelection
-	overlayPreviousSelection = nil
-	if isConsoleMode then
-		GuiService.GuiNavigationEnabled = true
-		GuiService.AutoSelectGuiEnabled = true
-	else
-		GuiService.GuiNavigationEnabled = previousNavigation
-		GuiService.AutoSelectGuiEnabled = previousAutoSelect
+	local entry = table.remove(overlaySelectionStack)
+	local restore = if entry ~= nil then entry.target else nil
+	overlayPreviousSelection = if #overlaySelectionStack > 0 then overlaySelectionStack[#overlaySelectionStack].target else nil
+	if overlayFocusDepth == 0 then
+		if isConsoleMode then
+			GuiService.GuiNavigationEnabled = true
+			GuiService.AutoSelectGuiEnabled = true
+		else
+			GuiService.GuiNavigationEnabled = previousNavigation
+			GuiService.AutoSelectGuiEnabled = previousAutoSelect
+		end
 	end
 	if GamepadNavigationService.IsValidFocusTarget(restore) then
 		GamepadNavigationService.AssignSelection(restore)
@@ -5038,7 +5269,9 @@ function GamepadNavigationService.Init()
 	local function syncGamepadMode()
 		isConsoleMode = GuiService:IsTenFootInterface() or UserInputService.PreferredInput == Enum.PreferredInput.Gamepad
 		if isConsoleMode then
-			GamepadService:DisableGamepadCursor()
+			pcall(function()
+				GamepadService:DisableGamepadCursor()
+			end)
 			GuiService.AutoSelectGuiEnabled = true
 			GuiService.GuiNavigationEnabled = true
 		else
@@ -5083,6 +5316,7 @@ function GamepadNavigationService.Stop()
 	isConsoleMode = false
 	overlayFocusDepth = 0
 	overlayPreviousSelection = nil
+	table.clear(overlaySelectionStack)
 	tabCycleCallback = nil
 	modalCloseCallback = nil
 	quickVaultCallback = nil
@@ -5375,13 +5609,13 @@ function TouchGestureService.Init()
 			velocity = Vector2.zero,
 			startTime = now,
 			lastUpdateTime = now,
-			isConsumed = gameProcessed or isOnInteractiveGui(toGuiPosition(pos)),
+			isConsumed = gameProcessed or isOnInteractiveGui(pos),
 		}
 		activeTouches[input] = pointer
 
 		local cam = workspace.CurrentCamera
 		local vSize = if cam then cam.ViewportSize else Vector2.new(1000, 800)
-		if not pointer.isConsumed and not TouchGestureService.IsNearRegisteredTarget(toGuiPosition(pos)) and not thumbstickState.active and pos.X < (vSize.X * 0.45) and pos.Y > (vSize.Y * 0.50) then
+		if not pointer.isConsumed and not TouchGestureService.IsNearRegisteredTarget(pos) and not thumbstickState.active and pos.X < (vSize.X * 0.45) and pos.Y > (vSize.Y * 0.50) then
 			thumbstickTouch = input
 			thumbstickState.active = true
 			thumbstickState.origin = pos
@@ -5466,7 +5700,7 @@ function TouchGestureService.Init()
 		end
 
 		if not pointer.isConsumed and not wasThumbstick and duration <= TAP_MAX_DURATION and travel <= TAP_MAX_TRAVEL then
-			local handled = TouchGestureService.ResolveFatFingerHit(toGuiPosition(pointer.currentPos))
+			local handled = TouchGestureService.ResolveFatFingerHit(pointer.currentPos)
 			if not handled then
 				emit("Tap", pointer.currentPos)
 			end

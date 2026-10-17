@@ -19,6 +19,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+local AscensionMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
+local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainLattice"))
+		local Specializations = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Specializations"))
+	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ShopCatalog")
 	local AtomicState = loadService("AtomicState")
 	local ProfileIntegrity = loadService("ProfileIntegrity")
@@ -30,6 +34,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local UnlockedDocumentStore = Documents.UnlockedDocumentStore
 	local TradeSuite = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))
 	local TradeRecovery = TradeSuite("TradeRecovery")
+	local TradeHistory = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory"))
 
 	local DataService = {}
 	DataService.__index = DataService
@@ -111,8 +116,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local function sanitize(profile)
 		local previousDataVersion = math.floor(nonNegative(profile.DataVersion))
 		profile.DataVersion = GameConfig.Game.DataVersion
-		profile.Cores = nonNegative(profile.Cores)
-		profile.Stardust = nonNegative(profile.Stardust)
+		profile.Cores = math.clamp(nonNegative(profile.Cores), 0, 1e14)
+		profile.Stardust = math.clamp(nonNegative(profile.Stardust), 0, 1e14)
 		profile.Rebirths = math.min(10_000_000, math.floor(nonNegative(profile.Rebirths)))
 		profile.Zone = math.max(1, math.floor(nonNegative(profile.Zone)))
 		profile.CurrentZone = math.max(1, math.floor(nonNegative(profile.CurrentZone)))
@@ -131,6 +136,15 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Domain.LastExpandedAt = math.floor(nonNegative(profile.Domain.LastExpandedAt))
 		profile.Domain.TotalRebirthsSpent = math.floor(nonNegative(profile.Domain.TotalRebirthsSpent))
 		profile.Domain.TotalCoresSpent = math.floor(nonNegative(profile.Domain.TotalCoresSpent))
+		-- the node tree became the lattice: whatever was spent on nodes comes back as points
+		if type(profile.Domain.Nodes) == "table" then
+			profile.Domain.SkillPoints += DomainLattice.oldTreeRefund(profile.Domain.Nodes)
+			profile.Domain.Nodes = nil
+		end
+		local links, refund = DomainLattice.sanitize(profile.Domain.Links)
+		profile.Domain.Links = links
+		profile.Domain.SkillPoints += refund
+		profile.Domain.LatticeClearedAtRank = math.floor(nonNegative(profile.Domain.LatticeClearedAtRank))
 		ProfileBagMath.EnsureContinuum(profile)
 		profile.Continuum.Rank = math.clamp(
 			math.floor(nonNegative(profile.Continuum.Rank)),
@@ -138,7 +152,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			GameConfig.Continuum.MaxRank
 		)
 		profile.Continuum.TotalFluxSpent = nonNegative(profile.Continuum.TotalFluxSpent)
+		profile.Ascension = AscensionMath.sanitize(profile.Ascension, OmegaMath)
 		profile.Continuum.TotalStardustSpent = nonNegative(profile.Continuum.TotalStardustSpent)
+		-- the Star Foundry is always valid after load (first load converts Continuum/Reactor progress)
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("FoundryService")).Ensure(profile)
 		local retired = type(profile.Infinite) == "table" and profile.Infinite or nil
 		if retired then
 			if retired.Active == true and type(retired.Legacy) == "table" then
@@ -157,6 +174,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		if profile.Dungeons ~= nil then profile.Dungeons = nil end
 		if profile.Minigames ~= nil then profile.Minigames = nil end
+		if profile.Encounters ~= nil then profile.Encounters = nil end -- Salvage Runs and Artifact Trials were retired
 
 		profile.Domain.Rank = math.floor(nonNegative(profile.Domain.Rank))
 		profile.Continuum.Rank = math.clamp(
@@ -196,6 +214,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		if type(profile.Flags.LastSeenVersion) ~= "string" then
 			profile.Flags.LastSeenVersion = ""
+		end
+		if type(profile.Flags.MobileLayoutSlots) ~= "string" or #profile.Flags.MobileLayoutSlots > 512 then
+			profile.Flags.MobileLayoutSlots = ""
 		end
 		profile.Settings.SoundVolume = math.clamp(nonNegative(profile.Settings.SoundVolume), 0, 1)
 		profile.Settings.MusicVolume = math.clamp(nonNegative(profile.Settings.MusicVolume ~= nil and profile.Settings.MusicVolume or 1), 0, 1)
@@ -316,6 +337,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		if profile.Trade.FaultedJournal ~= nil and type(profile.Trade.FaultedJournal) ~= "table" then
 			profile.Trade.FaultedJournal = nil
 		end
+		-- completed-trade history: keep only well-formed, bounded entries
+		if profile.Trade.History ~= nil then
+			profile.Trade.History = TradeHistory.public(profile.Trade)
+		end
 		profile.Trade.Day = math.floor(nonNegative(profile.Trade.Day))
 		profile.Trade.Completed = math.floor(nonNegative(profile.Trade.Completed))
 		if previousDataVersion < 5 then
@@ -333,6 +358,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Settings.UIEffects = profile.Settings.EffectsIntensity > 0.001
 		profile.Settings.ReducedMotion = profile.Settings.MotionIntensity <= 0.03
 		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
+		profile.Specialization = Specializations.Sanitize(profile.Specialization)
 		if type(profile.Wheel) ~= "table" then
 			profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
 		end
@@ -340,6 +366,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Wheel.Spins = math.floor(nonNegative(profile.Wheel.Spins))
 		profile.Wheel.PityMisses = math.floor(nonNegative(profile.Wheel.PityMisses))
 		profile.Wheel.FreeSpins = math.floor(nonNegative(profile.Wheel.FreeSpins))
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
 		ProfileBagMath.EnsureItems(profile)
 		profile.Items.NextId = math.max(1, math.floor(nonNegative(profile.Items.NextId)))
 		profile.Items.Essence = math.floor(nonNegative(profile.Items.Essence))
@@ -553,6 +580,27 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.ForgePath.XP = math.floor(nonNegative(profile.ForgePath.XP))
 		profile.ForgePath.XPDay = type(profile.ForgePath.XPDay) == "number" and math.floor(profile.ForgePath.XPDay) or -1
 		profile.ForgePath.XPEarnedToday = math.floor(nonNegative(profile.ForgePath.XPEarnedToday))
+		if type(profile.Progression) ~= "table" then
+			profile.Progression = {
+				RewardedLevel = -1,
+				HalfwayPaidFor = -1,
+				Surge = {
+					Multiplier = 1,
+					EndsAt = 0,
+				},
+			}
+		else
+			local rewarded = tonumber(profile.Progression.RewardedLevel) or -1
+			profile.Progression.RewardedLevel = if rewarded < 0 then -1 else math.clamp(math.floor(rewarded), 1, 18)
+			local halfway = tonumber(profile.Progression.HalfwayPaidFor) or -1
+			profile.Progression.HalfwayPaidFor = if halfway < 0 then -1 else math.clamp(math.floor(halfway), 1, 18)
+			if type(profile.Progression.Surge) ~= "table" then
+				profile.Progression.Surge = { Multiplier = 1, EndsAt = 0 }
+			else
+				profile.Progression.Surge.Multiplier = math.clamp(tonumber(profile.Progression.Surge.Multiplier) or 1, 1, 1.6)
+				profile.Progression.Surge.EndsAt = math.max(0, math.floor(nonNegative(profile.Progression.Surge.EndsAt)))
+			end
+		end
 		profile.Lab = LabOrderMath.Ensure(profile.Lab, GameConfig.Lab.Power.BaseCells)
 		profile.Lab.Day = type(profile.Lab.Day) == "number" and math.max(-1, math.floor(profile.Lab.Day)) or -1
 		for index, order in profile.Lab.Orders do
@@ -1101,6 +1149,12 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 
 			if self._releasing[player] then
 				return { ok = false, message = "Profile session is closing" }
+			end
+			if draft.Stardust and (tonumber(draft.Stardust) or 0) > 1e14 then
+				draft.Stardust = 1e14
+			end
+			if draft.Cores and (tonumber(draft.Cores) or 0) > 1e14 then
+				draft.Cores = 1e14
 			end
 			local callbackResult = callback(draft, revision)
 			if type(callbackResult) == "table" and callbackResult.ok == false then

@@ -55,6 +55,62 @@ print("[TEST] actual guild service fixtures: permission denial, role change, suc
 
 -- Exercise the real ranks effect with controlled replies and timers.
 local dashboard=fs.readFile("src/Client/AstralForge/RankDashboard.luau"):gsub("\r\n","\n")
+local member=fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau"):gsub("\r\n","\n")
+assert(not member:find("LegacyLeaderboardsView",1,true),"retired ranks renderer must not return")
+local adapterStart=assert(member:find("local BOARDS = ",1,true))
+local adapterEnd=assert(member:find("return {\n\tLeaderboardsView = require(script.Parent.Parent.RankDashboard)",adapterStart,true))
+local adapterBody=member:sub(adapterStart,adapterEnd-1)
+local adapters=luau.load(adapterBody.."\nreturn {boards=BOARDS,metaFor=metaFor,ownValue=ownValue,formatValue=formatValue,serverEntries=serverEntries,scoreCounts=scoreCounts}",{
+	environment=setmetatable({
+		Palette=setmetatable({},{__index=function(_,key) return key end}),
+		asFlux=Math.ToNumber,compactNumber=tostring,clockText=tostring,
+		game={ReplicatedStorage={AstralForge={Shared={OmegaMath="test-math"}}}},
+		require=function(module) assert(module=="test-math");return Math end,
+	},{__index=_G}),
+})()
+assert(#adapters.boards==14,"all player categories must remain")
+for _,board in adapters.boards do
+	assert(adapters.metaFor(board.id)==board and board.group~=nil)
+	assert(not adapters.scoreCounts(board.id,0) and adapters.scoreCounts(board.id,2))
+end
+assert(not adapters.scoreCounts("Worlds",1))
+assert(adapters.ownValue({Sky={Plotted={a=2,b=3},Cipher={Solves=7}}},"Stars")==5)
+assert(adapters.ownValue({Sky={Cipher={Solves=7}}},"Cipher")==7)
+for id,key in {Crates="CratesOpened",Finds="ItemsFound",Ore="OreMined",Wardens="WardenDefeats",Orders="OrdersCompleted"} do
+	assert(adapters.ownValue({Stats={[key]=9}},id)==9)
+end
+local players={{UserId=3,DisplayName="Third",LifetimeCash="1e1000"},{UserId=2,DisplayName="Second",LifetimeCash="2e1000"},{UserId=1,DisplayName="First",LifetimeCash="1e1000"}}
+local server=adapters.serverEntries(players,"Flux")
+assert(server[1].UserId==2 and server[2].UserId==1 and server[3].UserId==3,"actual server adapter preserves Omega ordering and stable ties")
+assert(players[1].UserId==3 and server[1].Name=="Second" and server[1].Category=="Flux","adapter must retain payload fields without mutating players")
+print("[TEST] actual ranks adapters: 14 categories, metadata, eligibility, self scores, server payload and Omega ordering passed")
+
+local focusStart=assert(dashboard:find("React.useEffect(function()\n\t\t\tif not UserInputService.GamepadEnabled",1,true))+#"React.useEffect(function()"
+local focusEnd=assert(dashboard:find("end,{selected,scope})",focusStart,true))
+for _,mode in {"mouse","unmounted","gamepad","departed","cancelled"} do
+	local host=if mode=="unmounted" then nil else {Parent=true}
+	local queued,claimed={}
+	local focusEffect=luau.load("return function() "..dashboard:sub(focusStart,focusEnd-1).." end",{
+		environment=setmetatable({
+			UserInputService={GamepadEnabled=mode~="mouse"},hostRef={current=host},
+			GamepadNavigationService={FocusClaim=function(value) claimed=value end},
+			task={defer=function(callback) local job={callback=callback};table.insert(queued,job);return job end,cancel=function(job) job.cancelled=true end},
+		},{__index=_G}),
+	})()
+	local cleanup=focusEffect()
+	if mode=="mouse" or mode=="unmounted" then
+		assert(#queued==0 and cleanup==nil)
+	else
+		assert(#queued==1)
+		if mode=="departed" then host.Parent=nil end
+		if mode=="cancelled" then cleanup() end
+		if not queued[1].cancelled then queued[1].callback() end
+		assert((claimed==host)==(mode=="gamepad"),"focus only belongs to a live gamepad host")
+		cleanup();assert(queued[1].cancelled)
+	end
+end
+print("[TEST] actual ranks focus: gamepad claim, mouse isolation, missing/destroyed host, deferred cleanup passed")
+
 local refreshStart=assert(dashboard:find("local localId=",1,true))
 local effectStart=assert(dashboard:find("React.useEffect(function()",refreshStart,true))+#"React.useEffect(function()"
 local effectEnd=assert(dashboard:find("end,{props.dispatch,selected,scope,revision})",effectStart,true))

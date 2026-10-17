@@ -27,11 +27,11 @@ assert(not string.find(main, "local TUTORIAL_STEPS", 1, true), "TUTORIAL_STEPS m
 local crew = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
 local missions = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 local milestones = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
-local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
+local boards = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
 assert(string.find(crew, "local softMotion = ", 1, true), "Crew softMotion")
 assert(string.find(missions, "local softMotion = ", 1, true), "Missions softMotion")
 assert(string.find(milestones, "local softMotion = ", 1, true), "Milestones softMotion")
-assert(string.find(boards, "local softMotion = ", 1, true), "Leaderboards softMotion")
+assert(string.find(boards, "if animate and not props.reducedMotion then", 1, true), "Ranks reduced-motion gate")
 do
 	local soft = 0
 	for _ in string.gmatch(crew, "softMotion") do
@@ -53,19 +53,12 @@ do
 	end
 	assert(soft >= 10, "Milestones softMotion densify, got " .. tostring(soft))
 end
-do
-	local soft = 0
-	for _ in string.gmatch(boards, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 12, "Leaderboards softMotion densify, got " .. tostring(soft))
-end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#CrewView"] = ', 1, true), "Crew DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MissionsView"] = ', 1, true), "Missions DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MilestonesView"] = ', 1, true), "Milestones DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView"] = ', 1, true), "Leaderboards DENSE floor")
+assert(string.find(playability, "src/Client/AstralForge/RankDashboard.luau", 1, true), "Ranks actual-renderer coverage")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave38-offline-brief"', 1, true), "Story wave38")

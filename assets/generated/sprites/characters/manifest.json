@@ -1,0 +1,515 @@
+{
+  "Fire": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "d0179f1568a4f7258ef70afacaf72f37d824d7bd590d0db5ab95a6f75319f316",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "flame",
+    "assetId": 111447809671088
+  },
+  "Water": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "15272e3472273877aef278ea0ffd140fcca4b79ca661dd55862de9e908ac6d13",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "drop",
+    "assetId": 107002998982870
+  },
+  "Nature": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "79af5ac0278c5d4700e46c0097b4fb3ebdb9c510c47720de7fcb1c008f911d83",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "sprout",
+    "assetId": 81861665976747
+  },
+  "Ice": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "50a413322bc65aedec437ecaaff9f660332807e9eb6882dc8c2915ff81f0e233",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "crystal",
+    "assetId": 98766042648831
+  },
+  "Void": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "08a4461700a9fb8f7403fbede5b2cc1e68e101455f98c8e657c6132c066a2763",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 72582361906677
+  },
+  "Lightning": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "80ecce0be73767b5109cd0396d1f9d7fa8eadd3e94c4aa3bdb5cacea559447a9",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 109191589432618
+  },
+  "Magma": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "dfbb2103bafcd84209faa92a999d5d4390086df338b1924fe0fe78b7029a936e",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "flame",
+    "assetId": 81431803433973
+  },
+  "Solar": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "f2c28ea1880f4a17d1a86e441883953f48c231d6d328157a1250bbfe36b325fc",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "flame",
+    "assetId": 97912556559157
+  },
+  "Plasma": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "7723e690c9e4f9de0fd2f72decb31aaf6e2745f6bc7815e44cef7f936db28f4d",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "flame",
+    "assetId": 70600792434328
+  },
+  "Sonic": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "25bc4f9767359bdca4d62d2f56e4a1771a0fdc8de77429e1ee41bbd65266533d",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "cloud",
+    "assetId": 106277092479219
+  },
+  "Blizzard": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "834973408984ebc922899847240f8f1e2cb71cb7b01a127b06e57e2322a49119",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "cloud",
+    "assetId": 121252939038235
+  },
+  "Steam": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "bb191e2ef782d5426205a7a65953a3d17ad3697fe5fc557c5f4143ff7fb520d8",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "cloud",
+    "assetId": 90427768101130
+  },
+  "Wind": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "a5ccd570b3c4778252c99f87fa058f544e71b31ef62d96d2e2d4bf5fe432b8cb",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "cloud",
+    "assetId": 137764373699502
+  },
+  "Sand": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "b896853e7d1256832ecf3dd795d99679f3ffe0373ba3ff38850f742b4ca750d3",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 100820986507224
+  },
+  "Earth": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "24459fd7eba2b76e18876aa7cec04cf3093e29512b385861521efbba6f46cd7d",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "stone",
+    "assetId": 95963844787056
+  },
+  "Poison": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "e71f626669a26b8d98f3dd54c8ae632ffbf9a9baed8fc7016b5a420e654221ba",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "drop",
+    "assetId": 97612321546573
+  },
+  "Blood": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "4c07b629d3c5680196c3789cea48a4c08237ddd3e78c84b8aa49d88240ed1cda",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "drop",
+    "assetId": 81268517658415
+  },
+  "Shadow": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "c205e872e467f2ae491b9f4593518384575b0ee6203626d390dcfa54ad43ebb5",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 101114428813630
+  },
+  "Spirit": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "60cab3f83225c563efab5322b88f2775ece4ea06892ee6cc309f382e8ebf36a2",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 117631341522786
+  },
+  "Arcane": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "04286dcca14d064381498e0f67a4fc7cd3d9a5255163f459aec6b51f4122c229",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 114670644832212
+  },
+  "Radiance": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "93d2b9331486caa9a5e0467594e0f6cd3c604d2d7697db518ae86c1e0f3dd725",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 104413303102728
+  },
+  "Prism": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "b1ee10080a0119bca444db3d9373fac8adc46e46b0334627562e40edf3ae3c4f",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "crystal",
+    "assetId": 78150131426669
+  },
+  "Cosmic": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "6beba85a06e1dd96e6af373d5d3d4d0164c951d512e00ccce579347e6f3dabc5",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 82218031640477
+  },
+  "Chrono": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "767ba93a15a3539ee4458a4d1aabb9146dc73b9f4b9a1c3f6ce51f879275e331",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 120547038955477
+  },
+  "Crystal": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "cb426010568ea1ecaf59635ea8bae7cb52c084da0f308ba4f87ba8e42d86ad8c",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "crystal",
+    "assetId": 114088794082870
+  },
+  "Steel": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "21a4fba7e70419d0e69e377de7f50a22258a1655155c70aa98056c5ccea7f14d",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "stone",
+    "assetId": 116386955230835
+  },
+  "Gold": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "b6db49d409b9ffbaf8654045475a09bd2e952347b9d4d4ee5050044c15a65858",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "stone",
+    "assetId": 106876258551836
+  },
+  "Amber": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "14f142cc8b94f4bd0f8d618a21a64cad8f237f6e18775657d253846c7d28bc1d",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "stone",
+    "assetId": 138670748201563
+  },
+  "Magnet": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "f763ac49b6ee71dbd550ebcdec5bc8baa47025345ba72bed605691bc1676fd93",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "stone",
+    "assetId": 122165803838498
+  },
+  "Gravity": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "8dfaecff2d53dcd6bc7a89fd0ca53302378649fca99717bda44713af51a9b8ea",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "stone",
+    "assetId": 97838200737949
+  },
+  "Nebula": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "715e42ae92fdce2ac042b48ef6556390c57a55c4ae9b0157db92d84f35703dc8",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 75105287740671
+  },
+  "Aurora": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "f9be4a3a1773f8b18e7ef01d0792897fd7a9ec0b0fac2a04f62291b8927dbc4b",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 123216372415105
+  },
+  "Lunar": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "e0d241e4fe3a93492ab4c8da792b83f3c872af5f77c65e66b72440dc1d7e4826",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 115143911781324
+  },
+  "Comet": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "bf7b5a5f1b4d256bffe02cff1383c0fa0a3f8332d62410662ba7e0ff1460c5ef",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 126346096372520
+  },
+  "Eclipse": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "9c9376408e0d2c7e8eb5b5fa4c5ecb65106c50301da148aff6ec72e4737ed5a4",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 91246453929756
+  },
+  "Starlight": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "caa779aa15e88fbbbe4294c3f1e35188df5191625a8fcc7f96ed8544a00b010d",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 74929493329686
+  },
+  "Celestial": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "bc064beeba0cffd348e0770ce039a560f9f98c40087a8874d69626402026d31b",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 94662474602323
+  },
+  "Tempest": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "6d64e6b7767d6d2d2a3d73eb68bf99daa67bf315c7ebbe5d33659c47aa6747a8",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "cloud",
+    "assetId": 119103916343585
+  },
+  "Rift": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "7dd1021b1e54d395358ccfb64ec7375666259873b01a37d5e47521632ee01ec9",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 114213097855477
+  },
+  "Quantum": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "1ed6366b9ea63b76e4d75c4a60304904a5e9c67592a5748fa9fdb7e0556b1074",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "crystal",
+    "assetId": 79050688694545
+  },
+  "Aether": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "7655841a6181e8dea5b5dd432a77554e85387d4a8ef902211ae7d223952ab1f0",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 85930930706504
+  },
+  "Glitch": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "1a55306ba67015ac9af7ec01a218f677f6cd36f5ed1e404f40b60d42161d2127",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 72576241745145
+  },
+  "Vital": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "b1dadce9ea8406a2d4959216c2b2f42fb385b49da0f2eade73f45e72e21dda6c",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "drop",
+    "assetId": 111081003793468
+  },
+  "Neon": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "8f35c3e0d966201009dcc7236b56c0262058076b334bc0e8b1ef35bbc0adde9c",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "moth",
+    "assetId": 124125519181865
+  },
+  "Hologram": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "7fa32a82bfb7f1320687cbc3b370f00f6e2730d7b2900e16809fe91ca0e40aad",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "crystal",
+    "assetId": 73187081496632
+  },
+  "Thorn": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "fc25c4534e312757048a733ebcef227620400bb965cef8ce267013648039e136",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "sprout",
+    "assetId": 89155019319236
+  },
+  "Spore": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "4bb3675031c9609989f135f143c877ed6b03dac23c52f2efde1e3ba5665a6f1f",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "sprout",
+    "assetId": 135837291254305
+  },
+  "Bloom": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "488399e60869d62821e929860c2087d5f4e00f93dc242a16f59103b3294fd38e",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "sprout",
+    "assetId": 108374547005567
+  },
+  "Dream": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "9dba14ff5e53791e684cb7891cb9abe46ffbe9fff008be7deddf1c8ff5bc06e7",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 121600607635020
+  },
+  "Feather": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "f7a43c442486bdb06d4a232f9b201bb4b1539fdd2d62b55643224fc0fdc42e68",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "sprout",
+    "assetId": 114025735294274
+  },
+  "Abyss": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "236c9c60e9140901cd1689acc7171f6b5b2fafb1ae3ab5048da942754847f618",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "drop",
+    "assetId": 89502003377521
+  },
+  "Smoke": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "18aa04addb292c54e744031d7fb085f6d6e6849fff7636c978d1811b7655e985",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "cloud",
+    "assetId": 97722437632410
+  },
+  "Necrotic": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "af5f4ad6c8d380dd5ac4f3342065fa5a3e8716cfd46653b31f74f0d57d6aa051",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 133822306801477
+  },
+  "Rune": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "c2db8c17ba32f0e69a0f7eb3a8a1979860bdf5c26a3dfc6bcb9a1b7d5c86fb92",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "spirit",
+    "assetId": 88923745117102
+  },
+  "Mirror": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "d087504cacdfe5a534fd9d7969b0a7d9021834697f26c9ab2a84f2707fc1eec3",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "crystal",
+    "assetId": 81422171953780
+  },
+  "Ink": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "18af4497274a1bef2a57a64afbb3eac30b43d081673b421444c562ea4f553e83",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "drop",
+    "assetId": 108035341281964
+  },
+  "Frostfire": {
+    "generator": "fac260f4e613992a4575dc9f2c7b1e3c4d2836f8138dc40c7fa6fd445922dc97",
+    "sha256": "c49de8eada4a1cdbf3884eb07e011a2d51ade568a22b2f10357a76de9fdc34a8",
+    "size": 4096,
+    "frame": 682,
+    "count": 36,
+    "family": "flame",
+    "assetId": 79839048394513
+  }
+}

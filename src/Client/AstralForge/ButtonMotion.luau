@@ -94,15 +94,12 @@ function ButtonMotion.attach(root: Instance): () -> ()
 	local tweens: { [GuiButton]: Tween } = {}
 	local alive = true
 
-	local function scaleOf(button: GuiButton): UIScale
+	local function scaleOf(button: GuiButton): UIScale?
 		local scale = button:FindFirstChild(SCALE_NAME)
 		if scale and scale:IsA("UIScale") then
 			return scale
 		end
-		local created = Instance.new("UIScale")
-		created.Name = SCALE_NAME
-		created.Parent = button
-		return created
+		return nil
 	end
 
 	local function tween(button: GuiButton, goal: number, info: TweenInfo)
@@ -110,6 +107,9 @@ function ButtonMotion.attach(root: Instance): () -> ()
 			tweens[button]:Cancel()
 		end
 		local scale = scaleOf(button)
+		if scale == nil then
+			return
+		end
 		local nextTween = TweenService:Create(scale, info, { Scale = goal })
 		tweens[button] = nextTween
 		nextTween:Play()

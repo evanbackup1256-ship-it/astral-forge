@@ -1350,7 +1350,8 @@ local AUTO_WIDTH_PAD = 4
 local function estimateLabelWidth(text, textSize)
 	return math.max(4, math.ceil(#text * textSize * 0.7)) + AUTO_WIDTH_PAD
 end
-local SPINNER_FONT = Font.fromEnum(Enum.Font.RobotoMono)
+-- Builder Sans digits are even-width, so values roll cleanly without the gappy look of a monospace dot
+local SPINNER_FONT = Font.fromEnum(Enum.Font.BuilderSansBold)
 local function findSpinnerLayout(host)
 	for _, child in host:GetChildren() do
 		if not child:IsA("GuiObject") or child.Name == "NumberSpinnerGuide" then
@@ -1514,24 +1515,44 @@ local function applyChrome(spinner, opts)
 	spinner.Commas = false
 	spinner.ClipsDescendants = true
 end
-local function setDigitTracking(spinner, scale, gap)
-	local padding = UDim.new(0, math.clamp(math.floor(gap), -3, 6))
-	if spinner.Layout.Padding ~= padding then
-		spinner.Layout.Padding = padding
-	end
-	if scale >= 0.995 then
-		return nil
-	end
-	local baseWidth = math.max(6, math.floor(spinner.TextSize * 0.7 + 0.5))
-	local width = math.max(6, math.floor(baseWidth * math.clamp(scale, 0.65, 1) + 0.5))
-	for _, child in spinner.Frame:GetChildren() do
-		if not child:IsA("Frame") or child.Name ~= "digit" then
-			continue
-		end
+-- Digit cells follow the spinner font's real advance. Builder Sans Bold digits measure 0.51 em
+-- ("0" is 7.2px at 14), so a 0.52 em cell sits each digit snugly; the old 10px default cell left
+-- visible gaps ("1 3.7"). NumberSpinner builds digit frames after Value changes, so every new
+-- digit is sized as it is added, not only the ones present when Value was set.
+local function digitCellWidth(spinner, scale)
+	local base = math.max(5, math.ceil(spinner.TextSize * 0.52))
+	return math.max(5, math.floor(base * math.clamp(scale or 1, 0.65, 1.15) + 0.5))
+end
+local function sizeDigit(child, width)
+	if child:IsA("Frame") and child.Name == "digit" then
 		local nextSize = UDim2.fromOffset(width, child.Size.Y.Offset)
 		if child.Size ~= nextSize then
 			child.Size = nextSize
 		end
+	end
+end
+-- the spinner is a library object, not an Instance, so its cell width lives here
+local digitWidths = setmetatable({}, { __mode = "k" })
+local function setDigitTracking(spinner, scale, gap)
+	local padding = UDim.new(0, math.clamp(math.floor(gap or 0), -3, 6))
+	if spinner.Layout.Padding ~= padding then
+		spinner.Layout.Padding = padding
+	end
+	local width = digitCellWidth(spinner, scale)
+	local watching = digitWidths[spinner] ~= nil
+	digitWidths[spinner] = width
+	for _, child in spinner.Frame:GetChildren() do
+		sizeDigit(child, width)
+	end
+	if not watching then
+		spinner.Frame.ChildAdded:Connect(function(child)
+			task.defer(function()
+				local current = digitWidths[spinner]
+				if type(current) == "number" and child.Parent ~= nil then
+					sizeDigit(child, current)
+				end
+			end)
+		end)
 	end
 end
 local function rollDurationForJump(base, fromRaw, toRaw, fromBand, toBand, motionScale)
@@ -1841,6 +1862,8 @@ local function NumberSpinnerHost(_param)
 			end
 		end
 		local style = styleRef.current
+		-- The spinner takes over a guide label of its own. It must not be the fallback label:
+		-- the fallback is hidden once the spinner runs, and anything inside it would vanish too.
 		local guide = Instance.new("TextLabel")
 		guide.Name = "NumberSpinnerGuide"
 		guide.BackgroundTransparency = 1

@@ -44,7 +44,7 @@ local DV21_TEMPLATE = {
 	Cores = 0,
 	Stardust = 0,
 	Rebirths = 0,
-	Domain = { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0, SkillPoints = 0, Nodes = {} },
+	Domain = { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0, SkillPoints = 0, Links = {} },
 	Continuum = { Rank = 0, TotalFluxSpent = 0, TotalStardustSpent = 0 },
 	Anomaly = {
 		Cycle = 0,

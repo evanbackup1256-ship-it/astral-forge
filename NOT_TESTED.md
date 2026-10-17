@@ -5,6 +5,43 @@
 
 ## Current 7.0 verification boundary
 
+### 2026-10-11 pass
+
+Verified live in Studio (one client, desktop 1530x635 viewport):
+
+- [x] 7.1.0 boots clean (no errors; release notes reopen for returning players).
+- [x] UI prize wheel: gradient direction confirmed. At rotations 0, 37.5 and
+  200 degrees every wedge colour sits under its own label and divider, and the
+  server winner lands under the pointer. Fixed a centre seam between halves.
+- [x] Domain constellation renders the real 20-node tree: bound paths, pulses,
+  companions on bound nodes, cyan selected path, readable at the opening zoom.
+- [x] Crew, chat, settings and trade state through the real remote: crew
+  lifecycle error paths, whisper guards, global send + cooldown, new Social
+  settings saved, trade history reaches state. Chat tabs, Crew page, Trade page
+  (Recent trades), player list overlay and Mail captured.
+- [x] Fixed from the live pass: event embers drawn as drifting diamonds (now
+  few, soft and round); top-bar values in a monospace font read "6 . 4 2"
+  (now Builder Sans); player-list output showed 0/s for big-number production.
+
+Still not verified:
+
+- [ ] Two-player chat (whispers, crew channel) and trade (invite, history,
+  one-sided warning): needs Studio's multi-client test, which the MCP cannot start.
+- [ ] Phone, tablet and short-landscape layouts with the 11 px text floor:
+  device emulation is not reachable through the MCP. The chat tab row was
+  clipped at the top in the short desktop viewport; check it on phones.
+- [ ] Global chat and guild relay across real servers (published place).
+- [ ] Every remaining page (Settings, Shop, Black Market, Inventory, Workshop,
+  Research, Milestones, Overview events) captured at phone sizes.
+
+- [ ] Accept the pending Argon Edit-mode synchronization and verify the
+  persistent sources, including DomainHexStage, SkyViewport, the authored
+  Bolt atlas, MobileResourceRail and the ranks cleanup. The last Edit-mode
+  source check still contained the older code despite PR #67 being merged.
+- [ ] Run the current ranks focus/cleanup follow-up in Studio after sync;
+  executable offline focus and adapter fixtures are not a physical
+  controller or live-rendering sign-off.
+
 The new hex domain, authored Bolt atlas, tutorial pointer masks, aurora and
 minigame scene lifecycle have bounded offline/live checks recorded in
 `SIGNOFF.md`. Both minigames rendered in phone portrait simulation. Four
@@ -41,7 +78,7 @@ The latest UI playtest also logged soundtrack load timeouts across the playlist;
 audible music remains unverified. A diagnostic dispatch guard rejected an
 attempted report action; no report reached the production server.
 
-- [ ] Full live gameplay walkthrough after the current fixes. Studio MCP connects to the synced 7.0 place; the separate executor bridge remains disconnected.
+- [ ] Full live gameplay walkthrough after the current fixes. Studio MCP connects, but the latest Edit synchronization still requires confirmation; the separate executor bridge remains disconnected.
 - [ ] Measured UI frame times, rapid navigation, title rendering, audio playback and responsive trade controls on actual clients.
 - [ ] Two-player trade: edit while syncing, switch sessions, reject stale replies, ready/unready, confirm and reconnect.
 - [ ] Public artifact network replication across real-player respawns, unequips, upgrades and player departures.

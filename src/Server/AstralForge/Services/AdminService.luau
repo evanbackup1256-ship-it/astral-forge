@@ -16,7 +16,9 @@ return function(loadService: (string) -> any)
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
+	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
+	local AdminPolicy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AdminPolicy"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ServerTelemetry = loadService("ServerTelemetry")
 
@@ -57,6 +59,9 @@ return function(loadService: (string) -> any)
 		GrantContinuumRanks = { Label = "Grant Continuum ranks", Option = false, Category = "Progress" },
 		GrantAnomalyCharge = { Label = "Grant reactor charge", Option = false, Category = "Progress" },
 		GrantAnomalyStabilizations = { Label = "Grant reactor stabilizations", Option = false, Category = "Progress" },
+		GrantShards = { Label = "Grant Star Foundry shards", Option = false, Category = "Progress" },
+		SetFoundryRadius = { Label = "Set Foundry board radius", Option = false, Category = "Progress" },
+		GrantFoundryPiece = { Label = "Grant Foundry piece", Option = true, Category = "Progress" },
 		GrantFreeSpins = { Label = "Grant wheel spins", Option = false, Category = "Items" },
 		GrantCrateKeys = { Label = "Grant crate keys", Option = true, Category = "Items" },
 		GrantAllCrateKeys = { Label = "Grant every crate key", Option = false, Category = "Items" },
@@ -110,8 +115,8 @@ return function(loadService: (string) -> any)
 		ResetMachines = { Label = "Reset every machine", Option = false, Category = "Resets" },
 		MaxResearch = { Label = "Max every research", Option = false, Category = "Progress" },
 		ResetResearch = { Label = "Reset every research", Option = false, Category = "Resets" },
-		MaxGrid = { Label = "Max Star Grid", Option = false, Category = "Progress" },
-		ResetGrid = { Label = "Reset Star Grid", Option = false, Category = "Resets" },
+		MaxGrid = { Label = "Max legacy foundations", Option = false, Category = "Progress" },
+		ResetGrid = { Label = "Reset legacy foundations", Option = false, Category = "Resets" },
 		FillPityAll = { Label = "Max pity on every crate", Option = false, Category = "Items" },
 		ResetTrades = { Label = "Reset daily trades", Option = false, Category = "Resets" },
 		ResetDailies = { Label = "Reset all daily clocks", Option = false, Category = "Resets" },
@@ -119,6 +124,9 @@ return function(loadService: (string) -> any)
 		GrantEchoCharge = { Label = "Grant echo charge", Option = false, Category = "Progress" },
 		MaxCrew = { Label = "Max command crew", Option = false, Category = "Progress" },
 		DiscoverArts = { Label = "Discover every artifact", Option = false, Category = "Items" },
+		InspectMarket = { Label = "Inspect Black Market", Option = false, Category = "Economy", Danger = "quick" },
+		ResetMarketPurchases = { Label = "Reset market shelf purchases", Option = false, Category = "Resets" },
+		CancelMarketRequest = { Label = "Cancel market supply request", Option = false, Category = "Resets" },
 		Blind = { Label = "Lights out overlay", Option = false, Category = "Troll", World = true },
 		FakeBan = { Label = "Fake ban screen", Option = false, Category = "Troll", World = true },
 		FakeCrash = { Label = "Fake crash card", Option = false, Category = "Troll", World = true },
@@ -541,6 +549,9 @@ return function(loadService: (string) -> any)
 		table.sort(online, function(left, right) return left.Name < right.Name end)
 		local commands = {}
 		for id, definition in COMMANDS do
+			if not AdminPolicy.Allows(role, id, definition) then
+				continue
+			end
 			table.insert(commands, {
 				Id = id,
 				Label = definition.Label,
@@ -787,6 +798,42 @@ return function(loadService: (string) -> any)
 				local n = math.floor(amount)
 				ProfileBagMath.EnsureAnomaly(profile).Stabilizations += n
 				ProfileBagMath.BumpStat(profile, "AnomalyStabilizations", n)
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantShards = function(profile, amount, option)
+		local changedAmount = amount
+		local foundry = ProfileBagMath.EnsureFoundry(profile)
+		foundry.Shards = (tonumber(foundry.Shards) or 0) + math.floor(amount)
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetFoundryRadius = function(profile, amount, option)
+		local changedAmount = amount
+		local foundry = ProfileBagMath.EnsureFoundry(profile)
+		foundry.Radius = math.clamp(math.floor(amount), 2, 4)
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantFoundryPiece = function(profile, amount, option)
+		local changedAmount = amount
+		local foundry = ProfileBagMath.EnsureFoundry(profile)
+		if type(foundry.Bench) ~= "table" then
+			foundry.Bench = {}
+		end
+		local kind = "Ember"
+		local tier = 1
+		if type(option) == "string" and option ~= "" then
+			local k, t = string.match(option, "([^:]+):?(%d*)")
+			if k and k ~= "" then
+				kind = k
+			end
+			if t and tonumber(t) then
+				tier = math.clamp(tonumber(t) :: number, 1, 9)
+			end
+		end
+		for _ = 1, math.clamp(math.floor(amount), 1, 10) do
+			if #foundry.Bench < 12 then
+				table.insert(foundry.Bench, { Kind = kind, Tier = tier, Rotation = 0 })
+			end
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantFreeSpins = function(profile, amount, option)
@@ -1134,6 +1181,37 @@ return function(loadService: (string) -> any)
 				if profile.Trade then profile.Trade.Day = -1 end
 		return { ok = true, amount = changedAmount }
 	end
+	profileHandlers.InspectMarket = function(profile, amount, option)
+		local bag = BazaarMath.Ensure(profile.Bazaar)
+		profile.Bazaar = bag
+		local bucket = BazaarMath.MarketBucket(os.time())
+		local merchant = BazaarMath.Merchant(bucket)
+		local rare = BazaarMath.RareOffer(bucket)
+		local tier = BazaarMath.Reputation(bag.Counters.Deals)
+		local spent = 0
+		if bag.Market.Bucket == bucket then for _, count in bag.Market.Bought do spent += count end end
+		local request = BazaarMath.RegularById(bag.Market.Procure.Id)
+		local last = bag.Market.History[1]
+		local lastName = if last then (BazaarMath.CatalogById(last.Pick) or { Name = last.Pick }).Name else "none"
+		return { ok = true, amount = amount, note = string.format(
+			"Shipment %d by %s; rare: %s. %s standing (%d units), %d bought this shipment, %d receipts, last: %s. Request: %s.",
+			bucket, merchant.Name, if rare then rare.Name else "none", tier.Name, bag.Counters.Deals, spent,
+			#bag.Market.History, lastName, if request then request.Name else "none"
+		) }
+	end
+	profileHandlers.ResetMarketPurchases = function(profile, amount, option)
+		local bag = BazaarMath.Ensure(profile.Bazaar)
+		profile.Bazaar = bag
+		bag.Market.Bought = {}
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.CancelMarketRequest = function(profile, amount, option)
+		local bag = BazaarMath.Ensure(profile.Bazaar)
+		profile.Bazaar = bag
+		if bag.Market.Procure.Id == "" then return { ok = false, error = "That player has no open supply request." } end
+		bag.Market.Procure = { Id = "", Since = 0, Filled = 0 }
+		return { ok = true, amount = amount }
+	end
 	profileHandlers.ZeroZone = function(profile, amount, option)
 		local changedAmount = amount
 				profile.Zone = 1
@@ -1224,12 +1302,15 @@ return function(loadService: (string) -> any)
 		local command = CommandSchema.canonical(cleanText(payload.Command, 48), COMMANDS)
 		local definition = command and COMMANDS[command]
 		if not definition then return { ok = false, error = "Unknown admin command." } end
+		local permitted, permissionError = AdminPolicy.Allows(role, command :: string, definition)
+		if not permitted then return { ok = false, error = permissionError } end
+		local dryRun = payload.DryRun == true
 		local nonce = cleanText(payload.Nonce, 80)
 		if #nonce < 8 or not self:_consumeNonce(actor, nonce) then
 			return { ok = false, error = "This admin request was already processed." }
 		end
 		local reason = cleanText(payload.Reason, 96)
-		if #reason < 3 then return { ok = false, error = "Add a short audit reason." } end
+		if #reason < 3 and not dryRun then return { ok = false, error = "Add a short audit reason." } end
 		local option = cleanText(payload.Option, 64)
 		if definition.Moderation == true then
 			local duration, problem = CommandSchema.validate(command,definition,payload.Amount,option)
@@ -1238,6 +1319,16 @@ return function(loadService: (string) -> any)
 			if not targetUserId or targetUserId ~= math.floor(targetUserId) then
 				return { ok = false, error = "Pick a player to moderate." }
 			end
+			if dryRun then
+				local subject = Players:GetPlayerByUserId(targetUserId)
+				return {
+					ok = true,
+					DryRun = true,
+					message = `Preview: {definition.Label} → {if subject then subject.Name else tostring(targetUserId)}.`,
+					Preview = { `{definition.Label}: {if option ~= "" then option else tostring(duration)}` },
+					PreviewTotal = 1,
+				}
+			end
 			return self:_moderate(actor, command, targetUserId, duration, option, reason)
 		end
 		local target = onlinePlayer(payload.TargetUserId)
@@ -1245,6 +1336,36 @@ return function(loadService: (string) -> any)
 		if not self._data:Get(target) then return { ok = false, error = "Target profile is still loading." } end
 		local amount, inputError = CommandSchema.validate(command, definition, payload.Amount, option)
 		if amount == nil then return { ok = false, error = inputError } end
+
+		if dryRun then
+			if definition.World == true then
+				return {
+					ok = true,
+					DryRun = true,
+					message = `Preview: {definition.Label} plays on {target.Name}'s screen only. No saved data changes.`,
+					Preview = {},
+					PreviewTotal = 0,
+				}
+			end
+			local handler = profileHandlers[command]
+			if not handler then return { ok = false, error = "Admin command has no executor." } end
+			local before = AdminPolicy.DeepCopy(self._data:Get(target))
+			local scratch = AdminPolicy.DeepCopy(before)
+			local okRun, applied = pcall(handler, scratch, amount, option)
+			if not okRun then return { ok = false, error = "Preview failed: " .. tostring(applied) } end
+			if type(applied) == "table" and applied.ok == false then return applied end
+			local lines, total = AdminPolicy.Diff(before, scratch, 10)
+			local previewNote = if type(applied) == "table" and type(applied.note) == "string" then " " .. applied.note else ""
+			return {
+				ok = true,
+				DryRun = true,
+				message = (if total == 0
+					then `Preview: {definition.Label} would change nothing for {target.Name}.`
+					else `Preview: {total} saved value{if total == 1 then "" else "s"} change for {target.Name}.`) .. previewNote,
+				Preview = lines,
+				PreviewTotal = total,
+			}
+		end
 
 		if definition.World == true then
 			local ok, worldMessage = applyWorld(actor, target, command, amount, option)
@@ -1261,11 +1382,15 @@ return function(loadService: (string) -> any)
 		end
 
 		local changedAmount = amount
+		local note = ""
 		local success, result = self._data:AtomicUpdate(target, function(profile)
 			local handler = profileHandlers[command]
 			if not handler then return {ok=false,error="Admin command has no executor."} end
 			local applied = handler(profile,amount,option)
-			if applied.ok then changedAmount = applied.amount end
+			if applied.ok then
+				changedAmount = applied.amount
+				note = if type(applied.note) == "string" then " " .. applied.note else ""
+			end
 			return applied
 		end, true, "admin:" .. command)
 		if not success then return { ok = false, error = "Profile transaction failed: " .. tostring(result) } end
@@ -1277,11 +1402,12 @@ return function(loadService: (string) -> any)
 		return {
 			ok = true,
 			message = string.format(
-				"%s applied to %s (revision %d%s).",
+				"%s applied to %s (revision %d%s).%s",
 				definition.Label,
 				target.Name,
 				revision,
-				persisted and ", saved" or ", autosave retry queued"
+				persisted and ", saved" or ", autosave retry queued",
+				note
 			),
 			Admin = self:State(actor),
 			TargetUserId = target.UserId,

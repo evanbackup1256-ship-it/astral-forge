@@ -13,13 +13,14 @@ local P=theme.Palette
 local e=React.createElement
 local Players=game:GetService("Players")
 local TweenService=game:GetService("TweenService")
+local UserInputService=game:GetService("UserInputService")
+local GamepadNavigationService=require(script.Parent.CoreKit)("GamepadNavigationService")
 
 local GROUPS={
 	{id="Economy",label="ECONOMY",icon="Flux"},
 	{id="Progression",label="PROGRESSION",icon="Rebirth"},
 	{id="Activity",label="ACTIVITY",icon="Forge"},
 	{id="Collection",label="COLLECTION",icon="Crate"},
-	{id="Sky",label="SKY",icon="StarGrid"},
 	{id="Social",label="GUILDS",icon="Guild"},
 }
 local GUILD_META={id="Guilds",short="GUILDS",label="Guild Halls",icon="Guild",accent=P.violet,group="Social",description="Guild activity earned by banking and building together."}
@@ -190,6 +191,15 @@ return function(helpers)
 		local scope,setScope=React.useState("Global")
 		local revision,reload=React.useState(0)
 		local query,setQuery=React.useState("")
+		React.useEffect(function()
+			if not UserInputService.GamepadEnabled then return end
+			local host=hostRef.current
+			if host==nil then return end
+			local focusJob=task.defer(function()
+				if host.Parent~=nil then GamepadNavigationService.FocusClaim(host) end
+			end)
+			return function() pcall(task.cancel,focusJob) end
+		end,{selected,scope})
 		local mineOnly,setMineOnly=React.useState(false)
 		local result,setResult=React.useState({rows={},loading=true,status="Loading rankings…"})
 		local guildBoard=selected=="Guilds"
@@ -263,7 +273,7 @@ return function(helpers)
 			Seat=text(standing,0,if narrow then 92 else 50,1,40,34,if personalIndex==1 then MEDAL[1] else P.cream,{weight=Enum.FontWeight.Heavy,align=Enum.TextXAlignment.Right}),
 			Score=text(`{if guildBoard then "Your hall" else "You"} · {valueText(own)}`,0,if narrow then 96 else 92,0.7,18,13,P.cream,{weight=Enum.FontWeight.SemiBold}),
 			Climb=bar(nextRatio,if personalIndex==1 then MEDAL[1] else meta.accent,UDim2.fromOffset(0,if narrow then 124 else 118),UDim2.new(1,0,0,6)),
-			Gap=text(if gap then `{compact(gap)} more to pass #{personalIndex-1} {ahead.Name or ""}` elseif personalIndex==1 then "You hold the top seat. Everyone else is chasing you." elseif personalIndex==nil and #rows>0 then `Outside the top {#rows}. Reach {valueText(rows[#rows].Value)} to enter the board.` else "No standings yet for this board.",0,if narrow then 136 else 130,1,18,11,P.creamSoft),
+			Gap=text(if gap then `{compact(gap)} more to pass #{personalIndex-1} {ahead.Name or ""}` elseif personalIndex==1 then "You're ranked #1." elseif personalIndex==nil and #rows>0 then `Outside the top {#rows}. Reach {valueText(rows[#rows].Value)} to enter the board.` else "No standings yet for this board.",0,if narrow then 136 else 130,1,18,11,P.creamSoft),
 		})
 
 		-- Category picker: group strip, then the boards inside the group.
@@ -364,7 +374,7 @@ return function(helpers)
 				})
 			end
 		end
-		return e("frame",{Name="RankDashboard",ref=hostRef,Size=UDim2.fromScale(1,1),BackgroundTransparency=1},{
+		return e("frame",{Name="RankDashboard",ref=hostRef,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ClipsDescendants=false},{
 			Content=e(Scaffold,{sections=sections,gap=10,tailPad=80,scrollBarColor=meta.accent,scrollBarThickness=4}),
 		})
 	end

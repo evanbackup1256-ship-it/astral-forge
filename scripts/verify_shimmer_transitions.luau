@@ -61,6 +61,8 @@ assert(Shimmer.surfaceStrength(1, false, 1) <= 0.5 and Shimmer.surfaceStrength(0
 
 -- Page transitions
 local order = { "Overview", "Workshop", "Research" }
+assert(Page.SLIDE_DESKTOP == 24 and Page.SLIDE_PHONE == 36, "page changes use clear directional travel")
+assert(Page.VEIL_PEAK == 0.68, "page veil visibly bridges route changes")
 assert(Page.direction("Overview", "Research", order) == 1 and Page.direction("Research", "Workshop", order) == -1, "follows the nav")
 assert(Page.direction("Nowhere", "Workshop", order) == 1, "unknown pages arrive forward")
 local dx, dy = Page.offset(0, 1, "x", 28)

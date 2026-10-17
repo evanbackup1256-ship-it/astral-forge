@@ -24,6 +24,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local unixNow = require(script.Parent.Parent.CoreKit)("deadlines").unixNow
+local TradeHistory = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("TradeHistory"))
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
@@ -119,19 +120,29 @@ local function emptyOffer()
 	}
 end
 local function wireOffer(offer)
+	if type(offer) ~= "table" then
+		return emptyOffer()
+	end
 	local result = {
-		Cash = offer.Cash, Stardust = offer.Stardust, Cores = offer.Cores,
-		Signals = offer.Signals, Essence = offer.Essence,
-		Boosts = {}, Keys = {}, ItemIds = table.clone(offer.ItemIds),
+		Cash = tonumber(offer.Cash) or 0,
+		Stardust = tonumber(offer.Stardust) or 0,
+		Cores = tonumber(offer.Cores) or 0,
+		Signals = tonumber(offer.Signals) or 0,
+		Essence = tonumber(offer.Essence) or 0,
+		Boosts = {},
+		Keys = {},
+		ItemIds = if type(offer.ItemIds) == "table" then table.clone(offer.ItemIds) else {},
 	}
 	for _, id in BOOSTS do
-		if (offer.Boosts[id] or 0) > 0 then
-			result.Boosts[id] = offer.Boosts[id]
+		local amount = offer.Boosts and tonumber(offer.Boosts[id]) or 0
+		if amount > 0 then
+			result.Boosts[id] = amount
 		end
 	end
 	for _, id in KEYS do
-		if (offer.Keys[id] or 0) > 0 then
-			result.Keys[id] = offer.Keys[id]
+		local amount = offer.Keys and tonumber(offer.Keys[id]) or 0
+		if amount > 0 then
+			result.Keys[id] = amount
 		end
 	end
 	return result
@@ -347,7 +358,7 @@ local function AvatarMark(_param)
 		Position = UDim2.fromOffset(2, 2),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Image = `rbxthumb://type=AvatarHeadShot&id={userId}&w=150&h=150`,
+		Image = `rbxthumb://type=AvatarHeadShot&id={if userId > 0 then userId else 1}&w=150&h=150`,
 		ScaleType = Enum.ScaleType.Crop,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
@@ -419,6 +430,216 @@ local function RelicPick(_param)
 		highlight = picked,
 	})
 end
+
+local TRADE_QUICK_PRESETS = {
+	"Fair deal! 👍",
+	"Add more stardust?",
+	"Ready when you are! ⚡",
+	"Looking for Relics 💎",
+	"Need boost charges!",
+	"Thanks for trading! ✨",
+}
+
+local function calcOfferValue(offer)
+	if type(offer) ~= "table" then return 0 end
+	local total = (tonumber(offer.Cash) or 0) / 10000
+		+ (tonumber(offer.Stardust) or 0) * 10
+		+ (tonumber(offer.Cores) or 0) * 1000
+		+ (tonumber(offer.Signals) or 0) * 20
+		+ (tonumber(offer.Essence) or 0) * 15
+	if type(offer.Boosts) == "table" then
+		for _, count in pairs(offer.Boosts) do
+			total += (tonumber(count) or 0) * 450
+		end
+	end
+	if type(offer.Keys) == "table" then
+		for _, count in pairs(offer.Keys) do
+			total += (tonumber(count) or 0) * 350
+		end
+	end
+	if type(offer.ItemIds) == "table" then
+		total += #offer.ItemIds * 800
+	end
+	return math.round(total)
+end
+
+local function TradeFairnessMeter(props)
+	local yourScore = calcOfferValue(props.draft)
+	local theirScore = calcOfferValue(props.them)
+	local total = yourScore + theirScore
+	local yourRatio = if total > 0 then yourScore / total else 0.5
+	local balanceText, balanceColor
+	if total == 0 then
+		balanceText = "Place items or currencies on the table to compare cosmic trade balance."
+		balanceColor = Palette.muted
+	elseif yourRatio >= 0.42 and yourRatio <= 0.58 then
+		balanceText = "Fair Exchange · Equal Cosmic Weight"
+		balanceColor = Palette.mint
+	elseif yourRatio > 0.58 then
+		local adv = math.round((yourRatio - 0.5) * 200)
+		balanceText = `Generous Offer (+{adv}% extra value to partner)`
+		balanceColor = Palette.mango
+	else
+		local adv = math.round((0.5 - yourRatio) * 200)
+		balanceText = `Favorable Offer (+{adv}% extra value to you)`
+		balanceColor = Palette.cyan
+	end
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 48),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 8) }),
+	React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 6),
+		PaddingBottom = UDim.new(0, 6),
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
+	}),
+	React.createElement(Text, {
+		value = balanceText,
+		size = 12,
+		color = balanceColor,
+		weight = Enum.FontWeight.Bold,
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 8),
+		Position = UDim2.fromOffset(0, 24),
+		BackgroundColor3 = Palette.graphite,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+	React.createElement("frame", {
+		Size = UDim2.new(yourRatio, 0, 1, 0),
+		BackgroundColor3 = Palette.mango,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
+	React.createElement("frame", {
+		Size = UDim2.new(1 - yourRatio, 0, 1, 0),
+		Position = UDim2.new(yourRatio, 0, 0, 0),
+		BackgroundColor3 = Palette.cyan,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))))
+end
+
+local function TradeChatStream(props)
+	local messages, setMessages = React.useState({
+		{ sender = "Dock", text = "Secure trade frequency active. Keep deals fair.", isSystem = true },
+	})
+	local inputVal, setInputVal = React.useState("")
+	local onSend = function(text)
+		local clean = string.gsub(text or "", "^%s*(.-)%s*$", "%1")
+		if clean == "" then return end
+		Audio:play("chatSend")
+		local updated = table.clone(messages)
+		table.insert(updated, { sender = "You", text = clean, isYou = true })
+		if #updated > 6 then table.remove(updated, 1) end
+		setMessages(updated)
+		setInputVal("")
+	end
+	local pills = {}
+	for idx, preset in TRADE_QUICK_PRESETS do
+		table.insert(pills, React.createElement("textbutton", {
+			key = idx,
+			Text = preset,
+			Size = UDim2.new(0, #preset * 7 + 16, 0, 24),
+			BackgroundColor3 = Palette.panelSoft,
+			TextColor3 = Palette.cream,
+			TextSize = 11,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Event = {
+				Activated = function()
+					onSend(preset)
+				end,
+			},
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+		React.createElement(Stroke, { color = Palette.line, thickness = 1, transparency = 0.5 })))
+	end
+	local msgElements = {}
+	for idx, msg in messages do
+		table.insert(msgElements, React.createElement("frame", {
+			key = idx,
+			Size = UDim2.new(1, 0, 0, 18),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(Text, {
+			value = `[{msg.sender}] {msg.text}`,
+			size = 11,
+			color = if msg.isSystem then Palette.cyan elseif msg.isYou then Palette.mint else Palette.creamSoft,
+			weight = if msg.isYou then Enum.FontWeight.Bold else Enum.FontWeight.Regular,
+			wrap = true,
+			sizeConstraint = UDim2.new(1, 0, 0, 18),
+		})))
+	end
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 108),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
+	React.createElement(Stroke, { color = Palette.cyan, thickness = 1, transparency = 0.5 }),
+	React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 6),
+		PaddingBottom = UDim.new(0, 6),
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
+	}),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundTransparency = 1,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 6),
+	}), table.unpack(pills)),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 40),
+		Position = UDim2.fromOffset(0, 30),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 1),
+	}), table.unpack(msgElements)),
+	React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 24),
+		Position = UDim2.fromOffset(0, 74),
+		BackgroundTransparency = 1,
+	}, React.createElement("textbox", {
+		Size = UDim2.new(1, -64, 1, 0),
+		BackgroundColor3 = Palette.graphite,
+		TextColor3 = Palette.cream,
+		PlaceholderText = `Message {props.partnerName or "partner"}...`,
+		PlaceholderColor3 = Palette.muted,
+		Text = inputVal,
+		TextSize = 12,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ClearTextOnFocus = false,
+		BorderSizePixel = 0,
+		Change = {
+			Text = function(rbx)
+				setInputVal(rbx.Text)
+			end,
+		},
+		Event = {
+			FocusLost = function(_, enterPressed)
+				if enterPressed then onSend(inputVal) end
+			end,
+		},
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 6) }),
+	React.createElement("uipadding", { PaddingLeft = UDim.new(0, 8) })),
+	React.createElement(Button, {
+		text = "SEND",
+		onClick = function() onSend(inputVal) end,
+		color = Palette.cyan,
+		textColor = Palette.void,
+		size = UDim2.new(0, 58, 1, 0),
+		position = UDim2.new(1, -58, 0, 0),
+	})))
+end
+
 local function TradeView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -791,6 +1012,30 @@ local function TradeView(_param)
 	end
 	local yourLines = offerLines(draft, config, inventory)
 	local theirLines = if session ~= nil then offerLines(session.Them, config, inventory) else {}
+	local function raritiesOf(offer, fromInventory)
+		local list = {}
+		local definitions = config.Items and config.Items.Definitions or {}
+		local function rarityFor(definitionId)
+			for _, definition in definitions do
+				if definition.Id == definitionId then return definition.Rarity end
+			end
+			return nil
+		end
+		if fromInventory then
+			for _, uid in (offer and offer.ItemIds) or {} do
+				local instance = inventory[uid]
+				local rarity = instance and rarityFor(instance.DefinitionId)
+				if rarity then table.insert(list, rarity) end
+			end
+		else
+			for _, preview in (offer and offer.Items) or {} do
+				local rarity = rarityFor(preview.DefinitionId)
+				if rarity then table.insert(list, rarity) end
+			end
+		end
+		return list
+	end
+	local tradeWarnings = if session ~= nil then TradeHistory.warnings(draft, session.Them, raritiesOf(draft, true), raritiesOf(session.Them, false)) else {}
 	local offerBody = function(editor, lines)
 		local _exp_2 = editor and not offerEmpty(draft) and React.createElement(Button, {
 			text = "CLEAR OFFER",
@@ -1119,7 +1364,7 @@ local function TradeView(_param)
 			position = UDim2.fromOffset(0, 22),
 			sizeConstraint = UDim2.new(1, 0, 0, 18),
 		}), React.createElement(Badge, {
-			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "EDITING",
+			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "NOT READY",
 			accent = if confirmed then Palette.mango elseif ready then Palette.mint else Palette.muted,
 			filled = confirmed or ready,
 			position = UDim2.fromOffset(0, 46),
@@ -1145,7 +1390,7 @@ local function TradeView(_param)
 			position = UDim2.fromOffset(0, 22),
 			sizeConstraint = UDim2.new(1, -120, 0, 18),
 		}), React.createElement(Badge, {
-			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "EDITING",
+			value = if confirmed then "CONFIRMED" elseif ready then "READY" else "NOT READY",
 			accent = if confirmed then Palette.mango elseif ready then Palette.mint else Palette.muted,
 			filled = confirmed or ready,
 			position = UDim2.new(1, -108, 0, 8),
@@ -1252,7 +1497,7 @@ local function TradeView(_param)
 		}, not vertical and React.createElement("uiflexitem", {
 			FlexMode = Enum.UIFlexMode.Fill,
 		}), React.createElement(Button, {
-			text = if offerPending then "SYNCING OFFER" elseif youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
+			text = if offerPending then "SENDING…" elseif youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
 			onClick = onReadyClick,
 			color = if youReadyLocal then Palette.panelSoft else accent,
 			textColor = if youReadyLocal then Palette.cream else Palette.ink,
@@ -1449,13 +1694,13 @@ local function TradeView(_param)
 			gap = if chrome.landscape then 8 else Layout.stackGap,
 			sections = { {
 				id = "status",
-				height = if chrome.landscape then 52 else 60,
+				height = (if chrome.landscape then 52 else 60) + (if #tradeWarnings > 0 then 40 else 0),
 				element = React.createElement("frame", {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 				}, React.createElement(Text, {
-					value = if bothReady then "Both ready — confirm to finish." elseif youReadyLocal then `Waiting on {session.PartnerName}.` else "Add your offer, then tap Ready.",
+					value = if bothReady then "Both ready. Confirm to finish the trade." elseif youReadyLocal then `Waiting on {session.PartnerName}.` else "Add your offer, then select Ready.",
 					size = 13,
 					color = if bothReady then Palette.mango else Palette.creamSoft,
 					wrap = true,
@@ -1468,7 +1713,29 @@ local function TradeView(_param)
 					fit = true,
 					position = UDim2.fromOffset(0, 34),
 					sizeConstraint = UDim2.new(1, 0, 0, 18),
-				})),
+				}), #tradeWarnings > 0 and React.createElement(Text, {
+					-- one-sided offers are allowed (gifts), but never by accident
+					value = tradeWarnings[1],
+					size = 13,
+					color = Palette.coral,
+					weight = Enum.FontWeight.Bold,
+					wrap = true,
+					position = UDim2.fromOffset(0, 56),
+					sizeConstraint = UDim2.new(1, 0, 0, 36),
+				}) or nil),
+			}, {
+				id = "meter",
+				height = 54,
+				element = React.createElement(TradeFairnessMeter, {
+					draft = draft,
+					them = session.Them,
+				}),
+			}, {
+				id = "chat",
+				height = 114,
+				element = React.createElement(TradeChatStream, {
+					partnerName = session.PartnerName,
+				}),
 			}, {
 				id = "tabs",
 				height = TapTarget,
@@ -1818,6 +2085,39 @@ local function TradeView(_param)
 				id = "invite-cta",
 				height = TapTarget,
 				element = _condition_6,
+			})
+		end
+		-- completed trades, newest first: who, when, what changed hands
+		local history = if trade and type(trade.History) == "table" then trade.History else {}
+		table.insert(sections, {
+			id = "history-heading",
+			height = 30,
+			element = React.createElement(Text, {
+				value = if #history > 0 then "Recent trades" else "Recent trades: none yet. Finished trades show up here.",
+				size = 15, color = Palette.cream, weight = Enum.FontWeight.Heavy, wrap = true,
+				sizeConstraint = UDim2.new(1, 0, 0, 28),
+			}),
+		})
+		for index, entry in history do
+			local ago = math.max(0, os.time() - entry.At)
+			local when = if ago < 3600 then `{math.max(1, math.floor(ago / 60))}m ago` elseif ago < 86400 then `{math.floor(ago / 3600)}h ago` else `{math.floor(ago / 86400)}d ago`
+			table.insert(sections, {
+				id = "history-" .. index,
+				height = if phone then 104 else 84,
+				element = React.createElement(Panel, {
+					size = UDim2.fromScale(1, 1), accent = accent, background = Palette.panel, padding = 12, clips = false,
+				}, React.createElement(Text, {
+					value = `With {entry.Partner}  ·  {when}`, size = 14, color = Palette.cream, weight = Enum.FontWeight.Bold,
+					sizeConstraint = UDim2.new(1, -150, 0, 20),
+				}), React.createElement(Text, {
+					value = `You gave {entry.Gave}.\nYou got {entry.Got}.`, size = 13, color = Palette.muted, wrap = true,
+					position = UDim2.fromOffset(0, 24), sizeConstraint = UDim2.new(1, -150, 0, if phone then 56 else 40),
+				}), game:GetService("Players"):GetPlayerByUserId(entry.PartnerId) ~= nil and React.createElement(Button, {
+					-- the same partner is still here: one tap opens a fresh trade with them
+					text = "Trade again", icon = "Send", color = accent, textColor = Palette.ink,
+					size = UDim2.fromOffset(140, TapTarget), position = UDim2.new(1, -140, 0, 4), reducedMotion = reducedMotion,
+					onClick = function() dispatch("InviteTrade", { UserId = entry.PartnerId }) end,
+				}) or nil),
 			})
 		end
 		return React.createElement(PageScaffold, {
@@ -2201,6 +2501,169 @@ end
 local function sameCrewSnapshot(left, right)
 	return PageReadyMath.SameCrewSnapshot(left, right)
 end
+local CrewStore = require(script.Parent.Parent.CrewStore)
+local CrewMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("CrewMath"))
+
+-- The party block above the server roster: invite card, crew summary, members, goal and actions.
+local function crewPartySections(args)
+	local crewState, players, dispatch, stack, softMotion = args.crewState, args.players, args.dispatch, args.stack, args.softMotion
+	local renameDraft, setRenameDraft, note, setNote = args.renameDraft, args.setRenameDraft, args.note, args.setNote
+	local localId = Players.LocalPlayer.UserId
+	local crew, invite = crewState.crew, crewState.invite
+	local sections = {}
+	local function run(action, payload)
+		dispatch(action, payload or {}, function(response)
+			if type(response) ~= "table" then return end
+			if action == "GetCrew" or response.Crew ~= nil or response.Invite ~= nil then
+				CrewStore.set({ crew = response.Crew or CrewStore.NONE })
+			end
+			setNote(if response.ok == false then (response.error or "That didn't work.") else (response.message or ""))
+		end)
+	end
+	local function text(value, size, color, height, weight)
+		return React.createElement(Text, { value = value, size = size, color = color, wrap = true, weight = weight,
+			sizeConstraint = UDim2.new(1, 0, 0, height) })
+	end
+	-- leaving or removing someone takes a second tap, so a stray click can't break up a crew
+	local confirmKey, setConfirmKey = args.confirmKey, args.setConfirmKey
+	local function confirmed(key, action, payload)
+		if confirmKey == key then
+			setConfirmKey(nil)
+			run(action, payload)
+		else
+			setConfirmKey(key)
+		end
+	end
+	local GAP = 10
+	if invite and (invite.ExpiresAt or 0) > os.time() then
+		table.insert(sections, { id = "crew-invite", height = if stack then 46 + TapTarget * 2 + GAP + 28 else 104, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.mango, background = Palette.panelRaised, padding = 14, clips = false,
+		}, text(`{invite.FromName} invited you to {invite.CrewName}.`, 17, Palette.cream, 44, Enum.FontWeight.Heavy),
+			React.createElement(Button, { text = "Join crew", icon = "Crew", color = Palette.mango, textColor = Palette.ink,
+				size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(160, TapTarget),
+				position = if stack then UDim2.fromOffset(0, 46) else UDim2.new(1, -330 - GAP, 0, 34), reducedMotion = softMotion,
+				onClick = function() CrewStore.set({ invite = CrewStore.NONE }); run("CrewRespond", { Accept = true }) end }),
+			React.createElement(Button, { text = "Decline", color = Palette.panelSoft, textColor = Palette.cream, outline = true,
+				size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(160, TapTarget),
+				position = if stack then UDim2.fromOffset(0, 46 + TapTarget + GAP) else UDim2.new(1, -160, 0, 34), reducedMotion = softMotion,
+				onClick = function() CrewStore.set({ invite = CrewStore.NONE }); run("CrewRespond", { Accept = false }) end })) })
+	end
+	local leader = crew ~= nil and crew.Leader == localId
+	if crew then
+		local bonus = math.floor((crew.Bonus or 0) * 100 + 0.5)
+		table.insert(sections, { id = "crew-summary", height = 96, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.green, background = Palette.panelRaised, padding = 14, clips = false,
+		}, text(crew.Name, 22, Palette.cream, 30, Enum.FontWeight.Heavy),
+			React.createElement(Text, { value = `{#crew.Members} of {crew.Max} members · +{bonus}% production while you play together · crew chat is in Chat`,
+				size = 14, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 34), sizeConstraint = UDim2.new(1, 0, 0, 40) })) })
+		for index, member in crew.Members do
+			table.insert(sections, { id = "crew-member-" .. member.UserId, height = 56, element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1), BackgroundColor3 = Palette.panel, BorderSizePixel = 0,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }),
+				React.createElement(Text, { value = member.DisplayName .. (if member.Leader then "  ·  leader" else "") .. (if member.UserId == localId then "  ·  you" else ""),
+					size = 16, color = Palette.cream, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(14, 6), sizeConstraint = UDim2.new(1, -140, 0, 22) }),
+				React.createElement(Text, { value = `{member.Collects} collect{if member.Collects == 1 then "" else "s"} today`,
+					size = 13, color = Palette.muted, position = UDim2.fromOffset(14, 30), sizeConstraint = UDim2.new(1, -140, 0, 18) }),
+				member.UserId ~= localId and React.createElement(Button, { text = "Visit", icon = "Visit", color = Palette.blue, textColor = Palette.ink,
+					size = UDim2.fromOffset(104, 44), position = UDim2.new(1, if leader then -236 else -110, 0.5, -22), reducedMotion = softMotion,
+					onClick = function() dispatch("VisitPlot", { UserId = member.UserId }) end }) or nil,
+				leader and member.UserId ~= localId and React.createElement(Button, {
+					text = if confirmKey == "kick-" .. member.UserId then "Sure?" else "Remove",
+					color = if confirmKey == "kick-" .. member.UserId then Palette.coral else Palette.panelSoft,
+					textColor = if confirmKey == "kick-" .. member.UserId then Palette.ink else Palette.cream,
+					outline = confirmKey ~= "kick-" .. member.UserId, size = UDim2.fromOffset(112, 44), position = UDim2.new(1, -118, 0.5, -22), reducedMotion = softMotion,
+					onClick = function() confirmed("kick-" .. member.UserId, "CrewKick", { UserId = member.UserId }) end }) or nil) })
+		end
+		-- the daily goal: one meter to the next tier, then a claim button per tier
+		local nextTier = nil
+		for index, tier in crew.Tiers do
+			if crew.Pooled < tier.Target then nextTier = tier; break end
+		end
+		local mine = 0
+		for _, member in crew.Members do
+			if member.UserId == localId then mine = member.Collects end
+		end
+		local goalChildren = {
+			text(if nextTier then `Crew goal: {crew.Pooled} / {nextTier.Target} vault collects today` else `Every crew goal is done today ({crew.Pooled} collects).`,
+				16, Palette.cream, 22, Enum.FontWeight.Bold),
+			React.createElement(Meter, { value = if nextTier then math.clamp(crew.Pooled / nextTier.Target, 0, 1) else 1, color = Palette.green,
+				reducedMotion = softMotion, position = UDim2.fromOffset(0, 28), size = UDim2.new(1, 0, 0, 8) }),
+			React.createElement(Text, { value = if mine < crew.MinContribution then `Collect your vault {crew.MinContribution - mine} more time{if crew.MinContribution - mine == 1 then "" else "s"} to share the rewards.` else "You've pitched in enough to share every reward.",
+				size = 13, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 42), sizeConstraint = UDim2.new(1, 0, 0, 18) }),
+		}
+		local columns = if stack then 1 else 3
+		local cellW = 1 / columns
+		for index, tier in crew.Tiers do
+			local ready = crew.Pooled >= tier.Target and not tier.Claimed and mine >= crew.MinContribution
+			local col, row = (index - 1) % columns, math.floor((index - 1) / columns)
+			table.insert(goalChildren, React.createElement(Button, {
+				text = if tier.Claimed then `Claimed · {tier.Stardust} dust` elseif crew.Pooled >= tier.Target then `Claim {tier.Stardust} dust` else `{tier.Target} collects · {tier.Stardust} dust`,
+				color = if ready then Palette.green else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted,
+				disabled = not ready, highlight = ready, reducedMotion = softMotion,
+				size = UDim2.new(cellW, -GAP, 0, TapTarget), position = UDim2.new(col * cellW, 0, 0, 68 + row * (TapTarget + GAP)),
+				onClick = function() run("CrewClaim", { Tier = index }) end,
+			}))
+		end
+		local goalRows = math.ceil(#crew.Tiers / columns)
+		table.insert(sections, { id = "crew-goal", height = 68 + goalRows * (TapTarget + GAP) + 28, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.green, background = Palette.panelRaised, padding = 14, clips = false,
+		}, table.unpack(goalChildren)) })
+		local actions = {
+			React.createElement(Button, {
+				text = if confirmKey == "leave" then "Tap again to leave" else "Leave crew",
+				color = if confirmKey == "leave" then Palette.coral else Palette.panelSoft,
+				textColor = if confirmKey == "leave" then Palette.ink else Palette.cream, outline = confirmKey ~= "leave",
+				size = UDim2.new(if leader and not stack then 0.3 else 1, -GAP / 2, 0, TapTarget), position = if leader and not stack then UDim2.new(0.7, GAP / 2, 0, 0) elseif leader then UDim2.fromOffset(0, TapTarget + GAP) else UDim2.new(),
+				reducedMotion = softMotion, onClick = function() confirmed("leave", "CrewLeave") end }),
+		}
+		if leader then
+			table.insert(actions, React.createElement("textbox", {
+				Size = UDim2.new(if stack then 1 else 0.45, -GAP / 2, 0, TapTarget), BackgroundColor3 = Palette.panel, BorderSizePixel = 0,
+				Text = renameDraft, PlaceholderText = "New crew name", PlaceholderColor3 = Palette.muted, TextColor3 = Palette.cream,
+				TextSize = 16, ClearTextOnFocus = false, FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+				Change = { Text = function(box) setRenameDraft(string.sub(box.Text, 1, 40)) end },
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 10) })))
+			if not stack then
+				table.insert(actions, React.createElement(Button, { text = "Rename", color = Palette.green, textColor = Palette.ink,
+					size = UDim2.new(0.25, -GAP, 0, TapTarget), position = UDim2.new(0.45, GAP / 2, 0, 0), reducedMotion = softMotion,
+					disabled = CrewMath.cleanName(renameDraft) == nil, onClick = function() run("CrewRename", { Name = renameDraft }); setRenameDraft("") end }))
+			end
+		end
+		table.insert(sections, { id = "crew-actions", height = if leader and stack then TapTarget * 2 + GAP else TapTarget,
+			element = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, table.unpack(actions)) })
+	end
+	-- recruiting: anyone here who isn't already in your crew
+	local canInvite = crew == nil or (leader and #crew.Members < crew.Max)
+	if canInvite then
+		local candidates = {}
+		local members = {}
+		if crew then for _, member in crew.Members do members[member.UserId] = true end end
+		for _, player in players do
+			if not player.IsLocal and not members[player.UserId] then table.insert(candidates, player) end
+		end
+		local intro = if crew then "Invite more players to your crew." else
+			`Start a crew with up to {CrewMath.MAX_MEMBERS - 1} other players here. Each crewmate adds {math.floor(CrewMath.BONUS_PER_MEMBER * 100)}% production, and you share a daily goal.`
+		local columns = if stack then 1 else 2
+		local rows = math.ceil(math.min(#candidates, 8) / columns)
+		local children = { text(if #candidates == 0 then intro .. " Nobody else is free right now." else intro, 15, Palette.creamSoft, 40) }
+		for index = 1, math.min(#candidates, 8) do
+			local player = candidates[index]
+			local col, row = (index - 1) % columns, math.floor((index - 1) / columns)
+			table.insert(children, React.createElement(Button, { text = `Invite {player.DisplayName}`, icon = "Crew",
+				color = Palette.blue, textColor = Palette.ink, reducedMotion = softMotion,
+				size = UDim2.new(1 / columns, -GAP, 0, TapTarget), position = UDim2.new(col / columns, 0, 0, 46 + row * (TapTarget + GAP)),
+				onClick = function() run("CrewInvite", { UserId = player.UserId }) end }))
+		end
+		table.insert(sections, { id = "crew-recruit", height = 46 + rows * (TapTarget + GAP) + 26, element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1), accent = Palette.blue, background = Palette.panelRaised, padding = 14, clips = false,
+		}, table.unpack(children)) })
+	end
+	if note ~= "" then
+		table.insert(sections, { id = "crew-note", height = 40, element = text(note, 14, Palette.mango, 36) })
+	end
+	return sections
+end
+
 local function CrewView(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -2216,11 +2679,35 @@ local function CrewView(_param)
 	local mountedRef = React.useRef(true)
 	local visitAttemptRef = React.useRef(0)
 	local crewHostRef = React.useRef(nil)
+	local crewState = CrewStore.useCrew()
+	local renameDraft, setRenameDraft = React.useState("")
+	local crewNote, setCrewNote = React.useState("")
+	local confirmKey, setConfirmKey = React.useState(nil)
+	-- an unanswered "tap again" quietly resets
+	React.useEffect(function()
+		if confirmKey == nil then
+			return nil
+		end
+		local reset = task.delay(4, function()
+			setConfirmKey(nil)
+		end)
+		return function()
+			pcall(task.cancel, reset)
+		end
+	end, { confirmKey })
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
 			visitAttemptRef.current += 1
 		end
+	end, {})
+	-- the crew page asks once on open; afterwards CrewState effects keep the store current
+	React.useEffect(function()
+		dispatch("GetCrew", {}, function(response)
+			if type(response) == "table" and response.ok then
+				CrewStore.set({ crew = response.Crew or CrewStore.NONE, invite = response.Invite or CrewStore.NONE })
+			end
+		end)
 	end, {})
 	local refresh = React.useCallback(function()
 		return dispatch("GetPlayers", {}, function(response)
@@ -2400,7 +2887,7 @@ local function CrewView(_param)
 	end
 	local visitorsHere = _condition
 	local rowStride = if stack then 176 else 124
-	local headerH = (if stack then 130 else 112) + crewBarH
+	local headerH = (if stack then 182 else 112) + crewBarH -- phone: title, two-line blurb, then a full-width Refresh
 	local listGap = if visit ~= nil then math.max(chrome.panelGap, 18) else math.max(chrome.panelGap, 12)
 	local visitBlock = if visit ~= nil then PageBoardHeights.Visit(stack) else 0
 	local crewTail = scrollTail(stack, chrome.bottomSafe, 48)
@@ -2428,7 +2915,7 @@ local function CrewView(_param)
 		position = UDim2.fromOffset(0, 20),
 		sizeConstraint = UDim2.new(1, if stack then -8 else -190, 0, 30),
 	}), React.createElement(Text, {
-		value = if visitorsHere > 0 then `{visitorsHere} visiting your forge. Pick someone below to visit or send a wave.` else "See what everyone's up to live, visit a forge, or send a wave. Invites and friend boosts live in Playerlist.",
+		value = if visitorsHere > 0 then `{visitorsHere} visiting your forge. Pick someone below to visit or send a wave.` else "Form a crew with players here for a production bonus and a shared daily goal, or visit someone's forge.",
 		size = chrome.labelText,
 		color = Palette.muted,
 		wrap = true,
@@ -2482,6 +2969,13 @@ local function CrewView(_param)
 			element = headerPanel,
 		},
 	}
+	for _, section in crewPartySections({
+		crewState = crewState, players = allPlayers, dispatch = dispatch, stack = stack, softMotion = softMotion,
+		renameDraft = renameDraft, setRenameDraft = setRenameDraft, note = crewNote, setNote = setCrewNote,
+		confirmKey = confirmKey, setConfirmKey = setConfirmKey,
+	}) do
+		table.insert(sections, section)
+	end
 	if visitPanel then
 		table.insert(sections, {
 			id = "visit",
@@ -2935,7 +3429,7 @@ local function GuildGoalCardReady(_param)
 		ClipsDescendants = false,
 		ref = if canClaim then claimHostRef else nil,
 	}, React.createElement(Button, {
-		text = if claimed then "CLAIMED" elseif canClaim then "CLAIM REWARD" elseif goal.Completed then "NOT ELIGIBLE" else "IN PROGRESS",
+		text = if claimed then "CLAIMED" elseif canClaim then "CLAIM REWARD" elseif goal.Completed then "NOT ELIGIBLE" else "NOT YET",
 		icon = if claimed then "Check" else "Gift",
 		onClick = function()
 			if canClaim and not busy then
@@ -3031,7 +3525,7 @@ local function UpgradeCard(_param)
 	local _attributes = {}
 	local _result
 	if row.maxed then
-		_result = `{percentText(row.currentEffect)} — fully installed`
+		_result = `{percentText(row.currentEffect)}, fully installed`
 	else
 		local _exp_3 = percentText(row.currentEffect)
 		local _exp_4 = percentText(row.nextEffect)
@@ -3134,7 +3628,7 @@ local function MemberRow(_param)
 		accent = accent,
 		size = 34,
 		position = UDim2.fromOffset(0, 2),
-	}), React.createElement(Text, {
+	}), 	React.createElement(Text, {
 		value = name,
 		size = 14,
 		color = ensureContrast(surface, Palette.cream),
@@ -3143,27 +3637,32 @@ local function MemberRow(_param)
 		minSize = 10,
 		position = UDim2.fromOffset(44, 0),
 		sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 20),
-	}), React.createElement(Text, {
+	}), React.createElement(Badge, {
 		value = string.upper(role),
-		size = 9,
-		color = ensureContrast(surface, accent),
-		weight = Enum.FontWeight.Heavy,
+		accent = accent,
+		filled = role == "Leader" or role == "Officer",
 		position = UDim2.fromOffset(44, 20),
-		sizeConstraint = UDim2.new(0, 90, 0, 14),
+		size = UDim2.fromOffset(if role == "Leader" then 60 else (if role == "Officer" then 64 else 58), 16),
+	}), isLocal and React.createElement(Badge, {
+		value = "YOU",
+		accent = Palette.green,
+		filled = true,
+		position = UDim2.new(1, -48, 0, 2),
+		size = UDim2.fromOffset(44, 18),
 	}), React.createElement(Text, {
 		value = `{compactNumber(contributed)} banked  •  {math.floor(share * 100 + 0.5)}% of all deposits`,
 		size = 10,
 		color = ensureContrast(surface, Palette.muted),
 		fit = true,
 		minSize = 8,
-		position = UDim2.fromOffset(44, 36),
+		position = UDim2.fromOffset(44, 38),
 		sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 16),
 	}), goalShare > 0 and React.createElement(Text, {
 		value = `{compactNumber(goalShare)} toward this goal`,
 		size = 9,
 		color = ensureContrast(surface, Palette.mint),
 		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(44, 52),
+		position = UDim2.fromOffset(44, 54),
 		sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 14),
 	}), manageable and React.createElement(React.Fragment, nil, React.createElement(Button, {
 		text = if not canPromote then "LEADER ONLY" elseif role == "Officer" then "DEMOTE" else "PROMOTE",
@@ -3684,7 +4183,7 @@ local function GuildCommunityPanel(_param)
 	local sections = {
 		{ id = "guild-community-back", height = 48, element = React.createElement(Button, { text = "‹  GUILD OVERVIEW", onClick = onBack, color = Palette.panelSoft, textColor = Palette.cream, size = UDim2.new(1, 0, 0, 44), reducedMotion = reducedMotion }) },
 		{ id = "guild-community-chat", height = 430, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.cyan, padding = 14, reducedMotion = reducedMotion, clips = false },
-			React.createElement(Text, { value = `GUILD CHANNEL · {#messages} MESSAGES{if settings.SlowMode == true then " · SLOW MODE" else ""}`, size = 12, color = Palette.cyan, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, 0, 0, 20) }),
+			React.createElement(Text, { value = `GUILD CHANNEL · {#messages} MESSAGE{if #messages == 1 then "" else "S"}{if settings.SlowMode == true then " · SLOW MODE" else ""}`, size = 12, color = Palette.cyan, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, 0, 0, 20) }),
 			React.createElement("scrollingframe", {
 				ref = chatScroll,
 				Size = UDim2.new(1, 0, 0, 308),
@@ -3699,7 +4198,7 @@ local function GuildCommunityPanel(_param)
 				ScrollBarImageColor3 = Palette.cyan,
 			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }),
 				React.createElement("uipadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }),
-				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }), chatRows),
+				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }), chatRows),
 			React.createElement("textbox", {
 				Size = UDim2.new(1, -112, 0, 42),
 				Position = UDim2.fromOffset(0, 344),
@@ -3737,7 +4236,7 @@ local function GuildCommunityPanel(_param)
 		table.insert(sections, { id = "guild-community-moderation", height = 146, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.coral, padding = 14, clips = false }, React.createElement(SectionLabel, { value = "MEMBER MODERATION · USER ID", color = Palette.coral }), input("Guild member user ID", moderationUserId, function(value) setModerationUserId(string.sub(value, 1, 20)) end, 42, UDim2.fromOffset(0, 28)), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 76), BackgroundTransparency = 1 }, moderationButtons)) })
 	end
 	if leader then
-		table.insert(sections, { id = "guild-community-settings", height = 160, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14 }, React.createElement(SectionLabel, { value = "GUILD RULES", color = Palette.violet }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 90), Position = UDim2.fromOffset(0, 26), BackgroundTransparency = 1 }, settingsRows), React.createElement(Text, { value = "Officer toggles decide whether officers may post news and moderate. Slow mode spaces member messages 6s apart.", size = 10, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 116), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
+		table.insert(sections, { id = "guild-community-settings", height = 160, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14 }, React.createElement(SectionLabel, { value = "GUILD RULES", color = Palette.violet }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 90), Position = UDim2.fromOffset(0, 26), BackgroundTransparency = 1 }, settingsRows), React.createElement(Text, { value = "Choose what officers can manage. Slow mode adds 6 seconds between member messages.", size = 11, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 116), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
 		local cooldownDays = math.floor((tonumber(guildConfig.RenameCooldownSeconds) or 604800) / 86400)
 		local renameReady = #renameName >= 3 or #renameTag >= 3
 		table.insert(sections, { id = "guild-community-rename", height = 178, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mango, padding = 14, clips = false },
@@ -3839,8 +4338,15 @@ local function GuildView(_param)
 			if callback then callback(response) end
 		end)
 	end
+	-- the result of the last guild action; the panel only exists while there is one to show
 	local function statusSection()
-		return {id="guild-feedback",height=96,element=React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},React.createElement(Text,{value=if request.status~="" then request.status else "Guild actions show their results here. Your role determines which actions are available.",size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,64)}))}
+		if request.status == "" then return nil end
+		return {id="guild-feedback",height=72,element=React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},React.createElement(Text,{value=request.status,size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,40)}))}
+	end
+	local function withStatus(list, at)
+		local status = statusSection()
+		if status then table.insert(list, at, status) end
+		return list
 	end
 	if guild == nil or guild.Id == "" then
 		local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Guild else nil
@@ -3851,8 +4357,7 @@ local function GuildView(_param)
 			tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 80),
 			scrollBarColor = Palette.violet,
 			scrollBarThickness = 4,
-			sections = {
-				statusSection(),
+			sections = withStatus({
 				{
 					id = "empty-hero",
 					height = 128,
@@ -3909,7 +4414,7 @@ local function GuildView(_param)
 						cash = state.Cash,
 					})),
 				},
-			},
+			}, 1),
 		})
 	end
 	if pane == "Community" then
@@ -3972,7 +4477,7 @@ local function GuildView(_param)
 	end
 	local goalContributors = _goalContributors
 	local pageGap = if stack then 12 else Layout.panelGap
-	local heroHeight = if stack then 218 else 188
+	local heroHeight = if stack then 218 else 132
 	local goalHeight = if guild.Goal == nil then 116 elseif stack then 234 else 196
 	local bankHeight = if stack then 310 else 216
 	local upgradeHeight = if stack then 180 else 140
@@ -3994,7 +4499,7 @@ local function GuildView(_param)
 	_attributes.size = 10
 	_attributes.color = ensureContrast(heroSurface, Palette.violet)
 	_attributes.weight = Enum.FontWeight.Heavy
-	_attributes.sizeConstraint = UDim2.new(1, -8, 0, 14)
+	_attributes.sizeConstraint = UDim2.new(1, if stack then -8 else -160, 0, 14)
 	local _exp_4 = React.createElement(Text, _attributes)
 	local _exp_5 = React.createElement(Text, {
 		value = guild.Name,
@@ -4004,7 +4509,7 @@ local function GuildView(_param)
 		fit = true,
 		minSize = 17,
 		position = UDim2.fromOffset(0, 20),
-		sizeConstraint = UDim2.new(1, -8, 0, 38),
+		sizeConstraint = UDim2.new(1, if stack then -8 else -160, 0, 38),
 	})
 	local _exp_6 = React.createElement(Text, {
 		value = `ACTIVITY {compactNumber(guild.Activity)}  •  YOU ARE {string.upper(myRole)}`,
@@ -4088,7 +4593,7 @@ local function GuildView(_param)
 		loading = busy,
 		shakeToken = shakeToken,
 		size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.fromOffset(140, 42),
-		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 1, -42),
+		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 0, 0),
 		reducedMotion = softMotion,
 	}) else React.createElement(Button, {
 		text = if confirmation.current and confirmation.current.key=="LeaveGuild:" then "CONFIRM LEAVE" else "LEAVE",
@@ -4103,7 +4608,7 @@ local function GuildView(_param)
 		loading = busy,
 		shakeToken = shakeToken,
 		size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.fromOffset(140, 42),
-		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 1, -42),
+		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 0, 0),
 		reducedMotion = softMotion,
 	}))
 	local _exp_12 = React.createElement(GuildGoalCard, {
@@ -4269,7 +4774,7 @@ local function GuildView(_param)
 		upgradeChildren[1] = React.createElement(EmptyState, {
 			key = "empty-upgrades",
 			title = "No hall upgrades",
-			body = "Upgrade definitions are still loading.",
+			body = "Hall upgrades are still loading.",
 			icon = "Forge",
 			accent = Palette.violet,
 			size = UDim2.new(1, 0, 0, 72),
@@ -4385,23 +4890,22 @@ local function GuildView(_param)
 	}), memberChildren)
 	local hall=Social.hall(guild)
 	local tabs={}
-	local columns=if stack then 2 else 3
+	local columns=if stack then 2 else 5
 	local guildTabs={"Overview","Treasury","Upgrades","Members","Community"}
 	for index,id in guildTabs do
 		tabs[index]=React.createElement(Button,{text=string.upper(id),size=UDim2.new(1/columns,-6,0,48),position=UDim2.new(((index-1)%columns)/columns,0,0,math.floor((index-1)/columns)*56),color=if pane==id then Palette.violet else Palette.panelSoft,onClick=function() setPane(id) end,reducedMotion=softMotion})
 	end
 	local navigationHeight=math.ceil(#guildTabs/columns)*56
-	local sections={
+	local sections=withStatus({
 		{id="hero",height=heroHeight,element=_exp_11},
-		statusSection(),
 		{id="guild-navigation",height=navigationHeight,element=React.createElement("frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},tabs)},
-	}
+	}, 2)
 	local function add(id,height,element) table.insert(sections,{id=id,height=height,element=element}) end
 	if pane=="Overview" then
-		add("hall-progress",174,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.mint},
-			React.createElement(Text,{value=`HALL LEVEL {hall.Level} · {hall.Title}`,size=19,wrap=true,sizeConstraint=UDim2.new(1,0,0,42)}),
-			React.createElement(Meter,{value=hall.Progress,position=UDim2.fromOffset(0,52),size=UDim2.new(1,0,0,10),color=Palette.mint,reducedMotion=softMotion}),
-			React.createElement(Text,{value=`{hall.Remaining} more hall upgrades to level up. Every five installed upgrade levels earn a hall level. Hall titles celebrate progress; upgrade bonuses apply separately.`,position=UDim2.fromOffset(0,78),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,64)})))
+		add("hall-progress",if stack then 132 else 112,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.mint},
+			React.createElement(Text,{value=`HALL LEVEL {hall.Level} · {hall.Title}`,size=19,wrap=true,weight=Enum.FontWeight.Heavy,sizeConstraint=UDim2.new(1,0,0,26)}),
+			React.createElement(Meter,{value=hall.Progress,position=UDim2.fromOffset(0,34),size=UDim2.new(1,0,0,10),color=Palette.mint,reducedMotion=softMotion}),
+			React.createElement(Text,{value=`{hall.Remaining} more upgrade level{if hall.Remaining == 1 then "" else "s"} to the next hall level. Every five installed upgrade levels add one.`,position=UDim2.fromOffset(0,54),size=13,color=Palette.creamSoft,wrap=true,sizeConstraint=UDim2.new(1,0,0,if stack then 44 else 24)})))
 		add("goal",goalHeight,_exp_12)
 	elseif pane=="Treasury" then
 		add("bank",bankHeight,_exp_19)
@@ -4409,9 +4913,9 @@ local function GuildView(_param)
 		add("upgrades-label",sectionLabelH,_exp_20)
 		add("upgrades",upgradeBlockH,upgradeList)
 	else
-		add("role-policy",176,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
-			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,sizeConstraint=UDim2.new(1,0,0,28)}),
-			React.createElement(Text,{value="Leader: assigns roles and manages the hall. Officer: buys upgrades and removes members. Member: contributes and earns goal rewards. If the leader leaves, an officer succeeds first, then the earliest joiner; user ID breaks ties.",position=UDim2.fromOffset(0,40),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,104)})))
+		add("role-policy",if stack then 176 else 120,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
+			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,weight=Enum.FontWeight.Heavy,sizeConstraint=UDim2.new(1,0,0,24)}),
+			React.createElement(Text,{value="Leaders manage roles and the hall. Officers handle upgrades and members. Everyone can contribute and claim goal rewards. Leadership passes to an officer, then the earliest member.",position=UDim2.fromOffset(0,32),size=13,color=Palette.creamSoft,wrap=true,sizeConstraint=UDim2.new(1,0,0,if stack then 110 else 52)})))
 		if #members > 3 then
 			add("member-filter",memberSearchH + 8 + Browse.CHIP_H,memberFilter)
 		end
@@ -4465,7 +4969,31 @@ local FILTERS = {
 	{ id = "Unread", label = "Unread" },
 	{ id = "Gifts", label = "Gifts" },
 	{ id = "Collected", label = "Collected" },
+	{ id = "Alerts", label = "Alerts" },
 }
+local NoticeMath = require(script.Parent.Parent.CoreKit)("noticeMath")
+local ALERT_COLORS = { Success = "mint", Warning = "mango", Error = "coral", Special = "violet" }
+
+local function alertRows(query)
+	local rows = {}
+	for _, entry in NoticeMath.Entries() do
+		local subject = if entry.Count > 1 then `{entry.Title}  ×{entry.Count}` else entry.Title
+		local keep = query == "" or Browse.matches(query, entry.Title, entry.Body)
+		if keep then
+			local item = {
+				Id = entry.Id,
+				Subject = if subject ~= "" then subject else "Forge alert",
+				Sender = "Forge alerts",
+				Preview = entry.Body,
+				Date = os.date("%H:%M", entry.At),
+				Body = { if entry.Body ~= "" then entry.Body else entry.Title },
+				Color = Palette[ALERT_COLORS[entry.Tone] or "cyan"] or Palette.cyan,
+			}
+			table.insert(rows, { Id = entry.Id, item = item, mail = { Read = true, Claimed = false } })
+		end
+	end
+	return rows
+end
 
 local function paragraphHeight(value, width, size)
 	return math.max(20, measureWrappedTextHeight(value, width, size, Enum.FontWeight.Regular) + 6)
@@ -4753,6 +5281,16 @@ local function MailboxView(_param)
 	local filter, setFilter = React.useState("All")
 	local query, setQuery = Browse.useLinkedQuery("Mail")
 	local claimToken, setClaimToken = React.useState(0)
+	local alertRevision, setAlertRevision = React.useState(0)
+	React.useEffect(function()
+		return NoticeMath.Subscribe(function()
+			if mountedRef.current then
+				setAlertRevision(function(n)
+					return n + 1
+				end)
+			end
+		end)
+	end, {})
 	local messages = (state.Mailbox and state.Mailbox.Messages) or {}
 	local defs = {}
 	for _, def in config.Mail or {} do
@@ -4777,6 +5315,9 @@ local function MailboxView(_param)
 				table.insert(rows, { Id = item.Id, item = item, mail = mail })
 			end
 		end
+	end
+	if filter == "Alerts" and alertRevision >= 0 then
+		rows = alertRows(query)
 	end
 	local selectedId, setSelectedId = React.useState(if mobileRoute then "" else (rows[1] and rows[1].Id or ""))
 	local selected = nil
@@ -4874,8 +5415,8 @@ local function MailboxView(_param)
 		highlight = true,
 		reducedMotion = softMotion,
 	}), h("frame", {
-		Size = if stack then UDim2.new(1, -24, 0, 40) else UDim2.new(1, -(380 + (if gifts > 0 then 164 else 12)), 0, 40),
-		Position = if stack then UDim2.fromOffset(12, headerH - 50) else UDim2.fromOffset(372, 12),
+		Size = if stack then UDim2.new(1, -24, 0, TapTarget + 8) else UDim2.new(1, -(380 + (if gifts > 0 then 164 else 12)), 0, 40),
+		Position = if stack then UDim2.fromOffset(12, headerH - TapTarget - 18) else UDim2.fromOffset(372, 12),
 		BackgroundTransparency = 1,
 	}, h(SegmentedTabs, {
 		options = FILTERS,
@@ -4897,8 +5438,8 @@ local function MailboxView(_param)
 		BackgroundTransparency = 1,
 	}, h(EmptyState, {
 		icon = if query ~= "" then "Search" else "Mail",
-		title = if query ~= "" then `No letters match "{query}"` elseif filter == "All" then "Your tray is empty" else "Nothing in " .. string.lower(filter),
-		body = if query ~= "" then "Try the sender's name or one word from the subject." else "Patch notes, letters and gifts land here.",
+		title = if query ~= "" then `No letters match "{query}"` elseif filter == "All" then "Your tray is empty" elseif filter == "Alerts" then "No recent alerts" else "Nothing in " .. string.lower(filter),
+		body = if query ~= "" then "Try the sender's name or one word from the subject." elseif filter == "Alerts" then "Pop-ups from this session are kept here so you can read them again." else "Patch notes, letters and gifts land here.",
 		accent = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = softMotion,
@@ -5147,7 +5688,7 @@ local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
 local SearchField = _ui.SearchField
-local Browse = require(script.Parent.Parent.BrowseKit)
+local SegmentedTabs = _ui.SegmentedTabs
 local ElementFx = require(script.Parent.Parent.ElementFx).ElementFx
 local ARTIFACT_CHIP_W = 124
 local ROW_HEIGHT = 98
@@ -5161,11 +5702,68 @@ local SIDE_INSET = 12
 local STATUS_RESERVE = 128
 local NEAR_BOTTOM = 96
 local ChatText = require(script.Parent.Parent.CoreKit)("chatText")
+local ChatRules = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("ChatRules"))
+local DRAFT_LIMIT = ChatRules.MAX_INPUT + 40 -- room for "/w name " in front of a full message
+local TAB_ROW_H = 44
+local PEER_ROW_H = 40
+local SUGGEST_ROW_H = 40
+local TAB_DEFS = {
+	{ id = "all", label = "All" },
+	{ id = "global", label = "Global" },
+	{ id = "server", label = "Server" },
+	{ id = "crew", label = "Crew" },
+	{ id = "friends", label = "Friends" },
+	{ id = "whispers", label = "Whispers" },
+}
 local EMPTY_CHAT = {
-	messages = {}, unread = 0, connected = false,
+	messages = {}, unread = 0, unreadByTab = {}, connected = false,
+	tab = "all", setTab = function() end, peer = nil, setPeer = function() end, whispers = {},
 	send = function(_, done) if done then done(false, "Chat is still connecting.") end end,
 	clear = function() end,
+	suggest = function() return {} end,
 }
+-- one-row chip strip (whisper peers, autocomplete). Chat keeps no raw scrollers, so it clips:
+-- callers pass chips most-relevant first and the tail is what gets cut on narrow screens.
+local function chipRail(chips, zIndex)
+	local children = {
+		layout = React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		}),
+	}
+	for order, chip in chips do
+		children[chip.key] = React.createElement("frame", {
+			LayoutOrder = order,
+			Size = UDim2.new(0, 0, 1, -4),
+			AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundTransparency = 1,
+		}, chip.element)
+	end
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = zIndex,
+	}, children)
+end
+local function channelBadge(message)
+	if message.localPlayer then
+		return "YOU"
+	end
+	if message.channel == "global" then
+		return "GLOBAL"
+	elseif message.channel == "crew" then
+		return "CREW"
+	elseif message.channel == "whisper" then
+		return "WHISPER"
+	elseif message.channel == "friends" then
+		return "FRIEND"
+	end
+	return `WORLD {message.world}`
+end
 local TAG_COLORS = { Palette.cyan, Palette.mint, Palette.violet, Palette.mango, Palette.pink, Palette.blue }
 local function userColor(userId)
 	local authorId = tonumber(userId) or 0
@@ -5302,7 +5900,7 @@ local function MessageRow(_param)
 		Position = enter:map(function(amount)
 			return UDim2.fromOffset(math.round((1 - amount) * 14), cardY + math.round((1 - amount) * 10))
 		end),
-		BackgroundColor3 = if message.localPlayer then darken(accent, 0.88) else Palette.panel,
+		BackgroundColor3 = if message.mention then darken(Palette.mango, 0.8) elseif message.localPlayer then darken(accent, 0.88) else Palette.panel,
 		BackgroundTransparency = fade:map(function(amount)
 			return 0.04 + amount * 0.96
 		end),
@@ -5315,16 +5913,15 @@ local function MessageRow(_param)
 	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 12),
 	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1,
+		Color = if message.mention then Palette.mango else accent,
+		Thickness = if message.mention then 2 else 1,
 		Transparency = fade:map(function(amount)
-			return (if message.localPlayer then 0.32 else 0.58) + amount * 0.42
+			return (if message.mention then 0.1 elseif message.localPlayer then 0.32 else 0.58) + amount * 0.42
 		end),
 	}), message.artifactElement ~= nil and React.createElement(ElementFx, {
 		element = message.artifactElement,
 		size = UDim2.fromOffset(64, 64),
 		position = UDim2.fromOffset(33, 38),
-		tint = message.artifactColor,
 		transparency = 0.25,
 		reducedMotion = reducedMotion,
 	}), React.createElement("frame", {
@@ -5389,7 +5986,6 @@ local function MessageRow(_param)
 		element = message.artifactElement,
 		size = UDim2.fromOffset(22, 22),
 		position = UDim2.fromOffset(12, 10),
-		tint = message.artifactColor,
 		reducedMotion = reducedMotion,
 	}), React.createElement(Text, {
 		value = string.upper(message.artifactName),
@@ -5420,12 +6016,32 @@ local function MessageRow(_param)
 		sizeConstraint = UDim2.new(1, -80, 0, 16),
 		transparency = fade,
 	}), React.createElement(Badge, {
-		value = if message.localPlayer then "YOU" else `WORLD {message.world}`,
+		value = channelBadge(message),
 		accent = if message.titleFx ~= nil then titleFxAccent(message.titleFx) else accent,
 		filled = true,
 		position = UDim2.new(1, -72, 0, 10),
 		size = UDim2.fromOffset(62, 26),
-	}), message.titleName ~= nil and React.createElement(Text, {
+	}), React.createElement(Text, {
+		value = ChatRules.clock(message.at),
+		size = 11,
+		color = Palette.muted,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(1, -72, 0, 38),
+		sizeConstraint = UDim2.fromOffset(62, 16),
+		transparency = fade,
+	}), _param.onWhisper ~= nil and not message.localPlayer and React.createElement("textbutton", {
+		-- the author's name opens a private conversation with them
+		Name = "WhisperAuthor",
+		Size = UDim2.new(1, -(STATUS_RESERVE + 72), 0, 24),
+		Position = UDim2.fromOffset(66, 6),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 5,
+		[React.Event.Activated] = function()
+			_param.onWhisper(message.userId)
+		end,
+	}) or nil, message.titleName ~= nil and React.createElement(Text, {
 		value = `@{message.username}`,
 		size = 11,
 		color = Palette.muted,
@@ -5453,13 +6069,14 @@ local function ChatView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	local bodySize = if chrome.mobile then 16 else 15
-	local rowHeight = if chrome.mobile then 144 else ROW_HEIGHT
+	local textScale = chat.textScale or 1.075
+	local bodySize = math.floor((if chrome.mobile then 15 else 14) * textScale + 0.5)
+	local rowHeight = math.floor((if chrome.mobile then 144 else ROW_HEIGHT) * math.max(1, textScale * 0.95) + 0.5)
 	local condensed = chrome.landscape or viewport.keyboardOpen or viewport.height < 700
 	local showStatus = not condensed
 	local showBanner = not condensed and viewport.height >= 760
-	local chromeGap = if condensed then 6 else GAP
-	local inputHeight = if condensed then 52 else INPUT_HEIGHT
+	local chromeGap = if condensed then 8 else GAP
+	local inputHeight = if condensed then 62 else INPUT_HEIGHT
 	local draft, setDraft = React.useState("")
 	local failure, setFailure = React.useState("")
 	local viewHeight, setViewHeight = React.useState(0)
@@ -5469,6 +6086,9 @@ local function ChatView(_param)
 	local stickBottom = React.useRef(true)
 	local lastMessageId = React.useRef(nil)
 	local sendAttempt = React.useRef(0)
+	local sentHistory = React.useRef({})
+	local recallIndex = React.useRef(0)
+	local recallDraft = React.useRef("")
 	local chatClaimHostRef = React.useRef(nil)
 	local headerReveal = useStagger(0, softMotion)
 	local bannerReveal = useStagger(1, softMotion)
@@ -5483,17 +6103,32 @@ local function ChatView(_param)
 	local listFrame = React.useRef(nil)
 	local count = #chat.messages
 	local latestMessageId = if count > 0 then chat.messages[count].id else nil
+	local tab = chat.tab or "all"
+	local peer = if tab == "whispers" then chat.peer else nil
 	-- searching the log shows only matching lines; the live log keeps scrolling underneath
 	local filteringLog = searchOpen and not string.match(logQuery, "^%s*$")
 	local shownMessages = chat.messages
-	if filteringLog then
+	if filteringLog or tab ~= "all" or chat.showGlobal == false then
 		shownMessages = {}
 		for _, message in chat.messages do
-			if Browse.matches(logQuery, message.text, message.displayName, message.username) then
+			local channel = message.channel or "server"
+			local keep = ChatRules.inTab(channel, tab)
+				and not (tab == "all" and channel == "global" and chat.showGlobal == false)
+				and (peer == nil or channel == "system" or message.peerId == peer)
+			if keep and filteringLog then
+				keep = ChatRules.matches({
+					text = message.text or "",
+					username = message.username or "",
+					displayName = message.displayName or "",
+					channel = channel,
+				}, logQuery)
+			end
+			if keep then
 				table.insert(shownMessages, message)
 			end
 		end
 	end
+	local suggestions = if string.match(draft, "^%s*$") then {} else chat.suggest(draft)
 	local stackH = math.max(0, #shownMessages) * rowHeight
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
 	local renderedIds = {}
@@ -5560,12 +6195,26 @@ local function ChatView(_param)
 			scrollConn:Disconnect()
 		end
 	end, { listFrame, count, topPad })
+	-- reading history: new messages are counted instead of yanking the list, and a button jumps back
+	local unseen, setUnseen = React.useState(0)
 	React.useEffect(function()
 		if latestMessageId ~= lastMessageId.current then
+			if lastMessageId.current ~= nil and not stickBottom.current then
+				setUnseen(function(n) return math.min(99, n + 1) end)
+			end
 			scrollToBottom()
 		end
 		lastMessageId.current = latestMessageId
 	end, { latestMessageId, scrollToBottom })
+	React.useEffect(function()
+		local frame = listFrame.current
+		if not frame then return nil end
+		local connection = frame:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+			local maxY = math.max(0, frame.CanvasSize.Y.Offset - frame.AbsoluteWindowSize.Y)
+			if frame.CanvasPosition.Y >= maxY - NEAR_BOTTOM then setUnseen(0) end
+		end)
+		return function() connection:Disconnect() end
+	end, { listFrame, count })
 	React.useEffect(function()
 		scrollToBottom(true)
 	end, { scrollToBottom })
@@ -5577,6 +6226,8 @@ local function ChatView(_param)
 		end
 		local attempt = sendAttempt.current + 1
 		sendAttempt.current = attempt
+		ChatRules.remember(sentHistory.current, outgoing)
+		recallIndex.current = 0
 		setFailure("")
 		setDraft("")
 		if box ~= nil then
@@ -5615,7 +6266,77 @@ local function ChatView(_param)
 			end
 		end)
 	end
-	local canSend = chat.connected and (string.gsub(draft, "%s", "")) ~= ""
+	-- global and slash commands go through the server, so they don't wait on the TextChannel
+	local canSend = (string.gsub(draft, "%s", "")) ~= ""
+		and (chat.connected or tab == "global" or string.match(draft, "^%s*/") ~= nil)
+	local applySuggestion = function(fill)
+		setDraft(fill)
+		local box = input.current
+		if box ~= nil then
+			box.Text = fill
+			task.defer(function()
+				if input.current == box then
+					box:CaptureFocus()
+					box.CursorPosition = #fill + 1
+				end
+			end)
+		end
+	end
+	-- The "/" key asks for the box; wait a frame so the slash itself isn't typed into it.
+	React.useEffect(function()
+		local requested = chat.focusRequest or 0
+		if requested <= 0 or os.clock() - requested > 1 then
+			return
+		end
+		local thread = task.delay(0.05, function()
+			local box = input.current
+			if box ~= nil and box:IsDescendantOf(game) then
+				box:CaptureFocus()
+				if box.Text == "/" then
+					box.Text = ""
+					setDraft("")
+				end
+			end
+		end)
+		return function()
+			task.cancel(thread)
+		end
+	end, { chat.focusRequest })
+	-- Up / Down in the focused chat box walks back through what you sent; coming back down past
+	-- the newest message restores whatever you had been typing.
+	React.useEffect(function()
+		local connection = UserInputService.InputBegan:Connect(function(inputObject)
+			local box = input.current
+			if box == nil or not box:IsFocused() then
+				return
+			end
+			local direction = if inputObject.KeyCode == Enum.KeyCode.Up then 1
+				elseif inputObject.KeyCode == Enum.KeyCode.Down then -1
+				else 0
+			if direction == 0 then
+				return
+			end
+			if recallIndex.current == 0 then
+				recallDraft.current = box.Text
+			end
+			local index, text = ChatRules.recall(sentHistory.current, recallIndex.current, direction)
+			if index == recallIndex.current then
+				return
+			end
+			recallIndex.current = index
+			local fill = if index == 0 then recallDraft.current else text
+			setDraft(fill)
+			box.Text = fill
+			task.defer(function()
+				if input.current == box then
+					box.CursorPosition = #fill + 1
+				end
+			end)
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, {})
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -5636,7 +6357,7 @@ local function ChatView(_param)
 	end, { condensed, canSend })
 	local statusLabel = if chat.connected then "ONLINE" else "CONNECTING"
 	local statusAccent = if chat.connected then Palette.green else Palette.mango
-	local placeholder = if failure ~= "" then failure else "Say something... (/help)"
+	local placeholder = if failure ~= "" then failure elseif chrome.mobile then (if tab == "global" then "Message global…  (/help)" elseif tab == "server" then "Message server…  (/help)" elseif tab == "crew" then "Message crew…  (/help)" elseif tab == "friends" then "Message friends…  (/help)" elseif tab == "whispers" then "Private message…  (/help)" else "Message…  (/help)") else (chat.placeholder or "Say something... (/help)")
 	local statusElement = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,
@@ -5749,9 +6470,25 @@ local function ChatView(_param)
 				bodySize = bodySize,
 				animate = animate,
 				rowHeight = rowHeight,
+				onWhisper = if not message.system and chat.openWhisper ~= nil and not message.remote then function(userId)
+					chat.openWhisper(userId)
+				end else nil,
 			})
 		end,
 	})
+	if unseen > 0 then
+		messagesElement = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+		}, messagesElement, React.createElement(Button, {
+			text = `{unseen} new message{if unseen == 1 then "" else "s"}`, icon = "Chat",
+			color = Palette.cyan, textColor = Palette.ink, hug = true, reducedMotion = softMotion,
+			size = UDim2.fromOffset(0, 40), position = UDim2.new(0.5, -90, 1, -52), zIndex = 30,
+			onClick = function()
+				setUnseen(0)
+				scrollToBottom(true)
+			end,
+		}))
+	end
 	local bannerElement = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panel,
@@ -5827,10 +6564,10 @@ local function ChatView(_param)
 		TextScaled = false,
 		MultiLine = false,
 		TextEditable = true,
-		MaxVisibleGraphemes = 160,
+		MaxVisibleGraphemes = DRAFT_LIMIT,
 		Change = {
 			Text = function(box)
-				return setDraft(ChatText.limit(box.Text, 160))
+				return setDraft(ChatText.limit(box.Text, DRAFT_LIMIT))
 			end,
 		},
 		Event = {
@@ -5880,7 +6617,7 @@ local function ChatView(_param)
 			element = React.createElement(SearchField, {
 				value = logQuery,
 				onChange = setLogQuery,
-				placeholder = "Search the log by word or player",
+				placeholder = "Search words, from:name or in:global",
 				accent = Palette.cyan,
 				reducedMotion = softMotion,
 				size = UDim2.fromScale(1, 1),
@@ -5888,11 +6625,73 @@ local function ChatView(_param)
 			}),
 		})
 	end
+	local unreadByTab = chat.unreadByTab or {}
+	local tabOptions = {}
+	for _, def in TAB_DEFS do
+		local waiting = unreadByTab[def.id] or 0
+		table.insert(tabOptions, { id = def.id, label = if waiting > 0 then `{def.label} {waiting}` else def.label })
+	end
+	local tabColumns = if viewport.compact then 3 else #TAB_DEFS
+	local tabRows = math.ceil(#TAB_DEFS / tabColumns)
+	table.insert(sections, {
+		id = "tabs",
+		height = tabRows * TAB_ROW_H + (tabRows - 1) * 6,
+		element = React.createElement(SegmentedTabs, {
+			options = tabOptions,
+			value = tab,
+			onChange = chat.setTab,
+			accent = Palette.cyan,
+			columns = tabColumns,
+			gap = 6,
+			size = UDim2.fromScale(1, 1),
+			reducedMotion = softMotion,
+		}),
+	})
+	if tab == "whispers" and #chat.whispers > 0 then
+		local peerChips = {}
+		for _, entry in chat.whispers do
+			local selected = entry.userId == chat.peer
+			local label = entry.displayName
+			if entry.unread > 0 then
+				label = `{label} ({entry.unread})`
+			end
+			if entry.online == false then
+				label ..= " · away"
+			end
+			table.insert(peerChips, { key = `peer-{entry.userId}`, element = React.createElement(Button, {
+				text = label,
+				onClick = function()
+					chat.setPeer(entry.userId)
+				end,
+				color = if selected then Palette.violet else Palette.panelSoft,
+				textColor = if selected then Palette.ink else Palette.cream,
+				size = UDim2.fromOffset(0, PEER_ROW_H - 4),
+				hug = true,
+				reducedMotion = softMotion,
+			}) })
+		end
+		table.insert(sections, {
+			id = "peers",
+			height = PEER_ROW_H,
+			element = chipRail(peerChips, nil),
+		})
+	end
 	table.insert(sections, {
 		id = "messages",
 		fill = true,
 		minHeight = 120,
-		element = if filteringLog and #shownMessages == 0 then React.createElement(Text, {
+		element = if not filteringLog and #shownMessages == 0 then React.createElement(Text, {
+			value = if tab == "whispers" then "No whispers yet. Type /w name message to start one."
+				elseif tab == "friends" then "Nothing from friends in this server yet."
+				elseif tab == "crew" then "Crew chat is private to your crew. Start one on the Crew page."
+				elseif tab == "global" then "Global chat is quiet. Say hello to every server."
+				else "No messages yet.",
+			size = 14,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.new(1, 0, 0, 40),
+			position = UDim2.fromOffset(0, 20),
+		}) elseif filteringLog and #shownMessages == 0 then React.createElement(Text, {
 			value = `No messages match "{logQuery}".`,
 			size = 14,
 			color = Palette.muted,
@@ -5906,6 +6705,27 @@ local function ChatView(_param)
 			id = "banner",
 			height = BANNER_HEIGHT,
 			element = bannerElement,
+		})
+	end
+	if #suggestions > 0 then
+		local suggestChips = {}
+		for order, suggestion in suggestions do
+			table.insert(suggestChips, { key = `suggest-{order}`, element = React.createElement(Button, {
+				text = if suggestion.kind == "command" then suggestion.label else `{suggestion.label}  {suggestion.detail}`,
+				onClick = function()
+					applySuggestion(suggestion.fill)
+				end,
+				color = if order == 1 then Palette.cyan else Palette.panelSoft,
+				textColor = if order == 1 then Palette.ink else Palette.cream,
+				size = UDim2.fromOffset(0, SUGGEST_ROW_H - 4),
+				hug = true,
+				reducedMotion = softMotion,
+			}) })
+		end
+		table.insert(sections, {
+			id = "suggest",
+			height = SUGGEST_ROW_H,
+			element = chipRail(suggestChips, 24),
 		})
 	end
 	table.insert(sections, {

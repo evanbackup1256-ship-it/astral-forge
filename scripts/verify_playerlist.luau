@@ -26,6 +26,8 @@ assert(#rows == 4, "bad, duplicate and skipped ids drop, got " .. #rows)
 assert(rows[3].UserId == 3, "string ids coerce")
 assert(rows[4].Name == "5" and rows[4].DisplayName == "5" and rows[4].Production == 0, "missing names and junk numbers default")
 assert(rows[4].CurrentZone == 1, "worlds start at 1")
+local huge = Model.clean({ { UserId = 8, Name = "big", Production = "3.520000000000e34" } }, 0)
+assert(huge[1].Production == "3.520000000000e34", "big-number output survives instead of reading as 0/s")
 
 local byOutput = Model.view(rows, "Production")
 assert(byOutput[1].IsLocal and byOutput[2].UserId == 2 and byOutput[3].UserId == 3, "output sort, local first")
@@ -96,15 +98,26 @@ local layout, height = luau.load(geometry .. "\nreturn playerActionLayout, detai
 for _, width in { 266, 288, 339, 359, 360, 417, 439, 440, 460, 544 } do
 	local action = layout(width)
 	local available = width - 16
-	assert(action.columns * action.cellWidth + (action.columns - 1) * 6 <= available, "integer cells must not wrap to an unreserved row")
-	assert(action.rows * action.columns == 4, "all four social actions have reserved slots")
+	assert(action.columns * action.cellWidth + (action.columns - 1) * action.gap <= available, "integer cells must not wrap to an unreserved row")
+	assert(action.rows * action.columns == 8, "all eight social actions have reserved slots with no orphan cell")
+	assert(action.gap >= 10 and action.groupGap > action.gap, "actions have room between them, and more between the two groups")
 	local actionTop = 8 + 2 * 40 + 6 + 22
 	assert(height({ IsLocal = false }, width) >= actionTop + action.height + 10, "report button and shadow stay inside the expanded card")
-	assert(action.height == action.rows * tapTarget + (action.rows - 1) * 6, "actions retain touch-target height")
+	local groupRows = action.rows / 2
+	assert(action.primaryHeight == groupRows * tapTarget + (groupRows - 1) * action.gap, "primary actions keep the full touch-target height")
+	assert(action.secondaryCellHeight >= 40, "secondary actions stay comfortably tappable")
+	assert(action.height == action.primaryHeight + action.groupGap + action.secondaryHeight, "both groups are reserved")
 end
-assert(view:find("CellSize = UDim2.fromOffset(actionLayout.cellWidth, TapTarget)", 1, true), "rendered cells use tested integer geometry")
+assert(view:find("actionGroup(\"Primary\", 0, actionLayout.primaryHeight, TapTarget", 1, true), "primary cells use tested integer geometry")
+assert(view:find("CellSize = UDim2.fromOffset(actionLayout.cellWidth, cellHeight)", 1, true), "rendered cells use tested integer geometry")
 assert(view:find("FillDirectionMaxCells = actionLayout.columns", 1, true), "rendered action columns are explicit")
 assert(view:find("FillDirectionMaxCells = 3", 1, true), "stat grid stays three columns")
+assert(view:find('text = "MESSAGE"', 1, true) and view:find("onMessage(row.UserId)", 1, true), "player card can open a private message")
+assert(view:find('dispatch("VisitPlot", { UserId = row.UserId })', 1, true), "player card can visit their plot")
+assert(view:find('dispatch("CrewInvite", { UserId = row.UserId }', 1, true) and view:find('text = if _param.crewmate then "IN CREW" else "CREW"', 1, true), "player card can invite to a crew")
+local shell = fs.readFile("src/Client/AstralForge/UiCore.luau")
+assert(shell:find('navigate("Chat")\n\t\t\tchat.openWhisper(userId)', 1, true), "MESSAGE routes into Chat on the whisper thread")
+assert(shell:find("useGameChat(page == \"Chat\", true, dispatch, state.Settings)", 1, true), "chat hook gets dispatch for whispers and global")
 assert(view:find("setWidth(math.floor(host.AbsoluteSize.X))",1,true),"card geometry follows its actual padded/scrollbar-constrained width")
 assert(view:find("connection:Disconnect()",1,true),"card measurement unsubscribes on unmount")
 for _,file in {

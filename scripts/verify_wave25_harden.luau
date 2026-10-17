@@ -4,20 +4,13 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local CANON = "local softMotion = reducedMotion"
 -- CrateRevealStage uses props.reducedMotion as the left-hand of the canon gate.
 local STAGE_CANON = "local softMotion = props.reducedMotion == true"
 
-local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-assert(string.find(boards, CANON, 1, true), "Leaderboards softMotion canon")
-assert(string.find(boards, 'Name = "LeaderboardConfirm"', 1, true), "LeaderboardConfirm host")
-assert(string.find(boards, 'Name = "LeaderboardConfirmFilters"', 1, true), "LeaderboardConfirmFilters")
-do
-	local hostStart = string.find(boards, 'Name = "LeaderboardConfirm"', 1, true)
-	assert(hostStart, "LeaderboardConfirm missing")
-	local hostSlice = string.sub(boards, hostStart, hostStart + 420)
-	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "LeaderboardConfirm clips")
-end
+local boards = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
+assert(string.find(boards, 'Name="RankDashboard"', 1, true), "Ranks host")
+assert(string.find(boards, "ClipsDescendants=false", 1, true), "Ranks host must not clip")
+assert(string.find(boards, "if animate and not props.reducedMotion then", 1, true), "Ranks reduced-motion gate")
 assert(string.find(boards, "GamepadNavigationService.FocusClaim", 1, true), "Leaderboards FocusClaim")
 
 local stage = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage")

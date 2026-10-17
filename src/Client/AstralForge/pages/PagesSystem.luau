@@ -45,6 +45,7 @@ local Button = _ui.Button
 local Panel = _ui.Panel
 local SearchField = _ui.SearchField
 local Slider = _ui.Slider
+local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
 local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
 local Browse = require(script.Parent.Parent.BrowseKit)
@@ -62,15 +63,29 @@ for _, section in Schema.SECTIONS do
 	SECTION_BY_ID[section.id] = section
 end
 
+-- The forge switch. One spring drives everything, so the track colour, halo, knob stretch and
+-- glyph all move together instead of snapping: the knob stretches like jelly mid-travel and
+-- settles with a small overshoot, the track fills with the section colour, a dot lights inside
+-- the knob when on. Hover brightens the edge; pressing squeezes the knob.
+local SWITCH_W, SWITCH_H, SWITCH_KNOB, SWITCH_PAD = 58, 30, 22, 4
 local function Switch(_param)
 	local on = _param.on
 	local accent = _param.accent
 	local softMotion = _param.softMotion
-	local knob = useFlipperSpring(if on then 1 else 0, softMotion, 640, 34)
+	local amount = useFlipperSpring(if on then 1 else 0, softMotion, 380, 24)
+	local hovered, setHovered = React.useState(false)
+	local pressed, setPressed = React.useState(false)
+	local hover = useFlipperSpring(if hovered then 1 else 0, softMotion, 700, 40)
+	local press = useFlipperSpring(if pressed then 1 else 0, softMotion, 1000, 42)
 	local anchor = _param.anchorPoint or Vector2.zero
 	local trackX = if anchor.X >= 0.5 then 1 else 0
+	local motion = React.joinBindings({ amount, press })
+	local travel = SWITCH_W - SWITCH_PAD * 2 - SWITCH_KNOB
+	local function settle(a)
+		return math.clamp(a, 0, 1)
+	end
 	return React.createElement("textbutton", {
-		Size = UDim2.fromOffset(60, TapTarget),
+		Size = UDim2.fromOffset(SWITCH_W + 10, TapTarget),
 		Position = _param.position,
 		AnchorPoint = anchor,
 		BackgroundTransparency = 1,
@@ -83,68 +98,113 @@ local function Switch(_param)
 				Audio:play(if on then "toggleOff" else "toggleOn")
 				_param.onToggle()
 			end,
+			MouseEnter = function() setHovered(true) end,
+			MouseLeave = function() setHovered(false); setPressed(false) end,
+			SelectionGained = function() setHovered(true) end,
+			SelectionLost = function() setHovered(false) end,
+			MouseButton1Down = function() setPressed(true) end,
+			MouseButton1Up = function() setPressed(false) end,
 		},
 	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(50, 28),
+		-- halo behind the track, only when on
+		Name = "Halo",
+		Size = UDim2.fromOffset(SWITCH_W + 8, SWITCH_H + 8),
+		Position = UDim2.new(trackX, if trackX == 1 then 4 else -4, 0.5, 0),
+		AnchorPoint = Vector2.new(trackX, 0.5),
+		BackgroundColor3 = accent,
+		BackgroundTransparency = amount:map(function(a) return 1 - 0.16 * settle(a) end),
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
+	React.createElement("frame", {
+		Name = "Track",
+		Size = UDim2.fromOffset(SWITCH_W, SWITCH_H),
 		Position = UDim2.fromScale(trackX, 0.5),
 		AnchorPoint = Vector2.new(trackX, 0.5),
-		BackgroundColor3 = if on then accent else Palette.graphite,
+		BackgroundColor3 = amount:map(function(a) return Palette.graphite:Lerp(accent, settle(a)) end),
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = if on then accent else Palette.lineSoft,
-		Transparency = if on then 0.2 else 0.35,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(22, 22),
-		Position = knob:map(function(amount)
-			return UDim2.new(0, 3 + math.clamp(amount, -0.1, 1.1) * 22, 0.5, 0)
-		end),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = if on then Palette.ink else Palette.creamSoft,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))))
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+		React.createElement("uigradient", {
+			Rotation = 90,
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.18) }),
+		}),
+		React.createElement("uistroke", {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Color = amount:map(function(a) return Palette.lineSoft:Lerp(accent, settle(a)) end),
+			Transparency = hover:map(function(h) return 0.4 - 0.32 * math.clamp(h, 0, 1) end),
+			Thickness = 1,
+		}),
+		React.createElement("frame", {
+			Name = "Knob",
+			-- stretches toward its direction of travel, squeezes while pressed
+			Size = motion:map(function(values)
+				local a, p = values[1], math.clamp(values[2], 0, 1)
+				local stretch = math.sin(math.pi * settle(a)) * 9
+				return UDim2.fromOffset(SWITCH_KNOB + stretch + p * 5, SWITCH_KNOB - p * 3)
+			end),
+			Position = amount:map(function(a)
+				return UDim2.new(0, SWITCH_PAD + SWITCH_KNOB / 2 + math.clamp(a, -0.08, 1.08) * travel, 0.5, 0)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = amount:map(function(a) return Palette.creamSoft:Lerp(Palette.cream, settle(a)) end),
+			BorderSizePixel = 0,
+			ZIndex = 2,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }),
+			React.createElement("frame", {
+				-- off: a short dash
+				Name = "Off",
+				Size = UDim2.fromOffset(8, 2),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Palette.graphite,
+				BackgroundTransparency = amount:map(function(a) return 0.25 + 0.75 * settle(a) end),
+				BorderSizePixel = 0,
+				ZIndex = 3,
+			}),
+			React.createElement("frame", {
+				-- on: a lit dot in the section colour
+				Name = "On",
+				Size = amount:map(function(a) local d = 4 + 4 * settle(a); return UDim2.fromOffset(d, d) end),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = accent,
+				BackgroundTransparency = amount:map(function(a) return 1 - settle(a) end),
+				BorderSizePixel = 0,
+				ZIndex = 3,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })))))
 end
 
+-- Several fixed options: the shared segmented control, whose highlight slides between choices.
 local function Choice(_param)
 	local choices = _param.choices
 	local value = _param.value
-	local accent = _param.accent
-	local cells = {
-		layout = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 4),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
+	local options = {}
+	local picked = nil
 	for index, option in choices do
-		local picked = math.abs(option.value - value) < 0.02
-		cells["c" .. index] = React.createElement("frame", {
-			Size = UDim2.new(1 / #choices, -math.ceil(4 * (#choices - 1) / #choices), 1, 0),
-			LayoutOrder = index,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(Button, {
-			text = "", size = UDim2.fromScale(1, 1),
-			color = if picked then accent else Palette.panelSoft, highlight = picked,
-			reducedMotion = _param.softMotion, sound = if picked then false else "tabSwitch",
-			onClick = function() if not picked then _param.onPick(option.value) end end,
-			children = React.createElement(Text, {
-				value = option.label, size = 12, color = if picked then Palette.ink else Palette.creamSoft,
-				weight = Enum.FontWeight.Bold, fit = true, minSize = 9, align = Enum.TextXAlignment.Center,
-				position = UDim2.fromOffset(4, 4), sizeConstraint = UDim2.new(1, -8, 1, -8), zIndex = 11,
-			}),
-		}))
+		local id = tostring(index)
+		table.insert(options, { id = id, label = option.label })
+		if math.abs(option.value - value) < 0.02 then
+			picked = id
+		end
 	end
 	return React.createElement("frame", {
 		Size = _param.size,
 		Position = _param.position,
 		AnchorPoint = _param.anchorPoint,
 		BackgroundTransparency = 1,
-	}, cells)
+	}, React.createElement(SegmentedTabs, {
+		options = options,
+		value = picked,
+		accent = _param.accent,
+		gap = 4,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = _param.softMotion,
+		onChange = function(id)
+			local option = choices[tonumber(id) or 0]
+			if option ~= nil and id ~= picked then
+				_param.onPick(option.value)
+			end
+		end,
+	}))
 end
 
 local function SettingRow(_param)
@@ -162,7 +222,7 @@ local function SettingRow(_param)
 		setDraft(value)
 		dispatch("SetSetting", { Key = entry.key, Value = value })
 	end
-	local controlW = if entry.kind == "toggle" then 50 elseif entry.kind == "choice" then math.min(260, 64 * #(entry.choices or {})) else 240
+	local controlW = if entry.kind == "toggle" then 68 elseif entry.kind == "choice" then math.min(260, 64 * #(entry.choices or {})) else 240
 	local textRight = if stack then 0 else controlW + 20
 	local control
 	if entry.kind == "toggle" then
@@ -265,6 +325,8 @@ local function SectionButton(_param)
 		size = 14,
 		color = if active then Palette.cream else Palette.creamSoft,
 		weight = if active then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
+		fit = _param.compact == true, -- three to a row on phones: long names shrink to fit
+		minSize = 10,
 		position = UDim2.fromOffset(if _param.compact then 34 else 40, 0),
 		sizeConstraint = UDim2.new(1, if _param.compact then -38 else -70, 1, 0),
 		zIndex = 11,
@@ -430,11 +492,13 @@ local function SettingsView(_param)
 		return slots
 	end, { chrome.quickBarH, chrome.stack, dockHeight, dockWidth, hudSafeTop, quickHeight, quickWidth, settings.MobileDockX, settings.MobileDockY, settings.MobileQuickX, settings.MobileQuickY, settings.MobileToastX, settings.MobileToastY, toastHeight, toastWidth, viewport.height })
 
-	local searchH = if stack then TapTarget else 38
+	-- Desktop keeps search and the view chips on one row beside each other; phones stack them.
+	local searchH = if stack then TapTarget else 40
 	local actionsY = 56
-	local searchY = if stack then actionsY + 40 + 10 else 64
-	local chipsY = searchY + searchH + 8
-	local headerH = chipsY + Browse.CHIP_H + 32
+	local searchY = if stack then actionsY + 40 + 10 else 60
+	local chipsX = if stack then 0 else 356
+	local chipsY = if stack then searchY + searchH + 8 else searchY + math.floor((searchH - Browse.CHIP_H) / 2)
+	local headerH = (if stack then chipsY + Browse.CHIP_H else searchY + math.max(searchH, Browse.CHIP_H)) + 32
 	local header = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,
@@ -513,8 +577,8 @@ local function SettingsView(_param)
 			setChangedOnly(id == "changed")
 		end,
 		accent = accent,
-		position = UDim2.fromOffset(0, chipsY),
-		size = UDim2.new(1, 0, 0, Browse.CHIP_H),
+		position = UDim2.fromOffset(chipsX, chipsY),
+		size = UDim2.new(1, -chipsX, 0, Browse.CHIP_H),
 	}))
 
 	local navButtons = {
@@ -759,6 +823,7 @@ local function SettingsView(_param)
 			setMobileEdit(false)
 		end,
 		slots = mobileSlots,
+		savedSlots = (state.Flags or {}).MobileLayoutSlots,
 		scales = {
 			quick = quickScale,
 			dock = dockScale,
@@ -920,14 +985,15 @@ local function TabRail(_param)
 	local setActive = _param.setActive
 	local reducedMotion = _param.reducedMotion
 	local stack = _param.stack
+	local columns = _param.columns
 	return React.createElement(SegmentedTabs, {
-		options = if stack then TAB_OPTIONS_SHORT else TAB_OPTIONS,
+		options = TAB_OPTIONS,
 		value = active,
 		onChange = setActive,
 		accent = Palette.cyan,
-		columns = #TABS,
+		columns = columns or #TABS,
 		gap = 4,
-		size = UDim2.new(1, 0, 0, if stack then 52 else 48),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	})
 end
@@ -1018,7 +1084,7 @@ local CommandTitleCard = React.memo(function(props)
 	_attributes.fit = false
 	_attributes.align = Enum.TextXAlignment.Center
 	_attributes.position = UDim2.fromOffset(9, 58)
-	_attributes.sizeConstraint = UDim2.new(1, -18, 0, if props.stack then 27 else 23)
+	_attributes.sizeConstraint = UDim2.new(1, -18, 0, 52)
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = darkTitlePlate(props.fx),
@@ -1073,12 +1139,23 @@ local function CommandViewReady(_param)
 	local opsReveal = useStagger(2, softMotion)
 	local commandSoft = softMotion or overviewReveal == nil or expeditionsReveal == nil or opsReveal == nil
 	local claimHostRef = React.useRef(nil)
-	local stack = chrome.contentStack
+	local contentWidth, setContentWidth = React.useState(360)
+	local stack = chrome.contentStack or contentWidth < 760
 	local ops = config.Operations
 	local command = state.Command
 	local tab, setTab = React.useState("Overview")
 	local now, setNow = React.useState(workspace:GetServerTimeNow())
 	local scrollRef = React.useRef()
+	React.useEffect(function()
+		local host = scrollRef.current
+		if not host then return nil end
+		local function measure()
+			if host.AbsoluteSize.X > 0 then setContentWidth(host.AbsoluteSize.X) end
+		end
+		measure()
+		local connection = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+		return function() connection:Disconnect() end
+	end, {})
 	React.useEffect(function()
 		if tab ~= "Expeditions" then
 			return nil
@@ -1166,7 +1243,7 @@ local function CommandViewReady(_param)
 	local activeStarted = _condition_2
 	local expeditionReady = activeId ~= "" and now >= activeEnds
 	local expeditionProgress = if activeId == "" then 0 else math.clamp((now - activeStarted) / math.max(1, activeEnds - activeStarted), 0, 1)
-	local statusLine = if activeId == "" then "Launch an unlocked adventure below." elseif expeditionReady then "Crew is home — collect rewards." else `Back in {clockText(math.max(0, activeEnds - now))}`
+	local statusLine = if activeId == "" then "Launch an unlocked adventure below." elseif expeditionReady then "Crew is back. Collect their rewards." else `Back in {clockText(math.max(0, activeEnds - now))}`
 	local claimLabel = if activeId == "" then "Choose below" elseif expeditionReady then "COLLECT" else clockText(math.max(0, activeEnds - now))
 	local firstReadyWeeklyId = nil
 	if type(command.Weekly) == "table" then
@@ -1251,28 +1328,28 @@ local function CommandViewReady(_param)
 	local budget = chrome.contentBudget
 	local panelPad = 14
 	local gridGap = 8
-	local heroH = if stack then 156 else fitPanelHeight(168, budget, 168, if chrome.landscape then 0.4 else 0.5)
+	local heroH = if stack then 196 else 168
 	local crewCols = if stack then 1 else 3
-	local crewCellH = if stack then 108 else 120
+	local crewCellH = 136
 	local crewRows = math.max(1, math.ceil(#CREW_ROLES / crewCols))
 	local crewH = gridPanelHeight(54, crewRows, crewCellH, gridGap, panelPad)
 	local weeklyItemH = if stack then 148 else 92
 	local weeklyStride = if stack then 156 else 100
 	local weeklyCount = math.max(1, #command.Weekly)
 	local weeklyH = panelPad * 2 + 36 + (weeklyCount - 1) * weeklyStride + weeklyItemH
-	local titleCols = if stack then 1 else 4
-	local titleCellH = if stack then 142 else 126
+	local titleCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))))
+	local titleCellH = 176
 	local titleRows = math.max(1, math.ceil(math.max(1, #command.Titles) / titleCols))
 	local titlesH = if titlesEnabled then gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) else 112
-	local shopCols = if stack then 2 else 4
-	local shopCellH = if stack then 150 else 160
+	local shopCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (190 + gridGap))))
+	local shopCellH = 180
 	local shopRows = math.max(1, math.ceil(math.max(1, #command.Shop) / shopCols))
 	local shopH = gridPanelHeight(36, shopRows, shopCellH, gridGap, panelPad)
-	local masteryCols = if stack then 2 else 3
+	local masteryCols = math.max(1, math.min(3, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))))
 	local masteryCellH = 64
 	local masteryRows = math.max(1, math.ceil(math.max(1, #config.Machines) / masteryCols))
 	local masteryH = gridPanelHeight(36, masteryRows, masteryCellH, gridGap, panelPad)
-	local expeditionHeroH = fitPanelHeight(if stack then 180 else 140, budget, 120, 0.4)
+	local expeditionHeroH = if stack then 188 else 140
 	local expeditionRowH = if stack then 168 else 132
 	local artifactHeroH = 110
 	local artifactRowH = if stack then 180 else 140
@@ -1295,7 +1372,9 @@ local function CommandViewReady(_param)
 		listContent = #ops.SeasonTiers * seasonRowH + math.max(0, #ops.SeasonTiers - 1) * Layout.panelGap
 	end
 	local headerH = 56
-	local tabsH = if stack then 52 else 48
+	local tabColumns = math.max(1, math.min(#TABS, math.floor((contentWidth + 4) / 140)))
+	local tabRows = math.ceil(#TABS / tabColumns)
+	local tabsH = tabRows * 48 + (tabRows - 1) * 4
 	local commandTail = scrollTail(stack, chrome.bottomSafe, if stack then 72 else 48)
 	local useFillList = tab ~= "Overview"
 	local order = 0
@@ -1324,10 +1403,10 @@ local function CommandViewReady(_param)
 		BorderSizePixel = 0,
 		Active = false,
 	}, React.createElement(SectionLabel, {
-		value = ops.SeasonName,
+		value = "COMMAND · SEASON",
 		color = Palette.cyan,
 	}), React.createElement(Text, {
-		value = "Deep Space Command",
+		value = ops.SeasonName or "Deep Space Command",
 		size = if stack then 24 else 28,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -1345,6 +1424,7 @@ local function CommandViewReady(_param)
 		setActive = changeTab,
 		reducedMotion = reducedMotion or commandSoft,
 		stack = stack,
+		columns = tabColumns,
 	}))
 	local _condition_3 = tab == "Overview"
 	if _condition_3 then
@@ -1385,7 +1465,8 @@ local function CommandViewReady(_param)
 		_attributes.size = if stack then 18 else 22
 		_attributes.color = Palette.cream
 		_attributes.weight = Enum.FontWeight.Heavy
-		_attributes.fit = false
+		_attributes.fit = true
+		_attributes.minSize = 13
 		_attributes.position = UDim2.fromOffset(if stack then 88 else 114, 4)
 		_attributes.sizeConstraint = UDim2.new(1, heroInfoWidth, 0, 28)
 		local _exp_7 = React.createElement(Panel, {
@@ -1409,12 +1490,13 @@ local function CommandViewReady(_param)
 			position = UDim2.fromOffset(if stack then 88 else 114, 60),
 			size = UDim2.new(1, heroInfoWidth, 0, 8),
 		}), React.createElement(Text, {
-			value = `{compactNumber(command.Signals)} signals  ·  {compactNumber(command.ExpeditionsCompleted)} trips  ·  {compactNumber(command.StreakShields)} shields`,
+			value = `{compactNumber(command.Signals)} signals  ·  {compactNumber(command.ExpeditionsCompleted)} {if command.ExpeditionsCompleted == 1 then "trip" else "trips"}  ·  {compactNumber(command.StreakShields)} {if command.StreakShields == 1 then "shield" else "shields"}`,
 			size = 12,
 			color = Palette.creamSoft,
 			fit = false,
-			position = UDim2.fromOffset(0, if stack then 100 else 112),
-			sizeConstraint = UDim2.new(1, 0, 0, 18),
+			wrap = true,
+			position = UDim2.fromOffset(0, if stack then 90 else 112),
+			sizeConstraint = UDim2.new(1, 0, 0, if stack then 34 else 18),
 		}), React.createElement("frame", {
 			Name = "CommandClaimActions",
 			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 46),
@@ -1441,7 +1523,7 @@ local function CommandViewReady(_param)
 			highlight = nextClaim ~= nil,
 		})))
 		local _exp_8 = React.createElement(Text, {
-			value = "Crew",
+			value = "Officers",
 			size = 18,
 			color = Palette.cream,
 			weight = Enum.FontWeight.Heavy,
@@ -1449,7 +1531,7 @@ local function CommandViewReady(_param)
 			sizeConstraint = UDim2.new(1, 0, 0, 24),
 		})
 		local _exp_9 = React.createElement(Text, {
-			value = "Spend signals to level Pilot, Engineer, and Navigator.",
+			value = "Spend signals to train the officers who run your expeditions.",
 			size = 12,
 			color = Palette.muted,
 			fit = false,
@@ -1502,8 +1584,15 @@ local function CommandViewReady(_param)
 				fit = false,
 				position = UDim2.fromOffset(10, 30),
 				sizeConstraint = UDim2.new(1, -20, 0, 16),
-			}), React.createElement(Button, {
-				text = if maxRole then "MAX" else `{compactNumber(cost)} sig`,
+			}), role.Description and React.createElement(Text, {
+				value = role.Description,
+				size = 11,
+				color = Palette.muted,
+				wrap = true,
+				position = UDim2.fromOffset(10, 50),
+				sizeConstraint = UDim2.new(1, -20, 0, 30),
+			}) or nil, React.createElement(Button, {
+				text = if maxRole then "MAX" else `Train · {compactNumber(cost)} signals`,
 				onClick = function()
 					return dispatch("UpgradeCrew", {
 						Role = roleId,
@@ -1617,7 +1706,7 @@ local function CommandViewReady(_param)
 					ClipsDescendants = false,
 					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
 				}, React.createElement(Button, {
-					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "NOT YET",
 					onClick = function()
 						return dispatch("ClaimWeeklyDirective", {
 							Id = directive.Id,
@@ -1638,7 +1727,7 @@ local function CommandViewReady(_param)
 					ClipsDescendants = false,
 					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
 				}, React.createElement(Button, {
-					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "NOT YET",
 					onClick = function()
 						return dispatch("ClaimWeeklyDirective", {
 							Id = directive.Id,
@@ -1673,7 +1762,7 @@ local function CommandViewReady(_param)
 		local _result_5
 		if titlesEnabled then
 			_result_5 = React.createElement(React.Fragment, nil, React.createElement(Text, {
-				value = "Every card is a live preview of the name, motion, shine, and color you will wear.",
+				value = "Each card shows the title exactly as it will look on you.",
 				size = 11,
 				color = Palette.muted,
 				fit = false,
@@ -2020,7 +2109,7 @@ local function CommandViewReady(_param)
 					highlight = can,
 					reducedMotion = reducedMotion,
 				}, React.createElement(IconTile, _attributes_1), React.createElement(Text, {
-					value = `Lv {expedition.RequiredLevel}  ·  {clockText(expedition.Duration)}`,
+					value = `Lv {expedition.RequiredLevel}  ·  {clockText(math.max(10, math.floor(expedition.Duration * math.max(0.35, 1 - ((command.Crew.Pilot or 1) - 1) * 0.05))))}`,
 					size = 11,
 					color = expedition.Color,
 					weight = Enum.FontWeight.Bold,
@@ -2139,12 +2228,15 @@ local function CommandViewReady(_param)
 				Thickness = if equipped then 2 else 1,
 			}), React.createElement(ElementFx, {
 				element = artifact.Element,
-				size = UDim2.fromOffset(66, 66),
-				position = UDim2.fromScale(0.5, 0.6),
+				size = UDim2.fromOffset(48, 48),
+				position = UDim2.fromScale(0.5, 0.5),
 				-- undiscovered relics show a dim still of their element
 				still = not owned,
 				transparency = if owned then 0 else 0.7,
 				reducedMotion = reducedMotion,
+				-- discovering the relic reveals its companion
+				reaction = "reveal",
+				reactionKey = owned ~= nil and owned ~= false,
 			})), React.createElement(Text, {
 				value = if owned then `{artifact.Rarity}  ·  {(elementSheet(artifact.Element) or { Label = "" }).Label}  ·  Lv {owned.Level}/10` else artifact.Rarity,
 				size = 11,
@@ -2761,6 +2853,7 @@ local function AdminViewReady(_param)
 	local shakeToken, setShakeToken = React.useState(0)
 	local lastNote, setLastNote = React.useState((admin and admin.LastAction and admin.LastAction.Message) or "")
 	local lastOk, setLastOk = React.useState((admin and admin.LastAction and admin.LastAction.Ok) or true)
+	local previewLines, setPreviewLines = React.useState({} :: { string })
 	local mountedRef = React.useRef(true)
 	local executeAttempt = React.useRef(0)
 	local enter = useEntrance(softMotion)
@@ -2805,6 +2898,7 @@ local function AdminViewReady(_param)
 
 	React.useEffect(function()
 		setArmed(false)
+		setPreviewLines({})
 	end, { amount, command, option, reason, targetId })
 
 	React.useEffect(function()
@@ -2862,18 +2956,12 @@ local function AdminViewReady(_param)
 	local reasonChoices = reasonsFor(command, selected and selected.Category)
 	local fieldSlots = (if fields.usesAmount then 1 else 0) + (if fields.usesOption then 1 else 0) + (if needsArm then 1 else 0)
 
-	local execute = function()
-		if busyRef.current then return end
-		if needsArm and not armed then
-			setArmed(true)
-			Audio:play("adminArm")
-			return
-		end
+	local send = function(dryRun: boolean)
 		busyRef.current = true
 		setBusy(true)
 		local attempt = executeAttempt.current + 1
 		executeAttempt.current = attempt
-		Audio:play("adminExecute")
+		Audio:play(if dryRun then "click" else "adminExecute")
 		local sendAmount = if amount == "Permanent" then "1" else (if amount ~= "" then amount else "1")
 		local sendOption = if amount == "Permanent" then "Permanent" else option
 		local sendTarget = if fields.overridesTarget then (tonumber(amount) or targetId) else targetId
@@ -2883,18 +2971,35 @@ local function AdminViewReady(_param)
 			Amount = sendAmount,
 			Option = sendOption,
 			Reason = reason,
+			DryRun = dryRun,
 			Nonce = HttpService:GenerateGUID(false),
 		}, function(response)
 			if not mountedRef.current or executeAttempt.current ~= attempt then return end
 			busyRef.current = false
 			setBusy(false)
-			setArmed(false)
+			if not dryRun then setArmed(false) end
 			setLastOk(response.ok == true)
 			setLastNote(if response.ok == true then (response.message or "Done.") else (response.error or "Failed."))
+			setPreviewLines(if dryRun and response.ok == true and type(response.Preview) == "table" then response.Preview else {})
 			if response.ok ~= true then
 				setShakeToken(function(t) return t + 1 end)
 			end
 		end)
+	end
+
+	local execute = function()
+		if busyRef.current then return end
+		if needsArm and not armed then
+			setArmed(true)
+			Audio:play("adminArm")
+			return
+		end
+		send(false)
+	end
+
+	local preview = function()
+		if busyRef.current then return end
+		send(true)
 	end
 
 	local runDisabled = busy or (if fields.overridesTarget then #fields.amountChoices == 0 else targetId == 0) or (needsArm and #reason < 3)
@@ -2904,7 +3009,7 @@ local function AdminViewReady(_param)
 	local FIELD_H = 50
 	local EXEC_TITLE = 120
 	local EXEC_BUTTON = 46
-	local EXEC_NOTE = 36
+	local EXEC_NOTE = 36 + math.min(#previewLines, 6) * 14
 	local executeH = EXEC_TITLE + math.max(0, fieldSlots) * FIELD_H + EXEC_BUTTON + EXEC_NOTE + 20
 
 	local INSPECT_TITLE = 34
@@ -3172,7 +3277,7 @@ local function AdminViewReady(_param)
 			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(SectionTitle, {
-		value = if needsArm then "ARM TO RUN" else "READY",
+		value = if needsArm then "OFF" else "READY",
 		accent = if armed then Palette.coral else accent,
 	}), React.createElement(Text, {
 		value = (selected and selected.Label) or command,
@@ -3246,11 +3351,28 @@ local function AdminViewReady(_param)
 		ClipsDescendants = false,
 		ref = executeActionsHostRef,
 	}, React.createElement("frame", {
-		Name = "AdminConfirmRun",
-		Size = UDim2.fromScale(1, 1),
+		Name = "AdminPreviewRun",
+		Size = UDim2.new(0.34, -5, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
+	}, React.createElement(Button, {
+		text = "PREVIEW",
+		icon = "Search",
+		onClick = preview,
+		color = Palette.panelSoft,
+		textColor = Palette.text,
+		size = UDim2.new(1, 0, 0, 48),
+		position = UDim2.new(0, 0, 0.5, -24),
+		disabled = runDisabled,
+			reducedMotion = softMotion,
+	})), React.createElement("frame", {
+		Name = "AdminConfirmRun",
+		ClipsDescendants = false,
+		Size = UDim2.new(0.66, -5, 1, 0),
+		Position = UDim2.fromScale(0.34, 0) + UDim2.fromOffset(5, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
 	}, React.createElement(Button, {
 		text = runLabel,
 		icon = "Lock",
@@ -3265,7 +3387,8 @@ local function AdminViewReady(_param)
 		highlight = armed or not needsArm,
 			reducedMotion = softMotion,
 	}))), React.createElement(Text, {
-		value = if lastNote ~= "" then lastNote else (if needsArm then "Arm first. Dangerous commands need a second tap." else "Economy, progress, and item grants run on one tap."),
+		value = (if lastNote ~= "" then lastNote else (if needsArm then "Arm first. Dangerous commands need a second tap." else "Preview shows saved changes first. Run applies them."))
+			.. (if #previewLines > 0 then "\n• " .. table.concat(previewLines, "\n• ", 1, math.min(#previewLines, 6)) else ""),
 		size = 9,
 		color = if lastNote ~= "" then (if lastOk then Palette.mint else Palette.coral) else Palette.muted,
 		wrap = true,
@@ -3366,99 +3489,7 @@ local function AdminViewReady(_param)
 	})
 end
 local function AdminView(_param)
-	local state = _param.state
-	local config = _param.config
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local admin = state.Admin
-
-	local antilag = useAntilag()
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-
-	local targetId, setTargetId = React.useState((admin and admin.SelfUserId) or (admin and admin.Online and admin.Online[1] and admin.Online[1].UserId) or 0)
-	local command, setCommand = React.useState((admin and admin.Commands and admin.Commands[1] and admin.Commands[1].Id) or "GrantFlux")
-	local category, setCategory = React.useState("All")
-	local playerQuery, setPlayerQuery = React.useState("")
-	local commandQuery, setCommandQuery = React.useState("")
-	local amount, setAmount = React.useState("1000")
-	local option, setOption = React.useState("")
-	local reason, setReason = React.useState(reasonsFor("GrantFlux", "Economy")[1].id)
-	local armed, setArmed = React.useState(false)
-	local busy, setBusy = React.useState(false)
-	local busyRef = React.useRef(false)
-	local shakeToken, setShakeToken = React.useState(0)
-	local lastNote, setLastNote = React.useState((admin and admin.LastAction and admin.LastAction.Message) or "")
-	local lastOk, setLastOk = React.useState((admin and admin.LastAction and admin.LastAction.Ok) or true)
-	local mountedRef = React.useRef(true)
-	local executeAttempt = React.useRef(0)
-	local enter = useEntrance(softMotion)
-	local toolsReveal = useStagger(0, softMotion)
-
-	React.useEffect(function()
-		return function()
-			mountedRef.current = false
-			executeAttempt.current += 1
-		end
-	end, {})
-
-	React.useEffect(function()
-		if targetId == 0 and admin and admin.SelfUserId then
-			setTargetId(admin.SelfUserId)
-		end
-	end, { admin and admin.SelfUserId, targetId })
-
-	React.useEffect(function()
-		local online = (admin and admin.Online) or {}
-		if #online == 0 then return end
-		local found = false
-		for _, p in online do
-			if p.UserId == targetId then found = true break end
-		end
-		if not found then
-			setTargetId((admin and admin.SelfUserId) or online[1].UserId)
-		end
-	end, { admin and admin.Online, admin and admin.SelfUserId, targetId })
-
-	React.useEffect(function()
-		local commands = (admin and admin.Commands) or {}
-		if #commands == 0 then return end
-		local found = false
-		for _, c in commands do
-			if c.Id == command then found = true break end
-		end
-		if not found then
-			setCommand(commands[1].Id or "GrantFlux")
-		end
-	end, { admin and admin.Commands, command })
-
-	React.useEffect(function()
-		setArmed(false)
-	end, { amount, command, option, reason, targetId })
-
-	React.useEffect(function()
-		local layout = fieldsFor(command, config, admin and admin.Banned)
-		local commands = (admin and admin.Commands) or {}
-		local current = nil
-		for _, c in commands do
-			if c.Id == command then current = c break end
-		end
-		local reasonChoices = reasonsFor(command, current and current.Category)
-		setAmount(layout.defaultAmount)
-		setOption(layout.defaultOption)
-		setReason(reasonChoices[1] and reasonChoices[1].id or "Owner gameplay administration")
-		if layout.overridesTarget and layout.defaultAmount ~= "" then
-			local userId = tonumber(layout.defaultAmount)
-			if userId then setTargetId(userId) end
-		end
-	end, { command })
-
-	React.useEffect(function()
-		if not (admin and admin.LastAction) then return end
-		setLastNote(admin.LastAction.Message)
-		setLastOk(admin.LastAction.Ok)
-	end, { admin and admin.LastAction })
-
+	local admin = _param.state.Admin
 	if not (admin and admin.Access == true) then
 		return React.createElement(EmptyState, {
 			icon = "Lock",
@@ -3480,45 +3511,16 @@ return { AnomalyView = require(script.Parent.Parent.PlanningViews).ShiftPlan }
 end
 
 __defs["LeaderboardsView"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local _Icon = require(script.Parent.Parent.ArtKit)("Icon")
-local Icon = _Icon.Icon
-local PlayerMark = _Icon.PlayerMark
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
 local clockText = _format.clockText
-local _motion = require(script.Parent.Parent.MotionKit)("motion")
-local useEntrance = _motion.useEntrance
-local usePulse = _motion.usePulse
-local useStagger = _motion.useStagger
-local useViewport = _motion.useViewport
-local _theme = require(script.Parent.Parent.CoreKit)("theme")
-local chromeFor = _theme.chromeFor
-local darken = _theme.darken
-local ensureContrast = _theme.ensureContrast
-local Palette = _theme.Palette
-local scrollTail = _theme.scrollTail
-local TapTarget = _theme.TapTarget
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
-local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
-local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
-local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
-local _ui = require(script.Parent.Parent.UiCore)("ui")
-local Badge = _ui.Badge
-local EmptyState = _ui.EmptyState
-local Panel = _ui.Panel
-local SegmentedTabs = _ui.SegmentedTabs
-local Text = _ui.Text
-local SearchField = _ui.SearchField
-local Browse = require(script.Parent.Parent.BrowseKit)
+local Palette = require(script.Parent.Parent.CoreKit)("theme").Palette
 local BOARDS = { {
 	id = "Flux",
 	label = "Lifetime Flux",
 	short = "FLUX",
-	description = "Every unit of flux forged across all realities.",
+	description = "All the flux you have ever made.",
 	icon = "Flux",
 	accent = Palette.cyan,
 }, {
@@ -3606,20 +3608,20 @@ local BOARDS = { {
 	group = "Activity",
 }, {
 	id = "Stars",
-	label = "Stars Plotted",
-	short = "STARS",
-	description = "Stars fixed onto the Star Charts across every constellation.",
-	icon = "StarGrid",
+	label = "Ore Cuts",
+	short = "CUTS",
+	description = "Completed ore cuts. Includes progress earned before the workshop redesign.",
+	icon = "Dust",
 	accent = Palette.violet,
-	group = "Sky",
+	group = "Activity",
 }, {
 	id = "Cipher",
-	label = "Ciphers Cracked",
-	short = "CIPHERS",
-	description = "Daily signal ciphers decoded before the seventh guess.",
-	icon = "Code",
+	label = "Commissions Finished",
+	short = "COMMISSIONS",
+	description = "Daily forge commissions finished. Previous puzzle completions remain counted.",
+	icon = "Forge",
 	accent = Palette.cyan,
-	group = "Sky",
+	group = "Activity",
 } }
 local BOARD_GROUP = {
 	Flux = "Economy",
@@ -3639,33 +3641,6 @@ local STAT_BOARD_KEYS = {
 	Wardens = "WardenDefeats",
 	Orders = "OrdersCompleted",
 }
-local _array = {}
-local _length = #_array
-local _newValue = table.create(#BOARDS)
-local _callback = function(board)
-	return {
-		id = board.id,
-		label = board.short,
-		icon = board.icon,
-		accent = board.accent,
-	}
-end
-for _k, _v in BOARDS do
-	_newValue[_k] = _callback(_v, _k - 1, BOARDS)
-end
-local _Length = #_newValue
-table.move(_newValue, 1, _Length, _length + 1, _array)
-_length += _Length
-_array[_length + 1] = {
-	id = "Guilds",
-	label = "GUILDS",
-	icon = "Crew",
-	accent = Palette.violet,
-}
-local RANK_TABS = _array
-local ROW_H = 54
-local ROW_GAP = 6
-local AUTO_REFRESH_SECONDS = 15
 local function metaFor(id)
 	local _callback_1 = function(board)
 		return board.id == id
@@ -3758,15 +3733,6 @@ local function ownValue(state, id)
 	end
 	return state.Zone
 end
-local SCOPE_TABS = { {
-	id = "Global",
-	label = "GLOBAL",
-	icon = "Leaderboard",
-}, {
-	id = "Server",
-	label = "THIS SERVER",
-	icon = "Command",
-} }
 local function serverValueFor(summary, id)
 	if STAT_BOARD_KEYS[id] or id == "Stars" or id == "Cipher" then
 		local boards = summary.Boards
@@ -3833,1010 +3799,6 @@ local function serverEntries(players, id)
 		_newValue_1[_k] = _callback_1(_v, _k - 1, _array_1)
 	end
 	return _newValue_1
-end
-local function medalColor(rank, accent)
-	if rank == 1 then
-		return Palette.mango
-	end
-	if rank == 2 then
-		return Palette.creamSoft
-	end
-	if rank == 3 then
-		return Palette.coral
-	end
-	return accent
-end
-local function PodiumCard(_param)
-	local entry = _param.entry
-	local rank = _param.rank
-	local meta = _param.meta
-	local width = _param.width
-	local height = _param.height
-	local reducedMotion = _param.reducedMotion
-	local reveal = useStagger(rank - 1, reducedMotion, 0.055, 0.28)
-	local pulse = usePulse(rank == 1 and entry ~= nil and not reducedMotion, 1.8)
-	local accent = medalColor(rank, meta.accent)
-	local surface = if rank == 1 and entry ~= nil then darken(accent, 0.84) else Palette.panel
-	local nameColor = ensureContrast(surface, Palette.cream)
-	local chipFill = Palette.void
-	local chipText = ensureContrast(chipFill, accent)
-	local rankText = ensureContrast(darken(accent, 0.68), accent)
-	local markSize = if height < 140 then 34 else 40
-	return React.createElement(Panel, {
-		size = UDim2.new(width.X.Scale, width.X.Offset, 0, height),
-		accent = accent,
-		background = surface,
-		padding = 10,
-		reveal = reveal,
-		reducedMotion = reducedMotion,
-		highlight = rank == 1 and entry ~= nil,
-		clips = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(34, 24),
-		BackgroundColor3 = darken(accent, 0.68),
-		BackgroundTransparency = if rank == 1 then pulse:map(function(amount)
-			return 0.04 + (1 - amount) * 0.08
-		end) else 0,
-		BorderSizePixel = 0,
-		ZIndex = 2,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
-	}), React.createElement(Text, {
-		value = `#{rank}`,
-		size = 14,
-		color = rankText,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.fromScale(1, 1),
-		zIndex = 3,
-	})), if entry ~= nil then React.createElement(React.Fragment, nil, React.createElement(PlayerMark, {
-		userId = entry.UserId,
-		accent = accent,
-		size = markSize,
-		position = UDim2.new(0.5, 0, 0, 2),
-		anchorPoint = Vector2.new(0.5, 0),
-	}), React.createElement(Text, {
-		value = entry.Name,
-		size = 13,
-		color = nameColor,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(0, markSize + 6),
-		sizeConstraint = UDim2.new(1, 0, 0, 20),
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -8, 0, 32),
-		Position = UDim2.new(0, 4, 1, -34),
-		BackgroundColor3 = chipFill,
-		BackgroundTransparency = 0,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = 4,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
-	}), React.createElement(Text, {
-		value = formatValue(meta.id, entry.Value),
-		size = 16,
-		color = chipText,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 11,
-		sizeConstraint = UDim2.fromScale(1, 1),
-		zIndex = 5,
-	}))) else React.createElement(React.Fragment, nil, React.createElement(Icon, {
-		kind = "Leaderboard",
-		color = ensureContrast(surface, Palette.creamSoft),
-		accent = accent,
-		size = 32,
-		spin = false,
-		position = UDim2.new(0.5, -16, 0, 28),
-	}), React.createElement(Text, {
-		value = "OPEN SLOT",
-		size = 12,
-		color = ensureContrast(surface, Palette.creamSoft),
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 66),
-		sizeConstraint = UDim2.new(1, 0, 0, 18),
-	}), React.createElement(Text, {
-		value = "Claim this place",
-		size = 10,
-		color = ensureContrast(surface, Palette.muted),
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.new(0, 0, 1, -28),
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	})))
-end
-local function RankRow(_param)
-	local entry = _param.entry
-	local rank = _param.rank
-	local meta = _param.meta
-	local isLocal = _param.isLocal
-	local layoutOrder = _param.layoutOrder
-	if layoutOrder == nil then
-		layoutOrder = rank
-	end
-	local reducedMotion = _param.reducedMotion
-	local stack = _param.stack
-	local accent = if isLocal then Palette.green else medalColor(rank, meta.accent)
-	local reveal = useStagger(math.min(rank, 9), reducedMotion, 0.025, 0.18)
-	local surface = if isLocal then darken(Palette.green, 0.88) else Palette.panel
-	local nameColor = ensureContrast(surface, Palette.cream)
-	local valueColor = ensureContrast(surface, accent)
-	local rankW = if stack then 26 else 40
-	local avatarSize = if stack then 28 else 34
-	local avatarX = if stack then rankW + 4 else 44
-	local nameX = if stack then avatarX + avatarSize + 8 else 86
-	local valueW = if stack then 84 else 160
-	local nameReserve = if stack then -(valueW + 12) else -248
-	return React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, ROW_H),
-		layoutOrder = layoutOrder,
-		accent = accent,
-		background = surface,
-		padding = 10,
-		reveal = reveal,
-		reducedMotion = reducedMotion,
-		highlight = isLocal,
-		clips = false,
-	}, React.createElement(Text, {
-		value = `#{rank}`,
-		size = if stack then 12 else 15,
-		color = valueColor,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 9,
-		sizeConstraint = UDim2.new(0, rankW, 1, 0),
-	}), React.createElement(PlayerMark, {
-		userId = entry.UserId,
-		accent = accent,
-		size = avatarSize,
-		position = UDim2.fromOffset(avatarX, if stack then 7 else 4),
-	}), React.createElement(Text, {
-		value = entry.Name,
-		size = if stack then 13 else 15,
-		color = nameColor,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		minSize = 9,
-		position = UDim2.fromOffset(nameX, 8),
-		sizeConstraint = UDim2.new(1, nameReserve, 0, 28),
-	}), React.createElement(Text, {
-		value = formatValue(meta.id, entry.Value),
-		size = if stack then 13 else 16,
-		color = valueColor,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Right,
-		fit = true,
-		minSize = 9,
-		position = UDim2.new(1, -(valueW + 8), 0, 8),
-		sizeConstraint = UDim2.new(0, valueW, 0, 28),
-	}))
-end
-local GUILD_ROW_H = 52
-local GUILD_ROWS_SHOWN = 5
-local GUILD_ACCENT = Palette.violet
-local function GuildSpotlight(_param)
-	local state = _param.state
-	local dispatch = _param.dispatch
-	local stack = _param.stack
-	local reducedMotion = _param.reducedMotion
-	local position = _param.position
-	local entries, setEntries = React.useState({})
-	local loading, setLoading = React.useState(true)
-	local alive = React.useRef(true)
-	React.useEffect(function()
-		alive.current = true
-		local timer
-		local pull
-		pull = function()
-			dispatch("GetGuildLeaderboard", {
-				Page = 1,
-			}, function(response)
-				if not alive.current then
-					return nil
-				end
-				setLoading(false)
-				if response.ok and response.GuildLeaderboard ~= nil then
-					setEntries(response.GuildLeaderboard)
-				end
-			end)
-			timer = task.delay(AUTO_REFRESH_SECONDS * 2, pull)
-		end
-		pull()
-		return function()
-			alive.current = false
-			if timer ~= nil then
-				pcall(task.cancel, timer)
-			end
-		end
-	end, { dispatch })
-	local _result = state.Guild
-	if _result ~= nil then
-		_result = _result.Id
-	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = ""
-	end
-	local myGuildId = _condition
-	local _newValue_1 = {}
-	local _callback_1 = function(entry)
-		return entry.Activity > 0
-	end
-	local _length_1 = 0
-	for _k, _v in entries do
-		if _callback_1(_v, _k - 1, entries) == true then
-			_length_1 += 1
-			_newValue_1[_length_1] = _v
-		end
-	end
-	local ranked = _newValue_1
-	local _result_1
-	if myGuildId ~= "" then
-		local _callback_2 = function(entry)
-			return entry.Id == myGuildId
-		end
-		local _result_2 = -1
-		for _i, _v in ranked do
-			if _callback_2(_v, _i - 1, ranked) == true then
-				_result_2 = _i - 1
-				break
-			end
-		end
-		_result_1 = _result_2
-	else
-		_result_1 = -1
-	end
-	local myIndex = _result_1
-	local myRank = if myIndex >= 0 then myIndex + 1 else nil
-	local _newValue_2 = {}
-	local _callback_2 = function(_, index)
-		return index < GUILD_ROWS_SHOWN
-	end
-	local _length_2 = 0
-	for _k, _v in ranked do
-		if _callback_2(_v, _k - 1, ranked) == true then
-			_length_2 += 1
-			_newValue_2[_length_2] = _v
-		end
-	end
-	local shown = _newValue_2
-	local heroSurface = darken(GUILD_ACCENT, 0.9)
-	local heroTitle = ensureContrast(heroSurface, Palette.cream)
-	local heroBody = ensureContrast(heroSurface, Palette.creamSoft)
-	local heroEyebrow = ensureContrast(heroSurface, GUILD_ACCENT)
-	local recordFill = Palette.void
-	local recordLabel = ensureContrast(recordFill, Palette.muted)
-	local recordValue = ensureContrast(recordFill, GUILD_ACCENT)
-	local recordRank = ensureContrast(recordFill, if myRank ~= nil then Palette.green else Palette.muted)
-	local heroH = if stack then 156 else 148
-	local listTop = heroH + 34
-	local _exp = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, heroH),
-		accent = GUILD_ACCENT,
-		background = heroSurface,
-		padding = if stack then 12 else 16,
-		highlight = myRank ~= nil and myRank <= 3,
-		reducedMotion = reducedMotion,
-		clips = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(if stack then 44 else 56, if stack then 44 else 56),
-		BackgroundColor3 = darken(GUILD_ACCENT, 0.72),
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	}), React.createElement("uistroke", {
-		Color = GUILD_ACCENT,
-		Thickness = 2,
-		Transparency = 0.18,
-	}), React.createElement(Icon, {
-		kind = "Crew",
-		color = ensureContrast(darken(GUILD_ACCENT, 0.72), Palette.cream),
-		accent = GUILD_ACCENT,
-		size = if stack then 44 else 56,
-		reducedMotion = reducedMotion,
-	})), React.createElement(Text, {
-		value = "GUILD RANKINGS",
-		size = 9,
-		color = heroEyebrow,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.fromOffset(if stack then 56 else 72, 0),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, 14),
-	}), React.createElement(Text, {
-		value = "Top Halls",
-		size = if stack then 18 else 24,
-		color = heroTitle,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 14,
-		position = UDim2.fromOffset(if stack then 56 else 72, 16),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, if stack then 24 else 32),
-	}), React.createElement(Text, {
-		value = "Guilds ranked by everything their members bank and build together.",
-		size = if stack then 10 else 12,
-		color = heroBody,
-		wrap = true,
-		position = UDim2.fromOffset(if stack then 56 else 72, if stack then 42 else 50),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -280, 0, if stack then 28 else 36),
-	}), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, 52) else UDim2.fromOffset(220, 76),
-		Position = if stack then UDim2.new(0, 0, 1, -54) else UDim2.new(1, -220, 0.5, -38),
-		BackgroundColor3 = recordFill,
-		BackgroundTransparency = 0.12,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement("uistroke", {
-		Color = GUILD_ACCENT,
-		Thickness = 1,
-		Transparency = 0.42,
-	}), React.createElement(Text, {
-		value = "YOUR GUILD",
-		size = 8,
-		color = recordLabel,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(12, 4),
-		sizeConstraint = UDim2.new(1, -24, 0, 12),
-	}), React.createElement(Text, {
-		value = if state.Guild ~= nil and state.Guild.Id ~= "" then `[{state.Guild.Tag}] {compactNumber(state.Guild.Activity)}` else "NO GUILD YET",
-		size = if stack then 15 else 20,
-		color = recordValue,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(12, 16),
-		sizeConstraint = UDim2.new(1, -24, 0, 20),
-	}), React.createElement(Text, {
-		value = if myRank ~= nil then `GLOBAL POSITION #{myRank}` elseif state.Guild ~= nil and state.Guild.Id ~= "" then "BANK MORE TO ENTER THE TOP 20" else "JOIN A HALL TO COMPETE",
-		size = 8,
-		color = recordRank,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.new(0, 12, 1, -16),
-		sizeConstraint = UDim2.new(1, -24, 0, 12),
-	})))
-	local _exp_1 = React.createElement(Text, {
-		value = if loading and #shown == 0 then "LOADING GUILD RANKS…" else "TOP HALLS",
-		size = 10,
-		color = ensureContrast(Palette.night, Palette.muted),
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(0, heroH + 12),
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-	})
-	local _result_2
-	if #shown == 0 then
-		_result_2 = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, GUILD_ROW_H),
-			Position = UDim2.fromOffset(0, listTop),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(Text, {
-			value = if loading then "" else "No guilds have banked anything yet.",
-			size = 11,
-			color = ensureContrast(Palette.night, Palette.muted),
-			sizeConstraint = UDim2.fromScale(1, 1),
-		}))
-	else
-		local _newValue_3 = table.create(#shown)
-		local _callback_3 = function(entry, index)
-			local isMine = entry.Id == myGuildId
-			local rank = index + 1
-			local rowAccent = if isMine then Palette.green else medalColor(rank, GUILD_ACCENT)
-			local surface = if isMine then darken(Palette.green, 0.88) else Palette.panel
-			local gRankW = if stack then 22 else 40
-			local gTagX = if stack then gRankW + 4 else 44
-			local gTagW = if stack then 46 else 60
-			local gNameX = if stack then gTagX + gTagW + 8 else 112
-			local gValueW = if stack then 74 else 152
-			local gNameReserve = if stack then -(gValueW + 12) else -280
-			return React.createElement(Panel, {
-				key = `guild-{entry.Id}`,
-				size = UDim2.new(1, 0, 0, GUILD_ROW_H),
-				position = UDim2.fromOffset(0, listTop + index * (GUILD_ROW_H + ROW_GAP)),
-				accent = rowAccent,
-				background = surface,
-				padding = 10,
-				reducedMotion = reducedMotion,
-				highlight = isMine,
-				clips = true,
-			}, React.createElement(Text, {
-				value = `#{rank}`,
-				size = if stack then 12 else 15,
-				color = ensureContrast(surface, rowAccent),
-				weight = Enum.FontWeight.Heavy,
-				fit = true,
-				minSize = 9,
-				sizeConstraint = UDim2.new(0, gRankW, 1, 0),
-			}), React.createElement(Badge, {
-				value = entry.Tag,
-				accent = rowAccent,
-				filled = true,
-				position = UDim2.fromOffset(gTagX, 6),
-				size = UDim2.fromOffset(gTagW, 24),
-			}), React.createElement(Text, {
-				value = entry.Name,
-				size = if stack then 12 else 14,
-				color = ensureContrast(surface, Palette.cream),
-				weight = Enum.FontWeight.Bold,
-				fit = true,
-				minSize = 9,
-				position = UDim2.fromOffset(gNameX, 6),
-				sizeConstraint = UDim2.new(1, gNameReserve, 0, 24),
-			}), React.createElement(Text, {
-				value = compactNumber(entry.Activity),
-				size = if stack then 12 else 15,
-				color = ensureContrast(surface, rowAccent),
-				weight = Enum.FontWeight.Heavy,
-				align = Enum.TextXAlignment.Right,
-				fit = true,
-				minSize = 9,
-				position = UDim2.new(1, -(gValueW + 8), 0, 6),
-				sizeConstraint = UDim2.new(0, gValueW, 0, 24),
-			}))
-		end
-		for _k, _v in shown do
-			_newValue_3[_k] = _callback_3(_v, _k - 1, shown)
-		end
-		_result_2 = _newValue_3
-	end
-	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, listTop + math.max(#shown, 1) * (GUILD_ROW_H + ROW_GAP)),
-		Position = position,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, _exp, _exp_1, _result_2)
-end
-local function LegacyLeaderboardsView(_param)
-	local state = _param.state
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local stack = chrome.contentStack
-	local antilag = useAntilag()
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local enter = useEntrance(softMotion)
-	local boardReveal = useStagger(0, softMotion)
-	local scopeReveal = useStagger(1, softMotion)
-	local rowsReveal = useStagger(2, softMotion)
-	local boardHostRef = React.useRef(nil)
-	local selected, setSelected = React.useState("Flux")
-	local scope, setScope = React.useState("Global")
-	local pilotQuery, setPilotQuery = React.useState("")
-	React.useEffect(function()
-		if not UserInputService.GamepadEnabled then
-			return nil
-		end
-		local host = boardHostRef.current
-		if host == nil then
-			return nil
-		end
-		local selectJob = task.defer(function()
-			if host.Parent == nil then
-				return
-			end
-			GamepadNavigationService.FocusClaim(host)
-		end)
-		return function()
-			pcall(task.cancel, selectJob)
-		end
-	end, { selected, scope })
-	local entries, setEntries = React.useState({})
-	local loading, setLoading = React.useState(true)
-	local requestId = React.useRef(0)
-	local lastSentAt = React.useRef(-math.huge)
-	local queuedRefresh = React.useRef()
-	local localId = Players.LocalPlayer.UserId
-	local guildBoard = selected == "Guilds"
-	local meta = if guildBoard then {
-		id = "Flux",
-		label = "Guild Halls",
-		short = "GUILDS",
-		description = "Halls ranked by everything their members bank and build together.",
-		icon = "Crew",
-		accent = Palette.violet,
-	} else metaFor(selected)
-	local refresh = React.useCallback(function(id)
-		local request = requestId.current + 1
-		requestId.current = request
-		setLoading(true)
-		local wait = math.max(0, 1.12 - (os.clock() - lastSentAt.current))
-		if queuedRefresh.current ~= nil then
-			pcall(task.cancel, queuedRefresh.current)
-		end
-		queuedRefresh.current = task.delay(wait, function()
-			queuedRefresh.current = nil
-			if request ~= requestId.current then
-				return nil
-			end
-			lastSentAt.current = os.clock()
-			dispatch("GetLeaderboard", {
-				Id = id,
-			}, function(response)
-				if request ~= requestId.current then
-					return nil
-				end
-				setLoading(false)
-				if response.ok and response.Leaderboard ~= nil then
-					setEntries(response.Leaderboard)
-				end
-			end)
-		end)
-	end, { dispatch })
-	local refreshServer = React.useCallback(function(id)
-		local request = requestId.current + 1
-		requestId.current = request
-		setLoading(true)
-		dispatch("GetPlayers", {}, function(response)
-			if request ~= requestId.current then
-				return nil
-			end
-			setLoading(false)
-			if response.ok and response.Players ~= nil then
-				setEntries(serverEntries(response.Players, id))
-			end
-		end)
-	end, { dispatch })
-	React.useEffect(function()
-		if selected == "Guilds" then
-			setLoading(false)
-			return nil
-		end
-		setEntries({})
-		local alive = true
-		local refreshTimer
-		local scheduleRefresh
-		scheduleRefresh = function()
-			if not alive then
-				return nil
-			end
-			if scope == "Server" then
-				refreshServer(selected)
-			else
-				refresh(selected)
-			end
-			refreshTimer = task.delay(AUTO_REFRESH_SECONDS, scheduleRefresh)
-		end
-		scheduleRefresh()
-		return function()
-			alive = false
-			if refreshTimer ~= nil then
-				pcall(task.cancel, refreshTimer)
-			end
-			if queuedRefresh.current ~= nil then
-				pcall(task.cancel, queuedRefresh.current)
-				queuedRefresh.current = nil
-			end
-			requestId.current += 1
-		end
-	end, { refresh, refreshServer, scope, selected })
-	local _result
-	if guildBoard then
-		_result = {}
-	else
-		local _newValue_1 = {}
-		local _callback_1 = function(entry)
-			return scoreCounts(selected, entry.Value)
-		end
-		local _length_1 = 0
-		for _k, _v in entries do
-			if _callback_1(_v, _k - 1, entries) == true then
-				_length_1 += 1
-				_newValue_1[_length_1] = _v
-			end
-		end
-		_result = _newValue_1
-	end
-	local ranked = _result
-	local heroH = if stack then 148 else 148
-	local filterColumns = 4
-	local filterRows = math.ceil(#RANK_TABS / filterColumns)
-	local filterGap = 7
-	local filtersH = filterRows * TapTarget + (filterRows - 1) * filterGap + 8
-	local scopeH = if guildBoard then 0 else TapTarget * 0.72 + 10
-	local podiumCardH = if stack then 118 else 152
-	local podiumGap = if stack then 8 else 8
-	local podiumBandH = if stack then podiumCardH * 3 + podiumGap * 2 else podiumCardH
-	local podiumSectionH = 22 + podiumBandH
-	local guildHeroH = if stack then 156 else 148
-	local guildBlockH = guildHeroH + 34 + GUILD_ROWS_SHOWN * (GUILD_ROW_H + ROW_GAP)
-	local hasEntries = #ranked > 0
-	-- "find a pilot" searches the whole board and keeps each pilot's real rank
-	local searchingPilots = not string.match(pilotQuery, "^%s*$")
-	local listRows = {}
-	for index, entry in ranked do
-		if searchingPilots then
-			if Browse.matches(pilotQuery, entry.Name, tostring(entry.UserId)) then
-				table.insert(listRows, { entry = entry, rank = index })
-			end
-		elseif index > 3 then
-			table.insert(listRows, { entry = entry, rank = index })
-		end
-	end
-	local remaining = #listRows
-	local pilotSearchH = if #ranked > 3 then (if stack then TapTarget else 40) + 8 else 0
-	local ranksLabelH = 22 + pilotSearchH + (if searchingPilots and remaining == 0 then 40 else 0)
-	local rankStride = ROW_H + ROW_GAP
-	local ranksListH = if hasEntries then (
-		if remaining >= 8 then math.min(remaining, 12) * rankStride - ROW_GAP
-		else math.max(remaining, 0) * rankStride - (if remaining > 0 then ROW_GAP else 0)
-	) else 0
-	local emptyOrLoadingH = 160
-	local ranksSectionH = if hasEntries then ranksLabelH + ranksListH else emptyOrLoadingH
-	local leaderTail = scrollTail(stack, chrome.bottomSafe, 56)
-	local own = if guildBoard then 0 else ownValue(state, selected)
-	local _callback_1 = function(entry)
-		return entry.UserId == localId
-	end
-	local _result_1 = -1
-	for _i, _v in ranked do
-		if _callback_1(_v, _i - 1, ranked) == true then
-			_result_1 = _i - 1
-			break
-		end
-	end
-	local localRankIndex = _result_1
-	local localRank = if localRankIndex >= 0 then localRankIndex + 1 else nil
-	local heroSurface = darken(meta.accent, 0.9)
-	local heroTitle = ensureContrast(heroSurface, Palette.cream)
-	local heroBody = ensureContrast(heroSurface, Palette.creamSoft)
-	local heroEyebrow = ensureContrast(heroSurface, meta.accent)
-	local recordFill = Palette.void
-	local recordLabel = ensureContrast(recordFill, Palette.muted)
-	local recordValue = ensureContrast(recordFill, meta.accent)
-	local recordRank = ensureContrast(recordFill, if localRank ~= nil then Palette.green else Palette.muted)
-	local _exp = React.createElement("frame", {
-		Name = "LeaderboardConfirmFilters",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement(SegmentedTabs, {
-		options = RANK_TABS,
-		value = selected,
-		onChange = setSelected,
-		accent = meta.accent,
-		sound = "leaderboardSwitch",
-		columns = filterColumns,
-		gap = filterGap,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
-	}))
-	local _exp_1 = not guildBoard and React.createElement("frame", {
-		Size = UDim2.new(0, if stack then 220 else 260, 0, math.max(1, scopeH - 10)),
-		Position = UDim2.fromOffset(0, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(SegmentedTabs, {
-		options = SCOPE_TABS,
-		value = scope,
-		onChange = setScope,
-		accent = meta.accent,
-		sound = "tabSwitch",
-		columns = 2,
-		gap = 4,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
-	}))
-	local boardSoft = softMotion or scopeReveal == nil or rowsReveal == nil
-	local heroPanel = React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = meta.accent,
-		background = heroSurface,
-		padding = if stack then 12 else 16,
-		highlight = not loading and not softMotion and not boardSoft,
-		reveal = if softMotion then boardReveal else enter,
-		reducedMotion = softMotion,
-		clips = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(if stack then 44 else 56, if stack then 44 else 56),
-		BackgroundColor3 = darken(meta.accent, 0.72),
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	}), React.createElement("uistroke", {
-		Color = meta.accent,
-		Thickness = 2,
-		Transparency = 0.18,
-	}), React.createElement(Icon, {
-		kind = meta.icon,
-		color = ensureContrast(darken(meta.accent, 0.72), Palette.cream),
-		accent = meta.accent,
-		size = if stack then 44 else 56,
-		reducedMotion = softMotion,
-	})), React.createElement(Text, {
-		value = if scope == "Server" then "THIS SERVER" else "ALL-TIME RANKINGS",
-		size = 9,
-		color = heroEyebrow,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.fromOffset(if stack then 56 else 72, 0),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, 14),
-	}), React.createElement(Text, {
-		value = meta.label,
-		size = if stack then 18 else 24,
-		color = heroTitle,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 14,
-		position = UDim2.fromOffset(if stack then 56 else 72, 16),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, if stack then 24 else 32),
-	}), React.createElement(Text, {
-		value = meta.description,
-		size = if stack then 10 else 12,
-		color = heroBody,
-		wrap = true,
-		position = UDim2.fromOffset(if stack then 56 else 72, if stack then 42 else 50),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -280, 0, if stack then 28 else 36),
-	}), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, 52) else UDim2.fromOffset(220, 76),
-		Position = if stack then UDim2.new(0, 0, 1, -54) else UDim2.new(1, -220, 0.5, -38),
-		BackgroundColor3 = recordFill,
-		BackgroundTransparency = 0.12,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement("uistroke", {
-		Color = meta.accent,
-		Thickness = 1,
-		Transparency = 0.42,
-	}), React.createElement(Text, {
-		value = "YOUR RECORD",
-		size = 8,
-		color = recordLabel,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(12, 4),
-		sizeConstraint = UDim2.new(1, -24, 0, 12),
-	}), React.createElement(Text, {
-		value = formatValue(selected, own),
-		size = if stack then 16 else 22,
-		color = recordValue,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 11,
-		position = UDim2.fromOffset(12, 16),
-		sizeConstraint = UDim2.new(1, -24, 0, 20),
-	}), React.createElement(Text, {
-		value = if localRank ~= nil then `{if scope == "Server" then "SERVER" else "GLOBAL"} POSITION #{localRank}` elseif scope == "Server" then "NOT RANKED HERE YET" else "PUSH HIGHER TO ENTER TOP 25",
-		size = 8,
-		color = recordRank,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.new(0, 12, 1, -16),
-		sizeConstraint = UDim2.new(1, -24, 0, 12),
-	})))
-	local podiumSlots = { 0, 1, 2 }
-	local podiumCards = table.create(#podiumSlots)
-	for _k, index in podiumSlots do
-		podiumCards[_k] = React.createElement("frame", {
-			key = `podium-{index}`,
-			Size = if stack then UDim2.new(1, 0, 0, podiumCardH) else UDim2.new(1 / 3, -16 / 3, 1, 0),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = index,
-			ClipsDescendants = false,
-		}, React.createElement(PodiumCard, {
-			entry = ranked[index + 1],
-			rank = index + 1,
-			meta = meta,
-			width = UDim2.fromScale(1, 1),
-			height = podiumCardH,
-			reducedMotion = softMotion,
-		}))
-	end
-	local podiumPane = React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 8),
-	}), React.createElement(Text, {
-		value = "TOP PILOTS",
-		size = 10,
-		color = ensureContrast(Palette.night, Palette.muted),
-		weight = Enum.FontWeight.Heavy,
-		layoutOrder = 0,
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, podiumBandH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 1,
-		ClipsDescendants = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = if stack then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, podiumGap),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), podiumCards))
-	local ranksPane
-	if loading and not hasEntries then
-		ranksPane = React.createElement(Panel, {
-			size = UDim2.fromScale(1, 1),
-			accent = meta.accent,
-			background = Palette.panel,
-			padding = 16,
-			reducedMotion = reducedMotion,
-		}, React.createElement(Text, {
-			value = "Updating rankings…",
-			size = 14,
-			color = ensureContrast(Palette.panel, Palette.creamSoft),
-			weight = Enum.FontWeight.Bold,
-			align = Enum.TextXAlignment.Center,
-			sizeConstraint = UDim2.fromScale(1, 1),
-		}))
-	elseif not hasEntries then
-		ranksPane = React.createElement(EmptyState, {
-			title = "No ranked pilots yet",
-			body = "Your first saved score will open this board.",
-			icon = "Leaderboard",
-			accent = meta.accent,
-			size = UDim2.fromScale(1, 1),
-		})
-	else
-		local restCount = #listRows
-		local rankStride = ROW_H + ROW_GAP
-		local virtRanks = restCount >= 8
-		local ranksBody = if virtRanks then React.createElement(FlatList, {
-			data = listRows,
-			itemHeight = rankStride,
-			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
-			canvasTail = 8,
-			Size = UDim2.new(1, 0, 0, ranksListH),
-			scrollBarColor = meta.accent,
-			scrollBarThickness = 3,
-			keyExtractor = function(row)
-				return `{selected}-{row.entry.UserId}`
-			end,
-			renderItem = function(_param_1)
-				local entry = _param_1.item.entry
-				local rank = _param_1.item.rank
-				return React.createElement(RankRow, {
-					entry = entry,
-					rank = rank,
-					meta = meta,
-					isLocal = entry.UserId == localId,
-					layoutOrder = rank,
-					reducedMotion = reducedMotion,
-					stack = stack,
-				})
-			end,
-		}) else (function()
-			local rest = {}
-			for index, row in listRows do
-				local entry = row.entry
-				rest[index] = React.createElement(RankRow, {
-					key = `{selected}-{entry.UserId}`,
-					entry = entry,
-					rank = row.rank,
-					meta = meta,
-					isLocal = entry.UserId == localId,
-					layoutOrder = index + 3,
-					reducedMotion = reducedMotion,
-					stack = stack,
-				})
-			end
-			return React.createElement("frame", {
-				Size = UDim2.new(1, 0, 0, ranksListH),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ClipsDescendants = false,
-			}, React.createElement("uilistlayout", {
-				FillDirection = Enum.FillDirection.Vertical,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, ROW_GAP),
-			}), rest)
-		end)()
-		ranksPane = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, ROW_GAP),
-		}), React.createElement(Text, {
-			value = if loading then "GETTING THE LATEST SCORES…" else `UPDATES EVERY {AUTO_REFRESH_SECONDS} SECONDS`,
-			size = 10,
-			color = ensureContrast(Palette.night, Palette.muted),
-			weight = Enum.FontWeight.Heavy,
-			layoutOrder = 0,
-			sizeConstraint = UDim2.new(1, 0, 0, 14),
-		}), pilotSearchH > 0 and React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, pilotSearchH - 8),
-			BackgroundTransparency = 1,
-			LayoutOrder = 0,
-		}, React.createElement(SearchField, {
-			value = pilotQuery,
-			onChange = setPilotQuery,
-			placeholder = "Find a pilot on this board",
-			accent = meta.accent,
-			reducedMotion = softMotion,
-			size = UDim2.fromScale(1, 1),
-			zIndex = 12,
-		})), searchingPilots and remaining == 0 and React.createElement(Text, {
-			value = `No pilot named "{pilotQuery}" on this board.`,
-			size = 13,
-			color = Palette.muted,
-			layoutOrder = 0,
-			sizeConstraint = UDim2.new(1, 0, 0, 32),
-		}), React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, ranksListH),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 1,
-			ClipsDescendants = false,
-		}, ranksBody))
-	end
-	local sections = {
-		{
-			id = "filters",
-			height = filtersH,
-			element = _exp,
-		},
-	}
-	if not guildBoard then
-		table.insert(sections, {
-			id = "scope",
-			height = scopeH,
-			element = _exp_1,
-		})
-		table.insert(sections, {
-			id = "hero",
-			height = heroH,
-			element = heroPanel,
-		})
-		if hasEntries then
-			table.insert(sections, {
-				id = "podium",
-				height = podiumSectionH,
-				element = podiumPane,
-			})
-		end
-		table.insert(sections, {
-			id = "ranks",
-			height = ranksSectionH,
-			element = ranksPane,
-		})
-	else
-		table.insert(sections, {
-			id = "guilds",
-			height = guildBlockH,
-			element = React.createElement(GuildSpotlight, {
-				state = state,
-				dispatch = dispatch,
-				stack = stack,
-				reducedMotion = reducedMotion,
-				position = UDim2.fromOffset(0, 0),
-			}),
-		})
-	end
-	return React.createElement("frame", {
-		ref = boardHostRef,
-		Name = "LeaderboardConfirm",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement(PageScaffold, {
-		gap = 12,
-		tailPad = leaderTail,
-		scrollBarColor = meta.accent,
-		scrollBarThickness = 4,
-		inset = 0,
-		sections = sections,
-	}))
 end
 return {
 	LeaderboardsView = require(script.Parent.Parent.RankDashboard)({boards=BOARDS,metaFor=metaFor,ownValue=ownValue,formatValue=formatValue,serverEntries=serverEntries,scoreCounts=scoreCounts}),

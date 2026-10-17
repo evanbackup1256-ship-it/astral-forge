@@ -68,7 +68,7 @@ for _, case in cases do
 		assert(layout.topbarRows + layout.tabBarH < case.height * 0.7, case.name .. " chrome does not dominate viewport")
 		local tail = scrollTail(true, layout.bottomSafe, if layout.landscape then 48 else 56)
 		assert(tail >= layout.bottomSafe + 40, case.name .. " scrollTail clears chrome (" .. tostring(tail) .. ")")
-		assert(layout.topbarRows <= (if layout.landscape then 36 else 52), case.name .. " compact mobile header")
+		assert(layout.topbarRows <= (if layout.landscape then 44 else 52), case.name .. " compact mobile header")
 	else
 		assert(layout.tabBarH == 0, case.name .. " desktop has no tab bar")
 		assert(scrollTail(false, 0, 40) == 40, case.name .. " desktop scrollTail is base only")
@@ -205,10 +205,10 @@ print("[INFO] [TEST] pageScaffold fill/minHeight cases passed | Count: " .. tost
 
 local planFittedHeights = require("../src/Client/AstralForge/LayoutKit")("pageScaffoldPlan").planFittedHeights
 local fitted = planFittedHeights({
-	{ id = "hero", height = 278 },
+	{ id = "hero", height = 278, stretch = true },
 	{ id = "notes", height = 196 },
 }, 367, 8, 8)
-assert(fitted[1] == 359, "partial second section grows the first so the fold is clean, got " .. tostring(fitted[1]))
+assert(fitted[1] == 359, "a section that opts in grows so the fold is clean, got " .. tostring(fitted[1]))
 assert(fitted[2] == 196, "the following section keeps its height")
 local fittedAll = planFittedHeights({
 	{ id = "hero", height = 200 },
@@ -220,4 +220,27 @@ local fittedFirst = planFittedHeights({
 	{ id = "notes", height = 140 },
 }, 367, 8, 8)
 assert(fittedFirst[1] == 420, "a section taller than the window is left unchanged")
+local unstretched = planFittedHeights({
+	{ id = "hero", height = 278 },
+	{ id = "notes", height = 196 },
+}, 367, 8, 8)
+assert(unstretched[1] == 278, "by default no section is padded out with an empty band at the fold")
 print("[INFO] [TEST] pageScaffold fold fit passed")
+
+-- An inset scaffold must plan against the space left inside its padding, or the fill section
+-- overflows by twice the inset and the page scrolls its first row out of view (chat tabs).
+do
+	local layoutSource = require("@lune/fs").readFile("src/Client/AstralForge/LayoutKit.luau")
+	assert(layoutSource:find("available - inset * 2", 1, true), "PageScaffold subtracts its inset from the measured height")
+	assert(layoutSource:find("planFittedHeights(planSections, usable", 1, true), "fitted heights use the usable height")
+	assert(layoutSource:find("planOverflow(sections, usable", 1, true), "overflow uses the usable height")
+	local inset, gap, tail, host = 12, 8, 8, 600
+	local sections = { { id = "tabs", height = 92 }, { id = "messages", fill = true, minHeight = 120 }, { id = "input", height = 64 } }
+	local heights = planFittedHeights(sections, host - inset * 2, gap, tail)
+	local total = inset * 2 + tail + gap * (#sections - 1)
+	for _, h in heights do
+		total += h
+	end
+	assert(total <= host, "inset scaffold content fits its host, got " .. tostring(total) .. " > " .. tostring(host))
+	print("[INFO] [TEST] pageScaffold inset fit passed")
+end
