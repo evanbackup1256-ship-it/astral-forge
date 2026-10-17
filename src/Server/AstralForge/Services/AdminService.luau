@@ -13,6 +13,7 @@ return function(loadService: (string) -> any)
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local AdminGrantMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("AdminGrantMath")
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local DataTemplate = require(script.Parent.Parent:WaitForChild("DataTemplate"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local EchoMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("EchoMath"))
@@ -78,6 +79,7 @@ return function(loadService: (string) -> any)
 		DisableUnlimitedFlux = { Label = "Disable unlimited flux", Option = false, Category = "Economy" },
 		UnlockProgression = { Label = "Unlock progression", Option = false, Category = "Progress" },
 		ResetTutorial = { Label = "Reset tutorial", Option = false, Category = "Resets" },
+		ResetSettings = { Label = "Restore settings defaults", Option = false, Category = "Resets" },
 		ShowUpdates = { Label = "Show updates again", Option = false, Category = "Resets" },
 		GrantEverything = { Label = "Owner grant bundle", Option = false, Category = "Economy" },
 		WipeFlux = { Label = "Wipe flux", Option = false, Category = "Resets" },
@@ -128,24 +130,21 @@ return function(loadService: (string) -> any)
 		ResetMarketPurchases = { Label = "Reset market shelf purchases", Option = false, Category = "Resets" },
 		CancelMarketRequest = { Label = "Cancel market supply request", Option = false, Category = "Resets" },
 		Blind = { Label = "Lights out overlay", Option = false, Category = "Troll", World = true },
-		FakeBan = { Label = "Fake ban screen", Option = false, Category = "Troll", World = true },
-		FakeCrash = { Label = "Fake crash card", Option = false, Category = "Troll", World = true },
 		Jumpscare = { Label = "Jumpscare card", Option = false, Category = "Troll", World = true },
 		InvertHud = { Label = "Invert their HUD", Option = false, Category = "Troll", World = true },
 		SpinHud = { Label = "Spin their HUD", Option = false, Category = "Troll", World = true },
 		TinyHud = { Label = "Shrink their HUD", Option = false, Category = "Troll", World = true },
 		GiantHud = { Label = "Blow up their HUD", Option = false, Category = "Troll", World = true },
+		JumbleHud = { Label = "Jumble the HUD", Option = false, Category = "Troll", World = true },
 		ShakeHud = { Label = "Shake the shell", Option = false, Category = "Troll", World = true },
 		DiscoHud = { Label = "Disco HUD", Option = false, Category = "Troll", World = true },
 		RainbowHud = { Label = "Rainbow wash", Option = false, Category = "Troll", World = true },
 		ConfettiStorm = { Label = "Confetti tax overlay", Option = false, Category = "Troll", World = true },
+		FakeRareDrop = { Label = "Fake celestial relic drop", Option = false, Category = "Troll", World = true },
+		FakeEvent = { Label = "False starfall alert", Option = false, Category = "Troll", World = true },
 		FakeRebirth = { Label = "Fake rebirth prompt", Option = false, Category = "Troll", World = true },
 		FakeTrade = { Label = "Fake incoming trade", Option = false, Category = "Troll", World = true },
 		FakeRob = { Label = "Fake wallet hack", Option = false, Category = "Troll", World = true },
-		LoadingForever = { Label = "Fake endless load", Option = false, Category = "Troll", World = true },
-		BlueScreen = { Label = "Fake blue screen", Option = false, Category = "Troll", World = true },
-		LowBattery = { Label = "Fake low battery", Option = false, Category = "Troll", World = true },
-		UpdateForced = { Label = "Fake forced update", Option = false, Category = "Troll", World = true },
 		ClownTitle = { Label = "Clown title splash", Option = true, Category = "Troll", World = true },
 		Honk = { Label = "Honk toast", Option = false, Category = "Troll", World = true },
 		MuteToasts = { Label = "Fake error toasts", Option = false, Category = "Troll", World = true },
@@ -233,8 +232,16 @@ return function(loadService: (string) -> any)
 			if toast then toast:FireClient(target, { Title = "HONK", Body = "An admin honked at you.", Tone = "Special" }) end
 			return true, "Honked at " .. target.Name
 		end
-		firePrank(target, command, duration, option)
-		return true, string.format("%s HUD prank on %s for %ds.", command, target.Name, duration)
+		local caption = option
+		if command == "FakeRareDrop" then
+			caption = "Astra Prism"
+		elseif command == "FakeEvent" then
+			caption = "Starfall signatures are converging above the forge."
+		elseif command == "JumbleHud" then
+			caption = "The forge instruments slipped out of alignment."
+		end
+		firePrank(target, command, duration, caption)
+		return true, string.format("%s in-game prank on %s for %ds.", command, target.Name, duration)
 	end
 
 	function AdminService.new(dataService)
@@ -944,6 +951,10 @@ return function(loadService: (string) -> any)
 				flags.TutorialRewardClaimed = false
 		return { ok = true, amount = changedAmount }
 	end
+	profileHandlers.ResetSettings = function(profile, amount, option)
+		profile.Settings = table.clone(DataTemplate.New().Settings)
+		return { ok = true, amount = amount, note = "saved preferences restored to defaults" }
+	end
 	profileHandlers.ShowUpdates = function(profile, amount, option)
 		local changedAmount = amount
 				ProfileBagMath.EnsureFlags(profile).LastSeenVersion = ""
@@ -1377,7 +1388,8 @@ return function(loadService: (string) -> any)
 				message = worldMessage,
 				Admin = self:State(actor),
 				TargetUserId = target.UserId,
-				Persisted = true,
+				World = true,
+				Persisted = false,
 			}
 		end
 

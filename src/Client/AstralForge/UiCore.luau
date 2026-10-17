@@ -1287,6 +1287,7 @@ local function Panel(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local _binding = useMotionSettings()
 	local panelHoverScale = _binding.panelHoverScale
+	local reducedTransparency = _binding.reducedTransparency == true
 	if panelHoverScale == nil then
 		panelHoverScale = 1
 	end
@@ -1336,7 +1337,7 @@ local function Panel(_param)
 			return math.clamp(values[1] + values[2], 0, 1)
 		end)
 	end, { highlightOn, lift, revealFade })
-	local surfaceTransparency = if revealFade ~= nil then revealFade else 0
+	local surfaceTransparency = if reducedTransparency then 0 elseif revealFade ~= nil then revealFade else 0
 	local paintChrome = true
 	local derived = React.useMemo(function()
 		local liftPx = lift:map(function(amount)
@@ -4689,6 +4690,10 @@ local function MainGame(_param)
 	local visit = useClientSelector(function(client)
 		return client.visit
 	end)
+	local toastDensity = state and state.Settings and state.Settings.ToastDensity or 0.55
+	React.useEffect(function()
+		require(script.Parent.JuiceFx).setToastDensity(toastDensity)
+	end, { toastDensity })
 	local _exp = function()
 		local _result = state
 		if _result ~= nil then
@@ -6011,6 +6016,7 @@ local function MainGame(_param)
 						kind = prankKind,
 						endsAt = os.clock() + duration,
 						caption = caption,
+						duration = duration,
 					})
 					Audio:play("adminExecute")
 				end
@@ -6450,6 +6456,7 @@ local function MainGame(_param)
 			viewportScale = viewportSpeed,
 			textScale = textScale,
 			soft = softFeel,
+			reducedTransparency = state ~= nil and state.Settings ~= nil and (tonumber(state.Settings.ReducedTransparency) or 0) >= 0.5,
 		}
 		local _left = "shimmerScale"
 		local _result_31 = state
@@ -6569,10 +6576,27 @@ local function MainGame(_param)
 	if _result_38 ~= nil then
 		_result_38 = _result_38.Settings.ShimmerIntensity
 	end
-	local motionSettings = React.useMemo(_exp_6, { motionIntensity, softFeel, _result_31, _result_32, _result_33, _result_34, _result_35, _result_36, _result_37, _result_38, textScale, viewportSpeed })
+	local _result_39 = state
+	if _result_39 ~= nil then
+		_result_39 = _result_39.Settings.ReducedTransparency
+	end
+	local motionSettings = React.useMemo(_exp_6, { motionIntensity, softFeel, _result_31, _result_32, _result_33, _result_34, _result_35, _result_36, _result_37, _result_38, _result_39, textScale, viewportSpeed })
+	local prankReveals = {
+		FakeRareDrop = "No relic was added; the case is unchanged.",
+		FakeEvent = "No server event started.",
+		JumbleHud = "Your interface is back to normal.",
+		FakeRebirth = "No progress or currency changed.",
+		FakeTrade = "No trade session opened and no items moved.",
+		FakeRob = "No balances changed.",
+		EmptyBagScare = "Your relic inventory was never changed.",
+	}
 	local clearAdminPrank = React.useCallback(function()
+		local reveal = adminPrank and prankReveals[adminPrank.kind]
+		if reveal then
+			addNotice("Staff prank", reveal, "Info", false)
+		end
 		setAdminPrank(nil)
-	end, {})
+	end, { addNotice, adminPrank })
 	local _condition_8 = state ~= nil and shellMounted
 	if _condition_8 then
 		local _attributes = {
@@ -18224,6 +18248,7 @@ local HUD_STAGE_KINDS = {
 	["SpinHud"] = true,
 	["TinyHud"] = true,
 	["GiantHud"] = true,
+	["JumbleHud"] = true,
 	["ShakeHud"] = true,
 }
 local function PrankCard(_param)
@@ -18320,20 +18345,28 @@ local function HudPrankStage(_param)
 	local invert = kind == "InvertHud"
 	local tiny = kind == "TinyHud"
 	local giant = kind == "GiantHud"
+	local jumbling = kind == "JumbleHud"
 	local rotation = useRotation(spinning and not reducedMotion, 80)
 	local shake = useClock(shaking and not reducedMotion, 16, math.pi * 2, true)
-	local frameRotation = if spinning then (if reducedMotion then 24 else rotation) elseif invert then 180 else 0
+	local jumble = useClock(jumbling and not reducedMotion, 5, math.pi * 2, true)
+	local frameRotation = if spinning then (if reducedMotion then 24 else rotation) elseif invert then 180 elseif jumbling then (if reducedMotion then 3 else jumble:map(function(phase) return math.sin(phase * 7) * 5 end)) else 0
 	local size = if tiny then UDim2.fromScale(0.4, 0.4) elseif giant then UDim2.fromScale(1.82, 1.82) else UDim2.fromScale(1, 1)
 	local restPosition = if tiny or giant then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0, 0)
-	local position = if shaking and not reducedMotion then shake:map(function(phase)
-		return UDim2.new(0, math.sin(phase * 3.2) * 16, 0, math.cos(phase * 2.5) * 12)
-	end) else restPosition
+	local position = if shaking and not reducedMotion
+		then shake:map(function(phase)
+			return UDim2.new(0, math.sin(phase * 3.2) * 16, 0, math.cos(phase * 2.5) * 12)
+		end)
+		elseif jumbling and not reducedMotion
+		then jumble:map(function(phase)
+			return UDim2.new(0, math.sin(phase * 11) * 12, 0, math.cos(phase * 13) * 8)
+		end)
+		else restPosition
 	local anchor = if tiny or giant then Vector2.new(0.5, 0.5) else Vector2.new(0, 0)
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = tiny or giant or shaking,
+		ClipsDescendants = tiny or giant or shaking or jumbling,
 	}, React.createElement("frame", {
 		Size = size,
 		Position = position,
@@ -18401,12 +18434,11 @@ local function AdminPrankOverlay(_param)
 	local washColor = wash:map(function(alpha)
 		return Color3.fromHSV(alpha, if kind == "RainbowHud" then 0.55 else 0.88, 1)
 	end)
-	local loadSpin = useRotation(kind == "LoadingForever" and not softMotion, 240)
 	local caption = if prank.caption ~= nil and prank.caption ~= "" then prank.caption else "CLOWN"
+	local prankDuration = if type(prank.duration) == "number" then prank.duration else 6
+	local prankRevealed = left <= math.min(2.5, prankDuration * 0.6)
 	local stageOnly = HUD_STAGE_KINDS[kind] ~= nil
 	local blind = kind == "Blind"
-	local fakeBan = kind == "FakeBan"
-	local fakeCrash = kind == "FakeCrash"
 	local jump = kind == "Jumpscare"
 	local confetti = kind == "ConfettiStorm"
 	local disco = kind == "DiscoHud"
@@ -18414,16 +18446,14 @@ local function AdminPrankOverlay(_param)
 	local fakeRebirth = kind == "FakeRebirth"
 	local fakeTrade = kind == "FakeTrade"
 	local fakeRob = kind == "FakeRob"
-	local loading = kind == "LoadingForever"
-	local blue = kind == "BlueScreen"
-	local battery = kind == "LowBattery"
-	local update = kind == "UpdateForced"
+	local fakeDrop = kind == "FakeRareDrop"
+	local fakeEvent = kind == "FakeEvent"
 	local clown = kind == "ClownTitle"
 	local muteToasts = kind == "MuteToasts"
 	local emptyBag = kind == "EmptyBagScare"
-	local fill = if blind then Palette.void elseif fakeBan or fakeCrash then Palette.ink elseif jump then Palette.coral elseif blue then Color3.fromRGB(0, 94, 184) elseif battery then Palette.void elseif loading then Palette.void elseif confetti then Palette.void elseif clown then Palette.ink else Palette.void
-	local fillAlpha = if blind then 0.04 elseif fakeBan or fakeCrash or fakeRebirth or fakeTrade or fakeRob or update or jump then 0.14 elseif blue then 0 elseif battery then 0.28 elseif loading then 0.18 elseif confetti then 0.78 elseif disco or rainbow then 0.48 elseif clown then 0.22 elseif muteToasts then 1 elseif emptyBag then 0.22 elseif stageOnly then 0.86 else 0.7
-	local banner = if stageOnly then (if kind == "InvertHud" then "HUD INVERTED" elseif kind == "SpinHud" then "HUD SPINNING" elseif kind == "TinyHud" then "TINY HUD" elseif kind == "GiantHud" then "GIANT HUD" else "HUD SHAKING") else nil
+	local fill = if jump then Palette.coral elseif clown then Palette.ink else Palette.void
+	local fillAlpha = if blind then 0.04 elseif fakeRebirth or fakeTrade or fakeRob or fakeDrop or fakeEvent or jump then 0.14 elseif confetti then 0.78 elseif disco or rainbow then 0.48 elseif clown then 0.22 elseif muteToasts then 1 elseif emptyBag then 0.22 elseif stageOnly then 0.86 else 0.7
+	local banner = if stageOnly then (if kind == "InvertHud" then "HUD INVERTED" elseif kind == "SpinHud" then "HUD SPINNING" elseif kind == "TinyHud" then "TINY HUD" elseif kind == "GiantHud" then "GIANT HUD" elseif kind == "JumbleHud" then "HUD MISALIGNED" else "HUD SHAKING") else nil
 	return React.createElement("frame", {
 		ref = overlayHostRef,
 		Size = UDim2.fromScale(1, 1),
@@ -18439,22 +18469,6 @@ local function AdminPrankOverlay(_param)
 		align = Enum.TextXAlignment.Center,
 		sizeConstraint = UDim2.new(1, -24, 0, 24),
 		position = UDim2.new(0, 12, 0.06, 0),
-	}), fakeBan and React.createElement(PrankCard, {
-		title = "You were removed",
-		body = "This session was closed by an administrator. You can rejoin from the experience page.",
-		action = "OK",
-		accent = Palette.coral,
-		height = 248,
-		reducedMotion = softMotion,
-		onClose = onClose,
-	}), fakeCrash and React.createElement(PrankCard, {
-		title = "Couldn't reach the forge",
-		body = "The server stopped answering. Check your connection, then try again.",
-		action = "RETRY",
-		accent = Palette.mango,
-		height = 248,
-		reducedMotion = softMotion,
-		onClose = onClose,
 	}), jump and React.createElement(PrankCard, {
 		title = "BEHIND YOU",
 		body = "Got you. Admin's bored.",
@@ -18464,36 +18478,44 @@ local function AdminPrankOverlay(_param)
 		reducedMotion = softMotion,
 		onClose = onClose,
 	}), fakeRebirth and React.createElement(PrankCard, {
-		title = "REBIRTH NOW?",
-		body = "Fake prompt. You keep everything.",
-		action = "NOT TODAY",
+		title = if prankRevealed then "RANK UNCHANGED" else "NEW ASCENSION READY",
+		body = if prankRevealed then "No progress or currency changed." else "The next rank is ready. Review its rewards before starting over.",
+		action = if prankRevealed then "CLOSE" else "REVIEW",
 		accent = Palette.violet,
 		height = 268,
 		reducedMotion = softMotion,
 		onClose = onClose,
 	}), fakeTrade and React.createElement(PrankCard, {
-		title = "INCOMING TRADE",
-		body = "xXVoidLordXx wants your whole bag for 3 flux. This trade isn't real.",
-		action = "DECLINE JOKE",
+		title = if prankRevealed then "OFFER WITHDRAWN" else "INCOMING TRADE",
+		body = if prankRevealed then "No trade session was opened and no relics moved." else "The Hollow Broker offers 3 Flux for your relic case.",
+		action = if prankRevealed then "CLOSE" else "REVIEW OFFER",
 		accent = Palette.cyan,
 		height = 268,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), fakeRob and React.createElement(PrankCard, {
-		title = "WALLET COMPROMISED",
-		body = "Flux 0, vault 0, cores 0. Fake card. Your wallet is fine.",
-		action = "RECOVER",
-		accent = Palette.coral,
-		height = 268,
-		reducedMotion = reducedMotion,
-		onClose = onClose,
-	}), update and React.createElement(PrankCard, {
-		title = "UPDATE REQUIRED",
-		body = "There is no 9.9.9. This screen goes away on its own.",
-		action = "REMIND ME NEVER",
+		title = if prankRevealed then "VAULT CHECK COMPLETE" else "VAULT RECONCILIATION",
+		body = if prankRevealed then "No balances changed." else "A relay reports a mismatch in your last vault deposit.",
+		action = if prankRevealed then "CLOSE" else "CHECK BALANCE",
 		accent = Palette.mango,
 		height = 268,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
+		onClose = onClose,
+	}), fakeDrop and React.createElement(PrankCard, {
+		title = if prankRevealed then "RELIC SIGNAL LOST" else "ASTRAL RELIC DISCOVERED",
+		body = if prankRevealed then "No relic was added. Your case is unchanged." else "A mythic relic has appeared in the recovery beam.",
+		action = if prankRevealed then "CLOSE" else "OPEN RELIC CASE",
+		accent = Palette.mango,
+		height = 268,
+		reducedMotion = softMotion,
+		onClose = onClose,
+	}), fakeEvent and React.createElement(PrankCard, {
+		title = if prankRevealed then "SIGNAL CLEARED" else "STARFALL EVENT INBOUND",
+		body = if prankRevealed then "No server event started. The alert was a visual decoy." else caption,
+		action = if prankRevealed then "CLOSE" else "TRACK SIGNAL",
+		accent = Palette.cyan,
+		height = 268,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), confetti and React.createElement(React.Fragment, nil, React.createElement(ConfettiBits), React.createElement(Text, {
 		value = "CONFETTI TAX",
@@ -18519,105 +18541,7 @@ local function AdminPrankOverlay(_param)
 		align = Enum.TextXAlignment.Center,
 		sizeConstraint = UDim2.new(1, -24, 0, 24),
 		position = UDim2.new(0, 12, 0.9, 0),
-	}), loading and React.createElement(React.Fragment, nil, React.createElement("frame", {
-		Size = UDim2.fromOffset(52, 52),
-		Position = UDim2.new(0.5, 0, 0.38, 0),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Rotation = loadSpin,
-		ZIndex = 422,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.cyan,
-		Thickness = 4,
-	})), React.createElement(Text, {
-		value = "SYNCING PROFILE",
-		size = 22,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.new(1, -24, 0, 30),
-		position = UDim2.new(0, 12, 0.5, 0),
-	}), React.createElement(Text, {
-		value = `Fake load. {string.format("%.1f", left)}s left.`,
-		size = 13,
-		color = Palette.muted,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.new(1, -24, 0, 20),
-		position = UDim2.new(0, 12, 0.56, 0),
-	}), React.createElement(Button, {
-		text = "SKIP JOKE",
-		onClick = onClose,
-		color = Palette.panelSoft,
-		textColor = Palette.cream,
-		size = UDim2.new(0.42, 0, 0, 44),
-		position = UDim2.new(0.29, 0, 0.66, 0),
-		reducedMotion = softMotion,
-	})), blue and React.createElement(React.Fragment, nil, React.createElement(Text, {
-		value = ":(",
-		size = 72,
-		color = Palette.white,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Left,
-		sizeConstraint = UDim2.new(1, -64, 0, 80),
-		position = UDim2.fromOffset(40, 70),
-	}), React.createElement(Text, {
-		value = "Your forge ran into a problem and needs to restart.",
-		size = 18,
-		color = Palette.white,
-		wrap = true,
-		align = Enum.TextXAlignment.Left,
-		sizeConstraint = UDim2.new(1, -80, 0, 56),
-		position = UDim2.fromOffset(40, 170),
-	}), React.createElement(Text, {
-		value = `Stop code: ADMIN_PRANK_{string.format("%.0f", left)}`,
-		size = 14,
-		color = Color3.fromRGB(190, 220, 255),
-		align = Enum.TextXAlignment.Left,
-		sizeConstraint = UDim2.new(1, -80, 0, 22),
-		position = UDim2.fromOffset(40, 240),
-	}), React.createElement(Button, {
-		text = "THIS IS FAKE",
-		onClick = onClose,
-		color = Palette.white,
-		textColor = Color3.fromRGB(0, 94, 184),
-		size = UDim2.new(0.36, 0, 0, 44),
-		position = UDim2.new(0, 40, 0, 290),
-		reducedMotion = reducedMotion,
-		highlight = true,
-	})), battery and React.createElement(React.Fragment, nil, React.createElement("frame", {
-		Size = UDim2.new(0.72, 0, 0, 18),
-		Position = UDim2.new(0.14, 0, 0.08, 0),
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 422,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 6),
-	}), React.createElement("frame", {
-		Size = UDim2.new(0.08, 0, 1, 0),
-		BackgroundColor3 = Palette.coral,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 5),
-	}))), React.createElement(Text, {
-		value = "LOW BATTERY",
-		size = 28,
-		color = Palette.coral,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.new(1, -24, 0, 36),
-		position = UDim2.new(0, 12, 0.42, 0),
-	}), React.createElement(Text, {
-		value = "Your battery is fine. This bar is fake.",
-		size = 14,
-		color = Palette.creamSoft,
-		wrap = true,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.new(1, -40, 0, 40),
-		position = UDim2.new(0, 20, 0.5, 0),
-	})), clown and React.createElement(Text, {
+	}), clown and React.createElement(Text, {
 		value = string.upper(caption),
 		size = 36,
 		color = Palette.mango,
@@ -18659,7 +18583,7 @@ local function AdminPrankOverlay(_param)
 		action = "CONFIRM",
 		accent = Palette.violet,
 		height = 248,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}))
 end
@@ -19495,29 +19419,12 @@ local function Avatar(_param)
 	local size = _param.size
 	local accent = _param.accent
 	local radius = if MODEL.AvatarShape == "Circle" then UDim.new(1, 0) else UDim.new(0, math.floor(size * 0.22))
-	if member.UserId ~= nil then
-		return React.createElement("imagelabel", {
-			Size = UDim2.fromOffset(size, size),
-			Position = _param.position,
-			AnchorPoint = _param.anchor,
-			BackgroundColor3 = darken(accent, 0.6),
-			BorderSizePixel = 0,
-			Image = `rbxthumb://type=AvatarHeadShot&id={member.UserId}&w=150&h=150`,
-			ScaleType = Enum.ScaleType.Crop,
-			ZIndex = 325,
-		}, React.createElement("uicorner", {
-			CornerRadius = radius,
-		}), React.createElement("uistroke", {
-			Color = accent,
-			Thickness = 1.5,
-			Transparency = 0.35,
-		}))
-	end
+	local initial = string.upper(string.match(member.DisplayName, utf8.charpattern) or "?")
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
 		Position = _param.position,
 		AnchorPoint = _param.anchor,
-		BackgroundColor3 = darken(accent, 0.45),
+		BackgroundColor3 = darken(accent, 0.6),
 		BorderSizePixel = 0,
 		ZIndex = 325,
 	}, React.createElement("uicorner", {
@@ -19529,12 +19436,22 @@ local function Avatar(_param)
 	}), React.createElement("textlabel", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		Text = string.upper(string.match(member.DisplayName, utf8.charpattern) or "?"),
-		TextColor3 = Palette.cream,
+		Text = initial,
+		TextColor3 = lighten(Palette.cream, 0.12),
 		TextSize = math.floor(size * 0.46),
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		ZIndex = 326,
-	}))
+	}), member.UserId ~= nil and React.createElement("imagelabel", {
+		Size = UDim2.new(1, -4, 1, -4),
+		Position = UDim2.fromOffset(2, 2),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Image = `rbxthumb://type=AvatarHeadShot&id={member.UserId}&w=150&h=150`,
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 327,
+	}, React.createElement("uicorner", {
+		CornerRadius = radius,
+	})) or nil)
 end
 
 local function MemberCard(_param)

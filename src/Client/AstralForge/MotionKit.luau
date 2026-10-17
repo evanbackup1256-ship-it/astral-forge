@@ -950,6 +950,7 @@ local DefaultMotionSettings = {
 	soft = false,
 	viewportScale = 1,
 	textScale = 1,
+	reducedTransparency = false,
 }
 local MotionSettingsContext = React.createContext(DefaultMotionSettings)
 local EntranceMotionSuppressedContext = React.createContext(false)

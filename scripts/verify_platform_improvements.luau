@@ -52,14 +52,17 @@ assert(Schema.canonical("  setcores ",{SetCores={}})=="SetCores")
 local source=fs.readFile("src/Server/AstralForge/Services/AdminService.luau"):gsub("\r\n","\n")
 local registry=source:match("local profileHandlers = {}(.-)\n\tfunction AdminService:Execute")
 assert(registry,"profile executor registry missing")
-local factory=luau.load("return function(OmegaMath,ProfileBagMath,GameConfig,Economy) local profileHandlers={} "..registry.." return profileHandlers end")()
+local factory=luau.load("return function(OmegaMath,ProfileBagMath,GameConfig,Economy,DataTemplate) local profileHandlers={} "..registry.." return profileHandlers end")()
 local bag=require("../src/Server/AstralForge/Modules/ProfileBagMath")
-local handlers=factory(Math,bag,{Continuum={MaxRank=100}},{Capacity=function() return 500 end})
+local dataTemplate={New=function() return {Settings={SoundVolume=0.75,MusicVolume=1,ReducedTransparency=0}} end}
+local handlers=factory(Math,bag,{Continuum={MaxRank=100}},{Capacity=function() return 500 end},dataTemplate)
 local profile={Cash=12,RunCash=12,LifetimeCash=12,Cores=8,Vault=10,Stardust=10,Rebirths=10}
 assert(handlers.GrantFlux(profile,100,"").ok and profile.Cash==112 and profile.LifetimeCash==112)
 assert(handlers.SetCores(profile,0,"").ok and profile.Cores==0)
 handlers.SetVault(profile,700,"");assert(profile.Vault==500)
 handlers.TaxHalf(profile,1,"");assert(profile.Cash==56)
+profile.Settings={SoundVolume=0}
+assert(handlers.ResetSettings(profile,1,"").ok and profile.Settings.SoundVolume==0.75 and profile.Settings.MusicVolume==1,"admin settings reset restores saved defaults")
 handlers.ResetMachines(profile,1,"");assert(profile.Machines.StellarCore==1)
 local catalog=source:match("local COMMANDS = table.freeze%((%b{})%)")
 local commands=luau.load("return "..catalog)()
@@ -68,5 +71,8 @@ for id,definition in commands do
 	count+=1
 	assert(handlers[id] or definition.World or definition.Moderation,"missing executor: "..id)
 	assert(Schema.describe(id,definition).Summary~="")
+end
+for _,id in {"FakeRareDrop","JumbleHud","FakeEvent"} do
+	assert(commands[id].Category=="Troll" and commands[id].World==true,"in-game prank must be an ephemeral world command: "..id)
 end
 print(`[TEST] platform improvements: loadouts, Omega budgets, milestone benefits, shuffle, input rules, {count} admin commands + real executor fixtures`)

@@ -78,5 +78,7 @@ local view = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
 assert(string.find(view, 'SharedData("CreditsConfig")', 1, true), "Credits reads CreditsConfig")
 assert(not string.find(view, "DEV_USER_ID", 1, true), "no hard-coded developer")
 assert(string.find(view, 'Name = "CreditsClaimActions"', 1, true), "gamepad host keeps its name")
+assert(string.find(view, "useStagger", 1, true) and string.find(view, "useFlipperSpring", 1, true), "credits cards arrive and respond to hover")
+assert(string.find(view, "Text = initial", 1, true) and string.find(view, "rbxthumb://type=AvatarHeadShot", 1, true), "credits avatars keep initials behind live headshots")
 
 print("verify_credits: ok")

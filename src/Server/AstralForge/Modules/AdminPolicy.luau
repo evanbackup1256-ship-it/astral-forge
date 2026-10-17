@@ -27,6 +27,7 @@ AdminPolicy.ROLES = table.freeze({
 		Commands = {
 			InspectMarket = true,
 			ResetTutorial = true,
+			ResetSettings = true,
 			ShowUpdates = true,
 			ResetWheelCooldown = true,
 			ResetDailyClaim = true,

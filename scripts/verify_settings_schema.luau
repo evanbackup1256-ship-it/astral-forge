@@ -84,5 +84,11 @@ local page = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#Settings
 for _, needle in { '("SettingsSchema")', "Schema.ENTRIES", "Schema.PRESETS", "sectionDefaults", "SearchField", "local function Switch", "local function Choice" } do
 	assert(string.find(page, needle, 1, true), "the Settings page uses " .. needle)
 end
+local ui = fs.readFile("src/Client/AstralForge/UiCore.luau")
+assert(string.find(ui, "reducedTransparency = state ~= nil", 1, true), "ReducedTransparency is passed into the shared UI context")
+assert(string.find(ui, "if reducedTransparency then 0", 1, true), "shared panels honor ReducedTransparency")
+assert(string.find(ui, "setToastDensity(toastDensity)", 1, true), "ToastDensity updates the live notification queue")
+local juice = fs.readFile("src/Client/AstralForge/JuiceFx.luau")
+assert(string.find(juice, "function Juice.setToastDensity", 1, true), "notification density has a bounded queue setter")
 
 print("verify_settings_schema: ok")

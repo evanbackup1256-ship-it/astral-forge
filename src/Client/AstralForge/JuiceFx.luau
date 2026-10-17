@@ -7,6 +7,7 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local theme = require(script.Parent.CoreKit)("theme")
+local NoticeMath = require(script.Parent.CoreKit)("noticeMath")
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local P = theme.Palette
 local h = React.createElement
@@ -282,6 +283,7 @@ end
 --   * with no island mounted, messages wait (up to QUEUE_CAP) and play when one appears
 -- ===========================================================================================
 local QUEUE_CAP = 10
+local islandQueueLimit = NoticeMath.MaxNotices(0.55)
 local TITLE_CAP = 64
 local SUBTITLE_CAP = 150
 local islandQueue = {}
@@ -328,6 +330,21 @@ local function islandNotify()
 			warn("[Island] a subscriber failed: " .. tostring(problem))
 		end
 	end
+end
+
+function Juice.setToastDensity(density: number)
+	islandQueueLimit = math.min(QUEUE_CAP, NoticeMath.MaxNotices(density))
+	while #islandQueue > islandQueueLimit do
+		local drop, dropRank = #islandQueue, math.huge
+		for index, waiting in islandQueue do
+			local rank = priorityOf(waiting)
+			if rank < dropRank then
+				drop, dropRank = index, rank
+			end
+		end
+		table.remove(islandQueue, drop)
+	end
+	islandNotify()
 end
 
 local function holdFor(info)
@@ -447,7 +464,7 @@ function Juice.banner(title: string, subtitle: string?, color: Color3?, icon: st
 		end
 	end
 	table.insert(islandQueue, at, info)
-	while #islandQueue > QUEUE_CAP do
+	while #islandQueue > islandQueueLimit do
 		-- the oldest, least important message makes room
 		local drop, dropRank = #islandQueue, math.huge
 		for index, waiting in islandQueue do

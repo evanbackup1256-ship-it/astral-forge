@@ -4779,7 +4779,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			if result.ok and type(result.TargetUserId) == "number" then
 				local target = Players:GetPlayerByUserId(result.TargetUserId)
 				local targetProfile = target and self._data:Get(target)
-				if target and targetProfile then
+				if target and targetProfile and result.World ~= true then
 					self:_syncLeaderstats(target, targetProfile)
 					if target ~= player then
 						self:_pushState(target)
