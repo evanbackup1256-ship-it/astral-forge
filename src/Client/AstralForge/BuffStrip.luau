@@ -1039,6 +1039,37 @@ function BuffStrip.Island(props)
 		end)
 		return stop
 	end, {})
+	-- arrivals and departures pass through the island; a friend gets their own colour
+	React.useEffect(function()
+		local Players = game:GetService("Players")
+		local function announce(player, arriving)
+			if player == Players.LocalPlayer or player.UserId == 771133001 then -- 771133001: the Studio test bot
+				return
+			end
+			task.spawn(function()
+				local okFriend, friend = pcall(function()
+					return Players.LocalPlayer:IsFriendsWith(player.UserId)
+				end)
+				friend = okFriend and friend == true
+				local name = player.DisplayName
+				if arriving then
+					Juice.banner(if friend then `Your friend {name} is here` else `{name} joined`, nil, if friend then P.mint else P.cyan, "Wave", 1.6, "Info", "pill")
+				else
+					Juice.banner(`{name} left`, nil, P.muted, "Wave", 1.3, "Info", "pill")
+				end
+			end)
+		end
+		local joined = Players.PlayerAdded:Connect(function(player)
+			announce(player, true)
+		end)
+		local left = Players.PlayerRemoving:Connect(function(player)
+			announce(player, false)
+		end)
+		return function()
+			joined:Disconnect()
+			left:Disconnect()
+		end
+	end, {})
 	-- pinned live readouts (Juice.live)
 	local liveEntry, setLiveEntry = React.useState(nil)
 	React.useEffect(function()
