@@ -849,6 +849,7 @@ local _AnimatedTitle = require(script.Parent.Parent.ReactHosts)("AnimatedTitle")
 local AnimatedTitlePreview = _AnimatedTitle.AnimatedTitlePreview
 local darkTitlePlate = _AnimatedTitle.darkTitlePlate
 local titleFxAccent = _AnimatedTitle.titleFxAccent
+local titleTier = _AnimatedTitle.titleTier
 local _scrolling = require(script.Parent.Parent.LayoutKit)("scrolling")
 local AutoGrid = _scrolling.AutoGrid
 local VirtualGrid = _scrolling.VirtualGrid
@@ -1029,7 +1030,7 @@ local function TabPane(_param)
 end
 local CommandTitleCard = React.memo(function(props)
 	local accent = titleFxAccent(props.fx)
-	local effectName = `{string.upper((string.gsub(props.fx, "-", " ")))} EFFECT`
+	local effectName = `{string.upper(titleTier(props.fx))}  {string.upper((string.gsub(props.fx, "-", " ")))}`
 	local equip = React.useCallback(function()
 		return props.dispatch("EquipTitle", {
 			Id = props.id,
