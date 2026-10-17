@@ -14,9 +14,10 @@ local h = React.createElement
 local Juice = {}
 
 local CAPS = { number = 32, coin = 60, burst = 10, flash = 3, ring = 12, press = 10, spark = 32, shockwave = 8, gem = 16 }
-local LIFE = { number = 1.25, burst = 0.95, flash = 0.45, ring = 0.65, press = 0.48, spark = 0.55, shockwave = 0.72, gem = 1.15 }
-local COIN_SCATTER = 0.22
-local COIN_FLIGHT = 0.55
+local LIFE = { number = 1.25, burst = 1.05, flash = 0.45, ring = 0.65, press = 0.48, spark = 0.55, shockwave = 0.72, gem = 1.15 }
+local COIN_SCATTER = 0.3 -- the launch: a ballistic arc under gravity
+local COIN_FLIGHT = 0.5 -- the homing curve into the counter
+local GRAVITY = 1100
 local COIN_STAGGER = 0.035
 
 local effects = {}
@@ -50,8 +51,23 @@ UserInputService.InputBegan:Connect(function(input)
 	end
 end)
 
+-- Studio only: Juice.debugFreeze(seconds) stops effect time so a screenshot can catch an effect
+-- mid-flight; when it ends, every effect resumes exactly where it stopped
+local frozenAt = nil
+local frozenTotal = 0
 local function now()
-	return os.clock()
+	return frozenAt or (os.clock() - frozenTotal)
+end
+function Juice.debugFreeze(seconds: number)
+	if not RunService:IsStudio() or frozenAt ~= nil then
+		return
+	end
+	frozenAt = now()
+	task.delay(seconds, function()
+		local stoppedFor = (os.clock() - frozenTotal) - frozenAt
+		frozenTotal += stoppedFor
+		frozenAt = nil
+	end)
 end
 
 local function notify()
@@ -103,16 +119,44 @@ local function defaultOrigin()
 	return Juice.pointer() or Vector2.new(size.X / 2, size.Y * 0.62)
 end
 
--- a GuiObject's centre in the effects layer's space
+-- a GuiObject's centre in the effects layer's space (nil when it is not really on screen)
+local function shownOnScreen(object)
+	local node = object
+	while node ~= nil do
+		if node:IsA("GuiObject") and not node.Visible then
+			return false
+		end
+		if node:IsA("LayerCollector") then
+			return node.Enabled
+		end
+		node = node.Parent
+	end
+	return false
+end
 local function centreOf(object)
 	if object == nil or object.Parent == nil then
 		return nil
 	end
 	local position, size = object.AbsolutePosition, object.AbsoluteSize
-	if size.X <= 0 then
+	if size.X <= 1 or size.Y <= 1 or not shownOnScreen(object) then
 		return nil
 	end
-	return Vector2.new(position.X + size.X / 2, position.Y + size.Y / 2)
+	local screen = screenSize()
+	local centre = Vector2.new(position.X + size.X / 2, position.Y + size.Y / 2)
+	if centre.X < 0 or centre.Y < 0 or centre.X > screen.X or centre.Y > screen.Y then
+		return nil
+	end
+	return centre
+end
+-- where a named counter is right now: the first registered copy that is actually visible
+local function targetCentre(name)
+	for object in targets[name] or {} do
+		local centre = centreOf(object)
+		if centre ~= nil then
+			return centre
+		end
+	end
+	return nil
 end
 
 function Juice.centreOf(object)
@@ -137,25 +181,26 @@ end
 
 -- coins that burst out of `from` and fly into the named counter, which bounces as they land
 function Juice.coins(target: string, color: Color3?, icon: string?, count: number?, from: Vector2?)
-	local destination = centreOf(targets[target])
+	local destination = targetCentre(target)
 	if destination == nil then
 		return false
 	end
 	local origin = from or defaultOrigin()
 	local total = math.clamp(math.floor(count or 8), 1, 14)
 	for index = 1, total do
-		local angle = math.random() * math.pi * 2
-		local reach = 30 + math.random() * 46
+		-- thrown up and out like sparks off an anvil, never the same twice
+		local angle = -math.pi / 2 + (math.random() - 0.5) * 2.2
+		local speed = 230 + math.random() * 220
 		push({
 			kind = "coin",
 			target = target,
 			color = color or P.mango,
 			icon = icon,
 			from = origin,
-			scatter = Vector2.new(math.cos(angle) * reach, math.sin(angle) * reach),
+			velocity = Vector2.new(math.cos(angle) * speed, math.sin(angle) * speed),
 			to = destination,
-			delay = (index - 1) * COIN_STAGGER,
-			bend = math.random(-120, 120),
+			delay = (index - 1) * COIN_STAGGER + math.random() * 0.02,
+			size = 7 + math.random() * 4,
 			arrived = false,
 			last = index == total,
 		})
@@ -165,7 +210,14 @@ end
 
 -- a sparkle burst: four-point stars, rays and a ring
 function Juice.burst(at: Vector2?, color: Color3?, scale: number?)
-	push({ kind = "burst", at = at or defaultOrigin(), color = color or P.mango, scale = scale or 1, spin = math.random() * 360 })
+	local s = scale or 1
+	local sparks = {}
+	for index = 1, math.floor(14 + 6 * math.min(s, 2)) do
+		local angle = -math.pi / 2 + (math.random() - 0.5) * math.pi * 1.7
+		local speed = (280 + math.random() * 420) * s
+		sparks[index] = { vx = math.cos(angle) * speed, vy = math.sin(angle) * speed, life = 0.45 + math.random() * 0.45, hot = math.random() < 0.35 }
+	end
+	push({ kind = "burst", at = at or defaultOrigin(), color = color or P.mango, scale = s, spin = math.random() * 360, sparks = sparks })
 end
 
 -- a quick ring under a tap
@@ -190,7 +242,10 @@ end
 
 -- 3D tumbling faceted gemstones that arc dynamically into a target counter
 function Juice.gem(target: string, color: Color3?, icon: string?, count: number?, from: Vector2?)
-	local destination = centreOf(targets[target]) or defaultOrigin()
+	local destination = targetCentre(target)
+	if destination == nil then
+		return false
+	end
 	local origin = from or defaultOrigin()
 	local total = math.clamp(math.floor(count or 4), 1, 8)
 	for index = 1, total do
@@ -441,10 +496,11 @@ end
 
 -- counters register so coins know where to fly; returns a cleanup
 function Juice.registerTarget(name: string, object: GuiObject)
-	targets[name] = object
+	targets[name] = targets[name] or {}
+	targets[name][object] = true
 	return function()
-		if targets[name] == object then
-			targets[name] = nil
+		if targets[name] then
+			targets[name][object] = nil
 		end
 	end
 end
@@ -620,160 +676,179 @@ local function star(size, color, transparency, z)
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })))
 end
 
+-- where a droplet is `local_` seconds into its flight: a ballistic launch, then a quadratic curve
+-- into the counter whose first control point continues the launch velocity (no stall, no kink)
+local function dropletAt(effect, local_)
+	if local_ <= 0 then
+		return effect.from
+	end
+	local v = effect.velocity or Vector2.zero
+	if local_ < COIN_SCATTER then
+		return effect.from + v * local_ + Vector2.new(0, 0.5 * GRAVITY * local_ * local_)
+	end
+	local launchEnd = effect.from + v * COIN_SCATTER + Vector2.new(0, 0.5 * GRAVITY * COIN_SCATTER * COIN_SCATTER)
+	local exitVelocity = v + Vector2.new(0, GRAVITY * COIN_SCATTER)
+	local control = launchEnd + exitVelocity * (COIN_FLIGHT * 0.45)
+	local u = math.clamp((local_ - COIN_SCATTER) / COIN_FLIGHT, 0, 1)
+	u = u * u * (3 - 2 * u) * 0.35 + u * u * 0.65
+	local a1 = launchEnd:Lerp(control, u)
+	local a2 = control:Lerp(effect.to, u)
+	return a1:Lerp(a2, u)
+end
+
 local function renderEffect(effect, clock)
 	local function age()
 		return clock:map(function(t) return t - effect.born end)
 	end
 	if effect.kind == "number" then
+		-- hot-stamped: slams in white-hot with a jolt, cools into its colour, rises and fades
 		local size = if effect.big then 34 elseif effect.small then 17 else 24
 		local t = age()
 		local textW = #effect.text * size * 0.52
-		local ghost = not effect.small and outlined(effect.text, size, effect.color, t:map(function(a)
-			return math.clamp(0.55 + a / 0.45, 0, 1)
-		end), 30)
+		local life = LIFE.number
+		local heat = t:map(function(a) return 1 - math.clamp((a - 0.08) / 0.35, 0, 1) end)
+		local fade = t:map(function(a) return math.clamp((a - life * 0.62) / (life * 0.38), 0, 1) end)
+		local hotColor = heat:map(function(h) return effect.color:Lerp(P.white, h * 0.85) end)
 		return h("frame", {
 			key = effect.id,
-			Size = UDim2.fromOffset(360, size + 12),
+			Size = UDim2.fromOffset(textW + size * 2 + 20, size + 14),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			ZIndex = 30,
 			Position = t:map(function(a)
-				local p = easeOutCubic(math.clamp(a / LIFE.number, 0, 1))
-				return UDim2.fromOffset(effect.at.X + effect.drift * p * 0.4, effect.at.Y - 22 - p * (if effect.small then 34 else 96))
-			end),
-			Rotation = t:map(function(a)
-				return effect.tilt * (1 - math.clamp(a / 0.35, 0, 1))
+				local jolt = if a < 0.16 then math.sin(a * 90) * 4 * (1 - a / 0.16) else 0
+				local rise = easeOutCubic(math.clamp((a - 0.18) / (life - 0.18), 0, 1)) * (if effect.small then 30 else 70)
+				return UDim2.fromOffset(effect.at.X + jolt + effect.drift * 0.15 * math.clamp(a / life, 0, 1), effect.at.Y - 20 - rise)
 			end),
 		}, h("uiscale", {
 			Scale = t:map(function(a)
-				local pop = math.clamp(a / 0.22, 0, 1)
-				return 0.35 + easeOutBack(pop) * 0.65
+				if a < 0.1 then
+					return 1.55 - (a / 0.1) * 0.65
+				end
+				return 0.9 + easeOutBack(math.clamp((a - 0.1) / 0.18, 0, 1)) * 0.1
 			end),
-		}), outlined(effect.text, size, effect.color, t:map(function(a)
-			return math.clamp((a - LIFE.number * 0.6) / (LIFE.number * 0.4), 0, 1)
-		end), 31), ghost and h("frame", {
-			-- an echo that swells and fades behind the number
-			Size = UDim2.fromScale(1, 1),
+		}), h("textlabel", {
+			Size = UDim2.new(1, 0, 1, 0),
 			BackgroundTransparency = 1,
-			ZIndex = 30,
-		}, h("uiscale", {
-			Scale = t:map(function(a) return 1 + easeOutCubic(math.clamp(a / 0.45, 0, 1)) * 0.9 end),
-		}), ghost), effect.icon and h("frame", {
-			Size = UDim2.fromOffset(size, size),
-			Position = UDim2.new(0.5, -textW / 2 - size * 0.7, 0.5, 0),
+			Text = effect.text,
+			TextColor3 = hotColor,
+			TextTransparency = fade,
+			TextSize = size,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+			ZIndex = 31,
+		}, h("uistroke", {
+			Color = heat:map(function(hh) return theme.darken(effect.color, 0.75):Lerp(effect.color, hh * 0.6) end),
+			Thickness = if effect.small then 2 else 3,
+			Transparency = fade,
+		})), effect.icon and h("frame", {
+			Size = UDim2.fromOffset(size * 0.9, size * 0.9),
+			Position = UDim2.new(0.5, -textW / 2 - size * 0.62, 0.5, 0),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = theme.darken(effect.color, 0.55),
-			BackgroundTransparency = t:map(function(a)
-				return math.clamp((a - LIFE.number * 0.6) / (LIFE.number * 0.4), 0, 1)
-			end),
+			BackgroundTransparency = fade,
 			BorderSizePixel = 0,
 			ZIndex = 31,
 		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-			Color = theme.lighten(effect.color, 0.35),
+			Color = hotColor,
 			Thickness = 2,
+			Transparency = fade,
 		}), h(Icon, {
 			kind = effect.icon,
 			color = P.white,
 			accent = effect.color,
-			size = size - 6,
+			size = math.floor(size * 0.66),
 			position = UDim2.fromScale(0.5, 0.5),
 			anchorPoint = Vector2.new(0.5, 0.5),
 			spin = false,
 		})))
 	elseif effect.kind == "coin" then
+		-- a molten droplet: white-hot core, coloured glow, a short trail of cooling embers behind it
 		local t = age()
-		local size = 22
+		local d = effect.size or 9
+		local parts = {}
+		for index = 0, 3 do
+			local lag = index * 0.028
+			parts["e" .. index] = h("frame", {
+				Size = UDim2.fromOffset(d * (1 - index * 0.2), d * (1 - index * 0.2)),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = t:map(function(a)
+					local spot = dropletAt(effect, a - effect.delay - lag)
+					return UDim2.fromOffset(spot.X, spot.Y)
+				end),
+				BackgroundColor3 = if index == 0 then P.white else theme.lighten(effect.color, 0.3 - index * 0.1),
+				BackgroundTransparency = if index == 0 then 0 else 0.25 + index * 0.18,
+				BorderSizePixel = 0,
+				ZIndex = 26 - index,
+				Visible = t:map(function(a) return a - lag >= effect.delay end),
+			}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), index == 0 and h("uistroke", {
+				Color = effect.color,
+				Thickness = math.max(2, d * 0.35),
+				Transparency = 0.15,
+			}))
+		end
 		return h("frame", {
 			key = effect.id,
-			Size = UDim2.fromOffset(size, size),
-			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			ZIndex = 26,
-			Position = t:map(function(a)
-				local local_ = a - effect.delay
-				if local_ <= 0 then
-					return UDim2.fromOffset(effect.from.X, effect.from.Y)
-				end
-				if local_ < COIN_SCATTER then
-					local p = easeOutCubic(local_ / COIN_SCATTER)
-					local spot = effect.from + effect.scatter * p
-					return UDim2.fromOffset(spot.X, spot.Y)
-				end
-				local p = easeInCubic(math.clamp((local_ - COIN_SCATTER) / COIN_FLIGHT, 0, 1))
-				local start = effect.from + effect.scatter
-				local mid = (start + effect.to) / 2 + Vector2.new(effect.bend, -80)
-				local a1 = start:Lerp(mid, p)
-				local a2 = mid:Lerp(effect.to, p)
-				local spot = a1:Lerp(a2, p)
-				return UDim2.fromOffset(spot.X, spot.Y)
-			end),
-			Visible = t:map(function(a) return a >= effect.delay end),
-		}, h("uiscale", {
-			Scale = t:map(function(a)
-				local local_ = a - effect.delay
-				local grow = easeOutBack(math.clamp(local_ / 0.16, 0, 1))
-				local shrink = 1 - 0.45 * math.clamp((local_ - COIN_SCATTER - COIN_FLIGHT * 0.6) / (COIN_FLIGHT * 0.4), 0, 1)
-				return math.max(0.05, grow * shrink)
-			end),
-		}), h("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = theme.darken(effect.color, 0.55),
-			BorderSizePixel = 0,
-			ZIndex = 26,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
-			Color = theme.lighten(effect.color, 0.35),
-			Thickness = 2,
-		}), effect.icon and h(Icon, {
-			kind = effect.icon,
-			color = P.white,
-			accent = effect.color,
-			size = size - 6,
-			position = UDim2.fromScale(0.5, 0.5),
-			anchorPoint = Vector2.new(0.5, 0.5),
-			spin = false,
-		})))
+		}, parts)
 	elseif effect.kind == "burst" then
+		-- an anvil strike: sparks fly at uneven angles and speeds, fall, and stretch along their path
 		local t = age()
 		local s = effect.scale
 		local children = {}
 		local progress = t:map(function(a) return math.clamp(a / LIFE.burst, 0, 1) end)
-		-- rays
-		for index = 1, 10 do
-			local rotation = effect.spin + index * 36
-			children["ray" .. index] = h("frame", {
-				Size = progress:map(function(p)
-					return UDim2.fromOffset(4 * s, (40 + easeOutCubic(p) * 110) * s)
-				end),
-				Position = UDim2.fromScale(0.5, 0.5),
-				AnchorPoint = Vector2.new(0.5, 1),
-				Rotation = rotation,
-				BackgroundColor3 = effect.color,
-				BackgroundTransparency = progress:map(function(p) return 0.25 + p * 0.75 end),
-				BorderSizePixel = 0,
-				ZIndex = 27,
-			}, h("uigradient", {
-				Rotation = 90,
-				Transparency = NumberSequence.new(1, 0),
-			}))
+		for index, spark in effect.sparks or {} do
+			local function alive(a)
+				local u = math.clamp(a / spark.life, 0, 1)
+				return 1 - u * u
+			end
+			local function streak(name, thickness, glow)
+				children[name .. index] = h("frame", {
+					Size = t:map(function(a)
+						local vy = spark.vy + GRAVITY * a
+						local speed = math.sqrt(spark.vx * spark.vx + vy * vy)
+						return UDim2.fromOffset(math.clamp(speed * 0.06, 8, 44) * (0.35 + 0.65 * alive(a)), thickness)
+					end),
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = t:map(function(a)
+						return UDim2.fromOffset(spark.vx * a, spark.vy * a + 0.5 * GRAVITY * a * a)
+					end),
+					Rotation = t:map(function(a)
+						return math.deg(math.atan2(spark.vy + GRAVITY * a, spark.vx))
+					end),
+					BackgroundColor3 = if glow then effect.color elseif spark.hot then P.white else theme.lighten(effect.color, 0.45),
+					BackgroundTransparency = t:map(function(a) return if glow then 1 - alive(a) * 0.55 else 1 - alive(a) end),
+					BorderSizePixel = 0,
+					ZIndex = if glow then 27 else 28,
+				}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uigradient", {
+					-- bright head, cooling tail
+					Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.85), NumberSequenceKeypoint.new(0.7, 0.1), NumberSequenceKeypoint.new(1, 0) }),
+				}))
+			end
+			streak("glow", if spark.hot then 9 else 7, true)
+			streak("spark", if spark.hot then 4 else 3, false)
 		end
-		-- white core flash
 		children.core = h("frame", {
 			Size = progress:map(function(p)
-				local d = (24 + easeOutCubic(math.min(1, p * 3)) * 70) * s
-				return UDim2.fromOffset(d, d)
+				local dd = (14 + easeOutCubic(math.min(1, p * 7)) * 46) * s
+				return UDim2.fromOffset(dd, dd)
 			end),
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = P.white,
-			BackgroundTransparency = progress:map(function(p) return math.clamp(0.1 + p * 2.2, 0, 1) end),
+			BackgroundTransparency = progress:map(function(p) return math.clamp(p * 7, 0, 1) end),
 			BorderSizePixel = 0,
 			ZIndex = 29,
-		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
-		-- ring
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+			Color = effect.color,
+			Thickness = 4,
+			Transparency = progress:map(function(p) return math.clamp(p * 5, 0, 1) end),
+		}))
 		children.ring = h("frame", {
 			Size = progress:map(function(p)
-				local d = (30 + easeOutCubic(p) * 190) * s
-				return UDim2.fromOffset(d, d)
+				local dd = (20 + easeOutCubic(p) * 110) * s
+				return UDim2.fromOffset(dd, dd)
 			end),
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -781,28 +856,9 @@ local function renderEffect(effect, clock)
 			ZIndex = 27,
 		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
 			Color = theme.lighten(effect.color, 0.3),
-			Thickness = 3,
-			Transparency = progress:map(function(p) return p end),
+			Thickness = progress:map(function(p) return math.max(1, 4 * (1 - p)) end),
+			Transparency = progress:map(function(p) return math.clamp(p * 1.6, 0, 1) end),
 		}))
-		-- stars flung outward
-		for index = 1, 8 do
-			local angle = math.rad(effect.spin + index * 45 + (index % 2) * 18)
-			local reach = (70 + (index % 3) * 34) * s
-			local starSize = (if index % 2 == 0 then 38 else 26) * s
-			children["star" .. index] = h("frame", {
-				Size = UDim2.fromOffset(starSize, starSize),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				ZIndex = 28,
-				Position = progress:map(function(p)
-					local e = easeOutCubic(p)
-					return UDim2.new(0.5, math.cos(angle) * reach * e, 0.5, math.sin(angle) * reach * e)
-				end),
-				Rotation = progress:map(function(p) return p * 90 end),
-			}, h("uiscale", {
-				Scale = progress:map(function(p) return math.sin(math.min(1, p * 1.3) * math.pi) * 1.2 + 0.01 end),
-			}), star(starSize, if index % 3 == 0 then P.white else theme.lighten(effect.color, 0.4), 0, 28))
-		end
 		return h("frame", {
 			key = effect.id,
 			Size = UDim2.fromOffset(0, 0),
