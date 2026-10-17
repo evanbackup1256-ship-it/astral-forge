@@ -112,47 +112,50 @@ for _, mode in { "success", "failure", "exception", "pending" } do
 	local expectedWarnings = if mode == "failure" then 3 elseif mode == "exception" then 1 else 0
 	assert(#warnings == expectedWarnings, mode .. ": failures remain explicit")
 end
-local layoutStart = assert(boot:find("\tlocal short = useViewport().height < 420", 1, true))
-local layoutEnd = assert(boot:find("\n\tlocal marks", layoutStart, true))
-for _, height in { 280, 660, 900 } do
-	local layout = luau.load(boot:sub(layoutStart, layoutEnd - 1) .. "\nreturn {short, centerY, coreSize, coreY, statusY}", {
-		environment = setmetatable({ useViewport = function() return { height = height } end }, { __index = _G }),
-	})()
-	local short, center, core, coreY, statusY = table.unpack(layout)
-	local markTop = height * center + coreY - core / 2
-	local progressBottom = height * center + statusY + 22 + 14
-	local tipTop = height - (if short then 46 else 62) - 14
-	assert(markTop >= 0 and progressBottom < tipTop, "boot content and wrapped tips do not overlap in short landscape")
+local layoutStart = assert(boot:find("local function layoutFor(", 1, true))
+local layoutEnd = assert(boot:find("\n-- centred word wrap", layoutStart, true))
+local layoutFor = luau.load(boot:sub(layoutStart, layoutEnd - 1) .. "\nreturn layoutFor")()
+for _, size in { { 1920, 1080 }, { 1366, 660 }, { 844, 390 }, { 640, 280 }, { 390, 844 }, { 360, 640 } } do
+	local width, height = size[1], size[2]
+	local L = layoutFor(width, height)
+	assert(L.wordY >= 0, "wordmark starts on screen")
+	assert(L.column <= width, "column fits the screen width")
+	assert(L.statusY >= L.wordY + L.wordH, "status sits under the wordmark")
+	assert(L.channelY >= L.statusY + L.statusH, "the pour sits under the status line")
+	assert(L.blockBottom <= L.tipTop, `boot block and tip do not overlap at {width}x{height}`)
+	assert(L.tipTop + L.tipHeight <= height, "tip stays on screen")
+	assert(L.twoRows == (L.column < 460), "stations wrap only on narrow columns")
 end
-local stageStart = assert(boot:find("local ROLL =", 1, true))
-local stageEnd = assert(boot:find("\nreturn {\n\tBootStageText", stageStart, true))
+local wrapStart = assert(boot:find("local function wrapWords(", 1, true))
+local wrapEnd = assert(boot:find("\n-- a tip that arrives", wrapStart, true))
+local wrapWords = luau.load(boot:sub(wrapStart, wrapEnd - 1) .. "\nreturn wrapWords")()
+for _, maxWidth in { 180, 320, 560 } do
+	local widths = { 60, 34, 90, 22, 71, 48, 110, 30, 66 }
+	local placed, lines = wrapWords(widths, maxWidth, 5)
+	assert(lines >= 1)
+	local byLine = {}
+	for index, w in widths do
+		local spot = assert(placed[index], "every word is placed")
+		local row = byLine[spot.line] or { left = math.huge, right = -math.huge }
+		row.left = math.min(row.left, spot.x)
+		row.right = math.max(row.right, spot.x + w)
+		byLine[spot.line] = row
+	end
+	for _, row in byLine do
+		assert(row.right - row.left <= maxWidth + 0.001, "a tip line never runs past its width")
+		assert(math.abs(row.left + row.right) < 0.001, "tip lines are centred")
+	end
+	for index = 2, #widths do
+		local a, b = placed[index - 1], placed[index]
+		assert(b.line > a.line or b.x > a.x, "words keep reading order")
+	end
+end
+assert(not boot:find("BootStageText", 1, true), "the old stage roller is gone")
+assert(boot:find('__defs["BootLedger"]', 1, true), "the boot screen reads the loading ledger")
 local function binding(value)
 	return { value = value, map = function(self, callback) return binding(callback(self.value)) end }
 end
-local stageEnv = setmetatable({
-	React = {
-		createElement = env.React.createElement,
-		useRef = function(value) return { current = value } end,
-		useBinding = function(value) return binding(value) end,
-		useEffect = function() end,
-		joinBindings = function(values)
-			local joined = {}
-			for key, value in values do joined[key] = value.value end
-			return binding(joined)
-		end,
-	},
-	Palette = { muted = roblox.Color3.fromRGB(190, 174, 178) },
-	UDim2 = roblox.UDim2, Vector2 = roblox.Vector2, Enum = roblox.Enum, Font = roblox.Font,
-}, { __index = _G })
-local stage = luau.load(boot:sub(stageStart, stageEnd - 1) .. "\nreturn BootStageText", { environment = stageEnv })()
-for _, width in { 323, 634, 975 } do
-	local node = stage({ text = "Loading art", clock = binding(0), reducedMotion = true })
-	assert(node.props.Size.X.Scale == 1 and node.props.Size.X.Offset == 0, "stage follows its parent width")
-	local glyphs = node.children[1]
-	local first, last = glyphs[1].props.Position.X, glyphs[#glyphs].props.Position.X
-	local midpoint = ((first.Scale + last.Scale) * width + first.Offset + last.Offset) / 2
-	assert(math.abs(midpoint - width / 2) < 0.001, "animated status stays centered, not at a fixed left-side width")
-end
+local stageEnv = { React = { useRef = function(value) return { current = value } end } }
 local transferStart = assert(boot:find("local function phaseName", 1, true))
 local transferEnd = assert(boot:find("\nreturn {\n\tSoftShutdownScreen", transferStart, true))
 for _, height in { 280, 660 } do

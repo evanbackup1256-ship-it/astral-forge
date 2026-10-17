@@ -38,8 +38,10 @@ local _Icon = require(script.Parent.ArtKit)("Icon")
 local GAME_ICON_ASSET = _Icon.GAME_ICON_ASSET
 local VECTOR_ICON_ATLAS = _Icon.VECTOR_ICON_ATLAS
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
+local Ledger = require(script.Parent.BootKit)("BootLedger")
 local PRELOAD_BATCH_SIZE = if UserInputService.TouchEnabled then 16 else 100
-local PRELOAD_FAIL_OPEN_SECONDS = if UserInputService.TouchEnabled then 8 else 120
+-- past this the game opens anyway; whatever is left keeps loading behind it
+local PRELOAD_FAIL_OPEN_SECONDS = if UserInputService.TouchEnabled then 24 else 120
 local MAX_STABILITY_SWEEPS = if UserInputService.TouchEnabled then 2 else 4
 local REQUIRED_STABLE_SWEEPS = if UserInputService.TouchEnabled then 1 else 2
 local STABILITY_SWEEP_SECONDS = 0.25
@@ -52,10 +54,28 @@ local STATIC_ASSET_MANIFEST = {
 	"rbxasset://fonts/families/BuilderSans.json",
 	"rbxasset://fonts/families/RobotoMono.json",
 }
+-- item -> { station, label } for the run in progress (nil outside a preload)
+local tagSink = nil
+local GENERIC_NAMES = { Image = true, Icon = true, Asset = true, ImageLabel = true, ImageButton = true, Decal = true, Texture = true, Art = true, Id = true, Thumbnail = true }
+local function prettyName(text)
+	if type(text) ~= "string" or text == "" or GENERIC_NAMES[text] then
+		return nil
+	end
+	local spaced = string.gsub(string.gsub(text, "(%l)(%u)", "%1 %2"), "_", " ")
+	return spaced
+end
+local function tag(item, station, label)
+	if tagSink ~= nil and tagSink[item] == nil then
+		tagSink[item] = { station = station, label = label }
+	end
+end
 local function carriesContent(instance)
 	return instance:IsA("ImageLabel") or instance:IsA("ImageButton") or instance:IsA("ImageHandleAdornment") or instance:IsA("Decal") or instance:IsA("Texture") or instance:IsA("Animation") or instance:IsA("AnimationClip") or instance:IsA("MeshPart") or instance:IsA("SpecialMesh") or instance:IsA("UnionOperation") or instance:IsA("SurfaceAppearance") or instance:IsA("MaterialVariant") or instance:IsA("ParticleEmitter") or instance:IsA("Beam") or instance:IsA("Trail") or instance:IsA("VideoFrame") or instance:IsA("VideoPlayer") or instance:IsA("Sky") or instance:IsA("Shirt") or instance:IsA("Pants") or instance:IsA("ShirtGraphic") or instance:IsA("CharacterMesh") or instance:IsA("Accessory") or instance:IsA("AccessoryDescription") or instance:IsA("BodyPartDescription") or instance:IsA("Tool") or instance:IsA("HumanoidDescription") or instance:IsA("WrapLayer") or instance:IsA("WrapTarget")
 end
-local function addContentId(contentId, seen, target)
+local function addContentId(contentId, seen, target, station, label)
+	if contentId ~= "" then
+		tag(contentId, station or "art", label)
+	end
 	local _condition = contentId == ""
 	if not _condition then
 		local _seen = seen
@@ -74,40 +94,22 @@ local function addContentId(contentId, seen, target)
 end
 local function collectStaticContent(seen, target)
 	for _, contentId in STATIC_ASSET_MANIFEST do
-		addContentId(contentId, seen, target)
+		addContentId(contentId, seen, target, "art", if string.find(contentId, "fonts/", 1, true) then "Fonts" elseif contentId == GAME_ICON_ASSET then "Game icon" else "Icons")
 	end
-	if not UserInputService.TouchEnabled then
-		for _, contentId in FORGE_ASSET_MANIFEST do
-			addContentId(contentId, seen, target)
-		end
+	for _, contentId in FORGE_ASSET_MANIFEST do
+		addContentId(contentId, seen, target, "art", "Forge")
 	end
 	for _, player in Players:GetPlayers() do
-		local avatarSizes = if UserInputService.TouchEnabled then { { "AvatarHeadShot", 150 } } else { { "AvatarHeadShot", 150 }, { "AvatarBust", 420 } }
+		local avatarSizes = { { "AvatarHeadShot", 150 }, { "AvatarBust", 420 } }
 		for _1, _binding in avatarSizes do
 			local kind = _binding[1]
 			local size = _binding[2]
-			addContentId(`rbxthumb://type={kind}&id={player.UserId}&w={size}&h={size}`, seen, target)
+			addContentId(`rbxthumb://type={kind}&id={player.UserId}&w={size}&h={size}`, seen, target, "art", `{player.DisplayName}'s avatar`)
 		end
 	end
 end
 local function isUiElement(instance)
 	return carriesContent(instance)
-end
-local function isVisibleUiContent(instance)
-	if not instance:IsA("GuiObject") then
-		return true
-	end
-	local current = instance
-	while current ~= nil do
-		if current:IsA("GuiObject") and not current.Visible then
-			return false
-		end
-		if current:IsA("LayerCollector") then
-			return current.Enabled
-		end
-		current = current.Parent
-	end
-	return false
 end
 local function collectMountedContent(seen, target, deepWorld)
 	if deepWorld == nil then
@@ -126,13 +128,13 @@ local function collectMountedContent(seen, target, deepWorld)
 			if seen[instance] ~= nil or not isUiElement(instance) then
 				continue
 			end
-			if not UserInputService.TouchEnabled or isVisibleUiContent(instance) then
-				seen[instance] = true
-				if instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
-					addContentId(instance.Image, seen, target)
-				else
-					table.insert(target, instance)
-				end
+			seen[instance] = true
+			local label = prettyName(instance.Name) or (instance.Parent and prettyName(instance.Parent.Name))
+			if instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
+				addContentId(instance.Image, seen, target, "art", label)
+			else
+				tag(instance, "art", label)
+				table.insert(target, instance)
 			end
 		end
 	end
@@ -144,11 +146,12 @@ local function collectMountedContent(seen, target, deepWorld)
 			continue
 		end
 		seen[instance] = true
+		tag(instance, "world", prettyName(instance.Name) or (instance.Parent and prettyName(instance.Parent.Name)))
 		table.insert(target, instance)
 	end
 end
 local harvestVisits = 0
-local function harvestContentIds(value, seen, target, depth)
+local function harvestContentIds(value, seen, target, depth, label)
 	if depth == nil then
 		depth = 0
 	end
@@ -162,7 +165,7 @@ local function harvestContentIds(value, seen, target, depth)
 	local _value = value
 	if type(_value) == "string" then
 		if (string.find(value, "rbxasset")) ~= nil then
-			addContentId(value, seen, target)
+			addContentId(value, seen, target, "art", label)
 		end
 		return nil
 	end
@@ -170,11 +173,12 @@ local function harvestContentIds(value, seen, target, depth)
 	if not (type(_value_1) == "table") then
 		return nil
 	end
-	for _, child in pairs(value) do
+	local here = if type(value.Name) == "string" then value.Name elseif type(value.DisplayName) == "string" then value.DisplayName else label
+	for key, child in pairs(value) do
 		if type(child) == "function" then
 			continue
 		end
-		harvestContentIds(child, seen, target, depth + 1)
+		harvestContentIds(child, seen, target, depth + 1, if type(child) == "table" and type(key) == "string" then (prettyName(key) or here) else here)
 	end
 end
 local function collectConfigContent(seen, target)
@@ -197,8 +201,8 @@ local function collectConfigContent(seen, target)
 	if not ok then
 		return nil
 	end
-	for _, value in pairs(config) do
-		harvestContentIds(value, seen, target)
+	for key, value in pairs(config) do
+		harvestContentIds(value, seen, target, 0, prettyName(tostring(key)))
 	end
 end
 local function sampleFrameRate(seconds)
@@ -231,11 +235,28 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		local seenInstances = {}
 		local seenContentIds = {}
 		local queue = {}
+		local tags = {}
+		tagSink = tags
 		collectStaticContent(seenContentIds, queue)
-		if not UserInputService.TouchEnabled then
-			collectConfigContent(seenContentIds, queue)
-		end
+		collectConfigContent(seenContentIds, queue)
 		collectMountedContent(seenInstances, queue, true)
+		tagSink = nil
+		-- per-station counts for the loading screen
+		local totals = { art = 0, world = 0 }
+		local done = { art = 0, world = 0 }
+		local function stationOf(item)
+			local entry = tags[item]
+			return if entry ~= nil and entry.station == "world" then "world" else "art"
+		end
+		local function count(items)
+			for _, item in items do
+				local station = stationOf(item)
+				totals[station] += 1
+			end
+			Ledger.part("art", "images", done.art, totals.art)
+			Ledger.part("world", "world", done.world, totals.world)
+		end
+		count(queue)
 		local warmupTotal = 0
 		local _result = onProgress
 		if _result ~= nil then
@@ -306,6 +327,17 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 						ClientLog:warnEvery("preload-batch", 10, "Assets", tostring(preloadErr))
 					end
 					loaded += #batch
+					local lastLabel = {}
+					for _, item in batch do
+						local station = stationOf(item)
+						done[station] += 1
+						local entry = tags[item]
+						if entry ~= nil and entry.label ~= nil then
+							lastLabel[station] = entry.label
+						end
+					end
+					Ledger.part("art", "images", done.art, totals.art, lastLabel.art)
+					Ledger.part("world", "world", done.world, totals.world, lastLabel.world)
 					local _result_1 = onProgress
 					if _result_1 ~= nil then
 						_result_1(loaded, math.max(#queue + warmupTotal, loaded))
@@ -333,12 +365,15 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 				end
 				task.wait(STABILITY_SWEEP_SECONDS)
 				local late = {}
+				tagSink = tags
 				collectStaticContent(seenContentIds, late)
-				collectMountedContent(seenInstances, late, not UserInputService.TouchEnabled and sweep >= 2)
+				collectMountedContent(seenInstances, late, sweep >= 2)
+				tagSink = nil
 				if #late == 0 then
 					stableSweeps += 1
 				else
 					stableSweeps = 0
+					count(late)
 					drain(late)
 				end
 			end
@@ -396,12 +431,8 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 	watchdog = task.delay(PRELOAD_FAIL_OPEN_SECONDS, function()
 		watchdog = nil
 		if not cancelled then
-			ClientLog:warn("Assets", "complete preload deadline reached; unresolved assets will stream on demand")
+			ClientLog:warn("Assets", "preload deadline reached; the game opens and the rest keeps loading behind it")
 			markBootReady()
-			if worker ~= nil then
-				task.cancel(worker)
-				worker = nil
-			end
 		end
 	end)
 	return function()
@@ -485,6 +516,7 @@ local function warmClientModules(onProgress)
 			local moduleScript = modules[index]
 			index += 1
 			if moduleScript.Parent ~= nil and not skipWarmModule(moduleScript) then
+				Ledger.part("code", "modules", loaded, total, prettyName(moduleScript.Name))
 				local ok, exports = pcall(require, moduleScript)
 				if ok and type(exports) == "table" then
 					queueMembers(exports)
@@ -497,6 +529,7 @@ local function warmClientModules(onProgress)
 			memberIndex += 1
 			pcall(entry.suite, entry.name)
 			loaded += 1
+			Ledger.part("code", "modules", loaded, total, prettyName(entry.name))
 		end
 		local now = os.clock()
 		if onProgress ~= nil and (loaded >= total or now - lastReport >= 0.12) then

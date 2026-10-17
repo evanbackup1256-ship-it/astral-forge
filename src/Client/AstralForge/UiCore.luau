@@ -4775,6 +4775,15 @@ local function MainGame(_param)
 			return _result_2
 		end)
 	end, {})
+	-- the loading screen's stations follow the checklist
+	React.useEffect(function()
+		local Ledger = require(script.Parent.BootKit)("BootLedger")
+		for key, value in bootMarks do
+			if value then
+				Ledger.mark(key)
+			end
+		end
+	end, { bootMarks })
 	local bootReady = Boot.bootChecklistReady(bootMarks)
 	local bootFill = Boot.bootProgress(bootMarks)
 	local bootReducedMotion = false

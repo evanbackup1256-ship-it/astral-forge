@@ -2117,6 +2117,11 @@ do
 					if not ok then
 						failedBatches += 1
 					end
+					-- the loading screen counts the bank in
+					pcall(function()
+						local done = math.min(#channels, offset + #batch)
+						require(script.Parent.BootKit)("BootLedger").part("sound", "bank", done, #channels, `Sound effects {done} of {#channels}`)
+					end)
 					if not priorityPublished and offset + PRELOAD_BATCH_SIZE >= priorityCount then
 						priorityPublished = true
 						self:markWarmFor(lifecycle)
