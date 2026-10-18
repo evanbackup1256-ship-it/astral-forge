@@ -37,6 +37,7 @@ local Protocol = {
 		Ascend = "Ascend",
 		UpgradeSigil = "UpgradeSigil",
 		EchoAct = "EchoAct",
+		RebirthAct = "RebirthAct",
 		ClaimQuest = "ClaimQuest",
 		ClaimAchievement = "ClaimAchievement",
 		ClaimDaily = "ClaimDaily",

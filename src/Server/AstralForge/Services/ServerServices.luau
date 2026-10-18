@@ -48,6 +48,7 @@ serviceFactories["GameService"] = function()
 	local SharedDataSuite = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 	local LevelRewards = SharedDataSuite("LevelRewards")
 local AscensionMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionMath"))
+local RebirthMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("RebirthMath"))
 local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainLattice"))
 local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 	local ForgeLevels = SharedDataSuite("ForgeLevels")
@@ -1727,6 +1728,7 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			}),
 			PrestigeReward = prestigeReward,
 			NextPrestigeTarget = Economy.NextPrestigeTarget(prestigeReward),
+			Rebirth = self:_rebirthPublic(profile, now),
 			Revision = profile.Meta.Revision,
 			SnapshotId = runtime and runtime.SnapshotId or 0,
 			ServerTime = now,
@@ -2670,29 +2672,109 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		return result
 	end
 
-	function GameService:_rebirth(player: Player)
+	-- the rebirth ledger, normalized; saves from before it start counting from the rebirths already spent
+	local function rebirthLedger(profile, now: number)
+		local seed = nil
+		if profile.Rebirth == nil then
+			seed = (tonumber(profile.Rebirths) or 0)
+				+ (if type(profile.Domain) == "table" then tonumber(profile.Domain.TotalRebirthsSpent) or 0 else 0)
+				+ (if type(profile.Ascension) == "table" then tonumber(profile.Ascension.RebirthsSpent) or 0 else 0)
+		end
+		profile.Rebirth = RebirthMath.ensure(profile.Rebirth, now, seed)
+		return profile.Rebirth
+	end
+
+	-- the facts a vow is judged on, and the flux this run would convert
+	local function rebirthRun(profile, now: number, ledger)
+		local kinds = 0
+		for _, level in profile.Machines or {} do
+			if type(level) == "number" and level >= 1 then
+				kinds += 1
+			end
+		end
+		local rebirthConfig = GameConfig.Economy.Rebirth or {}
+		local bank = if rebirthConfig.BankVaultIntoRun ~= false then Economy.Add(profile.RunCash, profile.Vault) else profile.RunCash
+		local ratio = Economy.AsNumber(bank) / math.max(1, GameConfig.Economy.PrestigeRequirement)
+		return { Seconds = now - ledger.RunStartedAt, Zone = profile.Zone, MachineKinds = kinds, Ratio = ratio }, bank
+	end
+
+	-- cores and stardust before the ledger's own multipliers, or nil when the run can't convert yet
+	local function rebirthBase(profile, bank)
+		local reward = Economy.PrestigeReward(bank)
+		if not RebirthGate.CanRebirth(reward, Economy.Gte) then
+			return nil, 0
+		end
+		reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
+		reward = Economy.Floor(Economy.Mul(reward, Economy.AscensionEffect(profile, "Cores")))
+		local rebirthConfig = GameConfig.Economy.Rebirth or {}
+		local dust = RebirthGate.StardustReward(Economy.AsNumber(reward), tonumber(rebirthConfig.StardustSqrtScale) or 5, tonumber(rebirthConfig.StardustMinimum) or 4)
+		return reward, dust
+	end
+
+	-- machines a keepsake may carry: ones that live in the first world and are open after this rebirth
+	local function keepsakeAllowed(profile)
+		return function(id: string): boolean
+			local machine = Economy.GetMachine(id)
+			return machine ~= nil
+				and (tonumber(machine.RequiredZone) or 1) <= 1
+				and RebirthGate.MeetsRequired((tonumber(profile.Rebirths) or 0) + 1, machine.RequiredRebirths)
+		end
+	end
+
+	function GameService:_rebirthPublic(profile, now: number)
+		local ledger = rebirthLedger(profile, now)
+		local run, bank = rebirthRun(profile, now, ledger)
+		local reward, dust = rebirthBase(profile, bank)
+		local quote = RebirthMath.quote(ledger, { Cores = if reward then Economy.AsNumber(reward) else 0, Stardust = dust }, run)
+		local holds, status = RebirthMath.vowHolds(ledger, run)
+		local _, nextStar = RebirthMath.nextStar(ledger)
+		return {
+			Ready = reward ~= nil,
+			Cores = if reward then Economy.Max(1, Economy.Floor(Economy.Mul(reward, quote.CoreMultiplier))) else 0,
+			Stardust = if reward then quote.Stardust else 0,
+			Grade = quote.Grade,
+			Vow = ledger.Vow,
+			VowHolds = holds,
+			VowStatus = status,
+			VowOpen = now <= ledger.RunStartedAt + RebirthMath.VOW_GRACE,
+			KeptVows = table.clone(ledger.Kept),
+			RunStartedAt = ledger.RunStartedAt,
+			Lifetime = ledger.Lifetime,
+			Stars = table.clone(ledger.Stars),
+			Pending = RebirthMath.pendingStars(ledger),
+			NextStar = nextStar,
+			Keep = table.clone(ledger.Keep),
+			KeepSlots = RebirthMath.keepSlots(ledger.Lifetime),
+			Runs = table.clone(ledger.Runs),
+			BestCores = ledger.BestCores,
+			FastestSeconds = ledger.FastestSeconds,
+		}
+	end
+
+	function GameService:_rebirth(player: Player, payload: any)
+		payload = if type(payload) == "table" then payload else {}
 		local result = self:_mutate(player, function(profile)
+			local now = os.time()
 			local rebirthConfig = GameConfig.Economy.Rebirth or {}
-			local bankVault = rebirthConfig.BankVaultIntoRun ~= false
-			local effectiveRun = if bankVault
-				then Economy.Add(profile.RunCash, profile.Vault)
-				else profile.RunCash
-			local reward = Economy.PrestigeReward(effectiveRun)
-			if not RebirthGate.CanRebirth(reward, Economy.Gte) then
+			local ledger = rebirthLedger(profile, now)
+			local run, bank = rebirthRun(profile, now, ledger)
+			local reward, stardustBase = rebirthBase(profile, bank)
+			if reward == nil then
 				return responseError(
 					"Bank at least "
 						.. Format.Number(GameConfig.Economy.PrestigeRequirement)
 						.. " run flux first."
 				)
 			end
+			if payload.Keep ~= nil then
+				RebirthMath.setKeep(ledger, payload.Keep)
+			end
+			local quote = RebirthMath.quote(ledger, { Cores = Economy.AsNumber(reward), Stardust = stardustBase }, run)
+			reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, quote.CoreMultiplier)))
+			local stardustReward = quote.Stardust
 			local bankedVault = profile.Vault
 			local multiplierBefore = Economy.PermanentMultiplier(profile)
-			reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
-			reward = Economy.Floor(Economy.Mul(reward, Economy.AscensionEffect(profile, "Cores")))
 			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward))
-			local stardustScale = tonumber(rebirthConfig.StardustSqrtScale) or 5
-			local stardustMinimum = tonumber(rebirthConfig.StardustMinimum) or 4
-			local stardustReward = RebirthGate.StardustReward(Economy.AsNumber(reward), stardustScale, stardustMinimum)
 			profile.Stardust = math.clamp((tonumber(profile.Stardust) or 0) + stardustReward, 0, 1e14)
 			profile.BoostInventory = profile.BoostInventory or {}
 			local celebrationBoost = rebirthConfig.CelebrationBoostId or "Overdrive"
@@ -2700,13 +2782,15 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 			if GameConfig.Boosts[celebrationBoost] then
 				profile.BoostInventory[celebrationBoost] = (profile.BoostInventory[celebrationBoost] or 0) + bonusCount
 			end
+			local carry = RebirthMath.carry(ledger, profile.Machines, Economy.AsNumber(profile.Vault), GameConfig.Economy.StartingCash, keepsakeAllowed(profile))
+			local entry = RebirthMath.close(ledger, quote, now, if type(payload.Vow) == "string" then payload.Vow else nil, nil)
 			profile.Rebirths += 1
-			profile.Cash = GameConfig.Economy.StartingCash
+			profile.Cash = carry.Cash
 			profile.Vault = 0
 			profile.RunCash = 0
 			profile.Zone = 1
 			profile.CurrentZone = 1
-			profile.Machines = { StellarCore = 1 }
+			profile.Machines = carry.Machines
 
 			if profile.Items and profile.Items.Equipped then
 				for target in profile.Items.Equipped do
@@ -2719,8 +2803,10 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 					end
 				end
 			end
+			local vow = RebirthMath.vow(quote.Vow)
+			local vowLine = if vow and quote.Kept then " " .. vow.Name .. " kept." elseif vow then " " .. vow.Name .. " broken." else ""
 			-- reward can be a persisted big-number string, so %d would throw on late-game rebirths
-			return responseSuccess("Rebirth complete. +" .. Format.Number(reward) .. " cores, +" .. Format.Number(stardustReward) .. " stardust.", {
+			return responseSuccess("Rebirth " .. entry.N .. ", grade " .. quote.Grade .. ". +" .. Format.Number(reward) .. " cores, +" .. Format.Number(stardustReward) .. " stardust." .. vowLine, {
 				Rebirths = profile.Rebirths,
 				MultiplierBefore = multiplierBefore,
 				MultiplierAfter = Economy.PermanentMultiplier(profile),
@@ -2729,6 +2815,13 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 				BankedVault = bankedVault,
 				CelebrationBoost = celebrationBoost,
 				NextTarget = GameConfig.Economy.PrestigeRequirement,
+				Grade = quote.Grade,
+				Vow = quote.Vow,
+				VowKept = quote.Kept,
+				Seconds = entry.Seconds,
+				Carried = carry.Machines,
+				NextVow = ledger.Vow,
+				StarLit = #RebirthMath.pendingStars(ledger) > 0,
 			})
 		end)
 		if result.ok then
@@ -2741,9 +2834,42 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 				StardustReward = result.StardustReward,
 				BankedVault = result.BankedVault,
 				CelebrationBoost = result.CelebrationBoost,
+				Grade = result.Grade,
+				VowKept = result.VowKept,
 			})
 		end
 		return result
+	end
+
+	-- between rebirths: light a star, swear or drop a vow, choose keepsakes
+	function GameService:_rebirthAct(player: Player, payload: any)
+		if type(payload) ~= "table" then
+			return responseError("Invalid rebirth request.")
+		end
+		return self:_mutate(player, function(profile)
+			local now = os.time()
+			local ledger = rebirthLedger(profile, now)
+			if payload.Op == "Star" then
+				local index = math.floor(tonumber(payload.Index) or 0)
+				local ok, message = RebirthMath.pickStar(ledger, index, math.floor(tonumber(payload.Pick) or 0))
+				if not ok then
+					return responseError(message)
+				end
+				return responseSuccess("Star lit: " .. tostring(message) .. ".", { Star = index })
+			elseif payload.Op == "Vow" then
+				local ok, message = RebirthMath.swear(ledger, if type(payload.Vow) == "string" then payload.Vow else "", now)
+				if not ok then
+					return responseError(message)
+				end
+				return responseSuccess(message, { Vow = ledger.Vow })
+			elseif payload.Op == "Keep" then
+				if not RebirthMath.setKeep(ledger, payload.Keep) then
+					return responseError("Pick machines to keep.")
+				end
+				return responseSuccess("Keepsakes set.", { Keep = table.clone(ledger.Keep) })
+			end
+			return responseError("Unknown rebirth action.")
+		end)
 	end
 
 	function GameService:_claimQuest(player: Player, questId: any)
@@ -4852,7 +4978,9 @@ local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("Ast
 		elseif action == Protocol.Actions.SelectZone then
 			return self:_selectZone(player, payload and payload.Id)
 		elseif action == Protocol.Actions.Rebirth then
-			return self:_rebirth(player)
+			return self:_rebirth(player, payload)
+		elseif action == Protocol.Actions.RebirthAct then
+			return self:_rebirthAct(player, payload)
 		elseif action == Protocol.Actions.Ascend then
 			return self:_ascend(player)
 		elseif action == Protocol.Actions.UpgradeSigil then

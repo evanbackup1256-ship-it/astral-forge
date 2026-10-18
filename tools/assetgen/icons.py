@@ -10,7 +10,8 @@ Every icon is two layers: the body, and a light layer (rim light, glints, sparkl
 game animates (spin, pulse, glint sweep, twinkle, bob, beat) so icons feel alive.
 
     python tools/assetgen/icons.py --preview          # contact sheet of every concept + variants
-    python tools/assetgen/icons.py                    # render every id into atlas sheets + manifest
+    python tools/assetgen/icons.py                    # draw the ids not on a sheet yet into the next free cells
+    python tools/assetgen/icons.py --full             # render every id into fresh atlas sheets + manifest
 """
 from __future__ import annotations
 
@@ -859,8 +860,19 @@ def render(spec):
 
 
 # ------------------------------------------------------------------ sheets
-def build(ids, out_dir):
-    out_dir.mkdir(parents=True, exist_ok=True)
+def stable_order(ids, out_dir):
+    """cells never move: icons already on a sheet keep their place, new ones go on the end"""
+    old = []
+    path = out_dir / "manifest.json"
+    if path.exists():
+        previous = json.loads(path.read_text(encoding="utf-8"))
+        old = previous.get("order") or sorted(previous["icons"], key=lambda i: (previous["icons"][i]["body"][0], previous["icons"][i]["body"][2], previous["icons"][i]["body"][1]))
+    known = set(old)
+    return old + sorted(i for i in ids if i not in known)
+
+
+def unique_specs(ids):
+    """one spec per id, in order; a clash with an earlier icon re-rolls until it is unlike every other"""
     seen = {}
     specs = []
     for icon_id in ids:
@@ -874,6 +886,48 @@ def build(ids, out_dir):
             raise SystemExit(f"could not make {icon_id} unique (clashes with {seen[signature(spec)]})")
         seen[signature(spec)] = icon_id
         specs.append(spec)
+    return specs
+
+
+def place(manifest, spec, k):
+    """cell k (body and light are two cells) -> [sheet, x, y]"""
+    per_sheet = PER_ROW * PER_ROW
+    n, c = divmod(k, per_sheet)
+    return [n, (c % PER_ROW) * CELL, (c // PER_ROW) * CELL]
+
+
+def build_incremental(ids, out_dir):
+    """render only the icons not on a sheet yet and paste them into the next free cells; every other
+    cell stays exactly as it was uploaded, so only the sheets that gained icons need uploading again"""
+    previous = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest = {k: dict(v) for k, v in previous["icons"].items()}
+    sheets = list(previous["sheets"])
+    specs = unique_specs(ids)
+    fresh = [spec for spec in specs if spec["id"] not in manifest]
+    cell = 2 * (len(ids) - len(fresh))
+    touched = {}
+    for spec in fresh:
+        body, light = render(spec)
+        for layer, img in (("body", body), ("light", light)):
+            at = place(manifest, spec, cell)
+            cell += 1
+            while at[0] >= len(sheets):
+                sheets.append(f"icons_{len(sheets):03d}.png")
+            if at[0] not in touched:
+                path = out_dir / sheets[at[0]]
+                touched[at[0]] = Image.open(path).convert("RGBA") if path.exists() else Image.new("RGBA", (SHEET, SHEET), (0, 0, 0, 0))
+            touched[at[0]].paste(img, (at[1], at[2]))
+            manifest.setdefault(spec["id"], {})[layer] = at
+        manifest[spec["id"]].update(anim=spec["anim"], phase=spec["phase"], speed=spec["speed"], accent=list(MATERIALS[spec["material"]]["accent"]))
+        print("drew", spec["id"], flush=True)
+    for n, img in touched.items():
+        img.save(out_dir / sheets[n], optimize=True)
+    return sheets, manifest
+
+
+def build(ids, out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    specs = unique_specs(ids)
     per_sheet = PER_ROW * PER_ROW
     sheets = []
     manifest = {}
@@ -899,6 +953,12 @@ def build(ids, out_dir):
         entry = manifest[spec["id"]]
         entry.update(anim=spec["anim"], phase=spec["phase"], speed=spec["speed"], accent=list(MATERIALS[spec["material"]]["accent"]))
     return sheets, manifest
+
+
+def sheet_hash(path):
+    """what a sheet looks like, so only sheets that changed are uploaded again"""
+    with Image.open(path) as img:
+        return hashlib.sha1(img.convert("RGBA").tobytes()).hexdigest()
 
 
 def preview(path):
@@ -952,8 +1012,12 @@ if __name__ == "__main__":
         preview(OUT / "preview.png")
     else:
         ids_path = OUT / "ids.json"
-        ids = json.loads(ids_path.read_text(encoding="utf-8"))
-        sheets, manifest = build(ids, OUT)
-        (OUT / "manifest.json").write_text(json.dumps({"sheets": sheets, "icons": manifest}), encoding="utf-8")
+        ids = stable_order(json.loads(ids_path.read_text(encoding="utf-8")), OUT)
+        if (OUT / "manifest.json").exists() and "--full" not in sys.argv:
+            sheets, manifest = build_incremental(ids, OUT)
+        else:
+            sheets, manifest = build(ids, OUT)
+        hashes = [sheet_hash(OUT / name) for name in sheets]
+        (OUT / "manifest.json").write_text(json.dumps({"sheets": sheets, "order": ids, "hashes": hashes, "icons": manifest}), encoding="utf-8")
         write_luau(sheets, manifest)
         print(f"{len(ids)} icons on {len(sheets)} sheets")

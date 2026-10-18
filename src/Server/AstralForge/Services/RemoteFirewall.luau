@@ -151,6 +151,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.Ascend] = { Cost = 5, Cooldown = 5 },
 		[Protocol.Actions.UpgradeSigil] = { Cost = 1.5, Cooldown = 0.3 },
 		[Protocol.Actions.EchoAct] = { Cost = 0.8, Cooldown = 0.15 },
+		[Protocol.Actions.RebirthAct] = { Cost = 0.6, Cooldown = 0.2 },
 		[Protocol.Actions.TradeChat] = { Cost = 0.8, Cooldown = 0.5 },
 		[Protocol.Actions.TradeRequest] = { Cost = 0.6, Cooldown = 0.3 },
 		[Protocol.Actions.ReportClientIntegrity] = { Cost = 0.25, Cooldown = 30 },
@@ -223,7 +224,6 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.GetAdminState] = true,
 		[Protocol.Actions.CollectVault] = true,
 		[Protocol.Actions.Overcharge] = true,
-		[Protocol.Actions.Rebirth] = true,
 		[Protocol.Actions.DomainExpansion] = true,
 		[Protocol.Actions.UpgradeContinuum] = true,
 		[Protocol.Actions.Ascend] = true,
@@ -612,6 +612,32 @@ return function(loadService: (string) -> any)
 			local ids = payload.Request.ItemIds
 			if ids ~= nil and (type(ids) ~= "table" or #ids > 16) then
 				return false, "invalid requested relics"
+			end
+		elseif action == Protocol.Actions.Rebirth or action == Protocol.Actions.RebirthAct then
+			if action == Protocol.Actions.RebirthAct then
+				local ops = { Star = true, Vow = true, Keep = true }
+				if type(payload.Op) ~= "string" or not ops[payload.Op] then
+					return false, "invalid rebirth action"
+				end
+				for _, field in { "Index", "Pick" } do
+					if payload[field] ~= nil and not numberField(payload, field, 0, 64, true) then
+						return false, "invalid rebirth number"
+					end
+				end
+			end
+			if payload.Vow ~= nil and (type(payload.Vow) ~= "string" or #payload.Vow > 16) then
+				return false, "invalid vow"
+			end
+			local keep = payload.Keep
+			if keep ~= nil then
+				if type(keep) ~= "table" or #keep > 3 then
+					return false, "invalid keepsakes"
+				end
+				for _, id in keep do
+					if type(id) ~= "string" or #id > 48 then
+						return false, "invalid keepsake"
+					end
+				end
 			end
 		elseif action == Protocol.Actions.EchoAct then
 			local op = type(payload) == "table" and payload.Op or nil

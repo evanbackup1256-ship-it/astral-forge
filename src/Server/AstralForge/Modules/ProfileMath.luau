@@ -969,6 +969,7 @@ ActionFeatureMaps.FEATURE = {
 	Ascend = "Ascension",
 	UpgradeSigil = "Ascension",
 	EchoAct = "Echoes",
+	RebirthAct = "Rebirth",
 	ClaimQuest = "Missions",
 	ClaimAchievement = "Milestones",
 	SpinWheel = "Wheel",

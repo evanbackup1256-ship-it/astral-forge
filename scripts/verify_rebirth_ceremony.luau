@@ -30,7 +30,7 @@ assert(string.find(rebirthPanel, "local function beginIgnition", 1, true) or str
 assert(string.find(rebirthPanel, "cancelIgnition", 1, true), "ignition cancellable")
 assert(string.find(rebirthPanel, "stopIgnition()", 1, true), "ignition stops on unmount")
 assert(string.find(rebirthPanel, "RebirthLedger", 1, true), "keep/reset ledger")
-assert(string.find(rebirthPanel, "RebirthGateTrack", 1, true), "gate track")
+assert(string.find(rebirthPanel, "local gate = rebirthGate(config, rebirths)", 1, true) and string.find(rebirthPanel, "{gate.name} at rebirth {gate.need}.", 1, true), "the card names the next gate")
 assert(string.find(rebirthPanel, "ChargeDial", 1, true), "charge dial")
 
 local rebirthServer = slice(server, "function GameService:_rebirth", "function GameService:_claimQuest")

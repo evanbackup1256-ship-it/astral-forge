@@ -25,7 +25,7 @@ CONCEPTS = set(GLYPHS)
 LIT = re.compile(r'"([A-Z][A-Za-z]+)(\.[A-Za-z0-9_]+)?"')
 FIELD = re.compile(r'\b(?:icon|Icon)\s*=(?!=)\s*')
 KIND = re.compile(r'\bkind\s*=(?!=)\s*')
-TABLES = ("local ITEM_ICONS = {", "local KIND_ICON = {")
+TABLES = ("local ITEM_ICONS = {", "local KIND_ICON = {", "local REBIRTH_ICONS = {")
 # ids chosen in code rather than written as a field (ArtKit's reward/item/player helpers)
 EXTRA = [f"{c}.reward" for c in ("Core", "Dust", "Boost", "Wheel", "Crate", "Flux", "Command", "Artifact", "Gift")] + ["Forge.item", "Research.item", "Pilot.mark"]
 

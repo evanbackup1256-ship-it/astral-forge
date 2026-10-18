@@ -1754,7 +1754,14 @@ return {
 end
 
 __defs["RebirthPanel"] = function()
+-- The rebirth card on the overview, and the chamber it opens. The card is the run at a glance: how
+-- far the flux has come, the run clock, the vow you swore and what a rebirth pays right now. The
+-- chamber is where a run ends: the payout and its grade, the vow for the next run, keepsakes,
+-- stars waiting to be lit, the run log, and the two-step ignition. The rules are RebirthMath's,
+-- and the payout is the server's own quote, so the numbers here are the numbers you get.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
@@ -1762,10 +1769,11 @@ local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadN
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
-local gteFlux = _format.gteFlux
 local InteractionFeedback = require(script.Parent.Parent.CoreKit)("interaction").InteractionFeedback
+local Icon = require(script.Parent.Parent.ArtKit)("Icon").Icon
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useFlash = _motion.useFlash
+local usePulse = _motion.usePulse
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
@@ -1781,33 +1789,110 @@ local Meter = _ui.Meter
 local Panel = _ui.Panel
 local Text = _ui.Text
 local meterFill = _ui.meterFill
+local acquireDropdownPortal = _ui.acquireDropdownPortal
+local releaseDropdownPortal = _ui.releaseDropdownPortal
+local RebirthMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("RebirthMath"))
+local h = React.createElement
+
+local VOW_ART = {
+	[""] = { icon = "Hide.rebirthVowNone", color = Palette.muted, name = "No vow", line = "Run however you like." },
+	Swift = { icon = "Timer.rebirthVowSwift", color = Palette.cyan },
+	Lean = { icon = "Grid.rebirthVowLean", color = Palette.mint },
+	Homebound = { icon = "World.rebirthVowHomebound", color = Palette.mango },
+	Overflow = { icon = "Vault.rebirthVowOverflow", color = Palette.violet },
+}
+local PERK_ART = {
+	HeadStart = { icon = "Core.rebirthStarHeadStart", color = Palette.cyan },
+	StartCash = { icon = "Flux.rebirthStarSeed", color = Palette.mango },
+	CoreYield = { icon = "Production.rebirthStarCores", color = Palette.violet },
+	DustYield = { icon = "Dust.rebirthStarDust", color = Palette.cream },
+	VowPower = { icon = "Lock.rebirthStarVow", color = Palette.coral },
+	KeepShare = { icon = "Loadout.rebirthStarKeep", color = Palette.mint },
+	VaultCarry = { icon = "Ember.rebirthStarPurse", color = Palette.mango },
+}
+-- art chosen in code: the card's dial, its vow line, and keepsakes (only first-world machines)
+local REBIRTH_ICONS = {
+	Dial = "Rebirth.rebirthDial",
+	PanelVowNone = "Hide.rebirthPanelVowNone",
+	PanelVowSwift = "Timer.rebirthPanelVowSwift",
+	PanelVowLean = "Grid.rebirthPanelVowLean",
+	PanelVowHomebound = "World.rebirthPanelVowHomebound",
+	PanelVowOverflow = "Vault.rebirthPanelVowOverflow",
+	KeepStellarCore = "Core.rebirthKeepStellar",
+	KeepLunarExtractor = "Production.rebirthKeepLunar",
+	KeepPrismRefinery = "Forge.rebirthKeepPrism",
+	KeepOther = "Loadout.rebirthKeepOther",
+}
+local GRADE_COLOR = { S = Palette.mango, A = Palette.mint, B = Palette.cyan, C = Palette.muted }
+local GRADE_LINE = {
+	S = "A new best, with the vow kept.",
+	A = "A new best or a kept vow.",
+	B = "At least half your best run.",
+	C = "Under half your best run.",
+}
+
+local function clock(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	local hours = seconds // 3600
+	local minutes = (seconds % 3600) // 60
+	if hours > 0 then
+		return string.format("%d:%02d:%02d", hours, minutes, seconds % 60)
+	end
+	return string.format("%d:%02d", minutes, seconds % 60)
+end
+
+-- the server's rebirth snapshot, or a quiet empty one before the first state arrives
+local function rebirthOf(state)
+	local info = state.Rebirth
+	if type(info) == "table" then
+		return info
+	end
+	return {
+		Ready = false, Cores = 0, Stardust = 0, Grade = "C", Vow = "", VowHolds = false, VowStatus = "",
+		VowOpen = false, KeptVows = {}, RunStartedAt = state.ServerTime or 0, Lifetime = tonumber(state.Rebirths) or 0,
+		Stars = {}, Pending = {}, Keep = {}, KeepSlots = 0, Runs = {}, BestCores = 0, FastestSeconds = 0,
+	}
+end
+
+local function vowName(id: string): string
+	local vow = RebirthMath.vow(id)
+	return if vow then vow.Name else VOW_ART[""].name
+end
+
+-- the run clock ticks on the client between state pushes
+local function useRunClock(startedAt: number, serverTime: number?)
+	local offset = React.useMemo(function()
+		return (tonumber(serverTime) or os.time()) - os.time()
+	end, { serverTime })
+	local seconds, setSeconds = React.useState(0)
+	React.useEffect(function()
+		local alive = true
+		local job = task.spawn(function()
+			while alive do
+				setSeconds(os.time() + offset - startedAt)
+				task.wait(1)
+			end
+		end)
+		return function()
+			alive = false
+			pcall(task.cancel, job)
+		end
+	end, { startedAt, offset })
+	return seconds
+end
 
 local function featuresOpeningOnNextRebirth(config, nextCount: number): string
 	local unlocks = if config ~= nil and type(config.Unlocks) == "table" then config.Unlocks else nil
 	if unlocks == nil then
 		return ""
 	end
-	local wanted = {}
+	local names = {}
 	for _, rule in unlocks do
 		if type(rule) == "table" and rule.Kind == "Rebirths" and rule.Target == nextCount and type(rule.Name) == "string" then
-			wanted[rule.Name] = true
+			table.insert(names, rule.Name)
 		end
 	end
-	local names = {}
-	for _, name in { "Reactor", "Crew", "Trade Floor", "Command" } do
-		if wanted[name] then
-			table.insert(names, name)
-			wanted[name] = nil
-		end
-	end
-	local rest = {}
-	for name in wanted do
-		table.insert(rest, name)
-	end
-	table.sort(rest)
-	for _, name in rest do
-		table.insert(names, name)
-	end
+	table.sort(names)
 	return table.concat(names, ", ")
 end
 
@@ -1841,17 +1926,7 @@ local function rebirthGate(config, rebirths: number)
 	return { name = bestName, need = bestNeed, last = lastNeed }
 end
 
-local function nextMachineRebirthNote(config, rebirths: number): string
-	local gate = rebirthGate(config, rebirths)
-	if gate == nil then
-		return ""
-	end
-	local away = gate.need - rebirths
-	return `Next gate: {gate.name} at {gate.need} rebirth{if gate.need == 1 then "" else "s"} ({away} to go).`
-end
-
 local DIAL_DOTS = 18
-local GATE_PIPS = 12
 
 -- ring of dots around the rebirth glyph; fills with run progress, then with the ignition charge
 local function ChargeDial(props)
@@ -1861,7 +1936,7 @@ local function ChargeDial(props)
 	for i = 1, DIAL_DOTS do
 		local angle = -math.pi / 2 + (i - 1) / DIAL_DOTS * math.pi * 2
 		local threshold = (i - 0.5) / DIAL_DOTS
-		children["d" .. i] = React.createElement("frame", {
+		children["d" .. i] = h("frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.new(0.5, math.cos(angle) * radius, 0.5, math.sin(angle) * radius),
 			Size = props.fill:map(function(amount)
@@ -1874,31 +1949,17 @@ local function ChargeDial(props)
 			BackgroundTransparency = props.fill:map(function(amount)
 				return if amount >= threshold then 0 else 0.4
 			end),
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}))
+			ZIndex = props.zIndex,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }))
 	end
-	return React.createElement("frame", {
+	return h("frame", {
 		Name = "ChargeDial",
 		Size = UDim2.fromOffset(size, size),
 		Position = props.position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, children, React.createElement("frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(size - 2, size - 2),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = props.accent,
-		Thickness = 2,
-		Transparency = props.charge:map(function(amount)
-			return 1 - amount * 0.75
-		end),
-	})), React.createElement("frame", {
+		ZIndex = props.zIndex,
+	}, children, h("frame", {
 		Name = "ChargeHalo",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -1907,60 +1968,195 @@ local function ChargeDial(props)
 		end),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
+		ZIndex = props.zIndex,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
 		Color = props.accent,
-		Thickness = 1,
+		Thickness = 2,
 		Transparency = props.charge:map(function(amount)
-			return 1 - amount * 0.85
+			return 1 - amount * 0.8
 		end),
 	})), props.children)
 end
 
-local function RebirthPanel(_param)
-	local state = _param.state
-	local config = _param.config
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local effectsPaused = _param.effectsPaused
-	local height = _param.height
-	local reveal = _param.reveal
-	local openWorkshop = _param.openWorkshop
-	local layoutOrder = _param.layoutOrder
-	if layoutOrder == nil then
-		layoutOrder = 2
+-- a titled block inside the chamber
+local function Section(props)
+	return h("frame", {
+		Name = props.name,
+		LayoutOrder = props.order,
+		Size = UDim2.new(1, 0, 0, props.height),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 903,
+	}, h(Text, {
+		value = props.title,
+		size = 10,
+		color = props.accent or Palette.muted,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		sizeConstraint = UDim2.new(1, -120, 0, 14),
+		zIndex = 904,
+	}), props.note and h(Text, {
+		value = props.note,
+		size = 10,
+		color = Palette.muted,
+		align = Enum.TextXAlignment.Right,
+		fit = false,
+		position = UDim2.new(1, -220, 0, 0),
+		sizeConstraint = UDim2.fromOffset(220, 14),
+		zIndex = 904,
+	}), h("frame", {
+		Position = UDim2.fromOffset(0, 22),
+		Size = UDim2.new(1, 0, 1, -22),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 903,
+	}, props.children))
+end
+
+-- one choosable card: a vow, a star's perk, a keepsake
+local function ChoiceCard(props)
+	local hover, setHover = React.useState(false)
+	local chosen = props.chosen
+	local tint = props.color
+	return h("textbutton", {
+		Name = props.name,
+		LayoutOrder = props.order,
+		Size = props.size,
+		Position = props.position,
+		BackgroundColor3 = if chosen then darken(tint, 0.62) elseif hover then Palette.panelSoft else Palette.ink,
+		BackgroundTransparency = if chosen then 0 else 0.25,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Selectable = true,
+		ZIndex = 905,
+		Event = {
+			Activated = function()
+				if props.disabled then
+					Audio:play("error")
+					return
+				end
+				Audio:play(props.sound or "tabSwitch")
+				props.onPick()
+			end,
+			MouseEnter = function()
+				setHover(true)
+			end,
+			MouseLeave = function()
+				setHover(false)
+			end,
+		},
+	}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), h("uistroke", {
+		Color = tint,
+		Thickness = if chosen then 2 else 1,
+		Transparency = if chosen then 0.05 elseif hover then 0.35 else 0.7,
+	}), h(Icon, {
+		kind = props.icon,
+		size = props.iconSize or 30,
+		position = UDim2.fromOffset(10, 10),
+		zIndex = 906,
+	}), h(Text, {
+		value = props.title,
+		size = 13,
+		color = if props.disabled then Palette.muted else Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset((props.iconSize or 30) + 18, 9),
+		sizeConstraint = UDim2.new(1, -((props.iconSize or 30) + 26), 0, 17),
+		zIndex = 906,
+	}), h(Text, {
+		value = props.body,
+		size = 10,
+		color = if props.disabled then Palette.muted else Palette.creamSoft,
+		wrap = true,
+		fit = false,
+		position = UDim2.fromOffset((props.iconSize or 30) + 18, 28),
+		sizeConstraint = UDim2.new(1, -((props.iconSize or 30) + 26), 1, -32),
+		zIndex = 906,
+	}), props.tag and h(Text, {
+		value = props.tag,
+		size = 9,
+		color = tint,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Right,
+		fit = false,
+		position = UDim2.new(1, -96, 0, 10),
+		sizeConstraint = UDim2.fromOffset(86, 12),
+		zIndex = 906,
+	}))
+end
+
+-- the last runs as bars: height is the payout, colour is the grade, a dot marks a kept vow
+local function RunLog(props)
+	local runs = props.runs
+	local best = 1
+	for _, run in runs do
+		best = math.max(best, tonumber(run.Cores) or 0)
 	end
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
+	local bars = {}
+	local count = RebirthMath.LOG_LIMIT
+	for i = 1, count do
+		local run = runs[#runs - count + i]
+		local share = if run then math.clamp((tonumber(run.Cores) or 0) / best, 0.06, 1) else 0
+		local tint = if run then GRADE_COLOR[run.Grade] or Palette.muted else Palette.panelSoft
+		bars["b" .. i] = h("frame", {
+			Size = UDim2.new(1 / count, -6, 1, -18),
+			Position = UDim2.new((i - 1) / count, 3, 0, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 905,
+		}, h("frame", {
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.fromScale(0, 1),
+			Size = props.grow:map(function(amount)
+				return UDim2.new(1, 0, if run then share * amount else 0.04, 0)
+			end),
+			BackgroundColor3 = tint,
+			BackgroundTransparency = if run then 0.1 else 0.6,
+			BorderSizePixel = 0,
+			ZIndex = 906,
+		}, h("uicorner", { CornerRadius = UDim.new(0, 4) })), run and h(Text, {
+			value = run.Grade,
+			size = 10,
+			color = tint,
+			weight = Enum.FontWeight.Heavy,
+			align = Enum.TextXAlignment.Center,
+			fit = false,
+			position = UDim2.new(0, 0, 1, 2),
+			sizeConstraint = UDim2.new(1, 0, 0, 14),
+			zIndex = 906,
+		}))
+	end
+	return h("frame", {
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 904,
+	}, bars)
+end
+
+local function RebirthChamber(props)
+	local state = props.state
+	local config = props.config
+	local dispatch = props.dispatch
+	local effectsPaused = props.effectsPaused
+	local reducedMotion = props.reducedMotion
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	local canRebirth = gteFlux(state.PrestigeReward, 1)
-	local target = math.max(1, asFlux(state.NextPrestigeTarget))
-	local conversionFlux = math.max(0, asFlux(state.RunCash)) + math.max(0, asFlux(state.Vault))
-	local progress = if canRebirth then 1 else meterFill(conversionFlux, target)
-	local rebirthBag = if config ~= nil and type(config.Economy) == "table" then config.Economy.Rebirth else nil
-	local stardustScale = if type(rebirthBag) == "table" and type(rebirthBag.StardustSqrtScale) == "number" then rebirthBag.StardustSqrtScale else 5
-	local stardustMinimum = if type(rebirthBag) == "table" and type(rebirthBag.StardustMinimum) == "number" then rebirthBag.StardustMinimum else 4
-	local coreReward = math.max(0, asFlux(state.PrestigeReward))
-	local stardustReward = math.max(stardustMinimum, math.floor(math.sqrt(coreReward) * stardustScale))
-	local rebirths = math.max(0, math.floor(tonumber(state.Rebirths) or 0))
-	local economy = if config ~= nil and type(config.Economy) == "table" then config.Economy else nil
-	local rebirthRate = if economy ~= nil and type(economy.RebirthMultiplier) == "number" then economy.RebirthMultiplier else 0.14
-	local rebirthPercent = math.floor(rebirthRate * 100 + 0.5)
-	local opens = featuresOpeningOnNextRebirth(config, rebirths + 1)
-	local gate = rebirthGate(config, rebirths)
-	local machineNote = nextMachineRebirthNote(config, rebirths)
-	local payoff = `You gain cores, stardust, and +{rebirthPercent}% production per rebirth.`
-	if opens ~= "" then
-		payoff ..= ` Opens {opens}.`
-	end
-	if machineNote ~= "" and stack then
-		payoff ..= ` {machineNote}`
-	end
-	local keepCopy = "Research, stardust, relics, milestones, Domain, Continuum"
-	local resetCopy = "Run flux, worlds, machines (Stellar Core back to Lv 1)"
+	local info = rebirthOf(state)
+	local portal = React.useState(acquireDropdownPortal)
+	React.useEffect(function()
+		return function()
+			releaseDropdownPortal()
+		end
+	end, {})
+	local nextVow, setNextVow = React.useState(info.Vow or "")
+	local keep, setKeep = React.useState(function()
+		return table.clone(info.Keep or {})
+	end)
 	local confirming, setConfirming = React.useState(false)
 	local busy, setBusy = React.useState(false)
 	local igniting, setIgniting = React.useState(false)
@@ -1970,12 +2166,11 @@ local function RebirthPanel(_param)
 	local ignitionRef = React.useRef(nil)
 	local confirmArmedRef = React.useRef(nil)
 	local rebirthClaimHostRef = React.useRef(nil)
-	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
-	local confirmReveal = useStagger(0, softMotion)
-	local heroReveal = useStagger(1, softMotion)
-	local meterReveal = useStagger(2, softMotion)
-	local rewardReveal = useStagger(3, softMotion)
-	local rebirthSoft = reducedMotion or meterReveal == nil or rewardReveal == nil
+	local enter = useStagger(0, softMotion)
+	local grow = useStagger(2, softMotion)
+	local gradeGlow = usePulse(not softMotion and not effectsPaused and info.Ready == true, 1.8)
+	local runSeconds = useRunClock(tonumber(info.RunStartedAt) or 0, state.ServerTime)
+	local canRebirth = info.Ready == true
 	local function stopIgnition()
 		local connection = ignitionRef.current
 		if connection ~= nil then
@@ -1984,7 +2179,13 @@ local function RebirthPanel(_param)
 		end
 	end
 	React.useEffect(function()
-		if not canRebirth or not UserInputService.GamepadEnabled then
+		return function()
+			mountedRef.current = false
+			stopIgnition()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
 			return nil
 		end
 		local host = rebirthClaimHostRef.current
@@ -1992,21 +2193,14 @@ local function RebirthPanel(_param)
 			return nil
 		end
 		local selectJob = task.defer(function()
-			if host.Parent == nil then
-				return
+			if host.Parent ~= nil then
+				GamepadNavigationService.FocusClaim(host)
 			end
-			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
 			pcall(task.cancel, selectJob)
 		end
 	end, { canRebirth, confirming, busy })
-	React.useEffect(function()
-		return function()
-			mountedRef.current = false
-			stopIgnition()
-		end
-	end, {})
 	React.useEffect(function()
 		if not canRebirth then
 			stopIgnition()
@@ -2028,9 +2222,26 @@ local function RebirthPanel(_param)
 			pcall(task.cancel, lapse)
 		end
 	end, { confirming, igniting, busy })
+	local close = function()
+		if igniting or busy then
+			return
+		end
+		Audio:play("close")
+		props.onClose()
+	end
+	React.useEffect(function()
+		local connection = UserInputService.InputBegan:Connect(function(input, processed)
+			if input.KeyCode == Enum.KeyCode.ButtonB or (input.KeyCode == Enum.KeyCode.Escape and not processed) then
+				close()
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { igniting, busy })
 	local commit = function()
 		setBusy(true)
-		dispatch("Rebirth", {}, function(response)
+		dispatch("Rebirth", { Vow = nextVow, Keep = keep }, function(response)
 			if not mountedRef.current then
 				return nil
 			end
@@ -2038,6 +2249,7 @@ local function RebirthPanel(_param)
 			setIgnite(0)
 			if response.ok then
 				setConfirming(false)
+				props.onClose()
 			else
 				setShakeToken(function(token)
 					return token + 1
@@ -2106,293 +2318,676 @@ local function RebirthPanel(_param)
 		end
 		beginIgnition()
 	end
+
 	local accent = if igniting then Palette.mango elseif confirming then Palette.coral else Palette.violet
-	local ctaH = TapTarget
-	local dialSize = if stack then 56 else 64
-	local dialFill = ignite:map(function(amount)
-		return if igniting or busy then amount else progress
-	end)
-	local gateSpan = if gate ~= nil then math.max(1, gate.need - gate.last) else 1
-	local gatePips = math.min(GATE_PIPS, gateSpan)
-	local gateFilled = if gate ~= nil then math.floor((rebirths - gate.last) / gateSpan * gatePips + 0.0001) else 0
-	local gatePipChildren = {}
-	if gate ~= nil and not stack then
-		for i = 1, gatePips do
-			gatePipChildren["p" .. i] = React.createElement("frame", {
-				Size = UDim2.new(1 / gatePips, -3, 1, 0),
-				Position = UDim2.new((i - 1) / gatePips, 0, 0, 0),
-				BackgroundColor3 = if i <= gateFilled then Palette.mint elseif i == gateFilled + 1 then accent else Palette.panelSoft,
-				BackgroundTransparency = if i <= gateFilled then 0 elseif i == gateFilled + 1 then 0.25 else 0.45,
-				BorderSizePixel = 0,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(1, 0),
-			}))
+	local gradeColor = GRADE_COLOR[info.Grade] or Palette.muted
+	local width = math.min(760, viewport.width - 24)
+	local top = math.max(viewport.topInset, 36) + 10
+	local bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 10
+	local height = math.min(720, viewport.height - top - bottom)
+	local innerW = width - 40
+	local footerH = TapTarget + 30
+	local vow = RebirthMath.vow(info.Vow)
+
+	-- the payout: grade, cores, stardust, and why
+	local reasons = {}
+	if vow then
+		table.insert(reasons, if info.VowHolds then `{vow.Name} holds: ×{string.format("%.2f", RebirthMath.vowMultiplier({ Kept = info.KeptVows, Stars = info.Stars }, vow.Id))} {string.lower(vow.Pays)}` else `{vow.Name} broken: {info.VowStatus}`)
+	else
+		table.insert(reasons, "No vow this run.")
+	end
+	local gradeBonus = RebirthMath.GRADE_BONUS[info.Grade] or 0
+	if gradeBonus > 0 then
+		table.insert(reasons, `Grade {info.Grade}: +{math.floor(gradeBonus * 100)}% stardust`)
+	end
+	local fx = RebirthMath.effects({ Stars = info.Stars })
+	if fx.CoreYield > 0 then
+		table.insert(reasons, `Stars: +{math.floor(fx.CoreYield * 100 + 0.5)}% cores`)
+	end
+	if fx.DustYield > 0 then
+		table.insert(reasons, `Stars: +{math.floor(fx.DustYield * 100 + 0.5)}% stardust`)
+	end
+	local sections = {}
+	sections.layout = h("uilistlayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 22),
+	})
+	sections.pad = h("uipadding", {
+		PaddingTop = UDim.new(0, 4),
+		PaddingBottom = UDim.new(0, 20),
+		PaddingRight = UDim.new(0, 6),
+	})
+	sections.payout = h(Section, {
+		name = "RebirthPayout",
+		order = 1,
+		height = 118,
+		title = if canRebirth then "WHAT THIS REBIRTH PAYS" else "NOT READY YET",
+		note = `run time {clock(runSeconds)}`,
+	}, h("frame", {
+		Size = UDim2.fromOffset(78, 78),
+		BackgroundColor3 = darken(gradeColor, 0.7),
+		BorderSizePixel = 0,
+		ZIndex = 905,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
+		Color = gradeColor,
+		Thickness = 2,
+		Transparency = gradeGlow:map(function(amount)
+			return 0.1 + amount * 0.45
+		end),
+	}), h(Text, {
+		value = if canRebirth then info.Grade else "–",
+		size = 44,
+		color = gradeColor,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		fit = false,
+		position = UDim2.fromOffset(0, 8),
+		sizeConstraint = UDim2.new(1, 0, 0, 48),
+		zIndex = 906,
+	}), h(Text, {
+		value = "GRADE",
+		size = 9,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		fit = false,
+		position = UDim2.fromOffset(0, 58),
+		sizeConstraint = UDim2.new(1, 0, 0, 12),
+		zIndex = 906,
+	})), h(Text, {
+		value = if canRebirth then `+{compactNumber(info.Cores)} cores` else `{compactNumber(math.max(0, asFlux(state.NextPrestigeTarget) - (asFlux(state.RunCash) + asFlux(state.Vault))))} more flux to go`,
+		size = if stack then 20 else 24,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset(94, 0),
+		sizeConstraint = UDim2.new(1, -94, 0, 30),
+		zIndex = 905,
+	}), canRebirth and h(Text, {
+		value = `+{compactNumber(info.Stardust)} stardust  ·  {GRADE_LINE[info.Grade] or ""}`,
+		size = 12,
+		color = Palette.mint,
+		fit = false,
+		position = UDim2.fromOffset(94, 32),
+		sizeConstraint = UDim2.new(1, -94, 0, 16),
+		zIndex = 905,
+	}), h(Text, {
+		value = table.concat(reasons, "   ·   "),
+		size = 10,
+		color = Palette.creamSoft,
+		wrap = true,
+		fit = false,
+		position = UDim2.fromOffset(94, 54),
+		sizeConstraint = UDim2.new(1, -94, 0, 34),
+		zIndex = 905,
+	}))
+
+	-- stars waiting: the first one, its two perks side by side
+	local pending = info.Pending or {}
+	if #pending > 0 then
+		local index = pending[1]
+		local pair = RebirthMath.pair(index)
+		local cards = {}
+		for slot, perk in pair do
+			local def = RebirthMath.PERKS[perk]
+			local art = PERK_ART[perk]
+			cards[perk] = h(ChoiceCard, {
+				name = "Star" .. perk,
+				icon = art.icon,
+				color = art.color,
+				title = def.Name,
+				body = def.Line,
+				iconSize = 34,
+				size = UDim2.new(0.5, -6, 1, 0),
+				position = UDim2.new((slot - 1) * 0.5, if slot == 2 then 6 else 0, 0, 0),
+				sound = "reward",
+				onPick = function()
+					dispatch("RebirthAct", { Op = "Star", Index = index, Pick = slot })
+				end,
+			})
+		end
+		sections.stars = h(Section, {
+			name = "RebirthStars",
+			order = 2,
+			height = 22 + 74,
+			title = `STAR {index} IS LIT · CHOOSE ONE, IT'S PERMANENT`,
+			accent = Palette.mango,
+			note = if #pending > 1 then `{#pending - 1} more waiting` else nil,
+		}, cards)
+	end
+
+	-- the vow for the next run
+	local vowIds = { "", "Swift", "Lean", "Homebound", "Overflow" }
+	local vowCards = {}
+	local vowCols = if stack then 1 else 3
+	local vowCardH = if stack then 56 else 78
+	local vowGap = 10
+	for i, id in vowIds do
+		local def = RebirthMath.vow(id)
+		local art = VOW_ART[id]
+		local col = (i - 1) % vowCols
+		local row = (i - 1) // vowCols
+		local mastery = if def then RebirthMath.mastery({ Kept = info.KeptVows }, id) else 0
+		local kept = if def and type(info.KeptVows) == "table" then tonumber(info.KeptVows[id]) or 0 else 0
+		vowCards[id ~= "" and id or "None"] = h(ChoiceCard, {
+			name = "Vow" .. (if id == "" then "None" else id),
+			icon = art.icon,
+			color = art.color,
+			chosen = nextVow == id,
+			title = if def then def.Name else art.name,
+			body = if def then `{def.Line} ×{string.format("%.2f", RebirthMath.vowMultiplier({ Kept = info.KeptVows, Stars = info.Stars }, id))} {string.lower(def.Pays)}.` else art.line,
+			tag = if def and kept > 0 then `KEPT {kept}{if mastery > 0 then " · M" .. mastery else ""}` else nil,
+			size = UDim2.new(1 / vowCols, -(vowGap * (vowCols - 1)) / vowCols, 0, vowCardH),
+			position = UDim2.new(col / vowCols, col * vowGap / vowCols, 0, row * (vowCardH + vowGap)),
+			onPick = function()
+				setNextVow(id)
+			end,
+		})
+	end
+	local vowRows = math.ceil(#vowIds / vowCols)
+	sections.vows = h(Section, {
+		name = "RebirthVows",
+		order = 3,
+		height = 22 + vowRows * vowCardH + (vowRows - 1) * vowGap,
+		title = "VOW FOR THE NEXT RUN",
+		note = "keep it and the payout grows",
+	}, vowCards)
+
+	-- keepsakes: machines that come along at a share of their level
+	local slots = tonumber(info.KeepSlots) or 0
+	local fxShare = RebirthMath.KEEP_SHARE + fx.KeepShare
+	local owned = {}
+	for _, machine in (config and config.Machines) or {} do
+		local level = state.Machines and tonumber(state.Machines[machine.Id]) or 0
+		if level >= 1 and (tonumber(machine.RequiredZone) or 1) <= 1 then
+			table.insert(owned, { id = machine.Id, name = machine.Name, level = level, icon = machine.Icon })
 		end
 	end
-	local ledgerH = if stack then 74 else 46
-	local function ledgerColumn(title, body, tint, x)
-		return React.createElement("frame", {
+	table.sort(owned, function(a, b)
+		return a.level > b.level
+	end)
+	if slots > 0 then
+		local chips = {}
+		local cols = if stack then 2 else 3
+		local chipH = 54
+		for i, entry in owned do
+			if i > 9 then
+				break
+			end
+			local chosen = table.find(keep, entry.id) ~= nil
+			local full = not chosen and #keep >= slots
+			local col = (i - 1) % cols
+			local row = (i - 1) // cols
+			chips[entry.id] = h(ChoiceCard, {
+				name = "Keep" .. entry.id,
+				icon = REBIRTH_ICONS["Keep" .. entry.id] or REBIRTH_ICONS.KeepOther,
+				color = Palette.mint,
+				chosen = chosen,
+				disabled = full,
+				title = entry.name,
+				body = `Lv {compactNumber(entry.level)} → Lv {math.clamp(math.floor(entry.level * fxShare), 1, RebirthMath.KEEP_CAP)}`,
+				iconSize = 26,
+				size = UDim2.new(1 / cols, -(8 * (cols - 1)) / cols, 0, chipH),
+				position = UDim2.new(col / cols, col * 8 / cols, 0, row * (chipH + 8)),
+				onPick = function()
+					local nextKeep = table.clone(keep)
+					local at = table.find(nextKeep, entry.id)
+					if at then
+						table.remove(nextKeep, at)
+					elseif #nextKeep < slots then
+						table.insert(nextKeep, entry.id)
+					end
+					setKeep(nextKeep)
+				end,
+			})
+		end
+		local rows = math.max(1, math.ceil(math.min(#owned, 9) / cols))
+		sections.keep = h(Section, {
+			name = "RebirthKeepsakes",
+			order = 4,
+			height = 22 + rows * chipH + (rows - 1) * 8,
+			title = `KEEPSAKES · {#keep} OF {slots}`,
+			note = `keeps {math.floor(fxShare * 100 + 0.5)}% of the level`,
+		}, chips)
+	else
+		local nextAt = RebirthMath.KEEP_SLOTS_AT[1]
+		sections.keep = h(Section, {
+			name = "RebirthKeepsakes",
+			order = 4,
+			height = 22 + 18,
+			title = "KEEPSAKES",
+		}, h(Text, {
+			value = `After rebirth {nextAt}, one machine can come with you into the next run.`,
+			size = 11,
+			color = Palette.muted,
+			fit = false,
+			sizeConstraint = UDim2.new(1, 0, 0, 16),
+			zIndex = 905,
+		}))
+	end
+
+	-- what stays and what goes
+	local function ledgerColumn(title, body, tint, x, icon)
+		return h("frame", {
 			Size = UDim2.new(0.5, -6, 1, 0),
 			Position = UDim2.new(x, if x > 0 then 6 else 0, 0, 0),
 			BackgroundColor3 = Palette.ink,
-			BackgroundTransparency = 0.35,
+			BackgroundTransparency = 0.3,
 			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 8),
-		}), React.createElement("uistroke", {
+			ZIndex = 905,
+		}, h("uicorner", { CornerRadius = UDim.new(0, 10) }), h("uistroke", {
 			Color = tint,
-			Thickness = 1,
-			Transparency = 0.5,
-		}), React.createElement("frame", {
-			Size = UDim2.new(0, 3, 1, -8),
-			Position = UDim2.fromOffset(4, 4),
-			BackgroundColor3 = tint,
-			BackgroundTransparency = 0.15,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		})), React.createElement(Text, {
+			Transparency = 0.55,
+		}), h(Icon, {
+			kind = icon,
+			size = 22,
+			position = UDim2.fromOffset(10, 10),
+			zIndex = 906,
+		}), h(Text, {
 			value = title,
 			size = 10,
 			color = tint,
 			weight = Enum.FontWeight.Heavy,
 			fit = false,
-			position = UDim2.fromOffset(12, 4),
-			sizeConstraint = UDim2.new(1, -16, 0, 13),
-		}), React.createElement(Text, {
+			position = UDim2.fromOffset(40, 13),
+			sizeConstraint = UDim2.new(1, -50, 0, 14),
+			zIndex = 906,
+		}), h(Text, {
 			value = body,
-			size = if stack then 11 else 10,
+			size = 11,
 			color = Palette.creamSoft,
 			wrap = true,
 			fit = false,
-			position = UDim2.fromOffset(12, 18),
-			sizeConstraint = UDim2.new(1, -16, 1, -22),
+			position = UDim2.fromOffset(12, 38),
+			sizeConstraint = UDim2.new(1, -24, 1, -44),
+			zIndex = 906,
 		}))
 	end
-	return React.createElement(Panel, {
-		layoutOrder = layoutOrder,
-		size = UDim2.new(1, 0, 0, height),
-		accent = accent,
-		background = if confirming then darken(accent, 0.92) else Palette.panelRaised,
-		padding = if stack then chrome.cardPadding else 18,
-		reveal = reveal or (if confirming then confirmReveal else heroReveal),
-		highlight = (canRebirth or confirming) and not effectsPaused and not softMotion and not rebirthSoft,
-		reducedMotion = softMotion or effectsPaused,
-		clips = false,
-	}, React.createElement(ChargeDial, {
-		size = dialSize,
-		position = UDim2.fromOffset(-3, if stack then 2 else 6),
-		accent = accent,
-		fill = dialFill,
-		charge = ignite,
-	}, React.createElement(IconTile, {
-		kind = "Rebirth",
-		accent = accent,
-		size = dialSize - 18,
-		radius = 14,
-		position = UDim2.fromOffset(9, 9),
-		glow = canRebirth and not effectsPaused and not softMotion,
-		spin = (canRebirth or igniting) and not effectsPaused and not softMotion,
-		reducedMotion = softMotion or effectsPaused,
-	})), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, -66, 0, 126) else UDim2.new(1, -(76 + 310), 1, 0),
-		Position = UDim2.fromOffset(if stack then 66 else 76, 0),
+	local keepNames = {}
+	for _, id in keep do
+		for _, entry in owned do
+			if entry.id == id then
+				table.insert(keepNames, entry.name)
+			end
+		end
+	end
+	local keepCopy = "Cores, stardust, research, relics, milestones, Domain and every lit star"
+	if #keepNames > 0 then
+		keepCopy ..= ", plus " .. table.concat(keepNames, " and ")
+	end
+	sections.ledger = h(Section, {
+		name = "RebirthLedger",
+		order = 5,
+		height = 22 + (if stack then 120 else 96),
+		title = "WHAT STAYS, WHAT GOES",
+	}, ledgerColumn("YOU KEEP", keepCopy, Palette.mint, 0, "Check.rebirthKeeps"), ledgerColumn("RESETS", "Run flux, the vault, worlds and machines. The Stellar Core starts again" .. (if fx.HeadStart > 0 then ` at Lv {1 + fx.HeadStart}.` else " at Lv 1."), Palette.coral, 0.5, "Refresh.rebirthResets"))
+
+	-- the run log
+	local runs = info.Runs or {}
+	sections.log = h(Section, {
+		name = "RebirthRunLog",
+		order = 6,
+		height = 22 + 110,
+		title = `LAST {math.min(#runs, RebirthMath.LOG_LIMIT)} RUNS`,
+		note = if #runs > 0 then `best {compactNumber(info.BestCores)} cores · fastest {clock(info.FastestSeconds)}` else nil,
+	}, if #runs > 0 then h(RunLog, { runs = runs, grow = grow:map(function(amount)
+		return math.clamp(amount, 0, 1)
+	end) }) else h(Text, {
+		value = "Your runs show up here: how long they took, what they paid and their grade.",
+		size = 11,
+		color = Palette.muted,
+		fit = false,
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+		zIndex = 905,
+	}))
+
+	local claimText = if busy then "REBIRTHING…" elseif igniting then "IGNITING…" elseif confirming then "IGNITE REBIRTH" elseif canRebirth then `REBIRTH · {vowName(nextVow)} next` else "NOT READY"
+	return ReactRoblox.createPortal(h("frame", {
+		Name = "RebirthChamber",
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement(Text, {
-		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH · {rebirths} DONE`,
+		ZIndex = 900,
+	}, h("textbutton", {
+		Name = "Scrim",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.night,
+		BackgroundTransparency = enter:map(function(amount)
+			return 1 - math.clamp(amount, 0, 1) * 0.42
+		end),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Selectable = false,
+		ZIndex = 900,
+		Event = {
+			Activated = close,
+		},
+	}), h("frame", {
+		Name = "Sheet",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Size = UDim2.fromOffset(width, height),
+		Position = enter:map(function(amount)
+			return UDim2.new(0.5, 0, 0, top + math.round((1 - math.clamp(amount, 0, 1)) * 18))
+		end),
+		BackgroundColor3 = if confirming then darken(accent, 0.9) else Palette.panelRaised,
+		BorderSizePixel = 0,
+		ZIndex = 901,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 18) }), h("uistroke", {
+		Color = accent,
+		Thickness = 1,
+		Transparency = 0.45,
+	}), h(ChargeDial, {
+		size = 54,
+		position = UDim2.fromOffset(16, 14),
+		accent = accent,
+		fill = ignite,
+		charge = ignite,
+		zIndex = 903,
+	}, h(Icon, {
+		kind = "Rebirth.rebirthChamber",
+		size = 34,
+		position = UDim2.fromOffset(10, 10),
+		zIndex = 904,
+	})), h(Text, {
+		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH {(tonumber(info.Lifetime) or 0) + 1}`,
 		size = 10,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), React.createElement(Text, {
-		value = if igniting then "Cancel now or the run resets." elseif confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." elseif canRebirth then `Rebirth {rebirths + 1} is ready` else `{math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}% of the way to rebirth {rebirths + 1}`,
-		size = if stack then 19 else 22,
+		position = UDim2.fromOffset(84, 18),
+		sizeConstraint = UDim2.new(1, -160, 0, 14),
+		zIndex = 903,
+	}), h(Text, {
+		value = if igniting then "Stop now or the run resets." elseif confirming then "Press again to ignite." else "End this run",
+		size = if stack then 18 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(0, 21),
-		sizeConstraint = UDim2.new(1, 0, 0, 31),
-	}), if confirming or igniting then React.createElement("frame", {
-		Name = "RebirthLedger",
-		Position = UDim2.fromOffset(0, 57),
-		Size = UDim2.new(1, 0, 0, ledgerH),
+		position = UDim2.fromOffset(84, 34),
+		sizeConstraint = UDim2.new(1, -160, 0, 28),
+		zIndex = 903,
+	}), h(Button, {
+		text = "",
+		icon = "Close.rebirthChamber",
+		onClick = close,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.fromOffset(TapTarget, TapTarget),
+		position = UDim2.new(1, -(TapTarget + 16), 0, 18),
+		reducedMotion = softMotion,
+		disabled = igniting or busy,
+		zIndex = 903,
+	}), h("scrollingframe", {
+		Name = "Body",
+		Position = UDim2.fromOffset(20, 84),
+		Size = UDim2.new(1, -28, 1, -(84 + footerH + 6)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, ledgerColumn("YOU KEEP", keepCopy, Palette.mint, 0), ledgerColumn("RESETS", resetCopy, Palette.coral, 0.5)) else React.createElement(Text, {
-		value = payoff,
-		size = if stack then 11 else 10,
-		color = Palette.creamSoft,
-		wrap = true,
-		fit = false,
-		position = UDim2.fromOffset(0, 57),
-		sizeConstraint = UDim2.new(1, 0, 0, ledgerH),
-	}), not stack and React.createElement(Text, {
-		value = `{compactNumber(conversionFlux)} / {compactNumber(target)} flux needed`,
-		size = 10,
-		color = if canRebirth then Palette.violet else Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		fit = false,
-		position = UDim2.fromOffset(0, 108),
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), not stack and React.createElement(Meter, {
-		value = progress,
-		rainbow = true,
-		color = accent,
-		reducedMotion = softMotion or effectsPaused,
-		shimmer = canRebirth and not effectsPaused and not softMotion,
-		position = UDim2.fromOffset(0, 132),
-		size = UDim2.new(1, 0, 0, 9),
-	}), not stack and React.createElement(Text, {
-		value = if canRebirth then `Ready: +{compactNumber(state.PrestigeReward)} cores and +{compactNumber(stardustReward)} stardust` else `{compactNumber(math.max(0, target - conversionFlux))} convertible flux remaining`,
-		size = 10,
-		color = if canRebirth then Palette.mint else Palette.muted,
-		fit = false,
-		position = UDim2.fromOffset(0, 149),
-		sizeConstraint = UDim2.new(1, 0, 0, 18),
-	})), stack and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 78),
-		Position = UDim2.fromOffset(0, 136),
-		BackgroundColor3 = Palette.ink,
-		BackgroundTransparency = 0.2,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 11),
-	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1,
-		Transparency = 0.52,
-	}), React.createElement(Text, {
-		value = `{compactNumber(conversionFlux)} / {compactNumber(target)} FLUX NEEDED`,
-		size = 10,
-		color = if canRebirth then accent else Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.fromOffset(12, 10),
-		sizeConstraint = UDim2.new(1, -24, 0, 16),
-	}), React.createElement(Meter, {
-		value = progress,
-		rainbow = true,
-		color = accent,
-		reducedMotion = softMotion or effectsPaused,
-		shimmer = canRebirth and not effectsPaused and not softMotion,
-		position = UDim2.fromOffset(12, 34),
-		size = UDim2.new(1, -24, 0, 9),
-	}), React.createElement(Text, {
-		value = if canRebirth then `+{compactNumber(state.PrestigeReward)} cores  ·  +{compactNumber(stardustReward)} stardust` else `{compactNumber(math.max(0, target - conversionFlux))} remaining`,
-		size = 10,
-		color = if canRebirth then Palette.mint else Palette.muted,
-		fit = false,
-		position = UDim2.fromOffset(12, 51),
-		sizeConstraint = UDim2.new(1, -24, 0, 16),
-	})), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, 30) else UDim2.fromOffset(286, 30),
-		Position = if stack then UDim2.fromOffset(0, 224) else UDim2.new(1, -286, 0, 2),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(Badge, {
-		value = `+{compactNumber(state.PrestigeReward)} CORES`,
-		accent = accent,
-		filled = canRebirth,
-		position = UDim2.fromOffset(0, 0),
-		size = UDim2.new(0.48, -4, 0, 26),
-	}), React.createElement(Badge, {
-		value = `{compactNumber(state.PermanentMultiplier)}× PRODUCTION`,
-		accent = Palette.mint,
-		position = UDim2.new(0.48, 4, 0, 0),
-		size = UDim2.new(0.52, -4, 0, 26),
-	})), React.createElement("frame", {
+		CanvasSize = UDim2.fromOffset(0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = accent,
+		ZIndex = 902,
+	}, sections), h("frame", {
 		Name = "RebirthClaimActions",
-		Size = if stack then UDim2.new(1, 0, 0, ctaH * 2 + 8) else UDim2.fromOffset(286, ctaH * 2 + 8),
-		Position = if stack then UDim2.new(0, 0, 1, -(ctaH * 2 + 8)) else UDim2.new(1, -286, 0, 40),
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 20, 1, -16),
+		Size = UDim2.new(1, -40, 0, TapTarget + 8),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
+		ZIndex = 903,
 		ref = rebirthClaimHostRef,
-	}, React.createElement(Button, {
-		text = if busy then "REBIRTHING…" elseif igniting then "IGNITING…" elseif confirming then "IGNITE REBIRTH" elseif canRebirth then "REBIRTH NOW" else "NOT READY",
-		icon = "Rebirth.5",
+	}, h(Button, {
+		text = claimText,
+		icon = "Rebirth.rebirthIgnite",
 		onClick = rebirth,
 		color = if canRebirth then accent else Palette.panelSoft,
 		textColor = if canRebirth then Palette.ink else Palette.muted,
-		size = UDim2.new(1, 0, 0, ctaH),
+		size = UDim2.new(if stack then 0.62 else 0.7, -6, 0, TapTarget),
 		reducedMotion = softMotion,
 		disabled = not canRebirth or busy,
 		loading = busy,
 		shakeToken = shakeToken,
-		highlight = canRebirth and not igniting,
-	}), React.createElement("frame", {
+		highlight = canRebirth and not igniting and not softMotion,
+		zIndex = 904,
+	}), h("frame", {
 		Name = "IgnitionBar",
 		Size = ignite:map(function(amount)
-			return UDim2.new(amount, 0, 0, 4)
+			return UDim2.new((if stack then 0.62 else 0.7) * amount, -6, 0, 4)
 		end),
-		Position = UDim2.new(0, 0, 0, ctaH + 2),
+		Position = UDim2.fromOffset(0, TapTarget + 3),
 		BackgroundColor3 = Palette.mango,
 		BorderSizePixel = 0,
 		Visible = igniting,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Palette.mango),
-			ColorSequenceKeypoint.new(1, Palette.cream),
-		}),
-	})), React.createElement(Button, {
-		text = if igniting then "STOP" elseif confirming then "CANCEL" else "OPEN WORKSHOP",
-		icon = if confirming or igniting then "Close.2" else "Forge.7",
+		ZIndex = 904,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h(Button, {
+		text = if igniting then "STOP" elseif confirming then "CANCEL" else "CLOSE",
+		icon = "Close.rebirthIgniteStop",
 		onClick = if igniting then cancelIgnition elseif confirming then function()
-			return setConfirming(false)
-		end else openWorkshop,
-		sound = if igniting then nil else "page",
+			setConfirming(false)
+		end else close,
+		sound = if igniting then nil else "close",
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
 		outline = true,
-		size = UDim2.new(1, 0, 0, ctaH),
-		position = UDim2.fromOffset(0, ctaH + 8),
+		size = UDim2.new(if stack then 0.38 else 0.3, -6, 0, TapTarget),
+		position = UDim2.new(if stack then 0.62 else 0.7, 6, 0, 0),
 		reducedMotion = softMotion,
 		disabled = busy,
-	})), gate ~= nil and not stack and React.createElement("frame", {
-		Name = "RebirthGateTrack",
-		Size = UDim2.fromOffset(286, 22),
-		Position = UDim2.new(1, -286, 0, 40 + ctaH * 2 + 12),
+		zIndex = 904,
+	})))), portal)
+end
+
+local function RebirthPanel(_param)
+	local state = _param.state
+	local config = _param.config
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local effectsPaused = _param.effectsPaused
+	local height = _param.height
+	local reveal = _param.reveal
+	local openWorkshop = _param.openWorkshop
+	local layoutOrder = _param.layoutOrder
+	if layoutOrder == nil then
+		layoutOrder = 2
+	end
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
+	local stack = chrome.contentStack
+	local info = rebirthOf(state)
+	local canRebirth = info.Ready == true
+	local target = math.max(1, asFlux(state.NextPrestigeTarget))
+	local conversionFlux = math.max(0, asFlux(state.RunCash)) + math.max(0, asFlux(state.Vault))
+	local progress = if canRebirth then 1 else meterFill(conversionFlux, target)
+	local rebirths = math.max(0, math.floor(tonumber(state.Rebirths) or 0))
+	local seconds = useRunClock(tonumber(info.RunStartedAt) or 0, state.ServerTime)
+	local chamberOpen, setChamberOpen = React.useState(false)
+	local readiness = useFlash(if canRebirth then 1 else 0, softMotion or effectsPaused, 0.8)
+	local heroReveal = useStagger(1, softMotion)
+	local starPulse = usePulse(#(info.Pending or {}) > 0 and not softMotion and not effectsPaused, 1.4)
+	local dialFill, setDialFill = React.useBinding(progress)
+	local ignite = React.useBinding(0)
+	React.useEffect(function()
+		setDialFill(progress)
+	end, { progress })
+	local vow = RebirthMath.vow(info.Vow)
+	local vowArt = VOW_ART[info.Vow] or VOW_ART[""]
+	local opens = featuresOpeningOnNextRebirth(config, rebirths + 1)
+	local gate = rebirthGate(config, rebirths)
+	local accent = if canRebirth then Palette.violet else Palette.steel
+	local pending = #(info.Pending or {})
+	local vowLine = if vow == nil
+		then (if info.VowOpen then "No vow yet. You can still swear one this run." else "No vow this run.")
+		elseif info.VowHolds then `{vow.Name}: {info.VowStatus}`
+		else `{vow.Name} broken. {info.VowStatus}`
+	local notes = {}
+	if opens ~= "" then
+		table.insert(notes, `Opens {opens}.`)
+	end
+	if gate ~= nil then
+		table.insert(notes, `{gate.name} at rebirth {gate.need}.`)
+	end
+	local colW = if stack then 0 else 286
+	return h(Panel, {
+		layoutOrder = layoutOrder,
+		size = UDim2.new(1, 0, 0, height),
+		accent = accent,
+		background = Palette.panelRaised,
+		padding = if stack then chrome.cardPadding else 18,
+		reveal = reveal or heroReveal,
+		highlight = canRebirth and not effectsPaused and not softMotion,
+		reducedMotion = softMotion or effectsPaused,
+		clips = false,
+	}, h(ChargeDial, {
+		size = if stack then 56 else 64,
+		position = UDim2.fromOffset(-3, if stack then 2 else 6),
+		accent = accent,
+		fill = dialFill,
+		charge = ignite,
+	}, h(IconTile, {
+		kind = REBIRTH_ICONS.Dial,
+		accent = accent,
+		size = (if stack then 56 else 64) - 18,
+		radius = 14,
+		position = UDim2.fromOffset(9, 9),
+		glow = canRebirth and not effectsPaused and not softMotion,
+		spin = canRebirth and not effectsPaused and not softMotion,
+		reducedMotion = softMotion or effectsPaused,
+	})), h("frame", {
+		Size = UDim2.new(1, -((if stack then 66 else 76) + colW + (if stack then 0 else 16)), 0, if stack then 134 else height - 36),
+		Position = UDim2.fromOffset(if stack then 66 else 76, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, React.createElement(Text, {
-		value = `NEXT GATE  {string.upper(gate.name)}  ·  {gate.need - rebirths} TO GO`,
-		size = 9,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		sizeConstraint = UDim2.new(1, 0, 0, 12),
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, 3, 0, 5),
-		Position = UDim2.fromOffset(0, 16),
+		ClipsDescendants = false,
+	}, h(Text, {
+		value = `REBIRTH · {rebirths} DONE · RUN {clock(seconds)}`,
+		size = 10,
+		color = accent,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}), h(Text, {
+		value = if canRebirth then `+{compactNumber(info.Cores)} cores ready · grade {info.Grade}` elseif rebirths < 1 then "Your first rebirth pays you back." else `{math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}% of the way to rebirth {rebirths + 1}`,
+		size = if stack then 18 else 21,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset(0, 20),
+		sizeConstraint = UDim2.new(1, 0, 0, 28),
+	}), h("frame", {
+		Name = "RebirthVowLine",
+		Position = UDim2.fromOffset(0, 54),
+		Size = UDim2.new(1, 0, 0, 22),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, gatePipChildren)), canRebirth and not effectsPaused and not softMotion and React.createElement("frame", {
+	}, h(Icon, {
+		kind = REBIRTH_ICONS["PanelVow" .. (if info.Vow == "" then "None" else info.Vow)] or REBIRTH_ICONS.PanelVowNone,
+		size = 20,
+		position = UDim2.fromOffset(0, 1),
+	}), h(Text, {
+		value = vowLine,
+		size = 11,
+		color = if vow == nil then Palette.muted elseif info.VowHolds then vowArt.color else Palette.coral,
+		fit = false,
+		position = UDim2.fromOffset(26, 3),
+		sizeConstraint = UDim2.new(1, -26, 0, 16),
+	})), h(Meter, {
+		value = progress,
+		rainbow = true,
+		color = accent,
+		reducedMotion = softMotion or effectsPaused,
+		shimmer = canRebirth and not effectsPaused and not softMotion,
+		position = UDim2.fromOffset(0, 86),
+		size = UDim2.new(1, 0, 0, 9),
+	}), h(Text, {
+		value = if canRebirth then `+{compactNumber(info.Stardust)} stardust too. {table.concat(notes, " ")}` else `{compactNumber(conversionFlux)} / {compactNumber(target)} flux. {table.concat(notes, " ")}`,
+		size = 10,
+		color = if canRebirth then Palette.mint else Palette.muted,
+		wrap = true,
+		fit = false,
+		position = UDim2.fromOffset(0, 102),
+		sizeConstraint = UDim2.new(1, 0, 0, 30),
+	})), h("frame", {
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget * 2 + 44) else UDim2.fromOffset(colW, height - 36),
+		Position = if stack then UDim2.new(0, 0, 1, -(TapTarget * 2 + 44)) else UDim2.new(1, -colW, 0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, h(Badge, {
+		value = if pending > 0 then `STAR LIT · CHOOSE` else `{compactNumber(state.PermanentMultiplier)}× PRODUCTION`,
+		accent = if pending > 0 then Palette.mango else Palette.mint,
+		filled = pending > 0,
+		size = UDim2.new(1, 0, 0, 26),
+	}), pending > 0 and h("frame", {
+		Size = UDim2.new(1, 4, 0, 30),
+		Position = UDim2.fromOffset(-2, -2),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = Palette.mango,
+		Thickness = 2,
+		Transparency = starPulse:map(function(amount)
+			return 0.25 + amount * 0.6
+		end),
+	})), h(Button, {
+		text = if canRebirth then "REBIRTH…" elseif pending > 0 then "LIGHT A STAR" else "PLAN REBIRTH",
+		icon = "Rebirth.rebirthPlan",
+		onClick = function()
+			setChamberOpen(true)
+		end,
+		sound = "page",
+		color = if canRebirth or pending > 0 then accent else Palette.panelSoft,
+		textColor = if canRebirth or pending > 0 then Palette.ink else Palette.cream,
+		size = UDim2.new(1, 0, 0, TapTarget),
+		position = UDim2.fromOffset(0, 36),
+		reducedMotion = softMotion,
+		highlight = canRebirth and not softMotion,
+	}), h(Button, {
+		text = "OPEN WORKSHOP",
+		icon = "Forge.rebirthWorkshop",
+		onClick = openWorkshop,
+		sound = "page",
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.new(1, 0, 0, TapTarget),
+		position = UDim2.fromOffset(0, 44 + TapTarget),
+		reducedMotion = softMotion,
+	})), canRebirth and not effectsPaused and not softMotion and h("frame", {
 		Size = readiness:map(function(amount)
 			return UDim2.fromOffset(18 + amount * 54, 18 + amount * 54)
 		end),
-		Position = UDim2.new(1, -143, 0, 98),
+		Position = UDim2.fromOffset(29, 38),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 8,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
 		Color = accent,
 		Thickness = 2,
 		Transparency = readiness:map(function(amount)
 			return 1 - amount * 0.54
 		end),
-	})))
+	})), chamberOpen and h(RebirthChamber, {
+		state = state,
+		config = config,
+		dispatch = dispatch,
+		reducedMotion = softMotion,
+		effectsPaused = effectsPaused,
+		onClose = function()
+			setChamberOpen(false)
+		end,
+	}))
 end
 return {
 	RebirthPanel = RebirthPanel,
+	RebirthChamber = RebirthChamber,
 }
 end
 

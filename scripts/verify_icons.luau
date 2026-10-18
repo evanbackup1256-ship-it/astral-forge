@@ -44,6 +44,13 @@ for _ in seen do
 end
 assert(used >= 4700, "the source names its icons, got " .. used)
 
+-- every id the collector found in the source (tools/assetgen/icon_ids.py) is on a sheet
+local serde = require("@lune/serde")
+local collected = serde.decode("json", fs.readFile("assets/generated/icons/ids.json"))
+for _, id in collected do
+	assert(Manifest.Icons[id] ~= nil, `icon {id} is named in the source but not drawn; run icons.py`)
+end
+
 -- the runtime draws the generated art and animates it on one shared clock
 local art = fs.readFile("src/Client/AstralForge/ArtKit.luau")
 assert(art:find("local IconManifest = require(script.Parent.IconManifest)", 1, true), "Icon reads the manifest")

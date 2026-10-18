@@ -13,6 +13,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local EchoMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("EchoMath"))
+	local RebirthMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("RebirthMath"))
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
 	local OreMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OreMath"))
@@ -179,6 +180,8 @@ local DomainLattice = require(game:GetService("ReplicatedStorage"):WaitForChild(
 			GameConfig.Continuum.MaxRank
 		)
 		profile.ForgeEchoes = EchoMath.ensure(profile.ForgeEchoes)
+		-- the rebirth ledger; a save from before it starts its star count from the rebirths already spent
+		profile.Rebirth = RebirthMath.ensure(profile.Rebirth, os.time(), if profile.Rebirth == nil then nonNegative(profile.Rebirths) + nonNegative(profile.Domain.TotalRebirthsSpent) + nonNegative(type(profile.Ascension) == "table" and profile.Ascension.RebirthsSpent or 0) else nil)
 		profile.Zone = math.clamp(math.floor(nonNegative(profile.Zone)), 1, GameConfig.MaxZone)
 		profile.CurrentZone = math.clamp(math.floor(nonNegative(profile.CurrentZone)), 1, profile.Zone)
 		DataSanitizeMath.ClampLevelBag(profile.Machines, machineById, nonNegative)
