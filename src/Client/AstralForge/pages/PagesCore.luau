@@ -1792,6 +1792,7 @@ local meterFill = _ui.meterFill
 local acquireDropdownPortal = _ui.acquireDropdownPortal
 local releaseDropdownPortal = _ui.releaseDropdownPortal
 local RebirthMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("RebirthMath"))
+local Tooltip = require(script.Parent.Parent.Tooltip)
 local h = React.createElement
 
 local VOW_ART = {
@@ -2018,7 +2019,10 @@ local function ChoiceCard(props)
 	local hover, setHover = React.useState(false)
 	local chosen = props.chosen
 	local tint = props.color
+	local cardRef = React.useRef(nil)
+	Tooltip.useTooltip(cardRef, props.tooltip)
 	return h("textbutton", {
+		ref = cardRef,
 		Name = props.name,
 		LayoutOrder = props.order,
 		Size = props.size,
@@ -2441,6 +2445,12 @@ local function RebirthChamber(props)
 				size = UDim2.new(0.5, -6, 1, 0),
 				position = UDim2.new((slot - 1) * 0.5, if slot == 2 then 6 else 0, 0, 0),
 				sound = "reward",
+				tooltip = {
+					title = def.Name,
+					body = "Permanent, and it stacks with every other star you light. The other choice is gone for this star.",
+					hint = if RebirthMath.STARS[index + 1] then `Next star at rebirth {RebirthMath.STARS[index + 1]}.` else "This is the last star.",
+					accent = art.color,
+				},
 				onPick = function()
 					dispatch("RebirthAct", { Op = "Star", Index = index, Pick = slot })
 				end,
@@ -2477,6 +2487,12 @@ local function RebirthChamber(props)
 			title = if def then def.Name else art.name,
 			body = if def then `{def.Line} ×{string.format("%.2f", RebirthMath.vowMultiplier({ Kept = info.KeptVows, Stars = info.Stars }, id))} {string.lower(def.Pays)}.` else art.line,
 			tag = if def and kept > 0 then `KEPT {kept}{if mastery > 0 then " · M" .. mastery else ""}` else nil,
+			tooltip = if def then {
+				title = def.Name,
+				body = `Checked the moment you rebirth. Kept, it multiplies your {string.lower(def.Pays)}; broken, you just get the normal payout.`,
+				hint = if mastery >= RebirthMath.MASTERY_MAX then `Kept {kept} times, fully mastered.` else `Kept {kept} times. {RebirthMath.MASTERY_EVERY - kept % RebirthMath.MASTERY_EVERY} more to make it {math.floor(RebirthMath.MASTERY_STEP * 100)}% stronger.`,
+				accent = art.color,
+			} else nil,
 			size = UDim2.new(1 / vowCols, -(vowGap * (vowCols - 1)) / vowCols, 0, vowCardH),
 			position = UDim2.new(col / vowCols, col * vowGap / vowCols, 0, row * (vowCardH + vowGap)),
 			onPick = function()

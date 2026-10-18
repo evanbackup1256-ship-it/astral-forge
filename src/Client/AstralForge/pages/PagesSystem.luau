@@ -3573,7 +3573,7 @@ local BOARDS = { {
 	id = "Domain",
 	label = "Domain Rank",
 	short = "DOMAIN",
-	description = "The deepest realities established through mega rebirths.",
+	description = "The highest Domain rank reached.",
 	icon = "Domain.4",
 	accent = Palette.pink,
 }, {

@@ -3302,6 +3302,7 @@ Schema.ENTRIES = table.freeze({
 	toggle("ShowPing", "interface", "Ping", "Connection delay in the top bar.", 1),
 	toggle("ShowResourceLabels", "interface", "Currency labels", "FLUX, CORES and DUST above the numbers.", 1),
 	toggle("ShowNextGoal", "interface", "Level bar", "Your Forge Level and next goal under page titles.", 1),
+	toggle("Tooltips", "interface", "Tooltips", "Notes when you hover, or press and hold on a phone.", 1),
 	toggle("CompactTopBar", "interface", "Compact top bar", "A shorter header with more room below.", 0),
 	choice("UiDensity", "interface", "Spacing", "Room between things on the page.", 0.55, THREE("Tight", "Normal", "Roomy", 0.2, 0.55, 0.9)),
 	choice("ToastDensity", "interface", "Alerts on screen", "How many notifications stack up.", 0.55, THREE("Few", "Some", "Many", 0.2, 0.55, 0.9)),

@@ -269,6 +269,7 @@ function DataTemplate.New()
 			ShowPing = 1,
 			ShowResourceLabels = 1,
 			ShowNextGoal = 1,
+			Tooltips = 1,
 			CompactTopBar = 0,
 			NotificationDuration = 0.55,
 			DesktopTextScale = 0.5,

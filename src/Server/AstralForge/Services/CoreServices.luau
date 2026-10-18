@@ -236,7 +236,7 @@ return function(loadService: (string) -> any)
 		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdrivePulseContribution, now)
 		return true,
 			accurate
-				and string.format("Perfect pulse! Combo x%d, +%.1f charge.", profile.Anomaly.Combo, amount)
+				and string.format("Perfect pulse. Combo x%d, +%.1f charge.", profile.Anomaly.Combo, amount)
 				or string.format("Quantum pulse captured %.1f charge.", amount),
 			{
 				Amount = amount,

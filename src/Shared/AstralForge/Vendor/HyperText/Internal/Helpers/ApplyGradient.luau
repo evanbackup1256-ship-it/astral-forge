@@ -22,6 +22,70 @@ type gradientGroup = {
 local renderGradientGroups : {[string] : {[string] : gradientGroup}} = {}
 local cleanupConnections : {[string] : RBXScriptConnection} = {}
 
+-- Colours are mixed in OKLab rather than RGB: an RGB blend of two saturated colours sags to grey
+-- in the middle (orange to blue goes through mud), an OKLab blend keeps its colour and brightness.
+local function toLinear(c : number) : number
+	return if c <= 0.04045 then c / 12.92 else ((c + 0.055) / 1.055) ^ 2.4
+end
+local function toGamma(c : number) : number
+	c = math.clamp(c, 0, 1)
+	return if c <= 0.0031308 then c * 12.92 else 1.055 * c ^ (1 / 2.4) - 0.055
+end
+local labCache : {[Color3] : {number}} = setmetatable({}, { __mode = "k" }) :: any
+local function toLab(color : Color3) : {number}
+	local found = labCache[color]
+	if found then
+		return found
+	end
+	local r, g, b = toLinear(color.R), toLinear(color.G), toLinear(color.B)
+	local l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ^ (1 / 3)
+	local m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ^ (1 / 3)
+	local s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ^ (1 / 3)
+	found = {
+		0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+		1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+		0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+	}
+	labCache[color] = found
+	return found
+end
+local function mix(a : Color3, b : Color3, t : number) : Color3
+	if t <= 0 then
+		return a
+	elseif t >= 1 then
+		return b
+	end
+	local p, q = toLab(a), toLab(b)
+	local L, A, B = p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t, p[3] + (q[3] - p[3]) * t
+	local l_ = L + 0.3963377774 * A + 0.2158037573 * B
+	local m_ = L - 0.1055613458 * A - 0.0638541728 * B
+	local s_ = L - 0.0894841775 * A - 1.2914855480 * B
+	local l, m, s = l_ * l_ * l_, m_ * m_ * m_, s_ * s_ * s_
+	return Color3.new(
+		toGamma(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+		toGamma(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+		toGamma(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)
+	)
+end
+
+-- Roblox blends linearly in RGB between keypoints, so each gap gets an OKLab midpoint (while there
+-- is room under the 20-keypoint limit); the band between two colours then stays rich.
+local function finish(keypoints : {ColorSequenceKeypoint}) : ColorSequence
+	local count = #keypoints
+	if count < 2 or count * 2 - 1 > 20 then
+		return ColorSequence.new(keypoints)
+	end
+	local out : {ColorSequenceKeypoint} = table.create(count * 2 - 1)
+	for i = 1, count - 1 do
+		local a, b = keypoints[i], keypoints[i + 1]
+		out[#out + 1] = a
+		if b.Time - a.Time > 1e-4 then
+			out[#out + 1] = ColorSequenceKeypoint.new((a.Time + b.Time) * 0.5, mix(a.Value, b.Value, 0.5))
+		end
+	end
+	out[#out + 1] = keypoints[count]
+	return ColorSequence.new(out)
+end
 local function getColorAtAlpha(colors : {Color3}, alpha : number) : Color3
 	local colorCount = #colors
 
@@ -38,7 +102,7 @@ local function getColorAtAlpha(colors : {Color3}, alpha : number) : Color3
 		return lowerColor
 	end
 
-	return lowerColor:Lerp(colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
+	return mix(lowerColor, colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
 end
 
 local function createColorSequence(colors : {Color3}) : ColorSequence
@@ -55,7 +119,7 @@ local function createColorSequence(colors : {Color3}) : ColorSequence
 		keypoints[#keypoints + 1] = ColorSequenceKeypoint.new((i - 1) / maxIndex, color)
 	end
 
-	return ColorSequence.new(keypoints)
+	return finish(keypoints)
 end
 
 local function createColorSequenceSegment(
@@ -91,7 +155,7 @@ local function createColorSequenceSegment(
 
 	keypoints[#keypoints + 1] = ColorSequenceKeypoint.new(1, getColorAtAlpha(colors, endAlpha))
 
-	return ColorSequence.new(keypoints)
+	return finish(keypoints)
 end
 
 local function getSpacedColorAtAlpha(colors : {Color3}, alpha : number, spacing : number) : Color3
@@ -114,7 +178,7 @@ local function getSpacedColorAtAlpha(colors : {Color3}, alpha : number, spacing 
 	local lowerIndex = math.floor(scaledAlpha) + 1
 	local upperIndex = lowerIndex + 1
 
-	return colors[lowerIndex]:Lerp(colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
+	return mix(colors[lowerIndex], colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
 end
 
 local function createSpacedColorSequenceSegment(
@@ -151,7 +215,7 @@ local function createSpacedColorSequenceSegment(
 
 	keypoints[#keypoints + 1] = ColorSequenceKeypoint.new(1, getSpacedColorAtAlpha(colors, endAlpha, spacing))
 
-	return ColorSequence.new(keypoints)
+	return finish(keypoints)
 end
 
 local function setGradientColor(gradient : UIGradient, color : ColorSequence)
@@ -188,7 +252,7 @@ local function getLoopedColorAtAlpha(colors : {Color3}, alpha : number) : Color3
 	local lowerIndex = math.floor(scaledAlpha) + 1
 	local upperIndex = lowerIndex % colorCount + 1
 
-	return colors[lowerIndex]:Lerp(colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
+	return mix(colors[lowerIndex], colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
 end
 
 local function createLoopingColorSequenceSegment(
@@ -224,7 +288,7 @@ local function createLoopingColorSequenceSegment(
 
 	keypoints[#keypoints + 1] = ColorSequenceKeypoint.new(1, getLoopedColorAtAlpha(colors, endWithOffset))
 
-	return ColorSequence.new(keypoints)
+	return finish(keypoints)
 end
 
 local function getLoopedSpacedColorAtAlpha(colors : {Color3}, alpha : number, spacing : number) : Color3
@@ -240,7 +304,7 @@ local function getLoopedSpacedColorAtAlpha(colors : {Color3}, alpha : number, sp
 	local lowerIndex = math.floor(scaledAlpha) + 1
 	local upperIndex = lowerIndex % colorCount + 1
 
-	return colors[lowerIndex]:Lerp(colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
+	return mix(colors[lowerIndex], colors[upperIndex], scaledAlpha - math.floor(scaledAlpha))
 end
 
 local function createDenseLoopingSpacedColorSequenceSegment(
@@ -261,7 +325,7 @@ local function createDenseLoopingSpacedColorSequenceSegment(
 		)
 	end
 
-	return ColorSequence.new(keypoints)
+	return finish(keypoints)
 end
 
 local function createLoopingSpacedColorSequenceSegment(
@@ -311,7 +375,7 @@ local function createLoopingSpacedColorSequenceSegment(
 
 	keypoints[#keypoints + 1] = ColorSequenceKeypoint.new(1, getLoopedSpacedColorAtAlpha(colors, endWithOffset, spacing))
 
-	return ColorSequence.new(keypoints)
+	return finish(keypoints)
 end
 
 local function getMoveAlpha(

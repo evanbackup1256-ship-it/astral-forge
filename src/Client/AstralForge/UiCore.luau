@@ -67,6 +67,7 @@ local hoverCueFor = _audio.hoverCueFor
 local InteractionFeedback = require(script.Parent.CoreKit)("interaction").InteractionFeedback
 local TouchGestureService = require(script.Parent.CoreKit)("TouchGestureService")
 local ShimmerMath = require(script.Parent.MotionKit)("shimmer")
+local Tooltip = require(script.Parent.Tooltip)
 local dropdownPortal
 local dropdownPortalUsers = 0
 local function acquireDropdownPortal()
@@ -2211,6 +2212,12 @@ function Button(_param)
 	end)
 	local iconOnly = text == "" and icon ~= nil
 	local hasIcon = icon ~= nil
+	-- a tooltip: what the caller says, or for an icon-only button, the icon's name
+	local tooltip = _param.tooltip
+	if tooltip == nil and iconOnly then
+		tooltip = Tooltip.labelFor(icon)
+	end
+	Tooltip.useTooltip(buttonRef, if effectivelyDisabled and type(tooltip) == "string" then nil else tooltip)
 	local compactRipple = iconOnly or (size.X.Scale == 0 and size.X.Offset > 0 and size.X.Offset <= 56) or (size.Y.Scale == 0 and size.Y.Offset > 0 and size.Y.Offset <= 40)
 	local surfaceFade = React.useMemo(function()
 		return presence:map(function(shown)
@@ -4694,6 +4701,14 @@ local function MainGame(_param)
 	React.useEffect(function()
 		require(script.Parent.JuiceFx).setToastDensity(toastDensity)
 	end, { toastDensity })
+	-- tooltips follow the Tooltips switch and calm down with Reduced Motion
+	local tooltipsOn = not (state and state.Settings and state.Settings.Tooltips == 0)
+	local tooltipsCalm = game:GetService("GuiService").ReducedMotionEnabled == true or (state and state.Settings and (tonumber(state.Settings.MotionIntensity) or 1) < 0.3) == true
+	React.useEffect(function()
+		local Tooltip = require(script.Parent.Tooltip)
+		Tooltip.setEnabled(tooltipsOn)
+		Tooltip.setReducedMotion(tooltipsCalm)
+	end, { tooltipsOn, tooltipsCalm })
 	local _exp = function()
 		local _result = state
 		if _result ~= nil then
@@ -8140,6 +8155,7 @@ local TapTarget = _theme.TapTarget
 local _format = require(script.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
+local Tooltip = require(script.Parent.Tooltip)
 local clockText = _format.clockText
 local AppHelpers = require(script.Parent.CoreKit)("appNav").AppHelpers
 local BoostIconKind = require(script.Parent.CoreKit)("boostIconKind")
@@ -8149,15 +8165,15 @@ local Audio = require(script.Parent.AudioKit)("audio").Audio
 local CHIP_TIPS = {
 	FLUX = {
 		title = "Flux",
-		body = "Spendable cash from your vault. Bank production, then buy machines and research.",
+		body = "What machines, worlds and research cost. Machines fill the vault; collect it to spend.",
 	},
 	DUST = {
 		title = "Stardust",
-		body = "Earn Stardust from rebirths and rewards. Spend it on artifacts and supplies in the Shop.",
+		body = "Comes from rebirths, missions and rewards. Spent in the Shop and on tuning echoes.",
 	},
 	CORES = {
-		title = "Astral cores",
-		body = "Earned from rebirths. Spend them on Domain expansions and Shop keys.",
+		title = "Cores",
+		body = "Paid out by each rebirth. Every core raises production for good, and Domain ranks cost them.",
 	},
 }
 
@@ -8221,7 +8237,12 @@ local function StatChip(_param)
 	local chipH = if tall then TapTarget else 44
 	local iconSize = if tall then 28 else 24
 	local valueSize = if tall then 15 else 14
-	local _ = CHIP_TIPS[label]
+	local tip = CHIP_TIPS[label]
+	Tooltip.useTooltip(juiceRef, if tip then {
+		title = tip.title,
+		body = tip.body,
+		hint = if asFlux(velocity) > 0 then `+{compactNumber(velocity)} a second right now` else nil,
+	} else nil)
 	-- room for long scale names ("37.3 Googolchime"); FPS/ping only ever show a few digits
 	local valueMaxW = if _param.narrow then 40 elseif tall then 108 else 116
 	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 20 else 18)
@@ -9444,6 +9465,7 @@ end
 
 __defs["NavChrome"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local Tooltip = require(script.Parent.Tooltip)
 local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
 local UserInputService = game:GetService("UserInputService")
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
@@ -9585,6 +9607,14 @@ local function RailButton(_param)
 			setPressed(false)
 		end)
 	end, {})
+	-- a collapsed rail is icons only: name the page, and say if something is waiting there
+	local railRef = React.useRef(nil)
+	Tooltip.useTooltip(railRef, if collapsed or disabled then {
+		title = entry.label,
+		body = if disabled and type(entry.lockedReason) == "string" then entry.lockedReason else nil,
+		hint = if badge > 0 then `{badge} waiting` else nil,
+		accent = entry.accent,
+	} else nil)
 	return React.createElement("frame", {
 		Name = "Nav_" .. entry.id,
 		Size = UDim2.new(1, 0, 0, rowHeight),
@@ -9593,6 +9623,7 @@ local function RailButton(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement("imagebutton", {
+		ref = railRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -11665,10 +11696,11 @@ local function AmbientLayer(_param)
 			BorderSizePixel = 0,
 			ZIndex = 1,
 		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), React.createElement("uigradient", {
+			-- one cool family, pale at the crest to deep at the hem, rather than three unrelated hues
 			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Palette.mint),
-				ColorSequenceKeypoint.new(0.4, Palette.cyan),
-				ColorSequenceKeypoint.new(1, Palette.violet),
+				ColorSequenceKeypoint.new(0, Palette.mint:Lerp(Palette.white, 0.3)),
+				ColorSequenceKeypoint.new(0.45, Palette.mint:Lerp(Palette.cyan, 0.55)),
+				ColorSequenceKeypoint.new(1, Palette.cyan),
 			}),
 			Transparency = NumberSequence.new({
 				NumberSequenceKeypoint.new(0, 1),
@@ -19949,14 +19981,8 @@ local SEQUENCES = {
 		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(255, 226, 150)),
 		ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 240, 255)),
 	}),
-	Astral = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 110, 200)),
-		ColorSequenceKeypoint.new(0.2, Color3.fromRGB(170, 120, 255)),
-		ColorSequenceKeypoint.new(0.4, Color3.fromRGB(100, 220, 255)),
-		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(120, 255, 190)),
-		ColorSequenceKeypoint.new(0.8, Color3.fromRGB(255, 220, 120)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 110, 200)),
-	}),
+	-- indigo, magenta and gold mixed in OKLab: deep-space colour with even brightness, no candy pastels
+	Astral = require(script.Parent.Rainbow).loop("nebula"),
 }
 local CORE = {
 	Celestial = Color3.fromRGB(190, 248, 255),

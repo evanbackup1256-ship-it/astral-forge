@@ -39,13 +39,9 @@ local function easeOutCubic(t: number): number
 	return 1 - math.pow(1 - t, 3)
 end
 
-local HOLO_GRADIENT = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 235, 255)),
-	ColorSequenceKeypoint.new(0.24, Color3.fromRGB(255, 155, 240)),
-	ColorSequenceKeypoint.new(0.48, Color3.fromRGB(255, 238, 140)),
-	ColorSequenceKeypoint.new(0.74, Color3.fromRGB(140, 255, 210)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 165, 255)),
-})
+-- holographic foil: the full wheel at even brightness, so it reads as foil catching light rather
+-- than five pastel stripes
+local HOLO_GRADIENT = require(script.Parent.Parent.Rainbow).loop("soft")
 
 local shimmerClock = React.createContext(0)
 

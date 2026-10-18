@@ -3513,7 +3513,7 @@ local DEFAULT_TRAVEL = 2.4
 local TRAIL_LAG = 0.035
 local TRAIL_MIN_SCALE = 0.85
 local SWEEP_SHARE = 0.6
-local SWEEP_EASE = 0.55
+local SWEEP_EASE = 1
 
 local function bell(halfWidth, peak, samples)
 	local points = { NumberSequenceKeypoint.new(0, 1) }
@@ -3530,9 +3530,10 @@ local function bell(halfWidth, peak, samples)
 	return NumberSequence.new(points)
 end
 
-local GLINT = bell(0.17, 0.08, 12)
+-- 16 samples: the band's falloff reads as a curve, not a row of steps
+local GLINT = bell(0.17, 0.08, 16)
 
-local TRAIL = bell(0.3, 0.7, 12)
+local TRAIL = bell(0.3, 0.7, 16)
 
 local SWEEP_SPEED = 0.42
 local ROTATION = 20
@@ -3559,9 +3560,10 @@ local function sweepProgress(phase)
 	if t < 0 then
 		t += 1
 	end
+	-- quintic smootherstep: zero speed and zero acceleration at both ends, so the glint glides on
+	-- and off instead of snapping to a constant robotic speed
 	local u = math.min(t / SWEEP_SHARE, 1)
-	local smooth = u * u * (3 - 2 * u)
-	return u + (smooth - u) * SWEEP_EASE
+	return u * u * u * (u * (u * 6 - 15) + 10)
 end
 
 local function offset(phase, travel, lag)
