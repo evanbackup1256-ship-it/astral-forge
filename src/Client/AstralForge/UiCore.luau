@@ -5415,6 +5415,9 @@ local function MainGame(_param)
 				after = response.MultiplierAfter,
 				reward = response.Reward,
 				stardust = response.StardustReward,
+				grade = response.Grade,
+				vow = response.Vow,
+				vowKept = response.VowKept,
 			})
 			celebrate()
 			local _condition_4 = response.message
@@ -20716,6 +20719,14 @@ local function RebirthCeremonyHost(props)
 	end
 	local payload = session.payload
 	local newCount = math.max(1, math.floor(tonumber(payload.rebirths) or 1))
+	-- the run's grade, and the vow if one was sworn, head the card
+	local heading = `REBIRTH {newCount}`
+	if type(payload.grade) == "string" then
+		heading ..= `  ·  GRADE {payload.grade}`
+	end
+	if type(payload.vow) == "string" and payload.vow ~= "" then
+		heading ..= if payload.vowKept then `  ·  {string.upper(payload.vow)} KEPT` else `  ·  {string.upper(payload.vow)} BROKEN`
+	end
 	local oldCount = newCount - 1
 	local before = if payload.before ~= nil then payload.before else 1
 	local after = if payload.after ~= nil then payload.after else before
@@ -20857,7 +20868,7 @@ local function RebirthCeremonyHost(props)
 		Size = UDim2.new(1, 0, 0, 20),
 		BackgroundTransparency = 1,
 		FontFace = HEAVY,
-		Text = "★  CELESTIAL REBIRTH  ★",
+		Text = heading,
 		TextSize = 12,
 		TextColor3 = Palette.violet,
 		TextTransparency = clock:map(function(t)
