@@ -154,12 +154,20 @@ util.mergeMarkups = function(
 	local dataModules = util.getAllMarkupDataModules()
 	
 	for markup, data in pairs(new :: types.markupsIndexable) do
+		local target = (base :: types.markupsIndexable)[markup]
+		if target == nil then
+			continue
+		end
+		if type(data) ~= "table" or (data.value == nil and data.attributes == nil and data.valueAttributes == nil) then
+			target.value = data :: any
+			continue
+		end
 		if data.value ~= nil then
 			if data.value == util.DELETE_SYNTAX then
 				for _, dataModule in ipairs(dataModules) do
 					if dataModule.name == markup then
 						if dataModule.unrequired then
-							(base :: types.markupsIndexable)[markup].value = nil
+							target.value = nil
 						else
 							warn(
 								debug.traceback(
@@ -171,67 +179,74 @@ util.mergeMarkups = function(
 					end
 				end
 			else
-				(base :: types.markupsIndexable)[markup].value = data.value
+				target.value = data.value
 			end
 		end
 
-		for attr, value in pairs(data.attributes) do
-			if value ~= nil then
-				if value == util.DELETE_SYNTAX then
-					for _, dataModule in ipairs(dataModules) do
-						if dataModule.name == markup then
-							for dataModuleAttr, data in pairs(dataModule.attributes) do
-								if dataModuleAttr == attr then
-									if data.unrequired then
-										(base :: types.markupsIndexable)[markup].attributes[attr] = nil
-									else
-										warn(
-											debug.traceback(
-												"Failed to delete the \""
-													.. attr .. "\" attribute of the \""
-													.. markup .. "\" markup: This attribute cannot be deleted\nTraceback:"
-											)
-										)
-									end
-								end
-							end
-						end
-					end
-				else
-					(base :: types.markupsIndexable)[markup].attributes[attr] = value
-				end
-			end
-		end
-		for value, attrs in pairs(data.valueAttributes) do
-			for attr, attrValue in pairs(attrs) do
-				if attrValue ~= nil then
-					if attrValue == util.DELETE_SYNTAX then
+		if type(data.attributes) == "table" then
+			for attr, value in pairs(data.attributes) do
+				if value ~= nil then
+					if value == util.DELETE_SYNTAX then
 						for _, dataModule in ipairs(dataModules) do
 							if dataModule.name == markup then
-								for dataModuleValue, dataModuleAttrs in pairs(dataModule.valueAttributes) do
-									if dataModuleValue == value then
-										for dataModuleAttr, data in pairs(dataModuleAttrs) do
-											if dataModuleAttr == attr then
-												if data.unrequired then
-													(base :: types.markupsIndexable)[markup].valueAttributes[value][attr] = nil
-												else
-													warn(
-														debug.traceback(
-															"Failed to delete the \""
-																.. attr .. "\" attribute of the \""
-																.. value .. "\" value of the \""
-																.. markup .. "\" markup: This attribute cannot be deleted\nTraceback:"
-														)
-													)
-												end
-											end
+								for dataModuleAttr, attrData in pairs(dataModule.attributes) do
+									if dataModuleAttr == attr then
+										if attrData.unrequired then
+											target.attributes[attr] = nil
+										else
+											warn(
+												debug.traceback(
+													"Failed to delete the \""
+														.. attr .. "\" attribute of the \""
+														.. markup .. "\" markup: This attribute cannot be deleted\nTraceback:"
+												)
+											)
 										end
 									end
 								end
 							end
 						end
 					else
-						(base :: types.markupsIndexable)[markup].valueAttributes[value][attr] = attrValue
+						target.attributes[attr] = value
+					end
+				end
+			end
+		end
+		if type(data.valueAttributes) == "table" then
+			for value, attrs in pairs(data.valueAttributes) do
+				if type(attrs) ~= "table" then
+					continue
+				end
+				for attr, attrValue in pairs(attrs) do
+					if attrValue ~= nil then
+						if attrValue == util.DELETE_SYNTAX then
+							for _, dataModule in ipairs(dataModules) do
+								if dataModule.name == markup then
+									for dataModuleValue, dataModuleAttrs in pairs(dataModule.valueAttributes) do
+										if dataModuleValue == value then
+											for dataModuleAttr, attrData in pairs(dataModuleAttrs) do
+												if dataModuleAttr == attr then
+													if attrData.unrequired then
+														target.valueAttributes[value][attr] = nil
+													else
+														warn(
+															debug.traceback(
+																"Failed to delete the \""
+																	.. attr .. "\" attribute of the \""
+																	.. value .. "\" value of the \""
+																	.. markup .. "\" markup: This attribute cannot be deleted\nTraceback:"
+															)
+														)
+													end
+												end
+											end
+										end
+									end
+								end
+							end
+						else
+							target.valueAttributes[value][attr] = attrValue
+						end
 					end
 				end
 			end

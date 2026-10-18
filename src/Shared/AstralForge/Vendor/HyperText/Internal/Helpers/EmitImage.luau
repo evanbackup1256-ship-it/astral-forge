@@ -70,7 +70,7 @@ return function(
 					)
 					img.Rotation = util.getRandomFromRange(attributes.startRot)
 					img.SizeConstraint = Enum.SizeConstraint.RelativeYY
-					img.ZIndex = markups.ZIndex.value
+					img.ZIndex = markups.ZIndex.value + 1
 
 					local endSize = util.getRandomFromRange(attributes.endSize)
 					local size = util.getRandomFromRange(attributes.startSize) 
@@ -95,7 +95,7 @@ return function(
 					local lifetime = util.getRandomFromRange(attributes.lifetime)
 					local tween = TweenService:Create(
 						img,
-						TweenInfo.new(lifetime),
+						TweenInfo.new(lifetime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 						{
 							Size = UDim2.fromScale(endSize * attributes.aspectRatio, endSize),
 							ImageTransparency = util.getRandomFromRange(attributes.endTrans)

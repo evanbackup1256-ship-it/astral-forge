@@ -3780,7 +3780,7 @@ local function MilestoneRow(_param)
 		Thickness = 1,
 		Transparency = 0.65,
 	}), React.createElement(Text, {
-		value = "★ " .. reward,
+		value = reward,
 		size = 11,
 		color = Palette.mango,
 		weight = Enum.FontWeight.Heavy,
@@ -4264,7 +4264,7 @@ local function MissionRow(_param)
 		Thickness = 1,
 		Transparency = 0.65,
 	}), React.createElement(Text, {
-		value = "★ " .. reward,
+		value = reward,
 		size = 11,
 		color = Palette.cyan,
 		weight = Enum.FontWeight.Heavy,

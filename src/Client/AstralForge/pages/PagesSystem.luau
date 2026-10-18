@@ -1030,74 +1030,91 @@ local function TabPane(_param)
 end
 local CommandTitleCard = React.memo(function(props)
 	local accent = titleFxAccent(props.fx)
-	local effectName = `{string.upper(titleTier(props.fx))}  {string.upper((string.gsub(props.fx, "-", " ")))}`
+	local tierLabel = string.upper(titleTier(props.fx))
+	local fxLabel = string.upper((string.gsub(props.fx, "-", " ")))
+	local effectName = `{tierLabel}  {fxLabel}`
 	local equip = React.useCallback(function()
 		return props.dispatch("EquipTitle", {
 			Id = props.id,
 		})
 	end, { props.dispatch, props.id })
-	local actionHeight = if props.stack then TapTarget else 36
+	local actionHeight = if props.stack then TapTarget else 34
 	local actionSize = UDim2.new(1, -14, 0, actionHeight)
 	local actionPosition = UDim2.new(0, 7, 1, -(actionHeight + 7))
-	local _exp = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 11),
-	})
-	local _exp_1 = React.createElement("uistroke", {
-		Color = if props.equipped then accent else Palette.lineSoft,
-		Thickness = if props.equipped then 1.5 else 1,
-		Transparency = if props.equipped then 0.16 else 0.42,
-	})
-	local _exp_2 = React.createElement(Text, {
+	local descText = props.description or "Preview this kinetic title crest exactly as it appears in chat and on your commander nameplate."
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = darkTitlePlate(props.fx),
+		BackgroundTransparency = if props.equipped then 0.06 else 0.28,
+		BorderSizePixel = 0,
+		Active = false,
+		ClipsDescendants = true,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 12),
+	}), React.createElement("uistroke", {
+		Color = if props.equipped then accent elseif props.unlocked then accent else Palette.lineSoft,
+		Thickness = if props.equipped then 1.8 else 1,
+		Transparency = if props.equipped then 0.08 elseif props.unlocked then 0.48 else 0.58,
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, -16, 0, 16),
+		Position = UDim2.fromOffset(8, 6),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(6, 6),
+		Position = UDim2.new(0, 2, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Rotation = 45,
+		BackgroundColor3 = if props.unlocked then accent else Palette.muted,
+		BorderSizePixel = 0,
+	}), React.createElement(Text, {
 		value = effectName,
 		size = 9,
 		minSize = 8,
 		color = if props.unlocked then accent else Palette.muted,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(8, 6),
-		sizeConstraint = UDim2.new(1, -16, 0, 13),
-	})
-	local _exp_3 = React.createElement("frame", {
-		Size = UDim2.new(1, -16, 0, 34),
-		Position = UDim2.fromOffset(8, 21),
+		align = Enum.TextXAlignment.Left,
+		position = UDim2.fromOffset(14, 1),
+		sizeConstraint = UDim2.new(1, -68, 0, 14),
+	}), React.createElement(Text, {
+		value = if props.equipped then "ACTIVE" elseif props.unlocked then "OWNED" else "LOCKED",
+		size = 8,
+		minSize = 7,
+		color = if props.equipped then Palette.mint elseif props.unlocked then Palette.creamSoft else Palette.muted,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		align = Enum.TextXAlignment.Right,
+		position = UDim2.new(1, -52, 0, 1),
+		sizeConstraint = UDim2.fromOffset(52, 14),
+	})), React.createElement("frame", {
+		Size = UDim2.new(1, -14, 0, 36),
+		Position = UDim2.fromOffset(7, 23),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
+		ClipsDescendants = false,
 	}, React.createElement(AnimatedTitlePreview, {
 		text = props.name,
 		fx = props.fx,
-		size = if props.stack then 17 else 15,
+		size = if props.stack then 18 else 16,
 		reducedMotion = props.reducedMotion,
 		preview = not props.equipped,
-		transparency = if props.unlocked then 0 else 0.46,
-	}))
-	local _attributes = {}
-	local _condition = props.description
-	if _condition == nil then
-		_condition = "Preview this title exactly as it appears in chat and your profile."
-	end
-	_attributes.value = _condition
-	_attributes.size = 10
-	_attributes.minSize = 9
-	_attributes.color = if props.unlocked then Palette.creamSoft else Palette.muted
-	_attributes.wrap = true
-	_attributes.fit = false
-	_attributes.align = Enum.TextXAlignment.Center
-	_attributes.position = UDim2.fromOffset(9, 58)
-	_attributes.sizeConstraint = UDim2.new(1, -18, 0, 52)
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = darkTitlePlate(props.fx),
-		BackgroundTransparency = if props.equipped then 0.08 else 0.34,
-		BorderSizePixel = 0,
-		Active = false,
-		ClipsDescendants = true,
-	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement(Text, _attributes), if props.unlocked and not props.equipped then React.createElement(Button, {
-		text = "WEAR TITLE",
+		transparency = if props.unlocked then 0 else 0.42,
+	})), React.createElement(Text, {
+		value = descText,
+		size = 10,
+		minSize = 9,
+		color = if props.unlocked then Palette.creamSoft else Palette.muted,
+		wrap = true,
+		fit = false,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.fromOffset(9, 62),
+		sizeConstraint = UDim2.new(1, -18, 0, 46),
+	}), if props.unlocked and not props.equipped then React.createElement(Button, {
+		text = "EQUIP CREST",
 		icon = "Loadout.5",
 		onClick = equip,
-		color = Palette.cyan,
+		color = accent,
 		textColor = Palette.ink,
 		size = actionSize,
 		position = actionPosition,
@@ -1113,7 +1130,7 @@ local CommandTitleCard = React.memo(function(props)
 	}), React.createElement("uistroke", {
 		Color = if props.equipped then accent else Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.58,
+		Transparency = 0.52,
 	}), React.createElement(Text, {
 		value = if props.equipped then "EQUIPPED" else "LOCKED",
 		size = 11,

@@ -708,8 +708,6 @@ end
 local function darkTitlePlate(fx)
 	return darken(titleFxAccent(fx), 0.82)
 end
--- Rarity tiers: every effect belongs to exactly one tier, and the tier decides the treatment
--- drawn under the lettering (underline, travelling gradient, sheen sweep, orbiting sparks).
 local TITLE_TIER = {
 	wave = "Common", shake = "Common", pulse = "Common", static = "Common",
 	["bounce-in"] = "Common", ["blur-resolve"] = "Common", glow = "Common", shimmer = "Common",
@@ -721,115 +719,9 @@ local TITLE_TIER = {
 	comet = "Legendary", eclipse = "Legendary", prism = "Legendary", nebula = "Legendary",
 	starforge = "Mythic",
 }
-local TIER_RANK = { Common = 1, Rare = 2, Epic = 3, Legendary = 4, Mythic = 5 }
 local function titleTier(fx)
 	local kind = parseFx(fx)
 	return if kind ~= nil then TITLE_TIER[kind] or "Common" else "Common"
-end
--- One Heartbeat connection drives every animated tier treatment on screen, at 30 Hz,
--- and disconnects when the last animated title unmounts.
-local RunService = game:GetService("RunService")
-local tierClock, setTierClock = React.createBinding(0)
-local tierSubscribers = 0
-local tierConnection = nil
-local function useTierClock(active)
-	React.useEffect(function()
-		if not active then
-			return nil
-		end
-		tierSubscribers += 1
-		if tierConnection == nil then
-			local elapsed, sinceTick = 0, 0
-			tierConnection = RunService.Heartbeat:Connect(function(dt)
-				elapsed += dt
-				sinceTick += dt
-				if sinceTick >= 1 / 30 then
-					sinceTick = 0
-					setTierClock(elapsed)
-				end
-			end)
-		end
-		return function()
-			tierSubscribers -= 1
-			if tierSubscribers <= 0 then
-				tierSubscribers = 0
-				if tierConnection ~= nil then
-					tierConnection:Disconnect()
-					tierConnection = nil
-				end
-			end
-		end
-	end, { active })
-	return tierClock
-end
-local function TitleTierUnderlay(props)
-	local rank = TIER_RANK[props.tier] or 1
-	local animate = props.animate == true and rank >= 3
-	local clock = useTierClock(animate)
-	if rank < 2 then
-		return nil
-	end
-	local accent = props.accent
-	local light = lighten(accent, 0.45)
-	local children = {}
-	children.underline = React.createElement("frame", {
-		Size = UDim2.new(if rank >= 4 then 0.92 else 0.7, 0, 0, if rank >= 4 then 2 else 1),
-		Position = UDim2.new(0.5, 0, 1, -2),
-		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BorderSizePixel = 0,
-		ZIndex = 0,
-	}, React.createElement("uigradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, accent),
-			ColorSequenceKeypoint.new(0.5, light),
-			ColorSequenceKeypoint.new(1, accent),
-		}),
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, if rank >= 4 then 0.05 else 0.35),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		Offset = if animate then clock:map(function(t)
-			return Vector2.new(math.sin(t * 1.3) * 0.35, 0)
-		end) else Vector2.zero,
-	}))
-	if rank >= 4 then
-		children.sheen = React.createElement("frame", {
-			Size = UDim2.new(0.14, 0, 1.6, 0),
-			Position = if animate then clock:map(function(t)
-				return UDim2.new((t * 0.32) % 1.8 - 0.4, 0, -0.3, 0)
-			end) else UDim2.new(-0.4, 0, -0.3, 0),
-			Rotation = 18,
-			BackgroundColor3 = Color3.new(1, 1, 1),
-			BackgroundTransparency = 0.86,
-			BorderSizePixel = 0,
-			ZIndex = 3,
-		}, React.createElement("uigradient", {
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 1),
-				NumberSequenceKeypoint.new(0.5, 0),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-		}))
-	end
-	if rank >= 5 then
-		for index = 1, 3 do
-			local phase = index * (math.pi * 2 / 3)
-			children["spark" .. index] = React.createElement("frame", {
-				Size = UDim2.fromOffset(3, 3),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = if animate then clock:map(function(t)
-					local a = t * 0.9 + phase
-					return UDim2.fromScale(0.5 + math.cos(a) * 0.46, 0.5 + math.sin(a * 2) * 0.32)
-				end) else UDim2.fromScale(0.5 + math.cos(phase) * 0.46, 0.5),
-				BackgroundColor3 = light,
-				BorderSizePixel = 0,
-				ZIndex = 3,
-			}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))
-		end
-	end
-	return React.createElement(React.Fragment, nil, children)
 end
 local function colorTag(color)
 	return `{math.round(color.R * 255)},{math.round(color.G * 255)},{math.round(color.B * 255)}`
@@ -839,143 +731,132 @@ local function safeText(value)
 	cleaned = (string.gsub(cleaned, ">", ")"))
 	return cleaned
 end
-local REVEAL_STAGGER = 0.045
+local REVEAL_STAGGER = 0.015
 local function buildKindMarkup(kind, body)
 	local accent = FX_ACCENT[kind]
 	repeat
 		if kind == "wave" then
-			return `<anim=wiggle freq=1.05 amp=.38 offset=.18 rot=true loop=true><shiny=true color={colorTag(Palette.white)} rate=.35 chance=30 lifetime=.5,1 startSize=.14,.24 endSize=0,0 velY=-.45,-.15 velX=-.2,.2><stroke=true color={colorTag(Color3.fromRGB(16, 48, 72))} thickness=.035 trans=.25><gradient=true colors={colorTag(Color3.fromRGB(45, 165, 225))};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(190, 248, 255))};{colorTag(Palette.cyan)} individual=false moveDir=right moveSpeed=.48 rot=8>{body}</gradient></stroke></shiny></anim>`
+			return `<anim=wiggle freq=1.35 amp=.34 offset=.16 rot=true loop=true><shadow=true color={colorTag(Color3.fromRGB(12, 42, 68))} offset=.05,.18 trans=.35><stroke=true color={colorTag(Color3.fromRGB(16, 48, 72))} thickness=.04 trans=.18><strokeGradient=true colors={colorTag(Palette.cyan)};{colorTag(Palette.white)};{colorTag(Palette.blue)} individual=true moveDir=right moveSpeed=.65><gradient=true colors={colorTag(Color3.fromRGB(45, 165, 225))};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(195, 248, 255))};{colorTag(Palette.cyan)} individual=false moveDir=right moveSpeed=.55 rot=12>{body}</gradient></strokeGradient></stroke></shadow></anim>`
 		end
 		if kind == "ocean" then
-			return `<anim=bounce dir=down offset=.22 exp=1.15 loop=true><fog=true color={colorTag(Palette.blue)} rate=.45 chance=40 lifetime=.8,1.4 startSize=.5,.8 endSize=.1,.2 velY=-.15,.2 startTrans=.4,.6 endTrans=1,1><gradient=true colors={colorTag(Palette.blue)};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(20, 70, 140))} individual=false moveDir=left moveSpeed=.18 rot=12>{body}</gradient></fog></anim>`
+			return `<anim=orbit freq=1.1 amp=.24 offset=.2 rot=true loop=true><shadow=true color={colorTag(Color3.fromRGB(8, 24, 54))} offset=.06,.22 trans=.3><stroke=true color={colorTag(Color3.fromRGB(14, 44, 92))} thickness=.042 trans=.15><gradient=true colors={colorTag(Color3.fromRGB(20, 75, 155))};{colorTag(Palette.blue)};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(175, 240, 255))} individual=false moveDir=left moveSpeed=.38 rot=16>{body}</gradient></stroke></shadow></anim>`
 		end
 		if kind == "aurora" then
-			return `<trans=.08 tweenDur=1.6 tweenFrom=.28 loopTween=true><shiny=true color={colorTag(Palette.mint)} rate=.35 chance=35 lifetime=.7,1.3 startSize=.16,.28 endSize=0,0 velY=-.25,.25 velX=-.3,.3><gradient=true colors={colorTag(Palette.mint)};{colorTag(Palette.cyan)};{colorTag(Palette.violet)};{colorTag(Palette.pink)} individual=false moveDir=right moveSpeed=.28 spacing=.15>{body}</gradient></shiny></trans>`
+			return `<anim=spiral freq=1.15 amp=.28 offset=.18 rot=true loop=true><shiny=true color={colorTag(Palette.mint)} rate=.42 chance=38 lifetime=.55,1.05 startSize=.14,.24 endSize=0,0 velY=-.25,.25 velX=-.25,.25><shadow=true color={colorTag(Color3.fromRGB(18, 12, 42))} offset=.05,.2 trans=.32><stroke=true color={colorTag(Palette.mint)} thickness=.04 trans=.2><strokeGradient=true colors={colorTag(Palette.mint)};{colorTag(Palette.cyan)};{colorTag(Palette.pink)} individual=true moveDir=right moveSpeed=.6><gradient=true colors={colorTag(Palette.mint)};{colorTag(Palette.cyan)};{colorTag(Palette.violet)};{colorTag(Palette.pink)} individual=false moveDir=right moveSpeed=.45 spacing=.12 rot=18>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "fire" then
-			return `<anim=bounce dir=up offset=.2 exp=1.8 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 190, 70))} rate=.85 chance=55 lifetime=.35,.7 startSize=.28,.42 endSize=0,0 velY=-1.2,-.7 startPosY=.15,.45 rotVel=-40,40><gradient=true colors={colorTag(Color3.fromRGB(255, 70, 16))};{colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 230, 110))} individual=true moveDir=right moveSpeed=.4>{body}</gradient></shiny></anim>`
+			return `<anim=bounce dir=up offset=.26 exp=1.7 loop=true><shake=true maxOffset=.016 maxRot=1.8 loop=true freq=6 dur=0><shiny=true color={colorTag(Color3.fromRGB(255, 200, 80))} rate=.85 chance=55 lifetime=.35,.68 startSize=.2,.34 endSize=0,0 velY=-1.1,-.55 startPosY=.1,.35 rotVel=-45,45><shadow=true color={colorTag(Color3.fromRGB(58, 10, 4))} offset=.04,.22 trans=.25><stroke=true color={colorTag(Color3.fromRGB(82, 18, 6))} thickness=.045><strokeGradient=true colors={colorTag(Palette.coral)};{colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 240, 130))} individual=true moveDir=right moveSpeed=.85><gradient=true colors={colorTag(Color3.fromRGB(255, 62, 16))};{colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 238, 125))};{colorTag(Color3.fromRGB(255, 95, 24))} individual=true moveDir=right moveSpeed=.65 rot=85>{body}</gradient></strokeGradient></stroke></shadow></shiny></shake></anim>`
 		end
 		if kind == "ember" then
-			return `<shake=true maxOffset=.012 maxRot=1.2 loop=true freq=3 dur=0><shiny=true color={colorTag(Color3.fromRGB(255, 130, 50))} rate=.48 chance=45 lifetime=.65,1.25 startSize=.18,.3 endSize=0,0 velY=-.65,-.2 startPosY=-.15,.2 accelY=-.3,-.1><stroke=true color={colorTag(Color3.fromRGB(58, 14, 6))} thickness=.04><gradient=true colors={colorTag(Color3.fromRGB(190, 42, 14))};{colorTag(Color3.fromRGB(255, 118, 42))};{colorTag(Color3.fromRGB(255, 210, 110))} individual=false moveDir=right moveSpeed=.42 rot=90>{body}</gradient></stroke></shiny></shake>`
+			return `<anim=pendulum freq=1.4 amp=.28 offset=.22 rot=true loop=true><shake=true maxOffset=.012 maxRot=1.4 loop=true freq=4 dur=0><shiny=true color={colorTag(Color3.fromRGB(255, 140, 55))} rate=.5 chance=44 lifetime=.55,1.05 startSize=.16,.26 endSize=0,0 velY=-.65,-.2 startPosY=-.1,.2 accelY=-.3,-.1><shadow=true color={colorTag(Color3.fromRGB(44, 10, 4))} offset=.05,.2 trans=.3><stroke=true color={colorTag(Color3.fromRGB(58, 14, 6))} thickness=.042><gradient=true colors={colorTag(Color3.fromRGB(190, 42, 14))};{colorTag(Color3.fromRGB(255, 118, 42))};{colorTag(Color3.fromRGB(255, 214, 115))} individual=false moveDir=right moveSpeed=.48 rot=88>{body}</gradient></stroke></shadow></shiny></shake></anim>`
 		end
 		if kind == "solar" then
-			return `<anim=grow startScale=.86 exp=1.4 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 240, 160))} rate=.5 chance=30 lifetime=.5,.9 startSize=.35,.5 endSize=.05,.1 velY=-.35,.35 velX=-.4,.4 startPosY=-.15,.15><gradient=true colors={colorTag(Color3.fromRGB(255, 210, 70))};{colorTag(Color3.fromRGB(255, 255, 210))};{colorTag(Palette.mango)} individual=false moveDir=right moveSpeed=.55 rot=90>{body}</gradient></shiny></anim>`
+			return `<anim=pulsewave freq=1.55 amp=.32 offset=.16 rot=true loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 244, 170))} rate=.6 chance=42 lifetime=.45,.85 startSize=.2,.34 endSize=0,0 velY=-.38,.38 velX=-.38,.38><shadow=true color={colorTag(Color3.fromRGB(78, 32, 6))} offset=.06,.24 trans=.25><stroke=true color={colorTag(Color3.fromRGB(110, 48, 8))} thickness=.048><strokeGradient=true colors={colorTag(Palette.mango)};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(255, 210, 75))} individual=false moveDir=right moveSpeed=.75><gradient=true colors={colorTag(Color3.fromRGB(255, 200, 60))};{colorTag(Color3.fromRGB(255, 252, 218))};{colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 140, 32))} individual=false moveDir=right moveSpeed=.62 rot=78>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "ice" then
-			return `<anim=slide dir=down offset=.16 rot=-6 loop=true><shiny=true color={colorTag(Palette.white)} rate=.42 chance=38 lifetime=.45,.85 startSize=.14,.26 endSize=0,0 velY=.18,.55 velX=-.18,.18><stroke=true color={colorTag(Palette.white)} thickness=.05 trans=.15><gradient=true colors={colorTag(Color3.fromRGB(120, 200, 255))};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(155, 228, 255))} individual=true moveDir=right moveSpeed=.32 rot=-14>{body}</gradient></stroke></shiny></anim>`
+			return `<anim=slide dir=down offset=.22 rot=-5 loop=true><shiny=true color={colorTag(Palette.white)} rate=.45 chance=40 lifetime=.45,.85 startSize=.14,.24 endSize=0,0 velY=.18,.52 velX=-.18,.18><shadow=true color={colorTag(Color3.fromRGB(18, 52, 88))} offset=.05,.2 trans=.3><stroke=true color={colorTag(Palette.white)} thickness=.048 trans=.12><strokeGradient=true colors={colorTag(Color3.fromRGB(110, 195, 255))};{colorTag(Palette.white)};{colorTag(Palette.cyan)} individual=true moveDir=right moveSpeed=.55><gradient=true colors={colorTag(Color3.fromRGB(115, 198, 255))};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(160, 232, 255))};{colorTag(Color3.fromRGB(85, 175, 245))} individual=true moveDir=right moveSpeed=.42 rot=-16>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "frost" then
-			return `<fog=true color={colorTag(Color3.fromRGB(210, 235, 255))} rate=.3 chance=50 lifetime=1,1.6 startSize=.4,.7 endSize=.15,.25 velY=-.08,.12 startTrans=.35,.55 endTrans=1,1><shiny=true color={colorTag(Palette.white)} rate=.28 chance=32 lifetime=.75,1.25 startSize=.14,.22 endSize=0,0 velY=-.12,.2><stroke=true color={colorTag(Color3.fromRGB(230, 245, 255))} thickness=.035 trans=.2><gradient=true colors={colorTag(Color3.fromRGB(165, 215, 255))};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(190, 232, 255))} individual=false moveDir=right moveSpeed=.28>{body}</gradient></stroke></shiny></fog>`
+			return `<anim=pendulum freq=1.05 amp=.22 offset=.2 rot=true loop=true><shiny=true color={colorTag(Palette.white)} rate=.38 chance=36 lifetime=.6,1.1 startSize=.14,.22 endSize=0,0 velY=-.12,.22><shadow=true color={colorTag(Color3.fromRGB(24, 58, 96))} offset=.05,.18 trans=.32><stroke=true color={colorTag(Color3.fromRGB(225, 244, 255))} thickness=.042 trans=.16><gradient=true colors={colorTag(Color3.fromRGB(160, 212, 255))};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(200, 238, 255))};{colorTag(Color3.fromRGB(130, 190, 245))} individual=false moveDir=right moveSpeed=.36 rot=-12>{body}</gradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "glitch" then
-			return `<decode=true dur=.16 freq=8 loop=true><shake=true maxOffset=.05 maxRot=2.8 loop=true freq=7 dur=0><stroke=true color={colorTag(Color3.fromRGB(22, 4, 38))} thickness=.04><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cyan)};{colorTag(Palette.white)};{colorTag(Palette.pink)} individual=true moveDir=left moveSpeed=1.15><strike=true>{body}</strike></gradient></stroke></shake></decode>`
+			return `<decode=true dur=.16 freq=7 loop=true><shake=true maxOffset=.042 maxRot=3.4 loop=true freq=9 dur=0><shadow=true color={colorTag(Palette.cyan)} offset=-.08,.14 trans=.22><stroke=true color={colorTag(Color3.fromRGB(22, 4, 38))} thickness=.045><strokeGradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cyan)};{colorTag(Palette.white)} individual=true moveDir=left moveSpeed=1.35><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cyan)};{colorTag(Palette.white)};{colorTag(Palette.violet)} individual=true moveDir=left moveSpeed=1.15>{body}</gradient></strokeGradient></stroke></shadow></shake></decode>`
 		end
 		if kind == "static" then
-			return `<shake=true maxOffset=.018 maxRot=1 loop=true freq=14 dur=0><decode=true dur=.1 freq=12 loop=true><stroke=true color={colorTag(Color3.fromRGB(28, 36, 46))} thickness=.035><gradient=true colors={colorTag(Palette.creamSoft)};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(165, 185, 210))} individual=true moveDir=right moveSpeed=1.1 rot=90>{body}</gradient></stroke></decode></shake>`
+			return `<shake=true maxOffset=.024 maxRot=1.8 loop=true freq=12 dur=0><decode=true dur=.12 freq=9 loop=true><shadow=true color={colorTag(Color3.fromRGB(24, 34, 48))} offset=.05,.16 trans=.35><stroke=true color={colorTag(Color3.fromRGB(28, 36, 46))} thickness=.04><gradient=true colors={colorTag(Palette.creamSoft)};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(150, 185, 220))};{colorTag(Palette.cream)} individual=true moveDir=right moveSpeed=1.05 rot=90>{body}</gradient></stroke></shadow></decode></shake>`
 		end
 		if kind == "voltage" then
-			return `<shake=true maxOffset=.03 maxRot=5 loop=true freq=12 dur=0><shiny=true color={colorTag(Palette.cyan)} rate=.55 chance=42 lifetime=.25,.5 startSize=.16,.28 endSize=0,0 velX=-.9,.9 velY=-.5,.5><stroke=true color={colorTag(Palette.white)} thickness=.035><strokeGradient=true colors={colorTag(Palette.cyan)};{colorTag(Palette.white)};{colorTag(Palette.blue)} moveDir=right moveSpeed=1.1 individual=false><gradient=true colors={colorTag(Palette.white)};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(110, 190, 255))} individual=true moveDir=right moveSpeed=.95>{body}</gradient></strokeGradient></stroke></shiny></shake>`
+			return `<anim=pulsewave freq=2.2 amp=.28 offset=.14 rot=true loop=true><shake=true maxOffset=.026 maxRot=4.2 loop=true freq=11 dur=0><shiny=true color={colorTag(Palette.cyan)} rate=.6 chance=46 lifetime=.25,.48 startSize=.16,.26 endSize=0,0 velX=-.85,.85 velY=-.45,.45><shadow=true color={colorTag(Color3.fromRGB(10, 38, 74))} offset=.05,.2 trans=.26><stroke=true color={colorTag(Palette.white)} thickness=.042><strokeGradient=true colors={colorTag(Palette.cyan)};{colorTag(Palette.white)};{colorTag(Palette.blue)} moveDir=right moveSpeed=1.2 individual=false><gradient=true colors={colorTag(Palette.white)};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(105, 185, 255))};{colorTag(Palette.white)} individual=true moveDir=right moveSpeed=.95 rot=12>{body}</gradient></strokeGradient></stroke></shadow></shiny></shake></anim>`
 		end
 		if kind == "shake" then
-			return `<shake=true maxOffset=.06 maxRot=6.5 loop=true freq=9 dur=0 fade=false><shiny=true color={colorTag(Palette.mango)} rate=.5 chance=40 lifetime=.3,.6 startSize=.18,.3 endSize=0,0 velY=-.75,-.25 velX=-.55,.55><stroke=true color={colorTag(Color3.fromRGB(56, 14, 10))} thickness=.04><gradient=true colors={colorTag(Palette.coral)};{colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 95, 50))} individual=true moveDir=right moveSpeed=.7>{body}</gradient></stroke></shiny></shake>`
+			return `<shake=true maxOffset=.048 maxRot=5.5 loop=true freq=8 dur=0 fade=false><shiny=true color={colorTag(Palette.mango)} rate=.5 chance=40 lifetime=.3,.58 startSize=.16,.28 endSize=0,0 velY=-.7,-.22 velX=-.5,.5><shadow=true color={colorTag(Color3.fromRGB(48, 12, 8))} offset=.05,.18 trans=.3><stroke=true color={colorTag(Color3.fromRGB(56, 14, 10))} thickness=.042><gradient=true colors={colorTag(Palette.coral)};{colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 215, 130))};{colorTag(Color3.fromRGB(255, 92, 48))} individual=true moveDir=right moveSpeed=.75>{body}</gradient></stroke></shadow></shiny></shake>`
 		end
 		if kind == "galaxy" then
-			return `<shiny=true color={colorTag(Color3.fromRGB(225, 215, 255))} rate=.55 chance=48 lifetime=.55,1.05 startSize=.16,.28 endSize=0,0 velY=-.28,.28 velX=-.38,.38><anim=wiggle freq=.35 amp=.14 offset=.28 rot=false loop=true><shadow=true color={colorTag(Color3.fromRGB(20, 8, 40))} offset=0,.28 trans=.35><stroke=true color={colorTag(Color3.fromRGB(34, 12, 58))} thickness=.04 trans=.2><rainbow=true freq=.14 offset=.22>{body}</rainbow></stroke></shadow></anim></shiny>`
+			return `<anim=orbit freq=.95 amp=.32 offset=.22 rot=true loop=true><shiny=true color={colorTag(Color3.fromRGB(230, 218, 255))} rate=.6 chance=48 lifetime=.5,1 startSize=.16,.28 endSize=0,0 velY=-.28,.28 velX=-.35,.35><shadow=true color={colorTag(Color3.fromRGB(20, 8, 42))} offset=.06,.26 trans=.25><stroke=true color={colorTag(Color3.fromRGB(38, 14, 68))} thickness=.046 trans=.14><strokeGradient=true colors={colorTag(Palette.violet)};{colorTag(Palette.pink)};{colorTag(Palette.cyan)} individual=true moveDir=right moveSpeed=.65><rainbow=true freq=.28 offset=.18>{body}</rainbow></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "prism" then
-			return `<stroke=true color={colorTag(Palette.white)} thickness=.04><strokeGradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cyan)};{colorTag(Palette.mango)};{colorTag(Palette.violet)} individual=true moveDir=right moveSpeed=.8><rainbow=true freq=.55 offset=.08>{body}</rainbow></strokeGradient></stroke>`
+			return `<anim=spiral freq=1.35 amp=.3 offset=.16 rot=true loop=true><shiny=true color={colorTag(Palette.white)} rate=.5 chance=42 lifetime=.4,.8 startSize=.15,.25 endSize=0,0 velY=-.3,.3 velX=-.3,.3><shadow=true color={colorTag(Color3.fromRGB(32, 14, 52))} offset=.06,.22 trans=.28><stroke=true color={colorTag(Palette.white)} thickness=.045><strokeGradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cyan)};{colorTag(Palette.mango)};{colorTag(Palette.violet)} individual=true moveDir=right moveSpeed=.85><rainbow=true freq=.55 offset=.12>{body}</rainbow></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "holographic" then
-			return `<italic=true><trans=.1 tweenDur=.9 tweenFrom=.32 loopTween=true><gradient=true colors={colorTag(Palette.cyan)};{colorTag(Palette.pink)};{colorTag(Palette.mint)};{colorTag(Palette.white)} individual=true moveDir=left moveSpeed=.95>{body}</gradient></trans></italic>`
+			return `<italic=true><anim=wiggle freq=1.45 amp=.26 offset=.18 rot=true loop=true><shadow=true color={colorTag(Palette.pink)} offset=-.06,.16 trans=.32><stroke=true color={colorTag(Color3.fromRGB(18, 46, 62))} thickness=.04><strokeGradient=true colors={colorTag(Palette.cyan)};{colorTag(Palette.pink)};{colorTag(Palette.white)} individual=true moveDir=left moveSpeed=.95><gradient=true colors={colorTag(Palette.cyan)};{colorTag(Palette.pink)};{colorTag(Palette.mint)};{colorTag(Palette.white)} individual=true moveDir=left moveSpeed=.95 rot=-18>{body}</gradient></strokeGradient></stroke></shadow></anim></italic>`
 		end
 		if kind == "gradient-shift" then
-			return `<stroke=true color={colorTag(Palette.white)} thickness=.03 trans=.55><gradient=true colors={colorTag(Palette.blue)};{colorTag(Palette.violet)};{colorTag(Palette.pink)};{colorTag(Palette.cyan)} individual=false moveDir=right moveSpeed=.38 spacing=.08>{body}</gradient></stroke>`
+			return `<anim=pulsewave freq=1.2 amp=.22 offset=.18 rot=false loop=true><shadow=true color={colorTag(Color3.fromRGB(14, 22, 48))} offset=.05,.18 trans=.32><stroke=true color={colorTag(Palette.white)} thickness=.038 trans=.35><strokeGradient=true colors={colorTag(Palette.blue)};{colorTag(Palette.pink)};{colorTag(Palette.cyan)} individual=false moveDir=right moveSpeed=.55><gradient=true colors={colorTag(Palette.blue)};{colorTag(Palette.violet)};{colorTag(Palette.pink)};{colorTag(Palette.cyan)} individual=false moveDir=right moveSpeed=.48 spacing=.1 rot=15>{body}</gradient></strokeGradient></stroke></shadow></anim>`
 		end
 		if kind == "candy" then
-			return `<anim=bounce dir=up offset=.48 exp=2.1 loop=true><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cream)};{colorTag(Palette.violet)};{colorTag(Palette.mint)} individual=true moveDir=right moveSpeed=.28>{body}</gradient></anim>`
+			return `<anim=bounce dir=up offset=.38 exp=1.85 loop=true><shadow=true color={colorTag(Color3.fromRGB(58, 16, 42))} offset=.05,.2 trans=.3><stroke=true color={colorTag(Color3.fromRGB(72, 20, 52))} thickness=.042><strokeGradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cream)};{colorTag(Palette.mint)} individual=true moveDir=right moveSpeed=.6><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.cream)};{colorTag(Palette.violet)};{colorTag(Palette.mint)} individual=true moveDir=right moveSpeed=.45 rot=10>{body}</gradient></strokeGradient></stroke></shadow></anim>`
 		end
 		if kind == "rainbow" then
-			return `<stroke=true color={colorTag(Palette.white)} thickness=.035 trans=.42><shiny=true color={colorTag(Palette.white)} rate=.42 chance=38 lifetime=.4,.8 startSize=.14,.24 endSize=0,0 velY=-.48,-.12 velX=-.28,.28><rainbow=true freq=.7 offset=.16>{body}</rainbow></shiny></stroke>`
+			return `<anim=wiggle freq=1.5 amp=.32 offset=.16 rot=true loop=true><shiny=true color={colorTag(Palette.white)} rate=.48 chance=40 lifetime=.4,.78 startSize=.14,.24 endSize=0,0 velY=-.45,-.12 velX=-.28,.28><shadow=true color={colorTag(Color3.fromRGB(24, 14, 42))} offset=.05,.2 trans=.3><stroke=true color={colorTag(Palette.white)} thickness=.04 trans=.28><rainbow=true freq=.65 offset=.15>{body}</rainbow></stroke></shadow></shiny></anim>`
 		end
 		if kind == "toxic" then
-			return `<fog=true color={colorTag(Color3.fromRGB(90, 255, 40))} rate=.55 chance=45 lifetime=.6,1.1 startSize=.3,.5 endSize=.05,.12 velY=.25,.75 startPosY=-.2,.1 startTrans=.2,.4 endTrans=1,1><shake=true maxOffset=.018 maxRot=.8 loop=true freq=4 dur=0><stroke=true color={colorTag(Color3.fromRGB(14, 38, 8))} thickness=.04><gradient=true colors={colorTag(Color3.fromRGB(95, 240, 35))};{colorTag(Color3.fromRGB(205, 255, 110))};{colorTag(Color3.fromRGB(60, 195, 28))} individual=true moveDir=right moveSpeed=.55 rot=90>{body}</gradient></stroke></shake></fog>`
+			return `<anim=spiral freq=1.4 amp=.26 offset=.2 rot=true loop=true><shake=true maxOffset=.016 maxRot=1.2 loop=true freq=5 dur=0><shiny=true color={colorTag(Color3.fromRGB(165, 255, 75))} rate=.48 chance=42 lifetime=.45,.85 startSize=.15,.25 endSize=0,0 velY=-.55,-.15 velX=-.25,.25><shadow=true color={colorTag(Color3.fromRGB(10, 32, 6))} offset=.05,.2 trans=.28><stroke=true color={colorTag(Color3.fromRGB(14, 38, 8))} thickness=.044><strokeGradient=true colors={colorTag(Color3.fromRGB(95, 245, 38))};{colorTag(Color3.fromRGB(210, 255, 115))};{colorTag(Palette.mint)} individual=true moveDir=right moveSpeed=.75><gradient=true colors={colorTag(Color3.fromRGB(95, 245, 38))};{colorTag(Color3.fromRGB(210, 255, 115))};{colorTag(Color3.fromRGB(52, 188, 26))};{colorTag(Palette.mint)} individual=true moveDir=right moveSpeed=.58 rot=84>{body}</gradient></strokeGradient></stroke></shadow></shiny></shake></anim>`
 		end
 		if kind == "matrix" then
-			return `<italic=true><decode=true dur=.24 freq=5 loop=true><stroke=true color={colorTag(Color3.fromRGB(6, 28, 10))} thickness=.04><gradient=true colors={colorTag(Color3.fromRGB(85, 255, 125))};{colorTag(Palette.green)};{colorTag(Color3.fromRGB(185, 255, 195))};{colorTag(Color3.fromRGB(24, 145, 50))} individual=true moveDir=right moveSpeed=.95 rot=90>{body}</gradient></stroke></decode></italic>`
+			return `<italic=true><anim=slide dir=down offset=.18 rot=0 loop=true><decode=true dur=.22 freq=6 loop=true><shadow=true color={colorTag(Color3.fromRGB(4, 22, 8))} offset=.04,.18 trans=.28><stroke=true color={colorTag(Color3.fromRGB(6, 28, 10))} thickness=.042><gradient=true colors={colorTag(Color3.fromRGB(85, 255, 125))};{colorTag(Palette.green)};{colorTag(Color3.fromRGB(195, 255, 205))};{colorTag(Color3.fromRGB(24, 150, 54))} individual=true moveDir=right moveSpeed=.95 rot=90>{body}</gradient></stroke></shadow></decode></anim></italic>`
 		end
 		if kind == "glow" then
-			return `<trans=.04 tweenDur=1.1 tweenFrom=.3 loopTween=true><shiny=true color={colorTag(Palette.white)} rate=.48 chance=42 lifetime=.5,.95 startSize=.16,.28 endSize=0,0 velY=-.35,.35 velX=-.35,.35><stroke=true color={colorTag(Color3.fromRGB(255, 236, 190))} thickness=.065 trans=.14><gradient=true colors={colorTag(Color3.fromRGB(255, 252, 230))};{colorTag(Color3.fromRGB(255, 224, 155))};{colorTag(Palette.white)} individual=false moveDir=right moveSpeed=.44 rot=22>{body}</gradient></stroke></shiny></trans>`
+			return `<anim=pulsewave freq=1.25 amp=.24 offset=.18 rot=false loop=true><shiny=true color={colorTag(Palette.white)} rate=.48 chance=42 lifetime=.5,.95 startSize=.16,.26 endSize=0,0 velY=-.32,.32 velX=-.32,.32><shadow=true color={colorTag(Color3.fromRGB(88, 62, 18))} offset=.04,.18 trans=.32><stroke=true color={colorTag(Color3.fromRGB(255, 236, 190))} thickness=.055 trans=.16><gradient=true colors={colorTag(Color3.fromRGB(255, 252, 230))};{colorTag(Color3.fromRGB(255, 224, 155))};{colorTag(Palette.white)} individual=false moveDir=right moveSpeed=.46 rot=22>{body}</gradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "neon" then
-			return `<mark=true color={colorTag(Color3.fromRGB(8, 28, 22))} trans=.72><stroke=true color={colorTag(Palette.mint)} thickness=.06><strokeGradient=true colors={colorTag(Palette.mint)};{colorTag(Palette.white)};{colorTag(Palette.cyan)} individual=false moveDir=right moveSpeed=.7><gradient=true colors={colorTag(Color3.fromRGB(215, 255, 242))};{colorTag(Palette.mint)};{colorTag(Palette.white)} individual=false moveDir=right moveSpeed=.52>{body}</gradient></strokeGradient></stroke></mark>`
+			return `<anim=pulsewave freq=1.65 amp=.28 offset=.15 rot=true loop=true><shadow=true color={colorTag(Color3.fromRGB(6, 42, 32))} offset=.05,.2 trans=.26><stroke=true color={colorTag(Palette.mint)} thickness=.052><strokeGradient=true colors={colorTag(Palette.mint)};{colorTag(Palette.white)};{colorTag(Palette.cyan)} individual=false moveDir=right moveSpeed=.8><gradient=true colors={colorTag(Color3.fromRGB(215, 255, 242))};{colorTag(Palette.mint)};{colorTag(Palette.cyan)};{colorTag(Palette.white)} individual=false moveDir=right moveSpeed=.58 rot=8>{body}</gradient></strokeGradient></stroke></shadow></anim>`
 		end
 		if kind == "sparkle" then
-			return `<anim=bounce dir=up offset=.12 exp=1.2 loop=true><shiny=true color={colorTag(Palette.white)} rate=.9 chance=60 lifetime=.4,.75 startSize=.2,.34 endSize=0,0 velY=-.9,-.4 velX=-.5,.5 startPosY=-.2,.2 rotVel=-80,80><stroke=true color={colorTag(Color3.fromRGB(76, 44, 10))} thickness=.035 trans=.28><gradient=true colors={colorTag(Color3.fromRGB(255, 236, 152))};{colorTag(Palette.mango)};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(255, 192, 82))} individual=false moveDir=right moveSpeed=.62 rot=14>{body}</gradient></stroke></shiny></anim>`
+			return `<anim=bounce dir=up offset=.18 exp=1.35 loop=true><shiny=true color={colorTag(Palette.white)} rate=.88 chance=58 lifetime=.38,.72 startSize=.18,.3 endSize=0,0 velY=-.85,-.35 velX=-.45,.45 startPosY=-.18,.18 rotVel=-80,80><shadow=true color={colorTag(Color3.fromRGB(62, 34, 8))} offset=.05,.18 trans=.3><stroke=true color={colorTag(Color3.fromRGB(76, 44, 10))} thickness=.04 trans=.22><gradient=true colors={colorTag(Color3.fromRGB(255, 236, 152))};{colorTag(Palette.mango)};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(255, 192, 82))} individual=false moveDir=right moveSpeed=.64 rot=14>{body}</gradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "shimmer" then
-			return `<trans=.06 tweenDur=1.4 tweenFrom=.22 loopTween=true><gradient=true colors={colorTag(Palette.creamSoft)};{colorTag(Palette.white)};{colorTag(Palette.cream)};{colorTag(Palette.creamSoft)} individual=false moveDir=right moveSpeed=.62 rot=18>{body}</gradient></trans>`
+			return `<anim=wiggle freq=1.15 amp=.2 offset=.16 rot=false loop=true><shiny=true color={colorTag(Palette.white)} rate=.36 chance=34 lifetime=.45,.85 startSize=.14,.22 endSize=0,0 velY=-.25,.25 velX=-.25,.25><shadow=true color={colorTag(Color3.fromRGB(28, 34, 46))} offset=.04,.16 trans=.36><stroke=true color={colorTag(Color3.fromRGB(42, 50, 64))} thickness=.036 trans=.24><gradient=true colors={colorTag(Palette.creamSoft)};{colorTag(Palette.white)};{colorTag( Color3.fromRGB(210, 232, 255))};{colorTag(Palette.cream)} individual=false moveDir=right moveSpeed=.65 rot=18>{body}</gradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "pulse" then
-			return `<anim=grow startScale=.84 exp=1.18 loop=true><trans=.05 tweenDur=.9 tweenFrom=.35 loopTween=true><stroke=true color={colorTag(lighten(Palette.violet, 0.3))} thickness=.045 trans=.18><gradient=true colors={colorTag(Palette.violet)};{colorTag(Palette.pink)};{colorTag(Palette.cyan)};{colorTag(Palette.violet)} individual=false moveDir=right moveSpeed=.44 spacing=.14>{body}</gradient></stroke></trans></anim>`
+			return `<anim=grow startScale=.82 exp=1.25 loop=true><shadow=true color={colorTag(Color3.fromRGB(24, 10, 46))} offset=.05,.2 trans=.3><stroke=true color={colorTag(lighten(Palette.violet, 0.3))} thickness=.045 trans=.18><strokeGradient=true colors={colorTag(Palette.violet)};{colorTag(Palette.pink)};{colorTag(Palette.cyan)} individual=true moveDir=right moveSpeed=.65><gradient=true colors={colorTag(Palette.violet)};{colorTag(Palette.pink)};{colorTag(Palette.cyan)};{colorTag(Palette.violet)} individual=false moveDir=right moveSpeed=.48 spacing=.14>{body}</gradient></strokeGradient></stroke></shadow></anim>`
 		end
 		if kind == "void" then
-			return `<fog=true color={colorTag(Color3.fromRGB(42, 12, 64))} rate=.36 chance=44 lifetime=.85,1.45 startSize=.42,.72 endSize=.1,.2 velY=-.1,.1 velX=-.1,.1 startTrans=.42,.62 endTrans=1,1><anim=wiggle freq=.28 amp=.2 offset=.32 rot=true loop=true><shadow=true color={colorTag(Color3.fromRGB(8, 0, 16))} offset=.08,.4 trans=.2><stroke=true color={colorTag(Color3.fromRGB(18, 6, 28))} thickness=.065><gradient=true colors={colorTag(Color3.fromRGB(165, 95, 245))};{colorTag(Color3.fromRGB(65, 22, 108))};{colorTag(Palette.violet)};{colorTag(Color3.fromRGB(205, 145, 255))} individual=false moveDir=right moveSpeed=.32 rot=42>{body}</gradient></stroke></shadow></anim></fog>`
+			return `<anim=orbit freq=.85 amp=.36 offset=.24 rot=true loop=true><shadow=true color={colorTag(Color3.fromRGB(8, 0, 18))} offset=.08,.32 trans=.18><stroke=true color={colorTag(Color3.fromRGB(18, 6, 32))} thickness=.058><strokeGradient=true colors={colorTag(Color3.fromRGB(185, 115, 255))};{colorTag(Color3.fromRGB(48, 12, 82))};{colorTag(Palette.violet)} individual=true moveDir=left moveSpeed=.55><gradient=true colors={colorTag(Color3.fromRGB(170, 95, 250))};{colorTag(Color3.fromRGB(58, 18, 98))};{colorTag(Palette.violet)};{colorTag(Color3.fromRGB(220, 165, 255))} individual=false moveDir=right moveSpeed=.38 rot=42>{body}</gradient></strokeGradient></stroke></shadow></anim>`
 		end
 		if kind == "plasma" then
-			return `<shake=true maxOffset=.028 maxRot=2.5 loop=true freq=8 dur=0><shiny=true color={colorTag(Palette.pink)} rate=.7 chance=40 lifetime=.3,.55 startSize=.22,.36 endSize=0,0 velX=-.8,.8 velY=-.5,.5><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.violet)};{colorTag(Palette.coral)};{colorTag(Palette.cyan)} individual=true moveDir=right moveSpeed=1.05>{body}</gradient></shiny></shake>`
+			return `<anim=spiral freq=1.65 amp=.32 offset=.16 rot=true loop=true><shake=true maxOffset=.024 maxRot=2.4 loop=true freq=8 dur=0><shiny=true color={colorTag(Palette.pink)} rate=.68 chance=44 lifetime=.3,.55 startSize=.18,.3 endSize=0,0 velX=-.75,.75 velY=-.48,.48><shadow=true color={colorTag(Color3.fromRGB(44, 10, 40))} offset=.05,.2 trans=.26><stroke=true color={colorTag(Color3.fromRGB(52, 12, 48))} thickness=.044><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.violet)};{colorTag(Palette.coral)};{colorTag(Palette.cyan)} individual=true moveDir=right moveSpeed=1.05 rot=16>{body}</gradient></stroke></shadow></shiny></shake></anim>`
 		end
 		if kind == "chrome" then
-			return `<shadow=true color={colorTag(Color3.fromRGB(40, 44, 52))} offset=.06,.22 trans=.45><gradient=true colors={colorTag(Palette.muted)};{colorTag(Palette.creamSoft)};{colorTag(Palette.white)};{colorTag(Palette.creamSoft)};{colorTag(Color3.fromRGB(90, 96, 108))} individual=false moveDir=right moveSpeed=.48 rot=90>{body}</gradient></shadow>`
+			return `<anim=pendulum freq=1.2 amp=.2 offset=.18 rot=true loop=true><shadow=true color={colorTag(Color3.fromRGB(32, 36, 44))} offset=.06,.22 trans=.35><stroke=true color={colorTag(Color3.fromRGB(28, 32, 40))} thickness=.042><strokeGradient=true colors={colorTag(Palette.white)};{colorTag(Color3.fromRGB(110, 120, 138))};{colorTag(Palette.white)} individual=false moveDir=right moveSpeed=.65><gradient=true colors={colorTag(Palette.muted)};{colorTag(Palette.creamSoft)};{colorTag(Palette.white)};{colorTag(Palette.creamSoft)};{colorTag(Color3.fromRGB(90, 96, 108))} individual=false moveDir=right moveSpeed=.52 rot=78>{body}</gradient></strokeGradient></stroke></shadow></anim>`
 		end
 		if kind == "phantom" then
-			return `<italic=true><fog=true color={colorTag(Palette.violet)} rate=.34 chance=44 lifetime=.9,1.5 startSize=.38,.68 endSize=.1,.2 velY=-.14,-.02 startTrans=.46,.64 endTrans=1,1><anim=slide dir=up offset=.18 rot=4 loop=true><trans=.16 tweenDur=1.3 tweenFrom=.56 loopTween=true><stroke=true color={colorTag(Color3.fromRGB(30, 10, 48))} thickness=.035><gradient=true colors={colorTag(Color3.fromRGB(175, 135, 255))};{colorTag(Color3.fromRGB(225, 205, 255))};{colorTag(Palette.violet)} individual=false moveDir=right moveSpeed=.28 rot=90>{body}</gradient></stroke></trans></anim></fog></italic>`
+			return `<italic=true><anim=orbit freq=.92 amp=.28 offset=.22 rot=true loop=true><trans=.12 tweenDur=1.2 tweenFrom=.48 loopTween=true><shadow=true color={colorTag(Color3.fromRGB(22, 8, 38))} offset=.07,.26 trans=.28><stroke=true color={colorTag(Color3.fromRGB(30, 10, 48))} thickness=.04><gradient=true colors={colorTag(Color3.fromRGB(175, 135, 255))};{colorTag(Color3.fromRGB(232, 218, 255))};{colorTag(Palette.violet)};{colorTag(Color3.fromRGB(125, 195, 255))} individual=false moveDir=right moveSpeed=.34 rot=82>{body}</gradient></stroke></shadow></trans></anim></italic>`
 		end
-		-- dark core with a thin corona: stroke carries the light, fill stays near-black
 		if kind == "eclipse" then
-			return `<anim=grow startScale=.94 exp=1.2 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 224, 150))} rate=.38 chance=34 lifetime=.55,1.05 startSize=.16,.28 endSize=0,0 velX=-.35,.35 velY=-.35,.35><stroke=true color={colorTag(Color3.fromRGB(255, 214, 140))} thickness=.055><strokeGradient=true colors={colorTag(Color3.fromRGB(255, 160, 60))};{colorTag(Color3.fromRGB(255, 246, 210))};{colorTag(Color3.fromRGB(255, 160, 60))} individual=false moveDir=right moveSpeed=.35><color={colorTag(Color3.fromRGB(22, 16, 30))}>{body}</color></strokeGradient></stroke></shiny></anim>`
+			return `<anim=pulsewave freq=1.15 amp=.3 offset=.18 rot=true loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 224, 150))} rate=.44 chance=38 lifetime=.5,.95 startSize=.16,.26 endSize=0,0 velX=-.32,.32 velY=-.32,.32><shadow=true color={colorTag(Color3.fromRGB(255, 175, 70))} offset=.04,.18 trans=.28><stroke=true color={colorTag(Color3.fromRGB(255, 214, 140))} thickness=.058><strokeGradient=true colors={colorTag(Color3.fromRGB(255, 155, 55))};{colorTag(Color3.fromRGB(255, 248, 215))};{colorTag(Color3.fromRGB(255, 155, 55))} individual=false moveDir=right moveSpeed=.45><gradient=true colors={colorTag(Color3.fromRGB(36, 24, 52))};{colorTag(Color3.fromRGB(78, 52, 96))};{colorTag(Color3.fromRGB(255, 214, 140))} individual=false moveDir=right moveSpeed=.36 rot=24>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "nebula" then
-			return `<fog=true color={colorTag(Palette.violet)} rate=.4 chance=45 lifetime=1.1,1.8 startSize=.5,.9 endSize=.2,.35 velX=-.12,.12 velY=-.1,.1 startTrans=.55,.7 endTrans=1,1><anim=wiggle freq=.3 amp=.12 offset=.3 rot=false loop=true><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.violet)};{colorTag(Color3.fromRGB(80, 110, 255))};{colorTag(Palette.pink)} individual=false moveDir=left moveSpeed=.16 spacing=.2>{body}</gradient></anim></fog>`
+			return `<anim=spiral freq=.95 amp=.32 offset=.22 rot=true loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 185, 240))} rate=.46 chance=40 lifetime=.55,1.05 startSize=.15,.26 endSize=0,0 velX=-.28,.28 velY=-.28,.28><shadow=true color={colorTag(Color3.fromRGB(18, 8, 38))} offset=.06,.24 trans=.26><stroke=true color={colorTag(Color3.fromRGB(26, 10, 48))} thickness=.044><strokeGradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.violet)};{colorTag(Palette.cyan)} individual=true moveDir=left moveSpeed=.55><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.violet)};{colorTag(Color3.fromRGB(85, 120, 255))};{colorTag(Color3.fromRGB(255, 165, 235))} individual=false moveDir=left moveSpeed=.32 spacing=.16 rot=26>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "molten" then
-			return `<anim=bounce dir=down offset=.12 exp=2.2 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 200, 90))} rate=.4 chance=35 lifetime=.6,1.1 startSize=.16,.26 endSize=0,0 velY=.4,.9 startPosY=.3,.5 accelY=.6,1><shadow=true color={colorTag(Color3.fromRGB(60, 12, 4))} offset=0,.16 trans=.3><gradient=true colors={colorTag(Color3.fromRGB(150, 24, 8))};{colorTag(Color3.fromRGB(255, 120, 40))};{colorTag(Color3.fromRGB(255, 226, 120))} individual=false moveDir=right moveSpeed=.5 rot=90>{body}</gradient></shadow></shiny></anim>`
+			return `<anim=bounce dir=down offset=.16 exp=2.0 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 200, 90))} rate=.48 chance=40 lifetime=.55,1.0 startSize=.16,.26 endSize=0,0 velY=.35,.85 startPosY=.25,.45 accelY=.5,.9><shadow=true color={colorTag(Color3.fromRGB(54, 10, 4))} offset=.05,.22 trans=.24><stroke=true color={colorTag(Color3.fromRGB(52, 10, 4))} thickness=.048><strokeGradient=true colors={colorTag(Color3.fromRGB(255, 118, 36))};{colorTag(Color3.fromRGB(255, 230, 125))};{colorTag(Color3.fromRGB(185, 36, 10))} individual=true moveDir=right moveSpeed=.6><gradient=true colors={colorTag(Color3.fromRGB(155, 26, 8))};{colorTag(Color3.fromRGB(255, 120, 40))};{colorTag(Color3.fromRGB(255, 230, 125))};{colorTag(Color3.fromRGB(235, 68, 16))} individual=false moveDir=right moveSpeed=.52 rot=86>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "circuit" then
-			return `<decode=true dur=.3 freq=5 loop=false><stroke=true color={colorTag(Color3.fromRGB(10, 40, 30))} thickness=.04><gradient=true colors={colorTag(Palette.mint)};{colorTag(Color3.fromRGB(20, 120, 90))};{colorTag(Palette.mint)} individual=true moveDir=right moveSpeed=1.4>{body}</gradient></stroke></decode>`
+			return `<anim=pulsewave freq=1.8 amp=.22 offset=.14 rot=false loop=true><decode=true dur=.22 freq=6 loop=true><shadow=true color={colorTag(Color3.fromRGB(6, 28, 22))} offset=.05,.18 trans=.28><stroke=true color={colorTag(Color3.fromRGB(10, 40, 30))} thickness=.042><strokeGradient=true colors={colorTag(Palette.mint)};{colorTag(Palette.cyan)};{colorTag(Palette.white)} individual=true moveDir=right moveSpeed=1.1><gradient=true colors={colorTag(Palette.mint)};{colorTag(Color3.fromRGB(24, 150, 112))};{colorTag(Color3.fromRGB(205, 255, 238))};{colorTag(Palette.cyan)} individual=true moveDir=right moveSpeed=1.2>{body}</gradient></strokeGradient></stroke></shadow></decode></anim>`
 		end
 		if kind == "comet" then
-			return `<anim=slide dir=up offset=.14 rot=0 loop=true><shiny=true color={colorTag(Palette.white)} rate=.6 chance=45 lifetime=.4,.8 startSize=.18,.3 endSize=0,0 velX=-1.4,-.8 velY=-.08,.08><gradient=true colors={colorTag(Color3.fromRGB(40, 90, 200))};{colorTag(Palette.cyan)};{colorTag(Palette.white)} individual=false moveDir=right moveSpeed=.9>{body}</gradient></shiny></anim>`
+			return `<italic=true><anim=slide dir=up offset=.2 rot=-4 loop=true><shiny=true color={colorTag(Palette.white)} rate=.68 chance=50 lifetime=.38,.75 startSize=.16,.28 endSize=0,0 velX=-1.35,-.75 velY=-.1,.1><shadow=true color={colorTag(Color3.fromRGB(12, 32, 74))} offset=-.08,.18 trans=.26><stroke=true color={colorTag(Color3.fromRGB(14, 34, 78))} thickness=.044><strokeGradient=true colors={colorTag(Palette.cyan)};{colorTag(Palette.white)};{colorTag(Palette.blue)} individual=false moveDir=right moveSpeed=.95><gradient=true colors={colorTag(Color3.fromRGB(48, 102, 215))};{colorTag(Palette.cyan)};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(165, 235, 255))} individual=false moveDir=right moveSpeed=.88 rot=-8>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim></italic>`
 		end
 		if kind == "starforge" then
-			return `<anim=grow startScale=.9 exp=1.3 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 240, 190))} rate=.75 chance=52 lifetime=.45,.95 startSize=.22,.38 endSize=0,0 velX=-.55,.55 velY=-.65,-.12><stroke=true color={colorTag(Color3.fromRGB(255, 224, 150))} thickness=.048><strokeGradient=true colors={colorTag(Palette.mango)};{colorTag(Palette.white)};{colorTag(Palette.cyan)};{colorTag(Palette.mango)} individual=false moveDir=right moveSpeed=.55><gradient=true colors={colorTag(Color3.fromRGB(255, 190, 90))};{colorTag(Color3.fromRGB(255, 250, 225))};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(255, 190, 90))} individual=false moveDir=right moveSpeed=.65 rot=20>{body}</gradient></strokeGradient></stroke></shiny></anim>`
+			return `<anim=pulsewave freq=1.65 amp=.38 offset=.15 rot=true loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 244, 195))} rate=.85 chance=56 lifetime=.42,.88 startSize=.2,.34 endSize=0,0 velX=-.5,.5 velY=-.6,-.12 rotVel=-90,90><shadow=true color={colorTag(Color3.fromRGB(64, 28, 12))} offset=.06,.26 trans=.2><stroke=true color={colorTag(Color3.fromRGB(255, 224, 150))} thickness=.052><strokeGradient=true colors={colorTag(Palette.mango)};{colorTag(Palette.white)};{colorTag(Palette.cyan)};{colorTag(Palette.pink)} individual=true moveDir=right moveSpeed=.75><gradient=true colors={colorTag(Color3.fromRGB(255, 196, 88))};{colorTag(Color3.fromRGB(255, 252, 228))};{colorTag(Palette.cyan)};{colorTag(Palette.pink)};{colorTag(Color3.fromRGB(255, 196, 88))} individual=false moveDir=right moveSpeed=.68 rot=20>{body}</gradient></strokeGradient></stroke></shadow></shiny></anim>`
 		end
 		if kind == "bounce-in" then
-			return `<anim=bounce dir=up offset=.45 exp=1.55 loop=true><stroke=true color={colorTag(Color3.fromRGB(68, 34, 8))} thickness=.038><gradient=true colors={colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 236, 165))};{colorTag(Palette.coral)} individual=true moveDir=right moveSpeed=.75 rot=90>{body}</gradient></stroke></anim>`
+			return `<anim=bounce dir=up offset=.42 exp=1.55 loop=true><shadow=true color={colorTag(Color3.fromRGB(54, 24, 6))} offset=.05,.2 trans=.3><stroke=true color={colorTag(Color3.fromRGB(68, 34, 8))} thickness=.04><gradient=true colors={colorTag(Palette.mango)};{colorTag(Color3.fromRGB(255, 236, 165))};{colorTag(Palette.coral)} individual=true moveDir=right moveSpeed=.75 rot=90>{body}</gradient></stroke></shadow></anim>`
 		end
 		if kind == "blur-resolve" then
-			return `<anim=grow startScale=.88 exp=1.4 loop=true><decode=true dur=.18 freq=7 loop=true><stroke=true color={colorTag(Color3.fromRGB(38, 44, 54))} thickness=.038><gradient=true colors={colorTag(Palette.cream)};{colorTag(Palette.white)};{colorTag(Palette.creamSoft)} individual=false moveDir=right moveSpeed=.48>{body}</gradient></stroke></decode></anim>`
+			return `<anim=grow startScale=.86 exp=1.35 loop=true><decode=true dur=.16 freq=7 loop=true><shadow=true color={colorTag(Color3.fromRGB(26, 32, 42))} offset=.05,.18 trans=.32><stroke=true color={colorTag(Color3.fromRGB(38, 44, 54))} thickness=.04><gradient=true colors={colorTag(Palette.cream)};{colorTag(Palette.white)};{colorTag(Color3.fromRGB(190, 220, 255))};{colorTag(Palette.creamSoft)} individual=false moveDir=right moveSpeed=.52>{body}</gradient></stroke></shadow></decode></anim>`
 		end
 		return `<color={colorTag(accent)}>{body}</color>`
 	until true
 end
-local function buildMarkup(kind, text, _preview)
+local function buildMarkup(kind, text, preview)
 	local body = safeText(text)
-	return `<interval={REVEAL_STAGGER}>{buildKindMarkup(kind, body)}</interval>`
+	local step = if preview then REVEAL_STAGGER else 0
+	return `<interval={step}>{buildKindMarkup(kind, body)}</interval>`
 end
 local cachedModule
 local loadFailed = false
 local pendingWarned = false
-local TITLE_FONT = "rbxasset://fonts/families/BuilderSans.json"
-local function makeTitleMarkups(mod, size, align)
-	local markups = mod.newMarkups()
-	markups.font.value = TITLE_FONT
-	markups.weight.value = Enum.FontWeight.ExtraBold
-	markups.size.value = size
-	markups.horizontalAlignment.value = if align == Enum.TextXAlignment.Center then Enum.HorizontalAlignment.Center elseif align == Enum.TextXAlignment.Right then Enum.HorizontalAlignment.Right else Enum.HorizontalAlignment.Left
-	markups.verticalAlignment.value = Enum.VerticalAlignment.Center
-	markups.scaleDimension.value = "Y"
-	return markups
-end
 local function resolveModuleScript(node)
 	if node:IsA("ModuleScript") then
 		return node
@@ -1005,6 +886,10 @@ local function loadHyperTextModule()
 	end
 	local node = _node
 	if node == nil then
+		if not pendingWarned then
+			pendingWarned = true
+			ClientLog:warnEvery("hypertext-root", 15, "hypertext", "ReplicatedStorage.AstralForge.Vendor.HyperText is not replicated yet")
+		end
 		return nil
 	end
 	local moduleScript = resolveModuleScript(node)
@@ -1031,146 +916,112 @@ local function loadHyperTextModule()
 	return cachedModule
 end
 local function AnimatedTitle(_param)
-	local text = _param.text
+	local text = _param.text or ""
 	local fx = _param.fx
-	local size = _param.size
-	if size == nil then
-		size = 13
-	end
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
-	local position = _param.position
-	local sizeConstraint = _param.sizeConstraint
-	local transparency = _param.transparency
-	if transparency == nil then
-		transparency = 0
-	end
-	local align = _param.align
-	if align == nil then
-		align = Enum.TextXAlignment.Left
-	end
-	local _inline = _param.inline
-	if _inline == nil then
-		_inline = false
-	end
-	local kind = parseFx(fx)
-	local width = sizeConstraint or UDim2.new(1, 0, 0, size + 4)
-	local pos = position or UDim2.fromOffset(0, 0)
-	local accent = if kind ~= nil then FX_ACCENT[kind] else Palette.creamSoft
+	local size = _param.size or 13
+	local reducedMotion = _param.reducedMotion == true
+	local position = _param.position or UDim2.fromOffset(0, 0)
+	local sizeConstraint = _param.sizeConstraint or UDim2.new(1, 0, 0, size + 4)
+	local transparency = _param.transparency or 0
+	local align = _param.align or Enum.TextXAlignment.Left
 	local preview = _param.preview == true
+	local kind = parseFx(fx)
+	local accent = if kind ~= nil then FX_ACCENT[kind] else Palette.creamSoft
 	local live = kind ~= nil and not reducedMotion and text ~= ""
 	local hostRef = React.useRef()
-	local richRef = React.useRef()
-	local fallbackRef = React.useRef()
-	local mounted, setMounted = React.useState(false)
-	local destroy = React.useCallback(function()
-		local rich = richRef.current
-		richRef.current = nil
-		if rich ~= nil then
-			pcall(function()
-				return rich:Destroy()
-			end)
-		end
-		setMounted(false)
-	end, {})
+	local ready, setReady = React.useState(false)
+	local horizAlign = if align == Enum.TextXAlignment.Center
+		then Enum.HorizontalAlignment.Center
+		elseif align == Enum.TextXAlignment.Right then Enum.HorizontalAlignment.Right
+		else Enum.HorizontalAlignment.Left
 	React.useEffect(function()
-		if not live or kind == nil then
-			destroy()
+		setReady(false)
+		if not live then
 			return nil
 		end
-		local cancelled = false
-		local attempts = 0
-		local retryJob
-		local tryMount
-		tryMount = function()
-			if cancelled then
-				return nil
-			end
-			attempts += 1
-			local host = hostRef.current
-			local mod = loadHyperTextModule()
-			if host == nil or mod == nil then
-				if attempts < 80 then
-					retryJob = task.delay(if attempts < 10 then 0.05 else 0.15, tryMount)
-				elseif not pendingWarned then
-					pendingWarned = true
-					ClientLog:warnEvery("hypertext-root", 30, "hypertext", "title renderer is still loading")
-				end
-				return nil
-			end
-			local fallback = fallbackRef.current
-			local rich = mod.new(host)
-			local markups = makeTitleMarkups(mod, size, align)
-			local okUpdate, updateErr = pcall(function()
-				return rich:UpdateDefaultMarkups(markups)
-			end)
-			if not okUpdate then
-				ClientLog:warn("hypertext", `title markup failed: {tostring(updateErr)}`)
-				pcall(function()
-					return rich:Destroy()
-				end)
-				return nil
-			end
-			local okRender, renderErr = pcall(function()
-				return rich:Render(buildMarkup(kind, text, preview), false, false, false)
-			end)
-			if not okRender then
-				ClientLog:warn("hypertext", `title render failed: {tostring(renderErr)}`)
-				pcall(function()
-					return rich:Destroy()
-				end)
-				return nil
-			end
-			if cancelled then
-				pcall(function()
-					return rich:Destroy()
-				end)
-				return nil
-			end
-			if fallback ~= nil then
-				fallback.Visible = false
-			end
-			richRef.current = rich
-			setMounted(true)
+		local host = hostRef.current
+		if host == nil then
+			return nil
 		end
-		local mountJob = task.defer(tryMount)
+		local mod = loadHyperTextModule()
+		if mod == nil then
+			return nil
+		end
+		host:ClearAllChildren()
+		local instance = nil
+		local sizeConn = nil
+		local rendered = false
+		local function runRender()
+			if rendered or host.Parent == nil then
+				return
+			end
+			if host.AbsoluteSize.X <= 0 or host.AbsoluteSize.Y <= 0 then
+				return
+			end
+			rendered = true
+			if sizeConn ~= nil then
+				sizeConn:Disconnect()
+				sizeConn = nil
+			end
+			local ok, err = pcall(function()
+				local markups = mod.newMarkups()
+				markups.font.value = "rbxasset://fonts/families/BuilderSans.json"
+				markups.weight.value = Enum.FontWeight.ExtraBold
+				markups.size.value = size
+				markups.color.value = accent
+				markups.trans.value = transparency
+				markups.horizontalAlignment.value = horizAlign
+				markups.verticalAlignment.value = Enum.VerticalAlignment.Center
+				markups.ZIndex.value = 2
+				markups.interval.value = if preview then REVEAL_STAGGER else 0
+				markups.anim.value = mod.DELETE
+				local rich = mod.new(host)
+				rich:UpdateDefaultMarkups(markups)
+				rich:Render(buildMarkup(kind, text, preview), false, false, false)
+				instance = rich
+			end)
+			if not ok then
+				ClientLog:warnEvery(`hypertext-{kind}`, 10, "hypertext", `render failed for {kind}: {tostring(err)}`)
+				host:ClearAllChildren()
+				return
+			end
+			setReady(true)
+		end
+		runRender()
+		if not rendered then
+			sizeConn = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(runRender)
+		end
 		return function()
-			cancelled = true
-			task.cancel(mountJob)
-			if retryJob ~= nil then
-				task.cancel(retryJob)
+			rendered = true
+			if sizeConn ~= nil then
+				sizeConn:Disconnect()
+				sizeConn = nil
 			end
-			destroy()
+			setReady(false)
+			pcall(function()
+				if instance ~= nil and type(instance.Destroy) == "function" then
+					instance:Destroy()
+				end
+				host:ClearAllChildren()
+			end)
 		end
-	end, { live, kind, text, size, align, preview, destroy })
-	local showFallback = not live or not mounted
+	end, { live, kind, text, size, transparency, horizAlign, preview })
 	return React.createElement("frame", {
-		Size = width,
-		Position = pos,
+		Size = sizeConstraint,
+		Position = position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 2,
-		ClipsDescendants = true,
-	}, kind ~= nil and React.createElement(TitleTierUnderlay, {
-		tier = TITLE_TIER[kind],
-		accent = accent,
-		animate = live,
-	}) or nil, React.createElement("frame", {
-		ref = function(host)
-			hostRef.current = host
-			if host ~= nil then
-				host:SetAttribute("LayoutGuardIgnore", true)
-			end
-		end,
+		ClipsDescendants = false,
+	}, React.createElement("frame", {
+		ref = hostRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
+		Visible = live,
 		ZIndex = 2,
-	}), showFallback and React.createElement("textlabel", {
-		ref = fallbackRef,
+	}), if not live or not ready then React.createElement("textlabel", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -1183,27 +1034,18 @@ local function AnimatedTitle(_param)
 		TextYAlignment = Enum.TextYAlignment.Center,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextScaled = true,
-		ZIndex = 1,
+		ZIndex = 2,
 	}, React.createElement("uitextsizeconstraint", {
 		MinTextSize = math.max(9, size - 4),
 		MaxTextSize = size,
-	})))
+	})) else nil)
 end
 local function AnimatedTitlePreview(_param)
 	local text = _param.text
 	local fx = _param.fx
-	local size = _param.size
-	if size == nil then
-		size = 15
-	end
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
-	local transparency = _param.transparency
-	if transparency == nil then
-		transparency = 0
-	end
+	local size = _param.size or 15
+	local reducedMotion = _param.reducedMotion == true
+	local transparency = _param.transparency or 0
 	local preview = _param.preview == true
 	return React.createElement(AnimatedTitle, {
 		text = text,

@@ -195,6 +195,26 @@ local module : types.dataModule<typeof(name), typeof(type_), nil, typeof(applyOn
 				printerData.character:GetPropertyChangedSignal("Rotation"):Connect(function()
 					shadow.Rotation = printerData.character.Rotation
 				end)
+				local function syncScale(charScale : UIScale)
+					local shadowScale = shadow:FindFirstChildOfClass("UIScale")
+					if not shadowScale then
+						shadowScale = Instance.new("UIScale")
+						shadowScale.Scale = charScale.Scale
+						shadowScale.Parent = shadow
+					end
+					charScale:GetPropertyChangedSignal("Scale"):Connect(function()
+						shadowScale.Scale = charScale.Scale
+					end)
+				end
+				local existingScale = printerData.character:FindFirstChildOfClass("UIScale")
+				if existingScale then
+					syncScale(existingScale)
+				end
+				printerData.character.ChildAdded:Connect(function(child)
+					if child:IsA("UIScale") then
+						syncScale(child)
+					end
+				end)
 			end
 		end
 	end,

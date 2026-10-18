@@ -440,6 +440,7 @@ local scheduler = require(script:WaitForChild("Internal"):WaitForChild("Schedule
 local signal = require(script:WaitForChild("Internal"):WaitForChild("Signal"))
 
 local updater : {[string] : (dt : number) -> ()} = {}
+local transformUpdaters : {[string] : () -> ()} = {}
 local markupDataModules = util.getAllMarkupDataModules()
 
 local PARSER_APPEND_STRING_SCHEDULER_ID = 1
@@ -508,26 +509,24 @@ HyperText.new = function(
 		self:Destroy()
 	end)
 	
-	updater[self._rowEntriesTransformUpdaterId] = function()
-		task.defer(function()
-			if self._destroyed then
-				return
+	transformUpdaters[self._rowEntriesTransformUpdaterId] = function()
+		if self._destroyed then
+			return
+		end
+		for entry, _ in pairs(self._transformRowEntries) do
+			local character = entry.character
+			if character == nil or character.Parent == nil then
+				continue
 			end
-			for entry, _ in pairs(self._transformRowEntries) do
-				local character = entry.character
-				if character == nil or character.Parent == nil then
-					continue
-				end
-				character.Position = UDim2.fromScale(
-					entry.position.X,
-					entry.position.Y
-				)
-				character.Rotation = entry.rotation
+			character.Position = UDim2.fromScale(
+				entry.position.X,
+				entry.position.Y
+			)
+			character.Rotation = entry.rotation
 
-				entry.position = Vector2.zero
-				entry.rotation = 0
-			end
-		end)
+			entry.position = Vector2.zero
+			entry.rotation = 0
+		end
 	end
 
 	return self
@@ -936,23 +935,26 @@ methods.Destroy = function(self : types.hyperTextClassObject)
 	end
 	
 	updater[self._rowEntriesTransformUpdaterId] = nil
+	transformUpdaters[self._rowEntriesTransformUpdaterId] = nil
 	
 	self.onRenderEnded:Destroy()
 end
 
 methods._GetProportionalSize = function(self : types.hyperTextClassObject, size : number) : (number, number)
 	local containerDefaultAbsoluteSize = self._containerDefaultAbsoluteSize
+	local fitScale = (self :: any)._fitScale or 1
 	
 	if containerDefaultAbsoluteSize then
-		local scale = self._markups.scaleDimension.value == "X"
-			and (self._container.AbsoluteSize.X / containerDefaultAbsoluteSize.X)
-			or (self._container.AbsoluteSize.Y / containerDefaultAbsoluteSize.Y)
+		local baseScale = self._markups.scaleDimension.value == "X"
+			and (self._container.AbsoluteSize.X / math.max(1, containerDefaultAbsoluteSize.X))
+			or (self._container.AbsoluteSize.Y / math.max(1, containerDefaultAbsoluteSize.Y))
+		local scale = baseScale * fitScale
 		
 		return size * scale, scale
 			
 	end
 	
-	return 0, 1
+	return 0, fitScale
 end
 
 methods._CreateRow = function(self : types.hyperTextClassObject, markups : types.markups?)
@@ -964,41 +966,14 @@ end
 
 methods._OverflowCheck = function(self : types.hyperTextClassObject)
 	local size = self:GetConstructionSize()
-	local text = self._text
-	local renderTraceback = self._renderTraceback
-	
-	if size and text and renderTraceback then
-		if 
-			size.X > self._container.AbsoluteSize.X
-			and not (
-				self._markups.sizeConstraint.value == Enum.SizeConstraint.RelativeYY
-					and self._markups.scaleDimension.value == "Y"
-					and self._container.AutomaticSize == Enum.AutomaticSize.X
-			)
-		then
-			warn(
-				"Text \"" .. string.sub(text, 1, config.DEBUG_OVERFLOW_MAX_TEXT_LENGTH)
-					.. (#text > config.DEBUG_OVERFLOW_MAX_TEXT_LENGTH and "..." or "")
-					.. "\" horizontally overflowed from its container during construction\n"
-					.. renderTraceback
-			)
-		end
-		
-		if 
-			size.Y > self._container.AbsoluteSize.Y
-			and not (
-				self._markups.sizeConstraint.value == Enum.SizeConstraint.RelativeXX
-					and self._markups.scaleDimension.value == "X"
-					and self._container.AutomaticSize == Enum.AutomaticSize.Y
-			)
-		then
-			warn(
-				"Text \"" .. string.sub(text, 1, config.DEBUG_OVERFLOW_MAX_TEXT_LENGTH)
-					.. (#text > config.DEBUG_OVERFLOW_MAX_TEXT_LENGTH and "..." or "")
-					.. "\" vertically overflowed from its container during construction\n"
-					.. renderTraceback
-			)
-		end
+	local selfAny : any = self
+	selfAny._fitScale = 1
+	if size and not self._wrapped then
+		local availX = math.max(1, self._container.AbsoluteSize.X)
+		local availY = math.max(1, self._container.AbsoluteSize.Y)
+		local fitX = if size.X > availX then availX / size.X else 1
+		local fitY = if size.Y > availY then availY / size.Y else 1
+		selfAny._fitScale = math.clamp(math.min(fitX, fitY), 0.45, 1)
 	end
 end
 
@@ -1023,6 +998,7 @@ methods._CreateRowInstance = function(
 			or proportionalHeight / self._container.AbsoluteSize.Y
 	)
 	row.BackgroundTransparency = 1
+	row.ClipsDescendants = false
 	row.ZIndex = self._markups.ZIndex.value
 
 	local digits = #tostring(#self._constructionData.rows)
@@ -1051,6 +1027,7 @@ methods._CreateRowEntryContainer = function(
 	)
 	container.Name = suffix .. "Container"
 	container.BackgroundTransparency = 1
+	container.ClipsDescendants = false
 	container.ZIndex = printerData.markups.ZIndex.value
 	container.SizeConstraint = printerData.markups.sizeConstraint.value
 	container.LayoutOrder = printerData.index
@@ -2451,13 +2428,19 @@ RunService.Heartbeat:Connect(function(dt)
 		if typeof(id) == "Instance" and not id:IsDescendantOf(game) then
 			updater[id] = nil
 		elseif updater[id] then
-			local success, errmsg = pcall(callback, dt)
+			local success = pcall(callback, dt)
 			if not success then
 				updater[id] = nil
 			end
 		end
-		if os.clock() - t0 > 0.006 then
+		if os.clock() - t0 > 0.008 then
 			break
+		end
+	end
+	for id, flush in pairs(transformUpdaters) do
+		local ok = pcall(flush)
+		if not ok then
+			transformUpdaters[id] = nil
 		end
 	end
 	debug.profileend()

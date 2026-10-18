@@ -225,7 +225,7 @@ local function CinematicHeader(props: any)
 	local statusText = if p.phase == "charge" or p.phase == "seal" then "SEAL UNLOCKED"
 		elseif p.phase == "spin" then "SELECTING RELIC..."
 		elseif p.phase == "climb" then "RESONANCE SURGE"
-		elseif landed then `✦ {string.upper(p.winnerRarity)} RELIC ✦`
+		elseif landed then `{string.upper(p.winnerRarity)} RELIC`
 		else "RELIC VAULT"
 
 	local statusColor = if landed then p.winnerAccent

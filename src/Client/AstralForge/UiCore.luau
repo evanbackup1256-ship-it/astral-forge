@@ -15475,29 +15475,9 @@ local function PlayerRow(_param)
 		fit = true,
 		minSize = 8,
 		position = UDim2.fromOffset(10, 8 + 2 * 40 + 8),
-		sizeConstraint = UDim2.new(1, -150, 0, 16),
+		sizeConstraint = UDim2.new(1, -20, 0, 16),
 		zIndex = 625,
-	}), React.createElement("textbutton", {
-		Size = UDim2.new(0, 120, 0, 20),
-		Position = UDim2.new(1, -128, 0, 8 + 2 * 40 + 6),
-		BackgroundColor3 = Palette.panelSoft,
-		BorderSizePixel = 0,
-		Text = "VIEW INVENTORY",
-		TextColor3 = Palette.cyan,
-		TextSize = 10,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		AutoButtonColor = false,
-		ZIndex = 626,
-		Event = {
-			Activated = function()
-				Audio:play("tick")
-				if _param.onInspect then
-					_param.onInspect(row)
-				end
-			end,
-		},
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 4) }),
-	React.createElement("uistroke", { Color = Palette.cyan, Thickness = 1, Transparency = 0.5 })), actions))
+	}), actions))
 end
 
 local function ReportSheet(_param)
@@ -15893,226 +15873,6 @@ local function ReportSheet(_param)
 	}, body))))
 end
 
-local function PlayerInventoryViewerModal(_param)
-	local p = _param.player
-	local onClose = _param.onClose
-	local viewport = useViewport()
-	local show = useFlipperSpring(1, _param.reducedMotion, 560, 36, 0)
-	local width = math.min(480, viewport.width - 24)
-	local height = math.min(540, viewport.height - 48)
-	local view = _param.view
-	local changes = _param.changes or {}
-	local status = _param.status or "loading"
-	local items = if type(view) == "table" and type(view.Relics) == "table" then view.Relics else {}
-	local displayItems = table.clone(items)
-	local seenItems = {}
-	for _, item in items do
-		if type(item.Uid) == "string" then seenItems[item.Uid] = true end
-	end
-	for uid, change in changes do
-		if change.Kind == "departed" and not seenItems[uid] and type(change.Item) == "table" then
-			table.insert(displayItems, change.Item)
-		end
-	end
-	local relicRows = {}
-	for idx, item in displayItems do
-		local change = changes[item.Uid]
-		local changeKind = change and change.Kind or ""
-		local tags = {}
-		if item.Equipped then table.insert(tags, "EQUIPPED") end
-		if item.Locked then table.insert(tags, "LOCKED") end
-		if changeKind == "arrived" then table.insert(tags, "NEW") elseif changeKind == "departed" then table.insert(tags, "LEFT") end
-		local stateLabel = if #tags > 0 then " / " .. table.concat(tags, " / ") else ""
-		local rColor = if item.Rarity == "MYTHIC" then Palette.mango elseif item.Rarity == "LEGENDARY" then Palette.coral elseif item.Rarity == "EPIC" then Palette.violet elseif item.Rarity == "RARE" then Palette.cyan else Palette.muted
-		table.insert(relicRows, React.createElement("frame", {
-			key = item.Uid or idx,
-			LayoutOrder = idx + 10,
-			Size = UDim2.new(1, 0, 0, 34),
-			BackgroundColor3 = if changeKind == "arrived" then darken(Palette.mint, 0.68) elseif changeKind == "departed" then darken(Palette.coral, 0.68) else Palette.panelSoft,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 6) }),
-		React.createElement(Stroke, { color = if changeKind ~= "" then (if changeKind == "arrived" then Palette.mint else Palette.coral) elseif item.Locked then Palette.coral else rColor, thickness = 1, transparency = 0.45 }),
-		React.createElement(Text, {
-			value = item.Name or "Relic",
-			size = 13,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Bold,
-			position = UDim2.fromOffset(10, 8),
-			sizeConstraint = UDim2.new(1, -120, 0, 18),
-		}),
-		React.createElement(Text, {
-			value = `{item.Rarity or "COMMON"}  LV {item.Level or 1}{stateLabel}`,
-			size = 10,
-			color = if item.Locked then Palette.coral elseif item.Equipped then Palette.mint else rColor,
-			weight = Enum.FontWeight.Heavy,
-			align = Enum.TextXAlignment.Right,
-			position = UDim2.new(1, -130, 0, 8),
-			sizeConstraint = UDim2.fromOffset(120, 18),
-		})))
-	end
-	local function resourceSummary(values)
-		local entries = {}
-		if type(values) == "table" then
-			for id, amount in values do
-				if type(id) == "string" and type(amount) == "number" and amount > 0 then
-					table.insert(entries, `{id} {compactNumber(amount)}`)
-				end
-			end
-		end
-		table.sort(entries)
-		return if #entries > 0 then table.concat(entries, "  /  ") else "None"
-	end
-	local caseSummary = if view ~= nil
-		then `CASE {view.Count}/{view.Limit}  /  ESSENCE {compactNumber(view.Essence)}`
-		else if status == "loading" then "Connecting to the player's case..." elseif status == "private" then "Inventory access is private." else "Inventory is unavailable."
-	return React.createElement("textbutton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = show:map(function(v) return 1 - v * 0.65 end),
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 800,
-		Event = { Activated = onClose },
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(width, height),
-		Position = show:map(function(v) return UDim2.new(0.5, 0, 0.5, math.round((1 - v) * 28)) end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.panelRaised,
-		BorderSizePixel = 0,
-		Active = true,
-		ClipsDescendants = true,
-		ZIndex = 801,
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 16) }),
-	React.createElement(Stroke, { color = Palette.cyan, thickness = 1.5, transparency = 0.35 }),
-	React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 68),
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 802,
-	}, React.createElement("uipadding", { PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16) }),
-	React.createElement(Avatar, { userId = p.UserId, accent = Palette.cyan, size = 48 }),
-	React.createElement(Text, {
-		value = p.DisplayName or p.Name or "Player",
-		size = 16,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(60, 4),
-		sizeConstraint = UDim2.new(1, -120, 0, 20),
-		zIndex = 803,
-	}),
-	React.createElement(Text, {
-		value = `LIVE CASE  /  WORLD {p.CurrentZone or 1}  /  {compactNumber(p.Rebirths or 0)} REBIRTHS  /  {p.CurrentPage or "Dock"}`,
-		size = 11,
-		color = Palette.mint,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.fromOffset(60, 26),
-		sizeConstraint = UDim2.new(1, -120, 0, 16),
-		zIndex = 803,
-	}),
-	React.createElement("frame", {
-		Size = UDim2.fromOffset(36, 36),
-		Position = UDim2.new(1, -36, 0, 6),
-		BackgroundTransparency = 1,
-		ZIndex = 804,
-	}, React.createElement(Button, {
-		text = "",
-		icon = "Close.18",
-		onClick = onClose,
-		color = Palette.panelSoft,
-		textColor = Palette.cream,
-		outline = true,
-		size = UDim2.fromScale(1, 1),
-		zIndex = 805,
-	}))),
-	React.createElement("scrollingframe", {
-		Size = UDim2.new(1, -32, 1, -84),
-		Position = UDim2.fromOffset(16, 76),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		CanvasSize = UDim2.fromOffset(0, math.max(240, #relicRows * 42 + (if p.Artifact ~= nil then 194 else 134))),
-		ScrollBarThickness = 3,
-		ScrollBarImageColor3 = Palette.cyan,
-		ZIndex = 802,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}),
-	React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 80),
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		LayoutOrder = 1,
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 8) }),
-	React.createElement(Stroke, { color = Palette.cyan, thickness = 1, transparency = 0.65 }),
-	React.createElement(Text, {
-		value = caseSummary,
-		size = 11,
-		color = if view ~= nil then Palette.cream else Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 8,
-		position = UDim2.fromOffset(10, 5),
-		sizeConstraint = UDim2.new(1, -20, 0, 16),
-	}),
-	React.createElement(Text, {
-		value = if view ~= nil then `KEYS  {resourceSummary(view.Keys)}` else "",
-		size = 10,
-		color = Palette.cyan,
-		wrap = true,
-		position = UDim2.fromOffset(10, 24),
-		sizeConstraint = UDim2.new(1, -20, 0, 24),
-	}),
-	React.createElement(Text, {
-		value = if view ~= nil then `BOOSTS  {resourceSummary(view.Boosts)}` else "",
-		size = 10,
-		color = Palette.mint,
-		wrap = true,
-		position = UDim2.fromOffset(10, 53),
-		sizeConstraint = UDim2.new(1, -20, 0, 22),
-	})),
-	p.Artifact ~= nil and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 52),
-		BackgroundColor3 = Palette.panelSoft,
-		BorderSizePixel = 0,
-		LayoutOrder = 2,
-	}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 8) }),
-	React.createElement(Stroke, { color = Palette.violet, thickness = 1, transparency = 0.5 }),
-	React.createElement(Text, {
-		value = `EQUIPPED ARTIFACT: {string.upper(p.Artifact.Name)} (LV {p.Artifact.Level})`,
-		size = 13,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.fromOffset(10, 8),
-		sizeConstraint = UDim2.new(1, -20, 0, 18),
-	}),
-	React.createElement(Text, {
-		value = `Rarity: {p.Artifact.Rarity or "COMMON"}  ·  Element: {p.Artifact.Element or "Cosmic"}`,
-		size = 11,
-		color = Palette.violet,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(10, 28),
-		sizeConstraint = UDim2.new(1, -20, 0, 16),
-	})) or nil,
-	React.createElement(Text, {
-		value = if view ~= nil then `RELIC CASE  {view.Count}/{view.Limit}` else "RELIC CASE",
-		size = 12,
-		color = Palette.creamSoft,
-		weight = Enum.FontWeight.Heavy,
-		layoutOrder = 3,
-		sizeConstraint = UDim2.new(1, 0, 0, 20),
-	}),
-	#relicRows == 0 and React.createElement(Text, {
-		value = if status == "private" then "This player keeps their inventory private." elseif status == "unavailable" then "This inventory is no longer available." elseif status == "loading" then "Gathering the current inventory..." else "No relics are in the case.",
-		size = 12,
-		color = Palette.muted,
-		wrap = true,
-		layoutOrder = 4,
-		sizeConstraint = UDim2.new(1, 0, 0, 32),
-	}) or nil,
-	table.unpack(relicRows))))
-end
-
 local function PlayerlistOverlay(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -16144,17 +15904,6 @@ local function PlayerlistOverlay(_param)
 	local friends, setFriends = React.useState({})
 	local blocked, setBlocked = React.useState({})
 	local reportTarget, setReportTarget = React.useState(nil)
-	local inspectedPlayer, setInspectedPlayer = React.useState(nil)
-	local inventoryView, setInventoryView = React.useState(nil)
-	local inventoryStatus, setInventoryStatus = React.useState("idle")
-	local inventoryChanges, setInventoryChanges = React.useState({})
-	local inventoryByUid = React.useRef(nil)
-	local inventoryChangesRef = React.useRef({})
-	local inventoryChangeVersion = React.useRef(0)
-	local watchSubscriptionActive = React.useRef(false)
-	local inspectedUserId = inspectedPlayer and inspectedPlayer.UserId or nil
-	local inspectedUserIdRef = React.useRef(inspectedUserId)
-	inspectedUserIdRef.current = inspectedUserId
 	local inviteBusy, setInviteBusy = React.useState(false)
 	local awayTick, setAwayTick = React.useState(0)
 	local alive = React.useRef(true)
@@ -16179,122 +15928,6 @@ local function PlayerlistOverlay(_param)
 			task.cancel(ticker)
 		end
 	end, {})
-	React.useEffect(function()
-		inventoryByUid.current = nil
-		inventoryChangesRef.current = {}
-		inventoryChangeVersion.current += 1
-		setInventoryView(nil)
-		setInventoryChanges({})
-		if inspectedUserId == nil then
-			setInventoryStatus("idle")
-			return nil
-		end
-		setInventoryStatus("loading")
-		local active = true
-		local bridge = ReplicatedStorage:WaitForChild(Protocol.FolderName)
-		local effectRemote = bridge:WaitForChild(Protocol.EffectName)
-		local function scheduleChangeClear()
-			inventoryChangeVersion.current += 1
-			local version = inventoryChangeVersion.current
-			local nextExpiry = math.huge
-			for _, change in inventoryChangesRef.current do
-				nextExpiry = math.min(nextExpiry, change.ExpiresAt)
-			end
-			if nextExpiry == math.huge then return end
-			task.delay(math.max(0, nextExpiry - os.clock()), function()
-				if not active or not alive.current or inventoryChangeVersion.current ~= version then return end
-				local now = os.clock()
-				local remaining = {}
-				for uid, change in inventoryChangesRef.current do
-					if change.ExpiresAt > now then remaining[uid] = change end
-				end
-				inventoryChangesRef.current = remaining
-				setInventoryChanges(remaining)
-				scheduleChangeClear()
-			end)
-		end
-		local connection = effectRemote.OnClientEvent:Connect(function(packet)
-			if not active or not alive.current or type(packet) ~= "table" or packet.Type ~= "InventoryWatch" or packet.UserId ~= inspectedUserId then
-				return nil
-			end
-			if type(packet.View) ~= "table" then
-				inventoryByUid.current = nil
-				inventoryChangesRef.current = {}
-				setInventoryView(nil)
-				setInventoryChanges({})
-				setInventoryStatus(if packet.Reason == "Private" then "private" else "unavailable")
-				return nil
-			end
-			local nextItems = {}
-			local rawRelics = packet.View.Relics
-			if type(rawRelics) == "table" then
-				for _, item in rawRelics do
-					if type(item) == "table" and type(item.Uid) == "string" then
-						nextItems[item.Uid] = item
-					end
-				end
-			end
-			local now = os.clock()
-			local changes = {}
-			for uid, change in inventoryChangesRef.current do
-				if change.ExpiresAt > now then changes[uid] = change end
-			end
-			local previous = inventoryByUid.current
-			if previous ~= nil then
-				for uid, item in nextItems do
-					if previous[uid] == nil then
-						changes[uid] = { Kind = "arrived", Item = item, ExpiresAt = now + 1.25 }
-					end
-				end
-				for uid, item in previous do
-					if nextItems[uid] == nil then
-						changes[uid] = { Kind = "departed", Item = item, ExpiresAt = now + 1.25 }
-					end
-				end
-			end
-			inventoryByUid.current = nextItems
-			inventoryChangesRef.current = changes
-			setInventoryView(packet.View)
-			setInventoryChanges(changes)
-			setInventoryStatus("live")
-			scheduleChangeClear()
-		end)
-		local removing = Players.PlayerRemoving:Connect(function(player)
-			if player.UserId == inspectedUserId then
-				setInspectedPlayer(nil)
-			end
-		end)
-		return function()
-			active = false
-			inventoryChangeVersion.current += 1
-			connection:Disconnect()
-			removing:Disconnect()
-		end
-	end, { inspectedUserId })
-	React.useEffect(function()
-		if inspectedUserId == nil then
-			if watchSubscriptionActive.current then
-				watchSubscriptionActive.current = false
-				dispatch("WatchInventory", { UserId = 0 })
-			end
-			return nil
-		end
-		watchSubscriptionActive.current = true
-		dispatch("WatchInventory", { UserId = inspectedUserId }, function(response)
-			if inspectedUserIdRef.current == inspectedUserId and type(response) == "table" and response.ok ~= true then
-				local message = string.lower(tostring(response.error or ""))
-				setInventoryStatus(if string.find(message, "private", 1, true) then "private" else "unavailable")
-			end
-		end)
-	end, { inspectedUserId, dispatch })
-	React.useEffect(function()
-		return function()
-			if watchSubscriptionActive.current then
-				watchSubscriptionActive.current = false
-				dispatch("WatchInventory", { UserId = 0 })
-			end
-		end
-	end, { dispatch })
 
 	local refresh = React.useCallback(function()
 		dispatch("GetPlayers", {}, function(response)
@@ -16591,9 +16224,6 @@ local function PlayerlistOverlay(_param)
 				Audio:play("dangerPress")
 				setReportTarget(row)
 			end,
-			onInspect = function()
-				setInspectedPlayer(row)
-			end,
 		})
 	end
 	if #visible <= 1 and (query ~= "" or friendsOnly) then
@@ -16859,15 +16489,6 @@ local function PlayerlistOverlay(_param)
 		end,
 		onClose = function()
 			setReportTarget(nil)
-		end,
-	}), inspectedPlayer ~= nil and React.createElement(PlayerInventoryViewerModal, {
-		player = inspectedPlayer,
-		view = inventoryView,
-		status = inventoryStatus,
-		changes = inventoryChanges,
-		reducedMotion = reducedMotion,
-		onClose = function()
-			setInspectedPlayer(nil)
 		end,
 	}))))
 end

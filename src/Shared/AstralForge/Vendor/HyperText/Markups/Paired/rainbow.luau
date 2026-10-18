@@ -28,24 +28,35 @@ local module : types.dataModule<typeof(name), typeof(type_), typeof(applyToImage
 			end
 
 			local index = obj._markupIndices["rainbow"]
+			local grad = printerData.character:FindFirstChildOfClass("UIGradient")
+			if not grad then
+				grad = Instance.new("UIGradient")
+				grad.Rotation = 72
+				grad.Parent = printerData.character
+			end
+			if printerData.character:IsA("TextLabel") then
+				printerData.character.TextColor3 = Color3.new(1, 1, 1)
+			else
+				printerData.character.ImageColor3 = Color3.new(1, 1, 1)
+			end
 
 			updater[updaterId] = function(dt : number)
 				debug.profilebegin("Rainbow Markup")
 
-				local color = Color3.fromHSV(
-					(
-						os.clock() * printerData.markups.rainbow.attributes.freq -
-							printerData.markups.rainbow.attributes.offset * index
-					) % 1,
-					1,
-					1
-				)
-
-				if printerData.character:IsA("TextLabel") then
-					printerData.character.TextColor3 = color
-				else
-					printerData.character.ImageColor3 = color
-				end
+				local t = os.clock() * printerData.markups.rainbow.attributes.freq
+					- printerData.markups.rainbow.attributes.offset * index
+				local h1 = t % 1
+				local h2 = (t + 0.08) % 1
+				local h3 = (t + 0.18) % 1
+				local c1 = Color3.fromHSV(h1, 0.72, 1)
+				local c2 = Color3.fromHSV(h2, 0.38, 1)
+				local c3 = Color3.fromHSV(h3, 0.85, 0.98)
+				grad.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, c2),
+					ColorSequenceKeypoint.new(0.48, c1),
+					ColorSequenceKeypoint.new(1, c3),
+				})
+				grad.Rotation = 65 + math.sin(t * math.pi * 2) * 25
 
 				debug.profileend()
 			end

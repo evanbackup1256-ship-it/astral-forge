@@ -122,7 +122,31 @@ local DEFAULT_MARKUPS : types.markups = {
 			grow = {
 				exp = 5,
 				startScale = 0,
-			}
+			},
+			orbit = {
+				freq = 1.1,
+				offset = 0.14,
+				amp = 0.22,
+				rot = true,
+			},
+			pendulum = {
+				freq = 1.25,
+				offset = 0.15,
+				amp = 0.2,
+				rot = 14,
+			},
+			spiral = {
+				freq = 1.35,
+				offset = 0.16,
+				amp = 0.22,
+				rot = 18,
+			},
+			pulsewave = {
+				freq = 1.6,
+				offset = 0.14,
+				amp = 0.26,
+				rot = 8,
+			},
 		},
 	},
 	clearAnim = {
@@ -151,7 +175,31 @@ local DEFAULT_MARKUPS : types.markups = {
 			grow = {
 				exp = 5,
 				startScale = 0,
-			}
+			},
+			orbit = {
+				freq = 1.1,
+				offset = 0.14,
+				amp = 0.22,
+				rot = true,
+			},
+			pendulum = {
+				freq = 1.25,
+				offset = 0.15,
+				amp = 0.2,
+				rot = 14,
+			},
+			spiral = {
+				freq = 1.35,
+				offset = 0.16,
+				amp = 0.22,
+				rot = 18,
+			},
+			pulsewave = {
+				freq = 1.6,
+				offset = 0.14,
+				amp = 0.26,
+				rot = 8,
+			},
 		},
 	},
 	weight = {

@@ -79,7 +79,6 @@ local files = {
 	"src/Server/AstralForge/Modules/CommandMath.luau",
 	"src/Server/AstralForge/Modules/ProfileBagMath.luau",
 	"src/Server/AstralForge/Modules/ProfileMath.luau",
-	"src/Server/AstralForge/Modules/InventoryWatchMath.luau",
 	"src/Server/AstralForge/Modules/DataSanitizeMath.luau",
 	"src/Server/AstralForge/Services/CoreServices.luau",
 	"src/Server/AstralForge/Modules/OreMath.luau",
@@ -92,6 +91,18 @@ local files = {
 	"src/Client/AstralForge/tests/taskFilter.test.luau",
 	"src/Client/AstralForge/tests/virtualizedList.test.luau",
 	"src/Client/AstralForge/tests/TestBootstrap.luau",
+	-- Vendor HyperText engine
+	"src/Shared/AstralForge/Vendor/HyperText/init.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Internal/Config.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Internal/Types.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Internal/Util.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Internal/Helpers/AnimAttrsConverters.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Internal/Helpers/ApplyAnimation.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Internal/Helpers/EmitImage.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Markups/Paired/decode.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Markups/Paired/rainbow.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Markups/Paired/shadow.luau",
+	"src/Shared/AstralForge/Vendor/HyperText/Markups/Paired/shake.luau",
 }
 
 local bad = 0

@@ -3323,7 +3323,6 @@ Schema.ENTRIES = table.freeze({
 	toggle("WhispersFriendsOnly", "social", "Whispers from friends only", "Only Roblox friends can start a private chat with you.", 0),
 	choice("CrewInvitePolicy", "social", "Crew invites", "Who can invite you to a crew.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
 	choice("TradeInvitePolicy", "social", "Trade invites", "Who can invite you to trade.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
-	choice("InventoryViewPolicy", "social", "Inventory viewing", "Who can inspect your relics and supplies.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
 	choice("MobileTextScale", "mobile", "Text size", "Text size on phones.", 0.5, SIZE4),
 	choice("MobileQuickReverse", "mobile", "Main thumb", "Which side the overcharge button sits on.", 0, { { label = "Right", value = 0 }, { label = "Left", value = 1 } }),
 	toggle("MobileQuickVisible", "mobile", "Quick buttons", "Vault and overcharge above the menu.", 1),

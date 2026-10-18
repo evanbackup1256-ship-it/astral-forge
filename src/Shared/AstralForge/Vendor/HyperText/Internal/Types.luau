@@ -11,6 +11,10 @@ module.literal = {
 		bounce = true,
 		wiggle = true,
 		grow = true,
+		orbit = true,
+		pendulum = true,
+		spiral = true,
+		pulsewave = true,
 	},
 	verticalDir = {
 		up = true,
@@ -873,7 +877,31 @@ export type animValueAttrs = {
 	grow : {
 		exp : number,
 		startScale : number,
-	}
+	},
+	orbit : {
+		freq : number,
+		offset : number,
+		amp : number,
+		rot : boolean,
+	},
+	pendulum : {
+		freq : number,
+		offset : number,
+		amp : number,
+		rot : number,
+	},
+	spiral : {
+		freq : number,
+		offset : number,
+		amp : number,
+		rot : number,
+	},
+	pulsewave : {
+		freq : number,
+		offset : number,
+		amp : number,
+		rot : number,
+	},
 }
 export type emitImageAttrsConverters = createAttrConverters<emitImgAttrs>
 export type gradientAttrsConverters = createAttrConverters<gradientAttrs>

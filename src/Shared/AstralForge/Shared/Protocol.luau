@@ -12,7 +12,6 @@ local Protocol = {
 		GetState = "GetState",
 		MeasureLatency = "MeasureLatency",
 		GetPlayers = "GetPlayers",
-		WatchInventory = "WatchInventory",
 		SubmitFeedback = "SubmitFeedback",
 		ReportPlayer = "ReportPlayer",
 		GetPlayerMirror = "GetPlayerMirror",

@@ -63,7 +63,87 @@ local valueAttrsConverters : types.animValueAttrsConverters = {
 		startScale = {
 			convert = util.stringToNumber,
 		},
-	}
+	},
+	orbit = {
+		freq = {
+			convert = util.stringToNumber,
+		},
+		offset = {
+			convert = util.stringToNumber,
+		},
+		amp = {
+			convert = util.stringToNumber,
+		},
+		rot = {
+			convert = util.stringToBoolean,
+		},
+	},
+	pendulum = {
+		freq = {
+			convert = util.stringToNumber,
+		},
+		offset = {
+			convert = util.stringToNumber,
+		},
+		amp = {
+			convert = util.stringToNumber,
+		},
+		rot = {
+			convert = function(value : string)
+				local lower = string.lower(value)
+				if lower == "true" then
+					return 14
+				elseif lower == "false" then
+					return 0
+				end
+				return util.stringToNumber(value)
+			end,
+		},
+	},
+	spiral = {
+		freq = {
+			convert = util.stringToNumber,
+		},
+		offset = {
+			convert = util.stringToNumber,
+		},
+		amp = {
+			convert = util.stringToNumber,
+		},
+		rot = {
+			convert = function(value : string)
+				local lower = string.lower(value)
+				if lower == "true" then
+					return 18
+				elseif lower == "false" then
+					return 0
+				end
+				return util.stringToNumber(value)
+			end,
+		},
+	},
+	pulsewave = {
+		freq = {
+			convert = util.stringToNumber,
+		},
+		offset = {
+			convert = util.stringToNumber,
+		},
+		amp = {
+			convert = util.stringToNumber,
+		},
+		rot = {
+			convert = function(value : string)
+				local lower = string.lower(value)
+				if lower == "true" then
+					return 8
+				elseif lower == "false" then
+					return 0
+				end
+				return util.stringToNumber(value)
+			end,
+		},
+	},
 }
 
 return {

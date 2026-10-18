@@ -75,7 +75,6 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.GetState] = { Cost = 0.35, Cooldown = 0.18 },
 		[Protocol.Actions.MeasureLatency] = { Cost = 0.05, Cooldown = 1.5 },
 		[Protocol.Actions.GetPlayers] = { Cost = 0.35, Cooldown = 0.2 },
-		[Protocol.Actions.WatchInventory] = { Cost = 0.35, Cooldown = 0.2 },
 		[Protocol.Actions.SubmitFeedback] = { Cost = 4, Cooldown = 45 },
 		[Protocol.Actions.ReportPlayer] = { Cost = 4, Cooldown = 60 },
 		[Protocol.Actions.GetPlayerMirror] = { Cost = 0.6, Cooldown = 0.2 },
@@ -698,10 +697,6 @@ return function(loadService: (string) -> any)
 				then
 					return false, "invalid beat payload"
 				end
-			end
-		elseif action == Protocol.Actions.WatchInventory then
-			if not numberField(payload, "UserId", 0, RemoteFirewallMath.MAX_SAFE_USER_ID, true) then
-				return false, "invalid inventory target"
 			end
 		elseif
 			action == Protocol.Actions.GetPlayerMirror
