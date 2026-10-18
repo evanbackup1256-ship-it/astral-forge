@@ -7,6 +7,7 @@ local theme = require(script.Parent.CoreKit)("theme")
 local format = require(script.Parent.CoreKit)("format")
 local motion = require(script.Parent.MotionKit)("motion")
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
+local Tooltip = require(script.Parent.Tooltip)
 local P = theme.Palette
 local h = React.createElement
 
@@ -32,35 +33,35 @@ function BuffStrip.list(state, config, now)
 	if type(boost) == "table" and type(boost.Id) == "string" and boost.Id ~= "" and (tonumber(boost.EndsAt) or 0) > now then
 		local def = config and config.Boosts and config.Boosts[boost.Id]
 		local mult = def and (tonumber(def.Multiplier) or tonumber(def.ProductionMultiplier))
-		table.insert(list, { key = "boost", icon = "Boost.1", value = if mult then `x{mult}` else "Boost.2", endsAt = boost.EndsAt, duration = def and def.Duration, color = P.pink, name = def and def.Name or "Boost.3" })
+		table.insert(list, { key = "boost", icon = "Boost.1", value = if mult then `x{mult}` else "On", endsAt = boost.EndsAt, duration = def and def.Duration, color = P.pink, name = def and def.Name or "Boost", note = def and def.Description or "A boost you used from your inventory." })
 	end
 	local surge = state.FluxSurge
 	if type(surge) == "table" and surge.Active == true then
-		table.insert(list, { key = "surge", icon = "Flux.2", value = `x{surge.Multiplier or 2}`, endsAt = surge.EndsAt, duration = surge.DurationSeconds, color = P.cyan, name = "Flux surge" })
+		table.insert(list, { key = "surge", icon = "Flux.2", value = `x{surge.Multiplier or 2}`, endsAt = surge.EndsAt, duration = surge.DurationSeconds, color = P.cyan, name = "Flux surge", note = `Everyone in this server makes {surge.Multiplier or 2}x flux until it ends.` })
 	end
 	local level = state.Level
 	local forgeSurge = type(level) == "table" and type(level.Progression) == "table" and level.Progression.Surge or nil
 	if type(forgeSurge) == "table" and (tonumber(forgeSurge.EndsAt) or 0) > now and (tonumber(forgeSurge.Multiplier) or 1) > 1 then
-		table.insert(list, { key = "forgeSurge", icon = "Boost.4", value = string.format("x%.2f", forgeSurge.Multiplier), endsAt = forgeSurge.EndsAt, duration = forgeSurge.DurationSeconds, color = P.pink, name = "Forge surge" })
+		table.insert(list, { key = "forgeSurge", icon = "Boost.4", value = string.format("x%.2f", forgeSurge.Multiplier), endsAt = forgeSurge.EndsAt, duration = forgeSurge.DurationSeconds, color = P.pink, name = "Forge surge", note = "From your last Forge Level. Production is multiplied until the timer runs out." })
 	end
 	local event = state.ServerEvent
 	if type(event) == "table" and event.Phase == "Live" and type(event.Id) == "string" then
-		table.insert(list, { key = "event", icon = "Calendar.1", value = "Live", endsAt = event.PhaseEndsAt, color = P.mango, name = (string.gsub(event.Id, "(%l)(%u)", "%1 %2")) })
+		table.insert(list, { key = "event", icon = "Calendar.1", value = "Live", endsAt = event.PhaseEndsAt, color = P.mango, name = (string.gsub(event.Id, "(%l)(%u)", "%1 %2")), note = "A server event is live. Click the island to see it." })
 	end
 	local ascension = state.Ascension
 	if type(ascension) == "table" and (tonumber(ascension.Rank) or 0) > 0 then
-		table.insert(list, { key = "ascension", icon = "Rebirth.2", value = `x{format.compactNumber(ascension.Production or 1)}`, color = P.mango, name = "Ascension" })
+		table.insert(list, { key = "ascension", icon = "Rebirth.2", value = `x{format.compactNumber(ascension.Production or 1)}`, color = P.mango, name = "Ascension", note = `Ascension rank {ascension.Rank}. Permanent.` })
 	end
 	local continuum = state.Continuum
 	if type(continuum) == "table" and format.asFlux(continuum.ProductionMultiplier or 1) > 1 then
-		table.insert(list, { key = "continuum", icon = "Continuum.1", value = `x{format.compactNumber(continuum.ProductionMultiplier)}`, color = P.cyan, name = "Continuum.2" })
+		table.insert(list, { key = "continuum", icon = "Continuum.1", value = `x{format.compactNumber(continuum.ProductionMultiplier)}`, color = P.cyan, name = "Star Foundry", note = "From the Star Foundry. Permanent." })
 	end
 	if format.asFlux(state.PermanentMultiplier or 1) > 1 then
-		table.insert(list, { key = "rebirth", icon = "Core.2", value = `x{format.compactNumber(state.PermanentMultiplier)}`, color = P.violet, name = "Rebirths" })
+		table.insert(list, { key = "rebirth", icon = "Core.2", value = `x{format.compactNumber(state.PermanentMultiplier)}`, color = P.violet, name = "Cores and rebirths", note = "Your cores and rebirths together. Permanent; every rebirth raises it." })
 	end
 	local guild = state.GuildBonuses
 	if type(guild) == "table" and (tonumber(guild.Production) or 0) > 0 then
-		table.insert(list, { key = "guild", icon = "Crew.1", value = `+{math.floor((tonumber(guild.Production) or 0) * 100 + 0.5)}%`, color = P.mint, name = "Guild.1" })
+		table.insert(list, { key = "guild", icon = "Crew.1", value = `+{math.floor((tonumber(guild.Production) or 0) * 100 + 0.5)}%`, color = P.mint, name = "Guild", note = "Your guild's production perk, while you're a member." })
 	end
 	return list
 end
@@ -240,7 +241,14 @@ local function PerfSegment(props)
 	if props.showFps then table.insert(parts, `{fps} fps`) end
 	if props.showPing then table.insert(parts, if ping then `{ping} ms` else "-- ms") end
 	local worst = if props.showFps and fps < 38 then fpsColor(fps) elseif props.showPing then pingColor(ping) else fpsColor(fps)
+	local perfRef = React.useRef(nil)
+	Tooltip.useTooltip(perfRef, {
+		title = "Frame rate and ping",
+		body = "Frames per second on your device, and the round trip to the server.",
+		hint = "Hide either one in Settings > Interface.",
+	})
 	return h("frame", {
+		ref = perfRef,
 		Size = UDim2.fromOffset(PERF_W, COMPACT_H),
 		LayoutOrder = props.order,
 		BackgroundTransparency = 1,
@@ -269,9 +277,21 @@ local function PerfSegment(props)
 end
 
 -- one currency: flying coins land here and the value hops when they do
+local CURRENCY_TIPS = {
+	FLUX = "What machines, worlds and research cost. Machines fill the vault; collect it to spend.",
+	DUST = "Comes from rebirths, missions and rewards. Spent in the Shop and on tuning echoes.",
+	CORES = "Paid out by each rebirth. Every core raises production for good, and Domain ranks cost them.",
+}
 local function CurrencySegment(props)
 	local currency = props.currency
 	local ref, bump = Juice.useTarget(currency.target)
+	local rate = format.asFlux(currency.rate or 0)
+	Tooltip.useTooltip(ref, {
+		title = `{format.compactNumber(currency.value)} {currency.name or currency.target}`,
+		body = CURRENCY_TIPS[currency.target],
+		hint = if rate > 0 then `+{format.compactNumber(rate)} a second right now` else nil,
+		accent = currency.color,
+	})
 	local flash = motion.useFlash(format.asFlux(currency.value), props.reducedMotion, 0.45)
 	return h("frame", {
 		ref = ref,
@@ -351,6 +371,25 @@ local function planCompact(props, buffs)
 	return { width = width, perf = showPerf, buffs = shownBuffs }
 end
 
+-- one buff in the capsule; hovering says what it is and how long it has left
+local function BuffCell(props)
+	local ref = React.useRef(nil)
+	local buff = props.buff
+	local left = if buff.endsAt then (tonumber(buff.endsAt) or 0) - workspace:GetServerTimeNow() else nil
+	Tooltip.useTooltip(ref, {
+		title = `{buff.name} {buff.value}`,
+		body = buff.note,
+		hint = if left and left > 0 then `{clockText(left)} left` else nil,
+		accent = buff.color,
+	})
+	return h("frame", {
+		ref = ref,
+		Size = props.Size,
+		LayoutOrder = props.LayoutOrder,
+		BackgroundTransparency = 1,
+	}, props.children)
+end
+
 local function CompactRow(props)
 	local arrive = useArrive("compact")
 	local plan = props.plan
@@ -402,7 +441,8 @@ local function CompactRow(props)
 		items.sep2 = Separator(nextOrder())
 	end
 	for index, buff in plan.buffs do
-		items[buff.key] = h("frame", {
+		items[buff.key] = h(BuffCell, {
+			buff = buff,
 			Size = UDim2.fromOffset(BUFF_W, COMPACT_H),
 			LayoutOrder = nextOrder(),
 			BackgroundTransparency = 1,

@@ -446,6 +446,14 @@ function Tooltip.attach(target: GuiObject, content: Content?): () -> ()
 	end
 end
 
+-- show an attached target's tooltip now (tutorial pointers, gamepad hints); it hides as usual
+function Tooltip.showFor(target: GuiObject)
+	local entry = entries[target]
+	if entry then
+		reveal(entry)
+	end
+end
+
 -- change what an attached target says (the bubble updates if it is showing)
 function Tooltip.update(target: GuiObject, content: Content?)
 	local entry = entries[target]

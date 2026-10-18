@@ -68,6 +68,7 @@ local InteractionFeedback = require(script.Parent.CoreKit)("interaction").Intera
 local TouchGestureService = require(script.Parent.CoreKit)("TouchGestureService")
 local ShimmerMath = require(script.Parent.MotionKit)("shimmer")
 local Tooltip = require(script.Parent.Tooltip)
+local Rainbow = require(script.Parent.Rainbow)
 local dropdownPortal
 local dropdownPortalUsers = 0
 local function acquireDropdownPortal()
@@ -1229,6 +1230,7 @@ local function CountBadge(_param)
 		MaxTextSize = MIN_UI_TEXT_SIZE,
 	})))))
 end
+
 local function Panel(_param)
 	local children = _param.children
 	local size = _param.size
@@ -1319,6 +1321,7 @@ local function Panel(_param)
 	local shimmerWanted = shimmer and interactive and shimmerScale > 0.02 and not effectsPaused
 	local whiteSweep = useClock(shimmerWanted and hovered, SHIMMER_SWEEP_SPEED, 1, false)
 	local glowWanted = interactive and accent ~= nil and not interactionMotion
+
 	local hoverGlow = useOptionalFlipperSpring(if glowWanted and hovered then 1 else 0, interactive and hoverArmed, interactionMotion, 460, 38)
 	local revealFade = React.useMemo(function()
 		return activeReveal:map(function(amount)
@@ -2614,7 +2617,7 @@ local function Meter(_param)
 	local wantShimmer = shimmerScale > 0.02 and not empty and not effectsPaused
 	local glintStrength = if shimmer then 1 else 0.45
 	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then glintStrength else 0, true, lowMotion, 400, 34)
-	local flow = useClock(rainbow and not empty, 0.18, 1, false)
+	local flow = useClock(not empty and not lowMotion and not effectsPaused, if rainbow then 0.18 else 0.09, 1, false)
 	local tipPulse = usePulse(not empty and not effectsPaused, 2.6)
 	local readyPulse = usePulse(wantShimmer, 2)
 	local shimmerPhase = useClock(wantShimmer, ShimmerMath.sweepSpeed(shimmerScale), 1, false)
@@ -2650,9 +2653,10 @@ local function Meter(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Color = if rainbow then flow:map(function(t)
-			return require(script.Parent.Rainbow).at(t)
-		end) else ColorSequence.new(lighten(color, 0.32), color),
+		-- the fill flows: a rainbow when asked for, otherwise its own colour, pale crest to deep trough
+		Color = flow:map(function(t)
+			return if rainbow then Rainbow.at(t) else Rainbow.family(color, t, 0.7)
+		end),
 	}), React.createElement("frame", {
 		Size = if rushing ~= nil then React.joinBindings({ rushing, tipPulse }):map(function(values)
 			local d = 5 + values[1] * 5 + values[2] * 2
@@ -9164,6 +9168,7 @@ local function TopBar(_param)
 				value = chip.value,
 				icon = chip.icon,
 				color = chip.accent,
+				rate = if chip.label == "FLUX" then state.Production else nil,
 			})
 		end
 	end
@@ -9403,6 +9408,7 @@ local function TopBar(_param)
 		text = if playerControlW > SHELL_CHROME.topbarControl then "PLAYERS" else "",
 		icon = "Pilot.3",
 		onClick = openPlayerlist,
+		tooltip = { title = "Players", body = "Everyone in this server: trade, visit, wave or add a friend.", hint = "Tab" },
 		color = Palette.panelSoft,
 		textColor = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
@@ -9421,6 +9427,7 @@ local function TopBar(_param)
 		text = if feedbackControlW > SHELL_CHROME.topbarControl then "FEEDBACK" else "",
 		icon = "Chat.5",
 		onClick = openFeedback,
+		tooltip = { title = "Feedback", body = "Tell us about a bug or an idea. It goes straight to the team." },
 		color = Palette.panelSoft,
 		textColor = Palette.mint,
 		size = UDim2.fromScale(1, 1),
@@ -9439,6 +9446,7 @@ local function TopBar(_param)
 	}, React.createElement(Button, {
 		text = if searchControlW > SHELL_CHROME.topbarControl then "FIND" else "",
 		icon = "Search.12",
+		tooltip = { title = "Find", body = "Jump to any page, machine, setting or command by typing its name.", hint = "Ctrl+K" },
 		onClick = function()
 			require(script.Parent.QuickFind).open()
 		end,

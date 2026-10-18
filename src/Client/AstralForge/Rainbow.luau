@@ -173,6 +173,26 @@ function Rainbow.at(phase: number, saturation: number?, value: number?): ColorSe
 
 end
 
+-- a loop built from one colour: a pale crest, the colour, a deeper trough, back to the colour. Fills
+-- and buttons use it to flow in their own colour instead of a rainbow. Phases are cached per colour.
+local WHITE = Color3.new(1, 1, 1)
+local BLACK = Color3.new(0, 0, 0)
+function Rainbow.family(color: Color3, phase: number, depth: number?): ColorSequence
+	local d = depth or 1
+	local key = string.format("family:%02x%02x%02x:%.2f", math.floor(color.R * 255), math.floor(color.G * 255), math.floor(color.B * 255), d)
+	local palette = PALETTES[key]
+	if palette == nil then
+		palette = through({
+			Rainbow.mix(color, WHITE, 0.3 * d),
+			color,
+			Rainbow.mix(color, BLACK, 0.22 * d),
+			color,
+		})
+		PALETTES[key] = palette
+	end
+	return phaseOf(key, palette, phase)
+end
+
 -- one colour from a palette (for a tint that drifts: text, a dot, a light)
 function Rainbow.color(name: string, phase: number): Color3
 	return (PALETTES[name] or PALETTES.spectrum)(phase % 1)
