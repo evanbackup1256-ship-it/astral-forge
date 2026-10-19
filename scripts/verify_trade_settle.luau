@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
+local TradeSettle = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 
 local function freshSession()
 	return {

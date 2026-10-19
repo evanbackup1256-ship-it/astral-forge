@@ -7,7 +7,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local CommandMath = require("../src/Server/AstralForge/Modules/CommandMath")
+local CommandMath = require("../out/Server/AstralForge/Modules/CommandMath")
 
 -- --- Ensure -------------------------------------------------------------------
 local fresh = CommandMath.Ensure(nil, "SEASON_TEST")

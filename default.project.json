@@ -5,10 +5,10 @@
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "AstralForge": {
-        "$path": "src/Shared/AstralForge"
+        "$path": "out/Shared/AstralForge"
       },
       "Packages": {
-        "$path": "src/Shared/Packages"
+        "$path": "out/Shared/Packages"
       },
       "rbxts_include": {
         "$path": "include",
@@ -17,10 +17,10 @@
           "@rbxts": {
             "$className": "Folder",
             "react": {
-              "$path": "vendor/@rbxts/react"
+              "$path": "node_modules/@rbxts/react/src"
             },
             "react-roblox": {
-              "$path": "vendor/@rbxts/react-roblox.luau"
+              "$path": "node_modules/@rbxts/react-roblox/src"
             },
             "3a": {
               "$path": "vendor/@rbxts/3a/out"
@@ -101,13 +101,13 @@
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "AstralForge": {
-        "$path": "src/Server/AstralForge"
+        "$path": "out/Server/AstralForge"
       }
     },
     "ServerStorage": {
       "$className": "ServerStorage",
       "AstralForgeStories": {
-        "$path": "src/Stories"
+        "$path": "out/Stories"
       }
     },
     "StarterPlayer": {
@@ -115,10 +115,10 @@
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
         "AstralForge": {
-          "$path": "src/Client/AstralForge"
+          "$path": "out/Client/AstralForge"
         },
         "PlayerScriptsLoader": {
-          "$path": "src/Client/PlayerScriptsLoader.client.luau"
+          "$path": "out/Client/PlayerScriptsLoader.client.luau"
         }
       }
     }

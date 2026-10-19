@@ -7,12 +7,12 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
-local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
-local AdminGrantMath = require("../src/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
-local UtcClockMath = require("../src/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
-local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
+local RemoteFirewallMath = require("../out/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
+local EconomyEnvelopeMath = require("../out/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+local DataSanitizeMath = require("../out/Server/AstralForge/Modules/DataSanitizeMath")
+local AdminGrantMath = require("../out/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
+local UtcClockMath = require("../out/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
+local InventoryMath = require("./_kit_loader")("CoreKit")("inventoryMath")
 
 ------------------------------------------------------------------------
 -- RemoteFirewallMath.Inspect

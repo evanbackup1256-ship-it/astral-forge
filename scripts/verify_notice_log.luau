@@ -2,7 +2,7 @@
 local fs = require("@lune/fs")
 local task = require("@lune/task")
 
-local NoticeMath = require("../src/Client/AstralForge/CoreKit")("noticeMath")
+local NoticeMath = require("../out/Client/AstralForge/CoreKit/noticeMath")
 NoticeMath.ClearLog()
 
 assert(NoticeMath.Record("", "", "Info") == nil, "empty notices are ignored")

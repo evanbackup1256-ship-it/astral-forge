@@ -6,7 +6,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ProfileClampMath = require("../src/Server/AstralForge/Modules/ProfileMath")("ProfileClampMath")
+local ProfileClampMath = require("../out/Server/AstralForge/Modules/ProfileMath")("ProfileClampMath")
 
 local function identityPersist(value: any): any
 	local n = tonumber(value)

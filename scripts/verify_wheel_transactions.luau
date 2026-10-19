@@ -1,9 +1,9 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local serde = require("@lune/serde")
-local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local WheelMath = require("../src/Server/AstralForge/Modules/EconomyMath")("WheelMath")
-local Atomic = require("../src/Server/AstralForge/Services/SecurityServices")("AtomicState")()
+local Omega = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local WheelMath = require("../out/Server/AstralForge/Modules/EconomyMath")("WheelMath")
+local Atomic = require("../out/Server/AstralForge/Services/SecurityServices")("AtomicState")()
 local rewards = {}
 for index = 1, 20 do
 	rewards[index] = { Id = "prize" .. index, Name = "Prize " .. index, Rarity = if index == 20 then "RARE" else "COMMON",

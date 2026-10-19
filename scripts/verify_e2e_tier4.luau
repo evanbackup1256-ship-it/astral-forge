@@ -8,12 +8,12 @@ Vector2 = { new = function(x, y) return { X = x, Y = y } end, zero = { X = 0, Y 
 Vector3 = { new = function(x, y, z) return { X = x, Y = y, Z = z } end, zero = { X = 0, Y = 0, Z = 0 } }
 
 local Fw = require("./verify_e2e_framework")
-local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
+local SharedData = require("../out/Shared/AstralForge/Shared/SharedData")
 local ForgeLevels = SharedData("ForgeLevels")
-local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
-local MotionTokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
-local mobileLayout = require("../src/Client/AstralForge/CoreKit")("mobileLayout")
+local Omega = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local ProfileVersionGuard = require("../out/Server/AstralForge/Modules/ProfileVersionGuard")
+local MotionTokens = require("./_kit_loader")("MotionKit")("motionTokens")
+local mobileLayout = require("./_kit_loader")("CoreKit")("mobileLayout")
 local planMobileLayout = mobileLayout.planMobileLayout
 local scrollTail = mobileLayout.scrollTail
 local serde = require("@lune/serde")
@@ -402,7 +402,7 @@ Fw.register("T4-SCEN-08", "Domain constellation expansion unlocks nodes, allocat
 	profile.Domain.SkillPoints += 5
 
 	-- Etch five links out of the Hearth with the real lattice rules
-	local Lattice = require("../src/Shared/AstralForge/Shared/DomainLattice")
+	local Lattice = require("../out/Shared/AstralForge/Shared/DomainLattice")
 	for _, pair in { { 1, 2 }, { 1, 3 }, { 2, 3 }, { 1, 4 }, { 3, 4 } } do
 		local ok = Lattice.canEtch(profile.Domain.Links, pair[1], pair[2], profile.Domain.SkillPoints)
 		Fw.assertEq(ok, true, "link " .. pair[1] .. "-" .. pair[2] .. " can be etched")

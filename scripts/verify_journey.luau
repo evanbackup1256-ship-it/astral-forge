@@ -1,7 +1,7 @@
 -- Forge journal: chapters derived from saved lifetime stats on the Overview page.
 local fs = require("@lune/fs")
 
-local JourneyMath = require("../src/Client/AstralForge/CoreKit")("journeyMath")
+local JourneyMath = require("../out/Client/AstralForge/CoreKit/journeyMath")
 
 local empty = JourneyMath.Build({})
 assert(empty.Count == 0, "fresh save has no chapters")

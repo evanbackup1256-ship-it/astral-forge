@@ -5,11 +5,11 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
-local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
-local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local ContinuumDomainMath = require("../out/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
+local ForgePathClaim = require("../out/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
+local RebirthGate = require("../out/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
+local EconomyEnvelopeMath = require("../out/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label .. " got " .. tostring(actual))

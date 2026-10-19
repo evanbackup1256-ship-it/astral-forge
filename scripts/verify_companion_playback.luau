@@ -1,4 +1,4 @@
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
 local callback, connects, disconnects = nil, 0, 0
@@ -22,6 +22,7 @@ local runtime = luau.load(fs.readFile("src/Client/AstralForge/CompanionPlayback.
 	environment = setmetatable({
 		game = { GetService = function(_, name)
 			if name == "GuiService" then return guiService end
+			if name == "Workspace" then return { CurrentCamera = camera } end
 			assert(name == "RunService")
 			return { RenderStepped = { Connect = function(_, handler)
 				callback = handler; connects += 1

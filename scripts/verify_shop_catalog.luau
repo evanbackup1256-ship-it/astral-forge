@@ -1,6 +1,6 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
-local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
+local SharedData = require("../out/Shared/AstralForge/Shared/SharedData")
 local source = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau"):gsub("\r\n", "\n")
 local first = assert(source:find("local function loadMonetization()", 1, true))
 local last = assert(source:find("local EMPTY_CATALOG", first, true))

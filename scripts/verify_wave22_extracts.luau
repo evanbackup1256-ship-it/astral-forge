@@ -9,14 +9,14 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
-local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
-local ItemLoadoutMath = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemLoadoutMath")
-local ProgressionOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ProgressionOpsMath")
-local UtcClockMath = require("../src/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
-local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
-local ReleaseClockMath = require("../src/Client/AstralForge/CoreKit")("releaseClockMath")
+local RemoteFirewallMath = require("../out/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
+local DataSanitizeMath = require("../out/Server/AstralForge/Modules/DataSanitizeMath")
+local EconomyEnvelopeMath = require("../out/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+local ItemLoadoutMath = require("../out/Server/AstralForge/Modules/ProfileMath")("ItemLoadoutMath")
+local ProgressionOpsMath = require("../out/Server/AstralForge/Modules/EconomyMath")("ProgressionOpsMath")
+local UtcClockMath = require("../out/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
+local InventoryMath = require("./_kit_loader")("CoreKit")("inventoryMath")
+local ReleaseClockMath = require("./_kit_loader")("CoreKit")("releaseClockMath")
 
 ------------------------------------------------------------------------
 -- RemoteFirewallMath.IsSessionOnlyPayload

@@ -5,8 +5,8 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
-local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
+local RemoteFirewallMath = require("../out/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
+local DataSanitizeMath = require("../out/Server/AstralForge/Modules/DataSanitizeMath")
 
 ------------------------------------------------------------------------
 -- RemoteFirewallMath

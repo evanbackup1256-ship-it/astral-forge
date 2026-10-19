@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ConvergenceOpsMath = require("../src/Server/AstralForge/Modules/OpsMath")("ConvergenceOpsMath")
+local ConvergenceOpsMath = require("../out/Server/AstralForge/Modules/OpsMath")("ConvergenceOpsMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)

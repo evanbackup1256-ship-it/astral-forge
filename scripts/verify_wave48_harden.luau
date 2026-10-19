@@ -56,10 +56,10 @@ assert(string.find(config, 'Id = "wave48-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave48-offline"', 1, true), "Mail wave48")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
+local ForgePathClaim = require("../out/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
 assert(ForgePathClaim.XpFromBankedAmount(999, { LogScale = 4, Minimum = 1 }) >= 1, "xp from bank")
 
-local OfflineProjection = require("../src/Server/AstralForge/Modules/EconomyMath")("OfflineProjection")
+local OfflineProjection = require("../out/Server/AstralForge/Modules/EconomyMath")("OfflineProjection")
 do
 	local cold = OfflineProjection.PublicSnapshot({
 		runtime = nil,
@@ -84,7 +84,7 @@ do
 	assert(hot.Reward == 3 and hot.Capped == true and hot.CapHours == 6, "offline hot")
 end
 
-local SocialBoost = require("../src/Server/AstralForge/Modules/ProfileMath")("SocialBoost")
+local SocialBoost = require("../out/Server/AstralForge/Modules/ProfileMath")("SocialBoost")
 do
 	local bag = SocialBoost.CreatorRewardsPublic({ CreatorFollowClaimed = true }, "Mara")
 	assert(bag.CreatorFollowClaimed == true and bag.CreatorName == "Mara", "creator rewards")

@@ -5,8 +5,8 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local GuildMath = require("../src/Server/AstralForge/Modules/OpsMath")("GuildMath")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local GuildMath = require("../out/Server/AstralForge/Modules/OpsMath")("GuildMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)

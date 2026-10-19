@@ -1,8 +1,8 @@
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
-local Specializations = require("../src/Shared/AstralForge/Shared/Specializations")
-local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local members = require("./_memberfs")(fs)
+local Specializations = require("../out/Shared/AstralForge/Shared/Specializations")
+local Omega = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local members = fs
 local Envelope = luau.load(members.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#EconomyEnvelopeMath"))()
 local function near(actual, expected) assert(math.abs(actual - expected) < 1e-8, tostring(actual) .. " ~= " .. tostring(expected)) end
 local original = { GridUpgrades = { Furnace_01 = 5 }, Cash = "1e405" }
@@ -44,7 +44,7 @@ near(env.Economy.OfflineEfficiency({ Specialization = { Focus = "NightShift" } }
 env.GameConfig.Economy.BaseOfflineEfficiency = 1
 near(env.Economy.OfflineEfficiency({}), 1)
 near(env.Economy.OfflineEfficiency({ Specialization = { Focus = "NightShift" } }), 1)
-local tap = require("../src/Server/AstralForge/Modules/EconomyMath")("TapCritProjection")
+local tap = require("../out/Server/AstralForge/Modules/EconomyMath")("TapCritProjection")
 env.TapCritProjection = tap
 env.Economy.LabPowerEffect = function() return 0 end
 env.Economy.OreEffect = function() return 0 end
@@ -55,7 +55,7 @@ near(Omega.ToNumber(env.Economy.TapPower({})), 15)
 near(Omega.ToNumber(env.Economy.TapPower({ Specialization = state })), 15 * .85 * 1.3)
 near(Omega.ToNumber(env.Economy.TapPower({ Specialization = respec })), 15 * .85)
 assert(Envelope.GridEffect(original.GridUpgrades, { Furnace_01 = { EffectKind = "GridProduction", EffectPerLevel = .02 } }, "GridProduction") == .1)
-env.CapacityProjection = require("../src/Shared/AstralForge/Shared/SharedData")("CapacityProjection")
+env.CapacityProjection = require("../out/Shared/AstralForge/Shared/SharedData")("CapacityProjection")
 env.GameConfig.Zones = { { Multiplier = 1 } }
 env.GameConfig.Economy.BaseCapacity = 1000
 env.GameConfig.Economy.BaseCapacitySeconds = 60
@@ -125,10 +125,10 @@ near(tuned.Builds[2].GainMultiplier, 1.5)
 near(tuned.Builds[4].GainMultiplier, 1.3)
 Specializations.Configure(nil, nil, nil)
 env.GameConfig.Economy.BaseOfflineEfficiency = 1
-local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+local router = members.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 assert(router:find('SpecializationsView = "PagesSpecializations"',1,true) and not router:find('lazyView("StarGridView"',1,true))
 assert(fs.readFile("src/Server/AstralForge/Services/ServerServices.luau"):find('serviceFactories["SpecializationService"]',1,true))
-local Atomic = require("../src/Server/AstralForge/Services/SecurityServices")("AtomicState")()
+local Atomic = require("../out/Server/AstralForge/Services/SecurityServices")("AtomicState")()
 local serde = require("@lune/serde")
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local branch = assert(server:find("elseif action == Protocol.Actions.SelectSpecialization then", 1, true))
@@ -175,7 +175,7 @@ end }
 assert(not dispatch(failedOwner, {}, { Id = "Reserve" }).ok)
 
 local client = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
-local requestStart = assert(client:find("local function selectBuild(id: string)", 1, true))
+local requestStart = assert(client:find("local function selectBuild(id: string)", 1, true) or client:find("local selectBuild = function(id)", 1, true))
 local requestEnd = assert(client:find('\n\tif not state then', requestStart, true))
 local function mount(order)
 	local calls, timers, notes = {}, {}, {}

@@ -7,10 +7,10 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local UpgradeCostReason = require("../src/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
-local ProfileIntegrity = require("../src/Server/AstralForge/Services/SecurityServices")("ProfileIntegrity")()
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local UpgradeCostReason = require("../out/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
+local ContinuumDomainMath = require("../out/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
+local ProfileIntegrity = require("../out/Server/AstralForge/Services/SecurityServices")("ProfileIntegrity")()
 
 local cfg = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
@@ -199,7 +199,7 @@ end
 -- PrestigeReward pure parity (RunQuick soak exercises Economy.PrestigeReward)
 ------------------------------------------------------------------------
 do
-	local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
+	local RebirthGate = require("../out/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
 	local req = parseNumber(string.match(extractSection(cfg, "\n\tEconomy = {"), "PrestigeRequirement%s*=%s*([%d_]+)"))
 	local exp = parseNumber(string.match(extractSection(cfg, "\n\tEconomy = {"), "PrestigeExponent%s*=%s*([%d%.]+)"))
 	assert(req and exp, "PrestigeRequirement/Exponent missing")
@@ -323,9 +323,9 @@ do
 		OfflineCap = 0.45,
 		OfflinePerRank = 0.0025,
 	}
-	local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
-	local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
-	local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+	local ContinuumDomainMath = require("../out/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
+	local RebirthGate = require("../out/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
+	local EconomyEnvelopeMath = require("../out/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 	local prod, cap, tap, off = ContinuumDomainMath.ContinuumEffects(OmegaMath, continuumFx, 0)
 	assert(isPersist(prod) and isPersist(cap) and isPersist(tap) and finiteNumber(off), "ContinuumEffects overflow")
 	local nextTarget = RebirthGate.NextPrestigeTarget(OmegaMath, 0, 1000, 0.5)

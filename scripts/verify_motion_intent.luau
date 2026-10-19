@@ -1,4 +1,4 @@
-local MotionIntent = require("../src/Shared/AstralForge/Shared/MotionIntent")
+local MotionIntent = require("../out/Shared/AstralForge/Shared/MotionIntent")
 
 local failures = 0
 local function check(cond: boolean, label: string)

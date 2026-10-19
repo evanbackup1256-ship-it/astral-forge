@@ -37,7 +37,7 @@ assert(string.find(atomicSrc, "function AtomicState:Replace", 1, true), "AtomicS
 assert(string.find(atomicSrc, "CONTENTION_TIMEOUT_SECONDS", 1, true), "AtomicState contention timeout missing")
 assert(string.find(atomicSrc, "state transaction already in progress", 1, true), "AtomicState busy reject marker missing")
 
-local AtomicState = require("../src/Server/AstralForge/Services/SecurityServices")("AtomicState")()
+local AtomicState = require("../out/Server/AstralForge/Services/SecurityServices")("AtomicState")()
 local atom = AtomicState.new({ Meta = { Revision = 2 }, Cash = 10 })
 local value, revision = atom:Read()
 assert(revision == 2 and value.Cash == 10, "AtomicState.Read must surface Meta.Revision")

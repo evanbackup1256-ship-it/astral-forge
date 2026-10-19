@@ -1,7 +1,7 @@
 -- Mobile HUD editor memory slots persist as a versioned, bounded profile string.
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local Slots = require("../src/Shared/AstralForge/Shared/MobileLayoutSlots")
+local Slots = require("../out/Shared/AstralForge/Shared/MobileLayoutSlots")
 
 assert(next(Slots.Decode(nil)) == nil, "nil decodes empty")
 assert(next(Slots.Decode("")) == nil, "empty string decodes empty")

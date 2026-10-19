@@ -7,8 +7,8 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local TradeOfferMath = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeOfferMath")
-local TradeExchange = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeExchange")
+local TradeOfferMath = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeOfferMath")
+local TradeExchange = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeExchange")
 
 local CURRENCIES = TradeExchange.CURRENCIES
 local BOOST_IDS = TradeExchange.BOOST_IDS

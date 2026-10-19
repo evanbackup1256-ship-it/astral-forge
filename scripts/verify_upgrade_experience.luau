@@ -1,8 +1,8 @@
 --!nocheck
-local Math = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local Model = require("../src/Client/AstralForge/UpgradeModel")(Math)
-local Queue = require("../src/Client/AstralForge/PurchaseQueue")
-local Goals = require("../src/Client/AstralForge/OverviewGoals")(Math, tostring)
+local Math = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local Model = require("../out/Client/AstralForge/UpgradeModel")(Math)
+local Queue = require("../out/Client/AstralForge/PurchaseQueue")
+local Goals = require("../out/Client/AstralForge/OverviewGoals")(Math, tostring)
 local function entry(id, cost, level, max, growth)
 	return { config = { Id = id, Name = id, Description = "production bonus", BaseCost = cost, CostScale = 1.15, MaxLevel = max or 100, BaseProduction = 10, Growth = growth or 0.1 }, level = level or 0, unlocked = true, maxed = false, price = Math.ScaledCost(cost, 1.15, level or 0), order = 1 }
 end

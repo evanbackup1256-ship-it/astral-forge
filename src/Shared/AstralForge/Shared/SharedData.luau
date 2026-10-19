@@ -9,6 +9,10 @@ local function sibling(name: string): any
 	if script ~= nil then
 		return require((script.Parent :: any)[name])
 	end
+	local ok, mod = pcall(require, "./" .. name)
+	if ok then return mod end
+	local ok2, mod2 = pcall(require, "../../../../out/Shared/AstralForge/Shared/" .. name)
+	if ok2 then return mod2 end
 	return (require :: any)("./" .. name)
 end
 

@@ -24,7 +24,7 @@ assert(string.find(firewallSrc, "function Firewall:Forget", 1, true), "Firewall:
 assert(string.find(firewallSrc, "CLIENT_SIGNAL_RULES", 1, true), "client integrity signal allowlist must stay")
 
 -- Pure coerce via extracted module (mirrors RemoteFirewall numeric path; no Instance).
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
+local RemoteFirewallMath = require("../out/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
 local coerceUserId = RemoteFirewallMath.CoerceUserId
 local extractUserId = RemoteFirewallMath.ExtractUserId
 assert(coerceUserId(42) == 42, "positive id ok")

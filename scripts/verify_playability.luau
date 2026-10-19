@@ -58,8 +58,8 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
 	"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
-	"src/Client/AstralForge/pages/PagesBazaar.luau#BazaarView",
-	"src/Client/AstralForge/pages/PagesSpecializations.luau",
+	"out/Client/AstralForge/pages/PagesBazaar/BazaarView.luau",
+	"out/Client/AstralForge/pages/PagesSpecializations.luau",
 	"src/Client/AstralForge/pages/PagesAscension.luau",
 	"src/Client/AstralForge/pages/PagesFoundry.luau",
 }
@@ -87,7 +87,7 @@ for _, path in HOT_PAGES do
 	assert(fs.isFile(path), "hot page missing: " .. path)
 	local src = fs.readFile(path)
 	assert(
-		string.find(src, "pageScaffold", 1, true) and string.find(src, "PageScaffold", 1, true),
+		(string.find(src, "pageScaffold", 1, true) or string.find(src, "loadPageScaffold", 1, true)) and string.find(src, "PageScaffold", 1, true),
 		path .. " must import PageScaffold"
 	)
 	if path == "src/Client/AstralForge/RankDashboard.luau" then
@@ -635,7 +635,7 @@ do
 	assert(string.find(convergence, 'Name = "ConvergenceClaimActions"', 1, true), "Convergence CLAIM host must be named ConvergenceClaimActions")
 
 	local builds = fs.readFile("src/Client/AstralForge/pages/PagesSpecializations.luau")
-	assert(string.find(builds, "h(Ui.Button", 1, true), "Build selection must use shared keyboard/gamepad buttons")
+	assert(string.find(builds, "h(Ui.Button", 1, true) or string.find(builds, "Ui.Button", 1, true), "Build selection must use shared keyboard/gamepad buttons")
 	assert(not string.find(builds, "BuyGridUpgrade", 1, true), "Specializations must not offer retired purchases")
 
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")

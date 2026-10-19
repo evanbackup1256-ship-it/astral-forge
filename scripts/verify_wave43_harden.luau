@@ -5,9 +5,10 @@
 local fs = require("./_memberfs")(require("@lune/fs"))
 
 local envelope = fs.readFile("src/Client/AstralForge/CoreKit.luau#snapshotEnvelopeMath")
-assert(string.find(envelope, "function SnapshotEnvelopeMath.IsFiniteNumber", 1, true), "IsFiniteNumber missing")
-assert(string.find(envelope, "function SnapshotEnvelopeMath.IsPersist", 1, true), "IsPersist missing")
-assert(string.find(envelope, "function SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "IsValidEnvelope missing")
+-- TS-compiled output uses `local function X` + export table, not `function Module.X`
+assert(string.find(envelope, "IsFiniteNumber", 1, true), "IsFiniteNumber missing")
+assert(string.find(envelope, "IsPersist", 1, true), "IsPersist missing")
+assert(string.find(envelope, "IsValidEnvelope", 1, true), "IsValidEnvelope missing")
 
 local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 assert(string.find(main, '("snapshotEnvelopeMath")', 1, true), "MainGame requires snapshotEnvelopeMath")
@@ -49,7 +50,7 @@ assert(string.find(config, 'Id = "wave43-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave43-offline"', 1, true), "Mail wave43")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local SnapshotEnvelopeMath = require("../src/Client/AstralForge/CoreKit")("snapshotEnvelopeMath")
+local SnapshotEnvelopeMath = require("./_kit_loader")("CoreKit")("snapshotEnvelopeMath")
 assert(SnapshotEnvelopeMath.IsFiniteNumber(1) == true, "finite ok")
 assert(SnapshotEnvelopeMath.IsFiniteNumber(0 / 0) == false, "nan rejected")
 assert(SnapshotEnvelopeMath.IsFiniteNumber(math.huge) == false, "inf rejected")

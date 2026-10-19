@@ -8,7 +8,7 @@ local luau = require("@lune/luau")
 local fs = require("./_memberfs")(require("@lune/fs"))
 
 local Script = luau.load(fs.readFile("src/Shared/AstralForge/Shared/SharedData.luau#TutorialScript"), { chunkName = "TutorialScript" })() :: any
-local NavRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
+local NavRouteTable = require("./_kit_loader")("CoreKit")("navRouteTable")
 
 local steps = Script.STEPS
 assert(#steps >= 8, "the tour covers the core loop, got " .. #steps .. " steps")

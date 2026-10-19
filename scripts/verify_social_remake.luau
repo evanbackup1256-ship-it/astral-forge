@@ -1,6 +1,6 @@
-local Math=require("../src/Shared/AstralForge/Shared/OmegaMath")
-local Social=require("../src/Shared/AstralForge/Shared/SocialProgression")(Math)
-local Request=require("../src/Client/AstralForge/ActionRequest")
+local Math=require("../out/Shared/AstralForge/Shared/OmegaMath")
+local Social=require("../out/Shared/AstralForge/Shared/SocialProgression")(Math)
+local Request=require("../out/Client/AstralForge/ActionRequest")
 for _,actor in {"Leader","Officer","Member"} do
 	for _,target in {"Leader","Officer","Member"} do
 		assert(Social.canManage({Role=actor},{Role=target},"Role")== (actor=="Leader" and target~="Leader"))

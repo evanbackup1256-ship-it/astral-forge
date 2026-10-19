@@ -1,0 +1,33 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Astral Forge buttons</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  body { padding: 24px; display: grid; gap: 22px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  h2 { margin: 0; font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--af-muted); }
+</style></head>
+<body>
+  <h2>Fills</h2>
+  <div class="row">
+    <button class="af-button af-surface">Settings</button>
+    <button class="af-button af-surface is-primary">Rebirth</button>
+    <button class="af-button af-surface is-flux">Collect</button>
+    <button class="af-button af-surface is-good">Claim</button>
+    <button class="af-button af-surface is-danger">Salvage</button>
+  </div>
+  <h2>Outline, disabled, icon</h2>
+  <div class="row">
+    <button class="af-button is-outline">View details</button>
+    <button class="af-button is-outline" style="--outline:var(--af-mango)">Upgrade</button>
+    <button class="af-button af-surface" disabled>Not enough Flux</button>
+    <button class="af-button af-surface is-flux"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Buy 10</button>
+    <button class="af-button af-surface is-icon" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <h2>Hug width</h2>
+  <div class="row">
+    <button class="af-button af-surface is-primary" style="min-width:0">OK</button>
+    <button class="af-button af-surface" style="min-width:0">Back</button>
+  </div>
+</body></html>

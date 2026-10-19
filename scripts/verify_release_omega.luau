@@ -1,6 +1,6 @@
 local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
 local source = fs.readFile("src/Server/AstralForge/ReleaseReadiness.luau")
 local start = assert(string.find(source, "local function finite", 1, true))
 local stop = assert(string.find(source, "local function expect", start, true))

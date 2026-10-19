@@ -9,7 +9,7 @@ local fs = require("./_memberfs")(require("@lune/fs"))
 local protocolSrc = fs.readFile("src/Shared/AstralForge/Shared/Protocol.luau")
 local sessionSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#session")
 local serverSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local commandValidators = require("../src/Server/AstralForge/Modules/ProfileMath")("CommandActionValidators")
+local commandValidators = require("../out/Server/AstralForge/Modules/ProfileMath")("CommandActionValidators")
 
 local function extractStringKeys(block: string): { [string]: boolean }
 	local keys = {}

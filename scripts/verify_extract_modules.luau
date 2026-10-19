@@ -5,10 +5,10 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local UpgradeCostReason = require("../src/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
-local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
-local OfflineProjection = require("../src/Server/AstralForge/Modules/EconomyMath")("OfflineProjection")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local UpgradeCostReason = require("../out/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
+local ForgePathClaim = require("../out/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
+local OfflineProjection = require("../out/Server/AstralForge/Modules/EconomyMath")("OfflineProjection")
 
 -- --- UpgradeCostReason -------------------------------------------------------
 local cost = UpgradeCostReason.LevelCost(OmegaMath, { BaseCost = 100, CostScale = 1.15 }, 0)

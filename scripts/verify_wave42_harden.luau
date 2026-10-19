@@ -5,11 +5,12 @@
 local fs = require("./_memberfs")(require("@lune/fs"))
 
 local notice = fs.readFile("src/Client/AstralForge/CoreKit.luau#noticeMath")
-assert(string.find(notice, "function NoticeMath.NormalizeTitle", 1, true), "NormalizeTitle missing")
-assert(string.find(notice, "function NoticeMath.Signature", 1, true), "Signature missing")
-assert(string.find(notice, "function NoticeMath.ShouldDedupe", 1, true), "ShouldDedupe missing")
-assert(string.find(notice, "function NoticeMath.Lifetime", 1, true), "Lifetime missing")
-assert(string.find(notice, "function NoticeMath.MaxNotices", 1, true), "MaxNotices missing")
+-- TS-compiled output uses `local function X` + export table, not `function Module.X`
+assert(string.find(notice, "NormalizeTitle", 1, true), "NormalizeTitle missing")
+assert(string.find(notice, "Signature", 1, true), "Signature missing")
+assert(string.find(notice, "ShouldDedupe", 1, true), "ShouldDedupe missing")
+assert(string.find(notice, "Lifetime", 1, true), "Lifetime missing")
+assert(string.find(notice, "MaxNotices", 1, true), "MaxNotices missing")
 
 local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 assert(string.find(main, '("noticeMath")', 1, true), "MainGame requires noticeMath")
@@ -50,7 +51,7 @@ assert(string.find(config, 'Id = "wave42-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave42-offline"', 1, true), "Mail wave42")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local NoticeMath = require("../src/Client/AstralForge/CoreKit")("noticeMath")
+local NoticeMath = require("./_kit_loader")("CoreKit")("noticeMath")
 assert(NoticeMath.NormalizeTitle("Boost online") == "Boost on", "normalize boost")
 assert(NoticeMath.NormalizeTitle("Rebirth") == "Rebirth done", "normalize rebirth")
 assert(NoticeMath.NormalizeTitle("Order paid") == "Claimed", "normalize order")

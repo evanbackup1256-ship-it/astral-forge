@@ -1,0 +1,38 @@
+<!-- @dsCard group="Colors" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Astral Forge colours</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  body { padding: 24px; }
+  h2 { font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--af-muted); margin: 22px 0 10px; }
+  h2:first-child { margin-top: 0; }
+  .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; }
+  .sw { border-radius: 11px; overflow: hidden; background: var(--af-panel); box-shadow: inset 0 0 0 1px var(--af-line); }
+  .sw i { display: block; height: 52px; }
+  .sw b { display: block; padding: 8px 10px 2px; font-size: 13px; }
+  .sw code { display: block; padding: 0 10px 9px; font: 500 11px/1.2 ui-monospace, monospace; color: var(--af-muted); }
+</style></head>
+<body>
+<h2>Surfaces</h2>
+<div class="row" id="surfaces"></div>
+<h2>Text</h2>
+<div class="row" id="text"></div>
+<h2>Accents</h2>
+<div class="row" id="accents"></div>
+<h2>Rarity</h2>
+<div class="row" id="rarity"></div>
+<script>
+  const groups = {
+    surfaces: ["void","ink","night","panel","panel-raised","panel-soft","line","line-soft","graphite"],
+    text: ["cream","cream-soft","muted","steel"],
+    accents: ["cyan","mint","green","blue","violet","pink","mango","brass","coral","red","ember"],
+    rarity: ["rarity-common","rarity-rare","rarity-epic","rarity-legendary","rarity-mythic","rarity-celestial","rarity-astral"],
+  };
+  const css = getComputedStyle(document.documentElement);
+  for (const [id, names] of Object.entries(groups)) {
+    document.getElementById(id).innerHTML = names.map(n =>
+      `<div class="sw"><i style="background:var(--af-${n})"></i><b>${n.replace("rarity-","")}</b><code>${css.getPropertyValue("--af-" + n).trim()}</code></div>`).join("");
+  }
+</script>
+</body></html>

@@ -8,10 +8,10 @@ Vector2 = { new = function(x, y) return { X = x, Y = y } end, zero = { X = 0, Y 
 Vector3 = { new = function(x, y, z) return { X = x, Y = y, Z = z } end, zero = { X = 0, Y = 0, Z = 0 } }
 
 local Fw = require("./verify_e2e_framework")
-local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
-local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local mobileLayout = require("../src/Client/AstralForge/CoreKit")("mobileLayout")
+local SharedData = require("../out/Shared/AstralForge/Shared/SharedData")
+local ProfileVersionGuard = require("../out/Server/AstralForge/Modules/ProfileVersionGuard")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local mobileLayout = require("./_kit_loader")("CoreKit")("mobileLayout")
 local planMobileLayout = mobileLayout.planMobileLayout
 local theme = {
 	Layout = {

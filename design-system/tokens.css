@@ -1,0 +1,234 @@
+/* Astral Forge design tokens.
+   Source of truth: src/Shared/AstralForge/Shared/ForgeTheme.luau (colours) and
+   src/Client/AstralForge/CoreKit.luau "theme" (Layout, Chrome). Keep the two in step. */
+
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@500;700;800&display=swap");
+
+:root {
+  color-scheme: dark;
+
+  /* Base palette (ForgeTheme.base) */
+  --af-void: #08060a;
+  --af-ink: #0c090e;
+  --af-night: #130e14;
+  --af-panel: #1b151d;
+  --af-panel-raised: #271f2a;
+  --af-panel-soft: #3e3142;
+  --af-line: #4a3a50;
+  --af-line-soft: #846e8e;
+  --af-cream: #fcf7f0;
+  --af-cream-soft: #e6dcd4;
+  --af-muted: #b2a0a6;
+  --af-cyan: #46daf2;
+  --af-mint: #56ecb2;
+  --af-coral: #ff6870;
+  --af-mango: #ffb834;
+  --af-violet: #b286ff;
+  --af-pink: #fa68b2;
+  --af-blue: #60a6ff;
+  --af-white: #ffffff;
+  --af-green: #62e8a4;
+  --af-red: #f04e58;
+  --af-shadow: #000000;
+  --af-graphite: #161119;
+  --af-steel: #ccd6ea;
+  --af-brass: #fabe48;
+  --af-brass-deep: #8c5c1e;
+  --af-ember: #f45c54;
+
+  /* Rarity (ForgeTheme.rarity) */
+  --af-rarity-common: #c8c4bc;
+  --af-rarity-rare: #6ebeff;
+  --af-rarity-epic: #be78ff;
+  --af-rarity-legendary: #ffbe46;
+  --af-rarity-mythic: #ff6e96;
+  --af-rarity-celestial: #bef8ff;
+  --af-rarity-astral: #ffc8f0;
+
+  /* Feature colours (ForgeTheme.feature) */
+  --af-flux: var(--af-cyan);
+  --af-dust: var(--af-mango);
+  --af-essence: var(--af-violet);
+  --af-cores: var(--af-pink);
+
+  /* Type: Builder Sans in game; Figtree is the closest web stand-in */
+  --af-font: "Builder Sans", "Figtree", system-ui, sans-serif;
+  --af-weight-medium: 500;
+  --af-weight-bold: 700;
+  --af-weight-heavy: 800;
+  --af-text-min: 11px;
+  --af-text-button: 15px;
+  --af-text-body: 13px;
+  --af-line-wrapped: 1.12;
+
+  /* Layout (CoreKit theme.Layout), desktop reference 1920x1080 */
+  --af-page-padding: 18px;
+  --af-panel-gap: 18px;
+  --af-stack-gap: 14px;
+  --af-control-gap: 16px;
+  --af-line-gap: 12px;
+  --af-card-padding: 14px;   /* Panel clamps padding to 16 max, default 14 */
+  --af-card-radius: 16px;
+  --af-button-radius: 11px;
+  --af-badge-radius: 6px;
+  --af-chip-radius: 9px;
+  --af-tap: 44px;
+  --af-topbar-h: 74px;
+  --af-sidebar-w: 268px;
+  --af-sidebar-collapsed-w: 78px;
+  --af-right-rail-w: 296px;
+  --af-workspace-header-h: 86px;
+  --af-content-max: 1680px;
+
+  /* Chrome (CoreKit theme.Chrome), as CSS alphas (1 - Roblox transparency) */
+  --af-panel-shadow-a: 0.3;
+  --af-panel-stroke-a: 0.7;
+  --af-button-shadow-a: 0.42;
+}
+
+/* Surfaces fall from a soft top light to a deeper base (surfaceGradient). */
+.af-surface {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--surface) 90%, white) 0%,
+    color-mix(in srgb, var(--surface) 96%, white) 30%,
+    var(--surface) 60%,
+    color-mix(in srgb, var(--surface) 78%, black) 100%);
+}
+
+html, body {
+  margin: 0;
+  background: var(--af-night);
+  color: var(--af-cream);
+  font-family: var(--af-font);
+  font-weight: var(--af-weight-medium);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Components ---------- */
+
+/* Text keeps a 1px dark drop under every label (Text's TextShadow) */
+.af-text { text-shadow: 0 1px 0 rgb(8 6 10 / 0.22); }
+.af-heading { font-weight: var(--af-weight-heavy); color: var(--af-cream); text-shadow: 0 1px 0 rgb(8 6 10 / 0.22); }
+.af-label { font-weight: var(--af-weight-bold); color: var(--af-cream-soft); }
+.af-muted { color: var(--af-muted); }
+
+/* Panel: surface gradient, 1px inner stroke, offset shadow 7px down */
+.af-panel {
+  --surface: var(--af-panel);
+  position: relative;
+  border-radius: var(--af-card-radius);
+  padding: var(--af-card-padding);
+  box-shadow: -4px 7px 0 0 rgb(0 0 0 / var(--af-panel-shadow-a));
+  outline: 1px solid rgb(132 110 142 / var(--af-panel-stroke-a));
+  outline-offset: -2px;
+}
+.af-panel.is-interactive { transition: transform .2s, outline-color .2s; cursor: pointer; }
+.af-panel.is-interactive:hover { transform: translateY(-1px); outline-color: rgb(132 110 142 / 0.95); }
+.af-panel[data-accent] { outline-color: color-mix(in srgb, var(--accent) 45%, var(--af-line-soft)); }
+
+/* Button: 44px tall, 11px radius, 5px drop shadow, 1px top highlight */
+.af-button {
+  --surface: var(--af-panel-soft);
+  --label: var(--af-cream);
+  appearance: none;
+  border: 0;
+  position: relative;
+  min-width: 160px;
+  height: var(--af-tap);
+  padding: 0 14px;
+  border-radius: var(--af-button-radius);
+  color: var(--label);
+  font: var(--af-weight-bold) var(--af-text-button)/1 var(--af-font);
+  box-shadow: 0 5px 0 0 rgb(0 0 0 / var(--af-button-shadow-a));
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer;
+  transition: filter .15s, transform .1s;
+}
+.af-button::before {
+  content: ""; position: absolute; left: 6px; right: 6px; top: 1px; height: 1px;
+  background: rgb(252 247 240 / 0.3); border-radius: 1px;
+}
+.af-button:hover { filter: brightness(1.08); }
+.af-button:active { transform: translateY(2px); box-shadow: 0 3px 0 0 rgb(0 0 0 / var(--af-button-shadow-a)); }
+.af-button:focus-visible { outline: 4px solid var(--af-cream); outline-offset: 0; }
+.af-button.is-primary { --surface: var(--af-mango); --label: var(--af-ink); }
+.af-button.is-flux    { --surface: var(--af-cyan);  --label: var(--af-ink); }
+.af-button.is-good    { --surface: var(--af-mint);  --label: var(--af-ink); }
+.af-button.is-danger  { --surface: var(--af-coral); --label: var(--af-ink); }
+.af-button.is-outline { background: var(--af-panel); box-shadow: 0 5px 0 0 rgb(0 0 0 / var(--af-button-shadow-a)), inset 0 0 0 1px var(--outline, var(--af-cyan)); color: var(--outline, var(--af-cyan)); }
+.af-button.is-outline::before { display: none; }
+.af-button:disabled { background: var(--af-panel-soft); color: var(--af-muted); box-shadow: 0 5px 0 0 rgb(0 0 0 / 0.16); cursor: default; filter: none; transform: none; }
+.af-button:disabled::before { display: none; }
+.af-button.is-icon { min-width: 0; width: var(--af-tap); padding: 0; }
+.af-button svg { width: 20px; height: 20px; flex: none; }
+
+/* Badge: 78x26, 6px radius, 1px accent stroke; filled gets a short accent bar on top */
+.af-badge {
+  --accent: var(--af-cyan);
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 78px; height: 26px; padding: 0 8px; box-sizing: border-box;
+  border-radius: var(--af-badge-radius);
+  background: var(--af-panel-raised);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 72%, transparent);
+  color: color-mix(in srgb, var(--accent) 82%, white);
+  font: var(--af-weight-heavy) 13px/1 var(--af-font);
+  letter-spacing: .02em;
+}
+.af-badge.is-filled {
+  background: color-mix(in srgb, var(--accent) 72%, black);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 64%, transparent);
+  color: var(--af-cream);
+}
+.af-badge.is-filled::before {
+  content: ""; position: absolute; top: 0; left: 8px; width: 38%; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+
+/* Count badge: coral dot with a count, top-right of its host */
+.af-count {
+  display: inline-grid; place-items: center;
+  min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: 999px; background: var(--af-coral); color: var(--af-ink);
+  box-shadow: inset 0 0 0 1px rgb(252 247 240 / 0.45);
+  font: var(--af-weight-bold) 11px/1 var(--af-font);
+}
+
+/* Currency chip (top bar / mobile header) */
+.af-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 10px 0 8px; border-radius: var(--af-chip-radius);
+  background: var(--af-panel-soft); color: var(--af-cream);
+  font: var(--af-weight-heavy) 13px/1 var(--af-font);
+}
+.af-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent, var(--af-cyan)); }
+
+/* Meter: 8px pill, flowing fill with a bright tip dot */
+.af-meter {
+  --accent: var(--af-cyan);
+  position: relative; height: 8px; min-width: 48px; border-radius: 999px;
+  background: rgb(8 6 10 / 0.84); overflow: hidden;
+}
+.af-meter > span {
+  position: absolute; inset: 0 auto 0 0; width: calc(var(--value, .5) * 100%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, black), var(--accent), color-mix(in srgb, var(--accent) 70%, white));
+}
+.af-meter > span::after {
+  content: ""; position: absolute; right: 1px; top: 50%; width: 5px; height: 5px; translate: 0 -50%;
+  border-radius: 50%; background: rgb(255 255 255 / 0.88);
+}
+
+/* Divider: 1px soft line that fades out at both ends */
+.af-divider {
+  height: 1px; border: 0; margin: 0;
+  background: linear-gradient(90deg, transparent, rgb(132 110 142 / 0.65) 18%, rgb(132 110 142 / 0.65) 82%, transparent);
+}
+
+/* Segmented tabs */
+.af-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--af-ink); box-shadow: inset 0 0 0 1px var(--af-line); }
+.af-tabs button {
+  appearance: none; border: 0; height: 36px; padding: 0 14px; border-radius: 8px;
+  background: transparent; color: var(--af-muted); font: var(--af-weight-bold) 14px/1 var(--af-font); cursor: pointer;
+}
+.af-tabs button[aria-selected="true"] { background: var(--af-panel-soft); color: var(--af-cream); box-shadow: inset 0 -2px 0 var(--accent, var(--af-cyan)); }

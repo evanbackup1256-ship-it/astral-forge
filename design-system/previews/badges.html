@@ -1,0 +1,40 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Astral Forge badges and chips</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  body { padding: 24px; display: grid; gap: 22px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  h2 { margin: 0; font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--af-muted); }
+  .host { position: relative; display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; background: var(--af-panel-soft); }
+  .host .af-count { position: absolute; top: 3px; right: 3px; }
+</style></head>
+<body>
+  <h2>Badge</h2>
+  <div class="row">
+    <span class="af-badge">NEW</span>
+    <span class="af-badge" style="--accent:var(--af-mango)">READY</span>
+    <span class="af-badge" style="--accent:var(--af-mint)">DONE</span>
+    <span class="af-badge" style="--accent:var(--af-coral)">LOCKED</span>
+  </div>
+  <h2>Badge, filled</h2>
+  <div class="row">
+    <span class="af-badge is-filled">LIVE</span>
+    <span class="af-badge is-filled" style="--accent:var(--af-violet)">EPIC</span>
+    <span class="af-badge is-filled" style="--accent:var(--af-rarity-legendary)">LEGENDARY</span>
+    <span class="af-badge is-filled" style="--accent:var(--af-pink)">x2 CORES</span>
+  </div>
+  <h2>Count</h2>
+  <div class="row">
+    <span class="host"><span class="af-count">3</span></span>
+    <span class="host"><span class="af-count">12</span></span>
+    <span class="host"><span class="af-count">99+</span></span>
+  </div>
+  <h2>Currency chip</h2>
+  <div class="row">
+    <span class="af-chip" style="--accent:var(--af-flux)">1.24M</span>
+    <span class="af-chip" style="--accent:var(--af-dust)">38.6K</span>
+    <span class="af-chip" style="--accent:var(--af-violet)">912</span>
+  </div>
+</body></html>

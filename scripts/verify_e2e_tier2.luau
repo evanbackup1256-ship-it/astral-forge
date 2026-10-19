@@ -10,12 +10,12 @@ local Fw = require("./verify_e2e_framework")
 local fs = require("@lune/fs")
 
 -- Load system components
-local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
+local SharedData = require("../out/Shared/AstralForge/Shared/SharedData")
 local ForgeLevels = SharedData("ForgeLevels")
-local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
-local MotionTokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
-local mobileLayout = require("../src/Client/AstralForge/CoreKit")("mobileLayout")
+local Omega = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local ProfileVersionGuard = require("../out/Server/AstralForge/Modules/ProfileVersionGuard")
+local MotionTokens = require("./_kit_loader")("MotionKit")("motionTokens")
+local mobileLayout = require("./_kit_loader")("CoreKit")("mobileLayout")
 local planMobileLayout = mobileLayout.planMobileLayout
 local scrollTail = mobileLayout.scrollTail
 
@@ -207,13 +207,13 @@ Fw.register("T2-F5-02", "Virtualized list clamps render window to visible slice 
 end)
 
 Fw.register("T2-F5-03", "Non-existent navigation route query returns nil cleanly via groupOf", function()
-	local navRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
+	local navRouteTable = require("./_kit_loader")("CoreKit")("navRouteTable")
 	local group = navRouteTable.groupOf("NonExistentRoute_XYZ")
 	Fw.assertNil(group, "Non-existent route must return nil group")
 end)
 
 Fw.register("T2-F5-04", "Rapid page route switching preserves route integrity across 100 cycles", function()
-	local navRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
+	local navRouteTable = require("./_kit_loader")("CoreKit")("navRouteTable")
 	for _ = 1, 100 do
 		local group = navRouteTable.groupOf("Overview")
 		Fw.assertEq(group, "Home", "Overview route group is consistently Home")
@@ -221,7 +221,7 @@ Fw.register("T2-F5-04", "Rapid page route switching preserves route integrity ac
 end)
 
 Fw.register("T2-F5-05", "Empty string route query returns nil without throwing runtime error", function()
-	local navRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
+	local navRouteTable = require("./_kit_loader")("CoreKit")("navRouteTable")
 	local group = navRouteTable.groupOf("")
 	Fw.assertNil(group, "Empty string route query returns nil")
 end)
@@ -777,14 +777,14 @@ Fw.register("T2-F16-02", "Querying non-existent member SharedData('InvalidMember
 end)
 
 Fw.register("T2-F16-03", "Querying non-existent member CoreKit('InvalidMember') raises descriptive error", function()
-	local CoreKit = require("../src/Client/AstralForge/CoreKit")
+	local CoreKit = require("./_kit_loader")("CoreKit")
 	Fw.assertThrows(function()
 		CoreKit("InvalidMember_XYZ")
 	end, "unknown module", "CoreKit throws for unknown member")
 end)
 
 Fw.register("T2-F16-04", "Querying non-existent member MotionKit('InvalidMember') raises descriptive error", function()
-	local MotionKit = require("../src/Client/AstralForge/MotionKit")
+	local MotionKit = require("./_kit_loader")("MotionKit")
 	Fw.assertThrows(function()
 		MotionKit("InvalidMember_XYZ")
 	end, "unknown module", "MotionKit throws for unknown member")

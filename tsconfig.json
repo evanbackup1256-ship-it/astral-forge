@@ -4,8 +4,8 @@
     "downlevelIteration": true,
     "isolatedModules": true,
     "jsx": "react",
-    "jsxFactory": "Roact.createElement",
-    "jsxFragmentFactory": "Roact.createFragment",
+    "jsxFactory": "React.createElement",
+    "jsxFragmentFactory": "React.Fragment",
     "module": "commonjs",
     "moduleResolution": "Node",
     "noLib": true,
@@ -16,7 +16,9 @@
     "target": "ESNext",
     "moduleDetection": "force",
     "typeRoots": ["node_modules/@rbxts"],
+    "types": ["types", "compiler-types"],
     "outDir": "out",
     "rootDir": "src"
-  }
+  },
+  "include": ["src"]
 }

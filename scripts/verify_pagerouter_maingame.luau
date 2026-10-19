@@ -5,9 +5,9 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local LayoutSectionPlan = require("../src/Client/AstralForge/LayoutKit")("layoutSectionPlan")
-local NavRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
-local VaultCollectEligibility = require("../src/Client/AstralForge/CoreKit")("vaultCollectEligibility")
+local LayoutSectionPlan = require("./_kit_loader")("LayoutKit")("layoutSectionPlan")
+local NavRouteTable = require("../out/Client/AstralForge/CoreKit/navRouteTable")
+local VaultCollectEligibility = require("../out/Client/AstralForge/CoreKit/vaultCollectEligibility")
 
 -- --- VaultCollectEligibility -------------------------------------------------
 assert(VaultCollectEligibility.MIN_COLLECTABLE == 0.01, "min collectable threshold")

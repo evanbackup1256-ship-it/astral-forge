@@ -6,10 +6,10 @@ local Fw = require("./verify_e2e_framework")
 local fs = require("@lune/fs")
 
 -- Load system components
-local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
+local SharedData = require("../out/Shared/AstralForge/Shared/SharedData")
 local ForgeLevels = SharedData("ForgeLevels")
-local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
+local Omega = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local ProfileVersionGuard = require("../out/Server/AstralForge/Modules/ProfileVersionGuard")
 local DataTemplate = {
 	New = function()
 		return {
@@ -30,8 +30,8 @@ local DataTemplate = {
 		}
 	end,
 }
-local MotionTokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
-local mobileLayout = require("../src/Client/AstralForge/CoreKit")("mobileLayout")
+local MotionTokens = require("./_kit_loader")("MotionKit")("motionTokens")
+local mobileLayout = require("./_kit_loader")("CoreKit")("mobileLayout")
 local planMobileLayout = mobileLayout.planMobileLayout
 local scrollTail = mobileLayout.scrollTail
 
@@ -67,7 +67,7 @@ local GamepadNav = {
 		}
 	end,
 }
-local ActionFeatureMaps = require("../src/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
+local ActionFeatureMaps = require("../out/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
 
 
 --------------------------------------------------------------------------------
@@ -217,7 +217,7 @@ end)
 Fw.setContext("Tier 1", "F5: Preservation of UI & Tools")
 
 Fw.register("T1-F5-01", "NavRouteTable registers all essential navigation routes", function()
-	local navRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
+	local navRouteTable = require("./_kit_loader")("CoreKit")("navRouteTable")
 	Fw.assertNotNil(navRouteTable, "navRouteTable must be defined")
 	Fw.assertEq(navRouteTable.groupOf("Overview"), "Home", "Overview route must belong to Home group")
 	Fw.assertGte(#navRouteTable.PAGE_ROUTES, 20, "Must define at least 20 page routes")
@@ -553,7 +553,7 @@ Fw.register("T1-F11-05", "Content budget remains positive even under heavy hardw
 end)
 
 Fw.register("T1-F11-06", "MotionKit exports genuine readSafeInsets querying ScreenInsets and GuiInset", function()
-	local MotionKit = require("../src/Client/AstralForge/MotionKit")
+	local MotionKit = require("./_kit_loader")("MotionKit")
 	local readSafeInsets = MotionKit.readSafeInsets
 	Fw.assertTrue(typeof(readSafeInsets) == "function", "readSafeInsets exported on MotionKit")
 	local insets = readSafeInsets()

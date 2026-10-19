@@ -20,8 +20,8 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ForgeLevels = require("../src/Shared/AstralForge/Shared/SharedData")("ForgeLevels")
-local ActionFeatureMaps = require("../src/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
+local ForgeLevels = require("../out/Shared/AstralForge/Shared/SharedData")("ForgeLevels")
+local ActionFeatureMaps = require("../out/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))

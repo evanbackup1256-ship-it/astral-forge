@@ -15,7 +15,7 @@
 -- HARD: pure checks -- no Roblox instances.
 
 local fs = require("./_memberfs")(require("@lune/fs"))
-local Plan = require("../src/Client/AstralForge/LayoutKit")("layoutGuardPlan")
+local Plan = require("./_kit_loader")("LayoutKit")("layoutGuardPlan")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))

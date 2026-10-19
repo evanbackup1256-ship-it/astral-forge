@@ -73,7 +73,7 @@ assert(string.find(config, 'Id = "update-5-1-wave40-offline"', 1, true), "Mail w
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
 -- Pure VisitSnapshot smoke (Economy stub).
-local VisitSnapshot = require("../src/Server/AstralForge/Modules/ProfileMath")("VisitSnapshot")
+local VisitSnapshot = require("../out/Server/AstralForge/Modules/ProfileMath")("VisitSnapshot")
 local EconomyStub = {
 	Production = function(_profile)
 		return 12

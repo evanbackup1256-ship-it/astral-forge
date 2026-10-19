@@ -4,13 +4,13 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local TradeSuite = require("../src/Server/AstralForge/Modules/TradeSuite")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local TradeSuite = require("../out/Server/AstralForge/Modules/TradeSuite")
 local TradeExchange = TradeSuite("TradeExchange")
 local TradeChatMath = TradeSuite("TradeChatMath")
 local TradeRequestMath = TradeSuite("TradeRequestMath")
 local TradeChatFilter = TradeSuite("TradeChatFilter")
-local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
+local ProfileVersionGuard = require("../out/Server/AstralForge/Modules/ProfileVersionGuard")
 
 local gameConfig = {
 	Items = { InventoryLimit = 100 },
@@ -162,7 +162,7 @@ end
 -- 3. Settle lock semantics (TradeSettle pure helpers)
 ------------------------------------------------------------------------
 do
-	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
+	local TradeSettle = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 	local session = {
 		Host = 1,
 		Guest = 2,
@@ -282,7 +282,7 @@ end
 -- 6. Cancel refused while Settling (trade residual guard)
 ------------------------------------------------------------------------
 do
-	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
+	local TradeSettle = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 	local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 	assert(string.find(deskSrc, "TradeSettle.CancelBlocked", 1, true), "Cancel must gate via TradeSettle")
 	assert(string.find(deskSrc, "RevertFailedReason", 1, true) or string.find(deskSrc, "TradeSettle.Fail", 1, true), "FailSettle permanent must stamp RevertFailedReason")

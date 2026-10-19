@@ -1,9 +1,9 @@
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
-local Diagnostics = require("../src/Client/AstralForge/LayoutDiagnostics")
-local Geom = require("../src/Client/AstralForge/LayoutKit")("layoutGeom")
-local Plan = require("../src/Client/AstralForge/LayoutKit")("layoutGuardPlan")
+local Diagnostics = require("../out/Client/AstralForge/LayoutDiagnostics")
+local Geom = require("./_kit_loader")("LayoutKit")("layoutGeom")
+local Plan = require("./_kit_loader")("LayoutKit")("layoutGuardPlan")
 local clock = 0
 local diagnostics = Diagnostics.new(function() return clock end)
 local writes = {}

@@ -5,9 +5,9 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local CrateRoll = require("../src/Server/AstralForge/Modules/EconomyMath")("CrateRoll")
-local ShopGrantEligibility = require("../src/Server/AstralForge/Modules/ProfileMath")("ShopGrantEligibility")
-local CommandActionValidators = require("../src/Server/AstralForge/Modules/ProfileMath")("CommandActionValidators")
+local CrateRoll = require("../out/Server/AstralForge/Modules/EconomyMath")("CrateRoll")
+local ShopGrantEligibility = require("../out/Server/AstralForge/Modules/ProfileMath")("ShopGrantEligibility")
+local CommandActionValidators = require("../out/Server/AstralForge/Modules/ProfileMath")("CommandActionValidators")
 
 -- --- CrateRoll ---------------------------------------------------------------
 assert(CrateRoll.MinimumRank(0, 10, 4) == 0, "pity before threshold → 0")

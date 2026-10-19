@@ -791,7 +791,7 @@ local function SettingsView(_param)
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 			}, React.createElement(Panel, {
-				size = UDim2.fromOffset(NAV_W, navH),
+				size = UDim2.new(0, NAV_W, 0, bodyH),
 				background = Palette.panelRaised,
 				accent = accent,
 				padding = 8,
@@ -2665,17 +2665,17 @@ local function StatCell(_param)
 		color = Palette.muted,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(10, 6),
-		sizeConstraint = UDim2.new(1, -16, 0, 11),
+		position = UDim2.fromOffset(8, 6),
+		sizeConstraint = UDim2.new(1, -12, 0, 11),
 	}), React.createElement(Text, {
 		value = _param.value,
 		size = 14,
 		color = _param.accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		minSize = 9,
-		position = UDim2.fromOffset(10, 19),
-		sizeConstraint = UDim2.new(1, -16, 0, 18),
+		minSize = 7,
+		position = UDim2.fromOffset(8, 19),
+		sizeConstraint = UDim2.new(1, -12, 0, 18),
 	}))
 end
 
@@ -3025,7 +3025,7 @@ local function AdminViewReady(_param)
 	local runColor = if busy then Palette.panelSoft elseif needsArm and armed then Palette.coral elseif needsArm then Palette.mango else Palette.mint
 
 	local FIELD_H = 50
-	local EXEC_TITLE = 120
+	local EXEC_TITLE = 42
 	local EXEC_BUTTON = 46
 	local EXEC_NOTE = 36 + math.min(#previewLines, 6) * 14
 	local executeH = EXEC_TITLE + math.max(0, fieldSlots) * FIELD_H + EXEC_BUTTON + EXEC_NOTE + 20

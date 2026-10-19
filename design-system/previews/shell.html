@@ -1,0 +1,59 @@
+<!-- @dsCard group="Layout" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Astral Forge app shell</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  body { min-height: 100vh; display: grid; grid-template-rows: var(--af-topbar-h) 1fr; background: var(--af-void); }
+  .top { display: flex; align-items: center; gap: 12px; padding: 0 var(--af-page-padding); background: var(--af-ink); box-shadow: inset 0 -1px 0 var(--af-line); }
+  .mark { font-weight: 800; font-size: 18px; letter-spacing: .04em; margin-right: auto; }
+  .body { display: grid; grid-template-columns: var(--af-sidebar-w) 1fr var(--af-right-rail-w); min-height: 0; }
+  nav { padding: 14px 12px; display: grid; gap: 4px; align-content: start; background: var(--af-night); box-shadow: inset -1px 0 0 var(--af-line); }
+  nav h4 { margin: 12px 10px 4px; font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--af-muted); }
+  nav a { position: relative; display: flex; align-items: center; height: 40px; padding: 0 12px; border-radius: 10px; color: var(--af-cream-soft); text-decoration: none; font-weight: 700; font-size: 14px; }
+  nav a[aria-current] { background: var(--af-panel-raised); color: var(--af-cream); box-shadow: inset 3px 0 0 var(--af-cyan); }
+  nav a .af-count { margin-left: auto; }
+  main { padding: var(--af-page-padding); display: grid; gap: var(--af-panel-gap); align-content: start; min-width: 0; }
+  .ws { height: calc(var(--af-workspace-header-h) - 2 * var(--af-page-padding)); display: flex; align-items: center; justify-content: space-between; }
+  .ws h1 { margin: 0; font-size: 28px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--af-panel-gap); }
+  aside { padding: var(--af-page-padding) 14px; display: grid; gap: 14px; align-content: start; background: var(--af-night); box-shadow: inset 1px 0 0 var(--af-line); }
+  .ph { height: 120px; }
+  @media (max-width: 1100px) { .body { grid-template-columns: var(--af-sidebar-collapsed-w) 1fr; } aside { display: none; } nav h4, nav a span, nav a .af-count { display: none; } }
+</style></head>
+<body>
+  <header class="top">
+    <span class="mark">ASTRAL FORGE</span>
+    <span class="af-chip" style="--accent:var(--af-flux)">1.24M</span>
+    <span class="af-chip" style="--accent:var(--af-dust)">38.6K</span>
+    <span class="af-chip" style="--accent:var(--af-violet)">912</span>
+    <button class="af-button af-surface is-icon" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </header>
+  <div class="body">
+    <nav>
+      <h4>PLAY</h4>
+      <a href="#" aria-current="page"><span>Overview</span></a>
+      <a href="#"><span>Forge</span><b class="af-count">3</b></a>
+      <a href="#"><span>Progress</span></a>
+      <h4>COLLECT</h4>
+      <a href="#"><span>Bazaar</span></a>
+      <a href="#"><span>Relics</span><b class="af-count">12</b></a>
+      <h4>SOCIAL</h4>
+      <a href="#"><span>Guild</span></a>
+      <a href="#"><span>Trade</span></a>
+    </nav>
+    <main>
+      <div class="ws"><h1 class="af-heading">Overview</h1><span class="af-badge" style="--accent:var(--af-mint)">ONLINE</span></div>
+      <div class="cards">
+        <section class="af-panel af-surface ph"></section>
+        <section class="af-panel af-surface ph"></section>
+        <section class="af-panel af-surface ph"></section>
+      </div>
+      <section class="af-panel af-surface" style="height:220px"></section>
+    </main>
+    <aside>
+      <section class="af-panel af-surface" style="height:160px"></section>
+      <section class="af-panel af-surface" style="height:100px"></section>
+    </aside>
+  </div>
+</body></html>

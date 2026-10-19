@@ -1,6 +1,6 @@
 -- Chat channels, slash commands, autocomplete, whisper naming and the global relay batcher.
 local fs = require("@lune/fs")
-local ChatRules = require("../src/Shared/AstralForge/Shared/ChatRules")
+local ChatRules = require("../out/Shared/AstralForge/Shared/ChatRules")
 
 local roster = {
 	{ userId = 11, name = "NovaSmith", displayName = "Nova" },

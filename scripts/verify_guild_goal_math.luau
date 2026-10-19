@@ -4,7 +4,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local GuildGoalMath = require("../src/Server/AstralForge/Modules/OpsMath")("GuildGoalMath")
+local GuildGoalMath = require("../out/Server/AstralForge/Modules/OpsMath")("GuildGoalMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)

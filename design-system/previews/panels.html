@@ -1,0 +1,41 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Astral Forge panels and meters</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  body { padding: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--af-panel-gap); }
+  .af-panel { display: grid; gap: 12px; align-content: start; }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .head h3 { margin: 0; font-size: 18px; }
+  .stat { display: flex; justify-content: space-between; font-size: 13px; color: var(--af-cream-soft); }
+  .stat b { font-weight: 800; color: var(--af-cream); }
+  p { margin: 0; font-size: 13px; line-height: 1.12; color: var(--af-cream-soft); }
+</style></head>
+<body>
+<div class="grid">
+  <section class="af-panel af-surface">
+    <div class="head"><h3 class="af-heading">Forge</h3><span class="af-badge" style="--accent:var(--af-mint)">RUNNING</span></div>
+    <div class="stat"><span>Production</span><b>4.8K / s</b></div>
+    <div class="af-meter" style="--value:.62"><span></span></div>
+    <hr class="af-divider">
+    <p>Next tier at 10K per second. Upgrades on the Progress page.</p>
+  </section>
+
+  <section class="af-panel af-surface is-interactive" data-accent style="--accent:var(--af-mango)">
+    <div class="head"><h3 class="af-heading">Rebirth</h3><span class="af-badge is-filled" style="--accent:var(--af-mango)">READY</span></div>
+    <div class="stat"><span>Cores on rebirth</span><b>+18</b></div>
+    <div class="af-meter" style="--value:1;--accent:var(--af-mango)"><span></span></div>
+    <button class="af-button af-surface is-primary" style="width:100%">Rebirth</button>
+  </section>
+
+  <section class="af-panel af-surface" style="--surface:var(--af-panel-raised)">
+    <div class="head"><h3 class="af-heading">Lab orders</h3><span class="af-badge" style="--accent:var(--af-violet)">2 / 5</span></div>
+    <div class="stat"><span>Echo research</span><b>40%</b></div>
+    <div class="af-meter" style="--value:.4;--accent:var(--af-violet)"><span></span></div>
+    <div class="stat"><span>Relic polish</span><b>85%</b></div>
+    <div class="af-meter" style="--value:.85;--accent:var(--af-pink)"><span></span></div>
+  </section>
+</div>
+</body></html>

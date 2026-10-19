@@ -62,7 +62,7 @@ assert(string.find(config, 'Id = "wave46-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave46-offline"', 1, true), "Mail wave46")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
+local ContinuumDomainMath = require("../out/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 do
 	local domain = ContinuumDomainMath.SnapshotDomainPublic({
 		domain = { Essence = 2, Links = { ["1-2"] = true }, SkillPoints = 3, LatticeClearedAtRank = 1 },

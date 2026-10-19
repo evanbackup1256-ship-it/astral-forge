@@ -1,6 +1,6 @@
 --!strict
 -- Icons: every icon the game names has its own art, and no icon id is used twice.
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 
 local manifestSource = fs.readFile("src/Client/AstralForge/IconManifest.luau")

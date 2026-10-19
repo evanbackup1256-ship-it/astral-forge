@@ -1,7 +1,7 @@
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
-local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local Omega = require("../out/Shared/AstralForge/Shared/OmegaMath")
 local source = fs.readFile("src/Client/AstralForge/pages/PagesBazaar.luau"):gsub("\r\n", "\n")
 local helpersStart = assert(source:find("local function orderTotal", 1, true))
 local helpersEnd = assert(source:find("local function BazaarView", helpersStart, true))
@@ -51,9 +51,10 @@ local function render(width, inspected, offers)
 			useLinkedQuery = function() return "", function() end end },
 		PageScaffold = "PageScaffold", UDim2 = roblox.UDim2, Enum = roblox.Enum,
 		workspace = { GetServerTimeNow = function() return 3601 end },
+		Workspace = { GetServerTimeNow = function() return 3601 end },
 	}, { __index = _G })
 	local first = assert(source:find("local CATEGORIES", 1, true))
-	local last = assert(source:find("return { BazaarView = BazaarView }", first, true))
+	local last = assert(source:find("return { BazaarView = BazaarView }", first, true) or source:find("return {%s*BazaarView = BazaarView", first))
 	local component = luau.load(source:sub(first, last - 1) .. "\nreturn BazaarView", { environment = environment })()
 	return component({
 		state = { Cash = "1e400", Bazaar = { Market = { Offers = offers, EndsAt = 7200, CatalogSize = 36, Saved = {}, History = {} } } },

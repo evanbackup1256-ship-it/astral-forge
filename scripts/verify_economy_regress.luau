@@ -67,8 +67,8 @@ assert(
 )
 
 -- Pure ForgePathClaim.Effect nil-guards (must stay aligned with Economy.luau).
-local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+local ForgePathClaim = require("../out/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
+local EconomyEnvelopeMath = require("../out/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 local function forgePathEffect(profile: any, effectKind: string, steps: { any }): number
 	local forgePath = profile and profile.ForgePath
 	if forgePath == nil then

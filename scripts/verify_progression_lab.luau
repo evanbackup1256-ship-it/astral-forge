@@ -5,10 +5,10 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ZoneUnlock = require("../src/Shared/AstralForge/Shared/SharedData")("ZoneUnlock")
-local LabOrderMath = require("../src/Server/AstralForge/Modules/LabOrderMath")
-local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local ZoneUnlock = require("../out/Shared/AstralForge/Shared/SharedData")("ZoneUnlock")
+local LabOrderMath = require("../out/Server/AstralForge/Modules/LabOrderMath")
+local RebirthGate = require("../out/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)

@@ -16,8 +16,8 @@ local function member(path: string, name: string): any
 end
 local Shop = member("src/Shared/AstralForge/Shared/SharedData.luau", "ShopCatalog")
 local Relics = member("src/Shared/AstralForge/Shared/SharedData.luau", "RelicSystem")
-local Envelope = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
-local CrateRoll = require("../src/Server/AstralForge/Modules/EconomyMath")("CrateRoll")
+local Envelope = require("../out/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+local CrateRoll = require("../out/Server/AstralForge/Modules/EconomyMath")("CrateRoll")
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 -- Rarity order
@@ -165,7 +165,7 @@ end
 assert(string.find(server, "ShopCatalog.roll(player.UserId, day, shop.Owned)", 1, true), "the server re-rolls the day's shop to validate a buy")
 -- The roll leaves out the skins owned when the day began, so a mid-day skin buy can't reshuffle it.
 do
-	local Bag = require("../src/Server/AstralForge/Modules/ProfileBagMath")
+	local Bag = require("../out/Server/AstralForge/Modules/ProfileBagMath")
 	local profile = { Cosmetics = { CrateSkins = { Classic = true }, CrateSkin = "Classic" } }
 	local shop = Bag.EnsureDailyShop(profile, 20000, profile.Cosmetics.CrateSkins)
 	local before = Shop.roll(99, 20000, shop.Owned)

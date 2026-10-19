@@ -6,7 +6,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ProgressionOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ProgressionOpsMath")
+local ProgressionOpsMath = require("../out/Server/AstralForge/Modules/EconomyMath")("ProgressionOpsMath")
 
 ------------------------------------------------------------------------
 -- WeeklyValue

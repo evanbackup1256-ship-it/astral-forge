@@ -70,8 +70,8 @@ assert(string.find(config, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail w
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
 -- Pure module smoke
-local PublicPlayerRecord = require("../src/Server/AstralForge/Modules/ProfileMath")("PublicPlayerRecord")
-local SettingsSeal = require("../src/Server/AstralForge/Modules/ProfileMath")("SettingsSeal")
+local PublicPlayerRecord = require("../out/Server/AstralForge/Modules/ProfileMath")("PublicPlayerRecord")
+local SettingsSeal = require("../out/Server/AstralForge/Modules/ProfileMath")("SettingsSeal")
 local EconomyStub = {
 	Production = function(_profile)
 		return 9

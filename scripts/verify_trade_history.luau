@@ -1,6 +1,6 @@
 -- Completed-trade history and one-sided offer warnings.
-local fs = require("@lune/fs")
-local TradeHistory = require("../src/Shared/AstralForge/Shared/TradeHistory")
+local fs = require("./_memberfs")(require("@lune/fs"))
+local TradeHistory = require("../out/Shared/AstralForge/Shared/TradeHistory")
 
 local empty = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boosts = { Surge = 0 }, Keys = { Bronze = 0 }, ItemIds = {} }
 local function offer(fields)

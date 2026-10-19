@@ -14,7 +14,7 @@
 -- HARD: pure checks -- no Roblox instances.
 
 local fs = require("./_memberfs")(require("@lune/fs"))
-local Tokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
+local Tokens = require("./_kit_loader")("MotionKit")("motionTokens")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))

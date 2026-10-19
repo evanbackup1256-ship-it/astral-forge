@@ -6,9 +6,9 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local LabOrderMath = require("../src/Server/AstralForge/Modules/LabOrderMath")
-local AnomalyOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("AnomalyOpsMath")
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
+local LabOrderMath = require("../out/Server/AstralForge/Modules/LabOrderMath")
+local AnomalyOpsMath = require("../out/Server/AstralForge/Modules/EconomyMath")("AnomalyOpsMath")
+local ContinuumDomainMath = require("../out/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 
 assert(LabOrderMath.IsReady({ Id = "A", Progress = "9", Target = "10", Claimed = false }) == false, "string 9/10 not ready")
 assert(LabOrderMath.IsReady({ Id = "A", Progress = "10", Target = "10", Claimed = false }) == true, "string 10/10 ready")

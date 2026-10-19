@@ -77,13 +77,13 @@ assert(string.find(config, 'Id = "wave49-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave49-offline"', 1, true), "Mail wave49")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local StoryMailSnapshot = require("../src/Server/AstralForge/Modules/ProfileMath")("StoryMailSnapshot")
+local StoryMailSnapshot = require("../out/Server/AstralForge/Modules/ProfileMath")("StoryMailSnapshot")
 do
 	local bag = StoryMailSnapshot.MailboxPublic({ { Id = "a" } }, 2)
 	assert(bag.Unread == 2 and bag.Messages[1].Id == "a", "mailbox public")
 end
 
-local ShopGrantEligibility = require("../src/Server/AstralForge/Modules/ProfileMath")("ShopGrantEligibility")
+local ShopGrantEligibility = require("../out/Server/AstralForge/Modules/ProfileMath")("ShopGrantEligibility")
 do
 	local bag = ShopGrantEligibility.CatalogPublic({ VIP = true }, function(t)
 		return t
@@ -91,7 +91,7 @@ do
 	assert(bag.CatalogVersion == 1 and bag.OwnedPasses.VIP == true, "catalog public")
 end
 
-local ItemLoadoutMath = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemLoadoutMath")
+local ItemLoadoutMath = require("../out/Server/AstralForge/Modules/ProfileMath")("ItemLoadoutMath")
 do
 	local effects = ItemLoadoutMath.EffectsPublic({}, {
 		ItemEffect = function(_profile, kind)

@@ -1,7 +1,7 @@
 -- Crews: small in-server parties with a capped production bonus and a shared daily goal.
-local fs = require("@lune/fs")
-local CrewMath = require("../src/Shared/AstralForge/Shared/CrewMath")
-local ChatRules = require("../src/Shared/AstralForge/Shared/ChatRules")
+local fs = require("./_memberfs")(require("@lune/fs"))
+local CrewMath = require("../out/Shared/AstralForge/Shared/CrewMath")
+local ChatRules = require("../out/Shared/AstralForge/Shared/ChatRules")
 
 -- bonus: each other member adds a little, never more than a full crew
 assert(CrewMath.multiplier(1) == 1 and CrewMath.multiplier(0) == 1, "solo players get no bonus")

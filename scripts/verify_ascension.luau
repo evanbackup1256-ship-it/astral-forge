@@ -1,7 +1,7 @@
 --!strict
 -- Ascension: infinite final layer above Domain, paid in Aether, spent on six uncapped sigils.
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local A = require("../src/Shared/AstralForge/Shared/AscensionMath")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local A = require("../out/Shared/AstralForge/Shared/AscensionMath")
 
 -- requirement rises forever and never repeats
 local last = -1

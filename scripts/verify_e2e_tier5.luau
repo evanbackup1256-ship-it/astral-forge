@@ -95,20 +95,20 @@ globalEnv.Enum.KeyCode = globalEnv.Enum.KeyCode or {
 local Fw = require("./verify_e2e_framework")
 
 -- Load Astral Forge Subsystems
-local SharedData = require("../src/Shared/AstralForge/Shared/SharedData")
-local Omega = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
-local SecurityServices = require("../src/Server/AstralForge/Services/SecurityServices")
+local SharedData = require("../out/Shared/AstralForge/Shared/SharedData")
+local Omega = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local ProfileVersionGuard = require("../out/Server/AstralForge/Modules/ProfileVersionGuard")
+local SecurityServices = require("../out/Server/AstralForge/Services/SecurityServices")
 local AtomicState = SecurityServices("AtomicState")()
-local MotionTokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
-local CoreKit = require("../src/Client/AstralForge/CoreKit")
+local MotionTokens = require("./_kit_loader")("MotionKit")("motionTokens")
+local CoreKit = require("./_kit_loader")("CoreKit")
 local mobileLayout = CoreKit("mobileLayout")
 local planMobileLayout = mobileLayout.planMobileLayout
 local scrollTail = mobileLayout.scrollTail
 local TouchGestureService = CoreKit("TouchGestureService")
 local GamepadNav = CoreKit("GamepadNavigationService")
 local NoticeMath = CoreKit("noticeMath")
-local ActionRequest = require("../src/Client/AstralForge/ActionRequest")
+local ActionRequest = require("../out/Client/AstralForge/ActionRequest")
 
 -- Helper: create mock GuiObject for Touch and Focus tests
 local function createMockGui(props: { [string]: any })

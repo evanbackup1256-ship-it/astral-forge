@@ -69,9 +69,9 @@ assert(string.find(config, 'Id = "wave45-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave45-offline"', 1, true), "Mail wave45")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local VisitorList = require("../src/Server/AstralForge/Modules/ProfileMath")("VisitorList")
-local AutoSalvageSnapshot = require("../src/Server/AstralForge/Modules/ProfileMath")("AutoSalvageSnapshot")
-local SocialBoost = require("../src/Server/AstralForge/Modules/ProfileMath")("SocialBoost")
+local VisitorList = require("../out/Server/AstralForge/Modules/ProfileMath")("VisitorList")
+local AutoSalvageSnapshot = require("../out/Server/AstralForge/Modules/ProfileMath")("AutoSalvageSnapshot")
+local SocialBoost = require("../out/Server/AstralForge/Modules/ProfileMath")("SocialBoost")
 do
 	local present = { UserId = 1, Name = "a", DisplayName = "Zed", Parent = true }
 	local absent = { UserId = 2, Name = "b", DisplayName = "Amy", Parent = false }

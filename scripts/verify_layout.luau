@@ -2,7 +2,7 @@
 -- These assertions exercise the pure device-planning layer without Studio.
 Color3 = { fromRGB = function(r, g, b) return { r = r, g = g, b = b } end }
 
-local mobileLayout = require("../src/Client/AstralForge/CoreKit")("mobileLayout")
+local mobileLayout = require("../out/Client/AstralForge/CoreKit/mobileLayout")
 local planMobileLayout = mobileLayout.planMobileLayout
 local scrollTail = mobileLayout.scrollTail
 
@@ -118,7 +118,7 @@ do
 end
 
 -- PageScaffold fill/minHeight planner (pure; mirrors pageScaffoldPlan.luau).
-local planFillHeight = require("../src/Client/AstralForge/LayoutKit")("pageScaffoldPlan").planFillHeight
+local planFillHeight = require("./_kit_loader")("LayoutKit")("pageScaffoldPlan").planFillHeight
 
 local scaffoldCases = {
 	{
@@ -203,7 +203,7 @@ end
 
 print("[INFO] [TEST] pageScaffold fill/minHeight cases passed | Count: " .. tostring(#scaffoldCases))
 
-local planFittedHeights = require("../src/Client/AstralForge/LayoutKit")("pageScaffoldPlan").planFittedHeights
+local planFittedHeights = require("./_kit_loader")("LayoutKit")("pageScaffoldPlan").planFittedHeights
 local fitted = planFittedHeights({
 	{ id = "hero", height = 278, stretch = true },
 	{ id = "notes", height = 196 },

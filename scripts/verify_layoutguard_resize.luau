@@ -1,4 +1,4 @@
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 local source = fs.readFile("src/Client/AstralForge/layoutGuard.luau"):gsub("\r\n", "\n")
 local first = assert(source:find("\tfunction LayoutGuardController:checkResize(root)", 1, true))
@@ -13,7 +13,7 @@ local model = {
 	longFight = { thrash = 20, p = 0.8, n = 24 },
 }
 local stats = { bursts = 0 }
-local diagnostics = require("../src/Client/AstralForge/LayoutDiagnostics").new(os.clock)
+local diagnostics = require("../out/Client/AstralForge/LayoutDiagnostics").new(os.clock)
 local controller = luau.load("local LayoutGuardController={}\n" .. source:sub(first, last - 1) .. "\nreturn LayoutGuardController", {
 	environment = setmetatable({
 		Plan = Plan, tryCount = tryCount, abandoned = abandoned,

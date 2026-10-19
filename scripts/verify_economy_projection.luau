@@ -5,9 +5,9 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local CapacityProjection = require("../src/Shared/AstralForge/Shared/SharedData")("CapacityProjection")
-local TapCritProjection = require("../src/Server/AstralForge/Modules/EconomyMath")("TapCritProjection")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
+local CapacityProjection = require("../out/Shared/AstralForge/Shared/SharedData")("CapacityProjection")
+local TapCritProjection = require("../out/Server/AstralForge/Modules/EconomyMath")("TapCritProjection")
 
 -- --- TapCritProjection -------------------------------------------------------
 local function near(actual: number, expected: number, label: string)

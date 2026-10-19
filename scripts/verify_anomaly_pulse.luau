@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local AnomalyPulseScore = require("../src/Server/AstralForge/Modules/OpsMath")("AnomalyPulseScore")
+local AnomalyPulseScore = require("../out/Server/AstralForge/Modules/OpsMath")("AnomalyPulseScore")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)

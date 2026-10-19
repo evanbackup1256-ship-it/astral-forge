@@ -2,7 +2,7 @@
 -- Ordinary numbers must stay exact through OmegaMath. They used to round-trip through
 -- log10, so 36 came back as 35.99999999999998 and Floor(36) as 34.999999999999986.
 
-local O = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local O = require("../out/Shared/AstralForge/Shared/OmegaMath")
 
 assert(O.Persist(36) == 36, "Persist keeps plain integers exact")
 assert(O.Persist(78125) == 78125, "Persist keeps 78125 exact")

@@ -16,7 +16,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local Soundtrack = require("../src/Client/AstralForge/AudioKit")("soundtrack")
+local Soundtrack = require("./_kit_loader")("AudioKit")("soundtrack")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))

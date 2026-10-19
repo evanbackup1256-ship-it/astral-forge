@@ -1,8 +1,8 @@
 --!nocheck
-local Math=require("../src/Shared/AstralForge/Shared/OmegaMath")
-local Plan=require("../src/Client/AstralForge/PlanningModel")(Math)
-local Schema=require("../src/Shared/AstralForge/Shared/AdminCommandSchema")
-local Soundtrack=require("../src/Client/AstralForge/AudioKit")("soundtrack")
+local Math=require("../out/Shared/AstralForge/Shared/OmegaMath")
+local Plan=require("../out/Client/AstralForge/PlanningModel")(Math)
+local Schema=require("../out/Shared/AstralForge/Shared/AdminCommandSchema")
+local Soundtrack=require("./_kit_loader")("AudioKit")("soundtrack")
 local fs=require("@lune/fs")
 local luau=require("@lune/luau")
 local audioSource=fs.readFile("src/Client/AstralForge/AudioKit.luau")
@@ -53,7 +53,7 @@ local source=fs.readFile("src/Server/AstralForge/Services/AdminService.luau"):gs
 local registry=source:match("local profileHandlers = {}(.-)\n\tfunction AdminService:Execute")
 assert(registry,"profile executor registry missing")
 local factory=luau.load("return function(OmegaMath,ProfileBagMath,GameConfig,Economy,DataTemplate) local profileHandlers={} "..registry.." return profileHandlers end")()
-local bag=require("../src/Server/AstralForge/Modules/ProfileBagMath")
+local bag=require("../out/Server/AstralForge/Modules/ProfileBagMath")
 local dataTemplate={New=function() return {Settings={SoundVolume=0.75,MusicVolume=1,ReducedTransparency=0}} end}
 local handlers=factory(Math,bag,{Continuum={MaxRank=100}},{Capacity=function() return 500 end},dataTemplate)
 local profile={Cash=12,RunCash=12,LifetimeCash=12,Cores=8,Vault=10,Stardust=10,Rebirths=10}

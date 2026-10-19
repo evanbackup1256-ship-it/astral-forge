@@ -32,7 +32,7 @@ assert(string.find(services, "outcome.log", 1, true), "permanent settle failure 
 assert(string.find(settleSrc, "admin note:", 1, true), "RevertFailed log must cite admin note")
 
 -- Pure Cancel vs RevertFailed residual via TradeSettle.
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
+local TradeSettle = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 do
 	local settling = { Settling = true, Status = "Settling" }
 	local blocked, err = TradeSettle.CancelBlocked(settling)

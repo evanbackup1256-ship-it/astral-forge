@@ -22,7 +22,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local Voicing = require("../src/Client/AstralForge/AudioKit")("audioVoicing")
+local Voicing = require("./_kit_loader")("AudioKit")("audioVoicing")
 
 local audioSource = fs.readFile("src/Client/AstralForge/AudioKit.luau#audio")
 

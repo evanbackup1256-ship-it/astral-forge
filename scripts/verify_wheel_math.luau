@@ -7,7 +7,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local WheelMath = require("../src/Server/AstralForge/Modules/EconomyMath")("WheelMath")
+local WheelMath = require("../out/Server/AstralForge/Modules/EconomyMath")("WheelMath")
 
 -- --- Ensure -------------------------------------------------------------------
 local fresh = WheelMath.Ensure(nil)

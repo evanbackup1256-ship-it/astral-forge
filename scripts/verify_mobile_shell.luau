@@ -8,7 +8,7 @@
 --    surge chip in the status slot above the tab bar, nothing left of the preview gate.
 
 local fs = require("./_memberfs")(require("@lune/fs"))
-local NavRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
+local NavRouteTable = require("./_kit_loader")("CoreKit")("navRouteTable")
 
 local function set(list)
 	local out = {}

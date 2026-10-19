@@ -6,14 +6,14 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local NetworkPolicy = require("../src/Client/AstralForge/CoreKit")("networkPolicy")
-local PageBoardHeights = require("../src/Client/AstralForge/CoreKit")("pageBoardHeights")
-local PageReadyMath = require("../src/Client/AstralForge/LayoutKit")("pageReadyMath")
-local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
-local TelemetryMath = require("../src/Server/AstralForge/Modules/ProfileMath")("TelemetryMath")
-local UtcClockMath = require("../src/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
-local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
+local NetworkPolicy = require("./_kit_loader")("CoreKit")("networkPolicy")
+local PageBoardHeights = require("./_kit_loader")("CoreKit")("pageBoardHeights")
+local PageReadyMath = require("./_kit_loader")("LayoutKit")("pageReadyMath")
+local InventoryMath = require("./_kit_loader")("CoreKit")("inventoryMath")
+local TelemetryMath = require("../out/Server/AstralForge/Modules/ProfileMath")("TelemetryMath")
+local UtcClockMath = require("../out/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
+local EconomyEnvelopeMath = require("../out/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+local DataSanitizeMath = require("../out/Server/AstralForge/Modules/DataSanitizeMath")
 
 -- --- NetworkPolicy -------------------------------------------------------------
 assert(NetworkPolicy.Cooldown("CollectVault") == 0.04, "collect cooldown")

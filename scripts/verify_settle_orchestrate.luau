@@ -56,7 +56,7 @@ for _, path in {
 end
 
 -- Behavioral smoke via require (no Studio).
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
+local TradeSettle = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 local session = {
 	Id = "orch-1",
 	Host = 1,

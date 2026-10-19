@@ -61,8 +61,8 @@ assert(string.find(config, 'Id = "wave44-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave44-offline"', 1, true), "Mail wave44")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local UnlimitedMoneySeal = require("../src/Server/AstralForge/Modules/ProfileMath")("UnlimitedMoneySeal")
-local StoryMailSnapshot = require("../src/Server/AstralForge/Modules/ProfileMath")("StoryMailSnapshot")
+local UnlimitedMoneySeal = require("../out/Server/AstralForge/Modules/ProfileMath")("UnlimitedMoneySeal")
+local StoryMailSnapshot = require("../out/Server/AstralForge/Modules/ProfileMath")("StoryMailSnapshot")
 do
 	local profile = {
 		Flags = { UnlimitedMoney = true },

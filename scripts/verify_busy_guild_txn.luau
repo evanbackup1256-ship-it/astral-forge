@@ -62,7 +62,7 @@ assert(
 	"TradeSettle must own RevertFailed residual status"
 )
 -- Pure residual: cancel after RevertFailed must clear; cancel while Settling must refuse.
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
+local TradeSettle = require("../out/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 do
 	local settling = { Settling = true, Status = "Settling" }
 	local blocked, err = TradeSettle.CancelBlocked(settling)

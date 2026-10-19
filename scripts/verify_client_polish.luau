@@ -1,7 +1,7 @@
 --!strict
-local Core = require("../src/Client/AstralForge/CoreKit")
+local Core = require("./_kit_loader")("CoreKit")
 local Text = Core("chatText")
-local Tokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
+local Tokens = require("./_kit_loader")("MotionKit")("motionTokens")
 assert(Text.limit(string.rep("a", 161), 160) == string.rep("a", 160))
 assert(Text.limit(string.rep("😀", 161), 160) == string.rep("😀", 160))
 assert(Text.limit(string.rep("界", 161), 160) == string.rep("界", 160))

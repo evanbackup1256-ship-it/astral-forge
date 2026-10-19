@@ -4,8 +4,8 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ProfileBagMath = require("../src/Server/AstralForge/Modules/ProfileBagMath")
-local PageReadyMath = require("../src/Client/AstralForge/LayoutKit")("pageReadyMath")
+local ProfileBagMath = require("../out/Server/AstralForge/Modules/ProfileBagMath")
+local PageReadyMath = require("./_kit_loader")("LayoutKit")("pageReadyMath")
 
 ------------------------------------------------------------------------
 -- ProfileBagMath

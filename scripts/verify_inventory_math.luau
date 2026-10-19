@@ -5,8 +5,8 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
-local ItemSalvage = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemSalvage")
+local InventoryMath = require("../out/Client/AstralForge/CoreKit/inventoryMath")
+local ItemSalvage = require("../out/Server/AstralForge/Modules/ProfileMath")("ItemSalvage")
 
 local config = {
 	Items = {
@@ -156,7 +156,8 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 local mathSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#inventoryMath")
-assert(string.find(mathSrc, "function InventoryMath.UpgradeState", 1, true), "InventoryMath.UpgradeState missing")
+-- TS-compiled output uses `local function UpgradeState` and exports via table at the end
+assert(string.find(mathSrc, "UpgradeState", 1, true), "InventoryMath.UpgradeState missing")
 for _, body in { mathSrc, invSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")

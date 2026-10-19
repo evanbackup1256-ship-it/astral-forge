@@ -2,8 +2,8 @@
 local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
-local Firewall = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
-local Tokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
+local Firewall = require("../out/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
+local Tokens = require("./_kit_loader")("MotionKit")("motionTokens")
 
 local function source(path)
 	return (fs.readFile(path):gsub("\r\n", "\n"))
@@ -16,7 +16,7 @@ end
 local function load(body, environment)
 	return luau.load(body, { environment = setmetatable(environment or {}, { __index = getfenv(0) }) })()
 end
-local Theme = load(source("src/Shared/AstralForge/Shared/ForgeTheme.luau"), { Color3 = roblox.Color3 })
+local Theme = load(source("out/Shared/AstralForge/Shared/ForgeTheme.luau"), { Color3 = roblox.Color3 })
 
 local trade = source("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
 local lists = extract(trade, "local BOOSTS =", "local BOOST_LABELS =")

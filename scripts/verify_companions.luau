@@ -1,6 +1,6 @@
 -- Elemental companions: 57 unique characters with their elemental light lit into every frame
 -- (tools/spritegen/companions). One atlas per element; no separate aura sheet plays behind it.
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 local roblox = require("@lune/roblox")
 local serde = require("@lune/serde")
@@ -53,12 +53,13 @@ local function binding(value) return { map = function(_, callback) return callba
 environment.React = React
 environment.ElementSprites = sprites
 environment.Playback = { register = function() return { setRate = function() end, release = function() end } end }
+environment.named = function(name) return { Name = name } end
 environment.useFlash = function(trigger)
 	flashTrigger = trigger
 	return binding(flashValue)
 end
 local source = fs.readFile("src/Client/AstralForge/ElementFx.luau")
-local componentStart = assert(source:find("local h = React.createElement", 1, true))
+local componentStart = source:find("local h = React.createElement", 1, true) or assert(source:find("local REACTIONS = {", 1, true))
 local render = luau.load(source:sub(componentStart), { environment = environment })().ElementFx
 local function mount(props)
 	slot, effects = 0, {}

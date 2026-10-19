@@ -44,7 +44,7 @@ for exponent = 0, 90 do
 end
 
 -- Server-side Format.Number feeds toast and log text and had the same tier-boundary bug.
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../out/Shared/AstralForge/Shared/OmegaMath")
 local chainStub: any
 chainStub = setmetatable({}, {
 	__index = function(_, key)

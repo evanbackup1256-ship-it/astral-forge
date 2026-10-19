@@ -68,7 +68,7 @@ assert(string.find(config, 'Id = "wave47-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave47-offline"', 1, true), "Mail wave47")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local GuildMath = require("../src/Server/AstralForge/Modules/OpsMath")("GuildMath")
+local GuildMath = require("../out/Server/AstralForge/Modules/OpsMath")("GuildMath")
 do
 	assert(GuildMath.SnapshotPublic(nil, nil) == nil, "guild nil membership")
 	assert(GuildMath.SnapshotPublic({ Id = "" }, nil) == nil, "guild empty id")
@@ -78,7 +78,7 @@ do
 	assert(empty.Name == "Guild Hall" and empty.Tag == "AB", "guild empty hall")
 end
 
-local OverchargeCombo = require("../src/Server/AstralForge/Modules/EconomyMath")("OverchargeCombo")
+local OverchargeCombo = require("../out/Server/AstralForge/Modules/EconomyMath")("OverchargeCombo")
 do
 	local bag = OverchargeCombo.PublicSnapshot({
 		combo = 3,
@@ -90,7 +90,7 @@ do
 	assert(bag.Combo == 3 and bag.ComboMax == 10 and bag.ComboWindow == 1.5, "overcharge public")
 end
 
-local VisitSnapshot = require("../src/Server/AstralForge/Modules/ProfileMath")("VisitSnapshot")
+local VisitSnapshot = require("../out/Server/AstralForge/Modules/ProfileMath")("VisitSnapshot")
 do
 	assert(VisitSnapshot.Resolve(nil, {}, function()
 		return nil

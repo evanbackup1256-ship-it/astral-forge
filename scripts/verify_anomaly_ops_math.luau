@@ -7,8 +7,8 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local AnomalyOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("AnomalyOpsMath")
-local ProfileBagMath = require("../src/Server/AstralForge/Modules/ProfileBagMath")
+local AnomalyOpsMath = require("../out/Server/AstralForge/Modules/EconomyMath")("AnomalyOpsMath")
+local ProfileBagMath = require("../out/Server/AstralForge/Modules/ProfileBagMath")
 
 ------------------------------------------------------------------------
 -- FindProtocol

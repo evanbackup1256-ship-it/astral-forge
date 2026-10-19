@@ -2,7 +2,7 @@
 -- AdminPolicy: role gates, unknown-role fallback, deep copy isolation, readable diffs, and dry-run wiring.
 
 local fs = require("./_memberfs")(require("@lune/fs"))
-local AdminPolicy = require("../src/Server/AstralForge/Modules/AdminPolicy")
+local AdminPolicy = require("../out/Server/AstralForge/Modules/AdminPolicy")
 
 local economy = { Category = "Economy" }
 local moderation = { Category = "Moderation", Moderation = true }

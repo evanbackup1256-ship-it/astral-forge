@@ -6,15 +6,15 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ActionCopy = require("../src/Client/AstralForge/CoreKit")("actionCopy")
-local BoostIconKind = require("../src/Client/AstralForge/CoreKit")("boostIconKind")
-local SocialBoost = require("../src/Server/AstralForge/Modules/ProfileMath")("SocialBoost")
-local ItemSalvage = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemSalvage")
-local OverchargeCombo = require("../src/Server/AstralForge/Modules/EconomyMath")("OverchargeCombo")
-local RankBracket = require("../src/Server/AstralForge/Modules/ProfileMath")("RankBracket")
-local ActionFeatureMaps = require("../src/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
-local ActionResponse = require("../src/Server/AstralForge/Modules/ProfileMath")("ActionResponse")
-local GeneralBoardValue = require("../src/Server/AstralForge/Modules/ProfileMath")("GeneralBoardValue")
+local ActionCopy = require("../out/Client/AstralForge/CoreKit/actionCopy")
+local BoostIconKind = require("../out/Client/AstralForge/CoreKit/boostIconKind")
+local SocialBoost = require("../out/Server/AstralForge/Modules/ProfileMath")("SocialBoost")
+local ItemSalvage = require("../out/Server/AstralForge/Modules/ProfileMath")("ItemSalvage")
+local OverchargeCombo = require("../out/Server/AstralForge/Modules/EconomyMath")("OverchargeCombo")
+local RankBracket = require("../out/Server/AstralForge/Modules/ProfileMath")("RankBracket")
+local ActionFeatureMaps = require("../out/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
+local ActionResponse = require("../out/Server/AstralForge/Modules/ProfileMath")("ActionResponse")
+local GeneralBoardValue = require("../out/Server/AstralForge/Modules/ProfileMath")("GeneralBoardValue")
 
 -- --- ActionCopy ----------------------------------------------------------------
 assert(ActionCopy.friendlyPlayerMessage(nil) == nil, "nil message")
