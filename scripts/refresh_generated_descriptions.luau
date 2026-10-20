@@ -80,6 +80,66 @@ for i, line in lines do
 		blockStart = nil
 	end
 end
-fs.writeFile(PATH, table.concat(lines, "\n"))
-print(string.format("refreshed %d generated worlds", zoneChanged))
+-- Star Grid rows: branch number sentence + builder line. Season tiers / reactor milestones: a Name.
+local BRANCHES = { "Output", "Vault", "Charge", "Critical", "Offline", "Automation", "Throughput", "Helix", "Reservoir", "Aegis", "Pulse", "Ember", "Apex", "Nova", "Drift", "Swarm" }
+local branchIndex = {}
+for i, id in BRANCHES do branchIndex[id] = i end
+local out = {}
+local gridChanged, namedRows = 0, 0
+local i = 1
+while i <= #lines do
+	local line = lines[i]
+	if line:match("^%s*%{%s*$") then
+		-- find the end of this flat row
+		local j = i + 1
+		local depth = 1
+		local nested = false
+		while j <= #lines do
+			local opens = select(2, lines[j]:gsub("{", ""))
+			local closes = select(2, lines[j]:gsub("}", ""))
+			if lines[j]:match("^%s*%{%s*$") and depth == 1 then nested = true end
+			depth += opens - closes
+			if depth <= 0 then break end
+			j += 1
+		end
+		if nested then
+			-- not a flat row (a list of rows): leave it and keep scanning inside
+			table.insert(out, line)
+			i += 1
+			continue
+		end
+		local block = {}
+		for k = i, j do table.insert(block, lines[k]) end
+		local fields = {}
+		for k, l in block do
+			local key = l:match("^%s*(%a+): ")
+			if key then fields[key] = k end
+		end
+		if fields.Branch and fields.EffectKind and fields.Description and fields.Tier then
+			local branch = block[fields.Branch]:match('Branch: "(%a+)"')
+			local kind = block[fields.EffectKind]:match('EffectKind: "(%a+)"')
+			local tier = tonumber(block[fields.Tier]:match("Tier: (%d+)"))
+			local base = block[fields.Description]:match('Description: "(.-per level%.)')
+			if branchIndex[branch] and base then
+				local indent = block[fields.Description]:match("^(%s*)")
+				block[fields.Description] = indent .. 'Description: "' .. esc(base .. " " .. describe.gridLine(kind, branchIndex[branch], tier)) .. '",'
+				gridChanged += 1
+			end
+		elseif fields.Tier and fields.Reward and (fields.RequiredXP or fields.Required) and not fields.Name then
+			local tier = tonumber(block[fields.Tier]:match("Tier: (%d+)"))
+			local name = fields.RequiredXP and describe.seasonTierName(tier) or describe.milestoneName(tier)
+			local anchor = fields.Required or fields.RequiredXP
+			local indent = block[anchor]:match("^(%s*)")
+			table.insert(block, anchor, indent .. 'Name: "' .. esc(name) .. '",')
+			namedRows += 1
+		end
+		for _, l in block do table.insert(out, l) end
+		i = j + 1
+	else
+		table.insert(out, line)
+		i += 1
+	end
+end
+fs.writeFile(PATH, table.concat(out, "\n"))
+print(string.format("refreshed %d generated worlds, %d grid nodes, named %d tiers", zoneChanged, gridChanged, namedRows))
 print(string.format("refreshed %d generated descriptions", changed))

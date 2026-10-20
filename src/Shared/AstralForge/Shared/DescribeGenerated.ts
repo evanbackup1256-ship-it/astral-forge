@@ -198,12 +198,90 @@ const WORLD_LORE = [
 	"%s never made it into Vale's notes. The %s would have.",
 ];
 
+// Star Grid nodes keep their number sentence and add one line about the branch's job (7 per kind)
+// and one shared line (13). Order flips by tier, so a branch goes ~180 tiers before a full repeat.
+const GRID_KIND_LINES: Record<string, string[]> = {
+	GridProduction: ["Another notch on the main output dial.", "The machines feel this one straight away.", "More Flux out of the same machines.", "Opens the throttle a little wider.", "Every machine on the line gets a nudge.", "Small on paper, big over a long session.", "The output graph tilts up again."],
+	GridCapacity: ["Pushes the vault walls out a bit further.", "More room before the vault tops off.", "Fewer trips to bank the vault.", "The vault holds more between collects.", "Adds another shelf to the vault.", "Lets the vault fill longer while you're busy.", "Room for a bigger haul."],
+	GridCritical: ["Big hits show up a little more often.", "Tilts the odds toward the lucky tap.", "Makes critical taps a bit more frequent.", "Your taps find the soft spot more often.", "Sharpens the edge on every tap.", "A little more luck in every swing.", "The jackpot taps come round sooner."],
+	GridOffline: ["The forge keeps more while you're away.", "Better pay for the night shift.", "Logging off costs you a little less.", "More of your offline time turns into Flux.", "The bay keeps working after you leave.", "Comes back to a fuller vault."],
+	GridAutomation: ["The drones pick up the pace.", "Less tapping, same Flux.", "The collectors run a tighter loop.", "Automation takes a bit more off your hands.", "The swarm covers more ground per pass.", "Drones stop dawdling between runs."],
+	GridTap: ["Overcharge taps hit harder.", "Every tap carries more charge.", "Makes overcharge worth a few more taps.", "Puts more weight behind each tap.", "Your overcharge bursts land heavier.", "Taps spark brighter and pay better.", "A stronger kick on every overcharge."],
+};
+const GRID_SHARED = [
+	"It adds up.",
+	"Cheap now, worth it later.",
+	"One more step down the branch.",
+	"Stack it with the rest of the branch.",
+	"Keeps the grid humming.",
+	"Easy to skip. Don't.",
+	"A solid pick between bigger nodes.",
+	"Worth grabbing on the way past.",
+	"The next node gets more interesting.",
+	"Pairs well with a fresh rebirth.",
+	"Quiet, but it never stops working.",
+	"Fill these in when you have spare Stardust.",
+	"Part of the long climb.",
+];
+
+// Season gifts and reactor milestones get names. Pools are coprime (17 x 19 and 16 x 19) so all
+// 300 of each are distinct; every fifth season tier and every tenth milestone picks from a short list
+// of bigger names instead.
+const SEASON_ADJ = ["Copper", "Late", "Bright", "Quiet", "Second", "Long", "Lucky", "Open", "Steady", "Cold", "Early", "Hidden", "Golden", "Small", "Far", "Warm", "Last"];
+const SEASON_NOUN = ["Lantern", "Ticket", "Parcel", "Compass", "Toolbox", "Bell", "Postcard", "Badge", "Locket", "Crate", "Ribbon", "Token", "Map", "Satchel", "Mug", "Keychain", "Pennant", "Stamp", "Thermos"];
+const SEASON_MAJOR = ["Founder's Cache", "Captain's Chest", "Dock Prize", "Shift Bonus", "Crew Trophy", "Season Haul", "Foreman's Pick", "Big Payday", "Station Medal", "Long-Haul Reward", "Overtime Bonus"];
+const MILESTONE_ADJ = ["Steady", "Calm", "Low", "Even", "Deep", "Clean", "Held", "Warm", "Bright", "Still", "Tight", "Full", "True", "Firm", "Soft", "Long"];
+const MILESTONE_NOUN = ["Hum", "Pulse", "Glow", "Current", "Field", "Charge", "Core", "Arc", "Signal", "Flow", "Beat", "Cell", "Ring", "Coil", "Spark", "Line", "Draw", "Tide", "Wave"];
+const MILESTONE_MAJOR = ["Reactor Holds", "Core Settles", "Full Containment", "Quiet Reactor", "The Long Hold", "Night Watch Done", "Green Across the Board", "Steady at Max"];
+
+// One line from the crew when a trip comes home. Relic trips get their own set.
+const TRIP_LINES = [
+	"Found a dock nobody had mapped. Brought back the good stuff.",
+	"Long trip. Quiet trip. Good haul.",
+	"Ran into a storm on the way back. Worth it.",
+	"The engine made a new noise. We're calling it a feature.",
+	"Traded stories with a mining crew. Kept the best ones.",
+	"Somebody ate all the snacks by day two.",
+	"Back early. The charts were wrong in our favor.",
+	"Picked up a hitchhiking drone. It's ours now.",
+	"Saw a comet up close. Didn't stop for photos.",
+	"Every crate made it home in one piece.",
+	"We took the long way. Don't tell anyone.",
+	"Signal went dark for an hour. Nothing to worry about.",
+];
+const TRIP_RELIC_LINES = [
+	"Found something shiny in a wreck. It's yours.",
+	"This was humming in a crate when we opened it. Careful.",
+	"Nobody wanted to hold it on the way back. Here.",
+	"Pulled this out of the dust. Still warm.",
+	"Traded our spare fuel for this. Good trade.",
+];
+
 const DescribeGenerated = {
 	machine(this: void, prefix: string, core: string, prefixIndex: number, cycle: number): string {
 		return compose(MACHINE_CORE_LINES[core], MACHINE_PREFIX_LINES[prefix], prefixIndex + cycle, "A late-game machine that follows Chrono Array.");
 	},
 	research(this: void, prefix: string, noun: string, prefixIndex: number, cycle: number): string {
 		return compose(RESEARCH_NOUN_LINES[noun], RESEARCH_PREFIX_LINES[prefix], prefixIndex + cycle, "Permanent research. Kept through rebirths.");
+	},
+	gridLine(this: void, kind: string, branchIndex: number, tier: number): string {
+		const own = GRID_KIND_LINES[kind];
+		if (own === undefined) return "";
+		const a = own[(tier - 1 + branchIndex * 3) % own.size()];
+		const b = GRID_SHARED[(tier - 1 + branchIndex) % GRID_SHARED.size()];
+		return math.floor((tier - 1) / own.size()) % 2 === 0 ? `${a} ${b}` : `${b} ${a}`;
+	},
+	seasonTierName(this: void, tier: number): string {
+		if (tier % 5 === 0) return SEASON_MAJOR[(tier / 5 - 1) % SEASON_MAJOR.size()] + (tier > 5 * SEASON_MAJOR.size() ? ` ${math.ceil(tier / (5 * SEASON_MAJOR.size()))}` : "");
+		return `${SEASON_ADJ[(tier - 1) % SEASON_ADJ.size()]} ${SEASON_NOUN[(tier - 1) % SEASON_NOUN.size()]}`;
+	},
+	milestoneName(this: void, tier: number): string {
+		if (tier % 10 === 0) return MILESTONE_MAJOR[(tier / 10 - 1) % MILESTONE_MAJOR.size()] + (tier > 10 * MILESTONE_MAJOR.size() ? ` ${math.ceil(tier / (10 * MILESTONE_MAJOR.size()))}` : "");
+		return `${MILESTONE_ADJ[(tier - 1) % MILESTONE_ADJ.size()]} ${MILESTONE_NOUN[(tier - 1) % MILESTONE_NOUN.size()]}`;
+	},
+	tripLine(this: void, count: number, foundRelic: boolean): string {
+		const pool = foundRelic ? TRIP_RELIC_LINES : TRIP_LINES;
+		return pool[math.max(0, count) % pool.size()];
 	},
 	worldTagline(this: void, n: number): string {
 		return `${WORLD_PLACE[(n - 1) % WORLD_PLACE.size()]}, ${WORLD_PAYOFF[(n - 1) % WORLD_PAYOFF.size()]}.`;

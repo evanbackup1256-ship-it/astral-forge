@@ -10,6 +10,14 @@ import { ProfileStylePanel, profileStyleHeight } from "./ProfileStylePanel";
 
 const UserInputService = game.GetService("UserInputService");
 
+const DescribeGenerated = require(
+	game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("DescribeGenerated") as ModuleScript,
+) as {
+	seasonTierName(this: void, tier: number): string;
+	milestoneName(this: void, tier: number): string;
+	tripLine(this: void, count: number, foundRelic: boolean): string;
+};
+
 interface AnimatedTitleKit {
 	AnimatedTitlePreview: LuauComponent;
 	darkTitlePlate: (this: void, fx: string) => Color3;
@@ -1070,7 +1078,7 @@ function CommandViewReady(props: CommandProps) {
 					layoutOrder={nextOrder()}
 					reducedMotion={reducedMotion}
 				>
-					<Text value={activeId === "" && tripReport !== undefined ? (tripReport.found ? "Back, with a new relic" : "Back from the trip") : "Active trip"} size={12} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+					<Text value={activeId === "" && tripReport !== undefined ? `"${DescribeGenerated.tripLine(command.ExpeditionsCompleted, tripReport.found)}"` : "Active trip"} size={12} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={true} minSize={9} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 					<Text
 						value={activeConfig?.Name ?? (canRepeat ? `Last trip: ${repeatTrip!.Name}` : "No trip underway")}
 						size={stack ? 18 : 22}
@@ -1476,7 +1484,7 @@ function CommandViewReady(props: CommandProps) {
 								/>
 							</frame>
 							<Text
-								value={major ? "Major gift" : "Rank gift"}
+								value={DescribeGenerated.seasonTierName(tier.Tier)}
 								size={14}
 								color={major ? Palette.mango : Palette.cream}
 								weight={Enum.FontWeight.Heavy}

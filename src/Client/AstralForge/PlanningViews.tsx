@@ -10,6 +10,12 @@ const P = theme.Palette;
 
 type Loose = (props: Dict) => React.Element | undefined;
 
+const DescribeGenerated = require(
+	game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("DescribeGenerated") as ModuleScript,
+) as {
+	milestoneName(this: void, tier: number): string;
+};
+
 interface UiKit {
 	Panel: Loose;
 	Text: Loose;
@@ -584,7 +590,7 @@ function ShiftPlan(props: PlanProps) {
 				`milestone-${milestone.Tier}`,
 				172,
 				panel(P.mint, [
-					copy(`REACTOR MILESTONE · TIER ${milestone.Tier}`, 0, 26, 13, P.mint, true),
+					copy(`TIER ${milestone.Tier} · ${DescribeGenerated.milestoneName(milestone.Tier).upper()}`, 0, 26, 13, P.mint, true),
 					copy(`${(anomaly.Stabilizations as number | undefined) ?? 0} / ${milestone.Required} stabilizations`, 34, 36, 14),
 					meter(Model.ratio(anomaly.Stabilizations, milestone.Required), 80, P.mint),
 					button(

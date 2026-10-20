@@ -15,6 +15,9 @@ const DescribeGenerated = require(sharedFolder.WaitForChild("DescribeGenerated")
 	worldTagline(this: void, n: number): string;
 	worldDescription(this: void, layout: string, n: number): string;
 	worldLore(this: void, name: string, feature: string, n: number): string;
+	gridLine(this: void, kind: string, branchIndex: number, tier: number): string;
+	seasonTierName(this: void, tier: number): string;
+	milestoneName(this: void, tier: number): string;
 };
 
 const ENDLESS_LEVEL_CAP = 9_000_000_000_000_000;
@@ -7235,7 +7238,7 @@ function generateGridUpgrades() {
 				Branch: branch.Id,
 				Tier: tier,
 				Name: branch.Name + " " + string.format("%02d", tier),
-				Description: branch.Description,
+				Description: `${branch.Description} ${DescribeGenerated.gridLine(branch.EffectKind as string, branchIndex, tier)}`,
 				EffectKind: branch.EffectKind,
 				EffectPerLevel: branch.EffectPerLevel,
 				BaseCost: math.max(1, math.floor(branch.BaseCost * 1.32 ** (tier - 1))),
@@ -7268,6 +7271,7 @@ function generateSeasonTiers() {
 		}
 		tiers.push({
 			Tier: tier,
+			Name: DescribeGenerated.seasonTierName(tier),
 			RequiredXP: tier * 140 + tier * tier * 22,
 			Reward: reward,
 		});
@@ -7305,6 +7309,7 @@ function generateMilestones() {
 		}
 		milestones.push({
 			Tier: tier,
+			Name: DescribeGenerated.milestoneName(tier),
 			Required: tier * 3 + math.floor(tier ** 1.45),
 			Reward: reward,
 		});
