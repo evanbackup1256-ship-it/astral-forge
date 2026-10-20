@@ -43,6 +43,14 @@ const Players = game.GetService("Players");
 const TextService = game.GetService("TextService");
 const UserInputService = game.GetService("UserInputService");
 
+
+// phones and touch-only tablets: true where small controls should get a 44px invisible hit area.
+// Mouse desktops stay false, so nothing changes there.
+function useTouchHitShell(): boolean {
+	const stack = chromeFor(useViewport()).stack;
+	return stack || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
+}
+
 // ---------- unconverted sibling modules (Luau), loaded the way Luau loads them ----------
 const AstralForge = script.Parent!.Parent!;
 type LuaKit = (name: string) => unknown;
@@ -2116,7 +2124,7 @@ export function Button(props: ButtonProps) {
 	const breatheStroke = useGlowStroke(breatheWanted, reducedMotion || effectsPaused, 0.32, 0.22, 0.46, 1.15);
 	const buttonRef = React.useRef<ImageButton>();
 	const hostSize = useGuiSize(buttonRef);
-	const touchShell = chromeFor(useViewport()).stack;
+	const touchShell = useTouchHitShell();
 	const visualPosition = joinTuple<[number, number, Vector2]>(arrival, shakeOffsetX, hostSize).map((values) =>
 		pixelPosition(values[2], 0.5, values[1], 0.5, (1 - math.clamp(values[0], 0, 1)) * 12),
 	);
@@ -2974,6 +2982,8 @@ export function AmountToggle({
 	const selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.34);
 	const hoverSlide = useSpring(math.max(hoveredIndex, 0), reducedMotion, 700, 42);
 	const slotScale = 1 / AMOUNT_OPTIONS.size();
+	// phones: grow only the invisible tap rows to the 44px target; the visual keeps its size
+	const hitExtra = useTouchHitShell() && size.Y.Scale === 0 ? math.max(0, TapTarget - size.Y.Offset) : 0;
 	return (
 		<frame
 			{...{ Name: "AmountToggleTarget" }}
@@ -2983,7 +2993,7 @@ export function AmountToggle({
 			BackgroundTransparency={0.08}
 			BorderSizePixel={0}
 			LayoutOrder={layoutOrder}
-			ClipsDescendants={true}
+			ClipsDescendants={hitExtra === 0}
 		>
 			<uicorner CornerRadius={new UDim(0, 9)} />
 			<uistroke
@@ -3018,8 +3028,8 @@ export function AmountToggle({
 			{AMOUNT_OPTIONS.map((amount, index) => (
 				<imagebutton
 					key={tostring(amount)}
-					Size={new UDim2(slotScale, -4, 1, 0)}
-					Position={new UDim2(index * slotScale, 3, 0, 0)}
+					Size={new UDim2(slotScale, -4, 1, hitExtra)}
+					Position={new UDim2(index * slotScale, 3, 0, -hitExtra / 2)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					AutoButtonColor={false}
@@ -3051,7 +3061,7 @@ export function AmountToggle({
 					}}
 				>
 					{focusedIndex === index && (
-						<frame Size={new UDim2(1, -4, 1, -4)} Position={UDim2.fromOffset(2, 2)} BackgroundTransparency={1} BorderSizePixel={0}>
+						<frame Size={new UDim2(1, -4, 1, -4 - hitExtra)} Position={UDim2.fromOffset(2, 2 + hitExtra / 2)} BackgroundTransparency={1} BorderSizePixel={0}>
 							<uicorner CornerRadius={new UDim(0, 6)} />
 							<uistroke
 								ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
@@ -3069,8 +3079,8 @@ export function AmountToggle({
 						weight={Enum.FontWeight.Heavy}
 						align={Enum.TextXAlignment.Center}
 						fit={false}
-						sizeConstraint={new UDim2(1, -2, 1, 0)}
-						position={UDim2.fromOffset(1, 0)}
+						sizeConstraint={new UDim2(1, -2, 1, -hitExtra)}
+						position={UDim2.fromOffset(1, hitExtra / 2)}
 						zIndex={4}
 					/>
 				</imagebutton>
