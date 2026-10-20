@@ -180,7 +180,7 @@ function __member(): unknown {
 	}
 	let TAG_COLORS: unknown = [luaProp(Palette, "cyan"), luaProp(Palette, "mint"), luaProp(Palette, "violet"), luaProp(Palette, "mango"), luaProp(Palette, "pink"), luaProp(Palette, "blue")];
 	function userColor(userId?: unknown): unknown | undefined {
-		let authorId: unknown = (luaCall(tonumber, userId) || 0);
+		let authorId: unknown = (tonumber(userId) || 0);
 		if (((authorId !== authorId) || (luaCall(luaProp(math, "abs"), authorId) === luaProp(math, "huge")))) {
 			authorId = 0;
 		}
@@ -225,7 +225,7 @@ function __member(): unknown {
 		let softMotion: unknown = reducedMotion;
 		let enter: unknown = luaCall(useMessageEntrance, animate, reducedMotion);
 		let accent: unknown = (luaProp(message, "system") ? luaProp(Palette, "mango") : luaCall(userColor, luaProp(message, "userId")));
-		let authorId: unknown = (luaCall(tonumber, luaProp(message, "userId")) || 0);
+		let authorId: unknown = (tonumber(luaProp(message, "userId")) || 0);
 		if (((authorId !== authorId) || (luaCall(luaProp(math, "abs"), authorId) === luaProp(math, "huge")))) {
 			authorId = 0;
 		}

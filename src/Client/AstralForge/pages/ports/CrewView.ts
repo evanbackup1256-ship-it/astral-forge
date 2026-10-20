@@ -443,7 +443,7 @@ function __member(): unknown {
 				let cleaned: unknown = {};
 				for (const [_, entry] of pairs((raw) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 					let _userId: unknown = luaProp(entry, "UserId");
-					let id: unknown = ((luaTypeIs(_userId, "number")) ? luaCall(luaProp(math, "floor"), luaProp(entry, "UserId")) : luaCall(tonumber, luaCall(tostring, luaProp(entry, "UserId"))));
+					let id: unknown = ((luaTypeIs(_userId, "number")) ? luaCall(luaProp(math, "floor"), luaProp(entry, "UserId")) : tonumber(tostring(luaProp(entry, "UserId"))));
 					if ((((id === undefined) || (id !== id)) || (id === 0))) {
 						continue;
 					}
@@ -530,7 +530,7 @@ function __member(): unknown {
 				_result = raw;
 			} else {
 				let _raw_1: unknown = raw;
-				_result = ((luaTypeIs(_raw_1, "string")) ? luaCall(tonumber, raw) : undefined);
+				_result = ((luaTypeIs(_raw_1, "string")) ? tonumber(raw) : undefined);
 			}
 			let asNumber: unknown = _result;
 			if (((asNumber === undefined) || (asNumber !== asNumber))) {
@@ -594,10 +594,10 @@ function __member(): unknown {
 			return ((((luaCall(asFlux, luaProp(a, "Production")) || 0)) as unknown as number) > (((luaCall(asFlux, luaProp(b, "Production")) || 0)) as unknown as number));
 			return undefined;
 		} }, { id: "Rebirths", label: "Most rebirths", compare: function(this: void, a?: unknown, b?: unknown): unknown | undefined {
-			return ((((luaCall(tonumber, luaProp(a, "Rebirths")) || 0)) as unknown as number) > (((luaCall(tonumber, luaProp(b, "Rebirths")) || 0)) as unknown as number));
+			return ((((tonumber(luaProp(a, "Rebirths")) || 0)) as unknown as number) > (((tonumber(luaProp(b, "Rebirths")) || 0)) as unknown as number));
 			return undefined;
 		} }, { id: "Name", label: "A to Z", compare: function(this: void, a?: unknown, b?: unknown): unknown | undefined {
-			return ((luaCall(luaProp(string, "lower"), luaCall(tostring, luaProp(a, "DisplayName"))) as unknown as number) < (luaCall(luaProp(string, "lower"), luaCall(tostring, luaProp(b, "DisplayName"))) as unknown as number));
+			return ((luaCall(luaProp(string, "lower"), tostring(luaProp(a, "DisplayName"))) as unknown as number) < (luaCall(luaProp(string, "lower"), tostring(luaProp(b, "DisplayName"))) as unknown as number));
 			return undefined;
 		} }] });
 		let showCrewBar: unknown = ((len(players) as unknown as number) >= (3 as unknown as number));
@@ -654,7 +654,7 @@ function __member(): unknown {
 			} }) });
 		} else {
 			for (const [index, player] of pairs((players) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaTable.insert(sections, { id: concat("crew-", luaCall(tostring, index)), height: rowStride, element: reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaProp(player, "IsLocal") ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
+				luaTable.insert(sections, { id: concat("crew-", tostring(index)), height: rowStride, element: reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaProp(player, "IsLocal") ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
 					return luaCall(startVisit, luaProp(player, "UserId"));
 					return undefined;
 				}, onNudge: function(this: void): unknown | undefined {

@@ -306,7 +306,7 @@ function __member(): unknown {
 			}, luaProp(Palette, "violet"), false], [`Tune · ${luaCall(compactNumber, luaProp(echo, "TuneCost"))}`, function(this: void): unknown | undefined {
 				luaCall(act, { Op: "Tune", Uid: luaProp(echo, "Uid") });
 				return undefined;
-			}, luaProp(Palette, "cyan"), (((((luaCall(tonumber, luaProp(state, "Stardust")) || 0)) as unknown as number) < (luaProp(echo, "TuneCost") as unknown as number)) || ((luaProp(echo, "Level") as unknown as number) >= (luaProp(EchoMath, "MAX_LEVEL") as unknown as number)))], ["Fuse", function(this: void): unknown | undefined {
+			}, luaProp(Palette, "cyan"), (((((tonumber(luaProp(state, "Stardust")) || 0)) as unknown as number) < (luaProp(echo, "TuneCost") as unknown as number)) || ((luaProp(echo, "Level") as unknown as number) >= (luaProp(EchoMath, "MAX_LEVEL") as unknown as number)))], ["Fuse", function(this: void): unknown | undefined {
 				luaCall(act, { Op: "Fuse", A: luaProp(echo, "Uid"), B: luaProp(partner, "Uid") });
 				return undefined;
 			}, luaProp(Palette, "mango"), (!canFuse)], [(luaProp(echo, "Locked") ? "Unlock" : "Lock"), function(this: void): unknown | undefined {

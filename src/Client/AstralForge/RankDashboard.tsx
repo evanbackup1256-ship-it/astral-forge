@@ -187,7 +187,7 @@ function AvatarView(props: AvatarViewProps): React.Element {
 			}
 		});
 		task.spawn(() => {
-			const [ok, model] = pcall(() => Players.CreateHumanoidModelFromUserIdAsync(User.fromId(props.userId))) as [boolean, Model | string];
+			const [ok, model] = pcall(() => Players.CreateHumanoidModelFromUserIdAsync(User.fromId(props.userId)));
 			if (!alive) {
 				if (ok && typeIs(model, "Instance")) {
 					model.Destroy();
