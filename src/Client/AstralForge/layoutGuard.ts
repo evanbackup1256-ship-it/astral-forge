@@ -4,8 +4,9 @@ import { importTsModule } from "./vendor";
 
 const core = importTsModule<{
 	Reflect: {
-		defineMetadata(target: object, key: string, value: unknown): void;
-		decorate(target: object, id: string, decorator: unknown, args?: unknown[]): void;
+		// Free functions. A method signature compiles to Reflect:decorate and shifts every argument.
+		defineMetadata(this: void, target: object, key: string, value: unknown): void;
+		decorate(this: void, target: object, id: string, decorator: unknown, args?: unknown[]): void;
 	};
 	Controller: unknown;
 }>(

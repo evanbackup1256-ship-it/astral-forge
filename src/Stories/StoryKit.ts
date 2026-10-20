@@ -184,8 +184,9 @@ function DeviceFrame(props: { device: string; keyboardOpen?: boolean; children?:
 }
 
 // Shows a render error inside the story instead of a blank canvas.
+@React.ReactComponent
 class StoryBoundary extends React.Component<{ children?: React.ReactNode }, { message?: string }> {
-	static getDerivedStateFromError(err: unknown) {
+	static getDerivedStateFromError(this: void, err: unknown) {
 		return { message: tostring(err) };
 	}
 	constructor(props: { children?: React.ReactNode }) {
