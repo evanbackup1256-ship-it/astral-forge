@@ -1699,6 +1699,7 @@ BuffStrip.Island = function (props: IslandProps): React.Element {
 	// live activity: the overcharge combo
 	const [combo, setCombo] = React.useState<ComboInfo | undefined>(undefined);
 	React.useEffect(() => {
+		let expiry: thread | undefined;
 		const stop = Juice.onActivity((kind, data) => {
 			if (kind === "combo" && typeIs(data, "table")) {
 				const bag = data as Record<string, unknown>;
@@ -1710,12 +1711,22 @@ BuffStrip.Island = function (props: IslandProps): React.Element {
 					at: os.clock(),
 				};
 				setCombo(entry);
-				task.delay(entry.window + 0.15, () => {
+				if (expiry !== undefined) {
+					pcall(task.cancel, expiry);
+				}
+				expiry = task.delay(entry.window + 0.15, () => {
+					expiry = undefined;
 					setCombo((current) => (current === entry ? undefined : current));
 				});
 			}
 		});
-		return stop;
+		return () => {
+			stop();
+			if (expiry !== undefined) {
+				pcall(task.cancel, expiry);
+				expiry = undefined;
+			}
+		};
 	}, []);
 	// arrivals and departures pass through the island; a friend gets their own colour
 	React.useEffect(() => {
