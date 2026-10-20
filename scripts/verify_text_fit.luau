@@ -11,7 +11,6 @@ local ROOT = "src/Client/AstralForge"
 local SKIP = { "Settings", "PlayerList", "Playerlist", "Chat", "NameTag", "Rank", "Guild", "CrewMember" }
 
 local ALLOWED: { [string]: number } = {
-	["src/Client/AstralForge/pages/PagesSocial.tsx"] = 7, -- crew/guild workstream
 	["src/Client/AstralForge/pages/PagesShop.tsx"] = 1, -- crate stage description (crate workstream)
 	["src/Client/AstralForge/UiCore/CrateRevealOverlay.tsx"] = 1, -- crate workstream
 	["src/Client/AstralForge/UiOverlays/purchaseOverlay.tsx"] = 1, -- purchase workstream

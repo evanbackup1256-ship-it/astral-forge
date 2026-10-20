@@ -1642,6 +1642,8 @@ __defs["TradeView"] = () => {
 									size: 13,
 									color: Palette.muted,
 									wrap: true,
+									fit: true,
+									minSize: 10,
 									sizeConstraint: new UDim2(1, 0, 0, 36),
 								})
 							: undefined,
@@ -1700,6 +1702,8 @@ __defs["TradeView"] = () => {
 							size: 13,
 							color: Palette.muted,
 							wrap: true,
+							fit: true,
+							minSize: 10,
 							sizeConstraint: new UDim2(1, 0, 0, 32),
 						})
 					: undefined,
@@ -2162,6 +2166,8 @@ __defs["TradeView"] = () => {
 										size: 13,
 										color: bothReady ? Palette.mango : Palette.creamSoft,
 										wrap: true,
+										fit: true,
+										minSize: 10,
 										sizeConstraint: new UDim2(1, 0, 0, 32),
 									}),
 									h(Text, {
@@ -2182,6 +2188,8 @@ __defs["TradeView"] = () => {
 												color: Palette.coral,
 												weight: Enum.FontWeight.Bold,
 												wrap: true,
+												fit: true,
+												minSize: 10,
 												position: UDim2.fromOffset(0, 56),
 												sizeConstraint: new UDim2(1, 0, 0, 36),
 											})
@@ -2351,6 +2359,8 @@ __defs["TradeView"] = () => {
 							size: 13,
 							color: Palette.creamSoft,
 							wrap: true,
+							fit: true,
+							minSize: 10,
 							position: UDim2.fromOffset(0, 26),
 							sizeConstraint: new UDim2(1, 0, 0, 48),
 						}),
@@ -2668,6 +2678,8 @@ __defs["TradeView"] = () => {
 				color: Palette.cream,
 				weight: Enum.FontWeight.Heavy,
 				wrap: true,
+				fit: true,
+				minSize: 10,
 				sizeConstraint: new UDim2(1, 0, 0, 28),
 			}),
 		});
@@ -2703,6 +2715,8 @@ __defs["TradeView"] = () => {
 						size: 13,
 						color: Palette.muted,
 						wrap: true,
+						fit: true,
+						minSize: 10,
 						position: UDim2.fromOffset(0, 24),
 						sizeConstraint: new UDim2(1, -150, 0, phone ? 56 : 40),
 					}),
