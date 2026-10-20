@@ -1218,8 +1218,13 @@ for (const [name] of pairs(__defs)) {
 __members.sort();
 table.freeze(__members);
 
-type SecurityServicesCallable = ((name: string) => unknown) & { __members: string[] };
-const SecurityServices = ((name: string): unknown => __load(name)) as SecurityServicesCallable;
-SecurityServices.__members = __members;
+type SecurityServicesCallable = ((name: string) => unknown) & { readonly __members: string[]; readonly [name: string]: unknown };
+const SecurityServices = setmetatable(
+	{},
+	{
+		__call: (_self: unknown, name: string): unknown => __load(name),
+		__index: (_self: unknown, name: string): unknown => name === "__members" ? __members : __load(name),
+	} as LuaMetatable<object>,
+) as unknown as SecurityServicesCallable;
 
 export = SecurityServices;

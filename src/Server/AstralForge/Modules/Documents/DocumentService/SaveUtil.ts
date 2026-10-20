@@ -63,7 +63,7 @@ function assertStorable(data: unknown, fieldName?: string): void {
 				error(`Tables cannot be cyclic. Field: ${fieldName}`);
 			}
 
-			assertStorable(v, tostring(i));
+			assertStorable(v, `${fieldName}.${tostring(i)}`);
 		}
 	}
 }

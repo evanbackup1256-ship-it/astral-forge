@@ -37,7 +37,7 @@ const Workspace = game.GetService("Workspace");
 const { ElementFx } = ElementFxModule;
 
 // Still-Luau dependencies are pulled through their kits like the bundled code did.
-const { PurchaseOverlay } = luauKit<{ PurchaseOverlay: Component }>("UiOverlays", "purchaseOverlay");
+const { PurchaseOverlay } = luauKit<{ PurchaseOverlay: Component }>("UiOverlaysTs", "purchaseOverlay");
 const PageScaffold = loadPageScaffold();
 const {
 	Badge,

@@ -1914,8 +1914,10 @@ for (const [name] of pairs(__defs)) {
 __members.sort();
 table.freeze(__members);
 
-type TradeSuiteCallable = ((name: string) => unknown) & { __members: string[] };
-const TradeSuite = ((name: string): unknown => __load(name)) as TradeSuiteCallable;
-TradeSuite.__members = __members;
+type TradeSuiteCallable = ((name: string) => unknown) & { readonly __members: string[]; readonly [name: string]: unknown };
+const TradeSuite = setmetatable({}, {
+	__call: (_self: unknown, name: string): unknown => __load(name),
+	__index: (_self: unknown, name: string): unknown => name === "__members" ? __members : __load(name),
+} as LuaMetatable<object>) as unknown as TradeSuiteCallable;
 
 export = TradeSuite;

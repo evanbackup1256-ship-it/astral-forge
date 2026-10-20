@@ -18,7 +18,8 @@
     "@rbxts/services": "^1.6.0",
     "@rbxts/types": "^1.0.953",
     "roblox-ts": "^3.0.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "typescript-legacy": "npm:typescript@^5.9.3"
   },
   "dependencies": {
     "@rbxts/ui-labs": "^2.4.2"

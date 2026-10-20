@@ -69,12 +69,12 @@ interface TelemetryApi {
 }
 
 interface DataApi {
-	Get(this: void, player: Player): Dict | undefined;
-	GetRevision(this: void, player: Player): number;
-	GetIntegrityStatus(this: void, player: Player): unknown;
-	Save(this: void, player: Player, releaseSession?: boolean): boolean;
+	Get(this: DataApi, player: Player): Dict | undefined;
+	GetRevision(this: DataApi, player: Player): number;
+	GetIntegrityStatus(this: DataApi, player: Player): unknown;
+	Save(this: DataApi, player: Player, releaseSession?: boolean): boolean;
 	AtomicUpdate(
-		this: void,
+		this: DataApi,
 		player: Player,
 		callback: (this: void, draft: Dict, revision: number) => unknown,
 		incrementRevision?: boolean,

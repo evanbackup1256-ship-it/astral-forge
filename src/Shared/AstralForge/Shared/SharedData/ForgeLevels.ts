@@ -33,7 +33,7 @@ const LIFETIME_KINDS = table.freeze({
 	MachinesBought: true,
 	Rebirths: true,
 	Domain: true,
-}) as Record<string, boolean>;
+}) as Readonly<Record<string, boolean>>;
 
 const TIERS = ["Beginner", "Apprentice", "Journeyman", "Expert", "Master", "Legend"];
 
@@ -45,112 +45,111 @@ const TIER_BLURBS: Record<string, string> = {
 	Master: "Expand your domain and bend reality.",
 	Legend: "The very top of the forge.",
 };
-
 const LADDER: LevelDef[] = [
-	{ Level: 1, Tier: "Beginner", Goal: undefined, Unlocks: ["Overview", "Workshop", "Chat", "Settings", "Trade"] },
+	{ Level: 1, Tier: "Beginner", Goal: undefined, Unlocks: [ "Overview", "Workshop", "Chat", "Settings", "Trade" ] },
 	{
 		Level: 2,
 		Tier: "Beginner",
 		Goal: { Kind: "LifetimeCash", Target: 100, Text: "Earn 100 flux in total" },
-		Unlocks: ["Research"],
+		Unlocks: [ "Research" ],
 	},
 	{
 		Level: 3,
 		Tier: "Beginner",
 		Goal: { Kind: "LifetimeCash", Target: 250, Text: "Earn 250 flux in total" },
-		Unlocks: ["Mail", "Wheel", "Inventory"],
+		Unlocks: [ "Mail", "Wheel", "Inventory" ],
 	},
 	{
 		Level: 4,
 		Tier: "Beginner",
 		Goal: { Kind: "LifetimeCash", Target: 500, Text: "Earn 500 flux in total" },
-		Unlocks: ["Rewards", "Boosts"],
+		Unlocks: [ "Rewards", "Boosts" ],
 	},
 	{
 		Level: 5,
 		Tier: "Apprentice",
 		Goal: { Kind: "MachinesBought", Target: 5, Text: "Buy 5 machine levels" },
-		Unlocks: ["Story", "ForgePath"],
+		Unlocks: [ "Story", "ForgePath" ],
 	},
 	{
 		Level: 6,
 		Tier: "Apprentice",
-		Goal: { Kind: "LifetimeCash", Target: 1_000, Text: "Earn 1K flux in total" },
-		Unlocks: ["Missions", "Leaderboards", "Guild"],
+		Goal: { Kind: "LifetimeCash", Target: 1000, Text: "Earn 1K flux in total" },
+		Unlocks: [ "Missions", "Leaderboards", "Guild" ],
 	},
 	{
 		Level: 7,
 		Tier: "Apprentice",
-		Goal: { Kind: "LifetimeCash", Target: 2_500, Text: "Earn 2.5K flux in total" },
-		Unlocks: ["Worlds", "Shop"],
+		Goal: { Kind: "LifetimeCash", Target: 2500, Text: "Earn 2.5K flux in total" },
+		Unlocks: [ "Worlds", "Shop" ],
 	},
 	{
 		Level: 8,
 		Tier: "Apprentice",
-		Goal: { Kind: "LifetimeCash", Target: 5_000, Text: "Earn 5K flux in total" },
-		Unlocks: ["StarGrid", "Credits"],
+		Goal: { Kind: "LifetimeCash", Target: 5000, Text: "Earn 5K flux in total" },
+		Unlocks: [ "StarGrid", "Credits" ],
 	},
 	{
 		Level: 9,
 		Tier: "Journeyman",
 		Goal: { Kind: "MachinesBought", Target: 15, Text: "Buy 15 machine levels" },
-		Unlocks: ["Milestones"],
+		Unlocks: [ "Milestones" ],
 	},
 	{
 		Level: 10,
 		Tier: "Journeyman",
-		Goal: { Kind: "LifetimeCash", Target: 75_000, Text: "Earn 75K flux in total" },
-		Unlocks: ["Rebirth", "Bazaar"],
+		Goal: { Kind: "LifetimeCash", Target: 75000, Text: "Earn 75K flux in total" },
+		Unlocks: [ "Rebirth", "Bazaar" ],
 	},
 	{
 		Level: 11,
 		Tier: "Journeyman",
 		Goal: { Kind: "Rebirths", Target: 1, Text: "Complete your first rebirth" },
-		Unlocks: ["Anomaly", "Command", "Crew"],
+		Unlocks: [ "Anomaly", "Command", "Crew" ],
 	},
 	{
 		Level: 12,
 		Tier: "Expert",
 		Goal: { Kind: "Rebirths", Target: 2, Text: "Complete 2 rebirths" },
-		Unlocks: ["Lab"],
+		Unlocks: [ "Lab" ],
 	},
 	{
 		Level: 13,
 		Tier: "Expert",
 		Goal: { Kind: "Rebirths", Target: 3, Text: "Complete 3 rebirths" },
-		Unlocks: ["Echoes", "Convergence"],
+		Unlocks: [ "Echoes", "Convergence" ],
 	},
 	{
 		Level: 14,
 		Tier: "Expert",
 		Goal: { Kind: "Rebirths", Target: 5, Text: "Complete 5 rebirths" },
-		Unlocks: ["Continuum"],
+		Unlocks: [ "Continuum" ],
 	},
 	{
 		Level: 15,
 		Tier: "Master",
 		Goal: { Kind: "Rebirths", Target: 10, Text: "Complete 10 rebirths" },
-		Unlocks: ["Domain"],
+		Unlocks: [ "Domain" ],
 	},
 	{
 		Level: 16,
 		Tier: "Master",
 		Goal: { Kind: "Domain", Target: 1, Text: "Expand your domain" },
-		Unlocks: [],
+		Unlocks: [] as string[],
 	},
 	{
 		Level: 17,
 		Tier: "Master",
 		Goal: { Kind: "Domain", Target: 3, Text: "Reach domain rank 3" },
-		Unlocks: [],
+		Unlocks: [] as string[],
 	},
 	{
 		Level: 18,
 		Tier: "Legend",
 		Goal: { Kind: "Domain", Target: 10, Text: "Reach domain rank 10" },
-		Unlocks: ["Ascension"],
+		Unlocks: [ "Ascension" ],
 	},
-];
+]
 
 for (const def of LADDER) {
 	table.freeze(def.Unlocks);
@@ -163,6 +162,9 @@ table.freeze(LADDER);
 table.freeze(TIERS);
 table.freeze(TIER_BLURBS);
 
+// Luau-indexed view: level N lives at key N.
+const BY_LEVEL = LADDER as unknown as Record<number, LevelDef | undefined>;
+
 function ladder(): LevelDef[] {
 	return LADDER;
 }
@@ -172,7 +174,7 @@ function count(): number {
 }
 
 function get(level: number): LevelDef | undefined {
-	return LADDER[level - 1];
+	return BY_LEVEL[level];
 }
 
 function tiers(): string[] {
@@ -188,7 +190,7 @@ function tierBlurbs(): Record<string, string> {
 }
 
 function requirementText(level: number): string {
-	const def = LADDER[level - 1];
+	const def = BY_LEVEL[level];
 	if (def === undefined) {
 		return `Reach Level ${level}`;
 	}
@@ -218,7 +220,7 @@ function unlockLevels(): Record<string, number> {
 	return result;
 }
 
-function levelFor(progressOf: (kind: string) => unknown): number {
+function levelFor(progressOf: (kind: string) => number): number {
 	const cache: Record<string, number> = {};
 	let level = 1;
 	for (const def of LADDER) {
@@ -226,7 +228,7 @@ function levelFor(progressOf: (kind: string) => unknown): number {
 		if (goal === undefined) {
 			continue;
 		}
-		let progress = cache[goal.Kind];
+		let progress = cache[goal.Kind] as number | undefined;
 		if (progress === undefined) {
 			const read = progressOf(goal.Kind);
 			progress = typeIs(read, "number") && read === read ? math.max(0, read) : 0;
@@ -239,11 +241,11 @@ function levelFor(progressOf: (kind: string) => unknown): number {
 	return level;
 }
 
-function snapshot(progressOf: (kind: string) => unknown): Snapshot {
+function snapshot(progressOf: (kind: string) => number): Snapshot {
 	const level = levelFor(progressOf);
-	const current = LADDER[level - 1];
-	const nextDef = LADDER[level];
-	let nextStep: NextStep | undefined;
+	const current = BY_LEVEL[level]!;
+	const nextDef = BY_LEVEL[level + 1];
+	let nextStep: NextStep | undefined = undefined;
 	if (nextDef !== undefined && nextDef.Goal !== undefined) {
 		const goal = nextDef.Goal;
 		const read = progressOf(goal.Kind);

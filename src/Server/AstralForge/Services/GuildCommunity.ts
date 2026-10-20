@@ -85,7 +85,7 @@ interface GuildServiceLike {
 }
 
 interface DataServiceLike {
-	Get(this: void, player: Player): Dict | undefined;
+	Get(this: DataServiceLike, player: Player): Dict | undefined;
 }
 
 interface SecurityLike {
