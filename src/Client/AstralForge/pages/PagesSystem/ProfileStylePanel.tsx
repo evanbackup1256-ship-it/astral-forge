@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
-import { frameStroke } from "../../CoreKit/profileFrame";
+import { FrameStroke, frameStroke } from "../../CoreKit/profileFrame";
 import { PlayerMark } from "../../ArtKit/Icon";
-import { Palette, TapTarget } from "../../CoreKit/theme";
+import { Palette, Radius, TapTarget } from "../../CoreKit/theme";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import { kitMember, LuauComponent } from "../luauKits";
 
@@ -21,14 +21,49 @@ const SWATCH = TapTarget;
 const SWATCH_GAP = 10;
 const FRAME_BTN_W = 132;
 const PREVIEW_H = 64;
+// the three places other players see your style, drawn small under the main preview
+const SAMPLE_H = 46;
+const SAMPLE_GAP = 8;
 
 // header + hint, preview, accent row, frame row
 export function profileStyleHeight(stack: boolean): number {
-	return 26 + 22 + 10 + PREVIEW_H + 14 + 18 + SWATCH + 6 + 14 + 18 + TapTarget + 4 + (stack ? 8 : 0);
+	return 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + SAMPLE_H + 14 + 18 + SWATCH + 6 + 14 + 18 + TapTarget + 4 + (stack ? 8 : 0);
 }
 
 function unlockHint(unlock: ProfileStyle.StyleUnlock): string {
 	return unlock.Kind === "Free" ? "" : `${unlock.Target} rebirths`;
+}
+
+function StyleSample(props: { order: number; label: string; ring: FrameStroke; accent: Color3; kind: "card" | "mark" | "row"; name: string }) {
+	const { ring, accent } = props;
+	const stroke = (thickness: number, transparency: number) => (
+		<uistroke Color={ring.color} Thickness={thickness} Transparency={transparency}>
+			{ring.gradient !== undefined && <uigradient Color={ring.gradient} Rotation={35} />}
+		</uistroke>
+	);
+	const mark = props.kind === "mark";
+	return (
+		<frame
+			Size={new UDim2(1 / 3, -math.ceil((SAMPLE_GAP * 2) / 3), 1, 0)}
+			LayoutOrder={props.order}
+			BackgroundColor3={props.kind === "row" ? Palette.panel : Palette.panelSoft}
+			BackgroundTransparency={0.2}
+			BorderSizePixel={0}
+		>
+			<uicorner CornerRadius={new UDim(0, Radius.md)} />
+			{!mark && stroke(ring.thickness, ring.framed ? 0.45 : 0.8)}
+			{mark ? (
+				<frame Size={UDim2.fromOffset(26, 26)} Position={new UDim2(0, 8, 0.5, 0)} AnchorPoint={new Vector2(0, 0.5)} BackgroundColor3={accent} BackgroundTransparency={0.55} BorderSizePixel={0}>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+					{stroke(ring.thickness, 0.2)}
+				</frame>
+			) : (
+				<Text value={props.kind === "row" ? "1" : "·"} size={12} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={false} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(4, 14)} sizeConstraint={UDim2.fromOffset(20, 18)} />
+			)}
+			<Text value={props.label} size={10} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={true} minSize={8} position={UDim2.fromOffset(mark ? 40 : 26, 6)} sizeConstraint={new UDim2(1, mark ? -46 : -32, 0, 14)} />
+			<Text value={props.name} size={12} color={accent} weight={Enum.FontWeight.Heavy} fit={true} minSize={9} position={UDim2.fromOffset(mark ? 40 : 26, 22)} sizeConstraint={new UDim2(1, mark ? -46 : -32, 0, 16)} />
+		</frame>
+	);
 }
 
 export function ProfileStylePanel(props: ProfileStylePanelProps) {
@@ -48,7 +83,8 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 	};
 	const localName = Players.LocalPlayer !== undefined ? Players.LocalPlayer.DisplayName : "You";
 
-	const accentTop = 26 + 22 + 10 + PREVIEW_H + 14;
+	const accentTop = 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + SAMPLE_H + 14;
+	const samplesTop = 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP;
 	const frameTop = accentTop + 18 + SWATCH + 6 + 14;
 
 	const swatches = ProfileStyle.ACCENTS.map((option, index) => {
@@ -176,6 +212,12 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 					position={UDim2.fromOffset(66, 36)}
 					sizeConstraint={new UDim2(1, -76, 0, 18)}
 				/>
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, SAMPLE_H)} Position={UDim2.fromOffset(0, samplesTop)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, SAMPLE_GAP)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<StyleSample order={1} label="Player list" ring={ring} accent={accentColor} kind="card" name={localName} />
+				<StyleSample order={2} label="Chat" ring={ring} accent={accentColor} kind="mark" name={localName} />
+				<StyleSample order={3} label="Ranks" ring={ring} accent={accentColor} kind="row" name={localName} />
 			</frame>
 			<Text value="Accent" size={12} color={Palette.creamSoft} weight={Enum.FontWeight.Bold} fit={false} position={UDim2.fromOffset(0, accentTop)} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			<scrollingframe
