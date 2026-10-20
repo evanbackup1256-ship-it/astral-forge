@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { useTooltip } from "../Tooltip";
+import { GainPop } from "./GainPop";
 import { AppHelpers } from "../CoreKit/appNav";
 import * as BoostIconKind from "../CoreKit/boostIconKind";
 import { Flux, asFlux, clockText, compactNumber } from "../CoreKit/format";
@@ -282,6 +283,7 @@ export function StatChip(_param: StatChipProps) {
 			PaddingBottom: new UDim(0, 1),
 		}),
 		chip,
+		placeholder === undefined && tip !== undefined && h(GainPop, { value: value, rate: velocity, color: accent, zIndex: 24 }),
 	);
 }
 

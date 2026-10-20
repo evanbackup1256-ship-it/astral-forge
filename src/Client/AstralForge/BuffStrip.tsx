@@ -6,6 +6,7 @@ import ArtKit = require("./ArtKit");
 import Juice = require("./JuiceFx");
 import Rainbow = require("./Rainbow");
 import { useTooltip } from "./Tooltip";
+import { GainPop } from "./UiCore/GainPop";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import * as motion from "./MotionKit/motion";
@@ -589,6 +590,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 			},
 			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 10 }),
 		),
+		h(GainPop, { value: currency.value, rate: currency.rate, color: currency.color ?? P.mango }),
 	);
 }
 
