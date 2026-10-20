@@ -272,7 +272,7 @@ function AvatarView(props: AvatarViewProps): React.Element {
 			Name: "AvatarViewport", ref, Size: new UDim2(1, 0, 1, -54), BackgroundTransparency: 1,
 			Ambient: Color3.fromRGB(180, 185, 205), LightColor: Color3.fromRGB(255, 235, 215), LightDirection: new Vector3(-1, -1, -2),
 		}),
-		Status: status !== undefined ? e(ui.Text, { value: status, size: 11, color: P.creamSoft, wrap: true, align: Enum.TextXAlignment.Center, position: UDim2.fromOffset(0, 8), sizeConstraint: new UDim2(1, 0, 1, -62) }) : undefined,
+		Status: status !== undefined ? e(ui.Text, { value: status, size: 11, color: P.creamSoft, wrap: true, fit: true, minSize: 9, align: Enum.TextXAlignment.Center, position: UDim2.fromOffset(0, 8), sizeConstraint: new UDim2(1, 0, 1, -62) }) : undefined,
 		Turn: e(ui.Button, {
 			text: status !== undefined && status !== "Loading avatar…" ? "RETRY" : "TURN",
 			icon: status !== undefined ? "Refresh.6" : "Crew.11", color: props.accent, outline: true,

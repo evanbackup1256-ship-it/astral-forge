@@ -425,6 +425,8 @@ function buildLive(state: Record<string, unknown>, chatUnread?: number): SearchE
 
 const MAX_RESULTS = 40;
 const ROW_H = 48;
+// matches the Tooltip long press, so a held row shows its tip without opening the result
+const TIP_LONG_PRESS = 0.45;
 const ROW_H_TOUCH = 44;
 const HEADER_H = 26;
 const ROW_GAP = 2;
@@ -594,6 +596,7 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 	const tipContent = cut ? { title: entry.title, body: entry.subtitle } : undefined;
 	const tipEvents = useTooltip(tipContent);
 	const rowRef = React.useRef<TextButton>();
+	const touchAt = React.useRef<number>();
 	React.useEffect(() => {
 		const row = rowRef.current;
 		if (!selected || !cut || row === undefined || (UserInputService.MouseEnabled && !UserInputService.GamepadEnabled)) {
@@ -623,7 +626,14 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 			props.register(props.index, row);
 		},
 		Event: mergeEvents(tipEvents, {
+			InputBegan: (_rbx: GuiObject, input: InputObject) => {
+				if (input.UserInputType === Enum.UserInputType.Touch) touchAt.current = os.clock();
+			},
 			Activated: () => {
+				// a long press on a cut-off row was to read its tip, not to jump
+				const held = touchAt.current;
+				touchAt.current = undefined;
+				if (cut && held !== undefined && os.clock() - held >= TIP_LONG_PRESS) return;
 				InteractionFeedback.tap();
 				props.onPick(entry);
 			},
@@ -1076,8 +1086,12 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	}, []);
 	const [highlightTarget, setHighlightTarget] = React.useState(0);
 	const [inset] = GuiService.GetGuiInset();
-	const width = phone ? viewport.width - 16 : math.min(640, viewport.width - 48);
-	const height = phone ? viewport.height - inset.Y - 24 : math.min(520, viewport.height - inset.Y - 96);
+	// phones: stay inside the notch / rounded corners and above the home indicator
+	const chrome = theme.chromeFor(viewport);
+	const width = phone ? viewport.width - math.max(8, chrome.sideSafe) * 2 : math.min(640, viewport.width - 48);
+	const height = phone
+		? viewport.height - inset.Y - 12 - math.max(12, chrome.bottomSafe)
+		: math.min(520, viewport.height - inset.Y - 96);
 	const rightW = width >= 480 ? 124 : 0;
 	const footerH = touch ? 0 : 40;
 
