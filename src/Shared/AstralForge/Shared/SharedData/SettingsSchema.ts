@@ -113,6 +113,7 @@ const ENTRIES: ReadonlyArray<Entry> = table.freeze([
 	// Social: the "who can reach you" choices are enforced by the server, not just hidden in the UI
 	toggle("ChatShowGlobal", "social", "Global chat", "Show messages from every server in the All tab.", 1),
 	toggle("ChatSounds", "social", "Chat sounds", "A soft sound when a message arrives.", 1),
+	toggle("ChatUseProfileAccent", "social", "Profile colours in chat", "Names use each player's chosen profile accent.", 1),
 	choice("ChatTextSize", "social", "Chat text size", "Message text in the chat page.", 0.5, THREE("Small", "Normal", "Large", 0.2, 0.5, 0.85)),
 	toggle("WhispersFriendsOnly", "social", "Whispers from friends only", "Only Roblox friends can start a private chat with you.", 0),
 	choice("CrewInvitePolicy", "social", "Crew invites", "Who can invite you to a crew.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
@@ -158,7 +159,7 @@ const GROUPS: Readonly<Record<string, ReadonlyArray<{ label: string; keys: Reado
 		{ label: "Touch", keys: ["LargeTouchTargets", "HapticIntensity"] },
 	],
 	social: [
-		{ label: "Chat", keys: ["ChatShowGlobal", "ChatSounds", "ChatTextSize"] },
+		{ label: "Chat", keys: ["ChatShowGlobal", "ChatSounds", "ChatUseProfileAccent", "ChatTextSize"] },
 		{ label: "Privacy", keys: ["WhispersFriendsOnly", "CrewInvitePolicy", "TradeInvitePolicy"] },
 	],
 	mobile: [

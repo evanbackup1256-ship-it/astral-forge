@@ -4,6 +4,7 @@ import OpsMath from "../Modules/OpsMath";
 import Protocol from "../../../Shared/AstralForge/Shared/Protocol";
 import { Dependency, Service } from "@flamework/core";
 import { Dict, isTable, req, SharedFolder } from "./LuaInterop";
+import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { ServerTelemetry } from "./ServerTelemetry";
 
 interface RemoteFirewallMathApi {
@@ -479,10 +480,15 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			return $tuple(false, "invalid setting payload");
 		}
 	} else if (action === Protocol.Actions.SetMobileLayout) {
-		if (!isTable(bag.Values)) {
+		if (bag.Pins !== undefined && !NavRoutes.validMobileTabPins(bag.Pins)) {
+			return $tuple(false, "invalid mobile tab pins");
+		}
+		if (bag.Values === undefined && (bag.Slots !== undefined || bag.Pins !== undefined)) {
+			// pins / slot memory on their own carry no layout values
+		} else if (!isTable(bag.Values)) {
 			return $tuple(false, "mobile layout values are missing");
 		}
-		const values = bag.Values;
+		const values = (bag.Values ?? {}) as Record<string, unknown>;
 		const allowedLayout: Record<string, boolean> = {
 			MobileQuickX: true,
 			MobileQuickY: true,
@@ -501,7 +507,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (bag.Slots !== undefined && !stringField(bag, "Slots", 0, 512)) {
 			return $tuple(false, "invalid mobile layout slots");
 		}
-		if (count > 6 || (count < 1 && bag.Slots === undefined)) {
+		if (count > 6 || (count < 1 && bag.Slots === undefined && bag.Pins === undefined)) {
 			return $tuple(false, "invalid mobile layout size");
 		}
 	} else if (action === Protocol.Actions.RedeemCode) {

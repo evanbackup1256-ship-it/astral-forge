@@ -1,6 +1,7 @@
 import { truthy } from "../lua";
 import { Flux, gteFlux, scaledCost } from "./format";
 import * as NavRouteTable from "./navRouteTable";
+import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Palette } from "./theme";
 
 export interface NavEntry {
@@ -12,7 +13,7 @@ export interface NavEntry {
 	disabled?: boolean;
 }
 
-function withAccent(route: NavRouteTable.RouteDef): NavEntry {
+function withAccent(route: NavRoutes.RouteDef): NavEntry {
 	return {
 		id: route.id,
 		label: route.label,
@@ -22,8 +23,8 @@ function withAccent(route: NavRouteTable.RouteDef): NavEntry {
 	};
 }
 
-export const PRIMARY_NAV = NavRouteTable.PRIMARY_ROUTES.map(withAccent);
-export const MORE_NAV = NavRouteTable.MORE_ROUTES.map(withAccent);
+export const PRIMARY_NAV = NavRoutes.PRIMARY_ROUTES.map(withAccent);
+export const MORE_NAV = NavRoutes.MORE_ROUTES.map(withAccent);
 export const NAV = [...PRIMARY_NAV, ...MORE_NAV];
 export const NAV_GROUPS = NavRouteTable.NAV_GROUPS;
 export const navGroupOf = NavRouteTable.groupOf;
@@ -34,7 +35,7 @@ const SIGNATURE_FIELDS = ["Id", "Key", "Index", "Code", "Channel", "Target", "Ui
 // the parts of the session snapshot the nav reads
 export interface NavState {
 	FeatureUnlocks?: Record<string, { Unlocked?: boolean } | undefined>;
-	Flags?: { TutorialDone?: boolean };
+	Flags?: { TutorialDone?: boolean; MobileTabPins?: unknown };
 	Admin?: { Access?: boolean };
 	Trade?: { Invite?: unknown };
 	Items?: { Keys?: Record<string, unknown> };

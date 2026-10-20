@@ -1,46 +1,4 @@
-export interface RouteDef {
-	id: string;
-	label: string;
-	eyebrow: string;
-	icon: string;
-	accentKey: string;
-}
-
-export const PRIMARY_ROUTES: ReadonlyArray<RouteDef> = table.freeze([
-	{ id: "Overview", label: "Overview", eyebrow: "Your vault", icon: "Overview.1", accentKey: "green" },
-	{ id: "Workshop", label: "Workshop", eyebrow: "Buy machines", icon: "Forge.3", accentKey: "coral" },
-	{ id: "Inventory", label: "Inventory", eyebrow: "Relics", icon: "Inventory.1", accentKey: "violet" },
-	{ id: "Research", label: "Research", eyebrow: "Permanent bonuses", icon: "Research.1", accentKey: "cyan" },
-	{ id: "Shop", label: "Shop", eyebrow: "Packs", icon: "Shop.1", accentKey: "mango" },
-	{ id: "Settings", label: "Settings", eyebrow: "Options", icon: "Settings.1", accentKey: "violet" },
-]);
-
-export const MORE_ROUTES: ReadonlyArray<RouteDef> = table.freeze([
-	{ id: "Missions", label: "Missions", eyebrow: "Jobs", icon: "Mission.1", accentKey: "cyan" },
-	{ id: "Rewards", label: "Rewards", eyebrow: "Dailies", icon: "Rewards.1", accentKey: "pink" },
-	{ id: "Wheel", label: "Wheel", eyebrow: "Daily spin", icon: "Wheel.1", accentKey: "mango" },
-	{ id: "Bazaar", label: "Black Market", eyebrow: "Stock and supplies", icon: "Shop.2", accentKey: "violet" },
-	{ id: "Boosts", label: "Boosts", eyebrow: "Timed multipliers", icon: "Boost.7", accentKey: "pink" },
-	{ id: "Worlds", label: "Worlds", eyebrow: "Zones", icon: "World.2", accentKey: "mint" },
-	{ id: "Lab", label: "Lab", eyebrow: "Orders", icon: "Lab.2", accentKey: "mint" },
-	{ id: "StarGrid", label: "Specializations", eyebrow: "Forge builds", icon: "Forge.4", accentKey: "mango" },
-	{ id: "Ascension", label: "Ascension", eyebrow: "Final rebirth", icon: "Rebirth.4", accentKey: "mango" },
-	{ id: "Echoes", label: "Echoes", eyebrow: "Trait journal", icon: "Wave.3", accentKey: "cyan" },
-	{ id: "Continuum", label: "Star Foundry", eyebrow: "Tile board", icon: "StarGrid.1", accentKey: "mango" },
-	{ id: "ForgePath", label: "Forge Path", eyebrow: "Upgrades", icon: "Forge.5", accentKey: "violet" },
-	{ id: "Milestones", label: "Milestones", eyebrow: "Goals", icon: "Milestone.1", accentKey: "mango" },
-	{ id: "Story", label: "Story", eyebrow: "Chapters", icon: "Story.1", accentKey: "mint" },
-	{ id: "Command", label: "Command", eyebrow: "Expeditions", icon: "Command.2", accentKey: "cyan" },
-	{ id: "Convergence", label: "Converge", eyebrow: "Co-op", icon: "Domain.1", accentKey: "mango" },
-	{ id: "Guild", label: "Guild", eyebrow: "Hall", icon: "Crew.2", accentKey: "violet" },
-	{ id: "Crew", label: "Crew", eyebrow: "Your team", icon: "Crew.3", accentKey: "blue" },
-	{ id: "Chat", label: "Chat", eyebrow: "Messages", icon: "Chat.1", accentKey: "mint" },
-	{ id: "Mail", label: "Mail", eyebrow: "Inbox", icon: "Mail.1", accentKey: "cyan" },
-	{ id: "Trade", label: "Trade", eyebrow: "With players", icon: "Send.1", accentKey: "mint" },
-	{ id: "Leaderboards", label: "Ranks", eyebrow: "Top 25", icon: "Leaderboard.1", accentKey: "cyan" },
-	{ id: "Credits", label: "Credits", eyebrow: "About", icon: "Credits.1", accentKey: "violet" },
-	{ id: "Admin", label: "Admin", eyebrow: "Owner", icon: "Admin.1", accentKey: "coral" },
-]);
+import { MORE_ROUTES, PRIMARY_ROUTES, RouteDef } from "../../../Shared/AstralForge/Shared/NavRoutes";
 
 // prettier-ignore
 export const PAGE_ROUTES: ReadonlyArray<string> = table.freeze([
@@ -98,15 +56,23 @@ export function groupOf(pageId: string): string | undefined {
 
 export const MOBILE_TAB_PRIORITY: ReadonlyArray<string> = table.freeze(["Overview", "Workshop", "Research", "Shop", "Inventory", "Missions", "Rewards"]);
 
-export function mobileTabs(available: Record<string, boolean>, slots: number, page?: string): LuaTuple<[string[], boolean]> {
+/** Bar tabs: saved pins first (in their order), then filled from MOBILE_TAB_PRIORITY. */
+export function mobileTabs(
+	available: Record<string, boolean>,
+	slots: number,
+	page?: string,
+	pins?: ReadonlyArray<string>,
+): LuaTuple<[string[], boolean]> {
 	const tabs = new Array<string>();
 	const room = math.max(1, math.floor(slots) - 1);
-	for (const id of MOBILE_TAB_PRIORITY) {
-		if (tabs.size() >= room) {
-			break;
-		}
-		if (available[id]) {
-			tabs.push(id);
+	for (const list of [pins ?? [], MOBILE_TAB_PRIORITY]) {
+		for (const id of list) {
+			if (tabs.size() >= room) {
+				break;
+			}
+			if (available[id] && !tabs.includes(id)) {
+				tabs.push(id);
+			}
 		}
 	}
 	const onBar = page !== undefined && tabs.includes(page);

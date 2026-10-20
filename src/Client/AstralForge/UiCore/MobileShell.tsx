@@ -3,6 +3,7 @@ import { AppHelpers, MORE_NAV, NavEntry, NavState, PRIMARY_NAV } from "../CoreKi
 import { Flux, asFlux, compactNumber } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import * as NavRouteTable from "../CoreKit/navRouteTable";
+import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Palette, TapTarget, chromeFor, darken } from "../CoreKit/theme";
 import { useEntrance, useFlipperSpring, useViewport } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
@@ -596,7 +597,8 @@ export function MobileTabBar(_param: MobileTabBarProps) {
 	for (const [id] of pairs(byId)) {
 		availableIds[id as string] = true;
 	}
-	const [tabIds] = NavRouteTable.mobileTabs(availableIds, slots, page);
+	const pins = NavRoutes.normalizeMobileTabPins(state.Flags?.MobileTabPins);
+	const [tabIds] = NavRouteTable.mobileTabs(availableIds, slots, page, pins);
 	const tabs: NavEntry[] = [];
 	for (const id of tabIds) {
 		tabs.push(byId[id]);

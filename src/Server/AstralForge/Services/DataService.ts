@@ -1,3 +1,4 @@
+import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
 import AtomicStateClass = require("./AtomicState");
@@ -330,6 +331,7 @@ function sanitize(profile: Dict): Dict {
 	if (!typeIs(flags.MobileLayoutSlots, "string") || (flags.MobileLayoutSlots as string).size() > 512) {
 		flags.MobileLayoutSlots = "";
 	}
+	flags.MobileTabPins = NavRoutes.normalizeMobileTabPins(flags.MobileTabPins);
 	const settings = d(profile.Settings);
 	settings.SoundVolume = math.clamp(nonNegative(settings.SoundVolume), 0, 1);
 	settings.MusicVolume = math.clamp(nonNegative(settings.MusicVolume !== undefined ? settings.MusicVolume : 1), 0, 1);

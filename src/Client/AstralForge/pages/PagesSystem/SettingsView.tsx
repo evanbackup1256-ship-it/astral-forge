@@ -3,6 +3,7 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { fitTouchGridWidth, moreDockHeight } from "../../CoreKit/mobileLayout";
 import { chromeFor, darken, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motion";
+import { MobileTabPinsEditor, mobileTabPinsEditorHeight } from "./MobileTabPinsEditor";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedModule } from "../luauKits";
 
 const UserInputService = game.GetService("UserInputService");
@@ -437,7 +438,7 @@ interface SettingsViewProps {
 		Settings?: Settings;
 		Game: { Version: string };
 		FeatureUnlocks?: Record<string, { Unlocked?: boolean } | undefined>;
-		Flags?: { MobileLayoutSlots?: unknown };
+		Flags?: { MobileLayoutSlots?: unknown; MobileTabPins?: unknown };
 	};
 	dispatch: Dispatch;
 	reducedMotion?: boolean;
@@ -943,6 +944,17 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				reducedMotion={softMotion}
 			/>,
 			TapTarget + 14,
+		);
+		add(
+			"tabPins",
+			<MobileTabPinsEditor
+				savedPins={(state.Flags ?? {}).MobileTabPins}
+				dispatch={dispatch}
+				accent={accent}
+				stack={stack}
+				softMotion={softMotion === true}
+			/>,
+			mobileTabPinsEditorHeight(stack),
 		);
 	}
 	if (!listing && activeSection === "interface" && UserInputService.GamepadEnabled) {

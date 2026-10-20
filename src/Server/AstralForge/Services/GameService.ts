@@ -23,6 +23,7 @@ import LabModule = require("./CoreServiceMembers/LabService");
 import ProgressionModule = require("./CoreServiceMembers/ProgressionService");
 import { MatterRuntime } from "./MatterRuntime";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
+import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
 // colon-called methods. Values coming back are narrowed where they are used.
@@ -4874,8 +4875,14 @@ export class GameService {
 
 	_setMobileLayout(player: Player, rawPayload: unknown) {
 		const payload = rawPayload as Dict | undefined;
-		if (!typeIs(rawPayload, "table") || !typeIs(payload!.Values, "table")) {
+		if (!typeIs(rawPayload, "table")) {
 			return responseError("Invalid mobile layout.");
+		}
+		if (payload!.Values !== undefined && !typeIs(payload!.Values, "table")) {
+			return responseError("Invalid mobile layout.");
+		}
+		if (payload!.Pins !== undefined && !NavRoutes.validMobileTabPins(payload!.Pins)) {
+			return responseError("Invalid tab pins.");
 		}
 		const allowed: Record<string, boolean> = {
 			MobileQuickX: true,
@@ -4886,7 +4893,10 @@ export class GameService {
 			MobileToastY: true,
 		};
 		return this._mutate(player, (profile: Profile) => {
-			for (const [key, value] of pairs(payload!.Values as object)) {
+			if (payload!.Pins !== undefined) {
+				(profile.Flags as Dict).MobileTabPins = NavRoutes.normalizeMobileTabPins(payload!.Pins);
+			}
+			for (const [key, value] of pairs((payload!.Values ?? {}) as object)) {
 				if (truthy(allowed[key as string]) && typeIs(value, "number")) {
 					(profile.Settings as Dict)[key as string] = math.clamp(value, 0, 1);
 				}
@@ -4898,6 +4908,9 @@ export class GameService {
 				}
 				(profile.Flags as Dict).MobileLayoutSlots = normalized;
 				return responseSuccess("Layout memory saved.");
+			}
+			if (payload!.Pins !== undefined && payload!.Values === undefined) {
+				return responseSuccess("Tab bar saved.");
 			}
 			return responseSuccess("Mobile HUD layout saved.");
 		});

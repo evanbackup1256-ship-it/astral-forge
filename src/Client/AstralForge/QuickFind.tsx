@@ -7,7 +7,8 @@ import React from "@rbxts/react";
 import Model from "./BrowseModel";
 import * as theme from "./CoreKit/theme";
 import { AppHelpers } from "./CoreKit/appNav";
-import * as NavRoutes from "./CoreKit/navRouteTable";
+import * as NavRoutes from "../../Shared/AstralForge/Shared/NavRoutes";
+import * as NavRouteTable from "./CoreKit/navRouteTable";
 import { useViewport, useFlipperSpring } from "./MotionKit/motion";
 import ReadyBoard from "./ReadyBoard";
 
@@ -352,7 +353,7 @@ function buildLive(state: Record<string, unknown>, chatUnread?: number): SearchE
 	}
 
 	const groupLabel: Record<string, string> = {};
-	for (const group of NavRoutes.NAV_GROUPS as unknown as NavGroup[]) {
+	for (const group of NavRouteTable.NAV_GROUPS as unknown as NavGroup[]) {
 		for (const id of group.routes) {
 			groupLabel[id] = group.label;
 		}

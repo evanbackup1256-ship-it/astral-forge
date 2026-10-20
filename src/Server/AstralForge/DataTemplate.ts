@@ -289,6 +289,7 @@ const DataTemplate = {
 				HapticIntensity: 0.65,
 				ChatShowGlobal: 1,
 				ChatSounds: 1,
+				ChatUseProfileAccent: 1,
 				ChatTextSize: 0.5,
 				WhispersFriendsOnly: 0,
 				CrewInvitePolicy: 0,
@@ -348,6 +349,8 @@ const DataTemplate = {
 				TutorialRewardClaimed: false,
 				LastSeenVersion: "",
 				UnlimitedMoney: false,
+				// ordered phone bottom-bar page ids (max 5); empty = priority order
+				MobileTabPins: [],
 			},
 			Guild: {
 				Id: "",

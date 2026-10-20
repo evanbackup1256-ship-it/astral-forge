@@ -839,14 +839,24 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 			: tab === "global"
 				? `Message every server (one every ${ChatRules.GLOBAL_COOLDOWN}s)...`
 				: `Message ${CHANNEL_LABEL[tab] ?? "this server"}... (/ for shortcuts)`;
-	const prefs = settings as { ChatShowGlobal?: number; ChatTextSize?: unknown } | undefined;
+	const prefs = settings as { ChatShowGlobal?: number; ChatTextSize?: unknown; ChatUseProfileAccent?: number } | undefined;
 	const showGlobal = !typeIs(prefs, "table") || prefs.ChatShowGlobal === undefined || prefs.ChatShowGlobal >= 0.5;
 	const textScale = typeIs(prefs, "table") && typeIs(prefs.ChatTextSize, "number") ? 0.85 + prefs.ChatTextSize * 0.45 : 1.075;
+	// ChatUseProfileAccent off: names fall back to the per-user colour instead of the published profile accent
+	const useProfileAccent =
+		!typeIs(prefs, "table") || prefs.ChatUseProfileAccent === undefined || prefs.ChatUseProfileAccent >= 0.5;
+	const shownMessages = React.useMemo(
+		() =>
+			useProfileAccent
+				? visible
+				: visible.map((message) => (message.profileAccent === undefined ? message : { ...message, profileAccent: undefined })),
+		[visible, useProfileAccent],
+	);
 	// the page tree is memoised on its props; a fresh chat object every render would re-render
 	// whichever page is open on every shell update, chat or not
 	return React.useMemo(
 		() => ({
-			messages: visible,
+			messages: shownMessages,
 			unread,
 			unreadByTab,
 			connected,
@@ -868,7 +878,7 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 			showGlobal,
 			textScale,
 		}),
-		[visible, unread, unreadByTab, connected, tab, setTab, peer, setPeer, whispers, muted, setMute, openWhisper, send, clear, suggest, placeholder, focusRequest, requestFocus, showGlobal, textScale],
+		[shownMessages, unread, unreadByTab, connected, tab, setTab, peer, setPeer, whispers, muted, setMute, openWhisper, send, clear, suggest, placeholder, focusRequest, requestFocus, showGlobal, textScale],
 	);
 }
 
