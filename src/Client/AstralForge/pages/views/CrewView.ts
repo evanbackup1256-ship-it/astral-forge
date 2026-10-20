@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { InteractionFeedback } from "../../CoreKit/interaction";
 const ContextActionService = game.GetService("ContextActionService");
 const GuiService = game.GetService("GuiService");
 const UserInputService = game.GetService("UserInputService");
@@ -614,7 +615,12 @@ function __member(): unknown {
 			if ((id === undefined)) {
 				return undefined;
 			}
-			luaCall(dispatch, "NudgeCrew", { UserId: id, userId: id });
+			// the wave lands with a confirm buzz once the server says it went through
+			luaCall(dispatch, "NudgeCrew", { UserId: id, userId: id }, function(this: void, response?: unknown) {
+				if (luaTruthy(luaProp(response, "ok"))) {
+					InteractionFeedback.confirm();
+				}
+			});
 			return undefined;
 		};
 		let headerReveal: unknown = luaCall(useStagger, 0, softMotion);
