@@ -2750,13 +2750,17 @@ __defs["WheelMath"] = () => {
 			if (pool.size() === 0 || totalWeight <= 0) {
 				return undefined;
 			}
-			let selected = pool[pool.size() - 1];
+			// zero-weight prizes can never be drawn (a roll of exactly 0 used to land on one
+			// when it was first in the pool)
+			let selected: PoolEntry | undefined;
 			let cursor = 0;
 			for (const entry of pool) {
-				cursor += entry.Weight;
-				if (roll <= cursor) {
+				if (entry.Weight > 0) {
 					selected = entry;
-					break;
+					cursor += entry.Weight;
+					if (roll <= cursor) {
+						break;
+					}
 				}
 			}
 			return selected;

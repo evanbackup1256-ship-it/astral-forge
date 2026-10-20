@@ -875,9 +875,15 @@ function sanitize(profile: Dict): Dict {
 	return profile;
 }
 
-function migrateLegacyProfile(data: unknown): Dict {
-	ProfileVersionGuard.ReadCompatible(data, GameConfig.Game.DataVersion);
+/** A stored profile as the server uses it: template defaults filled in, then sanitized. */
+export function normalizeStoredProfile(data: unknown): Dict {
 	return sanitize(reconcile(data, DataTemplate.New()) as Dict);
+}
+
+/** Document migration step: refuses saves from a newer data version, then normalizes. */
+export function migrateLegacyProfile(data: unknown): Dict {
+	ProfileVersionGuard.ReadCompatible(data, GameConfig.Game.DataVersion);
+	return normalizeStoredProfile(data);
 }
 
 const getOrderedStore = StoreAccess.ordered;
@@ -1229,7 +1235,7 @@ export class DataService {
 			}
 
 			const [preparedOk, prepared] = pcall(() => {
-				const profile = sanitize(reconcile(candidateProfile, DataTemplate.New()) as Dict);
+				const profile = normalizeStoredProfile(candidateProfile);
 				ProfileIntegrity.Seal(profile);
 				return profile;
 			});
