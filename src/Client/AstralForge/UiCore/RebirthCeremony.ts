@@ -3,7 +3,7 @@ import { asFlux, compactNumber, Flux } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import { Palette } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
-import { resolveIntent } from "../MotionKit/motion";
+import { resolveIntent, useViewport } from "../MotionKit/motion";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -223,6 +223,9 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 	const antilag = ((useAntilag() as unknown) ?? {}) as AntilagLike;
 	const [session, setSession] = React.useState<{ id: number; payload: CeremonyPayload } | undefined>(undefined);
 	const [clock, setClock] = React.useBinding(0);
+	// the 450px card shrinks to fit narrow phones; 1 (unchanged) anywhere it already fits
+	const ceremonyViewport = useViewport();
+	const cardScale = math.clamp((ceremonyViewport.width - 24) / 450, 0.6, 1);
 	const jobsRef = React.useRef<thread[]>([]);
 	const skipRef = React.useRef(0);
 	const cancelJobs = () => {
@@ -444,6 +447,7 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 					}),
 				},
 				corner(new UDim(0, 16)),
+				cardScale < 1 && h("uiscale", { Scale: cardScale }),
 				h("uistroke", { Color: Palette.violet, Thickness: 1.5, Transparency: clock.map((t) => 0.2 + 0.8 * fadeOut(t)) }),
 				h(
 					"frame",
