@@ -30,7 +30,7 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	MuteGuildMember: true, UnmuteGuildMember: true, BanGuildMember: true, UnbanGuildMember: true,
 	UploadGuildLogo: true, ModerateGuildLogo: true, AdminExecute: true, ClaimConvergenceReward: true,
 	ConfirmTrade: true, UpdateTradeOffer: true, InviteTrade: true, RespondTrade: true, SetTradeReady: true,
-	CancelTrade: true, CompleteTutorial: true, DeleteMail: true, DismissRelease: true, EquipTitle: true, SetProfileStyle: true,
+	CancelTrade: true, CompleteTutorial: true, DeleteMail: true, MarkHintSeen: true, DismissRelease: true, EquipTitle: true, SetProfileStyle: true,
 	OpenRelease: true, ReadMail: true, ReadStoryChapter: true, SetAnomalyChannel: true,
 	SetAnomalyLoadout: true, SetAutoForge: true, SetItemAutoSalvage: true, SetMobileLayout: true,
 	SetSetting: true, SyncShop: true, ToggleItemLock: true, BuyDailyOffer: true, BuyCrateSkin: true,
@@ -202,18 +202,21 @@ export function startSession(remotes: { Request: RequestFunction }) {
 		if (!stopped) {
 			outcome = beatOnce(true);
 		}
-		while (!stopped) {
+		while (!stopped && token === sessionToken) {
 			const retrySoon = outcome === "retry" || !auth;
 			const interval = retrySoon ? 2 : BEAT_INTERVAL_MIN + math.random() * (BEAT_INTERVAL_MAX - BEAT_INTERVAL_MIN);
 			task.wait(interval);
-			if (stopped) {
+			if (stopped || token !== sessionToken) {
 				break;
 			}
 			outcome = beatOnce(false);
 		}
 	});
 	return () => {
-		stopped = true;
+		// a cleanup from an earlier session must not stop the one that replaced it
+		if (token === sessionToken) {
+			stopped = true;
+		}
 		if (worker !== undefined) {
 			const running = worker;
 			pcall(() => task.cancel(running));

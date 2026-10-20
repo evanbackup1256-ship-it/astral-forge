@@ -36,7 +36,9 @@ export class NetworkController {
 		return this.network;
 	}
 
+	/** Runs every cleanup and drops the handlers, so the next connect() starts listeners again. */
 	disconnect() {
+		this.network = undefined;
 		const cleanups = this.cleanups;
 		this.cleanups = [];
 		for (const cleanup of cleanups) {

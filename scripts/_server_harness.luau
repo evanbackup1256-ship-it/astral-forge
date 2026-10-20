@@ -144,6 +144,11 @@ local guid = 0
 function HttpService:GenerateGUID() guid += 1 return string.format("GUID-%08d", guid) end
 services.HttpService = HttpService
 
+-- client modules (StarterPlayerScripts.AstralForge) for controller tests
+local StarterPlayerScripts = newNode("StarterPlayerScripts", "StarterPlayerScripts", nil, nil, "virtual")
+StarterPlayerScripts.__virtual = { AstralForge = scan(newNode("AstralForge", "Folder", StarterPlayerScripts, "out/Client/AstralForge", "dir")) }
+services.StarterPlayer = { Name = "StarterPlayer", StarterPlayerScripts = StarterPlayerScripts }
+
 services.ServerScriptService = ServerScriptService
 services.ReplicatedStorage = ReplicatedStorage
 
@@ -225,6 +230,8 @@ function Harness.load(relative)
 	local current
 	if parts[1] == "Server" then
 		current = ServerScriptService
+	elseif parts[1] == "Client" then
+		current = StarterPlayerScripts
 	elseif parts[1] == "Shared" then
 		current = ReplicatedStorage.__virtual.AstralForge
 		table.remove(parts, 1) -- "Shared"
@@ -238,6 +245,14 @@ function Harness.load(relative)
 	end
 	for i = 2, #parts do current = current:WaitForChild(parts[i]) end
 	return requireNode(current)
+end
+
+--- replace a compiled module with a test double before anything requires it
+function Harness.mock(relative, value)
+	local parts = string.split(relative, "/")
+	local current = parts[1] == "Client" and StarterPlayerScripts or ServerScriptService
+	for i = 2, #parts do current = current:WaitForChild(parts[i]) end
+	cache[current] = value
 end
 
 --- a fake in-game player (Parent = Players)
