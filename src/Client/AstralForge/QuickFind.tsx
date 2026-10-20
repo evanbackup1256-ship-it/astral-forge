@@ -1,8 +1,8 @@
 // Quick Find: one search box over every page, setting, machine, research, relic, world,
 // boost, milestone and story chapter. Ctrl+K opens it, the top bar has a button.
 // Picking a result opens its page with that page's search already filled in.
-// A centered glass panel springs open, results stagger in by section and one highlight glides
-// between rows. Keyboard (Ctrl+K, arrows, Enter, Esc) and gamepad (DPad, A, B) both drive it.
+// A centered glass panel springs open and results stagger in by section. Each row owns one
+// selection spring; wide panels add a preview pane for the picked result. Keyboard (Ctrl+K, arrows, Enter, Esc) and gamepad (DPad, A, B) both drive it.
 import React from "@rbxts/react";
 import { InteractionFeedback } from "./CoreKit/interaction";
 import Model from "./BrowseModel";
@@ -96,6 +96,9 @@ interface RowProps {
 	onHover: (index: number) => void;
 	tick: React.Binding<number>;
 	appearAt: number | undefined;
+	reduced: boolean;
+	/** the kind chip on the right; off when the preview pane already says it */
+	showKind: boolean;
 }
 
 interface HeaderProps {
@@ -586,6 +589,7 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 	const arrive = props.tick.map((now: number) => (appearAt === undefined ? 1 : easeOut((now - appearAt) / ROW_IN)));
 	const fadeText = arrive.map((a: number) => 1 - a);
 	const compact = props.rowH < ROW_H;
+	const lit = useFlipperSpring(selected ? 1 : 0, props.reduced, 620, 38);
 	const textLeft = 56;
 	const rightPad = props.rightW + 12;
 	// cut-off title or subtitle: the full text shows as a tooltip on hover, or when the
@@ -599,7 +603,8 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 	const touchAt = React.useRef<number>();
 	React.useEffect(() => {
 		const row = rowRef.current;
-		if (!selected || !cut || row === undefined || (UserInputService.MouseEnabled && !UserInputService.GamepadEnabled)) {
+		// the preview pane already shows the whole text when it's there
+		if (!selected || !cut || !props.showKind || row === undefined || (UserInputService.MouseEnabled && !UserInputService.GamepadEnabled)) {
 			return undefined;
 		}
 		return showTooltipFor(row, { title: entry.title, body: entry.subtitle });
@@ -639,7 +644,29 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 			},
 			MouseEnter: () => props.onHover(props.index),
 		}),
-	}, h("frame", {
+	},
+	// selection: one spring per row drives the plate, its edge and the title together. It only
+	// ever retargets (never stacks), and every colour comes from this row's own accent, so moving
+	// the highlight never repaints a row mid-tween.
+	h("frame", {
+		Size: new UDim2(1, -4, 1, 0),
+		Position: UDim2.fromOffset(2, 0),
+		BackgroundColor3: theme.darken(entry.accent, 0.72),
+		BackgroundTransparency: lit.map((a: number) => 1 - 0.92 * a),
+		BorderSizePixel: 0,
+		ZIndex: 503,
+	}, h("uicorner", { CornerRadius: new UDim(0, 10) }),
+	h("uistroke", { Color: entry.accent, Transparency: lit.map((a: number) => 1 - 0.5 * a), ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+	h("frame", {
+		Size: lit.map((a: number) => new UDim2(0, 3, a * 0.62, 0)),
+		Position: new UDim2(0, 3, 0.5, 0),
+		AnchorPoint: new Vector2(0, 0.5),
+		BackgroundColor3: entry.accent,
+		BackgroundTransparency: lit.map((a: number) => 1 - a),
+		BorderSizePixel: 0,
+		ZIndex: 504,
+	}, h("uicorner", { CornerRadius: new UDim(1, 0) }))),
+	h("frame", {
 		Size: UDim2.fromScale(1, 1),
 		Position: arrive.map((a: number) => UDim2.fromOffset(0, (1 - a) * 8)),
 		BackgroundTransparency: 1,
@@ -650,12 +677,12 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		Size: UDim2.fromOffset(32, 32),
 		Position: new UDim2(0, 12, 0.5, 0),
 		AnchorPoint: new Vector2(0, 0.5),
-		BackgroundColor3: theme.darken(entry.accent, selected ? 0.45 : 0.68),
+		BackgroundColor3: theme.darken(entry.accent, 0.6),
 		BackgroundTransparency: arrive.map((a: number) => 1 - a),
 		BorderSizePixel: 0,
 		ZIndex: 505,
 	}, h("uicorner", { CornerRadius: new UDim(0, 10) }),
-	h("uistroke", { Color: entry.accent, Transparency: selected ? 0.35 : 0.8, Thickness: 1 }),
+	h("uistroke", { Color: entry.accent, Transparency: lit.map((a: number) => 0.8 - 0.45 * a), Thickness: 1 }),
 	h("frame", {
 		Size: UDim2.fromOffset(18, 18),
 		Position: UDim2.fromScale(0.5, 0.5),
@@ -669,7 +696,7 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		size: 18,
 		spin: false,
 	}))),
-	// title + subtitle
+	// title + one compact secondary line
 	h("textlabel", {
 		Size: new UDim2(1, -(textLeft + rightPad), 0, 18),
 		Position: new UDim2(0, textLeft, 0.5, compact ? -17 : -18),
@@ -678,7 +705,7 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		RichText: true,
 		TextSize: 15,
 		FontFace: FONT_BOLD,
-		TextColor3: entry.locked ? Palette.creamSoft : selected ? Palette.white : Palette.cream,
+		TextColor3: entry.locked ? Palette.creamSoft : lit.map((a: number) => Palette.cream.Lerp(Palette.white, a)),
 		TextTransparency: fadeText,
 		TextXAlignment: Enum.TextXAlignment.Left,
 		TextTruncate: Enum.TextTruncate.AtEnd,
@@ -700,7 +727,7 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		Change: { TextFits: watchFit(setSubCut) },
 		ref: readFit(setSubCut),
 	}),
-	// badge + kind chip
+	// badge + kind chip (both static: selection never recolours them)
 	props.rightW > 0 && h("frame", {
 		Size: UDim2.fromOffset(props.rightW - 12, 22),
 		Position: new UDim2(1, -12, 0.5, 0),
@@ -724,16 +751,16 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		TextColor3: Palette.ink,
 		ZIndex: 507,
 	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("uipadding", { PaddingLeft: new UDim(0, 6), PaddingRight: new UDim(0, 6) })),
-	h("textlabel", {
+	props.showKind && h("textlabel", {
 		Size: UDim2.fromOffset(0, 20),
 		AutomaticSize: Enum.AutomaticSize.X,
 		LayoutOrder: 2,
-		BackgroundColor3: selected ? theme.darken(entry.accent, 0.6) : Palette.panelSoft,
-		BackgroundTransparency: arrive.map((a: number) => 1 - a * (selected ? 0.9 : 0.6)),
+		BackgroundColor3: Palette.panelSoft,
+		BackgroundTransparency: arrive.map((a: number) => 1 - a * 0.6),
 		Text: meta.label,
 		TextSize: 11,
 		FontFace: FONT_BOLD,
-		TextColor3: selected ? entry.accent : Palette.creamSoft,
+		TextColor3: Palette.creamSoft,
 		TextTransparency: fadeText,
 		ZIndex: 507,
 	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) })))));
@@ -769,6 +796,124 @@ function Header(props: HeaderProps): React.Element {
 		BorderSizePixel: 0,
 		ZIndex: 504,
 	}));
+}
+
+// ── Preview pane (wide panels) ──────────────────────────────────────────────────
+
+// the picked row in full: big icon, the whole title and line, what it is and what Enter does
+function Preview(props: { entry: SearchEntry | undefined; width: number; top: number; bottom: number; appear: React.Binding<number>; touch: boolean }): React.Element {
+	const entry = props.entry;
+	const appear = props.appear;
+	const fade = appear.map((a: number) => 1 - a);
+	const accent = entry !== undefined ? entry.accent : Palette.mango;
+	const meta = entry !== undefined ? KIND_META[entry.kind] : undefined;
+	const action = entry === undefined
+		? ""
+		: entry.locked
+			? "Locked for now"
+			: entry.kind === "Action"
+				? "run it now"
+				: entry.kind === "Page"
+					? "open the page"
+					: "open it on its page";
+	return h("frame", {
+		Size: new UDim2(0, props.width, 1, -(props.top + props.bottom)),
+		Position: new UDim2(1, -(props.width + 8), 0, props.top),
+		BackgroundColor3: Palette.panelSoft,
+		BackgroundTransparency: 0.35,
+		BorderSizePixel: 0,
+		ClipsDescendants: true,
+		ZIndex: 502,
+	}, h("uicorner", { CornerRadius: new UDim(0, 12) }),
+	h("uistroke", { Color: Palette.lineSoft, Transparency: 0.55, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+	h("uipadding", { PaddingLeft: new UDim(0, 14), PaddingRight: new UDim(0, 14), PaddingTop: new UDim(0, 14), PaddingBottom: new UDim(0, 12) }),
+	entry !== undefined && h("frame", {
+		Size: UDim2.fromScale(1, 1),
+		Position: appear.map((a: number) => UDim2.fromOffset(0, (1 - a) * 6)),
+		BackgroundTransparency: 1,
+		ZIndex: 503,
+	}, h("frame", {
+		Size: UDim2.fromOffset(48, 48),
+		BackgroundColor3: theme.darken(accent, 0.6),
+		BackgroundTransparency: fade,
+		BorderSizePixel: 0,
+		ZIndex: 504,
+	}, h("uicorner", { CornerRadius: new UDim(0, 14) }),
+	h("uistroke", { Color: accent, Transparency: 0.45 }),
+	h("frame", {
+		Size: UDim2.fromOffset(26, 26),
+		Position: UDim2.fromScale(0.5, 0.5),
+		AnchorPoint: new Vector2(0.5, 0.5),
+		BackgroundTransparency: 1,
+		ZIndex: 505,
+	}, h(Icon, { kind: entry.locked ? "Lock.18" : entry.icon, color: entry.locked ? Palette.muted : accent, accent, size: 26, spin: false }))),
+	h("textlabel", {
+		Size: new UDim2(1, 0, 0, 14),
+		Position: UDim2.fromOffset(0, 58),
+		BackgroundTransparency: 1,
+		Text: meta !== undefined ? string.upper(meta.label) : "",
+		TextSize: 11,
+		FontFace: FONT_HEAVY,
+		TextColor3: accent,
+		TextTransparency: fade,
+		TextXAlignment: Enum.TextXAlignment.Left,
+		ZIndex: 504,
+	}),
+	h("textlabel", {
+		Size: new UDim2(1, 0, 0, 40),
+		Position: UDim2.fromOffset(0, 74),
+		BackgroundTransparency: 1,
+		Text: entry.title,
+		TextSize: 17,
+		FontFace: FONT_HEAVY,
+		TextColor3: Palette.cream,
+		TextTransparency: fade,
+		TextWrapped: true,
+		TextXAlignment: Enum.TextXAlignment.Left,
+		TextYAlignment: Enum.TextYAlignment.Top,
+		TextTruncate: Enum.TextTruncate.AtEnd,
+		ZIndex: 504,
+	}),
+	h("textlabel", {
+		Size: new UDim2(1, 0, 1, -(118 + 46)),
+		Position: UDim2.fromOffset(0, 118),
+		BackgroundTransparency: 1,
+		Text: entry.subtitle ?? "",
+		TextSize: 13,
+		FontFace: FONT_MED,
+		TextColor3: Palette.creamSoft,
+		TextTransparency: fade,
+		TextWrapped: true,
+		TextXAlignment: Enum.TextXAlignment.Left,
+		TextYAlignment: Enum.TextYAlignment.Top,
+		TextTruncate: Enum.TextTruncate.AtEnd,
+		ZIndex: 504,
+	}),
+	(entry.badge ?? 0) > 0 && h("textlabel", {
+		Size: new UDim2(1, 0, 0, 16),
+		Position: new UDim2(0, 0, 1, -40),
+		BackgroundTransparency: 1,
+		Text: `${entry.badge} ready`,
+		TextSize: 12,
+		FontFace: FONT_BOLD,
+		TextColor3: Palette.mango,
+		TextTransparency: fade,
+		TextXAlignment: Enum.TextXAlignment.Left,
+		ZIndex: 504,
+	}),
+	h("textlabel", {
+		Size: new UDim2(1, 0, 0, 18),
+		Position: new UDim2(0, 0, 1, -18),
+		BackgroundTransparency: 1,
+		Text: entry.locked ? action : props.touch ? `Tap to ${action}` : `Enter to ${action}`,
+		TextSize: 12,
+		FontFace: FONT_BOLD,
+		TextColor3: entry.locked ? Palette.muted : Palette.cream,
+		TextTransparency: fade,
+		TextXAlignment: Enum.TextXAlignment.Left,
+		TextTruncate: Enum.TextTruncate.AtEnd,
+		ZIndex: 504,
+	})));
 }
 
 // ── Footer key hint ─────────────────────────────────────────────────────────────
@@ -870,6 +1015,10 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	const openRef = React.useRef(false);
 	openRef.current = open;
 	const repeatToken = React.useRef(0);
+	// keyboard/pad moves scroll the pick into view; mouse hover never does (that's what made rows
+	// under a still pointer keep re-selecting themselves while the list scrolled)
+	const followRef = React.useRef(true);
+	const lastPointer = React.useRef<Vector2>();
 	const stickDir = React.useRef(0);
 	// up/down wrap around the ends; page steps stop at the ends instead
 	// `held` steps (a held key or stick) keep the click sound but skip the rumble
@@ -879,6 +1028,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			return;
 		}
 		Audio.play("tick");
+		followRef.current = true;
 		if (!held) {
 			InteractionFeedback.tick();
 		}
@@ -1084,7 +1234,6 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			delete rowRefs.current[i];
 		}
 	}, []);
-	const [highlightTarget, setHighlightTarget] = React.useState(0);
 	const [inset] = GuiService.GetGuiInset();
 	// phones: stay inside the notch / rounded corners and above the home indicator
 	const chrome = theme.chromeFor(viewport);
@@ -1092,7 +1241,10 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	const height = phone
 		? viewport.height - inset.Y - 12 - math.max(12, chrome.bottomSafe)
 		: math.min(520, viewport.height - inset.Y - 96);
-	const rightW = width >= 480 ? 124 : 0;
+	// wide panels get a preview pane on the right; phones keep the single list
+	const preview = width >= 560;
+	const previewW = preview ? math.floor(width * 0.36) : 0;
+	const rightW = preview ? 44 : width >= 480 ? 124 : 0;
 	const footerH = touch ? 0 : 40;
 
 	// a new set of results staggers in
@@ -1101,6 +1253,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	if (lastSignature.current !== signature) {
 		lastSignature.current = signature;
 		resultsAt.current = os.clock();
+		followRef.current = true;
 	}
 
 	const pick = (entry: SearchEntry | undefined) => {
@@ -1133,8 +1286,11 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			if (row === undefined || content === undefined || list === undefined) {
 				return;
 			}
+			if (!followRef.current) {
+				return;
+			}
+			followRef.current = false;
 			const top = row.AbsolutePosition.Y - content.AbsolutePosition.Y;
-			setHighlightTarget(top);
 			const bottom = top + rowH;
 			const view = list.AbsoluteWindowSize.Y;
 			if (top - HEADER_H < list.CanvasPosition.Y) {
@@ -1148,10 +1304,26 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		};
 	}, [pickIndex, open, results, rowH]);
 
-	// the highlight glides between rows
-	const highlightY = useFlipperSpring(highlightTarget, reduced, 700, 42);
 	const current = flat[pickIndex - 1];
-	const accent = current !== undefined ? current.accent : Palette.mango;
+	// hover picks a row only when the pointer really moved onto it
+	const hoverPick = (rowIndex: number) => {
+		const pointer = UserInputService.GetMouseLocation();
+		const last = lastPointer.current;
+		lastPointer.current = pointer;
+		if (last !== undefined && pointer.sub(last).Magnitude < 1) {
+			return;
+		}
+		setSelected(rowIndex);
+	};
+	// the preview fades its new contents in once per change of pick
+	const previewKey = current !== undefined ? current.key : "";
+	const previewAt = React.useRef(0);
+	const lastPreview = React.useRef("");
+	if (lastPreview.current !== previewKey) {
+		lastPreview.current = previewKey;
+		previewAt.current = os.clock();
+	}
+	const previewIn = tick.map((now: number) => (reduced ? 1 : easeOut((now - previewAt.current) / 0.16)));
 
 	const rows: Record<string, React.Element | undefined> = {
 		layout: h("uilistlayout", {
@@ -1188,9 +1360,11 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 				query,
 				layoutOrder: order,
 				onPick: pick,
-				onHover: setSelected,
+				onHover: hoverPick,
 				tick,
 				rowH,
+				reduced,
+				showKind: !preview,
 				register,
 				appearAt: cascadeFrom !== undefined && rowIndex <= CASCADE_ROWS ? cascadeFrom + rowIndex * STAGGER : undefined,
 			});
@@ -1283,7 +1457,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		BorderSizePixel: 0,
 		ZIndex: 502,
 	}, h("uicorner", { CornerRadius: new UDim(0, 14) }),
-	h("uistroke", { Color: accent, Thickness: 1, Transparency: 0.55, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+	h("uistroke", { Color: Palette.mango, Thickness: 1, Transparency: 0.6, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 	h("frame", {
 		Size: UDim2.fromOffset(20, 20),
 		Position: new UDim2(0, 14, 0.5, 0),
@@ -1369,7 +1543,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	// results
 	h("scrollingframe", {
 		ref: listRef,
-		Size: new UDim2(1, -16, 1, -(72 + footerH + 6)),
+		Size: new UDim2(1, -(16 + (preview ? previewW + 8 : 0)), 1, -(72 + footerH + 6)),
 		Position: UDim2.fromOffset(8, 68),
 		BackgroundTransparency: 1,
 		BorderSizePixel: 0,
@@ -1379,24 +1553,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		ScrollBarImageColor3: Palette.muted,
 		ScrollingDirection: Enum.ScrollingDirection.Y,
 		ZIndex: 502,
-	}, flat.size() > 0 && h("frame", {
-		// the selection highlight: one plate that glides between rows
-		Size: new UDim2(1, -4, 0, rowH),
-		Position: highlightY.map((y: number) => UDim2.fromOffset(0, y)),
-		BackgroundColor3: theme.darken(accent, 0.7),
-		BackgroundTransparency: 0,
-		BorderSizePixel: 0,
-		ZIndex: 502,
-	}, h("uicorner", { CornerRadius: new UDim(0, 10) }),
-	h("uistroke", { Color: accent, Transparency: 0.55, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
-	h("frame", {
-		Size: new UDim2(0, 3, 1, -18),
-		Position: new UDim2(0, 2, 0.5, 0),
-		AnchorPoint: new Vector2(0, 0.5),
-		BackgroundColor3: accent,
-		BorderSizePixel: 0,
-		ZIndex: 503,
-	}, h("uicorner", { CornerRadius: new UDim(1, 0) }))),
+	},
 	h("frame", {
 		ref: contentRef,
 		Size: new UDim2(1, 0, 0, 0),
@@ -1404,6 +1561,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		BackgroundTransparency: 1,
 		ZIndex: 504,
 	}, rows, empty)),
+	preview && h(Preview, { entry: current, width: previewW, top: 68, bottom: footerH + 10, appear: previewIn, touch }),
 	// footer key hints
 	footerH > 0 && h("frame", {
 		Size: new UDim2(1, 0, 0, footerH),
