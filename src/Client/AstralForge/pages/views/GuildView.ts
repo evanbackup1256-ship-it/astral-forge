@@ -3,6 +3,7 @@ import type { EffectFeedController } from "../../Controllers/EffectFeedControlle
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
+import { STICKY_H, StickyGroupLabel } from "./stickyGroupLabel";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
 
 /**
@@ -374,64 +375,6 @@ function __member(): unknown {
 			return undefined;
 		}, color: (luaTruthy(actionable) ? luaProp(row, "accent") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(actionable) ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), disabled: ((!luaTruthy(actionable)) || busy), loading: ((luaTruthy(actionable ) ?  busy : actionable)), shakeToken: (luaTruthy(actionable) ? shakeToken : 0), highlight: actionable, size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 44) : luaCall(luaProp(UDim2, "fromOffset"), 240, 44)), position: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -44) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -240, 1, -44)), reducedMotion: reducedMotion }));
 		return undefined;
-	}
-	// Phones: the group you're scrolling through (You, Leader, Officers, Members) stays pinned to the
-	// top of the member list until the next group pushes it off.
-	const STICKY_H = 24;
-	function StickyGroupLabel(props: { groups: { top: number; label: string; color: Color3 }[]; height: number }) {
-		const hostRef = React.useRef<Frame>();
-		const [offset, setOffset] = React.useBinding(0);
-		const [current, setCurrent] = React.useState(0);
-		const groupsRef = React.useRef(props.groups);
-		groupsRef.current = props.groups;
-		React.useEffect(() => {
-			const host = hostRef.current;
-			const container = host?.Parent as GuiObject | undefined;
-			const scroller = host?.FindFirstAncestorWhichIsA("ScrollingFrame");
-			if (host === undefined || container === undefined || scroller === undefined) {
-				return undefined;
-			}
-			const update = () => {
-				const scrolled = scroller.AbsolutePosition.Y - container.AbsolutePosition.Y;
-				setOffset(math.clamp(scrolled, 0, math.max(0, props.height - STICKY_H)));
-				const groups = groupsRef.current;
-				let index = 0;
-				for (let i = 0; i < groups.size(); i++) {
-					if (groups[i].top <= scrolled + STICKY_H) {
-						index = i;
-					}
-				}
-				setCurrent(index);
-			};
-			update();
-			const connection = scroller.GetPropertyChangedSignal("CanvasPosition").Connect(update);
-			return () => connection.Disconnect();
-		}, [props.height]);
-		const group = props.groups[math.min(current, props.groups.size() - 1)];
-		return reactLoose.createElement(
-			"frame",
-			{
-				ref: hostRef,
-				Size: new UDim2(1, 0, 0, STICKY_H),
-				Position: offset.map((y) => UDim2.fromOffset(0, y)),
-				BackgroundColor3: luaProp(Palette, "panelRaised") as Color3,
-				BackgroundTransparency: 0.08,
-				BorderSizePixel: 0,
-				ZIndex: 20,
-			},
-			reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 6) }),
-			reactLoose.createElement(Text as never, {
-				value: group !== undefined ? group.label : "",
-				size: 11,
-				color: group !== undefined ? group.color : luaProp(Palette, "muted"),
-				weight: Enum.FontWeight.Heavy,
-				fit: true,
-				minSize: 9,
-				position: UDim2.fromOffset(10, 4),
-				sizeConstraint: new UDim2(1, -20, 0, 16),
-				zIndex: 21,
-			}),
-		);
 	}
 	// shared by MemberRow and the list height, so the section is exactly as tall as its rows
 	function memberRowLayout(param: unknown): { manageable: boolean; height: number } {
@@ -1249,7 +1192,7 @@ function __member(): unknown {
 			memberGapSoFar += pageGap as unknown as number;
 			luaSetIndex(memberChildren, index, reactLoose.createElement(MemberRow, rowProps as never));
 		}
-		const stickyGroups = luaTruthy(stack) && memberGroups.size() > 1;
+		const stickyGroups = memberGroups.size() > 1;
 		const stickyPad = stickyGroups ? STICKY_H + 6 : 0;
 		let memberBlockH: unknown = ((len(shownMembers) === 0) ? 72 : stickyPad + memberRowsH + math.max(0, (len(shownMembers) as unknown as number) - 1) * (pageGap as unknown as number));
 		let overscan: unknown = (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2));
