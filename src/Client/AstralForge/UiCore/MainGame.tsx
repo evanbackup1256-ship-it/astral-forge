@@ -625,11 +625,12 @@ export function MainGame(_param: MainGameProps) {
 				action === "ClaimAnomalyDirective" ||
 				action === "ClaimAnomalyMilestone" ||
 				action === "ClaimForgePathStep";
-			if (purchase) {
+			// BuyArtifact opens the artifact reveal, which plays its own sound
+			if (purchase && action !== "BuyArtifact") {
 				Audio.play(
 					machinePurchase
 						? "machineInstall"
-						: action === "UpgradeArtifact" || action === "BuyArtifact"
+						: action === "UpgradeArtifact"
 							? "artifactUpgrade"
 							: progressionPurchase
 								? "researchUnlock"
