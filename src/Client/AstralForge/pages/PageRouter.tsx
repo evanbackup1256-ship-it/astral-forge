@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { bulkCost, Flux, gteFlux } from "../CoreKit/format";
 import { LuauComponent, LuauProps } from "./luauKits";
 
 const PAGE_SUITES: Record<string, string> = {
@@ -245,7 +246,52 @@ const PAGE_STATE_KEYS: Record<string, string[] | undefined> = {
 	Settings: ["Settings", "Game", "FeatureUnlocks", "Flags"],
 	Mail: ["Mailbox"],
 	Crew: ["CurrentZone", "Visitors"],
+	// upgrade pages: everything they read except Cash, which goes through the affordability check below
+	Workshop: ["Machines", "AutoForge", "Production", "Rebirths", "Zone", "Command", "FeatureUnlocks"],
+	Research: ["Research", "Rebirths", "Zone", "Command", "FeatureUnlocks"],
 };
+
+// Upgrade pages only use Cash to decide which rows are affordable (on a fixed buy amount; Max
+// quotes a cash-dependent count, so it keeps comparing Cash directly). With every price known,
+// the affordable set is the same exactly when the number of prices at or under Cash is the same.
+const CASH_GATED: Record<string, { config: string; levels: string } | undefined> = {
+	Workshop: { config: "Machines", levels: "Machines" },
+	Research: { config: "Research", levels: "Research" },
+};
+
+interface CostDef {
+	Id?: string;
+	BaseCost?: number;
+	CostScale?: number;
+	MaxLevel?: number;
+}
+
+function affordableCount(defs: unknown, levels: unknown, amount: number, cash: Flux): number {
+	if (!typeIs(defs, "table")) {
+		return -1;
+	}
+	const owned = (typeIs(levels, "table") ? levels : {}) as Record<string, number | undefined>;
+	let count = 0;
+	for (const [, raw] of pairs(defs as object)) {
+		const def = raw as CostDef;
+		if (!typeIs(def, "table") || def.Id === undefined || def.BaseCost === undefined || def.CostScale === undefined) {
+			continue;
+		}
+		const level = tonumber(owned[def.Id]) ?? 0;
+		const max = def.MaxLevel ?? math.huge;
+		if (level >= max) {
+			continue;
+		}
+		// the row price on this amount, and the one-level price the auto-forge target waits on
+		if (gteFlux(cash, bulkCost(def.BaseCost, def.CostScale, level, amount, max))) {
+			count += 1;
+		}
+		if (gteFlux(cash, bulkCost(def.BaseCost, def.CostScale, level, 1, max))) {
+			count += 1;
+		}
+	}
+	return count;
+}
 
 function samePageProps(previous: PageContentProps, nextProps: PageContentProps): boolean {
 	for (const [key, value] of pairs(nextProps)) {
@@ -272,7 +318,19 @@ function samePageProps(previous: PageContentProps, nextProps: PageContentProps):
 			return false;
 		}
 	}
-	return true;
+	const gate = CASH_GATED[nextProps.page];
+	if (gate === undefined || before.Cash === after.Cash) {
+		return true;
+	}
+	const amount = nextProps.buyAmount;
+	if (!typeIs(amount, "number") || amount <= 0) {
+		return false;
+	}
+	const config = nextProps.config as Record<string, unknown> | undefined;
+	const defs = config !== undefined ? config[gate.config] : undefined;
+	const was = affordableCount(defs, before[gate.levels], amount, (before.Cash ?? 0) as Flux);
+	const now = affordableCount(defs, after[gate.levels], amount, (after.Cash ?? 0) as Flux);
+	return was >= 0 && was === now;
 }
 
 export const PageContent = React.memo(PageContentInner, samePageProps);
