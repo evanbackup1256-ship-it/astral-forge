@@ -10,7 +10,7 @@ import { asFlux, compactNumber, Flux } from "../../CoreKit/format";
 import { InteractionFeedback } from "../../CoreKit/interaction";
 import { chromeFor, darken, Palette, TapTarget } from "../../CoreKit/theme";
 import { useFlash, usePulse, useStagger, useViewport } from "../../MotionKit/motion";
-import Tooltip = require("../../Tooltip");
+import { TooltipContent, mergeEvents, useTooltip } from "../../Tooltip";
 import { AudioPlayer, kitMember, LuauComponent, sharedModule } from "../luauKits";
 
 const UserInputService = game.GetService("UserInputService");
@@ -398,12 +398,10 @@ function ChoiceCard(props: ChoiceCardProps) {
 	const [hover, setHover] = React.useState(false);
 	const chosen = props.chosen;
 	const tint = props.color;
-	const cardRef = React.useRef<TextButton>();
-	Tooltip.useTooltip(cardRef, props.tooltip as Parameters<typeof Tooltip.useTooltip>[1]);
+	const tip = useTooltip(props.tooltip as TooltipContent | undefined);
 	const iconSize = props.iconSize ?? 30;
 	return (
 		<textbutton
-			ref={cardRef}
 			key={props.name}
 			LayoutOrder={props.order}
 			Size={props.size}
@@ -415,7 +413,7 @@ function ChoiceCard(props: ChoiceCardProps) {
 			Text=""
 			Selectable={true}
 			ZIndex={905}
-			Event={{
+			Event={mergeEvents(tip, {
 				Activated: () => {
 					if (props.disabled) {
 						Audio.play("error");
@@ -426,7 +424,7 @@ function ChoiceCard(props: ChoiceCardProps) {
 				},
 				MouseEnter: () => setHover(true),
 				MouseLeave: () => setHover(false),
-			}}
+			})}
 		>
 			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke Color={tint} Thickness={chosen ? 2 : 1} Transparency={chosen ? 0.05 : hover ? 0.35 : 0.7} />

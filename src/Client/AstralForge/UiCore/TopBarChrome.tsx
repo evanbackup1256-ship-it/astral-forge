@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { useTooltip } from "../Tooltip";
 import { AppHelpers } from "../CoreKit/appNav";
 import * as BoostIconKind from "../CoreKit/boostIconKind";
 import { Flux, asFlux, clockText, compactNumber } from "../CoreKit/format";
@@ -25,10 +26,6 @@ const Audio = (loadKit("AudioKit")("audio") as { Audio: AudioApi }).Audio;
 
 const NumberSpinnerHost = (loadKit("ReactHosts")("NumberSpinnerHost") as { NumberSpinnerHost: unknown }).NumberSpinnerHost;
 
-interface TooltipApi {
-	useTooltip(this: void, ref: React.RefObject<GuiObject>, tooltip: unknown): void;
-}
-const Tooltip = require(AstralForge.WaitForChild("Tooltip") as ModuleScript) as TooltipApi;
 
 interface JuiceFxModule {
 	useTarget(this: void, name: string): LuaTuple<[React.MutableRefObject<GuiObject | undefined>, React.Binding<number>]>;
@@ -108,8 +105,7 @@ export function StatChip(_param: StatChipProps) {
 	const iconSize = tall ? 28 : 24;
 	const valueSize = tall ? 15 : 14;
 	const tip = CHIP_TIPS[label];
-	Tooltip.useTooltip(
-		juiceRef,
+	const tipEvents = useTooltip(
 		tip !== undefined
 			? {
 					title: tip.title,
@@ -277,6 +273,7 @@ export function StatChip(_param: StatChipProps) {
 			ClipsDescendants: false,
 			Name: label,
 			ref: juiceRef,
+			Event: tipEvents,
 		},
 		h("uipadding", {
 			PaddingLeft: new UDim(0, 2),

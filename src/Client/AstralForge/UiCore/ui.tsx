@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { TooltipContent, labelFor, mergeEvents, useTooltip } from "../Tooltip";
 import ReactRoblox from "@rbxts/react-roblox";
 import { compactNumber } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -75,10 +76,6 @@ interface AudioApi {
 	buttonAudioCue(this: void, text: string, icon?: unknown): string | false;
 	hoverCueFor(this: void, sound: unknown): string;
 }
-interface TooltipApi {
-	labelFor(this: void, icon: unknown): string | undefined;
-	useTooltip(this: void, ref: React.RefObject<GuiObject>, tooltip: unknown): void;
-}
 interface RainbowApi {
 	at(this: void, t: number): ColorSequence;
 	family(this: void, color: Color3, t: number, depth: number): ColorSequence;
@@ -108,7 +105,6 @@ const _audio = kitMember<AudioApi>("AudioKit", "audio");
 const Audio = _audio.Audio;
 const buttonAudioCue = _audio.buttonAudioCue;
 const hoverCueFor = _audio.hoverCueFor;
-const Tooltip = require(AstralForge.WaitForChild("Tooltip") as ModuleScript) as TooltipApi;
 const Rainbow = require(AstralForge.WaitForChild("Rainbow") as ModuleScript) as RainbowApi;
 const classifyIntent = (MotionIntent as unknown as { classify(this: void, text: string): string | undefined }).classify;
 
@@ -2234,9 +2230,12 @@ export function Button(props: ButtonProps) {
 	// a tooltip: what the caller says, or for an icon-only button, the icon's name
 	let tooltip = props.tooltip;
 	if (tooltip === undefined && iconOnly) {
-		tooltip = Tooltip.labelFor(icon);
+		tooltip = labelFor(icon as string | undefined);
 	}
-	Tooltip.useTooltip(buttonRef, effectivelyDisabled && typeIs(tooltip, "string") ? undefined : tooltip);
+	const tipEvents = useTooltip(
+		(effectivelyDisabled && typeIs(tooltip, "string") ? undefined : tooltip) as TooltipContent | undefined,
+	);
+	const buttonEvents = React.useMemo(() => mergeEvents(events, tipEvents), [events, tipEvents]);
 	const compactRipple =
 		iconOnly ||
 		(size.X.Scale === 0 && size.X.Offset > 0 && size.X.Offset <= 56) ||
@@ -2287,7 +2286,7 @@ export function Button(props: ButtonProps) {
 				Selectable={canSelect}
 				SelectionOrder={zIndex}
 				ZIndex={zIndex + 1}
-				Event={events}
+				Event={buttonEvents}
 			>
 				<frame
 					Size={new UDim2(1, 0, 1, -hitExtra)}

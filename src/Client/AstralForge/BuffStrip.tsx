@@ -5,7 +5,7 @@ import React from "@rbxts/react";
 import ArtKit = require("./ArtKit");
 import Juice = require("./JuiceFx");
 import Rainbow = require("./Rainbow");
-import Tooltip = require("./Tooltip");
+import { useTooltip } from "./Tooltip";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import * as motion from "./MotionKit/motion";
@@ -464,8 +464,7 @@ function PerfSegment(props: PerfSegmentProps): React.Element {
 	}
 	const worst =
 		props.showFps === true && fps < 38 ? fpsColor(fps) : props.showPing === true ? pingColor(ping) : fpsColor(fps);
-	const perfRef = React.useRef<GuiObject>(undefined);
-	Tooltip.useTooltip(perfRef as unknown as React.Ref<GuiObject>, {
+	const perfTip = useTooltip({
 		title: "Frame rate and ping",
 		body: "Frames per second on your device, and the round trip to the server.",
 		hint: "Hide either one in Settings > Interface.",
@@ -473,7 +472,7 @@ function PerfSegment(props: PerfSegmentProps): React.Element {
 	return h(
 		"frame",
 		{
-			ref: perfRef,
+			Event: perfTip,
 			Size: UDim2.fromOffset(PERF_W, COMPACT_H),
 			LayoutOrder: props.order,
 			BackgroundTransparency: 1,
@@ -530,7 +529,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 	const currency = props.currency;
 	const [ref, bump] = Juice.useTarget(currency.target);
 	const rate = format.asFlux((currency.rate as number | string | undefined) ?? 0);
-	Tooltip.useTooltip(ref as unknown as React.Ref<GuiObject>, {
+	const tip = useTooltip({
 		title: `${format.compactNumber(currency.value)} ${currency.name ?? currency.target}`,
 		body: CURRENCY_TIPS[currency.target],
 		hint: rate > 0 ? `+${format.compactNumber(rate)} a second right now` : undefined,
@@ -541,6 +540,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 		"frame",
 		{
 			ref,
+			Event: tip,
 			Size: UDim2.fromOffset(CURRENCY_W, COMPACT_H),
 			LayoutOrder: props.order,
 			BackgroundTransparency: 1,
@@ -644,10 +644,9 @@ interface BuffCellProps {
 
 // one buff in the capsule; hovering says what it is and how long it has left
 function BuffCell(props: BuffCellProps): React.Element {
-	const ref = React.useRef<GuiObject>(undefined);
 	const buff = props.buff;
 	const left = buff.endsAt !== undefined ? (tonumber(buff.endsAt) ?? 0) - Workspace.GetServerTimeNow() : undefined;
-	Tooltip.useTooltip(ref as unknown as React.Ref<GuiObject>, {
+	const tip = useTooltip({
 		title: `${buff.name} ${buff.value}`,
 		body: buff.note,
 		hint: left !== undefined && left > 0 ? `${clockText(left)} left` : undefined,
@@ -656,7 +655,7 @@ function BuffCell(props: BuffCellProps): React.Element {
 	return h(
 		"frame",
 		{
-			ref,
+			Event: tip,
 			Size: props.Size,
 			LayoutOrder: props.LayoutOrder,
 			BackgroundTransparency: 1,

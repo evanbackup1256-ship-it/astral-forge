@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { TooltipProvider } from "../Tooltip";
 const ContentProvider = game.GetService("ContentProvider");
 const GuiService = game.GetService("GuiService");
 const Players = game.GetService("Players");
@@ -83,11 +84,6 @@ interface SessionStatsApi {
 }
 const SessionStats = load<SessionStatsApi>("SessionStats");
 
-interface TooltipApi {
-	setEnabled(this: void, value: boolean): void;
-	setReducedMotion(this: void, value: boolean): void;
-}
-const Tooltip = load<TooltipApi>("Tooltip");
 
 interface CrewState {
 	crew?: unknown;
@@ -215,10 +211,6 @@ export function MainGame(_param: MainGameProps) {
 	const tooltipsCalm =
 		GuiService.ReducedMotionEnabled === true ||
 		((tonumber(state?.Settings.MotionIntensity) ?? 1) < 0.3) === true;
-	React.useEffect(() => {
-		Tooltip.setEnabled(tooltipsOn);
-		Tooltip.setReducedMotion(tooltipsCalm);
-	}, [tooltipsOn, tooltipsCalm]);
 	React.useEffect(() => {
 		applyAccessibilityTheme(
 			((state?.Settings.HighContrast as number | undefined) ?? 0) >= 0.5,
@@ -1659,5 +1651,10 @@ export function MainGame(_param: MainGameProps) {
 			</frame>
 		</MotionSettingsContext.Provider>
 	);
-	return externalAntilag ? content : <AntilagProvider>{content}</AntilagProvider>;
+	const tipped = (
+		<TooltipProvider enabled={tooltipsOn} reducedMotion={tooltipsCalm}>
+			{content}
+		</TooltipProvider>
+	);
+	return externalAntilag ? tipped : <AntilagProvider>{tipped}</AntilagProvider>;
 }

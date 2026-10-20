@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { mergeEvents, useTooltip } from "../Tooltip";
 import ReactRoblox from "@rbxts/react-roblox";
 import { AppHelpers, MORE_NAV, NAV_GROUPS, PRIMARY_NAV, NavEntry, NavState, navGroupOf } from "../CoreKit/appNav";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -34,10 +35,6 @@ interface AudioApi {
 }
 const Audio = (loadKit("AudioKit")("audio") as { Audio: AudioApi }).Audio;
 
-interface TooltipApi {
-	useTooltip(this: void, ref: React.RefObject<GuiObject>, tooltip: unknown): void;
-}
-const Tooltip = require(AstralForge.WaitForChild("Tooltip") as ModuleScript) as TooltipApi;
 
 const SHELL_CHROME = {
 	railGutter: 18,
@@ -142,9 +139,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 		});
 	}, []);
 	// a collapsed rail is icons only: name the page, and say if something is waiting there
-	const railRef = React.useRef<GuiObject>();
-	Tooltip.useTooltip(
-		railRef,
+	const tip = useTooltip(
 		collapsed || disabled
 			? {
 					title: entry.label,
@@ -167,14 +162,13 @@ function RailButtonImpl(_param: RailButtonProps) {
 		h(
 			"imagebutton",
 			{
-				ref: railRef,
 				Size: UDim2.fromScale(1, 1),
 				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
 				AutoButtonColor: false,
 				Active: !disabled,
 				Selectable: !disabled,
-				Event: {
+				Event: mergeEvents(tip, {
 					Activated: () => {
 						const audioMarker = Audio.captureIntent();
 						onClick();
@@ -193,7 +187,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 						}
 					},
 					InputEnded: () => setPressed(false),
-				},
+				}),
 			},
 			h(
 				"frame",
