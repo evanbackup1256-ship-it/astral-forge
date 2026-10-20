@@ -21,6 +21,12 @@ const SHOW_DELAY = 0.45;
 const WARM_DELAY = 0.08;
 const WARM_WINDOW = 0.6;
 const PAD_DELAY = 0.7;
+// gamepad focus moves in steps, so a warm tip waits a touch longer than the mouse one
+const PAD_WARM_DELAY = 0.25;
+// a long-press tip stays this long after the finger lifts, unless something else is touched
+const TOUCH_LINGER = 1.6;
+// a finger that slides this far is scrolling, not asking for a tip
+const TOUCH_SLOP = 12;
 const LONG_PRESS = 0.45;
 const GAP = 8;
 const EDGE = 10;
@@ -98,8 +104,36 @@ function scheduleShow(id: number, target: GuiObject, read: () => TooltipContent 
 	});
 }
 
+// where the current long press started, so a slide can cancel it
+let pressStart: Vector2 | undefined = undefined;
+
 UserInputService.InputChanged.Connect((input) => {
 	if (input.UserInputType === Enum.UserInputType.MouseWheel && shown !== undefined) hideTooltip();
+	if (input.UserInputType === Enum.UserInputType.Touch && pressStart !== undefined) {
+		const at = new Vector2(input.Position.X, input.Position.Y);
+		if (at.sub(pressStart).Magnitude > TOUCH_SLOP) {
+			pressStart = undefined;
+			hideTooltip();
+		}
+	}
+});
+
+// the same things close every tip: a tap or click somewhere else, any key, or Escape/B on a pad.
+// The target's own handlers run first and decide whether its tip stays (a long press).
+UserInputService.InputBegan.Connect((input) => {
+	if (shown === undefined) return;
+	const kind = input.UserInputType;
+	if (kind === Enum.UserInputType.Keyboard || input.KeyCode === Enum.KeyCode.ButtonB) {
+		hideTooltip();
+		return;
+	}
+	if (kind === Enum.UserInputType.Touch || kind === Enum.UserInputType.MouseButton1) {
+		const target = shown.target;
+		const point = new Vector2(input.Position.X, input.Position.Y);
+		const [pos, size] = targetRect(target);
+		const inside = point.X >= pos.X && point.X <= pos.X + size.X && point.Y >= pos.Y && point.Y <= pos.Y + size.Y;
+		if (!inside) hideTooltip();
+	}
 });
 
 export interface TooltipEvents {
@@ -148,13 +182,14 @@ export function useTooltip(content: TooltipContent | undefined): TooltipEvents {
 			MouseLeave: leave,
 			SelectionGained: (rbx) => {
 				if (GuiService.SelectedObject !== rbx || !hasContent(read())) return;
-				scheduleShow(id, rbx, read, os.clock() - lastHiddenAt < WARM_WINDOW ? 0.25 : PAD_DELAY);
+				scheduleShow(id, rbx, read, os.clock() - lastHiddenAt < WARM_WINDOW ? PAD_WARM_DELAY : PAD_DELAY);
 			},
 			SelectionLost: leave,
 			InputBegan: (rbx, input) => {
 				const kind = input.UserInputType;
 				if (kind === Enum.UserInputType.Touch) {
 					pressAt = os.clock();
+					pressStart = new Vector2(input.Position.X, input.Position.Y);
 					if (hasContent(read())) scheduleShow(id, rbx, read, LONG_PRESS);
 				} else if (
 					kind === Enum.UserInputType.MouseButton1 ||
@@ -166,9 +201,13 @@ export function useTooltip(content: TooltipContent | undefined): TooltipEvents {
 			},
 			InputEnded: (rbx, input) => {
 				if (input.UserInputType !== Enum.UserInputType.Touch) return;
+				pressStart = undefined;
 				if (shown !== undefined && shown.id === id && os.clock() - pressAt >= LONG_PRESS) {
 					// leave a long-press tip up long enough to read
-					task.delay(1.6, () => hideId(id));
+					const tipId = shown;
+					task.delay(TOUCH_LINGER, () => {
+						if (shown === tipId) hideId(id);
+					});
 				} else {
 					leave(rbx);
 				}
@@ -211,16 +250,26 @@ function targetRect(target: GuiObject): LuaTuple<[Vector2, Vector2]> {
 	return $tuple(position, target.AbsoluteSize);
 }
 
-// above, else below, right, left; slid along the edge and clamped inside the safe area
+// the device's safe area (notches, rounded corners, home bar), measured by the provider
+let safeFrame: Frame | undefined = undefined;
+
+// above, else below, right, left; slid along the edge and clamped inside the safe area.
+// On touch the finger sits over the target, so below is only used when above won't fit.
 export function placeTooltip(targetPos: Vector2, targetSize: Vector2, size: Vector2): Vector2 {
 	const view = viewport();
-	const top = math.max(EDGE, GuiService.GetGuiInset()[0].Y + 4);
+	const safe = safeFrame !== undefined && safeFrame.Parent !== undefined ? safeFrame : undefined;
+	const safeMin = safe !== undefined ? safe.AbsolutePosition : new Vector2(0, 0);
+	const maxCorner = safe !== undefined ? safe.AbsolutePosition.add(safe.AbsoluteSize) : view;
+	const left = math.max(EDGE, safeMin.X + EDGE);
+	const right = math.min(view.X, maxCorner.X) - EDGE;
+	const top = math.max(EDGE, GuiService.GetGuiInset()[0].Y + 4, safeMin.Y + EDGE);
+	const bottom = math.min(view.Y, maxCorner.Y) - EDGE;
 	const clampPos = (p: Vector2) =>
 		new Vector2(
-			math.clamp(p.X, EDGE, math.max(EDGE, view.X - EDGE - size.X)),
-			math.clamp(p.Y, top, math.max(top, view.Y - EDGE - size.Y)),
+			math.clamp(p.X, left, math.max(left, right - size.X)),
+			math.clamp(p.Y, top, math.max(top, bottom - size.Y)),
 		);
-	const fits = (p: Vector2) => p.X >= EDGE && p.Y >= top && p.X + size.X <= view.X - EDGE && p.Y + size.Y <= view.Y - EDGE;
+	const fits = (p: Vector2) => p.X >= left && p.Y >= top && p.X + size.X <= right && p.Y + size.Y <= bottom;
 	const cx = targetPos.X + targetSize.X / 2 - size.X / 2;
 	const cy = targetPos.Y + targetSize.Y / 2 - size.Y / 2;
 	const spots = [
@@ -298,7 +347,8 @@ export function TooltipProvider(props: TooltipProviderProps) {
 		const hasBody = data.body !== undefined && data.body !== "";
 		const hasHint = data.hint !== undefined && data.hint !== "";
 		const narrow = viewport().X < 700;
-		const maxW = narrow ? 220 : 280;
+		// never wider than the screen allows on very small phones (bubble padding is 22px)
+		const maxW = math.max(120, math.min(narrow ? 220 : 280, viewport().X - EDGE * 2 - 22));
 		const fade = alpha.map((a) => 1 - a);
 		const label = (name: string, order: number, text: string, weight: Enum.FontWeight, size: number, color: Color3) => (
 			<textlabel
@@ -367,6 +417,27 @@ export function TooltipProvider(props: TooltipProviderProps) {
 						ZIndexBehavior={Enum.ZIndexBehavior.Sibling}
 					>
 						{bubble}
+					</screengui>,
+					playerGui,
+				)}
+			{playerGui !== undefined &&
+				ReactRoblox.createPortal(
+					<screengui
+						key="AstralForgeTooltipSafeArea"
+						DisplayOrder={8999}
+						IgnoreGuiInset={true}
+						ScreenInsets={Enum.ScreenInsets.DeviceSafeInsets}
+						ResetOnSpawn={false}
+					>
+						<frame
+							Size={UDim2.fromScale(1, 1)}
+							BackgroundTransparency={1}
+							Active={false}
+							Selectable={false}
+							ref={(rbx: Frame | undefined) => {
+								safeFrame = rbx;
+							}}
+						/>
 					</screengui>,
 					playerGui,
 				)}
