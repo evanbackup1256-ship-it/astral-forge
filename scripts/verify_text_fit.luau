@@ -7,8 +7,8 @@
 local fs = require("@lune/fs")
 
 local ROOT = "src/Client/AstralForge"
--- other workstreams own these; they're listed but not counted
-local SKIP = { "Settings", "PlayerList", "Playerlist", "Chat", "NameTag", "Rank", "Guild", "CrewMember" }
+-- other workstreams own these; they're listed but not counted (day-a areas are counted since batch 30)
+local SKIP = { "Settings", "Chat", "NameTag" }
 
 local ALLOWED: { [string]: number } = {
 	["src/Client/AstralForge/pages/PagesShop.tsx"] = 1, -- crate stage description (crate workstream)

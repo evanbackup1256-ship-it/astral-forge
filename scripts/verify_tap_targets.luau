@@ -10,7 +10,7 @@ local fs = require("@lune/fs")
 
 local TAP = 44
 local ROOT = "src/Client/AstralForge"
-local SKIP = { "Settings", "PlayerList", "Playerlist", "Chat", "NameTag", "Rank", "Guild", "CrewMember", "PagesSocial", "Crate", "purchase", "MobileControls", "ProfileStyle" }
+local SKIP = { "Settings", "Chat", "NameTag", "Crate", "purchase", "MobileControls" }
 
 -- known short raw buttons, per file, each with the reason it's fine
 local ALLOWED: { [string]: number } = {
