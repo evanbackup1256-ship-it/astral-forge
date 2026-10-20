@@ -12,9 +12,18 @@ function colon(value: unknown): Colon {
 	return value as Colon;
 }
 function luaProp(object: unknown, key: string): unknown {
+	// A missing row is nil. Indexing it throws; the Luau views treated that as absent.
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[key];
 }
 function luaIndex(object: unknown, index: unknown): unknown {
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[index as unknown as string];
 }
 function luaSet(object: unknown, key: string, value: unknown): void {
@@ -218,7 +227,7 @@ function __member(): unknown {
 		let timeout: unknown = reactLoose.useRef();
 		let pendingResult: unknown = reactLoose.useRef();
 		let launchFinished: unknown = reactLoose.useRef(false);
-		let beginBrakeRef: unknown = reactLoose.useRef(function(): unknown | undefined {
+		let beginBrakeRef: unknown = reactLoose.useRef(function(this: void): unknown | undefined {
 			return undefined;
 			return undefined;
 		});
@@ -229,7 +238,7 @@ function __member(): unknown {
 		let audioTicks: unknown = ((!reducedMotion) && ((luaProp(antilag, "fxBudget") as unknown as number) > (0.22 as unknown as number)));
 		let audioTicksRef: unknown = reactLoose.useRef(audioTicks);
 		luaSet(audioTicksRef, "current", audioTicks);
-		let completeLanding: unknown = reactLoose.useCallback(function(result?: unknown, finalRotation?: unknown): unknown | undefined {
+		let completeLanding: unknown = reactLoose.useCallback(function(this: void, result?: unknown, finalRotation?: unknown): unknown | undefined {
 			if (((!luaProp(mounted, "current")) || (!luaProp(busy, "current")))) {
 				return undefined;
 			}
@@ -240,14 +249,14 @@ function __member(): unknown {
 			luaCall(setPointerKick, 0);
 			luaCall(setSpinEnergy, 0);
 			luaCall(setWinner, luaProp(result, "index"));
-			luaCall(setImpactNonce, function(value?: unknown): unknown | undefined {
+			luaCall(setImpactNonce, function(this: void, value?: unknown): unknown | undefined {
 				return ((value as unknown as number) + (1 as unknown as number));
 				return undefined;
 			});
 			luaCall(setPhase, "landed");
 			luaSet(busy, "current", false);
 			luaSet(pendingResult, "current", undefined);
-			luaCall(pcall, function(): unknown | undefined {
+			luaCall(pcall, function(this: void): unknown | undefined {
 				luaCall(luaProp(mod("JuiceFx"), "live"), "wheel", undefined);
 				return undefined;
 			});
@@ -259,7 +268,7 @@ function __member(): unknown {
 			}
 			return undefined;
 		}, [onLand, setPointerKick, setRotation, setSpinEnergy]);
-		let beginBrake: unknown = reactLoose.useCallback(function(result?: unknown): unknown | undefined {
+		let beginBrake: unknown = reactLoose.useCallback(function(this: void, result?: unknown): unknown | undefined {
 			if (((!luaProp(mounted, "current")) || (!luaProp(busy, "current")))) {
 				return undefined;
 			}
@@ -286,11 +295,11 @@ function __member(): unknown {
 			return undefined;
 		}, [luaProp(antilag, "tier"), completeLanding, reducedMotion, segment]);
 		luaSet(beginBrakeRef, "current", beginBrake);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((!spinning)) {
 				return undefined;
 			}
-			let connection: unknown = colon(luaProp(RunService, "RenderStepped")).Connect(function(deltaTime?: unknown): unknown | undefined {
+			let connection: unknown = colon(luaProp(RunService, "RenderStepped")).Connect(function(this: void, deltaTime?: unknown): unknown | undefined {
 				// the pointer springs back after each peg flicks it
 				if (((luaProp(pointerKickValue, "current") as unknown as number) > (0 as unknown as number))) {
 					luaSet(pointerKickValue, "current", luaCall(luaProp(math, "max"), 0, ((luaProp(pointerKickValue, "current") as unknown as number) - (((deltaTime as unknown as number) * (9 as unknown as number)) as unknown as number))));
@@ -346,17 +355,17 @@ function __member(): unknown {
 				}
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				return colon(connection).Disconnect();
 				return undefined;
 			};
 			return undefined;
 		}, [completeLanding, segment, setPointerKick, setRotation, setSpinEnergy, spinning]);
-		reactLoose.useEffect(function(): unknown | undefined {
-			return function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaSet(mounted, "current", false);
 				luaSet(busy, "current", false);
-				luaCall(pcall, function(): unknown | undefined {
+				luaCall(pcall, function(this: void): unknown | undefined {
 					luaCall(luaProp(mod("JuiceFx"), "live"), "wheel", undefined);
 					return undefined;
 				});
@@ -370,7 +379,7 @@ function __member(): unknown {
 			};
 			return undefined;
 		}, {});
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((luaProp(busy, "current") || (!receipt))) {
 				return;
 			}
@@ -394,7 +403,7 @@ function __member(): unknown {
 			luaCall(setPhase, "landed");
 			return undefined;
 		}, [receipt, spinning, luaProp(luaProp(config, "Wheel"), "Rewards"), segment, setRotation]);
-		let spin: unknown = function(): unknown | undefined {
+		let spin: unknown = function(this: void): unknown | undefined {
 			if ((luaProp(busy, "current") || (((!unresolvedSpin) && (!luaProp(luaProp(state, "Wheel"), "CanSpin")))))) {
 				return undefined;
 			}
@@ -409,14 +418,14 @@ function __member(): unknown {
 			luaCall(setPointerKick, 0);
 			luaCall(setWinner, -1);
 			luaCall(setFailure, undefined);
-			luaCall(setLaunchNonce, function(value?: unknown): unknown | undefined {
+			luaCall(setLaunchNonce, function(this: void, value?: unknown): unknown | undefined {
 				return ((value as unknown as number) + (1 as unknown as number));
 				return undefined;
 			});
 			colon(Audio).play("wheelStart");
 			luaCall(luaProp(InteractionFeedback, "tap"));
 			// the spin is pinned to the island until it lands (or 14 s at most)
-			luaCall(pcall, function(): unknown | undefined {
+			luaCall(pcall, function(this: void): unknown | undefined {
 				luaCall(luaProp(mod("JuiceFx"), "live"), "wheel", { title: "WHEEL SPINNING", value: "…", icon: "Wheel.6", color: luaProp(Palette, "mango"), ttl: 14, priority: 2 });
 				return undefined;
 			});
@@ -431,7 +440,7 @@ function __member(): unknown {
 			if ((luaProp(timeout, "current") !== undefined)) {
 				luaCall(pcall, luaProp(task, "cancel"), luaProp(timeout, "current"));
 			}
-			luaSet(timeout, "current", luaCall(luaProp(task, "delay"), 12, function(): unknown | undefined {
+			luaSet(timeout, "current", luaCall(luaProp(task, "delay"), 12, function(this: void): unknown | undefined {
 				luaSet(timeout, "current", undefined);
 				if ((((!luaProp(mounted, "current")) || (luaProp(token, "current") !== requestToken)) || (!luaProp(busy, "current")))) {
 					return undefined;
@@ -448,7 +457,7 @@ function __member(): unknown {
 				colon(Audio).play("requestTimeout");
 				return undefined;
 			}));
-			luaCall(dispatch, "SpinWheel", order, function(response?: unknown): unknown | undefined {
+			luaCall(dispatch, "SpinWheel", order, function(this: void, response?: unknown): unknown | undefined {
 				if (((luaProp(response, "Uncertain") !== true) && (unresolvedSpin === order))) {
 					unresolvedSpin = undefined;
 				}
@@ -531,7 +540,7 @@ function __member(): unknown {
 		let pityArmed: unknown = ((luaProp(luaProp(state, "Wheel"), "PityArmed") === true) || ((((pityMisses as unknown as number) + (1 as unknown as number)) as unknown as number) >= (pityAfter as unknown as number)));
 		let pityFill: unknown = (pityArmed ? 1 : luaCall(luaProp(math, "clamp"), ((pityMisses as unknown as number) / (luaCall(luaProp(math, "max"), 1, pityAfter) as unknown as number)), 0, 1));
 		let now: unknown = luaCall(useWallClock, (!canSpin));
-		let cooldown: unknown = colon(now).map(function(timestamp?: unknown): unknown | undefined {
+		let cooldown: unknown = colon(now).map(function(this: void, timestamp?: unknown): unknown | undefined {
 			return `Ready again in ${luaCall(clockText, luaCall(luaProp(math, "max"), 0, ((luaProp(luaProp(state, "Wheel"), "ReadyAt") as unknown as number) - (timestamp as unknown as number))))}`;
 			return undefined;
 		});
@@ -688,7 +697,7 @@ function __member(): unknown {
 		reducedMotion = softMotion;
 		let spinClaimHostRef: unknown = reactLoose.useRef(undefined);
 		let controller: unknown = luaCall(useWheelController, props);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((((luaProp(luaProp(state, "Wheel"), "CanSpin") !== true) || luaProp(controller, "spinning")) || (!luaProp(UserInputService, "GamepadEnabled")))) {
 				return undefined;
 			}
@@ -696,14 +705,14 @@ function __member(): unknown {
 			if ((host === undefined)) {
 				return undefined;
 			}
-			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(): unknown | undefined {
+			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(this: void): unknown | undefined {
 				if ((luaProp(host, "Parent") === undefined)) {
 					return;
 				}
 				luaCall(luaProp(GamepadNavigationService, "FocusClaim"), host);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), selectJob);
 				return undefined;
 			};
@@ -763,14 +772,22 @@ function __member(): unknown {
 			luaSetIndex(prizeRows, luaProp(reward, "Id"), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -6, 0, ((PRIZE_ROW_H as unknown as number) - (6 as unknown as number))), BackgroundTransparency: 1, LayoutOrder: index }, reactLoose.createElement(PrizeCatalogRow, { reward: reward, index: index, weightTotal: weightTotal, reducedMotion: softMotion })));
 		}
 		let prizeList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, prizeRows);
-		return reactLoose.createElement("frame", { Name: "WheelPage", Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, [luaProp(luaProp(React, "Change"), "AbsoluteSize") as never]: function(host?: unknown): unknown | undefined {
+		return reactLoose.createElement("frame", { Name: "WheelPage", Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, [luaProp(luaProp(React, "Change"), "AbsoluteSize") as never]: function(this: void, host?: unknown): unknown | undefined {
+			let absoluteX: unknown = luaProp(luaProp(host, "AbsoluteSize"), "X");
+			if ((!luaTypeIs(absoluteX, "number")) || ((absoluteX as unknown as number) <= (0 as unknown as number))) {
+				return undefined;
+			}
 			let scale: unknown = (colon(game.GetService("Workspace")).GetAttribute("AstralForgeVRCanvasWidth") ? 1 : luaProp(Layout, "chromeScale"));
-			let width: unknown = luaCall(luaProp(math, "floor"), ((luaProp(luaProp(host, "AbsoluteSize"), "X") as unknown as number) / (scale as unknown as number)));
-			if (((width as unknown as number) > (0 as unknown as number))) {
+			if ((!luaTypeIs(scale, "number")) || ((scale as unknown as number) <= (0 as unknown as number))) {
+				scale = 1;
+			}
+			let width: unknown = luaCall(luaProp(math, "floor"), ((absoluteX as unknown as number) / (scale as unknown as number)));
+			// Same width again must not schedule another render; a size fight retriggers AbsoluteSize.
+			if ((((width as unknown as number) > (0 as unknown as number)) && (width !== pageWidth))) {
 				luaCall(setPageWidth, width);
 			}
 			return undefined;
-		} }, reactLoose.createElement(PageScaffold, { gap: 0, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), 40), scrollBarColor: accent, scrollBarThickness: 4, sections: [{ id: "wheel", height: panelH, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: accent, background: luaProp(Palette, "panelRaised"), padding: luaProp(Layout, "cardPadding"), reveal: headerReveal, reducedMotion: softMotion, clips: false }, reactLoose.createElement(Text, { value: "PRIZE WHEEL", size: 12, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (shortLandscape ? 14 : 16)) }), reactLoose.createElement(Text, { value: headline, size: (shortLandscape ? 16 : (luaProp(chrome, "contentStack") ? 18 : 21)), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, wrap: narrowPortrait, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (shortLandscape ? 14 : 18)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (narrowPortrait ? 36 : (shortLandscape ? 22 : 28))) }), reactLoose.createElement(Text, { value: descriptor, size: 12, color: luaProp(Palette, "muted"), fit: false, wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (narrowPortrait ? 57 : (shortLandscape ? 36 : 46))), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 30) }), reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), wheelDiameter, wheelDiameter), Position: (split ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, 0, 0, ((headerH as unknown as number) + (((stageH as unknown as number) / (2 as unknown as number)) as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0, 0, headerH)), AnchorPoint: (split ? new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5) : new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0)), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement(PrizeWheelMachine, { rewards: rewards, controller: controller, diameter: wheelDiameter, canSpin: (luaProp(luaProp(state, "Wheel"), "CanSpin") === true), reducedMotion: softMotion, containedEffects: containedEffects })), reactLoose.createElement("frame", { Size: (split ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.48, -10, 0, consoleH) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, consoleH)), Position: (split ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.52, 10, 0, ((headerH as unknown as number) + ((((((stageH as unknown as number) - (consoleH as unknown as number))) as unknown as number) / (2 as unknown as number)) as unknown as number))) : luaCall(luaProp(UDim2, "fromOffset"), 0, ((((headerH as unknown as number) + (wheelDiameter as unknown as number)) as unknown as number) + (40 as unknown as number)))), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(WheelConsole, { state: state, config: config, controller: controller, onSpin: luaProp(controller, "spin"), height: consoleH, reducedMotion: softMotion, spinClaimHostRef: spinClaimHostRef, compact: (shortLandscape || luaProp(chrome, "contentStack")) }))) }, { id: "recent-spins", height: ((36 as unknown as number) + (((luaCall(luaProp(math, "max"), 1, len(recentSpins)) as unknown as number) * (24 as unknown as number)) as unknown as number)), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panel"), padding: 12, clips: false }, reactLoose.createElement(Text, { value: "Recent spins", size: 14, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 20) }), reactLoose.createElement(Text, { value: ((len(recentSpins) === 0) ? "No spins yet. Your prizes will be listed here." : luaTable.concat(recentSpins, "\n")), size: 13, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 24), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, ((luaCall(luaProp(math, "max"), 1, len(recentSpins)) as unknown as number) * (24 as unknown as number))) })) }, { id: "prizes-label", height: 32, element: reactLoose.createElement(Text, { value: "Prizes · standard odds", size: 13, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 20) }) }, { id: "prizes-odds", height: 64, element: reactLoose.createElement(Text, { value: `Numbers match the wheel. Guaranteed spins only land ${luaCall((function(r?: unknown): unknown | undefined {
+		} }, reactLoose.createElement(PageScaffold, { gap: 0, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), 40), scrollBarColor: accent, scrollBarThickness: 4, sections: [{ id: "wheel", height: panelH, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: accent, background: luaProp(Palette, "panelRaised"), padding: luaProp(Layout, "cardPadding"), reveal: headerReveal, reducedMotion: softMotion, clips: false }, reactLoose.createElement(Text, { value: "PRIZE WHEEL", size: 12, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (shortLandscape ? 14 : 16)) }), reactLoose.createElement(Text, { value: headline, size: (shortLandscape ? 16 : (luaProp(chrome, "contentStack") ? 18 : 21)), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, wrap: narrowPortrait, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (shortLandscape ? 14 : 18)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (narrowPortrait ? 36 : (shortLandscape ? 22 : 28))) }), reactLoose.createElement(Text, { value: descriptor, size: 12, color: luaProp(Palette, "muted"), fit: false, wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (narrowPortrait ? 57 : (shortLandscape ? 36 : 46))), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 30) }), reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), wheelDiameter, wheelDiameter), Position: (split ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, 0, 0, ((headerH as unknown as number) + (((stageH as unknown as number) / (2 as unknown as number)) as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0, 0, headerH)), AnchorPoint: (split ? new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5) : new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0)), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement(PrizeWheelMachine, { rewards: rewards, controller: controller, diameter: wheelDiameter, canSpin: (luaProp(luaProp(state, "Wheel"), "CanSpin") === true), reducedMotion: softMotion, containedEffects: containedEffects })), reactLoose.createElement("frame", { Size: (split ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.48, -10, 0, consoleH) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, consoleH)), Position: (split ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.52, 10, 0, ((headerH as unknown as number) + ((((((stageH as unknown as number) - (consoleH as unknown as number))) as unknown as number) / (2 as unknown as number)) as unknown as number))) : luaCall(luaProp(UDim2, "fromOffset"), 0, ((((headerH as unknown as number) + (wheelDiameter as unknown as number)) as unknown as number) + (40 as unknown as number)))), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(WheelConsole, { state: state, config: config, controller: controller, onSpin: luaProp(controller, "spin"), height: consoleH, reducedMotion: softMotion, spinClaimHostRef: spinClaimHostRef, compact: (shortLandscape || luaProp(chrome, "contentStack")) }))) }, { id: "recent-spins", height: ((36 as unknown as number) + (((luaCall(luaProp(math, "max"), 1, len(recentSpins)) as unknown as number) * (24 as unknown as number)) as unknown as number)), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panel"), padding: 12, clips: false }, reactLoose.createElement(Text, { value: "Recent spins", size: 14, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 20) }), reactLoose.createElement(Text, { value: ((len(recentSpins) === 0) ? "No spins yet. Your prizes will be listed here." : luaTable.concat(recentSpins, "\n")), size: 13, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 24), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, ((luaCall(luaProp(math, "max"), 1, len(recentSpins)) as unknown as number) * (24 as unknown as number))) })) }, { id: "prizes-label", height: 32, element: reactLoose.createElement(Text, { value: "Prizes · standard odds", size: 13, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 20) }) }, { id: "prizes-odds", height: 64, element: reactLoose.createElement(Text, { value: `Numbers match the wheel. Guaranteed spins only land ${luaCall((function(this: void, r?: unknown): unknown | undefined {
 			return concat(luaCall(luaProp(string, "upper"), luaCall(luaProp(string, "sub"), r, 1, 1)), luaCall(luaProp(string, "lower"), luaCall(luaProp(string, "sub"), r, 2)));
 			return undefined;
 		}), (luaProp(luaProp(config, "Wheel"), "PityRarity") || "RARE"))} or better.`, size: 12, color: luaProp(Palette, "creamSoft"), wrap: true, fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, 0) }) }, { id: "prizes", height: ((((PRIZE_ROW_H as unknown as number) * (len(rewards) as unknown as number)) as unknown as number) + (8 as unknown as number)), element: prizeList }] }));

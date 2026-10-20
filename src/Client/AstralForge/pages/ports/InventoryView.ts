@@ -12,9 +12,18 @@ function colon(value: unknown): Colon {
 	return value as Colon;
 }
 function luaProp(object: unknown, key: string): unknown {
+	// A missing row is nil. Indexing it throws; the Luau views treated that as absent.
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[key];
 }
 function luaIndex(object: unknown, index: unknown): unknown {
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[index as unknown as string];
 }
 function luaSet(object: unknown, key: string, value: unknown): void {
@@ -116,7 +125,7 @@ function __member(): unknown {
 	let RELIC_ROW_SHOWN: unknown = luaCall(luaProp(React, "createBinding"), 1);
 	let TABS: unknown = ["Relics", "Crates", "Market", "Loadout"];
 	let _newValue: unknown = luaCall(luaProp(table, "create"), len(TABS));
-	let _callback: unknown = function(id?: unknown): unknown | undefined {
+	let _callback: unknown = function(this: void, id?: unknown): unknown | undefined {
 		return { id: id, label: luaCall(luaProp(string, "upper"), id) };
 		return undefined;
 	};
@@ -167,11 +176,11 @@ function __member(): unknown {
 		let accent: unknown = (bulkMode ? luaProp(Palette, "coral") : (autoOpen ? luaProp(Palette, "mango") : luaProp(Palette, "violet")));
 		let bagBadge: unknown = reactLoose.createElement(Badge, { value: `${filled} / ${limit} BAG`, accent: luaProp(Palette, "violet"), filled: true, size: luaCall(luaProp(UDim2, "fromOffset"), bagW, 26) });
 		let essBadge: unknown = reactLoose.createElement(Badge, { value: `${luaCall(compactNumber, essence)} ESS`, accent: luaProp(Palette, "mango"), size: luaCall(luaProp(UDim2, "fromOffset"), essW, 26) });
-		return reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 0), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "Y"), BackgroundColor3: luaProp(Palette, "panelRaised"), BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement("uistroke", { ApplyStrokeMode: luaProp(luaProp(Enum, "ApplyStrokeMode"), "Border"), LineJoinMode: luaProp(luaProp(Enum, "LineJoinMode"), "Round"), Color: accent, Thickness: 1.5, Transparency: 0.28 }), reactLoose.createElement("uipadding", { PaddingTop: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pad), PaddingBottom: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pad), PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, ((pad as unknown as number) + (2 as unknown as number))), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, ((pad as unknown as number) + (2 as unknown as number))) }), reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap) }), (stack && reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 26), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Center") }), bagBadge, essBadge)), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, filterH), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 1, ClipsDescendants: false }, (stack ? reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement(SearchField, { value: search, onChange: setSearch, placeholder: "Search relics, effects, or ID", accent: luaProp(Palette, "violet"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, fieldH), reducedMotion: reducedMotion, zIndex: 62 }), reactLoose.createElement(Dropdown, { options: filterOptions, value: filter, onChange: setFilter, accent: luaProp(Palette, "violet"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((fieldH as unknown as number) + (gap as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 61 }), reactLoose.createElement(Dropdown, { options: rarityOptions, value: rarity, onChange: setRarity, accent: luaProp(Palette, "mango"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), 2, 0, ((fieldH as unknown as number) + (gap as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 60 }), reactLoose.createElement(Dropdown, { options: sortOptions, value: sort, onChange: setSort, accent: luaProp(Palette, "cyan"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((2 as unknown as number) / (3 as unknown as number)), 4, 0, ((fieldH as unknown as number) + (gap as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -4, 0, fieldH), reducedMotion: reducedMotion, zIndex: 59 })) : reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), metaW, fieldH), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Center") }), bagBadge, essBadge), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((metaW as unknown as number) + (gap as unknown as number))) as unknown as number)), 0, fieldH), Position: luaCall(luaProp(UDim2, "fromOffset"), ((metaW as unknown as number) + (gap as unknown as number)), 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(SearchField, { value: search, onChange: setSearch, placeholder: "Search relics, effects, or ID", accent: luaProp(Palette, "violet"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.4, -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 62 }), reactLoose.createElement(Dropdown, { options: filterOptions, value: filter, onChange: setFilter, accent: luaProp(Palette, "violet"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.4, 0, 0, 0), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.2, -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 61 }), reactLoose.createElement(Dropdown, { options: rarityOptions, value: rarity, onChange: setRarity, accent: luaProp(Palette, "mango"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.6, 0, 0, 0), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.2, -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 60 }), reactLoose.createElement(Dropdown, { options: sortOptions, value: sort, onChange: setSort, accent: luaProp(Palette, "cyan"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.8, 0, 0, 0), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.2, 0, 0, fieldH), reducedMotion: reducedMotion, zIndex: 59 }))))), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, fieldH), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 2, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (stack ? "BEST" : "EQUIP BEST"), icon: "Loadout.2", onClick: equipBest, color: luaProp(Palette, "mint"), textColor: luaProp(Palette, "ink"), size: actionW, reducedMotion: reducedMotion, highlight: true }), reactLoose.createElement(Button, { text: (bulkMode ? "DONE" : (stack ? "SELECT" : "MULTI SALVAGE")), icon: (bulkMode ? "Check.18" : "Dust.5"), onClick: function(): unknown | undefined {
+		return reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 0), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "Y"), BackgroundColor3: luaProp(Palette, "panelRaised"), BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement("uistroke", { ApplyStrokeMode: luaProp(luaProp(Enum, "ApplyStrokeMode"), "Border"), LineJoinMode: luaProp(luaProp(Enum, "LineJoinMode"), "Round"), Color: accent, Thickness: 1.5, Transparency: 0.28 }), reactLoose.createElement("uipadding", { PaddingTop: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pad), PaddingBottom: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pad), PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, ((pad as unknown as number) + (2 as unknown as number))), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, ((pad as unknown as number) + (2 as unknown as number))) }), reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap) }), (stack && reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 26), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Center") }), bagBadge, essBadge)), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, filterH), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 1, ClipsDescendants: false }, (stack ? reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement(SearchField, { value: search, onChange: setSearch, placeholder: "Search relics, effects, or ID", accent: luaProp(Palette, "violet"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, fieldH), reducedMotion: reducedMotion, zIndex: 62 }), reactLoose.createElement(Dropdown, { options: filterOptions, value: filter, onChange: setFilter, accent: luaProp(Palette, "violet"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((fieldH as unknown as number) + (gap as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 61 }), reactLoose.createElement(Dropdown, { options: rarityOptions, value: rarity, onChange: setRarity, accent: luaProp(Palette, "mango"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), 2, 0, ((fieldH as unknown as number) + (gap as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 60 }), reactLoose.createElement(Dropdown, { options: sortOptions, value: sort, onChange: setSort, accent: luaProp(Palette, "cyan"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((2 as unknown as number) / (3 as unknown as number)), 4, 0, ((fieldH as unknown as number) + (gap as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -4, 0, fieldH), reducedMotion: reducedMotion, zIndex: 59 })) : reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), metaW, fieldH), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Center") }), bagBadge, essBadge), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((metaW as unknown as number) + (gap as unknown as number))) as unknown as number)), 0, fieldH), Position: luaCall(luaProp(UDim2, "fromOffset"), ((metaW as unknown as number) + (gap as unknown as number)), 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(SearchField, { value: search, onChange: setSearch, placeholder: "Search relics, effects, or ID", accent: luaProp(Palette, "violet"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.4, -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 62 }), reactLoose.createElement(Dropdown, { options: filterOptions, value: filter, onChange: setFilter, accent: luaProp(Palette, "violet"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.4, 0, 0, 0), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.2, -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 61 }), reactLoose.createElement(Dropdown, { options: rarityOptions, value: rarity, onChange: setRarity, accent: luaProp(Palette, "mango"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.6, 0, 0, 0), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.2, -6, 0, fieldH), reducedMotion: reducedMotion, zIndex: 60 }), reactLoose.createElement(Dropdown, { options: sortOptions, value: sort, onChange: setSort, accent: luaProp(Palette, "cyan"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.8, 0, 0, 0), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.2, 0, 0, fieldH), reducedMotion: reducedMotion, zIndex: 59 }))))), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, fieldH), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 2, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, gap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (stack ? "BEST" : "EQUIP BEST"), icon: "Loadout.2", onClick: equipBest, color: luaProp(Palette, "mint"), textColor: luaProp(Palette, "ink"), size: actionW, reducedMotion: reducedMotion, highlight: true }), reactLoose.createElement(Button, { text: (bulkMode ? "DONE" : (stack ? "SELECT" : "MULTI SALVAGE")), icon: (bulkMode ? "Check.18" : "Dust.5"), onClick: function(this: void): unknown | undefined {
 			luaCall(setBulkMode, (!bulkMode));
 			luaCall(setAutoOpen, false);
 			return undefined;
-		}, color: (bulkMode ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: (bulkMode ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), size: actionW, reducedMotion: reducedMotion, outline: (!bulkMode) }), reactLoose.createElement(Button, { text: (stack ? "RECYCLE" : "AUTO-SALVAGE"), icon: "Inventory.5", onClick: function(): unknown | undefined {
+		}, color: (bulkMode ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: (bulkMode ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), size: actionW, reducedMotion: reducedMotion, outline: (!bulkMode) }), reactLoose.createElement(Button, { text: (stack ? "RECYCLE" : "AUTO-SALVAGE"), icon: "Inventory.5", onClick: function(this: void): unknown | undefined {
 			luaCall(setAutoOpen, (!autoOpen));
 			luaCall(setBulkMode, false);
 			return undefined;
@@ -204,15 +213,15 @@ function __member(): unknown {
 		let sheetHostRef: unknown = reactLoose.useRef(undefined);
 		let fieldH: unknown = (stack ? luaCall(luaProp(math, "max"), TapTarget, 52) : TOOL_FIELD_DESK);
 		let rarityH: unknown = (stack ? TapTarget : 36);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			luaCall(luaProp(GamepadNavigationService, "BeginOverlayFocus"));
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(luaProp(GamepadNavigationService, "EndOverlayFocus"));
 				return undefined;
 			};
 			return undefined;
 		}, {});
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((!luaProp(UserInputService, "GamepadEnabled"))) {
 				return undefined;
 			}
@@ -220,20 +229,20 @@ function __member(): unknown {
 			if ((host === undefined)) {
 				return undefined;
 			}
-			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(): unknown | undefined {
+			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(this: void): unknown | undefined {
 				if ((luaProp(host, "Parent") === undefined)) {
 					return;
 				}
 				luaCall(luaProp(GamepadNavigationService, "FocusClaim"), host);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), selectJob);
 				return undefined;
 			};
 			return undefined;
 		}, [passOwned, autoBusy]);
-		let toggleAutoRarity: unknown = function(entry?: unknown): unknown | undefined {
+		let toggleAutoRarity: unknown = function(this: void, entry?: unknown): unknown | undefined {
 			if ((entry === "Any")) {
 				return undefined;
 			}
@@ -249,7 +258,7 @@ function __member(): unknown {
 				luaSetIndex(updated, _entry, true);
 			}
 			let packed: unknown = {};
-			let _callback_1: unknown = function(value?: unknown, key?: unknown): unknown | undefined {
+			let _callback_1: unknown = function(this: void, value?: unknown, key?: unknown): unknown | undefined {
 				luaSetIndex(packed, key, value);
 				return undefined;
 			};
@@ -271,13 +280,13 @@ function __member(): unknown {
 		if ((!passOwned)) {
 			_result = reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement(Text, { value: "Pick rarities once. Later crate drops of those rarities turn into essence.", size: 11, color: luaProp(Palette, "creamSoft"), wrap: true, layoutOrder: 1, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (stack ? 32 : 18)) }), reactLoose.createElement(Button, { text: "VIEW PASS", icon: "Shop.10", onClick: openShop, color: luaProp(Palette, "mango"), textColor: luaProp(Palette, "ink"), size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 132, TapTarget)), reducedMotion: reducedMotion, highlight: true }));
 		} else {
-			let _exp_5: unknown = reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, fieldH), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 1, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (autoBusy ? "SAVING" : (luaProp(rules, "Enabled") ? "ON" : "OFF")), icon: (luaProp(rules, "Enabled") ? "Check.20" : "Inventory.6"), onClick: function(): unknown | undefined {
+			let _exp_5: unknown = reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, fieldH), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 1, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (autoBusy ? "SAVING" : (luaProp(rules, "Enabled") ? "ON" : "OFF")), icon: (luaProp(rules, "Enabled") ? "Check.20" : "Inventory.6"), onClick: function(this: void): unknown | undefined {
 				let _object: unknown = luaCall(luaProp(table, "clone"), rules);
 				luaCall(setmetatable, _object, undefined);
 				luaSet(_object, "Enabled", (!luaProp(rules, "Enabled")));
 				return luaCall(updateRules, _object);
 				return undefined;
-			}, color: (luaProp(rules, "Enabled") ? luaProp(Palette, "mint") : luaProp(Palette, "panelSoft")), textColor: (luaProp(rules, "Enabled") ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.28, -6, 0, fieldH), reducedMotion: reducedMotion, disabled: autoBusy, outline: (!luaProp(rules, "Enabled")) }), reactLoose.createElement(Button, { text: (luaProp(rules, "KeepNew") ? "KEEP NEW" : "RECYCLE NEW"), icon: (luaProp(rules, "KeepNew") ? "Lock.12" : "Dust.7"), onClick: function(): unknown | undefined {
+			}, color: (luaProp(rules, "Enabled") ? luaProp(Palette, "mint") : luaProp(Palette, "panelSoft")), textColor: (luaProp(rules, "Enabled") ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.28, -6, 0, fieldH), reducedMotion: reducedMotion, disabled: autoBusy, outline: (!luaProp(rules, "Enabled")) }), reactLoose.createElement(Button, { text: (luaProp(rules, "KeepNew") ? "KEEP NEW" : "RECYCLE NEW"), icon: (luaProp(rules, "KeepNew") ? "Lock.12" : "Dust.7"), onClick: function(this: void): unknown | undefined {
 				let _object: unknown = luaCall(luaProp(table, "clone"), rules);
 				luaCall(setmetatable, _object, undefined);
 				luaSet(_object, "KeepNew", (!luaProp(rules, "KeepNew")));
@@ -285,13 +294,13 @@ function __member(): unknown {
 				return undefined;
 			}, color: (luaProp(rules, "KeepNew") ? luaProp(Palette, "violet") : luaProp(Palette, "coral")), textColor: (luaProp(rules, "KeepNew") ? luaProp(Palette, "cream") : luaProp(Palette, "ink")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.44, -6, 0, fieldH), reducedMotion: reducedMotion, disabled: autoBusy, outline: true }), reactLoose.createElement(Button, { text: "RUN", icon: "Dust.8", onClick: runNow, color: luaProp(Palette, "mango"), textColor: luaProp(Palette, "ink"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.28, -6, 0, fieldH), reducedMotion: reducedMotion, disabled: (autoBusy || (!luaProp(rules, "Enabled"))), highlight: luaProp(rules, "Enabled") }));
 			let _newValue_1: unknown = luaCall(luaProp(table, "create"), len(AUTO_RARITIES));
-			let _callback_1: unknown = function(entry?: unknown, index?: unknown): unknown | undefined {
+			let _callback_1: unknown = function(this: void, entry?: unknown, index?: unknown): unknown | undefined {
 				let active: unknown = (luaIndex(luaProp(rules, "Rarities"), entry) === true);
 				let cols: unknown = (stack ? 3 : 6);
 				let col: unknown = ((index as unknown as number) % (cols as unknown as number));
 				let row: unknown = luaCall(luaProp(math, "floor"), ((index as unknown as number) / (cols as unknown as number)));
 				let label: unknown = ((stack && (entry === "Legendary")) ? "LEGEND" : luaCall(luaProp(string, "upper"), entry));
-				return reactLoose.createElement(Button, { key: entry, text: label, onClick: function(): unknown | undefined {
+				return reactLoose.createElement(Button, { key: entry, text: label, onClick: function(this: void): unknown | undefined {
 					return luaCall(toggleAutoRarity, entry);
 					return undefined;
 				}, color: (active ? luaCall(luaProp(InventoryMath, "RarityColor"), config, entry, luaProp(Palette, "muted")) : luaProp(Palette, "panelSoft")), textColor: (active ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) / (cols as unknown as number)), ((col === 0) ? 0 : 4), 0, ((row as unknown as number) * ((((rarityH as unknown as number) + (8 as unknown as number))) as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (cols as unknown as number)), -6, 0, rarityH), reducedMotion: reducedMotion, disabled: autoBusy, outline: (!active) });
@@ -326,14 +335,14 @@ function __member(): unknown {
 		let textW: unknown = (stack ? (-((((58 as unknown as number) + (8 as unknown as number))) as unknown as number)) : -176);
 		let locked: unknown = (luaProp(luaProp(item, "instance"), "Locked") === true);
 		let height: unknown = luaCall(luaProp(InventoryMath, "RelicRowHeight"), stack);
-		return reactLoose.createElement("imagebutton", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), Position: ((y !== undefined) ? luaCall(luaProp(UDim2, "fromOffset"), 0, y) : undefined), LayoutOrder: layoutOrder, BackgroundTransparency: 1, BorderSizePixel: 0, AutoButtonColor: false, Active: true, Selectable: true, Event: { Activated: function(): unknown | undefined {
+		return reactLoose.createElement("imagebutton", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), Position: ((y !== undefined) ? luaCall(luaProp(UDim2, "fromOffset"), 0, y) : undefined), LayoutOrder: layoutOrder, BackgroundTransparency: 1, BorderSizePixel: 0, AutoButtonColor: false, Active: true, Selectable: true, Event: { Activated: function(this: void): unknown | undefined {
 			colon(Audio).play("tick");
 			luaCall(onSelect);
 			return undefined;
-		}, MouseEnter: function(): unknown | undefined {
+		}, MouseEnter: function(this: void): unknown | undefined {
 			return colon(Audio).play("hover");
 			return undefined;
-		}, SelectionGained: function(): unknown | undefined {
+		}, SelectionGained: function(this: void): unknown | undefined {
 			return colon(Audio).play("hover");
 			return undefined;
 		} } }, reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: (bulkSelected ? luaProp(Palette, "coral") : accent), background: ((selected || bulkSelected) ? luaProp(Palette, "panelRaised") : luaProp(Palette, "panel")), padding: (stack ? 12 : 14), interactive: true, highlight: (selected || bulkSelected), reducedMotion: reducedMotion, reveal: RELIC_ROW_SHOWN, clips: true }, reactLoose.createElement(IconTile, { kind: luaCall(itemIconKind, luaProp(luaProp(item, "instance"), "DefinitionId"), luaProp(luaProp(item, "definition"), "Slot")), accent: accent, size: (stack ? 44 : 46), radius: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 4 : 8)), reducedMotion: reducedMotion, glow: selected }), reactLoose.createElement(Text, { value: luaProp(luaProp(item, "definition"), "Name"), size: (stack ? 15 : 16), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 12, position: luaCall(luaProp(UDim2, "fromOffset"), 58, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textW, 0, 22) }), reactLoose.createElement(Text, { value: `${luaProp(luaProp(item, "definition"), "Description")}  ·  ${luaCall(luaProp(InventoryMath, "EffectLabel"), luaProp(item, "definition"), luaProp(luaProp(item, "instance"), "Level"), luaProp(luaProp(item, "instance"), "Stars"))}`, size: 11, color: accent, wrap: false, position: luaCall(luaProp(UDim2, "fromOffset"), 58, 24), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textW, 0, 18) }), reactLoose.createElement(Text, { value: ((luaProp(item, "equippedOn") !== undefined) ? `On ${luaCall(luaProp(InventoryMath, "SocketLabel"), luaProp(item, "equippedOn"))}` : (locked ? "Protected" : `${luaProp(luaProp(item, "definition"), "Slot")} relic`)), size: 11, color: ((luaProp(item, "equippedOn") !== undefined) ? luaProp(Palette, "mint") : (locked ? luaProp(Palette, "mango") : luaProp(Palette, "creamSoft"))), fit: true, minSize: 9, position: luaCall(luaProp(UDim2, "fromOffset"), 58, 44), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textW, 0, 16) }), reactLoose.createElement("frame", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((58 as unknown as number) + (8 as unknown as number))) as unknown as number)), 0, 22) : luaCall(luaProp(UDim2, "fromOffset"), 84, 86)), Position: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 58, 68) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -84, 0, 4)), BackgroundTransparency: 1, BorderSizePixel: 0 }, (stack ? reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 6), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }) : reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 6), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") })), reactLoose.createElement(Badge, { value: luaCall(luaProp(string, "upper"), luaProp(luaProp(item, "definition"), "Rarity")), accent: accent, filled: true, size: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 78, 20) : luaCall(luaProp(UDim2, "fromOffset"), 84, 20)) }), reactLoose.createElement(Badge, { value: (((((luaCall(tonumber, luaProp(luaProp(item, "instance"), "Stars")) || 0)) as unknown as number) > (0 as unknown as number)) ? `LV ${luaProp(luaProp(item, "instance"), "Level")} ${luaCall(luaProp(string, "rep"), "★", luaCall(luaProp(math, "min"), 5, luaProp(luaProp(item, "instance"), "Stars")))}` : `LV ${luaProp(luaProp(item, "instance"), "Level")}`), accent: luaProp(Palette, "mango"), size: (stack ? luaCall(luaProp(UDim2, "fromOffset"), (((((luaCall(tonumber, luaProp(luaProp(item, "instance"), "Stars")) || 0)) as unknown as number) > (0 as unknown as number)) ? 92 : 56), 20) : luaCall(luaProp(UDim2, "fromOffset"), 84, 20)) }), ((!stack) && reactLoose.createElement(Badge, { value: `#${luaCall(luaProp(string, "sub"), luaProp(item, "uid"), -4)}`, accent: luaProp(Palette, "lineSoft"), size: luaCall(luaProp(UDim2, "fromOffset"), 84, 20) })), (((locked && (!bulkMode)) && stack) && reactLoose.createElement(Badge, { value: "LOCK", accent: luaProp(Palette, "mango"), filled: true, size: luaCall(luaProp(UDim2, "fromOffset"), 44, 20) })), (bulkMode && reactLoose.createElement(Badge, { value: (bulkSelected ? "ON" : (locked ? "LOCK" : ((luaProp(item, "equippedOn") !== undefined) ? "USED" : "PICK"))), accent: (bulkSelected ? luaProp(Palette, "coral") : ((locked || (luaProp(item, "equippedOn") !== undefined)) ? luaProp(Palette, "lineSoft") : accent)), filled: bulkSelected, size: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 52, 20) : luaCall(luaProp(UDim2, "fromOffset"), 84, 20)) })))));
@@ -373,7 +382,7 @@ function __member(): unknown {
 		let canUpgrade: unknown;
 		let maxed: unknown;
 		[canUpgrade, maxed] = luaCall(luaProp(InventoryMath, "UpgradeState"), luaProp(luaProp(item, "instance"), "Level"), luaProp(luaProp(item, "definition"), "MaxLevel"), essence, cost) as LuaTuple<[unknown, unknown]>;
-		let targets: unknown = reactLoose.useMemo(function(): unknown | undefined {
+		let targets: unknown = reactLoose.useMemo(function(this: void): unknown | undefined {
 			return luaCall(luaProp(InventoryMath, "SocketTargets"), state, config, luaProp(item, "definition"));
 			return undefined;
 		}, [config, luaProp(item, "definition"), luaProp(state, "Machines"), luaProp(state, "Research")]);
@@ -394,27 +403,27 @@ function __member(): unknown {
 		let salvageArmedFor: unknown;
 		let setSalvageArmedFor: unknown;
 		[salvageArmedFor, setSalvageArmedFor] = reactLoose.useState(undefined) as LuaTuple<[unknown, unknown]>;
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((salvageArmedFor === undefined)) {
 				return undefined;
 			}
-			let lapse: unknown = luaCall(luaProp(task, "delay"), 4, function(): unknown | undefined {
+			let lapse: unknown = luaCall(luaProp(task, "delay"), 4, function(this: void): unknown | undefined {
 				luaCall(setSalvageArmedFor, undefined);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), lapse);
 				return undefined;
 			};
 			return undefined;
 		}, [salvageArmedFor]);
-		reactLoose.useEffect(function(): unknown | undefined {
-			luaCall(setTarget, function(current?: unknown): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
+			luaCall(setTarget, function(this: void, current?: unknown): unknown | undefined {
 				if ((luaProp(item, "equippedOn") !== undefined)) {
 					return luaProp(item, "equippedOn");
 				}
 				let _result_1: unknown = false;
-				let _callback_1: unknown = function(candidate?: unknown): unknown | undefined {
+				let _callback_1: unknown = function(this: void, candidate?: unknown): unknown | undefined {
 					return (luaProp(candidate, "id") === current);
 					return undefined;
 				};
@@ -451,7 +460,7 @@ function __member(): unknown {
 		let actionsH: unknown = luaCall(luaProp(InventoryMath, "InspectActionsHeight"), stack);
 		let detailH: unknown = luaCall(luaProp(InventoryMath, "InspectPanelHeight"), socketBlock, stack);
 		let actionSize: unknown = (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -5, 0, ACTION_BTN) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, -7, 0, ACTION_BTN));
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((!luaProp(UserInputService, "GamepadEnabled"))) {
 				return undefined;
 			}
@@ -459,24 +468,24 @@ function __member(): unknown {
 			if ((host === undefined)) {
 				return undefined;
 			}
-			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(): unknown | undefined {
+			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(this: void): unknown | undefined {
 				if ((luaProp(host, "Parent") === undefined)) {
 					return;
 				}
 				luaCall(luaProp(GamepadNavigationService, "FocusClaim"), host);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), selectJob);
 				return undefined;
 			};
 			return undefined;
 		}, [luaProp(item, "uid"), equipped, locked, canUpgrade, target]);
-		let socketBtn: unknown = function(size?: unknown, position?: unknown): unknown | undefined {
-			return (equipped ? reactLoose.createElement(Button, { text: "DETACH", icon: "Close.8", onClick: function(): unknown | undefined {
+		let socketBtn: unknown = function(this: void, size?: unknown, position?: unknown): unknown | undefined {
+			return (equipped ? reactLoose.createElement(Button, { text: "DETACH", icon: "Close.8", onClick: function(this: void): unknown | undefined {
 				return luaCall(dispatch, "UnequipItem", { Target: luaProp(item, "equippedOn") });
 				return undefined;
-			}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "cream"), size: size, position: position, reducedMotion: reducedMotion, outline: true }) : reactLoose.createElement(Button, { text: "SOCKET", icon: "Loadout.3", onClick: function(): unknown | undefined {
+			}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "cream"), size: size, position: position, reducedMotion: reducedMotion, outline: true }) : reactLoose.createElement(Button, { text: "SOCKET", icon: "Loadout.3", onClick: function(this: void): unknown | undefined {
 				if ((target !== "")) {
 					luaCall(dispatch, "EquipItem", { Uid: luaProp(item, "uid"), Target: target });
 				}
@@ -484,8 +493,8 @@ function __member(): unknown {
 			}, color: luaProp(Palette, "mint"), textColor: luaProp(Palette, "ink"), size: size, position: position, reducedMotion: reducedMotion, disabled: (target === ""), highlight: (target !== "") }));
 			return undefined;
 		};
-		let upgradeBtn: unknown = function(size?: unknown, position?: unknown): unknown | undefined {
-			return reactLoose.createElement(Button, { text: (maxed ? "MAXED" : `UPGRADE  ${luaCall(compactNumber, cost)}`), icon: "StarGrid.5", onClick: function(): unknown | undefined {
+		let upgradeBtn: unknown = function(this: void, size?: unknown, position?: unknown): unknown | undefined {
+			return reactLoose.createElement(Button, { text: (maxed ? "MAXED" : `UPGRADE  ${luaCall(compactNumber, cost)}`), icon: "StarGrid.5", onClick: function(this: void): unknown | undefined {
 				return luaCall(dispatch, "UpgradeItem", { Uid: luaProp(item, "uid") });
 				return undefined;
 			}, color: (canUpgrade ? luaProp(Palette, "mango") : luaProp(Palette, "panelSoft")), textColor: (canUpgrade ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: size, position: position, reducedMotion: reducedMotion, disabled: (!canUpgrade), highlight: canUpgrade });
@@ -493,8 +502,8 @@ function __member(): unknown {
 		};
 		// salvaging destroys the relic, so it takes a second tap within a few seconds
 		let salvageArmed: unknown = (salvageArmedFor === luaProp(item, "uid"));
-		let salvageBtn: unknown = function(size?: unknown, position?: unknown): unknown | undefined {
-			return reactLoose.createElement(Button, { text: (salvageArmed ? `TAP AGAIN TO SALVAGE · +${salvage}` : `SALVAGE  +${salvage}`), icon: "Dust.9", onClick: function(): unknown | undefined {
+		let salvageBtn: unknown = function(this: void, size?: unknown, position?: unknown): unknown | undefined {
+			return reactLoose.createElement(Button, { text: (salvageArmed ? `TAP AGAIN TO SALVAGE · +${salvage}` : `SALVAGE  +${salvage}`), icon: "Dust.9", onClick: function(this: void): unknown | undefined {
 				if ((!salvageArmed)) {
 					luaCall(setSalvageArmedFor, luaProp(item, "uid"));
 					return undefined;
@@ -505,8 +514,8 @@ function __member(): unknown {
 			}, color: ((equipped || locked) ? luaProp(Palette, "panelSoft") : luaProp(Palette, "coral")), textColor: ((equipped || locked) ? luaProp(Palette, "muted") : luaProp(Palette, "ink")), size: size, position: position, reducedMotion: reducedMotion, disabled: (equipped || locked), outline: (equipped || locked) });
 			return undefined;
 		};
-		let lockBtn: unknown = function(size?: unknown, position?: unknown): unknown | undefined {
-			return reactLoose.createElement(Button, { text: (locked ? "UNPROTECT" : "PROTECT"), icon: "Lock.13", onClick: function(): unknown | undefined {
+		let lockBtn: unknown = function(this: void, size?: unknown, position?: unknown): unknown | undefined {
+			return reactLoose.createElement(Button, { text: (locked ? "UNPROTECT" : "PROTECT"), icon: "Lock.13", onClick: function(this: void): unknown | undefined {
 				colon(Audio).play((locked ? "favoriteOff" : "favoriteOn"));
 				return luaCall(dispatch, "ToggleItemLock", { Uid: luaProp(item, "uid") });
 				return undefined;
@@ -518,18 +527,18 @@ function __member(): unknown {
 		let _condition_2: unknown = ((!equipped) && ((len(targets) as unknown as number) > (0 as unknown as number)));
 		if (_condition_2) {
 			let _newValue_1: unknown = luaCall(luaProp(table, "create"), len(targets));
-			let _callback_1: unknown = function(entry?: unknown, index?: unknown): unknown | undefined {
+			let _callback_1: unknown = function(this: void, entry?: unknown, index?: unknown): unknown | undefined {
 				let active: unknown = (luaProp(entry, "id") === target);
 				let col: unknown = ((index as unknown as number) % (chipCols as unknown as number));
 				let row: unknown = luaCall(luaProp(math, "floor"), ((index as unknown as number) / (chipCols as unknown as number)));
-				return reactLoose.createElement("imagebutton", { key: luaProp(entry, "id"), Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (chipCols as unknown as number)), -6, 0, chipHeight), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) / (chipCols as unknown as number)), 0, 0, ((row as unknown as number) * (chipStep as unknown as number))), BackgroundColor3: (active ? accent : luaProp(Palette, "panelSoft")), BackgroundTransparency: (active ? 0.15 : 0.2), BorderSizePixel: 0, AutoButtonColor: false, Active: true, Selectable: true, Event: { Activated: function(): unknown | undefined {
+				return reactLoose.createElement("imagebutton", { key: luaProp(entry, "id"), Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (chipCols as unknown as number)), -6, 0, chipHeight), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) / (chipCols as unknown as number)), 0, 0, ((row as unknown as number) * (chipStep as unknown as number))), BackgroundColor3: (active ? accent : luaProp(Palette, "panelSoft")), BackgroundTransparency: (active ? 0.15 : 0.2), BorderSizePixel: 0, AutoButtonColor: false, Active: true, Selectable: true, Event: { Activated: function(this: void): unknown | undefined {
 					luaCall(setTarget, luaProp(entry, "id"));
 					colon(Audio).play("tick");
 					return undefined;
-				}, MouseEnter: function(): unknown | undefined {
+				}, MouseEnter: function(this: void): unknown | undefined {
 					return colon(Audio).play("hover");
 					return undefined;
-				}, SelectionGained: function(): unknown | undefined {
+				}, SelectionGained: function(this: void): unknown | undefined {
 					return colon(Audio).play("hover");
 					return undefined;
 				} } }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8) }), reactLoose.createElement("uistroke", { Color: (active ? accent : luaProp(Palette, "lineSoft")), Thickness: 1, Transparency: (active ? 0.2 : 0.55) }), reactLoose.createElement(Text, { value: luaProp(entry, "label"), size: 12, color: (active ? luaCall(contrastOn, accent) : luaProp(Palette, "cream")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 6, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -12, 1, 0) }));
@@ -554,16 +563,16 @@ function __member(): unknown {
 		let stack: unknown = luaProp(_param, "stack");
 		let reveal: unknown = luaCall(useStagger, layoutOrder, reducedMotion);
 		let cardH: unknown = (stack ? 248 : 160);
-		let actions: unknown = (stack ? reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, ((((TapTarget as unknown as number) * (2 as unknown as number)) as unknown as number) + (8 as unknown as number))), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((((TapTarget as unknown as number) * (2 as unknown as number)) as unknown as number) + (14 as unknown as number))) as unknown as number))), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Left"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Top"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 1"), icon: "Crate.7", onClick: function(): unknown | undefined {
+		let actions: unknown = (stack ? reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, ((((TapTarget as unknown as number) * (2 as unknown as number)) as unknown as number) + (8 as unknown as number))), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((((TapTarget as unknown as number) * (2 as unknown as number)) as unknown as number) + (14 as unknown as number))) as unknown as number))), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Left"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Top"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 1"), icon: "Crate.7", onClick: function(this: void): unknown | undefined {
 			return luaCall(onOpen, 1);
 			return undefined;
-		}, sound: "open", color: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(crate, "Color") : luaProp(Palette, "panelSoft")), textColor: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), reducedMotion: reducedMotion, disabled: (((keys as unknown as number) < (1 as unknown as number)) || busy), highlight: (((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 5"), icon: "Crate.8", onClick: function(): unknown | undefined {
+		}, sound: "open", color: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(crate, "Color") : luaProp(Palette, "panelSoft")), textColor: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), reducedMotion: reducedMotion, disabled: (((keys as unknown as number) < (1 as unknown as number)) || busy), highlight: (((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 5"), icon: "Crate.8", onClick: function(this: void): unknown | undefined {
 			return luaCall(onOpen, 5);
 			return undefined;
-		}, sound: "open", color: ((((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) ? luaProp(Palette, "mango") : luaProp(Palette, "panelSoft")), textColor: ((((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), reducedMotion: reducedMotion, disabled: (((keys as unknown as number) < (5 as unknown as number)) || busy), highlight: (((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) })) : reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0.5, 0), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Center"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 1"), icon: "Crate.9", onClick: function(): unknown | undefined {
+		}, sound: "open", color: ((((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) ? luaProp(Palette, "mango") : luaProp(Palette, "panelSoft")), textColor: ((((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), reducedMotion: reducedMotion, disabled: (((keys as unknown as number) < (5 as unknown as number)) || busy), highlight: (((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) })) : reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0.5, 0), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Center"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 1"), icon: "Crate.9", onClick: function(this: void): unknown | undefined {
 			return luaCall(onOpen, 1);
 			return undefined;
-		}, sound: "open", color: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(crate, "Color") : luaProp(Palette, "panelSoft")), textColor: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: reducedMotion, disabled: (((keys as unknown as number) < (1 as unknown as number)) || busy), highlight: (((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 5"), icon: "Crate.10", onClick: function(): unknown | undefined {
+		}, sound: "open", color: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(crate, "Color") : luaProp(Palette, "panelSoft")), textColor: ((((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: reducedMotion, disabled: (((keys as unknown as number) < (1 as unknown as number)) || busy), highlight: (((keys as unknown as number) >= (1 as unknown as number)) && (!busy)) }), reactLoose.createElement(Button, { text: (busy ? "…" : "OPEN 5"), icon: "Crate.10", onClick: function(this: void): unknown | undefined {
 			return luaCall(onOpen, 5);
 			return undefined;
 		}, sound: "open", color: ((((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) ? luaProp(Palette, "mango") : luaProp(Palette, "panelSoft")), textColor: ((((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: reducedMotion, disabled: (((keys as unknown as number) < (5 as unknown as number)) || busy), highlight: (((keys as unknown as number) >= (5 as unknown as number)) && (!busy)) })));
@@ -609,10 +618,10 @@ function __member(): unknown {
 		let buttonText: unknown = (soldOut ? ((daily ? "WAIT FOR RESTOCK" : "SOLD OUT")) : "BUY");
 		let cardH: unknown = (stack ? MARKET_CARD_H_STACK : MARKET_CARD_H);
 		let textReserve: unknown = (stack ? (-((((56 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -240);
-		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, cardH), accent: accent, background: (soldOut ? luaProp(Palette, "panelSoft") : luaProp(Palette, "panelRaised")), padding: (stack ? 16 : 18), layoutOrder: layoutOrder, clips: false, highlight: canBuy, reducedMotion: reducedMotion }, reactLoose.createElement(IconTile, { kind: ((luaProp(offer, "Kind") === "Essence") ? "Dust" : ((luaProp(offer, "Kind") === "Key") ? "Gift" : "Loadout")), accent: accent, size: 44, radius: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 8 : 32)), reducedMotion: reducedMotion }), reactLoose.createElement(Text, { value: luaProp(offer, "Name"), size: 16, color: (soldOut ? luaProp(Palette, "creamSoft") : luaProp(Palette, "cream")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 56, 4), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? (-((((56 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -260), 0, 22) }), (stack ? reactLoose.createElement(Badge, { value: stockBadge, accent: stockBadgeAccent, filled: (!soldOut), position: luaCall(luaProp(UDim2, "fromOffset"), 56, 28), size: luaCall(luaProp(UDim2, "fromOffset"), 140, 24) }) : reactLoose.createElement(Badge, { value: stockBadge, accent: stockBadgeAccent, filled: (!soldOut), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -150, 0, 4), size: luaCall(luaProp(UDim2, "fromOffset"), 140, 26) })), reactLoose.createElement(Text, { value: luaProp(offer, "Description"), size: 11, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 56 : 30)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 34) }), reactLoose.createElement(Text, { value: priceLabel, size: 13, color: (soldOut ? luaProp(Palette, "muted") : luaProp(offer, "Color")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 94 : 70)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 18) }), reactLoose.createElement(Text, { value: statusLine, size: 10, color: (soldOut ? luaProp(Palette, "coral") : luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), wrap: true, fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 114 : 94)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 28) }), (((soldOut && daily) && (refreshShort !== undefined)) && (reactLoose.createElement(Text, { value: refreshShort, size: 10, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 142 : 124)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 14) }))), (stack ? reactLoose.createElement(Button, { text: buttonText, icon: (soldOut ? "Lock.14" : "Shop.11"), onClick: function(): unknown | undefined {
+		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, cardH), accent: accent, background: (soldOut ? luaProp(Palette, "panelSoft") : luaProp(Palette, "panelRaised")), padding: (stack ? 16 : 18), layoutOrder: layoutOrder, clips: false, highlight: canBuy, reducedMotion: reducedMotion }, reactLoose.createElement(IconTile, { kind: ((luaProp(offer, "Kind") === "Essence") ? "Dust" : ((luaProp(offer, "Kind") === "Key") ? "Gift" : "Loadout")), accent: accent, size: 44, radius: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 8 : 32)), reducedMotion: reducedMotion }), reactLoose.createElement(Text, { value: luaProp(offer, "Name"), size: 16, color: (soldOut ? luaProp(Palette, "creamSoft") : luaProp(Palette, "cream")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 56, 4), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? (-((((56 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -260), 0, 22) }), (stack ? reactLoose.createElement(Badge, { value: stockBadge, accent: stockBadgeAccent, filled: (!soldOut), position: luaCall(luaProp(UDim2, "fromOffset"), 56, 28), size: luaCall(luaProp(UDim2, "fromOffset"), 140, 24) }) : reactLoose.createElement(Badge, { value: stockBadge, accent: stockBadgeAccent, filled: (!soldOut), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -150, 0, 4), size: luaCall(luaProp(UDim2, "fromOffset"), 140, 26) })), reactLoose.createElement(Text, { value: luaProp(offer, "Description"), size: 11, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 56 : 30)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 34) }), reactLoose.createElement(Text, { value: priceLabel, size: 13, color: (soldOut ? luaProp(Palette, "muted") : luaProp(offer, "Color")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 94 : 70)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 18) }), reactLoose.createElement(Text, { value: statusLine, size: 10, color: (soldOut ? luaProp(Palette, "coral") : luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), wrap: true, fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 114 : 94)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 28) }), (((soldOut && daily) && (refreshShort !== undefined)) && (reactLoose.createElement(Text, { value: refreshShort, size: 10, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 56, (stack ? 142 : 124)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, textReserve, 0, 14) }))), (stack ? reactLoose.createElement(Button, { text: buttonText, icon: (soldOut ? "Lock.14" : "Shop.11"), onClick: function(this: void): unknown | undefined {
 			return luaCall(dispatch, "BuyItemOffer", { Id: luaProp(offer, "Id") });
 			return undefined;
-		}, color: (canBuy ? luaProp(offer, "Color") : luaProp(Palette, "panelSoft")), textColor: (canBuy ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (8 as unknown as number))) as unknown as number))), reducedMotion: reducedMotion, disabled: (!canBuy), highlight: canBuy }) : reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 0, 48), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0.5, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(Button, { text: buttonText, icon: (soldOut ? "Lock.15" : "Shop.12"), onClick: function(): unknown | undefined {
+		}, color: (canBuy ? luaProp(offer, "Color") : luaProp(Palette, "panelSoft")), textColor: (canBuy ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (8 as unknown as number))) as unknown as number))), reducedMotion: reducedMotion, disabled: (!canBuy), highlight: canBuy }) : reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 0, 48), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0.5, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(Button, { text: buttonText, icon: (soldOut ? "Lock.15" : "Shop.12"), onClick: function(this: void): unknown | undefined {
 			return luaCall(dispatch, "BuyItemOffer", { Id: luaProp(offer, "Id") });
 			return undefined;
 		}, color: (canBuy ? luaProp(offer, "Color") : luaProp(Palette, "panelSoft")), textColor: (canBuy ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), size: luaCall(luaProp(UDim2, "fromOffset"), 0, 48), hug: true, reducedMotion: reducedMotion, disabled: (!canBuy), highlight: canBuy }))));
@@ -676,7 +685,7 @@ function __member(): unknown {
 		let listH: unknown = ((28 as unknown as number) + (((luaCall(luaProp(math, "max"), 1, len(equipped)) as unknown as number) * (32 as unknown as number)) as unknown as number));
 		let _exp: unknown = reactLoose.createElement(Text, { value: "ACTIVE BONUSES", size: 10, color: luaProp(Palette, "violet"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 16) });
 		let _newValue_1: unknown = luaCall(luaProp(table, "create"), len(lines));
-		let _callback_1: unknown = function(line?: unknown, index?: unknown): unknown | undefined {
+		let _callback_1: unknown = function(this: void, line?: unknown, index?: unknown): unknown | undefined {
 			let col: unknown = ((index as unknown as number) % (cols as unknown as number));
 			let row: unknown = luaCall(luaProp(math, "floor"), ((index as unknown as number) / (cols as unknown as number)));
 			return reactLoose.createElement("frame", { key: luaProp(line, "id"), Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (cols as unknown as number)), (-(tileGap as unknown as number)), 0, tileH), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) / (cols as unknown as number)), ((col === 0) ? 0 : ((tileGap as unknown as number) / (2 as unknown as number))), 0, ((row as unknown as number) * ((((tileH as unknown as number) + (tileGap as unknown as number))) as unknown as number))), BackgroundColor3: luaProp(Palette, "panelSoft"), BackgroundTransparency: 0.04, BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uistroke", { Color: (((luaProp(line, "value") as unknown as number) > (0 as unknown as number)) ? luaProp(line, "color") : luaProp(Palette, "lineSoft")), Transparency: 0.28, Thickness: 1.5 }), reactLoose.createElement(Text, { value: luaProp(line, "label"), size: 10, color: luaProp(Palette, "creamSoft"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 10, 8), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -20, 0, 14) }), reactLoose.createElement(Text, { value: `+${((luaCall(luaProp(math, "floor"), ((((luaProp(line, "value") as unknown as number) * (1000 as unknown as number)) as unknown as number) + (0.5 as unknown as number))) as unknown as number) / (10 as unknown as number))}%`, size: 16, color: (((luaProp(line, "value") as unknown as number) > (0 as unknown as number)) ? luaProp(line, "color") : luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 10, 24), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -20, 0, 22) }));
@@ -689,7 +698,7 @@ function __member(): unknown {
 		let _exp_2: unknown = reactLoose.createElement(Text, { value: "SOCKETED RELICS", size: 10, color: luaProp(Palette, "mint"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((28 as unknown as number) + (gridH as unknown as number))), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 16) });
 		let _exp_3: unknown = ((len(equipped) === 0) && reactLoose.createElement(Text, { value: "No relics socketed yet.", size: 12, color: luaProp(Palette, "muted"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((48 as unknown as number) + (gridH as unknown as number))), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 18) }));
 		let _newValue_2: unknown = luaCall(luaProp(table, "create"), len(equipped));
-		let _callback_2: unknown = function(entry?: unknown, index?: unknown): unknown | undefined {
+		let _callback_2: unknown = function(this: void, entry?: unknown, index?: unknown): unknown | undefined {
 			return reactLoose.createElement("frame", { key: luaProp(entry, "target"), Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((((48 as unknown as number) + (gridH as unknown as number)) as unknown as number) + (((index as unknown as number) * (32 as unknown as number)) as unknown as number))), BackgroundColor3: luaProp(Palette, "ink"), BackgroundTransparency: 0.12, BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8) }), reactLoose.createElement(Text, { value: `${luaCall(luaProp(InventoryMath, "SocketLabel"), luaProp(entry, "target"))}  ·  ${luaProp(entry, "name")}`, size: 12, color: luaCall(luaProp(InventoryMath, "RarityColor"), config, luaProp(entry, "rarity"), luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 10, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -20, 1, 0) }));
 			return undefined;
 		};
@@ -727,7 +736,7 @@ function __member(): unknown {
 		[tab, setTab] = reactLoose.useState("Relics") as LuaTuple<[unknown, unknown]>;
 		let activeTabIndex: unknown = luaCall(luaProp(math, "max"), 0, ((((luaTable.find(TABS, tab) || 0)) as unknown as number) - (1 as unknown as number)));
 		let paneTravel: unknown = luaCall(useFlipperSpring, activeTabIndex, reducedMotion, 1540, 40);
-		let panePosition: unknown = colon(paneTravel).map(function(position?: unknown): unknown | undefined {
+		let panePosition: unknown = colon(paneTravel).map(function(this: void, position?: unknown): unknown | undefined {
 			return new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, luaCall(luaProp(math, "round"), ((luaCall(luaProp(math, "clamp"), ((position as unknown as number) - (activeTabIndex as unknown as number)), -1, 1) as unknown as number) * (22 as unknown as number))), 0, 0);
 			return undefined;
 		});
@@ -769,8 +778,8 @@ function __member(): unknown {
 		[crateBusy, setCrateBusy] = reactLoose.useState(false) as LuaTuple<[unknown, unknown]>;
 		let mountedRef: unknown = reactLoose.useRef(true);
 		let crateAttemptRef: unknown = reactLoose.useRef(0);
-		reactLoose.useEffect(function(): unknown | undefined {
-			return function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaSet(mountedRef, "current", false);
 				luaSet(crateAttemptRef, "current", ((luaProp(crateAttemptRef, "current") as unknown as number) + (1 as unknown as number)));
 				return undefined;
@@ -778,7 +787,7 @@ function __member(): unknown {
 			return undefined;
 		}, {});
 		let items: unknown = luaProp(state, "Items");
-		let _exp: unknown = function(): unknown | undefined {
+		let _exp: unknown = function(this: void): unknown | undefined {
 			return luaCall(luaProp(InventoryMath, "CollectOwned"), state, config);
 			return undefined;
 		};
@@ -792,11 +801,11 @@ function __member(): unknown {
 			_result_1 = luaProp(_result_1, "Inventory");
 		}
 		let owned: unknown = reactLoose.useMemo(_exp, [_exp_1, _result, _result_1]);
-		let filtered: unknown = reactLoose.useMemo(function(): unknown | undefined {
+		let filtered: unknown = reactLoose.useMemo(function(this: void): unknown | undefined {
 			return luaCall(luaProp(InventoryMath, "SortOwned"), luaCall(luaProp(InventoryMath, "SearchOwned"), luaCall(luaProp(InventoryMath, "FilterOwned"), owned, filter), search, rarity, luaProp(mod("BrowseKit"), "matches")), config, sort);
 			return undefined;
 		}, [luaProp(config, "Items"), filter, owned, rarity, search, sort]);
-		let _callback_1: unknown = function(entry?: unknown): unknown | undefined {
+		let _callback_1: unknown = function(this: void, entry?: unknown): unknown | undefined {
 			return (luaProp(entry, "uid") === selectedUid);
 			return undefined;
 		};
@@ -814,7 +823,7 @@ function __member(): unknown {
 		let selected: unknown = _condition;
 		let relicListRef: unknown = reactLoose.useRef();
 		let relicRowStride: unknown = ((luaCall(luaProp(InventoryMath, "RelicRowHeight"), stack) as unknown as number) + (ROW_GAP as unknown as number));
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if (((selected !== undefined) && (luaProp(selected, "uid") !== selectedUid))) {
 				luaCall(setSelectedUid, luaProp(selected, "uid"));
 			}
@@ -823,7 +832,7 @@ function __member(): unknown {
 			}
 			return undefined;
 		}, [filtered, selected, selectedUid]);
-		let _exp_2: unknown = function(): unknown | undefined {
+		let _exp_2: unknown = function(this: void): unknown | undefined {
 			let frame: unknown = luaProp(relicListRef, "current");
 			if (((((frame === undefined) || (selected === undefined)) || bulkMode) || (tab !== "Relics"))) {
 				return undefined;
@@ -855,15 +864,15 @@ function __member(): unknown {
 			_result_3 = luaProp(_result_3, "uid");
 		}
 		reactLoose.useEffect(_exp_2, [bulkMode, filter, _exp_3, rarity, relicRowStride, search, _result_3, sort, stack, tab]);
-		let _exp_4: unknown = function(): unknown | undefined {
+		let _exp_4: unknown = function(this: void): unknown | undefined {
 			let present: unknown = {};
 			for (const [_, item] of pairs((owned) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 				let _uid: unknown = luaProp(item, "uid");
 				luaSetIndex(present, _uid, true);
 			}
-			luaCall(setBulkSelected, function(current?: unknown): unknown | undefined {
+			luaCall(setBulkSelected, function(this: void, current?: unknown): unknown | undefined {
 				let _newValue_1: unknown = {};
-				let _callback_2: unknown = function(uid?: unknown): unknown | undefined {
+				let _callback_2: unknown = function(this: void, uid?: unknown): unknown | undefined {
 					let _uid: unknown = uid;
 					return (luaIndex(present, _uid) !== undefined);
 					return undefined;
@@ -918,7 +927,7 @@ function __member(): unknown {
 		let tabH: unknown = (touchLayout ? 54 : 56);
 		let fieldH: unknown = (stack ? luaCall(luaProp(math, "max"), TapTarget, 52) : TOOL_FIELD_DESK);
 		let toolsH: unknown = ((tab === "Relics") ? ((((((((((toolPad as unknown as number) * (2 as unknown as number)) as unknown as number) + (((stack ? ((26 as unknown as number) + (toolGap as unknown as number)) : 0)) as unknown as number)) as unknown as number) + (((stack ? ((((fieldH as unknown as number) * (2 as unknown as number)) as unknown as number) + (toolGap as unknown as number)) : fieldH)) as unknown as number)) as unknown as number) + (toolGap as unknown as number)) as unknown as number) + (fieldH as unknown as number)) : 0);
-		let _exp_5: unknown = function(): unknown | undefined {
+		let _exp_5: unknown = function(this: void): unknown | undefined {
 			return ((selected !== undefined) ? luaCall(luaProp(InventoryMath, "SocketTargets"), state, config, luaProp(selected, "definition")) : {});
 			return undefined;
 		};
@@ -961,19 +970,19 @@ function __member(): unknown {
 		}
 		let shopRefreshAt: unknown = _condition_5;
 		let marketBannerH: unknown = (stack ? 132 : MARKET_BANNER_H);
-		let keysRefreshText: unknown = colon(marketNow).map(function(timestamp?: unknown): unknown | undefined {
+		let keysRefreshText: unknown = colon(marketNow).map(function(this: void, timestamp?: unknown): unknown | undefined {
 			let remaining: unknown = luaCall(luaProp(math, "max"), 0, ((shopRefreshAt as unknown as number) - (timestamp as unknown as number)));
 			return (((remaining as unknown as number) > (0 as unknown as number)) ? `Keys refresh in ${luaCall(luaProp(InventoryMath, "RestockClock"), remaining)}` : "Keys refreshing now…");
 			return undefined;
 		});
-		let refreshShort: unknown = colon(marketNow).map(function(timestamp?: unknown): unknown | undefined {
+		let refreshShort: unknown = colon(marketNow).map(function(this: void, timestamp?: unknown): unknown | undefined {
 			let remaining: unknown = luaCall(luaProp(math, "max"), 0, ((shopRefreshAt as unknown as number) - (timestamp as unknown as number)));
 			return (((remaining as unknown as number) > (0 as unknown as number)) ? `Restock in ${luaCall(luaProp(InventoryMath, "RestockClock"), remaining)}` : "Restocking…");
 			return undefined;
 		});
-		let selectedForBulk: unknown = reactLoose.useMemo(function(): unknown | undefined {
+		let selectedForBulk: unknown = reactLoose.useMemo(function(this: void): unknown | undefined {
 			let _newValue_1: unknown = {};
-			let _callback_2: unknown = function(item?: unknown): unknown | undefined {
+			let _callback_2: unknown = function(this: void, item?: unknown): unknown | undefined {
 				let _uid: unknown = luaProp(item, "uid");
 				let _condition_6: unknown = ((((((luaTable.find(bulkSelected, _uid) || 0)) as unknown as number) - (1 as unknown as number)) as unknown as number) >= (0 as unknown as number));
 				if (_condition_6) {
@@ -992,9 +1001,9 @@ function __member(): unknown {
 			return _newValue_1;
 			return undefined;
 		}, [bulkSelected, owned]);
-		let selectableVisible: unknown = reactLoose.useMemo(function(): unknown | undefined {
+		let selectableVisible: unknown = reactLoose.useMemo(function(this: void): unknown | undefined {
 			let _newValue_1: unknown = {};
-			let _callback_2: unknown = function(item?: unknown): unknown | undefined {
+			let _callback_2: unknown = function(this: void, item?: unknown): unknown | undefined {
 				return ((luaProp(item, "equippedOn") === undefined) && (luaProp(luaProp(item, "instance"), "Locked") !== true));
 				return undefined;
 			};
@@ -1029,31 +1038,31 @@ function __member(): unknown {
 		let autoRules: unknown = (autoDraft || serverAutoRules);
 		let serverAutoSignature: unknown = luaCall(luaProp(InventoryMath, "AutoSalvageSignature"), serverAutoRules, AUTO_RARITIES);
 		let draftAutoSignature: unknown = ((autoDraft !== undefined) ? luaCall(luaProp(InventoryMath, "AutoSalvageSignature"), autoDraft, AUTO_RARITIES) : undefined);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if (((draftAutoSignature !== undefined) && (draftAutoSignature === serverAutoSignature))) {
 				luaCall(setAutoDraft, undefined);
 			}
 			return undefined;
 		}, [draftAutoSignature, serverAutoSignature]);
-		let setBulkMode: unknown = function(value?: unknown): unknown | undefined {
+		let setBulkMode: unknown = function(this: void, value?: unknown): unknown | undefined {
 			luaCall(setBulkModeState, value);
 			if ((!value)) {
 				luaCall(setBulkSelected, {});
 			}
 			return undefined;
 		};
-		let toggleBulkItem: unknown = function(item?: unknown): unknown | undefined {
+		let toggleBulkItem: unknown = function(this: void, item?: unknown): unknown | undefined {
 			if (((luaProp(item, "equippedOn") !== undefined) || (luaProp(luaProp(item, "instance"), "Locked") === true))) {
 				colon(Audio).play("error");
 				return undefined;
 			}
-			luaCall(setBulkSelected, function(current?: unknown): unknown | undefined {
+			luaCall(setBulkSelected, function(this: void, current?: unknown): unknown | undefined {
 				let _current: unknown = current;
 				let _uid: unknown = luaProp(item, "uid");
 				let index: unknown = ((((luaTable.find(_current, _uid) || 0)) as unknown as number) - (1 as unknown as number));
 				if (((index as unknown as number) >= (0 as unknown as number))) {
 					let _newValue_1: unknown = {};
-					let _callback_2: unknown = function(uid?: unknown): unknown | undefined {
+					let _callback_2: unknown = function(this: void, uid?: unknown): unknown | undefined {
 						return (uid !== luaProp(item, "uid"));
 						return undefined;
 					};
@@ -1080,9 +1089,9 @@ function __member(): unknown {
 			});
 			return undefined;
 		};
-		let selectVisible: unknown = function(): unknown | undefined {
+		let selectVisible: unknown = function(this: void): unknown | undefined {
 			let _newValue_1: unknown = {};
-			let _callback_2: unknown = function(_?: unknown, index?: unknown): unknown | undefined {
+			let _callback_2: unknown = function(this: void, _?: unknown, index?: unknown): unknown | undefined {
 				return ((index as unknown as number) < (25 as unknown as number));
 				return undefined;
 			};
@@ -1094,7 +1103,7 @@ function __member(): unknown {
 				}
 			}
 			let _newValue_2: unknown = luaCall(luaProp(table, "create"), len(_newValue_1));
-			let _callback_3: unknown = function(item?: unknown): unknown | undefined {
+			let _callback_3: unknown = function(this: void, item?: unknown): unknown | undefined {
 				return luaProp(item, "uid");
 				return undefined;
 			};
@@ -1105,28 +1114,28 @@ function __member(): unknown {
 			colon(Audio).play("filterPick");
 			return undefined;
 		};
-		let clearSelection: unknown = function(): unknown | undefined {
+		let clearSelection: unknown = function(this: void): unknown | undefined {
 			return luaCall(setBulkSelected, {});
 			return undefined;
 		};
 		let bulkArmed: unknown;
 		let setBulkArmed: unknown;
 		[bulkArmed, setBulkArmed] = reactLoose.useState(false) as LuaTuple<[unknown, unknown]>;
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((!bulkArmed)) {
 				return undefined;
 			}
-			let lapse: unknown = luaCall(luaProp(task, "delay"), 4, function(): unknown | undefined {
+			let lapse: unknown = luaCall(luaProp(task, "delay"), 4, function(this: void): unknown | undefined {
 				luaCall(setBulkArmed, false);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), lapse);
 				return undefined;
 			};
 			return undefined;
 		}, [bulkArmed, len(selectedForBulk)]);
-		let runAutoNow: unknown = function(): unknown | undefined {
+		let runAutoNow: unknown = function(this: void): unknown | undefined {
 			if ((((autoBusy || bulkBusy) || (!passOwned)) || (!luaProp(autoRules, "Enabled")))) {
 				return undefined;
 			}
@@ -1149,7 +1158,7 @@ function __member(): unknown {
 				return undefined;
 			}
 			luaCall(setBulkBusy, true);
-			luaCall(dispatch, "BulkSalvageItems", { Uids: uids }, function(response?: unknown): unknown | undefined {
+			luaCall(dispatch, "BulkSalvageItems", { Uids: uids }, function(this: void, response?: unknown): unknown | undefined {
 				if ((!luaProp(mountedRef, "current"))) {
 					return undefined;
 				}
@@ -1161,7 +1170,7 @@ function __member(): unknown {
 			});
 			return undefined;
 		};
-		let salvageSelected: unknown = function(): unknown | undefined {
+		let salvageSelected: unknown = function(this: void): unknown | undefined {
 			if (((len(selectedForBulk) === 0) || bulkBusy)) {
 				return undefined;
 			}
@@ -1175,7 +1184,7 @@ function __member(): unknown {
 			let _object: unknown = {};
 			let _left: unknown = "Uids";
 			let _newValue_1: unknown = luaCall(luaProp(table, "create"), len(selectedForBulk));
-			let _callback_2: unknown = function(item?: unknown): unknown | undefined {
+			let _callback_2: unknown = function(this: void, item?: unknown): unknown | undefined {
 				return luaProp(item, "uid");
 				return undefined;
 			};
@@ -1183,7 +1192,7 @@ function __member(): unknown {
 				luaSetIndex(_newValue_1, _k, luaCall(_callback_2, _v, ((_k as unknown as number) - (1 as unknown as number)), selectedForBulk));
 			}
 			luaSetIndex(_object, _left, _newValue_1);
-			luaCall(dispatch, "BulkSalvageItems", _object, function(response?: unknown): unknown | undefined {
+			luaCall(dispatch, "BulkSalvageItems", _object, function(this: void, response?: unknown): unknown | undefined {
 				if ((!luaProp(mountedRef, "current"))) {
 					return undefined;
 				}
@@ -1196,7 +1205,7 @@ function __member(): unknown {
 			});
 			return undefined;
 		};
-		let updateAutoRules: unknown = function(updatedRules?: unknown): unknown | undefined {
+		let updateAutoRules: unknown = function(this: void, updatedRules?: unknown): unknown | undefined {
 			if ((autoBusy || (!passOwned))) {
 				return undefined;
 			}
@@ -1221,7 +1230,7 @@ function __member(): unknown {
 			}
 			luaCall(setAutoDraft, updatedRules);
 			luaCall(setAutoBusy, true);
-			luaCall(dispatch, "SetItemAutoSalvage", { Enabled: luaProp(updatedRules, "Enabled"), KeepNew: luaProp(updatedRules, "KeepNew"), Rarities: rarities }, function(response?: unknown): unknown | undefined {
+			luaCall(dispatch, "SetItemAutoSalvage", { Enabled: luaProp(updatedRules, "Enabled"), KeepNew: luaProp(updatedRules, "KeepNew"), Rarities: rarities }, function(this: void, response?: unknown): unknown | undefined {
 				if ((!luaProp(mountedRef, "current"))) {
 					return undefined;
 				}
@@ -1257,14 +1266,14 @@ function __member(): unknown {
 			canvasHeight = ((((((((((((listStart as unknown as number) + (54 as unknown as number)) as unknown as number) + (gridH as unknown as number)) as unknown as number) + (18 as unknown as number)) as unknown as number) + (28 as unknown as number)) as unknown as number) + (((luaCall(luaProp(math, "max"), 1, equippedCount) as unknown as number) * (32 as unknown as number)) as unknown as number)) as unknown as number) + (luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), SCROLL_PAD) as unknown as number));
 		}
 		let paneHeight: unknown = luaCall(luaProp(math, "max"), 1, ((((((canvasHeight as unknown as number) - (heroH as unknown as number)) as unknown as number) - (tabH as unknown as number)) as unknown as number) - (((pageGap as unknown as number) * (2 as unknown as number)) as unknown as number)));
-		let openCrate: unknown = function(crate?: unknown, count?: unknown): unknown | undefined {
+		let openCrate: unknown = function(this: void, crate?: unknown, count?: unknown): unknown | undefined {
 			if ((crateBusy || crateRevealActive)) {
 				return undefined;
 			}
 			let attempt: unknown = ((luaProp(crateAttemptRef, "current") as unknown as number) + (1 as unknown as number));
 			luaSet(crateAttemptRef, "current", attempt);
 			luaCall(setCrateBusy, true);
-			luaCall(dispatch, "OpenItemCrate", { Id: luaProp(crate, "Id"), Count: count }, function(response?: unknown): unknown | undefined {
+			luaCall(dispatch, "OpenItemCrate", { Id: luaProp(crate, "Id"), Count: count }, function(this: void, response?: unknown): unknown | undefined {
 				if (((!luaProp(mountedRef, "current")) || (luaProp(crateAttemptRef, "current") !== attempt))) {
 					return undefined;
 				}
@@ -1282,7 +1291,7 @@ function __member(): unknown {
 			});
 			return undefined;
 		};
-		let tabsBar: unknown = reactLoose.createElement(SegmentedTabs, { options: TAB_OPTIONS, value: tab, onChange: function(entry?: unknown): unknown | undefined {
+		let tabsBar: unknown = reactLoose.createElement(SegmentedTabs, { options: TAB_OPTIONS, value: tab, onChange: function(this: void, entry?: unknown): unknown | undefined {
 			luaCall(setTab, entry);
 			if ((entry !== "Relics")) {
 				luaCall(setBulkMode, false);
@@ -1290,16 +1299,16 @@ function __member(): unknown {
 			}
 			return undefined;
 		}, accent: luaProp(Palette, "violet"), columns: len(TABS), gap: pageGap, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, tabH), layoutOrder: 1, reducedMotion: softMotion });
-		let toolsBar: unknown = reactLoose.createElement(InventoryTools, { search: search, setSearch: setSearch, filter: filter, setFilter: setFilter, rarity: rarity, setRarity: setRarity, sort: sort, setSort: setSort, bulkMode: bulkMode, setBulkMode: setBulkMode, autoOpen: autoOpen, setAutoOpen: setAutoOpen, equipBest: function(): unknown | undefined {
+		let toolsBar: unknown = reactLoose.createElement(InventoryTools, { search: search, setSearch: setSearch, filter: filter, setFilter: setFilter, rarity: rarity, setRarity: setRarity, sort: sort, setSort: setSort, bulkMode: bulkMode, setBulkMode: setBulkMode, autoOpen: autoOpen, setAutoOpen: setAutoOpen, equipBest: function(this: void): unknown | undefined {
 			return luaCall(dispatch, "EquipBestItems");
 			return undefined;
 		}, reducedMotion: softMotion, stack: stack, filled: filled, limit: limit, essence: essence });
 		let heroPanel: unknown = reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), background: luaProp(Palette, "panelRaised"), padding: (stack ? 14 : 18), layoutOrder: 0, reveal: (reducedMotion ? tabsReveal : headerReveal), highlight: (!inventorySoft), reducedMotion: softMotion, clips: false }, reactLoose.createElement(IconTile, { kind: "Loadout", accent: luaProp(Palette, "violet"), size: (stack ? 38 : 44), radius: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 4 : 6)), spin: false, reducedMotion: softMotion, glow: true }), reactLoose.createElement(Text, { value: "INVENTORY", size: 12, color: luaProp(Palette, "violet"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), (stack ? 50 : 56), 2), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -58 : -20), 0, 16) }), reactLoose.createElement(ShimmerText, { value: ((tab === "Crates") ? "Open crates for new relics" : ((tab === "Market") ? "Crate keys and live stock" : ((tab === "Loadout") ? "What your sockets add" : `${filled} of ${limit} relics in your bag`))), size: (stack ? 18 : 22), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), (stack ? 50 : 56), 20), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -58 : -20), 0, 26), enabled: (!softMotion), periodSeconds: 4.8 }), reactLoose.createElement("frame", { Visible: (tab !== "Relics"), Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28) : luaCall(luaProp(UDim2, "fromOffset"), 220, 30)), Position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -28) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -220, 0.5, -15)), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: (stack ? luaProp(luaProp(Enum, "HorizontalAlignment"), "Left") : luaProp(luaProp(Enum, "HorizontalAlignment"), "Right")), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Badge, { value: `${filled} / ${limit} BAG`, accent: luaProp(Palette, "violet"), filled: true, size: luaCall(luaProp(UDim2, "fromOffset"), (stack ? 108 : 118), 28) }), reactLoose.createElement(Badge, { value: `${luaCall(compactNumber, essence)} ESS`, accent: luaProp(Palette, "mango"), size: luaCall(luaProp(UDim2, "fromOffset"), (stack ? 100 : 112), 28) })));
 		if ((tab === "Relics")) {
-			let listPane: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(SectionLabel, { value: (bulkMode ? "SELECT RELICS" : "RELIC BAY"), color: (bulkMode ? luaProp(Palette, "coral") : luaProp(Palette, "violet")) }), reactLoose.createElement(FlatList, { data: filtered, itemHeight: relicRowStride, headerHeight: SCROLL_PAD, overscan: (softMotion ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaProp(antilag, "constrained")) ? 1 : 2))), canvasTail: SCROLL_PAD, frameRef: relicListRef, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, -34), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(item?: unknown): unknown | undefined {
+			let listPane: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(SectionLabel, { value: (bulkMode ? "SELECT RELICS" : "RELIC BAY"), color: (bulkMode ? luaProp(Palette, "coral") : luaProp(Palette, "violet")) }), reactLoose.createElement(FlatList, { data: filtered, itemHeight: relicRowStride, headerHeight: SCROLL_PAD, overscan: (softMotion ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaProp(antilag, "constrained")) ? 1 : 2))), canvasTail: SCROLL_PAD, frameRef: relicListRef, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, -34), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, item?: unknown): unknown | undefined {
 				return luaProp(item, "uid");
 				return undefined;
-			}, renderItem: function(_param_1?: unknown): unknown | undefined {
+			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
 				let item: unknown = luaProp(_param_1, "item");
 				let _attributes: unknown = { item: item, config: config };
 				let _result_13: unknown = selected;
@@ -1310,7 +1319,7 @@ function __member(): unknown {
 				let _uid: unknown = luaProp(item, "uid");
 				luaSet(_attributes, "bulkSelected", ((((((luaTable.find(bulkSelected, _uid) || 0)) as unknown as number) - (1 as unknown as number)) as unknown as number) >= (0 as unknown as number)));
 				luaSet(_attributes, "bulkMode", bulkMode);
-				luaSet(_attributes, "onSelect", function(): unknown | undefined {
+				luaSet(_attributes, "onSelect", function(this: void): unknown | undefined {
 					colon(Audio).play("tick");
 					if (bulkMode) {
 						luaCall(toggleBulkItem, item);
@@ -1333,7 +1342,7 @@ function __member(): unknown {
 			if (bulkMode) {
 				luaTable.insert(sections, { id: "bulk", height: BULK_DOCK_H, element: reactLoose.createElement(BulkDock, { selectedCount: len(selectedForBulk), selectableCount: len(selectableVisible), selectionEssence: selectionEssence, selectVisible: selectVisible, clearSelection: clearSelection, salvageSelected: salvageSelected, bulkArmed: bulkArmed, bulkBusy: bulkBusy, reducedMotion: reducedMotion }) });
 			}
-			return reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: (stack ? 10 : 14), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, sections: sections }), (autoOpen && reactLoose.createElement(AutoSalvageSheet, { passOwned: passOwned, rules: autoRules, updateRules: updateAutoRules, autoBusy: autoBusy, openShop: openShop, runNow: runAutoNow, reducedMotion: reducedMotion, stack: stack, config: config, onClose: function(): unknown | undefined {
+			return reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: (stack ? 10 : 14), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, sections: sections }), (autoOpen && reactLoose.createElement(AutoSalvageSheet, { passOwned: passOwned, rules: autoRules, updateRules: updateAutoRules, autoBusy: autoBusy, openShop: openShop, runNow: runAutoNow, reducedMotion: reducedMotion, stack: stack, config: config, onClose: function(this: void): unknown | undefined {
 				return luaCall(setAutoOpen, false);
 				return undefined;
 			} })));
@@ -1343,16 +1352,16 @@ function __member(): unknown {
 			let crateCardH: unknown = (stack ? 248 : 160);
 			let crateStride: unknown = ((crateCardH as unknown as number) + (pageGap as unknown as number));
 			let crateLabelH: unknown = 28;
-			let crateList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: crates, itemHeight: crateStride, headerHeight: ((crateLabelH as unknown as number) + (pageGap as unknown as number)), overscan: (softMotion ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaProp(antilag, "constrained")) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(crate?: unknown): unknown | undefined {
+			let crateList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: crates, itemHeight: crateStride, headerHeight: ((crateLabelH as unknown as number) + (pageGap as unknown as number)), overscan: (softMotion ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaProp(antilag, "constrained")) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, crate?: unknown): unknown | undefined {
 				return luaProp(crate, "Id");
 				return undefined;
-			}, renderItem: function(_param_1?: unknown): unknown | undefined {
+			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
 				let crate: unknown = luaProp(_param_1, "item");
 				let keysTable: unknown = ((items !== undefined) ? luaProp(items, "Keys") : undefined);
 				let pityTable: unknown = ((items !== undefined) ? luaProp(items, "Pity") : undefined);
 				let keyCount: unknown = ((luaTypeIs(keysTable, "table")) ? luaIndex(keysTable, luaProp(crate, "Id")) : undefined);
 				let pityCount: unknown = ((luaTypeIs(pityTable, "table")) ? luaIndex(pityTable, luaProp(crate, "Id")) : undefined);
-				return reactLoose.createElement(CrateCard, { crate: crate, keys: ((luaTypeIs(keyCount, "number")) ? keyCount : 0), pity: ((luaTypeIs(pityCount, "number")) ? pityCount : 0), onOpen: function(count?: unknown): unknown | undefined {
+				return reactLoose.createElement(CrateCard, { crate: crate, keys: ((luaTypeIs(keyCount, "number")) ? keyCount : 0), pity: ((luaTypeIs(pityCount, "number")) ? pityCount : 0), onOpen: function(this: void, count?: unknown): unknown | undefined {
 					return luaCall(openCrate, crate, count);
 					return undefined;
 				}, busy: crateBusy, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack });
@@ -1362,10 +1371,10 @@ function __member(): unknown {
 		} else if ((tab === "Market")) {
 			let marketCardH: unknown = (stack ? MARKET_CARD_H_STACK : MARKET_CARD_H);
 			let marketStride: unknown = ((marketCardH as unknown as number) + (pageGap as unknown as number));
-			let marketList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: shopOffers, itemHeight: marketStride, headerHeight: ((marketBannerH as unknown as number) + (pageGap as unknown as number)), overscan: (softMotion ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaProp(antilag, "constrained")) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "mango"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(offer?: unknown): unknown | undefined {
+			let marketList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: shopOffers, itemHeight: marketStride, headerHeight: ((marketBannerH as unknown as number) + (pageGap as unknown as number)), overscan: (softMotion ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaProp(antilag, "constrained")) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "mango"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, offer?: unknown): unknown | undefined {
 				return luaProp(offer, "Id");
 				return undefined;
-			}, renderItem: function(_param_1?: unknown): unknown | undefined {
+			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
 				let offer: unknown = luaProp(_param_1, "item");
 				return reactLoose.createElement(MarketCard, { offer: offer, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, cash: luaProp(state, "Cash"), stardust: luaProp(state, "Stardust"), cores: luaProp(state, "Cores"), refreshShort: refreshShort, stack: stack });
 				return undefined;

@@ -12,9 +12,18 @@ function colon(value: unknown): Colon {
 	return value as Colon;
 }
 function luaProp(object: unknown, key: string): unknown {
+	// A missing row is nil. Indexing it throws; the Luau views treated that as absent.
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[key];
 }
 function luaIndex(object: unknown, index: unknown): unknown {
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[index as unknown as string];
 }
 function luaSet(object: unknown, key: string, value: unknown): void {
@@ -169,13 +178,13 @@ function __member(): unknown {
 		let _exp: unknown = reactLoose.createElement(Text, { value: "VISITING", size: 10, color: luaProp(Palette, "blue"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -160), 0, 16) });
 		let _exp_1: unknown = reactLoose.createElement(Text, { value: luaProp(visit, "DisplayName"), size: 22, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -160), 0, 30) });
 		let _exp_2: unknown = reactLoose.createElement(Text, { value: `World ${luaProp(visit, "CurrentZone")}  ·  ${luaProp(visit, "Rebirths")} resets  ·  live`, size: 11, color: luaProp(Palette, "creamSoft"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 54), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -160), 0, 18) });
-		let _exp_3: unknown = reactLoose.createElement(Button, { text: "LEAVE", icon: "Close.3", onClick: function(): unknown | undefined {
+		let _exp_3: unknown = reactLoose.createElement(Button, { text: "LEAVE", icon: "Close.3", onClick: function(this: void): unknown | undefined {
 			return luaCall(dispatch, "LeavePlot");
 			return undefined;
 		}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "creamSoft"), size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 120, 40)), position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (4 as unknown as number))) as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -120, 0, 12)), reducedMotion: softMotion });
 		let _exp_4: unknown = [{ label: "FLUX / SEC", value: luaProp(visit, "Production"), color: luaProp(Palette, "green") }, { label: "BALANCE", value: luaProp(visit, "Cash"), color: luaProp(Palette, "cream") }, { label: "CORES", value: luaProp(visit, "Cores"), color: luaProp(Palette, "violet") }, { label: "STARDUST", value: luaProp(visit, "Stardust"), color: luaProp(Palette, "cyan") }];
 		let _newValue: unknown = luaCall(luaProp(table, "create"), len(_exp_4));
-		let _callback: unknown = function(stat?: unknown, index?: unknown): unknown | undefined {
+		let _callback: unknown = function(this: void, stat?: unknown, index?: unknown): unknown | undefined {
 			return reactLoose.createElement("frame", { key: luaProp(stat, "label"), Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 72) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, -6, 1, 0)), Position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((((index as unknown as number) % (2 as unknown as number)) === 0) ? 0 : 0.5), ((((index as unknown as number) % (2 as unknown as number)) === 0) ? 0 : 4), 0, (((index as unknown as number) < (2 as unknown as number)) ? 0 : 80)) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((index as unknown as number) * (0.25 as unknown as number)), ((index === 0) ? 0 : 2), 0, 0)), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement(Text, { value: luaProp(stat, "label"), size: 9, color: luaProp(Palette, "muted"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 10, 10), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -20, 0, 14) }), reactLoose.createElement(NumberSpinnerHost, { value: luaCall(asFlux, luaProp(stat, "value")), reducedMotion: softMotion, duration: 0.4, size: 16, color: luaProp(stat, "color"), position: luaCall(luaProp(UDim2, "fromOffset"), 10, 32), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -20, 0, 24) }));
 			return undefined;
 		};
@@ -218,7 +227,7 @@ function __member(): unknown {
 		let invite: unknown = _init11;
 		let sections: unknown = {};
 		function run(action?: unknown, payload?: unknown): unknown | undefined {
-			luaCall(dispatch, action, (payload || {}), function(response?: unknown): unknown | undefined {
+			luaCall(dispatch, action, (payload || {}), function(this: void, response?: unknown): unknown | undefined {
 				if ((!luaTypeIs(response, "table"))) {
 					return;
 				}
@@ -250,11 +259,11 @@ function __member(): unknown {
 		}
 		let GAP: unknown = 10;
 		if ((invite && ((((luaProp(invite, "ExpiresAt") || 0)) as unknown as number) > (luaCall(luaProp(os, "time")) as unknown as number)))) {
-			luaTable.insert(sections, { id: "crew-invite", height: (stack ? ((((((46 as unknown as number) + (((TapTarget as unknown as number) * (2 as unknown as number)) as unknown as number)) as unknown as number) + (GAP as unknown as number)) as unknown as number) + (28 as unknown as number)) : 104), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panelRaised"), padding: 14, clips: false }, luaCall(text, `${luaProp(invite, "FromName")} invited you to ${luaProp(invite, "CrewName")}.`, 17, luaProp(Palette, "cream"), 44, luaProp(luaProp(Enum, "FontWeight"), "Heavy")), reactLoose.createElement(Button, { text: "Join crew", icon: "Crew.5", color: luaProp(Palette, "mango"), textColor: luaProp(Palette, "ink"), size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 160, TapTarget)), position: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 0, 46) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, ((-330 as unknown as number) - (GAP as unknown as number)), 0, 34)), reducedMotion: softMotion, onClick: function(): unknown | undefined {
+			luaTable.insert(sections, { id: "crew-invite", height: (stack ? ((((((46 as unknown as number) + (((TapTarget as unknown as number) * (2 as unknown as number)) as unknown as number)) as unknown as number) + (GAP as unknown as number)) as unknown as number) + (28 as unknown as number)) : 104), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panelRaised"), padding: 14, clips: false }, luaCall(text, `${luaProp(invite, "FromName")} invited you to ${luaProp(invite, "CrewName")}.`, 17, luaProp(Palette, "cream"), 44, luaProp(luaProp(Enum, "FontWeight"), "Heavy")), reactLoose.createElement(Button, { text: "Join crew", icon: "Crew.5", color: luaProp(Palette, "mango"), textColor: luaProp(Palette, "ink"), size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 160, TapTarget)), position: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 0, 46) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, ((-330 as unknown as number) - (GAP as unknown as number)), 0, 34)), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 				luaCall(luaProp(CrewStore, "set"), { invite: luaProp(CrewStore, "NONE") });
 				luaCall(run, "CrewRespond", { Accept: true });
 				return undefined;
-			} }), reactLoose.createElement(Button, { text: "Decline", color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "cream"), outline: true, size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 160, TapTarget)), position: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 0, ((((46 as unknown as number) + (TapTarget as unknown as number)) as unknown as number) + (GAP as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -160, 0, 34)), reducedMotion: softMotion, onClick: function(): unknown | undefined {
+			} }), reactLoose.createElement(Button, { text: "Decline", color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "cream"), outline: true, size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 160, TapTarget)), position: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 0, ((((46 as unknown as number) + (TapTarget as unknown as number)) as unknown as number) + (GAP as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -160, 0, 34)), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 				luaCall(luaProp(CrewStore, "set"), { invite: luaProp(CrewStore, "NONE") });
 				luaCall(run, "CrewRespond", { Accept: false });
 				return undefined;
@@ -265,10 +274,10 @@ function __member(): unknown {
 			let bonus: unknown = luaCall(luaProp(math, "floor"), ((((((luaProp(crew, "Bonus") || 0)) as unknown as number) * (100 as unknown as number)) as unknown as number) + (0.5 as unknown as number)));
 			luaTable.insert(sections, { id: "crew-summary", height: 96, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "green"), background: luaProp(Palette, "panelRaised"), padding: 14, clips: false }, luaCall(text, luaProp(crew, "Name"), 22, luaProp(Palette, "cream"), 30, luaProp(luaProp(Enum, "FontWeight"), "Heavy")), reactLoose.createElement(Text, { value: `${len(luaProp(crew, "Members"))} of ${luaProp(crew, "Max")} members · +${bonus}% production while you play together · crew chat is in Chat`, size: 14, color: luaProp(Palette, "muted"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) })) });
 			for (const [index, member] of pairs((luaProp(crew, "Members")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaTable.insert(sections, { id: concat("crew-member-", luaProp(member, "UserId")), height: 56, element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement(Text, { value: concat(luaProp(member, "DisplayName"), concat(((luaProp(member, "Leader") ? "  ·  leader" : "")), (((luaProp(member, "UserId") === localId) ? "  ·  you" : "")))), size: 16, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 6), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 22) }), reactLoose.createElement(Text, { value: `${luaProp(member, "Collects")} collect${((luaProp(member, "Collects") === 1) ? "" : "s")} today`, size: 13, color: luaProp(Palette, "muted"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 30), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 18) }), (((luaProp(member, "UserId") !== localId) && reactLoose.createElement(Button, { text: "Visit", icon: "Visit.4", color: luaProp(Palette, "blue"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 104, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (leader ? -236 : -110), 0.5, -22), reducedMotion: softMotion, onClick: function(): unknown | undefined {
+				luaTable.insert(sections, { id: concat("crew-member-", luaProp(member, "UserId")), height: 56, element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement(Text, { value: concat(luaProp(member, "DisplayName"), concat(((luaProp(member, "Leader") ? "  ·  leader" : "")), (((luaProp(member, "UserId") === localId) ? "  ·  you" : "")))), size: 16, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 6), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 22) }), reactLoose.createElement(Text, { value: `${luaProp(member, "Collects")} collect${((luaProp(member, "Collects") === 1) ? "" : "s")} today`, size: 13, color: luaProp(Palette, "muted"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 30), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 18) }), (((luaProp(member, "UserId") !== localId) && reactLoose.createElement(Button, { text: "Visit", icon: "Visit.4", color: luaProp(Palette, "blue"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 104, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (leader ? -236 : -110), 0.5, -22), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 					luaCall(dispatch, "VisitPlot", { UserId: luaProp(member, "UserId") });
 					return undefined;
-				} })) || undefined), (((leader && (luaProp(member, "UserId") !== localId)) && reactLoose.createElement(Button, { text: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? "Sure?" : "Remove"), color: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== concat("kick-", luaProp(member, "UserId"))), size: luaCall(luaProp(UDim2, "fromOffset"), 112, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -118, 0.5, -22), reducedMotion: softMotion, onClick: function(): unknown | undefined {
+				} })) || undefined), (((leader && (luaProp(member, "UserId") !== localId)) && reactLoose.createElement(Button, { text: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? "Sure?" : "Remove"), color: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== concat("kick-", luaProp(member, "UserId"))), size: luaCall(luaProp(UDim2, "fromOffset"), 112, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -118, 0.5, -22), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 					luaCall(confirmed, concat("kick-", luaProp(member, "UserId")), "CrewKick", { UserId: luaProp(member, "UserId") });
 					return undefined;
 				} })) || undefined)) });
@@ -296,24 +305,24 @@ function __member(): unknown {
 				const _init15 = luaCall(luaProp(math, "floor"), (((((index as unknown as number) - (1 as unknown as number))) as unknown as number) / (columns as unknown as number)));
 				let col: unknown = _init14;
 				let row: unknown = _init15;
-				luaTable.insert(goalChildren, reactLoose.createElement(Button, { text: (luaProp(tier, "Claimed") ? `Claimed · ${luaProp(tier, "Stardust")} dust` : (((luaProp(crew, "Pooled") as unknown as number) >= (luaProp(tier, "Target") as unknown as number)) ? `Claim ${luaProp(tier, "Stardust")} dust` : `${luaProp(tier, "Target")} collects · ${luaProp(tier, "Stardust")} dust`)), color: (ready ? luaProp(Palette, "green") : luaProp(Palette, "panelSoft")), textColor: (ready ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), disabled: (!ready), highlight: ready, reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(cellW, (-(GAP as unknown as number)), 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) * (cellW as unknown as number)), 0, 0, ((68 as unknown as number) + (((row as unknown as number) * ((((TapTarget as unknown as number) + (GAP as unknown as number))) as unknown as number)) as unknown as number))), onClick: function(): unknown | undefined {
+				luaTable.insert(goalChildren, reactLoose.createElement(Button, { text: (luaProp(tier, "Claimed") ? `Claimed · ${luaProp(tier, "Stardust")} dust` : (((luaProp(crew, "Pooled") as unknown as number) >= (luaProp(tier, "Target") as unknown as number)) ? `Claim ${luaProp(tier, "Stardust")} dust` : `${luaProp(tier, "Target")} collects · ${luaProp(tier, "Stardust")} dust`)), color: (ready ? luaProp(Palette, "green") : luaProp(Palette, "panelSoft")), textColor: (ready ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), disabled: (!ready), highlight: ready, reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(cellW, (-(GAP as unknown as number)), 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) * (cellW as unknown as number)), 0, 0, ((68 as unknown as number) + (((row as unknown as number) * ((((TapTarget as unknown as number) + (GAP as unknown as number))) as unknown as number)) as unknown as number))), onClick: function(this: void): unknown | undefined {
 					luaCall(run, "CrewClaim", { Tier: index });
 					return undefined;
 				} }));
 			}
 			let goalRows: unknown = luaCall(luaProp(math, "ceil"), ((len(luaProp(crew, "Tiers")) as unknown as number) / (columns as unknown as number)));
 			luaTable.insert(sections, { id: "crew-goal", height: ((((68 as unknown as number) + (((goalRows as unknown as number) * ((((TapTarget as unknown as number) + (GAP as unknown as number))) as unknown as number)) as unknown as number)) as unknown as number) + (28 as unknown as number)), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "green"), background: luaProp(Palette, "panelRaised"), padding: 14, clips: false }, luaTable.unpack(goalChildren)) });
-			let actions: unknown = [reactLoose.createElement(Button, { text: ((confirmKey === "leave") ? "Tap again to leave" : "Leave crew"), color: ((confirmKey === "leave") ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === "leave") ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== "leave"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((leader && (!stack)) ? 0.3 : 1), (((-(GAP as unknown as number)) as unknown as number) / (2 as unknown as number)), 0, TapTarget), position: ((leader && (!stack)) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, ((GAP as unknown as number) / (2 as unknown as number)), 0, 0) : (leader ? luaCall(luaProp(UDim2, "fromOffset"), 0, ((TapTarget as unknown as number) + (GAP as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)())), reducedMotion: softMotion, onClick: function(): unknown | undefined {
+			let actions: unknown = [reactLoose.createElement(Button, { text: ((confirmKey === "leave") ? "Tap again to leave" : "Leave crew"), color: ((confirmKey === "leave") ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === "leave") ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== "leave"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((leader && (!stack)) ? 0.3 : 1), (((-(GAP as unknown as number)) as unknown as number) / (2 as unknown as number)), 0, TapTarget), position: ((leader && (!stack)) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, ((GAP as unknown as number) / (2 as unknown as number)), 0, 0) : (leader ? luaCall(luaProp(UDim2, "fromOffset"), 0, ((TapTarget as unknown as number) + (GAP as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)())), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 				luaCall(confirmed, "leave", "CrewLeave");
 				return undefined;
 			} })];
 			if (leader) {
-				luaTable.insert(actions, reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)((stack ? 1 : 0.45), (((-(GAP as unknown as number)) as unknown as number) / (2 as unknown as number)), 0, TapTarget), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0, Text: renameDraft, PlaceholderText: "New crew name", PlaceholderColor3: luaProp(Palette, "muted"), TextColor3: luaProp(Palette, "cream"), TextSize: 16, ClearTextOnFocus: false, FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(box?: unknown): unknown | undefined {
+				luaTable.insert(actions, reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)((stack ? 1 : 0.45), (((-(GAP as unknown as number)) as unknown as number) / (2 as unknown as number)), 0, TapTarget), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0, Text: renameDraft, PlaceholderText: "New crew name", PlaceholderColor3: luaProp(Palette, "muted"), TextColor3: luaProp(Palette, "cream"), TextSize: 16, ClearTextOnFocus: false, FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 					luaCall(setRenameDraft, luaCall(luaProp(string, "sub"), luaProp(box, "Text"), 1, 40));
 					return undefined;
 				} } }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) })));
 				if ((!stack)) {
-					luaTable.insert(actions, reactLoose.createElement(Button, { text: "Rename", color: luaProp(Palette, "green"), textColor: luaProp(Palette, "ink"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, (-(GAP as unknown as number)), 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.45, ((GAP as unknown as number) / (2 as unknown as number)), 0, 0), reducedMotion: softMotion, disabled: (luaCall(luaProp(CrewMath, "cleanName"), renameDraft) === undefined), onClick: function(): unknown | undefined {
+					luaTable.insert(actions, reactLoose.createElement(Button, { text: "Rename", color: luaProp(Palette, "green"), textColor: luaProp(Palette, "ink"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, (-(GAP as unknown as number)), 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.45, ((GAP as unknown as number) / (2 as unknown as number)), 0, 0), reducedMotion: softMotion, disabled: (luaCall(luaProp(CrewMath, "cleanName"), renameDraft) === undefined), onClick: function(this: void): unknown | undefined {
 						luaCall(run, "CrewRename", { Name: renameDraft });
 						luaCall(setRenameDraft, "");
 						return undefined;
@@ -351,7 +360,7 @@ function __member(): unknown {
 					const _init17 = luaCall(luaProp(math, "floor"), (((((index as unknown as number) - (1 as unknown as number))) as unknown as number) / (columns as unknown as number)));
 					let col: unknown = _init16;
 					let row: unknown = _init17;
-					luaTable.insert(children, reactLoose.createElement(Button, { text: `Invite ${luaProp(player, "DisplayName")}`, icon: "Crew.6", color: luaProp(Palette, "blue"), textColor: luaProp(Palette, "ink"), reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (columns as unknown as number)), (-(GAP as unknown as number)), 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) / (columns as unknown as number)), 0, 0, ((46 as unknown as number) + (((row as unknown as number) * ((((TapTarget as unknown as number) + (GAP as unknown as number))) as unknown as number)) as unknown as number))), onClick: function(): unknown | undefined {
+					luaTable.insert(children, reactLoose.createElement(Button, { text: `Invite ${luaProp(player, "DisplayName")}`, icon: "Crew.6", color: luaProp(Palette, "blue"), textColor: luaProp(Palette, "ink"), reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (columns as unknown as number)), (-(GAP as unknown as number)), 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((col as unknown as number) / (columns as unknown as number)), 0, 0, ((46 as unknown as number) + (((row as unknown as number) * ((((TapTarget as unknown as number) + (GAP as unknown as number))) as unknown as number)) as unknown as number))), onClick: function(this: void): unknown | undefined {
 						luaCall(run, "CrewInvite", { UserId: luaProp(player, "UserId") });
 						return undefined;
 					} }));
@@ -393,22 +402,22 @@ function __member(): unknown {
 		let setConfirmKey: unknown;
 		[confirmKey, setConfirmKey] = reactLoose.useState(undefined) as LuaTuple<[unknown, unknown]>;
 		// an unanswered "tap again" quietly resets
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((confirmKey === undefined)) {
 				return undefined;
 			}
-			let reset: unknown = luaCall(luaProp(task, "delay"), 4, function(): unknown | undefined {
+			let reset: unknown = luaCall(luaProp(task, "delay"), 4, function(this: void): unknown | undefined {
 				luaCall(setConfirmKey, undefined);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), reset);
 				return undefined;
 			};
 			return undefined;
 		}, [confirmKey]);
-		reactLoose.useEffect(function(): unknown | undefined {
-			return function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaSet(mountedRef, "current", false);
 				luaSet(visitAttemptRef, "current", ((luaProp(visitAttemptRef, "current") as unknown as number) + (1 as unknown as number)));
 				return undefined;
@@ -416,8 +425,8 @@ function __member(): unknown {
 			return undefined;
 		}, {});
 		// the crew page asks once on open; afterwards CrewState effects keep the store current
-		reactLoose.useEffect(function(): unknown | undefined {
-			luaCall(dispatch, "GetCrew", {}, function(response?: unknown): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
+			luaCall(dispatch, "GetCrew", {}, function(this: void, response?: unknown): unknown | undefined {
 				if (((luaTypeIs(response, "table")) && luaProp(response, "ok"))) {
 					luaCall(luaProp(CrewStore, "set"), { crew: (luaProp(response, "Crew") || luaProp(CrewStore, "NONE")), invite: (luaProp(response, "Invite") || luaProp(CrewStore, "NONE")) });
 				}
@@ -425,8 +434,8 @@ function __member(): unknown {
 			});
 			return undefined;
 		}, {});
-		let refresh: unknown = reactLoose.useCallback(function(): unknown | undefined {
-			return luaCall(dispatch, "GetPlayers", {}, function(response?: unknown): unknown | undefined {
+		let refresh: unknown = reactLoose.useCallback(function(this: void): unknown | undefined {
+			return luaCall(dispatch, "GetPlayers", {}, function(this: void, response?: unknown): unknown | undefined {
 				if (((!luaProp(mountedRef, "current")) || (!luaProp(response, "ok")))) {
 					return undefined;
 				}
@@ -443,7 +452,7 @@ function __member(): unknown {
 					luaSet(_object, "UserId", id);
 					luaTable.insert(cleaned, _object);
 				}
-				luaCall(setPlayers, function(current?: unknown): unknown | undefined {
+				luaCall(setPlayers, function(this: void, current?: unknown): unknown | undefined {
 					return (luaCall(sameCrewSnapshot, current, cleaned) ? current : cleaned);
 					return undefined;
 				});
@@ -451,23 +460,23 @@ function __member(): unknown {
 			});
 			return undefined;
 		}, [dispatch]);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			luaCall(refresh);
 			return undefined;
 		}, [refresh]);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			let joined: unknown = colon(luaProp(Players, "PlayerAdded")).Connect(refresh);
 			let left: unknown = colon(luaProp(Players, "PlayerRemoving")).Connect(refresh);
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				colon(joined).Disconnect();
 				colon(left).Disconnect();
 				return undefined;
 			};
 			return undefined;
 		}, [refresh]);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			let alive: unknown = true;
-			let worker: unknown = luaCall(luaProp(task, "spawn"), function(): unknown | undefined {
+			let worker: unknown = luaCall(luaProp(task, "spawn"), function(this: void): unknown | undefined {
 				while (alive) {
 					luaCall(luaProp(task, "wait"), 4);
 					if ((!alive)) {
@@ -477,9 +486,9 @@ function __member(): unknown {
 				}
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				alive = false;
-				luaCall(pcall, function(): unknown | undefined {
+				luaCall(pcall, function(this: void): unknown | undefined {
 					return luaCall(luaProp(task, "cancel"), worker);
 					return undefined;
 				});
@@ -488,7 +497,7 @@ function __member(): unknown {
 			return undefined;
 		}, [refresh]);
 		let crewFocusReady: unknown = ((len(players) as unknown as number) > (0 as unknown as number));
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if (((!crewFocusReady) || (!luaProp(UserInputService, "GamepadEnabled")))) {
 				return undefined;
 			}
@@ -496,14 +505,14 @@ function __member(): unknown {
 			if ((host === undefined)) {
 				return undefined;
 			}
-			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(): unknown | undefined {
+			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(this: void): unknown | undefined {
 				if ((luaProp(host, "Parent") === undefined)) {
 					return;
 				}
 				luaCall(luaProp(GamepadNavigationService, "FocusClaim"), host);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), selectJob);
 				return undefined;
 			};
@@ -514,7 +523,7 @@ function __member(): unknown {
 			_visitUserId = luaProp(_visitUserId, "UserId");
 		}
 		let visitUserId: unknown = _visitUserId;
-		let coerceCrewId: unknown = function(raw?: unknown): unknown | undefined {
+		let coerceCrewId: unknown = function(this: void, raw?: unknown): unknown | undefined {
 			let _raw: unknown = raw;
 			let _result: unknown;
 			if ((luaTypeIs(_raw, "number"))) {
@@ -534,14 +543,14 @@ function __member(): unknown {
 			return id;
 			return undefined;
 		};
-		let startVisit: unknown = function(userId?: unknown): unknown | undefined {
+		let startVisit: unknown = function(this: void, userId?: unknown): unknown | undefined {
 			let id: unknown = luaCall(coerceCrewId, userId);
 			if ((id === undefined)) {
 				return undefined;
 			}
 			let attempt: unknown = ((luaProp(visitAttemptRef, "current") as unknown as number) + (1 as unknown as number));
 			luaSet(visitAttemptRef, "current", attempt);
-			luaCall(dispatch, "VisitPlot", { UserId: id, userId: id }, function(response?: unknown): unknown | undefined {
+			luaCall(dispatch, "VisitPlot", { UserId: id, userId: id }, function(this: void, response?: unknown): unknown | undefined {
 				if (((!luaProp(mountedRef, "current")) || (luaProp(visitAttemptRef, "current") !== attempt))) {
 					return undefined;
 				}
@@ -563,7 +572,7 @@ function __member(): unknown {
 			});
 			return undefined;
 		};
-		let nudgeCrew: unknown = function(userId?: unknown): unknown | undefined {
+		let nudgeCrew: unknown = function(this: void, userId?: unknown): unknown | undefined {
 			let id: unknown = luaCall(coerceCrewId, userId);
 			if ((id === undefined)) {
 				return undefined;
@@ -572,22 +581,22 @@ function __member(): unknown {
 			return undefined;
 		};
 		let headerReveal: unknown = luaCall(useStagger, 0, softMotion);
-		let crewBrowse: unknown = luaCall(luaProp(Browse, "useBrowse"), { id: "Crew", items: players, text: function(player?: unknown): unknown | undefined {
+		let crewBrowse: unknown = luaCall(luaProp(Browse, "useBrowse"), { id: "Crew", items: players, text: function(this: void, player?: unknown): unknown | undefined {
 			return [luaProp(player, "DisplayName"), luaProp(player, "CurrentPage"), `world ${(luaProp(player, "CurrentZone") || "")}`];
 			return undefined;
-		}, categories: [{ id: "All", label: "Everyone" }, { id: "SameWorld", label: "Same world", test: function(player?: unknown): unknown | undefined {
+		}, categories: [{ id: "All", label: "Everyone" }, { id: "SameWorld", label: "Same world", test: function(this: void, player?: unknown): unknown | undefined {
 			return (((!luaProp(player, "IsLocal")) && (luaProp(player, "CurrentZone") !== undefined)) && (luaProp(player, "CurrentZone") === luaProp(state, "CurrentZone")));
 			return undefined;
-		} }, { id: "Others", label: "Not me", test: function(player?: unknown): unknown | undefined {
+		} }, { id: "Others", label: "Not me", test: function(this: void, player?: unknown): unknown | undefined {
 			return (!luaProp(player, "IsLocal"));
 			return undefined;
-		} }], sorts: [{ id: "Joined", label: "Server order" }, { id: "Production", label: "Top production", compare: function(a?: unknown, b?: unknown): unknown | undefined {
+		} }], sorts: [{ id: "Joined", label: "Server order" }, { id: "Production", label: "Top production", compare: function(this: void, a?: unknown, b?: unknown): unknown | undefined {
 			return ((((luaCall(asFlux, luaProp(a, "Production")) || 0)) as unknown as number) > (((luaCall(asFlux, luaProp(b, "Production")) || 0)) as unknown as number));
 			return undefined;
-		} }, { id: "Rebirths", label: "Most rebirths", compare: function(a?: unknown, b?: unknown): unknown | undefined {
+		} }, { id: "Rebirths", label: "Most rebirths", compare: function(this: void, a?: unknown, b?: unknown): unknown | undefined {
 			return ((((luaCall(tonumber, luaProp(a, "Rebirths")) || 0)) as unknown as number) > (((luaCall(tonumber, luaProp(b, "Rebirths")) || 0)) as unknown as number));
 			return undefined;
-		} }, { id: "Name", label: "A to Z", compare: function(a?: unknown, b?: unknown): unknown | undefined {
+		} }, { id: "Name", label: "A to Z", compare: function(this: void, a?: unknown, b?: unknown): unknown | undefined {
 			return ((luaCall(luaProp(string, "lower"), luaCall(tostring, luaProp(a, "DisplayName"))) as unknown as number) < (luaCall(luaProp(string, "lower"), luaCall(tostring, luaProp(b, "DisplayName"))) as unknown as number));
 			return undefined;
 		} }] });
@@ -627,28 +636,28 @@ function __member(): unknown {
 		if (virtRoster) {
 			let rosterCards: unknown = luaCall(luaProp(table, "create"), len(players));
 			for (const [index, player] of pairs((players) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaSetIndex(rosterCards, index, reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaProp(player, "IsLocal") ? visitorsHere : 0), onVisit: function(): unknown | undefined {
+				luaSetIndex(rosterCards, index, reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaProp(player, "IsLocal") ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
 					return luaCall(startVisit, luaProp(player, "UserId"));
 					return undefined;
-				}, onNudge: function(): unknown | undefined {
+				}, onNudge: function(this: void): unknown | undefined {
 					return luaCall(nudgeCrew, luaProp(player, "UserId"));
 					return undefined;
 				}, reducedMotion: reducedMotion, layoutOrder: index, stack: stack }));
 			}
-			luaTable.insert(sections, { id: "roster", fill: true, minHeight: 120, element: reactLoose.createElement(FlatList, { data: players, itemHeight: rowStride, overscan: (softMotion ? 0 : (luaProp(antilag, "constrained") ? 1 : 2)), canvasTail: 8, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, keyExtractor: function(player?: unknown): unknown | undefined {
+			luaTable.insert(sections, { id: "roster", fill: true, minHeight: 120, element: reactLoose.createElement(FlatList, { data: players, itemHeight: rowStride, overscan: (softMotion ? 0 : (luaProp(antilag, "constrained") ? 1 : 2)), canvasTail: 8, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, keyExtractor: function(this: void, player?: unknown): unknown | undefined {
 				return luaProp(player, "UserId");
 				return undefined;
-			}, renderItem: function(_param_1?: unknown): unknown | undefined {
+			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
 				let index: unknown = luaProp(_param_1, "index");
 				return luaIndex(rosterCards, ((index as unknown as number) + (1 as unknown as number)));
 				return undefined;
 			} }) });
 		} else {
 			for (const [index, player] of pairs((players) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaTable.insert(sections, { id: concat("crew-", luaCall(tostring, index)), height: rowStride, element: reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaProp(player, "IsLocal") ? visitorsHere : 0), onVisit: function(): unknown | undefined {
+				luaTable.insert(sections, { id: concat("crew-", luaCall(tostring, index)), height: rowStride, element: reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaProp(player, "IsLocal") ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
 					return luaCall(startVisit, luaProp(player, "UserId"));
 					return undefined;
-				}, onNudge: function(): unknown | undefined {
+				}, onNudge: function(this: void): unknown | undefined {
 					return luaCall(nudgeCrew, luaProp(player, "UserId"));
 					return undefined;
 				}, reducedMotion: reducedMotion, layoutOrder: ((index as unknown as number) + (3 as unknown as number)), stack: stack }) });
