@@ -29,7 +29,12 @@ function assertStorable(data: unknown, fieldName?: string): void {
 
 	if (dataType === "string") {
 		const [len] = utf8.len(data as string);
-		assert(len, `Strings with invalid UTF-8 codepoints are not storable in Datastores. Field: ${fieldName}`);
+		// `assert(len)` is lowered to `len ~= 0`, which rejects "" (utf8.len("") == 0).
+		// Only a non-number (nil/false) means the bytes are not valid UTF-8.
+		assert(
+			typeIs(len, "number"),
+			`Strings with invalid UTF-8 codepoints are not storable in Datastores. Field: ${fieldName}`,
+		);
 	}
 
 	if (dataType === "table") {
