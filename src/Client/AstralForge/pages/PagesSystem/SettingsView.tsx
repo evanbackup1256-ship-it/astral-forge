@@ -636,7 +636,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				sizeConstraint={new UDim2(1, stack ? 0 : -340, 0, 30)}
 			/>
 			<Text
-				value={`Saved to your profile automatically  ·  v${state.Game.Version}`}
+				value={`Saves automatically  ·  v${state.Game.Version}`}
 				size={12}
 				color={Palette.muted}
 				fit={true}
@@ -773,7 +773,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				sizeConstraint={new UDim2(1, -110, 0, 24)}
 			/>
 			<Text
-				value={searching ? "From every section." : showChanged ? "Everything you set differently from the defaults." : section.blurb}
+				value={searching ? "From every section." : showChanged ? "Anything you changed from the default." : section.blurb}
 				size={12}
 				color={Palette.muted}
 				position={UDim2.fromOffset(0, 26)}

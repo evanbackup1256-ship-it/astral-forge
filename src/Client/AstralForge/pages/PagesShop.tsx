@@ -446,7 +446,7 @@ function passBenefitLine(pass: GamePass): string {
 		parts.push(`+${math.floor(pass.CapacityBonus * 100)}% vault`);
 	}
 	if (pass.Key === "AutoSalvage") {
-		parts.push("Configurable relic recycling");
+		parts.push("Auto-recycle the relics you pick");
 	}
 	return parts.size() > 0 ? parts.join(" · ") : "Permanent account upgrade";
 }
@@ -1052,7 +1052,7 @@ function ShopView(props: ShopViewProps) {
 					size: UDim2.fromOffset(68, 20),
 				}),
 				h(Text, {
-					value: "Support the game and speed up your forge.",
+					value: "Speed up your forge.",
 					size: 18,
 					color: Palette.cream,
 					weight: Enum.FontWeight.Heavy,
@@ -1171,7 +1171,7 @@ function ShopView(props: ShopViewProps) {
 					sizeConstraint: new UDim2(1, 0, 0, 26),
 				}),
 				h(Text, {
-					value: "Enter a code, then claim the reward once.",
+					value: "Type a code to claim it. Each one works once.",
 					size: 12,
 					color: Palette.muted,
 					wrap: true,
@@ -1296,7 +1296,7 @@ function ShopView(props: ShopViewProps) {
 							? followFeedback
 							: followClaimed
 								? "Reward claimed. Thanks for the follow."
-								: "Follow the creator on Roblox, then check it here for a one-time reward.",
+								: "Follow the creator on Roblox, then check here for a one-time reward.",
 					size: 11,
 					color: followClaimed || followFeedback !== "" ? Palette.mint : Palette.muted,
 					wrap: true,
@@ -2011,7 +2011,7 @@ function DailySection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Daily Shop",
-					body: "Six offers picked for you each day. The first is the Deal of the Day.",
+					body: "Six offers a day, picked for you. The first is the Deal of the Day.",
 					accent: Palette.mango,
 					icon: "Calendar.3",
 					state: state,
@@ -2451,7 +2451,7 @@ function CratesSection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Crates",
-					body: "Every crate's odds, all the way up to Celestial and Astral. Your crate skin opens every one.",
+					body: "Odds for every crate, up to Celestial and Astral. Your equipped skin opens all of them.",
 					accent: Palette.violet,
 					icon: "Crate.4",
 					state: state,
