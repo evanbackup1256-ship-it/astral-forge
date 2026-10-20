@@ -1,7 +1,8 @@
 import React from "@rbxts/react";
 import { Audio } from "../AudioKit/audio";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
-import { Palette } from "../CoreKit/theme";
+import { Layout, Palette } from "../CoreKit/theme";
+import { Panel, Text } from "../UiCore/ui";
 import { isReducedMotion } from "../MotionPreference";
 
 // Purchase status card: a small card with three bouncing dots while Roblox checkout runs,
@@ -14,8 +15,8 @@ const PURCHASE_RESULT_HOLD = 1.8;
 const PURCHASE_RESULT_HOLD_REDUCED = 1.4;
 const PURCHASE_PENDING_FAILSAFE = 45;
 
-const CARD_W = 248;
-const CARD_H = 84;
+const CARD_W = 260;
+const CARD_H = 88;
 const DOT = 9;
 
 type Phase = "hidden" | "pending" | "success" | "fail";
@@ -144,69 +145,61 @@ function PurchaseOverlay(props: PurchaseOverlayProps) {
 				ZIndex={400}
 				Event={{ Activated: dismiss }}
 			/>
-			<textbutton
-				ref={hostRef}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Size={UDim2.fromOffset(CARD_W, CARD_H)}
-				Position={enter.map((a) => new UDim2(0.5, 0, 0.5, math.floor((1 - a) * 10)))}
-				BackgroundColor3={Palette.panelRaised}
-				BackgroundTransparency={enter.map((a) => 1 - a)}
-				AutoButtonColor={false}
-				Text=""
-				Selectable={result}
-				ZIndex={401}
-				Event={{ Activated: dismiss }}
+			<Panel
+				size={UDim2.fromOffset(CARD_W, CARD_H)}
+				position={enter.map((a) => new UDim2(0.5, -CARD_W / 2, 0.5, -CARD_H / 2 + math.floor((1 - a) * 10)))}
+				accent={accent}
+				background={Palette.panelRaised}
+				padding={0}
+				reveal={enter}
+				highlight={result}
+				reducedMotion={still}
+				zIndex={401}
 			>
-				<uicorner CornerRadius={new UDim(0, 10)} />
-				<uistroke Color={accent} Thickness={1} Transparency={settle.map((s) => 0.55 - s * 0.45)} />
 				<uiscale Scale={settle.map((s) => 1 + s * 0.03)} />
 				{/* left marker: dots while waiting, a solid accent bar once it's decided */}
-				<frame Size={UDim2.fromOffset(56, CARD_H)} BackgroundTransparency={1} ZIndex={402}>
-					{phase === "pending" ? (
-						<frame Size={UDim2.fromOffset(48, 30)} Position={UDim2.fromOffset(8, 24)} BackgroundTransparency={1} ZIndex={402}>
-							<Dot index={0} t={t} still={still} />
-							<Dot index={1} t={t} still={still} />
-							<Dot index={2} t={t} still={still} />
-						</frame>
-					) : (
-						<frame
-							Size={UDim2.fromOffset(4, 40)}
-							Position={UDim2.fromOffset(20, 22)}
-							BackgroundColor3={accent}
-							BorderSizePixel={0}
-							ZIndex={402}
-						>
-							<uicorner CornerRadius={new UDim(1, 0)} />
-						</frame>
-					)}
-				</frame>
-				<textlabel
-					Size={new UDim2(1, -72, 0, 22)}
-					Position={UDim2.fromOffset(60, 18)}
-					BackgroundTransparency={1}
-					Text={title}
-					TextColor3={phase === "pending" ? Palette.cream : accent}
-					TextTransparency={enter.map((a) => 1 - a)}
-					TextSize={17}
-					FontFace={Font.fromEnum(Enum.Font.BuilderSansBold)}
-					TextXAlignment={Enum.TextXAlignment.Left}
-					ZIndex={402}
+				{phase === "pending" ? (
+					<frame Size={UDim2.fromOffset(48, 30)} Position={UDim2.fromOffset(8, 24)} BackgroundTransparency={1} ZIndex={402}>
+						<Dot index={0} t={t} still={still} />
+						<Dot index={1} t={t} still={still} />
+						<Dot index={2} t={t} still={still} />
+					</frame>
+				) : (
+					<frame Size={UDim2.fromOffset(4, 40)} Position={UDim2.fromOffset(22, 22)} BackgroundColor3={accent} BorderSizePixel={0} ZIndex={402}>
+						<uicorner CornerRadius={new UDim(1, 0)} />
+					</frame>
+				)}
+				<Text
+					value={title}
+					size={17}
+					color={phase === "pending" ? Palette.cream : accent}
+					weight={Enum.FontWeight.Heavy}
+					transparency={enter.map((a) => 1 - a)}
+					position={UDim2.fromOffset(60, 16)}
+					sizeConstraint={new UDim2(1, -72, 0, 22)}
+					zIndex={402}
 				/>
-				<textlabel
-					Size={new UDim2(1, -72, 0, 30)}
-					Position={UDim2.fromOffset(60, 40)}
-					BackgroundTransparency={1}
-					Text={detail}
-					TextColor3={Palette.muted}
-					TextTransparency={enter.map((a) => 1 - a)}
-					TextSize={13}
-					TextWrapped={true}
-					TextYAlignment={Enum.TextYAlignment.Top}
-					FontFace={Font.fromEnum(Enum.Font.BuilderSans)}
-					TextXAlignment={Enum.TextXAlignment.Left}
-					ZIndex={402}
+				<Text
+					value={detail}
+					size={13}
+					color={Palette.creamSoft}
+					wrap={true}
+					transparency={enter.map((a) => 1 - a)}
+					position={UDim2.fromOffset(60, 40)}
+					sizeConstraint={new UDim2(1, -72, 0, 32)}
+					zIndex={402}
 				/>
-			</textbutton>
+				{/* tap target over the card, also what gamepad focus lands on */}
+				<textbutton
+					ref={hostRef}
+					Size={UDim2.fromScale(1, 1)}
+					BackgroundTransparency={1}
+					Text=""
+					Selectable={result}
+					ZIndex={403}
+					Event={{ Activated: dismiss }}
+				/>
+			</Panel>
 		</frame>
 	);
 }
