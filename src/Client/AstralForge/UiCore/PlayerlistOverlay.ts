@@ -89,6 +89,9 @@ interface CrewStoreModule {
 }
 
 type Dispatch = (action: string, payload: object, callback?: (response: Response) => void) => void;
+// header GO HOME shortcut width (shown only while visiting)
+const HOME_W = 88;
+
 interface Response {
 	ok?: boolean;
 	error?: string;
@@ -1309,6 +1312,20 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 		const visit = client.visit;
 		return typeIs(visit, "table") ? (visit as { UserId?: unknown }).UserId : undefined;
 	});
+	const visitingSomeone = visitingId !== undefined;
+	// LeavePlot is quiet in the shell, so toast the server's own reply here
+	const goHome = () => {
+		dispatch("LeavePlot", {}, (response) => {
+			if (!typeIs(response, "table") || !truthyNotify(notify)) {
+				return;
+			}
+			if (response.ok) {
+				notify("Home", response.message ?? "Back at your workshop.");
+			} else {
+				notify("Home", response.error ?? "Couldn't head home. Try again.");
+			}
+		});
+	};
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const localPlayer = Players.LocalPlayer;
@@ -1613,7 +1630,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				Audio.play("playerlistAction");
 				// already on their forge: the same button takes you back (server LeavePlot)
 				if (visitingId === row.UserId) {
-					dispatch("LeavePlot", {});
+					goHome();
 				} else {
 					dispatch("VisitPlot", { UserId: row.UserId });
 				}
@@ -1773,8 +1790,10 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					size: 18,
 					color: Palette.cream,
 					weight: Enum.FontWeight.Heavy,
+					fit: visitingSomeone,
+					minSize: 12,
 					position: UDim2.fromOffset(54, 9),
-					sizeConstraint: new UDim2(1, -112, 0, 24),
+					sizeConstraint: new UDim2(1, visitingSomeone ? -(112 + HOME_W + 6) : -112, 0, 24),
 					zIndex: 613,
 				}),
 				h(Text, {
@@ -1785,9 +1804,35 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					fit: true,
 					minSize: 9,
 					position: UDim2.fromOffset(54, 33),
-					sizeConstraint: new UDim2(1, -112, 0, 16),
+					sizeConstraint: new UDim2(1, visitingSomeone ? -(112 + HOME_W + 6) : -112, 0, 16),
 					zIndex: 613,
 				}),
+				visitingSomeone
+					? h(
+							"frame",
+							{
+								Size: UDim2.fromOffset(HOME_W, TapTarget),
+								Position: new UDim2(1, -(TapTarget + 8 + 6 + HOME_W), 0, 7),
+								BackgroundTransparency: 1,
+								ZIndex: 614,
+							},
+							h(Button, {
+								text: "HOME",
+								icon: "Visit.6",
+								onClick: () => {
+									Audio.play("playerlistAction");
+									goHome();
+									close();
+								},
+								color: Palette.green,
+								textColor: Palette.ink,
+								size: UDim2.fromScale(1, 1),
+								reducedMotion: reducedMotion,
+								disabled: exiting,
+								zIndex: 614,
+							}),
+						)
+					: undefined,
 				h(
 					"frame",
 					{
