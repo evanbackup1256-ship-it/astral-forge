@@ -250,6 +250,19 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 	const reduced = props.reducedMotion === true || isReducedMotion();
 	// nothing in the shell reacts to the pad while the ceremony plays
 	usePadSink(session !== undefined, "AstralForgeRebirthCeremonySink", SHELL_PAD_KEYS);
+	// B skips to the end, same as the "tap to skip" button (the sink above keeps it from the shell)
+	const skipFnRef = React.useRef<() => void>(() => undefined);
+	React.useEffect(() => {
+		if (session === undefined) {
+			return undefined;
+		}
+		const connection = game.GetService("UserInputService").InputBegan.Connect((input) => {
+			if (input.KeyCode === Enum.KeyCode.ButtonB) {
+				skipFnRef.current();
+			}
+		});
+		return () => connection.Disconnect();
+	}, [session]);
 	const plan = resolveIntent({
 		role: "ceremony",
 		emphasis: 1,
@@ -354,6 +367,7 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 			cancelJobs();
 		}
 	};
+	skipFnRef.current = skip;
 	const rewardLine: string[] = [];
 	if (payload.reward !== undefined) {
 		rewardLine.push("+" + compactNumber(payload.reward) + " cores");

@@ -182,6 +182,17 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		},
 		[beginExit, closing, onClose, onCollect, onCollectAll, hasExtras, canBankVault],
 	);
+	// B does what the CLOSE / KEEP VAULT button does (the shell never sees it while the card is up)
+	const finishRef = React.useRef(finish);
+	finishRef.current = finish;
+	React.useEffect(() => {
+		const connection = UserInputService.InputBegan.Connect((input) => {
+			if (input.KeyCode === Enum.KeyCode.ButtonB) {
+				finishRef.current(false);
+			}
+		});
+		return () => connection.Disconnect();
+	}, []);
 	React.useEffect(() => {
 		if (bigHaul) {
 			Audio.playCelebration(["offlineOpen", "discovery"], 0.12);
