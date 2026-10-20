@@ -4,10 +4,10 @@ import { clockText, compactNumber, Flux, formatReward, gteFlux, Reward } from ".
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { easeOutCubic, useBoatTween, useStagger, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { useServerClock } from "../../hooks/useServerClock";
 import { ProfileStylePanel, profileStyleHeight } from "./ProfileStylePanel";
 
 const UserInputService = game.GetService("UserInputService");
-const Workspace = game.GetService("Workspace");
 
 interface AnimatedTitleKit {
 	AnimatedTitlePreview: LuauComponent;
@@ -346,7 +346,7 @@ function CommandViewReady(props: CommandProps) {
 	const ops = config.Operations!;
 	const command = state.Command!;
 	const [tab, setTab] = React.useState("Overview");
-	const [now, setNow] = React.useState(Workspace.GetServerTimeNow());
+	const now = useServerClock(tab === "Expeditions");
 	const scrollRef = React.useRef<ScrollingFrame>();
 	React.useEffect(() => {
 		const host = scrollRef.current;
@@ -362,25 +362,6 @@ function CommandViewReady(props: CommandProps) {
 		const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(measure);
 		return () => connection.Disconnect();
 	}, []);
-	React.useEffect(() => {
-		if (tab !== "Expeditions") {
-			return undefined;
-		}
-		let alive = true;
-		const worker = task.spawn(() => {
-			while (alive) {
-				task.wait(1);
-				if (!alive) {
-					break;
-				}
-				setNow(Workspace.GetServerTimeNow());
-			}
-		});
-		return () => {
-			alive = false;
-			pcall(() => task.cancel(worker));
-		};
-	}, [tab]);
 	React.useEffect(() => {
 		const frame = scrollRef.current;
 		if (frame) {
@@ -1557,27 +1538,8 @@ export function CommandView(props: CommandProps) {
 	const ops = config.Operations;
 	const command = state.Command;
 	const [tab] = React.useState("Overview");
-	const [, setNow] = React.useState(Workspace.GetServerTimeNow());
+	useServerClock(tab === "Expeditions");
 	const scrollRef = React.useRef<ScrollingFrame>();
-	React.useEffect(() => {
-		if (tab !== "Expeditions") {
-			return undefined;
-		}
-		let alive = true;
-		const worker = task.spawn(() => {
-			while (alive) {
-				task.wait(1);
-				if (!alive) {
-					break;
-				}
-				setNow(Workspace.GetServerTimeNow());
-			}
-		});
-		return () => {
-			alive = false;
-			pcall(() => task.cancel(worker));
-		};
-	}, [tab]);
 	React.useEffect(() => {
 		const frame = scrollRef.current;
 		if (frame) {
