@@ -5,7 +5,8 @@ import ReactRoblox from "@rbxts/react-roblox";
 import { Dependency, Flamework } from "@flamework/core";
 import { Dict } from "./lua";
 import type { UiShellController } from "./Controllers/UiShellController";
-import type { ClientEvents as ClientEventsShape, PushEvent, RequestFunction } from "./ClientNetwork";
+import type { PushEvent, RequestFunction, ShutdownEvent } from "./ClientNetwork";
+import type { NetworkController } from "./Controllers/NetworkController";
 
 type Loose = (props: Dict) => React.Element | undefined;
 
@@ -33,7 +34,6 @@ const MainGame = kit<{ MainGame: Loose }>("UiCore", "MainGame").MainGame;
 task.wait();
 const _antilag = kit<typeof import("./MotionKit/antilag")>("MotionKit", "antilag");
 const AntilagProvider = _antilag.AntilagProvider;
-const watchPing = _antilag.watchPing;
 interface AudioApi {
 	dispose(): void;
 	setScene(scene: string): void;
@@ -55,16 +55,16 @@ const useClientSelector = _clientStore.useClientSelector;
 task.wait();
 const DomainChamber = kit<{ DomainChamber: Loose }>("UiOverlays", "DomainChamber").DomainChamber;
 task.wait();
-// Client controllers (UI shell, root registry, layout guard) run on Flamework.
+// Client controllers (UI shell, root registry, layout guard, network, presence, telemetry, ping) run on Flamework.
 Flamework.addPaths("src/Client/AstralForge/Controllers");
 Flamework.addPaths("src/Client/AstralForge/layoutGuard.ts");
 Flamework.ignite();
 const uiShell = Dependency<UiShellController>();
+const networkController = Dependency<NetworkController>();
 const _log = kit<typeof import("./CoreKit/log")>("CoreKit", "log");
 const beginClientSession = _log.beginClientSession;
 const ClientLog = _log.ClientLog;
 const markBootComplete = _log.markBootComplete;
-const startPerformanceTelemetry = _log.startPerformanceTelemetry;
 const MotionSettingsContext = kit<typeof import("./MotionKit/motion")>("MotionKit", "motion").MotionSettingsContext;
 const startEgooeHost = kit<{ startEgooeHost: (this: void, playerGui: PlayerGui) => () => void }>(
 	"ReactHosts",
@@ -75,7 +75,6 @@ const installScrollPerformance = kit<{ installScrollPerformance: (this: void) =>
 	"scrolling",
 ).installScrollPerformance;
 const configureInputPlatform = kit<typeof import("./CoreKit/inputPlatform")>("CoreKit", "inputPlatform").configureInputPlatform;
-const startSession = kit<typeof import("./CoreKit/session")>("CoreKit", "session").startSession;
 const SoftShutdownScreen = kit<{ SoftShutdownScreen: Loose }>("BootKit", "SoftShutdownScreen").SoftShutdownScreen;
 const Palette = kit<typeof import("./CoreKit/theme")>("CoreKit", "theme").Palette;
 const PageErrorBoundary = kit<{ PageErrorBoundary: Loose }>("ReactHosts", "reactHost").PageErrorBoundary;
@@ -309,7 +308,7 @@ interface Remotes {
 	State: PushEvent;
 	Toast: PushEvent;
 	Effect: PushEvent;
-	Shutdown: typeof ClientEventsShape.shutdown;
+	Shutdown: ShutdownEvent;
 }
 interface Connection {
 	remotes: Remotes;
@@ -882,20 +881,18 @@ const bridge = requiredChild(
 	REPLICATION_TIMEOUT,
 	"Server bridge was not published within 15 seconds. Check the first Server error.",
 );
-// The typed remotes (@flamework/networking) load only once the server's bridge folder exists.
-const { ClientEvents, ClientFunctions } = load<typeof import("./ClientNetwork")>("ClientNetwork");
+// The typed remotes (@flamework/networking) are created only once the server's bridge folder exists;
+// connecting also starts the presence, telemetry and ping controllers.
+const network = networkController.connect();
+runtime.addDisposer(() => networkController.disconnect());
 const remotes: Remotes = {
 	Bridge: bridge,
-	Request: ClientFunctions.request,
-	State: ClientEvents.state,
-	Toast: ClientEvents.toast,
-	Effect: ClientEvents.effect,
-	Shutdown: ClientEvents.shutdown,
+	Request: network.functions.request,
+	State: network.events.state,
+	Toast: network.events.toast,
+	Effect: network.events.effect,
+	Shutdown: network.events.shutdown,
 };
-const stopPerformanceTelemetry = startPerformanceTelemetry(remotes.Request);
-runtime.addDisposer(stopPerformanceTelemetry);
-runtime.addDisposer(startSession(remotes) as () => void);
-runtime.addDisposer(watchPing(remotes.Request, "MeasureLatency"));
 ClientLog.debug("net", `connected to ${config.Game.Version}`);
 runtime.render(
 	<ClientBootstrap startedAt={clientStartedAt} connection={{ remotes, config }} shutdownLayer={runtime.shutdownLayer} />,

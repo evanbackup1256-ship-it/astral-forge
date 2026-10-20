@@ -1,4 +1,5 @@
-import { ClientEvents } from "../ClientNetwork";
+import { Dependency } from "@flamework/core";
+import type { EffectFeedController } from "../Controllers/EffectFeedController";
 import React from "@rbxts/react";
 import * as ChatText from "../CoreKit/chatText";
 import { truthy } from "../lua";
@@ -518,7 +519,7 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 				}
 			}
 		};
-		track(ClientEvents.effect.connect(onEffect));
+		track(Dependency<EffectFeedController>().connect(onEffect));
 		const connecting = systemMessage("Chat is connecting. This can take a moment on slower devices.");
 		setMessages([connecting]);
 		const connectWorker = task.spawn(() => {

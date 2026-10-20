@@ -1353,7 +1353,15 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 		return undefined;
 	}
 
-	onTick(_dt: number): undefined {
+	// Flamework calls this every Heartbeat; a failure is logged at most every 15s instead of every frame.
+	onTick(dt: number) {
+		const [ok, reason] = pcall(() => this.tick(dt));
+		if (!ok) {
+			ClientLog.warnEvery("framework-layout guard tick", 15, "framework", `layout guard tick failed: ${tostring(reason)}`);
+		}
+	}
+
+	tick(_dt: number): undefined {
 		let _root: GuiObject | undefined = undefined;
 		const target = this.target;
 		if (target !== undefined) {

@@ -1,4 +1,5 @@
-import { ClientEvents } from "../../ClientNetwork";
+import { Dependency } from "@flamework/core";
+import type { EffectFeedController } from "../../Controllers/EffectFeedController";
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
@@ -604,7 +605,7 @@ function __member(): unknown {
 				}
 				return undefined;
 			});
-			let connection: unknown = ClientEvents.effect.connect(function(this: void, packet?: unknown): unknown | undefined {
+			let connection: unknown = Dependency<EffectFeedController>().connect(function(this: void, packet?: unknown): unknown | undefined {
 				if ((((!luaTruthy(alive)) || (!luaTypeIs(packet, "table"))) || (luaProp(packet, "GuildId") !== luaProp(guild, "Id")))) {
 					return;
 				}
