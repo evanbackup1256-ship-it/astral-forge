@@ -235,6 +235,8 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 	const antilag = useAntilag();
 	const enter = useEntrance(softMotion);
 	const stack = chrome.contentStack;
+	// phones in landscape get the side-by-side milestone row (claim on the right)
+	const rowStack = stack && !chrome.landscape;
 	const list = state.Achievements ?? [];
 	const counts = taskFilterCounts(list);
 	const categories = TASK_FILTERS.map((option) => ({
@@ -302,7 +304,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 	const introH = stack ? 40 : 70;
 	const claimRowH = stack && counts.Ready > 0 ? TapTarget + 10 : 0;
 	const headerHeight = 32 + introH + claimRowH + 10 + barH;
-	const rowStride = milestoneRowH(stack) + 16;
+	const rowStride = milestoneRowH(rowStack) + 16;
 	const pageGap = stack ? chrome.panelGap : 10;
 	const headerPanel = (
 		<Panel
@@ -420,7 +422,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 					reducedMotion={softMotion}
 					query={browse.query}
 					position={UDim2.fromOffset(0, 0)}
-					stack={stack}
+					stack={rowStack}
 					claimHostRef={item.Id === firstReadyId ? claimHostRef : undefined}
 				/>
 			)}

@@ -180,7 +180,13 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 			while (alive) {
 				task.wait(0.5);
 				if (alive) {
-					setNow(syncedNow());
+					const current = syncedNow();
+					setNow(current);
+					// once it's live nothing on the card reads the clock again; stop waking up
+					// (and re-rendering) every second for the rest of the session
+					if (ReleaseClockMath.IsLive(releaseAt, current)) {
+						break;
+					}
 				}
 			}
 		});
@@ -188,7 +194,7 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 			alive = false;
 			pcall(() => task.cancel(worker));
 		};
-	}, []);
+	}, [releaseAt]);
 	const remaining = ReleaseClockMath.Remaining(releaseAt, now);
 	const live = ReleaseClockMath.IsLive(releaseAt, now);
 	const [slam, setSlam] = React.useState(0);

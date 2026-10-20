@@ -659,8 +659,11 @@ function BoostsView(props: BoostsViewProps) {
 		};
 	}, [focusId, boostRunning, filter]);
 	const busyText = activeBoost !== undefined ? `${string.upper(activeBoost.Name)} RUNNING` : "ONE AT A TIME";
-	const heroH = activeBoost !== undefined ? (stack ? 260 : 182) : stack ? 190 : 132;
-	const statsH = stack ? 128 : 60;
+	// phones in landscape use the wide hero and a single row of stat tiles: the stacked ones
+	// take 318-388px, more than a 360px-tall screen has
+	const heroStack = stack && !chrome.landscape;
+	const heroH = activeBoost !== undefined ? (heroStack ? 260 : 182) : heroStack ? 190 : 132;
+	const statsH = heroStack ? 128 : 60;
 	const rowStride = CARD_H + GAP;
 	const rows: BoostRow[] = [];
 	let index = 1;
@@ -680,7 +683,7 @@ function BoostsView(props: BoostsViewProps) {
 	const statTiles = (
 		<>
 			<uigridlayout
-				CellSize={new UDim2(stack ? 0.5 : 0.25, -8, 0, 56)}
+				CellSize={new UDim2(heroStack ? 0.5 : 0.25, -8, 0, 56)}
 				CellPadding={UDim2.fromOffset(8, 8)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
@@ -755,13 +758,13 @@ function BoostsView(props: BoostsViewProps) {
 						height: heroH,
 						element:
 							activeBoost !== undefined ? (
-								<ActiveReactor boost={activeBoost} endsAt={activeEndsAt} now={now} softMotion={softMotion} stack={stack} />
+								<ActiveReactor boost={activeBoost} endsAt={activeEndsAt} now={now} softMotion={softMotion} stack={heroStack} />
 							) : (
 								<IdleBay
 									pick={pick}
 									dispatch={dispatch}
 									softMotion={softMotion}
-									stack={stack}
+									stack={heroStack}
 									activateHostRef={activateHostRef}
 								/>
 							),

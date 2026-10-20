@@ -364,7 +364,9 @@ function CommandViewReady(props: CommandProps) {
 	const ops = config.Operations!;
 	const command = state.Command!;
 	const [tab, setTab] = React.useState("Overview");
-	const now = useServerClock(tab === "Expeditions");
+	// the clock only drives the running trip's countdown; with no trip out it would re-render this
+	// whole view (every tab's rows) once a second for nothing
+	const now = useServerClock(tab === "Expeditions" && (command.ActiveExpedition?.Id ?? "") !== "");
 	const scrollRef = React.useRef<ScrollingFrame>();
 	React.useEffect(() => {
 		const host = scrollRef.current;
