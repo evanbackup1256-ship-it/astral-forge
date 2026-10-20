@@ -385,6 +385,13 @@ export function Text(props: TextProps) {
 	const faceAutomaticSize = autoWidth ? Enum.AutomaticSize.X : undefined;
 	const faceScaled = autoWidth ? false : fit;
 	const fontFace = fontFaceFor(font);
+	// phones: a single-line label in a bounded box ends with an ellipsis instead of spilling past it
+	const phoneShell = chromeFor(useViewport()).stack;
+	const truncate =
+		phoneShell && !wrap && !faceScaled && !autoWidth && sizeConstraint !== undefined &&
+		(sizeConstraint.X.Scale > 0 || sizeConstraint.X.Offset > 0)
+			? Enum.TextTruncate.AtEnd
+			: Enum.TextTruncate.None;
 	const yAlign = wrap ? Enum.TextYAlignment.Top : Enum.TextYAlignment.Center;
 	const lineHeight = wrap ? 1.12 : 1;
 	if (autoWidth) {
@@ -423,7 +430,7 @@ export function Text(props: TextProps) {
 					TextWrapped={wrap}
 					TextScaled={faceScaled}
 					LineHeight={lineHeight}
-					TextTruncate={Enum.TextTruncate.None}
+					TextTruncate={truncate}
 					ZIndex={zIndex}
 					ref={(label: TextLabel | undefined) => {
 						if (label) {
@@ -450,7 +457,7 @@ export function Text(props: TextProps) {
 				TextWrapped={wrap}
 				TextScaled={faceScaled}
 				LineHeight={lineHeight}
-				TextTruncate={Enum.TextTruncate.None}
+				TextTruncate={truncate}
 				ZIndex={zIndex + 1}
 			>
 				{constraint}
