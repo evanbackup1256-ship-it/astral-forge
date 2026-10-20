@@ -2229,6 +2229,19 @@ export function createGameService(loadService: LoadService) {
 				previous === undefined ||
 				now - ((runtime.LastFullSnapshotAt as number | undefined) ?? 0) >= FULL_SNAPSHOT_EVERY;
 			const prints: Dict = {};
+			if (full) {
+				// Everything goes out anyway, so skip the deep compare. Only sections that needed a
+				// fingerprint last time (they share tables) get one now, so the next push can still
+				// reuse them; a section that newly starts sharing just gets resent once.
+				for (const [key, value] of pairs(sections)) {
+					if (previousPrints[key] !== undefined) {
+						prints[key] = fingerprint(value);
+					}
+				}
+				runtime.LastSentPrints = prints;
+				runtime.LastFullSnapshotAt = now;
+				return snapshot;
+			}
 			const trimmed = table.clone(snapshot);
 			const reused: string[] = [];
 			for (const [key, value] of pairs(sections)) {

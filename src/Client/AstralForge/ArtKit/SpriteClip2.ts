@@ -43,6 +43,11 @@ function ensureScheduler() {
 				scheduled.delete(sprite);
 				return;
 			}
+			// looped clips that can't be seen hold their frame; one-shots keep running so their
+			// FrameLast / Looped signals still fire on time
+			if (sprite.loops() && !sprite.onScreen()) {
+				return;
+			}
 			const step = 1 / math.max(1, sprite.frameRate);
 			const elapsed = carried + math.min(deltaTime, 0.25);
 			const due = math.floor(elapsed / step);
@@ -69,6 +74,37 @@ function ensureScheduler() {
 		});
 		stopSchedulerIfIdle();
 	});
+}
+
+function computeOnScreen(image: GuiObject | undefined): boolean {
+	if (image === undefined || !image.IsDescendantOf(game)) {
+		return false;
+	}
+	let node: Instance | undefined = image;
+	while (node !== undefined) {
+		if (node.IsA("GuiObject") && !node.Visible) {
+			return false;
+		}
+		if (node.IsA("LayerCollector")) {
+			if (!node.Enabled) {
+				return false;
+			}
+			if (!node.IsA("ScreenGui")) {
+				// surface/billboard space: screen bounds don't apply
+				return true;
+			}
+			break;
+		}
+		node = node.Parent;
+	}
+	const camera = game.GetService("Workspace").CurrentCamera;
+	if (camera === undefined) {
+		return true;
+	}
+	const position = image.AbsolutePosition;
+	const size = image.AbsoluteSize;
+	const viewport = camera.ViewportSize;
+	return position.X + size.X > 0 && position.Y + size.Y > 0 && position.X < viewport.X && position.Y < viewport.Y;
 }
 
 function schedule(sprite: SpriteClipImageSprite) {
@@ -116,6 +152,24 @@ class SpriteClipImageSprite {
 		this.blendDestroyingConnection = props.blendAdornee?.Destroying.Connect(() => {
 			this.blendAdornee = undefined;
 		});
+	}
+
+	private seenAt = -math.huge;
+	private seen = true;
+
+	loops(): boolean {
+		return this.isLooped;
+	}
+
+	/** Visible in the hierarchy and overlapping the viewport. Re-checked at most 4 times a second. */
+	onScreen(): boolean {
+		const now = os.clock();
+		if (now - this.seenAt < 0.25) {
+			return this.seen;
+		}
+		this.seenAt = now;
+		this.seen = computeOnScreen(this.adornee);
+		return this.seen;
 	}
 
 	private fire(signal: SpriteSignal) {
