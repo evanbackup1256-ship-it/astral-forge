@@ -1498,7 +1498,8 @@ function CommandViewReady(props: CommandProps) {
 								size={12}
 								color={Palette.muted}
 								wrap={true}
-								fit={false}
+								fit={true}
+								minSize={9}
 								position={UDim2.fromOffset(72, 32)}
 								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 28)}
 							/>

@@ -1594,6 +1594,8 @@ export function OverviewView({
 											size={stack ? chrome.labelText : 11}
 											color={Palette.creamSoft}
 											wrap={true}
+											fit={true}
+											minSize={9}
 											position={UDim2.fromOffset(0, 46)}
 											sizeConstraint={new UDim2(1, 0, 0, 28)}
 										/>

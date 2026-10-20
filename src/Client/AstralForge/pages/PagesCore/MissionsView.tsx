@@ -141,6 +141,8 @@ function MissionRow({ quest, dispatch, reducedMotion, position, stack }: Mission
 				size={stack ? 12 : 11}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(56, 26)}
 				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 36 : 28)}
 			/>

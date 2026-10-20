@@ -3,7 +3,7 @@ const snapshot: Record<string, unknown> = {
 	Achievements: {
 		[1]: {
 			Claimed: true,
-			Description: "Buy your first machine.",
+			Description: "Buy your first machine. Everyone starts with one.",
 			Id: "CoreOnline",
 			Name: "Core Online",
 			Progress: 1,
@@ -14,9 +14,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[10]: {
 			Claimed: true,
-			Description: "Stabilize your first quantum anomaly.",
+			Description: "Ignite the Star Foundry. Watch the beat.",
 			Id: "FirstAnomaly",
-			Name: "Signal Stabilized",
+			Name: "First Ignition",
 			Progress: 1,
 			Reward: {
 				CommandXP: 100,
@@ -27,9 +27,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[11]: {
 			Claimed: true,
-			Description: "Stabilize 10 quantum anomalies.",
+			Description: "Ignite the Star Foundry 10 times.",
 			Id: "AnomalyOperator",
-			Name: "Anomaly Operator",
+			Name: "Foundry Adept",
 			Progress: 10,
 			Reward: {
 				Cores: 2,
@@ -40,9 +40,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[12]: {
 			Claimed: false,
-			Description: "Stabilize 50 quantum anomalies.",
+			Description: "Ignite the Star Foundry 50 times.",
 			Id: "EventHorizon",
-			Name: "Beyond the Event Horizon",
+			Name: "Harmonic Master",
 			Progress: 14,
 			Reward: {
 				Boost: "Hyperdrive",
@@ -53,9 +53,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[13]: {
 			Claimed: false,
-			Description: "Manually fire 250 quantum pulses.",
+			Description: "Ignite the Star Foundry 250 times.",
 			Id: "PulseTechnician",
-			Name: "Pulse Technician",
+			Name: "Pulse Artisan",
 			Progress: 68,
 			Reward: {
 				Signals: 100,
@@ -65,9 +65,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[14]: {
 			Claimed: false,
-			Description: "Buy 50 permanent reactor upgrades.",
+			Description: "Fuse 50 star pieces in the Star Foundry.",
 			Id: "ProtocolArchitect",
-			Name: "Reactor Specialist",
+			Name: "Foundry Artisan",
 			Progress: 1,
 			Reward: {
 				Cores: 5,
@@ -78,9 +78,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[15]: {
 			Claimed: false,
-			Description: "Buy 250 permanent reactor upgrades.",
+			Description: "Fuse 250 star pieces in the Star Foundry.",
 			Id: "QuantumLegacy",
-			Name: "Master Tuner",
+			Name: "Master Lapidary",
 			Progress: 1,
 			Reward: {
 				Boost: "Hyperdrive",
@@ -116,7 +116,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[18]: {
 			Claimed: false,
-			Description: "Claim all 96 Forge Path steps.",
+			Description: "Claim all 96 Forge Path steps. Every single one.",
 			Id: "ForgeApex",
 			Name: "Forge Apex",
 			Progress: 23,
@@ -130,7 +130,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[19]: {
 			Claimed: false,
-			Description: "Reach a 7-day login streak.",
+			Description: "Reach a 7-day login streak. A whole week. Nice.",
 			Id: "DailyDevotee",
 			Name: "Daily Devotee",
 			Progress: 6,
@@ -154,7 +154,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[20]: {
 			Claimed: true,
-			Description: "Spin the fortune reactor 25 times.",
+			Description: "Spin the prize wheel 25 times.",
 			Id: "WheelFortune",
 			Name: "Fortune Operator",
 			Progress: 25,
@@ -167,7 +167,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[21]: {
 			Claimed: false,
-			Description: "Complete 20 workshop lab orders.",
+			Description: "Complete 20 lab orders.",
 			Id: "LabShift",
 			Name: "Lab Shift Lead",
 			Progress: 17,
@@ -244,7 +244,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[27]: {
 			Claimed: false,
-			Description: "Complete 75 workshop lab orders.",
+			Description: "Complete 75 lab orders.",
 			Id: "LabForeman",
 			Name: "Lab Foreman",
 			Progress: 17,
@@ -350,7 +350,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[34]: {
 			Claimed: false,
-			Description: "Manually fire 1,000 quantum pulses.",
+			Description: "Manually fire 1,000 quantum pulses. Your finger is fine. Probably.",
 			Id: "PulseVeteran",
 			Name: "Pulse Veteran",
 			Progress: 68,
@@ -363,7 +363,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[35]: {
 			Claimed: false,
-			Description: "Complete 150 workshop lab orders.",
+			Description: "Complete 150 lab orders. The lab keeps a mug with your name on it.",
 			Id: "LabNightCrew",
 			Name: "Lab Night Crew",
 			Progress: 17,
@@ -404,7 +404,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[38]: {
 			Claimed: false,
-			Description: "Spin the fortune reactor 100 times.",
+			Description: "Spin the prize wheel 100 times. The wheel knows your name now.",
 			Id: "WheelHighRoller",
 			Name: "High Roller",
 			Progress: 50,
@@ -485,7 +485,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[43]: {
 			Claimed: false,
-			Description: "Clear 18 lab orders after the content-gates polish.",
+			Description: "Complete 18 lab orders.",
 			Id: "LabGateRunner",
 			Name: "Gate Runner",
 			Progress: 17,
@@ -499,9 +499,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[44]: {
 			Claimed: true,
-			Description: "Log 900 seconds on-shift after CTA clip polish.",
+			Description: "Play for 15 minutes. A proper sit-down.",
 			Id: "CtaClipCloser",
-			Name: "Clip Closer",
+			Name: "First Long Shift",
 			Progress: 900,
 			Reward: {
 				Boost: "VaultSurge",
@@ -513,7 +513,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[45]: {
 			Claimed: true,
-			Description: "Complete 25 rebirths across Domains (spent + current).",
+			Description: "Complete 25 rebirths across all Domains.",
 			Id: "DomainCycleKeeper",
 			Name: "Cycle Keeper",
 			Progress: 25,
@@ -527,9 +527,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[46]: {
 			Claimed: false,
-			Description: "Log 40 reactor stabilizations (Anomaly bag counts).",
+			Description: "Hit 40 on-beat Ignites in the Star Foundry.",
 			Id: "StabilizeLedger",
-			Name: "Stabilize Ledger",
+			Name: "Harmonic Resonance",
 			Progress: 14,
 			Reward: {
 				Boost: "Ionstorm",
@@ -541,9 +541,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[47]: {
 			Claimed: false,
-			Description: "Claim 36 story chapter rewards.",
+			Description: "Claim 36 story chapters.",
 			Id: "BugWaveArchivist",
-			Name: "Bug Wave Archivist",
+			Name: "Archive Keeper",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 16,
@@ -555,9 +555,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[48]: {
 			Claimed: false,
-			Description: "Unlock through world 6 (Admin WORLD tracks unlock watermark).",
+			Description: "Unlock world 6.",
 			Id: "WorldLedgerKeeper",
-			Name: "World Ledger Keeper",
+			Name: "Ring Walker",
 			Progress: 2,
 			Reward: {
 				Boost: "VaultSurge",
@@ -569,9 +569,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[49]: {
 			Claimed: false,
-			Description: "Claim 40 story chapters after guild/convergence FocusClaim polish.",
+			Description: "Claim 40 story chapters. You're a reader.",
 			Id: "Wave7ClaimRunner",
-			Name: "Wave Seven Claim Runner",
+			Name: "Page Turner",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 18,
@@ -583,7 +583,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[5]: {
 			Claimed: true,
-			Description: "Rebirth for the first time.",
+			Description: "Rebirth for the first time. It feels like losing everything. It isn't.",
 			Id: "Reborn",
 			Name: "A New Universe",
 			Progress: 1,
@@ -594,9 +594,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[50]: {
 			Claimed: true,
-			Description: "Land 50 quantum pulses (Stats stay coherent on partial bags).",
+			Description: "Land 50 quantum pulses.",
 			Id: "AnomalyPulseLedger",
-			Name: "Anomaly Pulse Ledger",
+			Name: "Pulse Counter",
 			Progress: 50,
 			Reward: {
 				Boost: "Ionstorm",
@@ -608,9 +608,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[51]: {
 			Claimed: false,
-			Description: "Claim 42 story chapters after Studio QA checklist expansion.",
+			Description: "Claim 42 story chapters. Past your bedtime, surely.",
 			Id: "StudioCloseoutArchivist",
-			Name: "Studio Closeout Archivist",
+			Name: "Night Reader",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 19,
@@ -622,9 +622,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[52]: {
 			Claimed: false,
-			Description: "Complete 28 expeditions (Stats.Expeditions stays coherent on partial bags).",
+			Description: "Complete 28 expeditions.",
 			Id: "Wave8ExpeditionLedger",
-			Name: "Wave Eight Expedition Ledger",
+			Name: "Seasoned Crew",
 			Progress: 0,
 			Reward: {
 				Boost: "Afterburner",
@@ -636,9 +636,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[53]: {
 			Claimed: false,
-			Description: "Claim 44 story chapters after Command FocusClaim + Stats nil-safety.",
+			Description: "Claim 44 story chapters. Iska would like a word about her diary.",
 			Id: "Wave8ClaimArchivist",
-			Name: "Wave Eight Claim Archivist",
+			Name: "Dock Historian",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 20,
@@ -650,9 +650,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[54]: {
 			Claimed: false,
-			Description: "Hold a 16-day daily streak (ClaimDaily nil-safes Daily/Command bags).",
+			Description: "Reach a 16-day daily streak. Sixteen days in a row.",
 			Id: "Wave9DailyStreakRunner",
-			Name: "Wave Nine Daily Streak Runner",
+			Name: "Sixteen Sunrises",
 			Progress: 6,
 			Reward: {
 				Boost: "SteadyBurn",
@@ -664,9 +664,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[55]: {
 			Claimed: false,
-			Description: "Claim 46 story chapters after Rewards FocusClaim + ApplyReward Keys nil-safety.",
+			Description: "Claim 46 story chapters. Deliver the logs to whoever's still reading.",
 			Id: "Wave9StoryCourier",
-			Name: "Wave Nine Story Courier",
+			Name: "Log Courier",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 21,
@@ -678,9 +678,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[56]: {
 			Claimed: false,
-			Description: "Claim 48 story chapters after ForgeEchoMath extract + Economy bag nil-safety.",
+			Description: "Claim 48 story chapters.",
 			Id: "Wave10EchoArchivist",
-			Name: "Wave Ten Echo Archivist",
+			Name: "Bookmark Collector",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 22,
@@ -692,9 +692,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[57]: {
 			Claimed: false,
-			Description: "Hold an 18-day daily streak while Settings GUIDE FocusClaim is verified.",
+			Description: "Reach an 18-day daily streak. Steady as they come.",
 			Id: "Wave10SettingsCourier",
-			Name: "Wave Ten Settings Courier",
+			Name: "Steady Hands",
 			Progress: 6,
 			Reward: {
 				Boost: "Afterburner",
@@ -706,9 +706,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[58]: {
 			Claimed: false,
-			Description: "Claim 50 story chapters after Quests/TimedRewards nil-safety + Chat SEND FocusClaim.",
+			Description: "Claim 50 story chapters. You've read more of this than we have.",
 			Id: "Wave11MissionCourier",
-			Name: "Wave Eleven Mission Courier",
+			Name: "Fifty Pages",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 23,
@@ -720,9 +720,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[59]: {
 			Claimed: false,
-			Description: "Hold a 20-day daily streak while DataService rebuilds partial Items/Anomaly bags.",
+			Description: "Reach a 20-day daily streak. Most people miss one by now.",
 			Id: "Wave11SanitizeRunner",
-			Name: "Wave Eleven Sanitize Runner",
+			Name: "Twenty Mornings",
 			Progress: 6,
 			Reward: {
 				Boost: "SteadyBurn",
@@ -745,9 +745,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[60]: {
 			Claimed: false,
-			Description: "Claim 52 story chapters after WheelMath extract + FreeSpins-bag SpinWheel nil-safety.",
+			Description: "Claim 52 story chapters. You read the margins too.",
 			Id: "Wave12WheelCourier",
-			Name: "Wave Twelve Wheel Courier",
+			Name: "Margin Reader",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 24,
@@ -759,9 +759,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[61]: {
 			Claimed: false,
-			Description: "Hold a 22-day daily streak while Story/Crate softMotion fold + CLAIM clips stay verified.",
+			Description: "Reach a 22-day daily streak. Logging in is just what you do now.",
 			Id: "Wave12SoftMotionRunner",
-			Name: "Wave Twelve Soft Motion Runner",
+			Name: "Habit of Stars",
 			Progress: 6,
 			Reward: {
 				Boost: "Afterburner",
@@ -773,9 +773,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[62]: {
 			Claimed: false,
-			Description: "Claim 54 story chapters after CommandMath extract + Signals-only Command bag nil-safety.",
+			Description: "Claim 54 story chapters.",
 			Id: "Wave13CommandCourier",
-			Name: "Wave Thirteen Command Courier",
+			Name: "Dog-Eared Pages",
 			Progress: 2,
 			Reward: {
 				CashMinutes: 25,
@@ -787,9 +787,9 @@ const snapshot: Record<string, unknown> = {
 		},
 		[63]: {
 			Claimed: false,
-			Description: "Hold a 24-day daily streak while MailClaimActions unclipped + Lab Ensure stay verified.",
+			Description: "Reach a 24-day daily streak. Twenty-four days, no gaps.",
 			Id: "Wave13MailClipRunner",
-			Name: "Wave Thirteen Mail Clip Runner",
+			Name: "Day Watch",
 			Progress: 6,
 			Reward: {
 				Boost: "SteadyBurn",
