@@ -95,6 +95,12 @@ export function GetHints(kind?: string): ControllerHint[] {
 	});
 }
 
+// One button's label the way the hint bar writes it (platform glyph names where Roblox has them).
+export function KeyLabel(key: Enum.KeyCode, fallback: string): string {
+	const [ok, mapped] = pcall(() => UserInputService.GetStringForKeyCode(key));
+	return ok && typeIs(mapped, "string") && mapped !== "" ? (PLATFORM_NAMES[mapped] ?? mapped) : fallback;
+}
+
 export function GetHintLabels(kind?: string): string[] {
 	return GetHints(kind).map((entry) => entry.label);
 }

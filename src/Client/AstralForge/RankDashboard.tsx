@@ -5,7 +5,7 @@ import { frameStroke } from "./CoreKit/profileFrame";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import { useViewport } from "./MotionKit/motion";
-import { FocusClaim } from "./CoreKit/GamepadNavigationService";
+import { FocusClaim, KeyLabel } from "./CoreKit/GamepadNavigationService";
 import { OmegaMathApi } from "./lua";
 
 const Players = game.GetService("Players");
@@ -668,13 +668,14 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 						Row: e("frame", { BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, rankRowH) }, { Row: rankRow(you, personalIndex, true) }),
 						Find: findable
 							? e(ui.Button, {
-									text: "FIND ME",
+									// with a pad connected, name the shortcut the way the hint bar does
+									text: UserInputService.GamepadEnabled ? `FIND ME · ${KeyLabel(Enum.KeyCode.ButtonR3, "R3")}` : "FIND ME",
 									icon: "Crew.12",
 									color: P.mint,
 									outline: true,
 									reducedMotion,
-									size: UDim2.fromOffset(132, theme.TapTarget),
-									position: new UDim2(1, -132, 0, rankRowH + 8),
+									size: UDim2.fromOffset(UserInputService.GamepadEnabled ? 168 : 132, theme.TapTarget),
+									position: new UDim2(1, UserInputService.GamepadEnabled ? -168 : -132, 0, rankRowH + 8),
 									onClick: () => scrollToRankRow(personalIndex!, reducedMotion === true),
 								})
 							: undefined,
