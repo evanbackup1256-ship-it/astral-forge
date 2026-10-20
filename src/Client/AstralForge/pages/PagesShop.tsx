@@ -15,7 +15,6 @@ import ElementFxModule = require("../ElementFx");
 import PrizeWheel = require("../PrizeWheel");
 import JuiceFx = require("../JuiceFx");
 import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppearance");
-import CrateRevealStageModule = require("./CrateRevealStage");
 import {
 	Component,
 	Components,
@@ -308,6 +307,7 @@ interface CrateRevealRequest {
 	crateName: string;
 	accent?: Color3;
 	rolls: unknown[];
+	artifact?: { name: string; rarity?: string; color?: Color3; element?: string; description?: string; fresh?: boolean };
 }
 
 interface DispatchResponse {
@@ -3440,7 +3440,24 @@ function ArtifactsSection(props: SectionProps) {
 				return;
 			}
 			setBusy(false);
-			Audio.play(response.ok ? "purchase" : "error");
+			if (response.ok && props.onCrateReveal !== undefined) {
+				props.onCrateReveal({
+					crateId: "Artifact",
+					crateName: artifact.Name,
+					accent: artifact.Color,
+					rolls: [],
+					artifact: {
+						name: artifact.Name,
+						rarity: artifact.Rarity,
+						color: artifact.Color,
+						element: artifact.Element,
+						description: artifact.Description,
+						fresh: response.ArtifactNew !== false,
+					},
+				});
+			} else {
+				Audio.play(response.ok ? "purchase" : "error");
+			}
 		});
 	};
 	const columns = stack ? 2 : props.width >= 1000 ? 4 : 3;
@@ -3653,7 +3670,6 @@ function StoreFront(props: StoreFrontProps) {
 const pages: Record<string, () => unknown> = {
 	ShopView: () => ({ ShopView }),
 	StoreFront: () => ({ StoreFront }),
-	CrateRevealStage: () => CrateRevealStageModule,
 	WheelView: () => require(script.Parent!.WaitForChild("views")!.WaitForChild("WheelView") as ModuleScript),
 };
 

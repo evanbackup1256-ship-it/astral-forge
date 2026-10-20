@@ -10,7 +10,6 @@ const PAGE_SUITES: Record<string, string> = {
 	ContinuumView: "PagesProgress",
 	FoundryView: "PagesFoundry",
 	ConvergenceView: "PagesProgress",
-	CrateRevealStage: "PagesShop",
 	BazaarView: "PagesBazaar",
 	CrewView: "PagesSocial",
 	EchoForgeView: "PagesStory",
