@@ -144,6 +144,7 @@ function __member(): unknown {
 		let visitorsHere: unknown = luaProp(_param, "visitorsHere");
 		let onVisit: unknown = luaProp(_param, "onVisit");
 		let onNudge: unknown = luaProp(_param, "onNudge");
+		const waveShake = (tonumber(luaProp(_param, "waveShake")) ?? 0) as number;
 		let reducedMotion: unknown = luaProp(_param, "reducedMotion");
 		let softMotion: unknown = reducedMotion;
 		reducedMotion = softMotion;
@@ -184,7 +185,7 @@ function __member(): unknown {
 			luaSet(_attributes, "sizeConstraint", new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? (-((((58 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -16), 0, 16));
 			_condition = reactLoose.createElement(Text, _attributes);
 		}
-		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, rowH), accent: accent, background: (luaTruthy(visiting) ? luaProp(Palette, "panelRaised") : luaProp(Palette, "panel")), padding: pad, layoutOrder: layoutOrder, reveal: reveal, interactive: (!luaTruthy(luaProp(player, "IsLocal"))), highlight: visiting, reducedMotion: softMotion, clips: false }, _exp, _exp_1, _exp_2, _exp_3, _condition, (luaTruthy(luaProp(player, "IsLocal")) ? reactLoose.createElement(Text, { value: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? `${visitorsHere} visiting your shop` : `${luaProp(player, "Rebirths")} resets`), size: (luaTruthy(stack) ? 12 : 10), color: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? luaProp(Palette, "mango") : accent), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 58, (luaTruthy(stack) ? 52 : 56)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? (-((((58 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -16), 0, 18) }) : (luaTruthy(stack) ? reactLoose.createElement("frame", { ref: keysRef, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (2 as unknown as number))) as unknown as number))), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Left"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 1, BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Button, { text: waveText, icon: "Wave.5", onClick: onNudge, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion })), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 2, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(Button, { text: visitText ?? (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.2", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion, disabled: visiting, highlight: visiting }))) : reactLoose.createElement("frame", { ref: keysRef, Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -6, 0.5, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: waveText, icon: "Wave.6", onClick: onNudge, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion }), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, LayoutOrder: 2 }, reactLoose.createElement(Button, { text: visitText ?? (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.3", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion, disabled: visiting, highlight: visiting }))))));
+		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, rowH), accent: accent, background: (luaTruthy(visiting) ? luaProp(Palette, "panelRaised") : luaProp(Palette, "panel")), padding: pad, layoutOrder: layoutOrder, reveal: reveal, interactive: (!luaTruthy(luaProp(player, "IsLocal"))), highlight: visiting, reducedMotion: softMotion, clips: false }, _exp, _exp_1, _exp_2, _exp_3, _condition, (luaTruthy(luaProp(player, "IsLocal")) ? reactLoose.createElement(Text, { value: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? `${visitorsHere} visiting your shop` : `${luaProp(player, "Rebirths")} resets`), size: (luaTruthy(stack) ? 12 : 10), color: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? luaProp(Palette, "mango") : accent), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 58, (luaTruthy(stack) ? 52 : 56)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? (-((((58 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -16), 0, 18) }) : (luaTruthy(stack) ? reactLoose.createElement("frame", { ref: keysRef, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (2 as unknown as number))) as unknown as number))), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Left"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 1, BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Button, { text: waveText, icon: "Wave.5", onClick: onNudge, shakeToken: waveShake, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion })), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 2, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(Button, { text: visitText ?? (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.2", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion, disabled: visiting, highlight: visiting }))) : reactLoose.createElement("frame", { ref: keysRef, Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -6, 0.5, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: waveText, icon: "Wave.6", onClick: onNudge, shakeToken: waveShake, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion }), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, LayoutOrder: 2 }, reactLoose.createElement(Button, { text: visitText ?? (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.3", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion, disabled: visiting, highlight: visiting }))))));
 		return undefined;
 	}
 	function VisitPanel(_param?: unknown): unknown | undefined {
@@ -588,6 +589,9 @@ function __member(): unknown {
 					return undefined;
 				}
 				if ((!luaTruthy(luaProp(response, "ok")))) {
+					if (!luaTruthy(luaProp(response, "Uncertain"))) {
+						InteractionFeedback.fail();
+					}
 					// The server's own "no" (and timeouts) already get a notice from the dispatcher.
 					// A local "already working on that" doesn't, so say it here instead of doing nothing.
 					if (!luaTruthy(luaProp(response, "Uncertain")) && luaProp(response, "error") === "Already working on that.") {
@@ -595,6 +599,7 @@ function __member(): unknown {
 					}
 					return undefined;
 				}
+				InteractionFeedback.confirm();
 				if (luaTruthy(luaProp(response, "Visit"))) {
 					luaCall(setVisit, luaProp(response, "Visit"));
 				} else {
@@ -610,6 +615,7 @@ function __member(): unknown {
 			});
 			return undefined;
 		};
+		const [waveShake, setWaveShake] = React.useState<{ id: unknown; n: number }>({ id: undefined, n: 0 });
 		let nudgeCrew: unknown = function(this: void, userId?: unknown): unknown | undefined {
 			let id: unknown = luaCall(coerceCrewId, userId);
 			if ((id === undefined)) {
@@ -619,6 +625,9 @@ function __member(): unknown {
 			luaCall(dispatch, "NudgeCrew", { UserId: id, userId: id }, function(this: void, response?: unknown) {
 				if (luaTruthy(luaProp(response, "ok"))) {
 					InteractionFeedback.confirm();
+				} else if (!luaTruthy(luaProp(response, "Uncertain"))) {
+					// refused (cooldown, left the server): shake that row's Wave button, which also knocks
+					setWaveShake((current: { id: unknown; n: number }) => ({ id, n: current.n + 1 }));
 				}
 			});
 			return undefined;
@@ -714,7 +723,7 @@ function __member(): unknown {
 		if (luaTruthy(virtRoster)) {
 			let rosterCards: unknown = (table.create as unknown as (...a: unknown[]) => unknown)(len(players));
 			for (const [index, player] of pairs((players) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaSetIndex(rosterCards, index, reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaTruthy(luaProp(player, "IsLocal")) ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
+				luaSetIndex(rosterCards, index, reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, waveShake: waveShake.id === luaProp(player, "UserId") ? waveShake.n : 0, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaTruthy(luaProp(player, "IsLocal")) ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
 					return luaCall(startVisit, luaProp(player, "UserId"));
 					return undefined;
 				}, onNudge: function(this: void): unknown | undefined {
@@ -733,7 +742,7 @@ function __member(): unknown {
 		} else {
 			const rowElements: defined[] = [];
 			for (const [index, player] of pairs((players) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				const row = reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaTruthy(luaProp(player, "IsLocal")) ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
+				const row = reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, waveShake: waveShake.id === luaProp(player, "UserId") ? waveShake.n : 0, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaTruthy(luaProp(player, "IsLocal")) ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
 					return luaCall(startVisit, luaProp(player, "UserId"));
 					return undefined;
 				}, onNudge: function(this: void): unknown | undefined {

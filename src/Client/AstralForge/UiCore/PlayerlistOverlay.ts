@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { InteractionFeedback } from "../CoreKit/interaction";
+import { useClientSelector } from "../CoreKit/clientStore";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
@@ -264,6 +265,8 @@ interface PlayerRowProps {
 	reported: boolean;
 	reducedMotion?: boolean;
 	crewmate: boolean;
+	/** you're on this player's forge right now (same "HERE" the Crew roster shows) */
+	visiting: boolean;
 	onToggle: () => void;
 	onFriend: () => void;
 	onBlock: () => void;
@@ -423,10 +426,11 @@ function PlayerRow(param: PlayerRowProps) {
 				}),
 				Visit: h(ActionButton, {
 					order: 3,
-					text: "VISIT",
+					text: param.visiting ? "HERE" : "VISIT",
 					icon: "Visit.6",
-					color: Palette.violet,
+					color: param.visiting ? Palette.green : Palette.violet,
 					onClick: param.onVisit,
+					disabled: param.visiting,
 					reducedMotion: reducedMotion,
 				}),
 				Crew: h(ActionButton, {
@@ -717,7 +721,7 @@ function PlayerRow(param: PlayerRowProps) {
 				h("frame", { Size: UDim2.fromOffset((SWIPE_W - 6) / 2, rowH - 8), LayoutOrder: 1, BackgroundTransparency: 1 },
 					h(ActionButton, { order: 1, text: "MESSAGE", icon: "Chat.7", color: Palette.cyan, onClick: () => { setSwiped(false); param.onMessage(); }, reducedMotion: reducedMotion })),
 				h("frame", { Size: UDim2.fromOffset((SWIPE_W - 6) / 2, rowH - 8), LayoutOrder: 2, BackgroundTransparency: 1 },
-					h(ActionButton, { order: 2, text: "VISIT", icon: "Visit.6", color: Palette.violet, onClick: () => { setSwiped(false); param.onVisit(); }, reducedMotion: reducedMotion })),
+					h(ActionButton, { order: 2, text: param.visiting ? "HERE" : "VISIT", icon: "Visit.6", color: param.visiting ? Palette.green : Palette.violet, onClick: () => { setSwiped(false); param.onVisit(); }, disabled: param.visiting, reducedMotion: reducedMotion })),
 			),
 		h(
 			"frame",
@@ -1302,6 +1306,10 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const onClose = param.onClose;
 	const onMessage = param.onMessage;
 	const notify = param.notify;
+	const visitingId = useClientSelector((client) => {
+		const visit = client.visit;
+		return typeIs(visit, "table") ? (visit as { UserId?: unknown }).UserId : undefined;
+	});
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const localPlayer = Players.LocalPlayer;
@@ -1608,6 +1616,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				onClose();
 			},
 			crewmate: crewmates[row.UserId] === true,
+			visiting: visitingId === row.UserId,
 			onCrew: () => {
 				if (peerOf(row) === undefined) {
 					return undefined;
