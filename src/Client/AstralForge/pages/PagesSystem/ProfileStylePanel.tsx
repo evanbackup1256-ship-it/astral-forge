@@ -3,9 +3,20 @@ import { FrameStroke, frameStroke } from "../../CoreKit/profileFrame";
 import { PlayerMark } from "../../ArtKit/Icon";
 import { Palette, Radius, TapTarget } from "../../CoreKit/theme";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
-import { kitMember, LuauComponent } from "../luauKits";
+import { kitMember, LuauComponent, sharedModule } from "../luauKits";
 
 const Players = game.GetService("Players");
+
+// crate skins you already own can be swapped here too; same EquipCrateSkin action the Shop uses
+interface SkinOption {
+	Id: string;
+	Name: string;
+	Accent: [number, number, number];
+	Default?: boolean;
+}
+const ShopCatalog = sharedModule<(name: string) => unknown>("SharedData")("ShopCatalog") as { SKINS: SkinOption[]; DEFAULT_SKIN: string };
+const SKIN_BTN_W = 150;
+const SKIN_ROW_H = 18 + TapTarget + 4 + 10;
 
 const { Button, Text } = kitMember<{ Button: LuauComponent; Text: LuauComponent }>("UiCore", "ui");
 
@@ -27,7 +38,27 @@ const SAMPLE_GAP = 8;
 
 // header + hint, preview, accent row, frame row
 export function profileStyleHeight(stack: boolean): number {
-	return 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + SAMPLE_H + 14 + 18 + SWATCH + 6 + 14 + 18 + TapTarget + 4 + (stack ? 8 : 0);
+	return 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + SAMPLE_H + 14 + 18 + SWATCH + 6 + 14 + 18 + TapTarget + 4 + NEXT_H + SKIN_ROW_H + (stack ? 8 : 0);
+}
+
+const NEXT_H = 22;
+
+// the closest accent or frame you haven't unlocked yet, from the same catalog the server checks
+function nextUnlockLine(rebirths: unknown): string {
+	const have = typeIs(rebirths, "number") && rebirths === rebirths ? rebirths : 0;
+	let best: { name: string; kind: string; target: number } | undefined;
+	const consider = (name: string, kind: string, unlock: ProfileStyle.StyleUnlock) => {
+		if (unlock.Kind === "Rebirths" && unlock.Target > have && (best === undefined || unlock.Target < best.target)) {
+			best = { name, kind, target: unlock.Target };
+		}
+	};
+	ProfileStyle.ACCENTS.forEach((option) => consider(option.Name, "accent", option.Unlock));
+	ProfileStyle.FRAMES.forEach((option) => consider(option.Name, "frame", option.Unlock));
+	if (best === undefined) {
+		return "Every accent and frame is unlocked.";
+	}
+	const togo = best.target - have;
+	return `Next unlock: ${best.name} ${best.kind} at ${best.target} rebirths (${togo} to go)`;
 }
 
 function unlockHint(unlock: ProfileStyle.StyleUnlock): string {
@@ -81,6 +112,44 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 		setPending({ Accent: accent ?? shown.Accent, Frame: frameId ?? shown.Frame });
 		props.dispatch("SetProfileStyle", { Accent: accent, Frame: frameId });
 	};
+	// owned skins only, in catalog order; old saves without the bag still own the default skin
+	const bag = typeIs(props.cosmetics, "table") ? (props.cosmetics as { CrateSkins?: unknown; CrateSkin?: unknown }) : {};
+	const ownedBag = typeIs(bag.CrateSkins, "table") ? (bag.CrateSkins as Record<string, unknown>) : {};
+	const equippedSkin = typeIs(bag.CrateSkin, "string") ? bag.CrateSkin : ShopCatalog.DEFAULT_SKIN;
+	const [pendingSkin, setPendingSkin] = React.useState<string | undefined>(undefined);
+	React.useEffect(() => {
+		setPendingSkin(undefined);
+	}, [equippedSkin]);
+	const shownSkin = pendingSkin ?? equippedSkin;
+	const ownedSkins = ShopCatalog.SKINS.filter((skin) => skin.Id === ShopCatalog.DEFAULT_SKIN || ownedBag[skin.Id] === true);
+	const skinButtons = ownedSkins.map((skin, index) => {
+		const selected = skin.Id === shownSkin;
+		const tint = Color3.fromRGB(skin.Accent[0], skin.Accent[1], skin.Accent[2]);
+		return (
+			<frame
+				key={skin.Id}
+				Size={UDim2.fromOffset(SKIN_BTN_W, TapTarget)}
+				Position={UDim2.fromOffset(index * (SKIN_BTN_W + 8), 0)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+			>
+				<Button
+					text={skin.Name}
+					onClick={() => {
+						if (!selected) {
+							setPendingSkin(skin.Id);
+							props.dispatch("EquipCrateSkin", { Id: skin.Id });
+						}
+					}}
+					color={selected ? tint : Palette.panelSoft}
+					textColor={selected ? Palette.ink : Palette.cream}
+					outline={!selected}
+					size={UDim2.fromScale(1, 1)}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+		);
+	});
 	const localName = Players.LocalPlayer !== undefined ? Players.LocalPlayer.DisplayName : "You";
 
 	const accentTop = 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + SAMPLE_H + 14;
@@ -246,6 +315,38 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				ClipsDescendants={true}
 			>
 				{frameButtons}
+			</scrollingframe>
+			<Text
+				value={nextUnlockLine(props.rebirths)}
+				size={11}
+				minSize={8}
+				color={Palette.muted}
+				fit={true}
+				position={UDim2.fromOffset(0, frameTop + 18 + TapTarget + 4 + 6)}
+				sizeConstraint={new UDim2(1, 0, 0, 16)}
+			/>
+			<Text
+				value={ownedSkins.size() > 1 ? "Crate skin" : "Crate skin · get more in the Shop"}
+				size={12}
+				minSize={9}
+				color={Palette.creamSoft}
+				weight={Enum.FontWeight.Bold}
+				fit={true}
+				position={UDim2.fromOffset(0, frameTop + 18 + TapTarget + 4 + NEXT_H)}
+				sizeConstraint={new UDim2(1, 0, 0, 16)}
+			/>
+			<scrollingframe
+				Size={new UDim2(1, 0, 0, TapTarget + 4)}
+				Position={UDim2.fromOffset(0, frameTop + 18 + TapTarget + 4 + NEXT_H + 18)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ScrollingDirection={Enum.ScrollingDirection.X}
+				ScrollBarThickness={2}
+				ScrollBarImageColor3={accentColor}
+				CanvasSize={UDim2.fromOffset(ownedSkins.size() * (SKIN_BTN_W + 8), 0)}
+				ClipsDescendants={true}
+			>
+				{skinButtons}
 			</scrollingframe>
 		</>
 	);
