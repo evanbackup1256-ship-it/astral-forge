@@ -385,6 +385,13 @@ export function Text(props: TextProps) {
 	const faceAutomaticSize = autoWidth ? Enum.AutomaticSize.X : undefined;
 	const faceScaled = autoWidth ? false : fit;
 	const fontFace = fontFaceFor(font);
+	// phones: a single-line label in a bounded box ends with an ellipsis instead of spilling past it
+	const phoneShell = chromeFor(useViewport()).stack;
+	const truncate =
+		phoneShell && !wrap && !faceScaled && !autoWidth && sizeConstraint !== undefined &&
+		(sizeConstraint.X.Scale > 0 || sizeConstraint.X.Offset > 0)
+			? Enum.TextTruncate.AtEnd
+			: Enum.TextTruncate.None;
 	const yAlign = wrap ? Enum.TextYAlignment.Top : Enum.TextYAlignment.Center;
 	const lineHeight = wrap ? 1.12 : 1;
 	if (autoWidth) {
@@ -423,7 +430,7 @@ export function Text(props: TextProps) {
 					TextWrapped={wrap}
 					TextScaled={faceScaled}
 					LineHeight={lineHeight}
-					TextTruncate={Enum.TextTruncate.None}
+					TextTruncate={truncate}
 					ZIndex={zIndex}
 					ref={(label: TextLabel | undefined) => {
 						if (label) {
@@ -450,7 +457,7 @@ export function Text(props: TextProps) {
 				TextWrapped={wrap}
 				TextScaled={faceScaled}
 				LineHeight={lineHeight}
-				TextTruncate={Enum.TextTruncate.None}
+				TextTruncate={truncate}
 				ZIndex={zIndex + 1}
 			>
 				{constraint}
@@ -2109,6 +2116,7 @@ export function Button(props: ButtonProps) {
 	const breatheStroke = useGlowStroke(breatheWanted, reducedMotion || effectsPaused, 0.32, 0.22, 0.46, 1.15);
 	const buttonRef = React.useRef<ImageButton>();
 	const hostSize = useGuiSize(buttonRef);
+	const touchShell = chromeFor(useViewport()).stack;
 	const visualPosition = joinTuple<[number, number, Vector2]>(arrival, shakeOffsetX, hostSize).map((values) =>
 		pixelPosition(values[2], 0.5, values[1], 0.5, (1 - math.clamp(values[0], 0, 1)) * 12),
 	);
@@ -2212,11 +2220,15 @@ export function Button(props: ButtonProps) {
 		math.clamp(values[0] + values[1], 0, 1),
 	);
 	const corner = <uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />;
+	// phones: grow only the invisible hit area to the 44px tap target; the visual keeps its size
+	const hitExtra =
+		touchShell && resolvedSize.Y.Scale === 0 ? math.max(0, TapTarget - resolvedSize.Y.Offset) : 0;
 	return (
 		<frame Size={resolvedSize} Position={position} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex} ClipsDescendants={false}>
 			<imagebutton
 				ref={buttonRef}
-				Size={UDim2.fromScale(1, 1)}
+				Size={new UDim2(1, 0, 1, hitExtra)}
+				Position={UDim2.fromOffset(0, -hitExtra / 2)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				AutoButtonColor={false}
@@ -2227,7 +2239,7 @@ export function Button(props: ButtonProps) {
 				Event={events}
 			>
 				<frame
-					Size={UDim2.fromScale(1, 1)}
+					Size={new UDim2(1, 0, 1, -hitExtra)}
 					Position={visualPosition}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					Rotation={tilt}
