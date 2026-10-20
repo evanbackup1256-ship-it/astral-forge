@@ -301,7 +301,8 @@ export function useGamepadAutofocus(active: boolean): React.MutableRefObject<Gui
 	return rootRef;
 }
 
-export const UiEffectsPausedContext = React.createContext(false);
+export { UiEffectsPausedContext } from "../CoreKit/effectsPause";
+import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 
 function withExitFade(localFade: Bindable<number>, presence: React.Binding<number>): React.Binding<number> {
 	if (typeIs(localFade, "number") && localFade === 0) {

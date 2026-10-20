@@ -3,6 +3,7 @@ import { Palette, darken, lighten } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
 import { ScaleFromCenter, easeOutBack, easeOutCubic, loadCanvasDraw, useClock } from "../MotionKit/motion";
 import { Text } from "./ui";
+import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 
 export const POP_SECONDS = 1.15;
 
@@ -92,7 +93,8 @@ const STARS = [
 export function StarField({ accent }: { accent: Color3 }) {
 	const antilag = useAntilag();
 	const enabled = antilag.tier > 0 && antilag.maxStars > 0 && antilag.allowAmbient;
-	const clock = useClock(enabled, antilag.constrained ? 0.7 : 1.1);
+	const paused = React.useContext(UiEffectsPausedContext);
+	const clock = useClock(enabled && !paused, antilag.constrained ? 0.7 : 1.1);
 	const starCap = antilag.maxStars;
 	const budgeted = math.clamp(math.floor(STARS.size() * antilag.fxBudget), 0, STARS.size());
 	const count = enabled ? math.clamp(math.min(budgeted, starCap), 0, STARS.size()) : 0;

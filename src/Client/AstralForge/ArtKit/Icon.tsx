@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import { useExitPresence, useMotionSettings } from "../MotionKit/motion";
 import { Palette } from "../CoreKit/theme";
+import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 import IconManifest = require("../IconManifest");
 
 const RunService = game.GetService("RunService");
@@ -381,7 +382,8 @@ export function Icon(props: IconProps) {
 	const motionScale = settings.motionScale ?? 1;
 	const [entry, sheet, lightSheet] = artFor(kind);
 	const still = motionScale < 0.05 || settings.reducedMotion === true;
-	const clock = useIconClock(entry !== undefined && !still);
+	const paused = React.useContext(UiEffectsPausedContext);
+	const clock = useIconClock(entry !== undefined && !still && !paused);
 	if (entry === undefined) {
 		// not drawn yet: the old flat glyph
 		return (

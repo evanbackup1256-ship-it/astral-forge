@@ -21,6 +21,7 @@ import { notePage } from "../ReactHosts/vendorHost";
 import { Session } from "../state";
 import { ComboBadge, ComboReadout } from "./ComboBadge";
 import { CrateRevealOverlay, CrateRevealProps } from "./CrateRevealOverlay";
+import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 import { CreditsOverlay } from "./CreditsView";
 import { EffectLayer, PopEntry, StarField } from "./effects";
 import { FeedbackOverlay } from "./FeedbackOverlay";
@@ -523,6 +524,7 @@ function AppShell(props: ShellProps) {
 	return (
 		<AntilagContext.Provider value={rootAntilag}>
 			<>
+				<UiEffectsPausedContext.Provider value={hidden || crateReveal !== undefined}>
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.void} BackgroundTransparency={hideAmount}
 					BorderSizePixel={0} ClipsDescendants={true} Visible={crateReveal === undefined}>
 					<uigradient Color={new ColorSequence([new ColorSequenceKeypoint(0, Palette.void), new ColorSequenceKeypoint(0.5, Palette.graphite), new ColorSequenceKeypoint(1, Palette.void)])} Rotation={112} />
@@ -608,6 +610,7 @@ function AppShell(props: ShellProps) {
 					<ServerEventHost state={state} dispatch={dispatch} />
 					{offlineRewardsOpen && <OfflineRewardsOverlay {...offlineRewardsProps(state, reducedMotion, dispatch, () => setDismissedOfflineKey(offlineReceiptKey))} />}
 				</frame>
+				</UiEffectsPausedContext.Provider>
 				{crateReveal !== undefined && <CrateRevealOverlay session={crateReveal} config={config} skin={state.Cosmetics?.CrateSkin} reducedMotion={reducedMotion} onClose={() => setCrateReveal(undefined)} />}
 				<RebirthCeremonyHost reducedMotion={reducedMotion} />
 			</>

@@ -6,6 +6,7 @@ import { useAntilag } from "../MotionKit/antilag";
 import { useClock, useEntrance, usePulse } from "../MotionKit/motion";
 import Fx = require("../MotionKit/vfxMath");
 import { Button } from "./ui";
+import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 
 const UserInputService = game.GetService("UserInputService");
 
@@ -103,7 +104,8 @@ export function AmbientLayer(props: { reducedMotion?: boolean; intensity?: numbe
 	const antilag = useAntilag();
 	const strength = math.clamp(intensity, 0, 1);
 	const enabled = !reducedMotion && antilag.allowAmbient && strength > 0.02;
-	const slow = useClock(enabled, 0.08);
+	const paused = React.useContext(UiEffectsPausedContext);
+	const slow = useClock(enabled && !paused, 0.08);
 	if (strength <= 0.02 || !antilag.allowAmbient) {
 		return <frame {...{ Name: "AuroraBorealis" }} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={1} />;
 	}
