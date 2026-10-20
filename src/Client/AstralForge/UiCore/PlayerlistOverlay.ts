@@ -99,6 +99,7 @@ const ROW_H = 60;
 // phones (card narrower than this): one-line rows, so about a third more players fit on screen
 const COMPACT_W = 340;
 const COMPACT_ROW_H = 44;
+const SWIPE_W = 190;
 const ROW_GAP = 6;
 const FRIEND_TTL = 120;
 const REPORT_COOLDOWN = 600;
@@ -308,6 +309,18 @@ function PlayerRow(param: PlayerRowProps) {
 	const compact = width < COMPACT_W;
 	const rowH = compact ? COMPACT_ROW_H : ROW_H;
 	const avatarSize = compact ? 28 : 40;
+	// phones: swipe a closed row left to show Message and Visit without opening the details
+	const canSwipe = compact && !row.IsLocal && !expanded;
+	const [swiped, setSwiped] = React.useState(false);
+	const swipeAmount = useFlipperSpring(swiped && canSwipe ? 1 : 0, reducedMotion, 700, 40);
+	const touchStart = React.useRef<Vector3>();
+	// the finger lifting at the end of a swipe also fires Activated; that release is not a tap
+	const swipeAt = React.useRef(-math.huge);
+	React.useEffect(() => {
+		if (!canSwipe && swiped) {
+			setSwiped(false);
+		}
+	}, [canSwipe]);
 	const tags: string[] = [];
 	if (row.IsLocal) {
 		tags.push("YOU");
@@ -489,7 +502,45 @@ function PlayerRow(param: PlayerRowProps) {
 				AutoButtonColor: false,
 				ZIndex: 621,
 				Event: {
-					Activated: param.onToggle,
+					// a tap on a swiped row just closes the actions
+					Activated: () => {
+						if (os.clock() - swipeAt.current < 0.5) {
+							return;
+						}
+						if (swiped) {
+							setSwiped(false);
+							return;
+						}
+						param.onToggle();
+					},
+					InputBegan: (_: TextButton, input: InputObject) => {
+						if (canSwipe && input.UserInputType === Enum.UserInputType.Touch) {
+							touchStart.current = input.Position;
+						}
+					},
+					InputChanged: (_: TextButton, input: InputObject) => {
+						const start = touchStart.current;
+						if (start === undefined || input.UserInputType !== Enum.UserInputType.Touch) {
+							return;
+						}
+						const dx = input.Position.X - start.X;
+						if (math.abs(input.Position.Y - start.Y) > 24) {
+							touchStart.current = undefined; // the list is scrolling
+						} else if (dx < -40) {
+							touchStart.current = undefined;
+							swipeAt.current = os.clock();
+							setSwiped(true);
+						} else if (dx > 30) {
+							touchStart.current = undefined;
+							swipeAt.current = os.clock();
+							setSwiped(false);
+						}
+					},
+					InputEnded: (_: TextButton, input: InputObject) => {
+						if (input.UserInputType === Enum.UserInputType.Touch) {
+							touchStart.current = undefined;
+						}
+					},
 					MouseEnter: () => setHovered(true),
 					MouseLeave: () => setHovered(false),
 					SelectionGained: () => setHovered(true),
@@ -613,6 +664,28 @@ function PlayerRow(param: PlayerRowProps) {
 				}),
 			),
 		),
+		canSwipe &&
+			!blocked &&
+			h(
+				"frame",
+				{
+					Name: "SwipeActions",
+					Size: UDim2.fromOffset(SWIPE_W, rowH - 8),
+					Position: swipeAmount.map((amount) => new UDim2(1, math.round(-(SWIPE_W + 6) * math.clamp(amount, 0, 1)) + (1 - math.clamp(amount, 0, 1)) * 6, 0, 4)),
+					Visible: swipeAmount.map((amount) => amount > 0.01),
+					BackgroundTransparency: 1,
+					ZIndex: 630,
+				},
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Horizontal,
+					Padding: new UDim(0, 6),
+					SortOrder: Enum.SortOrder.LayoutOrder,
+				}),
+				h("frame", { Size: UDim2.fromOffset((SWIPE_W - 6) / 2, rowH - 8), LayoutOrder: 1, BackgroundTransparency: 1 },
+					h(ActionButton, { order: 1, text: "MESSAGE", icon: "Chat.7", color: Palette.cyan, onClick: () => { setSwiped(false); param.onMessage(); }, reducedMotion: reducedMotion })),
+				h("frame", { Size: UDim2.fromOffset((SWIPE_W - 6) / 2, rowH - 8), LayoutOrder: 2, BackgroundTransparency: 1 },
+					h(ActionButton, { order: 2, text: "VISIT", icon: "Visit.6", color: Palette.violet, onClick: () => { setSwiped(false); param.onVisit(); }, reducedMotion: reducedMotion })),
+			),
 		h(
 			"frame",
 			{
