@@ -70,15 +70,14 @@ interface CommunityDocument {
 }
 
 interface DataStoreLike {
-	GetAsync(this: void, key: string): unknown;
-	UpdateAsync(this: void, key: string, transform: (this: void, old: unknown) => unknown): unknown;
+	GetAsync(key: string): unknown;
+	UpdateAsync(key: string, transform: (this: void, old: unknown) => unknown): unknown;
 }
 
 interface GuildServiceLike {
-	_findByTag(this: void, tag: string): Dict | undefined;
-	GetPublic(this: void, guildId: string): Dict | undefined;
+	_findByTag(tag: string): Dict | undefined;
+	GetPublic(guildId: string): Dict | undefined;
 	_update(
-		this: void,
 		guildId: string,
 		transform: (this: void, current: Dict) => Dict | undefined,
 	): LuaTuple<[boolean, unknown]>;
@@ -91,7 +90,6 @@ interface DataServiceLike {
 interface SecurityLike {
 	Filter?: {
 		Apply(
-			this: void,
 			player: Player,
 			text: string,
 			contextUserId?: number,

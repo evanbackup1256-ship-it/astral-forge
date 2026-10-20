@@ -13,21 +13,20 @@ import { Dict, isTable, num } from "../LuaInterop";
 type Profile = Dict;
 
 interface DataStoreLike {
-	GetAsync(this: void, key: string): unknown;
-	UpdateAsync(this: void, key: string, transform: (this: void, old: unknown) => unknown): unknown;
-	RemoveAsync(this: void, key: string): unknown;
+	GetAsync(key: string): unknown;
+	UpdateAsync(key: string, transform: (this: void, old: unknown) => unknown): unknown;
+	RemoveAsync(key: string): unknown;
 }
 
 interface OrderedStoreLike {
 	GetSortedAsync(
-		this: void,
 		ascending: boolean,
 		pageSize: number,
 		min?: unknown,
 		max?: unknown,
-	): { GetCurrentPage(this: void): { key: string; value: number }[] };
-	SetAsync(this: void, key: string, value: unknown): unknown;
-	RemoveAsync(this: void, key: string): unknown;
+	): { GetCurrentPage(): { key: string; value: number }[] };
+	SetAsync(key: string, value: unknown): unknown;
+	RemoveAsync(key: string): unknown;
 }
 
 interface MemberRec {
