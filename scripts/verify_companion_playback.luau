@@ -23,6 +23,11 @@ local runtime = luau.load(fs.readFile("src/Client/AstralForge/CompanionPlayback.
 		game = { GetService = function(_, name)
 			if name == "GuiService" then return guiService end
 			if name == "Workspace" then return { CurrentCamera = camera } end
+			if name == "ReplicatedStorage" then
+				-- compiled output asks for the roblox-ts runtime here; hand back a marker the stub require recognises
+				local include = { RuntimeLib = "RuntimeLib" }
+				return { WaitForChild = function(_, child) assert(child == "rbxts_include"); return { WaitForChild = function(_, n) return include[n] end } end }
+			end
 			assert(name == "RunService")
 			return { RenderStepped = { Connect = function(_, handler)
 				callback = handler; connects += 1
@@ -30,6 +35,15 @@ local runtime = luau.load(fs.readFile("src/Client/AstralForge/CompanionPlayback.
 			end } }
 		end },
 		workspace = { CurrentCamera = camera }, Vector2 = roblox.Vector2,
+		script = { Parent = {} },
+		-- RuntimeLib stub: the only import is MotionPreference, which reads the OS reduced-motion flag
+		require = function(target)
+			assert(target == "RuntimeLib", "unexpected require")
+			return { import = function(_, _, name)
+				assert(name == "MotionPreference", "unexpected import " .. tostring(name))
+				return { isReducedMotion = function() return guiService.ReducedMotionEnabled == true end }
+			end }
+		end,
 	}, { __index = _G }),
 })()
 local group = node("CanvasGroup", screen)

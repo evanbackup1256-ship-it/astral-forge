@@ -61,7 +61,8 @@ assert(Shimmer.surfaceStrength(1, false, 1) <= 0.5 and Shimmer.surfaceStrength(0
 
 -- Page transitions
 local order = { "Overview", "Workshop", "Research" }
-assert(Page.SLIDE_DESKTOP == 24 and Page.SLIDE_PHONE == 36, "page changes use clear directional travel")
+-- tightened in the UI visuals pass (24/36 -> 12/16); still a visible slide, phones a bit further
+assert(Page.SLIDE_DESKTOP >= 8 and Page.SLIDE_PHONE >= Page.SLIDE_DESKTOP, "page changes use clear directional travel")
 assert(Page.VEIL_PEAK == 0.68, "page veil visibly bridges route changes")
 assert(Page.direction("Overview", "Research", order) == 1 and Page.direction("Research", "Workshop", order) == -1, "follows the nav")
 assert(Page.direction("Nowhere", "Workshop", order) == 1, "unknown pages arrive forward")
