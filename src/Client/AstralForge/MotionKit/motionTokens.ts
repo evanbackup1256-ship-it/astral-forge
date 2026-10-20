@@ -27,15 +27,6 @@ export const SPRING = table.freeze({
 	bouncy: table.freeze({ stiffness: 560, damping: 22 }),
 });
 
-export function bouncyFeel(): Feel {
-	return { frequency: SPRING.bouncy.stiffness / 130, dampingRatio: 0.58 };
-}
-
-export function settleSeconds(spring: Feel): number {
-	const omega = spring.frequency * math.pi * 2;
-	return 4 / (math.max(0.1, spring.dampingRatio) * omega);
-}
-
 export function overshoot(spring: Feel): number {
 	const z = spring.dampingRatio;
 	if (z >= 1) {
@@ -146,8 +137,6 @@ export function stagger(index: number, stepSize?: number): number {
 	const i = math.max(0, index);
 	return math.min(STAGGER_CAP, s * i ** 1.12);
 }
-
-export const RISE = table.freeze({ small: 6, standard: 10, large: 16 });
 
 export const fx = {
 	ballistic(this: void, t: number, angle: number, speed: number, g: number, k: number): LuaTuple<[number, number]> {

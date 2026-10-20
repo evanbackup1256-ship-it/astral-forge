@@ -34,10 +34,6 @@ export function computeViewportScale(screenWidth: number, screenHeight: number):
 	return math.clamp(raw, Layout.minScale, Layout.maxScale);
 }
 
-export function useViewportScale(): number {
-	return React.useContext(ViewportScaleContext)?.scale ?? 1;
-}
-
 export { readSafeInsets };
 
 function keyboardTop(screenHeight: number, screenOriginY: number): number {

@@ -2,7 +2,6 @@ export const DEFAULT_TRAVEL = 2.4;
 export const TRAIL_LAG = 0.035;
 export const TRAIL_MIN_SCALE = 0.85;
 export const SWEEP_SHARE = 0.6;
-export const SWEEP_EASE = 1;
 
 export function bell(halfWidth: number, peak: number, samples: number): NumberSequence {
 	const points = [new NumberSequenceKeypoint(0, 1)];

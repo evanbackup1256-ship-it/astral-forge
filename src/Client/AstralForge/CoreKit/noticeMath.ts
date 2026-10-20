@@ -85,14 +85,6 @@ export function Entries(): NoticeEntry[] {
 	return logEntries.map((entry) => table.clone(entry));
 }
 
-export function ClearLog() {
-	if (logEntries.size() === 0) {
-		return;
-	}
-	logEntries.clear();
-	notifyLog();
-}
-
 export function Subscribe(listener: () => void): () => void {
 	logListeners.add(listener);
 	return () => {

@@ -169,26 +169,6 @@ export function rewardIconKind(reward: RewardLike): string {
 	return "Gift.reward";
 }
 
-export function prizeShapeFromReward(reward: RewardLike | undefined, rarity: string): string {
-	if (rarity.upper() === "MYTHIC") {
-		return "jackpot";
-	}
-	if (reward?.Boost !== undefined) {
-		return "boost";
-	}
-	if (reward?.Cores !== undefined && (reward.Cores ?? 0) > 0) {
-		return "core";
-	}
-	if (
-		reward?.Stardust !== undefined &&
-		(reward.Stardust ?? 0) > 0 &&
-		(reward.CashMinutes === undefined || reward.CashMinutes === 0)
-	) {
-		return "dust";
-	}
-	return "flux";
-}
-
 function GlyphFace({
 	kind,
 	color,

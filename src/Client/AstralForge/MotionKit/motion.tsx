@@ -268,14 +268,6 @@ interface Otter {
 	spring(goal: number, options: Record<string, number>): unknown;
 }
 
-export function loadOtter(): Otter | undefined {
-	return loadNativePackage("Otter") as Otter | undefined;
-}
-
-export function loadCanvasDraw(): unknown {
-	return loadNativePackage("CanvasDraw");
-}
-
 export interface MotionSettings {
 	motionScale: number;
 	soft: boolean;

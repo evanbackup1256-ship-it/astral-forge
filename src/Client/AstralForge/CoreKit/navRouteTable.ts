@@ -83,14 +83,6 @@ export function find(pageId: string): RouteDef | undefined {
 	return ALL_BY_ID.get(pageId);
 }
 
-export function isNavRoute(pageId: string): boolean {
-	return ALL_BY_ID.has(pageId);
-}
-
-export function isPageRoute(pageId: string): boolean {
-	return PAGE_SET.has(pageId);
-}
-
 export function allNavIds(): string[] {
 	return [...PRIMARY_ROUTES.map((route) => route.id), ...MORE_ROUTES.map((route) => route.id)];
 }

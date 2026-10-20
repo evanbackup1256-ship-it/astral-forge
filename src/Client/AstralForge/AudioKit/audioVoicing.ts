@@ -198,10 +198,6 @@ export function families(): Record<string, Voice> {
 	return FAMILIES;
 }
 
-export function cueFamilies(): Record<string, string> {
-	return CUE_FAMILY;
-}
-
 export function clampGain(value: number): number {
 	return math.clamp(value, -80, 10);
 }

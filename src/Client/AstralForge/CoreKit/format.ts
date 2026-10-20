@@ -296,13 +296,6 @@ export function gteFlux(left: Flux, right: Flux): boolean {
 	return compareFlux(left, right) >= 0;
 }
 
-export function levelCapLabel(maxLevel: number): string {
-	if (maxLevel >= 1000000000) {
-		return "∞";
-	}
-	return compactNumber(maxLevel);
-}
-
 export function compactNumber(value: unknown): string {
 	if (typeIs(value, "string")) {
 		const parsed = tonumber(value);
