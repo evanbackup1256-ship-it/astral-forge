@@ -170,7 +170,7 @@ function LevelRow(props: {
 			) as (name: string) => LevelRewardsApi
 		)("LevelRewards");
 		const reward = LevelRewards.forLevel(def.Level, def.Tier);
-		detail += string.format(" · +%d stardust, Surge ×%.2f", reward.Stardust, reward.SurgeMultiplier);
+		detail += string.format(" · +%d Stardust, Surge ×%.2f", reward.Stardust, reward.SurgeMultiplier);
 	}
 	const rightText = here ? "Current" : isNext && nextStep !== undefined ? progressText(nextStep) : "";
 	return (

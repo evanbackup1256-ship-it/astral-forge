@@ -220,7 +220,7 @@ const BazaarMath = {
 		table.freeze({ Id: "vess", Name: "Vess Calder", Title: "Salvage broker", Favors: "Resources", Accent: table.freeze([214, 160, 96]),
 			Line: "Everything on this table came off a wreck. None of it is sentimental." }),
 		table.freeze({ Id: "orrin", Name: "Orrin Hale", Title: "Key cutter", Favors: "Keys", Accent: table.freeze([150, 190, 230]),
-			Line: "Bring me a lock and I'll tell you what it's hiding. Bring flux and I'll skip the story." }),
+			Line: "Bring me a lock and I'll tell you what it's hiding. Bring Flux and I'll skip the story." }),
 		table.freeze({ Id: "sable", Name: "Sable Rook", Title: "Signal runner", Favors: "Command", Accent: table.freeze([176, 140, 220]),
 			Line: "Quiet channels usually cost extra. This hour, they don't." }),
 		table.freeze({ Id: "tamsin", Name: "Tamsin Ferro", Title: "Engine fixer", Favors: "Boosts", Accent: table.freeze([230, 120, 90]),

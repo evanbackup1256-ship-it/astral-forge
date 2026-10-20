@@ -14,11 +14,11 @@ interface Board {
 }
 
 const RAW: Array<Omit<Board, "group"> & { group?: string }> = [
-	{ id: "Flux", label: "Lifetime Flux", short: "FLUX", description: "All the flux you have ever made.", icon: "Flux.16", accent: Palette.cyan },
+	{ id: "Flux", label: "Lifetime Flux", short: "FLUX", description: "All the Flux you have ever made.", icon: "Flux.16", accent: Palette.cyan },
 	{ id: "Rebirths", label: "Most Rebirths", short: "REBIRTHS", description: "Pilots who have restarted the forge the most.", icon: "Rebirth.6", accent: Palette.violet },
 	{ id: "PlayTime", label: "Time Played", short: "PLAYTIME", description: "Total time spent playing.", icon: "Command.4", accent: Palette.mint },
-	{ id: "Dust", label: "Most Stardust", short: "DUST", description: "Current stardust reserves held by each pilot.", icon: "Dust.10", accent: Palette.mango },
-	{ id: "Cores", label: "Most Cores", short: "CORES", description: "Current astral cores ready for permanent upgrades.", icon: "Core.7", accent: Palette.violet },
+	{ id: "Dust", label: "Most Stardust", short: "DUST", description: "Most Stardust on hand right now.", icon: "Dust.10", accent: Palette.mango },
+	{ id: "Cores", label: "Most Cores", short: "CORES", description: "Cores on hand, ready to spend.", icon: "Core.7", accent: Palette.violet },
 	{ id: "Domain", label: "Domain Rank", short: "DOMAIN", description: "The highest Domain rank reached.", icon: "Domain.4", accent: Palette.pink },
 	{ id: "Worlds", label: "Farthest World", short: "WORLDS", description: "The farthest forge worlds unlocked.", icon: "World.8", accent: Palette.green, group: "Progression" },
 	{ id: "Crates", label: "Crates Opened", short: "CRATES", description: "Every sealed crate cracked open, any tier, any skin.", icon: "Crate.12", accent: Palette.mango, group: "Collection" },
@@ -30,7 +30,7 @@ const RAW: Array<Omit<Board, "group"> & { group?: string }> = [
 		id: "Stars",
 		label: "Ore Cuts",
 		short: "CUTS",
-		description: "Completed ore cuts. Includes progress earned before the workshop redesign.",
+		description: "Ore cuts finished, including ones from before the workshop rebuild.",
 		icon: "Dust.11",
 		accent: Palette.violet,
 		group: "Activity",
@@ -39,7 +39,7 @@ const RAW: Array<Omit<Board, "group"> & { group?: string }> = [
 		id: "Cipher",
 		label: "Commissions Finished",
 		short: "COMMISSIONS",
-		description: "Daily forge commissions finished. Previous puzzle completions remain counted.",
+		description: "Daily commissions finished. Older puzzle clears still count.",
 		icon: "Forge.22",
 		accent: Palette.cyan,
 		group: "Activity",

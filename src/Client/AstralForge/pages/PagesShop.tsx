@@ -334,7 +334,7 @@ const SHOP_TABS = ["Featured", "Passes", "Supplies", "Codes"];
 const SHOP_TAB_TIPS: Record<string, string> = {
 	Featured: "What's on sale.",
 	Passes: "Permanent upgrades. Buy once, keep forever.",
-	Supplies: "One-time packs of flux, dust and boosts.",
+	Supplies: "One-time packs of Flux, dust and boosts.",
 	Codes: "Type a promo code for a free reward.",
 };
 const PRODUCT_PENDING_FAILSAFE = 40;

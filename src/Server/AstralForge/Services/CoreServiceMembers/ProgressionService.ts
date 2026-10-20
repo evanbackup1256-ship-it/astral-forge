@@ -348,7 +348,7 @@ function createProgressionService() {
         profile.Cash = Economy.Add(profile.Cash, reward.Cash);
         profile.RunCash = Economy.Add(profile.RunCash, reward.Cash);
         profile.LifetimeCash = Economy.Add(profile.LifetimeCash, reward.Cash);
-        parts.push(Format.Number(reward.Cash) + " flux");
+        parts.push(Format.Number(reward.Cash) + " Flux");
       }
       if (reward.CashMinutes !== undefined && reward.CashMinutes > 0) {
         const generated = Economy.Max(
@@ -361,7 +361,7 @@ function createProgressionService() {
         profile.Cash = Economy.Add(profile.Cash, generated);
         profile.RunCash = Economy.Add(profile.RunCash, generated);
         profile.LifetimeCash = Economy.Add(profile.LifetimeCash, generated);
-        parts.push(Format.Number(generated) + " flux");
+        parts.push(Format.Number(generated) + " Flux");
       }
       if (reward.Stardust !== undefined && reward.Stardust > 0) {
         profile.Stardust = math.clamp(
@@ -369,7 +369,7 @@ function createProgressionService() {
           0,
           1e14,
         );
-        parts.push(Format.Number(reward.Stardust) + " stardust");
+        parts.push(Format.Number(reward.Stardust) + " Stardust");
       }
       if (reward.Cores !== undefined && reward.Cores > 0) {
         profile.Cores = math.clamp(
@@ -481,7 +481,7 @@ function createProgressionService() {
           {
             Id: string.format("earn_%d", day),
             Name: "Shift Quota",
-            Description: "Bank flux from your vault.",
+            Description: "Bank Flux from your vault.",
             Kind: "EarnCash",
             Target: earnTarget,
             Progress: 0,
@@ -951,7 +951,7 @@ function createProgressionService() {
         return $tuple(
           false,
           string.format(
-            "Requires %d fragments and %d stardust.",
+            "Requires %d fragments and %d Stardust.",
             fragmentCost,
             dustCost,
           ),
@@ -985,7 +985,7 @@ function createProgressionService() {
       const owned = profile.Command.Artifacts[artifactId];
       const cost = owned !== undefined ? price.Refill : price.Stardust;
       if (Economy.Lt(profile.Stardust, cost))
-        return $tuple(false, string.format("Requires %d stardust.", cost));
+        return $tuple(false, string.format("Requires %d Stardust.", cost));
       profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost));
       if (owned !== undefined) {
         owned.Fragments += price.Fragments;

@@ -121,7 +121,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				sizeConstraint={new UDim2(1, -8, 0, 42)}
 			/>
 			<Text
-				value="Everyone contributes to the same weekly forge. Finish each phase together to unlock a global production boost."
+				value="One forge, every server, all week. Clear a phase together and everyone's production goes up."
 				size={11}
 				color={Palette.creamSoft}
 				wrap={true}

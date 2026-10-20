@@ -443,7 +443,7 @@ function BazaarView(props: BazaarProps) {
 				value={
 					(market
 						? `${market.Offers.size()} shipments from a ${market.CatalogSize}-item catalog. Stock limits are yours alone. `
-						: "Opening the supply ledger... ") + "Prices follow your steady production, with a 1,000-flux minimum."
+						: "Opening the supply ledger... ") + "Prices follow your steady production, with a 1,000-Flux minimum."
 				}
 				size={13}
 				wrap={true}
@@ -834,7 +834,7 @@ function BazaarView(props: BazaarProps) {
 					" per unit\n\n" +
 					(holdings.size() > 0
 						? "Currently held\n" + holdings.join("\n")
-						: "Inventory information is loading. Refresh to check your holdings.") +
+						: "Still loading your inventory. Refresh in a sec.") +
 					`\n\nOrder: ${quantity} units for ${Format.compactNumber(orderTotal(chosen.Price, quantity))} flux` +
 					`\nPersonal limit: ${chosen.Left} of ${chosen.Stock} units remaining this hour.`
 				}

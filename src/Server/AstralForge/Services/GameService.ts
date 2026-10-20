@@ -1796,10 +1796,10 @@ export function createGameService(loadService: LoadService) {
 				});
 				const parts: string[] = [];
 				if (fluxPaid > 0) {
-					parts.push("+" + (Format.Number(fluxPaid) as string) + " flux");
+					parts.push("+" + (Format.Number(fluxPaid) as string) + " Flux");
 				}
 				if (entryStardust > 0) {
-					parts.push("+" + tostring(entry.Stardust) + " stardust");
+					parts.push("+" + tostring(entry.Stardust) + " Stardust");
 				}
 				if (entryCores > 0) {
 					parts.push("+" + tostring(entry.Cores) + " cores");
@@ -2555,11 +2555,11 @@ export function createGameService(loadService: LoadService) {
 					profile.Cash = Economy.Add(profile.Cash, bonus);
 					profile.RunCash = Economy.Add(profile.RunCash, bonus);
 					profile.LifetimeCash = Economy.Add(profile.LifetimeCash, bonus);
-					notes.push("+" + (Format.Number(bonus) as string) + " golden flux");
+					notes.push("+" + (Format.Number(bonus) as string) + " golden Flux");
 				}
 				if ((extra.Dust as number) > 0) {
 					profile.Stardust = math.clamp((num(profile.Stardust) ?? 0) + (extra.Dust as number), 0, 1e14);
-					notes.push(tostring(extra.Dust) + " stardust");
+					notes.push(tostring(extra.Dust) + " Stardust");
 				}
 				if ((extra.Cores as number) > 0) {
 					profile.Cores = Economy.Add(profile.Cores, extra.Cores);
@@ -2574,11 +2574,11 @@ export function createGameService(loadService: LoadService) {
 				}
 				if (notes.size() > 0) {
 					return responseSuccess(
-						"Banked " + (Format.Number(amount) as string) + " flux and found " + notes.join(", ") + ".",
+						"Banked " + (Format.Number(amount) as string) + " Flux and found " + notes.join(", ") + ".",
 						{ Amount: amount, Dust: extra.Dust, Cores: extra.Cores, Keys: extra.Keys },
 					);
 				}
-				return responseSuccess("Banked " + (Format.Number(amount) as string) + " flux.", { Amount: amount });
+				return responseSuccess("Banked " + (Format.Number(amount) as string) + " Flux.", { Amount: amount });
 			});
 			if (truthy(result.ok)) {
 				this._effect.FireClient(player, { Type: "Collect", Amount: result.Amount });
@@ -2614,7 +2614,7 @@ export function createGameService(loadService: LoadService) {
 						const crate = reward.KeyCrate as string;
 						keys[crate] = (num(keys[crate]) ?? 0) + (reward.Keys as number);
 					}
-					return responseSuccess("Got it: a crate key and " + tostring(rewardDust) + " stardust.", {
+					return responseSuccess("Got it: a crate key and " + tostring(rewardDust) + " Stardust.", {
 						Dust: reward.Stardust,
 						Keys: reward.Keys,
 					});
@@ -2752,7 +2752,7 @@ export function createGameService(loadService: LoadService) {
 					return responseError("You cannot afford another level yet.");
 				}
 				if (truthy(Economy.Lt(profile.Cash, cost))) {
-					return responseError("You need " + (Format.Number(Economy.Sub(cost, profile.Cash)) as string) + " more flux.");
+					return responseError("You need " + (Format.Number(Economy.Sub(cost, profile.Cash)) as string) + " more Flux.");
 				}
 				profile.Cash = Economy.Sub(profile.Cash, cost);
 				machines[machineId] = level + count;
@@ -2925,7 +2925,7 @@ export function createGameService(loadService: LoadService) {
 					return responseError("You cannot afford another research level yet.");
 				}
 				if (truthy(Economy.Lt(profile.Cash, cost))) {
-					return responseError("You need " + (Format.Number(Economy.Sub(cost, profile.Cash)) as string) + " more flux.");
+					return responseError("You need " + (Format.Number(Economy.Sub(cost, profile.Cash)) as string) + " more Flux.");
 				}
 				profile.Cash = Economy.Sub(profile.Cash, cost);
 				researchLevels[researchId] = level + count;
@@ -2969,7 +2969,7 @@ export function createGameService(loadService: LoadService) {
 				}
 				if (kind === "Error") {
 					if (err === "NEED_MORE_FLUX") {
-						return responseError("You need " + (Format.Number(Economy.Sub(zone.Cost, profile.Cash)) as string) + " more flux.");
+						return responseError("You need " + (Format.Number(Economy.Sub(zone.Cost, profile.Cash)) as string) + " more Flux.");
 					}
 					return responseError(err as string);
 				}
@@ -3058,7 +3058,7 @@ export function createGameService(loadService: LoadService) {
 					return responseError(
 						"Bank at least " +
 							(Format.Number as Fn)(GameConfig.Economy.PrestigeRequirement) +
-							" run flux first.",
+							" run Flux first.",
 					);
 				}
 				if (payload.Keep !== undefined) {
@@ -3135,7 +3135,7 @@ export function createGameService(loadService: LoadService) {
 						(Format.Number as Fn)(reward) +
 						" cores, +" +
 						(Format.Number as Fn)(stardustReward) +
-						" stardust." +
+						" Stardust." +
 						vowLine,
 					{
 						Rebirths: profile.Rebirths,
@@ -4235,7 +4235,7 @@ export function createGameService(loadService: LoadService) {
 				const [fluxCost, stardustCost] = Economy.ContinuumCosts(rank) as LuaTuple<[unknown, number]>;
 				if (Economy.Lt(profile.Cash, fluxCost)) {
 					return responseError(
-						"You need " + (Format.Number as Fn)(Economy.Sub(fluxCost, profile.Cash)) + " more flux.",
+						"You need " + (Format.Number as Fn)(Economy.Sub(fluxCost, profile.Cash)) + " more Flux.",
 					);
 				}
 				if (Economy.Lt(profile.Stardust, stardustCost)) {

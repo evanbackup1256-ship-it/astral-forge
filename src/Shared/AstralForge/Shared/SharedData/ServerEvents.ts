@@ -46,7 +46,7 @@ const EVENTS = table.freeze({
 	StardustRain: def({
 		Id: "StardustRain", Name: "Stardust Rain", Kind: "drops", Icon: "Dust.15", Accent: "violet",
 		Blurb: "Stardust is coming down over the forge.",
-		How: "Every vault collect catches stardust. Bigger collects catch more, up to 25.",
+		How: "Every vault collect catches Stardust. Bigger collects catch more, up to 25.",
 		Drops: { Dust: 25 },
 	}),
 	CommunityForge: def({
@@ -83,7 +83,7 @@ const EVENTS = table.freeze({
 	GoldenVault: def({
 		Id: "GoldenVault", Name: "Golden Vault", Kind: "mod", Icon: "Vault.11", Accent: "mango",
 		Blurb: "Vaults are paying out in gold.",
-		How: "Every vault collect pays 50% extra flux on top.",
+		How: "Every vault collect pays 50% extra Flux on top.",
 		Mods: { Collect: 0.5 },
 	}),
 	CoreSeam: def({

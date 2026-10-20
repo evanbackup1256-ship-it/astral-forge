@@ -99,14 +99,14 @@ function namedAmounts(entries: Array<{ id: string; label: string }>, icon?: stri
 
 const FLUX = namedAmounts(
 	[
-		{ id: "1000", label: "1,000 flux" },
-		{ id: "10000", label: "10,000 flux" },
-		{ id: "100000", label: "100,000 flux" },
-		{ id: "1000000", label: "1 million flux" },
-		{ id: "1000000000", label: "1 billion flux" },
-		{ id: "1e12", label: "1 trillion flux" },
-		{ id: "1e15", label: "1 quadrillion flux" },
-		{ id: "1e308", label: "MAX flux" },
+		{ id: "1000", label: "1,000 Flux" },
+		{ id: "10000", label: "10,000 Flux" },
+		{ id: "100000", label: "100,000 Flux" },
+		{ id: "1000000", label: "1 million Flux" },
+		{ id: "1000000000", label: "1 billion Flux" },
+		{ id: "1e12", label: "1 trillion Flux" },
+		{ id: "1e15", label: "1 quadrillion Flux" },
+		{ id: "1e308", label: "MAX Flux" },
 	],
 	"Flux",
 );
@@ -123,11 +123,11 @@ const CORES = namedAmounts(
 );
 const DUST = namedAmounts(
 	[
-		{ id: "100", label: "100 stardust" },
-		{ id: "1000", label: "1,000 stardust" },
-		{ id: "10000", label: "10,000 stardust" },
-		{ id: "100000", label: "100,000 stardust" },
-		{ id: "1000000", label: "1 million stardust" },
+		{ id: "100", label: "100 Stardust" },
+		{ id: "1000", label: "1,000 Stardust" },
+		{ id: "10000", label: "10,000 Stardust" },
+		{ id: "100000", label: "100,000 Stardust" },
+		{ id: "1000000", label: "1 million Stardust" },
 	],
 	"Dust",
 );
@@ -334,13 +334,13 @@ export function fieldsFor(command: string, config?: AdminConfig, banned?: BanEnt
 		return pack(amountList(["0", "100", "1000", "10000", "100000"], "XP", "Set"), "Exact value");
 	}
 	if (command === "GrantFlux" || command === "GrantVaultFlux") {
-		return pack(FLUX, "How much flux");
+		return pack(FLUX, "How much Flux");
 	}
 	if (command === "GrantCores") {
 		return pack(CORES, "How many cores");
 	}
 	if (command === "GrantStardust") {
-		return pack(DUST, "How much stardust");
+		return pack(DUST, "How much Stardust");
 	}
 	if (command === "GrantRebirths") {
 		return pack(REBIRTHS, "How many rebirths");

@@ -38,7 +38,7 @@ const LIFETIME_KINDS = table.freeze({
 const TIERS = ["Beginner", "Apprentice", "Journeyman", "Expert", "Master", "Legend"];
 
 const TIER_BLURBS: Record<string, string> = {
-	Beginner: "Learn the basics: collect flux, buy machines, research.",
+	Beginner: "Learn the basics: collect Flux, buy machines, research.",
 	Apprentice: "Grow your forge and open new ways to earn.",
 	Journeyman: "Build up to your first rebirth.",
 	Expert: "Rebirth again to grow stronger every run.",
@@ -50,19 +50,19 @@ const LADDER: LevelDef[] = [
 	{
 		Level: 2,
 		Tier: "Beginner",
-		Goal: { Kind: "LifetimeCash", Target: 100, Text: "Earn 100 flux in total" },
+		Goal: { Kind: "LifetimeCash", Target: 100, Text: "Earn 100 Flux in total" },
 		Unlocks: [ "Research" ],
 	},
 	{
 		Level: 3,
 		Tier: "Beginner",
-		Goal: { Kind: "LifetimeCash", Target: 250, Text: "Earn 250 flux in total" },
+		Goal: { Kind: "LifetimeCash", Target: 250, Text: "Earn 250 Flux in total" },
 		Unlocks: [ "Mail", "Wheel", "Inventory" ],
 	},
 	{
 		Level: 4,
 		Tier: "Beginner",
-		Goal: { Kind: "LifetimeCash", Target: 500, Text: "Earn 500 flux in total" },
+		Goal: { Kind: "LifetimeCash", Target: 500, Text: "Earn 500 Flux in total" },
 		Unlocks: [ "Rewards", "Boosts" ],
 	},
 	{
@@ -74,19 +74,19 @@ const LADDER: LevelDef[] = [
 	{
 		Level: 6,
 		Tier: "Apprentice",
-		Goal: { Kind: "LifetimeCash", Target: 1000, Text: "Earn 1K flux in total" },
+		Goal: { Kind: "LifetimeCash", Target: 1000, Text: "Earn 1K Flux in total" },
 		Unlocks: [ "Missions", "Leaderboards", "Guild" ],
 	},
 	{
 		Level: 7,
 		Tier: "Apprentice",
-		Goal: { Kind: "LifetimeCash", Target: 2500, Text: "Earn 2.5K flux in total" },
+		Goal: { Kind: "LifetimeCash", Target: 2500, Text: "Earn 2.5K Flux in total" },
 		Unlocks: [ "Worlds", "Shop" ],
 	},
 	{
 		Level: 8,
 		Tier: "Apprentice",
-		Goal: { Kind: "LifetimeCash", Target: 5000, Text: "Earn 5K flux in total" },
+		Goal: { Kind: "LifetimeCash", Target: 5000, Text: "Earn 5K Flux in total" },
 		Unlocks: [ "StarGrid", "Credits" ],
 	},
 	{
@@ -98,7 +98,7 @@ const LADDER: LevelDef[] = [
 	{
 		Level: 10,
 		Tier: "Journeyman",
-		Goal: { Kind: "LifetimeCash", Target: 75000, Text: "Earn 75K flux in total" },
+		Goal: { Kind: "LifetimeCash", Target: 75000, Text: "Earn 75K Flux in total" },
 		Unlocks: [ "Rebirth", "Bazaar" ],
 	},
 	{

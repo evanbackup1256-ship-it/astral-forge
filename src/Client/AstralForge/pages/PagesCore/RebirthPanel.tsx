@@ -1040,7 +1040,7 @@ export function RebirthChamber(props: ChamberProps) {
 			}
 		}
 	}
-	let keepCopy = "Cores, stardust, research, relics, milestones, Domain and every lit star";
+	let keepCopy = "Cores, Stardust, research, relics, milestones, Domain and every lit star";
 	if (keepNames.size() > 0) {
 		keepCopy += ", plus " + keepNames.join(" and ");
 	}
@@ -1049,7 +1049,7 @@ export function RebirthChamber(props: ChamberProps) {
 			{ledgerColumn("YOU KEEP", keepCopy, Palette.mint, 0, "Check.rebirthKeeps")}
 			{ledgerColumn(
 				"RESETS",
-				"Run flux, the vault, worlds and machines. The Stellar Core starts again" +
+				"Run Flux, the vault, worlds and machines. The Stellar Core starts again" +
 					(fx.HeadStart > 0 ? ` at Lv ${1 + fx.HeadStart}.` : " at Lv 1."),
 				Palette.coral,
 				0.5,

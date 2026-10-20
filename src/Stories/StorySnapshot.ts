@@ -143,7 +143,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[2]: {
 			Claimed: true,
-			Description: "Earn 100 total flux.",
+			Description: "Earn 100 total Flux.",
 			Id: "FirstSpark",
 			Name: "First Spark",
 			Progress: 100,
@@ -219,7 +219,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[25]: {
 			Claimed: true,
-			Description: "Bank 1 billion lifetime flux.",
+			Description: "Bank 1 billion lifetime Flux.",
 			Id: "Billionaire",
 			Name: "Flux Billionaire",
 			Progress: 1000000000,
@@ -432,7 +432,7 @@ const snapshot: Record<string, unknown> = {
 		},
 		[4]: {
 			Claimed: true,
-			Description: "Bank 1 million lifetime flux.",
+			Description: "Bank 1 million lifetime Flux.",
 			Id: "Millionaire",
 			Name: "Flux Millionaire",
 			Progress: 1000000,
@@ -1482,7 +1482,7 @@ const snapshot: Record<string, unknown> = {
 		Shop: {
 			[1]: {
 				Color: Color3.fromRGB(255, 196, 96),
-				Description: "A larger stardust reserve for grid buys.",
+				Description: "A larger Stardust reserve for grid buys.",
 				Id: "DustFreight",
 				Name: "Dust Freight",
 				Price: 55,
@@ -1553,7 +1553,7 @@ const snapshot: Record<string, unknown> = {
 				Unlocked: false,
 			},
 			[12]: {
-				Description: "Bank one hundred billion lifetime flux.",
+				Description: "Bank one hundred billion lifetime Flux.",
 				Equipped: false,
 				Fx: "ember",
 				Id: "EmberKing",
@@ -1641,7 +1641,7 @@ const snapshot: Record<string, unknown> = {
 				Unlocked: false,
 			},
 			[6]: {
-				Description: "Bank one trillion lifetime flux.",
+				Description: "Bank one trillion lifetime Flux.",
 				Equipped: false,
 				Fx: "fire",
 				Id: "Tycoon",
@@ -1676,7 +1676,7 @@ const snapshot: Record<string, unknown> = {
 		Weekly: {
 			[1]: {
 				Claimed: false,
-				Description: "Bank flux during this command week.",
+				Description: "Bank Flux during this command week.",
 				Id: "WeeklyFlux",
 				Name: "Industrial Output",
 				Progress: 0,
@@ -3189,7 +3189,7 @@ const snapshot: Record<string, unknown> = {
 	Quests: {
 		[1]: {
 			Claimed: false,
-			Description: "Bank flux from your vault.",
+			Description: "Bank Flux from your vault.",
 			Id: "earn_20729",
 			Kind: "EarnCash",
 			Name: "Shift Quota",

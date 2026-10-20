@@ -442,7 +442,7 @@ export = (loadService: LoadService) => {
 		}
 		const cost = Economy.Mul(unitPrice, quantity);
 		if (!Economy.Gte(profile.Cash, cost)) {
-			return $tuple(false, "Not enough flux for that order.");
+			return $tuple(false, "Not enough Flux for that order.");
 		}
 		if (market.Bucket !== bucket) {
 			market.Bucket = bucket;

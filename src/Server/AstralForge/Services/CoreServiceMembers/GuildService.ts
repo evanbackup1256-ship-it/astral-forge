@@ -445,7 +445,7 @@ const factory = () => {
 			if (tag.size() < 3 || tag.size() > 4 || string.match(tag, "^[A-Z0-9]+$")[0] === undefined)
 				return $tuple(false, "Guild tags must be 3–4 letters or numbers.", undefined);
 			if (OmegaMath.Lt(profile.Cash as never, GuildConfig.CreateCost))
-				return $tuple(false, "You need more flux to charter a guild.", undefined);
+				return $tuple(false, "You need more Flux to charter a guild.", undefined);
 			if (this._findByTag(tag)) return $tuple(false, "That guild tag is already in use.", undefined);
 			const id = HttpService.GenerateGUID(false);
 			const doc: Dict = {
@@ -533,7 +533,7 @@ const factory = () => {
 				return $tuple(false, "Guild tags must be 3–4 letters or numbers.", undefined);
 			}
 			if (OmegaMath.Lt(profile.Cash as never, GuildConfig.RenameCost)) {
-				return $tuple(false, "You need more flux to rename the guild.", undefined);
+				return $tuple(false, "You need more Flux to rename the guild.", undefined);
 			}
 			const guild = this._read(guildId);
 			if (!isTable(guild)) return $tuple(false, "Guild records are unavailable.", undefined);
@@ -802,7 +802,7 @@ const factory = () => {
 			}
 			amount = normalized;
 			if (currency !== "Cash" && currency !== "Dust") {
-				return $tuple(false, "Contribute flux or dust.", undefined);
+				return $tuple(false, "Contribute Flux or dust.", undefined);
 			}
 			if (currency === "Cash") {
 				if (OmegaMath.Lt(profile.Cash as never, amount)) {

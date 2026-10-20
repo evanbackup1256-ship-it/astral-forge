@@ -310,7 +310,7 @@ export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean
 		fakeDrop &&
 			card(
 				prankRevealed ? "RELIC SIGNAL LOST" : "ASTRAL RELIC DISCOVERED",
-				prankRevealed ? "No relic was added. Your case is unchanged." : "A mythic relic has appeared in the recovery beam.",
+				prankRevealed ? "No relic was added. Your case is unchanged." : "Mythic relic in the recovery beam. Grab it.",
 				prankRevealed ? "CLOSE" : "OPEN RELIC CASE",
 				Palette.mango,
 				268,
@@ -403,7 +403,7 @@ export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean
 		emptyBag &&
 			card(
 				"Relic Matrix",
-				"Relic inventory cache refreshed. All station conduits synced to core storage.",
+				"Relic list refreshed.",
 				"CONFIRM",
 				Palette.violet,
 				248,

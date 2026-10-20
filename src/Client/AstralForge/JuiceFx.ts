@@ -938,7 +938,7 @@ const CURRENCIES: { field: string; target: string; icon: string; color: Color3; 
 	{ field: "Cash", target: "FLUX", icon: "Flux.3", color: P.cyan, unit: "flux" },
 	{ field: "Stardust", target: "DUST", icon: "Dust.1", color: P.mango, unit: "stardust" },
 	{ field: "Cores", target: "CORES", icon: "Core.4", color: P.violet, unit: "cores" },
-	{ field: "Vault", target: "VAULT", icon: "Flux.4", color: P.green, unit: "flux stored", gainOnly: true },
+	{ field: "Vault", target: "VAULT", icon: "Flux.4", color: P.green, unit: "Flux stored", gainOnly: true },
 ];
 
 function easeOutBack(x: number): number {

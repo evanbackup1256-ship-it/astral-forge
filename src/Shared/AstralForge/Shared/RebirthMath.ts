@@ -113,7 +113,7 @@ const VOWS: ReadonlyArray<Vow> = table.freeze([
 		Name: "Overflow",
 		Pays: "Stardust",
 		Multiplier: 1.5,
-		Line: "Bank 8x the flux a rebirth needs.",
+		Line: "Bank 8x the Flux a rebirth needs.",
 		Ratio: 8,
 	}),
 ]);
@@ -129,9 +129,9 @@ function vow(id: string | undefined): Vow | undefined {
 
 const PERKS: Record<string, Perk> = table.freeze({
 	HeadStart: table.freeze({ Name: "Head Start", Line: "Stellar Core starts 5 levels higher.", Step: 5 }),
-	StartCash: table.freeze({ Name: "Seed Flux", Line: "Start each run with 4x the flux.", Step: 3 }),
+	StartCash: table.freeze({ Name: "Seed Flux", Line: "Start each run with 4x the Flux.", Step: 3 }),
 	CoreYield: table.freeze({ Name: "Dense Cores", Line: "+6% cores from every rebirth.", Step: 0.06 }),
-	DustYield: table.freeze({ Name: "Star Sift", Line: "+10% stardust from every rebirth.", Step: 0.1 }),
+	DustYield: table.freeze({ Name: "Star Sift", Line: "+10% Stardust from every rebirth.", Step: 0.1 }),
 	VowPower: table.freeze({ Name: "Iron Word", Line: "Kept vows pay 8% more.", Step: 0.08 }),
 	KeepShare: table.freeze({ Name: "Long Memory", Line: "Keepsakes keep 5% more of their level.", Step: 0.05 }),
 	VaultCarry: table.freeze({ Name: "Ember Purse", Line: "3% of your vault carries into the next run.", Step: 0.03 }),

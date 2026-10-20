@@ -341,7 +341,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 						sizeConstraint={new UDim2(1, -420, 0, 30)}
 					/>
 					<Text
-						value="Big achievements that stay even after a rebirth."
+						value="The big ones. Rebirth can't take them."
 						size={12}
 						color={Palette.muted}
 						wrap={true}

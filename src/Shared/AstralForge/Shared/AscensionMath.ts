@@ -46,7 +46,7 @@ interface State {
 }
 
 const SIGILS: ReadonlyArray<Sigil> = table.freeze([
-	table.freeze({ Id: "Sol", Name: "Sol", Effect: "Production", Line: "Multiplies all flux production.", Per: 1.2, BaseCost: 1, Growth: 1.6 }),
+	table.freeze({ Id: "Sol", Name: "Sol", Effect: "Production", Line: "Multiplies all Flux production.", Per: 1.2, BaseCost: 1, Growth: 1.6 }),
 	table.freeze({ Id: "Bastion", Name: "Bastion", Effect: "Capacity", Line: "Multiplies vault capacity.", Per: 1.15, BaseCost: 1, Growth: 1.55 }),
 	table.freeze({ Id: "Strike", Name: "Strike", Effect: "Tap", Line: "Multiplies overcharge power.", Per: 1.25, BaseCost: 1, Growth: 1.5 }),
 	table.freeze({ Id: "Ember", Name: "Ember", Effect: "Cores", Line: "Multiplies cores from every rebirth.", Per: 1.3, BaseCost: 2, Growth: 1.65 }),

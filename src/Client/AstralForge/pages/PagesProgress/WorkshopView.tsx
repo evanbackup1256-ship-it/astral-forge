@@ -837,7 +837,7 @@ function AutoForgePanel(props: {
 				value={
 					stack
 						? "Buys one level at a time and never spends your reserve."
-						: "Pick a machine. Auto-Forge buys one affordable level at a time and leaves your saved flux alone."
+						: "Pick a machine. Auto-Forge buys one affordable level at a time and leaves your saved Flux alone."
 				}
 				size={11}
 				color={Palette.creamSoft}
@@ -999,7 +999,7 @@ function WorkshopView(props: {
 					? "A machine earns Flux into your vault every second."
 					: chainLine !== undefined
 						? chainLine
-						: "More machines = more flux, even while you're AFK."
+						: "More machines = more Flux, even while you're AFK."
 			}
 			accent={Palette.coral}
 			entries={entries}

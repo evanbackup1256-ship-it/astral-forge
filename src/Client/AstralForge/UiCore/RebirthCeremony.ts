@@ -336,7 +336,7 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 		rewardLine.push("+" + compactNumber(payload.reward) + " cores");
 	}
 	if (payload.stardust !== undefined) {
-		rewardLine.push("+" + compactNumber(payload.stardust) + " stardust");
+		rewardLine.push("+" + compactNumber(payload.stardust) + " Stardust");
 	}
 	const shown = (t: number) => 1 - contentIn(t) * (1 - fadeOut(t));
 	return h(

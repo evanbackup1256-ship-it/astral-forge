@@ -418,7 +418,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						sizeConstraint={new UDim2(1, -420, 0, 30)}
 					/>
 					<Text
-						value="Finish these for flux and stardust. They refresh every day."
+						value="Finish these for Flux and Stardust. They refresh every day."
 						size={12}
 						color={Palette.muted}
 						wrap={true}

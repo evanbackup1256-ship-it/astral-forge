@@ -142,7 +142,7 @@ const GameConfig: Dict = {
 			{
 				Id: "FullVault",
 				Name: "Full vault run",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 2500,
 				ProductionSeconds: 75,
@@ -219,7 +219,7 @@ const GameConfig: Dict = {
 			{
 				Id: "DeepBank",
 				Name: "High-Yield Vaulting",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 6000,
 				ProductionSeconds: 90,
@@ -252,7 +252,7 @@ const GameConfig: Dict = {
 			{
 				Id: "DustLedger",
 				Name: "Dust Ledger",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 18000,
 				ProductionSeconds: 120,
@@ -296,7 +296,7 @@ const GameConfig: Dict = {
 			{
 				Id: "EchoSweep",
 				Name: "Echo Sweep",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 40000,
 				ProductionSeconds: 150,
@@ -329,7 +329,7 @@ const GameConfig: Dict = {
 			{
 				Id: "NightVault",
 				Name: "Night Vault",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 75000,
 				ProductionSeconds: 180,
@@ -373,7 +373,7 @@ const GameConfig: Dict = {
 			{
 				Id: "MorningBank",
 				Name: "Morning Bank",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 3500,
 				ProductionSeconds: 60,
@@ -428,7 +428,7 @@ const GameConfig: Dict = {
 			{
 				Id: "BugWaveBank",
 				Name: "Patch Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 2500,
 				ProductionSeconds: 45,
@@ -450,7 +450,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave7WorldAudit",
 				Name: "Survey Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 2800,
 				ProductionSeconds: 50,
@@ -472,7 +472,7 @@ const GameConfig: Dict = {
 			{
 				Id: "StudioChecklistPulse",
 				Name: "Night Lantern Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 3000,
 				ProductionSeconds: 55,
@@ -505,7 +505,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave8StatsAudit",
 				Name: "Ledger Balance",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 3200,
 				ProductionSeconds: 55,
@@ -527,7 +527,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave9VaultLedger",
 				Name: "Reserve Vault",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 3400,
 				ProductionSeconds: 60,
@@ -549,7 +549,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave10EconomyBags",
 				Name: "Market Float",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 3600,
 				ProductionSeconds: 60,
@@ -571,7 +571,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave11SanitizeBags",
 				Name: "Coolant Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 3800,
 				ProductionSeconds: 60,
@@ -593,7 +593,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave12StorySoftMotion",
 				Name: "Archive Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 4000,
 				ProductionSeconds: 60,
@@ -615,7 +615,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave13MailLabClips",
 				Name: "Courier Fuel",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 4200,
 				ProductionSeconds: 60,
@@ -637,7 +637,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave14PageReadySoftMotion",
 				Name: "Quiet Hours Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 4400,
 				ProductionSeconds: 60,
@@ -659,7 +659,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave15ItemsShopSoftMotion",
 				Name: "Shop Restock",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 4600,
 				ProductionSeconds: 60,
@@ -681,7 +681,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave16ClaimClipsSoftMotion",
 				Name: "Hold Balance",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 4800,
 				ProductionSeconds: 60,
@@ -703,7 +703,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave17ClaimClipsSoftMotion",
 				Name: "Pathway Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 5000,
 				ProductionSeconds: 60,
@@ -725,7 +725,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave18ClaimClipsSoftMotion",
 				Name: "Overtime Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 5200,
 				ProductionSeconds: 60,
@@ -747,7 +747,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave19ClaimClipsSoftMotion",
 				Name: "Hangar Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 5400,
 				ProductionSeconds: 60,
@@ -769,7 +769,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave20ClaimClipsSoftMotion",
 				Name: "Convoy Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 5600,
 				ProductionSeconds: 60,
@@ -791,7 +791,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave21ClaimClipsSoftMotion",
 				Name: "Long Haul Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 5800,
 				ProductionSeconds: 60,
@@ -813,7 +813,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave21EnvelopeUtcExtract",
 				Name: "Envelope Seal",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 5900,
 				ProductionSeconds: 60,
@@ -835,7 +835,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave22ClaimClipsSoftMotion",
 				Name: "Deep Core Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 6000,
 				ProductionSeconds: 60,
@@ -857,7 +857,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Wave22LoadoutItemExtract",
 				Name: "Outfitting Fund",
-				Description: "Bank flux from your vault.",
+				Description: "Bank Flux from your vault.",
 				Kind: "BankFlux",
 				BaseTarget: 6100,
 				ProductionSeconds: 60,
@@ -1004,7 +1004,7 @@ const GameConfig: Dict = {
 				{
 					Id: "BankFlux",
 					Name: "Fill the Coffers",
-					Description: "Deposit flux into the guild bank together.",
+					Description: "Deposit Flux into the guild bank together.",
 					Metric: "ContributeCash",
 					BaseTarget: 250000,
 					TargetPerMember: 120000,
@@ -1013,7 +1013,7 @@ const GameConfig: Dict = {
 				{
 					Id: "BankDust",
 					Name: "Dust Drive",
-					Description: "Deposit stardust into the guild bank together.",
+					Description: "Deposit Stardust into the guild bank together.",
 					Metric: "ContributeDust",
 					BaseTarget: 400,
 					TargetPerMember: 180,
@@ -1418,7 +1418,7 @@ const GameConfig: Dict = {
 		{
 			Id: "StellarCore",
 			Name: "Stellar Core",
-			Description: "Turns leftover starlight into flux.",
+			Description: "Turns leftover starlight into Flux.",
 			BaseCost: 35,
 			CostScale: 1.62,
 			BaseProduction: 8,
@@ -1434,7 +1434,7 @@ const GameConfig: Dict = {
 		{
 			Id: "LunarExtractor",
 			Name: "Lunar Extractor",
-			Description: "Scoops charged stardust with big magnets.",
+			Description: "Scoops charged Stardust with big magnets.",
 			BaseCost: 480,
 			CostScale: 1.68,
 			BaseProduction: 50,
@@ -1452,7 +1452,7 @@ const GameConfig: Dict = {
 		{
 			Id: "PrismRefinery",
 			Name: "Prism Refinery",
-			Description: "Splits flux into hotter, richer streams.",
+			Description: "Splits Flux into hotter, richer streams.",
 			BaseCost: 7500,
 			CostScale: 1.72,
 			BaseProduction: 380,
@@ -1488,7 +1488,7 @@ const GameConfig: Dict = {
 		{
 			Id: "VoidSingularity",
 			Name: "Void Singularity",
-			Description: "Squeezes flux out of a tiny black hole.",
+			Description: "Squeezes Flux out of a tiny black hole.",
 			BaseCost: 8000000,
 			CostScale: 1.82,
 			BaseProduction: 68000,
@@ -1524,7 +1524,7 @@ const GameConfig: Dict = {
 		{
 			Id: "HelixColliders",
 			Name: "Helix Colliders",
-			Description: "Smashes twin flux streams into a hotter yield.",
+			Description: "Smashes twin Flux streams into a hotter yield.",
 			BaseCost: 12000000000,
 			CostScale: 1.9,
 			BaseProduction: 28000000,
@@ -1542,7 +1542,7 @@ const GameConfig: Dict = {
 		{
 			Id: "AstralLoom",
 			Name: "Astral Loom",
-			Description: "Weaves idle seconds into extra flux.",
+			Description: "Weaves idle seconds into extra Flux.",
 			BaseCost: 480000000000,
 			CostScale: 1.92,
 			BaseProduction: 520000000,
@@ -1560,7 +1560,7 @@ const GameConfig: Dict = {
 		{
 			Id: "OmegaAnvil",
 			Name: "Omega Anvil",
-			Description: "A last-strike press for late-game flux.",
+			Description: "A last-strike press for late-game Flux.",
 			BaseCost: 22000000000000,
 			CostScale: 1.94,
 			BaseProduction: 9500000000,
@@ -1752,7 +1752,7 @@ const GameConfig: Dict = {
 			Name: "Solar Foundry",
 			Tagline: "Hot forges around a young star.",
 			Description: "An industrial ring that runs on solar heat.",
-			Lore: "Solar Foundry is loud and fast. Outer rails are safer; inner platforms melt flux quicker. Bank early, because the heat doesn't wait.",
+			Lore: "Solar Foundry is loud and fast. Outer rails are safer; inner platforms melt Flux quicker. Bank early, because the heat doesn't wait.",
 			Features: [ "Heat forges", "Core presses", "Tight schedules" ],
 			Layout: "Foundry",
 			ThemeIndex: 3,
@@ -1814,7 +1814,7 @@ const GameConfig: Dict = {
 		{
 			Id: 7,
 			Name: "Pale Orbit",
-			Tagline: "A cold, quiet orbit with heavy flux.",
+			Tagline: "A cold, quiet orbit with heavy Flux.",
 			Description: "Time runs slow out here.",
 			Lore: "Pale Orbit pays crews that already know the loop. Nothing here is cheap, but every level still raises your output.",
 			Features: [ "Longer offline windows", "Heavy late machines", "Stable vaults" ],
@@ -1862,7 +1862,7 @@ const GameConfig: Dict = {
 		{
 			Id: 10,
 			Name: "Ash Spindle",
-			Tagline: "Kilns that spin flux into wire.",
+			Tagline: "Kilns that spin Flux into wire.",
 			Description: "An industrial ring still warm from a nova.",
 			Lore: "Ash Spindle never goes quiet. The kilns run day and night and the machine bays are huge.",
 			Features: [ "Ember kilns", "Wide machine bays", "Honest core sinks" ],
@@ -2742,7 +2742,7 @@ const GameConfig: Dict = {
 			{
 				Id: "WeeklyFlux",
 				Name: "Industrial Output",
-				Description: "Bank flux this week.",
+				Description: "Bank Flux this week.",
 				Kind: "Collected",
 				BaseTarget: 250000,
 				Reward: { Stardust: 30, Signals: 25, CommandXP: 220 },
@@ -2840,7 +2840,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Tycoon",
 				Name: "Astral Tycoon",
-				Description: "Bank one trillion lifetime flux.",
+				Description: "Bank one trillion lifetime Flux.",
 				Kind: "LifetimeCash",
 				Target: 1000000000000,
 				Fx: "fire",
@@ -2888,7 +2888,7 @@ const GameConfig: Dict = {
 			{
 				Id: "EmberKing",
 				Name: "Ember King",
-				Description: "Bank one hundred billion lifetime flux.",
+				Description: "Bank one hundred billion lifetime Flux.",
 				Kind: "LifetimeCash",
 				Target: 100000000000,
 				Fx: "ember",
@@ -2960,7 +2960,7 @@ const GameConfig: Dict = {
 			{
 				Id: "MoltenHand",
 				Name: "Molten Hand",
-				Description: "Bank ten trillion lifetime flux.",
+				Description: "Bank ten trillion lifetime Flux.",
 				Kind: "LifetimeCash",
 				Target: 10000000000000,
 				Fx: "molten",
@@ -3058,7 +3058,7 @@ const GameConfig: Dict = {
 			{
 				Id: "DustFreight",
 				Name: "Dust Freight",
-				Description: "A larger stardust reserve for grid buys.",
+				Description: "A larger Stardust reserve for grid buys.",
 				Price: 55,
 				Reward: { Stardust: 60 },
 				Color: Color3.fromRGB(255, 196, 96),
@@ -3086,7 +3086,7 @@ const GameConfig: Dict = {
 		{
 			Id: "FirstSpark",
 			Name: "First Spark",
-			Description: "Earn 100 total flux.",
+			Description: "Earn 100 total Flux.",
 			Kind: "LifetimeCash",
 			Target: 100,
 			Reward: { Stardust: 10 },
@@ -3102,7 +3102,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Millionaire",
 			Name: "Flux Millionaire",
-			Description: "Bank 1 million lifetime flux.",
+			Description: "Bank 1 million lifetime Flux.",
 			Kind: "LifetimeCash",
 			Target: 1000000,
 			Reward: { Stardust: 35 },
@@ -3142,7 +3142,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Tycoon",
 			Name: "Astral Tycoon",
-			Description: "Bank 1 trillion lifetime flux.",
+			Description: "Bank 1 trillion lifetime Flux.",
 			Kind: "LifetimeCash",
 			Target: 1000000000000,
 			Reward: { Stardust: 250, Cores: 5 },
@@ -3270,7 +3270,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Billionaire",
 			Name: "Flux Billionaire",
-			Description: "Bank 1 billion lifetime flux.",
+			Description: "Bank 1 billion lifetime Flux.",
 			Kind: "LifetimeCash",
 			Target: 1000000000,
 			Reward: { Stardust: 120, Cores: 2 },
@@ -4698,7 +4698,7 @@ const GameConfig: Dict = {
 		Workshop: { RecommendTitle: "Best buy right now", EmptyAfford: "Bank the vault, then come back for the next machine." },
 		ForgePath: {
 			HeroBlurb: "One track. Every step pays a permanent bonus and a chest.",
-			NeedXp: "Bank flux to earn Forge Path XP.",
+			NeedXp: "Bank Flux to earn Forge Path XP.",
 			Complete: "Path cleared. Permanent bonuses stay through rebirth.",
 		},
 		Missions: {
@@ -5104,7 +5104,7 @@ const GameConfig: Dict = {
 			Chapter: "LORE: FOUNDRY",
 			Summary: "What Star Foundry ranks are for.",
 			Body: [
-				"The Star Foundry channels stardust and stellar energy into power that stays with you through every reset.",
+				"The Star Foundry channels Stardust and stellar energy into power that stays with you through every reset.",
 				"Mara keeps the receipts for every rank in a drawer in Bay Seven. The drawer is getting full.",
 				"Every few ranks there's a bigger jump. The small ranks in between are what get you there.",
 			],
@@ -5372,9 +5372,9 @@ const GameConfig: Dict = {
 			Id: "bug-content-wave7-brief",
 			Title: "Repair Crews",
 			Chapter: "DOCK LOG 4",
-			Summary: "Bay Seven pays its debts in flux.",
+			Summary: "Bay Seven pays its debts in Flux.",
 			Body: [
-				"The repair crews want flux up front. Fair. They are patching hulls older than they are.",
+				"The repair crews want Flux up front. Fair. They are patching hulls older than they are.",
 				"We paid out of the vault and still came out ahead by sundown.",
 				"The ledger confirms steady yield improvements across all active stations. Our energy reserves are trending positive.",
 			],
@@ -5435,7 +5435,7 @@ const GameConfig: Dict = {
 			Summary: "Research takes over the quiet bay.",
 			Body: [
 				"The lab crew moved into the quiet bay and immediately filled it with humming glass.",
-				"Every machine level we buy frees an hour of their time. They count those hours like stardust.",
+				"Every machine level we buy frees an hour of their time. They count those hours like Stardust.",
 				"I asked what they are building. The answer: better questions.",
 			],
 			Kind: "Always",
@@ -5465,7 +5465,7 @@ const GameConfig: Dict = {
 			Summary: "Mara audits the dock.",
 			Body: [
 				"Three days of receipts, two broken pens, one balanced ledger.",
-				"Flux in, flux out, and a little more in than out. That is the whole job.",
+				"Flux in, Flux out, and a little more in than out. That is the whole job.",
 				"Filed the audit in the archive next to Vale's own. Her handwriting is worse than mine.",
 			],
 			Kind: "Always",
@@ -5764,7 +5764,7 @@ const GameConfig: Dict = {
 			Chapter: "DOCK LOG 30",
 			Summary: "The crews earn their pay.",
 			Body: [
-				"Overtime is paid in flux and hot meals. The crews voted for more of both.",
+				"Overtime is paid in Flux and hot meals. The crews voted for more of both.",
 				"We are building faster than ever, and nobody is burning out. I check.",
 				"Rule of the dock: the forge runs long, people do not.",
 			],
@@ -6221,7 +6221,7 @@ const GameConfig: Dict = {
 			Date: "SEP 23, 2026",
 			Preview: "The forge runs long. People do not.",
 			Body: [
-				"Overtime this week was paid in flux and hot meals. The crews voted for more of both.",
+				"Overtime this week was paid in Flux and hot meals. The crews voted for more of both.",
 				"Your share is attached. Go home on time.",
 			],
 			Attachment: { CashMinutes: 94, Stardust: 110, Signals: 48 },
@@ -6235,7 +6235,7 @@ const GameConfig: Dict = {
 			Preview: "Sub-spatial echo chamber calibration complete.",
 			Body: [
 				"The echo chamber resonance is re-synchronized to historical forge timelines.",
-				"Harmonic alignment yielded additional stardust condensates. Grant enclosed.",
+				"Harmonic alignment yielded additional Stardust condensates. Grant enclosed.",
 			],
 			Attachment: { CashMinutes: 92, Stardust: 108, Signals: 47 },
 			Color: Color3.fromRGB(10, 195, 150),
@@ -6828,7 +6828,7 @@ const GameConfig: Dict = {
 				Title: "Update 7.1: Crews and conversations",
 				Date: "OCT 11",
 				Highlights: [
-					"Crews of up to four players in a server: +3% production per crewmate and a daily goal paid in stardust.",
+					"Crews of up to four players in a server: +3% production per crewmate and a daily goal paid in Stardust.",
 					"Chat channels for global, server, crew, friends and private messages. Type / for shortcuts like /w and /c.",
 					"On a keyboard, press / to start typing in chat, Tab for the player list, and Up to bring back a message you sent.",
 					"Player cards can message, visit, wave, invite to a crew, trade, friend, block and report.",

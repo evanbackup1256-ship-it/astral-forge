@@ -192,7 +192,7 @@ function __member(): unknown {
 	}
 	function goalUnitLabel(metric?: unknown): unknown | undefined {
 		if ((metric === "ContributeCash")) {
-			return "flux banked";
+			return "Flux banked";
 		}
 		if ((metric === "ContributeDust")) {
 			return "dust banked";

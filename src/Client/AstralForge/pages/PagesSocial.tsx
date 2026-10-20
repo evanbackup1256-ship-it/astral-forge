@@ -666,7 +666,7 @@ __defs["TradeView"] = () => {
 		let balanceText: string;
 		let balanceColor: Color3;
 		if (total === 0) {
-			balanceText = "Place items or currencies on the table to compare cosmic trade balance.";
+			balanceText = "Put items or currency on the table to see how the trade balances.";
 			balanceColor = Palette.muted;
 		} else if (yourRatio >= 0.42 && yourRatio <= 0.58) {
 			balanceText = "Fair Exchange · Equal Cosmic Weight";

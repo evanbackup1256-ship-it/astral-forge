@@ -1107,7 +1107,7 @@ export function OverviewView({
 															? comebackLine
 															: overchargeLeft > 0.02
 																? `Ready in ${string.format("%.1f", overchargeLeft)}s`
-																: "Tap for an instant burst of flux"
+																: "Tap for an instant burst of Flux"
 													}
 													size={10}
 													color={overchargeLeft > 0.02 ? Palette.mango : Palette.muted}

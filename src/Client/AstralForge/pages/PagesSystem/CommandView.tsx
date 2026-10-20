@@ -229,7 +229,7 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 	const actionHeight = props.stack ? TapTarget : 34;
 	const actionSize = new UDim2(1, -14, 0, actionHeight);
 	const actionPosition = new UDim2(0, 7, 1, -(actionHeight + 7));
-	const descText = props.description ?? "Preview this kinetic title crest exactly as it appears in chat and on your commander nameplate.";
+	const descText = props.description ?? "This is how the title looks in chat and on your nameplate.";
 	return (
 		<frame
 			Size={UDim2.fromScale(1, 1)}

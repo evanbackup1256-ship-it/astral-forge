@@ -57,7 +57,7 @@ class FormatTests {
 				Cash: 250,
 				Stardust: 5,
 			}),
-			"+250 flux, +5 stardust",
+			"+250 Flux, +5 Stardust",
 		);
 	}
 }

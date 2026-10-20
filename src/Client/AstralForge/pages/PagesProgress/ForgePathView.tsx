@@ -419,7 +419,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 28)}
 			/>
 			<Text
-				value={needXp ? (guide?.NeedXp ?? "Bank flux to earn Forge Path XP.") : formatReward(step.Reward as Reward | undefined)}
+				value={needXp ? (guide?.NeedXp ?? "Bank Flux to earn Forge Path XP.") : formatReward(step.Reward as Reward | undefined)}
 				size={11}
 				color={needXp ? Palette.creamSoft : Palette.mango}
 				wrap={true}
