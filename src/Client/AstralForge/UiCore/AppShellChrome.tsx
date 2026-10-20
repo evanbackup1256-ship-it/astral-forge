@@ -469,7 +469,7 @@ function AppShell(props: ShellProps) {
 							Position={shellTopLive.map((top) => UDim2.fromOffset(edgePad, top))} BackgroundTransparency={1} BorderSizePixel={0}>
 							<frame Size={workspaceSize} Position={workspaceOffset} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={5}>
 								<AntilagContext.Provider value={pageAntilag}>
-									<Workspace page={page} state={state} dispatch={dispatch} reducedMotion={reducedMotion}>
+									<Workspace page={page} state={state} dispatch={dispatch} reducedMotion={reducedMotion} navigate={navigateStable}>
 										<PageFrame page={page} ref={pageHostRef}>
 											<PageContent key={page} page={page} state={state} config={config} dispatch={dispatch} reducedMotion={reducedMotion}
 												domainOverlayActive={domainOverlayActive} openWorkshop={openWorkshop} openDomain={openDomain} buyAmount={buyAmount} setBuyAmount={setBuyAmount}

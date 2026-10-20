@@ -716,7 +716,7 @@ function __member(): unknown {
 			}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "coral"), size: luaCall(luaProp(UDim2, "fromOffset"), 92, 32), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -194, 1, -32), disabled: (busy !== ""), reducedMotion: reducedMotion }) : manager)), reactLoose.createElement(Text, { value: ((luaTypeIs(luaProp(item, "PublishedAt"), "number")) ? concat((os.date as unknown as (...a: unknown[]) => unknown)("%b %d · %H:%M", luaProp(item, "PublishedAt")), ((luaTruthy(luaProp(item, "EditedAt")) ? " · edited" : ""))) : ""), size: 10, color: luaProp(Palette, "muted"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -24), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -200, 0, 18) })));
 		}
 		if ((len(announcementRows) === 0)) {
-			luaSetIndex(announcementRows, 1, reactLoose.createElement(Text, { key: "no-announcements", value: "No current announcements.", size: 12, color: luaProp(Palette, "muted") }));
+			luaSetIndex(announcementRows, 1, reactLoose.createElement(Text, { key: "no-announcements", value: "Quiet for now. When a leader posts news, it shows up here.", size: 12, color: luaProp(Palette, "muted") }));
 		}
 		let logoRows: unknown = {};
 		for (const [index, logo] of pairs((logos) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {

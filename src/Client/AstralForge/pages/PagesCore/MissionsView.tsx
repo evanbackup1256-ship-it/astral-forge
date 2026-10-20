@@ -6,6 +6,7 @@ import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useEntrance, useFlash, usePulse, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import Juice = require("../../JuiceFx");
 
 const UserInputService = game.GetService("UserInputService");
 const { Button, IconTile, Meter, Panel, Stroke, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
@@ -26,7 +27,7 @@ export interface TaskEntry {
 	Target: number;
 }
 
-type Dispatch = (action: string, payload: { Id: string }) => unknown;
+type Dispatch = (action: string, payload: { Id: string }, callback?: (response: { ok?: boolean }) => void) => unknown;
 
 const NEAR_COMPLETE_THRESHOLD = 0.85;
 
@@ -358,14 +359,40 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 		if (!typeIs(quests, "table")) {
 			return;
 		}
+		const ready: TaskEntry[] = [];
 		for (const quest of quests) {
 			if (typeIs(quest, "table") && !quest.Claimed) {
 				const progress = tonumber(quest.Progress) ?? 0;
 				const target = tonumber(quest.Target) ?? 0;
 				if (target > 0 && progress >= target) {
-					dispatch("ClaimQuest", { Id: quest.Id });
+					ready.push(quest);
 				}
 			}
+		}
+		// one line for the whole batch instead of a pile of separate pops
+		const total: Reward = {};
+		let pending = ready.size();
+		let landed = 0;
+		const finish = () => {
+			pending -= 1;
+			if (pending > 0 || landed < 2) return;
+			const summary = formatReward(total);
+			Juice.status(summary !== "" ? `+${summary} from ${landed} missions` : `${landed} missions claimed`, "success");
+		};
+		for (const quest of ready) {
+			dispatch("ClaimQuest", { Id: quest.Id }, (response) => {
+				if (response.ok === true) {
+					landed += 1;
+					const reward = quest.Reward;
+					if (reward !== undefined) {
+						for (const key of ["Cash", "CashMinutes", "Stardust", "Cores", "Signals", "CommandXP", "StreakShield"] as const) {
+							const amount = reward[key];
+							if (amount !== undefined) total[key] = (total[key] ?? 0) + amount;
+						}
+					}
+				}
+				finish();
+			});
 		}
 	};
 	// the unfinished mission you're closest to, so the header names an actual next step

@@ -10,6 +10,7 @@ import { GainPop } from "./UiCore/GainPop";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import * as motion from "./MotionKit/motion";
+import { isReducedMotion } from "./MotionPreference";
 import { usePerformanceTelemetry } from "./MotionKit/antilag";
 
 const Workspace = game.GetService("Workspace");
@@ -533,6 +534,34 @@ interface CurrencySegmentProps {
 	reducedMotion?: boolean;
 }
 
+// a claim-sized jump rolls up over a moment; normal ticking and reduced motion just set the number
+function useRollingValue(target: number, rate: number, reducedMotion?: boolean) {
+	const [shown, setShown] = React.useBinding(target);
+	const from = React.useRef(target);
+	React.useEffect(() => {
+		const start = from.current;
+		from.current = target;
+		const jump = target - start;
+		if (reducedMotion === true || isReducedMotion() || jump <= 0 || jump <= math.max(rate, 0) * 3) {
+			setShown(target);
+			return undefined;
+		}
+		const began = os.clock();
+		const DURATION = 0.6;
+		const conn = RunService.Heartbeat.Connect(() => {
+			const t = math.clamp((os.clock() - began) / DURATION, 0, 1);
+			const eased = 1 - (1 - t) * (1 - t) * (1 - t);
+			setShown(t >= 1 ? target : math.floor(start + jump * eased));
+			if (t >= 1) conn.Disconnect();
+		});
+		return () => {
+			conn.Disconnect();
+			setShown(target);
+		};
+	}, [target]);
+	return shown;
+}
+
 function CurrencySegment(props: CurrencySegmentProps): React.Element {
 	const currency = props.currency;
 	const [ref, bump] = Juice.useTarget(currency.target);
@@ -544,6 +573,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 		accent: currency.color,
 	});
 	const flash = motion.useFlash(format.asFlux(currency.value as number | string), props.reducedMotion, 0.45);
+	const rolling = useRollingValue(format.asFlux(currency.value as number | string), rate, props.reducedMotion);
 	return h(
 		"frame",
 		{
@@ -587,7 +617,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 				Size: new UDim2(1, -30, 1, 0),
 				Position: UDim2.fromOffset(30, 0),
 				BackgroundTransparency: 1,
-				Text: format.compactNumber(currency.value),
+				Text: rolling.map((v) => format.compactNumber(v)),
 				TextColor3: flash.map((v) => P.cream.Lerp(theme.lighten(currency.color ?? P.mango, 0.4), v)),
 				TextSize: 15,
 				TextScaled: true,

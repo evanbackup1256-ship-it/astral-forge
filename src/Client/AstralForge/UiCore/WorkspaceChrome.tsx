@@ -417,12 +417,134 @@ export function NextUnlockStrip(_param: { state: ChromeState; reducedMotion?: bo
 	);
 }
 
+interface MissionGoal {
+	Name: string;
+	Progress: number;
+	Target: number;
+}
+
+// Once every unlock is done, the same bar points at the mission you're closest to finishing.
+function closestMission(state: ChromeState): MissionGoal | undefined {
+	const quests = state.Quests;
+	if (!typeIs(quests, "table")) return undefined;
+	let best: MissionGoal | undefined;
+	let bestFrac = -1;
+	for (const [, raw] of pairs(quests as object)) {
+		if (!typeIs(raw, "table")) continue;
+		const quest = raw as { Name?: unknown; Progress?: unknown; Target?: unknown; Claimed?: unknown };
+		if (quest.Claimed === true || !typeIs(quest.Name, "string")) continue;
+		const target = math.max(1, tonumber(quest.Target) ?? 1);
+		const progress = tonumber(quest.Progress) ?? 0;
+		const frac = math.clamp(progress / target, 0, 1);
+		if (frac > bestFrac) {
+			bestFrac = frac;
+			best = { Name: quest.Name, Progress: progress, Target: target };
+		}
+	}
+	return best;
+}
+
+function MissionGoalStrip(_param: { goal: MissionGoal; onOpen?: () => void }) {
+	const goal = _param.goal;
+	const onOpen = _param.onOpen;
+	const [hovered, setHovered] = React.useState(false);
+	const ready = goal.Progress >= goal.Target;
+	const fill = math.clamp(goal.Progress / goal.Target, 0, 1);
+	const progressW = 96;
+	return h(
+		"imagebutton",
+		{
+			Size: new UDim2(1, 0, 0, 32),
+			BackgroundColor3: Palette.night,
+			BackgroundTransparency: 0,
+			BorderSizePixel: 0,
+			AutoButtonColor: false,
+			Active: onOpen !== undefined,
+			Selectable: onOpen !== undefined,
+			ClipsDescendants: true,
+			Event: {
+				Activated: () => {
+					if (onOpen !== undefined) {
+						Audio.play("open");
+						onOpen();
+					}
+				},
+				MouseEnter: () => setHovered(true),
+				MouseLeave: () => setHovered(false),
+			},
+		},
+		h("frame", {
+			Size: UDim2.fromScale(1, 1),
+			BackgroundColor3: Palette.cream,
+			BackgroundTransparency: hovered ? 0.96 : 1,
+			BorderSizePixel: 0,
+		}),
+		h(Text, {
+			value: ready ? "READY" : "MISSION",
+			size: 11,
+			color: ready ? Palette.green : Palette.cyan,
+			weight: Enum.FontWeight.Heavy,
+			fit: true,
+			minSize: 10,
+			position: UDim2.fromOffset(14, 0),
+			sizeConstraint: new UDim2(0, 64, 1, -3),
+		}),
+		h(Text, {
+			value: ready ? `${goal.Name} is done. Claim it in Missions.` : goal.Name,
+			size: 12,
+			color: Palette.creamSoft,
+			weight: Enum.FontWeight.Bold,
+			fit: true,
+			minSize: 9,
+			position: UDim2.fromOffset(86, 0),
+			sizeConstraint: new UDim2(1, -(86 + progressW + 38), 1, -3),
+		}),
+		h(Text, {
+			value: `${compactNumber(goal.Progress)} / ${compactNumber(goal.Target)}`,
+			size: 12,
+			color: Palette.muted,
+			weight: Enum.FontWeight.Bold,
+			align: Enum.TextXAlignment.Right,
+			fit: true,
+			minSize: 9,
+			position: new UDim2(1, -(progressW + 30), 0, 0),
+			sizeConstraint: new UDim2(0, progressW, 1, -3),
+		}),
+		onOpen !== undefined &&
+			h(Text, {
+				value: "›",
+				size: 16,
+				color: hovered ? Palette.cream : Palette.muted,
+				weight: Enum.FontWeight.Bold,
+				align: Enum.TextXAlignment.Center,
+				fit: false,
+				position: new UDim2(1, -22, 0, -1),
+				sizeConstraint: UDim2.fromOffset(14, 30),
+			}),
+		h(
+			"frame",
+			{
+				Size: new UDim2(1, 0, 0, 2),
+				Position: new UDim2(0, 0, 1, -2),
+				BackgroundColor3: Palette.line,
+				BorderSizePixel: 0,
+			},
+			h("frame", {
+				Size: UDim2.fromScale(fill, 1),
+				BackgroundColor3: ready ? Palette.green : Palette.cyan,
+				BorderSizePixel: 0,
+			}),
+		),
+	);
+}
+
 interface WorkspaceProps {
 	page: string;
 	state: ChromeState;
 	dispatch: (action: string, payload?: object) => void;
 	reducedMotion?: boolean;
 	children?: React.ReactNode;
+	navigate?: (page: string) => unknown;
 }
 
 export function Workspace(_param: WorkspaceProps) {
@@ -431,6 +553,7 @@ export function Workspace(_param: WorkspaceProps) {
 	const dispatch = _param.dispatch;
 	const reducedMotion = _param.reducedMotion;
 	const children = _param.children;
+	const navigate = _param.navigate;
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const softMotion = reducedMotion;
@@ -480,6 +603,7 @@ export function Workspace(_param: WorkspaceProps) {
 	}, [page]);
 	const inset = keyboardCompact ? 6 : chrome.stack ? chrome.contentInset : Layout.contentInset;
 	let showNextGoal = true;
+	let missionGoal: MissionGoal | undefined;
 	{
 		let setting = state.Settings?.ShowNextGoal;
 		if (setting === undefined) {
@@ -487,7 +611,9 @@ export function Workspace(_param: WorkspaceProps) {
 		}
 		showNextGoal = (setting as number) >= 0.5;
 		if (typeIs(state.Level, "table") && (state.Level as { Next?: unknown }).Next === undefined) {
-			showNextGoal = false; // every feature is open: nothing left to point at
+			// every feature is open: point at a mission instead, or hide the bar if there's none
+			missionGoal = showNextGoal ? closestMission(state) : undefined;
+			showNextGoal = missionGoal !== undefined;
 		}
 	}
 	const workspacePlan = LayoutSectionPlan.planWorkspace({
@@ -734,11 +860,16 @@ export function Workspace(_param: WorkspaceProps) {
 					BorderSizePixel: 0,
 					ZIndex: 19,
 				},
-				h(NextUnlockStrip, {
-					state: state,
-					reducedMotion: reducedMotion,
-					onOpen: openRoadmap,
-				}),
+				missionGoal !== undefined
+					? h(MissionGoalStrip, {
+							goal: missionGoal,
+							onOpen: navigate !== undefined ? () => navigate("Missions") : undefined,
+						})
+					: h(NextUnlockStrip, {
+							state: state,
+							reducedMotion: reducedMotion,
+							onOpen: openRoadmap,
+						}),
 			),
 		h(
 			"frame",
