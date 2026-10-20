@@ -1,4 +1,8 @@
 import React from "@rbxts/react";
+const ContextActionService = game.GetService("ContextActionService");
+const GuiService = game.GetService("GuiService");
+const UserInputService = game.GetService("UserInputService");
+import { KeyLabel } from "../../CoreKit/GamepadNavigationService";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
 // phone height for other players' roster rows (was 158): mark, two text lines, then the Wave/Visit row
@@ -23,6 +27,53 @@ function isQuiet(player: unknown): boolean {
 	return seconds !== undefined && seconds >= 60;
 }
 const CREW_COMPACT_ROW_H = 136;
+// gamepad: while focus is on a crewmate's Wave/Visit buttons, X waves and Y visits, and the two
+// buttons show those keys. Elsewhere X/Y pass through to the shell (Overcharge / Vault).
+let crewKeyBindings = 0;
+function useCrewRowKeys(holder: React.MutableRefObject<Frame | undefined>, onWave: unknown, onVisit: unknown, enabled: boolean): boolean {
+	const [focused, setFocused] = React.useState(false);
+	const handlers = React.useRef({ onWave, onVisit });
+	handlers.current = { onWave, onVisit };
+	React.useEffect(() => {
+		if (!enabled) {
+			setFocused(false);
+			return undefined;
+		}
+		const inside = () => {
+			const selected = GuiService.SelectedObject;
+			const frame = holder.current;
+			return selected !== undefined && frame !== undefined && selected.IsDescendantOf(frame);
+		};
+		const sync = () => setFocused(UserInputService.GamepadEnabled && inside());
+		sync();
+		const selection = GuiService.GetPropertyChangedSignal("SelectedObject").Connect(sync);
+		crewKeyBindings += 1;
+		const name = `AstralForgeCrewRowKeys${crewKeyBindings}`;
+		ContextActionService.BindActionAtPriority(
+			name,
+			(_: string, inputState: Enum.UserInputState, input: InputObject) => {
+				if (inputState !== Enum.UserInputState.Begin || !inside()) {
+					return Enum.ContextActionResult.Pass;
+				}
+				const run = input.KeyCode === Enum.KeyCode.ButtonX ? handlers.current.onWave : handlers.current.onVisit;
+				if (!typeIs(run, "function")) {
+					return Enum.ContextActionResult.Pass;
+				}
+				(run as () => void)();
+				return Enum.ContextActionResult.Sink;
+			},
+			false,
+			2300,
+			Enum.KeyCode.ButtonX,
+			Enum.KeyCode.ButtonY,
+		);
+		return () => {
+			selection.Disconnect();
+			ContextActionService.UnbindAction(name);
+		};
+	}, [enabled]);
+	return focused;
+}
 import { STICKY_H, StickyGroupLabel, StickyGroup } from "./stickyGroupLabel";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
 
@@ -89,6 +140,10 @@ function __member(): unknown {
 		let layoutOrder: unknown = luaProp(_param, "layoutOrder");
 		let stack: unknown = luaProp(_param, "stack");
 		let reveal: unknown = luaCall(useStagger, (math.min as unknown as (...a: unknown[]) => unknown)(layoutOrder, 8), softMotion);
+		const keysRef = React.useRef<Frame>();
+		const keysFocused = useCrewRowKeys(keysRef, onNudge, visiting === true ? undefined : onVisit, !luaTruthy(luaProp(player, "IsLocal")));
+		const waveText = keysFocused ? `WAVE · ${KeyLabel(Enum.KeyCode.ButtonX, "X")}` : "WAVE";
+		const visitText = keysFocused && !luaTruthy(visiting) ? `VISIT · ${KeyLabel(Enum.KeyCode.ButtonY, "Y")}` : undefined;
 		// Profile-style hook: return a Color3 from crewRowAccent to tint this row; undefined keeps green/blue.
 		let accent: unknown = crewRowAccent(player) ?? (luaTruthy(luaProp(player, "IsLocal")) ? luaProp(Palette, "green") : luaProp(Palette, "blue"));
 		// phones: other players' rows tighten up (smaller mark, lines closer); buttons keep full tap size
@@ -117,7 +172,7 @@ function __member(): unknown {
 			luaSet(_attributes, "sizeConstraint", new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? (-((((58 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -16), 0, 16));
 			_condition = reactLoose.createElement(Text, _attributes);
 		}
-		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, rowH), accent: accent, background: (luaTruthy(visiting) ? luaProp(Palette, "panelRaised") : luaProp(Palette, "panel")), padding: pad, layoutOrder: layoutOrder, reveal: reveal, interactive: (!luaTruthy(luaProp(player, "IsLocal"))), highlight: visiting, reducedMotion: softMotion, clips: false }, _exp, _exp_1, _exp_2, _exp_3, _condition, (luaTruthy(luaProp(player, "IsLocal")) ? reactLoose.createElement(Text, { value: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? `${visitorsHere} visiting your shop` : `${luaProp(player, "Rebirths")} resets`), size: (luaTruthy(stack) ? 12 : 10), color: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? luaProp(Palette, "mango") : accent), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 58, (luaTruthy(stack) ? 52 : 56)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? (-((((58 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -16), 0, 18) }) : (luaTruthy(stack) ? reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (2 as unknown as number))) as unknown as number))), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Left"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 1, BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Button, { text: "WAVE", icon: "Wave.5", onClick: onNudge, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion })), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 2, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(Button, { text: (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.2", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion, disabled: visiting, highlight: visiting }))) : reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -6, 0.5, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: "WAVE", icon: "Wave.6", onClick: onNudge, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion }), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, LayoutOrder: 2 }, reactLoose.createElement(Button, { text: (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.3", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion, disabled: visiting, highlight: visiting }))))));
+		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, rowH), accent: accent, background: (luaTruthy(visiting) ? luaProp(Palette, "panelRaised") : luaProp(Palette, "panel")), padding: pad, layoutOrder: layoutOrder, reveal: reveal, interactive: (!luaTruthy(luaProp(player, "IsLocal"))), highlight: visiting, reducedMotion: softMotion, clips: false }, _exp, _exp_1, _exp_2, _exp_3, _condition, (luaTruthy(luaProp(player, "IsLocal")) ? reactLoose.createElement(Text, { value: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? `${visitorsHere} visiting your shop` : `${luaProp(player, "Rebirths")} resets`), size: (luaTruthy(stack) ? 12 : 10), color: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? luaProp(Palette, "mango") : accent), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 58, (luaTruthy(stack) ? 52 : 56)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? (-((((58 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -16), 0, 18) }) : (luaTruthy(stack) ? reactLoose.createElement("frame", { ref: keysRef, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (2 as unknown as number))) as unknown as number))), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Left"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 1, BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Button, { text: waveText, icon: "Wave.5", onClick: onNudge, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion })), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, TapTarget), LayoutOrder: 2, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(Button, { text: visitText ?? (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.2", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion, disabled: visiting, highlight: visiting }))) : reactLoose.createElement("frame", { ref: keysRef, Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -6, 0.5, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: waveText, icon: "Wave.6", onClick: onNudge, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion }), reactLoose.createElement("frame", { Name: "CrewVisitConfirm", Size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, LayoutOrder: 2 }, reactLoose.createElement(Button, { text: visitText ?? (luaTruthy(visiting) ? "HERE" : "VISIT"), icon: "Visit.3", onClick: onVisit, color: (luaTruthy(visiting) ? luaProp(Palette, "green") : luaProp(Palette, "blue")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, TapTarget), hug: true, reducedMotion: softMotion, disabled: visiting, highlight: visiting }))))));
 		return undefined;
 	}
 	function VisitPanel(_param?: unknown): unknown | undefined {
@@ -648,7 +703,7 @@ function __member(): unknown {
 					return undefined;
 				}, reducedMotion: reducedMotion, layoutOrder: index, stack: stack }));
 			}
-			luaTable.insert(sections, { id: "roster", fill: true, minHeight: 120, element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, rosterSticky ? reactLoose.createElement(StickyGroupLabel, { groups: rosterGroups, height: rosterList.size() * (rowStride as number), inner: true }) : undefined, reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -rosterPad), Position: UDim2.fromOffset(0, rosterPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(FlatList, { data: players, itemHeight: rowStride, overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 8, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, keyExtractor: function(this: void, player?: unknown): unknown | undefined {
+			luaTable.insert(sections, { id: "roster", fill: true, minHeight: 120, element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, rosterSticky ? reactLoose.createElement(StickyGroupLabel, { groups: rosterGroups, height: rosterList.size() * (rowStride as number), inner: true, reducedMotion: softMotion }) : undefined, reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -rosterPad), Position: UDim2.fromOffset(0, rosterPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(FlatList, { data: players, itemHeight: rowStride, overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 8, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, keyExtractor: function(this: void, player?: unknown): unknown | undefined {
 				return luaProp(player, "UserId");
 				return undefined;
 			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
@@ -675,7 +730,7 @@ function __member(): unknown {
 				const blockH = rosterPad + count * (rowStride as number) + math.max(0, count - 1) * gap;
 				const groups = rosterGroups.map((g, i) => ({ top: rosterPad + (g.top / (rowStride as number)) * ((rowStride as number) + gap), label: g.label, color: g.color }));
 				const rows = rowElements.map((row, i) => reactLoose.createElement("frame", { key: `row-${i}`, Size: new UDim2(1, 0, 0, rowStride as number), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: i }, row));
-				luaTable.insert(sections, { id: "crew-roster", height: blockH, element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(StickyGroupLabel, { groups, height: blockH }), reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -rosterPad), Position: UDim2.fromOffset(0, rosterPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, Padding: new UDim(0, gap), SortOrder: Enum.SortOrder.LayoutOrder }), ...rows)) });
+				luaTable.insert(sections, { id: "crew-roster", height: blockH, element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(StickyGroupLabel, { groups, height: blockH, reducedMotion: softMotion }), reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -rosterPad), Position: UDim2.fromOffset(0, rosterPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, Padding: new UDim(0, gap), SortOrder: Enum.SortOrder.LayoutOrder }), ...rows)) });
 			} else {
 				rowElements.forEach((row, i) => luaTable.insert(sections, { id: concat("crew-", tostring(i + 1)), height: rowStride, element: row }));
 			}
