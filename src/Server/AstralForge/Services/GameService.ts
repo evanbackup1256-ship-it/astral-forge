@@ -2,6 +2,7 @@
 // Built lazily by ServerServices through createGameService(loadService).
 import { Dict, isTable, LoadService, num, truthy } from "./LuaInterop";
 import { PayloadEvent, ServerEvents, ServerFunctions } from "../Runtime/ServerNetwork";
+import { FluxSurgeService } from "./FluxSurgeService";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
@@ -141,7 +142,6 @@ export function createGameService(loadService: LoadService) {
 	const GuildCommunity = mod(script.Parent!, "GuildCommunity");
 	const ChatService = mod(script.Parent!, "ChatService");
 	const CrewService = mod(script.Parent!, "CrewService");
-	const FluxSurgeService = loadService("FluxSurgeService") as Kit;
 	const ServerEventService = loadService("ServerEventService") as Kit;
 	const ServerConfig = mod<Dict>(root, "ServerConfig");
 

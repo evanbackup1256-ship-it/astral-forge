@@ -2,6 +2,7 @@
 // Flamework runtime services touch are typed; the registry itself still builds on demand.
 import ModuleLog = require("../ModuleLog");
 import { PayloadEvent } from "./ServerNetwork";
+import type { FluxSurgeService } from "../Services/FluxSurgeService";
 import ServerServices = require("../Services/ServerServices");
 
 export interface GameServiceLike {
@@ -31,18 +32,11 @@ export interface ServicesShape {
 			this: void,
 			dataService: DataServiceLike,
 			worldService: unknown,
-			fluxSurgeService: unknown,
+			fluxSurgeService: FluxSurgeService,
 			remotes: Record<string, unknown>,
 		) => GameServiceLike;
 	};
 	WorldService: { new: (this: void) => Startable };
-	FluxSurgeService: {
-		new: (
-			this: void,
-			toast: (player: Player, title: unknown, body: unknown, kind: unknown) => void,
-			effect: (player: Player, payload: unknown) => void,
-		) => unknown;
-	};
 	Security: { new: (this: void) => Startable };
 	CharacterIntegrity: { new: (this: void) => Startable };
 }

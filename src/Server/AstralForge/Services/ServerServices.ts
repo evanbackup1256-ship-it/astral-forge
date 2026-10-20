@@ -35,7 +35,6 @@ serviceFactories["DataService"] = () => withLoader(req("DataService"));
 
 serviceFactories["ForgeEchoService"] = kitMember("CoreServices", "ForgeEchoService") as Factory;
 
-serviceFactories["FluxSurgeService"] = req("FluxSurgeService") as Factory;
 serviceFactories["ServerEventService"] = kitMember("CoreServices", "ServerEventService") as Factory;
 
 serviceFactories["GameAntiCheat"] = req("GameAntiCheat") as Factory;

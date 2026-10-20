@@ -1,6 +1,7 @@
 // Flamework services wrapping the server's core systems. Construction happens in OnInit
 // (ordered by loadOrder + injected dependencies), runtime start in OnStart.
 import { OnInit, OnStart, Service } from "@flamework/core";
+import { FluxSurgeService } from "../Services/FluxSurgeService";
 import { RemoteBridge } from "./RemoteBridge";
 import { DataServiceLike, GameServiceLike, Registry, Startable } from "./ServerRegistry";
 
@@ -41,21 +42,6 @@ export class WorldRuntime implements OnInit, OnStart {
 }
 
 @Service({ loadOrder: 2 })
-export class FluxSurgeRuntime implements OnInit {
-	public service: unknown;
-	public gameService?: GameServiceLike;
-	constructor(private readonly bridge: RemoteBridge) {}
-	onInit() {
-		this.service = this.bridge.bootStep("flux surge construction", () =>
-			Registry.FluxSurgeService.new(
-				(player, title, body, kind) => this.gameService?._toastPlayer(player, title, body, kind),
-				(player, payload) => this.gameService?._effect.fire(player, payload),
-			),
-		);
-	}
-}
-
-@Service({ loadOrder: 2 })
 export class SecurityRuntime implements OnInit, OnStart {
 	public pipeline!: Startable;
 	public integrity!: Startable;
@@ -82,18 +68,17 @@ export class GameRuntime implements OnInit, OnStart {
 		private readonly data: PlayerDataRuntime,
 		private readonly admin: AdminRuntime,
 		private readonly world: WorldRuntime,
-		private readonly flux: FluxSurgeRuntime,
+		private readonly flux: FluxSurgeService,
 		private readonly security: SecurityRuntime,
 	) {}
 	onInit() {
 		const bridge = this.bridge;
 		this.service = bridge.bootStep("gameplay construction", () =>
-			Registry.GameService.new(this.data.service, this.world.service, this.flux.service, {
+			Registry.GameService.new(this.data.service, this.world.service, this.flux, {
 				Security: this.security.pipeline,
 				Admin: this.admin.service,
 			}),
 		);
-		this.flux.gameService = this.service;
 		bridge.onClose(3, "game service", () => this.service.Shutdown());
 	}
 	onStart() {
