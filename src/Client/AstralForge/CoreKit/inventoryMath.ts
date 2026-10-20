@@ -267,6 +267,14 @@ export function SortOwned(list: unknown, config: unknown, sort: unknown): OwnedI
 			}
 			return tostring(a.uid ?? "") > tostring(b.uid ?? "");
 		}
+		if (sort === "Weakest") {
+			const pa = EffectAtLevel(aDef, aInst.Level, aInst.Stars);
+			const pb = EffectAtLevel(bDef, bInst.Level, bInst.Stars);
+			if (pa !== pb) {
+				return pa < pb;
+			}
+			return RarityRank(config, aDef.Rarity) < RarityRank(config, bDef.Rarity);
+		}
 		if (sort === "Power") {
 			const pa = EffectAtLevel(aDef, aInst.Level, aInst.Stars);
 			const pb = EffectAtLevel(bDef, bInst.Level, bInst.Stars);
@@ -386,6 +394,44 @@ export function SocketTargets(state: unknown, config: unknown, definition: unkno
 		pushUpgrade(config.Research, "Research", state.Research);
 	}
 	return out;
+}
+
+// what socketing `definition` into `target` would replace, for the compare line in the inspect panel
+export function CompareSocket(state: unknown, config: unknown, uid: unknown, definition: unknown, level: unknown, stars: unknown, target: unknown): string | undefined {
+	if (!isTable(state) || !isTable(config) || !typeIs(target, "string") || target === "") {
+		return undefined;
+	}
+	const items = state.Items;
+	if (!isTable(items) || !isTable(items.Equipped) || !isTable(items.Inventory)) {
+		return undefined;
+	}
+	const currentUid = items.Equipped[target];
+	const mine = EffectAtLevel(definition, level, stars);
+	const pct = (value: number) => `${math.floor(value * 1000 + 0.5) / 10}%`;
+	if (!typeIs(currentUid, "string") || currentUid === uid) {
+		return `Empty socket · adds +${pct(mine)}`;
+	}
+	const instance = items.Inventory[currentUid];
+	if (!isTable(instance)) {
+		return undefined;
+	}
+	const itemsConfig = config.Items;
+	let current: Dict | undefined;
+	if (isTable(itemsConfig) && typeIs(itemsConfig.Definitions, "table")) {
+		for (const [, def] of pairs(itemsConfig.Definitions as object)) {
+			if (isTable(def) && def.Id === instance.DefinitionId) {
+				current = def;
+				break;
+			}
+		}
+	}
+	if (current === undefined) {
+		return undefined;
+	}
+	const theirs = EffectAtLevel(current, instance.Level, instance.Stars);
+	const delta = mine - theirs;
+	const sign = delta >= 0 ? "+" : "-";
+	return `Replaces ${tostring(current.Name ?? "a relic")} · ${pct(theirs)} to ${pct(mine)} (${sign}${pct(math.abs(delta))})`;
 }
 
 export function RestockClock(seconds: unknown): string {
