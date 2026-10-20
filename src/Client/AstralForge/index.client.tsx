@@ -50,7 +50,7 @@ const destroyClientStore = _clientStore.destroyClientStore;
 const useClientDispatch = _clientStore.useClientDispatch;
 const useClientSelector = _clientStore.useClientSelector;
 task.wait();
-const DomainChamber = kit<{ DomainChamber: Loose }>("UiOverlays", "DomainChamber").DomainChamber;
+const DomainChamber = kit<{ DomainChamber: Loose }>("UiOverlaysTs", "DomainChamber").DomainChamber;
 task.wait();
 const initializeClientFramework = load<{ initializeClientFramework: (this: void, root: Instance) => void }>(
 	"frameworkBridge",

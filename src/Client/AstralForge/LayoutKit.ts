@@ -2897,5 +2897,4 @@ const LayoutKit = setmetatable(
 		},
 	} as LuaMetatable<object>,
 ) as unknown as LayoutKitCallable;
-
 export = LayoutKit;

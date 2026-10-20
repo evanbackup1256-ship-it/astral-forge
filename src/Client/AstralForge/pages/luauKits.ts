@@ -1,4 +1,4 @@
-// Typed loaders for kits that are still Luau (UiCore, LayoutKit, ArtKit, AudioKit, ...) and for
+﻿// Typed loaders for kits that are still Luau (UiCore, LayoutKit, ArtKit, AudioKit, ...) and for
 // shared Luau modules. Each loader returns the member exactly as Luau sees it; only what the pages
 // use is typed. Props of Luau components are checked on the Luau side, so they take a loose bag.
 import React from "@rbxts/react";
@@ -83,6 +83,7 @@ export interface BrowseApi {
 	untilUtcReset(this: void, now: number): number;
 	shortDuration(this: void, seconds: number): string;
 	barHeight(this: void, stack: boolean, hasChips?: boolean): number;
+	CHIP_H: number;
 	ChipRow: LuauComponent;
 	BrowseBar: LuauComponent;
 	NoResults: LuauComponent;

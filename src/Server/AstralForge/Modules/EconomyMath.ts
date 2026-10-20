@@ -2954,8 +2954,10 @@ for (const [name] of pairs(__defs)) {
 __members.sort();
 table.freeze(__members);
 
-type EconomyMathCallable = ((name: string) => unknown) & { __members: string[] };
-const EconomyMath = ((name: string): unknown => __load(name)) as EconomyMathCallable;
-EconomyMath.__members = __members;
+type EconomyMathCallable = ((name: string) => unknown) & { readonly __members: string[]; readonly [name: string]: unknown };
+const EconomyMath = setmetatable({}, {
+	__call: (_self: unknown, name: string): unknown => __load(name),
+	__index: (_self: unknown, name: string): unknown => name === "__members" ? __members : __load(name),
+} as LuaMetatable<object>) as unknown as EconomyMathCallable;
 
 export = EconomyMath;

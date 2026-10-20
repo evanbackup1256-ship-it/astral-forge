@@ -22,6 +22,11 @@ import LabOrderMath from "../Modules/LabOrderMath";
 import CommandMath from "../Modules/CommandMath";
 import OpsMath from "../Modules/OpsMath";
 import SocialProgression from "../../../Shared/AstralForge/Shared/SocialProgression";
+import ForgeEchoServiceFactory from "./CoreServiceMembers/ForgeEchoService";
+import ProgressionServiceFactory from "./CoreServiceMembers/ProgressionService";
+import LabServiceMember from "./CoreServiceMembers/LabService";
+import ServerEventServiceFactory from "./CoreServiceMembers/ServerEventService";
+import GuildServiceFactory from "./CoreServiceMembers/GuildService";
 
 // The kit bundles and not-yet-converted Luau modules come back as opaque values; the members
 // each GameService member actually calls are typed as callable records.
@@ -94,6 +99,12 @@ function __load(name: string): unknown {
 	__cache[name] = { value };
 	return value;
 }
+
+__defs["ForgeEchoService"] = () => ForgeEchoServiceFactory;
+__defs["ProgressionService"] = () => ProgressionServiceFactory;
+__defs["LabService"] = LabServiceMember;
+__defs["ServerEventService"] = () => ServerEventServiceFactory;
+__defs["GuildService"] = () => GuildServiceFactory;
 
 __defs["AnomalyService"] = () => {
 	return (loadService: LoadService) => {
@@ -703,4 +714,15 @@ __defs["AnomalyService"] = () => {
 	};
 };
 
-// __PART2__
+const __members: string[] = [];
+for (const [name] of pairs(__defs)) __members.push(name);
+__members.sort();
+table.freeze(__members);
+
+type CoreServicesCallable = ((name: string) => unknown) & { readonly __members: string[]; readonly [name: string]: unknown };
+const CoreServices = setmetatable({}, {
+	__call: (_self: unknown, name: string): unknown => __load(name),
+	__index: (_self: unknown, name: string): unknown => name === "__members" ? __members : __load(name),
+} as LuaMetatable<object>) as unknown as CoreServicesCallable;
+
+export = CoreServices;

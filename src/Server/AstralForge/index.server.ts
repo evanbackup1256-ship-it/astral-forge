@@ -5,6 +5,8 @@ const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const RunService = game.GetService("RunService");
 const TeleportService = game.GetService("TeleportService");
 const TextChatService = game.GetService("TextChatService");
+// debug.traceback used directly as the xpcall handler, matching the Luau boot script.
+const traceback = debug.traceback as unknown as (err: unknown) => string;
 const Workspace = game.GetService("Workspace");
 
 // Services stay Luau-shaped tables; only the members this boot script touches are typed.
@@ -152,7 +154,7 @@ const shutdown = makeRemote("RemoteEvent", Protocol.ShutdownName, remoteFolder) 
 let shutdownRevision = 0;
 function publishShutdown(phase: string, message: string) {
 	shutdownRevision += 1;
-	const startedAt = Workspace.GetServerTimeNow();
+	const startedAt = game.GetService("Workspace").GetServerTimeNow();
 	remoteFolder.SetAttribute("ShutdownPhase", phase);
 	remoteFolder.SetAttribute("ShutdownMessage", message);
 	remoteFolder.SetAttribute("ShutdownStartedAt", startedAt);
@@ -288,7 +290,7 @@ if (!started) {
 }
 
 remoteFolder.SetAttribute("Ready", true);
-remoteFolder.SetAttribute("ReadyAt", Workspace.GetServerTimeNow());
+remoteFolder.SetAttribute("ReadyAt", game.GetService("Workspace").GetServerTimeNow());
 
 // Single startup banner listing every Studio bypass and whether enforcement is actually active.
 // Production behavior is unchanged; this only surfaces the current security posture.
