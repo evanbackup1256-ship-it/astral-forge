@@ -1,25 +1,6 @@
 import { ClientLog } from "./CoreKit/log";
 import Diagnostics = require("./LayoutDiagnostics");
-import { importTsModule } from "./vendor";
 
-const core = importTsModule<{
-	Reflect: {
-		// Free functions. A method signature compiles to Reflect:decorate and shifts every argument.
-		defineMetadata(this: void, target: object, key: string, value: unknown): void;
-		decorate(this: void, target: object, id: string, decorator: unknown, args?: unknown[]): void;
-	};
-	Controller: unknown;
-}>(
-	game
-		.GetService("ReplicatedStorage")
-		.WaitForChild("rbxts_include")
-		.WaitForChild("node_modules")
-		.WaitForChild("@flamework")
-		.WaitForChild("core")
-		.WaitForChild("out"),
-);
-const Reflect = core.Reflect;
-const Controller = core.Controller;
 
 interface Rect {
 	x0: number;
@@ -1491,10 +1472,6 @@ class LayoutGuardController {
 	}
 }
 
-Reflect.defineMetadata(LayoutGuardController, "identifier", "client/layoutGuard@LayoutGuardController");
-Reflect.defineMetadata(LayoutGuardController, "flamework:parameters", ["$c:components@Components", "client/framework/init@UiRuntimeController"]);
-Reflect.defineMetadata(LayoutGuardController, "flamework:implements", ["$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick"]);
-Reflect.decorate(LayoutGuardController, "$:flamework@Controller", Controller, [{ loadOrder: 10 }]);
 
 function layoutGuardStats() {
 	return stats;

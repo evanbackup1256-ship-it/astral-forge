@@ -91,9 +91,6 @@
           },
           "@rbxts-js": {
             "$path": "vendor/@rbxts-js"
-          },
-          "@flamework": {
-            "$path": "vendor/@flamework"
           }
         }
       }

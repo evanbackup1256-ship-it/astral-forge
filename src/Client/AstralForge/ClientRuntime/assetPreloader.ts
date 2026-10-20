@@ -478,9 +478,6 @@ function skipWarmModule(moduleScript: ModuleScript): boolean {
 		return true;
 	}
 	const fullName = moduleScript.GetFullName();
-	if (string.find(fullName, "FlameworkRuntime", 1, true)[0] !== undefined) {
-		return true;
-	}
 	if (string.find(fullName, "node_modules", 1, true)[0] !== undefined) {
 		return true;
 	}

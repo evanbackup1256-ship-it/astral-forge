@@ -53,7 +53,7 @@ task.wait();
 const DomainChamber = kit<{ DomainChamber: Loose }>("UiOverlays", "DomainChamber").DomainChamber;
 task.wait();
 const initializeClientFramework = load<{ initializeClientFramework: (this: void, root: Instance) => void }>(
-	"frameworkBridge",
+	"framework",
 ).initializeClientFramework;
 const _log = kit<typeof import("./CoreKit/log")>("CoreKit", "log");
 const beginClientSession = _log.beginClientSession;

@@ -9,9 +9,6 @@ local PACKAGES = {
 	{ needle = '["@rbxts"].bezierts', file = "vendor/@rbxts/bezierts/out.luau" },
 	{ needle = '["@rbxts"]["3a"]', file = nil },
 	{ needle = '["@rbxts"]["react-lifetime-component"].out', file = nil },
-	{ needle = '["@flamework"].core.out', file = nil },
-	{ needle = "flamework.core.out", file = nil },
-	{ needle = "flamework.components.out", file = nil },
 }
 
 local bezier = fs.readFile("vendor/@rbxts/bezierts/out.luau")
