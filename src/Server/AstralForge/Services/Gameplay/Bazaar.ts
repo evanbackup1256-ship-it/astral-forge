@@ -324,7 +324,11 @@ Service.Roll = (profile, now, userId) => {
 	}
 	if (Economy.Gt(refund, 0)) {
 		const credited = Economy.Add(profile.Cash, refund);
-		if (!Economy.Gt(credited, profile.Cash)) {
+		// Above 1e15 Cash is an Omega value with a 12-digit mantissa, so a refund more than
+		// 1e12 times smaller is absorbed without changing it. That is a settled claim, not a
+		// balance that can't represent it (that is only the infinite case).
+		const absorbed = Economy.Lt(profile.Cash, math.huge) && Economy.Gt(profile.Cash, Economy.Mul(refund, 1e12));
+		if (!Economy.Gt(credited, profile.Cash) && !absorbed) {
 			return $tuple(false, "Your balance cannot represent the retired Bazaar refund. The claim is still owed.");
 		}
 		profile.Cash = credited;

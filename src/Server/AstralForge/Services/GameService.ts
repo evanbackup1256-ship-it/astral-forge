@@ -746,7 +746,8 @@ export class GameService {
 			if (left.IsLocal !== right.IsLocal) {
 				return left.IsLocal as boolean;
 			}
-			return (left.Production as number) > (right.Production as number);
+			// Production above 1e15 is an Omega string; a plain > would throw comparing it to a number
+			return Economy.Gt(left.Production, right.Production) as boolean;
 		});
 		return responseSuccess(undefined, { Players: records });
 	}
