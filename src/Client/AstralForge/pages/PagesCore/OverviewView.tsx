@@ -963,6 +963,8 @@ export function OverviewView({
 												size={stack ? chrome.labelText : 12}
 												color={Palette.creamSoft}
 												wrap={true}
+												fit={true}
+												minSize={10}
 												layoutOrder={2}
 												sizeConstraint={new UDim2(1, 0, 0, 18)}
 											/>
@@ -987,6 +989,8 @@ export function OverviewView({
 												color={vaultFill >= 0.99 ? Palette.mango : Palette.muted}
 												weight={Enum.FontWeight.Bold}
 												wrap={true}
+												fit={true}
+												minSize={10}
 												layoutOrder={4}
 												sizeConstraint={new UDim2(1, 0, 0, landscapePhone ? 22 : denseHero ? 16 : 28)}
 											/>
@@ -1047,6 +1051,8 @@ export function OverviewView({
 														color={Palette.creamSoft}
 														weight={Enum.FontWeight.Bold}
 														wrap={true}
+														fit={true}
+														minSize={10}
 														sizeConstraint={new UDim2(1, 0, 0, ctaH)}
 													/>
 												)}
@@ -1453,6 +1459,8 @@ export function OverviewView({
 													size={ladder.size() > 0 ? 11 : stack ? chrome.labelText : 12}
 													color={Palette.creamSoft}
 													wrap={true}
+													fit={true}
+													minSize={10}
 													position={UDim2.fromOffset(copyLeft, 52)}
 													sizeConstraint={
 														new UDim2(1, copyWidth - copyLeft, 0, ladder.size() > 0 ? bodyRoom : stack ? 48 : 36)
@@ -1761,7 +1769,8 @@ export function OverviewView({
 											color={Palette.cream}
 											weight={Enum.FontWeight.Heavy}
 											wrap={true}
-											fit={false}
+											fit={true}
+											minSize={10}
 											position={UDim2.fromOffset(0, 22)}
 											sizeConstraint={new UDim2(1, 0, 0, 34)}
 										/>
@@ -1770,7 +1779,8 @@ export function OverviewView({
 											size={phone ? chrome.labelText : 11}
 											color={Palette.creamSoft}
 											wrap={true}
-											fit={false}
+											fit={true}
+											minSize={10}
 											position={UDim2.fromOffset(0, 60)}
 											sizeConstraint={new UDim2(1, 0, 0, phone ? 58 : 44)}
 										/>
@@ -1836,7 +1846,8 @@ export function OverviewView({
 												color={Palette.mango}
 												weight={Enum.FontWeight.Bold}
 												wrap={true}
-												fit={false}
+												fit={true}
+												minSize={10}
 												position={UDim2.fromOffset(0, 54)}
 												sizeConstraint={new UDim2(1, 0, 0, 28)}
 											/>

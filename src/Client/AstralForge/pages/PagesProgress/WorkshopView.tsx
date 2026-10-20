@@ -173,6 +173,8 @@ function MachineRow(props: {
 						color={unlocked ? Palette.muted : machine.Color}
 						weight={unlocked ? Enum.FontWeight.Regular : Enum.FontWeight.Bold}
 						wrap={true}
+						fit={true}
+						minSize={10}
 						position={UDim2.fromOffset(0, 24)}
 						sizeConstraint={new UDim2(1, -4, 0, stack ? 42 : 34)}
 					/>
@@ -439,6 +441,8 @@ function UpgradeBoard(props: {
 					size={stack ? chrome.labelText : 12}
 					color={Palette.creamSoft}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					position={UDim2.fromOffset(0, stack ? 42 : 46)}
 					sizeConstraint={new UDim2(1, stack ? -8 : -248, 0, stack ? 20 : 34)}
 				/>
@@ -856,6 +860,8 @@ function AutoForgePanel(props: {
 				size={11}
 				color={Palette.creamSoft}
 				wrap={true}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(62, 42)}
 				sizeConstraint={new UDim2(1, stack ? -168 : -70, 0, stack ? 36 : 28)}
 			/>

@@ -413,6 +413,8 @@ function AscensionView(props: AscensionViewProps) {
 				size={14}
 				color={Palette.creamSoft}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(col, 56)}
 				sizeConstraint={new UDim2(1, -col, 0, stack ? 58 : 40)}
 			/>
@@ -421,6 +423,8 @@ function AscensionView(props: AscensionViewProps) {
 				size={12}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={stack ? UDim2.fromOffset(0, 124) : UDim2.fromOffset(col, 96)}
 				sizeConstraint={stack ? new UDim2(1, 0, 0, 56) : new UDim2(1, -col, 0, 36)}
 			/>

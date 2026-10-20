@@ -414,6 +414,8 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				size={12}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(0, 50)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -240, 0, stack ? 32 : 16)}
 			/>
@@ -481,6 +483,8 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				size={12}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(60, 32)}
 				sizeConstraint={new UDim2(1, stack ? -60 : -230, 0, 20)}
 			/>

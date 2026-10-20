@@ -140,6 +140,8 @@ const ResearchNode = React.memo(
 						color={entry.unlocked ? Palette.creamSoft : accent}
 						weight={entry.unlocked ? Enum.FontWeight.Regular : Enum.FontWeight.Bold}
 						wrap={true}
+						fit={true}
+						minSize={9}
 						position={UDim2.fromOffset(56, 27)}
 						sizeConstraint={new UDim2(1, textReserve, 0, 32)}
 					/>
@@ -370,6 +372,8 @@ function ResearchView(props: ResearchProps) {
 								size={11}
 								color={Palette.creamSoft}
 								wrap={true}
+								fit={true}
+								minSize={9}
 								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 108 : 56)}
 								sizeConstraint={new UDim2(1, stack ? -8 : -332, 0, 24)}
 							/>

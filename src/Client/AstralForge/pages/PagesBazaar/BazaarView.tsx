@@ -452,6 +452,8 @@ function BazaarView(props: BazaarProps) {
 				}
 				size={13}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				color={Palette.muted}
 				position={UDim2.fromOffset(0, rowY + 50)}
 				sizeConstraint={new UDim2(1, 0, 0, 44)}
@@ -501,6 +503,8 @@ function BazaarView(props: BazaarProps) {
 					size={12}
 					color={accent}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					position={UDim2.fromOffset(98, 28)}
 					sizeConstraint={new UDim2(1, -98, 0, 32)}
 				/>
@@ -509,6 +513,8 @@ function BazaarView(props: BazaarProps) {
 					size={13}
 					color={Palette.creamSoft}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					position={UDim2.fromOffset(98, 60)}
 					sizeConstraint={new UDim2(1, -98, 0, 40)}
 				/>
@@ -522,6 +528,8 @@ function BazaarView(props: BazaarProps) {
 					}
 					size={12}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					color={Palette.muted}
 					position={UDim2.fromOffset(0, 108)}
 					sizeConstraint={new UDim2(1, 0, 0, 40)}
@@ -541,6 +549,8 @@ function BazaarView(props: BazaarProps) {
 					}
 					size={12}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					color={Palette.muted}
 					position={UDim2.fromOffset(0, 166)}
 					sizeConstraint={new UDim2(1, 0, 0, 22)}
@@ -652,7 +662,7 @@ function BazaarView(props: BazaarProps) {
 			"request-status",
 			112,
 			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} reducedMotion={props.reducedMotion}>
-				<Ui.Text value={status} size={14} wrap={true} sizeConstraint={new UDim2(1, 0, 0, 82)} />
+				<Ui.Text value={status} size={14} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 82)} />
 			</Ui.Panel>,
 		);
 		if (procure && procure.Name !== undefined && procure.State !== "Filled" && procure.State !== "Expired") {
@@ -686,7 +696,7 @@ function BazaarView(props: BazaarProps) {
 					accent={ACCENTS[entry.Category] ?? Palette.violet}
 					reducedMotion={props.reducedMotion}
 				>
-					<Ui.Text value={entry.Name} size={15} wrap={true} sizeConstraint={new UDim2(1, -132, 0, 24)} />
+					<Ui.Text value={entry.Name} size={15} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, -132, 0, 24)} />
 					<Ui.Text
 						value={entry.Category}
 						size={11}
@@ -732,12 +742,16 @@ function BazaarView(props: BazaarProps) {
 						value={`${entry.Quantity} × ${name}`}
 						size={17}
 						wrap={true}
+						fit={true}
+						minSize={10}
 						sizeConstraint={new UDim2(1, 0, 0, 46)}
 					/>
 					<Ui.Text
 						value={`${Format.compactNumber(entry.Cost)} flux · ${DateTime.fromUnixTimestamp(entry.At).FormatUniversalTime("MMM D, HH:mm", "en-us")} UTC`}
 						size={13}
 						wrap={true}
+						fit={true}
+						minSize={10}
 						color={Palette.muted}
 						position={UDim2.fromOffset(0, 50)}
 						sizeConstraint={new UDim2(1, 0, 0, 38)}
@@ -812,7 +826,7 @@ function BazaarView(props: BazaarProps) {
 			"inspection-heading",
 			138,
 			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} reducedMotion={props.reducedMotion}>
-				<Ui.Text value={"Inspecting " + chosen.Name} size={19} wrap={true} sizeConstraint={new UDim2(1, 0, 0, 48)} />
+				<Ui.Text value={"Inspecting " + chosen.Name} size={19} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 48)} />
 				<Ui.Button
 					text="Close inspection"
 					size={new UDim2(1, 0, 0, 48)}
@@ -885,12 +899,16 @@ function BazaarView(props: BazaarProps) {
 						value={offer.Name + (offer.Id === chosen.Id ? " (selected)" : "")}
 						size={16}
 						wrap={true}
+						fit={true}
+						minSize={10}
 						sizeConstraint={new UDim2(1, 0, 0, 44)}
 					/>
 					<Ui.Text
 						value={`${Format.compactNumber(comparison.UnitPrice)} flux per reward unit · ${comparison.Units} per pack · ${offer.Left} packs left`}
 						size={13}
 						wrap={true}
+						fit={true}
+						minSize={10}
 						color={Palette.muted}
 						position={UDim2.fromOffset(0, 48)}
 						sizeConstraint={new UDim2(1, 0, 0, 40)}
@@ -992,6 +1010,8 @@ function BazaarView(props: BazaarProps) {
 							size={19}
 							weight={Enum.FontWeight.Heavy}
 							wrap={true}
+							fit={true}
+							minSize={10}
 							position={UDim2.fromOffset(0, 28)}
 							sizeConstraint={new UDim2(1, -68, 0, 58)}
 						/>
@@ -1000,6 +1020,8 @@ function BazaarView(props: BazaarProps) {
 							size={13}
 							color={Palette.muted}
 							wrap={true}
+							fit={true}
+							minSize={10}
 							position={UDim2.fromOffset(0, 90)}
 							sizeConstraint={new UDim2(1, 0, 0, 48)}
 						/>
@@ -1007,6 +1029,8 @@ function BazaarView(props: BazaarProps) {
 							value={`${offer.Left}/${offer.Stock} left this shipment  ·  ${Format.compactNumber(offer.Price)} flux each`}
 							size={12}
 							wrap={true}
+							fit={true}
+							minSize={10}
 							color={Palette.creamSoft}
 							position={UDim2.fromOffset(0, 144)}
 							sizeConstraint={new UDim2(1, 0, 0, 36)}

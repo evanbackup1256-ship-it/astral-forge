@@ -513,6 +513,8 @@ function WorldsView(props: WorldsViewProps) {
 						size={stack ? chrome.labelText : 11}
 						color={Palette.muted}
 						wrap={true}
+						fit={true}
+						minSize={10}
 						position={UDim2.fromOffset(0, 56)}
 						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 36)}
 					/>

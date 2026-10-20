@@ -444,7 +444,8 @@ function ChoiceCard(props: ChoiceCardProps) {
 				size={10}
 				color={props.disabled ? Palette.muted : Palette.creamSoft}
 				wrap={true}
-				fit={false}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(iconSize + 18, 28)}
 				sizeConstraint={new UDim2(1, -(iconSize + 26), 1, -32)}
 				zIndex={906}
@@ -803,7 +804,8 @@ export function RebirthChamber(props: ChamberProps) {
 				size={10}
 				color={Palette.creamSoft}
 				wrap={true}
-				fit={false}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(94, 54)}
 				sizeConstraint={new UDim2(1, -94, 0, 34)}
 				zIndex={905}
@@ -1025,7 +1027,8 @@ export function RebirthChamber(props: ChamberProps) {
 				size={11}
 				color={Palette.creamSoft}
 				wrap={true}
-				fit={false}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(12, 38)}
 				sizeConstraint={new UDim2(1, -24, 1, -44)}
 				zIndex={906}
@@ -1386,7 +1389,8 @@ export function RebirthPanel({
 					size={10}
 					color={canRebirth ? Palette.mint : Palette.muted}
 					wrap={true}
-					fit={false}
+					fit={true}
+					minSize={9}
 					position={UDim2.fromOffset(0, 102)}
 					sizeConstraint={new UDim2(1, 0, 0, 30)}
 				/>

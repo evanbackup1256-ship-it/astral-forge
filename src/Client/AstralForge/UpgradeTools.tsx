@@ -157,6 +157,8 @@ function Planner(props: PlannerProps) {
 				size={12}
 				color={Palette.creamSoft}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(0, 30)}
 				sizeConstraint={new UDim2(1, 0, 0, 34)}
 			/>
@@ -165,6 +167,8 @@ function Planner(props: PlannerProps) {
 				size={10}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(0, 70)}
 				sizeConstraint={new UDim2(1, 0, 0, 28)}
 			/>

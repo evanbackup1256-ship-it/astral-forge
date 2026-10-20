@@ -122,6 +122,8 @@ function MilestoneRow({ achievement, dispatch, reducedMotion, position, stack, c
 				size={stack ? 12 : 11}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(56, 26)}
 				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 36 : 28)}
 			/>
@@ -315,6 +317,8 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					sizeConstraint={new UDim2(1, -8, 0, 34)}
 				/>
 			) : (
@@ -345,6 +349,8 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 						size={12}
 						color={Palette.muted}
 						wrap={true}
+						fit={true}
+						minSize={10}
 						position={UDim2.fromOffset(0, 48)}
 						sizeConstraint={new UDim2(1, -420, 0, 16)}
 					/>

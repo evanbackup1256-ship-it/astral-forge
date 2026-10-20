@@ -308,10 +308,10 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 			<Text
 				value={descText}
 				size={10}
-				minSize={9}
 				color={props.unlocked ? Palette.creamSoft : Palette.muted}
 				wrap={true}
-				fit={false}
+				fit={true}
+				minSize={9}
 				align={Enum.TextXAlignment.Center}
 				position={UDim2.fromOffset(9, 62)}
 				sizeConstraint={new UDim2(1, -18, 0, 46)}
@@ -630,6 +630,8 @@ function CommandViewReady(props: CommandProps) {
 							size={11}
 							color={Palette.muted}
 							wrap={true}
+							fit={true}
+							minSize={9}
 							position={UDim2.fromOffset(10, 50)}
 							sizeConstraint={new UDim2(1, -20, 0, 30)}
 						/>
@@ -707,7 +709,8 @@ function CommandViewReady(props: CommandProps) {
 								size={10}
 								color={Palette.creamSoft}
 								wrap={true}
-								fit={false}
+								fit={true}
+								minSize={9}
 								position={UDim2.fromOffset(12, 46)}
 								sizeConstraint={new UDim2(1, stack ? -24 : -156, 0, 28)}
 							/>
@@ -786,7 +789,8 @@ function CommandViewReady(props: CommandProps) {
 					size={12}
 					color={Palette.muted}
 					wrap={true}
-					fit={false}
+					fit={true}
+					minSize={10}
 					position={UDim2.fromOffset(0, 36)}
 					sizeConstraint={new UDim2(1, 0, 0, 44)}
 				/>
@@ -856,7 +860,8 @@ function CommandViewReady(props: CommandProps) {
 						}  ·  ${compactNumber(command.StreakShields)} ${command.StreakShields === 1 ? "shield" : "shields"}`}
 						size={12}
 						color={Palette.creamSoft}
-						fit={false}
+						fit={true}
+						minSize={10}
 						wrap={true}
 						position={UDim2.fromOffset(0, stack ? 90 : 112)}
 						sizeConstraint={new UDim2(1, 0, 0, stack ? 34 : 18)}

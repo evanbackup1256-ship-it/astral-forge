@@ -232,6 +232,8 @@ function ForgePathRow({
 					color={Palette.mango}
 					weight={Enum.FontWeight.Bold}
 					wrap={true}
+					fit={true}
+					minSize={9}
 					position={UDim2.fromOffset(48, 42)}
 					sizeConstraint={new UDim2(1, textW, 0, 16)}
 				/>
@@ -423,6 +425,8 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				size={11}
 				color={needXp ? Palette.creamSoft : Palette.mango}
 				wrap={true}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(0, 50)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 32)}
 			/>
@@ -635,7 +639,8 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								size={stack ? 16 : 18}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
-								fit={false}
+								fit={true}
+								minSize={10}
 								wrap={true}
 								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 78 : 16)}
 								sizeConstraint={new UDim2(1, stack ? -8 : -292, 0, 44)}
@@ -653,6 +658,8 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								size={11}
 								color={Palette.creamSoft}
 								wrap={true}
+								fit={true}
+								minSize={9}
 								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 126 : 70)}
 								sizeConstraint={new UDim2(1, stack ? -8 : -292, 0, 24)}
 							/>

@@ -228,6 +228,8 @@ function ActiveReactor(props: ActiveReactorProps) {
 					size={12}
 					color={Palette.creamSoft}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					position={UDim2.fromOffset(0, 60)}
 					sizeConstraint={new UDim2(1, 0, 0, 34)}
 				/>
@@ -288,6 +290,8 @@ function IdleBay(props: IdleBayProps) {
 					size={12}
 					color={Palette.muted}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					position={UDim2.fromOffset(62, 32)}
 					sizeConstraint={new UDim2(1, -62, 0, 34)}
 				/>
@@ -331,6 +335,8 @@ function IdleBay(props: IdleBayProps) {
 				size={12}
 				color={Palette.creamSoft}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(stack ? 64 : 78, 54)}
 				sizeConstraint={new UDim2(1, stack ? -64 : -(78 + 220), 0, 32)}
 			/>
@@ -487,6 +493,8 @@ function BoostCard(props: BoostCardProps) {
 				size={11}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(14, 90)}
 				sizeConstraint={new UDim2(1, -28, 0, 30)}
 			/>

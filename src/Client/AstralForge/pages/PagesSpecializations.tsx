@@ -359,6 +359,8 @@ function SpecializationsView(props: Props) {
 					size={13}
 					color={Palette.muted}
 					wrap={true}
+					fit={true}
+					minSize={10}
 					position={UDim2.fromOffset(54, 24)}
 					sizeConstraint={new UDim2(1, -54, 0, 36)}
 				/>
@@ -531,6 +533,8 @@ function SpecializationsView(props: Props) {
 			size={13}
 			color={Palette.muted}
 			wrap={true}
+			fit={true}
+			minSize={10}
 			sizeConstraint={new UDim2(1, 0, 0, 36)}
 		/>,
 	);

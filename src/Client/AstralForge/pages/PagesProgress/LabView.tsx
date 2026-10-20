@@ -124,6 +124,8 @@ function OrderRow(props: {
 				size={stack ? 12 : 11}
 				color={Palette.muted}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(58, 28)}
 				sizeConstraint={new UDim2(1, textW, 0, stack ? 36 : 28)}
 			/>
@@ -243,6 +245,8 @@ function PowerRow(props: {
 				color={config.Color}
 				weight={Enum.FontWeight.Bold}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(58, stack ? 32 : 34)}
 				sizeConstraint={new UDim2(1, stack ? -(58 + 20) : -(minusX + 12), 0, stack ? 28 : 17)}
 			/>
@@ -387,6 +391,8 @@ function LabViewReady(props: LabProps) {
 				size={12}
 				color={Palette.creamSoft}
 				wrap={true}
+				fit={true}
+				minSize={10}
 				position={UDim2.fromOffset(0, 24)}
 				sizeConstraint={new UDim2(1, -8, 0, chrome.landscape ? 28 : 40)}
 			/>
@@ -421,6 +427,8 @@ function LabViewReady(props: LabProps) {
 				size={10}
 				color={Palette.creamSoft}
 				wrap={true}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(68, 46)}
 				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 26)}
 			/>
@@ -651,6 +659,8 @@ function LabViewReady(props: LabProps) {
 								size={stack ? 11 : 10}
 								color={Palette.muted}
 								wrap={true}
+								fit={true}
+								minSize={10}
 								position={UDim2.fromOffset(0, 24)}
 								sizeConstraint={new UDim2(1, stack ? -8 : -(220 + ROW_RIGHT), 0, stack ? 32 : 16)}
 							/>
