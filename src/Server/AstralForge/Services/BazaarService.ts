@@ -1,3 +1,4 @@
+import ProgressionModule = require("./CoreServiceMembers/ProgressionService");
 import { Dict, EconomyApi, economyKit, Flux, LoadService, ModuleLogApi, num, req, truthy } from "./LuaInterop";
 
 interface Offer {
@@ -130,7 +131,7 @@ export = (loadService: LoadService) => {
 	const Economy = economyKit("Economy") as BazaarEconomy;
 	const Math = req<BazaarMathApi>(script.Parent!.Parent!.WaitForChild("Modules").WaitForChild("BazaarMath"));
 	const Log = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
-	const Progression = loadService("ProgressionService") as ProgressionApi;
+	const Progression = ProgressionModule as unknown as ProgressionApi;
 	const Service = {} as {
 		NeedsRecovery: (this: void, profile: BazaarProfile, userId: number) => boolean;
 		Roll: (this: void, profile: BazaarProfile, now: number, userId: number) => LuaTuple<[boolean, string]>;

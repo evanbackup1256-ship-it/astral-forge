@@ -18,23 +18,11 @@ const req = (name: string) => require(services.WaitForChild(name) as ModuleScrip
 const kitMember = (name: string, member: string) => (req(name) as (this: void, member: string) => unknown)(member);
 const withLoader = (value: unknown) => (value as (this: void, loader: LoadService) => unknown)(loadService);
 
-serviceFactories["AnomalyService"] = () => withLoader(kitMember("CoreServices", "AnomalyService"));
-
 serviceFactories["BazaarService"] = () => withLoader(req("BazaarService"));
 
 serviceFactories["ConvergenceService"] = req("ConvergenceService") as Factory;
 
-serviceFactories["ForgeEchoService"] = kitMember("CoreServices", "ForgeEchoService") as Factory;
-
-serviceFactories["ServerEventService"] = kitMember("CoreServices", "ServerEventService") as Factory;
-
 serviceFactories["GameService"] = () => createGameService(loadService);
-
-serviceFactories["GuildService"] = kitMember("CoreServices", "GuildService") as Factory;
-
-serviceFactories["LabService"] = kitMember("CoreServices", "LabService") as Factory;
-
-serviceFactories["ProgressionService"] = kitMember("CoreServices", "ProgressionService") as Factory;
 
 serviceFactories["WorldService"] = kitMember("WorldServices", "WorldService") as Factory;
 

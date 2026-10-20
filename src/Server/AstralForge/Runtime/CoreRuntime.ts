@@ -19,6 +19,9 @@ import { RemoteFirewall } from "../Services/RemoteFirewall";
 import { GameAntiCheat } from "../Services/GameAntiCheat";
 import { PlayerAnalytics } from "../Services/PlayerAnalytics";
 import { PlayerBadges } from "../Services/PlayerBadges";
+import { MatterRuntime } from "../Services/MatterRuntime";
+import { ServerEventService } from "../Services/CoreServiceMembers/ServerEventService";
+import { GuildService } from "../Services/CoreServiceMembers/GuildService";
 import { SpecializationService } from "../Services/SpecializationService";
 import DataServiceModule = require("../Services/DataService");
 import AdminServiceModule = require("../Services/AdminService");
@@ -100,6 +103,9 @@ export class GameRuntime implements OnInit, OnStart {
 		private readonly antiCheat: GameAntiCheat,
 		private readonly analytics: PlayerAnalytics,
 		private readonly badges: PlayerBadges,
+		private readonly matter: MatterRuntime,
+		private readonly events: ServerEventService,
+		private readonly guilds: GuildService,
 		// GameService reads the shared Specializations rules; this service keeps them live-tuned.
 		private readonly _specializations: SpecializationService,
 	) {}
@@ -114,6 +120,9 @@ export class GameRuntime implements OnInit, OnStart {
 				AntiCheat: this.antiCheat,
 				Analytics: this.analytics,
 				Badges: this.badges,
+				Matter: this.matter,
+				Events: this.events,
+				Guilds: this.guilds,
 			}),
 		);
 		bridge.onClose(3, "game service", () => this.service.Shutdown());

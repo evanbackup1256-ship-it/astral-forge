@@ -4,7 +4,12 @@ import { Dict, isTable, LoadService, num, truthy } from "./LuaInterop";
 import { PayloadEvent, ServerEvents, ServerFunctions } from "../Runtime/ServerNetwork";
 import { FluxSurgeService } from "./FluxSurgeService";
 import { RemoteFirewall } from "./RemoteFirewall";
-import MatterRuntimeFactory = require("./MatterRuntime");
+import type { ServerEventService } from "./CoreServiceMembers/ServerEventService";
+import AnomalyModule = require("./CoreServiceMembers/AnomalyService");
+import ForgeEchoModule = require("./CoreServiceMembers/ForgeEchoService");
+import LabModule = require("./CoreServiceMembers/LabService");
+import ProgressionModule = require("./CoreServiceMembers/ProgressionService");
+import type { MatterRuntime } from "./MatterRuntime";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
@@ -127,19 +132,16 @@ export function createGameService(loadService: LoadService) {
 	const ZoneUnlock = SharedDataSuite("ZoneUnlock") as Kit;
 	const MobileLayoutSlots = mod(shared(), "MobileLayoutSlots");
 	const CrateExpansion = mod<Kit>(shared(), "CrateExpansion");
-	const ProgressionService = loadService("ProgressionService") as Kit;
-	const AnomalyService = loadService("AnomalyService") as Kit;
-	const LabService = loadService("LabService") as Kit;
-	const GuildService = loadService("GuildService") as Kit;
+	const ProgressionService = ProgressionModule as unknown as Kit;
+	const AnomalyService = AnomalyModule as unknown as Kit;
+	const LabService = LabModule as unknown as Kit;
 	const ConvergenceService = loadService("ConvergenceService") as Kit;
-	const ForgeEchoService = loadService("ForgeEchoService") as Kit;
+	const ForgeEchoService = ForgeEchoModule as unknown as Kit;
 	const BazaarService = loadService("BazaarService") as Kit;
 	const Specializations = mod<Kit>(shared(), "Specializations");
-	const MatterRuntime = MatterRuntimeFactory() as unknown as Kit;
 	const GuildCommunity = mod(script.Parent!, "GuildCommunity");
 	const ChatService = mod(script.Parent!, "ChatService");
 	const CrewService = mod(script.Parent!, "CrewService");
-	const ServerEventService = loadService("ServerEventService") as Kit;
 	const ServerConfig = mod<Dict>(root, "ServerConfig");
 
 	// guild kick/ban/reconcile paths reset bonuses; this lived only in CoreServices before
@@ -488,7 +490,7 @@ export function createGameService(loadService: LoadService) {
 		_visiting: Map<Player, number>;
 		_visitors: Map<number, Map<Player, boolean>>;
 		_presence: Map<number, Dict>;
-		_matter: Svc | undefined;
+		_matter: MatterRuntime;
 		_matterAccumulator: number;
 		_rankPingAccumulator: number;
 		_rankPingBusy: boolean;
@@ -1179,7 +1181,7 @@ export function createGameService(loadService: LoadService) {
 			this._visiting = new Map();
 			this._visitors = new Map();
 			this._presence = new Map();
-			this._matter = MatterRuntime.new(this) as Svc;
+			this._matter = remotes.Matter as MatterRuntime;
 			this._matterAccumulator = 0;
 			this._rankPingAccumulator = 0;
 			this._rankPingBusy = false;
@@ -1189,7 +1191,8 @@ export function createGameService(loadService: LoadService) {
 			this._analytics = remotes.Analytics as Svc;
 			this._badges = remotes.Badges as Svc;
 			this._convergence = ConvergenceService.new(dataService) as Svc;
-			this._events = ServerEventService.new({
+			this._events = remotes.Events as Svc;
+			(remotes.Events as ServerEventService).Attach({
 				random: () => this._random.NextNumber(),
 				announce: (phase: string, def: Dict) => {
 					this._announceServerEvent(phase, def);
@@ -1202,7 +1205,7 @@ export function createGameService(loadService: LoadService) {
 				pay: (entries: Dict[], def: Dict, why: string) => {
 					this._payEvent(entries, def, why);
 				},
-			}) as Svc;
+			} as unknown as Parameters<ServerEventService["Attach"]>[0]);
 			// Studio only: start any event by id to try it (ServerScriptService.EventDebug:Invoke("IronTitan"))
 			if (game.GetService("RunService").IsStudio()) {
 				const debugHook = new Instance("BindableFunction");
@@ -1210,7 +1213,7 @@ export function createGameService(loadService: LoadService) {
 				debugHook.OnInvoke = (id: unknown) => this._events.Start(id);
 				debugHook.Parent = game.GetService("ServerScriptService");
 			}
-			this._guilds = GuildService.new() as Svc;
+			this._guilds = remotes.Guilds as Svc;
 			this._guildCommunity = GuildCommunity.new(
 				this._guilds,
 				dataService,
@@ -6020,9 +6023,7 @@ export function createGameService(loadService: LoadService) {
 				return;
 			}
 			const [spawned, spawnProblem] = pcall(() => {
-				if (this._matter !== undefined) {
-					runtime.MatterEntity = this._matter.SpawnPlayer(player, runtime, profile);
-				}
+				runtime.MatterEntity = this._matter.SpawnPlayer(player, runtime, profile);
 			});
 			if (!spawned) {
 				if (!this._running) {
@@ -6260,8 +6261,8 @@ export function createGameService(loadService: LoadService) {
 			}
 			this._world.RemovePlot(player);
 			const runtime = this._runtime.get(player);
-			if (runtime !== undefined && runtime.MatterEntity !== undefined && this._matter !== undefined) {
-				this._matter.Despawn(runtime.MatterEntity);
+			if (runtime !== undefined && runtime.MatterEntity !== undefined) {
+				this._matter.Despawn(runtime.MatterEntity as number);
 			}
 			this._runtime.delete(player);
 			this._firewall.Forget(player);
@@ -6593,9 +6594,7 @@ export function createGameService(loadService: LoadService) {
 				return;
 			}
 			this._matterAccumulator = 0;
-			if (this._matter !== undefined) {
-				this._matter.Step();
-			}
+			this._matter.Step();
 		}
 
 		Start() {
@@ -6612,9 +6611,7 @@ export function createGameService(loadService: LoadService) {
 				ModuleLog.Warn("Shop", "ProcessReceipt failed — " + tostring(decision));
 				return Enum.ProductPurchaseDecision.NotProcessedYet;
 			};
-			if (this._matter !== undefined) {
-				this._matter.Start();
-			}
+			this._matter.Start(this);
 			this._world.SetInteractionHandler((player: Player, action: string, payload: unknown) => {
 				if (action === "Collect") {
 					this._collect(player);
@@ -6939,9 +6936,7 @@ export function createGameService(loadService: LoadService) {
 				this._heartbeat.Disconnect();
 				this._heartbeat = undefined;
 			}
-			if (this._matter !== undefined) {
-				this._matter.Stop();
-			}
+			this._matter.Stop();
 			this._convergence.Stop();
 			this._guilds.Destroy();
 			this._guildCommunity.Shutdown();
