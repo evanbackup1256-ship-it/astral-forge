@@ -1,6 +1,7 @@
 // Ranks: grouped categories, podium, your-standing card and scaled rows.
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../Shared/AstralForge/Shared/ProfileStyle";
+import { frameStroke } from "./CoreKit/profileFrame";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import { useViewport } from "./MotionKit/motion";
@@ -312,13 +313,13 @@ function mark(props: MarkProps): React.Element {
  * Return an accent to tint the row's mark, name and stroke. Undefined keeps the board's default colors.
  * The profile-style work plugs ProfileStyle data in here; nothing else in this file needs to change.
  */
-function rankRowStyle(row: RankRow, guildBoard: boolean): { accent?: Color3 } | undefined {
+function rankRowStyle(row: RankRow, guildBoard: boolean): { accent?: Color3; frame?: ProfileStyle.FrameOption } | undefined {
 	// only players in this server publish their style attributes; everyone else keeps the default look
 	if (guildBoard || !typeIs(row.UserId, "number")) {
 		return undefined;
 	}
-	const accent = ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(row.UserId)).accent;
-	return accent !== undefined ? { accent } : undefined;
+	const style = ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(row.UserId));
+	return style.accent !== undefined || style.frame !== undefined ? { accent: style.accent, frame: style.frame } : undefined;
 }
 
 interface Section {
@@ -564,12 +565,14 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			const mine = isMine(row);
 			const styled = rankRowStyle(row, guildBoard);
 			const accent = styled?.accent ?? (mine ? P.mint : meta.accent);
+			// same frame treatment as the player list card (thickness, gradient frames, a bit more opaque)
+			const ring = frameStroke(styled?.frame, accent, pinned ? 2 : 1);
 			return e("frame", {
 				BackgroundColor3: mine ? Color3.fromRGB(22, 48, 44) : Color3.fromRGB(22, 26, 40),
 				BackgroundTransparency: 0.08, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
 			}, {
 				Corner: e("uicorner", { CornerRadius: new UDim(0, 14) }),
-				Stroke: e("uistroke", { Color: accent, Transparency: mine ? 0.2 : 0.8, Thickness: pinned ? 2 : 1 }),
+				Stroke: e("uistroke", { Color: ring.color, Transparency: mine ? 0.2 : ring.framed ? 0.45 : 0.8, Thickness: ring.thickness }, ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
 				Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
 				Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
 				Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.mint : P.cream), position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),

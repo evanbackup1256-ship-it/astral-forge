@@ -1,4 +1,6 @@
 import React from "@rbxts/react";
+import { frameStroke } from "../../CoreKit/profileFrame";
+import { PlayerMark } from "../../ArtKit/Icon";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import { kitMember, LuauComponent } from "../luauKits";
@@ -39,6 +41,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 	const shown = pending ?? saved;
 	const accentColor = ProfileStyle.accentColor(shown.Accent);
 	const frame = ProfileStyle.findFrame(shown.Frame) ?? ProfileStyle.FRAMES[0];
+	const ring = frameStroke(frame, accentColor);
 	const choose = (accent?: string, frameId?: string) => {
 		setPending({ Accent: accent ?? shown.Accent, Frame: frameId ?? shown.Frame });
 		props.dispatch("SetProfileStyle", { Accent: accent, Frame: frameId });
@@ -135,17 +138,9 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				BorderSizePixel={0}
 			>
 				<uicorner CornerRadius={new UDim(0, 14)} />
-				<uistroke Color={accentColor} Thickness={frame.Thickness} Transparency={0.1}>
-					{frame.Gradient && (
-						<uigradient
-							Color={new ColorSequence([
-								new ColorSequenceKeypoint(0, accentColor),
-								new ColorSequenceKeypoint(0.5, Palette.cream),
-								new ColorSequenceKeypoint(1, accentColor),
-							])}
-							Rotation={20}
-						/>
-					)}
+				{/* drawn exactly as the player list, chat and ranks draw it */}
+				<uistroke Color={ring.color} Thickness={ring.thickness} Transparency={0.1}>
+					{ring.gradient !== undefined && <uigradient Color={ring.gradient} Rotation={35} />}
 				</uistroke>
 				<frame
 					Size={UDim2.fromOffset(44, 44)}
@@ -156,7 +151,10 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 					BorderSizePixel={0}
 				>
 					<uicorner CornerRadius={new UDim(1, 0)} />
-					<uistroke Color={accentColor} Thickness={frame.Thickness + 1} />
+					<uistroke Color={ring.color} Thickness={ring.thickness + 1}>
+						{ring.gradient !== undefined && <uigradient Color={ring.gradient} Rotation={35} />}
+					</uistroke>
+					<PlayerMark userId={Players.LocalPlayer?.UserId ?? 0} color={Palette.ink} accent={accentColor} size={30} position={UDim2.fromScale(0.5, 0.5)} anchorPoint={new Vector2(0.5, 0.5)} />
 				</frame>
 				<Text
 					value={localName}
