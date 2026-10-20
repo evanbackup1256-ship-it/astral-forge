@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import { ClientLog } from "../CoreKit/log";
 import { darken, lighten, Palette } from "../CoreKit/theme";
+import { markupNumber } from "./hyperTextMarkup";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
@@ -360,7 +361,8 @@ interface AnimatedTitleProps {
 	reducedMotion?: boolean;
 	position?: UDim2;
 	sizeConstraint?: UDim2;
-	transparency?: number;
+	// May be a binding (chat rows fade in); HyperText itself only ever gets a number.
+	transparency?: number | React.Binding<number>;
 	align?: Enum.TextXAlignment;
 	preview?: boolean;
 }
@@ -373,6 +375,10 @@ function AnimatedTitle(props: AnimatedTitleProps) {
 	const position = props.position ?? UDim2.fromOffset(0, 0);
 	const sizeConstraint = props.sizeConstraint ?? new UDim2(1, 0, 0, size + 4);
 	const transparency = props.transparency ?? 0;
+	const fadeBinding = typeIs(transparency, "number") ? undefined : transparency;
+	// Bindings resolve to 0 (where every fade ends) so the render effect keys on a
+	// stable number instead of a fresh binding object each parent render.
+	const markupTrans = fadeBinding === undefined ? markupNumber(transparency, 0) : 0;
 	const align = props.align ?? Enum.TextXAlignment.Left;
 	const preview = props.preview === true;
 	const kind = parseFx(fx);
@@ -419,9 +425,9 @@ function AnimatedTitle(props: AnimatedTitleProps) {
 				const markups = mod.newMarkups();
 				markups.font.value = "rbxasset://fonts/families/BuilderSans.json";
 				markups.weight.value = Enum.FontWeight.ExtraBold;
-				markups.size.value = size;
+				markups.size.value = markupNumber(size, 13);
 				markups.color.value = accent;
-				markups.trans.value = transparency;
+				markups.trans.value = markupNumber(markupTrans, 0);
 				markups.horizontalAlignment.value = horizAlign;
 				markups.verticalAlignment.value = Enum.VerticalAlignment.Center;
 				markups.ZIndex.value = 2;
@@ -457,7 +463,7 @@ function AnimatedTitle(props: AnimatedTitleProps) {
 				host.ClearAllChildren();
 			});
 		};
-	}, [live, kind, text, size, transparency, horizAlign, preview]);
+	}, [live, kind, text, size, markupTrans, horizAlign, preview]);
 	return (
 		<frame
 			Size={sizeConstraint}
@@ -473,7 +479,7 @@ function AnimatedTitle(props: AnimatedTitleProps) {
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				ClipsDescendants={false}
-				Visible={live}
+				Visible={fadeBinding === undefined ? live : fadeBinding.map((amount) => live && amount < 0.5)}
 				ZIndex={2}
 			/>
 			{!live || !ready ? (
