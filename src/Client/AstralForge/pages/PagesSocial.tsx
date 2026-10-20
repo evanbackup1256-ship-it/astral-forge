@@ -1,40 +1,20 @@
 // PagesSocial.luau — compiled page bundle for the Social tab.
 // Members are required lazily: PagesSocial("TradeView") only pays for that page's code.
 import React from "@rbxts/react";
-import * as ChatText from "../CoreKit/chatText";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
-import * as NoticeMath from "../CoreKit/noticeMath";
-import * as PageBoardHeights from "../CoreKit/pageBoardHeights";
-import { AppHelpers } from "../CoreKit/appNav";
 import { unixNow } from "../CoreKit/deadlines";
-import { asFlux, clockText, compactNumber, formatReward, gteFlux } from "../CoreKit/format";
-import { chromeFor, darken, ensureContrast, Layout, lighten, Palette, scrollTail, TapTarget } from "../CoreKit/theme";
+import { asFlux, compactNumber } from "../CoreKit/format";
+import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
-import {
-	useEntrance,
-	useFlash,
-	useFlipperSpring,
-	usePulse,
-	useStagger,
-	useViewport,
-	useWallClock,
-} from "../MotionKit/motion";
-import { Icon, PlayerMark } from "../ArtKit/Icon";
-import createRequest = require("../ActionRequest");
-import CrewStore = require("../CrewStore");
-import ElementFxModule = require("../ElementFx");
-import ChatRules = require("../../../Shared/AstralForge/Shared/ChatRules");
-import CrewMath = require("../../../Shared/AstralForge/Shared/CrewMath");
-import OmegaMath = require("../../../Shared/AstralForge/Shared/OmegaMath");
-import SocialProgression = require("../../../Shared/AstralForge/Shared/SocialProgression");
+import { useEntrance, useStagger, useViewport } from "../MotionKit/motion";
+import { Icon } from "../ArtKit/Icon";
+import { useTouchTargets } from "../UiCore/ui";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
-import { Dict, isTable, joinTuple, named, truthy } from "../lua";
-import { Component, Components, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit } from "./luauDeps";
+import { Dict } from "../lua";
+import { Component, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit } from "./luauDeps";
 
 const Players = game.GetService("Players");
 const UserInputService = game.GetService("UserInputService");
-
-const { ElementFx } = ElementFxModule;
 
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
@@ -760,7 +740,7 @@ __defs["TradeView"] = () => {
 		const [inputVal, setInputVal] = React.useState("");
 		const scrollRef = React.useRef<ScrollingFrame>();
 		// phones and touch: quick phrases and the input row get full tap height
-		const touchRows = chromeFor(useViewport()).stack || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
+		const touchRows = useTouchTargets();
 		const pillH = touchRows ? TapTarget : 26;
 		const inputH = touchRows ? TapTarget : 32;
 		const lines = session.Chat ?? [];
@@ -2552,7 +2532,6 @@ __defs["TradeView"] = () => {
 						reducedMotion: reducedMotion,
 					})
 				: undefined;
-		const rosterSection = session === undefined ? rosterCards : undefined;
 		const ctaElement =
 			session === undefined
 				? h(

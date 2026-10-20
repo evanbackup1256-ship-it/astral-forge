@@ -5,7 +5,7 @@ import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { composePresence, useEntrance, useExitTransition, useFlipperSpring, useViewport } from "../MotionKit/motion";
-import { Button, OverlayPresence, pixelPosition, SearchField, Text, useGamepadAutofocus, useGuiSize } from "./ui";
+import { Button, OverlayPresence, pixelPosition, SearchField, Text, useGamepadAutofocus, useGuiSize, useTouchTargets } from "./ui";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -1577,7 +1577,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const controlsTop = headerH + boostH + 14;
 	// phones and touch: filter chips and the search box get a full 44px row so the
 	// scroller doesn't clip their hit area down to the drawn 28px
-	const touchRows = chrome.stack || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
+	const touchRows = useTouchTargets();
 	const ctlH = touchRows ? TapTarget : 30;
 	const controlsH = ctlH + (showSearch ? ctlH + 8 : 0);
 	const listTop = controlsTop + controlsH + 8;

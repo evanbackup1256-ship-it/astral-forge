@@ -90,7 +90,7 @@ function hideId(id: number | undefined) {
 	}
 }
 
-export function hideTooltip() {
+function hideTooltip() {
 	hideId(undefined);
 }
 
@@ -281,7 +281,7 @@ let safeFrame: Frame | undefined = undefined;
 
 // above, else below, right, left; slid along the edge and clamped inside the safe area.
 // On touch the finger sits over the target, so below is only used when above won't fit.
-export function placeTooltip(targetPos: Vector2, targetSize: Vector2, size: Vector2): Vector2 {
+function placeTooltip(targetPos: Vector2, targetSize: Vector2, size: Vector2): Vector2 {
 	const view = viewport();
 	const safe = safeFrame !== undefined && safeFrame.Parent !== undefined ? safeFrame : undefined;
 	const safeMin = safe !== undefined ? safe.AbsolutePosition : new Vector2(0, 0);

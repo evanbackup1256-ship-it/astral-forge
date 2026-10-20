@@ -2,9 +2,8 @@ import { Dependency } from "@flamework/core";
 import type { EffectFeedController } from "../../Controllers/EffectFeedController";
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
-import ReactRoblox from "@rbxts/react-roblox";
-import { STICKY_H, StickyGroupLabel } from "./stickyGroupLabel";
-import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
+import { STICKY_H, StickyGroupLabel } from "./StickyGroupLabel";
+import { colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
 
 /**
  * Profile-style hook for guild member rows. `userKey` is the Members key (stringified UserId).
@@ -313,16 +312,11 @@ function __member(): unknown {
 	}
 	function GuildGoalCard(_param?: unknown): unknown | undefined {
 		let guild: unknown = luaProp(_param, "guild");
-		let config: unknown = luaProp(_param, "config");
 		let layoutOrder: unknown = luaProp(_param, "layoutOrder");
 		let stack: unknown = luaProp(_param, "stack");
 		let reducedMotion: unknown = luaProp(_param, "reducedMotion");
-		let dispatch: unknown = luaProp(_param, "dispatch");
-		let busy: unknown = luaProp(_param, "busy");
-		let shakeToken: unknown = luaProp(_param, "shakeToken");
 		let goal: unknown = luaProp(guild, "Goal");
 		let now: unknown = luaCall(useWallClock, (goal !== undefined));
-		let localKey: unknown = tostring(luaProp(luaProp(Players, "LocalPlayer"), "UserId"));
 		if ((goal === undefined)) {
 			return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 116), accent: luaProp(Palette, "mint"), background: luaProp(Palette, "panelRaised"), padding: (luaTruthy(stack) ? 16 : 18), layoutOrder: layoutOrder, reducedMotion: reducedMotion }, reactLoose.createElement(Text, { value: "GUILD GOAL", size: 10, color: luaProp(Palette, "mint"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 14) }), reactLoose.createElement(Text, { value: "The next shared goal is being drawn up.", size: 12, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 22), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 34) }));
 		}
@@ -394,8 +388,6 @@ function __member(): unknown {
 		let goalShare: unknown = luaProp(_param, "goalShare");
 		let share: unknown = luaProp(_param, "share");
 		let isLocal: unknown = luaProp(_param, "isLocal");
-		let canManage: unknown = luaProp(_param, "canManage");
-		let isLeader: unknown = luaProp(_param, "isLeader");
 		let stack: unknown = luaProp(_param, "stack");
 		let reducedMotion: unknown = luaProp(_param, "reducedMotion");
 		let dispatch: unknown = luaProp(_param, "dispatch");
@@ -1195,7 +1187,6 @@ function __member(): unknown {
 		const stickyGroups = memberGroups.size() > 1;
 		const stickyPad = stickyGroups ? STICKY_H + 6 : 0;
 		let memberBlockH: unknown = ((len(shownMembers) === 0) ? 72 : stickyPad + memberRowsH + math.max(0, (len(shownMembers) as unknown as number) - 1) * (pageGap as unknown as number));
-		let overscan: unknown = (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2));
 		let memberSearchH: unknown = (luaTruthy(stack) ? TapTarget : 40);
 		let memberFilter: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, reactLoose.createElement(SearchField, { value: memberQuery, onChange: setMemberQuery, placeholder: "Search members", accent: luaProp(Palette, "violet"), reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, memberSearchH), zIndex: 20 }), reactLoose.createElement(luaProp(Browse, "ChipRow"), { options: [{ id: "All", label: "Everyone" }, { id: "Leader", label: "Leader" }, { id: "Officer", label: "Officers" }, { id: "Member", label: "Members" }], value: memberRole, onChange: function(this: void, id?: unknown): unknown | undefined {
 			luaCall(setMemberRole, id);

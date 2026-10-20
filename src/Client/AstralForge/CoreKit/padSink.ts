@@ -5,7 +5,7 @@ const ContextActionService = game.GetService("ContextActionService");
 // Above the shell's gamepad bindings (2200) and the per-page ones (2300), so an open overlay
 // gets these keys and nothing behind it reacts. UserInputService still sees sunk input, so an
 // overlay can keep reading it there.
-export const PAD_SINK_PRIORITY = 2400;
+const PAD_SINK_PRIORITY = 2400;
 
 // The shell's pad shortcuts (Back/rail, Vault, Overcharge, hide, buy amount, tabs, Settings).
 // Overlays that sit over the shell sink these so nothing fires behind them; A and the D-pad are

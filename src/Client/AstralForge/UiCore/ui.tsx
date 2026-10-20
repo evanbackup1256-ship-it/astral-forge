@@ -50,7 +50,7 @@ const UserInputService = game.GetService("UserInputService");
 
 // phones and touch-only tablets: true where small controls should get a 44px invisible hit area.
 // Mouse desktops stay false, so nothing changes there.
-function useTouchHitShell(): boolean {
+export function useTouchTargets(): boolean {
 	const stack = chromeFor(useViewport()).stack;
 	return stack || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
 }
@@ -202,7 +202,6 @@ function pinLayoutGuardIgnore(instance: Instance | undefined) {
 const SHIMMER_GLINT = ShimmerMath.GLINT;
 const SHIMMER_TRAIL = ShimmerMath.TRAIL;
 const SHIMMER_SWEEP_SPEED = ShimmerMath.SWEEP_SPEED;
-export const shimmerOffset = ShimmerMath.offset;
 
 // ---------- input cancellation ----------
 const inputCancelListeners = new Set<() => void>();
@@ -682,7 +681,7 @@ export function ShimmerText({
 				<uigradient
 					Color={glintColor}
 					Transparency={SHIMMER_GLINT}
-					Offset={phase.map((amount) => shimmerOffset(amount, 2.05))}
+					Offset={phase.map((amount) => ShimmerMath.offset(amount, 2.05))}
 					Rotation={ShimmerMath.ROTATION}
 				/>
 			</textlabel>
@@ -1383,7 +1382,7 @@ export function Panel(props: PanelProps) {
 									Color={new ColorSequence(Palette.cream)}
 									Rotation={ShimmerMath.ROTATION}
 									Transparency={SHIMMER_GLINT}
-									Offset={whiteSweep.map((phase) => shimmerOffset(phase, 2.25))}
+									Offset={whiteSweep.map((phase) => ShimmerMath.offset(phase, 2.25))}
 								/>
 							)}
 						</frame>
@@ -1947,7 +1946,7 @@ export function ButtonShimmer(props: {
 						Color={SHIMMER_TRAIL_COLOR}
 						Rotation={ShimmerMath.ROTATION}
 						Transparency={SHIMMER_TRAIL}
-						Offset={shimmer.map((phase) => shimmerOffset(phase, ShimmerMath.DEFAULT_TRAVEL, ShimmerMath.TRAIL_LAG))}
+						Offset={shimmer.map((phase) => ShimmerMath.offset(phase, ShimmerMath.DEFAULT_TRAVEL, ShimmerMath.TRAIL_LAG))}
 					/>
 				</frame>
 			)}
@@ -1966,7 +1965,7 @@ export function ButtonShimmer(props: {
 					Color={SHIMMER_SPECULAR_COLOR}
 					Rotation={ShimmerMath.ROTATION}
 					Transparency={SHIMMER_GLINT}
-					Offset={shimmer.map((phase) => shimmerOffset(phase, ShimmerMath.DEFAULT_TRAVEL, 0))}
+					Offset={shimmer.map((phase) => ShimmerMath.offset(phase, ShimmerMath.DEFAULT_TRAVEL, 0))}
 				/>
 			</frame>
 		</frame>
@@ -2064,7 +2063,7 @@ export function Button(props: ButtonProps) {
 	const breatheStroke = useGlowStroke(breatheWanted, reducedMotion || effectsPaused, 0.32, 0.22, 0.46, 1.15);
 	const buttonRef = React.useRef<ImageButton>();
 	const hostSize = useGuiSize(buttonRef);
-	const touchShell = useTouchHitShell();
+	const touchShell = useTouchTargets();
 	const visualPosition = joinTuple<[number, number, Vector2]>(arrival, shakeOffsetX, hostSize).map((values) =>
 		pixelPosition(values[2], 0.5, values[1], 0.5, (1 - math.clamp(values[0], 0, 1)) * 12),
 	);
@@ -2590,7 +2589,7 @@ export function Meter(props: MeterProps) {
 						Color={new ColorSequence(Palette.cream)}
 						Transparency={SHIMMER_GLINT}
 						Rotation={22}
-						Offset={shimmerPhase.map((phase) => shimmerOffset(phase, 2.6))}
+						Offset={shimmerPhase.map((phase) => ShimmerMath.offset(phase, 2.6))}
 					/>
 				</frame>
 			</frame>
@@ -2928,7 +2927,7 @@ export function AmountToggle({
 	const hoverSlide = useSpring(math.max(hoveredIndex, 0), reducedMotion, 700, 42);
 	const slotScale = 1 / AMOUNT_OPTIONS.size();
 	// phones: grow only the invisible tap rows to the 44px target; the visual keeps its size
-	const hitExtra = useTouchHitShell() && size.Y.Scale === 0 ? math.max(0, TapTarget - size.Y.Offset) : 0;
+	const hitExtra = useTouchTargets() && size.Y.Scale === 0 ? math.max(0, TapTarget - size.Y.Offset) : 0;
 	return (
 		<frame
 			{...{ Name: "AmountToggleTarget" }}
@@ -3159,14 +3158,14 @@ function SegmentedTabHit({
 	);
 }
 /** True when SegmentedTabs will draw as one scrolling strip (phones, tabs that would wrap or squeeze). */
-export function segmentedStripMode(count: number, columns: number | undefined, viewport: Parameters<typeof chromeFor>[0] & { width: number }): boolean {
+function segmentedStripMode(count: number, columns: number | undefined, viewport: Parameters<typeof chromeFor>[0] & { width: number }): boolean {
 	const total = math.max(1, count);
 	const cols = math.max(1, math.min(columns ?? total, total));
 	return chromeFor(viewport).stack && (math.ceil(total / cols) > 1 || viewport.width / cols < 84);
 }
 
 /** Rows a SegmentedTabs host should reserve: 1 in strip mode, otherwise ceil(count / columns). */
-export function segmentedRows(count: number, columns: number | undefined, viewport: Parameters<typeof chromeFor>[0] & { width: number }): number {
+function segmentedRows(count: number, columns: number | undefined, viewport: Parameters<typeof chromeFor>[0] & { width: number }): number {
 	const total = math.max(1, count);
 	const cols = math.max(1, math.min(columns ?? total, total));
 	return segmentedStripMode(total, cols, viewport) ? 1 : math.ceil(total / cols);

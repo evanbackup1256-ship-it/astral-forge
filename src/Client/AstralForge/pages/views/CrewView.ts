@@ -6,7 +6,6 @@ const UserInputService = game.GetService("UserInputService");
 import { KeyLabel } from "../../CoreKit/GamepadNavigationService";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import { frameStroke } from "../../CoreKit/profileFrame";
-import ReactRoblox from "@rbxts/react-roblox";
 // phone height for other players' roster rows (was 158): mark, two text lines, then the Wave/Visit row
 // How long since a crewmate last did anything, from the presence age the server already sends.
 // Fresh activity needs no note (the line turns mint); older activity says how long they've been quiet.
@@ -76,8 +75,8 @@ function useCrewRowKeys(holder: React.MutableRefObject<Frame | undefined>, onWav
 	}, [enabled]);
 	return focused;
 }
-import { STICKY_H, StickyGroupLabel, StickyGroup } from "./stickyGroupLabel";
-import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
+import { STICKY_H, StickyGroupLabel, StickyGroup } from "./StickyGroupLabel";
+import { colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, luaTable, luaRequire, kit, mod, pinFirst } from "./viewRuntime";
 
 /** Short pill under the island, for outcomes the dispatcher doesn't already announce. */
 function crewStatus(text: string): void {
@@ -704,7 +703,6 @@ function __member(): unknown {
 		let headerH: unknown = ((((luaTruthy(stack) ? 182 : 112)) as unknown as number) + (crewBarH as unknown as number));
 		// phone: title, two-line blurb, then a full-width Refresh
 		let listGap: unknown = ((visit !== undefined) ? (math.max as unknown as (...a: unknown[]) => unknown)(luaProp(chrome, "panelGap"), 18) : (math.max as unknown as (...a: unknown[]) => unknown)(luaProp(chrome, "panelGap"), 12));
-		let visitBlock: unknown = ((visit !== undefined) ? luaCall(luaProp(PageBoardHeights, "Visit"), stack) : 0);
 		let crewTail: unknown = luaCall(scrollTail, stack, luaProp(chrome, "bottomSafe"), 48);
 		let headerPanel: unknown = reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "blue"), background: luaProp(Palette, "panelRaised"), padding: luaProp(chrome, "cardPadding"), layoutOrder: 0, reveal: headerReveal, clips: false }, reactLoose.createElement(Text, { value: "CREW ROSTER", size: 10, color: luaProp(Palette, "blue"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -8 : -160), 0, 18) }), reactLoose.createElement(Text, { value: "Crew on this server", size: (luaTruthy(stack) ? 20 : 22), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -8 : -190), 0, 30) }), reactLoose.createElement(Text, { value: (((visitorsHere as unknown as number) > (0 as unknown as number)) ? `${visitorsHere} visiting your forge. Pick someone below to visit or send a wave.` : "Form a crew with players here for a production bonus and a shared daily goal, or visit someone's forge."), size: luaProp(chrome, "labelText"), color: luaProp(Palette, "muted"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 54), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -8 : -190), 0, 38) }), reactLoose.createElement(Button, { text: (luaTruthy(stack) ? "REFRESH" : "REFRESH CREW"), icon: "Refresh.3", onClick: refresh, sound: "tick", color: luaProp(Palette, "blue"), textColor: luaProp(Palette, "ink"), size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 170, 44)), position: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((TapTarget as unknown as number) + (crewBarH as unknown as number))) as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -170, 0, 24)), reducedMotion: softMotion }), ((luaTruthy(showCrewBar ) ?  reactLoose.createElement(luaProp(Browse, "BrowseBar"), { browse: crewBrowse, placeholder: "Search crew by name or activity", accent: luaProp(Palette, "blue"), stack: stack, reducedMotion: softMotion, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-((((crewBarH as unknown as number) - (10 as unknown as number))) as unknown as number))), zIndex: 30 }) : showCrewBar)));
 		let visitPanel: unknown = ((visit !== undefined) && reactLoose.createElement(VisitPanel, { visit: visit, dispatch: dispatch, reducedMotion: softMotion, layoutOrder: 1, stack: stack }));
