@@ -5,7 +5,6 @@ const Players = game.GetService("Players");
 
 const TV_SAFE_MARGIN_RATIO = 0.08;
 let isConsoleMode = false;
-let inputConnection: RBXScriptConnection | undefined;
 let connectedConnection: RBXScriptConnection | undefined;
 let disconnectedConnection: RBXScriptConnection | undefined;
 let preferredConnection: RBXScriptConnection | undefined;
@@ -16,12 +15,6 @@ let overlayFocusDepth = 0;
 const overlaySelectionStack = new Array<{ target?: GuiObject }>();
 // kept for parity with the overlay stack; read by nothing outside this module
 let overlayPreviousSelection: GuiObject | undefined;
-
-let tabCycleCallback: ((delta: number) => void) | undefined;
-let modalCloseCallback: (() => void) | undefined;
-let quickVaultCallback: (() => void) | undefined;
-let overchargeCallback: (() => void) | undefined;
-let settingsCallback: (() => void) | undefined;
 
 export interface ControllerHint {
 	id: string;
@@ -323,32 +316,11 @@ export function Init() {
 	connectedConnection = UserInputService.GamepadConnected.Connect(syncGamepadMode);
 	disconnectedConnection = UserInputService.GamepadDisconnected.Connect(syncGamepadMode);
 
-	inputConnection = UserInputService.InputBegan.Connect((input, gameProcessed) => {
-		if (gameProcessed || input.UserInputType !== Enum.UserInputType.Gamepad1) {
-			return;
-		}
-		const code = input.KeyCode;
-		if (code === Enum.KeyCode.ButtonB && modalCloseCallback) {
-			modalCloseCallback();
-		} else if (code === Enum.KeyCode.ButtonY && quickVaultCallback) {
-			quickVaultCallback();
-		} else if (code === Enum.KeyCode.ButtonX && overchargeCallback) {
-			overchargeCallback();
-		} else if ((code === Enum.KeyCode.ButtonStart || code === Enum.KeyCode.ButtonSelect) && settingsCallback) {
-			settingsCallback();
-		} else if (code === Enum.KeyCode.ButtonL1 && tabCycleCallback) {
-			tabCycleCallback(-1);
-		} else if (code === Enum.KeyCode.ButtonR1 && tabCycleCallback) {
-			tabCycleCallback(1);
-		}
-	});
 }
 
 export function Stop() {
 	preferredConnection?.Disconnect();
 	preferredConnection = undefined;
-	inputConnection?.Disconnect();
-	inputConnection = undefined;
 	connectedConnection?.Disconnect();
 	connectedConnection = undefined;
 	disconnectedConnection?.Disconnect();
@@ -362,28 +334,8 @@ export function Stop() {
 	overlayFocusDepth = 0;
 	overlayPreviousSelection = undefined;
 	overlaySelectionStack.clear();
-	tabCycleCallback = undefined;
-	modalCloseCallback = undefined;
-	quickVaultCallback = undefined;
-	overchargeCallback = undefined;
-	settingsCallback = undefined;
 }
 
-export function SetTabCycleCallback(callback: (delta: number) => void) {
-	tabCycleCallback = callback;
-}
-export function SetModalCloseCallback(callback: () => void) {
-	modalCloseCallback = callback;
-}
-export function SetQuickVaultCallback(callback: () => void) {
-	quickVaultCallback = callback;
-}
-export function SetOverchargeCallback(callback: () => void) {
-	overchargeCallback = callback;
-}
-export function SetSettingsCallback(callback: () => void) {
-	settingsCallback = callback;
-}
 export function IsConsole(): boolean {
 	return isConsoleMode;
 }

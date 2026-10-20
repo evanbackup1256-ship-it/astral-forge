@@ -322,7 +322,15 @@ local okQueue, queueError = pcall(function()
 	q:send("ClaimDaily", {}, "ClaimDaily", (hooksFor(alog)))
 	q:send("ClaimQuest", {}, "ClaimQuest", (hooksFor(blog)))
 	check(#alog == 0 and #blog == 0, "grant actions wait for auth")
+	-- an unmounted screen cancels its auth wait along with its request timeouts
+	local ulog = {}
+	local uh, ukill = hooksFor(ulog)
+	q:send("ClaimMail", {}, "ClaimMail", uh)
+	check(size(uh.timeouts) == 1, "auth wait tracked for unmount")
+	ukill()
+	for thread in uh.timeouts do H.task.cancel(thread) end
 	task.wait(4.3)
+	check(size(uh.timeouts) == 1 and #ulog == 0, "cancelled auth wait stays silent")
 	check(blog[1] == "refuse:Still connecting. Give it a second and try again.", "auth that never arrives refuses after 4s")
 	setAuth(true)
 	local clog = {}
@@ -332,6 +340,7 @@ local okQueue, queueError = pcall(function()
 	setAuth(true)
 	task.wait(3.2)
 	check(clog[1] == "retry" and #clog == 1, "auth that arrives before 4s retries once")
+	check(#ulog == 0, "cancelled auth wait never refuses or retries")
 	task.wait(0.4)
 	check(tlog[2] == "timeout:8" and q:inFlightCount() == 0, "timeout releases the latch and reports")
 	task.wait(0.4)

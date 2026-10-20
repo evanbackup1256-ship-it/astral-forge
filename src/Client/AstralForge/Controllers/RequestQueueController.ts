@@ -60,7 +60,8 @@ export class RequestQueue {
 					settled = true;
 					hooks.retry();
 				});
-				task.delay(4, () => {
+				const authWait = task.delay(4, () => {
+					hooks.timeouts.delete(authWait);
 					if (settled || !hooks.alive()) {
 						return;
 					}
@@ -71,6 +72,8 @@ export class RequestQueue {
 					}
 					hooks.refuse("Still connecting. Give it a second and try again.");
 				});
+				// tracked with the request timeouts so an unmount cancels it
+				hooks.timeouts.set(authWait, true);
 				return;
 			}
 			value = table.clone(value);

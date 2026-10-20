@@ -13,15 +13,6 @@ local UI_ROOT = "src/Client/AstralForge"
 local SEARCH_ROOTS = { "src", "scripts" }
 
 local ALLOWED: { [string]: string } = {
-	-- gamepad/touch services: controller workstream (FW)
-	["CoreKit/GamepadNavigationService.ts:ResolveScrollTarget"] = "controller workstream",
-	["CoreKit/GamepadNavigationService.ts:SetTabCycleCallback"] = "public hook, controller workstream",
-	["CoreKit/GamepadNavigationService.ts:SetModalCloseCallback"] = "public hook, controller workstream",
-	["CoreKit/GamepadNavigationService.ts:SetQuickVaultCallback"] = "public hook, controller workstream",
-	["CoreKit/GamepadNavigationService.ts:SetOverchargeCallback"] = "public hook, controller workstream",
-	["CoreKit/GamepadNavigationService.ts:SetSettingsCallback"] = "public hook, controller workstream",
-	["CoreKit/TouchGestureService.ts:toGuiPosition"] = "controller workstream",
-	["CoreKit/TouchGestureService.ts:GetThumbstickState"] = "controller workstream",
 	-- Flamework finds controllers by decorator, not by name
 	["Controllers/SessionControllers.ts:PresenceController"] = "Flamework controller",
 	["Controllers/SessionControllers.ts:TelemetryController"] = "Flamework controller",
