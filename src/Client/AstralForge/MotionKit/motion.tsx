@@ -72,54 +72,6 @@ export const easeOutExpo = (value: number) => {
 	return 1 - math.pow(2, -10 * value);
 };
 
-export function useCursorProximity(elementRef: React.RefObject<GuiObject>, maxRadius = 160): number {
-	const touchOnly = UserInputService.TouchEnabled && !UserInputService.MouseEnabled;
-	const [proximity, setProximity] = React.useState(0);
-	const lastProximity = React.useRef(0);
-	React.useEffect(() => {
-		if (touchOnly) {
-			if (lastProximity.current !== 0) {
-				lastProximity.current = 0;
-				setProximity(0);
-			}
-			return undefined;
-		}
-		let active = true;
-		let frame = 0;
-		const stride = 6;
-		const conn = RunService.RenderStepped.Connect(() => {
-			const el = elementRef.current;
-			if (!active || !el) {
-				return;
-			}
-			frame += 1;
-			if (frame % stride !== 0) {
-				return;
-			}
-			if (!el.Visible || el.AbsoluteSize.Magnitude === 0) {
-				if (lastProximity.current !== 0) {
-					lastProximity.current = 0;
-					setProximity(0);
-				}
-				return;
-			}
-			const mousePos = UserInputService.GetMouseLocation();
-			const center = el.AbsolutePosition.add(el.AbsoluteSize.mul(0.5));
-			const dist = mousePos.sub(center).Magnitude;
-			const norm = math.clamp(1 - dist / maxRadius, 0, 1);
-			if (math.abs(norm - lastProximity.current) > 0.03) {
-				lastProximity.current = norm;
-				setProximity(norm);
-			}
-		});
-		return () => {
-			active = false;
-			conn.Disconnect();
-		};
-	}, [maxRadius, touchOnly]);
-	return touchOnly ? 0 : proximity;
-}
-
 export function bezierOrbit(progress: number): Vector2 {
 	const wrapped = ((progress % 1) + 1) % 1;
 	const segment = math.floor(wrapped * 4);
