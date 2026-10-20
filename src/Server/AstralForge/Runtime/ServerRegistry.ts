@@ -1,10 +1,11 @@
 // Typed view of the lazy service registry (Services/ServerServices). Only the members the
 // Flamework runtime services touch are typed; the registry itself still builds on demand.
 import ModuleLog = require("../ModuleLog");
+import { PayloadEvent } from "./ServerNetwork";
 import ServerServices = require("../Services/ServerServices");
 
 export interface GameServiceLike {
-	_effect: RemoteEvent;
+	_effect: PayloadEvent;
 	_toastPlayer(player: Player, title: unknown, body: unknown, kind: unknown): void;
 	_snapshot(player: Player): unknown;
 	Start(): void;

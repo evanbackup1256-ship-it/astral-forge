@@ -40,7 +40,8 @@ export class ServerLifecycle implements OnStart {
 
 	onStart() {
 		const bridge = this.bridge;
-		const failure = bridge.getStartFailure();
+		// OnStart runs each service on its own thread; wait for all of them, yielding or not.
+		const failure = bridge.awaitStarts();
 		if (failure !== undefined) {
 			bridge.folder.SetAttribute("BootFailure", failure);
 			bridge.closeRuntime();

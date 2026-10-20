@@ -1,20 +1,16 @@
-// Owns the wire folder the client binds to (request/state/toast/effect/shutdown remotes),
-// the boot-failure attributes and the ordered shutdown list. Remote names and payloads are
-// unchanged so existing clients keep working.
+// Owns the bridge status folder the client watches (Ready, versions, boot failure and
+// shutdown attributes), the "still starting" request reply and the ordered shutdown list.
+// The remotes themselves are @flamework/networking (Shared/Network.ts).
 import { OnInit, Service } from "@flamework/core";
 import ModuleLog = require("../ModuleLog");
 import { Registry } from "./ServerRegistry";
+import { ServerEvents, ServerFunctions } from "./ServerNetwork";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const Workspace = game.GetService("Workspace");
 
 interface ProtocolShape {
 	FolderName: string;
-	RequestName: string;
-	StateName: string;
-	ToastName: string;
-	EffectName: string;
-	ShutdownName: string;
 }
 interface GameConfigShape {
 	Game: { DataVersion: unknown; Version: string; AutosaveSeconds: unknown };
@@ -35,28 +31,17 @@ function requiredChild(parent: Instance, name: string, className: keyof Instance
 	return child;
 }
 
-function makeRemote(className: "RemoteEvent" | "RemoteFunction", name: string, parent: Folder): Instance {
-	const remote = new Instance(className);
-	remote.Name = name;
-	remote.Archivable = false;
-	remote.Parent = parent;
-	return remote;
-}
-
 @Service({ loadOrder: 0 })
 export class RemoteBridge implements OnInit {
 	public gameConfig!: GameConfigShape;
 	public folder!: Folder;
-	public request!: RemoteFunction;
-	public state!: RemoteEvent;
-	public toast!: RemoteEvent;
-	public effect!: RemoteEvent;
-	public shutdown!: RemoteEvent;
 
 	private shutdownRevision = 0;
 	private startFailure?: string;
 	private closers: [number, string, () => void][] = [];
 	private closed = false;
+	private pendingStarts = 0;
+	private readonly startSettled = new Instance("BindableEvent");
 
 	onInit() {
 		ModuleLog.AttachTelemetry(Registry.ServerTelemetry);
@@ -99,14 +84,9 @@ export class RemoteBridge implements OnInit {
 		folder.Parent = ReplicatedStorage;
 		this.folder = folder;
 
-		this.request = makeRemote("RemoteFunction", protocol.RequestName, folder) as RemoteFunction;
-		this.state = makeRemote("RemoteEvent", protocol.StateName, folder) as RemoteEvent;
-		this.toast = makeRemote("RemoteEvent", protocol.ToastName, folder) as RemoteEvent;
-		this.effect = makeRemote("RemoteEvent", protocol.EffectName, folder) as RemoteEvent;
-		this.shutdown = makeRemote("RemoteEvent", protocol.ShutdownName, folder) as RemoteEvent;
-		this.request.OnServerInvoke = () => {
+		ServerFunctions.request.setCallback(() => {
 			return { ok: false, error: "The server is still starting. Please retry in a moment." };
-		};
+		});
 	}
 
 	/** Runs a boot step; a failure is stamped on the wire folder and rethrown. */
@@ -134,7 +114,25 @@ export class RemoteBridge implements OnInit {
 		}
 	}
 
-	getStartFailure() {
+	/**
+	 * Wraps a service's whole OnStart so ServerLifecycle can wait for it even if a step yields.
+	 * Every runtime service's OnStart must go through here.
+	 */
+	startPhase(callback: () => void) {
+		this.pendingStarts += 1;
+		const [ok, problem] = pcall(callback);
+		if (!ok && this.startFailure === undefined) {
+			this.startFailure = tostring(problem);
+		}
+		this.pendingStarts -= 1;
+		this.startSettled.Fire();
+	}
+
+	/** Yields until every start phase has finished, then returns the first failure, if any. */
+	awaitStarts(): string | undefined {
+		while (this.pendingStarts > 0) {
+			this.startSettled.Event.Wait();
+		}
 		return this.startFailure;
 	}
 
@@ -166,7 +164,7 @@ export class RemoteBridge implements OnInit {
 		this.folder.SetAttribute("ShutdownStartedAt", startedAt);
 		this.folder.SetAttribute("ShutdownRevision", this.shutdownRevision);
 		this.folder.SetAttribute("ShuttingDown", true);
-		this.shutdown.FireAllClients({
+		ServerEvents.shutdown.broadcast({
 			Phase: phase,
 			Message: message,
 			StartedAt: startedAt,

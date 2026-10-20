@@ -1,3 +1,4 @@
+import type { PushEvent, RequestFunction } from "../ClientNetwork";
 import React from "@rbxts/react";
 import { TooltipProvider } from "../Tooltip";
 import { setEffectSwitches, setInGameReducedMotion } from "../MotionPreference";
@@ -166,10 +167,10 @@ interface DomainUi {
 interface MainGameProps {
 	remotes: {
 		Bridge?: Instance;
-		Request: RemoteFunction;
-		State: RemoteEvent;
-		Toast: RemoteEvent;
-		Effect: RemoteEvent;
+		Request: RequestFunction;
+		State: PushEvent;
+		Toast: PushEvent;
+		Effect: PushEvent;
 	};
 	config: { Game: { Version: string }; [key: string]: unknown };
 	bootStartedAt?: number;
@@ -1111,7 +1112,7 @@ export function MainGame(_param: MainGameProps) {
 			});
 			requestTimeouts.current.set(requestTimeout, true);
 			requestWorker = task.defer(() => {
-				const [ok, raw] = pcall(() => remotes.Request.InvokeServer(action, value));
+				const [ok, raw] = pcall(() => remotes.Request.invoke(action as string, value).expect());
 				if (requestWorker !== undefined) {
 					requestWorkers.current.delete(requestWorker);
 				}
@@ -1212,7 +1213,7 @@ export function MainGame(_param: MainGameProps) {
 				pcall(() => task.cancel(worker));
 			}
 		};
-		const stateConnection = remotes.State.OnClientEvent.Connect((snapshot) => {
+		const stateConnection = remotes.State.connect((snapshot) => {
 			if (!alive || !typeIs(snapshot, "table")) {
 				return;
 			}
@@ -1222,14 +1223,14 @@ export function MainGame(_param: MainGameProps) {
 			markBoot("bridge");
 			markBoot("state");
 		});
-		const toastConnection = remotes.Toast.OnClientEvent.Connect((payload) => {
+		const toastConnection = remotes.Toast.connect((payload) => {
 			if (!alive || !typeIs(payload, "table")) {
 				return;
 			}
 			const value = payload as { Tone?: string; Title?: unknown; Body?: unknown };
 			addNotice(tostring(value.Title ?? "Update"), tostring(value.Body ?? "Something changed."), value.Tone ?? "Info");
 		});
-		const effectConnection = remotes.Effect.OnClientEvent.Connect((payload) => {
+		const effectConnection = remotes.Effect.connect((payload) => {
 			if (!alive || !typeIs(payload, "table")) {
 				return;
 			}
@@ -1448,7 +1449,7 @@ export function MainGame(_param: MainGameProps) {
 					markBoot("bridge");
 				}
 				if (bridgeReady) {
-					const [ok, raw] = pcall(() => remotes.Request.InvokeServer("GetState", {}));
+					const [ok, raw] = pcall(() => remotes.Request.invoke("GetState", {}).expect());
 					if (alive && ok && typeIs(raw, "table")) {
 						const response = raw as ActionResponse;
 						if (response.State !== undefined && acceptState(response.State)) {

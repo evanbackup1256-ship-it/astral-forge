@@ -1,3 +1,4 @@
+import { PayloadEvent } from "../Runtime/ServerNetwork";
 // Crews: small parties inside this server (see Shared/CrewMath for the rules).
 // Server-local by design: a crew lives as long as two members share the server. Only the
 // per-player daily claim record persists (profile.Flags.CrewDay / CrewClaimed).
@@ -73,7 +74,7 @@ const flagsOf = (profile: Dict | undefined): Dict | undefined =>
 	profile && typeIs(profile.Flags, "table") ? (profile.Flags as Dict) : undefined;
 
 class CrewService {
-	_effect: RemoteEvent;
+	_effect: PayloadEvent;
 	_data: CrewData;
 	_alive = true;
 	_crews = new Map<string, Crew>();
@@ -81,7 +82,7 @@ class CrewService {
 	_invites = new Map<number, { FromUserId: number; ExpiresAt: number }>();
 	_removing: RBXScriptConnection;
 
-	constructor(effect: RemoteEvent, data: CrewData) {
+	constructor(effect: PayloadEvent, data: CrewData) {
 		this._effect = effect;
 		this._data = data;
 		this._removing = Players.PlayerRemoving.Connect((player) => {
@@ -144,7 +145,7 @@ class CrewService {
 		for (const userId of crew.Members) {
 			const player = Players.GetPlayerByUserId(userId);
 			if (player) {
-				this._effect.FireClient(player, { Type: "CrewState", Crew: this._snapshot(crew, userId) });
+				this._effect.fire(player, { Type: "CrewState", Crew: this._snapshot(crew, userId) });
 			}
 		}
 	}
@@ -152,7 +153,7 @@ class CrewService {
 	_notify(userId: number, payload: unknown) {
 		const player = Players.GetPlayerByUserId(userId);
 		if (player) {
-			this._effect.FireClient(player, payload);
+			this._effect.fire(player, payload);
 		}
 	}
 
@@ -298,7 +299,7 @@ class CrewService {
 			return fail(`${target.DisplayName} already has an invite waiting.`);
 		}
 		this._invites.set(target.UserId, { FromUserId: player.UserId, ExpiresAt: os.time() + CrewMath.INVITE_SECONDS });
-		this._effect.FireClient(target, {
+		this._effect.fire(target, {
 			Type: "CrewInvite",
 			FromUserId: player.UserId,
 			FromName: player.DisplayName,

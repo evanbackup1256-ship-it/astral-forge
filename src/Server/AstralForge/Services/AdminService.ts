@@ -1,3 +1,4 @@
+import { ServerEvents } from "../Runtime/ServerNetwork";
 import StoreAccess from "../Modules/StoreAccess";
 import OpsMath from "../Modules/OpsMath";
 import AdminPolicy from "../Modules/AdminPolicy";
@@ -309,34 +310,14 @@ export = function (loadService: LoadService) {
 		return true;
 	}
 
-	function effectRemote(): RemoteEvent | undefined {
-		const folder = ReplicatedStorage.FindFirstChild(Protocol.FolderName);
-		if (folder === undefined) return undefined;
-		const remote = folder.FindFirstChild(Protocol.EffectName);
-		if (remote !== undefined && remote.IsA("RemoteEvent")) return remote;
-		return undefined;
-	}
-
-	function toastRemote(): RemoteEvent | undefined {
-		const folder = ReplicatedStorage.FindFirstChild(Protocol.FolderName);
-		if (folder === undefined) return undefined;
-		const remote = folder.FindFirstChild(Protocol.ToastName);
-		if (remote !== undefined && remote.IsA("RemoteEvent")) return remote;
-		return undefined;
-	}
-
 	function firePrank(player: Player, kind: string, duration: number, caption: string) {
-		const remote = effectRemote();
-		if (remote !== undefined) {
-			remote.FireClient(player, { Type: "AdminPrank", Kind: kind, Duration: duration, Caption: caption });
-		}
+		ServerEvents.effect.fire(player, { Type: "AdminPrank", Kind: kind, Duration: duration, Caption: caption });
 	}
 
 	function applyWorld(_actor: Player, target: Player, command: string, amount: number, option: string): LuaTuple<[boolean, string]> {
 		const duration = math.clamp(math.floor(amount), 3, 20);
 		if (command === "Honk") {
-			const toast = toastRemote();
-			if (toast !== undefined) toast.FireClient(target, { Title: "HONK", Body: "An admin honked at you.", Tone: "Special" });
+			ServerEvents.toast.fire(target, { Title: "HONK", Body: "An admin honked at you.", Tone: "Special" });
 			return $tuple(true, "Honked at " + target.Name);
 		}
 		let caption = option;

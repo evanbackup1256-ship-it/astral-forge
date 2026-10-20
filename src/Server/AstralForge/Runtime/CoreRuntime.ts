@@ -36,7 +36,7 @@ export class WorldRuntime implements OnInit, OnStart {
 		this.service = this.bridge.bootStep("world construction", () => Registry.WorldService.new());
 	}
 	onStart() {
-		this.bridge.startStep("world start", () => this.service.Start());
+		this.bridge.startPhase(() => this.bridge.startStep("world start", () => this.service.Start()));
 	}
 }
 
@@ -49,7 +49,7 @@ export class FluxSurgeRuntime implements OnInit {
 		this.service = this.bridge.bootStep("flux surge construction", () =>
 			Registry.FluxSurgeService.new(
 				(player, title, body, kind) => this.gameService?._toastPlayer(player, title, body, kind),
-				(player, payload) => this.gameService?._effect.FireClient(player, payload),
+				(player, payload) => this.gameService?._effect.fire(player, payload),
 			),
 		);
 	}
@@ -67,8 +67,10 @@ export class SecurityRuntime implements OnInit, OnStart {
 		this.bridge.onClose(1, "character integrity", () => this.integrity.Destroy());
 	}
 	onStart() {
-		this.bridge.startStep("security start", () => this.pipeline.Start());
-		this.bridge.startStep("integrity start", () => this.integrity.Start());
+		this.bridge.startPhase(() => {
+			this.bridge.startStep("security start", () => this.pipeline.Start());
+			this.bridge.startStep("integrity start", () => this.integrity.Start());
+		});
 	}
 }
 
@@ -87,10 +89,6 @@ export class GameRuntime implements OnInit, OnStart {
 		const bridge = this.bridge;
 		this.service = bridge.bootStep("gameplay construction", () =>
 			Registry.GameService.new(this.data.service, this.world.service, this.flux.service, {
-				Request: bridge.request,
-				State: bridge.state,
-				Toast: bridge.toast,
-				Effect: bridge.effect,
 				Security: this.security.pipeline,
 				Admin: this.admin.service,
 			}),
@@ -99,9 +97,11 @@ export class GameRuntime implements OnInit, OnStart {
 		bridge.onClose(3, "game service", () => this.service.Shutdown());
 	}
 	onStart() {
-		this.bridge.startStep("game start", () => this.service.Start());
-		this.bridge.startStep("autosave start", () =>
-			this.data.service.StartAutosave(this.bridge.gameConfig.Game.AutosaveSeconds),
-		);
+		this.bridge.startPhase(() => {
+			this.bridge.startStep("game start", () => this.service.Start());
+			this.bridge.startStep("autosave start", () =>
+				this.data.service.StartAutosave(this.bridge.gameConfig.Game.AutosaveSeconds),
+			);
+		});
 	}
 }

@@ -1,3 +1,4 @@
+import { PayloadEvent } from "../Runtime/ServerNetwork";
 import StoreAccess from "../Modules/StoreAccess";
 import { deepCopy, Dict, isTable, num, truthy } from "./LuaInterop";
 // Persistent guild community features. Chat and announcement text is filtered before storage or broadcast.
@@ -160,7 +161,7 @@ class GuildCommunity {
 	private _guilds: GuildServiceLike;
 	private _data: DataServiceLike;
 	private _security: SecurityLike | undefined;
-	private _effect: RemoteEvent;
+	private _effect: PayloadEvent;
 	private _onBanMember: OnBanMember | undefined;
 	private _cache = new Map<string, CommunityDocument>();
 	private _cacheAt = new Map<string, number>();
@@ -175,7 +176,7 @@ class GuildCommunity {
 		guildService: GuildServiceLike,
 		dataService: DataServiceLike,
 		security: SecurityLike | undefined,
-		effect: RemoteEvent,
+		effect: PayloadEvent,
 		onBanMember?: OnBanMember,
 	) {
 		this._guilds = guildService;
@@ -375,7 +376,7 @@ class GuildCommunity {
 	private _deliver(guildId: string, payload: unknown, document: CommunityDocument) {
 		for (const recipient of this._localMembers(guildId)) {
 			if (document.Bans[tostring(recipient.UserId)] === undefined)
-				this._effect.FireClient(recipient, payload);
+				this._effect.fire(recipient, payload);
 		}
 	}
 

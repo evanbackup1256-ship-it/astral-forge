@@ -1,3 +1,4 @@
+import { PayloadEvent } from "../Runtime/ServerNetwork";
 // Server chat channels beyond RBXGeneral:
 //   friends  : one TextChannel that only delivers between Roblox friends in this server
 //   whispers : per-pair TextChannels created on request (Roblox filters and respects privacy)
@@ -38,7 +39,7 @@ class ChatService {
 	private _channels?: Instance;
 	private _friendsChannel?: TextChannel;
 
-	constructor(private _effect: RemoteEvent, private _data?: DataApi) { task.spawn(() => this._boot()); }
+	constructor(private _effect: PayloadEvent, private _data?: DataApi) { task.spawn(() => this._boot()); }
 	private _boot() {
 		const channels = TextChatService.WaitForChild("TextChannels", 30);
 		if (!this._alive || !channels) return;
@@ -70,7 +71,7 @@ class ChatService {
 			const [ok, friends] = pcall(() => (player as unknown as { IsFriendsWith(userId: number): boolean }).IsFriendsWith(other.UserId));
 			if (ok && friends) this._friends.set(pairKey(player.UserId, other.UserId), true);
 		}
-		if (this._history.size() > 0 && player.Parent === Players) this._effect.FireClient(player, { Type: "ChatGlobal", Messages: this._history, Backlog: true });
+		if (this._history.size() > 0 && player.Parent === Players) this._effect.fire(player, { Type: "ChatGlobal", Messages: this._history, Backlog: true });
 	}
 	private _leave(player: Player) {
 		const userId = player.UserId;
@@ -120,7 +121,7 @@ class ChatService {
 		this._deliver([entry]); if (!StoreAccess.isPreview()) this._outbox.push(entry); return { ok: true };
 	}
 	private _remember(entries: Entry[]) { for (const entry of entries) { this._history.push(entry); while (this._history.size() > HISTORY) this._history.shift(); } }
-	private _deliver(entries: Entry[]) { if (entries.size() === 0) return; this._remember(entries); for (const player of Players.GetPlayers()) if (this._canChat.get(player.UserId) === true) this._effect.FireClient(player, { Type: "ChatGlobal", Messages: entries }); }
+	private _deliver(entries: Entry[]) { if (entries.size() === 0) return; this._remember(entries); for (const player of Players.GetPlayers()) if (this._canChat.get(player.UserId) === true) this._effect.fire(player, { Type: "ChatGlobal", Messages: entries }); }
 	// One tick: write at most one batch to this server's map, then read the newest entries of every map.
 	private _flush() {
 		const own = this._maps.get(this._shard);

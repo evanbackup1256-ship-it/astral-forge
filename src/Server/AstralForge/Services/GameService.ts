@@ -1,6 +1,7 @@
 // GameService: the gameplay hub (remotes, runtime state, every player action).
 // Built lazily by ServerServices through createGameService(loadService).
 import { Dict, isTable, LoadService, num, truthy } from "./LuaInterop";
+import { PayloadEvent, ServerEvents, ServerFunctions } from "../Runtime/ServerNetwork";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
@@ -481,10 +482,9 @@ export function createGameService(loadService: LoadService) {
 		_data: Svc;
 		_world: Svc;
 		_fluxSurge: Svc | undefined;
-		_request: RemoteFunction;
-		_state: RemoteEvent;
-		_toast: RemoteEvent;
-		_effect: RemoteEvent;
+		_state: PayloadEvent;
+		_toast: PayloadEvent;
+		_effect: PayloadEvent;
 		_security: Dict;
 		_admin: Svc | undefined;
 		_runtime: Map<Player, Runtime>;
@@ -569,7 +569,7 @@ export function createGameService(loadService: LoadService) {
 			const visit = buildVisitSnapshot(host, profile);
 			for (const [visitor] of bucket) {
 				if (visitor.Parent === Players) {
-					this._effect.FireClient(visitor, {
+					this._effect.fire(visitor, {
 						Type: "VisitUpdate",
 						Visit: visit,
 					});
@@ -623,7 +623,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess("Already back at your workshop.");
 			}
 			this._clearVisit(visitor, true);
-			this._effect.FireClient(visitor, { Type: "VisitEnded" });
+			this._effect.fire(visitor, { Type: "VisitEnded" });
 			return responseSuccess("Back at your workshop.");
 		}
 
@@ -643,7 +643,7 @@ export function createGameService(loadService: LoadService) {
 				return responseError("They're not in this server anymore.");
 			}
 
-			this._effect.FireClient(target, {
+			this._effect.fire(target, {
 				Type: "CrewNudge",
 				FromUserId: sender.UserId,
 				FromName: sender.DisplayName,
@@ -1173,10 +1173,9 @@ export function createGameService(loadService: LoadService) {
 			this._data = dataService;
 			this._world = worldService;
 			this._fluxSurge = fluxSurgeService;
-			this._request = remotes.Request as RemoteFunction;
-			this._state = remotes.State as RemoteEvent;
-			this._toast = remotes.Toast as RemoteEvent;
-			this._effect = remotes.Effect as RemoteEvent;
+			this._state = ServerEvents.state;
+			this._toast = ServerEvents.toast;
+			this._effect = ServerEvents.effect;
 			this._security = remotes.Security as Dict;
 			this._admin = remotes.Admin as Svc | undefined;
 			this._runtime = new Map();
@@ -1200,7 +1199,7 @@ export function createGameService(loadService: LoadService) {
 				},
 				broadcast: () => {
 					for (const online of Players.GetPlayers()) {
-						this._effect.FireClient(online, { Type: "ServerEvent", Event: this._events.State(online) });
+						this._effect.fire(online, { Type: "ServerEvent", Event: this._events.State(online) });
 					}
 				},
 				pay: (entries: Dict[], def: Dict, why: string) => {
@@ -1239,7 +1238,7 @@ export function createGameService(loadService: LoadService) {
 					}
 					this._pushState(target);
 					// a guild ban removes guild access only (the client shows the notice); never disconnect the player
-					this._effect.FireClient(target, { Type: "GuildBanned", GuildId: guildId });
+					this._effect.fire(target, { Type: "GuildBanned", GuildId: guildId });
 					return $tuple(true, undefined);
 				},
 			) as Svc;
@@ -1598,7 +1597,7 @@ export function createGameService(loadService: LoadService) {
 			if (player.Parent !== Players) {
 				return;
 			}
-			this._toast.FireClient(player, {
+			this._toast.fire(player, {
 				Title: title,
 				Body: body,
 				Tone: orElse(tone, () => "Info"),
@@ -1857,7 +1856,7 @@ export function createGameService(loadService: LoadService) {
 				}
 				progression.Surge = surge;
 				progression.HalfwayPaidFor = math.max(num(progression.HalfwayPaidFor) ?? -1, levelState.Level as number);
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "LevelReward",
 					Level: levelState.Level,
 					Tier: levelState.Tier,
@@ -1988,7 +1987,7 @@ export function createGameService(loadService: LoadService) {
 					}
 					table.sort(names);
 					// the milestone card on the client names what opened and what it paid; no toast on top
-					this._effect.FireClient(player, {
+					this._effect.fire(player, {
 						Type: "LevelUp",
 						Level: levelState.Level,
 						Tier: levelState.Tier,
@@ -2006,7 +2005,7 @@ export function createGameService(loadService: LoadService) {
 						single ? "You can open it from the Forge menu." : names.join(", ") + " are ready in the Forge menu.",
 						"Special",
 					);
-					this._effect.FireClient(player, {
+					this._effect.fire(player, {
 						Type: "FeatureUnlocked",
 						Id: single ? single.Id : undefined,
 						Name: single ? single.State.Name : names.join(", "),
@@ -2317,7 +2316,7 @@ export function createGameService(loadService: LoadService) {
 					runtime.LastPushRevision = revision;
 					runtime.LastPushAt = now;
 				}
-				this._state.FireClient(player, this._trimUnchangedSections(runtime, snapshot, force));
+				this._state.fire(player, this._trimUnchangedSections(runtime, snapshot, force));
 			}
 			this._broadcastVisit(player);
 		}
@@ -2377,7 +2376,7 @@ export function createGameService(loadService: LoadService) {
 				(profile) => AnomalyService.Pulse(profile, this._random) as LuaTuple<[unknown, unknown, unknown]>,
 			);
 			if (truthy(result.ok) && truthy(details)) {
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: truthy(details.BecameReady) ? "AnomalyReady" : "AnomalyPulse",
 					Amount: details.Amount,
 					Charge: details.Charge,
@@ -2386,7 +2385,7 @@ export function createGameService(loadService: LoadService) {
 					PulseWindowStartedAt: details.PulseWindowStartedAt,
 				});
 				if (truthy(details.OverdriveTriggered)) {
-					this._effect.FireAllClients({ Type: "OverdriveTriggered", Overdrive: AnomalyService.OverdriveState() });
+					this._effect.broadcast({ Type: "OverdriveTriggered", Overdrive: AnomalyService.OverdriveState() });
 				}
 			}
 			return result;
@@ -2401,7 +2400,7 @@ export function createGameService(loadService: LoadService) {
 				return outcome;
 			});
 			if (truthy(result.ok) && truthy(details)) {
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "AnomalyStabilized",
 					AnomalyId: details.AnomalyId,
 					AnomalyName: details.AnomalyName,
@@ -2412,7 +2411,7 @@ export function createGameService(loadService: LoadService) {
 					TiersGained: details.TiersGained,
 				});
 				if (truthy(details.OverdriveTriggered)) {
-					this._effect.FireAllClients({ Type: "OverdriveTriggered", Overdrive: AnomalyService.OverdriveState() });
+					this._effect.broadcast({ Type: "OverdriveTriggered", Overdrive: AnomalyService.OverdriveState() });
 				}
 			}
 			return result;
@@ -2428,7 +2427,7 @@ export function createGameService(loadService: LoadService) {
 				(profile) => AnomalyService.BuyProtocol(profile, protocolId) as LuaTuple<[unknown, unknown, unknown]>,
 			);
 			if (truthy(result.ok) && truthy(details)) {
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "AnomalyProtocol",
 					ProtocolId: details.ProtocolId,
 					ProtocolName: details.ProtocolName,
@@ -2445,7 +2444,7 @@ export function createGameService(loadService: LoadService) {
 				(profile) => AnomalyService.ActivateSurge(profile) as LuaTuple<[unknown, unknown, unknown]>,
 			);
 			if (truthy(result.ok) && truthy(details)) {
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "AnomalySurge",
 					EndsAt: details.EndsAt,
 					Duration: details.Duration,
@@ -2466,7 +2465,7 @@ export function createGameService(loadService: LoadService) {
 			if (truthy(result.ok) && truthy(details)) {
 				const loadout = details.Loadout as Record<number, unknown> | undefined;
 				const first = truthy(loadout) ? loadout[1] : undefined;
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "AnomalyLoadout",
 					Loadout: details.Loadout,
 					Channel: truthy(first) ? first : channelId,
@@ -2485,7 +2484,7 @@ export function createGameService(loadService: LoadService) {
 				(profile) => AnomalyService.SetLoadout(profile, rawLoadout) as LuaTuple<[unknown, unknown, unknown]>,
 			);
 			if (truthy(result.ok) && truthy(details)) {
-				this._effect.FireClient(player, { Type: "AnomalyLoadout", Loadout: details.Loadout });
+				this._effect.fire(player, { Type: "AnomalyLoadout", Loadout: details.Loadout });
 			}
 			return result;
 		}
@@ -2497,7 +2496,7 @@ export function createGameService(loadService: LoadService) {
 				(profile) => AnomalyService.ClaimMilestone(profile, tier) as LuaTuple<[unknown, unknown, unknown]>,
 			);
 			if (truthy(result.ok) && truthy(details)) {
-				this._effect.FireClient(player, { Type: "AnomalyMilestone", Tier: details.Tier });
+				this._effect.fire(player, { Type: "AnomalyMilestone", Tier: details.Tier });
 			}
 			return result;
 		}
@@ -2512,7 +2511,7 @@ export function createGameService(loadService: LoadService) {
 				(profile) => AnomalyService.ClaimDirective(profile, directiveId) as LuaTuple<[unknown, unknown, unknown]>,
 			);
 			if (truthy(result.ok) && truthy(details)) {
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "AnomalyDirective",
 					DirectiveId: details.DirectiveId,
 					DirectiveName: details.DirectiveName,
@@ -2535,7 +2534,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess(message, extra);
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "EchoAct", Op: op });
+				this._effect.fire(player, { Type: "EchoAct", Op: op });
 			}
 			return result;
 		}
@@ -2594,7 +2593,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess("Banked " + (Format.Number(amount) as string) + " Flux.", { Amount: amount });
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "Collect", Amount: result.Amount });
+				this._effect.fire(player, { Type: "Collect", Amount: result.Amount });
 			}
 			return result;
 		}
@@ -2715,7 +2714,7 @@ export function createGameService(loadService: LoadService) {
 			);
 			if (truthy(result.ok)) {
 				this._events.OnTap(player);
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "Overcharge",
 					Amount: result.Amount,
 					Critical: result.Critical,
@@ -3171,7 +3170,7 @@ export function createGameService(loadService: LoadService) {
 			});
 			if (truthy(result.ok)) {
 				this._world.RefreshPlot(player, this._data.Get(player));
-				this._effect.FireAllClients({
+				this._effect.broadcast({
 					Type: "Rebirth",
 					UserId: player.UserId,
 					Position: this._world.GetPlotPosition(player),
@@ -3498,7 +3497,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess(rewardText);
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "FeatureUnlocked" });
+				this._effect.fire(player, { Type: "FeatureUnlocked" });
 			}
 			return result;
 		}
@@ -3556,7 +3555,7 @@ export function createGameService(loadService: LoadService) {
 					rewardText !== "" ? rewardText : (productDef.Name as string),
 					"Special",
 				);
-				this._effect.FireClient(player, { Type: "FeatureUnlocked" });
+				this._effect.fire(player, { Type: "FeatureUnlocked" });
 			}
 			return Enum.ProductPurchaseDecision.PurchaseGranted;
 		}
@@ -3630,7 +3629,7 @@ export function createGameService(loadService: LoadService) {
 			});
 			if (truthy(result.ok)) {
 				this._toastPlayer(player, "Purchase test", truthy(result.message) ? result.message : rawKey, "Success");
-				this._effect.FireClient(player, { Type: "FeatureUnlocked" });
+				this._effect.fire(player, { Type: "FeatureUnlocked" });
 			}
 			return result;
 		}
@@ -4065,7 +4064,7 @@ export function createGameService(loadService: LoadService) {
 			});
 			if (truthy(result.ok)) {
 				this._toastPlayer(player, "Relic linked", result.message, "Success");
-				this._effect.FireClient(player, {
+				this._effect.fire(player, {
 					Type: "ItemLinked",
 					ItemName: result.ItemName,
 					Rarity: result.Rarity,
@@ -4641,7 +4640,7 @@ export function createGameService(loadService: LoadService) {
 			if (truthy(result.ok)) {
 				const profile = this._data.Get(player) as Profile | undefined;
 				this._world.RefreshPlot(player, profile);
-				this._effect.FireAllClients({
+				this._effect.broadcast({
 					Type: "DomainExpansion",
 					UserId: player.UserId,
 					Rank: details !== undefined ? details.DomainRank : 0,
@@ -4725,7 +4724,7 @@ export function createGameService(loadService: LoadService) {
 			});
 			if (truthy(result.ok)) {
 				this._world.RefreshPlot(player, this._data.Get(player));
-				this._effect.FireAllClients({
+				this._effect.broadcast({
 					Type: "Ascension",
 					UserId: player.UserId,
 					Rank: details !== undefined ? details.Rank : 0,
@@ -4836,7 +4835,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess(rewardText);
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "FeatureUnlocked" });
+				this._effect.fire(player, { Type: "FeatureUnlocked" });
 			}
 			return result;
 		}
@@ -4946,7 +4945,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess(tostring(message) + " " + tostring(rewardText));
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "LabOrder", OrderId: orderId });
+				this._effect.fire(player, { Type: "LabOrder", OrderId: orderId });
 			}
 			return result;
 		}
@@ -4997,7 +4996,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess("Story keepsake: " + tostring(reward));
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "StoryClaimed", Id: chapterId });
+				this._effect.fire(player, { Type: "StoryClaimed", Id: chapterId });
 			}
 			return result;
 		}
@@ -5036,7 +5035,7 @@ export function createGameService(loadService: LoadService) {
 				return responseSuccess("Mail attachment: " + tostring(reward));
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "MailClaimed", Id: messageId });
+				this._effect.fire(player, { Type: "MailClaimed", Id: messageId });
 			}
 			return result;
 		}
@@ -5067,7 +5066,7 @@ export function createGameService(loadService: LoadService) {
 				);
 			});
 			if (truthy(result.ok)) {
-				this._effect.FireClient(player, { Type: "MailClaimed", Id: "*", Count: claimedCount });
+				this._effect.fire(player, { Type: "MailClaimed", Id: "*", Count: claimedCount });
 			}
 			return result;
 		}
@@ -6241,7 +6240,7 @@ export function createGameService(loadService: LoadService) {
 					this._visiting.delete(visitor);
 					if (visitor.Parent === Players) {
 						this._toastPlayer(visitor, "Visit ended", "The host left the server.", "Info");
-						this._effect.FireClient(visitor, { Type: "VisitEnded" });
+						this._effect.fire(visitor, { Type: "VisitEnded" });
 					}
 				}
 				this._visitors.delete(player.UserId);
@@ -6484,7 +6483,7 @@ export function createGameService(loadService: LoadService) {
 						runtime.PendingAnomalyActions = remaining;
 						this._queueStatePush(player);
 						if (anomalyDetails !== undefined && truthy(anomalyDetails.BecameReady)) {
-							this._effect.FireClient(player, {
+							this._effect.fire(player, {
 								Type: "AnomalyReady",
 								Amount: anomalyDetails.Amount,
 								Charge: anomalyDetails.Charge,
@@ -6635,7 +6634,7 @@ export function createGameService(loadService: LoadService) {
 				this._pushState(player);
 			});
 
-			this._request.OnServerInvoke = (player: Player, action: unknown, payload: unknown) => {
+			ServerFunctions.request.setCallback((player: Player, action: string, payload?: unknown) => {
 				const requestStartedAt = os.clock();
 
 				if (
@@ -6805,7 +6804,7 @@ export function createGameService(loadService: LoadService) {
 					resultBag.N = nonce;
 				}
 				return resultBag;
-			};
+			});
 
 			this._playerAddedConnection = Players.PlayerAdded.Connect((player) => {
 				this._spawnWorker(() => {
@@ -6930,9 +6929,7 @@ export function createGameService(loadService: LoadService) {
 				this._admin.Destroy();
 			}
 
-			this._request.OnServerInvoke = () => {
-				return responseError("The server is shutting down.") as object;
-			};
+			ServerFunctions.request.setCallback(() => responseError("The server is shutting down."));
 			for (const [player, pending] of this._queuedStatePushes) {
 				task.cancel(pending);
 				this._queuedStatePushes.delete(player);

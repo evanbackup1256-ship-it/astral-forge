@@ -1,3 +1,4 @@
+import type { RequestFunction } from "../ClientNetwork";
 import { ClientLog } from "./log";
 
 const HttpService = game.GetService("HttpService");
@@ -120,7 +121,7 @@ export function adopt(response: SessionResponse) {
 	}
 }
 
-export function startSession(remotes: { Request: RemoteFunction }) {
+export function startSession(remotes: { Request: RequestFunction }) {
 	stopped = false;
 	helloDone = false;
 	lastPresenceAt = -1e9;
@@ -150,7 +151,7 @@ export function startSession(remotes: { Request: RemoteFunction }) {
 		let ok = false;
 		let raw: unknown = undefined;
 		task.spawn(() => {
-			const [callOk, callRaw] = pcall(() => remotes.Request.InvokeServer("ReportPresence", payload));
+			const [callOk, callRaw] = pcall(() => remotes.Request.invoke("ReportPresence", payload).expect());
 			presenceInFlight = math.max(0, presenceInFlight - 1);
 			if (serial !== presenceSerial || token !== sessionToken || stopped) {
 				return;

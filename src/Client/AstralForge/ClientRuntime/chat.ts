@@ -1,3 +1,4 @@
+import { ClientEvents } from "../ClientNetwork";
 import React from "@rbxts/react";
 import * as ChatText from "../CoreKit/chatText";
 import { truthy } from "../lua";
@@ -15,7 +16,6 @@ const Audio = (require(script.Parent!.Parent!.FindFirstChild("AudioKit") as Modu
 ).Audio;
 const sharedRoot = ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared");
 const ChatRules = require(sharedRoot.WaitForChild("ChatRules") as ModuleScript) as typeof import("../../../Shared/AstralForge/Shared/ChatRules");
-const Protocol = require(sharedRoot.WaitForChild("Protocol") as ModuleScript) as { FolderName: string; EffectName: string };
 
 const MAX_MESSAGES = 200;
 const MAX_INPUT = ChatRules.MAX_INPUT;
@@ -489,11 +489,6 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 				}
 			}
 		};
-		let effect: Instance | undefined;
-		pcall(() => {
-			effect = ReplicatedStorage.FindFirstChild(Protocol.FolderName);
-			effect = effect !== undefined ? effect.FindFirstChild(Protocol.EffectName) : undefined;
-		});
 		const onEffect = (raw: unknown) => {
 			if (!alive || !typeIs(raw, "table")) {
 				return undefined;
@@ -523,10 +518,7 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 				}
 			}
 		};
-		const effectRemote = effect as Instance | undefined;
-		if (effectRemote !== undefined && effectRemote.IsA("RemoteEvent")) {
-			track(effectRemote.OnClientEvent.Connect(onEffect));
-		}
+		track(ClientEvents.effect.connect(onEffect));
 		const connecting = systemMessage("Chat is connecting. This can take a moment on slower devices.");
 		setMessages([connecting]);
 		const connectWorker = task.spawn(() => {

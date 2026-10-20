@@ -1,3 +1,4 @@
+import { ClientEvents } from "../../ClientNetwork";
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
@@ -603,7 +604,7 @@ function __member(): unknown {
 				}
 				return undefined;
 			});
-			let connection: unknown = colon(luaProp(colon(colon(colon(game).GetService("ReplicatedStorage")).WaitForChild("__AFX_BRIDGE_31")).WaitForChild("re_e31"), "OnClientEvent")).Connect(function(this: void, packet?: unknown): unknown | undefined {
+			let connection: unknown = ClientEvents.effect.connect(function(this: void, packet?: unknown): unknown | undefined {
 				if ((((!luaTruthy(alive)) || (!luaTypeIs(packet, "table"))) || (luaProp(packet, "GuildId") !== luaProp(guild, "Id")))) {
 					return;
 				}

@@ -3,6 +3,7 @@
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
 import { Dict } from "./lua";
+import type { ClientEvents as ClientEventsShape, PushEvent, RequestFunction } from "./ClientNetwork";
 
 type Loose = (props: Dict) => React.Element | undefined;
 
@@ -300,11 +301,11 @@ function normalizeShutdown(raw: unknown, fallbackRevision: number): { revision: 
 
 interface Remotes {
 	Bridge: Folder;
-	Request: RemoteFunction;
-	State: RemoteEvent;
-	Toast: RemoteEvent;
-	Effect: RemoteEvent;
-	Shutdown: RemoteEvent;
+	Request: RequestFunction;
+	State: PushEvent;
+	Toast: PushEvent;
+	Effect: PushEvent;
+	Shutdown: typeof ClientEventsShape.shutdown;
 }
 interface Connection {
 	remotes: Remotes;
@@ -385,7 +386,7 @@ function ClientBootstrap(props: BootstrapProps) {
 				Revision: connection.remotes.Bridge.GetAttribute("ShutdownRevision"),
 			});
 		};
-		const eventConnection = trackBootConnection(connection.remotes.Shutdown.OnClientEvent.Connect(accept));
+		const eventConnection = trackBootConnection(connection.remotes.Shutdown.connect(accept));
 		const attributeConnection = trackBootConnection(
 			connection.remotes.Bridge.GetAttributeChangedSignal("ShutdownRevision").Connect(syncBridge),
 		);
@@ -844,11 +845,6 @@ function loadModule<T>(moduleScript: ModuleScript, label: string): T {
 
 interface Protocol {
 	FolderName: string;
-	RequestName: string;
-	StateName: string;
-	ToastName: string;
-	EffectName: string;
-	ShutdownName: string;
 }
 
 const astralRoot = requiredChild(ReplicatedStorage, "AstralForge", "Folder", REPLICATION_TIMEOUT, "AstralForge did not replicate within 15 seconds.");
@@ -857,14 +853,8 @@ const protocolScript = requiredChild(sharedRoot, "Protocol", "ModuleScript", CHI
 const configScript = requiredChild(sharedRoot, "GameConfig", "ModuleScript", CHILD_TIMEOUT, "GameConfig module is missing or has the wrong class.");
 const protocol = loadModule<Protocol>(protocolScript, "Protocol");
 const config = loadModule<Connection["config"]>(configScript, "GameConfig");
-for (const name of [
-	protocol.FolderName,
-	protocol.RequestName,
-	protocol.StateName,
-	protocol.ToastName,
-	protocol.EffectName,
-	protocol.ShutdownName,
-] as unknown[]) {
+{
+	const name = protocol.FolderName as unknown;
 	if (!typeIs(name, "string") || name.size() < 1 || name.size() > 64) {
 		failBootstrap("Protocol contains an invalid bridge name.");
 	}
@@ -888,13 +878,15 @@ const bridge = requiredChild(
 	REPLICATION_TIMEOUT,
 	"Server bridge was not published within 15 seconds. Check the first Server error.",
 );
+// The typed remotes (@flamework/networking) load only once the server's bridge folder exists.
+const { ClientEvents, ClientFunctions } = load<typeof import("./ClientNetwork")>("ClientNetwork");
 const remotes: Remotes = {
 	Bridge: bridge,
-	Request: requiredChild(bridge, protocol.RequestName, "RemoteFunction", 5, "Server request remote is missing or has the wrong class."),
-	State: requiredChild(bridge, protocol.StateName, "RemoteEvent", 5, "Server state remote is missing or has the wrong class."),
-	Toast: requiredChild(bridge, protocol.ToastName, "RemoteEvent", 5, "Server toast remote is missing or has the wrong class."),
-	Effect: requiredChild(bridge, protocol.EffectName, "RemoteEvent", 5, "Server effect remote is missing or has the wrong class."),
-	Shutdown: requiredChild(bridge, protocol.ShutdownName, "RemoteEvent", 5, "Server shutdown remote is missing or has the wrong class."),
+	Request: ClientFunctions.request,
+	State: ClientEvents.state,
+	Toast: ClientEvents.toast,
+	Effect: ClientEvents.effect,
+	Shutdown: ClientEvents.shutdown,
 };
 const stopPerformanceTelemetry = startPerformanceTelemetry(remotes.Request);
 runtime.addDisposer(stopPerformanceTelemetry);

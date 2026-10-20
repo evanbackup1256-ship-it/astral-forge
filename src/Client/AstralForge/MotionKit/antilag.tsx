@@ -1,3 +1,4 @@
+import type { RequestFunction } from "../ClientNetwork";
 import React from "@rbxts/react";
 import { ClientLog, QualitySample, recordPerformanceTelemetry } from "../CoreKit/log";
 import { setClockBudget, setContinuousMotionRate } from "./motion";
@@ -63,7 +64,7 @@ const pingHistory = new Array<number>();
 let telemetryConnection: RBXScriptConnection | undefined;
 let latestTelemetry = DEFAULT_TELEMETRY;
 let cachedPingItem: StatsItem | undefined;
-let latencyRemote: RemoteFunction | undefined;
+let latencyRemote: RequestFunction | undefined;
 let latencyAction: string | undefined = "MeasureLatency";
 let latencyWorker: thread | undefined;
 const latencyProbeWorkers = new Set<thread>();
@@ -186,7 +187,7 @@ function startLatencyWorker() {
 				const startedAt = os.clock();
 				let timeoutWorker: thread | undefined;
 				const probeWorker: thread = task.defer(() => {
-					const [ok, response] = pcall(() => remote.InvokeServer(action));
+					const [ok, response] = pcall(() => remote.invoke(action ?? "MeasureLatency").expect());
 					latencyProbeWorkers.delete(probeWorker);
 					if (timeoutWorker !== undefined && latencyTimeoutWorkers.has(timeoutWorker)) {
 						latencyTimeoutWorkers.delete(timeoutWorker);
@@ -225,7 +226,7 @@ function startLatencyWorker() {
 	});
 }
 
-export function watchPing(remote: RemoteFunction, action = "MeasureLatency"): () => void {
+export function watchPing(remote: RequestFunction, action = "MeasureLatency"): () => void {
 	let stopped = false;
 	const disconnect = () => {
 		if (stopped) {

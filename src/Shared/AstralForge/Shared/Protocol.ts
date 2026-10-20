@@ -1,10 +1,5 @@
 ﻿export = table.freeze({
 	FolderName: "__AFX_BRIDGE_31",
-	RequestName: "rf_31d",
-	StateName: "re_s31",
-	ToastName: "re_t31",
-	EffectName: "re_e31",
-	ShutdownName: "re_sd31",
 
 	Actions: {
 		GetState: "GetState",

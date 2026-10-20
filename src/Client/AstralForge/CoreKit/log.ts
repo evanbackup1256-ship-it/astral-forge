@@ -1,3 +1,4 @@
+import type { RequestFunction } from "../ClientNetwork";
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
@@ -174,7 +175,7 @@ function inputFamily(): "touch" | "gamepad" | "mouse" {
 	return "mouse";
 }
 
-export function startPerformanceTelemetry(request: RemoteFunction) {
+export function startPerformanceTelemetry(request: RequestFunction) {
 	let alive = true;
 	let reportInFlight = false;
 	let reportSerial = 0;
@@ -201,7 +202,7 @@ export function startPerformanceTelemetry(request: RemoteFunction) {
 					const serial = reportSerial + 1;
 					reportSerial = serial;
 					requestWorker = task.defer(() => {
-						pcall(() => request.InvokeServer("ReportPerformance", payload));
+						pcall(() => request.invoke("ReportPerformance", payload).expect());
 						if (!alive || serial !== reportSerial) {
 							return;
 						}
