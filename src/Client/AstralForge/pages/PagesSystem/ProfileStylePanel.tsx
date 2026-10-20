@@ -3,6 +3,8 @@ import { FrameStroke, frameStroke } from "../../CoreKit/profileFrame";
 import { PlayerMark } from "../../ArtKit/Icon";
 import { Palette, Radius, TapTarget } from "../../CoreKit/theme";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
+import { ClientActions, useClientDispatch } from "../../CoreKit/clientStore";
+import * as NavRoutes from "../../../../Shared/AstralForge/Shared/NavRoutes";
 import { kitMember, LuauComponent, sharedModule } from "../luauKits";
 
 const Players = game.GetService("Players");
@@ -13,6 +15,7 @@ interface SkinOption {
 	Name: string;
 	Accent: [number, number, number];
 	Default?: boolean;
+	DailyOnly?: boolean;
 }
 const ShopCatalog = sharedModule<(name: string) => unknown>("SharedData")("ShopCatalog") as { SKINS: SkinOption[]; DEFAULT_SKIN: string };
 const SKIN_BTN_W = 150;
@@ -122,6 +125,34 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 	}, [equippedSkin]);
 	const shownSkin = pendingSkin ?? equippedSkin;
 	const ownedSkins = ShopCatalog.SKINS.filter((skin) => skin.Id === ShopCatalog.DEFAULT_SKIN || ownedBag[skin.Id] === true);
+	// skins you don't own yet sit after yours; tapping one opens the Shop (Daily Shop-only skins are left out)
+	const lockedSkins = ShopCatalog.SKINS.filter((skin) => skin.DailyOnly !== true && !ownedSkins.includes(skin));
+	const storeDispatch = useClientDispatch();
+	const openShop = () => {
+		if (NavRoutes.isNavId("Shop")) {
+			storeDispatch(ClientActions.navigate("Shop"));
+		}
+	};
+	const lockedButtons = lockedSkins.map((skin, index) => (
+		<frame
+			key={`locked-${skin.Id}`}
+			Size={UDim2.fromOffset(SKIN_BTN_W, TapTarget)}
+			Position={UDim2.fromOffset((ownedSkins.size() + index) * (SKIN_BTN_W + 8), 0)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+		>
+			<Button
+				text={`${skin.Name} · Shop`}
+				icon="Shop.1"
+				onClick={openShop}
+				color={Palette.panelSoft}
+				textColor={Palette.muted}
+				outline={true}
+				size={UDim2.fromScale(1, 1)}
+				reducedMotion={props.reducedMotion}
+			/>
+		</frame>
+	));
 	const skinButtons = ownedSkins.map((skin, index) => {
 		const selected = skin.Id === shownSkin;
 		const tint = Color3.fromRGB(skin.Accent[0], skin.Accent[1], skin.Accent[2]);
@@ -326,7 +357,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
 			<Text
-				value={ownedSkins.size() > 1 ? "Crate skin" : "Crate skin · get more in the Shop"}
+				value={lockedSkins.size() > 0 ? "Crate skin · tap a locked one to find it in the Shop" : "Crate skin"}
 				size={12}
 				minSize={9}
 				color={Palette.creamSoft}
@@ -343,10 +374,11 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				ScrollingDirection={Enum.ScrollingDirection.X}
 				ScrollBarThickness={2}
 				ScrollBarImageColor3={accentColor}
-				CanvasSize={UDim2.fromOffset(ownedSkins.size() * (SKIN_BTN_W + 8), 0)}
+				CanvasSize={UDim2.fromOffset((ownedSkins.size() + lockedSkins.size()) * (SKIN_BTN_W + 8), 0)}
 				ClipsDescendants={true}
 			>
 				{skinButtons}
+				{lockedButtons}
 			</scrollingframe>
 		</>
 	);
