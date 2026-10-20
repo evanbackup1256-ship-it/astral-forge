@@ -666,7 +666,7 @@ __defs["TradeView"] = () => {
 		let balanceText: string;
 		let balanceColor: Color3;
 		if (total === 0) {
-			balanceText = "Put items or currency on the table to see how the trade balances.";
+			balanceText = "Add items or currency to see the balance";
 			balanceColor = Palette.muted;
 		} else if (yourRatio >= 0.42 && yourRatio <= 0.58) {
 			balanceText = "Fair trade · about even";
@@ -698,6 +698,8 @@ __defs["TradeView"] = () => {
 			h(Text, {
 				value: balanceText,
 				size: 12,
+				fit: true,
+				minSize: 10,
 				color: balanceColor,
 				weight: Enum.FontWeight.Bold,
 				sizeConstraint: new UDim2(1, 0, 0, 16),
