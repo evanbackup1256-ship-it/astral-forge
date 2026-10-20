@@ -4,6 +4,7 @@ const GuiService = game.GetService("GuiService");
 const UserInputService = game.GetService("UserInputService");
 import { KeyLabel } from "../../CoreKit/GamepadNavigationService";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
+import { frameStroke } from "../../CoreKit/profileFrame";
 import ReactRoblox from "@rbxts/react-roblox";
 // phone height for other players' roster rows (was 158): mark, two text lines, then the Wave/Visit row
 // How long since a crewmate last did anything, from the presence age the server already sends.
@@ -87,6 +88,14 @@ function crewStatus(text: string): void {
  * Profile-style hook for crew roster rows. `player` is a GetPlayers entry (UserId, DisplayName, IsLocal, ...).
  * Return an accent Color3 to tint the row ring; undefined keeps the default colors.
  */
+function crewRowFrame(player: unknown): ProfileStyle.FrameOption | undefined {
+	const userId = typeIs(player, "table") ? (player as { UserId?: unknown }).UserId : undefined;
+	if (!typeIs(userId, "number")) {
+		return undefined;
+	}
+	return ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(userId)).frame;
+}
+
 function crewRowAccent(player: unknown): Color3 | undefined {
 	const userId = typeIs(player, "table") ? (player as { UserId?: unknown }).UserId : undefined;
 	if (!typeIs(userId, "number")) {
@@ -146,12 +155,14 @@ function __member(): unknown {
 		const visitText = keysFocused && !luaTruthy(visiting) ? `VISIT · ${KeyLabel(Enum.KeyCode.ButtonY, "Y")}` : undefined;
 		// Profile-style hook: return a Color3 from crewRowAccent to tint this row; undefined keeps green/blue.
 		let accent: unknown = crewRowAccent(player) ?? (luaTruthy(luaProp(player, "IsLocal")) ? luaProp(Palette, "green") : luaProp(Palette, "blue"));
+		// the player's chosen profile frame on their mark ring, same treatment as chat and the Rank rows
+		const markRing = frameStroke(crewRowFrame(player), accent as Color3);
 		// phones: other players' rows tighten up (smaller mark, lines closer); buttons keep full tap size
 		const compactRow = luaTruthy(stack) && !luaTruthy(luaProp(player, "IsLocal"));
 		const textX = compactRow ? 46 : 58;
 		let rowH: unknown = (luaTruthy(stack) ? ((luaTruthy(luaProp(player, "IsLocal")) ? 118 : CREW_COMPACT_ROW_H)) : 100);
 		let pad: unknown = (luaTruthy(stack) ? 14 : 12);
-		let _exp: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), (compactRow ? 36 : (luaTruthy(stack) ? 48 : 44)), (compactRow ? 36 : (luaTruthy(stack) ? 48 : 44))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, (compactRow ? 4 : (luaTruthy(stack) ? 8 : 14))), BackgroundColor3: luaCall(darken, accent, 0.62), BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(1, 0) }), reactLoose.createElement("uigradient", { Color: new (ColorSequence as unknown as new (...args: unknown[]) => unknown)(luaCall(lighten, accent, 0.12), luaCall(darken, accent, 0.48)), Rotation: 120 }), reactLoose.createElement("uistroke", { ApplyStrokeMode: luaProp(luaProp(Enum, "ApplyStrokeMode"), "Border"), LineJoinMode: luaProp(luaProp(Enum, "LineJoinMode"), "Round"), Color: accent, Thickness: 1, Transparency: 0.32 }), reactLoose.createElement(PlayerMark, { userId: luaProp(player, "UserId"), color: luaProp(Palette, "ink"), accent: accent, size: (compactRow ? 30 : (luaTruthy(stack) ? 42 : 38)), position: luaCall(luaProp(UDim2, "fromScale"), 0.5, 0.5), anchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5) }));
+		let _exp: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), (compactRow ? 36 : (luaTruthy(stack) ? 48 : 44)), (compactRow ? 36 : (luaTruthy(stack) ? 48 : 44))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, (compactRow ? 4 : (luaTruthy(stack) ? 8 : 14))), BackgroundColor3: luaCall(darken, accent, 0.62), BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(1, 0) }), reactLoose.createElement("uigradient", { Color: new (ColorSequence as unknown as new (...args: unknown[]) => unknown)(luaCall(lighten, accent, 0.12), luaCall(darken, accent, 0.48)), Rotation: 120 }), reactLoose.createElement("uistroke", { ApplyStrokeMode: luaProp(luaProp(Enum, "ApplyStrokeMode"), "Border"), LineJoinMode: luaProp(luaProp(Enum, "LineJoinMode"), "Round"), Color: markRing.color, Thickness: markRing.thickness, Transparency: markRing.framed ? 0 : 0.32 }, markRing.gradient !== undefined ? reactLoose.createElement("uigradient", { Color: markRing.gradient, Rotation: 35 }) : undefined), reactLoose.createElement(PlayerMark, { userId: luaProp(player, "UserId"), color: luaProp(Palette, "ink"), accent: accent, size: (compactRow ? 30 : (luaTruthy(stack) ? 42 : 38)), position: luaCall(luaProp(UDim2, "fromScale"), 0.5, 0.5), anchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5) }));
 		let _exp_1: unknown = reactLoose.createElement(Text, { value: (luaTruthy(luaProp(player, "IsLocal")) ? "YOU" : luaProp(player, "DisplayName")), size: (luaTruthy(stack) ? 17 : 16), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 11, position: luaCall(luaProp(UDim2, "fromOffset"), textX, compactRow ? 0 : 2), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? (-((((58 as unknown as number) + (16 as unknown as number))) as unknown as number)) : -280), 0, 22) });
 		let _exp_2: unknown = reactLoose.createElement(Text, { value: `World ${luaProp(player, "CurrentZone")}`, size: (luaTruthy(stack) ? 12 : 10), color: luaProp(Palette, "muted"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), textX, compactRow ? 22 : 28), sizeConstraint: luaCall(luaProp(UDim2, "fromOffset"), 80, 16) });
 		let _exp_3: unknown = reactLoose.createElement(Text, { value: `${luaCall(compactNumber, luaProp(player, "Production"))} /s`, size: (luaTruthy(stack) ? 12 : 10), color: luaProp(Palette, "muted"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), textX + 86, compactRow ? 22 : 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -160, 0, 16) });
