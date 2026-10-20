@@ -35,6 +35,21 @@ export const PLAYER_COPY: Record<string, string> = {
 	["remote traffic paused briefly. please try again."]: "Easy, that was a lot of taps. Give it a second.",
 	["your profile is not ready. please try again."]: "Your save is still loading. Try again in a moment.",
 	["feedback isn't set up yet. please try again later."]: "Feedback isn't open yet. Check back later.",
+	["please slow down for a moment."]: "Easy there. Give it a second.",
+	["the server is still starting. please retry in a moment."]: "The server's still warming up. Try again in a moment.",
+	["this trade hit an error and has to be cancelled."]: "Something went wrong with this trade, so it's been called off.",
+	["relic id is invalid or inventory is full."]: "Your relic bag might be full. Make some room and try again.",
+	["that machine cannot be queued."]: "That station can't be queued right now.",
+	["target must be online in this server."]: "They need to be in this server for that.",
+	["guild request was denied."]: "The guild turned that down.",
+	["that code is invalid or already used."]: "That code doesn't work, or it's already been used.",
+	["relic recycler is required for auto-salvage."]: "You'll need the Relic Recycler before auto-salvage works.",
+	["an auto-salvage rarity is invalid."]: "Pick the rarities to salvage again.",
+	["the relic selection is invalid."]: "Pick the relics again. Something changed.",
+	["that request is already open."]: "You've already asked for that.",
+	["there is no open request to cancel."]: "There's nothing to cancel.",
+	["that player has no open supply request."]: "They don't need anything right now.",
+	["that supply cannot be requested."]: "That supply can't be requested.",
 };
 
 export const INTERNAL_PAYLOAD_COPY: Record<string, true> = {
@@ -130,6 +145,18 @@ export function friendlyPlayerMessage(value: string | undefined): string | undef
 	const exact = PLAYER_COPY[value] ?? PLAYER_COPY[value.lower()];
 	if (exact !== undefined) {
 		return exact;
+	}
+	const lowered = value.lower();
+	// the chat filter turned it down
+	if (lowered.find("please try different wording", 1, true)[0] !== undefined) {
+		return "The filter didn't like that wording. Try saying it another way.";
+	}
+	// leftover server shorthand ("Invalid mission request.", "Mission not found.", "Unknown boost id.")
+	if (lowered.sub(1, 8) === "invalid " || (lowered.sub(1, 8) === "unknown " && lowered.find(" id", 1, true)[0] !== undefined)) {
+		return "That isn't available right now. It may have just changed.";
+	}
+	if (lowered.find(" not found", 1, true)[0] !== undefined && lowered.find("admin", 1, true)[0] === undefined) {
+		return "Couldn't find that one. It may have just changed.";
 	}
 	return value;
 }

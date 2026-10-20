@@ -248,7 +248,7 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 				kind="Calendar"
 				accent={accent}
 				size={46}
-				radius={12}
+				radius={14}
 				position={UDim2.fromOffset(0, 2)}
 				glow={live}
 				spin={live && !reducedMotion}
@@ -319,7 +319,7 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 							ZIndex={5}
 						>
 							<uiscale Scale={flash.map((amount) => 1 + amount * 0.28)} />
-							<uicorner CornerRadius={new UDim(0, 12)} />
+							<uicorner CornerRadius={new UDim(0, 14)} />
 							<uistroke
 								ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 								LineJoinMode={Enum.LineJoinMode.Round}
@@ -1475,7 +1475,7 @@ export function OverviewView({
 														BorderSizePixel={0}
 														ZIndex={3}
 													>
-														<uicorner CornerRadius={new UDim(0, 12)} />
+														<uicorner CornerRadius={new UDim(0, 14)} />
 														<uistroke
 															ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 															LineJoinMode={Enum.LineJoinMode.Round}
@@ -1568,7 +1568,11 @@ export function OverviewView({
 											value={
 												opsClaims > 0
 													? `${opsClaims} ready to claim`
-													: (opsGuide?.EmptyClaims ?? "Nothing to claim yet. Keep forging.")
+													: storyWaiting > 0
+														? storyWaiting === 1
+															? "A chapter is waiting"
+															: `${storyWaiting} chapters are waiting`
+														: (opsGuide?.EmptyClaims ?? "Nothing to claim yet. Keep forging.")
 											}
 											size={stack ? 17 : 18}
 											color={Palette.cream}
@@ -1639,17 +1643,31 @@ export function OverviewView({
 											highlight={pathReady}
 											layoutOrder={2}
 										/>
-										<Button
-											text="BLACK MARKET"
-											icon="Shop.3"
-											onClick={() => navigate?.("Bazaar")}
-											color={Palette.panelSoft}
-											textColor={Palette.creamSoft}
-											size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
-											reducedMotion={reducedMotion}
-											highlight={false}
-											layoutOrder={3}
-										/>
+										{storyWaiting > 0 ? (
+											<Button
+												text={`STORY · ${storyWaiting}`}
+												icon="Story.1"
+												onClick={() => navigate?.("Story")}
+												color={Palette.mint}
+												textColor={Palette.ink}
+												size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
+												reducedMotion={reducedMotion}
+												highlight={true}
+												layoutOrder={3}
+											/>
+										) : (
+											<Button
+												text="BLACK MARKET"
+												icon="Shop.3"
+												onClick={() => navigate?.("Bazaar")}
+												color={Palette.panelSoft}
+												textColor={Palette.creamSoft}
+												size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
+												reducedMotion={reducedMotion}
+												highlight={false}
+												layoutOrder={3}
+											/>
+										)}
 									</frame>
 								</Panel>
 							),
@@ -1707,7 +1725,7 @@ export function OverviewView({
 										kind="World"
 										accent={domain.CanExpand ? Palette.pink : Palette.violet}
 										size={phone ? 54 : 62}
-										radius={16}
+										radius={14}
 										position={UDim2.fromOffset(0, phone ? 4 : 18)}
 										glow={domain.CanExpand && !effectsPaused}
 										spin={domain.CanExpand && !effectsPaused}

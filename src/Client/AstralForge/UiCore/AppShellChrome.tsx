@@ -29,6 +29,7 @@ import { LevelRoadmapHost } from "./levelRoadmap";
 import { MobileHeader, MobileQuickActions, MobileTabBar } from "./MobileShell";
 import { Navigation } from "./NavChrome";
 import { OfflineRewardsOverlay } from "./OfflineRewardsOverlay";
+import Juice = require("../JuiceFx");
 import { ReleaseNotesModal, TutorialOverlay } from "./onboarding";
 import { PlayerlistOverlay } from "./PlayerlistOverlay";
 import { RebirthCeremonyHost } from "./RebirthCeremony";
@@ -110,15 +111,15 @@ function awayExtras(state: ShellState, dispatch: Dispatch) {
 		Quests?: unknown;
 	};
 	const waiting: string[] = [];
-	const claims: Array<() => void> = [];
+	const claims: Array<[string, object | undefined]> = [];
 	if (loose.Daily?.CanClaim === true) {
 		waiting.push("your daily parcel");
-		claims.push(() => dispatch("ClaimDaily"));
+		claims.push(["ClaimDaily", undefined]);
 	}
 	const trip = loose.Command?.ActiveExpedition;
 	if (trip !== undefined && (trip.Id ?? "") !== "" && os.time() >= (tonumber(trip.EndsAt) ?? math.huge)) {
 		waiting.push("a crew back from their trip");
-		claims.push(() => dispatch("ClaimExpedition", {}));
+		claims.push(["ClaimExpedition", {}]);
 	}
 	const readyIds: string[] = [];
 	if (typeIs(loose.Quests, "table")) {
@@ -133,11 +134,48 @@ function awayExtras(state: ShellState, dispatch: Dispatch) {
 	}
 	if (readyIds.size() > 0) {
 		waiting.push(readyIds.size() === 1 ? "a finished mission" : `${readyIds.size()} finished missions`);
-		for (const id of readyIds) claims.push(() => dispatch("ClaimQuest", { Id: id }));
+		for (const id of readyIds) claims.push(["ClaimQuest", { Id: id }]);
 	}
 	// a spin has to be spun by hand, so it's mentioned but not collected
 	const spinNote = loose.Wheel?.CanSpin === true ? "Your free spin is waiting on the wheel." : undefined;
 	return { waiting, claims, spinNote };
+}
+
+// Runs every claim, then sums what actually landed into one line once the last answer is back.
+function collectEverything(state: ShellState, dispatch: Dispatch, claims: Array<[string, object | undefined]>, bankVault: boolean) {
+	const loose = state as unknown as { Cash?: unknown; Stardust?: unknown; Cores?: unknown };
+	const before = { cash: asFlux(loose.Cash), dust: asFlux(loose.Stardust), cores: asFlux(loose.Cores) };
+	const queue = table.clone(claims);
+	if (bankVault) queue.unshift(["CollectVault", undefined]);
+	let pending = queue.size();
+	const latest = { Cash: loose.Cash, Stardust: loose.Stardust, Cores: loose.Cores };
+	let landed = 0;
+	const finish = () => {
+		pending -= 1;
+		if (pending > 0 || landed === 0) return;
+		const parts: string[] = [];
+		const cash = asFlux(latest.Cash) - before.cash;
+		const dust = asFlux(latest.Stardust) - before.dust;
+		const cores = asFlux(latest.Cores) - before.cores;
+		if (cash >= 1) parts.push(`${compactNumber(cash)} flux`);
+		if (dust >= 1) parts.push(`${compactNumber(dust)} stardust`);
+		if (cores >= 1) parts.push(`${compactNumber(cores)} ${cores >= 2 ? "cores" : "core"}`);
+		if (parts.size() > 0) Juice.status(`Welcome back: +${parts.join(", ")}`, "success");
+	};
+	for (const [action, payload] of queue) {
+		dispatch<{ ok?: boolean; State?: { Cash?: unknown; Stardust?: unknown; Cores?: unknown } }>(action, payload, (response) => {
+			if (response.ok === true) {
+				landed += 1;
+				const after = response.State;
+				if (after !== undefined) {
+					if (after.Cash !== undefined) latest.Cash = after.Cash;
+					if (after.Stardust !== undefined) latest.Stardust = after.Stardust;
+					if (after.Cores !== undefined) latest.Cores = after.Cores;
+				}
+			}
+			finish();
+		});
+	}
 }
 
 function offlineRewardsProps(state: ShellState, reducedMotion: boolean, dispatch: Dispatch, dismiss: () => void) {
@@ -157,9 +195,7 @@ function offlineRewardsProps(state: ShellState, reducedMotion: boolean, dispatch
 		onCollect: () => dispatch("CollectVault"),
 		waiting: extras.waiting,
 		spinNote: extras.spinNote,
-		onCollectAll: () => {
-			for (const claim of extras.claims) claim();
-		},
+		onCollectAll: (bankVault: boolean) => collectEverything(state, dispatch, extras.claims, bankVault),
 		onClose: dismiss,
 	};
 }

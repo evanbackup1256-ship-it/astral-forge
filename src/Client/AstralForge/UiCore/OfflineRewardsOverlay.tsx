@@ -86,7 +86,7 @@ interface OfflineRewardsOverlayProps {
 	onClose: () => void;
 	waiting?: string[];
 	spinNote?: string;
-	onCollectAll?: () => void;
+	onCollectAll?: (bankVault: boolean) => void;
 }
 
 export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
@@ -171,8 +171,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 			}
 			Audio.play(bankVault ? "offlineCollect" : "close");
 			if (bankVault) {
-				if (canBankVault) onCollect();
-				if (hasExtras) onCollectAll?.();
+				if (hasExtras && onCollectAll !== undefined) onCollectAll(canBankVault);
+				else if (canBankVault) onCollect();
 			}
 			beginExit(onClose);
 		},
@@ -249,7 +249,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		ZIndex: 460,
 	});
 	const _exp_4 = h("uicorner", {
-		CornerRadius: new UDim(0, 18),
+		CornerRadius: new UDim(0, 14),
 	});
 	const _exp_5 = h("uistroke", {
 		Color: Palette.mint,
