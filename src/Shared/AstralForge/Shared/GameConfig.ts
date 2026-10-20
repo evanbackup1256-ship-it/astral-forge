@@ -9,6 +9,10 @@ type RawList = Record<number, Row>;
 
 const sharedFolder = script.Parent!;
 const SharedData = require(sharedFolder.WaitForChild("SharedData") as ModuleScript) as (this: void, name: string) => unknown;
+const DescribeGenerated = require(sharedFolder.WaitForChild("DescribeGenerated") as ModuleScript) as {
+	machine(this: void, prefix: string, core: string, prefixIndex: number, cycle: number): string;
+	research(this: void, prefix: string, noun: string, prefixIndex: number, cycle: number): string;
+};
 
 const ENDLESS_LEVEL_CAP = 9_000_000_000_000_000;
 const LiveOpsConfig = SharedData("LiveOpsConfig") as {
@@ -6793,14 +6797,14 @@ const GameConfig: Dict = {
 	Release: {
 		CountdownAt: 1788195600,
 		Season: "VERSION 7.2",
-		Announcement: "Ascend beyond Domain rank 25, shape your Domain tree, and reach every page from the new phone menu.",
+		Announcement: "Big one: you can now Ascend past Domain rank 25, the Domain tree actually grows as you build it, and phones finally get a proper menu.",
 		Notes: [
-			"Form a crew with up to three players for a production bonus and shared daily goal.",
-			"Chat in global, server, crew, friends or private channels. Search and autocomplete are built in.",
-			"Open a player card to message, visit, wave or send an invite.",
-			"Trade history is now saved, with a warning before one-sided trades.",
-			"Every element now has a companion that reacts when selected, unlocked or equipped.",
-			"The prize wheel has been rebuilt. Social settings control who can message, invite or trade with you.",
+			"Crews are in. Team up with up to three players for a production bonus and a daily goal you chase together.",
+			"Chat got a real overhaul: global, server, crew, friends and private channels, with search and autocomplete.",
+			"Tap any player's card to message them, visit, wave or send an invite.",
+			"Trades are saved to your history now, and we'll warn you before you accept a lopsided one.",
+			"Every element has its own companion. They react when you pick, unlock or equip them. Go say hi.",
+			"We rebuilt the prize wheel from scratch. Social settings now let you choose who can message, invite or trade with you.",
 		],
 		DeveloperNotes: [
 			"Release 7.2.0: Ascension, milestone unlocks, Domain tree motion, phone navigation.",
@@ -6813,14 +6817,14 @@ const GameConfig: Dict = {
 				Title: "Update 7.2: Ascension",
 				Date: "OCT 14",
 				Highlights: [
-					"Reach Domain rank 25 to Ascend. This resets Domain progress, rebirths and cores in exchange for Aether and a permanent production multiplier.",
-					"Spend Aether on six sigils. Harmony boosts your lowest-level sigils.",
-					"Features now unlock from their actual milestones instead of Forge levels.",
-					"The Domain tree now grows and animates as you bind nodes.",
-					"Domain and Expansion link directly to each other.",
-					"Phone navigation now includes a permanent Menu button with access to Continuum and Reactor.",
-					"The loading screen now reports real progress.",
-					"Reward, boost and crate-key labels are clearer throughout the game.",
+					"Hit Domain rank 25 and you can Ascend. It resets your Domain progress, rebirths and cores, and in return you get Aether and a production multiplier that never goes away.",
+					"Aether goes into six sigils. Harmony gives a lift to whichever sigils you've neglected most.",
+					"Features now open when you hit the milestone they're tied to, not at an arbitrary Forge level. It always bugged us too.",
+					"The Domain tree grows and moves as you bind nodes. Watching it fill in is half the fun.",
+					"Domain and Expansion now link straight to each other, so less clicking around.",
+					"On phones there's a Menu button that's always there, and it gets you to Continuum and Reactor.",
+					"The loading bar now shows real progress instead of guessing.",
+					"We went through reward, boost and crate-key labels so they say what they mean.",
 				],
 			},
 			{
@@ -6828,31 +6832,31 @@ const GameConfig: Dict = {
 				Title: "Update 7.1: Crews and conversations",
 				Date: "OCT 11",
 				Highlights: [
-					"Crews of up to four players in a server: +3% production per crewmate and a daily goal paid in Stardust.",
-					"Chat channels for global, server, crew, friends and private messages. Type / for shortcuts like /w and /c.",
-					"On a keyboard, press / to start typing in chat, Tab for the player list, and Up to bring back a message you sent.",
-					"Player cards can message, visit, wave, invite to a crew, trade, friend, block and report.",
-					"Trade history shows your last 15 trades, and one-sided offers are flagged before you confirm.",
-					"Every element has its own companion character, lit by its own element, with pick, unlock, equip and mastery reactions.",
-					"The prize wheel is drawn fresh: clearer wedges, a precise pointer, and a hub you can tap to spin.",
-					"New Social settings: hide global chat, chat text size, and who can whisper, invite or trade with you.",
-					"Plainer wording across the game, and slightly larger minimum text.",
-					"Salvage Runs and Artifact Trials have been retired. The Black Market now sits under Home.",
+					"Crews: up to four players in a server. Each crewmate adds +3% production, and there's a daily goal that pays out in Stardust.",
+					"Chat has channels now: global, server, crew, friends and private. Type / for shortcuts like /w and /c.",
+					"Keyboard folks: / opens chat, Tab opens the player list, and Up brings back the last thing you sent.",
+					"Player cards do a lot more: message, visit, wave, crew invite, trade, friend, block and report.",
+					"Trade history keeps your last 15 trades, and we flag one-sided offers before you confirm.",
+					"Every element has its own companion, lit in its own color, with reactions for picking, unlocking, equipping and mastery.",
+					"We redrew the prize wheel: clearer wedges, a pointer that lands where it should, and a hub you can tap to spin.",
+					"New Social settings let you hide global chat, change chat text size, and pick who can whisper, invite or trade with you.",
+					"We cut a lot of jargon and nudged the smallest text up a size.",
+					"Salvage Runs and Artifact Trials are gone. The Black Market lives under Home now.",
 				],
 			},
 			{
 				Version: "7.0.0",
-				Title: "Update 7.0 - A New Forge",
+				Title: "Update 7.0: A New Forge",
 				Date: "OCT 09",
 				Highlights: [
-					"Casino and Bazaar replaced by the Black Market; old balances paid back.",
-					"Inventory, crate models, crate perks and reveals rebuilt.",
-					"Animated elemental artifacts are visible in the world, chat and player list.",
-					"Guild announcements, member chat, name changes and customization.",
-					"3D domain lattice with wider spacing, path lighting and elemental crowns.",
-					"New UI audio, smarter motion and a new rebirth ceremony.",
-					"Expanded mobile editor, ranks, reports, feedback and admin tools.",
-					"Existing player saves keep the same schema version.",
+					"The Casino and Bazaar are gone and the Black Market replaces them. If you had a balance there, you got it back.",
+					"We rebuilt the inventory, crate models, crate perks and the reveal from the ground up.",
+					"Artifacts are animated now, and you'll see them in the world, in chat and on the player list.",
+					"Guilds got announcements, member chat, name changes and a lot more ways to make them yours.",
+					"The domain lattice is 3D now, with more room between nodes, lit paths and elemental crowns.",
+					"New UI sounds, smarter motion, and a proper ceremony when you rebirth.",
+					"More room in the mobile editor, plus ranks, reports, feedback and better admin tools.",
+					"Your save carries over untouched. Same schema, nothing lost.",
 				],
 			},
 			{
@@ -6860,12 +6864,12 @@ const GameConfig: Dict = {
 				Title: "Update 5.0: The Grand Overhaul",
 				Date: "SEP 22",
 				Highlights: [
-					"Astral Forge 5.0 is officially live.",
-					"Actions respond faster.",
-					"Tap the anvil as fast as you like; there is no cooldown penalty.",
+					"5.0 is here. This is the biggest update we've done.",
+					"Everything you tap responds faster.",
+					"Hammer the anvil as fast as you want. There's no cooldown penalty anymore.",
 					"Buttons and tabs move more smoothly.",
-					"Combo streaks rise in pitch as they grow.",
-					"Long sessions use less memory.",
+					"Combo streaks climb in pitch as they build. Turn the sound on for this one.",
+					"Long sessions use less memory, so the game stays smooth after hours of play.",
 				],
 			},
 			{
@@ -7412,6 +7416,21 @@ function horizonBaseProduction(index: number): number {
 	return cappedRatio(early, 1.16, index - 80);
 }
 
+// description for the nth endless machine / study (scripts/refresh_generated_descriptions.luau
+// writes the same lines into GameConfigGenerated.ts)
+function machineDescription(index: number): string {
+	const p = (index - 1) % MACHINE_PREFIX.size();
+	const c = math.floor((index - 1) / MACHINE_PREFIX.size()) % MACHINE_CORE.size();
+	const cycle = math.floor((index - 1) / (MACHINE_PREFIX.size() * MACHINE_CORE.size()));
+	return DescribeGenerated.machine(MACHINE_PREFIX[p], MACHINE_CORE[c], p, cycle);
+}
+function researchDescription(index: number): string {
+	const p = (index - 1) % RESEARCH_PREFIX.size();
+	const n = math.floor((index - 1) / RESEARCH_PREFIX.size()) % RESEARCH_NOUN.size();
+	const cycle = math.floor((index - 1) / (RESEARCH_PREFIX.size() * RESEARCH_NOUN.size()));
+	return DescribeGenerated.research(RESEARCH_PREFIX[p], RESEARCH_NOUN[n], p, cycle);
+}
+
 function generateMachines() {
 	let lastMachineId = "ChronoArray";
 	let lastMachineLevel = 20;
@@ -7424,7 +7443,7 @@ function generateMachines() {
 		machines.push({
 			Id: "HorizonForge_" + tostring(index),
 			Name: name,
-			Description: "A late-game machine that follows Chrono Array.",
+			Description: machineDescription(index),
 			BaseCost: horizonBaseCost(index),
 			CostScale: 1.72 + (index % 9) * 0.01,
 			BaseProduction: horizonBaseProduction(index),
@@ -7465,7 +7484,7 @@ function generateResearch() {
 		research.push({
 			Id: "HorizonStudy_" + tostring(index),
 			Name: name,
-			Description: "Permanent research. Kept through rebirths.",
+			Description: researchDescription(index),
 			BaseCost: studyBaseCost(index),
 			CostScale: 1.85 + (index % 8) * 0.02,
 			MaxLevel: ENDLESS_LEVEL_CAP,

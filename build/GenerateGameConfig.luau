@@ -128,6 +128,15 @@ function env.require(path: any)
 		end
 		return chunk()
 	end
+	-- The description builder is plain data; load its compiled output.
+	if type(path) == "string" and path:find("DescribeGenerated$") then
+		local describeSource = fs.readFile("out/Shared/AstralForge/Shared/DescribeGenerated.luau")
+		local chunk, loadErr = luau.load(luau.compile(describeSource), { debugName = "DescribeGenerated", environment = env })
+		if not chunk then
+			error("Failed to load DescribeGenerated: " .. tostring(loadErr))
+		end
+		return chunk()
+	end
 	-- Crate expansion only appends item tables, which the generated output does not carry.
 	if type(path) == "string" and path:find("CrateExpansion$") then
 		return { extendItems = function() end }
