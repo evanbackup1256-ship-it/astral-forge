@@ -1,8 +1,7 @@
 // Server-side copy of Client/AstralForge/kit.ts: server modules cannot reach the client tree.
 // A kit is a folder of member modules reachable by name: Kit("theme") or Kit.theme.
 // Members load lazily on first use, so kits can reference each other without a require
-// cycle at startup. Converted code imports members directly; this loader keeps older
-// Luau callers (require(script.Parent.CoreKit)("theme")) working unchanged.
+// cycle at startup. Used by Documents/DocumentKit.
 
 export type Kit = ((name: string) => any) & { readonly [name: string]: any; readonly __members: ReadonlyArray<string> };
 

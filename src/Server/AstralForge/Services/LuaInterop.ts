@@ -1,4 +1,4 @@
-// Helpers shared by the converted server services. Nothing in Luau requires this module.
+// Helpers shared by the server services: Luau truthiness, loose numbers, and typed kit lookups.
 
 export function SharedFolder(): Instance {
 	return game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared");
@@ -36,7 +36,7 @@ export interface ModuleLogApi {
 
 export type LoadService = (this: void, name: string) => unknown;
 
-// require() of a not-yet-converted (or foreign) ModuleScript, typed by the caller.
+// require() of a ModuleScript found at runtime, typed by the caller.
 export function req<T>(instance: Instance): T {
 	return require(instance as ModuleScript) as T;
 }
@@ -44,7 +44,7 @@ export function req<T>(instance: Instance): T {
 // A flux amount: a plain number, or "1.23e456" once it outgrows a double.
 export type Flux = number | string;
 
-// Dot-called members of the EconomyMath kit's "Economy" module (still Luau).
+// Dot-called members of the EconomyMath kit's "Economy" module.
 export interface EconomyApi {
 	Max: (this: void, a: unknown, b: unknown) => Flux;
 	Min: (this: void, a: unknown, b: unknown) => Flux;
@@ -65,14 +65,6 @@ export interface EconomyApi {
 
 export function economyKit(name: string): unknown {
 	const kit = require(script.Parent!.Parent!.WaitForChild("Modules").WaitForChild("EconomyMath") as ModuleScript) as (
-		this: void,
-		member: string,
-	) => unknown;
-	return kit(name);
-}
-
-export function profileMathKit(name: string): unknown {
-	const kit = require(script.Parent!.Parent!.WaitForChild("Modules").WaitForChild("ProfileMath") as ModuleScript) as (
 		this: void,
 		member: string,
 	) => unknown;

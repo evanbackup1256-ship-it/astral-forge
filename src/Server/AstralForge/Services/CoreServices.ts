@@ -1,4 +1,4 @@
-// Converted from CoreServices.luau — the lazy member bundle for the core gameplay services.
+// The lazy member bundle for the core gameplay services.
 import {
 	Dict,
 	d,
@@ -16,7 +16,7 @@ import LabServiceMember from "./CoreServiceMembers/LabService";
 import ServerEventServiceFactory from "./CoreServiceMembers/ServerEventService";
 import GuildServiceFactory from "./CoreServiceMembers/GuildService";
 
-// The kit bundles and not-yet-converted Luau modules come back as opaque values; the members
+// Kit bundles come back as opaque values; the members
 // each GameService member actually calls are typed as callable records.
 type Fn = (this: void, ...args: unknown[]) => unknown;
 type Kit = Record<string, Fn>;
