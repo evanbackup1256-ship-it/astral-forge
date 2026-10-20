@@ -1,4 +1,5 @@
 ﻿import React from "@rbxts/react";
+import { sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import { taskFilterCounts, taskMatchesFilter } from "../../CoreKit/taskFilter";
@@ -91,7 +92,7 @@ function missionRowH(stack: boolean): number {
 	return stack ? 226 : 148;
 }
 
-function MissionRow({ quest, dispatch, reducedMotion, position, stack }: MissionRowProps) {
+function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: MissionRowProps) {
 	const softMotion = reducedMotion;
 	const ready = !quest.Claimed && quest.Progress >= quest.Target;
 	const reward = formatReward(quest.Reward);
@@ -235,6 +236,10 @@ function MissionRow({ quest, dispatch, reducedMotion, position, stack }: Mission
 		</Panel>
 	);
 }
+
+// shows: the quest (Name, Description, Reward, Progress/Target, Claimed; Id for the claim) by value,
+// position, stack layout, motion; dispatch is the shell's stable dispatcher
+const MissionRow = React.memo(MissionRowImpl, sameFields<MissionRowProps>(["quest", "dispatch", "reducedMotion", "position", "stack"]));
 
 export interface TaskSummaryProps {
 	reducedMotion?: boolean;

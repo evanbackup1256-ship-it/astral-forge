@@ -1,6 +1,7 @@
 // PagesShop.luau — compiled page bundle for the Shop tab.
 // Members are required lazily: PagesShop("WheelView") only pays for that page's code.
 import React from "@rbxts/react";
+import { memoRow, sameFields } from "../UiCore/rowMemo";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Fmt from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -497,7 +498,7 @@ interface OfferTileProps {
 	packed?: boolean;
 }
 
-function OfferTile(props: OfferTileProps) {
+function OfferTileImpl(props: OfferTileProps) {
 	const title = props.title;
 	const detail = props.detail;
 	const meta = props.meta;
@@ -629,6 +630,10 @@ function OfferTile(props: OfferTileProps) {
 		</frame>
 	);
 }
+
+// shows: title, detail, meta, accent, icon, cta, disabled/owned (button state), layout order, motion/stagger, packed size
+const OfferTile = memoRow<OfferTileProps>(OfferTileImpl, ["onClick"],
+	sameFields<OfferTileProps>(["title", "detail", "meta", "accent", "icon", "cta", "disabled", "owned", "layoutOrder", "reducedMotion", "staggerIndex", "packed"]));
 
 interface ShopViewProps {
 	state: ShopState;
@@ -1768,7 +1773,7 @@ interface OfferCardProps {
 	onBuy: () => void;
 }
 
-function OfferCard(props: OfferCardProps) {
+function OfferCardImpl(props: OfferCardProps) {
 	const offer = props.offer;
 	const accent = offerAccent(offer, props.config);
 	const reveal = useStagger(props.index, props.reducedMotion, 0.04, 0.26);
@@ -1914,6 +1919,12 @@ function OfferCard(props: OfferCardProps) {
 		),
 	);
 }
+
+// shows: the offer (price, reward, slot), its accent/detail from config, stock left, busy/pending button state,
+// stagger index, motion, and only the one wallet balance it prices in (state[offer.Currency]) for "can afford"
+const OfferCard = memoRow<OfferCardProps>(OfferCardImpl, ["onBuy"], (prev, incoming) =>
+	sameFields<OfferCardProps>(["offer", "index", "config", "left", "busy", "pending", "reducedMotion"])(prev, incoming) &&
+	prev.state[incoming.offer.Currency] === incoming.state[incoming.offer.Currency]);
 
 function useDay(): number {
 	const [day, setDay] = React.useState(() => ShopCatalog.day(Workspace.GetServerTimeNow()));
@@ -2648,7 +2659,7 @@ interface SkinCardProps {
 	onSelect: () => void;
 }
 
-function SkinCard(props: SkinCardProps) {
+function SkinCardImpl(props: SkinCardProps) {
 	const skin = props.skin;
 	const [owned, equipped] = skinStatus(skin, props.cosmetics);
 	const accent = skinAccent(skin.Id);
@@ -2717,6 +2728,9 @@ function SkinCard(props: SkinCardProps) {
 		}),
 	);
 }
+
+// shows: the skin, owned/equipped from the cosmetics section, selected highlight, grid order
+const SkinCard = memoRow<SkinCardProps>(SkinCardImpl, ["onSelect"], sameFields<SkinCardProps>(["skin", "cosmetics", "selected", "order"]));
 
 function SkinsSection(props: SectionProps) {
 	const state = props.state;
@@ -2961,7 +2975,7 @@ interface RelicCellProps {
 	reducedMotion?: boolean;
 }
 
-function RelicCell(props: RelicCellProps) {
+function RelicCellImpl(props: RelicCellProps) {
 	const definition = props.definition;
 	const found = props.found;
 	const color = rarityColor(props.config, definition.Rarity);
@@ -3027,6 +3041,10 @@ function RelicCell(props: RelicCellProps) {
 			}),
 	);
 }
+
+// shows: the relic definition (rarity colour from config), found, copies, stars, fuse button (canFuse, busy), order, motion
+const RelicCell = memoRow<RelicCellProps>(RelicCellImpl, ["onFuse"],
+	sameFields<RelicCellProps>(["definition", "found", "copies", "stars", "canFuse", "busy", "order", "config", "reducedMotion"]));
 
 function CodexSection(props: SectionProps) {
 	const state = props.state;

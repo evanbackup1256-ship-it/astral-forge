@@ -79,9 +79,13 @@ end
 
 local MUTATORS = { "push", "pop", "clear", "unshift", "insert", "remove", "set", "delete" }
 
-local function lineHits(line: string): number
+local BASE_ROOTS: { [string]: any } = { state = true, session = true }
+
+-- roots: state/session plus this file's local aliases of a state path (alias = true)
+local function lineHits(line: string, roots: { [string]: any }?): number
 	local hits = 0
-	for _, word in { "state", "session" } do
+	local active: { [string]: any } = roots or BASE_ROOTS
+	for word, isAlias in active do
 		local from = 1
 		while true do
 			local s, e = string.find(line, word, from, true)
@@ -107,7 +111,7 @@ local function lineHits(line: string): number
 				continue
 			end
 			-- trailing method mutator: state.X.push(...)
-			if segments >= 2 then
+			if segments >= (if isAlias == "alias" then 1 else 2) then
 				local lastDot = string.match(string.sub(line, s :: number, stop - 1), "%.([%a_][%w_]*)$")
 				if lastDot and table.find(MUTATORS, lastDot) and string.match(rest, "^%s*%(") then
 					hits += 1
@@ -121,12 +125,63 @@ local function lineHits(line: string): number
 		for target in string.gmatch(line, fn .. "%(%s*([%a_][%w_]*[%.%?%[]?)") do
 			local root = string.match(target, "^([%a_][%w_]*)")
 			local tail = string.sub(target, #(root :: string) + 1)
-			if (root == "state" or root == "session") and (tail ~= "" or fn == "rawset" or fn == "table%.clear") then
+			local kind = if root then active[root :: string] else nil
+			if kind ~= nil and (tail ~= "" or kind == "alias" or fn == "rawset" or fn == "table%.clear") then
 				hits += 1
 			end
 		end
 	end
 	return hits
+end
+
+-- Single-file alias tracking, in one forward pass: `const flags = state.Flags;`,
+-- `let list = session.Story ?? [];`, `const { Flags, Items: bag } = state;` and chains of those
+-- (`const keys = bag.Keys;`) make the local name an alias of a state section from that line on,
+-- so `flags.X = ...`, `list.push(...)` or `table.insert(keys, ...)` count as in-place edits.
+-- Any later `const`/`let` of the same name that isn't an alias ends it (simple shadowing).
+-- Copies (table.clone, spreads, .map, any call) are not aliases.
+local function updateRoots(line: string, roots: { [string]: any })
+	local name, rhs = string.match(line, "^%s*[cl][oe][nt]s?t?%s+([%a_][%w_]*)%s*[^=]*=%s*([^;]*);?%s*$")
+	if name and rhs and roots[name] ~= true then
+		local alias = false
+		local root = string.match(rhs, "^([%a_][%w_]*)")
+		if root and roots[root] ~= nil then
+			local stop, segments = readPath(rhs, 1, root :: string)
+			local rest = string.sub(rhs, stop)
+			local plain = rest == "" or string.match(rest, "^%s*as%s") ~= nil or string.match(rest, "^%s*%?%?") ~= nil
+			alias = (segments > 0 or roots[root] == "alias") and plain
+		end
+		roots[name] = if alias then "alias" else nil
+	end
+	local fields, droot = string.match(line, "^%s*[cl][oe][nt]s?t?%s+{([^}]*)}%s*[^=]*=%s*([%a_][%w_]*)[^;(]*;?%s*$")
+	if fields then
+		local alias = droot ~= nil and roots[droot] ~= nil
+		for part in string.gmatch(fields, "[^,]+") do
+			local local_ = string.match(part, ":%s*([%a_][%w_]*)%s*$") or string.match(part, "^%s*([%a_][%w_]*)%s*$")
+			if local_ and roots[local_] ~= true then
+				roots[local_] = if alias then "alias" else nil
+			end
+		end
+	end
+end
+
+local function sourceHits(source: string, onHit: ((lineNo: number, raw: string, n: number) -> ())?): number
+	local roots: { [string]: any } = { state = true, session = true }
+	local total = 0
+	local lineNo = 0
+	for raw in string.gmatch(source .. "\n", "([^\n]*)\n") do
+		lineNo += 1
+		local line = clean(raw)
+		local n = lineHits(line, roots)
+		updateRoots(line, roots)
+		if n > 0 then
+			total += n
+			if onHit then
+				onHit(lineNo, raw, n)
+			end
+		end
+	end
+	return total
 end
 
 local files = {}
@@ -137,17 +192,12 @@ local failures = {}
 local total = 0
 local counts: { [string]: number } = {}
 for _, path in files do
-	local lineNo = 0
-	for raw in string.gmatch(fs.readFile(path) .. "\n", "([^\n]*)\n") do
-		lineNo += 1
-		local n = lineHits(clean(raw))
-		if n > 0 then
-			counts[path] = (counts[path] or 0) + n
-			if ALLOWED[path] == nil then
-				table.insert(failures, `{path}:{lineNo}: state section edited in place: {string.gsub(raw, "^%s+", "")}`)
-			end
+	sourceHits(fs.readFile(path), function(lineNo, raw, n)
+		counts[path] = (counts[path] or 0) + n
+		if ALLOWED[path] == nil then
+			table.insert(failures, `{path}:{lineNo}: state section edited in place: {string.gsub(raw, "^%s+", "")}`)
 		end
-	end
+	end)
 end
 for path, allowed in ALLOWED do
 	local found = counts[path] or 0
@@ -174,6 +224,32 @@ end
 for _, sample in SHOULD_MISS do
 	if lineHits(clean(sample)) ~= 0 then
 		table.insert(failures, `self-check: false positive: {sample}`)
+	end
+end
+
+local ALIAS_HIT = {
+	"const flags = state.Flags;\nflags.TutorialDone = true;",
+	"let list = session.Story ?? [];\nlist.push(chapter);",
+	"const { Items: bag } = state;\nconst keys = bag.Keys;\ntable.insert(keys, 1);",
+}
+local ALIAS_MISS = {
+	"const flags = table.clone(state.Flags);\nflags.TutorialDone = true;",
+	"const list = [...state.Story];\nlist.push(chapter);",
+	"const rows = state.Quests.map((q) => q);\nrows.push(x);",
+	"const flags = state.Flags;\nflags = other;",
+	"const lines = session.Chat ?? [];\nconst lines: Row[] = [];\nlines.push(row);",
+}
+local function sampleHits(sample: string): number
+	return sourceHits(sample)
+end
+for _, sample in ALIAS_HIT do
+	if sampleHits(sample) == 0 then
+		table.insert(failures, `self-check: missed alias mutation: {sample}`)
+	end
+end
+for _, sample in ALIAS_MISS do
+	if sampleHits(sample) ~= 0 then
+		table.insert(failures, `self-check: alias false positive: {sample}`)
 	end
 end
 
