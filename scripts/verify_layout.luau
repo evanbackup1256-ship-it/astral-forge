@@ -230,7 +230,7 @@ print("[INFO] [TEST] pageScaffold fold fit passed")
 -- An inset scaffold must plan against the space left inside its padding, or the fill section
 -- overflows by twice the inset and the page scrolls its first row out of view (chat tabs).
 do
-	local layoutSource = require("@lune/fs").readFile("src/Client/AstralForge/LayoutKit.luau")
+	local layoutSource = require("@lune/fs").readFile("src/Client/AstralForge/LayoutKit.ts")
 	assert(layoutSource:find("available - inset * 2", 1, true), "PageScaffold subtracts its inset from the measured height")
 	assert(layoutSource:find("planFittedHeights(planSections, usable", 1, true), "fitted heights use the usable height")
 	assert(layoutSource:find("planOverflow(sections, usable", 1, true), "overflow uses the usable height")
