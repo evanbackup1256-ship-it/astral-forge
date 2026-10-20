@@ -3,7 +3,7 @@ import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import { ScaleFromCenter, composePresence, useEntrance, useExitTransition, useStagger, useViewport } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
-import { Button, IconTile, OverlayPresence, SegmentedTabs, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
+import { Button, IconTile, OverlayPresence, SegmentedTabs, Text, segmentedHeight, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -92,7 +92,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 	const headerH = keyboardCompact ? 46 : compact ? 64 : 72;
 	const categoryTop = headerH + (keyboardCompact ? 0 : 8);
 	const categoryColumns = narrow ? 3 : 6;
-	const categoryH = keyboardCompact ? 0 : categoryColumns === 3 ? 96 : 44;
+	const categoryH = keyboardCompact ? 0 : segmentedHeight(CATEGORIES.size(), categoryColumns, viewport, 44, 8);
 	const impactTop = categoryTop + categoryH + 8;
 	const impactH = keyboardCompact || sent ? 0 : narrow ? 30 + TapTarget + 4 : 30;
 	const editorTop = keyboardCompact ? categoryTop + 6 : impactTop + impactH + (impactH > 0 ? 8 : 2);

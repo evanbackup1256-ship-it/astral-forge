@@ -1,4 +1,5 @@
 ﻿import React from "@rbxts/react";
+import { segmentedHeight } from "../../UiCore/ui";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, compactNumber, Flux, formatReward, gteFlux, Reward } from "../../CoreKit/format";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
@@ -544,8 +545,7 @@ function CommandViewReady(props: CommandProps) {
 	}
 	const headerH = 56;
 	const tabColumns = math.max(1, math.min(TABS.size(), math.floor((contentWidth + 4) / 140)));
-	const tabRows = math.ceil(TABS.size() / tabColumns);
-	const tabsH = tabRows * 48 + (tabRows - 1) * 4;
+	const tabsH = segmentedHeight(TABS.size(), tabColumns, viewport, 48, 4);
 	const commandTail = scrollTail(stack, chrome.bottomSafe, stack ? 72 : 48);
 	const useFillList = tab !== "Overview";
 	let order = 0;

@@ -1,6 +1,8 @@
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
 import { Palette } from "../../CoreKit/theme";
+import { useViewport } from "../../MotionKit/motion";
+import { segmentedHeight } from "../../UiCore/ui";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
@@ -288,6 +290,7 @@ function BazaarView(props: BazaarProps) {
 	const [note, setNote] = React.useState("");
 	const [busy, setBusy] = React.useState(false);
 	const [width, setWidth] = React.useState(320);
+	const tabViewport = useViewport();
 	const [now, setNow] = React.useState(Workspace.GetServerTimeNow());
 	const scrollRef = React.useRef<GuiObject>();
 	const pending = React.useRef(false);
@@ -609,10 +612,9 @@ function BazaarView(props: BazaarProps) {
 		/>,
 	);
 	const columns = math.max(1, math.min(4, math.floor((width + 6) / 130)));
-	const rows = math.ceil(CATEGORIES.size() / columns);
 	add(
 		"categories",
-		rows * 48 + (rows - 1) * 6,
+		segmentedHeight(CATEGORIES.size(), columns, tabViewport, 48, 6),
 		<Ui.SegmentedTabs
 			options={CATEGORIES}
 			value={category}
@@ -760,8 +762,7 @@ function BazaarView(props: BazaarProps) {
 		return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={72} scrollBarColor={Palette.violet} />;
 	}
 	const optionColumns = math.max(1, math.min(3, math.floor((width + 6) / 120)));
-	const optionRows = math.ceil(3 / optionColumns);
-	const optionHeight = optionRows * 48 + (optionRows - 1) * 6;
+	const optionHeight = segmentedHeight(3, optionColumns, tabViewport, 48, 6);
 	add(
 		"sort",
 		optionHeight,

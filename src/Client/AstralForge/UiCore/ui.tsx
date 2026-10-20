@@ -3255,6 +3255,29 @@ function SegmentedTabHit({
 		</imagebutton>
 	);
 }
+/** True when SegmentedTabs will draw as one scrolling strip (phones, tabs that would wrap or squeeze). */
+export function segmentedStripMode(count: number, columns: number | undefined, viewport: Parameters<typeof chromeFor>[0] & { width: number }): boolean {
+	const total = math.max(1, count);
+	const cols = math.max(1, math.min(columns ?? total, total));
+	return chromeFor(viewport).stack && (math.ceil(total / cols) > 1 || viewport.width / cols < 84);
+}
+
+/** Rows a SegmentedTabs host should reserve: 1 in strip mode, otherwise ceil(count / columns). */
+export function segmentedRows(count: number, columns: number | undefined, viewport: Parameters<typeof chromeFor>[0] & { width: number }): number {
+	const total = math.max(1, count);
+	const cols = math.max(1, math.min(columns ?? total, total));
+	return segmentedStripMode(total, cols, viewport) ? 1 : math.ceil(total / cols);
+}
+
+/** Height a SegmentedTabs host should reserve: one TapTarget row in strip mode, else rows * rowH plus gaps. */
+export function segmentedHeight(count: number, columns: number | undefined, viewport: Parameters<typeof chromeFor>[0] & { width: number }, rowH: number, gap = 6): number {
+	if (segmentedStripMode(count, columns, viewport)) {
+		return TapTarget;
+	}
+	const rows = segmentedRows(count, columns, viewport);
+	return rows * rowH + (rows - 1) * gap;
+}
+
 export function SegmentedTabs({
 	options,
 	value,
@@ -3330,8 +3353,7 @@ export function SegmentedTabs({
 	// phones: never wrap into rows. Tabs that would stack (or squeeze under ~84px) become one
 	// sideways-scrolling strip of fixed pills, and the selected pill is kept in view.
 	const tabsViewport = useViewport();
-	const phoneTabs = chromeFor(tabsViewport).stack;
-	const stripMode = phoneTabs && (rowCount > 1 || tabsViewport.width / columnCount < 84);
+	const stripMode = segmentedStripMode(count, columnCount, tabsViewport);
 	const stripRef = React.useRef<ScrollingFrame>();
 	const PILL_W = 104;
 	React.useEffect(() => {
