@@ -199,10 +199,37 @@ local InstanceLib = {
 	end,
 }
 
+-- Lune 0.8.9 can hang on exit after many task.cancel calls on pending task.delay threads, so
+-- delays scheduled by game code are cancelled by flag: the thread still wakes, then does nothing.
+local cancelledDelays = setmetatable({}, { __mode = "k" })
+local harnessTask = table.clone(task)
+function harnessTask.delay(seconds, fn, ...)
+	local args = table.pack(...)
+	local thread
+	thread = task.delay(seconds, function()
+		local cancelled = cancelledDelays[thread]
+		cancelledDelays[thread] = nil
+		if cancelled then
+			return
+		end
+		fn(table.unpack(args, 1, args.n))
+	end)
+	cancelledDelays[thread] = false
+	return thread
+end
+function harnessTask.cancel(thread)
+	if cancelledDelays[thread] == false then
+		cancelledDelays[thread] = true
+		return
+	end
+	return task.cancel(thread)
+end
+Harness.task = harnessTask
+
 env = {
 	game = game,
 	workspace = Stub,
-	task = task,
+	task = harnessTask,
 	require = requireNode,
 	Instance = InstanceLib,
 	Enum = Stub,

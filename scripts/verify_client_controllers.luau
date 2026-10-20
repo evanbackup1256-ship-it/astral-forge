@@ -223,7 +223,124 @@ do
 	check(not thrower.busy and thrower.status:find("interrupted"), "dispatch error stops the queue")
 end
 
+---------------------------------------------------------------- RequestQueue (MainGame dispatch)
+local QueueController = H.load("Client/AstralForge/Controllers/RequestQueueController").RequestQueueController
+local queueGen = 10 ^ 6
+local function setAuth(on)
+	queueGen += 1
+	Session.adopt({ Gen = queueGen, N = "q" .. queueGen, Auth = on })
+end
+local function hooksFor(log, invoke)
+	local alive = true
+	local h = {
+		workers = {}, timeouts = {},
+		alive = function() return alive end,
+		retry = function() table.insert(log, "retry") end,
+		refuse = function(m) table.insert(log, "refuse:" .. m) end,
+		reject = function(m, u) table.insert(log, "reject:" .. m .. (u and "?" or "")) end,
+		beforeSend = function(v) log.sent = v table.insert(log, "send") end,
+		invoke = invoke or function() return { ok = true } end,
+		onTimeout = function(s) table.insert(log, "timeout:" .. s) end,
+		onLateState = function(s) table.insert(log, "late:" .. tostring(s)) end,
+		onNoAnswer = function() table.insert(log, "noanswer") end,
+		onResponse = function(r) log.reply = r table.insert(log, "response") end,
+	}
+	return h, function() alive = false end
+end
+local function size(m) local n = 0 for _ in m do n += 1 end return n end
+local function has(log, entry) for _, e in log do if e == entry then return true end end return false end
+local okQueue, queueError = pcall(function()
+	setAuth(true)
+	local qc = QueueController.new()
+	local q = qc:createQueue()
+	check(qc:createQueue() ~= q, "each mount gets its own queue")
+	-- plain read: feedback, then the reply
+	local log = {}
+	local h = hooksFor(log)
+	q:send("GetState", {}, "GetState", h)
+	check(log[1] == "send" and q:inFlightCount() == 1, "request goes out after feedback")
+	check(size(h.workers) == 1 and size(h.timeouts) == 1, "worker and timeout tracked for unmount")
+	task.wait(0.05)
+	check(log[2] == "response" and log.reply.ok == true, "well-formed reply applied")
+	check(q:inFlightCount() == 0 and size(h.workers) == 0 and size(h.timeouts) == 0, "finished request releases everything")
+	-- serial latch and cooldown
+	log = {}
+	h = hooksFor(log, function() task.wait(0.1) return { ok = true } end)
+	q:send("SpinWheel", {}, "SpinWheel", h)
+	q:send("SpinWheel", {}, "SpinWheel", h)
+	check(has(log, "reject:Already working on that."), "serial action latched while in flight")
+	task.wait(0.2)
+	q:send("SpinWheel", {}, "SpinWheel", h)
+	check(has(log, "reject:Slow down a sec."), "cooldown refuses a quick repeat")
+	-- grant fields go on a copy
+	local payload = { Key = "QuickFind" }
+	log = {}
+	h = hooksFor(log)
+	q:send("MarkHintSeen", payload, "MarkHintSeen:a", h)
+	check(payload.Gen == nil and log.sent.Gen == queueGen and log.sent.N == "q" .. queueGen and type(log.sent.TxnId) == "string", "grant fields attached to a copy")
+	check(log.sent.Key == "QuickFind", "copy keeps the payload")
+	task.wait(0.05)
+	-- pipelined limit per signature, then the physical cap
+	log = {}
+	-- (sends spaced past the default cooldown so only the in-flight limit can refuse)
+	h = hooksFor(log, function() task.wait(1.2) return { ok = true } end)
+	local pq = qc:createQueue()
+	for _ = 1, 5 do pq:send("SelectZone", {}, "SelectZone:x", h) task.wait(0.11) end
+	check(has(log, "reject:Still working on your last tap.") and pq:inFlightCount() == 4, "pipelined limit per signature")
+	for i = 1, 9 do pq:send("SelectZone", {}, "SelectZone:" .. i, h) end
+	check(pq:inFlightCount() == 12 and has(log, "refuse:Lots going on right now. Try that again in a moment."), "physical request cap")
+	task.wait(1.3)
+	check(pq:inFlightCount() == 0, "pipelined requests release")
+	-- bad answers
+	log = {}
+	q:send("GetPlayers", {}, "GetPlayers:1", (hooksFor(log, function() error("net") end)))
+	q:send("GetPlayers", {}, "GetPlayers:2", (hooksFor(log, function() return { ok = "yes" } end)))
+	q:send("GetPlayers", {}, "GetPlayers:3", (hooksFor(log, function() return "junk" end)))
+	task.wait(0.05)
+	check(#log == 6 and not has(log, "response"), "errors and malformed replies are no-answers")
+	-- unmounted screen: nothing goes out, nothing comes back
+	log = {}
+	local h2, kill = hooksFor(log, function() task.wait(0.05) return { ok = true } end)
+	q:send("GetCrew", {}, "GetCrew", h2)
+	kill()
+	q:send("GetGuild", {}, "GetGuild", h2)
+	task.wait(0.1)
+	check(#log == 1 and log[1] == "send" and q:inFlightCount() == 0, "dead screen gets no reply and sends nothing new")
+	-- signature table pruning keeps working cooldowns
+	local many = qc:createQueue()
+	local mh = hooksFor({})
+	for i = 1, 300 do many:send("GetState", {}, "sig" .. i, mh) task.wait() end
+	local mlog = {}
+	many:send("GetState", {}, "sig300", (hooksFor(mlog)))
+	check(mlog[1] == "reject:Slow down a sec.", "cooldowns survive signature pruning")
+	-- slow paths, run together: timeout + late state, auth wait that succeeds, auth wait that fails
+	local tlog = {}
+	local th = hooksFor(tlog, function() task.wait(8.3) return { ok = true, State = "S" } end)
+	q:send("GetGuildSettings", {}, "GetGuildSettings", th)
+	setAuth(false)
+	local alog, blog = {}, {}
+	q:send("ClaimDaily", {}, "ClaimDaily", (hooksFor(alog)))
+	q:send("ClaimQuest", {}, "ClaimQuest", (hooksFor(blog)))
+	check(#alog == 0 and #blog == 0, "grant actions wait for auth")
+	task.wait(4.3)
+	check(blog[1] == "refuse:Still connecting. Give it a second and try again.", "auth that never arrives refuses after 4s")
+	setAuth(true)
+	local clog = {}
+	setAuth(false)
+	q:send("ClaimDaily", {}, "ClaimDaily:2", (hooksFor(clog)))
+	task.wait(1)
+	setAuth(true)
+	task.wait(3.2)
+	check(clog[1] == "retry" and #clog == 1, "auth that arrives before 4s retries once")
+	task.wait(0.4)
+	check(tlog[2] == "timeout:8" and q:inFlightCount() == 0, "timeout releases the latch and reports")
+	task.wait(0.4)
+	check(tlog[3] == "late:S" and not has(tlog, "response"), "late reply only hands over its state")
+	check(size(th.workers) == 0 and size(th.timeouts) == 0, "timed-out request untracked")
+end)
+check(okQueue, "request queue checks ran: " .. tostring(queueError))
+
 if #failures > 0 then
 	error("client controllers failed:\n  " .. table.concat(failures, "\n  "))
 end
-print(string.format("[TEST] client controllers: %d checks (network reconnect, session, request policy, action latch, purchase queue) passed", checks))
+print(string.format("[TEST] client controllers: %d checks (network reconnect, session, request policy, request queue, action latch, purchase queue) passed", checks))

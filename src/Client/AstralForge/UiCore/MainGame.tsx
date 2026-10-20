@@ -20,7 +20,9 @@ import * as SnapshotEnvelopeMath from "../CoreKit/snapshotEnvelopeMath";
 import { AppHelpers } from "../CoreKit/appNav";
 import * as NetworkPolicy from "../CoreKit/networkPolicy";
 import { ClientLog } from "../CoreKit/log";
-import { GRANT_ACTIONS, adopt, attachGrantFields, isAuthed, whenAuthed } from "../CoreKit/session";
+import { GRANT_ACTIONS, adopt } from "../CoreKit/session";
+import { Dependency } from "@flamework/core";
+import type { RequestQueueController } from "../Controllers/RequestQueueController";
 import { ClientActions, getActiveClientStore, useClientDispatch, useClientSelector } from "../CoreKit/clientStore";
 import { preloadMountedGame, warmClientModules } from "../ClientRuntime/assetPreloader";
 import { useClientIntegrityProbe } from "../ClientRuntime/clientIntegrity";
@@ -328,12 +330,7 @@ export function MainGame(_param: MainGameProps) {
 	const [comboReadout, setComboReadout] = React.useState<ComboReadout>();
 	const lastComboTier = React.useRef(0);
 	const lastNotice = React.useRef({ signature: "", at: 0 });
-	const busy = React.useRef<Record<string, number | undefined>>({});
-	const inFlight = React.useRef<Record<string, number | undefined>>({});
-	const inFlightTotal = React.useRef(0);
-	const requestSequence = React.useRef(0);
-	const sentAt = React.useRef<Record<string, number | undefined>>({});
-	const sentAtCount = React.useRef(0);
+	const requestQueue = React.useMemo(() => Dependency<RequestQueueController>().createQueue(), []);
 	const latestSnapshot = React.useRef(-1);
 	const latestRevision = React.useRef(-1);
 	const lastTradeEpoch = React.useRef(-1);
@@ -956,9 +953,7 @@ export function MainGame(_param: MainGameProps) {
 	);
 	const dispatch: Dispatch = React.useCallback(
 		(action: string, payload: Record<string, unknown> = {}, callback?: ResponseCallback): undefined => {
-			let value = typeIs(payload, "table") ? payload : {};
-			const signature = AppHelpers.actionSignature(action, value);
-			const pipelined = NetworkPolicy.IsPipelined(action);
+			const signature = AppHelpers.actionSignature(action, typeIs(payload, "table") ? payload : {});
 			const reject = (message: string, uncertain?: boolean) => {
 				callback?.({ ok: false, error: message, Uncertain: uncertain === true });
 			};
@@ -970,208 +965,68 @@ export function MainGame(_param: MainGameProps) {
 				}
 				reject(message);
 			};
-			if (!appAlive.current) {
-				return undefined;
-			}
-			if (GRANT_ACTIONS[action] !== undefined) {
-				if (!isAuthed()) {
-					let settled = false;
-					whenAuthed(() => {
-						if (settled || !appAlive.current) {
-							return;
+			requestQueue.send(action, payload, signature, {
+				alive: () => appAlive.current,
+				retry: () => dispatch(action, payload, callback),
+				refuse,
+				reject,
+				beforeSend: (value) => {
+					if (action === "CollectVault" || action === "Overcharge") {
+						// instant game feel on the press itself, from the state the player is looking at
+						const store = getActiveClientStore();
+						const session = store?.getState().session;
+						if (action === "CollectVault" && session !== undefined && asFlux(session.Vault) > 0) {
+							SessionStats.bump("collects");
+							SessionStats.addFlux(session.Vault);
+						} else if (action === "Overcharge") {
+							SessionStats.bump("overcharges");
 						}
-						settled = true;
-						dispatch(action, payload, callback);
-					});
-					const authJob = task.delay(4, () => {
-						deferredJobs.current.delete(authJob);
-						if (settled || !appAlive.current) {
-							return;
+						if (session !== undefined && action === "CollectVault" && asFlux(session.Vault) > 0) {
+							Juice.number(`+${compactNumber(session.Vault)} flux`, Palette.cyan, { icon: "Flux.19", big: true });
+							Juice.coins("FLUX", Palette.cyan, "Flux", 10);
+							Juice.burst(undefined, Palette.cyan, 1);
+						} else if (session !== undefined && action === "Overcharge" && session.TapPower !== undefined) {
+							Juice.number(`+${compactNumber(session.TapPower)}`, Palette.mango, { icon: "Flux.20" });
+							Juice.coins("VAULT", Palette.mango, "Flux", 3);
 						}
-						settled = true;
-						if (isAuthed()) {
-							dispatch(action, payload, callback);
-							return;
-						}
-						refuse("Still connecting. Give it a second and try again.");
-					});
-					return undefined;
-				}
-				value = table.clone(value);
-				attachGrantFields(value);
-			}
-			if (!pipelined && busy.current[signature] !== undefined) {
-				reject("Already working on that.");
-				return undefined;
-			}
-			const activeRequests = inFlight.current[signature] ?? 0;
-			const requestLimit = NetworkPolicy.RequestLimit(pipelined);
-			if (activeRequests >= requestLimit) {
-				reject("Still working on your last tap.");
-				return undefined;
-			}
-			if (inFlightTotal.current >= NetworkPolicy.MAX_PHYSICAL_REQUESTS) {
-				refuse("Lots going on right now. Try that again in a moment.");
-				return undefined;
-			}
-			const now = os.clock();
-			const cooldown = NetworkPolicy.Cooldown(action);
-			const previous = sentAt.current[signature];
-			if (previous !== undefined && NetworkPolicy.IsCoolingDown(now, previous, cooldown)) {
-				reject("Slow down a sec.");
-				return undefined;
-			}
-			if (previous === undefined) {
-				sentAtCount.current += 1;
-			}
-			sentAt.current[signature] = now;
-			if (sentAtCount.current > 256) {
-				let remaining = 0;
-				for (const [key, timestamp] of pairs(sentAt.current)) {
-					if (now - (timestamp as number) > 60) {
-						sentAt.current[key as string] = undefined;
-					} else {
-						remaining += 1;
+					} else if (string.sub(action, 1, 5) === "Claim") {
+						// a claim answers on the press; the amounts fly in when the server confirms
+						Juice.burst(undefined, Palette.mango, 0.7);
 					}
-				}
-				if (remaining > 384) {
-					// Evict oldest timestamps first so unrelated action signatures do not
-					// lose their cooldowns arbitrarily.
-					const entries: Array<{ key: string; timestamp: number }> = [];
-					for (const [key, timestamp] of pairs(sentAt.current)) {
-						entries.push({ key: key as string, timestamp: timestamp as number });
+					if (NetworkPolicy.IsOptimistic(action)) {
+						dispatchStore(ClientActions.applyOptimistic(action, value, config.Game.Version));
 					}
-					entries.sort((a, b) => a.timestamp < b.timestamp);
-					const target = remaining - 256;
-					for (let i = 0; i < target; i++) {
-						sentAt.current[entries[i].key] = undefined;
+					if (action === "Overcharge" || action === "PulseAnomaly") {
+						Audio.play("reactorPulse");
+					} else if (action === "CollectVault") {
+						Audio.play("vaultBank");
 					}
-					remaining -= target;
-				}
-				sentAtCount.current = remaining;
-			}
-			if (action === "CollectVault" || action === "Overcharge") {
-				// instant game feel on the press itself, from the state the player is looking at
-				const store = getActiveClientStore();
-				const session = store?.getState().session;
-				if (action === "CollectVault" && session !== undefined && asFlux(session.Vault) > 0) {
-					SessionStats.bump("collects");
-					SessionStats.addFlux(session.Vault);
-				} else if (action === "Overcharge") {
-					SessionStats.bump("overcharges");
-				}
-				if (session !== undefined && action === "CollectVault" && asFlux(session.Vault) > 0) {
-					Juice.number(`+${compactNumber(session.Vault)} flux`, Palette.cyan, { icon: "Flux.19", big: true });
-					Juice.coins("FLUX", Palette.cyan, "Flux", 10);
-					Juice.burst(undefined, Palette.cyan, 1);
-				} else if (session !== undefined && action === "Overcharge" && session.TapPower !== undefined) {
-					Juice.number(`+${compactNumber(session.TapPower)}`, Palette.mango, { icon: "Flux.20" });
-					Juice.coins("VAULT", Palette.mango, "Flux", 3);
-				}
-			} else if (string.sub(action, 1, 5) === "Claim") {
-				// a claim answers on the press; the amounts fly in when the server confirms
-				Juice.burst(undefined, Palette.mango, 0.7);
-			}
-			if (NetworkPolicy.IsOptimistic(action)) {
-				dispatchStore(ClientActions.applyOptimistic(action, value, config.Game.Version));
-			}
-			if (action === "Overcharge" || action === "PulseAnomaly") {
-				Audio.play("reactorPulse");
-			} else if (action === "CollectVault") {
-				Audio.play("vaultBank");
-			}
-			const requestToken = requestSequence.current + 1;
-			requestSequence.current = requestToken;
-			inFlight.current[signature] = activeRequests + 1;
-			inFlightTotal.current += 1;
-			if (!pipelined) {
-				busy.current[signature] = requestToken;
-			}
-			let requestTimedOut = false;
-			let requestReleased = false;
-			const releaseRequest = () => {
-				if (requestReleased) {
-					return;
-				}
-				requestReleased = true;
-				const remaining = (inFlight.current[signature] ?? 1) - 1;
-				if (remaining > 0) {
-					inFlight.current[signature] = remaining;
-				} else {
-					inFlight.current[signature] = undefined;
-				}
-				inFlightTotal.current = math.max(0, inFlightTotal.current - 1);
-			};
-			let requestTimeout: thread | undefined;
-			let requestWorker: thread | undefined;
-			const timeoutSeconds = NetworkPolicy.Timeout(action);
-			requestTimeout = task.delay(timeoutSeconds, () => {
-				if (requestTimeout !== undefined) {
-					requestTimeouts.current.delete(requestTimeout);
-				}
-				requestTimeout = undefined;
-				const ownsControl = pipelined || busy.current[signature] === requestToken;
-				if (!pipelined && ownsControl) {
-					busy.current[signature] = undefined;
-				}
-				requestTimedOut = true;
-				releaseRequest();
-				if (!appAlive.current || !ownsControl) {
-					return;
-				}
-				if (NetworkPolicy.IsOptimistic(action)) {
-					const accepted = lastAcceptedSnapshot.current;
-					if (accepted !== undefined) {
-						dispatchStore(ClientActions.setSnapshot(accepted));
-					}
-				}
-				ClientLog.warnEvery(`timeout:${action}`, 8, "UI", `${action} timed out after ${timeoutSeconds}s`);
-				addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Info", false);
-				reject("That took too long. Try again.", true);
-			});
-			requestTimeouts.current.set(requestTimeout, true);
-			requestWorker = task.defer(() => {
-				const [ok, raw] = pcall(() => remotes.Request.invoke(action as string, value).expect());
-				if (requestWorker !== undefined) {
-					requestWorkers.current.delete(requestWorker);
-				}
-				requestWorker = undefined;
-				if (requestTimeout !== undefined) {
-					task.cancel(requestTimeout);
-					requestTimeouts.current.delete(requestTimeout);
-					requestTimeout = undefined;
-				}
-				if (!pipelined && busy.current[signature] === requestToken) {
-					busy.current[signature] = undefined;
-				}
-				releaseRequest();
-				if (!appAlive.current) {
-					return;
-				}
-				if (requestTimedOut) {
-					if (ok && typeIs(raw, "table")) {
-						const lateResponse = raw as ActionResponse;
-						if (GRANT_ACTIONS[action] !== undefined) {
-							adopt(lateResponse as never);
-						}
-						if (lateResponse.State !== undefined) {
-							acceptState(lateResponse.State);
+				},
+				invoke: (value) => remotes.Request.invoke(action as string, value).expect(),
+				onTimeout: (timeoutSeconds) => {
+					if (NetworkPolicy.IsOptimistic(action)) {
+						const accepted = lastAcceptedSnapshot.current;
+						if (accepted !== undefined) {
+							dispatchStore(ClientActions.setSnapshot(accepted));
 						}
 					}
-					return;
-				}
-				if (!ok || !typeIs(raw, "table") || !typeIs((raw as ActionResponse).ok, "boolean")) {
+					ClientLog.warnEvery(`timeout:${action}`, 8, "UI", `${action} timed out after ${timeoutSeconds}s`);
+					addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Info", false);
+					reject("That took too long. Try again.", true);
+				},
+				onLateState: (lateState) => acceptState(lateState as never),
+				onNoAnswer: () => {
 					ClientLog.warnEvery(`request:${action}`, 5, "UI", `${action} got no answer`);
 					addNotice("Connection hiccup", "That tap didn't go through. Try again.", "Info", false);
 					reject("That tap didn't go through. Try again.", true);
-					return;
-				}
-				applyResponse(raw as ActionResponse, action, callback);
+				},
+				onResponse: (raw) => applyResponse(raw as ActionResponse, action, callback),
+				workers: requestWorkers.current,
+				timeouts: requestTimeouts.current,
 			});
-			requestWorkers.current.set(requestWorker, true);
 			return undefined;
 		},
-		[acceptState, addNotice, applyResponse, config.Game.Version, dispatchStore, remotes],
+		[acceptState, addNotice, applyResponse, config.Game.Version, dispatchStore, remotes, requestQueue],
 	);
 	useClientIntegrityProbe(dispatch);
 	React.useEffect(() => {
