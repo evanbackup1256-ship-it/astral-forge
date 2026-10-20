@@ -810,15 +810,19 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 	for (const key of TAB_KEYS) {
 		unread += unreadByTab[key] ?? 0;
 	}
-	let visible = messages;
-	if (next(muted)[0] !== undefined) {
-		visible = [];
+	// filtered once per change, not on every render, so the chat object below can stay stable
+	const visible = React.useMemo(() => {
+		if (next(muted)[0] === undefined) {
+			return messages;
+		}
+		const kept = [];
 		for (const record of messages) {
 			if (!muted[record.userId]) {
-				visible.push(record);
+				kept.push(record);
 			}
 		}
-	}
+		return kept;
+	}, [messages, muted]);
 	let peerName: string | undefined;
 	if (peer !== undefined) {
 		for (const entry of whispers) {
@@ -836,30 +840,36 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 				? `Message every server (one every ${ChatRules.GLOBAL_COOLDOWN}s)...`
 				: `Message ${CHANNEL_LABEL[tab] ?? "this server"}... (/ for shortcuts)`;
 	const prefs = settings as { ChatShowGlobal?: number; ChatTextSize?: unknown } | undefined;
-	return {
-		messages: visible,
-		unread,
-		unreadByTab,
-		connected,
-		tab,
-		setTab,
-		peer,
-		setPeer,
-		whispers,
-		muted,
-		setMute,
-		openWhisper,
-		send,
-		clear,
-		suggest,
-		placeholder,
-		focusRequest,
-		requestFocus,
-		// Social settings the page applies: global chat in the All tab, and message text size
-		showGlobal: !typeIs(prefs, "table") || prefs.ChatShowGlobal === undefined || prefs.ChatShowGlobal >= 0.5,
-		textScale:
-			typeIs(prefs, "table") && typeIs(prefs.ChatTextSize, "number") ? 0.85 + prefs.ChatTextSize * 0.45 : 1.075,
-	};
+	const showGlobal = !typeIs(prefs, "table") || prefs.ChatShowGlobal === undefined || prefs.ChatShowGlobal >= 0.5;
+	const textScale = typeIs(prefs, "table") && typeIs(prefs.ChatTextSize, "number") ? 0.85 + prefs.ChatTextSize * 0.45 : 1.075;
+	// the page tree is memoised on its props; a fresh chat object every render would re-render
+	// whichever page is open on every shell update, chat or not
+	return React.useMemo(
+		() => ({
+			messages: visible,
+			unread,
+			unreadByTab,
+			connected,
+			tab,
+			setTab,
+			peer,
+			setPeer,
+			whispers,
+			muted,
+			setMute,
+			openWhisper,
+			send,
+			clear,
+			suggest,
+			placeholder,
+			focusRequest,
+			requestFocus,
+			// Social settings the page applies: global chat in the All tab, and message text size
+			showGlobal,
+			textScale,
+		}),
+		[visible, unread, unreadByTab, connected, tab, setTab, peer, setPeer, whispers, muted, setMute, openWhisper, send, clear, suggest, placeholder, focusRequest, requestFocus, showGlobal, textScale],
+	);
 }
 
 export { useGameChat };

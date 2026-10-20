@@ -8,6 +8,17 @@ import * as theme from "./CoreKit/theme";
 import * as NoticeMath from "./CoreKit/noticeMath";
 import { compactNumber } from "./CoreKit/format";
 
+// the coin shower plays a tick per landing; resolve the audio module once instead of per coin
+let cachedJuiceAudio: { play(sound: string, pitch?: number): void } | undefined;
+function juiceAudio(): { play(sound: string, pitch?: number): void } {
+	if (cachedJuiceAudio === undefined) {
+		cachedJuiceAudio = ((require(script.Parent!.FindFirstChild("AudioKit")! as ModuleScript) as (name: string) => unknown)("audio") as {
+			Audio: { play(sound: string, pitch?: number): void };
+		}).Audio;
+	}
+	return cachedJuiceAudio;
+}
+
 const RunService = game.GetService("RunService");
 const UserInputService = game.GetService("UserInputService");
 const Players = game.GetService("Players");
@@ -700,8 +711,7 @@ const Juice = {
 							if (effect.last) {
 								Juice.shockwave(effect.to, effect.color, 0.75);
 								pcall(() => {
-									const audio = (require(script.Parent!.FindFirstChild("AudioKit")! as ModuleScript) as (name: string) => unknown)("audio") as { Audio: { play(sound: string, pitch?: number): void } };
-									audio.Audio.play("successChime");
+									juiceAudio().play("successChime");
 								});
 							}
 						} else {
@@ -710,8 +720,7 @@ const Juice = {
 								coinRun = t - lastCoinTick > 0.4 ? 0 : coinRun + 1;
 								lastCoinTick = t;
 								pcall(() => {
-									const audio = (require(script.Parent!.FindFirstChild("AudioKit")! as ModuleScript) as (name: string) => unknown)("audio") as { Audio: { play(sound: string, pitch?: number): void } };
-									audio.Audio.play("countTick", 1 + math.min(coinRun, 12) * 0.035 + (effect.last ? 0.12 : 0));
+									juiceAudio().play("countTick", 1 + math.min(coinRun, 12) * 0.035 + (effect.last ? 0.12 : 0));
 								});
 							}
 							if (effect.last) {
