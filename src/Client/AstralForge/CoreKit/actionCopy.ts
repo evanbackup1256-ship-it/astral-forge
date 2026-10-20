@@ -8,8 +8,8 @@ export const PLAYER_COPY: Record<string, string> = {
 	["malformed admin request."]: "Check the command fields and try again.",
 	["invalid action payload"]: "That option isn't available.",
 	["invalid action payload."]: "That option isn't available.",
-	["the forge encountered an error. please try again."]: "Something went wrong. Please try again.",
-	["the forge returned an invalid response. please try again."]: "That didn't go through. Please try again.",
+	["the forge encountered an error. please try again."]: "Something broke on our end. Give it another go.",
+	["the forge returned an invalid response. please try again."]: "That didn't go through. Try again.",
 	["request rejected."]: "That move isn't available right now.",
 	["payload is required"]: "That option isn't available.",
 	["payload must be a table"]: "That option isn't available.",
@@ -32,6 +32,9 @@ export const PLAYER_COPY: Record<string, string> = {
 	["invalid reward payload"]: "That reward isn't ready to claim.",
 	["invalid progression payload"]: "That level isn't ready yet.",
 	["invalid world payload"]: "That world isn't available yet.",
+	["remote traffic paused briefly. please try again."]: "Easy, that was a lot of taps. Give it a second.",
+	["your profile is not ready. please try again."]: "Your save is still loading. Try again in a moment.",
+	["feedback isn't set up yet. please try again later."]: "Feedback isn't open yet. Check back later.",
 };
 
 export const INTERNAL_PAYLOAD_COPY: Record<string, true> = {
@@ -66,10 +69,10 @@ export const FAILURE_TITLE_PREFIXES: ReadonlyArray<[prefix: string, title: strin
 	["Leave", "Couldn't leave"],
 	["Create", "Couldn't create"],
 	["Invite", "Couldn't invite"],
-	["Respond", "Trade issue"],
-	["Confirm", "Trade issue"],
-	["Cancel", "Trade issue"],
-	["Update", "Trade issue"],
+	["Respond", "Trade didn't go through"],
+	["Confirm", "Trade didn't go through"],
+	["Cancel", "Trade didn't go through"],
+	["Update", "Trade didn't go through"],
 	["Contribute", "Couldn't contribute"],
 	["Kick", "Couldn't remove them"],
 	["Report", "Couldn't send that"],
@@ -85,7 +88,7 @@ export const FAILURE_TITLE_PREFIXES: ReadonlyArray<[prefix: string, title: strin
 	["Read", "Couldn't open"],
 	["Delete", "Couldn't delete"],
 	["Rebirth", "Couldn't rebirth"],
-	["Verify", "Follow"],
+	["Verify", "Couldn't check that"],
 ];
 
 export const FAILURE_BODY_BY_ACTION: Record<string, string> = {
@@ -143,7 +146,7 @@ export function failureTitle(action: string, gated?: boolean): string {
 			return title;
 		}
 	}
-	return "Couldn't do that";
+	return "That didn't work";
 }
 
 export function failureBody(action: string, raw: string): string {

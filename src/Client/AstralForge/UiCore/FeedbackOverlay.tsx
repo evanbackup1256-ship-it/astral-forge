@@ -162,7 +162,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 				}
 				setSending(false);
 				if (!response.ok) {
-					notify("Couldn't send feedback", response.error ?? response.message ?? "Please try again in a moment.");
+					notify("Couldn't send feedback", response.error ?? response.message ?? "Give it a moment and try again.");
 					Audio.play("noticeError");
 					return undefined;
 				}

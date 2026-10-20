@@ -84,6 +84,9 @@ interface OfflineRewardsOverlayProps {
 	vault?: Flux;
 	onCollect: () => void;
 	onClose: () => void;
+	waiting?: string[];
+	spinNote?: string;
+	onCollectAll?: () => void;
 }
 
 export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
@@ -100,6 +103,10 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const vault = _param.vault;
 	const onCollect = _param.onCollect;
 	const onClose = _param.onClose;
+	const waiting = _param.waiting ?? [];
+	const spinNote = _param.spinNote;
+	const onCollectAll = _param.onCollectAll;
+	const hasExtras = waiting.size() > 0;
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const stack = chrome.stack || viewport.width < 720;
@@ -164,11 +171,12 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 			}
 			Audio.play(bankVault ? "offlineCollect" : "close");
 			if (bankVault) {
-				onCollect();
+				if (canBankVault) onCollect();
+				if (hasExtras) onCollectAll?.();
 			}
 			beginExit(onClose);
 		},
-		[beginExit, closing, onClose, onCollect],
+		[beginExit, closing, onClose, onCollect, onCollectAll, hasExtras, canBankVault],
 	);
 	React.useEffect(() => {
 		if (bigHaul) {
@@ -219,6 +227,17 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 					: "Everything inside the window is already in your cash."
 			}`
 		: `Earned at ${efficiencyPct}% efficiency for ${clockText(bankedSeconds)}. That flux is already in your cash.`;
+	// what else is waiting reads as one sentence, in place of the efficiency note
+	let waitingText = "";
+	if (hasExtras) {
+		const list =
+			waiting.size() === 1
+				? waiting[0]
+				: `${waiting.filter((_, i) => i < waiting.size() - 1).join(", ")} and ${waiting[waiting.size() - 1]}`;
+		waitingText = `Also waiting: ${list}.`;
+	}
+	if (spinNote !== undefined) waitingText = waitingText === "" ? spinNote : `${waitingText} ${spinNote}`;
+	const noteText = waitingText !== "" ? waitingText : copy;
 	const _exp_3 = h("imagebutton", {
 		Size: UDim2.fromScale(1, 1),
 		BackgroundColor3: Palette.void,
@@ -332,18 +351,18 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const _exp_11 = shortCard
 		? undefined
 		: h(Text, {
-				value: copy,
+				value: noteText,
 				size: 11,
-				color: Palette.creamSoft,
+				color: waitingText !== "" ? Palette.cream : Palette.creamSoft,
 				wrap: true,
 				fit: false,
 				position: new UDim2(0, 0, 1, -(TapTarget * 2 + 40)),
 				sizeConstraint: new UDim2(1, 0, 0, 36),
 			});
 	let _result_1: React.Element;
-	if (canBankVault) {
+	if (canBankVault || hasExtras) {
 		const _attributes: Record<string, unknown> = {};
-		_attributes.text = `BANK VAULT  ${compactNumber(vault ?? 0)}`;
+		_attributes.text = hasExtras ? "COLLECT ALL" : `BANK VAULT  ${compactNumber(vault ?? 0)}`;
 		_attributes.icon = "Collect.3";
 		_attributes.onClick = () => finish(true);
 		_attributes.color = Palette.mint;

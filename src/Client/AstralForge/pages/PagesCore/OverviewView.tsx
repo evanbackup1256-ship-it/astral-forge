@@ -638,6 +638,27 @@ export function OverviewView({
 	const labReady = PageReadyMath.CountReadyLabOrders(state.Lab);
 	const pathReady = PageReadyMath.ForgePathReady(state, config);
 	const opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, false);
+	// story chapters that are open but not read or collected yet
+	let storyWaiting = 0;
+	if (typeIs(state.Story, "table")) {
+		for (const [, chapter] of pairs(state.Story as object)) {
+			if (typeIs(chapter, "table")) {
+				const c = chapter as { Unlocked?: unknown; Claimed?: unknown };
+				if (c.Unlocked === true && c.Claimed !== true) storyWaiting += 1;
+			}
+		}
+	}
+	const opsParts: string[] = [];
+	if (missionsReady > 0) opsParts.push(missionsReady === 1 ? "1 mission" : `${missionsReady} missions`);
+	if (labReady > 0) opsParts.push(labReady === 1 ? "1 lab order" : `${labReady} lab orders`);
+	if (pathReady === true) opsParts.push("a Forge Path step");
+	if (storyWaiting > 0) opsParts.push(storyWaiting === 1 ? "a new story chapter" : `${storyWaiting} story chapters`);
+	const opsDetail =
+		opsParts.size() === 0
+			? undefined
+			: opsParts.size() === 1
+				? `Waiting for you: ${opsParts[0]}.`
+				: `Waiting for you: ${opsParts.filter((_, i) => i < opsParts.size() - 1).join(", ")} and ${opsParts[opsParts.size() - 1]}.`;
 	const opsGuide = config !== undefined && config.ClientPageGuides !== undefined ? config.ClientPageGuides.Overview : undefined;
 	const [overchargeTrigger, setOverchargeTrigger] = React.useState(0);
 	const [overchargeReadyAt, setOverchargeReadyAt] = React.useState(0);
@@ -1560,7 +1581,8 @@ export function OverviewView({
 											value={
 												firstRun && opsClaims === 0
 													? "Missions and other rewards unlock as you earn Flux. Do the highlighted step above first."
-													: (opsGuide?.OpsBody ??
+													: (opsDetail ??
+														opsGuide?.OpsBody ??
 														"Claims waiting across Missions, Lab, Forge Path, and Anomaly.")
 											}
 											size={stack ? chrome.labelText : 11}

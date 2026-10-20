@@ -101,8 +101,48 @@ const GuiService = game.GetService("GuiService");
 const Players = game.GetService("Players");
 const UserInputService = game.GetService("UserInputService");
 
+// everything else that piled up while you were away, so the welcome card can take it in one go
+function awayExtras(state: ShellState, dispatch: Dispatch) {
+	const loose = state as unknown as {
+		Daily?: { CanClaim?: boolean };
+		Wheel?: { CanSpin?: boolean };
+		Command?: { ActiveExpedition?: { Id?: string; EndsAt?: number } };
+		Quests?: unknown;
+	};
+	const waiting: string[] = [];
+	const claims: Array<() => void> = [];
+	if (loose.Daily?.CanClaim === true) {
+		waiting.push("your daily parcel");
+		claims.push(() => dispatch("ClaimDaily"));
+	}
+	const trip = loose.Command?.ActiveExpedition;
+	if (trip !== undefined && (trip.Id ?? "") !== "" && os.time() >= (tonumber(trip.EndsAt) ?? math.huge)) {
+		waiting.push("a crew back from their trip");
+		claims.push(() => dispatch("ClaimExpedition", {}));
+	}
+	const readyIds: string[] = [];
+	if (typeIs(loose.Quests, "table")) {
+		for (const [, raw] of pairs(loose.Quests as object)) {
+			if (!typeIs(raw, "table")) continue;
+			const quest = raw as { Id?: unknown; Claimed?: unknown; Progress?: unknown; Target?: unknown };
+			const target = tonumber(quest.Target) ?? 0;
+			if (quest.Claimed !== true && typeIs(quest.Id, "string") && target > 0 && (tonumber(quest.Progress) ?? 0) >= target) {
+				readyIds.push(quest.Id);
+			}
+		}
+	}
+	if (readyIds.size() > 0) {
+		waiting.push(readyIds.size() === 1 ? "a finished mission" : `${readyIds.size()} finished missions`);
+		for (const id of readyIds) claims.push(() => dispatch("ClaimQuest", { Id: id }));
+	}
+	// a spin has to be spun by hand, so it's mentioned but not collected
+	const spinNote = loose.Wheel?.CanSpin === true ? "Your free spin is waiting on the wheel." : undefined;
+	return { waiting, claims, spinNote };
+}
+
 function offlineRewardsProps(state: ShellState, reducedMotion: boolean, dispatch: Dispatch, dismiss: () => void) {
 	const offline = state.Offline;
+	const extras = awayExtras(state, dispatch);
 	return {
 		reward: offline?.Reward ?? 0,
 		seconds: offline?.Seconds ?? 0,
@@ -115,6 +155,11 @@ function offlineRewardsProps(state: ShellState, reducedMotion: boolean, dispatch
 		reducedMotion,
 		effectsEnabled: (tonumber(state.Settings.OfflineRewardEffects) ?? 1) >= 0.5,
 		onCollect: () => dispatch("CollectVault"),
+		waiting: extras.waiting,
+		spinNote: extras.spinNote,
+		onCollectAll: () => {
+			for (const claim of extras.claims) claim();
+		},
 		onClose: dismiss,
 	};
 }

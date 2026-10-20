@@ -133,6 +133,8 @@ type ActionResponse = Record<string, unknown> & {
 	Vow?: unknown;
 	VowKept?: unknown;
 };
+// notices due in the first couple of minutes after a long absence are covered by the welcome-back card
+const SHELL_BOOT = os.clock();
 type ResponseCallback = (response: ActionResponse) => void;
 type Dispatch = (action: string, payload?: Record<string, unknown>, callback?: ResponseCallback) => void;
 
@@ -142,6 +144,7 @@ type Snapshot = Session & {
 	Overcharge?: { Combo?: number; ComboMultiplier?: number; ComboMax?: number; ComboWindow?: number };
 	Daily?: { CanClaim?: boolean; Streak?: number };
 	Wheel?: { CanSpin?: boolean };
+	Offline?: { Seconds?: number };
 	ForgePath?: { ClaimedSteps?: number[] };
 	CurrentZone?: number;
 };
@@ -637,11 +640,11 @@ export function MainGame(_param: MainGameProps) {
 								: "purchase",
 				);
 				if (action === "BuySignalOffer" || action === "BuyItemOffer") {
-					addNotice("Bought", response.message ?? "Purchase complete.", "Success");
+					addNotice("Bought", response.message ?? "It's yours.", "Success");
 				} else if (machinePurchase) {
-					addNotice("Upgraded", response.message ?? "Station tuned.", "Success", false);
+					addNotice("Upgraded", response.message ?? "Running a little hotter now.", "Success", false);
 				} else if (progressionPurchase) {
-					addNotice("Upgraded", response.message ?? "Level increased.", "Success", false);
+					addNotice("Upgraded", response.message ?? "One level up.", "Success", false);
 				}
 			} else if (reward) {
 				let forgePathMajorStep = action === "ClaimForgePathStep";
@@ -679,7 +682,7 @@ export function MainGame(_param: MainGameProps) {
 				celebrate();
 			} else if (action === "ContributeGuild") {
 				Audio.play("guildDeposit");
-				addNotice("Guild bank", response.message ?? "Contribution deposited.", "Success");
+				addNotice("Guild bank", response.message ?? "Your share is in the guild bank.", "Success");
 			} else if (action === "CreateGuild") {
 				Audio.play("guildCreate");
 				addNotice("Guild chartered", response.message ?? "Your hall is open.", "Special");
@@ -688,7 +691,7 @@ export function MainGame(_param: MainGameProps) {
 				addNotice("Guild", response.message ?? "You're in.", "Success");
 			} else if (action === "LeaveGuild") {
 				Audio.play("guildLeave");
-				addNotice("Guild", response.message ?? "Left the guild.", "Info");
+				addNotice("Guild", response.message ?? "You've left the guild.", "Info");
 			} else if (action === "DisbandGuild") {
 				Audio.play("guildLeave");
 				addNotice("Guild disbanded", response.message ?? "The guild is gone.", "Info");
@@ -697,10 +700,10 @@ export function MainGame(_param: MainGameProps) {
 				addNotice("Crew removed", response.message ?? "They're out of the guild.", "Info");
 			} else if (action === "SetGuildRole") {
 				Audio.play("roleChange");
-				addNotice("Role updated", response.message ?? "Role changed.", "Success");
+				addNotice("Role updated", response.message ?? "Their role is updated.", "Success");
 			} else if (action === "SalvageItem") {
 				Audio.play("salvage");
-				addNotice("Salvaged", response.message ?? "Dust recovered.", "Success");
+				addNotice("Salvaged", response.message ?? "Broken down for dust.", "Success");
 			} else if (action === "EchoAct") {
 				// the echoes screen plays its own moments; the reply only needs a sound
 				Audio.play(
@@ -719,10 +722,10 @@ export function MainGame(_param: MainGameProps) {
 				addNotice("Expedition", response.message ?? "They're out.", "Success");
 			} else if (action === "EquipArtifact") {
 				Audio.play("artifactEquip");
-				addNotice("Equipped", response.message ?? "Loadout updated.", "Info");
+				addNotice("Equipped", response.message ?? "Swapped in.", "Info");
 			} else if (action === "EquipTitle") {
 				Audio.play("badgeEarn");
-				addNotice("Title equipped", response.message ?? "Title updated.", "Success", false);
+				addNotice("Title equipped", response.message ?? "Wearing it now.", "Success", false);
 			} else if (action === "ClaimStoryChapter") {
 				Audio.play("unlock");
 				InteractionFeedback.reward();
@@ -735,7 +738,7 @@ export function MainGame(_param: MainGameProps) {
 				Audio.play("codeReward");
 				InteractionFeedback.reward();
 				celebrate();
-				addNotice("Code claimed", response.message ?? "Reward claimed.", "Special");
+				addNotice("Code claimed", response.message ?? "Enjoy the reward.", "Special");
 			} else if (action === "VerifyCreatorFollow") {
 				const already = string.find(string.lower(response.message ?? ""), "already", 1, true)[0] !== undefined;
 				if (!already) {
@@ -756,12 +759,12 @@ export function MainGame(_param: MainGameProps) {
 				}
 			} else if (action === "InviteTrade") {
 				Audio.play("invite");
-				addNotice("Trade invite", response.message ?? "Invite sent.", "Info");
+				addNotice("Trade invite", response.message ?? "Invite sent. Waiting on them.", "Info");
 			} else if (action === "RespondTrade") {
 				Audio.play("confirm");
 			} else if (action === "ConfirmTrade") {
 				Audio.play("purchase");
-				addNotice("Trade", response.message ?? "Trade finished.", "Success");
+				addNotice("Trade", response.message ?? "Trade done. Check your relics.", "Success");
 			} else if (action === "CancelTrade") {
 				Audio.play("close");
 			} else if (action === "SpinWheel") {
@@ -773,7 +776,7 @@ export function MainGame(_param: MainGameProps) {
 				Audio.play("labRoute");
 			} else if (action === "SetAutoForge") {
 				Audio.play("autoForge");
-				addNotice("Auto-Forge", response.message ?? "Auto-forge set.", "Info");
+				addNotice("Auto-Forge", response.message ?? "Auto-forge is set.", "Info");
 			} else if (action === "SetAnomalyChannel") {
 				Audio.play("toggleOn");
 			} else if (action === "ActivateAnomalySurge") {
@@ -812,7 +815,7 @@ export function MainGame(_param: MainGameProps) {
 			} else if (action === "SetMobileLayout") {
 			} else if (action === "ActivateBoost") {
 				Audio.play("boostActivate");
-				addNotice("Boost on", response.message ?? "Timer started.", "Success");
+				addNotice("Boost on", response.message ?? "The clock is running.", "Success");
 			} else if (action === "UnlockZone") {
 				Audio.play("zoneUnlock");
 				InteractionFeedback.reward();
@@ -852,7 +855,7 @@ export function MainGame(_param: MainGameProps) {
 				addNotice("Salvaged", response.message ?? "Relics broken down.", "Success", false);
 			} else if (action === "ToggleItemLock") {
 				Audio.play("toggleOn");
-				addNotice("Relic", response.message ?? "Lock updated.", "Info", false);
+				addNotice("Relic", response.message ?? "Lock changed.", "Info", false);
 			} else if (action === "StabilizeAnomaly") {
 				Audio.play("reactorStabilize");
 				InteractionFeedback.reward();
@@ -1158,6 +1161,8 @@ export function MainGame(_param: MainGameProps) {
 		}
 		if (state.Daily.CanClaim === true && (state.Daily.Streak ?? 0) >= 1) {
 			streakToastSent.current = true;
+			// the welcome-back card already lists the parcel
+			if ((state.Offline?.Seconds ?? 0) >= 30 && os.clock() - SHELL_BOOT < 120) return;
 			const day = state.Daily.Streak ?? 0;
 			addNotice(
 				"Daily streak",
@@ -1174,6 +1179,7 @@ export function MainGame(_param: MainGameProps) {
 		}
 		if (spinToastSent.current) return;
 		spinToastSent.current = true;
+		if ((state?.Offline?.Seconds ?? 0) >= 30 && os.clock() - SHELL_BOOT < 120) return;
 		addNotice("Free spin", "The wheel's ready for you. Head to Rewards to spin it.", "Special");
 	}, [addNotice, state?.Wheel?.CanSpin]);
 	React.useEffect(() => {
