@@ -1,3 +1,4 @@
+import { sameChromeProps, NAVIGATION_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
 import { mergeEvents, useTooltip } from "../Tooltip";
 import ReactRoblox from "@rbxts/react-roblox";
@@ -1442,7 +1443,7 @@ interface NavigationProps {
 	openBoosts?: () => void;
 }
 
-export function Navigation(_param: NavigationProps) {
+function NavigationImpl(_param: NavigationProps) {
 	const page = _param.page;
 	const setPage = _param.setPage;
 	const collapsed = _param.collapsed === true;
@@ -1683,3 +1684,5 @@ export function Navigation(_param: NavigationProps) {
 			),
 	);
 }
+
+export const Navigation = React.memo(NavigationImpl, sameChromeProps(NAVIGATION_STATE_KEYS));

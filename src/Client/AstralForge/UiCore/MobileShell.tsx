@@ -1,3 +1,4 @@
+import { sameChromeProps, MOBILE_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
 import { AppHelpers, MORE_NAV, NavEntry, NavState, PRIMARY_NAV } from "../CoreKit/appNav";
 import { Flux, asFlux, compactNumber } from "../CoreKit/format";
@@ -573,7 +574,7 @@ interface MobileTabBarProps {
 	visible?: boolean;
 }
 
-export function MobileTabBar(_param: MobileTabBarProps) {
+function MobileTabBarImpl(_param: MobileTabBarProps) {
 	const page = _param.page;
 	const setPage = _param.setPage;
 	const state = _param.state;
@@ -767,7 +768,7 @@ interface MobileHeaderProps {
 	openPlayerlist: () => void;
 }
 
-export function MobileHeader(_param: MobileHeaderProps) {
+function MobileHeaderImpl(_param: MobileHeaderProps) {
 	const state = _param.state;
 	const page = _param.page;
 	const accent = _param.accent;
@@ -1200,3 +1201,7 @@ export function MobileQuickActions(_param: MobileQuickActionsProps) {
 		),
 	);
 }
+
+export const MobileTabBar = React.memo(MobileTabBarImpl, sameChromeProps(MOBILE_STATE_KEYS));
+
+export const MobileHeader = React.memo(MobileHeaderImpl, sameChromeProps(MOBILE_STATE_KEYS));

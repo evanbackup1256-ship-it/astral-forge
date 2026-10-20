@@ -1,3 +1,4 @@
+import { sameChromeProps, TOPBAR_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
 import { useTooltip } from "../Tooltip";
 import { GainPop } from "./GainPop";
@@ -1012,7 +1013,7 @@ interface TopBarProps {
 	config?: unknown;
 }
 
-export function TopBar(_param: TopBarProps) {
+function TopBarImpl(_param: TopBarProps) {
 	const state = _param.state;
 	const page = _param.page;
 	const railOpen = _param.railOpen;
@@ -1611,3 +1612,5 @@ export function TopBar(_param: TopBarProps) {
 			),
 	);
 }
+
+export const TopBar = React.memo(TopBarImpl, sameChromeProps(TOPBAR_STATE_KEYS));

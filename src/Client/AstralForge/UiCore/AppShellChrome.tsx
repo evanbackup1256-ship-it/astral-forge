@@ -202,6 +202,10 @@ function offlineRewardsProps(state: ShellState, reducedMotion: boolean, dispatch
 	};
 }
 
+// static anchors hoisted out of render (Vector2/UDim2 compare by value in Luau, so this saves allocations, not redraws)
+const TOP_CENTER_ANCHOR = new Vector2(0.5, 0);
+const TOP_RIGHT_ANCHOR = new Vector2(1, 0);
+
 function AppShell(props: ShellProps) {
 	const { state, config, dispatch, addNotice, celebrate, clearConfetti, pops, comboReadout, visit, setVisit,
 		openDomain, domainOverlayActive, setToastsSuppressed, setPurchasePresentationActive } = props;
@@ -559,7 +563,7 @@ function AppShell(props: ShellProps) {
 						{!keyboardShellCompact && mobileShell && <>
 							<MobileHeader state={state} page={page} accent={accent} topPad={topPad} barHeight={topbarHeight} edgePad={edgePad} reducedMotion={softMotion} openPlayerlist={openPlayerlist} />
 							<BuffStrip.Island state={state} config={config} reducedMotion={softMotion} restHidden={true} maxWidth={viewport.width - edgePad * 2}
-								position={new UDim2(0.5, 0, 0, topPad + topbarHeight + 6)} anchorPoint={new Vector2(0.5, 0)} />
+								position={new UDim2(0.5, 0, 0, topPad + topbarHeight + 6)} anchorPoint={TOP_CENTER_ANCHOR} />
 						</>}
 						{!keyboardShellCompact && !mobileShell && <TopBar state={state} page={page} railOpen={railOpen} toggleRail={toggleRail} hideUI={hideUI}
 							tight={viewport.tight} width={viewport.width} topPad={topPad} barHeight={topbarHeight} barHeightMotion={topbarLive} edgePad={edgePad} reducedMotion={softMotion}
@@ -595,7 +599,7 @@ function AppShell(props: ShellProps) {
 						{mobileShell && <MobileTabBar page={page} setPage={navigateLatest} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} reducedMotion={reducedMotion}
 							height={tabBarH} bottomSafe={chrome.bottomSafe} visible={!keyboardShellCompact} />}
 						{mobileShell && quickActionsVisible && <MobileQuickActions state={state} dispatch={dispatch} reducedMotion={reducedMotion} bottomOffset={quickBottomOffset} edgePad={edgePad} />}
-						{!hidden && <ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2(1, -18, 0, topPad + topbarHeight + 8)} anchorPoint={new Vector2(1, 0)} zIndex={65} />}
+						{!hidden && <ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2(1, -18, 0, topPad + topbarHeight + 8)} anchorPoint={TOP_RIGHT_ANCHOR} zIndex={65} />}
 						{renderEffectsScale > 0.05 && <EffectLayer pops={visiblePops} />}
 						<QuickFind.QuickFind state={state} dispatch={dispatch} navigate={navigateStable} chatUnread={chat.unread} reducedMotion={reducedMotion}
 							enabled={!hidden && !tutorialOpen && !domainOverlayActive && !showRelease} />
