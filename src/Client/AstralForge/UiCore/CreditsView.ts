@@ -207,7 +207,25 @@ function Avatar(param: AvatarProps) {
 	);
 }
 
-function MemberCard(param: { member: Member; accent: Color3; index: number; reducedMotion?: boolean }) {
+function memberKey(category: Category, member: Member): string {
+	return category.Id + ":" + member.Name;
+}
+
+interface Spot {
+	key: string;
+	member: Member;
+	category: Category;
+}
+
+function MemberCard(param: {
+	member: Member;
+	category: Category;
+	accent: Color3;
+	index: number;
+	reducedMotion?: boolean;
+	spotted: boolean;
+	onSpot: (spot: Spot) => void;
+}) {
 	const member = param.member;
 	const accent = param.accent;
 	const reducedMotion = param.reducedMotion;
@@ -217,6 +235,9 @@ function MemberCard(param: { member: Member; accent: Color3; index: number; redu
 	const username = live !== undefined && typeIs(live.username, "string") ? live.username : member.Name;
 	const [hovered, setHovered] = React.useState(false);
 	const lift = useFlipperSpring(hovered && MODEL.CardHoverLift ? 1 : 0, reducedMotion, 620, 40);
+	// the card in the spotlight keeps an accent ring; one spring, so hover and spotlight never fight
+	const ring = useFlipperSpring(param.spotted ? 1 : 0, reducedMotion, 560, 38);
+	const spot = () => param.onSpot({ key: memberKey(param.category, member), member, category: param.category });
 	const arrive = useStagger(math.min(param.index, MAX_STAGGER_INDEX), reducedMotion || !MODEL.EntranceStagger, MODEL.StaggerStep);
 	const compact = MODEL.CardStyle === "Compact";
 	const avatarSize = compact ? math.min(MODEL.AvatarSize, 48) : MODEL.AvatarSize;
@@ -280,9 +301,12 @@ function MemberCard(param: { member: Member; accent: Color3; index: number; redu
 		"frame",
 		{ Size: UDim2.fromScale(1, 1), LayoutOrder: param.index, BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 323 },
 		h(
-			"frame",
+			"textbutton",
 			{
 				Size: UDim2.fromScale(1, 1),
+				Text: "",
+				AutoButtonColor: false,
+				Selectable: true,
 				Position: React.joinBindings([lift, arrive]).map((values) =>
 					UDim2.fromOffset(0, math.round(-values[0] * 6 + (1 - math.clamp(values[1], 0, 1)) * 14)),
 				),
@@ -295,8 +319,18 @@ function MemberCard(param: { member: Member; accent: Color3; index: number; redu
 					MouseEnter: () => {
 						Audio.play("hover");
 						setHovered(true);
+						spot();
 					},
 					MouseLeave: () => setHovered(false),
+					SelectionGained: () => {
+						setHovered(true);
+						spot();
+					},
+					SelectionLost: () => setHovered(false),
+					Activated: () => {
+						Audio.play("tabSwitch");
+						spot();
+					},
 				},
 			},
 			h("uiscale", {
@@ -309,9 +343,9 @@ function MemberCard(param: { member: Member; accent: Color3; index: number; redu
 			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uigradient", { Color: new ColorSequence(Palette.panelRaised, Palette.panel), Rotation: 90 }),
 			h("uistroke", {
-				Color: lift.map((v) => Palette.panelRaised.Lerp(lighten(accent, 0.4), v)),
-				Thickness: lift.map((v) => 1 + v * 0.75),
-				Transparency: lift.map((amount) => 0.75 - math.clamp(amount, 0, 1) * 0.65),
+				Color: React.joinBindings([lift, ring]).map((values) => Palette.panelRaised.Lerp(lighten(accent, 0.4), math.max(values[0], values[1]))),
+				Thickness: React.joinBindings([lift, ring]).map((values) => 1 + math.max(values[0], values[1] * 1.2) * 0.75),
+				Transparency: React.joinBindings([lift, ring]).map((values) => 0.75 - math.clamp(math.max(values[0], values[1]), 0, 1) * 0.65),
 			}),
 			h(
 				"frame",
@@ -348,6 +382,8 @@ interface CategorySectionProps {
 	firstIndex: number;
 	layoutOrder: number;
 	reducedMotion?: boolean;
+	spotKey: string | undefined;
+	onSpot: (spot: Spot) => void;
 }
 
 function CategorySection(param: CategorySectionProps) {
@@ -370,9 +406,12 @@ function CategorySection(param: CategorySectionProps) {
 	for (const [index, member] of ipairs(members)) {
 		cards[category.Id + ":" + member.Name + ":" + index] = h(MemberCard, {
 			member: member,
+			category: category,
 			accent: accent,
 			index: param.firstIndex + index - 1,
 			reducedMotion: param.reducedMotion,
+			spotted: param.spotKey === memberKey(category, member),
+			onSpot: param.onSpot,
 		});
 	}
 	const count = MODEL.ShowCategoryCounts && members.size() > 0 ? ` · ${members.size()}` : "";
@@ -521,6 +560,249 @@ function TabChip(param: { tab: Tab; active: boolean; order: number; onPick: (id:
 	);
 }
 
+// wide layouts: the sections as a rail down the left side, one row per tab
+function RailItem(param: { tab: Tab; active: boolean; order: number; onPick: (id: string) => void; reducedMotion?: boolean }) {
+	const tab = param.tab;
+	const accent = tone(tab.accent, tone(MODEL.Accent, Palette.violet));
+	const [hovered, setHovered] = React.useState(false);
+	const lit = useFlipperSpring(param.active ? 1 : hovered ? 0.35 : 0, param.reducedMotion, 700, 42);
+	return h(
+		"textbutton",
+		{
+			Size: new UDim2(1, 0, 0, TapTarget),
+			LayoutOrder: param.order,
+			BackgroundColor3: darken(accent, 0.55),
+			BackgroundTransparency: lit.map((a) => 1 - math.clamp(a, 0, 1) * 0.85),
+			BorderSizePixel: 0,
+			AutoButtonColor: false,
+			Text: "",
+			ZIndex: 324,
+			Event: {
+				Activated: () => param.onPick(tab.id),
+				MouseEnter: () => setHovered(true),
+				MouseLeave: () => setHovered(false),
+			},
+		},
+		h("uicorner", { CornerRadius: new UDim(0, 10) }),
+		h(
+			"frame",
+			{
+				Size: lit.map((a) => new UDim2(0, 3, math.clamp(a, 0, 1) * 0.6, 0)),
+				Position: new UDim2(0, 2, 0.5, 0),
+				AnchorPoint: new Vector2(0, 0.5),
+				BackgroundColor3: accent,
+				BorderSizePixel: 0,
+				ZIndex: 325,
+			},
+			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+		),
+		h(Text, {
+			value: tab.label,
+			size: 13,
+			color: param.active ? Palette.cream : Palette.creamSoft,
+			weight: Enum.FontWeight.Heavy,
+			fit: true,
+			minSize: 10,
+			position: new UDim2(0, 14, 0.5, -9),
+			sizeConstraint: new UDim2(1, -54, 0, 18),
+			zIndex: 325,
+		}),
+		MODEL.ShowCategoryCounts &&
+			h(Text, {
+				value: tostring(tab.count),
+				size: 12,
+				color: accent,
+				weight: Enum.FontWeight.Heavy,
+				align: Enum.TextXAlignment.Right,
+				fit: false,
+				position: new UDim2(1, -40, 0.5, -8),
+				sizeConstraint: UDim2.fromOffset(30, 16),
+				zIndex: 325,
+			}),
+	);
+}
+
+// a short burst clock: 0 -> 1 over `seconds` each time `token` changes; idle otherwise
+function useBurst(token: number, seconds: number, off: boolean): React.Binding<number> {
+	const [amount, setAmount] = React.useBinding(1);
+	React.useEffect(() => {
+		if (token === 0 || off) {
+			setAmount(1);
+			return undefined;
+		}
+		const started = os.clock();
+		setAmount(0);
+		const connection = game.GetService("RunService").RenderStepped.Connect(() => {
+			const t = math.clamp((os.clock() - started) / seconds, 0, 1);
+			setAmount(t);
+			if (t >= 1) {
+				connection.Disconnect();
+			}
+		});
+		return () => connection.Disconnect();
+	}, [token]);
+	return amount;
+}
+
+// a new face slides in: keyed on who it is, so each person gets one fresh entrance
+function SpotSlide(param: { reducedMotion?: boolean; children?: React.ReactNode }) {
+	const swap = useStagger(0, param.reducedMotion, 0, 0.16);
+	return h(
+		"frame",
+		{
+			Size: UDim2.fromScale(1, 1),
+			Position: swap.map((a) => UDim2.fromOffset(math.round((1 - math.clamp(a, 0, 1)) * 10), 0)),
+			BackgroundTransparency: 1,
+			ZIndex: 324,
+		},
+		param.children,
+	);
+}
+
+const SPARKS = 10;
+const cheers: Record<string, number> = {};
+
+// the person you're looking at, big: avatar, name, role, their note, and a cheer button
+function Spotlight(param: { spot: Spot | undefined; compact: boolean; reducedMotion?: boolean; size: UDim2; position: UDim2 }) {
+	const spot = param.spot;
+	const [, bump] = React.useState(0);
+	const [token, setToken] = React.useState(0);
+	const burst = useBurst(token, 0.7, param.reducedMotion === true);
+	if (spot === undefined) {
+		return undefined;
+	}
+	const member = spot.member;
+	const accent = tone(spot.category.Accent, Palette.violet);
+	const live = member.UserId !== undefined ? liveNames[member.UserId] : undefined;
+	const displayName = live !== undefined && typeIs(live.display, "string") && live.display !== "" ? live.display : member.DisplayName;
+	const username = live !== undefined && typeIs(live.username, "string") ? live.username : member.Name;
+	const avatar = param.compact ? 52 : 76;
+	const textX = avatar + 18;
+	const count = cheers[spot.key] ?? 0;
+	const cheer = () => {
+		cheers[spot.key] = count + 1;
+		Audio.play("confirm");
+		setToken((n) => n + 1);
+		bump((n) => n + 1);
+	};
+	const sparks: Record<string, unknown> = {};
+	if (param.reducedMotion !== true) {
+		for (let i = 0; i < SPARKS; i++) {
+			const angle = (i / SPARKS) * math.pi * 2 + (token % 2) * 0.3;
+			const reach = avatar * (0.55 + (i % 3) * 0.12);
+			const tint = i % 3 === 0 ? Palette.mango : i % 3 === 1 ? accent : Palette.cream;
+			sparks["s" + i] = h(
+				"frame",
+				{
+					Size: UDim2.fromOffset(6, 6),
+					AnchorPoint: new Vector2(0.5, 0.5),
+					Position: burst.map((t) => {
+						const out = 1 - (1 - t) * (1 - t);
+						return new UDim2(0.5, math.cos(angle) * reach * out, 0.5, math.sin(angle) * reach * out - t * 10);
+					}),
+					BackgroundColor3: tint,
+					BackgroundTransparency: burst.map((t) => (t >= 1 ? 1 : t * t)),
+					Rotation: burst.map((t) => t * 160 + i * 20),
+					BorderSizePixel: 0,
+					ZIndex: 330,
+				},
+				h("uicorner", { CornerRadius: new UDim(0, 2) }),
+			);
+		}
+	}
+	return h(
+		"frame",
+		{
+			Size: param.size,
+			Position: param.position,
+			BackgroundColor3: darken(accent, 0.78),
+			BorderSizePixel: 0,
+			ClipsDescendants: false,
+			ZIndex: 323,
+		},
+		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uistroke", { Color: accent, Transparency: 0.55, Thickness: 1 }),
+		h("uigradient", { Color: new ColorSequence(Palette.panelRaised, darken(accent, 0.7)), Rotation: 0 }),
+		h(
+			SpotSlide,
+			{ key: spot.key, reducedMotion: param.reducedMotion },
+			h(
+				"frame",
+				{
+					Size: UDim2.fromOffset(avatar, avatar),
+					Position: new UDim2(0, 12, 0.5, 0),
+					AnchorPoint: new Vector2(0, 0.5),
+					BackgroundTransparency: 1,
+					Rotation: burst.map((t) => (t >= 1 ? 0 : math.sin(t * math.pi * 3) * 8 * (1 - t))),
+					ZIndex: 325,
+				},
+				h(Avatar, { member: member, size: avatar, accent: accent, position: UDim2.fromScale(0, 0), anchor: Vector2.zero }),
+				sparks,
+			),
+			h(Text, {
+				value: string.upper(member.Role !== "" ? member.Role : spot.category.Label),
+				size: 11,
+				color: accent,
+				weight: Enum.FontWeight.Heavy,
+				fit: true,
+				minSize: 9,
+				position: UDim2.fromOffset(textX, param.compact ? 8 : 14),
+				sizeConstraint: new UDim2(1, -(textX + (param.compact ? 12 : 150)), 0, 14),
+				zIndex: 325,
+			}),
+			h(Text, {
+				value: displayName,
+				size: param.compact ? 17 : 22,
+				color: Palette.cream,
+				weight: Enum.FontWeight.Heavy,
+				fit: true,
+				minSize: 12,
+				position: UDim2.fromOffset(textX, param.compact ? 22 : 30),
+				sizeConstraint: new UDim2(1, -(textX + (param.compact ? 12 : 150)), 0, param.compact ? 22 : 28),
+				zIndex: 325,
+			}),
+			member.UserId !== undefined &&
+				username !== displayName &&
+				h(Text, {
+					value: "@" + username,
+					size: 11,
+					color: Palette.muted,
+					weight: Enum.FontWeight.Bold,
+					fit: true,
+					minSize: 9,
+					position: UDim2.fromOffset(textX, param.compact ? 44 : 58),
+					sizeConstraint: new UDim2(1, -(textX + (param.compact ? 12 : 150)), 0, 14),
+					zIndex: 325,
+				}),
+			!param.compact &&
+				member.Note !== "" &&
+				h(Text, {
+					value: member.Note,
+					size: 12,
+					color: Palette.creamSoft,
+					wrap: true,
+					fit: true,
+					minSize: 11,
+					position: UDim2.fromOffset(textX, 76),
+					sizeConstraint: new UDim2(1, -(textX + 150), 0, 34),
+					zIndex: 325,
+				}),
+			h(Button, {
+				text: count > 0 ? `CHEER ×${count}` : "CHEER",
+				icon: "Wave.3",
+				onClick: cheer,
+				color: accent,
+				textColor: Palette.ink,
+				size: UDim2.fromOffset(param.compact ? 104 : 124, param.compact ? 36 : 40),
+				position: param.compact ? new UDim2(1, -114, 1, -40) : new UDim2(1, -136, 0.5, -20),
+				tooltip: { title: "Cheer", body: "Just for fun. Nobody gets pinged." },
+				reducedMotion: param.reducedMotion,
+				zIndex: 326,
+			}),
+		),
+	);
+}
+
 export function CreditsOverlay(param: { version?: string; reducedMotion?: boolean; onClose: () => void }) {
 	const version = param.version;
 	const onClose = param.onClose;
@@ -545,6 +827,7 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 		Audio.play("tabSwitch");
 		setTab(id);
 	};
+	const [spot, setSpot] = React.useState<Spot | undefined>(undefined);
 
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
@@ -562,18 +845,75 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 	const tabs = CreditsModel.tabs(MODEL);
 	const showTabs = MODEL.CategoryTabs && tabs.size() > 2;
 	const showSearch = CreditsModel.showSearch(MODEL);
-	const searchBeside = showSearch && showTabs && innerW >= 620;
+	// wide: sections as a rail on the left, spotlight + cards on the right.
+	// narrow: tab chips and search on top, a compact spotlight, then the cards.
+	const rail = showTabs && !stack && innerW >= 720;
+	const railW = rail ? 196 : 0;
+	const mainX = rail ? railW + 16 : 0;
+	const mainW = innerW - mainX;
+	const searchBeside = !rail && showSearch && showTabs && innerW >= 620;
 	const headerH = MODEL.Tagline !== "" ? 72 : 58;
-	const controlsH = (showTabs || showSearch ? TAB_H + 12 : 0) + (showSearch && showTabs && !searchBeside ? TAB_H + 8 : 0);
-	const bodyTop = headerH + controlsH;
+	const controlsH = rail ? 0 : (showTabs || showSearch ? TAB_H + 12 : 0) + (showSearch && showTabs && !searchBeside ? TAB_H + 8 : 0);
+	const compactSpot = stack || mainW < 520;
+	const spotH = compactSpot ? 100 : 124;
+	const spotTop = headerH + controlsH;
+	const bodyTop = spotTop + spotH + 12;
 	const bodyH = math.max(80, height - pad * 2 - bodyTop);
 
 	const scrollBar = 4;
-	const contentW = innerW - scrollBar - 8;
+	const contentW = mainW - scrollBar - 8;
 	const columns = CreditsModel.columns(MODEL, contentW, GRID_GAP);
 	const cardH = CreditsModel.cardHeight(MODEL);
 	const visible = CreditsModel.visible(MODEL, tab, query);
 
+	// nobody picked yet (or they're filtered away): spotlight the first person on screen
+	let shownSpot = spot;
+	if (shownSpot !== undefined) {
+		let still = false;
+		for (const entry of visible) {
+			if (entry.category.Id === shownSpot.category.Id && entry.members.includes(shownSpot.member)) {
+				still = true;
+			}
+		}
+		if (!still) {
+			shownSpot = undefined;
+		}
+	}
+	if (shownSpot === undefined) {
+		for (const entry of visible) {
+			const first = entry.members[0];
+			if (first !== undefined) {
+				shownSpot = { key: memberKey(entry.category, first), member: first, category: entry.category };
+				break;
+			}
+		}
+	}
+	// LB / RB step through the sections
+	const tabRef = React.useRef(tab);
+	tabRef.current = tab;
+	React.useEffect(() => {
+		if (!showTabs) {
+			return undefined;
+		}
+		const connection = UserInputService.InputBegan.Connect((input) => {
+			const step = input.KeyCode === Enum.KeyCode.ButtonR1 ? 1 : input.KeyCode === Enum.KeyCode.ButtonL1 ? -1 : 0;
+			if (step === 0) {
+				return;
+			}
+			let at = 0;
+			for (const [i, entry] of ipairs(tabs)) {
+				if (entry.id === tabRef.current) {
+					at = i;
+				}
+			}
+			const target = tabs[math.clamp(at + step, 1, tabs.size()) - 1];
+			if (target !== undefined && target.id !== tabRef.current) {
+				Audio.play("tabSwitch");
+				setTab(target.id);
+			}
+		});
+		return () => connection.Disconnect();
+	}, [showTabs, tabs.size()]);
 	React.useEffect(() => {
 		ClientLog.debug("nav", "credits opened");
 		return () => ClientLog.debug("nav", "credits closed");
@@ -626,6 +966,8 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 			firstIndex: cardIndex,
 			layoutOrder: order,
 			reducedMotion: softMotion,
+			spotKey: shownSpot?.key,
+			onSpot: (picked: Spot) => setSpot(picked),
 		});
 		cardIndex += entry.members.size();
 		cursor += sectionH + SECTION_GAP;
@@ -699,13 +1041,13 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 	const tabChips: Record<string, unknown> = {};
 	if (showTabs) {
 		tabChips.layout = h("uilistlayout", {
-			FillDirection: Enum.FillDirection.Horizontal,
-			Padding: new UDim(0, 6),
+			FillDirection: rail ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal,
+			Padding: new UDim(0, rail ? 4 : 6),
 			SortOrder: Enum.SortOrder.LayoutOrder,
-			VerticalAlignment: Enum.VerticalAlignment.Center,
+			VerticalAlignment: rail ? Enum.VerticalAlignment.Top : Enum.VerticalAlignment.Center,
 		});
 		for (const [order, entry] of ipairs(tabs)) {
-			tabChips[entry.id] = h(TabChip, {
+			tabChips[entry.id] = h(rail ? RailItem : TabChip, {
 				tab: entry,
 				active: entry.id === tab,
 				order: order,
@@ -714,7 +1056,7 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 			});
 		}
 	}
-	const searchW = searchBeside ? 220 : innerW;
+	const searchW = rail ? railW : searchBeside ? 220 : innerW;
 	const tabsW = searchBeside ? innerW - searchW - 10 : innerW;
 	const accent = tone(MODEL.Accent, Palette.violet);
 	const showVersion = MODEL.ShowVersion && version !== undefined;
@@ -820,13 +1162,15 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 						h(
 							"scrollingframe",
 							{
-								Size: UDim2.fromOffset(tabsW, TAB_H + 4),
-								Position: UDim2.fromOffset(0, headerH),
+								Size: rail
+									? UDim2.fromOffset(railW, height - pad * 2 - headerH - (showSearch ? TAB_H + 10 : 0))
+									: UDim2.fromOffset(tabsW, TAB_H + 4),
+								Position: UDim2.fromOffset(0, headerH + (rail && showSearch ? TAB_H + 10 : 0)),
 								BackgroundTransparency: 1,
 								BorderSizePixel: 0,
 								ScrollBarThickness: 0,
-								ScrollingDirection: Enum.ScrollingDirection.X,
-								AutomaticCanvasSize: Enum.AutomaticSize.X,
+								ScrollingDirection: rail ? Enum.ScrollingDirection.Y : Enum.ScrollingDirection.X,
+								AutomaticCanvasSize: rail ? Enum.AutomaticSize.Y : Enum.AutomaticSize.X,
 								CanvasSize: new UDim2(),
 								ElasticBehavior: Enum.ElasticBehavior.WhenScrollable,
 								ZIndex: 323,
@@ -841,17 +1185,24 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 							placeholder: "Search names or roles",
 							position: UDim2.fromOffset(
 								searchBeside ? innerW - searchW : 0,
-								headerH + (showTabs && !searchBeside ? TAB_H + 8 : 0),
+								headerH + (showTabs && !searchBeside && !rail ? TAB_H + 8 : 0),
 							),
 							size: UDim2.fromOffset(searchW, TAB_H),
 							reducedMotion: softMotion,
 							zIndex: 324,
 						}),
+					h(Spotlight, {
+						spot: shownSpot,
+						compact: compactSpot,
+						reducedMotion: softMotion,
+						size: UDim2.fromOffset(mainW, spotH),
+						position: UDim2.fromOffset(mainX, spotTop),
+					}),
 					h(
 						"scrollingframe",
 						{
-							Size: UDim2.fromOffset(innerW, bodyH),
-							Position: UDim2.fromOffset(0, bodyTop),
+							Size: UDim2.fromOffset(mainW, bodyH),
+							Position: UDim2.fromOffset(mainX, bodyTop),
 							BackgroundTransparency: 1,
 							BorderSizePixel: 0,
 							CanvasSize: UDim2.fromOffset(0, cursor + 6),
