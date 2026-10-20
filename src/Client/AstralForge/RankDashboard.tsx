@@ -367,6 +367,9 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		}, []);
 
 		const narrow = measuredWidth < 620;
+		// phones: one-line rows (place, mark, name, value) with the share bar along the bottom edge
+		const phoneRow = measuredWidth < 420;
+		const rankRowH = phoneRow ? 46 : 58;
 		const reducedMotion = props.reducedMotion;
 		const [selected, setSelected] = React.useState("Flux");
 		const [scope, setScope] = React.useState("Global");
@@ -573,11 +576,21 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			}, {
 				Corner: e("uicorner", { CornerRadius: new UDim(0, 14) }),
 				Stroke: e("uistroke", { Color: ring.color, Transparency: mine ? 0.2 : ring.framed ? 0.45 : 0.8, Thickness: ring.thickness }, ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
-				Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
-				Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
-				Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.mint : P.cream), position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),
-				Value: e(ui.Text, { value: valueText(row.Value), size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.Bold, color: P.cream, align: Enum.TextXAlignment.Right, position: narrow ? UDim2.fromOffset(90, 29) : new UDim2(0.6, 0, 0, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.4, narrow ? -104 : -14, 0, 18) }),
-				Share: bar(share(row.Value, top), accent, new UDim2(0, 90, 0, narrow ? 51 : 36), new UDim2(1, -104, 0, 4)),
+				...(phoneRow
+					? {
+							Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 13, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(2, 0), sizeConstraint: new UDim2(0, 28, 1, -4) }),
+							Mark: mark({ row, guildBoard, accent, size: 26, position: new UDim2(0, 44, 0.5, -15) }),
+							Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.mint : P.cream), position: UDim2.fromOffset(64, 12), sizeConstraint: new UDim2(1, -64 - 92, 0, 18) }),
+							Value: e(ui.Text, { value: valueText(row.Value), size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.Bold, color: P.cream, align: Enum.TextXAlignment.Right, position: new UDim2(1, -90, 0, 12), sizeConstraint: UDim2.fromOffset(80, 18) }),
+							Share: bar(share(row.Value, top), accent, new UDim2(0, 64, 1, -7), new UDim2(1, -76, 0, 3)),
+						}
+					: {
+						Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
+						Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
+						Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.mint : P.cream), position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),
+						Value: e(ui.Text, { value: valueText(row.Value), size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.Bold, color: P.cream, align: Enum.TextXAlignment.Right, position: narrow ? UDim2.fromOffset(90, 29) : new UDim2(0.6, 0, 0, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.4, narrow ? -104 : -14, 0, 18) }),
+						Share: bar(share(row.Value, top), accent, new UDim2(0, 90, 0, narrow ? 51 : 36), new UDim2(1, -104, 0, 4)),
+						}),
 			});
 		}
 
@@ -587,7 +600,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				? rows[personalIndex - 1]
 				: { Name: guildBoard ? "Your guild" : Players.LocalPlayer.DisplayName, UserId: guildBoard ? undefined : localId, Id: guildBoard ? guildId : undefined, Value: own };
 			if (!guildBoard || guildId !== undefined) {
-				sections.push({ id: "rank-you", height: 58, element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, { Row: rankRow(you, personalIndex, true) }) });
+				sections.push({ id: "rank-you", height: rankRowH, element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, { Row: rankRow(you, personalIndex, true) }) });
 			}
 		}
 
@@ -637,7 +650,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 					continue;
 				}
 				shown += 1;
-				sections.push({ id: `rank-row-${index + 1}`, height: 58, element: rankRow(row, index + 1, false) });
+				sections.push({ id: `rank-row-${index + 1}`, height: rankRowH, element: rankRow(row, index + 1, false) });
 			}
 			if (shown === 0 && (query !== "" || mineOnly)) {
 				section("rank-no-match", 106, {
