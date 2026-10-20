@@ -2193,6 +2193,9 @@ export function hookGuiClicks(root: Instance): () => void {
 		attach(descendant);
 	}
 	const added = root.DescendantAdded.Connect(attach);
+	// a control pulled out without being destroyed keeps its connections alive otherwise; it
+	// re-attaches through DescendantAdded if it comes back
+	const removed = root.DescendantRemoving.Connect(release);
 	return () => {
 		if (disposed) {
 			return;
@@ -2200,6 +2203,7 @@ export function hookGuiClicks(root: Instance): () => void {
 		disposed = true;
 		globalInput.Disconnect();
 		added.Disconnect();
+		removed.Disconnect();
 		tracked.forEach((_, instance) => release(instance));
 	};
 }

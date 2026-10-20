@@ -99,6 +99,29 @@ function CrewPresenceTree() {
 			}),
 		);
 
+		// a member leaving the server takes their tag with them
+		conns.push(
+			Players.PlayerRemoving.Connect((leaving) => {
+				task.defer(() => {
+					if (!alive) {
+						return;
+					}
+					setHeads((current) => {
+						if (!current.has(leaving.UserId)) {
+							return current;
+						}
+						const kept = new Map<number, { head: BasePart; name: string }>();
+						for (const [uid, data] of current) {
+							if (uid !== leaving.UserId) {
+								kept.set(uid, data);
+							}
+						}
+						return kept;
+					});
+				});
+			}),
+		);
+
 		return () => {
 			alive = false;
 			for (const c of conns) {
