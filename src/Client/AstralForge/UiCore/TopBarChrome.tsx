@@ -1,3 +1,4 @@
+import { useLiveSessionValue } from "./liveSession";
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, TOPBAR_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
@@ -72,11 +73,14 @@ interface StatChipProps {
 	showLabel?: boolean;
 	animateValue?: boolean;
 	narrow?: boolean;
+	// read this session field live (B35) instead of `value`, so the chip redraws on its own ticks
+	liveKey?: string;
 }
 
 export function StatChip(_param: StatChipProps) {
 	const label = _param.label;
-	const value = _param.value;
+	const liveValue = useLiveSessionValue(_param.liveKey);
+	const value = _param.liveKey !== undefined ? liveValue : _param.value;
 	const icon = _param.icon;
 	const accent = _param.accent;
 	const reducedMotion = _param.reducedMotion;
@@ -989,6 +993,7 @@ interface ChipDef {
 	label: string;
 	event?: boolean;
 	value?: unknown;
+	liveKey?: string;
 	icon?: string;
 	accent?: Color3;
 }
@@ -1075,7 +1080,7 @@ function TopBarImpl(_param: TopBarProps) {
 	}
 	allChips.push({
 		label: "FLUX",
-		value: state.Cash,
+		liveKey: "Cash",
 		icon: "Flux.21",
 		accent: Palette.cyan,
 	});
@@ -1233,13 +1238,14 @@ function TopBarImpl(_param: TopBarProps) {
 		12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14 + (countdownW > 0 ? countdownW + 10 : 0);
 	const islandRight = controlsW + controlsRight + 12 + (visitPillWidth > 0 ? visitPillWidth + 8 : 0);
 	const islandRoom = math.max(160, width - edgePad * 2 - islandLeft - islandRight);
-	const islandCurrencies: { target: string; name: string; value: unknown; icon?: string; color?: Color3; rate?: unknown }[] = [];
+	const islandCurrencies: { target: string; name: string; value: unknown; liveKey?: string; icon?: string; color?: Color3; rate?: unknown }[] = [];
 	for (const chip of allChips) {
 		if (chip.event !== true) {
 			islandCurrencies.unshift({
 				target: chip.label,
 				name: chip.label === "FLUX" ? "Flux" : chip.label === "DUST" ? "Stardust" : "Cores",
 				value: chip.value,
+				liveKey: chip.liveKey,
 				icon: chip.icon,
 				color: chip.accent,
 				rate: chip.label === "FLUX" ? state.Production : undefined,
@@ -1260,7 +1266,7 @@ function TopBarImpl(_param: TopBarProps) {
 					showPing: showPing,
 				},
 				rate: state.Production,
-				vaultFull: asFlux(state.Capacity) > 0 && asFlux(state.Vault) >= asFlux(state.Capacity) * 0.99,
+				liveVaultFull: true,
 				navigate: _param.navigate,
 				maxWidth: islandRoom,
 				position: new UDim2(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
@@ -1343,6 +1349,7 @@ function TopBarImpl(_param: TopBarProps) {
 				layoutOrder: 20 + index,
 				label: chip.label,
 				value: chip.value,
+				liveKey: chip.liveKey,
 				icon: chip.icon,
 				accent: chip.accent,
 				reducedMotion: reducedMotion,
@@ -1407,6 +1414,7 @@ function TopBarImpl(_param: TopBarProps) {
 				layoutOrder: index + 1,
 				label: chip.label,
 				value: chip.value,
+				liveKey: chip.liveKey,
 				icon: chip.icon,
 				accent: chip.accent,
 				reducedMotion: reducedMotion,

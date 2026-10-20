@@ -1,5 +1,5 @@
 import React from "@rbxts/react";
-import { sameFields } from "../../UiCore/rowMemo";
+import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { compactNumber, formatReward } from "../../CoreKit/format";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
@@ -213,7 +213,7 @@ function MilestoneRowImpl({ achievement, dispatch, reducedMotion, position, stac
 // shows: the achievement (Name, Description, Reward, Progress/Target, Claimed; Id for the claim) by value,
 // position, stack layout, motion, and whether it hosts the gamepad claim focus (claimHostRef);
 // `query` is passed but never read by the row, so it is not compared
-const MilestoneRow = React.memo(MilestoneRowImpl, sameFields<MilestoneRowProps>(["achievement", "dispatch", "reducedMotion", "position", "stack", "claimHostRef"]));
+const MilestoneRow = React.memo(counted("Milestone", MilestoneRowImpl), sameFields<MilestoneRowProps>(["achievement", "dispatch", "reducedMotion", "position", "stack", "claimHostRef"]));
 
 function taskProgress(entry: TaskEntry) {
 	return math.clamp((tonumber(entry.Progress) ?? 0) / math.max(1, tonumber(entry.Target) ?? 1), 0, 1);

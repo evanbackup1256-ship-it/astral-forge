@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
 import { Palette } from "../../CoreKit/theme";
-import { memoRow, sameFields } from "../../UiCore/rowMemo";
+import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
@@ -366,7 +366,7 @@ function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 // shows: the offer (name, category/flags, discount, reward, stock, price) by value, the quantity and
 // total for the chosen amount, can-afford, saved/inspected button text, busy/expired button state,
 // motion, and its grid slot (size/position); the three handlers go through memoRow's latest-callback refs
-const BazaarOfferCard = memoRow<BazaarOfferCardProps>(BazaarOfferCardImpl, ["onToggleSave", "onInspect", "onBuy"],
+const BazaarOfferCard = memoRow<BazaarOfferCardProps>(counted("BazaarOffer", BazaarOfferCardImpl), ["onToggleSave", "onInspect", "onBuy"],
 	sameFields<BazaarOfferCardProps>(["offer", "quantity", "total", "enough", "saved", "inspected", "busy", "expired", "reducedMotion", "size", "position"]));
 
 function orderTotal(price: Flux, quantity: number): Flux {

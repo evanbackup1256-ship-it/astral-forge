@@ -7,6 +7,7 @@ import Juice = require("./JuiceFx");
 import Rainbow = require("./Rainbow");
 import { useTooltip } from "./Tooltip";
 import { GainPop } from "./UiCore/GainPop";
+import { useLiveSessionValue, useLiveVaultFull } from "./UiCore/liveSession";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import * as motion from "./MotionKit/motion";
@@ -51,6 +52,8 @@ interface CurrencyEntry {
 	target: string;
 	name?: string;
 	value: unknown;
+	// read this session field live instead of `value` (B35)
+	liveKey?: string;
 	icon?: string;
 	color?: Color3;
 	rate?: unknown;
@@ -85,6 +88,8 @@ interface IslandProps {
 	perf?: PerfFlags;
 	rate?: unknown;
 	vaultFull?: boolean;
+	// compute vaultFull from the live session (B35) instead of the prop
+	liveVaultFull?: boolean;
 	navigate?: (destination: string) => void;
 	maxWidth?: number;
 	position?: UDim2;
@@ -1600,7 +1605,24 @@ function measureEvent(info: IslandNotice, maxWidth?: number) {
 
 // props: state, config, currencies { {target, name, value, icon, color} }, perf { showFps, showPing },
 // rate (flux per second), vaultFull, navigate, maxWidth, position, anchorPoint, restHidden, reducedMotion
-BuffStrip.Island = function (props: IslandProps): React.Element {
+BuffStrip.Island = function (islandProps: IslandProps): React.Element {
+	// live currency values and vault-full flag (B35): this island redraws on a cash tick, the top bar doesn't
+	let liveKey: string | undefined;
+	for (const currency of islandProps.currencies ?? []) {
+		if (currency.liveKey !== undefined) liveKey = currency.liveKey;
+	}
+	const liveValue = useLiveSessionValue(liveKey);
+	const liveVaultFull = useLiveVaultFull(islandProps.liveVaultFull === true);
+	const props: IslandProps =
+		liveKey === undefined && islandProps.liveVaultFull !== true
+			? islandProps
+			: {
+					...islandProps,
+					currencies: islandProps.currencies?.map((currency) =>
+						currency.liveKey !== undefined ? { ...currency, value: liveValue } : currency,
+					),
+					vaultFull: islandProps.liveVaultFull === true ? liveVaultFull : islandProps.vaultFull,
+				};
 	const clock = motion.useClock(true, 1, 3600, true);
 	const now = Workspace.GetServerTimeNow();
 	const buffs = BuffStrip.list(props.state, props.config, now);

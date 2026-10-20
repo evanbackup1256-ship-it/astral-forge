@@ -1,3 +1,4 @@
+import { useLiveSessionValue } from "./liveSession";
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, MOBILE_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
@@ -707,7 +708,10 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 	);
 }
 
-function Chip(_param: { target?: string; width: number; height: number; order: number; value: unknown; accent: Color3 }) {
+function Chip(_param: { target?: string; width: number; height: number; order: number; value: unknown; liveKey?: string; accent: Color3 }) {
+	// live session field (B35): only this chip redraws on a cash tick
+	const liveValue = useLiveSessionValue(_param.liveKey);
+	const value = _param.liveKey !== undefined ? liveValue : _param.value;
 	const [juiceRef, juiceBump] = JuiceFx.useTarget(_param.target ?? "");
 	return h(
 		"frame",
@@ -745,7 +749,7 @@ function Chip(_param: { target?: string; width: number; height: number; order: n
 				Size: new UDim2(1, -20, 1, 0),
 				Position: UDim2.fromOffset(16, 0),
 				BackgroundTransparency: 1,
-				Text: compactNumber(_param.value),
+				Text: compactNumber(value),
 				TextColor3: Palette.cream,
 				TextScaled: true,
 				FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
@@ -787,8 +791,8 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 	let chipW = short ? 84 : 96;
 	const playersW = math.min(44, barHeight);
 	const iconSize = short ? 24 : 30;
-	const wanted: { key: string; target: string; value: unknown; accent: Color3 }[] = [
-		{ key: "flux", target: "FLUX", value: state.Cash, accent: Palette.cyan },
+	const wanted: { key: string; target: string; value: unknown; liveKey?: string; accent: Color3 }[] = [
+		{ key: "flux", target: "FLUX", value: undefined, liveKey: "Cash", accent: Palette.cyan },
 	];
 	if (AppHelpers.featureUnlocked(state, "StarGrid")) {
 		wanted.push({ key: "dust", target: "DUST", value: state.Stardust, accent: Palette.mango });
@@ -817,6 +821,7 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 		chips[item.key] = h(Chip, {
 			order: index,
 			value: item.value,
+			liveKey: item.liveKey,
 			accent: item.accent,
 			target: item.target,
 			width: chipW,

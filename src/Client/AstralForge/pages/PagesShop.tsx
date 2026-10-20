@@ -1,7 +1,7 @@
 // PagesShop.luau — compiled page bundle for the Shop tab.
 // Members are required lazily: PagesShop("WheelView") only pays for that page's code.
 import React from "@rbxts/react";
-import { memoRow, sameFields } from "../UiCore/rowMemo";
+import { counted, memoRow, sameFields } from "../UiCore/rowMemo";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Fmt from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -632,7 +632,7 @@ function OfferTileImpl(props: OfferTileProps) {
 }
 
 // shows: title, detail, meta, accent, icon, cta, disabled/owned (button state), layout order, motion/stagger, packed size
-const OfferTile = memoRow<OfferTileProps>(OfferTileImpl, ["onClick"],
+const OfferTile = memoRow<OfferTileProps>(counted("OfferTile", OfferTileImpl), ["onClick"],
 	sameFields<OfferTileProps>(["title", "detail", "meta", "accent", "icon", "cta", "disabled", "owned", "layoutOrder", "reducedMotion", "staggerIndex", "packed"]));
 
 interface ShopViewProps {
@@ -1555,6 +1555,11 @@ interface GridProps {
 	cells: Record<string, unknown>;
 }
 
+// section heading text: every prop is a string/number/Color3/UDim2/enum, so React.memo's own shallow
+// check (== per prop, by value for Roblox value types) is exactly "what it shows"; a binding prop (the
+// daily reset clock) is compared by identity, and its text updates through the binding
+const SectionHeading = React.memo(Text as unknown as React.FunctionComponent<Record<string, unknown>>);
+
 function Grid(props: GridProps) {
 	const children: Record<string, unknown> = { ...props.cells };
 	children.Layout = h("uigridlayout", {
@@ -1922,7 +1927,7 @@ function OfferCardImpl(props: OfferCardProps) {
 
 // shows: the offer (price, reward, slot), its accent/detail from config, stock left, busy/pending button state,
 // stagger index, motion, and only the one wallet balance it prices in (state[offer.Currency]) for "can afford"
-const OfferCard = memoRow<OfferCardProps>(OfferCardImpl, ["onBuy"], (prev, incoming) =>
+const OfferCard = memoRow<OfferCardProps>(counted("DailyOffer", OfferCardImpl), ["onBuy"], (prev, incoming) =>
 	sameFields<OfferCardProps>(["offer", "index", "config", "left", "busy", "pending", "reducedMotion"])(prev, incoming) &&
 	prev.state[incoming.offer.Currency] === incoming.state[incoming.offer.Currency]);
 
@@ -1999,7 +2004,8 @@ function DailySection(props: SectionProps) {
 		});
 	}
 	const gridH = rowsHeight(offers.size(), columns, cellH);
-	const resetText = wall.map((now) => `New offers in ${dayClockText(ShopCatalog.secondsLeft(now))}`);
+	// one binding per mount (B35), so the memoised heading below keeps the same prop between renders
+	const resetText = React.useMemo(() => wall.map((now) => `New offers in ${dayClockText(ShopCatalog.secondsLeft(now))}`), [wall]);
 	const marketH = stack ? 132 : 96;
 	return h(PageScaffold, {
 		gap: GAP,
@@ -2023,7 +2029,7 @@ function DailySection(props: SectionProps) {
 			{
 				id: "clock",
 				height: 22,
-				element: h(Text, {
+				element: h(SectionHeading, {
 					value: resetText,
 					size: 13,
 					color: Palette.mango,
@@ -2730,7 +2736,7 @@ function SkinCardImpl(props: SkinCardProps) {
 }
 
 // shows: the skin, owned/equipped from the cosmetics section, selected highlight, grid order
-const SkinCard = memoRow<SkinCardProps>(SkinCardImpl, ["onSelect"], sameFields<SkinCardProps>(["skin", "cosmetics", "selected", "order"]));
+const SkinCard = memoRow<SkinCardProps>(counted("Skin", SkinCardImpl), ["onSelect"], sameFields<SkinCardProps>(["skin", "cosmetics", "selected", "order"]));
 
 function SkinsSection(props: SectionProps) {
 	const state = props.state;
@@ -2964,11 +2970,7 @@ function CodexProgressImpl(props: CodexProgressProps) {
 
 // shows: per-rarity found/total (progress, rebuilt each render so compared by value), bonus tiers from
 // config, the bonus total, motion
-const CodexProgress = React.memo(CodexProgressImpl, sameFields<CodexProgressProps>(["config", "progress", "bonus", "reducedMotion"]));
-
-// section heading text: every prop is a string/number/Color3/UDim2/enum, so React.memo's own shallow
-// check (== per prop, by value for Roblox value types) is exactly "what it shows"
-const SectionHeading = React.memo(Text as unknown as React.FunctionComponent<Record<string, unknown>>);
+const CodexProgress = React.memo(counted("CodexProgress", CodexProgressImpl), sameFields<CodexProgressProps>(["config", "progress", "bonus", "reducedMotion"]));
 
 interface RelicCellProps {
 	definition: RelicDefinition;
@@ -3051,7 +3053,7 @@ function RelicCellImpl(props: RelicCellProps) {
 }
 
 // shows: the relic definition (rarity colour from config), found, copies, stars, fuse button (canFuse, busy), order, motion
-const RelicCell = memoRow<RelicCellProps>(RelicCellImpl, ["onFuse"],
+const RelicCell = memoRow<RelicCellProps>(counted("Relic", RelicCellImpl), ["onFuse"],
 	sameFields<RelicCellProps>(["definition", "found", "copies", "stars", "canFuse", "busy", "order", "config", "reducedMotion"]));
 
 function CodexSection(props: SectionProps) {

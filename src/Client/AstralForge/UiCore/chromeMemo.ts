@@ -7,9 +7,10 @@
 
 type Props = Record<string, unknown>;
 
-// AppHelpers.featureUnlocked / navUnlocked / filterNav / navBadge (CoreKit/appNav.ts)
+// AppHelpers.featureUnlocked / navUnlocked / filterNav / navBadge (CoreKit/appNav.ts).
+// Cash is not here: in appNav only the upgrade-quote helper reads it, and the chrome never calls that.
 export const NAV_STATE_KEYS = [
-	"Admin", "Cash", "Command", "Convergence", "FeatureUnlocks", "Flags", "ForgeEchoes",
+	"Admin", "Command", "Convergence", "FeatureUnlocks", "Flags", "ForgeEchoes",
 	"Items", "Mailbox", "Rebirths", "Story", "Trade", "Zone",
 ] as const;
 
@@ -18,18 +19,22 @@ const BUFF_STATE_KEYS = [
 	"ActiveBoost", "Ascension", "Continuum", "FluxSurge", "GuildBonuses", "Level", "PermanentMultiplier", "ServerEvent",
 ] as const;
 
-// TopBarChrome.tsx direct reads + featureUnlocked + BuffStrip island + ServerEventChip
+// TopBarChrome.tsx direct reads + featureUnlocked + BuffStrip island + ServerEventChip.
+// No Cash/Vault (B35): the FLUX StatChip and the island read Cash, and the island its vault-full flag,
+// live from the store (UiCore/liveSession.ts), so cash ticks redraw those chips, not the whole bar.
 export const TOPBAR_STATE_KEYS: ReadonlyArray<string> = [
-	"Capacity", "Cash", "Cores", "Production", "ServerEvent", "Settings", "Stardust", "Vault", "Visitors", "FeatureUnlocks",
+	"Capacity", "Cores", "Production", "ServerEvent", "Settings", "Stardust", "Visitors", "FeatureUnlocks",
 	...BUFF_STATE_KEYS,
 ];
 
 // NavChrome.tsx only reads state through appNav helpers
 export const NAVIGATION_STATE_KEYS: ReadonlyArray<string> = [...NAV_STATE_KEYS];
 
-// MobileShell.tsx direct reads + appNav helpers + readLevelState + ServerEvent; shared by tab bar and header
+// MobileShell.tsx direct reads + appNav helpers + readLevelState + ServerEvent; shared by tab bar and header.
+// No Cash/Vault (B35): the header's FLUX chip reads Cash live; Vault is only read by MobileQuickActions,
+// which isn't memoised.
 export const MOBILE_STATE_KEYS: ReadonlyArray<string> = [
-	"Capacity", "Cash", "Cores", "Flags", "ServerEvent", "Stardust", "Vault", "Visitors", "Level",
+	"Capacity", "Cores", "Flags", "ServerEvent", "Stardust", "Visitors", "Level",
 	...NAV_STATE_KEYS,
 ];
 

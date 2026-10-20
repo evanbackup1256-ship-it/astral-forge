@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { Palette } from "../CoreKit/theme";
+import { getActiveClientStore } from "../CoreKit/clientStore";
 
 // Dev-only redraw counter: how many times the shell rendered in the last second.
 // Shown only in Studio for players with admin access (state.Admin.Access), so it never runs live.
@@ -18,6 +19,16 @@ export function redrawCounterEnabled(state: { Admin?: { Access?: boolean } }): b
 // call at the top of a component's render; free when disabled
 export function countRedraw(name: string, enabled: boolean) {
 	if (enabled) {
+		counts.set(name, (counts.get(name) ?? 0) + 1);
+	}
+}
+
+// for components without `state` (list rows): same gate, read from the store; IsStudio is checked
+// first, so in live this is one boolean test
+export function countRowRedraw(name: string) {
+	if (!IN_STUDIO) return;
+	const session = getActiveClientStore()?.getState().session as { Admin?: { Access?: boolean } } | undefined;
+	if (session?.Admin?.Access === true) {
 		counts.set(name, (counts.get(name) ?? 0) + 1);
 	}
 }

@@ -53,6 +53,7 @@ local function render(width, inspected, offers)
 		-- offer cards are a memoised component (B34); render them inline here so the geometry checks still see them
 		memoRow = function(impl) return impl end,
 		sameFields = function() return function() return true end end,
+		counted = function(_, impl) return impl end,
 		workspace = { GetServerTimeNow = function() return 3601 end },
 		Workspace = { GetServerTimeNow = function() return 3601 end },
 	}, { __index = _G })

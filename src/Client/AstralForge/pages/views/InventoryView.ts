@@ -2,7 +2,7 @@ import React from "@rbxts/react";
 import { useTooltip } from "../../Tooltip";
 import { EffectLabel } from "../../CoreKit/inventoryMath";
 import ReactRoblox from "@rbxts/react-roblox";
-import { memoRow, sameFields } from "../../UiCore/rowMemo";
+import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
@@ -673,13 +673,13 @@ function __member(): unknown {
 	// Row memos (memoRow keeps click handlers pointing at the latest closure).
 	// RelicRow shows: the relic (item, by value), config (slot/rarity labels), selected, bulk tick and
 	// mode, motion, y/layout order, stack layout.
-	let RelicRowMemo: unknown = memoRow<Record<string, unknown>>(RelicRow as never, ["onSelect"], sameFields<Record<string, unknown>>(["item", "config", "selected", "bulkSelected", "bulkMode", "reducedMotion", "y", "layoutOrder", "stack"]));
+	let RelicRowMemo: unknown = memoRow<Record<string, unknown>>(counted("InvRelic", RelicRow as never), ["onSelect"], sameFields<Record<string, unknown>>(["item", "config", "selected", "bulkSelected", "bulkMode", "reducedMotion", "y", "layoutOrder", "stack"]));
 	// CrateCard shows: the crate (by value), key count, pity, busy, motion, layout order, stack layout.
-	let CrateCardMemo: unknown = memoRow<Record<string, unknown>>(CrateCard as never, ["onOpen"], sameFields<Record<string, unknown>>(["crate", "keys", "pity", "busy", "reducedMotion", "layoutOrder", "stack"]));
+	let CrateCardMemo: unknown = memoRow<Record<string, unknown>>(counted("InvCrate", CrateCard as never), ["onOpen"], sameFields<Record<string, unknown>>(["crate", "keys", "pity", "busy", "reducedMotion", "layoutOrder", "stack"]));
 	// MarketCard shows: the offer (by value), the three wallet balances it prices against, refresh text,
 	// motion, layout order, stack layout; dispatch is the shell's stable dispatcher. It is also passed
 	// state/config but never reads them, so they are not compared.
-	let MarketCardMemo: unknown = React.memo(MarketCard as never, sameFields<Record<string, unknown>>(["offer", "dispatch", "cash", "stardust", "cores", "refreshShort", "reducedMotion", "layoutOrder", "stack"]) as never);
+	let MarketCardMemo: unknown = React.memo(counted("InvMarket", MarketCard as never) as never, sameFields<Record<string, unknown>>(["offer", "dispatch", "cash", "stardust", "cores", "refreshShort", "reducedMotion", "layoutOrder", "stack"]) as never);
 	function InventoryView(_param?: unknown): unknown | undefined {
 		let state: unknown = luaProp(_param, "state");
 		let config: unknown = luaProp(_param, "config");

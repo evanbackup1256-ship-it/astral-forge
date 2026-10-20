@@ -1,5 +1,5 @@
 ﻿import React from "@rbxts/react";
-import { sameFields } from "../../UiCore/rowMemo";
+import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import { taskFilterCounts, taskMatchesFilter } from "../../CoreKit/taskFilter";
@@ -239,7 +239,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 
 // shows: the quest (Name, Description, Reward, Progress/Target, Claimed; Id for the claim) by value,
 // position, stack layout, motion; dispatch is the shell's stable dispatcher
-const MissionRow = React.memo(MissionRowImpl, sameFields<MissionRowProps>(["quest", "dispatch", "reducedMotion", "position", "stack"]));
+const MissionRow = React.memo(counted("Mission", MissionRowImpl), sameFields<MissionRowProps>(["quest", "dispatch", "reducedMotion", "position", "stack"]));
 
 export interface TaskSummaryProps {
 	reducedMotion?: boolean;

@@ -1,3 +1,4 @@
+import { counted } from "../../UiCore/rowMemo";
 import React from "@rbxts/react";
 import Tools = require("../../UpgradeTools");
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -271,7 +272,7 @@ function machineQuote(p: MachineRowProps): LuaTuple<[string, boolean]> {
 // card re-rendered on every push. The arrow only calls the batch's buy (stable for the life of
 // the queue) with this row's machine id, so it's skipped here; everything the card draws from
 // cash is compared through machineQuote.
-const MachineRow = React.memo(MachineRowImpl, (a, b) => {
+const MachineRow = React.memo(counted("Machine", MachineRowImpl), (a, b) => {
 	if (
 		a.machine !== b.machine ||
 		a.level !== b.level ||

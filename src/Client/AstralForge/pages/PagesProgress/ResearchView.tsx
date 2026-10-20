@@ -1,3 +1,4 @@
+import { counted } from "../../UiCore/rowMemo";
 import React from "@rbxts/react";
 import Tools = require("../../UpgradeTools");
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -75,7 +76,7 @@ function sameQuote(a: NodeProps, b: NodeProps): boolean {
 }
 
 const ResearchNode = React.memo(
-	(props: NodeProps) => {
+	counted("ResearchNode", (props: NodeProps) => {
 		const { entry, reducedMotion, index, onBuy, stack, buyAmount, cash } = props;
 		const reveal = useStagger(math.min(index, 6), reducedMotion, 0.02, 0.14);
 		const accent = entry.config.Accent ?? entry.config.Color;
@@ -231,7 +232,7 @@ const ResearchNode = React.memo(
 				</Panel>
 			</frame>
 		);
-	},
+	}),
 	(prev, incoming) =>
 		prev.entry.config === incoming.entry.config &&
 		prev.entry.level === incoming.entry.level &&

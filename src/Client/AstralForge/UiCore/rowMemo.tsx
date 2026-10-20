@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { countRowRedraw } from "./devRedrawCounter";
 
 // Row memo helpers (B29/B31 approach for list rows).
 // sameValue: by value for plain tables (row data like a quest or a reward), == otherwise
@@ -60,5 +61,14 @@ export function sameFields<P extends object>(keys: ReadonlyArray<keyof P & strin
 			if (!sameValue((prev as Props)[key], (incoming as Props)[key])) return false;
 		}
 		return true;
+	};
+}
+
+// wrap a row so each real render (memo miss) shows on the dev redraw counter as `row:<name>`
+export function counted<P>(name: string, impl: (props: P) => React.Element | undefined): (props: P) => React.Element | undefined {
+	const label = `row:${name}`;
+	return (props: P) => {
+		countRowRedraw(label);
+		return impl(props);
 	};
 }
