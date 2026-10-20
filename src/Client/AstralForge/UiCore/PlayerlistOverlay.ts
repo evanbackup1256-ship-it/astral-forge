@@ -96,6 +96,9 @@ interface Response {
 
 const TEST_BOT_USER_ID = 771133001;
 const ROW_H = 60;
+// phones (card narrower than this): one-line rows, so about a third more players fit on screen
+const COMPACT_W = 340;
+const COMPACT_ROW_H = 44;
 const ROW_GAP = 6;
 const FRIEND_TTL = 120;
 const REPORT_COOLDOWN = 600;
@@ -302,6 +305,9 @@ function PlayerRow(param: PlayerRowProps) {
 	const [hovered, setHovered] = React.useState(false);
 	const hover = useFlipperSpring(hovered || expanded ? 1 : 0, reducedMotion, 900, 44);
 	const detailsH = detailsHeight(row, width);
+	const compact = width < COMPACT_W;
+	const rowH = compact ? COMPACT_ROW_H : ROW_H;
+	const avatarSize = compact ? 28 : 40;
 	const tags: string[] = [];
 	if (row.IsLocal) {
 		tags.push("YOU");
@@ -448,7 +454,7 @@ function PlayerRow(param: PlayerRowProps) {
 		{
 			Name: "PlayerCard",
 			ref: rowRef,
-			Size: openAmount.map((amount) => new UDim2(1, 0, 0, ROW_H + math.round(detailsH * math.clamp(amount, 0, 1)))),
+			Size: openAmount.map((amount) => new UDim2(1, 0, 0, rowH + math.round(detailsH * math.clamp(amount, 0, 1)))),
 			LayoutOrder: param.order,
 			BackgroundColor3: hover.map((amount) => Palette.panel.Lerp(darken(accent, 0.7), math.clamp(amount, 0, 1) * 0.8)),
 			BorderSizePixel: 0,
@@ -460,7 +466,8 @@ function PlayerRow(param: PlayerRowProps) {
 			"uistroke",
 			{
 				Color: style.frame?.Gradient ? new Color3(1, 1, 1) : strokeColor,
-				Thickness: style.frame?.Thickness ?? 1,
+				// compact rows show the frame as a left bar instead, so the thin card keeps a 1px edge
+				Thickness: compact ? 1 : (style.frame?.Thickness ?? 1),
 				Transparency: hover.map((amount) => (style.frame !== undefined ? 0.45 : 0.8) - math.clamp(amount, 0, 1) * 0.45),
 			},
 			style.frame?.Gradient === true &&
@@ -476,7 +483,7 @@ function PlayerRow(param: PlayerRowProps) {
 		h(
 			"textbutton",
 			{
-				Size: new UDim2(1, 0, 0, ROW_H),
+				Size: new UDim2(1, 0, 0, rowH),
 				BackgroundTransparency: 1,
 				Text: "",
 				AutoButtonColor: false,
@@ -492,8 +499,8 @@ function PlayerRow(param: PlayerRowProps) {
 			artifact !== undefined &&
 				h(ElementFx, {
 					element: artifact.Element,
-					size: UDim2.fromOffset(66, 66),
-					position: new UDim2(0, 30, 0.5, -3),
+					size: compact ? UDim2.fromOffset(46, 46) : UDim2.fromOffset(66, 66),
+					position: new UDim2(0, compact ? 24 : 30, 0.5, compact ? -2 : -3),
 					transparency: 0.2,
 					reducedMotion: reducedMotion,
 					zIndex: 622,
@@ -504,21 +511,45 @@ function PlayerRow(param: PlayerRowProps) {
 			h(Avatar, {
 				userId: row.UserId,
 				accent: artifactColor ?? accent,
-				size: 40,
+				size: avatarSize,
 				away: away,
 				position: new UDim2(0, 10, 0.5, 0),
 			}),
+			compact &&
+				style.frame !== undefined &&
+				h(
+					"frame",
+					{
+						Size: new UDim2(0, 3, 1, -14),
+						Position: UDim2.fromOffset(2, 7),
+						BackgroundColor3: style.frame.Gradient ? new Color3(1, 1, 1) : strokeColor,
+						BorderSizePixel: 0,
+						ZIndex: 624,
+					},
+					h("uicorner", { CornerRadius: new UDim(1, 0) }),
+					style.frame.Gradient &&
+						h("uigradient", {
+							Color: new ColorSequence([
+								new ColorSequenceKeypoint(0, strokeColor),
+								new ColorSequenceKeypoint(0.5, Palette.violet),
+								new ColorSequenceKeypoint(1, Palette.mango),
+							]),
+							Rotation: 90,
+						}),
+				),
 			h(Text, {
-				value: row.DisplayName,
-				size: 15,
+				// compact: the first tag (YOU, CREW, FRIEND, AWAY) rides on the name; world and rebirths are in the details
+				value: compact && tags.size() > 0 ? `${row.DisplayName} · ${tags[0]}` : row.DisplayName,
+				size: compact ? 14 : 15,
 				color: style.accent !== undefined ? lighten(style.accent, 0.12) : Palette.cream,
 				weight: Enum.FontWeight.Heavy,
 				fit: true,
 				minSize: 11,
-				position: UDim2.fromOffset(60, 9),
-				sizeConstraint: new UDim2(1, -150, 0, 20),
+				position: compact ? UDim2.fromOffset(46, 12) : UDim2.fromOffset(60, 9),
+				sizeConstraint: compact ? new UDim2(1, -46 - 96, 0, 20) : new UDim2(1, -150, 0, 20),
 				zIndex: 623,
 			}),
+			!compact &&
 			h(Text, {
 				value: tags.size() > 0 ? tags.join(" · ") + "  ·  " + subtitle : subtitle,
 				size: 10,
@@ -538,10 +569,11 @@ function PlayerRow(param: PlayerRowProps) {
 				align: Enum.TextXAlignment.Right,
 				fit: true,
 				minSize: 9,
-				position: new UDim2(1, -110, 0, 12),
+				position: new UDim2(1, -110, 0, compact ? 13 : 12),
 				sizeConstraint: UDim2.fromOffset(78, 18),
 				zIndex: 623,
 			}),
+			!compact &&
 			h(Text, {
 				value: "OUTPUT",
 				size: 9,
@@ -585,7 +617,7 @@ function PlayerRow(param: PlayerRowProps) {
 			"frame",
 			{
 				Size: new UDim2(1, 0, 0, detailsH),
-				Position: UDim2.fromOffset(0, ROW_H),
+				Position: UDim2.fromOffset(0, rowH),
 				BackgroundTransparency: 1,
 				Visible: openAmount.map((amount) => amount > 0.01),
 				ZIndex: 624,
