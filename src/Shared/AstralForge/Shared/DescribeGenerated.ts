@@ -120,12 +120,101 @@ function compose(lead: [string, string, string] | undefined, tail: string | unde
 	return pick % 2 === 0 ? `${first} ${tail}` : `${tail} ${first}`;
 }
 
+// Worlds: taglines pair a place half with a payoff half (13 x 11, coprime, so 143 worlds in a row
+// never share one); descriptions pair a layout line with a general one; lore fills the name in.
+const WORLD_PLACE = [
+	"Cold rails and wide bays",
+	"Tight corridors",
+	"A dock built on an old wreck",
+	"Glass floors over open space",
+	"Loud furnaces day and night",
+	"A quiet ring with long shadows",
+	"Crowded freight lanes",
+	"A half-finished station",
+	"Bright lamps, thin air",
+	"Low gravity and loose bolts",
+	"A market that never closes",
+	"Fog in the lower decks",
+	"Mirrored walls everywhere",
+];
+const WORLD_PAYOFF = [
+	"good for long offline stretches",
+	"steady upgrades pay best",
+	"a big multiplier if you keep up",
+	"tidy builds get rewarded",
+	"automation does the heavy lifting",
+	"patient buyers do well here",
+	"collect often or lose out",
+	"cores go further than usual",
+	"easy to settle into",
+	"worth the rebirth it asks for",
+	"rough start, great finish",
+];
+const WORLD_LAYOUT_LINES: Record<string, [string, string, string, string]> = {
+	Dock: ["Freight comes and goes on a tight schedule.", "The docks are cramped but the cranes are fast.", "Ships queue at the gate from first shift to last.", "Half the bay is cargo, half is forge."],
+	Crystal: ["Everything here rings when you hit it.", "The crystal walls store heat between shifts.", "Light bends strangely off the shelves.", "Crews tune their machines to the hum of the rock."],
+	Foundry: ["The heat hits you before the gate opens.", "Molten channels run under the floor grates.", "Every machine here runs a little hotter than it should.", "The smelters never get a night off."],
+	Rift: ["Space folds in on itself near the core.", "Shortcuts open and close without warning.", "Deliveries sometimes arrive before they're sent.", "The map of this place changes every week."],
+	Horizon: ["Right on the edge of what anyone has charted.", "The view out the window is mostly nothing.", "Signals take a long time to get back from here.", "Far enough out that the stars look different."],
+};
+const WORLD_GENERAL = [
+	"Stack upgrades and it keeps paying.",
+	"Bank early; the vault fills fast.",
+	"Long sessions do well here.",
+	"The bigger machines feel at home.",
+	"Short visits still pay off.",
+	"It rewards a balanced build.",
+	"Research goes a long way here.",
+	"Offline time is generous.",
+	"Overcharge hits a little harder.",
+	"Automation carries most of the load.",
+	"The first hour is slow. After that it isn't.",
+	"Good place to park between rebirths.",
+	"Keep the vault from filling up.",
+	"Cores are the bottleneck, so spend them well.",
+	"Big multiplier, bigger price tags.",
+	"Small crews do surprisingly well.",
+	"Collect on time and the numbers jump.",
+	"A good stop for chasing milestones.",
+	"Builds that worked before still work here.",
+];
+const WORLD_LORE = [
+	"%s showed up on the charts one cycle and never left. Crews here swear by the %s.",
+	"Nobody named %s on purpose. The survey drone sneezed. Nobody complains about the %s, though.",
+	"%s runs on stubbornness and the %s. Bring the stubbornness.",
+	"The dock log for %s is one line long: mind the %s.",
+	"%s pays out if you let it. Let the %s do most of the talking.",
+	"Somebody painted ON THE CLOCK across the gate at %s. Between that and the %s, nobody slacks.",
+	"The first crew at %s left a note: come for the %s, stay for the view.",
+	"%s was a rumor for years. Then someone found the %s.",
+	"Ask anyone at %s what they like about it and they'll say the %s.",
+	"%s smells like hot metal and coffee. Nobody minds, thanks to the %s.",
+	"Iska marked %s on her map with a star. Probably for the %s.",
+	"%s is the kind of place you visit once and keep coming back to. Blame the %s.",
+	"The welcome sign at %s is crooked. Nobody cares once they see the %s.",
+	"Crews at %s argue about everything except the %s.",
+	"%s took three tries to dock. The %s made it worth it.",
+	"There's a bell by the gate at %s. Ring it for luck, then go check the %s.",
+	"%s never made it into Vale's notes. The %s would have.",
+];
+
 const DescribeGenerated = {
 	machine(this: void, prefix: string, core: string, prefixIndex: number, cycle: number): string {
 		return compose(MACHINE_CORE_LINES[core], MACHINE_PREFIX_LINES[prefix], prefixIndex + cycle, "A late-game machine that follows Chrono Array.");
 	},
 	research(this: void, prefix: string, noun: string, prefixIndex: number, cycle: number): string {
 		return compose(RESEARCH_NOUN_LINES[noun], RESEARCH_PREFIX_LINES[prefix], prefixIndex + cycle, "Permanent research. Kept through rebirths.");
+	},
+	worldTagline(this: void, n: number): string {
+		return `${WORLD_PLACE[(n - 1) % WORLD_PLACE.size()]}, ${WORLD_PAYOFF[(n - 1) % WORLD_PAYOFF.size()]}.`;
+	},
+	worldDescription(this: void, layout: string, n: number): string {
+		const lines = WORLD_LAYOUT_LINES[layout] ?? WORLD_LAYOUT_LINES.Dock;
+		return `${lines[math.floor((n - 1) / 5) % 4]} ${WORLD_GENERAL[(n - 1) % WORLD_GENERAL.size()]}`;
+	},
+	worldLore(this: void, name: string, feature: string, n: number): string {
+		const template = WORLD_LORE[(n - 1) % WORLD_LORE.size()];
+		return string.format(template, name, string.lower(feature));
 	},
 };
 

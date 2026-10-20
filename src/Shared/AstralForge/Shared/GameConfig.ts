@@ -12,6 +12,9 @@ const SharedData = require(sharedFolder.WaitForChild("SharedData") as ModuleScri
 const DescribeGenerated = require(sharedFolder.WaitForChild("DescribeGenerated") as ModuleScript) as {
 	machine(this: void, prefix: string, core: string, prefixIndex: number, cycle: number): string;
 	research(this: void, prefix: string, noun: string, prefixIndex: number, cycle: number): string;
+	worldTagline(this: void, n: number): string;
+	worldDescription(this: void, layout: string, n: number): string;
+	worldLore(this: void, name: string, feature: string, n: number): string;
 };
 
 const ENDLESS_LEVEL_CAP = 9_000_000_000_000_000;
@@ -6877,26 +6880,26 @@ const GameConfig: Dict = {
 				Title: "Update 4.1",
 				Date: "AUG 28",
 				Highlights: [
-					"Astral Forge is available. Official launch is August 31, 2026 at 17:00 UTC. The countdown is on the HUD; when it reaches zero it plays a live animation.",
-					"Relic inventory: search, filters, bag, and salvage share a row on desktop so the list is not buried under tools.",
-					"Multi-salvage and auto-recycle stay fully on screen.",
-					"Notifications are smaller and display the server's actual message when something fails.",
-					"Following the creator page is a one-time reward. It is no longer treated as an expedition.",
-					"Echoes used Relics as its page subtitle. It now reads Keep.",
-					"Removed leftover rings on the extra-tab row, top bar, logo, and countdown.",
-					"The blank extra-tab between Crew and Milestones was a clipped label. It displays correctly.",
-					"Trade's empty-server card no longer fills the whole pane.",
-					"Forge Path reward chips size to their text instead of clipping their icons.",
-					"Reactor server overdrive heading is no longer cut off.",
-					"Animated titles no longer hitch while scrolling.",
-					"Loading screen uses bouncing dots.",
-					"Button shimmers stop when the cursor leaves.",
-					"Rapid tapping is less likely to be flagged as cheating.",
-					"Mailbox headers shrink on phones instead of truncating the subject.",
-					"Guild promote and kick buttons meet the phone tap size.",
-					"Chat shows a character counter.",
-					"Missions show when the next set arrives. Wheel cooldown ticks in real time.",
-					"Spacebar banks the vault.",
+					"Astral Forge is live! The official launch is August 31, 2026 at 17:00 UTC. Keep an eye on the countdown on the HUD; it does something fun when it hits zero.",
+					"On desktop, the relic inventory's search, filters, bag and salvage now share one row, so your relics aren't buried under tools.",
+					"Multi-salvage and auto-recycle stay fully on screen now.",
+					"Notifications are smaller, and when something fails they show you what actually went wrong.",
+					"Following the creator page is a one-time reward now. It used to get mixed up with expeditions, oops.",
+					"The Echoes page said \"Relics\" under its title by mistake. It says Keep now.",
+					"We cleaned up some leftover rings on the extra-tab row, top bar, logo and countdown.",
+					"That mysterious blank tab between Crew and Milestones was a clipped label. Fixed.",
+					"Trade's empty-server card doesn't take over the whole pane anymore.",
+					"Forge Path reward chips size to their text, so the icons don't get cut off.",
+					"The Reactor's server overdrive heading isn't cut off anymore.",
+					"Animated titles don't stutter while you scroll.",
+					"The loading screen has bouncing dots now.",
+					"Button shimmers stop when you move the cursor away.",
+					"Tapping fast is much less likely to get you flagged as a cheater. Sorry to everyone that happened to.",
+					"Mailbox headers shrink on phones instead of chopping off the subject.",
+					"Guild promote and kick buttons are big enough to tap on a phone.",
+					"Chat shows how many characters you have left.",
+					"Missions tell you when the next set arrives, and the wheel cooldown counts down live.",
+					"Press Space to bank the vault.",
 				],
 			},
 			{
@@ -6904,13 +6907,13 @@ const GameConfig: Dict = {
 				Title: "Trade and notifications",
 				Date: "AUG 23",
 				Highlights: [
-					"Trade floor rebuilt. The practice bot is removed; trades are between players.",
-					"Clear Offer is a single action. The offer editor is simpler to use.",
-					"Buying, equipping, unlocking, and salvaging confirm what they did.",
-					"Notifications move to the bottom of the screen. They can be dismissed by swipe, or held by hovering.",
-					"Boosts have their own page, separate from Rewards.",
-					"Anti-cheat is less likely to kick players for tapping quickly.",
-					"Older mail and patch history were cleared to make room.",
+					"We rebuilt the trade floor. The practice bot is gone, so every trade is with a real player.",
+					"Clearing an offer is one click now, and the offer editor is easier to use.",
+					"Buying, equipping, unlocking and salvaging all tell you what they did.",
+					"Notifications moved to the bottom of the screen. Swipe one away, or hover to keep it up.",
+					"Boosts have their own page now instead of hiding in Rewards.",
+					"Anti-cheat is much less likely to kick you for tapping fast.",
+					"We cleared out old mail and patch history to make room.",
 				],
 			},
 			{
@@ -6918,13 +6921,13 @@ const GameConfig: Dict = {
 				Title: "Guilds and combos",
 				Date: "AUG 21",
 				Highlights: [
-					"Overcharge combos, with a clearer combo badge.",
-					"Guilds include a bank, ranks, and activity pings. A solo leader can disband the guild.",
-					"Online presence on leaderboards and in guild chat.",
-					"Player reports.",
-					"Additional boosts, with remaining time shown.",
-					"Domain Expansion no longer repeats the tutorial or sits off-center.",
-					"A failed save during a session now shows a warning.",
+					"Overcharge combos are in, with a combo badge you can actually read.",
+					"Guilds come with a bank, ranks and activity pings. If you're the only one left, you can disband.",
+					"You can see who's online on the leaderboards and in guild chat.",
+					"You can report players now.",
+					"More boosts, and you can see how long each one has left.",
+					"Domain Expansion stops replaying its tutorial and sits where it should on screen.",
+					"If a save fails mid-session, we'll warn you now.",
 				],
 			},
 			{
@@ -6932,17 +6935,17 @@ const GameConfig: Dict = {
 				Title: "Reactor and mobile",
 				Date: "AUG 15",
 				Highlights: [
-					"Reactor rebuilt: pulse the core, fill the cell, and contribute to server-wide overdrive.",
-					"Core Tiers replace the previous reactor ladder. Channel cards and the pulse needle display correctly.",
-					"The reactor core no longer keeps growing after the first pulse.",
-					"Phones use a bottom tab bar. The More sheet and quick actions display on screen.",
-					"Workshop cards no longer overlap in the grid.",
-					"Tutorial no longer gets stuck at step 10.",
-					"Boost Activate no longer overlaps its button label.",
+					"The Reactor is rebuilt: pulse the core, fill the cell, and chip in to a server-wide overdrive.",
+					"Core Tiers replace the old reactor ladder. Channel cards and the pulse needle look right now.",
+					"The reactor core stops growing after the first pulse. It was getting a bit much.",
+					"Phones get a bottom tab bar, and the More sheet and quick actions actually fit on screen.",
+					"Workshop cards don't pile on top of each other anymore.",
+					"The tutorial won't get stuck at step 10.",
+					"The Boost Activate button doesn't cover its own label anymore.",
 					"Echoes and Continuum rings animate more smoothly.",
-					"Leaderboards can switch between server and global. Tab switching animation is restored.",
-					"Returning from offline shows a count-up of earnings.",
-					"Guild actions that were silent now play sound. Large offline hauls layer audio.",
+					"Leaderboards switch between server and global, and the tab animation is back.",
+					"Coming back from offline, you'll see your earnings count up.",
+					"Guild actions that used to be silent make a sound now, and big offline hauls sound bigger.",
 				],
 			},
 			{
@@ -6950,24 +6953,24 @@ const GameConfig: Dict = {
 				Title: "Relics, wheel, and worlds",
 				Date: "AUG 13",
 				Highlights: [
-					"Relics: crates, market, sockets, upgrades, salvage, and optional auto-recycle.",
-					"Fortune Wheel, with weighted odds, pity, and a six-hour cooldown.",
-					"Continuum, an additional rank layer on top of rebirth.",
-					"Lab: daily orders and movable power cells.",
+					"Relics are here: crates, a market, sockets, upgrades, salvage and optional auto-recycle.",
+					"The Fortune Wheel, with weighted odds, a pity timer and a six-hour cooldown.",
+					"Continuum: a whole new rank layer on top of rebirth.",
+					"The Lab, with daily orders and power cells you can move around.",
 					"Playtime gifts and Forge Echoes.",
-					"Crate opens use a full-screen reveal. Rebirth has a celebration.",
-					"Daily login rewards with a streak.",
-					"Mail with claimable attachments.",
-					"Story chapters with rewards.",
-					"Missions, milestones, and leaderboards.",
-					"Star Grid and Research.",
+					"Opening a crate gets a full-screen reveal, and rebirths get a celebration.",
+					"Daily login rewards, with a streak to keep alive.",
+					"Mail, with attachments you can claim.",
+					"Story chapters, with rewards at the end.",
+					"Missions, milestones and leaderboards.",
+					"The Star Grid and Research.",
 					"Eight worlds, each with its own production multiplier.",
-					"Boosts from rebirth and the shop.",
-					"Chat, including animated titles.",
-					"Settings for motion and data export.",
-					"New loading intro and a full icon set.",
-					"Phone and desktop layouts share one set of size rules.",
-					"Dungeons and mini-games have been removed.",
+					"Boosts from rebirths and the shop.",
+					"Chat, animated titles included.",
+					"Settings for motion, plus a way to export your data.",
+					"A new loading intro and a full set of icons.",
+					"Phone and desktop now follow the same size rules.",
+					"Dungeons and the mini-games are gone.",
 				],
 			},
 			{
@@ -6975,14 +6978,14 @@ const GameConfig: Dict = {
 				Title: "Initial release",
 				Date: "AUG 07",
 				Highlights: [
-					"Core loop: machines, vault, overcharge, and rebirth.",
-					"Shop and workshop.",
-					"Touch input on phones.",
-					"Patch notes can be dismissed on a phone.",
-					"Mail, counters, and audio load more reliably.",
-					"First version of the crate reveal.",
-					"Narrow PC windows stay on the desktop layout.",
-					"Save and runtime reliability improvements.",
+					"The first version! Machines, the vault, overcharge and rebirth.",
+					"A shop and a workshop.",
+					"Touch controls for phones.",
+					"You can close the patch notes on a phone. (Yes, that was a problem.)",
+					"Mail, counters and audio load more reliably.",
+					"A first pass at the crate reveal.",
+					"Narrow PC windows keep the desktop layout.",
+					"Lots of save and stability fixes behind the scenes.",
 				],
 			},
 		],
@@ -7151,28 +7154,6 @@ const worldPrefixes = [
 	"Mirage",
 ];
 const worldNouns = ["Basin", "Crown", "Concourse", "Garden", "Array", "Reach", "Spire", "Archive", "Tessellation", "Citadel"];
-const worldTaglines = [
-	"Quiet sector. Good for long AFK stacks.",
-	"Built for steady upgrades, not luck.",
-	"Busy lanes and a solid multiplier.",
-	"Odd layout. Pays if you keep it tidy.",
-	"Late-run stop with clean automation.",
-];
-const worldDescriptions = [
-	"Freight keeps moving while upgrades compound.",
-	"Favors timing, vault size, and patient buys.",
-	"Own rhythm, stronger contracts, fatter mult.",
-	"Shortcuts make every loop a bit tighter.",
-	"Solid late game: auto-bank, collect, return.",
-];
-const worldLoreLines = [
-	"%s showed up on the charts one cycle and never left. Crews here swear by %s.",
-	"Nobody named %s on purpose. The survey drone sneezed. The %s are real, though.",
-	"%s runs on %s and stubbornness. Bring both.",
-	"The dock log for %s is one line long: mind the %s.",
-	"%s pays out if you let it. The %s do most of the talking.",
-	"Somebody painted ON THE CLOCK across the gate at %s. The %s keep it honest.",
-];
 const worldFeatures = [
 	["Fast lanes", "Safe vaults", "Crew tips"],
 	["Bright freight", "Bonus contracts", "Low waste"],
@@ -7208,19 +7189,9 @@ function generateZones() {
 		rawZones[count] = {
 			Id: id,
 			Name: prefix + " " + noun,
-			Tagline: worldTaglines[(tier - 1) % worldTaglines.size()],
-			Description:
-				worldDescriptions[(tier - 1) % worldDescriptions.size()] +
-				" World " +
-				string.format("%03d", id) +
-				" (" +
-				layout.lower() +
-				").",
-			Lore: string.format(
-				worldLoreLines[(tier - 1) % worldLoreLines.size()],
-				prefix + " " + noun,
-				string.lower(features[0]),
-			),
+			Tagline: DescribeGenerated.worldTagline(tier),
+			Description: DescribeGenerated.worldDescription(layout, tier),
+			Lore: DescribeGenerated.worldLore(prefix + " " + noun, features[0], tier),
 			Features: [
 				features[0] + " " + string.format("%03d", id),
 				features[1] + " " + string.format("%03d", id),
@@ -7508,27 +7479,6 @@ const ZONE_NAMES = [
 	"Hollow Crown", "Nadir Reef", "Aurora Kiln", "Static Orchard", "Null Causeway",
 	"Ember Causeway", "Signal Bazaar", "Folded Pier", "Quiet Anvil", "Prism Quay",
 ];
-const ZONE_TAGLINES = [
-	"Uncharted space past Crown Rift.",
-	"Bigger multipliers, steeper gates.",
-	"A far dock with a bigger multiplier.",
-	"Further out, and better paid.",
-	"New space for the same forge.",
-];
-const ZONE_DESCRIPTIONS = [
-	"One of the worlds past the edge of the map.",
-	"Iska charted this one from a single blurry photo.",
-	"A dock past the first twelve worlds, with a bigger multiplier.",
-	"Quiet space with a lot of room to build.",
-	"A ring past Crown Rift. The multipliers keep climbing.",
-];
-const ZONE_LORE = [
-	"Nobody had been out here before you. The dock lights came on anyway.",
-	"Iska left a flag at the gate. It says she'll be back with better maps.",
-	"Vale never wrote about these worlds. Maybe she never got this far.",
-	"The machines look familiar. The price tags don't.",
-	"On quiet nights you can still hear Bay Seven's bell, faintly.",
-];
 const ZONE_FEATURES = [
 	["Bigger multiplier", "Rebirth gate", "Familiar machines"],
 	["Familiar machines", "Steeper core costs", "Bigger multiplier"],
@@ -7597,13 +7547,13 @@ GameConfig.ResolveZone = (id: number) => {
 	const cores = math.floor(20 + tier * 3 + tier ** 1.15);
 	const rebirths = math.floor(20 + tier * 2);
 	const name = ZONE_NAMES[(index - 1) % ZONE_NAMES.size()];
-	const flavor = (index - 1) % ZONE_TAGLINES.size();
+	const flavor = (index - 1) % ZONE_FEATURES.size();
 	return {
 		Id: index,
 		Name: string.format("%s %d", name, index),
-		Tagline: ZONE_TAGLINES[flavor],
-		Description: ZONE_DESCRIPTIONS[flavor],
-		Lore: ZONE_LORE[flavor],
+		Tagline: DescribeGenerated.worldTagline(index),
+		Description: DescribeGenerated.worldDescription(ZONE_LAYOUTS[(index - 1) % ZONE_LAYOUTS.size()], index),
+		Lore: DescribeGenerated.worldLore(string.format("%s %d", name, index), ZONE_FEATURES[flavor][0], index),
 		Features: ZONE_FEATURES[flavor],
 		Layout: ZONE_LAYOUTS[(index - 1) % ZONE_LAYOUTS.size()],
 		ThemeIndex: ((index - 1) % 5) + 1,

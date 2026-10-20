@@ -4,6 +4,8 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 
+-- authored worlds in GameConfig.ts; generated ones start right after
+local AUTHORED_ZONES = 12
 local PATH = "src/Shared/AstralForge/Shared/GameConfigGenerated.ts"
 local describe = luau.load(luau.compile(fs.readFile("out/Shared/AstralForge/Shared/DescribeGenerated.luau")), { debugName = "DescribeGenerated" })()
 
@@ -47,5 +49,37 @@ for i, line in lines do
 		end
 	end
 end
+-- generated worlds (Trait "<Layout> run NNN"): tagline, description and lore from the builder
+local zoneChanged = 0
+local function esc(text)
+	return (text:gsub("\\", "\\\\"):gsub('"', '\\"'))
+end
+local blockStart = nil
+for i, line in lines do
+	if line:match("^%s*%{%s*$") then
+		blockStart = i
+	elseif blockStart and line:match('^%s*Trait: "%a+ run %d+",') then
+		local fields = {}
+		local feature = nil
+		for k = blockStart, i do
+			local key = lines[k]:match("^%s*(%a+): ")
+			if key then fields[key] = k end
+			if not feature and fields.Features and k > fields.Features then
+				feature = lines[k]:match('^%s*"(.-) %d+",')
+			end
+		end
+		local id = tonumber(lines[fields.Id]:match("Id: (%d+)"))
+		local layout = lines[fields.Layout]:match('Layout: "(%a+)"')
+		local name = lines[fields.Name]:match('Name: "(.-)",')
+		local tier = id - AUTHORED_ZONES
+		local indent = lines[fields.Tagline]:match("^(%s*)")
+		lines[fields.Tagline] = indent .. 'Tagline: "' .. esc(describe.worldTagline(tier)) .. '",'
+		lines[fields.Description] = indent .. 'Description: "' .. esc(describe.worldDescription(layout, tier)) .. '",'
+		lines[fields.Lore] = indent .. 'Lore: "' .. esc(describe.worldLore(name, feature, tier)) .. '",'
+		zoneChanged += 1
+		blockStart = nil
+	end
+end
 fs.writeFile(PATH, table.concat(lines, "\n"))
+print(string.format("refreshed %d generated worlds", zoneChanged))
 print(string.format("refreshed %d generated descriptions", changed))
