@@ -286,6 +286,8 @@ __defs["WorldService"] = () => {
 		class WorldService {
 			_interactionHandler: unknown = undefined;
 			_plots = new Map<Player, Model>();
+			// what each plot was last drawn from; an unchanged plot is not torn down and rebuilt
+			_plotLooks = new Map<Model, string>();
 			_plotIndex = new Map<Player, number>();
 			_folder: Folder | undefined = undefined;
 
@@ -394,6 +396,23 @@ __defs["WorldService"] = () => {
 				const profileZone = profileNumber(profile, (p) => p.Zone, 1);
 				const rebirths = profileNumber(profile, (p) => p.Rebirths, 0);
 				const domainRank = domainRankOf(profile);
+				let look = tostring(profileZone) + "|" + tostring(rebirths) + "|" + tostring(domainRank) + "|";
+				const machinesNow = isTable(profile) ? profile.Machines : undefined;
+				if (isTable(machinesNow)) {
+					for (const [machineId, level] of pairs(machinesNow)) {
+						look += tostring(machineId) + "=" + tostring(level) + ";";
+					}
+				} else {
+					look += "none";
+				}
+				if (
+					this._plotLooks.get(plot) === look &&
+					plot.FindFirstChild("Scenery") !== undefined &&
+					(!isTable(machinesNow) || plot.FindFirstChild("Machines") !== undefined)
+				) {
+					return;
+				}
+				this._plotLooks.set(plot, look);
 
 				let color = zoneColor(profileZone);
 				if (rebirths > 0) {
@@ -454,6 +473,7 @@ __defs["WorldService"] = () => {
 			RemovePlot(player: Player, keepSlot?: boolean) {
 				const plot = this._plots.get(player);
 				if (plot) {
+					this._plotLooks.delete(plot);
 					plot.Destroy();
 				}
 				this._plots.delete(player);
