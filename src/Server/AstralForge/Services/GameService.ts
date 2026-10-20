@@ -156,6 +156,9 @@ const ChatService = mod(script.Parent!, "ChatService");
 const CrewService = mod(script.Parent!, "CrewService");
 const ServerConfig = mod<Dict>(root, "ServerConfig");
 
+// read-only stand-in for an empty anomaly action queue (the 5 Hz tick reads it every pass)
+const NO_PENDING_ACTIONS: ReadonlyArray<string> = table.freeze([]);
+
 // guild kick/ban/reconcile paths reset bonuses
 const emptyBonuses = () => GuildMath.EmptyBonuses();
 
@@ -6453,7 +6456,7 @@ export class GameService {
 		}
 		if ((runtime.ProductionAccumulator as number) >= (GameConfig.Game.ProductionTick as number)) {
 			const step = runtime.ProductionAccumulator as number;
-			const pendingAnomalyActions = (runtime.PendingAnomalyActions as string[] | undefined) ?? [];
+			const pendingAnomalyActions = (runtime.PendingAnomalyActions as ReadonlyArray<string> | undefined) ?? NO_PENDING_ACTIONS;
 			const pendingAnomalyCount = pendingAnomalyActions.size();
 			let anomalyDetails: Dict | undefined;
 
@@ -6592,34 +6595,35 @@ export class GameService {
 			(runtime.PushAccumulator as number) >= (GameConfig.Game.StatePushSeconds as number) ||
 			(runtime.MaintenanceAccumulator as number) >= PROFILE_MAINTENANCE_INTERVAL ||
 			(runtime.GuildRefreshAccumulator as number) >= GUILD_REFRESH_INTERVAL;
-		if (!hasWork || truthy(runtime.MatterWorkQueued)) {
+		if (!hasWork) {
+			return;
+		}
+		if (truthy(runtime.MatterWorkQueued)) {
+			// watchdog: a tick worker that has not finished after 15s is released so production
+			// resumes (checked here on the 5 Hz tick instead of a timer thread per work item)
+			if (os.clock() - ((runtime.MatterWorkStartedAt as number | undefined) ?? math.huge) < 15) {
+				return;
+			}
+			runtime.MatterWorkQueued = false;
+			ModuleLog.Warn("game loop", string.format("player tick watchdog released %s after 15s", player.Name), {
+				UserId: player.UserId,
+			});
 			return;
 		}
 
 		runtime.MatterWorkQueued = true;
+		runtime.MatterWorkStartedAt = os.clock();
 		const workToken = ((runtime.MatterWorkToken as number | undefined) ?? 0) + 1;
 		runtime.MatterWorkToken = workToken;
 		this._spawnWorker(() => {
-			const watchdog = task.delay(15, () => {
-				if (runtime.MatterWorkToken === workToken && truthy(runtime.MatterWorkQueued)) {
-					runtime.MatterWorkQueued = false;
-					ModuleLog.Warn(
-						"game loop",
-						string.format("player tick watchdog released %s after 15s", player.Name),
-						{ UserId: player.UserId },
-					);
-				}
-			});
 			if (!this._running || player.Parent !== Players || this._runtime.get(player) !== runtime) {
 				runtime.MatterWorkQueued = false;
-				task.cancel(watchdog);
 				return;
 			}
 			const [ok, problem] = pcall(() => this._processPlayerTick(player, runtime));
 			if (runtime.MatterWorkToken === workToken) {
 				runtime.MatterWorkQueued = false;
 			}
-			task.cancel(watchdog);
 			if (!ok) {
 				ModuleLog.Every(
 					"matter-player-work:" + tostring(player.UserId),
