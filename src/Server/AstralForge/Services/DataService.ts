@@ -591,7 +591,7 @@ export = (loadService: LoadService) => {
 			const targets = definition !== undefined ? (definition.Targets as unknown[] | undefined) : undefined;
 			const targetCompatible =
 				definition !== undefined &&
-				(!truthy(targets) || (targets as defined[]).indexOf(targetId as defined) !== undefined);
+				(!truthy(targets) || (targets as defined[]).includes(targetId as defined));
 			if (
 				definition === undefined ||
 				definition.Slot !== slot ||
