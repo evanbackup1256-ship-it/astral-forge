@@ -523,10 +523,19 @@ function search(state: Record<string, unknown>, query: string, chatUnread: numbe
 		sections.push({ title: "JUMP TO", entries: pages });
 	} else {
 		const scored: Array<{ entry: SearchEntry; score: number }> = [];
+		// things you picked this session rank a little higher, newest most; an exact title wins outright
+		const recentKeys = Model.recent();
+		const plain = query.lower().gsub("^%s+", "")[0].gsub("%s+$", "")[0];
+		const lift = (entry: SearchEntry) => {
+			const at = recentKeys.indexOf(entry.key);
+			const recentLift = at === -1 ? 1 : 1.25 - at * 0.03;
+			const exact = entry.title.lower() === plain ? 1.6 : 1;
+			return recentLift * exact;
+		};
 		const consider = (entry: SearchEntry) => {
 			const value = Model.score(tokens, entry.fields);
 			if (value > 0) {
-				scored.push({ entry, score: value * KIND_META[entry.kind].weight * (entry.locked ? 0.6 : 1) });
+				scored.push({ entry, score: value * KIND_META[entry.kind].weight * (entry.locked ? 0.6 : 1) * lift(entry) });
 			}
 		};
 		live.forEach(consider);
@@ -777,8 +786,26 @@ function useFrameClock(active: boolean): React.Binding<number> {
 
 const NAV_DOWN = new Set<Enum.KeyCode>([Enum.KeyCode.Down, Enum.KeyCode.DPadDown]);
 const NAV_UP = new Set<Enum.KeyCode>([Enum.KeyCode.Up, Enum.KeyCode.DPadUp]);
+const PAGE_STEP = 5;
+// held keys repeat after a short pause, like a normal list
+const REPEAT_DELAY = 0.35;
+const REPEAT_EVERY = 0.07;
+const STICK_ON = 0.6;
+const STICK_OFF = 0.35;
 
 // ── Main component ──────────────────────────────────────────────────────────────
+
+function isHeld(key: Enum.KeyCode): boolean {
+	if (UserInputService.IsKeyDown(key)) {
+		return true;
+	}
+	for (const state of UserInputService.GetGamepadState(Enum.UserInputType.Gamepad1)) {
+		if (state.KeyCode === key) {
+			return state.UserInputState === Enum.UserInputState.Begin || state.UserInputState === Enum.UserInputState.Change;
+		}
+	}
+	return false;
+}
 
 function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	const [open, setOpen] = React.useState(false);
@@ -795,6 +822,25 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	const resultsAt = React.useRef(os.clock());
 	const resultsRef = React.useRef<SearchEntry[]>([]);
 	const pickRef = React.useRef<() => void>(() => {});
+	const openRef = React.useRef(false);
+	openRef.current = open;
+	const repeatToken = React.useRef(0);
+	const stickDir = React.useRef(0);
+	// up/down wrap around the ends; page steps stop at the ends instead
+	const moveBy = (step: number) => {
+		const count = resultsRef.current.size();
+		if (count === 0) {
+			return;
+		}
+		Audio.play("tick");
+		setSelected((current: number) => {
+			const target = current + step;
+			if (math.abs(step) === 1) {
+				return target < 1 ? count : target > count ? 1 : target;
+			}
+			return math.clamp(target, 1, count);
+		});
+	};
 
 	const close = React.useCallback(() => {
 		setOpen(false);
@@ -859,17 +905,68 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			}
 			if (key === Enum.KeyCode.Escape || key === Enum.KeyCode.ButtonB) {
 				dismiss();
-			} else if (NAV_DOWN.has(key)) {
-				Audio.play("tick");
-				setSelected((current: number) => math.min(math.max(1, resultsRef.current.size()), current + 1));
-			} else if (NAV_UP.has(key)) {
-				Audio.play("tick");
-				setSelected((current: number) => math.max(1, current - 1));
-			} else if (key === Enum.KeyCode.ButtonA) {
+				return;
+			}
+			if (key === Enum.KeyCode.ButtonA) {
 				pickRef.current();
+				return;
+			}
+			const shift = UserInputService.IsKeyDown(Enum.KeyCode.LeftShift) || UserInputService.IsKeyDown(Enum.KeyCode.RightShift);
+			let step = 0;
+			if (NAV_DOWN.has(key) || (key === Enum.KeyCode.Tab && !shift)) {
+				step = 1;
+			} else if (NAV_UP.has(key) || (key === Enum.KeyCode.Tab && shift)) {
+				step = -1;
+			} else if (key === Enum.KeyCode.PageDown) {
+				step = PAGE_STEP;
+			} else if (key === Enum.KeyCode.PageUp) {
+				step = -PAGE_STEP;
+			}
+			if (step === 0) {
+				return;
+			}
+			moveBy(step);
+			// keep moving while the key is held
+			const held = key;
+			const token = (repeatToken.current += 1);
+			task.delay(REPEAT_DELAY, () => {
+				while (repeatToken.current === token && openRef.current && isHeld(held)) {
+					moveBy(step);
+					task.wait(REPEAT_EVERY);
+				}
+			});
+		});
+		const released = UserInputService.InputEnded.Connect(() => {
+			repeatToken.current += 1;
+		});
+		// left stick: one step per push, then repeats while held past the threshold
+		const stick = UserInputService.InputChanged.Connect((input: InputObject) => {
+			if (!open || input.KeyCode !== Enum.KeyCode.Thumbstick1) {
+				return;
+			}
+			const y = input.Position.Y;
+			if (stickDir.current === 0 && math.abs(y) >= STICK_ON) {
+				const dir = y > 0 ? -1 : 1;
+				stickDir.current = dir;
+				moveBy(dir);
+				const token = (repeatToken.current += 1);
+				task.delay(REPEAT_DELAY, () => {
+					while (repeatToken.current === token && openRef.current && stickDir.current === dir) {
+						moveBy(dir);
+						task.wait(REPEAT_EVERY * 1.6);
+					}
+				});
+			} else if (stickDir.current !== 0 && math.abs(y) < STICK_OFF) {
+				stickDir.current = 0;
+				repeatToken.current += 1;
 			}
 		});
-		return () => connection.Disconnect();
+		return () => {
+			connection.Disconnect();
+			released.Disconnect();
+			stick.Disconnect();
+			repeatToken.current += 1;
+		};
 	}, [open, enabled, dismiss]);
 
 	// focus the search box once open
@@ -1250,7 +1347,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		VerticalAlignment: Enum.VerticalAlignment.Center,
 		Padding: new UDim(0, 20),
 		SortOrder: Enum.SortOrder.LayoutOrder,
-	}), h(KeyHint, { keys: "↑ ↓", label: "Move", order: 1 }),
+	}), h(KeyHint, { keys: "↑ ↓ Tab", label: "Move", order: 1 }),
 	h(KeyHint, { keys: "Enter", label: "Open", order: 2 }),
 	h(KeyHint, { keys: "Esc", label: "Close", order: 3 }),
 	!phone && h(KeyHint, { keys: "Ctrl+K", label: "From anywhere", order: 4 })))));
