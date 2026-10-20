@@ -1,4 +1,4 @@
-// Converted from CoreServices.luau (commit ba65755) — the LabService member of the core bundle.
+// Lab: lab orders and power routing (stateless functions over a profile).
 import { Dict, d, economyKit, num, req, SharedFolder } from "../LuaInterop";
 import LabOrderMath from "../../Modules/LabOrderMath";
 

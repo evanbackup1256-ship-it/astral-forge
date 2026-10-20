@@ -1,4 +1,4 @@
-// Native port of the ProgressionService member in ba65755 CoreServices.luau.
+// Progression: shared progression rules (stateless functions over a profile).
 import EconomyMath from "../../Modules/EconomyMath";
 import ProfileMath from "../../Modules/ProfileMath";
 import CommandMath from "../../Modules/CommandMath";

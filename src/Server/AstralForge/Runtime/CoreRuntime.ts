@@ -3,13 +3,13 @@
 // registers their shutdown order with the bridge.
 import { OnInit, OnStart, Service } from "@flamework/core";
 import { RemoteBridge } from "./RemoteBridge";
-import { Security } from "../Services/Security";
+import { Security } from "../Services/Security/Security";
 import { DataService } from "../Services/DataService";
 import { AdminService } from "../Services/AdminService";
 import { WorldService } from "../Services/WorldService";
 import { GameService } from "../Services/GameService";
 import { ConvergenceService } from "../Services/ConvergenceService";
-import CharacterIntegrityModule = require("../Services/CharacterIntegrity");
+import CharacterIntegrityModule = require("../Services/Security/CharacterIntegrity");
 
 interface Startable {
 	Start(): void;

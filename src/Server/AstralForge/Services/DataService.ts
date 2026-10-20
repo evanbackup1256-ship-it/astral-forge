@@ -1,8 +1,9 @@
+import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
-import AtomicStateClass = require("./AtomicState");
-import ProfileIntegrityModule = require("./ProfileIntegrity");
+import AtomicStateClass = require("./Security/AtomicState");
+import ProfileIntegrityModule = require("./Security/ProfileIntegrity");
 import {
 	d,
 	Dict,
@@ -21,7 +22,6 @@ import BazaarMath from "../Modules/BazaarMath";
 import CommandMath from "../Modules/CommandMath";
 import DataSanitizeMath from "../Modules/DataSanitizeMath";
 import DataTemplate from "../DataTemplate";
-import Documents from "../Modules/Documents";
 import DomainLattice from "../../../Shared/AstralForge/Shared/DomainLattice";
 import EchoMath from "../../../Shared/AstralForge/Shared/EchoMath";
 import FoundryService from "../Modules/FoundryService";
@@ -34,6 +34,7 @@ import ProfileVersionGuard from "../Modules/ProfileVersionGuard";
 import RebirthMath from "../../../Shared/AstralForge/Shared/RebirthMath";
 import ReceiptLedger from "../Modules/ReceiptLedger";
 import ServerConfig from "../ServerConfig";
+import DocumentCommon = require("../Modules/Documents/DocumentKit/DocumentCommon");
 import SessionDocument from "../Modules/Documents/DocumentKit/SessionDocument";
 import SessionDocumentStore from "../Modules/Documents/DocumentKit/SessionDocumentStore";
 import Specializations from "../../../Shared/AstralForge/Shared/Specializations";
@@ -158,7 +159,6 @@ const TradeRecovery = tradeSuiteKit("TradeRecovery") as {
 };
 const AtomicState = AtomicStateClass as unknown as AtomicStateApi;
 const ProfileIntegrity = ProfileIntegrityModule as unknown as ProfileIntegrityApi;
-const DocumentCommon = Documents.DocumentCommon;
 
 const CACHE_SYNC_INTERVAL = 1.5;
 const SHUTDOWN_SAVE_BUDGET = 5; // Leave BindToClose time for the stores' final document cleanup.
@@ -332,6 +332,7 @@ function sanitize(profile: Dict): Dict {
 		flags.MobileLayoutSlots = "";
 	}
 	flags.MobileTabPins = NavRoutes.normalizeMobileTabPins(flags.MobileTabPins);
+	flags.SeenHints = SeenHints.normalizeSeenHints(flags.SeenHints);
 	const settings = d(profile.Settings);
 	settings.SoundVolume = math.clamp(nonNegative(settings.SoundVolume), 0, 1);
 	settings.MusicVolume = math.clamp(nonNegative(settings.MusicVolume !== undefined ? settings.MusicVolume : 1), 0, 1);

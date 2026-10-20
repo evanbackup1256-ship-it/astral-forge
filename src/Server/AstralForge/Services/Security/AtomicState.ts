@@ -1,5 +1,5 @@
 // Per-player profile cell with revisioned, rollback-safe updates (a value class, one per player).
-import { Dict, isTable } from "./LuaInterop";
+import { Dict, isTable } from "../LuaInterop";
 
 const CONTENTION_TIMEOUT_SECONDS = 2;
 const CONTENTION_POLL_SECONDS = 0.03;

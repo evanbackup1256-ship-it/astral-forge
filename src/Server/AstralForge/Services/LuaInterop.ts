@@ -49,7 +49,6 @@ export interface ModuleLogApi {
 	AttachTelemetry: (this: void, service: unknown) => void;
 }
 
-export type LoadService = (this: void, name: string) => unknown;
 
 // require() of a ModuleScript found at runtime, typed by the caller.
 export function req<T>(instance: Instance): T {

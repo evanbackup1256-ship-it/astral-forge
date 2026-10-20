@@ -1,6 +1,6 @@
 import { Service } from "@flamework/core";
-import ServerConfig from "../ServerConfig";
-import { d, Dict, EconomyApi, economyKit, Flux, isFiniteNumber, isTable, ModuleLogApi, req, SharedFolder, truthy } from "./LuaInterop";
+import ServerConfig from "../../ServerConfig";
+import { d, Dict, EconomyApi, economyKit, Flux, isFiniteNumber, isTable, ModuleLogApi, req, SharedFolder, truthy } from "../LuaInterop";
 
 interface PlayerState {
 	LastCash: unknown;
@@ -36,7 +36,7 @@ const RunService = game.GetService("RunService");
 
 const Economy = economyKit("Economy") as EconomyApi;
 const GameConfig = req<AntiCheatConfig>(SharedFolder().WaitForChild("GameConfig"));
-const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
+const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.Parent!.WaitForChild("ModuleLog"));
 
 const MAX_SAFE = 1e308;
 const ROOT_CURRENCIES = ["Cash", "Vault", "Cores", "Stardust", "Rebirths", "RunCash", "LifetimeCash"];

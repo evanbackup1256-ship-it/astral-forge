@@ -1,6 +1,6 @@
-// Request security pipeline: authority, nonce, rate, filter and friends. Started and destroyed by SecurityRuntime.
+// Request security pipeline: authority, nonce, rate, filter and friends. Started and destroyed by CoreRuntime.
 import { Service } from "@flamework/core";
-import { req, SharedFolder } from "./LuaInterop";
+import { req, SharedFolder } from "../LuaInterop";
 
 const Players = game.GetService("Players");
 const RunService = game.GetService("RunService");

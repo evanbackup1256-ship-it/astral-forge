@@ -1,12 +1,12 @@
 import { Service } from "@flamework/core";
-import BazaarModule = require("./BazaarService");
+import BazaarModule = require("./Gameplay/Bazaar");
 import { ConvergenceService } from "./ConvergenceService";
 import { DataService } from "./DataService";
 import { AdminService } from "./AdminService";
 import { WorldService } from "./WorldService";
-import { Security } from "./Security";
-import { SessionGate } from "./SessionGate";
-import { GameAntiCheat } from "./GameAntiCheat";
+import { Security } from "./Security/Security";
+import { SessionGate } from "./Security/SessionGate";
+import { GameAntiCheat } from "./Security/GameAntiCheat";
 import { PlayerAnalytics } from "./PlayerAnalytics";
 import { PlayerBadges } from "./PlayerBadges";
 import { SpecializationService } from "./SpecializationService";
@@ -14,15 +14,16 @@ import { SpecializationService } from "./SpecializationService";
 import { Dict, isTable, num, truthy } from "./LuaInterop";
 import { PayloadEvent, ServerEvents, ServerFunctions } from "../Runtime/ServerNetwork";
 import { FluxSurgeService } from "./FluxSurgeService";
-import { GuildService } from "./CoreServiceMembers/GuildService";
-import { RemoteFirewall } from "./RemoteFirewall";
-import { ServerEventService } from "./CoreServiceMembers/ServerEventService";
-import AnomalyModule = require("./CoreServiceMembers/AnomalyService");
-import ForgeEchoModule = require("./CoreServiceMembers/ForgeEchoService");
-import LabModule = require("./CoreServiceMembers/LabService");
-import ProgressionModule = require("./CoreServiceMembers/ProgressionService");
+import { GuildService } from "./Gameplay/GuildService";
+import { RemoteFirewall } from "./Security/RemoteFirewall";
+import { ServerEventService } from "./Gameplay/ServerEventService";
+import AnomalyModule = require("./Gameplay/Anomaly");
+import ForgeEchoModule = require("./Gameplay/ForgeEcho");
+import LabModule = require("./Gameplay/Lab");
+import ProgressionModule = require("./Gameplay/Progression");
 import { MatterRuntime } from "./MatterRuntime";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
+import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
@@ -155,7 +156,7 @@ const ChatService = mod(script.Parent!, "ChatService");
 const CrewService = mod(script.Parent!, "CrewService");
 const ServerConfig = mod<Dict>(root, "ServerConfig");
 
-// guild kick/ban/reconcile paths reset bonuses; this lived only in CoreServices before
+// guild kick/ban/reconcile paths reset bonuses
 const emptyBonuses = () => GuildMath.EmptyBonuses();
 
 const MAX_SAFE_CURRENCY = 1e308;
@@ -4951,6 +4952,21 @@ export class GameService {
 		});
 	}
 
+	_markHintSeen(player: Player, rawId: unknown) {
+		if (!SeenHints.isHintId(rawId)) {
+			return responseError("Unknown hint.");
+		}
+		return this._mutate(player, (profile: Profile) => {
+			const flags = profile.Flags as Dict;
+			const seen = SeenHints.normalizeSeenHints(flags.SeenHints);
+			if (!seen.includes(rawId)) {
+				seen.push(rawId);
+			}
+			flags.SeenHints = seen;
+			return responseSuccess("Hint saved.");
+		});
+	}
+
 	_replayTutorial(player: Player) {
 		return this._mutate(player, (profile: Profile) => {
 			const flags = profile.Flags as Dict;
@@ -5923,6 +5939,8 @@ export class GameService {
 			return this._crews.Claim(player, payload) as Response;
 		} else if (action === Protocol.Actions.SetTutorialStep) {
 			return this._setTutorialStep(player, payload?.Step);
+		} else if (action === Protocol.Actions.MarkHintSeen) {
+			return this._markHintSeen(player, payload?.Id);
 		} else if (action === Protocol.Actions.CompleteTutorial) {
 			return this._completeTutorial(player);
 		} else if (action === Protocol.Actions.ReplayTutorial) {

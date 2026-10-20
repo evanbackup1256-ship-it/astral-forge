@@ -1,5 +1,5 @@
 // Profile checksum envelope and journal (pure functions over a profile table).
-import { deepCopy, Dict, isFiniteNumber, isTable, num } from "./LuaInterop";
+import { deepCopy, Dict, isFiniteNumber, isTable, num } from "../LuaInterop";
 
 const MOD_ADLER = 65521;
 const JOURNAL_LIMIT = 12;

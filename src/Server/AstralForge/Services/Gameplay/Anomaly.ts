@@ -9,7 +9,7 @@ import {
 } from "../LuaInterop";
 import ProfileBagMath from "../../Modules/ProfileBagMath";
 import OpsMath from "../../Modules/OpsMath";
-import ProgressionModule = require("./ProgressionService");
+import ProgressionModule = require("./Progression");
 
 // Kit bundles come back as opaque values; the members
 // each GameService member actually calls are typed as callable records.

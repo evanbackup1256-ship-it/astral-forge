@@ -1,11 +1,12 @@
-import ModuleLog = require("../ModuleLog");
-import BazaarMath from "../Modules/BazaarMath";
-import OpsMath from "../Modules/OpsMath";
-import Protocol from "../../../Shared/AstralForge/Shared/Protocol";
+import ModuleLog = require("../../ModuleLog");
+import BazaarMath from "../../Modules/BazaarMath";
+import OpsMath from "../../Modules/OpsMath";
+import Protocol from "../../../../Shared/AstralForge/Shared/Protocol";
 import { Dependency, Service } from "@flamework/core";
-import { Dict, isTable, req, SharedFolder } from "./LuaInterop";
-import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
-import { ServerTelemetry } from "./ServerTelemetry";
+import { Dict, isTable, req, SharedFolder } from "../LuaInterop";
+import * as SeenHints from "../../../../Shared/AstralForge/Shared/SeenHints";
+import * as NavRoutes from "../../../../Shared/AstralForge/Shared/NavRoutes";
+import { ServerTelemetry } from "../ServerTelemetry";
 
 interface RemoteFirewallMathApi {
 	MAX_SAFE_USER_ID: number;
@@ -143,6 +144,7 @@ const RULES: Record<string, Rule> = {
 	[Protocol.Actions.CrewRename]: { Cost: 1.5, Cooldown: 5 },
 	[Protocol.Actions.CrewClaim]: { Cost: 0.75, Cooldown: 0.75 },
 	[Protocol.Actions.SetTutorialStep]: { Cost: 0.5, Cooldown: 0.12 },
+	[Protocol.Actions.MarkHintSeen]: { Cost: 0.5, Cooldown: 0.2 },
 	[Protocol.Actions.RedeemCode]: { Cost: 2, Cooldown: 1.4 },
 	[Protocol.Actions.VerifyCreatorFollow]: { Cost: 1, Cooldown: 0.8 },
 	[Protocol.Actions.SyncShop]: { Cost: 1, Cooldown: 1.2 },
@@ -785,6 +787,10 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.SetTutorialStep) {
 		if (!numberField(bag, "Step", 1, 15, true)) {
 			return $tuple(false, "invalid guide payload");
+		}
+	} else if (action === Protocol.Actions.MarkHintSeen) {
+		if (!stringField(bag, "Id", 1, 32) || !SeenHints.isHintId(bag.Id)) {
+			return $tuple(false, "invalid hint payload");
 		}
 	} else if (action === Protocol.Actions.ClaimConvergenceReward) {
 		if (!numberField(bag, "Tier", 1, 10, true)) return $tuple(false, "invalid convergence payload");

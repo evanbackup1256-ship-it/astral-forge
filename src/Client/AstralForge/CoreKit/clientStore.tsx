@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { Session } from "../state";
+import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import { Rodux, RoduxStore } from "../vendor";
 
 export interface BootStatus {
@@ -73,6 +74,13 @@ function optimisticSession(session: Session | undefined, action: string, payload
 	}
 	if (action === "SetMobileLayout" && typeIs(payload.Values, "table")) {
 		return { ...session, Settings: { ...session.Settings, ...(payload.Values as Record<string, unknown>) } };
+	}
+	if (action === "MarkHintSeen" && typeIs(payload.Id, "string")) {
+		const seen = SeenHints.normalizeSeenHints(session.Flags?.SeenHints);
+		if (SeenHints.isHintId(payload.Id) && !seen.includes(payload.Id)) {
+			seen.push(payload.Id);
+		}
+		return { ...session, Flags: { ...session.Flags, SeenHints: seen } };
 	}
 	if (action === "SetTutorialStep" && typeIs(payload.Step, "number")) {
 		return { ...session, Flags: { ...session.Flags, TutorialStep: math.max(1, math.floor(payload.Step)) } };

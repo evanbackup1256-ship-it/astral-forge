@@ -11,7 +11,7 @@ export const ACTION_COOLDOWNS: Record<string, number> = {
 	SpinWheel: 1.4, BazaarPlay: 0.35, OpenItemCrate: 0.24, BuyDailyOffer: 0.4, BuyCrateSkin: 0.55,
 	EquipCrateSkin: 0.3, FuseRelics: 0.4, UpgradeContinuum: 0.4, FoundryAct: 0.06, EchoAct: 0.15,
 	RebirthAct: 0.2, SetAutoForge: 0.28, SetItemAutoSalvage: 0.2, BulkSalvageItems: 0.35, SetSetting: 0.18,
-	SetMobileLayout: 0.35, SetTutorialStep: 0.18, ClaimLabOrder: 0.18, RouteLabPower: 0.12,
+	SetMobileLayout: 0.35, SetTutorialStep: 0.18, MarkHintSeen: 0.2, ClaimLabOrder: 0.18, RouteLabPower: 0.12,
 	ReadStoryChapter: 0.18, ClaimStoryChapter: 0.18, ReadMail: 0.18, ClaimMail: 0.18, ClaimAllMail: 0.75,
 	DeleteMail: 0.18, RedeemCode: 1.5, SyncShop: 1.3, StudioGrantProduct: 0.45, GetTrade: 0.2,
 	InviteTrade: 0.7, RespondTrade: 0.28, UpdateTradeOffer: 0.08, SetTradeReady: 0.12, ConfirmTrade: 0.28,
@@ -36,7 +36,7 @@ export const REQUEST_TIMEOUTS: Record<string, number> = {
 // prettier-ignore
 export const PIPELINED_ACTIONS: Record<string, true> = {
 	Overcharge: true, PulseAnomaly: true, CollectVault: true, RouteLabPower: true, SetAutoForge: true,
-	SetAnomalyChannel: true, SetSetting: true, SetMobileLayout: true, SetTutorialStep: true,
+	SetAnomalyChannel: true, SetSetting: true, SetMobileLayout: true, SetTutorialStep: true, MarkHintSeen: true,
 	ReplayTutorial: true, DismissRelease: true, OpenRelease: true, ReadStoryChapter: true, ReadMail: true,
 	SelectZone: true, UpdateTradeOffer: true, SetTradeReady: true, ConfirmTrade: true, CancelTrade: true,
 	RespondTrade: true, TradeViewAway: true, SetItemAutoSalvage: true, ReportPresence: true,
@@ -45,7 +45,7 @@ export const PIPELINED_ACTIONS: Record<string, true> = {
 // prettier-ignore
 export const OPTIMISTIC_ACTIONS: Record<string, true> = {
 	CollectVault: true, Overcharge: true, RouteLabPower: true, SetAutoForge: true, SetAnomalyChannel: true,
-	SetSetting: true, SetMobileLayout: true, SetTutorialStep: true, CompleteTutorial: true,
+	SetSetting: true, SetMobileLayout: true, SetTutorialStep: true, MarkHintSeen: true, CompleteTutorial: true,
 	ReplayTutorial: true, DismissRelease: true, OpenRelease: true, ReadStoryChapter: true, ReadMail: true,
 	SelectZone: true, EquipTitle: true, ReportPresence: true,
 };

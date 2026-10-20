@@ -1,4 +1,4 @@
-import ProfileIntegrityModule = require("./Services/ProfileIntegrity");
+import ProfileIntegrityModule = require("./Services/Security/ProfileIntegrity");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const RunService = game.GetService("RunService");
 

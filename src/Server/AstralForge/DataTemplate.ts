@@ -351,6 +351,8 @@ const DataTemplate = {
 				UnlimitedMoney: false,
 				// ordered phone bottom-bar page ids (max 5); empty = priority order
 				MobileTabPins: [],
+				// one-time client hints already shown (ids from Shared/SeenHints)
+				SeenHints: [],
 			},
 			Guild: {
 				Id: "",

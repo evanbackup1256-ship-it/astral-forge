@@ -4,8 +4,8 @@ interface TelemetryLike {
 	RecordLog(this: void, category: string): void;
 }
 
-// Injected at boot by init.server.luau to avoid a circular require between
-// ModuleLog and the service registry.
+// Injected at boot by RemoteBridge (AttachTelemetry) so ModuleLog does not import
+// the ServerTelemetry service directly.
 let telemetry: TelemetryLike | undefined = undefined;
 
 const recent: Record<string, number> = {};

@@ -1,4 +1,4 @@
-import { ModuleLogApi, req } from "./LuaInterop";
+import { ModuleLogApi, req } from "../LuaInterop";
 import { RemoteFirewall } from "./RemoteFirewall";
 
 interface PlayerState {
@@ -23,7 +23,7 @@ export = () => {
 	const RunService = game.GetService("RunService");
 	const Workspace = game.GetService("Workspace");
 
-	const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
+	const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.Parent!.WaitForChild("ModuleLog"));
 
 	const SAMPLE_SECONDS = 0.2;
 	const MIN_BARRIER_DISTANCE = 6;

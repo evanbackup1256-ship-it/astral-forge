@@ -75,6 +75,7 @@
 		CrewRename: "CrewRename",
 		CrewClaim: "CrewClaim",
 		SetTutorialStep: "SetTutorialStep",
+		MarkHintSeen: "MarkHintSeen",
 		CompleteTutorial: "CompleteTutorial",
 		ReplayTutorial: "ReplayTutorial",
 		DismissRelease: "DismissRelease",

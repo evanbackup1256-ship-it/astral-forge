@@ -1,5 +1,5 @@
-import ProgressionModule = require("./CoreServiceMembers/ProgressionService");
-import { Dict, EconomyApi, economyKit, Flux, ModuleLogApi, num, req, truthy } from "./LuaInterop";
+import ProgressionModule = require("./Progression");
+import { Dict, EconomyApi, economyKit, Flux, ModuleLogApi, num, req, truthy } from "../LuaInterop";
 
 interface Offer {
 	Id: string;
@@ -124,12 +124,12 @@ interface DataStoreLike {
 }
 
 const StoreAccess = req<{ data: (this: void, name: string) => DataStoreLike }>(
-	script.Parent!.Parent!.WaitForChild("Modules").WaitForChild("StoreAccess"),
+	script.Parent!.Parent!.Parent!.WaitForChild("Modules").WaitForChild("StoreAccess"),
 );
 
 const Economy = economyKit("Economy") as BazaarEconomy;
-const Math = req<BazaarMathApi>(script.Parent!.Parent!.WaitForChild("Modules").WaitForChild("BazaarMath"));
-const Log = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
+const Math = req<BazaarMathApi>(script.Parent!.Parent!.Parent!.WaitForChild("Modules").WaitForChild("BazaarMath"));
+const Log = req<ModuleLogApi>(script.Parent!.Parent!.Parent!.WaitForChild("ModuleLog"));
 const Progression = ProgressionModule as unknown as ProgressionApi;
 const Service = {} as {
 	NeedsRecovery: (this: void, profile: BazaarProfile, userId: number) => boolean;
