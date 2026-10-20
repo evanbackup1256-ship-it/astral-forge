@@ -2737,7 +2737,7 @@ __defs["TradeView"] = () => {
 };
 
 function loadPort(name: string): unknown {
-	return require(script.Parent!.WaitForChild("ports")!.WaitForChild(name) as ModuleScript);
+	return require(script.Parent!.WaitForChild("views")!.WaitForChild(name) as ModuleScript);
 }
 
 __defs["CrewView"] = () => loadPort("CrewView");

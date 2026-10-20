@@ -37,7 +37,7 @@ const Workspace = game.GetService("Workspace");
 const { ElementFx } = ElementFxModule;
 
 // Still-Luau dependencies are pulled through their kits like the bundled code did.
-const { PurchaseOverlay } = luauKit<{ PurchaseOverlay: Component }>("UiOverlaysTs", "purchaseOverlay");
+const { PurchaseOverlay } = luauKit<{ PurchaseOverlay: Component }>("UiOverlays", "purchaseOverlay");
 const PageScaffold = loadPageScaffold();
 const {
 	Badge,
@@ -3654,7 +3654,7 @@ const pages: Record<string, () => unknown> = {
 	ShopView: () => ({ ShopView }),
 	StoreFront: () => ({ StoreFront }),
 	CrateRevealStage: () => CrateRevealStageModule,
-	WheelView: () => require(script.Parent!.WaitForChild("ports")!.WaitForChild("WheelView") as ModuleScript),
+	WheelView: () => require(script.Parent!.WaitForChild("views")!.WaitForChild("WheelView") as ModuleScript),
 };
 
 export = (name: string) => {

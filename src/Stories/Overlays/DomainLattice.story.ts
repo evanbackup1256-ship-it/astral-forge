@@ -1,4 +1,4 @@
-﻿import StoryKit = require("../StoryKit");
+import StoryKit = require("../StoryKit");
 
 type Dict = Record<string, unknown>;
 
@@ -12,7 +12,7 @@ const React = StoryKit.React;
 const UILabs = StoryKit.UILabs;
 
 const chamber = (
-	require(StoryKit.client.WaitForChild("UiOverlaysTs") as ModuleScript) as (name: string) => Record<string, React.FunctionComponent<Dict>>
+	require(StoryKit.client.WaitForChild("UiOverlays") as ModuleScript) as (name: string) => Record<string, React.FunctionComponent<Dict>>
 )("DomainChamber");
 const DomainLattice = require(
 	game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("DomainLattice") as ModuleScript,

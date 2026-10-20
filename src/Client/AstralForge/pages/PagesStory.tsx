@@ -2,7 +2,7 @@
 const __defs: Record<string, () => unknown> = {};
 
 function loadPort(name: string): unknown {
-	return require(script.Parent!.WaitForChild("ports")!.WaitForChild(name) as ModuleScript);
+	return require(script.Parent!.WaitForChild("views")!.WaitForChild(name) as ModuleScript);
 }
 
 __defs["StoryView"] = () => loadPort("StoryView");

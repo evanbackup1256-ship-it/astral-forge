@@ -7,7 +7,7 @@ import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedM
 
 const UserInputService = game.GetService("UserInputService");
 const { Audio } = kitMember<{ Audio: AudioPlayer }>("AudioKit", "audio");
-const { MobileControls } = kitMember<{ MobileControls: LuauComponent }>("UiOverlaysTs", "MobileControls");
+const { MobileControls } = kitMember<{ MobileControls: LuauComponent }>("UiOverlays", "MobileControls");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
 const { Button, Panel, SearchField, Slider, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");

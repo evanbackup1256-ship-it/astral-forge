@@ -14,7 +14,7 @@ const React = StoryKit.React;
 const UILabs = StoryKit.UILabs;
 
 const chamber = (
-	require(StoryKit.client.WaitForChild("UiOverlaysTs") as ModuleScript) as (name: string) => Record<string, React.FunctionComponent<Dict>>
+	require(StoryKit.client.WaitForChild("UiOverlays") as ModuleScript) as (name: string) => Record<string, React.FunctionComponent<Dict>>
 )("DomainChamber");
 
 const orElse = <T>(value: unknown, fallback: T): T => (value === undefined || value === false ? fallback : (value as T));
