@@ -1955,7 +1955,7 @@ const GameConfig: Dict = {
 		NightShift: {
 			Id: "NightShift",
 			Name: "Night Shift",
-			Description: "1.5x production and better offline catch-up for 25 minutes.",
+			Description: "1.5x production for 25 minutes.",
 			Duration: 25 * 60,
 			Multiplier: 1.5,
 			Color: Color3.fromRGB(120, 168, 255),
@@ -3004,7 +3004,7 @@ const GameConfig: Dict = {
 			{
 				Id: "DustBundle",
 				Name: "Stardust Bundle",
-				Description: "A sealed reserve of permanent-grid currency.",
+				Description: "20 Stardust to spend on the Star Grid.",
 				Price: 18,
 				Reward: { Stardust: 20 },
 				Color: Color3.fromRGB(255, 181, 74),
@@ -3012,7 +3012,7 @@ const GameConfig: Dict = {
 			{
 				Id: "OverdriveCell",
 				Name: "Overdrive Cell",
-				Description: "One fifteen-minute production overdrive.",
+				Description: "An Overdrive boost: 2x production for 15 minutes.",
 				Price: 24,
 				Reward: { Boost: "Overdrive" },
 				Color: Color3.fromRGB(87, 215, 226),
@@ -3020,7 +3020,7 @@ const GameConfig: Dict = {
 			{
 				Id: "FluxFreight",
 				Name: "Flux Freight",
-				Description: "An hour of your current income, right now.",
+				Description: "An hour of your current income, paid right now.",
 				Price: 30,
 				Reward: { CashMinutes: 60 },
 				Color: Color3.fromRGB(106, 155, 255),
@@ -3028,7 +3028,7 @@ const GameConfig: Dict = {
 			{
 				Id: "Shield",
 				Name: "Streak Shield",
-				Description: "Protects one daily streak after a missed day.",
+				Description: "Saves your login streak after one missed day.",
 				Price: 35,
 				Reward: { StreakShield: 1 },
 				Color: Color3.fromRGB(115, 229, 166),
@@ -3036,7 +3036,7 @@ const GameConfig: Dict = {
 			{
 				Id: "HyperdriveCell",
 				Name: "Hyperdrive Cell",
-				Description: "One ten-minute triple-production hyperdrive.",
+				Description: "A Hyperdrive boost: 3x production for 10 minutes.",
 				Price: 48,
 				Reward: { Boost: "Hyperdrive" },
 				Color: Color3.fromRGB(179, 119, 255),
@@ -3044,7 +3044,7 @@ const GameConfig: Dict = {
 			{
 				Id: "CoreCrate",
 				Name: "Astral Core Crate",
-				Description: "A guaranteed permanent multiplier core.",
+				Description: "1 core. Cores raise production for good.",
 				Price: 75,
 				Reward: { Cores: 1 },
 				Color: Color3.fromRGB(255, 96, 177),
@@ -3052,7 +3052,7 @@ const GameConfig: Dict = {
 			{
 				Id: "SignalPack",
 				Name: "Signal Pack",
-				Description: "Forty command signals for expedition routing.",
+				Description: "40 signals for sending expeditions.",
 				Price: 28,
 				Reward: { Signals: 40 },
 				Color: Color3.fromRGB(96, 210, 255),
@@ -3060,7 +3060,7 @@ const GameConfig: Dict = {
 			{
 				Id: "NightShiftCell",
 				Name: "Night Shift Cell",
-				Description: "One twenty-five-minute Night Shift boost.",
+				Description: "A Night Shift boost: 1.5x production for 25 minutes.",
 				Price: 40,
 				Reward: { Boost: "NightShift" },
 				Color: Color3.fromRGB(120, 168, 255),
@@ -3068,7 +3068,7 @@ const GameConfig: Dict = {
 			{
 				Id: "DustFreight",
 				Name: "Dust Freight",
-				Description: "A larger Stardust reserve for grid buys.",
+				Description: "60 Stardust to spend on the Star Grid.",
 				Price: 55,
 				Reward: { Stardust: 60 },
 				Color: Color3.fromRGB(255, 196, 96),
@@ -3076,7 +3076,7 @@ const GameConfig: Dict = {
 			{
 				Id: "CoreDuo",
 				Name: "Twin Core Case",
-				Description: "Two permanent multiplier cores.",
+				Description: "2 cores. Each one raises production for good.",
 				Price: 130,
 				Reward: { Cores: 2 },
 				Color: Color3.fromRGB(255, 110, 190),
@@ -3088,7 +3088,7 @@ const GameConfig: Dict = {
 		{
 			Id: "CoreOnline",
 			Name: "Core Online",
-			Description: "Buy your first machine.",
+			Description: "Buy your first machine. Everyone starts with one.",
 			Kind: "MachineLevels",
 			Target: 1,
 			Reward: { Stardust: 5 },
@@ -3120,7 +3120,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Reborn",
 			Name: "A New Universe",
-			Description: "Rebirth for the first time.",
+			Description: "Rebirth for the first time. It feels like losing everything. It isn't.",
 			Kind: "Rebirths",
 			Target: 1,
 			Reward: { Stardust: 50 },
@@ -3144,7 +3144,7 @@ const GameConfig: Dict = {
 		{
 			Id: "AFK",
 			Name: "Still Working",
-			Description: "Accumulate 8 hours of playtime.",
+			Description: "Accumulate 8 hours of playtime. Go stretch your legs.",
 			Kind: "PlayTime",
 			Target: 28800,
 			Reward: { Stardust: 100 },
@@ -3152,7 +3152,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Tycoon",
 			Name: "Astral Tycoon",
-			Description: "Bank 1 trillion lifetime Flux.",
+			Description: "Bank 1 trillion lifetime Flux. That's a lot of zeroes.",
 			Kind: "LifetimeCash",
 			Target: 1000000000000,
 			Reward: { Stardust: 250, Cores: 5 },
@@ -3160,7 +3160,7 @@ const GameConfig: Dict = {
 		{
 			Id: "FirstAnomaly",
 			Name: "First Ignition",
-			Description: "Ignite the Star Foundry.",
+			Description: "Ignite the Star Foundry. Watch the beat.",
 			Kind: "AnomalyStabilizations",
 			Target: 1,
 			Reward: { Stardust: 30, Signals: 20, CommandXP: 100 },
@@ -3224,7 +3224,7 @@ const GameConfig: Dict = {
 		{
 			Id: "ForgeApex",
 			Name: "Forge Apex",
-			Description: "Claim all 96 Forge Path steps.",
+			Description: "Claim all 96 Forge Path steps. Every single one.",
 			Kind: "ForgePathSteps",
 			Target: 96,
 			Reward: { Stardust: 500, Cores: 15, Essence: 8, Boost: "DomainSurge" },
@@ -3232,7 +3232,7 @@ const GameConfig: Dict = {
 		{
 			Id: "DailyDevotee",
 			Name: "Daily Devotee",
-			Description: "Reach a 7-day login streak.",
+			Description: "Reach a 7-day login streak. A whole week. Nice.",
 			Kind: "DailyStreak",
 			Target: 7,
 			Reward: { Stardust: 80, Boost: "VaultSurge", FreeSpins: 1 },
@@ -3352,7 +3352,7 @@ const GameConfig: Dict = {
 		{
 			Id: "PulseVeteran",
 			Name: "Pulse Veteran",
-			Description: "Manually fire 1,000 quantum pulses.",
+			Description: "Manually fire 1,000 quantum pulses. Your finger is fine. Probably.",
 			Kind: "AnomalyPulses",
 			Target: 1000,
 			Reward: { Stardust: 200, Signals: 120, CashMinutes: 18 },
@@ -3360,7 +3360,7 @@ const GameConfig: Dict = {
 		{
 			Id: "LabNightCrew",
 			Name: "Lab Night Crew",
-			Description: "Complete 150 lab orders.",
+			Description: "Complete 150 lab orders. The lab keeps a mug with your name on it.",
 			Kind: "LabOrders",
 			Target: 150,
 			Reward: { Stardust: 320, Cores: 5, CashMinutes: 30, Boost: "NightShift" },
@@ -3384,7 +3384,7 @@ const GameConfig: Dict = {
 		{
 			Id: "WheelHighRoller",
 			Name: "High Roller",
-			Description: "Spin the prize wheel 100 times.",
+			Description: "Spin the prize wheel 100 times. The wheel knows your name now.",
 			Kind: "WheelSpins",
 			Target: 100,
 			Reward: { Stardust: 280, Cores: 4, FreeSpins: 3, Boost: "Ionstorm" },
@@ -3432,7 +3432,7 @@ const GameConfig: Dict = {
 		{
 			Id: "CtaClipCloser",
 			Name: "First Long Shift",
-			Description: "Play for 15 minutes.",
+			Description: "Play for 15 minutes. A proper sit-down.",
 			Kind: "PlayTime",
 			Target: 900,
 			Reward: { Stardust: 95, Signals: 28, CashMinutes: 12, Boost: "VaultSurge" },
@@ -3472,7 +3472,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave7ClaimRunner",
 			Name: "Page Turner",
-			Description: "Claim 40 story chapters.",
+			Description: "Claim 40 story chapters. You're a reader.",
 			Kind: "StoryClaims",
 			Target: 40,
 			Reward: { Stardust: 200, Signals: 55, CashMinutes: 18, FreeSpins: 1 },
@@ -3488,7 +3488,7 @@ const GameConfig: Dict = {
 		{
 			Id: "StudioCloseoutArchivist",
 			Name: "Night Reader",
-			Description: "Claim 42 story chapters.",
+			Description: "Claim 42 story chapters. Past your bedtime, surely.",
 			Kind: "StoryClaims",
 			Target: 42,
 			Reward: { Stardust: 210, Signals: 58, CashMinutes: 19, FreeSpins: 1 },
@@ -3504,7 +3504,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave8ClaimArchivist",
 			Name: "Dock Historian",
-			Description: "Claim 44 story chapters.",
+			Description: "Claim 44 story chapters. Iska would like a word about her diary.",
 			Kind: "StoryClaims",
 			Target: 44,
 			Reward: { Stardust: 220, Signals: 60, CashMinutes: 20, FreeSpins: 1 },
@@ -3512,7 +3512,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave9DailyStreakRunner",
 			Name: "Sixteen Sunrises",
-			Description: "Reach a 16-day daily streak.",
+			Description: "Reach a 16-day daily streak. Sixteen days in a row.",
 			Kind: "DailyStreak",
 			Target: 16,
 			Reward: { Stardust: 240, Signals: 64, CashMinutes: 21, Boost: "SteadyBurn" },
@@ -3520,7 +3520,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave9StoryCourier",
 			Name: "Log Courier",
-			Description: "Claim 46 story chapters.",
+			Description: "Claim 46 story chapters. Deliver the logs to whoever's still reading.",
 			Kind: "StoryClaims",
 			Target: 46,
 			Reward: { Stardust: 230, Signals: 62, CashMinutes: 21, FreeSpins: 1 },
@@ -3536,7 +3536,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave10SettingsCourier",
 			Name: "Steady Hands",
-			Description: "Reach an 18-day daily streak.",
+			Description: "Reach an 18-day daily streak. Steady as they come.",
 			Kind: "DailyStreak",
 			Target: 18,
 			Reward: { Stardust: 250, Signals: 66, CashMinutes: 22, Boost: "Afterburner" },
@@ -3544,7 +3544,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave11MissionCourier",
 			Name: "Fifty Pages",
-			Description: "Claim 50 story chapters.",
+			Description: "Claim 50 story chapters. You've read more of this than we have.",
 			Kind: "StoryClaims",
 			Target: 50,
 			Reward: { Stardust: 250, Signals: 66, CashMinutes: 23, FreeSpins: 1 },
@@ -3552,7 +3552,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave11SanitizeRunner",
 			Name: "Twenty Mornings",
-			Description: "Reach a 20-day daily streak.",
+			Description: "Reach a 20-day daily streak. Most people miss one by now.",
 			Kind: "DailyStreak",
 			Target: 20,
 			Reward: { Stardust: 260, Signals: 68, CashMinutes: 23, Boost: "SteadyBurn" },
@@ -3560,7 +3560,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave12WheelCourier",
 			Name: "Margin Reader",
-			Description: "Claim 52 story chapters.",
+			Description: "Claim 52 story chapters. You read the margins too.",
 			Kind: "StoryClaims",
 			Target: 52,
 			Reward: { Stardust: 260, Signals: 68, CashMinutes: 24, FreeSpins: 1 },
@@ -3568,7 +3568,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave12SoftMotionRunner",
 			Name: "Habit of Stars",
-			Description: "Reach a 22-day daily streak.",
+			Description: "Reach a 22-day daily streak. Logging in is just what you do now.",
 			Kind: "DailyStreak",
 			Target: 22,
 			Reward: { Stardust: 270, Signals: 70, CashMinutes: 24, Boost: "Afterburner" },
@@ -3584,7 +3584,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave13MailClipRunner",
 			Name: "Day Watch",
-			Description: "Reach a 24-day daily streak.",
+			Description: "Reach a 24-day daily streak. Twenty-four days, no gaps.",
 			Kind: "DailyStreak",
 			Target: 24,
 			Reward: { Stardust: 280, Signals: 74, CashMinutes: 25, Boost: "SteadyBurn" },
@@ -3592,7 +3592,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave14ProfileCourier",
 			Name: "Ink and Iron",
-			Description: "Claim 56 story chapters.",
+			Description: "Claim 56 story chapters. Half lore, half machinery.",
 			Kind: "StoryClaims",
 			Target: 56,
 			Reward: { Stardust: 280, Signals: 76, CashMinutes: 26, FreeSpins: 1 },
@@ -3600,7 +3600,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave14SoftMotionRunner",
 			Name: "Night Shift Regular",
-			Description: "Reach a 26-day daily streak.",
+			Description: "Reach a 26-day daily streak. The night crew saves you a seat.",
 			Kind: "DailyStreak",
 			Target: 26,
 			Reward: { Stardust: 290, Signals: 78, CashMinutes: 26, Boost: "Afterburner" },
@@ -3616,7 +3616,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave15SoftMotionRunner",
 			Name: "Four Weeks Strong",
-			Description: "Reach a 28-day daily streak.",
+			Description: "Reach a 28-day daily streak. A month, nearly.",
 			Kind: "DailyStreak",
 			Target: 28,
 			Reward: { Stardust: 300, Signals: 82, CashMinutes: 27, Boost: "SteadyBurn" },
@@ -3624,7 +3624,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave16AnomalyCourier",
 			Name: "Foundry Storyteller",
-			Description: "Claim 60 story chapters.",
+			Description: "Claim 60 story chapters. Someone should write your story next.",
 			Kind: "StoryClaims",
 			Target: 60,
 			Reward: { Stardust: 300, Signals: 84, CashMinutes: 28, FreeSpins: 1 },
@@ -3632,7 +3632,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave16ClaimClipRunner",
 			Name: "Thirty Days of Fire",
-			Description: "Reach a 30-day daily streak.",
+			Description: "Reach a 30-day daily streak. A full month of showing up.",
 			Kind: "DailyStreak",
 			Target: 30,
 			Reward: { Stardust: 310, Signals: 86, CashMinutes: 28, Boost: "Afterburner" },
@@ -3648,7 +3648,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave17ClaimClipRunner",
 			Name: "Unbroken Shift",
-			Description: "Reach a 32-day daily streak.",
+			Description: "Reach a 32-day daily streak. Still no missed days.",
 			Kind: "DailyStreak",
 			Target: 32,
 			Reward: { Stardust: 320, Signals: 90, CashMinutes: 29, Boost: "SteadyBurn" },
@@ -3664,7 +3664,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave18ClaimClipRunner",
 			Name: "Iron Routine",
-			Description: "Reach a 34-day daily streak.",
+			Description: "Reach a 34-day daily streak. At this point it's routine.",
 			Kind: "DailyStreak",
 			Target: 34,
 			Reward: { Stardust: 330, Signals: 92, CashMinutes: 30, Boost: "Afterburner" },
@@ -3680,7 +3680,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave19ClaimClipRunner",
 			Name: "Dock Fixture",
-			Description: "Reach a 36-day daily streak.",
+			Description: "Reach a 36-day daily streak. You're part of the furniture.",
 			Kind: "DailyStreak",
 			Target: 36,
 			Reward: { Stardust: 340, Signals: 94, CashMinutes: 31, Boost: "SteadyBurn" },
@@ -3696,7 +3696,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave20ClaimClipRunner",
 			Name: "Lantern Keeper",
-			Description: "Reach a 38-day daily streak.",
+			Description: "Reach a 38-day daily streak. Someone has to keep the lights on.",
 			Kind: "DailyStreak",
 			Target: 38,
 			Reward: { Stardust: 350, Signals: 96, CashMinutes: 32, Boost: "Afterburner" },
@@ -3712,7 +3712,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave21ClaimClipRunner",
 			Name: "Forty Dawns",
-			Description: "Reach a 40-day daily streak.",
+			Description: "Reach a 40-day daily streak. Forty mornings at the forge.",
 			Kind: "DailyStreak",
 			Target: 40,
 			Reward: { Stardust: 360, Signals: 98, CashMinutes: 33, Boost: "SteadyBurn" },
@@ -3728,7 +3728,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave21ReadinessRunner",
 			Name: "Long Light",
-			Description: "Reach a 42-day daily streak.",
+			Description: "Reach a 42-day daily streak. The streak has its own gravity now.",
 			Kind: "DailyStreak",
 			Target: 42,
 			Reward: { Stardust: 370, Signals: 100, CashMinutes: 34, Boost: "SteadyBurn" },
@@ -3744,7 +3744,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave22ClaimClipRunner",
 			Name: "Never Missed a Shift",
-			Description: "Reach a 44-day daily streak.",
+			Description: "Reach a 44-day daily streak. Seriously. Not one.",
 			Kind: "DailyStreak",
 			Target: 44,
 			Reward: { Stardust: 380, Signals: 102, CashMinutes: 35, Boost: "Afterburner" },
@@ -3752,7 +3752,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave22ExtractCourier",
 			Name: "Keeper of Bay Seven",
-			Description: "Claim 76 story chapters.",
+			Description: "Claim 76 story chapters. Bay Seven remembers.",
 			Kind: "StoryClaims",
 			Target: 76,
 			Reward: { Stardust: 380, Signals: 102, CashMinutes: 35, FreeSpins: 1 },
@@ -3760,7 +3760,7 @@ const GameConfig: Dict = {
 		{
 			Id: "Wave22ReadinessRunner",
 			Name: "Forge Constant",
-			Description: "Reach a 46-day daily streak.",
+			Description: "Reach a 46-day daily streak. The forge would miss you.",
 			Kind: "DailyStreak",
 			Target: 46,
 			Reward: { Stardust: 390, Signals: 104, CashMinutes: 36, Boost: "Afterburner" },
@@ -4415,7 +4415,7 @@ const GameConfig: Dict = {
 			{
 				Id: "DailyForgeKey",
 				Name: "Daily Forge Key",
-				Description: "One free Forge Crate key today.",
+				Description: "A free Forge Crate key for today.",
 				Currency: "Stardust",
 				Price: 0,
 				Kind: "Key",
@@ -4428,7 +4428,7 @@ const GameConfig: Dict = {
 			{
 				Id: "ForgeKeyBundle",
 				Name: "Forge Key Bundle",
-				Description: "Three Forge Crate keys.",
+				Description: "3 Forge Crate keys.",
 				Currency: "Stardust",
 				Price: 24,
 				Kind: "Key",
@@ -4441,7 +4441,7 @@ const GameConfig: Dict = {
 			{
 				Id: "CrystalKey",
 				Name: "Crystal Key",
-				Description: "One mid-dock Crystal Crate key.",
+				Description: "1 Crystal Crate key.",
 				Currency: "Stardust",
 				Price: 35,
 				Kind: "Key",
@@ -4455,7 +4455,7 @@ const GameConfig: Dict = {
 			{
 				Id: "HorizonKey",
 				Name: "Horizon Key",
-				Description: "One late-dock Horizon Crate key.",
+				Description: "1 Horizon Crate key.",
 				Currency: "Stardust",
 				Price: 90,
 				Kind: "Key",
@@ -4469,7 +4469,7 @@ const GameConfig: Dict = {
 			{
 				Id: "NebulaKey",
 				Name: "Nebula Key",
-				Description: "One high-grade Nebula Crate key.",
+				Description: "1 Nebula Crate key.",
 				Currency: "Stardust",
 				Price: 70,
 				Kind: "Key",
@@ -4483,7 +4483,7 @@ const GameConfig: Dict = {
 			{
 				Id: "OrbitKey",
 				Name: "Orbit Key",
-				Description: "One Pale Orbit salvage key.",
+				Description: "1 Pale Orbit key.",
 				Currency: "Stardust",
 				Price: 55,
 				Kind: "Key",
@@ -4497,7 +4497,7 @@ const GameConfig: Dict = {
 			{
 				Id: "SingularityKey",
 				Name: "Singularity Key",
-				Description: "One endgame Singularity Crate key.",
+				Description: "1 Singularity Crate key, for the endgame crate.",
 				Currency: "Cores",
 				Price: 3,
 				Kind: "Key",
@@ -4511,7 +4511,7 @@ const GameConfig: Dict = {
 			{
 				Id: "EchoKey",
 				Name: "Echo Key",
-				Description: "One resonance Echo Crate key.",
+				Description: "1 Echo Crate key.",
 				Currency: "Cores",
 				Price: 4,
 				Kind: "Key",
@@ -4525,7 +4525,7 @@ const GameConfig: Dict = {
 			{
 				Id: "EssenceCache",
 				Name: "Essence Cache",
-				Description: "Eighty essence for upgrading items.",
+				Description: "80 essence for upgrading items.",
 				Currency: "Stardust",
 				Price: 35,
 				Kind: "Essence",
@@ -4538,7 +4538,7 @@ const GameConfig: Dict = {
 			{
 				Id: "EssenceVault",
 				Name: "Essence Vault",
-				Description: "Two hundred essence for deep item upgrades.",
+				Description: "200 essence for upgrading items.",
 				Currency: "Stardust",
 				Price: 75,
 				Kind: "Essence",
@@ -4551,7 +4551,7 @@ const GameConfig: Dict = {
 			{
 				Id: "StarterCoupler",
 				Name: "Starter Coupler",
-				Description: "A guaranteed machine socket item.",
+				Description: "Always gives a socket item for your machines.",
 				Currency: "Cash",
 				Price: 25000,
 				Kind: "Item",
@@ -4565,7 +4565,7 @@ const GameConfig: Dict = {
 			{
 				Id: "DustTonic",
 				Name: "Dust Tonic",
-				Description: "Forty essence for mid-shift item upgrades.",
+				Description: "40 essence for upgrading items.",
 				Currency: "Cash",
 				Price: 80000,
 				Kind: "Essence",
@@ -4578,7 +4578,7 @@ const GameConfig: Dict = {
 			{
 				Id: "OrbitKeyBundle",
 				Name: "Orbit Key Pair",
-				Description: "Two Pale Orbit salvage keys.",
+				Description: "2 Pale Orbit keys.",
 				Currency: "Stardust",
 				Price: 95,
 				Kind: "Key",
@@ -4592,7 +4592,7 @@ const GameConfig: Dict = {
 			{
 				Id: "AetherKey",
 				Name: "Aether Key",
-				Description: "One thin-aether Aether Crate key.",
+				Description: "1 Aether Crate key.",
 				Currency: "Stardust",
 				Price: 60,
 				Kind: "Key",
