@@ -131,26 +131,29 @@ function encode(decoded: Decoded): Persist {
 	return decoded.s < 0 ? "-inf" : "inf";
 }
 
+// Free functions, matching `function OmegaMath.Add(left, right)`.
+// A bare method compiles to `function(self, left, right)`, and every caller
+// (including the production loop) uses a dot call, so the last number arrives nil.
 const OmegaMath = {
-	New(value: OmegaValue): Persist {
+	New(this: void, value: OmegaValue): Persist {
 		if (plain(value)) {
 			return value === 0 ? 0 : value;
 		}
 		return encode(decode(value));
 	},
 
-	Persist(value: OmegaValue): Persist {
+	Persist(this: void, value: OmegaValue): Persist {
 		if (plain(value)) {
 			return value === 0 ? 0 : value;
 		}
 		return encode(decode(value));
 	},
 
-	IsOmega(_value: OmegaValue): boolean {
+	IsOmega(this: void, _value: OmegaValue): boolean {
 		return false;
 	},
 
-	Add(left: OmegaValue, right: OmegaValue): Persist {
+	Add(this: void, left: OmegaValue, right: OmegaValue): Persist {
 		if (plain(left) && plain(right)) {
 			const sum = left + right;
 			if (math.abs(sum) < NATIVE_LIMIT) {
@@ -196,7 +199,7 @@ const OmegaMath = {
 		return encode({ z: false, s: -1, e: e });
 	},
 
-	Sub(left: OmegaValue, right: OmegaValue): Persist {
+	Sub(this: void, left: OmegaValue, right: OmegaValue): Persist {
 		if (plain(left) && plain(right)) {
 			return OmegaMath.Add(left, -right);
 		}
@@ -207,7 +210,7 @@ const OmegaMath = {
 		return OmegaMath.Add(left, encode({ z: false, s: -b.s, e: b.e }));
 	},
 
-	Mul(left: OmegaValue, right: OmegaValue): Persist {
+	Mul(this: void, left: OmegaValue, right: OmegaValue): Persist {
 		if (plain(left) && plain(right)) {
 			const product = left * right;
 			if (math.abs(product) < NATIVE_LIMIT) {
@@ -222,7 +225,7 @@ const OmegaMath = {
 		return encode({ z: false, s: a.s * b.s, e: a.e + b.e });
 	},
 
-	Div(left: OmegaValue, right: OmegaValue): Persist {
+	Div(this: void, left: OmegaValue, right: OmegaValue): Persist {
 		if (plain(left) && plain(right) && right !== 0) {
 			const quotient = left / right;
 			if (math.abs(quotient) < NATIVE_LIMIT) {
@@ -243,7 +246,7 @@ const OmegaMath = {
 		return encode({ z: false, s: a.s * b.s, e: a.e - b.e });
 	},
 
-	Pow(left: OmegaValue, right: OmegaValue): Persist {
+	Pow(this: void, left: OmegaValue, right: OmegaValue): Persist {
 		const a0 = decode(left);
 		const b = decode(right);
 		if (b.z) {
@@ -282,21 +285,21 @@ const OmegaMath = {
 		return encode({ z: false, s: 1, e: powered });
 	},
 
-	Max(left: OmegaValue, right: OmegaValue): Persist {
+	Max(this: void, left: OmegaValue, right: OmegaValue): Persist {
 		if (OmegaMath.Compare(left, right) >= 0) {
 			return OmegaMath.Persist(left);
 		}
 		return OmegaMath.Persist(right);
 	},
 
-	Min(left: OmegaValue, right: OmegaValue): Persist {
+	Min(this: void, left: OmegaValue, right: OmegaValue): Persist {
 		if (OmegaMath.Compare(left, right) <= 0) {
 			return OmegaMath.Persist(left);
 		}
 		return OmegaMath.Persist(right);
 	},
 
-	Compare(left: OmegaValue, right: OmegaValue): number {
+	Compare(this: void, left: OmegaValue, right: OmegaValue): number {
 		if (plain(left) && plain(right)) {
 			if (left === right || math.abs(left - right) <= math.max(1, math.abs(left)) * 1e-12) {
 				return 0;
@@ -326,23 +329,23 @@ const OmegaMath = {
 		return a.e > b.e ? -1 : 1;
 	},
 
-	Lt(left: OmegaValue, right: OmegaValue): boolean {
+	Lt(this: void, left: OmegaValue, right: OmegaValue): boolean {
 		return OmegaMath.Compare(left, right) < 0;
 	},
 
-	Lte(left: OmegaValue, right: OmegaValue): boolean {
+	Lte(this: void, left: OmegaValue, right: OmegaValue): boolean {
 		return OmegaMath.Compare(left, right) <= 0;
 	},
 
-	Gt(left: OmegaValue, right: OmegaValue): boolean {
+	Gt(this: void, left: OmegaValue, right: OmegaValue): boolean {
 		return OmegaMath.Compare(left, right) > 0;
 	},
 
-	Gte(left: OmegaValue, right: OmegaValue): boolean {
+	Gte(this: void, left: OmegaValue, right: OmegaValue): boolean {
 		return OmegaMath.Compare(left, right) >= 0;
 	},
 
-	ToNumber(value: OmegaValue): number {
+	ToNumber(this: void, value: OmegaValue): number {
 		if (plain(value)) {
 			return value;
 		}
@@ -360,7 +363,7 @@ const OmegaMath = {
 		return decoded.s < 0 ? -MAX_DOUBLE : MAX_DOUBLE;
 	},
 
-	Log10(value: OmegaValue): number {
+	Log10(this: void, value: OmegaValue): number {
 		const decoded = decode(value);
 		if (decoded.z || decoded.s <= 0) {
 			return 0;
@@ -368,7 +371,7 @@ const OmegaMath = {
 		return decoded.e;
 	},
 
-	Floor(value: OmegaValue): Persist {
+	Floor(this: void, value: OmegaValue): Persist {
 		if (plain(value)) {
 			const floored = math.floor(value);
 			return floored === 0 ? 0 : floored;
@@ -384,14 +387,14 @@ const OmegaMath = {
 		return floored === 0 ? 0 : floored;
 	},
 
-	ScaledCost(baseCost: number, scale: number, level: number): Persist {
+	ScaledCost(this: void, baseCost: number, scale: number, level: number): Persist {
 		const safeBase = math.max(1e-12, baseCost);
 		const safeScale = math.max(1e-12, scale);
 		const safeLevel = math.max(0, level);
 		return OmegaMath.Floor(OmegaMath.Mul(safeBase, OmegaMath.Pow(safeScale, safeLevel)));
 	},
 
-	GeometricSum(baseCost: number, scale: number, level: number, count: number): Persist {
+	GeometricSum(this: void, baseCost: number, scale: number, level: number, count: number): Persist {
 		const n = math.max(0, math.floor(count));
 		if (n <= 0) {
 			return 0;
@@ -415,7 +418,7 @@ const OmegaMath = {
 		return OmegaMath.Floor(OmegaMath.Div(OmegaMath.Mul(first, numerator), safeScale - 1));
 	},
 
-	AffordableCount(baseCost: number, scale: number, level: number, cash: OmegaValue, maximum: number): LuaTuple<[number, Persist]> {
+	AffordableCount(this: void, baseCost: number, scale: number, level: number, cash: OmegaValue, maximum: number): LuaTuple<[number, Persist]> {
 		let remaining = math.max(0, math.floor(maximum));
 		if (remaining <= 0) {
 			return $tuple(0, 0);
@@ -437,11 +440,11 @@ const OmegaMath = {
 		return $tuple(low, OmegaMath.GeometricSum(baseCost, scale, level, low));
 	},
 
-	BoundedPower(base: number, exponent: number): Persist {
+	BoundedPower(this: void, base: number, exponent: number): Persist {
 		return OmegaMath.Pow(math.max(1, base), math.max(0, exponent));
 	},
 
-	ToString(value: OmegaValue): string {
+	ToString(this: void, value: OmegaValue): string {
 		const persist = encode(decode(value));
 		if (typeIs(persist, "number")) {
 			return tostring(persist);
