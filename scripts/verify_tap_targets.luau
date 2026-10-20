@@ -1,5 +1,5 @@
 --!strict
--- Report only: raw tap targets shorter than TapTarget (44px).
+-- Raw tap targets shorter than TapTarget (44px) fail the build unless listed in ALLOWED.
 -- The kit's <Button> already pads its hit area up to TapTarget on phones and touch
 -- devices (useTouchHitShell), so it's not checked. What this looks for is hand-rolled
 -- <textbutton>/<imagebutton> (or h("TextButton"/"ImageButton")) with a literal Size under
@@ -11,6 +11,14 @@ local fs = require("@lune/fs")
 local TAP = 44
 local ROOT = "src/Client/AstralForge"
 local SKIP = { "Settings", "PlayerList", "Playerlist", "Chat", "NameTag", "Rank", "Guild", "CrewMember", "PagesSocial", "Crate", "purchase", "MobileControls", "ProfileStyle" }
+
+-- known short raw buttons, per file, each with the reason it's fine
+local ALLOWED: { [string]: number } = {
+	-- next-unlock and mission strips draw 32px; StripTapArea under them catches taps at 44px
+	["src/Client/AstralForge/UiCore/WorkspaceChrome.tsx"] = 2,
+	-- Skip guide (phones): 40px invisible catch area under the 28px button (day-a batch 6, their file)
+	["src/Client/AstralForge/UiCore/onboarding.ts"] = 1,
+}
 
 local function skipped(path: string): boolean
 	for _, word in SKIP do
@@ -87,8 +95,22 @@ for _, path in files do
 	end
 end
 
-print(`[REPORT] tap targets: {#found} raw buttons shorter than {TAP}px on phones (kit Buttons pad themselves)`)
-for i = 1, #found do
-	local f = found[i]
-	print(`  {f.h}px  {f.path}:{f.line}`)
+local perFile: { [string]: number } = {}
+for _, f in found do
+	perFile[f.path] = (perFile[f.path] or 0) + 1
 end
+local over = {}
+for path, count in perFile do
+	if count > (ALLOWED[path] or 0) then
+		for _, f in found do
+			if f.path == path then
+				table.insert(over, `{f.h}px  {f.path}:{f.line}`)
+			end
+		end
+	end
+end
+if #over > 0 then
+	table.sort(over)
+	error(`Raw buttons under {TAP}px on phones (use the kit Button, or give it a {TAP}px catch area):\n  ` .. table.concat(over, "\n  "))
+end
+print(`[TEST] tap targets: {#found} short raw buttons, all listed exceptions`)

@@ -1160,8 +1160,9 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	}),
 	// clear (with text) or close (empty) button, 44px tap target
 	h("textbutton", {
-		Size: UDim2.fromOffset(40, 40),
-		Position: new UDim2(1, -4, 0.5, 0),
+		// 44px in the 48px field: 2px clear of each edge
+		Size: UDim2.fromOffset(theme.TapTarget, theme.TapTarget),
+		Position: new UDim2(1, -2, 0.5, 0),
 		AnchorPoint: new Vector2(1, 0.5),
 		BackgroundColor3: Palette.panelRaised,
 		BackgroundTransparency: 0.2,

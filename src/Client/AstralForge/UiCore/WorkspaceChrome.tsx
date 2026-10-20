@@ -627,6 +627,10 @@ export function Workspace(_param: WorkspaceProps) {
 	});
 	const headerHeight = workspacePlan.headerHeight;
 	const unlockH = workspacePlan.unlockH;
+	const stripOpen: (() => void) | undefined =
+		missionGoal !== undefined ? (navigate !== undefined ? () => navigate("Missions") : undefined) : openRoadmap;
+	// how far the strip's tap area may reach below it: up to TapTarget, never past the content inset
+	const stripTapH = math.min(TapTarget, unlockH + inset);
 	const vaultBtn = chrome.stack ? TapTarget : 44;
 	const ready = VaultCollectEligibility.isEligible(asFlux(state.Vault));
 	const vaultCollectHostRef = React.useRef<GuiObject>();
@@ -861,15 +865,33 @@ export function Workspace(_param: WorkspaceProps) {
 					BorderSizePixel: 0,
 					ZIndex: 19,
 				},
+				// the strip is drawn 32px tall; this invisible catch area under it makes the tap
+				// target 44px by reaching 12px into the content inset below (never into the content)
+				stripOpen !== undefined &&
+					h("textbutton", {
+						Name: "StripTapArea",
+						Size: new UDim2(1, 0, 0, stripTapH),
+						BackgroundTransparency: 1,
+						Text: "",
+						AutoButtonColor: false,
+						Selectable: false,
+						ZIndex: 0,
+						Event: {
+							Activated: () => {
+								Audio.play("open");
+								stripOpen();
+							},
+						},
+					}),
 				missionGoal !== undefined
 					? h(MissionGoalStrip, {
 							goal: missionGoal,
-							onOpen: navigate !== undefined ? () => navigate("Missions") : undefined,
+							onOpen: stripOpen,
 						})
 					: h(NextUnlockStrip, {
 							state: state,
 							reducedMotion: reducedMotion,
-							onOpen: openRoadmap,
+							onOpen: stripOpen,
 						}),
 			),
 		h(
