@@ -102,7 +102,7 @@ export = () => {
 			}
 		}
 
-		static IdleState() {
+		static IdleState(this: void) {
 			return {
 				Active: false,
 				Multiplier: 1,

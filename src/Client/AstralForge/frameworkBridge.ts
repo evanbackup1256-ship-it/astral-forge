@@ -1,5 +1,5 @@
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
-const ClientLog = (require(script.Parent!.FindFirstChild("CoreKit")! as ModuleScript) as (name: string) => { ClientLog: { debug(this: void, ...args: defined[]): void; warn(this: void, ...args: defined[]): void; once(this: void, ...args: defined[]): void } })("log").ClientLog;
+const ClientLog = (require(script.Parent!.FindFirstChild("CoreKit")! as ModuleScript) as (name: string) => { ClientLog: { debug(...args: defined[]): void; warn(...args: defined[]): void; once(...args: defined[]): void } })("log").ClientLog;
 let bootstrapRoot: Instance | undefined;
 
 function installBundledRuntime(): boolean {
