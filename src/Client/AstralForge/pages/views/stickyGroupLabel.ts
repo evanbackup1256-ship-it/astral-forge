@@ -64,6 +64,17 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 	const hostRef = React.useRef<Frame>();
 	const [offset, setOffset] = React.useBinding(0);
 	const [current, setCurrent] = React.useState(0);
+	// redraw the key hint when a controller is plugged in or pulled out
+	const [gamepad, setGamepad] = React.useState(UserInputService.GamepadEnabled);
+	React.useEffect(() => {
+		const sync = () => task.defer(() => setGamepad(UserInputService.GamepadEnabled));
+		const plugged = UserInputService.GamepadConnected.Connect(sync);
+		const pulled = UserInputService.GamepadDisconnected.Connect(sync);
+		return () => {
+			plugged.Disconnect();
+			pulled.Disconnect();
+		};
+	}, []);
 	const currentRef = React.useRef(0);
 	currentRef.current = current;
 	const groupsRef = React.useRef(props.groups);
@@ -254,7 +265,7 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 			zIndex: 21,
 		}),
 		reactLoose.createElement(Text as never, {
-			value: menuOpen ? "CLOSE" : UserInputService.GamepadEnabled ? `JUMP · ${KeyLabel(Enum.KeyCode.ButtonL3, "L3")}` : "JUMP",
+			value: menuOpen ? "CLOSE" : gamepad ? `JUMP · ${KeyLabel(Enum.KeyCode.ButtonL3, "L3")}` : "JUMP",
 			size: 10,
 			color: luaProp(Palette, "muted"),
 			weight: Enum.FontWeight.Bold,
@@ -318,6 +329,8 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 							hug: true,
 							layoutOrder: i,
 							highlight: i === current,
+							// the group you're in also gets the pilot icon, so it doesn't rely on colour alone
+							icon: i === current ? "Pilot.4" : undefined,
 							reducedMotion: props.reducedMotion,
 						}),
 						),
