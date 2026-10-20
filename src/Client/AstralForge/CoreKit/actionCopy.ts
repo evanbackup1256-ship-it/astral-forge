@@ -166,7 +166,7 @@ export function failureTitle(action: string, gated?: boolean): string {
 		return "Still locked";
 	}
 	if (action === "VerifyCreatorFollow") {
-		return "Follow";
+		return "Couldn't check that";
 	}
 	for (const [prefix, title] of FAILURE_TITLE_PREFIXES) {
 		if (action.sub(1, prefix.size()) === prefix) {

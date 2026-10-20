@@ -430,7 +430,7 @@ export function MainGame(_param: MainGameProps) {
 	notificationDurationRef.current = (state?.Settings.NotificationDuration as number | undefined) ?? 0.55;
 	const addNotice = React.useCallback((title: string, body: unknown, tone?: string, playSound = true): undefined => {
 		const toneValue = tone ?? "Info";
-		const bodyValue = ActionCopy.friendlyPlayerMessage(body as string | undefined) ?? body;
+		const bodyValue = title === "Admin" ? body : (ActionCopy.friendlyPlayerMessage(body as string | undefined) ?? body);
 		const normalizedTitle = NoticeMath.NormalizeTitle(title);
 		const signature = NoticeMath.Signature(normalizedTitle, bodyValue, toneValue);
 		const now = os.clock();
@@ -522,7 +522,9 @@ export function MainGame(_param: MainGameProps) {
 				adopt(responseRaw as never);
 			}
 			const rawError = responseRaw.error;
-			const response = ActionCopy.friendlyActionResponse(responseRaw);
+			// admin tools keep the server's exact wording; players get the friendly rewrite
+			const adminAction = string.sub(action, 1, 5) === "Admin" || action === "GetAdminState";
+			const response = adminAction ? responseRaw : ActionCopy.friendlyActionResponse(responseRaw);
 			if (response.State !== undefined) {
 				acceptState(response.State);
 			}
@@ -559,6 +561,10 @@ export function MainGame(_param: MainGameProps) {
 					return undefined;
 				}
 				const gated = string.find(string.lower(detail), "unlock", 1, true)[0] !== undefined;
+				if (adminAction) {
+					addNotice("Admin", rawError ?? detail, "Warning", false);
+					return undefined;
+				}
 				addNotice(ActionCopy.failureTitle(action, gated), ActionCopy.failureBody(action, rawError ?? detail), "Warning", false);
 				return undefined;
 			}

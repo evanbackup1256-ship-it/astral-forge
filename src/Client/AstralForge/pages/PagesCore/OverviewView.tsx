@@ -769,7 +769,7 @@ export function OverviewView({
 	const rebirthH = overviewPlan.rebirthH;
 	const domainH = overviewPlan.domainH;
 	const notesH = overviewPlan.notesH;
-	const opsH = overviewPlan.opsH;
+	const opsH = overviewPlan.opsH + (stack && storyWaiting > 0 ? TapTarget + 8 : 0);
 	const metricCardH = overviewPlan.metricCardH;
 	const metricsH = overviewPlan.metricsH;
 	const countdownH = overviewPlan.countdownH;
@@ -783,8 +783,10 @@ export function OverviewView({
 	const ctaH = denseHero ? 40 : TapTarget;
 	const heroReadoutH = landscapePhone ? 118 : phone ? 168 : 0;
 	const phoneCtaBlockH = landscapePhone ? ctaH + 8 : ctaH * 2 + 12;
-	const opsButtonRows = stack ? 2 : 1;
-	const opsButtonH = TapTarget * opsButtonRows + (stack ? 8 : 0);
+	// a waiting chapter adds a fifth button: its own row on phones, a fifth column on desktop
+	const opsButtonRows = stack ? (storyWaiting > 0 ? 3 : 2) : 1;
+	const opsButtonH = TapTarget * opsButtonRows + (stack ? 8 * (opsButtonRows - 1) : 0);
+	const opsButtonSize = stack ? new UDim2(0.5, -4, 0, TapTarget) : storyWaiting > 0 ? new UDim2(0.2, -7, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget);
 	const journey = JourneyMath.Build(state);
 	const journeyNext = journey.Next;
 	const journeyRecent: string[] = [];
@@ -1616,7 +1618,7 @@ export function OverviewView({
 											onClick={() => navigate?.("Missions")}
 											color={missionsReady > 0 ? Palette.cyan : Palette.panelSoft}
 											textColor={missionsReady > 0 ? Palette.ink : Palette.creamSoft}
-											size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
+											size={opsButtonSize}
 											reducedMotion={reducedMotion}
 											highlight={missionsReady > 0}
 											layoutOrder={0}
@@ -1627,7 +1629,7 @@ export function OverviewView({
 											onClick={() => navigate?.("Lab")}
 											color={labReady > 0 ? Palette.mint : Palette.panelSoft}
 											textColor={labReady > 0 ? Palette.ink : Palette.creamSoft}
-											size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
+											size={opsButtonSize}
 											reducedMotion={reducedMotion}
 											highlight={labReady > 0}
 											layoutOrder={1}
@@ -1638,34 +1640,33 @@ export function OverviewView({
 											onClick={() => navigate?.("ForgePath")}
 											color={pathReady ? Palette.violet : Palette.panelSoft}
 											textColor={pathReady ? Palette.ink : Palette.creamSoft}
-											size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
+											size={opsButtonSize}
 											reducedMotion={reducedMotion}
 											highlight={pathReady}
 											layoutOrder={2}
 										/>
-										{storyWaiting > 0 ? (
+										<Button
+											text={storyWaiting > 0 && !stack ? "MARKET" : "BLACK MARKET"}
+											icon="Shop.3"
+											onClick={() => navigate?.("Bazaar")}
+											color={Palette.panelSoft}
+											textColor={Palette.creamSoft}
+											size={opsButtonSize}
+											reducedMotion={reducedMotion}
+											highlight={false}
+											layoutOrder={4}
+										/>
+										{storyWaiting > 0 && (
 											<Button
 												text={`STORY · ${storyWaiting}`}
 												icon="Story.1"
 												onClick={() => navigate?.("Story")}
 												color={Palette.mint}
 												textColor={Palette.ink}
-												size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
+												size={stack ? new UDim2(1, 0, 0, TapTarget) : opsButtonSize}
 												reducedMotion={reducedMotion}
 												highlight={true}
-												layoutOrder={3}
-											/>
-										) : (
-											<Button
-												text="BLACK MARKET"
-												icon="Shop.3"
-												onClick={() => navigate?.("Bazaar")}
-												color={Palette.panelSoft}
-												textColor={Palette.creamSoft}
-												size={stack ? new UDim2(0.5, -4, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget)}
-												reducedMotion={reducedMotion}
-												highlight={false}
-												layoutOrder={3}
+												layoutOrder={stack ? 5 : 3}
 											/>
 										)}
 									</frame>
