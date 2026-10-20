@@ -49,6 +49,7 @@ interface SettingsSchema {
 	value(this: void, settings: Settings, key: string): number;
 	matchingPreset(this: void, settings: Settings): string | undefined;
 	sectionDefaults(this: void, section: string): unknown;
+	group(this: void, key: string): { label: string; order: number };
 }
 const Schema = sharedModule<(name: string) => SettingsSchema>("SharedData")("SettingsSchema");
 
@@ -838,7 +839,48 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			66,
 		);
 	}
+	if (!listing) {
+		// stable regroup by sub-heading so related options sit together
+		const buckets = new Map<number, SchemaEntry[]>();
+		const orders: number[] = [];
+		for (const entry of rows) {
+			const order = Schema.group(entry.key).order;
+			let bucket = buckets.get(order);
+			if (bucket === undefined) {
+				bucket = [];
+				buckets.set(order, bucket);
+				orders.push(order);
+			}
+			bucket.push(entry);
+		}
+		orders.sort((a, b) => a < b);
+		rows.clear();
+		for (const order of orders) {
+			for (const entry of buckets.get(order)!) {
+				rows.push(entry);
+			}
+		}
+	}
+	let lastGroup: string | undefined;
 	rows.forEach((entry, index) => {
+		if (!listing) {
+			const heading = Schema.group(entry.key).label;
+			if (heading !== lastGroup) {
+				lastGroup = heading;
+				add(
+					"group_" + heading,
+					<Text
+						value={heading.upper()}
+						size={11}
+						color={accent}
+						weight={Enum.FontWeight.Heavy}
+						position={UDim2.fromOffset(0, 10)}
+						sizeConstraint={new UDim2(1, 0, 0, 14)}
+					/>,
+					28,
+				);
+			}
+		}
 		add(
 			"row_" + entry.key,
 			<SettingRow

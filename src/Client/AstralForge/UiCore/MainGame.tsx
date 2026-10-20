@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { TooltipProvider } from "../Tooltip";
+import { setEffectSwitches, setInGameReducedMotion } from "../MotionPreference";
 const ContentProvider = game.GetService("ContentProvider");
 const GuiService = game.GetService("GuiService");
 const Players = game.GetService("Players");
@@ -1519,6 +1520,15 @@ export function MainGame(_param: MainGameProps) {
 	}, [state?.Settings.HapticIntensity, state?.Settings.ScrollMomentum, state?.Settings.ScrollSpeed]);
 	const motionIntensity = (state?.Settings.MotionIntensity as number | undefined) ?? 1;
 	const softFeel = GuiService.ReducedMotionEnabled === true || motionIntensity < 0.3;
+	React.useEffect(() => {
+		// non-React effects (button press motion, screen flashes, companion sprites) read this
+		setInGameReducedMotion(motionIntensity < 0.3);
+	}, [motionIntensity]);
+	const screenFlashesSetting = (state?.Settings.ScreenFlashes as number | undefined) ?? 0.8;
+	const confettiSetting = (state?.Settings.ConfettiEnabled as number | undefined) ?? 1;
+	React.useEffect(() => {
+		setEffectSwitches(screenFlashesSetting >= 0.5, confettiSetting >= 0.5);
+	}, [screenFlashesSetting, confettiSetting]);
 	const viewportSpeed = (state?.Settings.ViewportSpeed as number | undefined) ?? 1;
 	const [viewportTick, setViewportTick] = React.useState(0);
 	React.useEffect(() => {

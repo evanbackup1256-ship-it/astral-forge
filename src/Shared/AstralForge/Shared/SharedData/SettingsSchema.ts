@@ -135,6 +135,51 @@ const ENTRIES: ReadonlyArray<Entry> = table.freeze([
 	slider("MobileButtonSpacing", "mobile", "Button spacing", "Room between thumb buttons.", 0.5, true),
 ]);
 
+// Sub-headings inside each section. Rows render grouped in this order; keys not listed fall into the last group.
+const GROUPS: Readonly<Record<string, ReadonlyArray<{ label: string; keys: ReadonlyArray<string> }>>> = table.freeze({
+	sound: [
+		{ label: "Volume", keys: ["SoundVolume", "MusicVolume", "SfxVolume", "UiVolume", "GameplayVolume", "RewardVolume", "AmbientVolume"] },
+		{ label: "Switches", keys: ["PageMusic", "NotificationSounds", "HoverSounds"] },
+		{ label: "Fine tuning", keys: ["SoundVariation"] },
+	],
+	display: [
+		{ label: "Motion", keys: ["MotionIntensity", "AnimatedTitles", "IconAnimations", "NumberAnimations", "PanelHover", "PanelEntrances", "ViewportSpeed", "ReactorMotion"] },
+		{ label: "Effects", keys: ["EffectsIntensity", "ConfettiEnabled", "ScreenFlashes", "ParticleDensity", "OfflineRewardEffects"] },
+		{ label: "Light and background", keys: ["GlowIntensity", "ButtonShimmers", "ShimmerIntensity", "BackgroundStars", "BackgroundDetail", "AmbientGlow"] },
+	],
+	interface: [
+		{ label: "Top bar", keys: ["ShowFps", "ShowPing", "ShowResourceLabels", "CompactTopBar"] },
+		{ label: "Pages", keys: ["ShowNextGoal", "Tooltips", "UiDensity", "ScrollSpeed", "ScrollMomentum"] },
+		{ label: "Alerts", keys: ["ToastDensity", "NotificationDuration"] },
+		{ label: "Performance", keys: ["PerformanceBias"] },
+	],
+	accessibility: [
+		{ label: "Reading", keys: ["DesktopTextScale", "BoldText", "HighContrast", "ReducedTransparency", "ColorblindMode"] },
+		{ label: "Touch", keys: ["LargeTouchTargets", "HapticIntensity"] },
+	],
+	social: [
+		{ label: "Chat", keys: ["ChatShowGlobal", "ChatSounds", "ChatTextSize"] },
+		{ label: "Privacy", keys: ["WhispersFriendsOnly", "CrewInvitePolicy", "TradeInvitePolicy"] },
+	],
+	mobile: [
+		{ label: "Layout", keys: ["MobileTextScale", "MobileQuickReverse", "MobileQuickVisible", "MobileDockVisible", "MobileToastVisible", "MobileCompactHeaders", "MobileAutoHideDock", "MobileLandscapeCompact", "MobileKeyboardCompact"] },
+		{ label: "Sizes and opacity", keys: ["MobileQuickScale", "MobileDockScale", "MobileToastScale", "MobileQuickOpacity", "MobileDockOpacity", "MobileToastOpacity", "MobileButtonSpacing"] },
+	],
+});
+const groupOf: Record<string, { label: string; order: number } | undefined> = {};
+for (const [, groups] of pairs(GROUPS)) {
+	groups.forEach((group, order) => {
+		for (const key of group.keys) {
+			groupOf[key] = { label: group.label, order };
+		}
+	});
+}
+
+/** Sub-heading and sort order for a setting inside its section. */
+function group(key: string): { label: string; order: number } {
+	return groupOf[key] ?? { label: "Other", order: 99 };
+}
+
 const HIDDEN_KEYS = table.freeze({
 	RippleIntensity: 0.5,
 	ButtonRipples: 1,
@@ -260,6 +305,7 @@ export = table.freeze({
 	HIDDEN_KEYS,
 	PRESETS,
 	entry,
+	group,
 	accepts,
 	normalize,
 	value,

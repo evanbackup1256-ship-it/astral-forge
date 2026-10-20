@@ -1,3 +1,4 @@
+import { celebrationsAllowed } from "../MotionPreference";
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, lighten } from "../CoreKit/theme";
@@ -165,7 +166,7 @@ export function ConfettiBurst(props: { onDone?: () => void; intensity?: number }
 	const { onDone, intensity = 1 } = props;
 	const antilag = useAntilag();
 	const softMotion = false;
-	const confettiLive = antilag.allowConfetti === true;
+	const confettiLive = antilag.allowConfetti === true && celebrationsAllowed();
 	const clock = useClock(confettiLive, softMotion ? 1.4 : 1, 1000, true);
 	const confettiSpan = softMotion ? 1.35 : 2.15;
 	const onDoneRef = React.useRef(onDone);

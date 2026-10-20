@@ -1,5 +1,5 @@
 const RunService = game.GetService("RunService");
-const GuiService = game.GetService("GuiService");
+import { isReducedMotion } from "./MotionPreference";
 const Workspace = game.GetService("Workspace");
 
 interface Entry {
@@ -77,7 +77,7 @@ function visible(label: ImageLabel): boolean {
 function step(dt: number) {
 	clock += dt;
 	elapsed += dt;
-	if (GuiService.ReducedMotionEnabled) {
+	if (isReducedMotion()) {
 		table.clear(active);
 		return;
 	}

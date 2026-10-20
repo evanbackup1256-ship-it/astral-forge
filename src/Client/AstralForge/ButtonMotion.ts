@@ -3,7 +3,7 @@
 // don't go through ui.Button. Shared Buttons (they carry their own UIScale) are left alone.
 // Owner: UI shell. Dependencies: TweenService, GuiService. Review: 2026-10-08.
 
-const GuiService = game.GetService("GuiService");
+import { isReducedMotion } from "./MotionPreference";
 const TweenService = game.GetService("TweenService");
 const Workspace = game.GetService("Workspace");
 
@@ -31,8 +31,7 @@ function reduced(): boolean {
 	if (reducedOverride !== undefined) {
 		return reducedOverride;
 	}
-	const [ok, value] = pcall(() => GuiService.ReducedMotionEnabled);
-	return ok && value === true;
+	return isReducedMotion();
 }
 
 function optedOut(button: GuiButton): boolean {

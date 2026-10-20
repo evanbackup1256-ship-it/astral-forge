@@ -1,3 +1,4 @@
+import { celebrationsAllowed, flashesAllowed, isReducedMotion } from "./MotionPreference";
 // Game feel. Numbers pop where you tapped, coins fly into the counter they belong to and the counter
 // bounces when they land, sparkle bursts mark big moments, short status lines float up mid-screen,
 // and the screen flashes for the biggest hits. Everything is drawn by one host in its own ScreenGui
@@ -136,7 +137,7 @@ UserInputService.InputBegan.Connect((input) => {
 		const at = lastPointer;
 		task.defer(() => {
 			const playerGui = Players.LocalPlayer?.FindFirstChildOfClass("PlayerGui");
-			if (playerGui === undefined || reduced) {
+			if (playerGui === undefined || reduced || isReducedMotion()) {
 				return;
 			}
 			for (const object of playerGui.GetGuiObjectsAtPosition(at.X, at.Y)) {
@@ -332,6 +333,9 @@ const Juice = {
 
 	// a sparkle burst: four-point stars, rays and a ring
 	burst(this: void, at?: Vector2, color?: Color3, scale?: number) {
+		if (!celebrationsAllowed()) {
+			return;
+		}
 		const s = scale ?? 1;
 		const sparks: Spark[] = [];
 		for (let index = 1; index <= math.floor(14 + 6 * math.min(s, 2)); index++) {
@@ -552,7 +556,7 @@ const Juice = {
 	},
 
 	flash(this: void, color?: Color3, strength?: number) {
-		if (reduced) {
+		if (reduced || !flashesAllowed()) {
 			return;
 		}
 		push({ kind: "flash", color: color ?? P.cream, strength: math.clamp(strength ?? 0.35, 0, 0.8) });

@@ -7,7 +7,7 @@ const Players = game.GetService("Players");
 const RunService = game.GetService("RunService");
 const TweenService = game.GetService("TweenService");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
-const GuiService = game.GetService("GuiService");
+import { isReducedMotion } from "./MotionPreference";
 const Workspace = game.GetService("Workspace");
 
 const astral = ReplicatedStorage.WaitForChild("AstralForge");
@@ -195,7 +195,7 @@ function attach(): () => void {
 	}
 
 	function burst(rig: Rig) {
-		if (GuiService.ReducedMotionEnabled || rig.glyph === undefined || rig.glyph.Parent === undefined) {
+		if (isReducedMotion() || rig.glyph === undefined || rig.glyph.Parent === undefined) {
 			return;
 		}
 		rig.glyph.ImageTransparency = 1;
@@ -346,7 +346,7 @@ function attach(): () => void {
 				spriteFrame = (spriteFrame + frames) % ElementSprites.COUNT;
 				advance = true;
 			}
-			if (!advance || GuiService.ReducedMotionEnabled) {
+			if (!advance || isReducedMotion()) {
 				return;
 			}
 			const offset = new Vector2((spriteFrame % ElementSprites.COLUMNS) * grid, math.floor(spriteFrame / ElementSprites.COLUMNS) * grid);
