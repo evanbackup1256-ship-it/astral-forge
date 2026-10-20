@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
 import { Palette } from "../../CoreKit/theme";
+import { memoRow, sameFields } from "../../UiCore/rowMemo";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
@@ -231,6 +232,142 @@ function MerchantPortrait(props: {
 		</frame>
 	);
 }
+
+interface BazaarOfferCardProps {
+	offer: Offer;
+	quantity: number;
+	total: Flux;
+	enough: boolean;
+	saved: boolean;
+	inspected: boolean;
+	busy: boolean;
+	expired: boolean;
+	reducedMotion?: boolean;
+	size: UDim2;
+	position: UDim2;
+	onToggleSave: () => void;
+	onInspect: () => void;
+	onBuy: () => void;
+}
+
+function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
+	const offer = props.offer;
+	const quantity = props.quantity;
+	const total = props.total;
+	const enough = props.enough;
+	const reducedMotion = props.reducedMotion;
+	const accent = ACCENTS[offer.Category] ?? Palette.violet;
+	return (
+		<frame
+			Size={props.size}
+			Position={props.position}
+			BackgroundTransparency={1}
+		>
+			<Ui.Panel
+				size={UDim2.fromScale(1, 1)}
+				padding={14}
+				accent={accent}
+				background={Palette.panel}
+				reducedMotion={reducedMotion}
+			>
+				<Ui.Text
+					value={
+						(offer.Rare
+							? "Rare find"
+							: offer.Procured
+								? "Your request"
+								: offer.Featured
+									? offer.Category + " · merchant's pick"
+									: offer.Category) +
+						"  /  " +
+						math.floor(offer.Discount * 100) +
+						"% off"
+					}
+					size={11}
+					color={accent}
+					sizeConstraint={new UDim2(1, -64, 0, 20)}
+				/>
+				<Ui.Button
+					text={props.saved ? "Saved" : "Save"}
+					color={Palette.panelSoft}
+					size={UDim2.fromOffset(60, 48)}
+					position={new UDim2(1, -60, 0, 0)}
+					reducedMotion={reducedMotion}
+					onClick={props.onToggleSave}
+					disabled={props.busy}
+				/>
+				<Ui.Text
+					value={offer.Name}
+					size={19}
+					weight={Enum.FontWeight.Heavy}
+					wrap={true}
+					fit={true}
+					minSize={10}
+					position={UDim2.fromOffset(0, 28)}
+					sizeConstraint={new UDim2(1, -68, 0, 58)}
+				/>
+				<Ui.Text
+					value={Format.formatReward(offer.Reward) + " per unit"}
+					size={13}
+					color={Palette.muted}
+					wrap={true}
+					fit={true}
+					minSize={10}
+					position={UDim2.fromOffset(0, 90)}
+					sizeConstraint={new UDim2(1, 0, 0, 48)}
+				/>
+				<Ui.Text
+					value={`${offer.Left}/${offer.Stock} left this shipment  ·  ${Format.compactNumber(offer.Price)} flux each`}
+					size={12}
+					wrap={true}
+					fit={true}
+					minSize={10}
+					color={Palette.creamSoft}
+					position={UDim2.fromOffset(0, 144)}
+					sizeConstraint={new UDim2(1, 0, 0, 36)}
+				/>
+				<Ui.Meter
+					value={offer.Left / math.max(1, offer.Stock)}
+					color={accent}
+					reducedMotion={reducedMotion}
+					position={UDim2.fromOffset(0, 186)}
+					size={new UDim2(1, 0, 0, 6)}
+				/>
+				<Ui.Button
+					text={props.inspected ? "Inspecting" : "Inspect / compare"}
+					size={new UDim2(1, 0, 0, 48)}
+					position={UDim2.fromOffset(0, 204)}
+					color={Palette.panelSoft}
+					reducedMotion={reducedMotion}
+					onClick={props.onInspect}
+				/>
+				<Ui.Button
+					text={
+						props.expired
+							? "Refresh stock"
+							: offer.Left === 0
+								? "Sold out"
+								: offer.Left < quantity
+									? "Not enough stock"
+									: `Buy ${quantity}  ·  ${Format.compactNumber(total)} flux`
+					}
+					size={new UDim2(1, 0, 0, 48)}
+					position={UDim2.fromOffset(0, 264)}
+					color={accent}
+					disabled={props.busy || props.expired || !enough || offer.Left < quantity}
+					reducedMotion={reducedMotion}
+					onClick={props.onBuy}
+				/>
+			</Ui.Panel>
+		</frame>
+	);
+}
+
+// shows: the offer (name, category/flags, discount, reward, stock, price) by value, the quantity and
+// total for the chosen amount, can-afford, saved/inspected button text, busy/expired button state,
+// motion, and its grid slot (size/position); the three handlers go through memoRow's latest-callback refs
+const BazaarOfferCard = memoRow<BazaarOfferCardProps>(BazaarOfferCardImpl, ["onToggleSave", "onInspect", "onBuy"],
+	sameFields<BazaarOfferCardProps>(["offer", "quantity", "total", "enough", "saved", "inspected", "busy", "expired", "reducedMotion", "size", "position"]));
 
 function orderTotal(price: Flux, quantity: number): Flux {
 	const value = tonumber(price);
@@ -963,123 +1100,37 @@ function BazaarView(props: BazaarProps) {
 			const quantity = amount === "Three" ? 3 : amount === "Shelf" ? math.clamp(offer.Left, 1, 8) : 1;
 			const total = orderTotal(offer.Price, quantity);
 			const enough = Format.gteFlux(props.state.Cash as Flux, total);
-			const accent = ACCENTS[offer.Category] ?? Palette.violet;
 			cards[offer.Id] = (
-				<frame
-					Size={new UDim2(1 / cardColumns, (-gap * (cardColumns - 1)) / cardColumns, 1, 0)}
-					Position={new UDim2(offset / cardColumns, (gap * offset) / cardColumns, 0, 0)}
-					BackgroundTransparency={1}
-				>
-					<Ui.Panel
-						size={UDim2.fromScale(1, 1)}
-						padding={14}
-						accent={accent}
-						background={Palette.panel}
-						reducedMotion={props.reducedMotion}
-					>
-						<Ui.Text
-							value={
-								(offer.Rare
-									? "Rare find"
-									: offer.Procured
-										? "Your request"
-										: offer.Featured
-											? offer.Category + " · merchant's pick"
-											: offer.Category) +
-								"  /  " +
-								math.floor(offer.Discount * 100) +
-								"% off"
-							}
-							size={11}
-							color={accent}
-							sizeConstraint={new UDim2(1, -64, 0, 20)}
-						/>
-						<Ui.Button
-							text={saved[offer.Id] ? "Saved" : "Save"}
-							color={Palette.panelSoft}
-							size={UDim2.fromOffset(60, 48)}
-							position={new UDim2(1, -60, 0, 0)}
-							reducedMotion={props.reducedMotion}
-							onClick={() => {
-								request("SetMarketFavorite", { Id: offer.Id, Saved: saved[offer.Id] !== true });
-							}}
-							disabled={busy}
-						/>
-						<Ui.Text
-							value={offer.Name}
-							size={19}
-							weight={Enum.FontWeight.Heavy}
-							wrap={true}
-							fit={true}
-							minSize={10}
-							position={UDim2.fromOffset(0, 28)}
-							sizeConstraint={new UDim2(1, -68, 0, 58)}
-						/>
-						<Ui.Text
-							value={Format.formatReward(offer.Reward) + " per unit"}
-							size={13}
-							color={Palette.muted}
-							wrap={true}
-							fit={true}
-							minSize={10}
-							position={UDim2.fromOffset(0, 90)}
-							sizeConstraint={new UDim2(1, 0, 0, 48)}
-						/>
-						<Ui.Text
-							value={`${offer.Left}/${offer.Stock} left this shipment  ·  ${Format.compactNumber(offer.Price)} flux each`}
-							size={12}
-							wrap={true}
-							fit={true}
-							minSize={10}
-							color={Palette.creamSoft}
-							position={UDim2.fromOffset(0, 144)}
-							sizeConstraint={new UDim2(1, 0, 0, 36)}
-						/>
-						<Ui.Meter
-							value={offer.Left / math.max(1, offer.Stock)}
-							color={accent}
-							reducedMotion={props.reducedMotion}
-							position={UDim2.fromOffset(0, 186)}
-							size={new UDim2(1, 0, 0, 6)}
-						/>
-						<Ui.Button
-							text={inspected === offer.Id ? "Inspecting" : "Inspect / compare"}
-							size={new UDim2(1, 0, 0, 48)}
-							position={UDim2.fromOffset(0, 204)}
-							color={Palette.panelSoft}
-							reducedMotion={props.reducedMotion}
-							onClick={() => setInspected(offer.Id)}
-						/>
-						<Ui.Button
-							text={
-								expired
-									? "Refresh stock"
-									: offer.Left === 0
-										? "Sold out"
-										: offer.Left < quantity
-											? "Not enough stock"
-											: `Buy ${quantity}  ·  ${Format.compactNumber(total)} flux`
-							}
-							size={new UDim2(1, 0, 0, 48)}
-							position={UDim2.fromOffset(0, 264)}
-							color={accent}
-							disabled={busy || expired || !enough || offer.Left < quantity}
-							reducedMotion={props.reducedMotion}
-							onClick={() =>
-								request("BazaarPlay", {
-									Game: "Market",
-									Pick: offer.Id,
-									Bucket: market!.Bucket,
-									Quantity: quantity,
-									UnitPrice: offer.Price,
-									Currency: "Flux",
-									RequestId: HttpService.GenerateGUID(false),
-									Rotation: market!.Rotation,
-								})
-							}
-						/>
-					</Ui.Panel>
-				</frame>
+				<BazaarOfferCard
+					key={offer.Id}
+					offer={offer}
+					quantity={quantity}
+					total={total}
+					enough={enough}
+					saved={saved[offer.Id] === true}
+					inspected={inspected === offer.Id}
+					busy={busy}
+					expired={expired}
+					reducedMotion={props.reducedMotion}
+					size={new UDim2(1 / cardColumns, (-gap * (cardColumns - 1)) / cardColumns, 1, 0)}
+					position={new UDim2(offset / cardColumns, (gap * offset) / cardColumns, 0, 0)}
+					onToggleSave={() => {
+						request("SetMarketFavorite", { Id: offer.Id, Saved: saved[offer.Id] !== true });
+					}}
+					onInspect={() => setInspected(offer.Id)}
+					onBuy={() =>
+						request("BazaarPlay", {
+							Game: "Market",
+							Pick: offer.Id,
+							Bucket: market!.Bucket,
+							Quantity: quantity,
+							UnitPrice: offer.Price,
+							Currency: "Flux",
+							RequestId: HttpService.GenerateGUID(false),
+							Rotation: market!.Rotation,
+						})
+					}
+				/>
 			);
 		}
 		add(

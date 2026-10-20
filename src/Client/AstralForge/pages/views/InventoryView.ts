@@ -2,6 +2,7 @@ import React from "@rbxts/react";
 import { useTooltip } from "../../Tooltip";
 import { EffectLabel } from "../../CoreKit/inventoryMath";
 import ReactRoblox from "@rbxts/react-roblox";
+import { memoRow, sameFields } from "../../UiCore/rowMemo";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
@@ -669,6 +670,16 @@ function __member(): unknown {
 		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, ((((((40 as unknown as number) + (gridH as unknown as number)) as unknown as number) + (22 as unknown as number)) as unknown as number) + (listH as unknown as number))), accent: luaProp(Palette, "violet"), background: luaProp(Palette, "panelRaised"), padding: (luaTruthy(stack) ? 14 : 18), layoutOrder: layoutOrder, clips: false, highlight: true }, _exp, _exp_1, _exp_2, _exp_3, _newValue_2);
 		return undefined;
 	}
+	// Row memos (memoRow keeps click handlers pointing at the latest closure).
+	// RelicRow shows: the relic (item, by value), config (slot/rarity labels), selected, bulk tick and
+	// mode, motion, y/layout order, stack layout.
+	let RelicRowMemo: unknown = memoRow<Record<string, unknown>>(RelicRow as never, ["onSelect"], sameFields<Record<string, unknown>>(["item", "config", "selected", "bulkSelected", "bulkMode", "reducedMotion", "y", "layoutOrder", "stack"]));
+	// CrateCard shows: the crate (by value), key count, pity, busy, motion, layout order, stack layout.
+	let CrateCardMemo: unknown = memoRow<Record<string, unknown>>(CrateCard as never, ["onOpen"], sameFields<Record<string, unknown>>(["crate", "keys", "pity", "busy", "reducedMotion", "layoutOrder", "stack"]));
+	// MarketCard shows: the offer (by value), the three wallet balances it prices against, refresh text,
+	// motion, layout order, stack layout; dispatch is the shell's stable dispatcher. It is also passed
+	// state/config but never reads them, so they are not compared.
+	let MarketCardMemo: unknown = React.memo(MarketCard as never, sameFields<Record<string, unknown>>(["offer", "dispatch", "cash", "stardust", "cores", "refreshShort", "reducedMotion", "layoutOrder", "stack"]) as never);
 	function InventoryView(_param?: unknown): unknown | undefined {
 		let state: unknown = luaProp(_param, "state");
 		let config: unknown = luaProp(_param, "config");
@@ -1292,7 +1303,7 @@ function __member(): unknown {
 				luaSet(_attributes, "reducedMotion", softMotion);
 				luaSet(_attributes, "layoutOrder", 0);
 				luaSet(_attributes, "stack", stack);
-				return reactLoose.createElement(RelicRow, _attributes);
+				return reactLoose.createElement(RelicRowMemo, _attributes);
 				return undefined;
 			}, ListEmptyComponent: reactLoose.createElement(EmptyState, { icon: "Loadout.4", title: ((len(owned) === 0) ? "No relics yet" : "Nothing matches"), body: ((len(owned) === 0) ? ((((((luaTruthy(luaProp(config, "ClientPageGuides") ) ?  luaProp(luaProp(config, "ClientPageGuides"), "Inventory") : luaProp(config, "ClientPageGuides"))) && luaProp(luaProp(luaProp(config, "ClientPageGuides"), "Inventory"), "EmptyItems"))) || "Open crates or buy a starter coupler from the Market tab.")) : "Clear the search or set the filters back to All relics."), accent: luaProp(Palette, "violet"), layoutOrder: 0 }) }));
 			let sections: unknown = [{ id: "hero", height: heroH, element: heroPanel }, { id: "tabs", height: tabH, element: tabsBar }, { id: "tools", height: toolsH, element: toolsBar }];
@@ -1322,7 +1333,7 @@ function __member(): unknown {
 				let pityTable: unknown = ((items !== undefined) ? luaProp(items, "Pity") : undefined);
 				let keyCount: unknown = ((luaTypeIs(keysTable, "table")) ? luaIndex(keysTable, luaProp(crate, "Id")) : undefined);
 				let pityCount: unknown = ((luaTypeIs(pityTable, "table")) ? luaIndex(pityTable, luaProp(crate, "Id")) : undefined);
-				return reactLoose.createElement(CrateCard, { crate: crate, keys: ((luaTypeIs(keyCount, "number")) ? keyCount : 0), pity: ((luaTypeIs(pityCount, "number")) ? pityCount : 0), onOpen: function(this: void, count?: unknown): unknown | undefined {
+				return reactLoose.createElement(CrateCardMemo, { crate: crate, keys: ((luaTypeIs(keyCount, "number")) ? keyCount : 0), pity: ((luaTypeIs(pityCount, "number")) ? pityCount : 0), onOpen: function(this: void, count?: unknown): unknown | undefined {
 					return luaCall(openCrate, crate, count);
 					return undefined;
 				}, busy: crateBusy, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack });
@@ -1337,7 +1348,7 @@ function __member(): unknown {
 				return undefined;
 			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
 				let offer: unknown = luaProp(_param_1, "item");
-				return reactLoose.createElement(MarketCard, { offer: offer, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, cash: luaProp(state, "Cash"), stardust: luaProp(state, "Stardust"), cores: luaProp(state, "Cores"), refreshShort: refreshShort, stack: stack });
+				return reactLoose.createElement(MarketCardMemo, { offer: offer, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, cash: luaProp(state, "Cash"), stardust: luaProp(state, "Stardust"), cores: luaProp(state, "Cores"), refreshShort: refreshShort, stack: stack });
 				return undefined;
 			}, ListHeaderComponent: reactLoose.createElement(MarketBanner, { refreshText: keysRefreshText, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack }), ListEmptyComponent: reactLoose.createElement(EmptyState, { icon: "Shop.13", title: "Market offline", body: ((((((luaTruthy(luaProp(config, "ClientPageGuides") ) ?  luaProp(luaProp(config, "ClientPageGuides"), "Inventory") : luaProp(config, "ClientPageGuides"))) && luaProp(luaProp(luaProp(config, "ClientPageGuides"), "Inventory"), "EmptyMarket"))) || "No dock offers right now. More arrive at the next restock.")), accent: luaProp(Palette, "mango"), layoutOrder: 0, reducedMotion: reducedMotion }) }));
 			luaTable.insert(sections, { id: "market", fill: true, minHeight: (math.max as unknown as (...a: unknown[]) => unknown)(160, ((((marketBannerH as unknown as number) + (marketCardH as unknown as number)) as unknown as number) + (((pageGap as unknown as number) * (2 as unknown as number)) as unknown as number))), element: marketList });

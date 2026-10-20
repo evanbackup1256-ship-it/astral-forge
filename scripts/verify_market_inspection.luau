@@ -50,6 +50,9 @@ local function render(width, inspected, offers)
 		Browse = { useLinkedTab = function(_, default) return default, function() end end,
 			useLinkedQuery = function() return "", function() end end },
 		PageScaffold = "PageScaffold", UDim2 = roblox.UDim2, Enum = roblox.Enum,
+		-- offer cards are a memoised component (B34); render them inline here so the geometry checks still see them
+		memoRow = function(impl) return impl end,
+		sameFields = function() return function() return true end end,
 		workspace = { GetServerTimeNow = function() return 3601 end },
 		Workspace = { GetServerTimeNow = function() return 3601 end },
 	}, { __index = _G })
@@ -84,6 +87,9 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 		if key:sub(1, 6) ~= "shelf-" then continue end
 		local cards = section.element.children[1]
 		for _, card in cards do
+			if type(card.kind) == "function" then
+				card = card.kind(card.props)
+			end
 			local panel = card.children[1]
 			local inspect, buy = panel.children[7], panel.children[8]
 			assert(inspect.props.text == "Inspect / compare" or inspect.props.text == "Inspecting")

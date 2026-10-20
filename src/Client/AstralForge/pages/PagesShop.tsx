@@ -2858,7 +2858,7 @@ interface CodexProgressProps {
 	reducedMotion?: boolean;
 }
 
-function CodexProgress(props: CodexProgressProps) {
+function CodexProgressImpl(props: CodexProgressProps) {
 	const config = props.config;
 	const progress = props.progress;
 	const bonuses = config.Items?.CodexBonus ?? {};
@@ -2961,6 +2961,14 @@ function CodexProgress(props: CodexProgressProps) {
 		),
 	);
 }
+
+// shows: per-rarity found/total (progress, rebuilt each render so compared by value), bonus tiers from
+// config, the bonus total, motion
+const CodexProgress = React.memo(CodexProgressImpl, sameFields<CodexProgressProps>(["config", "progress", "bonus", "reducedMotion"]));
+
+// section heading text: every prop is a string/number/Color3/UDim2/enum, so React.memo's own shallow
+// check (== per prop, by value for Roblox value types) is exactly "what it shows"
+const SectionHeading = React.memo(Text as unknown as React.FunctionComponent<Record<string, unknown>>);
 
 interface RelicCellProps {
 	definition: RelicDefinition;
@@ -3219,7 +3227,7 @@ function CodexSection(props: SectionProps) {
 		sections.push({
 			id: `label${rarity}`,
 			height: 22,
-			element: h(Text, {
+			element: h(SectionHeading, {
 				value: `${rarity.upper()}  ·  ${progress[rarity].found}/${progress[rarity].total}`,
 				size: 13,
 				color: color,
