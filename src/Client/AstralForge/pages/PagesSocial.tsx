@@ -2736,33 +2736,14 @@ __defs["TradeView"] = () => {
 	};
 };
 
-// @@CREW@@
-
-function comingSoon(name: string) {
-	const View = () =>
-		h(
-			"frame",
-			{
-				Size: new UDim2(1, 0, 1, 0),
-				BackgroundColor3: Palette.ink,
-				BorderSizePixel: 0,
-			},
-			h("textlabel", {
-				Size: new UDim2(1, 0, 1, 0),
-				BackgroundTransparency: 1,
-				Text: "Coming soon",
-				TextColor3: Palette.cream,
-				TextSize: 18,
-				Font: Enum.Font.GothamMedium,
-			}),
-		);
-	return { [name]: View };
+function loadPort(name: string): unknown {
+	return require(script.Parent!.WaitForChild("ports")!.WaitForChild(name) as ModuleScript);
 }
 
-__defs["CrewView"] = () => comingSoon("CrewView");
-__defs["GuildView"] = () => comingSoon("GuildView");
-__defs["MailboxView"] = () => comingSoon("MailboxView");
-__defs["ChatView"] = () => comingSoon("ChatView");
+__defs["CrewView"] = () => loadPort("CrewView");
+__defs["GuildView"] = () => loadPort("GuildView");
+__defs["MailboxView"] = () => loadPort("MailboxView");
+__defs["ChatView"] = () => loadPort("ChatView");
 
 const __members: string[] = [];
 for (const [name] of pairs(__defs)) {
