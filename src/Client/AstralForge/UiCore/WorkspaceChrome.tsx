@@ -3,7 +3,7 @@ import { AppHelpers } from "../CoreKit/appNav";
 import { Flux, asFlux, compactNumber } from "../CoreKit/format";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as NavRouteTable from "../CoreKit/navRouteTable";
-import { Layout, Palette, TapTarget, chromeFor, darken, ensureContrast, strokeGradient, surfaceGradient } from "../CoreKit/theme";
+import { Layout, Palette, Radius, TapTarget, chromeFor, darken, ensureContrast, strokeGradient, surfaceGradient } from "../CoreKit/theme";
 import * as VaultCollectEligibility from "../CoreKit/vaultCollectEligibility";
 import {
 	EntranceMotionSuppressedContext,
@@ -634,7 +634,7 @@ export function Workspace(_param: WorkspaceProps) {
 						kind: entry.icon,
 						accent: accent,
 						size: headerIconSize,
-						radius: 12,
+						radius: Radius.control + 1,
 						spin: false,
 						reducedMotion: reducedMotion,
 						zIndex: 4,

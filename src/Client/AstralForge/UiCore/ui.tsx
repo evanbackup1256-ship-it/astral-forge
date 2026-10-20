@@ -734,7 +734,7 @@ export function SectionLabel({
 	return (
 		<frame Size={new UDim2(1, 0, 0, 22)} Position={position} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={layoutOrder}>
 			<frame
-				Size={UDim2.fromOffset(22, 3)}
+				Size={UDim2.fromOffset(22, StrokeWidth.focus)}
 				Position={new UDim2(0, 0, 0.5, 0)}
 				AnchorPoint={new Vector2(0, 0.5)}
 				BackgroundColor3={color}
@@ -746,7 +746,7 @@ export function SectionLabel({
 					Transparency={
 						new NumberSequence([
 							new NumberSequenceKeypoint(0, 0.04),
-							new NumberSequenceKeypoint(0.7, 0.22),
+							new NumberSequenceKeypoint(0.68, 0.18),
 							new NumberSequenceKeypoint(1, 1),
 						])
 					}
