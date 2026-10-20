@@ -11,6 +11,7 @@ import {
 	tradeSuiteKit,
 	truthy,
 } from "./LuaInterop";
+import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import AscensionMath from "../../../Shared/AstralForge/Shared/AscensionMath";
 import BazaarMath from "../Modules/BazaarMath";
 import CommandMath from "../Modules/CommandMath";
@@ -531,6 +532,12 @@ export = (loadService: LoadService) => {
 			}
 		}
 		const cosmetics = ProfileBagMath.EnsureCosmetics(profile, (id: string) => ShopCatalog.skin(id) !== undefined);
+		// optional profile style: unknown or missing ids fall back to the defaults (old saves load as-is)
+		{
+			const style = ProfileStyle.read(cosmetics);
+			(cosmetics as Dict).ProfileAccent = style.Accent;
+			(cosmetics as Dict).ProfileFrame = style.Frame;
+		}
 		ProfileBagMath.EnsureDailyShop(profile, undefined, cosmetics.CrateSkins);
 		ProfileBagMath.EnsureAutoSalvage(profile);
 		const autoSalvage = d(items.AutoSalvage);
