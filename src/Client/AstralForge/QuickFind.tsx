@@ -11,12 +11,12 @@ import * as NavRoutes from "../../Shared/AstralForge/Shared/NavRoutes";
 import * as NavRouteTable from "./CoreKit/navRouteTable";
 import { useViewport, useFlipperSpring } from "./MotionKit/motion";
 import ReadyBoard from "./ReadyBoard";
+import { sinkPadInput } from "./CoreKit/padSink";
 import { mergeEvents, showTooltipFor, useTooltip } from "./Tooltip";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
 const GuiService = game.GetService("GuiService");
-const ContextActionService = game.GetService("ContextActionService");
 const RunService = game.GetService("RunService");
 const TextService = game.GetService("TextService");
 
@@ -1010,11 +1010,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		const name = "AstralForgeQuickFindPad";
 		const before = GuiService.SelectedObject;
 		GuiService.SelectedObject = undefined;
-		ContextActionService.BindActionAtPriority(
-			name,
-			() => Enum.ContextActionResult.Sink,
-			false,
-			2400,
+		const release = sinkPadInput(name, [
 			Enum.KeyCode.Thumbstick1,
 			Enum.KeyCode.DPadUp,
 			Enum.KeyCode.DPadDown,
@@ -1022,9 +1018,10 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			Enum.KeyCode.DPadRight,
 			Enum.KeyCode.ButtonA,
 			Enum.KeyCode.ButtonB,
-		);
+		]);
+
 		return () => {
-			ContextActionService.UnbindAction(name);
+			release();
 			if (before !== undefined && before.Parent !== undefined && GuiService.SelectedObject === undefined) {
 				GuiService.SelectedObject = before;
 			}

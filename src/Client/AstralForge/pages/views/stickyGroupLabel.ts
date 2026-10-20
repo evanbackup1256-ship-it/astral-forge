@@ -15,6 +15,7 @@ function inside(gui: GuiObject | undefined, point: Vector2): boolean {
 }
 import { luaProp, reactLoose, kit } from "./viewRuntime";
 import { KeyLabel } from "../../CoreKit/GamepadNavigationService";
+import { usePadSink } from "../../CoreKit/padSink";
 
 // The group you're scrolling through stays pinned to the top of a list until the next group
 // pushes it off. Shared by the guild member list and the crew roster.
@@ -191,6 +192,16 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 		);
 		return () => ContextActionService.UnbindAction(name);
 	}, []);
+	// while the menu is open, the shell's pad shortcuts (tabs, Overcharge, Vault) and the crew row
+	// keys stay quiet; focus moves with the D-pad/stick as normal
+	usePadSink(menuOpen, "AstralForgeStickyJumpSink", [
+		Enum.KeyCode.ButtonX,
+		Enum.KeyCode.ButtonY,
+		Enum.KeyCode.ButtonL1,
+		Enum.KeyCode.ButtonR1,
+		Enum.KeyCode.ButtonL2,
+		Enum.KeyCode.ButtonR2,
+	]);
 	React.useEffect(() => {
 		if (!menuOpen) {
 			return undefined;
