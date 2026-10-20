@@ -29,11 +29,11 @@ interface Rect {
 }
 
 interface LayoutGeom {
-	rect(x0: number, y0: number, x1: number, y1: number): Rect;
-	rectFromPosSize(x: number, y: number, w: number, h: number): Rect;
-	rectWidth(r: Rect): number;
-	rectHeight(r: Rect): number;
-	overflowAmount(inner: Rect, outer: Rect): number;
+	rect(this: void, x0: number, y0: number, x1: number, y1: number): Rect;
+	rectFromPosSize(this: void, x: number, y: number, w: number, h: number): Rect;
+	rectWidth(this: void, r: Rect): number;
+	rectHeight(this: void, r: Rect): number;
+	overflowAmount(this: void, inner: Rect, outer: Rect): number;
 }
 
 interface GuardPlan {
@@ -42,10 +42,10 @@ interface GuardPlan {
 	SETTLE_FRAMES: number;
 	MIN_SWEEP_SECONDS: number;
 	BURST_FRAMES: number;
-	budget(burstFramesLeft: number, freshWaiting: number): { fresh: number; sweep: number };
-	resized(lastWidth: number, lastHeight: number, width: number, height: number): boolean;
-	labelsCollide(a: Rect, b: Rect): boolean;
-	nudgeIntoView(x0: number, y0: number, x1: number, y1: number, screenW: number, screenH: number): LuaTuple<[number, number]>;
+	budget(this: void, burstFramesLeft: number, freshWaiting: number): { fresh: number; sweep: number };
+	resized(this: void, lastWidth: number, lastHeight: number, width: number, height: number): boolean;
+	labelsCollide(this: void, a: Rect, b: Rect): boolean;
+	nudgeIntoView(this: void, x0: number, y0: number, x1: number, y1: number, screenW: number, screenH: number): LuaTuple<[number, number]>;
 }
 
 // LayoutKit is still Luau; require its members through the kit factory like the bundled code did.
