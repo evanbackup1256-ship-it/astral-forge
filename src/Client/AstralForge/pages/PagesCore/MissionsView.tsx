@@ -368,6 +368,20 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			}
 		}
 	};
+	// the unfinished mission you're closest to, so the header names an actual next step
+	let closest: TaskEntry | undefined;
+	if (typeIs(quests, "table")) {
+		for (const quest of quests) {
+			if (!typeIs(quest, "table") || quest.Claimed === true || questFraction(quest) >= 1) continue;
+			if (closest === undefined || questFraction(quest) > questFraction(closest)) closest = quest;
+		}
+	}
+	const closestReward = closest !== undefined ? formatReward(closest.Reward) : "";
+	const nextStepText =
+		closest === undefined
+			? "Finish these for Flux and Stardust. They refresh every day."
+			: `Closest: ${closest.Name}, ${compactNumber(closest.Progress)} / ${compactNumber(closest.Target)}` +
+				(closestReward !== "" ? ` for ${closestReward}` : "");
 	const barH = Browse.barHeight(stack, true);
 	const introH = stack ? 40 : 70;
 	const claimRowH = stack && counts.Ready > 0 ? TapTarget + 10 : 0;
@@ -418,10 +432,11 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						sizeConstraint={new UDim2(1, -420, 0, 30)}
 					/>
 					<Text
-						value="Finish these for Flux and Stardust. They refresh every day."
+						value={nextStepText}
 						size={12}
-						color={Palette.muted}
-						wrap={true}
+						color={closest !== undefined ? Palette.creamSoft : Palette.muted}
+						fit={true}
+						minSize={9}
 						position={UDim2.fromOffset(0, 48)}
 						sizeConstraint={new UDim2(1, -420, 0, 16)}
 					/>
