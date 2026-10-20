@@ -897,7 +897,7 @@ __defs["Format"] = () => {
 	const ReplicatedStorage = game.GetService("ReplicatedStorage");
 	const OmegaMath = require(
 		ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("OmegaMath") as ModuleScript,
-	) as { Log10(value: unknown): number };
+	) as { Log10(this: void, value: unknown): number };
 
 	const SUFFIXES = [
 		"K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No",

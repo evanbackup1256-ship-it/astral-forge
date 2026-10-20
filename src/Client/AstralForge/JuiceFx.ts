@@ -105,10 +105,10 @@ interface LiveEntry {
 }
 
 interface OmegaApi {
-	Sub(a: unknown, b: unknown): unknown;
-	Gt(a: unknown, b: unknown): boolean;
-	Lt(a: unknown, b: unknown): boolean;
-	Persist(a: unknown): number;
+	Sub(this: void, a: unknown, b: unknown): unknown;
+	Gt(this: void, a: unknown, b: unknown): boolean;
+	Lt(this: void, a: unknown, b: unknown): boolean;
+	Persist(this: void, a: unknown): number;
 }
 
 const CAPS: Record<string, number> = { number: 32, coin: 60, burst: 10, flash: 3, ring: 12, press: 10, spark: 32, shockwave: 8, gem: 16 };

@@ -5478,7 +5478,7 @@ serviceFactories["GameService"] = () => {
 
 			const byUser = new Map<number, unknown>();
 			const [ok, pages] = pcall(() =>
-				(store as { GetSortedAsync(this: void, asc: boolean, size: number): { GetCurrentPage(this: void): Dict[] } }).GetSortedAsync(
+				(store as { GetSortedAsync(asc: boolean, size: number): { GetCurrentPage(): Dict[] } }).GetSortedAsync(
 					false,
 					GLOBAL_LB_PAGE,
 				),

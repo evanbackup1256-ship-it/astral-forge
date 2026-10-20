@@ -286,9 +286,9 @@ __defs["GuildMath"] = () => {
 	}
 
 	interface OmegaMathLike {
-		Lt(left: unknown, right: unknown): boolean;
-		Add(left: unknown, right: unknown): unknown;
-		Sub(left: unknown, right: unknown): unknown;
+		Lt(this: void, left: unknown, right: unknown): boolean;
+		Add(this: void, left: unknown, right: unknown): unknown;
+		Sub(this: void, left: unknown, right: unknown): unknown;
 	}
 
 	const GuildMath = {
