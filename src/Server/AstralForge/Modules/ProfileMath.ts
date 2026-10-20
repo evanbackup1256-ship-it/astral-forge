@@ -1,4 +1,4 @@
-import { Dict, truthy } from "../Services/LuaInterop";
+import { Dict, isFiniteNumber, truthy } from "../Services/LuaInterop";
 
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
@@ -21,28 +21,24 @@ function __load(name: string): unknown {
 type CopyDictionary = (value: unknown) => unknown;
 
 interface EconomyApi {
-	Max(a: unknown, b: unknown): unknown;
-	Production(profile: unknown): unknown;
-	Capacity(profile: unknown, now: number): unknown;
-	ItemEffect(profile: unknown, kind: string): unknown;
-	GetArtifact?(artifactId: string): Dict | undefined;
+	Max(this: void, a: unknown, b: unknown): unknown;
+	Production(this: void, profile: unknown): unknown;
+	Capacity(this: void, profile: unknown, now: number): unknown;
+	ItemEffect(this: void, profile: unknown, kind: string): unknown;
+	GetArtifact?(this: void, artifactId: string): Dict | undefined;
 }
 
 interface ProgressionGateApi {
-	Progress(profile: unknown, kind: unknown): number;
-	Meets(profile: unknown, requirement: unknown): boolean;
+	Progress(this: void, profile: unknown, kind: unknown): number;
+	Meets(this: void, profile: unknown, requirement: unknown): boolean;
 }
 
 __defs["ProfileClampMath"] = () => {
 	const DEFAULT_MAX = 1e308;
 
-	function finite(value: unknown): boolean {
-		return typeIs(value, "number") && value === value && value !== math.huge && value !== -math.huge;
-	}
-
 	function clampScalar(raw: unknown, ceiling: number): number {
 		const value = tonumber(raw);
-		if (value !== undefined && finite(value)) {
+		if (value !== undefined && isFiniteNumber(value)) {
 			return math.clamp(value, 0, ceiling);
 		}
 		return 0;
@@ -96,7 +92,7 @@ __defs["ProfileClampMath"] = () => {
 				}
 				for (const [key, raw] of pairs(stats)) {
 					if (key !== "Collected" && typeIs(raw, "number")) {
-						stats[key as string] = finite(raw) ? math.clamp(raw, 0, ceiling) : 0;
+						stats[key as string] = isFiniteNumber(raw) ? math.clamp(raw, 0, ceiling) : 0;
 					}
 				}
 			}
@@ -148,7 +144,7 @@ __defs["UnlimitedMoneySeal"] = () => {
 
 __defs["PublicPlayerRecord"] = () => {
 	const GeneralBoardValue = __load("GeneralBoardValue") as {
-		Of(profile: Dict, id: string, persist: (value: unknown) => unknown): unknown;
+		Of(this: void, profile: Dict, id: string, persist: (value: unknown) => unknown): unknown;
 	};
 
 	const PublicPlayerRecord = {
@@ -897,7 +893,7 @@ __defs["Format"] = () => {
 	const ReplicatedStorage = game.GetService("ReplicatedStorage");
 	const OmegaMath = require(
 		ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("OmegaMath") as ModuleScript,
-	) as { Log10(value: unknown): number };
+	) as { Log10(this: void, value: unknown): number };
 
 	const SUFFIXES = [
 		"K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No",

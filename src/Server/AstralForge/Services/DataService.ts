@@ -130,7 +130,6 @@ interface IntegrityStatus {
 }
 
 export = (loadService: LoadService) => {
-	const DataStoreService = game.GetService("DataStoreService");
 	const RunService = game.GetService("RunService");
 
 	const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
@@ -591,7 +590,7 @@ export = (loadService: LoadService) => {
 			const targets = definition !== undefined ? (definition.Targets as unknown[] | undefined) : undefined;
 			const targetCompatible =
 				definition !== undefined &&
-				(!truthy(targets) || (targets as defined[]).indexOf(targetId as defined) !== undefined);
+				(!truthy(targets) || (targets as defined[]).includes(targetId as defined));
 			if (
 				definition === undefined ||
 				definition.Slot !== slot ||
@@ -853,31 +852,9 @@ export = (loadService: LoadService) => {
 		return profile;
 	}
 
-	function debugScan(node: unknown, path: string, hits: string[], seen: Set<object>): void {
-		if (typeIs(node, "string")) {
-			if (utf8.len(node)[0] === undefined) {
-				hits.push(`${path} len=${(node as string).size()}`);
-			}
-			return;
-		}
-		if (!typeIs(node, "table") || seen.has(node as object)) {
-			return;
-		}
-		seen.add(node as object);
-		for (const [k, v] of pairs(node as object)) {
-			debugScan(v, `${path}.${tostring(k)}`, hits, seen);
-		}
-	}
-
 	function migrateLegacyProfile(data: unknown): Dict {
 		ProfileVersionGuard.ReadCompatible(data, GameConfig.Game.DataVersion);
-		const result = sanitize(reconcile(data, DataTemplate.New()) as Dict);
-		const hits: string[] = [];
-		debugScan(result, "Data", hits, new Set());
-		if (hits.size() > 0) {
-			warn(`[MIGRATE-DEBUG] invalid utf8 leaves: ${hits.join(" | ")}`);
-		}
-		return result;
+		return sanitize(reconcile(data, DataTemplate.New()) as Dict);
 	}
 
 	const getOrderedStore = StoreAccess.ordered;

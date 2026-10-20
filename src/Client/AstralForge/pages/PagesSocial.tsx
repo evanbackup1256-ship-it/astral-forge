@@ -2738,11 +2738,31 @@ __defs["TradeView"] = () => {
 
 // @@CREW@@
 
-// @@GUILD@@
+function comingSoon(name: string) {
+	const View = () =>
+		h(
+			"frame",
+			{
+				Size: new UDim2(1, 0, 1, 0),
+				BackgroundColor3: Palette.ink,
+				BorderSizePixel: 0,
+			},
+			h("textlabel", {
+				Size: new UDim2(1, 0, 1, 0),
+				BackgroundTransparency: 1,
+				Text: "Coming soon",
+				TextColor3: Palette.cream,
+				TextSize: 18,
+				Font: Enum.Font.GothamMedium,
+			}),
+		);
+	return { [name]: View };
+}
 
-// @@MAIL@@
-
-// @@CHAT@@
+__defs["CrewView"] = () => comingSoon("CrewView");
+__defs["GuildView"] = () => comingSoon("GuildView");
+__defs["MailboxView"] = () => comingSoon("MailboxView");
+__defs["ChatView"] = () => comingSoon("ChatView");
 
 const __members: string[] = [];
 for (const [name] of pairs(__defs)) {

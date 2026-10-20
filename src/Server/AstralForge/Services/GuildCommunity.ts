@@ -1,8 +1,7 @@
 import StoreAccess from "../Modules/StoreAccess";
-import { Dict, isTable, num, truthy } from "./LuaInterop";
+import { deepCopy, Dict, isTable, num, truthy } from "./LuaInterop";
 // Persistent guild community features. Chat and announcement text is filtered before storage or broadcast.
 
-const DataStoreService = game.GetService("DataStoreService");
 const HttpService = game.GetService("HttpService");
 const MessagingService = game.GetService("MessagingService");
 const RunService = game.GetService("RunService");
@@ -70,15 +69,14 @@ interface CommunityDocument {
 }
 
 interface DataStoreLike {
-	GetAsync(this: void, key: string): unknown;
-	UpdateAsync(this: void, key: string, transform: (this: void, old: unknown) => unknown): unknown;
+	GetAsync(key: string): unknown;
+	UpdateAsync(key: string, transform: (this: void, old: unknown) => unknown): unknown;
 }
 
 interface GuildServiceLike {
-	_findByTag(this: void, tag: string): Dict | undefined;
-	GetPublic(this: void, guildId: string): Dict | undefined;
+	_findByTag(tag: string): Dict | undefined;
+	GetPublic(guildId: string): Dict | undefined;
 	_update(
-		this: void,
 		guildId: string,
 		transform: (this: void, current: Dict) => Dict | undefined,
 	): LuaTuple<[boolean, unknown]>;
@@ -91,7 +89,6 @@ interface DataServiceLike {
 interface SecurityLike {
 	Filter?: {
 		Apply(
-			this: void,
 			player: Player,
 			text: string,
 			contextUserId?: number,
@@ -112,14 +109,6 @@ const DEFAULT_SETTINGS = {
 };
 const SLOW_MODE_SECONDS = 6;
 
-function copy(value: unknown): unknown {
-	if (!typeIs(value, "table")) return value;
-	const result: Dict = {};
-	for (const [key, child] of pairs(value)) {
-		result[copy(key) as string] = copy(child);
-	}
-	return result;
-}
 
 function emptyDocument(): CommunityDocument {
 	return {
@@ -250,28 +239,28 @@ class GuildCommunity {
 		const now = os.clock();
 		const cached = this._cache.get(guildId);
 		if (cached !== undefined && (this._cacheAt.get(guildId) ?? 0) + CACHE_SECONDS > now)
-			return copy(cached) as CommunityDocument;
+			return deepCopy(cached) as CommunityDocument;
 		if (RunService.IsStudio() && this._studio.get(guildId) !== undefined) {
-			const doc = normalizeDocument(copy(this._studio.get(guildId)));
+			const doc = normalizeDocument(deepCopy(this._studio.get(guildId)));
 			this._cache.set(guildId, doc);
 			this._cacheAt.set(guildId, now);
-			return copy(doc) as CommunityDocument;
+			return deepCopy(doc) as CommunityDocument;
 		}
 		const [ok, raw] = pcall(() => this._store.GetAsync(guildId));
 		if (ok) {
 			const doc = normalizeDocument(raw);
 			this._cache.set(guildId, doc);
 			this._cacheAt.set(guildId, now);
-			if (RunService.IsStudio()) this._studio.set(guildId, copy(doc) as CommunityDocument);
-			return copy(doc) as CommunityDocument;
+			if (RunService.IsStudio()) this._studio.set(guildId, deepCopy(doc) as CommunityDocument);
+			return deepCopy(doc) as CommunityDocument;
 		}
-		if (cached !== undefined) return copy(cached) as CommunityDocument;
+		if (cached !== undefined) return deepCopy(cached) as CommunityDocument;
 		if (RunService.IsStudio()) {
 			const doc = emptyDocument();
-			this._studio.set(guildId, copy(doc) as CommunityDocument);
-			this._cache.set(guildId, copy(doc) as CommunityDocument);
+			this._studio.set(guildId, deepCopy(doc) as CommunityDocument);
+			this._cache.set(guildId, deepCopy(doc) as CommunityDocument);
 			this._cacheAt.set(guildId, now);
-			return copy(doc) as CommunityDocument;
+			return deepCopy(doc) as CommunityDocument;
 		}
 		return undefined;
 	}
@@ -289,7 +278,7 @@ class GuildCommunity {
 				updated = undefined;
 				resultValue = undefined;
 				callbackError = undefined;
-				const [nextDoc, value] = transform(normalizeDocument(copy(raw)));
+				const [nextDoc, value] = transform(normalizeDocument(deepCopy(raw)));
 				if (nextDoc === undefined) {
 					callbackError = typeIs(value, "string") ? value : "Guild request was denied.";
 					return undefined;
@@ -301,14 +290,14 @@ class GuildCommunity {
 		});
 		if (!ok && RunService.IsStudio()) {
 			const fallback = normalizeDocument(
-				copy(this._studio.get(guildId) ?? this._cache.get(guildId) ?? emptyDocument()),
+				deepCopy(this._studio.get(guildId) ?? this._cache.get(guildId) ?? emptyDocument()),
 			);
 			const [transformed, value] = transform(fallback);
 			if (transformed !== undefined) {
 				updated = normalizeDocument(transformed);
 				resultValue = value;
 				ok = true;
-				this._studio.set(guildId, copy(updated) as CommunityDocument);
+				this._studio.set(guildId, deepCopy(updated) as CommunityDocument);
 			}
 		}
 		if (!ok)
@@ -318,10 +307,10 @@ class GuildCommunity {
 				undefined,
 			);
 		if (updated === undefined) return $tuple(false, callbackError ?? "Guild request was denied.", undefined);
-		this._cache.set(guildId, copy(updated) as CommunityDocument);
+		this._cache.set(guildId, deepCopy(updated) as CommunityDocument);
 		this._cacheAt.set(guildId, os.clock());
-		if (RunService.IsStudio()) this._studio.set(guildId, copy(updated) as CommunityDocument);
-		return $tuple(true, resultValue, copy(updated) as CommunityDocument);
+		if (RunService.IsStudio()) this._studio.set(guildId, deepCopy(updated) as CommunityDocument);
+		return $tuple(true, resultValue, deepCopy(updated) as CommunityDocument);
 	}
 
 	IsBanned(guildId: string, userId: number): boolean {
@@ -346,11 +335,11 @@ class GuildCommunity {
 		for (let index = doc.Logos.size(); index >= 1; index--) {
 			const candidate = doc.Logos[index - 1];
 			if (candidate.Status === "approved") {
-				logo = copy(candidate);
+				logo = deepCopy(candidate);
 				break;
 			}
 		}
-		return { Settings: copy(doc.Settings), Logo: logo };
+		return { Settings: deepCopy(doc.Settings), Logo: logo };
 	}
 
 	private _filter(player: Player, text: string, maxLength: number): LuaTuple<[boolean, string | undefined]> {
@@ -453,12 +442,12 @@ class GuildCommunity {
 		const document = this._read(guildId);
 		if (document === undefined) return { ok: false, error: "Guild records are unavailable. Try again shortly." };
 
-		if (action === "GetGuildSettings") return { ok: true, Settings: copy(document.Settings) };
+		if (action === "GetGuildSettings") return { ok: true, Settings: deepCopy(document.Settings) };
 		if (action === "GetGuildLogoReview") {
 			if (role !== "Leader") return { ok: false, error: "Only the guild leader can review logos." };
 			const pending: GuildLogoRecord[] = [];
 			for (const logo of document.Logos)
-				if (logo.Status === "pending") pending.push(copy(logo) as GuildLogoRecord);
+				if (logo.Status === "pending") pending.push(deepCopy(logo) as GuildLogoRecord);
 			return { ok: true, Logos: pending };
 		}
 		if (action === "GetGuildAnnouncements") {
@@ -480,7 +469,7 @@ class GuildCommunity {
 					!entry.Archived &&
 					(entry.ExpiresAt === undefined || entry.ExpiresAt > os.time())
 				)
-					announcements.push(copy(entry) as GuildAnnouncement);
+					announcements.push(deepCopy(entry) as GuildAnnouncement);
 			}
 			announcements.sort((left, right) => {
 				if (left.Pinned !== right.Pinned) return left.Pinned;
@@ -500,7 +489,7 @@ class GuildCommunity {
 					}
 			}
 			for (let index = math.max(1, endIndex - limit + 1); index <= endIndex; index++)
-				messages.push(copy(document.Chat[index - 1]) as defined);
+				messages.push(deepCopy(document.Chat[index - 1]) as defined);
 			return { ok: true, Messages: messages };
 		}
 		if (action === "SendGuildChat") {
@@ -558,7 +547,7 @@ class GuildCommunity {
 					if ((DEFAULT_SETTINGS as Dict)[key as string] !== undefined && typeIs(value, "boolean"))
 						doc.Settings[key as string] = value;
 				}
-				return $tuple(doc, copy(doc.Settings));
+				return $tuple(doc, deepCopy(doc.Settings));
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, { Type: "GuildSettings", GuildId: guildId, Settings: result });
@@ -615,7 +604,7 @@ class GuildCommunity {
 					announcement.Body = body;
 					announcement.EditedAt = os.time();
 				}
-				return $tuple(doc, copy(announcement));
+				return $tuple(doc, deepCopy(announcement));
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, {
@@ -655,7 +644,7 @@ class GuildCommunity {
 						if (action === "PinGuildAnnouncement") announcement.Pinned = bag.Pinned !== false;
 						else if (action === "ArchiveGuildAnnouncement") announcement.Archived = true;
 						else announcement.ExpiresAt = bag.ExpiresAt as number | undefined;
-						return $tuple(doc, copy(announcement));
+						return $tuple(doc, deepCopy(announcement));
 					}
 				}
 				return $tuple(undefined, "Announcement not found.");
@@ -755,7 +744,7 @@ class GuildCommunity {
 			const [saved, result] = this._update(guildId, (doc) => {
 				doc.Logos.push(logo);
 				while (doc.Logos.size() > LOGO_HISTORY_LIMIT) doc.Logos.shift();
-				return $tuple(doc, copy(logo));
+				return $tuple(doc, deepCopy(logo));
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, { Type: "GuildLogo", GuildId: guildId, Action: "Uploaded", Logo: result });
@@ -781,7 +770,7 @@ class GuildCommunity {
 			let pendingLogo: GuildLogoRecord | undefined = undefined;
 			for (const logo of document.Logos) {
 				if (logo.Id === bag.LogoId && logo.Status === "pending") {
-					pendingLogo = copy(logo) as GuildLogoRecord;
+					pendingLogo = deepCopy(logo) as GuildLogoRecord;
 					break;
 				}
 			}
@@ -791,7 +780,7 @@ class GuildCommunity {
 					if (logo.Id === bag.LogoId && logo.Status === "pending") {
 						logo.Status = bag.Decision as "approved" | "rejected";
 						logo.RejectReason = reason;
-						return $tuple(doc, copy(logo));
+						return $tuple(doc, deepCopy(logo));
 					}
 				}
 				return $tuple(undefined, "Pending logo not found.");

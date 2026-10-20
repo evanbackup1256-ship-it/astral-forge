@@ -3650,4 +3650,36 @@ function StoreFront(props: StoreFrontProps) {
 		),
 	);
 }
-// @@WHEEL@@
+function WheelView() {
+	return h(
+		"frame",
+		{
+			Size: UDim2.fromScale(1, 1),
+			BackgroundColor3: Palette.ink,
+			BorderSizePixel: 0,
+		},
+		h("textlabel", {
+			Size: UDim2.fromScale(1, 1),
+			BackgroundTransparency: 1,
+			Text: "Coming soon",
+			TextColor3: Palette.cream,
+			TextSize: 18,
+			Font: Enum.Font.GothamMedium,
+		}),
+	);
+}
+
+const pages: Record<string, () => unknown> = {
+	ShopView: () => ({ ShopView }),
+	StoreFront: () => ({ StoreFront }),
+	CrateRevealStage: () => CrateRevealStageModule,
+	WheelView: () => ({ WheelView }),
+};
+
+export = (name: string) => {
+	const load = pages[name];
+	if (load === undefined) {
+		error(`PagesShop: unknown module ${tostring(name)}`, 2);
+	}
+	return load();
+};

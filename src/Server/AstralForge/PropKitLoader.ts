@@ -2,8 +2,8 @@ const InsertService = game.GetService("InsertService");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
 const ModuleLog = require(script.Parent!.FindFirstChild("ModuleLog")! as ModuleScript) as {
-	Warn(scope: string, message: string): void;
-	Info(scope: string, message: string): void;
+	Warn(this: void, scope: string, message: string): void;
+	Info(this: void, scope: string, message: string): void;
 };
 
 const PropKitLoader = {
@@ -16,10 +16,10 @@ const PropKitLoader = {
 
 	load(this: void): void {
 		task.spawn(() => {
-			(require(script.Parent!.FindFirstChild("CrateKitLoader")! as ModuleScript) as { load(): boolean }).load();
+			(require(script.Parent!.FindFirstChild("CrateKitLoader")! as ModuleScript) as { load(this: void): boolean }).load();
 		});
 		task.spawn(() => {
-			(require(script.Parent!.FindFirstChild("DomainKitLoader")! as ModuleScript) as { load(): boolean }).load();
+			(require(script.Parent!.FindFirstChild("DomainKitLoader")! as ModuleScript) as { load(this: void): boolean }).load();
 		});
 		if (ReplicatedStorage.FindFirstChild("PropKit") !== undefined) {
 			return;

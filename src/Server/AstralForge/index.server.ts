@@ -5,9 +5,6 @@ const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const RunService = game.GetService("RunService");
 const TeleportService = game.GetService("TeleportService");
 const TextChatService = game.GetService("TextChatService");
-// debug.traceback used directly as the xpcall handler, matching the Luau boot script.
-const traceback = debug.traceback as unknown as (err: unknown) => string;
-const Workspace = game.GetService("Workspace");
 
 // Services stay Luau-shaped tables; only the members this boot script touches are typed.
 interface GameServiceLike {

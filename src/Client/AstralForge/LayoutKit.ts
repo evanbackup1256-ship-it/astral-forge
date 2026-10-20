@@ -1702,15 +1702,1199 @@ __defs["pageReadyMath"] = () => {
 	return table.freeze(PageReadyMath);
 };
 
+interface LayoutUtilApi {
+	grid(layout: UIGridLayout, size: Vector2): void;
+	resize(frame: ScrollingFrame, layout: UIGridLayout | UIListLayout, axis: Enum.AutomaticSize): RBXScriptConnection;
+}
+
+function loadLayoutUtil(): LayoutUtilApi {
+	return require(
+		game
+			.GetService("ReplicatedStorage")
+			.WaitForChild("rbxts_include")
+			.WaitForChild("node_modules")
+			.WaitForChild("@rbxts")
+			.WaitForChild("layoututil")
+			.WaitForChild("src") as ModuleScript,
+	) as LayoutUtilApi;
+}
+
+interface ScrollMotion {
+	target: Vector2;
+	lastTouched: number;
+}
+
+interface AutoGridProps {
+	columns: number;
+	cellHeight: number;
+	gap?: number;
+	rowGap?: number;
+	columnGap?: number;
+	minColumns?: number;
+	minCellWidth?: number;
+	maxCellWidth?: number;
+	cellAspectRatio?: number;
+	breakpoints?: ReadonlyArray<GridBreakpoint>;
+	pack?: boolean;
+	horizontalAlignment?: Enum.HorizontalAlignment;
+	verticalAlignment?: Enum.VerticalAlignment;
+	startCorner?: Enum.StartCorner;
+	fillDirection?: Enum.FillDirection;
+	sortOrder?: Enum.SortOrder;
+	autoCanvas?: boolean;
+	canvasTail?: number;
+	onLayout?: (info: GridLayoutInfo) => void;
+}
+
+interface VirtualGridProps {
+	scrollRef: MutableRefObject<ScrollingFrame | undefined>;
+	count: number;
+	columns: number;
+	cellHeight: number;
+	gap: number;
+	overscanRows?: number;
+	layoutOrder?: number;
+	position?: UDim2;
+	itemKey: (index: number) => string;
+	renderItem: (index: number) => unknown;
+}
+
+__defs["scrolling"] = () => {
+	const React = loadReact();
+	const h = React.createElement as unknown as LooseCreate;
+	const LayoutUtil = loadLayoutUtil();
+	const GuiService = game.GetService("GuiService");
+	const Players = game.GetService("Players");
+	const RunService = game.GetService("RunService");
+	const UserInputService = game.GetService("UserInputService");
+	const Workspace = game.GetService("Workspace");
+	const Audio = (kitMember("AudioKit", "audio") as { Audio: AudioPlayer }).Audio;
+	const PACK_BREAKPOINTS = (kitMember("MotionKit", "flexbox") as { PACK_BREAKPOINTS: ReadonlyArray<GridBreakpoint> })
+		.PACK_BREAKPOINTS;
+
+	let installed = false;
+	let scrollPreference = 0.6;
+	let momentumPreference = 0.75;
+	let titleFxHoldGeneration = 0;
+	let titleFxHeld = false;
+	const motions = new Map<ScrollingFrame, ScrollMotion>();
+	let motionCount = 0;
+	let gamepadAxis = Vector2.zero;
+	let lastScrollSound = -math.huge;
+	let motionDriver: RBXScriptConnection | undefined;
+	const globalConnections = new Array<RBXScriptConnection>();
+	const CONSTRAINED_SCROLL =
+		(UserInputService.TouchEnabled && !UserInputService.MouseEnabled) ||
+		(UserInputService.GamepadEnabled && !UserInputService.KeyboardEnabled && !UserInputService.MouseEnabled);
+	let titleFxHoldUntil = 0;
+
+	function holdTitleFx() {
+		titleFxHoldUntil = os.clock() + 0.16;
+		if (titleFxHeld) {
+			return undefined;
+		}
+		titleFxHeld = true;
+		pcall(() => {
+			Workspace.SetAttribute("AF_TitleFxHold", true);
+		});
+		titleFxHoldGeneration += 1;
+		const generation = titleFxHoldGeneration;
+		task.spawn(() => {
+			while (generation === titleFxHoldGeneration && os.clock() < titleFxHoldUntil) {
+				task.wait(0.05);
+			}
+			if (generation !== titleFxHoldGeneration) {
+				return undefined;
+			}
+			titleFxHeld = false;
+			pcall(() => {
+				Workspace.SetAttribute("AF_TitleFxHold", false);
+			});
+		});
+	}
+
+	function disposeScrollPerformance() {
+		installed = false;
+		titleFxHoldGeneration += 1;
+		titleFxHeld = false;
+		pcall(() => {
+			Workspace.SetAttribute("AF_TitleFxHold", false);
+		});
+		for (const connection of globalConnections) {
+			connection.Disconnect();
+		}
+		globalConnections.clear();
+		if (motionDriver !== undefined) {
+			motionDriver.Disconnect();
+		}
+		motionDriver = undefined;
+		motions.clear();
+		motionCount = 0;
+		gamepadAxis = Vector2.zero;
+	}
+
+	function setScrollSpeed(value: number) {
+		scrollPreference = math.clamp(value, 0, 1);
+	}
+
+	function setScrollMomentum(value: number) {
+		momentumPreference = math.clamp(value, 0, 1);
+	}
+
+	function scrollingAncestor(instance: Instance | undefined): ScrollingFrame | undefined {
+		let cursor = instance;
+		while (cursor !== undefined) {
+			if (cursor.IsA("ScrollingFrame") && cursor.Visible && cursor.ScrollingEnabled) {
+				return cursor;
+			}
+			cursor = cursor.Parent;
+		}
+		return undefined;
+	}
+
+	function fallbackScrollingFrame(): ScrollingFrame | undefined {
+		const localPlayer = Players.LocalPlayer;
+		const playerGui = localPlayer !== undefined ? localPlayer.FindFirstChildOfClass("PlayerGui") : undefined;
+		if (playerGui === undefined) {
+			return undefined;
+		}
+		let bestFrame: ScrollingFrame | undefined;
+		let bestArea = 0;
+		for (const desc of playerGui.GetDescendants()) {
+			if (desc.IsA("ScrollingFrame") && desc.Visible && desc.ScrollingEnabled) {
+				let visible = true;
+				let ancestor: Instance | undefined = desc.Parent;
+				while (ancestor !== undefined) {
+					if (ancestor.IsA("GuiObject") && !ancestor.Visible) {
+						visible = false;
+						break;
+					}
+					if (ancestor.IsA("LayerCollector") && !ancestor.Enabled) {
+						visible = false;
+						break;
+					}
+					ancestor = ancestor.Parent;
+				}
+				if (visible) {
+					const size = desc.AbsoluteSize;
+					const area = size.X * size.Y;
+					if (area > bestArea) {
+						bestArea = area;
+						bestFrame = desc;
+					}
+				}
+			}
+		}
+		return bestFrame;
+	}
+
+	function frameUnderPointer(pointer?: Vector2): ScrollingFrame | undefined {
+		if (pointer === undefined) {
+			pointer = UserInputService.GetMouseLocation();
+		}
+		const playerGui = Players.LocalPlayer.FindFirstChildOfClass("PlayerGui");
+		if (playerGui === undefined) {
+			return undefined;
+		}
+		const objects = playerGui.GetGuiObjectsAtPosition(math.floor(pointer.X), math.floor(pointer.Y));
+		for (const object of objects) {
+			const frame = scrollingAncestor(object);
+			if (frame !== undefined) {
+				return frame;
+			}
+		}
+		return undefined;
+	}
+
+	function frameUnderInput(position: Vector3): ScrollingFrame | undefined {
+		const [ok, topLeft] = pcall(() => GuiService.GetGuiInset());
+		const inset = ok && topLeft !== undefined && typeIs(topLeft, "Vector2") ? topLeft : Vector2.zero;
+		return frameUnderPointer(new Vector2(position.X - inset.X, position.Y - inset.Y));
+	}
+
+	const EDGE_GESTURE_BAND = 22;
+	function inSystemGestureZone(position: Vector2): boolean {
+		if (!UserInputService.TouchEnabled) {
+			return false;
+		}
+		const viewport = Workspace.CurrentCamera?.ViewportSize;
+		if (viewport === undefined) {
+			return false;
+		}
+		if (position.X <= EDGE_GESTURE_BAND || position.X >= viewport.X - EDGE_GESTURE_BAND) {
+			return true;
+		}
+		return position.Y >= viewport.Y - EDGE_GESTURE_BAND;
+	}
+
+	function bounds(frame: ScrollingFrame): Vector2 {
+		return new Vector2(
+			math.max(0, frame.AbsoluteCanvasSize.X - frame.AbsoluteWindowSize.X),
+			math.max(0, frame.AbsoluteCanvasSize.Y - frame.AbsoluteWindowSize.Y),
+		);
+	}
+
+	function clampFor(frame: ScrollingFrame, value: Vector2): Vector2 {
+		const maximum = bounds(frame);
+		return new Vector2(math.clamp(value.X, 0, maximum.X), math.clamp(value.Y, 0, maximum.Y));
+	}
+
+	function canScrollToward(frame: ScrollingFrame, delta: Vector2): boolean {
+		const maximum = bounds(frame);
+		const motion = motions.get(frame);
+		const from = motion !== undefined ? motion.target : frame.CanvasPosition;
+		if (delta.Y !== 0) {
+			if (maximum.Y <= 0.5) {
+				return false;
+			}
+			return delta.Y < 0 ? from.Y > 0.5 : from.Y < maximum.Y - 0.5;
+		}
+		if (delta.X !== 0) {
+			if (maximum.X <= 0.5) {
+				return false;
+			}
+			return delta.X < 0 ? from.X > 0.5 : from.X < maximum.X - 0.5;
+		}
+		return false;
+	}
+
+	function ensureMotionDriver() {
+		if (!installed) {
+			return undefined;
+		}
+		if (motionDriver !== undefined) {
+			return undefined;
+		}
+		let frameSkip = 0;
+		const signal = CONSTRAINED_SCROLL ? RunService.Heartbeat : RunService.RenderStepped;
+		motionDriver = signal.Connect((deltaTime) => {
+			if (CONSTRAINED_SCROLL) {
+				frameSkip += 1;
+				if (frameSkip % 2 === 1 && gamepadAxis.Magnitude <= 0.16) {
+					return undefined;
+				}
+			}
+			if (gamepadAxis.Magnitude > 0.16) {
+				let selectedFrame = scrollingAncestor(GuiService.SelectedObject);
+				if (selectedFrame === undefined) {
+					const [ok, nav] = pcall(() => kitMember("CoreKit", "GamepadNavigationService"));
+					if (ok && typeIs(nav, "table")) {
+						const getScrollTarget = (nav as { GetScrollTarget?: unknown }).GetScrollTarget;
+						if (typeIs(getScrollTarget, "function")) {
+							const target = (getScrollTarget as () => GuiObject | undefined)();
+							if (target !== undefined && target.IsA("ScrollingFrame")) {
+								selectedFrame = target;
+							}
+						} else {
+							selectedFrame = fallbackScrollingFrame();
+						}
+					} else {
+						selectedFrame = fallbackScrollingFrame();
+					}
+				}
+				if (selectedFrame !== undefined) {
+					const speed = 260 + scrollPreference * 220;
+					let delta = gamepadAxis.mul(speed * math.min(deltaTime, 0.05));
+					if (selectedFrame.ScrollingDirection === Enum.ScrollingDirection.X) {
+						delta = new Vector2(delta.X, 0);
+					} else if (selectedFrame.ScrollingDirection === Enum.ScrollingDirection.Y) {
+						delta = new Vector2(0, delta.Y);
+					}
+					addImpulse(selectedFrame, delta, false);
+				}
+			}
+			const response = 14 - momentumPreference * 5;
+			const alpha = 1 - math.exp(-response * math.min(deltaTime, 0.05));
+			const now = os.clock();
+			const remove = new Array<ScrollingFrame>();
+			for (const [frame, motion] of motions) {
+				if (frame.Parent === undefined || !frame.Visible || !frame.ScrollingEnabled) {
+					remove.push(frame);
+					continue;
+				}
+				motion.target = clampFor(frame, motion.target);
+				const settledPosition = frame.CanvasPosition.Lerp(motion.target, alpha);
+				frame.CanvasPosition = settledPosition;
+				if (settledPosition.sub(motion.target).Magnitude < 0.45 && now - motion.lastTouched > 0.08) {
+					frame.CanvasPosition = motion.target;
+					remove.push(frame);
+				}
+			}
+			for (const frame of remove) {
+				if (motions.delete(frame)) {
+					motionCount = math.max(0, motionCount - 1);
+				}
+			}
+			if (motionCount <= 0 && gamepadAxis.Magnitude <= 0.16) {
+				if (motionDriver !== undefined) {
+					motionDriver.Disconnect();
+				}
+				motionDriver = undefined;
+				motionCount = 0;
+			}
+		});
+	}
+
+	function addImpulse(frame: ScrollingFrame, delta: Vector2, audible = true) {
+		if (!installed) {
+			return undefined;
+		}
+		holdTitleFx();
+		const motion = targetFor(frame);
+		motion.target = clampFor(frame, motion.target.add(delta));
+		motion.lastTouched = os.clock();
+		if (audible && os.clock() - lastScrollSound >= 0.095) {
+			lastScrollSound = os.clock();
+			Audio.play("scroll", math.clamp(0.92 + delta.Magnitude / 900, 0.92, 1.16));
+		}
+	}
+
+	function targetFor(frame: ScrollingFrame): ScrollMotion {
+		const existing = motions.get(frame);
+		if (existing !== undefined) {
+			return existing;
+		}
+		const created: ScrollMotion = {
+			target: clampFor(frame, frame.CanvasPosition),
+			lastTouched: os.clock(),
+		};
+		motions.set(frame, created);
+		motionCount += 1;
+		ensureMotionDriver();
+		return created;
+	}
+
+	function revealSelection(selected: GuiObject | undefined) {
+		if (!installed) {
+			return undefined;
+		}
+		const frame = scrollingAncestor(selected);
+		if (frame === undefined || selected === undefined) {
+			return undefined;
+		}
+		const windowOrigin = frame.AbsolutePosition;
+		const windowSize = frame.AbsoluteWindowSize;
+		const itemOrigin = selected.AbsolutePosition;
+		const itemSize = selected.AbsoluteSize;
+		const margin = 14;
+		let deltaX = 0;
+		let deltaY = 0;
+		if (itemOrigin.X < windowOrigin.X + margin) {
+			deltaX = itemOrigin.X - (windowOrigin.X + margin);
+		} else if (itemOrigin.X + itemSize.X > windowOrigin.X + windowSize.X - margin) {
+			deltaX = itemOrigin.X + itemSize.X - (windowOrigin.X + windowSize.X - margin);
+		}
+		if (itemOrigin.Y < windowOrigin.Y + margin) {
+			deltaY = itemOrigin.Y - (windowOrigin.Y + margin);
+		} else if (itemOrigin.Y + itemSize.Y > windowOrigin.Y + windowSize.Y - margin) {
+			deltaY = itemOrigin.Y + itemSize.Y - (windowOrigin.Y + windowSize.Y - margin);
+		}
+		if (frame.ScrollingDirection === Enum.ScrollingDirection.X) {
+			deltaY = 0;
+		}
+		if (frame.ScrollingDirection === Enum.ScrollingDirection.Y) {
+			deltaX = 0;
+		}
+		if (math.abs(deltaX) > 0.5 || math.abs(deltaY) > 0.5) {
+			addImpulse(frame, new Vector2(deltaX, deltaY), false);
+		}
+	}
+
+	const boundScrolls = new Set<ScrollingFrame>();
+	function bindLayoutUtil(frame: ScrollingFrame) {
+		if (boundScrolls.has(frame)) {
+			return undefined;
+		}
+		boundScrolls.add(frame);
+		let resizeConnection: RBXScriptConnection | undefined;
+		const apply = () => {
+			if (frame.Parent === undefined) {
+				return undefined;
+			}
+			if (resizeConnection !== undefined) {
+				resizeConnection.Disconnect();
+			}
+			resizeConnection = undefined;
+			const layout = frame.FindFirstChildWhichIsA("UIListLayout") ?? frame.FindFirstChildWhichIsA("UIGridLayout");
+			if (layout === undefined) {
+				return undefined;
+			}
+			if (layout.IsA("UIGridLayout")) {
+				pcall(() => {
+					LayoutUtil.grid(layout, frame.AbsoluteSize);
+				});
+			}
+			const axis =
+				frame.ScrollingDirection === Enum.ScrollingDirection.X
+					? Enum.AutomaticSize.X
+					: frame.ScrollingDirection === Enum.ScrollingDirection.XY
+						? Enum.AutomaticSize.XY
+						: Enum.AutomaticSize.Y;
+			const [ok, connection] = pcall(() => LayoutUtil.resize(frame, layout, axis));
+			if (ok && typeIs(connection, "RBXScriptConnection")) {
+				resizeConnection = connection;
+			}
+		};
+		let applyScheduled = false;
+		const scheduleApply = () => {
+			if (applyScheduled) {
+				return undefined;
+			}
+			applyScheduled = true;
+			task.defer(() => {
+				applyScheduled = false;
+				apply();
+			});
+		};
+		scheduleApply();
+		const added = frame.ChildAdded.Connect(scheduleApply);
+		const scrolled = frame.GetPropertyChangedSignal("CanvasPosition").Connect(holdTitleFx);
+		frame.Destroying.Once(() => {
+			added.Disconnect();
+			scrolled.Disconnect();
+			if (resizeConnection !== undefined) {
+				resizeConnection.Disconnect();
+			}
+			boundScrolls.delete(frame);
+		});
+	}
+
+	function watchPlayerGui(playerGui: PlayerGui) {
+		for (const descendant of playerGui.GetDescendants()) {
+			if (descendant.IsA("ScrollingFrame")) {
+				bindLayoutUtil(descendant);
+			}
+		}
+		return playerGui.DescendantAdded.Connect((instance) => {
+			if (instance.IsA("ScrollingFrame")) {
+				bindLayoutUtil(instance);
+			}
+		});
+	}
+
+	function installScrollPerformance() {
+		if (installed) {
+			return disposeScrollPerformance;
+		}
+		installed = true;
+		const playerGui = Players.LocalPlayer.FindFirstChildOfClass("PlayerGui");
+		if (playerGui !== undefined) {
+			globalConnections.push(watchPlayerGui(playerGui));
+		} else {
+			globalConnections.push(
+				Players.LocalPlayer.ChildAdded.Connect((child) => {
+					if (child.IsA("PlayerGui")) {
+						globalConnections.push(watchPlayerGui(child));
+					}
+				}),
+			);
+		}
+		globalConnections.push(
+			UserInputService.InputBegan.Connect((input) => {
+				if (input.UserInputType !== Enum.UserInputType.Touch && input.UserInputType !== Enum.UserInputType.MouseButton1) {
+					return undefined;
+				}
+				if (motionCount <= 0) {
+					return undefined;
+				}
+				const position = new Vector2(input.Position.X, input.Position.Y);
+				if (input.UserInputType === Enum.UserInputType.Touch && inSystemGestureZone(position)) {
+					return undefined;
+				}
+				const frame = frameUnderInput(input.Position);
+				const active = frame !== undefined ? motions.get(frame) : undefined;
+				if (frame !== undefined && active !== undefined) {
+					motions.delete(frame);
+					motionCount = math.max(0, motionCount - 1);
+				}
+			}),
+		);
+		globalConnections.push(
+			UserInputService.InputChanged.Connect((input) => {
+				if (input.UserInputType === Enum.UserInputType.MouseWheel) {
+					const direction = input.Position.Z;
+					if (direction === 0) {
+						return undefined;
+					}
+					task.defer(() => {
+						if (!installed) {
+							return undefined;
+						}
+						const innermost = frameUnderPointer();
+						if (innermost === undefined) {
+							return undefined;
+						}
+						const travel = 78 + scrollPreference * 110;
+						const shift =
+							UserInputService.IsKeyDown(Enum.KeyCode.LeftShift) || UserInputService.IsKeyDown(Enum.KeyCode.RightShift);
+						let frame: ScrollingFrame | undefined = innermost;
+						while (frame !== undefined) {
+							const horizontal =
+								frame.ScrollingDirection === Enum.ScrollingDirection.X ||
+								(shift && frame.ScrollingDirection === Enum.ScrollingDirection.XY);
+							const delta = horizontal ? new Vector2(-direction * travel, 0) : new Vector2(0, -direction * travel);
+							if (canScrollToward(frame, delta)) {
+								addImpulse(frame, delta);
+								return undefined;
+							}
+							frame = scrollingAncestor(frame.Parent);
+						}
+					});
+					return undefined;
+				}
+				if (input.UserInputType === Enum.UserInputType.Gamepad1 && input.KeyCode === Enum.KeyCode.Thumbstick2) {
+					gamepadAxis = new Vector2(input.Position.X, -input.Position.Y);
+					if (gamepadAxis.Magnitude > 0.16) {
+						ensureMotionDriver();
+					}
+				}
+			}),
+		);
+		globalConnections.push(
+			UserInputService.InputEnded.Connect((input) => {
+				if (input.UserInputType === Enum.UserInputType.Gamepad1 && input.KeyCode === Enum.KeyCode.Thumbstick2) {
+					gamepadAxis = Vector2.zero;
+				}
+			}),
+		);
+		globalConnections.push(
+			GuiService.GetPropertyChangedSignal("SelectedObject").Connect(() => {
+				task.defer(() => {
+					if (installed) {
+						revealSelection(GuiService.SelectedObject);
+					}
+				});
+			}),
+		);
+		return disposeScrollPerformance;
+	}
+
+	function breakpointColumns(width: number, fallback: number, breakpoints?: ReadonlyArray<GridBreakpoint>): number {
+		if (breakpoints === undefined || breakpoints.size() === 0) {
+			return fallback;
+		}
+		let resolved = 1;
+		for (const point of breakpoints) {
+			if (width >= point.minWidth) {
+				resolved = point.columns;
+			}
+		}
+		return resolved;
+	}
+
+	function AutoGrid(_param: AutoGridProps) {
+		const columns = _param.columns;
+		const cellHeight = _param.cellHeight;
+		let gap = _param.gap;
+		if (gap === undefined) {
+			gap = 8;
+		}
+		let rowGap = _param.rowGap;
+		if (rowGap === undefined) {
+			rowGap = gap;
+		}
+		let columnGap = _param.columnGap;
+		if (columnGap === undefined) {
+			columnGap = gap;
+		}
+		let minColumns = _param.minColumns;
+		if (minColumns === undefined) {
+			minColumns = 1;
+		}
+		const minCellWidth = _param.minCellWidth;
+		const maxCellWidth = _param.maxCellWidth;
+		const cellAspectRatio = _param.cellAspectRatio;
+		const breakpoints = _param.breakpoints;
+		let pack = _param.pack;
+		if (pack === undefined) {
+			pack = false;
+		}
+		let horizontalAlignment = _param.horizontalAlignment;
+		if (horizontalAlignment === undefined) {
+			horizontalAlignment = Enum.HorizontalAlignment.Center;
+		}
+		let verticalAlignment = _param.verticalAlignment;
+		if (verticalAlignment === undefined) {
+			verticalAlignment = Enum.VerticalAlignment.Top;
+		}
+		let startCorner = _param.startCorner;
+		if (startCorner === undefined) {
+			startCorner = Enum.StartCorner.TopLeft;
+		}
+		let fillDirection = _param.fillDirection;
+		if (fillDirection === undefined) {
+			fillDirection = Enum.FillDirection.Horizontal;
+		}
+		let sortOrder = _param.sortOrder;
+		if (sortOrder === undefined) {
+			sortOrder = Enum.SortOrder.LayoutOrder;
+		}
+		let autoCanvas = _param.autoCanvas;
+		if (autoCanvas === undefined) {
+			autoCanvas = false;
+		}
+		let canvasTail = _param.canvasTail;
+		if (canvasTail === undefined) {
+			canvasTail = 0;
+		}
+		const onLayout = _param.onLayout;
+		const layoutRef = React.useRef<UIGridLayout>();
+		const callbackRef = React.useRef<((info: GridLayoutInfo) => void) | undefined>(onLayout);
+		callbackRef.current = onLayout;
+		React.useEffect(() => {
+			const layout = layoutRef.current;
+			const parentInstance = layout?.Parent;
+			if (layout === undefined || parentInstance === undefined || !parentInstance.IsA("GuiObject")) {
+				return undefined;
+			}
+			const parent = parentInstance;
+			let alive = true;
+			let scheduled = false;
+			let previous = "";
+			const sync = () => {
+				scheduled = false;
+				if (!alive || layout.Parent === undefined || parent.Parent === undefined) {
+					return undefined;
+				}
+				const parentWidth = math.max(1, math.floor(parent.AbsoluteSize.X + 0.5));
+				const preferred = breakpointColumns(parentWidth, columns, pack ? PACK_BREAKPOINTS : breakpoints);
+				const widthDriven =
+					minCellWidth !== undefined
+						? math.floor((parentWidth + columnGap) / math.max(1, minCellWidth + columnGap))
+						: preferred;
+				const maximumColumns = math.max(1, math.floor(columns));
+				const minimumColumns = math.clamp(math.floor(minColumns), 1, maximumColumns);
+				const count = math.clamp(math.min(preferred, widthDriven), minimumColumns, maximumColumns);
+				const available = math.max(1, parentWidth - columnGap * (count - 1));
+				const widthCap = maxCellWidth ?? math.huge;
+				const resolvedWidth = math.max(1, math.floor(math.min(widthCap, available / count)));
+				const resolvedHeight =
+					cellAspectRatio !== undefined && cellAspectRatio > 0
+						? math.max(1, math.floor(resolvedWidth / cellAspectRatio + 0.5))
+						: math.max(1, math.floor(cellHeight));
+				const signature = `${count}:${resolvedWidth}:${resolvedHeight}:${columnGap}:${rowGap}`;
+				if (signature !== previous) {
+					previous = signature;
+					layout.CellPadding = UDim2.fromOffset(columnGap, rowGap);
+					layout.CellSize = UDim2.fromOffset(resolvedWidth, resolvedHeight);
+					layout.FillDirectionMaxCells = count;
+					const callback = callbackRef.current;
+					if (callback !== undefined) {
+						callback({
+							columns: count,
+							cellWidth: resolvedWidth,
+							cellHeight: resolvedHeight,
+							contentWidth: resolvedWidth * count + columnGap * (count - 1),
+						});
+					}
+				}
+				if (autoCanvas && parent.IsA("ScrollingFrame")) {
+					const height = math.max(0, math.ceil(layout.AbsoluteContentSize.Y + canvasTail));
+					if (parent.CanvasSize.Y.Offset !== height || parent.CanvasSize.Y.Scale !== 0) {
+						parent.CanvasSize = new UDim2(parent.CanvasSize.X.Scale, parent.CanvasSize.X.Offset, 0, height);
+					}
+				}
+			};
+			const schedule = () => {
+				if (scheduled) {
+					return undefined;
+				}
+				scheduled = true;
+				task.defer(sync);
+			};
+			sync();
+			const sizeConnection = parent.GetPropertyChangedSignal("AbsoluteSize").Connect(schedule);
+			const contentConnection = layout.GetPropertyChangedSignal("AbsoluteContentSize").Connect(schedule);
+			return () => {
+				alive = false;
+				sizeConnection.Disconnect();
+				contentConnection.Disconnect();
+			};
+		}, [autoCanvas, breakpoints, canvasTail, cellAspectRatio, cellHeight, columnGap, columns, maxCellWidth, minCellWidth, minColumns, pack, rowGap]);
+		const columnCount = math.max(1, math.floor(columns));
+		return h("uigridlayout", {
+			ref: layoutRef,
+			CellSize: new UDim2(1 / columnCount, -math.ceil((columnGap * (columnCount - 1)) / columnCount), 0, cellHeight),
+			CellPadding: UDim2.fromOffset(columnGap, rowGap),
+			FillDirection: fillDirection,
+			FillDirectionMaxCells: columnCount,
+			HorizontalAlignment: horizontalAlignment,
+			VerticalAlignment: verticalAlignment,
+			StartCorner: startCorner,
+			SortOrder: sortOrder,
+		});
+	}
+
+	function VirtualGrid(_param: VirtualGridProps) {
+		const scrollRef = _param.scrollRef;
+		const count = _param.count;
+		const columns = _param.columns;
+		const cellHeight = _param.cellHeight;
+		const gap = _param.gap;
+		let overscanRows = _param.overscanRows;
+		if (overscanRows === undefined || overscanRows < 1) {
+			overscanRows = 1;
+		}
+		let layoutOrder = _param.layoutOrder;
+		if (layoutOrder === undefined) {
+			layoutOrder = 0;
+		}
+		const position = _param.position;
+		const itemKey = _param.itemKey;
+		const renderItem = _param.renderItem;
+		const hostRef = React.useRef<Frame>();
+		const rows = math.ceil(count / math.max(1, columns));
+		const stride = cellHeight + gap;
+		const height = math.max(0, rows * cellHeight + math.max(0, rows - 1) * gap);
+		const seedLast = count <= 0 ? -1 : math.min(count - 1, math.max(columns * 3, columns) - 1);
+		const initial = {
+			first: 0,
+			last: seedLast,
+		};
+		const [window, setWindow] = React.useState(initial);
+		const latest = React.useRef(initial);
+		React.useEffect(() => {
+			const host = hostRef.current;
+			const scroll = scrollRef.current;
+			if (host === undefined || scroll === undefined || count <= 0) {
+				return undefined;
+			}
+			let alive = true;
+			const sync = () => {
+				if (!alive || host.Parent === undefined || scroll.Parent === undefined) {
+					return undefined;
+				}
+				const viewportTop = scroll.AbsolutePosition.Y;
+				const viewportBottom = viewportTop + math.max(1, scroll.AbsoluteWindowSize.Y);
+				const hostTop = host.AbsolutePosition.Y;
+				const hostBottom = hostTop + host.AbsoluteSize.Y;
+				let first = 0;
+				let last = -1;
+				if (hostBottom >= viewportTop - stride * overscanRows && hostTop <= viewportBottom + stride * overscanRows) {
+					const firstRow = math.clamp(math.floor((viewportTop - hostTop) / stride) - overscanRows, 0, math.max(0, rows - 1));
+					const lastRow = math.clamp(
+						math.floor((viewportBottom - hostTop) / stride) + overscanRows,
+						firstRow,
+						math.max(0, rows - 1),
+					);
+					first = firstRow * columns;
+					last = math.min(count - 1, (lastRow + 1) * columns - 1);
+				}
+				const previous = latest.current;
+				if (previous.first === first && previous.last === last) {
+					return undefined;
+				}
+				const nextWindow = {
+					first: first,
+					last: last,
+				};
+				latest.current = nextWindow;
+				setWindow(nextWindow);
+			};
+			const connections = [
+				scroll.GetPropertyChangedSignal("CanvasPosition").Connect(sync),
+				scroll.GetPropertyChangedSignal("AbsolutePosition").Connect(sync),
+				scroll.GetPropertyChangedSignal("AbsoluteWindowSize").Connect(sync),
+				host.GetPropertyChangedSignal("AbsoluteSize").Connect(sync),
+			];
+			task.defer(sync);
+			return () => {
+				alive = false;
+				for (const connection of connections) {
+					connection.Disconnect();
+				}
+			};
+		}, [cellHeight, columns, count, gap, overscanRows, rows, scrollRef, stride]);
+		const visible: Record<string, React.ReactElement> = {};
+		const windowLast = math.min(window.last, count - 1);
+		if (windowLast >= window.first) {
+			for (let index = window.first; index <= windowLast; index++) {
+				const row = math.floor(index / columns);
+				const column = index % columns;
+				visible[itemKey(index)] = h(
+					"frame",
+					{
+						Size: new UDim2(1 / columns, -(gap * (columns - 1)) / columns, 0, cellHeight),
+						Position: new UDim2(column / columns, (column * gap) / columns, 0, row * stride),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+						Active: false,
+					},
+					renderItem(index),
+				);
+			}
+		}
+		return h(
+			"frame",
+			{
+				ref: hostRef,
+				Size: new UDim2(1, 0, 0, height),
+				Position: position,
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+				LayoutOrder: layoutOrder,
+				Active: false,
+				ClipsDescendants: false,
+			},
+			visible,
+		);
+	}
+
+	const PageScrollContext = React.createContext<ScrollHostContext | undefined>(undefined);
+	function useVirtualWindow(
+		count: number,
+		stride: number,
+		topOffset: number,
+		overscan?: number,
+		hostRef?: MutableRefObject<ScrollingFrame | undefined>,
+	): VirtualWindow {
+		if (overscan === undefined) {
+			overscan = CONSTRAINED_SCROLL ? 1 : 2;
+		}
+		overscan = math.max(1, overscan);
+		const frame = React.useRef<ScrollingFrame>();
+		const initial = {
+			first: 0,
+			last: math.min(math.max(0, count - 1), CONSTRAINED_SCROLL ? 6 : 10),
+		};
+		const [window, setWindow] = React.useState(initial);
+		const latest = React.useRef(initial);
+		React.useEffect(() => {
+			const scrolling = frame.current;
+			if (!scrolling) {
+				return undefined;
+			}
+			let scheduled = false;
+			let alive = true;
+			const host = hostRef !== undefined ? hostRef.current : undefined;
+			const sync = () => {
+				scheduled = false;
+				if (!alive) {
+					return undefined;
+				}
+				if (count <= 0) {
+					const empty = {
+						first: 0,
+						last: -1,
+					};
+					latest.current = empty;
+					setWindow(empty);
+					return undefined;
+				}
+				let top: number;
+				let height: number;
+				if (host !== undefined && host.Parent !== undefined) {
+					top = host.AbsolutePosition.Y - scrolling.AbsolutePosition.Y;
+					height = math.max(1, host.AbsoluteWindowSize.Y);
+				} else {
+					top = scrolling.CanvasPosition.Y;
+					height = math.max(1, scrolling.AbsoluteWindowSize.Y);
+				}
+				const first = math.clamp(math.floor((top - topOffset) / stride) - overscan, 0, count - 1);
+				const last = math.clamp(math.ceil((top + height - topOffset) / stride) + overscan, first, count - 1);
+				const previous = latest.current;
+				if (previous.first === first && previous.last === last) {
+					return undefined;
+				}
+				const range = {
+					first: first,
+					last: last,
+				};
+				latest.current = range;
+				setWindow(range);
+			};
+			const schedule = () => {
+				if (scheduled) {
+					return undefined;
+				}
+				scheduled = true;
+				task.defer(sync);
+			};
+			sync();
+			const source = host !== undefined ? host : scrolling;
+			const moved = source.GetPropertyChangedSignal("CanvasPosition").Connect(schedule);
+			const resized = source.GetPropertyChangedSignal("AbsoluteWindowSize").Connect(schedule);
+			const shifted = host !== undefined ? scrolling.GetPropertyChangedSignal("AbsolutePosition").Connect(schedule) : undefined;
+			return () => {
+				alive = false;
+				moved.Disconnect();
+				resized.Disconnect();
+				if (shifted !== undefined) {
+					shifted.Disconnect();
+				}
+			};
+		}, [count, overscan, stride, topOffset, hostRef ?? false]);
+		return {
+			frame: frame,
+			first: window.first,
+			last: window.last,
+		};
+	}
+
+	return {
+		disposeScrollPerformance: disposeScrollPerformance,
+		setScrollSpeed: setScrollSpeed,
+		setScrollMomentum: setScrollMomentum,
+		installScrollPerformance: installScrollPerformance,
+		AutoGrid: AutoGrid,
+		VirtualGrid: VirtualGrid,
+		useVirtualWindow: useVirtualWindow,
+		PageScrollContext: PageScrollContext,
+	};
+};
+
+interface RenderInfo {
+	item: unknown;
+	index: number;
+}
+
+interface VirtualizedListProps {
+	data: ReadonlyArray<unknown>;
+	itemHeight: number;
+	headerHeight?: number;
+	footerHeight?: number;
+	overscan?: number;
+	embedded?: boolean;
+	frameRef?: MutableRefObject<ScrollingFrame | undefined>;
+	keyExtractor?: (item: unknown, index: number) => string;
+	renderItem: (info: RenderInfo) => unknown;
+	ListHeaderComponent?: unknown;
+	ListEmptyComponent?: unknown;
+	ListFooterComponent?: unknown;
+	canvasTail?: number;
+	Size?: UDim2;
+	Position?: UDim2;
+	scrollBarThickness?: number;
+	scrollBarColor?: Color3;
+	scrollBarTransparency?: number;
+	ZIndex?: number;
+	layoutOrder?: number;
+}
+
+__defs["virtualizedList"] = () => {
+	const React = loadReact();
+	const h = React.createElement as unknown as LooseCreate;
+	const scrolling = __load("scrolling") as ScrollingModule;
+	const useVirtualWindow = scrolling.useVirtualWindow;
+	const PageScrollContext = scrolling.PageScrollContext;
+	const Palette = (kitMember("CoreKit", "theme") as typeof import("./CoreKit/theme")).Palette;
+
+	function virtualRange(count: number, stride: number, topOffset: number, scrollY: number, viewHeight: number, overscan = 2) {
+		if (count <= 0 || stride <= 0) {
+			return {
+				first: 0,
+				last: -1,
+			};
+		}
+		const height = math.max(1, viewHeight);
+		const first = math.clamp(math.floor((scrollY - topOffset) / stride) - overscan, 0, count - 1);
+		const last = math.clamp(math.ceil((scrollY + height - topOffset) / stride) + overscan, first, count - 1);
+		return {
+			first: first,
+			last: last,
+		};
+	}
+
+	function useVirtualizedList(count: number, itemHeight: number, headerHeight = 0, overscan?: number) {
+		return useVirtualWindow(count, itemHeight, headerHeight, overscan);
+	}
+
+	function resolveKey(item: unknown, index: number, extractor?: (item: unknown, index: number) => string): string {
+		if (extractor !== undefined) {
+			return extractor(item, index);
+		}
+		if (!typeIs(item, "table")) {
+			return tostring(index);
+		}
+		const record = item as Record<string, unknown>;
+		const id = record.Id;
+		if (typeIs(id, "string") && id.size() > 0) {
+			return id;
+		}
+		const lowerId = record.id;
+		if (typeIs(lowerId, "string") && lowerId.size() > 0) {
+			return lowerId;
+		}
+		const uid = record.uid;
+		if (typeIs(uid, "string") && uid.size() > 0) {
+			return uid;
+		}
+		return tostring(index);
+	}
+
+	function VirtualRow(props: { height: number; top: number; children?: unknown }) {
+		return h(
+			"frame",
+			{
+				Size: new UDim2(1, 0, 0, props.height),
+				Position: UDim2.fromOffset(0, props.top),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+			},
+			props.children,
+		);
+	}
+
+	function VirtualizedList(props: VirtualizedListProps) {
+		const data = props.data;
+		const itemHeight = math.max(1, props.itemHeight);
+		const headerHeight = math.max(0, props.headerHeight ?? 0);
+		const footerHeight = math.max(0, props.footerHeight ?? 0);
+		const overscan = props.overscan;
+		const count = data.size();
+		const scrollHost = React.useContext(PageScrollContext);
+		const autoEmbed = scrollHost !== undefined && scrollHost.overflowing === true && props.embedded !== false;
+		const embedded = props.embedded === true || autoEmbed;
+		const hostRef = embedded && scrollHost !== undefined ? scrollHost.hostRef : undefined;
+		const window = useVirtualWindow(count, itemHeight, headerHeight, overscan, hostRef);
+		const windowed = !embedded || hostRef !== undefined;
+		const rangeFirst = windowed ? window.first : 0;
+		const rangeLast = windowed ? window.last : count - 1;
+		const ownedRef = React.useRef<ScrollingFrame>();
+		const bindRef = (frame: ScrollingFrame | undefined) => {
+			ownedRef.current = frame;
+			window.frame.current = frame;
+			if (frame !== undefined) {
+				frame.SetAttribute("LayoutGuardAllowDisabledScroll", embedded);
+			}
+			if (props.frameRef !== undefined) {
+				props.frameRef.current = frame;
+			}
+		};
+		const rows = new Array<React.ReactElement>();
+		for (let index = rangeFirst; index <= rangeLast; index++) {
+			const item = data[index];
+			if (item === undefined) {
+				continue;
+			}
+			rows.push(
+				h(
+					VirtualRow,
+					{
+						key: resolveKey(item, index, props.keyExtractor),
+						index: index,
+						height: itemHeight,
+						top: headerHeight + index * itemHeight,
+					},
+					props.renderItem({
+						item: item,
+						index: index,
+					}),
+				),
+			);
+		}
+		const canvasTail = props.canvasTail ?? 0;
+		const canvasH =
+			headerHeight +
+			math.max(count, count === 0 && props.ListEmptyComponent !== undefined ? 1 : 0) * (count > 0 ? itemHeight : 0) +
+			footerHeight +
+			canvasTail;
+		const emptyCanvas = headerHeight + (count === 0 && props.ListEmptyComponent !== undefined ? 150 : 0) + footerHeight + canvasTail;
+		const reportedHeight = count > 0 ? canvasH : emptyCanvas;
+		let trailing = 0;
+		const declaredSize = props.Size;
+		if (typeIs(declaredSize, "UDim2") && declaredSize.Y.Scale >= 0.999) {
+			const declaredPosition = props.Position;
+			const positionOffset = typeIs(declaredPosition, "UDim2") ? declaredPosition.Y.Offset : 0;
+			trailing = math.max(0, -declaredSize.Y.Offset - positionOffset);
+		}
+		React.useEffect(() => {
+			if (!autoEmbed || scrollHost === undefined) {
+				return undefined;
+			}
+			let lastReport = -1;
+			const push = () => {
+				const frame = ownedRef.current;
+				const section = scrollHost.sectionRef.current;
+				let lead = 0;
+				if (frame !== undefined && section !== undefined) {
+					lead = math.max(0, frame.AbsolutePosition.Y - section.AbsolutePosition.Y);
+				}
+				const total = math.ceil(lead + reportedHeight + trailing + 4);
+				if (total !== lastReport) {
+					lastReport = total;
+					scrollHost.report(total);
+				}
+			};
+			push();
+			const frame = ownedRef.current;
+			const moved = frame !== undefined ? frame.GetPropertyChangedSignal("AbsolutePosition").Connect(push) : undefined;
+			return () => {
+				if (moved !== undefined) {
+					moved.Disconnect();
+				}
+			};
+		}, [autoEmbed, reportedHeight, trailing]);
+		const attributes: Record<string, unknown> = {
+			ref: bindRef,
+			Size: props.Size ?? UDim2.fromScale(1, 1),
+			Position: props.Position ?? UDim2.fromOffset(0, 0),
+			CanvasSize: new UDim2(0, 0, 0, count > 0 ? canvasH : emptyCanvas),
+			AutomaticCanvasSize: Enum.AutomaticSize.None,
+			BackgroundTransparency: 1,
+			BorderSizePixel: 0,
+			ScrollingDirection: Enum.ScrollingDirection.Y,
+			ScrollBarThickness: props.scrollBarThickness ?? 3,
+			ScrollBarImageColor3: props.scrollBarColor ?? Palette.cyan,
+			ScrollBarImageTransparency: props.scrollBarTransparency ?? 0.28,
+			ClipsDescendants: true,
+			ElasticBehavior: Enum.ElasticBehavior.WhenScrollable,
+			VerticalScrollBarInset: Enum.ScrollBarInset.ScrollBar,
+			Active: !embedded,
+			Selectable: false,
+			ZIndex: props.ZIndex,
+			LayoutOrder: props.layoutOrder,
+		};
+		if (embedded) {
+			attributes.ScrollingEnabled = false;
+			attributes.ScrollBarThickness = 0;
+			attributes.ClipsDescendants = false;
+			attributes.Size = new UDim2(1, 0, 0, count > 0 ? canvasH : emptyCanvas);
+		}
+		return h(
+			"scrollingframe",
+			attributes,
+			props.ListHeaderComponent,
+			count === 0 && props.ListEmptyComponent,
+			rows,
+			props.ListFooterComponent,
+		);
+	}
+
+	function FlatList(props: VirtualizedListProps) {
+		const attributes = table.clone(props) as unknown as Record<string, unknown>;
+		setmetatable(attributes, undefined);
+		return h(VirtualizedList, attributes);
+	}
+
+	return {
+		virtualRange: virtualRange,
+		useVirtualizedList: useVirtualizedList,
+		VirtualizedList: VirtualizedList,
+		FlatList: FlatList,
+	};
+};
+
 const __members: string[] = [];
-for (const [name] of pairs(__defs)) __members.push(name);
+for (const [name] of pairs(__defs)) {
+	__members.push(name);
+}
 __members.sort();
 table.freeze(__members);
 
 type LayoutKitCallable = ((name: string) => unknown) & { readonly __members: string[]; readonly [name: string]: unknown };
-const LayoutKit = setmetatable({}, {
-	__call: (_self: unknown, name: string): unknown => __load(name),
-	__index: (_self: unknown, name: string): unknown => name === "__members" ? __members : __load(name),
-} as LuaMetatable<object>) as unknown as LayoutKitCallable;
-
+const LayoutKit = setmetatable(
+	{},
+	{
+		__call: (_self: unknown, name: string): unknown => {
+			return __load(name);
+		},
+		__index: (_self: unknown, name: string): unknown => {
+			if (name === "__members") {
+				return __members;
+			}
+			return __load(name);
+		},
+	} as LuaMetatable<object>,
+) as unknown as LayoutKitCallable;
 export = LayoutKit;

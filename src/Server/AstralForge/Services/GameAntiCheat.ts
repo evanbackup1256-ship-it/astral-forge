@@ -1,5 +1,5 @@
 import ServerConfig from "../ServerConfig";
-import { d, Dict, EconomyApi, economyKit, Flux, isTable, ModuleLogApi, req, SharedFolder, truthy } from "./LuaInterop";
+import { d, Dict, EconomyApi, economyKit, Flux, isFiniteNumber, isTable, ModuleLogApi, req, SharedFolder, truthy } from "./LuaInterop";
 
 interface PlayerState {
 	LastCash: unknown;
@@ -57,11 +57,8 @@ export = () => {
 		GRID_LEVELS[definition.Id] = definition;
 	}
 
-	const finite = (value: unknown): value is number =>
-		typeIs(value, "number") && value === value && value !== math.huge && value !== -math.huge;
-
 	const clampNumber = (value: unknown, minimum: number, maximum: number): LuaTuple<[number, boolean]> => {
-		const nextValue = finite(value) ? value : minimum;
+		const nextValue = isFiniteNumber(value) ? value : minimum;
 		const clamped = math.clamp(nextValue, minimum, maximum);
 		return $tuple(clamped, clamped !== value);
 	};

@@ -13,21 +13,20 @@ import { Dict, isTable, num } from "../LuaInterop";
 type Profile = Dict;
 
 interface DataStoreLike {
-	GetAsync(this: void, key: string): unknown;
-	UpdateAsync(this: void, key: string, transform: (this: void, old: unknown) => unknown): unknown;
-	RemoveAsync(this: void, key: string): unknown;
+	GetAsync(key: string): unknown;
+	UpdateAsync(key: string, transform: (this: void, old: unknown) => unknown): unknown;
+	RemoveAsync(key: string): unknown;
 }
 
 interface OrderedStoreLike {
 	GetSortedAsync(
-		this: void,
 		ascending: boolean,
 		pageSize: number,
 		min?: unknown,
 		max?: unknown,
-	): { GetCurrentPage(this: void): { key: string; value: number }[] };
-	SetAsync(this: void, key: string, value: unknown): unknown;
-	RemoveAsync(this: void, key: string): unknown;
+	): { GetCurrentPage(): { key: string; value: number }[] };
+	SetAsync(key: string, value: unknown): unknown;
+	RemoveAsync(key: string): unknown;
 }
 
 interface MemberRec {
@@ -147,11 +146,6 @@ const factory = () => {
 
 	const getOrderedStore = StoreAccess.ordered;
 	const getDataStore = StoreAccess.data;
-	const previewEnabled = StoreAccess.isPreview();
-
-	function finiteNonNegative(value: unknown): number {
-		return GuildMath.FiniteNonNegative(value);
-	}
 
 	function normalTag(tag: string): string {
 		return string.upper(string.gsub(tag, "%s+", "")[0]);
@@ -159,10 +153,6 @@ const factory = () => {
 
 	function upgradeCost(definition: unknown, level: number): number {
 		return GuildMath.UpgradeCost(definition, level);
-	}
-
-	function upgradeEffect(definition: unknown, level: number): number {
-		return GuildMath.UpgradeEffect(definition, level);
 	}
 
 	function goalTypeById(typeId: string): GoalTypeDef | undefined {

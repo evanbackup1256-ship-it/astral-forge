@@ -28,7 +28,7 @@ local settingsSource = readSource("src/Client/AstralForge/pages/PagesSystem.luau
 local mainSource = readSource("src/Client/AstralForge/UiCore.luau#MainGame")
 local templateSource = readSource("src/Server/AstralForge/DataTemplate.luau")
 local dataSource = readSource("src/Server/AstralForge/Services/DataService.luau")
-local servicesSource = readSource("src/Server/AstralForge/Services/ServerServices.luau")
+local servicesSource = readSource("src/Server/AstralForge/Services/GameService.luau")
 
 ------------------------------------------------------------------------
 -- 1. One soundtrack: no per-page music anywhere

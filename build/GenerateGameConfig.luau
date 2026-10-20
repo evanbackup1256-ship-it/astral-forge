@@ -84,6 +84,9 @@ env.script = {
 		WaitForChild = function(_self, name: string)
 			return "./build/" .. name
 		end,
+		FindFirstChild = function(_self, name: string)
+			return "./build/" .. name
+		end,
 	}, {
 		-- direct child access (script.Parent.CrateExpansion) resolves like WaitForChild
 		__index = function(_self, name: string)
@@ -152,7 +155,7 @@ function env.require(path: any)
 	error("Unsupported require: " .. tostring(path))
 end
 
-local source = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
+local source = fs.readFile("out/Shared/AstralForge/Shared/GameConfig.luau")
 -- Lune has no loadstring/setfenv; compile+load with an explicit environment.
 local okCompile, compiledOrErr = pcall(luau.compile, source)
 if not okCompile then
@@ -268,77 +271,86 @@ end
 local function isColor3(value): boolean
 	return type(value) == "table" and value.__type == "Color3"
 end
-
-local function serializeValue(value, depth: number): string
+local function tsString(s: string): string
+	local out = string.gsub(s, '[%c"\\]', function(c)
+		if c == "\\" then return "\\\\" elseif c == '"' then return '\\"' elseif c == "\n" then return "\\n"
+		elseif c == "\r" then return "\\r" elseif c == "\t" then return "\\t" end
+		return string.format("\\u%04x", string.byte(c))
+	end)
+	return '"' .. out .. '"'
+end
+local function tsNumber(n: number): string
+	if n ~= n then error("NaN in generated config") end
+	if n == math.huge then return "math.huge" elseif n == -math.huge then return "-math.huge" end
+	local s = tostring(n)
+	assert(tonumber(s) == n, "number does not round-trip: " .. s)
+	return s
+end
+local function serialize(value, depth: number): string
 	local t = type(value)
-	if t == "number" then
-		return tostring(value)
-	elseif t == "string" then
-		return string.format("%q", value)
-	elseif t == "boolean" then
-		return value and "true" or "false"
-	elseif t == "nil" then
-		return "nil"
+	if t == "number" then return tsNumber(value)
+	elseif t == "string" then return tsString(value)
+	elseif t == "boolean" then return value and "true" or "false"
 	elseif t == "table" then
 		if isColor3(value) then
 			if value.source == "RGB" then
 				return string.format("Color3.fromRGB(%d, %d, %d)", math.floor(value.R), math.floor(value.G), math.floor(value.B))
-			else
-				return string.format("Color3.fromHSV(%.10g, %.10g, %.10g)", value.H, value.S, value.V)
 			end
+			return string.format("Color3.fromHSV(%.10g, %.10g, %.10g)", value.H, value.S, value.V)
 		end
-
+		local maxIndex, count, hash = 0, 0, false
+		for k in pairs(value) do
+			count += 1
+			if type(k) == "number" and k > 0 and k == math.floor(k) then maxIndex = math.max(maxIndex, k) else hash = true end
+		end
+		local indent, inner = string.rep("\t", depth), string.rep("\t", depth + 1)
 		local items = {}
-		local maxArrayIndex = 0
-		local hasHashKeys = false
-		for k, _ in pairs(value) do
-			if type(k) == "number" and k > 0 and k == math.floor(k) then
-				maxArrayIndex = math.max(maxArrayIndex, k)
-			else
-				hasHashKeys = true
-			end
+		if count == 0 then return "{}" end
+		if not hash and maxIndex == count then
+			for i = 1, maxIndex do table.insert(items, inner .. serialize(value[i], depth + 1) .. ",") end
+			return "[\n" .. table.concat(items, "\n") .. "\n" .. indent .. "]"
 		end
-
-		local indent = string.rep("\t", depth)
-		local innerIndent = string.rep("\t", depth + 1)
-		if not hasHashKeys then
-			for i = 1, maxArrayIndex do
-				table.insert(items, innerIndent .. serializeValue(value[i], depth + 1) .. ",")
-			end
-			return "{\n" .. table.concat(items, "\n") .. "\n" .. indent .. "}"
-		else
-			local allKeys = {}
-			for k, _ in pairs(value) do
-				table.insert(allKeys, k)
-			end
-			table.sort(allKeys, function(a, b)
-				local ta, tb = type(a), type(b)
-				if ta == "number" and tb == "number" then
-					return a < b
-				elseif ta == "number" then
-					return true
-				elseif tb == "number" then
-					return false
-				else
-					return tostring(a) < tostring(b)
-				end
-			end)
-			for _, k in ipairs(allKeys) do
-				local keyStr
-				if type(k) == "string" and k:match("^[a-zA-Z_][a-zA-Z0-9_]*$") then
-					keyStr = k
-				else
-					keyStr = "[" .. serializeValue(k, depth + 1) .. "]"
-				end
-				table.insert(items, innerIndent .. keyStr .. " = " .. serializeValue(value[k], depth + 1) .. ",")
-			end
-			return "{\n" .. table.concat(items, "\n") .. "\n" .. indent .. "}"
+		local keys = {}
+		for k in pairs(value) do table.insert(keys, k) end
+		table.sort(keys, function(a, b)
+			local ta, tb = type(a), type(b)
+			if ta == "number" and tb == "number" then return a < b elseif ta == "number" then return true elseif tb == "number" then return false end
+			return tostring(a) < tostring(b)
+		end)
+		for _, k in ipairs(keys) do
+			local key
+			if type(k) == "string" and string.match(k, "^[%a_][%w_]*$") then key = k
+			elseif type(k) == "string" then key = "[" .. tsString(k) .. "]"
+			elseif type(k) == "number" then key = "[" .. tsNumber(k) .. "]"
+			else error("unsupported key type " .. type(k)) end
+			table.insert(items, inner .. key .. ": " .. serialize(value[k], depth + 1) .. ",")
 		end
-	else
-		error("Unsupported value type: " .. t)
+		return "{\n" .. table.concat(items, "\n") .. "\n" .. indent .. "}"
 	end
+	error("Unsupported value type: " .. t)
 end
-
+local HEADER = {
+	"// Generated by build/GenerateGameConfig.luau. Do not edit by hand.",
+	"// Regenerate with `npm run generate-config` after `npx rbxtsc` when GameConfig generation formulas change.",
+	"// Rows are raw Luau tables: GameConfig.ts indexes them by their 1-based keys.",
+	"",
+	"type Row = Record<string, unknown>;",
+	"",
+	"interface GameConfigGenerated {",
+}
+local function emit(sections: { { key: string, value: any } }): string
+	local lines = table.clone(HEADER)
+	for _, s in sections do table.insert(lines, "\t" .. s.key .. ": Row[];") end
+	table.insert(lines, "}")
+	table.insert(lines, "")
+	table.insert(lines, "const generated: GameConfigGenerated = {")
+	for _, s in sections do table.insert(lines, "\t" .. s.key .. ": " .. serialize(s.value, 1) .. ",") end
+	table.insert(lines, "};")
+	table.insert(lines, "")
+	table.insert(lines, "export = generated;")
+	table.insert(lines, "")
+	return table.concat(lines, "\n")
+end
 local heavy = {
 	"Machines",
 	"Research",
@@ -348,13 +360,7 @@ local heavy = {
 	"Anomalies.Milestones",
 }
 
-local lines = {
-	"-- Generated by build/GenerateGameConfig.luau",
-	"-- Do not edit by hand. Regenerate when GameConfig generation formulas change.",
-	"",
-	"return {",
-}
-
+local sections = {}
 for _, path in ipairs(heavy) do
 	local segments = {}
 	for part in string.gmatch(path, "[^.]+") do
@@ -364,13 +370,10 @@ for _, path in ipairs(heavy) do
 	for _, part in ipairs(segments) do
 		value = value[part]
 	end
-	local key = segments[#segments]
-	table.insert(lines, "\t" .. key .. " = " .. serializeValue(value, 1) .. ",")
+	table.insert(sections, { key = segments[#segments], value = value })
 end
 
-table.insert(lines, "}")
-
-fs.writeFile("src/Shared/AstralForge/Shared/GameConfigGenerated.luau", table.concat(lines, "\n"))
+fs.writeFile("src/Shared/AstralForge/Shared/GameConfigGenerated.ts", emit(sections))
 print(string.format(
 	"Wrote GameConfigGenerated | machines=%d research=%d zones=%d grid=%d seasons=%d milestones=%d expeditions=%d maxZone=%d",
 	#GameConfig.Machines,
