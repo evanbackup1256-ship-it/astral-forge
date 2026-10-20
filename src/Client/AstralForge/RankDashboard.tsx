@@ -313,6 +313,27 @@ function mark(props: MarkProps): React.Element {
  * Return an accent to tint the row's mark, name and stroke. Undefined keeps the board's default colors.
  * The profile-style work plugs ProfileStyle data in here; nothing else in this file needs to change.
  */
+// Scrolls the board so your row sits in the middle of the list. The rows are page sections named
+// by id, so this finds the section and moves its scrolling frame; it does nothing if the row isn't
+// mounted.
+function scrollToRankRow(place: number, instant: boolean) {
+	const gui = Players.LocalPlayer?.FindFirstChildOfClass("PlayerGui");
+	const pinned = gui?.FindFirstChild("RankPinnedYou", true);
+	const scroller = pinned?.FindFirstAncestorWhichIsA("ScrollingFrame");
+	const target = scroller?.FindFirstChild(`rank-row-${place}`, true);
+	if (scroller === undefined || target === undefined || !target.IsA("GuiObject")) {
+		return;
+	}
+	const offset = target.AbsolutePosition.Y - scroller.AbsolutePosition.Y - (scroller.AbsoluteWindowSize.Y - target.AbsoluteSize.Y) / 2;
+	const maxY = math.max(0, scroller.AbsoluteCanvasSize.Y - scroller.AbsoluteWindowSize.Y);
+	const goal = new Vector2(scroller.CanvasPosition.X, math.clamp(scroller.CanvasPosition.Y + offset, 0, maxY));
+	if (instant) {
+		scroller.CanvasPosition = goal;
+	} else {
+		TweenService.Create(scroller, new TweenInfo(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CanvasPosition: goal }).Play();
+	}
+}
+
 function rankRowStyle(row: RankRow, guildBoard: boolean): { accent?: Color3; frame?: ProfileStyle.FrameOption } | undefined {
 	// only players in this server publish their style attributes; everyone else keeps the default look
 	if (guildBoard || !typeIs(row.UserId, "number")) {
@@ -600,7 +621,27 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				? rows[personalIndex - 1]
 				: { Name: guildBoard ? "Your guild" : Players.LocalPlayer.DisplayName, UserId: guildBoard ? undefined : localId, Id: guildBoard ? guildId : undefined, Value: own };
 			if (!guildBoard || guildId !== undefined) {
-				sections.push({ id: "rank-you", height: rankRowH, element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, { Row: rankRow(you, personalIndex, true) }) });
+				// Find me: only when you're on the board below; jumps the list to your own row
+				const findable = personalIndex !== undefined;
+				sections.push({
+					id: "rank-you",
+					height: rankRowH + (findable ? theme.TapTarget + 8 : 0),
+					element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, {
+						Row: e("frame", { BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, rankRowH) }, { Row: rankRow(you, personalIndex, true) }),
+						Find: findable
+							? e(ui.Button, {
+									text: "FIND ME",
+									icon: "Crew.12",
+									color: P.mint,
+									outline: true,
+									reducedMotion,
+									size: UDim2.fromOffset(132, theme.TapTarget),
+									position: new UDim2(1, -132, 0, rankRowH + 8),
+									onClick: () => scrollToRankRow(personalIndex!, reducedMotion === true),
+								})
+							: undefined,
+					}),
+				});
 			}
 		}
 
