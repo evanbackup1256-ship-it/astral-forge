@@ -17,12 +17,12 @@ export interface ProfileStylePanelProps {
 
 const SWATCH = TapTarget;
 const SWATCH_GAP = 10;
-const FRAME_BTN_W = 112;
+const FRAME_BTN_W = 132;
 const PREVIEW_H = 64;
 
 // header + hint, preview, accent row, frame row
 export function profileStyleHeight(stack: boolean): number {
-	return 26 + 22 + 10 + PREVIEW_H + 14 + 18 + SWATCH + 6 + 14 + 18 + TapTarget + (stack ? 8 : 0);
+	return 26 + 22 + 10 + PREVIEW_H + 14 + 18 + SWATCH + 6 + 14 + 18 + TapTarget + 4 + (stack ? 8 : 0);
 }
 
 function unlockHint(unlock: ProfileStyle.StyleUnlock): string {
@@ -86,24 +86,15 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 		);
 	});
 
-	// phones: the frame row splits the panel width instead of a fixed 112px each (352px overflows)
-	const frameCount = math.max(1, ProfileStyle.FRAMES.size());
+	// the frame row scrolls sideways like the accent row, so more frames never overflow a phone
 	const frameButtons = ProfileStyle.FRAMES.map((option, index) => {
 		const unlocked = ProfileStyle.isUnlocked(option.Unlock, props.rebirths);
 		const selected = option.Id === shown.Frame;
 		return (
 			<frame
 				key={option.Id}
-				Size={
-					props.stack
-						? new UDim2(1 / frameCount, (-8 * (frameCount - 1)) / frameCount, 0, TapTarget)
-						: UDim2.fromOffset(FRAME_BTN_W, TapTarget)
-				}
-				Position={
-					props.stack
-						? new UDim2(index / frameCount, (index * 8) / frameCount, 0, frameTop + 18)
-						: UDim2.fromOffset(index * (FRAME_BTN_W + 8), frameTop + 18)
-				}
+				Size={UDim2.fromOffset(FRAME_BTN_W, TapTarget)}
+				Position={UDim2.fromOffset(index * (FRAME_BTN_W + 8), 0)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
@@ -203,7 +194,19 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				{swatches}
 			</scrollingframe>
 			<Text value="Frame" size={12} color={Palette.creamSoft} weight={Enum.FontWeight.Bold} fit={false} position={UDim2.fromOffset(0, frameTop)} sizeConstraint={new UDim2(1, 0, 0, 16)} />
-			{frameButtons}
+			<scrollingframe
+				Size={new UDim2(1, 0, 0, TapTarget + 4)}
+				Position={UDim2.fromOffset(0, frameTop + 18)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ScrollingDirection={Enum.ScrollingDirection.X}
+				ScrollBarThickness={2}
+				ScrollBarImageColor3={accentColor}
+				CanvasSize={UDim2.fromOffset(ProfileStyle.FRAMES.size() * (FRAME_BTN_W + 8), 0)}
+				ClipsDescendants={true}
+			>
+				{frameButtons}
+			</scrollingframe>
 		</>
 	);
 }

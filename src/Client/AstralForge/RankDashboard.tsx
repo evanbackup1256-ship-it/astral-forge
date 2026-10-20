@@ -1,5 +1,6 @@
 // Ranks: grouped categories, podium, your-standing card and scaled rows.
 import React from "@rbxts/react";
+import * as ProfileStyle from "../../Shared/AstralForge/Shared/ProfileStyle";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import { useViewport } from "./MotionKit/motion";
@@ -311,8 +312,13 @@ function mark(props: MarkProps): React.Element {
  * Return an accent to tint the row's mark, name and stroke. Undefined keeps the board's default colors.
  * The profile-style work plugs ProfileStyle data in here; nothing else in this file needs to change.
  */
-function rankRowStyle(_row: RankRow, _guildBoard: boolean): { accent?: Color3 } | undefined {
-	return undefined;
+function rankRowStyle(row: RankRow, guildBoard: boolean): { accent?: Color3 } | undefined {
+	// only players in this server publish their style attributes; everyone else keeps the default look
+	if (guildBoard || !typeIs(row.UserId, "number")) {
+		return undefined;
+	}
+	const accent = ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(row.UserId)).accent;
+	return accent !== undefined ? { accent } : undefined;
 }
 
 interface Section {

@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
@@ -49,8 +50,12 @@ function pinLocalMember(list: unknown[] | undefined, localKey: unknown): unknown
  * Profile-style hook for guild member rows. `userKey` is the Members key (stringified UserId).
  * Return an accent Color3 to tint the row; undefined keeps the Leader/Officer/Member colors.
  */
-function guildMemberAccent(_userKey: unknown): Color3 | undefined {
-	return undefined;
+function guildMemberAccent(userKey: unknown): Color3 | undefined {
+	const userId = tonumber(userKey);
+	if (userId === undefined) {
+		return undefined;
+	}
+	return ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(userId)).accent;
 }
 
 function __member(): unknown {

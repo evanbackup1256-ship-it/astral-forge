@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
@@ -41,8 +42,12 @@ function crewStatus(text: string): void {
  * Profile-style hook for crew roster rows. `player` is a GetPlayers entry (UserId, DisplayName, IsLocal, ...).
  * Return an accent Color3 to tint the row ring; undefined keeps the default colors.
  */
-function crewRowAccent(_player: unknown): Color3 | undefined {
-	return undefined;
+function crewRowAccent(player: unknown): Color3 | undefined {
+	const userId = typeIs(player, "table") ? (player as { UserId?: unknown }).UserId : undefined;
+	if (!typeIs(userId, "number")) {
+		return undefined;
+	}
+	return ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(userId)).accent;
 }
 
 /** Stable: items matching `pinned` move to the front, everything else keeps its order. */
