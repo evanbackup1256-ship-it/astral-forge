@@ -242,7 +242,7 @@ const DataTemplate = {
 			},
 
 			DailyShop: { Day: -1, Bought: {} },
-			Cosmetics: { CrateSkins: { Classic: true }, CrateSkin: "Classic" },
+			Cosmetics: { CrateSkins: { Classic: true }, CrateSkin: "Classic", ProfileAccent: "Cyan", ProfileFrame: "Plain" },
 
 			Settings: {
 				ReducedMotion: false,

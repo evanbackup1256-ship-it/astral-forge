@@ -135,6 +135,7 @@ export = (loadService: LoadService) => {
 		[Protocol.Actions.SetAnomalyLoadout]: { Cost: 0.75, Cooldown: 0.3 },
 		[Protocol.Actions.SetAutoForge]: { Cost: 0.75, Cooldown: 0.22 },
 		[Protocol.Actions.SetSetting]: { Cost: 0.5, Cooldown: 0.12 },
+		[Protocol.Actions.SetProfileStyle]: { Cost: 0.75, Cooldown: 0.3 },
 		[Protocol.Actions.SetMobileLayout]: { Cost: 0.75, Cooldown: 0.3 },
 		[Protocol.Actions.ChatOpenWhisper]: { Cost: 0.5, Cooldown: 0.5 },
 		[Protocol.Actions.ChatGlobal]: { Cost: 0.5, Cooldown: 1 },
@@ -448,6 +449,18 @@ export = (loadService: LoadService) => {
 				bag.Where !== "World"
 			) {
 				return $tuple(false, "invalid report location");
+			}
+		} else if (action === Protocol.Actions.SetProfileStyle) {
+			const accent = bag.Accent;
+			const frame = bag.Frame;
+			if (accent === undefined && frame === undefined) {
+				return $tuple(false, "invalid profile style");
+			}
+			if (accent !== undefined && !stringField(bag, "Accent", 1, 32)) {
+				return $tuple(false, "invalid profile accent");
+			}
+			if (frame !== undefined && !stringField(bag, "Frame", 1, 32)) {
+				return $tuple(false, "invalid profile frame");
 			}
 		} else if (action === Protocol.Actions.SetSetting) {
 			if (isTable(bag.Values)) {

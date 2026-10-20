@@ -96,6 +96,7 @@ export const FAILURE_BODY_BY_ACTION: Record<string, string> = {
 	BuyArtifact: "Choose an artifact to buy.",
 	BuySignalOffer: "That signal offer isn't available.",
 	EquipTitle: "Choose a title to wear.",
+	SetProfileStyle: "Pick an accent and frame for your profile.",
 	ActivateBoost: "Choose a boost to activate.",
 	BuyItemOffer: "That shop offer isn't available.",
 	BuyDailyOffer: "That daily offer isn't available.",

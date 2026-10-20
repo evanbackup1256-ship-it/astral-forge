@@ -52,6 +52,7 @@
 		ClaimForgePathStep: "ClaimForgePathStep",
 		BuySignalOffer: "BuySignalOffer",
 		EquipTitle: "EquipTitle",
+		SetProfileStyle: "SetProfileStyle",
 		RedeemCode: "RedeemCode",
 		VerifyCreatorFollow: "VerifyCreatorFollow",
 		SyncShop: "SyncShop",

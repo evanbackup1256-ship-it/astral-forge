@@ -1,6 +1,7 @@
 // The server service registry: every service is built lazily by name through loadService.
 // GameService (the gameplay hub) is defined inline below, as it was in the Luau original.
 import { Dict, isTable, LoadService, num, truthy } from "./LuaInterop";
+import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
 // colon-called methods. Values coming back are narrowed where they are used.
@@ -1714,6 +1715,10 @@ serviceFactories["GameService"] = () => {
 				player.SetAttribute("EquippedTitleName", titleName as AttributeValue);
 				player.SetAttribute("EquippedTitleFx", titleFx);
 			}
+			// profile style is public too: nameplates, the player list and chat tint by it
+			const profileStyle = ProfileStyle.read(profile.Cosmetics);
+			player.SetAttribute("ProfileAccent", profileStyle.Accent);
+			player.SetAttribute("ProfileFrame", profileStyle.Frame);
 			// the equipped artifact is public: every client reads these for the overhead aura, the
 			// player list and chat, so it has to be visible to the whole server, not just its owner
 			const command = profile.Command as Dict | undefined;
@@ -2166,6 +2171,8 @@ serviceFactories["GameService"] = () => {
 						isTable(cosmetics) && truthy(cosmetics.CrateSkins) ? cosmetics.CrateSkins : { Classic: true },
 					),
 					CrateSkin: isTable(cosmetics) && truthy(cosmetics.CrateSkin) ? cosmetics.CrateSkin : "Classic",
+					ProfileAccent: ProfileStyle.read(cosmetics).Accent,
+					ProfileFrame: ProfileStyle.read(cosmetics).Frame,
 				},
 				Anomaly: AnomalyService.State(profile),
 				Lab: LabService.State(profile),
@@ -3438,6 +3445,28 @@ serviceFactories["GameService"] = () => {
 			return this._mutate(player, (profile: Profile) => {
 				const [ok, message] = ProgressionService.EquipTitle(profile, titleId) as LuaTuple<[unknown, unknown]>;
 				return truthy(ok) ? responseSuccess(message) : responseError(message);
+			});
+		}
+
+		_setProfileStyle(player: Player, accent: unknown, frame: unknown) {
+			if ((accent !== undefined && !typeIs(accent, "string")) || (frame !== undefined && !typeIs(frame, "string"))) {
+				return responseError("Invalid profile style.");
+			}
+			return this._mutate(player, (profile: Profile) => {
+				const current = ProfileStyle.read(profile.Cosmetics);
+				const [chosen, problem] = ProfileStyle.validate(current, accent, frame, num(profile.Rebirths) ?? 0);
+				if (chosen === undefined) {
+					return responseError(problem ?? "That style is not available.");
+				}
+				if (!isTable(profile.Cosmetics)) {
+					profile.Cosmetics = { CrateSkins: { Classic: true }, CrateSkin: "Classic" };
+				}
+				const cosmetics = profile.Cosmetics as Dict;
+				cosmetics.ProfileAccent = chosen.Accent;
+				cosmetics.ProfileFrame = chosen.Frame;
+				player.SetAttribute("ProfileAccent", chosen.Accent);
+				player.SetAttribute("ProfileFrame", chosen.Frame);
+				return responseSuccess("Profile style saved.");
 			});
 		}
 
@@ -5783,6 +5812,8 @@ serviceFactories["GameService"] = () => {
 				return this._buySignalOffer(player, payload?.Id);
 			} else if (action === Protocol.Actions.EquipTitle) {
 				return this._equipTitle(player, payload?.Id);
+			} else if (action === Protocol.Actions.SetProfileStyle) {
+				return this._setProfileStyle(player, payload?.Accent, payload?.Frame);
 			} else if (action === Protocol.Actions.RedeemCode) {
 				return this._redeemCode(player, payload?.Code);
 			} else if (action === Protocol.Actions.VerifyCreatorFollow) {
