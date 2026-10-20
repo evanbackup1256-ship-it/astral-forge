@@ -1703,8 +1703,8 @@ __defs["pageReadyMath"] = () => {
 };
 
 interface LayoutUtilApi {
-	grid(layout: UIGridLayout, size: Vector2): void;
-	resize(frame: ScrollingFrame, layout: UIGridLayout | UIListLayout, axis: Enum.AutomaticSize): RBXScriptConnection;
+	grid(this: void, layout: UIGridLayout, size: Vector2): void;
+	resize(this: void, frame: ScrollingFrame, layout: UIGridLayout | UIListLayout, axis: Enum.AutomaticSize): RBXScriptConnection;
 }
 
 function loadLayoutUtil(): LayoutUtilApi {
