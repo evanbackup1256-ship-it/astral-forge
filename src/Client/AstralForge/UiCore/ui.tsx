@@ -2109,6 +2109,7 @@ export function Button(props: ButtonProps) {
 	const breatheStroke = useGlowStroke(breatheWanted, reducedMotion || effectsPaused, 0.32, 0.22, 0.46, 1.15);
 	const buttonRef = React.useRef<ImageButton>();
 	const hostSize = useGuiSize(buttonRef);
+	const touchShell = chromeFor(useViewport()).stack;
 	const visualPosition = joinTuple<[number, number, Vector2]>(arrival, shakeOffsetX, hostSize).map((values) =>
 		pixelPosition(values[2], 0.5, values[1], 0.5, (1 - math.clamp(values[0], 0, 1)) * 12),
 	);
@@ -2212,11 +2213,15 @@ export function Button(props: ButtonProps) {
 		math.clamp(values[0] + values[1], 0, 1),
 	);
 	const corner = <uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />;
+	// phones: grow only the invisible hit area to the 44px tap target; the visual keeps its size
+	const hitExtra =
+		touchShell && resolvedSize.Y.Scale === 0 ? math.max(0, TapTarget - resolvedSize.Y.Offset) : 0;
 	return (
 		<frame Size={resolvedSize} Position={position} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex} ClipsDescendants={false}>
 			<imagebutton
 				ref={buttonRef}
-				Size={UDim2.fromScale(1, 1)}
+				Size={new UDim2(1, 0, 1, hitExtra)}
+				Position={UDim2.fromOffset(0, -hitExtra / 2)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				AutoButtonColor={false}
@@ -2227,7 +2232,7 @@ export function Button(props: ButtonProps) {
 				Event={events}
 			>
 				<frame
-					Size={UDim2.fromScale(1, 1)}
+					Size={new UDim2(1, 0, 1, -hitExtra)}
 					Position={visualPosition}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					Rotation={tilt}
