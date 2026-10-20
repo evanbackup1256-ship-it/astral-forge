@@ -35,8 +35,8 @@ import { Shell, pausePassivePaints } from "./AppShellChrome";
 import { LooseComponent, LooseProps } from "./ui";
 
 const AstralForge = script.Parent!.Parent!;
-const load = <T,>(name: string): T => require(AstralForge.WaitForChild(name) as ModuleScript) as T;
-const loadKit = <T,>(kit: string, member: string): T =>
+const load = <T extends unknown>(name: string): T => require(AstralForge.WaitForChild(name) as ModuleScript) as T;
+const loadKit = <T extends unknown>(kit: string, member: string): T =>
 	(require(AstralForge.WaitForChild(kit) as ModuleScript) as (member: string) => T)(member);
 
 interface AudioApi {

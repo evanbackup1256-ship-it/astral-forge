@@ -74,23 +74,30 @@
               "$path": "vendor/@rbxts/services.luau"
             },
             "signal": {
-              "$path": "vendor/@rbxts/signal.luau"
+              "$path": "node_modules/@rbxts/signal"
             },
             "maid": {
-              "$path": "vendor/@rbxts/maid"
+              "$path": "node_modules/@rbxts/maid"
             },
             "t": {
-              "$path": "vendor/@rbxts/t"
+              "$path": "node_modules/@rbxts/t"
             },
             "matter": {
               "$path": "vendor/@rbxts/matter"
             },
             "action-journal": {
               "$path": "vendor/@rbxts/action-journal"
+            },
+            "object-utils": {
+              "$path": "node_modules/@rbxts/object-utils"
             }
           },
           "@rbxts-js": {
             "$path": "vendor/@rbxts-js"
+          },
+          "@flamework": {
+            "$className": "Folder",
+            "$path": "node_modules/@flamework"
           }
         }
       }

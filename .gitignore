@@ -35,3 +35,6 @@ assets/generated/bosses/*_prev_*.png
 assets/generated/ui_preview/
 # icon atlas sheets: rebuilt exactly by tools/assetgen/icons.py (ids.json + manifest.json are kept)
 assets/generated/icons/*.png
+
+# Flamework transformer build cache
+/flamework.build

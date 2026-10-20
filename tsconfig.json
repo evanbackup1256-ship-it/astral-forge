@@ -15,10 +15,23 @@
     "strict": true,
     "target": "ESNext",
     "moduleDetection": "force",
-    "typeRoots": ["node_modules/@rbxts"],
-    "types": ["types", "compiler-types"],
+    "typeRoots": [
+      "node_modules/@rbxts",
+      "node_modules/@flamework"
+    ],
+    "types": [
+      "types",
+      "compiler-types"
+    ],
     "outDir": "out",
-    "rootDir": "src"
+    "rootDir": "src",
+    "plugins": [
+      {
+        "transform": "rbxts-transformer-flamework"
+      }
+    ]
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }
