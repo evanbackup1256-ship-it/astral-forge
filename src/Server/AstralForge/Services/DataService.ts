@@ -852,31 +852,9 @@ export = (loadService: LoadService) => {
 		return profile;
 	}
 
-	function debugScan(node: unknown, path: string, hits: string[], seen: Set<object>): void {
-		if (typeIs(node, "string")) {
-			if (utf8.len(node)[0] === undefined) {
-				hits.push(`${path} len=${(node as string).size()}`);
-			}
-			return;
-		}
-		if (!typeIs(node, "table") || seen.has(node as object)) {
-			return;
-		}
-		seen.add(node as object);
-		for (const [k, v] of pairs(node as object)) {
-			debugScan(v, `${path}.${tostring(k)}`, hits, seen);
-		}
-	}
-
 	function migrateLegacyProfile(data: unknown): Dict {
 		ProfileVersionGuard.ReadCompatible(data, GameConfig.Game.DataVersion);
-		const result = sanitize(reconcile(data, DataTemplate.New()) as Dict);
-		const hits: string[] = [];
-		debugScan(result, "Data", hits, new Set());
-		if (hits.size() > 0) {
-			warn(`[MIGRATE-DEBUG] invalid utf8 leaves: ${hits.join(" | ")}`);
-		}
-		return result;
+		return sanitize(reconcile(data, DataTemplate.New()) as Dict);
 	}
 
 	const getOrderedStore = StoreAccess.ordered;
