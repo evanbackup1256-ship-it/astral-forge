@@ -1,3 +1,4 @@
+import { countRedraw, redrawCounterEnabled } from "../UiCore/devRedrawCounter";
 import React from "@rbxts/react";
 import { bulkCost, Flux, gteFlux } from "../CoreKit/format";
 import { LuauComponent, LuauProps } from "./luauKits";
@@ -113,6 +114,7 @@ interface PageContentProps {
 
 function PageContentInner(props: PageContentProps) {
 	const { page, state, config, dispatch, reducedMotion } = props;
+	countRedraw(`page:${page}`, redrawCounterEnabled(state as { Admin?: { Access?: boolean } }));
 	if (config === undefined) {
 		return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} />;
 	}

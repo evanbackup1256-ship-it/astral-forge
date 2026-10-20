@@ -353,6 +353,14 @@ function AppShell(props: ShellProps) {
 	}) as (pageId: string) => void;
 	const openWorkshop = React.useCallback(() => navigateRef.current("Workshop"), []);
 	const onWheelLand = React.useCallback(() => celebrate(), [celebrate]);
+	// stable shell handlers (same bodies as the old inline arrows; navigateRef always holds this render's navigate)
+	const navigateLatest = useLatestCallback((pageId: string) => navigateRef.current(pageId)) as (pageId: string) => void;
+	const toggleRail = React.useCallback(() => setRailOpen((open) => !open), []);
+	const hideUI = React.useCallback(() => setHidden(true), []);
+	const showUI = React.useCallback(() => setHidden(false), []);
+	const openFeedback = React.useCallback(() => { setPlayerlistOpen(false); setFeedbackOpen(true); }, []);
+	const openBoosts = React.useCallback(() => navigateRef.current("Rewards"), []);
+	const returnToTrade = React.useCallback(() => { setHidden(false); setRailOpen(false); navigateRef.current("Trade"); }, []);
 	React.useEffect(() => {
 		if (state.Flags.TutorialDone || tutorial === undefined || tutorial.startPage === undefined) return;
 		setHidden(false);
@@ -522,8 +530,8 @@ function AppShell(props: ShellProps) {
 			if (typeIs(amount, "number") && amount > 0) ownedMachines++;
 		}
 	}
-	const openPlayerlist = () => { setFeedbackOpen(false); setPlayerlistOpen(true); };
-	const notify = (title: string, body: string) => addNotice(title, body, "Info");
+	const openPlayerlist = React.useCallback(() => { setFeedbackOpen(false); setPlayerlistOpen(true); }, []);
+	const notify = React.useCallback((title: string, body: string) => addNotice(title, body, "Info"), [addNotice]);
 	const moveTutorial = (targetStep: number, sound: string) => {
 		Audio.play(sound);
 		tutorialHold.current = targetStep;
@@ -553,10 +561,10 @@ function AppShell(props: ShellProps) {
 							<BuffStrip.Island state={state} config={config} reducedMotion={softMotion} restHidden={true} maxWidth={viewport.width - edgePad * 2}
 								position={new UDim2(0.5, 0, 0, topPad + topbarHeight + 6)} anchorPoint={new Vector2(0.5, 0)} />
 						</>}
-						{!keyboardShellCompact && !mobileShell && <TopBar state={state} page={page} railOpen={railOpen} toggleRail={() => setRailOpen(!railOpen)} hideUI={() => setHidden(true)}
+						{!keyboardShellCompact && !mobileShell && <TopBar state={state} page={page} railOpen={railOpen} toggleRail={toggleRail} hideUI={hideUI}
 							tight={viewport.tight} width={viewport.width} topPad={topPad} barHeight={topbarHeight} barHeightMotion={topbarLive} edgePad={edgePad} reducedMotion={softMotion}
 							releaseAt={config.Release.CountdownAt ?? 1789272000} visit={visit} config={config} navigate={setPage} openPlayerlist={openPlayerlist}
-							openFeedback={() => { setPlayerlistOpen(false); setFeedbackOpen(true); }} />}
+							openFeedback={openFeedback} />}
 						<frame Size={shellTopLive.map((top) => new UDim2(1, -edgePad * 2, 1, -(top + bottomPad + gamepadReserve)))}
 							Position={shellTopLive.map((top) => UDim2.fromOffset(edgePad, top))} BackgroundTransparency={1} BorderSizePixel={0}>
 							<frame Size={workspaceSize} Position={workspaceOffset} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={5}>
@@ -577,14 +585,14 @@ function AppShell(props: ShellProps) {
 							{!mobileShell && <frame Size={drawerNav ? new UDim2(0, drawerWidth, 1, 0) : railWidth.map((width) => new UDim2(0, math.max(0, width), 1, 0))}
 								Position={drawerNav ? drawerProgress.map((amount) => new UDim2(0, -drawerWidth * (1 - amount), 0, 0)) : undefined}
 								BackgroundTransparency={1} BorderSizePixel={0} ZIndex={drawerNav ? 30 : 10} ClipsDescendants={true} Visible={drawerNav ? drawerScrimVisible : drawerPanelVisible}>
-								<Navigation page={page} setPage={navigate} collapsed={!drawerNav && viewport.compact} width={railWidth} fixedWidth={drawerNav ? drawerWidth : undefined}
+								<Navigation page={page} setPage={navigateLatest} collapsed={!drawerNav && viewport.compact} width={railWidth} fixedWidth={drawerNav ? drawerWidth : undefined}
 									reducedMotion={softMotion} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} includeSecondary={true} fromMore={false}
-									activeBoost={activeBoost} activeBoostEndsAt={activeBoostEndsAt} wallClock={wallClock} openBoosts={() => navigate("Rewards")} />
+									activeBoost={activeBoost} activeBoostEndsAt={activeBoostEndsAt} wallClock={wallClock} openBoosts={openBoosts} />
 							</frame>}
 						</frame>
 						{state.Trade?.Session !== undefined && page !== "Trade" && <TradeReturnPill stack={chrome.stack} bottomPad={bottomPad} reducedMotion={softMotion}
-							onReturn={() => { setHidden(false); setRailOpen(false); navigate("Trade"); }} />}
-						{mobileShell && <MobileTabBar page={page} setPage={navigate} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} reducedMotion={reducedMotion}
+							onReturn={returnToTrade} />}
+						{mobileShell && <MobileTabBar page={page} setPage={navigateLatest} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} reducedMotion={reducedMotion}
 							height={tabBarH} bottomSafe={chrome.bottomSafe} visible={!keyboardShellCompact} />}
 						{mobileShell && quickActionsVisible && <MobileQuickActions state={state} dispatch={dispatch} reducedMotion={reducedMotion} bottomOffset={quickBottomOffset} edgePad={edgePad} />}
 						{!hidden && <ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2(1, -18, 0, topPad + topbarHeight + 8)} anchorPoint={new Vector2(1, 0)} zIndex={65} />}
@@ -593,7 +601,7 @@ function AppShell(props: ShellProps) {
 							enabled={!hidden && !tutorialOpen && !domainOverlayActive && !showRelease} />
 					</frame>
 					<frame Size={UDim2.fromOffset(186, 44)} Position={hideAmount.map((amount) => new UDim2(0, edgePad, 0, -64 + math.floor(amount * (topPad + 64))))} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={200}>
-						<Button text="SHOW UI  ( ` )" icon="Hide.2" onClick={() => setHidden(false)} color={accent} textColor={Palette.ink} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
+						<Button text="SHOW UI  ( ` )" icon="Hide.2" onClick={showUI} color={accent} textColor={Palette.ink} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
 					</frame>
 					{!state.Flags.TutorialDone && tutorial !== undefined && <TutorialOverlay copy={tutorial} step={tutorialStep} count={TUTORIAL_STEPS.size()} reducedMotion={reducedMotion}
 						live={{ page, cash: compactNumber(state.Cash), vault: compactNumber(state.Vault), vaultFlux: asFlux(state.Vault), production: compactNumber(state.Production), ownedMachines, buyAmount }}
