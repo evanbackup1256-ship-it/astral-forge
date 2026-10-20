@@ -47,7 +47,6 @@ export const MotionIntent = require(
 	ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("MotionIntent") as ModuleScript,
 ) as { resolve(this: void, request: IntentRequest): IntentPlan; [key: string]: unknown };
 
-const BEZIER_CIRCLE_KAPPA = 0.5522847498;
 
 function cubicPoint(alpha: number, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3): Vector2 {
 	const point = BezierCurve.cubicBezier(math.clamp(alpha, 0, 1), p0, p1, p2, p3);
@@ -56,38 +55,11 @@ function cubicPoint(alpha: number, p0: Vector3, p1: Vector3, p2: Vector3, p3: Ve
 
 export const easeOutCubic = (value: number) => MotionTokens.EASE.standard(math.clamp(value, 0, 1));
 export const easeInCubic = (value: number) => MotionTokens.EASE.accelerate(math.clamp(value, 0, 1));
-export const easeOutQuart = (value: number) => MotionTokens.EASE.decelerate(math.clamp(value, 0, 1));
 export const easeOutBack = (value: number) => {
 	const overshoot = 1.35;
 	const shifted = math.clamp(value, 0, 1) - 1;
 	return 1 + (overshoot + 1) * shifted * shifted * shifted + overshoot * shifted * shifted;
 };
-export const easeOutExpo = (value: number) => {
-	if (value <= 0) {
-		return 0;
-	}
-	if (value >= 1) {
-		return 1;
-	}
-	return 1 - math.pow(2, -10 * value);
-};
-
-export function bezierOrbit(progress: number): Vector2 {
-	const wrapped = ((progress % 1) + 1) % 1;
-	const segment = math.floor(wrapped * 4);
-	const alpha = wrapped * 4 - segment;
-	const k = BEZIER_CIRCLE_KAPPA;
-	if (segment === 0) {
-		return cubicPoint(alpha, new Vector3(1, 0), new Vector3(1, k), new Vector3(k, 1), new Vector3(0, 1));
-	}
-	if (segment === 1) {
-		return cubicPoint(alpha, new Vector3(0, 1), new Vector3(-k, 1), new Vector3(-1, k), new Vector3(-1, 0));
-	}
-	if (segment === 2) {
-		return cubicPoint(alpha, new Vector3(-1, 0), new Vector3(-1, -k), new Vector3(-k, -1), new Vector3(0, -1));
-	}
-	return cubicPoint(alpha, new Vector3(0, -1), new Vector3(k, -1), new Vector3(1, -k), new Vector3(1, 0));
-}
 
 export interface FlipperMotor {
 	raw: FlipperSingleMotor;
@@ -302,13 +274,6 @@ export function loadOtter(): Otter | undefined {
 
 export function loadCanvasDraw(): unknown {
 	return loadNativePackage("CanvasDraw");
-}
-
-export function preloadUiLibs() {
-	task.defer(() => {
-		loadOtter();
-		loadCanvasDraw();
-	});
 }
 
 export interface MotionSettings {
@@ -544,29 +509,11 @@ function dropClock(slot: ClockSlot | undefined, realtime: boolean) {
 }
 
 export function setContinuousMotionRate(_rate: number) {}
-export function setDecorativeMotionFrozen(_frozen: boolean) {}
-export function setHitchMotionFrozen(_frozen: boolean) {}
 export function beginUiTransition(_seconds?: number) {}
-
-export function isUiTransitioning(): boolean {
-	return freezeNav;
-}
 
 export function setClockBudget(budget: unknown) {
 	const requested = typeIs(budget, "number") && budget === budget ? budget : 24;
 	clockBudget = math.clamp(math.floor(requested + 0.5), 20, 48);
-}
-
-export function getClockBudget(): number {
-	return clockBudget;
-}
-
-export function decorativeClockSlotsUsed(): number {
-	return decorativeClockCount;
-}
-
-export function getLagPressure(): number {
-	return lagPressure;
 }
 
 function scheduleArrival(motor: ArrivalMotor | undefined, delaySeconds: number) {
@@ -826,58 +773,6 @@ export function useFlipperSpring(goal: number, reducedMotion?: boolean, stiffnes
 		active.configure(effectiveStiffness, damping);
 		active.setGoal(goalRef.current);
 	}, [damping, effectiveStiffness, goal, motionScale, setBinding]);
-	return binding;
-}
-
-export function useOtterSpring(goal: number, _reducedMotion?: boolean, initial = goal, dampingRatio = 0.82, frequency = 3.8): React.Binding<number> {
-	const settings = useMotionSettings();
-	const motionScale = settings.motionScale;
-	[dampingRatio, frequency] = softRatio(dampingRatio, frequency, settings.soft === true);
-	const [binding, setBinding] = React.useBinding(initial);
-	const setBindingRef = React.useRef(setBinding);
-	setBindingRef.current = setBinding;
-	const current = React.useRef(initial);
-	const motorRef = React.useRef<OtterMotor>();
-	const disconnectRef = React.useRef<() => void>();
-	React.useEffect(() => {
-		return () => {
-			const disconnect = disconnectRef.current;
-			if (disconnect !== undefined) {
-				disconnect();
-				disconnectRef.current = undefined;
-			}
-			const motor = motorRef.current;
-			if (motor !== undefined) {
-				motor.destroy();
-				motorRef.current = undefined;
-			}
-		};
-	}, []);
-	React.useEffect(() => {
-		const otter = loadOtter();
-		if (otter === undefined) {
-			current.current = goal;
-			setBinding(goal);
-			return;
-		}
-		let motor = motorRef.current;
-		if (motor === undefined) {
-			motor = otter.createSingleMotor(current.current);
-			motorRef.current = motor;
-			disconnectRef.current = motor.onStep((value) => {
-				current.current = value;
-				setBindingRef.current(value);
-			});
-		}
-		motor.setGoal(
-			otter.spring(goal, {
-				dampingRatio: math.clamp(dampingRatio, 0.6, 1.25),
-				frequency: math.max(0.5, frequency * MotionTokens.responseScale(motionScale)),
-				restingVelocityLimit: 0.001,
-				restingPositionLimit: 0.001,
-			}),
-		);
-	}, [dampingRatio, frequency, goal, motionScale, setBinding]);
 	return binding;
 }
 
@@ -1428,37 +1323,6 @@ export interface AntilagInfo {
 	particleBudget?: number;
 	glowScale?: number;
 	allowConfetti?: boolean;
-}
-
-// Picks springs/travel/flash/cues from what the element is; callers pass role or name.
-export function useIntent(request: IntentRequest, antilagInfo?: AntilagInfo): IntentPlan {
-	const settings = useMotionSettings();
-	let reduced = request.reduced;
-	if (reduced === undefined) {
-		reduced = settings !== undefined && (settings.soft === true || (settings.motionScale ?? 1) <= MOTION_SCALE_FLOOR);
-	}
-	const info = antilagInfo ?? {};
-	return React.useMemo(
-		() =>
-			MotionIntent.resolve({
-				role: request.role,
-				name: request.name,
-				rarity: request.rarity,
-				tone: request.tone,
-				emphasis: request.emphasis,
-				reduced,
-				tier: info.tier,
-				particleBudget: info.particleBudget,
-				glowScale: info.glowScale,
-				allowConfetti: info.allowConfetti,
-			}),
-		[request.role, request.name, request.rarity, request.tone, request.emphasis, reduced, info.tier, info.particleBudget, info.glowScale, info.allowConfetti],
-	);
-}
-
-export function useIntentSpring(goal: number, plan: IntentPlan): React.Binding<number> {
-	const spring = goal > 0.5 ? plan.enter : plan.exit;
-	return useFlipperSpring(goal, plan.reduced, spring.stiffness, spring.damping);
 }
 
 ensureDriver();

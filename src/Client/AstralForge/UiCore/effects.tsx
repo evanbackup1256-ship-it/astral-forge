@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import { Palette, darken, lighten } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
-import { ScaleFromCenter, easeOutBack, easeOutCubic, loadCanvasDraw, useClock } from "../MotionKit/motion";
+import { ScaleFromCenter, easeOutBack, easeOutCubic, useClock } from "../MotionKit/motion";
 import { Text } from "./ui";
 import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 
@@ -131,80 +131,3 @@ function StarFieldImpl({ accent }: { accent: Color3 }) {
 // (compared by value: Color3 equality is per component, not per object)
 export const StarField = React.memo(StarFieldImpl, (a, b) => a.accent === b.accent);
 
-interface CanvasDraw {
-	AutoUpdate: boolean;
-	OutputWarnings: boolean;
-	SetPixel(x: number, y: number, color: Color3): void;
-	DrawCircle(center: Vector2, radius: number, color: Color3, fill: boolean): void;
-	DrawLine(from: Vector2, to: Vector2, color: Color3, thickness: number): void;
-	Update(): void;
-	DestroyCanvas(): void;
-}
-interface CanvasDrawModule {
-	new: (this: void, host: GuiObject, resolution: Vector2, background: Color3, blur: boolean) => CanvasDraw;
-}
-
-const ENERGY_FIELD_RESOLUTION = new Vector2(48, 28);
-export function CanvasEnergyField({
-	time,
-	enabled,
-	reducedMotion,
-	zIndex = 712,
-}: {
-	time: React.Binding<number>;
-	enabled?: boolean;
-	reducedMotion?: boolean;
-	zIndex?: number;
-}) {
-	const host = React.useRef<Frame>();
-	const renderCanvas = React.useRef(enabled && !reducedMotion).current;
-	React.useEffect(() => {
-		if (!renderCanvas || host.current === undefined) {
-			return undefined;
-		}
-		const module = loadCanvasDraw() as CanvasDrawModule | undefined;
-		if (module === undefined) {
-			return undefined;
-		}
-		const canvas = module.new(host.current, ENERGY_FIELD_RESOLUTION, Palette.void, false);
-		canvas.AutoUpdate = false;
-		canvas.OutputWarnings = false;
-		const center = new Vector2((ENERGY_FIELD_RESOLUTION.X + 1) * 0.5, (ENERGY_FIELD_RESOLUTION.Y + 1) * 0.5);
-		for (let y = 1; y <= ENERGY_FIELD_RESOLUTION.Y; y++) {
-			for (let x = 1; x <= ENERGY_FIELD_RESOLUTION.X; x++) {
-				const dx = (x - center.X) / ENERGY_FIELD_RESOLUTION.X;
-				const dy = (y - center.Y) / ENERGY_FIELD_RESOLUTION.Y;
-				const distance = math.sqrt(dx * dx + dy * dy);
-				const ribbon = math.max(0, 1 - math.abs(distance - 0.23) * 13);
-				const cross = math.max(0, 1 - math.abs(dx * 0.65 + dy) * 18) * math.max(0, 1 - distance * 2.2);
-				const energy = math.clamp(ribbon * 0.42 + cross * 0.28, 0, 1);
-				canvas.SetPixel(
-					x,
-					y,
-					darken(Palette.violet.Lerp(Palette.cyan, math.clamp(x / ENERGY_FIELD_RESOLUTION.X, 0, 1)), 0.86 - energy * 0.28),
-				);
-			}
-		}
-		canvas.DrawCircle(center, 7, darken(Palette.pink, 0.36), false);
-		canvas.DrawCircle(center, 11, darken(Palette.cyan, 0.54), false);
-		canvas.DrawLine(new Vector2(7, 22), new Vector2(41, 6), darken(Palette.violet, 0.42), 1);
-		canvas.Update();
-		return () => canvas.DestroyCanvas();
-	}, [renderCanvas]);
-	return (
-		<frame
-			ref={host}
-			Size={UDim2.fromScale(0.88, 0.88)}
-			Position={UDim2.fromScale(0.5, 0.5)}
-			AnchorPoint={new Vector2(0.5, 0.5)}
-			Rotation={time.map((value) => (reducedMotion ? 0 : value * -3.4))}
-			BackgroundColor3={Palette.void}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			ZIndex={zIndex}
-			ClipsDescendants={true}
-		>
-			<uicorner CornerRadius={new UDim(1, 0)} />
-		</frame>
-	);
-}
