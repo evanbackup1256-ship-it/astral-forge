@@ -669,15 +669,15 @@ __defs["TradeView"] = () => {
 			balanceText = "Put items or currency on the table to see how the trade balances.";
 			balanceColor = Palette.muted;
 		} else if (yourRatio >= 0.42 && yourRatio <= 0.58) {
-			balanceText = "Fair Exchange · Equal Cosmic Weight";
+			balanceText = "Fair trade · about even";
 			balanceColor = Palette.mint;
 		} else if (yourRatio > 0.58) {
 			const adv = math.round((yourRatio - 0.5) * 200);
-			balanceText = `Generous Offer (+${adv}% extra value to partner)`;
+			balanceText = `You're giving +${adv}% more than you get`;
 			balanceColor = Palette.mango;
 		} else {
 			const adv = math.round((0.5 - yourRatio) * 200);
-			balanceText = `Favorable Offer (+${adv}% extra value to you)`;
+			balanceText = `You're getting +${adv}% more than you give`;
 			balanceColor = Palette.cyan;
 		}
 		return h(

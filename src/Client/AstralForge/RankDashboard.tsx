@@ -501,7 +501,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				const payload = action === "GetPlayers" ? {} : { Id: selected };
 				const ok = pcall(() => props.dispatch(action, payload, finish));
 				if (!ok) {
-					finish({ ok: false, error: "Rankings connection interrupted." });
+					finish({ ok: false, error: "Lost the connection to the rankings." });
 				}
 			}
 			setResult({ rows: [], loading: true, status: "Loading rankings…" });
