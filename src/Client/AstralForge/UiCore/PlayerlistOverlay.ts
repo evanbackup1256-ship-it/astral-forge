@@ -322,6 +322,34 @@ function PlayerRow(param: PlayerRowProps) {
 			setSwiped(false);
 		}
 	}, [canSwipe]);
+	// an open swipe closes when you tap anywhere outside this row, with the same tick it opened with
+	const rowHitRef = React.useRef<TextButton>();
+	React.useEffect(() => {
+		if (!swiped) {
+			return undefined;
+		}
+		const connection = game.GetService("UserInputService").InputBegan.Connect((input) => {
+			const kind = input.UserInputType;
+			if (kind !== Enum.UserInputType.Touch && kind !== Enum.UserInputType.MouseButton1) {
+				return;
+			}
+			const hit = rowHitRef.current;
+			if (hit === undefined) {
+				return;
+			}
+			const inset = game.GetService("GuiService").GetGuiInset()[0];
+			const at = hit.AbsolutePosition;
+			const size = hit.AbsoluteSize;
+			const inside = (x: number, y: number) => x >= at.X && x <= at.X + size.X && y >= at.Y && y <= at.Y + size.Y;
+			const px = input.Position.X;
+			const py = input.Position.Y;
+			if (!inside(px, py) && !inside(px - inset.X, py - inset.Y)) {
+				InteractionFeedback.tick();
+				setSwiped(false);
+			}
+		});
+		return () => connection.Disconnect();
+	}, [swiped]);
 	const tags: string[] = [];
 	if (row.IsLocal) {
 		tags.push("YOU");
@@ -502,6 +530,7 @@ function PlayerRow(param: PlayerRowProps) {
 				Text: "",
 				AutoButtonColor: false,
 				ZIndex: 621,
+				ref: rowHitRef,
 				Event: {
 					// a tap on a swiped row just closes the actions
 					Activated: () => {
@@ -509,6 +538,7 @@ function PlayerRow(param: PlayerRowProps) {
 							return;
 						}
 						if (swiped) {
+							InteractionFeedback.tick();
 							setSwiped(false);
 							return;
 						}
