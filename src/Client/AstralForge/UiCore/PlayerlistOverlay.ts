@@ -908,7 +908,8 @@ function ReportSheet(param: ReportSheetProps) {
 						size: 10,
 						color: Palette.muted,
 						wrap: true,
-						fit: false,
+						fit: true,
+						minSize: 9,
 						position: UDim2.fromOffset(10, 29),
 						sizeConstraint: new UDim2(1, -16, 0, 28),
 						zIndex: 710,
@@ -1048,6 +1049,8 @@ function ReportSheet(param: ReportSheetProps) {
 				color: Palette.muted,
 				align: Enum.TextXAlignment.Center,
 				wrap: true,
+				fit: true,
+				minSize: 11,
 				position: UDim2.fromOffset(10, 124),
 				sizeConstraint: new UDim2(1, -20, 0, 34),
 				zIndex: 704,
@@ -1572,7 +1575,11 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const headerH = 58;
 	const boostH = 52;
 	const controlsTop = headerH + boostH + 14;
-	const controlsH = 30 + (showSearch ? 30 + 8 : 0);
+	// phones and touch: filter chips and the search box get a full 44px row so the
+	// scroller doesn't clip their hit area down to the drawn 28px
+	const touchRows = chrome.stack || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
+	const ctlH = touchRows ? TapTarget : 30;
+	const controlsH = ctlH + (showSearch ? ctlH + 8 : 0);
 	const listTop = controlsTop + controlsH + 8;
 	const listH = math.max(80, height - listTop - 10);
 
@@ -1684,11 +1691,13 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	} else if (rows.size() <= 1) {
 		// alone in the server: say so, and what bringing people in is worth
 		listChildren.empty = h(Text, {
-			value: "You're alone in this server. Invite friends for a production boost, trading, crews and forge visits.",
+			value: "Just you in here. Invite friends for a production boost, trades, crews and visits.",
 			size: 12,
 			color: Palette.muted,
 			align: Enum.TextXAlignment.Center,
 			wrap: true,
+			fit: true,
+			minSize: 11,
 			layoutOrder: 9999,
 			sizeConstraint: new UDim2(1, -24, 0, 54),
 			zIndex: 620,
@@ -1706,7 +1715,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 		chips[key] = h(
 			"textbutton",
 			{
-				Size: UDim2.fromOffset(math.max(56, label.size() * 7 + 22), 28),
+				Size: UDim2.fromOffset(math.max(56, label.size() * 7 + 22), touchRows ? TapTarget : 28),
 				LayoutOrder: order,
 				BackgroundColor3: active ? darken(accent, 0.5) : Palette.panel,
 				BorderSizePixel: 0,
@@ -1934,15 +1943,15 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 						accent: Palette.cyan,
 						placeholder: "Find a player",
 						position: UDim2.fromOffset(10, controlsTop),
-						size: UDim2.fromOffset(innerW, 30),
+						size: UDim2.fromOffset(innerW, ctlH),
 						reducedMotion: reducedMotion,
 						zIndex: 616,
 					}),
 				h(
 					"scrollingframe",
 					{
-						Size: UDim2.fromOffset(innerW, 30),
-						Position: UDim2.fromOffset(10, controlsTop + (showSearch ? 38 : 0)),
+						Size: UDim2.fromOffset(innerW, ctlH),
+						Position: UDim2.fromOffset(10, controlsTop + (showSearch ? ctlH + 8 : 0)),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
 						ScrollBarThickness: 0,

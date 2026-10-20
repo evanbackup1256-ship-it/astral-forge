@@ -759,6 +759,10 @@ __defs["TradeView"] = () => {
 		const dispatch = props.dispatch;
 		const [inputVal, setInputVal] = React.useState("");
 		const scrollRef = React.useRef<ScrollingFrame>();
+		// phones and touch: quick phrases and the input row get full tap height
+		const touchRows = chromeFor(useViewport()).stack || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
+		const pillH = touchRows ? TapTarget : 26;
+		const inputH = touchRows ? TapTarget : 32;
 		const lines = session.Chat ?? [];
 		const myId = Players.LocalPlayer!.UserId;
 		const seen = React.useRef(lines.size());
@@ -797,7 +801,7 @@ __defs["TradeView"] = () => {
 				{
 					LayoutOrder: index,
 					Text: phrase,
-					Size: new UDim2(0, 0, 0, 26),
+					Size: new UDim2(0, 0, 0, pillH),
 					AutomaticSize: Enum.AutomaticSize.X,
 					BackgroundColor3: Palette.panelSoft,
 					TextColor3: Palette.cream,
@@ -898,7 +902,7 @@ __defs["TradeView"] = () => {
 				"scrollingframe",
 				{
 					ref: scrollRef,
-					Size: new UDim2(1, 0, 1, -(18 + 32 + 38)),
+					Size: new UDim2(1, 0, 1, -(18 + inputH + pillH + 12)),
 					Position: UDim2.fromOffset(0, 18),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
@@ -906,14 +910,16 @@ __defs["TradeView"] = () => {
 					AutomaticCanvasSize: Enum.AutomaticSize.Y,
 					ScrollBarThickness: 3,
 					ScrollBarImageColor3: Palette.muted,
+					// vertical only, so a sideways drag on the phrase row doesn't nudge the log
+					ScrollingDirection: Enum.ScrollingDirection.Y,
 				},
 				rows,
 			),
 			h(
 				"scrollingframe",
 				{
-					Size: new UDim2(1, 0, 0, 30),
-					Position: new UDim2(0, 0, 1, -(32 + 36)),
+					Size: new UDim2(1, 0, 0, pillH + 4),
+					Position: new UDim2(0, 0, 1, -(inputH + pillH + 8)),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
 					CanvasSize: new UDim2(),
@@ -926,8 +932,8 @@ __defs["TradeView"] = () => {
 			h(
 				"frame",
 				{
-					Size: new UDim2(1, 0, 0, 32),
-					Position: new UDim2(0, 0, 1, -32),
+					Size: new UDim2(1, 0, 0, inputH),
+					Position: new UDim2(0, 0, 1, -inputH),
 					BackgroundTransparency: 1,
 				},
 				h(
