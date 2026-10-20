@@ -92,7 +92,7 @@ export class MatterRuntime {
 		this.connections = this.loop.begin({
 			default: this.stepEvent.Event,
 		});
-		ModuleLog.Info("tick", "5 Hz loop started");
+		ModuleLog.Info("tick", "server tick loop started at 5 Hz");
 	}
 
 	Step(): void {

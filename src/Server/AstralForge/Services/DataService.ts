@@ -1002,7 +1002,7 @@ export class DataService {
 			task.cancel(cacheThread);
 			this._cacheSyncThreads.delete(player);
 		}
-		ModuleLog.Warn("Data", string.format("marking %s profile read-only — %s", player.Name, reason));
+		ModuleLog.Warn("Data", string.format("marking %s's profile read-only: %s", player.Name, reason));
 		task.defer(() => {
 			if (player.Parent !== undefined) {
 				player.Kick("Your data session changed servers and was closed safely. Please rejoin.");
@@ -1034,7 +1034,7 @@ export class DataService {
 						"cache-sync:" + tostring(player.UserId),
 						5,
 						"Data",
-						string.format("%s cache sync rejected unsafe profile data — %s", player.Name, tostring(reason)),
+						string.format("%s cache sync rejected unsafe profile data: %s", player.Name, tostring(reason)),
 					);
 				}
 			}),
@@ -1126,7 +1126,7 @@ export class DataService {
 				if (!workerOk) {
 					ModuleLog.Warn(
 						"Data",
-						string.format("leaderboard push crashed for %d — %s", userId, tostring(workerErr)),
+						string.format("leaderboard push errored for %d: %s", userId, tostring(workerErr)),
 					);
 				}
 
@@ -1176,7 +1176,7 @@ export class DataService {
 			if (!stole) {
 				ModuleLog.Warn(
 					"Data",
-					string.format("could not steal %s's session lock — %s", player.Name, tostring(stealErr)),
+					string.format("could not take over %s's session lock: %s", player.Name, tostring(stealErr)),
 				);
 			}
 		}
@@ -1332,7 +1332,7 @@ export class DataService {
 			return $tuple(true, undefined);
 		}
 
-		ModuleLog.Warn("Data", string.format("could not load %s — %s", player.Name, reason));
+		ModuleLog.Warn("Data", string.format("could not load %s: %s", player.Name, reason));
 		this.telemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false);
 		return $tuple(false, "Your save could not be loaded safely. Please rejoin in a moment.");
 	}
@@ -1426,7 +1426,7 @@ export class DataService {
 				"mutation:" + tostring(player.UserId) + ":" + transactionLabel,
 				5,
 				"Data",
-				string.format("%s update '%s' failed — %s", player.Name, label ?? "unnamed", tostring(result)),
+				string.format("%s update '%s' failed: %s", player.Name, label ?? "unnamed", tostring(result)),
 			);
 			return $tuple(false, result);
 		}
@@ -1644,7 +1644,7 @@ export class DataService {
 		this._saveBusy.delete(player);
 		if (!ok) {
 			if (releaseSession && this._broken.get(player) === undefined) this._releasing.delete(player);
-			ModuleLog.Warn("Data", string.format("save crashed safely for %s - %s", player.Name, tostring(saved)));
+			ModuleLog.Warn("Data", string.format("save errored for %s (caught, profile kept in memory): %s", player.Name, tostring(saved)));
 			return false;
 		}
 		if (releaseSession && saved !== true && this._broken.get(player) === undefined) {
@@ -1730,7 +1730,7 @@ export class DataService {
 		}
 		const [saveOk, saveResult] = pcall(() => this.SaveAll(true));
 		if (!saveOk || !saveResult) {
-			ModuleLog.Warn("Data", string.format("shutdown SaveAll did not complete — %s", tostring(saveResult)));
+			ModuleLog.Warn("Data", string.format("shutdown SaveAll did not finish: %s", tostring(saveResult)));
 		}
 
 		// Always close stores, even when the concurrent release-save phase fails or times out.

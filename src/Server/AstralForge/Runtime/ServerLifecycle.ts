@@ -58,7 +58,7 @@ export class ServerLifecycle implements OnStart {
 			};
 			const [ok, problem] = pcall(loader.load);
 			if (!ok) {
-				ModuleLog.Warn("PropKit", "kit loader failed - " + tostring(problem));
+				ModuleLog.Warn("PropKit", "prop kit loader failed: " + tostring(problem));
 			}
 		});
 		ModuleLog.Debug("world", "ui-only server");
@@ -81,7 +81,7 @@ export class ServerLifecycle implements OnStart {
 			GameAntiCheat: { EnforcementEnabled: unknown };
 		};
 		const isStudio = RunService.IsStudio();
-		ModuleLog.Warn("SECURITY", "Studio bypass audit", {
+		ModuleLog.Warn("SECURITY", "Studio bypass settings", {
 			IsStudio: isStudio,
 			AllowStudioAdmins: ServerConfig.AllowStudioAdmins,
 			AllowStudioMemoryFallback: ServerConfig.AllowStudioMemoryFallback,
@@ -174,7 +174,7 @@ export class ServerLifecycle implements OnStart {
 		options.Destroy();
 		if (!ok) {
 			bridge.publishShutdown("Waiting", "Roblox is reconnecting this server. Hold tight.");
-			ModuleLog.Warn("Shutdown", "group teleport deferred to Roblox - " + tostring(issue));
+			ModuleLog.Warn("Shutdown", "group teleport failed, leaving players to Roblox: " + tostring(issue));
 		}
 	}
 }

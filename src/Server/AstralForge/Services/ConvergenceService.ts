@@ -197,7 +197,7 @@ export class ConvergenceService {
 		);
 		if (!(ok && typeIs(total, "number"))) {
 			this._pendingGlobal += amount;
-			ModuleLog.Every("convergence-flush", 30, "LiveOps", tostring(total));
+			ModuleLog.Every("convergence-flush", 30, "LiveOps", "convergence flush failed: " + tostring(total));
 		}
 	}
 
@@ -417,7 +417,7 @@ export class ConvergenceService {
 			}
 			if (!finished) {
 				pcall(task.cancel, worker);
-				ModuleLog.Warn("LiveOps", "skipped the convergence write — shutdown is already late");
+				ModuleLog.Warn("LiveOps", "skipped the convergence write: shutdown is already past its deadline");
 			}
 		}
 	}

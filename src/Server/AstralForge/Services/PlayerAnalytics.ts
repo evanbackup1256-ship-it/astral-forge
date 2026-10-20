@@ -41,7 +41,7 @@ const CUSTOM_ACTIONS: Record<string, boolean | undefined> = {
 const emit = (key: string, callback: () => void) => {
 	const [ok, issue] = pcall(callback);
 	if (!ok) {
-		ModuleLog.Every("analytics:" + key, 60, "Analytics", tostring(issue));
+		ModuleLog.Every("analytics:" + key, 60, "Analytics", string.format("analytics event %s failed: %s", key, tostring(issue)));
 	}
 };
 

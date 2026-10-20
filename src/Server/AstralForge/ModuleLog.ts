@@ -1,3 +1,5 @@
+import * as LogFormat from "../../Shared/AstralForge/Shared/LogFormat";
+
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
 interface TelemetryLike {
@@ -12,83 +14,10 @@ const recent: Record<string, number> = {};
 const emitted: Record<string, boolean> = {};
 
 
-const LEVEL_COLUMN: Record<string, string> = {
-	INFO: "info ",
-	WARN: "warn ",
-	ERROR: "error",
-	FATAL: "fatal",
-	NETWORK: "net  ",
-};
-const SCOPE_COLUMN_WIDTH = 12;
 const startedAt = os.clock();
 
-function field(value: unknown): string {
-	const [sanitized] = string.gsub(tostring(value), "[\r\n]+", " ");
-	return sanitized;
-}
-
-function formatValue(value: unknown): string {
-	if (typeIs(value, "number")) {
-		if (value !== value) {
-			return "nan";
-		}
-		if (value === math.huge || value === -math.huge) {
-			return value > 0 ? "inf" : "-inf";
-		}
-		if (value === math.floor(value) && math.abs(value) < 1e15) {
-			return string.format("%d", value);
-		}
-		return string.format("%.3g", value);
-	}
-	if (typeIs(value, "boolean")) {
-		return tostring(value);
-	}
-	const text = field(value);
-	const [match] = text.find("[%s=\"]");
-	if (text === "" || match !== undefined) {
-		const [escaped] = string.gsub(text, '"', "'");
-		return '"' + escaped + '"';
-	}
-	return text;
-}
-
-function formatPair(key: unknown, value: unknown): string {
-	let name = field(key);
-	name = string.lower(string.sub(name, 1, 1)) + string.sub(name, 2);
-	if (typeIs(value, "number") && string.sub(name, -2) === "Ms" && name.size() > 2) {
-		return string.sub(name, 1, -3) + "=" + formatValue(value) + "ms";
-	}
-	return name + "=" + formatValue(value);
-}
-
 function formatLine(severity: string, scope: string, message: string, params?: Record<string, unknown>): string {
-	let pairsText = "";
-	if (params !== undefined && typeIs(params, "table")) {
-		const keys: string[] = [];
-		for (const key of pairs(params)) {
-			keys.push(tostring(key));
-		}
-		table.sort(keys, (a, b) => tostring(a) < tostring(b));
-		const pieces: string[] = table.create(keys.size());
-		for (const key of keys) {
-			pieces.push(formatPair(key, params[key]));
-		}
-		if (pieces.size() > 0) {
-			pairsText = "  " + pieces.join(" ");
-		}
-	}
-	let scopeText = string.lower(field(scope));
-	if (scopeText.size() < SCOPE_COLUMN_WIDTH) {
-		scopeText += string.rep(" ", SCOPE_COLUMN_WIDTH - scopeText.size());
-	}
-	return string.format(
-		"%8.3f  %s  %s  %s%s",
-		os.clock() - startedAt,
-		LEVEL_COLUMN[severity] ?? string.lower(severity),
-		scopeText,
-		field(message),
-		pairsText,
-	);
+	return LogFormat.formatLine(os.clock() - startedAt, severity, scope, message, params);
 }
 
 function debugEnabled(): boolean {
@@ -128,7 +57,7 @@ const ModuleLog = {
 	Debug(this: void, scope: string, message: string, params?: Record<string, unknown>): void {
 		if (debugEnabled()) {
 			if (telemetry) telemetry.RecordLog("Debug");
-			print(formatLine("INFO", scope, message, params));
+			print(formatLine("DEBUG", scope, message, params));
 		}
 	},
 

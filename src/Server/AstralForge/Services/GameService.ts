@@ -1535,7 +1535,7 @@ export class GameService {
 			if (this._running) {
 				const [ok, problem] = pcall(callback);
 				if (!ok) {
-					ModuleLog.Every("background-worker", 5, "Game", tostring(problem));
+					ModuleLog.Every("background-worker", 5, "Game", "background task failed: " + tostring(problem));
 				}
 			}
 			this._backgroundWorkers.delete(token);
@@ -1618,7 +1618,7 @@ export class GameService {
 						}
 					});
 					if (!updated) {
-						ModuleLog.Every("social-boost:" + tostring(player.UserId), 30, "Social", tostring(updateError));
+						ModuleLog.Every("social-boost:" + tostring(player.UserId), 30, "Social", "friend boost update failed: " + tostring(updateError));
 					}
 				}
 			} while (this._socialBoostDirty);
@@ -6217,7 +6217,7 @@ export class GameService {
 					"join-retry:" + tostring(player.UserId),
 					8,
 					"Player",
-					string.format("%s join retry %d — %s", player.Name, attempts, tostring(problem)),
+					string.format("%s join retry %d: %s", player.Name, attempts, tostring(problem)),
 				);
 			}
 			const locked =
@@ -6239,7 +6239,7 @@ export class GameService {
 					stealNoticeAt = os.clock();
 					ModuleLog.Warn(
 						"Player",
-						string.format("%s save lock held %.0fs — stealing it", player.Name, os.clock() - lockSince),
+						string.format("%s save lock held for %.0fs, taking it over", player.Name, os.clock() - lockSince),
 						{ UserId: player.UserId },
 					);
 					this._toastPlayer(
@@ -6289,7 +6289,7 @@ export class GameService {
 	}
 
 	_onPlayerRemoving(player: Player) {
-		ModuleLog.Player(player, "left — saving");
+		ModuleLog.Player(player, "left, saving");
 		this._joining.delete(player);
 		this._saveFailedToastAt.delete(player);
 		const characterConnection = this._characterConnections.get(player);
@@ -6419,7 +6419,7 @@ export class GameService {
 					this._queueStatePush(player);
 				}
 			} else if (!resolved) {
-				ModuleLog.Every("guild-refresh:" + tostring(player.UserId), 30, "Guild", tostring(problem));
+				ModuleLog.Every("guild-refresh:" + tostring(player.UserId), 30, "Guild", string.format("guild refresh failed for %s: %s", player.Name, tostring(problem)));
 			}
 			runtime.GuildRefreshBusy = false;
 		});
@@ -6635,7 +6635,7 @@ export class GameService {
 					"matter-player-work:" + tostring(player.UserId),
 					5,
 					"game loop",
-					string.format("deferred production failed for %s — %s", player.Name, tostring(problem)),
+					string.format("deferred production failed for %s: %s", player.Name, tostring(problem)),
 				);
 			}
 		});
@@ -6681,7 +6681,7 @@ export class GameService {
 			if (ok) {
 				return decision;
 			}
-			ModuleLog.Warn("Shop", "ProcessReceipt failed — " + tostring(decision));
+			ModuleLog.Warn("Shop", "ProcessReceipt errored: " + tostring(decision));
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
 		};
 		this._matter.Start(this);
@@ -6808,7 +6808,7 @@ export class GameService {
 					string.format("action:%d:%s", player.UserId, tostring(action)),
 					5,
 					"Action",
-					string.format("u=%d could not run %s — %s", player.UserId, tostring(action), tostring(result)),
+					string.format("u=%d could not run %s: %s", player.UserId, tostring(action), tostring(result)),
 				);
 				return responseError("The forge encountered an error. Please try again.");
 			}
@@ -6841,7 +6841,7 @@ export class GameService {
 					string.format("result:%d:%s", player.UserId, tostring(action)),
 					10,
 					"Action",
-					string.format("u=%d %s failed — %s", player.UserId, tostring(action), tostring(resultBag.error)),
+					string.format("u=%d %s failed: %s", player.UserId, tostring(action), tostring(resultBag.error)),
 				);
 			}
 			if (resultBag.ok === true && !readOnly) {

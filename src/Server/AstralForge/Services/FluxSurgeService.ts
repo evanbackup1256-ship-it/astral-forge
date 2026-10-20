@@ -77,7 +77,7 @@ export class FluxSurgeService {
 		if (!wasActive && this.accumulator >= config.Interval) {
 			this.accumulator = 0;
 			this.endsAt = now + config.Duration;
-			ModuleLog.Info("Flux Surge", "A server-wide Flux Surge has started!");
+			ModuleLog.Info("Flux Surge", "server-wide surge started");
 			announce(config.ToastTitle, config.ToastBody, "Special", {
 				Type: "FluxSurge",
 				EndsAt: this.endsAt,
@@ -85,7 +85,7 @@ export class FluxSurgeService {
 				AffectsCapacity: false,
 			});
 		} else if (wasActive && this.endsAt <= now) {
-			ModuleLog.Info("Flux Surge", "The server-wide Flux Surge has ended.");
+			ModuleLog.Info("Flux Surge", "server-wide surge ended");
 			announce(config.EndTitle, config.EndBody, "Info", {
 				Type: "FluxSurgeEnded",
 				EndsAt: 0,

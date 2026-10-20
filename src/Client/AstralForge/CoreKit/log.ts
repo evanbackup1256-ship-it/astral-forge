@@ -1,9 +1,10 @@
 import type { RequestFunction } from "../ClientNetwork";
+import * as LogFormat from "../../../Shared/AstralForge/Shared/LogFormat";
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
 
-type Severity = "INFO" | "WARN" | "ERROR" | "FATAL" | "NETWORK";
+type Severity = "INFO" | "WARN" | "ERROR" | "FATAL" | "NETWORK" | "DEBUG";
 type Params = Record<string, unknown> | undefined;
 
 const recent = new Map<string, number>();
@@ -11,68 +12,10 @@ let recentCount = 0;
 const emitted = new Set<string>();
 let bootMilliseconds = 0;
 let bootOrigin = os.clock();
-const LEVEL_COLUMN: Record<Severity, string> = { INFO: "info ", WARN: "warn ", ERROR: "error", FATAL: "fatal", NETWORK: "net  " };
-const SCOPE_COLUMN_WIDTH = 12;
 const startedAt = os.clock();
 
-function field(value: unknown): string {
-	const [sanitized] = tostring(value).gsub("[\r\n]+", " ");
-	return sanitized;
-}
-
-function formatValue(value: unknown): string {
-	if (typeIs(value, "number")) {
-		if (value !== value) {
-			return "nan";
-		}
-		if (value === math.huge || value === -math.huge) {
-			return value > 0 ? "inf" : "-inf";
-		}
-		if (value === math.floor(value) && math.abs(value) < 1e15) {
-			return "%d".format(value);
-		}
-		return "%.3g".format(value);
-	}
-	if (typeIs(value, "boolean")) {
-		return tostring(value);
-	}
-	const text = field(value);
-	if (text === "" || text.find('[%s="]')[0] !== undefined) {
-		return '"' + text.gsub('"', "'")[0] + '"';
-	}
-	return text;
-}
-
-function formatPair(key: unknown, value: unknown): string {
-	let name = field(key);
-	name = name.sub(1, 1).lower() + name.sub(2);
-	if (typeIs(value, "number") && name.sub(-2) === "Ms" && name.size() > 2) {
-		return name.sub(1, -3) + "=" + formatValue(value) + "ms";
-	}
-	return name + "=" + formatValue(value);
-}
-
 function formatLine(severity: Severity, scope: unknown, message: unknown, params: Params): string {
-	let pairsText = "";
-	if (params !== undefined && typeIs(params, "table")) {
-		const keys = new Array<defined>();
-		for (const [key] of pairs(params)) {
-			keys.push(key);
-		}
-		keys.sort((a, b) => tostring(a) < tostring(b));
-		const pieces = new Array<string>(keys.size());
-		for (const key of keys) {
-			pieces.push(formatPair(key, (params as Record<string, unknown>)[key as string]));
-		}
-		if (pieces.size() > 0) {
-			pairsText = "  " + pieces.join(" ");
-		}
-	}
-	let scopeText = field(scope).lower();
-	if (scopeText.size() < SCOPE_COLUMN_WIDTH) {
-		scopeText += " ".rep(SCOPE_COLUMN_WIDTH - scopeText.size());
-	}
-	return "%8.3f  %s  %s  %s%s".format(os.clock() - startedAt, LEVEL_COLUMN[severity] ?? severity.lower(), scopeText, field(message), pairsText);
+	return LogFormat.formatLine(os.clock() - startedAt, severity, scope, message, params);
 }
 
 function available(key: string, seconds: number): boolean {
@@ -114,7 +57,7 @@ export const ClientLog = {
 	},
 	debug(scope: string, message: string, params?: Params) {
 		if (debugEnabled()) {
-			print(formatLine("INFO", scope, message, params));
+			print(formatLine("DEBUG", scope, message, params));
 		}
 	},
 	once(key: string, scope: string, message: string, params?: Params) {

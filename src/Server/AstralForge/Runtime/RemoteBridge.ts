@@ -101,7 +101,7 @@ export class RemoteBridge implements OnInit {
 			this.folder.SetAttribute("BootFailure", string.sub(problem, 1, 1000));
 			error(result, 0);
 		}
-		ModuleLog.Info("BOOT", label, { ElapsedMs: math.floor((os.clock() - start) * 1000) });
+		ModuleLog.Info("BOOT", label + " done", { ElapsedMs: math.floor((os.clock() - start) * 1000) });
 		return result as T;
 	}
 
@@ -153,7 +153,7 @@ export class RemoteBridge implements OnInit {
 		for (const [, label, callback] of ordered) {
 			const [ok, problem] = xpcall(callback, (err: unknown) => debug.traceback(tostring(err)));
 			if (!ok) {
-				ModuleLog.Warn("Shutdown", string.format("%s failed - %s", label, tostring(problem)));
+				ModuleLog.Warn("Shutdown", string.format("%s failed: %s", label, tostring(problem)));
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 -- Runs every verify script that still works against the roblox-ts build (out/).
 -- Run `npx rbxtsc` first.
 require("./verify_boot_graph")
+require("./verify_log_format")
 require("./verify_atomic_state")
 require("./verify_bazaar_math")
 require("./verify_companion_playback")

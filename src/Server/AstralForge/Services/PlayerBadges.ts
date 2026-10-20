@@ -42,7 +42,7 @@ export class PlayerBadges {
 			const [ok, awarded] = pcall(() => BadgeService.AwardBadgeAsync(player.UserId, badgeId));
 			if (this._alive && (!ok || awarded !== true)) {
 				attempts.delete(key);
-				ModuleLog.Every("badge:" + key, 60, "Badges", ok ? "platform declined badge award" : tostring(awarded));
+				ModuleLog.Every("badge:" + key, 60, "Badges", ok ? "Roblox declined the badge award" : "badge award failed: " + tostring(awarded));
 			}
 			this._workers.delete(token);
 		});
