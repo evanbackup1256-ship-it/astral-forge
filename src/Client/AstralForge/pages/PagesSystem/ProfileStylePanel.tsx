@@ -5,6 +5,7 @@ import { Palette, Radius, TapTarget } from "../../CoreKit/theme";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import { ClientActions, useClientDispatch } from "../../CoreKit/clientStore";
 import * as NavRoutes from "../../../../Shared/AstralForge/Shared/NavRoutes";
+import BrowseModel = require("../../BrowseModel");
 import { kitMember, LuauComponent, sharedModule } from "../luauKits";
 
 const Players = game.GetService("Players");
@@ -130,6 +131,8 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 	const storeDispatch = useClientDispatch();
 	const openShop = () => {
 		if (NavRoutes.isNavId("Shop")) {
+			// same deep link Quick Find uses: the Shop opens on (or switches to) its Skins section
+			BrowseModel.link("Shop", { query: BrowseModel.recall("Shop")?.query ?? "", category: "Skins" });
 			storeDispatch(ClientActions.navigate("Shop"));
 		}
 	};
