@@ -1,5 +1,18 @@
 import React from "@rbxts/react";
 const TweenService = game.GetService("TweenService");
+const UserInputService = game.GetService("UserInputService");
+const ContextActionService = game.GetService("ContextActionService");
+const GuiService = game.GetService("GuiService");
+let jumpBindings = 0;
+
+function inside(gui: GuiObject | undefined, point: Vector2): boolean {
+	if (gui === undefined) {
+		return false;
+	}
+	const at = gui.AbsolutePosition;
+	const size = gui.AbsoluteSize;
+	return point.X >= at.X && point.X <= at.X + size.X && point.Y >= at.Y && point.Y <= at.Y + size.Y;
+}
 import { luaProp, reactLoose, kit } from "./viewRuntime";
 
 // The group you're scrolling through stays pinned to the top of a list until the next group
@@ -10,6 +23,16 @@ export interface StickyGroup {
 	top: number;
 	label: string;
 	color: Color3;
+	/** shown on the jump button when the label doesn't already carry one */
+	count?: number;
+}
+
+// "QUIET · 3"; labels that already count (OFFICERS · 4) or name one person (YOU) stay as they are
+function jumpText(group: StickyGroup): string {
+	if (group.count === undefined || group.label === "YOU" || group.label.find("·", 1, true)[0] !== undefined) {
+		return group.label;
+	}
+	return `${group.label} · ${group.count}`;
 }
 
 /**
@@ -20,6 +43,12 @@ export interface StickyGroup {
 /** Tap the label to jump straight to another group (You, Leader, Quiet, ...). */
 export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number; inner?: boolean; reducedMotion?: unknown }) {
 	const [menuOpen, setMenuOpen] = React.useState(false);
+	const menuOpenRef = React.useRef(false);
+	menuOpenRef.current = menuOpen;
+	const menuRef = React.useRef<Frame>();
+	const openMenuRef = React.useRef<(open: boolean) => void>(() => undefined);
+	const feedback = luaProp(kit("CoreKit", "interaction"), "InteractionFeedback") as unknown as { tick?: (this: void) => void };
+
 	const hostRef = React.useRef<Frame>();
 	const [offset, setOffset] = React.useBinding(0);
 	const [current, setCurrent] = React.useState(0);
@@ -50,13 +79,100 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 				}
 			}
 			setCurrent(index);
+			// scrolling by hand closes the jump menu
+			if (menuOpenRef.current) {
+				openMenuRef.current(false);
+			}
 		};
 		update();
 		const connection = scroller.GetPropertyChangedSignal("CanvasPosition").Connect(update);
 		return () => connection.Disconnect();
 	}, [props.height, inner]);
+	// open/close by tap, B or L3. The menu takes gamepad focus while open and hands it back after.
+	const focusBefore = React.useRef<GuiObject>();
+	const openMenu = (open: boolean) => {
+		if (open === menuOpenRef.current) {
+			return;
+		}
+		menuOpenRef.current = open;
+		setMenuOpen(open);
+		if (!UserInputService.GamepadEnabled) {
+			return;
+		}
+		if (open) {
+			focusBefore.current = GuiService.SelectedObject;
+			task.defer(() => {
+				const menu = menuRef.current;
+				if (menu !== undefined && menuOpenRef.current) {
+					GuiService.Select(menu);
+				}
+			});
+		} else {
+			const back = focusBefore.current;
+			focusBefore.current = undefined;
+			const selected = GuiService.SelectedObject;
+			if (back !== undefined && back.Parent !== undefined && (selected === undefined || (menuRef.current !== undefined && selected.IsDescendantOf(menuRef.current)))) {
+				GuiService.SelectedObject = back;
+			}
+		}
+	};
+	openMenuRef.current = openMenu;
+	React.useEffect(() => {
+		jumpBindings += 1;
+		const name = `AstralForgeStickyJump${jumpBindings}`;
+		ContextActionService.BindActionAtPriority(
+			name,
+			(_: string, inputState: Enum.UserInputState, input: InputObject) => {
+				if (inputState !== Enum.UserInputState.Begin) {
+					return Enum.ContextActionResult.Pass;
+				}
+				if (input.KeyCode === Enum.KeyCode.ButtonB) {
+					if (!menuOpenRef.current) {
+						return Enum.ContextActionResult.Pass;
+					}
+					openMenu(false);
+					return Enum.ContextActionResult.Sink;
+				}
+				// L3 opens the menu for the list that has gamepad focus
+				const container = hostRef.current?.Parent;
+				const selected = GuiService.SelectedObject;
+				const mine = container !== undefined && selected !== undefined && selected.IsDescendantOf(container);
+				if (!mine && !menuOpenRef.current) {
+					return Enum.ContextActionResult.Pass;
+				}
+				feedback.tick?.();
+				openMenu(!menuOpenRef.current);
+				return Enum.ContextActionResult.Sink;
+			},
+			false,
+			2300,
+			Enum.KeyCode.ButtonB,
+			Enum.KeyCode.ButtonL3,
+		);
+		return () => ContextActionService.UnbindAction(name);
+	}, []);
+	React.useEffect(() => {
+		if (!menuOpen) {
+			return undefined;
+		}
+		// a tap or click anywhere outside the bar and the menu closes it
+		const connection = UserInputService.InputBegan.Connect((input) => {
+			const kind = input.UserInputType;
+			if (kind !== Enum.UserInputType.MouseButton1 && kind !== Enum.UserInputType.Touch) {
+				return;
+			}
+			const point = new Vector2(input.Position.X, input.Position.Y);
+			const inset = GuiService.GetGuiInset()[0];
+			const gui = point.sub(inset);
+			const hit = (target: GuiObject | undefined) => inside(target, point) || inside(target, gui);
+			if (!hit(hostRef.current) && !hit(menuRef.current)) {
+				openMenu(false);
+			}
+		});
+		return () => connection.Disconnect();
+	}, [menuOpen]);
 	const jump = (top: number) => {
-		setMenuOpen(false);
+		openMenu(false);
 		const host = hostRef.current;
 		const container = host?.Parent as GuiObject | undefined;
 		const scroller = inner
@@ -79,7 +195,6 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 	};
 	const Palette = luaProp(kit("CoreKit", "theme"), "Palette");
 	const Button = luaProp(kit("UiCore", "ui"), "Button");
-	const feedback = luaProp(kit("CoreKit", "interaction"), "InteractionFeedback") as unknown as { tick?: (this: void) => void };
 	const Text = luaProp(kit("UiCore", "ui"), "Text");
 	const group = props.groups[math.min(current, props.groups.size() - 1)];
 	return reactLoose.createElement(
@@ -128,7 +243,7 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 			Event: {
 				Activated: () => {
 					feedback.tick?.();
-					setMenuOpen(!menuOpen);
+					openMenu(!menuOpenRef.current);
 				},
 			},
 		}),
@@ -136,6 +251,7 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 			? reactLoose.createElement(
 					"frame",
 					{
+						ref: menuRef,
 						Size: new UDim2(1, 0, 0, 44),
 						Position: UDim2.fromOffset(0, STICKY_H + 6),
 						BackgroundTransparency: 1,
@@ -150,7 +266,7 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 					...props.groups.map((g, i) =>
 						reactLoose.createElement(Button as never, {
 							key: `jump-${i}`,
-							text: g.label,
+							text: jumpText(g),
 							onClick: () => jump(g.top),
 							sound: "tick",
 							color: g.color,

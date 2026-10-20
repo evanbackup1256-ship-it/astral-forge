@@ -668,8 +668,10 @@ function __member(): unknown {
 			if (label !== lastGroup) {
 				lastGroup = label;
 				const color = (label === "QUIET" ? luaProp(Palette, "muted") : label === "YOU" ? luaProp(Palette, "blue") : luaProp(Palette, "mint")) as unknown as Color3;
-				rosterGroups.push({ top: i * (rowStride as number), label, color });
+				rosterGroups.push({ top: i * (rowStride as number), label, color, count: 0 });
 			}
+			const group = rosterGroups[rosterGroups.size() - 1];
+			group.count = (group.count ?? 0) + 1;
 		}
 		const rosterSticky = rosterGroups.size() > 1;
 		const rosterPad = rosterSticky ? STICKY_H + 6 : 0;
@@ -728,7 +730,7 @@ function __member(): unknown {
 				const gap = listGap as number;
 				const count = rowElements.size();
 				const blockH = rosterPad + count * (rowStride as number) + math.max(0, count - 1) * gap;
-				const groups = rosterGroups.map((g, i) => ({ top: rosterPad + (g.top / (rowStride as number)) * ((rowStride as number) + gap), label: g.label, color: g.color }));
+				const groups = rosterGroups.map((g, i) => ({ top: rosterPad + (g.top / (rowStride as number)) * ((rowStride as number) + gap), label: g.label, color: g.color, count: g.count }));
 				const rows = rowElements.map((row, i) => reactLoose.createElement("frame", { key: `row-${i}`, Size: new UDim2(1, 0, 0, rowStride as number), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: i }, row));
 				luaTable.insert(sections, { id: "crew-roster", height: blockH, element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(StickyGroupLabel, { groups, height: blockH, reducedMotion: softMotion }), reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -rosterPad), Position: UDim2.fromOffset(0, rosterPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, Padding: new UDim(0, gap), SortOrder: Enum.SortOrder.LayoutOrder }), ...rows)) });
 			} else {
