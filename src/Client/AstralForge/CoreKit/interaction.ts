@@ -60,6 +60,10 @@ function supportsVibration(input: Enum.UserInputType): boolean {
 
 function hapticTarget(): Enum.UserInputType | undefined {
 	const last = UserInputService.GetLastInputType();
+	// phones that expose a touch motor get the same feedback as a pad; the rest stay silent
+	if (last === Enum.UserInputType.Touch) {
+		return supportsVibration(last) ? last : undefined;
+	}
 	if (isGamepadInput(last)) {
 		return supportsVibration(last) ? last : undefined;
 	}
@@ -196,4 +200,9 @@ export const InteractionFeedback = {
 	tick: () => pulse(0.1, 0.025),
 	reward: () => pulse(0.5, 0.11),
 	confirm: () => pulse(0.32, 0.06),
+	// a refused press: two short low knocks, softer than a reward so it reads as "no", not "yes"
+	fail: () => {
+		pulse(0.18, 0.04);
+		task.delay(0.09, () => pulse(0.18, 0.04));
+	},
 };

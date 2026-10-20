@@ -2147,8 +2147,10 @@ export function Button(props: ButtonProps) {
 	React.useEffect(() => {
 		if (shakeToken !== lastShakeToken.current) {
 			lastShakeToken.current = shakeToken;
-			if (shakeToken > 0 && !reducedMotion) {
+			// the refusal is heard and felt even with Reduced Motion on; only the shake is visual
+			if (shakeToken > 0) {
 				Audio.play("noticeError");
+				InteractionFeedback.fail();
 			}
 		}
 	}, [reducedMotion, shakeToken]);
