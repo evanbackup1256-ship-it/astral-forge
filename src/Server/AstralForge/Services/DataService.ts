@@ -90,8 +90,20 @@ interface Atom {
 		callback: (this: void, draft: Dict, revision: number) => unknown,
 		incrementRevision?: boolean,
 	): LuaTuple<[boolean, unknown, number]>;
+	TransactInPlace(
+		callback: (this: void, draft: Dict, revision: number) => unknown,
+		deepKeys: ReadonlyArray<string>,
+		shallowKeys: ReadonlyArray<string>,
+		incrementRevision?: boolean,
+	): LuaTuple<[boolean, unknown, number]>;
 	Replace(value: unknown, revision?: number): boolean;
 }
+
+// the production tick only writes root fields (currencies) and these sections (ProfileBagMath
+// Ensure*, ProgressionService.Progress/EnsureTimedRewards, LabService.Progress, AnomalyService
+// Progress/Signal); Meta gets LastSeen. Everything else it only reads. See TransactInPlace.
+const PRODUCTION_DEEP_KEYS: ReadonlyArray<string> = ["ActiveBoost", "Stats", "Quests", "TimedRewards", "Lab", "Anomaly"];
+const PRODUCTION_SHALLOW_KEYS: ReadonlyArray<string> = ["Meta"];
 
 interface AtomicStateApi {
 	new: (this: void, initial: unknown) => Atom;
@@ -883,6 +895,9 @@ export = (loadService: LoadService) => {
 		_memoryMode = new Map<Player, boolean>();
 		_previousLastSeen = new Map<Player, number>();
 		_atoms = new Map<Player, Atom>();
+		// bumped on every committed update; an in-place commit keeps the profile table, so saves
+		// compare this rather than table identity to know whether anything changed meanwhile
+		_writeGen = new Map<Player, number>();
 		_integrityStatus = new Map<Player, IntegrityStatus>();
 		_cacheSyncThreads = new Map<Player, thread>();
 		_lastCacheSyncAt = new Map<Player, number>();
@@ -952,6 +967,7 @@ export = (loadService: LoadService) => {
 			this._lastCacheSyncAt.delete(player);
 			ServerTelemetry.RecordPlayerLeft(player.UserId);
 			this._profiles.delete(player);
+			this._writeGen.delete(player);
 			this._documents.delete(player);
 			this._atoms.delete(player);
 			this._dirty.delete(player);
@@ -1365,7 +1381,7 @@ export = (loadService: LoadService) => {
 				return $tuple(false, "Profile is not loaded");
 			}
 			const transactionLabel = label ?? "unnamed";
-			const [success, result] = atom.Transact((draft, revision) => {
+			const run = (draft: Dict, revision: number): unknown => {
 				if (this._releasing.get(player)) {
 					return { ok: false, message: "Profile session is closing" };
 				}
@@ -1386,7 +1402,11 @@ export = (loadService: LoadService) => {
 					ProfileIntegrity.Record(draft, transactionLabel, revision);
 				}
 				return callbackResult;
-			}, incrementRevision);
+			};
+			const [success, result] =
+				transactionLabel === "production"
+					? atom.TransactInPlace(run, PRODUCTION_DEEP_KEYS, PRODUCTION_SHALLOW_KEYS, incrementRevision)
+					: atom.Transact(run, incrementRevision);
 			if (!success) {
 				ModuleLog.Every(
 					"mutation:" + tostring(player.UserId) + ":" + transactionLabel,
@@ -1404,6 +1424,7 @@ export = (loadService: LoadService) => {
 				this._profiles.set(player, committed);
 				profile = committed;
 			}
+			this._writeGen.set(player, (this._writeGen.get(player) ?? 0) + 1);
 			this._dirty.set(player, true);
 			if (transactionLabel !== "production") this._queueDocumentSync(player);
 			return $tuple(true, result);
@@ -1428,6 +1449,7 @@ export = (loadService: LoadService) => {
 		_saveUnlocked(player: Player, releaseSession?: boolean): boolean {
 			const saveStartedAt = os.clock();
 			const profile = this._profiles.get(player);
+			const writeGenAtSnapshot = this._writeGen.get(player) ?? 0;
 			if (profile === undefined) {
 				ServerTelemetry.Observe("ProfileSave", os.clock() - saveStartedAt, true);
 				return true;
@@ -1542,7 +1564,11 @@ export = (loadService: LoadService) => {
 				const currentRevision =
 					current !== undefined && truthy(current.Meta) ? num(d(current.Meta).Revision) ?? -1 : -1;
 				const snapshotRevision = num(d(snapshot.Meta).Revision) ?? 0;
-				if (current === profile && currentRevision === snapshotRevision) {
+				if (
+					current === profile &&
+					currentRevision === snapshotRevision &&
+					(this._writeGen.get(player) ?? 0) === writeGenAtSnapshot
+				) {
 					d(profile.Meta).LastSave = now;
 					d(profile.Meta).LastSeen = now;
 					d(profile.Meta).Transactions = deepCopy(d(snapshot.Meta).Transactions);
