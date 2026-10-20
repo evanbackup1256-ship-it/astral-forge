@@ -1,35 +1,6 @@
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
-import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
-function luaRequire(moduleScript: unknown): unknown {
-	return require(moduleScript as ModuleScript) as unknown;
-}
-function instChild(parent: Instance, name: string): Instance {
-	return (parent as unknown as Record<string, Instance>)[name];
-}
-
-const AstralForge = script.Parent!.Parent!.Parent!;
-
-function kit(name: string, member: string): unknown {
-	return luaCall(luaRequire(AstralForge.WaitForChild(name) as ModuleScript), member);
-}
-function mod(...names: string[]): unknown {
-	let current: Instance = AstralForge;
-	for (const name of names) {
-		current = current.WaitForChild(name);
-	}
-	return luaRequire(current as ModuleScript);
-}
-function modRel(ups: number, ...names: string[]): unknown {
-	let current: Instance = script;
-	for (let i = 0; i < ups; i++) {
-		current = current.Parent!;
-	}
-	for (const name of names) {
-		current = current.WaitForChild(name);
-	}
-	return luaRequire(current as ModuleScript);
-}
+import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod } from "./viewRuntime";
 
 function __member(): unknown {
 	let UserInputService: unknown = colon(game).GetService("UserInputService");

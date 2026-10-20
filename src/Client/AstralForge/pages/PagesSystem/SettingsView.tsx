@@ -31,14 +31,14 @@ interface SchemaEntry {
 	label: string;
 	help: string;
 	kind: string;
-	default: unknown;
+	default: number;
 	advanced?: boolean;
 	choices?: SchemaChoice[];
 }
 interface SchemaPreset {
 	id: string;
 	label: string;
-	values: unknown;
+	values: Record<string, number>;
 	notice: string;
 }
 type Settings = Record<string, number | undefined>;
@@ -48,7 +48,7 @@ interface SettingsSchema {
 	PRESETS: SchemaPreset[];
 	value(this: void, settings: Settings, key: string): number;
 	matchingPreset(this: void, settings: Settings): string | undefined;
-	sectionDefaults(this: void, section: string): unknown;
+	sectionDefaults(this: void, section: string): Record<string, number>;
 	group(this: void, key: string): { label: string; order: number };
 }
 const Schema = sharedModule<(name: string) => SettingsSchema>("SharedData")("SettingsSchema");

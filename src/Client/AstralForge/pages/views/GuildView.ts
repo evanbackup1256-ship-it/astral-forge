@@ -1,50 +1,7 @@
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
-import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
-function luaRequire(moduleScript: unknown): unknown {
-	return require(moduleScript as ModuleScript) as unknown;
-}
-function instChild(parent: Instance, name: string): Instance {
-	return (parent as unknown as Record<string, Instance>)[name];
-}
-
-const AstralForge = script.Parent!.Parent!.Parent!;
-
-function kit(name: string, member: string): unknown {
-	return luaCall(luaRequire(AstralForge.WaitForChild(name) as ModuleScript), member);
-}
-function mod(...names: string[]): unknown {
-	let current: Instance = AstralForge;
-	for (const name of names) {
-		current = current.WaitForChild(name);
-	}
-	return luaRequire(current as ModuleScript);
-}
-function modRel(ups: number, ...names: string[]): unknown {
-	let current: Instance = script;
-	for (let i = 0; i < ups; i++) {
-		current = current.Parent!;
-	}
-	for (const name of names) {
-		current = current.WaitForChild(name);
-	}
-	return luaRequire(current as ModuleScript);
-}
-
-/** Moves the local member (by Members key, a stringified UserId) to the front; keeps the rest in order. */
-function pinLocalMember(list: unknown[] | undefined, localKey: unknown): unknown[] {
-	const front: defined[] = [];
-	const rest: defined[] = [];
-	for (const member of (list ?? []) as defined[]) {
-		const key = typeIs(member, "table") ? (member as { key?: unknown }).key : undefined;
-		(key === localKey ? front : rest).push(member);
-	}
-	for (const member of rest) {
-		front.push(member);
-	}
-	return front;
-}
+import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
 
 /**
  * Profile-style hook for guild member rows. `userKey` is the Members key (stringified UserId).
@@ -1195,7 +1152,7 @@ function __member(): unknown {
 			}
 		}
 		// pin yourself above the role-sorted list so you never have to search for your own row
-		shownMembers = pinLocalMember(shownMembers as unknown[], localKey);
+		shownMembers = pinFirst(shownMembers as unknown[], (member) => luaProp(member, "key") === localKey);
 		let memberChildren: unknown = {};
 		for (const [index, member] of pairs((shownMembers) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 			let share: unknown = 0;

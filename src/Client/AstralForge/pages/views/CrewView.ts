@@ -1,36 +1,7 @@
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
-import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
-function luaRequire(moduleScript: unknown): unknown {
-	return require(moduleScript as ModuleScript) as unknown;
-}
-function instChild(parent: Instance, name: string): Instance {
-	return (parent as unknown as Record<string, Instance>)[name];
-}
-
-const AstralForge = script.Parent!.Parent!.Parent!;
-
-function kit(name: string, member: string): unknown {
-	return luaCall(luaRequire(AstralForge.WaitForChild(name) as ModuleScript), member);
-}
-function mod(...names: string[]): unknown {
-	let current: Instance = AstralForge;
-	for (const name of names) {
-		current = current.WaitForChild(name);
-	}
-	return luaRequire(current as ModuleScript);
-}
-function modRel(ups: number, ...names: string[]): unknown {
-	let current: Instance = script;
-	for (let i = 0; i < ups; i++) {
-		current = current.Parent!;
-	}
-	for (const name of names) {
-		current = current.WaitForChild(name);
-	}
-	return luaRequire(current as ModuleScript);
-}
+import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
 
 /** Short pill under the island, for outcomes the dispatcher doesn't already announce. */
 function crewStatus(text: string): void {
@@ -48,19 +19,6 @@ function crewRowAccent(player: unknown): Color3 | undefined {
 		return undefined;
 	}
 	return ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(userId)).accent;
-}
-
-/** Stable: items matching `pinned` move to the front, everything else keeps its order. */
-function pinFirst(list: unknown[] | undefined, pinned: (item: unknown) => boolean): unknown[] {
-	const front: defined[] = [];
-	const rest: defined[] = [];
-	for (const item of (list ?? []) as defined[]) {
-		(pinned(item) ? front : rest).push(item);
-	}
-	for (const item of rest) {
-		front.push(item);
-	}
-	return front;
 }
 
 function __member(): unknown {

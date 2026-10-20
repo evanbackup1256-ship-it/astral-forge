@@ -58,3 +58,36 @@ export interface LuaTableOps {
 	unpack: (list: unknown, i?: unknown, j?: unknown) => unknown;
 }
 export const luaTable = table as unknown as LuaTableOps;
+
+// Module loading shared by the ported views (they all sit in this folder, so script-relative
+// paths resolve the same from here).
+const AstralForge = script.Parent!.Parent!.Parent!;
+export function luaRequire(moduleScript: unknown): unknown {
+	return require(moduleScript as ModuleScript) as unknown;
+}
+export function instChild(parent: Instance, name: string): Instance {
+	return (parent as unknown as Record<string, Instance>)[name];
+}
+export function kit(name: string, member: string): unknown {
+	return luaCall(luaRequire(AstralForge.WaitForChild(name) as ModuleScript), member);
+}
+export function mod(...names: string[]): unknown {
+	let current: Instance = AstralForge;
+	for (const name of names) {
+		current = current.WaitForChild(name);
+	}
+	return luaRequire(current as ModuleScript);
+}
+
+/** Stable: items matching `pinned` move to the front, everything else keeps its order. */
+export function pinFirst(list: unknown[] | undefined, pinned: (item: unknown) => boolean): unknown[] {
+	const front: defined[] = [];
+	const rest: defined[] = [];
+	for (const item of (list ?? []) as defined[]) {
+		(pinned(item) ? front : rest).push(item);
+	}
+	for (const item of rest) {
+		front.push(item);
+	}
+	return front;
+}
