@@ -3747,7 +3747,8 @@ export class GameService {
 				remaining,
 				inventoryCount(profile),
 				GameConfig.Items.InventoryLimit,
-				profile[offer.Currency as string],
+				// Cash above 1e15 persists as an Omega string; compare it as a number
+				offer.Currency === "Cash" ? progressionNumber(profile.Cash) : profile[offer.Currency as string],
 				(need: unknown, currency: unknown) =>
 					string.format("You need %s more %s.", (Format.Number as Fn)(need) as string, tostring(currency)),
 			) as LuaTuple<[unknown, unknown]>;
@@ -3755,7 +3756,11 @@ export class GameService {
 				return responseError(truthy(denyReason) ? denyReason : "That market offer is unavailable.");
 			}
 			const currency = offer.Currency as string;
-			profile[currency] = (profile[currency] as number) - (offer.Price as number);
+			if (currency === "Cash") {
+				profile.Cash = Economy.Sub(profile.Cash, offer.Price as number);
+			} else {
+				profile[currency] = (profile[currency] as number) - (offer.Price as number);
+			}
 			const keys = items.Keys as Dict;
 			let itemUid: string | undefined;
 			if (offer.Kind === "Key") {

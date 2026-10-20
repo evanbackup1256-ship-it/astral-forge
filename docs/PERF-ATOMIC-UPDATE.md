@@ -42,3 +42,20 @@ Any faster implementation must pass this test unchanged.
 Recommendation: keep `Transact` as is (2-ms class copy); if profiling in Studio shows a hot
 non-production action, move that action to `TransactInPlace` with an audited key list and add
 it to the randomized test.
+
+## Stage 15 re-measurement (Lune, compiled out/)
+
+Real `DataTemplate.New()` profile run through `normalizeStoredProfile`, then filled to the
+real relic `InventoryLimit` (100 relics, 327 tables in total):
+
+| Step | Template profile (107 tables) | Full-inventory profile (327 tables) |
+| --- | --- | --- |
+| full deep copy (`Transact` pre-image) | 0.03–0.04 ms | 0.06–0.10 ms |
+| `reconcile` + `sanitize` (`normalizeStoredProfile`) | 0.33 ms | 0.79 ms |
+
+At realistic sizes the deep copy is about 10% of a non-production transaction. Normalisation
+costs roughly 8× as much, and the production tick already skips the copy. Copy-on-write or a
+touched-key copy would save at most about 0.1 ms per action, and it carries the equivalence
+risks listed above. **Decision: no change.** If this becomes a hotspot, the only lever worth
+pulling is a narrower `sanitize` for each label, which changes what gets saved for damaged
+data and so needs its own decision.

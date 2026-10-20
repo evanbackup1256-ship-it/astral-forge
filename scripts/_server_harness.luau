@@ -237,6 +237,7 @@ function harnessTask.cancel(thread)
 	return task.cancel(thread)
 end
 Harness.task = harnessTask
+Harness.Stub = Stub
 
 env = {
 	game = game,
@@ -304,6 +305,7 @@ function Harness.player(name)
 	function p:SetAttribute(k, v) attrs[k] = v end
 	function p:IsA(c) return c == "Player" or c == "Instance" end
 	function p:Kick() end
+	function p:FindFirstChild() return nil end
 	function p:IsInGroup() return false end
 	function p:GetRankInGroup() return 0 end
 	table.insert(Players.__players, p)
