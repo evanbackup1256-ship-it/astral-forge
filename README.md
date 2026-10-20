@@ -16,7 +16,7 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 | Node / npm packages | Node 24; roblox-ts 3, TypeScript 7, React 17 (types only; runtime packages are vendored in `vendor/`) |
 | Python (asset tools) | 3.14 |
 
-The verification suite is the scripts/verify_*.luau guards run by lune run scripts/verify_project.luau.
+The verification suite is the scripts/verify_*.luau guards run by `lune run scripts/verify_project.luau` against the compiled `out/` tree.
 Last updated 2026-10-09.
 
 ## Release 7.0
@@ -449,25 +449,23 @@ Default branch is `master` on `origin` only — do not stay on feature branches 
 
 ## Checks
 
-The full suite (every module's syntax and the register limits) is `lune run scripts/verify_project.luau`; commit only on exit code 0.
+The suite is `lune run scripts/verify_project.luau` (after `npx rbxtsc`); commit only on exit code 0.
 
-Install [Lune](https://lune-org.github.io/docs/) for the pure layout tests, then run:
+Install [Lune](https://lune-org.github.io/docs/), then run:
 
 ```bash
 npm test
 argon build default.project.json -x -o "Astral Forge v2.rbxlx"
 ```
 
-`npm test` covers phone portrait/landscape, short landscape, tablet, foldable,
-desktop, ultrawide layout planning, fail-closed profile version guards, and a
-**Lune-safe ReleaseReadiness subset** (`scripts/verify_release_readiness.luau`:
-config identity, PreviousId/ArtifactId/CrateId/Boost refs, achievement/mail/story
-envelopes, Trading/Guild/RemoteFirewall knobs, Continuum/Lab/ForgePath/Wheel
-envelopes, TradeSettle.RunHostGuest wiring, DV21 + PlatformBadges).
-It does **not** run `ReleaseReadiness.RunQuick` / `RunSoak` (Economy soak +
-ProfileIntegrity recovery) — those stay Studio-only via `init.server.luau`.
-Argon validates the project mapping; it does **not**
-execute the game or check every Luau runtime path.
+`npm test` runs `scripts/verify_project.luau`, which requires the verify scripts that still
+run against the roblox-ts build in `out/` (run `npx rbxtsc` first): bazaar math, omega
+precision, profile version guards, motion intent, market inspection, companions and
+companion playback, credits, shimmer transitions, soundtrack, title tiers and TS imports.
+The older Luau-era verify scripts that read deleted `.luau` sources were removed; their
+names may still appear in the history notes above. `scripts/studio_page_smoke.luau` is a
+Studio-only page-smoke harness and is not part of `npm test`.
+Argon validates the project mapping; it does **not** execute the game.
 
 ### Studio QA checklist (ENTIRE-goal closeout)
 
