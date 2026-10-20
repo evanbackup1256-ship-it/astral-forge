@@ -2,7 +2,9 @@
 // heavy kits, so requires stay inline (ES imports would hoist them all to the top).
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
+import { Dependency, Flamework } from "@flamework/core";
 import { Dict } from "./lua";
+import type { UiShellController } from "./Controllers/UiShellController";
 import type { ClientEvents as ClientEventsShape, PushEvent, RequestFunction } from "./ClientNetwork";
 
 type Loose = (props: Dict) => React.Element | undefined;
@@ -53,9 +55,11 @@ const useClientSelector = _clientStore.useClientSelector;
 task.wait();
 const DomainChamber = kit<{ DomainChamber: Loose }>("UiOverlays", "DomainChamber").DomainChamber;
 task.wait();
-const initializeClientFramework = load<{ initializeClientFramework: (this: void, root: Instance) => void }>(
-	"framework",
-).initializeClientFramework;
+// Client controllers (UI shell, root registry, layout guard) run on Flamework.
+Flamework.addPaths("src/Client/AstralForge/Controllers");
+Flamework.addPaths("src/Client/AstralForge/layoutGuard.ts");
+Flamework.ignite();
+const uiShell = Dependency<UiShellController>();
 const _log = kit<typeof import("./CoreKit/log")>("CoreKit", "log");
 const beginClientSession = _log.beginClientSession;
 const ClientLog = _log.ClientLog;
@@ -554,7 +558,7 @@ class ClientRuntime {
 			}
 		});
 		this.disposers.push(this.vrHost.dispose);
-		initializeClientFramework(screen);
+		uiShell.attach(screen);
 		const destroying = trackBootConnection(screen.Destroying.Connect(() => this.dispose()));
 		this.disposers.push(() => {
 			disconnectBootConnection(destroying);

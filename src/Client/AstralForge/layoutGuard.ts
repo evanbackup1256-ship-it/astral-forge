@@ -1,4 +1,6 @@
+import { Controller, OnInit, OnStart, OnTick } from "@flamework/core";
 import { ClientLog } from "./CoreKit/log";
+import { UiRootRegistry } from "./Controllers/UiRootRegistry";
 import Diagnostics = require("./LayoutDiagnostics");
 
 
@@ -903,7 +905,8 @@ interface RuntimeApi {
 	primary(): UiRootComponent | undefined;
 }
 
-class LayoutGuardController {
+@Controller({ loadOrder: 2 })
+class LayoutGuardController implements OnInit, OnStart, OnTick {
 	components: ComponentsApi;
 	runtime: RuntimeApi | undefined;
 	target: UiRootComponent | undefined;
@@ -938,9 +941,9 @@ class LayoutGuardController {
 	overlapPhase = 1;
 	collisionWork: thread | undefined = undefined;
 
-	constructor(components: ComponentsApi, runtime: RuntimeApi) {
-		this.components = components;
-		this.runtime = runtime;
+	constructor(registry: UiRootRegistry) {
+		this.components = registry;
+		this.runtime = registry;
 	}
 
 	hotPass(budget: number) {
