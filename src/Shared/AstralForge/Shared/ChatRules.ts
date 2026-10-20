@@ -148,15 +148,13 @@ function trim(text: string): string {
 
 // roblox-ts string.match returns string|number|undefined for each capture.
 function cap1(text: string, pattern: string): string | undefined {
-	const [v] = text.match(pattern) as unknown as [string | number | undefined];
+	// Keep the LuaTuple type: casting it to an array makes roblox-ts index the first capture as a table.
+	const [v] = text.match(pattern);
 	return typeIs(v, "string") ? v : undefined;
 }
 
 function cap2(text: string, pattern: string): LuaTuple<[string | undefined, string | undefined]> {
-	const [a, b] = text.match(pattern) as unknown as [
-		string | number | undefined,
-		string | number | undefined,
-	];
+	const [a, b] = text.match(pattern);
 	return $tuple(typeIs(a, "string") ? a : undefined, typeIs(b, "string") ? b : undefined);
 }
 
@@ -310,7 +308,8 @@ function whisperPeer(channelName: unknown, selfId: number): number | undefined {
 function shardFor(jobId: string, shards?: number): number {
 	const count = math.max(1, math.floor(shards ?? GLOBAL_SHARDS));
 	let hash = 5381;
-	for (let index = 0; index < jobId.size(); index++) {
+	// string.byte is 1-based; starting at 0 skipped the last byte and changed every shard.
+	for (let index = 1; index <= jobId.size(); index++) {
 		hash = (hash * 33 + (jobId.byte(index)[0] ?? 0)) % 2147483647;
 	}
 	return hash % count + 1;
