@@ -46,18 +46,27 @@ function useBatch(
 	);
 	React.useEffect(() => () => queue.cancel(), [queue]);
 	const [orders, remaining] = Model.plan(entries, amount, cash);
+	// one buy() for the life of the queue: rows memoise on their own inputs, and a fresh closure
+	// every render would make every row look changed. It reads the amount at click time, the
+	// same value a closure from the latest render would have captured.
+	const amountRef = React.useRef(amount);
+	amountRef.current = amount;
+	const buy = React.useCallback(
+		(id: unknown) => {
+			if (queue.busy) {
+				return undefined;
+			}
+			return dispatch(action, { Id: id, Amount: amountPayload(amountRef.current) });
+		},
+		[queue, dispatch, action],
+	);
 	return {
 		busy: queue.busy,
 		status: queue.status,
 		count: orders.size(),
 		remaining,
 		start: () => queue.start(action, orders),
-		buy: (id: unknown) => {
-			if (queue.busy) {
-				return undefined;
-			}
-			return dispatch(action, { Id: id, Amount: amountPayload(amount) });
-		},
+		buy,
 	};
 }
 

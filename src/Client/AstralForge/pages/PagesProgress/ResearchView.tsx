@@ -60,6 +60,20 @@ interface NodeProps {
 	cash: Flux;
 }
 
+// what cash changes on a research row: the price text and whether BUY is live
+function sameQuote(a: NodeProps, b: NodeProps): boolean {
+	if (a.cash === b.cash) {
+		return true;
+	}
+	const quote = (p: NodeProps) => {
+		const price = bulkCost(p.entry.config.BaseCost, p.entry.config.CostScale, p.entry.level, p.buyAmount, p.entry.config.MaxLevel, p.cash);
+		return $tuple(compactNumber(price), p.entry.unlocked && !p.entry.maxed && gteFlux(p.cash, price));
+	};
+	const [priceA, readyA] = quote(a);
+	const [priceB, readyB] = quote(b);
+	return priceA === priceB && readyA === readyB;
+}
+
 const ResearchNode = React.memo(
 	(props: NodeProps) => {
 		const { entry, reducedMotion, index, onBuy, stack, buyAmount, cash } = props;
@@ -227,7 +241,8 @@ const ResearchNode = React.memo(
 		prev.entry.unlocked === incoming.entry.unlocked &&
 		prev.entry.lockReason === incoming.entry.lockReason &&
 		prev.buyAmount === incoming.buyAmount &&
-		prev.cash === incoming.cash &&
+		// cash moves on every state push; the row only shows it through its price and BUY state
+		sameQuote(prev, incoming) &&
 		prev.reducedMotion === incoming.reducedMotion &&
 		prev.index === incoming.index &&
 		prev.onBuy === incoming.onBuy &&

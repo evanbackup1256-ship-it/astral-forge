@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { Audio } from "../AudioKit/audio";
+import { countRedraw, RedrawCounterHud, redrawCounterEnabled } from "./devRedrawCounter";
 import BuffStrip = require("../BuffStrip");
 import { useGameChat } from "../ClientRuntime/chat";
 import { AppHelpers, NavState } from "../CoreKit/appNav";
@@ -204,6 +205,8 @@ function offlineRewardsProps(state: ShellState, reducedMotion: boolean, dispatch
 function AppShell(props: ShellProps) {
 	const { state, config, dispatch, addNotice, celebrate, clearConfetti, pops, comboReadout, visit, setVisit,
 		openDomain, domainOverlayActive, setToastsSuppressed, setPurchasePresentationActive } = props;
+	const devRedraws = redrawCounterEnabled(state as { Admin?: { Access?: boolean } });
+	countRedraw("shell", devRedraws);
 	const [crateReveal, setCrateReveal] = React.useState<RevealSession>();
 	const pageHostRef = React.useRef<unknown>();
 	const cinematicOpen = crateReveal !== undefined || domainOverlayActive;
@@ -492,7 +495,13 @@ function AppShell(props: ShellProps) {
 	const glowIntensity = tonumber(state.Settings.GlowIntensity) ?? 0.75;
 	const suppressBackground = backgroundDetail < 0.34 || !rootAntilag.allowAmbient;
 	const renderEffectsScale = effectsScale * (tonumber(state.Settings.ParticleDensity) ?? 0.75) * rootAntilag.fxBudget;
-	const visiblePops = pops.size() > rootAntilag.maxPops ? pops.filter((_, index) => index >= pops.size() - rootAntilag.maxPops) : pops;
+	// same array between renders unless the pops or the cap change, so the memoised EffectLayer
+	// can skip the shell's per-push re-render (the trimmed copy used to be new every time)
+	const maxPops = rootAntilag.maxPops;
+	const visiblePops = React.useMemo(
+		() => (pops.size() > maxPops ? pops.filter((_, index) => index >= pops.size() - maxPops) : pops),
+		[pops, maxPops],
+	);
 	const heavyPage = page === "Worlds" || page === "Anomaly" || page === "StarGrid";
 	const quietPage = page === "Story" || page === "Chat" || page === "Mail" || page === "Credits" || page === "Leaderboards" || page === "Admin";
 	const pageAntilag = React.useMemo(() => arcadeBusy
@@ -613,6 +622,7 @@ function AppShell(props: ShellProps) {
 				</UiEffectsPausedContext.Provider>
 				{crateReveal !== undefined && <CrateRevealOverlay session={crateReveal} config={config} skin={state.Cosmetics?.CrateSkin} reducedMotion={reducedMotion} onClose={() => setCrateReveal(undefined)} />}
 				<RebirthCeremonyHost reducedMotion={reducedMotion} />
+				<RedrawCounterHud enabled={devRedraws} />
 			</>
 		</AntilagContext.Provider>
 	);

@@ -42,7 +42,7 @@ function machineRowStack(chrome: ReturnType<typeof chromeFor>): boolean {
 	return chrome.contentStack && !chrome.landscape;
 }
 
-function MachineRow(props: {
+interface MachineRowProps {
 	machine: MachineConfig;
 	level: number;
 	cash: Flux;
@@ -55,7 +55,9 @@ function MachineRow(props: {
 	unlocked: boolean;
 	lockReason: string;
 	lockShort?: string;
-}) {
+}
+
+function MachineRowImpl(props: MachineRowProps) {
 	const { machine, level, cash, buyAmount, onBuy, y, x, width, unlocked, lockReason } = props;
 	const lockShort = props.lockShort ?? "";
 	const viewport = useViewport();
@@ -257,6 +259,40 @@ function MachineRow(props: {
 		</frame>
 	);
 }
+
+// what cash changes on a machine card: the price text and whether BUY is live
+function machineQuote(p: MachineRowProps): LuaTuple<[string, boolean]> {
+	const price = bulkCost(p.machine.BaseCost, p.machine.CostScale, p.level, p.buyAmount, p.machine.MaxLevel, p.cash);
+	const maxed = p.level >= p.machine.MaxLevel;
+	return $tuple(compactNumber(price), p.unlocked && gteFlux(p.cash, price) && !maxed);
+}
+
+// Every state push hands the list a new cash value and a fresh onBuy arrow per row, so each
+// card re-rendered on every push. The arrow only calls the batch's buy (stable for the life of
+// the queue) with this row's machine id, so it's skipped here; everything the card draws from
+// cash is compared through machineQuote.
+const MachineRow = React.memo(MachineRowImpl, (a, b) => {
+	if (
+		a.machine !== b.machine ||
+		a.level !== b.level ||
+		a.buyAmount !== b.buyAmount ||
+		a.reducedMotion !== b.reducedMotion ||
+		a.y !== b.y ||
+		a.x !== b.x ||
+		a.width !== b.width ||
+		a.unlocked !== b.unlocked ||
+		a.lockReason !== b.lockReason ||
+		a.lockShort !== b.lockShort
+	) {
+		return false;
+	}
+	if (a.cash === b.cash) {
+		return true;
+	}
+	const [priceA, readyA] = machineQuote(a);
+	const [priceB, readyB] = machineQuote(b);
+	return priceA === priceB && readyA === readyB;
+});
 
 const SORT_OPTIONS = [
 	{ id: "Return", label: "Best level return" },
