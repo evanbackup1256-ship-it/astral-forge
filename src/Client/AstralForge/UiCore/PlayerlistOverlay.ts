@@ -265,7 +265,7 @@ interface PlayerRowProps {
 	reported: boolean;
 	reducedMotion?: boolean;
 	crewmate: boolean;
-	/** you're on this player's forge right now (same "HERE" the Crew roster shows) */
+	/** you're on this player's forge right now (button flips to GO HOME and sends LeavePlot) */
 	visiting: boolean;
 	onToggle: () => void;
 	onFriend: () => void;
@@ -426,11 +426,10 @@ function PlayerRow(param: PlayerRowProps) {
 				}),
 				Visit: h(ActionButton, {
 					order: 3,
-					text: param.visiting ? "HERE" : "VISIT",
+					text: param.visiting ? "GO HOME" : "VISIT",
 					icon: "Visit.6",
 					color: param.visiting ? Palette.green : Palette.violet,
 					onClick: param.onVisit,
-					disabled: param.visiting,
 					reducedMotion: reducedMotion,
 				}),
 				Crew: h(ActionButton, {
@@ -721,7 +720,7 @@ function PlayerRow(param: PlayerRowProps) {
 				h("frame", { Size: UDim2.fromOffset((SWIPE_W - 6) / 2, rowH - 8), LayoutOrder: 1, BackgroundTransparency: 1 },
 					h(ActionButton, { order: 1, text: "MESSAGE", icon: "Chat.7", color: Palette.cyan, onClick: () => { setSwiped(false); param.onMessage(); }, reducedMotion: reducedMotion })),
 				h("frame", { Size: UDim2.fromOffset((SWIPE_W - 6) / 2, rowH - 8), LayoutOrder: 2, BackgroundTransparency: 1 },
-					h(ActionButton, { order: 2, text: param.visiting ? "HERE" : "VISIT", icon: "Visit.6", color: param.visiting ? Palette.green : Palette.violet, onClick: () => { setSwiped(false); param.onVisit(); }, disabled: param.visiting, reducedMotion: reducedMotion })),
+					h(ActionButton, { order: 2, text: param.visiting ? "GO HOME" : "VISIT", icon: "Visit.6", color: param.visiting ? Palette.green : Palette.violet, onClick: () => { setSwiped(false); param.onVisit(); }, reducedMotion: reducedMotion })),
 			),
 		h(
 			"frame",
@@ -1612,7 +1611,12 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					return undefined;
 				}
 				Audio.play("playerlistAction");
-				dispatch("VisitPlot", { UserId: row.UserId });
+				// already on their forge: the same button takes you back (server LeavePlot)
+				if (visitingId === row.UserId) {
+					dispatch("LeavePlot", {});
+				} else {
+					dispatch("VisitPlot", { UserId: row.UserId });
+				}
 				onClose();
 			},
 			crewmate: crewmates[row.UserId] === true,
