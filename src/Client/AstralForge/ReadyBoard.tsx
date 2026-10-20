@@ -16,7 +16,7 @@ const LayoutKit = require(script.Parent!.FindFirstChild("LayoutKit")! as ModuleS
 const PageReadyMath = LayoutKit("pageReadyMath") as PageReadyMathApi;
 
 interface AudioApi {
-	play(this: void, sound: string): void;
+	play(sound: string): void;
 }
 const AudioKit = require(script.Parent!.FindFirstChild("AudioKit")! as ModuleScript) as CallableFunction;
 const Audio = (AudioKit("audio") as { Audio: AudioApi }).Audio;

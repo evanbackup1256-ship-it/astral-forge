@@ -2,7 +2,7 @@ const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const RunService = game.GetService("RunService");
 
 const DataTemplate = require(script.Parent!.FindFirstChild("DataTemplate")! as ModuleScript) as {
-	New(): Record<string, unknown>;
+	New(this: void): Record<string, unknown>;
 };
 const Economy = require(
 	script.Parent!.WaitForChild("Modules").WaitForChild("EconomyMath") as ModuleScript,

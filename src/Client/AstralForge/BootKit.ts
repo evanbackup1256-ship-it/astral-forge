@@ -241,7 +241,7 @@ __defs["BootScreen"] = () => {
 	const useViewport = (kitMember("MotionKit", "motion") as typeof import("./MotionKit/motion")).useViewport;
 	const Ledger = __load("BootLedger") as {
 		STATIONS: { key: string; label: string; verb: string }[];
-		read(): {
+		read(this: void): {
 			stations: {
 				key: string;
 				label: string;
@@ -255,7 +255,7 @@ __defs["BootScreen"] = () => {
 			overall: number;
 			active?: { verb: string; item?: string };
 		};
-		version(): number;
+		version(this: void): number;
 	};
 	const _theme = kitMember("CoreKit", "theme") as typeof import("./CoreKit/theme");
 	const Palette = _theme.Palette;

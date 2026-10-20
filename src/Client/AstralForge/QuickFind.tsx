@@ -18,7 +18,7 @@ const RunService = game.GetService("RunService");
 const TextService = game.GetService("TextService");
 
 interface AudioApi {
-	play(this: void, sound: string): void;
+	play(sound: string): void;
 }
 const AudioKit = require(script.Parent!.FindFirstChild("AudioKit")! as ModuleScript) as CallableFunction;
 const Audio = (AudioKit("audio") as { Audio: AudioApi }).Audio;
