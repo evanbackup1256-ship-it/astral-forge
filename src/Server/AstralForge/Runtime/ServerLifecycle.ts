@@ -2,7 +2,7 @@
 // soft-shutdown flow. If any start step failed the runtime is closed and the boot fails loudly.
 import { OnStart, Service } from "@flamework/core";
 import ModuleLog = require("../ModuleLog");
-import { GameRuntime } from "./CoreRuntime";
+import { GameService } from "../Services/GameService";
 import { RemoteBridge } from "./RemoteBridge";
 
 const Players = game.GetService("Players");
@@ -35,7 +35,7 @@ function makeBindable(name: string, handler: (...args: unknown[]) => unknown): B
 export class ServerLifecycle implements OnStart {
 	constructor(
 		private readonly bridge: RemoteBridge,
-		private readonly gameRuntime: GameRuntime,
+		private readonly gameplay: GameService,
 	) {}
 
 	onStart() {
@@ -93,7 +93,7 @@ export class ServerLifecycle implements OnStart {
 	}
 
 	private studioHooks() {
-		const liveGame = this.gameRuntime.service;
+		const liveGame = this.gameplay;
 		const snapshotHook = new Instance("BindableFunction");
 		snapshotHook.Name = "AstralForgeStudioSnapshot";
 		snapshotHook.OnInvoke = (player?: Player) => {

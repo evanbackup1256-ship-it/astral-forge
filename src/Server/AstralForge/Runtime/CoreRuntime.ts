@@ -1,138 +1,56 @@
-// Flamework services wrapping the server's core systems. Construction happens in OnInit
-// (ordered by loadOrder + injected dependencies), runtime start in OnStart.
+// Server runtime orchestration. Every core system is a Flamework @Service built by injection;
+// this service runs their boot steps in OnInit and their runtime start in OnStart, and
+// registers their shutdown order with the bridge.
 import { OnInit, OnStart, Service } from "@flamework/core";
-import { FluxSurgeService } from "../Services/FluxSurgeService";
 import { RemoteBridge } from "./RemoteBridge";
-import {
-	AdminServiceClass,
-	CharacterIntegrityClass,
-	DataServiceClass,
-	DataServiceLike,
-	GameServiceLike,
-	Registry,
-	Startable,
-} from "./ServerRegistry";
-import { ServerTelemetry } from "../Services/ServerTelemetry";
 import { Security } from "../Services/Security";
-import { SessionGate } from "../Services/SessionGate";
-import { RemoteFirewall } from "../Services/RemoteFirewall";
-import { GameAntiCheat } from "../Services/GameAntiCheat";
-import { PlayerAnalytics } from "../Services/PlayerAnalytics";
-import { PlayerBadges } from "../Services/PlayerBadges";
-import { MatterRuntime } from "../Services/MatterRuntime";
-import { ServerEventService } from "../Services/CoreServiceMembers/ServerEventService";
-import { GuildService } from "../Services/CoreServiceMembers/GuildService";
-import { SpecializationService } from "../Services/SpecializationService";
-import DataServiceModule = require("../Services/DataService");
-import AdminServiceModule = require("../Services/AdminService");
+import { DataService } from "../Services/DataService";
+import { AdminService } from "../Services/AdminService";
+import { WorldService } from "../Services/WorldService";
+import { GameService } from "../Services/GameService";
 import CharacterIntegrityModule = require("../Services/CharacterIntegrity");
 
-@Service({ loadOrder: 1 })
-export class PlayerDataRuntime implements OnInit {
-	public service!: DataServiceLike;
+interface Startable {
+	Start(): void;
+	Destroy(): void;
+}
+/** CharacterIntegrity is a factory module that returns its class (with .new). */
+type CharacterIntegrityClass = { new: (this: void) => Startable };
+
+@Service({ loadOrder: 5 })
+export class CoreRuntime implements OnInit, OnStart {
+	private integrity!: Startable;
 	constructor(
 		private readonly bridge: RemoteBridge,
-		private readonly telemetry: ServerTelemetry,
-	) {}
-	onInit() {
-		const DataService = DataServiceModule(this.telemetry) as unknown as DataServiceClass;
-		this.service = this.bridge.bootStep("player data construction", () => DataService.new());
-		this.bridge.onClose(4, "data service", () => this.service.Shutdown());
-	}
-}
-
-@Service({ loadOrder: 2 })
-export class AdminRuntime implements OnInit {
-	public service: unknown;
-	constructor(
-		private readonly bridge: RemoteBridge,
-		private readonly data: PlayerDataRuntime,
-		private readonly telemetry: ServerTelemetry,
-	) {}
-	onInit() {
-		const AdminService = AdminServiceModule(this.telemetry) as unknown as AdminServiceClass;
-		this.service = this.bridge.bootStep("administration construction", () => AdminService.new(this.data.service));
-	}
-}
-
-@Service({ loadOrder: 2 })
-export class WorldRuntime implements OnInit, OnStart {
-	public service!: Startable;
-	constructor(private readonly bridge: RemoteBridge) {}
-	onInit() {
-		this.service = this.bridge.bootStep("world construction", () => Registry.WorldService.new());
-	}
-	onStart() {
-		this.bridge.startPhase(() => this.bridge.startStep("world start", () => this.service.Start()));
-	}
-}
-
-@Service({ loadOrder: 2 })
-export class SecurityRuntime implements OnInit, OnStart {
-	public integrity!: Startable;
-	constructor(
-		private readonly bridge: RemoteBridge,
-		public readonly pipeline: Security,
-	) {}
-	onInit() {
-		const CharacterIntegrity = CharacterIntegrityModule() as unknown as CharacterIntegrityClass;
-		this.integrity = this.bridge.bootStep("integrity construction", () => CharacterIntegrity.new());
-		this.bridge.onClose(2, "security pipeline", () => this.pipeline.Destroy());
-		this.bridge.onClose(1, "character integrity", () => this.integrity.Destroy());
-	}
-	onStart() {
-		this.bridge.startPhase(() => {
-			this.bridge.startStep("security start", () => this.pipeline.Start());
-			this.bridge.startStep("integrity start", () => this.integrity.Start());
-		});
-	}
-}
-
-@Service({ loadOrder: 3 })
-export class GameRuntime implements OnInit, OnStart {
-	public service!: GameServiceLike;
-	constructor(
-		private readonly bridge: RemoteBridge,
-		private readonly data: PlayerDataRuntime,
-		private readonly admin: AdminRuntime,
-		private readonly world: WorldRuntime,
-		private readonly flux: FluxSurgeService,
-		private readonly security: SecurityRuntime,
-		private readonly session: SessionGate,
-		private readonly firewall: RemoteFirewall,
-		private readonly antiCheat: GameAntiCheat,
-		private readonly analytics: PlayerAnalytics,
-		private readonly badges: PlayerBadges,
-		private readonly matter: MatterRuntime,
-		private readonly events: ServerEventService,
-		private readonly guilds: GuildService,
-		// GameService reads the shared Specializations rules; this service keeps them live-tuned.
-		private readonly _specializations: SpecializationService,
+		private readonly data: DataService,
+		private readonly admin: AdminService,
+		private readonly world: WorldService,
+		private readonly security: Security,
+		private readonly gameplay: GameService,
 	) {}
 	onInit() {
 		const bridge = this.bridge;
-		this.service = bridge.bootStep("gameplay construction", () =>
-			Registry.GameService.new(this.data.service, this.world.service, this.flux, {
-				Security: this.security.pipeline,
-				Admin: this.admin.service,
-				Session: this.session,
-				Firewall: this.firewall,
-				AntiCheat: this.antiCheat,
-				Analytics: this.analytics,
-				Badges: this.badges,
-				Matter: this.matter,
-				Events: this.events,
-				Guilds: this.guilds,
-			}),
-		);
-		bridge.onClose(3, "game service", () => this.service.Shutdown());
+		bridge.bootStep("player data construction", () => this.data.build());
+		bridge.onClose(4, "data service", () => this.data.Shutdown());
+		bridge.bootStep("administration construction", () => this.admin.build());
+		const CharacterIntegrity = CharacterIntegrityModule() as unknown as CharacterIntegrityClass;
+		this.integrity = bridge.bootStep("integrity construction", () => CharacterIntegrity.new());
+		bridge.onClose(2, "security pipeline", () => this.security.Destroy());
+		bridge.onClose(1, "character integrity", () => this.integrity.Destroy());
+		bridge.bootStep("gameplay construction", () => this.gameplay.build());
+		bridge.onClose(3, "game service", () => this.gameplay.Shutdown());
 	}
 	onStart() {
-		this.bridge.startPhase(() => {
-			this.bridge.startStep("game start", () => this.service.Start());
-			this.bridge.startStep("autosave start", () =>
-				this.data.service.StartAutosave(this.bridge.gameConfig.Game.AutosaveSeconds),
-			);
+		const bridge = this.bridge;
+		// one phase per former runtime service, so a yielding start does not hold up the others
+		bridge.startPhase(() => bridge.startStep("world start", () => this.world.Start()));
+		bridge.startPhase(() => {
+			bridge.startStep("security start", () => this.security.Start());
+			bridge.startStep("integrity start", () => this.integrity.Start());
+		});
+		bridge.startPhase(() => {
+			bridge.startStep("game start", () => this.gameplay.Start());
+			bridge.startStep("autosave start", () => this.data.StartAutosave(bridge.gameConfig.Game.AutosaveSeconds as number));
 		});
 	}
 }
