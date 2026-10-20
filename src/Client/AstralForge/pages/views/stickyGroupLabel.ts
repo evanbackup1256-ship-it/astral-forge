@@ -14,6 +14,7 @@ function inside(gui: GuiObject | undefined, point: Vector2): boolean {
 	return point.X >= at.X && point.X <= at.X + size.X && point.Y >= at.Y && point.Y <= at.Y + size.Y;
 }
 import { luaProp, reactLoose, kit } from "./viewRuntime";
+import { KeyLabel } from "../../CoreKit/GamepadNavigationService";
 
 // The group you're scrolling through stays pinned to the top of a list until the next group
 // pushes it off. Shared by the guild member list and the crew roster.
@@ -27,9 +28,19 @@ export interface StickyGroup {
 	count?: number;
 }
 
-// "QUIET · 3"; labels that already count (OFFICERS · 4) or name one person (YOU) stay as they are
+// the group you last jumped to in each list, for this session only (nothing is saved)
+const lastJump = new Map<string, string>();
+// "OFFICERS · 4" and "OFFICERS" are the same group
+function groupKey(label: string): string {
+	const [at] = label.find(" ·", 1, true);
+	return at !== undefined ? label.sub(1, at - 1) : label;
+}
+// after opening, focus moving onto the menu can nudge the scroller; don't let that close it
+const OPEN_GUARD = 0.35;
+
+// "QUIET · 3"; labels that already count (OFFICERS · 4) or are one person (YOU, LEADER) stay as they are
 function jumpText(group: StickyGroup): string {
-	if (group.count === undefined || group.label === "YOU" || group.label.find("·", 1, true)[0] !== undefined) {
+	if (group.count === undefined || group.label === "YOU" || group.label === "LEADER" || group.label.find("·", 1, true)[0] !== undefined) {
 		return group.label;
 	}
 	return `${group.label} · ${group.count}`;
@@ -41,17 +52,20 @@ function jumpText(group: StickyGroup): string {
  * down with it until the list ends.
  */
 /** Tap the label to jump straight to another group (You, Leader, Quiet, ...). */
-export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number; inner?: boolean; reducedMotion?: unknown }) {
+export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number; inner?: boolean; reducedMotion?: unknown; listId?: string }) {
 	const [menuOpen, setMenuOpen] = React.useState(false);
 	const menuOpenRef = React.useRef(false);
 	menuOpenRef.current = menuOpen;
 	const menuRef = React.useRef<Frame>();
+	const openedAt = React.useRef(0);
 	const openMenuRef = React.useRef<(open: boolean) => void>(() => undefined);
 	const feedback = luaProp(kit("CoreKit", "interaction"), "InteractionFeedback") as unknown as { tick?: (this: void) => void };
 
 	const hostRef = React.useRef<Frame>();
 	const [offset, setOffset] = React.useBinding(0);
 	const [current, setCurrent] = React.useState(0);
+	const currentRef = React.useRef(0);
+	currentRef.current = current;
 	const groupsRef = React.useRef(props.groups);
 	groupsRef.current = props.groups;
 	const inner = props.inner === true;
@@ -80,7 +94,7 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 			}
 			setCurrent(index);
 			// scrolling by hand closes the jump menu
-			if (menuOpenRef.current) {
+			if (menuOpenRef.current && os.clock() - openedAt.current > OPEN_GUARD) {
 				openMenuRef.current(false);
 			}
 		};
@@ -95,6 +109,9 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 			return;
 		}
 		menuOpenRef.current = open;
+		if (open) {
+			openedAt.current = os.clock();
+		}
 		setMenuOpen(open);
 		if (!UserInputService.GamepadEnabled) {
 			return;
@@ -104,7 +121,19 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 			task.defer(() => {
 				const menu = menuRef.current;
 				if (menu !== undefined && menuOpenRef.current) {
-					GuiService.Select(menu);
+					// start on the group you jumped to last time, else the one you're in
+					openedAt.current = os.clock();
+					const remembered = props.listId !== undefined ? lastJump.get(props.listId) : undefined;
+					const groups = groupsRef.current;
+					let target: Instance | undefined;
+					if (remembered !== undefined) {
+						target = menu.FindFirstChild(`jump-${remembered}`);
+					}
+					const here = groups[math.min(currentRef.current, groups.size() - 1)];
+					if (target === undefined && here !== undefined) {
+						target = menu.FindFirstChild(`jump-${groupKey(here.label)}`);
+					}
+					GuiService.Select(target !== undefined && target.IsA("GuiObject") ? target : menu);
 				}
 			});
 		} else {
@@ -171,7 +200,11 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 		});
 		return () => connection.Disconnect();
 	}, [menuOpen]);
-	const jump = (top: number) => {
+	const jump = (group: StickyGroup) => {
+		const top = group.top;
+		if (props.listId !== undefined) {
+			lastJump.set(props.listId, groupKey(group.label));
+		}
 		openMenu(false);
 		const host = hostRef.current;
 		const container = host?.Parent as GuiObject | undefined;
@@ -221,15 +254,15 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 			zIndex: 21,
 		}),
 		reactLoose.createElement(Text as never, {
-			value: menuOpen ? "CLOSE" : "JUMP",
+			value: menuOpen ? "CLOSE" : UserInputService.GamepadEnabled ? `JUMP · ${KeyLabel(Enum.KeyCode.ButtonL3, "L3")}` : "JUMP",
 			size: 10,
 			color: luaProp(Palette, "muted"),
 			weight: Enum.FontWeight.Bold,
 			align: Enum.TextXAlignment.Right,
 			fit: true,
 			minSize: 8,
-			position: new UDim2(1, -70, 0, 5),
-			sizeConstraint: UDim2.fromOffset(60, 14),
+			position: new UDim2(1, -100, 0, 5),
+			sizeConstraint: UDim2.fromOffset(90, 14),
 			zIndex: 21,
 		}),
 		// 44px tall hit area centred on the 24px bar
@@ -264,10 +297,20 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 						SortOrder: Enum.SortOrder.LayoutOrder,
 					}),
 					...props.groups.map((g, i) =>
-						reactLoose.createElement(Button as never, {
-							key: `jump-${i}`,
+						reactLoose.createElement(
+							"frame",
+							{
+								key: `jump-${i}`,
+								Name: `jump-${groupKey(g.label)}`,
+								Size: UDim2.fromOffset(0, 44),
+								AutomaticSize: Enum.AutomaticSize.X,
+								BackgroundTransparency: 1,
+								BorderSizePixel: 0,
+								LayoutOrder: i,
+							},
+							reactLoose.createElement(Button as never, {
 							text: jumpText(g),
-							onClick: () => jump(g.top),
+							onClick: () => jump(g),
 							sound: "tick",
 							color: g.color,
 							textColor: luaProp(Palette, "ink"),
@@ -277,6 +320,7 @@ export function StickyGroupLabel(props: { groups: StickyGroup[]; height: number;
 							highlight: i === current,
 							reducedMotion: props.reducedMotion,
 						}),
+						),
 					),
 				)
 			: undefined,
