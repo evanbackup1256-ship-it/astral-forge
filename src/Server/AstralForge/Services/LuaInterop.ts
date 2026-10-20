@@ -11,6 +11,21 @@ export function truthy<T>(value: T): value is Exclude<T, undefined | false> {
 
 export type Dict = Record<string, unknown>;
 
+// A real, finite number (not NaN or +/-inf).
+export function isFiniteNumber(value: unknown): value is number {
+	return typeIs(value, "number") && value === value && value !== math.huge && value !== -math.huge;
+}
+
+// Deep copy of a Luau table (keys and values); non-tables are returned as-is.
+export function deepCopy(value: unknown): unknown {
+	if (!typeIs(value, "table")) return value;
+	const result: Dict = {};
+	for (const [key, child] of pairs(value)) {
+		result[deepCopy(key) as string] = deepCopy(child);
+	}
+	return result;
+}
+
 export function isTable(value: unknown): value is Dict {
 	return typeIs(value, "table");
 }

@@ -248,6 +248,12 @@ interface TradeDeskInstance {
 	SessionFor(this: TradeDeskInstance, userId: number): TradeSession | undefined;
 }
 
+// UTC day stamp shared by the trade ledger members (year * 1000 + day of year).
+function utcDay(now: number): number {
+	const date = os.date("!*t", now);
+	return date.year * 1000 + date.yday;
+}
+
 __defs["TradeChatMath"] = () => {
 	const TradeChatMath = {
 		CanSend(this: void, lastAt: number | undefined, now: number, cooldown?: number): boolean {
@@ -1106,11 +1112,6 @@ __defs["TradeExchange"] = () => {
 	];
 	const KEY_IDS = ["ForgeCrate", "CrystalCrate", "HorizonCrate", "NebulaCrate", "OrbitCrate", "SingularityCrate", "EchoCrate"];
 
-	function utcDay(now: number): number {
-		const date = os.date("!*t", now);
-		return date.year * 1000 + date.yday;
-	}
-
 	function ensureLedger(profile: Dict, now: number): void {
 		if (!typeIs(profile.Trade, "table")) {
 			profile.Trade = { Day: -1, Completed: 0, Sent: {} };
@@ -1364,11 +1365,6 @@ __defs["TradeExchange"] = () => {
 };
 
 __defs["TradeOfferMath"] = () => {
-	function utcDay(now: number): number {
-		const date = os.date("!*t", now);
-		return date.year * 1000 + date.yday;
-	}
-
 	const TradeOfferMath = {
 		EmptyOffer(this: void, boostIds: string[], keyIds: string[]): TradeOfferBag {
 			const boosts: Record<string, number> = {};

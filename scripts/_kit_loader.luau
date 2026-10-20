@@ -5,6 +5,7 @@
 -- (out/<Kit>.luau with __defs["member"] closures).
 
 local fs = require("@lune/fs")
+local luau = require("@lune/luau")
 
 return function(kitName: string)
 	local base = "out/Client/AstralForge/" .. kitName
@@ -22,7 +23,7 @@ return function(kitName: string)
 		local ok, result = pcall(function()
 			return require("../" .. base)
 		end)
-		if ok and type(result) == "table" or type(result) == "function" then
+		if ok and (type(result) == "table" or type(result) == "function") then
 			singleFileKit = result
 		else
 			-- The kit uses game:GetService. Extract pure member closures from source text.
@@ -67,7 +68,8 @@ return function(kitName: string)
 					-- The member body is a self-contained function that returns a module.
 					-- Wrap it in a function and execute it.
 					local chunk = "return (function()\n" .. body .. "\nend)()"
-					local fn, err = loadstring(chunk, kitName .. "/" .. memberName)
+					local fn, err = pcall(luau.load, chunk, { debugName = kitName .. "/" .. memberName })
+					if fn then fn = err; err = nil else fn = nil end
 					if not fn then
 						error(kitName .. "/" .. memberName .. ": loadstring failed: " .. tostring(err), 2)
 					end

@@ -970,7 +970,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		Size: new UDim2(1, -24, 0, 40),
 		Position: UDim2.fromOffset(12, 52),
 		BackgroundTransparency: 1,
-		Text: "Search works on page names, settings, relics, machines and research. Try \"music\", \"vault\" or a relic's name.",
+		Text: "Search works on page names, settings, relics, machines and research. Try \"music\", \"vault\" or a relic" + "'s name.",
 		TextSize: 13,
 		TextWrapped: true,
 		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),

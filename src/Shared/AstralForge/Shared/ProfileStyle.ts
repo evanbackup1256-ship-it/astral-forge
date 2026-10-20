@@ -125,3 +125,25 @@ export function accentColor(id: unknown): Color3 {
 	const option = findAccent(id) ?? findAccent(DEFAULT_ACCENT)!;
 	return Color3.fromRGB(option.Rgb[0], option.Rgb[1], option.Rgb[2]);
 }
+
+export interface PlayerProfileStyle {
+	/** Only set when the player picked a non-default accent, so default looks stay unchanged. */
+	accent?: Color3;
+	/** Only set when the player picked a non-default frame. */
+	frame?: FrameOption;
+}
+
+/** Reads the published ProfileAccent / ProfileFrame attributes of any player. */
+export function fromPlayer(player: Player | undefined): PlayerProfileStyle {
+	if (player === undefined) {
+		return {};
+	}
+	const accentId = player.GetAttribute("ProfileAccent");
+	const frameId = player.GetAttribute("ProfileFrame");
+	const accent = accentId !== DEFAULT_ACCENT ? findAccent(accentId) : undefined;
+	const frame = frameId !== DEFAULT_FRAME ? findFrame(frameId) : undefined;
+	return {
+		accent: accent !== undefined ? Color3.fromRGB(accent.Rgb[0], accent.Rgb[1], accent.Rgb[2]) : undefined,
+		frame,
+	};
+}
