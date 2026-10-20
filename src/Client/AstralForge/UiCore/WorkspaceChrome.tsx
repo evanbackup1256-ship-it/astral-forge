@@ -74,7 +74,7 @@ interface LevelRewardsApi {
 }
 
 interface ChromeState {
-	Settings?: { MobileCompactHeaders?: unknown; ShowNextGoal?: unknown };
+	Settings?: { MobileCompactHeaders?: unknown; ShowNextGoal?: unknown; MotionIntensity?: unknown };
 	Level?: unknown;
 	Vault?: Flux;
 	Capacity?: Flux;
@@ -438,7 +438,12 @@ export function Workspace(_param: WorkspaceProps) {
 	const mobileHeaderCompact = chrome.stack && (tonumber(state.Settings?.MobileCompactHeaders) ?? 1) >= 0.5;
 	const accent = AppHelpers.pageAccent(page);
 	const entry = AppHelpers.pageEntry(page);
-	const enter = useTokenEntrance(page, reducedMotion, 0.2);
+	// the shell keeps its own motion on, but page swaps honour the player's Reduced Motion choice
+	const pageMotionCalm =
+		game.GetService("GuiService").ReducedMotionEnabled === true || (tonumber(state.Settings?.MotionIntensity) ?? 1) < 0.3;
+	const animatedEnter = useTokenEntrance(page, reducedMotion, PageTransition.ENTER_SECONDS);
+	const settledEnter = React.useMemo(() => React.createBinding(1)[0], []);
+	const enter = pageMotionCalm ? settledEnter : animatedEnter;
 	const pageTrack = React.useRef<{ page: string; direction: 1 | -1 }>();
 	if (pageTrack.current === undefined) {
 		pageTrack.current = { page: page, direction: 1 };
