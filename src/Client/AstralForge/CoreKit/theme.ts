@@ -52,6 +52,35 @@ export const Layout = {
 	chromeScale: 1,
 };
 
+/** Shared shape tokens: every kit surface takes its radius, stroke and inner padding from here. */
+export const Radius = {
+	chip: 8,
+	control: Layout.buttonRadius,
+	card: Layout.cardRadius,
+	sheet: 20,
+} as const;
+
+export const StrokeWidth = {
+	hairline: 1,
+	focus: 2,
+} as const;
+
+export const Pad = {
+	tight: 8,
+	control: 12,
+	panel: 14,
+	panelMax: 16,
+} as const;
+
+/** Soft two-layer elevation: a wide ambient blur plus a tighter key shadow under the surface. */
+export const Elevation = {
+	ambientSpread: 6,
+	ambientOffset: 4,
+	ambientAlpha: 0.84,
+	keyOffset: 7,
+	keyAlpha: 0.7,
+} as const;
+
 export const Chrome = {
 	panelShadow: 0.7,
 	panelStrokeIdle: 0.3,
