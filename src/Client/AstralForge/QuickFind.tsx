@@ -563,7 +563,7 @@ function search(state: Record<string, unknown>, query: string, chatUnread: numbe
 
 // ── Row ─────────────────────────────────────────────────────────────────────────
 
-function Row(props: RowProps & { rowH: number }): React.Element {
+function Row(props: RowProps & { rowH: number; register: (index: number, row: GuiObject | undefined) => void }): React.Element {
 	const entry = props.entry;
 	const meta = KIND_META[entry.kind];
 	const appearAt = props.appearAt;
@@ -583,6 +583,7 @@ function Row(props: RowProps & { rowH: number }): React.Element {
 		Selectable: false,
 		Text: "",
 		ZIndex: 504,
+		ref: (row: TextButton | undefined) => props.register(props.index, row),
 		Event: {
 			Activated: () => props.onPick(entry),
 			MouseEnter: () => props.onHover(props.index),
@@ -638,7 +639,7 @@ function Row(props: RowProps & { rowH: number }): React.Element {
 		Text: entry.subtitle ?? "",
 		TextSize: 12,
 		FontFace: FONT_MED,
-		TextColor3: Palette.muted,
+		TextColor3: Palette.creamSoft,
 		TextTransparency: fadeText,
 		TextXAlignment: Enum.TextXAlignment.Left,
 		TextTruncate: Enum.TextTruncate.AtEnd,
@@ -677,7 +678,7 @@ function Row(props: RowProps & { rowH: number }): React.Element {
 		Text: meta.label,
 		TextSize: 11,
 		FontFace: FONT_BOLD,
-		TextColor3: selected ? entry.accent : Palette.muted,
+		TextColor3: selected ? entry.accent : Palette.creamSoft,
 		TextTransparency: fadeText,
 		ZIndex: 507,
 	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) })))));
@@ -702,7 +703,7 @@ function Header(props: HeaderProps): React.Element {
 		Text: props.text,
 		TextSize: 11,
 		FontFace: FONT_HEAVY,
-		TextColor3: Palette.muted,
+		TextColor3: Palette.mango,
 		TextTransparency: arrive.map((a: number) => 1 - a),
 		ZIndex: 504,
 	}), h("frame", {
@@ -719,36 +720,37 @@ function Header(props: HeaderProps): React.Element {
 
 function KeyHint(props: { keys: string; label: string; order: number }): React.Element {
 	return h("frame", {
-		Size: UDim2.fromOffset(0, 20),
+		Size: UDim2.fromOffset(0, 24),
 		AutomaticSize: Enum.AutomaticSize.X,
 		LayoutOrder: props.order,
 		BackgroundTransparency: 1,
 	}, h("uilistlayout", {
 		FillDirection: Enum.FillDirection.Horizontal,
 		VerticalAlignment: Enum.VerticalAlignment.Center,
-		Padding: new UDim(0, 5),
+		Padding: new UDim(0, 7),
 		SortOrder: Enum.SortOrder.LayoutOrder,
 	}), h("textlabel", {
-		Size: UDim2.fromOffset(0, 18),
+		Size: UDim2.fromOffset(0, 22),
 		AutomaticSize: Enum.AutomaticSize.X,
 		LayoutOrder: 1,
 		BackgroundColor3: Palette.panelRaised,
+		BackgroundTransparency: 0,
 		Text: props.keys,
-		TextSize: 11,
+		TextSize: 12,
 		FontFace: FONT_BOLD,
-		TextColor3: Palette.creamSoft,
+		TextColor3: Palette.cream,
 		ZIndex: 503,
-	}, h("uicorner", { CornerRadius: new UDim(0, 5) }), h("uipadding", { PaddingLeft: new UDim(0, 6), PaddingRight: new UDim(0, 6) }),
-	h("uistroke", { Color: Palette.lineSoft, Transparency: 0.4, ApplyStrokeMode: Enum.ApplyStrokeMode.Border })),
+	}, h("uicorner", { CornerRadius: new UDim(0, 5) }), h("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) }),
+	h("uistroke", { Color: Palette.creamSoft, Transparency: 0.6, ApplyStrokeMode: Enum.ApplyStrokeMode.Border })),
 	h("textlabel", {
 		Size: UDim2.fromOffset(0, 18),
 		AutomaticSize: Enum.AutomaticSize.X,
 		LayoutOrder: 2,
 		BackgroundTransparency: 1,
 		Text: props.label,
-		TextSize: 12,
+		TextSize: 13,
 		FontFace: FONT_MED,
-		TextColor3: Palette.muted,
+		TextColor3: Palette.creamSoft,
 		ZIndex: 503,
 	}));
 }
@@ -898,12 +900,21 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	const touch = UserInputService.TouchEnabled && !UserInputService.KeyboardEnabled;
 	const phone = viewport.width < 600;
 	const rowH = touch || phone ? ROW_H_TOUCH : ROW_H;
-	const [rowYs, listHeight] = rowOffsets(sections, rowH);
+	const rowRefs = React.useRef<Record<number, GuiObject>>({});
+	const contentRef = React.useRef<Frame>();
+	const register = React.useCallback((i: number, row: GuiObject | undefined) => {
+		if (row !== undefined) {
+			rowRefs.current[i] = row;
+		} else {
+			delete rowRefs.current[i];
+		}
+	}, []);
+	const [highlightTarget, setHighlightTarget] = React.useState(0);
 	const [inset] = GuiService.GetGuiInset();
 	const width = phone ? viewport.width - 16 : math.min(640, viewport.width - 48);
 	const height = phone ? viewport.height - inset.Y - 24 : math.min(520, viewport.height - inset.Y - 96);
 	const rightW = width >= 480 ? 124 : 0;
-	const footerH = touch ? 0 : 34;
+	const footerH = touch ? 0 : 40;
 
 	// a new set of results staggers in
 	const signature = query + "#" + tostring(flat.size());
@@ -931,24 +942,35 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	};
 	pickRef.current = () => pick(resultsRef.current[pickIndex - 1]);
 
-	// keep the highlighted row in view while arrowing
+	// measure the selected row (after layout) to glide the highlight and keep it in view
 	React.useEffect(() => {
-		const list = listRef.current;
-		const top = rowYs[pickIndex];
-		if (list === undefined || !open || top === undefined) {
-			return;
+		if (!open) {
+			return undefined;
 		}
-		const bottom = top + rowH;
-		const view = list.AbsoluteWindowSize.Y;
-		if (top - HEADER_H < list.CanvasPosition.Y) {
-			list.CanvasPosition = new Vector2(0, math.max(0, top - HEADER_H));
-		} else if (bottom > list.CanvasPosition.Y + view) {
-			list.CanvasPosition = new Vector2(0, bottom - view);
-		}
-	}, [pickIndex, open, query]);
+		const job = task.defer(() => {
+			const row = rowRefs.current[pickIndex];
+			const content = contentRef.current;
+			const list = listRef.current;
+			if (row === undefined || content === undefined || list === undefined) {
+				return;
+			}
+			const top = row.AbsolutePosition.Y - content.AbsolutePosition.Y;
+			setHighlightTarget(top);
+			const bottom = top + rowH;
+			const view = list.AbsoluteWindowSize.Y;
+			if (top - HEADER_H < list.CanvasPosition.Y) {
+				list.CanvasPosition = new Vector2(0, math.max(0, top - HEADER_H));
+			} else if (bottom > list.CanvasPosition.Y + view) {
+				list.CanvasPosition = new Vector2(0, bottom - view);
+			}
+		});
+		return () => {
+			pcall(() => task.cancel(job));
+		};
+	}, [pickIndex, open, results, rowH]);
 
 	// the highlight glides between rows
-	const highlightY = useFlipperSpring(rowYs[pickIndex] ?? 0, reduced, 700, 42);
+	const highlightY = useFlipperSpring(highlightTarget, reduced, 700, 42);
 	const current = flat[pickIndex - 1];
 	const accent = current !== undefined ? current.accent : Palette.mango;
 
@@ -990,6 +1012,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 				onHover: setSelected,
 				tick,
 				rowH,
+				register,
 				appearAt: cascadeFrom !== undefined && rowIndex <= CASCADE_ROWS ? cascadeFrom + rowIndex * STAGGER : undefined,
 			});
 		}
@@ -1037,7 +1060,9 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	}));
 
 	const countLabel = query === "" ? "" : `${results.total} found`;
-	const fade = (base: number) => show.map((a: number) => 1 - (1 - base) * math.clamp(a, 0, 1));
+	// progress that always lands exactly on 1 once the spring is nearly settled
+	const settle = (a: number) => (a >= 0.97 ? 1 : math.clamp(a, 0, 1));
+	const fade = (base: number) => show.map((a: number) => 1 - (1 - base) * settle(a));
 
 	return h("frame", {
 		Size: UDim2.fromScale(1, 1),
@@ -1048,7 +1073,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	// dim backdrop; tap outside closes
 	h("imagebutton", {
 		Size: UDim2.fromScale(1, 1),
-		BackgroundColor3: Palette.void,
+		BackgroundColor3: new Color3(0, 0, 0),
 		BackgroundTransparency: fade(0.45),
 		BorderSizePixel: 0,
 		AutoButtonColor: false,
@@ -1058,24 +1083,19 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		Event: { Activated: dismiss },
 	}),
 	// the glass panel
-	h("canvasgroup", {
+	h("frame", {
 		Name: "QuickFind",
 		Size: UDim2.fromOffset(width, height),
 		Position: phone ? new UDim2(0.5, 0, 0, inset.Y + 12) : new UDim2(0.5, 0, 0.5, inset.Y / 2),
 		AnchorPoint: phone ? new Vector2(0.5, 0) : new Vector2(0.5, 0.5),
 		BackgroundColor3: Palette.panel,
-		BackgroundTransparency: 0.08,
-		GroupTransparency: fade(0),
+		BackgroundTransparency: fade(0.03),
 		BorderSizePixel: 0,
+		Active: true,
 		ZIndex: 501,
-	}, h("uiscale", { Scale: show.map((a: number) => 0.96 + 0.04 * math.clamp(a, 0, 1)) }),
+	}, h("uiscale", { Scale: show.map((a: number) => 0.96 + 0.04 * settle(a)) }),
 	h("uicorner", { CornerRadius: new UDim(0, 16) }),
 	h("uistroke", { Color: Palette.lineSoft, Transparency: 0.35, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
-	h("uigradient", {
-		Rotation: 90,
-		Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.06)]),
-		Color: new ColorSequence(Palette.panelRaised, Palette.panel),
-	}),
 	// search bar
 	h("frame", {
 		Size: new UDim2(1, -24, 0, 48),
@@ -1133,7 +1153,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		Text: countLabel,
 		TextSize: 12,
 		FontFace: FONT_BOLD,
-		TextColor3: Palette.muted,
+		TextColor3: Palette.creamSoft,
 		TextXAlignment: Enum.TextXAlignment.Right,
 		ZIndex: 503,
 	}),
@@ -1173,7 +1193,8 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		Position: UDim2.fromOffset(8, 68),
 		BackgroundTransparency: 1,
 		BorderSizePixel: 0,
-		CanvasSize: UDim2.fromOffset(0, flat.size() === 0 ? 160 : listHeight + 6),
+		CanvasSize: new UDim2(0, 0, 0, 0),
+		AutomaticCanvasSize: Enum.AutomaticSize.Y,
 		ScrollBarThickness: 3,
 		ScrollBarImageColor3: Palette.muted,
 		ScrollingDirection: Enum.ScrollingDirection.Y,
@@ -1182,8 +1203,8 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		// the selection highlight: one plate that glides between rows
 		Size: new UDim2(1, -4, 0, rowH),
 		Position: highlightY.map((y: number) => UDim2.fromOffset(0, y)),
-		BackgroundColor3: theme.darken(accent, 0.72),
-		BackgroundTransparency: 0.1,
+		BackgroundColor3: theme.darken(accent, 0.7),
+		BackgroundTransparency: 0,
 		BorderSizePixel: 0,
 		ZIndex: 502,
 	}, h("uicorner", { CornerRadius: new UDim(0, 10) }),
@@ -1197,7 +1218,9 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		ZIndex: 503,
 	}, h("uicorner", { CornerRadius: new UDim(1, 0) }))),
 	h("frame", {
-		Size: new UDim2(1, 0, 0, flat.size() === 0 ? 160 : listHeight),
+		ref: contentRef,
+		Size: new UDim2(1, 0, 0, 0),
+		AutomaticSize: Enum.AutomaticSize.Y,
 		BackgroundTransparency: 1,
 		ZIndex: 504,
 	}, rows, empty)),
@@ -1223,7 +1246,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	}, h("uilistlayout", {
 		FillDirection: Enum.FillDirection.Horizontal,
 		VerticalAlignment: Enum.VerticalAlignment.Center,
-		Padding: new UDim(0, 14),
+		Padding: new UDim(0, 20),
 		SortOrder: Enum.SortOrder.LayoutOrder,
 	}), h(KeyHint, { keys: "↑ ↓", label: "Move", order: 1 }),
 	h(KeyHint, { keys: "Enter", label: "Open", order: 2 }),
