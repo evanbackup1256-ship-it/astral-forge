@@ -885,6 +885,7 @@ export = function (loadService: LoadService) {
 		private _execute(actor: Player, payload: Dict): Dict {
 			const role = roleFor(actor);
 			if (role === undefined) return { ok: false, error: "Administrative access denied." };
+			if (!typeIs(payload, "table")) return { ok: false, error: "Malformed admin request." };
 			// Server-side authorization: canonicalization only accepts names in the COMMANDS allowlist.
 			const command = CommandSchema.canonical(cleanText(payload.Command, 48), COMMANDS);
 			const definition = command !== undefined ? COMMANDS[command] : undefined;
