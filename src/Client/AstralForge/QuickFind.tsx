@@ -862,13 +862,16 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	const repeatToken = React.useRef(0);
 	const stickDir = React.useRef(0);
 	// up/down wrap around the ends; page steps stop at the ends instead
-	const moveBy = (step: number) => {
+	// `held` steps (a held key or stick) keep the click sound but skip the rumble
+	const moveBy = (step: number, held = false) => {
 		const count = resultsRef.current.size();
 		if (count === 0) {
 			return;
 		}
 		Audio.play("tick");
-		InteractionFeedback.tick();
+		if (!held) {
+			InteractionFeedback.tick();
+		}
 		setSelected((current: number) => {
 			const target = current + step;
 			if (math.abs(step) === 1) {
@@ -967,7 +970,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			const token = (repeatToken.current += 1);
 			task.delay(REPEAT_DELAY, () => {
 				while (repeatToken.current === token && openRef.current && isHeld(held)) {
-					moveBy(step);
+					moveBy(step, true);
 					task.wait(REPEAT_EVERY);
 				}
 			});
@@ -988,7 +991,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 				const token = (repeatToken.current += 1);
 				task.delay(REPEAT_DELAY, () => {
 					while (repeatToken.current === token && openRef.current && stickDir.current === dir) {
-						moveBy(dir);
+						moveBy(dir, true);
 						task.wait(REPEAT_EVERY * 1.6);
 					}
 				});
