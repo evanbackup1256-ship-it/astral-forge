@@ -2451,7 +2451,7 @@ function CratesSection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Crates",
-					body: "Odds for every crate, up to Celestial and Astral. Your equipped skin opens all of them.",
+					body: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
 					accent: Palette.violet,
 					icon: "Crate.4",
 					state: state,
@@ -2808,7 +2808,7 @@ function SkinsSection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Crate Skins",
-					body: "Dress the crate you open. The Celestial Ark only ever turns up in the Daily Shop.",
+					body: "Dress your crates. The Celestial Ark only shows up in the Daily Shop.",
 					accent: Palette.cyan,
 					icon: "Crate.5",
 					state: state,

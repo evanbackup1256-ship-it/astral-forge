@@ -773,7 +773,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				sizeConstraint={new UDim2(1, -110, 0, 24)}
 			/>
 			<Text
-				value={searching ? "From every section." : showChanged ? "Anything you changed from the default." : section.blurb}
+				value={searching ? "From every section." : showChanged ? "What you changed from the default." : section.blurb}
 				size={12}
 				color={Palette.muted}
 				position={UDim2.fromOffset(0, 26)}
@@ -901,7 +901,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		add(
 			"empty",
 			<Text
-				value={showChanged ? "Everything is on its default." : 'Nothing matches. Try a shorter word, like "music" or "text".'}
+				value={showChanged ? "Everything is on its default." : 'No match. Try "music" or "text".'}
 				size={13}
 				color={Palette.muted}
 				sizeConstraint={new UDim2(1, 0, 0, 40)}
