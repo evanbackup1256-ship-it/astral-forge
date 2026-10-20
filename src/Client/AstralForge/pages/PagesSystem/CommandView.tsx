@@ -4,6 +4,7 @@ import { clockText, compactNumber, Flux, formatReward, gteFlux, Reward } from ".
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { easeOutCubic, useBoatTween, useStagger, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { ProfileStylePanel, profileStyleHeight } from "./ProfileStylePanel";
 
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
@@ -118,7 +119,7 @@ interface Operations {
 	Crew: Record<string, { Name: string; Color: Color3; BaseCost: number; MaxLevel: number; Description?: string } | undefined>;
 }
 interface CommandProps {
-	state: { Command?: CommandState; Stardust?: Flux };
+	state: { Command?: CommandState; Stardust?: Flux; Cosmetics?: unknown; Rebirths?: unknown };
 	config: { Operations?: Operations; Machines: Array<{ Id: string; Name: string; Color: Color3 }> };
 	dispatch: (action: string, payload?: object) => unknown;
 	reducedMotion?: boolean;
@@ -488,6 +489,7 @@ function CommandViewReady(props: CommandProps) {
 	const titleCellH = 176;
 	const titleRows = math.max(1, math.ceil(math.max(1, command.Titles.size()) / titleCols));
 	const titlesH = titlesEnabled ? gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) : 112;
+	const styleH = profileStyleHeight(stack) + panelPad * 2;
 	const shopCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (190 + gridGap))));
 	const shopCellH = 180;
 	const shopRows = math.max(1, math.ceil(math.max(1, command.Shop.size()) / shopCols));
@@ -507,7 +509,7 @@ function CommandViewReady(props: CommandProps) {
 	let listContent = 0;
 	let tabHeroH = 0;
 	if (tab === "Overview") {
-		tabContent = heroH + crewH + weeklyH + titlesH + shopH + masteryH + Layout.panelGap * 5;
+		tabContent = heroH + crewH + weeklyH + titlesH + styleH + shopH + masteryH + Layout.panelGap * 6;
 	} else if (tab === "Expeditions") {
 		tabHeroH = expeditionHeroH;
 		listContent = ops.Expeditions.size() * expeditionRowH + math.max(0, ops.Expeditions.size() - 1) * Layout.panelGap;
@@ -898,6 +900,23 @@ function CommandViewReady(props: CommandProps) {
 				>
 					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, -164, 0, 24)} />
 					{titlesBody}
+				</Panel>
+				<Panel
+					size={new UDim2(1, 0, 0, styleH)}
+					accent={Palette.cyan}
+					background={Palette.panel}
+					padding={panelPad}
+					layoutOrder={nextOrder()}
+					reducedMotion={reducedMotion}
+				>
+					<Text value="Profile style" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
+					<ProfileStylePanel
+						cosmetics={state.Cosmetics}
+						rebirths={state.Rebirths}
+						dispatch={dispatch}
+						stack={stack}
+						reducedMotion={reducedMotion}
+					/>
 				</Panel>
 				<Panel size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text
