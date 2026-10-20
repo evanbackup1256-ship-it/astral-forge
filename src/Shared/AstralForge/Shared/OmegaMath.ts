@@ -14,6 +14,8 @@ function isFinite(n: unknown): n is number {
 
 const NATIVE_LIMIT = 1e15;
 const CANCEL_EPSILON = 5e-15;
+// bulk prices up to this many levels are summed level by level (see GeometricSum)
+const EXACT_SUM_LEVELS = 64;
 
 function plain(value: unknown): value is number {
 	return typeIs(value, "number") && value === value && math.abs(value) < NATIVE_LIMIT;
@@ -409,6 +411,15 @@ const OmegaMath = {
 			return OmegaMath.Floor(OmegaMath.Mul(OmegaMath.ScaledCost(safeBase, safeScale, safeLevel), n));
 		}
 
+		if (n <= EXACT_SUM_LEVELS) {
+			// every level is floored on its own when bought singly, so a short run is the sum of
+			// those exact prices (the closed form drifts by a few Flux from the singles)
+			let total: Persist = 0;
+			for (let index = 0; index < n; index++) {
+				total = OmegaMath.Add(total, OmegaMath.ScaledCost(safeBase, safeScale, safeLevel + index));
+			}
+			return total;
+		}
 		const first = OmegaMath.ScaledCost(safeBase, safeScale, safeLevel);
 		const ratioPow = OmegaMath.Pow(safeScale, n);
 		const numerator = OmegaMath.Sub(ratioPow, 1);

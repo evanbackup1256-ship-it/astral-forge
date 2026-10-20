@@ -1166,8 +1166,14 @@ __defs["TradeExchange"] = () => {
 
 	function mintItemUid(profile: Dict): string {
 		const items = profile.Items as Dict;
-		items.NextId = (tonumber(items.NextId) ?? 0) + 1;
-		return string.format("IT%07d", items.NextId as number);
+		const inventory = items.Inventory as Dict;
+		// skip uids already taken: a stale or reset counter must not land on an owned relic
+		let uid = "";
+		do {
+			items.NextId = (tonumber(items.NextId) ?? 0) + 1;
+			uid = string.format("IT%07d", items.NextId as number);
+		} while (inventory[uid] !== undefined);
+		return uid;
 	}
 
 	const TradeExchange = {
@@ -1181,6 +1187,10 @@ __defs["TradeExchange"] = () => {
 			}
 			const copy: Dict = {};
 			for (const [key, value] of pairs(instance)) {
+				// NewUid is settle bookkeeping on the shared payload, never part of a relic
+				if (key === "NewUid") {
+					continue;
+				}
 				if (typeIs(value, "table")) {
 					const nested: Dict = {};
 					for (const [nestedKey, nestedValue] of pairs(value)) {
