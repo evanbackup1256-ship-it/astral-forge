@@ -660,6 +660,7 @@ function ShopView(props: ShopViewProps) {
 	const [banner, setBanner] = React.useState("Buy a pack, a pass, or enter a code.");
 	const [purchasePhase, setPurchasePhase] = React.useState("hidden");
 	const [purchaseDetail, setPurchaseDetail] = React.useState<string | undefined>(undefined);
+	const [purchaseItem, setPurchaseItem] = React.useState<{ name: string; price?: string; icon?: string; accent?: Color3 } | undefined>(undefined);
 	const heroReveal = useStagger(0, softMotion);
 	const catalogReveal = useStagger(1, softMotion);
 	const owned = state.Shop?.OwnedPasses ?? {};
@@ -700,9 +701,16 @@ function ShopView(props: ShopViewProps) {
 		setPurchaseDetail(undefined);
 		setBusyGate(false);
 	}, []);
-	const openPending = (label: string, seconds?: number) => {
+	const openPending = (label: string, seconds?: number, item?: { PriceLabel?: string; Icon?: string; Accent?: number[] }) => {
 		const timeout = seconds ?? PRODUCT_PENDING_FAILSAFE;
 		pendingLabel.current = label;
+		const rgb = item?.Accent;
+		setPurchaseItem({
+			name: label,
+			price: item?.PriceLabel,
+			icon: item?.Icon,
+			accent: rgb !== undefined && rgb.size() >= 3 ? Color3.fromRGB(rgb[0], rgb[1], rgb[2]) : undefined,
+		});
 		purchasePresentationCallback.current?.(true);
 		const session = sessionRef.current + 1;
 		sessionRef.current = session;
@@ -805,7 +813,7 @@ function ShopView(props: ShopViewProps) {
 			if (product.ProductId <= 0) {
 				if (RunService.IsStudio()) {
 					setBusyGate(true);
-					openPending(product.Name);
+					openPending(product.Name, undefined, product);
 					const session = sessionRef.current;
 					dispatch("StudioGrantProduct", { Id: product.Key }, (response) => {
 						if (sessionRef.current !== session) {
@@ -829,7 +837,7 @@ function ShopView(props: ShopViewProps) {
 				kind: "product",
 				id: product.ProductId,
 			};
-			openPending(product.Name);
+			openPending(product.Name, undefined, product);
 			const [ok] = pcall(() => MarketplaceService.PromptProductPurchase(Players.LocalPlayer!, product.ProductId));
 			if (!ok) {
 				finishPurchase(false);
@@ -852,7 +860,7 @@ function ShopView(props: ShopViewProps) {
 			if (pass.PassId <= 0) {
 				if (RunService.IsStudio()) {
 					setBusyGate(true);
-					openPending(pass.Name);
+					openPending(pass.Name, undefined, pass);
 					const session = sessionRef.current;
 					dispatch("StudioGrantProduct", { Id: pass.Key }, (response) => {
 						if (sessionRef.current !== session) {
@@ -876,7 +884,7 @@ function ShopView(props: ShopViewProps) {
 				kind: "pass",
 				id: pass.PassId,
 			};
-			openPending(pass.Name);
+			openPending(pass.Name, undefined, pass);
 			const [ok] = pcall(() => MarketplaceService.PromptGamePassPurchase(Players.LocalPlayer!, pass.PassId));
 			if (!ok) {
 				finishPurchase(false);
@@ -1444,6 +1452,7 @@ function ShopView(props: ShopViewProps) {
 			phase: purchasePhase,
 			reducedMotion: reducedMotion,
 			detail: purchaseDetail,
+			item: purchaseItem,
 			onDismiss: dismissPurchase,
 		}),
 	) as React.Element;

@@ -6,7 +6,9 @@ import { Layout, Palette, TapTarget } from "../CoreKit/theme";
 import { useViewport } from "../MotionKit/motion";
 import { celebrationsAllowed, flashesAllowed, isReducedMotion } from "../MotionPreference";
 import { CrateModel } from "./crateModel";
-import { Badge, Button, Panel, Text } from "./ui";
+import { Badge, Button, IconTile, Panel, Text } from "./ui";
+import { itemIconKind } from "../ArtKit/Icon";
+import { EffectLabel } from "../CoreKit/inventoryMath";
 import Juice = require("../JuiceFx");
 
 // Crate and artifact reveals.
@@ -35,6 +37,8 @@ interface Definition {
 	Id: string;
 	Name: string;
 	Rarity: string;
+	Slot?: string;
+	[key: string]: unknown;
 }
 interface CrateConfig {
 	Items?: {
@@ -76,6 +80,14 @@ function rankOf(rarity: unknown): number {
 }
 function rarityColor(config: CrateConfig, rarity: unknown): Color3 {
 	return config.Items?.Rarities?.[tostring(rarity)]?.Color ?? Palette.mango;
+}
+function defOf(config: CrateConfig, id: string): Definition | undefined {
+	for (const def of config.Items?.Definitions ?? []) {
+		if (def.Id === id) {
+			return def;
+		}
+	}
+	return undefined;
 }
 function nameOf(config: CrateConfig, id: string): string {
 	for (const def of config.Items?.Definitions ?? []) {
@@ -198,6 +210,9 @@ function DropCard(props: {
 	const large = props.large;
 	const pad = large ? Layout.cardPadding : 12;
 	const fade = props.appear.map((a) => 1 - math.clamp(a * 1.6, 0, 1));
+	const def = defOf(props.config, roll.DefinitionId);
+	const iconSize = large ? 64 : 40;
+	const textX = iconSize + (large ? 14 : 10);
 	return (
 		<Panel
 			size={UDim2.fromOffset(props.size.X, props.size.Y)}
@@ -212,35 +227,53 @@ function DropCard(props: {
 			reducedMotion={props.reducedMotion}
 			zIndex={510}
 		>
-			<Badge
-				value={string.upper(roll.Rarity)}
+			{/* icon on the left, then name / effect, badges along the top: the same reading order as a relic row */}
+			<IconTile
+				kind={salvaged ? "Dust.9" : itemIconKind(roll.DefinitionId, def?.Slot)}
 				accent={accent}
-				filled={true}
-				size={UDim2.fromOffset(large ? 104 : 84, 22)}
+				size={iconSize}
+				filled={props.best || large}
+				reducedMotion={props.reducedMotion}
+				position={UDim2.fromOffset(0, large ? 34 : 30)}
 				zIndex={511}
 			/>
+			<Badge value={string.upper(roll.Rarity)} accent={accent} filled={true} size={UDim2.fromOffset(large ? 104 : 80, 20)} zIndex={511} />
 			{tag !== undefined && (
 				<Badge
 					value={tag}
 					accent={salvaged ? Palette.mango : Palette.mint}
-					size={UDim2.fromOffset(large ? 104 : 72, 22)}
-					position={new UDim2(1, large ? -104 : -72, 0, 0)}
+					size={UDim2.fromOffset(large ? 104 : 60, 20)}
+					position={new UDim2(1, large ? -104 : -60, 0, 0)}
 					zIndex={511}
 				/>
 			)}
 			<Text
 				value={title}
-				size={large ? 24 : 15}
+				size={large ? 22 : 14}
 				minSize={11}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				wrap={true}
 				fit={true}
 				transparency={fade}
-				position={UDim2.fromOffset(0, 32)}
-				sizeConstraint={new UDim2(1, 0, 1, -32)}
+				position={UDim2.fromOffset(textX, large ? 34 : 30)}
+				sizeConstraint={new UDim2(1, -textX, 0, large ? 52 : 36)}
 				zIndex={511}
 			/>
+			{!salvaged && (
+				<Text
+					value={EffectLabel(def, 1)}
+					size={large ? 14 : 11}
+					minSize={10}
+					color={accent}
+					weight={Enum.FontWeight.Bold}
+					fit={true}
+					transparency={fade}
+					position={UDim2.fromOffset(textX, large ? 90 : 68)}
+					sizeConstraint={new UDim2(1, -textX, 0, 18)}
+					zIndex={511}
+				/>
+			)}
 		</Panel>
 	);
 }
@@ -370,7 +403,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	const cols = count === 1 ? 1 : math.min(count, narrow ? 2 : 5);
 	const rows = math.ceil(count / cols);
 	const large = count === 1;
-	const cardSize = large ? new Vector2(math.min(300, viewport.width - 48), 190) : new Vector2(narrow ? 150 : 168, 120);
+	const cardSize = large ? new Vector2(math.min(340, viewport.width - 48), 150) : new Vector2(narrow ? 156 : 184, 112);
 	const gap = 12;
 	const gridW = cols * cardSize.X + (cols - 1) * gap;
 	const gridH = rows * cardSize.Y + (rows - 1) * gap;
