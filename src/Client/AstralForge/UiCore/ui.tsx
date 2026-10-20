@@ -3278,6 +3278,11 @@ export function segmentedHeight(count: number, columns: number | undefined, view
 	return rows * rowH + (rows - 1) * gap;
 }
 
+/** Hook form of segmentedHeight for components that don't already hold a viewport. */
+export function useSegmentedHeight(count: number, columns: number | undefined, rowH: number, gap = 6): number {
+	return segmentedHeight(count, columns, useViewport(), rowH, gap);
+}
+
 export function SegmentedTabs({
 	options,
 	value,

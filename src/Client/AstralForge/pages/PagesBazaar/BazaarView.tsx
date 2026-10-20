@@ -1,8 +1,6 @@
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
 import { Palette } from "../../CoreKit/theme";
-import { useViewport } from "../../MotionKit/motion";
-import { segmentedHeight } from "../../UiCore/ui";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
@@ -290,7 +288,11 @@ function BazaarView(props: BazaarProps) {
 	const [note, setNote] = React.useState("");
 	const [busy, setBusy] = React.useState(false);
 	const [width, setWidth] = React.useState(320);
-	const tabViewport = useViewport();
+	// tab hosts reserve one row when SegmentedTabs draws as a phone strip
+	const categoriesH = (Ui.useSegmentedHeight as unknown as (count: number, columns: number, rowH: number, gap: number) => number)(
+		CATEGORIES.size(), math.max(1, math.min(4, math.floor((width + 6) / 130))), 48, 6);
+	const optionsH = (Ui.useSegmentedHeight as unknown as (count: number, columns: number, rowH: number, gap: number) => number)(
+		3, math.max(1, math.min(3, math.floor((width + 6) / 120))), 48, 6);
 	const [now, setNow] = React.useState(Workspace.GetServerTimeNow());
 	const scrollRef = React.useRef<GuiObject>();
 	const pending = React.useRef(false);
@@ -614,7 +616,7 @@ function BazaarView(props: BazaarProps) {
 	const columns = math.max(1, math.min(4, math.floor((width + 6) / 130)));
 	add(
 		"categories",
-		segmentedHeight(CATEGORIES.size(), columns, tabViewport, 48, 6),
+		categoriesH,
 		<Ui.SegmentedTabs
 			options={CATEGORIES}
 			value={category}
@@ -762,7 +764,7 @@ function BazaarView(props: BazaarProps) {
 		return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={72} scrollBarColor={Palette.violet} />;
 	}
 	const optionColumns = math.max(1, math.min(3, math.floor((width + 6) / 120)));
-	const optionHeight = segmentedHeight(3, optionColumns, tabViewport, 48, 6);
+	const optionHeight = optionsH;
 	add(
 		"sort",
 		optionHeight,

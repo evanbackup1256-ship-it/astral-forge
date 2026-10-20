@@ -37,7 +37,7 @@ local function render(width, inspected, offers)
 	local palette = setmetatable({}, { __index = function(_, key) return key end })
 	local environment = setmetatable({
 		h = node, Palette = palette, Format = Format,
-		Ui = setmetatable({}, { __index = function(_, key) return key end }),
+		Ui = setmetatable({ useSegmentedHeight = function(count, cols, rowH, gap) local rows = math.ceil(count / cols); return rows * rowH + (rows - 1) * gap end }, { __index = function(_, key) return key end }),
 		React = {
 			createElement = node,
 			useState = function(initial)
