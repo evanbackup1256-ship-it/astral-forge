@@ -96,7 +96,6 @@
             "$path": "vendor/@rbxts-js"
           },
           "@flamework": {
-            "$className": "Folder",
             "$path": "node_modules/@flamework"
           }
         }
