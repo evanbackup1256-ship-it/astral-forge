@@ -69,6 +69,15 @@ Harness.Methods = {
 }
 
 -- build the instance tree for a directory up front (fs calls cannot run inside metamethods)
+-- every module source is read while the tree is scanned: a require can then run inside a
+-- metamethod (lazy suite members such as TradeSuite.TradeDesk), where Lune cannot yield for fs
+local sources = {}
+local function readSource(path)
+	if sources[path] == nil and fs.isFile(path) and not path:find("GameConfigGenerated", 1, true) then
+		sources[path] = fs.readFile(path)
+	end
+end
+
 local function scan(self)
 	if not self.__path or not fs.isDir(self.__path) then return self end
 	for _, entry in fs.readDir(self.__path) do
@@ -78,11 +87,14 @@ local function scan(self)
 			name = entry
 			local isInit = fs.isFile(full .. "/init.luau") or fs.isFile(full .. "/init.lua")
 			child = newNode(name, isInit and "ModuleScript" or "Folder", self, full, isInit and "initdir" or "dir")
+			readSource(full .. "/init.luau")
+			readSource(full .. "/init.lua")
 			scan(child)
 		else
 			name = entry:match("^(.-)%.luau$") or entry:match("^(.-)%.lua$")
 			if name and name ~= "init" then
 				child = newNode(name, "ModuleScript", self, full, "file")
+				readSource(full)
 			end
 		end
 		if child and name then self.__children[name] = child end
@@ -170,17 +182,17 @@ local function requireNode(module)
 	if cache[module] ~= nil then return cache[module] end
 	local path = module.__path
 	if module.__kind == "initdir" then
-		path = fs.isFile(path .. "/init.luau") and path .. "/init.luau" or path .. "/init.lua"
+		path = sources[path .. "/init.luau"] and path .. "/init.luau" or path .. "/init.lua"
 	end
-	if not path or not fs.isFile(path) then error("harness: cannot require " .. tostring(module.__path or module.Name), 2) end
 	-- the 5 MB generated config is too large for Lune's compiler; GameConfig falls back to its
 	-- lazy generators (the same rows) when this require fails
-	if path:find("GameConfigGenerated", 1, true) then
+	if path and path:find("GameConfigGenerated", 1, true) then
 		error("harness: GameConfigGenerated skipped", 2)
 	end
+	if not path or not sources[path] then error("harness: cannot require " .. tostring(module.__path or module.Name), 2) end
 	local moduleEnv = table.clone(env)
 	moduleEnv.script = module
-	local chunk = luau.load(fs.readFile(path), { chunkName = path, environment = moduleEnv })
+	local chunk = luau.load(sources[path], { chunkName = path, environment = moduleEnv })
 	local result = chunk()
 	cache[module] = result
 	return result
