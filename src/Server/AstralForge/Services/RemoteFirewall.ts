@@ -78,16 +78,9 @@ interface ClientIntegrityState {
 	Kinds: Record<string, number>;
 }
 
-interface ConfirmedProof {
-	ServerConfirmed: boolean;
-	CorroboratedSignals: number;
-	Rule: string;
-}
-
 export = (loadService: LoadService) => {
 	const Players = game.GetService("Players");
 	const RunService = game.GetService("RunService");
-	const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
 	const GameConfig = req<GameConfigShape>(SharedFolder().WaitForChild("GameConfig"));
 	const RemoteFirewallMath = OpsMath("RemoteFirewallMath") as RemoteFirewallMathApi;
@@ -299,14 +292,6 @@ export = (loadService: LoadService) => {
 		[Protocol.Actions.ClaimAllMail]: true,
 		[Protocol.Actions.VerifyCreatorFollow]: true,
 	};
-
-	function integer(value: unknown): boolean {
-		return RemoteFirewallMath.Integer(value);
-	}
-
-	function safeNumber(value: unknown): boolean {
-		return RemoteFirewallMath.SafeNumber(value);
-	}
 
 	function inspect(
 		value: unknown,

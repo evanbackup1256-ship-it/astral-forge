@@ -14,10 +14,6 @@ type Transform<T> = Types.Transform<T>;
 type Result<T, E> = Types.Result<T, E>;
 
 type RobloxAPIError = Types.RobloxAPIError;
-type SessionLockedError = Types.SessionLockedError;
-type CheckError = Types.CheckError;
-type BackwardsCompatibilityError = Types.BackwardsCompatibilityError;
-type SchemaError = Types.SchemaError;
 
 type OpenResult<T> = Types.OpenResult<T>;
 type WriteResult<T> = Types.WriteResult<T>;

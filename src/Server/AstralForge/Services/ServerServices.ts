@@ -2,8 +2,7 @@
 // GameService (the gameplay hub) is defined inline below, as it was in the Luau original.
 import { Dict, isTable, LoadService, num, truthy } from "./LuaInterop";
 
-// Converted modules keep their Luau runtime shape; most of what GameService touches is still
-// opaque, so module tables are typed as dot-called functions and service instances as
+// Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
 // colon-called methods. Values coming back are narrowed where they are used.
 type Fn = (this: void, ...args: unknown[]) => unknown;
 type Method = (this: object, ...args: unknown[]) => unknown;
@@ -82,7 +81,6 @@ serviceFactories["GameService"] = () => {
 	const ReplicatedStorage = game.GetService("ReplicatedStorage");
 	const RunService = game.GetService("RunService");
 	const MarketplaceService = game.GetService("MarketplaceService");
-	const DataStoreService = game.GetService("DataStoreService");
 	const HttpService = game.GetService("HttpService");
 	const ServerStorage = game.GetService("ServerStorage");
 	const Workspace = game.GetService("Workspace");
@@ -219,7 +217,6 @@ serviceFactories["GameService"] = () => {
 
 	const anomalyChargeByAction = ActionFeatureMaps.ANOMALY_CHARGE as Record<string, unknown>;
 
-	const telemetryNumber = (value: unknown): number => TelemetryMath.Number(value, Economy.AsNumber) as number;
 
 	const encodeTelemetry = (
 		revision: unknown,
@@ -352,8 +349,6 @@ serviceFactories["GameService"] = () => {
 
 	const StoreAccess = require(root.WaitForChild("Modules").WaitForChild("StoreAccess") as ModuleScript) as Kit;
 	const getOrderedStore = StoreAccess.ordered;
-	const getDataStore = StoreAccess.data;
-	const previewEnabled = StoreAccess.isPreview() as boolean;
 
 	const reportLedger = ReportLedger.new() as Svc;
 	Players.PlayerRemoving.Connect((leaving) => {
@@ -794,7 +789,6 @@ serviceFactories["GameService"] = () => {
 			if (action === Protocol.Actions.GetTrade) {
 				return responseSuccess(undefined);
 			}
-			const liveSession = this._trades.SessionFor(player.UserId);
 			if (!truthy(this._trades.Unlocked(profile))) {
 				return responseError("Trade Floor unlocks after your first rebirth.");
 			}
@@ -3930,7 +3924,6 @@ serviceFactories["GameService"] = () => {
 				const shopCatalog = SharedDataSuite("ShopCatalog") as Kit;
 				const equippedSkin = shopCatalog.skin(cosmetics.CrateSkin) as Dict | undefined;
 				const pityStep = CrateExpansion.pityStep(cosmetics, equippedSkin) as number;
-				const inventory = items.Inventory as Dict;
 				const rarities = autoRules.Rarities as Dict;
 				const pityBag = items.Pity as Dict;
 				for (let index = 0; index < count; index++) {

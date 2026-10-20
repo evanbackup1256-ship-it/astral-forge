@@ -1,39 +1,26 @@
-// Converted from CoreServices.luau — the lazy member bundle for the core gameplay services.
+// The lazy member bundle for the core gameplay services.
 import {
 	Dict,
 	d,
 	economyKit,
-	isTable,
 	LoadService,
 	num,
-	profileMathKit,
 	req,
 	SharedFolder,
-	sharedDataKit,
-	truthy,
 } from "./LuaInterop";
 import ProfileBagMath from "../Modules/ProfileBagMath";
-import EchoMath from "../../../Shared/AstralForge/Shared/EchoMath";
-import OmegaMath from "../../../Shared/AstralForge/Shared/OmegaMath";
-import LeaderboardCodec from "../Modules/LeaderboardCodec";
-import StoreAccess from "../Modules/StoreAccess";
-import ServerConfig from "../ServerConfig";
-import LabOrderMath from "../Modules/LabOrderMath";
-import CommandMath from "../Modules/CommandMath";
 import OpsMath from "../Modules/OpsMath";
-import SocialProgression from "../../../Shared/AstralForge/Shared/SocialProgression";
 import ForgeEchoServiceFactory from "./CoreServiceMembers/ForgeEchoService";
 import ProgressionServiceFactory from "./CoreServiceMembers/ProgressionService";
 import LabServiceMember from "./CoreServiceMembers/LabService";
 import ServerEventServiceFactory from "./CoreServiceMembers/ServerEventService";
 import GuildServiceFactory from "./CoreServiceMembers/GuildService";
 
-// The kit bundles and not-yet-converted Luau modules come back as opaque values; the members
+// Kit bundles come back as opaque values; the members
 // each GameService member actually calls are typed as callable records.
 type Fn = (this: void, ...args: unknown[]) => unknown;
 type Kit = Record<string, Fn>;
 type Profile = Dict;
-type Response = Dict;
 
 interface GameConfigShape {
 	Game: Dict;
@@ -60,18 +47,6 @@ interface GameConfigShape {
 	Research: Dict;
 	MaxZone: number;
 	[key: string]: unknown;
-}
-
-interface DataStoreLike {
-	GetAsync(key: string): unknown;
-	UpdateAsync(key: string, transform: (this: void, old: unknown) => unknown): unknown;
-	RemoveAsync(key: string): unknown;
-}
-
-interface OrderedStoreLike {
-	GetSortedAsync(ascending: boolean, pageSize: number): Pages<{ key: string; value: number }>;
-	SetAsync(key: string, value: unknown): unknown;
-	RemoveAsync(key: string): unknown;
 }
 
 const __defs: Record<string, () => unknown> = {};
@@ -108,7 +83,6 @@ __defs["GuildService"] = () => GuildServiceFactory;
 
 __defs["AnomalyService"] = () => {
 	return (loadService: LoadService) => {
-		const ReplicatedStorage = game.GetService("ReplicatedStorage");
 		const Workspace = game.GetService("Workspace");
 
 		const Economy = economyKit("Economy") as Kit;

@@ -2,7 +2,6 @@ import StoreAccess from "../Modules/StoreAccess";
 import { Dict, isTable, num, truthy } from "./LuaInterop";
 // Persistent guild community features. Chat and announcement text is filtered before storage or broadcast.
 
-const DataStoreService = game.GetService("DataStoreService");
 const HttpService = game.GetService("HttpService");
 const MessagingService = game.GetService("MessagingService");
 const RunService = game.GetService("RunService");
