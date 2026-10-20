@@ -3479,7 +3479,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "AnomalyPulseLedger",
-			Name: "Anomaly Pulse Ledger",
+			Name: "Pulse Counter",
 			Description: "Land 50 quantum pulses.",
 			Kind: "AnomalyPulses",
 			Target: 50,
@@ -3495,7 +3495,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave8ExpeditionLedger",
-			Name: "Expedition Ledger",
+			Name: "Seasoned Crew",
 			Description: "Complete 28 expeditions.",
 			Kind: "Expeditions",
 			Target: 28,
@@ -3527,7 +3527,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave10EchoArchivist",
-			Name: "Echo Archivist",
+			Name: "Bookmark Collector",
 			Description: "Claim 48 story chapters.",
 			Kind: "StoryClaims",
 			Target: 48,
@@ -3575,7 +3575,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave13CommandCourier",
-			Name: "Command Chronicle",
+			Name: "Dog-Eared Pages",
 			Description: "Claim 54 story chapters.",
 			Kind: "StoryClaims",
 			Target: 54,
@@ -3607,7 +3607,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave15OpsCourier",
-			Name: "Ops Biographer",
+			Name: "Can't Put It Down",
 			Description: "Claim 58 story chapters.",
 			Kind: "StoryClaims",
 			Target: 58,
@@ -3639,7 +3639,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave17EchoCourier",
-			Name: "Echo Chronicler",
+			Name: "One More Chapter",
 			Description: "Claim 62 story chapters.",
 			Kind: "StoryClaims",
 			Target: 62,
@@ -3655,7 +3655,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave18ConvergenceCourier",
-			Name: "Convergence Scribe",
+			Name: "Reading by Lamplight",
 			Description: "Claim 64 story chapters.",
 			Kind: "StoryClaims",
 			Target: 64,
@@ -3671,7 +3671,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave19GuildCourier",
-			Name: "Guild Historian",
+			Name: "Spoiler Free",
 			Description: "Claim 66 story chapters.",
 			Kind: "StoryClaims",
 			Target: 66,
@@ -3687,7 +3687,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave20TradeCourier",
-			Name: "Trade Chronicler",
+			Name: "Cover to Cover",
 			Description: "Claim 68 story chapters.",
 			Kind: "StoryClaims",
 			Target: 68,
@@ -3703,7 +3703,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave21QuestCourier",
-			Name: "Quest Annalist",
+			Name: "Seventy Chapters In",
 			Description: "Claim 70 story chapters.",
 			Kind: "StoryClaims",
 			Target: 70,
@@ -3735,7 +3735,7 @@ const GameConfig: Dict = {
 		},
 		{
 			Id: "Wave22LabCourier",
-			Name: "Lab Chronicler",
+			Name: "Nearly Caught Up",
 			Description: "Claim 74 story chapters.",
 			Kind: "StoryClaims",
 			Target: 74,

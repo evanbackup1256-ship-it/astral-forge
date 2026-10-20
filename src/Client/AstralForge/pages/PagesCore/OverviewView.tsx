@@ -1635,7 +1635,7 @@ export function OverviewView({
 											layoutOrder={1}
 										/>
 										<Button
-											text={pathReady ? "FORGE PATH · READY" : "FORGE PATH"}
+											text={pathReady ? (stack ? "PATH · READY" : "FORGE PATH · READY") : "FORGE PATH"}
 											icon="Forge.6"
 											onClick={() => navigate?.("ForgePath")}
 											color={pathReady ? Palette.violet : Palette.panelSoft}

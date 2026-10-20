@@ -1488,7 +1488,8 @@ function CommandViewReady(props: CommandProps) {
 								size={14}
 								color={major ? Palette.mango : Palette.cream}
 								weight={Enum.FontWeight.Heavy}
-								fit={false}
+								fit={true}
+								minSize={11}
 								position={UDim2.fromOffset(72, 8)}
 								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 20)}
 							/>
