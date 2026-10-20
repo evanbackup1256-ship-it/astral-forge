@@ -5,7 +5,10 @@ import { InteractionFeedback } from "../CoreKit/interaction";
 import {
 	Chrome,
 	Layout,
+	Elevation,
+	Pad,
 	Palette,
+	StrokeWidth,
 	TapTarget,
 	chromeFor,
 	contrastOn,
@@ -731,7 +734,7 @@ export function SectionLabel({
 	return (
 		<frame Size={new UDim2(1, 0, 0, 22)} Position={position} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={layoutOrder}>
 			<frame
-				Size={UDim2.fromOffset(22, 3)}
+				Size={UDim2.fromOffset(22, StrokeWidth.focus)}
 				Position={new UDim2(0, 0, 0.5, 0)}
 				AnchorPoint={new Vector2(0, 0.5)}
 				BackgroundColor3={color}
@@ -743,7 +746,7 @@ export function SectionLabel({
 					Transparency={
 						new NumberSequence([
 							new NumberSequenceKeypoint(0, 0.04),
-							new NumberSequenceKeypoint(0.7, 0.22),
+							new NumberSequenceKeypoint(0.68, 0.18),
 							new NumberSequenceKeypoint(1, 1),
 						])
 					}
@@ -1292,9 +1295,9 @@ export function Panel(props: PanelProps) {
 	} = props;
 	let padding = props.padding;
 	if (padding === undefined) {
-		padding = 14;
-	} else if (padding > 16) {
-		padding = 16;
+		padding = Pad.panel;
+	} else if (padding > Pad.panelMax) {
+		padding = Pad.panelMax;
 	}
 	const [hovered, setHovered] = React.useState(false);
 	const [hoverArmed, setHoverArmed] = React.useState(false);
@@ -1360,6 +1363,10 @@ export function Panel(props: PanelProps) {
 			shadowPosition: joinTuple<[number, Vector2]>(surfaceY, panelSize).map((values) => pixelPosition(values[1], 0, -4, 0, 7 + values[0])),
 			surfacePosition: joinTuple<[number, Vector2]>(surfaceY, panelSize).map((values) => pixelPosition(values[1], 0, 0, 0, values[0])),
 			shadowTransparency: revealFade.map((amount) => math.clamp(Chrome.panelShadow + amount * (1 - Chrome.panelShadow), 0, 1)),
+			ambientPosition: joinTuple<[number, Vector2]>(surfaceY, panelSize).map((values) =>
+				pixelPosition(values[1], 0, -Elevation.ambientSpread, 0, Elevation.ambientOffset + values[0]),
+			),
+			ambientTransparency: revealFade.map((amount) => math.clamp(Elevation.ambientAlpha + amount * (1 - Elevation.ambientAlpha), 0, 1)),
 			hoverWashVisible: lift.map((amount) => amount > 0.04),
 			hoverWashAlpha: lift.map((amount) => (amount < 0.04 ? 1 : 1 - amount * 0.14)),
 			highlightWashVisible: highlightOn.map((amount) => amount > 0.05),
@@ -1402,6 +1409,19 @@ export function Panel(props: PanelProps) {
 				<uiscale Scale={activeReveal.map((amount) => 0.98 + 0.02 * math.clamp(amount, 0, 1))} />
 				{paintChrome && (
 					<frame
+						Size={new UDim2(1, Elevation.ambientSpread * 2, 1, Elevation.ambientSpread)}
+						Position={derived.ambientPosition}
+						BackgroundColor3={Palette.shadow}
+						BackgroundTransparency={derived.ambientTransparency}
+						BorderSizePixel={0}
+						Active={false}
+						ZIndex={zIndex}
+					>
+						<uicorner CornerRadius={new UDim(0, radius + Elevation.ambientSpread)} />
+					</frame>
+				)}
+				{paintChrome && (
+					<frame
 						Size={new UDim2(1, 8, 1, -1)}
 						Position={derived.shadowPosition}
 						BackgroundColor3={Palette.shadow}
@@ -1423,6 +1443,22 @@ export function Panel(props: PanelProps) {
 				>
 					<uicorner CornerRadius={new UDim(0, radius)} />
 					<uigradient Color={surfaceGradient(background, 0.92)} Rotation={90} />
+					{accent !== undefined && (
+						// accent hairline across the top edge ties each panel to its section colour
+						<frame
+							Size={new UDim2(1, -radius * 2, 0, StrokeWidth.hairline)}
+							Position={UDim2.fromOffset(radius, 1)}
+							BackgroundColor3={accent}
+							BackgroundTransparency={revealFade.map((amount) => math.clamp(0.45 + amount * 0.55, 0, 1))}
+							BorderSizePixel={0}
+							Active={false}
+							ZIndex={zIndex}
+						>
+							<uigradient
+								Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 1)])}
+							/>
+						</frame>
+					)}
 					{stroke && (
 						<frame Size={new UDim2(1, -2, 1, -2)} Position={UDim2.fromOffset(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex}>
 							<uicorner CornerRadius={new UDim(0, math.max(1, radius - 1))} />
@@ -1607,7 +1643,8 @@ export function resolvePressMotion(input?: string | PressMotionSpec): PressMotio
 		}
 	}
 	let hoverGain = 0;
-	let pressDrop = 0.07;
+	// a press settles at ~0.97 scale: noticeable on touch, never jumpy
+	let pressDrop = 0.03;
 	let tilt = 0;
 	if (kind === "icon") {
 		tilt = -1;
@@ -1623,14 +1660,14 @@ export function resolvePressMotion(input?: string | PressMotionSpec): PressMotio
 	let hoverDamping = 44;
 	if (role === "dangerButton") {
 		hoverGain *= 0.5;
-		pressDrop = 0.05;
+		pressDrop = 0.025;
 		tilt = 0;
 		pressStiffness = 1700;
 		pressDamping = 60;
 		hoverStiffness = 980;
 		hoverDamping = 52;
 	} else if (role === "primaryButton" || role === "reward" || role === "reveal" || role === "ceremony") {
-		pressDrop = 0.08;
+		pressDrop = 0.035;
 		pressStiffness = 1400;
 		pressDamping = 46;
 		hoverStiffness = 820;
@@ -1748,6 +1785,10 @@ export function useButtonChrome(
 	const tiltDegrees = pressMotion.tilt;
 	const touchScale = joinTuple<[number, number]>(pose, impact).map((values) => {
 		const value = values[0];
+		if (reducedMotion) {
+			// reduced motion: keep the brightness feedback, drop the scale tween
+			return 1;
+		}
 		if (value >= 0) {
 			return 1 + math.clamp(value, 0, 1) * hoverGain;
 		}
@@ -2102,7 +2143,7 @@ export function Button(props: ButtonProps) {
 		size,
 	};
 	const chrome = useButtonChrome(onClick, reducedMotion, effectivelyDisabled, resolvedSound, true, highlight, motion);
-	const { active, hovered, offsetY, hoverAmount, impact, shimmer, shimmerLive, focusRing, touchScale, tilt, events } = chrome;
+	const { active, hovered, offsetY, hoverAmount, pressAmount, impact, shimmer, shimmerLive, focusRing, touchScale, tilt, events } = chrome;
 	const spinnerTurn = useRotation(loading, 260);
 	const labelHiddenByLoading = useFlipperSpring(loading ? 1 : 0, reducedMotion, 520, 40);
 	const shake = useFlash(shakeToken, reducedMotion, 0.42);
@@ -2166,12 +2207,14 @@ export function Button(props: ButtonProps) {
 	}, [effectivelyDisabled, zIndex]);
 	const baseFill = effectivelyDisabled ? Palette.panelSoft : outline ? Palette.panel : buttonColor;
 	const disabledAmount = useFlipperSpring(effectivelyDisabled ? 1 : 0, reducedMotion || effectsPaused, 520, 40);
-	const enabledFill = hoverAmount.map((amount) => {
+	const enabledFill = joinTuple<[number, number]>(hoverAmount, pressAmount).map(([amount, pressedBy]) => {
 		const t = math.clamp(amount, 0, 1);
+		const p = math.clamp(pressedBy, 0, 1);
 		if (outline) {
-			return Palette.panel.Lerp(Palette.panelSoft, t * 0.55);
+			return Palette.panel.Lerp(Palette.panelSoft, t * 0.55).Lerp(darken(Palette.panel, 0.12), p);
 		}
-		return buttonColor.Lerp(lighten(buttonColor, 0.08), t);
+		// hover brightens, press dims slightly below rest so the tap reads even without motion
+		return buttonColor.Lerp(lighten(buttonColor, 0.1), t).Lerp(darken(buttonColor, 0.1), p);
 	});
 	const fill = joinTuple<[Color3, number]>(enabledFill, disabledAmount).map(([enabled, amount]) =>
 		enabled.Lerp(Palette.panelSoft, math.clamp(amount, 0, 1)),

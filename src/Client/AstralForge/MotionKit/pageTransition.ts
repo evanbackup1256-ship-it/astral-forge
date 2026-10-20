@@ -1,5 +1,7 @@
-export const SLIDE_DESKTOP = 24;
-export const SLIDE_PHONE = 36;
+// a small slide: enough to show direction without the page appearing to travel
+export const SLIDE_DESKTOP = 12;
+export const SLIDE_PHONE = 16;
+export const ENTER_SECONDS = 0.18;
 export const SOFT_SCALE = 0.45;
 export const VEIL_PEAK = 0.68;
 const VEIL_POWER = 2.4;
