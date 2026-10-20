@@ -2135,9 +2135,9 @@ export function Button(props: ButtonProps) {
 	if (tooltip === undefined && iconOnly) {
 		tooltip = labelFor(icon as string | undefined);
 	}
-	const tipEvents = useTooltip(
-		(effectivelyDisabled && typeIs(tooltip, "string") ? undefined : tooltip) as TooltipContent | undefined,
-	);
+	// a disabled button still explains itself (hover on PC, long press on touch); its own press
+	// events are already empty while disabled, so the tip never fires the action. Loading hides it.
+	const tipEvents = useTooltip((loading ? undefined : tooltip) as TooltipContent | undefined);
 	const buttonEvents = React.useMemo(() => mergeEvents(events, tipEvents), [events, tipEvents]);
 	const compactRipple =
 		iconOnly ||
