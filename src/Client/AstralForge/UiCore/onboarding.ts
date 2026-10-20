@@ -1378,7 +1378,6 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 		position: UDim2.fromOffset(0, veryShort ? 64 : condensed ? 104 : 130),
 		size: new UDim2(1, 0, 0, 3),
 		reducedMotion: reducedMotion,
-		shimmer: true,
 	});
 	const closeButton = h(
 		"frame",

@@ -788,7 +788,8 @@ export function Workspace(_param: WorkspaceProps) {
 						),
 						sizeConstraint: new UDim2(1, 0, 0, chrome.landscape ? 26 : chrome.stack ? 24 : denseHeader ? 24 : 28),
 						reducedMotion: reducedMotion,
-						enabled: true,
+						// page titles sit still; the sweeping glint read as decoration, not information
+						enabled: false,
 						periodSeconds: 4.2,
 					}),
 					!keyboardCompact &&

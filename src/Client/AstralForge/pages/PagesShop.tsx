@@ -2865,7 +2865,7 @@ function CodexProgress(props: CodexProgressProps) {
 				sizeConstraint: UDim2.fromOffset(44, 16),
 			}),
 			h(Text, {
-				value: `${done ? "✓ " : ""}+${math.floor((tonumber(bonuses[rarity]) ?? 0) * 1000 + 0.5) / 10}%`,
+				value: `${done ? "Complete · " : ""}+${math.floor((tonumber(bonuses[rarity]) ?? 0) * 1000 + 0.5) / 10}%`,
 				size: 12,
 				color: done ? Palette.mint : Palette.muted,
 				weight: Enum.FontWeight.Bold,

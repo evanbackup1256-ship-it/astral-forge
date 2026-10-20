@@ -144,7 +144,6 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				position={new UDim2(0, 0, 1, -28)}
 				size={new UDim2(1, 0, 0, 9)}
 				reducedMotion={softMotion}
-				shimmer={true}
 			/>
 			<Text
 				value={`${compactNumber(event.GlobalContribution)} / ${compactNumber(event.GlobalTarget)}  •  ${string.format("%.2fx", event.ProductionMultiplier)} PRODUCTION`}

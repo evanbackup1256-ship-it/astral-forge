@@ -2228,11 +2228,11 @@ __defs["TradeView"] = () => {
 										options: [
 											{
 												id: "You",
-												label: `YOUR OFFER${youReadyLocal ? " ✓" : ""}`,
+												label: `YOUR OFFER${youReadyLocal ? " · READY" : ""}`,
 											},
 											{
 												id: "Them",
-												label: `${session.PartnerName.upper()}${session.ThemReady === true ? " ✓" : ""}`,
+												label: `${session.PartnerName.upper()}${session.ThemReady === true ? " · READY" : ""}`,
 											},
 										],
 										value: offerTab,

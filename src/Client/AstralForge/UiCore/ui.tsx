@@ -3328,7 +3328,6 @@ export function SegmentedTabs({
 	const rowSlide = useFlipperSpring(activeRow, reducedMotion, 720, 32);
 	const selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.3);
 	const tabsEffectsPaused = React.useContext(UiEffectsPausedContext);
-	const tabSweep = useClock(reducedMotion !== true && !tabsEffectsPaused, SHIMMER_SWEEP_SPEED, 1, false);
 	const selectedAccent = options[activeIndex]?.accent ?? accent;
 	const cellSize = new UDim2(
 		1 / columnCount,
@@ -3465,21 +3464,6 @@ export function SegmentedTabs({
 							Color={lighten(selectedAccent, 0.24)}
 							Thickness={1}
 							Transparency={0.28}
-						/>
-					</frame>
-					<frame
-						Size={UDim2.fromScale(1, 1)}
-						BackgroundColor3={Palette.cream}
-						BackgroundTransparency={0.78}
-						BorderSizePixel={0}
-						Active={false}
-						ZIndex={2}
-					>
-						<uigradient
-							Color={new ColorSequence(Palette.cream)}
-							Rotation={ShimmerMath.ROTATION}
-							Transparency={SHIMMER_GLINT}
-							Offset={tabSweep.map((phase) => shimmerOffset(phase, 2.2))}
 						/>
 					</frame>
 					<frame
