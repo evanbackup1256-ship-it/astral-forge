@@ -126,7 +126,7 @@ function MachineRow(props: {
 					kind={unlocked ? (machine.Icon ?? "Forge") : "Lock"}
 					accent={unlocked ? machine.Color : Palette.muted}
 					size={46}
-					radius={12}
+					radius={14}
 					position={UDim2.fromOffset(0, stack ? 6 : 16)}
 					glow={unlocked && running && ready && !softMotion}
 					filled={running}
@@ -826,7 +826,7 @@ function AutoForgePanel(props: {
 				kind="Forge"
 				accent={queue.Enabled ? Palette.mango : Palette.muted}
 				size={48}
-				radius={12}
+				radius={14}
 				position={UDim2.fromOffset(0, 0)}
 				spin={queue.Enabled}
 				reducedMotion={softMotion}

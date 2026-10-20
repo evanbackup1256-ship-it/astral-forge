@@ -121,7 +121,7 @@ function MissionRow({ quest, dispatch, reducedMotion, position, stack }: Mission
 					kind="Mission"
 					accent={quest.Claimed ? Palette.cyan : accent}
 					size={42}
-					radius={11}
+					radius={10}
 					glow={ready}
 					filled={ready}
 					reducedMotion={softMotion}

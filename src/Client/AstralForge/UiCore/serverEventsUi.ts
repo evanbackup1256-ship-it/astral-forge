@@ -680,7 +680,7 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 				ClipsDescendants: true,
 				ZIndex: 560,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 16) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uistroke", { Color: accent, Thickness: 1.5, Transparency: 0.3 }),
 			h(
 				"frame",

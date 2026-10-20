@@ -920,7 +920,7 @@ function MobileControls(props: MobileControlsProps) {
 				BorderSizePixel: 0,
 				ZIndex: 510,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 13) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uistroke", {
 				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 				LineJoinMode: Enum.LineJoinMode.Round,
@@ -1241,7 +1241,7 @@ function MobileControls(props: MobileControlsProps) {
 				BorderSizePixel: 0,
 				ZIndex: 510,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 16) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uistroke", {
 				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 				LineJoinMode: Enum.LineJoinMode.Round,
@@ -1481,7 +1481,7 @@ function MobileQuickBar(props: MobileQuickBarProps) {
 				BorderSizePixel: 0,
 				ZIndex: 61,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 16) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uigradient", { Color: surfaceGradient(Palette.panel), Rotation: 90 }),
 			h("uistroke", {
 				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,

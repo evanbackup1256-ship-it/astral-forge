@@ -102,7 +102,7 @@ function MilestoneRow({ achievement, dispatch, reducedMotion, position, stack, c
 					kind="Milestone"
 					accent={achievement.Claimed ? Palette.mango : accent}
 					size={42}
-					radius={11}
+					radius={10}
 					glow={ready}
 					filled={ready}
 					reducedMotion={softMotion}

@@ -901,7 +901,7 @@ function Row(
 				BackgroundColor3: theme.darken(color, 0.6),
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 8) }),
+			h("uicorner", { CornerRadius: new UDim(0, 10) }),
 			h(Icon, {
 				kind: icon,
 				color: P.cream,

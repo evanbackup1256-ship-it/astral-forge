@@ -134,7 +134,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				BackgroundTransparency={0.2}
 				BorderSizePixel={0}
 			>
-				<uicorner CornerRadius={new UDim(0, 12)} />
+				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke Color={accentColor} Thickness={frame.Thickness} Transparency={0.1}>
 					{frame.Gradient && (
 						<uigradient

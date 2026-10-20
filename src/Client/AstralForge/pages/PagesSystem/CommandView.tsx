@@ -249,7 +249,7 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 			Active={false}
 			ClipsDescendants={true}
 		>
-			<uicorner CornerRadius={new UDim(0, 12)} />
+			<uicorner CornerRadius={new UDim(0, 14)} />
 			<uistroke
 				Color={props.equipped ? accent : props.unlocked ? accent : Palette.lineSoft}
 				Thickness={props.equipped ? 1.8 : 1}
@@ -1172,7 +1172,7 @@ function CommandViewReady(props: CommandProps) {
 									kind={artifactIcon(expedition.ArtifactId ?? expedition.Id)}
 									accent={expedition.Color}
 									size={46}
-									radius={12}
+									radius={14}
 									position={UDim2.fromOffset(0, stack ? 6 : 18)}
 									reducedMotion={reducedMotion}
 								/>
@@ -1297,7 +1297,7 @@ function CommandViewReady(props: CommandProps) {
 								BorderSizePixel={0}
 								ClipsDescendants={true}
 							>
-								<uicorner CornerRadius={new UDim(0, 12)} />
+								<uicorner CornerRadius={new UDim(0, 14)} />
 								<uistroke
 									Color={owned ? (elementSheet(artifact.Element) ?? { Color: artifact.Color }).Color : Palette.lineSoft}
 									Transparency={equipped ? 0 : 0.45}

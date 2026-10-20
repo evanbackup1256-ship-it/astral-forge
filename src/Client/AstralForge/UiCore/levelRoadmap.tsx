@@ -435,7 +435,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 							ZIndex={472}
 							ClipsDescendants={true}
 						>
-							<uicorner CornerRadius={new UDim(0, 16)} />
+							<uicorner CornerRadius={new UDim(0, 14)} />
 							<uistroke ApplyStrokeMode={Enum.ApplyStrokeMode.Border} Color={Palette.lineSoft} Thickness={1} Transparency={0.35} />
 						</frame>
 						<frame

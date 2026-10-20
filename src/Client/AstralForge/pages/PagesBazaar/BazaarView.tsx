@@ -199,7 +199,7 @@ function MerchantPortrait(props: {
 					kind={iconKind}
 					accent={accent}
 					size={50}
-					radius={12}
+					radius={14}
 					glow={true}
 					filled={true}
 					reducedMotion={props.reducedMotion}

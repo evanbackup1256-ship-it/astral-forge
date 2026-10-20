@@ -34,8 +34,8 @@ export const Layout = {
 	controlGap: 16,
 	lineGap: 12,
 	cardPadding: 20,
-	cardRadius: 16,
-	buttonRadius: 11,
+	cardRadius: 14,
+	buttonRadius: 10,
 	topbarHeight: 74,
 	sidebarWidth: 268,
 	sidebarCollapsedWidth: 78,
@@ -53,11 +53,16 @@ export const Layout = {
 };
 
 /** Shared shape tokens: every kit surface takes its radius, stroke and inner padding from here. */
+// Three radii, used everywhere: sm for chips, badges and bars; md for buttons, inputs and
+// small tiles; lg for cards, panels and sheets. Fully round pills use UDim(1, 0).
 export const Radius = {
-	chip: 8,
+	sm: 6,
+	md: 10,
+	lg: 14,
+	chip: 6,
 	control: Layout.buttonRadius,
 	card: Layout.cardRadius,
-	sheet: 20,
+	sheet: 14,
 } as const;
 
 export const StrokeWidth = {

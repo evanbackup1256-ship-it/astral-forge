@@ -334,7 +334,7 @@ export function TooltipProvider(props: TooltipProviderProps) {
 				Active={false}
 				Selectable={false}
 			>
-				<uicorner CornerRadius={new UDim(0, 9)} />
+				<uicorner CornerRadius={new UDim(0, 10)} />
 				<uistroke
 					Thickness={1}
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}

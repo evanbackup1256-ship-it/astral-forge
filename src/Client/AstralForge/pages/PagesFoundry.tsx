@@ -268,7 +268,7 @@ function PieceFace(props: {
 				BorderSizePixel={0}
 				ZIndex={z + 1}
 			>
-				<uicorner CornerRadius={new UDim(0, 3)} />
+				<uicorner CornerRadius={new UDim(0, 6)} />
 				<uistroke Color={lighten(color, 0.3)} Thickness={2} />
 			</frame>
 		);
@@ -1028,7 +1028,7 @@ function FoundryView(props: {
 					},
 				}}
 			>
-				<uicorner CornerRadius={new UDim(0, 12)} />
+				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke
 					Color={selected === key ? Palette.white : Palette.lineSoft}
 					Thickness={selected === key ? 2 : 1}

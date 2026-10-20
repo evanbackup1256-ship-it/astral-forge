@@ -817,7 +817,7 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 	const strokeTransparency = live ? pulse.map((amount) => 0.08 + (1 - amount) * 0.38) : 0.5;
 	const fillWash = live ? pulse.map((amount) => 0.82 - amount * 0.28) : 1;
 	const _exp = h("uicorner", {
-		CornerRadius: new UDim(0, 11),
+		CornerRadius: new UDim(0, 10),
 	});
 	const _exp_1 = h("uistroke", {
 		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -838,7 +838,7 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 				ZIndex: 1,
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 11),
+				CornerRadius: new UDim(0, 10),
 			}),
 		);
 	const _condition: unknown = undefined;

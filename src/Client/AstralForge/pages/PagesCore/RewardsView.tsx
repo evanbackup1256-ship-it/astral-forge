@@ -112,7 +112,7 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 				BackgroundTransparency={claimed ? 0.45 : 0}
 				BorderSizePixel={0}
 			>
-				<uicorner CornerRadius={new UDim(0, 9)} />
+				<uicorner CornerRadius={new UDim(0, 10)} />
 				<uistroke
 					Color={accent}
 					Transparency={today ? 0.1 : 0.7}
@@ -462,7 +462,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				kind="Calendar"
 				accent={dailyReady ? Palette.mint : Palette.panelSoft}
 				size={46}
-				radius={12}
+				radius={14}
 				position={UDim2.fromOffset(0, stack ? 4 : 18)}
 				glow={dailyReady}
 				reducedMotion={softMotion}
@@ -540,7 +540,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				kind="Timer"
 				accent={timedReady ? Palette.violet : Palette.panelSoft}
 				size={46}
-				radius={12}
+				radius={14}
 				position={UDim2.fromOffset(0, stack ? 4 : 18)}
 				glow={timedReady}
 				reducedMotion={softMotion}

@@ -306,7 +306,7 @@ function MemberCard(param: { member: Member; accent: Color3; index: number; redu
 					return arr + lft;
 				}),
 			}),
-			h("uicorner", { CornerRadius: new UDim(0, 12) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uigradient", { Color: new ColorSequence(Palette.panelRaised, Palette.panel), Rotation: 90 }),
 			h("uistroke", {
 				Color: lift.map((v) => Palette.panelRaised.Lerp(lighten(accent, 0.4), v)),
@@ -323,7 +323,7 @@ function MemberCard(param: { member: Member; accent: Color3; index: number; redu
 					BorderSizePixel: 0,
 					ZIndex: 325,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 2) }),
+				h("uicorner", { CornerRadius: new UDim(0, 6) }),
 			),
 			MODEL.ShowAvatars &&
 				h(Avatar, {
@@ -409,7 +409,7 @@ function CategorySection(param: CategorySectionProps) {
 					BorderSizePixel: 0,
 					ZIndex: 323,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 8) }),
+				h("uicorner", { CornerRadius: new UDim(0, 10) }),
 				h(Icon, { kind: category.Icon, color: Palette.cream, accent: lighten(accent, 0.2), size: 30 }),
 			),
 			h(Text, {

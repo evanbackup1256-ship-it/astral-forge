@@ -92,7 +92,7 @@ function CrashNotice(props: { message: string; onRetry?: () => void }) {
 				FontFace={Font.fromEnum(Enum.Font.BuilderSansBold)}
 				Event={{ Activated: retry }}
 			>
-				<uicorner CornerRadius={new UDim(0, 8)} />
+				<uicorner CornerRadius={new UDim(0, 10)} />
 			</textbutton>
 		</frame>
 	);

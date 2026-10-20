@@ -227,7 +227,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			ZIndex: 471,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 18),
+			CornerRadius: new UDim(0, 14),
 		}),
 	);
 	const _exp_2 = h(
@@ -241,7 +241,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			ClipsDescendants: true,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 18),
+			CornerRadius: new UDim(0, 14),
 		}),
 		h("uistroke", {
 			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -372,7 +372,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 					},
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 5),
+					CornerRadius: new UDim(0, 6),
 				}),
 				h("uistroke", {
 					Color: lit ? impactAccent : Palette.lineSoft,
@@ -445,7 +445,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 						ZIndex: 476,
 					},
 					h("uicorner", {
-						CornerRadius: new UDim(0, 5),
+						CornerRadius: new UDim(0, 6),
 					}),
 					h("uistroke", {
 						Color: Palette.cyan,
@@ -531,7 +531,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 									ZIndex: 474,
 								},
 								h("uicorner", {
-									CornerRadius: new UDim(0, 12),
+									CornerRadius: new UDim(0, 14),
 								}),
 								h("uistroke", {
 									ApplyStrokeMode: Enum.ApplyStrokeMode.Border,

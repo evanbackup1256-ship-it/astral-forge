@@ -603,7 +603,7 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		BackgroundTransparency: arrive.map((a: number) => 1 - a),
 		BorderSizePixel: 0,
 		ZIndex: 505,
-	}, h("uicorner", { CornerRadius: new UDim(0, 9) }),
+	}, h("uicorner", { CornerRadius: new UDim(0, 10) }),
 	h("uistroke", { Color: entry.accent, Transparency: selected ? 0.35 : 0.8, Thickness: 1 }),
 	h("frame", {
 		Size: UDim2.fromOffset(18, 18),
@@ -740,7 +740,7 @@ function KeyHint(props: { keys: string; label: string; order: number }): React.E
 		FontFace: FONT_BOLD,
 		TextColor3: Palette.cream,
 		ZIndex: 503,
-	}, h("uicorner", { CornerRadius: new UDim(0, 5) }), h("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) }),
+	}, h("uicorner", { CornerRadius: new UDim(0, 6) }), h("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) }),
 	h("uistroke", { Color: Palette.creamSoft, Transparency: 0.6, ApplyStrokeMode: Enum.ApplyStrokeMode.Border })),
 	h("textlabel", {
 		Size: UDim2.fromOffset(0, 18),
@@ -1094,7 +1094,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		Active: true,
 		ZIndex: 501,
 	}, h("uiscale", { Scale: show.map((a: number) => 0.96 + 0.04 * settle(a)) }),
-	h("uicorner", { CornerRadius: new UDim(0, 16) }),
+	h("uicorner", { CornerRadius: new UDim(0, 14) }),
 	h("uistroke", { Color: Palette.lineSoft, Transparency: 0.35, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 	// search bar
 	h("frame", {
@@ -1103,7 +1103,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		BackgroundColor3: Palette.panelSoft,
 		BorderSizePixel: 0,
 		ZIndex: 502,
-	}, h("uicorner", { CornerRadius: new UDim(0, 12) }),
+	}, h("uicorner", { CornerRadius: new UDim(0, 14) }),
 	h("uistroke", { Color: accent, Thickness: 1, Transparency: 0.55, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 	h("frame", {
 		Size: UDim2.fromOffset(20, 20),

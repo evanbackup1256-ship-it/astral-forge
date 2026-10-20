@@ -568,7 +568,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				BackgroundColor3: mine ? Color3.fromRGB(22, 48, 44) : Color3.fromRGB(22, 26, 40),
 				BackgroundTransparency: 0.08, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
 			}, {
-				Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
+				Corner: e("uicorner", { CornerRadius: new UDim(0, 14) }),
 				Stroke: e("uistroke", { Color: accent, Transparency: mine ? 0.2 : 0.8, Thickness: pinned ? 2 : 1 }),
 				Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
 				Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
@@ -614,7 +614,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 						Value: text(valueText(row.Value), 0, 0, 1, 28, 12, P.creamSoft, { align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: new UDim2(infoX, 0, 0, narrow ? 80 : 273), sizeConstraint: new UDim2(infoWidth, 0, 0, 28) }),
 						Share: bar(share(row.Value, top), color, new UDim2(infoX, 8, 0, narrow ? 118 : 307), new UDim2(infoWidth, -16, 0, 4)),
 						Plinth: e("frame", { BackgroundColor3: color, BackgroundTransparency: 0.72, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: new UDim2(infoX, 0, 1, 0), Size: new UDim2(infoWidth, 0, 0, narrow ? plinth : 32) }, {
-							Corner: e("uicorner", { CornerRadius: new UDim(0, 8) }),
+							Corner: e("uicorner", { CornerRadius: new UDim(0, 10) }),
 							Stroke: e("uistroke", { Color: color, Transparency: 0.35, Thickness: 1 }),
 							Shade: e("uigradient", { Rotation: 90, Transparency: new NumberSequence(0, 0.65) }),
 							Place: e(ui.Text, { value: tostring(place), size: place === 1 ? 26 : 20, weight: Enum.FontWeight.Heavy, color, align: Enum.TextXAlignment.Center, sizeConstraint: UDim2.fromScale(1, 1) }),

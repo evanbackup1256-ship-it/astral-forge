@@ -1127,7 +1127,7 @@ export function Badge(props: {
 			<uicorner CornerRadius={new UDim(0, 6)} />
 			<uigradient Color={surfaceGradient(fill, 0.55)} Rotation={90} />
 			<frame Size={new UDim2(1, -2, 1, -2)} Position={UDim2.fromOffset(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex}>
-				<uicorner CornerRadius={new UDim(0, 5)} />
+				<uicorner CornerRadius={new UDim(0, 6)} />
 				<Stroke color={accent} thickness={1} transparency={filled ? 0.36 : 0.28} />
 			</frame>
 			{filled && (
@@ -2919,7 +2919,7 @@ export function Slider({
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
-				<uicorner CornerRadius={new UDim(0, 12)} />
+				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					LineJoinMode={Enum.LineJoinMode.Round}
@@ -3037,7 +3037,7 @@ export function AmountToggle({
 			LayoutOrder={layoutOrder}
 			ClipsDescendants={hitExtra === 0}
 		>
-			<uicorner CornerRadius={new UDim(0, 9)} />
+			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke
 				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 				LineJoinMode={Enum.LineJoinMode.Round}
@@ -3054,7 +3054,7 @@ export function AmountToggle({
 				Visible={hoveredIndex >= 0}
 				ZIndex={1}
 			>
-				<uicorner CornerRadius={new UDim(0, 7)} />
+				<uicorner CornerRadius={new UDim(0, 6)} />
 			</frame>
 			<frame
 				Size={new UDim2(slotScale, -4, 1, -6)}
@@ -3064,7 +3064,7 @@ export function AmountToggle({
 				Visible={matched}
 				ZIndex={2}
 			>
-				<uicorner CornerRadius={new UDim(0, 7)} />
+				<uicorner CornerRadius={new UDim(0, 6)} />
 				<uigradient Color={new ColorSequence(lighten(accent, 0.24), accent)} Rotation={90} />
 			</frame>
 			{AMOUNT_OPTIONS.map((amount, index) => (
@@ -3201,14 +3201,14 @@ function SegmentedTabHit({
 				ZIndex={zIndex}
 			>
 				<uiscale Scale={chrome.touchScale} />
-				<uicorner CornerRadius={new UDim(0, 8)} />
+				<uicorner CornerRadius={new UDim(0, 10)} />
 				<ButtonShimmer
 					hoverAmount={chrome.hoverAmount}
 					shimmer={chrome.shimmer}
 					live={chrome.shimmerLive}
 					idle={selected}
 					zIndex={zIndex + 1}
-					radius={8}
+					radius={10}
 				/>
 				{option.icon !== undefined && (
 					<frame
@@ -3243,7 +3243,7 @@ function SegmentedTabHit({
 				/>
 			</frame>
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex + 3}>
-				<uicorner CornerRadius={new UDim(0, 8)} />
+				<uicorner CornerRadius={new UDim(0, 10)} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					LineJoinMode={Enum.LineJoinMode.Round}
@@ -3391,7 +3391,7 @@ export function SegmentedTabs({
 				CanvasSize={UDim2.fromOffset(count * (PILL_W + gap) - gap + 8, 0)}
 				ElasticBehavior={Enum.ElasticBehavior.WhenScrollable}
 			>
-				<uicorner CornerRadius={new UDim(0, 11)} />
+				<uicorner CornerRadius={new UDim(0, 10)} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					Color={Palette.lineSoft}
@@ -3406,7 +3406,7 @@ export function SegmentedTabs({
 					Visible={matched}
 					ZIndex={zIndex + 1}
 				>
-					<uicorner CornerRadius={new UDim(0, 8)} />
+					<uicorner CornerRadius={new UDim(0, 10)} />
 				</frame>
 				{options.map((option, index) => (
 					<SegmentedTabHit
@@ -3436,7 +3436,7 @@ export function SegmentedTabs({
 			ZIndex={zIndex}
 			ClipsDescendants={true}
 		>
-			<uicorner CornerRadius={new UDim(0, 11)} />
+			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uigradient Color={surfaceGradient(Palette.panel, 0.58)} Rotation={90} />
 			<uistroke
 				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
@@ -3455,10 +3455,10 @@ export function SegmentedTabs({
 					ZIndex={zIndex + 1}
 					ClipsDescendants={true}
 				>
-					<uicorner CornerRadius={new UDim(0, 8)} />
+					<uicorner CornerRadius={new UDim(0, 10)} />
 					<uigradient Color={new ColorSequence(lighten(selectedAccent, 0.14), darken(selectedAccent, 0.06))} Rotation={90} />
 					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false} ZIndex={zIndex + 1}>
-						<uicorner CornerRadius={new UDim(0, 8)} />
+						<uicorner CornerRadius={new UDim(0, 10)} />
 						<uistroke
 							ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 							LineJoinMode={Enum.LineJoinMode.Round}
@@ -3868,7 +3868,7 @@ export function Dropdown({
 					SelectionLost: () => setPointer((current) => (current === index ? -1 : current)),
 				}}
 			>
-				<uicorner CornerRadius={new UDim(0, 7)} />
+				<uicorner CornerRadius={new UDim(0, 6)} />
 				<frame
 					Size={active ? new UDim2(0, 3, 1, -8) : UDim2.fromOffset(0, 0)}
 					Position={UDim2.fromOffset(0, 4)}
@@ -3878,7 +3878,7 @@ export function Dropdown({
 					Visible={active}
 					ZIndex={zIndex + 8}
 				>
-					<uicorner CornerRadius={new UDim(0, 2)} />
+					<uicorner CornerRadius={new UDim(0, 6)} />
 				</frame>
 				{hasIcon && (
 					<frame
@@ -4248,7 +4248,7 @@ export function SearchField({
 	const fieldText = 16;
 	return (
 		<frame Size={size} Position={position} BackgroundColor3={Palette.panelSoft} BorderSizePixel={0} ZIndex={zIndex} ClipsDescendants={true}>
-			<uicorner CornerRadius={new UDim(0, 12)} />
+			<uicorner CornerRadius={new UDim(0, 14)} />
 			<uistroke
 				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 				LineJoinMode={Enum.LineJoinMode.Round}
@@ -4354,7 +4354,7 @@ export function SearchField({
 					SelectionLost: () => setClearHovered(false),
 				}}
 			>
-				<uicorner CornerRadius={new UDim(0, 7)} />
+				<uicorner CornerRadius={new UDim(0, 6)} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					LineJoinMode={Enum.LineJoinMode.Round}

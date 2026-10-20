@@ -496,7 +496,7 @@ function RunLog(props: { runs: RunEntry[]; grow: React.Binding<number> }) {
 					BorderSizePixel={0}
 					ZIndex={906}
 				>
-					<uicorner CornerRadius={new UDim(0, 4)} />
+					<uicorner CornerRadius={new UDim(0, 6)} />
 				</frame>
 				{run && (
 					<Text
@@ -1115,7 +1115,7 @@ export function RebirthChamber(props: ChamberProps) {
 				BorderSizePixel={0}
 				ZIndex={901}
 			>
-				<uicorner CornerRadius={new UDim(0, 18)} />
+				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
 				<ChargeDial size={54} position={UDim2.fromOffset(16, 14)} accent={accent} fill={ignite} charge={ignite} zIndex={903}>
 					<Icon kind="Rebirth.rebirthChamber" size={34} position={UDim2.fromOffset(10, 10)} zIndex={904} />

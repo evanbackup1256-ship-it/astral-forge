@@ -1452,7 +1452,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 					Rotation: 45,
 					ZIndex: 28,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 5) }),
+				h("uicorner", { CornerRadius: new UDim(0, 6) }),
 				h("uistroke", {
 					Color: theme.lighten(effect.color!, 0.4),
 					Thickness: 2.5,

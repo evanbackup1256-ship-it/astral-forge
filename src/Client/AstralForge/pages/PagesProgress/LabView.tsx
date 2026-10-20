@@ -107,7 +107,7 @@ function OrderRow(props: {
 		>
 			<frame Size={UDim2.fromOffset(46, 46)} Position={UDim2.fromOffset(0, stack ? 4 : 10)} BackgroundTransparency={1} BorderSizePixel={0}>
 				<uiscale Scale={claimFlash.map((amount) => 1 + amount * 0.18)} />
-				<IconTile kind="Mission" accent={config.Color} size={46} radius={12} glow={ready} reducedMotion={reducedMotion} />
+				<IconTile kind="Mission" accent={config.Color} size={46} radius={14} glow={ready} reducedMotion={reducedMotion} />
 			</frame>
 			<Text
 				value={config.Name}

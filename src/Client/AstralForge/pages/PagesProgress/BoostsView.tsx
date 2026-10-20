@@ -311,7 +311,7 @@ function IdleBay(props: IdleBayProps) {
 				kind={boostIconKind(pick.boost.Id)}
 				accent={accent}
 				size={stack ? 52 : 64}
-				radius={16}
+				radius={14}
 				glow={true}
 				position={UDim2.fromOffset(0, 22)}
 				reducedMotion={softMotion}
@@ -370,7 +370,7 @@ interface StatTileProps {
 function StatTile(props: StatTileProps) {
 	return (
 		<frame BackgroundColor3={darken(props.accent, 0.78)} BorderSizePixel={0} LayoutOrder={props.order}>
-			<uicorner CornerRadius={new UDim(0, 12)} />
+			<uicorner CornerRadius={new UDim(0, 14)} />
 			<uistroke Color={props.accent} Transparency={0.6} />
 			<Text
 				value={props.value}

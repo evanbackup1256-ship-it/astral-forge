@@ -141,7 +141,7 @@ export function ComboBadge(props: {
 					BorderSizePixel={0}
 					ClipsDescendants={false}
 				>
-					<uicorner CornerRadius={new UDim(0, 12)} />
+					<uicorner CornerRadius={new UDim(0, 14)} />
 					<Stroke
 						color={maxed ? Palette.mango : accent}
 						thickness={maxed ? 2 : 1.4}
@@ -155,7 +155,7 @@ export function ComboBadge(props: {
 						BorderSizePixel={0}
 						ZIndex={zIndex + 1}
 					>
-						<uicorner CornerRadius={new UDim(0, 8)} />
+						<uicorner CornerRadius={new UDim(0, 10)} />
 						{!maxed && readout !== undefined && visible && (
 							<frame
 								Size={UDim2.fromScale(1, 1)}
@@ -180,7 +180,7 @@ export function ComboBadge(props: {
 							ClipsDescendants={true}
 							ZIndex={zIndex + 1}
 						>
-							<uicorner CornerRadius={new UDim(0, 8)} />
+							<uicorner CornerRadius={new UDim(0, 10)} />
 							<ScaleFromCenter scale={iconScale} zIndex={zIndex + 1}>
 								<Icon
 									kind="Overcharge.9"
@@ -229,7 +229,7 @@ export function ComboBadge(props: {
 							BorderSizePixel={0}
 							ZIndex={zIndex - 1}
 						>
-							<uicorner CornerRadius={new UDim(0, 12)} />
+							<uicorner CornerRadius={new UDim(0, 14)} />
 						</frame>
 					)}
 				</frame>

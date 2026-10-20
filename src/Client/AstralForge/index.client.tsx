@@ -231,7 +231,7 @@ function StartupFailure({ message }: { message: string }) {
 				ZIndex={501}
 			>
 				<uisizeconstraint MaxSize={new Vector2(420, 190)} />
-				<uicorner CornerRadius={new UDim(0, 18)} />
+				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke Color={Palette.coral} Thickness={2} Transparency={0.22} />
 				<textlabel
 					Size={new UDim2(1, -36, 0, 24)}

@@ -543,7 +543,7 @@ function OfferTile(props: OfferTileProps) {
 					BorderSizePixel={0}
 					ClipsDescendants={true}
 				>
-					<uicorner CornerRadius={new UDim(0, 12)} />
+					<uicorner CornerRadius={new UDim(0, 14)} />
 					<uistroke Color={accent} Thickness={1.5} Transparency={0.28} />
 					{h(Icon, {
 						kind: icon,
@@ -1069,7 +1069,7 @@ function ShopView(props: ShopViewProps) {
 					kind: "Shop",
 					accent: Palette.mango,
 					size: 44,
-					radius: 12,
+					radius: 14,
 					position: UDim2.fromOffset(0, 4),
 					glow: true,
 					reducedMotion: softMotion,
@@ -1657,7 +1657,7 @@ function Hero(props: HeroProps) {
 			kind: props.icon,
 			accent: props.accent,
 			size: 44,
-			radius: 12,
+			radius: 14,
 			position: UDim2.fromOffset(0, 2),
 			glow: true,
 			reducedMotion: props.reducedMotion,
@@ -1789,7 +1789,7 @@ function OfferCard(props: OfferCardProps) {
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 12) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uistroke", {
 				Color: accent,
 				Thickness: 1.5,
@@ -2308,7 +2308,7 @@ function CrateChip(props: CrateChipProps) {
 				},
 			},
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 12) }),
+		h("uicorner", { CornerRadius: new UDim(0, 14) }),
 		h("uistroke", {
 			Color: accent,
 			Thickness: props.selected ? 2 : 1,
@@ -2938,7 +2938,7 @@ function RelicCell(props: RelicCellProps) {
 			BorderSizePixel: 0,
 			LayoutOrder: props.order,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 12) }),
+		h("uicorner", { CornerRadius: new UDim(0, 14) }),
 		h("uistroke", {
 			Color: found ? color : Palette.line,
 			Thickness: 1,
@@ -3277,7 +3277,7 @@ function ArtifactCard(props: ArtifactCardProps) {
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 12) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h("uigradient", {
 				Color: new ColorSequence(darken(elementColor, 0.6), Palette.void),
 				Rotation: 90,

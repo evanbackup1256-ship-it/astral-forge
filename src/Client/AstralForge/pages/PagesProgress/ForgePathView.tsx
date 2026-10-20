@@ -106,7 +106,7 @@ function rewardChips(reward: Reward | undefined, accent: Color3): React.Element[
 			LayoutOrder={index}
 			ClipsDescendants={false}
 		>
-			<uicorner CornerRadius={new UDim(0, 7)} />
+			<uicorner CornerRadius={new UDim(0, 6)} />
 			<uigradient Color={new ColorSequence(lighten(darken(accent, 0.5), 0.06), darken(accent, 0.2))} Rotation={90} />
 			<uipadding
 				PaddingLeft={new UDim(0, 6)}

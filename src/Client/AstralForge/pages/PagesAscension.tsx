@@ -191,7 +191,7 @@ function HoldButton(props: HoldButtonProps) {
 				MouseLeave: stop,
 			}}
 		>
-			<uicorner CornerRadius={new UDim(0, 12)} />
+			<uicorner CornerRadius={new UDim(0, 14)} />
 			<uistroke Color={enabled ? ACCENT : Palette.lineSoft} Transparency={0.25} Thickness={1.5} />
 			<frame
 				key="Fill"

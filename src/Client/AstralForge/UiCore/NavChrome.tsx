@@ -214,7 +214,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 						ClipsDescendants: true,
 					},
 					h("uicorner", {
-						CornerRadius: new UDim(0, 12),
+						CornerRadius: new UDim(0, 14),
 					}),
 					h("uigradient", {
 						Color: surfaceGradient(Palette.panel, 0.7),
@@ -237,7 +237,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 								BorderSizePixel: 0,
 							},
 							h("uicorner", {
-								CornerRadius: new UDim(0, 12),
+								CornerRadius: new UDim(0, 14),
 							}),
 						),
 					h(
@@ -252,7 +252,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 							Visible: emphasis.map((amount) => amount >= 0.08),
 						},
 						h("uicorner", {
-							CornerRadius: new UDim(0, 2),
+							CornerRadius: new UDim(0, 6),
 						}),
 					),
 					h(
@@ -266,7 +266,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 							ClipsDescendants: true,
 						},
 						h("uicorner", {
-							CornerRadius: new UDim(0, 7),
+							CornerRadius: new UDim(0, 6),
 						}),
 						h("uistroke", {
 							ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -815,7 +815,7 @@ function MoreCell(_param: {
 					Scale: chrome.touchScale,
 				}),
 				h("uicorner", {
-					CornerRadius: new UDim(0, 12),
+					CornerRadius: new UDim(0, 14),
 				}),
 				h("uistroke", {
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -829,7 +829,7 @@ function MoreCell(_param: {
 					shimmer: chrome.shimmer,
 					live: chrome.shimmerLive,
 					zIndex: 95,
-					radius: 12,
+					radius: 14,
 				}),
 				h(
 					"frame",
@@ -1026,7 +1026,7 @@ export function MoreDock(_param: MoreDockProps) {
 			ZIndex: 55,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 12),
+			CornerRadius: new UDim(0, 14),
 		}),
 		h("uistroke", {
 			Color: Palette.lineSoft,
@@ -1331,7 +1331,7 @@ function NavGroup(_param: NavGroupProps) {
 				},
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 8),
+				CornerRadius: new UDim(0, 10),
 			}),
 			headerChildren,
 		);
@@ -1384,7 +1384,7 @@ function NavGroup(_param: NavGroupProps) {
 					BorderSizePixel: 0,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 2),
+					CornerRadius: new UDim(0, 6),
 				}),
 			),
 		);
@@ -1615,7 +1615,7 @@ export function Navigation(_param: NavigationProps) {
 				BorderSizePixel: 0,
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 9),
+				CornerRadius: new UDim(0, 10),
 			}),
 			h(
 				"uistroke",

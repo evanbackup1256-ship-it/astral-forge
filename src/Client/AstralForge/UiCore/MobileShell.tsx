@@ -718,7 +718,7 @@ function Chip(_param: { target?: string; width: number; height: number; order: n
 			Scale: juiceBump.map((b) => 1 + math.sin(b * math.pi) * 0.16),
 		}),
 		h("uicorner", {
-			CornerRadius: new UDim(0, 9),
+			CornerRadius: new UDim(0, 10),
 		}),
 		h(
 			"frame",
@@ -843,7 +843,7 @@ export function MobileHeader(_param: MobileHeaderProps) {
 			kind: entry.icon,
 			accent: accent,
 			size: iconSize,
-			radius: 9,
+			radius: 10,
 			position: UDim2.fromOffset(8, math.floor((barHeight - iconSize) / 2)),
 			spin: false,
 			reducedMotion: reducedMotion,
@@ -931,7 +931,7 @@ export function MobileHeader(_param: MobileHeaderProps) {
 					},
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 11),
+					CornerRadius: new UDim(0, 10),
 				}),
 				h("uistroke", {
 					Color: eventAccent,
@@ -966,7 +966,7 @@ export function MobileHeader(_param: MobileHeaderProps) {
 				},
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 11),
+				CornerRadius: new UDim(0, 10),
 			}),
 			h(Icon, {
 				kind: "Crew.15",
@@ -1085,7 +1085,7 @@ export function MobileQuickActions(_param: MobileQuickActionsProps) {
 			ZIndex: 38,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 16),
+			CornerRadius: new UDim(0, 14),
 		}),
 		h("uistroke", {
 			Color: vaultFill > 0.8 ? Palette.green : Palette.line,
@@ -1172,7 +1172,7 @@ export function MobileQuickActions(_param: MobileQuickActionsProps) {
 					},
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 12),
+					CornerRadius: new UDim(0, 14),
 				}),
 				h("uiscale", {
 					Scale: holdPulse.map((value) => 1 - math.clamp(value, 0, 1) * 0.06),

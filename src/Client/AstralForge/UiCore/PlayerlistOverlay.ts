@@ -113,7 +113,7 @@ function StatCell(param: { order: number; label: string; value: string; color?: 
 			BorderSizePixel: 0,
 			ZIndex: 625,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 8) }),
+		h("uicorner", { CornerRadius: new UDim(0, 10) }),
 		h(Text, {
 			value: param.label,
 			size: 9,
@@ -455,7 +455,7 @@ function PlayerRow(param: PlayerRowProps) {
 			ClipsDescendants: true,
 			ZIndex: 620,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 12) }),
+		h("uicorner", { CornerRadius: new UDim(0, 14) }),
 		h(
 			"uistroke",
 			{

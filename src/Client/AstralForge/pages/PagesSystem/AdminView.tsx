@@ -136,7 +136,7 @@ function SectionTitle(props: { value: string; accent: Color3; position?: UDim2; 
 function StatCell(props: { label: string; value: string; accent: Color3 }) {
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
-			<uicorner CornerRadius={new UDim(0, 8)} />
+			<uicorner CornerRadius={new UDim(0, 10)} />
 			<Text
 				value={props.label}
 				size={9}
@@ -260,7 +260,7 @@ function CommandRow(props: { entry: AdminCommand; selected: boolean; onClick: ()
 				},
 			}}
 		>
-			<uicorner CornerRadius={new UDim(0, 9)} />
+			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke Color={selected ? accent : Palette.line} Thickness={1} Transparency={selected ? 0.3 : 0.78} />
 			<frame Size={new UDim2(0, 4, 1, -14)} Position={UDim2.fromOffset(0, 7)} BackgroundColor3={accent} BorderSizePixel={0}>
 				<uicorner CornerRadius={new UDim(1, 0)} />

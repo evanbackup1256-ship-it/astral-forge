@@ -688,7 +688,7 @@ __defs["TradeView"] = () => {
 				BorderSizePixel: 0,
 				ZIndex: 5,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 8) }),
+			h("uicorner", { CornerRadius: new UDim(0, 10) }),
 			h("uipadding", {
 				PaddingTop: new UDim(0, 6),
 				PaddingBottom: new UDim(0, 6),
@@ -873,7 +873,7 @@ __defs["TradeView"] = () => {
 				BackgroundColor3: Palette.panel,
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 12) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h(Stroke, {
 				color: Palette.line,
 				thickness: 1,
@@ -958,7 +958,7 @@ __defs["TradeView"] = () => {
 							},
 						},
 					},
-					h("uicorner", { CornerRadius: new UDim(0, 8) }),
+					h("uicorner", { CornerRadius: new UDim(0, 10) }),
 					h("uipadding", { PaddingLeft: new UDim(0, 10) }),
 				),
 				h(Button, {
@@ -1094,7 +1094,7 @@ __defs["TradeView"] = () => {
 				BackgroundColor3: Palette.panel,
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 12) }),
+			h("uicorner", { CornerRadius: new UDim(0, 14) }),
 			h(Stroke, {
 				color: Palette.line,
 				thickness: 1,
@@ -1800,7 +1800,7 @@ __defs["TradeView"] = () => {
 					LayoutOrder: flowOrder,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 12),
+					CornerRadius: new UDim(0, 14),
 				}),
 				h(Stroke, {
 					color: paneAccent,

@@ -173,7 +173,7 @@ export function VaultPill(_param: { state: ChromeState; reducedMotion?: boolean;
 					BorderSizePixel: 0,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 13),
+					CornerRadius: new UDim(0, 14),
 				}),
 				h("uistroke", {
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -192,7 +192,7 @@ export function VaultPill(_param: { state: ChromeState; reducedMotion?: boolean;
 					BorderSizePixel: 0,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 8),
+					CornerRadius: new UDim(0, 10),
 				}),
 				h(Icon, {
 					kind: "Vault.8",

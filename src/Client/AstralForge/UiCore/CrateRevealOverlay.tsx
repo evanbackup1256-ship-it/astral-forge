@@ -606,7 +606,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 					BorderSizePixel={0}
 					ZIndex={507}
 				>
-					<uicorner CornerRadius={new UDim(0, 4)} />
+					<uicorner CornerRadius={new UDim(0, 6)} />
 				</frame>
 			</frame>
 			<Panel

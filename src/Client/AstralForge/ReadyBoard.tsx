@@ -180,7 +180,7 @@ function Pill(props: PillProps): React.Element {
 				MouseLeave: () => setHovered(false),
 			},
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 12) }),
+		h("uicorner", { CornerRadius: new UDim(0, 14) }),
 		h("uistroke", {
 			Color: entry.accent,
 			Transparency: hovered ? 0.1 : 0.45,
@@ -329,7 +329,7 @@ function Strip(props: StripProps): React.Element {
 			FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
 			TextColor3: Palette.cream,
 			Event: { Activated: () => { if (props.onFind) props.onFind(); } },
-		}, h("uicorner", { CornerRadius: new UDim(0, 12) }), h("uistroke", {
+		}, h("uicorner", { CornerRadius: new UDim(0, 14) }), h("uistroke", {
 			Color: Palette.lineSoft, Transparency: 0.4, ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 		}));
 	}
@@ -389,7 +389,7 @@ function Strip(props: StripProps): React.Element {
 		Event: {
 			Activated: () => { if (props.onFind) props.onFind(); },
 		},
-	}, h("uicorner", { CornerRadius: new UDim(0, 12) }), h("uistroke", {
+	}, h("uicorner", { CornerRadius: new UDim(0, 14) }), h("uistroke", {
 		Color: Palette.lineSoft,
 		Transparency: 0.4,
 		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
