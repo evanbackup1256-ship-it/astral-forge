@@ -31,7 +31,3 @@ export function normalizeSeenHints(raw: unknown): string[] {
 	}
 	return seen;
 }
-
-export function hasSeenHint(seenHints: unknown, id: string): boolean {
-	return typeIs(seenHints, "table") && (seenHints as string[]).includes(id);
-}

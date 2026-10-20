@@ -94,12 +94,6 @@ function isVisible(gui: GuiObject): boolean {
 	return true;
 }
 
-// kept for callers that hit-test raw screen positions; inputs below are already in GUI space
-export function toGuiPosition(rawPosition: Vector2): Vector2 {
-	const [ok, topLeft] = pcall(() => GuiService.GetGuiInset()[0]);
-	return ok && typeIs(topLeft, "Vector2") ? rawPosition.sub(topLeft) : rawPosition;
-}
-
 function isPointUnclipped(gui: GuiObject, position: Vector2): boolean {
 	let ancestor: Instance | undefined = gui.Parent;
 	while (ancestor) {
@@ -391,8 +385,4 @@ export function On(event: GestureEvent, callback: Listener): () => void {
 		};
 	}
 	return () => {};
-}
-
-export function GetThumbstickState(): ThumbstickData {
-	return thumbstickState;
 }

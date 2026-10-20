@@ -263,10 +263,6 @@ export function GetScrollTarget(): GuiObject | undefined {
 	return undefined;
 }
 
-export function ResolveScrollTarget(): GuiObject | undefined {
-	return GetScrollTarget();
-}
-
 export function BeginOverlayFocus() {
 	const current = GuiService.SelectedObject;
 	overlaySelectionStack.push({ target: current });

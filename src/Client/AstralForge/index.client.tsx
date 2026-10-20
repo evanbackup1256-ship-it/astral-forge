@@ -57,7 +57,6 @@ const DomainChamber = kit<{ DomainChamber: Loose }>("UiOverlays", "DomainChamber
 task.wait();
 // Client controllers (UI shell, root registry, layout guard, network, presence, telemetry, ping) run on Flamework.
 Flamework.addPaths("src/Client/AstralForge/Controllers");
-Flamework.addPaths("src/Client/AstralForge/layoutGuard.ts");
 Flamework.ignite();
 const uiShell = Dependency<UiShellController>();
 const networkController = Dependency<NetworkController>();

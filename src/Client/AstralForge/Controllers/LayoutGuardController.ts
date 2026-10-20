@@ -1,7 +1,7 @@
 import { Controller, OnInit, OnStart, OnTick } from "@flamework/core";
-import { ClientLog } from "./CoreKit/log";
-import { UiRootRegistry } from "./Controllers/UiRootRegistry";
-import Diagnostics = require("./LayoutDiagnostics");
+import { ClientLog } from "../CoreKit/log";
+import { UiRootRegistry } from "./UiRootRegistry";
+import Diagnostics = require("../LayoutDiagnostics");
 
 
 interface Rect {

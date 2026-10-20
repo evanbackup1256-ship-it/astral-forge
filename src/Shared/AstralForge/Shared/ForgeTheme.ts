@@ -15,12 +15,6 @@ export type RarityPalette = Record<string, Color3>;
 export type FeaturePalette = NamedPalette;
 export type StatPalette = NamedPalette;
 export type FxPalette = Palette;
-export interface ViewportLightPalette {
-	Ambient: Color3;
-	LightColor: Color3;
-	FallbackAmbient: Color3;
-	FallbackLight: Color3;
-}
 export interface BootPalette {
 	dim: Color3;
 	bar: Color3;
@@ -134,13 +128,6 @@ export const Fx: FxPalette = table.freeze({
 	emberTail: rgb(232, 150, 120),
 	editBounds: rgb(72, 190, 255),
 	wheelDark: rgb(13, 10, 20),
-});
-
-export const ViewportLight: ViewportLightPalette = table.freeze({
-	Ambient: rgb(200, 194, 206),
-	LightColor: rgb(205, 198, 186),
-	FallbackAmbient: rgb(150, 140, 165),
-	FallbackLight: rgb(255, 244, 224),
 });
 
 export const Stat: StatPalette = table.freeze({
