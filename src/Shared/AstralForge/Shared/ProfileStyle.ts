@@ -51,12 +51,18 @@ export const ACCENTS: ReadonlyArray<AccentOption> = [
 	{ Id: "Gold", Name: "Astral Gold", Rgb: [255, 214, 102], Unlock: { Kind: "Rebirths", Target: 50 } },
 	{ Id: "Silver", Name: "Starlight", Rgb: [226, 232, 244], Unlock: { Kind: "Rebirths", Target: 75 } },
 	{ Id: "Void", Name: "Void Indigo", Rgb: [120, 102, 255], Unlock: { Kind: "Rebirths", Target: 100 } },
+	{ Id: "Sky", Name: "Sky", Rgb: [120, 180, 255], Unlock: { Kind: "Free", Target: 0 } },
+	{ Id: "Rose", Name: "Rose", Rgb: [244, 150, 170], Unlock: { Kind: "Rebirths", Target: 3 } },
+	{ Id: "Moss", Name: "Moss", Rgb: [140, 186, 110], Unlock: { Kind: "Rebirths", Target: 12 } },
+	{ Id: "Lilac", Name: "Lilac", Rgb: [200, 168, 240], Unlock: { Kind: "Rebirths", Target: 30 } },
+	{ Id: "Solar", Name: "Solar Flare", Rgb: [255, 160, 40], Unlock: { Kind: "Rebirths", Target: 150 } },
 ];
 
 export const FRAMES: ReadonlyArray<FrameOption> = [
 	{ Id: "Plain", Name: "Plain", Description: "A clean, thin ring.", Thickness: 1, Gradient: false, Unlock: { Kind: "Free", Target: 0 } },
 	{ Id: "Bold", Name: "Bold", Description: "A thicker ring in your accent.", Thickness: 2, Gradient: false, Unlock: { Kind: "Rebirths", Target: 3 } },
 	{ Id: "Double", Name: "Heavy", Description: "A thick ring that reads from across the room.", Thickness: 3, Gradient: false, Unlock: { Kind: "Rebirths", Target: 10 } },
+	{ Id: "Glint", Name: "Glint", Description: "A thin gradient ring that catches the light.", Thickness: 1, Gradient: true, Unlock: { Kind: "Rebirths", Target: 15 } },
 	{ Id: "Prism", Name: "Prism", Description: "A shifting gradient ring.", Thickness: 2, Gradient: true, Unlock: { Kind: "Rebirths", Target: 25 } },
 	{ Id: "Forged", Name: "Forged", Description: "A heavy gradient ring for long-time players.", Thickness: 3, Gradient: true, Unlock: { Kind: "Rebirths", Target: 60 } },
 ];
