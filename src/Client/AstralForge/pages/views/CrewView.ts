@@ -17,7 +17,13 @@ function presenceNote(age: unknown): string {
 	}
 	return ` · quiet for ${math.floor(seconds / 3600)}h`;
 }
+// quiet = no activity for a minute or more (the line already reads "quiet for Nm")
+function isQuiet(player: unknown): boolean {
+	const seconds = tonumber(luaProp(player, "PresenceAge"));
+	return seconds !== undefined && seconds >= 60;
+}
 const CREW_COMPACT_ROW_H = 136;
+import { STICKY_H, StickyGroupLabel, StickyGroup } from "./stickyGroupLabel";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
 
 /** Short pill under the island, for outcomes the dispatcher doesn't already announce. */
@@ -571,6 +577,23 @@ function __member(): unknown {
 		players = luaProp(crewBrowse, "results");
 		// pin yourself to the top of the roster whatever sort is picked
 		players = pinFirst(players as unknown[], (player) => luaTruthy(luaProp(player, "IsLocal")));
+		// then active crewmates above quiet ones, keeping the picked sort inside each group
+		{
+			const ordered = players as defined[];
+			const you: defined[] = [];
+			const active: defined[] = [];
+			const quiet: defined[] = [];
+			for (const player of ordered) {
+				(luaTruthy(luaProp(player, "IsLocal")) ? you : isQuiet(player) ? quiet : active).push(player);
+			}
+			const sorted: defined[] = [];
+			for (const list of [you, active, quiet]) {
+				for (const player of list) {
+					sorted.push(player);
+				}
+			}
+			players = sorted;
+		}
 		let _result: unknown = luaProp(state, "Visitors");
 		if ((_result !== undefined)) {
 			_result = len(_result);
@@ -581,6 +604,20 @@ function __member(): unknown {
 		}
 		let visitorsHere: unknown = _condition;
 		let rowStride: unknown = (luaTruthy(stack) ? CREW_COMPACT_ROW_H + 18 : 124);
+		const rosterList = players as defined[];
+		const rosterGroups: StickyGroup[] = [];
+		let lastGroup = "";
+		for (let i = 0; i < rosterList.size(); i++) {
+			const player = rosterList[i];
+			const label = luaTruthy(luaProp(player, "IsLocal")) ? "YOU" : isQuiet(player) ? "QUIET" : "ACTIVE";
+			if (label !== lastGroup) {
+				lastGroup = label;
+				const color = (label === "QUIET" ? luaProp(Palette, "muted") : label === "YOU" ? luaProp(Palette, "blue") : luaProp(Palette, "mint")) as unknown as Color3;
+				rosterGroups.push({ top: i * (rowStride as number), label, color });
+			}
+		}
+		const rosterSticky = rosterGroups.size() > 1;
+		const rosterPad = rosterSticky ? STICKY_H + 6 : 0;
 		let headerH: unknown = ((((luaTruthy(stack) ? 182 : 112)) as unknown as number) + (crewBarH as unknown as number));
 		// phone: title, two-line blurb, then a full-width Refresh
 		let listGap: unknown = ((visit !== undefined) ? (math.max as unknown as (...a: unknown[]) => unknown)(luaProp(chrome, "panelGap"), 18) : (math.max as unknown as (...a: unknown[]) => unknown)(luaProp(chrome, "panelGap"), 12));
@@ -611,23 +648,36 @@ function __member(): unknown {
 					return undefined;
 				}, reducedMotion: reducedMotion, layoutOrder: index, stack: stack }));
 			}
-			luaTable.insert(sections, { id: "roster", fill: true, minHeight: 120, element: reactLoose.createElement(FlatList, { data: players, itemHeight: rowStride, overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 8, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, keyExtractor: function(this: void, player?: unknown): unknown | undefined {
+			luaTable.insert(sections, { id: "roster", fill: true, minHeight: 120, element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, rosterSticky ? reactLoose.createElement(StickyGroupLabel, { groups: rosterGroups, height: rosterList.size() * (rowStride as number), inner: true }) : undefined, reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -rosterPad), Position: UDim2.fromOffset(0, rosterPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(FlatList, { data: players, itemHeight: rowStride, overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 8, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, keyExtractor: function(this: void, player?: unknown): unknown | undefined {
 				return luaProp(player, "UserId");
 				return undefined;
 			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
 				let index: unknown = luaProp(_param_1, "index");
 				return luaIndex(rosterCards, ((index as unknown as number) + (1 as unknown as number)));
 				return undefined;
-			} }) });
+			} }))) });
 		} else {
+			const rowElements: defined[] = [];
 			for (const [index, player] of pairs((players) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaTable.insert(sections, { id: concat("crew-", tostring(index)), height: rowStride, element: reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaTruthy(luaProp(player, "IsLocal")) ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
+				const row = reactLoose.createElement(CrewRow, { key: luaProp(player, "UserId"), player: player, visiting: (visitUserId === luaProp(player, "UserId")), visitorsHere: (luaTruthy(luaProp(player, "IsLocal")) ? visitorsHere : 0), onVisit: function(this: void): unknown | undefined {
 					return luaCall(startVisit, luaProp(player, "UserId"));
 					return undefined;
 				}, onNudge: function(this: void): unknown | undefined {
 					return luaCall(nudgeCrew, luaProp(player, "UserId"));
 					return undefined;
-				}, reducedMotion: reducedMotion, layoutOrder: ((index as unknown as number) + (3 as unknown as number)), stack: stack }) });
+				}, reducedMotion: reducedMotion, layoutOrder: ((index as unknown as number) + (3 as unknown as number)), stack: stack });
+				rowElements.push(row as defined);
+			}
+			if (rosterSticky) {
+				// one section so the group label can ride down the rows it names
+				const gap = listGap as number;
+				const count = rowElements.size();
+				const blockH = rosterPad + count * (rowStride as number) + math.max(0, count - 1) * gap;
+				const groups = rosterGroups.map((g, i) => ({ top: rosterPad + (g.top / (rowStride as number)) * ((rowStride as number) + gap), label: g.label, color: g.color }));
+				const rows = rowElements.map((row, i) => reactLoose.createElement("frame", { key: `row-${i}`, Size: new UDim2(1, 0, 0, rowStride as number), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: i }, row));
+				luaTable.insert(sections, { id: "crew-roster", height: blockH, element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(StickyGroupLabel, { groups, height: blockH }), reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -rosterPad), Position: UDim2.fromOffset(0, rosterPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, Padding: new UDim(0, gap), SortOrder: Enum.SortOrder.LayoutOrder }), ...rows)) });
+			} else {
+				rowElements.forEach((row, i) => luaTable.insert(sections, { id: concat("crew-", tostring(i + 1)), height: rowStride, element: row }));
 			}
 		}
 		return reactLoose.createElement("frame", { ref: crewHostRef, Name: "CrewVisitClaim", Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: listGap, tailPad: crewTail, scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, sections: sections }));
