@@ -200,6 +200,15 @@ export const InteractionFeedback = {
 	tick: () => pulse(0.1, 0.025),
 	reward: () => pulse(0.5, 0.11),
 	confirm: () => pulse(0.32, 0.06),
+	// scales with the size of a claim: a light tap for small change, the full reward thump and a
+	// follow-up beat for a big one
+	payout: (weight: number) => {
+		const w = math.clamp(weight, 0, 1);
+		pulse(0.3 + w * 0.3, 0.06 + w * 0.07);
+		if (w >= 0.6) {
+			task.delay(0.14, () => pulse(0.22 + w * 0.12, 0.05));
+		}
+	},
 	// a refused press: two short low knocks, softer than a reward so it reads as "no", not "yes"
 	fail: () => {
 		pulse(0.18, 0.04);

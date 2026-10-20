@@ -13,7 +13,7 @@ const WorkspaceService = game.GetService("Workspace");
 import { Session } from "../state";
 import { setHapticIntensity, usesDesktopStructure, InteractionFeedback } from "../CoreKit/interaction";
 import { Palette, applyAccessibilityTheme } from "../CoreKit/theme";
-import { asFlux, compactNumber } from "../CoreKit/format";
+import { Flux, asFlux, compactNumber } from "../CoreKit/format";
 import * as ActionCopy from "../CoreKit/actionCopy";
 import * as NoticeMath from "../CoreKit/noticeMath";
 import * as SnapshotEnvelopeMath from "../CoreKit/snapshotEnvelopeMath";
@@ -138,6 +138,22 @@ type ActionResponse = Record<string, unknown> & {
 const SHELL_BOOT = os.clock();
 type ResponseCallback = (response: ActionResponse) => void;
 type Dispatch = (action: string, payload?: Record<string, unknown>, callback?: ResponseCallback) => void;
+
+function payoutWeight(before: Session | undefined, after: Session | undefined): number {
+	if (before === undefined || after === undefined) {
+		return 0;
+	}
+	let best = 0;
+	const grow = (from: number, to: number) => {
+		if (to > from && from === from && to === to) {
+			best = math.max(best, (to - from) / math.max(from, 1));
+		}
+	};
+	grow(asFlux((before.Cash ?? 0) as Flux), asFlux((after.Cash ?? 0) as Flux));
+	grow(before.Cores ?? 0, after.Cores ?? 0);
+	grow(before.Stardust ?? 0, after.Stardust ?? 0);
+	return math.clamp((best - 0.02) / 0.3, 0, 1);
+}
 
 type Snapshot = Session & {
 	Reused?: string[];
@@ -654,6 +670,8 @@ export function MainGame(_param: MainGameProps) {
 					addNotice("Upgraded", response.message ?? "One level up.", "Success", false);
 				}
 			} else if (reward) {
+				// 0 for pocket change, 1 when the claim grows a balance by a third or more
+				const payout = payoutWeight(juiceBefore, response.State);
 				let forgePathMajorStep = action === "ClaimForgePathStep";
 				if (forgePathMajorStep) {
 					forgePathMajorStep = response.State?.ForgePath !== undefined;
@@ -683,9 +701,10 @@ export function MainGame(_param: MainGameProps) {
 											: action === "ClaimForgePathStep"
 												? "researchUnlock"
 												: "missionClaim",
+						1 + payout * 0.12,
 					);
 				}
-				InteractionFeedback.reward();
+				InteractionFeedback.payout(payout);
 				celebrate();
 			} else if (action === "ContributeGuild") {
 				Audio.play("guildDeposit");
@@ -871,9 +890,9 @@ export function MainGame(_param: MainGameProps) {
 				InteractionFeedback.reward();
 				celebrate();
 			} else if (action === "CollectVault") {
-				Audio.play("vaultDeposit");
-				InteractionFeedback.reward();
-				InteractionFeedback.confirm();
+				const payout = payoutWeight(juiceBefore, response.State);
+				Audio.play("vaultDeposit", 1 + payout * 0.12);
+				InteractionFeedback.payout(payout);
 				celebrate();
 			} else if (action === "Overcharge") {
 				if (response.Combo !== undefined && response.ComboMultiplier !== undefined) {

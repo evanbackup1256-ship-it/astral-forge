@@ -307,9 +307,11 @@ const CUE_ALIAS: Record<string, string | undefined> = {
 };
 
 function isHoverCue(cue: string): boolean {
-	return cue === "hover" || string.sub(cue, -5) === "Hover" || string.sub(cue, 1, 8) === "navHover";
+	return cue === "hover" || cue === "hoverTick" || string.sub(cue, -5) === "Hover" || string.sub(cue, 1, 8) === "navHover";
 }
 
+const HOVER_GATE = 0.12;
+let hoverGateAt = -math.huge;
 const PRELOAD_BATCH_SIZE = 11;
 const VOICE_CAP = 22;
 const UI_OVERLAP_CAP = 2;
@@ -1642,6 +1644,14 @@ export class Mixer {
 		const previous = this.lastPlayed.get(cueName) ?? -math.huge;
 		if (!bypass && isHoverCue(cueName) && now - previous < math.max(0.12, spec.cooldown)) {
 			return false;
+		}
+		// sweeping the pointer down a list crosses many rows, each with its own hover cue; one shared
+		// gate keeps that to a soft ~8 ticks a second instead of a ratchet
+		if (!bypass && isHoverCue(cueName)) {
+			if (now - hoverGateAt < HOVER_GATE) {
+				return false;
+			}
+			hoverGateAt = now;
 		}
 		const recentClick = cueName === "hover" && now - (this.lastPlayed.get("click") ?? -math.huge) < 0.04;
 		if (recentClick) {
