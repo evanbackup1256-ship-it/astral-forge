@@ -3650,4 +3650,16 @@ function StoreFront(props: StoreFrontProps) {
 		),
 	);
 }
-// @@WHEEL@@
+const pages: Record<string, () => unknown> = {
+	ShopView: () => ({ ShopView }),
+	StoreFront: () => ({ StoreFront }),
+	CrateRevealStage: () => CrateRevealStageModule,
+};
+
+export = (name: string) => {
+	const load = pages[name];
+	if (load === undefined) {
+		error(`PagesShop: unknown module ${tostring(name)}`, 2);
+	}
+	return load();
+};
