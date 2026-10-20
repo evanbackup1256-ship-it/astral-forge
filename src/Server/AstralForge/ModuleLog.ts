@@ -11,7 +11,6 @@ let telemetry: TelemetryLike | undefined = undefined;
 const recent: Record<string, number> = {};
 const emitted: Record<string, boolean> = {};
 
-type Severity = "INFO" | "WARN" | "ERROR" | "FATAL" | "NETWORK";
 
 const LEVEL_COLUMN: Record<string, string> = {
 	INFO: "info ",

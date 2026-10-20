@@ -1,4 +1,4 @@
-import { Dict, isTable, num, req, SharedFolder } from "./LuaInterop";
+import { deepCopy, Dict, isFiniteNumber, isTable, num, req, SharedFolder } from "./LuaInterop";
 
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
@@ -33,20 +33,6 @@ __defs["ProfileIntegrity"] = () => {
 		const MAX_NODES = 24000;
 		const ALGORITHM = "AFX-ADLER32-V1";
 
-		function finite(value: unknown): boolean {
-			return (
-				typeIs(value, "number") && value === value && value !== math.huge && value !== -math.huge
-			);
-		}
-
-		function copy(value: unknown): unknown {
-			if (!typeIs(value, "table")) return value;
-			const result: Dict = {};
-			for (const [key, child] of pairs(value)) {
-				result[copy(key) as string] = copy(child);
-			}
-			return result;
-		}
 
 		// Keys sort by type name first (boolean < number < string < anything else), then by value
 		// (numbers numerically, everything else by tostring). Strings and numbers - nearly every key -
@@ -151,7 +137,7 @@ __defs["ProfileIntegrity"] = () => {
 			if (kind === "nil") feed(state, "n;");
 			else if (kind === "boolean") feed(state, value === true ? "b1;" : "b0;");
 			else if (kind === "number") {
-				if (!finite(value)) error("profile contains a non-finite number at " + pathText(stack));
+				if (!isFiniteNumber(value)) error("profile contains a non-finite number at " + pathText(stack));
 				feed(state, "d" + string.format("%.17g", value as number) + ";");
 			} else if (kind === "string") {
 				const text = value as string;
@@ -196,16 +182,16 @@ __defs["ProfileIntegrity"] = () => {
 				LifetimeCash: profile.LifetimeCash,
 				Zone: profile.Zone,
 				CurrentZone: profile.CurrentZone,
-				Domain: copy(profile.Domain),
-				Continuum: copy(profile.Continuum),
-				Machines: copy(profile.Machines),
-				Research: copy(profile.Research),
-				GridUpgrades: copy(profile.GridUpgrades),
-				BoostInventory: copy(profile.BoostInventory),
+				Domain: deepCopy(profile.Domain),
+				Continuum: deepCopy(profile.Continuum),
+				Machines: deepCopy(profile.Machines),
+				Research: deepCopy(profile.Research),
+				GridUpgrades: deepCopy(profile.GridUpgrades),
+				BoostInventory: deepCopy(profile.BoostInventory),
 				Items: {
 					NextId: items !== undefined ? (items.NextId ?? 1) : 1,
 					Essence: items !== undefined ? (items.Essence ?? 0) : 0,
-					Keys: copy(items !== undefined ? (items.Keys ?? {}) : {}),
+					Keys: deepCopy(items !== undefined ? (items.Keys ?? {}) : {}),
 				},
 				Anomaly: {
 					Fragments: anomaly !== undefined ? (anomaly.Fragments ?? 0) : 0,
@@ -232,14 +218,14 @@ __defs["ProfileIntegrity"] = () => {
 				"GridUpgrades",
 				"BoostInventory",
 			]) {
-				if (snapshot[key] !== undefined) profile[key] = copy(snapshot[key]);
+				if (snapshot[key] !== undefined) profile[key] = deepCopy(snapshot[key]);
 			}
 			if (isTable(snapshot.Items) && isTable(profile.Items)) {
 				const snapshotItems = snapshot.Items;
 				const profileItems = profile.Items;
 				profileItems.NextId = snapshotItems.NextId ?? profileItems.NextId;
 				profileItems.Essence = snapshotItems.Essence ?? profileItems.Essence;
-				profileItems.Keys = copy(snapshotItems.Keys ?? profileItems.Keys);
+				profileItems.Keys = deepCopy(snapshotItems.Keys ?? profileItems.Keys);
 			}
 			if (isTable(snapshot.Anomaly) && isTable(profile.Anomaly)) {
 				const snapshotAnomaly = snapshot.Anomaly;
@@ -373,7 +359,6 @@ __defs["Security"] = () => {
 		const RunService = game.GetService("RunService");
 		const TextService = game.GetService("TextService");
 		const HttpService = game.GetService("HttpService");
-		const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
 		const Protocol = req<{ Actions: Record<string, string> }>(
 			SharedFolder().WaitForChild("Protocol"),

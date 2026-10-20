@@ -227,6 +227,13 @@ function ensure(raw: unknown, now: number, lifetime?: number): Bag {
 	}
 	bag.BestCores = num(input.BestCores);
 	bag.FastestSeconds = int(input.FastestSeconds);
+	// The Luau original normalised the saved table in place: keep its identity and any extra keys.
+	if (typeIs(raw, "table")) {
+		for (const [key, value] of pairs(bag as unknown as Dict)) {
+			input[key] = value;
+		}
+		return input as unknown as Bag;
+	}
 	return bag;
 }
 
@@ -246,7 +253,7 @@ function pendingStars(bag: Bag): number[] {
 	const list: number[] = [];
 	for (let index = 0; index < STARS.size(); index++) {
 		const at = STARS[index];
-		if (bag.Lifetime >= at && bag.Stars[tostring(index + 1)] === undefined) {
+		if (int(bag.Lifetime) >= at && bag.Stars[tostring(index + 1)] === undefined) {
 			list.push(index + 1);
 		}
 	}
@@ -255,7 +262,7 @@ function pendingStars(bag: Bag): number[] {
 
 function nextStar(bag: Bag): LuaTuple<[number | undefined, number | undefined]> {
 	for (let index = 0; index < STARS.size(); index++) {
-		if (bag.Lifetime < STARS[index]) {
+		if (int(bag.Lifetime) < STARS[index]) {
 			return $tuple(index + 1, STARS[index]);
 		}
 	}
@@ -267,7 +274,7 @@ function pickStar(bag: Bag, index: number, pick: number): LuaTuple<[boolean, str
 	if (at === undefined) {
 		return $tuple(false, "That star doesn't exist.");
 	}
-	if (bag.Lifetime < at) {
+	if (int(bag.Lifetime) < at) {
 		return $tuple(false, `That star lights at rebirth ${at}.`);
 	}
 	if (bag.Stars[tostring(index)] !== undefined) {
@@ -399,7 +406,7 @@ function carry(
 ): CarryResult {
 	const fx = effects(bag);
 	const share = KEEP_SHARE + fx.KeepShare;
-	const slots = keepSlots(bag.Lifetime);
+	const slots = keepSlots(int(bag.Lifetime));
 	const kept: Record<string, number> = {};
 	let used = 0;
 	for (const id of bag.Keep) {
@@ -430,7 +437,7 @@ function close(
 ): RunEntry {
 	const seconds = math.max(0, int(now) - bag.RunStartedAt);
 	const entry: RunEntry = {
-		N: bag.Lifetime + 1,
+		N: int(bag.Lifetime) + 1,
 		At: int(now),
 		Seconds: seconds,
 		Cores: q.Cores,
@@ -450,7 +457,7 @@ function close(
 	if (bag.FastestSeconds === 0 || seconds < bag.FastestSeconds) {
 		bag.FastestSeconds = seconds;
 	}
-	bag.Lifetime += 1;
+	bag.Lifetime = int(bag.Lifetime) + 1;
 	bag.RunStartedAt = int(now);
 	bag.Vow = nextVow !== undefined && vowById[nextVow] !== undefined ? nextVow : "";
 	bag.VowSince = int(now);
@@ -496,7 +503,7 @@ function setKeep(bag: Bag, ids: unknown): boolean {
 		if (
 			typeIs(id, "string") &&
 			id.size() <= 48 &&
-			keep.size() < keepSlots(bag.Lifetime) &&
+			keep.size() < keepSlots(int(bag.Lifetime)) &&
 			!keep.includes(id)
 		) {
 			keep.push(id);

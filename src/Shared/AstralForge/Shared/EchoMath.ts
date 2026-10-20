@@ -333,7 +333,7 @@ function dominant(tracks: unknown): LuaTuple<[string, string]> {
 	let best = "Collect";
 	let bestValue = -1;
 	for (const track of TRACKS) {
-		const v = (tonumber((tracks as Record<string, unknown>)[track]) ?? 0) as number;
+		const v = (tonumber((tracks as Record<string, unknown> | undefined)?.[track]) ?? 0) as number;
 		if (v > bestValue) {
 			best = track;
 			bestValue = v;
@@ -493,7 +493,7 @@ function chordMultiplier(bonuses: { Harmony: boolean; Unison: boolean; Spectrum:
 function journalBonus(journal: unknown, kind: string): number {
 	let total = 0;
 	for (const t of TRAITS) {
-		const level = (tonumber((journal as Record<string, unknown>)[t.Id]) ?? 0) as number;
+		const level = (tonumber((journal as Record<string, unknown> | undefined)?.[t.Id]) ?? 0) as number;
 		if (level >= TIERS.size()) {
 			for (const e of t.Effects) {
 				if (e.Kind === kind) {

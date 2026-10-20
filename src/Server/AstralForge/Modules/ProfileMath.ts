@@ -1,4 +1,4 @@
-import { Dict, truthy } from "../Services/LuaInterop";
+import { Dict, isFiniteNumber, truthy } from "../Services/LuaInterop";
 
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
@@ -36,13 +36,9 @@ interface ProgressionGateApi {
 __defs["ProfileClampMath"] = () => {
 	const DEFAULT_MAX = 1e308;
 
-	function finite(value: unknown): boolean {
-		return typeIs(value, "number") && value === value && value !== math.huge && value !== -math.huge;
-	}
-
 	function clampScalar(raw: unknown, ceiling: number): number {
 		const value = tonumber(raw);
-		if (value !== undefined && finite(value)) {
+		if (value !== undefined && isFiniteNumber(value)) {
 			return math.clamp(value, 0, ceiling);
 		}
 		return 0;
@@ -96,7 +92,7 @@ __defs["ProfileClampMath"] = () => {
 				}
 				for (const [key, raw] of pairs(stats)) {
 					if (key !== "Collected" && typeIs(raw, "number")) {
-						stats[key as string] = finite(raw) ? math.clamp(raw, 0, ceiling) : 0;
+						stats[key as string] = isFiniteNumber(raw) ? math.clamp(raw, 0, ceiling) : 0;
 					}
 				}
 			}

@@ -146,11 +146,6 @@ const factory = () => {
 
 	const getOrderedStore = StoreAccess.ordered;
 	const getDataStore = StoreAccess.data;
-	const previewEnabled = StoreAccess.isPreview();
-
-	function finiteNonNegative(value: unknown): number {
-		return GuildMath.FiniteNonNegative(value);
-	}
 
 	function normalTag(tag: string): string {
 		return string.upper(string.gsub(tag, "%s+", "")[0]);
@@ -158,10 +153,6 @@ const factory = () => {
 
 	function upgradeCost(definition: unknown, level: number): number {
 		return GuildMath.UpgradeCost(definition, level);
-	}
-
-	function upgradeEffect(definition: unknown, level: number): number {
-		return GuildMath.UpgradeEffect(definition, level);
 	}
 
 	function goalTypeById(typeId: string): GoalTypeDef | undefined {
