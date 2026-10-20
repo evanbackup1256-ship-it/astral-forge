@@ -21,6 +21,11 @@ function hash01(n: number): number {
 	return x - math.floor(x);
 }
 
+// Luau `if value then` is true for 0 and "". A bare TS test is lowered to `~= 0 and ~= ""`.
+function present(value: unknown): boolean {
+	return value !== undefined && value !== false;
+}
+
 function count(value: unknown, ceiling?: number): number {
 	const n = tonumber(value);
 	if (n === undefined || n !== n || n === math.huge || n === -math.huge) {
@@ -185,16 +190,16 @@ const BazaarMath = {
 	]),
 
 	Category(this: void, reward: Record<string, unknown>): string {
-		if (reward.Keys) {
+		if (present(reward.Keys)) {
 			return "Keys";
 		}
-		if (reward.Boost) {
+		if (present(reward.Boost)) {
 			return "Boosts";
 		}
-		if (reward.Signals || reward.CommandXP || reward.StreakShield) {
+		if (present(reward.Signals) || present(reward.CommandXP) || present(reward.StreakShield)) {
 			return "Command";
 		}
-		if (reward.FreeSpins) {
+		if (present(reward.FreeSpins)) {
 			return "Tokens";
 		}
 		return "Resources";
@@ -278,34 +283,34 @@ const BazaarMath = {
 		const command = bag.Command as Record<string, unknown> | undefined;
 		const items = bag.Items as Record<string, unknown> | undefined;
 		const keys = items?.Keys as Record<string, unknown> | undefined;
-		if (reward.Stardust) {
+		if (present(reward.Stardust)) {
 			add("Stardust", bag.Stardust);
 		}
-		if (reward.Cores) {
+		if (present(reward.Cores)) {
 			add("Cores", bag.Cores);
 		}
-		if (reward.Essence) {
+		if (present(reward.Essence)) {
 			add("Domain essence", (bag.Domain as Record<string, unknown> | undefined)?.Essence);
 		}
-		if (reward.Fragments) {
+		if (present(reward.Fragments)) {
 			add("Anomaly fragments", (bag.Anomaly as Record<string, unknown> | undefined)?.Fragments);
 		}
-		if (reward.FreeSpins) {
+		if (present(reward.FreeSpins)) {
 			add("Wheel tokens", (bag.Wheel as Record<string, unknown> | undefined)?.FreeSpins);
 		}
-		if (reward.Signals) {
+		if (present(reward.Signals)) {
 			add("Signals", command?.Signals);
 		}
-		if (reward.CommandXP) {
+		if (present(reward.CommandXP)) {
 			add("Command XP", command?.XP);
 		}
-		if (reward.StreakShield) {
+		if (present(reward.StreakShield)) {
 			add("Streak shields", command?.StreakShields);
 		}
-		if (reward.Boost) {
+		if (present(reward.Boost)) {
 			add("Stored boost cells", (bag.BoostInventory as Record<string, unknown> | undefined)?.[reward.Boost as string]);
 		}
-		if (reward.Keys) {
+		if (present(reward.Keys)) {
 			for (const [crate] of pairs(reward.Keys as object)) {
 				const [stripped] = string.gsub(crate as string, "Crate$", "");
 				add(`${stripped} keys`, keys?.[crate as string]);
