@@ -54,6 +54,9 @@ local function render(width, inspected, offers)
 		memoRow = function(impl) return impl end,
 		sameFields = function() return function() return true end end,
 		counted = function(_, impl) return impl end,
+		useViewport = function() return {} end,
+		chromeFor = function() return { stack = false, bottomSafe = 0 } end,
+		scrollTail = function(_, _, base) return base end,
 		workspace = { GetServerTimeNow = function() return 3601 end },
 		Workspace = { GetServerTimeNow = function() return 3601 end },
 	}, { __index = _G })

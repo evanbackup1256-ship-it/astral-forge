@@ -636,7 +636,11 @@ function LabViewReady(props: LabProps) {
 						)) ||
 						undefined,
 				},
-				{ id: "orders", height: virtOrders ? math.min(orderBlock, orderStride * 4) : orderBlock, element: ordersBlock },
+				// phones: a long order list is the page's fill section, so the page scroll drives it (FlatList
+				// embeds itself) instead of a 4-row scroller nested inside the page scroller fighting the drag
+				stack && virtOrders
+					? { id: "orders", fill: true, height: orderBlock, minHeight: orderStride * 4, element: ordersBlock }
+					: { id: "orders", height: virtOrders ? math.min(orderBlock, orderStride * 4) : orderBlock, element: ordersBlock },
 				{ id: "power-label", height: SECTION_LABEL_H, element: <SectionLabel value="POWER BOARD" color={Palette.mango} /> },
 				{
 					id: "power",
@@ -654,7 +658,8 @@ function LabViewReady(props: LabProps) {
 								size={stack ? 16 : 17}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
-								fit={false}
+								fit={true}
+								minSize={12}
 								sizeConstraint={new UDim2(1, stack ? -8 : -(220 + ROW_RIGHT), 0, 24)}
 							/>
 							<Text

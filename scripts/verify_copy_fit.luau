@@ -55,6 +55,7 @@ type Case = {
 	bold: boolean,
 	width: number,
 	box: number?, -- wrapped: box height; nil: single line
+	phone: number?, -- screen width the case is checked at (default 360)
 }
 
 -- trade fairness: 12 Bold fit, inside panel (14) + strip (10) padding; adv tops out at 100
@@ -96,6 +97,26 @@ local CASES: { Case } = {
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = 'No match. Try "music" or "text".', size = 13, bold = false, width = PHONE },
 }
 
+-- day-b mobile audit (B36): stacked-layout lines in Command, Lab and Shop, at 360 and at 286
+-- (the narrowest phone width we lay out for). Panels pad 14 each side.
+local function phoneCases(phone: number)
+	local page = phone - 14 * 2
+	local panel = page - 14 * 2
+	return {
+		{ file = "pages/PagesProgress/LabView.tsx", needle = "Move cells whenever you like.", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
+		{ file = "pages/PagesProgress/LabView.tsx", needle = "Bonuses change immediately. One new cell unlocks every eight rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Cards show each title as it looks on you.", size = 11, bold = false, width = panel, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Train expedition officers with signals.", size = 12, minSize = 10, bold = false, width = panel, phone = phone },
+		{ file = "pages/PagesShop.tsx", needle = "Speed up your forge.", size = 18, bold = true, width = panel, phone = phone },
+	}
+end
+for _, phone in { 360, 286 } do
+	for _, case in phoneCases(phone) do
+		table.insert(CASES, case :: any)
+	end
+end
+
 local bad = {}
 for _, case in CASES do
 	local source = fs.readFile(ROOT .. case.file)
@@ -116,7 +137,7 @@ for _, case in CASES do
 		room = case.width * lines * 0.88
 	end
 	if w > room then
-		table.insert(bad, `{case.file}: "{text}" ~{math.ceil(w)}px > {math.floor(room)}px at 360 ({size}px)`)
+		table.insert(bad, `{case.file}: "{text}" ~{math.ceil(w)}px > {math.floor(room)}px at {case.phone or 360} ({size}px)`)
 	end
 end
 
@@ -127,6 +148,6 @@ if not string.find(social, "value: balanceText,%s*size: 12,%s*fit: true") then
 end
 
 if #bad > 0 then
-	error("Copy too wide for a 360px phone:\n  " .. table.concat(bad, "\n  "))
+	error("Copy too wide for a phone:\n  " .. table.concat(bad, "\n  "))
 end
-print(`[TEST] copy fit: {#CASES} lines fit at 360px`)
+print(`[TEST] copy fit: {#CASES} lines fit (360px, plus 286px for the day-b mobile cases)`)

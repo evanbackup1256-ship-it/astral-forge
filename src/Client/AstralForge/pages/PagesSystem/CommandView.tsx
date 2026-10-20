@@ -779,7 +779,7 @@ function CommandViewReady(props: CommandProps) {
 		const titlesBody = titlesEnabled ? (
 			<>
 				<Text
-					value="Each card shows the title exactly as it will look on you."
+					value="Cards show each title as it looks on you."
 					size={11}
 					color={Palette.muted}
 					fit={false}
@@ -934,10 +934,11 @@ function CommandViewReady(props: CommandProps) {
 				<Panel size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<Text
-						value="Spend signals to train the officers who run your expeditions."
+						value="Train expedition officers with signals."
 						size={12}
 						color={Palette.muted}
-						fit={false}
+						fit={true}
+						minSize={10}
 						position={UDim2.fromOffset(0, 28)}
 						sizeConstraint={new UDim2(1, 0, 0, 18)}
 					/>
@@ -972,7 +973,7 @@ function CommandViewReady(props: CommandProps) {
 					layoutOrder={nextOrder()}
 					reducedMotion={reducedMotion}
 				>
-					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, -164, 0, 24)} />
+					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={12} sizeConstraint={new UDim2(1, titlesEnabled ? 0 : -164, 0, 24)} />
 					{titlesBody}
 				</Panel>
 				<Panel

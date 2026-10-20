@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
-import { Palette } from "../../CoreKit/theme";
+import { chromeFor, Palette, scrollTail } from "../../CoreKit/theme";
+import { useViewport } from "../../MotionKit/motion";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
@@ -431,6 +432,10 @@ function BazaarView(props: BazaarProps) {
 	const optionsH = (Ui.useSegmentedHeight as unknown as (count: number, columns: number, rowH: number, gap: number) => number)(
 		3, math.max(1, math.min(3, math.floor((width + 6) / 120))), 48, 6);
 	const [now, setNow] = React.useState(Workspace.GetServerTimeNow());
+	// phones: clear the tab bar and home indicator like the other pages (was a flat 72 everywhere;
+	// desktop keeps 72, a phone with a small inset still gets 72)
+	const chrome = chromeFor(useViewport());
+	const bazaarTail = chrome.stack ? scrollTail(true, chrome.bottomSafe, 32) : 72;
 	const scrollRef = React.useRef<GuiObject>();
 	const pending = React.useRef(false);
 	const nonce = React.useRef(0);
@@ -860,7 +865,7 @@ function BazaarView(props: BazaarProps) {
 				<Ui.Text value="No supplies match that search." size={15} wrap={true} sizeConstraint={UDim2.fromScale(1, 1)} />,
 			);
 		}
-		return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={72} scrollBarColor={Palette.violet} />;
+		return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;
 	}
 	if (category === "History") {
 		const history = market ? (market.History ?? []) : [];
@@ -912,7 +917,7 @@ function BazaarView(props: BazaarProps) {
 				/>,
 			);
 		}
-		return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={72} scrollBarColor={Palette.violet} />;
+		return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;
 	}
 	const optionColumns = math.max(1, math.min(3, math.floor((width + 6) / 120)));
 	const optionHeight = optionsH;
@@ -1157,7 +1162,7 @@ function BazaarView(props: BazaarProps) {
 			/>,
 		);
 	}
-	return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={72} scrollBarColor={Palette.violet} />;
+	return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;
 }
 
 export = { BazaarView };
