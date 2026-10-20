@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { InteractionFeedback } from "../CoreKit/interaction";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
@@ -529,6 +530,8 @@ function PlayerRow(param: PlayerRowProps) {
 						} else if (dx < -40) {
 							touchStart.current = undefined;
 							swipeAt.current = os.clock();
+							// the same light tick the other swipe-and-snap controls give when they open
+							if (!swiped) InteractionFeedback.tick();
 							setSwiped(true);
 						} else if (dx > 30) {
 							touchStart.current = undefined;

@@ -4,6 +4,7 @@
 // A centered glass panel springs open, results stagger in by section and one highlight glides
 // between rows. Keyboard (Ctrl+K, arrows, Enter, Esc) and gamepad (DPad, A, B) both drive it.
 import React from "@rbxts/react";
+import { InteractionFeedback } from "./CoreKit/interaction";
 import Model from "./BrowseModel";
 import * as theme from "./CoreKit/theme";
 import { AppHelpers } from "./CoreKit/appNav";
@@ -622,7 +623,10 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 			props.register(props.index, row);
 		},
 		Event: mergeEvents(tipEvents, {
-			Activated: () => props.onPick(entry),
+			Activated: () => {
+				InteractionFeedback.tap();
+				props.onPick(entry);
+			},
 			MouseEnter: () => props.onHover(props.index),
 		}),
 	}, h("frame", {
@@ -864,6 +868,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			return;
 		}
 		Audio.play("tick");
+		InteractionFeedback.tick();
 		setSelected((current: number) => {
 			const target = current + step;
 			if (math.abs(step) === 1) {

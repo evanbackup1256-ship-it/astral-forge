@@ -6,6 +6,7 @@
 // { title, body, hint, accent }. The bubble waits before fading in (quicker right after another
 // was shown), sits beside its target, clamps to the screen, and goes on leave, press or scroll.
 import React from "@rbxts/react";
+import { InteractionFeedback } from "./CoreKit/interaction";
 import ReactRoblox from "@rbxts/react-roblox";
 import { Palette } from "./CoreKit/theme";
 
@@ -115,6 +116,8 @@ function scheduleShow(id: number, target: GuiObject, read: () => TooltipContent 
 		const content = read();
 		if (!hasContent(content) || !target.IsDescendantOf(game) || !target.Visible) return;
 		shown = { id, target, content };
+		// a long-press tip lands with a light tick so the finger knows it worked
+		if (pressStart !== undefined) InteractionFeedback.tick();
 		emit();
 	});
 }
