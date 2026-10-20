@@ -3327,6 +3327,77 @@ export function SegmentedTabs({
 		const stretch = math.clamp(math.abs(values[0] - values[1]), 0, columnCount - 1);
 		return cellSize.add(new UDim2(stretch / columnCount, (gap * stretch) / columnCount, 0, 0));
 	});
+	// phones: never wrap into rows. Tabs that would stack (or squeeze under ~84px) become one
+	// sideways-scrolling strip of fixed pills, and the selected pill is kept in view.
+	const tabsViewport = useViewport();
+	const phoneTabs = chromeFor(tabsViewport).stack;
+	const stripMode = phoneTabs && (rowCount > 1 || tabsViewport.width / columnCount < 84);
+	const stripRef = React.useRef<ScrollingFrame>();
+	const PILL_W = 104;
+	React.useEffect(() => {
+		const strip = stripRef.current;
+		if (!stripMode || strip === undefined) {
+			return;
+		}
+		const left = activeIndex * (PILL_W + gap);
+		const view = strip.AbsoluteSize.X;
+		const current = strip.CanvasPosition.X;
+		if (left < current || left + PILL_W > current + view) {
+			strip.CanvasPosition = new Vector2(math.max(0, left - (view - PILL_W) / 2), 0);
+		}
+	}, [stripMode, activeIndex]);
+	if (stripMode) {
+		const stripSize = typeIs(size, "UDim2") ? new UDim2(size.X.Scale, size.X.Offset, 0, TapTarget) : size;
+		const pillSize = new UDim2(0, PILL_W, 1, 0);
+		return (
+			<scrollingframe
+				ref={stripRef}
+				Size={stripSize}
+				Position={position}
+				BackgroundColor3={Palette.ink}
+				BackgroundTransparency={0.18}
+				BorderSizePixel={0}
+				LayoutOrder={layoutOrder}
+				ZIndex={zIndex}
+				ScrollingDirection={Enum.ScrollingDirection.X}
+				ScrollBarThickness={0}
+				CanvasSize={UDim2.fromOffset(count * (PILL_W + gap) - gap + 8, 0)}
+				ElasticBehavior={Enum.ElasticBehavior.WhenScrollable}
+			>
+				<uicorner CornerRadius={new UDim(0, 11)} />
+				<uistroke
+					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+					Color={Palette.lineSoft}
+					Thickness={1}
+					Transparency={0.62}
+				/>
+				<frame
+					Size={new UDim2(0, PILL_W, 1, -8)}
+					Position={UDim2.fromOffset(4 + activeIndex * (PILL_W + gap), 4)}
+					BackgroundColor3={selectedAccent}
+					BorderSizePixel={0}
+					Visible={matched}
+					ZIndex={zIndex + 1}
+				>
+					<uicorner CornerRadius={new UDim(0, 8)} />
+				</frame>
+				{options.map((option, index) => (
+					<SegmentedTabHit
+						key={option.id}
+						option={option}
+						selected={option.id === value}
+						position={new UDim2(0, 4 + index * (PILL_W + gap), 0, 4)}
+						size={pillSize.add(new UDim2(0, 0, 0, -8))}
+						onSelect={onChange}
+						accent={option.accent ?? accent}
+						sound={sound}
+						reducedMotion={reducedMotion}
+						zIndex={zIndex + 2}
+					/>
+				))}
+			</scrollingframe>
+		);
+	}
 	return (
 		<frame
 			Size={size}

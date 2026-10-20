@@ -1466,8 +1466,12 @@ const SECTIONS = [
 	{ id: "Artifacts", label: "Artifacts" },
 	{ id: "Premium", label: "Premium" },
 ];
-function sectionTabLayout(width: number, rowHeight: number): LuaTuple<[number, number]> {
+function sectionTabLayout(width: number, rowHeight: number, phone = false): LuaTuple<[number, number]> {
 	const gap = 6;
+	// phones get one scrolling row of tabs (SegmentedTabs strip mode), so reserve a single row
+	if (phone) {
+		return $tuple(SECTIONS.size(), rowHeight);
+	}
 	const columns = math.clamp(math.floor((math.max(1, width) + gap) / (96 + gap)), 1, SECTIONS.size());
 	const rows = math.ceil(SECTIONS.size() / columns);
 	return $tuple(columns, rows * rowHeight + (rows - 1) * gap);
@@ -3597,7 +3601,7 @@ function StoreFront(props: StoreFrontProps) {
 		BrowseModel.remember("Shop", { query: "", category: section });
 	}, [section]);
 	const reveal = useStagger(0, softMotion);
-	const [tabColumns, tabH] = sectionTabLayout(contentWidth, stack ? TapTarget : 44);
+	const [tabColumns, tabH] = sectionTabLayout(contentWidth, stack ? TapTarget : 44, stack);
 	const shared: SectionProps = {
 		key: section,
 		state: props.state ?? {},
