@@ -292,6 +292,8 @@ export = (loadService: LoadService) => {
 		[Protocol.Actions.EquipBestItems]: true,
 		[Protocol.Actions.ClaimAllMail]: true,
 		[Protocol.Actions.VerifyCreatorFollow]: true,
+		[Protocol.Actions.GetCrew]: true,
+		[Protocol.Actions.CrewLeave]: true,
 	};
 
 	function inspect(
@@ -1047,6 +1049,17 @@ export = (loadService: LoadService) => {
 			if (bag.DryRun !== undefined && !typeIs(bag.DryRun, "boolean")) {
 				return $tuple(false, "invalid admin preview flag");
 			}
+		} else if (action === Protocol.Actions.InviteTrade) {
+			// -999 is the practice partner; anything else has to look like a real UserId
+			if (bag.UserId !== -999 && coerceUserId(bag.UserId) === undefined) {
+				return $tuple(false, "invalid trade invite target");
+			}
+		} else if (action === Protocol.Actions.RespondTrade) {
+			if (!typeIs(bag.Accept, "boolean")) return $tuple(false, "invalid trade response");
+		} else if (action === Protocol.Actions.SetTradeReady) {
+			if (!typeIs(bag.Ready, "boolean")) return $tuple(false, "invalid trade ready flag");
+		} else if (action === Protocol.Actions.TradeViewAway) {
+			if (!typeIs(bag.Away, "boolean")) return $tuple(false, "invalid trade away flag");
 		} else if (action === Protocol.Actions.ReportClientIntegrity) {
 			if (!stringField(bag, "ActionType", 1, 48) || !stringField(bag, "PenaltyCode", 1, 48)) {
 				return $tuple(false, "invalid integrity envelope");

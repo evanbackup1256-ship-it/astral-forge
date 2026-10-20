@@ -188,8 +188,13 @@ function nextTier(tier: string | undefined): string | undefined {
 // ------------------------------------------------------------------------------------------------
 // the bag
 // ------------------------------------------------------------------------------------------------
+function finite(v: unknown): number {
+	const n = tonumber(v);
+	return n === undefined || n !== n || n === math.huge || n === -math.huge ? 0 : n;
+}
+
 function int(v: unknown, min = 0): number {
-	return math.max(min, math.floor((tonumber(v) ?? 0) as number));
+	return math.max(min, math.floor(finite(v)));
 }
 
 function blank(): Bag {
@@ -209,6 +214,9 @@ function blank(): Bag {
 
 // an old echo (trait, level, strength 0.75..1.5) becomes a new one
 function migrateEcho(old: unknown): Echo | undefined {
+	if (!typeIs(old, "table")) {
+		return undefined;
+	}
 	const oldDict = old as Dict;
 	const traitId = RENAMED[oldDict.TraitId as string] ?? (oldDict.TraitId as string);
 	if (traitById[traitId] === undefined) {
@@ -236,7 +244,7 @@ function ensure(bag: unknown): Bag {
 		const fresh = blank();
 		fresh.Resonance = int(input.Resonance);
 		fresh.Captures = int(input.Captures);
-		fresh.Charge = math.clamp((tonumber(input.Charge) ?? 0) as number, 0, CHARGE_TARGET);
+		fresh.Charge = math.clamp(finite(input.Charge), 0, CHARGE_TARGET);
 		let nextId = 1;
 		const remap: Record<string, string> = {};
 		const inventoryInput = typeIs(input.Inventory, "table") ? (input.Inventory as Dict) : {};
@@ -254,7 +262,8 @@ function ensure(bag: unknown): Bag {
 		if (typeIs(input.Equipped, "table")) {
 			const equipped = input.Equipped as Dict;
 			for (let slot = 0; slot < 3; slot++) {
-				const uid = equipped[tostring(slot + 1)];
+				// old saves can carry Equipped as a JSON array (numeric keys) or a "1"/"2"/"3" map
+				const uid = equipped[tostring(slot + 1)] ?? (equipped as unknown as Record<number, unknown>)[slot + 1];
 				if (uid && remap[uid as string]) {
 					fresh.Chord[slot] = remap[uid as string];
 				}
@@ -262,10 +271,10 @@ function ensure(bag: unknown): Bag {
 		}
 		return fresh;
 	}
-	input.Charge = math.clamp((tonumber(input.Charge) ?? 0) as number, 0, CHARGE_TARGET);
+	input.Charge = math.clamp(finite(input.Charge), 0, CHARGE_TARGET);
 	input.Tracks = typeIs(input.Tracks, "table") ? (input.Tracks as Record<string, number>) : { Collect: 0, Surge: 0, Build: 0, Explore: 0 };
 	for (const track of TRACKS) {
-		input.Tracks[track] = math.max(0, (tonumber(input.Tracks[track]) ?? 0) as number);
+		input.Tracks[track] = math.max(0, finite(input.Tracks[track]));
 	}
 	input.Resonance = int(input.Resonance);
 	input.Captures = int(input.Captures);
@@ -281,6 +290,14 @@ function ensure(bag: unknown): Bag {
 			e.Level = math.clamp(int(e.Level, 1), 1, MAX_LEVEL);
 			e.Imprints = typeIs(e.Imprints, "table") ? (e.Imprints as string[]) : [];
 			e.Locked = e.Locked === true;
+		}
+	}
+	// NextId must stay past every stored "E<n>" id, or the next capture would overwrite an echo
+	for (const [uid] of pairs(input.Inventory as Record<string, unknown>)) {
+		const [digits] = string.match(tostring(uid), "^E(%d+)$");
+		const n = tonumber(digits);
+		if (n !== undefined && n >= input.NextId) {
+			input.NextId = n + 1;
 		}
 	}
 	input.Chord = typeIs(input.Chord, "table") ? (input.Chord as string[]) : ["", "", "", ""];
