@@ -346,7 +346,6 @@ function IdleBay(props: IdleBayProps) {
 					text={`FIRE ${string.upper(pick.boost.Name)}`}
 					icon="Boost.14"
 					onClick={() => {
-						Audio.play("boostActivate");
 						props.dispatch("ActivateBoost", { Id: pick.boost.Id });
 					}}
 					color={accent}
@@ -511,7 +510,6 @@ function BoostCard(props: BoostCardProps) {
 					text={owned <= 0 ? "NONE STORED" : props.canActivate ? "ACTIVATE" : props.busyText}
 					icon={ready ? "Boost.15" : "Lock.5"}
 					onClick={() => {
-						Audio.play("boostActivate");
 						props.dispatch("ActivateBoost", { Id: boost.Id });
 					}}
 					color={ready ? accent : Palette.panelSoft}

@@ -477,8 +477,7 @@ function __member(): unknown {
 			return undefined;
 		};
 		let lockBtn: unknown = function(this: void, size?: unknown, position?: unknown): unknown | undefined {
-			return reactLoose.createElement(Button, { text: (luaTruthy(locked) ? "UNPROTECT" : "PROTECT"), icon: "Lock.13", onClick: function(this: void): unknown | undefined {
-				colon(Audio).play((luaTruthy(locked) ? "favoriteOff" : "favoriteOn"));
+			return reactLoose.createElement(Button, { text: (luaTruthy(locked) ? "UNPROTECT" : "PROTECT"), icon: "Lock.13", sound: (luaTruthy(locked) ? "favoriteOff" : "favoriteOn"), onClick: function(this: void): unknown | undefined {
 				return luaCall(dispatch, "ToggleItemLock", { Uid: luaProp(item, "uid") });
 				return undefined;
 			}, color: (luaTruthy(locked) ? luaProp(Palette, "mango") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(locked) ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), size: size, position: position, reducedMotion: reducedMotion, outline: (!luaTruthy(locked)) });

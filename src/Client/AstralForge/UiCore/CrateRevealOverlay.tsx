@@ -171,7 +171,7 @@ function Backdrop(props: { amount: React.Binding<number>; onTap: () => void }) {
 }
 
 // the game's own Button, mounted only once its moment arrives
-function ActionButton(props: { text: string; accent: Color3; position: UDim2; onClick: () => void; shown: boolean; reducedMotion: boolean }) {
+function ActionButton(props: { sound?: string | false; text: string; accent: Color3; position: UDim2; onClick: () => void; shown: boolean; reducedMotion: boolean }) {
 	if (!props.shown) {
 		return undefined;
 	}
@@ -185,6 +185,7 @@ function ActionButton(props: { text: string; accent: Color3; position: UDim2; on
 			position={props.position.sub(UDim2.fromOffset(110, TapTarget))}
 			reducedMotion={props.reducedMotion}
 			highlight={true}
+			sound={props.sound ?? "auto"}
 			zIndex={520}
 		/>
 	);
@@ -491,6 +492,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 				accent={bestColor}
 				position={new UDim2(0.5, 0, 1, -math.max(viewport.bottomInset, 0) - 36)}
 				onClick={advance}
+				sound={false}
 				shown={phase === "done"}
 				reducedMotion={still}
 			/>
