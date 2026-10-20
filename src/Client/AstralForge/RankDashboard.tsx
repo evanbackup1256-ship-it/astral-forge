@@ -10,6 +10,7 @@ import { OmegaMathApi } from "./lua";
 
 const Players = game.GetService("Players");
 const TweenService = game.GetService("TweenService");
+const ContextActionService = game.GetService("ContextActionService");
 const UserInputService = game.GetService("UserInputService");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
@@ -332,6 +333,19 @@ function scrollToRankRow(place: number, instant: boolean) {
 	} else {
 		TweenService.Create(scroller, new TweenInfo(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CanvasPosition: goal }).Play();
 	}
+	// mark where you landed: the row outline lights up and settles back (a held glow with Reduced Motion)
+	const stroke = target.FindFirstChildWhichIsA("UIStroke", true);
+	if (stroke !== undefined) {
+		const rest = stroke.Transparency;
+		stroke.Transparency = 0;
+		if (instant) {
+			task.delay(0.8, () => {
+				stroke.Transparency = rest;
+			});
+		} else {
+			TweenService.Create(stroke, new TweenInfo(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, false, 0.35), { Transparency: rest }).Play();
+		}
+	}
 }
 
 function rankRowStyle(row: RankRow, guildBoard: boolean): { accent?: Color3; frame?: ProfileStyle.FrameOption } | undefined {
@@ -414,6 +428,28 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				pcall(() => task.cancel(focusJob));
 			};
 		}, [selected, scope]);
+
+		// gamepad: right-stick click jumps to your row, same as the Find me button
+		const findPlaceRef = React.useRef<number>();
+		const reducedRef = React.useRef(false);
+		React.useEffect(() => {
+			const name = "AstralForgeRankFindMe";
+			ContextActionService.BindActionAtPriority(
+				name,
+				(_: string, inputState: Enum.UserInputState) => {
+					const place = findPlaceRef.current;
+					if (inputState !== Enum.UserInputState.Begin || place === undefined) {
+						return Enum.ContextActionResult.Pass;
+					}
+					scrollToRankRow(place, reducedRef.current);
+					return Enum.ContextActionResult.Sink;
+				},
+				false,
+				2300,
+				Enum.KeyCode.ButtonR3,
+			);
+			return () => ContextActionService.UnbindAction(name);
+		}, []);
 
 		const [mineOnly, setMineOnly] = React.useState(false);
 		const [result, setResult] = React.useState<{ rows: RankRow[]; loading: boolean; status: string }>({ rows: [], loading: true, status: "Loading rankings…" });
@@ -501,6 +537,8 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				break;
 			}
 		}
+		findPlaceRef.current = mineOnly ? undefined : personalIndex;
+		reducedRef.current = reducedMotion === true;
 		const ahead = personalIndex !== undefined ? rows[personalIndex - 2] : undefined;
 		const gap = ahead !== undefined ? Math.Max(0, Math.ToNumber(Math.Sub(ahead.Value, own))) : 0;
 		const top = rows[0]?.Value ?? 0;
