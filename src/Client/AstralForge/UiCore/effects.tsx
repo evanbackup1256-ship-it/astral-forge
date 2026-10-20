@@ -62,7 +62,7 @@ function Pop({ pop }: { pop: PopEntry }) {
 	);
 }
 
-export function EffectLayer({ pops }: { pops: PopEntry[] }) {
+function EffectLayerImpl({ pops }: { pops: PopEntry[] }) {
 	const antilag = useAntilag();
 	const max = math.max(1, math.min(antilag.maxPops, math.floor(12 * antilag.fxBudget)));
 	const visible = pops.size() > max ? pops.filter((_, index) => index >= pops.size() - max) : pops;
@@ -74,6 +74,8 @@ export function EffectLayer({ pops }: { pops: PopEntry[] }) {
 		</frame>
 	);
 }
+// re-render only when the pop list itself changes (the shell keeps the same array between pushes)
+export const EffectLayer = React.memo(EffectLayerImpl);
 
 const STARS = [
 	{ x: 0.08, y: 0.18, size: 2, phase: 0.4 },
@@ -90,7 +92,7 @@ const STARS = [
 	{ x: 0.12, y: 0.9, size: 2, phase: 3.4 },
 ];
 
-export function StarField({ accent }: { accent: Color3 }) {
+function StarFieldImpl({ accent }: { accent: Color3 }) {
 	const antilag = useAntilag();
 	const enabled = antilag.tier > 0 && antilag.maxStars > 0 && antilag.allowAmbient;
 	const paused = React.useContext(UiEffectsPausedContext);
@@ -125,6 +127,9 @@ export function StarField({ accent }: { accent: Color3 }) {
 		</frame>
 	);
 }
+// the shell re-renders on every state push; the star field only depends on its accent
+// (compared by value: Color3 equality is per component, not per object)
+export const StarField = React.memo(StarFieldImpl, (a, b) => a.accent === b.accent);
 
 interface CanvasDraw {
 	AutoUpdate: boolean;

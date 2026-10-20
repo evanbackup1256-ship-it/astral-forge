@@ -99,7 +99,7 @@ export function TradeReturnPill(props: { stack?: boolean; bottomPad: number; red
 	);
 }
 
-export function AmbientLayer(props: { reducedMotion?: boolean; intensity?: number }) {
+function AmbientLayerImpl(props: { reducedMotion?: boolean; intensity?: number }) {
 	const { reducedMotion, intensity = 1 } = props;
 	const antilag = useAntilag();
 	const strength = math.clamp(intensity, 0, 1);
@@ -163,6 +163,8 @@ export function AmbientLayer(props: { reducedMotion?: boolean; intensity?: numbe
 		</frame>
 	);
 }
+// primitives only; skips the shell's per-push re-render when motion and intensity are unchanged
+export const AmbientLayer = React.memo(AmbientLayerImpl);
 
 export function ConfettiBurst(props: { onDone?: () => void; intensity?: number }) {
 	const { onDone, intensity = 1 } = props;

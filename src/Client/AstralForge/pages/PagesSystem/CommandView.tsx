@@ -347,6 +347,37 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 	);
 });
 
+// true once the running trip's EndsAt has passed. Flips with one timer at landing instead of a
+// once-a-second clock, so the whole Command page re-renders once per trip, not once per second.
+function useTripLanded(active: boolean, endsAt: number): boolean {
+	const serverNow = () => game.GetService("Workspace").GetServerTimeNow();
+	const [landed, setLanded] = React.useState(() => active && serverNow() >= endsAt);
+	React.useEffect(() => {
+		if (!active) {
+			setLanded(false);
+			return undefined;
+		}
+		const left = endsAt - serverNow();
+		if (left <= 0) {
+			setLanded(true);
+			return undefined;
+		}
+		setLanded(false);
+		const timer = task.delay(left, () => setLanded(true));
+		return () => {
+			pcall(() => task.cancel(timer));
+		};
+	}, [active, endsAt]);
+	return landed;
+}
+
+// the only part of the trip card that reads the clock: re-renders just what `render` returns,
+// once a second while `ticking`; otherwise it renders once with the current time
+function TripClock(props: { ticking: boolean; render: (now: number) => React.Element }) {
+	const now = useServerClock(props.ticking);
+	return props.render(props.ticking ? now : game.GetService("Workspace").GetServerTimeNow());
+}
+
 function CommandViewReady(props: CommandProps) {
 	const { state, config, dispatch, onSectionChange } = props;
 	const viewport = useViewport();
@@ -364,9 +395,6 @@ function CommandViewReady(props: CommandProps) {
 	const ops = config.Operations!;
 	const command = state.Command!;
 	const [tab, setTab] = React.useState("Overview");
-	// the clock only drives the running trip's countdown; with no trip out it would re-render this
-	// whole view (every tab's rows) once a second for nothing
-	const now = useServerClock(tab === "Expeditions" && (command.ActiveExpedition?.Id ?? "") !== "");
 	const scrollRef = React.useRef<ScrollingFrame>();
 	React.useEffect(() => {
 		const host = scrollRef.current;
@@ -414,8 +442,11 @@ function CommandViewReady(props: CommandProps) {
 	const activeId = active?.Id ?? "";
 	const activeEnds = active?.EndsAt ?? 0;
 	const activeStarted = active?.StartedAt ?? 0;
-	const expeditionReady = activeId !== "" && now >= activeEnds;
-	const expeditionProgress =
+	// the page itself only needs to know when the trip lands (one re-render, at landing); the
+	// per-second countdown text, meter and button label each tick inside a small TripClock
+	const expeditionReady = useTripLanded(activeId !== "", activeEnds);
+	const tripTicking = tab === "Expeditions" && activeId !== "" && !expeditionReady;
+	const tripProgress = (now: number) =>
 		activeId === "" ? 0 : math.clamp((now - activeStarted) / math.max(1, activeEnds - activeStarted), 0, 1);
 	if (activeId !== "") {
 		lastTripId = activeId;
@@ -430,7 +461,8 @@ function CommandViewReady(props: CommandProps) {
 				: "Launch an unlocked adventure below."
 			: expeditionReady
 				? "Crew is back. Collect their rewards."
-				: `Back in ${clockText(math.max(0, activeEnds - now))}, around ${landsAt(activeEnds)}`;
+				: undefined;
+	const tripStatusAt = (now: number) => `Back in ${clockText(math.max(0, activeEnds - now))}, around ${landsAt(activeEnds)}`;
 	const claimLabel =
 		activeId === ""
 			? canRepeat
@@ -438,7 +470,8 @@ function CommandViewReady(props: CommandProps) {
 				: "Choose below"
 			: expeditionReady
 				? "COLLECT"
-				: clockText(math.max(0, activeEnds - now));
+				: undefined;
+	const tripLabelAt = (now: number) => clockText(math.max(0, activeEnds - now));
 	const collectTrip = () => {
 		const name = ops.Expeditions.find((item) => item.Id === activeId)?.Name ?? "Your crew";
 		dispatch("ClaimExpedition", {}, (response) => {
@@ -1102,21 +1135,31 @@ function CommandViewReady(props: CommandProps) {
 						position={UDim2.fromOffset(0, 22)}
 						sizeConstraint={new UDim2(1, tripStack ? 0 : -230, 0, 28)}
 					/>
-					<Text
-						value={statusLine}
-						size={12}
-						color={activeId === "" && tripReport !== undefined ? Palette.creamSoft : Palette.muted}
-						fit={true}
-						minSize={10}
-						position={UDim2.fromOffset(0, 54)}
-						sizeConstraint={new UDim2(1, tripStack ? 0 : -230, 0, 18)}
+					<TripClock
+						ticking={tripTicking}
+						render={(now) => (
+							<Text
+								value={statusLine ?? tripStatusAt(now)}
+								size={12}
+								color={activeId === "" && tripReport !== undefined ? Palette.creamSoft : Palette.muted}
+								fit={true}
+								minSize={10}
+								position={UDim2.fromOffset(0, 54)}
+								sizeConstraint={new UDim2(1, tripStack ? 0 : -230, 0, 18)}
+							/>
+						)}
 					/>
-					<Meter
-						value={expeditionProgress}
-						color={expeditionReady ? Palette.green : Palette.cyan}
-						reducedMotion={reducedMotion}
-						position={UDim2.fromOffset(0, 80)}
-						size={new UDim2(1, tripStack ? 0 : -230, 0, 8)}
+					<TripClock
+						ticking={tripTicking}
+						render={(now) => (
+							<Meter
+								value={expeditionReady ? 1 : tripProgress(now)}
+								color={expeditionReady ? Palette.green : Palette.cyan}
+								reducedMotion={reducedMotion}
+								position={UDim2.fromOffset(0, 80)}
+								size={new UDim2(1, tripStack ? 0 : -230, 0, 8)}
+							/>
+						)}
 					/>
 					<frame
 						key="CommandClaimActions"
@@ -1127,16 +1170,21 @@ function CommandViewReady(props: CommandProps) {
 						ClipsDescendants={false}
 						ref={expeditionReady ? claimHostRef : undefined}
 					>
-						<Button
-							text={claimLabel}
-							icon={activeId === "" && canRepeat ? "Refresh.3" : "Gift.16"}
-							onClick={onHeroAction}
-							color={activeId === "" && canRepeat ? repeatTrip!.Color : Palette.green}
-							textColor={Palette.ink}
-							size={UDim2.fromScale(1, 1)}
-							disabled={!expeditionReady && !(activeId === "" && canRepeat)}
-							reducedMotion={reducedMotion}
-							highlight={expeditionReady}
+						<TripClock
+							ticking={tripTicking}
+							render={(now) => (
+								<Button
+									text={claimLabel ?? tripLabelAt(now)}
+									icon={activeId === "" && canRepeat ? "Refresh.3" : "Gift.16"}
+									onClick={onHeroAction}
+									color={activeId === "" && canRepeat ? repeatTrip!.Color : Palette.green}
+									textColor={Palette.ink}
+									size={UDim2.fromScale(1, 1)}
+									disabled={!expeditionReady && !(activeId === "" && canRepeat)}
+									reducedMotion={reducedMotion}
+									highlight={expeditionReady}
+								/>
+							)}
 						/>
 					</frame>
 				</Panel>

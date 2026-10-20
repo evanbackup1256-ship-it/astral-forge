@@ -222,7 +222,7 @@ interface AntilagLike {
 	allowConfetti?: boolean;
 }
 
-export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
+function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 	const antilag = ((useAntilag() as unknown) ?? {}) as AntilagLike;
 	const [session, setSession] = React.useState<{ id: number; payload: CeremonyPayload } | undefined>(undefined);
 	const [clock, setClock] = React.useBinding(0);
@@ -623,3 +623,5 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 		}),
 	);
 }
+// driven by its own subscription; the shell's state pushes never change its one prop
+export const RebirthCeremonyHost = React.memo(RebirthCeremonyHostImpl);
