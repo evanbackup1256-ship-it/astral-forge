@@ -112,7 +112,9 @@ function __member(): unknown {
 		let reducedMotion: unknown = luaProp(_param, "reducedMotion");
 		let viewport: unknown = luaCall(useViewport);
 		let chrome: unknown = luaCall(chromeFor, viewport);
-		let stack: unknown = luaProp(chrome, "contentStack");
+		// phones in landscape use the wide layout (cards and chord slots side by side): the stacked
+		// one is over 1000px tall and leaves a 360px-tall screen scrolling past one panel at a time
+		let stack: unknown = luaTruthy(luaProp(chrome, "contentStack")) && !luaTruthy(luaProp(chrome, "landscape"));
 		let softMotion: unknown = reducedMotion;
 		reducedMotion = softMotion;
 		let echoes: unknown = ((luaTruthy(luaProp(state, "ForgeEchoes") ) ? luaProp(state, "ForgeEchoes") :  {}));

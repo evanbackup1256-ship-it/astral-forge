@@ -529,8 +529,11 @@ function CommandViewReady(props: CommandProps) {
 	const masteryCellH = 64;
 	const masteryRows = math.max(1, math.ceil(math.max(1, config.Machines.size()) / masteryCols));
 	const masteryH = gridPanelHeight(36, masteryRows, masteryCellH, gridGap, panelPad);
-	const expeditionHeroH = stack ? 188 : 140;
-	const expeditionRowH = stack ? 168 : 132;
+	// phones in landscape get the side-by-side trip rows: the stacked row (button underneath)
+	// would fill most of a 360px-tall screen
+	const tripStack = stack && !chrome.landscape;
+	const expeditionHeroH = tripStack ? 188 : 140;
+	const expeditionRowH = tripStack ? 168 : 132;
 	const artifactHeroH = 110;
 	const artifactRowH = stack ? 180 : 140;
 	const seasonHeroH = 130;
@@ -1089,12 +1092,12 @@ function CommandViewReady(props: CommandProps) {
 					<Text value={activeId === "" && tripReport !== undefined ? `"${DescribeGenerated.tripLine(command.ExpeditionsCompleted, tripReport.found)}"` : "Active trip"} size={12} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={true} minSize={9} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 					<Text
 						value={activeConfig?.Name ?? (canRepeat ? `Last trip: ${repeatTrip!.Name}` : "No trip underway")}
-						size={stack ? 18 : 22}
+						size={tripStack ? 18 : 22}
 						color={expeditionReady ? Palette.green : Palette.cream}
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
 						position={UDim2.fromOffset(0, 22)}
-						sizeConstraint={new UDim2(1, stack ? 0 : -230, 0, 28)}
+						sizeConstraint={new UDim2(1, tripStack ? 0 : -230, 0, 28)}
 					/>
 					<Text
 						value={statusLine}
@@ -1103,19 +1106,19 @@ function CommandViewReady(props: CommandProps) {
 						fit={true}
 						minSize={10}
 						position={UDim2.fromOffset(0, 54)}
-						sizeConstraint={new UDim2(1, stack ? 0 : -230, 0, 18)}
+						sizeConstraint={new UDim2(1, tripStack ? 0 : -230, 0, 18)}
 					/>
 					<Meter
 						value={expeditionProgress}
 						color={expeditionReady ? Palette.green : Palette.cyan}
 						reducedMotion={reducedMotion}
 						position={UDim2.fromOffset(0, 80)}
-						size={new UDim2(1, stack ? 0 : -230, 0, 8)}
+						size={new UDim2(1, tripStack ? 0 : -230, 0, 8)}
 					/>
 					<frame
 						key="CommandClaimActions"
-						Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(210, 48)}
-						Position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -210, 0.5, -24)}
+						Size={tripStack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(210, 48)}
+						Position={tripStack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -210, 0.5, -24)}
 						BackgroundTransparency={1}
 						BorderSizePixel={0}
 						ClipsDescendants={false}
@@ -1189,7 +1192,7 @@ function CommandViewReady(props: CommandProps) {
 									accent={expedition.Color}
 									size={46}
 									radius={14}
-									position={UDim2.fromOffset(0, stack ? 6 : 18)}
+									position={UDim2.fromOffset(0, tripStack ? 6 : 18)}
 									reducedMotion={reducedMotion}
 								/>
 								<Text
@@ -1202,7 +1205,7 @@ function CommandViewReady(props: CommandProps) {
 									fit={true}
 									minSize={9}
 									position={UDim2.fromOffset(58, 4)}
-									sizeConstraint={new UDim2(1, stack ? -70 : -224, 0, 16)}
+									sizeConstraint={new UDim2(1, tripStack ? -70 : -224, 0, 16)}
 								/>
 								<Text
 									value={expedition.Name}
@@ -1212,7 +1215,7 @@ function CommandViewReady(props: CommandProps) {
 									fit={true}
 									minSize={12}
 									position={UDim2.fromOffset(58, 24)}
-									sizeConstraint={new UDim2(1, stack ? -70 : -224, 0, 24)}
+									sizeConstraint={new UDim2(1, tripStack ? -70 : -224, 0, 24)}
 								/>
 								<Text
 									value={`${formatReward(expedition.Reward)}  ·  ${"%.0f".format(expedition.ArtifactChance * 100)}% relic`}
@@ -1222,15 +1225,15 @@ function CommandViewReady(props: CommandProps) {
 									fit={true}
 									minSize={9}
 									position={UDim2.fromOffset(58, 52)}
-									sizeConstraint={new UDim2(1, stack ? -70 : -224, 0, 28)}
+									sizeConstraint={new UDim2(1, tripStack ? -70 : -224, 0, 28)}
 								/>
 								<Button
 									text={locked ? `Need lv ${expedition.RequiredLevel}` : busy ? "Crew away" : "LAUNCH"}
 									onClick={() => dispatch("LaunchExpedition", { Id: expedition.Id })}
 									color={expedition.Color}
 									textColor={Palette.ink}
-									size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(200, 46)}
-									position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -210, 0.5, -23)}
+									size={tripStack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(200, 46)}
+									position={tripStack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -210, 0.5, -23)}
 									disabled={!can}
 									reducedMotion={reducedMotion}
 									highlight={can}

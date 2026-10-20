@@ -26,6 +26,11 @@ interface CloseGlowProps {
 	size: UDim2;
 }
 
+// one place for the row height so the list stride can't drift from the row
+function milestoneRowH(stack: boolean): number {
+	return stack ? 220 : 148;
+}
+
 function ProgressCloseGlow({ progress, ready, accent, reducedMotion, position, size }: CloseGlowProps) {
 	const antilag = useAntilag();
 	const near = !ready && progress >= NEAR_COMPLETE_THRESHOLD && progress < 1;
@@ -72,7 +77,7 @@ function MilestoneRow({ achievement, dispatch, reducedMotion, position, stack, c
 	const ready = !achievement.Claimed && achievement.Progress >= achievement.Target;
 	const reward = formatReward(achievement.Reward);
 	const accent = achievement.Claimed ? Palette.muted : ready ? Palette.green : Palette.mango;
-	const rowH = stack ? 220 : 148;
+	const rowH = milestoneRowH(stack);
 	const pad = stack ? 14 : 16;
 	const contentH = rowH - pad * 2;
 	const btnReserve = stack ? TapTarget + 14 : 0;
@@ -297,7 +302,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 	const introH = stack ? 40 : 70;
 	const claimRowH = stack && counts.Ready > 0 ? TapTarget + 10 : 0;
 	const headerHeight = 32 + introH + claimRowH + 10 + barH;
-	const rowStride = (stack ? 220 : 148) + 16;
+	const rowStride = milestoneRowH(stack) + 16;
 	const pageGap = stack ? chrome.panelGap : 10;
 	const headerPanel = (
 		<Panel
