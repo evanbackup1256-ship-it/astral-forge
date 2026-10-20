@@ -7,6 +7,21 @@ const ContextActionService = game.GetService("ContextActionService");
 // overlay can keep reading it there.
 export const PAD_SINK_PRIORITY = 2400;
 
+// The shell's pad shortcuts (Back/rail, Vault, Overcharge, hide, buy amount, tabs, Settings).
+// Overlays that sit over the shell sink these so nothing fires behind them; A and the D-pad are
+// left alone so focus inside the overlay still works.
+export const SHELL_PAD_KEYS = [
+	Enum.KeyCode.ButtonB,
+	Enum.KeyCode.ButtonX,
+	Enum.KeyCode.ButtonY,
+	Enum.KeyCode.ButtonSelect,
+	Enum.KeyCode.ButtonStart,
+	Enum.KeyCode.ButtonL1,
+	Enum.KeyCode.ButtonR1,
+	Enum.KeyCode.ButtonL2,
+	Enum.KeyCode.ButtonR2,
+];
+
 /** Sinks `keys` until the returned function is called. */
 export function sinkPadInput(name: string, keys: Enum.KeyCode[], priority = PAD_SINK_PRIORITY): () => void {
 	ContextActionService.BindActionAtPriority(name, () => Enum.ContextActionResult.Sink, false, priority, ...keys);

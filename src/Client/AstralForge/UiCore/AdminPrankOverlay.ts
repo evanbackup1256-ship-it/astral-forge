@@ -3,6 +3,7 @@ import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { chromeFor, Palette, TapTarget } from "../CoreKit/theme";
 import { useClock, useRotation, useViewport } from "../MotionKit/motion";
 import { Button, Panel, Text } from "./ui";
+import { SHELL_PAD_KEYS, usePadSink } from "../CoreKit/padSink";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -169,6 +170,7 @@ export function HudPrankStage(param: { prank?: Prank; reducedMotion?: boolean; c
 }
 
 export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean; onClose: () => void }) {
+	usePadSink(true, "AstralForgePrankSink", SHELL_PAD_KEYS);
 	const prank = param.prank;
 	const softMotion = param.reducedMotion;
 	const onClose = param.onClose;

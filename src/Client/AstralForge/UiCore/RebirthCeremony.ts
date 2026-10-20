@@ -6,6 +6,7 @@ import { useAntilag } from "../MotionKit/antilag";
 import { resolveIntent, useViewport } from "../MotionKit/motion";
 import { celebrationsAllowed, flashesAllowed, isReducedMotion } from "../MotionPreference";
 import Juice = require("../JuiceFx");
+import { SHELL_PAD_KEYS, usePadSink } from "../CoreKit/padSink";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -247,6 +248,8 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 		};
 	}, []);
 	const reduced = props.reducedMotion === true || isReducedMotion();
+	// nothing in the shell reacts to the pad while the ceremony plays
+	usePadSink(session !== undefined, "AstralForgeRebirthCeremonySink", SHELL_PAD_KEYS);
 	const plan = resolveIntent({
 		role: "ceremony",
 		emphasis: 1,

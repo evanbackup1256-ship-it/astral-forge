@@ -13,6 +13,7 @@ import {
 } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
 import { Button, IconTile, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
+import { SHELL_PAD_KEYS, usePadSink } from "../CoreKit/padSink";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -91,6 +92,8 @@ interface OfflineRewardsOverlayProps {
 }
 
 export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
+	// the shell's pad shortcuts stay quiet while the rewards card is up
+	usePadSink(true, "AstralForgeOfflineRewardsSink", SHELL_PAD_KEYS);
 	const reward = _param.reward;
 	const seconds = _param.seconds;
 	const efficiency = _param.efficiency;
