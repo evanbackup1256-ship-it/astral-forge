@@ -722,7 +722,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 					BorderSizePixel: 0,
 					ZIndex: 404,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 5) }),
+				h("uicorner", { CornerRadius: new UDim(0, 6) }),
 				h("uistroke", {
 					Color: goalDone ? Palette.mint : Palette.mango,
 					Thickness: 1.5,
@@ -761,22 +761,19 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 		"frame",
 		{ Size: new UDim2(1, 0, 0, TapTarget), LayoutOrder: 7, BackgroundTransparency: 1, ZIndex: 402 },
 		step > 1 &&
-			h("textbutton", {
-				Size: new UDim2(0, 70, 1, 0),
-				BackgroundTransparency: 1,
-				Text: "Back",
-				TextColor3: Palette.muted,
-				TextSize: 13,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
-				TextXAlignment: Enum.TextXAlignment.Left,
-				ZIndex: 403,
-				Event: {
-					Activated: () => {
-						if (!exiting) {
-							onBack();
-						}
-					},
+			h(Button, {
+				text: "Back",
+				icon: "Back.1",
+				onClick: () => {
+					if (!exiting) {
+						onBack();
+					}
 				},
+				color: Palette.panelSoft,
+				textColor: Palette.cream,
+				outline: true,
+				size: new UDim2(0, 96, 1, 0),
+				zIndex: 403,
 			}),
 		primary !== undefined
 			? h(
@@ -855,17 +852,15 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 				TextXAlignment: Enum.TextXAlignment.Left,
 				ZIndex: 403,
 			}),
-			h("textbutton", {
-				Size: new UDim2(0, 90, 1, 0),
-				Position: new UDim2(1, -90, 0, 0),
-				BackgroundTransparency: 1,
-				Text: "Skip guide",
-				TextColor3: Palette.muted,
-				TextSize: 11,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
-				TextXAlignment: Enum.TextXAlignment.Right,
-				ZIndex: 403,
-				Event: { Activated: requestSkip },
+			h(Button, {
+				text: "Skip guide",
+				onClick: requestSkip,
+				color: Palette.panelSoft,
+				textColor: Palette.muted,
+				outline: true,
+				size: new UDim2(0, 108, 1, 0),
+				position: new UDim2(1, -108, 0, 0),
+				zIndex: 403,
 			}),
 		),
 		h("frame", { Size: new UDim2(1, 0, 0, 3), LayoutOrder: 2, BackgroundTransparency: 1, ZIndex: 402 }, segments),
@@ -1017,7 +1012,7 @@ function VersionCard(param: VersionCardProps) {
 			},
 		},
 	});
-	const corner = h("uicorner", { CornerRadius: new UDim(0, 8) });
+	const corner = h("uicorner", { CornerRadius: new UDim(0, 10) });
 	const stroke = h("uistroke", {
 		Color: accent,
 		Thickness: current ? 1.5 : 1,
