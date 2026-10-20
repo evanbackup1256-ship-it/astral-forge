@@ -121,9 +121,18 @@ interface Operations {
 interface CommandProps {
 	state: { Command?: CommandState; Stardust?: Flux; Cosmetics?: unknown; Rebirths?: unknown };
 	config: { Operations?: Operations; Machines: Array<{ Id: string; Name: string; Color: Color3 }> };
-	dispatch: (action: string, payload?: object) => unknown;
+	dispatch: (action: string, payload?: object, callback?: (response: { ok?: boolean; message?: string; ArtifactNew?: boolean }) => void) => unknown;
 	reducedMotion?: boolean;
 	onSectionChange?: () => void;
+}
+
+// The last trip this session, so the hero can offer it again once the crew is home.
+let lastTripId: string | undefined;
+
+/** "3:40 PM" in the player's own clock, for when a trip lands. */
+function landsAt(unix: number): string {
+	const [text] = string.gsub(os.date("%I:%M %p", math.floor(unix)), "^0", "");
+	return text;
 }
 
 function gridPanelHeight(headerH: number, rows: number, cellH: number, gap: number, pad: number) {
@@ -397,13 +406,45 @@ function CommandViewReady(props: CommandProps) {
 	const expeditionReady = activeId !== "" && now >= activeEnds;
 	const expeditionProgress =
 		activeId === "" ? 0 : math.clamp((now - activeStarted) / math.max(1, activeEnds - activeStarted), 0, 1);
+	if (activeId !== "") {
+		lastTripId = activeId;
+	}
+	const [tripReport, setTripReport] = React.useState<{ name: string; haul: string; found: boolean } | undefined>(undefined);
+	const repeatTrip = activeId === "" && lastTripId !== undefined ? ops.Expeditions.find((item) => item.Id === lastTripId) : undefined;
+	const canRepeat = repeatTrip !== undefined && command.Level >= repeatTrip.RequiredLevel;
 	const statusLine =
 		activeId === ""
-			? "Launch an unlocked adventure below."
+			? tripReport !== undefined
+				? `${tripReport.name} came back with ${tripReport.haul}.`
+				: "Launch an unlocked adventure below."
 			: expeditionReady
 				? "Crew is back. Collect their rewards."
-				: `Back in ${clockText(math.max(0, activeEnds - now))}`;
-	const claimLabel = activeId === "" ? "Choose below" : expeditionReady ? "COLLECT" : clockText(math.max(0, activeEnds - now));
+				: `Back in ${clockText(math.max(0, activeEnds - now))}, around ${landsAt(activeEnds)}`;
+	const claimLabel =
+		activeId === ""
+			? canRepeat
+				? "SEND AGAIN"
+				: "Choose below"
+			: expeditionReady
+				? "COLLECT"
+				: clockText(math.max(0, activeEnds - now));
+	const collectTrip = () => {
+		const name = ops.Expeditions.find((item) => item.Id === activeId)?.Name ?? "Your crew";
+		dispatch("ClaimExpedition", {}, (response) => {
+			if (response.ok === true) {
+				const haul = response.message !== undefined && response.message !== "" ? response.message : "their rewards";
+				setTripReport({ name, haul, found: response.ArtifactNew === true });
+			}
+		});
+	};
+	const onHeroAction = () => {
+		if (activeId === "" && canRepeat && repeatTrip !== undefined) {
+			setTripReport(undefined);
+			dispatch("LaunchExpedition", { Id: repeatTrip.Id });
+		} else {
+			collectTrip();
+		}
+	};
 	let firstReadyWeeklyId: string | undefined;
 	if (typeIs(command.Weekly, "table")) {
 		for (const directive of command.Weekly) {
@@ -1029,9 +1070,9 @@ function CommandViewReady(props: CommandProps) {
 					layoutOrder={nextOrder()}
 					reducedMotion={reducedMotion}
 				>
-					<Text value="Active trip" size={12} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+					<Text value={activeId === "" && tripReport !== undefined ? (tripReport.found ? "Back, with a new relic" : "Back from the trip") : "Active trip"} size={12} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 					<Text
-						value={activeConfig?.Name ?? "No trip underway"}
+						value={activeConfig?.Name ?? (canRepeat ? `Last trip: ${repeatTrip!.Name}` : "No trip underway")}
 						size={stack ? 18 : 22}
 						color={expeditionReady ? Palette.green : Palette.cream}
 						weight={Enum.FontWeight.Heavy}
@@ -1042,8 +1083,9 @@ function CommandViewReady(props: CommandProps) {
 					<Text
 						value={statusLine}
 						size={12}
-						color={Palette.muted}
-						fit={false}
+						color={activeId === "" && tripReport !== undefined ? Palette.creamSoft : Palette.muted}
+						fit={true}
+						minSize={10}
 						position={UDim2.fromOffset(0, 54)}
 						sizeConstraint={new UDim2(1, stack ? 0 : -230, 0, 18)}
 					/>
@@ -1065,12 +1107,12 @@ function CommandViewReady(props: CommandProps) {
 					>
 						<Button
 							text={claimLabel}
-							icon="Gift.16"
-							onClick={() => dispatch("ClaimExpedition")}
-							color={Palette.green}
+							icon={activeId === "" && canRepeat ? "Refresh.3" : "Gift.16"}
+							onClick={onHeroAction}
+							color={activeId === "" && canRepeat ? repeatTrip!.Color : Palette.green}
 							textColor={Palette.ink}
 							size={UDim2.fromScale(1, 1)}
-							disabled={!expeditionReady}
+							disabled={!expeditionReady && !(activeId === "" && canRepeat)}
 							reducedMotion={reducedMotion}
 							highlight={expeditionReady}
 						/>

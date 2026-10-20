@@ -141,6 +141,7 @@ type Snapshot = Session & {
 	Trade?: { Epoch?: number };
 	Overcharge?: { Combo?: number; ComboMultiplier?: number; ComboMax?: number; ComboWindow?: number };
 	Daily?: { CanClaim?: boolean; Streak?: number };
+	Wheel?: { CanSpin?: boolean };
 	ForgePath?: { ClaimedSteps?: number[] };
 	CurrentZone?: number;
 };
@@ -1164,6 +1165,16 @@ export function MainGame(_param: MainGameProps) {
 			);
 		}
 	}, [addNotice, state?.Daily?.CanClaim, state?.Daily?.Streak]);
+	const spinToastSent = React.useRef(false);
+	React.useEffect(() => {
+		if (state?.Wheel?.CanSpin !== true) {
+			spinToastSent.current = false;
+			return;
+		}
+		if (spinToastSent.current) return;
+		spinToastSent.current = true;
+		addNotice("Free spin", "The wheel's ready for you. Head to Rewards to spin it.", "Special");
+	}, [addNotice, state?.Wheel?.CanSpin]);
 	React.useEffect(() => {
 		const snapshotCombo = state?.Overcharge;
 		if (snapshotCombo === undefined || (snapshotCombo.Combo ?? 0) <= 0 || comboReadout !== undefined) {
