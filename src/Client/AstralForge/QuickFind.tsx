@@ -11,10 +11,12 @@ import * as NavRoutes from "../../Shared/AstralForge/Shared/NavRoutes";
 import * as NavRouteTable from "./CoreKit/navRouteTable";
 import { useViewport, useFlipperSpring } from "./MotionKit/motion";
 import ReadyBoard from "./ReadyBoard";
+import { mergeEvents, showTooltipFor, useTooltip } from "./Tooltip";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
 const GuiService = game.GetService("GuiService");
+const ContextActionService = game.GetService("ContextActionService");
 const RunService = game.GetService("RunService");
 const TextService = game.GetService("TextService");
 
@@ -583,6 +585,28 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 	const compact = props.rowH < ROW_H;
 	const textLeft = 56;
 	const rightPad = props.rightW + 12;
+	// cut-off title or subtitle: the full text shows as a tooltip on hover, or when the
+	// keyboard/gamepad highlight rests on the row
+	const [titleCut, setTitleCut] = React.useState(false);
+	const [subCut, setSubCut] = React.useState(false);
+	const cut = titleCut || subCut;
+	const tipContent = cut ? { title: entry.title, body: entry.subtitle } : undefined;
+	const tipEvents = useTooltip(tipContent);
+	const rowRef = React.useRef<TextButton>();
+	React.useEffect(() => {
+		const row = rowRef.current;
+		if (!selected || !cut || row === undefined || (UserInputService.MouseEnabled && !UserInputService.GamepadEnabled)) {
+			return undefined;
+		}
+		return showTooltipFor(row, { title: entry.title, body: entry.subtitle });
+	}, [selected, cut, entry.key]);
+	const watchFit = (set: (value: boolean) => void) => (label: TextLabel) => set(!label.TextFits);
+	// TextFits only signals on change, so read it once after the first layout too
+	const readFit = (set: (value: boolean) => void) => (label: TextLabel | undefined) => {
+		if (label !== undefined) {
+			task.defer(() => set(!label.TextFits));
+		}
+	};
 
 	return h("textbutton", {
 		Size: new UDim2(1, 0, 0, props.rowH),
@@ -593,11 +617,14 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		Selectable: false,
 		Text: "",
 		ZIndex: 504,
-		ref: (row: TextButton | undefined) => props.register(props.index, row),
-		Event: {
+		ref: (row: TextButton | undefined) => {
+			rowRef.current = row;
+			props.register(props.index, row);
+		},
+		Event: mergeEvents(tipEvents, {
 			Activated: () => props.onPick(entry),
 			MouseEnter: () => props.onHover(props.index),
-		},
+		}),
 	}, h("frame", {
 		Size: UDim2.fromScale(1, 1),
 		Position: arrive.map((a: number) => UDim2.fromOffset(0, (1 - a) * 8)),
@@ -642,6 +669,8 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		TextXAlignment: Enum.TextXAlignment.Left,
 		TextTruncate: Enum.TextTruncate.AtEnd,
 		ZIndex: 506,
+		Change: { TextFits: watchFit(setTitleCut) },
+		ref: readFit(setTitleCut),
 	}), h("textlabel", {
 		Size: new UDim2(1, -(textLeft + rightPad), 0, 15),
 		Position: new UDim2(0, textLeft, 0.5, compact ? 1 : 2),
@@ -654,6 +683,8 @@ function Row(props: RowProps & { rowH: number; register: (index: number, row: Gu
 		TextXAlignment: Enum.TextXAlignment.Left,
 		TextTruncate: Enum.TextTruncate.AtEnd,
 		ZIndex: 506,
+		Change: { TextFits: watchFit(setSubCut) },
+		ref: readFit(setSubCut),
 	}),
 	// badge + kind chip
 	props.rightW > 0 && h("frame", {
@@ -968,6 +999,37 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			repeatToken.current += 1;
 		};
 	}, [open, enabled, dismiss]);
+
+	// While open, Quick Find owns the pad: the stick, D-pad, A and B are sunk above the shell's
+	// bindings (2200) so focus behind the panel doesn't move or click. The handlers above still run,
+	// since UserInputService sees input that ContextActionService sinks.
+	React.useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		const name = "AstralForgeQuickFindPad";
+		const before = GuiService.SelectedObject;
+		GuiService.SelectedObject = undefined;
+		ContextActionService.BindActionAtPriority(
+			name,
+			() => Enum.ContextActionResult.Sink,
+			false,
+			2400,
+			Enum.KeyCode.Thumbstick1,
+			Enum.KeyCode.DPadUp,
+			Enum.KeyCode.DPadDown,
+			Enum.KeyCode.DPadLeft,
+			Enum.KeyCode.DPadRight,
+			Enum.KeyCode.ButtonA,
+			Enum.KeyCode.ButtonB,
+		);
+		return () => {
+			ContextActionService.UnbindAction(name);
+			if (before !== undefined && before.Parent !== undefined && GuiService.SelectedObject === undefined) {
+				GuiService.SelectedObject = before;
+			}
+		};
+	}, [open]);
 
 	// focus the search box once open
 	React.useEffect(() => {

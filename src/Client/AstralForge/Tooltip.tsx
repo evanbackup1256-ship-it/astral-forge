@@ -93,6 +93,21 @@ export function hideTooltip() {
 	hideId(undefined);
 }
 
+// For lists that move their own highlight (Quick Find) instead of using gamepad selection:
+// show a tip beside `target` after the usual focus delay. Returns a function that hides it again.
+export function showTooltipFor(target: GuiObject, content: TooltipContent): () => void {
+	nextId += 1;
+	const id = nextId;
+	scheduleShow(id, target, () => content, os.clock() - lastHiddenAt < WARM_WINDOW ? PAD_WARM_DELAY : PAD_DELAY);
+	return () => {
+		if (shown !== undefined && shown.id === id) {
+			hideId(id);
+		} else if (shown === undefined) {
+			cancelPending();
+		}
+	};
+}
+
 function scheduleShow(id: number, target: GuiObject, read: () => TooltipContent | undefined, delayTime: number) {
 	cancelPending();
 	pending = task.delay(delayTime, () => {
@@ -103,6 +118,12 @@ function scheduleShow(id: number, target: GuiObject, read: () => TooltipContent 
 		emit();
 	});
 }
+
+const MODIFIERS = new Set<Enum.KeyCode>([
+	Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift, Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl,
+	Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt, Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta,
+	Enum.KeyCode.LeftSuper, Enum.KeyCode.RightSuper, Enum.KeyCode.CapsLock,
+]);
 
 // where the current long press started, so a slide can cancel it
 let pressStart: Vector2 | undefined = undefined;
@@ -123,6 +144,8 @@ UserInputService.InputChanged.Connect((input) => {
 UserInputService.InputBegan.Connect((input) => {
 	if (shown === undefined) return;
 	const kind = input.UserInputType;
+	// modifiers alone (Shift, Ctrl, Alt, Cmd) don't count: they're often held while hovering
+	if (kind === Enum.UserInputType.Keyboard && MODIFIERS.has(input.KeyCode)) return;
 	if (kind === Enum.UserInputType.Keyboard || input.KeyCode === Enum.KeyCode.ButtonB) {
 		hideTooltip();
 		return;
