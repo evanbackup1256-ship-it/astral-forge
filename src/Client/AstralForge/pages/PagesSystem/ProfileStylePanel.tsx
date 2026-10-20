@@ -1,3 +1,4 @@
+import { mergeEvents, useTooltip } from "../../Tooltip";
 import React from "@rbxts/react";
 import { FrameStroke, frameStroke } from "../../CoreKit/profileFrame";
 import { PlayerMark } from "../../ArtKit/Icon";
@@ -67,6 +68,53 @@ function nextUnlockLine(rebirths: unknown): string {
 
 function unlockHint(unlock: ProfileStyle.StyleUnlock): string {
 	return unlock.Kind === "Free" ? "" : `${unlock.Target} rebirths`;
+}
+
+// one accent dot; its name (and what unlocks it) shows on hover, pad focus or a long press
+function AccentSwatch(props: {
+	option: ProfileStyle.AccentOption;
+	index: number;
+	unlocked: boolean;
+	selected: boolean;
+	onPick: () => void;
+}) {
+	const { option, index, unlocked, selected } = props;
+	const color = Color3.fromRGB(option.Rgb[0], option.Rgb[1], option.Rgb[2]);
+	const tip = useTooltip({
+		title: option.Name,
+		body: unlocked ? (selected ? "You're wearing this one." : "Tap to wear it.") : `Unlocks at ${option.Unlock.Target} rebirths.`,
+	});
+	return (
+		<imagebutton
+			Size={UDim2.fromOffset(SWATCH, SWATCH)}
+			Position={UDim2.fromOffset(index * (SWATCH + SWATCH_GAP), 2)}
+			BackgroundColor3={color}
+			BackgroundTransparency={unlocked ? 0 : 0.7}
+			AutoButtonColor={unlocked}
+			BorderSizePixel={0}
+			Event={mergeEvents(tip, {
+				Activated: () => {
+					if (unlocked && !selected) {
+						props.onPick();
+					}
+				},
+			})}
+		>
+			<uicorner CornerRadius={new UDim(1, 0)} />
+			<uistroke Color={selected ? Palette.cream : Palette.lineSoft} Thickness={selected ? 3 : 1} Transparency={selected ? 0 : 0.4} />
+			{!unlocked && (
+				<Text
+					value={unlockHint(option.Unlock)}
+					size={9}
+					minSize={7}
+					color={Palette.cream}
+					fit={true}
+					align={Enum.TextXAlignment.Center}
+					sizeConstraint={UDim2.fromScale(1, 1)}
+				/>
+			)}
+		</imagebutton>
+	);
 }
 
 function StyleSample(props: { order: number; label: string; ring: FrameStroke; accent: Color3; kind: "card" | "mark" | "row"; name: string }) {
@@ -190,43 +238,16 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 	const samplesTop = 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP;
 	const frameTop = accentTop + 18 + SWATCH + 6 + 14;
 
-	const swatches = ProfileStyle.ACCENTS.map((option, index) => {
-		const unlocked = ProfileStyle.isUnlocked(option.Unlock, props.rebirths);
-		const selected = option.Id === shown.Accent;
-		const color = Color3.fromRGB(option.Rgb[0], option.Rgb[1], option.Rgb[2]);
-		return (
-			<imagebutton
-				key={option.Id}
-				Size={UDim2.fromOffset(SWATCH, SWATCH)}
-				Position={UDim2.fromOffset(index * (SWATCH + SWATCH_GAP), 2)}
-				BackgroundColor3={color}
-				BackgroundTransparency={unlocked ? 0 : 0.7}
-				AutoButtonColor={unlocked}
-				BorderSizePixel={0}
-				Event={{
-					Activated: () => {
-						if (unlocked && !selected) {
-							choose(option.Id, undefined);
-						}
-					},
-				}}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uistroke Color={selected ? Palette.cream : Palette.lineSoft} Thickness={selected ? 3 : 1} Transparency={selected ? 0 : 0.4} />
-				{!unlocked && (
-					<Text
-						value={unlockHint(option.Unlock)}
-						size={9}
-						minSize={7}
-						color={Palette.cream}
-						fit={true}
-						align={Enum.TextXAlignment.Center}
-						sizeConstraint={UDim2.fromScale(1, 1)}
-					/>
-				)}
-			</imagebutton>
-		);
-	});
+	const swatches = ProfileStyle.ACCENTS.map((option, index) => (
+		<AccentSwatch
+			key={option.Id}
+			option={option}
+			index={index}
+			unlocked={ProfileStyle.isUnlocked(option.Unlock, props.rebirths)}
+			selected={option.Id === shown.Accent}
+			onPick={() => choose(option.Id, undefined)}
+		/>
+	));
 
 	// the frame row scrolls sideways like the accent row, so more frames never overflow a phone
 	const frameButtons = ProfileStyle.FRAMES.map((option, index) => {
@@ -248,6 +269,11 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 						}
 					}}
 					disabled={!unlocked}
+					tooltip={{
+						title: option.Name,
+						body: option.Description,
+						hint: unlocked ? undefined : `Unlocks at ${option.Unlock.Target} rebirths`,
+					}}
 					color={selected ? accentColor : Palette.panelSoft}
 					textColor={selected ? Palette.ink : Palette.cream}
 					outline={!selected}

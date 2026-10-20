@@ -56,6 +56,12 @@ export const ACCENTS: ReadonlyArray<AccentOption> = [
 	{ Id: "Moss", Name: "Moss", Rgb: [140, 186, 110], Unlock: { Kind: "Rebirths", Target: 12 } },
 	{ Id: "Lilac", Name: "Lilac", Rgb: [200, 168, 240], Unlock: { Kind: "Rebirths", Target: 30 } },
 	{ Id: "Solar", Name: "Solar Flare", Rgb: [255, 160, 40], Unlock: { Kind: "Rebirths", Target: 150 } },
+	// day-a batch 31: fills the 4/6/40 gaps and gives very long runs something to chase
+	{ Id: "SeaGlass", Name: "Sea Glass", Rgb: [150, 220, 200], Unlock: { Kind: "Rebirths", Target: 4 } },
+	{ Id: "Copper", Name: "Copper", Rgb: [214, 132, 92], Unlock: { Kind: "Rebirths", Target: 6 } },
+	{ Id: "Plum", Name: "Plum", Rgb: [196, 108, 186], Unlock: { Kind: "Rebirths", Target: 40 } },
+	{ Id: "Nebula", Name: "Nebula Blue", Rgb: [92, 132, 240], Unlock: { Kind: "Rebirths", Target: 200 } },
+	{ Id: "Supernova", Name: "Supernova", Rgb: [255, 236, 180], Unlock: { Kind: "Rebirths", Target: 300 } },
 ];
 
 export const FRAMES: ReadonlyArray<FrameOption> = [
