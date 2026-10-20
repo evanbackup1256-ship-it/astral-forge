@@ -3,7 +3,8 @@
 // event in full with its live standings.
 import React from "@rbxts/react";
 import { compactNumber } from "../CoreKit/format";
-import { darken, Palette } from "../CoreKit/theme";
+import { darken, Palette, TapTarget } from "../CoreKit/theme";
+import { Button } from "./ui";
 import { useAntilag } from "../MotionKit/antilag";
 import { useFlipperSpring, useViewport, useWallClock } from "../MotionKit/motion";
 
@@ -724,18 +725,15 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 				TextXAlignment: Enum.TextXAlignment.Left,
 				ZIndex: 561,
 			}),
-			h("textbutton", {
-				Size: UDim2.fromOffset(60, 26),
-				Position: new UDim2(1, -18, 0, 18),
-				AnchorPoint: new Vector2(1, 0),
-				BackgroundTransparency: 1,
-				Text: "Close",
-				TextSize: 13,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
-				TextColor3: Palette.muted,
-				TextXAlignment: Enum.TextXAlignment.Right,
-				ZIndex: 562,
-				Event: { Activated: props.onClose },
+			h(Button, {
+				text: "",
+				icon: "Close.14",
+				onClick: props.onClose,
+				color: Palette.ink,
+				textColor: Palette.coral,
+				size: UDim2.fromOffset(TapTarget, TapTarget),
+				position: new UDim2(1, -(TapTarget + 12), 0, 12),
+				zIndex: 562,
 			}),
 			h(
 				"scrollingframe",

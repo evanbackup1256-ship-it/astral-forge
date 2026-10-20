@@ -1111,26 +1111,21 @@ function DomainChamber(props: ChamberProps) {
 			PaddingLeft: new UDim(0, 18),
 			PaddingRight: new UDim(0, 18),
 		}),
-		h("textbutton", {
-			Size: UDim2.fromOffset(60, 24),
-			Position: UDim2.fromScale(1, 0),
-			AnchorPoint: new Vector2(1, 0),
-			BackgroundTransparency: 1,
-			Text: "Close",
-			TextSize: 12,
-			FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
-			TextColor3: Palette.muted,
-			TextXAlignment: Enum.TextXAlignment.Right,
-			Visible: mode !== "result",
-			ZIndex: 634,
-			Event: {
-				Activated: () => {
+		mode !== "result" &&
+			h(Button, {
+				text: "",
+				icon: "Close.14",
+				onClick: () => {
 					if (!props.busy) {
 						props.onClose();
 					}
 				},
-			},
-		}),
+				color: Palette.ink,
+				textColor: Palette.coral,
+				size: UDim2.fromOffset(TapTarget, TapTarget),
+				position: new UDim2(1, -TapTarget, 0, -4),
+				zIndex: 634,
+			}),
 		h("textlabel", {
 			Size: new UDim2(1, -60, 0, 14),
 			BackgroundTransparency: 1,
