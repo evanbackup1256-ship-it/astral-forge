@@ -258,6 +258,9 @@ function ResearchView(props: ResearchProps) {
 	const softMotion = props.reducedMotion;
 	const enter = useEntrance(softMotion);
 	const stack = chrome.contentStack;
+	// phones in landscape have the width for side-by-side rows (button on the right); the
+	// stacked row with its button underneath fills too much of a 360px-tall screen
+	const rowStack = stack && !chrome.landscape;
 	const scrollRef = React.useRef<ScrollingFrame>();
 	const buyAllHostRef = React.useRef<Frame>();
 	const entries = React.useMemo(
@@ -311,7 +314,7 @@ function ResearchView(props: ResearchProps) {
 	const researchGate = state.FeatureUnlocks !== undefined ? state.FeatureUnlocks.Research : undefined;
 	const researchLocked = researchGate !== undefined && researchGate.Unlocked === false;
 	const chainCount = visible.size();
-	const rowStride = (stack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT) + CONNECTOR_HEIGHT;
+	const rowStride = (rowStack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT) + CONNECTOR_HEIGHT;
 	const chainH = math.max(rowStride, chainCount * rowStride);
 	return (
 		<PageScaffold
@@ -495,7 +498,7 @@ function ResearchView(props: ResearchProps) {
 										reducedMotion={softMotion}
 										index={index}
 										onBuy={onBuy}
-										stack={stack}
+										stack={rowStack}
 									/>
 								)}
 							/>

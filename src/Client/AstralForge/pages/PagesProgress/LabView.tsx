@@ -329,6 +329,9 @@ function LabViewReady(props: LabProps) {
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const stack = chrome.contentStack;
+	// phones in landscape have the width for side-by-side rows (button on the right); the
+	// stacked row with its button underneath fills too much of a 360px-tall screen
+	const rowStack = stack && !chrome.landscape;
 	const lab = props.state.Lab!;
 	const antilag = useAntilag();
 	const softMotion = reducedMotion;
@@ -376,7 +379,7 @@ function LabViewReady(props: LabProps) {
 		};
 	}, [readyOrders]);
 	const guide = config.ClientPageGuides !== undefined ? config.ClientPageGuides.Lab : undefined;
-	const orderH = stack ? ORDER_HEIGHT_STACK : ORDER_HEIGHT;
+	const orderH = rowStack ? ORDER_HEIGHT_STACK : ORDER_HEIGHT;
 	let orderBlock =
 		lab.Orders.size() > 0 ? lab.Orders.size() * orderH + math.max(0, lab.Orders.size() - 1) * ORDER_GAP : 160;
 	const powerStride = stack ? POWER_ROW_STRIDE_STACK : POWER_ROW_STRIDE;
@@ -527,7 +530,7 @@ function LabViewReady(props: LabProps) {
 					dispatch={dispatch}
 					reducedMotion={softMotion}
 					order={index}
-					stack={stack}
+					stack={rowStack}
 				/>
 			)
 		);
@@ -575,7 +578,7 @@ function LabViewReady(props: LabProps) {
 							dispatch={dispatch}
 							reducedMotion={softMotion}
 							order={index}
-							stack={stack}
+							stack={rowStack}
 						/>
 					);
 				}}

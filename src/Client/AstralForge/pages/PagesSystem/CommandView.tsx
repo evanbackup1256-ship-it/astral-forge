@@ -535,7 +535,8 @@ function CommandViewReady(props: CommandProps) {
 	const expeditionHeroH = tripStack ? 188 : 140;
 	const expeditionRowH = tripStack ? 168 : 132;
 	const artifactHeroH = 110;
-	const artifactRowH = stack ? 180 : 140;
+	// relic rows follow the trip rows: side by side on landscape phones
+	const artifactRowH = tripStack ? 180 : 140;
 	const seasonHeroH = 130;
 	const seasonRowH = stack ? 148 : 112;
 	const heroInfoWidth = stack ? -100 : -(114 + 210 + 14);
@@ -1315,7 +1316,7 @@ function CommandViewReady(props: CommandProps) {
 							<frame
 								key="ElementTile"
 								Size={UDim2.fromOffset(48, 48)}
-								Position={UDim2.fromOffset(0, stack ? 5 : 17)}
+								Position={UDim2.fromOffset(0, tripStack ? 5 : 17)}
 								BackgroundColor3={Palette.void}
 								BackgroundTransparency={0.15}
 								BorderSizePixel={0}
@@ -1352,7 +1353,7 @@ function CommandViewReady(props: CommandProps) {
 								fit={true}
 								minSize={9}
 								position={UDim2.fromOffset(58, 4)}
-								sizeConstraint={new UDim2(1, stack ? -70 : -286, 0, 16)}
+								sizeConstraint={new UDim2(1, tripStack ? -70 : -286, 0, 16)}
 							/>
 							<Text
 								value={owned ? artifact.Name : "Mystery relic"}
@@ -1362,7 +1363,7 @@ function CommandViewReady(props: CommandProps) {
 								fit={true}
 								minSize={12}
 								position={UDim2.fromOffset(58, 24)}
-								sizeConstraint={new UDim2(1, stack ? -70 : -286, 0, 24)}
+								sizeConstraint={new UDim2(1, tripStack ? -70 : -286, 0, 24)}
 							/>
 							<Text
 								value={
@@ -1375,11 +1376,11 @@ function CommandViewReady(props: CommandProps) {
 								fit={true}
 								minSize={9}
 								position={UDim2.fromOffset(58, 52)}
-								sizeConstraint={new UDim2(1, stack ? -70 : -286, 0, 18)}
+								sizeConstraint={new UDim2(1, tripStack ? -70 : -286, 0, 18)}
 							/>
 							<frame
-								Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(260, 46)}
-								Position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -270, 0.5, -23)}
+								Size={tripStack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(260, 46)}
+								Position={tripStack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -270, 0.5, -23)}
 								BackgroundTransparency={1}
 								BorderSizePixel={0}
 							>

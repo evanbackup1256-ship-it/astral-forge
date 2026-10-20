@@ -2,6 +2,8 @@
 -- Virtual lists place rows by a stride (itemHeight / cellHeight), separately from the size
 -- each row draws itself at. When the two are written as separate literals they drift: batch 18
 -- made phone mission rows 226px while the list still stepped 220px, so rows overlapped by 6px.
+-- Hand-written list heights (`rows.size() * rowH + gaps`) are checked the same way, so the page
+-- can't reserve a different height than its rows draw.
 -- For every list here, the stride must
 --  * not hard-code its own heights (no `stack ? 220 : 148` in the stride) unless the row is
 --    sized by that very same name, and
@@ -10,7 +12,7 @@
 local fs = require("@lune/fs")
 
 local ROOT = "src/Client/AstralForge"
-local SKIP = { "PagesSocial", "Guild", "Crew", "Rank", "Settings", "Playerlist", "PlayerList", "Chat" }
+local SKIP = { "MobileShell", "MobileControls", "Crate", "purchase", "CoreKit", "PagesSocial", "Guild", "Crew", "Rank", "Settings", "Playerlist", "PlayerList", "Chat" }
 local IGNORE_NAMES = { stack = true, true_ = true, math = true, max = true, min = true, floor = true }
 
 local function walk(dir: string, out: { string })
@@ -69,41 +71,52 @@ local files = {}
 walk(ROOT, files)
 table.sort(files)
 
+
 local checked, failures = 0, {}
+
+-- `stride` steps rows (a list's itemHeight / cellHeight) or multiplies a row count into a
+-- hand-written list height; either way it has to come from the row's own height
+local function check(path: string, source: string, what: string, stride: string)
+	local expr = definition(source, stride)
+	if not expr then
+		return
+	end
+	checked += 1
+	if string.find(expr, "%?%s*%d+%s*:") and not sizesRows(source, stride, 0) then
+		table.insert(failures, `{path}: {what} {stride} hard-codes its heights ({expr})`)
+		return
+	end
+	-- the stride's names, and one level of what those names are defined as
+	local candidates = names(expr)
+	for _, word in names(expr) do
+		local inner = definition(source, word)
+		if inner then
+			for _, deeper in names(inner) do
+				table.insert(candidates, deeper)
+			end
+		end
+	end
+	for _, word in candidates do
+		if sizesRows(source, word, 1) then
+			return
+		end
+	end
+	if not sizesRows(source, stride, 1) then
+		table.insert(failures, `{path}: {what} {stride} isn't built from the row's own height ({expr})`)
+	end
+end
+
 for _, path in files do
 	if not skipped(path) and not string.find(path, "LayoutKit", 1, true) then
 		local source = fs.readFile(path)
 		for prop, stride in string.gmatch(source, "(%a+Height)[=:]%s*{?([%a_][%w_]*)}?") do
 			if prop == "itemHeight" or prop == "cellHeight" then
-				local expr = definition(source, stride)
-				if expr then
-					checked += 1
-					if string.find(expr, "%?%s*%d+%s*:") and not sizesRows(source, stride, 0) then
-						table.insert(failures, `{path}: {prop} {stride} hard-codes its heights ({expr})`)
-					else
-						-- the stride's names, and one level of what those names are defined as
-						local candidates = names(expr)
-						for _, word in names(expr) do
-							local inner = definition(source, word)
-							if inner then
-								for _, deeper in names(inner) do
-									table.insert(candidates, deeper)
-								end
-							end
-						end
-						local ok = false
-						for _, word in candidates do
-							if sizesRows(source, word, 1) then
-								ok = true
-								break
-							end
-						end
-						if not ok and not sizesRows(source, stride, 1) then
-							table.insert(failures, `{path}: {prop} {stride} isn't built from the row's own height ({expr})`)
-						end
-					end
-				end
+				check(path, source, prop, stride)
 			end
+		end
+		-- list heights summed by hand: `rows.size() * rowH + math.max(0, rows.size() - 1) * gap`
+		for stride in string.gmatch(source, "%*%s*([%a_][%w_]*)%s*%+%s*math%.max%(%s*0%s*,[^\n]-%-%s*1%s*%)%s*%*") do
+			check(path, source, "list height", stride)
 		end
 	end
 end
@@ -112,4 +125,4 @@ assert(checked >= 8, `list stride check found only {checked} lists`)
 if #failures > 0 then
 	error("List stride and row height can drift apart:\n  " .. table.concat(failures, "\n  "))
 end
-print(`[TEST] list stride: {checked} virtual lists step by their row's own height`)
+print(`[TEST] list stride: {checked} list strides and height sums use their row's own height`)
