@@ -803,7 +803,7 @@ export function Workspace(_param: WorkspaceProps) {
 							size: chrome.stack ? chrome.labelText : 14,
 							color: ensureContrast(Palette.panel, accent),
 							weight: Enum.FontWeight.Bold,
-							wrap: true,
+							wrap: true, fit: true, minSize: 10,
 							position: enter.map(
 								(amount) =>
 									new UDim2(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, chrome.stack ? 28 : denseHeader ? 28 : 32),

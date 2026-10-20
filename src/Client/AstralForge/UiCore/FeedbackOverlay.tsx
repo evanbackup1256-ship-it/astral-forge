@@ -421,8 +421,9 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			h(
 				"textbutton",
 				{
-					Size: UDim2.fromOffset(narrow ? 92 : 150, 30),
-					Position: new UDim2(1, 0, 0, 0),
+					// 44px tall hit area, centred on the old 30px row
+					Size: UDim2.fromOffset(narrow ? 92 : 150, 44),
+					Position: new UDim2(1, 0, 0, -7),
 					AnchorPoint: new Vector2(1, 0),
 					BackgroundTransparency: 1,
 					Text: "",

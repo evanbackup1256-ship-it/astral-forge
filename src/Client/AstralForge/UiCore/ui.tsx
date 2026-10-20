@@ -3568,7 +3568,7 @@ export function EmptyState({
 				color={Palette.muted}
 				wrap={true}
 				align={Enum.TextXAlignment.Center}
-				fit={false}
+				fit={true} minSize={10}
 				transparency={fade}
 				layoutOrder={2}
 				sizeConstraint={new UDim2(1, 0, 0, bodyH)}

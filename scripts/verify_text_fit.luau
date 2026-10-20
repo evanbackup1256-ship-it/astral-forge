@@ -1,13 +1,22 @@
 --!strict
--- Report only: wrapped Text in view files that sits in a fixed-height box without
--- shrink-to-fit. On a 360px phone those are the lines that spill or clip. This never
--- fails the build; it prints a count and the worst files so the next sweep knows where to look.
+-- Wrapped Text in view files that sits in a fixed-height box without shrink-to-fit.
+-- On a 360px phone those are the lines that spill or clip. The files below are owned by
+-- other workstreams and keep their current count as an allowance; any file going over
+-- its allowance (every other file has 0) fails the build.
 
 local fs = require("@lune/fs")
 
 local ROOT = "src/Client/AstralForge"
 -- other workstreams own these; they're listed but not counted
 local SKIP = { "Settings", "PlayerList", "Playerlist", "Chat", "NameTag", "Rank", "Guild", "CrewMember" }
+
+local ALLOWED: { [string]: number } = {
+	["src/Client/AstralForge/pages/PagesSocial.tsx"] = 7, -- crew/guild workstream
+	["src/Client/AstralForge/pages/PagesShop.tsx"] = 1, -- crate stage description (crate workstream)
+	["src/Client/AstralForge/UiCore/CrateRevealOverlay.tsx"] = 1, -- crate workstream
+	["src/Client/AstralForge/UiOverlays/purchaseOverlay.tsx"] = 1, -- purchase workstream
+	["src/Client/AstralForge/UiOverlays/MobileControls.ts"] = 1, -- mobile-shell workstream
+}
 
 local function skipped(path: string): boolean
 	for _, word in SKIP do
@@ -78,7 +87,17 @@ end
 table.sort(perFile, function(a, b)
 	return a.count > b.count
 end)
-print(`[REPORT] text fit: {total} wrapped lines in fixed boxes without shrink-to-fit`)
-for i = 1, math.min(12, #perFile) do
-	print(`  {perFile[i].count}  {perFile[i].path}`)
+local over = {}
+for _, entry in perFile do
+	local allowed = ALLOWED[entry.path] or 0
+	if entry.count > allowed then
+		table.insert(over, `{entry.path}: {entry.count} (allowed {allowed})`)
+	end
 end
+if #over > 0 then
+	error(
+		"Wrapped Text in a fixed-height box needs fit + minSize so it shrinks on phones:\n  "
+			.. table.concat(over, "\n  ")
+	)
+end
+print(`[TEST] text fit: {total} known wrapped lines without shrink-to-fit, all in allowed files`)

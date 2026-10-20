@@ -124,7 +124,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				value="One forge, every server, all week. Clear a phase together and everyone's production goes up."
 				size={11}
 				color={Palette.creamSoft}
-				wrap={true}
+				wrap={true} fit={true} minSize={9}
 				position={UDim2.fromOffset(0, 68)}
 				sizeConstraint={new UDim2(1, -8, 0, 38)}
 			/>

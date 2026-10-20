@@ -857,7 +857,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				size={9}
 				color={lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}
 				wrap={true}
-				fit={false}
+				fit={true} minSize={9}
 				position={new UDim2(0, 0, 1, -EXEC_NOTE + 4)}
 				sizeConstraint={new UDim2(1, 0, 0, EXEC_NOTE - 4)}
 			/>

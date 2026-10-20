@@ -661,7 +661,7 @@ export function CreditsOverlay(param: { version?: string; reducedMotion?: boolea
 			size: 10,
 			color: Palette.muted,
 			wrap: true,
-			fit: false,
+			fit: true, minSize: 9,
 			sizeConstraint: new UDim2(1, 0, 0, smallPrint.size() * 16),
 			zIndex: 323,
 		}),

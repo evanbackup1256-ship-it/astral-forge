@@ -435,7 +435,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					size={13}
 					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
-					wrap={true}
+					wrap={true} fit={true} minSize={10}
 					sizeConstraint={new UDim2(1, -8, 0, 34)}
 				/>
 			) : (
