@@ -554,7 +554,9 @@ function BoostsView(props: BoostsViewProps) {
 	const chrome = chromeFor(viewport);
 	const stack = chrome.contentStack;
 	const antilag = useAntilag();
-	const columns = stack ? 1 : viewport.width >= 1280 ? 3 : 2;
+	// phones in landscape fit two boost cards side by side; one column leaves a 360px-tall
+	// screen showing a single card at a time
+	const columns = stack && !chrome.landscape ? 1 : viewport.width >= 1280 ? 3 : 2;
 	const activateHostRef = React.useRef<Frame>();
 	const now = useWallClock(true);
 	const inventory = state.BoostInventory ?? {};

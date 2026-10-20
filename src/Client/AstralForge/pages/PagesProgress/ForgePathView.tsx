@@ -531,7 +531,9 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 	const listGap = stack ? chrome.panelGap : Layout.panelGap;
 	const headerH = stack ? 148 : 128;
 	const spotlightH = stack ? SPOTLIGHT_H_STACK : SPOTLIGHT_H;
-	const stepRowHeight = stack ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT;
+	// phones in landscape have the width for the side-by-side step row (claim on the right)
+	const rowStack = stack && !chrome.landscape;
+	const stepRowHeight = rowStack ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT;
 	const stepsBlockH = totalCount === 0 ? 160 : totalCount * stepRowHeight + math.max(0, totalCount - 1) * listGap;
 	const progressFrac = totalCount > 0 ? claimedCount / totalCount : 0;
 	const heroBlurb = guide?.HeroBlurb ?? "One track. Every step pays out.";
@@ -592,7 +594,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 						onClaim={onClaim}
 						reducedMotion={reducedMotion}
 						index={index + 1}
-						stack={stack}
+						stack={rowStack}
 					/>
 				)}
 			/>

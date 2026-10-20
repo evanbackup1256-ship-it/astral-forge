@@ -36,6 +36,12 @@ interface WorkshopState {
 	[key: string]: unknown;
 }
 
+// phones in landscape get the side-by-side machine card. The card and the list's row height
+// both call this, so they can't disagree about which layout a row is in.
+function machineRowStack(chrome: ReturnType<typeof chromeFor>): boolean {
+	return chrome.contentStack && !chrome.landscape;
+}
+
 function MachineRow(props: {
 	machine: MachineConfig;
 	level: number;
@@ -54,8 +60,7 @@ function MachineRow(props: {
 	const lockShort = props.lockShort ?? "";
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
-	// phones in landscape get the side-by-side machine card; must match the page's rowH below
-	const stack = chrome.contentStack && !chrome.landscape;
+	const stack = machineRowStack(chrome);
 	const softMotion = props.reducedMotion;
 	const reducedMotion = softMotion;
 	const rowH = PageBoardHeights.Machine(stack);
@@ -382,7 +387,7 @@ function UpgradeBoard(props: {
 	const controlsWrap = !stack && viewport.width < 900;
 	const stackControlsY = chrome.landscape ? 40 : 56;
 	const headerHeight = chrome.landscape && stack ? 136 : stack ? 268 : controlsWrap ? 232 : 188;
-	const rowH = PageBoardHeights.Machine(stack && !chrome.landscape);
+	const rowH = PageBoardHeights.Machine(machineRowStack(chrome));
 	const gap = stack ? chrome.panelGap : Layout.panelGap;
 	// machine cards put their buy button beside the text; below ~460px a card can't fit both, so add columns late
 	const columns = stack ? 1 : viewport.width >= 2400 ? 4 : viewport.width >= 1750 ? 3 : viewport.width >= 900 ? 2 : 1;
