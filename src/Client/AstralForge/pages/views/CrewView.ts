@@ -2,6 +2,21 @@ import React from "@rbxts/react";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 import ReactRoblox from "@rbxts/react-roblox";
 // phone height for other players' roster rows (was 158): mark, two text lines, then the Wave/Visit row
+// How long since a crewmate last did anything, from the presence age the server already sends.
+// Fresh activity needs no note (the line turns mint); older activity says how long they've been quiet.
+function presenceNote(age: unknown): string {
+	const seconds = tonumber(age);
+	if (seconds === undefined || seconds < 12) {
+		return "";
+	}
+	if (seconds < 60) {
+		return " · a moment ago";
+	}
+	if (seconds < 3600) {
+		return ` · quiet for ${math.floor(seconds / 60)}m`;
+	}
+	return ` · quiet for ${math.floor(seconds / 3600)}h`;
+}
 const CREW_COMPACT_ROW_H = 136;
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod, pinFirst } from "./viewRuntime";
 
@@ -86,7 +101,7 @@ function __member(): unknown {
 			if ((_condition_1 === undefined)) {
 				_condition_1 = "Overview";
 			}
-			luaSet(_attributes, "value", `Browsing ${luaProp(colon(AppHelpers).pageEntry(_condition_1), "label")}`);
+			luaSet(_attributes, "value", `Browsing ${luaProp(colon(AppHelpers).pageEntry(_condition_1), "label")}${presenceNote(luaProp(player, "PresenceAge"))}`);
 			luaSet(_attributes, "size", (luaTruthy(stack) ? 11 : 9));
 			luaSet(_attributes, "color", ((((luaProp(player, "PresenceAge") !== undefined) && ((luaProp(player, "PresenceAge") as unknown as number) >= (0 as unknown as number))) && ((luaProp(player, "PresenceAge") as unknown as number) < (12 as unknown as number))) ? luaProp(Palette, "mint") : luaProp(Palette, "muted")));
 			luaSet(_attributes, "weight", luaProp(luaProp(Enum, "FontWeight"), "Bold"));
