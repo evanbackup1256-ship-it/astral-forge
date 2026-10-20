@@ -18,6 +18,7 @@ function onPageRender(id: string, _phase: unknown, actualDuration: unknown) {
 	ClientLog.warnEvery(`react-slow-${id}`, 10, "React", `${id} commit took ${math.floor(actualDuration)}ms`);
 }
 
+@React.ReactPureComponent
 class PagePending extends React.PureComponent {
 	render() {
 		return (
@@ -103,10 +104,11 @@ interface BoundaryState {
 	message: string;
 }
 
+@React.ReactComponent
 class PageErrorBoundary extends React.Component<BoundaryProps, BoundaryState> {
 	state: BoundaryState = { failed: false, message: "" };
 
-	static getDerivedStateFromError(err: unknown): BoundaryState {
+	static getDerivedStateFromError(this: void, err: unknown): BoundaryState {
 		return { failed: true, message: tostring(err) };
 	}
 
