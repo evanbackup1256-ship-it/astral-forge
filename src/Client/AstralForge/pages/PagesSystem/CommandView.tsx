@@ -990,6 +990,8 @@ function CommandViewReady(props: CommandProps) {
 									/>
 									<Text
 										value={formatReward(offer.Reward)}
+										fit={true}
+										minSize={10}
 										size={11}
 										color={Palette.creamSoft}
 										wrap={true}
@@ -1013,7 +1015,7 @@ function CommandViewReady(props: CommandProps) {
 					/>
 				</Panel>
 				<Panel size={new UDim2(1, 0, 0, masteryH)} accent={Palette.blue} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
-					<Text value="Machine mastery" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
+					<Text value="Machine mastery" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={14} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<VirtualGrid
 						scrollRef={scrollRef}
 						count={config.Machines.size()}
@@ -1053,7 +1055,8 @@ function CommandViewReady(props: CommandProps) {
 										value={`${compactNumber(mastery)} built`}
 										size={10}
 										color={Palette.muted}
-										fit={false}
+										fit={true}
+										minSize={9}
 										position={UDim2.fromOffset(8, 44)}
 										sizeConstraint={new UDim2(1, -16, 0, 14)}
 									/>
@@ -1250,14 +1253,16 @@ function CommandViewReady(props: CommandProps) {
 					size={20}
 					color={Palette.cream}
 					weight={Enum.FontWeight.Heavy}
-					fit={false}
+					fit={true}
+					minSize={14}
 					sizeConstraint={new UDim2(1, 0, 0, 28)}
 				/>
 				<Text
 					value="Equip one relic. Duplicates add spark fragments for upgrades."
 					size={12}
 					color={Palette.muted}
-					fit={false}
+					fit={true}
+					minSize={9}
 					position={UDim2.fromOffset(0, 34)}
 					sizeConstraint={new UDim2(1, 0, 0, 20)}
 				/>
@@ -1336,7 +1341,8 @@ function CommandViewReady(props: CommandProps) {
 								size={11}
 								color={owned ? artifact.Color : Palette.muted}
 								weight={Enum.FontWeight.Bold}
-								fit={false}
+								fit={true}
+								minSize={9}
 								position={UDim2.fromOffset(58, 4)}
 								sizeConstraint={new UDim2(1, stack ? -70 : -286, 0, 16)}
 							/>
@@ -1345,7 +1351,8 @@ function CommandViewReady(props: CommandProps) {
 								size={17}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
-								fit={false}
+								fit={true}
+								minSize={12}
 								position={UDim2.fromOffset(58, 24)}
 								sizeConstraint={new UDim2(1, stack ? -70 : -286, 0, 24)}
 							/>
@@ -1357,7 +1364,8 @@ function CommandViewReady(props: CommandProps) {
 								}
 								size={11}
 								color={Palette.muted}
-								fit={false}
+								fit={true}
+								minSize={9}
 								position={UDim2.fromOffset(58, 52)}
 								sizeConstraint={new UDim2(1, stack ? -70 : -286, 0, 18)}
 							/>

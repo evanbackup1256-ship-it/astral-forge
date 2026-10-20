@@ -1824,6 +1824,8 @@ function OfferCard(props: OfferCardProps) {
 		}),
 		h(Text, {
 			value: offerDetail(offer, props.config),
+			fit: true,
+			minSize: 10,
 			size: 12,
 			color: Palette.creamSoft,
 			wrap: true,
@@ -1840,6 +1842,8 @@ function OfferCard(props: OfferCardProps) {
 			}),
 		h(Text, {
 			value: soldOut ? "Bought out today" : `${left} left today`,
+			fit: true,
+			minSize: 9,
 			size: 11,
 			color: soldOut ? Palette.muted : accent,
 			weight: Enum.FontWeight.Bold,
@@ -1856,6 +1860,8 @@ function OfferCard(props: OfferCardProps) {
 		}),
 		h(Text, {
 			value: commas(offer.Price),
+			fit: true,
+			minSize: 12,
 			size: 18,
 			color: Palette.cream,
 			weight: Enum.FontWeight.Heavy,
@@ -1865,6 +1871,8 @@ function OfferCard(props: OfferCardProps) {
 		fullPrice !== undefined &&
 			h(Text, {
 				value: `was ${commas(fullPrice)}`,
+				fit: true,
+				minSize: 9,
 				size: 11,
 				color: Palette.muted,
 				position: new UDim2(0, 28, 1, -15),
@@ -2036,6 +2044,8 @@ function DailySection(props: SectionProps) {
 					}),
 					h(Text, {
 						value: "Keys, materials and boosts from the Black Market's hourly shipments.",
+						fit: true,
+						minSize: 10,
 						size: 12,
 						color: Palette.creamSoft,
 						wrap: true,
