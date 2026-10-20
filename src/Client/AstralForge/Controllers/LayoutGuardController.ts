@@ -32,7 +32,7 @@ interface GuardPlan {
 }
 
 // LayoutKit is still Luau; require its members through the kit factory like the bundled code did.
-const LayoutKit = require(script.Parent!.WaitForChild("LayoutKit") as ModuleScript) as (name: string) => unknown;
+const LayoutKit = require(script.Parent!.Parent!.WaitForChild("LayoutKit") as ModuleScript) as (name: string) => unknown;
 const Geom = LayoutKit("layoutGeom") as LayoutGeom;
 const Plan = LayoutKit("layoutGuardPlan") as GuardPlan;
 
