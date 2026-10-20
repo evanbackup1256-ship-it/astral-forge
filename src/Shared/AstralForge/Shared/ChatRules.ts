@@ -146,17 +146,14 @@ function trim(text: string): string {
 	return text.gsub("^%s+", "")[0].gsub("%s+$", "")[0];
 }
 
-// roblox-ts string.match returns string|number|undefined for each capture.
+// A miss from string.match is nil, not an empty table. An array cast compiles to nil[1].
 function cap1(text: string, pattern: string): string | undefined {
-	const [v] = text.match(pattern) as unknown as [string | number | undefined];
+	const [v] = text.match(pattern) as LuaTuple<[string | number | undefined]>;
 	return typeIs(v, "string") ? v : undefined;
 }
 
 function cap2(text: string, pattern: string): LuaTuple<[string | undefined, string | undefined]> {
-	const [a, b] = text.match(pattern) as unknown as [
-		string | number | undefined,
-		string | number | undefined,
-	];
+	const [a, b] = text.match(pattern) as LuaTuple<[string | number | undefined, string | number | undefined]>;
 	return $tuple(typeIs(a, "string") ? a : undefined, typeIs(b, "string") ? b : undefined);
 }
 
