@@ -4,6 +4,8 @@ import { InteractionFeedback } from "../CoreKit/interaction";
 import { Palette } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
 import { resolveIntent, useViewport } from "../MotionKit/motion";
+import { celebrationsAllowed, flashesAllowed, isReducedMotion } from "../MotionPreference";
+import Juice = require("../JuiceFx");
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -29,6 +31,7 @@ interface Timeline {
 	finish: number;
 }
 const FULL: Timeline = { shock: 0.55, count0: 0.85, count1: 1.75, ascend: 1.95, fade: 2.8, finish: 3.4 };
+const MILESTONE: Timeline = { shock: 0.75, count0: 1.05, count1: 2.15, ascend: 2.35, fade: 3.5, finish: 4.1 };
 const CALM: Timeline = { shock: 0, count0: 0.12, count1: 0.6, ascend: 0.7, fade: 1.35, finish: 1.7 };
 
 type Listener = (payload: unknown) => void;
@@ -243,7 +246,7 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 			cancelJobs();
 		};
 	}, []);
-	const reduced = props.reducedMotion === true;
+	const reduced = props.reducedMotion === true || isReducedMotion();
 	const plan = resolveIntent({
 		role: "ceremony",
 		emphasis: 1,
@@ -254,7 +257,10 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 		allowConfetti: antilag.allowConfetti,
 	});
 	const calm = plan.reduced;
-	const tl = calm ? CALM : FULL;
+	// every fifth rebirth is a milestone: the hold before the count runs longer and it lands in gold
+	const milestoneCount = session !== undefined ? math.floor(tonumber(session.payload.rebirths) ?? 1) : 1;
+	const milestone = milestoneCount % 5 === 0;
+	const tl = calm ? CALM : milestone ? MILESTONE : FULL;
 	React.useEffect(() => {
 		if (session === undefined) {
 			return undefined;
@@ -272,6 +278,19 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 			at(tl.shock, () => {
 				Audio.play("rebirthShockwave");
 				InteractionFeedback.reward();
+				if (celebrationsAllowed()) {
+					const camera = game.GetService("Workspace").CurrentCamera;
+					const centre = camera ? camera.ViewportSize.div(2) : undefined;
+					Juice.burst(centre, milestone ? Palette.mango : Palette.violet, milestone ? 1.7 : 1.2);
+					Juice.shockwave(centre, milestone ? Palette.mango : Palette.mint, milestone ? 1.2 : 0.9);
+				}
+			});
+			// the multiplier lands with a second beat once the count finishes
+			at(tl.count1, () => {
+				InteractionFeedback.confirm();
+				if (celebrationsAllowed()) {
+					Juice.burst(undefined, Palette.mint, 0.7);
+				}
 			});
 			at(tl.count0 + 0.04, () => Audio.play("rebirthTierUp"));
 			const ticks = 7;
@@ -316,6 +335,7 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 			: `  ·  ${string.upper(payload.vow)} BROKEN`;
 	}
 	const oldCount = newCount - 1;
+	const noFlash = !flashesAllowed();
 	const before = payload.before !== undefined ? payload.before : 1;
 	const after = payload.after !== undefined ? payload.after : before;
 	const particles = plan.particles as number;
@@ -516,9 +536,9 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 					Size: new UDim2(1, 0, 0, 18),
 					BackgroundTransparency: 1,
 					FontFace: BOLD,
-					Text: "PRESTIGE TIER " + tostring(newCount),
-					TextSize: 11,
-					TextColor3: Palette.mint,
+					Text: milestone ? `Milestone · ${newCount} rebirths` : `${newCount} rebirths so far`,
+					TextSize: 12,
+					TextColor3: milestone ? Palette.mango : Palette.mint,
 					TextTransparency: clock.map(shown),
 				}),
 				h(
@@ -538,7 +558,7 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 						Size: new UDim2(1, 0, 0, 12),
 						BackgroundTransparency: 1,
 						FontFace: BOLD,
-						Text: "PERMANENT PRODUCTION MULTIPLIER",
+						Text: "PRODUCTION MULTIPLIER, KEPT FOR GOOD",
 						TextSize: 9,
 						TextColor3: Palette.muted,
 						TextTransparency: clock.map(shown),
@@ -549,7 +569,7 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 						BackgroundTransparency: 1,
 						FontFace: HEAVY,
 						TextSize: 24,
-						TextColor3: Palette.mint,
+						TextColor3: milestone ? Palette.mango : Palette.mint,
 						Text: clock.map((t) => {
 							const k = outCubic(ramp(t, tl.count0, tl.count1));
 							return `${multiplierText(before)}   →   ${multiplierText(blendMultiplier(before, after, k))}`;
@@ -575,7 +595,7 @@ export function RebirthCeremonyHost(props: { reducedMotion?: boolean }) {
 			BackgroundColor3: Palette.white,
 			BorderSizePixel: 0,
 			BackgroundTransparency: clock.map((t) => {
-				if (calm || t < tl.shock) {
+				if (calm || noFlash || t < tl.shock) {
 					return 1;
 				}
 				return 0.5 + 0.5 * outCubic(ramp(t, tl.shock, tl.shock + 0.3));
