@@ -1191,7 +1191,8 @@ function CommandViewReady(props: CommandProps) {
 									size={11}
 									color={expedition.Color}
 									weight={Enum.FontWeight.Bold}
-									fit={false}
+									fit={true}
+									minSize={9}
 									position={UDim2.fromOffset(58, 4)}
 									sizeConstraint={new UDim2(1, stack ? -70 : -224, 0, 16)}
 								/>
@@ -1200,7 +1201,8 @@ function CommandViewReady(props: CommandProps) {
 									size={17}
 									color={Palette.cream}
 									weight={Enum.FontWeight.Heavy}
-									fit={false}
+									fit={true}
+									minSize={12}
 									position={UDim2.fromOffset(58, 24)}
 									sizeConstraint={new UDim2(1, stack ? -70 : -224, 0, 24)}
 								/>
@@ -1209,7 +1211,8 @@ function CommandViewReady(props: CommandProps) {
 									size={11}
 									color={Palette.muted}
 									wrap={true}
-									fit={false}
+									fit={true}
+									minSize={9}
 									position={UDim2.fromOffset(58, 52)}
 									sizeConstraint={new UDim2(1, stack ? -70 : -224, 0, 28)}
 								/>

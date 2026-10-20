@@ -91,7 +91,7 @@ function MissionRow({ quest, dispatch, reducedMotion, position, stack }: Mission
 	const ready = !quest.Claimed && quest.Progress >= quest.Target;
 	const reward = formatReward(quest.Reward);
 	const accent = quest.Claimed ? Palette.muted : ready ? Palette.green : Palette.cyan;
-	const rowH = stack ? 220 : 148;
+	const rowH = stack ? 226 : 148;
 	const pad = stack ? 14 : 16;
 	const contentH = rowH - pad * 2;
 	const btnReserve = stack ? TapTarget + 14 : 0;
@@ -132,9 +132,10 @@ function MissionRow({ quest, dispatch, reducedMotion, position, stack }: Mission
 				size={stack ? 17 : 16}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
-				fit={false}
+				fit={stack}
+				minSize={12}
 				position={UDim2.fromOffset(56, 2)}
-				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, 22)}
+				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 28 : 22)}
 			/>
 			<Text
 				value={quest.Description ?? ""}
@@ -143,13 +144,13 @@ function MissionRow({ quest, dispatch, reducedMotion, position, stack }: Mission
 				wrap={true}
 				fit={true}
 				minSize={10}
-				position={UDim2.fromOffset(56, 26)}
+				position={UDim2.fromOffset(56, stack ? 32 : 26)}
 				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 36 : 28)}
 			/>
 			{reward !== "" && (
 				<frame
 					Size={UDim2.fromOffset(math.min(220, reward.size() * 7 + 24), 20)}
-					Position={UDim2.fromOffset(56, stack ? 66 : 56)}
+					Position={UDim2.fromOffset(56, stack ? 72 : 56)}
 					BackgroundColor3={Palette.ink}
 					BorderSizePixel={0}
 				>
