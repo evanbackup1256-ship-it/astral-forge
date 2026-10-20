@@ -4924,7 +4924,8 @@ const GameConfig: Dict = {
 			Summary: "Ghost shops talk if you stand still.",
 			Body: [
 				"In Crystal Expanse the shards replay unfinished shifts: operators mid-sentence, vaults half-full, rebirth buttons never pressed.",
-				"One echo loops Vale arguing with herself: \"We don't need a weapon. We need a wider now.\"",
+				// Split so no literal holds both quote kinds: roblox-ts emits those as [[long strings]] that keep the backslashes.
+				'One echo loops Vale arguing with herself: "We don' + "'t need a weapon. We need a wider now." + '"',
 				"Touching the shard cold-burns your gloves. The next world marker burns itself onto your map anyway.",
 			],
 			Kind: "Zone",
