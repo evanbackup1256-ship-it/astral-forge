@@ -86,12 +86,17 @@ interface MissionRowProps {
 	stack: boolean;
 }
 
+// one place for the row height so the list stride can't drift from the row again
+function missionRowH(stack: boolean): number {
+	return stack ? 226 : 148;
+}
+
 function MissionRow({ quest, dispatch, reducedMotion, position, stack }: MissionRowProps) {
 	const softMotion = reducedMotion;
 	const ready = !quest.Claimed && quest.Progress >= quest.Target;
 	const reward = formatReward(quest.Reward);
 	const accent = quest.Claimed ? Palette.muted : ready ? Palette.green : Palette.cyan;
-	const rowH = stack ? 226 : 148;
+	const rowH = missionRowH(stack);
 	const pad = stack ? 14 : 16;
 	const contentH = rowH - pad * 2;
 	const btnReserve = stack ? TapTarget + 14 : 0;
@@ -416,7 +421,10 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const introH = stack ? 40 : 70;
 	const claimRowH = stack && counts.Ready > 0 ? TapTarget + 10 : 0;
 	const headerHeight = 32 + introH + claimRowH + 10 + barH;
-	const rowStride = (stack ? 220 : 148) + 16;
+	// phones in landscape have the width for the side-by-side row; the tall stacked row
+	// (claim button underneath) would fill most of a 360px-tall screen on its own
+	const rowStack = stack && !chrome.landscape;
+	const rowStride = missionRowH(rowStack) + 16;
 	const pageGap = 10;
 	const headerPanel = (
 		<Panel
@@ -526,7 +534,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			scrollBarTransparency={0.28}
 			keyExtractor={(quest: TaskEntry) => quest.Id}
 			renderItem={({ item }: { item: TaskEntry }) => (
-				<MissionRow quest={item} dispatch={dispatch} reducedMotion={softMotion} position={UDim2.fromOffset(0, 0)} stack={stack} />
+				<MissionRow quest={item} dispatch={dispatch} reducedMotion={softMotion} position={UDim2.fromOffset(0, 0)} stack={rowStack} />
 			)}
 			ListEmptyComponent={
 				visible.size() === 0 ? (

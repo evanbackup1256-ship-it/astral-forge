@@ -87,12 +87,27 @@ end
 table.sort(perFile, function(a, b)
 	return a.count > b.count
 end)
-local over = {}
+local over, stale = {}, {}
+local counted: { [string]: number } = {}
+for _, entry in perFile do
+	counted[entry.path] = entry.count
+end
+for path, allowed in ALLOWED do
+	local count = counted[path] or 0
+	if count < allowed then
+		table.insert(stale, `{path}: {count} now (allowance {allowed})`)
+	end
+end
 for _, entry in perFile do
 	local allowed = ALLOWED[entry.path] or 0
 	if entry.count > allowed then
 		table.insert(over, `{entry.path}: {entry.count} (allowed {allowed})`)
 	end
+end
+if #stale > 0 then
+	table.sort(stale)
+	-- someone fixed lines in an allowed file: lower its allowance so it can't creep back up
+	error("Allowance is higher than needed; lower it in ALLOWED:\n  " .. table.concat(stale, "\n  "))
 end
 if #over > 0 then
 	error(

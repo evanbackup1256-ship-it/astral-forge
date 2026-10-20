@@ -852,12 +852,12 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 				TextXAlignment: Enum.TextXAlignment.Left,
 				ZIndex: 403,
 			}),
-			// phones: a 40px invisible catch area under the 28px button, so a slightly-off thumb still
-			// skips; the visible button sits above it and keeps its own press sound and look
+			// phones: a 44px (TapTarget) invisible catch area under the 28px button, so a slightly-off
+			// thumb still skips; the visible button sits above it and keeps its own press sound and look
 			phone &&
 				h("textbutton", {
-					Size: new UDim2(0, 124, 0, 40),
-					Position: new UDim2(1, -116, 0.5, -20),
+					Size: new UDim2(0, 124, 0, TapTarget),
+					Position: new UDim2(1, -116, 0.5, -TapTarget / 2),
 					BackgroundTransparency: 1,
 					Text: "",
 					AutoButtonColor: false,
