@@ -636,7 +636,7 @@ __defs["TradeDesk"] = () => {
 			if (!ok) {
 				pcall(() => {
 					const ModuleLog = require(
-						shared.WaitForChild("ModuleLog") as ModuleScript,
+						script.Parent!.Parent!.WaitForChild("ModuleLog") as ModuleScript,
 					) as { Warn(this: void, scope: string, message: string): void };
 					ModuleLog.Warn(
 						"TradeDesk",
