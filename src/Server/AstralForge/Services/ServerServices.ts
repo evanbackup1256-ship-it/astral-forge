@@ -3457,7 +3457,9 @@ serviceFactories["GameService"] = () => {
 			if ((accent !== undefined && !typeIs(accent, "string")) || (frame !== undefined && !typeIs(frame, "string"))) {
 				return responseError("Invalid profile style.");
 			}
-			return this._mutate(player, (profile: Profile) => {
+			let saved: ProfileStyle.ProfileStyleState | undefined;
+			const result = this._mutate(player, (profile: Profile) => {
+				saved = undefined;
 				const current = ProfileStyle.read(profile.Cosmetics);
 				const [chosen, problem] = ProfileStyle.validate(current, accent, frame, num(profile.Rebirths) ?? 0);
 				if (chosen === undefined) {
@@ -3469,10 +3471,15 @@ serviceFactories["GameService"] = () => {
 				const cosmetics = profile.Cosmetics as Dict;
 				cosmetics.ProfileAccent = chosen.Accent;
 				cosmetics.ProfileFrame = chosen.Frame;
-				player.SetAttribute("ProfileAccent", chosen.Accent);
-				player.SetAttribute("ProfileFrame", chosen.Frame);
+				saved = chosen;
 				return responseSuccess("Profile style saved.");
 			});
+			// publish only once the transaction committed, so other players never see an unsaved style
+			if (result.ok === true && saved !== undefined) {
+				player.SetAttribute("ProfileAccent", saved.Accent);
+				player.SetAttribute("ProfileFrame", saved.Frame);
+			}
+			return result;
 		}
 
 		_redeemCode(player: Player, rawCode: unknown) {
