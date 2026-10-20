@@ -35,6 +35,8 @@ def files():
         if "Stories" in path.parts:
             continue
         yield path
+    # The generated config is TypeScript now; its icon ids are rewritten the same way.
+    yield ROOT / "src/Shared/AstralForge/Shared/GameConfigGenerated.ts"
 
 
 def main(dry):
@@ -103,9 +105,9 @@ def main(dry):
                     ids.add(concept + suffix)
                     return match.group(0)
                 hint = None
-                if path.name == "GameConfigGenerated.luau":
+                if path.name == "GameConfigGenerated.ts":
                     for ahead in lines[i + 1:i + 3]:
-                        h = re.search(r'\bId\s*=\s*"([A-Za-z0-9_]+)"', ahead)
+                        h = re.search(r'\bId\s*[=:]\s*"([A-Za-z0-9_]+)"', ahead)
                         if h:
                             hint = h.group(1)
                             break
