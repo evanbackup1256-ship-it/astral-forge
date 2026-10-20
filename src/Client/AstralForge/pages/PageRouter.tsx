@@ -236,4 +236,43 @@ function PageContentInner(props: PageContentProps) {
 	return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} />;
 }
 
-export const PageContent = React.memo(PageContentInner);
+// Pages that only read a few top-level session fields. Snapshots reuse unchanged subtables by
+// reference, so comparing just these keys lets a passive push (Cash ticking, stats) skip the page.
+// Every other page compares the whole session as before. Keep a list in sync with its view: a
+// field read but not listed here would go stale on that page.
+const PAGE_STATE_KEYS: Record<string, string[] | undefined> = {
+	Chat: [],
+	Settings: ["Settings", "Game", "FeatureUnlocks", "Flags"],
+	Mail: ["Mailbox"],
+	Crew: ["CurrentZone", "Visitors"],
+};
+
+function samePageProps(previous: PageContentProps, nextProps: PageContentProps): boolean {
+	for (const [key, value] of pairs(nextProps)) {
+		if (key !== "state" && previous[key as string] !== value) {
+			return false;
+		}
+	}
+	for (const [key] of pairs(previous)) {
+		if (key !== "state" && nextProps[key as string] === undefined) {
+			return false;
+		}
+	}
+	if (previous.state === nextProps.state) {
+		return true;
+	}
+	const keys = PAGE_STATE_KEYS[nextProps.page];
+	if (keys === undefined || !typeIs(previous.state, "table") || !typeIs(nextProps.state, "table")) {
+		return false;
+	}
+	const before = previous.state as Record<string, unknown>;
+	const after = nextProps.state as Record<string, unknown>;
+	for (const key of keys) {
+		if (before[key] !== after[key]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+export const PageContent = React.memo(PageContentInner, samePageProps);
