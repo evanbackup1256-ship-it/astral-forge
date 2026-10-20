@@ -30,7 +30,7 @@ export interface TaskEntry {
 
 type Dispatch = (action: string, payload: { Id: string }, callback?: (response: { ok?: boolean }) => void) => unknown;
 
-const NEAR_COMPLETE_THRESHOLD = 0.85;
+export const NEAR_COMPLETE_THRESHOLD = 0.85;
 
 interface CloseGlowProps {
 	progress: number;
@@ -41,7 +41,7 @@ interface CloseGlowProps {
 	size: UDim2;
 }
 
-function ProgressCloseGlow({ progress, ready, accent, reducedMotion, position, size }: CloseGlowProps) {
+export function ProgressCloseGlow({ progress, ready, accent, reducedMotion, position, size }: CloseGlowProps) {
 	const antilag = useAntilag();
 	const near = !ready && progress >= NEAR_COMPLETE_THRESHOLD && progress < 1;
 	const active = near && antilag.allowAmbient && antilag.tier >= 1 && !reducedMotion;
@@ -286,7 +286,8 @@ export function TaskSummary(props: TaskSummaryProps) {
 	);
 }
 
-function questRank(quest: TaskEntry) {
+// shared with Milestones: 0 ready to claim, 1 in progress, 2 claimed
+export function taskRank(quest: TaskEntry) {
 	if (!quest.Claimed && (tonumber(quest.Progress) ?? 0) >= (tonumber(quest.Target) ?? 0)) {
 		return 0;
 	} else if (quest.Claimed) {
@@ -295,7 +296,7 @@ function questRank(quest: TaskEntry) {
 	return 1;
 }
 
-function questFraction(quest: TaskEntry) {
+export function taskProgress(quest: TaskEntry) {
 	return math.clamp((tonumber(quest.Progress) ?? 0) / math.max(1, tonumber(quest.Target) ?? 1), 0, 1);
 }
 
@@ -331,17 +332,17 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 		text: (quest) => [quest.Name, quest.Description, formatReward(quest.Reward), quest.Kind],
 		categories,
 		sorts: [
-			{ id: "Recommended", label: "Ready first", compare: (a, b) => questRank(a) < questRank(b) },
+			{ id: "Recommended", label: "Ready first", compare: (a, b) => taskRank(a) < taskRank(b) },
 			{
 				id: "Closest",
 				label: "Almost done",
 				compare: (a, b) => {
-					const ra = questRank(a);
-					const rb = questRank(b);
+					const ra = taskRank(a);
+					const rb = taskRank(b);
 					if (ra !== rb) {
 						return ra < rb;
 					}
-					return questFraction(a) > questFraction(b);
+					return taskProgress(a) > taskProgress(b);
 				},
 			},
 			{ id: "List", label: "Daily order" },
@@ -412,8 +413,8 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	let closest: TaskEntry | undefined;
 	if (typeIs(quests, "table")) {
 		for (const quest of quests) {
-			if (!typeIs(quest, "table") || quest.Claimed === true || questFraction(quest) >= 1) continue;
-			if (closest === undefined || questFraction(quest) > questFraction(closest)) closest = quest;
+			if (!typeIs(quest, "table") || quest.Claimed === true || taskProgress(quest) >= 1) continue;
+			if (closest === undefined || taskProgress(quest) > taskProgress(closest)) closest = quest;
 		}
 	}
 	const closestReward = closest !== undefined ? formatReward(closest.Reward) : "";

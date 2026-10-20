@@ -677,8 +677,7 @@ function __member(): unknown {
 	// CrateCard shows: the crate (by value), key count, pity, busy, motion, layout order, stack layout.
 	let CrateCardMemo: unknown = memoRow<Record<string, unknown>>(counted("InvCrate", CrateCard as never), ["onOpen"], sameFields<Record<string, unknown>>(["crate", "keys", "pity", "busy", "reducedMotion", "layoutOrder", "stack"]));
 	// MarketCard shows: the offer (by value), the three wallet balances it prices against, refresh text,
-	// motion, layout order, stack layout; dispatch is the shell's stable dispatcher. It is also passed
-	// state/config but never reads them, so they are not compared.
+	// motion, layout order, stack layout; dispatch is the shell's stable dispatcher.
 	let MarketCardMemo: unknown = React.memo(counted("InvMarket", MarketCard as never) as never, sameFields<Record<string, unknown>>(["offer", "dispatch", "cash", "stardust", "cores", "refreshShort", "reducedMotion", "layoutOrder", "stack"]) as never);
 	function InventoryView(_param?: unknown): unknown | undefined {
 		let state: unknown = luaProp(_param, "state");

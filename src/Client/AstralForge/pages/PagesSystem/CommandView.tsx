@@ -152,9 +152,7 @@ function gridPanelHeight(headerH: number, rows: number, cellH: number, gap: numb
 const TABS = ["Overview", "Expeditions", "Artifacts", "Season"];
 const TITLE_FX_FALLBACKS = ["shimmer", "aurora", "pulse", "chrome", "wave", "glow"];
 const TAB_LABEL: Record<string, string> = { Overview: "Overview", Expeditions: "Expeditions", Artifacts: "Artifacts", Season: "Rank Track" };
-const TAB_SHORT: Record<string, string> = { Overview: "Home", Expeditions: "Trips", Artifacts: "Relics", Season: "Rank" };
 const TAB_OPTIONS = TABS.map((id) => ({ id, label: TAB_LABEL[id] }));
-const TAB_OPTIONS_SHORT = TABS.map((id) => ({ id, label: TAB_SHORT[id] }));
 const CREW_ROLES = ["Pilot", "Engineer", "Navigator"];
 
 function crewCost(base: number, level: number) {
@@ -554,7 +552,12 @@ function CommandViewReady(props: CommandProps) {
 	const titleCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))));
 	const titleCellH = 176;
 	const titleRows = math.max(1, math.ceil(math.max(1, command.Titles.size()) / titleCols));
-	const titlesH = titlesEnabled ? gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) : 112;
+	// closed titles: the 152px badge sits beside the 18px "Title wardrobe" header (~140px) when there's
+	// room, otherwise on its own line under it (narrow phones), and the panel grows by that line
+	const CLOSED_BADGE_W = 152;
+	const closedBadgeOwnLine = contentWidth - panelPad * 2 < 140 + CLOSED_BADGE_W + 12;
+	const closedBadgeLine = closedBadgeOwnLine ? 26 + 8 : 0;
+	const titlesH = titlesEnabled ? gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) : 112 + closedBadgeLine;
 	const styleH = profileStyleHeight(stack) + panelPad * 2;
 	const shopCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (190 + gridGap))));
 	const shopCellH = 180;
@@ -779,7 +782,7 @@ function CommandViewReady(props: CommandProps) {
 		const titlesBody = titlesEnabled ? (
 			<>
 				<Text
-					value="Cards show each title as it looks on you."
+					value="Each title shows as it looks on you."
 					size={11}
 					color={Palette.muted}
 					fit={false}
@@ -822,7 +825,12 @@ function CommandViewReady(props: CommandProps) {
 			</>
 		) : (
 			<>
-				<Badge value="TEMPORARILY CLOSED" accent={Palette.muted} size={UDim2.fromOffset(152, 26)} position={new UDim2(1, -152, 0, 0)} />
+				<Badge
+					value="TEMPORARILY CLOSED"
+					accent={Palette.muted}
+					size={UDim2.fromOffset(CLOSED_BADGE_W, 26)}
+					position={closedBadgeOwnLine ? UDim2.fromOffset(0, 30) : new UDim2(1, -CLOSED_BADGE_W, 0, 0)}
+				/>
 				<Text
 					value={ops.TitleStatus ?? "Titles are temporarily unavailable."}
 					size={12}
@@ -830,7 +838,7 @@ function CommandViewReady(props: CommandProps) {
 					wrap={true}
 					fit={true}
 					minSize={10}
-					position={UDim2.fromOffset(0, 36)}
+					position={UDim2.fromOffset(0, 36 + closedBadgeLine)}
 					sizeConstraint={new UDim2(1, 0, 0, 44)}
 				/>
 			</>
@@ -934,7 +942,7 @@ function CommandViewReady(props: CommandProps) {
 				<Panel size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<Text
-						value="Train expedition officers with signals."
+						value="Train officers with signals."
 						size={12}
 						color={Palette.muted}
 						fit={true}
@@ -973,7 +981,7 @@ function CommandViewReady(props: CommandProps) {
 					layoutOrder={nextOrder()}
 					reducedMotion={reducedMotion}
 				>
-					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={12} sizeConstraint={new UDim2(1, titlesEnabled ? 0 : -164, 0, 24)} />
+					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={12} sizeConstraint={new UDim2(1, titlesEnabled || closedBadgeOwnLine ? 0 : -(CLOSED_BADGE_W + 12), 0, 24)} />
 					{titlesBody}
 				</Panel>
 				<Panel
@@ -1651,13 +1659,6 @@ function CommandViewReady(props: CommandProps) {
 
 export function CommandView(props: CommandProps) {
 	const { state, config } = props;
-	const viewport = useViewport();
-	const chrome = chromeFor(viewport);
-	const softMotion = props.reducedMotion;
-	const overviewReveal = useStagger(0, softMotion);
-	const expeditionsReveal = useStagger(1, softMotion);
-	const opsReveal = useStagger(2, softMotion);
-	const claimHostRef = React.useRef<Frame>();
 	const ops = config.Operations;
 	const command = state.Command;
 	const [tab] = React.useState("Overview");

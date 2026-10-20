@@ -4,51 +4,30 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { compactNumber, formatReward } from "../../CoreKit/format";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
-import { useEntrance, useFlash, usePulse, useViewport } from "../../MotionKit/motion";
+import { useEntrance, useFlash, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
-import { TASK_FILTERS, TaskEntry, taskFilterCounts, taskMatchesFilter, TaskSummary } from "./MissionsView";
+import {
+	ProgressCloseGlow,
+	TASK_FILTERS,
+	TaskEntry,
+	taskFilterCounts,
+	taskMatchesFilter,
+	taskProgress,
+	taskRank,
+	TaskSummary,
+} from "./MissionsView";
 
 const UserInputService = game.GetService("UserInputService");
-const { Button, IconTile, Meter, Panel, Stroke, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, IconTile, Meter, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { FlatList } = kitMember<{ FlatList: LuauComponent }>("LayoutKit", "virtualizedList");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const Browse = clientModule<BrowseApi>("BrowseKit");
 
 type Dispatch = (action: string, payload: { Id: string }) => unknown;
 
-const NEAR_COMPLETE_THRESHOLD = 0.85;
-
-interface CloseGlowProps {
-	progress: number;
-	ready: boolean;
-	accent: Color3;
-	reducedMotion?: boolean;
-	position: UDim2;
-	size: UDim2;
-}
-
 // one place for the row height so the list stride can't drift from the row
 function milestoneRowH(stack: boolean): number {
 	return stack ? 220 : 148;
-}
-
-function ProgressCloseGlow({ progress, ready, accent, reducedMotion, position, size }: CloseGlowProps) {
-	const antilag = useAntilag();
-	const near = !ready && progress >= NEAR_COMPLETE_THRESHOLD && progress < 1;
-	const active = near && antilag.allowAmbient && antilag.tier >= 1 && !reducedMotion;
-	const pulse = usePulse(active, 2.4);
-	if (!near) {
-		return undefined;
-	}
-	return (
-		<frame Size={size} Position={position} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={4}>
-			<Stroke
-				color={accent}
-				thickness={1.5}
-				transparency={active ? pulse.map((amount) => math.clamp(0.65 - amount * 0.45, 0.18, 0.65)) : 0.5}
-			/>
-		</frame>
-	);
 }
 
 function useReadyPop(ready: boolean, reducedMotion?: boolean) {
@@ -67,7 +46,6 @@ interface MilestoneRowProps {
 	achievement: TaskEntry;
 	dispatch: Dispatch;
 	reducedMotion?: boolean;
-	query?: string;
 	position: UDim2;
 	stack: boolean;
 	claimHostRef?: React.Ref<Frame>;
@@ -211,22 +189,8 @@ function MilestoneRowImpl({ achievement, dispatch, reducedMotion, position, stac
 }
 
 // shows: the achievement (Name, Description, Reward, Progress/Target, Claimed; Id for the claim) by value,
-// position, stack layout, motion, and whether it hosts the gamepad claim focus (claimHostRef);
-// `query` is passed but never read by the row, so it is not compared
+// position, stack layout, motion, and whether it hosts the gamepad claim focus (claimHostRef)
 const MilestoneRow = React.memo(counted("Milestone", MilestoneRowImpl), sameFields<MilestoneRowProps>(["achievement", "dispatch", "reducedMotion", "position", "stack", "claimHostRef"]));
-
-function taskProgress(entry: TaskEntry) {
-	return math.clamp((tonumber(entry.Progress) ?? 0) / math.max(1, tonumber(entry.Target) ?? 1), 0, 1);
-}
-
-function taskRank(entry: TaskEntry) {
-	if (!entry.Claimed && (tonumber(entry.Progress) ?? 0) >= (tonumber(entry.Target) ?? 0)) {
-		return 0;
-	} else if (entry.Claimed) {
-		return 2;
-	}
-	return 1;
-}
 
 interface MilestonesViewProps {
 	state: { Achievements?: TaskEntry[] };
@@ -426,7 +390,6 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 					achievement={item}
 					dispatch={dispatch}
 					reducedMotion={softMotion}
-					query={browse.query}
 					position={UDim2.fromOffset(0, 0)}
 					stack={rowStack}
 					claimHostRef={item.Id === firstReadyId ? claimHostRef : undefined}

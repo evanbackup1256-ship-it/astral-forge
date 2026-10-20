@@ -772,12 +772,10 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 	}, [releaseAt]);
 	const remaining = ReleaseClockMath.Remaining(releaseAt, now);
 	const live = ReleaseClockMath.IsLive(releaseAt, now);
-	const [slam, setSlam] = React.useState(0);
 	const wasLive = React.useRef(live);
 	React.useEffect(() => {
 		if (live && !wasLive.current) {
 			wasLive.current = true;
-			setSlam((n) => n + 1);
 			if (!reducedMotion) {
 				Audio.play("prestige");
 				Audio.play("bootFinaleBang");
@@ -788,7 +786,6 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 		}
 	}, [live, reducedMotion]);
 	const pulse = usePulse(live, 2.4);
-	const flash = useFlash(slam, reducedMotion, 1.05);
 	const days = math.floor(remaining / 86400);
 	const hours = math.floor(remaining / 3600) % 24;
 	const minutes = math.floor(remaining / 60) % 60;
@@ -1044,7 +1041,6 @@ function TopBarImpl(_param: TopBarProps) {
 	const chipWidthEstimate = stacked ? 172 : micro ? 172 : 170;
 	const logoCompact = tight || stacked || barHeight <= Layout.topbarHeight;
 	const logoWidth = micro ? 48 : stacked ? 156 : shortRow ? 156 : logoCompact ? 168 : 176;
-	const pageTitleW = 0;
 	const visitorsHere = typeIs(state.Visitors, "table") ? (state.Visitors as unknown[]).size() : 0;
 	const visitPill =
 		!stacked && visit !== undefined

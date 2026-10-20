@@ -4,13 +4,12 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { chromeFor, darken, Layout, lighten, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useClock, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
-import { AudioApi, Component, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
+import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
-const { Badge, Button, EmptyState, IconTile, Panel, Text } = loadUi();
+const { Badge, Button, IconTile, Panel, Text } = loadUi();
 const { Icon } = luauKit<{ Icon: Component }>("ArtKit", "Icon");
-const Audio = loadAudio();
 const PageScaffold = loadPageScaffold();
 const { FlatList } = luauKit<{ FlatList: Component }>("LayoutKit", "virtualizedList");
 const Browse = loadBrowse();

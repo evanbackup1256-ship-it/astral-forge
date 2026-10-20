@@ -4,17 +4,14 @@ import React from "@rbxts/react";
 import { counted, memoRow, sameFields } from "../UiCore/rowMemo";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Fmt from "../CoreKit/format";
-import { InteractionFeedback } from "../CoreKit/interaction";
 import { ClientLog } from "../CoreKit/log";
-import { chromeFor, darken, Layout, Palette, scrollTail, surfaceGradient, TapTarget } from "../CoreKit/theme";
+import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
 import { FlexGrid, useShopColumns } from "../MotionKit/flexbox";
 import { easeOutCubic, useBoatTween, useStagger, useViewport, useWallClock } from "../MotionKit/motion";
-import { Icon, rewardIconKind } from "../ArtKit/Icon";
+import { Icon } from "../ArtKit/Icon";
 import BrowseModel = require("../BrowseModel");
 import ElementFxModule = require("../ElementFx");
-import PrizeWheel = require("../PrizeWheel");
-import JuiceFx = require("../JuiceFx");
 import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppearance");
 import {
 	Component,
@@ -272,12 +269,6 @@ interface WheelReceipt {
 	PrizeIndex?: unknown;
 	PrizeId?: unknown;
 	ExpectedSpin?: unknown;
-}
-
-interface WheelHistoryEntry {
-	PrizeId?: string;
-	At?: number;
-	Pity?: boolean;
 }
 
 interface WheelState {

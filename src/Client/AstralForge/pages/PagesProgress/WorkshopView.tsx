@@ -65,7 +65,6 @@ function MachineRowImpl(props: MachineRowProps) {
 	const chrome = chromeFor(viewport);
 	const stack = machineRowStack(chrome);
 	const softMotion = props.reducedMotion;
-	const reducedMotion = softMotion;
 	const rowH = PageBoardHeights.Machine(stack);
 	const price = bulkCost(machine.BaseCost, machine.CostScale, level, buyAmount, machine.MaxLevel, cash);
 	const maxed = level >= machine.MaxLevel;

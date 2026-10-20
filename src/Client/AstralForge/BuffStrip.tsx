@@ -1605,6 +1605,16 @@ function measureEvent(info: IslandNotice, maxWidth?: number) {
 
 // props: state, config, currencies { {target, name, value, icon, color} }, perf { showFps, showPing },
 // rate (flux per second), vaultFull, navigate, maxWidth, position, anchorPoint, restHidden, reducedMotion
+function lastInputIsMouse(): boolean {
+	const inputType = game.GetService("UserInputService").GetLastInputType();
+	return (
+		inputType === Enum.UserInputType.MouseMovement ||
+		inputType === Enum.UserInputType.MouseButton1 ||
+		inputType === Enum.UserInputType.MouseButton2 ||
+		inputType === Enum.UserInputType.MouseWheel
+	);
+}
+
 BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 	// live currency values and vault-full flag (B35): this island redraws on a cash tick, the top bar doesn't
 	let liveKey: string | undefined;
@@ -1705,13 +1715,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 			wait = 0;
 			const island = islandRef.current;
 			let over = false;
-			const inputType = UserInputService.GetLastInputType();
-			const mouseInput =
-				inputType === Enum.UserInputType.MouseMovement ||
-				inputType === Enum.UserInputType.MouseButton1 ||
-				inputType === Enum.UserInputType.MouseButton2 ||
-				inputType === Enum.UserInputType.MouseWheel;
-			if (island !== undefined && island.Parent !== undefined && mouseInput) {
+			if (island !== undefined && island.Parent !== undefined && lastInputIsMouse()) {
 				const screenGui = island.FindFirstAncestorOfClass("ScreenGui");
 				const [guiInset] = GuiService.GetGuiInset();
 				const inset =
@@ -1749,6 +1753,12 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 				p.X >= topLeft.X && p.X <= topLeft.X + size.X && p.Y >= topLeft.Y && p.Y <= topLeft.Y + size.Y;
 			if (!inside) {
 				setPinned(false);
+				// touch has no hover: a tap elsewhere also drops the hover that a tap on the island
+				// raised through MouseEnter (the poll above only tracks a real mouse)
+				if (input.UserInputType === Enum.UserInputType.Touch) {
+					last = false;
+					setHovered(false);
+				}
 			}
 		});
 		return () => {
@@ -2009,7 +2019,10 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 			ZIndex: 60,
 			Event: {
 				MouseEnter: () => {
-					setHovered(true);
+					// touch fires MouseEnter on a tap; that's handled by pinning, not hover
+					if (lastInputIsMouse()) {
+						setHovered(true);
+					}
 				},
 				Activated: () => {
 					// tapping an announcement moves on to the next one

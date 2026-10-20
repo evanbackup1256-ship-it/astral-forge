@@ -54,14 +54,6 @@ interface ForgePathViewProps {
 	reducedMotion?: boolean;
 }
 
-interface Section {
-	id: string;
-	height?: number;
-	fill?: boolean;
-	minHeight?: number;
-	element: React.Element;
-}
-
 function pageGuide(config: ForgePathConfig | undefined): ForgePathGuide | undefined {
 	const guides = config?.ClientPageGuides;
 	return guides !== undefined ? guides.ForgePath : undefined;
@@ -534,7 +526,6 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 	// phones in landscape have the width for the side-by-side step row (claim on the right)
 	const rowStack = stack && !chrome.landscape;
 	const stepRowHeight = rowStack ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT;
-	const stepsBlockH = totalCount === 0 ? 160 : totalCount * stepRowHeight + math.max(0, totalCount - 1) * listGap;
 	const progressFrac = totalCount > 0 ? claimedCount / totalCount : 0;
 	const heroBlurb = guide?.HeroBlurb ?? "One track. Every step pays out.";
 	const stepStride = stepRowHeight + listGap;

@@ -663,7 +663,7 @@ function LabViewReady(props: LabProps) {
 								sizeConstraint={new UDim2(1, stack ? -8 : -(220 + ROW_RIGHT), 0, 24)}
 							/>
 							<Text
-								value="Bonuses change immediately. One new cell unlocks every eight rebirths."
+								value="Bonuses apply at once. A new cell unlocks every 8 rebirths."
 								size={stack ? 11 : 10}
 								color={Palette.muted}
 								wrap={true}

@@ -10,7 +10,7 @@ import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Palette, TapTarget, chromeFor, darken } from "../CoreKit/theme";
 import { useEntrance, useFlipperSpring, useViewport } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
-import { EVENTS, EventDef, ServerEvent, accentOf, openServerEventPanel, useServerEvent } from "./serverEventsUi";
+import { EVENTS, ServerEvent, accentOf, openServerEventPanel, useServerEvent } from "./serverEventsUi";
 import { readLevelState, openRoadmap, progressFraction } from "./levelRoadmap";
 import { Button, CountBadge, IconTile, LooseComponent, SearchField, Text } from "./ui";
 

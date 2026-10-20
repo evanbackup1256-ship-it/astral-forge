@@ -97,17 +97,22 @@ local CASES: { Case } = {
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = 'No match. Try "music" or "text".', size = 13, bold = false, width = PHONE },
 }
 
--- day-b mobile audit (B36): stacked-layout lines in Command, Lab and Shop, at 360 and at 286
--- (the narrowest phone width we lay out for). Panels pad 14 each side.
+-- day-b mobile audit (B36/B37): stacked-layout lines in Command, Lab and Shop, at 360 and at 286
+-- (the narrowest phone width we lay out for). Real phone page width, from CoreKit/mobileLayout.ts
+-- and the shell: AppShell edgePad = max(8, sideSafe >= 12, floor(pagePadding 14 * density)) with
+-- density 0.82..1.18 (UiDensity 0..1), so 12..16 per side, worst case 16; WorkspaceChrome then
+-- insets the page by contentInset (14) per side. Panels pad 14 each side.
+local PHONE_EDGE_MAX = math.floor(14 * 1.18)
+local PHONE_CONTENT_INSET = 14
 local function phoneCases(phone: number)
-	local page = phone - 14 * 2
+	local page = phone - PHONE_EDGE_MAX * 2 - PHONE_CONTENT_INSET * 2
 	local panel = page - 14 * 2
 	return {
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Move cells whenever you like.", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
-		{ file = "pages/PagesProgress/LabView.tsx", needle = "Bonuses change immediately. One new cell unlocks every eight rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
+		{ file = "pages/PagesProgress/LabView.tsx", needle = "Bonuses apply at once. A new cell unlocks every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
-		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Cards show each title as it looks on you.", size = 11, bold = false, width = panel, phone = phone },
-		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Train expedition officers with signals.", size = 12, minSize = 10, bold = false, width = panel, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Each title shows as it looks on you.", size = 11, bold = false, width = panel, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Train officers with signals.", size = 12, minSize = 10, bold = false, width = panel, phone = phone },
 		{ file = "pages/PagesShop.tsx", needle = "Speed up your forge.", size = 18, bold = true, width = panel, phone = phone },
 	}
 end
