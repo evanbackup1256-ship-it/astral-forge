@@ -556,7 +556,7 @@ export function MainGame(_param: MainGameProps) {
 				if (expectedBusy) {
 					return undefined;
 				}
-				ClientLog.warn("action", `${action} failed â€” ${rawError ?? detail}`);
+				ClientLog.warn("action", `${action} failed — ${rawError ?? detail}`);
 				if (AppHelpers.isPassiveRequest(action)) {
 					return undefined;
 				}
@@ -824,7 +824,7 @@ export function MainGame(_param: MainGameProps) {
 				addNotice("World unlocked", response.message ?? "A new world is open.", "Special", false);
 			} else if (action === "NudgeCrew") {
 				Audio.play("crewNudge");
-				addNotice("Waved", response.message ?? "Theyâ€™ll see it.", "Info");
+				addNotice("Waved", response.message ?? "They’ll see it.", "Info");
 			} else if (action === "VisitPlot") {
 				Audio.play("travel");
 				if (response.Visit) {
@@ -1151,7 +1151,7 @@ export function MainGame(_param: MainGameProps) {
 			const day = state.Daily.Streak ?? 0;
 			addNotice(
 				"Daily streak",
-				day > 1 ? `Day ${day} is ready to claim in Rewards.` : "Todayâ€™s daily is ready in Rewards.",
+				day > 1 ? `Day ${day} is ready to claim in Rewards.` : "Today’s daily is ready in Rewards.",
 				"Special",
 			);
 		}

@@ -369,7 +369,7 @@ function CinematicHeader({ props: p, layout }: SectionProps) {
 				ZIndex={421}
 			>
 				<Text
-					value={p.rollCount > 1 ? `${statusText}  â€¢  DROP ${p.rollIndex + 1}/${p.rollCount}` : statusText}
+					value={p.rollCount > 1 ? `${statusText}  •  DROP ${p.rollIndex + 1}/${p.rollCount}` : statusText}
 					size={10}
 					color={statusColor}
 					weight={Enum.FontWeight.Bold}
@@ -989,7 +989,7 @@ function ResultPanel({ props, layout }: SectionProps) {
 
 				{/* Rarity header */}
 				<Text
-					value={`${props.winnerRarity.upper()}  â€¢  ROLL ${props.rollIndex + 1}/${props.rollCount}`}
+					value={`${props.winnerRarity.upper()}  •  ROLL ${props.rollIndex + 1}/${props.rollCount}`}
 					size={10}
 					color={props.winnerAccent}
 					weight={Enum.FontWeight.Heavy}

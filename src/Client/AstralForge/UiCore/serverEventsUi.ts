@@ -490,7 +490,7 @@ function SupplyCrates(props: { event: ServerEvent; clock: React.Binding<number>;
 				Position: new UDim2(0.5, 0, 1, 0),
 				AnchorPoint: new Vector2(0.5, 1),
 				BackgroundTransparency: 1,
-				Text: `Grab it Â· ${drop.Left} left`,
+				Text: `Grab it · ${drop.Left} left`,
 				TextSize: 12,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				TextColor3: Palette.mint,
@@ -572,7 +572,7 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 	};
 	const standings = (list: Standing[] | undefined, unit: string) => {
 		for (const [index, entry] of ipairs(list ?? [])) {
-			line(`${index}.  ${entry.Name}  Â·  ${compactNumber(entry.Points)} ${unit}`, index <= 3 ? Palette.mango : Palette.muted, {
+			line(`${index}.  ${entry.Name}  ·  ${compactNumber(entry.Points)} ${unit}`, index <= 3 ? Palette.mango : Palette.muted, {
 				size: 12,
 			});
 		}

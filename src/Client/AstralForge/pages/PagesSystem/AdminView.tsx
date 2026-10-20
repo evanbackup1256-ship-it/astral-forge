@@ -206,7 +206,7 @@ function PlayerRow({ player, selected, you, onClick, layoutOrder, reducedMotion 
 				/>
 			</frame>
 			<Text
-				value={you ? `${player.DisplayName}  Â·  YOU` : player.DisplayName}
+				value={you ? `${player.DisplayName}  ·  YOU` : player.DisplayName}
 				size={13}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
@@ -216,7 +216,7 @@ function PlayerRow({ player, selected, you, onClick, layoutOrder, reducedMotion 
 				sizeConstraint={new UDim2(1, -70, 0, 17)}
 			/>
 			<Text
-				value={`@${player.Name}  Â·  ${compactNumber(player.Cash ?? 0)}`}
+				value={`@${player.Name}  ·  ${compactNumber(player.Cash ?? 0)}`}
 				size={10}
 				color={Palette.cyan}
 				fit={true}
@@ -313,7 +313,7 @@ function AuditLine(props: { record: AuditRecord }) {
 				sizeConstraint={new UDim2(0.42, -4, 1, 0)}
 			/>
 			<Text
-				value={`${record.ActorName} â†’ ${record.TargetName}`}
+				value={`${record.ActorName} → ${record.TargetName}`}
 				size={9}
 				color={Palette.cyan}
 				fit={true}
@@ -497,7 +497,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 
 	const runDisabled =
 		busy || (fields.overridesTarget ? fields.amountChoices.size() === 0 : targetId === 0) || (needsArm && reason.size() < 3);
-	const runLabel = busy ? "APPLYINGâ€¦" : needsArm && !armed ? "ARM" : "RUN";
+	const runLabel = busy ? "APPLYING…" : needsArm && !armed ? "ARM" : "RUN";
 	const runColor = busy ? Palette.panelSoft : needsArm && armed ? Palette.coral : needsArm ? Palette.mango : Palette.mint;
 
 	const FIELD_H = 50;
@@ -603,7 +603,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				value={playerQuery}
 				onChange={setPlayerQuery}
 				accent={Palette.cyan}
-				placeholder="Search playersâ€¦"
+				placeholder="Search players…"
 				size={new UDim2(1, 0, 0, 36)}
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
@@ -632,7 +632,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				value={commandQuery}
 				onChange={setCommandQuery}
 				accent={Palette.violet}
-				placeholder="Search commandsâ€¦"
+				placeholder="Search commands…"
 				size={new UDim2(1, 0, 0, 36)}
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
@@ -667,7 +667,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		<Panel size={new UDim2(1, 0, 0, inspectH)} accent={Palette.mint} background={Palette.panel} padding={12} layoutOrder={0} clips={false}>
 			<SectionTitle value="TARGET" accent={Palette.mint} />
 			<Text
-				value={selectedPlayer ? `${selectedPlayer.DisplayName}  Â·  ${selectedPlayer.UserId}` : "Select a player."}
+				value={selectedPlayer ? `${selectedPlayer.DisplayName}  ·  ${selectedPlayer.UserId}` : "Select a player."}
 				size={12}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
@@ -852,7 +852,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 						: needsArm
 							? "Arm first. Dangerous commands need a second tap."
 							: "Preview shows saved changes first. Run applies them.") +
-					(previewLines.size() > 0 ? "\nâ€¢ " + shownPreview.join("\nâ€¢ ") : "")
+					(previewLines.size() > 0 ? "\n• " + shownPreview.join("\n• ") : "")
 				}
 				size={9}
 				color={lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}

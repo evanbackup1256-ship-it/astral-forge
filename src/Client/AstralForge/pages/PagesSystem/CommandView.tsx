@@ -538,7 +538,7 @@ function CommandViewReady(props: CommandProps) {
 	};
 	const header = (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false}>
-			<SectionLabel value="COMMAND Â· SEASON" color={Palette.cyan} />
+			<SectionLabel value="COMMAND · SEASON" color={Palette.cyan} />
 			<Text
 				value={ops.SeasonName ?? "Deep Space Command"}
 				size={stack ? 24 : 28}
@@ -603,7 +603,7 @@ function CommandViewReady(props: CommandProps) {
 						/>
 					) : undefined}
 					<Button
-						text={maxRole ? "MAX" : `Train Â· ${compactNumber(cost)} signals`}
+						text={maxRole ? "MAX" : `Train · ${compactNumber(cost)} signals`}
 						onClick={() => dispatch("UpgradeCrew", { Role: roleId })}
 						color={role.Color}
 						textColor={Palette.ink}
@@ -819,9 +819,9 @@ function CommandViewReady(props: CommandProps) {
 						size={new UDim2(1, heroInfoWidth, 0, 8)}
 					/>
 					<Text
-						value={`${compactNumber(command.Signals)} signals  Â·  ${compactNumber(command.ExpeditionsCompleted)} ${
+						value={`${compactNumber(command.Signals)} signals  ·  ${compactNumber(command.ExpeditionsCompleted)} ${
 							command.ExpeditionsCompleted === 1 ? "trip" : "trips"
-						}  Â·  ${compactNumber(command.StreakShields)} ${command.StreakShields === 1 ? "shield" : "shields"}`}
+						}  ·  ${compactNumber(command.StreakShields)} ${command.StreakShields === 1 ? "shield" : "shields"}`}
 						size={12}
 						color={Palette.creamSoft}
 						fit={false}
@@ -901,7 +901,7 @@ function CommandViewReady(props: CommandProps) {
 				</Panel>
 				<Panel size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text
-						value={`Signal shop Â· ${compactNumber(command.Signals)} ready`}
+						value={`Signal shop · ${compactNumber(command.Signals)} ready`}
 						size={18}
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
@@ -1135,7 +1135,7 @@ function CommandViewReady(props: CommandProps) {
 									reducedMotion={reducedMotion}
 								/>
 								<Text
-									value={`Lv ${expedition.RequiredLevel}  Â·  ${clockText(
+									value={`Lv ${expedition.RequiredLevel}  ·  ${clockText(
 										math.max(10, math.floor(expedition.Duration * math.max(0.35, 1 - (pilot - 1) * 0.05))),
 									)}`}
 									size={11}
@@ -1155,7 +1155,7 @@ function CommandViewReady(props: CommandProps) {
 									sizeConstraint={new UDim2(1, stack ? -70 : -224, 0, 24)}
 								/>
 								<Text
-									value={`${formatReward(expedition.Reward)}  Â·  ${"%.0f".format(expedition.ArtifactChance * 100)}% relic`}
+									value={`${formatReward(expedition.Reward)}  ·  ${"%.0f".format(expedition.ArtifactChance * 100)}% relic`}
 									size={11}
 									color={Palette.muted}
 									wrap={true}
@@ -1277,7 +1277,7 @@ function CommandViewReady(props: CommandProps) {
 							<Text
 								value={
 									owned
-										? `${artifact.Rarity}  Â·  ${(elementSheet(artifact.Element) ?? { Label: "" }).Label}  Â·  Lv ${owned.Level}/10`
+										? `${artifact.Rarity}  ·  ${(elementSheet(artifact.Element) ?? { Label: "" }).Label}  ·  Lv ${owned.Level}/10`
 										: artifact.Rarity
 								}
 								size={11}
@@ -1299,7 +1299,7 @@ function CommandViewReady(props: CommandProps) {
 							<Text
 								value={
 									owned
-										? `${artifactEffect(artifact, owned.Level)}  Â·  ${owned.Fragments}/${fragmentCost} sparks`
+										? `${artifactEffect(artifact, owned.Level)}  ·  ${owned.Fragments}/${fragmentCost} sparks`
 										: "Finish its expedition to discover it."
 								}
 								size={11}
@@ -1324,7 +1324,7 @@ function CommandViewReady(props: CommandProps) {
 									reducedMotion={reducedMotion}
 								/>
 								<Button
-									text={!owned ? "â€”" : owned.Level >= 10 ? "MAX" : `${dustCost} dust`}
+									text={!owned ? "—" : owned.Level >= 10 ? "MAX" : `${dustCost} dust`}
 									onClick={() => dispatch("UpgradeArtifact", { Id: artifact.Id })}
 									color={Palette.mango}
 									textColor={Palette.ink}
@@ -1354,7 +1354,7 @@ function CommandViewReady(props: CommandProps) {
 			>
 				<Text value={ops.SeasonName} size={22} color={Palette.mango} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 28)} />
 				<Text
-					value={`${compactNumber(command.SeasonXP)} season XP Â· ${ops.SeasonTiers.size()} gifts`}
+					value={`${compactNumber(command.SeasonXP)} season XP · ${ops.SeasonTiers.size()} gifts`}
 					size={12}
 					color={Palette.muted}
 					fit={false}
@@ -1568,7 +1568,7 @@ export function CommandView(props: CommandProps) {
 	if (!ops || !command) {
 		return (
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-				<Text value="Loading your crewâ€¦" size={16} color={Palette.muted} align={Enum.TextXAlignment.Center} sizeConstraint={UDim2.fromScale(1, 1)} />
+				<Text value="Loading your crew…" size={16} color={Palette.muted} align={Enum.TextXAlignment.Center} sizeConstraint={UDim2.fromScale(1, 1)} />
 			</frame>
 		);
 	}

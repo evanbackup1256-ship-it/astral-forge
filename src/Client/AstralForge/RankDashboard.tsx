@@ -112,7 +112,8 @@ function share(value: unknown, top: unknown): number {
 }
 
 function matchesRank(row: RankRow, query: string): boolean {
-	const needle = (query.lower().match("^%s*(.-)%s*$") as string[])[0];
+	const [trimmed] = tostring(query ?? "").lower().match("^%s*(.-)%s*$");
+	const needle = typeIs(trimmed, "string") ? trimmed : "";
 	const name: string = tostring(row.Name ?? "");
 	const tag: string = tostring(row.Tag ?? "");
 	const id: string = row.UserId !== undefined ? tostring(row.UserId) : row.Id !== undefined ? tostring(row.Id) : "";
