@@ -31,6 +31,27 @@ function modRel(ups: number, ...names: string[]): unknown {
 	return luaRequire(current as ModuleScript);
 }
 
+/**
+ * Profile-style hook for crew roster rows. `player` is a GetPlayers entry (UserId, DisplayName, IsLocal, ...).
+ * Return an accent Color3 to tint the row ring; undefined keeps the default colors.
+ */
+function crewRowAccent(_player: unknown): Color3 | undefined {
+	return undefined;
+}
+
+/** Stable: items matching `pinned` move to the front, everything else keeps its order. */
+function pinFirst(list: unknown[] | undefined, pinned: (item: unknown) => boolean): unknown[] {
+	const front: defined[] = [];
+	const rest: defined[] = [];
+	for (const item of (list ?? []) as defined[]) {
+		(pinned(item) ? front : rest).push(item);
+	}
+	for (const item of rest) {
+		front.push(item);
+	}
+	return front;
+}
+
 function __member(): unknown {
 	let Players: unknown = colon(game).GetService("Players");
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -76,7 +97,8 @@ function __member(): unknown {
 		let layoutOrder: unknown = luaProp(_param, "layoutOrder");
 		let stack: unknown = luaProp(_param, "stack");
 		let reveal: unknown = luaCall(useStagger, (math.min as unknown as (...a: unknown[]) => unknown)(layoutOrder, 8), softMotion);
-		let accent: unknown = (luaTruthy(luaProp(player, "IsLocal")) ? luaProp(Palette, "green") : luaProp(Palette, "blue"));
+		// Profile-style hook: return a Color3 from crewRowAccent to tint this row; undefined keeps green/blue.
+		let accent: unknown = crewRowAccent(player) ?? (luaTruthy(luaProp(player, "IsLocal")) ? luaProp(Palette, "green") : luaProp(Palette, "blue"));
 		let rowH: unknown = (luaTruthy(stack) ? ((luaTruthy(luaProp(player, "IsLocal")) ? 118 : 158)) : 100);
 		let pad: unknown = (luaTruthy(stack) ? 14 : 12);
 		let _exp: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), (luaTruthy(stack) ? 48 : 44), (luaTruthy(stack) ? 48 : 44)), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, (luaTruthy(stack) ? 8 : 14)), BackgroundColor3: luaCall(darken, accent, 0.62), BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(1, 0) }), reactLoose.createElement("uigradient", { Color: new (ColorSequence as unknown as new (...args: unknown[]) => unknown)(luaCall(lighten, accent, 0.12), luaCall(darken, accent, 0.48)), Rotation: 120 }), reactLoose.createElement("uistroke", { ApplyStrokeMode: luaProp(luaProp(Enum, "ApplyStrokeMode"), "Border"), LineJoinMode: luaProp(luaProp(Enum, "LineJoinMode"), "Round"), Color: accent, Thickness: 1, Transparency: 0.32 }), reactLoose.createElement(PlayerMark, { userId: luaProp(player, "UserId"), color: luaProp(Palette, "ink"), accent: accent, size: (luaTruthy(stack) ? 42 : 38), position: luaCall(luaProp(UDim2, "fromScale"), 0.5, 0.5), anchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5) }));
@@ -220,7 +242,9 @@ function __member(): unknown {
 		if (luaTruthy(crew)) {
 			let bonus: unknown = (math.floor as unknown as (...a: unknown[]) => unknown)((((((((luaTruthy(luaProp(crew, "Bonus") ) ? luaProp(crew, "Bonus") :  0))) as unknown as number) * (100 as unknown as number)) as unknown as number) + (0.5 as unknown as number)));
 			luaTable.insert(sections, { id: "crew-summary", height: 96, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "green"), background: luaProp(Palette, "panelRaised"), padding: 14, clips: false }, luaCall(text, luaProp(crew, "Name"), 22, luaProp(Palette, "cream"), 30, luaProp(luaProp(Enum, "FontWeight"), "Heavy")), reactLoose.createElement(Text, { value: `${len(luaProp(crew, "Members"))} of ${luaProp(crew, "Max")} members · +${bonus}% production while you play together · crew chat is in Chat`, size: 14, color: luaProp(Palette, "muted"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) })) });
-			for (const [index, member] of pairs((luaProp(crew, "Members")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
+			// you first, then the leader, then everyone else in server order
+			const orderedMembers = pinFirst(pinFirst((luaProp(crew, "Members") ?? []) as unknown[], (member) => luaTruthy(luaProp(member, "Leader"))), (member) => luaProp(member, "UserId") === localId);
+			for (const [index, member] of pairs(orderedMembers as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 				luaTable.insert(sections, { id: concat("crew-member-", luaProp(member, "UserId")), height: 56, element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement(Text, { value: concat(luaProp(member, "DisplayName"), concat(((luaTruthy(luaProp(member, "Leader")) ? "  ·  leader" : "")), (((luaProp(member, "UserId") === localId) ? "  ·  you" : "")))), size: 16, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 6), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 22) }), reactLoose.createElement(Text, { value: `${luaProp(member, "Collects")} collect${((luaProp(member, "Collects") === 1) ? "" : "s")} today`, size: 13, color: luaProp(Palette, "muted"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 30), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 18) }), (((luaProp(member, "UserId") !== localId) && reactLoose.createElement(Button, { text: "Visit", icon: "Visit.4", color: luaProp(Palette, "blue"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 104, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(leader) ? -236 : -110), 0.5, -22), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 					luaCall(dispatch, "VisitPlot", { UserId: luaProp(member, "UserId") });
 					return undefined;
@@ -551,6 +575,8 @@ function __member(): unknown {
 		let crewBarH: unknown = (luaTruthy(showCrewBar) ? ((luaCall(luaProp(Browse, "barHeight"), stack, true) as unknown as number) + (10 as unknown as number)) : 0);
 		let allPlayers: unknown = players;
 		players = luaProp(crewBrowse, "results");
+		// pin yourself to the top of the roster whatever sort is picked
+		players = pinFirst(players as unknown[], (player) => luaTruthy(luaProp(player, "IsLocal")));
 		let _result: unknown = luaProp(state, "Visitors");
 		if ((_result !== undefined)) {
 			_result = len(_result);

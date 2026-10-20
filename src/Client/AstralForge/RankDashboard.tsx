@@ -306,6 +306,15 @@ function mark(props: MarkProps): React.Element {
 	return e(Art.PlayerMark, { userId: row.UserId, accent, size, position, anchorPoint: new Vector2(0.5, 0) });
 }
 
+/**
+ * Profile-style hook for rank rows (podium names, list rows and the pinned "you" row).
+ * Return an accent to tint the row's mark, name and stroke. Undefined keeps the board's default colors.
+ * The profile-style work plugs ProfileStyle data in here; nothing else in this file needs to change.
+ */
+function rankRowStyle(_row: RankRow, _guildBoard: boolean): { accent?: Color3 } | undefined {
+	return undefined;
+}
+
 interface Section {
 	id: string;
 	height: number;
@@ -526,7 +535,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		groupKids.Divider = e("frame", { BackgroundColor3: meta.accent, BackgroundTransparency: 0.75, BorderSizePixel: 0, Position: new UDim2(0, 0, 0, groupRows * 56 + 5), Size: new UDim2(1, 0, 0, 1) });
 		section("rank-categories", groupRows * 56 + 14 + math.ceil(inGroup.size() / boardCols) * 56 + 32, groupKids);
 
-		// Scope and refresh.
+		// Scope, refresh and search in one card.
 		const controls: Record<string, React.Element> = { Status: text(result.status ?? "Rankings unavailable.", 0, 0, 1, 18, 11, P.creamSoft) };
 		for (let index = 0; index < 2; index++) {
 			const id = (["Global", "Server"] as const)[index];
@@ -541,11 +550,37 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			});
 		}
 		controls.Refresh = e(ui.Button, { text: result.loading ? "LOADING…" : "REFRESH", position: new UDim2(2 / 3, 2, 0, 24), size: new UDim2(1 / 3, -8, 0, 48), disabled: result.loading, reducedMotion, onClick: () => reload((v) => v + 1), color: P.mint });
-		section("rank-controls", 110, controls);
-		section("rank-find", 154, {
-			Search: e(ui.SearchField, { value: query, onChange: setQuery, placeholder: guildBoard ? "Find a guild or tag" : "Find a player or user ID", accent: meta.accent, reducedMotion, size: new UDim2(1, 0, 0, 48) }),
-			Mine: e(ui.Button, { text: mineOnly ? "SHOW EVERYONE" : "MY STANDING", icon: "Crew.12", color: P.mint, outline: !mineOnly, reducedMotion, position: UDim2.fromOffset(0, 60), size: new UDim2(1, 0, 0, 48), onClick: () => setMineOnly((v) => !v) }),
-		});
+		controls.Search = e(ui.SearchField, { value: query, onChange: setQuery, placeholder: guildBoard ? "Find a guild or tag" : "Find a player or user ID", accent: meta.accent, reducedMotion, position: new UDim2(0, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(2 / 3, -8, 0, 48) });
+		controls.Mine = e(ui.Button, { text: mineOnly ? "SHOW EVERYONE" : "ONLY ME", icon: "Crew.12", color: P.mint, outline: !mineOnly, reducedMotion, position: narrow ? new UDim2(0, 2, 0, 140) : new UDim2(2 / 3, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(1 / 3, -8, 0, 48), onClick: () => setMineOnly((v) => !v) });
+		section("rank-controls", narrow ? 220 : 164, controls);
+
+		function rankRow(row: RankRow, place: number | undefined, pinned: boolean): React.Element {
+			const mine = isMine(row);
+			const styled = rankRowStyle(row, guildBoard);
+			const accent = styled?.accent ?? (mine ? P.mint : meta.accent);
+			return e("frame", {
+				BackgroundColor3: mine ? Color3.fromRGB(22, 48, 44) : Color3.fromRGB(22, 26, 40),
+				BackgroundTransparency: 0.08, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
+			}, {
+				Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
+				Stroke: e("uistroke", { Color: accent, Transparency: mine ? 0.2 : 0.8, Thickness: pinned ? 2 : 1 }),
+				Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
+				Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
+				Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.mint : P.cream), position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),
+				Value: e(ui.Text, { value: valueText(row.Value), size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.Bold, color: P.cream, align: Enum.TextXAlignment.Right, position: narrow ? UDim2.fromOffset(90, 29) : new UDim2(0.6, 0, 0, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.4, narrow ? -104 : -14, 0, 18) }),
+				Share: bar(share(row.Value, top), accent, new UDim2(0, 90, 0, narrow ? 51 : 36), new UDim2(1, -104, 0, 4)),
+			});
+		}
+
+		// Pinned "you" row: always visible above the podium so you never scroll to find yourself.
+		if (rows.size() > 0 && !mineOnly && query === "") {
+			const you: RankRow = personalIndex !== undefined
+				? rows[personalIndex - 1]
+				: { Name: guildBoard ? "Your guild" : Players.LocalPlayer.DisplayName, UserId: guildBoard ? undefined : localId, Id: guildBoard ? guildId : undefined, Value: own };
+			if (!guildBoard || guildId !== undefined) {
+				sections.push({ id: "rank-you", height: 58, element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, { Row: rankRow(you, personalIndex, true) }) });
+			}
+		}
 
 		if (rows.size() === 0) {
 			section("rank-empty", 120, {
@@ -569,7 +604,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 					podium[`seat${place}`] = e("frame", { Name: `PodiumSeat${place}`, BackgroundTransparency: 1, Position: narrow ? UDim2.fromOffset(0, (slot - 1) * 242) : new UDim2((slot - 1) / 3, 4, 0, 0), Size: new UDim2(narrow ? 1 : 1 / 3, narrow ? 0 : -8, 0, seatHeight) }, {
 						Avatar: !guildBoard ? e(AvatarView, { userId: row.UserId!, accent: color, reducedMotion, position: UDim2.fromOffset(4, 0), size: new UDim2(narrow ? 0.46 : 1, -8, 0, narrow ? 222 : 230) }) : undefined,
 						Mark: guildBoard ? mark({ row, guildBoard: true, accent: color, size: 70, position: narrow ? new UDim2(0.23, 0, 0, 58) : new UDim2(0.5, 0, 0, 90) }) : undefined,
-						Name: text(`${row.Name ?? "Unknown"}${isMine(row) ? " · YOU" : ""}`, 0, 0, 1, 36, 14, isMine(row) ? P.mint : P.cream, { weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, fit: true, minSize: 10, position: new UDim2(infoX, 0, 0, narrow ? 34 : 236), sizeConstraint: new UDim2(infoWidth, 0, 0, 36) }),
+						Name: text(`${row.Name ?? "Unknown"}${isMine(row) ? " · YOU" : ""}`, 0, 0, 1, 36, 14, rankRowStyle(row, guildBoard)?.accent ?? (isMine(row) ? P.mint : P.cream), { weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, fit: true, minSize: 10, position: new UDim2(infoX, 0, 0, narrow ? 34 : 236), sizeConstraint: new UDim2(infoWidth, 0, 0, 36) }),
 						Value: text(valueText(row.Value), 0, 0, 1, 28, 12, P.creamSoft, { align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: new UDim2(infoX, 0, 0, narrow ? 80 : 273), sizeConstraint: new UDim2(infoWidth, 0, 0, 28) }),
 						Share: bar(share(row.Value, top), color, new UDim2(infoX, 8, 0, narrow ? 118 : 307), new UDim2(infoWidth, -16, 0, 4)),
 						Plinth: e("frame", { BackgroundColor3: color, BackgroundTransparency: 0.72, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: new UDim2(infoX, 0, 1, 0), Size: new UDim2(infoWidth, 0, 0, narrow ? plinth : 32) }, {
@@ -593,19 +628,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 					continue;
 				}
 				shown += 1;
-				const accent = mine ? P.mint : meta.accent;
-				sections.push({ id: `rank-row-${index + 1}`, height: 58, element: e("frame", {
-					BackgroundColor3: mine ? Color3.fromRGB(22, 48, 44) : Color3.fromRGB(22, 26, 40),
-					BackgroundTransparency: 0.08, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
-				}, {
-					Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
-					Stroke: e("uistroke", { Color: accent, Transparency: mine ? 0.2 : 0.8, Thickness: 1 }),
-					Place: e(ui.Text, { value: tostring(index + 1), size: 15, weight: Enum.FontWeight.Bold, color: P.muted, align: Enum.TextXAlignment.Center, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 36, 1, 0) }),
-					Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
-					Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: mine ? P.mint : P.cream, position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),
-					Value: e(ui.Text, { value: valueText(row.Value), size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.Bold, color: P.cream, align: Enum.TextXAlignment.Right, position: narrow ? UDim2.fromOffset(90, 29) : new UDim2(0.6, 0, 0, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.4, narrow ? -104 : -14, 0, 18) }),
-					Share: bar(share(row.Value, top), accent, new UDim2(0, 90, 0, narrow ? 51 : 36), new UDim2(1, -104, 0, 4)),
-				}) });
+				sections.push({ id: `rank-row-${index + 1}`, height: 58, element: rankRow(row, index + 1, false) });
 			}
 			if (shown === 0 && (query !== "" || mineOnly)) {
 				section("rank-no-match", 106, {

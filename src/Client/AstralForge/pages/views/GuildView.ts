@@ -31,6 +31,28 @@ function modRel(ups: number, ...names: string[]): unknown {
 	return luaRequire(current as ModuleScript);
 }
 
+/** Moves the local member (by Members key, a stringified UserId) to the front; keeps the rest in order. */
+function pinLocalMember(list: unknown[] | undefined, localKey: unknown): unknown[] {
+	const front: defined[] = [];
+	const rest: defined[] = [];
+	for (const member of (list ?? []) as defined[]) {
+		const key = typeIs(member, "table") ? (member as { key?: unknown }).key : undefined;
+		(key === localKey ? front : rest).push(member);
+	}
+	for (const member of rest) {
+		front.push(member);
+	}
+	return front;
+}
+
+/**
+ * Profile-style hook for guild member rows. `userKey` is the Members key (stringified UserId).
+ * Return an accent Color3 to tint the row; undefined keeps the Leader/Officer/Member colors.
+ */
+function guildMemberAccent(_userKey: unknown): Color3 | undefined {
+	return undefined;
+}
+
 function __member(): unknown {
 	let Players: unknown = colon(game).GetService("Players");
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -405,7 +427,8 @@ function __member(): unknown {
 		let busy: unknown = luaProp(_param, "busy");
 		let shakeToken: unknown = luaProp(_param, "shakeToken");
 		let layoutOrder: unknown = luaProp(_param, "layoutOrder");
-		let accent: unknown = ((role === "Leader") ? luaProp(Palette, "mango") : ((role === "Officer") ? luaProp(Palette, "cyan") : luaProp(Palette, "steel")));
+		// Profile-style hook: guildMemberAccent(userKey) may return a Color3; undefined keeps the role colors.
+		let accent: unknown = guildMemberAccent(userKey) ?? ((role === "Leader") ? luaProp(Palette, "mango") : ((role === "Officer") ? luaProp(Palette, "cyan") : luaProp(Palette, "steel")));
 		let surface: unknown = (luaTruthy(isLocal) ? luaCall(darken, luaProp(Palette, "green"), 0.88) : luaProp(Palette, "panel"));
 		let _condition: unknown = tonumber(userKey);
 		if ((_condition === undefined)) {
@@ -1166,6 +1189,8 @@ function __member(): unknown {
 				}
 			}
 		}
+		// pin yourself above the role-sorted list so you never have to search for your own row
+		shownMembers = pinLocalMember(shownMembers as unknown[], localKey);
 		let memberChildren: unknown = {};
 		for (const [index, member] of pairs((shownMembers) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 			let share: unknown = 0;
