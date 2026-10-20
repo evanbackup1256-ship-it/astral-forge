@@ -113,13 +113,18 @@ export class ConvergenceService {
 	_pendingGlobal = 0;
 	_global = 0;
 	_eventId = "";
-	_shard: number;
+	_shard!: number;
 	_running = false;
 	_worker: thread | undefined = undefined;
 	_shutdownBound = false;
 
 	constructor(dataService: DataService) {
 		this._data = dataService as unknown as DataServiceApi;
+	}
+
+	// Runs from the server runtime's "convergence construction" boot step, so a MemoryStore
+	// failure is reported through BootFailure.
+	build() {
 		this._map = StoreAccess.isPreview() ? undefined : MemoryStoreService.GetHashMap(MAP_NAME);
 		this._shard = ConvergenceOpsMath.ShardFor(game.JobId, SHARDS);
 	}

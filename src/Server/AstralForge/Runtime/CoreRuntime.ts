@@ -8,6 +8,7 @@ import { DataService } from "../Services/DataService";
 import { AdminService } from "../Services/AdminService";
 import { WorldService } from "../Services/WorldService";
 import { GameService } from "../Services/GameService";
+import { ConvergenceService } from "../Services/ConvergenceService";
 import CharacterIntegrityModule = require("../Services/CharacterIntegrity");
 
 interface Startable {
@@ -27,6 +28,7 @@ export class CoreRuntime implements OnInit, OnStart {
 		private readonly world: WorldService,
 		private readonly security: Security,
 		private readonly gameplay: GameService,
+		private readonly convergence: ConvergenceService,
 	) {}
 	onInit() {
 		const bridge = this.bridge;
@@ -37,6 +39,7 @@ export class CoreRuntime implements OnInit, OnStart {
 		this.integrity = bridge.bootStep("integrity construction", () => CharacterIntegrity.new());
 		bridge.onClose(2, "security pipeline", () => this.security.Destroy());
 		bridge.onClose(1, "character integrity", () => this.integrity.Destroy());
+		bridge.bootStep("convergence construction", () => this.convergence.build());
 		bridge.bootStep("gameplay construction", () => this.gameplay.build());
 		bridge.onClose(3, "game service", () => this.gameplay.Shutdown());
 	}
