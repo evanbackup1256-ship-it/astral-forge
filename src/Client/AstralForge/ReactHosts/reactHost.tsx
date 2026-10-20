@@ -39,6 +39,9 @@ class PagePending extends React.PureComponent {
 }
 
 function CrashNotice(props: { message: string; onRetry?: () => void }) {
+	// touch-only screens get the full 44px tap target; desktop keeps its 36px button
+	const touchInput = game.GetService("UserInputService");
+	const touchOnly = touchInput.TouchEnabled && !touchInput.MouseEnabled;
 	const host = React.useContext(PageHostContext);
 	const [transparency, setTransparency] = React.useBinding(1);
 	const [pressed, setPressed] = React.useState(false);
@@ -77,7 +80,7 @@ function CrashNotice(props: { message: string; onRetry?: () => void }) {
 				TextYAlignment={Enum.TextYAlignment.Center}
 			/>
 			<textbutton
-				Size={UDim2.fromOffset(140, 36)}
+				Size={UDim2.fromOffset(140, touchOnly ? 44 : 36)}
 				Position={new UDim2(0.5, 0, 0.5, 28)}
 				AnchorPoint={new Vector2(0.5, 0)}
 				BackgroundColor3={pressed ? Palette.panelSoft : Palette.cyan}
