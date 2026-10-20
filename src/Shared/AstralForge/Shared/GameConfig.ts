@@ -7161,6 +7161,14 @@ const worldDescriptions = [
 	"Shortcuts make every loop a bit tighter.",
 	"Solid late game: auto-bank, collect, return.",
 ];
+const worldLoreLines = [
+	"%s showed up on the charts one cycle and never left. Crews here swear by %s.",
+	"Nobody named %s on purpose. The survey drone sneezed. The %s are real, though.",
+	"%s runs on %s and stubbornness. Bring both.",
+	"The dock log for %s is one line long: mind the %s.",
+	"%s pays out if you let it. The %s do most of the talking.",
+	"Somebody painted ON THE CLOCK across the gate at %s. The %s keep it honest.",
+];
 const worldFeatures = [
 	["Fast lanes", "Safe vaults", "Crew tips"],
 	["Bright freight", "Bonus contracts", "Low waste"],
@@ -7204,15 +7212,11 @@ function generateZones() {
 				" (" +
 				layout.lower() +
 				").",
-			Lore:
-				prefix +
-				" " +
-				noun +
-				" is another production stop. Map it, stack upgrades, and let automation carry the rest. World " +
-				string.format("%03d", id) +
-				" leans on " +
-				features[0] +
-				".",
+			Lore: string.format(
+				worldLoreLines[(tier - 1) % worldLoreLines.size()],
+				prefix + " " + noun,
+				string.lower(features[0]),
+			),
 			Features: [
 				features[0] + " " + string.format("%03d", id),
 				features[1] + " " + string.format("%03d", id),
