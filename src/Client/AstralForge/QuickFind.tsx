@@ -1,8 +1,8 @@
 // Quick Find: one search box over every page, setting, machine, research, relic, world,
 // boost, milestone and story chapter. Ctrl+K opens it, the top bar has a button.
 // Picking a result opens its page with that page's search already filled in.
-// It opens out of a molten seam, results cascade in, one slab glides between rows and a
-// spark flies off the caret with every keypress.
+// A centered glass panel springs open, results stagger in by section and one highlight glides
+// between rows. Keyboard (Ctrl+K, arrows, Enter, Esc) and gamepad (DPad, A, B) both drive it.
 import React from "@rbxts/react";
 import Model from "./BrowseModel";
 import * as theme from "./CoreKit/theme";
@@ -26,9 +26,6 @@ const Audio = (AudioKit("audio") as { Audio: AudioApi }).Audio;
 const ArtKit = require(script.Parent!.FindFirstChild("ArtKit")! as ModuleScript) as CallableFunction;
 const Icon = (ArtKit("Icon") as { Icon: unknown }).Icon;
 
-interface JuiceApi {
-	spark(this: void, at: Vector2, color: Color3, size: number): void;
-}
 
 const Palette = theme.Palette as Record<string, Color3> & {
 	cyan: Color3;
@@ -420,22 +417,27 @@ function buildLive(state: Record<string, unknown>, chatUnread?: number): SearchE
 	return list;
 }
 
-// ── Constants ───────────────────────────────────────────────────────────────────
+// ── Layout and motion ───────────────────────────────────────────────────────────
 
-const WHITE_HOT = Color3.fromRGB(255, 244, 222);
 const MAX_RESULTS = 40;
-const ROW_H = 52;
-const HEADER_H = 28;
+const ROW_H = 48;
+const ROW_H_TOUCH = 44;
+const HEADER_H = 26;
 const ROW_GAP = 2;
-const CASCADE_ROWS = 14;
+const CASCADE_ROWS = 12;
+const STAGGER = 0.025;
+const ROW_IN = 0.2;
+const FONT_BOLD = Font.fromName("BuilderSans", Enum.FontWeight.Bold);
+const FONT_MED = Font.fromName("BuilderSans", Enum.FontWeight.Medium);
+const FONT_HEAVY = Font.fromName("BuilderSans", Enum.FontWeight.Heavy);
 
 function easeOut(t: number): number {
 	const u = 1 - math.clamp(t, 0, 1);
 	return 1 - u * u * u;
 }
 
-// y of every row inside the list (headers, rows and the gap between them)
-function rowOffsets(sections: Section[]): LuaTuple<[Record<number, number>, number]> {
+// y of every row inside the list (headers, rows and the gaps between them)
+function rowOffsets(sections: Section[], rowH: number = ROW_H): LuaTuple<[Record<number, number>, number]> {
 	const ys: Record<number, number> = {};
 	let y = 0;
 	let index = 0;
@@ -450,66 +452,160 @@ function rowOffsets(sections: Section[]): LuaTuple<[Record<number, number>, numb
 				y += ROW_GAP;
 			}
 			ys[index] = y;
-			y += ROW_H;
+			y += rowH;
 		}
 	}
 	return $tuple(ys, y);
 }
 
-// ── Row component ───────────────────────────────────────────────────────────────
+// ── Search ──────────────────────────────────────────────────────────────────────
 
-function Row(props: RowProps): React.Element {
+interface Results {
+	sections: Section[];
+	flat: SearchEntry[];
+	total: number;
+}
+
+function search(state: Record<string, unknown>, query: string, chatUnread: number | undefined): Results {
+	const sections: Section[] = [];
+	const live = buildLive(state, chatUnread);
+	const staticEntries = buildStatic();
+	const byKey: Record<string, SearchEntry> = {};
+	for (const entry of live) {
+		byKey[entry.key] = entry;
+	}
+	for (const entry of staticEntries) {
+		byKey[entry.key] = entry;
+	}
+	let total = 0;
+	const tokens = Model.tokens(query);
+	if (tokens.size() === 0) {
+		const [okReady, ready] = pcall(() => ReadyBoard.collect(state, GameConfig));
+		if (okReady && (ready as unknown[]).size() > 0) {
+			const items: SearchEntry[] = [];
+			for (const entry of ready as Array<{ route: string; label: string; detail: string; icon: string; accent: Color3; count: number }>) {
+				const page = byKey["Page:" + entry.route];
+				if (page !== undefined) {
+					items.push({
+						key: page.key,
+						kind: "Page",
+						title: entry.label,
+						subtitle: entry.detail,
+						icon: entry.icon,
+						accent: entry.accent,
+						route: entry.route,
+						badge: entry.count,
+						fields: page.fields,
+					});
+				}
+			}
+			if (items.size() > 0) {
+				sections.push({ title: "READY NOW", entries: items });
+			}
+		}
+		const recent: SearchEntry[] = [];
+		for (const key of Model.recent()) {
+			if (byKey[key] !== undefined) {
+				recent.push(byKey[key]);
+			}
+		}
+		if (recent.size() > 0) {
+			sections.push({ title: "RECENT", entries: recent });
+		}
+		const pages = live.filter((entry) => entry.kind === "Page" && !entry.locked);
+		pages.sort((a, b) => {
+			if (((a.badge ?? 0) > 0) !== ((b.badge ?? 0) > 0)) {
+				return (a.badge ?? 0) > 0;
+			}
+			return (a.order ?? 0) < (b.order ?? 0);
+		});
+		sections.push({ title: "JUMP TO", entries: pages });
+	} else {
+		const scored: Array<{ entry: SearchEntry; score: number }> = [];
+		const consider = (entry: SearchEntry) => {
+			const value = Model.score(tokens, entry.fields);
+			if (value > 0) {
+				scored.push({ entry, score: value * KIND_META[entry.kind].weight * (entry.locked ? 0.6 : 1) });
+			}
+		};
+		live.forEach(consider);
+		staticEntries.forEach(consider);
+		scored.sort((a, b) => (a.score !== b.score ? a.score > b.score : a.entry.title < b.entry.title));
+		total = scored.size();
+		// best match first, then the rest grouped by what they are
+		const byKind: Record<string, Section> = {};
+		const kinds: Section[] = [];
+		for (let i = 0; i < math.min(MAX_RESULTS, scored.size()); i++) {
+			const entry = scored[i].entry;
+			if (i === 0) {
+				sections.push({ title: "BEST MATCH", entries: [entry] });
+			} else {
+				const label = KIND_META[entry.kind].group;
+				if (byKind[label] === undefined) {
+					byKind[label] = { title: label, entries: [] };
+					kinds.push(byKind[label]);
+				}
+				byKind[label].entries.push(entry);
+			}
+		}
+		for (const section of kinds) {
+			sections.push(section);
+		}
+	}
+	const flat: SearchEntry[] = [];
+	for (const section of sections) {
+		for (const entry of section.entries) {
+			flat.push(entry);
+		}
+	}
+	return { sections, flat, total };
+}
+
+// ── Row ─────────────────────────────────────────────────────────────────────────
+
+function Row(props: RowProps & { rowH: number }): React.Element {
 	const entry = props.entry;
 	const meta = KIND_META[entry.kind];
 	const appearAt = props.appearAt;
-	const arrive = props.tick.map((now: number) => {
-		return appearAt === undefined ? 1 : easeOut((now - appearAt) / 0.24);
-	});
 	const selected = props.selected;
+	const arrive = props.tick.map((now: number) => (appearAt === undefined ? 1 : easeOut((now - appearAt) / ROW_IN)));
+	const fadeText = arrive.map((a: number) => 1 - a);
+	const compact = props.rowH < ROW_H;
+	const textLeft = 56;
+	const rightPad = props.rightW + 12;
 
 	return h("textbutton", {
-		Size: new UDim2(1, 0, 0, ROW_H),
+		Size: new UDim2(1, 0, 0, props.rowH),
 		LayoutOrder: props.layoutOrder,
 		BackgroundTransparency: 1,
 		BorderSizePixel: 0,
 		AutoButtonColor: false,
+		Selectable: false,
 		Text: "",
 		ZIndex: 504,
 		Event: {
-			Activated: () => {
-				props.onPick(entry);
-			},
-			MouseEnter: () => {
-				props.onHover(props.index);
-			},
+			Activated: () => props.onPick(entry),
+			MouseEnter: () => props.onHover(props.index),
 		},
 	}, h("frame", {
-		// everything in the row rides in together
 		Size: UDim2.fromScale(1, 1),
-		Position: arrive.map((a: number) => {
-			return UDim2.fromOffset((1 - a) * 14, 0);
-		}),
+		Position: arrive.map((a: number) => UDim2.fromOffset(0, (1 - a) * 8)),
 		BackgroundTransparency: 1,
 		ZIndex: 504,
-	}, h("frame", {
-		Size: UDim2.fromOffset(34, 34),
+	},
+	// icon tile
+	h("frame", {
+		Size: UDim2.fromOffset(32, 32),
 		Position: new UDim2(0, 12, 0.5, 0),
 		AnchorPoint: new Vector2(0, 0.5),
-		BackgroundColor3: theme.darken(entry.accent, 0.62),
-		BackgroundTransparency: arrive.map((a: number) => {
-			return 1 - a;
-		}),
+		BackgroundColor3: theme.darken(entry.accent, selected ? 0.45 : 0.68),
+		BackgroundTransparency: arrive.map((a: number) => 1 - a),
 		BorderSizePixel: 0,
 		ZIndex: 505,
-	}, h("uicorner", { CornerRadius: new UDim(0, 9) }), h("uiscale", {
-		Scale: props.tick.map((now: number) => {
-			if (!selected) {
-				return 1;
-			}
-			return 1 + math.sin(now * 5) * 0.035;
-		}),
-	}), h("frame", {
-		Size: UDim2.fromOffset(20, 20),
+	}, h("uicorner", { CornerRadius: new UDim(0, 9) }),
+	h("uistroke", { Color: entry.accent, Transparency: selected ? 0.35 : 0.8, Thickness: 1 }),
+	h("frame", {
+		Size: UDim2.fromOffset(18, 18),
 		Position: UDim2.fromScale(0.5, 0.5),
 		AnchorPoint: new Vector2(0.5, 0.5),
 		BackgroundTransparency: 1,
@@ -518,38 +614,38 @@ function Row(props: RowProps): React.Element {
 		kind: entry.locked ? "Lock.18" : entry.icon,
 		color: entry.locked ? Palette.muted : entry.accent,
 		accent: entry.accent,
-		size: 20,
+		size: 18,
 		spin: false,
-	}))), h("textlabel", {
-		Size: new UDim2(1, -(60 + props.rightW), 0, 20),
-		Position: UDim2.fromOffset(58, 7),
+	}))),
+	// title + subtitle
+	h("textlabel", {
+		Size: new UDim2(1, -(textLeft + rightPad), 0, 18),
+		Position: new UDim2(0, textLeft, 0.5, compact ? -17 : -18),
 		BackgroundTransparency: 1,
 		Text: Model.highlight(entry.title, props.query, "#" + entry.accent.ToHex()),
 		RichText: true,
 		TextSize: 15,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
-		TextColor3: entry.locked ? Palette.creamSoft : selected ? WHITE_HOT : Palette.cream,
-		TextTransparency: arrive.map((a: number) => {
-			return 1 - a;
-		}),
+		FontFace: FONT_BOLD,
+		TextColor3: entry.locked ? Palette.creamSoft : selected ? Palette.white : Palette.cream,
+		TextTransparency: fadeText,
 		TextXAlignment: Enum.TextXAlignment.Left,
 		TextTruncate: Enum.TextTruncate.AtEnd,
 		ZIndex: 506,
 	}), h("textlabel", {
-		Size: new UDim2(1, -(60 + props.rightW), 0, 16),
-		Position: UDim2.fromOffset(58, 28),
+		Size: new UDim2(1, -(textLeft + rightPad), 0, 15),
+		Position: new UDim2(0, textLeft, 0.5, compact ? 1 : 2),
 		BackgroundTransparency: 1,
 		Text: entry.subtitle ?? "",
 		TextSize: 12,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
+		FontFace: FONT_MED,
 		TextColor3: Palette.muted,
-		TextTransparency: arrive.map((a: number) => {
-			return 1 - a;
-		}),
+		TextTransparency: fadeText,
 		TextXAlignment: Enum.TextXAlignment.Left,
 		TextTruncate: Enum.TextTruncate.AtEnd,
 		ZIndex: 506,
-	}), props.rightW > 0 && h("frame", {
+	}),
+	// badge + kind chip
+	props.rightW > 0 && h("frame", {
 		Size: UDim2.fromOffset(props.rightW - 12, 22),
 		Position: new UDim2(1, -12, 0.5, 0),
 		AnchorPoint: new Vector2(1, 0.5),
@@ -568,33 +664,30 @@ function Row(props: RowProps): React.Element {
 		BackgroundColor3: Palette.mango,
 		Text: tostring(entry.badge),
 		TextSize: 11,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
+		FontFace: FONT_HEAVY,
 		TextColor3: Palette.ink,
 		ZIndex: 507,
-	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("uipadding", { PaddingLeft: new UDim(0, 6), PaddingRight: new UDim(0, 6) })), h("textlabel", {
-		Size: UDim2.fromOffset(0, 18),
+	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("uipadding", { PaddingLeft: new UDim(0, 6), PaddingRight: new UDim(0, 6) })),
+	h("textlabel", {
+		Size: UDim2.fromOffset(0, 20),
 		AutomaticSize: Enum.AutomaticSize.X,
 		LayoutOrder: 2,
-		BackgroundTransparency: 1,
+		BackgroundColor3: selected ? theme.darken(entry.accent, 0.6) : Palette.panelSoft,
+		BackgroundTransparency: arrive.map((a: number) => 1 - a * (selected ? 0.9 : 0.6)),
 		Text: meta.label,
-		TextSize: 12,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
+		TextSize: 11,
+		FontFace: FONT_BOLD,
 		TextColor3: selected ? entry.accent : Palette.muted,
-		TextTransparency: arrive.map((a: number) => {
-			return 1 - a;
-		}),
+		TextTransparency: fadeText,
 		ZIndex: 507,
-	}))));
+	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) })))));
 }
 
-// ── Header component ────────────────────────────────────────────────────────────
+// ── Section header ──────────────────────────────────────────────────────────────
 
 function Header(props: HeaderProps): React.Element {
 	const appearAt = props.appearAt;
-	const arrive = props.tick.map((now: number) => {
-		return appearAt === undefined ? 1 : easeOut((now - appearAt) / 0.4);
-	});
-
+	const arrive = props.tick.map((now: number) => (appearAt === undefined ? 1 : easeOut((now - appearAt) / 0.3)));
 	return h("frame", {
 		Size: new UDim2(1, 0, 0, HEADER_H),
 		LayoutOrder: props.layoutOrder,
@@ -603,46 +696,102 @@ function Header(props: HeaderProps): React.Element {
 	}, h("textlabel", {
 		Size: new UDim2(0, 0, 0, 14),
 		AutomaticSize: Enum.AutomaticSize.X,
-		Position: new UDim2(0, 12, 1, -8),
+		Position: new UDim2(0, 14, 1, -6),
 		AnchorPoint: new Vector2(0, 1),
 		BackgroundTransparency: 1,
 		Text: props.text,
 		TextSize: 11,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
-		TextColor3: Palette.mango,
-		TextTransparency: arrive.map((a: number) => {
-			return 1 - a;
-		}),
+		FontFace: FONT_HEAVY,
+		TextColor3: Palette.muted,
+		TextTransparency: arrive.map((a: number) => 1 - a),
 		ZIndex: 504,
 	}), h("frame", {
-		Size: arrive.map((a: number) => {
-			return new UDim2(a, -(24 + props.labelW), 0, 1);
-		}),
-		Position: new UDim2(0, 20 + props.labelW, 1, -14),
+		Size: arrive.map((a: number) => new UDim2(a, -(30 + props.labelW), 0, 1)),
+		Position: new UDim2(0, 22 + props.labelW, 1, -12),
 		BackgroundColor3: Palette.lineSoft,
-		BackgroundTransparency: 0.3,
+		BackgroundTransparency: 0.5,
 		BorderSizePixel: 0,
 		ZIndex: 504,
 	}));
 }
 
+// ── Footer key hint ─────────────────────────────────────────────────────────────
+
+function KeyHint(props: { keys: string; label: string; order: number }): React.Element {
+	return h("frame", {
+		Size: UDim2.fromOffset(0, 20),
+		AutomaticSize: Enum.AutomaticSize.X,
+		LayoutOrder: props.order,
+		BackgroundTransparency: 1,
+	}, h("uilistlayout", {
+		FillDirection: Enum.FillDirection.Horizontal,
+		VerticalAlignment: Enum.VerticalAlignment.Center,
+		Padding: new UDim(0, 5),
+		SortOrder: Enum.SortOrder.LayoutOrder,
+	}), h("textlabel", {
+		Size: UDim2.fromOffset(0, 18),
+		AutomaticSize: Enum.AutomaticSize.X,
+		LayoutOrder: 1,
+		BackgroundColor3: Palette.panelRaised,
+		Text: props.keys,
+		TextSize: 11,
+		FontFace: FONT_BOLD,
+		TextColor3: Palette.creamSoft,
+		ZIndex: 503,
+	}, h("uicorner", { CornerRadius: new UDim(0, 5) }), h("uipadding", { PaddingLeft: new UDim(0, 6), PaddingRight: new UDim(0, 6) }),
+	h("uistroke", { Color: Palette.lineSoft, Transparency: 0.4, ApplyStrokeMode: Enum.ApplyStrokeMode.Border })),
+	h("textlabel", {
+		Size: UDim2.fromOffset(0, 18),
+		AutomaticSize: Enum.AutomaticSize.X,
+		LayoutOrder: 2,
+		BackgroundTransparency: 1,
+		Text: props.label,
+		TextSize: 12,
+		FontFace: FONT_MED,
+		TextColor3: Palette.muted,
+		ZIndex: 503,
+	}));
+}
+
+// ── Hooks ───────────────────────────────────────────────────────────────────────
+
+// a per-frame clock binding, live only while `active` (plus a short tail for the close fade)
+function useFrameClock(active: boolean): React.Binding<number> {
+	const [tick, setTick] = React.useBinding(os.clock());
+	React.useEffect(() => {
+		const stopAt = os.clock() + 0.4;
+		const connection = RunService.RenderStepped.Connect(() => {
+			const now = os.clock();
+			setTick(now);
+			if (!active && now > stopAt) {
+				connection.Disconnect();
+			}
+		});
+		return () => connection.Disconnect();
+	}, [active]);
+	return tick;
+}
+
+const NAV_DOWN = new Set<Enum.KeyCode>([Enum.KeyCode.Down, Enum.KeyCode.DPadDown]);
+const NAV_UP = new Set<Enum.KeyCode>([Enum.KeyCode.Up, Enum.KeyCode.DPadUp]);
+
 // ── Main component ──────────────────────────────────────────────────────────────
 
 function QuickFindComponent(props: QuickFindComponentProps): React.Element {
-	const state = props.state;
 	const [open, setOpen] = React.useState(false);
 	const [query, setQuery] = React.useState("");
 	const [selected, setSelected] = React.useState(1);
 	const boxRef = React.useRef<TextBox>();
 	const listRef = React.useRef<ScrollingFrame>();
 	const viewport = useViewport();
-	const reduced = props.reducedMotion === true;
-	const show = useFlipperSpring(open ? 1 : 0, reduced, 420, 30);
+	const reduced = props.reducedMotion === true || GuiService.ReducedMotionEnabled === true;
 	const enabled = props.enabled !== false;
-	const [tick, setTick] = React.useBinding(os.clock());
-	// when the current results arrived (rows cascade from here) and when a row was picked
+	// panel spring: scale 0.96 -> 1 with a fade, ~0.18s
+	const show = useFlipperSpring(open ? 1 : 0, reduced, 520, 34);
+	const tick = useFrameClock(open);
 	const resultsAt = React.useRef(os.clock());
-	const pickedAt = React.useRef(-10);
+	const resultsRef = React.useRef<SearchEntry[]>([]);
+	const pickRef = React.useRef<() => void>(() => {});
 
 	const close = React.useCallback(() => {
 		setOpen(false);
@@ -651,13 +800,18 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 			box.ReleaseFocus();
 		}
 	}, []);
+	const dismiss = React.useCallback(() => {
+		close();
+		Audio.play("close");
+	}, [close]);
 
+	// open requests from anywhere (top bar, overview, keyboard)
 	React.useEffect(() => {
 		const request = () => {
 			if (enabled) {
 				setQuery("");
 				setSelected(1);
-				resultsAt.current = os.clock() + 0.12;
+				resultsAt.current = os.clock() + 0.06;
 				setOpen(true);
 				Audio.play("open");
 			}
@@ -677,31 +831,17 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		}
 	}, [enabled]);
 
-	// one clock while it is on screen (and a little after, for the fold-away)
+	// keyboard + gamepad: Ctrl/Cmd+K opens; Escape/B closes; Up/Down/DPad move; Enter/A picks
 	React.useEffect(() => {
-		const closingUntil = os.clock() + 0.6;
-		const connection = RunService.RenderStepped.Connect(() => {
-			const now = os.clock();
-			setTick(now);
-			if (!open && now > closingUntil) {
-				connection.Disconnect();
-			}
-		});
-		return () => {
-			connection.Disconnect();
-		};
-	}, [open]);
-
-	// keyboard: Ctrl+K opens, Escape closes, arrows move, Enter picks
-	const resultsRef = React.useRef<SearchEntry[]>([]);
-	React.useEffect(() => {
-		const connection = UserInputService.InputBegan.Connect((input: InputObject, processed: boolean) => {
-			if (input.UserInputType !== Enum.UserInputType.Keyboard) {
+		const connection = UserInputService.InputBegan.Connect((input: InputObject) => {
+			const kind = input.UserInputType;
+			const pad = kind === Enum.UserInputType.Gamepad1;
+			if (kind !== Enum.UserInputType.Keyboard && !pad) {
 				return;
 			}
 			const key = input.KeyCode;
 			if (!open) {
-				if (!enabled || UserInputService.GetFocusedTextBox() !== undefined) {
+				if (pad || !enabled || UserInputService.GetFocusedTextBox() !== undefined) {
 					return;
 				}
 				const ctrl = UserInputService.IsKeyDown(Enum.KeyCode.LeftControl)
@@ -714,26 +854,22 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 				}
 				return;
 			}
-			if (key === Enum.KeyCode.Escape) {
-				close();
-				Audio.play("close");
-			} else if (key === Enum.KeyCode.Down) {
+			if (key === Enum.KeyCode.Escape || key === Enum.KeyCode.ButtonB) {
+				dismiss();
+			} else if (NAV_DOWN.has(key)) {
 				Audio.play("tick");
-				setSelected((current: number) => {
-					return math.min(resultsRef.current!.size(), current + 1);
-				});
-			} else if (key === Enum.KeyCode.Up) {
+				setSelected((current: number) => math.min(math.max(1, resultsRef.current.size()), current + 1));
+			} else if (NAV_UP.has(key)) {
 				Audio.play("tick");
-				setSelected((current: number) => {
-					return math.max(1, current - 1);
-				});
+				setSelected((current: number) => math.max(1, current - 1));
+			} else if (key === Enum.KeyCode.ButtonA) {
+				pickRef.current();
 			}
 		});
-		return () => {
-			connection.Disconnect();
-		};
-	}, [open, enabled]);
+		return () => connection.Disconnect();
+	}, [open, enabled, dismiss]);
 
+	// focus the search box once open
 	React.useEffect(() => {
 		if (!open) {
 			return undefined;
@@ -749,119 +885,27 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		};
 	}, [open]);
 
-	// build and rank
-	let sections: Section[] = [];
-	let flat: SearchEntry[] = [];
-	let totalMatches = 0;
-	if (open) {
-		const live = buildLive(state, props.chatUnread);
-		const byKey: Record<string, SearchEntry> = {};
-		for (const entry of live) {
-			byKey[entry.key] = entry;
-		}
-		const staticEntries = buildStatic();
-		for (const entry of staticEntries) {
-			byKey[entry.key] = entry;
-		}
-		const tokens = Model.tokens(query);
-		if (tokens.size() === 0) {
-			const [okReady, ready] = pcall(() => ReadyBoard.collect(state, GameConfig));
-			if (okReady && (ready as unknown[]).size() > 0) {
-				const items: SearchEntry[] = [];
-				for (const entry of ready as Array<{ route: string; label: string; detail: string; icon: string; accent: Color3; count: number }>) {
-					const page = byKey["Page:" + entry.route];
-					if (page !== undefined) {
-						items.push({
-							key: page.key,
-							kind: "Page",
-							title: entry.label,
-							subtitle: entry.detail,
-							icon: entry.icon,
-							accent: entry.accent,
-							route: entry.route,
-							badge: entry.count,
-							fields: page.fields,
-						});
-					}
-				}
-				sections.push({ title: "READY NOW", entries: items });
-			}
-			const recent: SearchEntry[] = [];
-			for (const key of Model.recent()) {
-				if (byKey[key] !== undefined) {
-					recent.push(byKey[key]);
-				}
-			}
-			if (recent.size() > 0) {
-				sections.push({ title: "RECENT", entries: recent });
-			}
-			const pages: SearchEntry[] = [];
-			for (const entry of live) {
-				if (entry.kind === "Page" && !entry.locked) {
-					pages.push(entry);
-				}
-			}
-			pages.sort((a, b) => {
-				if (((a.badge ?? 0) > 0) !== ((b.badge ?? 0) > 0)) {
-					return (a.badge ?? 0) > 0;
-				}
-				return (a.order ?? 0) < (b.order ?? 0);
-			});
-			sections.push({ title: "JUMP TO", entries: pages });
-		} else {
-			const scored: Array<{ entry: SearchEntry; score: number }> = [];
-			const consider = (entry: SearchEntry) => {
-				const value = Model.score(tokens, entry.fields);
-				if (value > 0) {
-					const weight = KIND_META[entry.kind].weight * (entry.locked ? 0.6 : 1);
-					scored.push({ entry: entry, score: value * weight });
-				}
-			};
-			for (const entry of live) {
-				consider(entry);
-			}
-			for (const entry of staticEntries) {
-				consider(entry);
-			}
-			scored.sort((a, b) => {
-				if (a.score !== b.score) {
-					return a.score > b.score;
-				}
-				return a.entry.title < b.entry.title;
-			});
-			totalMatches = scored.size();
-			// best match first, then the rest grouped by what they are
-			const byKind: Record<string, Section> = {};
-			const kinds: Section[] = [];
-			for (let i = 0; i < math.min(MAX_RESULTS, scored.size()); i++) {
-				const entry = scored[i].entry;
-				if (i === 0) {
-					sections.push({ title: "BEST MATCH", entries: [entry] });
-				} else {
-					const label = KIND_META[entry.kind].group;
-					if (byKind[label] === undefined) {
-						byKind[label] = { title: label, entries: [] };
-						kinds.push(byKind[label]);
-					}
-					byKind[label].entries.push(entry);
-				}
-			}
-			for (const section of kinds) {
-				sections.push(section);
-			}
-		}
-		for (const section of sections) {
-			for (const entry of section.entries) {
-				flat.push(entry);
-			}
-		}
-	}
-
+	const results = React.useMemo<Results>(
+		() => (open ? search(props.state, query, props.chatUnread) : { sections: [], flat: [], total: 0 }),
+		[open, query, props.state, props.chatUnread],
+	);
+	const sections = results.sections;
+	const flat = results.flat;
 	resultsRef.current = flat;
 	const pickIndex = math.clamp(selected, 1, math.max(1, flat.size()));
-	const [rowYs, listHeight] = rowOffsets(sections);
 
-	// a new set of results cascades in
+	// layout: centered glass panel; full width with 44px rows on phones
+	const touch = UserInputService.TouchEnabled && !UserInputService.KeyboardEnabled;
+	const phone = viewport.width < 600;
+	const rowH = touch || phone ? ROW_H_TOUCH : ROW_H;
+	const [rowYs, listHeight] = rowOffsets(sections, rowH);
+	const [inset] = GuiService.GetGuiInset();
+	const width = phone ? viewport.width - 16 : math.min(640, viewport.width - 48);
+	const height = phone ? viewport.height - inset.Y - 24 : math.min(520, viewport.height - inset.Y - 96);
+	const rightW = width >= 480 ? 124 : 0;
+	const footerH = touch ? 0 : 34;
+
+	// a new set of results staggers in
 	const signature = query + "#" + tostring(flat.size());
 	const lastSignature = React.useRef(signature);
 	if (lastSignature.current !== signature) {
@@ -873,7 +917,6 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		if (entry === undefined) {
 			return;
 		}
-		pickedAt.current = os.clock();
 		Model.pushRecent(entry.key);
 		close();
 		if (entry.kind === "Action") {
@@ -886,6 +929,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		}
 		props.navigate(entry.route!);
 	};
+	pickRef.current = () => pick(resultsRef.current[pickIndex - 1]);
 
 	// keep the highlighted row in view while arrowing
 	React.useEffect(() => {
@@ -894,7 +938,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		if (list === undefined || !open || top === undefined) {
 			return;
 		}
-		const bottom = top + ROW_H;
+		const bottom = top + rowH;
 		const view = list.AbsoluteWindowSize.Y;
 		if (top - HEADER_H < list.CanvasPosition.Y) {
 			list.CanvasPosition = new Vector2(0, math.max(0, top - HEADER_H));
@@ -903,9 +947,10 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		}
 	}, [pickIndex, open, query]);
 
-	// the selection slab glides to the highlighted row
-	const slabY = useFlipperSpring(rowYs[pickIndex] ?? 0, reduced, 760, 44);
-	const slabAccent = (flat[pickIndex - 1] !== undefined ? flat[pickIndex - 1].accent : undefined) ?? Palette.mango;
+	// the highlight glides between rows
+	const highlightY = useFlipperSpring(rowYs[pickIndex] ?? 0, reduced, 700, 42);
+	const current = flat[pickIndex - 1];
+	const accent = current !== undefined ? current.accent : Palette.mango;
 
 	const rows: Record<string, React.Element | undefined> = {
 		layout: h("uilistlayout", {
@@ -916,10 +961,7 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 	};
 	let order = 0;
 	let index = 0;
-	const width = math.min(680, viewport.width - 24);
-	const rightW = width >= 520 ? 120 : 0;
 	const cascadeFrom = reduced ? undefined : resultsAt.current;
-
 	for (const [s, section] of ipairs(sections)) {
 		order += 1;
 		let labelW = 0;
@@ -928,173 +970,139 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		});
 		rows["h" + s] = h(Header, {
 			text: section.title,
-			labelW: labelW,
+			labelW,
 			layoutOrder: order,
-			tick: tick,
-			appearAt: cascadeFrom !== undefined ? cascadeFrom + math.min(index, CASCADE_ROWS) * 0.02 : undefined,
+			tick,
+			appearAt: cascadeFrom !== undefined ? cascadeFrom + math.min(index, CASCADE_ROWS) * STAGGER : undefined,
 		});
 		for (const entry of section.entries) {
 			order += 1;
 			index += 1;
 			const rowIndex = index;
 			rows[entry.key + "#" + s] = h(Row, {
-				entry: entry,
+				entry,
 				selected: rowIndex === pickIndex,
 				index: rowIndex,
-				rightW: rightW,
-				query: query,
+				rightW,
+				query,
 				layoutOrder: order,
 				onPick: pick,
 				onHover: setSelected,
-				tick: tick,
-				appearAt: cascadeFrom !== undefined && rowIndex <= CASCADE_ROWS ? cascadeFrom + rowIndex * 0.022 : undefined,
+				tick,
+				rowH,
+				appearAt: cascadeFrom !== undefined && rowIndex <= CASCADE_ROWS ? cascadeFrom + rowIndex * STAGGER : undefined,
 			});
 		}
 	}
 
 	const empty = open && flat.size() === 0 && h("frame", {
-		Size: new UDim2(1, 0, 0, 120),
+		Size: new UDim2(1, 0, 0, 160),
 		BackgroundTransparency: 1,
 		ZIndex: 503,
-	}, h("textlabel", {
-		Size: new UDim2(1, -24, 0, 22),
-		Position: UDim2.fromOffset(12, 26),
+	}, h("frame", {
+		Size: UDim2.fromOffset(44, 44),
+		Position: new UDim2(0.5, 0, 0, 18),
+		AnchorPoint: new Vector2(0.5, 0),
+		BackgroundColor3: Palette.panelSoft,
+		ZIndex: 504,
+	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("frame", {
+		Size: UDim2.fromOffset(22, 22),
+		Position: UDim2.fromScale(0.5, 0.5),
+		AnchorPoint: new Vector2(0.5, 0.5),
+		BackgroundTransparency: 1,
+		ZIndex: 505,
+	}, h(Icon, { kind: "Search.9", color: Palette.muted, accent: Palette.muted, size: 22, spin: false }))),
+	h("textlabel", {
+		Size: new UDim2(1, -32, 0, 22),
+		Position: UDim2.fromOffset(16, 70),
 		BackgroundTransparency: 1,
 		Text: `Nothing matches "${query}"`,
 		TextSize: 16,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
+		FontFace: FONT_BOLD,
 		TextColor3: Palette.cream,
-		TextXAlignment: Enum.TextXAlignment.Left,
+		TextTruncate: Enum.TextTruncate.AtEnd,
 		ZIndex: 504,
 	}), h("textlabel", {
-		Size: new UDim2(1, -24, 0, 40),
-		Position: UDim2.fromOffset(12, 52),
+		Size: new UDim2(1, -32, 0, 40),
+		Position: UDim2.fromOffset(16, 96),
 		BackgroundTransparency: 1,
+		// kept as two literals (a single long string tripped a compiler bug)
 		Text: "Search works on page names, settings, relics, machines and research. Try \"music\", \"vault\" or a relic" + "'s name.",
 		TextSize: 13,
 		TextWrapped: true,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
+		FontFace: FONT_MED,
 		TextColor3: Palette.muted,
-		TextXAlignment: Enum.TextXAlignment.Left,
 		TextYAlignment: Enum.TextYAlignment.Top,
 		ZIndex: 504,
 	}));
 
-	const [inset] = GuiService.GetGuiInset();
-	const height = math.min(560, viewport.height - inset.Y - 48);
-	const touch = UserInputService.TouchEnabled && !UserInputService.KeyboardEnabled;
-	// the seam ignites first, then the panel unfolds down out of it
-	const seam = show.map((amount: number) => {
-		return math.clamp(amount * 1.8, 0, 1);
-	});
-	const unfold = show.map((amount: number) => {
-		return math.clamp((amount - 0.3) / 0.7, 0, 1);
-	});
-	const shownCount = React.useRef(0);
-	const countText = tick.map(() => {
-		const target = query === "" ? flat.size() : totalMatches;
-		shownCount.current! += (target - shownCount.current!) * 0.35;
-		if (math.abs(target - shownCount.current!) < 0.5) {
-			shownCount.current = target;
-		}
-		if (query === "") {
-			return "";
-		}
-		const n = math.floor(shownCount.current! + 0.5);
-		return `${n} found`;
-	});
+	const countLabel = query === "" ? "" : `${results.total} found`;
+	const fade = (base: number) => show.map((a: number) => 1 - (1 - base) * math.clamp(a, 0, 1));
 
 	return h("frame", {
 		Size: UDim2.fromScale(1, 1),
 		BackgroundTransparency: 1,
-		Visible: show.map((amount: number) => {
-			return amount > 0.01;
-		}),
+		Visible: show.map((a: number) => a > 0.01),
 		ZIndex: 500,
-	}, h("imagebutton", {
+	},
+	// dim backdrop; tap outside closes
+	h("imagebutton", {
 		Size: UDim2.fromScale(1, 1),
 		BackgroundColor3: Palette.void,
-		BackgroundTransparency: show.map((amount: number) => {
-			return 1 - math.clamp(amount, 0, 1) * 0.5;
-		}),
+		BackgroundTransparency: fade(0.45),
 		BorderSizePixel: 0,
 		AutoButtonColor: false,
 		Selectable: false,
 		Active: open,
 		ZIndex: 500,
-		Event: {
-			Activated: () => {
-				close();
-				Audio.play("close");
-			},
-		},
-	}), h("frame", {
-		// the seam: a molten line the palette opens out of
-		Size: seam.map((a: number) => {
-			return UDim2.fromOffset(width * a, 2);
-		}),
-		Position: new UDim2(0.5, 0, 0, inset.Y + 24),
-		AnchorPoint: new Vector2(0.5, 0.5),
-		BackgroundColor3: Palette.white,
-		BackgroundTransparency: show.map((amount: number) => {
-			return 1 - math.clamp(amount * 2, 0, 1);
-		}),
-		BorderSizePixel: 0,
-		ZIndex: 510,
-	}, h("uigradient", {
-		Color: new ColorSequence([
-			new ColorSequenceKeypoint(0, Palette.ember),
-			new ColorSequenceKeypoint(0.5, WHITE_HOT),
-			new ColorSequenceKeypoint(1, Palette.ember),
-		]),
-		Offset: tick.map((now: number) => {
-			return new Vector2(math.sin(now * 1.7) * 0.35, 0);
-		}),
-	})), h("frame", {
+		Event: { Activated: dismiss },
+	}),
+	// the glass panel
+	h("canvasgroup", {
 		Name: "QuickFind",
-		Size: unfold.map((a: number) => {
-			return UDim2.fromOffset(width, math.max(2, height * a));
-		}),
-		Position: new UDim2(0.5, 0, 0, inset.Y + 24),
-		AnchorPoint: new Vector2(0.5, 0),
+		Size: UDim2.fromOffset(width, height),
+		Position: phone ? new UDim2(0.5, 0, 0, inset.Y + 12) : new UDim2(0.5, 0, 0.5, inset.Y / 2),
+		AnchorPoint: phone ? new Vector2(0.5, 0) : new Vector2(0.5, 0.5),
 		BackgroundColor3: Palette.panel,
+		BackgroundTransparency: 0.08,
+		GroupTransparency: fade(0),
 		BorderSizePixel: 0,
 		ZIndex: 501,
-		ClipsDescendants: true,
-	}, h("uicorner", { CornerRadius: new UDim(0, 16) }), h("uistroke", {
-		Color: Palette.lineSoft,
-		Transparency: 0.3,
-		Thickness: 1,
-		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
-	}), h("frame", {
-		Size: new UDim2(1, -24, 0, 50),
+	}, h("uiscale", { Scale: show.map((a: number) => 0.96 + 0.04 * math.clamp(a, 0, 1)) }),
+	h("uicorner", { CornerRadius: new UDim(0, 16) }),
+	h("uistroke", { Color: Palette.lineSoft, Transparency: 0.35, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+	h("uigradient", {
+		Rotation: 90,
+		Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.06)]),
+		Color: new ColorSequence(Palette.panelRaised, Palette.panel),
+	}),
+	// search bar
+	h("frame", {
+		Size: new UDim2(1, -24, 0, 48),
 		Position: UDim2.fromOffset(12, 12),
 		BackgroundColor3: Palette.panelSoft,
 		BorderSizePixel: 0,
 		ZIndex: 502,
-	}, h("uicorner", { CornerRadius: new UDim(0, 12) }), h("uistroke", {
-		Color: Palette.mango,
-		Thickness: 1,
-		Transparency: tick.map((now: number) => {
-			return 0.55 + math.sin(now * 2.2) * 0.15;
-		}),
-	}), h("frame", {
-		Size: UDim2.fromOffset(22, 22),
+	}, h("uicorner", { CornerRadius: new UDim(0, 12) }),
+	h("uistroke", { Color: accent, Thickness: 1, Transparency: 0.55, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+	h("frame", {
+		Size: UDim2.fromOffset(20, 20),
 		Position: new UDim2(0, 14, 0.5, 0),
 		AnchorPoint: new Vector2(0, 0.5),
 		BackgroundTransparency: 1,
 		ZIndex: 503,
-	}, h(Icon, { kind: "Search.9", color: Palette.mango, accent: Palette.mango, size: 22, spin: false })), h("textbox", {
+	}, h(Icon, { kind: "Search.9", color: Palette.creamSoft, accent: Palette.mango, size: 20, spin: false })),
+	h("textbox", {
 		ref: boxRef,
-		Size: new UDim2(1, -(48 + (touch ? 52 : 70) + 80), 1, 0),
-		Position: UDim2.fromOffset(46, 0),
+		Size: new UDim2(1, -(44 + 44 + 80), 1, 0),
+		Position: UDim2.fromOffset(44, 0),
 		BackgroundTransparency: 1,
 		Text: query,
-		PlaceholderText: "Pages, settings, relics, machines…",
+		PlaceholderText: "Search pages, settings, relics, machines…",
 		PlaceholderColor3: Palette.muted,
 		TextColor3: Palette.cream,
 		TextSize: 17,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
+		FontFace: FONT_MED,
 		TextXAlignment: Enum.TextXAlignment.Left,
 		ClearTextOnFocus: false,
 		TextTruncate: Enum.TextTruncate.AtEnd,
@@ -1104,14 +1112,6 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 				if (box.Text !== query) {
 					if (box.IsFocused() && box.Text.size() > query.size()) {
 						Audio.play("searchType");
-						// every keypress throws a spark off the end of the text
-						if (!reduced) {
-							pcall(() => {
-								const Juice = require(script.Parent!.FindFirstChild("JuiceFx")! as ModuleScript) as JuiceApi;
-								const at = box.AbsolutePosition.add(new Vector2(math.min(box.TextBounds.X, box.AbsoluteSize.X) + 2, box.AbsoluteSize.Y / 2));
-								Juice.spark(at, Palette.mango, 9 + math.random() * 5);
-							});
-						}
 					}
 					setQuery(box.Text);
 					setSelected(1);
@@ -1121,95 +1121,116 @@ function QuickFindComponent(props: QuickFindComponentProps): React.Element {
 		Event: {
 			FocusLost: (_box: TextBox, enterPressed: boolean) => {
 				if (enterPressed && open) {
-					pick(resultsRef.current![pickIndex - 1]);
+					pick(resultsRef.current[pickIndex - 1]);
 				}
 			},
 		},
 	}), h("textlabel", {
-		Size: UDim2.fromOffset(76, 30),
-		Position: new UDim2(1, -(touch ? 60 : 76), 0.5, 0),
+		Size: UDim2.fromOffset(72, 30),
+		Position: new UDim2(1, -48, 0.5, 0),
 		AnchorPoint: new Vector2(1, 0.5),
 		BackgroundTransparency: 1,
-		Text: countText,
+		Text: countLabel,
 		TextSize: 12,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
+		FontFace: FONT_BOLD,
 		TextColor3: Palette.muted,
 		TextXAlignment: Enum.TextXAlignment.Right,
 		ZIndex: 503,
-	}), h("textbutton", {
-		Size: UDim2.fromOffset(touch ? 44 : 58, 30),
-		Position: new UDim2(1, -10, 0.5, 0),
+	}),
+	// clear (with text) or close (empty) button, 44px tap target
+	h("textbutton", {
+		Size: UDim2.fromOffset(40, 40),
+		Position: new UDim2(1, -4, 0.5, 0),
 		AnchorPoint: new Vector2(1, 0.5),
 		BackgroundColor3: Palette.panelRaised,
+		BackgroundTransparency: 0.2,
 		BorderSizePixel: 0,
-		AutoButtonColor: false,
-		Text: touch ? "Close" : "Esc",
-		TextSize: 12,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
-		TextColor3: Palette.muted,
+		AutoButtonColor: true,
+		Text: query !== "" ? "✕" : touch ? "Close" : "Esc",
+		TextSize: query !== "" ? 14 : 11,
+		FontFace: FONT_BOLD,
+		TextColor3: Palette.creamSoft,
 		ZIndex: 503,
 		Event: {
 			Activated: () => {
-				close();
-				Audio.play("close");
+				if (query !== "") {
+					setQuery("");
+					setSelected(1);
+					const box = boxRef.current;
+					if (box !== undefined) {
+						box.CaptureFocus();
+					}
+				} else {
+					dismiss();
+				}
 			},
 		},
-	}, h("uicorner", { CornerRadius: new UDim(0, 8) }))), h("scrollingframe", {
+	}, h("uicorner", { CornerRadius: new UDim(0, 10) }))),
+	// results
+	h("scrollingframe", {
 		ref: listRef,
-		Size: new UDim2(1, -16, 1, -(74 + (touch ? 8 : 30))),
-		Position: UDim2.fromOffset(8, 70),
+		Size: new UDim2(1, -16, 1, -(72 + footerH + 6)),
+		Position: UDim2.fromOffset(8, 68),
 		BackgroundTransparency: 1,
 		BorderSizePixel: 0,
-		CanvasSize: UDim2.fromOffset(0, flat.size() === 0 ? 120 : listHeight + 6),
+		CanvasSize: UDim2.fromOffset(0, flat.size() === 0 ? 160 : listHeight + 6),
 		ScrollBarThickness: 3,
 		ScrollBarImageColor3: Palette.muted,
 		ScrollingDirection: Enum.ScrollingDirection.Y,
 		ZIndex: 502,
 	}, flat.size() > 0 && h("frame", {
-		// the selection slab: one plate that glides between rows, its edge glowing in the row's colour
-		Size: new UDim2(1, -4, 0, ROW_H),
-		Position: slabY.map((y: number) => {
-			return UDim2.fromOffset(0, y);
-		}),
-		BackgroundColor3: tick.map((now: number) => {
-			const flash = 1 - math.clamp((now - pickedAt.current!) / 0.25, 0, 1);
-			return Palette.panelRaised.Lerp(WHITE_HOT, flash * 0.7);
-		}),
+		// the selection highlight: one plate that glides between rows
+		Size: new UDim2(1, -4, 0, rowH),
+		Position: highlightY.map((y: number) => UDim2.fromOffset(0, y)),
+		BackgroundColor3: theme.darken(accent, 0.72),
+		BackgroundTransparency: 0.1,
 		BorderSizePixel: 0,
 		ZIndex: 502,
-	}, h("uicorner", { CornerRadius: new UDim(0, 10) }), h("uistroke", {
-		Color: slabAccent,
-		Transparency: 0.5,
-		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
-	}), h("frame", {
-		Size: new UDim2(0, 3, 1, -16),
-		Position: new UDim2(0, 0, 0.5, 0),
+	}, h("uicorner", { CornerRadius: new UDim(0, 10) }),
+	h("uistroke", { Color: accent, Transparency: 0.55, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+	h("frame", {
+		Size: new UDim2(0, 3, 1, -18),
+		Position: new UDim2(0, 2, 0.5, 0),
 		AnchorPoint: new Vector2(0, 0.5),
-		BackgroundColor3: slabAccent,
+		BackgroundColor3: accent,
 		BorderSizePixel: 0,
-		ZIndex: 504,
-	}, h("uicorner", { CornerRadius: new UDim(1, 0) }), h("uigradient", {
-		Rotation: 90,
-		Color: new ColorSequence(slabAccent, WHITE_HOT),
-		Offset: tick.map((now: number) => {
-			return new Vector2(0, math.sin(now * 3) * 0.4);
-		}),
-	}))), h("frame", {
-		Size: new UDim2(1, 0, 0, flat.size() === 0 ? 120 : listHeight),
+		ZIndex: 503,
+	}, h("uicorner", { CornerRadius: new UDim(1, 0) }))),
+	h("frame", {
+		Size: new UDim2(1, 0, 0, flat.size() === 0 ? 160 : listHeight),
 		BackgroundTransparency: 1,
 		ZIndex: 504,
-	}, rows, empty)), !touch && h("textlabel", {
-		Size: new UDim2(1, -24, 0, 22),
-		Position: new UDim2(0, 12, 1, -26),
-		BackgroundTransparency: 1,
-		Text: "Up and Down to move  ·  Enter to open  ·  Ctrl+K from anywhere",
-		TextSize: 12,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
-		TextColor3: Palette.muted,
-		TextXAlignment: Enum.TextXAlignment.Left,
+	}, rows, empty)),
+	// footer key hints
+	footerH > 0 && h("frame", {
+		Size: new UDim2(1, 0, 0, footerH),
+		Position: new UDim2(0, 0, 1, -footerH),
+		BackgroundColor3: Palette.panelSoft,
+		BackgroundTransparency: 0.4,
+		BorderSizePixel: 0,
 		ZIndex: 502,
-	})));
+	}, h("frame", {
+		Size: new UDim2(1, 0, 0, 1),
+		BackgroundColor3: Palette.lineSoft,
+		BackgroundTransparency: 0.5,
+		BorderSizePixel: 0,
+		ZIndex: 503,
+	}), h("frame", {
+		Size: new UDim2(1, -28, 1, 0),
+		Position: UDim2.fromOffset(14, 0),
+		BackgroundTransparency: 1,
+		ZIndex: 503,
+	}, h("uilistlayout", {
+		FillDirection: Enum.FillDirection.Horizontal,
+		VerticalAlignment: Enum.VerticalAlignment.Center,
+		Padding: new UDim(0, 14),
+		SortOrder: Enum.SortOrder.LayoutOrder,
+	}), h(KeyHint, { keys: "↑ ↓", label: "Move", order: 1 }),
+	h(KeyHint, { keys: "Enter", label: "Open", order: 2 }),
+	h(KeyHint, { keys: "Esc", label: "Close", order: 3 }),
+	!phone && h(KeyHint, { keys: "Ctrl+K", label: "From anywhere", order: 4 })))));
 }
+
 
 // ── Module export ───────────────────────────────────────────────────────────────
 
