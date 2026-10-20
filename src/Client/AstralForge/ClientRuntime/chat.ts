@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import * as ChatText from "../CoreKit/chatText";
 import { truthy } from "../lua";
+import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 
 const Players = game.GetService("Players");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
@@ -49,6 +50,8 @@ interface ChatRecord {
 	artifactName?: string;
 	artifactElement?: string;
 	artifactColor?: Color3;
+	profileAccent?: Color3;
+	profileFrame?: string;
 }
 
 interface WhisperEntry {
@@ -81,6 +84,7 @@ function readTitleAttrs(player: Player | undefined) {
 	const artifactName = player.GetAttribute("EquippedArtifactName");
 	const artifactElement = player.GetAttribute("EquippedArtifactElement");
 	const artifactColor = player.GetAttribute("EquippedArtifactColor");
+	const style = ProfileStyle.fromPlayer(player);
 	const hasArtifact = typeIs(player.GetAttribute("EquippedArtifact"), "string") && player.GetAttribute("EquippedArtifact") !== "";
 	return {
 		titleId: nonEmpty(titleId),
@@ -89,6 +93,8 @@ function readTitleAttrs(player: Player | undefined) {
 		artifactName: hasArtifact ? nonEmpty(artifactName) : undefined,
 		artifactElement: hasArtifact ? nonEmpty(artifactElement) : undefined,
 		artifactColor: hasArtifact && typeIs(artifactColor, "Color3") ? artifactColor : undefined,
+		profileAccent: style.accent,
+		profileFrame: style.frame?.Id,
 	} as Partial<ChatRecord>;
 }
 
@@ -172,6 +178,8 @@ function buildRecord(userId: number, text: string, channel: string, peerId: numb
 		artifactName: title.artifactName,
 		artifactElement: title.artifactElement,
 		artifactColor: title.artifactColor,
+		profileAccent: title.profileAccent,
+		profileFrame: title.profileFrame,
 	};
 }
 

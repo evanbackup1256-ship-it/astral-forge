@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { composePresence, useEntrance, useExitTransition, useFlipperSpring, useViewport } from "../MotionKit/motion";
@@ -294,6 +295,9 @@ function PlayerRow(param: PlayerRowProps) {
 	const away = param.away;
 	const reported = param.reported;
 	const accent = row.IsLocal ? Palette.mint : friend ? Palette.mango : Palette.cyan;
+	// a player's chosen profile accent/frame (defaults leave the card unchanged)
+	const style = ProfileStyle.fromPlayer(Players.GetPlayerByUserId(row.UserId));
+	const strokeColor = style.accent ?? accent;
 	const openAmount = useFlipperSpring(expanded ? 1 : 0, reducedMotion, 560, 44);
 	const [hovered, setHovered] = React.useState(false);
 	const hover = useFlipperSpring(hovered || expanded ? 1 : 0, reducedMotion, 900, 44);
@@ -452,11 +456,23 @@ function PlayerRow(param: PlayerRowProps) {
 			ZIndex: 620,
 		},
 		h("uicorner", { CornerRadius: new UDim(0, 12) }),
-		h("uistroke", {
-			Color: accent,
-			Thickness: 1,
-			Transparency: hover.map((amount) => 0.8 - math.clamp(amount, 0, 1) * 0.45),
-		}),
+		h(
+			"uistroke",
+			{
+				Color: style.frame?.Gradient ? new Color3(1, 1, 1) : strokeColor,
+				Thickness: style.frame?.Thickness ?? 1,
+				Transparency: hover.map((amount) => (style.frame !== undefined ? 0.45 : 0.8) - math.clamp(amount, 0, 1) * 0.45),
+			},
+			style.frame?.Gradient === true &&
+				h("uigradient", {
+					Color: new ColorSequence([
+						new ColorSequenceKeypoint(0, strokeColor),
+						new ColorSequenceKeypoint(0.5, Palette.violet),
+						new ColorSequenceKeypoint(1, Palette.mango),
+					]),
+					Rotation: 35,
+				}),
+		),
 		h(
 			"textbutton",
 			{
@@ -495,7 +511,7 @@ function PlayerRow(param: PlayerRowProps) {
 			h(Text, {
 				value: row.DisplayName,
 				size: 15,
-				color: Palette.cream,
+				color: style.accent !== undefined ? lighten(style.accent, 0.12) : Palette.cream,
 				weight: Enum.FontWeight.Heavy,
 				fit: true,
 				minSize: 11,

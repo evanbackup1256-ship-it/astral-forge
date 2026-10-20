@@ -171,7 +171,7 @@ function __member(): unknown {
 		let rowHeight: unknown = luaProp(_param, "rowHeight");
 		let softMotion: unknown = reducedMotion;
 		let enter: unknown = luaCall(useMessageEntrance, animate, reducedMotion);
-		let accent: unknown = (luaTruthy(luaProp(message, "system")) ? luaProp(Palette, "mango") : luaCall(userColor, luaProp(message, "userId")));
+		let accent: unknown = (luaTruthy(luaProp(message, "system")) ? luaProp(Palette, "mango") : (luaProp(message, "profileAccent") ?? luaCall(userColor, luaProp(message, "userId"))));
 		let authorId: unknown = (tonumber(luaProp(message, "userId")) || 0);
 		if (((authorId !== authorId) || ((math.abs as unknown as (...a: unknown[]) => unknown)(authorId) === luaProp(math, "huge")))) {
 			authorId = 0;
