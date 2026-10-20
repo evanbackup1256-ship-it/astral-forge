@@ -1,4 +1,5 @@
 import { Service } from "@flamework/core";
+import { Report } from "./SecurityLedger";
 import ServerConfig from "../../ServerConfig";
 import { d, Dict, EconomyApi, economyKit, Flux, isFiniteNumber, isTable, ModuleLogApi, req, SharedFolder, truthy } from "../LuaInterop";
 
@@ -390,6 +391,17 @@ export class GameAntiCheat {
 						if (Economy.Gt(delta, ceilingFloor)) {
 							// Flag the containing transaction so callers can discard an illegal credit when enforcement is enabled.
 							wouldReject = (ServerConfig.GameAntiCheat as Dict).EnforcementEnabled === true;
+							Report(
+								player,
+								"impossible-progress",
+								4,
+								"%s Cash rose %s in %.1fs, ceiling %s".format(
+									action,
+									tostring(delta),
+									elapsed,
+									tostring(ceilingFloor),
+								),
+							);
 							ModuleLog.Every(
 								"velocity:%d".format(player.UserId),
 								30,

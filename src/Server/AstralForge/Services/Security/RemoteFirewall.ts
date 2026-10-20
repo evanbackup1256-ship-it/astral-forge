@@ -1,4 +1,7 @@
 import ModuleLog = require("../../ModuleLog");
+import { ActionBuckets } from "./ActionBuckets";
+import * as PayloadShape from "./PayloadShape";
+import { Ledger, Report } from "./SecurityLedger";
 import BazaarMath from "../../Modules/BazaarMath";
 import OpsMath from "../../Modules/OpsMath";
 import Protocol from "../../../../Shared/AstralForge/Shared/Protocol";
@@ -69,6 +72,7 @@ interface Bucket {
 	WindowStart: number;
 	WindowCount: number;
 	LastRejectedAction?: string;
+	Categories: ActionBuckets;
 }
 
 interface ClientIntegrityState {
@@ -1189,6 +1193,7 @@ function newBucket(now: number): Bucket {
 		WindowStart: now,
 		WindowCount: 0,
 		LastRejectedAction: undefined,
+		Categories: new ActionBuckets(),
 	};
 }
 
@@ -1249,11 +1254,19 @@ export class RemoteFirewall {
 		if (!typeIs(action, "string") || ACTIONS[action] !== true) {
 			state.LastRejectedAction = tostring(action);
 			this._strike(player, state, "unknown action", 2);
+			Report(player, "unknown-action", 2, string.sub(tostring(action), 1, 48));
 			return $tuple(false, "Unknown forge command.");
 		}
 		if (state.QuarantineUntil > now && action !== Protocol.Actions.GetState) {
 			this.telemetry.RecordRemote(false, "quarantine");
 			return $tuple(false, "Remote traffic paused briefly. Please try again.");
+		}
+		const shapeProblem = PayloadShape.Validate(payload);
+		if (shapeProblem !== undefined) {
+			state.LastRejectedAction = action;
+			this._strike(player, state, shapeProblem, 1);
+			Report(player, "payload-shape", 2, action + ": " + shapeProblem);
+			return $tuple(false, "That request could not be validated.");
 		}
 		const [payloadOk, payloadReason] = validateActionPayload(action, payload);
 		if (!payloadOk) {
@@ -1276,6 +1289,16 @@ export class RemoteFirewall {
 			}
 			this.telemetry.RecordRemote(true);
 			return $tuple(true, undefined);
+		}
+		// Tap actions above (CollectVault, Overcharge, GetState...) are exempt on purpose; every other
+		// action also draws from its category's burst bucket, refilled at a quarter rate while the
+		// player is throttled by the security ledger.
+		const throttled = Ledger.Level(player.UserId) !== "log";
+		const [bucketOk, category] = state.Categories.Take(action, now, throttled ? 0.25 : 1);
+		if (!bucketOk) {
+			this.telemetry.RecordRemote(false, "category rate");
+			Report(player, "rate:" + category, 0.5, action);
+			return $tuple(false, "Please slow down for a moment.");
 		}
 		if (now - state.WindowStart >= 2) {
 			state.WindowStart = now;

@@ -1,4 +1,5 @@
 import { Service } from "@flamework/core";
+import { Ledger } from "./Security/SecurityLedger";
 import { ServerTelemetry } from "./ServerTelemetry";
 import type { DataService } from "./DataService";
 import { ServerEvents } from "../Runtime/ServerNetwork";
@@ -733,6 +734,8 @@ export class AdminService {
 			LastAction: this._lastByActor !== undefined ? this._lastByActor.get(viewer.UserId) : undefined,
 			Integrity: this._data.GetIntegrityStatus(viewer),
 			Telemetry: this.telemetry.Snapshot(),
+			// newest first: { At, UserId, Name, Kind, Weight, Score, Response, Detail }
+			SecurityFlags: Ledger.Recent(25),
 		};
 	}
 

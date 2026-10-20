@@ -23,6 +23,7 @@ interface Session {
 	auth: boolean;
 	txns: Record<string, unknown>;
 	txnOrder: string[];
+	txnPrints: Record<string, string>;
 }
 
 function newNonce(): string {
@@ -61,6 +62,7 @@ export class SessionGate {
 			auth: false,
 			txns: {},
 			txnOrder: [],
+			txnPrints: {},
 		};
 		this._sessions.set(player, created);
 		return created;
@@ -173,9 +175,17 @@ export class SessionGate {
 		return $tuple(true, stored);
 	}
 
-	TxnClaim(player: Player, txnId: string): LuaTuple<[string, unknown]> {
+	/**
+	 * Claims a client transaction id. `fingerprint` identifies the request it was first used
+	 * for; the same id arriving with a different request is a replay attempt ("mismatch").
+	 */
+	TxnClaim(player: Player, txnId: string, fingerprint?: string): LuaTuple<[string, unknown]> {
 		const session = this._get(player);
 		const stored = session.txns[txnId];
+		const print = session.txnPrints[txnId];
+		if (stored !== undefined && fingerprint !== undefined && print !== undefined && print !== fingerprint) {
+			return $tuple("mismatch", undefined);
+		}
 		if (stored === TXN_PENDING) {
 			return $tuple("busy", undefined);
 		}
@@ -187,9 +197,13 @@ export class SessionGate {
 			const oldest = session.txnOrder.shift();
 			if (oldest !== undefined) {
 				delete session.txns[oldest];
+				delete session.txnPrints[oldest];
 			}
 		}
 		session.txns[txnId] = TXN_PENDING;
+		if (fingerprint !== undefined) {
+			session.txnPrints[txnId] = fingerprint;
+		}
 		return $tuple("new", undefined);
 	}
 
@@ -201,6 +215,7 @@ export class SessionGate {
 				const oldest = session.txnOrder.shift();
 				if (oldest !== undefined) {
 					delete session.txns[oldest];
+					delete session.txnPrints[oldest];
 				}
 			}
 		}
@@ -211,6 +226,7 @@ export class SessionGate {
 		const session = this._get(player);
 		if (session.txns[txnId] === TXN_PENDING) {
 			delete session.txns[txnId];
+			delete session.txnPrints[txnId];
 			for (const [index, id] of pairs(session.txnOrder)) {
 				if (id === txnId) {
 					session.txnOrder.remove(index - 1);

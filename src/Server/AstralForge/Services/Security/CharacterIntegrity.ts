@@ -1,5 +1,6 @@
 import { ModuleLogApi, req } from "../LuaInterop";
 import { RemoteFirewall } from "./RemoteFirewall";
+import { Report } from "./SecurityLedger";
 
 interface PlayerState {
 	Character?: Model;
@@ -131,6 +132,8 @@ export = () => {
 		state.LastPosition = safeCFrame.Position;
 		state.Score *= 0.55;
 		player.SetAttribute("AF_ServerMotionCorrections", state.Corrections);
+		// low weight: a rubber-band after packet loss looks the same as one correction
+		Report(player, "movement", 1, "position corrected, motion score %.1f".format(state.Score));
 		ModuleLog.Every(
 			"motion-correct:%d".format(player.UserId),
 			4,

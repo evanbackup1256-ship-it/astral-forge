@@ -16,6 +16,9 @@ import { PayloadEvent, ServerEvents, ServerFunctions } from "../Runtime/ServerNe
 import { FluxSurgeService } from "./FluxSurgeService";
 import { GuildService } from "./Gameplay/GuildService";
 import { RemoteFirewall } from "./Security/RemoteFirewall";
+import * as ActionBuckets from "./Security/ActionBuckets";
+import * as PayloadShape from "./Security/PayloadShape";
+import { Ledger, Report } from "./Security/SecurityLedger";
 import { ServerEventService } from "./Gameplay/ServerEventService";
 import AnomalyModule = require("./Gameplay/Anomaly");
 import ForgeEchoModule = require("./Gameplay/ForgeEcho");
@@ -271,6 +274,9 @@ const ensureCommandMastery = (profile: Profile) => {
 const copyDictionary = (source: unknown) => DataSanitizeMath.DeepCopy(source);
 
 const responseError = (message: unknown): Response => ActionResponse.Error(message) as Response;
+
+// session fields that legitimately change when the client retries a TxnId
+const TXN_PRINT_IGNORE: Record<string, boolean> = { Gen: true, N: true, TxnId: true };
 
 const responseSuccess = (message?: unknown, extra?: unknown): Response =>
 	ActionResponse.Success(message, extra) as Response;
@@ -779,6 +785,7 @@ export class GameService {
 			if (userId === undefined) {
 				return responseError("Choose a player to invite.");
 			}
+			this._flagTradeInvite(player, userId);
 			if (!truthy(this._trades.Unlocked(profile))) {
 				return responseError("Trade Floor unlocks after your first rebirth.");
 			}
@@ -3728,6 +3735,27 @@ export class GameService {
 			CrateConfig.RarityOrder,
 			CrateConfig.MinimumRollInterval,
 		);
+	}
+
+	// Abuse patterns that are only visible across requests. Each one is a flag, never a rejection
+	// on its own: the request's own validation already decided whether it goes through.
+	_flagFailedRequest(player: Player, action: string) {
+		const category = ActionBuckets.CategoryOf(action);
+		if (category === "Purchase" && Ledger.Burst("buy-fail:" + player.UserId, 20, 15)) {
+			Report(player, "purchase-probing", 1.5, "more than 15 refused purchases in 20s, last " + action);
+		} else if (category === "Trade" && Ledger.Burst("trade-fail:" + player.UserId, 30, 15)) {
+			Report(player, "trade-probing", 1.5, "more than 15 refused trade requests in 30s, last " + action);
+		}
+	}
+
+	_flagTradeInvite(player: Player, targetUserId: unknown) {
+		const key = "trade-invite:" + player.UserId + ":" + tostring(targetUserId);
+		// a repeat invite to the same player is one entry; fan-out to many different players is the signal
+		if (!Ledger.Burst(key, 60, 1)) {
+			if (Ledger.Burst("trade-invite-fanout:" + player.UserId, 60, 8)) {
+				Report(player, "trade-invite-spam", 2, "trade invites to more than 8 players in 60s");
+			}
+		}
 	}
 
 	_buyItemOffer(player: Player, offerId: unknown) {
@@ -6790,7 +6818,19 @@ export class GameService {
 				payloadTable !== undefined && typeIs(payloadTable.TxnId, "string") ? payloadTable.TxnId : undefined;
 			let txnClaimed = false;
 			if (txnId !== undefined) {
-				const [status, storedResult] = this._session.TxnClaim(player, txnId) as LuaTuple<[unknown, unknown]>;
+				if (txnId.size() > 64) {
+					Report(player, "txn-id", 2, "TxnId of " + txnId.size() + " chars");
+					return responseError("That request could not be validated.");
+				}
+				const [status, storedResult] = this._session.TxnClaim(
+					player,
+					txnId,
+					tostring(action) + "|" + PayloadShape.Fingerprint(payload, TXN_PRINT_IGNORE),
+				) as LuaTuple<[unknown, unknown]>;
+				if (status === "mismatch") {
+					Report(player, "txn-replay", 3, string.format("%s reused a TxnId from a different request", tostring(action)));
+					return responseError("That request could not be validated.");
+				}
 				if (status === "done") {
 					return storedResult as Response;
 				}
@@ -6831,6 +6871,9 @@ export class GameService {
 				} else {
 					this._session.TxnRelease(player, txnId);
 				}
+			}
+			if (resultBag.ok === false) {
+				this._flagFailedRequest(player, action as string);
 			}
 			if (
 				resultBag.ok === false &&
