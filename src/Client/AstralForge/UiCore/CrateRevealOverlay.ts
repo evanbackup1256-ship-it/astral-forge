@@ -136,7 +136,7 @@ function playRevealCues(roll: Roll | undefined) {
 	}
 	if (celebrate || weight >= 0.75) {
 		Juice.flash(Palette.cream, celebrate ? 0.55 : 0.3);
-		Juice.moment(`${string.upper(tostring(roll.Rarity ?? "RARE"))}!`, special ? "New to your collection." : undefined, accent, "Crate.18");
+		Juice.moment(`${string.upper(tostring(roll.Rarity ?? "RARE"))}`, special ? "New to your collection." : undefined, accent, "Crate.18");
 	} else if (special) {
 		Juice.status("New to your collection", "special");
 	}

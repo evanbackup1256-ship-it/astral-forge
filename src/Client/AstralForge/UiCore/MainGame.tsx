@@ -585,11 +585,11 @@ export function MainGame(_param: MainGameProps) {
 				if (bigMoment) {
 					Juice.flash(Palette.cream, 0.45);
 					if (action === "Rebirth") {
-						Juice.moment(`REBIRTH ${response.Rebirths ?? ""}!`, "Production multiplier up.", Palette.violet, "Rebirth.8");
+						Juice.moment(`REBIRTH ${response.Rebirths ?? ""}`, "Production multiplier up.", Palette.violet, "Rebirth.8");
 					} else if (action === "DomainExpansion") {
-						Juice.moment(`DOMAIN ${response.DomainRank ?? ""}!`, "New tree points to spend.", Palette.pink, "Domain.5");
+						Juice.moment(`DOMAIN ${response.DomainRank ?? ""}`, "New tree points to spend.", Palette.pink, "Domain.5");
 					} else if (action === "UnlockZone") {
-						Juice.moment("NEW WORLD!", response.message, Palette.cyan, "World.11");
+						Juice.moment("NEW WORLD", response.message, Palette.cyan, "World.11");
 					}
 				}
 				if (action === "OpenItemCrate" && typeIs(response.Rolls, "table") && response.Rolls.size() > 0) {
@@ -1225,7 +1225,7 @@ export function MainGame(_param: MainGameProps) {
 				Audio.play("discovery");
 				celebrate();
 				if (value.UserId === Players.LocalPlayer.UserId) {
-					Juice.moment(`ASCENSION ${value.Rank ?? ""}!`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth.9");
+					Juice.moment(`ASCENSION ${value.Rank ?? ""}`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth.9");
 				}
 			} else if (kind === "FeatureUnlocked" && !purchasePresentationActive.current) {
 				Audio.play("unlock");
@@ -1233,7 +1233,7 @@ export function MainGame(_param: MainGameProps) {
 				celebrate();
 				const featureName = value.Name ?? value.Feature ?? value.Id;
 				Juice.moment(
-					featureName !== undefined ? `${string.upper(tostring(featureName))} UNLOCKED!` : "NEW FEATURE!",
+					featureName !== undefined ? `${string.upper(tostring(featureName))} UNLOCKED` : "NEW FEATURE",
 					"Find it in the menu.",
 					Palette.mint,
 					"Check.24",

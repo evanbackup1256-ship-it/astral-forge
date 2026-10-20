@@ -1364,7 +1364,7 @@ const GameConfig: Dict = {
 		IntervalSeconds: 20 * 60,
 		DurationSeconds: 60,
 		Multiplier: 2,
-		ToastTitle: "Flux Surge!",
+		ToastTitle: "Flux Surge",
 		ToastBody: "All production is doubled for 60 seconds.",
 		EndTitle: "Flux Surge ended",
 		EndBody: "Production returned to normal.",

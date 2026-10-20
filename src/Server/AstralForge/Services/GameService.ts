@@ -3638,7 +3638,7 @@ export function createGameService(loadService: LoadService) {
 				}
 				inventory[boostId] = math.max(0, math.floor(tonumber(inventory[boostId]) ?? 0) - 1);
 				profile.ActiveBoost = { Id: boostId, EndsAt: os.time() + (boost.Duration as number) };
-				return responseSuccess((boost.Name as string) + " activated!");
+				return responseSuccess((boost.Name as string) + " is running.");
 			});
 		}
 
@@ -5109,7 +5109,7 @@ export function createGameService(loadService: LoadService) {
 			this._toastGuild(
 				guildId,
 				"Guild milestone",
-				string.format("%s passed %s Activity!", (guildBag.Name as string | undefined) ?? "Your guild", (Format.Number as Fn)(milestone) as string),
+				string.format("%s passed %s activity.", (guildBag.Name as string | undefined) ?? "Your guild", (Format.Number as Fn)(milestone) as string),
 				"Special",
 			);
 		}
@@ -5232,7 +5232,7 @@ export function createGameService(loadService: LoadService) {
 						"Guild upgrade",
 						level !== undefined
 							? string.format("Your guild unlocked %s (level %d)!", upgradeName, level)
-							: string.format("Your guild unlocked %s!", upgradeName),
+							: string.format("Guild unlocked %s.", upgradeName),
 						"Special",
 					);
 					this._announceGuildActivity(expectedGuildId, previousActivity, guild);
@@ -5336,7 +5336,7 @@ export function createGameService(loadService: LoadService) {
 					if (truthy(ok) && truthy(reward)) {
 						const rewardText = ProgressionService.ApplyReward(profile, reward, Economy.Production(profile));
 						if (tostring(rewardText) !== "") {
-							message = "Guild goal complete! " + tostring(rewardText);
+							message = "Guild goal done. " + tostring(rewardText);
 						}
 					}
 				}
@@ -5466,7 +5466,7 @@ export function createGameService(loadService: LoadService) {
 						this._toastPlayer(
 							online,
 							"Leaderboard climb",
-							string.format("You climbed to #%d in %s!", rank, RANK_PING_BOARD_LABEL),
+							string.format("You're #%d in %s now.", rank, RANK_PING_BOARD_LABEL),
 							"Special",
 						);
 					}

@@ -40,7 +40,7 @@ export function pushLevelMoment(effect: unknown) {
 	if ((tonumber(e.SurgeMultiplier) ?? 1) > 1) {
 		parts.push(string.format("x%.2f surge", e.SurgeMultiplier as number));
 	}
-	const title = opened.size() > 0 ? `${string.upper(opened.join(" + "))} UNLOCKED` : "MILESTONE!";
+	const title = opened.size() > 0 ? `${string.upper(opened.join(" + "))} UNLOCKED` : "MILESTONE";
 	const JuiceFx = require(script.Parent!.Parent!.WaitForChild("JuiceFx") as ModuleScript) as JuiceFxModule;
 	JuiceFx.moment(title, parts.size() > 0 ? parts.join(" · ") : undefined, Palette.brass, "Forge.27");
 }

@@ -24,7 +24,7 @@ export = () => {
 			Interval: math.max(60, math.floor(num(config && config.IntervalSeconds) ?? 20 * 60)),
 			Duration: math.max(10, math.floor(num(config && config.DurationSeconds) ?? 60)),
 			Multiplier: math.max(1, num(config && config.Multiplier) ?? 2),
-			ToastTitle: (config && config.ToastTitle) ?? "Flux Surge!",
+			ToastTitle: (config && config.ToastTitle) ?? "Flux Surge",
 			ToastBody: (config && config.ToastBody) ?? "All production is doubled for 60 seconds.",
 			EndTitle: (config && config.EndTitle) ?? "Flux Surge ended",
 			EndBody: (config && config.EndBody) ?? "Production returned to normal.",

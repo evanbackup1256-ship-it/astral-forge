@@ -1274,7 +1274,7 @@ function ShopView(props: ShopViewProps) {
 						followFeedback !== ""
 							? followFeedback
 							: followClaimed
-								? "Reward claimed. Thanks for following!"
+								? "Reward claimed. Thanks for the follow."
 								: "Follow the creator on Roblox, then check it here for a one-time reward.",
 					size: 11,
 					color: followClaimed || followFeedback !== "" ? Palette.mint : Palette.muted,

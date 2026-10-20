@@ -330,7 +330,7 @@ function ServerEventChip(_param: { state: TopBarState; reducedMotion?: boolean; 
 			: event.Phase === "Live"
 				? `${left} left`
 				: event.Completed === true
-					? "Goal!"
+					? "Goal hit"
 					: "Done";
 	return h(
 		"textbutton",

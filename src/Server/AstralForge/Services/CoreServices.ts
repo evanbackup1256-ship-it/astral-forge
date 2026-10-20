@@ -383,7 +383,7 @@ __defs["AnomalyService"] = () => {
 			const rewardText = ProgressionService.ApplyReward(profile, reward, Economy.SteadyProduction(profile)) as string;
 			let message = string.format("%s stabilized: %d fragments, %s.", anomaly.Name as string, fragments, rewardText);
 			if (tiersGained > 0) {
-				message = string.format("%s Core Tier %d reached!", message, num(anomalyState.CoreTier) ?? 0);
+				message = string.format("%s Core Tier %d.", message, num(anomalyState.CoreTier) ?? 0);
 			}
 			return $tuple(true, message, {
 				AnomalyId: anomaly.Id,
