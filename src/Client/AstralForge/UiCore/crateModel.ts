@@ -65,7 +65,12 @@ export function useKitReady(): number {
 			kitWatch = ReplicatedStorage.ChildAdded.Connect((child) => {
 				if (child.Name === "PropKit" || child.Name === "CrateKit") {
 					for (const each of kitListeners) {
-						task.defer(each);
+						// a listener can unmount before the deferred call runs; skip it then
+						task.defer(() => {
+							if (kitListeners.has(each)) {
+								each();
+							}
+						});
 					}
 				}
 			});
