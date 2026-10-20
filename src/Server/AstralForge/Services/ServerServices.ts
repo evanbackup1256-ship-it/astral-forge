@@ -1055,7 +1055,8 @@ serviceFactories["GameService"] = () => {
 						},
 						applyGuest: () => {
 							if (isPractice) {
-								return { ok: true };
+								// RunHostGuest reads (committed, result); a bare table left committed as the table and failed the guest side.
+								return $tuple(true, { ok: true });
 							}
 							return this._data.AtomicUpdate(
 								guest,
