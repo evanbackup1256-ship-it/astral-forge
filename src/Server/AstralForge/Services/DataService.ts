@@ -130,7 +130,6 @@ interface IntegrityStatus {
 }
 
 export = (loadService: LoadService) => {
-	const DataStoreService = game.GetService("DataStoreService");
 	const RunService = game.GetService("RunService");
 
 	const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));

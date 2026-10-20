@@ -2,7 +2,6 @@
 // Owner: persistence. Dependencies: caller-provided native accessor; no network access.
 // Last-reviewed: 2026-10-06.
 
-type Key = string | number;
 type Value = string | number | boolean | Dictionary;
 interface Dictionary { [key: string]: Value; [key: number]: Value; }
 

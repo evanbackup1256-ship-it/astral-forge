@@ -373,7 +373,6 @@ __defs["Security"] = () => {
 		const RunService = game.GetService("RunService");
 		const TextService = game.GetService("TextService");
 		const HttpService = game.GetService("HttpService");
-		const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
 		const Protocol = req<{ Actions: Record<string, string> }>(
 			SharedFolder().WaitForChild("Protocol"),

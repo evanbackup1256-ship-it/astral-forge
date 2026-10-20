@@ -25,13 +25,7 @@ interface ItemsBag {
 interface DomainBag { Essence: number; Rank: number; SkillPoints: number; Nodes: Dict; [key: string]: unknown; }
 interface AnomalyBag { Fragments: number; Charge: number; Stabilizations: number; Combo: number; [key: string]: unknown; }
 interface ContinuumBag { Rank: number; [key: string]: unknown; }
-interface FoundryBag { Shards: number; Radius: number; Bench: unknown; [key: string]: unknown; }
 interface RelicInstance { Locked?: boolean; DefinitionId?: string; [key: string]: unknown; }
-type EnsureItems = (this: void, profile: Dict) => ItemsBag;
-type EnsureDomain = (this: void, profile: Dict) => DomainBag;
-type EnsureAnomaly = (this: void, profile: Dict) => AnomalyBag;
-type EnsureContinuum = (this: void, profile: Dict) => ContinuumBag;
-type EnsureFoundry = (this: void, profile: Dict) => FoundryBag;
 
 interface Omega {
 	Add(this: void, left: unknown, right: unknown): unknown;
@@ -127,7 +121,6 @@ interface Subject {
 }
 
 export = function (loadService: LoadService) {
-	const DataStoreService = game.GetService("DataStoreService");
 	const Players = game.GetService("Players");
 	const ReplicatedStorage = game.GetService("ReplicatedStorage");
 	const RunService = game.GetService("RunService");
@@ -148,7 +141,6 @@ export = function (loadService: LoadService) {
 	};
 
 	const CommandSchema = AdminCommandSchema;
-	const MAX_GRANT = AdminGrantMath.DEFAULT_MAX_GRANT;
 	const MAX_AUDIT_MEMORY = 40;
 	const MAX_AUDIT_PERSISTED = 100;
 	const NONCE_TTL = 300;
@@ -274,10 +266,6 @@ export = function (loadService: LoadService) {
 	function commandDanger(definition: Record<string, unknown>): string {
 		if (string.sub((definition.Label as string) ?? "", 1, 4) === "Set ") return "arm";
 		return AdminGrantMath.CommandDanger(definition);
-	}
-
-	function boundedAmount(raw: unknown, fallback?: number): number | undefined {
-		return AdminGrantMath.BoundedAmount(raw, fallback, MAX_GRANT);
 	}
 
 	function cleanText(raw: unknown, maximum: number): string {
