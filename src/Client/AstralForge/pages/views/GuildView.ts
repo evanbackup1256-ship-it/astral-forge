@@ -375,6 +375,74 @@ function __member(): unknown {
 		}, color: (luaTruthy(actionable) ? luaProp(row, "accent") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(actionable) ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), disabled: ((!luaTruthy(actionable)) || busy), loading: ((luaTruthy(actionable ) ?  busy : actionable)), shakeToken: (luaTruthy(actionable) ? shakeToken : 0), highlight: actionable, size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 44) : luaCall(luaProp(UDim2, "fromOffset"), 240, 44)), position: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -44) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -240, 1, -44)), reducedMotion: reducedMotion }));
 		return undefined;
 	}
+	// Phones: the group you're scrolling through (You, Leader, Officers, Members) stays pinned to the
+	// top of the member list until the next group pushes it off.
+	const STICKY_H = 24;
+	function StickyGroupLabel(props: { groups: { top: number; label: string; color: Color3 }[]; height: number }) {
+		const hostRef = React.useRef<Frame>();
+		const [offset, setOffset] = React.useBinding(0);
+		const [current, setCurrent] = React.useState(0);
+		const groupsRef = React.useRef(props.groups);
+		groupsRef.current = props.groups;
+		React.useEffect(() => {
+			const host = hostRef.current;
+			const container = host?.Parent as GuiObject | undefined;
+			const scroller = host?.FindFirstAncestorWhichIsA("ScrollingFrame");
+			if (host === undefined || container === undefined || scroller === undefined) {
+				return undefined;
+			}
+			const update = () => {
+				const scrolled = scroller.AbsolutePosition.Y - container.AbsolutePosition.Y;
+				setOffset(math.clamp(scrolled, 0, math.max(0, props.height - STICKY_H)));
+				const groups = groupsRef.current;
+				let index = 0;
+				for (let i = 0; i < groups.size(); i++) {
+					if (groups[i].top <= scrolled + STICKY_H) {
+						index = i;
+					}
+				}
+				setCurrent(index);
+			};
+			update();
+			const connection = scroller.GetPropertyChangedSignal("CanvasPosition").Connect(update);
+			return () => connection.Disconnect();
+		}, [props.height]);
+		const group = props.groups[math.min(current, props.groups.size() - 1)];
+		return reactLoose.createElement(
+			"frame",
+			{
+				ref: hostRef,
+				Size: new UDim2(1, 0, 0, STICKY_H),
+				Position: offset.map((y) => UDim2.fromOffset(0, y)),
+				BackgroundColor3: luaProp(Palette, "panelRaised") as Color3,
+				BackgroundTransparency: 0.08,
+				BorderSizePixel: 0,
+				ZIndex: 20,
+			},
+			reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 6) }),
+			reactLoose.createElement(Text as never, {
+				value: group !== undefined ? group.label : "",
+				size: 11,
+				color: group !== undefined ? group.color : luaProp(Palette, "muted"),
+				weight: Enum.FontWeight.Heavy,
+				fit: true,
+				minSize: 9,
+				position: UDim2.fromOffset(10, 4),
+				sizeConstraint: new UDim2(1, -20, 0, 16),
+				zIndex: 21,
+			}),
+		);
+	}
+	// shared by MemberRow and the list height, so the section is exactly as tall as its rows
+	function memberRowLayout(param: unknown): { manageable: boolean; height: number } {
+		const canManage = luaProp(param, "canManage");
+		const manageable = luaTruthy(canManage)
+			? luaTruthy(luaCall(luaProp(Social, "canManage"), { Role: luaTruthy(luaProp(param, "myRole")) ? luaProp(param, "myRole") : "Leader" }, { Role: luaProp(param, "role") }, "Kick"))
+			: false;
+		const stack = luaTruthy(luaProp(param, "stack"));
+		const height = stack && !manageable ? 60 : stack ? 122 : manageable ? 112 : 84;
+		return { manageable, height };
+	}
 	function MemberRow(_param?: unknown): unknown | undefined {
 		let userKey: unknown = luaProp(_param, "userKey");
 		let name: unknown = luaProp(_param, "name");
@@ -399,11 +467,11 @@ function __member(): unknown {
 			_condition = 0;
 		}
 		let userId: unknown = _condition;
-		let manageable: unknown = ((luaTruthy(canManage ) ?  luaCall(luaProp(Social, "canManage"), { Role: ((luaTruthy(luaProp(_param, "myRole") ) ? luaProp(_param, "myRole") :  "Leader")) }, { Role: role }, "Kick") : canManage));
+		let manageable: unknown = memberRowLayout(_param).manageable;
 		let canPromote: unknown = ((((luaTruthy(luaProp(_param, "myRole") ) ? luaProp(_param, "myRole") :  "Leader"))) === "Leader");
 		// phones, rows you can't manage: one compact block (name, role on the right, one stats line)
 		const compactRow = luaTruthy(stack) && !luaTruthy(manageable);
-		let height: unknown = compactRow ? 60 : (luaTruthy(stack) ? 122 : (luaTruthy(manageable) ? 112 : 84));
+		let height: unknown = memberRowLayout(_param).height;
 		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), accent: (luaTruthy(isLocal) ? luaProp(Palette, "green") : accent), background: surface, padding: (luaTruthy(stack) ? 12 : 14), layoutOrder: layoutOrder, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(PlayerMark, { userId: userId, accent: accent, size: compactRow ? 28 : 34, position: luaCall(luaProp(UDim2, "fromOffset"), 0, compactRow ? 4 : 2) }), reactLoose.createElement(Text, { value: name, size: 14, color: luaCall(ensureContrast, surface, luaProp(Palette, "cream")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, minSize: 10, position: luaCall(luaProp(UDim2, "fromOffset"), compactRow ? 38 : 44, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, compactRow ? (luaTruthy(isLocal) ? -38 - 118 : -38 - 70) : -44, 0, 20) }), reactLoose.createElement(Badge, { value: (string.upper as unknown as (...a: unknown[]) => unknown)(role), accent: accent, filled: ((role === "Leader") || (role === "Officer")), position: compactRow ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -64, 0, 2) : luaCall(luaProp(UDim2, "fromOffset"), 44, 20), size: luaCall(luaProp(UDim2, "fromOffset"), ((role === "Leader") ? 60 : (((role === "Officer") ? 64 : 58))), 16) }), ((luaTruthy(isLocal ) ?  reactLoose.createElement(Badge, { value: "YOU", accent: luaProp(Palette, "green"), filled: true, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, compactRow ? -114 : -48, 0, 2), size: luaCall(luaProp(UDim2, "fromOffset"), 44, compactRow ? 16 : 18) }) : isLocal)), reactLoose.createElement(Text, { value: `${luaCall(compactNumber, contributed)} banked  •  ${(math.floor as unknown as (...a: unknown[]) => unknown)(((((share as unknown as number) * (100 as unknown as number)) as unknown as number) + (0.5 as unknown as number)))}%${compactRow ? "" : " of all deposits"}${compactRow && (goalShare as number) > 0 ? `  •  ${luaCall(compactNumber, goalShare)} to goal` : ""}`, size: 10, color: luaCall(ensureContrast, surface, luaProp(Palette, "muted")), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), compactRow ? 38 : 44, compactRow ? 22 : 38), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -44 : -44), 0, 16) }), ((!compactRow && ((goalShare as unknown as number) > (0 as unknown as number))) && reactLoose.createElement(Text, { value: `${luaCall(compactNumber, goalShare)} toward this goal`, size: 9, color: luaCall(ensureContrast, surface, luaProp(Palette, "mint")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 44, 54), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -44 : -44), 0, 14) })), ((luaTruthy(manageable ) ?  reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement(Button, { text: ((!luaTruthy(canPromote)) ? "LEADER ONLY" : ((role === "Officer") ? "DEMOTE" : "PROMOTE")), onClick: function(this: void): unknown | undefined {
 			if ((!luaTruthy(busy))) {
 				luaCall(dispatch, "SetGuildRole", { UserId: userId, Role: ((role === "Officer") ? "Member" : "Officer") });
@@ -995,7 +1063,6 @@ function __member(): unknown {
 		let goalHeight: unknown = ((luaProp(guild, "Goal") === undefined) ? 116 : (luaTruthy(stack) ? 234 : 196));
 		let bankHeight: unknown = (luaTruthy(stack) ? 310 : 216);
 		let upgradeHeight: unknown = (luaTruthy(stack) ? 180 : 140);
-		let memberHeight: unknown = (luaTruthy(stack) ? 122 : (luaTruthy(canBuy) ? 112 : 84));
 		let sectionLabelH: unknown = 34;
 		let heroSurface: unknown = luaCall(darken, luaProp(Palette, "violet"), 0.9);
 		let _attributes: unknown = {};
@@ -1158,21 +1225,40 @@ function __member(): unknown {
 		// pin yourself above the role-sorted list so you never have to search for your own row
 		shownMembers = pinFirst(shownMembers as unknown[], (member) => luaProp(member, "key") === localKey);
 		let memberChildren: unknown = {};
+		let memberRowsH = 0;
+		let memberGapSoFar = 0;
+		let lastGroupRole = "";
+		const memberGroups: { top: number; label: string; color: Color3 }[] = [];
+		const roleTotal = (role: string) => (tonumber(luaIndex(roleCounts, role)) ?? 0) as number;
+		const groupLabel = (role: string) =>
+			role === "You" ? "YOU" : role === "Leader" ? "LEADER" : role === "Officer" ? `OFFICERS · ${roleTotal("Officer")}` : `MEMBERS · ${roleTotal("Member")}`;
+		const groupColor = (role: string) =>
+			(role === "You" ? luaProp(Palette, "green") : role === "Leader" ? luaProp(Palette, "mango") : role === "Officer" ? luaProp(Palette, "cyan") : luaProp(Palette, "creamSoft")) as Color3;
 		for (const [index, member] of pairs((shownMembers) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 			let share: unknown = 0;
 			if ((goalContributors !== undefined)) {
 				share = ((luaTruthy(luaIndex(goalContributors, luaProp(member, "key")) ) ? luaIndex(goalContributors, luaProp(member, "key")) :  0));
 			}
-			luaSetIndex(memberChildren, index, reactLoose.createElement(MemberRow, { key: luaProp(member, "key"), userKey: luaProp(member, "key"), name: luaProp(member, "name"), role: luaProp(member, "role"), contributed: luaProp(member, "contributed"), goalShare: share, share: (((totalContributed as unknown as number) > (0 as unknown as number)) ? ((luaProp(member, "contributed") as unknown as number) / (totalContributed as unknown as number)) : 0), isLocal: (luaProp(member, "key") === localKey), canManage: ((luaTruthy(canBuy ) ?  (luaProp(member, "key") !== localKey) : canBuy)), myRole: myRole, confirmKick: ((luaTruthy(luaProp(confirmation, "current") ) ?  (luaProp(luaProp(confirmation, "current"), "key") === concat("KickGuildMember:", tostring(luaProp(member, "key")))) : luaProp(confirmation, "current"))), isLeader: (luaProp(member, "role") === "Leader"), stack: stack, reducedMotion: reducedMotion, dispatch: send, busy: busy, shakeToken: shakeToken, layoutOrder: index }));
+			const rowProps: unknown = { key: luaProp(member, "key"), userKey: luaProp(member, "key"), name: luaProp(member, "name"), role: luaProp(member, "role"), contributed: luaProp(member, "contributed"), goalShare: share, share: (((totalContributed as unknown as number) > (0 as unknown as number)) ? ((luaProp(member, "contributed") as unknown as number) / (totalContributed as unknown as number)) : 0), isLocal: (luaProp(member, "key") === localKey), canManage: ((luaTruthy(canBuy ) ?  (luaProp(member, "key") !== localKey) : canBuy)), myRole: myRole, confirmKick: ((luaTruthy(luaProp(confirmation, "current") ) ?  (luaProp(luaProp(confirmation, "current"), "key") === concat("KickGuildMember:", tostring(luaProp(member, "key")))) : luaProp(confirmation, "current"))), isLeader: (luaProp(member, "role") === "Leader"), stack: stack, reducedMotion: reducedMotion, dispatch: send, busy: busy, shakeToken: shakeToken, layoutOrder: index };
+			const rowRole = luaProp(member, "key") === localKey ? "You" : tostring(luaProp(member, "role"));
+			if (rowRole !== lastGroupRole) {
+				lastGroupRole = rowRole;
+				memberGroups.push({ top: memberRowsH + memberGapSoFar, label: groupLabel(rowRole), color: groupColor(rowRole) });
+			}
+			memberRowsH += memberRowLayout(rowProps).height;
+			memberGapSoFar += pageGap as unknown as number;
+			luaSetIndex(memberChildren, index, reactLoose.createElement(MemberRow, rowProps as never));
 		}
-		let memberBlockH: unknown = ((len(shownMembers) === 0) ? 72 : ((((len(shownMembers) as unknown as number) * (memberHeight as unknown as number)) as unknown as number) + ((((math.max as unknown as (...a: unknown[]) => unknown)(0, ((len(shownMembers) as unknown as number) - (1 as unknown as number))) as unknown as number) * (pageGap as unknown as number)) as unknown as number)));
+		const stickyGroups = luaTruthy(stack) && memberGroups.size() > 1;
+		const stickyPad = stickyGroups ? STICKY_H + 6 : 0;
+		let memberBlockH: unknown = ((len(shownMembers) === 0) ? 72 : stickyPad + memberRowsH + math.max(0, (len(shownMembers) as unknown as number) - 1) * (pageGap as unknown as number));
 		let overscan: unknown = (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2));
 		let memberSearchH: unknown = (luaTruthy(stack) ? TapTarget : 40);
 		let memberFilter: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, reactLoose.createElement(SearchField, { value: memberQuery, onChange: setMemberQuery, placeholder: "Search members", accent: luaProp(Palette, "violet"), reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, memberSearchH), zIndex: 20 }), reactLoose.createElement(luaProp(Browse, "ChipRow"), { options: [{ id: "All", label: "Everyone" }, { id: "Leader", label: "Leader" }, { id: "Officer", label: "Officers" }, { id: "Member", label: "Members" }], value: memberRole, onChange: function(this: void, id?: unknown): unknown | undefined {
 			luaCall(setMemberRole, id);
 			return undefined;
 		}, counts: roleCounts, accent: luaProp(Palette, "violet"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((memberSearchH as unknown as number) + (8 as unknown as number))) }));
-		let memberList: unknown = ((len(shownMembers) === 0) ? reactLoose.createElement(EmptyState, { title: (((len(members) as unknown as number) > (0 as unknown as number)) ? "No members match" : "No members"), body: (((len(members) as unknown as number) > (0 as unknown as number)) ? "Clear the search or pick Everyone." : "Members show up here."), icon: "Pilot.2", accent: luaProp(Palette, "cyan"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 72) }) : reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pageGap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), memberChildren));
+		let memberList: unknown = ((len(shownMembers) === 0) ? reactLoose.createElement(EmptyState, { title: (((len(members) as unknown as number) > (0 as unknown as number)) ? "No members match" : "No members"), body: (((len(members) as unknown as number) > (0 as unknown as number)) ? "Clear the search or pick Everyone." : "Members show up here."), icon: "Pilot.2", accent: luaProp(Palette, "cyan"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 72) }) : reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, stickyGroups ? reactLoose.createElement(StickyGroupLabel, { groups: memberGroups.map((g) => ({ top: g.top + stickyPad, label: g.label, color: g.color })), height: memberBlockH as number }) : undefined, reactLoose.createElement("frame", { Size: new UDim2(1, 0, 1, -stickyPad), Position: UDim2.fromOffset(0, stickyPad), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pageGap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), memberChildren)));
 		let hall: unknown = luaCall(luaProp(Social, "hall"), guild);
 		let tabs: unknown = {};
 		let columns: unknown = (luaTruthy(stack) ? 2 : 5);
