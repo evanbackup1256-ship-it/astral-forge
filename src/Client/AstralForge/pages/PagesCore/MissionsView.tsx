@@ -170,7 +170,7 @@ function MissionRow({ quest, dispatch, reducedMotion, position, stack }: Mission
 						? "Reward ready"
 						: quest.Claimed
 							? "Claimed"
-							: `${compactNumber(quest.Progress)} / ${compactNumber(quest.Target)}  Â·  ${math.floor(progressFrac * 100)}%`
+							: `${compactNumber(quest.Progress)} / ${compactNumber(quest.Target)}  ·  ${math.floor(progressFrac * 100)}%`
 				}
 				size={11}
 				color={Palette.muted}
@@ -387,7 +387,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 		>
 			{stack ? (
 				<Text
-					value="TODAY'S MISSIONS Â· NEW EACH DAY"
+					value="TODAY'S MISSIONS · NEW EACH DAY"
 					size={13}
 					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
@@ -407,7 +407,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					<Text
 						value={
 							counts.Ready > 0
-								? `${counts.Ready} ready to claim Â· ${counts.Done} of ${quests.size()} done`
+								? `${counts.Ready} ready to claim · ${counts.Done} of ${quests.size()} done`
 								: `${counts.Done} of ${quests.size()} done today`
 						}
 						size={22}
@@ -446,7 +446,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					ref={missionClaimHostRef}
 				>
 					<Button
-						text={`CLAIM ALL Â· ${counts.Ready}`}
+						text={`CLAIM ALL · ${counts.Ready}`}
 						icon="Gift.4"
 						onClick={claimAllReady}
 						color={Palette.green}

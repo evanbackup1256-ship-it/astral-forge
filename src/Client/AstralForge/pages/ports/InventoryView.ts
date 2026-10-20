@@ -266,7 +266,7 @@ function __member(): unknown {
 				luaCall(_callback_1, _v, _k, updated);
 			}
 			let _object: unknown = luaCall(luaProp(table, "clone"), rules);
-			luaCall(setmetatable, _object, undefined);
+			setmetatable(_object as object, undefined as unknown as LuaMetatable<object>);
 			luaSet(_object, "Rarities", packed);
 			luaCall(updateRules, _object);
 			return undefined;
@@ -282,13 +282,13 @@ function __member(): unknown {
 		} else {
 			let _exp_5: unknown = reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, fieldH), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 1, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Button, { text: (autoBusy ? "SAVING" : (luaProp(rules, "Enabled") ? "ON" : "OFF")), icon: (luaProp(rules, "Enabled") ? "Check.20" : "Inventory.6"), onClick: function(this: void): unknown | undefined {
 				let _object: unknown = luaCall(luaProp(table, "clone"), rules);
-				luaCall(setmetatable, _object, undefined);
+				setmetatable(_object as object, undefined as unknown as LuaMetatable<object>);
 				luaSet(_object, "Enabled", (!luaProp(rules, "Enabled")));
 				return luaCall(updateRules, _object);
 				return undefined;
 			}, color: (luaProp(rules, "Enabled") ? luaProp(Palette, "mint") : luaProp(Palette, "panelSoft")), textColor: (luaProp(rules, "Enabled") ? luaProp(Palette, "ink") : luaProp(Palette, "creamSoft")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.28, -6, 0, fieldH), reducedMotion: reducedMotion, disabled: autoBusy, outline: (!luaProp(rules, "Enabled")) }), reactLoose.createElement(Button, { text: (luaProp(rules, "KeepNew") ? "KEEP NEW" : "RECYCLE NEW"), icon: (luaProp(rules, "KeepNew") ? "Lock.12" : "Dust.7"), onClick: function(this: void): unknown | undefined {
 				let _object: unknown = luaCall(luaProp(table, "clone"), rules);
-				luaCall(setmetatable, _object, undefined);
+				setmetatable(_object as object, undefined as unknown as LuaMetatable<object>);
 				luaSet(_object, "KeepNew", (!luaProp(rules, "KeepNew")));
 				return luaCall(updateRules, _object);
 				return undefined;
@@ -1219,10 +1219,10 @@ function __member(): unknown {
 				luaTable.insert(rarities, "Common");
 				luaTable.insert(rarities, "Uncommon");
 				let _object: unknown = luaCall(luaProp(table, "clone"), updatedRules);
-				luaCall(setmetatable, _object, undefined);
+				setmetatable(_object as object, undefined as unknown as LuaMetatable<object>);
 				let _left: unknown = "Rarities";
 				let _object_1: unknown = luaCall(luaProp(table, "clone"), luaProp(updatedRules, "Rarities"));
-				luaCall(setmetatable, _object_1, undefined);
+				setmetatable(_object_1 as object, undefined as unknown as LuaMetatable<object>);
 				luaSet(_object_1, "Common", true);
 				luaSet(_object_1, "Uncommon", true);
 				luaSetIndex(_object, _left, _object_1);

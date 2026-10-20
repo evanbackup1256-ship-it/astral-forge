@@ -448,7 +448,7 @@ function __member(): unknown {
 						continue;
 					}
 					let _object: unknown = luaCall(luaProp(table, "clone"), entry);
-					luaCall(setmetatable, _object, undefined);
+					setmetatable(_object as object, undefined as unknown as LuaMetatable<object>);
 					luaSet(_object, "UserId", id);
 					luaTable.insert(cleaned, _object);
 				}

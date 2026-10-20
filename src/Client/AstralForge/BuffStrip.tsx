@@ -92,9 +92,9 @@ interface IslandProps {
 }
 
 const BuffStrip = {} as {
-	list(state: unknown, config: unknown, now: number): BuffInfo[];
-	Strip(props: StripProps): React.Element;
-	Island(props: IslandProps): React.Element;
+	list(this: void, state: unknown, config: unknown, now: number): BuffInfo[];
+	Strip(this: void, props: StripProps): React.Element;
+	Island(this: void, props: IslandProps): React.Element;
 };
 
 const CHIP_W = 58;
@@ -500,7 +500,7 @@ function PerfSegment(props: PerfSegmentProps): React.Element {
 				Size: new UDim2(1, -18, 1, 0),
 				Position: UDim2.fromOffset(18, 0),
 				BackgroundTransparency: 1,
-				Text: parts.join(" ┬╖ "),
+				Text: parts.join(" · "),
 				TextColor3: P.creamSoft,
 				TextSize: 12,
 				TextScaled: true,
@@ -942,7 +942,7 @@ function PerfRows(props: PerfRowsProps): React.Element {
 		fpsColor(fps),
 		"Timer",
 		smooth ? "Running smoothly" : "Running a little slow",
-		label.join("  ┬╖  "),
+		label.join("  ·  "),
 		smooth ? P.mint : P.mango,
 	);
 }
@@ -1010,7 +1010,7 @@ function ExpandedList(props: ExpandedListProps): React.Element {
 				buff.name,
 				timed
 					? props.clock.map(() => {
-							return `${buff.value}  ┬╖  ${clockText((tonumber(buff.endsAt) ?? 0) - Workspace.GetServerTimeNow())}`;
+							return `${buff.value}  ·  ${clockText((tonumber(buff.endsAt) ?? 0) - Workspace.GetServerTimeNow())}`;
 						})
 					: buff.value,
 				theme.lighten(buff.color, 0.35),
@@ -1211,7 +1211,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 					return new UDim2(0, textX + (1 - t) * 12, 0, y);
 				}),
 				BackgroundTransparency: 1,
-				Text: (info.count ?? 1) > 1 ? `${info.title}  ├ù${info.count}` : info.title,
+				Text: (info.count ?? 1) > 1 ? `${info.title}  ×${info.count}` : info.title,
 				TextColor3: P.white,
 				TextTransparency: arrive.map((t) => 1 - t),
 				TextSize: moment ? 26 : pill ? 15 : 16,

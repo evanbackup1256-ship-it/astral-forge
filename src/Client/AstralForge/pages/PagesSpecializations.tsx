@@ -337,7 +337,7 @@ function SpecializationsView(props: Props) {
 				reducedMotion={props.reducedMotion}
 			/>
 			<Ui.Text
-				value={cooling ? `Reconfiguring Â· next switch in ${clock(remaining)}` : "Ready to switch. Changing builds is free."}
+				value={cooling ? `Reconfiguring · next switch in ${clock(remaining)}` : "Ready to switch. Changing builds is free."}
 				size={16}
 				weight={Enum.FontWeight.Bold}
 				fit={true}
@@ -506,7 +506,7 @@ function SpecializationsView(props: Props) {
 			52 + chipRows * (CHIP_H + 8),
 			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.creamSoft}>
 				<Ui.Text
-					value="Kept from the Star Grid Â· applies to every build"
+					value="Kept from the Star Grid · applies to every build"
 					size={14}
 					color={Palette.muted}
 					weight={Enum.FontWeight.Bold}
