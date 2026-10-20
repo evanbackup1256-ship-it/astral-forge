@@ -1,3 +1,4 @@
+import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, NAVIGATION_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
 import { mergeEvents, useTooltip } from "../Tooltip";
@@ -1444,6 +1445,7 @@ interface NavigationProps {
 }
 
 function NavigationImpl(_param: NavigationProps) {
+	countRedraw("Navigation", redrawCounterEnabled(_param.state as { Admin?: { Access?: boolean } }));
 	const page = _param.page;
 	const setPage = _param.setPage;
 	const collapsed = _param.collapsed === true;

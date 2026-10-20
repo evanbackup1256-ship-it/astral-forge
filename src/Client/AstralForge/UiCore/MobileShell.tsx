@@ -1,3 +1,4 @@
+import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, MOBILE_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
 import { AppHelpers, MORE_NAV, NavEntry, NavState, PRIMARY_NAV } from "../CoreKit/appNav";
@@ -575,6 +576,7 @@ interface MobileTabBarProps {
 }
 
 function MobileTabBarImpl(_param: MobileTabBarProps) {
+	countRedraw("MobileTabBar", redrawCounterEnabled(_param.state as { Admin?: { Access?: boolean } }));
 	const page = _param.page;
 	const setPage = _param.setPage;
 	const state = _param.state;
@@ -769,6 +771,7 @@ interface MobileHeaderProps {
 }
 
 function MobileHeaderImpl(_param: MobileHeaderProps) {
+	countRedraw("MobileHeader", redrawCounterEnabled(_param.state as { Admin?: { Access?: boolean } }));
 	const state = _param.state;
 	const page = _param.page;
 	const accent = _param.accent;

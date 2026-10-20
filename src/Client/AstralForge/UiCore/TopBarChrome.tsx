@@ -1,3 +1,4 @@
+import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, TOPBAR_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
 import { useTooltip } from "../Tooltip";
@@ -1014,6 +1015,7 @@ interface TopBarProps {
 }
 
 function TopBarImpl(_param: TopBarProps) {
+	countRedraw("TopBar", redrawCounterEnabled(_param.state as { Admin?: { Access?: boolean } }));
 	const state = _param.state;
 	const page = _param.page;
 	const railOpen = _param.railOpen;
