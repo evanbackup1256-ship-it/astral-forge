@@ -31,6 +31,12 @@ function modRel(ups: number, ...names: string[]): unknown {
 	return luaRequire(current as ModuleScript);
 }
 
+/** Short pill under the island, for outcomes the dispatcher doesn't already announce. */
+function crewStatus(text: string): void {
+	const juice = mod("JuiceFx") as { status?: (this: void, text: string, tone?: string) => void };
+	juice.status?.(text, "error");
+}
+
 /**
  * Profile-style hook for crew roster rows. `player` is a GetPlayers entry (UserId, DisplayName, IsLocal, ...).
  * Return an accent Color3 to tint the row ring; undefined keeps the default colors.
@@ -526,6 +532,11 @@ function __member(): unknown {
 					return undefined;
 				}
 				if ((!luaTruthy(luaProp(response, "ok")))) {
+					// The server's own "no" (and timeouts) already get a notice from the dispatcher.
+					// A local "already working on that" doesn't, so say it here instead of doing nothing.
+					if (!luaTruthy(luaProp(response, "Uncertain")) && luaProp(response, "error") === "Already working on that.") {
+						crewStatus("Still opening the last forge. Hang on.");
+					}
 					return undefined;
 				}
 				if (luaTruthy(luaProp(response, "Visit"))) {

@@ -75,6 +75,7 @@ interface JuiceApi {
 	number(this: void, text: string, color?: Color3, options?: { at?: Vector2; big?: boolean; icon?: string }): void;
 	coins(this: void, target: string, color?: Color3, icon?: string, count?: number, from?: Vector2): boolean;
 	moment(this: void, title: string, subtitle?: string, color?: Color3, icon?: string): void;
+	status(this: void, text: string, tone?: string): void;
 }
 const Juice = load<JuiceApi>("JuiceFx");
 
@@ -819,11 +820,17 @@ export function MainGame(_param: MainGameProps) {
 				Audio.play("crewNudge");
 				addNotice("Waved", response.message ?? "They’ll see it.", "Info");
 			} else if (action === "VisitPlot") {
-				Audio.play("travel");
-				if (response.Visit) {
-					setVisit(response.Visit);
+				const arrived = response.Visit ?? (response.State as { Visit?: unknown } | undefined)?.Visit;
+				if (arrived !== undefined) {
+					Audio.play("travel");
+					if (response.Visit) {
+						setVisit(response.Visit);
+					}
+					addNotice("Visiting", response.message ?? "You're in their shop.", "Info");
+				} else {
+					// the server said yes but sent no visit back; don't claim we arrived
+					addNotice("Couldn't visit", "That forge didn't open. Try again in a moment.", "Warning", false);
 				}
-				addNotice("Visiting", response.message ?? "You're in their shop.", "Info");
 			} else if (action === "LeavePlot") {
 				Audio.play("close");
 				setVisit(undefined);
@@ -924,6 +931,14 @@ export function MainGame(_param: MainGameProps) {
 			const reject = (message: string, uncertain?: boolean) => {
 				callback?.({ ok: false, error: message, Uncertain: uncertain === true });
 			};
+			// Pre-flight refusals never reach the server, so applyResponse can't explain them.
+			// Say something for real actions; background reads stay quiet.
+			const refuse = (message: string) => {
+				if (!AppHelpers.isPassiveRequest(action)) {
+					Juice.status(message, "error");
+				}
+				reject(message);
+			};
 			if (!appAlive.current) {
 				return undefined;
 			}
@@ -947,7 +962,7 @@ export function MainGame(_param: MainGameProps) {
 							dispatch(action, payload, callback);
 							return;
 						}
-						reject("Your session is still connecting. Try again in a moment.");
+						refuse("Still connecting. Give it a second and try again.");
 					});
 					return undefined;
 				}
@@ -965,7 +980,7 @@ export function MainGame(_param: MainGameProps) {
 				return undefined;
 			}
 			if (inFlightTotal.current >= NetworkPolicy.MAX_PHYSICAL_REQUESTS) {
-				reject("The connection is busy. Try again in a moment.");
+				refuse("Lots going on right now. Try that again in a moment.");
 				return undefined;
 			}
 			const now = os.clock();
