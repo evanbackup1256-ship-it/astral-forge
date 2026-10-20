@@ -12,9 +12,18 @@ function colon(value: unknown): Colon {
 	return value as Colon;
 }
 function luaProp(object: unknown, key: string): unknown {
+	// A missing row is nil. Indexing it throws; the Luau views treated that as absent.
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[key];
 }
 function luaIndex(object: unknown, index: unknown): unknown {
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[index as unknown as string];
 }
 function luaSet(object: unknown, key: string, value: unknown): void {
@@ -140,7 +149,7 @@ function __member(): unknown {
 		let tierColor: unknown = (luaIndex(TIER_COLOR, luaProp(echo, "Tier")) || luaProp(Palette, "cream"));
 		let effects: unknown = (luaProp(echo, "Effects") || luaCall(luaProp(EchoMath, "effects"), echo));
 		let reveal: unknown = luaCall(useStagger, (luaProp(props, "index") || 0), luaProp(props, "reducedMotion"));
-		return luaCall(h, Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: tierColor, background: luaProp(Palette, "panel"), padding: 12, reveal: reveal, reducedMotion: luaProp(props, "reducedMotion") }, luaCall(h, Icon, { kind: (luaCall(traitIcon, luaProp(props, "place"), luaProp(echo, "Trait")) || "Wave.echoUnknown"), size: 44, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 0) }), luaCall(h, Text, { value: ((trait && luaProp(trait, "Name")) || luaProp(echo, "Trait")), size: 15, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 54, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -54, 0, 20) }), luaCall(h, Text, { value: `${luaCall(luaProp(string, "upper"), luaProp(echo, "Tier"))}  ·  LEVEL ${luaProp(echo, "Level")}${(luaProp(echo, "Locked") ? "  ·  LOCKED" : "")}`, size: 11, color: tierColor, weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 54, 22), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -54, 0, 16) }), luaCall(h, Text, { value: luaCall(effectLines, effects), size: 12, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 52), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 34) }), (((len(((luaProp(echo, "Imprints") || {}))) as unknown as number) > (0 as unknown as number)) && luaCall(h, Text, { value: concat("Imprints: ", luaTable.concat(luaCall((function(): unknown | undefined {
+		return luaCall(h, Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: tierColor, background: luaProp(Palette, "panel"), padding: 12, reveal: reveal, reducedMotion: luaProp(props, "reducedMotion") }, luaCall(h, Icon, { kind: (luaCall(traitIcon, luaProp(props, "place"), luaProp(echo, "Trait")) || "Wave.echoUnknown"), size: 44, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 0) }), luaCall(h, Text, { value: ((trait && luaProp(trait, "Name")) || luaProp(echo, "Trait")), size: 15, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 54, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -54, 0, 20) }), luaCall(h, Text, { value: `${luaCall(luaProp(string, "upper"), luaProp(echo, "Tier"))}  ·  LEVEL ${luaProp(echo, "Level")}${(luaProp(echo, "Locked") ? "  ·  LOCKED" : "")}`, size: 11, color: tierColor, weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 54, 22), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -54, 0, 16) }), luaCall(h, Text, { value: luaCall(effectLines, effects), size: 12, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 52), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 34) }), (((len(((luaProp(echo, "Imprints") || {}))) as unknown as number) > (0 as unknown as number)) && luaCall(h, Text, { value: concat("Imprints: ", luaTable.concat(luaCall((function(this: void): unknown | undefined {
 			let words: unknown = {};
 			for (const [_, kind] of pairs((luaProp(echo, "Imprints")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 				luaTable.insert(words, (luaIndex(KIND_WORDS, kind) || kind));
@@ -162,17 +171,17 @@ function __member(): unknown {
 		let echoes: unknown = (luaProp(state, "ForgeEchoes") || {});
 		// a controller lands on Strike the moment the charge is full
 		let strikeHost: unknown = reactLoose.useRef(undefined);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((!((luaProp(echoes, "Ready") && luaProp(UserInputService, "GamepadEnabled"))))) {
 				return undefined;
 			}
-			let job: unknown = luaCall(luaProp(task, "defer"), function(): unknown | undefined {
+			let job: unknown = luaCall(luaProp(task, "defer"), function(this: void): unknown | undefined {
 				if (((luaProp(strikeHost, "current") !== undefined) && (luaProp(luaProp(strikeHost, "current"), "Parent") !== undefined))) {
 					luaCall(luaProp(GamepadNavigationService, "FocusClaim"), luaProp(strikeHost, "current"));
 				}
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), job);
 				return undefined;
 			};
@@ -185,15 +194,15 @@ function __member(): unknown {
 		let setSlotting: unknown;
 		[slotting, setSlotting] = reactLoose.useState(undefined) as LuaTuple<[unknown, unknown]>;
 		let readyPulse: unknown = luaCall(usePulse, ((luaProp(echoes, "Ready") === true) && (!softMotion)), 1.6);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((armed === undefined)) {
 				return undefined;
 			}
-			let lapse: unknown = luaCall(luaProp(task, "delay"), 4, function(): unknown | undefined {
+			let lapse: unknown = luaCall(luaProp(task, "delay"), 4, function(this: void): unknown | undefined {
 				luaCall(setArmed, undefined);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), lapse);
 				return undefined;
 			};
@@ -220,10 +229,10 @@ function __member(): unknown {
 			luaSetIndex(tracks, concat("t", track), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 30), LayoutOrder: index, BackgroundTransparency: 1 }, luaCall(h, Icon, { kind: luaProp(art, "icon"), size: 26, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 2) }), luaCall(h, Text, { value: concat(luaProp(art, "label"), ((((luaProp(echoes, "Dominant") === track) && ((trackTotal as unknown as number) > (0 as unknown as number))) ? "  ·  leading" : ""))), size: 12, color: (((luaProp(echoes, "Dominant") === track) && ((trackTotal as unknown as number) > (0 as unknown as number))) ? luaProp(art, "color") : luaProp(Palette, "creamSoft")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), position: luaCall(luaProp(UDim2, "fromOffset"), 34, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.45, -34, 0, 16) }), luaCall(h, Meter, { value: share, color: luaProp(art, "color"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.55, -10, 0, 6), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.45, 10, 0, 12) })));
 		}
 		let charge: unknown = ((luaProp(echoes, "Charge") as unknown as number) / (luaCall(luaProp(math, "max"), 1, luaProp(echoes, "ChargeTarget")) as unknown as number));
-		luaTable.insert(sections, { id: "loom", height: (stack ? 300 : 236), element: luaCall(h, Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "cyan"), background: luaProp(Palette, "panel"), padding: 16, reducedMotion: softMotion }, luaCall(h, SectionLabel, { value: "THE LOOM", color: luaProp(Palette, "cyan") }), luaCall(h, Text, { value: (luaProp(echoes, "Ready") ? "The charge is full. Strike to see what answers." : `${luaCall(luaProp(math, "floor"), ((charge as unknown as number) * (100 as unknown as number)))}% charged. Play leaves a trace: whatever you do most shapes the first echo.`), size: 13, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 36) }), luaCall(h, Meter, { value: charge, color: (luaProp(echoes, "Ready") ? luaProp(Palette, "mango") : luaProp(Palette, "cyan")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 10), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 70) }), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)((stack ? 1 : 0.6), 0, 0, ((4 as unknown as number) * (34 as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 92), BackgroundTransparency: 1 }, luaCall(h, "uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 4), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), tracks), luaCall(h, "frame", { Name: "EchoClaimActions", ref: strikeHost, ClipsDescendants: false, Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.36, 0, 0, TapTarget)), Position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-(TapTarget as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 100)), AnchorPoint: (stack ? luaProp(Vector2, "zero") : new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0)), BackgroundTransparency: 1 }, luaCall(h, "uiscale", { Scale: colon(readyPulse).map(function(p?: unknown): unknown | undefined {
+		luaTable.insert(sections, { id: "loom", height: (stack ? 300 : 236), element: luaCall(h, Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "cyan"), background: luaProp(Palette, "panel"), padding: 16, reducedMotion: softMotion }, luaCall(h, SectionLabel, { value: "THE LOOM", color: luaProp(Palette, "cyan") }), luaCall(h, Text, { value: (luaProp(echoes, "Ready") ? "The charge is full. Strike to see what answers." : `${luaCall(luaProp(math, "floor"), ((charge as unknown as number) * (100 as unknown as number)))}% charged. Play leaves a trace: whatever you do most shapes the first echo.`), size: 13, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 36) }), luaCall(h, Meter, { value: charge, color: (luaProp(echoes, "Ready") ? luaProp(Palette, "mango") : luaProp(Palette, "cyan")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 10), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 70) }), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)((stack ? 1 : 0.6), 0, 0, ((4 as unknown as number) * (34 as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 92), BackgroundTransparency: 1 }, luaCall(h, "uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 4), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), tracks), luaCall(h, "frame", { Name: "EchoClaimActions", ref: strikeHost, ClipsDescendants: false, Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.36, 0, 0, TapTarget)), Position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-(TapTarget as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 100)), AnchorPoint: (stack ? luaProp(Vector2, "zero") : new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0)), BackgroundTransparency: 1 }, luaCall(h, "uiscale", { Scale: colon(readyPulse).map(function(this: void, p?: unknown): unknown | undefined {
 			return ((1 as unknown as number) + (((p as unknown as number) * (0.03 as unknown as number)) as unknown as number));
 			return undefined;
-		}) }), luaCall(h, Button, { text: (((len(((luaProp(echoes, "Draft") || {}))) as unknown as number) > (0 as unknown as number)) ? "Pick an echo below" : (luaProp(echoes, "Ready") ? "Strike" : "Charging")), onClick: function(): unknown | undefined {
+		}) }), luaCall(h, Button, { text: (((len(((luaProp(echoes, "Draft") || {}))) as unknown as number) > (0 as unknown as number)) ? "Pick an echo below" : (luaProp(echoes, "Ready") ? "Strike" : "Charging")), onClick: function(this: void): unknown | undefined {
 			luaCall(act, { Op: "Strike" });
 			return undefined;
 		}, disabled: ((!luaProp(echoes, "Ready")) || ((len(((luaProp(echoes, "Draft") || {}))) as unknown as number) > (0 as unknown as number))), color: luaProp(Palette, "mango"), textColor: luaProp(Palette, "ink"), highlight: luaProp(echoes, "Ready"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion }))) });
@@ -231,13 +240,13 @@ function __member(): unknown {
 		if (((len(((luaProp(echoes, "Draft") || {}))) as unknown as number) > (0 as unknown as number))) {
 			let cards: unknown = {};
 			for (const [index, choice] of pairs((luaProp(echoes, "Draft")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaSetIndex(cards, concat("c", index), luaCall(h, "frame", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 170) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -8, 1, 0)), LayoutOrder: index, BackgroundTransparency: 1 }, luaCall(h, EchoCard, { echo: choice, place: "draft", index: index, reducedMotion: softMotion, actions: luaCall(h, Button, { text: "Keep this one", onClick: function(): unknown | undefined {
+				luaSetIndex(cards, concat("c", index), luaCall(h, "frame", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 170) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -8, 1, 0)), LayoutOrder: index, BackgroundTransparency: 1 }, luaCall(h, EchoCard, { echo: choice, place: "draft", index: index, reducedMotion: softMotion, actions: luaCall(h, Button, { text: "Keep this one", onClick: function(this: void): unknown | undefined {
 					luaCall(act, { Op: "Keep", Choice: index });
 					return undefined;
 				}, color: (luaIndex(TIER_COLOR, luaProp(choice, "Tier")) || luaProp(Palette, "mango")), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion }) })));
 			}
 			let cardsH: unknown = (stack ? ((3 as unknown as number) * (178 as unknown as number)) : 178);
-			luaTable.insert(sections, { id: "draft", height: ((((((32 as unknown as number) + (cardsH as unknown as number)) as unknown as number) + (8 as unknown as number)) as unknown as number) + (TapTarget as unknown as number)), element: luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, luaCall(h, SectionLabel, { value: "WHAT ANSWERED", color: luaProp(Palette, "mango") }), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, cardsH), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 32), BackgroundTransparency: 1 }, luaCall(h, "uilistlayout", { FillDirection: (stack ? luaProp(luaProp(Enum, "FillDirection"), "Vertical") : luaProp(luaProp(Enum, "FillDirection"), "Horizontal")), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), cards), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 260, 0, TapTarget), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, 0), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 1), BackgroundTransparency: 1 }, luaCall(h, Button, { text: (luaProp(echoes, "Rerolled") ? "Already rerolled" : `Reroll for ${luaProp(EchoMath, "REROLL_RESONANCE")} resonance`), onClick: function(): unknown | undefined {
+			luaTable.insert(sections, { id: "draft", height: ((((((32 as unknown as number) + (cardsH as unknown as number)) as unknown as number) + (8 as unknown as number)) as unknown as number) + (TapTarget as unknown as number)), element: luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, luaCall(h, SectionLabel, { value: "WHAT ANSWERED", color: luaProp(Palette, "mango") }), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, cardsH), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 32), BackgroundTransparency: 1 }, luaCall(h, "uilistlayout", { FillDirection: (stack ? luaProp(luaProp(Enum, "FillDirection"), "Vertical") : luaProp(luaProp(Enum, "FillDirection"), "Horizontal")), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), cards), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 260, 0, TapTarget), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, 0), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 1), BackgroundTransparency: 1 }, luaCall(h, Button, { text: (luaProp(echoes, "Rerolled") ? "Already rerolled" : `Reroll for ${luaProp(EchoMath, "REROLL_RESONANCE")} resonance`), onClick: function(this: void): unknown | undefined {
 				luaCall(act, { Op: "Reroll" });
 				return undefined;
 			}, disabled: (luaProp(echoes, "Rerolled") || ((luaProp(echoes, "Resonance") as unknown as number) < (luaProp(EchoMath, "REROLL_RESONANCE") as unknown as number))), color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "cream"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion }))) });
@@ -251,7 +260,7 @@ function __member(): unknown {
 		for (const [_, slot] of pairs((luaProp(echoes, "Chord")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 			let echo: unknown = luaIndex(byUid, luaProp(slot, "Uid"));
 			let placing: unknown = ((slotting !== undefined) && luaProp(slot, "Open"));
-			luaSetIndex(slots, concat("s", luaProp(slot, "Slot")), luaCall(h, "textbutton", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 96) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, -6, 1, 0)), LayoutOrder: luaProp(slot, "Slot"), BackgroundColor3: (placing ? luaCall(darken, luaProp(Palette, "mango"), 0.6) : luaProp(Palette, "panelSoft")), AutoButtonColor: false, Text: "", Event: { Activated: function(): unknown | undefined {
+			luaSetIndex(slots, concat("s", luaProp(slot, "Slot")), luaCall(h, "textbutton", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 96) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, -6, 1, 0)), LayoutOrder: luaProp(slot, "Slot"), BackgroundColor3: (placing ? luaCall(darken, luaProp(Palette, "mango"), 0.6) : luaProp(Palette, "panelSoft")), AutoButtonColor: false, Text: "", Event: { Activated: function(this: void): unknown | undefined {
 				if (((slotting !== undefined) && luaProp(slot, "Open"))) {
 					luaCall(act, { Op: "Slot", Slot: luaProp(slot, "Slot"), Uid: slotting });
 					luaCall(setSlotting, undefined);
@@ -291,19 +300,19 @@ function __member(): unknown {
 			}
 			let canFuse: unknown = (((partner !== undefined) && (!luaProp(echo, "Locked"))) && (luaCall(luaProp(EchoMath, "nextTier"), luaProp(echo, "Tier")) !== undefined));
 			let isArmed: unknown = (armed === luaProp(echo, "Uid"));
-			let actionList: unknown = [["Slot", function(): unknown | undefined {
+			let actionList: unknown = [["Slot", function(this: void): unknown | undefined {
 				luaCall(setSlotting, ((slotting === luaProp(echo, "Uid")) ? undefined : luaProp(echo, "Uid")));
 				return undefined;
-			}, luaProp(Palette, "violet"), false], [`Tune · ${luaCall(compactNumber, luaProp(echo, "TuneCost"))}`, function(): unknown | undefined {
+			}, luaProp(Palette, "violet"), false], [`Tune · ${luaCall(compactNumber, luaProp(echo, "TuneCost"))}`, function(this: void): unknown | undefined {
 				luaCall(act, { Op: "Tune", Uid: luaProp(echo, "Uid") });
 				return undefined;
-			}, luaProp(Palette, "cyan"), (((((luaCall(tonumber, luaProp(state, "Stardust")) || 0)) as unknown as number) < (luaProp(echo, "TuneCost") as unknown as number)) || ((luaProp(echo, "Level") as unknown as number) >= (luaProp(EchoMath, "MAX_LEVEL") as unknown as number)))], ["Fuse", function(): unknown | undefined {
+			}, luaProp(Palette, "cyan"), (((((luaCall(tonumber, luaProp(state, "Stardust")) || 0)) as unknown as number) < (luaProp(echo, "TuneCost") as unknown as number)) || ((luaProp(echo, "Level") as unknown as number) >= (luaProp(EchoMath, "MAX_LEVEL") as unknown as number)))], ["Fuse", function(this: void): unknown | undefined {
 				luaCall(act, { Op: "Fuse", A: luaProp(echo, "Uid"), B: luaProp(partner, "Uid") });
 				return undefined;
-			}, luaProp(Palette, "mango"), (!canFuse)], [(luaProp(echo, "Locked") ? "Unlock" : "Lock"), function(): unknown | undefined {
+			}, luaProp(Palette, "mango"), (!canFuse)], [(luaProp(echo, "Locked") ? "Unlock" : "Lock"), function(this: void): unknown | undefined {
 				luaCall(act, { Op: "Lock", Uid: luaProp(echo, "Uid") });
 				return undefined;
-			}, luaProp(Palette, "panelSoft"), false], [(isArmed ? "Sure?" : `Break · +${luaProp(echo, "Resonance")}`), function(): unknown | undefined {
+			}, luaProp(Palette, "panelSoft"), false], [(isArmed ? "Sure?" : `Break · +${luaProp(echo, "Resonance")}`), function(this: void): unknown | undefined {
 				if (isArmed) {
 					luaCall(setArmed, undefined);
 					luaCall(act, { Op: "Dismantle", Uid: luaProp(echo, "Uid") });

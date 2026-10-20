@@ -12,9 +12,18 @@ function colon(value: unknown): Colon {
 	return value as Colon;
 }
 function luaProp(object: unknown, key: string): unknown {
+	// A missing row is nil. Indexing it throws; the Luau views treated that as absent.
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[key];
 }
 function luaIndex(object: unknown, index: unknown): unknown {
+	const kind = typeOf(object);
+	if (kind === "nil" || kind === "number" || kind === "boolean") {
+		return undefined;
+	}
 	return (object as LuaObj)[index as unknown as string];
 }
 function luaSet(object: unknown, key: string, value: unknown): void {
@@ -281,7 +290,7 @@ function __member(): unknown {
 		let surface: unknown = luaCall(darken, accent, 0.9);
 		let height: unknown = (stack ? 234 : 196);
 		let claimHostRef: unknown = reactLoose.useRef(undefined);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if (((!canClaim) || (!luaProp(UserInputService, "GamepadEnabled")))) {
 				return undefined;
 			}
@@ -289,14 +298,14 @@ function __member(): unknown {
 			if ((host === undefined)) {
 				return undefined;
 			}
-			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(): unknown | undefined {
+			let selectJob: unknown = luaCall(luaProp(task, "defer"), function(this: void): unknown | undefined {
 				if ((luaProp(host, "Parent") === undefined)) {
 					return;
 				}
 				luaCall(luaProp(GamepadNavigationService, "FocusClaim"), host);
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), selectJob);
 				return undefined;
 			};
@@ -337,7 +346,7 @@ function __member(): unknown {
 		luaSet(_attributes_1, "position", luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 50 : 52)));
 		luaSet(_attributes_1, "sizeConstraint", new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -8, 0, 30));
 		let _exp_2: unknown = reactLoose.createElement(Text, _attributes_1);
-		let _exp_3: unknown = reactLoose.createElement(Text, { value: colon(now).map(function(timestamp?: unknown): unknown | undefined {
+		let _exp_3: unknown = reactLoose.createElement(Text, { value: colon(now).map(function(this: void, timestamp?: unknown): unknown | undefined {
 			return (((luaProp(goal, "EndsAt") as unknown as number) > (timestamp as unknown as number)) ? `${luaCall(clockText, luaCall(luaProp(math, "max"), 0, ((luaProp(goal, "EndsAt") as unknown as number) - (timestamp as unknown as number))))} LEFT` : "WINDOW CLOSED");
 			return undefined;
 		}), size: 10, color: luaCall(ensureContrast, surface, luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Right"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -150, 0, 0), sizeConstraint: luaCall(luaProp(UDim2, "fromOffset"), 150, 16) });
@@ -360,7 +369,7 @@ function __member(): unknown {
 		luaSet(_attributes_2, "minSize", 8);
 		luaSet(_attributes_2, "position", luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 106 : 108)));
 		luaSet(_attributes_2, "sizeConstraint", new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 16));
-		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), accent: accent, background: surface, padding: 16, layoutOrder: layoutOrder, highlight: canClaim, reducedMotion: reducedMotion, clips: false }, _exp, _exp_1, _exp_2, _exp_3, _exp_4, reactLoose.createElement(Text, _attributes_2), reactLoose.createElement(Text, { value: (((mine as unknown as number) > (0 as unknown as number)) ? `YOU HELPED WITH ${luaCall(compactNumber, mine)}` : "YOU HAVE NOT HELPED YET"), size: 10, color: luaCall(ensureContrast, surface, (((mine as unknown as number) > (0 as unknown as number)) ? luaProp(Palette, "mint") : luaProp(Palette, "muted"))), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 126 : 128)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -170), 0, 16) }), ((definition !== undefined) && reactLoose.createElement(Text, { value: `REWARD  ${luaCall(formatReward, luaProp(definition, "Reward"))}`, size: 10, color: luaCall(ensureContrast, surface, luaProp(Palette, "muted")), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 146 : 148)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -170), 0, 16) })), reactLoose.createElement("frame", { Name: "GuildClaimActions", Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 46) : luaCall(luaProp(UDim2, "fromOffset"), 160, 46)), Position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -46) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -160, 1, -46)), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, ref: (canClaim ? claimHostRef : undefined) }, reactLoose.createElement(Button, { text: (claimed ? "CLAIMED" : (canClaim ? "CLAIM REWARD" : (luaProp(goal, "Completed") ? "NOT ELIGIBLE" : "NOT YET"))), icon: (claimed ? "Check.13" : "Gift.9"), onClick: function(): unknown | undefined {
+		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), accent: accent, background: surface, padding: 16, layoutOrder: layoutOrder, highlight: canClaim, reducedMotion: reducedMotion, clips: false }, _exp, _exp_1, _exp_2, _exp_3, _exp_4, reactLoose.createElement(Text, _attributes_2), reactLoose.createElement(Text, { value: (((mine as unknown as number) > (0 as unknown as number)) ? `YOU HELPED WITH ${luaCall(compactNumber, mine)}` : "YOU HAVE NOT HELPED YET"), size: 10, color: luaCall(ensureContrast, surface, (((mine as unknown as number) > (0 as unknown as number)) ? luaProp(Palette, "mint") : luaProp(Palette, "muted"))), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 126 : 128)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -170), 0, 16) }), ((definition !== undefined) && reactLoose.createElement(Text, { value: `REWARD  ${luaCall(formatReward, luaProp(definition, "Reward"))}`, size: 10, color: luaCall(ensureContrast, surface, luaProp(Palette, "muted")), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 146 : 148)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -170), 0, 16) })), reactLoose.createElement("frame", { Name: "GuildClaimActions", Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 46) : luaCall(luaProp(UDim2, "fromOffset"), 160, 46)), Position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -46) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -160, 1, -46)), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, ref: (canClaim ? claimHostRef : undefined) }, reactLoose.createElement(Button, { text: (claimed ? "CLAIMED" : (canClaim ? "CLAIM REWARD" : (luaProp(goal, "Completed") ? "NOT ELIGIBLE" : "NOT YET"))), icon: (claimed ? "Check.13" : "Gift.9"), onClick: function(this: void): unknown | undefined {
 			if ((canClaim && (!busy))) {
 				luaCall(dispatch, "ClaimGuildGoal", {});
 			}
@@ -425,7 +434,7 @@ function __member(): unknown {
 		luaSet(_attributes, "minSize", 8);
 		luaSet(_attributes, "position", luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 58 : 60)));
 		luaSet(_attributes, "sizeConstraint", new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -260), 0, 18));
-		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), accent: luaProp(row, "accent"), background: luaProp(Palette, "panelRaised"), padding: (stack ? 14 : 16), layoutOrder: layoutOrder, interactive: actionable, highlight: actionable, reducedMotion: reducedMotion, clips: false }, _exp, _exp_1, _exp_2, reactLoose.createElement(Text, _attributes), reactLoose.createElement(Meter, { value: fill, color: luaProp(row, "accent"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 82 : 84)), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -260), 0, 6), reducedMotion: reducedMotion }), reactLoose.createElement(Text, { value: (luaProp(row, "maxed") ? "MAXED" : `BANK ${luaCall(compactNumber, bank)} / ${luaCall(compactNumber, luaProp(row, "cost"))} ${currencyLabel}`), size: 10, color: (luaProp(row, "affordable") ? luaProp(Palette, "mint") : luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 96 : 98)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -260), 0, 16) }), reactLoose.createElement(Button, { text: (luaProp(row, "maxed") ? "MAXED" : (luaProp(row, "affordable") ? `BUY ${luaCall(compactNumber, luaProp(row, "cost"))}` : "NEED MORE")), icon: (luaProp(row, "maxed") ? "Check.14" : "Forge.15"), onClick: function(): unknown | undefined {
+		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), accent: luaProp(row, "accent"), background: luaProp(Palette, "panelRaised"), padding: (stack ? 14 : 16), layoutOrder: layoutOrder, interactive: actionable, highlight: actionable, reducedMotion: reducedMotion, clips: false }, _exp, _exp_1, _exp_2, reactLoose.createElement(Text, _attributes), reactLoose.createElement(Meter, { value: fill, color: luaProp(row, "accent"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 82 : 84)), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -260), 0, 6), reducedMotion: reducedMotion }), reactLoose.createElement(Text, { value: (luaProp(row, "maxed") ? "MAXED" : `BANK ${luaCall(compactNumber, bank)} / ${luaCall(compactNumber, luaProp(row, "cost"))} ${currencyLabel}`), size: 10, color: (luaProp(row, "affordable") ? luaProp(Palette, "mint") : luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 96 : 98)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? 0 : -260), 0, 16) }), reactLoose.createElement(Button, { text: (luaProp(row, "maxed") ? "MAXED" : (luaProp(row, "affordable") ? `BUY ${luaCall(compactNumber, luaProp(row, "cost"))}` : "NEED MORE")), icon: (luaProp(row, "maxed") ? "Check.14" : "Forge.15"), onClick: function(this: void): unknown | undefined {
 			if ((actionable && (!busy))) {
 				luaCall(dispatch, "BuyGuildUpgrade", { Id: luaProp(row, "id") });
 			}
@@ -459,12 +468,12 @@ function __member(): unknown {
 		let manageable: unknown = (canManage && luaCall(luaProp(Social, "canManage"), { Role: (luaProp(_param, "myRole") || "Leader") }, { Role: role }, "Kick"));
 		let canPromote: unknown = (((luaProp(_param, "myRole") || "Leader")) === "Leader");
 		let height: unknown = (stack ? 122 : (manageable ? 112 : 84));
-		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), accent: (isLocal ? luaProp(Palette, "green") : accent), background: surface, padding: (stack ? 12 : 14), layoutOrder: layoutOrder, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(PlayerMark, { userId: userId, accent: accent, size: 34, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 2) }), reactLoose.createElement(Text, { value: name, size: 14, color: luaCall(ensureContrast, surface, luaProp(Palette, "cream")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, minSize: 10, position: luaCall(luaProp(UDim2, "fromOffset"), 44, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -44 : -44), 0, 20) }), reactLoose.createElement(Badge, { value: luaCall(luaProp(string, "upper"), role), accent: accent, filled: ((role === "Leader") || (role === "Officer")), position: luaCall(luaProp(UDim2, "fromOffset"), 44, 20), size: luaCall(luaProp(UDim2, "fromOffset"), ((role === "Leader") ? 60 : (((role === "Officer") ? 64 : 58))), 16) }), (isLocal && reactLoose.createElement(Badge, { value: "YOU", accent: luaProp(Palette, "green"), filled: true, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -48, 0, 2), size: luaCall(luaProp(UDim2, "fromOffset"), 44, 18) })), reactLoose.createElement(Text, { value: `${luaCall(compactNumber, contributed)} banked  •  ${luaCall(luaProp(math, "floor"), ((((share as unknown as number) * (100 as unknown as number)) as unknown as number) + (0.5 as unknown as number)))}% of all deposits`, size: 10, color: luaCall(ensureContrast, surface, luaProp(Palette, "muted")), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 44, 38), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -44 : -44), 0, 16) }), (((goalShare as unknown as number) > (0 as unknown as number)) && reactLoose.createElement(Text, { value: `${luaCall(compactNumber, goalShare)} toward this goal`, size: 9, color: luaCall(ensureContrast, surface, luaProp(Palette, "mint")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 44, 54), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -44 : -44), 0, 14) })), (manageable && reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement(Button, { text: ((!canPromote) ? "LEADER ONLY" : ((role === "Officer") ? "DEMOTE" : "PROMOTE")), onClick: function(): unknown | undefined {
+		return reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, height), accent: (isLocal ? luaProp(Palette, "green") : accent), background: surface, padding: (stack ? 12 : 14), layoutOrder: layoutOrder, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(PlayerMark, { userId: userId, accent: accent, size: 34, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 2) }), reactLoose.createElement(Text, { value: name, size: 14, color: luaCall(ensureContrast, surface, luaProp(Palette, "cream")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, minSize: 10, position: luaCall(luaProp(UDim2, "fromOffset"), 44, 0), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -44 : -44), 0, 20) }), reactLoose.createElement(Badge, { value: luaCall(luaProp(string, "upper"), role), accent: accent, filled: ((role === "Leader") || (role === "Officer")), position: luaCall(luaProp(UDim2, "fromOffset"), 44, 20), size: luaCall(luaProp(UDim2, "fromOffset"), ((role === "Leader") ? 60 : (((role === "Officer") ? 64 : 58))), 16) }), (isLocal && reactLoose.createElement(Badge, { value: "YOU", accent: luaProp(Palette, "green"), filled: true, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -48, 0, 2), size: luaCall(luaProp(UDim2, "fromOffset"), 44, 18) })), reactLoose.createElement(Text, { value: `${luaCall(compactNumber, contributed)} banked  •  ${luaCall(luaProp(math, "floor"), ((((share as unknown as number) * (100 as unknown as number)) as unknown as number) + (0.5 as unknown as number)))}% of all deposits`, size: 10, color: luaCall(ensureContrast, surface, luaProp(Palette, "muted")), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 44, 38), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -44 : -44), 0, 16) }), (((goalShare as unknown as number) > (0 as unknown as number)) && reactLoose.createElement(Text, { value: `${luaCall(compactNumber, goalShare)} toward this goal`, size: 9, color: luaCall(ensureContrast, surface, luaProp(Palette, "mint")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 44, 54), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (stack ? -44 : -44), 0, 14) })), (manageable && reactLoose.createElement(React.Fragment, undefined, reactLoose.createElement(Button, { text: ((!canPromote) ? "LEADER ONLY" : ((role === "Officer") ? "DEMOTE" : "PROMOTE")), onClick: function(this: void): unknown | undefined {
 			if ((!busy)) {
 				luaCall(dispatch, "SetGuildRole", { UserId: userId, Role: ((role === "Officer") ? "Member" : "Officer") });
 			}
 			return undefined;
-		}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "creamSoft"), disabled: (busy || (!canPromote)), loading: busy, shakeToken: shakeToken, size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 40)), position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -40)), reducedMotion: reducedMotion }), reactLoose.createElement(Button, { text: (luaProp(_param, "confirmKick") ? "CONFIRM KICK" : "KICK"), onClick: function(): unknown | undefined {
+		}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "creamSoft"), disabled: (busy || (!canPromote)), loading: busy, shakeToken: shakeToken, size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 40)), position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -40)), reducedMotion: reducedMotion }), reactLoose.createElement(Button, { text: (luaProp(_param, "confirmKick") ? "CONFIRM KICK" : "KICK"), onClick: function(this: void): unknown | undefined {
 			if ((!busy)) {
 				luaCall(dispatch, "KickGuildMember", { UserId: userId });
 			}
@@ -509,7 +518,7 @@ function __member(): unknown {
 		let canCharter: unknown = ((((!busy) && ((len(name) as unknown as number) >= (3 as unknown as number))) && ((len(tag) as unknown as number) >= (3 as unknown as number))) && canAfford);
 		let canJoin: unknown = ((!busy) && ((len(joinTag) as unknown as number) >= (3 as unknown as number)));
 		let fieldStyle: unknown = { BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0 };
-		let charter: unknown = function(): unknown | undefined {
+		let charter: unknown = function(this: void): unknown | undefined {
 			let nextName: unknown = (luaCall(luaProp(string, "gsub"), (luaCall(luaProp(string, "gsub"), luaProp(nameRef, "current"), "^%s+", "")), "%s+$", ""));
 			let nextTag: unknown = luaCall(sanitizeGuildTag, luaProp(tagRef, "current"));
 			if ((((busy || ((len(nextName) as unknown as number) < (3 as unknown as number))) || ((len(nextTag) as unknown as number) < (3 as unknown as number))) || (!canAfford))) {
@@ -518,7 +527,7 @@ function __member(): unknown {
 			luaCall(dispatch, "CreateGuild", { Name: nextName, Tag: nextTag });
 			return undefined;
 		};
-		let join: unknown = function(): unknown | undefined {
+		let join: unknown = function(this: void): unknown | undefined {
 			let nextTag: unknown = luaCall(sanitizeGuildTag, luaProp(joinRef, "current"));
 			if ((busy || ((len(nextTag) as unknown as number) < (3 as unknown as number)))) {
 				return undefined;
@@ -529,12 +538,12 @@ function __member(): unknown {
 		let _exp: unknown = reactLoose.createElement(Text, { value: "CHARTER A GUILD", size: 10, color: luaProp(Palette, "violet"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 14) });
 		let _exp_1: unknown = reactLoose.createElement(Text, { value: "Start your own hall", size: (stack ? 21 : 26), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 16, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 18), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 32) });
 		let _exp_2: unknown = reactLoose.createElement(Text, { value: `Costs ${luaCall(compactNumber, createCost)} flux · you have ${luaCall(compactNumber, cash)}. You lead it and share every hall upgrade.`, size: 11, color: (canAfford ? luaProp(Palette, "creamSoft") : luaProp(Palette, "coral")), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 52), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 32) });
-		let _attributes: unknown = { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 90), PlaceholderText: "Guild name (3-28 characters)", Text: name, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(box?: unknown): unknown | undefined {
+		let _attributes: unknown = { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 90), PlaceholderText: "Guild name (3-28 characters)", Text: name, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 			let value: unknown = luaCall(luaProp(ChatText, "cutBytes"), luaProp(box, "Text"), 28);
 			luaSet(nameRef, "current", value);
 			luaCall(setName, value);
 			return undefined;
-		} }, Event: { Focused: function(): unknown | undefined {
+		} }, Event: { Focused: function(this: void): unknown | undefined {
 			return colon(Audio).play("inputFocus");
 			return undefined;
 		} } };
@@ -542,12 +551,12 @@ function __member(): unknown {
 			luaSetIndex(_attributes, _k, _v);
 		}
 		let _exp_3: unknown = reactLoose.createElement("textbox", _attributes, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "line"), Thickness: 1, Transparency: 0.55 }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }));
-		let _attributes_1: unknown = { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 138), PlaceholderText: "Tag (3-4 letters or numbers)", Text: tag, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(box?: unknown): unknown | undefined {
+		let _attributes_1: unknown = { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 138), PlaceholderText: "Tag (3-4 letters or numbers)", Text: tag, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 			let value: unknown = luaCall(sanitizeGuildTag, luaProp(box, "Text"));
 			luaSet(tagRef, "current", value);
 			luaCall(setTag, value);
 			return undefined;
-		} }, Event: { Focused: function(): unknown | undefined {
+		} }, Event: { Focused: function(this: void): unknown | undefined {
 			return colon(Audio).play("inputFocus");
 			return undefined;
 		} } };
@@ -557,12 +566,12 @@ function __member(): unknown {
 		let _exp_4: unknown = reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 276), accent: luaProp(Palette, "violet"), background: luaProp(Palette, "panelRaised"), padding: 18, layoutOrder: 1, reducedMotion: reducedMotion, clips: false }, _exp, _exp_1, _exp_2, _exp_3, reactLoose.createElement("textbox", _attributes_1, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "line"), Thickness: 1, Transparency: 0.55 }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) })), reactLoose.createElement(Button, { text: ((!canAfford) ? `NEED ${luaCall(compactNumber, createCost)} FLUX` : "CHARTER GUILD"), icon: "Forge.16", onClick: charter, color: (canCharter ? luaProp(Palette, "violet") : luaProp(Palette, "panelSoft")), textColor: (canCharter ? luaProp(Palette, "ink") : luaProp(Palette, "muted")), disabled: (!canCharter), loading: (canAfford && busy), shakeToken: (canAfford ? shakeToken : 0), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-(TapTarget as unknown as number))), reducedMotion: reducedMotion }));
 		let _exp_5: unknown = reactLoose.createElement(Text, { value: "JOIN A GUILD", size: 10, color: luaProp(Palette, "mint"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 14) });
 		let _exp_6: unknown = reactLoose.createElement(Text, { value: "Already know a tag? Type it in and jump into the hall.", size: 11, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 30) });
-		let _attributes_2: unknown = { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 56), PlaceholderText: "Guild tag", Text: joinTag, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(box?: unknown): unknown | undefined {
+		let _attributes_2: unknown = { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 56), PlaceholderText: "Guild tag", Text: joinTag, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 			let value: unknown = luaCall(sanitizeGuildTag, luaProp(box, "Text"));
 			luaSet(joinRef, "current", value);
 			luaCall(setJoinTag, value);
 			return undefined;
-		} }, Event: { Focused: function(): unknown | undefined {
+		} }, Event: { Focused: function(this: void): unknown | undefined {
 			return colon(Audio).play("inputFocus");
 			return undefined;
 		} } };
@@ -621,27 +630,27 @@ function __member(): unknown {
 		[busy, setBusy] = reactLoose.useState("") as LuaTuple<[unknown, unknown]>;
 		let leader: unknown = (role === "Leader");
 		let manager: unknown = (leader || (role === "Officer"));
-		let requestCommunity: unknown = reactLoose.useCallback(function(): unknown | undefined {
-			luaCall(dispatch, "GetGuildChatHistory", { Limit: 50 }, function(result?: unknown): unknown | undefined {
+		let requestCommunity: unknown = reactLoose.useCallback(function(this: void): unknown | undefined {
+			luaCall(dispatch, "GetGuildChatHistory", { Limit: 50 }, function(this: void, result?: unknown): unknown | undefined {
 				if (luaProp(result, "ok")) {
 					luaCall(setMessages, (luaProp(result, "Messages") || {}));
 				}
 				return undefined;
 			});
-			luaCall(dispatch, "GetGuildAnnouncements", {}, function(result?: unknown): unknown | undefined {
+			luaCall(dispatch, "GetGuildAnnouncements", {}, function(this: void, result?: unknown): unknown | undefined {
 				if (luaProp(result, "ok")) {
 					luaCall(setAnnouncements, (luaProp(result, "Announcements") || {}));
 				}
 				return undefined;
 			});
-			luaCall(dispatch, "GetGuildSettings", {}, function(result?: unknown): unknown | undefined {
+			luaCall(dispatch, "GetGuildSettings", {}, function(this: void, result?: unknown): unknown | undefined {
 				if (luaProp(result, "ok")) {
 					luaCall(setSettings, (luaProp(result, "Settings") || {}));
 				}
 				return undefined;
 			});
 			if (leader) {
-				luaCall(dispatch, "GetGuildLogoReview", {}, function(result?: unknown): unknown | undefined {
+				luaCall(dispatch, "GetGuildLogoReview", {}, function(this: void, result?: unknown): unknown | undefined {
 					if (luaProp(result, "ok")) {
 						luaCall(setLogos, (luaProp(result, "Logos") || {}));
 					}
@@ -650,10 +659,10 @@ function __member(): unknown {
 			}
 			return undefined;
 		}, [dispatch, manager, luaProp(guild, "Id")]);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			luaCall(requestCommunity);
 			let alive: unknown = true;
-			let worker: unknown = luaCall(luaProp(task, "spawn"), function(): unknown | undefined {
+			let worker: unknown = luaCall(luaProp(task, "spawn"), function(this: void): unknown | undefined {
 				while (alive) {
 					luaCall(luaProp(task, "wait"), 8);
 					if (alive) {
@@ -662,12 +671,12 @@ function __member(): unknown {
 				}
 				return undefined;
 			});
-			let connection: unknown = colon(luaProp(colon(colon(colon(game).GetService("ReplicatedStorage")).WaitForChild("__AFX_BRIDGE_31")).WaitForChild("re_e31"), "OnClientEvent")).Connect(function(packet?: unknown): unknown | undefined {
+			let connection: unknown = colon(luaProp(colon(colon(colon(game).GetService("ReplicatedStorage")).WaitForChild("__AFX_BRIDGE_31")).WaitForChild("re_e31"), "OnClientEvent")).Connect(function(this: void, packet?: unknown): unknown | undefined {
 				if ((((!alive) || (!luaTypeIs(packet, "table"))) || (luaProp(packet, "GuildId") !== luaProp(guild, "Id")))) {
 					return;
 				}
 				if (((luaProp(packet, "Type") === "GuildChat") && (luaTypeIs(luaProp(packet, "Message"), "table")))) {
-					luaCall(setMessages, function(previous?: unknown): unknown | undefined {
+					luaCall(setMessages, function(this: void, previous?: unknown): unknown | undefined {
 						let updated: unknown = luaCall(luaProp(table, "clone"), previous);
 						for (const [_, existing] of pairs((updated) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 							if ((luaProp(existing, "Id") === luaProp(luaProp(packet, "Message"), "Id"))) {
@@ -687,7 +696,7 @@ function __member(): unknown {
 				}
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				alive = false;
 				colon(connection).Disconnect();
 				luaCall(pcall, luaProp(task, "cancel"), worker);
@@ -695,12 +704,12 @@ function __member(): unknown {
 			};
 			return undefined;
 		}, [requestCommunity, luaProp(guild, "Id")]);
-		let run: unknown = function(action?: unknown, payload?: unknown, done?: unknown): unknown | undefined {
+		let run: unknown = function(this: void, action?: unknown, payload?: unknown, done?: unknown): unknown | undefined {
 			if ((busy !== "")) {
 				return;
 			}
 			luaCall(setBusy, action);
-			luaCall(dispatch, action, payload, function(result?: unknown): unknown | undefined {
+			luaCall(dispatch, action, payload, function(this: void, result?: unknown): unknown | undefined {
 				luaCall(setBusy, "");
 				if (luaProp(result, "ok")) {
 					luaCall(requestCommunity);
@@ -714,7 +723,7 @@ function __member(): unknown {
 		};
 		let fieldStyle: unknown = { BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, ClearTextOnFocus: false, FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")) };
 		function input(placeholder?: unknown, value?: unknown, onChange?: unknown, height?: unknown, position?: unknown): unknown | undefined {
-			return reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (height || 42)), Position: (position || luaCall(luaProp(UDim2, "fromOffset"), 0, 0)), PlaceholderText: placeholder, Text: value, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), Change: { Text: function(box?: unknown): unknown | undefined {
+			return reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (height || 42)), Position: (position || luaCall(luaProp(UDim2, "fromOffset"), 0, 0)), PlaceholderText: placeholder, Text: value, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 				luaCall(onChange, luaCall(luaProp(ChatText, "cutBytes"), luaProp(box, "Text"), 800));
 				return undefined;
 			} }, BackgroundColor3: luaProp(fieldStyle, "BackgroundColor3"), BorderSizePixel: luaProp(fieldStyle, "BorderSizePixel"), TextColor3: luaProp(fieldStyle, "TextColor3"), PlaceholderColor3: luaProp(fieldStyle, "PlaceholderColor3"), TextSize: luaProp(fieldStyle, "TextSize"), ClearTextOnFocus: false, FontFace: luaProp(fieldStyle, "FontFace") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }));
@@ -734,18 +743,18 @@ function __member(): unknown {
 		if ((len(chatRows) === 0)) {
 			luaSetIndex(chatRows, 1, reactLoose.createElement(Text, { key: "no-chat", value: "No messages yet. Chat is visible only to this guild's members.", size: 12, color: luaProp(Palette, "muted"), wrap: true, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 34) }));
 		}
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			let frame: unknown = luaProp(chatScroll, "current");
 			if ((frame === undefined)) {
 				return undefined;
 			}
-			let job: unknown = luaCall(luaProp(task, "defer"), function(): unknown | undefined {
+			let job: unknown = luaCall(luaProp(task, "defer"), function(this: void): unknown | undefined {
 				if (luaProp(frame, "Parent")) {
 					luaSet(frame, "CanvasPosition", new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0, luaCall(luaProp(math, "max"), 0, ((luaProp(luaProp(frame, "AbsoluteCanvasSize"), "Y") as unknown as number) - (luaProp(luaProp(frame, "AbsoluteWindowSize"), "Y") as unknown as number)))));
 				}
 				return undefined;
 			});
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(pcall, luaProp(task, "cancel"), job);
 				return undefined;
 			};
@@ -755,7 +764,7 @@ function __member(): unknown {
 			if (((chatDraft === "") || (luaProp(settings, "ChatEnabled") === false))) {
 				return;
 			}
-			luaCall(run, "SendGuildChat", { Content: chatDraft }, function(result?: unknown): unknown | undefined {
+			luaCall(run, "SendGuildChat", { Content: chatDraft }, function(this: void, result?: unknown): unknown | undefined {
 				if (luaProp(result, "ok")) {
 					luaCall(setChatDraft, "");
 				}
@@ -766,10 +775,10 @@ function __member(): unknown {
 		let announcementRows: unknown = {};
 		for (const [index, item] of pairs((announcements) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 			let label: unknown = `${(luaProp(item, "Pinned") ? "[PINNED] " : "")}${luaProp(item, "Title")}  ·  ${(luaProp(item, "AuthorName") || "Guild staff")}`;
-			luaSetIndex(announcementRows, index, reactLoose.createElement(Panel, { key: luaProp(item, "Id"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 116), accent: ((luaProp(item, "Pinned") && luaProp(Palette, "mango")) || luaProp(Palette, "cyan")), padding: 12, reducedMotion: reducedMotion }, reactLoose.createElement(Text, { value: label, size: 13, weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 22) }), reactLoose.createElement(Text, { value: luaProp(item, "Body"), size: 11, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 52) }), (manager && reactLoose.createElement(Button, { text: ((luaProp(item, "Pinned") && "UNPIN") || "PIN"), onClick: function(): unknown | undefined {
+			luaSetIndex(announcementRows, index, reactLoose.createElement(Panel, { key: luaProp(item, "Id"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 116), accent: ((luaProp(item, "Pinned") && luaProp(Palette, "mango")) || luaProp(Palette, "cyan")), padding: 12, reducedMotion: reducedMotion }, reactLoose.createElement(Text, { value: label, size: 13, weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 22) }), reactLoose.createElement(Text, { value: luaProp(item, "Body"), size: 11, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 52) }), (manager && reactLoose.createElement(Button, { text: ((luaProp(item, "Pinned") && "UNPIN") || "PIN"), onClick: function(this: void): unknown | undefined {
 				luaCall(run, "PinGuildAnnouncement", { AnnouncementId: luaProp(item, "Id"), Pinned: (!luaProp(item, "Pinned")) });
 				return undefined;
-			}, color: luaProp(Palette, "panelSoft"), size: luaCall(luaProp(UDim2, "fromOffset"), 92, 32), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -96, 1, -32), disabled: (busy !== ""), reducedMotion: reducedMotion })), (manager && reactLoose.createElement(Button, { text: "ARCHIVE", onClick: function(): unknown | undefined {
+			}, color: luaProp(Palette, "panelSoft"), size: luaCall(luaProp(UDim2, "fromOffset"), 92, 32), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -96, 1, -32), disabled: (busy !== ""), reducedMotion: reducedMotion })), (manager && reactLoose.createElement(Button, { text: "ARCHIVE", onClick: function(this: void): unknown | undefined {
 				luaCall(run, "ArchiveGuildAnnouncement", { AnnouncementId: luaProp(item, "Id") });
 				return undefined;
 			}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "coral"), size: luaCall(luaProp(UDim2, "fromOffset"), 92, 32), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -194, 1, -32), disabled: (busy !== ""), reducedMotion: reducedMotion })), reactLoose.createElement(Text, { value: ((luaTypeIs(luaProp(item, "PublishedAt"), "number")) ? concat(luaCall(luaProp(os, "date"), "%b %d · %H:%M", luaProp(item, "PublishedAt")), ((luaProp(item, "EditedAt") ? " · edited" : ""))) : ""), size: 10, color: luaProp(Palette, "muted"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -24), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -200, 0, 18) })));
@@ -779,10 +788,10 @@ function __member(): unknown {
 		}
 		let logoRows: unknown = {};
 		for (const [index, logo] of pairs((logos) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-			luaSetIndex(logoRows, index, reactLoose.createElement(Panel, { key: luaProp(logo, "Id"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 84), accent: luaProp(Palette, "violet"), padding: 10 }, reactLoose.createElement("imagelabel", { Size: luaCall(luaProp(UDim2, "fromOffset"), 52, 52), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 0), BackgroundTransparency: 1, Image: (luaProp(logo, "URL") || ""), ScaleType: luaProp(luaProp(Enum, "ScaleType"), "Fit") }), reactLoose.createElement(Text, { value: `Logo ${luaCall(luaProp(string, "sub"), luaProp(logo, "Id"), 1, 8)} · pending`, size: 12, fit: true, position: luaCall(luaProp(UDim2, "fromOffset"), 58, 4), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -220, 0, 22) }), reactLoose.createElement(Button, { text: "APPROVE", onClick: function(): unknown | undefined {
+			luaSetIndex(logoRows, index, reactLoose.createElement(Panel, { key: luaProp(logo, "Id"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 84), accent: luaProp(Palette, "violet"), padding: 10 }, reactLoose.createElement("imagelabel", { Size: luaCall(luaProp(UDim2, "fromOffset"), 52, 52), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 0), BackgroundTransparency: 1, Image: (luaProp(logo, "URL") || ""), ScaleType: luaProp(luaProp(Enum, "ScaleType"), "Fit") }), reactLoose.createElement(Text, { value: `Logo ${luaCall(luaProp(string, "sub"), luaProp(logo, "Id"), 1, 8)} · pending`, size: 12, fit: true, position: luaCall(luaProp(UDim2, "fromOffset"), 58, 4), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -220, 0, 22) }), reactLoose.createElement(Button, { text: "APPROVE", onClick: function(this: void): unknown | undefined {
 				luaCall(run, "ModerateGuildLogo", { LogoId: luaProp(logo, "Id"), Decision: "approved" });
 				return undefined;
-			}, color: luaProp(Palette, "mint"), size: luaCall(luaProp(UDim2, "fromOffset"), 92, 34), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -196, 0, 12), disabled: (busy !== ""), reducedMotion: reducedMotion }), reactLoose.createElement(Button, { text: "REJECT", onClick: function(): unknown | undefined {
+			}, color: luaProp(Palette, "mint"), size: luaCall(luaProp(UDim2, "fromOffset"), 92, 34), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -196, 0, 12), disabled: (busy !== ""), reducedMotion: reducedMotion }), reactLoose.createElement(Button, { text: "REJECT", onClick: function(this: void): unknown | undefined {
 				luaCall(run, "ModerateGuildLogo", { LogoId: luaProp(logo, "Id"), Decision: "rejected", Reason: "Did not meet guild logo guidelines." });
 				return undefined;
 			}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "coral"), size: luaCall(luaProp(UDim2, "fromOffset"), 92, 34), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -98, 0, 12), disabled: (busy !== ""), reducedMotion: reducedMotion })));
@@ -792,7 +801,7 @@ function __member(): unknown {
 			let SETTING_LABELS: unknown = { ChatEnabled: "CHAT", AnnouncementsEnabled: "NEWS", LogoEnabled: "LOGOS", OfficerAnnouncements: "OFFICER NEWS", OfficerModeration: "OFFICER MODS", SlowMode: "SLOW MODE" };
 			for (const [index, key] of pairs((["ChatEnabled", "AnnouncementsEnabled", "LogoEnabled", "OfficerAnnouncements", "OfficerModeration", "SlowMode"]) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 				let enabled: unknown = ((key === "SlowMode") ? (luaIndex(settings, key) === true) : (luaIndex(settings, key) !== false));
-				luaSetIndex(settingsRows, index, reactLoose.createElement(Button, { key: key, text: `${luaIndex(SETTING_LABELS, key)}  ${(enabled ? "ON" : "OFF")}`, onClick: function(): unknown | undefined {
+				luaSetIndex(settingsRows, index, reactLoose.createElement(Button, { key: key, text: `${luaIndex(SETTING_LABELS, key)}  ${(enabled ? "ON" : "OFF")}`, onClick: function(this: void): unknown | undefined {
 					let updated: unknown = luaCall(luaProp(table, "clone"), settings);
 					luaSetIndex(updated, key, (!enabled));
 					luaCall(setSettings, updated);
@@ -801,19 +810,19 @@ function __member(): unknown {
 				}, color: (enabled ? luaProp(Palette, "mint") : luaProp(Palette, "panelSoft")), textColor: (enabled ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (3 as unknown as number)), -6, 0, 42), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((((((((index as unknown as number) - (1 as unknown as number))) as unknown as number) % (3 as unknown as number))) as unknown as number) / (3 as unknown as number)), 0, 0, ((luaCall(luaProp(math, "floor"), (((((index as unknown as number) - (1 as unknown as number))) as unknown as number) / (3 as unknown as number))) as unknown as number) * (48 as unknown as number))), disabled: (busy !== ""), reducedMotion: reducedMotion }));
 			}
 		}
-		let sections: unknown = [{ id: "guild-community-back", height: 48, element: reactLoose.createElement(Button, { text: "‹  GUILD OVERVIEW", onClick: onBack, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "cream"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 44), reducedMotion: reducedMotion }) }, { id: "guild-community-chat", height: 430, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "cyan"), padding: 14, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(Text, { value: `GUILD CHANNEL · ${len(messages)} MESSAGE${((len(messages) === 1) ? "" : "S")}${((luaProp(settings, "SlowMode") === true) ? " · SLOW MODE" : "")}`, size: 12, color: luaProp(Palette, "cyan"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 20) }), reactLoose.createElement("scrollingframe", { ref: chatScroll, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 308), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 26), BackgroundColor3: luaProp(Palette, "void"), BackgroundTransparency: 0.35, BorderSizePixel: 0, CanvasSize: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(), AutomaticCanvasSize: luaProp(luaProp(Enum, "AutomaticSize"), "Y"), ScrollingDirection: luaProp(luaProp(Enum, "ScrollingDirection"), "Y"), ScrollBarThickness: 3, ScrollBarImageColor3: luaProp(Palette, "cyan") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), PaddingTop: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), PaddingBottom: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8) }), reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8) }), chatRows), reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -112, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 344), PlaceholderText: ((luaProp(settings, "ChatEnabled") === false) ? "Chat is disabled by the leader" : "Message your guild…  (Enter to send)"), Text: chatDraft, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), Change: { Text: function(box?: unknown): unknown | undefined {
+		let sections: unknown = [{ id: "guild-community-back", height: 48, element: reactLoose.createElement(Button, { text: "‹  GUILD OVERVIEW", onClick: onBack, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "cream"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 44), reducedMotion: reducedMotion }) }, { id: "guild-community-chat", height: 430, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "cyan"), padding: 14, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(Text, { value: `GUILD CHANNEL · ${len(messages)} MESSAGE${((len(messages) === 1) ? "" : "S")}${((luaProp(settings, "SlowMode") === true) ? " · SLOW MODE" : "")}`, size: 12, color: luaProp(Palette, "cyan"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 20) }), reactLoose.createElement("scrollingframe", { ref: chatScroll, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 308), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 26), BackgroundColor3: luaProp(Palette, "void"), BackgroundTransparency: 0.35, BorderSizePixel: 0, CanvasSize: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(), AutomaticCanvasSize: luaProp(luaProp(Enum, "AutomaticSize"), "Y"), ScrollingDirection: luaProp(luaProp(Enum, "ScrollingDirection"), "Y"), ScrollBarThickness: 3, ScrollBarImageColor3: luaProp(Palette, "cyan") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), PaddingTop: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), PaddingBottom: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8) }), reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8) }), chatRows), reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -112, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 344), PlaceholderText: ((luaProp(settings, "ChatEnabled") === false) ? "Chat is disabled by the leader" : "Message your guild…  (Enter to send)"), Text: chatDraft, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 			luaCall(setChatDraft, luaCall(luaProp(ChatText, "cutBytes"), luaProp(box, "Text"), 400));
 			return undefined;
-		} }, Event: { FocusLost: function(_?: unknown, enterPressed?: unknown): unknown | undefined {
+		} }, Event: { FocusLost: function(this: void, _?: unknown, enterPressed?: unknown): unknown | undefined {
 			if (enterPressed) {
 				luaCall(sendChat);
 			}
 			return undefined;
-		} }, BackgroundColor3: luaProp(fieldStyle, "BackgroundColor3"), BorderSizePixel: 0, TextColor3: luaProp(fieldStyle, "TextColor3"), PlaceholderColor3: luaProp(fieldStyle, "PlaceholderColor3"), TextSize: luaProp(fieldStyle, "TextSize"), ClearTextOnFocus: false, TextEditable: (luaProp(settings, "ChatEnabled") !== false), FontFace: luaProp(fieldStyle, "FontFace") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) })), reactLoose.createElement(Button, { text: "SEND", onClick: sendChat, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 104, 0, 42), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -104, 0, 344), disabled: (((busy !== "") || (luaProp(settings, "ChatEnabled") === false)) || (chatDraft === "")), loading: (busy === "SendGuildChat"), reducedMotion: reducedMotion }), reactLoose.createElement(Text, { value: `${len(chatDraft)}/400 · filtered by Roblox · members only`, size: 10, color: luaProp(Palette, "muted"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 390), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 16) })) }, { id: "guild-community-announcements", height: luaCall(luaProp(math, "max"), 168, ((((len(announcementRows) as unknown as number) * (126 as unknown as number)) as unknown as number) + ((((manager && 164) || 64)) as unknown as number))), element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement(SectionLabel, { value: "ANNOUNCEMENTS", color: luaProp(Palette, "mango") }), (manager && reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 154), accent: luaProp(Palette, "mango"), padding: 12, clips: false }, luaCall(input, "Announcement title", announcementTitle, function(value?: unknown): unknown | undefined {
+		} }, BackgroundColor3: luaProp(fieldStyle, "BackgroundColor3"), BorderSizePixel: 0, TextColor3: luaProp(fieldStyle, "TextColor3"), PlaceholderColor3: luaProp(fieldStyle, "PlaceholderColor3"), TextSize: luaProp(fieldStyle, "TextSize"), ClearTextOnFocus: false, TextEditable: (luaProp(settings, "ChatEnabled") !== false), FontFace: luaProp(fieldStyle, "FontFace") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) })), reactLoose.createElement(Button, { text: "SEND", onClick: sendChat, color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 104, 0, 42), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -104, 0, 344), disabled: (((busy !== "") || (luaProp(settings, "ChatEnabled") === false)) || (chatDraft === "")), loading: (busy === "SendGuildChat"), reducedMotion: reducedMotion }), reactLoose.createElement(Text, { value: `${len(chatDraft)}/400 · filtered by Roblox · members only`, size: 10, color: luaProp(Palette, "muted"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 390), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 16) })) }, { id: "guild-community-announcements", height: luaCall(luaProp(math, "max"), 168, ((((len(announcementRows) as unknown as number) * (126 as unknown as number)) as unknown as number) + ((((manager && 164) || 64)) as unknown as number))), element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement(SectionLabel, { value: "ANNOUNCEMENTS", color: luaProp(Palette, "mango") }), (manager && reactLoose.createElement(Panel, { size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 154), accent: luaProp(Palette, "mango"), padding: 12, clips: false }, luaCall(input, "Announcement title", announcementTitle, function(this: void, value?: unknown): unknown | undefined {
 			luaCall(setAnnouncementTitle, luaCall(luaProp(ChatText, "cutBytes"), value, 120));
 			return undefined;
-		}, 40, luaCall(luaProp(UDim2, "fromOffset"), 0, 0)), luaCall(input, "Announcement body", announcementBody, setAnnouncementBody, 46, luaCall(luaProp(UDim2, "fromOffset"), 0, 44)), reactLoose.createElement(Button, { text: "PUBLISH", onClick: function(): unknown | undefined {
-			luaCall(run, "CreateGuildAnnouncement", { Title: announcementTitle, Body: announcementBody }, function(result?: unknown): unknown | undefined {
+		}, 40, luaCall(luaProp(UDim2, "fromOffset"), 0, 0)), luaCall(input, "Announcement body", announcementBody, setAnnouncementBody, 46, luaCall(luaProp(UDim2, "fromOffset"), 0, 44)), reactLoose.createElement(Button, { text: "PUBLISH", onClick: function(this: void): unknown | undefined {
+			luaCall(run, "CreateGuildAnnouncement", { Title: announcementTitle, Body: announcementBody }, function(this: void, result?: unknown): unknown | undefined {
 				if (luaProp(result, "ok")) {
 					luaCall(setAnnouncementTitle, "");
 					luaCall(setAnnouncementBody, "");
@@ -827,7 +836,7 @@ function __member(): unknown {
 			for (const [index, action] of pairs((["MuteGuildMember", "BanGuildMember", "UnmuteGuildMember", "UnbanGuildMember"]) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
 				let labels: unknown = { MuteGuildMember: "MUTE", BanGuildMember: "BAN", UnmuteGuildMember: "UNMUTE", UnbanGuildMember: "UNBAN" };
 				let colors: unknown = { MuteGuildMember: luaProp(Palette, "mango"), BanGuildMember: luaProp(Palette, "coral"), UnmuteGuildMember: luaProp(Palette, "cyan"), UnbanGuildMember: luaProp(Palette, "violet") };
-				luaSetIndex(moderationButtons, index, reactLoose.createElement(Button, { key: action, text: luaIndex(labels, action), onClick: function(): unknown | undefined {
+				luaSetIndex(moderationButtons, index, reactLoose.createElement(Button, { key: action, text: luaIndex(labels, action), onClick: function(this: void): unknown | undefined {
 					let id: unknown = luaCall(tonumber, moderationUserId);
 					if ((id && ((id as unknown as number) > (0 as unknown as number)))) {
 						luaCall(run, action, { UserId: luaCall(luaProp(math, "floor"), id) });
@@ -835,7 +844,7 @@ function __member(): unknown {
 					return undefined;
 				}, color: luaIndex(colors, action), textColor: luaProp(Palette, "ink"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, -6, 0, 40), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)((((((index as unknown as number) - (1 as unknown as number))) as unknown as number) * (0.25 as unknown as number)), 0, 0, 0), disabled: ((busy !== "") || (luaCall(tonumber, moderationUserId) === undefined)), reducedMotion: reducedMotion }));
 			}
-			luaTable.insert(sections, { id: "guild-community-moderation", height: 146, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "coral"), padding: 14, clips: false }, reactLoose.createElement(SectionLabel, { value: "MEMBER MODERATION · USER ID", color: luaProp(Palette, "coral") }), luaCall(input, "Guild member user ID", moderationUserId, function(value?: unknown): unknown | undefined {
+			luaTable.insert(sections, { id: "guild-community-moderation", height: 146, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "coral"), padding: 14, clips: false }, reactLoose.createElement(SectionLabel, { value: "MEMBER MODERATION · USER ID", color: luaProp(Palette, "coral") }), luaCall(input, "Guild member user ID", moderationUserId, function(this: void, value?: unknown): unknown | undefined {
 				luaCall(setModerationUserId, luaCall(luaProp(string, "sub"), value, 1, 20));
 				return undefined;
 			}, 42, luaCall(luaProp(UDim2, "fromOffset"), 0, 28)), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 76), BackgroundTransparency: 1 }, moderationButtons)) });
@@ -844,15 +853,15 @@ function __member(): unknown {
 			luaTable.insert(sections, { id: "guild-community-settings", height: 160, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), padding: 14 }, reactLoose.createElement(SectionLabel, { value: "GUILD RULES", color: luaProp(Palette, "violet") }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 90), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 26), BackgroundTransparency: 1 }, settingsRows), reactLoose.createElement(Text, { value: "Choose what officers can manage. Slow mode adds 6 seconds between member messages.", size: 11, color: luaProp(Palette, "muted"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 116), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 16) })) });
 			let cooldownDays: unknown = luaCall(luaProp(math, "floor"), ((((luaCall(tonumber, luaProp(guildConfig, "RenameCooldownSeconds")) || 604800)) as unknown as number) / (86400 as unknown as number)));
 			let renameReady: unknown = (((len(renameName) as unknown as number) >= (3 as unknown as number)) || ((len(renameTag) as unknown as number) >= (3 as unknown as number)));
-			luaTable.insert(sections, { id: "guild-community-rename", height: 178, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), padding: 14, clips: false }, reactLoose.createElement(SectionLabel, { value: `RENAME · NOW ${luaCall(luaProp(string, "upper"), luaCall(tostring, (luaProp(guild, "Name") || "")))} [${(luaProp(guild, "Tag") || "?")}]`, color: luaProp(Palette, "mango") }), reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, -6, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 28), PlaceholderText: "New guild name (3–28)", Text: renameName, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), Change: { Text: function(box?: unknown): unknown | undefined {
+			luaTable.insert(sections, { id: "guild-community-rename", height: 178, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), padding: 14, clips: false }, reactLoose.createElement(SectionLabel, { value: `RENAME · NOW ${luaCall(luaProp(string, "upper"), luaCall(tostring, (luaProp(guild, "Name") || "")))} [${(luaProp(guild, "Tag") || "?")}]`, color: luaProp(Palette, "mango") }), reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, -6, 0, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 28), PlaceholderText: "New guild name (3–28)", Text: renameName, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 				luaCall(setRenameName, luaCall(luaProp(ChatText, "cutBytes"), luaProp(box, "Text"), 28));
 				return undefined;
-			} }, BackgroundColor3: luaProp(fieldStyle, "BackgroundColor3"), BorderSizePixel: 0, TextColor3: luaProp(fieldStyle, "TextColor3"), PlaceholderColor3: luaProp(fieldStyle, "PlaceholderColor3"), TextSize: luaProp(fieldStyle, "TextSize"), ClearTextOnFocus: false, FontFace: luaProp(fieldStyle, "FontFace") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) })), reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.3, 0, 0, 42), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, 0, 0, 28), PlaceholderText: "TAG", Text: renameTag, Change: { Text: function(box?: unknown): unknown | undefined {
+			} }, BackgroundColor3: luaProp(fieldStyle, "BackgroundColor3"), BorderSizePixel: 0, TextColor3: luaProp(fieldStyle, "TextColor3"), PlaceholderColor3: luaProp(fieldStyle, "PlaceholderColor3"), TextSize: luaProp(fieldStyle, "TextSize"), ClearTextOnFocus: false, FontFace: luaProp(fieldStyle, "FontFace") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) })), reactLoose.createElement("textbox", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.3, 0, 0, 42), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, 0, 0, 28), PlaceholderText: "TAG", Text: renameTag, Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 				luaCall(setRenameTag, luaCall(luaProp(string, "upper"), luaCall(luaProp(string, "sub"), (luaCall(luaProp(string, "gsub"), luaProp(box, "Text"), "[^%w]", "")), 1, 4)));
 				return undefined;
-			} }, BackgroundColor3: luaProp(fieldStyle, "BackgroundColor3"), BorderSizePixel: 0, TextColor3: luaProp(fieldStyle, "TextColor3"), PlaceholderColor3: luaProp(fieldStyle, "PlaceholderColor3"), TextSize: luaProp(fieldStyle, "TextSize"), ClearTextOnFocus: false, FontFace: luaProp(fieldStyle, "FontFace") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) })), reactLoose.createElement(Button, { text: "RENAME GUILD", onClick: function(): unknown | undefined {
+			} }, BackgroundColor3: luaProp(fieldStyle, "BackgroundColor3"), BorderSizePixel: 0, TextColor3: luaProp(fieldStyle, "TextColor3"), PlaceholderColor3: luaProp(fieldStyle, "PlaceholderColor3"), TextSize: luaProp(fieldStyle, "TextSize"), ClearTextOnFocus: false, FontFace: luaProp(fieldStyle, "FontFace") }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) })), reactLoose.createElement(Button, { text: "RENAME GUILD", onClick: function(this: void): unknown | undefined {
 				let nextName: unknown = (((len(renameName) as unknown as number) >= (3 as unknown as number)) ? renameName : luaCall(tostring, (luaProp(guild, "Name") || "")));
-				luaCall(run, "RenameGuild", { Name: nextName, Tag: (((len(renameTag) as unknown as number) >= (3 as unknown as number)) ? renameTag : undefined) }, function(result?: unknown): unknown | undefined {
+				luaCall(run, "RenameGuild", { Name: nextName, Tag: (((len(renameTag) as unknown as number) >= (3 as unknown as number)) ? renameTag : undefined) }, function(this: void, result?: unknown): unknown | undefined {
 					if (luaProp(result, "ok")) {
 						luaCall(setRenameName, "");
 						luaCall(setRenameTag, "");
@@ -865,8 +874,8 @@ function __member(): unknown {
 		if (manager) {
 			let activeLogo: unknown = luaProp(community, "Logo");
 			let logoPreview: unknown = ((activeLogo && luaProp(activeLogo, "URL")) && reactLoose.createElement("imagelabel", { Size: luaCall(luaProp(UDim2, "fromOffset"), 56, 56), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -60, 0, 0), BackgroundTransparency: 1, Image: luaProp(activeLogo, "URL"), ScaleType: luaProp(luaProp(Enum, "ScaleType"), "Fit") }));
-			luaTable.insert(sections, { id: "guild-community-logo", height: ((164 as unknown as number) + (((len(logoRows) as unknown as number) * (94 as unknown as number)) as unknown as number)), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), padding: 14, clips: false }, reactLoose.createElement(SectionLabel, { value: "ROBLOX IMAGE LOGO · REVIEW REQUIRED", color: luaProp(Palette, "violet") }), logoPreview, luaCall(input, "Roblox image asset ID", logoAsset, setLogoAsset, 42, luaCall(luaProp(UDim2, "fromOffset"), 0, 28)), reactLoose.createElement(Button, { text: "SUBMIT FOR REVIEW", onClick: function(): unknown | undefined {
-				luaCall(run, "UploadGuildLogo", { URL: logoAsset }, function(result?: unknown): unknown | undefined {
+			luaTable.insert(sections, { id: "guild-community-logo", height: ((164 as unknown as number) + (((len(logoRows) as unknown as number) * (94 as unknown as number)) as unknown as number)), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), padding: 14, clips: false }, reactLoose.createElement(SectionLabel, { value: "ROBLOX IMAGE LOGO · REVIEW REQUIRED", color: luaProp(Palette, "violet") }), logoPreview, luaCall(input, "Roblox image asset ID", logoAsset, setLogoAsset, 42, luaCall(luaProp(UDim2, "fromOffset"), 0, 28)), reactLoose.createElement(Button, { text: "SUBMIT FOR REVIEW", onClick: function(this: void): unknown | undefined {
+				luaCall(run, "UploadGuildLogo", { URL: logoAsset }, function(this: void, result?: unknown): unknown | undefined {
 					if (luaProp(result, "ok")) {
 						luaCall(setLogoAsset, "");
 					}
@@ -897,9 +906,9 @@ function __member(): unknown {
 		let _: unknown;
 		let refreshRequest: unknown;
 		[_, refreshRequest] = reactLoose.useState(0) as LuaTuple<[unknown, unknown]>;
-		let request: unknown = reactLoose.useMemo(function(): unknown | undefined {
-			return luaCall(createRequest, dispatch, luaProp(task, "delay"), function(): unknown | undefined {
-				luaCall(refreshRequest, function(v?: unknown): unknown | undefined {
+		let request: unknown = reactLoose.useMemo(function(this: void): unknown | undefined {
+			return luaCall(createRequest, dispatch, luaProp(task, "delay"), function(this: void): unknown | undefined {
+				luaCall(refreshRequest, function(this: void, v?: unknown): unknown | undefined {
 					return ((v as unknown as number) + (1 as unknown as number));
 					return undefined;
 				});
@@ -907,9 +916,9 @@ function __member(): unknown {
 			});
 			return undefined;
 		}, [dispatch]);
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			luaSet(request, "alive", true);
-			return function(): unknown | undefined {
+			return function(this: void): unknown | undefined {
 				luaCall(luaProp(request, "dispose"));
 				return undefined;
 			};
@@ -939,11 +948,11 @@ function __member(): unknown {
 		let guild: unknown = luaProp(state, "Guild");
 		let localPlayer: unknown = luaProp(Players, "LocalPlayer");
 		let localKey: unknown = ((localPlayer !== undefined) ? luaCall(tostring, luaProp(localPlayer, "UserId")) : "");
-		reactLoose.useEffect(function(): unknown | undefined {
+		reactLoose.useEffect(function(this: void): unknown | undefined {
 			luaCall(dispatch, "GetGuild", {});
 			return undefined;
 		}, [dispatch]);
-		let send: unknown = function(action?: unknown, payload?: unknown, callback?: unknown): unknown | undefined {
+		let send: unknown = function(this: void, action?: unknown, payload?: unknown, callback?: unknown): unknown | undefined {
 			if (luaProp(request, "busy")) {
 				return false;
 			}
@@ -952,7 +961,7 @@ function __member(): unknown {
 				if ((((!luaProp(confirmation, "current")) || (luaProp(luaProp(confirmation, "current"), "key") !== key)) || ((luaCall(luaProp(os, "clock")) as unknown as number) > (luaProp(luaProp(confirmation, "current"), "untilTime") as unknown as number)))) {
 					luaSet(confirmation, "current", { key: key, untilTime: ((luaCall(luaProp(os, "clock")) as unknown as number) + (8 as unknown as number)) });
 					luaSet(request, "status", "Press the same action again within 8 seconds to confirm. Leaving a guild does not refund contributions.");
-					luaCall(refreshRequest, function(v?: unknown): unknown | undefined {
+					luaCall(refreshRequest, function(this: void, v?: unknown): unknown | undefined {
 						return ((v as unknown as number) + (1 as unknown as number));
 						return undefined;
 					});
@@ -960,9 +969,9 @@ function __member(): unknown {
 				}
 			}
 			luaSet(confirmation, "current", undefined);
-			return luaCall(luaProp(request, "run"), action, payload, function(response?: unknown): unknown | undefined {
+			return luaCall(luaProp(request, "run"), action, payload, function(this: void, response?: unknown): unknown | undefined {
 				if ((!luaProp(response, "ok"))) {
-					luaCall(setShakeToken, function(token?: unknown): unknown | undefined {
+					luaCall(setShakeToken, function(this: void, token?: unknown): unknown | undefined {
 						return ((token as unknown as number) + (1 as unknown as number));
 						return undefined;
 					});
@@ -997,7 +1006,7 @@ function __member(): unknown {
 			return reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), 80), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, sections: luaCall(withStatus, [{ id: "empty-hero", height: 128, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), background: luaProp(Palette, "panelRaised"), padding: (stack ? 16 : 20), highlight: true, reveal: enter, reducedMotion: softMotion, clips: false }, reactLoose.createElement(Text, { value: (((guide && luaProp(guide, "EmptyTitle"))) || "No guild yet"), size: 20, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28) }), reactLoose.createElement(Text, { value: (((guide && luaProp(guide, "EmptyBody"))) || "Charter one for shared upgrades, or join with a tag."), size: 12, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 36) }), reactLoose.createElement(Text, { value: (((guide && luaProp(guide, "Benefits"))) || "Shared production, vault, offline, automation, and tap boosts."), size: 11, color: luaProp(Palette, "violet"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 78), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28) })) }, { id: "join", height: joinBlockH, element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pageGap) }), reactLoose.createElement(JoinOrCreate, { config: config, dispatch: send, reducedMotion: softMotion, busy: busy, shakeToken: shakeToken, stack: stack, cash: luaProp(state, "Cash") })) }], 1) });
 		}
 		if ((pane === "Community")) {
-			return reactLoose.createElement(GuildCommunityPanel, { guild: guild, dispatch: dispatch, reducedMotion: softMotion, stack: stack, role: ((luaIndex(luaProp(guild, "Members"), localKey) && luaProp(luaIndex(luaProp(guild, "Members"), localKey), "Role")) || "Member"), config: config, onBack: function(): unknown | undefined {
+			return reactLoose.createElement(GuildCommunityPanel, { guild: guild, dispatch: dispatch, reducedMotion: softMotion, stack: stack, role: ((luaIndex(luaProp(guild, "Members"), localKey) && luaProp(luaIndex(luaProp(guild, "Members"), localKey), "Role")) || "Member"), config: config, onBack: function(this: void): unknown | undefined {
 				luaCall(setPane, "Overview");
 				return undefined;
 			} });
@@ -1007,7 +1016,7 @@ function __member(): unknown {
 			let _arg0: unknown = { key: key, name: luaProp(member, "Name"), role: luaProp(member, "Role"), contributed: luaProp(member, "Contributed") };
 			luaTable.insert(members, _arg0);
 		}
-		luaCall(luaProp(table, "sort"), members, function(left?: unknown, right?: unknown): unknown | undefined {
+		luaCall(luaProp(table, "sort"), members, function(this: void, left?: unknown, right?: unknown): unknown | undefined {
 			let _condition: unknown = luaIndex(ROLE_RANK, luaProp(left, "role"));
 			if ((_condition === undefined)) {
 				_condition = 3;
@@ -1123,12 +1132,12 @@ function __member(): unknown {
 		luaSet(_attributes_1, "wrap", true);
 		luaSet(_attributes_1, "position", luaCall(luaProp(UDim2, "fromOffset"), 0, (stack ? 86 : 88)));
 		luaSet(_attributes_1, "sizeConstraint", new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -8, 0, (stack ? 46 : 32)));
-		let _exp_11: unknown = reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), background: heroSurface, padding: (stack ? 16 : 20), reveal: (reducedMotion ? bankReveal : reveal), highlight: (((!reducedMotion) && (membersReveal !== undefined)) && (goalReveal !== undefined)), reducedMotion: softMotion, clips: false }, _exp_4, _exp_5, _exp_6, reactLoose.createElement(Text, _attributes_1), ((canManage && (len(members) === 1)) ? reactLoose.createElement(Button, { text: ((luaProp(confirmation, "current") && (luaProp(luaProp(confirmation, "current"), "key") === "DisbandGuild:")) ? "CONFIRM DISBAND" : "DISBAND"), onClick: function(): unknown | undefined {
+		let _exp_11: unknown = reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), background: heroSurface, padding: (stack ? 16 : 20), reveal: (reducedMotion ? bankReveal : reveal), highlight: (((!reducedMotion) && (membersReveal !== undefined)) && (goalReveal !== undefined)), reducedMotion: softMotion, clips: false }, _exp_4, _exp_5, _exp_6, reactLoose.createElement(Text, _attributes_1), ((canManage && (len(members) === 1)) ? reactLoose.createElement(Button, { text: ((luaProp(confirmation, "current") && (luaProp(luaProp(confirmation, "current"), "key") === "DisbandGuild:")) ? "CONFIRM DISBAND" : "DISBAND"), onClick: function(this: void): unknown | undefined {
 			if ((!busy)) {
 				luaCall(send, "DisbandGuild", {});
 			}
 			return undefined;
-		}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "coral"), disabled: busy, loading: busy, shakeToken: shakeToken, size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42) : luaCall(luaProp(UDim2, "fromOffset"), 140, 42)), position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -42) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 0)), reducedMotion: softMotion }) : reactLoose.createElement(Button, { text: ((luaProp(confirmation, "current") && (luaProp(luaProp(confirmation, "current"), "key") === "LeaveGuild:")) ? "CONFIRM LEAVE" : "LEAVE"), onClick: function(): unknown | undefined {
+		}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(Palette, "coral"), disabled: busy, loading: busy, shakeToken: shakeToken, size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 42) : luaCall(luaProp(UDim2, "fromOffset"), 140, 42)), position: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -42) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 0)), reducedMotion: softMotion }) : reactLoose.createElement(Button, { text: ((luaProp(confirmation, "current") && (luaProp(luaProp(confirmation, "current"), "key") === "LeaveGuild:")) ? "CONFIRM LEAVE" : "LEAVE"), onClick: function(this: void): unknown | undefined {
 			if ((!busy)) {
 				luaCall(send, "LeaveGuild", {});
 			}
@@ -1138,11 +1147,11 @@ function __member(): unknown {
 		let _exp_13: unknown = reactLoose.createElement(Text, { value: "GUILD BANK", size: 10, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 14) });
 		let _exp_14: unknown = reactLoose.createElement(Text, { value: `${luaCall(compactNumber, luaProp(guild, "BankCash"))} flux  •  ${luaCall(compactNumber, luaProp(guild, "BankDust"))} dust`, size: (stack ? 17 : 20), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 13, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 18), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 26) });
 		let _exp_15: unknown = reactLoose.createElement(Text, { value: "Deposits fund every hall upgrade and count toward the guild goal.", size: 10, color: luaProp(Palette, "muted"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 46), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 26) });
-		let _exp_16: unknown = reactLoose.createElement("textbox", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -6, 0, 40)), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 76), PlaceholderText: "Flux amount", Text: contributeCash, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, Change: { Text: function(box?: unknown): unknown | undefined {
+		let _exp_16: unknown = reactLoose.createElement("textbox", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -6, 0, 40)), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 76), PlaceholderText: "Flux amount", Text: contributeCash, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 			return luaCall(setContributeCash, luaProp(box, "Text"));
 			return undefined;
 		} } }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "line"), Thickness: 1, Transparency: 0.55 }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }));
-		let _attributes_2: unknown = { text: "DEPOSIT FLUX", onClick: function(): unknown | undefined {
+		let _attributes_2: unknown = { text: "DEPOSIT FLUX", onClick: function(this: void): unknown | undefined {
 			let amount: unknown = luaCall(tonumber, contributeCash);
 			if ((((amount !== undefined) && ((amount as unknown as number) >= (1 as unknown as number))) && (!busy))) {
 				luaCall(send, "ContributeGuild", { Amount: luaCall(luaProp(math, "floor"), amount), Currency: "Cash" });
@@ -1163,11 +1172,11 @@ function __member(): unknown {
 		luaSet(_attributes_2, "position", (stack ? luaCall(luaProp(UDim2, "fromOffset"), 0, 126) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 0, 128)));
 		luaSet(_attributes_2, "reducedMotion", reducedMotion);
 		let _exp_17: unknown = reactLoose.createElement(Button, _attributes_2);
-		let _exp_18: unknown = reactLoose.createElement("textbox", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -6, 0, 40)), Position: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 0, 172) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, 6, 0, 76)), PlaceholderText: "Dust amount", Text: contributeDust, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, Change: { Text: function(box?: unknown): unknown | undefined {
+		let _exp_18: unknown = reactLoose.createElement("textbox", { Size: (stack ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -6, 0, 40)), Position: (stack ? luaCall(luaProp(UDim2, "fromOffset"), 0, 172) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, 6, 0, 76)), PlaceholderText: "Dust amount", Text: contributeDust, ClearTextOnFocus: false, TextColor3: luaProp(Palette, "cream"), PlaceholderColor3: luaProp(Palette, "muted"), TextSize: 14, TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, Change: { Text: function(this: void, box?: unknown): unknown | undefined {
 			return luaCall(setContributeDust, luaProp(box, "Text"));
 			return undefined;
 		} } }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "line"), Thickness: 1, Transparency: 0.55 }), reactLoose.createElement("uipadding", { PaddingLeft: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12), PaddingRight: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }));
-		let _attributes_3: unknown = { text: "DEPOSIT DUST", onClick: function(): unknown | undefined {
+		let _attributes_3: unknown = { text: "DEPOSIT DUST", onClick: function(this: void): unknown | undefined {
 			let amount: unknown = luaCall(tonumber, contributeDust);
 			if ((((amount !== undefined) && ((amount as unknown as number) >= (1 as unknown as number))) && (!busy))) {
 				luaCall(send, "ContributeGuild", { Amount: luaCall(luaProp(math, "floor"), amount), Currency: "Dust" });
@@ -1221,7 +1230,7 @@ function __member(): unknown {
 		let memberBlockH: unknown = ((len(shownMembers) === 0) ? 72 : ((((len(shownMembers) as unknown as number) * (memberHeight as unknown as number)) as unknown as number) + (((luaCall(luaProp(math, "max"), 0, ((len(shownMembers) as unknown as number) - (1 as unknown as number))) as unknown as number) * (pageGap as unknown as number)) as unknown as number)));
 		let overscan: unknown = (softMotion ? 0 : (luaProp(antilag, "constrained") ? 1 : 2));
 		let memberSearchH: unknown = (stack ? TapTarget : 40);
-		let memberFilter: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, reactLoose.createElement(SearchField, { value: memberQuery, onChange: setMemberQuery, placeholder: "Search members", accent: luaProp(Palette, "violet"), reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, memberSearchH), zIndex: 20 }), reactLoose.createElement(luaProp(Browse, "ChipRow"), { options: [{ id: "All", label: "Everyone" }, { id: "Leader", label: "Leader" }, { id: "Officer", label: "Officers" }, { id: "Member", label: "Members" }], value: memberRole, onChange: function(id?: unknown): unknown | undefined {
+		let memberFilter: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, reactLoose.createElement(SearchField, { value: memberQuery, onChange: setMemberQuery, placeholder: "Search members", accent: luaProp(Palette, "violet"), reducedMotion: softMotion, size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, memberSearchH), zIndex: 20 }), reactLoose.createElement(luaProp(Browse, "ChipRow"), { options: [{ id: "All", label: "Everyone" }, { id: "Leader", label: "Leader" }, { id: "Officer", label: "Officers" }, { id: "Member", label: "Members" }], value: memberRole, onChange: function(this: void, id?: unknown): unknown | undefined {
 			luaCall(setMemberRole, id);
 			return undefined;
 		}, counts: roleCounts, accent: luaProp(Palette, "violet"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((memberSearchH as unknown as number) + (8 as unknown as number))) }));
@@ -1231,7 +1240,7 @@ function __member(): unknown {
 		let columns: unknown = (stack ? 2 : 5);
 		let guildTabs: unknown = ["Overview", "Treasury", "Upgrades", "Members", "Community"];
 		for (const [index, id] of pairs((guildTabs) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-			luaSetIndex(tabs, index, reactLoose.createElement(Button, { text: luaCall(luaProp(string, "upper"), id), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (columns as unknown as number)), -6, 0, 48), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((((((((index as unknown as number) - (1 as unknown as number))) as unknown as number) % (columns as unknown as number))) as unknown as number) / (columns as unknown as number)), 0, 0, ((luaCall(luaProp(math, "floor"), (((((index as unknown as number) - (1 as unknown as number))) as unknown as number) / (columns as unknown as number))) as unknown as number) * (56 as unknown as number))), color: ((pane === id) ? luaProp(Palette, "violet") : luaProp(Palette, "panelSoft")), onClick: function(): unknown | undefined {
+			luaSetIndex(tabs, index, reactLoose.createElement(Button, { text: luaCall(luaProp(string, "upper"), id), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((1 as unknown as number) / (columns as unknown as number)), -6, 0, 48), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((((((((index as unknown as number) - (1 as unknown as number))) as unknown as number) % (columns as unknown as number))) as unknown as number) / (columns as unknown as number)), 0, 0, ((luaCall(luaProp(math, "floor"), (((((index as unknown as number) - (1 as unknown as number))) as unknown as number) / (columns as unknown as number))) as unknown as number) * (56 as unknown as number))), color: ((pane === id) ? luaProp(Palette, "violet") : luaProp(Palette, "panelSoft")), onClick: function(this: void): unknown | undefined {
 				luaCall(setPane, id);
 				return undefined;
 			}, reducedMotion: softMotion }));
