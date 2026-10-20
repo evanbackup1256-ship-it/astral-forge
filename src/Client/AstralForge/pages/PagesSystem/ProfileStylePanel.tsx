@@ -86,14 +86,24 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 		);
 	});
 
+	// phones: the frame row splits the panel width instead of a fixed 112px each (352px overflows)
+	const frameCount = math.max(1, ProfileStyle.FRAMES.size());
 	const frameButtons = ProfileStyle.FRAMES.map((option, index) => {
 		const unlocked = ProfileStyle.isUnlocked(option.Unlock, props.rebirths);
 		const selected = option.Id === shown.Frame;
 		return (
 			<frame
 				key={option.Id}
-				Size={UDim2.fromOffset(FRAME_BTN_W, TapTarget)}
-				Position={UDim2.fromOffset(index * (FRAME_BTN_W + 8), frameTop + 18)}
+				Size={
+					props.stack
+						? new UDim2(1 / frameCount, (-8 * (frameCount - 1)) / frameCount, 0, TapTarget)
+						: UDim2.fromOffset(FRAME_BTN_W, TapTarget)
+				}
+				Position={
+					props.stack
+						? new UDim2(index / frameCount, (index * 8) / frameCount, 0, frameTop + 18)
+						: UDim2.fromOffset(index * (FRAME_BTN_W + 8), frameTop + 18)
+				}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
@@ -120,8 +130,9 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 			<Text
 				value="Your accent and frame show on your nameplate, in the player list and in chat."
 				size={11}
+				minSize={8}
 				color={Palette.muted}
-				fit={false}
+				fit={props.stack}
 				position={UDim2.fromOffset(0, 26)}
 				sizeConstraint={new UDim2(1, 0, 0, 18)}
 			/>
