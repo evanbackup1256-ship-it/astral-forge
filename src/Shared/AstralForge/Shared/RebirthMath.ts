@@ -227,6 +227,13 @@ function ensure(raw: unknown, now: number, lifetime?: number): Bag {
 	}
 	bag.BestCores = num(input.BestCores);
 	bag.FastestSeconds = int(input.FastestSeconds);
+	// The Luau original normalised the saved table in place: keep its identity and any extra keys.
+	if (typeIs(raw, "table")) {
+		for (const [key, value] of pairs(bag as unknown as Dict)) {
+			input[key] = value;
+		}
+		return input as unknown as Bag;
+	}
 	return bag;
 }
 
