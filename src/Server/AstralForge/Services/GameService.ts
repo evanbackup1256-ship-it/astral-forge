@@ -2269,6 +2269,24 @@ export function createGameService(loadService: LoadService) {
 			if (player.Parent !== Players) {
 				return;
 			}
+			// the same revision pushed moments ago would be dropped below anyway; skip building the
+			// whole snapshot for it (unless a Bazaar recovery is due, which the snapshot performs)
+			if (!truthy(force)) {
+				const early = this._runtime.get(player);
+				const current = this._data.Get(player) as Profile | undefined;
+				const currentMeta = current !== undefined ? (current.Meta as Dict | undefined) : undefined;
+				if (
+					early &&
+					current !== undefined &&
+					currentMeta !== undefined &&
+					early.LastPushRevision === (num(currentMeta.Revision) ?? 0) &&
+					os.clock() - ((early.LastPushAt as number | undefined) ?? 0) < 0.55 &&
+					!truthy(BazaarService.NeedsRecovery(current, player.UserId))
+				) {
+					this._broadcastVisit(player);
+					return;
+				}
+			}
 			const snapshot = this._snapshot(player);
 			if (snapshot) {
 				const runtime = this._runtime.get(player);
