@@ -2,6 +2,7 @@ import React from "@rbxts/react";
 import Tools = require("../../UpgradeTools");
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { useClock, useStagger, useViewport } from "../../MotionKit/motion";
+import { useTooltip } from "../../Tooltip";
 import { chromeFor, darken, ensureContrast, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { bulkCost, compactNumber, compareFlux, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
@@ -93,8 +94,21 @@ function MachineRow(props: {
 	const buttonBesideText = !stack && cardWidth >= 360;
 	const absolute = y !== undefined || x !== undefined;
 	const layoutY = y === undefined ? 0 : y;
+	const tip = useTooltip({
+		title: machine.Name,
+		body: unlocked ? machine.Description : lockReason,
+		hint: !unlocked
+			? undefined
+			: maxed
+				? "Fully upgraded."
+				: hasOutput
+					? `Next ${buyAmount > 1 ? `${buyAmount} levels` : "level"}: ${compactNumber(price)} Flux`
+					: `Next: ${compactNumber(price)} Flux`,
+		accent: accent,
+	});
 	return (
 		<frame
+			Event={tip}
 			Size={absolute ? (width ?? new UDim2(1, 0, 0, rowH)) : UDim2.fromScale(1, 1)}
 			Position={x !== undefined ? new UDim2(x.X.Scale, x.X.Offset, 0, layoutY) : UDim2.fromOffset(0, layoutY)}
 			BackgroundTransparency={1}

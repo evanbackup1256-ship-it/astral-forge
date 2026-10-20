@@ -253,9 +253,16 @@ function Chip(props: ChipProps): React.Element {
 	const appear = motion.useFlipperSpring(1, props.reducedMotion, 300, 16);
 	const timed = buff.endsAt !== undefined;
 	const pulse = motion.usePulse(timed, 2.2);
+	const tip = useTooltip({
+		title: `${buff.name} · ${buff.value}`,
+		body: buff.note,
+		hint: timed ? "Runs out when the ring empties." : "Stays on while its source is active.",
+		accent: buff.color,
+	});
 	return h(
 		"frame",
 		{
+			Event: tip,
 			Size: UDim2.fromOffset(CHIP_W, 52),
 			LayoutOrder: props.order,
 			BackgroundTransparency: 1,

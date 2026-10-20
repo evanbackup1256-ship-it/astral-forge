@@ -3,6 +3,7 @@ import Tools = require("../../UpgradeTools");
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { useEntrance, useStagger, useViewport } from "../../MotionKit/motion";
 import { useAntilag } from "../../MotionKit/antilag";
+import { useTooltip } from "../../Tooltip";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { bulkCost, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
@@ -83,8 +84,19 @@ const ResearchNode = React.memo(
 			}
 			return onBuy(entry.config.Id);
 		};
+		const tip = useTooltip({
+			title: entry.config.Name,
+			body: entry.unlocked ? entry.config.Description : entry.lockReason,
+			hint: !entry.unlocked
+				? undefined
+				: maxed
+					? "Maxed. The bonus is permanent."
+					: `Level ${compactNumber(entry.level)} of ${compactNumber(entry.config.MaxLevel)} · next ${compactNumber(price)} Flux`,
+			accent: accent,
+		});
 		return (
 			<frame
+				Event={tip}
 				Size={new UDim2(1, -4, 0, rowH + CONNECTOR_HEIGHT)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
