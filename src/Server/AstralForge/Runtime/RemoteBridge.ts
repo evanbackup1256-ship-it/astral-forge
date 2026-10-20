@@ -3,7 +3,7 @@
 // The remotes themselves are @flamework/networking (Shared/Network.ts).
 import { OnInit, Service } from "@flamework/core";
 import ModuleLog = require("../ModuleLog");
-import { Registry } from "./ServerRegistry";
+import { ServerTelemetry } from "../Services/ServerTelemetry";
 import { ServerEvents, ServerFunctions } from "./ServerNetwork";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
@@ -43,8 +43,10 @@ export class RemoteBridge implements OnInit {
 	private pendingStarts = 0;
 	private readonly startSettled = new Instance("BindableEvent");
 
+	constructor(private readonly telemetry: ServerTelemetry) {}
+
 	onInit() {
-		ModuleLog.AttachTelemetry(Registry.ServerTelemetry);
+		ModuleLog.AttachTelemetry(this.telemetry);
 		const astralRoot = requiredChild(ReplicatedStorage, "AstralForge", "Folder", 30) as Folder;
 		const sharedRoot = requiredChild(astralRoot, "Shared", "Folder", 15) as Folder;
 		const protocol = ModuleLog.Require(

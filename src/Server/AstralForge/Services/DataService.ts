@@ -1,8 +1,9 @@
+import AtomicStateClass = require("./AtomicState");
+import ProfileIntegrityModule = require("./ProfileIntegrity");
 import {
 	d,
 	Dict,
 	economyKit,
-	LoadService,
 	ModuleLogApi,
 	num,
 	req,
@@ -142,7 +143,7 @@ interface IntegrityStatus {
 	CheckedAt: number;
 }
 
-export = (loadService: LoadService) => {
+export = (ServerTelemetry: ServerTelemetryApi) => {
 	const RunService = game.GetService("RunService");
 
 	const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
@@ -153,9 +154,8 @@ export = (loadService: LoadService) => {
 	const TradeRecovery = tradeSuiteKit("TradeRecovery") as {
 		RecoverFaulted(this: void, profile: Dict, now: number, warn: (this: void, message: string) => void): void;
 	};
-	const AtomicState = loadService("AtomicState") as AtomicStateApi;
-	const ProfileIntegrity = loadService("ProfileIntegrity") as ProfileIntegrityApi;
-	const ServerTelemetry = loadService("ServerTelemetry") as ServerTelemetryApi;
+	const AtomicState = AtomicStateClass as unknown as AtomicStateApi;
+	const ProfileIntegrity = ProfileIntegrityModule as unknown as ProfileIntegrityApi;
 	const DocumentCommon = Documents.DocumentCommon;
 
 	const CACHE_SYNC_INTERVAL = 1.5;

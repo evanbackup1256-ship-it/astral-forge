@@ -1,4 +1,5 @@
-import { LoadService, ModuleLogApi, req } from "./LuaInterop";
+import { ModuleLogApi, req } from "./LuaInterop";
+import { RemoteFirewall } from "./RemoteFirewall";
 
 interface PlayerState {
 	Character?: Model;
@@ -17,17 +18,12 @@ interface PlayerState {
 	LastGroundedAt: number;
 }
 
-interface RemoteFirewallApi {
-	EnforceConfirmedBan: (this: void, player: Player, evidence: unknown) => unknown;
-}
-
-export = (loadService: LoadService) => {
+export = () => {
 	const Players = game.GetService("Players");
 	const RunService = game.GetService("RunService");
 	const Workspace = game.GetService("Workspace");
 
 	const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
-	const RemoteFirewall = loadService("RemoteFirewall") as RemoteFirewallApi;
 
 	const SAMPLE_SECONDS = 0.2;
 	const MIN_BARRIER_DISTANCE = 6;

@@ -3,6 +3,8 @@
 import { Dict, isTable, LoadService, num, truthy } from "./LuaInterop";
 import { PayloadEvent, ServerEvents, ServerFunctions } from "../Runtime/ServerNetwork";
 import { FluxSurgeService } from "./FluxSurgeService";
+import { RemoteFirewall } from "./RemoteFirewall";
+import MatterRuntimeFactory = require("./MatterRuntime");
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
@@ -129,16 +131,11 @@ export function createGameService(loadService: LoadService) {
 	const AnomalyService = loadService("AnomalyService") as Kit;
 	const LabService = loadService("LabService") as Kit;
 	const GuildService = loadService("GuildService") as Kit;
-	const MatterRuntime = loadService("MatterRuntime") as Kit;
-	const RemoteFirewall = loadService("RemoteFirewall") as Kit;
-	const SessionGate = loadService("SessionGate") as Kit;
-	const GameAntiCheat = loadService("GameAntiCheat") as Kit;
 	const ConvergenceService = loadService("ConvergenceService") as Kit;
-	const PlayerAnalytics = loadService("PlayerAnalytics") as Kit;
-	const PlayerBadges = loadService("PlayerBadges") as Kit;
 	const ForgeEchoService = loadService("ForgeEchoService") as Kit;
 	const BazaarService = loadService("BazaarService") as Kit;
-	const Specializations = loadService("SpecializationService") as Kit;
+	const Specializations = mod<Kit>(shared(), "Specializations");
+	const MatterRuntime = MatterRuntimeFactory() as unknown as Kit;
 	const GuildCommunity = mod(script.Parent!, "GuildCommunity");
 	const ChatService = mod(script.Parent!, "ChatService");
 	const CrewService = mod(script.Parent!, "CrewService");
@@ -1186,11 +1183,11 @@ export function createGameService(loadService: LoadService) {
 			this._matterAccumulator = 0;
 			this._rankPingAccumulator = 0;
 			this._rankPingBusy = false;
-			this._firewall = RemoteFirewall.new() as Svc;
-			this._session = SessionGate.new() as Svc;
-			this._antiCheat = GameAntiCheat.new() as Svc;
-			this._analytics = PlayerAnalytics.new() as Svc;
-			this._badges = PlayerBadges.new() as Svc;
+			this._firewall = remotes.Firewall as Svc;
+			this._session = remotes.Session as Svc;
+			this._antiCheat = remotes.AntiCheat as Svc;
+			this._analytics = remotes.Analytics as Svc;
+			this._badges = remotes.Badges as Svc;
 			this._convergence = ConvergenceService.new(dataService) as Svc;
 			this._events = ServerEventService.new({
 				random: () => this._random.NextNumber(),

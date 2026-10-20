@@ -1,6 +1,5 @@
 // Typed view of the lazy service registry (Services/ServerServices). Only the members the
 // Flamework runtime services touch are typed; the registry itself still builds on demand.
-import ModuleLog = require("../ModuleLog");
 import { PayloadEvent } from "./ServerNetwork";
 import type { FluxSurgeService } from "../Services/FluxSurgeService";
 import ServerServices = require("../Services/ServerServices");
@@ -24,9 +23,6 @@ export interface DataServiceLike {
 	StartAutosave(seconds: unknown): void;
 }
 export interface ServicesShape {
-	ServerTelemetry: Parameters<typeof ModuleLog.AttachTelemetry>[0];
-	DataService: { new: (this: void) => DataServiceLike };
-	AdminService: { new: (this: void, dataService: DataServiceLike) => unknown };
 	GameService: {
 		new: (
 			this: void,
@@ -37,8 +33,11 @@ export interface ServicesShape {
 		) => GameServiceLike;
 	};
 	WorldService: { new: (this: void) => Startable };
-	Security: { new: (this: void) => Startable };
-	CharacterIntegrity: { new: (this: void) => Startable };
 }
+
+/** Factory modules not yet converted to services; they return their class (with .new). */
+export type DataServiceClass = { new: (this: void) => DataServiceLike };
+export type AdminServiceClass = { new: (this: void, dataService: DataServiceLike) => unknown };
+export type CharacterIntegrityClass = { new: (this: void) => Startable };
 
 export const Registry = ServerServices as unknown as ServicesShape;

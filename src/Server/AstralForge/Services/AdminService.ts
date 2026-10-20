@@ -11,7 +11,7 @@ import Protocol from "../../../Shared/AstralForge/Shared/Protocol";
 import OmegaMath from "../../../Shared/AstralForge/Shared/OmegaMath";
 import EchoMath from "../../../Shared/AstralForge/Shared/EchoMath";
 import AdminCommandSchema from "../../../Shared/AstralForge/Shared/AdminCommandSchema";
-import { d, Dict, economyKit, isTable, LoadService, ModuleLogApi, num, req, truthy } from "./LuaInterop";
+import { d, Dict, economyKit, isTable, ModuleLogApi, num, req, truthy } from "./LuaInterop";
 
 // Bag-shaped interfaces for ProfileBagMath.Ensure* returns
 interface ItemsBag {
@@ -121,7 +121,7 @@ interface Subject {
 	Name: string;
 }
 
-export = function (loadService: LoadService) {
+export = function (ServerTelemetry: TelemetryApi) {
 	const Players = game.GetService("Players");
 	const ReplicatedStorage = game.GetService("ReplicatedStorage");
 	const RunService = game.GetService("RunService");
@@ -132,7 +132,6 @@ export = function (loadService: LoadService) {
 	const AdminGrantMath = OpsMath("AdminGrantMath") as AdminGrantApi;
 	const WheelMath = economyKit("WheelMath") as WheelApi;
 	const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
-	const ServerTelemetry = loadService("ServerTelemetry") as TelemetryApi;
 
 	// Queue entries are unsigned, so only explicitly configured external moderator identities are trusted.
 	const DiscordModeratorIds: Record<number, boolean> = {

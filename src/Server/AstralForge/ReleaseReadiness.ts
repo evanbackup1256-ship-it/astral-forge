@@ -1,3 +1,4 @@
+import ProfileIntegrityModule = require("./Services/ProfileIntegrity");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const RunService = game.GetService("RunService");
 
@@ -18,11 +19,7 @@ const Economy = require(
 	PrestigeReward(this: void, runCash: number | string): number | string;
 	Max(this: void, a: number | string, b: number | string): number | string;
 };
-const ProfileIntegrity = (
-	require(script.Parent!.WaitForChild("Services").WaitForChild("ServerServices") as ModuleScript) as {
-		ProfileIntegrity: unknown;
-	}
-).ProfileIntegrity as {
+const ProfileIntegrity = ProfileIntegrityModule as unknown as {
 	Record(this: void, profile: Record<string, unknown>, label: string, revision: number): void;
 	Seal(this: void, profile: Record<string, unknown>): void;
 	VerifyAndRecover(this: void, profile: Record<string, unknown>): boolean;

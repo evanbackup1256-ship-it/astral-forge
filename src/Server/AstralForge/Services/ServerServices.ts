@@ -18,26 +18,15 @@ const req = (name: string) => require(services.WaitForChild(name) as ModuleScrip
 const kitMember = (name: string, member: string) => (req(name) as (this: void, member: string) => unknown)(member);
 const withLoader = (value: unknown) => (value as (this: void, loader: LoadService) => unknown)(loadService);
 
-serviceFactories["AdminService"] = () => withLoader(req("AdminService"));
-
 serviceFactories["AnomalyService"] = () => withLoader(kitMember("CoreServices", "AnomalyService"));
 
 serviceFactories["BazaarService"] = () => withLoader(req("BazaarService"));
-serviceFactories["SpecializationService"] = req("SpecializationService") as Factory;
-
-serviceFactories["AtomicState"] = kitMember("SecurityServices", "AtomicState") as Factory;
-
-serviceFactories["CharacterIntegrity"] = () => withLoader(req("CharacterIntegrity"));
 
 serviceFactories["ConvergenceService"] = req("ConvergenceService") as Factory;
-
-serviceFactories["DataService"] = () => withLoader(req("DataService"));
 
 serviceFactories["ForgeEchoService"] = kitMember("CoreServices", "ForgeEchoService") as Factory;
 
 serviceFactories["ServerEventService"] = kitMember("CoreServices", "ServerEventService") as Factory;
-
-serviceFactories["GameAntiCheat"] = req("GameAntiCheat") as Factory;
 
 serviceFactories["GameService"] = () => createGameService(loadService);
 
@@ -45,23 +34,7 @@ serviceFactories["GuildService"] = kitMember("CoreServices", "GuildService") as 
 
 serviceFactories["LabService"] = kitMember("CoreServices", "LabService") as Factory;
 
-serviceFactories["MatterRuntime"] = req("MatterRuntime") as Factory;
-
-serviceFactories["PlayerAnalytics"] = () => withLoader(req("PlayerAnalytics"));
-
-serviceFactories["PlayerBadges"] = req("PlayerBadges") as Factory;
-
-serviceFactories["ProfileIntegrity"] = kitMember("SecurityServices", "ProfileIntegrity") as Factory;
-
 serviceFactories["ProgressionService"] = kitMember("CoreServices", "ProgressionService") as Factory;
-
-serviceFactories["RemoteFirewall"] = () => withLoader(req("RemoteFirewall"));
-
-serviceFactories["Security"] = kitMember("SecurityServices", "Security") as Factory;
-
-serviceFactories["SessionGate"] = kitMember("SecurityServices", "SessionGate") as Factory;
-
-serviceFactories["ServerTelemetry"] = kitMember("SecurityServices", "ServerTelemetry") as Factory;
 
 serviceFactories["WorldService"] = kitMember("WorldServices", "WorldService") as Factory;
 

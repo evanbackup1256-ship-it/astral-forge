@@ -1,3 +1,4 @@
+import { OnStart, Service } from "@flamework/core";
 interface ModuleLogApi {
 	Warn: (this: void, scope: string, message: string) => void;
 }
@@ -12,11 +13,18 @@ interface SpecializationsApi {
 	Configure: (this: void, gain: unknown, tradeoff: unknown, respecSeconds: unknown) => void;
 }
 
-export = () => {
-	const Shared = game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared");
-	const Specializations = require(Shared.WaitForChild("Specializations") as ModuleScript) as SpecializationsApi;
-	const ModuleLog = require(script.Parent!.Parent!.WaitForChild("ModuleLog") as ModuleScript) as ModuleLogApi;
-	task.defer(() => {
+const Shared = game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared");
+const Specializations = require(Shared.WaitForChild("Specializations") as ModuleScript) as SpecializationsApi;
+const ModuleLog = require(script.Parent!.Parent!.WaitForChild("ModuleLog") as ModuleScript) as ModuleLogApi;
+
+/** Applies live ConfigService tuning to the shared Specializations rules (production only). */
+@Service({ loadOrder: 2 })
+export class SpecializationService implements OnStart {
+	onStart() {
+		task.defer(() => this.applyLiveTuning());
+	}
+
+	private applyLiveTuning() {
 		let isStudio = false;
 		pcall(() => {
 			const rs = game.GetService("RunService");
@@ -52,6 +60,5 @@ export = () => {
 				ModuleLog.Warn("Specializations", "Live build refresh failed: " + tostring(message));
 			}
 		});
-	});
-	return Specializations;
-};
+	}
+}

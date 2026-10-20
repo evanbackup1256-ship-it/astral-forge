@@ -3,14 +3,37 @@
 import { OnInit, OnStart, Service } from "@flamework/core";
 import { FluxSurgeService } from "../Services/FluxSurgeService";
 import { RemoteBridge } from "./RemoteBridge";
-import { DataServiceLike, GameServiceLike, Registry, Startable } from "./ServerRegistry";
+import {
+	AdminServiceClass,
+	CharacterIntegrityClass,
+	DataServiceClass,
+	DataServiceLike,
+	GameServiceLike,
+	Registry,
+	Startable,
+} from "./ServerRegistry";
+import { ServerTelemetry } from "../Services/ServerTelemetry";
+import { Security } from "../Services/Security";
+import { SessionGate } from "../Services/SessionGate";
+import { RemoteFirewall } from "../Services/RemoteFirewall";
+import { GameAntiCheat } from "../Services/GameAntiCheat";
+import { PlayerAnalytics } from "../Services/PlayerAnalytics";
+import { PlayerBadges } from "../Services/PlayerBadges";
+import { SpecializationService } from "../Services/SpecializationService";
+import DataServiceModule = require("../Services/DataService");
+import AdminServiceModule = require("../Services/AdminService");
+import CharacterIntegrityModule = require("../Services/CharacterIntegrity");
 
 @Service({ loadOrder: 1 })
 export class PlayerDataRuntime implements OnInit {
 	public service!: DataServiceLike;
-	constructor(private readonly bridge: RemoteBridge) {}
+	constructor(
+		private readonly bridge: RemoteBridge,
+		private readonly telemetry: ServerTelemetry,
+	) {}
 	onInit() {
-		this.service = this.bridge.bootStep("player data construction", () => Registry.DataService.new());
+		const DataService = DataServiceModule(this.telemetry) as unknown as DataServiceClass;
+		this.service = this.bridge.bootStep("player data construction", () => DataService.new());
 		this.bridge.onClose(4, "data service", () => this.service.Shutdown());
 	}
 }
@@ -21,11 +44,11 @@ export class AdminRuntime implements OnInit {
 	constructor(
 		private readonly bridge: RemoteBridge,
 		private readonly data: PlayerDataRuntime,
+		private readonly telemetry: ServerTelemetry,
 	) {}
 	onInit() {
-		this.service = this.bridge.bootStep("administration construction", () =>
-			Registry.AdminService.new(this.data.service),
-		);
+		const AdminService = AdminServiceModule(this.telemetry) as unknown as AdminServiceClass;
+		this.service = this.bridge.bootStep("administration construction", () => AdminService.new(this.data.service));
 	}
 }
 
@@ -43,12 +66,14 @@ export class WorldRuntime implements OnInit, OnStart {
 
 @Service({ loadOrder: 2 })
 export class SecurityRuntime implements OnInit, OnStart {
-	public pipeline!: Startable;
 	public integrity!: Startable;
-	constructor(private readonly bridge: RemoteBridge) {}
+	constructor(
+		private readonly bridge: RemoteBridge,
+		public readonly pipeline: Security,
+	) {}
 	onInit() {
-		this.pipeline = this.bridge.bootStep("security construction", () => Registry.Security.new());
-		this.integrity = this.bridge.bootStep("integrity construction", () => Registry.CharacterIntegrity.new());
+		const CharacterIntegrity = CharacterIntegrityModule() as unknown as CharacterIntegrityClass;
+		this.integrity = this.bridge.bootStep("integrity construction", () => CharacterIntegrity.new());
 		this.bridge.onClose(2, "security pipeline", () => this.pipeline.Destroy());
 		this.bridge.onClose(1, "character integrity", () => this.integrity.Destroy());
 	}
@@ -70,6 +95,13 @@ export class GameRuntime implements OnInit, OnStart {
 		private readonly world: WorldRuntime,
 		private readonly flux: FluxSurgeService,
 		private readonly security: SecurityRuntime,
+		private readonly session: SessionGate,
+		private readonly firewall: RemoteFirewall,
+		private readonly antiCheat: GameAntiCheat,
+		private readonly analytics: PlayerAnalytics,
+		private readonly badges: PlayerBadges,
+		// GameService reads the shared Specializations rules; this service keeps them live-tuned.
+		private readonly _specializations: SpecializationService,
 	) {}
 	onInit() {
 		const bridge = this.bridge;
@@ -77,6 +109,11 @@ export class GameRuntime implements OnInit, OnStart {
 			Registry.GameService.new(this.data.service, this.world.service, this.flux, {
 				Security: this.security.pipeline,
 				Admin: this.admin.service,
+				Session: this.session,
+				Firewall: this.firewall,
+				AntiCheat: this.antiCheat,
+				Analytics: this.analytics,
+				Badges: this.badges,
 			}),
 		);
 		bridge.onClose(3, "game service", () => this.service.Shutdown());
