@@ -248,6 +248,8 @@ const currentWeek = () => UtcClockMath.Week(os.time());
 const copyReward = (reward: Reward) => table.clone(reward);
 const commanderLevel = (xp: number) =>
   CommandMath.Level(xp, GameConfig.Operations.MaxCommanderLevel);
+const weeklyScale = (level: number) =>
+  1 + math.floor((level - 1) / 10) * 0.35;
 function ensureCommand(profile: Profile): Command {
   profile.Command = CommandMath.Ensure(
     profile.Command,
@@ -623,11 +625,18 @@ const ProgressionService = {
     const day = currentDay();
     const daily = ensureDaily(profile);
     const canClaim = daily.LastClaimDay < day;
+    // mirrors ClaimDaily: a missed day spends a streak shield instead of resetting the streak
+    const shields = math.max(
+      0,
+      math.floor(tonumber(ensureCommand(profile).StreakShields) ?? 0),
+    );
     const nextStreak =
       daily.LastClaimDay === day - 1
         ? daily.Streak + 1
         : canClaim
-          ? 1
+          ? daily.Streak > 0 && shields > 0
+            ? daily.Streak + 1
+            : 1
           : daily.Streak;
     const rewardIndex =
       ((math.max(1, nextStreak) - 1) % GameConfig.DailyRewards.size()) + 1;
@@ -673,6 +682,10 @@ const ProgressionService = {
     const week = currentWeek();
     if (command.Weekly.Week === week) {
       let changed = false;
+      if (!typeIs(command.Weekly.Scale, "number")) {
+        command.Weekly.Scale = weeklyScale(commanderLevel(command.XP));
+        changed = true;
+      }
       for (const directive of GameConfig.Operations.WeeklyDirectives) {
         const existing = command.Weekly.Baseline[directive.Kind];
         if (
@@ -693,7 +706,14 @@ const ProgressionService = {
     const baseline: Record<string, number> = {};
     for (const directive of GameConfig.Operations.WeeklyDirectives)
       baseline[directive.Kind] = currentWeeklyValue(profile, directive.Kind);
-    command.Weekly = { Week: week, Baseline: baseline, Claimed: {} };
+    // targets scale with the commander level the week started at, so levelling up mid-week
+    // never pushes a finished job back out of reach
+    command.Weekly = {
+      Week: week,
+      Baseline: baseline,
+      Claimed: {},
+      Scale: weeklyScale(commanderLevel(command.XP)),
+    };
     return true;
   },
   WeeklyState(this: void, profile: Profile) {
@@ -702,8 +722,11 @@ const ProgressionService = {
     const weekMatches = current.Week === currentWeek();
     const baselines = weekMatches ? current.Baseline : {};
     const claimed = weekMatches ? current.Claimed : {};
-    const level = commanderLevel(command.XP);
-    const scale = 1 + math.floor((level - 1) / 10) * 0.35;
+    const storedScale = weekMatches ? tonumber(current.Scale) : undefined;
+    const scale =
+      storedScale !== undefined && storedScale >= 1 && storedScale < math.huge
+        ? storedScale
+        : weeklyScale(commanderLevel(command.XP));
     return GameConfig.Operations.WeeklyDirectives.map((directive) => {
       const target = math.floor(directive.BaseTarget * scale);
       const baseline =

@@ -12,7 +12,7 @@ interface CommandBag {
 	SeasonXP: number;
 	SeasonClaims: Record<string, boolean>;
 	PremiumClaims: Record<string, boolean>;
-	Weekly: { Week: number; Baseline: Record<string, number>; Claimed: Record<string, boolean> };
+	Weekly: { Week: number; Baseline: Record<string, number>; Claimed: Record<string, boolean>; Scale?: number };
 	Shop: { Day: number; Purchased: Record<string, boolean> };
 	EquippedTitle: string;
 	MachineMastery: Record<string, number>;

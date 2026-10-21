@@ -185,6 +185,23 @@ do
 	check(s:_studioGrantProduct(player, "anything").ok == false, "studio grants refused outside Studio")
 end
 
+-- pass bought mid-session: granted from PromptGamePassPurchaseFinished without a rejoin
+for _, pass in Monetization.GamePasses do
+	if pass.PassId > 0 then
+		local s, player, data = service(DataTemplate.New())
+		local pushed = 0
+		s._pushState = function() pushed += 1 end
+		check(s:_grantPurchasedPass(player, pass.PassId, false).ok == false, "cancelled pass prompt grants nothing")
+		check((data.profile.OwnedPasses or {})[pass.Key] ~= true, "cancel leaves pass unowned")
+		check(s:_grantPurchasedPass(player, pass.PassId, true).ok == true, "bought pass granted")
+		check(data.profile.OwnedPasses[pass.Key] == true and pushed == 1, "pass owned and state pushed")
+		local first = deepCopy(data.profile)
+		check(s:_grantPurchasedPass(player, pass.PassId, true).ok == true and deepEqual(first, data.profile), "pass grant idempotent")
+		check(s:_grantPurchasedPass(player, 987654321, true).ok == false, "unknown pass id refused")
+		check(s:_grantPurchasedPass(player, "1", true).ok == false, "non-number pass id refused")
+	end
+end
+
 if #failures > 0 then
 	error("server shop failed:\n  " .. table.concat(failures, "\n  "))
 end

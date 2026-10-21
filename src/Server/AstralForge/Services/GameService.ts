@@ -3573,6 +3573,37 @@ export class GameService {
 		});
 	}
 
+	// MarketplaceService.PromptGamePassPurchaseFinished fires on the server with the real result, so
+	// a pass bought mid-session is granted right away instead of waiting on UserOwnsGamePassAsync,
+	// which caches ownership and can still say "no" for a while after the purchase.
+	_grantPurchasedPass(player: Player, rawPassId: unknown, purchased: unknown) {
+		if (purchased !== true || !typeIs(rawPassId, "number")) {
+			return responseError("No pass purchase to grant.");
+		}
+		const passDef = (MonetizationConfig.FindPassByPassId as Fn)(rawPassId) as Dict | undefined;
+		if (passDef === undefined) {
+			return responseError("Unknown pass.");
+		}
+		if (!this._running || player.Parent !== Players || this._runtime.get(player) === undefined) {
+			return responseError("That forge session is no longer active.");
+		}
+		const result = this._mutate(player, (profile: Profile) => {
+			if (!typeIs(profile.OwnedPasses, "table")) {
+				profile.OwnedPasses = {};
+			}
+			const owned = profile.OwnedPasses as Dict;
+			if (truthy(owned[passDef.Key as string])) {
+				return responseSuccess((passDef.Name as string) + " already owned.");
+			}
+			owned[passDef.Key as string] = true;
+			return responseSuccess((passDef.Name as string) + " unlocked.");
+		});
+		if (truthy((result as Dict | undefined)?.ok)) {
+			this._pushState(player);
+		}
+		return result;
+	}
+
 	_studioGrantProduct(player: Player, rawKey: unknown) {
 		if (!truthy(ShopGrantEligibility.StudioGrantAllowed(RunService.IsStudio()))) {
 			return responseError("Studio grants are disabled in live servers.");
@@ -6613,6 +6644,12 @@ export class GameService {
 		this._running = true;
 		this._convergence.Start();
 		PolicyGate.Start();
+		MarketplaceService.PromptGamePassPurchaseFinished.Connect((player, passId, purchased) => {
+			const [ok, err] = pcall(() => this._grantPurchasedPass(player, passId, purchased));
+			if (!ok) {
+				ModuleLog.Warn("Shop", "pass grant errored: " + tostring(err));
+			}
+		});
 		MarketplaceService.ProcessReceipt = (receiptInfo) => {
 			const [ok, decision] = pcall(() => this._processReceipt(receiptInfo));
 			if (ok) {
