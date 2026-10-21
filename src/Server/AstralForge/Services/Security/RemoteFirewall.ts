@@ -216,6 +216,7 @@ const RULES: Record<string, Rule> = {
 	// ---- v8 C: Forge Programs ----
 	[Protocol.Actions.ProgramAct]: { Cost: 0.5, Cooldown: 0.25 },
 	// ---- end v8 C: Forge Programs ----
+	[Protocol.Actions.EngraveRelic]: { Cost: 1, Cooldown: 0.3 },
 };
 
 const EXEMPT_ACTIONS: Record<string, boolean> = {
@@ -635,6 +636,14 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.FuseRelics) {
 		if (!stringField(bag, "Id", 2, 64)) {
 			return $tuple(false, "invalid relic");
+		}
+	} else if (action === Protocol.Actions.EngraveRelic) {
+		if (
+			!stringField(bag, "Uid", 1, 48) ||
+			(bag.Op !== "Roll" && bag.Op !== "Lock") ||
+			!numberField(bag, "Line", 1, 3, true)
+		) {
+			return $tuple(false, "invalid engraving");
 		}
 	} else if (action === Protocol.Actions.BazaarPlay) {
 		const [order] = BazaarMath.ReadOrder(bag);

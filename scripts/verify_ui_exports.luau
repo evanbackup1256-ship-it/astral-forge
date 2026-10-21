@@ -20,6 +20,8 @@ local ALLOWED: { [string]: string } = {
 	-- v8 feature views: new files only while the pages are restyled; drop these once routed
 	["pages/PagesProgress/ConstellationsView.tsx:ConstellationsView"] = "v8 constellations, not routed yet",
 	["pages/PagesProgress/ConstellationsView.tsx:constellationsHeight"] = "v8 constellations, not routed yet",
+	["pages/views/EngravingPanel.tsx:EngravingPanel"] = "v8 engraving, not in the inspect panel yet",
+	["pages/views/EngravingPanel.tsx:engravingPanelHeight"] = "v8 engraving, not in the inspect panel yet",
 	-- shell components: shell memo workstream (B)
 	["UiCore/NavChrome.tsx:MoreDock"] = "shell workstream",
 	["UiCore/ShellFx.tsx:ConfettiBurst"] = "shell workstream",

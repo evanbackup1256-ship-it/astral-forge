@@ -694,7 +694,7 @@ export const EN = {
 	"GuildCommunity.ChatIsUnavailableForYour": "Chat is unavailable for your account.",
 	"GuildCommunity.AnnouncementNotFound": "Announcement not found.",
 	"HotFlags.UseNameOnOrName": "Use Name=on or Name=off.",
-	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused, ConstellationsPaused.",
+	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused, ConstellationsPaused, EngravingPaused.",
 	"ServerEventService.NoStarsAreFallingRight": "No stars are falling right now.",
 	"ServerEventService.YouVeCaughtEveryStar": "You've caught every star you can this time.",
 	"ServerEventService.TooQuick": "Too quick.",
@@ -762,6 +762,20 @@ export const EN = {
 	"Constellations.SIsLit": "%s is lit in %s.",
 	"Constellations.ChartsArePaused": "The star charts are closed for a moment. Your stars still count.",
 	"Constellations.UnknownAction": "Unknown star chart action.",
+	// v8: relic engraving
+	"RelicEngraving.ReachLevelDToEngrave": "Reach level %d to engrave this relic.",
+	"RelicEngraving.PickALine": "Pick a line to engrave.",
+	"RelicEngraving.ThatLineOpensAtLevelD": "That line opens at level %d.",
+	"RelicEngraving.FillTheLinesInOrder": "Fill the lines in order.",
+	"RelicEngraving.UnlockThatLineFirst": "That line is locked. Unlock it to reroll.",
+	"RelicEngraving.YouNeedDMoreEssence": "You need %d more Essence.",
+	"RelicEngraving.YouNeedDMoreStarsteel": "You need %d more Starsteel.",
+	"RelicEngraving.LineDNowReadsS": "Line %d now reads %s.",
+	"RelicEngraving.ThereSNothingEngravedThere": "There's nothing engraved there yet.",
+	"RelicEngraving.LineLocked": "Line locked. Rerolls leave it alone.",
+	"RelicEngraving.LineUnlocked": "Line unlocked.",
+	"RelicEngraving.TheEngraverIsAway": "The engraver is away for a moment. Engraved lines still count.",
+	"RelicEngraving.ThatRelicIsnTYours": "That relic isn't in your inventory.",
 } as const;
 
 export type LocaleKey = keyof typeof EN;

@@ -465,6 +465,9 @@ __defs["Economy"] = () => {
 	const RelicRigs = require(shared.WaitForChild("RelicRigs") as ModuleScript) as {
 		bonus(this: void, profile: unknown, kind: string): number;
 	};
+	const RelicEngraving = require(shared.WaitForChild("RelicEngraving") as ModuleScript) as {
+		bonus(this: void, items: unknown, kind: string): number;
+	};
 	const Constellations = require(shared.WaitForChild("Constellations") as ModuleScript) as {
 		bonus(this: void, profile: unknown, kind: string): number;
 	};
@@ -663,11 +666,13 @@ __defs["Economy"] = () => {
 		},
 
 		ItemEffect(this: void, profile: ProfileLike, effectKind: string, slotFilter?: string, targetFilter?: string): number {
-			// the companion and lit constellations are global bonuses, so they ride along with the
+			// the companion, lit constellations and engraved lines are global bonuses, so they ride along with the
 			// research-wide lookups only
 			const companion =
 				targetFilter === undefined && (slotFilter === undefined || slotFilter === "Research")
-					? CompanionRelic.bonus(profile.Items, effectKind) + Constellations.bonus(profile, effectKind)
+					? CompanionRelic.bonus(profile.Items, effectKind) +
+						Constellations.bonus(profile, effectKind) +
+						RelicEngraving.bonus(profile.Items, effectKind)
 					: 0;
 			return companion + EconomyEnvelopeMath.ItemEffect(
 				profile.Items,

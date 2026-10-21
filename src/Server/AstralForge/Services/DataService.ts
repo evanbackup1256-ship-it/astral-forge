@@ -3,6 +3,7 @@ import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import RelicRigs = require("../../../Shared/AstralForge/Shared/RelicRigs");
 import * as Constellations from "../../../Shared/AstralForge/Shared/Constellations";
+import * as RelicEngraving from "../../../Shared/AstralForge/Shared/RelicEngraving";
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import ExpeditionBoard = require("../../../Shared/AstralForge/Shared/ExpeditionBoard");
 import ForgePrograms = require("../../../Shared/AstralForge/Shared/ForgePrograms");
@@ -625,6 +626,7 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 			item.Locked = item.Locked === true;
 			const stars = math.clamp(math.floor(nonNegative(item.Stars)), 0, GameConfig.Items.MaxStars ?? 5);
 			item.Stars = stars > 0 ? stars : undefined;
+			RelicEngraving.sanitize(item, definition.Rarity);
 		}
 	}
 	items.Rigs = RelicRigs.ensure(items.Rigs);

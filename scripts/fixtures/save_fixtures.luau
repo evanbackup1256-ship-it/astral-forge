@@ -177,6 +177,7 @@ return function(DataTemplate, GameConfig)
 				["Constellations.Lit"] = {},
 				["Rebirth.Lifetime"] = 40,
 				["Items.Inventory.IT0000021.Level"] = 12,
+				["Items.Inventory.IT0000021.Engraving"] = nil,
 			},
 		})
 	end

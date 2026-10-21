@@ -40,6 +40,7 @@ import * as LimitedEvents from "../../../Shared/AstralForge/Shared/LimitedEvents
 import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import * as Constellations from "../../../Shared/AstralForge/Shared/Constellations";
+import * as RelicEngraving from "../../../Shared/AstralForge/Shared/RelicEngraving";
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
@@ -2827,6 +2828,36 @@ export class GameService {
 			});
 		}
 		return responseError(T("GameService.UnknownEventAction"));
+	}
+
+	_engraveRelic(player: Player, payload: Dict | undefined) {
+		if (HotFlags.Get("EngravingPaused")) {
+			return responseError(T("RelicEngraving.TheEngraverIsAway"));
+		}
+		const uid = payload?.Uid;
+		const line = payload?.Line;
+		return this._mutate(player, (profile: Profile) => {
+			const items = profile.Items as Dict;
+			const instance = typeIs(uid, "string") ? ((items.Inventory as Dict)[uid] as Dict | undefined) : undefined;
+			const definition = instance !== undefined ? (itemById[instance.DefinitionId as string] as Dict | undefined) : undefined;
+			if (instance === undefined || definition === undefined) {
+				return responseError(T("RelicEngraving.ThatRelicIsnTYours"));
+			}
+			if (payload?.Op === "Lock") {
+				const [ok, message] = RelicEngraving.toggleLock(instance, definition.Rarity, line);
+				return ok ? responseSuccess(message, { Uid: uid, Engraving: instance.Engraving }) : responseError(message);
+			}
+			const ore = profile.Ore as Dict;
+			const wallet = { Essence: num(items.Essence) ?? 0, Starsteel: num(ore.Starsteel) ?? 0 };
+			const [ok, message] = RelicEngraving.roll(instance, definition, line, wallet, () => this._random.NextNumber());
+			if (!ok) {
+				return responseError(message);
+			}
+			items.Essence = wallet.Essence;
+			ore.Starsteel = wallet.Starsteel;
+			bumpStat(profile, "RelicsEngraved", 1);
+			return responseSuccess(message, { Uid: uid, Engraving: instance.Engraving });
+		});
 	}
 
 	_constellationAct(player: Player, payload: Dict | undefined) {
@@ -6199,6 +6230,8 @@ export class GameService {
 			return this._equipCrateSkin(player, payload?.Id);
 		} else if (action === Protocol.Actions.FuseRelics) {
 			return this._fuseRelics(player, payload?.Id);
+		} else if (action === Protocol.Actions.EngraveRelic) {
+			return this._engraveRelic(player, payload);
 		} else if (action === Protocol.Actions.BuyItemOffer) {
 			return this._buyItemOffer(player, payload?.Id);
 		} else if (action === Protocol.Actions.OpenItemCrate) {

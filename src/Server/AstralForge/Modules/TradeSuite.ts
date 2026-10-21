@@ -1,4 +1,15 @@
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
+
+function deepCopyValue(value: unknown): unknown {
+	if (!typeIs(value, "table")) {
+		return value;
+	}
+	const out: Dict = {};
+	for (const [k, v] of pairs(value)) {
+		out[k as string] = deepCopyValue(v);
+	}
+	return out;
+}
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
 const __loading: Record<string, boolean> = {};
@@ -1192,11 +1203,8 @@ __defs["TradeExchange"] = () => {
 					continue;
 				}
 				if (typeIs(value, "table")) {
-					const nested: Dict = {};
-					for (const [nestedKey, nestedValue] of pairs(value)) {
-						nested[nestedKey as string] = nestedValue;
-					}
-					copy[key as string] = nested;
+					// engraving lines nest a level deeper, so the copy has to go all the way down
+					copy[key as string] = deepCopyValue(value);
 				} else {
 					copy[key as string] = value;
 				}
