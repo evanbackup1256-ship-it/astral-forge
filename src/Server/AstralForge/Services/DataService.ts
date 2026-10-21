@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import RelicRigs = require("../../../Shared/AstralForge/Shared/RelicRigs");
@@ -1164,7 +1165,7 @@ export class DataService {
 			if (this._closing || closingAt !== undefined) {
 				return $tuple(false, "refreshing");
 			}
-			return $tuple(false, "Your save could not be opened safely. Please rejoin in a moment.");
+			return $tuple(false, T("Save.OpenFailed"));
 		}
 
 		if (stealLock === true) {
@@ -1189,7 +1190,7 @@ export class DataService {
 			if (this._closing || closingAt !== undefined) {
 				return $tuple(false, "refreshing");
 			}
-			return $tuple(false, "Your save could not be opened safely. Please rejoin in a moment.");
+			return $tuple(false, T("Save.OpenFailed"));
 		}
 
 		if (DocumentCommon.isOk(openResult)) {
@@ -1200,7 +1201,7 @@ export class DataService {
 				});
 				ModuleLog.Error("Data", "profile load rejected", { UserId: player.UserId, Reason: reason });
 				this.telemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false);
-				return $tuple(false, "Your save could not be verified safely. Please rejoin or contact support.");
+				return $tuple(false, T("Save.VerifyFailed"));
 			};
 
 			const [copied, candidate] = pcall(() => deepCopy(cached));
@@ -1264,7 +1265,7 @@ export class DataService {
 				});
 				ModuleLog.Warn("Data", string.format("could not stage %s profile - %s", player.Name, tostring(cacheProblem)));
 				this.telemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false);
-				return $tuple(false, "Your save changed while loading. Please rejoin in a moment.");
+				return $tuple(false, T("Save.ChangedWhileLoading"));
 			}
 
 			this._profiles.set(player, profile);
@@ -1289,11 +1290,11 @@ export class DataService {
 		const reason = DocumentCommon.reason(openResult) ?? "Unknown";
 		if (reason === "SessionLockedError") {
 			this.telemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false);
-			return $tuple(false, "Your data is still active on another server. Please wait a moment and rejoin.");
+			return $tuple(false, T("Save.ActiveElsewhere"));
 		}
 		if (reason === "BackwardsCompatibilityError") {
 			this.telemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false);
-			return $tuple(false, "You joined an old server that cannot load your save. Please try a newer server.");
+			return $tuple(false, T("Save.OldServer"));
 		}
 
 		if (RunService.IsStudio() && truthy(ServerConfig.AllowStudioMemoryFallback)) {
@@ -1319,7 +1320,7 @@ export class DataService {
 
 		ModuleLog.Warn("Data", string.format("could not load %s: %s", player.Name, reason));
 		this.telemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false);
-		return $tuple(false, "Your save could not be loaded safely. Please rejoin in a moment.");
+		return $tuple(false, T("Save.LoadFailed"));
 	}
 
 	Get(player: Player): Dict | undefined {

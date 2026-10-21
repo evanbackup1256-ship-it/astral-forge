@@ -1,3 +1,4 @@
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import ModuleLog = require("../../ModuleLog");
 import { ActionBuckets } from "./ActionBuckets";
 import * as PayloadShape from "./PayloadShape";
@@ -1071,7 +1072,7 @@ function enforceConfirmedBan(player: Player, proof: unknown): LuaTuple<[boolean,
 		string.format("Ban service failed for %s: %s", player.Name, tostring(banError)),
 	);
 	if (player.Parent === Players) {
-		player.Kick("Astral Forge rejected confirmed exploit activity.");
+		player.Kick(T("Kick.Exploit"));
 	}
 	return $tuple(false, tostring(banError));
 }

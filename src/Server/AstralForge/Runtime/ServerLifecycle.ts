@@ -1,5 +1,6 @@
 // Last service to start: goes Ready, prints the security posture, wires Studio hooks and the
 // soft-shutdown flow. If any start step failed the runtime is closed and the boot fails loudly.
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { OnStart, Service } from "@flamework/core";
 import ModuleLog = require("../ModuleLog");
 import { GameService } from "../Services/GameService";
@@ -138,7 +139,7 @@ export class ServerLifecycle implements OnStart {
 			return { ok: ok, message: message, amount: cash };
 		});
 		makeBindable("StudioSoftShutdown", () => {
-			this.bridge.publishShutdown("Saving", "Tempering a fresh test server. Your progress is safe.");
+			this.bridge.publishShutdown("Saving", T("Shutdown.StudioSaving"));
 			return true;
 		});
 	}
@@ -149,8 +150,8 @@ export class ServerLifecycle implements OnStart {
 		bridge.publishShutdown(
 			"Saving",
 			production
-				? "Securing your forge before the server refreshes."
-				: "Tempering a fresh test server. Your progress is safe.",
+				? T("Shutdown.Saving")
+				: T("Shutdown.StudioSaving"),
 		);
 		bridge.closeRuntime();
 		if (!production) {
@@ -160,7 +161,7 @@ export class ServerLifecycle implements OnStart {
 		if (remainingPlayers.size() === 0) {
 			return;
 		}
-		bridge.publishShutdown("Teleporting", "Progress saved. Opening a fresh forge now.");
+		bridge.publishShutdown("Teleporting", T("Shutdown.Teleporting"));
 		task.wait(0.2);
 		const options = new Instance("TeleportOptions");
 		options.SetTeleportData({
@@ -173,7 +174,7 @@ export class ServerLifecycle implements OnStart {
 		});
 		options.Destroy();
 		if (!ok) {
-			bridge.publishShutdown("Waiting", "Roblox is reconnecting this server. Hold tight.");
+			bridge.publishShutdown("Waiting", T("Shutdown.Waiting"));
 			ModuleLog.Warn("Shutdown", "group teleport failed, leaving players to Roblox: " + tostring(issue));
 		}
 	}

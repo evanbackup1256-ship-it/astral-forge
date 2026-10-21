@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { Service } from "@flamework/core";
 import BazaarModule = require("./Gameplay/Bazaar");
 import { ConvergenceService } from "./ConvergenceService";
@@ -593,7 +594,7 @@ export class GameService {
 		}
 		for (const host of Players.GetPlayers()) {
 			if (host.UserId === hostUserId) {
-				this._toastPlayer(host, "Visitor left", visitor.DisplayName + " headed home.", "Info");
+				this._toastPlayer(host, T("Toast.VisitorLeftTitle"), T("Toast.VisitorLeftBody", visitor.DisplayName), "Info");
 				this._pushState(host);
 				break;
 			}
@@ -652,7 +653,7 @@ export class GameService {
 		bucket.set(visitor, true);
 
 		const visit = buildVisitSnapshot(host, profile);
-		this._toastPlayer(host, "Someone stopped by", visitor.DisplayName + " is checking out your shop.", "Special");
+		this._toastPlayer(host, T("Toast.VisitorArrivedTitle"), T("Toast.VisitorArrivedBody", visitor.DisplayName), "Special");
 		this._pushState(host);
 
 		const visitorSnap = this._snapshot(visitor);
@@ -838,7 +839,7 @@ export class GameService {
 				return responseError(err);
 			}
 			if (target) {
-				this._toastPlayer(target, "Trade invite", player.DisplayName + " wants to trade. Open Trade to accept.", "Info");
+				this._toastPlayer(target, T("Toast.TradeInviteTitle"), T("Toast.TradeInviteBody", player.DisplayName), "Info");
 				this._pushState(target, true);
 			}
 			this._pushState(player, true);
@@ -909,7 +910,7 @@ export class GameService {
 					this._pushTradePartners(session.Host, session.Guest);
 					const practicePlayer = Players.GetPlayerByUserId(session.Host as number);
 					if (practicePlayer) {
-						this._toastPlayer(practicePlayer, "Practice complete", "That's how a trade settles. Nothing changed hands.", "Success");
+						this._toastPlayer(practicePlayer, T("Toast.PracticeCompleteTitle"), T("Toast.PracticeCompleteBody"), "Success");
 					}
 					return responseSuccess("Practice trade complete. Nothing changed hands.");
 				}
@@ -1140,8 +1141,8 @@ export class GameService {
 					return responseError(orElse(outcome.message, () => "That trade could not be settled."));
 				}
 				this._trades.Close(session);
-				this._toastPlayer(host, "Trade complete", "The exchange is locked in.", "Success");
-				this._toastPlayer(guest, "Trade complete", "The exchange is locked in.", "Success");
+				this._toastPlayer(host, T("Toast.TradeCompleteTitle"), T("Toast.TradeCompleteBody"), "Success");
+				this._toastPlayer(guest, T("Toast.TradeCompleteTitle"), T("Toast.TradeCompleteBody"), "Success");
 				return responseSuccess("Trade complete.");
 			}
 			if (maybeSession) {
@@ -1187,9 +1188,9 @@ export class GameService {
 			const other = Players.GetPlayerByUserId(otherId as number);
 			if (other) {
 				if (truthy(payload) && payload.Away === true) {
-					this._toastPlayer(other, "Trade", player.DisplayName + " stepped away from the table.", "Info");
+					this._toastPlayer(other, "Trade", T("Toast.TradeAwayBody", player.DisplayName), "Info");
 				} else {
-					this._toastPlayer(other, "Trade", player.DisplayName + " is back at the table.", "Info");
+					this._toastPlayer(other, "Trade", T("Toast.TradeBackBody", player.DisplayName), "Info");
 				}
 			}
 			return responseSuccess();
@@ -1201,7 +1202,7 @@ export class GameService {
 			if (otherId !== undefined) {
 				const other = Players.GetPlayerByUserId(otherId);
 				if (other) {
-					this._toastPlayer(other, "Trade cancelled", player.DisplayName + " closed the table.", "Info");
+					this._toastPlayer(other, T("Toast.TradeCancelledTitle"), T("Toast.TradeCancelledBody", player.DisplayName), "Info");
 					this._pushState(other, true);
 				}
 			}
@@ -1362,7 +1363,7 @@ export class GameService {
 				return;
 			}
 			this._saveFailedToastAt.set(player, os.clock());
-			this._toastPlayer(player, "Save trouble", "Your progress couldn't save just now. Stay online while we retry.", "Warning");
+			this._toastPlayer(player, T("Toast.SaveTroubleTitle"), T("Toast.SaveTroubleBody"), "Warning");
 		};
 	}
 
@@ -3540,7 +3541,7 @@ export class GameService {
 		if (!already) {
 			this._syncLeaderstats(player, this._data.Get(player) as Profile | undefined);
 			this._pushState(player);
-			this._toastPlayer(player, "Purchase complete", rewardText !== "" ? rewardText : (productDef.Name as string), "Special");
+			this._toastPlayer(player, T("Toast.PurchaseCompleteTitle"), rewardText !== "" ? rewardText : (productDef.Name as string), "Special");
 			this._effect.fire(player, { Type: "FeatureUnlocked" });
 		}
 		return Enum.ProductPurchaseDecision.PurchaseGranted;
@@ -4098,7 +4099,7 @@ export class GameService {
 			});
 		});
 		if (truthy(result.ok)) {
-			this._toastPlayer(player, "Relic linked", result.message, "Success");
+			this._toastPlayer(player, T("Toast.RelicLinkedTitle"), result.message, "Success");
 			this._effect.fire(player, {
 				Type: "ItemLinked",
 				ItemName: result.ItemName,
@@ -4122,7 +4123,7 @@ export class GameService {
 			return responseSuccess("Item returned to inventory.");
 		});
 		if (truthy(result.ok)) {
-			this._toastPlayer(player, "Relic detached", result.message, "Info");
+			this._toastPlayer(player, T("Toast.RelicDetachedTitle"), result.message, "Info");
 		}
 		return result;
 	}
@@ -5528,7 +5529,7 @@ export class GameService {
 				const previous = math.max(0, math.floor(tonumber(runtime.LeaderboardRank) ?? 0));
 				runtime.LeaderboardRank = rank;
 				if (truthy(RankBracket.ShouldAnnounce(previous, rank, RANK_PING_BRACKETS, RANK_PING_UNRANKED))) {
-					this._toastPlayer(online, "Leaderboard climb", string.format("You're #%d in %s now.", rank, RANK_PING_BOARD_LABEL), "Special");
+					this._toastPlayer(online, T("Toast.LeaderboardClimbTitle"), T("Toast.LeaderboardClimbBody", rank, RANK_PING_BOARD_LABEL), "Special");
 				}
 			} else if (runtime !== undefined) {
 				runtime.LeaderboardRank = 0;
@@ -6280,7 +6281,7 @@ export class GameService {
 			for (const [visitor] of hosted) {
 				this._visiting.delete(visitor);
 				if (visitor.Parent === Players) {
-					this._toastPlayer(visitor, "Visit ended", "The host left the server.", "Info");
+					this._toastPlayer(visitor, T("Toast.VisitEndedTitle"), T("Toast.VisitEndedBody"), "Info");
 					this._effect.fire(visitor, { Type: "VisitEnded" });
 				}
 			}
@@ -6293,7 +6294,7 @@ export class GameService {
 			for (const userId of notify) {
 				const other = Players.GetPlayerByUserId(userId);
 				if (other !== undefined) {
-					this._toastPlayer(other, "Trade closed", "Your partner left the server.", "Info");
+					this._toastPlayer(other, T("Toast.TradeClosedTitle"), T("Toast.TradeClosedBody"), "Info");
 					this._pushState(other, true);
 				}
 			}
@@ -6527,7 +6528,7 @@ export class GameService {
 							Amount: anomalyDetails.Amount,
 							Charge: anomalyDetails.Charge,
 						});
-						this._toastPlayer(player, "Reactor ready", "Stabilize it for the payout.", "Special");
+						this._toastPlayer(player, T("Toast.ReactorReadyTitle"), T("Toast.ReactorReadyBody"), "Special");
 					}
 				}
 			}
@@ -6891,7 +6892,7 @@ export class GameService {
 
 		this._syncLeaderstats(player, this._data.Get(player) as Profile | undefined);
 		this._pushState(player);
-		this._toastPlayer(player, "Unlimited Flux enabled", "Your test balance will not decrease.", "Success");
+		this._toastPlayer(player, T("Toast.UnlimitedFluxTitle"), T("Toast.UnlimitedFluxBody"), "Success");
 		if (!truthy(this._data.Save(player, false))) {
 			return $tuple(false, "The balance changed in-session, but the forced DataStore save failed.", undefined);
 		}
@@ -6922,7 +6923,7 @@ export class GameService {
 		}
 
 		this._pushState(player);
-		this._toastPlayer(player, "Free wheel spins", tostring(grant) + " spins added (" + tostring(total) + " ready).", "Success");
+		this._toastPlayer(player, T("Toast.FreeSpinsTitle"), T("Toast.FreeSpinsBody", tostring(grant), tostring(total)), "Success");
 		return $tuple(true, "Granted " + tostring(grant) + " free wheel spins (" + tostring(total) + " total).", total);
 	}
 

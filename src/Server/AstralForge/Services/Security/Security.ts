@@ -1,4 +1,5 @@
 // Request security pipeline: authority, nonce, rate, filter and friends. Started and destroyed by CoreRuntime.
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import { Service } from "@flamework/core";
 import { req, SharedFolder } from "../LuaInterop";
 
@@ -213,7 +214,7 @@ class Device {
 	Escalate(player: Player, reason: string, severe?: boolean): void {
 		player.SetAttribute("AF_SecurityReason", reason.sub(1, 96));
 		if (severe === true && player.Parent === Players) {
-			player.Kick("Astral Forge rejected suspicious activity.");
+			player.Kick(T("Kick.Suspicious"));
 		}
 	}
 }
