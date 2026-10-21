@@ -855,10 +855,10 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			"presets",
 			<>
 				<Text
-					value={preset === undefined ? "PRESET  ·  CUSTOM" : "PRESET"}
-					size={11}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
+					value={preset === undefined ? "Preset (custom)" : "Preset"}
+					size={12}
+					color={Palette.creamSoft}
+					weight={Enum.FontWeight.SemiBold}
 					sizeConstraint={new UDim2(1, 0, 0, 14)}
 				/>
 				<frame Size={new UDim2(1, 0, 0, 38)} Position={UDim2.fromOffset(0, 18)} BackgroundTransparency={1}>
