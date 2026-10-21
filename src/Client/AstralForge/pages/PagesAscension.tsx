@@ -408,20 +408,12 @@ function AscensionView(props: AscensionViewProps) {
 				zIndex={3}
 			/>
 			<Ui.Text
-				value="ASCENSION"
-				size={12}
-				weight={Enum.FontWeight.Heavy}
-				color={ACCENT}
-				position={UDim2.fromOffset(col, 0)}
-				sizeConstraint={new UDim2(1, -col, 0, 16)}
-			/>
-			<Ui.Text
 				value={state.Rank > 0 ? `Ascended ${state.Rank} time${state.Rank === 1 ? "" : "s"}` : "The final reset"}
 				size={stack ? 22 : 26}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
 				minSize={16}
-				position={UDim2.fromOffset(col, 18)}
+				position={UDim2.fromOffset(col, 9)}
 				sizeConstraint={new UDim2(1, -col, 0, 32)}
 			/>
 			<Ui.Text
