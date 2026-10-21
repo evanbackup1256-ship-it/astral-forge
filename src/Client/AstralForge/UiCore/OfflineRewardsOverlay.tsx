@@ -156,7 +156,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const rewardAmount = asFlux(reward);
 	const bigHaul = rate > 0 && rewardAmount >= rate * 3600;
 	const rewardGlow = useGlowStroke(bigHaul, softMotion, 0.35, 0.15, 0.62, 1.6);
-	const cardWidth = math.min(stack ? math.max(280, viewport.width - chrome.sideSafe * 2 - 20) : 560, 560);
+	const cardWidth = math.min(stack ? math.min(viewport.width - 16, math.max(260, viewport.width - chrome.sideSafe * 2 - 20)) : 560, 560);
 	// The card is as tall as the layout it can show: stats, the explanation and stacked buttons
 	// when there is room, otherwise stats and side-by-side buttons with nothing left empty.
 	const statsBottom = stack ? 212 : 228;

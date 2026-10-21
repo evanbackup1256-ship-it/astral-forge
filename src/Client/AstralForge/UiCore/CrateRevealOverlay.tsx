@@ -492,10 +492,12 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	};
 	useOverlayInput(advance);
 
+	// two columns on phones, each shrunk so the pair (plus 12px edges and the gap) fits even at 286px
+	const narrowCardW = math.clamp(math.floor((viewport.width - 24 - 12) / 2), 112, 156);
 	const cols = count === 1 ? 1 : math.min(count, narrow ? 2 : 5);
 	const rows = math.ceil(count / cols);
 	const large = count === 1;
-	const cardSize = large ? new Vector2(math.min(360, viewport.width - 48), 168) : new Vector2(narrow ? 156 : 192, 124);
+	const cardSize = large ? new Vector2(math.min(360, viewport.width - 48), 168) : new Vector2(narrow ? narrowCardW : 192, 124);
 	const gap = narrow ? 12 : 16;
 	const gridW = cols * cardSize.X + (cols - 1) * gap;
 	const gridH = rows * cardSize.Y + (rows - 1) * gap;
