@@ -367,6 +367,7 @@ export class AdminService {
 
 	private _liveOpsConnection: RBXScriptConnection | undefined;
 	private _announcements: Dict[] = [];
+	private _flagStore: AdminStore | undefined;
 
 	constructor(
 		private readonly telemetry: ServerTelemetry,
@@ -386,6 +387,17 @@ export class AdminService {
 		for (const player of Players.GetPlayers()) {
 			this.EnforceServerBan(player);
 		}
+		// start with the experience-wide live-ops flags, not all-off
+		const flagStore = StoreAccess.data(HotFlags.STORE_NAME) as AdminStore;
+		this._flagStore = flagStore;
+		task.spawn(() => {
+			const [loaded, stored] = pcall(() => flagStore.GetAsync(HotFlags.STORE_KEY));
+			if (loaded) {
+				HotFlags.Decode(stored);
+			} else {
+				ModuleLog.Warn("Admin", "live-ops flags load failed (starting with every flag off): " + tostring(stored));
+			}
+		});
 		task.spawn(() => {
 			const [ok, connection] = pcall(() =>
 				MessagingService.SubscribeAsync(LIVE_OPS_TOPIC, (envelope) => {
@@ -1096,14 +1108,22 @@ export class AdminService {
 		}
 		// apply here first, then tell the other servers (this server ignores its own echo by At)
 		this.ReceiveLiveOps(message);
+		let persisted = true;
+		if (message.Kind === "HotFlag" && this._flagStore !== undefined) {
+			const store = this._flagStore;
+			// UpdateAsync with a newest-wins merge, so two admins racing never store the older change
+			[persisted] = pcall(() => store.UpdateAsync(HotFlags.STORE_KEY, (stored) => HotFlags.Merge(stored)));
+		}
 		const [published, publishError] = pcall(() => MessagingService.PublishAsync(LIVE_OPS_TOPIC, message));
 		const subject = { Name: "all servers", UserId: 0 } as unknown as Player;
 		this._record(actor, subject as never, command, 0, option, reason, 0);
 		return {
 			ok: true,
-			message: published
-				? `${definition.Label}: sent to every server.`
-				: `${definition.Label}: applied here only (cross-server send failed: ${tostring(publishError)}).`,
+			message:
+				(published
+					? `${definition.Label}: sent to every server.`
+					: `${definition.Label}: applied here only (cross-server send failed: ${tostring(publishError)}).`) +
+				(persisted ? "" : " Saving the flag failed, so servers started later will not see it."),
 			Admin: true,
 		};
 	}

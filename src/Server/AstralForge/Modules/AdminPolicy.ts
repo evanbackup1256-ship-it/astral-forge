@@ -13,7 +13,7 @@ const ROLES: Record<string, Permission> = table.freeze({
 	Owner: { All: true },
 	"Studio Developer": { All: true },
 	Developer: {
-		Categories: { Economy: true, Progress: true, Items: true, Resets: true, Troll: true, Moderation: true },
+		Categories: { Economy: true, Progress: true, Items: true, Resets: true, Troll: true, Moderation: true, LiveOps: true },
 		Deny: { GlobalBan: true, Unban: true, GrantEverything: true },
 	},
 	Moderator: {

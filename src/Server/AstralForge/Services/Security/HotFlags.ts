@@ -1,7 +1,10 @@
 // Live-ops kill switches an owner can flip from the admin panel without a deploy. Every flag
 // defaults to off, so a server that never hears a change behaves exactly as before. Changes
-// reach other live servers through the admin MessagingService topic; a server that starts
-// later begins with every flag off.
+// reach other live servers through the admin MessagingService topic, and the current state is
+// kept in a DataStore so a server that starts later loads it (see Encode/Decode).
+
+export const STORE_NAME = "AstralForge_LiveOpsFlags_v1";
+export const STORE_KEY = "state";
 
 export const FLAGS = table.freeze({
 	TradingPaused: "New trades and settlements are refused.",
@@ -50,6 +53,33 @@ export function Snapshot(): Array<{ Name: string; On: boolean; Description: stri
 	}
 	out.sort((a, b) => a.Name < b.Name);
 	return out;
+}
+
+/** The stored form: every flag's value plus the stamp of the newest change. */
+export function Encode(): { Flags: Record<string, boolean>; ChangedAt: number } {
+	const flags: Record<string, boolean> = {};
+	for (const [name] of pairs(FLAGS)) flags[name] = state[name] === true;
+	return { Flags: flags, ChangedAt: changedAt };
+}
+
+/** Applies a stored state if it is newer than what this server has. Returns true when applied. */
+export function Decode(raw: unknown): boolean {
+	if (!typeIs(raw, "table")) return false;
+	const bag = raw as { Flags?: unknown; ChangedAt?: unknown };
+	const at = tonumber(bag.ChangedAt);
+	if (at === undefined || at < changedAt || !typeIs(bag.Flags, "table")) return false;
+	changedAt = at;
+	for (const [name] of pairs(FLAGS)) state[name] = (bag.Flags as Record<string, unknown>)[name] === true;
+	return true;
+}
+
+/** Merge for UpdateAsync: keeps whichever of stored and local is newer, so writes never go backwards. */
+export function Merge(stored: unknown): { Flags: Record<string, boolean>; ChangedAt: number } {
+	const storedAt = typeIs(stored, "table") ? tonumber((stored as { ChangedAt?: unknown }).ChangedAt) ?? -1 : -1;
+	if (storedAt > changedAt) {
+		Decode(stored);
+	}
+	return Encode();
 }
 
 /** Test hook: back to every flag off. */

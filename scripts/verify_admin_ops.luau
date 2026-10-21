@@ -98,7 +98,7 @@ do
 		InspectPlayer = { Category = "Moderation" },
 	}
 	check(Policy.Allows("Owner", "Announce", defs.Announce) == true, "owner can announce")
-	check(Policy.Allows("Developer", "ToggleHotFlag", defs.ToggleHotFlag) == false, "developers cannot flip live-ops flags")
+	check(Policy.Allows("Developer", "ToggleHotFlag", defs.ToggleHotFlag) == true and Policy.Allows("Developer", "Announce", defs.Announce) == true, "developers may announce and flip live-ops flags")
 	check(Policy.Allows("Moderator", "InspectPlayer", defs.InspectPlayer) == true, "moderators can look players up")
 	check(Policy.Allows("Moderator", "RollbackCritical", defs.RollbackCritical) == false, "moderators cannot roll back")
 	check(Policy.Allows("Developer", "RollbackCritical", defs.RollbackCritical) == true, "developers can roll back")
@@ -112,7 +112,9 @@ do
 	local admin = H.player("Owner")
 	H.Players.__players = { a, b }
 	local recorded = {}
-	local self = setmetatable({ _announcements = {}, _alive = true, _record = function(_, ...) table.insert(recorded, { ... }) end }, { __index = AS })
+	local stored = nil
+	local store = { UpdateAsync = function(_, key, fn) stored = fn(stored) return stored end }
+	local self = setmetatable({ _flagStore = store, _announcements = {}, _alive = true, _record = function(_, ...) table.insert(recorded, { ... }) end }, { __index = AS })
 	local r = self:_global(admin, "Announce", { Option = true, Category = "LiveOps", Global = true }, "Servers restart in 5 minutes", "maint", false)
 	check(r.ok == true and #published == 1 and published[1][2].Kind == "Announce", "announce publishes to the live-ops topic")
 	check(#toasts == 2 and #self._announcements == 1, "announce toasts every player here once (" .. #toasts .. "," .. #self._announcements .. ")")
@@ -122,6 +124,16 @@ do
 	check(dry.DryRun == true and not HotFlags.Get("CratesPaused"), "dry run changes nothing")
 	local f = self:_global(admin, "ToggleHotFlag", { Option = true, Category = "LiveOps", Global = true }, "CratesPaused=on", "maint", false)
 	check(f.ok and HotFlags.Get("CratesPaused") and published[2][2].Flag == "CratesPaused", "flag applied here and published")
+	check(stored ~= nil and stored.Flags.CratesPaused == true and stored.Flags.TradingPaused == false, "flag state is saved for servers that start later")
+	-- a newer stored change is never overwritten by an older local write
+	local savedAt = stored.ChangedAt
+	stored = { Flags = { TradingPaused = true }, ChangedAt = savedAt + 1000 }
+	check(HotFlags.Merge(stored).ChangedAt == savedAt + 1000 and HotFlags.Get("TradingPaused") and not HotFlags.Get("CratesPaused"), "merge keeps the newer stored state")
+	-- a new server loads the saved state; an older stored state cannot undo a newer local one
+	HotFlags.Reset()
+	check(HotFlags.Decode({ Flags = { CratesPaused = true }, ChangedAt = 10 }) == true and HotFlags.Get("CratesPaused"), "a new server starts with the saved flags")
+	check(HotFlags.Decode({ Flags = {}, ChangedAt = 5 }) == false and HotFlags.Get("CratesPaused"), "an older saved state cannot undo a newer change")
+	check(HotFlags.Decode(nil) == false and HotFlags.Decode("junk") == false, "missing or junk saved state ignored")
 	check(self:_global(admin, "ToggleHotFlag", { Option = true }, "Bogus=on", "m", false).ok == false, "bad flag refused")
 	check(self:ReceiveLiveOps({ Kind = "HotFlag", Flag = "TradingPaused", On = true, At = os.time() + 5 }) == true and HotFlags.Get("TradingPaused"), "a flag from another server applies")
 	check(self:ReceiveLiveOps("junk") == false and self:ReceiveLiveOps({ Kind = "Nope" }) == false, "junk messages ignored")
