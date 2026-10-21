@@ -23,8 +23,9 @@ interface ConfettiPiece {
 	color: Color3;
 }
 
-const CONFETTI_COLORS = [Palette.green, Palette.cyan, Palette.mango, Palette.pink, Palette.violet, Palette.cream];
-const CONFETTI_COUNT = 44;
+// one warm family, brass to cream, instead of a party-pack of hues
+const CONFETTI_COLORS = [Palette.brass, Palette.cream, lighten(Palette.brass, 0.25)];
+const CONFETTI_COUNT = 24;
 const CONFETTI_PIECES: ConfettiPiece[] = [];
 for (let index = 1; index <= CONFETTI_COUNT; index++) {
 	const side = index % 2 === 0 ? -1 : 1;
@@ -110,7 +111,7 @@ function AmbientLayerImpl(props: { reducedMotion?: boolean; intensity?: number }
 		return <frame {...{ Name: "AuroraBorealis" }} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={1} />;
 	}
 	const curtains: React.Element[] = [];
-	const count = antilag.constrained ? 8 : 14;
+	const count = antilag.constrained ? 5 : 8;
 	for (let index = 1; index <= count; index++) {
 		const offset = index / count;
 		curtains.push(
@@ -123,7 +124,7 @@ function AmbientLayerImpl(props: { reducedMotion?: boolean; intensity?: number }
 				AnchorPoint={new Vector2(0.5, 0.5)}
 				Rotation={slow.map((t) => -18 + math.sin(t + offset * 3) * 8)}
 				BackgroundColor3={Palette.white}
-				BackgroundTransparency={1 - 0.2 * strength * antilag.glowScale}
+				BackgroundTransparency={1 - 0.1 * strength * antilag.glowScale}
 				BorderSizePixel={0}
 				ZIndex={1}
 			>
@@ -211,7 +212,7 @@ export function ConfettiBurst(props: { onDone?: () => void; intensity?: number }
 		return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} />;
 	}
 	const pieces = CONFETTI_PIECES.filter((_, index) => index < activeCount);
-	const rings = [0, 1].map((ring) => (
+	const rings = [0].map((ring) => (
 		<frame
 			key={`confetti-ring-${ring}`}
 			Size={clock.map((seconds) => {
@@ -227,11 +228,11 @@ export function ConfettiBurst(props: { onDone?: () => void; intensity?: number }
 		>
 			<uicorner CornerRadius={new UDim(1, 0)} />
 			<uistroke
-				Color={ring === 0 ? Palette.mango : Palette.cyan}
-				Thickness={ring === 0 ? 3 : 2}
+				Color={Palette.brass}
+				Thickness={1.5}
 				Transparency={clock.map((seconds) => {
 					const [, , fade] = Fx.ring(seconds - ring * 0.08, 0.6);
-					return 0.1 + fade * 0.9;
+					return 0.4 + fade * 0.6;
 				})}
 			/>
 		</frame>
@@ -258,7 +259,7 @@ export function ConfettiBurst(props: { onDone?: () => void; intensity?: number }
 					const t = age(seconds);
 					return math.deg(piece.phase) + t * (index % 2 === 0 ? 210 : -190) + math.sin(t * 3 + piece.phase) * 18;
 				})}
-				BackgroundColor3={clock.map((seconds) => piece.color.Lerp(lighten(piece.color, 0.4), flip(age(seconds))))}
+				BackgroundColor3={clock.map((seconds) => piece.color.Lerp(lighten(piece.color, 0.18), flip(age(seconds))))}
 				BackgroundTransparency={clock.map((seconds) => {
 					if (seconds < piece.delay) {
 						return 1;

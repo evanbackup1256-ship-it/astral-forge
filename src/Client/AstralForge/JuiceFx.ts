@@ -383,7 +383,7 @@ const Juice = {
 		}
 		const s = scale ?? 1;
 		const sparks: Spark[] = [];
-		for (let index = 1; index <= math.floor(14 + 6 * math.min(s, 2)); index++) {
+		for (let index = 1; index <= math.floor(8 + 3 * math.min(s, 2)); index++) {
 			const angle = -math.pi / 2 + (math.random() - 0.5) * math.pi * 1.7;
 			const speed = (280 + math.random() * 420) * s;
 			sparks[index - 1] = { vx: math.cos(angle) * speed, vy: math.sin(angle) * speed, life: 0.45 + math.random() * 0.45, hot: math.random() < 0.35 };
@@ -399,7 +399,7 @@ const Juice = {
 		}
 		const side = math.random() < 0.5 ? -1 : 1;
 		const sparks: Spark[] = [];
-		for (let index = 1; index <= 18; index++) {
+		for (let index = 1; index <= 10; index++) {
 			const angle = (side > 0 ? 0 : math.pi) + side * -(0.15 + math.random() * 0.55);
 			const speed = 380 + math.random() * 360;
 			sparks[index - 1] = { vx: math.cos(angle) * speed, vy: math.sin(angle) * speed, life: 0.25 + math.random() * 0.3, hot: math.random() < 0.5 };
@@ -420,7 +420,7 @@ const Juice = {
 		push({ kind: "ring", at: origin, color, scale: critical ? 2.4 : 1 + h01 * 0.9, size: critical ? 5 : 2 + h01 * 3 });
 		if (critical && celebrationsAllowed()) {
 			const sparks: Spark[] = [];
-			for (let index = 1; index <= 14; index++) {
+			for (let index = 1; index <= 8; index++) {
 				const angle = -math.pi / 2 + (math.random() - 0.5) * 1.6;
 				const speed = 420 + math.random() * 380;
 				sparks[index - 1] = { vx: math.cos(angle) * speed, vy: math.sin(angle) * speed, life: 0.3 + math.random() * 0.3, hot: math.random() < 0.5 };
@@ -661,7 +661,7 @@ const Juice = {
 		if (reduced || !flashesAllowed()) {
 			return;
 		}
-		push({ kind: "flash", color: color ?? P.cream, strength: math.clamp(strength ?? 0.35, 0, 0.8) });
+		push({ kind: "flash", color: color ?? P.cream, strength: math.clamp((strength ?? 0.35) * 0.6, 0, 0.45) });
 	},
 
 	// counters register so coins know where to fly; returns a cleanup
@@ -798,7 +798,7 @@ const Juice = {
 						effect.arrived = true;
 						arrive(effect.target!);
 						if (effect.kind === "gem") {
-							Juice.spark(effect.to!, theme.lighten(effect.color!, 0.5), 36);
+							Juice.spark(effect.to!, theme.lighten(effect.color!, 0.5), 24);
 							if (effect.last) {
 								Juice.shockwave(effect.to, effect.color, 0.75);
 								pcall(() => {
@@ -1175,7 +1175,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 		const life = LIFE.number;
 		const heat = t.map((a) => 1 - math.clamp((a - 0.08) / 0.35, 0, 1));
 		const fade = t.map((a) => math.clamp((a - life * 0.62) / (life * 0.38), 0, 1));
-		const hotColor = heat.map((heatValue) => effect.color!.Lerp(P.white, heatValue * 0.85));
+		const hotColor = heat.map((heatValue) => effect.color!.Lerp(P.white, heatValue * 0.4));
 		return h(
 			"frame",
 			{
@@ -1210,10 +1210,11 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 					FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 					ZIndex: 31,
 				},
+				// a soft drop shadow rather than an outline
 				h("uistroke", {
-					Color: heat.map((hh) => theme.darken(effect.color!, 0.75).Lerp(effect.color!, hh * 0.6)),
-					Thickness: effect.small ? 2 : 3,
-					Transparency: fade,
+					Color: theme.darken(effect.color!, 0.8),
+					Thickness: effect.small ? 1 : 1.5,
+					Transparency: fade.map((f) => 0.45 + f * 0.55),
 				}),
 			),
 			effect.icon &&
@@ -1229,11 +1230,6 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 						ZIndex: 31,
 					},
 					h("uicorner", { CornerRadius: new UDim(1, 0) }),
-					h("uistroke", {
-						Color: hotColor,
-						Thickness: 2,
-						Transparency: fade,
-					}),
 					h(Icon, {
 						kind: effect.icon,
 						color: P.white,
@@ -1250,7 +1246,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 		const t = age();
 		const d = effect.size ?? 9;
 		const parts: Record<string, React.ReactElement> = {};
-		for (let index = 0; index <= 3; index++) {
+		for (let index = 0; index <= 2; index++) {
 			const lag = index * 0.028;
 			parts[`e${index}`] = h(
 				"frame",
@@ -1261,8 +1257,8 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 						const spot = dropletAt(effect, a - (effect.delay ?? 0) - lag);
 						return UDim2.fromOffset(spot.X, spot.Y);
 					}),
-					BackgroundColor3: index === 0 ? P.white : theme.lighten(effect.color!, 0.3 - index * 0.1),
-					BackgroundTransparency: index === 0 ? 0 : 0.25 + index * 0.18,
+					BackgroundColor3: index === 0 ? theme.lighten(effect.color!, 0.55) : effect.color!,
+					BackgroundTransparency: index === 0 ? 0 : 0.45 + index * 0.2,
 					BorderSizePixel: 0,
 					ZIndex: 26 - index,
 					Visible: t.map((a) => a - lag >= (effect.delay ?? 0)),
@@ -1270,9 +1266,9 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 				h("uicorner", { CornerRadius: new UDim(1, 0) }),
 				index === 0 &&
 					h("uistroke", {
-						Color: effect.color,
-						Thickness: math.max(2, d * 0.35),
-						Transparency: 0.15,
+						Color: theme.darken(effect.color!, 0.35),
+						Thickness: 1,
+						Transparency: 0.3,
 					}),
 			);
 		}
@@ -1297,7 +1293,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 				const u = math.clamp(a / spark.life, 0, 1);
 				return 1 - u * u;
 			};
-			const streak = (name: string, thickness: number, glow: boolean) => {
+			const streak = (name: string, thickness: number) => {
 				children[name + index] = h(
 					"frame",
 					{
@@ -1313,10 +1309,10 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 						Rotation: t.map((a) => {
 							return math.deg(math.atan2(spark.vy + GRAVITY * a, spark.vx));
 						}),
-						BackgroundColor3: glow ? effect.color : spark.hot ? P.white : theme.lighten(effect.color!, 0.45),
-						BackgroundTransparency: t.map((a) => (glow ? 1 - alive(a) * 0.55 : 1 - alive(a))),
+						BackgroundColor3: theme.lighten(effect.color!, spark.hot ? 0.6 : 0.3),
+						BackgroundTransparency: t.map((a) => 1 - alive(a) * 0.85),
 						BorderSizePixel: 0,
-						ZIndex: glow ? 27 : 28,
+						ZIndex: 28,
 					},
 					h("uicorner", { CornerRadius: new UDim(1, 0) }),
 					h("uigradient", {
@@ -1325,8 +1321,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 					}),
 				);
 			};
-			streak("glow", spark.hot ? 9 : 7, true);
-			streak("spark", spark.hot ? 4 : 3, false);
+			streak("spark", spark.hot ? 3 : 2);
 		}
 		if (effect.bare === true) {
 			return h(
@@ -1344,17 +1339,12 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 				}),
 				Position: UDim2.fromScale(0.5, 0.5),
 				AnchorPoint: new Vector2(0.5, 0.5),
-				BackgroundColor3: P.white,
-				BackgroundTransparency: progress.map((p) => math.clamp(p * 7, 0, 1)),
+				BackgroundColor3: theme.lighten(effect.color!, 0.55),
+				BackgroundTransparency: progress.map((p) => 0.4 + math.clamp(p * 7, 0, 1) * 0.6),
 				BorderSizePixel: 0,
 				ZIndex: 29,
 			},
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			h("uistroke", {
-				Color: effect.color,
-				Thickness: 4,
-				Transparency: progress.map((p) => math.clamp(p * 5, 0, 1)),
-			}),
 		);
 		children.ring = h(
 			"frame",
@@ -1370,9 +1360,9 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 			},
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uistroke", {
-				Color: theme.lighten(effect.color!, 0.3),
-				Thickness: progress.map((p) => math.max(1, 4 * (1 - p))),
-				Transparency: progress.map((p) => math.clamp(p * 1.6, 0, 1)),
+				Color: effect.color,
+				Thickness: progress.map((p) => math.max(1, 2 * (1 - p))),
+				Transparency: progress.map((p) => 0.3 + math.clamp(p * 1.6, 0, 1) * 0.7),
 			}),
 		);
 		return h(
@@ -1405,19 +1395,19 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 			h("uistroke", {
 				Color: effect.color,
 				Thickness: t.map((a) => (effect.size ?? 2) * (1 - 0.5 * math.clamp(a / LIFE.ring, 0, 1))),
-				Transparency: t.map((a) => 0.2 + math.clamp(a / LIFE.ring, 0, 1) * 0.8),
+				Transparency: t.map((a) => 0.35 + math.clamp(a / LIFE.ring, 0, 1) * 0.65),
 			}),
 		);
 	} else if (effect.kind === "press") {
 		const t = age();
 		const progress = t.map((a) => math.clamp(a / LIFE.press, 0, 1));
 		const spokes: Record<string, React.ReactElement> = {};
-		for (let index = 1; index <= 8; index++) {
-			const angle = math.rad((effect.spin ?? 0) + index * 45);
+		for (let index = 1; index <= 6; index++) {
+			const angle = math.rad((effect.spin ?? 0) + index * 60);
 			spokes[`s${index}`] = h(
 				"frame",
 				{
-					Size: progress.map((p) => UDim2.fromOffset(3, 6 + (1 - p) * 10)),
+					Size: progress.map((p) => UDim2.fromOffset(2, 5 + (1 - p) * 8)),
 					AnchorPoint: new Vector2(0.5, 0.5),
 					Rotation: math.deg(angle) + 90,
 					Position: progress.map((p) => {
@@ -1425,7 +1415,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 						return UDim2.fromOffset(math.cos(angle) * r, math.sin(angle) * r);
 					}),
 					BackgroundColor3: effect.color,
-					BackgroundTransparency: progress.map((p) => 0.1 + p * 0.9),
+					BackgroundTransparency: progress.map((p) => 0.3 + p * 0.7),
 					BorderSizePixel: 0,
 					ZIndex: 25,
 				},
@@ -1446,8 +1436,8 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uistroke", {
 				Color: effect.color,
-				Thickness: 2,
-				Transparency: progress.map((p) => 0.25 + p * 0.75),
+				Thickness: 1,
+				Transparency: progress.map((p) => 0.45 + p * 0.55),
 			}),
 		);
 		return h(
@@ -1475,7 +1465,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 				Rotation: t.map((a) => (effect.spin ?? 0) + a * 120),
 			},
 			h("uiscale", {
-				Scale: t.map((a) => math.sin(math.clamp(a / LIFE.spark, 0, 1) * math.pi) * 1.3 + 0.01),
+				Scale: t.map((a) => math.sin(math.clamp(a / LIFE.spark, 0, 1) * math.pi) * 0.85 + 0.01),
 			}),
 			star(effect.size ?? 30, effect.color!, 0, 34),
 		);
@@ -1511,8 +1501,8 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uistroke", {
 				Color: effect.color,
-				Thickness: progress.map((p) => math.max(1, (1 - p) * 3.5)),
-				Transparency: progress.map((p) => 0.15 + p * 0.85),
+				Thickness: progress.map((p) => math.max(1, (1 - p) * 2)),
+				Transparency: progress.map((p) => 0.35 + p * 0.65),
 			}),
 		);
 	} else if (effect.kind === "gem") {
@@ -1570,11 +1560,12 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 				},
 				h("uicorner", { CornerRadius: new UDim(0, 6) }),
 				h("uistroke", {
-					Color: theme.lighten(effect.color!, 0.4),
-					Thickness: 2.5,
+					Color: theme.lighten(effect.color!, 0.25),
+					Thickness: 1,
+					Transparency: 0.35,
 				}),
 				h("uigradient", {
-					Color: new ColorSequence(theme.lighten(effect.color!, 0.5), theme.darken(effect.color!, 0.4)),
+					Color: new ColorSequence(theme.lighten(effect.color!, 0.3), theme.darken(effect.color!, 0.25)),
 					Rotation: 45,
 				}),
 				effect.icon &&

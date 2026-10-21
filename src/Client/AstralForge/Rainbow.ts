@@ -75,11 +75,13 @@ function mix(a: Color3, b: Color3, t: number): Color3 {
 	return oklabToColor(L1 + (L2 - L1) * t, a1 + (a2 - a1) * t, b1 + (b2 - b1) * t);
 }
 
+// The "spectrum" is no longer the whole wheel: it is a warm metal sheen that swings between gold and
+// copper and lifts toward cream at the crest. Everything that asked for a rainbow (rims, island
+// moments, flowing fills) now reads as polished brass catching light, in the forge's one accent.
 function spectrum(L: number, C: number): Palette {
 	return (share: number): Color3 => {
-		// a gentle lift through the warm half keeps yellows from sinking to olive
-		const lift = 0.035 * math.cos((share - 0.28) * math.pi * 2);
-		return oklch(L + lift, C, share + 0.08);
+		const wave = math.cos(share * math.pi * 2);
+		return oklch(L + 0.04 * wave, C * (0.55 - 0.2 * wave), 0.2 - 0.04 * wave);
 	};
 }
 
@@ -123,10 +125,10 @@ const PALETTES: Record<string, Palette> = {
 	]),
 	// deep space: indigo, magenta, gold
 	nebula: through([
-		Color3.fromRGB(92, 84, 220),
-		Color3.fromRGB(196, 92, 214),
-		Color3.fromRGB(255, 176, 102),
-		Color3.fromRGB(140, 110, 240),
+		Color3.fromRGB(116, 108, 196),
+		Color3.fromRGB(150, 126, 206),
+		Color3.fromRGB(214, 184, 146),
+		Color3.fromRGB(132, 116, 200),
 	]),
 };
 
@@ -222,7 +224,7 @@ function family(color: Color3, phase: number, depth?: number): ColorSequence {
 	);
 	let palette = PALETTES[key];
 	if (palette === undefined) {
-		palette = through([mix(color, WHITE, 0.3 * d), color, mix(color, BLACK, 0.22 * d), color]);
+		palette = through([mix(color, WHITE, 0.16 * d), color, mix(color, BLACK, 0.12 * d), color]);
 		PALETTES[key] = palette;
 	}
 	return phaseOf(key, palette, phase);

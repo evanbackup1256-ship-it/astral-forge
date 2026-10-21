@@ -8,11 +8,11 @@ import { LooseComponent, Stroke, Text } from "./ui";
 const AstralForge = script.Parent!.Parent!;
 const Icon = (require(AstralForge.WaitForChild("ArtKit") as ModuleScript) as (name: string) => { Icon: LooseComponent })("Icon").Icon;
 
-const HEAT_STOPS = [Palette.cyan, Palette.pink, Palette.coral, Palette.mango];
+// the same brass-to-ember heat the Overcharge ring uses, so the badge and the strike agree
+const COOL = Color3.fromRGB(250, 190, 72);
+const HOT = Color3.fromRGB(244, 92, 84);
 function heatColor(ratio: number): Color3 {
-	const t = math.clamp(ratio, 0, 1) * (HEAT_STOPS.size() - 1);
-	const index = math.min(HEAT_STOPS.size() - 2, math.floor(t));
-	return HEAT_STOPS[index].Lerp(HEAT_STOPS[index + 1], t - index);
+	return COOL.Lerp(HOT, math.clamp(ratio, 0, 1));
 }
 
 function DecayRing({
@@ -143,8 +143,8 @@ export function ComboBadge(props: {
 				>
 					<uicorner CornerRadius={new UDim(0, 14)} />
 					<Stroke
-						color={maxed ? Palette.mango : accent}
-						thickness={maxed ? 2 : 1.4}
+						color={accent}
+						thickness={1}
 						transparency={maxed ? glow : fade.map((amount) => math.clamp(0.28 + amount * 0.72, 0, 1))}
 					/>
 					<frame
@@ -198,7 +198,7 @@ export function ComboBadge(props: {
 					<Text
 						value={`×${math.floor(combo)}`}
 						size={maxed ? 19 : 16}
-						color={ensureContrast(darken(accent, 0.58), maxed ? lighten(Palette.mango, 0.3) : Palette.cream)}
+						color={ensureContrast(darken(accent, 0.58), Palette.cream)}
 						weight={Enum.FontWeight.Heavy}
 						align={Enum.TextXAlignment.Left}
 						fit={true}
@@ -211,7 +211,7 @@ export function ComboBadge(props: {
 					<Text
 						value={maxed ? "MAXED" : `${string.format("%.2f", multiplier)}x`}
 						size={10}
-						color={ensureContrast(darken(accent, 0.58), maxed ? Palette.mango : accent)}
+						color={ensureContrast(darken(accent, 0.58), accent)}
 						weight={Enum.FontWeight.Bold}
 						align={Enum.TextXAlignment.Left}
 						fit={true}
@@ -224,8 +224,8 @@ export function ComboBadge(props: {
 					{maxed && (
 						<frame
 							Size={UDim2.fromScale(1, 1)}
-							BackgroundColor3={Palette.mango}
-							BackgroundTransparency={maxPulse.map((amount) => 0.9 - amount * 0.06)}
+							BackgroundColor3={accent}
+							BackgroundTransparency={maxPulse.map((amount) => 0.93 - amount * 0.04)}
 							BorderSizePixel={0}
 							ZIndex={zIndex - 1}
 						>
