@@ -1065,6 +1065,7 @@ __defs["ActionFeatureMaps"] = () => {
 		ClaimCommanderReward: 8,
 		ClaimWeeklyDirective: 16,
 		ClaimSeasonTier: 12,
+		ClaimSeasonPremium: 12,
 		OpenItemCrate: 14,
 		UpgradeItem: 7,
 		EquipBestItems: 10,
@@ -1090,6 +1091,7 @@ __defs["ActionFeatureMaps"] = () => {
 		ClaimCommanderReward: "Reward",
 		ClaimWeeklyDirective: "Reward",
 		ClaimSeasonTier: "Reward",
+		ClaimSeasonPremium: "Reward",
 		ClaimForgePathStep: "Reward",
 	};
 
@@ -1131,6 +1133,7 @@ __defs["ActionFeatureMaps"] = () => {
 		ClaimCommanderReward: "Command",
 		ClaimWeeklyDirective: "Command",
 		ClaimSeasonTier: "Command",
+		ClaimSeasonPremium: "Command",
 		BuySignalOffer: "Command",
 		EquipTitle: "Command",
 		RedeemCode: "Shop",

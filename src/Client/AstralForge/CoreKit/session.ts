@@ -16,7 +16,7 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	ClaimAchievement: true, ClaimDaily: true, ClaimTimedReward: true, ClaimCommunityReward: true, SpinWheel: true, BazaarPlay: true,
 	SetMarketFavorite: true, RequestProcurement: true, SelectSpecialization: true, LaunchExpedition: true,
 	ClaimExpedition: true, EquipArtifact: true, UpgradeArtifact: true, BuyArtifact: true, UpgradeCrew: true,
-	ClaimCommanderReward: true, ClaimWeeklyDirective: true, ClaimSeasonTier: true, ClaimForgePathStep: true,
+	ClaimCommanderReward: true, ClaimWeeklyDirective: true, ClaimSeasonTier: true, ClaimSeasonPremium: true, ClaimForgePathStep: true,
 	BuySignalOffer: true, RedeemCode: true, VerifyCreatorFollow: true, StudioGrantProduct: true,
 	ActivateBoost: true, BuyItemOffer: true, OpenItemCrate: true, EquipItem: true, UnequipItem: true,
 	UpgradeItem: true, SalvageItem: true, BulkSalvageItems: true, EquipBestItems: true,

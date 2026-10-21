@@ -4,6 +4,7 @@ import ProfileMath from "../../Modules/ProfileMath";
 import CommandMath from "../../Modules/CommandMath";
 import ProfileBagMath from "../../Modules/ProfileBagMath";
 import GameConfigModule from "../../../../Shared/AstralForge/Shared/GameConfig";
+import SeasonPremium from "../../../../Shared/AstralForge/Shared/SeasonPremium";
 
 type Bag = Record<string, unknown>;
 type Reward = {
@@ -766,6 +767,7 @@ const ProgressionService = {
       command.SeasonId = GameConfig.Operations.SeasonId;
       command.SeasonXP = 0;
       command.SeasonClaims = {};
+      command.PremiumClaims = {};
       changed = true;
     }
     return changed;
@@ -1068,6 +1070,31 @@ const ProgressionService = {
       ),
     );
   },
+  ClaimSeasonPremium(this: void, profile: Profile, rawTier: unknown): Result {
+    if (!typeIs(rawTier, "number"))
+      return $tuple(false, "Invalid season tier.");
+    ProgressionService.EnsureCommandRotations(profile);
+    const owned = profile.OwnedPasses as Record<string, unknown> | undefined;
+    if (!typeIs(owned, "table") || owned[SeasonPremium.PassKey] !== true)
+      return $tuple(false, "The Season Pass unlocks this reward.");
+    const tierIndex = math.floor(rawTier);
+    const tier = GameConfig.Operations.SeasonTiers[tierIndex - 1];
+    if (tier === undefined || profile.Command.SeasonXP < tier.RequiredXP)
+      return $tuple(false, "That season tier is still locked.");
+    const key = tostring(tierIndex);
+    if (profile.Command.PremiumClaims[key])
+      return $tuple(false, "That pass reward was already claimed.");
+    profile.Command.PremiumClaims[key] = true;
+    bumpStat(profile, "SeasonPremiumTiers", 1);
+    return $tuple(
+      true,
+      ProgressionService.ApplyReward(
+        profile,
+        SeasonPremium.Reward(tierIndex) as Reward,
+        Economy.Production(profile),
+      ),
+    );
+  },
   TotalForgePathXP(this: void, profile: Profile): number {
     ensureForgePath(profile);
     return profile.ForgePath.XP;
@@ -1136,6 +1163,8 @@ const ProgressionService = {
       ClaimableCommanderLevels: claimable,
       SeasonXP: command.SeasonXP,
       SeasonClaims: command.SeasonClaims,
+      PremiumClaims: command.PremiumClaims,
+      SeasonPassOwned: typeIs(profile.OwnedPasses, "table") && (profile.OwnedPasses as Record<string, unknown>)[SeasonPremium.PassKey] === true,
       Weekly: ProgressionService.WeeklyState(profile),
       Shop: ProgressionService.SignalShopState(profile),
       Titles: ProgressionService.TitleStates(profile),

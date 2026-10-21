@@ -17,6 +17,9 @@ const DescribeGenerated = require(
 	milestoneName(this: void, tier: number): string;
 	tripLine(this: void, count: number, foundRelic: boolean): string;
 };
+const SeasonPremium = require(
+	game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("SeasonPremium") as ModuleScript,
+) as { PassKey: string; Reward(this: void, tier: number): Reward };
 
 interface AnimatedTitleKit {
 	AnimatedTitlePreview: LuauComponent;
@@ -85,6 +88,8 @@ interface CommandState {
 	ActiveExpedition?: { Id?: string; EndsAt?: number; StartedAt?: number };
 	Weekly: Directive[];
 	SeasonClaims: Record<string, boolean | undefined>;
+	PremiumClaims?: Record<string, boolean | undefined>;
+	SeasonPassOwned?: boolean;
 	SeasonXP: number;
 	Artifacts: Record<string, { Level: number; Fragments: number } | undefined>;
 	EquippedArtifact?: string;
@@ -376,6 +381,19 @@ function TripClock(props: { ticking: boolean; render: (now: number) => React.Ele
 	return props.render(props.ticking ? now : game.GetService("Workspace").GetServerTimeNow());
 }
 
+// weekly jobs roll over with the server's UTC week (UtcClockMath.Week)
+const WEEK_SECONDS = 7 * 24 * 60 * 60;
+function weeklyResetText(now: number): string {
+	const left = math.max(0, (math.floor(now / WEEK_SECONDS) + 1) * WEEK_SECONDS - now);
+	const days = math.floor(left / 86400);
+	const hours = math.floor((left % 86400) / 3600);
+	if (days > 0) {
+		return `New jobs in ${days}d ${hours}h`;
+	}
+	const minutes = math.max(1, math.floor((left % 3600) / 60));
+	return hours > 0 ? `New jobs in ${hours}h ${minutes}m` : `New jobs in ${minutes}m`;
+}
+
 function CommandViewReady(props: CommandProps) {
 	const { state, config, dispatch, onSectionChange } = props;
 	const viewport = useViewport();
@@ -520,11 +538,14 @@ function CommandViewReady(props: CommandProps) {
 		}
 	}
 	let firstReadySeasonTier: number | undefined;
+	const passOwned = command.SeasonPassOwned === true;
+	const premiumClaims = typeIs(command.PremiumClaims, "table") ? command.PremiumClaims : {};
 	if (typeIs(ops.SeasonTiers, "table") && typeIs(command.SeasonClaims, "table")) {
 		for (const tier of ops.SeasonTiers) {
 			const claimed = command.SeasonClaims[tostring(tier.Tier)] === true;
+			const passClaimed = !passOwned || premiumClaims[tostring(tier.Tier)] === true;
 			const unlocked = command.SeasonXP >= tier.RequiredXP;
-			if (unlocked && !claimed) {
+			if (unlocked && (!claimed || !passClaimed)) {
 				firstReadySeasonTier = tier.Tier;
 				break;
 			}
@@ -561,6 +582,9 @@ function CommandViewReady(props: CommandProps) {
 			? `Gift ${nextTier.Tier} is ready`
 			: `${compactNumber(nextTier.RequiredXP - command.SeasonXP)} XP to gift ${nextTier.Tier}`
 		: "All season gifts claimed";
+	const passStatus = passOwned
+		? "Season Pass active: every tier pays out twice."
+		: "The Season Pass in the Shop adds a second reward to every tier.";
 	const panelPad = 14;
 	const gridGap = 8;
 	const heroH = stack ? 196 : 168;
@@ -598,8 +622,8 @@ function CommandViewReady(props: CommandProps) {
 	const artifactHeroH = 110;
 	// relic rows follow the trip rows: side by side on landscape phones
 	const artifactRowH = tripStack ? 180 : 140;
-	const seasonHeroH = 130;
-	const seasonRowH = stack ? 148 : 112;
+	const seasonHeroH = 152;
+	const seasonRowH = stack ? 172 : 132;
 	const heroInfoWidth = stack ? -100 : -(114 + 210 + 14);
 	let tabContent = 0;
 	let listContent = 0;
@@ -996,6 +1020,15 @@ function CommandViewReady(props: CommandProps) {
 					clips={false}
 				>
 					<Text value="Weekly jobs" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
+					<Text
+						value={weeklyResetText(game.GetService("Workspace").GetServerTimeNow())}
+						size={12}
+						color={Palette.muted}
+						fit={false}
+						align={Enum.TextXAlignment.Right}
+						position={UDim2.fromOffset(0, 4)}
+						sizeConstraint={new UDim2(1, 0, 0, 18)}
+					/>
 					{weeklyGrid}
 				</Panel>
 				<Panel
@@ -1525,6 +1558,15 @@ function CommandViewReady(props: CommandProps) {
 					position={UDim2.fromOffset(0, 82)}
 					sizeConstraint={new UDim2(1, 0, 0, 18)}
 				/>
+				<Text
+					value={passStatus}
+					size={12}
+					color={passOwned ? Palette.mango : Palette.muted}
+					fit={true}
+					minSize={10}
+					position={UDim2.fromOffset(0, 104)}
+					sizeConstraint={new UDim2(1, 0, 0, 18)}
+				/>
 			</Panel>
 			<VirtualGrid
 				scrollRef={scrollRef}
@@ -1551,8 +1593,23 @@ function CommandViewReady(props: CommandProps) {
 						: unlocked
 							? "READY TO OPEN"
 							: `${compactNumber(math.min(command.SeasonXP, tier.RequiredXP))} / ${compactNumber(tier.RequiredXP)} XP`;
-					const claimRef = unlocked && !claimed && tier.Tier === firstReadySeasonTier ? claimHostRef : undefined;
-					const claimButton = (
+					const passClaimed = premiumClaims[tostring(tier.Tier)] === true;
+					const passReady = passOwned && unlocked && !passClaimed;
+					const claimRef = unlocked && (!claimed || passReady) && tier.Tier === firstReadySeasonTier ? claimHostRef : undefined;
+					const passButton = (
+						<Button
+							text={!passOwned ? "PASS" : passClaimed ? "CLAIMED" : unlocked ? "PASS" : "LOCKED"}
+							onClick={() => sendPending(`pass:${tier.Tier}`, "ClaimSeasonPremium", { Tier: tier.Tier })}
+							{...pendingProps(`pass:${tier.Tier}`)}
+							color={Palette.mango}
+							textColor={Palette.ink}
+							size={UDim2.fromScale(1, 1)}
+							disabled={!passReady}
+							reducedMotion={reducedMotion}
+							highlight={passReady}
+						/>
+					);
+					const freeButton = (
 						<Button
 							text={claimed ? "CLAIMED" : unlocked ? "OPEN" : "LOCKED"}
 							onClick={() => sendPending(`season:${tier.Tier}`, "ClaimSeasonTier", { Tier: tier.Tier })}
@@ -1564,6 +1621,16 @@ function CommandViewReady(props: CommandProps) {
 							reducedMotion={reducedMotion}
 							highlight={unlocked && !claimed}
 						/>
+					);
+					const claimButton = (
+						<>
+							<frame Size={new UDim2(0.5, -4, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+								{freeButton}
+							</frame>
+							<frame Size={new UDim2(0.5, -4, 1, 0)} Position={new UDim2(0.5, 4, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+								{passButton}
+							</frame>
+						</>
 					);
 					return (
 						<Panel
@@ -1609,11 +1676,20 @@ function CommandViewReady(props: CommandProps) {
 								position={UDim2.fromOffset(72, 32)}
 								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 28)}
 							/>
+							<Text
+								value={`Pass: ${formatReward(SeasonPremium.Reward(tier.Tier))}`}
+								size={11}
+								color={passOwned ? Palette.mango : Palette.muted}
+								fit={true}
+								minSize={9}
+								position={UDim2.fromOffset(72, 62)}
+								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 16)}
+							/>
 							<Meter
 								value={meterFill(command.SeasonXP, tier.RequiredXP, claimed || unlocked)}
 								color={major ? Palette.mango : Palette.green}
 								reducedMotion={reducedMotion}
-								position={UDim2.fromOffset(72, stack ? 64 : 72)}
+								position={UDim2.fromOffset(72, stack ? 86 : 100)}
 								size={new UDim2(1, stack ? -84 : -250, 0, 7)}
 							/>
 							{stack ? (
@@ -1635,13 +1711,13 @@ function CommandViewReady(props: CommandProps) {
 										size={11}
 										color={unlocked ? Palette.green : Palette.muted}
 										fit={false}
-										position={UDim2.fromOffset(72, 54)}
+										position={UDim2.fromOffset(72, 80)}
 										sizeConstraint={new UDim2(1, -250, 0, 16)}
 									/>
 									<frame
 										key="CommandClaimActions"
-										Size={UDim2.fromOffset(150, 44)}
-										Position={new UDim2(1, -158, 0.5, -22)}
+										Size={UDim2.fromOffset(236, 44)}
+										Position={new UDim2(1, -244, 0.5, -22)}
 										BackgroundTransparency={1}
 										BorderSizePixel={0}
 										ClipsDescendants={false}

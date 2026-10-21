@@ -3379,6 +3379,13 @@ export class GameService {
 		});
 	}
 
+	_claimSeasonPremium(player: Player, tier: unknown) {
+		return this._mutate(player, (profile: Profile) => {
+			const [ok, message] = ProgressionService.ClaimSeasonPremium(profile, tier) as LuaTuple<[unknown, unknown]>;
+			return truthy(ok) ? responseSuccess(message) : responseError(message);
+		});
+	}
+
 	_claimForgePathStep(player: Player, step: unknown) {
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.ClaimForgePathStep(profile, step) as LuaTuple<[unknown, unknown]>;
@@ -5774,6 +5781,8 @@ export class GameService {
 			return this._claimWeeklyDirective(player, payload?.Id);
 		} else if (action === Protocol.Actions.ClaimSeasonTier) {
 			return this._claimSeasonTier(player, payload?.Tier);
+		} else if (action === Protocol.Actions.ClaimSeasonPremium) {
+			return this._claimSeasonPremium(player, payload?.Tier);
 		} else if (action === Protocol.Actions.ClaimForgePathStep) {
 			return this._claimForgePathStep(player, payload?.Step);
 		} else if (action === Protocol.Actions.BuySignalOffer) {

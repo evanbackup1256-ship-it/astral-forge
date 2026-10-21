@@ -11,6 +11,7 @@ interface CommandBag {
 	SeasonId: string;
 	SeasonXP: number;
 	SeasonClaims: Record<string, boolean>;
+	PremiumClaims: Record<string, boolean>;
 	Weekly: { Week: number; Baseline: Record<string, number>; Claimed: Record<string, boolean> };
 	Shop: { Day: number; Purchased: Record<string, boolean> };
 	EquippedTitle: string;
@@ -37,6 +38,7 @@ const CommandMath = {
 				SeasonId: season,
 				SeasonXP: 0,
 				SeasonClaims: {},
+				PremiumClaims: {},
 				Weekly: { Week: -1, Baseline: {}, Claimed: {} },
 				Shop: { Day: -1, Purchased: {} },
 				EquippedTitle: "Cadet",
@@ -88,6 +90,9 @@ const CommandMath = {
 		}
 		if (!typeIs(bag.SeasonClaims, "table")) {
 			bag.SeasonClaims = {};
+		}
+		if (!typeIs(bag.PremiumClaims, "table")) {
+			bag.PremiumClaims = {};
 		}
 		if (!typeIs(bag.Weekly, "table")) {
 			bag.Weekly = { Week: -1, Baseline: {}, Claimed: {} };

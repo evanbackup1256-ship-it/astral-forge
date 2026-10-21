@@ -137,6 +137,19 @@ const GamePasses: GamePassDef[] = [
 		PriceLabel: "R$",
 		StudioPrice: 299,
 	},
+	{
+		// PassId 0 until the pass exists on the Creator Dashboard; the Shop shows it as unavailable
+		// in live servers and Studio grants it locally.
+		Key: "SeasonPass",
+		PassId: 0,
+		Name: "Season Pass",
+		Description: "Adds a second reward to every Rank Track tier this season and after.",
+		Category: "Passes",
+		Icon: "StarGrid.8",
+		Accent: [255, 191, 78],
+		PriceLabel: "R$",
+		StudioPrice: 449,
+	},
 ];
 
 function FindDevProductByProductId(productId: number): DevProductDef | undefined {

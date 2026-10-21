@@ -784,7 +784,11 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		}
 	} else if (action === Protocol.Actions.LeavePlot) {
 		// read-only guild-scoped requests accept no caller-controlled fields.
-	} else if (action === Protocol.Actions.ClaimCommanderReward || action === Protocol.Actions.ClaimSeasonTier) {
+	} else if (
+		action === Protocol.Actions.ClaimCommanderReward ||
+		action === Protocol.Actions.ClaimSeasonTier ||
+		action === Protocol.Actions.ClaimSeasonPremium
+	) {
 		const key = action === Protocol.Actions.ClaimCommanderReward ? "Level" : "Tier";
 		if (!numberField(bag, key, 1, 10000, true)) {
 			return $tuple(false, "invalid progression payload");

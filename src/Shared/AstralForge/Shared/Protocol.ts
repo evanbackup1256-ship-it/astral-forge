@@ -44,6 +44,7 @@
 		ClaimCommanderReward: "ClaimCommanderReward",
 		ClaimWeeklyDirective: "ClaimWeeklyDirective",
 		ClaimSeasonTier: "ClaimSeasonTier",
+		ClaimSeasonPremium: "ClaimSeasonPremium",
 		ClaimForgePathStep: "ClaimForgePathStep",
 		BuySignalOffer: "BuySignalOffer",
 		EquipTitle: "EquipTitle",

@@ -123,6 +123,7 @@ const DataTemplate = {
 				SeasonId: "DEEP_SPACE_01",
 				SeasonXP: 0,
 				SeasonClaims: {},
+				PremiumClaims: {},
 				Weekly: { Week: -1, Baseline: {}, Claimed: {} },
 				Shop: { Day: -1, Purchased: {} },
 				EquippedTitle: "Cadet",

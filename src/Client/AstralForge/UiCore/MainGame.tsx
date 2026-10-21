@@ -641,6 +641,7 @@ export function MainGame(_param: MainGameProps) {
 				action === "ClaimCommanderReward" ||
 				action === "ClaimWeeklyDirective" ||
 				action === "ClaimSeasonTier" ||
+				action === "ClaimSeasonPremium" ||
 				action === "ClaimExpedition" ||
 				action === "ClaimConvergenceReward" ||
 				action === "ClaimAnomalyDirective" ||
@@ -689,7 +690,7 @@ export function MainGame(_param: MainGameProps) {
 								? "timedClaim"
 								: action === "ClaimAchievement"
 									? "achievementClaim"
-									: action === "ClaimSeasonTier" || action === "ClaimConvergenceReward"
+									: action === "ClaimSeasonTier" || action === "ClaimSeasonPremium" || action === "ClaimConvergenceReward"
 										? "seasonClaim"
 										: action === "ClaimExpedition"
 											? "expeditionReturn"
