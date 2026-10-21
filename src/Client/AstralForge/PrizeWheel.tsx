@@ -204,8 +204,8 @@ function PrizeWheel(props: PrizeWheelProps): React.Element {
 			size: math.max(11, math.floor(diameter * 0.038)),
 			color: won ? Palette.white : Palette.creamSoft,
 			weight: Enum.FontWeight.Heavy, align: Enum.TextXAlignment.Center, shadow: false,
-			position: UDim2.fromScale(0.42, roomy ? 0.27 : 0.29),
-			sizeConstraint: UDim2.fromScale(0.16, 0.06), zIndex: 22,
+			position: UDim2.fromScale(0.41, roomy ? 0.28 : 0.3),
+			sizeConstraint: UDim2.fromScale(0.18, 0.06), zIndex: 22,
 		}));
 	}
 
@@ -294,7 +294,7 @@ function PrizeWheel(props: PrizeWheelProps): React.Element {
 			},
 		}, h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uigradient", { Color: new ColorSequence(Palette.panelRaised.Lerp(Palette.white, 0.08), Palette.panel), Rotation: 90 }),
-			h("uistroke", { Color: BRASS, Thickness: math.max(2, math.floor(diameter * 0.012)) }),
+			h("uistroke", { Color: BRASS, Thickness: math.max(1.5, math.floor(diameter * 0.009)) }),
 			h("uiscale", {
 				Scale: quiet ? 1 : joinTuple(controller.spinEnergy, clock).map(([energy, t]) => {
 					const breathe = ready ? math.sin(t * 3.4) * 0.04 : 0;
@@ -332,7 +332,7 @@ function PrizeWheel(props: PrizeWheelProps): React.Element {
 				Name: "Cap", Size: UDim2.fromScale(1, 0.7), Position: UDim2.fromScale(0.5, 0),
 				AnchorPoint: new Vector2(0.5, 0), BackgroundColor3: Palette.cream, BorderSizePixel: 0, ZIndex: 13,
 			}, h("uiaspectratioconstraint", { AspectRatio: 1 }), h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				h("uistroke", { Color: BRASS, Thickness: 2 }),
+				h("uistroke", { Color: BRASS, Thickness: 1.5 }),
 				h("frame", {
 					Size: UDim2.fromScale(0.34, 0.34), Position: UDim2.fromScale(0.5, 0.5), AnchorPoint: new Vector2(0.5, 0.5),
 					BorderSizePixel: 0, ZIndex: 14,

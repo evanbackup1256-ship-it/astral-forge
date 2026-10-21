@@ -183,8 +183,8 @@ function ActionButton(props: { sound?: string | false; text: string; accent: Col
 			onClick={props.onClick}
 			color={props.accent}
 			textColor={Palette.ink}
-			size={UDim2.fromOffset(220, TapTarget)}
-			position={props.position.sub(UDim2.fromOffset(110, TapTarget))}
+			size={UDim2.fromOffset(240, TapTarget)}
+			position={props.position.sub(UDim2.fromOffset(120, TapTarget))}
 			reducedMotion={props.reducedMotion}
 			highlight={true}
 			sound={props.sound ?? "auto"}
@@ -211,11 +211,11 @@ function DropCard(props: {
 	const tag = salvaged ? `+${roll.Essence ?? 0} ESSENCE` : roll.New === true ? "NEW" : roll.Pity === true ? "PITY" : undefined;
 	const title = salvaged ? "Recycled" : nameOf(props.config, roll.DefinitionId);
 	const large = props.large;
-	const pad = large ? Layout.cardPadding : 12;
+	const pad = large ? Layout.cardPadding : 16;
 	const fade = props.appear.map((a) => 1 - math.clamp(a * 1.6, 0, 1));
 	const def = defOf(props.config, roll.DefinitionId);
 	const iconSize = large ? 64 : 40;
-	const textX = iconSize + (large ? 14 : 10);
+	const textX = iconSize + (large ? 16 : 12);
 	return (
 		<Panel
 			size={UDim2.fromOffset(props.size.X, props.size.Y)}
@@ -237,7 +237,7 @@ function DropCard(props: {
 				size={iconSize}
 				filled={props.best || large}
 				reducedMotion={props.reducedMotion}
-				position={UDim2.fromOffset(0, large ? 34 : 30)}
+				position={UDim2.fromOffset(0, large ? 40 : 32)}
 				zIndex={511}
 			/>
 			<Badge value={roll.Rarity} accent={accent} filled={true} size={UDim2.fromOffset(large ? 104 : 80, 20)} zIndex={511} />
@@ -255,24 +255,24 @@ function DropCard(props: {
 				size={large ? 22 : 14}
 				minSize={11}
 				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
+				weight={Enum.FontWeight.Bold}
 				wrap={true}
 				fit={true}
 				transparency={fade}
-				position={UDim2.fromOffset(textX, large ? 34 : 30)}
+				position={UDim2.fromOffset(textX, large ? 38 : 30)}
 				sizeConstraint={new UDim2(1, -textX, 0, large ? 52 : 36)}
 				zIndex={511}
 			/>
 			{!salvaged && (
 				<Text
 					value={EffectLabel(def, 1)}
-					size={large ? 14 : 11}
+					size={large ? 14 : 12}
 					minSize={10}
 					color={accent}
-					weight={Enum.FontWeight.Bold}
+					weight={Enum.FontWeight.Medium}
 					fit={true}
 					transparency={fade}
-					position={UDim2.fromOffset(textX, large ? 90 : 68)}
+					position={UDim2.fromOffset(textX, large ? 96 : 70)}
 					sizeConstraint={new UDim2(1, -textX, 0, 18)}
 					zIndex={511}
 				/>
@@ -376,10 +376,10 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	}, [rolls]);
 	const visible = phone ? 3 : 5;
 	const slotW = phone ? 88 : 108;
-	const panelW = math.min(viewport.width - 24, visible * slotW + 28);
+	const panelW = math.min(viewport.width - 24, visible * slotW + 40);
 	const rowH = slotW;
-	const headerH = 30;
-	const panelH = headerH + reelRolls.size() * (rowH + 8) + 20;
+	const headerH = 36;
+	const panelH = headerH + reelRolls.size() * (rowH + 12) + 24;
 
 	const [phase, setPhase] = React.useState<ReelPhase>(still ? "done" : "spin");
 	const [show, , beginExit] = usePresence(still);
@@ -495,8 +495,8 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	const cols = count === 1 ? 1 : math.min(count, narrow ? 2 : 5);
 	const rows = math.ceil(count / cols);
 	const large = count === 1;
-	const cardSize = large ? new Vector2(math.min(340, viewport.width - 48), 150) : new Vector2(narrow ? 156 : 184, 112);
-	const gap = 12;
+	const cardSize = large ? new Vector2(math.min(360, viewport.width - 48), 168) : new Vector2(narrow ? 156 : 192, 124);
+	const gap = narrow ? 12 : 16;
 	const gridW = cols * cardSize.X + (cols - 1) * gap;
 	const gridH = rows * cardSize.Y + (rows - 1) * gap;
 	const dealGap = count > 1 ? 0.06 : 0;
@@ -533,12 +533,12 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 			<Backdrop amount={backdrop} onTap={advance} />
 			<Text
 				value={header}
-				size={16}
-				color={Palette.creamSoft}
+				size={20}
+				color={Palette.cream}
 				weight={Enum.FontWeight.Bold}
 				align={Enum.TextXAlignment.Center}
-				position={new UDim2(0, 0, 0, math.max(viewport.topInset, 0) + 56)}
-				sizeConstraint={new UDim2(1, 0, 0, 22)}
+				position={new UDim2(0, 0, 0, math.max(viewport.topInset, 0) + 64)}
+				sizeConstraint={new UDim2(1, 0, 0, 26)}
 				zIndex={505}
 			/>
 			{!still && (
@@ -559,7 +559,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 						color={Palette.muted}
 						weight={Enum.FontWeight.Bold}
 						align={Enum.TextXAlignment.Center}
-						position={UDim2.fromOffset(0, 8)}
+						position={UDim2.fromOffset(0, 10)}
 						sizeConstraint={new UDim2(1, 0, 0, 16)}
 						zIndex={511}
 					/>
@@ -571,8 +571,8 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 									hosts.current[row] = frame;
 								}
 							}}
-							Size={new UDim2(1, -12, 0, rowH)}
-							Position={UDim2.fromOffset(6, headerH + row * (rowH + 8))}
+							Size={new UDim2(1, -24, 0, rowH)}
+							Position={UDim2.fromOffset(12, headerH + row * (rowH + 12))}
 							BackgroundTransparency={1}
 							ClipsDescendants={true}
 							ZIndex={511}
@@ -588,7 +588,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 			<ActionButton
 				text={claim}
 				accent={bestColor}
-				position={new UDim2(0.5, 0, 1, -math.max(viewport.bottomInset, 0) - 36)}
+				position={new UDim2(0.5, 0, 1, -math.max(viewport.bottomInset, 0) - 48)}
 				onClick={advance}
 				sound={false}
 				shown={phase === "done"}
@@ -600,7 +600,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 					size={12}
 					color={Palette.muted}
 					align={Enum.TextXAlignment.Center}
-					position={new UDim2(0, 0, 1, -math.max(viewport.bottomInset, 0) - 30)}
+					position={new UDim2(0, 0, 1, -math.max(viewport.bottomInset, 0) - 44)}
 					sizeConstraint={new UDim2(1, 0, 0, 16)}
 					zIndex={505}
 				/>
@@ -696,7 +696,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 			>
 				<uiscale Scale={gemIn.map((g) => math.max(0.01, g))} />
 				<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
-				<uistroke Color={color} Thickness={2} Transparency={gemIn.map((g) => 1 - math.clamp(g, 0, 1))} />
+				<uistroke Color={color} Thickness={1.5} Transparency={gemIn.map((g) => 1 - math.clamp(g, 0, 1))} />
 				<frame
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					Size={UDim2.fromScale(0.46, 0.46)}
@@ -710,11 +710,11 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 				</frame>
 			</frame>
 			<Panel
-				size={UDim2.fromOffset(cardW, 132)}
-				position={textIn.map((a) => new UDim2(0.5, -cardW / 2, 0.4, 84 + math.floor((1 - a) * 10)))}
+				size={UDim2.fromOffset(cardW, 156)}
+				position={textIn.map((a) => new UDim2(0.5, -cardW / 2, 0.4, 92 + math.floor((1 - a) * 10)))}
 				accent={color}
 				background={Palette.panelRaised}
-				padding={Layout.cardPadding - 6}
+				padding={Layout.cardPadding}
 				reveal={textIn}
 				reducedMotion={still}
 				zIndex={508}
@@ -731,25 +731,25 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 					size={24}
 					minSize={14}
 					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
+					weight={Enum.FontWeight.Bold}
 					fit={true}
 					transparency={textIn.map((a) => 1 - a)}
-					position={UDim2.fromOffset(0, 30)}
+					position={UDim2.fromOffset(0, 34)}
 					sizeConstraint={new UDim2(1, 0, 0, 30)}
 					zIndex={509}
 				/>
 				<Text
 					value={info.fresh === false ? "Already held, so this restocks as upgrade fragments." : info.description ?? "Added to your artifacts."}
-					size={13}
+					size={14}
 					color={Palette.creamSoft}
 					wrap={true}
 					transparency={textIn.map((a) => 1 - a)}
-					position={UDim2.fromOffset(0, 64)}
+					position={UDim2.fromOffset(0, 70)}
 					sizeConstraint={new UDim2(1, 0, 0, 36)}
 					zIndex={509}
 				/>
 			</Panel>
-			<ActionButton text="Done" accent={color} position={new UDim2(0.5, 0, 1, -40)} onClick={advance} shown={formed} reducedMotion={still} />
+			<ActionButton text="Done" accent={color} position={new UDim2(0.5, 0, 1, -48)} onClick={advance} shown={formed} reducedMotion={still} />
 		</frame>
 	);
 }
@@ -766,18 +766,18 @@ function EmptyReveal(props: { onClose: () => void }) {
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={500}>
 			<Backdrop amount={show} onTap={props.onClose} />
 			<Panel
-				size={UDim2.fromOffset(width, 96)}
-				position={new UDim2(0.5, -width / 2, 0.42, -48)}
+				size={UDim2.fromOffset(width, 112)}
+				position={new UDim2(0.5, -width / 2, 0.42, -56)}
 				accent={Palette.coral}
 				background={Palette.panelRaised}
-				padding={Layout.cardPadding - 6}
+				padding={Layout.cardPadding}
 				reveal={show}
 				zIndex={505}
 			>
-				<Text value="Crate didn't open" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, 0, 0, 24)} zIndex={506} />
-				<Text value="Nothing was used. Try again." size={13} color={Palette.creamSoft} position={UDim2.fromOffset(0, 30)} sizeConstraint={new UDim2(1, 0, 0, 20)} zIndex={506} />
+				<Text value="Crate didn't open" size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(1, 0, 0, 24)} zIndex={506} />
+				<Text value="Nothing was used. Try again." size={13} color={Palette.creamSoft} position={UDim2.fromOffset(0, 34)} sizeConstraint={new UDim2(1, 0, 0, 20)} zIndex={506} />
 			</Panel>
-			<ActionButton text="Back to inventory" accent={Palette.coral} position={new UDim2(0.5, 0, 1, -40)} onClick={props.onClose} shown={true} reducedMotion={isReducedMotion()} />
+			<ActionButton text="Back to inventory" accent={Palette.coral} position={new UDim2(0.5, 0, 1, -48)} onClick={props.onClose} shown={true} reducedMotion={isReducedMotion()} />
 		</frame>
 	);
 }
