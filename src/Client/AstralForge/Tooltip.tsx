@@ -452,7 +452,7 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 			accent={data.accent}
 			position={React.joinBindings({ spot, appear }).map((v) => UDim2.fromOffset(v.spot.X, v.spot.Y + revealOffset(v.appear)))}
 		>
-			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
 			{hasTitle && (
 				<SurfaceText text={data.title!} type="title" autoSize={true} wrap={true} maxWidth={maxW} transparency={fade} order={1} />
 			)}

@@ -305,7 +305,7 @@ function Preview(props: { entry: SearchEntry; touch: boolean; reduced: boolean }
 				/>
 			)}
 			<SurfaceText
-				text={entry.locked ? action : props.touch ? `Tap to ${action}` : `Enter to ${action}`}
+				text={entry.locked ? action : props.touch ? "" : `Enter to ${action}`}
 				type="hint"
 				color={entry.locked ? Palette.muted : Palette.cream}
 				size={new UDim2(1, 0, 0, 18)}
