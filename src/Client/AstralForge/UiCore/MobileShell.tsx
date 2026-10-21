@@ -212,8 +212,8 @@ function MenuCell(_param: { entry: NavEntry; active: boolean; badge?: number; or
 		}),
 		h("uistroke", {
 			Color: active ? accent : Palette.line,
-			Thickness: active ? 1.5 : 1,
-			Transparency: active ? 0.15 : 0.55,
+			Thickness: 1,
+			Transparency: active ? 0.5 : 1,
 		}),
 		h(IconTile, {
 			kind: entry.icon,
@@ -226,27 +226,15 @@ function MenuCell(_param: { entry: NavEntry; active: boolean; badge?: number; or
 		}),
 		h("textlabel", {
 			Size: new UDim2(1, -8, 0, 24),
-			Position: new UDim2(0.5, 0, 0, 44),
+			Position: new UDim2(0.5, 0, 0, 50),
 			AnchorPoint: new Vector2(0.5, 0),
 			BackgroundTransparency: 1,
 			Text: entry.label,
 			TextColor3: Palette.cream,
-			TextSize: 13,
+			TextSize: 14,
 			TextWrapped: true,
 			TextTruncate: Enum.TextTruncate.AtEnd,
-			FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
-			ZIndex: 513,
-		}),
-		h("textlabel", {
-			Size: new UDim2(1, -8, 0, 12),
-			Position: new UDim2(0.5, 0, 0, 69),
-			AnchorPoint: new Vector2(0.5, 0),
-			BackgroundTransparency: 1,
-			Text: entry.eyebrow ?? "",
-			TextColor3: Palette.muted,
-			TextSize: 11,
-			TextTruncate: Enum.TextTruncate.AtEnd,
-			FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium),
+			FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
 			ZIndex: 513,
 		}),
 		badge > 0 &&
@@ -468,7 +456,7 @@ function MenuSheet(_param: MenuSheetProps) {
 			}),
 			h("uistroke", {
 				Color: Palette.line,
-				Transparency: 0.3,
+				Transparency: 0.7,
 			}),
 			h(
 				"frame",
@@ -849,7 +837,7 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 		}),
 		h("uistroke", {
 			Color: Palette.line,
-			Transparency: 0.4,
+			Transparency: 0.75,
 		}),
 		h(IconTile, {
 			kind: entry.icon,
@@ -947,8 +935,8 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 				}),
 				h("uistroke", {
 					Color: eventAccent,
-					Thickness: 1.5,
-					Transparency: 0.2,
+					Thickness: 1,
+					Transparency: 0.45,
 				}),
 				h(Icon, {
 					kind: eventDef.Icon,
@@ -1101,8 +1089,8 @@ export function MobileQuickActions(_param: MobileQuickActionsProps) {
 		}),
 		h("uistroke", {
 			Color: vaultFill > 0.8 ? Palette.green : Palette.line,
-			Thickness: vaultFill > 0.8 ? 2 : 1,
-			Transparency: 0.35,
+			Thickness: 1,
+			Transparency: vaultFill > 0.8 ? 0.3 : 0.75,
 		}),
 		h(
 			"frame",

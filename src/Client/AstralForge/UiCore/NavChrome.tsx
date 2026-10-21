@@ -96,12 +96,9 @@ function RailButtonImpl(_param: RailButtonProps) {
 	const tileFill = emphasis.map((raw) =>
 		disabled ? Palette.panelSoft : Palette.panelRaised.Lerp(darken(entry.accent, 0.52), math.clamp(raw, 0, 1)),
 	);
-	const ringTransparency = emphasis.map((raw) => math.clamp(0.78 - math.clamp(raw, 0, 1) * 0.7, 0.05, 0.82));
+	const ringTransparency = emphasis.map((raw) => math.clamp(1 - math.clamp(raw, 0, 1) * 0.6, 0.4, 1));
 	const labelColor = emphasis.map((raw) =>
 		disabled ? Palette.muted : Palette.creamSoft.Lerp(Palette.cream, math.clamp(raw, 0, 1)),
-	);
-	const eyebrowColor = emphasis.map((raw) =>
-		disabled ? Palette.muted : Palette.muted.Lerp(entry.accent, math.clamp(raw, 0, 1)),
 	);
 	const pressWash = press.map((amount) => (touchChrome ? math.clamp(1 - amount * 0.22, 0.78, 1) : 1));
 	const pressMotion = resolvePressMotion("row");
@@ -142,10 +139,16 @@ function RailButtonImpl(_param: RailButtonProps) {
 	}, []);
 	// a collapsed rail is icons only: name the page, and say if something is waiting there
 	const tip = useTooltip(
-		collapsed || disabled
+		// the page's one-line description moved off the rail row into this tooltip
+		collapsed || disabled || entry.eyebrow !== ""
 			? {
 					title: entry.label,
-					body: disabled && typeIs(entry.lockedReason, "string") ? entry.lockedReason : undefined,
+					body:
+						disabled && typeIs(entry.lockedReason, "string")
+							? entry.lockedReason
+							: entry.eyebrow !== ""
+								? entry.eyebrow
+								: undefined,
 					hint: badge > 0 ? `${badge} waiting` : undefined,
 					accent: entry.accent,
 				}
@@ -292,20 +295,10 @@ function RailButtonImpl(_param: RailButtonProps) {
 							value: entry.label,
 							size: bodySize,
 							color: labelColor,
-							weight: Enum.FontWeight.Heavy,
+							weight: Enum.FontWeight.SemiBold,
 							fit: false,
-							position: UDim2.fromOffset(56, rowHeight <= 54 ? 2 : 8),
-							sizeConstraint: new UDim2(1, -66, 0, rowHeight <= 54 ? 22 : 26),
-						}),
-					!collapsed &&
-						h(Text, {
-							value: entry.eyebrow,
-							size: 12,
-							color: eyebrowColor,
-							weight: Enum.FontWeight.Bold,
-							fit: false,
-							position: UDim2.fromOffset(56, rowHeight <= 54 ? 26 : 38),
-							sizeConstraint: new UDim2(1, -66, 0, rowHeight <= 54 ? 16 : 20),
+							position: new UDim2(0, 56, 0.5, -13),
+							sizeConstraint: new UDim2(1, -66, 0, 26),
 						}),
 					badge > 0 &&
 						h(CountBadge, {
@@ -714,7 +707,7 @@ export function MoreDockPopover(_param: MoreDockPopoverProps) {
 					LineJoinMode: Enum.LineJoinMode.Round,
 					Color: Palette.lineSoft,
 					Thickness: 1,
-					Transparency: reveal.map((amount) => math.clamp(1 - amount * 0.38, 0.4, 1)),
+					Transparency: reveal.map((amount) => math.clamp(1 - amount * 0.18, 0.8, 1)),
 				}),
 				h(Text, {
 					value: "MORE",
@@ -943,7 +936,7 @@ export function MoreDock(_param: MoreDockProps) {
 				LineJoinMode: Enum.LineJoinMode.Round,
 				Color: Palette.lineSoft,
 				Thickness: 1,
-				Transparency: 0.65,
+				Transparency: 0.88,
 			}),
 			h(
 				"frame",
@@ -1033,7 +1026,7 @@ export function MoreDock(_param: MoreDockProps) {
 		h("uistroke", {
 			Color: Palette.lineSoft,
 			Thickness: 1,
-			Transparency: 0.7,
+			Transparency: 0.9,
 			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 			LineJoinMode: Enum.LineJoinMode.Round,
 		}),

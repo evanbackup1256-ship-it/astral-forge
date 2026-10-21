@@ -695,7 +695,7 @@ export function Workspace(_param: WorkspaceProps) {
 				LineJoinMode: Enum.LineJoinMode.Round,
 				Color: Palette.lineSoft,
 				Thickness: 1,
-				Transparency: 0.48,
+				Transparency: 0.86,
 			},
 			h("uigradient", {
 				Rotation: 90,
@@ -725,26 +725,6 @@ export function Workspace(_param: WorkspaceProps) {
 					BackgroundColor3: darken(Palette.panel, 0.24),
 					BorderSizePixel: 0,
 				}),
-				h(
-					"frame",
-					{
-						Size: UDim2.fromOffset(78, 2),
-						Position: UDim2.fromOffset(18, 0),
-						BackgroundColor3: accent,
-						BorderSizePixel: 0,
-						ZIndex: 2,
-					},
-					h("uicorner", {
-						CornerRadius: new UDim(1, 0),
-					}),
-					h("uigradient", {
-						Transparency: new NumberSequence([
-							new NumberSequenceKeypoint(0, 0.04),
-							new NumberSequenceKeypoint(0.68, 0.18),
-							new NumberSequenceKeypoint(1, 1),
-						]),
-					}),
-				),
 				h(
 					"frame",
 					{
@@ -784,7 +764,7 @@ export function Workspace(_param: WorkspaceProps) {
 						value: entry.label === "Ranks" ? "Leaderboards" : entry.label,
 						size: chrome.stack ? chrome.titleText : denseHeader ? 20 : 24,
 						color: ensureContrast(Palette.panel, Palette.cream),
-						weight: Enum.FontWeight.Heavy,
+						weight: Enum.FontWeight.Bold,
 						fit: false,
 						minSize: 14,
 						position: enter.map(
@@ -796,7 +776,10 @@ export function Workspace(_param: WorkspaceProps) {
 						enabled: false,
 						periodSeconds: 4.2,
 					}),
-					!keyboardCompact &&
+					// the info line only stays where it carries live numbers (Overview); elsewhere it
+					// restated the page name, so the title stands alone
+					page === "Overview" &&
+						!keyboardCompact &&
 						!mobileHeaderCompact &&
 						!chrome.landscape &&
 						h(Text, {

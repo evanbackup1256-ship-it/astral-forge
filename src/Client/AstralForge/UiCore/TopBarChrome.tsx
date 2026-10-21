@@ -141,7 +141,7 @@ export function StatChip(_param: StatChipProps) {
 			LineJoinMode: Enum.LineJoinMode.Round,
 			Color: flash.map((amount) => Palette.lineSoft.Lerp(accent, amount)),
 			Thickness: 1,
-			Transparency: flash.map((amount) => 0.56 - amount * 0.5),
+			Transparency: flash.map((amount) => 0.86 - amount * 0.5),
 		},
 		h("uigradient", {
 			Rotation: 90,
@@ -873,7 +873,7 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 			];
 	const labelW = live ? (width >= 360 ? 96 : 82) : width >= 360 ? 104 : 88;
 	const strokeColor = live ? Palette.mint : Palette.cyan;
-	const strokeTransparency = live ? pulse.map((amount) => 0.08 + (1 - amount) * 0.38) : 0.5;
+	const strokeTransparency = live ? pulse.map((amount) => 0.3 + (1 - amount) * 0.4) : 0.8;
 	const fillWash = live ? pulse.map((amount) => 0.82 - amount * 0.28) : 1;
 	const _exp = h("uicorner", {
 		CornerRadius: new UDim(0, 10),
@@ -882,7 +882,7 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 		LineJoinMode: Enum.LineJoinMode.Round,
 		Color: strokeColor,
-		Thickness: live ? 1.6 : 1,
+		Thickness: 1,
 		Transparency: strokeTransparency,
 	});
 	const _exp_2 =
@@ -1220,7 +1220,7 @@ function TopBarImpl(_param: TopBarProps) {
 		LineJoinMode: Enum.LineJoinMode.Round,
 		Color: Palette.lineSoft,
 		Thickness: 1,
-		Transparency: 0.52,
+		Transparency: 0.85,
 	});
 	const _exp_4: unknown = undefined;
 	const _exp_5: unknown = undefined;
