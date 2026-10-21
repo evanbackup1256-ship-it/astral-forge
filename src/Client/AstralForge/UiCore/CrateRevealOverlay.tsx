@@ -240,7 +240,7 @@ function DropCard(props: {
 				position={UDim2.fromOffset(0, large ? 34 : 30)}
 				zIndex={511}
 			/>
-			<Badge value={string.upper(roll.Rarity)} accent={accent} filled={true} size={UDim2.fromOffset(large ? 104 : 80, 20)} zIndex={511} />
+			<Badge value={roll.Rarity} accent={accent} filled={true} size={UDim2.fromOffset(large ? 104 : 80, 20)} zIndex={511} />
 			{tag !== undefined && (
 				<Badge
 					value={tag}
@@ -706,7 +706,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 					BorderSizePixel={0}
 					ZIndex={507}
 				>
-					<uicorner CornerRadius={new UDim(0, 6)} />
+					<uicorner CornerRadius={new UDim(0, 8)} />
 				</frame>
 			</frame>
 			<Panel
@@ -720,7 +720,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 				zIndex={508}
 			>
 				<Badge
-					value={string.upper(`${info.rarity ?? ""}${info.element !== undefined ? ` · ${info.element}` : ""}`)}
+					value={`${info.rarity ?? ""}${info.element !== undefined ? ` · ${info.element}` : ""}`}
 					accent={color}
 					filled={true}
 					size={UDim2.fromOffset(150, 22)}

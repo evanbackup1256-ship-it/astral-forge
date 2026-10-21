@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Flux, asFlux, clockText, compactNumber } from "../CoreKit/format";
-import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
+import { Layout, Palette, Radius, TapTarget, chromeFor } from "../CoreKit/theme";
 import {
 	revealOffset,
 	usePresence,
@@ -12,6 +12,9 @@ import {
 import { joinTuple } from "../lua";
 import { Button, IconTile, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 import { SHELL_PAD_KEYS, usePadSink } from "../CoreKit/padSink";
+
+// roomier sheet padding, shared with cards
+const PAD = Layout.cardPadding;
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -37,36 +40,37 @@ function StatTile(_param: { label: string; value: string; color: Color3; index: 
 	return h(
 		"frame",
 		{
-			Size: new UDim2(0.25, -6, 1, 0),
-			Position: new UDim2(index * 0.25, index === 0 ? 0 : 6, 0, 0),
+			Size: new UDim2(0.25, -9, 1, 0),
+			Position: new UDim2(index * 0.25, index * 3, 0, 0),
 			BackgroundColor3: Palette.ink,
-			BackgroundTransparency: reveal.map((amount) => 1 - amount),
+			BackgroundTransparency: reveal.map((amount) => 1 - amount * 0.55),
 			BorderSizePixel: 0,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 10),
+			CornerRadius: new UDim(0, Radius.md),
+		}),
+		// value first, quiet caption underneath: the number is what people read
+		h(Text, {
+			value: value,
+			size: value.size() > 6 ? 15 : 17,
+			color: color,
+			weight: Enum.FontWeight.Bold,
+			align: Enum.TextXAlignment.Center,
+			fit: true,
+			minSize: 11,
+			position: UDim2.fromOffset(4, 12),
+			sizeConstraint: new UDim2(1, -8, 0, 24),
 		}),
 		h(Text, {
 			value: label,
-			size: 9,
+			size: 12,
 			color: Palette.muted,
-			weight: Enum.FontWeight.Heavy,
+			weight: Enum.FontWeight.Medium,
 			align: Enum.TextXAlignment.Center,
 			fit: true,
-			minSize: 9,
-			position: UDim2.fromOffset(2, 8),
-			sizeConstraint: new UDim2(1, -4, 0, 14),
-		}),
-		h(Text, {
-			value: value,
-			size: value.size() > 6 ? 11 : 12,
-			color: color,
-			weight: Enum.FontWeight.Heavy,
-			align: Enum.TextXAlignment.Center,
-			fit: true,
-			minSize: 9,
-			position: UDim2.fromOffset(2, 28),
-			sizeConstraint: new UDim2(1, -4, 0, 28),
+			minSize: 10,
+			position: UDim2.fromOffset(4, 40),
+			sizeConstraint: new UDim2(1, -8, 0, 16),
 		}),
 	);
 }
@@ -155,13 +159,13 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const cardWidth = math.min(stack ? math.max(280, viewport.width - chrome.sideSafe * 2 - 20) : 560, 560);
 	// The card is as tall as the layout it can show: stats, the explanation and stacked buttons
 	// when there is room, otherwise stats and side-by-side buttons with nothing left empty.
-	const statsBottom = stack ? 224 : 222;
+	const statsBottom = stack ? 212 : 228;
 	const roomH = math.max(240, viewport.height - viewport.topInset - chrome.bottomSafe - 24);
-	const fullInner = statsBottom + 48 + TapTarget * 2 + 8;
-	const shortInner = statsBottom + 14 + TapTarget;
+	const fullInner = statsBottom + 56 + TapTarget * 2 + 12;
+	const shortInner = statsBottom + 16 + TapTarget;
 	const cardHeight =
-		roomH >= fullInner + 28 ? math.min(math.max(stack ? 468 : 420, fullInner + 28), roomH) : math.min(shortInner + 28, roomH);
-	const innerHeight = cardHeight - 28;
+		roomH >= fullInner + PAD * 2 ? math.min(math.max(stack ? 480 : 452, fullInner + PAD * 2), roomH) : math.min(shortInner + PAD * 2, roomH);
+	const innerHeight = cardHeight - PAD * 2;
 	const shortCard = innerHeight < fullInner;
 	const tinyCard = shortCard && innerHeight < statsBottom + 10 + TapTarget;
 	const finish = React.useCallback(
@@ -202,32 +206,32 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const scrim = motion.map((amount) => math.clamp(1 - amount * 0.78, 0.2, 1));
 	const fade = motion.map((amount) => 1 - amount);
 	const _exp = {
-		label: "AWAY",
+		label: "Away",
 		value: clockText(actualAway),
-		color: Palette.cyan,
+		color: Palette.cream,
 	};
 	// banked only differs from away when the offline cap cut it short; otherwise show the cap itself
 	const _exp_1 =
 		capped === true || bankedSeconds < actualAway - 1
 			? {
-					label: "BANKED",
+					label: "Banked",
 					value: clockText(bankedSeconds),
-					color: Palette.mint,
+					color: Palette.cream,
 				}
 			: {
-					label: "LIMIT",
+					label: "Limit",
 					value: `${hoursCap}h`,
-					color: Palette.mint,
+					color: Palette.cream,
 				};
 	const _exp_2 = {
-		label: "EFFICIENCY",
+		label: "Efficiency",
 		value: `${efficiencyPct}%`,
-		color: Palette.violet,
+		color: Palette.cream,
 	};
 	const _object = {
-		label: "RATE",
+		label: "Rate",
 		value: rate > 0 ? `${compactNumber(production ?? 0)}/s` : "—",
-		color: Palette.mango,
+		color: Palette.cream,
 	};
 	const rows = [_exp, _exp_1, _exp_2, _object];
 	const copy = capped
@@ -259,81 +263,61 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		ZIndex: 460,
 	});
 	const _exp_4 = h("uicorner", {
-		CornerRadius: new UDim(0, 14),
+		CornerRadius: new UDim(0, Radius.sheet),
 	});
 	const _exp_5 = h("uistroke", {
-		Color: Palette.mint,
-		Thickness: 2,
-		Transparency: motion.map((amount) => 0.45 - amount * 0.28),
+		Color: Palette.lineSoft,
+		Thickness: 1,
+		Transparency: motion.map((amount) => 1 - amount * 0.5),
 	});
 	const _exp_6 = h(IconTile, {
 		kind: "Gift",
 		accent: Palette.mint,
-		size: stack ? 40 : 48,
-		radius: 14,
+		size: stack ? 40 : 44,
+		radius: Radius.md,
 		position: UDim2.fromOffset(0, 0),
 		glow: effectsEnabled === true || bigHaul,
 		spin: false,
 		reducedMotion: softMotion,
 	});
-	const _exp_7 = h(Text, {
-		value: "WELCOME BACK",
-		size: 11,
-		color: Palette.mint,
-		weight: Enum.FontWeight.Heavy,
-		fit: true,
-		minSize: 9,
-		position: UDim2.fromOffset(56, 2),
-		sizeConstraint: new UDim2(1, -70, 0, 16),
-	});
-	const _exp_8 = h(Text, {
-		value: "The forge kept running.",
-		size: stack ? 18 : 22,
+		const _exp_8 = h(Text, {
+		value: "Welcome back",
+		size: stack ? 20 : 24,
 		color: Palette.cream,
-		weight: Enum.FontWeight.Heavy,
+		weight: Enum.FontWeight.Bold,
 		fit: true,
 		minSize: 14,
-		position: UDim2.fromOffset(56, 20),
-		sizeConstraint: new UDim2(1, -70, 0, 28),
+		position: UDim2.fromOffset(stack ? 56 : 60, stack ? 6 : 8),
+		sizeConstraint: new UDim2(1, -76, 0, 30),
 	});
 	const _exp_9 = h(
 		"frame",
 		{
-			Size: new UDim2(1, 0, 0, stack ? 70 : 76),
-			Position: UDim2.fromOffset(0, 64),
+			Size: new UDim2(1, 0, 0, stack ? 64 : 72),
+			Position: UDim2.fromOffset(0, stack ? 60 : 68),
 			BackgroundColor3: Palette.ink,
 			BorderSizePixel: 0,
 			ZIndex: 465,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 14),
+			CornerRadius: new UDim(0, Radius.md),
 		}),
 		h("uistroke", {
 			Color: Palette.mint,
-			Thickness: 1.5,
+			Thickness: 1,
 			Transparency: rewardGlow,
 			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
-		}),
-		h(Text, {
-			value: "ALREADY IN YOUR CASH",
-			size: 10,
-			color: Palette.creamSoft,
-			weight: Enum.FontWeight.Heavy,
-			fit: true,
-			minSize: 9,
-			position: UDim2.fromOffset(14, 10),
-			sizeConstraint: new UDim2(1, -28, 0, 14),
 		}),
 		h(NumberSpinnerHost, {
 			value: rewardAmount,
 			reducedMotion: softMotion,
 			duration: 0.85,
 			prefix: "+",
-			extraSuffix: " FLUX",
+			extraSuffix: " flux",
 			spacedSuffix: true,
-			size: stack ? 24 : 30,
+			size: stack ? 28 : 34,
 			color: Palette.mint,
-			position: UDim2.fromOffset(14, 28),
+			position: new UDim2(0, 20, 0.5, -20),
 			sizeConstraint: UDim2.fromOffset(0, 40),
 			autoWidth: true,
 			zIndex: 466,
@@ -352,8 +336,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const _exp_10 = h(
 		"frame",
 		{
-			Size: new UDim2(1, 0, 0, stack ? 78 : 70),
-			Position: UDim2.fromOffset(0, stack ? 146 : 152),
+			Size: new UDim2(1, 0, 0, 68),
+			Position: UDim2.fromOffset(0, stack ? 144 : 160),
 			BackgroundTransparency: 1,
 			BorderSizePixel: 0,
 			Visible: !tinyCard,
@@ -364,37 +348,37 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		? undefined
 		: h(Text, {
 				value: noteText,
-				size: 11,
+				size: 13,
 				color: waitingText !== "" ? Palette.cream : Palette.creamSoft,
 				wrap: true,
 				fit: true,
 				minSize: 9,
-				position: new UDim2(0, 0, 1, -(TapTarget * 2 + 40)),
+				position: new UDim2(0, 0, 1, -(TapTarget * 2 + 52)),
 				sizeConstraint: new UDim2(1, 0, 0, 36),
 			});
 	let _result_1: React.Element;
 	if (canBankVault || hasExtras) {
 		const _attributes: Record<string, unknown> = {};
-		_attributes.text = hasExtras ? "COLLECT ALL" : `BANK VAULT  ${compactNumber(vault ?? 0)}`;
+		_attributes.text = hasExtras ? "Collect all" : `Bank vault  ${compactNumber(vault ?? 0)}`;
 		_attributes.icon = "Collect.3";
 		_attributes.onClick = () => finish(true);
 		_attributes.color = Palette.mint;
 		_attributes.textColor = Palette.ink;
 		_attributes.size = shortCard ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(1, 0, 0, TapTarget);
-		_attributes.position = shortCard ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(0, 0, 1, -(TapTarget * 2 + 8));
+		_attributes.position = shortCard ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(0, 0, 1, -(TapTarget * 2 + 12));
 		_attributes.reducedMotion = reducedMotion;
 		_attributes.disabled = closing;
 		_attributes.highlight = true;
 		_result_1 = h(Button, _attributes);
 	} else {
 		_result_1 = h(Button, {
-			text: "CONTINUE",
+			text: "Continue",
 			icon: "Collect.4",
 			onClick: () => finish(false),
 			color: Palette.mint,
 			textColor: Palette.ink,
 			size: shortCard ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(1, 0, 0, TapTarget),
-			position: shortCard ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(0, 0, 1, -(TapTarget * 2 + 8)),
+			position: shortCard ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(0, 0, 1, -(TapTarget * 2 + 12)),
 			reducedMotion: reducedMotion,
 			disabled: closing,
 			highlight: true,
@@ -453,21 +437,20 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 						h(
 							"frame",
 							{
-								Size: new UDim2(1, -28, 1, -28),
-								Position: UDim2.fromOffset(14, 14),
+								Size: new UDim2(1, -PAD * 2, 1, -PAD * 2),
+								Position: UDim2.fromOffset(PAD, PAD),
 								BackgroundTransparency: 1,
 								BorderSizePixel: 0,
 								ZIndex: 464,
 							},
 							_exp_6,
-							_exp_7,
 							_exp_8,
 							_exp_9,
 							_exp_10,
 							_exp_11,
 							_result_1,
 							h(Button, {
-								text: canBankVault ? "KEEP VAULT" : "CLOSE",
+								text: canBankVault ? "Keep vault" : "Close",
 								icon: "Close.16",
 								onClick: () => finish(false),
 								color: Palette.panelSoft,

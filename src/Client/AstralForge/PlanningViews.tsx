@@ -348,7 +348,7 @@ function NextPlan(props: PlanProps) {
 			"next-plan",
 			232,
 			panel(P.pink, [
-				copy("CONTINUUM · PERMANENT", 0, 22, 12, P.pink, true),
+				copy("Continuum · permanent", 0, 22, 12, P.pink, true),
 				copy(`Continuum ${plan.rank} → ${plan.nextRank}`, 30, 38, 24, P.cream, true),
 				copy(missing, 78, 66, 14),
 				button(
@@ -366,7 +366,7 @@ function NextPlan(props: PlanProps) {
 			"rank-costs",
 			218,
 			panel(P.cyan, [
-				copy("COST", 0, 24, 13, P.cyan, true),
+				copy("Cost", 0, 24, 13, P.cyan, true),
 				copy(`Flux · ${compact(state.Cash)} / ${compact(rank.FluxCost ?? 0)}`, 34, 32, 14),
 				meter(plan.fluxProgress, 72, P.cyan),
 				copy(`Stardust · ${compact(state.Stardust)} / ${compact(rank.StardustCost ?? 0)}`, 96, 32, 14),
@@ -388,7 +388,7 @@ function NextPlan(props: PlanProps) {
 			"rank-benefits",
 			246,
 			panel(P.mint, [
-				copy("NEXT RANK", 0, 24, 13, P.mint, true),
+				copy("Next rank", 0, 24, 13, P.mint, true),
 				copy(
 					`Production · ${compact(rank.ProductionMultiplier ?? 1)}× → ${compact(
 						Math.Mul((rank.ProductionMultiplier as OmegaValue | undefined) ?? 1, plan.production),
@@ -428,10 +428,10 @@ function NextPlan(props: PlanProps) {
 				"rank-route",
 				254,
 				panel(P.mango, [
-					copy("SHORT ON FLUX OR STARDUST?", 0, 24, 13, P.mango, true),
+					copy("Short on flux or stardust?", 0, 24, 13, P.mango, true),
 					copy(status !== "" ? status : "Rewards, banked reactor shifts and better machines all bring more in.", 32, 64, 14),
-					button("OPEN REACTOR", 106, () => navigate("Anomaly"), false, P.pink),
-					button("OPEN WORKSHOP", 166, () => navigate("Workshop"), false, P.cyan),
+					button("Open reactor", 106, () => navigate("Anomaly"), false, P.pink),
+					button("Open workshop", 166, () => navigate("Workshop"), false, P.cyan),
 				]),
 			),
 		);
@@ -452,7 +452,7 @@ function ShiftPlan(props: PlanProps) {
 			"shift-next",
 			240,
 			panel(P.pink, [
-				copy("REACTOR · NEXT STEP", 0, 22, 12, P.pink, true),
+				copy("Reactor · next step", 0, 22, 12, P.pink, true),
 				copy(plan.title ?? "", 30, 58, 23, P.cream, true),
 				copy(status !== "" ? status : ((plan.body as string | undefined) ?? ""), 96, 58, 14),
 				button(
@@ -470,7 +470,7 @@ function ShiftPlan(props: PlanProps) {
 			"shift-meter",
 			238,
 			panel(P.mint, [
-				copy(`CHARGE · ${math.floor(plan.charge * 100)}%`, 0, 24, 14, P.mint, true),
+				copy(`Charge · ${math.floor(plan.charge * 100)}%`, 0, 24, 14, P.mint, true),
 				meter(plan.charge, 34, P.pink),
 				copy(
 					`${compact(anomaly.Charge as OmegaValue | undefined ?? 0)} / ${compact(
@@ -497,14 +497,14 @@ function ShiftPlan(props: PlanProps) {
 	);
 	const compactTabs = viewport.width < 760;
 	const tabs: React.Element[] = [];
-	tabs.push(copy("REACTOR", 0, 24, 13, P.cyan, true));
+	tabs.push(copy("Reactor", 0, 24, 13, P.cyan, true));
 	for (const [index, id] of ipairs(["Directives", "Loadout", "Milestones", "Protocols"])) {
 		const columns = compactTabs ? 2 : 4;
 		const column = (index - 1) % columns;
 		const row = math.floor((index - 1) / columns);
 		tabs.push(
 			<ui.Button
-				text={id.upper()}
+				text={id}
 				size={new UDim2(1 / columns, -6, 0, 48)}
 				position={new UDim2(column / columns, column === 0 ? 0 : 6, 0, 34 + row * 56)}
 				color={pane === id ? P.cyan : P.panelSoft}
@@ -565,7 +565,7 @@ function ShiftPlan(props: PlanProps) {
 				`directive-${job.Id}`,
 				254,
 				panel((job.Color as Color3 | undefined) ?? P.mango, [
-					copy("DAILY TASK", 0, 20, 11, P.mango, true),
+					copy("Daily task", 0, 20, 11, P.mango, true),
 					copy(job.Name as string, 26, 42, 19, P.cream, true),
 					copy((job.Description as string | undefined) ?? (job.Kind as string | undefined) ?? "", 74, 56, 14),
 					meter(progress, 136, (job.Color as Color3 | undefined) ?? P.mango),
@@ -590,7 +590,7 @@ function ShiftPlan(props: PlanProps) {
 				`milestone-${milestone.Tier}`,
 				172,
 				panel(P.mint, [
-					copy(`TIER ${milestone.Tier} · ${DescribeGenerated.milestoneName(milestone.Tier).upper()}`, 0, 26, 13, P.mint, true),
+					copy(`Tier ${milestone.Tier} · ${DescribeGenerated.milestoneName(milestone.Tier)}`, 0, 26, 13, P.mint, true),
 					copy(`${(anomaly.Stabilizations as number | undefined) ?? 0} / ${milestone.Required} stabilizations`, 34, 36, 14),
 					meter(Model.ratio(anomaly.Stabilizations, milestone.Required), 80, P.mint),
 					button(
@@ -612,7 +612,7 @@ function ShiftPlan(props: PlanProps) {
 				`protocol-${definition.Id}`,
 				218,
 				panel(definition.Color, [
-					copy(`${definition.Name} · LV ${compact(protocol.level)}`, 0, 42, 18, P.cream, true),
+					copy(`${definition.Name} · Lv ${compact(protocol.level)}`, 0, 42, 18, P.cream, true),
 					copy(definition.Description, 50, 54, 14),
 					copy(
 						protocol.capped

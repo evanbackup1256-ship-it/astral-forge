@@ -312,7 +312,7 @@ function PrizeWheel(props: PrizeWheelProps): React.Element {
 					]),
 				}))),
 			h(Ui.Text, {
-				value: ready ? "SPIN" : "", size: math.max(12, math.floor(diameter * 0.055)), color: BRASS,
+				value: ready ? "Spin" : "", size: math.max(12, math.floor(diameter * 0.055)), color: BRASS,
 				weight: Enum.FontWeight.Heavy, align: Enum.TextXAlignment.Center,
 				sizeConstraint: UDim2.fromScale(1, 1), zIndex: 11, shadow: false,
 			})),

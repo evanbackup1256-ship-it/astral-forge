@@ -196,7 +196,7 @@ function Pill(props: PillProps): React.Element {
 				MouseLeave: () => setHovered(false),
 			},
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, 12) }),
 		h("uistroke", {
 			Color: entry.accent,
 			Transparency: hovered ? 0.1 : 0.45,
@@ -345,7 +345,7 @@ function Strip(props: StripProps): React.Element {
 			FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
 			TextColor3: Palette.cream,
 			Event: { Activated: () => { if (props.onFind) props.onFind(); } },
-		}, h("uicorner", { CornerRadius: new UDim(0, 14) }), h("uistroke", {
+		}, h("uicorner", { CornerRadius: new UDim(0, 12) }), h("uistroke", {
 			Color: Palette.lineSoft, Transparency: 0.4, ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 		}));
 	}
@@ -367,7 +367,7 @@ function Strip(props: StripProps): React.Element {
 		BackgroundColor3: Palette.panel,
 		BackgroundTransparency: 0.15,
 		BorderSizePixel: 0,
-	}, h("uicorner", { CornerRadius: new UDim(0, 14) }), h("uistroke", {
+	}, h("uicorner", { CornerRadius: new UDim(0, 12) }), h("uistroke", {
 		Color: Palette.lineSoft,
 		Transparency: 0.6,
 		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -377,7 +377,7 @@ function Strip(props: StripProps): React.Element {
 		AnchorPoint: new Vector2(0, 0.5),
 		BackgroundTransparency: 1,
 		Visible: !props.compact,
-		Text: list.size() > 0 ? `READY · ${total(list)}` : "READY",
+		Text: list.size() > 0 ? `Ready · ${total(list)}` : "Ready",
 		TextSize: 12,
 		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
 		TextColor3: list.size() > 0 ? Palette.green : Palette.muted,
@@ -405,7 +405,7 @@ function Strip(props: StripProps): React.Element {
 		Event: {
 			Activated: () => { if (props.onFind) props.onFind(); },
 		},
-	}, h("uicorner", { CornerRadius: new UDim(0, 14) }), h("uistroke", {
+	}, h("uicorner", { CornerRadius: new UDim(0, 12) }), h("uistroke", {
 		Color: Palette.lineSoft,
 		Transparency: 0.4,
 		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,

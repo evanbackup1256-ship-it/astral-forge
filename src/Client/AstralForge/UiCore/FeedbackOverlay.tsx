@@ -19,7 +19,7 @@ interface AudioApi {
 const Audio = (loadKit("AudioKit")("audio") as { Audio: AudioApi }).Audio;
 
 const CATEGORIES = ["Bug", "Suggestion", "Balance", "Performance", "Interface", "Other"];
-const CATEGORY_LABELS: Record<string, string> = { Suggestion: "IDEA", Performance: "LAG", Interface: "UI" };
+const CATEGORY_LABELS: Record<string, string> = { Suggestion: "Idea", Performance: "Lag", Interface: "UI" };
 const CATEGORY_HINTS: Record<string, string> = {
 	Bug: "What did you do, what did you expect, and what happened instead?",
 	Suggestion: "What should we add or change, and why would it be fun?",
@@ -223,7 +223,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			ZIndex: 471,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 14),
+			CornerRadius: new UDim(0, 12),
 		}),
 	);
 	const _exp_2 = h(
@@ -237,13 +237,13 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			ClipsDescendants: true,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 14),
+			CornerRadius: new UDim(0, 12),
 		}),
 		h("uistroke", {
 			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 			LineJoinMode: Enum.LineJoinMode.Round,
 			Color: sent ? Palette.mint : Palette.cyan,
-			Thickness: 2,
+			Thickness: 1,
 			Transparency: motion.map((amount) => 0.55 - amount * 0.4),
 		}),
 		h(
@@ -274,7 +274,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 	const _exp_4 =
 		!keyboardCompact &&
 		h(Text, {
-			value: sent ? "THANK YOU" : "FEEDBACK",
+			value: sent ? "Thank you" : "Feedback",
 			size: 11,
 			color: sent ? Palette.mint : Palette.cyan,
 			weight: Enum.FontWeight.Heavy,
@@ -311,7 +311,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		const _attributes: Record<string, unknown> = {};
 		_attributes.options = CATEGORIES.map((choice) => ({
 			id: choice,
-			label: CATEGORY_LABELS[choice] ?? string.upper(choice),
+			label: CATEGORY_LABELS[choice] ?? choice,
 			accent: Palette.cyan,
 		}));
 		_attributes.value = category;
@@ -368,7 +368,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 					},
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 6),
+					CornerRadius: new UDim(0, 8),
 				}),
 				h("uistroke", {
 					Color: lit ? impactAccent : Palette.lineSoft,
@@ -394,7 +394,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 				ZIndex: 474,
 			},
 			h(Text, {
-				value: impact >= 1 ? `IMPACT · ${string.upper(IMPACT_LABELS[impact - 1])}` : "IMPACT · OPTIONAL",
+				value: impact >= 1 ? `Impact · ${IMPACT_LABELS[impact - 1]}` : "Impact · optional",
 				size: 11,
 				color: impact >= 1 ? impactAccent : Palette.muted,
 				weight: Enum.FontWeight.Heavy,
@@ -442,7 +442,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 						ZIndex: 476,
 					},
 					h("uicorner", {
-						CornerRadius: new UDim(0, 6),
+						CornerRadius: new UDim(0, 8),
 					}),
 					h("uistroke", {
 						Color: Palette.cyan,
@@ -530,7 +530,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 									ZIndex: 474,
 								},
 								h("uicorner", {
-									CornerRadius: new UDim(0, 14),
+									CornerRadius: new UDim(0, 12),
 								}),
 								h("uistroke", {
 									ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -585,7 +585,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 							),
 						sent
 							? h(Button, {
-									text: "DONE",
+									text: "Done",
 									icon: "Check.25",
 									onClick: close,
 									color: Palette.mint,
@@ -598,7 +598,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 									highlight: true,
 								})
 							: h(Button, {
-									text: sending ? "SENDING..." : trimmed.size() < 8 ? "WRITE A LITTLE MORE" : "SEND FEEDBACK",
+									text: sending ? "Sending..." : trimmed.size() < 8 ? "Write a little more" : "Send feedback",
 									icon: "Send.5",
 									onClick: submit,
 									color: canSend ? Palette.cyan : Palette.panelSoft,

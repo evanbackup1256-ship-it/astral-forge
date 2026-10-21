@@ -88,14 +88,14 @@ interface Props {
 }
 
 const GROUPS: GroupMeta[] = [
-	{ id: "Economy", label: "ECONOMY", icon: "Flux.17" },
-	{ id: "Progression", label: "PROGRESSION", icon: "Rebirth.7" },
-	{ id: "Activity", label: "ACTIVITY", icon: "Forge.24" },
-	{ id: "Collection", label: "COLLECTION", icon: "Crate.16" },
-	{ id: "Social", label: "GUILDS", icon: "Guild.2" },
+	{ id: "Economy", label: "Economy", icon: "Flux.17" },
+	{ id: "Progression", label: "Progression", icon: "Rebirth.7" },
+	{ id: "Activity", label: "Activity", icon: "Forge.24" },
+	{ id: "Collection", label: "Collection", icon: "Crate.16" },
+	{ id: "Social", label: "Guilds", icon: "Guild.2" },
 ];
 
-const GUILD_META: BoardMeta = { id: "Guilds", short: "GUILDS", label: "Guild Halls", icon: "Guild.3", accent: P.violet, group: "Social", description: "Guild activity earned by banking and building together." };
+const GUILD_META: BoardMeta = { id: "Guilds", short: "Guilds", label: "Guild Halls", icon: "Guild.3", accent: P.violet, group: "Social", description: "Guild activity earned by banking and building together." };
 const PODIUM_ORDER = [2, 1, 3];
 const PODIUM_LIFT: Record<number, number> = { [1]: 1, [2]: 0.74, [3]: 0.56 };
 const MEDAL: Record<number, Color3> = {
@@ -274,7 +274,7 @@ function AvatarView(props: AvatarViewProps): React.Element {
 		}),
 		Status: status !== undefined ? e(ui.Text, { value: status, size: 11, color: P.creamSoft, wrap: true, fit: true, minSize: 9, align: Enum.TextXAlignment.Center, position: UDim2.fromOffset(0, 8), sizeConstraint: new UDim2(1, 0, 1, -62) }) : undefined,
 		Turn: e(ui.Button, {
-			text: status !== undefined && status !== "Loading avatar…" ? "RETRY" : "TURN",
+			text: status !== undefined && status !== "Loading avatar…" ? "Retry" : "Turn",
 			icon: status !== undefined ? "Refresh.6" : "Crew.11", color: props.accent, outline: true,
 			size: new UDim2(1, 0, 0, 48), position: new UDim2(0, 0, 1, -48),
 			disabled: status === "Loading avatar…", reducedMotion: props.reducedMotion,
@@ -303,7 +303,7 @@ function mark(props: MarkProps): React.Element {
 		return e("frame", { BackgroundColor3: accent, BackgroundTransparency: 0.7, BorderSizePixel: 0, AnchorPoint: new Vector2(0.5, 0), Position: position, Size: UDim2.fromOffset(size, size) }, {
 			Corner: e("uicorner", { CornerRadius: new UDim(0, math.floor(size * 0.28)) }),
 			Stroke: e("uistroke", { Color: accent, Transparency: 0.2, Thickness: 1.5 }),
-			Tag: e(ui.Text, { value: string.upper(tostring(row.Tag ?? "?")), size: math.max(11, math.floor(size * 0.3)), weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, sizeConstraint: UDim2.fromScale(1, 1) }),
+			Tag: e(ui.Text, { value: tostring(row.Tag ?? "?"), size: math.max(11, math.floor(size * 0.3)), weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, sizeConstraint: UDim2.fromScale(1, 1) }),
 		});
 	}
 	return e(Art.PlayerMark, { userId: row.UserId, accent, size, position, anchorPoint: new Vector2(0.5, 0) });
@@ -561,7 +561,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		const standing = personalIndex !== undefined ? `#${personalIndex}` : "—";
 		section("rank-standing", narrow ? 220 : 190, {
 			Icon: e(Art.Icon, { kind: meta.icon ?? "Leaderboard.2", color: meta.accent, accent: meta.accent, size: 28, spin: false, position: UDim2.fromOffset(0, 2) }),
-			Eyebrow: text(`RANKS · ${string.upper(group)} · ${guildBoard ? "GUILD HALLS" : string.upper(scope)}`, 40, 0, 1, 16, 11, meta.accent, { weight: Enum.FontWeight.Bold }),
+			Eyebrow: text(`Ranks · ${group} · ${guildBoard ? "guild halls" : scope}`, 40, 0, 1, 16, 11, meta.accent, { weight: Enum.FontWeight.Bold }),
 			Title: text(meta.label, 40, 16, 1, 28, 22, P.cream, { weight: Enum.FontWeight.Bold }),
 			About: text(meta.description, 0, 50, narrow ? 1 : 0.62, 34, 12, P.creamSoft),
 			Seat: text(standing, 0, narrow ? 92 : 50, 1, 40, 34, personalIndex === 1 ? MEDAL[1] : P.cream, { weight: Enum.FontWeight.Heavy, align: Enum.TextXAlignment.Right }),
@@ -609,7 +609,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		for (let index = 0; index < 2; index++) {
 			const id = (["Global", "Server"] as const)[index];
 			controls[id] = chip({
-				text: id === "Global" ? "GLOBAL" : "THIS SERVER", icon: id === "Global" ? "World.10" : "Command.5", accent: meta.accent, active: scope === id && !guildBoard,
+				text: id === "Global" ? "Global" : "This server", icon: id === "Global" ? "World.10" : "Command.5", accent: meta.accent, active: scope === id && !guildBoard,
 				position: new UDim2((index) / 3, 2, 0, 24), size: new UDim2(1 / 3, -8, 0, 48), disabled: guildBoard, reducedMotion,
 				onClick: () => {
 					if (!guildBoard) {
@@ -618,9 +618,9 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				},
 			});
 		}
-		controls.Refresh = e(ui.Button, { text: result.loading ? "LOADING…" : "REFRESH", position: new UDim2(2 / 3, 2, 0, 24), size: new UDim2(1 / 3, -8, 0, 48), disabled: result.loading, reducedMotion, onClick: () => reload((v) => v + 1), color: P.mint });
+		controls.Refresh = e(ui.Button, { text: result.loading ? "Loading…" : "Refresh", position: new UDim2(2 / 3, 2, 0, 24), size: new UDim2(1 / 3, -8, 0, 48), disabled: result.loading, reducedMotion, onClick: () => reload((v) => v + 1), color: P.mint });
 		controls.Search = e(ui.SearchField, { value: query, onChange: setQuery, placeholder: guildBoard ? "Find a guild or tag" : "Find a player or user ID", accent: meta.accent, reducedMotion, position: new UDim2(0, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(2 / 3, -8, 0, 48) });
-		controls.Mine = e(ui.Button, { text: mineOnly ? "SHOW EVERYONE" : "ONLY ME", icon: "Crew.12", color: P.mint, outline: !mineOnly, reducedMotion, position: narrow ? new UDim2(0, 2, 0, 140) : new UDim2(2 / 3, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(1 / 3, -8, 0, 48), onClick: () => setMineOnly((v) => !v) });
+		controls.Mine = e(ui.Button, { text: mineOnly ? "Show everyone" : "Only me", icon: "Crew.12", color: P.mint, outline: !mineOnly, reducedMotion, position: narrow ? new UDim2(0, 2, 0, 140) : new UDim2(2 / 3, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(1 / 3, -8, 0, 48), onClick: () => setMineOnly((v) => !v) });
 		section("rank-controls", narrow ? 220 : 164, controls);
 
 		function rankRow(row: RankRow, place: number | undefined, pinned: boolean): React.Element {
@@ -633,7 +633,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				BackgroundColor3: mine ? Color3.fromRGB(22, 48, 44) : Color3.fromRGB(22, 26, 40),
 				BackgroundTransparency: 0.08, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
 			}, {
-				Corner: e("uicorner", { CornerRadius: new UDim(0, 14) }),
+				Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
 				Stroke: e("uistroke", { Color: ring.color, Transparency: mine ? 0.2 : ring.framed ? 0.45 : 0.8, Thickness: ring.thickness }, ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
 				...(phoneRow
 					? {
@@ -669,7 +669,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 						Find: findable
 							? e(ui.Button, {
 									// with a pad connected, name the shortcut the way the hint bar does
-									text: UserInputService.GamepadEnabled ? `FIND ME · ${KeyLabel(Enum.KeyCode.ButtonR3, "R3")}` : "FIND ME",
+									text: UserInputService.GamepadEnabled ? `Find me · ${KeyLabel(Enum.KeyCode.ButtonR3, "R3")}` : "Find me",
 									icon: "Crew.12",
 									color: P.mint,
 									outline: true,
@@ -710,7 +710,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 						Value: text(valueText(row.Value), 0, 0, 1, 28, 12, P.creamSoft, { align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: new UDim2(infoX, 0, 0, narrow ? 80 : 273), sizeConstraint: new UDim2(infoWidth, 0, 0, 28) }),
 						Share: bar(share(row.Value, top), color, new UDim2(infoX, 8, 0, narrow ? 118 : 307), new UDim2(infoWidth, -16, 0, 4)),
 						Plinth: e("frame", { BackgroundColor3: color, BackgroundTransparency: 0.72, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: new UDim2(infoX, 0, 1, 0), Size: new UDim2(infoWidth, 0, 0, narrow ? plinth : 32) }, {
-							Corner: e("uicorner", { CornerRadius: new UDim(0, 10) }),
+							Corner: e("uicorner", { CornerRadius: new UDim(0, 8) }),
 							Stroke: e("uistroke", { Color: color, Transparency: 0.35, Thickness: 1 }),
 							Shade: e("uigradient", { Rotation: 90, Transparency: new NumberSequence(0, 0.65) }),
 							Place: e(ui.Text, { value: tostring(place), size: place === 1 ? 26 : 20, weight: Enum.FontWeight.Heavy, color, align: Enum.TextXAlignment.Center, sizeConstraint: UDim2.fromScale(1, 1) }),
