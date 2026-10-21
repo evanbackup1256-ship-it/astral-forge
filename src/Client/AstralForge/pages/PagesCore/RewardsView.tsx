@@ -122,7 +122,7 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 				/>
 				<Text
-					value={today ? "TODAY" : `DAY ${day}`}
+					value={today ? "Today" : `Day ${day}`}
 					size={11}
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
@@ -402,21 +402,13 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			clips={false}
 		>
 			<Text
-				value="REWARDS"
-				size={11}
-				color={Palette.pink}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				sizeConstraint={new UDim2(1, -120, 0, 14)}
-			/>
-			<Text
 				value={readyCount > 0 ? `${readyCount} reward${readyCount === 1 ? "" : "s"} waiting.` : "All caught up."}
 				size={stack ? 20 : 22}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
 				minSize={14}
-				position={UDim2.fromOffset(0, 18)}
+				position={UDim2.fromOffset(0, 9)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -240, 0, 28)}
 			/>
 			<Text
@@ -634,10 +626,10 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			clips={false}
 		>
 			<Text
-				value={`TODAY'S PLAYTIME DROPS · ${clockText(played)} PLAYED`}
-				size={11}
-				color={Palette.cyan}
-				weight={Enum.FontWeight.Heavy}
+				value={`Playtime drops, ${clockText(played)} played`}
+				size={13}
+				color={Palette.creamSoft}
+				weight={Enum.FontWeight.SemiBold}
 				fit={true}
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
@@ -648,10 +640,10 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	);
 
 	const shortcuts: Array<{ id: string; label: string; icon: string; accent: Color3; badge?: number }> = [
-		{ id: "Wheel", label: "SPIN THE WHEEL", icon: "Wheel.3", accent: Palette.mango },
-		{ id: "Missions", label: "MISSIONS", icon: "Mission.3", accent: Palette.green, badge: readyMissions },
-		{ id: "Milestones", label: "MILESTONES", icon: "Milestone.2", accent: Palette.mango, badge: readyMilestones },
-		{ id: "Boosts", label: "BOOSTS", icon: "Boost.9", accent: Palette.pink },
+		{ id: "Wheel", label: "Spin the wheel", icon: "Wheel.3", accent: Palette.mango },
+		{ id: "Missions", label: "Missions", icon: "Mission.3", accent: Palette.green, badge: readyMissions },
+		{ id: "Milestones", label: "Milestones", icon: "Milestone.2", accent: Palette.mango, badge: readyMilestones },
+		{ id: "Boosts", label: "Boosts", icon: "Boost.9", accent: Palette.pink },
 	];
 	const shortcutCols = stack ? 2 : 4;
 	const shortcutChildren: Record<string, React.Element> = {
