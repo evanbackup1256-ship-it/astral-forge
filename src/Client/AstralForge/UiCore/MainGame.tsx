@@ -2,6 +2,7 @@ import type { PushEvent, RequestFunction } from "../ClientNetwork";
 import React from "@rbxts/react";
 import { TooltipProvider } from "../Tooltip";
 import { setEffectSwitches, setInGameReducedMotion } from "../MotionPreference";
+import RainbowKit = require("../Rainbow");
 const ContentProvider = game.GetService("ContentProvider");
 const GuiService = game.GetService("GuiService");
 const Players = game.GetService("Players");
@@ -1454,6 +1455,10 @@ export function MainGame(_param: MainGameProps) {
 	React.useEffect(() => {
 		setEffectSwitches(screenFlashesSetting >= 0.5, confettiSetting >= 0.5);
 	}, [screenFlashesSetting, confettiSetting]);
+	const rainbowSetting = (state?.Settings.RainbowIntensity as number | undefined) ?? 0.7;
+	React.useEffect(() => {
+		RainbowKit.configure(rainbowSetting, softFeel);
+	}, [rainbowSetting, softFeel]);
 	const viewportSpeed = (state?.Settings.ViewportSpeed as number | undefined) ?? 1;
 	const [viewportTick, setViewportTick] = React.useState(0);
 	React.useEffect(() => {

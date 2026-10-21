@@ -5,7 +5,12 @@
 // lightness and chroma stay even all the way round and each stop is interpolated in OKLab, so the
 // band between two keypoints never goes grey.
 //
-// Two ways to animate:
+// Three ways to animate:
+//   * Bound (preferred for anything new): Rainbow.bind(gradient, options) hands the UIGradient to one
+//     shared clock. Each slot has its own phase, so neighbouring rims don't move in lockstep, and
+//     only bindings whose state calls for colour (hover, selection, rarity, progress, an active mode)
+//     move at all. Hidden or offscreen gradients are skipped, and the clock disconnects when nothing
+//     is moving. See RainbowGradient (UiCore/rainbowFx.tsx) for the React side.
 //   * Rotation: put a looping sequence (Rainbow.LOOP, or Rainbow.loop(name)) on a UIGradient under
 //     a UIStroke and spin its Rotation with Rainbow.spin. The sequence ends where it starts, so the
 //     colours chase round the rim with no seam. One number per frame.
@@ -75,13 +80,11 @@ function mix(a: Color3, b: Color3, t: number): Color3 {
 	return oklabToColor(L1 + (L2 - L1) * t, a1 + (a2 - a1) * t, b1 + (b2 - b1) * t);
 }
 
-// The "spectrum" is no longer the whole wheel: it is a warm metal sheen that swings between gold and
-// copper and lifts toward cream at the crest. Everything that asked for a rainbow (rims, island
-// moments, flowing fills) now reads as polished brass catching light, in the forge's one accent.
 function spectrum(L: number, C: number): Palette {
 	return (share: number): Color3 => {
-		const wave = math.cos(share * math.pi * 2);
-		return oklch(L + 0.04 * wave, C * (0.55 - 0.2 * wave), 0.2 - 0.04 * wave);
+		// a gentle lift through the warm half keeps yellows from sinking to olive
+		const lift = 0.035 * math.cos((share - 0.28) * math.pi * 2);
+		return oklch(L + lift, C, share + 0.08);
 	};
 }
 
@@ -125,10 +128,10 @@ const PALETTES: Record<string, Palette> = {
 	]),
 	// deep space: indigo, magenta, gold
 	nebula: through([
-		Color3.fromRGB(116, 108, 196),
-		Color3.fromRGB(150, 126, 206),
-		Color3.fromRGB(214, 184, 146),
-		Color3.fromRGB(132, 116, 200),
+		Color3.fromRGB(92, 84, 220),
+		Color3.fromRGB(196, 92, 214),
+		Color3.fromRGB(255, 176, 102),
+		Color3.fromRGB(140, 110, 240),
 	]),
 };
 
@@ -224,7 +227,7 @@ function family(color: Color3, phase: number, depth?: number): ColorSequence {
 	);
 	let palette = PALETTES[key];
 	if (palette === undefined) {
-		palette = through([mix(color, WHITE, 0.16 * d), color, mix(color, BLACK, 0.12 * d), color]);
+		palette = through([mix(color, WHITE, 0.3 * d), color, mix(color, BLACK, 0.22 * d), color]);
 		PALETTES[key] = palette;
 	}
 	return phaseOf(key, palette, phase);
@@ -247,4 +250,262 @@ function sweep(seconds: number, period?: number): number {
 	return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-export = table.freeze({ mix, PALETTES: PALETTE_NAMES, loop, LOOP, SOFT, flow, at, family, color, spin, sweep });
+// ---------------------------------------------------------------------------------------------------
+// State-driven, layered gradients on one shared clock
+
+const RunService = game.GetService("RunService");
+const Workspace = game.GetService("Workspace");
+
+/** What a piece of UI is doing right now; the colour follows from it. */
+interface RainbowState {
+	/** item rarity id; the ascended tiers get their own palettes, Legendary runs hot */
+	rarity?: string;
+	hover?: boolean;
+	selected?: boolean;
+	/** 0..1 fill; colour builds with it and a full bar flows the whole spectrum */
+	progress?: number;
+	/** a mode that is switched on (auto-forge, an event, a boost) */
+	active?: boolean;
+}
+
+interface RainbowLook {
+	palette: string;
+	/** 0 = the base colour alone, 1 = the full palette */
+	intensity: number;
+	/** seconds per loop */
+	period: number;
+	/** whether the colour moves; a still look keeps its gradient but costs nothing per frame */
+	moving: boolean;
+}
+
+const RARITY_PALETTE: Record<string, string | undefined> = {
+	Astral: "nebula",
+	Celestial: "aurora",
+	Mythic: "spectrum",
+	Legendary: "ember",
+	Epic: "nebula",
+};
+
+/** Maps UI state to a look. Plain items stay plain; colour is earned by state, not sprayed on. */
+function lookFor(state: RainbowState): RainbowLook {
+	const rarityPalette = state.rarity !== undefined ? RARITY_PALETTE[state.rarity] : undefined;
+	const ascended = state.rarity === "Astral" || state.rarity === "Celestial" || state.rarity === "Mythic";
+	let intensity = 0;
+	let period = 6;
+	if (rarityPalette !== undefined) {
+		intensity = ascended ? 0.85 : 0.45;
+		period = ascended ? 5 : 8;
+	}
+	if (state.progress !== undefined) {
+		const p = math.clamp(state.progress, 0, 1);
+		intensity = math.max(intensity, p >= 1 ? 1 : p * 0.6);
+		period = p >= 1 ? 3 : period;
+	}
+	if (state.active === true) {
+		intensity = math.max(intensity, 0.7);
+		period = math.min(period, 4);
+	}
+	if (state.selected === true) {
+		intensity = math.max(intensity, 0.6);
+	}
+	if (state.hover === true) {
+		intensity = math.min(1, math.max(intensity, 0.35) + 0.15);
+		period = math.min(period, 3.5);
+	}
+	const moving = intensity > 0.05 && (state.hover === true || state.selected === true || state.active === true || ascended || (state.progress ?? 0) >= 1);
+	return { palette: rarityPalette ?? (state.progress !== undefined && (state.progress ?? 0) >= 1 ? "spectrum" : "soft"), intensity, period, moving };
+}
+
+// the player's Rainbow slider (Settings > Graphics) and reduced motion
+let globalIntensity = 0.7;
+let motionAllowed = true;
+
+// a palette blended toward a base colour, so low intensity is a tinted sheen rather than a weak
+// rainbow. Steps of 0.1 keep the cache small; phases are cached per blend like every other loop.
+function blendKey(name: string, base: Color3, k: number): string {
+	return string.format("blend:%s:%02x%02x%02x:%d", name, math.floor(base.R * 255), math.floor(base.G * 255), math.floor(base.B * 255), k);
+}
+function blended(name: string, base: Color3, intensity: number, phase: number): ColorSequence {
+	const k = math.clamp(math.floor(intensity * 10 + 0.5), 0, 10);
+	const key = blendKey(name, base, k);
+	let palette = PALETTES[key];
+	if (palette === undefined) {
+		const source = PALETTES[name] ?? PALETTES.spectrum;
+		const t = k / 10;
+		palette = (share: number) => mix(base, source(share), t);
+		PALETTES[key] = palette;
+	}
+	return phaseOf(key, palette, phase);
+}
+
+interface RainbowOptions {
+	/** colour the gradient settles to when the state asks for none */
+	base: Color3;
+	state?: RainbowState;
+	/** 0..1 offset round the loop; defaults to a spread based on the slot order */
+	phase?: number;
+	/** flow sideways (fills, text) or spin round (rims under a UIStroke) */
+	style?: "flow" | "spin";
+	/** checked for visibility; defaults to the gradient's parent */
+	host?: GuiObject;
+}
+
+interface Slot {
+	gradient: UIGradient;
+	host?: GuiObject;
+	base: Color3;
+	phase: number;
+	style: "flow" | "spin";
+	look: RainbowLook;
+	shown: boolean;
+	alive: boolean;
+}
+
+interface RainbowHandle {
+	setState(this: void, state: RainbowState): void;
+	setBase(this: void, base: Color3): void;
+	destroy(this: void): void;
+}
+
+const bindings = new Set<Slot>();
+const moving = new Set<Slot>();
+let driver: RBXScriptConnection | undefined;
+let visibilityAt = 0;
+let bindCount = 0;
+const GOLDEN = 0.618034;
+
+function onScreen(item: GuiObject): boolean {
+	if (!item.Visible) {
+		return false;
+	}
+	const gui = item.FindFirstAncestorWhichIsA("LayerCollector");
+	if (gui === undefined || !gui.Enabled) {
+		return false;
+	}
+	const camera = Workspace.CurrentCamera;
+	const view = camera !== undefined ? camera.ViewportSize : new Vector2(1920, 1080);
+	const at = item.AbsolutePosition;
+	const size = item.AbsoluteSize;
+	return size.X > 0 && size.Y > 0 && at.X < view.X && at.Y < view.Y && at.X + size.X > 0 && at.Y + size.Y > 0;
+}
+
+function paint(slot: Slot, now: number) {
+	const look = slot.look;
+	const strength = look.intensity * globalIntensity;
+	if (strength <= 0.05) {
+		slot.gradient.Color = new ColorSequence(slot.base);
+		slot.gradient.Rotation = 0;
+		return;
+	}
+	if (slot.style === "spin") {
+		slot.gradient.Color = blended(look.palette, slot.base, strength, slot.phase);
+		slot.gradient.Rotation = look.moving && motionAllowed ? spin(now + slot.phase * look.period, look.period) : slot.phase * 360;
+	} else {
+		const drift = look.moving && motionAllowed ? now / look.period : 0;
+		slot.gradient.Color = blended(look.palette, slot.base, strength, slot.phase + drift);
+	}
+}
+
+function step() {
+	const now = os.clock();
+	if (now >= visibilityAt) {
+		// visibility is a layout question; four checks a second is plenty
+		visibilityAt = now + 0.25;
+		for (const slot of moving) {
+			slot.shown = slot.host === undefined || onScreen(slot.host);
+		}
+	}
+	for (const slot of moving) {
+		if (slot.shown) {
+			paint(slot, now);
+		}
+	}
+}
+
+function refreshDriver() {
+	const wanted = motionAllowed && globalIntensity > 0.05 && moving.size() > 0;
+	if (wanted && driver === undefined) {
+		visibilityAt = 0;
+		driver = RunService.RenderStepped.Connect(step);
+	} else if (!wanted && driver !== undefined) {
+		driver.Disconnect();
+		driver = undefined;
+	}
+}
+
+function settle(slot: Slot) {
+	if (!slot.alive) {
+		return;
+	}
+	if (slot.look.moving && slot.look.intensity * globalIntensity > 0.05) {
+		moving.add(slot);
+	} else {
+		moving.delete(slot);
+	}
+	paint(slot, os.clock());
+	refreshDriver();
+}
+
+/** Hand a UIGradient to the shared clock. Call destroy() on unmount (it also cleans up if the gradient is destroyed). */
+function bind(gradient: UIGradient, options: RainbowOptions): RainbowHandle {
+	bindCount += 1;
+	const parent = gradient.Parent;
+	const host = options.host ?? (parent !== undefined && parent.IsA("GuiObject") ? parent : undefined);
+	const slot: Slot = {
+		gradient,
+		host,
+		base: options.base,
+		phase: options.phase ?? wrap1(bindCount * GOLDEN),
+		style: options.style ?? "flow",
+		look: lookFor(options.state ?? {}),
+		shown: true,
+		alive: true,
+	};
+	bindings.add(slot);
+	const destroy = () => {
+		if (!slot.alive) {
+			return;
+		}
+		slot.alive = false;
+		bindings.delete(slot);
+		moving.delete(slot);
+		refreshDriver();
+	};
+	const gone = gradient.Destroying.Connect(destroy);
+	settle(slot);
+	return {
+		setState: (state) => {
+			slot.look = lookFor(state);
+			settle(slot);
+		},
+		setBase: (base) => {
+			slot.base = base;
+			settle(slot);
+		},
+		destroy: () => {
+			gone.Disconnect();
+			destroy();
+		},
+	};
+}
+
+/** Settings > Graphics > Rainbow (0..1) and reduced motion; still bindings keep their colour. */
+function configure(intensity: number, reducedMotion: boolean) {
+	const wanted = math.clamp(intensity === intensity ? intensity : 0.7, 0, 1);
+	if (wanted === globalIntensity && motionAllowed === !reducedMotion) {
+		return;
+	}
+	globalIntensity = wanted;
+	motionAllowed = !reducedMotion;
+	for (const slot of bindings) {
+		settle(slot);
+	}
+	refreshDriver();
+}
+
+/** how many gradients are moving right now (for the perf overlay and tests) */
+function activeCount(): number {
+	return driver === undefined ? 0 : moving.size();
+}
+
+export = table.freeze({ mix, PALETTES: PALETTE_NAMES, loop, LOOP, SOFT, flow, at, family, color, spin, sweep, lookFor, bind, configure, activeCount });
