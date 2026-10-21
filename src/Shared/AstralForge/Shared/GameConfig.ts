@@ -9,6 +9,11 @@ type RawList = Record<number, Row>;
 
 const sharedFolder = script.Parent!;
 const SharedData = require(sharedFolder.WaitForChild("SharedData") as ModuleScript) as (this: void, name: string) => unknown;
+const WorldCurve = require(sharedFolder.WaitForChild("WorldCurve") as ModuleScript) as {
+	ANCHOR_ID: number;
+	apply(this: void, zones: RawList): void;
+	statsFor(this: void, anchor: unknown, id: number): Row;
+};
 const DescribeGenerated = require(sharedFolder.WaitForChild("DescribeGenerated") as ModuleScript) as {
 	machine(this: void, prefix: string, core: string, prefixIndex: number, cycle: number): string;
 	research(this: void, prefix: string, noun: string, prefixIndex: number, cycle: number): string;
@@ -7318,6 +7323,7 @@ function generateZones() {
 			DarkColor: darkColor,
 		};
 	}
+	WorldCurve.apply(rawZones);
 	return zones;
 }
 
@@ -7600,35 +7606,6 @@ const ZONE_FEATURES = [
 ];
 const ZONE_LAYOUTS = ["Dock", "Crystal", "Foundry", "Rift", "Horizon"];
 
-const ZONE_FAST_TIER = 3400;
-const ZONE_TAIL_RATE = 1.000055;
-
-function ln1p(x: number): number {
-	const p = 1 + x;
-	if (p === 1) {
-		return x;
-	}
-	return (math.log(p) * x) / (p - 1);
-}
-
-function zoneMultiplier(tier: number): number {
-	const steps = math.max(0, tier);
-	const fast = math.min(steps, ZONE_FAST_TIER);
-	const tail = steps - fast;
-	let ln = math.log(12) + fast * math.log(1.22);
-	if (tail > 0) {
-		ln += tail * ln1p(ZONE_TAIL_RATE - 1);
-	}
-	if (ln !== ln || ln >= math.log(1e308)) {
-		return 1e300;
-	}
-	const value = math.exp(ln);
-	if (value !== value || value >= 1e308) {
-		return 1e300;
-	}
-	return value;
-}
-
 GameConfig.ResolveZone = (id: number) => {
 	const authored = (GameConfig.Zones as RawList)[id];
 	if (authored !== undefined) {
@@ -7641,23 +7618,11 @@ GameConfig.ResolveZone = (id: number) => {
 	const hue = ((index * 47) % 360) / 360;
 	const color = Color3.fromHSV(hue, 0.55, 0.92);
 	const dark = Color3.fromHSV(hue, 0.62, 0.28);
-	let authoredCount = 0;
-	// Generalized iteration (not pairs) so the lazy loader's __iter still fires.
+	// Generalized iteration (not pairs) so the lazy loader's __iter fills the list before it is read.
 	for (const [_] of GameConfig.Zones as Map<unknown, unknown>) {
-		authoredCount += 1;
+		break;
 	}
-	const tier = index - authoredCount;
-	const costExponent = math.log(25_000_000_000) + math.max(0, tier - 1) * math.log(1.85);
-	let cost: number | string;
-	if (costExponent < math.log(1e308)) {
-		cost = 25_000_000_000 * 1.85 ** math.max(0, tier - 1);
-	} else {
-		const log10 = costExponent / math.log(10);
-		const exp = math.floor(log10);
-		cost = string.format("%.8fe%d", 10 ** (log10 - exp), exp);
-	}
-	const cores = math.floor(20 + tier * 3 + tier ** 1.15);
-	const rebirths = math.floor(20 + tier * 2);
+	const continued = WorldCurve.statsFor((GameConfig.Zones as RawList)[WorldCurve.ANCHOR_ID], index);
 	const name = ZONE_NAMES[(index - 1) % ZONE_NAMES.size()];
 	const flavor = (index - 1) % ZONE_FEATURES.size();
 	return {
@@ -7669,10 +7634,10 @@ GameConfig.ResolveZone = (id: number) => {
 		Features: ZONE_FEATURES[flavor],
 		Layout: ZONE_LAYOUTS[(index - 1) % ZONE_LAYOUTS.size()],
 		ThemeIndex: ((index - 1) % 5) + 1,
-		Cost: cost,
-		CoreCost: cores,
-		Multiplier: zoneMultiplier(tier),
-		RequiredRebirths: rebirths,
+		Cost: continued.Cost,
+		CoreCost: continued.CoreCost,
+		Multiplier: continued.Multiplier,
+		RequiredRebirths: continued.RequiredRebirths,
 		Color: color,
 		DarkColor: dark,
 	};
@@ -7814,6 +7779,8 @@ if (generatedOk) {
 	}
 	if (gen.Zones !== undefined && gen.Zones !== false) {
 		GameConfig.Zones = gen.Zones;
+		// the generated rows carry the old restart-from-world-5 numbers; continue from the last tuned world instead
+		WorldCurve.apply(gen.Zones as RawList);
 	}
 	if (gen.GridUpgrades !== undefined && gen.GridUpgrades !== false) {
 		GameConfig.GridUpgrades = gen.GridUpgrades;
