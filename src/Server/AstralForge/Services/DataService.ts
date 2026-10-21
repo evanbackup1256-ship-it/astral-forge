@@ -2,6 +2,7 @@ import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import RelicRigs = require("../../../Shared/AstralForge/Shared/RelicRigs");
+import * as Constellations from "../../../Shared/AstralForge/Shared/Constellations";
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import ExpeditionBoard = require("../../../Shared/AstralForge/Shared/ExpeditionBoard");
 import ForgePrograms = require("../../../Shared/AstralForge/Shared/ForgePrograms");
@@ -627,6 +628,7 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 		}
 	}
 	items.Rigs = RelicRigs.ensure(items.Rigs);
+	profile.Constellations = Constellations.ensure(profile.Constellations);
 	const equippedItems = new Set<string>();
 	const equipped = d(items.Equipped);
 	for (const [target, uid] of pairs(equipped)) {

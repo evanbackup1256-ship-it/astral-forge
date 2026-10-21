@@ -161,6 +161,26 @@ return function(DataTemplate, GameConfig)
 		expect = { ["Machines.StellarCore"] = 1, Stardust = 0, Cores = 0, ["Items.Rigs.Lit"] = {}, ["Machines.Nope"] = nil },
 	})
 
+	-- v7.2 live save (DataVersion 21) from before v8: no Constellations bag yet, a rebirth ledger
+	-- with lifetime rebirths, and relics without engraving lines
+	do
+		local save = DataTemplate.New()
+		save.Rebirths = 3
+		save.Rebirth = { Lifetime = 40, RunStartedAt = 1700000000 }
+		save.Items.Inventory = { IT0000021 = { DefinitionId = "CapacityCoil", Level = 12, Stars = 1, AcquiredAt = 9 } }
+		save.Items.NextId = 22
+		strip(save, { "Constellations" })
+		add({
+			name = "v7.2 save before v8",
+			save = save,
+			expect = {
+				["Constellations.Lit"] = {},
+				["Rebirth.Lifetime"] = 40,
+				["Items.Inventory.IT0000021.Level"] = 12,
+			},
+		})
+	end
+
 	-- v21 a pristine new profile round-trips unchanged apart from load-time stamps
 	add({ name = "v21 fresh template", save = DataTemplate.New() })
 	-- ---- v8 C: Companion Bonds ----

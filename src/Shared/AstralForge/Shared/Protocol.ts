@@ -24,6 +24,7 @@
 		DomainExpansion: "DomainExpansion",
 		DomainLattice: "DomainLattice",
 		EventAct: "EventAct",
+		ConstellationAct: "ConstellationAct",
 		UpgradeContinuum: "UpgradeContinuum",
 		FoundryAct: "FoundryAct",
 		Ascend: "Ascend",

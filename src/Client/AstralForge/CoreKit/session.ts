@@ -11,7 +11,7 @@ const BEAT_INTERVAL_MAX = 12;
 export const GRANT_ACTIONS: Record<string, true> = {
 	CollectVault: true, Overcharge: true, BuyMachine: true, BuyResearch: true, BuyGridUpgrade: true,
 	UnlockZone: true, SelectZone: true, Rebirth: true, DomainExpansion: true, DomainLattice: true,
-	EventAct: true, UpgradeContinuum: true, FoundryAct: true, Ascend: true, UpgradeSigil: true,
+	EventAct: true, ConstellationAct: true, UpgradeContinuum: true, FoundryAct: true, Ascend: true, UpgradeSigil: true,
 	EchoAct: true, RebirthAct: true, TradeChat: true, TradeRequest: true, ClaimQuest: true,
 	ClaimAchievement: true, ClaimDaily: true, ClaimTimedReward: true, ClaimCommunityReward: true, SpinWheel: true, BazaarPlay: true,
 	SetMarketFavorite: true, RequestProcurement: true, SelectSpecialization: true, LaunchExpedition: true,

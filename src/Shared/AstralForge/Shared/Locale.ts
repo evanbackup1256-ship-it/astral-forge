@@ -694,7 +694,7 @@ export const EN = {
 	"GuildCommunity.ChatIsUnavailableForYour": "Chat is unavailable for your account.",
 	"GuildCommunity.AnnouncementNotFound": "Announcement not found.",
 	"HotFlags.UseNameOnOrName": "Use Name=on or Name=off.",
-	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused.",
+	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused, ConstellationsPaused.",
 	"ServerEventService.NoStarsAreFallingRight": "No stars are falling right now.",
 	"ServerEventService.YouVeCaughtEveryStar": "You've caught every star you can this time.",
 	"ServerEventService.TooQuick": "Too quick.",
@@ -753,6 +753,15 @@ export const EN = {
 	"ForgePrograms.On": "Rule on.",
 	"ForgePrograms.Off": "Rule off.",
 	// ---- end v8 C: Forge Programs ----
+	// v8: constellations
+	"Constellations.ThatStarIsnTOn": "That star isn't on any chart.",
+	"Constellations.ThatStarIsAlreadyLit": "That star is already lit.",
+	"Constellations.LightSFirst": "Light %s first.",
+	"Constellations.YouNeedDMoreStar": "You need %d more Star Points. Every rebirth earns one.",
+	"Constellations.SIsComplete": "%s is complete.",
+	"Constellations.SIsLit": "%s is lit in %s.",
+	"Constellations.ChartsArePaused": "The star charts are closed for a moment. Your stars still count.",
+	"Constellations.UnknownAction": "Unknown star chart action.",
 } as const;
 
 export type LocaleKey = keyof typeof EN;

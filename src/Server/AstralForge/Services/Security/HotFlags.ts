@@ -21,6 +21,7 @@ export const FLAGS = table.freeze({
 	// ---- v8 C: Forge Programs ----
 	ForgeProgramsPaused: "Forge Programs stop running and can't be edited. Saved rules are kept.",
 	// ---- end v8 C: Forge Programs ----
+	ConstellationsPaused: "No new stars can be lit. Stars already lit keep paying.",
 });
 
 export type HotFlag = keyof typeof FLAGS;

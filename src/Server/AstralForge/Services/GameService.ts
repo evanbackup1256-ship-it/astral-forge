@@ -39,6 +39,7 @@ import * as WeeklyStores from "./WeeklyStores";
 import * as LimitedEvents from "../../../Shared/AstralForge/Shared/LimitedEvents";
 import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
+import * as Constellations from "../../../Shared/AstralForge/Shared/Constellations";
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
@@ -2259,6 +2260,7 @@ export class GameService {
 			Story: storyState,
 			Mailbox: StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
 			LimitedEvent: limitedEventPublic(profile, now),
+			Constellations: { ...Constellations.publicView(profile), Paused: HotFlags.Get("ConstellationsPaused") },
 			WeeklyBoard: {
 				Score: WeeklyBoard.scoreOf(profile, now),
 				EndsAt: WeeklyBoard.weekEndsAt(WeeklyBoard.weekOf(now)),
@@ -2825,6 +2827,20 @@ export class GameService {
 			});
 		}
 		return responseError(T("GameService.UnknownEventAction"));
+	}
+
+	_constellationAct(player: Player, payload: Dict | undefined) {
+		if (payload?.Op !== "Light") {
+			return responseError(T("Constellations.UnknownAction"));
+		}
+		if (HotFlags.Get("ConstellationsPaused")) {
+			return responseError(T("Constellations.ChartsArePaused"));
+		}
+		return this._mutate(player, (profile: Profile) => {
+			rebirthLedger(profile, os.time());
+			const [ok, message] = Constellations.light(profile as Dict, payload.Star);
+			return ok ? responseSuccess(message, { Star: payload.Star }) : responseError(message);
+		});
 	}
 
 	_overchargeCombo(runtime: Runtime | undefined, profile: unknown): LuaTuple<[number, number]> {
@@ -6090,6 +6106,8 @@ export class GameService {
 			return this._expeditionAct(player, payload);
 		} else if (action === Protocol.Actions.ProgramAct) {
 			return this._programAct(player, payload);
+		} else if (action === Protocol.Actions.ConstellationAct) {
+			return this._constellationAct(player, payload);
 		} else if (action === Protocol.Actions.ClaimConvergenceReward) {
 			return this._convergence.Claim(player, payload?.Tier) as Response;
 		} else if (action === Protocol.Actions.ClaimQuest) {

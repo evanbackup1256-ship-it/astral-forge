@@ -1117,6 +1117,7 @@ __defs["ActionFeatureMaps"] = () => {
 		Rebirth: "Rebirth",
 		DomainExpansion: "Domain",
 		DomainLattice: "Domain",
+		ConstellationAct: "Rebirth",
 		UpgradeContinuum: "Continuum",
 		Ascend: "Ascension",
 		UpgradeSigil: "Ascension",

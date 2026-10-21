@@ -178,6 +178,7 @@ const RULES: Record<string, Rule> = {
 	[Protocol.Actions.DomainExpansion]: { Cost: 5, Cooldown: 5 },
 	[Protocol.Actions.DomainLattice]: { Cost: 1, Cooldown: 0.15 },
 	[Protocol.Actions.EventAct]: { Cost: 0.4, Cooldown: 0.2 },
+	[Protocol.Actions.ConstellationAct]: { Cost: 1, Cooldown: 0.25 },
 	[Protocol.Actions.UpgradeContinuum]: { Cost: 1.5, Cooldown: 0.35 },
 	// Star Foundry moves; Ignite is a timing tap, so the cooldown is short
 	[Protocol.Actions.FoundryAct]: { Cost: 0.45, Cooldown: 0.06 },
@@ -603,6 +604,10 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		}
 		if (bag.Op === "Claim" && !numberField(bag, "Drop", 1, 8, true)) {
 			return $tuple(false, "invalid supply drop");
+		}
+	} else if (action === Protocol.Actions.ConstellationAct) {
+		if (!typeIs(payload, "table") || bag.Op !== "Light" || !stringField(bag, "Star", 1, 24)) {
+			return $tuple(false, "invalid constellation action");
 		}
 	} else if (action === Protocol.Actions.DomainLattice) {
 		if (!typeIs(payload, "table") || (bag.Op !== "Etch" && bag.Op !== "Clear")) {

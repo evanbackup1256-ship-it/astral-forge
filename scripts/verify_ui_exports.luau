@@ -17,6 +17,9 @@ local ALLOWED: { [string]: string } = {
 	["Controllers/SessionControllers.ts:PresenceController"] = "Flamework controller",
 	["Controllers/SessionControllers.ts:TelemetryController"] = "Flamework controller",
 	["Controllers/SessionControllers.ts:PingController"] = "Flamework controller",
+	-- v8 feature views: new files only while the pages are restyled; drop these once routed
+	["pages/PagesProgress/ConstellationsView.tsx:ConstellationsView"] = "v8 constellations, not routed yet",
+	["pages/PagesProgress/ConstellationsView.tsx:constellationsHeight"] = "v8 constellations, not routed yet",
 	-- shell components: shell memo workstream (B)
 	["UiCore/NavChrome.tsx:MoreDock"] = "shell workstream",
 	["UiCore/ShellFx.tsx:ConfettiBurst"] = "shell workstream",
