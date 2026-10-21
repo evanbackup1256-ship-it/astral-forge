@@ -30,7 +30,7 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	MuteGuildMember: true, UnmuteGuildMember: true, BanGuildMember: true, UnbanGuildMember: true,
 	UploadGuildLogo: true, ModerateGuildLogo: true, AdminExecute: true, ClaimConvergenceReward: true,
 	ConfirmTrade: true, UpdateTradeOffer: true, InviteTrade: true, RespondTrade: true, SetTradeReady: true,
-	CancelTrade: true, CompleteTutorial: true, DeleteMail: true, MarkHintSeen: true, DismissRelease: true, EquipTitle: true, SetProfileStyle: true,
+	CancelTrade: true, ClaimFirstGoal: true, CompleteTutorial: true, DeleteMail: true, MarkHintSeen: true, DismissRelease: true, EquipTitle: true, SetProfileStyle: true,
 	OpenRelease: true, ReadMail: true, ReadStoryChapter: true, SetAnomalyChannel: true,
 	SetAnomalyLoadout: true, SetAutoForge: true, SetItemAutoSalvage: true, SetMobileLayout: true,
 	SetSetting: true, SyncShop: true, ToggleItemLock: true, BuyDailyOffer: true, BuyCrateSkin: true,

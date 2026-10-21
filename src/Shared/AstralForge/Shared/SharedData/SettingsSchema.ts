@@ -36,7 +36,12 @@ const SECTIONS: ReadonlyArray<Section> = table.freeze([
 	{ id: "mobile", label: "Phone", icon: "Menu.5", accent: "blue", blurb: "Sizes and layout for touch screens.", touchOnly: true },
 ]);
 
-const SIZE4: Choice[] = [ { label: "S", value: 0.25 }, { label: "M", value: 0.5 }, { label: "L", value: 0.75 }, { label: "XL", value: 1 } ];
+const SIZE4: Choice[] = [
+	{ label: "S", value: 0.25 },
+	{ label: "M", value: 0.5 },
+	{ label: "L", value: 0.75 },
+	{ label: "XL", value: 1 },
+];
 
 const THREE = (a: string, b: string, c: string, va: number, vb: number, vc: number): Choice[] => [
 	{ label: a, value: va },
@@ -49,15 +54,7 @@ function toggle(key: string, section: string, label: string, help: string, def: 
 function slider(key: string, section: string, label: string, help: string, def: number, advanced?: boolean): Entry {
 	return { key, section, label, help, kind: "slider", default: def, advanced };
 }
-function choice(
-	key: string,
-	section: string,
-	label: string,
-	help: string,
-	def: number,
-	choices: Choice[],
-	advanced?: boolean,
-): Entry {
+function choice(key: string, section: string, label: string, help: string, def: number, choices: Choice[], advanced?: boolean): Entry {
 	return { key, section, label, help, kind: "choice", default: def, choices, advanced };
 }
 const ENTRIES: ReadonlyArray<Entry> = table.freeze([
@@ -95,13 +92,49 @@ const ENTRIES: ReadonlyArray<Entry> = table.freeze([
 	toggle("ShowPing", "interface", "Ping", "Connection delay in the top bar.", 1),
 	toggle("ShowResourceLabels", "interface", "Currency labels", "FLUX, CORES and DUST above the numbers.", 1),
 	toggle("ShowNextGoal", "interface", "Level bar", "Your Forge Level and next goal under page titles.", 1),
+	toggle(
+		"FirstGoals",
+		"interface",
+		"First goals",
+		"Short starter goals with small rewards on Overview. Turn back on to pick up where you left off.",
+		1,
+	),
 	toggle("Tooltips", "interface", "Tooltips", "Notes when you hover, or press and hold on a phone.", 1),
 	toggle("CompactTopBar", "interface", "Compact top bar", "A shorter header with more room below.", 0),
 	choice("UiDensity", "interface", "Spacing", "Room between things on the page.", 0.55, THREE("Tight", "Normal", "Roomy", 0.2, 0.55, 0.9)),
-	choice("ToastDensity", "interface", "Alerts on screen", "How many notifications stack up.", 0.55, THREE("Few", "Some", "Many", 0.2, 0.55, 0.9)),
-	choice("NotificationDuration", "interface", "Alert time", "How long notifications stay.", 0.55, THREE("Short", "Normal", "Long", 0.25, 0.55, 0.9)),
-	choice("PerformanceBias", "interface", "Priority", "Favor looks or frame rate when the game is busy.", 0.5, THREE("Looks", "Balanced", "Speed", 0, 0.5, 1)),
-	choice("ScrollSpeed", "interface", "Scroll speed", "How far one wheel notch moves a list.", 0.65, THREE("Slow", "Normal", "Fast", 0.35, 0.65, 0.95), true),
+	choice(
+		"ToastDensity",
+		"interface",
+		"Alerts on screen",
+		"How many notifications stack up.",
+		0.55,
+		THREE("Few", "Some", "Many", 0.2, 0.55, 0.9),
+	),
+	choice(
+		"NotificationDuration",
+		"interface",
+		"Alert time",
+		"How long notifications stay.",
+		0.55,
+		THREE("Short", "Normal", "Long", 0.25, 0.55, 0.9),
+	),
+	choice(
+		"PerformanceBias",
+		"interface",
+		"Priority",
+		"Favor looks or frame rate when the game is busy.",
+		0.5,
+		THREE("Looks", "Balanced", "Speed", 0, 0.5, 1),
+	),
+	choice(
+		"ScrollSpeed",
+		"interface",
+		"Scroll speed",
+		"How far one wheel notch moves a list.",
+		0.65,
+		THREE("Slow", "Normal", "Fast", 0.35, 0.65, 0.95),
+		true,
+	),
 	slider("ScrollMomentum", "interface", "Scroll glide", "How long a list keeps moving after you let go.", 0.75, true),
 	choice("DesktopTextScale", "accessibility", "Text size", "Bigger or smaller text. Buttons stay where they are.", 0.5, SIZE4),
 	toggle("HighContrast", "accessibility", "High contrast", "Stronger text and edges.", 0),
@@ -114,12 +147,29 @@ const ENTRIES: ReadonlyArray<Entry> = table.freeze([
 	toggle("ChatShowGlobal", "social", "Global chat", "Show messages from every server in the All tab.", 1),
 	toggle("ChatSounds", "social", "Chat sounds", "A soft sound when a message arrives.", 1),
 	toggle("ChatUseProfileAccent", "social", "Profile colours in chat", "Names use each player's chosen profile accent.", 1),
-	choice("ChatTextSize", "social", "Chat text size", "Message text in the chat page.", 0.5, THREE("Small", "Normal", "Large", 0.2, 0.5, 0.85)),
+	choice(
+		"ChatTextSize",
+		"social",
+		"Chat text size",
+		"Message text in the chat page.",
+		0.5,
+		THREE("Small", "Normal", "Large", 0.2, 0.5, 0.85),
+	),
 	toggle("WhispersFriendsOnly", "social", "Whispers from friends only", "Only Roblox friends can start a private chat with you.", 0),
 	choice("CrewInvitePolicy", "social", "Crew invites", "Who can invite you to a crew.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
-	choice("TradeInvitePolicy", "social", "Trade invites", "Who can invite you to trade.", 0, THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1)),
+	choice(
+		"TradeInvitePolicy",
+		"social",
+		"Trade invites",
+		"Who can invite you to trade.",
+		0,
+		THREE("Anyone", "Friends", "Nobody", 0, 0.5, 1),
+	),
 	choice("MobileTextScale", "mobile", "Text size", "Text size on phones.", 0.5, SIZE4),
-	choice("MobileQuickReverse", "mobile", "Main thumb", "Which side the overcharge button sits on.", 0, [ { label: "Right", value: 0 }, { label: "Left", value: 1 } ]),
+	choice("MobileQuickReverse", "mobile", "Main thumb", "Which side the overcharge button sits on.", 0, [
+		{ label: "Right", value: 0 },
+		{ label: "Left", value: 1 },
+	]),
 	toggle("MobileQuickVisible", "mobile", "Quick buttons", "Vault and overcharge above the menu.", 1),
 	toggle("MobileDockVisible", "mobile", "Bottom menu", "Show the menu bar. The drawer still works.", 1),
 	toggle("MobileToastVisible", "mobile", "Alerts", "Floating notifications.", 1),
@@ -144,13 +194,28 @@ const GROUPS: Readonly<Record<string, ReadonlyArray<{ label: string; keys: Reado
 		{ label: "Fine tuning", keys: ["SoundVariation"] },
 	],
 	display: [
-		{ label: "Motion", keys: ["MotionIntensity", "AnimatedTitles", "IconAnimations", "NumberAnimations", "PanelHover", "PanelEntrances", "ViewportSpeed", "ReactorMotion"] },
+		{
+			label: "Motion",
+			keys: [
+				"MotionIntensity",
+				"AnimatedTitles",
+				"IconAnimations",
+				"NumberAnimations",
+				"PanelHover",
+				"PanelEntrances",
+				"ViewportSpeed",
+				"ReactorMotion",
+			],
+		},
 		{ label: "Effects", keys: ["EffectsIntensity", "ConfettiEnabled", "ScreenFlashes", "ParticleDensity", "OfflineRewardEffects"] },
-		{ label: "Light and background", keys: ["GlowIntensity", "ButtonShimmers", "ShimmerIntensity", "BackgroundStars", "BackgroundDetail", "AmbientGlow"] },
+		{
+			label: "Light and background",
+			keys: ["GlowIntensity", "ButtonShimmers", "ShimmerIntensity", "BackgroundStars", "BackgroundDetail", "AmbientGlow"],
+		},
 	],
 	interface: [
 		{ label: "Top bar", keys: ["ShowFps", "ShowPing", "ShowResourceLabels", "CompactTopBar"] },
-		{ label: "Pages", keys: ["ShowNextGoal", "Tooltips", "UiDensity", "ScrollSpeed", "ScrollMomentum"] },
+		{ label: "Pages", keys: ["ShowNextGoal", "FirstGoals", "Tooltips", "UiDensity", "ScrollSpeed", "ScrollMomentum"] },
 		{ label: "Alerts", keys: ["ToastDensity", "NotificationDuration"] },
 		{ label: "Performance", keys: ["PerformanceBias"] },
 	],
@@ -163,8 +228,32 @@ const GROUPS: Readonly<Record<string, ReadonlyArray<{ label: string; keys: Reado
 		{ label: "Privacy", keys: ["WhispersFriendsOnly", "CrewInvitePolicy", "TradeInvitePolicy"] },
 	],
 	mobile: [
-		{ label: "Layout", keys: ["MobileTextScale", "MobileQuickReverse", "MobileQuickVisible", "MobileDockVisible", "MobileToastVisible", "MobileCompactHeaders", "MobileAutoHideDock", "MobileLandscapeCompact", "MobileKeyboardCompact"] },
-		{ label: "Sizes and opacity", keys: ["MobileQuickScale", "MobileDockScale", "MobileToastScale", "MobileQuickOpacity", "MobileDockOpacity", "MobileToastOpacity", "MobileButtonSpacing"] },
+		{
+			label: "Layout",
+			keys: [
+				"MobileTextScale",
+				"MobileQuickReverse",
+				"MobileQuickVisible",
+				"MobileDockVisible",
+				"MobileToastVisible",
+				"MobileCompactHeaders",
+				"MobileAutoHideDock",
+				"MobileLandscapeCompact",
+				"MobileKeyboardCompact",
+			],
+		},
+		{
+			label: "Sizes and opacity",
+			keys: [
+				"MobileQuickScale",
+				"MobileDockScale",
+				"MobileToastScale",
+				"MobileQuickOpacity",
+				"MobileDockOpacity",
+				"MobileToastOpacity",
+				"MobileButtonSpacing",
+			],
+		},
 	],
 });
 const groupOf: Record<string, { label: string; order: number } | undefined> = {};
@@ -268,19 +357,58 @@ const PRESETS: ReadonlyArray<Preset> = table.freeze([
 		id: "low",
 		label: "Low",
 		notice: "Low graphics: fewer effects, calmer motion.",
-		values: { EffectsIntensity: 0.25, MotionIntensity: 0.3, ParticleDensity: 0.15, GlowIntensity: 0.25, ShimmerIntensity: 0.2, ButtonShimmers: 0, ConfettiEnabled: 0, ScreenFlashes: 0, BackgroundDetail: 0.3, AnimatedTitles: 0, IconAnimations: 0, PerformanceBias: 1 },
+		values: {
+			EffectsIntensity: 0.25,
+			MotionIntensity: 0.3,
+			ParticleDensity: 0.15,
+			GlowIntensity: 0.25,
+			ShimmerIntensity: 0.2,
+			ButtonShimmers: 0,
+			ConfettiEnabled: 0,
+			ScreenFlashes: 0,
+			BackgroundDetail: 0.3,
+			AnimatedTitles: 0,
+			IconAnimations: 0,
+			PerformanceBias: 1,
+		},
 	},
 	{
 		id: "balanced",
 		label: "Balanced",
 		notice: "Balanced graphics.",
-		values: { EffectsIntensity: 0.7, MotionIntensity: 0.7, ParticleDensity: 0.6, GlowIntensity: 0.6, ShimmerIntensity: 0.7, ButtonShimmers: 1, ConfettiEnabled: 1, ScreenFlashes: 1, BackgroundDetail: 0.7, AnimatedTitles: 1, IconAnimations: 1, PerformanceBias: 0.5 },
+		values: {
+			EffectsIntensity: 0.7,
+			MotionIntensity: 0.7,
+			ParticleDensity: 0.6,
+			GlowIntensity: 0.6,
+			ShimmerIntensity: 0.7,
+			ButtonShimmers: 1,
+			ConfettiEnabled: 1,
+			ScreenFlashes: 1,
+			BackgroundDetail: 0.7,
+			AnimatedTitles: 1,
+			IconAnimations: 1,
+			PerformanceBias: 0.5,
+		},
 	},
 	{
 		id: "high",
 		label: "High",
 		notice: "High graphics: every effect at full.",
-		values: { EffectsIntensity: 1, MotionIntensity: 1, ParticleDensity: 1, GlowIntensity: 1, ShimmerIntensity: 1, ButtonShimmers: 1, ConfettiEnabled: 1, ScreenFlashes: 1, BackgroundDetail: 1, AnimatedTitles: 1, IconAnimations: 1, PerformanceBias: 0 },
+		values: {
+			EffectsIntensity: 1,
+			MotionIntensity: 1,
+			ParticleDensity: 1,
+			GlowIntensity: 1,
+			ShimmerIntensity: 1,
+			ButtonShimmers: 1,
+			ConfettiEnabled: 1,
+			ScreenFlashes: 1,
+			BackgroundDetail: 1,
+			AnimatedTitles: 1,
+			IconAnimations: 1,
+			PerformanceBias: 0,
+		},
 	},
 ]);
 

@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import OmegaMath = require("../../../../Shared/AstralForge/Shared/OmegaMath");
+import * as FirstGoals from "../../../../Shared/AstralForge/Shared/FirstGoals";
 import { AppHelpers } from "../../CoreKit/appNav";
 import { asFlux, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -65,10 +66,7 @@ interface OverviewPlan {
 	overviewTail: number;
 	contentIntrinsic: number;
 }
-const LayoutSectionPlan = kitMember<{ planOverview(this: void, flags: OverviewFlags): OverviewPlan }>(
-	"LayoutKit",
-	"layoutSectionPlan",
-);
+const LayoutSectionPlan = kitMember<{ planOverview(this: void, flags: OverviewFlags): OverviewPlan }>("LayoutKit", "layoutSectionPlan");
 const PageReadyMath = kitMember<{
 	CountReadyQuests(this: void, quests: unknown): number;
 	CountReadyLabOrders(this: void, lab: unknown): number;
@@ -77,6 +75,46 @@ const PageReadyMath = kitMember<{
 }>("LayoutKit", "pageReadyMath");
 
 const overviewGoal = makeOverviewGoal(OmegaMath, compactNumber);
+
+interface FirstGoalView {
+	goal: FirstGoals.FirstGoal;
+	index: number;
+	have: number;
+	done: boolean;
+	open: boolean;
+}
+
+// the first-goals path after the tour, until every goal is claimed or the player turns it off
+type FirstGoalState = {
+	Flags?: { TutorialDone?: unknown; FirstGoals?: unknown };
+	Settings?: { FirstGoals?: unknown };
+	Stats?: { MachinesBought?: unknown; ResearchBought?: unknown; CratesOpened?: unknown };
+	Level?: { Level?: unknown };
+	Rebirths?: unknown;
+	PrestigeReward?: unknown;
+	FeatureUnlocks?: Record<string, { Unlocked?: unknown } | undefined>;
+};
+function firstGoalView(raw: unknown): FirstGoalView | undefined {
+	const state = raw as FirstGoalState;
+	if (state.Flags?.TutorialDone !== true || state.Settings?.FirstGoals === 0) {
+		return undefined;
+	}
+	const [goal, index] = FirstGoals.currentGoal(FirstGoals.normalizeClaimed(state.Flags.FirstGoals));
+	if (goal === undefined) {
+		return undefined;
+	}
+	const count = (value: unknown) => (typeIs(value, "number") ? value : 0);
+	const [have, done] = FirstGoals.progressOf(goal, {
+		machinesBought: count(state.Stats?.MachinesBought),
+		researchBought: count(state.Stats?.ResearchBought),
+		cratesOpened: count(state.Stats?.CratesOpened),
+		level: count(state.Level?.Level),
+		rebirths: count(state.Rebirths),
+		rebirthReady: OmegaMath.Gte((state.PrestigeReward ?? 0) as never, 1),
+	});
+	const gate = state.FeatureUnlocks?.[goal.page];
+	return { goal, index, have, done, open: gate === undefined || gate.Unlocked !== false };
+}
 
 type Dispatch = (action: string, payload?: object, callback?: (response: { ok?: boolean }) => void) => unknown;
 
@@ -240,13 +278,7 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 			clips={false}
 		>
 			{live && (
-				<frame
-					Size={UDim2.fromScale(1, 1)}
-					BackgroundColor3={Palette.mint}
-					BackgroundTransparency={wash}
-					BorderSizePixel={0}
-					ZIndex={1}
-				>
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.mint} BackgroundTransparency={wash} BorderSizePixel={0} ZIndex={1}>
 					<uicorner CornerRadius={new UDim(0, 14)} />
 				</frame>
 			)}
@@ -293,18 +325,11 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 							[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
 								<frame
 									key={index}
-									Size={flash.map((amount) =>
-										UDim2.fromOffset(5 + math.floor(amount * 6), 5 + math.floor(amount * 6)),
-									)}
+									Size={flash.map((amount) => UDim2.fromOffset(5 + math.floor(amount * 6), 5 + math.floor(amount * 6)))}
 									Position={orbit.map((turn) => {
 										const angle = turn * math.pi * 2 + index * (math.pi / 4);
 										const radius = 36 + math.sin(turn * math.pi * 2 + index) * 4;
-										return new UDim2(
-											0.5,
-											math.floor(math.cos(angle) * radius),
-											0.5,
-											math.floor(math.sin(angle) * 12),
-										);
+										return new UDim2(0.5, math.floor(math.cos(angle) * radius), 0.5, math.floor(math.sin(angle) * 12));
 									})}
 									AnchorPoint={new Vector2(0.5, 0.5)}
 									BackgroundColor3={index % 2 === 0 ? Palette.mint : Palette.cyan}
@@ -368,12 +393,7 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 								Thickness={1}
 								Transparency={0.42}
 							/>
-							<frame
-								Size={new UDim2(0.42, 0, 0, 2)}
-								Position={new UDim2(0.29, 0, 0, 0)}
-								BackgroundColor3={entry.color}
-								BorderSizePixel={0}
-							>
+							<frame Size={new UDim2(0.42, 0, 0, 2)} Position={new UDim2(0.29, 0, 0, 0)} BackgroundColor3={entry.color} BorderSizePixel={0}>
 								<uicorner CornerRadius={new UDim(1, 0)} />
 							</frame>
 							<NumberSpinnerHost
@@ -415,16 +435,7 @@ interface MetricProps {
 	compact?: boolean;
 }
 
-function Metric({
-	label,
-	value,
-	detail,
-	accent,
-	size = new UDim2(1, 0, 0, 92),
-	layoutOrder = 0,
-	reveal,
-	compact = false,
-}: MetricProps) {
+function Metric({ label, value, detail, accent, size = new UDim2(1, 0, 0, 92), layoutOrder = 0, reveal, compact = false }: MetricProps) {
 	return (
 		<Panel
 			size={size}
@@ -441,7 +452,15 @@ function Metric({
 				Padding={new UDim(0, 2)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
-			<Text value={label} size={10} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={true} layoutOrder={0} sizeConstraint={new UDim2(1, 0, 0, 14)} />
+			<Text
+				value={label}
+				size={10}
+				color={Palette.muted}
+				weight={Enum.FontWeight.Bold}
+				fit={true}
+				layoutOrder={0}
+				sizeConstraint={new UDim2(1, 0, 0, 14)}
+			/>
 			<Text
 				value={value}
 				size={compact ? 18 : 22}
@@ -728,7 +747,13 @@ export function OverviewView({
 	}, [canCollect, overchargeLeft]);
 	const landscapePhone = phone && chrome.landscape;
 	const primaryIsBuy = !canCollect && stellarLevel < 1;
-	const primaryText = primaryIsBuy ? (landscapePhone ? "Buy machine" : "Buy a machine") : landscapePhone ? "Collect" : "Collect stored Flux";
+	const primaryText = primaryIsBuy
+		? landscapePhone
+			? "Buy machine"
+			: "Buy a machine"
+		: landscapePhone
+			? "Collect"
+			: "Collect stored Flux";
 	const primaryClick = primaryIsBuy ? openWorkshop : fireCollect;
 	const primaryDisabled = primaryIsBuy ? false : !canCollect;
 	const primaryIcon = primaryIsBuy ? "Forge" : "Collect";
@@ -789,7 +814,11 @@ export function OverviewView({
 	// a waiting chapter adds a fifth button: its own row on phones, a fifth column on desktop
 	const opsButtonRows = stack ? (storyWaiting > 0 ? 3 : 2) : 1;
 	const opsButtonH = TapTarget * opsButtonRows + (stack ? 8 * (opsButtonRows - 1) : 0);
-	const opsButtonSize = stack ? new UDim2(0.5, -4, 0, TapTarget) : storyWaiting > 0 ? new UDim2(0.2, -7, 0, TapTarget) : new UDim2(0.25, -6, 0, TapTarget);
+	const opsButtonSize = stack
+		? new UDim2(0.5, -4, 0, TapTarget)
+		: storyWaiting > 0
+			? new UDim2(0.2, -7, 0, TapTarget)
+			: new UDim2(0.25, -6, 0, TapTarget);
 	const journey = JourneyMath.Build(state);
 	const journeyNext = journey.Next;
 	const journeyRecent: string[] = [];
@@ -858,20 +887,10 @@ export function OverviewView({
 							id: "top",
 							height: topBandH,
 							element: (
-								<frame
-									Size={UDim2.fromScale(1, 1)}
-									BackgroundTransparency={1}
-									BorderSizePixel={0}
-									LayoutOrder={0}
-									ClipsDescendants={false}
-								>
+								<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={false}>
 									<uilistlayout
 										FillDirection={
-											denseHero
-												? Enum.FillDirection.Vertical
-												: wideOverview
-													? Enum.FillDirection.Horizontal
-													: Enum.FillDirection.Vertical
+											denseHero ? Enum.FillDirection.Vertical : wideOverview ? Enum.FillDirection.Horizontal : Enum.FillDirection.Vertical
 										}
 										SortOrder={Enum.SortOrder.LayoutOrder}
 										Padding={new UDim(0, denseHero ? 8 : wideOverview ? (ultraOverview ? 16 : 12) : sectionGap)}
@@ -879,13 +898,7 @@ export function OverviewView({
 									/>
 									<Panel
 										layoutOrder={0}
-										size={
-											denseHero
-												? new UDim2(1, 0, 0, readoutRow)
-												: wideOverview
-													? new UDim2(0.62, -6, 1, 0)
-													: new UDim2(1, 0, 0, heroH)
-										}
+										size={denseHero ? new UDim2(1, 0, 0, readoutRow) : wideOverview ? new UDim2(0.62, -6, 1, 0) : new UDim2(1, 0, 0, heroH)}
 										accent={vaultFill >= 0.99 ? Palette.mango : Palette.green}
 										background={Palette.panelRaised}
 										padding={stack ? chrome.cardPadding : denseHero ? 10 : ultraOverview ? 22 : 20}
@@ -1010,11 +1023,7 @@ export function OverviewView({
 												ClipsDescendants={false}
 											>
 												<uilistlayout
-													FillDirection={
-														landscapePhone && showOvercharge
-															? Enum.FillDirection.Horizontal
-															: Enum.FillDirection.Vertical
-													}
+													FillDirection={landscapePhone && showOvercharge ? Enum.FillDirection.Horizontal : Enum.FillDirection.Vertical}
 													Padding={new UDim(0, 8)}
 													SortOrder={Enum.SortOrder.LayoutOrder}
 													VerticalAlignment={Enum.VerticalAlignment.Center}
@@ -1025,11 +1034,7 @@ export function OverviewView({
 													onClick={primaryClick}
 													color={primaryColor}
 													textColor={Palette.ink}
-													size={
-														landscapePhone && showOvercharge
-															? new UDim2(0.5, -4, 0, ctaH)
-															: new UDim2(1, 0, 0, ctaH)
-													}
+													size={landscapePhone && showOvercharge ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
 													reducedMotion={reducedMotion}
 													disabled={primaryDisabled}
 													highlight={primaryHighlight}
@@ -1170,11 +1175,7 @@ export function OverviewView({
 										align="stretch"
 										gap={stack ? 10 : denseHero ? 8 : ultraOverview ? 12 : wideOverview ? 8 : 12}
 										size={
-											denseHero
-												? new UDim2(1, 0, 0, metricCardH)
-												: wideOverview
-													? new UDim2(0.38, -6, 1, 0)
-													: new UDim2(1, 0, 0, metricsH)
+											denseHero ? new UDim2(1, 0, 0, metricCardH) : wideOverview ? new UDim2(0.38, -6, 1, 0) : new UDim2(1, 0, 0, metricsH)
 										}
 										layoutOrder={1}
 										exact={true}
@@ -1189,9 +1190,7 @@ export function OverviewView({
 												label={firstRun ? "Earning now" : "LIVE OUTPUT"}
 												value={`${compactNumber(state.Production)} / sec`}
 												detail={
-													firstRun
-														? `${compactNumber(state.RawProduction)} before bonuses`
-														: `${compactNumber(state.RawProduction)} base`
+													firstRun ? `${compactNumber(state.RawProduction)} before bonuses` : `${compactNumber(state.RawProduction)} base`
 												}
 												accent={Palette.cyan}
 												size={UDim2.fromScale(1, 1)}
@@ -1270,8 +1269,7 @@ export function OverviewView({
 										let statLabel = "PAYS 1 CORE";
 										if (vaultFill >= 0.99) {
 											title = "Collect stored Flux";
-											body =
-												"The vault is full, so machines stopped earning. Collect now, then buy another level.";
+											body = "The vault is full, so machines stopped earning. Collect now, then buy another level.";
 											meter = 1;
 											accent = Palette.mango;
 											cta = "Collect stored Flux";
@@ -1317,8 +1315,7 @@ export function OverviewView({
 												const efficiency = state.Research.Efficiency ?? 0;
 												if (efficiency < 3) {
 													title = "Buy Efficiency to 3";
-													body =
-														"When this bar fills, Storage unlocks. Efficiency stays after rebirth.";
+													body = "When this bar fills, Storage unlocks. Efficiency stays after rebirth.";
 													fillLine = "Full bar unlocks Storage.";
 													meter = math.clamp(efficiency / 3, 0, 1);
 													cta = "Open Research";
@@ -1329,8 +1326,7 @@ export function OverviewView({
 													const storage = state.Research.Storage ?? 0;
 													if (storage < 3) {
 														title = "Buy Storage to 3";
-														body =
-															"When this bar fills, the offline relay unlocks. Storage lets the vault hold more.";
+														body = "When this bar fills, the offline relay unlocks. Storage lets the vault hold more.";
 														fillLine = "Full bar unlocks the offline relay.";
 														meter = math.clamp(storage / 3, 0, 1);
 														cta = "Open Research";
@@ -1341,8 +1337,7 @@ export function OverviewView({
 														const offline = state.Research.Offline ?? 0;
 														if (offline < 1) {
 															title = "Buy the offline relay";
-															body =
-																"When you buy this, Deep-Space Relay pays you for longer while you're away.";
+															body = "When you buy this, Deep-Space Relay pays you for longer while you're away.";
 															fillLine = "This buy pays you longer while you're away.";
 															meter = 0.15;
 															cta = "Open Research";
@@ -1353,8 +1348,7 @@ export function OverviewView({
 															const overcharge = state.Research.Overcharge ?? 0;
 															if (overcharge < 1) {
 																title = "Buy the tap bonus";
-																body =
-																	"When you buy this, Overcharge Coil makes the tap button stronger.";
+																body = "When you buy this, Overcharge Coil makes the tap button stronger.";
 																fillLine = "This buy makes taps stronger.";
 																meter = 0.2;
 																cta = "Open Research";
@@ -1383,10 +1377,36 @@ export function OverviewView({
 												}
 											}
 										}
+										const firstGoal = vaultFill < 0.99 ? firstGoalView(state) : undefined;
 										const adaptiveGoal =
-											vaultFill < 0.99
+											vaultFill < 0.99 && firstGoal === undefined
 												? overviewGoal(state, { missions: missionsReady, lab: labReady, path: pathReady })
 												: undefined;
+										if (firstGoal !== undefined) {
+											const goal = firstGoal.goal;
+											title = goal.title;
+											body = firstGoal.done
+												? `Done. Claim ${compactNumber(goal.rewardFlux)} Flux${goal.rewardKeys !== undefined ? " and a crate key" : ""}.`
+												: firstGoal.open
+													? goal.line
+													: `${goal.line} Opens at level ${goal.pageLevel}.`;
+											if (firstGoal.index === 1 && !firstGoal.done) {
+												body += " You can turn these goals off in Settings.";
+											}
+											fillLine = "";
+											meter = firstGoal.have / math.max(1, goal.need);
+											accent = firstGoal.done ? Palette.green : Palette.mango;
+											statValue = firstGoal.done ? `+${compactNumber(goal.rewardFlux)}` : `${firstGoal.have}/${goal.need}`;
+											statLabel = `GOAL ${firstGoal.index} OF ${FirstGoals.GOALS.size()}`;
+											cta = firstGoal.done ? "Claim reward" : firstGoal.open ? goal.cta : "";
+											ctaAction = undefined;
+											if (firstGoal.done) {
+												ctaAction = () => dispatch("ClaimFirstGoal", { Id: goal.id });
+											} else if (firstGoal.open && navigate !== undefined) {
+												const page = goal.page;
+												ctaAction = () => navigate(page);
+											}
+										}
 										if (adaptiveGoal !== undefined) {
 											title = adaptiveGoal.title;
 											body = adaptiveGoal.body;
@@ -1406,7 +1426,10 @@ export function OverviewView({
 										const meterTop = stack ? notesH - (cta !== "" ? TapTarget + 28 : 28) : notesH - 52;
 										const bodyRoom = math.max(16, meterTop - 52 - 6);
 										const ladderSlots = math.clamp(math.floor(bodyRoom / 13), 1, 3);
-										const ladder = vaultFill >= 0.99 || adaptiveGoal !== undefined ? [] : progressLadder(state, config, ladderSlots);
+										const ladder =
+											vaultFill >= 0.99 || adaptiveGoal !== undefined || firstGoal !== undefined
+												? []
+												: progressLadder(state, config, ladderSlots);
 										if (ladder.size() > 0) {
 											const keep: string[] = [];
 											const limit = fillLine !== "" ? math.max(0, ladderSlots - 1) : ladderSlots;
@@ -1439,7 +1462,7 @@ export function OverviewView({
 													/>
 												)}
 												<Text
-													value="NEXT GOAL"
+													value={firstGoal !== undefined ? "FIRST GOALS" : "NEXT GOAL"}
 													size={10}
 													color={accent}
 													weight={Enum.FontWeight.Heavy}
@@ -1465,19 +1488,14 @@ export function OverviewView({
 													fit={true}
 													minSize={10}
 													position={UDim2.fromOffset(copyLeft, 52)}
-													sizeConstraint={
-														new UDim2(1, copyWidth - copyLeft, 0, ladder.size() > 0 ? bodyRoom : stack ? 48 : 36)
-													}
+													sizeConstraint={new UDim2(1, copyWidth - copyLeft, 0, ladder.size() > 0 ? bodyRoom : stack ? 48 : 36)}
 												/>
 												<Meter
 													value={meter}
 													color={accent}
 													reducedMotion={softMotion}
 													shimmer={meter >= 0.99 && !effectsPaused}
-													position={UDim2.fromOffset(
-														copyLeft,
-														stack ? notesH - (cta !== "" ? TapTarget + 28 : 28) : notesH - 52,
-													)}
+													position={UDim2.fromOffset(copyLeft, stack ? notesH - (cta !== "" ? TapTarget + 28 : 28) : notesH - 52)}
 													size={new UDim2(1, copyWidth - copyLeft, 0, 8)}
 												/>
 												{!stack && (
@@ -1598,9 +1616,7 @@ export function OverviewView({
 											value={
 												firstRun && opsClaims === 0
 													? "Missions and other rewards unlock as you earn Flux. Do the highlighted step above first."
-													: (opsDetail ??
-														opsGuide?.OpsBody ??
-														"Claims waiting across Missions, Lab, Forge Path, and Anomaly.")
+													: (opsDetail ?? opsGuide?.OpsBody ?? "Claims waiting across Missions, Lab, Forge Path, and Anomaly.")
 											}
 											size={stack ? chrome.labelText : 11}
 											color={Palette.creamSoft}
@@ -1690,12 +1706,7 @@ export function OverviewView({
 							id: "countdown",
 							height: countdownInPage ? countdownH : 0,
 							element: countdownInPage ? (
-								<ReleaseCountdown
-									releaseAt={releaseAt}
-									reducedMotion={reducedMotion}
-									stack={stack}
-									layoutOrder={6}
-								/>
+								<ReleaseCountdown releaseAt={releaseAt} reducedMotion={reducedMotion} stack={stack} layoutOrder={6} />
 							) : (
 								<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} />
 							),
@@ -1885,11 +1896,7 @@ export function OverviewView({
 											<Text
 												value={`${compactNumber(state.Rebirths)} / ${compactNumber(domain.RequiredRebirths)} rebirths`}
 												size={10}
-												color={
-													asFlux(state.Rebirths ?? 0) >= asFlux(domain.RequiredRebirths)
-														? Palette.green
-														: Palette.muted
-												}
+												color={asFlux(state.Rebirths ?? 0) >= asFlux(domain.RequiredRebirths) ? Palette.green : Palette.muted}
 												weight={Enum.FontWeight.Bold}
 												fit={false}
 												position={UDim2.fromOffset(0, 34)}
@@ -1898,9 +1905,7 @@ export function OverviewView({
 											<Text
 												value={`${compactNumber(state.Cores)} / ${compactNumber(domain.RequiredCores)} astral cores`}
 												size={10}
-												color={
-													asFlux(state.Cores ?? 0) >= asFlux(domain.RequiredCores) ? Palette.green : Palette.muted
-												}
+												color={asFlux(state.Cores ?? 0) >= asFlux(domain.RequiredCores) ? Palette.green : Palette.muted}
 												weight={Enum.FontWeight.Bold}
 												fit={false}
 												position={UDim2.fromOffset(0, 52)}
@@ -1987,9 +1992,7 @@ export function OverviewView({
 									/>
 									<Text
 										value={
-											journeyRecent.size() > 0
-												? `Written: ${journeyRecent.join("  ·  ")}`
-												: "Written: nothing yet. Buy a machine to start."
+											journeyRecent.size() > 0 ? `Written: ${journeyRecent.join("  ·  ")}` : "Written: nothing yet. Buy a machine to start."
 										}
 										size={chrome.labelText}
 										color={Palette.muted}
@@ -2023,11 +2026,7 @@ export function OverviewView({
 										fit={false}
 										sizeConstraint={new UDim2(1, 0, 0, 16)}
 									/>
-									<SessionStats.Card
-										columns={phone ? 2 : 4}
-										position={UDim2.fromOffset(0, 24)}
-										reducedMotion={softMotion}
-									/>
+									<SessionStats.Card columns={phone ? 2 : 4} position={UDim2.fromOffset(0, 24)} reducedMotion={softMotion} />
 								</Panel>
 							),
 						},
