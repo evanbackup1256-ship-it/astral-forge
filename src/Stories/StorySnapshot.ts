@@ -3312,6 +3312,7 @@ const snapshot: Record<string, unknown> = {
 		CompactTopBar: 1,
 		ConfettiEnabled: 1,
 		DesktopTextScale: 0.5,
+		FollowRobloxTextSize: 1,
 		EffectsIntensity: 0.5,
 		GameplayVolume: 1,
 		GlowIntensity: 1,

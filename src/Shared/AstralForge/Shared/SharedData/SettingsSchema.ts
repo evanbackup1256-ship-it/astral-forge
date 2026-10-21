@@ -139,6 +139,7 @@ const ENTRIES: ReadonlyArray<Entry> = table.freeze([
 	),
 	slider("ScrollMomentum", "interface", "Scroll glide", "How long a list keeps moving after you let go.", 0.75, true),
 	choice("DesktopTextScale", "accessibility", "Text size", "Bigger or smaller text. Buttons stay where they are.", 0.5, SIZE4),
+	toggle("FollowRobloxTextSize", "accessibility", "Match Roblox text size", "Use the bigger of this and your Roblox text size.", 1),
 	toggle("HighContrast", "accessibility", "High contrast", "Stronger text and edges.", 0),
 	toggle("ColorblindMode", "accessibility", "Color-safe signals", "Blue and gold instead of green and red.", 0),
 	toggle("BoldText", "accessibility", "Bolder text", "Heavier descriptions.", 0),
@@ -222,7 +223,7 @@ const GROUPS: Readonly<Record<string, ReadonlyArray<{ label: string; keys: Reado
 		{ label: "Performance", keys: ["PerformanceBias"] },
 	],
 	accessibility: [
-		{ label: "Reading", keys: ["DesktopTextScale", "BoldText", "HighContrast", "ReducedTransparency", "ColorblindMode"] },
+		{ label: "Reading", keys: ["DesktopTextScale", "FollowRobloxTextSize", "BoldText", "HighContrast", "ReducedTransparency", "ColorblindMode"] },
 		{ label: "Touch", keys: ["LargeTouchTargets", "HapticIntensity"] },
 	],
 	social: [

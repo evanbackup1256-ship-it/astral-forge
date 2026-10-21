@@ -314,6 +314,7 @@ const DataTemplate = {
 				CompactTopBar: 0,
 				NotificationDuration: 0.55,
 				DesktopTextScale: 0.5,
+				FollowRobloxTextSize: 1,
 				BoldText: 0,
 				ReducedTransparency: 0,
 				LargeTouchTargets: 1,

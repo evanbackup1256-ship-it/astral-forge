@@ -7,6 +7,7 @@ import { AppHelpers, NavState } from "../CoreKit/appNav";
 import { ClientActions, useClientDispatch, useClientSelector } from "../CoreKit/clientStore";
 import { asFlux, compactNumber, gteFlux, Flux } from "../CoreKit/format";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
+import { enterPage, registerRegion } from "../CoreKit/selectionRegions";
 import { ClientLog } from "../CoreKit/log";
 import { setPresencePage } from "../CoreKit/session";
 import { Layout, Palette, chromeFor } from "../CoreKit/theme";
@@ -216,6 +217,13 @@ function AppShell(props: ShellProps) {
 	countRedraw("shell", devRedraws);
 	const [crateReveal, setCrateReveal] = React.useState<RevealSession>();
 	const pageHostRef = React.useRef<unknown>();
+	// gamepad regions: rail and workspace are selection groups; see CoreKit/selectionRegions
+	const pageRegionRef = React.useRef<Frame>();
+	const navRegionRef = React.useRef<Frame>();
+	React.useEffect(() => {
+		const root = pageRegionRef.current;
+		return root !== undefined ? registerRegion("page", root) : undefined;
+	}, []);
 	const cinematicOpen = crateReveal !== undefined || domainOverlayActive;
 	React.useEffect(() => {
 		pausePassivePaints.current = cinematicOpen;
@@ -288,6 +296,11 @@ function AppShell(props: ShellProps) {
 	const wallClock = useWallClock(activeBoost !== undefined);
 	const hideAmount = useFlipperSpring(hidden ? 1 : 0, softMotion, 620, 42);
 	const mobileShell = chrome.stack;
+	React.useEffect(() => enterPage(), [page]);
+	React.useEffect(() => {
+		const root = navRegionRef.current;
+		return root !== undefined ? registerRegion("nav", root) : undefined;
+	}, [mobileShell]);
 	const drawerWidth = math.min(Layout.sidebarWidth, math.max(248, viewport.width - edgePad * 2 - 36));
 	const railTarget = railOpen ? drawerNav ? drawerWidth : viewport.compact || desk.navCollapsed ? Layout.sidebarCollapsedWidth : desk.navWidth : 0;
 	const navRight = deskOn && desk.navRight;
@@ -583,7 +596,7 @@ function AppShell(props: ShellProps) {
 							islandScale={deskOn ? desk.islandScale : undefined} />}
 						<frame Size={shellTopLive.map((top) => new UDim2(1, -edgePad * 2, 1, -(top + bottomPad + gamepadReserve)))}
 							Position={shellTopLive.map((top) => UDim2.fromOffset(edgePad, top))} BackgroundTransparency={1} BorderSizePixel={0}>
-							<frame Size={workspaceSize} Position={workspaceOffset} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={5}>
+							<frame ref={pageRegionRef} Size={workspaceSize} Position={workspaceOffset} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={5}>
 								{deskOn && desk.pageMax < math.huge && <uisizeconstraint MaxSize={new Vector2(desk.pageMax, math.huge)} />}
 								<AntilagContext.Provider value={pageAntilag}>
 									<Workspace page={page} state={state} dispatch={dispatch} reducedMotion={reducedMotion} navigate={navigateStable}>
@@ -601,7 +614,7 @@ function AppShell(props: ShellProps) {
 								AutoButtonColor={false} Selectable={false} Active={railOpen} Visible={drawerScrimVisible} ZIndex={28} Event={{ Activated: () => { setRailOpen(false); Audio.play("close"); } }} />}
 							{!mobileShell && <frame Size={drawerNav ? new UDim2(0, drawerWidth, 1, 0) : railWidth.map((width) => new UDim2(0, math.max(0, width), 1, 0))}
 								Position={drawerNav ? drawerProgress.map((amount) => new UDim2(0, -drawerWidth * (1 - amount), 0, 0)) : navRight ? railWidth.map((width) => new UDim2(1, -math.max(0, width), 0, 0)) : undefined}
-								BackgroundTransparency={1} BorderSizePixel={0} ZIndex={drawerNav ? 30 : 10} ClipsDescendants={true} Visible={drawerNav ? drawerScrimVisible : drawerPanelVisible}>
+								BackgroundTransparency={1} BorderSizePixel={0} ZIndex={drawerNav ? 30 : 10} ClipsDescendants={true} Visible={drawerNav ? drawerScrimVisible : drawerPanelVisible} ref={navRegionRef}>
 								<Navigation page={page} setPage={navigateLatest} collapsed={!drawerNav && (viewport.compact || desk.navCollapsed)} width={railWidth} fixedWidth={drawerNav ? drawerWidth : undefined}
 									reducedMotion={softMotion} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} includeSecondary={true} fromMore={false}
 									activeBoost={activeBoost} activeBoostEndsAt={activeBoostEndsAt} wallClock={wallClock} openBoosts={openBoosts} />

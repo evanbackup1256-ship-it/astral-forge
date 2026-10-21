@@ -1,3 +1,4 @@
+import { resolveTextScale } from "../CoreKit/textScale";
 import type { PushEvent, RequestFunction } from "../ClientNetwork";
 import React from "@rbxts/react";
 import { TooltipProvider } from "../Tooltip";
@@ -6,6 +7,11 @@ import RainbowKit = require("../Rainbow");
 import { ScreenFx } from "./screenFx";
 const ContentProvider = game.GetService("ContentProvider");
 const GuiService = game.GetService("GuiService");
+
+function readPreferredTextSize(): string | undefined {
+	const [ok, value] = pcall(() => GuiService.PreferredTextSize.Name);
+	return ok && typeIs(value, "string") ? value : undefined;
+}
 const Players = game.GetService("Players");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const RunService = game.GetService("RunService");
@@ -1496,11 +1502,23 @@ export function MainGame(_param: MainGameProps) {
 			sizeConnection?.Disconnect();
 		};
 	}, []);
+	const [robloxTextSize, setRobloxTextSize] = React.useState<string | undefined>(() => readPreferredTextSize());
+	React.useEffect(() => {
+		const [ok, signal] = pcall(() => GuiService.GetPropertyChangedSignal("PreferredTextSize"));
+		if (!ok || !typeIs(signal, "RBXScriptSignal")) {
+			return undefined;
+		}
+		const connection = signal.Connect(() => setRobloxTextSize(readPreferredTextSize()));
+		return () => connection.Disconnect();
+	}, []);
 	const rawViewportSize = WorkspaceService.CurrentCamera?.ViewportSize ?? new Vector2(1280, 720);
 	const isTouchUiHere = !usesDesktopStructure(rawViewportSize.X, rawViewportSize.Y) && UserInputService.TouchEnabled;
-	const textScale = isTouchUiHere
-		? 0.92 + ((state?.Settings.MobileTextScale as number | undefined) ?? 0.5) * 0.34
-		: 0.96 + ((state?.Settings.DesktopTextScale as number | undefined) ?? 0.5) * 0.2;
+	const textScale = resolveTextScale(
+		isTouchUiHere,
+		(isTouchUiHere ? state?.Settings.MobileTextScale : state?.Settings.DesktopTextScale) as number | undefined,
+		((state?.Settings.FollowRobloxTextSize as number | undefined) ?? 1) >= 0.5,
+		robloxTextSize,
+	);
 	const motionSettings = React.useMemo<MotionSettings>(() => {
 		return {
 			motionScale: motionIntensity,

@@ -155,6 +155,20 @@ export function Stroke({ color, thickness = 1, transparency = 0 }: StrokeProps) 
 
 // the readability floor every Text owns; callers asking for 8-10 px get this instead
 const MIN_UI_TEXT_SIZE = 11;
+
+// one shared invisible selection image: kit Buttons draw their own focus ring
+let hiddenSelection: Frame | undefined;
+function hiddenSelectionImage(): Frame {
+	if (hiddenSelection === undefined) {
+		const frame = new Instance("Frame");
+		frame.Name = "HiddenSelection";
+		frame.BackgroundTransparency = 1;
+		frame.BorderSizePixel = 0;
+		frame.Size = UDim2.fromScale(1, 1);
+		hiddenSelection = frame;
+	}
+	return hiddenSelection;
+}
 const BUTTON_LABEL_SIZE = 15;
 const buttonLabelWidthCache = new Map<string, number>();
 let buttonLabelWidthCacheCount = 0;
@@ -2069,7 +2083,8 @@ export function Button(props: ButtonProps) {
 		if (button === undefined) {
 			return;
 		}
-		button.SelectionImageObject = undefined;
+		// undefined would mean Roblox's default selection box on top of our focus ring
+		button.SelectionImageObject = hiddenSelectionImage();
 	}, []);
 	React.useEffect(() => {
 		const button = buttonRef.current;
