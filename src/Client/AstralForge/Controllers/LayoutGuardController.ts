@@ -37,6 +37,14 @@ const Geom = LayoutKit("layoutGeom") as LayoutGeom;
 const Plan = LayoutKit("layoutGuardPlan") as GuardPlan;
 
 const diagnostics = Diagnostics.new(os.clock);
+// action problems named in the log (at most this many new ones per report)
+const ACTION_REPORT_MAX = 16;
+const ACTION_REPORT_KINDS: Record<string, true | undefined> = {
+	ClippedAction: true,
+	ActionCollision: true,
+	ActionOutsideParent: true,
+	ActionOutsideViewport: true,
+};
 const UserInputService = game.GetService("UserInputService");
 const IGNORE_ATTRIBUTE = "LayoutGuardIgnore";
 const FIT_SLOP = 6;
@@ -1443,6 +1451,8 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 		return undefined;
 	}
 
+	private reportedActions = new Set<string>();
+
 	report(): undefined {
 		const now = os.clock();
 		if (now - this.lastReportAt < REPORT_EVERY) {
@@ -1479,6 +1489,25 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 			dirtyDescendants: stats.dirtyDescendants,
 			nestedScroll: stats.nestedScrollConflicts,
 		});
+		// name the action problems, not just count them, so a Studio log is enough to find the component
+		const shown = new Set<string>();
+		let named = 0;
+		for (const issue of diagnostics.snapshot().Issues) {
+			if (named >= ACTION_REPORT_MAX) {
+				break;
+			}
+			if (ACTION_REPORT_KINDS[issue.Kind] !== true || this.reportedActions.has(issue.Kind + ":" + issue.Path)) {
+				continue;
+			}
+			const key = issue.Kind + ":" + issue.Path;
+			if (shown.has(key)) {
+				continue;
+			}
+			shown.add(key);
+			this.reportedActions.add(key);
+			named += 1;
+			ClientLog.info("LayoutGuard", `${issue.Kind}: ${issue.Path}`, { owner: issue.Owner, detail: issue.Detail, samples: issue.Samples });
+		}
 		return undefined;
 	}
 }
