@@ -3231,7 +3231,6 @@ export function SegmentedTabs({
 	const columnTrail = useFlipperSpring(activeColumn, reducedMotion, 390, 38);
 	const rowSlide = useFlipperSpring(activeRow, reducedMotion, 720, 32);
 	const selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.3);
-	const tabsEffectsPaused = React.useContext(UiEffectsPausedContext);
 	const selectedAccent = options[activeIndex]?.accent ?? accent;
 	const cellSize = new UDim2(
 		1 / columnCount,

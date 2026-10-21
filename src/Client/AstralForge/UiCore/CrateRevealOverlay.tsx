@@ -441,7 +441,6 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 
 	const allSalvaged = rolls.every((roll) => roll.AutoSalvaged === true);
 	const claim = allSalvaged ? "Bank essence" : count === 1 ? "Keep it" : `Keep all ${count}`;
-	const doneAmount = t.map((s) => (phase === "done" ? math.clamp(s / 0.25, 0, 1) : 0));
 	const header = phase === "rattle" ? `Opening ${session.crateName ?? "crate"}` : count === 1 ? "You got" : `${count} drops`;
 
 	return (

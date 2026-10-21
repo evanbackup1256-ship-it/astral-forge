@@ -610,9 +610,6 @@ export function OverviewView({
 	const target = asFlux(state.NextPrestigeTarget);
 	const progress = canRebirth ? 1 : meterFill(asFlux(state.RunCash), math.max(1, target));
 	const vaultFill = meterFill(asFlux(state.Vault), asFlux(state.Capacity));
-	const vaultFull = VaultCollectEligibility.isFull(vaultFill);
-	const vaultNearFull = VaultCollectEligibility.isNearFull(vaultFill);
-	const capacitySeconds = state.CapacitySeconds ?? 0;
 	const stellarLevel = state.Machines.StellarCore ?? 0;
 	let tutorialDone = false;
 	const flags = state.Flags;

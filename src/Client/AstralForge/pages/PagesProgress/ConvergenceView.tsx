@@ -60,8 +60,6 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 	const reveal = useStagger(0, softMotion);
 	const revealTiers = useStagger(1, softMotion);
 	const revealClaim = useStagger(2, softMotion);
-	const revealHero = useStagger(3, softMotion);
-	const revealFill = useStagger(4, softMotion);
 	const globalFill = math.clamp(event.GlobalContribution / math.max(1, event.GlobalTarget), 0, 1);
 	const tiers = event.Tiers ?? [];
 	const heroHeight = stack ? 226 : 198;
@@ -269,14 +267,8 @@ function ConvergenceView(props: ConvergenceViewProps) {
 	const state = props.state;
 	const reducedMotion = props.reducedMotion;
 	const event = state.Convergence;
-	const viewport = useViewport();
-	const chrome = chromeFor(viewport);
 	const softMotion = reducedMotion;
-	const now = useWallClock(event !== undefined);
 	const enter = useEntrance(softMotion);
-	const reveal = useStagger(0, softMotion);
-	const revealTiers = useStagger(1, softMotion);
-	const revealClaim = useStagger(2, softMotion);
 	const revealHero = useStagger(3, softMotion);
 	const revealFill = useStagger(4, softMotion);
 	const convergenceSoft = softMotion === true || revealHero === undefined || revealFill === undefined;

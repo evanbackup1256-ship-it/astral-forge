@@ -1,5 +1,5 @@
 import React from "@rbxts/react";
-import { Palette, darken, lighten } from "../CoreKit/theme";
+import { Palette, lighten } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
 import { ScaleFromCenter, easeOutBack, easeOutCubic, useClock } from "../MotionKit/motion";
 import { Text } from "./ui";

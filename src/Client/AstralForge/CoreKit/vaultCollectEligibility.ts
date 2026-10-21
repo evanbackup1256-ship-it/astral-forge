@@ -7,11 +7,6 @@ export function isEligible(vaultFlux: unknown): boolean {
 	return amount >= MIN_COLLECTABLE;
 }
 
-export function isNearFull(fill: unknown): boolean {
-	const ratio = tonumber(fill) ?? 0;
-	return ratio >= NEAR_FULL;
-}
-
 export function isFull(fill: unknown): boolean {
 	const ratio = tonumber(fill) ?? 0;
 	return ratio >= FULL;
