@@ -27,14 +27,6 @@ local function newNode(name, className, parent, path, kind)
 	return setmetatable(self, Harness.InstanceMeta)
 end
 
-local function childPath(dir, name)
-	for _, ext in { ".luau", ".lua" } do
-		if fs.isFile(dir .. "/" .. name .. ext) then return dir .. "/" .. name .. ext, "file" end
-	end
-	if fs.isDir(dir .. "/" .. name) then return dir .. "/" .. name, "dir" end
-	return nil
-end
-
 Harness.InstanceMeta = {
 	__index = function(self, key)
 		local method = Harness.Methods[key]
@@ -71,21 +63,63 @@ Harness.Methods = {
 -- build the instance tree for a directory up front (fs calls cannot run inside metamethods)
 -- every module source is read while the tree is scanned: a require can then run inside a
 -- metamethod (lazy suite members such as TradeSuite.TradeDesk), where Lune cannot yield for fs
+--
+-- The tree comes from one `node` call that lists out/ and include/ and returns every module
+-- source as JSON. Lune 0.8.9 sometimes spins forever inside one of its many small async fs
+-- calls when the machine is busy (several agents running tests at once), which hung about one
+-- harness start in four under load; a single process call avoids that. Plain fs is the fallback
+-- when node can't be run.
+local process = require("@lune/process")
+local tree = nil
+do
+	local walker = [[
+const fs = require("fs");
+const files = {}, dirs = {};
+function walk(d) {
+	if (!fs.existsSync(d)) return;
+	const names = [];
+	for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+		const f = d + "/" + e.name;
+		names.push(e.name);
+		if (e.isDirectory()) walk(f);
+		else if (/\.luau?$/.test(e.name)) files[f] = /GameConfigGenerated/.test(f) ? false : fs.readFileSync(f, "utf8");
+	}
+	dirs[d] = names;
+}
+for (const root of process.argv.slice(1)) walk(root);
+process.stdout.write(JSON.stringify({ files, dirs }));
+]]
+	local ok, result = pcall(process.spawn, "node", { "-e", walker, "out", "include" })
+	if ok and result.ok then
+		local decoded, snapshot = pcall(serde.decode, "json", result.stdout)
+		if decoded and type(snapshot) == "table" and type(snapshot.dirs) == "table" then
+			tree = snapshot
+		end
+	end
+end
+local function isDir(path) if tree then return tree.dirs[path] ~= nil end return fs.isDir(path) end
+local function isFile(path) if tree then return tree.files[path] ~= nil end return fs.isFile(path) end
+local function readDir(path) if tree then return tree.dirs[path] or {} end return fs.readDir(path) end
+
 local sources = {}
 local function readSource(path)
-	if sources[path] == nil and fs.isFile(path) and not path:find("GameConfigGenerated", 1, true) then
+	if sources[path] ~= nil or path:find("GameConfigGenerated", 1, true) then return end
+	if tree then
+		local text = tree.files[path]
+		if type(text) == "string" then sources[path] = text end
+	elseif fs.isFile(path) then
 		sources[path] = fs.readFile(path)
 	end
 end
 
 local function scan(self)
-	if not self.__path or not fs.isDir(self.__path) then return self end
-	for _, entry in fs.readDir(self.__path) do
+	if not self.__path or not isDir(self.__path) then return self end
+	for _, entry in readDir(self.__path) do
 		local full = self.__path .. "/" .. entry
 		local name, child = nil, nil
-		if fs.isDir(full) then
+		if isDir(full) then
 			name = entry
-			local isInit = fs.isFile(full .. "/init.luau") or fs.isFile(full .. "/init.lua")
+			local isInit = isFile(full .. "/init.luau") or isFile(full .. "/init.lua")
 			child = newNode(name, isInit and "ModuleScript" or "Folder", self, full, isInit and "initdir" or "dir")
 			readSource(full .. "/init.luau")
 			readSource(full .. "/init.lua")
