@@ -1366,7 +1366,7 @@ const GameConfig: Dict = {
 		CoreExponent: 0.82,
 		RebirthMultiplier: 0.14,
 		TutorialReward: 250,
-		ForgePathXP: { LogScale: 4, Minimum: 1, DailySoftCap: 12000, SoftCapScale: 0.35 },
+		ForgePathXP: { LogScale: 6, Minimum: 1, DailySoftCap: 18000, SoftCapScale: 0.35 },
 		Rebirth: {
 			BankVaultIntoRun: true,
 			BonusOverdrive: 1,
