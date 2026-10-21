@@ -245,7 +245,26 @@ function isTrackedClass(instance: Instance): boolean {
 function isActionable(instance: Instance): boolean {
 	return (instance.IsA("GuiButton") && instance.Active) || (instance.IsA("TextBox") && instance.TextEditable);
 }
+// a control inside a scroller that can actually scroll is allowed to sit partly past the scroller's
+// window (and so past the screen or a clipping frame around the scroller): the player scrolls to it
+function insideScrollableArea(instance: Instance): boolean {
+	let ancestor = instance.Parent;
+	while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
+		if (ancestor.IsA("ScrollingFrame")) {
+			const canvas = ancestor.AbsoluteCanvasSize;
+			const window = ancestor.AbsoluteWindowSize;
+			if (canvas.X > window.X + 1 || canvas.Y > window.Y + 1) {
+				return true;
+			}
+		}
+		ancestor = ancestor.Parent;
+	}
+	return false;
+}
 function recordViewportAction(instance: Instance, rect: Rect) {
+	if (insideScrollableArea(instance)) {
+		return;
+	}
 	const layer = interactionLayer(instance);
 	if (layer === undefined) {
 		return;
@@ -260,6 +279,15 @@ function recordViewportAction(instance: Instance, rect: Rect) {
 function clippingAncestor(instance: Instance, rect: Rect): GuiObject | undefined {
 	let ancestor = instance.Parent;
 	while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
+		// clipping outside a scrollable scroller is scroll position, not a layout bug; clipping inside
+		// the scrolled content (a card cutting off its own button) is still reported
+		if (ancestor.IsA("ScrollingFrame")) {
+			const canvas = ancestor.AbsoluteCanvasSize;
+			const window = ancestor.AbsoluteWindowSize;
+			if (canvas.X > window.X + 1 || canvas.Y > window.Y + 1) {
+				return undefined;
+			}
+		}
 		if (ancestor.IsA("GuiObject") && ancestor.ClipsDescendants && !ancestor.IsA("ScrollingFrame")) {
 			if (Geom.overflowAmount(rect, rectOf(ancestor)) > FIT_SLOP) {
 				return ancestor;
