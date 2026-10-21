@@ -450,24 +450,29 @@ function CommandViewReady(props: CommandProps) {
 		lastTripId = activeId;
 	}
 	const [tripReport, setTripReport] = React.useState<{ name: string; haul: string; found: boolean } | undefined>(undefined);
-	// signal shop: the offer being bought shows a spinner until the server answers; a refusal shakes it
-	const [buyingSignal, setBuyingSignal] = React.useState<string | undefined>(undefined);
-	const [signalShake, setSignalShake] = React.useState<{ id: string; token: number }>({ id: "", token: 0 });
-	const buySignal = (id: string) => {
-		if (buyingSignal !== undefined) {
+	// purchases and claims: the pressed button spins until the server answers, a refusal shakes it,
+	// and nothing else can be sent meanwhile (no double buys or double claims)
+	const [pendingKey, setPendingKey] = React.useState<string | undefined>(undefined);
+	const [refusal, setRefusal] = React.useState<{ key: string; token: number }>({ key: "", token: 0 });
+	const sendPending = (key: string, action: string, payload: object) => {
+		if (pendingKey !== undefined) {
 			return;
 		}
-		setBuyingSignal(id);
+		setPendingKey(key);
 		// never leave the spinner up if the answer is lost
-		const fallback = task.delay(8, () => setBuyingSignal(undefined));
-		dispatch("BuySignalOffer", { Id: id }, (response) => {
+		const fallback = task.delay(8, () => setPendingKey(undefined));
+		dispatch(action, payload, (response) => {
 			pcall(task.cancel, fallback);
-			setBuyingSignal(undefined);
+			setPendingKey(undefined);
 			if (response.ok !== true) {
-				setSignalShake((current) => ({ id, token: current.token + 1 }));
+				setRefusal((current) => ({ key, token: current.token + 1 }));
 			}
 		});
 	};
+	const pendingProps = (key: string) => ({
+		loading: pendingKey === key,
+		shakeToken: refusal.key === key ? refusal.token : 0,
+	});
 	const repeatTrip = activeId === "" && lastTripId !== undefined ? ops.Expeditions.find((item) => item.Id === lastTripId) : undefined;
 	const canRepeat = repeatTrip !== undefined && command.Level >= repeatTrip.RequiredLevel;
 	const statusLine =
@@ -734,7 +739,8 @@ function CommandViewReady(props: CommandProps) {
 					const claimButton = (
 						<Button
 							text={directive.Claimed ? "DONE" : ready ? "CLAIM" : "NOT YET"}
-							onClick={() => dispatch("ClaimWeeklyDirective", { Id: directive.Id })}
+							onClick={() => sendPending(`weekly:${directive.Id}`, "ClaimWeeklyDirective", { Id: directive.Id })}
+							{...pendingProps(`weekly:${directive.Id}`)}
 							color={Palette.green}
 							textColor={Palette.ink}
 							size={UDim2.fromScale(1, 1)}
@@ -945,13 +951,14 @@ function CommandViewReady(props: CommandProps) {
 							icon="Gift.15"
 							onClick={() => {
 								if (nextClaim !== undefined) {
-									dispatch("ClaimCommanderReward", { Level: nextClaim });
+									sendPending("commander", "ClaimCommanderReward", { Level: nextClaim });
 								}
 							}}
 							color={Palette.cyan}
 							textColor={Palette.ink}
 							size={UDim2.fromScale(1, 1)}
 							disabled={nextClaim === undefined}
+							{...pendingProps("commander")}
 							reducedMotion={softMotion}
 							highlight={nextClaim !== undefined}
 						/>
@@ -1071,9 +1078,8 @@ function CommandViewReady(props: CommandProps) {
 									/>
 									<Button
 										text={offer.Purchased ? "BOUGHT" : `${offer.Price} Signals`}
-										onClick={() => buySignal(offer.Id)}
-										loading={buyingSignal === offer.Id}
-										shakeToken={signalShake.id === offer.Id ? signalShake.token : 0}
+										onClick={() => sendPending(`signal:${offer.Id}`, "BuySignalOffer", { Id: offer.Id })}
+										{...pendingProps(`signal:${offer.Id}`)}
 										color={offer.Color}
 										textColor={Palette.ink}
 										size={new UDim2(1, -16, 0, stack ? TapTarget : 40)}
@@ -1549,7 +1555,8 @@ function CommandViewReady(props: CommandProps) {
 					const claimButton = (
 						<Button
 							text={claimed ? "CLAIMED" : unlocked ? "OPEN" : "LOCKED"}
-							onClick={() => dispatch("ClaimSeasonTier", { Tier: tier.Tier })}
+							onClick={() => sendPending(`season:${tier.Tier}`, "ClaimSeasonTier", { Tier: tier.Tier })}
+							{...pendingProps(`season:${tier.Tier}`)}
 							color={major ? Palette.mango : Palette.green}
 							textColor={Palette.ink}
 							size={UDim2.fromScale(1, 1)}
