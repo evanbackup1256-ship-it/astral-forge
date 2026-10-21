@@ -406,11 +406,29 @@ function OpsLine(props: { left: string; right: string; accent?: Color3; rightCol
 	);
 }
 
-function OpsPanel(props: { title: string; accent: Color3; empty: string; layoutOrder: number; children?: React.Element[] }) {
+function OpsPanel(props: {
+	title: string;
+	accent: Color3;
+	empty: string;
+	layoutOrder: number;
+	onBack?: () => void;
+	children?: React.Element[];
+}) {
 	const rows = props.children ?? [];
 	return (
 		<Panel size={new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
 			<SectionTitle value={props.title} accent={props.accent} />
+			{props.onBack !== undefined && (
+				<Button
+					text="BACK"
+					onClick={props.onBack}
+					color={Palette.panelSoft}
+					textColor={props.accent}
+					outline={true}
+					size={UDim2.fromOffset(56, 18)}
+					position={new UDim2(1, -56, 0, -2)}
+				/>
+			)}
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
 				{rows.size() === 0 ? (
@@ -1037,7 +1055,11 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, OPS_H)} />
 			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
-			<OpsPanel title={lookup !== undefined ? "LOOKUP" : "SECURITY"} accent={Palette.coral} empty="No flagged players." layoutOrder={1}>
+			<OpsPanel title={lookup !== undefined ? "LOOKUP" : "SECURITY"} accent={Palette.coral}
+				empty="No flagged players."
+				layoutOrder={1}
+				onBack={lookup !== undefined ? () => setLookup(undefined) : undefined}
+			>
 				{securityRows}
 			</OpsPanel>
 			<OpsPanel title="LIVE FLAGS" accent={Palette.mango} empty="No flags." layoutOrder={2}>
