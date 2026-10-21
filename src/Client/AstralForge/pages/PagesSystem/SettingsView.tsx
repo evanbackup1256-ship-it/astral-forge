@@ -797,8 +797,8 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 					color={Palette.panelSoft}
 					textColor={Palette.creamSoft}
 					outline={true}
-					size={UDim2.fromOffset(100, 34)}
-					position={new UDim2(1, -100, 0, 4)}
+					size={UDim2.fromOffset(100, TapTarget)}
+					position={new UDim2(1, -100, 0, 6)}
 					reducedMotion={softMotion}
 				/>
 			)}
