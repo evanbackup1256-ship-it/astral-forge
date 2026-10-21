@@ -890,6 +890,17 @@ export class GameService {
 					return responseSuccess("Trade is settling.");
 				}
 				const isPractice = session.Guest === -999 || session.Host === -999;
+				if (isPractice) {
+					// The practice table is a tutorial: it walks through ready and confirm, then
+					// closes without moving anything either way (no payout, no loss, no daily count).
+					this._trades.Close(session);
+					this._pushTradePartners(session.Host, session.Guest);
+					const practicePlayer = Players.GetPlayerByUserId(session.Host as number);
+					if (practicePlayer) {
+						this._toastPlayer(practicePlayer, "Practice complete", "That's how a trade settles. Nothing changed hands.", "Success");
+					}
+					return responseSuccess("Practice trade complete. Nothing changed hands.");
+				}
 				const host = Players.GetPlayerByUserId(session.Host as number);
 				const guest = (
 					session.Guest === -999

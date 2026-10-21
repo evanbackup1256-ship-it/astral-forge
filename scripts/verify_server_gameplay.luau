@@ -248,6 +248,35 @@ do
 	check(type(carried.Cash) == "number" and carried.Cash >= 100 and carried.Cash == carried.Cash, "carried Flux sane")
 end
 
+-- fusion picks the best copy that can still take a star (stage 21)
+do
+	local Relic = H.load("Shared/AstralForge/Shared/SharedData/RelicSystem")
+	local function inv(list) local t = {} for uid, r in list do t[uid] = { DefinitionId = "X", Level = r[2] or 1, Stars = r[1], Locked = r[3] } end return t end
+	local t1, f1 = Relic.fusionPair(inv({ A = { 5 }, B = { 2 }, C = { 0 } }), {}, "X", 5)
+	check(t1 == "B" and f1 == "C", "maxed top copy: the best unmaxed copy is fused")
+	local t2, f2, r2 = Relic.fusionPair(inv({ A = { 5 }, B = { 5 } }), {}, "X", 5)
+	check(t2 == nil and r2 == "That relic already has every star.", "all copies maxed: refused")
+	local t3, f3 = Relic.fusionPair(inv({ A = { 0 }, B = { 5 } }), { ["Machine:StellarCore"] = "A" }, "X", 5)
+	check(t3 == nil, "a maxed copy is never spent as fodder")
+	local t4, f4 = Relic.fusionPair(inv({ A = { 1 }, B = { 0 }, C = { 0, 1, true } }), {}, "X", 5)
+	check(t4 == "A" and f4 == "B", "locked copies are not fodder")
+	local t5, f5 = Relic.fusionPair(inv({ A = { 3 }, B = { 1 } }), {}, "X", 5)
+	check(t5 == "A" and f5 == "B", "normal case unchanged: top copy takes the weakest")
+end
+
+-- the practice bot never puts anything on the table (stage 21)
+do
+	local pdesk = Suite.TradeDesk.new()
+	local P = H.player("Practice")
+	local pp = trader()
+	check(pdesk:Invite(P, pp, -999, now) == true, "practice table opens")
+	check(pdesk:UpdateOffer(P, pp, { Stardust = 5 }, now) == true, "practice offer")
+	check(pdesk:SetReady(P, pp, true, now) == true, "practice ready")
+	local ps = pdesk:SessionFor(P.UserId)
+	check(OfferMath.OfferEmpty(ps.Offers[-999], CUR, BOOSTS, KEYS), "the bot's side stays empty (no free Stardust)")
+	check(ps.Ready[-999] == true, "the bot readies with the player")
+end
+
 if #failures > 0 then
 	error("server gameplay failed:\n  " .. table.concat(failures, "\n  "))
 end

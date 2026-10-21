@@ -950,10 +950,8 @@ __defs["TradeDesk"] = () => {
 			}
 			session.Ready[player.UserId] = ready === true;
 			if (session.Guest === -999 || session.Host === -999) {
+				// the practice bot readies with you but never puts anything on the table
 				const partnerId = session.Host === player.UserId ? session.Guest : session.Host;
-				if (ready && offerEmpty(session.Offers[partnerId])) {
-					session.Offers[partnerId].Stardust = 10;
-				}
 				session.Ready[partnerId] = ready === true;
 			}
 			session.Confirmed[session.Host] = false;
