@@ -60,6 +60,7 @@ const DataTemplate = {
 			},
 			RunCash: 0,
 			LifetimeCash: 0,
+			WeeklyBoard: { Week: -1, Base: 0, ClaimedWeek: 0 },
 			Zone: 1,
 			CurrentZone: 1,
 

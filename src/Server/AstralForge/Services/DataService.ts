@@ -26,6 +26,8 @@ import ProfileVersionGuard from "../Modules/ProfileVersionGuard";
 import RebirthMath from "../../../Shared/AstralForge/Shared/RebirthMath";
 import ReceiptLedger from "../Modules/ReceiptLedger";
 import ServerConfig from "../ServerConfig";
+import * as WeeklyStores from "./WeeklyStores";
+import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 import DocumentCommon = require("../Modules/Documents/DocumentKit/DocumentCommon");
 import SessionDocument from "../Modules/Documents/DocumentKit/SessionDocument";
 import SessionDocumentStore from "../Modules/Documents/DocumentKit/SessionDocumentStore";
@@ -1099,6 +1101,7 @@ export class DataService {
 		}
 		pending.Stars = stars;
 		pending.Cipher = math.max(0, math.floor(num(typeIs(sky.Cipher, "table") ? (sky.Cipher as Dict).Solves : undefined) ?? 0));
+		pending[WeeklyBoard.BOARD_ID] = WeeklyBoard.scoreOf(profile, os.time());
 		if (this._leaderboardPushBusy.get(userId)) return;
 		this._leaderboardPushBusy.set(userId, true);
 		this._leaderboardWorkers.set(
@@ -1111,8 +1114,10 @@ export class DataService {
 					while ((values = this._leaderboardPending.get(userId)) !== undefined) {
 						this._leaderboardPending.delete(userId);
 						for (const [id, value] of pairs(values)) {
-							const store = this._leaderboardStores[id];
-							if (store !== undefined && mirror[id] !== value) {
+							// the weekly board writes to this week's store and skips players with nothing yet
+							const weekly = id === WeeklyBoard.BOARD_ID;
+							const store = weekly ? (WeeklyStores.current(os.time()) as unknown as OrderedStoreLike) : this._leaderboardStores[id];
+							if (store !== undefined && mirror[id] !== value && !(weekly && LeaderboardCodec.Encode(value) <= 0)) {
 								const [okWrite, writeErr] = pcall(() => store.SetAsync(tostring(userId), LeaderboardCodec.Encode(value)));
 								if (okWrite) {
 									mirror[id] = value;

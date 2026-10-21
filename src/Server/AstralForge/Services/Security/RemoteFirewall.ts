@@ -956,7 +956,8 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			id !== "Wardens" &&
 			id !== "Orders" &&
 			id !== "Stars" &&
-			id !== "Cipher"
+			id !== "Cipher" &&
+			id !== "Weekly"
 		) {
 			return $tuple(false, "invalid leaderboard");
 		}

@@ -30,6 +30,8 @@ import ProgressionModule = require("./Gameplay/Progression");
 import * as CommunityRewards from "./Gameplay/CommunityRewards";
 import { MatterRuntime } from "./MatterRuntime";
 import * as PolicyGate from "./PolicyGate";
+import * as WeeklyStores from "./WeeklyStores";
+import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
@@ -1631,7 +1633,7 @@ export class GameService {
 				for (const player of online) {
 					const [updated, updateError] = pcall(() => {
 						let changed = false;
-						const [committed] = this._data.AtomicUpdate(
+						const committed = this._data.AtomicUpdate(
 							player,
 							(profile: Profile) => {
 								changed = applySocialBoost(profile, counts.get(player) ?? 0, player.MembershipType === Enum.MembershipType.Premium);
@@ -2209,6 +2211,10 @@ export class GameService {
 			Level: levelState,
 			Story: storyState,
 			Mailbox: StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
+			WeeklyBoard: {
+				Score: WeeklyBoard.scoreOf(profile, now),
+				EndsAt: WeeklyBoard.weekEndsAt(WeeklyBoard.weekOf(now)),
+			},
 			Admin: orElse(this._admin ? this._admin.State(player) : undefined, () => ({ Access: false })),
 			Settings: copyDictionary(profile.Settings),
 			Flags: copyDictionary(profile.Flags),
@@ -5538,11 +5544,47 @@ export class GameService {
 		}
 	}
 
+	// Pays a finished week's top 100 once, the first maintenance tick after that week's ranks load.
+	_payWeeklyBoard(player: Player) {
+		const profile = this._data.Get(player) as Profile | undefined;
+		const week = profile !== undefined ? WeeklyBoard.unpaidWeek(profile, os.time()) : undefined;
+		if (week === undefined) {
+			return;
+		}
+		const ranks = WeeklyStores.finalRanks(week);
+		if (ranks === undefined) {
+			return;
+		}
+		const rank = ranks.get(player.UserId);
+		const tier = rank !== undefined ? WeeklyBoard.tierFor(rank) : undefined;
+		let paid = "";
+		const committed = this._data.AtomicUpdate(
+			player,
+			(draft: Profile) => {
+				if (WeeklyBoard.unpaidWeek(draft, os.time()) !== week) {
+					return { ok: false, noop: true };
+				}
+				(draft.WeeklyBoard as Dict).ClaimedWeek = week;
+				if (tier !== undefined) {
+					paid = tostring(ProgressionService.ApplyReward(draft, tier.reward, Economy.Production(draft)));
+				}
+				return { ok: true };
+			},
+			true,
+			"weekly board",
+		);
+		if (truthy(committed) && tier !== undefined && paid !== "") {
+			this._toastPlayer(player, "Weekly board", string.format("You finished #%d last week. %s", rank!, paid), "Special");
+			this._queueStatePush(player);
+		}
+	}
+
 	_getLeaderboard(id: unknown) {
 		if (!typeIs(id, "string")) {
 			return responseError("That leaderboard is unavailable.");
 		}
-		const store = this._leaderboardStores[id] as Dict | undefined;
+		const weekly = id === WeeklyBoard.BOARD_ID;
+		const store = (weekly ? WeeklyStores.current(os.time()) : this._leaderboardStores[id]) as Dict | undefined;
 		if (store === undefined) {
 			return responseError("That leaderboard is unavailable.");
 		}
@@ -5568,7 +5610,7 @@ export class GameService {
 		for (const online of Players.GetPlayers()) {
 			const profile = this._data.Get(online) as Profile | undefined;
 			if (profile !== undefined) {
-				byUser.set(online.UserId, generalBoardValue(profile, id));
+				byUser.set(online.UserId, weekly ? WeeklyBoard.scoreOf(profile, os.time()) : generalBoardValue(profile, id));
 			}
 		}
 		const rows: Dict[] = [];
@@ -6411,6 +6453,7 @@ export class GameService {
 					changed = truthy(ensureItemShop(profile)) || changed;
 					changed = truthy(AnomalyService.Ensure(profile)) || changed;
 					changed = truthy(LabService.Ensure(profile, player.UserId)) || changed;
+					changed = WeeklyBoard.ensure(profile, os.time()) || changed;
 					if (!truthy(this._antiCheat.Observe(player, "Maintenance", profile))) {
 						changed = true;
 					}
@@ -6425,6 +6468,7 @@ export class GameService {
 			if (truthy(committed) && changed) {
 				this._queueStatePush(player);
 			}
+			this._payWeeklyBoard(player);
 		}
 		if ((runtime.GuildRefreshAccumulator as number) >= GUILD_REFRESH_INTERVAL) {
 			runtime.GuildRefreshAccumulator = (runtime.GuildRefreshAccumulator as number) % GUILD_REFRESH_INTERVAL;

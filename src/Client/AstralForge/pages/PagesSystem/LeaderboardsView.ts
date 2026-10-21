@@ -15,6 +15,14 @@ interface Board {
 
 const RAW: Array<Omit<Board, "group"> & { group?: string }> = [
 	{ id: "Flux", label: "Lifetime Flux", short: "FLUX", description: "All the Flux you have ever made.", icon: "Flux.16", accent: Palette.cyan },
+	{
+		id: "Weekly",
+		label: "This Week",
+		short: "WEEK",
+		description: "Flux made since Monday 00:00 UTC. The top 100 get Cores and Stardust when the week ends; #1 takes 25 Cores.",
+		icon: "Flux.16",
+		accent: Palette.mango,
+	},
 	{ id: "Rebirths", label: "Most Rebirths", short: "REBIRTHS", description: "Pilots who have restarted the forge the most.", icon: "Rebirth.6", accent: Palette.violet },
 	{ id: "PlayTime", label: "Time Played", short: "PLAYTIME", description: "Total time spent playing.", icon: "Command.4", accent: Palette.mint },
 	{ id: "Dust", label: "Most Stardust", short: "DUST", description: "Most Stardust on hand right now.", icon: "Dust.10", accent: Palette.mango },
@@ -47,6 +55,7 @@ const RAW: Array<Omit<Board, "group"> & { group?: string }> = [
 ];
 const BOARD_GROUP: Record<string, string | undefined> = {
 	Flux: "Economy",
+	Weekly: "Economy",
 	Dust: "Economy",
 	Cores: "Economy",
 	Rebirths: "Progression",
@@ -114,6 +123,9 @@ function ownValue(state: Bag, id: string): unknown {
 	if (id === "Flux") {
 		return state.LifetimeCash;
 	}
+	if (id === "Weekly") {
+		return (state.WeeklyBoard as Bag | undefined)?.Score ?? 0;
+	}
 	if (id === "Rebirths") {
 		return state.Rebirths;
 	}
@@ -139,6 +151,10 @@ function serverValueFor(summary: Bag, id: string): unknown {
 	}
 	if (id === "Flux") {
 		return summary.LifetimeCash ?? 0;
+	}
+	if (id === "Weekly") {
+		// the server list only carries lifetime totals; the weekly race is read from the global board
+		return 0;
 	}
 	if (id === "Rebirths") {
 		return summary.Rebirths;

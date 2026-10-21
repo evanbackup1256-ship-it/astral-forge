@@ -25,6 +25,8 @@ export = table.freeze({
 	OrdersLeaderboardStoreName: resetStore("AstralForge_Orders_v2"),
 	StarsLeaderboardStoreName: resetStore("AstralForge_Stars_v2"),
 	CipherLeaderboardStoreName: resetStore("AstralForge_Cipher_v2"),
+	// one ordered store per week: <name>_W<week>
+	WeeklyLeaderboardStoreName: resetStore("AstralForge_WeeklyFlux_v1"),
 	AdminAuditStoreName: "AstralForge_AdminAudit_v1",
 	DiscordModQueueStoreName: "AstralForge_DiscordModQueue_v1",
 	GuildStoreName: resetStore("AstralForge_Guilds_v1"),
