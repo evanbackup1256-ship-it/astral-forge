@@ -440,7 +440,10 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (bag.Pins !== undefined && !NavRoutes.validMobileTabPins(bag.Pins)) {
 			return $tuple(false, "invalid mobile tab pins");
 		}
-		if (bag.Values === undefined && (bag.Slots !== undefined || bag.Pins !== undefined)) {
+		if (bag.Desktop !== undefined && !stringField(bag, "Desktop", 0, 400)) {
+			return $tuple(false, "invalid desktop layout");
+		}
+		if (bag.Values === undefined && (bag.Slots !== undefined || bag.Pins !== undefined || bag.Desktop !== undefined)) {
 			// pins / slot memory on their own carry no layout values
 		} else if (!isTable(bag.Values)) {
 			return $tuple(false, "mobile layout values are missing");
@@ -464,7 +467,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (bag.Slots !== undefined && !stringField(bag, "Slots", 0, 512)) {
 			return $tuple(false, "invalid mobile layout slots");
 		}
-		if (count > 6 || (count < 1 && bag.Slots === undefined && bag.Pins === undefined)) {
+		if (count > 6 || (count < 1 && bag.Slots === undefined && bag.Pins === undefined && bag.Desktop === undefined)) {
 			return $tuple(false, "invalid mobile layout size");
 		}
 	} else if (action === Protocol.Actions.RedeemCode) {

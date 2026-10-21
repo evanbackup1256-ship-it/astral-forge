@@ -361,6 +361,8 @@ const DataTemplate = {
 				UnlimitedMoney: false,
 				// ordered phone bottom-bar page ids (max 5); empty = priority order
 				MobileTabPins: [],
+				// desktop HUD layout (Shared/DesktopLayout); empty = stock layout
+				DesktopLayout: "",
 				// one-time client hints already shown (ids from Shared/SeenHints)
 				SeenHints: [],
 				// first-goal ids already claimed (ids from Shared/FirstGoals), in order

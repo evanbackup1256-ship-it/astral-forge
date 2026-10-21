@@ -1582,4 +1582,4 @@ function MobileQuickBar(props: MobileQuickBarProps) {
 	);
 }
 
-export { MobileControls, MobileQuickBar };
+export { MobileControls, MobileQuickBar, MobileDragging };

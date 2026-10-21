@@ -4,6 +4,7 @@ import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import RelicRigs = require("../../../Shared/AstralForge/Shared/RelicRigs");
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
+import DesktopLayout = require("../../../Shared/AstralForge/Shared/DesktopLayout");
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
 import AtomicStateClass = require("./Security/AtomicState");
@@ -364,6 +365,7 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 		flags.MobileLayoutSlots = "";
 	}
 	flags.MobileTabPins = NavRoutes.normalizeMobileTabPins(flags.MobileTabPins);
+	flags.DesktopLayout = DesktopLayout.Normalize(flags.DesktopLayout) ?? "";
 	flags.SeenHints = SeenHints.normalizeSeenHints(flags.SeenHints);
 	flags.FirstGoals = FirstGoals.normalizeClaimed(flags.FirstGoals);
 	const settings = d(profile.Settings);

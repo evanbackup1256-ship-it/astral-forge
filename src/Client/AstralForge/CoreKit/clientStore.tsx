@@ -69,6 +69,9 @@ function optimisticSession(session: Session | undefined, action: string, payload
 			return { ...session, Settings: settings };
 		}
 	}
+	if (action === "SetMobileLayout" && typeIs(payload.Desktop, "string")) {
+		return { ...session, Flags: { ...session.Flags, DesktopLayout: payload.Desktop } };
+	}
 	if (action === "SetMobileLayout" && typeIs(payload.Pins, "table")) {
 		return { ...session, Flags: { ...session.Flags, MobileTabPins: payload.Pins } };
 	}

@@ -183,6 +183,7 @@ const Protocol = mod<{ Actions: Record<string, string>; [key: string]: unknown }
 const MonetizationConfig = SharedDataSuite("MonetizationConfig") as Dict;
 const ZoneUnlock = SharedDataSuite("ZoneUnlock") as Kit;
 const MobileLayoutSlots = mod(shared(), "MobileLayoutSlots");
+const DesktopLayout = mod<{ Normalize: (raw: unknown) => string | undefined }>(shared(), "DesktopLayout");
 const CrateExpansion = mod<Kit>(shared(), "CrateExpansion");
 const ProgressionService = ProgressionModule as unknown as Kit;
 
@@ -4987,6 +4988,14 @@ export class GameService {
 				if (truthy(allowed[key as string]) && typeIs(value, "number")) {
 					(profile.Settings as Dict)[key as string] = math.clamp(value, 0, 1);
 				}
+			}
+			if (payload!.Desktop !== undefined) {
+				const desktop = DesktopLayout.Normalize(payload!.Desktop);
+				if (desktop === undefined) {
+					return responseError(T("GameService.InvalidLayoutMemory"));
+				}
+				(profile.Flags as Dict).DesktopLayout = desktop;
+				return responseSuccess(T("GameService.MobileHUDLayoutSaved"));
 			}
 			if (payload!.Slots !== undefined) {
 				const normalized = MobileLayoutSlots.Normalize(payload!.Slots);
