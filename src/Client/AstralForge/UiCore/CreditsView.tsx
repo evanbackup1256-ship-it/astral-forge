@@ -215,7 +215,7 @@ function Avatar(props: {
 		>
 			{props.pop !== undefined && <uiscale Scale={props.pop.map((v) => 1 + v * 0.06)} />}
 			<uicorner CornerRadius={radius} />
-			<uistroke Color={props.accent} Thickness={1.5} Transparency={0.4} />
+			<uistroke Color={props.accent} Thickness={1} Transparency={0.7} />
 			<textlabel
 				Size={UDim2.fromScale(1, 1)}
 				BackgroundTransparency={1}
@@ -370,7 +370,7 @@ function Spotlight(props: { spot: Spot; compact: boolean; reducedMotion: boolean
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={6}>
 			<Avatar member={member} size={avatar} accent={accent} pop={pop} zIndex={7} />
 			<SurfaceText
-				text={string.upper(spot.category.Label)}
+				text={spot.category.Label}
 				type="label"
 				color={accent}
 				size={new UDim2(lineW, new UDim(0, 14))}
@@ -409,7 +409,7 @@ function Spotlight(props: { spot: Spot; compact: boolean; reducedMotion: boolean
 				/>
 			)}
 			<Button
-				text={count > 0 ? `CHEER ×${count}` : "CHEER"}
+				text={count > 0 ? `Cheer ×${count}` : "Cheer"}
 				icon="Wave.3"
 				onClick={cheer}
 				color={accent}
@@ -747,7 +747,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		);
 	}
 
-	const subline = [MODEL.ShowVersion === true && props.version !== undefined ? `VERSION ${props.version}` : "", MODEL.Tagline]
+	const subline = [MODEL.ShowVersion === true && props.version !== undefined ? `Version ${props.version}` : "", MODEL.Tagline]
 		.filter((part) => part !== "")
 		.join("  ·  ");
 
@@ -775,18 +775,12 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				>
 					<Surface appear={reveal} padding={pad} active={true} zIndex={321}>
 						{/* header */}
-						<SurfaceText
-							text={string.upper(MODEL.Eyebrow)}
-							type="label"
-							color={Palette.mango}
-							size={new UDim2(1, -56, 0, 14)}
-							zIndex={322}
-						/>
+						{/* revamp r1c: no eyebrow over the title; the title names the panel on its own */}
 						<SurfaceText
 							text={MODEL.Title}
 							type="display"
-							size={new UDim2(1, -56, 0, 26)}
-							position={UDim2.fromOffset(0, 16)}
+							size={new UDim2(1, -56, 0, 30)}
+							position={UDim2.fromOffset(0, 4)}
 							zIndex={322}
 						/>
 						{subline !== "" && (
@@ -795,7 +789,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 								type="small"
 								color={Palette.creamSoft}
 								size={new UDim2(1, -56, 0, 16)}
-								position={UDim2.fromOffset(0, 46)}
+								position={UDim2.fromOffset(0, 38)}
 								zIndex={322}
 							/>
 						)}

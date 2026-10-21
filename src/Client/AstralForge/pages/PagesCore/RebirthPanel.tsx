@@ -349,11 +349,11 @@ function Section(props: SectionProps) {
 		>
 			<Text
 				value={props.title}
-				size={10}
-				color={props.accent ?? Palette.muted}
-				weight={Enum.FontWeight.Heavy}
+				size={13}
+				color={props.accent ?? Palette.creamSoft}
+				weight={Enum.FontWeight.SemiBold}
 				fit={false}
-				sizeConstraint={new UDim2(1, -120, 0, 14)}
+				sizeConstraint={new UDim2(1, -120, 0, 16)}
 				zIndex={904}
 			/>
 			{props.note !== undefined && (
@@ -747,12 +747,12 @@ export function RebirthChamber(props: ChamberProps) {
 			name="RebirthPayout"
 			order={1}
 			height={118}
-			title={canRebirth ? "WHAT THIS REBIRTH PAYS" : "NOT READY YET"}
+			title={canRebirth ? "This rebirth pays" : "Not ready yet"}
 			note={`run time ${clock(runSeconds)}`}
 		>
 			<frame Size={UDim2.fromOffset(78, 78)} BackgroundColor3={darken(gradeColor, 0.7)} BorderSizePixel={0} ZIndex={905}>
 				<uicorner CornerRadius={new UDim(0, 14)} />
-				<uistroke Color={gradeColor} Thickness={2} Transparency={gradeGlow.map((amount) => 0.1 + amount * 0.45)} />
+				<uistroke Color={gradeColor} Thickness={1} Transparency={gradeGlow.map((amount) => 0.4 + amount * 0.4)} />
 				<Text
 					value={canRebirth ? info.Grade : "–"}
 					size={44}
@@ -760,19 +760,8 @@ export function RebirthChamber(props: ChamberProps) {
 					weight={Enum.FontWeight.Heavy}
 					align={Enum.TextXAlignment.Center}
 					fit={false}
-					position={UDim2.fromOffset(0, 8)}
+					position={UDim2.fromOffset(0, 15)}
 					sizeConstraint={new UDim2(1, 0, 0, 48)}
-					zIndex={906}
-				/>
-				<Text
-					value="GRADE"
-					size={9}
-					color={Palette.muted}
-					weight={Enum.FontWeight.Heavy}
-					align={Enum.TextXAlignment.Center}
-					fit={false}
-					position={UDim2.fromOffset(0, 58)}
-					sizeConstraint={new UDim2(1, 0, 0, 12)}
 					zIndex={906}
 				/>
 			</frame>
@@ -868,7 +857,7 @@ export function RebirthChamber(props: ChamberProps) {
 				name="RebirthStars"
 				order={2}
 				height={22 + 74}
-				title={`STAR ${index} IS LIT · CHOOSE ONE, IT'S PERMANENT`}
+				title={`Star ${index} is lit: choose one, it's permanent`}
 				accent={Palette.mango}
 				note={pending.size() > 1 ? `${pending.size() - 1} more waiting` : undefined}
 			>
@@ -902,7 +891,7 @@ export function RebirthChamber(props: ChamberProps) {
 						? `${def.Line} ×${"%.2f".format(RebirthMath.vowMultiplier({ Kept: info.KeptVows, Stars: info.Stars }, id))} ${def.Pays.lower()}.`
 						: art.line!
 				}
-				tag={def && kept > 0 ? `KEPT ${kept}${mastery > 0 ? " · M" + mastery : ""}` : undefined}
+				tag={def && kept > 0 ? `Kept ${kept}${mastery > 0 ? " · M" + mastery : ""}` : undefined}
 				tooltip={
 					def
 						? {
@@ -930,7 +919,7 @@ export function RebirthChamber(props: ChamberProps) {
 			name="RebirthVows"
 			order={3}
 			height={22 + vowRows * vowCardH + (vowRows - 1) * vowGap}
-			title="VOW FOR THE NEXT RUN"
+			title="Vow for the next run"
 			note="keep it and the payout grows"
 		>
 			{vowCards}
@@ -992,7 +981,7 @@ export function RebirthChamber(props: ChamberProps) {
 				name="RebirthKeepsakes"
 				order={4}
 				height={22 + rows * chipH + (rows - 1) * 8}
-				title={`KEEPSAKES · ${keep.size()} OF ${slots}`}
+				title={`Keepsakes · ${keep.size()} of ${slots}`}
 				note={`keeps ${math.floor(fxShare * 100 + 0.5)}% of the level`}
 			>
 				{chips}
@@ -1001,7 +990,7 @@ export function RebirthChamber(props: ChamberProps) {
 	} else {
 		const nextAt = RebirthMath.KEEP_SLOTS_AT[0];
 		sections.keep = (
-			<Section name="RebirthKeepsakes" order={4} height={22 + 18} title="KEEPSAKES">
+			<Section name="RebirthKeepsakes" order={4} height={22 + 18} title="Keepsakes">
 				<Text
 					value={`After rebirth ${nextAt}, one machine can come with you into the next run.`}
 					size={11}
@@ -1063,10 +1052,10 @@ export function RebirthChamber(props: ChamberProps) {
 		keepCopy += ", plus " + keepNames.join(" and ");
 	}
 	sections.ledger = (
-		<Section name="RebirthLedger" order={5} height={22 + (stack ? 120 : 96)} title="WHAT STAYS, WHAT GOES">
-			{ledgerColumn("YOU KEEP", keepCopy, Palette.mint, 0, "Check.rebirthKeeps")}
+		<Section name="RebirthLedger" order={5} height={22 + (stack ? 120 : 96)} title="What stays, what goes">
+			{ledgerColumn("You keep", keepCopy, Palette.mint, 0, "Check.rebirthKeeps")}
 			{ledgerColumn(
-				"RESETS",
+				"Resets",
 				"Run Flux, the vault, worlds and machines. The Stellar Core starts again" +
 					(fx.HeadStart > 0 ? ` at Lv ${1 + fx.HeadStart}.` : " at Lv 1."),
 				Palette.coral,
@@ -1083,14 +1072,14 @@ export function RebirthChamber(props: ChamberProps) {
 			name="RebirthRunLog"
 			order={6}
 			height={22 + 110}
-			title={`LAST ${math.min(runs.size(), RebirthMath.LOG_LIMIT)} RUNS`}
+			title={`Last ${math.min(runs.size(), RebirthMath.LOG_LIMIT)} runs`}
 			note={runs.size() > 0 ? `best ${compactNumber(info.BestCores)} cores · fastest ${clock(info.FastestSeconds)}` : undefined}
 		>
 			{runs.size() > 0 ? (
 				<RunLog runs={runs} grow={grow.map((amount) => math.clamp(amount, 0, 1))} />
 			) : (
 				<Text
-					value="Your runs show up here: how long they took, what they paid and their grade."
+					value="No runs yet."
 					size={11}
 					color={Palette.muted}
 					fit={false}
@@ -1102,14 +1091,14 @@ export function RebirthChamber(props: ChamberProps) {
 	);
 
 	const claimText = busy
-		? "REBIRTHING…"
+		? "Rebirthing…"
 		: igniting
-			? "IGNITING…"
+			? "Igniting…"
 			: confirming
-				? "IGNITE REBIRTH"
+				? "Ignite rebirth"
 				: canRebirth
 					? `REBIRTH · ${vowName(nextVow)} next`
-					: "NOT READY";
+					: "Not ready";
 	return ReactRoblox.createPortal(
 		<frame key="RebirthChamber" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={900}>
 			<textbutton
@@ -1139,7 +1128,7 @@ export function RebirthChamber(props: ChamberProps) {
 					<Icon kind="Rebirth.rebirthChamber" size={34} position={UDim2.fromOffset(10, 10)} zIndex={904} />
 				</ChargeDial>
 				<Text
-					value={igniting ? "IGNITING" : confirming ? "CHECK YOUR REBIRTH" : `REBIRTH ${(tonumber(info.Lifetime) ?? 0) + 1}`}
+					value={igniting ? "Igniting" : confirming ? "Check your rebirth" : `Rebirth ${(tonumber(info.Lifetime) ?? 0) + 1}`}
 					size={10}
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
@@ -1223,7 +1212,7 @@ export function RebirthChamber(props: ChamberProps) {
 						<uicorner CornerRadius={new UDim(1, 0)} />
 					</frame>
 					<Button
-						text={igniting ? "STOP" : confirming ? "CANCEL" : "CLOSE"}
+						text={igniting ? "Stop" : confirming ? "Cancel" : "Close"}
 						icon="Close.rebirthIgniteStop"
 						onClick={igniting ? cancelIgnition : confirming ? () => setConfirming(false) : close}
 						sound={igniting ? undefined : "close"}
@@ -1343,7 +1332,7 @@ export function RebirthPanel({
 				ClipsDescendants={false}
 			>
 				<Text
-					value={`REBIRTH · ${rebirths} DONE · RUN ${clock(seconds)}`}
+					value={`${rebirths} rebirths · this run ${clock(seconds)}`}
 					size={10}
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
@@ -1430,7 +1419,7 @@ export function RebirthPanel({
 				ClipsDescendants={false}
 			>
 				<Badge
-					value={pending > 0 ? `STAR LIT · CHOOSE` : `${compactNumber(state.PermanentMultiplier)}× PRODUCTION`}
+					value={pending > 0 ? `Choose a star` : `${compactNumber(state.PermanentMultiplier)}× production`}
 					accent={pending > 0 ? Palette.mango : Palette.mint}
 					filled={pending > 0}
 					size={new UDim2(1, 0, 0, 26)}
@@ -1442,7 +1431,7 @@ export function RebirthPanel({
 					</frame>
 				)}
 				<Button
-					text={canRebirth ? "REBIRTH…" : pending > 0 ? "LIGHT A STAR" : "PLAN REBIRTH"}
+					text={canRebirth ? "Rebirth…" : pending > 0 ? "Light a star" : "Plan rebirth"}
 					icon="Rebirth.rebirthPlan"
 					onClick={() => setChamberOpen(true)}
 					sound="page"
@@ -1454,7 +1443,7 @@ export function RebirthPanel({
 					highlight={canRebirth && !softMotion}
 				/>
 				<Button
-					text="OPEN WORKSHOP"
+					text="Open Workshop"
 					icon="Forge.rebirthWorkshop"
 					onClick={openWorkshop}
 					sound="page"
