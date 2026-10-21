@@ -40,10 +40,18 @@ const PREVIEW_H = 64;
 // the three places other players see your style, drawn small under the main preview
 const SAMPLE_H = 46;
 const SAMPLE_GAP = 8;
+// room around the swatches so the selected ring (3px, drawn outside the dot) isn't cut by the scroller
+const SWATCH_PAD = 4;
+const SWATCH_ROW_H = SWATCH + SWATCH_PAD * 2;
+
+// three samples side by side are ~64px each on a 286px phone, too narrow for a name: stack them there
+function samplesHeight(stack: boolean): number {
+	return stack ? SAMPLE_H * 3 + SAMPLE_GAP * 2 : SAMPLE_H;
+}
 
 // header + hint, preview, accent row, frame row
 export function profileStyleHeight(stack: boolean): number {
-	return 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + SAMPLE_H + 14 + 18 + SWATCH + 6 + 14 + 18 + TapTarget + 4 + NEXT_H + SKIN_ROW_H + (stack ? 8 : 0);
+	return 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + samplesHeight(stack) + 14 + 18 + SWATCH_ROW_H + 14 + 18 + TapTarget + 4 + NEXT_H + SKIN_ROW_H + (stack ? 8 : 0);
 }
 
 const NEXT_H = 22;
@@ -87,7 +95,7 @@ function AccentSwatch(props: {
 	return (
 		<imagebutton
 			Size={UDim2.fromOffset(SWATCH, SWATCH)}
-			Position={UDim2.fromOffset(index * (SWATCH + SWATCH_GAP), 2)}
+			Position={UDim2.fromOffset(SWATCH_PAD + index * (SWATCH + SWATCH_GAP), SWATCH_PAD)}
 			BackgroundColor3={color}
 			BackgroundTransparency={unlocked ? 0 : 0.7}
 			AutoButtonColor={unlocked}
@@ -117,7 +125,7 @@ function AccentSwatch(props: {
 	);
 }
 
-function StyleSample(props: { order: number; label: string; ring: FrameStroke; accent: Color3; kind: "card" | "mark" | "row"; name: string }) {
+function StyleSample(props: { stack: boolean; order: number; label: string; ring: FrameStroke; accent: Color3; kind: "card" | "mark" | "row"; name: string }) {
 	const { ring, accent } = props;
 	const stroke = (thickness: number, transparency: number) => (
 		<uistroke Color={ring.color} Thickness={thickness} Transparency={transparency}>
@@ -127,7 +135,7 @@ function StyleSample(props: { order: number; label: string; ring: FrameStroke; a
 	const mark = props.kind === "mark";
 	return (
 		<frame
-			Size={new UDim2(1 / 3, -math.ceil((SAMPLE_GAP * 2) / 3), 1, 0)}
+			Size={props.stack ? new UDim2(1, 0, 0, SAMPLE_H) : new UDim2(1 / 3, -math.ceil((SAMPLE_GAP * 2) / 3), 1, 0)}
 			LayoutOrder={props.order}
 			BackgroundColor3={props.kind === "row" ? Palette.panel : Palette.panelSoft}
 			BackgroundTransparency={0.2}
@@ -188,7 +196,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 		<frame
 			key={`locked-${skin.Id}`}
 			Size={UDim2.fromOffset(SKIN_BTN_W, TapTarget)}
-			Position={UDim2.fromOffset((ownedSkins.size() + index) * (SKIN_BTN_W + 8), 0)}
+			Position={UDim2.fromOffset(SWATCH_PAD + (ownedSkins.size() + index) * (SKIN_BTN_W + 8), 2)}
 			BackgroundTransparency={1}
 			BorderSizePixel={0}
 		>
@@ -211,7 +219,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 			<frame
 				key={skin.Id}
 				Size={UDim2.fromOffset(SKIN_BTN_W, TapTarget)}
-				Position={UDim2.fromOffset(index * (SKIN_BTN_W + 8), 0)}
+				Position={UDim2.fromOffset(SWATCH_PAD + index * (SKIN_BTN_W + 8), 2)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
@@ -234,9 +242,9 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 	});
 	const localName = Players.LocalPlayer !== undefined ? Players.LocalPlayer.DisplayName : "You";
 
-	const accentTop = 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + SAMPLE_H + 14;
+	const accentTop = 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP + samplesHeight(props.stack) + 14;
 	const samplesTop = 26 + 22 + 10 + PREVIEW_H + SAMPLE_GAP;
-	const frameTop = accentTop + 18 + SWATCH + 6 + 14;
+	const frameTop = accentTop + 18 + SWATCH_ROW_H + 14;
 
 	const swatches = ProfileStyle.ACCENTS.map((option, index) => (
 		<AccentSwatch
@@ -257,7 +265,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 			<frame
 				key={option.Id}
 				Size={UDim2.fromOffset(FRAME_BTN_W, TapTarget)}
-				Position={UDim2.fromOffset(index * (FRAME_BTN_W + 8), 0)}
+				Position={UDim2.fromOffset(SWATCH_PAD + index * (FRAME_BTN_W + 8), 2)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
@@ -342,22 +350,22 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 					sizeConstraint={new UDim2(1, -76, 0, 18)}
 				/>
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, SAMPLE_H)} Position={UDim2.fromOffset(0, samplesTop)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, SAMPLE_GAP)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<StyleSample order={1} label="Player list" ring={ring} accent={accentColor} kind="card" name={localName} />
-				<StyleSample order={2} label="Chat" ring={ring} accent={accentColor} kind="mark" name={localName} />
-				<StyleSample order={3} label="Ranks" ring={ring} accent={accentColor} kind="row" name={localName} />
+			<frame Size={new UDim2(1, 0, 0, samplesHeight(props.stack))} Position={UDim2.fromOffset(0, samplesTop)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uilistlayout FillDirection={props.stack ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal} Padding={new UDim(0, SAMPLE_GAP)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<StyleSample stack={props.stack} order={1} label="Player list" ring={ring} accent={accentColor} kind="card" name={localName} />
+				<StyleSample stack={props.stack} order={2} label="Chat" ring={ring} accent={accentColor} kind="mark" name={localName} />
+				<StyleSample stack={props.stack} order={3} label="Ranks" ring={ring} accent={accentColor} kind="row" name={localName} />
 			</frame>
 			<Text value="Accent" size={12} color={Palette.creamSoft} weight={Enum.FontWeight.Bold} fit={false} position={UDim2.fromOffset(0, accentTop)} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			<scrollingframe
-				Size={new UDim2(1, 0, 0, SWATCH + 6)}
+				Size={new UDim2(1, 0, 0, SWATCH_ROW_H)}
 				Position={UDim2.fromOffset(0, accentTop + 18)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				ScrollingDirection={Enum.ScrollingDirection.X}
 				ScrollBarThickness={2}
 				ScrollBarImageColor3={accentColor}
-				CanvasSize={UDim2.fromOffset(ProfileStyle.ACCENTS.size() * (SWATCH + SWATCH_GAP), 0)}
+				CanvasSize={UDim2.fromOffset(ProfileStyle.ACCENTS.size() * (SWATCH + SWATCH_GAP) - SWATCH_GAP + SWATCH_PAD * 2, 0)}
 				ClipsDescendants={true}
 			>
 				{swatches}
@@ -371,7 +379,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				ScrollingDirection={Enum.ScrollingDirection.X}
 				ScrollBarThickness={2}
 				ScrollBarImageColor3={accentColor}
-				CanvasSize={UDim2.fromOffset(ProfileStyle.FRAMES.size() * (FRAME_BTN_W + 8), 0)}
+				CanvasSize={UDim2.fromOffset(ProfileStyle.FRAMES.size() * (FRAME_BTN_W + 8) - 8 + SWATCH_PAD * 2, 0)}
 				ClipsDescendants={true}
 			>
 				{frameButtons}
@@ -403,7 +411,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				ScrollingDirection={Enum.ScrollingDirection.X}
 				ScrollBarThickness={2}
 				ScrollBarImageColor3={accentColor}
-				CanvasSize={UDim2.fromOffset((ownedSkins.size() + lockedSkins.size()) * (SKIN_BTN_W + 8), 0)}
+				CanvasSize={UDim2.fromOffset((ownedSkins.size() + lockedSkins.size()) * (SKIN_BTN_W + 8) - 8 + SWATCH_PAD * 2, 0)}
 				ClipsDescendants={true}
 			>
 				{skinButtons}
