@@ -89,7 +89,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 		}
 		return (
 			<Panel size={UDim2.fromScale(1, 1)} accent={rgb(upcoming.Accent)} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
-				<Text value="NEXT EVENT" size={11} color={rgb(upcoming.Accent)} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+				<Text value="Next event" size={13} color={rgb(upcoming.Accent)} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 				<Text
 					value={`${upcoming.Name} opens ${dateText(upcoming.StartsAt)}, in ${leftText(upcoming.StartsAt - now)}.`}
 					size={14}
@@ -184,10 +184,10 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 	return (
 		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 			<Text
-				value={`LIMITED EVENT · ENDS IN ${leftText(event.EndsAt - now).upper()}`}
-				size={11}
+				value={`Ends in ${leftText(event.EndsAt - now)}`}
+				size={13}
 				color={accent}
-				weight={Enum.FontWeight.Heavy}
+				weight={Enum.FontWeight.SemiBold}
 				fit={true}
 				minSize={9}
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
