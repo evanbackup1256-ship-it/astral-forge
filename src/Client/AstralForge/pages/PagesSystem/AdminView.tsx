@@ -655,14 +655,13 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			reducedMotion={softMotion}
 			clips={false}
 		>
-			<Text value="ADMIN" size={9} color={Palette.coral} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(0, 70, 0, 12)} />
 			<Text
 				value="Owner Console"
 				size={16}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
-				position={UDim2.fromOffset(0, 13)}
+				position={UDim2.fromOffset(0, 6)}
 				sizeConstraint={new UDim2(1, -340, 0, 22)}
 			/>
 			<frame Size={new UDim2(1, -120, 0, 22)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
@@ -730,7 +729,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		);
 	const playerSection = (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={12} layoutOrder={1} clips={false}>
-			<SectionTitle value="PLAYERS" accent={Palette.cyan} />
+			<SectionTitle value="Players" accent={Palette.cyan} />
 			<SearchField
 				value={playerQuery}
 				onChange={setPlayerQuery}
@@ -759,7 +758,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	));
 	const commandSection = (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
-			<SectionTitle value="COMMANDS" accent={Palette.violet} />
+			<SectionTitle value="Commands" accent={Palette.violet} />
 			<SearchField
 				value={commandQuery}
 				onChange={setCommandQuery}
@@ -797,7 +796,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 
 	const inspectSection = (
 		<Panel size={new UDim2(1, 0, 0, inspectH)} accent={Palette.mint} background={Palette.panel} padding={12} layoutOrder={0} clips={false}>
-			<SectionTitle value="TARGET" accent={Palette.mint} />
+			<SectionTitle value="Target" accent={Palette.mint} />
 			<Text
 				value={selectedPlayer ? `${selectedPlayer.DisplayName}  ·  ${selectedPlayer.UserId}` : "Select a player."}
 				size={12}
@@ -1018,7 +1017,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	}
 	const recentSection = (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.steel} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
-			<SectionTitle value="RECENT" accent={Palette.steel} />
+			<SectionTitle value="Recent" accent={Palette.steel} />
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
 				{recent.size() === 0 ? (
@@ -1092,13 +1091,13 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			>
 				{securityRows}
 			</OpsPanel>
-			<OpsPanel title="LIVE FLAGS" accent={Palette.mango} empty="No flags." layoutOrder={2}>
+			<OpsPanel title="Live flags" accent={Palette.mango} empty="No flags." layoutOrder={2}>
 				{flagRows}
 			</OpsPanel>
-			<OpsPanel title="ANNOUNCEMENTS" accent={Palette.violet} empty="Nothing announced yet." layoutOrder={3}>
+			<OpsPanel title="Announcements" accent={Palette.violet} empty="Nothing announced yet." layoutOrder={3}>
 				{announcementRows}
 			</OpsPanel>
-			<OpsPanel title="ECONOMY" accent={Palette.cyan} empty="No live profiles." layoutOrder={4}>
+			<OpsPanel title="Economy" accent={Palette.cyan} empty="No live profiles." layoutOrder={4}>
 				{economyRows}
 			</OpsPanel>
 		</frame>
