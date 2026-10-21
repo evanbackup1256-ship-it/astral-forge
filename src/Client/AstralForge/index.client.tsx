@@ -517,6 +517,8 @@ class ClientRuntime {
 		this.disposers.push(load<typeof import("./ButtonMotion")>("ButtonMotion").attach(playerGui));
 		// equipped artifacts orbit every character so other players can see them in the world
 		this.disposers.push(load<typeof import("./ArtifactPresence")>("ArtifactPresence").attach());
+		// plot machines and scenery are local; the server only replicates the roster
+		this.disposers.push(load<typeof import("./ForgeStage")>("ForgeStage").attach());
 		// crewmates get a tag above their heads so you can find them in the world
 		this.disposers.push(load<typeof import("./CrewPresence")>("CrewPresence").attach());
 		// game-feel layer: same insets as the main screen so effect positions line up with the UI
