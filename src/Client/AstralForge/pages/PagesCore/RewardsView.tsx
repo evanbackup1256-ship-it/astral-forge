@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, formatReward, Reward } from "../../CoreKit/format";
-import { chromeFor, darken, lighten, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
+import { chromeFor, darken, lighten, Palette, Radius, scrollTail, StrokeWidth, TapTarget } from "../../CoreKit/theme";
 import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
@@ -114,11 +114,11 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 				BackgroundTransparency={claimed ? 0.45 : 0}
 				BorderSizePixel={0}
 			>
-				<uicorner CornerRadius={new UDim(0, 10)} />
+				<uicorner CornerRadius={new UDim(0, Radius.md)} />
 				<uistroke
 					Color={accent}
 					Transparency={today ? 0.1 : 0.7}
-					Thickness={today ? 1.5 : 1}
+					Thickness={today ? StrokeWidth.focus : StrokeWidth.hairline}
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 				/>
 				<Text
@@ -199,7 +199,7 @@ function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: Ti
 				BorderSizePixel={0}
 				ClipsDescendants={false}
 			>
-				<uicorner CornerRadius={new UDim(0, 10)} />
+				<uicorner CornerRadius={new UDim(0, Radius.md)} />
 				<uistroke Color={accent} Transparency={ready ? 0.2 : 0.72} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				<Text
 					value={
@@ -494,7 +494,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				value={
 					dailyReady
 						? `Streak ${daily.Streak ?? 0} → ${daily.NextStreak ?? 1} when you claim`
-						: `Streak ${daily.Streak ?? 0} · next parcel in ${Browse.shortDuration(resetIn)}`
+						: `Streak ${daily.Streak ?? 0}, next parcel in ${Browse.shortDuration(resetIn)}`
 				}
 				size={12}
 				color={Palette.mint}
