@@ -853,7 +853,9 @@ function AutoForgePanel(props: {
 			MachineId: machineId ?? queue.MachineId,
 			Reserve: reserve ?? queue.Reserve,
 		});
-	const controlY = stack ? 124 : 102;
+	// phones (portrait and landscape): label + badge, title, a full-width line, then the machine picker and
+	// the reserve/start row underneath; featureHeight in WorkshopView matches this so nothing spills into the list
+	const controlY = stack ? 104 : 102;
 	const machineW = stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(270, 42);
 	const reserveW = stack ? new UDim2(0.5, -5, 0, TapTarget) : UDim2.fromOffset(174, 42);
 	const buttonW = stack ? new UDim2(0.5, -5, 0, TapTarget) : UDim2.fromOffset(158, 42);
@@ -877,21 +879,24 @@ function AutoForgePanel(props: {
 				spin={queue.Enabled}
 				reducedMotion={softMotion}
 			/>
+			{/* phones: the badge takes this row, and the title below names the feature instead */}
 			<Text
-				value="AUTO-FORGE"
+				value={stack ? "" : "AUTO-FORGE"}
 				size={10}
 				color={Palette.mango}
 				weight={Enum.FontWeight.Heavy}
 				position={UDim2.fromOffset(62, 0)}
-				sizeConstraint={new UDim2(1, stack ? -168 : -220, 0, 16)}
+				sizeConstraint={new UDim2(1, stack ? -(62 + 96) : -220, 0, 16)}
 			/>
 			<Text
-				value="Your production queue"
+				value={stack ? "Auto-Forge queue" : "Your production queue"}
 				size={18}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
-				position={UDim2.fromOffset(62, 16)}
-				sizeConstraint={new UDim2(1, stack ? -168 : -220, 0, 24)}
+				fit={stack}
+				minSize={12}
+				position={UDim2.fromOffset(62, stack ? 26 : 16)}
+				sizeConstraint={new UDim2(1, stack ? -62 : -220, 0, stack ? 22 : 24)}
 			/>
 			<Text
 				value={
@@ -904,8 +909,8 @@ function AutoForgePanel(props: {
 				wrap={true}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(62, 42)}
-				sizeConstraint={new UDim2(1, stack ? -168 : -70, 0, stack ? 36 : 28)}
+				position={UDim2.fromOffset(stack ? 0 : 62, stack ? 54 : 42)}
+				sizeConstraint={new UDim2(1, stack ? 0 : -70, 0, 28)}
 			/>
 			<Badge
 				value={stack ? badgeStatus : status}
@@ -1051,7 +1056,8 @@ function WorkshopView(props: {
 		() => AppHelpers.buildUpgradeEntries(machines, state.Machines, state as NavState),
 		[machines, state.Machines, state.Zone, state.Rebirths],
 	);
-	const featureHeight = chromeFor(viewport).landscape ? 128 : chromeFor(viewport).stack ? 188 : 168;
+	// stacked: controlY 104 + picker 44 + 26 + row 44 = 218, plus 2 x 14 padding; desktop: 102 + 42 + 28
+	const featureHeight = chromeFor(viewport).stack ? 246 : 172;
 	return (
 		<UpgradeBoard
 			title={firstMachine ? "Buy a machine" : `${ownedMachines} machine${ownedMachines === 1 ? "" : "s"} running`}

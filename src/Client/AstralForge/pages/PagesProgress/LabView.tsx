@@ -256,12 +256,12 @@ function PowerRow(props: {
 			/>
 			<Text
 				value={`${config.Description}  /  +${math.floor(effect * 100)}% active`}
-				size={stack ? 11 : 9}
+				size={11}
 				color={config.Color}
 				weight={Enum.FontWeight.Bold}
 				wrap={true}
 				fit={true}
-				minSize={10}
+				minSize={8}
 				position={UDim2.fromOffset(58, stack ? 32 : 34)}
 				sizeConstraint={new UDim2(1, stack ? -(58 + 20) : -(minusX + 12), 0, stack ? 28 : 17)}
 			/>
