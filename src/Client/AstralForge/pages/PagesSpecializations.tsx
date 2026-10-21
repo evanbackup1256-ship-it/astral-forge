@@ -299,7 +299,7 @@ function SpecializationsView(props: Props) {
 		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={current.accent} clips={false}>
 			<Ui.IconTile kind={current.icon} accent={current.accent} size={56} filled={true} reducedMotion={props.reducedMotion} />
 			<Ui.Text
-				value="EQUIPPED BUILD"
+				value="Equipped build"
 				size={12}
 				color={current.accent}
 				weight={Enum.FontWeight.Heavy}
