@@ -225,6 +225,7 @@ interface WorldsViewProps {
 	config: WorldsConfig;
 	dispatch: Dispatch;
 	reducedMotion?: boolean;
+	navigate?: (page: string) => void;
 }
 
 function WorldsView(props: WorldsViewProps) {
@@ -591,6 +592,39 @@ function WorldsView(props: WorldsViewProps) {
 			element: rowsBlock,
 		},
 	];
+	// v8 Expedition Board: the way in sits right under the header
+	const navigate = props.navigate;
+	if (navigate !== undefined) {
+		const board = (state as { ExpeditionBoard?: { Slots?: Array<{ Id: string; EndsAt: number }> } }).ExpeditionBoard;
+		let out = 0;
+		for (const slot of board?.Slots ?? []) if (slot.Id !== "") out += 1;
+		const total = board?.Slots?.size() ?? 3;
+		const entry: Section = {
+			id: "expeditions",
+			height: TapTarget + 8,
+			element: (
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<Button
+						text={out > 0 ? `Expeditions  ${out}/${total} out` : "Expeditions"}
+						icon="Command.2"
+						onClick={() => navigate("Expeditions")}
+						color={Palette.panelSoft}
+						textColor={Palette.cream}
+						size={new UDim2(1, 0, 0, TapTarget)}
+						reducedMotion={softMotion}
+						outline={true}
+					/>
+				</frame>
+			),
+		};
+		const reordered: Section[] = [];
+		sections.forEach((section, index) => {
+			reordered.push(section);
+			if (index === 0) reordered.push(entry);
+		});
+		sections.clear();
+		for (const section of reordered) sections.push(section);
+	}
 	if (canShowMore) {
 		sections.push({
 			id: "more",

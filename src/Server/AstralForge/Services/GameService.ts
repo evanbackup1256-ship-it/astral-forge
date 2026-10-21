@@ -24,6 +24,8 @@ import { ServerEventService } from "./Gameplay/ServerEventService";
 import AnomalyModule = require("./Gameplay/Anomaly");
 import ForgeEchoModule = require("./Gameplay/ForgeEcho");
 import CompanionBonds = require("./Gameplay/CompanionBonds");
+import ExpeditionBoardService = require("./Gameplay/ExpeditionBoard");
+import ExpeditionBoard = require("../../../Shared/AstralForge/Shared/ExpeditionBoard");
 import LabModule = require("./Gameplay/Lab");
 import RelicRigModule = require("./Gameplay/RelicRigs");
 import * as HotFlags from "./Security/HotFlags";
@@ -2180,6 +2182,7 @@ export class GameService {
 				Gte: Economy.Gte,
 			}),
 			ForgeEchoes: ForgeEchoService.State(profile),
+			ExpeditionBoard: ExpeditionBoardService.State(profile as Dict),
 			Ascension: this._ascensionPublic(profile),
 			RunCash: profile.RunCash,
 			LifetimeCash: profile.LifetimeCash,
@@ -3455,17 +3458,25 @@ export class GameService {
 			return responseError(T("GameService.InvalidExpeditionRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.LaunchExpedition(profile, expeditionId) as LuaTuple<[unknown, unknown]>;
-			return truthy(ok) ? responseSuccess(message) : responseError(message);
+			// v7 single-slot remote: an alias for board slot 1
+			const [ok, message] = ExpeditionBoardService.Launch(profile as Dict, { Slot: 1, Id: expeditionId });
+			return ok ? responseSuccess(message) : responseError(message);
 		});
 	}
 
 	_claimExpedition(player: Player) {
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message, artifactId, artifactNew] = ProgressionService.ClaimExpedition(profile, this._random) as LuaTuple<
-				[unknown, unknown, unknown, unknown]
-			>;
-			return truthy(ok) ? responseSuccess(message, { ArtifactId: artifactId, ArtifactNew: artifactNew }) : responseError(message);
+			// v7 single-slot remote: an alias for board slot 1
+			const [ok, message, extra] = ExpeditionBoardService.Claim(profile as Dict, { Slot: 1 }, this._random);
+			return ok ? responseSuccess(message, { ArtifactId: extra?.ArtifactId, ArtifactNew: extra?.ArtifactNew }) : responseError(message);
+		});
+	}
+
+	// Expedition Board: Launch / Claim / Recall on any slot
+	_expeditionAct(player: Player, payload: unknown) {
+		return this._mutate(player, (profile: Profile) => {
+			const [ok, message, extra] = ExpeditionBoardService.Act(profile as Dict, payload, this._random);
+			return ok ? responseSuccess(message, extra) : responseError(message);
 		});
 	}
 
@@ -4193,6 +4204,11 @@ export class GameService {
 			if (definition === undefined) {
 				return responseError(T("GameService.ThatItemIsNotIn"));
 			}
+			for (const [equippedTarget, equippedUid] of pairs(items.Equipped as Dict)) {
+				if (equippedUid === uid && ExpeditionBoard.isLockKey(equippedTarget)) {
+					return responseError(T("ExpeditionBoard.CrewAway"));
+				}
+			}
 			if (target === CompanionRelic.TARGET) {
 				const equipped = items.Equipped as Dict;
 				for (const [equippedTarget, equippedUid] of pairs(equipped)) {
@@ -4256,6 +4272,9 @@ export class GameService {
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			const equipped = (profile.Items as Dict).Equipped as Dict;
+			if (ExpeditionBoard.isLockKey(target)) {
+				return responseError(T("ExpeditionBoard.CrewAway"));
+			}
 			if (equipped[target] === undefined) {
 				return responseError(T("GameService.ThatSocketIsAlreadyEmpty"));
 			}
@@ -4531,10 +4550,17 @@ export class GameService {
 			) as unknown[];
 			const candidates: Dict[] = [];
 			const companion = CompanionRelic.uidOf(items);
+			// crew out on an expedition stay with it
+			const crewLocks: Dict = {};
+			for (const [target, uid] of pairs(items.Equipped as Dict)) {
+				if (ExpeditionBoard.isLockKey(target)) crewLocks[target as string] = uid;
+			}
+			const away = new Set<unknown>();
+			for (const [, uid] of pairs(crewLocks)) away.add(uid);
 			for (const [uid, instance] of pairs(items.Inventory as object)) {
 				const inst = instance as Dict;
 				const definition = itemById[inst.DefinitionId as string] as Dict | undefined;
-				if (definition !== undefined && uid !== companion) {
+				if (definition !== undefined && uid !== companion && !away.has(uid)) {
 					candidates.push({
 						Uid: uid,
 						Instance: inst,
@@ -4551,6 +4577,9 @@ export class GameService {
 			) as LuaTuple<[unknown, number, unknown]>;
 			if (companion !== undefined) {
 				(nextEquipped as Dict)[CompanionRelic.TARGET] = companion;
+			}
+			for (const [target, uid] of pairs(crewLocks)) {
+				(nextEquipped as Dict)[target as string] = uid;
 			}
 			items.Equipped = nextEquipped;
 			const [rigCount, rigNote] = grantLitRigs(profile);
@@ -5976,6 +6005,8 @@ export class GameService {
 			return this._eventAct(player, payload);
 		} else if (action === Protocol.Actions.CompanionAct) {
 			return this._companionAct(player, payload);
+		} else if (action === Protocol.Actions.ExpeditionAct) {
+			return this._expeditionAct(player, payload);
 		} else if (action === Protocol.Actions.ClaimConvergenceReward) {
 			return this._convergence.Claim(player, payload?.Tier) as Response;
 		} else if (action === Protocol.Actions.ClaimQuest) {

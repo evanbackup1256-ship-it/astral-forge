@@ -187,5 +187,24 @@ return function(DataTemplate, GameConfig)
 	end
 	-- ---- end v8 C: Companion Bonds ----
 
+	-- ---- v8 C: Expedition Board ----
+	-- v7.2 (DataVersion 21) save with the single expedition running: it becomes board slot 1 and the
+	-- v7 field keeps reading the same values
+	do
+		local save = DataTemplate.New()
+		save.Command.ActiveExpedition = { Id = "LunarSurvey", StartedAt = 1700000000, EndsAt = 1700000030 }
+		add({
+			name = "v7.2 single expedition out",
+			save = save,
+			expect = {
+				["Command.ActiveExpedition.Id"] = "LunarSurvey",
+				["Progression.Expeditions.Slots.1.Id"] = "LunarSurvey",
+				["Progression.Expeditions.Slots.1.EndsAt"] = 1700000030,
+				["Progression.Expeditions.Slots.2.Id"] = "",
+			},
+		})
+	end
+	-- ---- end v8 C: Expedition Board ----
+
 	return fixtures
 end

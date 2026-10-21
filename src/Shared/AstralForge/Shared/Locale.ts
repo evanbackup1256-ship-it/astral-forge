@@ -726,6 +726,21 @@ export const EN = {
 	"CompanionBonds.EvolvedBody": "Bond rank %d. Pick a trait in Inventory.",
 	"CompanionBonds.PickedTrait": "%s learned %s.",
 	// ---- end v8 C: Companion Bonds ----
+	// ---- v8 C: Expedition Board ----
+	"ExpeditionBoard.Paused": "Expeditions are paused for a moment. Running ones keep going.",
+	"ExpeditionBoard.UnknownAction": "Unknown expedition action.",
+	"ExpeditionBoard.NoSuchSlot": "That expedition slot isn't open.",
+	"ExpeditionBoard.SlotBusy": "That slot already has an expedition out.",
+	"ExpeditionBoard.SlotEmpty": "Nothing is out in that slot.",
+	"ExpeditionBoard.RouteBusy": "That route is already being run from another slot.",
+	"ExpeditionBoard.BadCrew": "That crew can't go out.",
+	"ExpeditionBoard.CrewBusy": "A crew relic is socketed, your companion, or already away.",
+	"ExpeditionBoard.CrewFull": "A crew holds %d relics at most.",
+	"ExpeditionBoard.CrewAway": "That relic is away on an expedition.",
+	"ExpeditionBoard.CrewBonus": "%s. The crew also found %s",
+	"ExpeditionBoard.RelicEssence": "%d relic essence",
+	"ExpeditionBoard.Recalled": "Recalled. The crew is back with nothing.",
+	// ---- end v8 C: Expedition Board ----
 } as const;
 
 export type LocaleKey = keyof typeof EN;

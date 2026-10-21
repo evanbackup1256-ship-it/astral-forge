@@ -209,6 +209,9 @@ const RULES: Record<string, Rule> = {
 	// ---- v8 C: Companion Bonds ----
 	[Protocol.Actions.CompanionAct]: { Cost: 0.5, Cooldown: 0.35 },
 	// ---- end v8 C: Companion Bonds ----
+	// ---- v8 C: Expedition Board ----
+	[Protocol.Actions.ExpeditionAct]: { Cost: 1, Cooldown: 0.3 },
+	// ---- end v8 C: Expedition Board ----
 };
 
 const EXEMPT_ACTIONS: Record<string, boolean> = {
@@ -1007,6 +1010,19 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			return $tuple(false, "invalid companion action");
 		}
 		// ---- end v8 C: Companion Bonds ----
+		// ---- v8 C: Expedition Board ----
+	} else if (action === Protocol.Actions.ExpeditionAct) {
+		if (bag.Op !== "Launch" && bag.Op !== "Claim" && bag.Op !== "Recall") {
+			return $tuple(false, "invalid expedition action");
+		}
+		if (!numberField(bag, "Slot", 1, 5, true)) {
+			return $tuple(false, "invalid expedition slot");
+		}
+		if (bag.Op === "Launch") {
+			if (!stringField(bag, "Id", 1, 48)) return $tuple(false, "invalid expedition route");
+			if (bag.Crew !== undefined && !stringArrayField(bag, "Crew", 3, 1, 32)) return $tuple(false, "invalid expedition crew");
+		}
+		// ---- end v8 C: Expedition Board ----
 	}
 	return $tuple(true, undefined);
 }

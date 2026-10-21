@@ -38,6 +38,9 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	// ---- v8 C: Companion Bonds ----
 	CompanionAct: true,
 	// ---- end v8 C: Companion Bonds ----
+	// ---- v8 C: Expedition Board ----
+	ExpeditionAct: true,
+	// ---- end v8 C: Expedition Board ----
 };
 
 export interface GrantPayload {

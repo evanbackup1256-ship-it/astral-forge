@@ -55,3 +55,6 @@ require("./verify_ts_imports")
 -- ---- v8 C: Companion Bonds ----
 require("./verify_companion_bonds")
 -- ---- end v8 C: Companion Bonds ----
+-- ---- v8 C: Expedition Board ----
+require("./verify_expedition_board")
+-- ---- end v8 C: Expedition Board ----

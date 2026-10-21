@@ -125,6 +125,9 @@ export function SocketLabel(target: unknown): string {
 	if (target === CompanionRelic.TARGET) {
 		return "Companion";
 	}
+	if (target.sub(1, 11) === "Expedition:") {
+		return "an expedition";
+	}
 	const parts = target.split(":");
 	return parts.size() >= 2 ? `${parts[0]} / ${parts[1]}` : target;
 }

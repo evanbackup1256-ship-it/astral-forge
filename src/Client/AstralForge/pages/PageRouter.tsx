@@ -37,6 +37,9 @@ const PAGE_SUITES: Record<string, string> = {
 	WheelView: "PagesShop",
 	WorkshopView: "PagesProgress",
 	WorldsView: "PagesProgress",
+	// ---- v8 C: Expedition Board ----
+	ExpeditionsView: "PagesProgress",
+	// ---- end v8 C: Expedition Board ----
 };
 
 interface Thenable {
@@ -93,6 +96,7 @@ const BoostsView = lazyView("BoostsView", "BoostsView");
 const CrewView = lazyView("CrewView", "CrewView");
 const OverviewView = lazyView("OverviewView", "OverviewView");
 const WorldsView = lazyView("WorldsView", "WorldsView");
+const ExpeditionsView = lazyView("ExpeditionsView", "ExpeditionsView");
 const RewardsView = lazyView("RewardsView", "RewardsView");
 const WorkshopView = lazyView("WorkshopView", "WorkshopView");
 const BazaarView = lazyView("BazaarView", "BazaarView");
@@ -160,7 +164,7 @@ function PageContentInner(props: PageContentProps) {
 		return <FoundryView {...base} navigate={props.navigate} />;
 	}
 	if (page === "Worlds") {
-		return <WorldsView {...base} />;
+		return <WorldsView {...base} navigate={props.navigate} />;
 	}
 	if (page === "Missions") {
 		return <MissionsView {...base} navigate={props.navigate} />;
@@ -235,6 +239,11 @@ function PageContentInner(props: PageContentProps) {
 	if (page === "ForgePath") {
 		return <ForgePathView {...base} />;
 	}
+	// ---- v8 C: Expedition Board ----
+	if (page === "Expeditions") {
+		return <ExpeditionsView {...base} />;
+	}
+	// ---- end v8 C: Expedition Board ----
 	return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} />;
 }
 

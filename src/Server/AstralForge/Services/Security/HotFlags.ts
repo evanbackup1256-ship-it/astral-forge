@@ -15,6 +15,9 @@ export const FLAGS = table.freeze({
 	// ---- v8 C: Companion Bonds ----
 	CompanionBondsPaused: "Companions stop gaining bond XP and trait picks are refused. Ranks and shares are kept.",
 	// ---- end v8 C: Companion Bonds ----
+	// ---- v8 C: Expedition Board ----
+	ExpeditionBoardPaused: "Expedition launches, claims and recalls are refused. Running expeditions keep their timers and crew.",
+	// ---- end v8 C: Expedition Board ----
 });
 
 export type HotFlag = keyof typeof FLAGS;

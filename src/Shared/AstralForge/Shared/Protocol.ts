@@ -155,5 +155,8 @@
 		// ---- v8 C: Companion Bonds ----
 		CompanionAct: "CompanionAct",
 		// ---- end v8 C: Companion Bonds ----
+		// ---- v8 C: Expedition Board ----
+		ExpeditionAct: "ExpeditionAct",
+		// ---- end v8 C: Expedition Board ----
 	},
 });

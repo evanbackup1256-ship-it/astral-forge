@@ -42,6 +42,9 @@ export const MORE_ROUTES: ReadonlyArray<RouteDef> = table.freeze([
 	{ id: "Leaderboards", label: "Ranks", eyebrow: "Top 25", icon: "Leaderboard.1", accentKey: "cyan" },
 	{ id: "Credits", label: "Credits", eyebrow: "About", icon: "Credits.1", accentKey: "violet" },
 	{ id: "Admin", label: "Admin", eyebrow: "Owner", icon: "Admin.1", accentKey: "coral" },
+	// ---- v8 C: Expedition Board ----
+	{ id: "Expeditions", label: "Expeditions", eyebrow: "Send relics out", icon: "Command.2", accentKey: "cyan" },
+	// ---- end v8 C: Expedition Board ----
 ]);
 
 const NAV_IDS = new Set<string>();
