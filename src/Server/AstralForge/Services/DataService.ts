@@ -38,6 +38,9 @@ import TradeHistory from "../../../Shared/AstralForge/Shared/TradeHistory";
 import UnlockedDocumentStore from "../Modules/Documents/DocumentKit/UnlockedDocumentStore";
 import type Types = require("../Modules/Documents/DocumentService/Types");
 import SaveUtil = require("../Modules/Documents/DocumentService/SaveUtil");
+import * as SaveSize from "../Modules/SaveSize";
+
+const HttpService = game.GetService("HttpService");
 
 interface GameConfigShape {
 	Game: { DataVersion: number; LiveOpsManifestVersion: unknown };
@@ -1515,6 +1518,7 @@ export class DataService {
 			return false;
 		}
 		const snapshot = snapshotOrErr as Dict;
+		this._checkSaveSize(player, snapshot);
 		const [cacheOk, cacheError] = pcall(() => document.SetCache(snapshot));
 		if (!cacheOk) {
 			ModuleLog.Warn("Data", string.format("could not stage save for %s - %s", player.Name, tostring(cacheError)));
@@ -1681,6 +1685,29 @@ export class DataService {
 				this._autosaveTick();
 			}
 		});
+	}
+
+	/** Warns (rate-limited per player) when a save nears or passes the DataStore value cap. */
+	_checkSaveSize(player: Player, snapshot: Dict): SaveSize.SaveMeasure | undefined {
+		const [ok, measure] = pcall(() => SaveSize.Measure(snapshot, (value) => HttpService.JSONEncode(value)));
+		if (!ok) return undefined;
+		const result = measure as SaveSize.SaveMeasure;
+		if (result.Bytes >= SaveSize.LIMIT_BYTES) {
+			ModuleLog.Every(
+				"save-size-limit:" + tostring(player.UserId),
+				300,
+				"Data",
+				string.format("%s save is over the DataStore limit and will not save: %s", player.Name, SaveSize.Describe(result)),
+			);
+		} else if (result.Bytes >= SaveSize.WARN_BYTES) {
+			ModuleLog.Every(
+				"save-size:" + tostring(player.UserId),
+				900,
+				"Data",
+				string.format("%s save is large: %s", player.Name, SaveSize.Describe(result)),
+			);
+		}
+		return result;
 	}
 
 	/** UpdateAsync requests left this minute (every profile save and release is one UpdateAsync). */

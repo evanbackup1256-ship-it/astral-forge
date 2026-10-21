@@ -172,6 +172,20 @@ class GuildCommunity {
 	// guildId -> live subscription, or true while SubscribeAsync is still in flight
 	private _relays = new Map<string, RBXScriptConnection | boolean>();
 	private _chatAt = new Map<string, number>();
+	// slow-mode stamps are only needed for SLOW_MODE_SECONDS; without pruning the map kept one
+	// entry per guild member who ever chatted, for the life of the server
+	private _chatAtWrites = 0;
+
+	_pruneChatAt(now = os.clock()) {
+		this._chatAtWrites += 1;
+		if (this._chatAtWrites < 64) return;
+		this._chatAtWrites = 0;
+		const stale: string[] = [];
+		for (const [key, at] of this._chatAt) {
+			if (now - at >= SLOW_MODE_SECONDS) stale.push(key);
+		}
+		for (const key of stale) this._chatAt.delete(key);
+	}
 
 	constructor(
 		guildService: GuildServiceLike,
@@ -508,6 +522,7 @@ class GuildCommunity {
 					};
 				}
 				this._chatAt.set(key, os.clock());
+				this._pruneChatAt();
 			}
 			const [filteredOk, filtered] = this._filter(
 				player,
