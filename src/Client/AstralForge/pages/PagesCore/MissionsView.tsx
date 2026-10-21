@@ -447,7 +447,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 		>
 			{stack ? (
 				<Text
-					value="TODAY'S MISSIONS · NEW EACH DAY"
+					value="Today's missions"
 					size={13}
 					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
@@ -456,14 +456,6 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				/>
 			) : (
 				<>
-					<Text
-						value="MISSIONS"
-						size={11}
-						color={Palette.cyan}
-						weight={Enum.FontWeight.Heavy}
-						fit={false}
-						sizeConstraint={new UDim2(1, -headerSide, 0, 16)}
-					/>
 					<Text
 						value={
 							counts.Ready > 0
@@ -474,7 +466,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
-						position={UDim2.fromOffset(0, 16)}
+						position={UDim2.fromOffset(0, 8)}
 						sizeConstraint={new UDim2(1, -headerSide, 0, 30)}
 					/>
 					<Text
