@@ -11,6 +11,8 @@ import { Icon } from "../ArtKit/Icon";
 import { useTouchTargets } from "../UiCore/ui";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
 import { Dict } from "../lua";
+import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
+import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { Component, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit } from "./luauDeps";
 
 const Players = game.GetService("Players");
@@ -1248,7 +1250,9 @@ __defs["TradeView"] = () => {
 		const tradeSoft = softMotion === true || deskReveal === undefined || dailyReveal === undefined;
 		const now = useSecondClock();
 		const trade = state.Trade;
-		const unlocked = trade?.Unlocked === true;
+		const policy = usePlayPolicy();
+		const regionBlocked = !policy.PaidItemTradingAllowed;
+		const unlocked = trade?.Unlocked === true && !regionBlocked;
 		const session = trade?.Session;
 		const invite = trade?.Invite;
 		const outgoing = trade?.Outgoing;
@@ -2336,14 +2340,14 @@ __defs["TradeView"] = () => {
 							layoutOrder: 1,
 						},
 						h(Text, {
-							value: "Player trading is locked",
+							value: regionBlocked ? PlayPolicy.Copy.TradingShort : "Player trading is locked",
 							size: 15,
 							color: Palette.cream,
 							weight: Enum.FontWeight.Heavy,
 							sizeConstraint: new UDim2(1, 0, 0, 22),
 						}),
 						h(Text, {
-							value: lock?.Requirement ?? "Complete your first rebirth.",
+							value: regionBlocked ? PlayPolicy.Copy.Trading : (lock?.Requirement ?? "Complete your first rebirth."),
 							size: 13,
 							color: Palette.creamSoft,
 							wrap: true,

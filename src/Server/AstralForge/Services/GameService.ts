@@ -26,6 +26,8 @@ import LabModule = require("./Gameplay/Lab");
 import RelicRigModule = require("./Gameplay/RelicRigs");
 import ProgressionModule = require("./Gameplay/Progression");
 import { MatterRuntime } from "./MatterRuntime";
+import * as PolicyGate from "./PolicyGate";
+import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
@@ -3789,6 +3791,10 @@ export class GameService {
 			return responseError("That market offer does not exist.");
 		}
 		const offer = itemOfferById[offerId] as Dict;
+		const policyNote = PolicyGate.OfferBlocked(player, offer);
+		if (policyNote !== undefined) {
+			return responseError(policyNote);
+		}
 		return this._mutate(player, (profile: Profile) => {
 			const items = ProfileBagMath.EnsureItems(profile) as Dict;
 			ensureItemShop(profile);
@@ -3845,6 +3851,7 @@ export class GameService {
 		const [ShopCatalog] = shopShared();
 		const now = os.time();
 		const day = ShopCatalog.day(now);
+		const policy = PolicyGate.Get(player);
 		return this._mutate(player, (profile: Profile) => {
 			const cosmetics = ProfileBagMath.EnsureCosmetics(profile, (id: unknown) => ShopCatalog.skin(id) !== undefined) as Dict;
 			const shop = ProfileBagMath.EnsureDailyShop(profile, day, cosmetics.CrateSkins) as Dict;
@@ -3852,6 +3859,10 @@ export class GameService {
 			const offer = offers[math.floor(slot) - 1];
 			if (offer === undefined) {
 				return responseError("That daily offer does not exist.");
+			}
+			const policyNote = PlayPolicy.offerBlocked(policy, offer);
+			if (policyNote !== undefined) {
+				return responseError(policyNote);
 			}
 			const bought = shop.Bought as Dict;
 			if ((ShopCatalog.remaining(offer, bought) as number) <= 0) {
@@ -5835,6 +5846,10 @@ export class GameService {
 			action === Protocol.Actions.TradeChat ||
 			action === Protocol.Actions.TradeRequest
 		) {
+			const policyNote = PolicyGate.TradeBlocked(player, action as string, payload);
+			if (policyNote !== undefined) {
+				return responseError(policyNote);
+			}
 			return this._tradeAction(player, action as string, payload ?? {});
 		} else if (action === Protocol.Actions.CollectVault) {
 			return this._collect(player);
@@ -6740,6 +6755,7 @@ export class GameService {
 		}
 		this._running = true;
 		this._convergence.Start();
+		PolicyGate.Start();
 		MarketplaceService.ProcessReceipt = (receiptInfo) => {
 			const [ok, decision] = pcall(() => this._processReceipt(receiptInfo));
 			if (ok) {

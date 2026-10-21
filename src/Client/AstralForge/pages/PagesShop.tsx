@@ -13,6 +13,9 @@ import { Icon } from "../ArtKit/Icon";
 import BrowseModel = require("../BrowseModel");
 import ElementFxModule = require("../ElementFx");
 import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppearance");
+import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
+import { usePlayPolicy } from "../CoreKit/playPolicy";
+import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
 import {
 	Component,
 	Components,
@@ -644,6 +647,7 @@ function ShopView(props: ShopViewProps) {
 	const reducedMotion = props.reducedMotion;
 	const onPurchasePresentationChange = props.onPurchasePresentationChange;
 	const monetization = useMonetization();
+	const policy = usePlayPolicy();
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const antilag = useAntilag();
@@ -941,7 +945,8 @@ function ShopView(props: ShopViewProps) {
 			setBanner(message);
 		});
 	};
-	const products = monetization.DevProducts;
+	// keys and spins for Robux aren't sold where paid random items are restricted
+	const products = monetization.DevProducts.filter((product) => !PlayPolicy.productBlocked(policy, product));
 	const passes = monetization.GamePasses;
 	const featuredProducts = products.filter((_, index) => index < 2);
 	const featuredPasses = passes.filter((pass, index) => index < 1 || pass.Key === "AutoSalvage");
@@ -1766,6 +1771,7 @@ interface OfferCardProps {
 	busy: boolean;
 	pending: boolean;
 	reducedMotion?: boolean;
+	policyNote?: string;
 	onBuy: () => void;
 }
 
@@ -1777,9 +1783,18 @@ function OfferCardImpl(props: OfferCardProps) {
 	const soldOut = left <= 0;
 	const have = tonumber(props.state[offer.Currency]) ?? 0;
 	const short = math.max(0, offer.Price - have);
-	const canBuy = !soldOut && short === 0 && !props.busy;
+	const blocked = props.policyNote !== undefined;
+	const canBuy = !soldOut && !blocked && short === 0 && !props.busy;
 	const fullPrice = offer.Deal ? math.floor(offer.Price / (1 - ShopCatalog.DEAL_DISCOUNT) + 0.5) : undefined;
-	const cta = soldOut ? "SOLD OUT" : short > 0 ? `NEED ${commas(short)}` : props.pending ? "BUYING…" : "BUY";
+	const cta = soldOut
+		? "SOLD OUT"
+		: blocked
+			? "UNAVAILABLE"
+			: short > 0
+				? `NEED ${commas(short)}`
+				: props.pending
+					? "BUYING…"
+					: "BUY";
 	return h(
 		Panel,
 		{
@@ -1902,8 +1917,9 @@ function OfferCardImpl(props: OfferCardProps) {
 			},
 			h(Button, {
 				text: cta,
-				icon: soldOut ? "Check.11" : short > 0 ? "Lock.7" : "Shop.7",
+				icon: soldOut ? "Check.11" : blocked || short > 0 ? "Lock.7" : "Shop.7",
 				onClick: props.onBuy,
+				tooltip: props.policyNote,
 				color: canBuy ? accent : Palette.panelSoft,
 				textColor: canBuy ? Palette.ink : Palette.creamSoft,
 				size: UDim2.fromScale(1, 1),
@@ -1919,7 +1935,7 @@ function OfferCardImpl(props: OfferCardProps) {
 // shows: the offer (price, reward, slot), its accent/detail from config, stock left, busy/pending button state,
 // stagger index, motion, and only the one wallet balance it prices in (state[offer.Currency]) for "can afford"
 const OfferCard = memoRow<OfferCardProps>(counted("DailyOffer", OfferCardImpl), ["onBuy"], (prev, incoming) =>
-	sameFields<OfferCardProps>(["offer", "index", "config", "left", "busy", "pending", "reducedMotion"])(prev, incoming) &&
+	sameFields<OfferCardProps>(["offer", "index", "config", "left", "busy", "pending", "reducedMotion", "policyNote"])(prev, incoming) &&
 	prev.state[incoming.offer.Currency] === incoming.state[incoming.offer.Currency]);
 
 function useDay(): number {
@@ -1949,6 +1965,7 @@ function DailySection(props: SectionProps) {
 			mounted.current = false;
 		};
 	}, []);
+	const policy = usePlayPolicy();
 	const daily = state.DailyShop ?? {};
 	const current = daily.Day === day;
 	const owned = current && typeIs(daily.Owned, "table") ? daily.Owned : (state.Cosmetics?.CrateSkins ?? {});
@@ -1991,6 +2008,7 @@ function DailySection(props: SectionProps) {
 			busy: pendingSlot !== undefined,
 			pending: pendingSlot === offer.Slot,
 			reducedMotion: props.reducedMotion,
+			policyNote: PlayPolicy.offerBlocked(policy, offer),
 			onBuy: () => buy(offer),
 		});
 	}
@@ -2477,6 +2495,17 @@ function CratesSection(props: SectionProps) {
 				id: "chips",
 				height: chipsH,
 				element: h(Grid, { columns: columns, cell: 58, height: chipsH, cells: chips }),
+			},
+			{
+				id: "drops",
+				height: crateDropTableHeight(config.Items, crate, stack),
+				element: h(CrateDropTable, {
+					key: crate.Id,
+					items: config.Items,
+					crate: crate,
+					pity: items.Pity?.[crate.Id] ?? 0,
+					stack: stack,
+				}),
 			},
 		],
 	});

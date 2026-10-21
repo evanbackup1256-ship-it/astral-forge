@@ -3,6 +3,7 @@ import { InteractionFeedback } from "../CoreKit/interaction";
 import { useClientSelector } from "../CoreKit/clientStore";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import { compactNumber } from "../CoreKit/format";
+import { getPlayPolicy } from "../CoreKit/playPolicy";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { composePresence, useEntrance, useExitTransition, useFlipperSpring, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, pixelPosition, SearchField, Text, useGamepadAutofocus, useGuiSize, useTouchTargets } from "./ui";
@@ -424,6 +425,8 @@ function PlayerRow(param: PlayerRowProps) {
 					text: "TRADE",
 					icon: "Send.6",
 					color: Palette.mint,
+					// trading is off where PolicyService doesn't allow paid item trading
+					disabled: !getPlayPolicy().PaidItemTradingAllowed,
 					onClick: param.onTrade,
 					reducedMotion: reducedMotion,
 				}),

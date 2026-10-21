@@ -29,6 +29,10 @@ H.env.Enum = setmetatable({}, { __index = function(_, cat)
 	return setmetatable({}, { __index = function(_, item) return cat .. "." .. item end })
 end })
 local GS = H.load("Server/AstralForge/Services/GameService").GameService
+-- these players are in an open region; verify_play_policy covers the restricted ones
+H.load("Server/AstralForge/Services/PolicyGate").SetLookupForTests(function()
+	return { ArePaidRandomItemsRestricted = false, IsPaidItemTradingAllowed = true }
+end)
 local DataTemplate = H.load("Server/AstralForge/DataTemplate")
 local GameConfig = H.load("Shared/AstralForge/Shared/GameConfig")
 local Monetization = H.load("Shared/AstralForge/Shared/SharedData/MonetizationConfig")
