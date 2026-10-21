@@ -132,7 +132,12 @@ function stateOf(owner: { _players: Map<Player, PlayerState> }, player: Player):
 export class GameAntiCheat {
 	_players = new Map<Player, PlayerState>();
 
-	Observe(player: Player, action: string, profile: unknown): LuaTuple<[boolean, boolean]> {
+	/**
+	 * `capacityHint` is the Vault capacity the caller computed for this profile in the same
+	 * transaction (the production tick). It is used only when this pass repaired no machine,
+	 * research or grid levels, since those are the inputs that could change it.
+	 */
+	Observe(player: Player, action: string, profile: unknown, capacityHint?: Flux): LuaTuple<[boolean, boolean]> {
 		if (!isTable(profile)) {
 			return $tuple(false, false);
 		}
@@ -173,11 +178,17 @@ export class GameAntiCheat {
 			profile.GridUpgrades = {};
 			repairs += 1;
 		}
-		repairs += clampSparseLevels(profile.Machines, MACHINE_LEVELS);
-		repairs += clampSparseLevels(profile.Research, RESEARCH_LEVELS);
-		repairs += clampSparseLevels(profile.GridUpgrades, GRID_LEVELS);
+		const levelRepairs =
+			clampSparseLevels(profile.Machines, MACHINE_LEVELS) +
+			clampSparseLevels(profile.Research, RESEARCH_LEVELS) +
+			clampSparseLevels(profile.GridUpgrades, GRID_LEVELS);
+		repairs += levelRepairs;
 
-		const [capacityOk, capacityResult] = pcall(Economy.Capacity, profile, os.time());
+		let capacityOk = true;
+		let capacityResult: unknown = capacityHint;
+		if (capacityHint === undefined || levelRepairs !== 0) {
+			[capacityOk, capacityResult] = pcall(Economy.Capacity, profile, os.time());
+		}
 		if (capacityOk) {
 			const nextVault = Economy.Min(profile.Vault, capacityResult);
 			if (nextVault !== profile.Vault) {

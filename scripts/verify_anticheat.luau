@@ -202,6 +202,36 @@ do
 	check(Ledger:Level(p.UserId) == "log", "one impossible-progress flag does not kick on its own")
 end
 
+-- capacity hint from the production tick gives the same result as computing it
+do
+	local GameAntiCheat = H.load("Server/AstralForge/Services/Security/GameAntiCheat").GameAntiCheat
+	local DataTemplate = H.load("Server/AstralForge/DataTemplate")
+	local Economy = H.load("Server/AstralForge/Modules/EconomyMath")("Economy")
+	local GameConfig = H.load("Shared/AstralForge/Shared/GameConfig")
+	local function deepCopy(v) if type(v) ~= "table" then return v end local o = {} for k, x in v do o[k] = deepCopy(x) end return o end
+	local function deepEqual(a, b)
+		if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+		for k, v in a do if not deepEqual(v, b[k]) then return false end end
+		for k in b do if a[k] == nil then return false end end
+		return true
+	end
+	local base = DataTemplate.New()
+	base.Vault = 1e12
+	local cap = Economy.Capacity(base, os.time())
+	local a, b = deepCopy(base), deepCopy(base)
+	local okA, rejA = GameAntiCheat.new():Observe(H.player(), "Production", a)
+	local okB, rejB = GameAntiCheat.new():Observe(H.player(), "Production", b, cap)
+	check(okA == okB and rejA == rejB and deepEqual(a, b), "hinted Observe matches the full pass")
+	check(Economy.Lte(b.Vault, cap), "vault capped to the hinted capacity")
+	-- a level repair invalidates the hint: capacity must be recomputed
+	local c = deepCopy(base)
+	c.Machines[GameConfig.Machines[1].Id] = 10 ^ 9
+	local d = deepCopy(c)
+	GameAntiCheat.new():Observe(H.player(), "Production", c)
+	GameAntiCheat.new():Observe(H.player(), "Production", d, 10 ^ 300)
+	check(deepEqual(c, d), "hint ignored when machine levels were repaired")
+end
+
 -- stage 18 display fixes
 do
 	local Model = H.load("Shared/AstralForge/Shared/SharedData/PlayerlistModel")

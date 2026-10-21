@@ -6563,7 +6563,8 @@ export class GameService {
 							};
 						}
 						enforceUnlimitedMoney(profile);
-						this._antiCheat.Observe(player, "Production", profile);
+						// the tick just capped Vault at this capacity; pass it so the check skips a second Capacity pass
+						this._antiCheat.Observe(player, "Production", profile, capacity);
 					},
 					false,
 					"production",
