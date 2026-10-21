@@ -517,7 +517,9 @@ Service.Procure = (profile, payload, now) => {
 	if (index < Math.PROCURE_TIER) {
 		return $tuple(false, `Requests open at ${(Math.REPUTATION as unknown as Record<number, { Name: string }>)[Math.PROCURE_TIER].Name} standing.`);
 	}
-	if (procure.Id === entry.Id && procure.Filled === 0) {
+	// an unfilled request that ran past its window has expired and can be placed again
+	const expired = Math.MarketBucket(now) > procure.Since + Math.PROCURE_BUCKETS;
+	if (procure.Id === entry.Id && procure.Filled === 0 && !expired) {
 		return $tuple(false, "That request is already open.");
 	}
 	bag.Market.Procure = { Id: entry.Id, Since: Math.MarketBucket(now), Filled: 0 };

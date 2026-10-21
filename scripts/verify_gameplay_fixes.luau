@@ -80,6 +80,43 @@ do
 	end
 end
 
+-- batch 48: trades can't push Stardust or Cores past the 1e14 save clamp
+do
+	local Suite = H.load("Server/AstralForge/Modules/TradeSuite")
+	local Exchange, OfferMath = Suite.TradeExchange, Suite.TradeOfferMath
+	local Omega = H.load("Shared/AstralForge/Shared/OmegaMath")
+	local function bag(raw) return OfferMath.CopyOffer(raw, Exchange.CURRENCIES, Exchange.BOOST_IDS, Exchange.KEY_IDS) end
+	local function receiver(dust, cores)
+		local p = DataTemplate.New()
+		p.Stardust, p.Cores = dust, cores
+		return p
+	end
+	local now = os.time()
+	local full = receiver(1e14 - 5, 0)
+	check(Exchange.ApplyExchange(GameConfig, Omega, full, bag({}), bag({ Stardust = 10 }), nil, nil, now) ~= nil, "Stardust past the cap refused")
+	check(full.Stardust == 1e14 - 5, "refused trade leaves Stardust alone")
+	local coreFull = receiver(0, 1e14 - 1)
+	check(Exchange.ApplyExchange(GameConfig, Omega, coreFull, bag({}), bag({ Cores = 2 }), nil, nil, now) ~= nil, "Cores past the cap refused")
+	local fine = receiver(100, 5)
+	check(Exchange.ApplyExchange(GameConfig, Omega, fine, bag({}), bag({ Stardust = 10, Cores = 1 }), nil, nil, now) == nil, "normal trade applies")
+	check(fine.Stardust == 110 and fine.Cores == 6, "normal trade credits")
+end
+
+-- batch 48: Bazaar supply requests can be placed again once they expire
+do
+	local Bazaar = H.load("Server/AstralForge/Services/Gameplay/Bazaar")
+	local BMath = H.load("Server/AstralForge/Modules/BazaarMath")
+	local p = DataTemplate.New()
+	p.Bazaar = BMath.Ensure(p.Bazaar)
+	p.Bazaar.Counters.Deals = 1e6
+	local id = BMath.CATALOG[1].Id
+	local now = os.time()
+	check((Bazaar.Procure(p, { Id = id }, now)), "request placed")
+	check(not (Bazaar.Procure(p, { Id = id }, now)), "same open request refused")
+	local later = now + (BMath.PROCURE_BUCKETS + 2) * BMath.MARKET_SECONDS
+	check((Bazaar.Procure(p, { Id = id }, later)), "expired request can be placed again")
+end
+
 -- weekly targets stay fixed when the commander levels up mid-week
 do
 	local p = DataTemplate.New()

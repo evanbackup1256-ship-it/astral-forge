@@ -1247,6 +1247,14 @@ __defs["TradeExchange"] = () => {
 			if (countInventory(profile) - give.ItemIds.size() + incomingCount > gameConfig.Items!.InventoryLimit) {
 				return "Inventory cannot hold those relics.";
 			}
+			// Stardust and Cores are clamped to 1e14 on load and save, so anything received past that
+			// would vanish on the next rejoin; refuse instead of letting the receiver lose it
+			if (math.max(0, (tonumber(profile.Stardust) ?? 0) - give.Stardust) + take.Stardust > 1e14) {
+				return "Stardust balance cannot hold that trade.";
+			}
+			if (math.max(0, (tonumber(profile.Cores) ?? 0) - give.Cores) + take.Cores > 1e14) {
+				return "Core balance cannot hold that trade.";
+			}
 
 			profile.Cash = omegaMath.Sub(profile.Cash, give.Cash);
 			profile.Cash = omegaMath.Add(profile.Cash, take.Cash);
