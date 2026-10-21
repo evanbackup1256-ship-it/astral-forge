@@ -659,7 +659,7 @@ function CommandViewReady(props: CommandProps) {
 	};
 	const header = (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false}>
-			<SectionLabel value="COMMAND · SEASON" color={Palette.cyan} />
+			<SectionLabel value="Season" color={Palette.cyan} />
 			<Text
 				value={ops.SeasonName ?? "Deep Space Command"}
 				size={stack ? 24 : 28}
