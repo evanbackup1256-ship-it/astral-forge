@@ -7,6 +7,7 @@ import * as format from "./CoreKit/format";
 import { useViewport } from "./MotionKit/motion";
 import { FocusClaim, KeyLabel } from "./CoreKit/GamepadNavigationService";
 import { OmegaMathApi } from "./lua";
+import { FittedView } from "./UiCore/viewportKit";
 
 const Players = game.GetService("Players");
 const TweenService = game.GetService("TweenService");
@@ -165,7 +166,7 @@ interface AvatarViewProps {
 
 function AvatarView(props: AvatarViewProps): React.Element {
 	const ref = React.useRef<ViewportFrame>();
-	const scene = React.useRef<{ camera: Camera; target: Vector3; size: Vector3 } | undefined>(undefined);
+	const scene = React.useRef<{ view: FittedView; target: Vector3; size: Vector3 } | undefined>(undefined);
 	const [status, setStatus] = React.useState<string | undefined>("Loading avatar…");
 	const [revision, retry] = React.useState(0);
 	const [angle, turn] = React.useState(0);
@@ -179,10 +180,7 @@ function AvatarView(props: AvatarViewProps): React.Element {
 		let alive = true;
 		const world = new Instance("WorldModel");
 		world.Parent = viewport;
-		const camera = new Instance("Camera");
-		camera.FieldOfView = 34;
-		camera.Parent = viewport;
-		viewport.CurrentCamera = camera;
+		const view = new FittedView(viewport, 34);
 		setStatus("Loading avatar…");
 		const timeout = task.delay(12, () => {
 			if (alive && scene.current === undefined) {
@@ -219,7 +217,8 @@ function AvatarView(props: AvatarViewProps): React.Element {
 				return;
 			}
 			const [bounds, size] = humanoidModel.GetBoundingBox();
-			scene.current = { camera, target: bounds.Position, size };
+			view.setModel(humanoidModel);
+			scene.current = { view, target: bounds.Position, size };
 			setStatus(undefined);
 		});
 		return () => {
@@ -228,7 +227,7 @@ function AvatarView(props: AvatarViewProps): React.Element {
 			scene.current = undefined;
 			viewport.CurrentCamera = undefined;
 			world.Destroy();
-			camera.Destroy();
+			view.destroy();
 		};
 	}, [props.userId, revision]);
 
@@ -240,27 +239,28 @@ function AvatarView(props: AvatarViewProps): React.Element {
 		}
 		let tween: Tween | undefined;
 		function fit(animate: boolean) {
+			if (!current.view.ready()) {
+				return;
+			}
 			if (tween !== undefined) {
 				tween.Cancel();
 			}
-			const aspect = math.max(viewport.AbsoluteSize.X, 1) / math.max(viewport.AbsoluteSize.Y, 1);
-			const size = current.size;
-			const distance = (math.max(size.Y, size.X / math.max(aspect, 0.1)) * 0.56) / math.tan(math.rad(current.camera.FieldOfView / 2)) + size.Z / 2;
 			const yaw = math.rad(angle);
-			const eye = current.target.add(new Vector3(math.sin(yaw) * distance, distance * 0.08, -math.cos(yaw) * distance));
-			const target = CFrame.lookAt(eye, current.target);
+			// face the avatar from this yaw, slightly above, with a little air around it
+			const orientation = CFrame.lookAt(new Vector3(math.sin(yaw), 0.08, -math.cos(yaw)), Vector3.zero);
+			const target = current.view.frame(orientation, 0.08);
 			if (animate && !props.reducedMotion) {
-				tween = TweenService.Create(current.camera, new TweenInfo(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { CFrame: target });
+				tween = TweenService.Create(current.view.camera, new TweenInfo(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { CFrame: target });
 				tween.Play();
 			} else {
-				current.camera.CFrame = target;
+				current.view.camera.CFrame = target;
 			}
 		}
 		fit(previousAngle.current !== angle);
 		previousAngle.current = angle;
-		const connection = viewport.GetPropertyChangedSignal("AbsoluteSize").Connect(() => fit(false));
+		current.view.onFit = () => fit(false);
 		return () => {
-			connection.Disconnect();
+			current.view.onFit = undefined;
 			if (tween !== undefined) {
 				tween.Cancel();
 			}

@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { subscribeContinuous } from "../MotionKit/motion";
+import { FittedView } from "./viewportKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -178,9 +179,9 @@ export interface CrateModelProps {
 	layoutOrder?: number;
 }
 
-function pose(scene: CrateScene, camera: Camera, state: PoseState, props: CrateModelProps) {
-	const zoom = props.zoom ?? 1;
-	const distance = 4.6 * zoom;
+function pose(scene: CrateScene, view: FittedView, fit: number, state: PoseState, props: CrateModelProps) {
+	const distance = fit * (props.zoom ?? 1);
+	const camera = view.camera;
 	const yaw = state.yaw;
 	const lift = state.open;
 	const angle = lift * OPEN_ANGLE;
@@ -214,13 +215,16 @@ export function CrateModel(props: CrateModelProps) {
 			return undefined;
 		}
 		viewport.ClearAllChildren();
-		const camera = new Instance("Camera");
-		camera.FieldOfView = 30;
-		camera.Parent = viewport;
-		viewport.CurrentCamera = camera;
+		const view = new FittedView(viewport, 30);
 		const model = new Instance("Model");
 		model.Parent = viewport;
 		const scene = buildCrate(model, skinId);
+		// fitted once with the lid shut, around the point the camera orbits
+		let fit = 0;
+		view.onFit = () => {
+			fit = view.distance(scene.center);
+			pose(scene, view, fit, state, propsRef.current);
+		};
 		const first = propsRef.current;
 		const state: PoseState = {
 			t: 0,
@@ -228,9 +232,13 @@ export function CrateModel(props: CrateModelProps) {
 			open: tonumber(first.open) ?? 0,
 			shake: 0,
 		};
-		pose(scene, camera, state, first);
+		view.setModel(model);
+		const teardown = () => {
+			view.destroy();
+			viewport.ClearAllChildren();
+		};
 		if (!live) {
-			return () => viewport.ClearAllChildren();
+			return teardown;
 		}
 		const release = subscribeContinuous((dt: number) => {
 			const now = propsRef.current;
@@ -241,11 +249,13 @@ export function CrateModel(props: CrateModelProps) {
 			const rate = target > state.open ? 9 : 4;
 			state.open += (target - state.open) * (1 - math.exp(-dt * rate));
 			state.shake = math.clamp(tonumber(now.shake) ?? 0, 0, 1);
-			pose(scene, camera, state, now);
+			if (view.ready()) {
+				pose(scene, view, fit, state, now);
+			}
 		});
 		return () => {
 			release();
-			viewport.ClearAllChildren();
+			teardown();
 		};
 	}, [skinId, kitReady, live]);
 	return h("viewportframe", {

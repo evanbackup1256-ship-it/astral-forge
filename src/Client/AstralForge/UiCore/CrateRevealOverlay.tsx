@@ -3,23 +3,21 @@ import { Audio } from "../AudioKit/audio";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import { Layout, Palette, TapTarget } from "../CoreKit/theme";
-import { subscribeContinuous, useViewport } from "../MotionKit/motion";
-import { joinTuple } from "../lua";
+import { revealOffset, subscribeContinuous, usePresence, useViewport } from "../MotionKit/motion";
 import { celebrationsAllowed, isReducedMotion } from "../MotionPreference";
-import { CrateModel } from "./crateModel";
-import { buildLayer, ForgeFrame, ForgeLayer, ForgePhase, LayerKind, layersFor, release } from "./crateForge";
+import { Approach, Reel, ReelItem } from "./crateReel";
 import { Badge, Button, IconTile, Panel, Text } from "./ui";
 import { itemIconKind } from "../ArtKit/Icon";
 import { EffectLabel } from "../CoreKit/inventoryMath";
 import Juice = require("../JuiceFx");
 
 // Crate and artifact reveals.
-// Crates open like a sealed casting: the crate rattles while a gauge beside it climbs the rarity
-// ladder and the furnace light behind it opens slot by slot, then the seal lets go, plate and slag
-// come out at three depths, and the relic rises out of the crate white-hot and cools to its colour.
-// Each depth is its own pooled viewport (crateForge.ts). Artifacts get their own beat: shards pull
-// in to a point and the artifact forms there. Server contracts are untouched: this only reads the
-// rolls it is given.
+// Crates open on a reel: relics run past a brass marker, each in its own pooled viewport, slow
+// down and land on the drop. Better drops spin longer and climb the ladder in the last few slots;
+// a good drop hangs on the relic before it and clicks over, a plain one can stop just short of
+// something rare. Multi-opens run up to three reels (one on phones). Artifacts get their own beat:
+// shards pull in to a point and the artifact forms there. Server contracts are untouched: this
+// only reads the rolls it is given.
 
 const RunService = game.GetService("RunService");
 const UserInputService = game.GetService("UserInputService");
@@ -285,54 +283,63 @@ function DropCard(props: {
 
 // ---------------------------------------------------------------- crate reveal
 
-const BREACH = 0.4;
+type ReelPhase = "spin" | "land" | "done";
 
-// eight notches on a brass strip beside the crate; they light one rarity at a time while the
-// pressure builds, so a good drop takes longer to top out
-function PressureGauge(props: { step: React.Binding<number>; config: CrateConfig; position: UDim2; shown: React.Binding<number> }) {
-	const notches = LADDER.map((rarity, index) => (
-		<frame
-			key={rarity}
-			Size={UDim2.fromOffset(14, 5)}
-			LayoutOrder={LADDER.size() - index}
-			BackgroundColor3={props.step.map((s) => (s > index ? rarityColor(props.config, rarity) : Palette.lineSoft))}
-			BackgroundTransparency={joinTuple<[number, number]>(props.step, props.shown).map(([s, shown]) => 1 - shown * (s > index ? 1 : 0.35))}
-			BorderSizePixel={0}
-			ZIndex={505}
-		>
-			<uicorner CornerRadius={new UDim(0, 2)} />
-		</frame>
-	));
-	return (
-		<frame
-			AnchorPoint={new Vector2(0, 0.5)}
-			Size={UDim2.fromOffset(14, LADDER.size() * 9)}
-			Position={props.position}
-			BackgroundTransparency={1}
-			ZIndex={505}
-		>
-			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} VerticalAlignment={Enum.VerticalAlignment.Center} />
-			{notches}
-		</frame>
-	);
+const DEFAULT_WEIGHTS: Record<string, number> = { Common: 50, Uncommon: 30, Rare: 14, Epic: 5, Legendary: 1, Mythic: 0.3 };
+
+function weightedRarity(rng: Random, weights: Record<string, number>): string {
+	let total = 0;
+	for (const rarity of LADDER) {
+		total += weights[rarity] ?? 0;
+	}
+	let roll = rng.NextNumber(0, total);
+	for (const rarity of LADDER) {
+		roll -= weights[rarity] ?? 0;
+		if (roll <= 0) {
+			return rarity;
+		}
+	}
+	return "Common";
 }
 
-// a screen-space slot for one pooled viewport layer
-function LayerHost(props: { hostRef: React.MutableRefObject<Frame | undefined>; size: number; position: UDim2 | React.Binding<UDim2>; zIndex: number; visible?: React.Binding<boolean> }) {
-	return (
-		<frame
-			ref={props.hostRef as React.Ref<Frame> as never}
-			AnchorPoint={new Vector2(0.5, 0.5)}
-			Size={UDim2.fromOffset(props.size, props.size)}
-			Position={props.position}
-			BackgroundTransparency={1}
-			Visible={props.visible}
-			ZIndex={props.zIndex}
-		/>
-	);
+function itemFor(config: CrateConfig, rng: Random, rarity: string): ReelItem {
+	const defs = (config.Items?.Definitions ?? []).filter((def) => def.Rarity === rarity);
+	const def = defs.size() > 0 ? defs[rng.NextInteger(0, defs.size() - 1)] : undefined;
+	return { rarity, rank: rankOf(rarity), color: rarityColor(config, rarity), slot: def?.Slot };
 }
 
-const LAYER_Z: Record<LayerKind, number> = { far: 501, light: 502, mid: 504, relic: 506, near: 507 };
+/**
+ * The strip a reel runs: filler drawn from the crate's own odds, a short climb toward the drop's
+ * rarity in the last few slots for good drops, and the near-miss set up around the landing slot.
+ */
+function stripFor(config: CrateConfig, crateId: string | undefined, roll: Roll, approach: Approach, seed: number, land: number): ReelItem[] {
+	const rng = new Random(seed);
+	let weights = DEFAULT_WEIGHTS;
+	for (const crate of config.Items?.Crates ?? []) {
+		if (crate.Id === crateId && crate.Weights !== undefined) {
+			weights = crate.Weights;
+		}
+	}
+	const rank = rankOf(roll.Rarity);
+	const items = new Array<ReelItem>();
+	for (let i = 0; i <= land + 4; i++) {
+		items.push(itemFor(config, rng, weightedRarity(rng, weights)));
+	}
+	if (rank >= 4) {
+		for (let step = 1; step <= 3; step++) {
+			const rung = math.clamp(rank - 4 + step, 1, rank - 1);
+			items[land - 8 + step * 2] = itemFor(config, rng, LADDER[rung - 1]);
+		}
+	}
+	const def = defOf(config, roll.DefinitionId);
+	items[land] = { rarity: roll.Rarity, rank, color: rarityColor(config, roll.Rarity), slot: def?.Slot };
+	if (approach === "hang") {
+		items[land - 1] = itemFor(config, rng, "Common");
+	} else if (approach === "tease") {
+		items[land + 1] = itemFor(config, rng, LADDER[math.clamp(rank + 2, 5, 6) - 1]);
+	}
+	return items;
+}
 
 function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	const config = props.config;
@@ -354,33 +361,41 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	const count = rolls.size();
 	const narrow = viewport.width < 520;
 	const phone = narrow || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
-	// the pressure takes longer to top out for better drops; reduced motion goes straight to the cards
-	const buildTime = 0.7 + math.max(0, bestRank - 3) * 0.22;
-	const dealGap = count > 1 ? 0.09 : 0;
-	const castTime = 0.55 + count * dealGap;
-	const [phase, setPhase] = React.useState<ForgePhase>(still ? "done" : "build");
-	const t = useStageClock(phase, phase === "done" ? 0.9 : buildTime + 0.2);
-	const [lid, setLid] = React.useState(still ? 1 : 0);
+
+	// one reel per drop, best first, up to three (one on phones); the rest come out as cards
+	const reelRolls = React.useMemo(() => {
+		const sorted = [...rolls];
+		sorted.sort((a, b) => rankOf(a.Rarity) > rankOf(b.Rarity));
+		const out = new Array<Roll>();
+		for (const roll of sorted) {
+			if (out.size() < (phone ? 1 : 3)) {
+				out.push(roll);
+			}
+		}
+		return out;
+	}, [rolls]);
+	const visible = phone ? 3 : 5;
+	const slotW = phone ? 88 : 108;
+	const panelW = math.min(viewport.width - 24, visible * slotW + 28);
+	const rowH = slotW;
+	const headerH = 30;
+	const panelH = headerH + reelRolls.size() * (rowH + 8) + 20;
+
+	const [phase, setPhase] = React.useState<ReelPhase>(still ? "done" : "spin");
+	const [show, , beginExit] = usePresence(still);
+	const t = useStageClock(phase, 0.9);
 	const closing = React.useRef(false);
 	const landed = React.useRef(false);
-	const phaseRef = React.useRef<{ phase: ForgePhase; since: number }>({ phase, since: os.clock() });
-
-	const stepAt = (s: number) => math.clamp(math.floor((s / buildTime) * bestRank) + 1, 1, bestRank);
-	const gaugeStep = t.map((s) => (phase === "build" ? stepAt(s) : bestRank));
-
-	const hosts: Record<LayerKind, React.MutableRefObject<Frame | undefined>> = {
-		far: React.useRef<Frame>(),
-		light: React.useRef<Frame>(),
-		mid: React.useRef<Frame>(),
-		relic: React.useRef<Frame>(),
-		near: React.useRef<Frame>(),
-	};
+	const hosts = React.useRef<Frame[]>([]);
+	const reels = React.useRef<Reel[]>([]);
 
 	const landCues = () => {
 		if (landed.current) {
 			return;
 		}
 		landed.current = true;
+		Audio.play("crateSeal");
+		InteractionFeedback.reward();
 		if (bestRank >= 6) {
 			Audio.playCelebration(["crateRevealMythic", "discovery", "reward"], 0.1);
 		} else if (bestRank >= 4) {
@@ -390,93 +405,84 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 		}
 	};
 
-	// the layers: built once per opening from the pool, stepped from one clock, handed back on close
+	// build the reels into their rows, run them from one clock, hand the viewports back on close
 	React.useEffect(() => {
-		const opened = os.clock();
-		const kinds = still ? (["relic"] as LayerKind[]) : layersFor(bestRank, phone);
-		const slot = defOf(config, best.DefinitionId)?.Slot;
-		const layers = new Array<ForgeLayer>();
-		for (const kind of kinds) {
-			const host = hosts[kind].current;
-			if (host !== undefined) {
-				layers.push(buildLayer(kind, host, LAYER_Z[kind], { rank: bestRank, phone, seed: rolls.size() * 31 + bestRank, slot, still, breach: BREACH }));
-			}
+		if (still) {
+			landCues();
+			return undefined;
 		}
-		const frameAt = (): ForgeFrame => {
-			const now = os.clock();
-			const current = phaseRef.current;
-			const s = now - current.since;
-			const step = current.phase === "build" ? stepAt(s) : bestRank;
-			return {
-				phase: current.phase,
-				t: s,
-				clock: now - opened,
-				pressure: current.phase === "build" ? math.clamp(s / buildTime, 0, 1) : 1,
-				heat: rarityColor(config, LADDER[step - 1]),
-				color: bestColor,
-			};
-		};
-		const stepAll = () => {
-			const frame = frameAt();
-			for (const layer of layers) {
-				layer.step(frame);
+		Audio.play("crateCharge");
+		const built = new Array<Reel>();
+		reelRolls.forEach((roll, row) => {
+			const host = hosts.current[row];
+			if (host === undefined) {
+				return;
 			}
-		};
-		stepAll();
-		const stop = still ? undefined : subscribeContinuous(stepAll);
+			const rank = rankOf(roll.Rarity);
+			const seed = row * 97 + rank * 13 + count;
+			const approach: Approach = rank >= 5 ? "hang" : rank <= 3 && new Random(seed).NextNumber() < 0.6 ? "tease" : "settle";
+			const land = 22 + rank * 3;
+			built.push(
+				new Reel(host, stripFor(config, session.crateId, roll, approach, seed, land), land, {
+					visible,
+					slotW,
+					zIndex: 512,
+					// better drops spin longer; extra reels stop one after another
+					spinTime: math.min(2.1 + rank * 0.22, 3.9) + row * 0.4,
+					approach,
+					onTick: (speed) => {
+						if (row === 0) {
+							Audio.play("crateTick", math.clamp(1.15 - speed * 0.6, 0.8, 1.15));
+						}
+					},
+				}),
+			);
+		});
+		reels.current = built;
+		const started = os.clock();
+		const stop = subscribeContinuous(() => {
+			const elapsed = os.clock() - started;
+			let all = true;
+			for (const reel of built) {
+				reel.step(elapsed);
+				all = all && reel.isLanded();
+			}
+			if (all) {
+				setPhase((current) => (current === "spin" ? "land" : current));
+			}
+		});
 		return () => {
-			stop?.();
-			for (const layer of layers) {
-				release(layer);
+			stop();
+			for (const reel of built) {
+				reel.destroy();
 			}
+			reels.current = [];
 		};
 	}, []);
 
 	React.useEffect(() => {
-		phaseRef.current = { phase, since: os.clock() };
-		if (phase === "build") {
-			Audio.play("crateCharge");
-			let lastStep = 0;
-			const steps = RunService.Heartbeat.Connect(() => {
-				// the gauge only ticks out loud for drops worth the wait
-				if (bestRank < 4) {
-					return;
-				}
-				const step = stepAt(t.getValue());
-				if (step > lastStep) {
-					lastStep = step;
-					Audio.play("crateRarityStep", 0.88 + step * 0.06);
-				}
-			});
-			const job = task.delay(buildTime, () => setPhase("breach"));
-			return () => {
-				steps.Disconnect();
-				pcall(task.cancel, job);
-			};
-		}
-		if (phase === "breach") {
-			setLid(1);
-			Audio.play("crateSeal");
-			InteractionFeedback.reward();
-			const job = task.delay(BREACH, () => setPhase("cast"));
+		if (phase === "land") {
+			landCues();
+			const job = task.delay(0.7, () => setPhase("done"));
 			return () => {
 				pcall(task.cancel, job);
 			};
 		}
-		if (phase === "cast") {
-			const job = task.delay(castTime, () => setPhase("done"));
-			return () => {
-				pcall(task.cancel, job);
-			};
+		if (phase === "done" && !still) {
+			landCues();
+			beginExit();
 		}
-		setLid(1);
-		landCues();
 		return undefined;
 	}, [phase]);
 
-	// one tap skips to the cards, the next one keeps them
+	// tap once to stop the reels where they'd land, again to see the cards, again to keep them
 	const advance = () => {
-		if (phase !== "done") {
+		if (phase === "spin") {
+			for (const reel of reels.current) {
+				reel.settle();
+			}
+			setPhase("land");
+		} else if (phase === "land") {
 			setPhase("done");
 		} else if (!closing.current) {
 			closing.current = true;
@@ -486,20 +492,6 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	};
 	useOverlayInput(advance);
 
-	const CrateAppearance = require(
-		ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("CrateAppearance") as ModuleScript,
-	) as CrateAppearanceModule;
-	const skin = CrateAppearance.resolve(props.skin as string | undefined, session.crateId, config.Items?.Crates ?? []);
-
-	const backdrop = t.map((s) => (phase === "build" ? math.clamp(s / 0.2, 0, 1) : 1));
-	const crateY = 0.45;
-	// the crate holds centre while the pressure builds, then drops away so the cast owns the screen
-	const sink = t.map((s) => (phase === "build" ? 0 : phase === "breach" ? easeOut(s / BREACH) * 0.4 : phase === "cast" ? 0.4 + easeOut(s / 0.5) * 0.6 : 1));
-	const cratePos = sink.map((k) => new UDim2(0.5, 0, crateY + k * 0.33, 0));
-	const crateSize = math.min(260, viewport.width * 0.6);
-	const relicSize = math.min(count === 1 ? 220 : 180, viewport.width * 0.5);
-	const anchor = new UDim2(0.5, 0, crateY, 0);
-
 	const cols = count === 1 ? 1 : math.min(count, narrow ? 2 : 5);
 	const rows = math.ceil(count / cols);
 	const large = count === 1;
@@ -507,31 +499,21 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	const gap = 12;
 	const gridW = cols * cardSize.X + (cols - 1) * gap;
 	const gridH = rows * cardSize.Y + (rows - 1) * gap;
-	// a single drop sits under its cast relic; a multi-open lets the relic go and centres the grid
-	const gridY = large ? 0.66 : 0.42;
+	const dealGap = count > 1 ? 0.06 : 0;
 
 	const cards = rolls.map((roll, index) => {
 		const col = index % cols;
 		const row = math.floor(index / cols);
 		const x = -gridW / 2 + cardSize.X / 2 + col * (cardSize.X + gap);
 		const y = -gridH / 2 + cardSize.Y / 2 + row * (cardSize.Y + gap);
-		const appear = t.map((s) => {
-			if (phase === "build" || phase === "breach") {
-				return 0;
-			}
-			if (still) {
-				return 1;
-			}
-			const start = phase === "cast" ? 0.3 + index * dealGap : 0;
-			return phase === "done" && s > 0.3 ? 1 : math.clamp((s - start) / 0.3, 0, 1);
-		});
+		const appear = t.map((s) => (phase !== "done" ? 0 : still ? 1 : math.clamp((s - 0.12 - index * dealGap) / 0.3, 0, 1)));
 		return (
 			<DropCard
 				key={`${index}`}
 				roll={roll}
 				config={config}
 				size={cardSize}
-				position={new UDim2(0.5, x, gridY, y)}
+				position={new UDim2(0.5, x, 0.45, y)}
 				appear={appear}
 				best={roll === best && count > 1}
 				large={large}
@@ -542,8 +524,9 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 
 	const allSalvaged = rolls.every((roll) => roll.AutoSalvaged === true);
 	const claim = allSalvaged ? "Bank essence" : count === 1 ? "Keep it" : `Keep all ${count}`;
-	const header = phase === "build" ? `Opening ${session.crateName ?? "crate"}` : count === 1 ? "You got" : `${count} drops`;
-	const relicShown = t.map((s) => large || phase !== "done" || s < 0.25);
+	const header = phase !== "done" ? `Opening ${session.crateName ?? "crate"}` : count === 1 ? "You got" : `${count} drops`;
+	const rest = count - reelRolls.size();
+	const backdrop = t.map((s) => (!still && phase === "spin" ? math.clamp(s / 0.2, 0, 1) : 1));
 
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={500}>
@@ -559,29 +542,48 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 				zIndex={505}
 			/>
 			{!still && (
-				<React.Fragment>
-					<LayerHost hostRef={hosts.far} size={crateSize * 1.7} position={anchor} zIndex={LAYER_Z.far} />
-					<LayerHost hostRef={hosts.light} size={crateSize * 1.5} position={cratePos} zIndex={LAYER_Z.light} />
-					<LayerHost hostRef={hosts.mid} size={crateSize * 2.2} position={anchor} zIndex={LAYER_Z.mid} />
-					<LayerHost hostRef={hosts.near} size={crateSize * 3} position={anchor} zIndex={LAYER_Z.near} />
-					<frame AnchorPoint={new Vector2(0.5, 0.5)} Size={UDim2.fromOffset(crateSize, crateSize)} Position={cratePos} BackgroundTransparency={1} ZIndex={503}>
-						<CrateModel skin={skin} open={lid} shake={phase === "build" ? 1 : 0} spin={false} live={true} zoom={0.9} zIndex={503} />
-					</frame>
-					<PressureGauge
-						step={gaugeStep}
-						config={config}
-						position={new UDim2(0.5, crateSize / 2 + 14, crateY, 0)}
-						shown={t.map((s) => (phase === "build" ? math.clamp(s / 0.2, 0, 1) : phase === "breach" ? 1 - math.clamp(s / 0.25, 0, 1) : 0))}
+				<Panel
+					size={UDim2.fromOffset(panelW, panelH)}
+					position={show.map((a) => new UDim2(0.5, -panelW / 2, 0.45, -panelH / 2 + revealOffset(a)))}
+					accent={Palette.mango}
+					background={Palette.panel}
+					padding={0}
+					reveal={show}
+					reducedMotion={still}
+					clips={true}
+					zIndex={510}
+				>
+					<Text
+						value={rest > 0 ? `+${rest} more in the crate` : session.crateName ?? "Crate"}
+						size={12}
+						color={Palette.muted}
+						weight={Enum.FontWeight.Bold}
+						align={Enum.TextXAlignment.Center}
+						position={UDim2.fromOffset(0, 8)}
+						sizeConstraint={new UDim2(1, 0, 0, 16)}
+						zIndex={511}
 					/>
-				</React.Fragment>
+					{reelRolls.map((_, row) => (
+						<frame
+							key={`reel${row}`}
+							ref={(frame: Frame | undefined) => {
+								if (frame !== undefined) {
+									hosts.current[row] = frame;
+								}
+							}}
+							Size={new UDim2(1, -12, 0, rowH)}
+							Position={UDim2.fromOffset(6, headerH + row * (rowH + 8))}
+							BackgroundTransparency={1}
+							ClipsDescendants={true}
+							ZIndex={511}
+						>
+							{/* the marker: a brass pin above and below the centre slot */}
+							<frame AnchorPoint={new Vector2(0.5, 0)} Position={new UDim2(0.5, 0, 0, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={Palette.mango} BorderSizePixel={0} ZIndex={516} />
+							<frame AnchorPoint={new Vector2(0.5, 1)} Position={new UDim2(0.5, 0, 1, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={Palette.mango} BorderSizePixel={0} ZIndex={516} />
+						</frame>
+					))}
+				</Panel>
 			)}
-			<LayerHost
-				hostRef={hosts.relic}
-				size={relicSize}
-				position={new UDim2(0.5, 0, large ? 0.34 : 0.3, 0)}
-				zIndex={LAYER_Z.relic}
-				visible={relicShown}
-			/>
 			{cards}
 			<ActionButton
 				text={claim}
@@ -594,7 +596,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 			/>
 			{phase !== "done" && (
 				<Text
-					value="Tap to skip"
+					value={phase === "spin" ? "Tap to stop" : "Tap to continue"}
 					size={12}
 					color={Palette.muted}
 					align={Enum.TextXAlignment.Center}

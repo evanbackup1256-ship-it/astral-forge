@@ -56,7 +56,7 @@ function rollsFor(config: Config, rarity: unknown, count: number) {
 export = StoryKit.story(
 	{
 		name: "Crate reveal",
-		summary: "The reel, the equipped crate popping open, and the Celestial/Astral aura on a win.",
+		summary: "The relic reel: spin, near-miss and landing for each rarity, single and multi-open, then the result cards.",
 		controls: {
 			Rarity: UILabs.Choose(RelicSystem.ORDER as string[], 7),
 			Count: UILabs.Choose([1, 5], 1),

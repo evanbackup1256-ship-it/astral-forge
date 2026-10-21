@@ -90,6 +90,9 @@
             },
             "object-utils": {
               "$path": "node_modules/@rbxts/object-utils"
+            },
+            "viewportmodel": {
+              "$path": "node_modules/@rbxts/viewportmodel/out"
             }
           },
           "@rbxts-js": {
