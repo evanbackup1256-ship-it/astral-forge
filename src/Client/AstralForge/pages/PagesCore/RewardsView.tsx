@@ -4,6 +4,7 @@ import { clockText, formatReward, Reward } from "../../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
 
 const UserInputService = game.GetService("UserInputService");
 const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
@@ -297,7 +298,13 @@ function readyTask(entry: unknown): boolean {
 }
 
 interface RewardsViewProps {
-	state: { Daily?: DailyState; TimedRewards?: { Rewards?: TimedEntry[]; PlaySeconds?: number }; Quests?: unknown; Achievements?: unknown[] };
+	state: {
+		Daily?: DailyState;
+		TimedRewards?: { Rewards?: TimedEntry[]; PlaySeconds?: number };
+		Quests?: unknown;
+		Achievements?: unknown[];
+		Community?: CommunityState;
+	};
 	dispatch: Dispatch;
 	navigate?: (page: string) => void;
 	reducedMotion?: boolean;
@@ -335,6 +342,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const timedReveal = useStagger(2, softMotion);
 	const streakReveal = useStagger(3, softMotion);
 	const rewardsTail = scrollTail(stack, chrome.bottomSafe, 48);
+	const community = useCommunityRewards(state.Community, stack);
 	const rewardsClaimHostRef = React.useRef<Frame>();
 	const readyCount = (dailyReady ? 1 : 0) + readyTimed.size();
 	const rewardsClaimReady = readyCount > 0;
@@ -684,6 +692,23 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	];
 	if (timedEntries.size() > 0) {
 		sections.push({ id: "timeline", height: timelineH, element: timelinePanel });
+	}
+	// group, like goals and the notification prompt sit with the other free rewards
+	if (state.Community !== undefined && community.height > 0) {
+		sections.push({
+			id: "community",
+			height: community.height,
+			element: (
+				<CommunityPanel
+					state={state.Community}
+					dispatch={dispatch as unknown as CommunityDispatch}
+					stack={stack}
+					canNotify={community.canNotify}
+					promptNotify={community.promptNotify}
+					reducedMotion={softMotion}
+				/>
+			),
+		});
 	}
 	if (navigate !== undefined) {
 		sections.push({ id: "shortcuts", height: shortcutsH, element: shortcutsRow });

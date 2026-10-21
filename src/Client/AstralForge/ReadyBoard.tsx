@@ -102,8 +102,24 @@ function collect(state: Record<string, unknown>, config: unknown): ReadyEntry[] 
 			timedReady += 1;
 		}
 	}
-	const rewards = (daily?.CanClaim === true ? 1 : 0) + timedReady;
-	add("Rewards", "Rewards", daily?.CanClaim === true ? "Daily parcel is ready" : "Playtime drop ready", rewards, "Gift", Palette.pink);
+	// community like goals the game has reached but this player hasn't claimed
+	const community = state.Community as { Likes?: unknown; LikeGoals?: unknown[] } | undefined;
+	const likes = tonumber(community?.Likes) ?? 0;
+	let likeReady = 0;
+	for (const goal of community?.LikeGoals ?? []) {
+		if (typeIs(goal, "table") && (goal as { Claimed?: boolean }).Claimed !== true && likes >= (tonumber((goal as { Likes?: unknown }).Likes) ?? math.huge)) {
+			likeReady += 1;
+		}
+	}
+	const rewards = (daily?.CanClaim === true ? 1 : 0) + timedReady + likeReady;
+	add(
+		"Rewards",
+		"Rewards",
+		daily?.CanClaim === true ? "Daily parcel is ready" : timedReady > 0 ? "Playtime drop ready" : "Like goal reached",
+		rewards,
+		"Gift",
+		Palette.pink,
+	);
 	add("Missions", "Missions", "Finished missions", PageReadyMath.CountReadyQuests(state.Quests), "Mission", Palette.green);
 	add("Milestones", "Milestones", "Goals reached", readyCount(state.Achievements), "Milestone", Palette.mango);
 	const wheel = state.Wheel as { CanSpin?: boolean } | undefined;
