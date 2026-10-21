@@ -212,6 +212,9 @@ const RULES: Record<string, Rule> = {
 	// ---- v8 C: Expedition Board ----
 	[Protocol.Actions.ExpeditionAct]: { Cost: 1, Cooldown: 0.3 },
 	// ---- end v8 C: Expedition Board ----
+	// ---- v8 C: Forge Programs ----
+	[Protocol.Actions.ProgramAct]: { Cost: 0.5, Cooldown: 0.25 },
+	// ---- end v8 C: Forge Programs ----
 };
 
 const EXEMPT_ACTIONS: Record<string, boolean> = {
@@ -1023,6 +1026,27 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			if (bag.Crew !== undefined && !stringArrayField(bag, "Crew", 3, 1, 32)) return $tuple(false, "invalid expedition crew");
 		}
 		// ---- end v8 C: Expedition Board ----
+		// ---- v8 C: Forge Programs ----
+	} else if (action === Protocol.Actions.ProgramAct) {
+		if (bag.Op !== "Save" && bag.Op !== "Toggle" && bag.Op !== "Delete") {
+			return $tuple(false, "invalid program action");
+		}
+		if (bag.Index !== undefined && !numberField(bag, "Index", 1, 5, true)) {
+			return $tuple(false, "invalid program index");
+		}
+		if (bag.Op !== "Save" && bag.Index === undefined) {
+			return $tuple(false, "invalid program index");
+		}
+		if (bag.Op === "Save") {
+			const rule = bag.Rule;
+			if (!typeIs(rule, "table") || !stringField(rule as Dict, "When", 1, 24) || !stringField(rule as Dict, "Do", 1, 24)) {
+				return $tuple(false, "invalid program rule");
+			}
+			const ruleBag = rule as Dict;
+			if (ruleBag.Arg !== undefined && !numberField(ruleBag, "Arg", 0, 1000)) return $tuple(false, "invalid program value");
+			if (ruleBag.Enabled !== undefined && !typeIs(ruleBag.Enabled, "boolean")) return $tuple(false, "invalid program switch");
+		}
+		// ---- end v8 C: Forge Programs ----
 	}
 	return $tuple(true, undefined);
 }

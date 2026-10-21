@@ -41,6 +41,9 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	// ---- v8 C: Expedition Board ----
 	ExpeditionAct: true,
 	// ---- end v8 C: Expedition Board ----
+	// ---- v8 C: Forge Programs ----
+	ProgramAct: true,
+	// ---- end v8 C: Forge Programs ----
 };
 
 export interface GrantPayload {

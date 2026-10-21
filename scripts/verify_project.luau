@@ -58,3 +58,6 @@ require("./verify_companion_bonds")
 -- ---- v8 C: Expedition Board ----
 require("./verify_expedition_board")
 -- ---- end v8 C: Expedition Board ----
+-- ---- v8 C: Forge Programs ----
+require("./verify_forge_programs")
+-- ---- end v8 C: Forge Programs ----

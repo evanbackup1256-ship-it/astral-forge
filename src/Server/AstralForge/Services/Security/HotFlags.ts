@@ -18,6 +18,9 @@ export const FLAGS = table.freeze({
 	// ---- v8 C: Expedition Board ----
 	ExpeditionBoardPaused: "Expedition launches, claims and recalls are refused. Running expeditions keep their timers and crew.",
 	// ---- end v8 C: Expedition Board ----
+	// ---- v8 C: Forge Programs ----
+	ForgeProgramsPaused: "Forge Programs stop running and can't be edited. Saved rules are kept.",
+	// ---- end v8 C: Forge Programs ----
 });
 
 export type HotFlag = keyof typeof FLAGS;

@@ -25,6 +25,8 @@ import AnomalyModule = require("./Gameplay/Anomaly");
 import ForgeEchoModule = require("./Gameplay/ForgeEcho");
 import CompanionBonds = require("./Gameplay/CompanionBonds");
 import ExpeditionBoardService = require("./Gameplay/ExpeditionBoard");
+import ForgeProgramsService = require("./Gameplay/ForgePrograms");
+import ForgePrograms = require("../../../Shared/AstralForge/Shared/ForgePrograms");
 import ExpeditionBoard = require("../../../Shared/AstralForge/Shared/ExpeditionBoard");
 import LabModule = require("./Gameplay/Lab");
 import RelicRigModule = require("./Gameplay/RelicRigs");
@@ -2183,6 +2185,7 @@ export class GameService {
 			}),
 			ForgeEchoes: ForgeEchoService.State(profile),
 			ExpeditionBoard: ExpeditionBoardService.State(profile as Dict),
+			ForgePrograms: ForgeProgramsService.State(profile as Dict),
 			Ascension: this._ascensionPublic(profile),
 			RunCash: profile.RunCash,
 			LifetimeCash: profile.LifetimeCash,
@@ -3002,6 +3005,84 @@ export class GameService {
 			return responseSuccess(
 				T("GameService.AutoForgeSBuyingS", state, machine.Name as string, math.floor(reserve * 100 + 0.5)),
 			);
+		});
+	}
+
+	// Forge Programs: carry out the rules that are due, each through the same action a button uses
+	_tickForgePrograms(player: Player, runtime: Runtime) {
+		const live = this._data.Get(player) as Profile | undefined;
+		if (live === undefined || !ForgePrograms.unlocked(live) || ForgePrograms.rulesOf(live).size() === 0) {
+			return;
+		}
+		const now = os.time();
+		const cash = live.Cash;
+		let cheapest: string | undefined;
+		let cheapestCost: unknown;
+		for (const machine of GameConfig.Machines as unknown as Dict[]) {
+			const id = machine.Id as string;
+			const level = (num((live.Machines as Dict)[id]) ?? 0) as number;
+			if (level >= (machine.MaxLevel as number) || truthy(ProgressionGate.UpgradeReason(live, machine, live.Machines))) {
+				continue;
+			}
+			const cost = Economy.MachineCost(id, level);
+			if (truthy(Economy.Gt(cost, cash))) {
+				continue;
+			}
+			if (cheapest === undefined || truthy(Economy.Lt(cost, cheapestCost))) {
+				cheapest = id;
+				cheapestCost = cost;
+			}
+		}
+		const items = live.Items as Dict;
+		const busy = new Set<unknown>();
+		for (const [, uid] of pairs(items.Equipped as Dict)) busy.add(uid);
+		const commons: { Uid: string; At: number }[] = [];
+		for (const [uid, instance] of pairs(items.Inventory as Dict)) {
+			const inst = instance as Dict;
+			const definition = itemById[inst.DefinitionId as string] as Dict | undefined;
+			if (definition !== undefined && definition.Rarity === "Common" && inst.Locked !== true && !busy.has(uid)) {
+				commons.push({ Uid: uid as string, At: (num(inst.AcquiredAt) ?? 0) as number });
+			}
+		}
+		const quote = this._rebirthPublic(live, now);
+		const runs = quote.Runs as Array<{ Cores?: unknown }> | undefined;
+		const last = runs !== undefined && runs.size() > 0 ? runs[runs.size() - 1] : undefined;
+		const steps = ForgeProgramsService.Due(live as Dict, runtime as Dict, {
+			Now: now,
+			Rebirths: (num(live.Rebirths) ?? 0) as number,
+			RebirthReady: quote.Ready === true,
+			RebirthCores: Economy.AsNumber(quote.Cores) as number,
+			LastRunCores: last !== undefined ? (Economy.AsNumber(last.Cores ?? 0) as number) : 0,
+			CheapestAffordable: cheapest,
+			CommonCount: commons.size(),
+		});
+		let changed = false;
+		for (const step of steps) {
+			let result: Response | undefined;
+			if (step.Do === "BuyCheapestMachine" && cheapest !== undefined) {
+				result = this._buyMachine(player, cheapest, 1);
+			} else if (step.Do === "Rebirth") {
+				result = this._rebirth(player, {});
+			} else if (step.Do === "SalvageCommons") {
+				// the oldest commons go first, down to the number the rule keeps
+				commons.sort((a, b) => (a.At !== b.At ? a.At < b.At : a.Uid < b.Uid));
+				const uids: string[] = [];
+				for (let i = 0; i < math.min(48, commons.size() - (step.Arg ?? 50)); i++) uids.push(commons[i].Uid);
+				if (uids.size() > 0) result = this._bulkSalvageItems(player, uids);
+			} else if (step.Do === "EquipBest") {
+				result = this._equipBestItems(player);
+			}
+			changed = changed || (result !== undefined && truthy(result.ok));
+		}
+		if (changed) {
+			this._queueStatePush(player);
+		}
+	}
+
+	_programAct(player: Player, payload: unknown) {
+		return this._mutate(player, (profile: Profile) => {
+			const [ok, message] = ForgeProgramsService.Act(profile as Dict, payload);
+			return ok ? responseSuccess(message) : responseError(message);
 		});
 	}
 
@@ -6007,6 +6088,8 @@ export class GameService {
 			return this._companionAct(player, payload);
 		} else if (action === Protocol.Actions.ExpeditionAct) {
 			return this._expeditionAct(player, payload);
+		} else if (action === Protocol.Actions.ProgramAct) {
+			return this._programAct(player, payload);
 		} else if (action === Protocol.Actions.ClaimConvergenceReward) {
 			return this._convergence.Claim(player, payload?.Tier) as Response;
 		} else if (action === Protocol.Actions.ClaimQuest) {
@@ -6758,6 +6841,7 @@ export class GameService {
 		if ((runtime.AutoForgeAccumulator as number) >= AUTO_FORGE_INTERVAL) {
 			runtime.AutoForgeAccumulator = (runtime.AutoForgeAccumulator as number) % AUTO_FORGE_INTERVAL;
 			this._tickAutoForge(player);
+			this._tickForgePrograms(player, runtime);
 		}
 
 		if ((runtime.DirtyAccumulator as number) >= 5) {

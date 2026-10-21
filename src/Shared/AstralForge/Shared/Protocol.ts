@@ -158,5 +158,8 @@
 		// ---- v8 C: Expedition Board ----
 		ExpeditionAct: "ExpeditionAct",
 		// ---- end v8 C: Expedition Board ----
+		// ---- v8 C: Forge Programs ----
+		ProgramAct: "ProgramAct",
+		// ---- end v8 C: Forge Programs ----
 	},
 });

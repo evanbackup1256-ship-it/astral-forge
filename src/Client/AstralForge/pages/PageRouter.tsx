@@ -257,7 +257,7 @@ const PAGE_STATE_KEYS: Record<string, string[] | undefined> = {
 	Mail: ["Mailbox"],
 	Crew: ["CurrentZone", "Visitors"],
 	// upgrade pages: everything they read except Cash, which goes through the affordability check below
-	Workshop: ["Machines", "AutoForge", "Production", "Rebirths", "Zone", "Command", "FeatureUnlocks"],
+	Workshop: ["Machines", "AutoForge", "Production", "Rebirths", "Zone", "Command", "FeatureUnlocks", "ForgePrograms"],
 	Research: ["Research", "Rebirths", "Zone", "Command", "FeatureUnlocks"],
 };
 

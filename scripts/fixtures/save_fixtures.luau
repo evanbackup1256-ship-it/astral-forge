@@ -206,5 +206,24 @@ return function(DataTemplate, GameConfig)
 	end
 	-- ---- end v8 C: Expedition Board ----
 
+	-- ---- v8 C: Forge Programs ----
+	-- v7.2 (DataVersion 21) save with Auto-Forge running and no programs: loads unchanged and gets
+	-- no Programs bag until the player saves a rule
+	do
+		local save = DataTemplate.New()
+		save.AutoForge = { Enabled = true, MachineId = "StellarCore", Reserve = 0.5, Bought = 120 }
+		save.Ascension.Rank = 1
+		add({
+			name = "v7.2 auto-forge before programs",
+			save = save,
+			expect = {
+				["AutoForge.Enabled"] = true,
+				["AutoForge.Bought"] = 120,
+				AutoForge = function(v) return type(v) == "table" and v.Programs == nil end,
+			},
+		})
+	end
+	-- ---- end v8 C: Forge Programs ----
+
 	return fixtures
 end

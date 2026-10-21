@@ -9,6 +9,7 @@ import { bulkCost, compactNumber, compareFlux, Flux, gteFlux } from "../../CoreK
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
 import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
+import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
 const UserInputService = game.GetService("UserInputService");
 const { AmountToggle, Badge, Button, Dropdown, EmptyState, IconTile, Panel, Text, SearchField } = loadUi();
@@ -1045,6 +1046,8 @@ function WorkshopView(props: {
 	);
 	// stacked: controlY 104 + picker 44 + 26 + row 44 = 218, plus 2 x 14 padding; desktop: 102 + 42 + 28
 	const featureHeight = chromeFor(viewport).stack ? 246 : 172;
+	// Forge Programs sit under Auto-Forge once they unlock
+	const programsHeight = programsPanelHeight(state as ProgramsState, chromeFor(viewport).stack);
 	return (
 		<UpgradeBoard
 			title={firstMachine ? "Buy a machine" : `${ownedMachines} machine${ownedMachines === 1 ? "" : "s"} running`}
@@ -1062,9 +1065,18 @@ function WorkshopView(props: {
 			setBuyAmount={setBuyAmount}
 			reducedMotion={reducedMotion}
 			dispatch={dispatch}
-			featurePanelHeight={featureHeight}
+			featurePanelHeight={featureHeight + (programsHeight > 0 ? programsHeight + 12 : 0)}
 			featurePanel={
-				<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={featureHeight} />
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<frame Size={new UDim2(1, 0, 0, featureHeight)} BackgroundTransparency={1} BorderSizePixel={0}>
+						<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={featureHeight} />
+					</frame>
+					{programsHeight > 0 && (
+						<frame Size={new UDim2(1, 0, 0, programsHeight)} Position={UDim2.fromOffset(0, featureHeight + 12)} BackgroundTransparency={1} BorderSizePixel={0}>
+							<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={chromeFor(viewport).stack} reducedMotion={reducedMotion} />
+						</frame>
+					)}
+				</frame>
 			}
 		/>
 	);

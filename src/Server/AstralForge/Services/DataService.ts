@@ -4,6 +4,7 @@ import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import RelicRigs = require("../../../Shared/AstralForge/Shared/RelicRigs");
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import ExpeditionBoard = require("../../../Shared/AstralForge/Shared/ExpeditionBoard");
+import ForgePrograms = require("../../../Shared/AstralForge/Shared/ForgePrograms");
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import DesktopLayout = require("../../../Shared/AstralForge/Shared/DesktopLayout");
 import { Service } from "@flamework/core";
@@ -902,6 +903,9 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 	// moves a v7 ActiveExpedition into board slot 1 and rebuilds the crew locks the Equipped pass above cleared
 	ExpeditionBoard.ensure(profile);
 	// ---- end v8 C: Expedition Board ----
+	// ---- v8 C: Forge Programs ----
+	ForgePrograms.sanitize(profile.AutoForge);
+	// ---- end v8 C: Forge Programs ----
 	const meta = d(profile.Meta);
 	meta.Revision = math.max(0, math.floor(nonNegative(meta.Revision)));
 	ProfileIntegrity.EnsureEnvelope(profile);

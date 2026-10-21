@@ -741,6 +741,18 @@ export const EN = {
 	"ExpeditionBoard.RelicEssence": "%d relic essence",
 	"ExpeditionBoard.Recalled": "Recalled. The crew is back with nothing.",
 	// ---- end v8 C: Expedition Board ----
+	// ---- v8 C: Forge Programs ----
+	"ForgePrograms.Paused": "Forge Programs are paused for a moment. Your rules are kept.",
+	"ForgePrograms.Locked": "Forge Programs open after your first ascension.",
+	"ForgePrograms.UnknownAction": "Unknown program action.",
+	"ForgePrograms.BadRule": "That rule can't run. Pick an action and one of its conditions.",
+	"ForgePrograms.NoSuchRule": "That rule is gone.",
+	"ForgePrograms.Full": "You can keep %d rules at most.",
+	"ForgePrograms.Saved": "Rule saved.",
+	"ForgePrograms.Deleted": "Rule deleted.",
+	"ForgePrograms.On": "Rule on.",
+	"ForgePrograms.Off": "Rule off.",
+	// ---- end v8 C: Forge Programs ----
 } as const;
 
 export type LocaleKey = keyof typeof EN;
