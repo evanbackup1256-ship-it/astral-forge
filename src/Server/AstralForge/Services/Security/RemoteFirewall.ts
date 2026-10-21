@@ -206,6 +206,9 @@ const RULES: Record<string, Rule> = {
 	[Protocol.Actions.BuyCrateSkin]: { Cost: 1, Cooldown: 0.5 },
 	[Protocol.Actions.EquipCrateSkin]: { Cost: 0.5, Cooldown: 0.25 },
 	[Protocol.Actions.FuseRelics]: { Cost: 1, Cooldown: 0.35 },
+	// ---- v8 C: Companion Bonds ----
+	[Protocol.Actions.CompanionAct]: { Cost: 0.5, Cooldown: 0.35 },
+	// ---- end v8 C: Companion Bonds ----
 };
 
 const EXEMPT_ACTIONS: Record<string, boolean> = {
@@ -998,6 +1001,12 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (!stringField(bag, "ActionType", 1, 48) || !stringField(bag, "PenaltyCode", 1, 48)) {
 			return $tuple(false, "invalid integrity envelope");
 		}
+		// ---- v8 C: Companion Bonds ----
+	} else if (action === Protocol.Actions.CompanionAct) {
+		if (bag.Op !== "PickTrait" || !stringField(bag, "Trait", 1, 24)) {
+			return $tuple(false, "invalid companion action");
+		}
+		// ---- end v8 C: Companion Bonds ----
 	}
 	return $tuple(true, undefined);
 }

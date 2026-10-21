@@ -52,3 +52,6 @@ require("./verify_season_pass")
 require("./verify_gameplay_fixes")
 require("./verify_rebirth_fixes")
 require("./verify_ts_imports")
+-- ---- v8 C: Companion Bonds ----
+require("./verify_companion_bonds")
+-- ---- end v8 C: Companion Bonds ----

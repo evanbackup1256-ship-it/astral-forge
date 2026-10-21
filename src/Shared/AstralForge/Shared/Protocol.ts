@@ -152,5 +152,8 @@
 		UploadGuildLogo: "UploadGuildLogo",
 		ModerateGuildLogo: "ModerateGuildLogo",
 		GetGuildLogoReview: "GetGuildLogoReview",
+		// ---- v8 C: Companion Bonds ----
+		CompanionAct: "CompanionAct",
+		// ---- end v8 C: Companion Bonds ----
 	},
 });

@@ -716,6 +716,16 @@ export const EN = {
 	"LimitedEvents.SoldOutForThisEvent": "Sold out for this event.",
 	"LimitedEvents.YouNeedDMoreS": "You need %d more %s.",
 	"GameService.YourLeftoverTokensBecameD2": "Your leftover tokens became %d Stardust. %s",
+	// ---- v8 C: Companion Bonds ----
+	"CompanionBonds.Paused": "Companion bonds are paused for a moment.",
+	"CompanionBonds.UnknownAction": "Unknown companion action.",
+	"CompanionBonds.NoCompanion": "No companion is along.",
+	"CompanionBonds.NothingToChoose": "Nothing to choose right now.",
+	"CompanionBonds.NotOffered": "That trait wasn't offered.",
+	"CompanionBonds.Evolved": "%s evolved",
+	"CompanionBonds.EvolvedBody": "Bond rank %d. Pick a trait in Inventory.",
+	"CompanionBonds.PickedTrait": "%s learned %s.",
+	// ---- end v8 C: Companion Bonds ----
 } as const;
 
 export type LocaleKey = keyof typeof EN;

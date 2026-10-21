@@ -35,6 +35,9 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	SetAnomalyLoadout: true, SetAutoForge: true, SetItemAutoSalvage: true, SetMobileLayout: true,
 	SetSetting: true, SyncShop: true, ToggleItemLock: true, BuyDailyOffer: true, BuyCrateSkin: true,
 	EquipCrateSkin: true, FuseRelics: true,
+	// ---- v8 C: Companion Bonds ----
+	CompanionAct: true,
+	// ---- end v8 C: Companion Bonds ----
 };
 
 export interface GrantPayload {

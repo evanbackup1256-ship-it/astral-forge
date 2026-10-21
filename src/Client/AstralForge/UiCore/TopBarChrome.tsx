@@ -376,7 +376,77 @@ function ServerEventChip(_param: { state: TopBarState; reducedMotion?: boolean; 
 type CompanionInfo = NonNullable<ReturnType<typeof CompanionRelic.describe>>;
 
 const sameCompanion = (a: CompanionInfo | undefined, b: CompanionInfo | undefined) =>
-	a === b || (a !== undefined && b !== undefined && a.Uid === b.Uid && a.Id === b.Id && a.Bonus === b.Bonus);
+	a === b ||
+	(a !== undefined &&
+		b !== undefined &&
+		a.Uid === b.Uid &&
+		a.Id === b.Id &&
+		a.Bonus === b.Bonus &&
+		a.Rank === b.Rank &&
+		a.Progress === b.Progress &&
+		(a.Offer !== undefined) === (b.Offer !== undefined));
+
+const RING = 18;
+const RING_EDGE = new NumberSequence([
+	new NumberSequenceKeypoint(0, 0),
+	new NumberSequenceKeypoint(0.499, 0),
+	new NumberSequenceKeypoint(0.5, 1),
+	new NumberSequenceKeypoint(1, 1),
+]);
+
+// one half of the bond ring: a circle clipped to its half, the arc drawn by a hard-edged gradient
+function RingHalf(_param: { right: boolean; rotation: number; color: Color3 }) {
+	return h(
+		"frame",
+		{
+			Size: new UDim2(0.5, 0, 1, 0),
+			Position: UDim2.fromScale(_param.right ? 0.5 : 0, 0),
+			BackgroundTransparency: 1,
+			BorderSizePixel: 0,
+			ClipsDescendants: true,
+		},
+		h(
+			"frame",
+			{
+				Size: new UDim2(2, -4, 1, -4),
+				Position: new UDim2(_param.right ? -1 : 0, 2, 0, 2),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+			},
+			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			h("uistroke", { Color: _param.color, Thickness: 2.5 }, h("uigradient", { Transparency: RING_EDGE, Rotation: _param.rotation })),
+		),
+	);
+}
+
+// bond progress inside the current rank, drawn clockwise from the top
+function BondRing(_param: { progress: number; color: Color3; ready: boolean }) {
+	const angle = math.clamp(_param.progress, 0, 1) * 360;
+	return h(
+		"frame",
+		{ Size: UDim2.fromOffset(RING, RING), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 0 },
+		h(
+			"frame",
+			{ Size: new UDim2(1, -4, 1, -4), Position: UDim2.fromOffset(2, 2), BackgroundTransparency: 1, BorderSizePixel: 0 },
+			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			h("uistroke", { Color: Palette.lineSoft, Thickness: 2.5, Transparency: 0.5 }),
+		),
+		h(RingHalf, { right: true, rotation: math.clamp(angle, 0, 180), color: _param.color }),
+		h(RingHalf, { right: false, rotation: 180 + math.clamp(angle - 180, 0, 180), color: _param.color }),
+		_param.ready &&
+			h(
+				"frame",
+				{
+					Size: UDim2.fromOffset(6, 6),
+					Position: UDim2.fromScale(0.5, 0.5),
+					AnchorPoint: new Vector2(0.5, 0.5),
+					BackgroundColor3: Palette.mango,
+					BorderSizePixel: 0,
+				},
+				h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			),
+	);
+}
 
 // read straight from the store so a relic change redraws the chip without widening the TopBar memo keys
 function useCompanion(): CompanionInfo | undefined {
@@ -388,10 +458,11 @@ function CompanionChip(_param: { companion: CompanionInfo; config?: unknown; tal
 	const companion = _param.companion;
 	const accent = InventoryMath.RarityColor(_param.config, companion.Rarity, Palette.violet);
 	const pct = math.floor(companion.Bonus * 1000 + 0.5) / 10;
+	const traitLine = companion.Trait !== undefined ? ` ${companion.Trait.Text}.` : "";
 	const tip = useTooltip({
-		title: companion.Name,
-		body: `${companion.Rarity} companion. Gives +${pct}% ${companion.Kind} on top of your sockets.`,
-		hint: "Swap it from Inventory",
+		title: companion.Suffix !== "" ? `${companion.Name}, ${companion.Suffix}` : companion.Name,
+		body: `${companion.Rarity} companion, bond rank ${companion.Rank}. Gives +${pct}% ${companion.Kind} on top of your sockets.${traitLine}`,
+		hint: companion.Offer !== undefined ? "A trait is waiting in Inventory" : "Swap it from Inventory",
 	});
 	return h(
 		"frame",
@@ -405,7 +476,15 @@ function CompanionChip(_param: { companion: CompanionInfo; config?: unknown; tal
 			Active: false,
 			Event: mergeEvents(tip, {}),
 		},
+		h("uilistlayout", {
+			FillDirection: Enum.FillDirection.Horizontal,
+			SortOrder: Enum.SortOrder.LayoutOrder,
+			VerticalAlignment: Enum.VerticalAlignment.Center,
+			Padding: new UDim(0, 6),
+		}),
+		h(BondRing, { progress: companion.Progress, color: accent, ready: companion.Offer !== undefined }),
 		h(StatChip, {
+			layoutOrder: 1,
 			label: "COMPANION",
 			value: 0,
 			placeholder: companion.Name,

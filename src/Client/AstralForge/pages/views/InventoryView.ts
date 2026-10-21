@@ -1,5 +1,6 @@
 import CompanionRelic = require("../../../../Shared/AstralForge/Shared/CompanionRelic");
 import React from "@rbxts/react";
+import { CompanionBondCard, companionBondHeight } from "../PagesCore/CompanionBondCard";
 import { useTooltip } from "../../Tooltip";
 import { EffectLabel } from "../../CoreKit/inventoryMath";
 import ReactRoblox from "@rbxts/react-roblox";
@@ -1307,6 +1308,10 @@ function __member(): unknown {
 				return undefined;
 			}, ListEmptyComponent: reactLoose.createElement(EmptyState, { icon: "Loadout.4", title: ((len(owned) === 0) ? "No relics yet" : "Nothing matches"), body: ((len(owned) === 0) ? ((((((luaTruthy(luaProp(config, "ClientPageGuides") ) ?  luaProp(luaProp(config, "ClientPageGuides"), "Inventory") : luaProp(config, "ClientPageGuides"))) && luaProp(luaProp(luaProp(config, "ClientPageGuides"), "Inventory"), "EmptyItems"))) || "Open crates or buy a starter coupler from the Market tab.")) : "Clear the search or set the filters back to All relics."), accent: luaProp(Palette, "violet"), layoutOrder: 0 }) }));
 			let sections: unknown = [{ id: "hero", height: heroH, element: heroPanel }, { id: "tabs", height: tabH, element: tabsBar }, { id: "tools", height: toolsH, element: toolsBar }];
+			const bondH = companionBondHeight(items, luaTruthy(stack));
+			if (bondH > 0) {
+				luaTable.insert(sections, { id: "companion", height: bondH, element: reactLoose.createElement(CompanionBondCard, { items: items, dispatch: dispatch as never, stack: luaTruthy(stack), reducedMotion: luaTruthy(reducedMotion) }) });
+			}
 			if ((((inspectPanelH as unknown as number) > (0 as unknown as number)) && (selected !== undefined))) {
 				luaTable.insert(sections, { id: "inspect", height: inspectPanelH, element: reactLoose.createElement(DetailPanel, { item: selected, state: state, config: config, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack, fill: true }) });
 			}

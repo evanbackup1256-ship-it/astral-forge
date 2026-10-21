@@ -502,7 +502,9 @@ function PlayerRow(param: PlayerRowProps) {
 	}
 	const relics = "NO EQUIPPED ARTIFACT";
 	const companionName = Players.GetPlayerByUserId(row.UserId)?.GetAttribute("Companion");
-	const companion = typeIs(companionName, "string") && companionName !== "" ? "  ·  WITH " + string.upper(companionName) : "";
+	const companionRank = Players.GetPlayerByUserId(row.UserId)?.GetAttribute("CompanionRank");
+	const bondTag = typeIs(companionRank, "number") ? ` (BOND ${companionRank})` : "";
+	const companion = typeIs(companionName, "string") && companionName !== "" ? "  ·  WITH " + string.upper(companionName) + bondTag : "";
 	return h(
 		"frame",
 		{

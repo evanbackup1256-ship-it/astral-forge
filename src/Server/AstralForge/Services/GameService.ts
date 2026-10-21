@@ -23,6 +23,7 @@ import { Ledger, Report } from "./Security/SecurityLedger";
 import { ServerEventService } from "./Gameplay/ServerEventService";
 import AnomalyModule = require("./Gameplay/Anomaly");
 import ForgeEchoModule = require("./Gameplay/ForgeEcho");
+import CompanionBonds = require("./Gameplay/CompanionBonds");
 import LabModule = require("./Gameplay/Lab");
 import RelicRigModule = require("./Gameplay/RelicRigs");
 import * as HotFlags from "./Security/HotFlags";
@@ -1832,6 +1833,10 @@ export class GameService {
 		if (player.GetAttribute("Companion") !== companionName) {
 			player.SetAttribute("Companion", companionName);
 		}
+		const companionRank = companion !== undefined && companion.Rank > 1 ? companion.Rank : undefined;
+		if (player.GetAttribute("CompanionRank") !== companionRank) {
+			player.SetAttribute("CompanionRank", companionRank);
+		}
 	}
 
 	_announceServerEvent(phase: string, def: Dict) {
@@ -2724,6 +2729,29 @@ export class GameService {
 		runtime.EventPoints = 0;
 		const added = event !== undefined && points > 0 ? LimitedEvents.earn(profile, event, points, now) : 0;
 		return moved || added > 0;
+	}
+
+	// Companion Bonds: bank counted taps, crates and play time onto the companion's bond
+	_settleCompanionBond(player: Player, runtime: Runtime, profile: Profile): boolean {
+		const [changed, evolved] = CompanionBonds.Settle(runtime as Dict, profile as Dict, os.time());
+		if (evolved > 0) {
+			const name = CompanionRelic.describe(profile.Items)?.Name ?? "";
+			task.defer(() =>
+				this._toastPlayer(player, T("CompanionBonds.Evolved", name), T("CompanionBonds.EvolvedBody", evolved), "Special"),
+			);
+		}
+		return changed;
+	}
+
+	_companionAct(player: Player, payload: unknown) {
+		return this._mutate(player, (profile: Profile) => {
+			const [ok, message] = CompanionBonds.Act(profile as Dict, payload);
+			if (!ok) {
+				return responseError(message);
+			}
+			const name = CompanionRelic.describe(profile.Items)?.Name ?? "";
+			return responseSuccess(T("CompanionBonds.PickedTrait", name, message), { Trait: message });
+		});
 	}
 
 	_buyEventItem(player: Player, itemId: unknown) {
@@ -5946,6 +5974,8 @@ export class GameService {
 			return this._domainLattice(player, payload);
 		} else if (action === Protocol.Actions.EventAct) {
 			return this._eventAct(player, payload);
+		} else if (action === Protocol.Actions.CompanionAct) {
+			return this._companionAct(player, payload);
 		} else if (action === Protocol.Actions.ClaimConvergenceReward) {
 			return this._convergence.Claim(player, payload?.Tier) as Response;
 		} else if (action === Protocol.Actions.ClaimQuest) {
@@ -6568,6 +6598,7 @@ export class GameService {
 					changed = truthy(LabService.Ensure(profile, player.UserId)) || changed;
 					changed = WeeklyBoard.ensure(profile, os.time()) || changed;
 					changed = this._settleEventTokens(player, runtime, profile) || changed;
+					changed = this._settleCompanionBond(player, runtime, profile) || changed;
 					if (!truthy(this._antiCheat.Observe(player, "Maintenance", profile))) {
 						changed = true;
 					}
@@ -6989,6 +7020,7 @@ export class GameService {
 					if (profile !== undefined) {
 						this._convergence.RecordAction(player, tostring(action));
 						this._queueEventPoints(player, tostring(action));
+						CompanionBonds.Record(this._runtime.get(player), tostring(action));
 						if (action === Protocol.Actions.CollectVault) {
 							this._crews.RecordCollect(player);
 						}

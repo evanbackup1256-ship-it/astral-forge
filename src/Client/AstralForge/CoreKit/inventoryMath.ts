@@ -417,7 +417,12 @@ export function CompareSocket(state: unknown, config: unknown, uid: unknown, def
 	const pct = (value: number) => `${math.floor(value * 1000 + 0.5) / 10}%`;
 	if (target === CompanionRelic.TARGET) {
 		const kind = isTable(definition) ? tostring(definition.EffectKind ?? "") : "";
-		const along = `+${pct(mine * CompanionRelic.SHARE)} ${string.lower(kind)} everywhere`;
+		// a bonded relic brings its evolved share (40% plus 10% per evolution at ranks 3, 6 and 10)
+		const own = typeIs(uid, "string") ? items.Inventory[uid] : undefined;
+		const bond = isTable(own) && isTable(own.Bond) ? own.Bond : undefined;
+		const rank = bond !== undefined && typeIs(bond.Rank, "number") ? bond.Rank : 1;
+		const share = CompanionRelic.SHARE + 0.1 * ((rank >= 3 ? 1 : 0) + (rank >= 6 ? 1 : 0) + (rank >= 10 ? 1 : 0));
+		const along = `+${pct(mine * share)} ${string.lower(kind)} everywhere`;
 		return typeIs(currentUid, "string") && currentUid !== uid ? `Swaps out your current companion · ${along}` : `Companion · ${along}`;
 	}
 	if (!typeIs(currentUid, "string") || currentUid === uid) {

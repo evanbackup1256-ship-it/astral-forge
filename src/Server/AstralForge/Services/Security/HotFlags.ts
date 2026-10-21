@@ -12,6 +12,9 @@ export const FLAGS = table.freeze({
 	CratesPaused: "Crate opening is refused.",
 	AnnouncementsMuted: "Cross-server admin announcements are not shown in this server.",
 	LimitedEventsPaused: "The running limited event stops paying tokens and its stall closes. Tokens are kept.",
+	// ---- v8 C: Companion Bonds ----
+	CompanionBondsPaused: "Companions stop gaining bond XP and trait picks are refused. Ranks and shares are kept.",
+	// ---- end v8 C: Companion Bonds ----
 });
 
 export type HotFlag = keyof typeof FLAGS;

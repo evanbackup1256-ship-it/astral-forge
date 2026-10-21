@@ -163,5 +163,29 @@ return function(DataTemplate, GameConfig)
 
 	-- v21 a pristine new profile round-trips unchanged apart from load-time stamps
 	add({ name = "v21 fresh template", save = DataTemplate.New() })
+	-- ---- v8 C: Companion Bonds ----
+	-- v7.2 (DataVersion 21) save with a companion out and no bond yet, plus a relic that already
+	-- carries a bond. Both load unchanged; bonds are optional per relic.
+	do
+		local save = DataTemplate.New()
+		save.Items.Inventory = {
+			IT0000001 = { DefinitionId = "IonCoupler", Level = 3, AcquiredAt = 5 },
+			IT0000002 = { DefinitionId = "CapacityCoil", Level = 2, AcquiredAt = 6, Bond = { XP = 700, Rank = 3, Trait = "Hoarder" } },
+		}
+		save.Items.NextId = 3
+		save.Items.Equipped = { ["Companion:1"] = "IT0000001" }
+		add({
+			name = "v7.2 companion before bonds",
+			save = save,
+			expect = {
+				["Items.Equipped.Companion:1"] = "IT0000001",
+				["Items.Inventory.IT0000001"] = function(v) return type(v) == "table" and v.Bond == nil end,
+				["Items.Inventory.IT0000002.Bond.Rank"] = 3,
+				["Items.Inventory.IT0000002.Bond.Trait"] = "Hoarder",
+			},
+		})
+	end
+	-- ---- end v8 C: Companion Bonds ----
+
 	return fixtures
 end
