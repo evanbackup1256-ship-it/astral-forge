@@ -1,4 +1,5 @@
-// Forge journal: chapters derived from saved lifetime stats, so no new save data is needed.
+// Forge journal: chapters read from the profile the server already sends.
+import RelicRigs from "../../../Shared/AstralForge/Shared/RelicRigs";
 
 const HOUR = 3600;
 
@@ -28,6 +29,11 @@ function statReader(key: string): Reader {
 	return (state) => stat(state, key);
 }
 
+const rigsLit: Reader = (state) => {
+	const items = typeIs(state, "table") ? (state as { Items?: { Rigs?: unknown } }).Items : undefined;
+	return RelicRigs.litCount(typeIs(items, "table") ? items.Rigs : undefined);
+};
+
 export interface Chapter {
 	Id: string;
 	Title: string;
@@ -52,6 +58,8 @@ export const CHAPTERS: ReadonlyArray<Chapter> = table.freeze([
 	{ Id: "warden", Title: "Warden breaker", Line: "Beat five wardens.", Target: 5, Unit: "wardens", Read: statReader("WardenDefeats") },
 	{ Id: "haul", Title: "Long haul", Line: "A full day of forging.", Target: 24 * HOUR, Unit: "hours", Scale: HOUR, Read: statReader("PlayTime") },
 	{ Id: "fifty", Title: "Fifty lives", Line: "Rebirthed fifty times.", Target: 50, Unit: "rebirths", Read: rebirths },
+	{ Id: "rig", Title: "Two parts", Line: "Lit a relic rig.", Target: 1, Unit: "rig", Read: rigsLit },
+	{ Id: "bench", Title: "Full bench", Line: "Lit every relic rig.", Target: RelicRigs.COUNT, Unit: "rigs", Read: rigsLit },
 ]);
 
 export interface Entry {

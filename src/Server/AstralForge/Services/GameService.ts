@@ -23,6 +23,7 @@ import { ServerEventService } from "./Gameplay/ServerEventService";
 import AnomalyModule = require("./Gameplay/Anomaly");
 import ForgeEchoModule = require("./Gameplay/ForgeEcho");
 import LabModule = require("./Gameplay/Lab");
+import RelicRigModule = require("./Gameplay/RelicRigs");
 import ProgressionModule = require("./Gameplay/Progression");
 import { MatterRuntime } from "./MatterRuntime";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
@@ -151,6 +152,7 @@ const CrateExpansion = mod<Kit>(shared(), "CrateExpansion");
 const ProgressionService = ProgressionModule as unknown as Kit;
 const AnomalyService = AnomalyModule as unknown as Kit;
 const LabService = LabModule as unknown as Kit;
+const RelicRigs = RelicRigModule as unknown as Kit;
 const ForgeEchoService = ForgeEchoModule as unknown as Kit;
 const BazaarService = BazaarModule as unknown as Kit;
 const Specializations = mod<Kit>(shared(), "Specializations");
@@ -260,6 +262,25 @@ const ensureItemShop = (profile: Profile): boolean => {
 const ensureStats = (profile: Profile) => ProfileBagMath.EnsureStats(profile) as Dict;
 
 const bumpStat = (profile: Profile, key: string, amount?: number) => ProfileBagMath.BumpStat(profile, key, amount);
+
+// first time a relic rig is fully socketed: mark it, pay it, and describe it
+const grantLitRigs = (profile: Profile): LuaTuple<[number, string]> => {
+	const fresh = RelicRigs.Settle(profile) as Array<{ Name: string; Reward: Dict; Percent: number; Kind: string }>;
+	if (fresh.size() === 0) {
+		return $tuple(0, "");
+	}
+	const parts: string[] = [];
+	for (const entry of fresh) {
+		const paid = ProgressionService.ApplyReward(profile, entry.Reward, Economy.Production(profile)) as string;
+		const effect = RelicRigs.effectText(entry) as string;
+		if (typeIs(paid, "string") && paid !== "") {
+			parts.push(`${entry.Name}: ${effect} (${paid})`);
+		} else {
+			parts.push(`${entry.Name}: ${effect}`);
+		}
+	}
+	return $tuple(fresh.size(), parts.join(", "));
+};
 
 const ensureActiveBoost = (profile: Profile) => ProfileBagMath.EnsureActiveBoost(profile) as Dict;
 
@@ -2169,6 +2190,7 @@ export class GameService {
 				Effects: ItemLoadoutMath.EffectsPublic(profile, Economy),
 				Discovered: copyDictionary(orElse(items.Discovered, () => ({}))),
 				CodexBonus: Economy.CodexBonus(profile),
+				Rigs: RelicRigs.Public(profile),
 			},
 			DailyShop: {
 				Day: isTable(dailyShop) && truthy(dailyShop.Day) ? dailyShop.Day : -1,
@@ -4127,7 +4149,9 @@ export class GameService {
 				}
 			}
 			equipped[target] = uid;
-			return responseSuccess((definition.Name as string) + " attached to " + tostring(targetId) + ".", {
+			const [rigCount, rigNote] = grantLitRigs(profile);
+			const attached = (definition.Name as string) + " attached to " + tostring(targetId) + ".";
+			return responseSuccess(rigCount > 0 ? attached + " " + rigNote + "." : attached, {
 				ItemName: definition.Name,
 				Rarity: definition.Rarity,
 				Target: target,
@@ -4472,14 +4496,17 @@ export class GameService {
 				items.Equipped,
 			) as LuaTuple<[unknown, number, unknown]>;
 			items.Equipped = nextEquipped;
-			return responseSuccess(
+			const [rigCount, rigNote] = grantLitRigs(profile);
+			const equippedLine =
 				targets.size() === 0
 					? "Unlock a machine or research socket first."
 					: equippedCount === 0
 						? "No compatible relics are available yet."
-						: string.format("Best loadout equipped across %d socket%s.", equippedCount, equippedCount === 1 ? "" : "s"),
-				{ Equipped: equippedCount, Changed: changed },
-			);
+						: string.format("Best loadout equipped across %d socket%s.", equippedCount, equippedCount === 1 ? "" : "s");
+			return responseSuccess(rigCount > 0 ? equippedLine + " " + rigNote + "." : equippedLine, {
+				Equipped: equippedCount,
+				Changed: changed,
+			});
 		});
 	}
 
@@ -6093,6 +6120,7 @@ export class GameService {
 		ensureItemShop(profile);
 		AnomalyService.Ensure(profile);
 		LabService.Ensure(profile, player.UserId);
+		const [rigCount, rigNote] = grantLitRigs(profile);
 		bumpStat(profile, "Joins", 1);
 		(profile.Meta as Dict).Revision = ((profile.Meta as Dict).Revision as number) + 1;
 		this._data.MarkDirty(player);
@@ -6197,6 +6225,9 @@ export class GameService {
 		}
 
 		this._pushState(player);
+		if (rigCount > 0) {
+			this._toastPlayer(player, rigCount === 1 ? "Rig lit" : "Rigs lit", rigNote, "Success");
+		}
 		const away =
 			offlineSeconds >= 3600
 				? string.format("%.0fh", offlineSeconds / 3600)

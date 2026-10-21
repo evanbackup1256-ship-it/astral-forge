@@ -461,6 +461,9 @@ __defs["Economy"] = () => {
 	const CapacityProjection = SharedData("CapacityProjection") as CapacityProjectionApi;
 	const LevelRewards = SharedData("LevelRewards") as LevelRewardsApi;
 	const DomainLattice = require(shared.WaitForChild("DomainLattice") as ModuleScript) as DomainLatticeApi;
+	const RelicRigs = require(shared.WaitForChild("RelicRigs") as ModuleScript) as {
+		bonus(this: void, profile: unknown, kind: string): number;
+	};
 	const OfflineProjection = __load("OfflineProjection") as OfflineProjectionApi;
 	const TapCritProjection = __load("TapCritProjection") as TapCritProjectionApi;
 	const UpgradeCostReason = __load("UpgradeCostReason") as UpgradeCostReasonApi;
@@ -859,6 +862,8 @@ __defs["Economy"] = () => {
 			multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ArtifactEffect(profile, "Production"));
 			multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ItemEffect(profile, "Production", "Research"));
 			multiplier = OmegaMath.Mul(multiplier, 1 + Economy.CodexBonus(profile));
+			// BALANCE: relic-rig production. Live rate only; steady production below matches it.
+			multiplier = OmegaMath.Mul(multiplier, 1 + RelicRigs.bonus(profile, "Production"));
 			multiplier = OmegaMath.Mul(multiplier, 1 + Economy.AnomalyEffect(profile, "Production", now));
 			multiplier = OmegaMath.Mul(multiplier, 1 + Economy.LabPowerEffect(profile, "Production"));
 			multiplier = OmegaMath.Mul(multiplier, 1 + Economy.OreEffect(profile, "Production"));
@@ -908,6 +913,7 @@ __defs["Economy"] = () => {
 					passProduction,
 					truthy(profile.GuildBonuses) ? profile.GuildBonuses.Production : 0,
 					Economy.OreEffect(profile, "Production"),
+					RelicRigs.bonus(profile, "Production"),
 				],
 				SocialMultiplier: truthy(profile.SocialBoost) ? profile.SocialBoost.Multiplier : 1,
 				MasteryMultiplier: Economy.MasteryMultiplier(profile),
@@ -947,6 +953,7 @@ __defs["Economy"] = () => {
 					truthy(profile.GuildBonuses) ? profile.GuildBonuses.Capacity : 0,
 					Economy.ForgePathEffect(profile, "Capacity"),
 					Economy.OreEffect(profile, "Capacity"),
+					RelicRigs.bonus(profile, "Capacity"),
 				],
 				DomainRank: domainRank,
 				CapacityPerRank: GameConfig.Domain.CapacityPerRank,
@@ -981,7 +988,7 @@ __defs["Economy"] = () => {
 					Grid: Economy.GridEffect(profile, "GridTap"),
 					Echo: Economy.EchoEffect(profile, "Tap"),
 					Artifact: Economy.ArtifactEffect(profile, "Tap"),
-					Item: Economy.ItemEffect(profile, "Tap", "Research"),
+					Item: Economy.ItemEffect(profile, "Tap", "Research") + RelicRigs.bonus(profile, "Tap"),
 					Anomaly: Economy.AnomalyEffect(profile, "Tap", now),
 					Lab: Economy.LabPowerEffect(profile, "Tap"),
 					Guild: truthy(profile.GuildBonuses) ? profile.GuildBonuses.Tap : 0,
@@ -1048,7 +1055,7 @@ __defs["Economy"] = () => {
 					Economy.GridEffect(profile, "GridOffline"),
 					Economy.EchoEffect(profile, "Offline"),
 					Economy.ArtifactEffect(profile, "Offline"),
-					Economy.ItemEffect(profile, "Offline", "Research"),
+					Economy.ItemEffect(profile, "Offline", "Research") + RelicRigs.bonus(profile, "Offline"),
 					Economy.AnomalyEffect(profile, "Offline", now),
 					truthy(profile.GuildBonuses) ? profile.GuildBonuses.Offline : 0,
 					truthy(profile.Domain) ? math.max(0, profile.Domain.Rank ?? 0) : 0,
@@ -2333,6 +2340,11 @@ __defs["ProgressionGate"] = () => {
 };
 
 __defs["ProgressionOpsMath"] = () => {
+	const ReplicatedStorage = game.GetService("ReplicatedStorage");
+	const RelicRigs = require(
+		ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("RelicRigs") as ModuleScript,
+	) as { litCount(this: void, raw: unknown): number };
+
 	function sumNumericLevels(bag: unknown): number {
 		if (!typeIs(bag, "table")) {
 			return 0;
@@ -2515,6 +2527,9 @@ __defs["ProgressionOpsMath"] = () => {
 					}
 				}
 				return count;
+			} else if (kind === "RigsLit") {
+				const items = bag.Items as Dict | undefined;
+				return RelicRigs.litCount(typeIs(items, "table") ? items.Rigs : undefined);
 			}
 			return 0;
 		},
