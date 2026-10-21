@@ -1,21 +1,11 @@
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
+import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
 import AtomicStateClass = require("./Security/AtomicState");
 import ProfileIntegrityModule = require("./Security/ProfileIntegrity");
-import {
-	d,
-	Dict,
-	economyKit,
-	ModuleLogApi,
-	num,
-	req,
-	sharedDataKit,
-	SharedFolder,
-	tradeSuiteKit,
-	truthy,
-} from "./LuaInterop";
+import { d, Dict, economyKit, ModuleLogApi, num, req, sharedDataKit, SharedFolder, tradeSuiteKit, truthy } from "./LuaInterop";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import AscensionMath from "../../../Shared/AstralForge/Shared/AscensionMath";
 import BazaarMath from "../Modules/BazaarMath";
@@ -334,6 +324,7 @@ function sanitize(profile: Dict): Dict {
 	}
 	flags.MobileTabPins = NavRoutes.normalizeMobileTabPins(flags.MobileTabPins);
 	flags.SeenHints = SeenHints.normalizeSeenHints(flags.SeenHints);
+	flags.FirstGoals = FirstGoals.normalizeClaimed(flags.FirstGoals);
 	const settings = d(profile.Settings);
 	settings.SoundVolume = math.clamp(nonNegative(settings.SoundVolume), 0, 1);
 	settings.MusicVolume = math.clamp(nonNegative(settings.MusicVolume !== undefined ? settings.MusicVolume : 1), 0, 1);
@@ -378,9 +369,7 @@ function sanitize(profile: Dict): Dict {
 		settings[key] = math.clamp(nonNegative(settings[key] !== undefined ? settings[key] : defaultValue), 0, 1);
 	}
 	settings.NotifyGuild =
-		settings.NotifyGuild === true
-			? 1
-			: math.clamp(nonNegative(settings.NotifyGuild !== undefined ? settings.NotifyGuild : 0), 0, 1);
+		settings.NotifyGuild === true ? 1 : math.clamp(nonNegative(settings.NotifyGuild !== undefined ? settings.NotifyGuild : 0), 0, 1);
 	if (!typeIs(profile.LiveOps, "table")) {
 		profile.LiveOps = { ManifestVersion: GameConfig.Game.LiveOpsManifestVersion, Convergence: {} };
 	}
@@ -417,11 +406,7 @@ function sanitize(profile: Dict): Dict {
 		};
 	}
 	const socialBoost = d(profile.SocialBoost);
-	socialBoost.FriendCount = math.clamp(
-		math.floor(nonNegative(socialBoost.FriendCount)),
-		0,
-		GameConfig.Social.MaxBoostedFriends,
-	);
+	socialBoost.FriendCount = math.clamp(math.floor(nonNegative(socialBoost.FriendCount)), 0, GameConfig.Social.MaxBoostedFriends);
 	socialBoost.FriendLimit = GameConfig.Social.MaxBoostedFriends;
 	socialBoost.FriendBonus = math.clamp(
 		nonNegative(socialBoost.FriendBonus),
@@ -451,17 +436,18 @@ function sanitize(profile: Dict): Dict {
 		profile.ActiveBoost = { Id: "", EndsAt: 0 };
 	}
 	const activeBoost = d(profile.ActiveBoost);
-	if (
-		!typeIs(activeBoost.Id, "string") ||
-		(activeBoost.Id !== "" && !truthy(GameConfig.Boosts[activeBoost.Id]))
-	) {
+	if (!typeIs(activeBoost.Id, "string") || (activeBoost.Id !== "" && !truthy(GameConfig.Boosts[activeBoost.Id]))) {
 		activeBoost.Id = "";
 		activeBoost.EndsAt = 0;
 	} else {
 		activeBoost.EndsAt = math.floor(nonNegative(activeBoost.EndsAt));
 	}
 	if (!typeIs(profile.Trade, "table")) {
-		profile.Trade = { Day: -1, Completed: 0, Sent: { Cash: 0, Stardust: 0, Cores: 0, Signals: 0, Essence: 0, Boost: 0, Keys: 0, Items: 0 } };
+		profile.Trade = {
+			Day: -1,
+			Completed: 0,
+			Sent: { Cash: 0, Stardust: 0, Cores: 0, Signals: 0, Essence: 0, Boost: 0, Keys: 0, Items: 0 },
+		};
 	}
 	const trade = d(profile.Trade);
 	if (!typeIs(trade.Sent, "table")) {
@@ -600,9 +586,7 @@ function sanitize(profile: Dict): Dict {
 	for (const [target, uid] of pairs(equipped)) {
 		const instance = typeIs(uid, "string") ? inventory[uid] : undefined;
 		const definition =
-			instance !== undefined && typeIs(instance, "table")
-				? itemById[(instance as Dict).DefinitionId as string]
-				: undefined;
+			instance !== undefined && typeIs(instance, "table") ? itemById[(instance as Dict).DefinitionId as string] : undefined;
 		let slot: string | undefined;
 		let targetId: string | undefined;
 		if (typeIs(target, "string")) {
@@ -612,9 +596,7 @@ function sanitize(profile: Dict): Dict {
 			(slot === "Machine" && machineById[targetId as string] !== undefined) ||
 			(slot === "Research" && researchById[targetId as string] !== undefined);
 		const targets = definition !== undefined ? (definition.Targets as unknown[] | undefined) : undefined;
-		const targetCompatible =
-			definition !== undefined &&
-			(!truthy(targets) || (targets as defined[]).includes(targetId as defined));
+		const targetCompatible = definition !== undefined && (!truthy(targets) || (targets as defined[]).includes(targetId as defined));
 		if (
 			definition === undefined ||
 			definition.Slot !== slot ||
@@ -656,10 +638,7 @@ function sanitize(profile: Dict): Dict {
 	if (!typeIs(anomaly.Loadout, "table")) {
 		anomaly.Loadout = {};
 	}
-	if (
-		(anomaly.Loadout as unknown[]).size() === 0 &&
-		truthy(GameConfig.Anomalies.Channels[anomaly.Channel as string])
-	) {
+	if ((anomaly.Loadout as unknown[]).size() === 0 && truthy(GameConfig.Anomalies.Channels[anomaly.Channel as string])) {
 		anomaly.Loadout = [anomaly.Channel];
 	}
 	{
@@ -688,14 +667,11 @@ function sanitize(profile: Dict): Dict {
 	for (const [protocolId, value] of pairs(anomalyProtocols)) {
 		const protocol = anomalyProtocolById[protocolId];
 		anomalyProtocols[protocolId] =
-			protocol !== undefined
-				? math.clamp(math.floor(nonNegative(value)), 0, protocol.MaxLevel as number)
-				: undefined;
+			protocol !== undefined ? math.clamp(math.floor(nonNegative(value)), 0, protocol.MaxLevel as number) : undefined;
 	}
 	const anomalyDiscoveries = d(anomaly.Discoveries);
 	for (const [anomalyId, value] of pairs(anomalyDiscoveries)) {
-		anomalyDiscoveries[anomalyId] =
-			anomalyTypeById[anomalyId] !== undefined ? math.floor(nonNegative(value)) : undefined;
+		anomalyDiscoveries[anomalyId] = anomalyTypeById[anomalyId] !== undefined ? math.floor(nonNegative(value)) : undefined;
 	}
 	const milestoneClaims = d(anomaly.MilestoneClaims);
 	for (const [key, claimed] of pairs(milestoneClaims)) {
@@ -706,8 +682,7 @@ function sanitize(profile: Dict): Dict {
 	}
 	const directiveProgress = d(anomaly.DirectiveProgress);
 	for (const [directiveId, value] of pairs(directiveProgress)) {
-		directiveProgress[directiveId] =
-			anomalyDirectiveById[directiveId] !== undefined ? math.floor(nonNegative(value)) : undefined;
+		directiveProgress[directiveId] = anomalyDirectiveById[directiveId] !== undefined ? math.floor(nonNegative(value)) : undefined;
 	}
 	const directiveClaims = d(anomaly.DirectiveClaims);
 	for (const [directiveId, claimed] of pairs(directiveClaims)) {
@@ -834,10 +809,7 @@ function sanitize(profile: Dict): Dict {
 	const crew = d(command.Crew);
 	for (const [role, value] of pairs(crew)) {
 		const item = GameConfig.Operations.Crew[role];
-		crew[role] =
-			item !== undefined
-				? math.clamp(math.floor(nonNegative(value)), 1, item.MaxLevel as number)
-				: undefined;
+		crew[role] = item !== undefined ? math.clamp(math.floor(nonNegative(value)), 1, item.MaxLevel as number) : undefined;
 	}
 	const mastery = d(command.MachineMastery);
 	for (const [id, value] of pairs(mastery)) {
@@ -1078,19 +1050,14 @@ export class DataService {
 		pending.Orders = stat("OrdersCompleted");
 		const sky = (typeIs(profile.Sky, "table") ? profile.Sky : {}) as Dict;
 		const plotted = (
-			typeIs(sky.Charts, "table") && typeIs((sky.Charts as Dict).Plotted, "table")
-				? (sky.Charts as Dict).Plotted
-				: {}
+			typeIs(sky.Charts, "table") && typeIs((sky.Charts as Dict).Plotted, "table") ? (sky.Charts as Dict).Plotted : {}
 		) as Dict;
 		let stars = 0;
 		for (const [, count] of pairs(plotted)) {
 			stars += math.max(0, math.floor(num(count) ?? 0));
 		}
 		pending.Stars = stars;
-		pending.Cipher = math.max(
-			0,
-			math.floor(num(typeIs(sky.Cipher, "table") ? (sky.Cipher as Dict).Solves : undefined) ?? 0),
-		);
+		pending.Cipher = math.max(0, math.floor(num(typeIs(sky.Cipher, "table") ? (sky.Cipher as Dict).Solves : undefined) ?? 0));
 		if (this._leaderboardPushBusy.get(userId)) return;
 		this._leaderboardPushBusy.set(userId, true);
 		this._leaderboardWorkers.set(
@@ -1105,18 +1072,11 @@ export class DataService {
 						for (const [id, value] of pairs(values)) {
 							const store = this._leaderboardStores[id];
 							if (store !== undefined && mirror[id] !== value) {
-								const [okWrite, writeErr] = pcall(() =>
-									store.SetAsync(tostring(userId), LeaderboardCodec.Encode(value)),
-								);
+								const [okWrite, writeErr] = pcall(() => store.SetAsync(tostring(userId), LeaderboardCodec.Encode(value)));
 								if (okWrite) {
 									mirror[id] = value;
 								} else {
-									ModuleLog.Every(
-										"leaderboard:" + tostring(userId) + ":" + tostring(id),
-										30,
-										"Data",
-										tostring(writeErr),
-									);
+									ModuleLog.Every("leaderboard:" + tostring(userId) + ":" + tostring(id), 30, "Data", tostring(writeErr));
 								}
 							}
 						}
@@ -1125,10 +1085,7 @@ export class DataService {
 				this._leaderboardPushBusy.delete(userId);
 				this._leaderboardWorkers.delete(userId);
 				if (!workerOk) {
-					ModuleLog.Warn(
-						"Data",
-						string.format("leaderboard push errored for %d: %s", userId, tostring(workerErr)),
-					);
+					ModuleLog.Warn("Data", string.format("leaderboard push errored for %d: %s", userId, tostring(workerErr)));
 				}
 
 				if (this._profiles.get(player) === undefined) {
@@ -1175,10 +1132,7 @@ export class DataService {
 				document.Steal();
 			});
 			if (!stole) {
-				ModuleLog.Warn(
-					"Data",
-					string.format("could not take over %s's session lock: %s", player.Name, tostring(stealErr)),
-				);
+				ModuleLog.Warn("Data", string.format("could not take over %s's session lock: %s", player.Name, tostring(stealErr)));
 			}
 		}
 
@@ -1216,15 +1170,11 @@ export class DataService {
 				return rejectUnsafeProfile("unreadable profile graph");
 			}
 			const candidateProfile = candidate as Dict;
-			const [versionOk, versionProblem] = pcall(() =>
-				ProfileVersionGuard.ReadCompatible(candidateProfile, GameConfig.Game.DataVersion),
-			);
+			const [versionOk, versionProblem] = pcall(() => ProfileVersionGuard.ReadCompatible(candidateProfile, GameConfig.Game.DataVersion));
 			if (!versionOk) {
 				return rejectUnsafeProfile(tostring(versionProblem));
 			}
-			const [verifyCallOk, verified, verifyMessage] = pcall(() =>
-				ProfileIntegrity.VerifyAndRecover(candidateProfile),
-			);
+			const [verifyCallOk, verified, verifyMessage] = pcall(() => ProfileIntegrity.VerifyAndRecover(candidateProfile));
 			if (!verifyCallOk) {
 				return rejectUnsafeProfile("unreadable integrity envelope");
 			}
@@ -1252,16 +1202,13 @@ export class DataService {
 				});
 			});
 			if (!recovered) {
-				ModuleLog.Warn(
-					"Trade",
-					string.format("trade recovery crashed for %s: %s", player.Name, tostring(recoveryErr)),
-					{ UserId: player.UserId },
-				);
+				ModuleLog.Warn("Trade", string.format("trade recovery crashed for %s: %s", player.Name, tostring(recoveryErr)), {
+					UserId: player.UserId,
+				});
 			}
 
 			const metaBag = typeIs(profile.Meta, "table") ? (profile.Meta as Dict) : undefined;
-			const previousLastSeen =
-				metaBag !== undefined && typeIs(metaBag.LastSeen, "number") ? (metaBag.LastSeen as number) : now;
+			const previousLastSeen = metaBag !== undefined && typeIs(metaBag.LastSeen, "number") ? (metaBag.LastSeen as number) : now;
 
 			const meta = d(profile.Meta);
 			meta.SessionJobId = game.JobId;
@@ -1275,10 +1222,7 @@ export class DataService {
 				pcall(() => {
 					if (document.IsOpen()) document.Close();
 				});
-				ModuleLog.Warn(
-					"Data",
-					string.format("could not stage %s profile - %s", player.Name, tostring(cacheProblem)),
-				);
+				ModuleLog.Warn("Data", string.format("could not stage %s profile - %s", player.Name, tostring(cacheProblem)));
 				this.telemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false);
 				return $tuple(false, "Your save changed while loading. Please rejoin in a moment.");
 			}
@@ -1505,28 +1449,21 @@ export class DataService {
 			return safeSnapshot;
 		});
 		if (!preparedOk) {
-			ModuleLog.Warn(
-				"Data",
-				string.format("save preparation failed for %s — %s", player.Name, tostring(snapshotOrErr)),
-			);
+			ModuleLog.Warn("Data", string.format("save preparation failed for %s — %s", player.Name, tostring(snapshotOrErr)));
 			this.telemetry.Observe("ProfileSave", os.clock() - saveStartedAt, false);
 			return false;
 		}
 		const snapshot = snapshotOrErr as Dict;
 		const [cacheOk, cacheError] = pcall(() => document.SetCache(snapshot));
 		if (!cacheOk) {
-			ModuleLog.Warn(
-				"Data",
-				string.format("could not stage save for %s - %s", player.Name, tostring(cacheError)),
-			);
+			ModuleLog.Warn("Data", string.format("could not stage save for %s - %s", player.Name, tostring(cacheError)));
 			this.telemetry.Observe("ProfileSave", os.clock() - saveStartedAt, false);
 			return false;
 		}
 
 		let saved = false;
 		let lastReason = "Unknown";
-		const retryDeadline =
-			this._closing && releaseSession === true ? os.clock() + SHUTDOWN_SAVE_BUDGET : math.huge;
+		const retryDeadline = this._closing && releaseSession === true ? os.clock() + SHUTDOWN_SAVE_BUDGET : math.huge;
 		for (const attempt of $range(1, ServerConfig.SaveRetries)) {
 			if (os.clock() >= retryDeadline) {
 				// Bound shutdown retries so final store cleanup still gets a chance to run.
@@ -1547,19 +1484,13 @@ export class DataService {
 				saved = true;
 				break;
 			}
-			lastReason = callOk ? DocumentCommon.reason(result) ?? "Unknown" : tostring(result);
+			lastReason = callOk ? (DocumentCommon.reason(result) ?? "Unknown") : tostring(result);
 			if (lastReason === "SessionLockedError") {
 				this._markProfileBroken(player, lastReason);
 			}
 			ModuleLog.Warn(
 				"Data",
-				string.format(
-					"save attempt %d/%d failed for %s — %s",
-					attempt,
-					ServerConfig.SaveRetries,
-					player.Name,
-					lastReason,
-				),
+				string.format("save attempt %d/%d failed for %s — %s", attempt, ServerConfig.SaveRetries, player.Name, lastReason),
 			);
 			if (lastReason === "SessionLockedError" || (releaseSession && !document.IsOpen())) {
 				break;
@@ -1576,14 +1507,9 @@ export class DataService {
 
 		if (saved) {
 			const current = this._profiles.get(player);
-			const currentRevision =
-				current !== undefined && truthy(current.Meta) ? num(d(current.Meta).Revision) ?? -1 : -1;
+			const currentRevision = current !== undefined && truthy(current.Meta) ? (num(d(current.Meta).Revision) ?? -1) : -1;
 			const snapshotRevision = num(d(snapshot.Meta).Revision) ?? 0;
-			if (
-				current === profile &&
-				currentRevision === snapshotRevision &&
-				(this._writeGen.get(player) ?? 0) === writeGenAtSnapshot
-			) {
+			if (current === profile && currentRevision === snapshotRevision && (this._writeGen.get(player) ?? 0) === writeGenAtSnapshot) {
 				d(profile.Meta).LastSave = now;
 				d(profile.Meta).LastSeen = now;
 				d(profile.Meta).Transactions = deepCopy(d(snapshot.Meta).Transactions);
@@ -1620,24 +1546,14 @@ export class DataService {
 		while (this._saveBusy.get(player) && os.clock() < deadline) task.wait();
 		if (this._saveBusy.get(player)) {
 			if (releaseSession && this._broken.get(player) === undefined) this._releasing.delete(player);
-			ModuleLog.Every(
-				"save-busy:" + tostring(player.UserId),
-				5,
-				"Data",
-				player.Name + " save is still in progress",
-			);
+			ModuleLog.Every("save-busy:" + tostring(player.UserId), 5, "Data", player.Name + " save is still in progress");
 			return false;
 		}
 		const atom = this._atoms.get(player);
 		while (releaseSession && atom !== undefined && atom.IsBusy() && os.clock() < deadline) task.wait();
 		if (releaseSession && atom !== undefined && atom.IsBusy()) {
 			if (this._broken.get(player) === undefined) this._releasing.delete(player);
-			ModuleLog.Every(
-				"release-busy:" + tostring(player.UserId),
-				5,
-				"Data",
-				player.Name + " mutation did not settle before release",
-			);
+			ModuleLog.Every("release-busy:" + tostring(player.UserId), 5, "Data", player.Name + " mutation did not settle before release");
 			return false;
 		}
 		this._saveBusy.set(player, true);
@@ -1672,10 +1588,7 @@ export class DataService {
 						this.Save(target, true);
 					});
 					if (!ok) {
-						ModuleLog.Warn(
-							"Data",
-							string.format("shutdown save failed for %s — %s", target.Name, tostring(err)),
-						);
+						ModuleLog.Warn("Data", string.format("shutdown save failed for %s — %s", target.Name, tostring(err)));
 					}
 					remaining -= 1;
 				});
@@ -1686,10 +1599,7 @@ export class DataService {
 				task.wait();
 			}
 			if (remaining > 0) {
-				ModuleLog.Warn(
-					"Data",
-					string.format("shutdown save deadline reached with %d profile(s) still closing", remaining),
-				);
+				ModuleLog.Warn("Data", string.format("shutdown save deadline reached with %d profile(s) still closing", remaining));
 				return false;
 			}
 			return true;
@@ -1762,4 +1672,3 @@ export class DataService {
 		});
 	}
 }
-

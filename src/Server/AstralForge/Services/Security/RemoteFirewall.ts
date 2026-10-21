@@ -8,6 +8,7 @@ import Protocol from "../../../../Shared/AstralForge/Shared/Protocol";
 import { Dependency, Service } from "@flamework/core";
 import { Dict, isTable, req, SharedFolder } from "../LuaInterop";
 import * as SeenHints from "../../../../Shared/AstralForge/Shared/SeenHints";
+import * as FirstGoals from "../../../../Shared/AstralForge/Shared/FirstGoals";
 import * as NavRoutes from "../../../../Shared/AstralForge/Shared/NavRoutes";
 import { ServerTelemetry } from "../ServerTelemetry";
 
@@ -22,22 +23,8 @@ interface RemoteFirewallMathApi {
 	ExtractUserId(this: void, payload: unknown): unknown;
 	CooldownKey(this: void, action: string, payload: unknown, fields?: string[]): string;
 	StringField(this: void, payload: Dict, key: string, minimum: number, maximum: number): boolean;
-	StringArrayField(
-		this: void,
-		payload: Dict,
-		key: string,
-		maxEntries: number,
-		entryMinLen: number,
-		entryMaxLen: number,
-	): boolean;
-	NumberField(
-		this: void,
-		payload: Dict,
-		key: string,
-		minimum: number,
-		maximum: number,
-		mustBeInteger?: boolean,
-	): boolean;
+	StringArrayField(this: void, payload: Dict, key: string, maxEntries: number, entryMinLen: number, entryMaxLen: number): boolean;
+	NumberField(this: void, payload: Dict, key: string, minimum: number, maximum: number, mustBeInteger?: boolean): boolean;
 	ValidateTradeOffer(this: void, offer: unknown, maxItems: number): LuaTuple<[boolean, string | undefined]>;
 	Inspect(
 		this: void,
@@ -149,6 +136,7 @@ const RULES: Record<string, Rule> = {
 	[Protocol.Actions.CrewClaim]: { Cost: 0.75, Cooldown: 0.75 },
 	[Protocol.Actions.SetTutorialStep]: { Cost: 0.5, Cooldown: 0.12 },
 	[Protocol.Actions.MarkHintSeen]: { Cost: 0.5, Cooldown: 0.2 },
+	[Protocol.Actions.ClaimFirstGoal]: { Cost: 1, Cooldown: 0.5 },
 	[Protocol.Actions.RedeemCode]: { Cost: 2, Cooldown: 1.4 },
 	[Protocol.Actions.VerifyCreatorFollow]: { Cost: 1, Cooldown: 0.8 },
 	[Protocol.Actions.ClaimCommunityReward]: { Cost: 1, Cooldown: 0.8 },
@@ -247,16 +235,10 @@ const EXEMPT_COOLDOWNS: Record<string, number> = {
 };
 
 function applyFirewallOverrides() {
-	const overrides =
-		GameConfig.RemoteFirewall !== undefined ? GameConfig.RemoteFirewall.Overrides : undefined;
+	const overrides = GameConfig.RemoteFirewall !== undefined ? GameConfig.RemoteFirewall.Overrides : undefined;
 	if (!isTable(overrides)) return;
 	for (const [action, rule] of pairs(overrides)) {
-		if (
-			typeIs(action, "string") &&
-			isTable(rule) &&
-			typeIs(rule.Cost, "number") &&
-			typeIs(rule.Cooldown, "number")
-		) {
+		if (typeIs(action, "string") && isTable(rule) && typeIs(rule.Cost, "number") && typeIs(rule.Cooldown, "number")) {
 			RULES[action] = { Cost: rule.Cost, Cooldown: rule.Cooldown };
 		}
 	}
@@ -313,23 +295,11 @@ function stringField(payload: Dict, key: string, minimum: number, maximum: numbe
 	return RemoteFirewallMath.StringField(payload, key, minimum, maximum);
 }
 
-function stringArrayField(
-	payload: Dict,
-	key: string,
-	maxEntries: number,
-	entryMinLen: number,
-	entryMaxLen: number,
-): boolean {
+function stringArrayField(payload: Dict, key: string, maxEntries: number, entryMinLen: number, entryMaxLen: number): boolean {
 	return RemoteFirewallMath.StringArrayField(payload, key, maxEntries, entryMinLen, entryMaxLen);
 }
 
-function numberField(
-	payload: Dict,
-	key: string,
-	minimum: number,
-	maximum: number,
-	mustBeInteger?: boolean,
-): boolean {
+function numberField(payload: Dict, key: string, minimum: number, maximum: number, mustBeInteger?: boolean): boolean {
 	return RemoteFirewallMath.NumberField(payload, key, minimum, maximum, mustBeInteger);
 }
 
@@ -363,8 +333,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		return $tuple(false, "payload must be a table");
 	}
 	const bag = payload as Dict;
-	const maxEntries =
-		action === Protocol.Actions.UpdateTradeOffer ? RemoteFirewallMath.TRADE_MAX_ENTRIES : undefined;
+	const maxEntries = action === Protocol.Actions.UpdateTradeOffer ? RemoteFirewallMath.TRADE_MAX_ENTRIES : undefined;
 	const [ok, reason] = inspect(payload, 0, new Set<unknown>(), { Value: 0 }, maxEntries);
 	if (!ok) {
 		return $tuple(false, reason);
@@ -381,23 +350,14 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		action === Protocol.Actions.GetGuildLogoReview
 	) {
 		for (const [key] of pairs(bag)) {
-			if (
-				key !== "BeforeId" &&
-				key !== "Limit" &&
-				key !== "Gen" &&
-				key !== "N" &&
-				key !== "TxnId"
-			) {
+			if (key !== "BeforeId" && key !== "Limit" && key !== "Gen" && key !== "N" && key !== "TxnId") {
 				return $tuple(false, "unexpected read-only guild field");
 			}
 		}
 	}
 
 	if (action === Protocol.Actions.UpdateTradeOffer) {
-		const [validOffer, offerReason] = RemoteFirewallMath.ValidateTradeOffer(
-			bag.Offer,
-			GameConfig.Trading.MaxItems,
-		);
+		const [validOffer, offerReason] = RemoteFirewallMath.ValidateTradeOffer(bag.Offer, GameConfig.Trading.MaxItems);
 		if (!validOffer) {
 			return $tuple(false, offerReason);
 		}
@@ -435,24 +395,13 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (bag.Details !== undefined && !stringField(bag, "Details", 0, 400)) {
 			return $tuple(false, "invalid report details");
 		}
-		if (
-			bag.Severity !== undefined &&
-			bag.Severity !== "Minor" &&
-			bag.Severity !== "Serious" &&
-			bag.Severity !== "Urgent"
-		) {
+		if (bag.Severity !== undefined && bag.Severity !== "Minor" && bag.Severity !== "Serious" && bag.Severity !== "Urgent") {
 			return $tuple(false, "invalid report severity");
 		}
 		if (bag.When !== undefined && bag.When !== "Now" && bag.When !== "Earlier" && bag.When !== "Repeated") {
 			return $tuple(false, "invalid report timing");
 		}
-		if (
-			bag.Where !== undefined &&
-			bag.Where !== "Chat" &&
-			bag.Where !== "Trade" &&
-			bag.Where !== "Guild" &&
-			bag.Where !== "World"
-		) {
+		if (bag.Where !== undefined && bag.Where !== "Chat" && bag.Where !== "Trade" && bag.Where !== "Guild" && bag.Where !== "World") {
 			return $tuple(false, "invalid report location");
 		}
 	} else if (action === Protocol.Actions.SetProfileStyle) {
@@ -612,16 +561,9 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 				return $tuple(false, "invalid protocol");
 			} else if (action === Protocol.Actions.SetAnomalyChannel) {
 				return $tuple(false, "invalid reactor channel");
-			} else if (
-				action === Protocol.Actions.ReadStoryChapter ||
-				action === Protocol.Actions.ClaimStoryChapter
-			) {
+			} else if (action === Protocol.Actions.ReadStoryChapter || action === Protocol.Actions.ClaimStoryChapter) {
 				return $tuple(false, "invalid story chapter");
-			} else if (
-				action === Protocol.Actions.ReadMail ||
-				action === Protocol.Actions.ClaimMail ||
-				action === Protocol.Actions.DeleteMail
-			) {
+			} else if (action === Protocol.Actions.ReadMail || action === Protocol.Actions.ClaimMail || action === Protocol.Actions.DeleteMail) {
 				return $tuple(false, "invalid mail");
 			}
 			return $tuple(false, "invalid action payload");
@@ -650,10 +592,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (!typeIs(payload, "table") || (bag.Op !== "Etch" && bag.Op !== "Clear")) {
 			return $tuple(false, "invalid lattice action");
 		}
-		if (
-			bag.Op === "Etch" &&
-			!(numberField(bag, "A", 1, 13, true) && numberField(bag, "B", 1, 13, true))
-		) {
+		if (bag.Op === "Etch" && !(numberField(bag, "A", 1, 13, true) && numberField(bag, "B", 1, 13, true))) {
 			return $tuple(false, "invalid lattice anchors");
 		}
 	} else if (action === Protocol.Actions.SetAnomalyLoadout) {
@@ -694,18 +633,13 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.SelectSpecialization) {
 		if (!stringField(bag, "Id", 1, 24)) return $tuple(false, "invalid forge specialization");
 	} else if (action === Protocol.Actions.SpinWheel) {
-		if (!numberField(bag, "ExpectedSpin", 0, 1e12 - 1, true))
-			return $tuple(false, "invalid wheel sequence");
+		if (!numberField(bag, "ExpectedSpin", 0, 1e12 - 1, true)) return $tuple(false, "invalid wheel sequence");
 	} else if (action === Protocol.Actions.UpgradeCrew) {
 		if (!stringField(bag, "Role", 1, 64)) {
 			return $tuple(false, "invalid crew payload");
 		}
 	} else if (action === Protocol.Actions.SetAutoForge) {
-		if (
-			!typeIs(bag.Enabled, "boolean") ||
-			!stringField(bag, "MachineId", 1, 64) ||
-			!numberField(bag, "Reserve", 0, 0.9)
-		) {
+		if (!typeIs(bag.Enabled, "boolean") || !stringField(bag, "MachineId", 1, 64) || !numberField(bag, "Reserve", 0, 0.9)) {
 			return $tuple(false, "invalid auto-forge payload");
 		}
 	} else if (action === Protocol.Actions.TradeChat) {
@@ -797,6 +731,10 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (!stringField(bag, "Id", 1, 32) || !SeenHints.isHintId(bag.Id)) {
 			return $tuple(false, "invalid hint payload");
 		}
+	} else if (action === Protocol.Actions.ClaimFirstGoal) {
+		if (!stringField(bag, "Id", 1, 32) || !FirstGoals.isGoalId(bag.Id)) {
+			return $tuple(false, "invalid goal payload");
+		}
 	} else if (action === Protocol.Actions.ClaimConvergenceReward) {
 		if (!numberField(bag, "Tier", 1, 10, true)) return $tuple(false, "invalid convergence payload");
 	} else if (action === Protocol.Actions.ReportPerformance) {
@@ -824,11 +762,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			return $tuple(false, "invalid presence payload");
 		}
 		if (bag.Gen !== undefined) {
-			if (
-				!numberField(bag, "Gen", 1, 1e12, true) ||
-				!numberField(bag, "Id", 1, 1e15, true) ||
-				!stringField(bag, "N", 8, 80)
-			) {
+			if (!numberField(bag, "Gen", 1, 1e12, true) || !numberField(bag, "Id", 1, 1e15, true) || !stringField(bag, "N", 8, 80)) {
 				return $tuple(false, "invalid beat payload");
 			}
 		}
@@ -850,10 +784,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		}
 	} else if (action === Protocol.Actions.LeavePlot) {
 		// read-only guild-scoped requests accept no caller-controlled fields.
-	} else if (
-		action === Protocol.Actions.ClaimCommanderReward ||
-		action === Protocol.Actions.ClaimSeasonTier
-	) {
+	} else if (action === Protocol.Actions.ClaimCommanderReward || action === Protocol.Actions.ClaimSeasonTier) {
 		const key = action === Protocol.Actions.ClaimCommanderReward ? "Level" : "Tier";
 		if (!numberField(bag, key, 1, 10000, true)) {
 			return $tuple(false, "invalid progression payload");
@@ -885,11 +816,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			return $tuple(false, "invalid anomaly payload");
 		}
 	} else if (action === Protocol.Actions.RouteLabPower) {
-		if (
-			!stringField(bag, "Channel", 1, 24) ||
-			!numberField(bag, "Delta", -1, 1, true) ||
-			bag.Delta === 0
-		) {
+		if (!stringField(bag, "Channel", 1, 24) || !numberField(bag, "Delta", -1, 1, true) || bag.Delta === 0) {
 			return $tuple(false, "invalid power route payload");
 		}
 	} else if (action === Protocol.Actions.SendGuildChat) {
@@ -899,8 +826,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.CrewInvite || action === Protocol.Actions.CrewKick) {
 		if (!numberField(bag, "UserId", 1, 1e15, true)) return $tuple(false, "invalid crew member");
 	} else if (action === Protocol.Actions.CrewRespond) {
-		if (!typeIs(payload, "table") || !typeIs(bag.Accept, "boolean"))
-			return $tuple(false, "invalid crew reply");
+		if (!typeIs(payload, "table") || !typeIs(bag.Accept, "boolean")) return $tuple(false, "invalid crew reply");
 	} else if (action === Protocol.Actions.CrewRename) {
 		if (!stringField(bag, "Name", 2, 80)) return $tuple(false, "invalid crew name");
 	} else if (action === Protocol.Actions.CrewClaim) {
@@ -908,15 +834,11 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.ChatGlobal) {
 		if (!stringField(bag, "Text", 1, 640)) return $tuple(false, "invalid global message");
 	} else if (action === Protocol.Actions.GetGuildChatHistory) {
-		if (bag.BeforeId !== undefined && !stringField(bag, "BeforeId", 1, 64))
-			return $tuple(false, "invalid guild history cursor");
-		if (bag.Limit !== undefined && !numberField(bag, "Limit", 1, 50, true))
-			return $tuple(false, "invalid guild history limit");
+		if (bag.BeforeId !== undefined && !stringField(bag, "BeforeId", 1, 64)) return $tuple(false, "invalid guild history cursor");
+		if (bag.Limit !== undefined && !numberField(bag, "Limit", 1, 50, true)) return $tuple(false, "invalid guild history limit");
 	} else if (action === Protocol.Actions.GetGuildAnnouncements) {
-		if (bag.BeforeId !== undefined && !stringField(bag, "BeforeId", 1, 64))
-			return $tuple(false, "invalid announcement cursor");
-		if (bag.Limit !== undefined && !numberField(bag, "Limit", 1, 50, true))
-			return $tuple(false, "invalid announcement limit");
+		if (bag.BeforeId !== undefined && !stringField(bag, "BeforeId", 1, 64)) return $tuple(false, "invalid announcement cursor");
+		if (bag.Limit !== undefined && !numberField(bag, "Limit", 1, 50, true)) return $tuple(false, "invalid announcement limit");
 	} else if (action === Protocol.Actions.GetGuildSettings || action === Protocol.Actions.GetGuildLogoReview) {
 		// Read-only guild-scoped requests accept no caller-controlled fields.
 	} else if (action === Protocol.Actions.SetGuildSettings) {
@@ -934,8 +856,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		let count = 0;
 		for (const [key, value] of pairs(bag.Settings)) {
 			count += 1;
-			if (count > 6 || allowed[key as string] !== true || !typeIs(value, "boolean"))
-				return $tuple(false, "invalid guild settings");
+			if (count > 6 || allowed[key as string] !== true || !typeIs(value, "boolean")) return $tuple(false, "invalid guild settings");
 		}
 		if (count === 0) return $tuple(false, "empty guild settings");
 	} else if (action === Protocol.Actions.CreateGuild) {
@@ -947,8 +868,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 				bag.Tag = bag.Tag.gsub("%s+", "")[0].upper();
 			}
 		}
-		if (!stringField(bag, "Name", 3, 28) || !stringField(bag, "Tag", 3, 4))
-			return $tuple(false, "invalid guild charter payload");
+		if (!stringField(bag, "Name", 3, 28) || !stringField(bag, "Tag", 3, 4)) return $tuple(false, "invalid guild charter payload");
 	} else if (action === Protocol.Actions.JoinGuild) {
 		if (typeIs(payload, "table") && typeIs(bag.Tag, "string")) {
 			bag.Tag = bag.Tag.gsub("%s+", "")[0].upper();
@@ -957,8 +877,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.KickGuildMember) {
 		if (!userIdField(bag)) return $tuple(false, "invalid guild member");
 	} else if (action === Protocol.Actions.SetGuildRole) {
-		if (!userIdField(bag) || (bag.Role !== "Officer" && bag.Role !== "Member"))
-			return $tuple(false, "invalid guild role");
+		if (!userIdField(bag) || (bag.Role !== "Officer" && bag.Role !== "Member")) return $tuple(false, "invalid guild role");
 	} else if (action === Protocol.Actions.RenameGuild) {
 		if (typeIs(payload, "table") && typeIs(bag.Name, "string")) {
 			bag.Name = bag.Name.gsub("^%s+", "")[0].gsub("%s+$", "")[0];
@@ -967,8 +886,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			bag.Tag = bag.Tag.gsub("%s+", "")[0].upper();
 		}
 		if (!stringField(bag, "Name", 3, 28)) return $tuple(false, "invalid guild rename name");
-		if (bag.Tag !== undefined && !stringField(bag, "Tag", 3, 4))
-			return $tuple(false, "invalid guild rename tag");
+		if (bag.Tag !== undefined && !stringField(bag, "Tag", 3, 4)) return $tuple(false, "invalid guild rename tag");
 	} else if (action === Protocol.Actions.ContributeGuild) {
 		const hasAmount = bag.Amount !== undefined;
 		const hasFraction = bag.Fraction !== undefined;
@@ -982,12 +900,8 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		}
 	} else if (action === Protocol.Actions.BuyGuildUpgrade) {
 		if (!stringField(bag, "Id", 1, 48)) return $tuple(false, "invalid guild upgrade");
-	} else if (
-		action === Protocol.Actions.CreateGuildAnnouncement ||
-		action === Protocol.Actions.EditGuildAnnouncement
-	) {
-		if (!stringField(bag, "Title", 1, 120) || !stringField(bag, "Body", 1, 800))
-			return $tuple(false, "invalid guild announcement");
+	} else if (action === Protocol.Actions.CreateGuildAnnouncement || action === Protocol.Actions.EditGuildAnnouncement) {
+		if (!stringField(bag, "Title", 1, 120) || !stringField(bag, "Body", 1, 800)) return $tuple(false, "invalid guild announcement");
 		if (action === Protocol.Actions.EditGuildAnnouncement && !stringField(bag, "AnnouncementId", 1, 64))
 			return $tuple(false, "invalid announcement id");
 	} else if (
@@ -996,11 +910,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		action === Protocol.Actions.SetGuildAnnouncementExpiry
 	) {
 		if (!stringField(bag, "AnnouncementId", 1, 64)) return $tuple(false, "invalid announcement id");
-		if (
-			action === Protocol.Actions.PinGuildAnnouncement &&
-			bag.Pinned !== undefined &&
-			!typeIs(bag.Pinned, "boolean")
-		)
+		if (action === Protocol.Actions.PinGuildAnnouncement && bag.Pinned !== undefined && !typeIs(bag.Pinned, "boolean"))
 			return $tuple(false, "invalid announcement pin state");
 		if (
 			action === Protocol.Actions.SetGuildAnnouncementExpiry &&
@@ -1018,13 +928,9 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.UploadGuildLogo) {
 		if (!stringField(bag, "URL", 1, 1024)) return $tuple(false, "invalid guild logo URL");
 	} else if (action === Protocol.Actions.ModerateGuildLogo) {
-		if (
-			!stringField(bag, "LogoId", 1, 64) ||
-			(bag.Decision !== "approved" && bag.Decision !== "rejected")
-		)
+		if (!stringField(bag, "LogoId", 1, 64) || (bag.Decision !== "approved" && bag.Decision !== "rejected"))
 			return $tuple(false, "invalid guild logo decision");
-		if (bag.Reason !== undefined && !stringField(bag, "Reason", 1, 500))
-			return $tuple(false, "invalid guild logo decision reason");
+		if (bag.Reason !== undefined && !stringField(bag, "Reason", 1, 500)) return $tuple(false, "invalid guild logo decision reason");
 	} else if (action === Protocol.Actions.GetGuildLeaderboard) {
 		if (bag.Page !== undefined && !numberField(bag, "Page", 1, 100, true)) {
 			return $tuple(false, "invalid guild leaderboard page");
@@ -1084,11 +990,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	return $tuple(true, undefined);
 }
 
-function processFirewallViolation(
-	player: Player,
-	actionType: unknown,
-	penaltyCode: unknown,
-): LuaTuple<[boolean, string | undefined]> {
+function processFirewallViolation(player: Player, actionType: unknown, penaltyCode: unknown): LuaTuple<[boolean, string | undefined]> {
 	if (player.Parent !== Players) {
 		return $tuple(false, "player is not active");
 	}
@@ -1120,24 +1022,13 @@ function processFirewallViolation(
 		string.format("integrity:%d", player.UserId),
 		30,
 		"Security",
-		string.format(
-			"%s reported client integrity telemetry %s/%s (%d)",
-			player.Name,
-			actionType,
-			penaltyCode,
-			record.Count,
-		),
+		string.format("%s reported client integrity telemetry %s/%s (%d)", player.Name, actionType, penaltyCode, record.Count),
 	);
 	return $tuple(true, undefined);
 }
 
 function enforceConfirmedBan(player: Player, proof: unknown): LuaTuple<[boolean, string | undefined]> {
-	if (
-		!isTable(proof) ||
-		proof.ServerConfirmed !== true ||
-		!typeIs(proof.CorroboratedSignals, "number") ||
-		proof.CorroboratedSignals < 2
-	) {
+	if (!isTable(proof) || proof.ServerConfirmed !== true || !typeIs(proof.CorroboratedSignals, "number") || proof.CorroboratedSignals < 2) {
 		return $tuple(false, "insufficient server evidence");
 	}
 	if (!typeIs(proof.Rule, "string") || proof.Rule === "") {
@@ -1145,12 +1036,7 @@ function enforceConfirmedBan(player: Player, proof: unknown): LuaTuple<[boolean,
 	}
 
 	const privateReason = string
-		.format(
-			"AF security rule %s; signals=%d; user=%d",
-			proof.Rule,
-			proof.CorroboratedSignals,
-			player.UserId,
-		)
+		.format("AF security rule %s; signals=%d; user=%d", proof.Rule, proof.CorroboratedSignals, player.UserId)
 		.sub(1, 1000);
 	const banConfig = {
 		UserIds: [player.UserId],
@@ -1217,10 +1103,7 @@ export class RemoteFirewall {
 		state.LastStrike = now;
 		state.Strikes += severity;
 		if (state.Strikes >= 4) {
-			state.QuarantineUntil = math.max(
-				state.QuarantineUntil,
-				now + math.min(60, 2 ** math.floor(state.Strikes - 4)),
-			);
+			state.QuarantineUntil = math.max(state.QuarantineUntil, now + math.min(60, 2 ** math.floor(state.Strikes - 4)));
 		}
 		player.SetAttribute("AF_RemoteScore", math.floor(state.Strikes));
 		if (severity >= 1 || math.floor(state.Strikes) % 3 === 0) {
@@ -1229,13 +1112,7 @@ export class RemoteFirewall {
 				string.format("request:%d:%s", player.UserId, reason),
 				8,
 				"Requests",
-				string.format(
-					"%s · %s rejected — %s (score %.1f)",
-					player.Name,
-					tostring(actionLabel),
-					reason,
-					state.Strikes,
-				),
+				string.format("%s · %s rejected — %s (score %.1f)", player.Name, tostring(actionLabel), reason, state.Strikes),
 			);
 		}
 		if (state.Strikes >= 24 && player.Parent === Players) {
@@ -1345,8 +1222,7 @@ export class RemoteFirewall {
 			}
 			if (retained.size() > 256) {
 				retained.sort((left, right) => left.At > right.At);
-				for (let index = 257; index <= retained.size(); index++)
-					delete state.LastAction[retained[index - 1].Key];
+				for (let index = 257; index <= retained.size(); index++) delete state.LastAction[retained[index - 1].Key];
 			}
 			state.LastActionCount = math.min(retained.size(), 256);
 		}
@@ -1364,4 +1240,3 @@ export class RemoteFirewall {
 	static processFirewallViolation = processFirewallViolation;
 	static EnforceConfirmedBan = enforceConfirmedBan;
 }
-

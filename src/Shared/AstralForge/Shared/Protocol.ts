@@ -77,6 +77,7 @@
 		CrewClaim: "CrewClaim",
 		SetTutorialStep: "SetTutorialStep",
 		MarkHintSeen: "MarkHintSeen",
+		ClaimFirstGoal: "ClaimFirstGoal",
 		CompleteTutorial: "CompleteTutorial",
 		ReplayTutorial: "ReplayTutorial",
 		DismissRelease: "DismissRelease",
@@ -152,4 +153,3 @@
 		GetGuildLogoReview: "GetGuildLogoReview",
 	},
 });
-

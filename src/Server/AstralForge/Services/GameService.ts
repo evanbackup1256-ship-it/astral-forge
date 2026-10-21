@@ -31,6 +31,7 @@ import * as PolicyGate from "./PolicyGate";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
+import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
@@ -41,7 +42,6 @@ type Kit = Record<string, Fn>;
 type Svc = Record<string, Method>;
 type Profile = Dict;
 type Response = Dict;
-
 
 interface GameConfigShape {
 	Game: Dict;
@@ -70,7 +70,6 @@ function orElse<T, U>(value: T, fallback: () => U): Exclude<T, undefined | false
 function orEmpty(value: unknown, fallback: () => object): Dict {
 	return (truthy(value) ? value : fallback()) as Dict;
 }
-
 
 const Players = game.GetService("Players");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
@@ -218,7 +217,6 @@ const generalBoardValue = (profile: Profile, id: string) => GeneralBoardValue.Of
 
 const anomalyChargeByAction = ActionFeatureMaps.ANOMALY_CHARGE as Record<string, unknown>;
 
-
 const encodeTelemetry = (
 	revision: unknown,
 	settings: unknown,
@@ -314,8 +312,7 @@ const responseError = (message: unknown): Response => ActionResponse.Error(messa
 // session fields that legitimately change when the client retries a TxnId
 const TXN_PRINT_IGNORE: Record<string, boolean> = { Gen: true, N: true, TxnId: true };
 
-const responseSuccess = (message?: unknown, extra?: unknown): Response =>
-	ActionResponse.Success(message, extra) as Response;
+const responseSuccess = (message?: unknown, extra?: unknown): Response => ActionResponse.Success(message, extra) as Response;
 
 const publicPlayerRecord = (player: Player, profile: Profile, viewer: Player, presence: unknown) =>
 	PublicPlayerRecord.Build(player, profile, viewer, presence, {
@@ -325,8 +322,7 @@ const publicPlayerRecord = (player: Player, profile: Profile, viewer: Player, pr
 const buildVisitSnapshot = (player: Player, profile: Profile) => VisitSnapshot.Build(player, profile, Economy);
 
 // extracts a user id the way every social action does: ExtractUserId when present, then coerce
-const extractUserId = (raw: unknown): unknown =>
-	RemoteFirewall.ExtractUserId !== undefined ? RemoteFirewall.ExtractUserId(raw) : raw;
+const extractUserId = (raw: unknown): unknown => (RemoteFirewall.ExtractUserId !== undefined ? RemoteFirewall.ExtractUserId(raw) : raw);
 
 const PRESENCE_PAGES: Record<string, boolean> = {
 	Overview: true,
@@ -394,11 +390,7 @@ const spendShopCurrency = (profile: Profile, currency: string, price: number): s
 	}
 	const have = tonumber(profile[currency]) ?? 0;
 	if (have < price) {
-		return string.format(
-			"You need %s more %s.",
-			(Format.Number as Fn)(price - have) as string,
-			string.lower(currency),
-		);
+		return string.format("You need %s more %s.", (Format.Number as Fn)(price - have) as string, string.lower(currency));
 	}
 	profile[currency] = have - price;
 	return undefined;
@@ -493,13 +485,9 @@ const rebirthRun = (profile: Profile, now: number, ledger: Dict): LuaTuple<[Dict
 		}
 	}
 	const rebirthConfig = orEmpty(GameConfig.Economy.Rebirth, () => ({}));
-	const bank =
-		rebirthConfig.BankVaultIntoRun !== false ? Economy.Add(profile.RunCash, profile.Vault) : profile.RunCash;
+	const bank = rebirthConfig.BankVaultIntoRun !== false ? Economy.Add(profile.RunCash, profile.Vault) : profile.RunCash;
 	const ratio = (Economy.AsNumber(bank) as number) / math.max(1, GameConfig.Economy.PrestigeRequirement as number);
-	return $tuple(
-		{ Seconds: now - (ledger.RunStartedAt as number), Zone: profile.Zone, MachineKinds: kinds, Ratio: ratio },
-		bank,
-	);
+	return $tuple({ Seconds: now - (ledger.RunStartedAt as number), Zone: profile.Zone, MachineKinds: kinds, Ratio: ratio }, bank);
 };
 
 // cores and stardust before the ledger's own multipliers, or nil when the run can't convert yet
@@ -508,10 +496,7 @@ const rebirthBase = (profile: Profile, bank: unknown): LuaTuple<[unknown, number
 	if (!truthy(RebirthGate.CanRebirth(reward, Economy.Gte))) {
 		return $tuple(undefined, 0);
 	}
-	reward = Economy.Max(
-		1,
-		Economy.Floor(Economy.Mul(reward, 1 + (Economy.DomainTreeBonus(profile, "RebirthYield") as number))),
-	);
+	reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + (Economy.DomainTreeBonus(profile, "RebirthYield") as number))));
 	reward = Economy.Floor(Economy.Mul(reward, Economy.AscensionEffect(profile, "Cores")));
 	const rebirthConfig = orEmpty(GameConfig.Economy.Rebirth, () => ({}));
 	const dust = RebirthGate.StardustReward(
@@ -686,9 +671,7 @@ export class GameService {
 
 	_nudgeCrew(sender: Player, rawUserId: unknown) {
 		const extracted = extractUserId(rawUserId);
-		const userId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawUserId)) as
-			| number
-			| undefined;
+		const userId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawUserId)) as number | undefined;
 		if (userId === undefined) {
 			return responseError("Couldn't find that crew member.");
 		}
@@ -722,12 +705,7 @@ export class GameService {
 			[boolean, unknown, unknown, unknown]
 		>;
 		if (!ok && reason !== "late") {
-			ModuleLog.Every(
-				"beat:%d".format(player.UserId),
-				15,
-				"auth",
-				"u=%d beat rejected %s".format(player.UserId, tostring(reason)),
-			);
+			ModuleLog.Every("beat:%d".format(player.UserId), 15, "auth", "u=%d beat rejected %s".format(player.UserId, tostring(reason)));
 		}
 		return responseSuccess(undefined, { Gen: gen, N: nonce, Auth: ok });
 	}
@@ -905,12 +883,7 @@ export class GameService {
 				return responseError(err);
 			}
 			const confirmed = maybeSession ? (maybeSession.Confirmed as Record<number, unknown>) : undefined;
-			if (
-				maybeSession &&
-				confirmed &&
-				truthy(confirmed[maybeSession.Host as number]) &&
-				truthy(confirmed[maybeSession.Guest as number])
-			) {
+			if (maybeSession && confirmed && truthy(confirmed[maybeSession.Host as number]) && truthy(confirmed[maybeSession.Guest as number])) {
 				const session = maybeSession;
 				if (!truthy(this._trades.TryBeginSettle(session))) {
 					this._pushTradePartners(session.Host, session.Guest);
@@ -950,16 +923,13 @@ export class GameService {
 						},
 					};
 				}
-				const guestProfile =
-					session.Guest === -999 ? mockBotProfile : guest ? (this._data.Get(guest) as Profile | undefined) : undefined;
+				const guestProfile = session.Guest === -999 ? mockBotProfile : guest ? (this._data.Get(guest) as Profile | undefined) : undefined;
 				if (!host || !guest || !hostProfile || !guestProfile) {
 					this._trades.FailSettle(session, false);
 					this._trades.Cancel(player);
 					return responseError("A trader left before the swap finished.");
 				}
-				const [plannedValue, planErr] = this._trades.Plan(session, hostProfile, guestProfile, now) as LuaTuple<
-					[Dict | undefined, unknown]
-				>;
+				const [plannedValue, planErr] = this._trades.Plan(session, hostProfile, guestProfile, now) as LuaTuple<[Dict | undefined, unknown]>;
 				if (!plannedValue) {
 					this._trades.FailSettle(session, false);
 					this._pushTradePartners(session.Host, session.Guest);
@@ -1026,7 +996,13 @@ export class GameService {
 						this._data.AtomicUpdate(
 							targetPlayer,
 							(journalProfile: Profile) => {
-								const entry = TradeRecovery.MakeFaultedEntry(session, side, plan, orElse(reason, () => "unknown"), now);
+								const entry = TradeRecovery.MakeFaultedEntry(
+									session,
+									side,
+									plan,
+									orElse(reason, () => "unknown"),
+									now,
+								);
 								(journalProfile.Trade as Dict).FaultedJournal = entry;
 								return { ok: true };
 							},
@@ -1216,9 +1192,7 @@ export class GameService {
 
 	_getPlayerMirror(viewer: Player, rawUserId: unknown) {
 		const extracted = extractUserId(rawUserId);
-		const userId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawUserId)) as
-			| number
-			| undefined;
+		const userId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawUserId)) as number | undefined;
 		if (userId === undefined) {
 			return responseError("That player could not be found.");
 		}
@@ -1381,9 +1355,7 @@ export class GameService {
 			return responseError("Write a short note before sending it.");
 		}
 		const body0 = payload as Dict;
-		const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(player, raw, player.UserId, 600) as LuaTuple<
-			[unknown, unknown]
-		>;
+		const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(player, raw, player.UserId, 600) as LuaTuple<[unknown, unknown]>;
 		if (!truthy(filteredOk) || !typeIs(filtered, "string") || filtered.size() < 1) {
 			return responseError("That note couldn't be checked. Please try different wording.");
 		}
@@ -1468,9 +1440,7 @@ export class GameService {
 		}
 		const rawTarget = payload ? payload.UserId : undefined;
 		const extracted = extractUserId(rawTarget);
-		const targetUserId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawTarget)) as
-			| number
-			| undefined;
+		const targetUserId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawTarget)) as number | undefined;
 		if (targetUserId === undefined) {
 			return responseError("Couldn't find that player.");
 		}
@@ -1495,13 +1465,10 @@ export class GameService {
 			>;
 			details = truthy(filteredOk) && typeIs(filtered, "string") ? filtered : "";
 		}
-		const [reportCount, reporterCount] = reportLedger.record(player.UserId, targetUserId, reason, now) as LuaTuple<
-			[number, number]
-		>;
+		const [reportCount, reporterCount] = reportLedger.record(player.UserId, targetUserId, reason, now) as LuaTuple<[number, number]>;
 		const severity = body0.Severity === "Serious" || body0.Severity === "Urgent" ? (body0.Severity as string) : "Minor";
 		const when = body0.When === "Earlier" || body0.When === "Repeated" ? (body0.When as string) : "Now";
-		const where =
-			body0.Where === "Chat" || body0.Where === "Trade" || body0.Where === "Guild" ? (body0.Where as string) : "World";
+		const where = body0.Where === "Chat" || body0.Where === "Trade" || body0.Where === "Guild" ? (body0.Where as string) : "World";
 		const endpoint = ServerStorage.GetAttribute(ServerConfig.ReportWebhookAttribute as string);
 		if (!typeIs(endpoint, "string") || endpoint.match("^https://")[0] === undefined) {
 			ModuleLog.Every(
@@ -1522,10 +1489,7 @@ export class GameService {
 		const reporterProfile = this._data.Get(player) as Profile | undefined;
 		const targetProfile = this._data.Get(target) as Profile | undefined;
 		const progressOf = (p: Profile | undefined) =>
-			"World %d · %d rebirths".format(
-				orElse(p && p.Zone, () => 1) as number,
-				orElse(p && p.Rebirths, () => 0) as number,
-			);
+			"World %d · %d rebirths".format(orElse(p && p.Zone, () => 1) as number, orElse(p && p.Rebirths, () => 0) as number);
 		const body = {
 			username: "Astral Forge Reports",
 			allowed_mentions: { parse: {} },
@@ -1646,11 +1610,7 @@ export class GameService {
 						const [committed] = this._data.AtomicUpdate(
 							player,
 							(profile: Profile) => {
-								changed = applySocialBoost(
-									profile,
-									counts.get(player) ?? 0,
-									player.MembershipType === Enum.MembershipType.Premium,
-								);
+								changed = applySocialBoost(profile, counts.get(player) ?? 0, player.MembershipType === Enum.MembershipType.Premium);
 
 								if (!changed) {
 									return { ok: false, noop: true };
@@ -1665,7 +1625,12 @@ export class GameService {
 						}
 					});
 					if (!updated) {
-						ModuleLog.Every("social-boost:" + tostring(player.UserId), 30, "Social", "friend boost update failed: " + tostring(updateError));
+						ModuleLog.Every(
+							"social-boost:" + tostring(player.UserId),
+							30,
+							"Social",
+							"friend boost update failed: " + tostring(updateError),
+						);
 					}
 				}
 			} while (this._socialBoostDirty);
@@ -1772,9 +1737,7 @@ export class GameService {
 		// player list and chat, so it has to be visible to the whole server, not just its owner
 		const command = profile.Command as Dict | undefined;
 		const artifactId =
-			truthy(command) && typeIs(command.EquippedArtifact, "string") && truthy(command.EquippedArtifact)
-				? command.EquippedArtifact
-				: "";
+			truthy(command) && typeIs(command.EquippedArtifact, "string") && truthy(command.EquippedArtifact) ? command.EquippedArtifact : "";
 		const artifactFound = artifactId !== "" ? Economy.GetArtifact(artifactId) : undefined;
 		const artifact = truthy(artifactFound) ? (artifactFound as Dict) : undefined;
 		const artifacts = command ? command.Artifacts : undefined;
@@ -1791,10 +1754,7 @@ export class GameService {
 			player.SetAttribute("EquippedArtifactElement", tostring(orElse(artifact.Element, () => "")));
 			player.SetAttribute("EquippedArtifactRarity", tostring(orElse(artifact.Rarity, () => "COMMON")));
 			player.SetAttribute("EquippedArtifactLevel", level);
-			player.SetAttribute(
-				"EquippedArtifactColor",
-				typeIs(artifact.Color, "Color3") ? artifact.Color : Color3.fromRGB(170, 139, 255),
-			);
+			player.SetAttribute("EquippedArtifactColor", typeIs(artifact.Color, "Color3") ? artifact.Color : Color3.fromRGB(170, 139, 255));
 			player.SetAttribute("EquippedArtifactEffect", effectText);
 			player.SetAttribute("EquippedArtifact", artifactId);
 		} else if (player.GetAttribute("EquippedArtifact") !== undefined) {
@@ -1911,9 +1871,7 @@ export class GameService {
 		}
 		const now = os.time();
 		const firstLook = (num(progression.RewardedLevel) ?? -1) < 0;
-		const [owed, settled] = LevelRewards.owed(num(progression.RewardedLevel) ?? -1, levelState.Level) as LuaTuple<
-			[unknown[], unknown]
-		>;
+		const [owed, settled] = LevelRewards.owed(num(progression.RewardedLevel) ?? -1, levelState.Level) as LuaTuple<[unknown[], unknown]>;
 		progression.RewardedLevel = settled;
 		if (firstLook) {
 			progression.HalfwayPaidFor = levelState.Level;
@@ -1961,10 +1919,7 @@ export class GameService {
 			Mastery: LevelRewards.mastery(settled),
 			Surge: {
 				Multiplier: LevelRewards.surgeMultiplier(progression.Surge, now),
-				EndsAt:
-					(LevelRewards.surgeMultiplier(progression.Surge, now) as number) > 1
-						? (progression.Surge as Dict).EndsAt
-						: 0,
+				EndsAt: (LevelRewards.surgeMultiplier(progression.Surge, now) as number) > 1 ? (progression.Surge as Dict).EndsAt : 0,
 			},
 			HalfwayPaidFor: progression.HalfwayPaidFor,
 			NextReward: nextReward,
@@ -2019,18 +1974,14 @@ export class GameService {
 			TotalCoresSpent: 0,
 		}));
 		const domainRank = math.max(0, math.floor(num(domain.Rank) ?? 0));
-		const [domainRequiredRebirths, domainRequiredCores] = Economy.DomainRequirements(domainRank) as LuaTuple<
-			[unknown, unknown]
-		>;
+		const [domainRequiredRebirths, domainRequiredCores] = Economy.DomainRequirements(domainRank) as LuaTuple<[unknown, unknown]>;
 		const [domainEssenceReward, domainStardustReward] = Economy.DomainRewards(domainRank) as LuaTuple<[unknown, unknown]>;
 		const continuum = orEmpty(profile.Continuum, () => ({ Rank: 0, TotalFluxSpent: 0, TotalStardustSpent: 0 }));
 		const continuumRank = math.max(0, math.floor(num(continuum.Rank) ?? 0));
-		const [continuumFluxCost, continuumStardustCost] = Economy.ContinuumCosts(continuumRank) as LuaTuple<
-			[unknown, unknown]
+		const [continuumFluxCost, continuumStardustCost] = Economy.ContinuumCosts(continuumRank) as LuaTuple<[unknown, unknown]>;
+		const [continuumProduction, continuumCapacity, continuumTap, continuumOffline] = Economy.ContinuumEffects(profile) as LuaTuple<
+			[unknown, unknown, unknown, unknown]
 		>;
-		const [continuumProduction, continuumCapacity, continuumTap, continuumOffline] = Economy.ContinuumEffects(
-			profile,
-		) as LuaTuple<[unknown, unknown, unknown, unknown]>;
 		if (runtime) {
 			runtime.SnapshotId = ((runtime.SnapshotId as number | undefined) ?? 0) + 1;
 		}
@@ -2040,10 +1991,7 @@ export class GameService {
 		(GameConfig.Items.ShopOffers as Dict[]).forEach((offer, i) => {
 			const state = copyDictionary(offer) as Dict;
 			const stockMax = offerStockMax(offer);
-			const stock = ShopGrantEligibility.RemainingStock(
-				((items.Shop as Dict).Stock as Dict)[offer.Id as string],
-				stockMax,
-			) as number;
+			const stock = ShopGrantEligibility.RemainingStock(((items.Shop as Dict).Stock as Dict)[offer.Id as string], stockMax) as number;
 			state.Stock = stock;
 			state.StockMax = stockMax;
 			state.DailyRefresh = offer.DailyRefresh === true;
@@ -2062,8 +2010,7 @@ export class GameService {
 					}
 				}
 			}
-			const leveledUp =
-				runtime.ForgeLevel !== undefined && (levelState.Level as number) > (runtime.ForgeLevel as number);
+			const leveledUp = runtime.ForgeLevel !== undefined && (levelState.Level as number) > (runtime.ForgeLevel as number);
 			runtime.ForgeLevel = levelState.Level;
 			if (leveledUp) {
 				const names: string[] = [];
@@ -2217,9 +2164,7 @@ export class GameService {
 				Owned: isTable(dailyShop) && isTable(dailyShop.Owned) ? copyDictionary(dailyShop.Owned) : undefined,
 			},
 			Cosmetics: {
-				CrateSkins: copyDictionary(
-					isTable(cosmetics) && truthy(cosmetics.CrateSkins) ? cosmetics.CrateSkins : { Classic: true },
-				),
+				CrateSkins: copyDictionary(isTable(cosmetics) && truthy(cosmetics.CrateSkins) ? cosmetics.CrateSkins : { Classic: true }),
 				CrateSkin: isTable(cosmetics) && truthy(cosmetics.CrateSkin) ? cosmetics.CrateSkin : "Classic",
 				ProfileAccent: ProfileStyle.read(cosmetics).Accent,
 				ProfileFrame: ProfileStyle.read(cosmetics).Frame,
@@ -2287,12 +2232,7 @@ export class GameService {
 				offlineHours: Economy.OfflineHours(profile),
 			}),
 			Visitors: this._visitorList(player),
-			Visit: VisitSnapshot.Resolve(
-				this._visiting.get(player),
-				Players.GetPlayers(),
-				(host: Player) => this._data.Get(host),
-				Economy,
-			),
+			Visit: VisitSnapshot.Resolve(this._visiting.get(player), Players.GetPlayers(), (host: Player) => this._data.Get(host), Economy),
 		};
 	}
 
@@ -2311,9 +2251,7 @@ export class GameService {
 		}
 		runtime.LastSentSections = sections;
 		const full =
-			truthy(force) ||
-			previous === undefined ||
-			now - ((runtime.LastFullSnapshotAt as number | undefined) ?? 0) >= FULL_SNAPSHOT_EVERY;
+			truthy(force) || previous === undefined || now - ((runtime.LastFullSnapshotAt as number | undefined) ?? 0) >= FULL_SNAPSHOT_EVERY;
 		const prints: Dict = {};
 		if (full) {
 			// Everything goes out anyway, so skip the deep compare. Only sections that needed a
@@ -2331,8 +2269,7 @@ export class GameService {
 		const trimmed = table.clone(snapshot);
 		const reused: string[] = [];
 		for (const [key, value] of pairs(sections)) {
-			let verdict: boolean | undefined =
-				previous !== undefined && previous[key] !== undefined ? sameValue(previous[key], value, 0) : false;
+			let verdict: boolean | undefined = previous !== undefined && previous[key] !== undefined ? sameValue(previous[key], value, 0) : false;
 			if (verdict === undefined) {
 				// shares tables with something else: compare what was actually sent instead
 				const sent = fingerprint(value);
@@ -2612,9 +2549,7 @@ export class GameService {
 	_echoAct(player: Player, payload: unknown) {
 		const op = isTable(payload) && truthy(payload.Op) ? payload.Op : "";
 		const result = this._mutate(player, (profile: Profile) => {
-			const [ok, message, extra] = ForgeEchoService.Act(profile, payload, this._random) as LuaTuple<
-				[unknown, unknown, unknown]
-			>;
+			const [ok, message, extra] = ForgeEchoService.Act(profile, payload, this._random) as LuaTuple<[unknown, unknown, unknown]>;
 			if (!truthy(ok)) {
 				return responseError(message);
 			}
@@ -2642,10 +2577,7 @@ export class GameService {
 			ProgressionService.Progress(profile, "EarnCash", amountNumber);
 			LabService.Progress(profile, "BankFlux", amountNumber);
 			ProgressionService.AwardCommandXP(profile, math.max(1, math.floor((math.log(amountNumber + 1) / math.log(10)) * 3)));
-			ProgressionService.AwardForgePathXP(
-				profile,
-				ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP),
-			);
+			ProgressionService.AwardForgePathXP(profile, ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP));
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12));
 			const extra = this._events.OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile))) as Dict;
 			const notes: string[] = [];
@@ -2672,10 +2604,12 @@ export class GameService {
 				notes.push("a crate key");
 			}
 			if (notes.size() > 0) {
-				return responseSuccess(
-					"Banked " + (Format.Number(amount) as string) + " Flux and found " + notes.join(", ") + ".",
-					{ Amount: amount, Dust: extra.Dust, Cores: extra.Cores, Keys: extra.Keys },
-				);
+				return responseSuccess("Banked " + (Format.Number(amount) as string) + " Flux and found " + notes.join(", ") + ".", {
+					Amount: amount,
+					Dust: extra.Dust,
+					Cores: extra.Cores,
+					Keys: extra.Keys,
+				});
 			}
 			return responseSuccess("Banked " + (Format.Number(amount) as string) + " Flux.", { Amount: amount });
 		});
@@ -2698,9 +2632,7 @@ export class GameService {
 				return responseSuccess(undefined, { Dust: dust });
 			});
 		} else if (op === "Claim") {
-			const [reward, reason] = this._events.ClaimSupply(player, (payload as Dict).Drop) as LuaTuple<
-				[Dict | undefined, unknown]
-			>;
+			const [reward, reason] = this._events.ClaimSupply(player, (payload as Dict).Drop) as LuaTuple<[Dict | undefined, unknown]>;
 			if (reward === undefined) {
 				return responseError(orElse(reason, () => "Missed it."));
 			}
@@ -2729,8 +2661,7 @@ export class GameService {
 		const combo = math.max(0, math.floor(num(runtime.TapCombo) ?? 0));
 		if (
 			combo > 0 &&
-			os.clock() - (num(runtime.LastTap) ?? 0) >
-				overchargeComboWindow(profile) * (this._events.ComboWindowMultiplier() as number)
+			os.clock() - (num(runtime.LastTap) ?? 0) > overchargeComboWindow(profile) * (this._events.ComboWindowMultiplier() as number)
 		) {
 			return $tuple(0, 1);
 		}
@@ -2767,9 +2698,7 @@ export class GameService {
 				if (truthy(Economy.Lte(room, 0.01))) {
 					return responseError("Your vault is full. Bank it first.");
 				}
-				const critical =
-					this._random.NextNumber() <=
-					(Economy.CriticalChance(profile) as number) + (this._events.CritBonus() as number);
+				const critical = this._random.NextNumber() <= (Economy.CriticalChance(profile) as number) + (this._events.CritBonus() as number);
 				let amount = Economy.TapPower(profile);
 				const eventTap = this._events.TapMultiplier();
 				if (eventTap !== 1) {
@@ -2839,9 +2768,7 @@ export class GameService {
 			let count: number;
 			let cost: unknown;
 			if (requestedAmount === "Max") {
-				[count, cost] = Economy.AffordableMachineLevels(machineId, level, profile.Cash, remainingLevels) as LuaTuple<
-					[number, unknown]
-				>;
+				[count, cost] = Economy.AffordableMachineLevels(machineId, level, profile.Cash, remainingLevels) as LuaTuple<[number, unknown]>;
 			} else {
 				count = typeIs(requestedAmount, "number") ? math.clamp(math.floor(requestedAmount), 1, 50) : 1;
 				count = math.min(count, remainingLevels);
@@ -2906,11 +2833,7 @@ export class GameService {
 			autoForge.Bought = math.max(0, math.floor(num(autoForge.Bought) ?? 0));
 			const state = enabled ? "online" : "paused";
 			return responseSuccess(
-				"Auto-Forge %s: buying %s and keeping %d%% in reserve.".format(
-					state,
-					machine.Name as string,
-					math.floor(reserve * 100 + 0.5),
-				),
+				"Auto-Forge %s: buying %s and keeping %d%% in reserve.".format(state, machine.Name as string, math.floor(reserve * 100 + 0.5)),
 			);
 		});
 	}
@@ -2957,9 +2880,7 @@ export class GameService {
 				const currentReserve = math.clamp(num(current.Reserve) ?? 0.25, 0, 0.9);
 				const remaining = maxLevel - currentLevel;
 				const spendable = Economy.Mul(profile.Cash, 1 - currentReserve);
-				const [count, cost] = Economy.AffordableMachineLevels(machineId, currentLevel, spendable, remaining) as LuaTuple<
-					[number, unknown]
-				>;
+				const [count, cost] = Economy.AffordableMachineLevels(machineId, currentLevel, spendable, remaining) as LuaTuple<[number, unknown]>;
 				if (count < 1) {
 					return responseError("Auto-Forge is preserving its reserve.");
 				}
@@ -3012,9 +2933,7 @@ export class GameService {
 			let count: number;
 			let cost: unknown;
 			if (requestedAmount === "Max") {
-				[count, cost] = Economy.AffordableResearchLevels(researchId, level, profile.Cash, remainingLevels) as LuaTuple<
-					[number, unknown]
-				>;
+				[count, cost] = Economy.AffordableResearchLevels(researchId, level, profile.Cash, remainingLevels) as LuaTuple<[number, unknown]>;
 			} else {
 				count = typeIs(requestedAmount, "number") ? math.clamp(math.floor(requestedAmount), 1, 50) : 1;
 				count = math.min(count, remainingLevels);
@@ -3116,10 +3035,14 @@ export class GameService {
 		const ledger = rebirthLedger(profile, now);
 		const [run, bank] = rebirthRun(profile, now, ledger) as LuaTuple<[Dict, unknown]>;
 		const [reward, dust] = rebirthBase(profile, bank) as LuaTuple<[unknown, number]>;
-		const quote = RebirthMath.quote(ledger, {
-			Cores: truthy(reward) ? Economy.AsNumber(reward) : 0,
-			Stardust: dust,
-		}, run) as Dict;
+		const quote = RebirthMath.quote(
+			ledger,
+			{
+				Cores: truthy(reward) ? Economy.AsNumber(reward) : 0,
+				Stardust: dust,
+			},
+			run,
+		) as Dict;
 		const [holds, status] = RebirthMath.vowHolds(ledger, run) as LuaTuple<[unknown, unknown]>;
 		const [, nextStar] = RebirthMath.nextStar(ledger) as LuaTuple<[unknown, unknown]>;
 		return {
@@ -3154,19 +3077,19 @@ export class GameService {
 			const [run, bank] = rebirthRun(profile, now, ledger) as LuaTuple<[Dict, unknown]>;
 			const [baseReward, stardustBase] = rebirthBase(profile, bank) as LuaTuple<[unknown, number]>;
 			if (baseReward === undefined) {
-				return responseError(
-					"Bank at least " +
-						(Format.Number as Fn)(GameConfig.Economy.PrestigeRequirement) +
-						" run Flux first.",
-				);
+				return responseError("Bank at least " + (Format.Number as Fn)(GameConfig.Economy.PrestigeRequirement) + " run Flux first.");
 			}
 			if (payload.Keep !== undefined) {
 				RebirthMath.setKeep(ledger, payload.Keep);
 			}
-			const quote = RebirthMath.quote(ledger, {
-				Cores: Economy.AsNumber(baseReward),
-				Stardust: stardustBase,
-			}, run) as Dict;
+			const quote = RebirthMath.quote(
+				ledger,
+				{
+					Cores: Economy.AsNumber(baseReward),
+					Stardust: stardustBase,
+				},
+				run,
+			) as Dict;
 			const reward = Economy.Max(1, Economy.Floor(Economy.Mul(baseReward, quote.CoreMultiplier)));
 			const stardustReward = quote.Stardust as number;
 			const bankedVault = profile.Vault;
@@ -3189,13 +3112,7 @@ export class GameService {
 				GameConfig.Economy.StartingCash,
 				keepsakeAllowed(profile),
 			) as Dict;
-			const entry = RebirthMath.close(
-				ledger,
-				quote,
-				now,
-				typeIs(payload.Vow, "string") ? payload.Vow : undefined,
-				undefined,
-			) as Dict;
+			const entry = RebirthMath.close(ledger, quote, now, typeIs(payload.Vow, "string") ? payload.Vow : undefined, undefined) as Dict;
 			profile.Rebirths = (profile.Rebirths as number) + 1;
 			profile.Cash = carry.Cash;
 			profile.Vault = 0;
@@ -3283,21 +3200,15 @@ export class GameService {
 			const ledger = rebirthLedger(profile, now);
 			if (payload.Op === "Star") {
 				const index = math.floor(tonumber(payload.Index) ?? 0);
-				const [ok, message] = RebirthMath.pickStar(
-					ledger,
-					index,
-					math.floor(tonumber(payload.Pick) ?? 0),
-				) as LuaTuple<[unknown, unknown]>;
+				const [ok, message] = RebirthMath.pickStar(ledger, index, math.floor(tonumber(payload.Pick) ?? 0)) as LuaTuple<[unknown, unknown]>;
 				if (!truthy(ok)) {
 					return responseError(message);
 				}
 				return responseSuccess("Star lit: " + tostring(message) + ".", { Star: index });
 			} else if (payload.Op === "Vow") {
-				const [ok, message] = RebirthMath.swear(
-					ledger,
-					typeIs(payload.Vow, "string") ? payload.Vow : "",
-					now,
-				) as LuaTuple<[unknown, unknown]>;
+				const [ok, message] = RebirthMath.swear(ledger, typeIs(payload.Vow, "string") ? payload.Vow : "", now) as LuaTuple<
+					[unknown, unknown]
+				>;
 				if (!truthy(ok)) {
 					return responseError(message);
 				}
@@ -3327,9 +3238,7 @@ export class GameService {
 			return responseError("Invalid milestone request.");
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.ClaimAchievement(profile, achievementId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.ClaimAchievement(profile, achievementId) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3343,9 +3252,7 @@ export class GameService {
 
 	_claimTimedReward(player: Player, rewardIndex: unknown) {
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.ClaimTimedReward(profile, rewardIndex) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.ClaimTimedReward(profile, rewardIndex) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3353,19 +3260,13 @@ export class GameService {
 	_bazaarPlay(player: Player, payload: unknown) {
 		return this._mutate(player, (profile: Profile) => {
 			const now = os.time();
-			const [recovered, recoveryMessage] = BazaarService.Roll(profile, now, player.UserId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [recovered, recoveryMessage] = BazaarService.Roll(profile, now, player.UserId) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(recovered)) {
 				return responseError(recoveryMessage);
 			}
-			const [ok, message, extra] = BazaarService.Play(
-				profile,
-				this._random,
-				payload,
-				now,
-				player.UserId,
-			) as LuaTuple<[unknown, unknown, unknown]>;
+			const [ok, message, extra] = BazaarService.Play(profile, this._random, payload, now, player.UserId) as LuaTuple<
+				[unknown, unknown, unknown]
+			>;
 			if (!truthy(ok)) {
 				return responseError(message);
 			}
@@ -3400,22 +3301,17 @@ export class GameService {
 			return responseError("Invalid expedition request.");
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.LaunchExpedition(profile, expeditionId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.LaunchExpedition(profile, expeditionId) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
 
 	_claimExpedition(player: Player) {
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message, artifactId, artifactNew] = ProgressionService.ClaimExpedition(
-				profile,
-				this._random,
-			) as LuaTuple<[unknown, unknown, unknown, unknown]>;
-			return truthy(ok)
-				? responseSuccess(message, { ArtifactId: artifactId, ArtifactNew: artifactNew })
-				: responseError(message);
+			const [ok, message, artifactId, artifactNew] = ProgressionService.ClaimExpedition(profile, this._random) as LuaTuple<
+				[unknown, unknown, unknown, unknown]
+			>;
+			return truthy(ok) ? responseSuccess(message, { ArtifactId: artifactId, ArtifactNew: artifactNew }) : responseError(message);
 		});
 	}
 
@@ -3424,9 +3320,7 @@ export class GameService {
 			return responseError("Invalid artifact request.");
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.EquipArtifact(profile, artifactId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.EquipArtifact(profile, artifactId) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3436,12 +3330,8 @@ export class GameService {
 			return responseError("Invalid artifact request.");
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message, fresh] = ProgressionService.BuyArtifact(profile, artifactId) as LuaTuple<
-				[unknown, unknown, unknown]
-			>;
-			return truthy(ok)
-				? responseSuccess(message, { ArtifactId: artifactId, ArtifactNew: fresh })
-				: responseError(message);
+			const [ok, message, fresh] = ProgressionService.BuyArtifact(profile, artifactId) as LuaTuple<[unknown, unknown, unknown]>;
+			return truthy(ok) ? responseSuccess(message, { ArtifactId: artifactId, ArtifactNew: fresh }) : responseError(message);
 		});
 	}
 
@@ -3450,9 +3340,7 @@ export class GameService {
 			return responseError("Invalid artifact request.");
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.UpgradeArtifact(profile, artifactId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.UpgradeArtifact(profile, artifactId) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3469,9 +3357,7 @@ export class GameService {
 
 	_claimCommanderReward(player: Player, level: unknown) {
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.ClaimCommanderReward(profile, level) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.ClaimCommanderReward(profile, level) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3481,9 +3367,7 @@ export class GameService {
 			return responseError("Invalid weekly directive.");
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.ClaimWeeklyDirective(profile, directiveId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.ClaimWeeklyDirective(profile, directiveId) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3497,9 +3381,7 @@ export class GameService {
 
 	_claimForgePathStep(player: Player, step: unknown) {
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.ClaimForgePathStep(profile, step) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.ClaimForgePathStep(profile, step) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3509,9 +3391,7 @@ export class GameService {
 			return responseError("Invalid signal shop offer.");
 		}
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message] = ProgressionService.BuySignalOffer(profile, offerId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, message] = ProgressionService.BuySignalOffer(profile, offerId) as LuaTuple<[unknown, unknown]>;
 			return truthy(ok) ? responseSuccess(message) : responseError(message);
 		});
 	}
@@ -3590,11 +3470,7 @@ export class GameService {
 	}
 
 	_grantDevProduct(profile: Profile, productDef: Dict): string {
-		return ProgressionService.ApplyReward(
-			profile,
-			productDef.Reward,
-			Economy.Production(profile),
-		) as string;
+		return ProgressionService.ApplyReward(profile, productDef.Reward, Economy.Production(profile)) as string;
 	}
 
 	_processReceipt(receiptInfo: ReceiptInfo): Enum.ProductPurchaseDecision {
@@ -3602,9 +3478,7 @@ export class GameService {
 		if (player === undefined) {
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
 		}
-		const productDef = (MonetizationConfig.FindDevProductByProductId as Fn)(receiptInfo.ProductId) as
-			| Dict
-			| undefined;
+		const productDef = (MonetizationConfig.FindDevProductByProductId as Fn)(receiptInfo.ProductId) as Dict | undefined;
 		if (productDef === undefined) {
 			ModuleLog.Warn("Shop", string.format("unknown ProductId %s", tostring(receiptInfo.ProductId)));
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
@@ -3613,11 +3487,7 @@ export class GameService {
 		let rewardText = "";
 		let already = false;
 		const [updated] = this._data.Update(player, (profile: Profile) => {
-			const [recorded, alreadyProcessed] = ReceiptLedger.Record(
-				profile.Receipts,
-				purchaseKey,
-				os.time(),
-			) as LuaTuple<[unknown, unknown]>;
+			const [recorded, alreadyProcessed] = ReceiptLedger.Record(profile.Receipts, purchaseKey, os.time()) as LuaTuple<[unknown, unknown]>;
 			profile.Receipts = recorded;
 			if (truthy(alreadyProcessed)) {
 				already = true;
@@ -3636,12 +3506,7 @@ export class GameService {
 		if (!already) {
 			this._syncLeaderstats(player, this._data.Get(player) as Profile | undefined);
 			this._pushState(player);
-			this._toastPlayer(
-				player,
-				"Purchase complete",
-				rewardText !== "" ? rewardText : (productDef.Name as string),
-				"Special",
-			);
+			this._toastPlayer(player, "Purchase complete", rewardText !== "" ? rewardText : (productDef.Name as string), "Special");
 			this._effect.fire(player, { Type: "FeatureUnlocked" });
 		}
 		return Enum.ProductPurchaseDecision.PurchaseGranted;
@@ -3651,9 +3516,7 @@ export class GameService {
 		const ownedPasses = new Set<string>();
 		for (const passDef of MonetizationConfig.GamePasses as Dict[]) {
 			if ((passDef.PassId as number) > 0) {
-				const [ok, owns] = pcall(() =>
-					MarketplaceService.UserOwnsGamePassAsync(User.fromId(player.UserId), passDef.PassId as number),
-				);
+				const [ok, owns] = pcall(() => MarketplaceService.UserOwnsGamePassAsync(User.fromId(player.UserId), passDef.PassId as number));
 				if (ok && truthy(owns)) {
 					ownedPasses.add(passDef.Key as string);
 				}
@@ -3902,13 +3765,9 @@ export class GameService {
 				items.Essence = (items.Essence as number) + (offer.Amount as number);
 			} else if (offer.Kind === "Boost") {
 				const inventory = ensureBoostInventory(profile) as Dict;
-				inventory[offer.BoostId as string] =
-					math.floor(tonumber(inventory[offer.BoostId as string]) ?? 0) + (offer.Amount as number);
+				inventory[offer.BoostId as string] = math.floor(tonumber(inventory[offer.BoostId as string]) ?? 0) + (offer.Amount as number);
 			} else if (offer.Kind === "Flux") {
-				const generated = Economy.Max(
-					500,
-					Economy.Mul(Economy.SteadyProduction(profile), 60 * (offer.Minutes as number)),
-				);
+				const generated = Economy.Max(500, Economy.Mul(Economy.SteadyProduction(profile), 60 * (offer.Minutes as number)));
 				profile.Cash = Economy.Add(profile.Cash, generated);
 				profile.RunCash = Economy.Add(profile.RunCash, generated);
 				profile.LifetimeCash = Economy.Add(profile.LifetimeCash, generated);
@@ -4007,12 +3866,9 @@ export class GameService {
 			const items = ProfileBagMath.EnsureItems(profile) as Dict;
 			const inventory = items.Inventory as Dict;
 			const maxStars = (GameConfig.Items.MaxStars as number | undefined) ?? 5;
-			const [targetUid, fodderUid, reason] = RelicSystem.fusionPair(
-				inventory,
-				items.Equipped,
-				definitionId,
-				maxStars,
-			) as LuaTuple<[unknown, unknown, unknown]>;
+			const [targetUid, fodderUid, reason] = RelicSystem.fusionPair(inventory, items.Equipped, definitionId, maxStars) as LuaTuple<
+				[unknown, unknown, unknown]
+			>;
 			if (targetUid === undefined || fodderUid === undefined) {
 				return responseError(truthy(reason) ? reason : "Those relics can't be fused.");
 			}
@@ -4023,15 +3879,12 @@ export class GameService {
 			target.Level = math.min(level, definition.MaxLevel as number);
 			inventory[fodderUid as string] = undefined;
 			bumpStat(profile, "RelicsFused", 1);
-			return responseSuccess(
-				string.format("%s fused to %d star%s.", definition.Name as string, stars, stars === 1 ? "" : "s"),
-				{
-					Uid: targetUid,
-					Stars: stars,
-					DefinitionId: definitionId,
-					Rarity: definition.Rarity,
-				},
-			);
+			return responseSuccess(string.format("%s fused to %d star%s.", definition.Name as string, stars, stars === 1 ? "" : "s"), {
+				Uid: targetUid,
+				Stars: stars,
+				DefinitionId: definitionId,
+				Rarity: definition.Rarity,
+			});
 		});
 	}
 
@@ -4049,24 +3902,14 @@ export class GameService {
 			const keys = items.Keys as Dict;
 			if (((keys[crateId] as number | undefined) ?? 0) < count) {
 				return responseError(
-					string.format(
-						"You need %d more %s keys.",
-						count - ((keys[crateId] as number | undefined) ?? 0),
-						crate.Name as string,
-					),
+					string.format("You need %d more %s keys.", count - ((keys[crateId] as number | undefined) ?? 0), crate.Name as string),
 				);
 			}
 			const autoRules = ensureAutoSalvage(profile) as Dict;
 			const ownedPasses = profile.OwnedPasses as Dict | undefined;
-			const autoEnabled =
-				autoRules.Enabled === true && ownedPasses !== undefined && ownedPasses.AutoSalvage === true;
+			const autoEnabled = autoRules.Enabled === true && ownedPasses !== undefined && ownedPasses.AutoSalvage === true;
 
-			const guaranteedRecycle = CrateRoll.GuaranteedRecycle(
-				crate.Weights,
-				autoEnabled,
-				autoRules.KeepNew,
-				autoRules.Rarities,
-			);
+			const guaranteedRecycle = CrateRoll.GuaranteedRecycle(crate.Weights, autoEnabled, autoRules.KeepNew, autoRules.Rarities);
 			const requiredSlots = CrateRoll.RequiredSlots(count, guaranteedRecycle) as number;
 			if ((inventoryCount(profile) as number) + requiredSlots > (GameConfig.Items.InventoryLimit as number)) {
 				return responseError("Your item inventory does not have enough open slots.");
@@ -4081,9 +3924,7 @@ export class GameService {
 			const pityBag = items.Pity as Dict;
 			for (let index = 0; index < count; index++) {
 				const pity = (pityBag[crateId] as number | undefined) ?? 0;
-				const [definition, rarity, pityHit] = this._rollItemDefinition(crate, pity) as LuaTuple<
-					[Dict | undefined, string, unknown]
-				>;
+				const [definition, rarity, pityHit] = this._rollItemDefinition(crate, pity) as LuaTuple<[Dict | undefined, string, unknown]>;
 				if (definition === undefined) {
 					return responseError("That crate has no valid drops configured.");
 				}
@@ -4092,8 +3933,7 @@ export class GameService {
 				}
 				const discovered = items.Discovered as Dict;
 				const wasOwned = discovered[definition.Id as string] === true;
-				const shouldAutoSalvage =
-					autoEnabled && rarities[rarity] === true && !(autoRules.KeepNew !== false && !wasOwned);
+				const shouldAutoSalvage = autoEnabled && rarities[rarity] === true && !(autoRules.KeepNew !== false && !wasOwned);
 				let uid: string | undefined;
 				let autoEssence = 0;
 				if (shouldAutoSalvage) {
@@ -4111,9 +3951,7 @@ export class GameService {
 				} else {
 					uid = this._createItem(profile, definition.Id as string);
 					if (uid === undefined) {
-						return responseError(
-							"The crate decoder ran out of inventory space. Adjust auto-salvage or clear a slot.",
-						);
+						return responseError("The crate decoder ran out of inventory space. Adjust auto-salvage or clear a slot.");
 					}
 				}
 				pityBag[crateId] = truthy(pityHit) ? 0 : pity + pityStep;
@@ -4131,10 +3969,12 @@ export class GameService {
 			items.Essence = (items.Essence as number) + skinBonus;
 			bumpStat(profile, "CratesOpened", count);
 			LabService.Progress(profile, "OpenCrate", count);
-			return responseSuccess(
-				string.format("Decoded %d %s%s.", count, crate.Name as string, count === 1 ? "" : "s"),
-				{ Rolls: rolls, CrateId: crateId, Pity: pityBag[crateId], SkinEssence: skinBonus },
-			);
+			return responseSuccess(string.format("Decoded %d %s%s.", count, crate.Name as string, count === 1 ? "" : "s"), {
+				Rolls: rolls,
+				CrateId: crateId,
+				Pity: pityBag[crateId],
+				SkinEssence: skinBonus,
+			});
 		});
 	}
 
@@ -4152,14 +3992,9 @@ export class GameService {
 			}
 			const [slot, targetId] = target.match("^(%a+):([%w_]+)$");
 			if (definition.Slot !== slot) {
-				return responseError(
-					string.format("%s items only fit %s sockets.", definition.Name as string, definition.Slot as string),
-				);
+				return responseError(string.format("%s items only fit %s sockets.", definition.Name as string, definition.Slot as string));
 			}
-			if (
-				typeIs(definition.Targets, "table") &&
-				!(definition.Targets as string[]).includes(targetId as string)
-			) {
+			if (typeIs(definition.Targets, "table") && !(definition.Targets as string[]).includes(targetId as string)) {
 				return responseError((definition.Name as string) + " is not compatible with that upgrade.");
 			}
 			const ownedLevel =
@@ -4234,19 +4069,13 @@ export class GameService {
 			if ((instance.Level as number) >= (definition.MaxLevel as number)) {
 				return responseError("That item is already max level.");
 			}
-			const cost = math.floor(
-				(definition.EssenceBase as number) * math.pow(1.55, math.max(0, (instance.Level as number) - 1)),
-			);
+			const cost = math.floor((definition.EssenceBase as number) * math.pow(1.55, math.max(0, (instance.Level as number) - 1)));
 			if ((items.Essence as number) < cost) {
-				return responseError(
-					string.format("You need %d more item essence.", cost - (items.Essence as number)),
-				);
+				return responseError(string.format("You need %d more item essence.", cost - (items.Essence as number)));
 			}
 			items.Essence = (items.Essence as number) - cost;
 			instance.Level = (instance.Level as number) + 1;
-			return responseSuccess(
-				string.format("%s upgraded to level %d.", definition.Name as string, instance.Level as number),
-			);
+			return responseSuccess(string.format("%s upgraded to level %d.", definition.Name as string, instance.Level as number));
 		});
 	}
 
@@ -4277,10 +4106,7 @@ export class GameService {
 			inventory[uid] = undefined;
 			items.Essence = (items.Essence as number) + essence;
 			bumpStat(profile, "ItemsSalvaged", 1);
-			return responseSuccess(
-				string.format("Salvaged %s for %d essence.", definition.Name as string, essence),
-				{ Amount: essence },
-			);
+			return responseSuccess(string.format("Salvaged %s for %d essence.", definition.Name as string, essence), { Amount: essence });
 		});
 	}
 
@@ -4344,9 +4170,7 @@ export class GameService {
 	_foundryAct(player: Player, payload: unknown) {
 		const now = Workspace.GetServerTimeNow();
 		return this._mutate(player, (profile: Profile) => {
-			const [ok, message, extra] = FoundryService.Act(profile, payload, this._random, now) as LuaTuple<
-				[unknown, unknown, unknown]
-			>;
+			const [ok, message, extra] = FoundryService.Act(profile, payload, this._random, now) as LuaTuple<[unknown, unknown, unknown]>;
 			if (!truthy(ok)) {
 				return responseError(truthy(message) ? message : "That foundry move is not valid.");
 			}
@@ -4370,24 +4194,17 @@ export class GameService {
 			}
 			const [fluxCost, stardustCost] = Economy.ContinuumCosts(rank) as LuaTuple<[unknown, number]>;
 			if (Economy.Lt(profile.Cash, fluxCost)) {
-				return responseError(
-					"You need " + (Format.Number as Fn)(Economy.Sub(fluxCost, profile.Cash)) + " more Flux.",
-				);
+				return responseError("You need " + (Format.Number as Fn)(Economy.Sub(fluxCost, profile.Cash)) + " more Flux.");
 			}
 			if (Economy.Lt(profile.Stardust, stardustCost)) {
-				return responseError(
-					"You need " + (Format.Number as Fn)(Economy.Sub(stardustCost, profile.Stardust)) + " more Stardust.",
-				);
+				return responseError("You need " + (Format.Number as Fn)(Economy.Sub(stardustCost, profile.Stardust)) + " more Stardust.");
 			}
 
 			profile.Cash = Economy.Sub(profile.Cash, fluxCost);
 			profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, stardustCost));
 			continuum.Rank = rank + 1;
 			continuum.TotalFluxSpent = Economy.Persist(Economy.Add(continuum.TotalFluxSpent, fluxCost));
-			continuum.TotalStardustSpent = math.min(
-				1e308,
-				math.max(0, tonumber(continuum.TotalStardustSpent) ?? 0) + stardustCost,
-			);
+			continuum.TotalStardustSpent = math.min(1e308, math.max(0, tonumber(continuum.TotalStardustSpent) ?? 0) + stardustCost);
 			const stats = ensureStats(profile) as Dict;
 			stats.ContinuumUpgrades = math.min(1e308, math.max(0, tonumber(stats.ContinuumUpgrades) ?? 0) + 1);
 			ProgressionService.AwardCommandXP(profile, 20 + math.min(480, rank * 2));
@@ -4395,11 +4212,7 @@ export class GameService {
 			const [nextProduction] = Economy.ContinuumEffects(profile) as LuaTuple<[unknown]>;
 			const milestone = (rank + 1) % ((GameConfig.Continuum as Dict).MilestoneEvery as number) === 0;
 			return responseSuccess(
-				string.format(
-					"Continuum rank %d reached. Production is now %s.",
-					rank + 1,
-					(Format.Number as Fn)(nextProduction) + "x",
-				),
+				string.format("Continuum rank %d reached. Production is now %s.", rank + 1, (Format.Number as Fn)(nextProduction) + "x"),
 				{ Level: rank + 1, Milestone: milestone },
 			);
 		});
@@ -4421,9 +4234,7 @@ export class GameService {
 			}
 			instance.Locked = instance.Locked !== true;
 			return responseSuccess(
-				instance.Locked === true
-					? (definition.Name as string) + " protected."
-					: (definition.Name as string) + " unlocked.",
+				instance.Locked === true ? (definition.Name as string) + " protected." : (definition.Name as string) + " unlocked.",
 				{ Uid: uid, Locked: instance.Locked },
 			);
 		});
@@ -4464,8 +4275,7 @@ export class GameService {
 			let protectedCount = 0;
 			for (const uid of requested) {
 				const instance = inventory[uid] as Dict | undefined;
-				const definition =
-					instance !== undefined ? (itemById[instance.DefinitionId as string] as Dict | undefined) : undefined;
+				const definition = instance !== undefined ? (itemById[instance.DefinitionId as string] as Dict | undefined) : undefined;
 				if (definition !== undefined && !equipped.has(uid) && instance!.Locked !== true) {
 					inventory[uid] = undefined;
 					removed += 1;
@@ -4476,9 +4286,7 @@ export class GameService {
 			}
 			if (removed === 0) {
 				return responseError(
-					protectedCount > 0
-						? "Every selected relic is equipped or protected."
-						: "Those relics are no longer available.",
+					protectedCount > 0 ? "Every selected relic is equipped or protected." : "Those relics are no longer available.",
 				);
 			}
 			items.Essence = (items.Essence as number) + essence;
@@ -4612,9 +4420,7 @@ export class GameService {
 			}
 			const a = tonumber(payload!.A);
 			const b = tonumber(payload!.B);
-			const [ok, reason] = DomainLattice.canEtch(links, a, b, domain.SkillPoints) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [ok, reason] = DomainLattice.canEtch(links, a, b, domain.SkillPoints) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(ok)) {
 				return responseError(truthy(reason) ? reason : "That link can't be etched.");
 			}
@@ -4658,9 +4464,7 @@ export class GameService {
 				return responseError(string.format("Domain rank %d requires %d rebirths.", rank + 1, requiredRebirths));
 			}
 			if ((profile.Cores as number) < requiredCores) {
-				return responseError(
-					string.format("Domain rank %d requires %d astral cores.", rank + 1, requiredCores),
-				);
+				return responseError(string.format("Domain rank %d requires %d astral cores.", rank + 1, requiredCores));
 			}
 
 			const [baseEssence, baseStardust] = Economy.DomainRewards(rank) as LuaTuple<[number, number]>;
@@ -4671,9 +4475,7 @@ export class GameService {
 			const overflowCores = math.max(0, spentCores - requiredCores);
 			const overflowRebirthScale = tonumber(expansion.OverflowRebirthScale) ?? 18;
 			const overflowCoreScale = tonumber(expansion.OverflowCoreSqrtScale) ?? 6;
-			const overflowReward = math.floor(
-				overflowRebirths * overflowRebirthScale + math.sqrt(overflowCores) * overflowCoreScale,
-			);
+			const overflowReward = math.floor(overflowRebirths * overflowRebirthScale + math.sqrt(overflowCores) * overflowCoreScale);
 			const nextRank = rank + 1;
 			domain.Rank = nextRank;
 			if (!typeIs(domain.Links, "table")) {
@@ -4734,8 +4536,7 @@ export class GameService {
 			const bonusBoostCount = math.max(1, math.floor(tonumber(expansion.BonusBoostCount) ?? 1));
 			const boostInventory = profile.BoostInventory as Dict;
 			if (truthy(GameConfig.Boosts[bonusBoostId as string])) {
-				boostInventory[bonusBoostId as string] =
-					((boostInventory[bonusBoostId as string] as number | undefined) ?? 0) + bonusBoostCount;
+				boostInventory[bonusBoostId as string] = ((boostInventory[bonusBoostId as string] as number | undefined) ?? 0) + bonusBoostCount;
 			}
 			boostInventory.Hyperdrive = ((boostInventory.Hyperdrive as number | undefined) ?? 0) + 2;
 			boostInventory.Overdrive = ((boostInventory.Overdrive as number | undefined) ?? 0) + 3;
@@ -4754,15 +4555,10 @@ export class GameService {
 				FreeSpins: freeSpins,
 				BonusBoost: bonusBoostId,
 			};
-			const [nextRequiredRebirths, nextRequiredCores] = Economy.DomainRequirements(nextRank) as LuaTuple<
-				[number, number]
-			>;
+			const [nextRequiredRebirths, nextRequiredCores] = Economy.DomainRequirements(nextRank) as LuaTuple<[number, number]>;
 			details.NextRequiredRebirths = nextRequiredRebirths;
 			details.NextRequiredCores = nextRequiredCores;
-			return responseSuccess(
-				string.format("Domain %d established. Reality now yields more power.", nextRank),
-				details,
-			);
+			return responseSuccess(string.format("Domain %d established. Reality now yields more power.", nextRank), details);
 		});
 		if (truthy(result.ok)) {
 			const profile = this._data.Get(player) as Profile | undefined;
@@ -4783,10 +4579,7 @@ export class GameService {
 		const result = this._mutate(player, (profile: Profile) => {
 			const state = AscensionMath.sanitize(profile.Ascension, OmegaMath) as Dict;
 			const domain = profile.Domain as Dict | undefined;
-			const domainRank = math.max(
-				0,
-				math.floor(tonumber(domain !== undefined ? domain.Rank : undefined) ?? 0),
-			);
+			const domainRank = math.max(0, math.floor(tonumber(domain !== undefined ? domain.Rank : undefined) ?? 0));
 			const now = os.time();
 			if (now - (state.LastAscendedAt as number) < 10) {
 				return responseError("The forge is still settling from your last ascension.");
@@ -4866,9 +4659,7 @@ export class GameService {
 		const id = typeIs(rawPayload, "table") ? payload!.Id : undefined;
 		return this._mutate(player, (profile: Profile) => {
 			const state = AscensionMath.sanitize(profile.Ascension, OmegaMath) as Dict;
-			const [nextState, costOrReason] = AscensionMath.buy(state, id, OmegaMath) as LuaTuple<
-				[Dict | undefined, unknown]
-			>;
+			const [nextState, costOrReason] = AscensionMath.buy(state, id, OmegaMath) as LuaTuple<[Dict | undefined, unknown]>;
 			if (nextState === undefined) {
 				return responseError(costOrReason);
 			}
@@ -4919,9 +4710,7 @@ export class GameService {
 			Gain: gain !== undefined ? OmegaMath.Persist(gain) : 0,
 			Harmony: AscensionMath.harmony(state),
 			Production: OmegaMath.Persist(AscensionMath.effect(state, "Production", OmegaMath)),
-			NextRankProduction: OmegaMath.Persist(
-				OmegaMath.Pow((state.Rank as number) + 2, AscensionMath.RANK_EXPONENT),
-			),
+			NextRankProduction: OmegaMath.Persist(OmegaMath.Pow((state.Rank as number) + 2, AscensionMath.RANK_EXPONENT)),
 			Sigils: sigils,
 		};
 	}
@@ -4954,11 +4743,7 @@ export class GameService {
 				return responseSuccess("You already claimed this reward.");
 			}
 			rewards.CreatorFollowClaimed = true;
-			const rewardText = ProgressionService.ApplyReward(
-				current,
-				ServerConfig.FollowReward,
-				Economy.Production(current),
-			);
+			const rewardText = ProgressionService.ApplyReward(current, ServerConfig.FollowReward, Economy.Production(current));
 			return responseSuccess(rewardText);
 		});
 		if (truthy(result.ok)) {
@@ -5080,6 +4865,52 @@ export class GameService {
 		});
 	}
 
+	// First goals pay once, in order, and only when the profile shows the goal is done.
+	_claimFirstGoal(player: Player, rawId: unknown) {
+		if (!FirstGoals.isGoalId(rawId)) {
+			return responseError("Unknown goal.");
+		}
+		return this._mutate(player, (profile: Profile) => {
+			const flags = profile.Flags as Dict;
+			const claimed = FirstGoals.normalizeClaimed(flags.FirstGoals);
+			if (claimed.includes(rawId)) {
+				return responseSuccess("Already claimed.");
+			}
+			const [goal] = FirstGoals.currentGoal(claimed);
+			if (goal === undefined || goal.id !== rawId) {
+				return responseError("Finish the earlier goal first.");
+			}
+			const stats = (profile.Stats ?? {}) as Dict;
+			const levelState = ProgressionGate.LevelState(profile) as Dict;
+			const prestige = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault));
+			const [, done] = FirstGoals.progressOf(goal, {
+				machinesBought: num(stats.MachinesBought) ?? 0,
+				researchBought: num(stats.ResearchBought) ?? 0,
+				cratesOpened: num(stats.CratesOpened) ?? 0,
+				level: num(levelState.Level) ?? 1,
+				rebirths: num(profile.Rebirths) ?? 0,
+				rebirthReady: (Economy.AsNumber(prestige) as number) >= 1,
+			});
+			if (!done) {
+				return responseError("Not done yet.");
+			}
+			claimed.push(goal.id);
+			flags.FirstGoals = claimed;
+			const reward = goal.rewardFlux;
+			profile.Cash = Economy.Add(profile.Cash, reward);
+			profile.RunCash = Economy.Add(profile.RunCash, reward);
+			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, reward);
+			let note = "+" + (Format.Number as Fn)(reward) + " Flux";
+			const keys = goal.rewardKeys;
+			const bag = isTable(profile.Items) && isTable((profile.Items as Dict).Keys) ? ((profile.Items as Dict).Keys as Dict) : undefined;
+			if (keys !== undefined && bag !== undefined) {
+				bag[keys.crate] = (num(bag[keys.crate]) ?? 0) + keys.count;
+				note += keys.count === 1 ? " and a crate key" : ` and ${keys.count} crate keys`;
+			}
+			return responseSuccess("Goal done. " + note);
+		});
+	}
+
 	_replayTutorial(player: Player) {
 		return this._mutate(player, (profile: Profile) => {
 			const flags = profile.Flags as Dict;
@@ -5109,9 +4940,7 @@ export class GameService {
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			LabService.Ensure(profile, player.UserId);
-			const [ok, message, reward] = LabService.ClaimOrder(profile, orderId) as LuaTuple<
-				[unknown, unknown, unknown]
-			>;
+			const [ok, message, reward] = LabService.ClaimOrder(profile, orderId) as LuaTuple<[unknown, unknown, unknown]>;
 			if (!truthy(ok)) {
 				return responseError(message);
 			}
@@ -5235,9 +5064,7 @@ export class GameService {
 			if (claimedCount === 0) {
 				return responseError("There are no attachments ready to collect.");
 			}
-			return responseSuccess(
-				string.format("Collected %d mail attachment%s.", claimedCount, claimedCount === 1 ? "" : "s"),
-			);
+			return responseSuccess(string.format("Collected %d mail attachment%s.", claimedCount, claimedCount === 1 ? "" : "s"));
 		});
 		if (truthy(result.ok)) {
 			this._effect.fire(player, { Type: "MailClaimed", Id: "*", Count: claimedCount });
@@ -5295,7 +5122,11 @@ export class GameService {
 		this._toastGuild(
 			guildId,
 			"Guild milestone",
-			string.format("%s passed %s activity.", (guildBag.Name as string | undefined) ?? "Your guild", (Format.Number as Fn)(milestone) as string),
+			string.format(
+				"%s passed %s activity.",
+				(guildBag.Name as string | undefined) ?? "Your guild",
+				(Format.Number as Fn)(milestone) as string,
+			),
 			"Special",
 		);
 	}
@@ -5338,17 +5169,13 @@ export class GameService {
 			let guild: unknown;
 			let previousActivity = 0;
 			if (action === Protocol.Actions.BuyGuildUpgrade) {
-				const before = this._guilds.GetCachedPublic(
-					typeIs(profile.Guild, "table") ? (profile.Guild as Dict).Id : "",
-				) as Dict | undefined;
+				const before = this._guilds.GetCachedPublic(typeIs(profile.Guild, "table") ? (profile.Guild as Dict).Id : "") as Dict | undefined;
 				previousActivity = before !== undefined ? (tonumber(before.Activity) ?? 0) : 0;
 			}
 			if (action === Protocol.Actions.KickGuildMember) {
-				const [kicked, kickMessage, kickGuild] = this._guilds.Kick(
-					player,
-					profile,
-					payload.UserId ?? payload.Id,
-				) as LuaTuple<[unknown, unknown, unknown]>;
+				const [kicked, kickMessage, kickGuild] = this._guilds.Kick(player, profile, payload.UserId ?? payload.Id) as LuaTuple<
+					[unknown, unknown, unknown]
+				>;
 				ok = kicked;
 				message = kickMessage;
 				guild = kickGuild;
@@ -5369,19 +5196,14 @@ export class GameService {
 					}
 				}
 			} else if (action === Protocol.Actions.SetGuildRole) {
-				const [setOk, setMessage, setGuild] = this._guilds.SetRole(
-					player,
-					profile,
-					payload.UserId ?? payload.Id,
-					payload.Role,
-				) as LuaTuple<[unknown, unknown, unknown]>;
+				const [setOk, setMessage, setGuild] = this._guilds.SetRole(player, profile, payload.UserId ?? payload.Id, payload.Role) as LuaTuple<
+					[unknown, unknown, unknown]
+				>;
 				ok = setOk;
 				message = setMessage;
 				guild = setGuild;
 			} else {
-				const [buyOk, buyMessage, buyGuild] = this._guilds.BuyUpgrade(player, profile, payload.Id) as LuaTuple<
-					[unknown, unknown, unknown]
-				>;
+				const [buyOk, buyMessage, buyGuild] = this._guilds.BuyUpgrade(player, profile, payload.Id) as LuaTuple<[unknown, unknown, unknown]>;
 				ok = buyOk;
 				message = buyMessage;
 				guild = buyGuild;
@@ -5427,12 +5249,9 @@ export class GameService {
 		}
 		if (action === Protocol.Actions.CreateGuild || action === Protocol.Actions.RenameGuild) {
 			const rawName = typeIs(payload.Name, "string") ? payload.Name : "";
-			const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(
-				player,
-				rawName,
-				player.UserId,
-				28,
-			) as LuaTuple<[unknown, unknown]>;
+			const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(player, rawName, player.UserId, 28) as LuaTuple<
+				[unknown, unknown]
+			>;
 			if (!truthy(filteredOk) || !typeIs(filtered, "string") || filtered.size() < 3) {
 				return responseError("That guild name couldn't be checked. Please try different wording.");
 			}
@@ -5443,21 +5262,17 @@ export class GameService {
 		let contributeGuildId = "";
 		if (action === Protocol.Actions.ContributeGuild) {
 			const existing = this._data.Get(player) as Profile | undefined;
-			contributeGuildId =
-				existing !== undefined && typeIs(existing.Guild, "table") ? ((existing.Guild as Dict).Id as string) : "";
+			contributeGuildId = existing !== undefined && typeIs(existing.Guild, "table") ? ((existing.Guild as Dict).Id as string) : "";
 			const before = this._guilds.GetCachedPublic(contributeGuildId) as Dict | undefined;
 			contributeActivity = before !== undefined ? (tonumber(before.Activity) ?? 0) : 0;
 		}
 		let renameGuildId = "";
 		if (action === Protocol.Actions.RenameGuild) {
 			const existing = this._data.Get(player) as Profile | undefined;
-			renameGuildId =
-				existing !== undefined && typeIs(existing.Guild, "table") ? ((existing.Guild as Dict).Id as string) : "";
+			renameGuildId = existing !== undefined && typeIs(existing.Guild, "table") ? ((existing.Guild as Dict).Id as string) : "";
 		}
 		if (action === Protocol.Actions.JoinGuild) {
-			const [canJoin, joinError] = this._guildCommunity.CanJoinByTag(payload.Tag, player.UserId) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [canJoin, joinError] = this._guildCommunity.CanJoinByTag(payload.Tag, player.UserId) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(canJoin)) {
 				return responseError(truthy(joinError) ? joinError : "You cannot join that guild.");
 			}
@@ -5467,16 +5282,12 @@ export class GameService {
 			let message: unknown;
 			let guild: unknown;
 			if (action === Protocol.Actions.CreateGuild) {
-				const [a, b, c] = this._guilds.Create(player, profile, payload.Name, payload.Tag) as LuaTuple<
-					[unknown, unknown, unknown]
-				>;
+				const [a, b, c] = this._guilds.Create(player, profile, payload.Name, payload.Tag) as LuaTuple<[unknown, unknown, unknown]>;
 				ok = a;
 				message = b;
 				guild = c;
 			} else if (action === Protocol.Actions.JoinGuild) {
-				const [a, b, c] = this._guilds.JoinByTag(player, profile, payload.Tag) as LuaTuple<
-					[unknown, unknown, unknown]
-				>;
+				const [a, b, c] = this._guilds.JoinByTag(player, profile, payload.Tag) as LuaTuple<[unknown, unknown, unknown]>;
 				ok = a;
 				message = b;
 				guild = c;
@@ -5491,9 +5302,7 @@ export class GameService {
 				message = b;
 				guild = c;
 			} else if (action === Protocol.Actions.RenameGuild) {
-				const [a, b, c] = this._guilds.Rename(player, profile, payload.Name, payload.Tag) as LuaTuple<
-					[unknown, unknown, unknown]
-				>;
+				const [a, b, c] = this._guilds.Rename(player, profile, payload.Name, payload.Tag) as LuaTuple<[unknown, unknown, unknown]>;
 				ok = a;
 				message = b;
 				guild = c;
@@ -5503,19 +5312,14 @@ export class GameService {
 				if (typeIs(payload.Fraction, "number")) {
 					amount = math.max(1, math.floor((tonumber(profile[balanceField]) ?? 0) * payload.Fraction));
 				}
-				const [a, b, c] = this._guilds.ContributeBank(
-					player,
-					profile,
-					math.floor(amount),
-					payload.Currency,
-				) as LuaTuple<[unknown, unknown, unknown]>;
+				const [a, b, c] = this._guilds.ContributeBank(player, profile, math.floor(amount), payload.Currency) as LuaTuple<
+					[unknown, unknown, unknown]
+				>;
 				ok = a;
 				message = b;
 				guild = c;
 			} else if (action === Protocol.Actions.ClaimGuildGoal) {
-				const [a, b, c, reward] = this._guilds.ClaimGoal(player, profile) as LuaTuple<
-					[unknown, unknown, unknown, unknown]
-				>;
+				const [a, b, c, reward] = this._guilds.ClaimGoal(player, profile) as LuaTuple<[unknown, unknown, unknown, unknown]>;
 				ok = a;
 				message = b;
 				guild = c;
@@ -5555,8 +5359,7 @@ export class GameService {
 			for (const online of Players.GetPlayers()) {
 				if (online !== player) {
 					const onlineProfile = this._data.Get(online) as Profile | undefined;
-					const onlineGuild =
-						onlineProfile !== undefined ? (onlineProfile.Guild as Dict | undefined) : undefined;
+					const onlineGuild = onlineProfile !== undefined ? (onlineProfile.Guild as Dict | undefined) : undefined;
 					if (onlineProfile !== undefined && onlineGuild !== undefined && onlineGuild.Id === renameGuildId) {
 						this._pushState(online);
 					}
@@ -5649,12 +5452,7 @@ export class GameService {
 				const previous = math.max(0, math.floor(tonumber(runtime.LeaderboardRank) ?? 0));
 				runtime.LeaderboardRank = rank;
 				if (truthy(RankBracket.ShouldAnnounce(previous, rank, RANK_PING_BRACKETS, RANK_PING_UNRANKED))) {
-					this._toastPlayer(
-						online,
-						"Leaderboard climb",
-						string.format("You're #%d in %s now.", rank, RANK_PING_BOARD_LABEL),
-						"Special",
-					);
+					this._toastPlayer(online, "Leaderboard climb", string.format("You're #%d in %s now.", rank, RANK_PING_BOARD_LABEL), "Special");
 				}
 			} else if (runtime !== undefined) {
 				runtime.LeaderboardRank = 0;
@@ -5677,10 +5475,7 @@ export class GameService {
 
 		const byUser = new Map<number, unknown>();
 		const [ok, pages] = pcall(() =>
-			(store as { GetSortedAsync(asc: boolean, size: number): { GetCurrentPage(): Dict[] } }).GetSortedAsync(
-				false,
-				GLOBAL_LB_PAGE,
-			),
+			(store as { GetSortedAsync(asc: boolean, size: number): { GetCurrentPage(): Dict[] } }).GetSortedAsync(false, GLOBAL_LB_PAGE),
 		);
 		if (ok && truthy(pages)) {
 			for (const row of pages.GetCurrentPage()) {
@@ -5777,9 +5572,7 @@ export class GameService {
 			}
 			const snapshot = this._snapshot(player);
 			this._forgetSentSections(player);
-			return snapshot !== undefined
-				? responseSuccess(undefined, { State: snapshot })
-				: responseError("Profile is still loading.");
+			return snapshot !== undefined ? responseSuccess(undefined, { State: snapshot }) : responseError("Profile is still loading.");
 		} else if (action === Protocol.Actions.MeasureLatency) {
 			return responseSuccess(undefined);
 		} else if (action === Protocol.Actions.SubmitFeedback) {
@@ -5801,10 +5594,7 @@ export class GameService {
 		} else if (action === Protocol.Actions.GetGuild) {
 			const profile = this._data.Get(player) as Profile | undefined;
 			return responseSuccess(undefined, {
-				Guild:
-					profile !== undefined
-						? this._guilds.GetPublic(typeIs(profile.Guild, "table") ? (profile.Guild as Dict).Id : "")
-						: undefined,
+				Guild: profile !== undefined ? this._guilds.GetPublic(typeIs(profile.Guild, "table") ? (profile.Guild as Dict).Id : "") : undefined,
 			});
 		} else if (action === Protocol.Actions.GetGuildLeaderboard) {
 			return responseSuccess(undefined, {
@@ -5939,11 +5729,9 @@ export class GameService {
 			return this._bazaarPlay(player, payload);
 		} else if (action === Protocol.Actions.SelectSpecialization) {
 			return this._mutate(player, (profile: Profile) => {
-				const [selected, message] = Specializations.Select(
-					profile.Specialization,
-					payload?.Id,
-					os.time(),
-				) as LuaTuple<[Dict | undefined, unknown]>;
+				const [selected, message] = Specializations.Select(profile.Specialization, payload?.Id, os.time()) as LuaTuple<
+					[Dict | undefined, unknown]
+				>;
 				if (selected === undefined) {
 					return responseError(message);
 				}
@@ -6060,6 +5848,8 @@ export class GameService {
 			return this._setTutorialStep(player, payload?.Step);
 		} else if (action === Protocol.Actions.MarkHintSeen) {
 			return this._markHintSeen(player, payload?.Id);
+		} else if (action === Protocol.Actions.ClaimFirstGoal) {
+			return this._claimFirstGoal(player, payload?.Id);
 		} else if (action === Protocol.Actions.CompleteTutorial) {
 			return this._completeTutorial(player);
 		} else if (action === Protocol.Actions.ReplayTutorial) {
@@ -6107,11 +5897,9 @@ export class GameService {
 	_processOffline(player: Player, profile: Profile) {
 		const previousLastSeen = this._data.GetPreviousLastSeen(player);
 		const now = os.time();
-		const [reward, elapsed, averageEfficiency, capped] = Economy.OfflineEarnings(
-			profile,
-			previousLastSeen,
-			now,
-		) as LuaTuple<[unknown, number, number, unknown]>;
+		const [reward, elapsed, averageEfficiency, capped] = Economy.OfflineEarnings(profile, previousLastSeen, now) as LuaTuple<
+			[unknown, number, number, unknown]
+		>;
 		const awaySeconds = math.max(elapsed, math.max(0, now - (tonumber(previousLastSeen) ?? now)));
 		const capHours = Economy.OfflineHours(profile);
 		if (truthy(Economy.Gt(reward, 0))) {
@@ -6166,8 +5954,10 @@ export class GameService {
 		}
 
 		applySocialBoost(profile, 0, player.MembershipType === Enum.MembershipType.Premium);
-		const [offlineReward, offlineSeconds, offlineEfficiency, offlineCapped, offlineAwaySeconds, offlineCapHours] =
-			this._processOffline(player, profile) as LuaTuple<[unknown, number, number, unknown, number, unknown]>;
+		const [offlineReward, offlineSeconds, offlineEfficiency, offlineCapped, offlineAwaySeconds, offlineCapHours] = this._processOffline(
+			player,
+			profile,
+		) as LuaTuple<[unknown, number, number, unknown, number, unknown]>;
 		this._antiCheat.SyncBaseline(player, profile);
 		ProgressionService.EnsureQuests(profile, player.UserId);
 		ProgressionService.EnsureTimedRewards(profile);
@@ -6232,10 +6022,7 @@ export class GameService {
 			if (!this._running) {
 				return;
 			}
-			ModuleLog.Warn(
-				"Player",
-				string.format("plot setup failed for %s - %s", player.Name, tostring(plotProblem)),
-			);
+			ModuleLog.Warn("Player", string.format("plot setup failed for %s - %s", player.Name, tostring(plotProblem)));
 		}
 
 		table.clear(this._globalBoardCache);
@@ -6334,8 +6121,7 @@ export class GameService {
 					string.format("%s join retry %d: %s", player.Name, attempts, tostring(problem)),
 				);
 			}
-			const locked =
-				typeIs(problem, "string") && string.lower(tostring(problem)).find("another server", 1, true)[0] !== undefined;
+			const locked = typeIs(problem, "string") && string.lower(tostring(problem)).find("another server", 1, true)[0] !== undefined;
 			if (locked) {
 				if (lockSince === undefined) {
 					lockSince = os.clock();
@@ -6351,11 +6137,9 @@ export class GameService {
 				}
 				if (stealLock && os.clock() - stealNoticeAt > 60) {
 					stealNoticeAt = os.clock();
-					ModuleLog.Warn(
-						"Player",
-						string.format("%s save lock held for %.0fs, taking it over", player.Name, os.clock() - lockSince),
-						{ UserId: player.UserId },
-					);
+					ModuleLog.Warn("Player", string.format("%s save lock held for %.0fs, taking it over", player.Name, os.clock() - lockSince), {
+						UserId: player.UserId,
+					});
 					this._toastPlayer(
 						player,
 						"Taking over your session",
@@ -6371,12 +6155,7 @@ export class GameService {
 				if (attempts === 10) {
 					ModuleLog.Error(
 						"Player",
-						string.format(
-							"%s join retries degraded to slow retry after %d attempts — %s",
-							player.Name,
-							attempts,
-							tostring(problem),
-						),
+						string.format("%s join retries degraded to slow retry after %d attempts — %s", player.Name, attempts, tostring(problem)),
 						{ UserId: player.UserId },
 					);
 					this._toastPlayer(
@@ -6481,18 +6260,14 @@ export class GameService {
 			return;
 		}
 		const profile = this._data.Get(player) as Profile | undefined;
-		const guildId =
-			profile !== undefined && typeIs(profile.Guild, "table") ? (((profile.Guild as Dict).Id as string) ?? "") : "";
+		const guildId = profile !== undefined && typeIs(profile.Guild, "table") ? (((profile.Guild as Dict).Id as string) ?? "") : "";
 		if (guildId === "") {
 			return;
 		}
 		runtime.GuildRefreshBusy = true;
 		const shadow = {
 			Guild: copyDictionary(profile!.Guild) as Dict,
-			GuildBonuses:
-				(copyDictionary(
-					profile!.GuildBonuses ?? { Production: 0, Capacity: 0, Offline: 0, Automation: 0, Tap: 0 },
-				) as Dict),
+			GuildBonuses: copyDictionary(profile!.GuildBonuses ?? { Production: 0, Capacity: 0, Offline: 0, Automation: 0, Tap: 0 }) as Dict,
 		};
 		this._spawnWorker(() => {
 			const [resolved, problem] = pcall(() => {
@@ -6508,8 +6283,7 @@ export class GameService {
 							return { ok: false, noop: true };
 						}
 						const desiredGuild = (shadow.Guild ?? { Id: "", Role: "", JoinedAt: 0, Tag: "" }) as Dict;
-						const desiredBonuses =
-							(shadow.GuildBonuses ?? { Production: 0, Capacity: 0, Offline: 0, Automation: 0, Tap: 0 }) as Dict;
+						const desiredBonuses = (shadow.GuildBonuses ?? { Production: 0, Capacity: 0, Offline: 0, Automation: 0, Tap: 0 }) as Dict;
 						const currentBonuses = (current.GuildBonuses ?? {}) as Dict;
 						changed =
 							currentGuild.Id !== desiredGuild.Id ||
@@ -6533,17 +6307,19 @@ export class GameService {
 					this._queueStatePush(player);
 				}
 			} else if (!resolved) {
-				ModuleLog.Every("guild-refresh:" + tostring(player.UserId), 30, "Guild", string.format("guild refresh failed for %s: %s", player.Name, tostring(problem)));
+				ModuleLog.Every(
+					"guild-refresh:" + tostring(player.UserId),
+					30,
+					"Guild",
+					string.format("guild refresh failed for %s: %s", player.Name, tostring(problem)),
+				);
 			}
 			runtime.GuildRefreshBusy = false;
 		});
 	}
 
 	_processPlayerTick(player: Player, runtime: Runtime) {
-		if (
-			(runtime.MaintenanceAccumulator as number) >= PROFILE_MAINTENANCE_INTERVAL &&
-			!truthy(this._data.IsBusy(player))
-		) {
+		if ((runtime.MaintenanceAccumulator as number) >= PROFILE_MAINTENANCE_INTERVAL && !truthy(this._data.IsBusy(player))) {
 			runtime.MaintenanceAccumulator = (runtime.MaintenanceAccumulator as number) % PROFILE_MAINTENANCE_INTERVAL;
 			let changed = false;
 			const committed = this._data.AtomicUpdate(
@@ -6830,11 +6606,9 @@ export class GameService {
 				return responseError("Profile is still loading.");
 			}
 			if (truthy(this._security)) {
-				const [authorityOk, authorityMessage] = (this._security.Authority as Svc).Validate(
-					player,
-					action,
-					payload,
-				) as LuaTuple<[unknown, unknown]>;
+				const [authorityOk, authorityMessage] = (this._security.Authority as Svc).Validate(player, action, payload) as LuaTuple<
+					[unknown, unknown]
+				>;
 				if (!truthy(authorityOk)) {
 					ModuleLog.Every(
 						string.format("gate:%d", player.UserId),
@@ -6845,14 +6619,7 @@ export class GameService {
 					return responseError(truthy(authorityMessage) ? authorityMessage : "Request rejected.");
 				}
 
-				if (
-					!truthy(
-						(this._security.Rate as Svc).Allow(
-							player,
-							action === Protocol.Actions.AdminExecute ? 1 : 0.1,
-						),
-					)
-				) {
+				if (!truthy((this._security.Rate as Svc).Allow(player, action === Protocol.Actions.AdminExecute ? 1 : 0.1))) {
 					ModuleLog.Every(
 						string.format("gate:%d", player.UserId),
 						8,
@@ -6862,9 +6629,7 @@ export class GameService {
 					return responseError("Please slow down for a moment.");
 				}
 			}
-			const [allowed, firewallMessage] = this._firewall.Check(player, action, payload) as LuaTuple<
-				[unknown, unknown]
-			>;
+			const [allowed, firewallMessage] = this._firewall.Check(player, action, payload) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(allowed)) {
 				if (action !== Protocol.Actions.ReportPresence && action !== Protocol.Actions.ReportPerformance) {
 					ModuleLog.Every(
@@ -6902,8 +6667,7 @@ export class GameService {
 					} as Response;
 				}
 			}
-			const txnId =
-				payloadTable !== undefined && typeIs(payloadTable.TxnId, "string") ? payloadTable.TxnId : undefined;
+			const txnId = payloadTable !== undefined && typeIs(payloadTable.TxnId, "string") ? payloadTable.TxnId : undefined;
 			let txnClaimed = false;
 			if (txnId !== undefined) {
 				if (txnId.size() > 64) {
@@ -6963,11 +6727,7 @@ export class GameService {
 			if (resultBag.ok === false) {
 				this._flagFailedRequest(player, action as string);
 			}
-			if (
-				resultBag.ok === false &&
-				action !== Protocol.Actions.ReportPresence &&
-				action !== Protocol.Actions.ReportPerformance
-			) {
+			if (resultBag.ok === false && action !== Protocol.Actions.ReportPresence && action !== Protocol.Actions.ReportPerformance) {
 				ModuleLog.Every(
 					string.format("result:%d:%s", player.UserId, tostring(action)),
 					10,
@@ -7078,12 +6838,7 @@ export class GameService {
 		}
 
 		this._pushState(player);
-		this._toastPlayer(
-			player,
-			"Free wheel spins",
-			tostring(grant) + " spins added (" + tostring(total) + " ready).",
-			"Success",
-		);
+		this._toastPlayer(player, "Free wheel spins", tostring(grant) + " spins added (" + tostring(total) + " ready).", "Success");
 		return $tuple(true, "Granted " + tostring(grant) + " free wheel spins (" + tostring(total) + " total).", total);
 	}
 
@@ -7149,4 +6904,3 @@ export class GameService {
 		this._badges.Destroy();
 	}
 }
-

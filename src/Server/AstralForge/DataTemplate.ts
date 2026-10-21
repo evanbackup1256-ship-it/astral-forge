@@ -303,6 +303,8 @@ const DataTemplate = {
 				ShowPing: 1,
 				ShowResourceLabels: 1,
 				ShowNextGoal: 1,
+				// 0 skips the first-goals path on Overview; 1 shows or resumes it
+				FirstGoals: 1,
 				Tooltips: 1,
 				CompactTopBar: 0,
 				NotificationDuration: 0.55,
@@ -358,6 +360,8 @@ const DataTemplate = {
 				MobileTabPins: [],
 				// one-time client hints already shown (ids from Shared/SeenHints)
 				SeenHints: [],
+				// first-goal ids already claimed (ids from Shared/FirstGoals), in order
+				FirstGoals: [],
 			},
 			Guild: {
 				Id: "",
