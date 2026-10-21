@@ -6,7 +6,7 @@ import { asFlux, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import * as JourneyMath from "../../CoreKit/journeyMath";
 import * as ReleaseClockMath from "../../CoreKit/releaseClockMath";
-import { chromeFor, darken, Layout, Palette, scrollTail, surfaceGradient, TapTarget } from "../../CoreKit/theme";
+import { chromeFor, darken, Layout, Pad, Palette, scrollTail, surfaceGradient, TapTarget } from "../../CoreKit/theme";
 import * as VaultCollectEligibility from "../../CoreKit/vaultCollectEligibility";
 import { useAntilag } from "../../MotionKit/antilag";
 import { Flex, FlexItem } from "../../MotionKit/flexbox";
@@ -2022,15 +2022,15 @@ export function OverviewView({
 									size={UDim2.fromScale(1, 1)}
 									accent={Palette.cyan}
 									background={Palette.panelRaised}
-									padding={stack ? chrome.cardPadding : 16}
+									padding={stack ? chrome.cardPadding : Pad.panel}
 									reducedMotion={softMotion}
 									clips={true}
 								>
 									<Text
-										value="THIS SESSION"
-										size={10}
-										color={Palette.cyan}
-										weight={Enum.FontWeight.Heavy}
+										value="This session"
+										size={14}
+										color={Palette.cream}
+										weight={Enum.FontWeight.Bold}
 										fit={false}
 										sizeConstraint={new UDim2(1, 0, 0, 16)}
 									/>
