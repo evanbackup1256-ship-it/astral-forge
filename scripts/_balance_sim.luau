@@ -211,7 +211,7 @@ function Sim.run(opts)
 	local t0 = 1_800_000_000
 	local p = newProfile(t0)
 	local ledger = RebirthMath.ensure(nil, t0, 0)
-	local stats = { StardustEarned = 0, StardustSpent = 0, BonusCores = 0, PrestigeCores = 0, Boosts = 0, ForgePathStep = 0, OfflineCash = 0, ActiveCash = 0, Rebirths = {} }
+	local stats = { StardustEarned = 0, StardustSpent = 0, BonusCores = 0, PrestigeCores = 0, Boosts = 0, ForgePathStep = 0, UncountedRebirths = 0, BoostStardust = 0, OfflineCash = 0, ActiveCash = 0, Rebirths = {} }
 	local events = {}
 	local now = t0
 	local activeSeconds = 0
@@ -220,22 +220,29 @@ function Sim.run(opts)
 	end
 	local lastPurchaseAt = now
 	local orderTimer = 0
-	local lastSeen = now
+	local lastSeen = t0 + (sessions[1] and math.min(table.unpack((function() local s = {} for _, x in sessions do table.insert(s, x.Start) end return s end)())) or 0)
 	local todayLogin = -1
 	local streak = 0
 
 	local function rebirthIfWorth()
+		if opts.NoRebirth then return false end
 		local bank = N(p.RunCash) + N(p.Vault)
-		local reward = N(Economy.PrestigeReward(bank))
+		local reward = N(Economy.PrestigeReward(bank, p.Rebirths))
 		if reward < 1 then return false end
+		local rc = G.Economy.Rebirth
+		if rc.CoreSoftCap and reward > rc.CoreSoftCap then
+			reward = math.floor(rc.CoreSoftCap * (reward / rc.CoreSoftCap) ^ (rc.CoreSoftExponent or 0.5))
+		end
 		local stalled = now - lastPurchaseAt > (opts.StallSeconds or 900)
-		local worth = reward >= math.max(1, N(p.Cores) * (opts.RebirthGain or 0.5))
+		-- compare against cores earned from rebirths: Forge Path and login cores would otherwise stall the first run
+		local worth = reward >= math.max(1, stats.PrestigeCores * (opts.RebirthGain or 0.5))
 		if opts.SpamRebirth then
 			-- farm the rebirth count once the next world's rebirth gate is what blocks progress
 			local nextZone = Economy.GetZone(p.Zone + 1)
 			if nextZone and p.Rebirths < (nextZone.RequiredRebirths or 0) then worth = true end
 		end
 		if not (worth or stalled) then return false end
+		if not opts.SpamRebirth and now - ledger.RunStartedAt < (G.Economy.Rebirth.MinCountedRunSeconds or 0) then return false end
 		local dust = math.clamp(math.max(G.Economy.Rebirth.StardustMinimum, math.floor(math.sqrt(reward) * G.Economy.Rebirth.StardustSqrtScale)), 0, 1e14)
 		local run = { Seconds = now - ledger.RunStartedAt, Zone = p.Zone, MachineKinds = 0, Ratio = bank / G.Economy.PrestigeRequirement }
 		local q = RebirthMath.quote(ledger, { Cores = reward, Stardust = dust }, run)
@@ -248,8 +255,9 @@ function Sim.run(opts)
 			local m = Economy.GetMachine(id)
 			return m ~= nil and (m.RequiredZone or 1) <= 1 and (m.RequiredRebirths or 0) <= p.Rebirths + 1
 		end)
+		local counted = run.Seconds >= (G.Economy.Rebirth.MinCountedRunSeconds or 0)
 		RebirthMath.close(ledger, q, now, nil, nil)
-		p.Rebirths += 1
+		if counted then p.Rebirths += 1 else stats.UncountedRebirths += 1 end
 		p.Cash = carried.Cash; p.Vault = 0; p.RunCash = 0; p.Zone = 1; p.CurrentZone = 1
 		p.Machines = carried.Machines
 		local mlv = 0 for _, l in p.Machines do mlv += l end
@@ -315,6 +323,15 @@ function Sim.run(opts)
 					grant(p, o.Reward, prod, stats)
 				end
 				claimForgePath(p, prod, stats, log)
+				local prices = G.Economy.Rebirth.StardustBoostPrices
+				if prices and opts.BuyBoosts ~= false and (p.ActiveBoost.EndsAt or 0) <= now then
+					local price = math.floor(prices.Hyperdrive * (1 + p.Rebirths * (G.Economy.Rebirth.StardustBoostPerRebirth or 0)))
+					if p.Stardust >= price * 2 then
+						p.Stardust -= price
+						stats.BoostStardust += price
+						p.ActiveBoost = { Id = "Hyperdrive", EndsAt = now + G.Boosts.Hyperdrive.Duration }
+					end
+				end
 				local guard = 0
 				while guard < (opts.BuysPerStep or 6) do
 					guard += 1

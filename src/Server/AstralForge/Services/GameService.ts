@@ -528,16 +528,40 @@ const rebirthRun = (profile: Profile, now: number, ledger: Dict): LuaTuple<[Dict
 	}
 	const rebirthConfig = orEmpty(GameConfig.Economy.Rebirth, () => ({}));
 	const bank = rebirthConfig.BankVaultIntoRun !== false ? Economy.Add(profile.RunCash, profile.Vault) : profile.RunCash;
-	const ratio = (Economy.AsNumber(bank) as number) / math.max(1, GameConfig.Economy.PrestigeRequirement as number);
+	const ratio = (Economy.AsNumber(bank) as number) / math.max(1, Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0) as number);
 	return $tuple({ Seconds: now - (ledger.RunStartedAt as number), Zone: profile.Zone, MachineKinds: kinds, Ratio: ratio }, bank);
+};
+
+// BALANCE v8: one rebirth's cores past Rebirth.CoreSoftCap grow with a square root
+const softCapCores = (reward: unknown): unknown => {
+	const rebirthConfig = orEmpty(GameConfig.Economy.Rebirth, () => ({})) as Dict;
+	const cap = num(rebirthConfig.CoreSoftCap);
+	const exponent = num(rebirthConfig.CoreSoftExponent) ?? 0.5;
+	if (cap === undefined || cap <= 0 || !truthy(Economy.Gt(reward, cap))) {
+		return reward;
+	}
+	return OmegaMath.Floor(OmegaMath.Mul(cap, OmegaMath.Pow(OmegaMath.Div(reward, cap), exponent)));
+};
+
+// BALANCE v8: Stardust price to run a boost without an owned charge, or undefined when it isn't sold
+const stardustBoostPrice = (profile: Profile, boostId: string): number | undefined => {
+	const rebirthConfig = orEmpty(GameConfig.Economy.Rebirth, () => ({})) as Dict;
+	const prices = rebirthConfig.StardustBoostPrices as Record<string, number> | undefined;
+	const base = prices !== undefined ? prices[boostId] : undefined;
+	if (!typeIs(base, "number") || base <= 0) {
+		return undefined;
+	}
+	const perRebirth = num(rebirthConfig.StardustBoostPerRebirth) ?? 0;
+	return math.floor(base * (1 + math.max(0, num(profile.Rebirths) ?? 0) * perRebirth));
 };
 
 // cores and stardust before the ledger's own multipliers, or nil when the run can't convert yet
 const rebirthBase = (profile: Profile, bank: unknown): LuaTuple<[unknown, number]> => {
-	let reward = Economy.PrestigeReward(bank);
+	let reward = Economy.PrestigeReward(bank, num(profile.Rebirths) ?? 0);
 	if (!truthy(RebirthGate.CanRebirth(reward, Economy.Gte))) {
 		return $tuple(undefined, 0);
 	}
+	reward = softCapCores(reward);
 	reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + (Economy.DomainTreeBonus(profile, "RebirthYield") as number))));
 	reward = Economy.Floor(Economy.Mul(reward, Economy.AscensionEffect(profile, "Cores")));
 	const rebirthConfig = orEmpty(GameConfig.Economy.Rebirth, () => ({}));
@@ -2039,7 +2063,7 @@ export class GameService {
 				(this._crews.Multiplier(player) as number),
 		);
 		const capacity = Economy.Capacity(profile, now);
-		const prestigeReward = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault));
+		const prestigeReward = softCapCores(Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault), num(profile.Rebirths) ?? 0));
 		const domain = orEmpty(profile.Domain, () => ({
 			Rank: 0,
 			Essence: 0,
@@ -2296,7 +2320,7 @@ export class GameService {
 				comboBonusPerStack: GameConfig.Overcharge.ComboBonusPerStack,
 			}),
 			PrestigeReward: prestigeReward,
-			NextPrestigeTarget: Economy.NextPrestigeTarget(prestigeReward),
+			NextPrestigeTarget: Economy.NextPrestigeTarget(Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault), num(profile.Rebirths) ?? 0), num(profile.Rebirths) ?? 0),
 			Rebirth: this._rebirthPublic(profile, now),
 			Revision: meta.Revision,
 			SnapshotId: runtime && truthy(runtime.SnapshotId) ? runtime.SnapshotId : 0,
@@ -3398,7 +3422,7 @@ export class GameService {
 			const [run, bank] = rebirthRun(profile, now, ledger) as LuaTuple<[Dict, unknown]>;
 			const [baseReward, stardustBase] = rebirthBase(profile, bank) as LuaTuple<[unknown, number]>;
 			if (baseReward === undefined) {
-				return responseError(T("GameService.BankAtLeastSRun", (Format.Number as Fn)(GameConfig.Economy.PrestigeRequirement)));
+				return responseError(T("GameService.BankAtLeastSRun", (Format.Number as Fn)(Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0))));
 			}
 			if (payload.Keep !== undefined) {
 				RebirthMath.setKeep(ledger, payload.Keep);
@@ -3435,7 +3459,12 @@ export class GameService {
 				keepsakeAllowed(profile),
 			) as Dict;
 			const entry = RebirthMath.close(ledger, quote, now, typeIs(payload.Vow, "string") ? payload.Vow : undefined, undefined) as Dict;
-			profile.Rebirths = (profile.Rebirths as number) + 1;
+			// BALANCE v8: a run shorter than MinCountedRunSeconds pays out but doesn't move the rebirth count
+			const minCounted = num(rebirthConfig.MinCountedRunSeconds) ?? 0;
+			const counted = (num(run.Seconds) ?? 0) >= minCounted;
+			if (counted) {
+				profile.Rebirths = (profile.Rebirths as number) + 1;
+			}
 			profile.Cash = carry.Cash;
 			profile.Vault = 0;
 			profile.RunCash = 0;
@@ -3483,7 +3512,8 @@ export class GameService {
 					StardustReward: stardustReward,
 					BankedVault: bankedVault,
 					CelebrationBoost: bonusCount > 0 ? celebrationBoost : undefined,
-					NextTarget: GameConfig.Economy.PrestigeRequirement,
+					NextTarget: Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0),
+					Counted: counted,
 					Grade: quote.Grade,
 					Vow: quote.Vow,
 					VowKept: quote.Kept,
@@ -3951,7 +3981,7 @@ export class GameService {
 		return result;
 	}
 
-	_activateBoost(player: Player, boostId: unknown) {
+	_activateBoost(player: Player, boostId: unknown, buy?: unknown) {
 		if (!typeIs(boostId, "string") || !truthy(GameConfig.Boosts[boostId])) {
 			return responseError(T("GameService.InvalidBoostRequest"));
 		}
@@ -3963,7 +3993,18 @@ export class GameService {
 			}
 			const inventory = ensureBoostInventory(profile) as Dict;
 			if ((tonumber(inventory[boostId]) ?? 0) < 1) {
-				return responseError(T("GameService.YouDoNotOwnThat"));
+				// BALANCE v8 Stardust sink: run it now for Stardust instead of an owned charge
+				const price = buy === true ? stardustBoostPrice(profile, boostId) : undefined;
+				if (price === undefined) {
+					return responseError(T("GameService.YouDoNotOwnThat"));
+				}
+				const stardust = num(profile.Stardust) ?? 0;
+				if (stardust < price) {
+					return responseError(T("GameService.YouNeedSMoreStardust", (Format.Number as Fn)(price - stardust)));
+				}
+				profile.Stardust = stardust - price;
+				profile.ActiveBoost = { Id: boostId, EndsAt: os.time() + (boost.Duration as number) };
+				return responseSuccess((boost.Name as string) + " is running.");
 			}
 			inventory[boostId] = math.max(0, math.floor(tonumber(inventory[boostId]) ?? 0) - 1);
 			profile.ActiveBoost = { Id: boostId, EndsAt: os.time() + (boost.Duration as number) };
@@ -5300,7 +5341,7 @@ export class GameService {
 			}
 			const stats = (profile.Stats ?? {}) as Dict;
 			const levelState = ProgressionGate.LevelState(profile) as Dict;
-			const prestige = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault));
+			const prestige = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault), num(profile.Rebirths) ?? 0);
 			const [, done] = FirstGoals.progressOf(goal, {
 				machinesBought: num(stats.MachinesBought) ?? 0,
 				researchBought: num(stats.ResearchBought) ?? 0,
@@ -6257,7 +6298,7 @@ export class GameService {
 		} else if (action === Protocol.Actions.StudioGrantProduct) {
 			return this._studioGrantProduct(player, payload?.Id);
 		} else if (action === Protocol.Actions.ActivateBoost) {
-			return this._activateBoost(player, payload?.Id);
+			return this._activateBoost(player, payload?.Id, payload?.Buy);
 		} else if (action === Protocol.Actions.BuyDailyOffer) {
 			return this._buyDailyOffer(player, payload?.Slot);
 		} else if (action === Protocol.Actions.BuyCrateSkin) {

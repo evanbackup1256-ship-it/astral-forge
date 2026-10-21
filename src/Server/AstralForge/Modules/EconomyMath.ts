@@ -1127,21 +1127,31 @@ __defs["Economy"] = () => {
 			);
 		},
 
-		PrestigeReward(this: void, runCash: unknown): unknown {
+		// the Flux a rebirth needs after this many rebirths (base x growth^rebirths, capped)
+		PrestigeRequirementFor(this: void, rebirths?: number): number {
+			const economy = GameConfig.Economy as unknown as Dict;
+			const base = GameConfig.Economy.PrestigeRequirement;
+			const growth = math.max(1, tonumber(economy.PrestigeRequirementGrowth) ?? 1);
+			const maxScale = math.max(1, tonumber(economy.PrestigeRequirementMaxScale) ?? 1);
+			const count = math.max(0, math.floor(tonumber(rebirths) ?? 0));
+			return base * math.min(maxScale, growth ** math.min(count, 10000));
+		},
+
+		PrestigeReward(this: void, runCash: unknown, rebirths?: number): unknown {
 			return RebirthGate.PrestigeReward(
 				OmegaMath,
 				runCash,
-				GameConfig.Economy.PrestigeRequirement,
+				Economy.PrestigeRequirementFor(rebirths),
 				GameConfig.Economy.PrestigeExponent,
 				Economy.Lt,
 			);
 		},
 
-		NextPrestigeTarget(this: void, currentReward: unknown): unknown {
+		NextPrestigeTarget(this: void, currentReward: unknown, rebirths?: number): unknown {
 			return RebirthGate.NextPrestigeTarget(
 				OmegaMath,
 				currentReward,
-				GameConfig.Economy.PrestigeRequirement,
+				Economy.PrestigeRequirementFor(rebirths),
 				GameConfig.Economy.PrestigeExponent,
 			);
 		},
@@ -1724,7 +1734,7 @@ __defs["TapCritProjection"] = () => {
 	const TapCritProjection = {
 		TapPower(this: void, omegaMath: OmegaMathApi, production: unknown, overchargeLevel: number, bonuses: TapBonuses): unknown {
 			let tap = omegaMath.Max(1, omegaMath.Mul(production, 0.15));
-			tap = omegaMath.Mul(tap, 1 + overchargeLevel * 0.35);
+			tap = omegaMath.Mul(tap, 1 + overchargeLevel * 0.2);
 			tap = omegaMath.Mul(tap, 1 + bonuses.Grid);
 			tap = omegaMath.Mul(tap, 1 + bonuses.Echo);
 			tap = omegaMath.Mul(tap, 1 + bonuses.Artifact);

@@ -551,7 +551,9 @@ function rebirthPayoutLine(state: OverviewState, config: OverviewConfig | undefi
 		return undefined;
 	}
 	const economy = config?.Economy;
-	const target = typeIs(economy?.PrestigeRequirement, "number") ? economy.PrestigeRequirement : 0;
+	// the server's NextPrestigeTarget already includes the per-rebirth growth; the config base is a fallback
+	const scaled = asFlux(state.NextPrestigeTarget);
+	const target = scaled > 0 ? scaled : typeIs(economy?.PrestigeRequirement, "number") ? economy.PrestigeRequirement : 0;
 	if (target <= 0) {
 		return undefined;
 	}
