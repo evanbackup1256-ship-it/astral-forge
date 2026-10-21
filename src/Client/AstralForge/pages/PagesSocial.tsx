@@ -874,7 +874,7 @@ __defs["TradeView"] = () => {
 				PaddingRight: new UDim(0, 12),
 			}),
 			h(Text, {
-				value: session.PartnerAway === true ? `TABLE TALK  ·  ${session.PartnerName.upper()} STEPPED AWAY` : "TABLE TALK",
+				value: session.PartnerAway === true ? `${session.PartnerName} stepped away` : "Table talk",
 				size: 11,
 				color: session.PartnerAway === true ? Palette.coral : Palette.mint,
 				weight: Enum.FontWeight.Heavy,
@@ -2251,10 +2251,10 @@ __defs["TradeView"] = () => {
 								height: offerContentFloor,
 								element: compactTrade ? (
 									offerTab === "You" ? (
-										offerPane("YOUR OFFER", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true)
+										offerPane("Your offer", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true)
 									) : (
 										offerPane(
-											session.PartnerName.upper(),
+											`${session.PartnerName}\'s offer`,
 											session.ThemReady === true ? "They locked their side" : "Still arranging",
 											session.ThemReady,
 											session.ThemConfirmed,
@@ -2279,7 +2279,7 @@ __defs["TradeView"] = () => {
 												BackgroundTransparency: 1,
 												BorderSizePixel: 0,
 											},
-											offerPane("YOUR OFFER", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true),
+											offerPane("Your offer", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true),
 										),
 										h(
 											"frame",
@@ -2291,7 +2291,7 @@ __defs["TradeView"] = () => {
 												BorderSizePixel: 0,
 											},
 											offerPane(
-												session.PartnerName.upper(),
+												`${session.PartnerName}\'s offer`,
 												session.ThemReady === true ? "They locked their side" : "Still arranging",
 												session.ThemReady,
 												session.ThemConfirmed,
