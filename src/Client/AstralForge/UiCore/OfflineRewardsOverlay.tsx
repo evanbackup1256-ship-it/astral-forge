@@ -13,9 +13,6 @@ import { joinTuple } from "../lua";
 import { Button, IconTile, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 import { SHELL_PAD_KEYS, usePadSink } from "../CoreKit/padSink";
 
-// roomier sheet padding, shared with cards
-const PAD = Layout.cardPadding;
-
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
 const UserInputService = game.GetService("UserInputService");
@@ -116,6 +113,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const stack = chrome.stack || viewport.width < 720;
+	// roomy sheet padding on desktop; phones take the chrome card padding
+	const PAD = stack ? chrome.cardPadding : Layout.cardPadding;
 	const [motion, closing, beginExit] = usePresence(softMotion);
 	const padFocus = useGamepadAutofocus(true);
 	const overlayHostRef = React.useRef<GuiObject>();
