@@ -148,6 +148,7 @@ interface IntegrityStatus {
 }
 
 const RunService = game.GetService("RunService");
+const Players = game.GetService("Players");
 
 const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.WaitForChild("ModuleLog"));
 const GameConfig = req<GameConfigShape>(SharedFolder().WaitForChild("GameConfig"));
@@ -1706,13 +1707,32 @@ export class DataService {
 		this._autosaveThread = task.spawn(() => {
 			while (!this._closing) {
 				task.wait(interval);
-				for (const [player] of this._profiles) {
-					if (this._dirty.get(player)) {
-						this.Save(player, false);
-					}
-				}
+				this._autosaveTick();
 			}
 		});
+	}
+
+	_autosaveTick() {
+		const players: Player[] = [];
+		for (const [player] of this._profiles) players.push(player);
+		for (const player of players) {
+			if (this._profiles.get(player) === undefined) continue;
+			if (player.Parent !== Players) {
+				// The player left but the release save on leave (and its retries) failed, so the
+				// profile is still held here. Keep retrying the release instead of renewing the
+				// session with a plain save, which would block the player from loading elsewhere.
+				const lostLock = this._broken.get(player);
+				if (lostLock !== undefined) {
+					// Another server owns the session; this copy must never be written.
+					ModuleLog.Warn("Data", string.format("dropping %s after leave - session lost (%s)", player.Name, lostLock));
+					this._clearPlayer(player);
+				} else {
+					this.Save(player, true);
+				}
+			} else if (this._dirty.get(player)) {
+				this.Save(player, false);
+			}
+		}
 	}
 
 	Shutdown() {
