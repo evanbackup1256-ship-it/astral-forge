@@ -184,6 +184,8 @@ const DataTemplate = {
 					KeepNew: true,
 					Rarities: { Common: true, Uncommon: true },
 				},
+				// relic rigs ever lit; missing on old saves, filled in on load
+				Rigs: { Lit: {} },
 			},
 			Anomaly: {
 				Cycle: -1,

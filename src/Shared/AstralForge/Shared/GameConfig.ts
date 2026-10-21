@@ -3765,6 +3765,32 @@ const GameConfig: Dict = {
 			Target: 46,
 			Reward: { Stardust: 390, Signals: 104, CashMinutes: 36, Boost: "Afterburner" },
 		},
+		// BALANCE: new goals. They pay once, on top of the rig's own first-light reward.
+		// Progress is rigs ever lit (RelicRigs.COUNT is 8), not rigs socketed right now.
+		{
+			Id: "FirstRig",
+			Name: "Two Parts",
+			Description: "Light a relic rig. Two relics, socketed together, doing a third thing.",
+			Kind: "RigsLit",
+			Target: 1,
+			Reward: { Stardust: 20 },
+		},
+		{
+			Id: "FourRigs",
+			Name: "Half the Bench",
+			Description: "Light 4 relic rigs. The bench is starting to look intentional.",
+			Kind: "RigsLit",
+			Target: 4,
+			Reward: { Stardust: 80, Signals: 20 },
+		},
+		{
+			Id: "AllRigs",
+			Name: "Full Bench",
+			Description: "Light every relic rig. You can take them apart after. The bench remembers.",
+			Kind: "RigsLit",
+			Target: 8,
+			Reward: { Stardust: 200, Cores: 2, Keys: { NebulaCrate: 1 } },
+		},
 	],
 	DailyRewards: [
 		{ CashMinutes: 5, Stardust: 5 },
