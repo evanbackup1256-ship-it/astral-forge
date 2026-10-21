@@ -1,6 +1,6 @@
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
-import { chromeFor, Palette, scrollTail } from "../../CoreKit/theme";
+import { chromeFor, Palette, Radius, scrollTail, StrokeWidth } from "../../CoreKit/theme";
 import { useViewport } from "../../MotionKit/motion";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
 import type { Session } from "../../state";
@@ -144,8 +144,8 @@ function MerchantPortrait(props: {
 			BorderSizePixel={0}
 			ClipsDescendants={true}
 		>
-			{round(new UDim(0, 14))}
-			<uistroke Color={accent} Thickness={1.5} Transparency={0.28} />
+			{round(new UDim(0, Radius.lg))}
+			<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
 			{/* Soft radial atmospheric glow from top */}
 			<frame
 				{...named("Atmosphere")}
