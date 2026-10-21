@@ -429,7 +429,10 @@ function UpgradeBoard(props: {
 	const columns = stack ? 1 : viewport.width >= 2400 ? 4 : viewport.width >= 1750 ? 3 : viewport.width >= 900 ? 2 : 1;
 	const columnWidth = new UDim2(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH);
 	const gridRows = math.ceil(math.max(1, visible.size()) / columns);
-	const machinesBlock = visible.size() === 0 ? 150 : gridRows * rowH + math.max(0, gridRows - 1) * gap;
+	const machinesBlock =
+		visible.size() === 0
+			? 150 + (filter === "Affordable" && affordableCount === 0 ? TapTarget + 12 : 0)
+			: gridRows * rowH + math.max(0, gridRows - 1) * gap;
 	const machineScrollTail = stack
 		? scrollTail(stack, chrome.bottomSafe, chrome.landscape ? 52 : 80)
 		: scrollTail(stack, chrome.bottomSafe, 28);
@@ -643,17 +646,21 @@ function UpgradeBoard(props: {
 		</Panel>
 	);
 	let machinesElement: React.Element;
+	// the button sits under the empty state instead of on top of its last line
+	const showNextButton = filter === "Affordable" && affordableCount === 0;
 	if (visible.size() === 0) {
 		machinesElement = (
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 				<EmptyState
 					icon="Forge.9"
 					title={
-						needle !== "" || filter !== "All"
+						needle !== ""
 							? "Nothing matches"
-							: (filter as string) === "Affordable"
+							: filter === "Affordable"
 								? "Can't afford a machine yet"
-								: "No machines to show"
+								: filter !== "All"
+									? "Nothing matches"
+									: "No machines to show"
 					}
 					body={
 						needle !== ""
@@ -665,9 +672,9 @@ function UpgradeBoard(props: {
 									: "Buy a machine to start earning Flux into your vault."
 					}
 					accent={accent}
-					size={UDim2.fromScale(1, 1)}
+					size={showNextButton ? new UDim2(1, 0, 1, -(TapTarget + 12)) : UDim2.fromScale(1, 1)}
 				/>
-				{filter === "Affordable" && affordableCount === 0 && (
+				{showNextButton && (
 					<Button
 						text="Show next machines"
 						icon="Forge.10"
@@ -720,9 +727,7 @@ function UpgradeBoard(props: {
 		{
 			id: "purchase-plan",
 			height: 128,
-			element: (
-				<Tools.Planner entries={visible as unknown as ModelEntries} amount={buyAmount} cash={cash} batch={batch} accent={accent} />
-			),
+			element: <Tools.Planner entries={visible as unknown as ModelEntries} amount={buyAmount} cash={cash} batch={batch} accent={accent} />,
 		},
 		{ id: "machines", height: machinesBlock, element: machinesElement },
 	];
