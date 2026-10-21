@@ -25,6 +25,7 @@ import ForgeEchoModule = require("./Gameplay/ForgeEcho");
 import LabModule = require("./Gameplay/Lab");
 import RelicRigModule = require("./Gameplay/RelicRigs");
 import ProgressionModule = require("./Gameplay/Progression");
+import * as CommunityRewards from "./Gameplay/CommunityRewards";
 import { MatterRuntime } from "./MatterRuntime";
 import * as PolicyGate from "./PolicyGate";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
@@ -152,6 +153,18 @@ const ZoneUnlock = SharedDataSuite("ZoneUnlock") as Kit;
 const MobileLayoutSlots = mod(shared(), "MobileLayoutSlots");
 const CrateExpansion = mod<Kit>(shared(), "CrateExpansion");
 const ProgressionService = ProgressionModule as unknown as Kit;
+
+function communityConfig(): CommunityRewards.CommunityConfig {
+	return {
+		GroupId: typeIs(ServerConfig.CommunityGroupId, "number") ? ServerConfig.CommunityGroupId : 0,
+		GroupName: tostring(ServerConfig.CommunityGroupName),
+		GroupReward: ServerConfig.GroupReward as unknown as Dict,
+		Likes: typeIs(ServerConfig.CommunityLikes, "number") ? ServerConfig.CommunityLikes : 0,
+		LikeGoals: ServerConfig.LikeGoals as unknown as ReadonlyArray<CommunityRewards.LikeGoal>,
+		NotifyEnabled: ServerConfig.NotifyOptInRewardEnabled === true,
+		NotifyReward: ServerConfig.NotifyReward as unknown as Dict,
+	};
+}
 const AnomalyService = AnomalyModule as unknown as Kit;
 const LabService = LabModule as unknown as Kit;
 const RelicRigs = RelicRigModule as unknown as Kit;
@@ -2217,6 +2230,7 @@ export class GameService {
 			GuildBonuses: copyDictionary(profile.GuildBonuses),
 			SocialBoost: SocialBoost.PublicSnapshot(profile.SocialBoost, GameConfig.Social.MaxBoostedFriends, copyDictionary),
 			SocialRewards: SocialBoost.CreatorRewardsPublic(profile.SocialRewards, ServerConfig.CreatorUsername),
+			Community: CommunityRewards.publicState(profile.SocialRewards, communityConfig()),
 			AutoForge: AutoSalvageSnapshot.PublicAutoForge(profile.AutoForge, copyDictionary),
 			Trade: truthy(this._trades) ? this._trades.StatePublic(profile, player, now) : TradeDesk.LockedPublic(),
 			Convergence: this._convergence.State(player, profile),
@@ -4953,6 +4967,26 @@ export class GameService {
 		return result;
 	}
 
+	_claimCommunityReward(player: Player, kind: unknown, index: unknown) {
+		const config = communityConfig();
+		// membership is checked here, before the mutate, because IsInGroup can yield
+		let inGroup: boolean | undefined;
+		if (kind === "Group" && config.GroupId > 0) {
+			const [ok, member] = pcall(() => player.IsInGroup(config.GroupId));
+			inGroup = ok ? member === true : undefined;
+		}
+		return this._mutate(player, (profile: Profile) => {
+			if (!typeIs(profile.SocialRewards, "table")) {
+				profile.SocialRewards = { CreatorFollowClaimed: false };
+			}
+			const result = CommunityRewards.claim(profile.SocialRewards as Dict, kind, index, inGroup, config);
+			if (!result.ok) {
+				return responseError(result.message);
+			}
+			return responseSuccess(ProgressionService.ApplyReward(profile, result.reward, Economy.Production(profile)));
+		});
+	}
+
 	_setMobileLayout(player: Player, rawPayload: unknown) {
 		const payload = rawPayload as Dict | undefined;
 		if (!typeIs(rawPayload, "table")) {
@@ -5964,6 +5998,8 @@ export class GameService {
 			return this._redeemCode(player, payload?.Code);
 		} else if (action === Protocol.Actions.VerifyCreatorFollow) {
 			return this._verifyCreatorFollow(player);
+		} else if (action === Protocol.Actions.ClaimCommunityReward) {
+			return this._claimCommunityReward(player, payload?.Kind, payload?.Index);
 		} else if (action === Protocol.Actions.SyncShop) {
 			return this._syncShop(player);
 		} else if (action === Protocol.Actions.StudioGrantProduct) {

@@ -50,6 +50,7 @@
 		SetProfileStyle: "SetProfileStyle",
 		RedeemCode: "RedeemCode",
 		VerifyCreatorFollow: "VerifyCreatorFollow",
+		ClaimCommunityReward: "ClaimCommunityReward",
 		SyncShop: "SyncShop",
 		StudioGrantProduct: "StudioGrantProduct",
 		ActivateBoost: "ActivateBoost",

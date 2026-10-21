@@ -52,6 +52,26 @@ export = table.freeze({
 	AllowStudioFollowVerification: true,
 	FollowReward: table.freeze({ CashMinutes: 12, Stardust: 35, Signals: 10 }),
 
+	// Community rewards (Rewards page). Amounts are balance choices; keep them below the follow reward
+	// scale so none of these outweighs a session of play.
+	// Group: 0 hides the card. Membership is checked on the server with Player:IsInGroup.
+	CommunityGroupId: 0,
+	CommunityGroupName: "Astral Forge",
+	GroupReward: table.freeze({ CashMinutes: 15, Stardust: 40, Signals: 15 }),
+	// Like goals: Roblox gives the game no live like count, so this is the count shown on the experience
+	// page, updated by hand with each release. Every player can claim each goal once the count reaches it.
+	CommunityLikes: 0,
+	LikeGoals: table.freeze([
+		table.freeze({ Likes: 100, Reward: table.freeze({ CashMinutes: 8, Stardust: 15 }) }),
+		table.freeze({ Likes: 500, Reward: table.freeze({ CashMinutes: 12, Stardust: 25, Boost: "Overdrive" }) }),
+		table.freeze({ Likes: 1000, Reward: table.freeze({ CashMinutes: 18, Stardust: 35, FreeSpins: 1 }) }),
+		table.freeze({ Likes: 5000, Reward: table.freeze({ CashMinutes: 30, Stardust: 60, Cores: 1 }) }),
+	]),
+	// Notification opt-in: the prompt is always offered (13+, via ExperienceNotificationService), but the
+	// game can't confirm someone actually opted in, so the reward stays off until you decide to trust it.
+	NotifyOptInRewardEnabled: false,
+	NotifyReward: table.freeze({ CashMinutes: 5, Stardust: 15 }),
+
 	// Enforcement stays opt-in for Studio QA, but protects live economy mutations by default.
 	GameAntiCheat: table.freeze({ EnforcementEnabled: !game.GetService("RunService").IsStudio() }),
 

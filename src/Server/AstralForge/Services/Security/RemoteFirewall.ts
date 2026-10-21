@@ -151,6 +151,7 @@ const RULES: Record<string, Rule> = {
 	[Protocol.Actions.MarkHintSeen]: { Cost: 0.5, Cooldown: 0.2 },
 	[Protocol.Actions.RedeemCode]: { Cost: 2, Cooldown: 1.4 },
 	[Protocol.Actions.VerifyCreatorFollow]: { Cost: 1, Cooldown: 0.8 },
+	[Protocol.Actions.ClaimCommunityReward]: { Cost: 1, Cooldown: 0.8 },
 	[Protocol.Actions.SyncShop]: { Cost: 1, Cooldown: 1.2 },
 	[Protocol.Actions.StudioGrantProduct]: { Cost: 1, Cooldown: 0.4 },
 	[Protocol.Actions.GetGuild]: { Cost: 0.4, Cooldown: 0.25 },
@@ -810,6 +811,10 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			!stringField(bag, "Input", 1, 16)
 		)
 			return $tuple(false, "invalid performance payload");
+	} else if (action === Protocol.Actions.ClaimCommunityReward) {
+		if (!stringField(bag, "Kind", 1, 16) || !numberField(bag, "Index", 1, 50, true)) {
+			return $tuple(false, "invalid community reward payload");
+		}
 	} else if (action === Protocol.Actions.ClaimTimedReward) {
 		if (!numberField(bag, "Index", 1, 100, true)) {
 			return $tuple(false, "invalid reward payload");

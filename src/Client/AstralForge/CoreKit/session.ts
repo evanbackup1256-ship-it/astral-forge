@@ -13,7 +13,7 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	UnlockZone: true, SelectZone: true, Rebirth: true, DomainExpansion: true, DomainLattice: true,
 	EventAct: true, UpgradeContinuum: true, FoundryAct: true, Ascend: true, UpgradeSigil: true,
 	EchoAct: true, RebirthAct: true, TradeChat: true, TradeRequest: true, ClaimQuest: true,
-	ClaimAchievement: true, ClaimDaily: true, ClaimTimedReward: true, SpinWheel: true, BazaarPlay: true,
+	ClaimAchievement: true, ClaimDaily: true, ClaimTimedReward: true, ClaimCommunityReward: true, SpinWheel: true, BazaarPlay: true,
 	SetMarketFavorite: true, RequestProcurement: true, SelectSpecialization: true, LaunchExpedition: true,
 	ClaimExpedition: true, EquipArtifact: true, UpgradeArtifact: true, BuyArtifact: true, UpgradeCrew: true,
 	ClaimCommanderReward: true, ClaimWeeklyDirective: true, ClaimSeasonTier: true, ClaimForgePathStep: true,

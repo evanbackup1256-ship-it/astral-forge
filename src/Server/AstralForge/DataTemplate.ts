@@ -149,6 +149,9 @@ const DataTemplate = {
 			Codes: {},
 			SocialRewards: {
 				CreatorFollowClaimed: false,
+				GroupClaimed: false,
+				LikeGoals: {},
+				NotifyClaimed: false,
 			},
 
 			Receipts: {},
