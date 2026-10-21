@@ -2,7 +2,10 @@ import { useLiveSessionValue } from "./liveSession";
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, TOPBAR_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
-import { useTooltip } from "../Tooltip";
+import { mergeEvents, useTooltip } from "../Tooltip";
+import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
+import { useClientSelector } from "../CoreKit/clientStore";
+import * as InventoryMath from "../CoreKit/inventoryMath";
 import { GainPop } from "./GainPop";
 import { AppHelpers } from "../CoreKit/appNav";
 import * as BoostIconKind from "../CoreKit/boostIconKind";
@@ -361,6 +364,53 @@ function ServerEventChip(_param: { state: TopBarState; reducedMotion?: boolean; 
 			placeholder: value,
 			icon: active ? def.Icon : "Calendar.5",
 			accent: active ? accentOf(def) : Palette.blue,
+			reducedMotion: _param.reducedMotion,
+			reactiveFlash: false,
+			animateValue: false,
+			tall: _param.tall,
+			showLabel: true,
+		}),
+	);
+}
+
+type CompanionInfo = NonNullable<ReturnType<typeof CompanionRelic.describe>>;
+
+const sameCompanion = (a: CompanionInfo | undefined, b: CompanionInfo | undefined) =>
+	a === b || (a !== undefined && b !== undefined && a.Uid === b.Uid && a.Id === b.Id && a.Bonus === b.Bonus);
+
+// read straight from the store so a relic change redraws the chip without widening the TopBar memo keys
+function useCompanion(): CompanionInfo | undefined {
+	return useClientSelector((store) => CompanionRelic.describe((store.session as { Items?: unknown } | undefined)?.Items), sameCompanion);
+}
+
+// the relic riding along in the Companion slot: name in its rarity color, the bonus in the tooltip
+function CompanionChip(_param: { companion: CompanionInfo; config?: unknown; tall?: boolean; layoutOrder?: number; reducedMotion?: boolean }) {
+	const companion = _param.companion;
+	const accent = InventoryMath.RarityColor(_param.config, companion.Rarity, Palette.violet);
+	const pct = math.floor(companion.Bonus * 1000 + 0.5) / 10;
+	const tip = useTooltip({
+		title: companion.Name,
+		body: `${companion.Rarity} companion. Gives +${pct}% ${companion.Kind} on top of your sockets.`,
+		hint: "Swap it from Inventory",
+	});
+	return h(
+		"frame",
+		{
+			Size: UDim2.fromOffset(0, 0),
+			AutomaticSize: Enum.AutomaticSize.XY,
+			BackgroundTransparency: 1,
+			BorderSizePixel: 0,
+			LayoutOrder: _param.layoutOrder,
+			ZIndex: 22,
+			Active: false,
+			Event: mergeEvents(tip, {}),
+		},
+		h(StatChip, {
+			label: "COMPANION",
+			value: 0,
+			placeholder: companion.Name,
+			icon: "Artifact.6",
+			accent: accent,
 			reducedMotion: _param.reducedMotion,
 			reactiveFlash: false,
 			animateValue: false,
@@ -989,6 +1039,7 @@ interface VisitInfo {
 interface ChipDef {
 	label: string;
 	event?: boolean;
+	companion?: boolean;
 	value?: unknown;
 	liveKey?: string;
 	icon?: string;
@@ -1019,6 +1070,7 @@ interface TopBarProps {
 function TopBarImpl(_param: TopBarProps) {
 	countRedraw("TopBar", redrawCounterEnabled(_param.state as { Admin?: { Access?: boolean } }));
 	const state = _param.state;
+	const companion = useCompanion();
 	const page = _param.page;
 	const railOpen = _param.railOpen;
 	const toggleRail = _param.toggleRail;
@@ -1057,6 +1109,9 @@ function TopBarImpl(_param: TopBarProps) {
 	const allChips: ChipDef[] = [];
 	if (state.ServerEvent !== undefined) {
 		allChips.push({ label: "EVENT", event: true });
+	}
+	if (companion !== undefined) {
+		allChips.push({ label: "COMPANION", companion: true });
 	}
 	if (AppHelpers.featureUnlocked(state, "Rebirth")) {
 		allChips.push({
@@ -1131,7 +1186,7 @@ function TopBarImpl(_param: TopBarProps) {
 		const chipFitW = micro ? 172 : 170; // a rendered desktop chip is ~166px with the wider value box
 		const fits = math.max(0, math.floor((room + 8) / (chipFitW + 8)));
 		if (fits < allChips.size()) {
-			const rank: Record<string, number> = { FLUX: 1, CORES: 2, DUST: 3, EVENT: 4 };
+			const rank: Record<string, number> = { FLUX: 1, CORES: 2, DUST: 3, EVENT: 4, COMPANION: 5 };
 			const ranked = table.clone(allChips);
 			table.sort(ranked, (a, b) => (rank[a.label] ?? 9) < (rank[b.label] ?? 9));
 			const keep = new Set<ChipDef>();
@@ -1340,6 +1395,11 @@ function TopBarImpl(_param: TopBarProps) {
 					reducedMotion: reducedMotion,
 				});
 			}
+			if (chip.companion === true) {
+				return companion !== undefined
+					? h(CompanionChip, { key: chip.label, layoutOrder: 20 + index, companion: companion, config: _param.config, reducedMotion: reducedMotion })
+					: undefined;
+			}
 			const _attributes: Record<string, unknown> = {
 				key: chip.label,
 				layoutOrder: 20 + index,
@@ -1404,6 +1464,18 @@ function TopBarImpl(_param: TopBarProps) {
 					reducedMotion: reducedMotion,
 					tall: true,
 				});
+			}
+			if (chip.companion === true) {
+				return companion !== undefined
+					? h(CompanionChip, {
+							key: chip.label,
+							layoutOrder: index + 1,
+							companion: companion,
+							config: _param.config,
+							reducedMotion: reducedMotion,
+							tall: true,
+						})
+					: undefined;
 			}
 			const _attributes: Record<string, unknown> = {
 				key: chip.label,
