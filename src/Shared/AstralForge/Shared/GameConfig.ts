@@ -7841,4 +7841,11 @@ for (const [featureId, step] of ForgeLevels.unlockLevels()) {
 	}
 ).extendItems(GameConfig.Items);
 
+// version 8 content: new relics, companions, titles, achievements and landmark world names
+(
+	require(sharedFolder.FindFirstChild("ContentV8") as ModuleScript) as {
+		extend: (this: void, config: unknown) => void;
+	}
+).extend(GameConfig);
+
 export = GameConfig;

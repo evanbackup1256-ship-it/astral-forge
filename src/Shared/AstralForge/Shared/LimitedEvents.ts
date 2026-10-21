@@ -3,6 +3,7 @@
 // turned into Stardust, so nothing earned is simply lost. Add an event by adding a row below.
 // Owner: live ops. Dependencies: none.
 import { T } from "./Locale";
+import { EVENTS as CONTENT_EVENTS } from "./ContentV8";
 
 export interface EventReward {
 	Stardust?: number;
@@ -61,7 +62,7 @@ const EARN: Record<string, number> = table.freeze({
 	Rebirth: 40,
 });
 
-export const EVENTS: readonly LimitedEvent[] = table.freeze([
+const AUTHORED_EVENTS: LimitedEvent[] = [
 	{
 		Id: "HollowForge2026",
 		Name: "Hollow Forge",
@@ -116,7 +117,15 @@ export const EVENTS: readonly LimitedEvent[] = table.freeze([
 			{ Id: "cores", Name: "Dawn cores", Price: 900, Stock: 3, Reward: { Cores: 4 } },
 		],
 	},
-]);
+];
+
+// version 8 events come from ContentV8; they all pay the same everyday actions. Sorted by start so
+// the calendar reads in order and the overlap check holds.
+for (const event of CONTENT_EVENTS) {
+	AUTHORED_EVENTS.push({ ...event, Earn: EARN, Shop: event.Shop as unknown as EventShopItem[] });
+}
+AUTHORED_EVENTS.sort((a, b) => a.StartsAt < b.StartsAt);
+export const EVENTS: readonly LimitedEvent[] = table.freeze(AUTHORED_EVENTS);
 
 export function byId(id: unknown): LimitedEvent | undefined {
 	return EVENTS.find((event) => event.Id === id);

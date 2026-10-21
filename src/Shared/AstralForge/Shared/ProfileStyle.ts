@@ -3,6 +3,7 @@
 // same catalog to draw the picker. Stored in the save as Cosmetics.ProfileAccent / ProfileFrame;
 // missing or unknown values fall back to the defaults, so old saves load unchanged.
 import { T } from "./Locale";
+import * as ContentV8 from "./ContentV8";
 
 /**
  * What earns a cosmetic. "Free" is always available; every other kind needs Target of that
@@ -128,7 +129,7 @@ export interface ProfileStyleState {
 export const DEFAULT_ACCENT = "Cyan";
 export const DEFAULT_FRAME = "Plain";
 
-export const ACCENTS: ReadonlyArray<AccentOption> = [
+const BASE_ACCENTS: AccentOption[] = [
 	{ Id: "Cyan", Name: "Forge Cyan", Rgb: [86, 214, 255], Unlock: { Kind: "Free", Target: 0 } },
 	{ Id: "Mint", Name: "Mint", Rgb: [104, 232, 170], Unlock: { Kind: "Free", Target: 0 } },
 	{ Id: "Mango", Name: "Mango", Rgb: [255, 184, 82], Unlock: { Kind: "Free", Target: 0 } },
@@ -165,7 +166,7 @@ export const ACCENTS: ReadonlyArray<AccentOption> = [
 	{ Id: "Blister", Name: "Blister Pink", Rgb: [255, 150, 160], Unlock: { Kind: "Taps", Target: 5000 } },
 ];
 
-export const FRAMES: ReadonlyArray<FrameOption> = [
+const BASE_FRAMES: FrameOption[] = [
 	{ Id: "Plain", Name: "Plain", Description: "A clean, thin ring.", Thickness: 1, Gradient: false, Unlock: { Kind: "Free", Target: 0 } },
 	{
 		Id: "Bold",
@@ -257,6 +258,10 @@ export const FRAMES: ReadonlyArray<FrameOption> = [
 		Unlock: { Kind: "Goals", Target: 5 },
 	},
 ];
+
+// version 8 accents and frames (ContentV8) go after the originals, so picker order is unchanged up top
+export const ACCENTS: ReadonlyArray<AccentOption> = [...BASE_ACCENTS, ...(ContentV8.ACCENTS as unknown as AccentOption[])];
+export const FRAMES: ReadonlyArray<FrameOption> = [...BASE_FRAMES, ...(ContentV8.FRAMES as unknown as FrameOption[])];
 
 export function findAccent(id: unknown): AccentOption | undefined {
 	for (const option of ACCENTS) {

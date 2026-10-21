@@ -1,4 +1,5 @@
 ﻿import CrateExpansion = require("../CrateExpansion");
+import * as ContentV8 from "../ContentV8";
 
 type Dict = Record<string, unknown>;
 
@@ -68,6 +69,8 @@ const EARNED_SKINS: ReadonlyArray<SkinDef> = table.freeze([
 	{ Id: "RigCrate", Name: "Rig Crate", Tier: "Epic", Blurb: "Wired straight into a relic rig. It hums.", Accent: [ 110, 238, 255 ], Glow: [ 200, 250, 255 ], Vfx: "embers", Earn: { Kind: "Rigs", Target: 5 } },
 	{ Id: "SeasonLocker", Name: "Season Locker", Tier: "Epic", Blurb: "Painted over every season. The old colours show at the corners.", Accent: [ 76, 150, 230 ], Glow: [ 180, 220, 255 ], Vfx: "frost", Earn: { Kind: "Seasons", Target: 15 } },
 	{ Id: "OldFaithful", Name: "Old Faithful", Tier: "Legendary", Blurb: "Opened so often the hinges are worn smooth.", Accent: [ 214, 132, 92 ], Glow: [ 255, 190, 140 ], Vfx: "magma", Earn: { Kind: "Crates", Target: 500 } },
+	// version 8 earned skins (ContentV8), after the originals
+	...(ContentV8.EARNED_SKINS as unknown as SkinDef[]),
 ] as SkinDef[]);
 
 const skinById: Record<string, SkinDef | undefined> = {};
