@@ -82,7 +82,7 @@ local CASES: { Case } = {
 	-- trade chat placeholder at 360 (textbox leaves 78 for SEND), 13px
 	{ file = "pages/PagesSocial.tsx", needle = "Say something to ${session.PartnerName}", fill = { ["session.PartnerName"] = "WWWWWWWWWWWW" }, size = 13, bold = false, width = PHONE - 14 * 2 - 78 },
 	-- Shop
-	{ file = "pages/PagesShop.tsx", needle = "Speed up your forge.", size = 18, bold = true, width = shopPanel },
+	{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = shopPanel },
 	{ file = "pages/PagesShop.tsx", needle = "Type a code to claim it. Each one works once.", size = 12, minSize = 10, bold = false, width = shopPanel, box = 26 },
 	{ file = "pages/PagesShop.tsx", needle = "Follow the creator on Roblox, then check here for a one-time reward.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
 	{ file = "pages/PagesShop.tsx", needle = "Reward claimed. Thanks for the follow.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
@@ -113,7 +113,7 @@ local function phoneCases(phone: number)
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Each title shows as it looks on you.", size = 11, bold = false, width = panel, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Train officers with signals.", size = 12, minSize = 10, bold = false, width = panel, phone = phone },
-		{ file = "pages/PagesShop.tsx", needle = "Speed up your forge.", size = 18, bold = true, width = panel, phone = phone },
+		{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = panel, phone = phone },
 	}
 end
 for _, phone in { 360, 286 } do

@@ -1032,19 +1032,14 @@ function ShopView(props: ShopViewProps) {
 			? h(
 				React.Fragment,
 				{},
-				h(Badge, {
-					value: "SHOP",
-					accent: Palette.mango,
-					filled: true,
-					size: UDim2.fromOffset(68, 20),
-				}),
 				h(Text, {
-					value: "Speed up your forge.",
+					value: "Passes, packs and codes",
 					size: 18,
 					color: Palette.cream,
 					weight: Enum.FontWeight.Heavy,
-					fit: false,
-					position: UDim2.fromOffset(0, 26),
+					fit: true,
+					minSize: 14,
+					position: UDim2.fromOffset(0, 12),
 					sizeConstraint: new UDim2(1, 0, 0, 24),
 				}),
 				h(Text, {
