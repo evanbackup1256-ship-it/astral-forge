@@ -212,7 +212,6 @@ return function(DataTemplate, GameConfig)
 	do
 		local save = DataTemplate.New()
 		save.AutoForge = { Enabled = true, MachineId = "StellarCore", Reserve = 0.5, Bought = 120 }
-		save.Ascension.Rank = 1
 		add({
 			name = "v7.2 auto-forge before programs",
 			save = save,
