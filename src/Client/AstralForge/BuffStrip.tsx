@@ -1020,7 +1020,7 @@ function ExpandedList(props: ExpandedListProps): React.Element {
 		return order;
 	};
 	if (props.currencies !== undefined && props.currencies.size() > 0) {
-		rows.balanceTitle = SectionTitle(nextOrder(), "YOUR BALANCE");
+		rows.balanceTitle = SectionTitle(nextOrder(), "Your balance");
 		for (const currency of props.currencies) {
 			const rate =
 				currency.target === "FLUX" && props.rate !== undefined ? `  +${format.compactNumber(props.rate)}/s` : "";
@@ -1039,11 +1039,11 @@ function ExpandedList(props: ExpandedListProps): React.Element {
 		}
 	}
 	if (props.perf !== undefined && (props.perf.showFps === true || props.perf.showPing === true)) {
-		rows.perfTitle = SectionTitle(nextOrder(), "CONNECTION");
+		rows.perfTitle = SectionTitle(nextOrder(), "Connection");
 		rows.perf = h(PerfRows, { order: nextOrder(), showFps: props.perf.showFps, showPing: props.perf.showPing });
 	}
 	if (props.buffs.size() > 0) {
-		rows.buffTitle = SectionTitle(nextOrder(), "BOOSTING YOU NOW");
+		rows.buffTitle = SectionTitle(nextOrder(), "Active boosts");
 		for (const buff of props.buffs) {
 			const timed = buff.endsAt !== undefined;
 			rows[buff.key] = Row(
