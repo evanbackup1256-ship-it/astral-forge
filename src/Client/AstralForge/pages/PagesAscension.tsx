@@ -4,6 +4,7 @@ import React from "@rbxts/react";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { useClock, useFlipperSpring, useViewport } from "../MotionKit/motion";
+import { ConstellationsView, constellationsHeight, ConstellationState } from "./PagesProgress/ConstellationsView";
 import { AudioPlayer, kitMember, LuauComponent } from "./luauKits";
 
 const RunService = game.GetService("RunService");
@@ -326,7 +327,7 @@ function SigilCard(props: SigilCardProps) {
 }
 
 interface AscensionViewProps {
-	state: { Ascension?: AscensionState };
+	state: { Ascension?: AscensionState; Constellations?: ConstellationState };
 	reducedMotion?: boolean;
 	dispatch: (action: string, payload: object, callback: (response: unknown) => void) => void;
 }
@@ -574,6 +575,28 @@ function AscensionView(props: AscensionViewProps) {
 			{cards}
 		</frame>,
 	);
+
+	// v8 star charts: every rebirth is a Star Point
+	const charts = props.state.Constellations;
+	if (typeIs(charts, "table")) {
+		add(
+			"constellations",
+			constellationsHeight(stack),
+			<ConstellationsView
+				state={charts}
+				stack={stack}
+				reducedMotion={softMotion}
+				dispatch={(action, payload, callback) =>
+					props.dispatch(action, payload ?? {}, (raw) => {
+						const response = (typeIs(raw, "table") ? raw : {}) as { ok?: boolean; message?: string; error?: string };
+						Audio.play(response.ok === true ? "successChime" : "error");
+						setNote(response.ok === true ? (response.message ?? "") : (response.error ?? "That didn't work."));
+						callback?.(response);
+					})
+				}
+			/>,
+		);
+	}
 	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
 }
 

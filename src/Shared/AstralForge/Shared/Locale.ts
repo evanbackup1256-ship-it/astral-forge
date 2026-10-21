@@ -694,7 +694,7 @@ export const EN = {
 	"GuildCommunity.ChatIsUnavailableForYour": "Chat is unavailable for your account.",
 	"GuildCommunity.AnnouncementNotFound": "Announcement not found.",
 	"HotFlags.UseNameOnOrName": "Use Name=on or Name=off.",
-	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused, ConstellationsPaused, EngravingPaused, RecipesPaused.",
+	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused, CompanionBondsPaused, ExpeditionBoardPaused, ForgeProgramsPaused, ConstellationsPaused, EngravingPaused, RecipesPaused.",
 	"ServerEventService.NoStarsAreFallingRight": "No stars are falling right now.",
 	"ServerEventService.YouVeCaughtEveryStar": "You've caught every star you can this time.",
 	"ServerEventService.TooQuick": "Too quick.",

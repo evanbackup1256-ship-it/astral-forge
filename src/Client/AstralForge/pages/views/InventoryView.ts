@@ -1,6 +1,8 @@
 import CompanionRelic = require("../../../../Shared/AstralForge/Shared/CompanionRelic");
 import React from "@rbxts/react";
 import { CompanionBondCard, companionBondHeight } from "../PagesCore/CompanionBondCard";
+import { EngravingPanel, engravingPanelHeight } from "./EngravingPanel";
+import { RecipeBench, recipeBenchHeight } from "./RecipeBench";
 import { useTooltip } from "../../Tooltip";
 import { EffectLabel } from "../../CoreKit/inventoryMath";
 import ReactRoblox from "@rbxts/react-roblox";
@@ -75,7 +77,7 @@ function __member(): unknown {
 	let ShimmerText: unknown = luaProp(_ui, "ShimmerText");
 	let Text: unknown = luaProp(_ui, "Text");
 	let RELIC_ROW_SHOWN: unknown = luaCall(luaProp(React, "createBinding"), 1);
-	let TABS: unknown = ["Relics", "Crates", "Market", "Loadout"];
+	let TABS: unknown = ["Relics", "Crates", "Market", "Recipes", "Loadout"];
 	let _newValue: unknown = (table.create as unknown as (...a: unknown[]) => unknown)(len(TABS));
 	let _callback: unknown = function(this: void, id?: unknown): unknown | undefined {
 		return { id: id, label: (string.upper as unknown as (...a: unknown[]) => unknown)(id) };
@@ -1225,6 +1227,8 @@ function __member(): unknown {
 		} else if ((tab === "Market")) {
 			let marketCardH: unknown = (luaTruthy(stack) ? MARKET_CARD_H_STACK : MARKET_CARD_H);
 			canvasHeight = ((((((((listStart as unknown as number) + (marketBannerH as unknown as number)) as unknown as number) + (pageGap as unknown as number)) as unknown as number) + ((((math.max as unknown as (...a: unknown[]) => unknown)(1, len(shopOffers)) as unknown as number) * ((((marketCardH as unknown as number) + (pageGap as unknown as number))) as unknown as number)) as unknown as number)) as unknown as number) + (luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), SCROLL_PAD) as unknown as number));
+		} else if ((tab === "Recipes")) {
+			canvasHeight = ((listStart as unknown as number) + recipeBenchHeight(((luaProp(luaProp(config, "Items"), "Definitions") ?? []) as never[]), (items ?? {}) as never, luaTruthy(stack)) + (luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), SCROLL_PAD) as unknown as number));
 		} else {
 			let equippedCount: unknown = 0;
 			if ((items !== undefined)) {
@@ -1315,6 +1319,12 @@ function __member(): unknown {
 			if ((((inspectPanelH as unknown as number) > (0 as unknown as number)) && (selected !== undefined))) {
 				luaTable.insert(sections, { id: "inspect", height: inspectPanelH, element: reactLoose.createElement(DetailPanel, { item: selected, state: state, config: config, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack, fill: true }) });
 			}
+			// v8 engraving: the selected relic's lines, right under its inspect panel
+			if ((((inspectPanelH as unknown as number) > (0 as unknown as number)) && (selected !== undefined))) {
+				const engraveItems = (items ?? {}) as { Essence?: number; EngravingPaused?: boolean };
+				const engraveOre = (luaProp(state, "Ore") ?? {}) as { Starsteel?: number };
+				luaTable.insert(sections, { id: "engrave", height: engravingPanelHeight() + 28, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panelRaised"), padding: 14, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(EngravingPanel, { uid: luaProp(selected, "uid") as string, instance: luaProp(selected, "instance") as never, definition: luaProp(selected, "definition") as never, essence: tonumber(engraveItems.Essence) ?? 0, starsteel: tonumber(engraveOre.Starsteel) ?? 0, paused: engraveItems.EngravingPaused === true, dispatch: dispatch as never, reducedMotion: luaTruthy(reducedMotion) })) });
+			}
 			luaTable.insert(sections, { id: "list", fill: true, minHeight: (math.max as unknown as (...a: unknown[]) => unknown)(160, ((luaCall(luaProp(InventoryMath, "RelicRowHeight"), stack) as unknown as number) + (48 as unknown as number))), element: listPane });
 			if (luaTruthy(bulkMode)) {
 				luaTable.insert(sections, { id: "bulk", height: BULK_DOCK_H, element: reactLoose.createElement(BulkDock, { selectedCount: len(selectedForBulk), selectableCount: len(selectableVisible), selectionEssence: selectionEssence, selectVisible: selectVisible, clearSelection: clearSelection, salvageSelected: salvageSelected, bulkArmed: bulkArmed, bulkBusy: bulkBusy, reducedMotion: reducedMotion }) });
@@ -1357,6 +1367,12 @@ function __member(): unknown {
 				return undefined;
 			}, ListHeaderComponent: reactLoose.createElement(MarketBanner, { refreshText: keysRefreshText, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack }), ListEmptyComponent: reactLoose.createElement(EmptyState, { icon: "Shop.13", title: "Market offline", body: ((((((luaTruthy(luaProp(config, "ClientPageGuides") ) ?  luaProp(luaProp(config, "ClientPageGuides"), "Inventory") : luaProp(config, "ClientPageGuides"))) && luaProp(luaProp(luaProp(config, "ClientPageGuides"), "Inventory"), "EmptyMarket"))) || "No dock offers right now. More arrive at the next restock.")), accent: luaProp(Palette, "mango"), layoutOrder: 0, reducedMotion: reducedMotion }) }));
 			luaTable.insert(sections, { id: "market", fill: true, minHeight: (math.max as unknown as (...a: unknown[]) => unknown)(160, ((((marketBannerH as unknown as number) + (marketCardH as unknown as number)) as unknown as number) + (((pageGap as unknown as number) * (2 as unknown as number)) as unknown as number))), element: marketList });
+		} else if ((tab === "Recipes")) {
+			// v8 recipe forging: craft relics already in the codex
+			const benchDefs = ((luaProp(luaProp(config, "Items"), "Definitions") ?? []) as never[]);
+			const benchItems = (items ?? {}) as never;
+			const benchOre = (luaProp(state, "Ore") ?? {}) as never;
+			luaTable.insert(sections, { id: "recipes", height: recipeBenchHeight(benchDefs, benchItems, luaTruthy(stack)), element: reactLoose.createElement(RecipeBench, { definitions: benchDefs, items: benchItems, ore: benchOre, stack: luaTruthy(stack), dispatch: dispatch as never, reducedMotion: luaTruthy(reducedMotion) }) });
 		} else {
 			let equippedCount: unknown = 0;
 			if ((items !== undefined)) {
