@@ -856,9 +856,11 @@ function AutoForgePanel(props: {
 	// phones (portrait and landscape): label + badge, title, a full-width line, then the machine picker and
 	// the reserve/start row underneath; featureHeight in WorkshopView matches this so nothing spills into the list
 	const controlY = stack ? 104 : 102;
-	const machineW = stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(270, 42);
-	const reserveW = stack ? new UDim2(0.5, -5, 0, TapTarget) : UDim2.fromOffset(174, 42);
-	const buttonW = stack ? new UDim2(0.5, -5, 0, TapTarget) : UDim2.fromOffset(158, 42);
+	// desktop: the three controls share the row (44% / 28% / 28%), so a 840-900px window with the side
+	// nav no longer pushes the start button past the panel edge; fixed widths needed about 630px
+	const machineW = stack ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0.44, -8, 0, 42);
+	const reserveW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, -8, 0, 42);
+	const buttonW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, 0, 0, 42);
 	return (
 		<Panel
 			size={new UDim2(1, -4, 0, height)}
@@ -910,7 +912,7 @@ function AutoForgePanel(props: {
 				fit={true}
 				minSize={9}
 				position={UDim2.fromOffset(stack ? 0 : 62, stack ? 54 : 42)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -70, 0, 28)}
+				sizeConstraint={new UDim2(1, stack ? 0 : -(62 + 220), 0, 28)}
 			/>
 			<Badge
 				value={stack ? badgeStatus : status}
@@ -946,14 +948,14 @@ function AutoForgePanel(props: {
 				onChange={(id: string) => apply(queue.Enabled, queue.MachineId, AppHelpers.reserveValue(id))}
 				accent={Palette.cyan}
 				label="FLUX RESERVE"
-				position={stack ? UDim2.fromOffset(0, controlY + TapTarget + 26) : UDim2.fromOffset(282, controlY)}
+				position={stack ? UDim2.fromOffset(0, controlY + TapTarget + 26) : new UDim2(0.44, 4, 0, controlY)}
 				size={reserveW}
 				reducedMotion={softMotion}
 				zIndex={52}
 			/>
 			<frame
 				Size={buttonW}
-				Position={stack ? new UDim2(0.5, 5, 0, controlY + TapTarget + 26) : UDim2.fromOffset(468, controlY)}
+				Position={stack ? new UDim2(0.5, 5, 0, controlY + TapTarget + 26) : new UDim2(0.72, 0, 0, controlY)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				ZIndex={26}
