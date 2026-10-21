@@ -31,6 +31,7 @@ import * as CommunityRewards from "./Gameplay/CommunityRewards";
 import { MatterRuntime } from "./MatterRuntime";
 import * as PolicyGate from "./PolicyGate";
 import * as WeeklyStores from "./WeeklyStores";
+import * as LimitedEvents from "../../../Shared/AstralForge/Shared/LimitedEvents";
 import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
@@ -82,6 +83,33 @@ const MarketplaceService = game.GetService("MarketplaceService");
 const HttpService = game.GetService("HttpService");
 const ServerStorage = game.GetService("ServerStorage");
 const Workspace = game.GetService("Workspace");
+
+// The limited event this server is running, or undefined. In Studio, setting the Workspace attribute
+// AstralForgeEventPreview to an event id runs that event now so its stall can be checked early.
+function liveEvent(now: number): LimitedEvents.LimitedEvent | undefined {
+	if (RunService.IsStudio()) {
+		const preview = LimitedEvents.byId(Workspace.GetAttribute("AstralForgeEventPreview"));
+		if (preview !== undefined) {
+			return preview;
+		}
+	}
+	return LimitedEvents.activeAt(now);
+}
+
+function limitedEventPublic(profile: Profile, now: number) {
+	const event = HotFlags.Get("LimitedEventsPaused") ? undefined : liveEvent(now);
+	const upcoming = LimitedEvents.nextAfter(now);
+	const bag = profile.LimitedEvent as Dict | undefined;
+	const mine = event !== undefined && typeIs(bag, "table") && bag.Id === event.Id;
+	return {
+		Id: event?.Id,
+		Paused: HotFlags.Get("LimitedEventsPaused"),
+		Tokens: mine ? bag!.Tokens : 0,
+		DayEarned: mine && bag!.Day === math.floor(now / 86400) ? bag!.DayEarned : 0,
+		Bought: mine ? bag!.Bought : {},
+		NextId: upcoming?.Id,
+	};
+}
 
 const root = script.Parent!.Parent!;
 const modules = () => root.WaitForChild("Modules");
@@ -2211,6 +2239,7 @@ export class GameService {
 			Level: levelState,
 			Story: storyState,
 			Mailbox: StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
+			LimitedEvent: limitedEventPublic(profile, now),
 			WeeklyBoard: {
 				Score: WeeklyBoard.scoreOf(profile, now),
 				EndsAt: WeeklyBoard.weekEndsAt(WeeklyBoard.weekOf(now)),
@@ -2653,6 +2682,57 @@ export class GameService {
 	}
 
 	// Op "Catch" (Falling Stars) or "Claim" with Drop (Supply Drop)
+	// Event tokens are counted per action in the runtime and written on the 10s maintenance pass.
+	_queueEventPoints(player: Player, action: string) {
+		if (HotFlags.Get("LimitedEventsPaused")) {
+			return;
+		}
+		const event = liveEvent(os.time());
+		const runtime = this._runtime.get(player);
+		const points = event !== undefined ? LimitedEvents.pointsFor(event, action) : 0;
+		if (runtime !== undefined && points > 0) {
+			runtime.EventPoints = ((runtime.EventPoints as number | undefined) ?? 0) + points;
+		}
+	}
+
+	// Runs inside the maintenance update. Moves the bag onto the current event, pays Stardust for an
+	// ended event's leftover tokens, and banks the queued points.
+	_settleEventTokens(player: Player, runtime: Runtime, profile: Profile): boolean {
+		if (HotFlags.Get("LimitedEventsPaused")) {
+			return false;
+		}
+		const now = os.time();
+		const event = liveEvent(now);
+		const [moved, refund] = LimitedEvents.ensure(profile, event);
+		if (refund > 0) {
+			ProgressionService.ApplyReward(profile, { Stardust: refund }, undefined);
+			task.defer(() =>
+				this._toastPlayer(player, "Event over", string.format("Your leftover tokens became %d Stardust.", refund), "Special"),
+			);
+		}
+		const points = (runtime.EventPoints as number | undefined) ?? 0;
+		runtime.EventPoints = 0;
+		const added = event !== undefined && points > 0 ? LimitedEvents.earn(profile, event, points, now) : 0;
+		return moved || added > 0;
+	}
+
+	_buyEventItem(player: Player, itemId: unknown) {
+		const now = os.time();
+		const event = liveEvent(now);
+		if (event === undefined || HotFlags.Get("LimitedEventsPaused")) {
+			return responseError("The event stall is closed right now.");
+		}
+		return this._mutate(player, (profile: Profile) => {
+			LimitedEvents.ensure(profile, event);
+			const [item, reason] = LimitedEvents.buy(profile, event, itemId);
+			if (item === undefined) {
+				return responseError(reason ?? "That isn't sold at this stall.");
+			}
+			const text = ProgressionService.ApplyReward(profile, item.Reward, Economy.Production(profile));
+			return responseSuccess("Bought " + item.Name + ": " + tostring(text), { Item: item.Id });
+		});
+	}
+
 	_eventAct(player: Player, payload: unknown) {
 		const op = isTable(payload) ? payload.Op : undefined;
 		if (op === "Catch") {
@@ -2664,6 +2744,8 @@ export class GameService {
 				profile.Stardust = math.clamp((num(profile.Stardust) ?? 0) + dust, 0, 1e14);
 				return responseSuccess(undefined, { Dust: dust });
 			});
+		} else if (op === "Buy") {
+			return this._buyEventItem(player, (payload as Dict).Item);
 		} else if (op === "Claim") {
 			const [reward, reason] = this._events.ClaimSupply(player, (payload as Dict).Drop) as LuaTuple<[Dict | undefined, unknown]>;
 			if (reward === undefined) {
@@ -6454,6 +6536,7 @@ export class GameService {
 					changed = truthy(AnomalyService.Ensure(profile)) || changed;
 					changed = truthy(LabService.Ensure(profile, player.UserId)) || changed;
 					changed = WeeklyBoard.ensure(profile, os.time()) || changed;
+					changed = this._settleEventTokens(player, runtime, profile) || changed;
 					if (!truthy(this._antiCheat.Observe(player, "Maintenance", profile))) {
 						changed = true;
 					}
@@ -6874,6 +6957,7 @@ export class GameService {
 					const profile = this._data.Get(player) as Profile | undefined;
 					if (profile !== undefined) {
 						this._convergence.RecordAction(player, tostring(action));
+						this._queueEventPoints(player, tostring(action));
 						if (action === Protocol.Actions.CollectVault) {
 							this._crews.RecordCollect(player);
 						}

@@ -583,8 +583,11 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			return $tuple(false, "invalid foundry rotation");
 		}
 	} else if (action === Protocol.Actions.EventAct) {
-		if (!typeIs(payload, "table") || (bag.Op !== "Catch" && bag.Op !== "Claim")) {
+		if (!typeIs(payload, "table") || (bag.Op !== "Catch" && bag.Op !== "Claim" && bag.Op !== "Buy")) {
 			return $tuple(false, "invalid event action");
+		}
+		if (bag.Op === "Buy" && !stringField(bag, "Item", 1, 32)) {
+			return $tuple(false, "invalid event shop item");
 		}
 		if (bag.Op === "Claim" && !numberField(bag, "Drop", 1, 8, true)) {
 			return $tuple(false, "invalid supply drop");

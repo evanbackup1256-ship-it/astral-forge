@@ -10,6 +10,7 @@ export const FLAGS = table.freeze({
 	TradingPaused: "New trades and settlements are refused.",
 	CratesPaused: "Crate opening is refused.",
 	AnnouncementsMuted: "Cross-server admin announcements are not shown in this server.",
+	LimitedEventsPaused: "The running limited event stops paying tokens and its stall closes. Tokens are kept.",
 });
 
 export type HotFlag = keyof typeof FLAGS;
@@ -40,7 +41,7 @@ export function Set(name: HotFlag, on: boolean, at?: number): boolean {
 export function Parse(option: unknown): LuaTuple<[HotFlag | undefined, boolean, string | undefined]> {
 	if (!typeIs(option, "string")) return $tuple(undefined, false, "Use Name=on or Name=off.");
 	const [name, value] = option.match("^%s*([%a]+)%s*=%s*(%a+)%s*$") as LuaTuple<[string | undefined, string | undefined]>;
-	if (!IsFlag(name)) return $tuple(undefined, false, "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted.");
+	if (!IsFlag(name)) return $tuple(undefined, false, "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused.");
 	const lowered = (value ?? "").lower();
 	if (lowered !== "on" && lowered !== "off") return $tuple(undefined, false, "Use Name=on or Name=off.");
 	return $tuple(name, lowered === "on", undefined);

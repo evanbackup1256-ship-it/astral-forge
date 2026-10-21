@@ -61,6 +61,7 @@ const DataTemplate = {
 			RunCash: 0,
 			LifetimeCash: 0,
 			WeeklyBoard: { Week: -1, Base: 0, ClaimedWeek: 0 },
+			LimitedEvent: { Id: "", Tokens: 0, Earned: 0, Day: -1, DayEarned: 0, Bought: {} },
 			Zone: 1,
 			CurrentZone: 1,
 

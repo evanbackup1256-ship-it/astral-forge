@@ -5,6 +5,7 @@ import { chromeFor, darken, lighten, Palette, scrollTail, TapTarget } from "../.
 import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
+import { EventDispatch, EventPanel, eventPanelHeight, EventState } from "./EventPanel";
 
 const UserInputService = game.GetService("UserInputService");
 const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
@@ -304,6 +305,7 @@ interface RewardsViewProps {
 		Quests?: unknown;
 		Achievements?: unknown[];
 		Community?: CommunityState;
+		LimitedEvent?: EventState;
 	};
 	dispatch: Dispatch;
 	navigate?: (page: string) => void;
@@ -685,11 +687,22 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		</frame>
 	);
 
-	const sections = [
-		{ id: "header", height: heroH, element: headerPanel },
+	// a running limited event sits right under the header; between events it's a one-line "next up"
+	const eventH = eventPanelHeight(state.LimitedEvent, stack);
+	const sections = [{ id: "header", height: heroH, element: headerPanel }];
+	if (state.LimitedEvent !== undefined && eventH > 0) {
+		sections.push({
+			id: "event",
+			height: eventH,
+			element: (
+				<EventPanel state={state.LimitedEvent} dispatch={dispatch as unknown as EventDispatch} stack={stack} reducedMotion={softMotion} />
+			),
+		});
+	}
+	sections.push(
 		{ id: "daily", height: dailyCardH, element: dailyPanel },
 		{ id: "timed", height: timedCardH, element: timedPanel },
-	];
+	);
 	if (timedEntries.size() > 0) {
 		sections.push({ id: "timeline", height: timelineH, element: timelinePanel });
 	}
