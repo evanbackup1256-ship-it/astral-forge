@@ -203,14 +203,14 @@ function Pill(props: PillProps): React.Element {
 			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 		}),
 		h("uipadding", {
-			PaddingLeft: new UDim(0, 10),
-			PaddingRight: new UDim(0, 12),
+			PaddingLeft: new UDim(0, 16),
+			PaddingRight: new UDim(0, 16),
 		}),
 		h("uilistlayout", {
 			FillDirection: Enum.FillDirection.Horizontal,
 			VerticalAlignment: Enum.VerticalAlignment.Center,
 			SortOrder: Enum.SortOrder.LayoutOrder,
-			Padding: new UDim(0, 8),
+			Padding: new UDim(0, 12),
 		}),
 		h(
 			"frame",
@@ -243,8 +243,8 @@ function Pill(props: PillProps): React.Element {
 			},
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uipadding", {
-				PaddingLeft: new UDim(0, 8),
-				PaddingRight: new UDim(0, 8),
+				PaddingLeft: new UDim(0, 12),
+				PaddingRight: new UDim(0, 12),
 			}),
 			h("textlabel", {
 				Size: UDim2.fromOffset(0, 22),
@@ -326,7 +326,7 @@ function Strip(props: StripProps): React.Element {
 			FillDirection: Enum.FillDirection.Horizontal,
 			VerticalAlignment: Enum.VerticalAlignment.Center,
 			SortOrder: Enum.SortOrder.LayoutOrder,
-			Padding: new UDim(0, 8),
+			Padding: new UDim(0, 12),
 		}),
 	};
 	for (let index = 0; index < shownList.size(); index++) {

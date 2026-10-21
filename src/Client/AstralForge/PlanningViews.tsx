@@ -318,7 +318,7 @@ function scaffold(sections: Section[], viewport: theme.ChromeViewport, props: Pl
 			<MotionSettingsContext.Provider value={motion}>
 				<PageScaffold
 					sections={sections}
-					gap={12}
+					gap={16}
 					tailPad={theme.scrollTail(chrome.stack, chrome.bottomSafe, 40)}
 					scrollBarColor={P.cyan}
 					scrollBarThickness={4}

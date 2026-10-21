@@ -740,7 +740,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			}
 		}
 		return e("frame", { Name: "RankDashboard", ref: hostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ClipsDescendants: false }, {
-			Content: e(Scaffold, { sections, gap: 10, tailPad: 80, scrollBarColor: meta.accent, scrollBarThickness: 4 }),
+			Content: e(Scaffold, { sections, gap: 16, tailPad: 80, scrollBarColor: meta.accent, scrollBarThickness: 4 }),
 		});
 	};
 }

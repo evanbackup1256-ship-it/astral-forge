@@ -577,7 +577,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 				Visible: frame.map((f) => f.spot.a > 0.05),
 				ZIndex: 381,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 10) }),
+			h("uicorner", { CornerRadius: new UDim(0, 8) }),
 			h(
 				"uistroke",
 				{
@@ -719,7 +719,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 					BorderSizePixel: 0,
 					ZIndex: 404,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 6) }),
+				h("uicorner", { CornerRadius: new UDim(0, 8) }),
 				h("uistroke", {
 					Color: goalDone ? Palette.mint : Palette.mango,
 					Thickness: 1.5,
@@ -822,13 +822,13 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 			Active: true,
 			ZIndex: 400,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, 12) }),
 		h("uistroke", { Color: Palette.mango, Thickness: 1.5, Transparency: 0.45 }),
 		h("uipadding", {
-			PaddingTop: new UDim(0, 12),
-			PaddingBottom: new UDim(0, 12),
-			PaddingLeft: new UDim(0, 16),
-			PaddingRight: new UDim(0, 16),
+			PaddingTop: new UDim(0, 16),
+			PaddingBottom: new UDim(0, 16),
+			PaddingLeft: new UDim(0, 20),
+			PaddingRight: new UDim(0, 20),
 		}),
 		h("uilistlayout", {
 			FillDirection: Enum.FillDirection.Vertical,
@@ -1027,7 +1027,7 @@ function VersionCard(param: VersionCardProps) {
 			},
 		},
 	});
-	const corner = h("uicorner", { CornerRadius: new UDim(0, 10) });
+	const corner = h("uicorner", { CornerRadius: new UDim(0, 8) });
 	const stroke = h("uistroke", {
 		Color: accent,
 		Thickness: current ? 1.5 : 1,
@@ -1119,10 +1119,10 @@ function VersionCard(param: VersionCardProps) {
 					BorderSizePixel: 0,
 					ZIndex: 328,
 				},
-				h(Badge, { value: "LATEST", accent: Palette.mint, filled: true, size: UDim2.fromScale(1, 1), zIndex: 328 }),
+				h(Badge, { value: "Latest", accent: Palette.mint, filled: true, size: UDim2.fromScale(1, 1), zIndex: 328 }),
 			),
 		h(Text, {
-			value: expanded ? "HIDE" : "VIEW",
+			value: expanded ? "Hide" : "View",
 			size: 9,
 			color: accent,
 			weight: Enum.FontWeight.Heavy,
@@ -1342,7 +1342,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 		ZIndex: 322,
 	});
 	const kicker = h(Text, {
-		value: "WHAT'S NEW",
+		value: "What's new",
 		size: 10,
 		color: Palette.violet,
 		weight: Enum.FontWeight.Heavy,
@@ -1510,7 +1510,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 									ZIndex: 327,
 								},
 								h(Button, {
-									text: "GOT IT",
+									text: "Got it",
 									icon: "Close.21",
 									onClick: closeOnce,
 									color: Palette.violet,
@@ -1522,7 +1522,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 								}),
 								onOpenMail !== undefined &&
 									h(Button, {
-										text: "OPEN MAIL",
+										text: "Open mail",
 										icon: "Mail.6",
 										onClick: openMail,
 										color: Palette.panelSoft,
@@ -1546,7 +1546,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 								},
 								onOpenMail !== undefined &&
 									h(Button, {
-										text: "OPEN MAIL",
+										text: "Open mail",
 										icon: "Mail.7",
 										onClick: openMail,
 										color: Palette.panelSoft,
@@ -1558,7 +1558,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 										zIndex: 327,
 									}),
 								h(Button, {
-									text: "GOT IT",
+									text: "Got it",
 									icon: "Close.22",
 									onClick: closeOnce,
 									color: Palette.violet,
