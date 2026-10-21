@@ -5,7 +5,7 @@ import { counted, memoRow, sameFields } from "../UiCore/rowMemo";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Fmt from "../CoreKit/format";
 import { ClientLog } from "../CoreKit/log";
-import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../CoreKit/theme";
+import { chromeFor, darken, Layout, Palette, Radius, scrollTail, StrokeWidth, TapTarget } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
 import { FlexGrid, useShopColumns } from "../MotionKit/flexbox";
 import { easeOutCubic, useBoatTween, useStagger, useViewport, useWallClock } from "../MotionKit/motion";
@@ -537,8 +537,8 @@ function OfferTileImpl(props: OfferTileProps) {
 					BorderSizePixel={0}
 					ClipsDescendants={true}
 				>
-					<uicorner CornerRadius={new UDim(0, 14)} />
-					<uistroke Color={accent} Thickness={1.5} Transparency={0.28} />
+					<uicorner CornerRadius={new UDim(0, Radius.md)} />
+					<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
 					{h(Icon, {
 						kind: icon,
 						color: Palette.cream,
@@ -1166,7 +1166,7 @@ function ShopView(props: ShopViewProps) {
 						BorderSizePixel: 0,
 						ClipsDescendants: false,
 					},
-					<uicorner CornerRadius={new UDim(0, 10)} />,
+					<uicorner CornerRadius={new UDim(0, Radius.md)} />,
 					<uistroke Color={codeFeedback !== "" ? Palette.cyan : Palette.lineSoft} Thickness={1} Transparency={0.5} />,
 					h("textbox", {
 						Size: new UDim2(1, -20, 1, -12),
@@ -1791,11 +1791,11 @@ function OfferCardImpl(props: OfferCardProps) {
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, Radius.lg) }),
 			h("uistroke", {
 				Color: accent,
-				Thickness: 1.5,
-				Transparency: 0.3,
+				Thickness: StrokeWidth.hairline,
+				Transparency: 0.5,
 			}),
 			offer.Kind === "Skin"
 				? h(CrateModel, {
