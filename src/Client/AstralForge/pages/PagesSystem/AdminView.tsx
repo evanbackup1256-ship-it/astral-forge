@@ -61,6 +61,8 @@ interface AdminCommand {
 	Label: string;
 	Category?: string;
 	Danger?: string;
+	/** the server needs an Option for this command (a picked choice or typed text) */
+	NeedsOption?: boolean;
 }
 interface AuditRecord {
 	Id: string;
@@ -560,7 +562,16 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const accent = catAccent(selected && selected.Category);
 	const integrity = admin.Integrity;
 	const reasonChoices = reasonsFor(command, selected && selected.Category);
-	const fieldSlots = (fields.usesAmount ? 1 : 0) + (fields.usesOption ? 1 : 0) + (needsArm ? 1 : 0);
+	// commands with a free-text option (flag name, journal entry id) get a typed field; the hint comes from the
+	// "(Option = ...)" part of the server label
+	const typedOption = selected !== undefined && selected.NeedsOption === true && !fields.usesOption;
+	const optionHint = (() => {
+		const label = selected !== undefined ? selected.Label : "";
+		const [hint] = label.match("%(Option = ([^%)]+)%)");
+		return typeIs(hint, "string") ? hint : "Option";
+	})();
+	const optionMissing = selected !== undefined && selected.NeedsOption === true && amount !== "Permanent" && option.gsub("%s", "")[0] === "";
+	const fieldSlots = (fields.usesAmount ? 1 : 0) + (fields.usesOption || typedOption ? 1 : 0) + (needsArm ? 1 : 0);
 
 	const send = (dryRun: boolean) => {
 		busyRef.current = true;
@@ -614,7 +625,10 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	};
 
 	const runDisabled =
-		busy || (fields.overridesTarget ? fields.amountChoices.size() === 0 : targetId === 0) || (needsArm && reason.size() < 3);
+		busy ||
+		optionMissing ||
+		(fields.overridesTarget ? fields.amountChoices.size() === 0 : targetId === 0) ||
+		(needsArm && reason.size() < 3);
 	const runLabel = busy ? "APPLYING…" : needsArm && !armed ? "ARM" : "RUN";
 	const runColor = busy ? Palette.panelSoft : needsArm && armed ? Palette.coral : needsArm ? Palette.mango : Palette.mint;
 
@@ -903,6 +917,20 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 						/>
 					</frame>
 				)}
+				{typedOption && (
+					<frame Size={new UDim2(1, 0, 0, FIELD_H - 6)} BackgroundTransparency={1} LayoutOrder={1} ZIndex={51}>
+						<SearchField
+							value={option}
+							onChange={setOption}
+							debounce={0}
+							accent={optionMissing ? Palette.coral : Palette.cyan}
+							placeholder={`Needed: ${optionHint}`}
+							hint={optionMissing ? "Required" : undefined}
+							size={UDim2.fromScale(1, 1)}
+							reducedMotion={softMotion}
+						/>
+					</frame>
+				)}
 				{needsArm && (
 					<frame Size={new UDim2(1, 0, 0, FIELD_H - 6)} BackgroundTransparency={1} LayoutOrder={2} ZIndex={50}>
 						<Dropdown
@@ -965,7 +993,9 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			</frame>
 			<Text
 				value={
-					(lastNote !== ""
+					(optionMissing
+						? `Fill in ${optionHint} above before you run this.`
+						: lastNote !== ""
 						? lastNote
 						: needsArm
 							? "Arm first. Dangerous commands need a second tap."
@@ -973,7 +1003,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					(previewLines.size() > 0 ? "\n• " + shownPreview.join("\n• ") : "")
 				}
 				size={9}
-				color={lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}
+				color={optionMissing ? Palette.coral : lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}
 				wrap={true}
 				fit={true} minSize={9}
 				position={new UDim2(0, 0, 1, -EXEC_NOTE + 4)}
