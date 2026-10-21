@@ -1,14 +1,20 @@
-// Tooltips, in React. One bubble for the whole game, rendered by <TooltipProvider> (mounted once at
-// the UI root) through a portal into its own top-layer ScreenGui.
+// Tooltips: one bubble for the whole game, drawn as a small Surface by <TooltipProvider> (mounted
+// once at the UI root) in its own top-layer ScreenGui.
 //
-// Any component calls useTooltip(content) and spreads the returned handlers into its Event table
-// (mergeEvents joins them with handlers the component already has). Content is a string or
-// { title, body, hint, accent }. The bubble waits before fading in (quicker right after another
-// was shown), sits beside its target, clamps to the screen, and goes on leave, press or scroll.
+// Targets call useTooltip(content) and merge the returned handlers into their Event table
+// (mergeEvents keeps the target's own handlers). Content is a string or { title, body, hint,
+// accent }. How a tip opens depends on the input:
+//   mouse    rest on the target (0.45s; 0.08s right after another tip closed)
+//   gamepad  selection rests on it (0.7s; 0.25s warm)
+//   touch    long press (0.45s), stays 1.6s after lifting; sliding 12px cancels it
+// Lists that move their own highlight (Quick Find) call showTooltipFor instead.
+// Any key, B, the wheel, or a tap/click outside the target closes it. The bubble goes above the
+// target, else below, right, left, and is clamped inside the device safe area.
 import React from "@rbxts/react";
-import { InteractionFeedback } from "./CoreKit/interaction";
 import ReactRoblox from "@rbxts/react-roblox";
+import { InteractionFeedback } from "./CoreKit/interaction";
 import { Palette } from "./CoreKit/theme";
+import { Surface, SurfaceText, useSurfaceSpring } from "./UiCore/surface";
 
 const Players = game.GetService("Players");
 const RunService = game.GetService("RunService");
@@ -18,149 +24,221 @@ const Workspace = game.GetService("Workspace");
 
 export type TooltipContent = string | { title?: string; body?: string; hint?: string; accent?: Color3 };
 
-const SHOW_DELAY = 0.45;
-const WARM_DELAY = 0.08;
-const WARM_WINDOW = 0.6;
-const PAD_DELAY = 0.7;
-// gamepad focus moves in steps, so a warm tip waits a touch longer than the mouse one
-const PAD_WARM_DELAY = 0.25;
-// a long-press tip stays this long after the finger lifts, unless something else is touched
-const TOUCH_LINGER = 1.6;
-// a finger that slides this far is scrolling, not asking for a tip
+const Timing = {
+	mouse: 0.45,
+	mouseWarm: 0.08,
+	pad: 0.7,
+	padWarm: 0.25,
+	warmWindow: 0.6,
+	longPress: 0.45,
+	touchLinger: 1.6,
+} as const;
 const TOUCH_SLOP = 12;
-const LONG_PRESS = 0.45;
 const GAP = 8;
 const EDGE = 10;
-const FADE_IN = 0.12;
+const BUBBLE_PAD = 10;
 
-const LABELS: { [key: string]: string } = {
-	Close: "Close", Back: "Back", Settings: "Settings", Menu: "Menu", Search: "Search",
-	Refresh: "Refresh", Send: "Send", Chat: "Chat", Mail: "Mail", Inventory: "Inventory",
-	Shop: "Shop", Play: "Play", Pause: "Pause", Hide: "Hide", Lock: "Locked", Check: "Done",
-	Chevron: "More", Visit: "Visit", Wave: "Wave", Gift: "Gift", Leaderboard: "Ranks",
-	Guide: "Guide", Credits: "Credits", Crew: "Crew", Guild: "Guild", Admin: "Admin",
-	Rewards: "Rewards", Calendar: "Calendar", Code: "Codes", Travel: "Travel", Loadout: "Loadout",
+// names for icon-only buttons, by icon concept ("Close.24" -> "Close")
+const ICON_NAMES: { [concept: string]: string } = {
+	Close: "Close",
+	Back: "Back",
+	Settings: "Settings",
+	Menu: "Menu",
+	Search: "Search",
+	Refresh: "Refresh",
+	Send: "Send",
+	Chat: "Chat",
+	Mail: "Mail",
+	Inventory: "Inventory",
+	Shop: "Shop",
+	Play: "Play",
+	Pause: "Pause",
+	Hide: "Hide",
+	Lock: "Locked",
+	Check: "Done",
+	Chevron: "More",
+	Visit: "Visit",
+	Wave: "Wave",
+	Gift: "Gift",
+	Leaderboard: "Ranks",
+	Guide: "Guide",
+	Credits: "Credits",
+	Crew: "Crew",
+	Guild: "Guild",
+	Admin: "Admin",
+	Rewards: "Rewards",
+	Calendar: "Calendar",
+	Code: "Codes",
+	Travel: "Travel",
+	Loadout: "Loadout",
 };
 
-// name for an icon-only button, by icon concept
 export function labelFor(icon: string | undefined): string | undefined {
 	if (!typeIs(icon, "string")) {
 		return undefined;
 	}
-	const [matched] = icon.match("^[^.]+");
-	return LABELS[(matched as string | undefined) ?? icon];
+	const [concept] = icon.match("^[^.]+");
+	return ICON_NAMES[(concept as string | undefined) ?? icon];
 }
 
-function hasContent(content: TooltipContent | undefined): content is TooltipContent {
-	if (content === undefined) return false;
-	if (typeIs(content, "string")) return content !== "";
-	return (content.title !== undefined && content.title !== "") || (content.body !== undefined && content.body !== "");
+interface TipData {
+	title?: string;
+	body?: string;
+	hint?: string;
+	accent?: Color3;
 }
 
-// the shared store the provider renders ------------------------------------------------------------
+function readContent(content: TooltipContent | undefined): TipData | undefined {
+	if (content === undefined) {
+		return undefined;
+	}
+	const data: TipData = typeIs(content, "string") ? { title: content } : content;
+	const filled = (text: string | undefined) => text !== undefined && text !== "";
+	return filled(data.title) || filled(data.body) ? data : undefined;
+}
 
-interface Shown {
+// ── The one open tip ───────────────────────────────────────────────────────────
+
+interface OpenTip {
 	id: number;
 	target: GuiObject;
-	content: TooltipContent;
+	data: TipData;
 }
 
-let shown: Shown | undefined = undefined;
-let pending: thread | undefined = undefined;
-let lastHiddenAt = -math.huge;
-let nextId = 0;
-const listeners = new Set<() => void>();
-function emit() {
-	for (const listener of listeners) listener();
-}
+const store = {
+	open: undefined as OpenTip | undefined,
+	timer: undefined as thread | undefined,
+	closedAt: -math.huge,
+	ids: 0,
+	listeners: new Set<() => void>(),
+	// where the current long press started, so sliding away cancels it
+	pressFrom: undefined as Vector2 | undefined,
+};
 
-function cancelPending() {
-	if (pending !== undefined) {
-		pcall(task.cancel, pending);
-		pending = undefined;
+function notify() {
+	for (const listener of store.listeners) {
+		listener();
 	}
 }
 
-function hideId(id: number | undefined) {
-	cancelPending();
-	if (shown !== undefined && (id === undefined || shown.id === id)) {
-		shown = undefined;
-		lastHiddenAt = os.clock();
-		emit();
+function newId(): number {
+	store.ids += 1;
+	return store.ids;
+}
+
+function stopTimer() {
+	if (store.timer !== undefined) {
+		pcall(task.cancel, store.timer);
+		store.timer = undefined;
 	}
 }
 
-function hideTooltip() {
-	hideId(undefined);
+function close(id?: number) {
+	stopTimer();
+	if (store.open !== undefined && (id === undefined || store.open.id === id)) {
+		store.open = undefined;
+		store.closedAt = os.clock();
+		notify();
+	}
 }
 
-// For lists that move their own highlight (Quick Find) instead of using gamepad selection:
-// show a tip beside `target` after the usual focus delay. Returns a function that hides it again.
+function warm(): boolean {
+	return os.clock() - store.closedAt < Timing.warmWindow;
+}
+
+function openAfter(id: number, target: GuiObject, read: () => TooltipContent | undefined, wait: number) {
+	stopTimer();
+	store.timer = task.delay(wait, () => {
+		store.timer = undefined;
+		const data = readContent(read());
+		if (data === undefined || !target.IsDescendantOf(game) || !target.Visible) {
+			return;
+		}
+		store.open = { id, target, data };
+		// a long-press tip lands with a light tick so the finger knows it worked
+		if (store.pressFrom !== undefined) {
+			InteractionFeedback.tick();
+		}
+		notify();
+	});
+}
+
+/** Show a tip beside `target` after the gamepad delay; returns a function that takes it away. */
 export function showTooltipFor(target: GuiObject, content: TooltipContent): () => void {
-	nextId += 1;
-	const id = nextId;
-	scheduleShow(id, target, () => content, os.clock() - lastHiddenAt < WARM_WINDOW ? PAD_WARM_DELAY : PAD_DELAY);
+	const id = newId();
+	openAfter(id, target, () => content, warm() ? Timing.padWarm : Timing.pad);
 	return () => {
-		if (shown !== undefined && shown.id === id) {
-			hideId(id);
-		} else if (shown === undefined) {
-			cancelPending();
+		if (store.open !== undefined && store.open.id === id) {
+			close(id);
+		} else if (store.open === undefined) {
+			stopTimer();
 		}
 	};
 }
 
-function scheduleShow(id: number, target: GuiObject, read: () => TooltipContent | undefined, delayTime: number) {
-	cancelPending();
-	pending = task.delay(delayTime, () => {
-		pending = undefined;
-		const content = read();
-		if (!hasContent(content) || !target.IsDescendantOf(game) || !target.Visible) return;
-		shown = { id, target, content };
-		// a long-press tip lands with a light tick so the finger knows it worked
-		if (pressStart !== undefined) InteractionFeedback.tick();
-		emit();
-	});
+function screenRect(target: GuiObject): LuaTuple<[Vector2, Vector2]> {
+	let position = target.AbsolutePosition;
+	const holder = target.FindFirstAncestorWhichIsA("LayerCollector");
+	if (holder !== undefined && holder.IsA("ScreenGui") && !holder.IgnoreGuiInset) {
+		position = position.add(GuiService.GetGuiInset()[0]);
+	}
+	return $tuple(position, target.AbsoluteSize);
 }
 
-const MODIFIERS = new Set<Enum.KeyCode>([
-	Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift, Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl,
-	Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt, Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta,
-	Enum.KeyCode.LeftSuper, Enum.KeyCode.RightSuper, Enum.KeyCode.CapsLock,
+// ── Global dismissal ───────────────────────────────────────────────────────────
+
+const MODIFIER_KEYS = new Set<Enum.KeyCode>([
+	Enum.KeyCode.LeftShift,
+	Enum.KeyCode.RightShift,
+	Enum.KeyCode.LeftControl,
+	Enum.KeyCode.RightControl,
+	Enum.KeyCode.LeftAlt,
+	Enum.KeyCode.RightAlt,
+	Enum.KeyCode.LeftMeta,
+	Enum.KeyCode.RightMeta,
+	Enum.KeyCode.LeftSuper,
+	Enum.KeyCode.RightSuper,
+	Enum.KeyCode.CapsLock,
 ]);
 
-// where the current long press started, so a slide can cancel it
-let pressStart: Vector2 | undefined = undefined;
-
 UserInputService.InputChanged.Connect((input) => {
-	if (input.UserInputType === Enum.UserInputType.MouseWheel && shown !== undefined) hideTooltip();
-	if (input.UserInputType === Enum.UserInputType.Touch && pressStart !== undefined) {
-		const at = new Vector2(input.Position.X, input.Position.Y);
-		if (at.sub(pressStart).Magnitude > TOUCH_SLOP) {
-			pressStart = undefined;
-			hideTooltip();
+	if (input.UserInputType === Enum.UserInputType.MouseWheel && store.open !== undefined) {
+		close();
+	}
+	const from = store.pressFrom;
+	if (input.UserInputType === Enum.UserInputType.Touch && from !== undefined) {
+		if (new Vector2(input.Position.X, input.Position.Y).sub(from).Magnitude > TOUCH_SLOP) {
+			store.pressFrom = undefined;
+			close();
 		}
 	}
 });
 
-// the same things close every tip: a tap or click somewhere else, any key, or Escape/B on a pad.
-// The target's own handlers run first and decide whether its tip stays (a long press).
 UserInputService.InputBegan.Connect((input) => {
-	if (shown === undefined) return;
+	const open = store.open;
+	if (open === undefined) {
+		return;
+	}
 	const kind = input.UserInputType;
-	// modifiers alone (Shift, Ctrl, Alt, Cmd) don't count: they're often held while hovering
-	if (kind === Enum.UserInputType.Keyboard && MODIFIERS.has(input.KeyCode)) return;
+	// Shift, Ctrl, Alt and Cmd are often held while pointing, so they don't count
+	if (kind === Enum.UserInputType.Keyboard && MODIFIER_KEYS.has(input.KeyCode)) {
+		return;
+	}
 	if (kind === Enum.UserInputType.Keyboard || input.KeyCode === Enum.KeyCode.ButtonB) {
-		hideTooltip();
+		close();
 		return;
 	}
 	if (kind === Enum.UserInputType.Touch || kind === Enum.UserInputType.MouseButton1) {
-		const target = shown.target;
-		const point = new Vector2(input.Position.X, input.Position.Y);
-		const [pos, size] = targetRect(target);
-		const inside = point.X >= pos.X && point.X <= pos.X + size.X && point.Y >= pos.Y && point.Y <= pos.Y + size.Y;
-		if (!inside) hideTooltip();
+		const [pos, size] = screenRect(open.target);
+		const x = input.Position.X;
+		const y = input.Position.Y;
+		if (x < pos.X || x > pos.X + size.X || y < pos.Y || y > pos.Y + size.Y) {
+			close();
+		}
 	}
 });
+
+// ── Target handlers ────────────────────────────────────────────────────────────
 
 export interface TooltipEvents {
 	MouseEnter: (this: void, rbx: GuiObject) => void;
@@ -171,71 +249,85 @@ export interface TooltipEvents {
 	InputEnded: (this: void, rbx: GuiObject, input: InputObject) => void;
 }
 
-// handlers for one target; content can change every render and an open bubble follows it
+/** Handlers for one target. Content may change every render; an open tip follows it. */
 export function useTooltip(content: TooltipContent | undefined): TooltipEvents {
-	const idRef = React.useRef<number>(0);
+	const idRef = React.useRef(0);
 	if (idRef.current === 0) {
-		nextId += 1;
-		idRef.current = nextId;
+		idRef.current = newId();
 	}
-	const contentRef = React.useRef<TooltipContent | undefined>(content);
+	const id = idRef.current;
+	const contentRef = React.useRef(content);
 	contentRef.current = content;
-	const id = idRef.current!;
 	React.useEffect(() => {
-		if (shown !== undefined && shown.id === id) {
-			if (hasContent(content)) {
-				shown = { id, target: shown.target, content };
-				emit();
+		const open = store.open;
+		if (open !== undefined && open.id === id) {
+			const data = readContent(content);
+			if (data !== undefined) {
+				store.open = { id, target: open.target, data };
+				notify();
 			} else {
-				hideId(id);
+				close(id);
 			}
 		}
 	});
-	React.useEffect(() => () => hideId(id), []);
+	React.useEffect(() => () => close(id), []);
 	return React.useMemo<TooltipEvents>(() => {
 		const read = () => contentRef.current;
-		let pressAt = 0;
-		const leave = (_rbx: GuiObject) => {
-			if (shown === undefined || shown.id === id) hideId(id);
-			else cancelPending();
+		let pressedAt = 0;
+		const leave = () => {
+			if (store.open === undefined || store.open.id === id) {
+				close(id);
+			} else {
+				stopTimer();
+			}
 		};
 		return {
 			MouseEnter: (rbx) => {
-				if (UserInputService.TouchEnabled && !UserInputService.MouseEnabled) return;
-				if (!hasContent(read())) return;
-				scheduleShow(id, rbx, read, os.clock() - lastHiddenAt < WARM_WINDOW ? WARM_DELAY : SHOW_DELAY);
+				if (UserInputService.TouchEnabled && !UserInputService.MouseEnabled) {
+					return;
+				}
+				if (readContent(read()) !== undefined) {
+					openAfter(id, rbx, read, warm() ? Timing.mouseWarm : Timing.mouse);
+				}
 			},
 			MouseLeave: leave,
 			SelectionGained: (rbx) => {
-				if (GuiService.SelectedObject !== rbx || !hasContent(read())) return;
-				scheduleShow(id, rbx, read, os.clock() - lastHiddenAt < WARM_WINDOW ? PAD_WARM_DELAY : PAD_DELAY);
+				if (GuiService.SelectedObject === rbx && readContent(read()) !== undefined) {
+					openAfter(id, rbx, read, warm() ? Timing.padWarm : Timing.pad);
+				}
 			},
 			SelectionLost: leave,
 			InputBegan: (rbx, input) => {
 				const kind = input.UserInputType;
 				if (kind === Enum.UserInputType.Touch) {
-					pressAt = os.clock();
-					pressStart = new Vector2(input.Position.X, input.Position.Y);
-					if (hasContent(read())) scheduleShow(id, rbx, read, LONG_PRESS);
+					pressedAt = os.clock();
+					store.pressFrom = new Vector2(input.Position.X, input.Position.Y);
+					if (readContent(read()) !== undefined) {
+						openAfter(id, rbx, read, Timing.longPress);
+					}
 				} else if (
 					kind === Enum.UserInputType.MouseButton1 ||
 					kind === Enum.UserInputType.MouseButton2 ||
 					kind === Enum.UserInputType.MouseWheel
 				) {
-					leave(rbx);
+					leave();
 				}
 			},
-			InputEnded: (rbx, input) => {
-				if (input.UserInputType !== Enum.UserInputType.Touch) return;
-				pressStart = undefined;
-				if (shown !== undefined && shown.id === id && os.clock() - pressAt >= LONG_PRESS) {
-					// leave a long-press tip up long enough to read
-					const tipId = shown;
-					task.delay(TOUCH_LINGER, () => {
-						if (shown === tipId) hideId(id);
+			InputEnded: (_rbx, input) => {
+				if (input.UserInputType !== Enum.UserInputType.Touch) {
+					return;
+				}
+				store.pressFrom = undefined;
+				const open = store.open;
+				if (open !== undefined && open.id === id && os.clock() - pressedAt >= Timing.longPress) {
+					// a long-press tip stays up long enough to read
+					task.delay(Timing.touchLinger, () => {
+						if (store.open === open) {
+							close(id);
+						}
 					});
 				} else {
-					leave(rbx);
+					leave();
 				}
 			},
 		};
@@ -243,10 +335,12 @@ export function useTooltip(content: TooltipContent | undefined): TooltipEvents {
 }
 
 type AnyHandler = (this: void, ...args: unknown[]) => void;
-// join handler tables; both run, in order
+/** Join two Event tables; where both have a handler, both run (first, then second). */
 export function mergeEvents<A extends object, B extends object>(a: A | undefined, b: B | undefined): A & B {
 	const out: Record<string, AnyHandler> = {};
-	for (const [key, handler] of pairs((a ?? {}) as Record<string, AnyHandler>)) out[key as string] = handler;
+	for (const [key, handler] of pairs((a ?? {}) as Record<string, AnyHandler>)) {
+		out[key as string] = handler;
+	}
 	for (const [key, handler] of pairs((b ?? {}) as Record<string, AnyHandler>)) {
 		const first = out[key as string];
 		out[key as string] =
@@ -260,57 +354,45 @@ export function mergeEvents<A extends object, B extends object>(a: A | undefined
 	return out as unknown as A & B;
 }
 
-// placement ----------------------------------------------------------------------------------------
+// ── Placement ──────────────────────────────────────────────────────────────────
 
-function viewport(): Vector2 {
+// the device safe area (notch, rounded corners, home bar), measured by the provider
+let safeArea: Frame | undefined = undefined;
+
+function screenSize(): Vector2 {
 	const camera = Workspace.CurrentCamera;
-	return camera ? camera.ViewportSize : new Vector2(1280, 720);
+	return camera !== undefined ? camera.ViewportSize : new Vector2(1280, 720);
 }
 
-function targetRect(target: GuiObject): LuaTuple<[Vector2, Vector2]> {
-	let position = target.AbsolutePosition;
-	const holder = target.FindFirstAncestorWhichIsA("LayerCollector");
-	if (holder !== undefined && holder.IsA("ScreenGui") && !holder.IgnoreGuiInset) {
-		position = position.add(GuiService.GetGuiInset()[0]);
-	}
-	return $tuple(position, target.AbsoluteSize);
-}
-
-// the device's safe area (notches, rounded corners, home bar), measured by the provider
-let safeFrame: Frame | undefined = undefined;
-
-// above, else below, right, left; slid along the edge and clamped inside the safe area.
-// On touch the finger sits over the target, so below is only used when above won't fit.
-function placeTooltip(targetPos: Vector2, targetSize: Vector2, size: Vector2): Vector2 {
-	const view = viewport();
-	const safe = safeFrame !== undefined && safeFrame.Parent !== undefined ? safeFrame : undefined;
-	const safeMin = safe !== undefined ? safe.AbsolutePosition : new Vector2(0, 0);
-	const maxCorner = safe !== undefined ? safe.AbsolutePosition.add(safe.AbsoluteSize) : view;
-	const left = math.max(EDGE, safeMin.X + EDGE);
-	const right = math.min(view.X, maxCorner.X) - EDGE;
-	const top = math.max(EDGE, GuiService.GetGuiInset()[0].Y + 4, safeMin.Y + EDGE);
-	const bottom = math.min(view.Y, maxCorner.Y) - EDGE;
-	const clampPos = (p: Vector2) =>
-		new Vector2(
-			math.clamp(p.X, left, math.max(left, right - size.X)),
-			math.clamp(p.Y, top, math.max(top, bottom - size.Y)),
-		);
-	const fits = (p: Vector2) => p.X >= left && p.Y >= top && p.X + size.X <= right && p.Y + size.Y <= bottom;
-	const cx = targetPos.X + targetSize.X / 2 - size.X / 2;
-	const cy = targetPos.Y + targetSize.Y / 2 - size.Y / 2;
-	const spots = [
-		new Vector2(clampPos(new Vector2(cx, 0)).X, targetPos.Y - GAP - size.Y),
-		new Vector2(clampPos(new Vector2(cx, 0)).X, targetPos.Y + targetSize.Y + GAP),
-		new Vector2(targetPos.X + targetSize.X + GAP, clampPos(new Vector2(0, cy)).Y),
-		new Vector2(targetPos.X - GAP - size.X, clampPos(new Vector2(0, cy)).Y),
+// above, else below, right, left; slid along that side and clamped inside the safe area
+function place(targetPos: Vector2, targetSize: Vector2, size: Vector2): Vector2 {
+	const view = screenSize();
+	const safe = safeArea !== undefined && safeArea.Parent !== undefined ? safeArea : undefined;
+	const low = safe !== undefined ? safe.AbsolutePosition : Vector2.zero;
+	const high = safe !== undefined ? safe.AbsolutePosition.add(safe.AbsoluteSize) : view;
+	const left = math.max(EDGE, low.X + EDGE);
+	const right = math.min(view.X, high.X) - EDGE;
+	const top = math.max(EDGE, GuiService.GetGuiInset()[0].Y + 4, low.Y + EDGE);
+	const bottom = math.min(view.Y, high.Y) - EDGE;
+	const clampX = (x: number) => math.clamp(x, left, math.max(left, right - size.X));
+	const clampY = (y: number) => math.clamp(y, top, math.max(top, bottom - size.Y));
+	const midX = clampX(targetPos.X + targetSize.X / 2 - size.X / 2);
+	const midY = clampY(targetPos.Y + targetSize.Y / 2 - size.Y / 2);
+	const options = [
+		new Vector2(midX, targetPos.Y - GAP - size.Y),
+		new Vector2(midX, targetPos.Y + targetSize.Y + GAP),
+		new Vector2(targetPos.X + targetSize.X + GAP, midY),
+		new Vector2(targetPos.X - GAP - size.X, midY),
 	];
-	for (const spot of spots) {
-		if (fits(spot)) return spot;
+	for (const spot of options) {
+		if (spot.X >= left && spot.Y >= top && spot.X + size.X <= right && spot.Y + size.Y <= bottom) {
+			return spot;
+		}
 	}
-	return clampPos(spots[0]);
+	return new Vector2(clampX(options[0].X), clampY(options[0].Y));
 }
 
-// the provider -------------------------------------------------------------------------------------
+// ── Provider ───────────────────────────────────────────────────────────────────
 
 export interface TooltipProviderProps {
 	enabled?: boolean;
@@ -318,118 +400,97 @@ export interface TooltipProviderProps {
 	children?: React.ReactNode;
 }
 
-export function TooltipProvider(props: TooltipProviderProps) {
-	const [current, setCurrent] = React.useState<Shown | undefined>(shown);
-	const [position, setPosition] = React.useBinding(new Vector2(-1000, -1000));
-	const [alpha, setAlpha] = React.useBinding(0);
+function Bubble(props: { tip: OpenTip; reducedMotion: boolean }) {
+	const tip = props.tip;
+	const data = tip.data;
+	const [spot, setSpot] = React.useBinding(new Vector2(-1000, -1000));
+	// waits a frame so AutomaticSize has measured before the bubble shows
+	const [ready, setReady] = React.useState(false);
+	const appear = useSurfaceSpring(ready ? 1 : 0, props.reducedMotion);
 	const bubbleRef = React.useRef<Frame>();
-	const enabled = props.enabled !== false;
-	const reducedMotion = props.reducedMotion === true;
-
 	React.useEffect(() => {
-		const listener = () => setCurrent(shown);
-		listeners.add(listener);
+		const target = tip.target;
+		let frames = 0;
+		const connection = RunService.RenderStepped.Connect(() => {
+			if (!target.IsDescendantOf(game) || !target.Visible) {
+				close(tip.id);
+				return;
+			}
+			const bubble = bubbleRef.current;
+			const [pos, size] = screenRect(target);
+			const at = place(pos, size, bubble !== undefined ? bubble.AbsoluteSize : Vector2.zero);
+			setSpot(new Vector2(math.round(at.X), math.round(at.Y)));
+			frames += 1;
+			if (frames === 2) {
+				setReady(true);
+			}
+		});
+		return () => connection.Disconnect();
+	}, [tip.target]);
+	const narrow = screenSize().X < 700;
+	const maxW = math.max(120, math.min(narrow ? 220 : 280, screenSize().X - EDGE * 2 - BUBBLE_PAD * 2));
+	const fade = appear.map((a) => 1 - math.clamp(a, 0, 1));
+	const hasTitle = data.title !== undefined && data.title !== "";
+	return (
+		<Surface
+			frameRef={bubbleRef}
+			autoSize={true}
+			padding={BUBBLE_PAD}
+			appear={appear}
+			accent={data.accent}
+			position={React.joinBindings({ spot, appear }).map((v) =>
+				UDim2.fromOffset(v.spot.X, v.spot.Y + (props.reducedMotion ? 0 : math.round((1 - math.clamp(v.appear, 0, 1)) * 4))),
+			)}
+		>
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
+			{hasTitle && (
+				<SurfaceText text={data.title!} type="title" autoSize={true} wrap={true} maxWidth={maxW} transparency={fade} order={1} />
+			)}
+			{data.body !== undefined && data.body !== "" && (
+				<SurfaceText
+					text={data.body}
+					type="body"
+					color={hasTitle ? Palette.creamSoft : Palette.cream}
+					autoSize={true}
+					wrap={true}
+					maxWidth={maxW}
+					transparency={fade}
+					order={2}
+				/>
+			)}
+			{data.hint !== undefined && data.hint !== "" && (
+				<SurfaceText
+					text={data.hint}
+					type="hint"
+					color={Palette.muted}
+					autoSize={true}
+					wrap={true}
+					maxWidth={maxW}
+					transparency={fade}
+					order={3}
+				/>
+			)}
+		</Surface>
+	);
+}
+
+export function TooltipProvider(props: TooltipProviderProps) {
+	const [open, setOpen] = React.useState<OpenTip | undefined>(store.open);
+	const enabled = props.enabled !== false;
+	React.useEffect(() => {
+		const listener = () => setOpen(store.open);
+		store.listeners.add(listener);
 		listener();
 		return () => {
-			listeners.delete(listener);
+			store.listeners.delete(listener);
 		};
 	}, []);
 	React.useEffect(() => {
-		if (!enabled) hideTooltip();
-	}, [enabled]);
-
-	const targetId = current !== undefined ? current.id : undefined;
-	React.useEffect(() => {
-		if (current === undefined) {
-			setAlpha(0);
-			return undefined;
+		if (!enabled) {
+			close();
 		}
-		const target = current.target;
-		let age = 0;
-		setAlpha(reducedMotion ? 1 : 0);
-		const connection = RunService.RenderStepped.Connect((dt) => {
-			if (!target.IsDescendantOf(game) || !target.Visible) {
-				hideTooltip();
-				return;
-			}
-			age += dt;
-			const bubble = bubbleRef.current;
-			const [pos, size] = targetRect(target);
-			const bubbleSize = bubble !== undefined ? bubble.AbsoluteSize : new Vector2(0, 0);
-			const spot = placeTooltip(pos, size, bubbleSize);
-			setPosition(new Vector2(math.round(spot.X), math.round(spot.Y)));
-			// wait a frame for AutomaticSize before fading in, then ease in
-			const t = reducedMotion ? 1 : math.clamp((age - 1 / 60) / FADE_IN, 0, 1);
-			setAlpha(1 - (1 - t) * (1 - t));
-		});
-		return () => connection.Disconnect();
-	}, [targetId, reducedMotion]);
-
+	}, [enabled]);
 	const playerGui = Players.LocalPlayer?.FindFirstChildOfClass("PlayerGui");
-	let bubble: React.Element | undefined = undefined;
-	if (enabled && current !== undefined) {
-		const data = typeIs(current.content, "string") ? { title: current.content } : current.content;
-		const hasTitle = data.title !== undefined && data.title !== "";
-		const hasBody = data.body !== undefined && data.body !== "";
-		const hasHint = data.hint !== undefined && data.hint !== "";
-		const narrow = viewport().X < 700;
-		// never wider than the screen allows on very small phones (bubble padding is 22px)
-		const maxW = math.max(120, math.min(narrow ? 220 : 280, viewport().X - EDGE * 2 - 22));
-		const fade = alpha.map((a) => 1 - a);
-		const label = (name: string, order: number, text: string, weight: Enum.FontWeight, size: number, color: Color3) => (
-			<textlabel
-				key={name}
-				LayoutOrder={order}
-				BackgroundTransparency={1}
-				AutomaticSize={Enum.AutomaticSize.XY}
-				Size={UDim2.fromOffset(0, 0)}
-				TextWrapped={true}
-				RichText={false}
-				Text={text}
-				TextXAlignment={Enum.TextXAlignment.Left}
-				TextYAlignment={Enum.TextYAlignment.Top}
-				FontFace={new Font("rbxasset://fonts/families/BuilderSans.json", weight)}
-				TextSize={size}
-				TextColor3={color}
-				TextTransparency={fade}
-				ZIndex={3}
-			>
-				<uisizeconstraint MaxSize={new Vector2(maxW, math.huge)} />
-			</textlabel>
-		);
-		bubble = (
-			<frame
-				ref={bubbleRef}
-				key={`tip${current.id}`}
-				AutomaticSize={Enum.AutomaticSize.XY}
-				Size={UDim2.fromOffset(0, 0)}
-				Position={position.map((p) => UDim2.fromOffset(p.X, p.Y + (1 - alpha.getValue()) * (reducedMotion ? 0 : 4)))}
-				BackgroundColor3={Palette.ink}
-				BackgroundTransparency={alpha.map((a) => 1 - a * 0.94)}
-				BorderSizePixel={0}
-				Active={false}
-				Selectable={false}
-			>
-				<uicorner CornerRadius={new UDim(0, 10)} />
-				<uistroke
-					Thickness={1}
-					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-					Color={data.accent ?? Palette.lineSoft}
-					Transparency={alpha.map((a) => 1 - a * (data.accent !== undefined ? 0.8 : 0.55))}
-				/>
-				<uipadding
-					PaddingLeft={new UDim(0, 11)}
-					PaddingRight={new UDim(0, 11)}
-					PaddingTop={new UDim(0, 8)}
-					PaddingBottom={new UDim(0, 9)}
-				/>
-				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
-				{hasTitle && label("Title", 1, data.title!, Enum.FontWeight.Bold, 14, Palette.cream)}
-				{hasBody && label("Body", 2, data.body!, Enum.FontWeight.Regular, 13, hasTitle ? Palette.creamSoft : Palette.cream)}
-				{hasHint && label("Hint", 3, data.hint!, Enum.FontWeight.SemiBold, 11, Palette.muted)}
-			</frame>
-		);
-	}
 	return (
 		<>
 			{props.children}
@@ -442,7 +503,7 @@ export function TooltipProvider(props: TooltipProviderProps) {
 						ResetOnSpawn={false}
 						ZIndexBehavior={Enum.ZIndexBehavior.Sibling}
 					>
-						{bubble}
+						{enabled && open !== undefined && <Bubble key={`tip${open.id}`} tip={open} reducedMotion={props.reducedMotion === true} />}
 					</screengui>,
 					playerGui,
 				)}
@@ -461,7 +522,7 @@ export function TooltipProvider(props: TooltipProviderProps) {
 							Active={false}
 							Selectable={false}
 							ref={(rbx: Frame | undefined) => {
-								safeFrame = rbx;
+								safeArea = rbx;
 							}}
 						/>
 					</screengui>,
