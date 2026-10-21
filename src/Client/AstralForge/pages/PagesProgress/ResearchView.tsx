@@ -364,7 +364,7 @@ function ResearchView(props: ResearchProps) {
 								reducedMotion={softMotion}
 							/>
 							<Text
-								value={researchLocked ? "LOCKED UNTIL 100 FLUX" : "RESEARCH CHAIN"}
+								value={researchLocked ? "Unlocks at 100 Flux" : "Research chain"}
 								size={10}
 								color={Palette.cyan}
 								weight={Enum.FontWeight.Heavy}
