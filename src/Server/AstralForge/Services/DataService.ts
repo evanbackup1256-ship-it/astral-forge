@@ -130,6 +130,8 @@ interface ProfileIntegrityApi {
 	EnsureEnvelope(this: void, profile: Dict): Dict;
 	Seal(this: void, profile: Dict): string;
 	Record(this: void, profile: Dict, label: string, revision?: number): unknown;
+	PrepareJournal(this: void, profile: Dict): void;
+	CompactForSave(this: void, snapshot: Dict): void;
 	VerifyAndRecover(this: void, profile: Dict): LuaTuple<[boolean, string]>;
 	Status(
 		this: void,
@@ -897,6 +899,8 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 	meta.Revision = math.max(0, math.floor(nonNegative(meta.Revision)));
 	ProfileIntegrity.EnsureEnvelope(profile);
 	DataSanitizeMath.ScrubNonFinite(profile);
+	// compact the recovery journal (and migrate saves that still hold 12 full copies of the big bags)
+	ProfileIntegrity.PrepareJournal(profile);
 	return profile;
 }
 
@@ -1509,6 +1513,8 @@ export class DataService {
 				d(safeSnapshot.Meta).SessionJobId = game.JobId;
 			}
 			ProfileIntegrity.Record(safeSnapshot, releaseSession ? "session-release" : "save", d(safeSnapshot.Meta).Revision as number);
+			// the newest journal entry's big bags are this snapshot's own fields: store an anchor, not a copy
+			ProfileIntegrity.CompactForSave(safeSnapshot);
 			ProfileIntegrity.Seal(safeSnapshot);
 			return safeSnapshot;
 		});
@@ -1578,6 +1584,8 @@ export class DataService {
 				d(profile.Meta).LastSave = now;
 				d(profile.Meta).LastSeen = now;
 				d(profile.Meta).Transactions = deepCopy(d(snapshot.Meta).Transactions);
+				// expand the saved anchor from the (unchanged) live profile so memory keeps a full newest entry
+				ProfileIntegrity.PrepareJournal(profile);
 				d(profile.Meta).Integrity = deepCopy(d(snapshot.Meta).Integrity);
 				this._dirty.set(player, false);
 			} else {

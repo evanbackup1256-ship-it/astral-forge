@@ -209,6 +209,98 @@ function applyCriticalSnapshot(profile: Dict, snapshot: Dict) {
 	}
 }
 
+// ---- compact journal --------------------------------------------------------------------
+// Each journal entry used to carry full copies of the big bags (a maxed star grid alone is
+// ~200 KB), so 12 entries made Meta ~2.4 MB. Entries now keep their scalars inline and store each
+// big bag as a delta against the next newer entry; the newest entry in a *stored* save is an
+// anchor meaning "same as this save's own top-level field" (Record runs on the snapshot that is
+// written). In memory the newest entry is always full. Every entry keeps its original Hash over
+// the full resolved snapshot, plus CoreHash over the scalars so a save whose big bag is damaged
+// can still recover its currencies.
+const BULKY = ["Domain", "Continuum", "Machines", "Research", "GridUpgrades", "BoostInventory"];
+const ANCHOR = "$anchor";
+const DELTA = "$delta";
+
+function isAnchor(value: unknown): boolean {
+	return isTable(value) && (value as Dict)[ANCHOR] === 1;
+}
+function isDelta(value: unknown): boolean {
+	return isTable(value) && (value as Dict)[DELTA] === 1;
+}
+function deepEqual(a: unknown, b: unknown): boolean {
+	if (a === b) return true;
+	if (!isTable(a) || !isTable(b)) return false;
+	for (const [k, v] of pairs(a as object)) {
+		if (!deepEqual(v, (b as Dict)[k as string])) return false;
+	}
+	for (const [k] of pairs(b as object)) {
+		if ((a as Dict)[k as string] === undefined) return false;
+	}
+	return true;
+}
+/** Delta that turns `newer` into `older` (pairs and key lists, so it stays a valid JSON array). */
+function diff(newer: unknown, older: unknown): Dict {
+	const set: defined[][] = [];
+	const unset: defined[] = [];
+	const from = (isTable(newer) ? newer : {}) as Dict;
+	const to = (isTable(older) ? older : {}) as Dict;
+	for (const key of orderedKeys(to)) {
+		const value = to[key as string];
+		if (!deepEqual(value, from[key as string])) set.push([key as defined, deepCopy(value) as defined]);
+	}
+	for (const key of orderedKeys(from)) {
+		if (to[key as string] === undefined) unset.push(key as defined);
+	}
+	return { [DELTA]: 1, Set: set, Unset: unset };
+}
+function applyDelta(base: unknown, delta: Dict): Dict {
+	const out = (isTable(base) ? deepCopy(base) : {}) as Dict;
+	for (const pair of (delta.Set ?? []) as unknown[][]) {
+		if (typeIs(pair, "table")) out[pair[0] as string] = deepCopy(pair[1]);
+	}
+	for (const key of (delta.Unset ?? []) as unknown[]) out[key as string] = undefined;
+	return out;
+}
+function coreOf(snapshot: Dict): Dict {
+	const core = table.clone(snapshot) as Dict;
+	for (const field of BULKY) core[field] = undefined;
+	return core;
+}
+/** Full snapshots for every entry (same order as the journal); anchors resolve from `anchor`. */
+function resolveJournal(journal: unknown[], anchor: Dict | undefined): Array<Dict | undefined> {
+	const out: Array<Dict | undefined> = [];
+	let newer: Dict | undefined = undefined;
+	for (let index = journal.size(); index >= 1; index--) {
+		const entry = journal[index - 1];
+		if (!isTable(entry) || !isTable(entry.Snapshot)) {
+			out[index - 1] = undefined;
+			continue;
+		}
+		const snapshot = table.clone(entry.Snapshot as Dict) as Dict;
+		for (const field of BULKY) {
+			const value = snapshot[field];
+			if (isAnchor(value)) {
+				snapshot[field] = anchor !== undefined ? deepCopy(anchor[field]) : undefined;
+			} else if (isDelta(value)) {
+				snapshot[field] = newer !== undefined && newer[field] !== undefined ? applyDelta(newer[field], value as Dict) : undefined;
+			}
+		}
+		out[index - 1] = snapshot;
+		newer = snapshot;
+	}
+	return out;
+}
+function entryValid(entry: Dict, resolved: Dict | undefined): boolean {
+	if (resolved === undefined || !typeIs(entry.Hash, "string")) return false;
+	const [ok, hash] = pcall(() => ProfileIntegrity.Hash(resolved));
+	return ok && hash === entry.Hash;
+}
+function coreValid(entry: Dict, resolved: Dict | undefined): boolean {
+	if (resolved === undefined || !typeIs(entry.CoreHash, "string")) return false;
+	const [ok, hash] = pcall(() => ProfileIntegrity.Hash(coreOf(resolved)));
+	return ok && hash === entry.CoreHash;
+}
+
 const ProfileIntegrity = {
 	Hash(this: void, value: unknown): string {
 		const state = { A: 1, B: 0, Nodes: 0 };
@@ -248,6 +340,7 @@ const ProfileIntegrity = {
 		ProfileIntegrity.EnsureEnvelope(profile);
 		const meta = profile.Meta as Dict;
 		const transactions = meta.Transactions as defined[];
+		ProfileIntegrity.PrepareJournal(profile);
 		const snapshot = criticalSnapshot(profile);
 		const entry: Dict = {
 			Id: string.format("%d:%d", os.time(), math.max(0, math.floor(revision ?? 0))),
@@ -256,10 +349,89 @@ const ProfileIntegrity = {
 			Label: (label !== "" ? label : "mutation").sub(1, 64),
 			Snapshot: snapshot,
 			Hash: ProfileIntegrity.Hash(snapshot),
+			CoreHash: ProfileIntegrity.Hash(coreOf(snapshot)),
 		};
+		// the previous newest entry (full in memory) becomes a delta against this one
+		const previous = transactions[transactions.size() - 1] as Dict | undefined;
+		if (isTable(previous) && isTable(previous.Snapshot)) {
+			const prior = previous.Snapshot as Dict;
+			for (const field of BULKY) {
+				if (prior[field] !== undefined && !isDelta(prior[field]) && !isAnchor(prior[field])) {
+					prior[field] = diff(snapshot[field], prior[field]);
+				}
+			}
+		}
 		transactions.push(entry);
 		while (transactions.size() > JOURNAL_LIMIT) transactions.shift();
 		return entry;
+	},
+
+	/**
+	 * Load/sanitize step (also the migration for saves written before the compact journal):
+	 * expands an anchored newest entry from the profile's own fields, turns every older full
+	 * entry into a delta against the next newer one, and adds CoreHash to entries that verify.
+	 * Lossless: every entry still resolves to exactly the snapshot it held.
+	 */
+	PrepareJournal(this: void, profile: Dict): void {
+		ProfileIntegrity.EnsureEnvelope(profile);
+		const journal = (profile.Meta as Dict).Transactions as unknown[];
+		if (!typeIs(journal, "table") || journal.size() === 0) return;
+		let needed = false;
+		for (let index = 1; index <= journal.size(); index++) {
+			const entry = journal[index - 1];
+			if (!isTable(entry) || !isTable(entry.Snapshot)) continue;
+			const newest = index === journal.size();
+			if (entry.CoreHash === undefined) needed = true;
+			for (const field of BULKY) {
+				const value = (entry.Snapshot as Dict)[field];
+				if (newest ? isAnchor(value) || isDelta(value) : value !== undefined && !isDelta(value)) needed = true;
+			}
+		}
+		if (!needed) return;
+		const resolved = resolveJournal(journal, profile);
+		for (let index = journal.size(); index >= 1; index--) {
+			const entry = journal[index - 1];
+			const full = resolved[index - 1];
+			if (!isTable(entry) || full === undefined) continue;
+			if (entry.CoreHash === undefined) {
+				// "" marks an entry that was checked and does not verify, so it is not re-hashed every save
+				entry.CoreHash = entryValid(entry, full) ? ProfileIntegrity.Hash(coreOf(full)) : "";
+			}
+			const stored = entry.Snapshot as Dict;
+			const newer = index < journal.size() ? resolved[index] : undefined;
+			for (const field of BULKY) {
+				if (full[field] === undefined) {
+					stored[field] = undefined;
+				} else if (newer === undefined) {
+					stored[field] = full[field];
+				} else if (newer[field] !== undefined) {
+					stored[field] = diff(newer[field], full[field]);
+				}
+			}
+		}
+	},
+
+	/**
+	 * Save step, after Record on the snapshot being written: the newest entry's big bags are the
+	 * snapshot's own top-level fields, so store an anchor instead of a second copy.
+	 */
+	CompactForSave(this: void, snapshot: Dict): void {
+		const journal = (isTable(snapshot.Meta) ? (snapshot.Meta as Dict).Transactions : undefined) as unknown[] | undefined;
+		if (!typeIs(journal, "table") || journal.size() === 0) return;
+		const newest = journal[journal.size() - 1];
+		if (!isTable(newest) || !isTable(newest.Snapshot)) return;
+		const stored = newest.Snapshot as Dict;
+		for (const field of BULKY) {
+			if (stored[field] !== undefined && !isAnchor(stored[field]) && deepEqual(stored[field], snapshot[field])) {
+				stored[field] = { [ANCHOR]: 1 };
+			}
+		}
+	},
+
+	/** Full snapshot of every journal entry (oldest first), resolving deltas and anchors. */
+	ResolveJournal(this: void, profile: Dict): Array<Dict | undefined> {
+		ProfileIntegrity.EnsureEnvelope(profile);
+		return resolveJournal((profile.Meta as Dict).Transactions as unknown[], profile);
 	},
 
 	VerifyAndRecover(this: void, profile: Dict): LuaTuple<[boolean, string]> {
@@ -281,12 +453,16 @@ const ProfileIntegrity = {
 		if (ok && current === envelope.Hash) return $tuple(true, "verified");
 
 		const journal = meta.Transactions as unknown[];
+		const resolvedJournal = resolveJournal(journal, profile);
+		for (let pass = 1; pass <= 2; pass++) {
 		for (let index = journal.size(); index >= 1; index--) {
 			const entry = journal[index - 1];
-			if (isTable(entry) && isTable(entry.Snapshot) && typeIs(entry.Hash, "string")) {
-				const [snapshotOk, snapshotHash] = pcall(ProfileIntegrity.Hash, entry.Snapshot);
-				if (snapshotOk && snapshotHash === entry.Hash) {
-					applyCriticalSnapshot(profile, entry.Snapshot);
+			const full = resolvedJournal[index - 1];
+			// pass 1: an entry that fully verifies; pass 2: currencies only, when a big bag was damaged
+			const usable = isTable(entry) && (pass === 1 ? entryValid(entry, full) : coreValid(entry, full));
+			if (isTable(entry) && usable && full !== undefined) {
+				{
+					applyCriticalSnapshot(profile, pass === 1 ? full : coreOf(full));
 					const [sealed] = pcall(ProfileIntegrity.Seal, profile);
 					if (!sealed) {
 						return $tuple(
@@ -301,6 +477,7 @@ const ProfileIntegrity = {
 				}
 			}
 		}
+		}
 		const [sealed] = pcall(ProfileIntegrity.Seal, profile);
 		if (!sealed) {
 			return $tuple(false, "integrity mismatch; profile structure requires schema recovery");
@@ -312,11 +489,12 @@ const ProfileIntegrity = {
 	Journal(this: void, profile: Dict): Dict[] {
 		ProfileIntegrity.EnsureEnvelope(profile);
 		const journal = (profile.Meta as Dict).Transactions as unknown[];
+		const resolvedJournal = resolveJournal(journal, profile);
 		const out: Dict[] = [];
 		for (let index = journal.size(); index >= 1; index--) {
 			const entry = journal[index - 1];
 			if (isTable(entry) && isTable(entry.Snapshot)) {
-				const [hashOk, hash] = pcall(ProfileIntegrity.Hash, entry.Snapshot);
+				const valid = entryValid(entry, resolvedJournal[index - 1]);
 				out.push({
 					Id: entry.Id,
 					At: entry.At,
@@ -326,7 +504,7 @@ const ProfileIntegrity = {
 					Cores: entry.Snapshot.Cores,
 					Stardust: entry.Snapshot.Stardust,
 					Rebirths: entry.Snapshot.Rebirths,
-					Valid: hashOk && hash === entry.Hash,
+					Valid: valid,
 				});
 			}
 		}
@@ -340,16 +518,18 @@ const ProfileIntegrity = {
 	Restore(this: void, profile: Dict, entryId: string): LuaTuple<[boolean, string]> {
 		ProfileIntegrity.EnsureEnvelope(profile);
 		const journal = (profile.Meta as Dict).Transactions as unknown[];
-		for (const entry of journal) {
+		const resolvedJournal = resolveJournal(journal, profile);
+		for (let index = 1; index <= journal.size(); index++) {
+			const entry = journal[index - 1];
 			if (isTable(entry) && entry.Id === entryId) {
 				if (!isTable(entry.Snapshot) || !typeIs(entry.Hash, "string")) {
 					return $tuple(false, T("ProfileIntegrity.ThatJournalEntryHasNo"));
 				}
-				const [hashOk, hash] = pcall(ProfileIntegrity.Hash, entry.Snapshot);
-				if (!hashOk || hash !== entry.Hash) {
+				const full = resolvedJournal[index - 1];
+				if (!entryValid(entry, full)) {
 					return $tuple(false, T("ProfileIntegrity.ThatJournalEntryFailedIts"));
 				}
-				applyCriticalSnapshot(profile, entry.Snapshot as Dict);
+				applyCriticalSnapshot(profile, full!);
 				return $tuple(true, T("ProfileIntegrity.RestoredCriticalStateFromS", entryId, tostring(entry.Label)));
 			}
 		}
