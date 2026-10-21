@@ -2370,8 +2370,8 @@ export class GameService {
 		this._broadcastVisit(player);
 	}
 
-	_mutate(player: Player, callback: (profile: Profile) => unknown, incrementRevision?: boolean): Response {
-		const [success, result] = this._data.Update(
+	_mutate(player: Player, callback: (profile: Profile) => unknown, incrementRevision?: boolean, label = "legacy"): Response {
+		const [success, result] = this._data.AtomicUpdate(
 			player,
 			(profile: Profile) => {
 				const callbackResult = callback(profile);
@@ -2389,6 +2389,7 @@ export class GameService {
 				return callbackResult;
 			},
 			incrementRevision,
+			label,
 		) as LuaTuple<[unknown, unknown]>;
 		if (!truthy(success)) {
 			return responseError("Your profile is not ready. Please try again.");
@@ -2752,6 +2753,7 @@ export class GameService {
 				});
 			},
 			false,
+			"overcharge",
 		);
 		if (truthy(result.ok)) {
 			this._events.OnTap(player);

@@ -101,6 +101,19 @@ interface Atom {
 const PRODUCTION_DEEP_KEYS: ReadonlyArray<string> = ["ActiveBoost", "Stats", "Quests", "TimedRewards", "Lab", "Anomaly"];
 const PRODUCTION_SHALLOW_KEYS: ReadonlyArray<string> = ["Meta"];
 
+// Hot labels skip the full-profile deep copy, the sanitize pass and the integrity journal entry;
+// they run in place with rollback kept for exactly the sections they can write. Each list has to
+// cover everything its callback (and GameService._mutate's clamp/seal/anti-cheat wrapper) touches.
+//   production: the 0.5s tick, above.
+//   overcharge: a tap. Vault and the other currencies are root fields; Stats (BumpStat), Lab
+//   (Lab.Progress), Quests (Progression.Progress), Command (AwardCommandXP and the clamp),
+//   ForgeEchoes (ForgeEcho.Record) and Flags (the unlimited-money seal). Up to ~16 a second per
+//   player, so the copy and the journal hash were most of the server's per-tap cost.
+const HOT_TRANSACTIONS: Record<string, { deep: ReadonlyArray<string>; shallow: ReadonlyArray<string> } | undefined> = {
+	production: { deep: PRODUCTION_DEEP_KEYS, shallow: PRODUCTION_SHALLOW_KEYS },
+	overcharge: { deep: ["Stats", "Lab", "Quests", "Command", "ForgeEchoes", "Flags"], shallow: ["Meta"] },
+};
+
 interface AtomicStateApi {
 	new: (this: void, initial: unknown) => Atom;
 }
@@ -1366,6 +1379,7 @@ export class DataService {
 			return $tuple(false, "Profile is not loaded");
 		}
 		const transactionLabel = label ?? "unnamed";
+		const hot = HOT_TRANSACTIONS[transactionLabel];
 		const run = (draft: Dict, revision: number): unknown => {
 			if (this._releasing.get(player)) {
 				return { ok: false, message: "Profile session is closing" };
@@ -1382,15 +1396,15 @@ export class DataService {
 			}
 			d(draft.Meta).LastSeen = os.time();
 
-			if (transactionLabel !== "production") {
+			if (hot === undefined) {
 				sanitize(draft);
 				ProfileIntegrity.Record(draft, transactionLabel, revision);
 			}
 			return callbackResult;
 		};
 		const [success, result] =
-			transactionLabel === "production"
-				? atom.TransactInPlace(run, PRODUCTION_DEEP_KEYS, PRODUCTION_SHALLOW_KEYS, incrementRevision)
+			hot !== undefined
+				? atom.TransactInPlace(run, hot.deep, hot.shallow, incrementRevision)
 				: atom.Transact(run, incrementRevision);
 		if (!success) {
 			ModuleLog.Every(
