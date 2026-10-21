@@ -2930,10 +2930,6 @@ export class GameService {
 			ForgeEchoService.Record(profile, "Build", math.clamp(2 + count * 0.8, 2, 12));
 			return responseSuccess("%s gained %d levels and reached level %d.".format(machine.Name as string, count, level + count));
 		});
-		if (truthy(result.ok)) {
-			const profile = this._data.Get(player);
-			this._world.RefreshPlot(player, profile);
-		}
 		return result;
 	}
 
@@ -3041,10 +3037,6 @@ export class GameService {
 			"auto-forge",
 		) as LuaTuple<[unknown, unknown]>;
 		if (truthy(ok) && isTable(result) && result.ok === true) {
-			const profile = this._data.Get(player);
-			if (truthy(profile)) {
-				this._world.RefreshPlot(player, profile);
-			}
 			this._queueStatePush(player);
 		}
 	}
@@ -3137,9 +3129,6 @@ export class GameService {
 			ForgeEchoService.Record(profile, "Explore", 12);
 			return responseSuccess(T("GameService.UnlockedSAndItsProduction", (zone.Name as string)));
 		});
-		if (truthy(result.ok)) {
-			this._world.RefreshPlot(player, this._data.Get(player));
-		}
 		return result;
 	}
 
@@ -3164,9 +3153,6 @@ export class GameService {
 			profile.CurrentZone = zoneNumber;
 			return responseSuccess(T("GameService.TraveledToS", (zone.Name as string)));
 		});
-		if (truthy(result.ok)) {
-			this._world.RefreshPlot(player, this._data.Get(player));
-		}
 		return result;
 	}
 
@@ -3313,7 +3299,6 @@ export class GameService {
 			);
 		});
 		if (truthy(result.ok)) {
-			this._world.RefreshPlot(player, this._data.Get(player));
 			this._effect.broadcast({
 				Type: "Rebirth",
 				UserId: player.UserId,
@@ -4767,8 +4752,6 @@ export class GameService {
 			return responseSuccess(T("GameService.DomainDEstablishedRealityNow", nextRank), details);
 		});
 		if (truthy(result.ok)) {
-			const profile = this._data.Get(player) as Profile | undefined;
-			this._world.RefreshPlot(player, profile);
 			this._effect.broadcast({
 				Type: "DomainExpansion",
 				UserId: player.UserId,
@@ -4849,7 +4832,6 @@ export class GameService {
 			);
 		});
 		if (truthy(result.ok)) {
-			this._world.RefreshPlot(player, this._data.Get(player));
 			this._effect.broadcast({
 				Type: "Ascension",
 				UserId: player.UserId,
@@ -6260,7 +6242,7 @@ export class GameService {
 		this._createLeaderstats(player);
 		this._syncLeaderstats(player, profile);
 		const [plotted, plotProblem] = pcall(() => {
-			this._world.CreatePlot(player, profile);
+			this._world.CreatePlot(player);
 		});
 		if (!plotted) {
 			if (!this._running) {
