@@ -450,6 +450,24 @@ function CommandViewReady(props: CommandProps) {
 		lastTripId = activeId;
 	}
 	const [tripReport, setTripReport] = React.useState<{ name: string; haul: string; found: boolean } | undefined>(undefined);
+	// signal shop: the offer being bought shows a spinner until the server answers; a refusal shakes it
+	const [buyingSignal, setBuyingSignal] = React.useState<string | undefined>(undefined);
+	const [signalShake, setSignalShake] = React.useState<{ id: string; token: number }>({ id: "", token: 0 });
+	const buySignal = (id: string) => {
+		if (buyingSignal !== undefined) {
+			return;
+		}
+		setBuyingSignal(id);
+		// never leave the spinner up if the answer is lost
+		const fallback = task.delay(8, () => setBuyingSignal(undefined));
+		dispatch("BuySignalOffer", { Id: id }, (response) => {
+			pcall(task.cancel, fallback);
+			setBuyingSignal(undefined);
+			if (response.ok !== true) {
+				setSignalShake((current) => ({ id, token: current.token + 1 }));
+			}
+		});
+	};
 	const repeatTrip = activeId === "" && lastTripId !== undefined ? ops.Expeditions.find((item) => item.Id === lastTripId) : undefined;
 	const canRepeat = repeatTrip !== undefined && command.Level >= repeatTrip.RequiredLevel;
 	const statusLine =
@@ -1052,8 +1070,10 @@ function CommandViewReady(props: CommandProps) {
 										sizeConstraint={new UDim2(1, -16, 0, 40)}
 									/>
 									<Button
-										text={offer.Purchased ? "BOUGHT" : `${offer.Price} sig`}
-										onClick={() => dispatch("BuySignalOffer", { Id: offer.Id })}
+										text={offer.Purchased ? "BOUGHT" : `${offer.Price} Signals`}
+										onClick={() => buySignal(offer.Id)}
+										loading={buyingSignal === offer.Id}
+										shakeToken={signalShake.id === offer.Id ? signalShake.token : 0}
 										color={offer.Color}
 										textColor={Palette.ink}
 										size={new UDim2(1, -16, 0, stack ? TapTarget : 40)}
