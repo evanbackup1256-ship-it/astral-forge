@@ -216,7 +216,10 @@ export = () => {
 			if (grounded) {
 				state.LastGroundedAt = now;
 			}
-			const airborneGrace = now - state.LastGroundedAt < 0.4;
+			// grace only applies while airborne (just after a jump or launch); on the ground a speed
+			// burst is always a speed burst. Previously this was true whenever the player was grounded,
+			// so ground speed hacks were never counted.
+			const airborneGrace = !grounded && now - state.LastGroundedAt < 0.4;
 			const fallingSlowly = root.AssemblyLinearVelocity.Y < -20 && horizontalSpeed < allowedSpeed * 0.8;
 			const speedFlag =
 				(!airborneGrace || fallingSlowly) &&

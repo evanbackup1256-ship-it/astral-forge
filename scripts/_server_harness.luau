@@ -238,6 +238,7 @@ function harnessTask.cancel(thread)
 end
 Harness.task = harnessTask
 Harness.Stub = Stub
+Harness.services = services
 
 env = {
 	game = game,
