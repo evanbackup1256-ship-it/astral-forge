@@ -1852,7 +1852,7 @@ export class GameService {
 					profile.Stardust = math.clamp((num(profile.Stardust) ?? 0) + (entry.Stardust as number), 0, 1e14);
 				}
 				if (entryCores > 0) {
-					profile.Cores = Economy.Add(profile.Cores, entry.Cores);
+					profile.Cores = math.clamp((num(profile.Cores) ?? 0) + (entry.Cores as number), 0, 1e14);
 				}
 				const items = profile.Items as Dict | undefined;
 				if (entryKeys > 0 && truthy(entry.KeyCrate) && truthy(items) && truthy(items.Keys)) {
@@ -2620,7 +2620,7 @@ export class GameService {
 				notes.push(tostring(extra.Dust) + " Stardust");
 			}
 			if ((extra.Cores as number) > 0) {
-				profile.Cores = Economy.Add(profile.Cores, extra.Cores);
+				profile.Cores = math.clamp((num(profile.Cores) ?? 0) + (extra.Cores as number), 0, 1e14);
 				notes.push(tostring(extra.Cores) + (extra.Cores === 1 ? " core" : " cores"));
 			}
 			const items = profile.Items as Dict | undefined;
@@ -2924,7 +2924,7 @@ export class GameService {
 				ForgeEchoService.Record(profile, "Build", math.clamp(2 + count * 0.8, 2, 12));
 				enforceUnlimitedMoney(profile);
 				this._antiCheat.Observe(player, "AutoForge", profile);
-				return responseSuccess("Auto-Forge bought one machine level.");
+				return responseSuccess(count === 1 ? "Auto-Forge bought a machine level." : string.format("Auto-Forge bought %d machine levels.", count));
 			},
 			true,
 			"auto-forge",
@@ -3122,15 +3122,16 @@ export class GameService {
 			const stardustReward = quote.Stardust as number;
 			const bankedVault = profile.Vault;
 			const multiplierBefore = Economy.PermanentMultiplier(profile);
-			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward));
+			// cores are capped at 1e14 like Stardust (DataService clamps on load and save)
+			profile.Cores = math.clamp((num(profile.Cores) ?? 0) + math.max(0, (Economy.AsNumber(reward) as number)), 0, 1e14);
 			profile.Stardust = math.clamp((tonumber(profile.Stardust) ?? 0) + stardustReward, 0, 1e14);
 			if (!typeIs(profile.BoostInventory, "table")) {
 				profile.BoostInventory = {};
 			}
 			const boostInventory = profile.BoostInventory as Dict;
 			const celebrationBoost = (rebirthConfig.CelebrationBoostId as string | undefined) ?? "Overdrive";
-			const bonusCount = math.max(1, math.floor(tonumber(rebirthConfig.BonusOverdrive) ?? 1));
-			if (truthy(GameConfig.Boosts[celebrationBoost])) {
+			const bonusCount = math.max(0, math.floor(tonumber(rebirthConfig.BonusOverdrive) ?? 1));
+			if (bonusCount > 0 && truthy(GameConfig.Boosts[celebrationBoost])) {
 				boostInventory[celebrationBoost] = ((boostInventory[celebrationBoost] as number | undefined) ?? 0) + bonusCount;
 			}
 			const carry = RebirthMath.carry(
@@ -3188,7 +3189,7 @@ export class GameService {
 					Reward: reward,
 					StardustReward: stardustReward,
 					BankedVault: bankedVault,
-					CelebrationBoost: celebrationBoost,
+					CelebrationBoost: bonusCount > 0 ? celebrationBoost : undefined,
 					NextTarget: GameConfig.Economy.PrestigeRequirement,
 					Grade: quote.Grade,
 					Vow: quote.Vow,

@@ -180,8 +180,20 @@ function PowerEffect(profile: Profile, channelId: string): number {
 	if (!channel) {
 		return 0;
 	}
+	// count only cells the player still owns (rebirth-based cell count can drop after an
+	// ascension before the routing is next normalized), filled in channel order like State()
 	const lab = ensureLab(profile);
-	return math.max(0, (lab.Routing as Record<string, number>)[channelId] ?? 0) * (num(channel.EffectPerCell) ?? 0);
+	const routingBag = lab.Routing as Record<string, number>;
+	let left = totalCells(profile);
+	for (const id of channelOrder) {
+		const raw = routingBag[id];
+		const cells = typeIs(raw, "number") && raw === raw && raw < math.huge ? math.clamp(math.floor(raw), 0, math.max(0, left)) : 0;
+		if (id === channelId) {
+			return cells * (num(channel.EffectPerCell) ?? 0);
+		}
+		left -= cells;
+	}
+	return 0;
 }
 LabService.PowerEffect = PowerEffect;
 

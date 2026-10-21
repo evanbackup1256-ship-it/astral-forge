@@ -164,11 +164,11 @@ do
 	profile.Daily.LastClaimDay -= 1
 	Progression.ClaimDaily(profile)
 	check(profile.Daily.Streak == 2, "consecutive day extends the streak")
-	-- a missed day spends a streak shield
+	-- each missed day spends one streak shield (two missed days here)
 	profile.Daily.LastClaimDay -= 3
-	profile.Command.StreakShields = 1
+	profile.Command.StreakShields = 2
 	Progression.ClaimDaily(profile)
-	check(profile.Daily.Streak == 3 and profile.Command.StreakShields == 0, "shield keeps the streak")
+	check(profile.Daily.Streak == 3 and profile.Command.StreakShields == 0, "shields keep the streak")
 	profile.Daily.LastClaimDay -= 3
 	Progression.ClaimDaily(profile)
 	check(profile.Daily.Streak == 1, "missed day without a shield resets the streak")

@@ -94,7 +94,7 @@ const applyReward = (rawProfile: unknown, reward: Dict) => {
 	profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, cash);
 	profile.Stats.Collected = OmegaMath.Add(profile.Stats.Collected, cash);
 	profile.Stardust = (num(profile.Stardust) ?? 0) + math.max(0, num(reward.Stardust) ?? 0);
-	profile.Cores = (num(profile.Cores) ?? 0) + math.max(0, num(reward.Cores) ?? 0);
+	profile.Cores = math.clamp((num(profile.Cores) ?? 0) + math.max(0, num(reward.Cores) ?? 0), 0, 1e14);
 	if (reward.Signals !== undefined && reward.Signals !== false) {
 		profile.Command.Signals = (num(profile.Command.Signals) ?? 0) + math.max(0, num(reward.Signals) ?? 0);
 	}

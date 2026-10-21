@@ -19,7 +19,7 @@ local day = math.floor(os.time() / 86400)
 -- daily preview matches the claim when a streak shield covers a missed day
 do
 	local p = DataTemplate.New()
-	p.Daily.LastClaimDay = day - 3
+	p.Daily.LastClaimDay = day - 2
 	p.Daily.Streak = 4
 	p.Command.StreakShields = 1
 	local preview = Progression.DailyState(p)
@@ -36,6 +36,48 @@ do
 	check(reset.NextStreak == 1, "no shield: preview resets")
 	Progression.ClaimDaily(q)
 	check(q.Daily.Streak == reset.NextStreak, "no shield: claim matches preview")
+end
+
+-- batch 46: one shield per missed day; too few shields resets and spends none
+do
+	local p = DataTemplate.New()
+	p.Daily.LastClaimDay = day - 4 -- three missed days
+	p.Daily.Streak = 6
+	p.Command.StreakShields = 2
+	check(Progression.DailyState(p).NextStreak == 1, "two shields can't cover three missed days")
+	Progression.ClaimDaily(p)
+	check(p.Daily.Streak == 1 and p.Command.StreakShields == 2, "reset keeps the shields")
+
+	local q = DataTemplate.New()
+	q.Daily.LastClaimDay = day - 4
+	q.Daily.Streak = 6
+	q.Command.StreakShields = 5
+	check(Progression.DailyState(q).NextStreak == 7, "enough shields: preview keeps the streak")
+	Progression.ClaimDaily(q)
+	check(q.Daily.Streak == 7 and q.Command.StreakShields == 2, "three missed days spend three shields")
+
+	local fresh = DataTemplate.New()
+	fresh.Command.StreakShields = 3
+	Progression.ClaimDaily(fresh)
+	check(fresh.Daily.Streak == 1 and fresh.Command.StreakShields == 3, "first ever claim spends no shields")
+end
+
+-- batch 46: Lab power only counts cells the player still owns
+do
+	local Lab = H.load("Server/AstralForge/Services/Gameplay/Lab")
+	local LabMath = H.load("Server/AstralForge/Modules/LabOrderMath")
+	local p = DataTemplate.New()
+	p.Rebirths = 200
+	Lab.Ensure(p, 1)
+	local order = LabMath.CHANNEL_ORDER
+	local power = GameConfig.Lab.Power
+	p.Lab.Routing[order[1]] = power.MaxCells
+	p.Rebirths = 0 -- after an ascension
+	local per = power.Channels[order[1]].EffectPerCell
+	check(Lab.PowerEffect(p, order[1]) == power.BaseCells * per, "routed cells above the owned count give nothing")
+	for i = 2, #order do
+		check(Lab.PowerEffect(p, order[i]) == 0, "later rails get no phantom cells")
+	end
 end
 
 -- weekly targets stay fixed when the commander levels up mid-week

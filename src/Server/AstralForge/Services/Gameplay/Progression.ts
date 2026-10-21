@@ -248,6 +248,18 @@ const currentWeek = () => UtcClockMath.Week(os.time());
 const copyReward = (reward: Reward) => table.clone(reward);
 const commanderLevel = (xp: number) =>
   CommandMath.Level(xp, GameConfig.Operations.MaxCommanderLevel);
+// shields that would carry the streak over the missed days, or undefined when there aren't
+// enough (or nothing to save): one shield per missed day
+function shieldsNeeded(
+  daily: { LastClaimDay: number; Streak: number },
+  day: number,
+  command: { StreakShields: number },
+): number | undefined {
+  const missed = day - daily.LastClaimDay - 1;
+  if (daily.Streak <= 0 || missed < 1 || daily.LastClaimDay < 0) return undefined;
+  const shields = math.max(0, math.floor(tonumber(command.StreakShields) ?? 0));
+  return shields >= missed ? missed : undefined;
+}
 const weeklyScale = (level: number) =>
   1 + math.floor((level - 1) / 10) * 0.35;
 function ensureCommand(profile: Profile): Command {
@@ -625,16 +637,12 @@ const ProgressionService = {
     const day = currentDay();
     const daily = ensureDaily(profile);
     const canClaim = daily.LastClaimDay < day;
-    // mirrors ClaimDaily: a missed day spends a streak shield instead of resetting the streak
-    const shields = math.max(
-      0,
-      math.floor(tonumber(ensureCommand(profile).StreakShields) ?? 0),
-    );
+    // mirrors ClaimDaily: each missed day costs one streak shield; too few shields resets
     const nextStreak =
       daily.LastClaimDay === day - 1
         ? daily.Streak + 1
         : canClaim
-          ? daily.Streak > 0 && shields > 0
+          ? shieldsNeeded(daily, day, ensureCommand(profile)) !== undefined
             ? daily.Streak + 1
             : 1
           : daily.Streak;
@@ -654,17 +662,16 @@ const ProgressionService = {
     if (daily.LastClaimDay >= day)
       return $tuple(false, "Come back tomorrow for the next daily.");
     if (daily.LastClaimDay === day - 1) daily.Streak += 1;
-    else if (daily.LastClaimDay < day - 1 && daily.Streak > 0) {
+    else {
       const command = ensureCommand(profile);
-      const shields = math.max(
-        0,
-        math.floor(tonumber(command.StreakShields) ?? 0),
-      );
-      if (shields > 0) {
-        command.StreakShields = shields - 1;
+      const needed = shieldsNeeded(daily, day, command);
+      if (needed !== undefined) {
+        command.StreakShields =
+          math.max(0, math.floor(tonumber(command.StreakShields) ?? 0)) -
+          needed;
         daily.Streak += 1;
       } else daily.Streak = 1;
-    } else daily.Streak = 1;
+    }
     daily.LastClaimDay = day;
     const rewardIndex =
       ((daily.Streak - 1) % GameConfig.DailyRewards.size()) + 1;
