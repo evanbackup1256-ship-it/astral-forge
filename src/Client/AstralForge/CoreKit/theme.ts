@@ -26,22 +26,23 @@ export function applyAccessibilityTheme(highContrast?: boolean, colorblind?: boo
 }
 
 export const Layout = {
-	pagePadding: 18,
-	topbarClearance: 6,
+	// spacing runs on a 4px grid with roomy defaults: whitespace separates things, not borders
+	pagePadding: 24,
+	topbarClearance: 8,
 	minTopInset: 36,
-	panelGap: 18,
-	stackGap: 14,
+	panelGap: 24,
+	stackGap: 16,
 	controlGap: 16,
 	lineGap: 12,
-	cardPadding: 20,
-	cardRadius: 14,
-	buttonRadius: 10,
+	cardPadding: 24,
+	cardRadius: 12,
+	buttonRadius: 8,
 	topbarHeight: 74,
 	sidebarWidth: 268,
 	sidebarCollapsedWidth: 78,
 	rightRailWidth: 296,
 	contentMinWidth: 620,
-	contentInset: 18,
+	contentInset: 24,
 	workspaceHeaderHeight: 86,
 	contentMaxWidth: 1680,
 	maxShellWidth: 3440,
@@ -56,13 +57,13 @@ export const Layout = {
 // Three radii, used everywhere: sm for chips, badges and bars; md for buttons, inputs and
 // small tiles; lg for cards, panels and sheets. Fully round pills use UDim(1, 0).
 export const Radius = {
-	sm: 6,
-	md: 10,
-	lg: 14,
-	chip: 6,
+	sm: 4,
+	md: 8,
+	lg: 12,
+	chip: 4,
 	control: Layout.buttonRadius,
 	card: Layout.cardRadius,
-	sheet: 14,
+	sheet: 12,
 } as const;
 
 export const StrokeWidth = {
@@ -73,28 +74,29 @@ export const StrokeWidth = {
 export const Pad = {
 	tight: 8,
 	control: 12,
-	panel: 14,
-	panelMax: 16,
+	panel: 20,
+	panelMax: 24,
 } as const;
 
-/** Soft two-layer elevation: a wide ambient blur plus a tighter key shadow under the surface. */
+/** One subtle elevation: a soft ambient shadow. The key shadow is kept for API shape but is invisible. */
 export const Elevation = {
-	ambientSpread: 6,
-	ambientOffset: 4,
-	ambientAlpha: 0.84,
-	keyOffset: 7,
-	keyAlpha: 0.7,
+	ambientSpread: 8,
+	ambientOffset: 6,
+	ambientAlpha: 0.88,
+	keyOffset: 4,
+	keyAlpha: 1,
 } as const;
 
 export const Chrome = {
-	panelShadow: 0.7,
-	panelStrokeIdle: 0.3,
-	panelStrokeHover: 0.05,
-	buttonShadow: 0.58,
-	railStrokeIdle: 0.42,
-	railStrokeActive: 0.08,
-	accentHairline: 0.02,
-	meterTrack: 0.16,
+	// flatter, quieter chrome: edges are barely there at rest and firm up on hover/focus only
+	panelShadow: 1,
+	panelStrokeIdle: 0.78,
+	panelStrokeHover: 0.45,
+	buttonShadow: 0.82,
+	railStrokeIdle: 1,
+	railStrokeActive: 0.55,
+	accentHairline: 0.6,
+	meterTrack: 0.3,
 };
 
 export const Breakpoints = {
@@ -244,17 +246,17 @@ export function surfaceGradient(base: Color3, strength = 1): ColorSequence {
 	// a smooth fall from a soft top light to a deeper base; no hard band at the top edge (a band
 	// in the first few pixels read as a stray line on dark buttons and cards)
 	return new ColorSequence([
-		new ColorSequenceKeypoint(0, lighten(base, 0.1 * strength)),
-		new ColorSequenceKeypoint(0.3, lighten(base, 0.04 * strength)),
-		new ColorSequenceKeypoint(0.6, base),
-		new ColorSequenceKeypoint(1, darken(base, 0.22 * strength)),
+		// nearly flat: just enough falloff that a surface doesn't read as a sticker
+		new ColorSequenceKeypoint(0, lighten(base, 0.03 * strength)),
+		new ColorSequenceKeypoint(0.5, base),
+		new ColorSequenceKeypoint(1, darken(base, 0.06 * strength)),
 	]);
 }
 
 export function strokeGradient(color: Color3): ColorSequence {
 	return new ColorSequence([
-		new ColorSequenceKeypoint(0, lighten(color, 0.58)),
-		new ColorSequenceKeypoint(0.42, color),
-		new ColorSequenceKeypoint(1, darken(color, 0.62)),
+		new ColorSequenceKeypoint(0, lighten(color, 0.12)),
+		new ColorSequenceKeypoint(0.5, color),
+		new ColorSequenceKeypoint(1, darken(color, 0.18)),
 	]);
 }

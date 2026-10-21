@@ -5,7 +5,8 @@
 // accent edge. Small caps labels name sections; kind chips and key hints are 20-22px pills.
 // Panels enter and leave exactly like the rest of the game (usePresence + revealOffset, the same
 // code Panel uses); hover, selection and row entrances run on the same smooth spring, and Reduced
-// Motion makes them instant. Nothing here glows, and no gradients.
+// Motion makes them instant. Nothing here glows, and no gradients. Edges are near-invisible at rest
+// (revamp r1a): whitespace and the fill step separate surfaces, not outlines.
 import React from "@rbxts/react";
 import { darken, Palette, Pad, Radius, TapTarget } from "../CoreKit/theme";
 import * as MotionTokens from "../MotionKit/motionTokens";
@@ -21,9 +22,9 @@ export const SurfaceMetrics = {
 	radius: Radius.lg,
 	innerRadius: Radius.md,
 	pad: Pad.panel,
-	gap: 8,
+	gap: 12,
 	rowH: TapTarget,
-	rowGap: 2,
+	rowGap: 4,
 	edgeW: 3,
 	chipH: 20,
 	keyH: 22,
@@ -31,12 +32,12 @@ export const SurfaceMetrics = {
 
 // type scale: eyebrow labels, row titles, body copy, small print, display names
 export const SurfaceType = {
-	label: { size: 11, weight: Enum.FontWeight.Heavy },
-	title: { size: 15, weight: Enum.FontWeight.Bold },
+	label: { size: 12, weight: Enum.FontWeight.SemiBold },
+	title: { size: 16, weight: Enum.FontWeight.SemiBold },
 	body: { size: 13, weight: Enum.FontWeight.Medium },
 	small: { size: 12, weight: Enum.FontWeight.Medium },
 	hint: { size: 11, weight: Enum.FontWeight.Bold },
-	display: { size: 20, weight: Enum.FontWeight.Heavy },
+	display: { size: 24, weight: Enum.FontWeight.Bold },
 } as const;
 export type SurfaceTypeName = keyof typeof SurfaceType;
 
@@ -107,7 +108,7 @@ export function Surface(props: SurfaceProps) {
 	const inset = props.tone === "inset";
 	const fill = inset ? Palette.panelSoft : Palette.panel;
 	const restFill = inset ? 0.35 : 0.03;
-	const restEdge = props.accent !== undefined ? 0.5 : 0.4;
+	const restEdge = props.accent !== undefined ? 0.7 : 0.86;
 	const pad = props.padding ?? SurfaceMetrics.pad;
 	return (
 		<frame
@@ -239,7 +240,7 @@ export function RowPlate(props: { lit: React.Binding<number>; accent: Color3; zI
 		<frame
 			Size={UDim2.fromScale(1, 1)}
 			BackgroundColor3={darken(props.accent, 0.72)}
-			BackgroundTransparency={lit.map((a) => 1 - 0.92 * clamp01(a))}
+			BackgroundTransparency={lit.map((a) => 1 - 0.7 * clamp01(a))}
 			BorderSizePixel={0}
 			ZIndex={props.zIndex}
 		>
@@ -248,7 +249,7 @@ export function RowPlate(props: { lit: React.Binding<number>; accent: Color3; zI
 				Color={props.accent}
 				Thickness={1}
 				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-				Transparency={lit.map((a) => 1 - 0.5 * clamp01(a))}
+				Transparency={lit.map((a) => 1 - 0.25 * clamp01(a))}
 			/>
 			<AccentEdge lit={lit} color={props.accent} zIndex={props.zIndex !== undefined ? props.zIndex + 1 : undefined} />
 		</frame>
@@ -320,7 +321,7 @@ export function IconTile(props: {
 			ZIndex={props.zIndex}
 		>
 			<uicorner CornerRadius={new UDim(0, math.floor(props.size * 0.3))} />
-			<uistroke Color={props.accent} Transparency={0.6} Thickness={1} />
+			<uistroke Color={props.accent} Transparency={0.85} Thickness={1} />
 			{props.children}
 		</frame>
 	);

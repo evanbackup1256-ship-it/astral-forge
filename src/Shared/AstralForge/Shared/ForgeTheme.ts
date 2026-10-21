@@ -1,5 +1,5 @@
 // Purpose: Named Astral Forge palette and accessibility variants; colors match the audited baseline.
-// Owner: Astral Forge presentation. Dependencies: Roblox Color3. Last-reviewed: 2026-10-18.
+// Owner: Astral Forge presentation. Dependencies: Roblox Color3. Last-reviewed: 2026-10-21 (revamp r1a: calmer neutrals, softened accents).
 
 export type Palette = Record<string, Color3>;
 export type NamedPalette = Record<string, string>;
@@ -26,32 +26,32 @@ export interface BootPalette {
 const rgb = (r: number, g: number, b: number) => Color3.fromRGB(r, g, b);
 
 export const Base: Palette = table.freeze({
-	void: rgb(8, 6, 10),
-	ink: rgb(12, 9, 14),
-	night: rgb(19, 14, 20),
-	panel: rgb(27, 21, 29),
-	panelRaised: rgb(39, 31, 42),
-	panelSoft: rgb(62, 49, 66),
-	line: rgb(74, 58, 80),
-	lineSoft: rgb(132, 110, 142),
-	cream: rgb(252, 247, 240),
-	creamSoft: rgb(230, 220, 212),
-	muted: rgb(178, 160, 166),
-	cyan: rgb(70, 218, 242),
-	mint: rgb(86, 236, 178),
-	coral: rgb(255, 104, 112),
-	mango: rgb(255, 184, 52),
-	violet: rgb(178, 134, 255),
-	pink: rgb(250, 104, 178),
-	blue: rgb(96, 166, 255),
+	void: rgb(10, 10, 12),
+	ink: rgb(14, 14, 16),
+	night: rgb(20, 19, 22),
+	panel: rgb(28, 27, 31),
+	panelRaised: rgb(38, 37, 42),
+	panelSoft: rgb(56, 54, 61),
+	line: rgb(66, 63, 71),
+	lineSoft: rgb(116, 111, 122),
+	cream: rgb(244, 240, 233),
+	creamSoft: rgb(214, 208, 200),
+	muted: rgb(164, 157, 152),
+	cyan: rgb(98, 200, 222),
+	mint: rgb(112, 212, 168),
+	coral: rgb(236, 112, 108),
+	mango: rgb(238, 178, 76),
+	violet: rgb(166, 140, 232),
+	pink: rgb(226, 118, 170),
+	blue: rgb(108, 160, 236),
 	white: rgb(255, 255, 255),
-	green: rgb(98, 232, 164),
-	red: rgb(240, 78, 88),
+	green: rgb(110, 208, 154),
+	red: rgb(226, 88, 90),
 	shadow: rgb(0, 0, 0),
-	graphite: rgb(22, 17, 25),
+	graphite: rgb(23, 22, 26),
 	steel: rgb(204, 214, 234),
-	steelBright: rgb(252, 247, 240),
-	brass: rgb(250, 190, 72),
+	steelBright: rgb(244, 240, 233),
+	brass: rgb(232, 184, 88),
 	brassDeep: rgb(140, 92, 30),
 	ember: rgb(244, 92, 84),
 });
@@ -142,11 +142,11 @@ export const Stat: StatPalette = table.freeze({
 });
 
 export const Boot: BootPalette = table.freeze({
-	dim: rgb(14, 10, 17),
-	bar: rgb(46, 36, 50),
-	textBright: rgb(190, 174, 178),
-	textDim: rgb(140, 122, 128),
-	textFaint: rgb(108, 92, 100),
+	dim: rgb(14, 14, 16),
+	bar: rgb(44, 42, 48),
+	textBright: rgb(200, 194, 186),
+	textDim: rgb(142, 136, 130),
+	textFaint: rgb(106, 101, 98),
 });
 
 export function newPalette(): Palette {

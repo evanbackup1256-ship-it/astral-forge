@@ -716,33 +716,15 @@ export function SectionLabel({
 	const labelColor = ensureContrast(Palette.night, color);
 	return (
 		<frame Size={new UDim2(1, 0, 0, 22)} Position={position} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={layoutOrder}>
-			<frame
-				Size={UDim2.fromOffset(22, StrokeWidth.focus)}
-				Position={new UDim2(0, 0, 0.5, 0)}
-				AnchorPoint={new Vector2(0, 0.5)}
-				BackgroundColor3={color}
-				BackgroundTransparency={Chrome.accentHairline}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uigradient
-					Transparency={
-						new NumberSequence([
-							new NumberSequenceKeypoint(0, 0.04),
-							new NumberSequenceKeypoint(0.68, 0.18),
-							new NumberSequenceKeypoint(1, 1),
-						])
-					}
-				/>
-			</frame>
+			{/* revamp r1a: no leading accent dash; the heading stands on its own type */}
 			<Text
 				value={value}
-				size={14}
+				size={15}
 				color={labelColor}
-				weight={Enum.FontWeight.Heavy}
+				weight={Enum.FontWeight.SemiBold}
 				fit={false}
-				position={UDim2.fromOffset(30, 0)}
-				sizeConstraint={new UDim2(1, -38, 0, 22)}
+				position={UDim2.fromOffset(0, 0)}
+				sizeConstraint={new UDim2(1, -8, 0, 22)}
 			/>
 		</frame>
 	);
@@ -933,7 +915,7 @@ export function IconTile({
 	const interactionMotion = reducedMotion || effectsPaused;
 	const background = filled ? darken(accent, 0.22) : darken(accent, 0.42).Lerp(Palette.panelSoft, 0.28);
 	const glyph = Palette.cream;
-	const strokeTransparency = useGlowStroke(glow && !interactionMotion, interactionMotion, 0.55, 0.2, 0.62, 2.1);
+	const strokeTransparency = useGlowStroke(glow && !interactionMotion, interactionMotion, 0.6, 0.4, 0.7, 2.1);
 	const corner = radius ?? math.floor(size * 0.26);
 	const inset = 2;
 	const inner = math.max(12, size - inset * 2);
@@ -978,7 +960,7 @@ export function IconTile({
 				ClipsDescendants={false}
 			>
 				<uicorner CornerRadius={new UDim(0, math.max(1, corner - 1))} />
-				<Stroke color={accent} thickness={1} transparency={glow ? strokeTransparency : filled ? 0.28 : 0.4} />
+				<Stroke color={accent} thickness={1} transparency={glow ? strokeTransparency : filled ? 0.6 : 0.75} />
 			</frame>
 		</frame>
 	);
@@ -1228,7 +1210,7 @@ export function Panel(props: PanelProps) {
 		const live = joinTuple<[number, number]>(lift, highlightOn).map((values) => {
 			const hover = values[0];
 			const lit = values[1];
-			return math.clamp(Chrome.panelStrokeIdle - hover * 0.14 - lit * 0.18, Chrome.panelStrokeHover, 0.72);
+			return math.clamp(Chrome.panelStrokeIdle - hover * 0.33 - lit * 0.4, Chrome.panelStrokeHover * 0.5, 0.9);
 		});
 		return joinTuple<[number, number]>(live, revealFade).map((values) => math.clamp(values[0] + values[1], 0, 1));
 	}, [highlightOn, lift, revealFade]);
@@ -1251,12 +1233,12 @@ export function Panel(props: PanelProps) {
 			),
 			ambientTransparency: revealFade.map((amount) => math.clamp(Elevation.ambientAlpha + amount * (1 - Elevation.ambientAlpha), 0, 1)),
 			hoverWashVisible: lift.map((amount) => amount > 0.04),
-			hoverWashAlpha: lift.map((amount) => (amount < 0.04 ? 1 : 1 - amount * 0.14)),
+			hoverWashAlpha: lift.map((amount) => (amount < 0.04 ? 1 : 1 - amount * 0.05)),
 			highlightWashVisible: highlightOn.map((amount) => amount > 0.05),
 			highlightWashAlpha: highlightOn.map((amount) => (amount < 0.05 ? 1 : 0.94 + (1 - amount) * 0.06)),
 			glowVisible: hoverGlow.map((amount) => amount > 0.02),
-			glowThickness: hoverGlow.map((amount) => 1 + amount * 1.8),
-			glowTransparency: hoverGlow.map((amount) => 1 - amount * 0.78),
+			glowThickness: hoverGlow.map((amount) => 1 + amount * 0.5),
+			glowTransparency: hoverGlow.map((amount) => 1 - amount * 0.4),
 		};
 	}, [lift, highlightOn, activeReveal, revealFade, accentColor, hoverGlow, panelSize]);
 	return (
@@ -1326,13 +1308,13 @@ export function Panel(props: PanelProps) {
 				>
 					<uicorner CornerRadius={new UDim(0, radius)} />
 					<uigradient Color={surfaceGradient(background, 0.92)} Rotation={90} />
-					{accent !== undefined && (
-						// accent hairline across the top edge ties each panel to its section colour
+					{accent !== undefined && Chrome.accentHairline < 1 && (
+						// faint accent hairline across the top edge ties each panel to its section colour
 						<frame
 							Size={new UDim2(1, -radius * 2, 0, StrokeWidth.hairline)}
 							Position={UDim2.fromOffset(radius, 1)}
 							BackgroundColor3={accent}
-							BackgroundTransparency={revealFade.map((amount) => math.clamp(0.45 + amount * 0.55, 0, 1))}
+							BackgroundTransparency={revealFade.map((amount) => math.clamp(Chrome.accentHairline + amount * (1 - Chrome.accentHairline), 0, 1))}
 							BorderSizePixel={0}
 							Active={false}
 							ZIndex={zIndex}
@@ -2047,7 +2029,7 @@ export function Button(props: ButtonProps) {
 	const arrival = useEntrance(reducedMotion || effectsPaused);
 	const canSelect = selectable ?? !disabled;
 	const breatheWanted = highlight && active;
-	const breatheStroke = useGlowStroke(breatheWanted, reducedMotion || effectsPaused, 0.32, 0.22, 0.46, 1.15);
+	const breatheStroke = useGlowStroke(breatheWanted, reducedMotion || effectsPaused, 0.5, 0.4, 0.62, 1.15);
 	const buttonRef = React.useRef<ImageButton>();
 	const hostSize = useGuiSize(buttonRef);
 	const touchShell = useTouchTargets();
