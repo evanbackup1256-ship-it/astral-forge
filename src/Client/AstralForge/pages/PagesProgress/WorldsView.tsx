@@ -489,14 +489,6 @@ function WorldsView(props: WorldsViewProps) {
 					clips={false}
 				>
 					<Text
-						value="WORLDS"
-						size={10}
-						color={Palette.mint}
-						weight={Enum.FontWeight.Heavy}
-						fit={false}
-						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 18)}
-					/>
-					<Text
 						value={
 							state.CurrentZone !== undefined && state.CurrentZone !== state.Zone
 								? `You are on World ${compactNumber(state.CurrentZone)} (Farthest: World ${compactNumber(state.Zone)})`
@@ -506,7 +498,7 @@ function WorldsView(props: WorldsViewProps) {
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
-						position={UDim2.fromOffset(0, 20)}
+						position={UDim2.fromOffset(0, 10)}
 						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 30)}
 					/>
 					<Text
