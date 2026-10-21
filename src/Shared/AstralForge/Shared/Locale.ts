@@ -694,7 +694,7 @@ export const EN = {
 	"GuildCommunity.ChatIsUnavailableForYour": "Chat is unavailable for your account.",
 	"GuildCommunity.AnnouncementNotFound": "Announcement not found.",
 	"HotFlags.UseNameOnOrName": "Use Name=on or Name=off.",
-	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused, ConstellationsPaused, EngravingPaused.",
+	"HotFlags.UnknownFlagFlagsTradingPausedCratesPaused": "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused, ConstellationsPaused, EngravingPaused, RecipesPaused.",
 	"ServerEventService.NoStarsAreFallingRight": "No stars are falling right now.",
 	"ServerEventService.YouVeCaughtEveryStar": "You've caught every star you can this time.",
 	"ServerEventService.TooQuick": "Too quick.",
@@ -776,6 +776,19 @@ export const EN = {
 	"RelicEngraving.LineUnlocked": "Line unlocked.",
 	"RelicEngraving.TheEngraverIsAway": "The engraver is away for a moment. Engraved lines still count.",
 	"RelicEngraving.ThatRelicIsnTYours": "That relic isn't in your inventory.",
+	// v8: recipe forging
+	"RelicRecipes.ThereSNoRecipeFor": "There's no recipe for that.",
+	"RelicRecipes.FindOneFirst": "Find a %s first. Recipes open for relics in your codex.",
+	"RelicRecipes.TheBenchIsDoneFor": "The bench is done for the week (%d crafts). It resets Monday.",
+	"RelicRecipes.YouVeForgedThatOne": "You've forged that one %d times this week. It resets Monday.",
+	"RelicRecipes.PickASRelicToGive": "Pick a spare %s relic to give.",
+	"RelicRecipes.ItHasToBeS": "It has to be a %s relic.",
+	"RelicRecipes.ThatRelicIsProtected": "That relic is protected. Unprotect it to give it.",
+	"RelicRecipes.DetachItFirst": "That relic is in use. Detach it first.",
+	"RelicRecipes.YourRelicBagIsFull": "Your relic bag is full.",
+	"RelicRecipes.YouNeedS": "You need %s more.",
+	"RelicRecipes.SForged": "%s forged.",
+	"RelicRecipes.TheBenchIsClosed": "The recipe bench is closed for a moment.",
 } as const;
 
 export type LocaleKey = keyof typeof EN;

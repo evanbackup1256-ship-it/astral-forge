@@ -169,7 +169,7 @@ return function(DataTemplate, GameConfig)
 		save.Rebirth = { Lifetime = 40, RunStartedAt = 1700000000 }
 		save.Items.Inventory = { IT0000021 = { DefinitionId = "CapacityCoil", Level = 12, Stars = 1, AcquiredAt = 9 } }
 		save.Items.NextId = 22
-		strip(save, { "Constellations" })
+		strip(save, { "Constellations", "Items.Recipes" })
 		add({
 			name = "v7.2 save before v8",
 			save = save,
@@ -178,6 +178,7 @@ return function(DataTemplate, GameConfig)
 				["Rebirth.Lifetime"] = 40,
 				["Items.Inventory.IT0000021.Level"] = 12,
 				["Items.Inventory.IT0000021.Engraving"] = nil,
+				["Items.Recipes.Crafted"] = {},
 			},
 		})
 	end

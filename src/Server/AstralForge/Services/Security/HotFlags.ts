@@ -23,6 +23,7 @@ export const FLAGS = table.freeze({
 	// ---- end v8 C: Forge Programs ----
 	ConstellationsPaused: "No new stars can be lit. Stars already lit keep paying.",
 	EngravingPaused: "Relic engraving and rerolls are refused. Engraved lines keep paying.",
+	RecipesPaused: "Recipe forging is refused. Nothing already crafted is touched.",
 });
 
 export type HotFlag = keyof typeof FLAGS;

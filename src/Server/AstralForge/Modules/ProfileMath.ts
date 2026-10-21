@@ -1150,6 +1150,7 @@ __defs["ActionFeatureMaps"] = () => {
 		EquipCrateSkin: "Shop",
 		FuseRelics: "Inventory",
 		EngraveRelic: "Inventory",
+		CraftRelic: "Inventory",
 		EquipItem: "Inventory",
 		UnequipItem: "Inventory",
 		UpgradeItem: "Inventory",

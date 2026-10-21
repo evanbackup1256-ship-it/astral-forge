@@ -44,7 +44,7 @@ export const GRANT_ACTIONS: Record<string, true> = {
 	// ---- v8 C: Forge Programs ----
 	ProgramAct: true,
 	// ---- end v8 C: Forge Programs ----
-	EngraveRelic: true,
+	EngraveRelic: true, CraftRelic: true,
 };
 
 export interface GrantPayload {

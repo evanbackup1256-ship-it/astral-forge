@@ -137,6 +137,7 @@
 		EquipCrateSkin: "EquipCrateSkin",
 		FuseRelics: "FuseRelics",
 		EngraveRelic: "EngraveRelic",
+		CraftRelic: "CraftRelic",
 		SendGuildChat: "SendGuildChat",
 		GetGuildChatHistory: "GetGuildChatHistory",
 		GetGuildAnnouncements: "GetGuildAnnouncements",

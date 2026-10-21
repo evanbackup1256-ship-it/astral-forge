@@ -167,6 +167,7 @@ const DataTemplate = {
 				Discovered: {},
 				Equipped: {},
 				Essence: 0,
+				Recipes: { Week: 0, Crafted: {} },
 				Keys: {
 					ForgeCrate: 2,
 					CrystalCrate: 0,

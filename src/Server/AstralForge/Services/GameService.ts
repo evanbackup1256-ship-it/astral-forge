@@ -41,6 +41,7 @@ import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import * as Constellations from "../../../Shared/AstralForge/Shared/Constellations";
 import * as RelicEngraving from "../../../Shared/AstralForge/Shared/RelicEngraving";
+import * as RelicRecipes from "../../../Shared/AstralForge/Shared/RelicRecipes";
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
@@ -2232,6 +2233,8 @@ export class GameService {
 				Discovered: copyDictionary(orElse(items.Discovered, () => ({}))),
 				CodexBonus: Economy.CodexBonus(profile),
 				Rigs: RelicRigs.Public(profile),
+				Recipes: { ...RelicRecipes.ensure(items.Recipes, os.time()), Paused: HotFlags.Get("RecipesPaused") },
+				EngravingPaused: HotFlags.Get("EngravingPaused"),
 			},
 			DailyShop: {
 				Day: isTable(dailyShop) && truthy(dailyShop.Day) ? dailyShop.Day : -1,
@@ -2828,6 +2831,39 @@ export class GameService {
 			});
 		}
 		return responseError(T("GameService.UnknownEventAction"));
+	}
+
+	_craftRelic(player: Player, definitionId: unknown, sacrificeUid: unknown) {
+		if (HotFlags.Get("RecipesPaused")) {
+			return responseError(T("RelicRecipes.TheBenchIsClosed"));
+		}
+		return this._mutate(player, (profile: Profile) => {
+			const now = os.time();
+			const definition = typeIs(definitionId, "string") ? (itemById[definitionId] as Dict | undefined) : undefined;
+			const [chosen, reason] = RelicRecipes.plan(
+				profile as Dict,
+				definition as unknown as RelicRecipes.RecipeDefinition | undefined,
+				sacrificeUid,
+				now,
+				(id) => (typeIs(id, "string") && itemById[id] !== undefined ? ((itemById[id] as Dict).Rarity as string) : undefined),
+				GameConfig.Items.InventoryLimit as number,
+			);
+			if (chosen === undefined) {
+				return responseError(reason);
+			}
+			RelicRecipes.pay(profile as Dict, definitionId as string, chosen, now);
+			const uid = this._createItem(profile, definitionId as string);
+			if (uid === undefined) {
+				// can't happen after plan() (the sacrifice or the bag check left room), but never pay for nothing
+				return responseError(T("RelicRecipes.YourRelicBagIsFull"));
+			}
+			bumpStat(profile, "RelicsCrafted", 1);
+			return responseSuccess(T("RelicRecipes.SForged", definition!.Name as string), {
+				Uid: uid,
+				DefinitionId: definitionId,
+				Rarity: definition!.Rarity,
+			});
+		});
 	}
 
 	_engraveRelic(player: Player, payload: Dict | undefined) {
@@ -6232,6 +6268,8 @@ export class GameService {
 			return this._fuseRelics(player, payload?.Id);
 		} else if (action === Protocol.Actions.EngraveRelic) {
 			return this._engraveRelic(player, payload);
+		} else if (action === Protocol.Actions.CraftRelic) {
+			return this._craftRelic(player, payload?.Id, payload?.Sacrifice);
 		} else if (action === Protocol.Actions.BuyItemOffer) {
 			return this._buyItemOffer(player, payload?.Id);
 		} else if (action === Protocol.Actions.OpenItemCrate) {
