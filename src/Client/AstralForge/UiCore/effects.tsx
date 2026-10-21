@@ -113,8 +113,8 @@ function StarFieldImpl({ accent }: { accent: Color3 }) {
 				Size={UDim2.fromOffset(star.size, star.size)}
 				Position={UDim2.fromScale(star.x, star.y)}
 				AnchorPoint={new Vector2(0.5, 0.5)}
-				BackgroundColor3={Palette.creamSoft}
-				BackgroundTransparency={clock.map((phase) => 0.72 + math.sin(phase + star.phase) * 0.16 * glow)}
+				BackgroundColor3={index % 3 === 0 ? accent : Palette.creamSoft}
+				BackgroundTransparency={clock.map((phase) => 0.62 + math.sin(phase + star.phase) * 0.3 * glow)}
 				BorderSizePixel={0}
 			>
 				<uicorner CornerRadius={new UDim(1, 0)} />

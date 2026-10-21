@@ -1167,8 +1167,7 @@ export function useGlowStroke(active: boolean, reducedMotion: boolean | undefine
 	return React.useMemo(
 		() =>
 			React.joinBindings([pulse, blend]).map((values) => {
-				// the pulse only travels part way to `near`: a breath on the edge, not a neon throb
-				const swept = far - values[0] * (far - near) * 0.6;
+				const swept = near + (1 - values[0]) * (far - near);
 				return rest + (swept - rest) * values[1];
 			}),
 		[blend, far, near, pulse, rest],

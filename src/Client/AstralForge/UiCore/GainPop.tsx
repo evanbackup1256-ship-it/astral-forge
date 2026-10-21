@@ -61,7 +61,7 @@ export function GainPop(props: GainPopProps) {
 			Text={label}
 			TextColor3={props.color}
 			TextTransparency={t.map((s) => (s < 0.15 ? 1 - s / 0.15 : math.clamp((s - 0.6) / (LIFE - 0.6), 0, 1)))}
-			TextStrokeTransparency={t.map((s) => (s < 0.15 ? 1 : 0.7 + math.clamp((s - 0.6) / (LIFE - 0.6), 0, 1) * 0.3))}
+			TextStrokeTransparency={t.map((s) => (s < 0.15 ? 1 : 0.4 + math.clamp((s - 0.6) / (LIFE - 0.6), 0, 1) * 0.6))}
 			TextSize={13}
 			FontFace={Font.fromEnum(Enum.Font.BuilderSansBold)}
 			TextXAlignment={Enum.TextXAlignment.Right}

@@ -144,7 +144,7 @@ export function ComboBadge(props: {
 					<uicorner CornerRadius={new UDim(0, 14)} />
 					<Stroke
 						color={accent}
-						thickness={1}
+						thickness={maxed ? 2 : 1.4}
 						transparency={maxed ? glow : fade.map((amount) => math.clamp(0.28 + amount * 0.72, 0, 1))}
 					/>
 					<frame
@@ -225,7 +225,7 @@ export function ComboBadge(props: {
 						<frame
 							Size={UDim2.fromScale(1, 1)}
 							BackgroundColor3={accent}
-							BackgroundTransparency={maxPulse.map((amount) => 0.93 - amount * 0.04)}
+							BackgroundTransparency={maxPulse.map((amount) => 0.9 - amount * 0.06)}
 							BorderSizePixel={0}
 							ZIndex={zIndex - 1}
 						>

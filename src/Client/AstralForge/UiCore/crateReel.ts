@@ -267,7 +267,7 @@ export class Reel {
 				const item = this.items[this.land];
 				slot.stroke.Color = item.color;
 				slot.stroke.Transparency = 0;
-				slot.stroke.Thickness = 1.5;
+				slot.stroke.Thickness = 2;
 				slot.bar.Size = new UDim2(0.8, 0, 0, 4);
 			} else {
 				slot.viewport.ImageTransparency = 0.55;
