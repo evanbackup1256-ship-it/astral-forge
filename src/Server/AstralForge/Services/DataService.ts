@@ -1,5 +1,6 @@
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
+import RelicRigs = require("../../../Shared/AstralForge/Shared/RelicRigs");
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
@@ -221,8 +222,13 @@ function nonNegative(value: unknown): number {
 	return DataSanitizeMath.NonNegative(value, MAX_PERSISTED_NUMBER);
 }
 
-function sanitize(profile: Dict): Dict {
-	const previousDataVersion = math.floor(nonNegative(profile.DataVersion));
+/**
+ * `sourceVersion` is the DataVersion the document was stored with. It must be read before the
+ * template is reconciled in, since reconcile fills a missing or mistyped DataVersion with the
+ * current one and would hide that the save is old.
+ */
+function sanitize(profile: Dict, sourceVersion?: number): Dict {
+	const previousDataVersion = sourceVersion ?? math.floor(nonNegative(profile.DataVersion));
 	profile.DataVersion = GameConfig.Game.DataVersion;
 	profile.Cores = math.clamp(nonNegative(profile.Cores), 0, 1e14);
 	profile.Stardust = math.clamp(nonNegative(profile.Stardust), 0, 1e14);
@@ -285,6 +291,14 @@ function sanitize(profile: Dict): Dict {
 	domain.Rank = math.floor(nonNegative(domain.Rank));
 	continuum.Rank = math.clamp(math.floor(nonNegative(continuum.Rank)), 0, GameConfig.Continuum.MaxRank);
 	profile.ForgeEchoes = EchoMath.ensure(profile.ForgeEchoes);
+	{
+		// The template still lists the v1 echo fields, so reconcile adds them back to a v2 bag on
+		// every load. v2 never reads them; drop them so saves stop carrying them.
+		const echoes = d(profile.ForgeEchoes);
+		echoes.Pattern = undefined;
+		echoes.Equipped = undefined;
+		if (typeIs(echoes.Draft, "table")) d(echoes.Draft).Id = undefined;
+	}
 	// the rebirth ledger; a save from before it starts its star count from the rebirths already spent
 	profile.Rebirth = RebirthMath.ensure(
 		profile.Rebirth,
@@ -298,6 +312,10 @@ function sanitize(profile: Dict): Dict {
 	profile.Zone = math.clamp(math.floor(nonNegative(profile.Zone)), 1, GameConfig.MaxZone);
 	profile.CurrentZone = math.clamp(math.floor(nonNegative(profile.CurrentZone)), 1, profile.Zone as number);
 	DataSanitizeMath.ClampLevelBag(profile.Machines, machineById, nonNegative);
+	// the Stellar Core is every profile's first machine; a damaged level must not delete it
+	if (typeIs(profile.Machines, "table") && (num(d(profile.Machines).StellarCore) ?? 0) < 1) {
+		d(profile.Machines).StellarCore = 1;
+	}
 	profile.AutoForge = DataSanitizeMath.ClampAutoForge(profile.AutoForge, machineById, "StellarCore", nonNegative);
 	DataSanitizeMath.ClampLevelBag(profile.Research, researchById, nonNegative);
 	DataSanitizeMath.ClampLevelBag(profile.GridUpgrades, gridById, nonNegative);
@@ -581,6 +599,7 @@ function sanitize(profile: Dict): Dict {
 			item.Stars = stars > 0 ? stars : undefined;
 		}
 	}
+	items.Rigs = RelicRigs.ensure(items.Rigs);
 	const equippedItems = new Set<string>();
 	const equipped = d(items.Equipped);
 	for (const [target, uid] of pairs(equipped)) {
@@ -721,6 +740,9 @@ function sanitize(profile: Dict): Dict {
 			? (forgePathConfig.StepCount as number)
 			: (forgePathConfig.Steps as unknown[]).size()
 		: 0;
+	// Re-keying numeric step keys to strings is done after the walk: adding a key to a table
+	// while pairs() is walking it is an error ("invalid key to 'next'") and failed the whole load.
+	const rekeyed: string[] = [];
 	for (const [key, claimed] of pairs(claimedSteps)) {
 		const stepIndex = num(key);
 		if (
@@ -734,9 +756,10 @@ function sanitize(profile: Dict): Dict {
 			claimedSteps[key] = undefined;
 		} else if (typeIs(key, "number")) {
 			claimedSteps[key] = undefined;
-			claimedSteps[tostring(stepIndex)] = true;
+			rekeyed.push(tostring(stepIndex));
 		}
 	}
+	for (const key of rekeyed) claimedSteps[key] = true;
 	forgePath.XP = math.floor(nonNegative(forgePath.XP));
 	forgePath.XPDay = typeIs(forgePath.XPDay, "number") ? math.floor(forgePath.XPDay) : -1;
 	forgePath.XPEarnedToday = math.floor(nonNegative(forgePath.XPEarnedToday));
@@ -849,14 +872,17 @@ function sanitize(profile: Dict): Dict {
 }
 
 /** A stored profile as the server uses it: template defaults filled in, then sanitized. */
-export function normalizeStoredProfile(data: unknown): Dict {
-	return sanitize(reconcile(data, DataTemplate.New()) as Dict);
+export function normalizeStoredProfile(data: unknown, sourceVersion?: number): Dict {
+	const from =
+		sourceVersion ??
+		(typeIs(data, "table") ? math.floor(nonNegative(tonumber((data as Dict).DataVersion) ?? 0)) : 0);
+	return sanitize(reconcile(data, DataTemplate.New()) as Dict, from);
 }
 
 /** Document migration step: refuses saves from a newer data version, then normalizes. */
 export function migrateLegacyProfile(data: unknown): Dict {
-	ProfileVersionGuard.ReadCompatible(data, GameConfig.Game.DataVersion);
-	return normalizeStoredProfile(data);
+	const sourceVersion = ProfileVersionGuard.ReadCompatible(data, GameConfig.Game.DataVersion);
+	return normalizeStoredProfile(data, sourceVersion);
 }
 
 const getOrderedStore = StoreAccess.ordered;
