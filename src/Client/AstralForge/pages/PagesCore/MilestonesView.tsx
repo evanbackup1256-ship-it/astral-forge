@@ -289,7 +289,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 		>
 			{stack ? (
 				<Text
-					value="MILESTONES · KEPT THROUGH REBIRTH"
+					value="Milestones (kept on rebirth)"
 					size={13}
 					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
@@ -301,14 +301,6 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 			) : (
 				<>
 					<Text
-						value="MILESTONES"
-						size={11}
-						color={Palette.mango}
-						weight={Enum.FontWeight.Heavy}
-						fit={false}
-						sizeConstraint={new UDim2(1, -420, 0, 16)}
-					/>
-					<Text
 						value={
 							counts.Ready > 0
 								? `${counts.Ready} ready to claim · ${counts.Done} of ${list.size()} done`
@@ -318,7 +310,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
-						position={UDim2.fromOffset(0, 16)}
+						position={UDim2.fromOffset(0, 8)}
 						sizeConstraint={new UDim2(1, -420, 0, 30)}
 					/>
 					<Text
