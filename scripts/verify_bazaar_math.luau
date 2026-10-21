@@ -2,7 +2,8 @@
 -- Astral Bazaar rules: the market's hourly stock is deterministic and well-formed, the lottery draw is fair
 -- and weighted by tickets, contracts are stable per player and day, and the saved bag rebuilds from garbage.
 
-local BazaarMath = require("../out/Server/AstralForge/Modules/BazaarMath")
+local H = require("./_server_harness") -- BazaarMath imports the shared Locale table, so load it through TS.import
+local BazaarMath = H.load("Server/AstralForge/Modules/BazaarMath")
 
 -- --- black market ------------------------------------------------------------
 for bucket = 0, 400 do

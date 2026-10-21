@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { Dict, isFiniteNumber, truthy } from "../Services/LuaInterop";
 import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 
@@ -325,7 +326,7 @@ __defs["ReportLedger"] = () => {
 				}
 			}
 			if (sent.size() >= ReportLedger.MAX_PER_WINDOW) {
-				return $tuple(false, "You've sent a lot of reports this hour. Try again later.");
+				return $tuple(false, T("ProfileMath.YouVeSentALot"));
 			}
 			return $tuple(true, undefined);
 		},
@@ -1370,12 +1371,12 @@ __defs["ShopGrantEligibility"] = () => {
 		): LuaTuple<[boolean, string?]> {
 			if (remaining <= 0) {
 				if (offer.DailyRefresh === true) {
-					return $tuple(false, "That daily offer is sold out. Come back after refresh.");
+					return $tuple(false, T("ProfileMath.ThatDailyOfferIsSold"));
 				}
-				return $tuple(false, "That market offer is sold out.");
+				return $tuple(false, T("ProfileMath.ThatMarketOfferIsSold"));
 			}
 			if (offer.Kind === "Item" && inventoryCount >= inventoryLimit) {
-				return $tuple(false, "Your item inventory is full. Salvage something first.");
+				return $tuple(false, T("ProfileMath.YourItemInventoryIsFull"));
 			}
 			const price = tonumber(offer.Price) ?? 0;
 			const have = typeIs(balance, "number") ? balance : undefined;
@@ -1384,7 +1385,7 @@ __defs["ShopGrantEligibility"] = () => {
 				return $tuple(false, formatShortage(math.max(0, price - (have ?? 0)), currency));
 			}
 			if (offer.Kind !== "Key" && offer.Kind !== "Essence" && offer.Kind !== "Item") {
-				return $tuple(false, "That market offer is misconfigured.");
+				return $tuple(false, T("ProfileMath.ThatMarketOfferIsMisconfigured"));
 			}
 			return $tuple(true, undefined);
 		},

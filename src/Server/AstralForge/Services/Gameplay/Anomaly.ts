@@ -1,4 +1,5 @@
 // Anomaly pulses, stabilizing, protocols, surges, loadouts, milestones and directives (pure functions over a profile).
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import {
 	Dict,
 	d,
@@ -370,17 +371,17 @@ function BuyProtocol(profile: Profile, protocolId: string): LuaTuple<[boolean, s
 	Ensure(profile);
 	const protocol = findProtocol(protocolId);
 	if (protocol === undefined) {
-		return $tuple(false, "That reactor upgrade was not found.", undefined);
+		return $tuple(false, T("Anomaly.ThatReactorUpgradeWasNot"), undefined);
 	}
 	const anomaly = d(profile.Anomaly);
 	const protocols = anomaly.Protocols as Dict;
 	const level = num(protocols[protocol.Id as string]) ?? 0;
 	if (level >= (num(protocol.MaxLevel) ?? 0)) {
-		return $tuple(false, "That reactor upgrade is at max level.", undefined);
+		return $tuple(false, T("Anomaly.ThatReactorUpgradeIsAt"), undefined);
 	}
 	const cost = ProtocolCost(protocol, level);
 	if ((num(anomaly.Fragments) ?? 0) < cost) {
-		return $tuple(false, string.format("Requires %d anomaly fragments.", cost), undefined);
+		return $tuple(false, T("Anomaly.RequiresDAnomalyFragments", cost), undefined);
 	}
 	anomaly.Fragments = (num(anomaly.Fragments) ?? 0) - cost;
 	protocols[protocol.Id as string] = level + 1;
@@ -398,16 +399,16 @@ function ActivateSurge(profile: Profile): LuaTuple<[boolean, string, Dict | unde
 	const now = pulseNow();
 	const anomaly = d(profile.Anomaly);
 	if ((num(anomaly.SurgeEndsAt) ?? 0) > now) {
-		return $tuple(false, "Quantum Surge is already active.", undefined);
+		return $tuple(false, T("Anomaly.QuantumSurgeIsAlreadyActive"), undefined);
 	}
 	const cost = num(GameConfig.Anomalies.SurgeCost) ?? 0;
 	if ((num(anomaly.Fragments) ?? 0) < cost) {
-		return $tuple(false, string.format("Requires %d anomaly fragments.", cost), undefined);
+		return $tuple(false, T("Anomaly.RequiresDAnomalyFragments", cost), undefined);
 	}
 	anomaly.Fragments = (num(anomaly.Fragments) ?? 0) - cost;
 	const duration = (num(GameConfig.Anomalies.SurgeBaseSeconds) ?? 0) + protocolEffect(profile, "SurgeDuration");
 	anomaly.SurgeEndsAt = now + duration;
-	return $tuple(true, string.format("Surge on for %d seconds.", duration), {
+	return $tuple(true, T("Anomaly.SurgeOnForDSeconds", duration), {
 		EndsAt: anomaly.SurgeEndsAt,
 		Duration: duration,
 	});
@@ -416,7 +417,7 @@ AnomalyService.ActivateSurge = ActivateSurge;
 
 function SetLoadout(profile: Profile, rawLoadout: unknown): LuaTuple<[boolean, string, Dict | undefined]> {
 	if (!typeIs(rawLoadout, "table")) {
-		return $tuple(false, "Invalid reactor loadout.", undefined);
+		return $tuple(false, T("Anomaly.InvalidReactorLoadout"), undefined);
 	}
 	Ensure(profile);
 	const slots = num(GameConfig.Anomalies.LoadoutSlots) ?? 0;
@@ -424,11 +425,11 @@ function SetLoadout(profile: Profile, rawLoadout: unknown): LuaTuple<[boolean, s
 	for (const [key] of pairs(rawLoadout)) {
 		count += 1;
 		if (!typeIs(key, "number") || key < 1 || key !== math.floor(key)) {
-			return $tuple(false, "Invalid reactor loadout.", undefined);
+			return $tuple(false, T("Anomaly.InvalidReactorLoadout"), undefined);
 		}
 	}
 	if (count > slots) {
-		return $tuple(false, string.format("You can only slot %d channels at once.", slots), undefined);
+		return $tuple(false, T("Anomaly.YouCanOnlySlotD", slots), undefined);
 	}
 	const seen: Dict = {};
 	const resolved: string[] = [];
@@ -436,14 +437,14 @@ function SetLoadout(profile: Profile, rawLoadout: unknown): LuaTuple<[boolean, s
 	for (let index = 0; index < count; index++) {
 		const channelId = loadoutArray[index];
 		if (!typeIs(channelId, "string")) {
-			return $tuple(false, "Invalid reactor loadout.", undefined);
+			return $tuple(false, T("Anomaly.InvalidReactorLoadout"), undefined);
 		}
 		const channel = d(GameConfig.Anomalies.Channels)[channelId];
 		if (!channel) {
-			return $tuple(false, "That channel doesn't exist.", undefined);
+			return $tuple(false, T("Anomaly.ThatChannelDoesnTExist"), undefined);
 		}
 		if (seen[channelId]) {
-			return $tuple(false, "Each channel can only be slotted once.", undefined);
+			return $tuple(false, T("Anomaly.EachChannelCanOnlyBe"), undefined);
 		}
 		seen[channelId] = true;
 		resolved.push(channelId);
@@ -455,24 +456,24 @@ function SetLoadout(profile: Profile, rawLoadout: unknown): LuaTuple<[boolean, s
 		resolved.size() === 0
 			? "cleared"
 			: string.format("%d channel%s slotted", resolved.size(), resolved.size() === 1 ? "" : "s");
-	return $tuple(true, string.format("Reactor loadout %s.", label), { Loadout: resolved });
+	return $tuple(true, T("Anomaly.ReactorLoadoutS", label), { Loadout: resolved });
 }
 AnomalyService.SetLoadout = SetLoadout;
 
 function ClaimMilestone(profile: Profile, rawTier: unknown): LuaTuple<[boolean, string, Dict | undefined]> {
 	if (!typeIs(rawTier, "number")) {
-		return $tuple(false, "Invalid anomaly milestone.", undefined);
+		return $tuple(false, T("Anomaly.InvalidAnomalyMilestone"), undefined);
 	}
 	Ensure(profile);
 	const tier = math.floor(rawTier);
 	const milestone = d(GameConfig.Anomalies.Milestones)[tier] as Dict | undefined;
 	if (!milestone || (num(d(profile.Anomaly).Stabilizations) ?? 0) < (num(milestone.Required) ?? 0)) {
-		return $tuple(false, "That anomaly milestone is still locked.", undefined);
+		return $tuple(false, T("Anomaly.ThatAnomalyMilestoneIsStill"), undefined);
 	}
 	const key = tostring(tier);
 	const claims = d(profile.Anomaly).MilestoneClaims as Dict;
 	if (claims[key]) {
-		return $tuple(false, "That anomaly milestone was already claimed.", undefined);
+		return $tuple(false, T("Anomaly.ThatAnomalyMilestoneWasAlready"), undefined);
 	}
 	claims[key] = true;
 	const rewardText = ProgressionService.ApplyReward(
@@ -480,7 +481,7 @@ function ClaimMilestone(profile: Profile, rawTier: unknown): LuaTuple<[boolean, 
 		milestone.Reward,
 		Economy.SteadyProduction(profile),
 	) as string;
-	return $tuple(true, string.format("Reactor mark %d: %s.", tier, rewardText), {
+	return $tuple(true, T("Anomaly.ReactorMarkDS", tier, rewardText), {
 		Tier: tier,
 		Reward: milestone.Reward,
 	});
@@ -498,18 +499,18 @@ function ClaimDirective(profile: Profile, directiveId: string): LuaTuple<[boolea
 		}
 	}
 	if (active === undefined) {
-		return $tuple(false, "That reactor job isn't active anymore.", undefined);
+		return $tuple(false, T("Anomaly.ThatReactorJobIsnT"), undefined);
 	}
 	const definition = active.Definition as Dict;
 	const anomalyState = d(profile.Anomaly);
 	const claims = anomalyState.DirectiveClaims as Dict;
 	if (claims[definition.Id as string]) {
-		return $tuple(false, "You already claimed that job.", undefined);
+		return $tuple(false, T("Anomaly.YouAlreadyClaimedThatJob"), undefined);
 	}
 	const progressTable = anomalyState.DirectiveProgress as Dict;
 	const progress = num(progressTable[definition.Id as string]) ?? 0;
 	if (progress < (num(active.Target) ?? 0)) {
-		return $tuple(false, "That job isn't finished yet.", undefined);
+		return $tuple(false, T("Anomaly.ThatJobIsnTFinished"), undefined);
 	}
 	claims[definition.Id as string] = true;
 	anomalyState.Fragments =

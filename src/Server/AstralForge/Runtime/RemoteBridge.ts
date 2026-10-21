@@ -1,6 +1,7 @@
 // Owns the bridge status folder the client watches (Ready, versions, boot failure and
 // shutdown attributes), the "still starting" request reply and the ordered shutdown list.
 // The remotes themselves are @flamework/networking (Shared/Network.ts).
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { OnInit, Service } from "@flamework/core";
 import ModuleLog = require("../ModuleLog");
 import { ServerTelemetry } from "../Services/ServerTelemetry";
@@ -87,7 +88,7 @@ export class RemoteBridge implements OnInit {
 		this.folder = folder;
 
 		ServerFunctions.request.setCallback(() => {
-			return { ok: false, error: "The server is still starting. Please retry in a moment." };
+			return { ok: false, error: T("RemoteBridge.TheServerIsStillStarting") };
 		});
 	}
 

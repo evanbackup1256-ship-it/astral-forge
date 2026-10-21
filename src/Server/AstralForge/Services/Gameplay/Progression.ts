@@ -1,4 +1,5 @@
 // Progression: shared progression rules (stateless functions over a profile).
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import EconomyMath from "../../Modules/EconomyMath";
 import ProfileMath from "../../Modules/ProfileMath";
 import CommandMath from "../../Modules/CommandMath";
@@ -583,7 +584,7 @@ const ProgressionService = {
         );
       }
     }
-    return $tuple(false, "Mission not found.");
+    return $tuple(false, T("EconomyMath.MissionNotFound"));
   },
   AchievementProgress(this: void, profile: Profile, kind: string): number {
     return ProgressionOpsMath.AchievementProgress(
@@ -618,12 +619,12 @@ const ProgressionService = {
       if (achievement.Id === achievementId) {
         if (!typeIs(profile.Achievements, "table")) profile.Achievements = {};
         if (profile.Achievements[achievementId])
-          return $tuple(false, "That milestone was already claimed.");
+          return $tuple(false, T("Progression.ThatMilestoneWasAlreadyClaimed"));
         if (
           ProgressionService.AchievementProgress(profile, achievement.Kind) <
           achievement.Target
         )
-          return $tuple(false, "That milestone is not complete yet.");
+          return $tuple(false, T("Progression.ThatMilestoneIsNotComplete"));
         profile.Achievements[achievementId] = true;
         return $tuple(
           true,
@@ -631,7 +632,7 @@ const ProgressionService = {
         );
       }
     }
-    return $tuple(false, "Milestone not found.");
+    return $tuple(false, T("Progression.MilestoneNotFound"));
   },
   DailyState(this: void, profile: Profile) {
     const day = currentDay();
@@ -660,7 +661,7 @@ const ProgressionService = {
     const day = currentDay();
     const daily = ensureDaily(profile);
     if (daily.LastClaimDay >= day)
-      return $tuple(false, "Come back tomorrow for the next daily.");
+      return $tuple(false, T("Progression.ComeBackTomorrowForThe"));
     if (daily.LastClaimDay === day - 1) daily.Streak += 1;
     else {
       const command = ensureCommand(profile);
@@ -763,9 +764,9 @@ const ProgressionService = {
     for (const item of ProgressionService.WeeklyState(profile)) {
       if (item.Id === directiveId) {
         if (item.Claimed)
-          return $tuple(false, "That weekly directive was already claimed.");
+          return $tuple(false, T("Progression.ThatWeeklyDirectiveWasAlready"));
         if (item.Progress < item.Target)
-          return $tuple(false, "That weekly directive is not complete.");
+          return $tuple(false, T("Progression.ThatWeeklyDirectiveIsNot"));
         command.Weekly.Claimed[directiveId] = true;
         bumpStat(profile, "WeeklyClaimed", 1);
         return $tuple(
@@ -778,7 +779,7 @@ const ProgressionService = {
         );
       }
     }
-    return $tuple(false, "Weekly directive not found.");
+    return $tuple(false, T("Progression.WeeklyDirectiveNotFound"));
   },
   TitleStates(this: void, profile: Profile) {
     if (GameConfig.Operations.TitlesEnabled === false) return [];
@@ -797,14 +798,14 @@ const ProgressionService = {
       return $tuple(
         false,
         GameConfig.Operations.TitleStatus ??
-          "Titles are temporarily unavailable.",
+          T("GameService.TitlesAreTemporarilyUnavailable"),
       );
     const title = ProgressionOpsMath.FindById(
       GameConfig.Operations.Titles,
       titleId,
     );
     if (title === undefined || !titleUnlocked(profile, title))
-      return $tuple(false, "That command title is still locked.");
+      return $tuple(false, T("Progression.ThatCommandTitleIsStill"));
     ensureCommand(profile).EquippedTitle = titleId;
     return $tuple(true, title.Name + " equipped.");
   },
@@ -856,7 +857,7 @@ const ProgressionService = {
             "That signal offer was already purchased today.",
           );
         if (profile.Command.Signals < offer.Price)
-          return $tuple(false, "You need more command signals.");
+          return $tuple(false, T("Progression.YouNeedMoreCommandSignals"));
         profile.Command.Signals -= offer.Price;
         profile.Command.Shop.Purchased[offerId] = true;
         bumpStat(profile, "ShopPurchases", 1);
@@ -870,7 +871,7 @@ const ProgressionService = {
         );
       }
     }
-    return $tuple(false, "That signal offer is not in today's rotation.");
+    return $tuple(false, T("Progression.ThatSignalOfferIsNot"));
   },
   LaunchExpedition(
     this: void,
@@ -878,7 +879,7 @@ const ProgressionService = {
     expeditionId: string,
   ): Result {
     if (profile.Command.ActiveExpedition.Id !== "")
-      return $tuple(false, "Claim or finish the active expedition first.");
+      return $tuple(false, T("Progression.ClaimOrFinishTheActive"));
     const expedition =
       Economy.GetExpedition(expeditionId) ??
       ProgressionOpsMath.FindById(
@@ -886,7 +887,7 @@ const ProgressionService = {
         expeditionId,
       );
     if (expedition === undefined)
-      return $tuple(false, "Expedition route not found.");
+      return $tuple(false, T("Progression.ExpeditionRouteNotFound"));
     if (commanderLevel(profile.Command.XP) < expedition.RequiredLevel)
       return $tuple(
         false,
@@ -916,9 +917,9 @@ const ProgressionService = {
   ): LuaTuple<[boolean, string, string?, boolean?]> {
     const active = profile.Command.ActiveExpedition;
     if (active.Id === "")
-      return $tuple(false, "No expedition is currently active.");
+      return $tuple(false, T("Progression.NoExpeditionIsCurrentlyActive"));
     if (os.time() < active.EndsAt)
-      return $tuple(false, "That expedition is still underway.");
+      return $tuple(false, T("Progression.ThatExpeditionIsStillUnderway"));
     const expedition =
       Economy.GetExpedition(active.Id) ??
       ProgressionOpsMath.FindById(
@@ -927,7 +928,7 @@ const ProgressionService = {
       );
     if (expedition === undefined) {
       profile.Command.ActiveExpedition = { Id: "", StartedAt: 0, EndsAt: 0 };
-      return $tuple(false, "The expedition route could not be recovered.");
+      return $tuple(false, T("Progression.TheExpeditionRouteCouldNot"));
     }
     const reward = copyReward(expedition.Reward);
     const engineerLevel = profile.Command.Crew.Engineer ?? 1;
@@ -982,7 +983,7 @@ const ProgressionService = {
       artifact === undefined ||
       profile.Command.Artifacts[artifactId] === undefined
     )
-      return $tuple(false, "That artifact has not been discovered.");
+      return $tuple(false, T("Progression.ThatArtifactHasNotBeen"));
     profile.Command.EquippedArtifact = artifactId;
     return $tuple(true, artifact.Name + " equipped.");
   },
@@ -993,9 +994,9 @@ const ProgressionService = {
     );
     const owned = profile.Command.Artifacts[artifactId];
     if (artifact === undefined || owned === undefined)
-      return $tuple(false, "That artifact has not been discovered.");
+      return $tuple(false, T("Progression.ThatArtifactHasNotBeen"));
     if (owned.Level >= 10)
-      return $tuple(false, "That artifact is already max level.");
+      return $tuple(false, T("Progression.ThatArtifactIsAlreadyMax"));
     const fragmentCost = 4 + owned.Level * 2;
     const dustCost = 8 * owned.Level;
     if (
@@ -1035,11 +1036,11 @@ const ProgressionService = {
         ? GameConfig.Operations.ArtifactShop[artifact.Rarity]
         : undefined;
     if (artifact === undefined || price === undefined)
-      return $tuple(false, "That artifact is not sold here.");
+      return $tuple(false, T("Progression.ThatArtifactIsNotSold"));
     const owned = profile.Command.Artifacts[artifactId];
     const cost = owned !== undefined ? price.Refill : price.Stardust;
     if (Economy.Lt(profile.Stardust, cost))
-      return $tuple(false, string.format("Requires %d Stardust.", cost));
+      return $tuple(false, T("Progression.RequiresDStardust", cost));
     profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost));
     if (owned !== undefined) {
       owned.Fragments += price.Fragments;
@@ -1057,9 +1058,9 @@ const ProgressionService = {
     const role = GameConfig.Operations.Crew[roleId];
     const level = profile.Command.Crew[roleId];
     if (role === undefined || !typeIs(level, "number"))
-      return $tuple(false, "Crew role not found.");
+      return $tuple(false, T("Progression.CrewRoleNotFound"));
     if (level >= role.MaxLevel)
-      return $tuple(false, "That crew career is already maxed.");
+      return $tuple(false, T("Progression.ThatCrewCareerIsAlready"));
     const cost = math.floor(role.BaseCost * level ** 1.55);
     if (profile.Command.Signals < cost)
       return $tuple(
@@ -1084,13 +1085,13 @@ const ProgressionService = {
       rawLevel !== rawLevel ||
       math.abs(rawLevel) === math.huge
     )
-      return $tuple(false, "Invalid commander level.");
+      return $tuple(false, T("Progression.InvalidCommanderLevel"));
     const level = math.floor(rawLevel);
     if (level < 1 || level > commanderLevel(profile.Command.XP))
-      return $tuple(false, "That commander level is not unlocked.");
+      return $tuple(false, T("Progression.ThatCommanderLevelIsNot"));
     const key = tostring(level);
     if (profile.Command.CommanderClaims[key])
-      return $tuple(false, "That commander reward was already claimed.");
+      return $tuple(false, T("Progression.ThatCommanderRewardWasAlready"));
     profile.Command.CommanderClaims[key] = true;
     return $tuple(
       true,
@@ -1103,15 +1104,15 @@ const ProgressionService = {
   },
   ClaimSeasonTier(this: void, profile: Profile, rawTier: unknown): Result {
     if (!typeIs(rawTier, "number"))
-      return $tuple(false, "Invalid season tier.");
+      return $tuple(false, T("Progression.InvalidSeasonTier"));
     ProgressionService.EnsureCommandRotations(profile);
     const tierIndex = math.floor(rawTier);
     const tier = GameConfig.Operations.SeasonTiers[tierIndex - 1];
     if (tier === undefined || profile.Command.SeasonXP < tier.RequiredXP)
-      return $tuple(false, "That season tier is still locked.");
+      return $tuple(false, T("Progression.ThatSeasonTierIsStill"));
     const key = tostring(tierIndex);
     if (profile.Command.SeasonClaims[key])
-      return $tuple(false, "That season tier was already claimed.");
+      return $tuple(false, T("Progression.ThatSeasonTierWasAlready"));
     profile.Command.SeasonClaims[key] = true;
     bumpStat(profile, "SeasonTiers", 1);
     return $tuple(
@@ -1125,18 +1126,18 @@ const ProgressionService = {
   },
   ClaimSeasonPremium(this: void, profile: Profile, rawTier: unknown): Result {
     if (!typeIs(rawTier, "number"))
-      return $tuple(false, "Invalid season tier.");
+      return $tuple(false, T("Progression.InvalidSeasonTier"));
     ProgressionService.EnsureCommandRotations(profile);
     const owned = profile.OwnedPasses as Record<string, unknown> | undefined;
     if (!typeIs(owned, "table") || owned[SeasonPremium.PassKey] !== true)
-      return $tuple(false, "The Season Pass unlocks this reward.");
+      return $tuple(false, T("Progression.TheSeasonPassUnlocksThis"));
     const tierIndex = math.floor(rawTier);
     const tier = GameConfig.Operations.SeasonTiers[tierIndex - 1];
     if (tier === undefined || profile.Command.SeasonXP < tier.RequiredXP)
-      return $tuple(false, "That season tier is still locked.");
+      return $tuple(false, T("Progression.ThatSeasonTierIsStill"));
     const key = tostring(tierIndex);
     if (profile.Command.PremiumClaims[key])
-      return $tuple(false, "That pass reward was already claimed.");
+      return $tuple(false, T("Progression.ThatPassRewardWasAlready"));
     profile.Command.PremiumClaims[key] = true;
     bumpStat(profile, "SeasonPremiumTiers", 1);
     return $tuple(
@@ -1160,7 +1161,7 @@ const ProgressionService = {
       GameConfig.ForgePath.Steps,
     );
     if (!ok || step === undefined)
-      return $tuple(false, err ?? "Invalid forge path step.");
+      return $tuple(false, err ?? T("EconomyMath.InvalidForgePathStep"));
     return $tuple(
       true,
       ProgressionService.ApplyReward(
@@ -1242,7 +1243,7 @@ const ProgressionService = {
     const wheel = ensureWheel(profile);
     if (expectedSpin !== undefined) {
       if (!WheelMath.ValidExpectedSpin(expectedSpin))
-        return $tuple(false, "Refresh the wheel before spinning.");
+        return $tuple(false, T("Progression.RefreshTheWheelBeforeSpinning"));
       const receipt = wheel.LastReceipt;
       if (receipt !== undefined && receipt.ExpectedSpin === expectedSpin)
         return $tuple(
@@ -1259,13 +1260,13 @@ const ProgressionService = {
         );
     }
     if (!WheelMath.ValidExpectedSpin(wheel.Spins))
-      return $tuple(false, "Your spin counter needs support review.");
+      return $tuple(false, T("Progression.YourSpinCounterNeedsSupport"));
     const sequence = wheel.Spins;
     const freeSpins = wheel.FreeSpins;
     const onCooldown =
       now < wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds;
     if (freeSpins <= 0 && onCooldown)
-      return $tuple(false, "Your next free wheel spin is not ready yet.");
+      return $tuple(false, T("Progression.YourNextFreeWheelSpin"));
     const pityAfter = math.max(
       1,
       math.floor(tonumber(GameConfig.Wheel.PityAfter) ?? 8),
@@ -1285,7 +1286,7 @@ const ProgressionService = {
     const roll = random.NextNumber(0, totalWeight);
     const selectedEntry = WheelMath.PickEntry(pool, totalWeight, roll);
     if (selectedEntry === undefined)
-      return $tuple(false, "The wheel has no prizes configured.");
+      return $tuple(false, T("Progression.TheWheelHasNoPrizes"));
     const selectedIndex = selectedEntry.Index;
     const selected = selectedEntry.Prize;
     const selectedRank = WheelMath.RarityRank(selected.Rarity);
@@ -1345,17 +1346,17 @@ const ProgressionService = {
   ClaimTimedReward(this: void, profile: Profile, rawIndex: unknown): Result {
     ProgressionService.EnsureTimedRewards(profile);
     if (!typeIs(rawIndex, "number"))
-      return $tuple(false, "That playtime gift does not exist.");
+      return $tuple(false, T("Progression.ThatPlaytimeGiftDoesNot"));
     const index = math.floor(rawIndex);
     const timedReward = GameConfig.TimedRewards[index - 1];
     if (timedReward === undefined)
-      return $tuple(false, "That playtime gift does not exist.");
+      return $tuple(false, T("Progression.ThatPlaytimeGiftDoesNot"));
     const timed = ensureTimedRewardsBag(profile);
     const key = tostring(index);
     if (timed.Claimed[key])
-      return $tuple(false, "That playtime gift was already claimed today.");
+      return $tuple(false, T("Progression.ThatPlaytimeGiftWasAlready"));
     if (timed.PlaySeconds < timedReward.Minutes * 60)
-      return $tuple(false, "Keep playing to unlock that gift.");
+      return $tuple(false, T("Progression.KeepPlayingToUnlockThat"));
     timed.Claimed[key] = true;
     return $tuple(
       true,

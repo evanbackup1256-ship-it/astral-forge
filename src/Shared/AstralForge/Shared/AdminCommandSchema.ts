@@ -1,4 +1,5 @@
 ﻿// Shared presentation and input rules; authorization remains exclusively server-side.
+import { T } from "./Locale";
 interface Definition {
 	World?: unknown;
 	Moderation?: unknown;
@@ -70,20 +71,20 @@ function validate(
 ): LuaTuple<[number | undefined, string?]> {
 	const rule = describe(command, definition);
 	if (isSet(definition.Option) && (!typeIs(option, "string") || option === "")) {
-		return $tuple(undefined, "Choose the required option.");
+		return $tuple(undefined, T("AdminCommandSchema.ChooseTheRequiredOption"));
 	}
 	if (!rule.UsesAmount) {
 		return $tuple(1);
 	}
 	const amount = tonumber(raw);
 	if (amount === undefined || amount !== amount || amount === math.huge || amount === -math.huge) {
-		return $tuple(undefined, "Amount must be a finite number.");
+		return $tuple(undefined, T("AdminCommandSchema.AmountMustBeAFinite"));
 	}
 	if (amount < rule.Minimum || amount > rule.Maximum) {
-		return $tuple(undefined, `Amount must be between ${rule.Minimum} and ${rule.Maximum}.`);
+		return $tuple(undefined, T("AdminCommandSchema.AmountMustBeBetweenS", rule.Minimum, rule.Maximum));
 	}
 	if (rule.Integer && amount !== math.floor(amount)) {
-		return $tuple(undefined, "This command requires a whole number.");
+		return $tuple(undefined, T("AdminCommandSchema.ThisCommandRequiresAWhole"));
 	}
 	return $tuple(amount);
 }

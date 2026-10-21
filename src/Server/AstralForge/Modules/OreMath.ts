@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 interface OreType {
 	Id: string;
 	Name: string;
@@ -121,7 +122,7 @@ const OreMath = {
 	): LuaTuple<[boolean, string]> {
 		const upgrade = OreMath.Upgrade(config, id);
 		if (upgrade === undefined) {
-			return $tuple(false, "That foundry upgrade doesn't exist.");
+			return $tuple(false, T("OreMath.ThatFoundryUpgradeDoesnT"));
 		}
 		const owned = math.min(whole(levels[upgrade.Id]), upgrade.MaxLevel);
 		if (owned >= upgrade.MaxLevel) {
@@ -129,7 +130,7 @@ const OreMath = {
 		}
 		const cost = OreMath.Cost(upgrade, owned);
 		if (!OreMath.CanAfford(balances, cost)) {
-			return $tuple(false, `Not enough ore for ${upgrade.Name} yet.`);
+			return $tuple(false, T("OreMath.NotEnoughOreForS", upgrade.Name));
 		}
 		for (const [oreId, amount] of pairs(cost)) {
 			balances[oreId] = (balances[oreId] ?? 0) - amount;

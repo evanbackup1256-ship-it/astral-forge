@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { PayloadEvent } from "../Runtime/ServerNetwork";
 import StoreAccess from "../Modules/StoreAccess";
 import { deepCopy, Dict, isTable, num, truthy } from "./LuaInterop";
@@ -138,7 +139,7 @@ function isMember(guild: unknown, userId: number): LuaTuple<[boolean, string]> {
 		isTable(guild) && isTable(guild.Members)
 			? guild.Members[tostring(userId)]
 			: undefined;
-	if (!isTable(member)) return $tuple(false, "You are not a member of this guild.");
+	if (!isTable(member)) return $tuple(false, T("GuildCommunity.YouAreNotAMember"));
 	const role = typeIs(member.Role, "string") ? member.Role : "Member";
 	return $tuple(true, role);
 }
@@ -270,7 +271,7 @@ class GuildCommunity {
 		guildId: string,
 		transform: (this: void, doc: CommunityDocument) => LuaTuple<[CommunityDocument | undefined, unknown]>,
 	): LuaTuple<[boolean, unknown, CommunityDocument | undefined]> {
-		if (!this._alive || guildId === "") return $tuple(false, "Guild community is unavailable.", undefined);
+		if (!this._alive || guildId === "") return $tuple(false, T("GuildCommunity.GuildCommunityIsUnavailable"), undefined);
 		let updated: CommunityDocument | undefined = undefined;
 		let resultValue: unknown = undefined;
 		let callbackError: string | undefined = undefined;
@@ -281,7 +282,7 @@ class GuildCommunity {
 				callbackError = undefined;
 				const [nextDoc, value] = transform(normalizeDocument(deepCopy(raw)));
 				if (nextDoc === undefined) {
-					callbackError = typeIs(value, "string") ? value : "Guild request was denied.";
+					callbackError = typeIs(value, "string") ? value : T("GuildService.GuildRequestWasDenied");
 					return undefined;
 				}
 				updated = normalizeDocument(nextDoc);
@@ -304,10 +305,10 @@ class GuildCommunity {
 		if (!ok)
 			return $tuple(
 				false,
-				"Guild records are unavailable. Try again shortly. " + tostring(storeError),
+				T("GuildCommunity.GuildRecordsAreUnavailableTry2", tostring(storeError)),
 				undefined,
 			);
-		if (updated === undefined) return $tuple(false, callbackError ?? "Guild request was denied.", undefined);
+		if (updated === undefined) return $tuple(false, callbackError ?? T("GuildService.GuildRequestWasDenied"), undefined);
 		this._cache.set(guildId, deepCopy(updated) as CommunityDocument);
 		this._cacheAt.set(guildId, os.clock());
 		if (RunService.IsStudio()) this._studio.set(guildId, deepCopy(updated) as CommunityDocument);
@@ -324,8 +325,8 @@ class GuildCommunity {
 		if (guild === undefined) return $tuple(true, undefined);
 		const document = this._read(guild.Id as string);
 		if (document === undefined)
-			return $tuple(false, "Guild records are unavailable. Try again shortly.");
-		if (document.Bans[tostring(userId)] !== undefined) return $tuple(false, "You are banned from this guild.");
+			return $tuple(false, T("GuildCommunity.GuildRecordsAreUnavailableTry"));
+		if (document.Bans[tostring(userId)] !== undefined) return $tuple(false, T("GuildCommunity.YouAreBannedFromThis"));
 		return $tuple(true, undefined);
 	}
 
@@ -432,20 +433,20 @@ class GuildCommunity {
 	Handle(player: Player, action: string, payload: unknown): unknown {
 		const bag = payload as Dict;
 		const profile = this._data.Get(player);
-		if (profile === undefined) return { ok: false, error: "Your profile is not ready. Please try again." };
+		if (profile === undefined) return { ok: false, error: T("GuildCommunity.YourProfileIsNotReady") };
 		const guildId = (isTable(profile.Guild) && truthy(profile.Guild.Id) ? profile.Guild.Id : "") as string;
-		if (guildId === "") return { ok: false, error: "You are not in a guild." };
+		if (guildId === "") return { ok: false, error: T("GuildCommunity.YouAreNotInA") };
 		const guild = this._guilds.GetPublic(guildId);
-		if (guild === undefined) return { ok: false, error: "Guild records are unavailable. Try again shortly." };
+		if (guild === undefined) return { ok: false, error: T("GuildCommunity.GuildRecordsAreUnavailableTry") };
 		const [member, role] = isMember(guild, player.UserId);
 		if (!member || this.IsBanned(guildId, player.UserId))
-			return { ok: false, error: "You are not an active member of this guild." };
+			return { ok: false, error: T("GuildCommunity.YouAreNotAnActive") };
 		const document = this._read(guildId);
-		if (document === undefined) return { ok: false, error: "Guild records are unavailable. Try again shortly." };
+		if (document === undefined) return { ok: false, error: T("GuildCommunity.GuildRecordsAreUnavailableTry") };
 
 		if (action === "GetGuildSettings") return { ok: true, Settings: deepCopy(document.Settings) };
 		if (action === "GetGuildLogoReview") {
-			if (role !== "Leader") return { ok: false, error: "Only the guild leader can review logos." };
+			if (role !== "Leader") return { ok: false, error: T("GuildCommunity.OnlyTheGuildLeaderCan") };
 			const pending: GuildLogoRecord[] = [];
 			for (const logo of document.Logos)
 				if (logo.Status === "pending") pending.push(deepCopy(logo) as GuildLogoRecord);
@@ -494,16 +495,16 @@ class GuildCommunity {
 			return { ok: true, Messages: messages };
 		}
 		if (action === "SendGuildChat") {
-			if (document.Settings.ChatEnabled !== true) return { ok: false, error: "Guild chat is disabled." };
+			if (document.Settings.ChatEnabled !== true) return { ok: false, error: T("GuildCommunity.GuildChatIsDisabled") };
 			if (document.Mutes[tostring(player.UserId)] !== undefined)
-				return { ok: false, error: "You are muted in this guild." };
+				return { ok: false, error: T("GuildCommunity.YouAreMutedInThis") };
 			if (document.Settings.SlowMode === true && role !== "Leader") {
 				const key = guildId + ":" + tostring(player.UserId);
 				const last = this._chatAt.get(key) ?? 0;
 				if (os.clock() - last < SLOW_MODE_SECONDS) {
 					return {
 						ok: false,
-						error: `Slow mode is on. Wait ${math.ceil(SLOW_MODE_SECONDS - (os.clock() - last))}s.`,
+						error: T("GuildCommunity.SlowModeIsOnWait", math.ceil(SLOW_MODE_SECONDS - (os.clock() - last))),
 					};
 				}
 				this._chatAt.set(key, os.clock());
@@ -514,7 +515,7 @@ class GuildCommunity {
 				800,
 			);
 			if (!filteredOk || filtered === undefined)
-				return { ok: false, error: "That message could not be checked. Please try different wording." };
+				return { ok: false, error: T("GuildCommunity.ThatMessageCouldNotBe") };
 			const message: GuildChatMessage = {
 				Id: HttpService.GenerateGUID(false),
 				SpeakerUserId: player.UserId,
@@ -529,19 +530,19 @@ class GuildCommunity {
 					doc.Mutes[tostring(player.UserId)] !== undefined ||
 					doc.Bans[tostring(player.UserId)] !== undefined
 				)
-					return $tuple(undefined, "Chat is unavailable for your account.");
+					return $tuple(undefined, T("GuildCommunity.ChatIsUnavailableForYour"));
 				doc.Chat.push(message);
 				while (doc.Chat.size() > CHAT_LIMIT) doc.Chat.shift();
 				return $tuple(doc, message);
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, { Type: "GuildChat", GuildId: guildId, Message: message });
-			return { ok: true, message: "Guild message sent.", Message: message };
+			return { ok: true, message: T("GuildCommunity.GuildMessageSent"), Message: message };
 		}
 
 		if (action === "SetGuildSettings") {
 			if (role !== "Leader")
-				return { ok: false, error: "Only the guild leader can change guild settings." };
+				return { ok: false, error: T("GuildCommunity.OnlyTheGuildLeaderCan2") };
 			const requested = isTable(bag.Settings) ? bag.Settings : {};
 			const [saved, result] = this._update(guildId, (doc) => {
 				for (const [key, value] of pairs(requested)) {
@@ -552,16 +553,16 @@ class GuildCommunity {
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, { Type: "GuildSettings", GuildId: guildId, Settings: result });
-			return { ok: true, message: "Guild settings saved.", Settings: result };
+			return { ok: true, message: T("GuildCommunity.GuildSettingsSaved"), Settings: result };
 		}
 
 		if (action === "CreateGuildAnnouncement" || action === "EditGuildAnnouncement") {
 			if (!canManage(role))
-				return { ok: false, error: "Only leaders and officers can manage announcements." };
+				return { ok: false, error: T("GuildCommunity.OnlyLeadersAndOfficersCan") };
 			if (role === "Officer" && document.Settings.OfficerAnnouncements === false)
-				return { ok: false, error: "The leader has reserved announcements for themselves." };
+				return { ok: false, error: T("GuildCommunity.TheLeaderHasReservedAnnouncements") };
 			if (document.Settings.AnnouncementsEnabled !== true)
-				return { ok: false, error: "Guild announcements are disabled." };
+				return { ok: false, error: T("GuildCommunity.GuildAnnouncementsAreDisabled") };
 			const [titleOk, title] = this._filter(
 				player,
 				(typeIs(bag.Title, "string") ? bag.Title : "") as string,
@@ -573,12 +574,12 @@ class GuildCommunity {
 				800,
 			);
 			if (!titleOk || !bodyOk || title === undefined || body === undefined)
-				return { ok: false, error: "That announcement could not be checked. Please try different wording." };
+				return { ok: false, error: T("GuildCommunity.ThatAnnouncementCouldNotBe") };
 			const announcementId =
 				action === "CreateGuildAnnouncement" ? HttpService.GenerateGUID(false) : bag.AnnouncementId;
 			const [saved, result] = this._update(guildId, (doc) => {
 				if (doc.Settings.AnnouncementsEnabled !== true)
-					return $tuple(undefined, "Guild announcements are disabled.");
+					return $tuple(undefined, T("GuildCommunity.GuildAnnouncementsAreDisabled"));
 				let announcement: GuildAnnouncement | undefined = undefined;
 				for (const existing of doc.Announcements)
 					if (existing.Id === announcementId) {
@@ -600,7 +601,7 @@ class GuildCommunity {
 					doc.Announcements.push(announcement);
 					while (doc.Announcements.size() > ANNOUNCEMENT_LIMIT) doc.Announcements.shift();
 				} else {
-					if (announcement === undefined) return $tuple(undefined, "Announcement not found.");
+					if (announcement === undefined) return $tuple(undefined, T("GuildCommunity.AnnouncementNotFound"));
 					announcement.Title = title;
 					announcement.Body = body;
 					announcement.EditedAt = os.time();
@@ -630,15 +631,15 @@ class GuildCommunity {
 			action === "SetGuildAnnouncementExpiry"
 		) {
 			if (!canManage(role))
-				return { ok: false, error: "Only leaders and officers can manage announcements." };
+				return { ok: false, error: T("GuildCommunity.OnlyLeadersAndOfficersCan") };
 			if (role === "Officer" && document.Settings.OfficerAnnouncements === false)
-				return { ok: false, error: "The leader has reserved announcements for themselves." };
+				return { ok: false, error: T("GuildCommunity.TheLeaderHasReservedAnnouncements") };
 			if (
 				action === "SetGuildAnnouncementExpiry" &&
 				bag.ExpiresAt !== undefined &&
 				(bag.ExpiresAt as number) <= os.time()
 			)
-				return { ok: false, error: "Expiry must be a future timestamp or omitted." };
+				return { ok: false, error: T("GuildCommunity.ExpiryMustBeAFuture") };
 			const [saved, result] = this._update(guildId, (doc) => {
 				for (const announcement of doc.Announcements) {
 					if (announcement.Id === bag.AnnouncementId) {
@@ -648,7 +649,7 @@ class GuildCommunity {
 						return $tuple(doc, deepCopy(announcement));
 					}
 				}
-				return $tuple(undefined, "Announcement not found.");
+				return $tuple(undefined, T("GuildCommunity.AnnouncementNotFound"));
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, {
@@ -667,12 +668,12 @@ class GuildCommunity {
 			action === "UnbanGuildMember"
 		) {
 			if (!canManage(role))
-				return { ok: false, error: "Only leaders and officers can moderate members." };
+				return { ok: false, error: T("GuildCommunity.OnlyLeadersAndOfficersCan2") };
 			if (role === "Officer" && document.Settings.OfficerModeration === false)
-				return { ok: false, error: "The leader has reserved moderation for themselves." };
+				return { ok: false, error: T("GuildCommunity.TheLeaderHasReservedModeration") };
 			const targetId = tonumber(bag.UserId as string);
 			if (targetId === undefined || targetId <= 0 || targetId === player.UserId)
-				return { ok: false, error: "That member cannot be moderated." };
+				return { ok: false, error: T("GuildCommunity.ThatMemberCannotBeModerated") };
 			const members = guild.Members as Dict;
 			const target = members[tostring(targetId)];
 			const isBan = action === "BanGuildMember" || action === "UnbanGuildMember";
@@ -683,12 +684,12 @@ class GuildCommunity {
 				(isTable(target) && target.Role === "Leader") ||
 				(role === "Officer" && isTable(target) && target.Role !== "Member")
 			)
-				return { ok: false, error: "That member cannot be moderated." };
+				return { ok: false, error: T("GuildCommunity.ThatMemberCannotBeModerated") };
 			if (action === "UnbanGuildMember" && !targetHasBan)
-				return { ok: false, error: "That member is not guild-banned." };
+				return { ok: false, error: T("GuildCommunity.ThatMemberIsNotGuild") };
 			const [saved, result] = this._update(guildId, (doc) => {
 				if (isBan && action === "BanGuildMember" && doc.Bans[tostring(targetId)] !== undefined)
-					return $tuple(undefined, "That member is already guild-banned.");
+					return $tuple(undefined, T("GuildCommunity.ThatMemberIsAlreadyGuild"));
 				const key = tostring(targetId);
 				const tableToUpdate = (isBan ? doc.Bans : doc.Mutes) as Record<string, unknown>;
 				if (remove) delete tableToUpdate[key];
@@ -707,7 +708,7 @@ class GuildCommunity {
 				if (!removed)
 					return {
 						ok: false,
-						error: removeError ?? "Guild ban saved, but membership could not be removed.",
+						error: removeError ?? T("GuildCommunity.GuildBanSavedButMembership"),
 					};
 				const targetPlayer = Players.GetPlayerByUserId(targetId);
 				if (targetPlayer !== undefined && this._onBanMember !== undefined) {
@@ -715,7 +716,7 @@ class GuildCommunity {
 					if (!cleared)
 						return {
 							ok: false,
-							error: "Ban was saved, but the member profile could not be refreshed: " + tostring(clearResult),
+							error: T("GuildCommunity.BanWasSavedButThe2", tostring(clearResult)),
 						};
 				}
 			}
@@ -725,16 +726,16 @@ class GuildCommunity {
 				Action: action,
 				TargetUserId: targetId,
 			});
-			return { ok: true, message: "Guild moderation updated." };
+			return { ok: true, message: T("GuildCommunity.GuildModerationUpdated") };
 		}
 
 		if (action === "UploadGuildLogo") {
 			if (!canManage(role))
-				return { ok: false, error: "Only leaders and officers can submit guild logos." };
-			if (document.Settings.LogoEnabled !== true) return { ok: false, error: "Guild logos are disabled." };
+				return { ok: false, error: T("GuildCommunity.OnlyLeadersAndOfficersCan3") };
+			if (document.Settings.LogoEnabled !== true) return { ok: false, error: T("GuildCommunity.GuildLogosAreDisabled") };
 			const asset = safeGuildAsset(bag.URL);
 			if (asset === undefined)
-				return { ok: false, error: "Use a Roblox image asset ID. Roblox platform moderation still applies." };
+				return { ok: false, error: T("GuildCommunity.UseARobloxImageAsset") };
 			const logo: GuildLogoRecord = {
 				Id: HttpService.GenerateGUID(false),
 				UploadedBy: player.UserId,
@@ -749,13 +750,13 @@ class GuildCommunity {
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, { Type: "GuildLogo", GuildId: guildId, Action: "Uploaded", Logo: result });
-			return { ok: true, message: "Guild logo submitted for leader review.", Logo: result };
+			return { ok: true, message: T("GuildCommunity.GuildLogoSubmittedForLeader"), Logo: result };
 		}
 
 		if (action === "ModerateGuildLogo") {
-			if (role !== "Leader") return { ok: false, error: "Only the guild leader can review logos." };
+			if (role !== "Leader") return { ok: false, error: T("GuildCommunity.OnlyTheGuildLeaderCan") };
 			if (bag.Decision !== "approved" && bag.Decision !== "rejected")
-				return { ok: false, error: "Choose approve or reject." };
+				return { ok: false, error: T("GuildCommunity.ChooseApproveOrReject") };
 			let reason: string | undefined = undefined;
 			if (bag.Decision === "rejected") {
 				// the reason is broadcast to every member, so it goes through the text filter
@@ -765,7 +766,7 @@ class GuildCommunity {
 					500,
 				);
 				if (!reasonOk || filteredReason === undefined)
-					return { ok: false, error: "A rejection reason is required (and must pass the chat filter)." };
+					return { ok: false, error: T("GuildCommunity.ARejectionReasonIsRequired") };
 				reason = filteredReason;
 			}
 			let pendingLogo: GuildLogoRecord | undefined = undefined;
@@ -775,7 +776,7 @@ class GuildCommunity {
 					break;
 				}
 			}
-			if (pendingLogo === undefined) return { ok: false, error: "Pending logo not found." };
+			if (pendingLogo === undefined) return { ok: false, error: T("GuildCommunity.PendingLogoNotFound") };
 			const [saved, result] = this._update(guildId, (doc) => {
 				for (const logo of doc.Logos) {
 					if (logo.Id === bag.LogoId && logo.Status === "pending") {
@@ -784,34 +785,34 @@ class GuildCommunity {
 						return $tuple(doc, deepCopy(logo));
 					}
 				}
-				return $tuple(undefined, "Pending logo not found.");
+				return $tuple(undefined, T("GuildCommunity.PendingLogoNotFound"));
 			});
 			if (!saved) return { ok: false, error: result };
 			this._broadcast(guildId, { Type: "GuildLogo", GuildId: guildId, Action: "Moderated", Logo: result });
 			return {
 				ok: true,
-				message: bag.Decision === "approved" ? "Guild logo approved." : "Guild logo rejected.",
+				message: bag.Decision === "approved" ? T("GuildCommunity.GuildLogoApproved") : T("GuildCommunity.GuildLogoRejected"),
 				Logo: result,
 			};
 		}
 
 		if (action === "RenameGuild") {
 			if (role !== "Leader")
-				return { ok: false, error: "Only the guild leader can change the guild name." };
+				return { ok: false, error: T("GuildCommunity.OnlyTheGuildLeaderCan3") };
 			const newName = typeIs(bag.NewName, "string") ? bag.NewName.gsub("^%s*(.-)%s*$", "%1")[0] : "";
 			if (newName.size() < 3 || newName.size() > 24) {
-				return { ok: false, error: "Guild name must be between 3 and 24 characters." };
+				return { ok: false, error: T("GuildCommunity.GuildNameMustBeBetween") };
 			}
 			const [updated, updateError] = this._guilds._update(guildId, (current) => {
 				current.Name = newName;
 				return current;
 			});
-			if (!updated) return { ok: false, error: updateError ?? "Could not update guild name." };
+			if (!updated) return { ok: false, error: updateError ?? T("GuildCommunity.CouldNotUpdateGuildName") };
 			this._broadcast(guildId, { Type: "GuildRenamed", GuildId: guildId, NewName: newName });
-			return { ok: true, message: "Guild name updated successfully.", NewName: newName };
+			return { ok: true, message: T("GuildCommunity.GuildNameUpdatedSuccessfully"), NewName: newName };
 		}
 
-		return { ok: false, error: "Unknown guild community action." };
+		return { ok: false, error: T("GuildCommunity.UnknownGuildCommunityAction") };
 	}
 
 	Shutdown() {

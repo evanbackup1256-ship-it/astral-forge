@@ -1,4 +1,5 @@
 // Server-wide live events (warning, live, results): scoring, shared goals, tickets, catches and supply drops.
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import { Service } from "@flamework/core";
 import { Dict, sharedDataKit } from "../LuaInterop";
 
@@ -368,15 +369,15 @@ export class ServerEventService {
 	CatchStar(player: Player): LuaTuple<[number | undefined, string | undefined]> {
 		const d = this._live("stars");
 		if (d === undefined) {
-			return $tuple(undefined, "No stars are falling right now.");
+			return $tuple(undefined, T("ServerEventService.NoStarsAreFallingRight"));
 		}
 		const caught = this._caught[player.UserId] ?? 0;
 		if (caught >= (d.MaxStars ?? 0)) {
-			return $tuple(undefined, "You've caught every star you can this time.");
+			return $tuple(undefined, T("ServerEventService.YouVeCaughtEveryStar"));
 		}
 		const now = os.clock();
 		if (now - (this._lastCatch[player.UserId] ?? 0) < (d.MinGap ?? 0)) {
-			return $tuple(undefined, "Too quick.");
+			return $tuple(undefined, T("ServerEventService.TooQuick"));
 		}
 		this._lastCatch[player.UserId] = now;
 		this._caught[player.UserId] = caught + 1;
@@ -388,19 +389,19 @@ export class ServerEventService {
 	ClaimSupply(player: Player, dropId: unknown): LuaTuple<[unknown, string | undefined]> {
 		const d = this._live("supply");
 		if (d === undefined) {
-			return $tuple(undefined, "There's no supply drop right now.");
+			return $tuple(undefined, T("ServerEventService.ThereSNoSupplyDrop"));
 		}
 		const now = os.time();
 		for (const drop of this._drops) {
 			if (drop.Id === dropId) {
 				if (now < drop.At || now > drop.At + (d.DropSeconds ?? 0)) {
-					return $tuple(undefined, "That crate isn't down.");
+					return $tuple(undefined, T("ServerEventService.ThatCrateIsnTDown"));
 				}
 				if (drop.Claimed[player.UserId] === true) {
-					return $tuple(undefined, "You already grabbed this one.");
+					return $tuple(undefined, T("ServerEventService.YouAlreadyGrabbedThisOne"));
 				}
 				if (drop.Left <= 0) {
-					return $tuple(undefined, "Someone beat you to it.");
+					return $tuple(undefined, T("ServerEventService.SomeoneBeatYouToIt"));
 				}
 				drop.Left -= 1;
 				drop.Claimed[player.UserId] = true;
@@ -408,7 +409,7 @@ export class ServerEventService {
 				return $tuple(d.Reward, undefined);
 			}
 		}
-		return $tuple(undefined, "That crate isn't down.");
+		return $tuple(undefined, T("ServerEventService.ThatCrateIsnTDown"));
 	}
 
 	Start(id: string): boolean {

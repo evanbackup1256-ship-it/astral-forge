@@ -1,3 +1,4 @@
+import { T } from "./Locale";
 ﻿type Dict = Record<string, unknown>;
 type Value = number | string;
 
@@ -130,7 +131,7 @@ function Policy() {
 
 function Select(raw: unknown, id: unknown, now: number): LuaTuple<[State | undefined, string]> {
 	if (!typeIs(id, "string") || !Find(id)) {
-		return $tuple(undefined, "Choose an available forge specialization.");
+		return $tuple(undefined, T("Specializations.ChooseAnAvailableForgeSpecialization"));
 	}
 	const state = Sanitize(raw);
 	if (state.Focus === id) {
@@ -139,7 +140,7 @@ function Select(raw: unknown, id: unknown, now: number): LuaTuple<[State | undef
 	if (state.ChangedAt > 0 && now < state.ChangedAt + cooldown) {
 		return $tuple(
 			undefined,
-			"Your forge can be reconfigured in " + math.ceil(state.ChangedAt + cooldown - now) + " seconds.",
+			T("Specializations.YourForgeCanBeReconfigured", math.ceil(state.ChangedAt + cooldown - now)),
 		);
 	}
 	return $tuple(

@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 interface MarketOrder {
 	Game: string;
 	Pick: string;
@@ -102,11 +103,11 @@ const BazaarMath = {
 
 	ReadOrder(this: void, payload: unknown): LuaTuple<[MarketOrder | undefined, string | undefined]> {
 		if (!typeIs(payload, "table") || (payload as Record<string, unknown>).Game !== "Market") {
-			return $tuple(undefined, "Only the Black Market is open.");
+			return $tuple(undefined, T("BazaarMath.OnlyTheBlackMarketIs"));
 		}
 		const bag = payload as Record<string, unknown>;
 		if (!typeIs(bag.Pick, "string") || bag.Pick.size() < 2 || bag.Pick.size() > 24) {
-			return $tuple(undefined, "Choose a listed supply.");
+			return $tuple(undefined, T("BazaarMath.ChooseAListedSupply"));
 		}
 		if (
 			!typeIs(bag.Bucket, "number") ||
@@ -115,7 +116,7 @@ const BazaarMath = {
 			bag.Bucket > 1e12 ||
 			bag.Bucket % 1 !== 0
 		) {
-			return $tuple(undefined, "Review the shipment before buying.");
+			return $tuple(undefined, T("BazaarMath.ReviewTheShipmentBeforeBuying"));
 		}
 		if (
 			!typeIs(bag.Quantity, "number") ||
@@ -124,16 +125,16 @@ const BazaarMath = {
 			bag.Quantity < 1 ||
 			bag.Quantity > 8
 		) {
-			return $tuple(undefined, "Choose between 1 and 8 units.");
+			return $tuple(undefined, T("BazaarMath.ChooseBetween1And8"));
 		}
 		if (!typeIs(bag.RequestId, "string") || bag.RequestId.size() < 8 || bag.RequestId.size() > 64) {
-			return $tuple(undefined, "The order needs a valid request ID.");
+			return $tuple(undefined, T("BazaarMath.TheOrderNeedsAValid"));
 		}
 		if (bag.Currency !== "Flux" || !BazaarMath.ValidQuote(bag.UnitPrice)) {
-			return $tuple(undefined, "Review the order's currency and price.");
+			return $tuple(undefined, T("BazaarMath.ReviewTheOrderSCurrency"));
 		}
 		if (!typeIs(bag.Rotation, "string") || bag.Rotation.size() < 3 || bag.Rotation.size() > 64) {
-			return $tuple(undefined, "Refresh the shipment before buying.");
+			return $tuple(undefined, T("BazaarMath.RefreshTheShipmentBeforeBuying"));
 		}
 		return $tuple(
 			{
@@ -217,15 +218,15 @@ const BazaarMath = {
 	RARE_DISCOUNT: 0.15,
 
 	MERCHANTS: table.freeze([
-		table.freeze({ Id: "vess", Name: "Vess Calder", Title: "Salvage broker", Favors: "Resources", Accent: table.freeze([214, 160, 96]),
+		table.freeze({ Id: "vess", Name: T("BazaarMath.VessCalder"), Title: T("BazaarMath.SalvageBroker"), Favors: "Resources", Accent: table.freeze([214, 160, 96]),
 			Line: "Everything on this table came off a wreck. None of it is sentimental." }),
-		table.freeze({ Id: "orrin", Name: "Orrin Hale", Title: "Key cutter", Favors: "Keys", Accent: table.freeze([150, 190, 230]),
+		table.freeze({ Id: "orrin", Name: T("BazaarMath.OrrinHale"), Title: T("BazaarMath.KeyCutter"), Favors: "Keys", Accent: table.freeze([150, 190, 230]),
 			Line: "Bring me a lock and I'll tell you what it's hiding. Bring Flux and I'll skip the story." }),
-		table.freeze({ Id: "sable", Name: "Sable Rook", Title: "Signal runner", Favors: "Command", Accent: table.freeze([176, 140, 220]),
+		table.freeze({ Id: "sable", Name: T("BazaarMath.SableRook"), Title: T("BazaarMath.SignalRunner"), Favors: "Command", Accent: table.freeze([176, 140, 220]),
 			Line: "Quiet channels usually cost extra. This hour, they don't." }),
-		table.freeze({ Id: "tamsin", Name: "Tamsin Ferro", Title: "Engine fixer", Favors: "Boosts", Accent: table.freeze([230, 120, 90]),
+		table.freeze({ Id: "tamsin", Name: T("BazaarMath.TamsinFerro"), Title: T("BazaarMath.EngineFixer"), Favors: "Boosts", Accent: table.freeze([230, 120, 90]),
 			Line: "Runs hot, runs fast. Don't ask where the cells were before me." }),
-		table.freeze({ Id: "pell", Name: "Pell Morrow", Title: "Token dealer", Favors: "Tokens", Accent: table.freeze([225, 140, 180]),
+		table.freeze({ Id: "pell", Name: T("BazaarMath.PellMorrow"), Title: T("BazaarMath.TokenDealer"), Favors: "Tokens", Accent: table.freeze([225, 140, 180]),
 			Line: "Spin it yourself. I only sell the chances." }),
 	]),
 

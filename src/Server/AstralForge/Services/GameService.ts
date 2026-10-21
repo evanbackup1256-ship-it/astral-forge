@@ -419,7 +419,7 @@ const shopShared = (): LuaTuple<[Kit, Kit]> => {
 
 const spendShopCurrency = (profile: Profile, currency: string, price: number): string | undefined => {
 	if (currency !== "Stardust" && currency !== "Cores") {
-		return "That offer can't be bought with " + tostring(currency) + ".";
+		return T("GameService.ThatOfferCanTBe", tostring(currency));
 	}
 	const have = tonumber(profile[currency]) ?? 0;
 	if (have < price) {
@@ -660,18 +660,18 @@ export class GameService {
 			userId = RemoteFirewall.CoerceUserId(rawUserId) as number | undefined;
 		}
 		if (userId === undefined) {
-			return responseError("That workshop could not be found.");
+			return responseError(T("GameService.ThatWorkshopCouldNotBe"));
 		}
 		if (userId === visitor.UserId) {
-			return responseError("You're already at your own workshop.");
+			return responseError(T("GameService.YouReAlreadyAtYour"));
 		}
 		const host = Players.GetPlayerByUserId(userId);
 		if (!host) {
-			return responseError("That player is no longer in this server.");
+			return responseError(T("TradeSuite.ThatPlayerIsNoLonger"));
 		}
 		const profile = this._data.Get(host) as Profile | undefined;
 		if (!profile) {
-			return responseError("Their workshop is still loading.");
+			return responseError(T("GameService.TheirWorkshopIsStillLoading"));
 		}
 
 		this._clearVisit(visitor, true);
@@ -690,30 +690,30 @@ export class GameService {
 		const visitorSnap = this._snapshot(visitor);
 		this._forgetSentSections(visitor);
 		this._pushState(visitor);
-		return responseSuccess("Visiting " + host.DisplayName + ".", { Visit: visit, State: visitorSnap });
+		return responseSuccess(T("GameService.VisitingS", host.DisplayName), { Visit: visit, State: visitorSnap });
 	}
 
 	_leavePlot(visitor: Player) {
 		if (this._visiting.get(visitor) === undefined) {
-			return responseSuccess("Already back at your workshop.");
+			return responseSuccess(T("GameService.AlreadyBackAtYourWorkshop"));
 		}
 		this._clearVisit(visitor, true);
 		this._effect.fire(visitor, { Type: "VisitEnded" });
-		return responseSuccess("Back at your workshop.");
+		return responseSuccess(T("GameService.BackAtYourWorkshop"));
 	}
 
 	_nudgeCrew(sender: Player, rawUserId: unknown) {
 		const extracted = extractUserId(rawUserId);
 		const userId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawUserId)) as number | undefined;
 		if (userId === undefined) {
-			return responseError("Couldn't find that crew member.");
+			return responseError(T("GameService.CouldnTFindThatCrew"));
 		}
 		if (userId === sender.UserId) {
-			return responseError("Wave at someone else.");
+			return responseError(T("GameService.WaveAtSomeoneElse"));
 		}
 		const target = Players.GetPlayerByUserId(userId);
 		if (!target) {
-			return responseError("They're not in this server anymore.");
+			return responseError(T("GameService.TheyReNotInThis"));
 		}
 
 		this._effect.fire(target, {
@@ -721,7 +721,7 @@ export class GameService {
 			FromUserId: sender.UserId,
 			FromName: sender.DisplayName,
 		});
-		return responseSuccess("Waved at " + target.DisplayName + ".");
+		return responseSuccess(T("GameService.WavedAtS", target.DisplayName));
 	}
 
 	_reportPresence(player: Player, payload: unknown) {
@@ -818,7 +818,7 @@ export class GameService {
 		const payload = rawPayload as Dict;
 		const profile = this._data.Get(player) as Profile | undefined;
 		if (!profile) {
-			return responseError("Profile is still loading.");
+			return responseError(T("GameService.ProfileIsStillLoading"));
 		}
 		// live-ops kill switch: cancelling, chat and leaving still work while trading is paused
 		if (
@@ -829,28 +829,28 @@ export class GameService {
 				action === Protocol.Actions.SetTradeReady ||
 				action === Protocol.Actions.ConfirmTrade)
 		) {
-			return responseError("Trading is paused for maintenance. Try again shortly.");
+			return responseError(T("GameService.TradingIsPausedForMaintenance"));
 		}
 		const now = os.time();
 		if (action === Protocol.Actions.GetTrade) {
 			return responseSuccess(undefined);
 		}
 		if (!truthy(this._trades.Unlocked(profile))) {
-			return responseError("Trade Floor unlocks after your first rebirth.");
+			return responseError(T("TradeSuite.TradeFloorUnlocksAfterYour"));
 		}
 		if (action === Protocol.Actions.InviteTrade) {
 			const userId = RemoteFirewall.CoerceUserId(payload.UserId) as number | undefined;
 			if (userId === undefined) {
-				return responseError("Choose a player to invite.");
+				return responseError(T("GameService.ChooseAPlayerToInvite"));
 			}
 			this._flagTradeInvite(player, userId);
 			if (!truthy(this._trades.Unlocked(profile))) {
-				return responseError("Trade Floor unlocks after your first rebirth.");
+				return responseError(T("TradeSuite.TradeFloorUnlocksAfterYour"));
 			}
 			const target = userId === -999 ? undefined : Players.GetPlayerByUserId(userId);
 			const targetProfile = target ? (this._data.Get(target) as Profile | undefined) : undefined;
 			if (userId !== -999 && targetProfile && !truthy(this._trades.Unlocked(targetProfile))) {
-				return responseError("They have not unlocked Trade Floor yet.");
+				return responseError(T("GameService.TheyHaveNotUnlockedTrade"));
 			}
 			// the target's Social setting decides who may invite them
 			const targetSettings = targetProfile ? (targetProfile.Settings as Dict | undefined) : undefined;
@@ -874,7 +874,7 @@ export class GameService {
 				this._pushState(target, true);
 			}
 			this._pushState(player, true);
-			return responseSuccess(userId === -999 ? "Practice trade opened." : "Invite sent.");
+			return responseSuccess(userId === -999 ? T("GameService.PracticeTradeOpened") : T("GameService.InviteSent"));
 		} else if (action === Protocol.Actions.RespondTrade) {
 			const accept = payload.Accept === true;
 			const [ok, err, session, fromId] = this._trades.Respond(player, profile, accept, now) as LuaTuple<
@@ -888,7 +888,7 @@ export class GameService {
 				if (host) {
 					this._toastPlayer(
 						host,
-						accept ? "Trade opened" : "Invite declined",
+						accept ? T("GameService.TradeOpened") : T("GameService.InviteDeclined"),
 						accept ? player.DisplayName + " accepted." : player.DisplayName + " declined.",
 						accept ? "Success" : "Info",
 					);
@@ -898,7 +898,7 @@ export class GameService {
 			if (session) {
 				this._pushTradePartners(session.Host, session.Guest);
 			}
-			return responseSuccess(accept ? "Trade opened." : "Invite declined.");
+			return responseSuccess(accept ? T("GameService.TradeOpened2") : T("CrewService.InviteDeclined"));
 		} else if (action === Protocol.Actions.UpdateTradeOffer) {
 			const [ok, err, session] = this._trades.UpdateOffer(player, profile, payload.Offer, now) as LuaTuple<
 				[unknown, unknown, Dict | undefined]
@@ -909,7 +909,7 @@ export class GameService {
 			if (session) {
 				this._pushTradePartners(session.Host, session.Guest);
 			}
-			return responseSuccess("Offer updated.");
+			return responseSuccess(T("GameService.OfferUpdated"));
 		} else if (action === Protocol.Actions.SetTradeReady) {
 			const [ok, err, session] = this._trades.SetReady(player, profile, payload.Ready === true, now) as LuaTuple<
 				[unknown, unknown, Dict | undefined]
@@ -920,7 +920,7 @@ export class GameService {
 			if (session) {
 				this._pushTradePartners(session.Host, session.Guest);
 			}
-			return responseSuccess(payload.Ready === true ? "You are ready." : "Ready cleared.");
+			return responseSuccess(payload.Ready === true ? T("GameService.YouAreReady") : T("GameService.ReadyCleared"));
 		} else if (action === Protocol.Actions.ConfirmTrade) {
 			const [ok, err, maybeSession] = this._trades.Confirm(player, now) as LuaTuple<[unknown, unknown, Dict | undefined]>;
 			if (!truthy(ok)) {
@@ -931,7 +931,7 @@ export class GameService {
 				const session = maybeSession;
 				if (!truthy(this._trades.TryBeginSettle(session))) {
 					this._pushTradePartners(session.Host, session.Guest);
-					return responseSuccess("Trade is settling.");
+					return responseSuccess(T("GameService.TradeIsSettling"));
 				}
 				const isPractice = session.Guest === -999 || session.Host === -999;
 				if (isPractice) {
@@ -943,7 +943,7 @@ export class GameService {
 					if (practicePlayer) {
 						this._toastPlayer(practicePlayer, T("Toast.PracticeCompleteTitle"), T("Toast.PracticeCompleteBody"), "Success");
 					}
-					return responseSuccess("Practice trade complete. Nothing changed hands.");
+					return responseSuccess(T("GameService.PracticeTradeCompleteNothingChanged"));
 				}
 				const host = Players.GetPlayerByUserId(session.Host as number);
 				const guest = (
@@ -982,13 +982,13 @@ export class GameService {
 				if (!host || !guest || !hostProfile || !guestProfile) {
 					this._trades.FailSettle(session, false);
 					this._trades.Cancel(player);
-					return responseError("A trader left before the swap finished.");
+					return responseError(T("GameService.ATraderLeftBeforeThe"));
 				}
 				const [plannedValue, planErr] = this._trades.Plan(session, hostProfile, guestProfile, now) as LuaTuple<[Dict | undefined, unknown]>;
 				if (!plannedValue) {
 					this._trades.FailSettle(session, false);
 					this._pushTradePartners(session.Host, session.Guest);
-					return responseError(orElse(planErr, () => "That trade could not be settled."));
+					return responseError(orElse(planErr, () => T("GameService.ThatTradeCouldNotBe")));
 				}
 				const plan = plannedValue;
 
@@ -1169,17 +1169,17 @@ export class GameService {
 					if (typeIs(outcome.log, "string")) {
 						ModuleLog.Warn("Trade", outcome.log, { SessionId: session.Id, Host: session.Host, Guest: session.Guest });
 					}
-					return responseError(orElse(outcome.message, () => "That trade could not be settled."));
+					return responseError(orElse(outcome.message, () => T("GameService.ThatTradeCouldNotBe")));
 				}
 				this._trades.Close(session);
 				this._toastPlayer(host, T("Toast.TradeCompleteTitle"), T("Toast.TradeCompleteBody"), "Success");
 				this._toastPlayer(guest, T("Toast.TradeCompleteTitle"), T("Toast.TradeCompleteBody"), "Success");
-				return responseSuccess("Trade complete.");
+				return responseSuccess(T("GameService.TradeComplete"));
 			}
 			if (maybeSession) {
 				this._pushTradePartners(maybeSession.Host, maybeSession.Guest);
 			}
-			return responseSuccess("Confirmation noted.");
+			return responseSuccess(T("GameService.ConfirmationNoted"));
 		} else if (action === Protocol.Actions.TradeChat) {
 			let text: unknown = undefined;
 			if (typeIs(payload.Text, "string") && payload.Text.size() > 0) {
@@ -1192,7 +1192,7 @@ export class GameService {
 					Enum.TextFilterContext.PrivateChat,
 				) as LuaTuple<[unknown, unknown]>;
 				if (!truthy(okFilter)) {
-					return responseError("That message couldn't be sent.");
+					return responseError(T("GameService.ThatMessageCouldnTBe"));
 				}
 				text = filtered;
 			}
@@ -1208,7 +1208,7 @@ export class GameService {
 				return responseError(err);
 			}
 			this._pushTradePartners(session.Host, session.Guest);
-			return responseSuccess("Request sent.");
+			return responseSuccess(T("GameService.RequestSent"));
 		} else if (action === Protocol.Actions.TradeViewAway) {
 			const away = truthy(payload) ? payload.Away === true : payload;
 			const session = this._trades.SetAway(player, away) as Dict | undefined;
@@ -1238,18 +1238,18 @@ export class GameService {
 				}
 			}
 			if (truthy(session)) {
-				return responseSuccess("Trade cancelled.");
+				return responseSuccess(T("GameService.TradeCancelled"));
 			}
-			return responseSuccess("Invite cleared.");
+			return responseSuccess(T("GameService.InviteCleared"));
 		}
-		return responseError("Unknown trade action.");
+		return responseError(T("GameService.UnknownTradeAction"));
 	}
 
 	_getPlayerMirror(viewer: Player, rawUserId: unknown) {
 		const extracted = extractUserId(rawUserId);
 		const userId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawUserId)) as number | undefined;
 		if (userId === undefined) {
-			return responseError("That player could not be found.");
+			return responseError(T("GameService.ThatPlayerCouldNotBe"));
 		}
 		const target = Players.GetPlayerByUserId(userId);
 		if (target) {
@@ -1258,7 +1258,7 @@ export class GameService {
 				return responseSuccess(undefined, { Mirror: publicPlayerRecord(target, profile, viewer, this._presence) });
 			}
 		}
-		return responseError("That player is no longer in this server.");
+		return responseError(T("TradeSuite.ThatPlayerIsNoLonger"));
 	}
 
 	constructor(
@@ -1402,17 +1402,17 @@ export class GameService {
 		const payload = rawPayload as Dict | undefined;
 		const endpoint = ServerStorage.GetAttribute(ServerConfig.FeedbackWebhookAttribute as string);
 		if (!typeIs(endpoint, "string") || endpoint.match("^https://")[0] === undefined) {
-			return responseError("Feedback isn't set up yet. Please try again later.");
+			return responseError(T("GameService.FeedbackIsnTSetUp"));
 		}
 		const category = payload ? payload.Category : undefined;
 		const raw = payload ? payload.Message : undefined;
 		if (!typeIs(category, "string") || !typeIs(raw, "string")) {
-			return responseError("Write a short note before sending it.");
+			return responseError(T("GameService.WriteAShortNoteBefore"));
 		}
 		const body0 = payload as Dict;
 		const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(player, raw, player.UserId, 600) as LuaTuple<[unknown, unknown]>;
 		if (!truthy(filteredOk) || !typeIs(filtered, "string") || filtered.size() < 1) {
-			return responseError("That note couldn't be checked. Please try different wording.");
+			return responseError(T("GameService.ThatNoteCouldnTBe"));
 		}
 		const profile = this._data.Get(player) as Profile | undefined;
 		const categoryColors: Record<string, number | undefined> = {
@@ -1484,27 +1484,27 @@ export class GameService {
 				ModuleLog.Every("feedback-webhook", 30, "Feedback", "A player note could not be delivered");
 			}
 		});
-		return responseSuccess("Thanks. Your feedback was sent.");
+		return responseSuccess(T("GameService.ThanksYourFeedbackWasSent"));
 	}
 
 	_reportPlayer(player: Player, rawPayload: unknown) {
 		const payload = rawPayload as Dict | undefined;
 		const reason = payload ? payload.Reason : undefined;
 		if (!truthy(ReportLedger.isReason(reason))) {
-			return responseError("Pick a reason before sending the report.");
+			return responseError(T("GameService.PickAReasonBeforeSending"));
 		}
 		const rawTarget = payload ? payload.UserId : undefined;
 		const extracted = extractUserId(rawTarget);
 		const targetUserId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawTarget)) as number | undefined;
 		if (targetUserId === undefined) {
-			return responseError("Couldn't find that player.");
+			return responseError(T("GameService.CouldnTFindThatPlayer"));
 		}
 		if (targetUserId === player.UserId) {
-			return responseError("You can't report yourself.");
+			return responseError(T("GameService.YouCanTReportYourself"));
 		}
 		const target = Players.GetPlayerByUserId(targetUserId);
 		if (!target) {
-			return responseError("That player is no longer in this server.");
+			return responseError(T("TradeSuite.ThatPlayerIsNoLonger"));
 		}
 		const body0 = payload as Dict;
 		const now = os.time();
@@ -1539,7 +1539,7 @@ export class GameService {
 					reporterCount,
 				),
 			);
-			return responseSuccess("Report received. Thanks for helping keep the server clean.", { Reported: targetUserId });
+			return responseSuccess(T("GameService.ReportReceivedThanksForHelping"), { Reported: targetUserId });
 		}
 		const reporterProfile = this._data.Get(player) as Profile | undefined;
 		const targetProfile = this._data.Get(target) as Profile | undefined;
@@ -1589,7 +1589,7 @@ export class GameService {
 				ModuleLog.Every("report-webhook", 30, "Report", "A player report could not be delivered");
 			}
 		});
-		return responseSuccess("Report sent. Thanks for helping keep the server clean.", { Reported: targetUserId });
+		return responseSuccess(T("GameService.ReportSentThanksForHelping"), { Reported: targetUserId });
 	}
 
 	_spawnWorker(callback: () => void) {
@@ -2094,8 +2094,8 @@ export class GameService {
 				const single = newlyUnlocked.size() === 1 ? newlyUnlocked[0] : undefined;
 				this._toastPlayer(
 					player,
-					single ? (single.State.Name as string) + " unlocked" : "New systems unlocked",
-					single ? "You can open it from the Forge menu." : names.join(", ") + " are ready in the Forge menu.",
+					single ? (single.State.Name as string) + " unlocked" : T("GameService.NewSystemsUnlocked"),
+					single ? T("GameService.YouCanOpenItFrom") : names.join(", ") + " are ready in the Forge menu.",
 					"Special",
 				);
 				this._effect.fire(player, {
@@ -2427,7 +2427,7 @@ export class GameService {
 				const [, wouldReject] = this._antiCheat.Observe(player, "Mutation", profile) as LuaTuple<[unknown, unknown]>;
 				if (truthy(wouldReject)) {
 					// Returning a failed transaction quarantines the whole mutation, including the illegal credit.
-					return responseError("That economy change was rejected.");
+					return responseError(T("GameService.ThatEconomyChangeWasRejected"));
 				}
 				return callbackResult;
 			},
@@ -2435,10 +2435,10 @@ export class GameService {
 			label,
 		) as LuaTuple<[unknown, unknown]>;
 		if (!truthy(success)) {
-			return responseError("Your profile is not ready. Please try again.");
+			return responseError(T("GuildCommunity.YourProfileIsNotReady"));
 		}
 		if (!isTable(result) || !typeIs(result.ok, "boolean")) {
-			return responseError("Couldn't finish that.");
+			return responseError(T("GameService.CouldnTFinishThat"));
 		}
 		const runtime = this._runtime.get(player);
 		if (result.ok && runtime) {
@@ -2512,7 +2512,7 @@ export class GameService {
 
 	_buyAnomalyProtocol(player: Player, protocolId: unknown) {
 		if (!typeIs(protocolId, "string")) {
-			return responseError("Choose a reactor upgrade and try again.");
+			return responseError(T("GameService.ChooseAReactorUpgradeAnd"));
 		}
 		const [result, details] = anomalyCall(
 			this,
@@ -2548,7 +2548,7 @@ export class GameService {
 
 	_setAnomalyChannel(player: Player, channelId: unknown) {
 		if (!typeIs(channelId, "string")) {
-			return responseError("Pick a valid reactor channel.");
+			return responseError(T("GameService.PickAValidReactorChannel"));
 		}
 		const [result, details] = anomalyCall(
 			this,
@@ -2569,7 +2569,7 @@ export class GameService {
 
 	_setAnomalyLoadout(player: Player, rawLoadout: unknown) {
 		if (!typeIs(rawLoadout, "table")) {
-			return responseError("Invalid reactor loadout.");
+			return responseError(T("Anomaly.InvalidReactorLoadout"));
 		}
 		const [result, details] = anomalyCall(
 			this,
@@ -2596,7 +2596,7 @@ export class GameService {
 
 	_claimAnomalyDirective(player: Player, directiveId: unknown) {
 		if (!typeIs(directiveId, "string")) {
-			return responseError("That reactor job isn't valid.");
+			return responseError(T("GameService.ThatReactorJobIsnT"));
 		}
 		const [result, details] = anomalyCall(
 			this,
@@ -2634,7 +2634,7 @@ export class GameService {
 		const result = this._mutate(player, (profile: Profile) => {
 			const amount = profile.Vault;
 			if (truthy(Economy.Lt(amount, 0.01))) {
-				return responseError("Your vault is still charging.");
+				return responseError(T("GameService.YourVaultIsStillCharging"));
 			}
 			profile.Vault = 0;
 			profile.Cash = Economy.Add(profile.Cash, amount);
@@ -2673,14 +2673,14 @@ export class GameService {
 				notes.push("a crate key");
 			}
 			if (notes.size() > 0) {
-				return responseSuccess("Banked " + (Format.Number(amount) as string) + " Flux and found " + notes.join(", ") + ".", {
+				return responseSuccess(T("GameService.BankedSFluxAndFound", (Format.Number(amount) as string), notes.join(", ")), {
 					Amount: amount,
 					Dust: extra.Dust,
 					Cores: extra.Cores,
 					Keys: extra.Keys,
 				});
 			}
-			return responseSuccess("Banked " + (Format.Number(amount) as string) + " Flux.", { Amount: amount });
+			return responseSuccess(T("GameService.BankedSFlux", (Format.Number(amount) as string)), { Amount: amount });
 		});
 		if (truthy(result.ok)) {
 			this._effect.fire(player, { Type: "Collect", Amount: result.Amount });
@@ -2716,7 +2716,7 @@ export class GameService {
 		if (refund > 0) {
 			ProgressionService.ApplyReward(profile, { Stardust: refund }, undefined);
 			task.defer(() =>
-				this._toastPlayer(player, "Event over", string.format("Your leftover tokens became %d Stardust.", refund), "Special"),
+				this._toastPlayer(player, T("GameService.EventOver"), T("GameService.YourLeftoverTokensBecameD", refund), "Special"),
 			);
 		}
 		const points = (runtime.EventPoints as number | undefined) ?? 0;
@@ -2729,7 +2729,7 @@ export class GameService {
 		const now = os.time();
 		const event = liveEvent(now);
 		if (event === undefined || HotFlags.Get("LimitedEventsPaused")) {
-			return responseError("The event stall is closed right now.");
+			return responseError(T("GameService.TheEventStallIsClosed"));
 		}
 		let refunded = 0;
 		const result = this._mutate(player, (profile: Profile) => {
@@ -2744,14 +2744,14 @@ export class GameService {
 			if (item === undefined) {
 				if (refunded > 0) {
 					// keep the move and the refund even though the purchase itself was refused
-					return responseSuccess(string.format("Your leftover tokens became %d Stardust. %s", refunded, reason ?? ""), {
+					return responseSuccess(T("GameService.YourLeftoverTokensBecameD2", refunded, reason ?? ""), {
 						Refund: refunded,
 					});
 				}
-				return responseError(reason ?? "That isn't sold at this stall.");
+				return responseError(reason ?? T("GameService.ThatIsnTSoldAt"));
 			}
 			const text = ProgressionService.ApplyReward(profile, item.Reward, Economy.Production(profile));
-			return responseSuccess("Bought " + item.Name + ": " + tostring(text), { Item: item.Id });
+			return responseSuccess(T("GameService.BoughtSS", item.Name, tostring(text)), { Item: item.Id });
 		});
 		return result;
 	}
@@ -2772,7 +2772,7 @@ export class GameService {
 		} else if (op === "Claim") {
 			const [reward, reason] = this._events.ClaimSupply(player, (payload as Dict).Drop) as LuaTuple<[Dict | undefined, unknown]>;
 			if (reward === undefined) {
-				return responseError(orElse(reason, () => "Missed it."));
+				return responseError(orElse(reason, () => T("GameService.MissedIt")));
 			}
 			return this._mutate(player, (profile: Profile) => {
 				const rewardDust = orElse(reward.Stardust, () => 0) as number;
@@ -2783,13 +2783,13 @@ export class GameService {
 					const crate = reward.KeyCrate as string;
 					keys[crate] = (num(keys[crate]) ?? 0) + (reward.Keys as number);
 				}
-				return responseSuccess("Got it: a crate key and " + tostring(rewardDust) + " Stardust.", {
+				return responseSuccess(T("GameService.GotItACrateKey2", tostring(rewardDust)), {
 					Dust: reward.Stardust,
 					Keys: reward.Keys,
 				});
 			});
 		}
-		return responseError("Unknown event action.");
+		return responseError(T("GameService.UnknownEventAction"));
 	}
 
 	_overchargeCombo(runtime: Runtime | undefined, profile: unknown): LuaTuple<[number, number]> {
@@ -2809,12 +2809,12 @@ export class GameService {
 	_overcharge(player: Player) {
 		const runtime = this._runtime.get(player);
 		if (!runtime) {
-			return responseError("Shop's still loading.");
+			return responseError(T("GameService.ShopSStillLoading"));
 		}
 		const profileForCombo = this._data.Get(player);
 		const nowClock = os.clock();
 		if (nowClock - (runtime.LastTap as number) < 0.06) {
-			return responseError("Overcharge is cooling down.");
+			return responseError(T("GameService.OverchargeIsCoolingDown"));
 		}
 		let previousCombo = math.max(0, math.floor(num(runtime.TapCombo) ?? 0));
 		if (
@@ -2834,7 +2834,7 @@ export class GameService {
 				const capacity = Economy.Capacity(profile);
 				const room = Economy.Sub(capacity, profile.Vault);
 				if (truthy(Economy.Lte(room, 0.01))) {
-					return responseError("Your vault is full. Bank it first.");
+					return responseError(T("GameService.YourVaultIsFullBank"));
 				}
 				const critical = this._random.NextNumber() <= (Economy.CriticalChance(profile) as number) + (this._events.CritBonus() as number);
 				let amount = Economy.TapPower(profile);
@@ -2886,18 +2886,18 @@ export class GameService {
 
 	_buyMachine(player: Player, machineId: unknown, requestedAmount?: unknown) {
 		if (!typeIs(machineId, "string")) {
-			return responseError("Invalid machine request.");
+			return responseError(T("GameService.InvalidMachineRequest"));
 		}
 		const machineFound = Economy.GetMachine(machineId);
 		if (!truthy(machineFound)) {
-			return responseError("That machine does not exist.");
+			return responseError(T("GameService.ThatMachineDoesNotExist"));
 		}
 		const machine = machineFound as Dict;
 		const result = this._mutate(player, (profile: Profile) => {
 			const machines = profile.Machines as Dict;
 			const level = orElse(machines[machineId], () => 0) as number;
 			if (level >= (machine.MaxLevel as number)) {
-				return responseError("That machine is already at maximum level.");
+				return responseError(T("GameService.ThatMachineIsAlreadyAt"));
 			}
 			const lockReason = ProgressionGate.UpgradeReason(profile, machine, profile.Machines);
 			if (truthy(lockReason)) {
@@ -2914,10 +2914,10 @@ export class GameService {
 				cost = Economy.MachineBulkCost(machineId, level, count);
 			}
 			if (count < 1) {
-				return responseError("You cannot afford another level yet.");
+				return responseError(T("GameService.YouCannotAffordAnotherLevel"));
 			}
 			if (truthy(Economy.Lt(profile.Cash, cost))) {
-				return responseError("You need " + (Format.Number(Economy.Sub(cost, profile.Cash)) as string) + " more Flux.");
+				return responseError(T("GameService.YouNeedSMoreFlux", (Format.Number(Economy.Sub(cost, profile.Cash)) as string)));
 			}
 			profile.Cash = Economy.Sub(profile.Cash, cost);
 			machines[machineId] = level + count;
@@ -2954,11 +2954,11 @@ export class GameService {
 
 	_setAutoForge(player: Player, payload: unknown) {
 		if (!isTable(payload) || !typeIs(payload.Enabled, "boolean")) {
-			return responseError("Choose a valid Auto-Forge setup.");
+			return responseError(T("GameService.ChooseAValidAutoForge"));
 		}
 		const machineFound = Economy.GetMachine(payload.MachineId);
 		if (!truthy(machineFound)) {
-			return responseError("That machine cannot be queued.");
+			return responseError(T("GameService.ThatMachineCannotBeQueued"));
 		}
 		const machine = machineFound as Dict;
 		const reserve = math.clamp(num(payload.Reserve) ?? 0.25, 0, 0.9);
@@ -2972,7 +2972,7 @@ export class GameService {
 			autoForge.Bought = math.max(0, math.floor(num(autoForge.Bought) ?? 0));
 			const state = enabled ? "online" : "paused";
 			return responseSuccess(
-				"Auto-Forge %s: buying %s and keeping %d%% in reserve.".format(state, machine.Name as string, math.floor(reserve * 100 + 0.5)),
+				T("GameService.AutoForgeSBuyingS", state, machine.Name as string, math.floor(reserve * 100 + 0.5)),
 			);
 		});
 	}
@@ -3005,23 +3005,23 @@ export class GameService {
 			(profile: Profile) => {
 				const current = profile.AutoForge;
 				if (!isTable(current) || current.Enabled !== true || current.MachineId !== machineId) {
-					return responseError("Auto-Forge changed before purchase.");
+					return responseError(T("GameService.AutoForgeChangedBeforePurchase"));
 				}
 				const machines = profile.Machines as Dict;
 				const currentLevel = orElse(machines[machineId], () => 0) as number;
 				if (currentLevel >= maxLevel) {
 					current.Enabled = false;
-					return responseSuccess("Auto-Forge paused at maximum level.");
+					return responseSuccess(T("GameService.AutoForgePausedAtMaximum"));
 				}
 				if (truthy(ProgressionGate.UpgradeReason(profile, machine, profile.Machines))) {
-					return responseError("Auto-Forge target is still locked.");
+					return responseError(T("GameService.AutoForgeTargetIsStill"));
 				}
 				const currentReserve = math.clamp(num(current.Reserve) ?? 0.25, 0, 0.9);
 				const remaining = maxLevel - currentLevel;
 				const spendable = Economy.Mul(profile.Cash, 1 - currentReserve);
 				const [count, cost] = Economy.AffordableMachineLevels(machineId, currentLevel, spendable, remaining) as LuaTuple<[number, unknown]>;
 				if (count < 1) {
-					return responseError("Auto-Forge is preserving its reserve.");
+					return responseError(T("GameService.AutoForgeIsPreservingIts"));
 				}
 				profile.Cash = Economy.Sub(profile.Cash, cost);
 				machines[machineId] = currentLevel + count;
@@ -3035,7 +3035,7 @@ export class GameService {
 				ForgeEchoService.Record(profile, "Build", math.clamp(2 + count * 0.8, 2, 12));
 				enforceUnlimitedMoney(profile);
 				this._antiCheat.Observe(player, "AutoForge", profile);
-				return responseSuccess(count === 1 ? "Auto-Forge bought a machine level." : string.format("Auto-Forge bought %d machine levels.", count));
+				return responseSuccess(count === 1 ? T("GameService.AutoForgeBoughtAMachine") : T("GameService.AutoForgeBoughtDMachine", count));
 			},
 			true,
 			"auto-forge",
@@ -3051,18 +3051,18 @@ export class GameService {
 
 	_buyResearch(player: Player, researchId: unknown, requestedAmount?: unknown) {
 		if (!typeIs(researchId, "string")) {
-			return responseError("Invalid research request.");
+			return responseError(T("GameService.InvalidResearchRequest"));
 		}
 		const researchFound = Economy.GetResearch(researchId);
 		if (!truthy(researchFound)) {
-			return responseError("That research project does not exist.");
+			return responseError(T("GameService.ThatResearchProjectDoesNot"));
 		}
 		const research = researchFound as Dict;
 		const result = this._mutate(player, (profile: Profile) => {
 			const researchLevels = profile.Research as Dict;
 			const level = orElse(researchLevels[researchId], () => 0) as number;
 			if (level >= (research.MaxLevel as number)) {
-				return responseError("That research is already complete.");
+				return responseError(T("GameService.ThatResearchIsAlreadyComplete"));
 			}
 			const lockReason = ProgressionGate.UpgradeReason(profile, research, profile.Research);
 			if (truthy(lockReason)) {
@@ -3079,10 +3079,10 @@ export class GameService {
 				cost = Economy.ResearchBulkCost(researchId, level, count);
 			}
 			if (count < 1) {
-				return responseError("You cannot afford another research level yet.");
+				return responseError(T("GameService.YouCannotAffordAnotherResearch"));
 			}
 			if (truthy(Economy.Lt(profile.Cash, cost))) {
-				return responseError("You need " + (Format.Number(Economy.Sub(cost, profile.Cash)) as string) + " more Flux.");
+				return responseError(T("GameService.YouNeedSMoreFlux", (Format.Number(Economy.Sub(cost, profile.Cash)) as string)));
 			}
 			profile.Cash = Economy.Sub(profile.Cash, cost);
 			researchLevels[researchId] = level + count;
@@ -3102,12 +3102,12 @@ export class GameService {
 			zoneId = num(zoneId);
 		}
 		if (!typeIs(zoneId, "number")) {
-			return responseError("Invalid world request.");
+			return responseError(T("GameService.InvalidWorldRequest"));
 		}
 		const zoneNumber = math.floor(zoneId + 0.5);
 		const zoneFound = Economy.GetZone(zoneNumber);
 		if (!truthy(zoneFound)) {
-			return responseError("That world does not exist.");
+			return responseError(T("GameService.ThatWorldDoesNotExist"));
 		}
 		const zone = zoneFound as Dict;
 		const result = this._mutate(player, (profile: Profile) => {
@@ -3122,11 +3122,11 @@ export class GameService {
 			) as LuaTuple<[unknown, unknown]>;
 			if (kind === "Travel") {
 				profile.CurrentZone = zoneNumber;
-				return responseSuccess("Traveled to " + (zone.Name as string) + ".");
+				return responseSuccess(T("GameService.TraveledToS", (zone.Name as string)));
 			}
 			if (kind === "Error") {
 				if (err === "NEED_MORE_FLUX") {
-					return responseError("You need " + (Format.Number(Economy.Sub(zone.Cost, profile.Cash)) as string) + " more Flux.");
+					return responseError(T("GameService.YouNeedSMoreFlux", (Format.Number(Economy.Sub(zone.Cost, profile.Cash)) as string)));
 				}
 				return responseError(err as string);
 			}
@@ -3135,7 +3135,7 @@ export class GameService {
 			profile.CurrentZone = zoneNumber;
 			LabService.Progress(profile, "UnlockWorld", 1);
 			ForgeEchoService.Record(profile, "Explore", 12);
-			return responseSuccess("Unlocked " + (zone.Name as string) + " and its production bonus.");
+			return responseSuccess(T("GameService.UnlockedSAndItsProduction", (zone.Name as string)));
 		});
 		if (truthy(result.ok)) {
 			this._world.RefreshPlot(player, this._data.Get(player));
@@ -3149,20 +3149,20 @@ export class GameService {
 			zoneId = num(zoneId);
 		}
 		if (!typeIs(zoneId, "number")) {
-			return responseError("Invalid world request.");
+			return responseError(T("GameService.InvalidWorldRequest"));
 		}
 		const zoneNumber = math.floor(zoneId + 0.5);
 		const zoneFound = Economy.GetZone(zoneNumber);
 		if (!truthy(zoneFound)) {
-			return responseError("That world does not exist.");
+			return responseError(T("GameService.ThatWorldDoesNotExist"));
 		}
 		const zone = zoneFound as Dict;
 		const result = this._mutate(player, (profile: Profile) => {
 			if (zoneNumber > (profile.Zone as number)) {
-				return responseError("Unlock that world first.");
+				return responseError(T("GameService.UnlockThatWorldFirst"));
 			}
 			profile.CurrentZone = zoneNumber;
-			return responseSuccess("Traveled to " + (zone.Name as string) + ".");
+			return responseSuccess(T("GameService.TraveledToS", (zone.Name as string)));
 		});
 		if (truthy(result.ok)) {
 			this._world.RefreshPlot(player, this._data.Get(player));
@@ -3216,7 +3216,7 @@ export class GameService {
 			const [run, bank] = rebirthRun(profile, now, ledger) as LuaTuple<[Dict, unknown]>;
 			const [baseReward, stardustBase] = rebirthBase(profile, bank) as LuaTuple<[unknown, number]>;
 			if (baseReward === undefined) {
-				return responseError("Bank at least " + (Format.Number as Fn)(GameConfig.Economy.PrestigeRequirement) + " run Flux first.");
+				return responseError(T("GameService.BankAtLeastSRun", (Format.Number as Fn)(GameConfig.Economy.PrestigeRequirement)));
 			}
 			if (payload.Keep !== undefined) {
 				RebirthMath.setKeep(ledger, payload.Keep);
@@ -3332,7 +3332,7 @@ export class GameService {
 	// between rebirths: light a star, swear or drop a vow, choose keepsakes
 	_rebirthAct(player: Player, rawPayload: unknown) {
 		if (!typeIs(rawPayload, "table")) {
-			return responseError("Invalid rebirth request.");
+			return responseError(T("GameService.InvalidRebirthRequest"));
 		}
 		const payload = rawPayload as Dict;
 		return this._mutate(player, (profile: Profile) => {
@@ -3344,7 +3344,7 @@ export class GameService {
 				if (!truthy(ok)) {
 					return responseError(message);
 				}
-				return responseSuccess("Star lit: " + tostring(message) + ".", { Star: index });
+				return responseSuccess(T("GameService.StarLitS", tostring(message)), { Star: index });
 			} else if (payload.Op === "Vow") {
 				const [ok, message] = RebirthMath.swear(ledger, typeIs(payload.Vow, "string") ? payload.Vow : "", now) as LuaTuple<
 					[unknown, unknown]
@@ -3355,17 +3355,17 @@ export class GameService {
 				return responseSuccess(message, { Vow: ledger.Vow });
 			} else if (payload.Op === "Keep") {
 				if (!truthy(RebirthMath.setKeep(ledger, payload.Keep))) {
-					return responseError("Pick machines to keep.");
+					return responseError(T("GameService.PickMachinesToKeep"));
 				}
-				return responseSuccess("Keepsakes set.", { Keep: table.clone(ledger.Keep as object) });
+				return responseSuccess(T("GameService.KeepsakesSet"), { Keep: table.clone(ledger.Keep as object) });
 			}
-			return responseError("Unknown rebirth action.");
+			return responseError(T("GameService.UnknownRebirthAction"));
 		});
 	}
 
 	_claimQuest(player: Player, questId: unknown) {
 		if (!typeIs(questId, "string")) {
-			return responseError("Invalid mission request.");
+			return responseError(T("GameService.InvalidMissionRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.ClaimQuest(profile, questId) as LuaTuple<[unknown, unknown]>;
@@ -3375,7 +3375,7 @@ export class GameService {
 
 	_claimAchievement(player: Player, achievementId: unknown) {
 		if (!typeIs(achievementId, "string")) {
-			return responseError("Invalid milestone request.");
+			return responseError(T("GameService.InvalidMilestoneRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.ClaimAchievement(profile, achievementId) as LuaTuple<[unknown, unknown]>;
@@ -3417,7 +3417,7 @@ export class GameService {
 	_spinWheel(player: Player, rawPayload: unknown) {
 		const payload = rawPayload as Dict | undefined;
 		if (!typeIs(rawPayload, "table") || !typeIs(payload!.ExpectedSpin, "number")) {
-			return responseError("Refresh the wheel before spinning.");
+			return responseError(T("Progression.RefreshTheWheelBeforeSpinning"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message, prizeIndex, prizeId, pityHit] = ProgressionService.SpinWheel(
@@ -3438,7 +3438,7 @@ export class GameService {
 
 	_launchExpedition(player: Player, expeditionId: unknown) {
 		if (!typeIs(expeditionId, "string")) {
-			return responseError("Invalid expedition request.");
+			return responseError(T("GameService.InvalidExpeditionRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.LaunchExpedition(profile, expeditionId) as LuaTuple<[unknown, unknown]>;
@@ -3457,7 +3457,7 @@ export class GameService {
 
 	_equipArtifact(player: Player, artifactId: unknown) {
 		if (!typeIs(artifactId, "string")) {
-			return responseError("Invalid artifact request.");
+			return responseError(T("GameService.InvalidArtifactRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.EquipArtifact(profile, artifactId) as LuaTuple<[unknown, unknown]>;
@@ -3467,7 +3467,7 @@ export class GameService {
 
 	_buyArtifact(player: Player, artifactId: unknown) {
 		if (!typeIs(artifactId, "string")) {
-			return responseError("Invalid artifact request.");
+			return responseError(T("GameService.InvalidArtifactRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message, fresh] = ProgressionService.BuyArtifact(profile, artifactId) as LuaTuple<[unknown, unknown, unknown]>;
@@ -3477,7 +3477,7 @@ export class GameService {
 
 	_upgradeArtifact(player: Player, artifactId: unknown) {
 		if (!typeIs(artifactId, "string")) {
-			return responseError("Invalid artifact request.");
+			return responseError(T("GameService.InvalidArtifactRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.UpgradeArtifact(profile, artifactId) as LuaTuple<[unknown, unknown]>;
@@ -3487,7 +3487,7 @@ export class GameService {
 
 	_upgradeCrew(player: Player, roleId: unknown) {
 		if (!typeIs(roleId, "string")) {
-			return responseError("Invalid crew request.");
+			return responseError(T("GameService.InvalidCrewRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.UpgradeCrew(profile, roleId) as LuaTuple<[unknown, unknown]>;
@@ -3504,7 +3504,7 @@ export class GameService {
 
 	_claimWeeklyDirective(player: Player, directiveId: unknown) {
 		if (!typeIs(directiveId, "string")) {
-			return responseError("Invalid weekly directive.");
+			return responseError(T("GameService.InvalidWeeklyDirective"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.ClaimWeeklyDirective(profile, directiveId) as LuaTuple<[unknown, unknown]>;
@@ -3535,7 +3535,7 @@ export class GameService {
 
 	_buySignalOffer(player: Player, offerId: unknown) {
 		if (!typeIs(offerId, "string")) {
-			return responseError("Invalid signal shop offer.");
+			return responseError(T("GameService.InvalidSignalShopOffer"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.BuySignalOffer(profile, offerId) as LuaTuple<[unknown, unknown]>;
@@ -3546,10 +3546,10 @@ export class GameService {
 	_equipTitle(player: Player, titleId: unknown) {
 		const operations = GameConfig.Operations as Dict;
 		if (operations.TitlesEnabled === false) {
-			return responseError((operations.TitleStatus as string | undefined) ?? "Titles are temporarily unavailable.");
+			return responseError((operations.TitleStatus as string | undefined) ?? T("GameService.TitlesAreTemporarilyUnavailable"));
 		}
 		if (!typeIs(titleId, "string")) {
-			return responseError("Invalid title request.");
+			return responseError(T("GameService.InvalidTitleRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message] = ProgressionService.EquipTitle(profile, titleId) as LuaTuple<[unknown, unknown]>;
@@ -3559,7 +3559,7 @@ export class GameService {
 
 	_setProfileStyle(player: Player, accent: unknown, frame: unknown) {
 		if ((accent !== undefined && !typeIs(accent, "string")) || (frame !== undefined && !typeIs(frame, "string"))) {
-			return responseError("Invalid profile style.");
+			return responseError(T("GameService.InvalidProfileStyle"));
 		}
 		let saved: ProfileStyle.ProfileStyleState | undefined;
 		const result = this._mutate(player, (profile: Profile) => {
@@ -3567,7 +3567,7 @@ export class GameService {
 			const current = ProfileStyle.read(profile.Cosmetics);
 			const [chosen, problem] = ProfileStyle.validate(current, accent, frame, ProfileStyle.factsOf(profile));
 			if (chosen === undefined) {
-				return responseError(problem ?? "That style is not available.");
+				return responseError(problem ?? T("GameService.ThatStyleIsNotAvailable"));
 			}
 			if (!isTable(profile.Cosmetics)) {
 				profile.Cosmetics = { CrateSkins: { Classic: true }, CrateSkin: "Classic" };
@@ -3576,7 +3576,7 @@ export class GameService {
 			cosmetics.ProfileAccent = chosen.Accent;
 			cosmetics.ProfileFrame = chosen.Frame;
 			saved = chosen;
-			return responseSuccess("Profile style saved.");
+			return responseSuccess(T("GameService.ProfileStyleSaved"));
 		});
 		// publish only once the transaction committed, so other players never see an unsaved style
 		if (result.ok === true && saved !== undefined) {
@@ -3588,15 +3588,15 @@ export class GameService {
 
 	_redeemCode(player: Player, rawCode: unknown) {
 		if (!typeIs(rawCode, "string")) {
-			return responseError("Enter a valid code.");
+			return responseError(T("GameService.EnterAValidCode"));
 		}
 		const code = string.upper(string.gsub(rawCode, "%s+", "")[0]);
 		if (code.size() < 1 || code.size() > 24) {
-			return responseError("Enter a valid code.");
+			return responseError(T("GameService.EnterAValidCode"));
 		}
 		const codeData = (ServerConfig.Codes as Dict)[code] as Dict | undefined;
 		if (codeData === undefined) {
-			return responseError("That code is invalid or already used.");
+			return responseError(T("GameService.ThatCodeIsInvalidOr"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			if (!typeIs(profile.Codes, "table")) {
@@ -3604,7 +3604,7 @@ export class GameService {
 			}
 			const codes = profile.Codes as Dict;
 			if (truthy(codes[code])) {
-				return responseError("You already redeemed that code.");
+				return responseError(T("GameService.YouAlreadyRedeemedThatCode"));
 			}
 			codes[code] = true;
 			const rewardText = ProgressionService.ApplyReward(profile, codeData.Reward, Economy.Production(profile));
@@ -3671,7 +3671,7 @@ export class GameService {
 		}
 
 		if (!this._running || player.Parent !== Players || this._runtime.get(player) === undefined) {
-			return responseError("That forge session is no longer active.");
+			return responseError(T("GameService.ThatForgeSessionIsNo"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			if (!typeIs(profile.OwnedPasses, "table")) {
@@ -3684,7 +3684,7 @@ export class GameService {
 			for (const passKey of ownedPasses) {
 				owned[passKey] = true;
 			}
-			return responseSuccess("Dock inventory synced.");
+			return responseSuccess(T("GameService.DockInventorySynced"));
 		});
 	}
 
@@ -3693,14 +3693,14 @@ export class GameService {
 	// which caches ownership and can still say "no" for a while after the purchase.
 	_grantPurchasedPass(player: Player, rawPassId: unknown, purchased: unknown) {
 		if (purchased !== true || !typeIs(rawPassId, "number")) {
-			return responseError("No pass purchase to grant.");
+			return responseError(T("GameService.NoPassPurchaseToGrant"));
 		}
 		const passDef = (MonetizationConfig.FindPassByPassId as Fn)(rawPassId) as Dict | undefined;
 		if (passDef === undefined) {
-			return responseError("Unknown pass.");
+			return responseError(T("GameService.UnknownPass"));
 		}
 		if (!this._running || player.Parent !== Players || this._runtime.get(player) === undefined) {
-			return responseError("That forge session is no longer active.");
+			return responseError(T("GameService.ThatForgeSessionIsNo"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			if (!typeIs(profile.OwnedPasses, "table")) {
@@ -3721,15 +3721,15 @@ export class GameService {
 
 	_studioGrantProduct(player: Player, rawKey: unknown) {
 		if (!truthy(ShopGrantEligibility.StudioGrantAllowed(RunService.IsStudio()))) {
-			return responseError("Studio grants are disabled in live servers.");
+			return responseError(T("GameService.StudioGrantsAreDisabledIn2"));
 		}
 		if (!typeIs(rawKey, "string")) {
-			return responseError("Invalid product key.");
+			return responseError(T("GameService.InvalidProductKey"));
 		}
 		const productDef = (MonetizationConfig.FindDevProductByKey as Fn)(rawKey) as Dict | undefined;
 		const passDef = (MonetizationConfig.FindPassByKey as Fn)(rawKey) as Dict | undefined;
 		if (productDef === undefined && passDef === undefined) {
-			return responseError("Unknown studio product or pass.");
+			return responseError(T("GameService.UnknownStudioProductOrPass"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			if (passDef !== undefined) {
@@ -3756,7 +3756,7 @@ export class GameService {
 			return responseSuccess(rewardText);
 		});
 		if (truthy(result.ok)) {
-			this._toastPlayer(player, "Purchase test", truthy(result.message) ? result.message : rawKey, "Success");
+			this._toastPlayer(player, T("GameService.PurchaseTest"), truthy(result.message) ? result.message : rawKey, "Success");
 			this._effect.fire(player, { Type: "FeatureUnlocked" });
 		}
 		return result;
@@ -3764,17 +3764,17 @@ export class GameService {
 
 	_activateBoost(player: Player, boostId: unknown) {
 		if (!typeIs(boostId, "string") || !truthy(GameConfig.Boosts[boostId])) {
-			return responseError("Invalid boost request.");
+			return responseError(T("GameService.InvalidBoostRequest"));
 		}
 		const boost = GameConfig.Boosts[boostId] as Dict;
 		return this._mutate(player, (profile: Profile) => {
 			const active = ensureActiveBoost(profile) as Dict;
 			if ((active.EndsAt as number) > os.time()) {
-				return responseError("Another boost is already active.");
+				return responseError(T("GameService.AnotherBoostIsAlreadyActive"));
 			}
 			const inventory = ensureBoostInventory(profile) as Dict;
 			if ((tonumber(inventory[boostId]) ?? 0) < 1) {
-				return responseError("You do not own that boost.");
+				return responseError(T("GameService.YouDoNotOwnThat"));
 			}
 			inventory[boostId] = math.max(0, math.floor(tonumber(inventory[boostId]) ?? 0) - 1);
 			profile.ActiveBoost = { Id: boostId, EndsAt: os.time() + (boost.Duration as number) };
@@ -3843,7 +3843,7 @@ export class GameService {
 
 	_buyItemOffer(player: Player, offerId: unknown) {
 		if (!typeIs(offerId, "string") || itemOfferById[offerId] === undefined) {
-			return responseError("That market offer does not exist.");
+			return responseError(T("GameService.ThatMarketOfferDoesNot"));
 		}
 		const offer = itemOfferById[offerId] as Dict;
 		const policyNote = PolicyGate.OfferBlocked(player, offer);
@@ -3869,7 +3869,7 @@ export class GameService {
 					string.format("You need %s more %s.", (Format.Number as Fn)(need) as string, tostring(currency)),
 			) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(eligible)) {
-				return responseError(truthy(denyReason) ? denyReason : "That market offer is unavailable.");
+				return responseError(truthy(denyReason) ? denyReason : T("GameService.ThatMarketOfferIsUnavailable"));
 			}
 			const currency = offer.Currency as string;
 			if (currency === "Cash") {
@@ -3886,10 +3886,10 @@ export class GameService {
 			} else if (offer.Kind === "Item") {
 				itemUid = this._createItem(profile, offer.ItemId as string);
 				if (itemUid === undefined) {
-					return responseError("The market could not deliver that item.");
+					return responseError(T("GameService.TheMarketCouldNotDeliver"));
 				}
 			} else {
-				return responseError("That market offer is misconfigured.");
+				return responseError(T("ProfileMath.ThatMarketOfferIsMisconfigured"));
 			}
 			const nextStock = (remaining as number) - 1;
 			stock[offerId] = nextStock;
@@ -3901,7 +3901,7 @@ export class GameService {
 
 	_buyDailyOffer(player: Player, slot: unknown) {
 		if (!typeIs(slot, "number") || slot !== slot) {
-			return responseError("That daily offer does not exist.");
+			return responseError(T("GameService.ThatDailyOfferDoesNot"));
 		}
 		const [ShopCatalog] = shopShared();
 		const now = os.time();
@@ -3913,7 +3913,7 @@ export class GameService {
 			const offers = ShopCatalog.roll(player.UserId, day, shop.Owned) as Dict[];
 			const offer = offers[math.floor(slot) - 1];
 			if (offer === undefined) {
-				return responseError("That daily offer does not exist.");
+				return responseError(T("GameService.ThatDailyOfferDoesNot"));
 			}
 			const policyNote = PlayPolicy.offerBlocked(policy, offer);
 			if (policyNote !== undefined) {
@@ -3921,14 +3921,14 @@ export class GameService {
 			}
 			const bought = shop.Bought as Dict;
 			if ((ShopCatalog.remaining(offer, bought) as number) <= 0) {
-				return responseError("You've bought all of that one today.");
+				return responseError(T("GameService.YouVeBoughtAllOf"));
 			}
 			const crateSkins = cosmetics.CrateSkins as Dict;
 			if (offer.Kind === "Skin" && crateSkins[offer.SkinId as string] === true) {
-				return responseError("You already own that skin.");
+				return responseError(T("GameService.YouAlreadyOwnThatSkin"));
 			}
 			if (offer.Kind === "Cache" && (inventoryCount(profile) as number) >= (GameConfig.Items.InventoryLimit as number)) {
-				return responseError("Your relic inventory is full.");
+				return responseError(T("GameService.YourRelicInventoryIsFull"));
 			}
 			const denied = spendShopCurrency(profile, offer.Currency as string, offer.Price as number);
 			if (denied !== undefined) {
@@ -3959,14 +3959,14 @@ export class GameService {
 					}
 				}
 				if (candidates.size() === 0) {
-					return responseError("That cache is empty.");
+					return responseError(T("GameService.ThatCacheIsEmpty"));
 				}
 				const definition = candidates[this._random.NextInteger(0, candidates.size() - 1)];
 				const discovered = typeIs(items.Discovered, "table") ? (items.Discovered as Dict) : ({} as Dict);
 				const wasOwned = discovered[definition.Id as string] === true;
 				const uid = this._createItem(profile, definition.Id as string);
 				if (uid === undefined) {
-					return responseError("Your relic inventory is full.");
+					return responseError(T("GameService.YourRelicInventoryIsFull"));
 				}
 				detail.Rolls = [
 					{
@@ -3980,7 +3980,7 @@ export class GameService {
 					},
 				];
 			} else {
-				return responseError("That offer is misconfigured.");
+				return responseError(T("GameService.ThatOfferIsMisconfigured"));
 			}
 			const key = tostring(offer.Slot);
 			bought[key] = ((bought[key] as number | undefined) ?? 0) + 1;
@@ -3993,16 +3993,16 @@ export class GameService {
 		const [ShopCatalog] = shopShared();
 		const skin = ShopCatalog.skin(id) as Dict | undefined;
 		if (skin === undefined || skin.Price === undefined) {
-			return responseError("That skin isn't for sale.");
+			return responseError(T("GameService.ThatSkinIsnTFor"));
 		}
 		if (truthy(skin.DailyOnly)) {
-			return responseError("That skin only appears in the Daily Shop.");
+			return responseError(T("GameService.ThatSkinOnlyAppearsIn"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const cosmetics = ProfileBagMath.EnsureCosmetics(profile, (skinId: unknown) => ShopCatalog.skin(skinId) !== undefined) as Dict;
 			const crateSkins = cosmetics.CrateSkins as Dict;
 			if (crateSkins[skin.Id as string] === true) {
-				return responseError("You already own that skin.");
+				return responseError(T("GameService.YouAlreadyOwnThatSkin"));
 			}
 			ProfileBagMath.EnsureDailyShop(profile, ShopCatalog.day(os.time()), crateSkins);
 			const price = skin.Price as Dict;
@@ -4021,7 +4021,7 @@ export class GameService {
 		const [ShopCatalog] = shopShared();
 		const skin = ShopCatalog.skin(id) as Dict | undefined;
 		if (skin === undefined) {
-			return responseError("That skin doesn't exist.");
+			return responseError(T("GameService.ThatSkinDoesnTExist"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const cosmetics = ProfileBagMath.EnsureCosmetics(profile, (skinId: unknown) => ShopCatalog.skin(skinId) !== undefined) as Dict;
@@ -4030,7 +4030,7 @@ export class GameService {
 				// earned skins are owned the first time you equip them after meeting the milestone
 				const earn = skin.Earn as ProfileStyle.StyleUnlock | undefined;
 				if (earn === undefined) {
-					return responseError("You don't own that skin yet.");
+					return responseError(T("GameService.YouDonTOwnThat"));
 				}
 				if (!ProfileStyle.isUnlocked(earn, ProfileStyle.factsOf(profile))) {
 					return responseError(`${skin.Name as string} is still locked: ${ProfileStyle.unlockText(earn)}.`);
@@ -4044,7 +4044,7 @@ export class GameService {
 
 	_fuseRelics(player: Player, definitionId: unknown) {
 		if (!typeIs(definitionId, "string") || itemById[definitionId] === undefined) {
-			return responseError("That relic doesn't exist.");
+			return responseError(T("GameService.ThatRelicDoesnTExist"));
 		}
 		const [, RelicSystem] = shopShared();
 		const definition = itemById[definitionId] as Dict;
@@ -4056,7 +4056,7 @@ export class GameService {
 				[unknown, unknown, unknown]
 			>;
 			if (targetUid === undefined || fodderUid === undefined) {
-				return responseError(truthy(reason) ? reason : "Those relics can't be fused.");
+				return responseError(truthy(reason) ? reason : T("GameService.ThoseRelicsCanTBe"));
 			}
 			const target = inventory[targetUid as string] as Dict;
 			const fodder = inventory[fodderUid as string] as Dict;
@@ -4076,14 +4076,14 @@ export class GameService {
 
 	_openItemCrate(player: Player, crateId: unknown, rawCount: unknown) {
 		if (HotFlags.Get("CratesPaused")) {
-			return responseError("Crate decoding is paused for maintenance. Your keys are safe.");
+			return responseError(T("GameService.CrateDecodingIsPausedFor"));
 		}
 		if (!typeIs(crateId, "string") || crateById[crateId] === undefined) {
-			return responseError("That crate channel does not exist.");
+			return responseError(T("GameService.ThatCrateChannelDoesNot"));
 		}
 		const [count, countError] = CrateRoll.NormalizeOpenCount(rawCount) as LuaTuple<[number | undefined, unknown]>;
 		if (count === undefined) {
-			return responseError(truthy(countError) ? countError : "Crates can be opened one or five at a time.");
+			return responseError(truthy(countError) ? countError : T("GameService.CratesCanBeOpenedOne"));
 		}
 		const crate = crateById[crateId] as Dict;
 		return this._mutate(player, (profile: Profile) => {
@@ -4091,7 +4091,7 @@ export class GameService {
 			const keys = items.Keys as Dict;
 			if (((keys[crateId] as number | undefined) ?? 0) < count) {
 				return responseError(
-					string.format("You need %d more %s keys.", count - ((keys[crateId] as number | undefined) ?? 0), crate.Name as string),
+					T("GameService.YouNeedDMoreS", count - ((keys[crateId] as number | undefined) ?? 0), crate.Name as string),
 				);
 			}
 			const autoRules = ensureAutoSalvage(profile) as Dict;
@@ -4101,7 +4101,7 @@ export class GameService {
 			const guaranteedRecycle = CrateRoll.GuaranteedRecycle(crate.Weights, autoEnabled, autoRules.KeepNew, autoRules.Rarities);
 			const requiredSlots = CrateRoll.RequiredSlots(count, guaranteedRecycle) as number;
 			if ((inventoryCount(profile) as number) + requiredSlots > (GameConfig.Items.InventoryLimit as number)) {
-				return responseError("Your item inventory does not have enough open slots.");
+				return responseError(T("GameService.YourItemInventoryDoesNot"));
 			}
 			keys[crateId] = (keys[crateId] as number) - count;
 			const rolls: Dict[] = [];
@@ -4115,7 +4115,7 @@ export class GameService {
 				const pity = (pityBag[crateId] as number | undefined) ?? 0;
 				const [definition, rarity, pityHit] = this._rollItemDefinition(crate, pity) as LuaTuple<[Dict | undefined, string, unknown]>;
 				if (definition === undefined) {
-					return responseError("That crate has no valid drops configured.");
+					return responseError(T("GameService.ThatCrateHasNoValid"));
 				}
 				if (!typeIs(items.Discovered, "table")) {
 					items.Discovered = {};
@@ -4140,7 +4140,7 @@ export class GameService {
 				} else {
 					uid = this._createItem(profile, definition.Id as string);
 					if (uid === undefined) {
-						return responseError("The crate decoder ran out of inventory space. Adjust auto-salvage or clear a slot.");
+						return responseError(T("GameService.TheCrateDecoderRanOut"));
 					}
 				}
 				pityBag[crateId] = truthy(pityHit) ? 0 : pity + pityStep;
@@ -4158,7 +4158,7 @@ export class GameService {
 			items.Essence = (items.Essence as number) + skinBonus;
 			bumpStat(profile, "CratesOpened", count);
 			LabService.Progress(profile, "OpenCrate", count);
-			return responseSuccess(string.format("Decoded %d %s%s.", count, crate.Name as string, count === 1 ? "" : "s"), {
+			return responseSuccess(T("GameService.DecodedDSS", count, crate.Name as string, count === 1 ? "" : "s"), {
 				Rolls: rolls,
 				CrateId: crateId,
 				Pity: pityBag[crateId],
@@ -4169,7 +4169,7 @@ export class GameService {
 
 	_equipItem(player: Player, uid: unknown, target: unknown) {
 		if (!typeIs(uid, "string") || !typeIs(target, "string")) {
-			return responseError("Invalid socket request.");
+			return responseError(T("GameService.InvalidSocketRequest"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			const items = profile.Items as Dict;
@@ -4177,7 +4177,7 @@ export class GameService {
 			const instance = inventory[uid] as Dict | undefined;
 			const definition = instance !== undefined ? (itemById[instance.DefinitionId as string] as Dict | undefined) : undefined;
 			if (definition === undefined) {
-				return responseError("That item is not in your inventory.");
+				return responseError(T("GameService.ThatItemIsNotIn"));
 			}
 			if (target === CompanionRelic.TARGET) {
 				const equipped = items.Equipped as Dict;
@@ -4207,7 +4207,7 @@ export class GameService {
 						? (profile.Research as Dict)[targetId as string]
 						: undefined;
 			if (!typeIs(ownedLevel, "number") || ownedLevel < 1) {
-				return responseError("Unlock at least one level of that upgrade before socketing an item.");
+				return responseError(T("GameService.UnlockAtLeastOneLevel"));
 			}
 			const equipped = items.Equipped as Dict;
 			for (const [equippedTarget, equippedUid] of pairs(equipped)) {
@@ -4238,15 +4238,15 @@ export class GameService {
 
 	_unequipItem(player: Player, target: unknown) {
 		if (!typeIs(target, "string")) {
-			return responseError("Invalid socket request.");
+			return responseError(T("GameService.InvalidSocketRequest"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			const equipped = (profile.Items as Dict).Equipped as Dict;
 			if (equipped[target] === undefined) {
-				return responseError("That socket is already empty.");
+				return responseError(T("GameService.ThatSocketIsAlreadyEmpty"));
 			}
 			equipped[target] = undefined;
-			return responseSuccess("Item returned to inventory.");
+			return responseSuccess(T("GameService.ItemReturnedToInventory"));
 		});
 		if (truthy(result.ok)) {
 			this._toastPlayer(player, T("Toast.RelicDetachedTitle"), result.message, "Info");
@@ -4256,25 +4256,25 @@ export class GameService {
 
 	_upgradeItem(player: Player, uid: unknown) {
 		if (!typeIs(uid, "string")) {
-			return responseError("Invalid item request.");
+			return responseError(T("GameService.InvalidItemRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const items = profile.Items as Dict;
 			const inventory = items.Inventory as Dict;
 			const instance = inventory[uid] as Dict | undefined;
 			if (instance === undefined) {
-				return responseError("That item is not in your inventory.");
+				return responseError(T("GameService.ThatItemIsNotIn"));
 			}
 			const definition = itemById[instance.DefinitionId as string] as Dict | undefined;
 			if (definition === undefined) {
-				return responseError("That item is not in your inventory.");
+				return responseError(T("GameService.ThatItemIsNotIn"));
 			}
 			if ((instance.Level as number) >= (definition.MaxLevel as number)) {
-				return responseError("That item is already max level.");
+				return responseError(T("GameService.ThatItemIsAlreadyMax"));
 			}
 			const cost = math.floor((definition.EssenceBase as number) * math.pow(1.55, math.max(0, (instance.Level as number) - 1)));
 			if ((items.Essence as number) < cost) {
-				return responseError(string.format("You need %d more item essence.", cost - (items.Essence as number)));
+				return responseError(T("GameService.YouNeedDMoreItem", cost - (items.Essence as number)));
 			}
 			items.Essence = (items.Essence as number) - cost;
 			instance.Level = (instance.Level as number) + 1;
@@ -4284,38 +4284,38 @@ export class GameService {
 
 	_salvageItem(player: Player, uid: unknown) {
 		if (!typeIs(uid, "string")) {
-			return responseError("Invalid item request.");
+			return responseError(T("GameService.InvalidItemRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const items = profile.Items as Dict;
 			const inventory = items.Inventory as Dict;
 			const instance = inventory[uid] as Dict | undefined;
 			if (instance === undefined) {
-				return responseError("That item is not in your inventory.");
+				return responseError(T("GameService.ThatItemIsNotIn"));
 			}
 			const definition = itemById[instance.DefinitionId as string] as Dict | undefined;
 			if (definition === undefined) {
-				return responseError("That item is not in your inventory.");
+				return responseError(T("GameService.ThatItemIsNotIn"));
 			}
 			if (instance.Locked === true) {
-				return responseError("Unlock that relic before salvaging it.");
+				return responseError(T("GameService.UnlockThatRelicBeforeSalvaging"));
 			}
 			for (const [, equippedUid] of pairs(items.Equipped as object)) {
 				if (equippedUid === uid) {
-					return responseError("Detach that item before salvaging it.");
+					return responseError(T("GameService.DetachThatItemBeforeSalvaging"));
 				}
 			}
 			const essence = itemSalvageValue(instance, definition);
 			inventory[uid] = undefined;
 			items.Essence = (items.Essence as number) + essence;
 			bumpStat(profile, "ItemsSalvaged", 1);
-			return responseSuccess(string.format("Salvaged %s for %d essence.", definition.Name as string, essence), { Amount: essence });
+			return responseSuccess(T("GameService.SalvagedSForDEssence", definition.Name as string, essence), { Amount: essence });
 		});
 	}
 
 	_setSetting(player: Player, rawPayload: unknown) {
 		if (!typeIs(rawPayload, "table")) {
-			return responseError("Invalid setting request.");
+			return responseError(T("GameService.InvalidSettingRequest"));
 		}
 		const payload = rawPayload as Dict;
 		const Schema = SharedDataSuite("SettingsSchema") as Kit;
@@ -4336,7 +4336,7 @@ export class GameService {
 					}
 				}
 				if (applied === 0) {
-					return responseError("Unknown setting.");
+					return responseError(T("GameService.UnknownSetting"));
 				}
 				SettingsSeal.Apply(profile);
 				const label = payload.Label;
@@ -4345,11 +4345,11 @@ export class GameService {
 					const [, brokenAt] = utf8.len(clipped);
 					return responseSuccess(brokenAt !== undefined ? string.sub(clipped, 1, brokenAt - 1) : clipped);
 				}
-				return responseSuccess("Settings updated.");
+				return responseSuccess(T("GameService.SettingsUpdated"));
 			});
 		}
 		if (!typeIs(payload.Key, "string") || !typeIs(payload.Value, "number")) {
-			return responseError("Unknown setting.");
+			return responseError(T("GameService.UnknownSetting"));
 		}
 		const key = payload.Key;
 		const value = payload.Value;
@@ -4357,16 +4357,16 @@ export class GameService {
 			return this._mutate(player, (profile: Profile) => {
 				(profile.Settings as Dict)[key] = Schema.normalize(key, value);
 				SettingsSeal.Apply(profile);
-				return responseSuccess("Setting updated.");
+				return responseSuccess(T("GameService.SettingUpdated"));
 			});
 		}
 		if (truthy(notifyKeys[key])) {
 			return this._mutate(player, (profile: Profile) => {
 				(profile.Settings as Dict)[key] = value >= 0.5 ? 1 : 0;
-				return responseSuccess(value >= 0.5 ? "You'll be notified." : "Notification cleared.");
+				return responseSuccess(value >= 0.5 ? T("GameService.YouLlBeNotified") : T("GameService.NotificationCleared"));
 			});
 		}
-		return responseError("Unknown setting.");
+		return responseError(T("GameService.UnknownSetting"));
 	}
 
 	// Star Foundry: every move is one FoundryAct with an Op (rules in FoundryMath, moves in FoundryService)
@@ -4375,7 +4375,7 @@ export class GameService {
 		return this._mutate(player, (profile: Profile) => {
 			const [ok, message, extra] = FoundryService.Act(profile, payload, this._random, now) as LuaTuple<[unknown, unknown, unknown]>;
 			if (!truthy(ok)) {
-				return responseError(truthy(message) ? message : "That foundry move is not valid.");
+				return responseError(truthy(message) ? message : T("FoundryService.ThatFoundryMoveIsNot"));
 			}
 			return responseSuccess(message, truthy(extra) ? extra : {});
 		});
@@ -4393,14 +4393,14 @@ export class GameService {
 			const continuum = profile.Continuum as Dict;
 			const rank = math.max(0, math.floor(tonumber(continuum.Rank) ?? 0));
 			if (rank >= ((GameConfig.Continuum as Dict).MaxRank as number)) {
-				return responseError("The Continuum has reached the exact-integer engine limit.");
+				return responseError(T("GameService.TheContinuumHasReachedThe"));
 			}
 			const [fluxCost, stardustCost] = Economy.ContinuumCosts(rank) as LuaTuple<[unknown, number]>;
 			if (Economy.Lt(profile.Cash, fluxCost)) {
-				return responseError("You need " + (Format.Number as Fn)(Economy.Sub(fluxCost, profile.Cash)) + " more Flux.");
+				return responseError(T("GameService.YouNeedSMoreFlux", (Format.Number as Fn)(Economy.Sub(fluxCost, profile.Cash))));
 			}
 			if (Economy.Lt(profile.Stardust, stardustCost)) {
-				return responseError("You need " + (Format.Number as Fn)(Economy.Sub(stardustCost, profile.Stardust)) + " more Stardust.");
+				return responseError(T("GameService.YouNeedSMoreStardust", (Format.Number as Fn)(Economy.Sub(stardustCost, profile.Stardust))));
 			}
 
 			profile.Cash = Economy.Sub(profile.Cash, fluxCost);
@@ -4415,7 +4415,7 @@ export class GameService {
 			const [nextProduction] = Economy.ContinuumEffects(profile) as LuaTuple<[unknown]>;
 			const milestone = (rank + 1) % ((GameConfig.Continuum as Dict).MilestoneEvery as number) === 0;
 			return responseSuccess(
-				string.format("Continuum rank %d reached. Production is now %s.", rank + 1, (Format.Number as Fn)(nextProduction) + "x"),
+				T("GameService.ContinuumRankDReachedProduction", rank + 1, (Format.Number as Fn)(nextProduction) + "x"),
 				{ Level: rank + 1, Milestone: milestone },
 			);
 		});
@@ -4423,17 +4423,17 @@ export class GameService {
 
 	_toggleItemLock(player: Player, uid: unknown) {
 		if (!typeIs(uid, "string")) {
-			return responseError("Invalid relic request.");
+			return responseError(T("GameService.InvalidRelicRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const inventory = (profile.Items as Dict).Inventory as Dict;
 			const instance = inventory[uid] as Dict | undefined;
 			if (instance === undefined) {
-				return responseError("That relic is not in your inventory.");
+				return responseError(T("GameService.ThatRelicIsNotIn"));
 			}
 			const definition = itemById[instance.DefinitionId as string] as Dict | undefined;
 			if (definition === undefined) {
-				return responseError("That relic is not in your inventory.");
+				return responseError(T("GameService.ThatRelicIsNotIn"));
 			}
 			instance.Locked = instance.Locked !== true;
 			return responseSuccess(
@@ -4445,25 +4445,25 @@ export class GameService {
 
 	_bulkSalvageItems(player: Player, rawUids: unknown) {
 		if (!typeIs(rawUids, "table")) {
-			return responseError("Select at least one relic.");
+			return responseError(T("GameService.SelectAtLeastOneRelic"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const requested = new Set<string>();
 			let requestCount = 0;
 			for (const [, uid] of pairs(rawUids)) {
 				if (!typeIs(uid, "string") || uid.size() < 1 || uid.size() > 48) {
-					return responseError("The relic selection is invalid.");
+					return responseError(T("GameService.TheRelicSelectionIsInvalid"));
 				}
 				if (!requested.has(uid)) {
 					requestCount += 1;
 					if (requestCount > 25) {
-						return responseError("Salvage up to 25 relics at once.");
+						return responseError(T("GameService.SalvageUpTo25Relics"));
 					}
 					requested.add(uid);
 				}
 			}
 			if (requestCount === 0) {
-				return responseError("Select at least one relic.");
+				return responseError(T("GameService.SelectAtLeastOneRelic"));
 			}
 			const items = profile.Items as Dict;
 			const equipped = new Set<string>();
@@ -4489,14 +4489,13 @@ export class GameService {
 			}
 			if (removed === 0) {
 				return responseError(
-					protectedCount > 0 ? "Every selected relic is equipped or protected." : "Those relics are no longer available.",
+					protectedCount > 0 ? T("GameService.EverySelectedRelicIsEquipped") : T("GameService.ThoseRelicsAreNoLonger"),
 				);
 			}
 			items.Essence = (items.Essence as number) + essence;
 			bumpStat(profile, "ItemsSalvaged", removed);
 			return responseSuccess(
-				string.format(
-					"Salvaged %d relic%s for %d essence%s.",
+				T("GameService.SalvagedDRelicSFor",
 					removed,
 					removed === 1 ? "" : "s",
 					essence,
@@ -4562,12 +4561,12 @@ export class GameService {
 			!typeIs(payload!.KeepNew, "boolean") ||
 			!typeIs(payload!.Rarities, "table")
 		) {
-			return responseError("Invalid auto-salvage request.");
+			return responseError(T("GameService.InvalidAutoSalvageRequest"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const ownedPasses = profile.OwnedPasses as Dict | undefined;
 			if (ownedPasses === undefined || ownedPasses.AutoSalvage !== true) {
-				return { ok: false, error: "Relic Recycler is required for auto-salvage.", RequiresPass: "AutoSalvage" };
+				return { ok: false, error: T("GameService.RelicRecyclerIsRequiredFor"), RequiresPass: "AutoSalvage" };
 			}
 			const rarities: Dict = {};
 			for (const [rarity] of pairs(GameConfig.Items.Rarities as Dict)) {
@@ -4576,12 +4575,12 @@ export class GameService {
 			let count = 0;
 			for (const [, rarity] of pairs(payload!.Rarities as object)) {
 				if (!typeIs(rarity, "string") || (GameConfig.Items.Rarities as Dict)[rarity] === undefined) {
-					return responseError("An auto-salvage rarity is invalid.");
+					return responseError(T("GameService.AnAutoSalvageRarityIs"));
 				}
 				if (rarities[rarity] !== true) {
 					count += 1;
 					if (count > 6) {
-						return responseError("Too many auto-salvage rarities.");
+						return responseError(T("GameService.TooManyAutoSalvageRarities"));
 					}
 					rarities[rarity] = true;
 				}
@@ -4590,7 +4589,7 @@ export class GameService {
 			rules.Enabled = payload!.Enabled;
 			rules.KeepNew = payload!.KeepNew;
 			rules.Rarities = rarities;
-			return responseSuccess(payload!.Enabled === true ? "Relic Recycler armed." : "Relic Recycler paused.");
+			return responseSuccess(payload!.Enabled === true ? T("GameService.RelicRecyclerArmed") : T("GameService.RelicRecyclerPaused"));
 		});
 	}
 
@@ -4600,27 +4599,27 @@ export class GameService {
 		const payload = rawPayload as Dict | undefined;
 		const op = typeIs(rawPayload, "table") ? payload!.Op : undefined;
 		if (op !== "Etch" && op !== "Clear") {
-			return responseError("Unknown lattice action.");
+			return responseError(T("GameService.UnknownLatticeAction"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const domain = ProfileBagMath.EnsureDomain(profile) as Dict;
 			if ((domain.Rank as number) < 1) {
-				return responseError("Expand your domain first.");
+				return responseError(T("GameService.ExpandYourDomainFirst"));
 			}
 			domain.Links = DomainLattice.sanitize(domain.Links);
 			const links = domain.Links as Dict;
 			const etched = DomainLattice.count(links) as number;
 			if (op === "Clear") {
 				if (etched === 0) {
-					return responseError("Nothing is etched yet.");
+					return responseError(T("GameService.NothingIsEtchedYet"));
 				}
 				if ((tonumber(domain.LatticeClearedAtRank) ?? 0) >= (domain.Rank as number)) {
-					return responseError("You can clear the lattice again after your next expansion.");
+					return responseError(T("GameService.YouCanClearTheLattice"));
 				}
 				domain.SkillPoints = (domain.SkillPoints as number) + (DomainLattice.spent(etched) as number);
 				domain.Links = {};
 				domain.LatticeClearedAtRank = domain.Rank;
-				return responseSuccess("Lattice cleared. Every point is back.", {
+				return responseSuccess(T("GameService.LatticeClearedEveryPointIs"), {
 					Links: domain.Links,
 					SkillPoints: domain.SkillPoints,
 				});
@@ -4629,7 +4628,7 @@ export class GameService {
 			const b = tonumber(payload!.B);
 			const [ok, reason] = DomainLattice.canEtch(links, a, b, domain.SkillPoints) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(ok)) {
-				return responseError(truthy(reason) ? reason : "That link can't be etched.");
+				return responseError(truthy(reason) ? reason : T("GameService.ThatLinkCanTBe"));
 			}
 			const cost = DomainLattice.linkCost(etched) as number;
 			const key = DomainLattice.key(math.floor(a as number), math.floor(b as number)) as string;
@@ -4637,7 +4636,7 @@ export class GameService {
 			domain.SkillPoints = (domain.SkillPoints as number) - cost;
 			links[key] = true;
 			const facetsAfter = (DomainLattice.facets(links) as unknown[]).size();
-			return responseSuccess(facetsAfter > facetsBefore ? "Facet closed." : "Link etched.", {
+			return responseSuccess(facetsAfter > facetsBefore ? T("GameService.FacetClosed") : T("GameService.LinkEtched"), {
 				Link: key,
 				Links: links,
 				SkillPoints: domain.SkillPoints,
@@ -4664,14 +4663,14 @@ export class GameService {
 			const cooldown = math.max(1, math.floor(tonumber(expansion.CooldownSeconds) ?? 6));
 			const rank = math.max(0, math.floor(tonumber(domain.Rank) ?? 0));
 			if (os.time() - math.max(0, math.floor(tonumber(domain.LastExpandedAt) ?? 0)) < cooldown) {
-				return responseError("Reality is still settling.");
+				return responseError(T("GameService.RealityIsStillSettling"));
 			}
 			const [requiredRebirths, requiredCores] = Economy.DomainRequirements(rank) as LuaTuple<[number, number]>;
 			if (!truthy(RebirthGate.MeetsRequired(profile.Rebirths, requiredRebirths))) {
-				return responseError(string.format("Domain rank %d requires %d rebirths.", rank + 1, requiredRebirths));
+				return responseError(T("GameService.DomainRankDRequiresD", rank + 1, requiredRebirths));
 			}
 			if ((profile.Cores as number) < requiredCores) {
-				return responseError(string.format("Domain rank %d requires %d astral cores.", rank + 1, requiredCores));
+				return responseError(T("GameService.DomainRankDRequiresD2", rank + 1, requiredCores));
 			}
 
 			const [baseEssence, baseStardust] = Economy.DomainRewards(rank) as LuaTuple<[number, number]>;
@@ -4765,7 +4764,7 @@ export class GameService {
 			const [nextRequiredRebirths, nextRequiredCores] = Economy.DomainRequirements(nextRank) as LuaTuple<[number, number]>;
 			details.NextRequiredRebirths = nextRequiredRebirths;
 			details.NextRequiredCores = nextRequiredCores;
-			return responseSuccess(string.format("Domain %d established. Reality now yields more power.", nextRank), details);
+			return responseSuccess(T("GameService.DomainDEstablishedRealityNow", nextRank), details);
 		});
 		if (truthy(result.ok)) {
 			const profile = this._data.Get(player) as Profile | undefined;
@@ -4789,7 +4788,7 @@ export class GameService {
 			const domainRank = math.max(0, math.floor(tonumber(domain !== undefined ? domain.Rank : undefined) ?? 0));
 			const now = os.time();
 			if (now - (state.LastAscendedAt as number) < 10) {
-				return responseError("The forge is still settling from your last ascension.");
+				return responseError(T("GameService.TheForgeIsStillSettling"));
 			}
 			const [nextState, gainOrReason] = AscensionMath.ascend(
 				state,
@@ -4845,7 +4844,7 @@ export class GameService {
 			}
 			details = { Rank: nextState.Rank, Aether: gainOrReason, DomainRank: domainRank };
 			return responseSuccess(
-				string.format("Ascension %d. +%s Aether.", nextState.Rank as number, (Format.Number as Fn)(gainOrReason) as string),
+				T("GameService.AscensionDSAether", nextState.Rank as number, (Format.Number as Fn)(gainOrReason) as string),
 				details,
 			);
 		});
@@ -4931,15 +4930,15 @@ export class GameService {
 				"Security",
 				string.format("u=%d Creator follow claim denied because verification is unavailable", player.UserId),
 			);
-			return responseError("Creator follow verification is unavailable.");
+			return responseError(T("GameService.CreatorFollowVerificationIsUnavailable"));
 		}
 		const profile = this._data.Get(player) as Profile | undefined;
 		if (profile === undefined) {
-			return responseError("Your save is still loading. Try again in a moment.");
+			return responseError(T("GameService.YourSaveIsStillLoading"));
 		}
 		const socialRewards = typeIs(profile.SocialRewards, "table") ? (profile.SocialRewards as Dict) : undefined;
 		if (socialRewards !== undefined && socialRewards.CreatorFollowClaimed === true) {
-			return responseSuccess("You already claimed this reward.");
+			return responseSuccess(T("CommunityRewards.YouAlreadyClaimedThisReward"));
 		}
 		const result = this._mutate(player, (current: Profile) => {
 			if (!typeIs(current.SocialRewards, "table")) {
@@ -4947,7 +4946,7 @@ export class GameService {
 			}
 			const rewards = current.SocialRewards as Dict;
 			if (rewards.CreatorFollowClaimed === true) {
-				return responseSuccess("You already claimed this reward.");
+				return responseSuccess(T("CommunityRewards.YouAlreadyClaimedThisReward"));
 			}
 			rewards.CreatorFollowClaimed = true;
 			const rewardText = ProgressionService.ApplyReward(current, ServerConfig.FollowReward, Economy.Production(current));
@@ -4982,13 +4981,13 @@ export class GameService {
 	_setMobileLayout(player: Player, rawPayload: unknown) {
 		const payload = rawPayload as Dict | undefined;
 		if (!typeIs(rawPayload, "table")) {
-			return responseError("Invalid mobile layout.");
+			return responseError(T("GameService.InvalidMobileLayout"));
 		}
 		if (payload!.Values !== undefined && !typeIs(payload!.Values, "table")) {
-			return responseError("Invalid mobile layout.");
+			return responseError(T("GameService.InvalidMobileLayout"));
 		}
 		if (payload!.Pins !== undefined && !NavRoutes.validMobileTabPins(payload!.Pins)) {
-			return responseError("Invalid tab pins.");
+			return responseError(T("GameService.InvalidTabPins"));
 		}
 		const allowed: Record<string, boolean> = {
 			MobileQuickX: true,
@@ -5010,15 +5009,15 @@ export class GameService {
 			if (payload!.Slots !== undefined) {
 				const normalized = MobileLayoutSlots.Normalize(payload!.Slots);
 				if (normalized === undefined) {
-					return responseError("Invalid layout memory.");
+					return responseError(T("GameService.InvalidLayoutMemory"));
 				}
 				(profile.Flags as Dict).MobileLayoutSlots = normalized;
-				return responseSuccess("Layout memory saved.");
+				return responseSuccess(T("GameService.LayoutMemorySaved"));
 			}
 			if (payload!.Pins !== undefined && payload!.Values === undefined) {
-				return responseSuccess("Tab bar saved.");
+				return responseSuccess(T("GameService.TabBarSaved"));
 			}
-			return responseSuccess("Mobile HUD layout saved.");
+			return responseSuccess(T("GameService.MobileHUDLayoutSaved"));
 		});
 	}
 
@@ -5026,40 +5025,40 @@ export class GameService {
 		return this._mutate(player, (profile: Profile) => {
 			const flags = profile.Flags as Dict;
 			if (truthy(flags.TutorialDone)) {
-				return responseSuccess("Tutorial already complete.");
+				return responseSuccess(T("GameService.TutorialAlreadyComplete"));
 			}
 			flags.TutorialDone = true;
 			flags.TutorialStep = 15;
 			if (truthy(flags.TutorialRewardClaimed)) {
-				return responseSuccess("Guide finished.");
+				return responseSuccess(T("GameService.GuideFinished"));
 			}
 			flags.TutorialRewardClaimed = true;
 			const reward = GameConfig.Economy.TutorialReward;
 			profile.Cash = Economy.Add(profile.Cash, reward);
 			profile.RunCash = Economy.Add(profile.RunCash, reward);
 			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, reward);
-			return responseSuccess("Guide finished. +" + (Format.Number as Fn)(reward) + " Flux");
+			return responseSuccess(T("GameService.GuideFinishedSFlux", (Format.Number as Fn)(reward)));
 		});
 	}
 
 	_setTutorialStep(player: Player, rawStep: unknown) {
 		if (!typeIs(rawStep, "number")) {
-			return responseError("Invalid tutorial step.");
+			return responseError(T("GameService.InvalidTutorialStep"));
 		}
 		const step = math.clamp(math.floor(rawStep), 1, 15);
 		return this._mutate(player, (profile: Profile) => {
 			const flags = profile.Flags as Dict;
 			if (truthy(flags.TutorialDone)) {
-				return responseSuccess("Guide progress already complete.");
+				return responseSuccess(T("GameService.GuideProgressAlreadyComplete"));
 			}
 			flags.TutorialStep = step;
-			return responseSuccess("Guide progress saved.");
+			return responseSuccess(T("GameService.GuideProgressSaved"));
 		});
 	}
 
 	_markHintSeen(player: Player, rawId: unknown) {
 		if (!SeenHints.isHintId(rawId)) {
-			return responseError("Unknown hint.");
+			return responseError(T("GameService.UnknownHint"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const flags = profile.Flags as Dict;
@@ -5068,24 +5067,24 @@ export class GameService {
 				seen.push(rawId);
 			}
 			flags.SeenHints = seen;
-			return responseSuccess("Hint saved.");
+			return responseSuccess(T("GameService.HintSaved"));
 		});
 	}
 
 	// First goals pay once, in order, and only when the profile shows the goal is done.
 	_claimFirstGoal(player: Player, rawId: unknown) {
 		if (!FirstGoals.isGoalId(rawId)) {
-			return responseError("Unknown goal.");
+			return responseError(T("GameService.UnknownGoal"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const flags = profile.Flags as Dict;
 			const claimed = FirstGoals.normalizeClaimed(flags.FirstGoals);
 			if (claimed.includes(rawId)) {
-				return responseSuccess("Already claimed.");
+				return responseSuccess(T("GameService.AlreadyClaimed"));
 			}
 			const [goal] = FirstGoals.currentGoal(claimed);
 			if (goal === undefined || goal.id !== rawId) {
-				return responseError("Finish the earlier goal first.");
+				return responseError(T("GameService.FinishTheEarlierGoalFirst"));
 			}
 			const stats = (profile.Stats ?? {}) as Dict;
 			const levelState = ProgressionGate.LevelState(profile) as Dict;
@@ -5099,7 +5098,7 @@ export class GameService {
 				rebirthReady: (Economy.AsNumber(prestige) as number) >= 1,
 			});
 			if (!done) {
-				return responseError("Not done yet.");
+				return responseError(T("GameService.NotDoneYet"));
 			}
 			claimed.push(goal.id);
 			flags.FirstGoals = claimed;
@@ -5114,7 +5113,7 @@ export class GameService {
 				bag[keys.crate] = (num(bag[keys.crate]) ?? 0) + keys.count;
 				note += keys.count === 1 ? " and a crate key" : ` and ${keys.count} crate keys`;
 			}
-			return responseSuccess("Goal done. " + note);
+			return responseSuccess(T("GameService.GoalDoneS", note));
 		});
 	}
 
@@ -5123,7 +5122,7 @@ export class GameService {
 			const flags = profile.Flags as Dict;
 			flags.TutorialDone = false;
 			flags.TutorialStep = 1;
-			return responseSuccess("Guide reopened.");
+			return responseSuccess(T("GameService.GuideReopened"));
 		});
 	}
 
@@ -5143,7 +5142,7 @@ export class GameService {
 
 	_claimLabOrder(player: Player, orderId: unknown) {
 		if (!typeIs(orderId, "string")) {
-			return responseError("Invalid order request.");
+			return responseError(T("GameService.InvalidOrderRequest"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			LabService.Ensure(profile, player.UserId);
@@ -5162,7 +5161,7 @@ export class GameService {
 
 	_routeLabPower(player: Player, channelId: unknown, rawDelta: unknown) {
 		if (!typeIs(channelId, "string") || !typeIs(rawDelta, "number")) {
-			return responseError("Invalid power routing request.");
+			return responseError(T("GameService.InvalidPowerRoutingRequest"));
 		}
 		const delta = math.floor(rawDelta);
 		return this._mutate(player, (profile: Profile) => {
@@ -5173,37 +5172,37 @@ export class GameService {
 
 	_readStoryChapter(player: Player, chapterId: unknown) {
 		if (!typeIs(chapterId, "string") || storyById[chapterId] === undefined) {
-			return responseError("That story chapter could not be found.");
+			return responseError(T("GameService.ThatStoryChapterCouldNot"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const chapter = storyById[chapterId] as Dict;
 			if ((ProgressionGate.Progress(profile, chapter.Kind) as number) < (chapter.Target as number)) {
-				return responseError("Keep progressing to uncover this chapter.");
+				return responseError(T("GameService.KeepProgressingToUncoverThis"));
 			}
 			((profile.Story as Dict).Read as Dict)[chapterId] = true;
-			return responseSuccess("Chapter added to your archive.");
+			return responseSuccess(T("GameService.ChapterAddedToYourArchive"));
 		});
 	}
 
 	_claimStoryChapter(player: Player, chapterId: unknown) {
 		if (!typeIs(chapterId, "string") || storyById[chapterId] === undefined) {
-			return responseError("That story chapter could not be found.");
+			return responseError(T("GameService.ThatStoryChapterCouldNot"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			const chapter = storyById[chapterId] as Dict;
 			if ((ProgressionGate.Progress(profile, chapter.Kind) as number) < (chapter.Target as number)) {
-				return responseError("Keep progressing to uncover this chapter.");
+				return responseError(T("GameService.KeepProgressingToUncoverThis"));
 			}
 			const story = profile.Story as Dict;
 			if (!truthy((story.Read as Dict)[chapterId])) {
-				return responseError("Read the chapter before collecting its keepsake.");
+				return responseError(T("GameService.ReadTheChapterBeforeCollecting"));
 			}
 			if (truthy((story.Claimed as Dict)[chapterId])) {
-				return responseError("That keepsake is already in your collection.");
+				return responseError(T("GameService.ThatKeepsakeIsAlreadyIn"));
 			}
 			(story.Claimed as Dict)[chapterId] = true;
 			const reward = ProgressionService.ApplyReward(profile, chapter.Reward, Economy.Production(profile));
-			return responseSuccess("Story keepsake: " + tostring(reward));
+			return responseSuccess(T("GameService.StoryKeepsakeS", tostring(reward)));
 		});
 		if (truthy(result.ok)) {
 			this._effect.fire(player, { Type: "StoryClaimed", Id: chapterId });
@@ -5213,13 +5212,13 @@ export class GameService {
 
 	_readMail(player: Player, messageId: unknown) {
 		if (!typeIs(messageId, "string") || mailById[messageId] === undefined) {
-			return responseError("That letter could not be found.");
+			return responseError(T("GameService.ThatLetterCouldNotBe"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const message = mailById[messageId] as Dict;
 			const mailbox = profile.Mailbox as Dict;
 			if (truthy((mailbox.Deleted as Dict)[messageId]) || !truthy(ProgressionGate.Meets(profile, message.Requirement))) {
-				return responseError("That letter is not available yet.");
+				return responseError(T("GameService.ThatLetterIsNotAvailable"));
 			}
 			(mailbox.Read as Dict)[messageId] = true;
 			return responseSuccess();
@@ -5228,21 +5227,21 @@ export class GameService {
 
 	_claimMail(player: Player, messageId: unknown) {
 		if (!typeIs(messageId, "string") || mailById[messageId] === undefined) {
-			return responseError("That letter could not be found.");
+			return responseError(T("GameService.ThatLetterCouldNotBe"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			const message = mailById[messageId] as Dict;
 			const mailbox = profile.Mailbox as Dict;
 			if (truthy((mailbox.Deleted as Dict)[messageId]) || !truthy(ProgressionGate.Meets(profile, message.Requirement))) {
-				return responseError("That letter is not available yet.");
+				return responseError(T("GameService.ThatLetterIsNotAvailable"));
 			}
 			if (truthy((mailbox.Claimed as Dict)[messageId])) {
-				return responseError("You already collected this attachment.");
+				return responseError(T("GameService.YouAlreadyCollectedThisAttachment"));
 			}
 			(mailbox.Read as Dict)[messageId] = true;
 			(mailbox.Claimed as Dict)[messageId] = true;
 			const reward = ProgressionService.ApplyReward(profile, message.Attachment, Economy.Production(profile));
-			return responseSuccess("Mail attachment: " + tostring(reward));
+			return responseSuccess(T("GameService.MailAttachmentS", tostring(reward)));
 		});
 		if (truthy(result.ok)) {
 			this._effect.fire(player, { Type: "MailClaimed", Id: messageId });
@@ -5269,9 +5268,9 @@ export class GameService {
 				}
 			}
 			if (claimedCount === 0) {
-				return responseError("There are no attachments ready to collect.");
+				return responseError(T("GameService.ThereAreNoAttachmentsReady"));
 			}
-			return responseSuccess(string.format("Collected %d mail attachment%s.", claimedCount, claimedCount === 1 ? "" : "s"));
+			return responseSuccess(T("GameService.CollectedDMailAttachmentS", claimedCount, claimedCount === 1 ? "" : "s"));
 		});
 		if (truthy(result.ok)) {
 			this._effect.fire(player, { Type: "MailClaimed", Id: "*", Count: claimedCount });
@@ -5281,17 +5280,17 @@ export class GameService {
 
 	_deleteMail(player: Player, messageId: unknown) {
 		if (!typeIs(messageId, "string") || mailById[messageId] === undefined) {
-			return responseError("That letter could not be found.");
+			return responseError(T("GameService.ThatLetterCouldNotBe"));
 		}
 		return this._mutate(player, (profile: Profile) => {
 			const message = mailById[messageId] as Dict;
 			const mailbox = profile.Mailbox as Dict;
 			if (truthy(message.Attachment) && !truthy((mailbox.Claimed as Dict)[messageId])) {
-				return responseError("Collect the attachment before archiving this letter.");
+				return responseError(T("GameService.CollectTheAttachmentBeforeArchiving"));
 			}
 			(mailbox.Read as Dict)[messageId] = true;
 			(mailbox.Deleted as Dict)[messageId] = true;
-			return responseSuccess("Letter archived.");
+			return responseSuccess(T("GameService.LetterArchived"));
 		});
 	}
 
@@ -5369,7 +5368,7 @@ export class GameService {
 		) {
 			const profile = this._data.Get(player) as Profile | undefined;
 			if (profile === undefined) {
-				return responseError("Your profile is not ready. Please try again.");
+				return responseError(T("GuildCommunity.YourProfileIsNotReady"));
 			}
 			let ok: unknown;
 			let message: unknown;
@@ -5460,7 +5459,7 @@ export class GameService {
 				[unknown, unknown]
 			>;
 			if (!truthy(filteredOk) || !typeIs(filtered, "string") || filtered.size() < 3) {
-				return responseError("That guild name couldn't be checked. Please try different wording.");
+				return responseError(T("GameService.ThatGuildNameCouldnT"));
 			}
 			payload = table.clone(payload) as Dict;
 			payload.Name = filtered;
@@ -5481,7 +5480,7 @@ export class GameService {
 		if (action === Protocol.Actions.JoinGuild) {
 			const [canJoin, joinError] = this._guildCommunity.CanJoinByTag(payload.Tag, player.UserId) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(canJoin)) {
-				return responseError(truthy(joinError) ? joinError : "You cannot join that guild.");
+				return responseError(truthy(joinError) ? joinError : T("GameService.YouCannotJoinThatGuild"));
 			}
 		}
 		const result = this._mutate(player, (profile: Profile) => {
@@ -5533,7 +5532,7 @@ export class GameService {
 				if (truthy(ok) && truthy(reward)) {
 					const rewardText = ProgressionService.ApplyReward(profile, reward, Economy.Production(profile));
 					if (tostring(rewardText) !== "") {
-						message = "Guild goal done. " + tostring(rewardText);
+						message = T("GameService.GuildGoalDoneS", tostring(rewardText));
 					}
 				}
 			}
@@ -5608,7 +5607,7 @@ export class GameService {
 				this._nameLookupPending.delete(userId);
 			});
 		}
-		return "Pilot " + tostring(userId);
+		return T("GameService.PilotS", tostring(userId));
 	}
 
 	_primePlayerNames(rows: unknown) {
@@ -5697,19 +5696,19 @@ export class GameService {
 			"weekly board",
 		);
 		if (truthy(committed) && tier !== undefined && paid !== "") {
-			this._toastPlayer(player, "Weekly board", string.format("You finished #%d last week. %s", rank!, paid), "Special");
+			this._toastPlayer(player, T("GameService.WeeklyBoard"), T("GameService.YouFinishedDLastWeek", rank!, paid), "Special");
 			this._queueStatePush(player);
 		}
 	}
 
 	_getLeaderboard(id: unknown) {
 		if (!typeIs(id, "string")) {
-			return responseError("That leaderboard is unavailable.");
+			return responseError(T("GameService.ThatLeaderboardIsUnavailable"));
 		}
 		const weekly = id === WeeklyBoard.BOARD_ID;
 		const store = (weekly ? WeeklyStores.current(os.time()) : this._leaderboardStores[id]) as Dict | undefined;
 		if (store === undefined) {
-			return responseError("That leaderboard is unavailable.");
+			return responseError(T("GameService.ThatLeaderboardIsUnavailable"));
 		}
 		const cached = this._globalBoardCache[id];
 		if (cached !== undefined && (cached.ExpiresAt as number) > os.clock()) {
@@ -5770,7 +5769,7 @@ export class GameService {
 
 	_handleAction(player: Player, action: unknown, rawPayload: unknown): Response {
 		if (!truthy(CommandActionValidators.IsValidAction(action))) {
-			return responseError("Invalid request.");
+			return responseError(T("GameService.InvalidRequest"));
 		}
 		const payload = typeIs(rawPayload, "table") ? (rawPayload as Dict) : undefined;
 		if (action === Protocol.Actions.ReportClientIntegrity) {
@@ -5779,12 +5778,12 @@ export class GameService {
 				payload !== undefined ? payload.ActionType : undefined,
 				payload !== undefined ? payload.PenaltyCode : undefined,
 			);
-			return truthy(accepted) ? responseSuccess(undefined) : responseError("Integrity report rejected.");
+			return truthy(accepted) ? responseSuccess(undefined) : responseError(T("GameService.IntegrityReportRejected"));
 		}
 		if (action === Protocol.Actions.ReportPerformance) {
 			return truthy(this._analytics.RecordPerformance(player, payload))
 				? responseSuccess(undefined)
-				: responseError("Performance sample was already received.");
+				: responseError(T("GameService.PerformanceSampleWasAlreadyReceived"));
 		}
 		const featureId = featureByAction[action as string];
 		if (truthy(featureId)) {
@@ -5815,7 +5814,7 @@ export class GameService {
 			}
 			const snapshot = this._snapshot(player);
 			this._forgetSentSections(player);
-			return snapshot !== undefined ? responseSuccess(undefined, { State: snapshot }) : responseError("Profile is still loading.");
+			return snapshot !== undefined ? responseSuccess(undefined, { State: snapshot }) : responseError(T("GameService.ProfileIsStillLoading"));
 		} else if (action === Protocol.Actions.MeasureLatency) {
 			return responseSuccess(undefined);
 		} else if (action === Protocol.Actions.SubmitFeedback) {
@@ -5848,10 +5847,10 @@ export class GameService {
 		} else if (action === Protocol.Actions.GetAdminState) {
 			return this._admin !== undefined
 				? responseSuccess(undefined, { Admin: this._admin.State(player) })
-				: responseError("Administration is unavailable.");
+				: responseError(T("GameService.AdministrationIsUnavailable"));
 		} else if (action === Protocol.Actions.AdminExecute) {
 			if (this._admin === undefined) {
-				return responseError("Administration is unavailable.");
+				return responseError(T("GameService.AdministrationIsUnavailable"));
 			}
 			const result = this._admin.Execute(player, payload) as Dict;
 			if (truthy(result.ok) && typeIs(result.TargetUserId, "number")) {
@@ -5863,8 +5862,8 @@ export class GameService {
 						this._pushState(target);
 						this._toastPlayer(
 							target,
-							"Forgemaster grant",
-							truthy(result.message) ? result.message : "Your profile was updated.",
+							T("GameService.ForgemasterGrant"),
+							truthy(result.message) ? result.message : T("GameService.YourProfileWasUpdated"),
 							"Special",
 						);
 					}
@@ -5930,7 +5929,7 @@ export class GameService {
 			return this._buyResearch(player, payload?.Id, payload?.Amount);
 		} else if (action === Protocol.Actions.BuyGridUpgrade) {
 			return responseError(
-				"Star Grid purchases have retired. Your purchased bonuses remain active; choose a build in Forge Specializations.",
+				T("GameService.StarGridPurchasesHaveRetired"),
 			);
 		} else if (action === Protocol.Actions.UpgradeContinuum) {
 			return this._upgradeContinuum(player);
@@ -5985,7 +5984,7 @@ export class GameService {
 				profile.Specialization = selected;
 				if (truthy(Economy.Gt(profile.Vault, Economy.Capacity(profile)))) {
 					profile.Specialization = previous;
-					return responseError("Collect your vault before equipping a build with a smaller capacity.");
+					return responseError(T("GameService.CollectYourVaultBeforeEquipping"));
 				}
 				return responseSuccess(message);
 			});
@@ -6136,7 +6135,7 @@ export class GameService {
 		} else if (action === Protocol.Actions.RouteLabPower) {
 			return this._routeLabPower(player, payload?.Channel, payload?.Delta);
 		}
-		return responseError("Unknown forge command.");
+		return responseError(T("RemoteFirewall.UnknownForgeCommand"));
 	}
 
 	_processOffline(player: Player, profile: Profile) {
@@ -6313,7 +6312,7 @@ export class GameService {
 
 		this._pushState(player);
 		if (rigCount > 0) {
-			this._toastPlayer(player, rigCount === 1 ? "Rig lit" : "Rigs lit", rigNote, "Success");
+			this._toastPlayer(player, rigCount === 1 ? T("GameService.RigLit") : T("GameService.RigsLit"), rigNote, "Success");
 		}
 		const away =
 			offlineSeconds >= 3600
@@ -6375,8 +6374,8 @@ export class GameService {
 					lockNoticeAt = os.clock();
 					this._toastPlayer(
 						player,
-						"Save is still syncing",
-						"Your data is still active on another server. Close any other open session, or wait and it clears on its own.",
+						T("GameService.SaveIsStillSyncing"),
+						T("GameService.YourDataIsStillActive"),
 						"Info",
 					);
 				}
@@ -6387,8 +6386,8 @@ export class GameService {
 					});
 					this._toastPlayer(
 						player,
-						"Taking over your session",
-						"Your other session is being closed so this one can load your save.",
+						T("GameService.TakingOverYourSession"),
+						T("GameService.YourOtherSessionIsBeing"),
 						"Info",
 					);
 				}
@@ -6405,8 +6404,8 @@ export class GameService {
 					);
 					this._toastPlayer(
 						player,
-						"Still connecting",
-						"Your save is taking longer than usual to load. We'll keep retrying, so you don't need to rejoin.",
+						T("GameService.StillConnecting"),
+						T("GameService.YourSaveIsTakingLonger"),
 						"Warning",
 					);
 				}
@@ -6857,7 +6856,7 @@ export class GameService {
 				action !== Protocol.Actions.ReportPerformance &&
 				action !== Protocol.Actions.ReportPresence
 			) {
-				return responseError("Profile is still loading.");
+				return responseError(T("GameService.ProfileIsStillLoading"));
 			}
 			if (truthy(this._security)) {
 				const [authorityOk, authorityMessage] = (this._security.Authority as Svc).Validate(player, action, payload) as LuaTuple<
@@ -6870,7 +6869,7 @@ export class GameService {
 						"gate",
 						string.format("u=%d authority %s %s", player.UserId, tostring(action), tostring(authorityMessage)),
 					);
-					return responseError(truthy(authorityMessage) ? authorityMessage : "Request rejected.");
+					return responseError(truthy(authorityMessage) ? authorityMessage : T("GameService.RequestRejected"));
 				}
 
 				if (!truthy((this._security.Rate as Svc).Allow(player, action === Protocol.Actions.AdminExecute ? 1 : 0.1))) {
@@ -6880,7 +6879,7 @@ export class GameService {
 						"gate",
 						string.format("u=%d rate %s", player.UserId, tostring(action)),
 					);
-					return responseError("Please slow down for a moment.");
+					return responseError(T("RemoteFirewall.PleaseSlowDownForA"));
 				}
 			}
 			const [allowed, firewallMessage] = this._firewall.Check(player, action, payload) as LuaTuple<[unknown, unknown]>;
@@ -6893,7 +6892,7 @@ export class GameService {
 						string.format("u=%d firewall %s %s", player.UserId, tostring(action), tostring(firewallMessage)),
 					);
 				}
-				return responseError(truthy(firewallMessage) ? firewallMessage : "Please slow down for a moment.");
+				return responseError(truthy(firewallMessage) ? firewallMessage : T("RemoteFirewall.PleaseSlowDownForA"));
 			}
 			const readOnly = truthy(CommandActionValidators.IsReadOnly(action));
 			const payloadTable = typeIs(payload, "table") ? (payload as Dict) : undefined;
@@ -6914,7 +6913,7 @@ export class GameService {
 					const [liveGen, liveNonce] = this._session.Peek(player) as LuaTuple<[unknown, unknown]>;
 					return {
 						ok: false,
-						error: "Your session needs to refresh. One moment.",
+						error: T("GameService.YourSessionNeedsToRefresh"),
 						Gen: liveGen,
 						N: liveNonce,
 						Auth: grantReason === "unauth" ? false : undefined,
@@ -6926,7 +6925,7 @@ export class GameService {
 			if (txnId !== undefined) {
 				if (txnId.size() > 64) {
 					Report(player, "txn-id", 2, "TxnId of " + txnId.size() + " chars");
-					return responseError("That request could not be validated.");
+					return responseError(T("RemoteFirewall.ThatRequestCouldNotBe"));
 				}
 				const [status, storedResult] = this._session.TxnClaim(
 					player,
@@ -6935,13 +6934,13 @@ export class GameService {
 				) as LuaTuple<[unknown, unknown]>;
 				if (status === "mismatch") {
 					Report(player, "txn-replay", 3, string.format("%s reused a TxnId from a different request", tostring(action)));
-					return responseError("That request could not be validated.");
+					return responseError(T("RemoteFirewall.ThatRequestCouldNotBe"));
 				}
 				if (status === "done") {
 					return storedResult as Response;
 				}
 				if (status === "busy") {
-					return responseError("Still working on that.");
+					return responseError(T("GameService.StillWorkingOnThat"));
 				}
 				txnClaimed = true;
 			}
@@ -6956,7 +6955,7 @@ export class GameService {
 					"Action",
 					string.format("u=%d could not run %s: %s", player.UserId, tostring(action), tostring(result)),
 				);
-				return responseError("The forge encountered an error. Please try again.");
+				return responseError(T("GameService.TheForgeEncounteredAnError"));
 			}
 			const resultBag = result as Dict;
 			if (!typeIs(resultBag, "table") || !typeIs(resultBag.ok, "boolean")) {
@@ -6969,7 +6968,7 @@ export class GameService {
 					"Action",
 					string.format("u=%d got an invalid response for %s", player.UserId, tostring(action)),
 				);
-				return responseError("The forge returned an invalid response. Please try again.");
+				return responseError(T("GameService.TheForgeReturnedAnInvalid"));
 			}
 			if (txnClaimed && txnId !== undefined) {
 				if (resultBag.ok === true) {
@@ -7043,13 +7042,13 @@ export class GameService {
 
 	GrantStudioMoney(player: Player): LuaTuple<[boolean, string, unknown]> {
 		if (!truthy(ShopGrantEligibility.StudioGrantAllowed(RunService.IsStudio()))) {
-			return $tuple(false, "Studio grants are disabled in published servers.", undefined);
+			return $tuple(false, T("GameService.StudioGrantsAreDisabledIn"), undefined);
 		}
 		if (player.Parent !== Players) {
-			return $tuple(false, "That player is not in this server.", undefined);
+			return $tuple(false, T("GameService.ThatPlayerIsNotIn"), undefined);
 		}
 		if (this._data.Get(player) === undefined) {
-			return $tuple(false, "The player's profile is still loading. Wait for the game UI, then retry.", undefined);
+			return $tuple(false, T("GameService.ThePlayerSProfileIs"), undefined);
 		}
 
 		const [updated, updateError] = this._data.Update(player, (profile: Profile) => {
@@ -7057,27 +7056,27 @@ export class GameService {
 			enforceUnlimitedMoney(profile);
 		}) as LuaTuple<[unknown, unknown]>;
 		if (!truthy(updated)) {
-			return $tuple(false, "Profile update failed: " + tostring(updateError), undefined);
+			return $tuple(false, T("GameService.ProfileUpdateFailedS", tostring(updateError)), undefined);
 		}
 
 		this._syncLeaderstats(player, this._data.Get(player) as Profile | undefined);
 		this._pushState(player);
 		this._toastPlayer(player, T("Toast.UnlimitedFluxTitle"), T("Toast.UnlimitedFluxBody"), "Success");
 		if (!truthy(this._data.Save(player, false))) {
-			return $tuple(false, "The balance changed in-session, but the forced DataStore save failed.", undefined);
+			return $tuple(false, T("GameService.TheBalanceChangedInSession"), undefined);
 		}
-		return $tuple(true, "Unlimited Flux lock enabled and saved. Purchases cannot lower it.", MAX_SAFE_CURRENCY);
+		return $tuple(true, T("GameService.UnlimitedFluxLockEnabledAnd"), MAX_SAFE_CURRENCY);
 	}
 
 	GrantStudioWheelSpins(player: Player, amount: unknown): LuaTuple<[boolean, string, unknown]> {
 		if (!truthy(ShopGrantEligibility.StudioGrantAllowed(RunService.IsStudio()))) {
-			return $tuple(false, "Studio grants are disabled in published servers.", undefined);
+			return $tuple(false, T("GameService.StudioGrantsAreDisabledIn"), undefined);
 		}
 		if (player.Parent !== Players) {
-			return $tuple(false, "That player is not in this server.", undefined);
+			return $tuple(false, T("GameService.ThatPlayerIsNotIn"), undefined);
 		}
 		if (this._data.Get(player) === undefined) {
-			return $tuple(false, "The player's profile is still loading. Wait for the game UI, then retry.", undefined);
+			return $tuple(false, T("GameService.ThePlayerSProfileIs"), undefined);
 		}
 
 		const grant = ShopGrantEligibility.ClampWheelGrant(amount) as number;
@@ -7089,26 +7088,26 @@ export class GameService {
 			wheel.FreeSpins = total;
 		}) as LuaTuple<[unknown, unknown]>;
 		if (!truthy(updated)) {
-			return $tuple(false, "Profile update failed: " + tostring(updateError), undefined);
+			return $tuple(false, T("GameService.ProfileUpdateFailedS", tostring(updateError)), undefined);
 		}
 
 		this._pushState(player);
 		this._toastPlayer(player, T("Toast.FreeSpinsTitle"), T("Toast.FreeSpinsBody", tostring(grant), tostring(total)), "Success");
-		return $tuple(true, "Granted " + tostring(grant) + " free wheel spins (" + tostring(total) + " total).", total);
+		return $tuple(true, T("GameService.GrantedSFreeWheelSpins", tostring(grant), tostring(total)), total);
 	}
 
 	ShowRelease(player: Player): LuaTuple<[boolean, string]> {
 		if (player.Parent !== Players) {
-			return $tuple(false, "That player is not in this server.");
+			return $tuple(false, T("GameService.ThatPlayerIsNotIn"));
 		}
 		const [updated, updateError] = this._data.Update(player, (profile: Profile) => {
 			(profile.Flags as Dict).LastSeenVersion = "";
 		}) as LuaTuple<[unknown, unknown]>;
 		if (!truthy(updated)) {
-			return $tuple(false, "Profile update failed: " + tostring(updateError));
+			return $tuple(false, T("GameService.ProfileUpdateFailedS", tostring(updateError)));
 		}
 		this._pushState(player);
-		return $tuple(true, "Release notes reopened for " + player.Name + ".");
+		return $tuple(true, T("GameService.ReleaseNotesReopenedForS", player.Name));
 	}
 
 	Shutdown() {
@@ -7137,7 +7136,7 @@ export class GameService {
 			this._admin.Destroy();
 		}
 
-		ServerFunctions.request.setCallback(() => responseError("The server is shutting down."));
+		ServerFunctions.request.setCallback(() => responseError(T("GameService.TheServerIsShuttingDown")));
 		for (const [player, pending] of this._queuedStatePushes) {
 			task.cancel(pending);
 			this._queuedStatePushes.delete(player);

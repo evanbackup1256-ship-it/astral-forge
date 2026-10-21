@@ -5,7 +5,7 @@
 
 local fs = require("@lune/fs")
 local Rigs = require("../out/Shared/AstralForge/Shared/RelicRigs")
-local Rebirth = require("../out/Shared/AstralForge/Shared/RebirthMath")
+local Rebirth = require("./_server_harness").load("Shared/AstralForge/Shared/RebirthMath") -- imports Locale
 
 local function profile(sockets: { { Id: string, Slot: string, Target: string, Level: number? } }, lit: { [string]: any }?)
 	local equipped: { [string]: string } = {}

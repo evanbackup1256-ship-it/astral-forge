@@ -2,6 +2,7 @@
 // Pure and shared: the server validates every choice with these rules, and the client uses the
 // same catalog to draw the picker. Stored in the save as Cosmetics.ProfileAccent / ProfileFrame;
 // missing or unknown values fall back to the defaults, so old saves load unchanged.
+import { T } from "./Locale";
 
 /**
  * What earns a cosmetic. "Free" is always available; every other kind needs Target of that
@@ -313,7 +314,7 @@ export function validate(
 	if (requestedAccent !== undefined) {
 		const option = findAccent(requestedAccent);
 		if (option === undefined) {
-			return $tuple(undefined, "That accent does not exist.");
+			return $tuple(undefined, T("ProfileStyle.ThatAccentDoesNotExist"));
 		}
 		if (!isUnlocked(option.Unlock, facts)) {
 			return $tuple(undefined, `${option.Name} is still locked: ${unlockText(option.Unlock)}.`);
@@ -323,7 +324,7 @@ export function validate(
 	if (requestedFrame !== undefined) {
 		const option = findFrame(requestedFrame);
 		if (option === undefined) {
-			return $tuple(undefined, "That frame does not exist.");
+			return $tuple(undefined, T("ProfileStyle.ThatFrameDoesNotExist"));
 		}
 		if (!isUnlocked(option.Unlock, facts)) {
 			return $tuple(undefined, `${option.Name} is still locked: ${unlockText(option.Unlock)}.`);

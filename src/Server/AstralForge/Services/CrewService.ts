@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { PayloadEvent } from "../Runtime/ServerNetwork";
 // Crews: small parties inside this server (see Shared/CrewMath for the rules).
 // Server-local by design: a crew lives as long as two members share the server. Only the
@@ -266,17 +267,17 @@ class CrewService {
 		const targetId = typeIs(payload, "table") ? num((payload as Dict).UserId) : undefined;
 		const target = targetId !== undefined ? Players.GetPlayerByUserId(targetId) : undefined;
 		if (target === undefined || target === player) {
-			return fail("Pick another player in this server.");
+			return fail(T("CrewService.PickAnotherPlayerInThis"));
 		}
 		if (this._memberOf.get(target.UserId) !== undefined) {
 			return fail(`${target.DisplayName} is already in a crew.`);
 		}
 		const crew = this._crewOf(player.UserId);
 		if (crew && crew.Leader !== player.UserId) {
-			return fail("Only the crew leader can invite.");
+			return fail(T("CrewService.OnlyTheCrewLeaderCan"));
 		}
 		if (crew && crew.Members.size() >= CrewMath.MAX_MEMBERS) {
-			return fail(`Crews hold ${CrewMath.MAX_MEMBERS} players.`);
+			return fail(T("CrewService.CrewsHoldSPlayers", CrewMath.MAX_MEMBERS));
 		}
 		// the target's Social setting decides who may invite them
 		const targetProfile = this._data.Get(target);
@@ -306,7 +307,7 @@ class CrewService {
 			CrewName: crew ? crew.Name : `${player.DisplayName}'s crew`,
 			ExpiresAt: os.time() + CrewMath.INVITE_SECONDS,
 		});
-		return { ok: true, message: `Invite sent to ${target.DisplayName}.` };
+		return { ok: true, message: T("CrewService.InviteSentToS", target.DisplayName) };
 	}
 
 	Respond(player: Player, payload: unknown) {
@@ -314,27 +315,27 @@ class CrewService {
 		this._invites.delete(player.UserId);
 		const accept = typeIs(payload, "table") && (payload as Dict).Accept === true;
 		if (invite === undefined || invite.ExpiresAt < os.time()) {
-			return fail("That invite expired.");
+			return fail(T("TradeSuite.ThatInviteExpired"));
 		}
 		const inviter = Players.GetPlayerByUserId(invite.FromUserId);
 		if (inviter === undefined) {
-			return fail("They left the server.");
+			return fail(T("TradeSuite.TheyLeftTheServer"));
 		}
 		if (!accept) {
 			this._notify(inviter.UserId, { Type: "CrewNotice", Text: `${player.DisplayName} declined your crew invite.` });
-			return { ok: true, message: "Invite declined." };
+			return { ok: true, message: T("CrewService.InviteDeclined") };
 		}
 		if (this._memberOf.get(player.UserId) !== undefined) {
-			return fail("Leave your current crew first.");
+			return fail(T("CrewService.LeaveYourCurrentCrewFirst"));
 		}
 		let crew = this._crewOf(inviter.UserId);
 		if (crew === undefined) {
 			crew = this._create(inviter, undefined);
 		} else if (crew.Leader !== inviter.UserId) {
-			return fail("That invite is no longer valid.");
+			return fail(T("CrewService.ThatInviteIsNoLonger"));
 		}
 		if (crew.Members.size() >= CrewMath.MAX_MEMBERS) {
-			return fail("That crew is full.");
+			return fail(T("CrewService.ThatCrewIsFull"));
 		}
 		crew.Members.push(player.UserId);
 		this._memberOf.set(player.UserId, crew.Id);
@@ -345,42 +346,42 @@ class CrewService {
 			});
 		}
 		this._push(crew);
-		return { ok: true, message: `You joined ${crew.Name}.` };
+		return { ok: true, message: T("CrewService.YouJoinedS", crew.Name) };
 	}
 
 	Leave(player: Player) {
 		if (this._memberOf.get(player.UserId) === undefined) {
-			return fail("You're not in a crew.");
+			return fail(T("CrewService.YouReNotInA"));
 		}
-		this._leave(player.UserId, "You left the crew.");
-		return { ok: true, message: "You left the crew." };
+		this._leave(player.UserId, T("CrewService.YouLeftTheCrew"));
+		return { ok: true, message: T("CrewService.YouLeftTheCrew") };
 	}
 
 	Kick(player: Player, payload: unknown) {
 		const crew = this._crewOf(player.UserId);
 		const targetId = typeIs(payload, "table") ? num((payload as Dict).UserId) : undefined;
 		if (crew === undefined || crew.Leader !== player.UserId) {
-			return fail("Only the crew leader can remove members.");
+			return fail(T("CrewService.OnlyTheCrewLeaderCan2"));
 		}
 		if (targetId === undefined || targetId === player.UserId || !crew.Members.includes(targetId)) {
-			return fail("That player isn't in your crew.");
+			return fail(T("CrewService.ThatPlayerIsnTIn"));
 		}
 		this._leave(targetId, "You were removed from the crew.");
-		return { ok: true, message: "Removed from the crew." };
+		return { ok: true, message: T("CrewService.RemovedFromTheCrew") };
 	}
 
 	Rename(player: Player, payload: unknown) {
 		const crew = this._crewOf(player.UserId);
 		if (crew === undefined || crew.Leader !== player.UserId) {
-			return fail("Only the crew leader can rename the crew.");
+			return fail(T("CrewService.OnlyTheCrewLeaderCan3"));
 		}
 		const name = this._filterName(player, typeIs(payload, "table") ? (payload as Dict).Name : undefined);
 		if (name === undefined) {
-			return fail("Crew names need 2 to 20 characters.");
+			return fail(T("CrewService.CrewNamesNeed2To"));
 		}
 		crew.Name = name;
 		this._push(crew);
-		return { ok: true, message: `Crew renamed to ${name}.` };
+		return { ok: true, message: T("CrewService.CrewRenamedToS", name) };
 	}
 
 	RecordCollect(player: Player) {
@@ -404,7 +405,7 @@ class CrewService {
 	Claim(player: Player, payload: unknown) {
 		const crew = this._crewOf(player.UserId);
 		if (crew === undefined) {
-			return fail("Join a crew to share crew goals.");
+			return fail(T("CrewService.JoinACrewToShare"));
 		}
 		this._rollDay(crew);
 		const tier = typeIs(payload, "table") ? math.floor(num((payload as Dict).Tier) ?? 0) : 0;
@@ -421,7 +422,7 @@ class CrewService {
 				let record = CrewMath.normalizeRecord(flags.CrewDay, flags.CrewClaimed, today);
 				const [allowed, reason] = CrewMath.canClaim(record, tier, pooled, contribution);
 				if (!allowed) {
-					return fail(reason ?? "You can't claim that yet.");
+					return fail(reason ?? T("CrewService.YouCanTClaimThat"));
 				}
 				record = CrewMath.markClaimed(record, tier);
 				flags.CrewDay = record.Day;
@@ -434,7 +435,7 @@ class CrewService {
 			"crew-claim",
 		);
 		if (!ok) {
-			return fail("Couldn't save that claim. Try again.");
+			return fail(T("CrewService.CouldnTSaveThatClaim"));
 		}
 		if (typeIs(result, "table") && (result as Dict).ok !== undefined && (result as Dict).ok !== false) {
 			this._push(crew);

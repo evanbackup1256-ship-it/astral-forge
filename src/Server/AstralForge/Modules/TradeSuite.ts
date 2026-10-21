@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
 const __loading: Record<string, boolean> = {};
@@ -516,13 +517,13 @@ __defs["TradeDesk"] = () => {
 		Say(this: TradeDeskInstance, player: Player, text: string | undefined, phrase: number | undefined, now: number): LuaTuple<[boolean, string | undefined, TradeSession | undefined]> {
 			const session = this.SessionFor(player.UserId);
 			if (!truthy(session) || session.ExpiresAt < now) {
-				return $tuple(false, "That trade is no longer open.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsNoLonger"), undefined);
 			}
 			session.LastSay = session.LastSay ?? {};
 			const lastSay = session.LastSay;
 			const clock = os.clock();
 			if (!TradeChatMath.CanSend(lastSay[player.UserId], clock)) {
-				return $tuple(false, "Slow down a little.", undefined);
+				return $tuple(false, T("TradeSuite.SlowDownALittle"), undefined);
 			}
 			let line: string;
 			if (typeIs(phrase, "number") && TradeDesk.PHRASES[phrase - 1] !== undefined) {
@@ -530,7 +531,7 @@ __defs["TradeDesk"] = () => {
 			} else if (typeIs(text, "string") && text.size() > 0) {
 				line = string.sub(text, 1, 140);
 			} else {
-				return $tuple(false, "Say something first.", undefined);
+				return $tuple(false, T("TradeSuite.SaySomethingFirst"), undefined);
 			}
 			lastSay[player.UserId] = clock;
 			session.Chat = session.Chat ?? [];
@@ -545,10 +546,10 @@ __defs["TradeDesk"] = () => {
 		Request(this: TradeDeskInstance, player: Player, raw: unknown, now: number): LuaTuple<[boolean, string | undefined, TradeSession | undefined]> {
 			const session = this.SessionFor(player.UserId);
 			if (!truthy(session) || session.ExpiresAt < now) {
-				return $tuple(false, "That trade is no longer open.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsNoLonger"), undefined);
 			}
 			if (session.Settling === true || session.Status === "Settling") {
-				return $tuple(false, "That trade is already settling.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsAlreadySettling"), undefined);
 			}
 			const caps = GameConfig.Trading.PerTrade;
 			const request = TradeRequestMath.Normalize(raw, caps, CURRENCIES);
@@ -796,13 +797,13 @@ __defs["TradeDesk"] = () => {
 
 		Invite(this: TradeDeskInstance, fromPlayer: Player, fromProfile: unknown, targetUserId: number, now: number): LuaTuple<[boolean, string | undefined]> {
 			if (!this.Unlocked(fromProfile)) {
-				return $tuple(false, "Trade Floor unlocks after your first rebirth.");
+				return $tuple(false, T("TradeSuite.TradeFloorUnlocksAfterYour"));
 			}
 			if (fromPlayer.UserId === targetUserId) {
-				return $tuple(false, "You cannot trade with yourself.");
+				return $tuple(false, T("TradeSuite.YouCannotTradeWithYourself"));
 			}
 			if (truthy(this._byUser[fromPlayer.UserId])) {
-				return $tuple(false, "Finish or cancel your current trade first.");
+				return $tuple(false, T("TradeSuite.FinishOrCancelYourCurrent"));
 			}
 			if (targetUserId === -999) {
 				const session: TradeSession = {
@@ -828,14 +829,14 @@ __defs["TradeDesk"] = () => {
 			}
 			const target = Players.GetPlayerByUserId(targetUserId);
 			if (!truthy(target)) {
-				return $tuple(false, "That player is no longer in this server.");
+				return $tuple(false, T("TradeSuite.ThatPlayerIsNoLonger"));
 			}
 			if (truthy(this._byUser[targetUserId])) {
-				return $tuple(false, "They are already in a trade.");
+				return $tuple(false, T("TradeSuite.TheyAreAlreadyInA"));
 			}
 			const pending = this._invites[targetUserId];
 			if (truthy(pending) && pending.From !== fromPlayer.UserId && pending.ExpiresAt > now) {
-				return $tuple(false, "They already have an open invite.");
+				return $tuple(false, T("TradeSuite.TheyAlreadyHaveAnOpen"));
 			}
 			const previous = this._outgoing[fromPlayer.UserId];
 			if (truthy(previous) && previous.To !== targetUserId) {
@@ -866,21 +867,21 @@ __defs["TradeDesk"] = () => {
 			}
 			if (!truthy(invite) || invite.ExpiresAt < now) {
 				this._bump();
-				return $tuple(false, "That invite expired.", undefined, undefined);
+				return $tuple(false, T("TradeSuite.ThatInviteExpired"), undefined, undefined);
 			}
 			if (!accept) {
 				this._bump();
 				return $tuple(true, undefined, undefined, invite.From);
 			}
 			if (!this.Unlocked(guestProfile)) {
-				return $tuple(false, "Trade Floor unlocks after your first rebirth.", undefined, invite.From);
+				return $tuple(false, T("TradeSuite.TradeFloorUnlocksAfterYour"), undefined, invite.From);
 			}
 			if (truthy(this._byUser[guest.UserId]) || truthy(this._byUser[invite.From])) {
-				return $tuple(false, "A trade is already open.", undefined, invite.From);
+				return $tuple(false, T("TradeSuite.ATradeIsAlreadyOpen"), undefined, invite.From);
 			}
 			const host = Players.GetPlayerByUserId(invite.From);
 			if (!truthy(host)) {
-				return $tuple(false, "They left the server.", undefined, undefined);
+				return $tuple(false, T("TradeSuite.TheyLeftTheServer"), undefined, undefined);
 			}
 			const session: TradeSession = {
 				Id: this._sessionId(),
@@ -907,13 +908,13 @@ __defs["TradeDesk"] = () => {
 		UpdateOffer(this: TradeDeskInstance, player: Player, profile: Dict, rawOffer: unknown, now: number): LuaTuple<[boolean, string | undefined, TradeSession | undefined]> {
 			const session = this.SessionFor(player.UserId);
 			if (!truthy(session) || session.ExpiresAt < now) {
-				return $tuple(false, "That trade is no longer open.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsNoLonger"), undefined);
 			}
 			if (session.Settling === true || session.Status === "Settling") {
-				return $tuple(false, "That trade is already settling.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsAlreadySettling"), undefined);
 			}
 			if (session.Status === "RevertFailed") {
-				return $tuple(false, "This trade hit an error and has to be cancelled.", undefined);
+				return $tuple(false, T("TradeSuite.ThisTradeHitAnError"), undefined);
 			}
 			const offer = copyOffer(rawOffer);
 			const reason = this._validateOffer(profile, offer, now, false);
@@ -934,10 +935,10 @@ __defs["TradeDesk"] = () => {
 		SetReady(this: TradeDeskInstance, player: Player, profile: Dict, ready: boolean, now: number): LuaTuple<[boolean, string | undefined, TradeSession | undefined]> {
 			const session = this.SessionFor(player.UserId);
 			if (!truthy(session) || session.ExpiresAt < now) {
-				return $tuple(false, "That trade is no longer open.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsNoLonger"), undefined);
 			}
 			if (session.Settling === true || session.Status === "Settling" || session.Status === "RevertFailed") {
-				return $tuple(false, "That trade is already settling.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsAlreadySettling"), undefined);
 			}
 			if (ready) {
 				const reason = this._validateOffer(profile, session.Offers[player.UserId], now, false);
@@ -945,7 +946,7 @@ __defs["TradeDesk"] = () => {
 					return $tuple(false, reason, undefined);
 				}
 				if (offerEmpty(session.Offers[session.Host]) && offerEmpty(session.Offers[session.Guest])) {
-					return $tuple(false, "Put something on the table first.", undefined);
+					return $tuple(false, T("TradeSuite.PutSomethingOnTheTable"), undefined);
 				}
 			}
 			session.Ready[player.UserId] = ready === true;
@@ -964,13 +965,13 @@ __defs["TradeDesk"] = () => {
 		Confirm(this: TradeDeskInstance, player: Player, now: number): LuaTuple<[boolean, string | undefined, TradeSession | undefined]> {
 			const session = this.SessionFor(player.UserId);
 			if (!truthy(session) || session.ExpiresAt < now) {
-				return $tuple(false, "That trade is no longer open.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsNoLonger"), undefined);
 			}
 			if (session.Settling === true || session.Status === "Settling" || session.Status === "RevertFailed") {
-				return $tuple(false, "That trade is already settling.", undefined);
+				return $tuple(false, T("TradeSuite.ThatTradeIsAlreadySettling"), undefined);
 			}
 			if (session.Ready[session.Host] !== true || session.Ready[session.Guest] !== true) {
-				return $tuple(false, "Both sides need to ready up first.", undefined);
+				return $tuple(false, T("TradeSuite.BothSidesNeedToReady"), undefined);
 			}
 			if (session.ConfirmEndsAt === 0) {
 				session.ConfirmEndsAt = now + GameConfig.Trading.ConfirmSeconds;
@@ -1013,17 +1014,17 @@ __defs["TradeDesk"] = () => {
 
 		Plan(this: TradeDeskInstance, session: TradeSession, hostProfile: Dict, guestProfile: Dict, now: number): LuaTuple<[Dict | undefined, string | undefined]> {
 			if (session.Confirmed[session.Host] !== true || session.Confirmed[session.Guest] !== true) {
-				return $tuple(undefined, "Waiting for both confirmations.");
+				return $tuple(undefined, T("TradeSuite.WaitingForBothConfirmations"));
 			}
 			if (session.ConfirmEndsAt > 0 && now > session.ConfirmEndsAt) {
-				return $tuple(undefined, "The confirm window expired. Ready up again.");
+				return $tuple(undefined, T("TradeSuite.TheConfirmWindowExpiredReady"));
 			}
 			ensureLedger(hostProfile, now);
 			ensureLedger(guestProfile, now);
 			const hostTrade = hostProfile.Trade as Dict;
 			const guestTrade = guestProfile.Trade as Dict;
 			if ((hostTrade.Completed as number) >= GameConfig.Trading.DailyTrades || (guestTrade.Completed as number) >= GameConfig.Trading.DailyTrades) {
-				return $tuple(undefined, "A daily trade limit has been reached.");
+				return $tuple(undefined, T("TradeSuite.ADailyTradeLimitHas"));
 			}
 			const hostOffer = copyOffer(session.Offers[session.Host]);
 			const guestOffer = copyOffer(session.Offers[session.Guest]);
@@ -1040,10 +1041,10 @@ __defs["TradeDesk"] = () => {
 			const hostLimit = GameConfig.Items!.InventoryLimit;
 			const guestLimit = GameConfig.Items!.InventoryLimit;
 			if (countInventory(hostProfile) - hostOffer.ItemIds.size() + hostIncoming > hostLimit) {
-				return $tuple(undefined, "Their inventory cannot hold those relics.");
+				return $tuple(undefined, T("TradeSuite.TheirInventoryCannotHoldThose"));
 			}
 			if (countInventory(guestProfile) - guestOffer.ItemIds.size() + guestIncoming > guestLimit) {
-				return $tuple(undefined, "Your inventory cannot hold those relics.");
+				return $tuple(undefined, T("TradeSuite.YourInventoryCannotHoldThose"));
 			}
 			return $tuple(
 				{
@@ -1409,18 +1410,18 @@ __defs["TradeExchange"] = () => {
 			if (take.Essence > (tonumber(items.Essence) ?? 0)) return "Essence";
 			const boostInventory = profile.BoostInventory as Dict;
 			for (const id of BOOST_IDS) {
-				if (take.Boosts[id] > (tonumber(boostInventory[id]) ?? 0)) return "Boost " + id;
+				if (take.Boosts[id] > (tonumber(boostInventory[id]) ?? 0)) return T("TradeSuite.BoostS", id);
 			}
 			const keys = items.Keys as Dict;
 			for (const id of KEY_IDS) {
-				if (take.Keys[id] > (tonumber(keys[id]) ?? 0)) return "Key " + id;
+				if (take.Keys[id] > (tonumber(keys[id]) ?? 0)) return T("TradeSuite.KeyS", id);
 			}
 			const inventory = items.Inventory as Dict;
 			if (typeIs(take.ItemIds, "table")) {
 				for (const uid of take.ItemIds) {
 					const payload = takeItems !== undefined ? (takeItems[uid] as Dict | undefined) : undefined;
 					if (typeIs(payload, "table") && truthy(payload.NewUid) && inventory[payload.NewUid as string] === undefined) {
-						return "Relic " + uid;
+						return T("TradeSuite.RelicS", uid);
 					}
 				}
 			}
@@ -1674,7 +1675,7 @@ __defs["TradeSettle"] = () => {
 				return $tuple(false, undefined);
 			}
 			if (session.Settling === true || session.Status === "Settling") {
-				return $tuple(true, "That trade is already settling.");
+				return $tuple(true, T("TradeSuite.ThatTradeIsAlreadySettling"));
 			}
 			return $tuple(false, undefined);
 		},
@@ -1771,7 +1772,7 @@ __defs["TradeSettle"] = () => {
 				return {
 					ok: false,
 					kind: TradeSettle.KIND_HOST_FAILED,
-					message: TradeSettle.CommitError(hostResult) ?? "Host side of the trade failed.",
+					message: TradeSettle.CommitError(hostResult) ?? T("TradeSuite.HostSideOfTheTrade"),
 					permanent: false,
 				};
 			}

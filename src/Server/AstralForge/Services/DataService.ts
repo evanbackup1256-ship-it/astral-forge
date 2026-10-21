@@ -1030,7 +1030,7 @@ export class DataService {
 		ModuleLog.Warn("Data", string.format("marking %s's profile read-only: %s", player.Name, reason));
 		task.defer(() => {
 			if (player.Parent !== undefined) {
-				player.Kick("Your data session changed servers and was closed safely. Please rejoin.");
+				player.Kick(T("DataService.YourDataSessionChangedServers"));
 			} else {
 				this._clearPlayer(player);
 			}
@@ -1394,16 +1394,16 @@ export class DataService {
 		let profile = this._profiles.get(player);
 		const atom = this._atoms.get(player);
 		if (this._releasing.get(player)) {
-			return $tuple(false, "Profile session is closing");
+			return $tuple(false, T("DataService.ProfileSessionIsClosing"));
 		}
 		if (profile === undefined || atom === undefined) {
-			return $tuple(false, "Profile is not loaded");
+			return $tuple(false, T("DataService.ProfileIsNotLoaded"));
 		}
 		const transactionLabel = label ?? "unnamed";
 		const hot = HOT_TRANSACTIONS[transactionLabel];
 		const run = (draft: Dict, revision: number): unknown => {
 			if (this._releasing.get(player)) {
-				return { ok: false, message: "Profile session is closing" };
+				return { ok: false, message: T("DataService.ProfileSessionIsClosing") };
 			}
 			if (draft.Stardust !== undefined && (num(draft.Stardust) ?? 0) > 1e14) {
 				draft.Stardust = 1e14;

@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
 import { ModuleLogApi, num, req } from "./LuaInterop";
@@ -123,7 +124,7 @@ export class PlayerAnalytics {
 					AnalyticsService.LogOnboardingFunnelStepEvent(
 						player,
 						FirstGoals.FUNNEL_FIRST_STEP + claimed.size() - 1,
-						"First goal: " + goal.title,
+						T("PlayerAnalytics.FirstGoalS", goal.title),
 					);
 				});
 			}

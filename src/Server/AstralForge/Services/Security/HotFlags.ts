@@ -2,6 +2,7 @@
 // defaults to off, so a server that never hears a change behaves exactly as before. Changes
 // reach other live servers through the admin MessagingService topic, and the current state is
 // kept in a DataStore so a server that starts later loads it (see Encode/Decode).
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 
 export const STORE_NAME = "AstralForge_LiveOpsFlags_v1";
 export const STORE_KEY = "state";
@@ -39,11 +40,11 @@ export function Set(name: HotFlag, on: boolean, at?: number): boolean {
 
 /** Parses "Name=on" / "Name=off" from the admin option field. */
 export function Parse(option: unknown): LuaTuple<[HotFlag | undefined, boolean, string | undefined]> {
-	if (!typeIs(option, "string")) return $tuple(undefined, false, "Use Name=on or Name=off.");
+	if (!typeIs(option, "string")) return $tuple(undefined, false, T("HotFlags.UseNameOnOrName"));
 	const [name, value] = option.match("^%s*([%a]+)%s*=%s*(%a+)%s*$") as LuaTuple<[string | undefined, string | undefined]>;
-	if (!IsFlag(name)) return $tuple(undefined, false, "Unknown flag. Flags: TradingPaused, CratesPaused, AnnouncementsMuted, LimitedEventsPaused.");
+	if (!IsFlag(name)) return $tuple(undefined, false, T("HotFlags.UnknownFlagFlagsTradingPausedCratesPaused"));
 	const lowered = (value ?? "").lower();
-	if (lowered !== "on" && lowered !== "off") return $tuple(undefined, false, "Use Name=on or Name=off.");
+	if (lowered !== "on" && lowered !== "off") return $tuple(undefined, false, T("HotFlags.UseNameOnOrName"));
 	return $tuple(name, lowered === "on", undefined);
 }
 

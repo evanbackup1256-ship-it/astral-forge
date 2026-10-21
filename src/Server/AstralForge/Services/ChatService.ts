@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { PayloadEvent } from "../Runtime/ServerNetwork";
 // Server chat channels beyond RBXGeneral:
 //   friends  : one TextChannel that only delivers between Roblox friends in this server
@@ -85,10 +86,10 @@ class ChatService {
 	}
 	OpenWhisper(player: Player, payload: unknown) {
 		const targetId = isDict(payload) ? tonumber(payload.UserId as string) : undefined;
-		if (targetId === undefined || targetId === player.UserId) return { ok: false, error: "Pick another player to whisper." };
-		const target = Players.GetPlayerByUserId(targetId); if (!target) return { ok: false, error: "That player is no longer in this server." };
-		if (!this._channels) return { ok: false, error: "Chat is still starting. Try again in a moment." };
-		if (this._canChat.get(player.UserId) === false) return { ok: false, error: "Chat is turned off for your account." };
+		if (targetId === undefined || targetId === player.UserId) return { ok: false, error: T("ChatService.PickAnotherPlayerToWhisper") };
+		const target = Players.GetPlayerByUserId(targetId); if (!target) return { ok: false, error: T("TradeSuite.ThatPlayerIsNoLonger") };
+		if (!this._channels) return { ok: false, error: T("ChatService.ChatIsStillStartingTry") };
+		if (this._canChat.get(player.UserId) === false) return { ok: false, error: T("ChatService.ChatIsTurnedOffFor") };
 		const name = ChatRules.whisperChannel(player.UserId, targetId);
 		// the target's "whispers from friends only" setting; an existing conversation stays open
 		const profile = this._data?.Get(target); const settings = profile && isDict(profile.Settings) ? profile.Settings : undefined;
@@ -97,10 +98,10 @@ class ChatService {
 		if (!existing && typeIs(friendsOnly, "number") && friendsOnly >= 0.5 && !this._areFriends(player.UserId, targetId)) return { ok: false, error: `${target.DisplayName} only takes whispers from friends.` };
 		if (!existing) {
 			const mine = this._whispers.get(player.UserId) ?? new Map<string, boolean>();
-			if (mine.size() >= WHISPER_LIMIT) return { ok: false, error: "Too many whispers open. Close one first." };
+			if (mine.size() >= WHISPER_LIMIT) return { ok: false, error: T("ChatService.TooManyWhispersOpenClose") };
 			const channel = new Instance("TextChannel"); channel.Name = name; channel.Parent = this._channels;
 			const [okA] = pcall(() => channel.AddUserAsync(player.UserId)); const [okB, sourceB] = pcall(() => channel.AddUserAsync(targetId));
-			if (!okA || !okB || !sourceB) { channel.Destroy(); return { ok: false, error: "That player can't receive whispers right now." }; }
+			if (!okA || !okB || !sourceB) { channel.Destroy(); return { ok: false, error: T("ChatService.ThatPlayerCanTReceive") }; }
 			existing = channel; this._whispers.set(player.UserId, mine); mine.set(name, true);
 			const theirs = this._whispers.get(targetId) ?? new Map<string, boolean>(); theirs.set(name, true); this._whispers.set(targetId, theirs);
 		}
@@ -108,15 +109,15 @@ class ChatService {
 	}
 	SendGlobal(player: Player, payload: unknown) {
 		const raw = isDict(payload) ? payload.Text : undefined;
-		if (!typeIs(raw, "string")) return { ok: false, error: "Type a message first." };
+		if (!typeIs(raw, "string")) return { ok: false, error: T("ChatService.TypeAMessageFirst") };
 		const text = ChatRules.trim(raw); const [length] = utf8.len(text);
-		if (text === "" || length === false || length > ChatRules.MAX_INPUT) return { ok: false, error: "Message is empty or too long." };
+		if (text === "" || length === false || length > ChatRules.MAX_INPUT) return { ok: false, error: T("ChatService.MessageIsEmptyOrToo") };
 		const now = os.clock(); const last = this._lastGlobal.get(player.UserId);
-		if (last !== undefined && now - last < ChatRules.GLOBAL_COOLDOWN) return { ok: false, error: `Global chat cools down for ${math.ceil(ChatRules.GLOBAL_COOLDOWN - (now - last))}s.` };
-		if (this._canChat.get(player.UserId) !== true) { const [ok, can] = pcall(() => (TextChatService as unknown as { CanUserChatAsync(userId: number): boolean }).CanUserChatAsync(player.UserId)); this._canChat.set(player.UserId, ok && can === true); if (!this._canChat.get(player.UserId)) return { ok: false, error: "Chat is turned off for your account." }; }
+		if (last !== undefined && now - last < ChatRules.GLOBAL_COOLDOWN) return { ok: false, error: T("ChatService.GlobalChatCoolsDownFor", math.ceil(ChatRules.GLOBAL_COOLDOWN - (now - last))) };
+		if (this._canChat.get(player.UserId) !== true) { const [ok, can] = pcall(() => (TextChatService as unknown as { CanUserChatAsync(userId: number): boolean }).CanUserChatAsync(player.UserId)); this._canChat.set(player.UserId, ok && can === true); if (!this._canChat.get(player.UserId)) return { ok: false, error: T("ChatService.ChatIsTurnedOffFor") }; }
 		this._lastGlobal.set(player.UserId, now);
 		const [ok, filtered] = pcall(() => TextService.FilterStringAsync(text, player.UserId, Enum.TextFilterContext.PublicChat).GetNonChatStringForBroadcastAsync());
-		if (!ok || !typeIs(filtered, "string") || filtered === "") return { ok: false, error: "Roblox could not filter that message. Try again." };
+		if (!ok || !typeIs(filtered, "string") || filtered === "") return { ok: false, error: T("ChatService.RobloxCouldNotFilterThat") };
 		const entry: Entry = { Id: HttpService.GenerateGUID(false), UserId: player.UserId, Name: player.Name, Display: player.DisplayName, Text: filtered, At: os.time() };
 		this._deliver([entry]); if (!StoreAccess.isPreview()) this._outbox.push(entry); return { ok: true };
 	}

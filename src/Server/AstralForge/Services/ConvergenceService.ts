@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { Service } from "@flamework/core";
 import type { DataService } from "./DataService";
 import { Dict, Flux, ModuleLogApi, num, req, sharedDataKit, SharedFolder } from "./LuaInterop";
@@ -263,12 +264,12 @@ export class ConvergenceService {
 
 	Claim(player: Player, rawTier: unknown) {
 		if (!this.FlushPlayer(player)) {
-			return { ok: false, error: "The convergence is busy. Try again." };
+			return { ok: false, error: T("ConvergenceService.TheConvergenceIsBusyTry") };
 		}
 		const tierIndex = math.floor(num(rawTier) ?? 0);
 		const tier = (LiveOps.Convergence.PersonalTiers as unknown as Record<number, PersonalTier | undefined>)[tierIndex];
 		if (!tier) {
-			return { ok: false, error: "That convergence reward does not exist." };
+			return { ok: false, error: T("ConvergenceService.ThatConvergenceRewardDoesNot") };
 		}
 		const manifest = this._manifest();
 		const [ok, result] = this._data.AtomicUpdate(
@@ -277,20 +278,20 @@ export class ConvergenceService {
 				const state = ConvergenceOpsMath.EnsureEventProfile(profile, manifest.EventId);
 				const key = tostring(tierIndex);
 				if (state.Claimed[key] !== undefined && state.Claimed[key] !== false) {
-					return { ok: false, error: "That reward was already claimed." };
+					return { ok: false, error: T("ConvergenceService.ThatRewardWasAlreadyClaimed") };
 				}
 				if (state.Contribution < tier.Required) {
-					return { ok: false, error: "Keep forging to unlock this reward." };
+					return { ok: false, error: T("ConvergenceService.KeepForgingToUnlockThis") };
 				}
 				state.Claimed[key] = true;
 				applyReward(profile, tier.Reward);
-				return { ok: true, message: "Convergence reward claimed.", Reward: tier.Reward };
+				return { ok: true, message: T("ConvergenceService.ConvergenceRewardClaimed"), Reward: tier.Reward };
 			},
 			true,
 			"convergence-claim",
 		);
 		if (!ok) {
-			return { ok: false, error: "The convergence is busy. Try again." };
+			return { ok: false, error: T("ConvergenceService.TheConvergenceIsBusyTry") };
 		}
 		return result;
 	}

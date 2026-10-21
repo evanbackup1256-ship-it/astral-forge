@@ -1,4 +1,5 @@
 // Guild documents: create/join/leave, roles, contributions, upgrades and goals.
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import { Service } from "@flamework/core";
 import LeaderboardCodec from "../../Modules/LeaderboardCodec";
 import OpsMath from "../../Modules/OpsMath";
@@ -404,7 +405,7 @@ export class GuildService {
 			}
 		}
 		if (!isTable(updated)) {
-			return $tuple(false, "Guild request was denied.", undefined);
+			return $tuple(false, T("GuildService.GuildRequestWasDenied"), undefined);
 		}
 		this._cache[id] = updated;
 		this._cacheExpiry[id] = os.clock() + 60;
@@ -432,23 +433,23 @@ export class GuildService {
 
 	public Create(player: Player, profile: Profile, rawName: string, rawTag: string): Triple {
 		if (!typeIs(rawName, "string") || !typeIs(rawTag, "string"))
-			return $tuple(false, "Guild names must be 3–28 letters, numbers, spaces, - or _.", undefined);
+			return $tuple(false, T("GuildService.GuildNamesMustBe3"), undefined);
 		const profileGuild = profile.Guild as Dict | undefined;
 		if (isTable(profileGuild) && profileGuild.Id !== "") {
 			const existing =
 				this.GetCachedPublic(profileGuild.Id as string) ?? this.GetPublic(profileGuild.Id as string);
-			if (existing) return $tuple(true, "You're already in this guild.", existing);
-			return $tuple(false, "Leave your current guild first.", undefined);
+			if (existing) return $tuple(true, T("GuildService.YouReAlreadyInThis"), existing);
+			return $tuple(false, T("GuildService.LeaveYourCurrentGuildFirst"), undefined);
 		}
 		const name = string.gsub(string.gsub(rawName, "^%s+", "")[0], "%s+$", "")[0];
 		const tag = normalTag(rawTag);
 		if (name.size() < 3 || name.size() > 28 || string.match(name, "^[%w%s%-_]+$")[0] === undefined)
-			return $tuple(false, "Guild names must be 3–28 letters, numbers, spaces, - or _.", undefined);
+			return $tuple(false, T("GuildService.GuildNamesMustBe3"), undefined);
 		if (tag.size() < 3 || tag.size() > 4 || string.match(tag, "^[A-Z0-9]+$")[0] === undefined)
-			return $tuple(false, "Guild tags must be 3–4 letters or numbers.", undefined);
+			return $tuple(false, T("GuildService.GuildTagsMustBe3"), undefined);
 		if (OmegaMath.Lt(profile.Cash as never, GuildConfig.CreateCost))
-			return $tuple(false, "You need more Flux to charter a guild.", undefined);
-		if (this._findByTag(tag)) return $tuple(false, "That guild tag is already in use.", undefined);
+			return $tuple(false, T("GuildService.YouNeedMoreFluxTo"), undefined);
+		if (this._findByTag(tag)) return $tuple(false, T("GuildService.ThatGuildTagIsAlready"), undefined);
 		const id = HttpService.GenerateGUID(false);
 		const doc: Dict = {
 			Id: id,
@@ -507,52 +508,52 @@ export class GuildService {
 					);
 				}
 			}
-			if (!ok) return $tuple(false, "Guild records are unavailable. Try again shortly.", undefined);
-			return $tuple(false, "That guild tag is already in use.", undefined);
+			if (!ok) return $tuple(false, T("GuildCommunity.GuildRecordsAreUnavailableTry"), undefined);
+			return $tuple(false, T("GuildService.ThatGuildTagIsAlready"), undefined);
 		}
 		this._cache[id] = doc;
 		if (RunService.IsStudio()) this._studio[id] = doc;
 		this._cacheExpiry[id] = os.clock() + 60;
 		profile.Cash = OmegaMath.Sub(profile.Cash as never, GuildConfig.CreateCost);
 		profile.Guild = { Id: id, Role: "Leader", JoinedAt: os.time(), Tag: tag };
-		return $tuple(true, "Guild Hall chartered.", copyDoc(doc));
+		return $tuple(true, T("GuildService.GuildHallChartered"), copyDoc(doc));
 	}
 
 	public Rename(player: Player, profile: Profile, newName: string, newTag?: string): Triple {
 		const guildId = guildIdOf(profile);
-		if (guildId === "") return $tuple(false, "You are not in a guild.", undefined);
+		if (guildId === "") return $tuple(false, T("GuildCommunity.YouAreNotInA"), undefined);
 		const membership = profile.Guild as Dict;
 		if (!isTable(membership) || membership.Role !== "Leader") {
-			return $tuple(false, "Only the guild leader can rename the guild.", undefined);
+			return $tuple(false, T("GuildService.OnlyTheGuildLeaderCan"), undefined);
 		}
 		const name = string.gsub(string.gsub(newName, "^%s+", "")[0], "%s+$", "")[0];
 		if (name.size() < 3 || name.size() > 28 || string.match(name, "^[%w%s%-_]+$")[0] === undefined) {
-			return $tuple(false, "Guild names must be 3–28 letters, numbers, spaces, - or _.", undefined);
+			return $tuple(false, T("GuildService.GuildNamesMustBe3"), undefined);
 		}
 		const changeTag = typeIs(newTag, "string") && newTag.size() > 0;
 		const tag = changeTag ? normalTag(newTag as string) : "";
 		if (changeTag && (tag.size() < 3 || tag.size() > 4 || string.match(tag, "^[A-Z0-9]+$")[0] === undefined)) {
-			return $tuple(false, "Guild tags must be 3–4 letters or numbers.", undefined);
+			return $tuple(false, T("GuildService.GuildTagsMustBe3"), undefined);
 		}
 		if (OmegaMath.Lt(profile.Cash as never, GuildConfig.RenameCost)) {
-			return $tuple(false, "You need more Flux to rename the guild.", undefined);
+			return $tuple(false, T("GuildService.YouNeedMoreFluxTo2"), undefined);
 		}
 		const guild = this._read(guildId);
-		if (!isTable(guild)) return $tuple(false, "Guild records are unavailable.", undefined);
+		if (!isTable(guild)) return $tuple(false, T("GuildService.GuildRecordsAreUnavailable"), undefined);
 		const now = os.time();
 		const cooldown = num(guild.LastRenamedAt) ?? 0;
 		if (cooldown + GuildConfig.RenameCooldownSeconds > now) {
-			return $tuple(false, "The guild was renamed too recently.", undefined);
+			return $tuple(false, T("GuildService.TheGuildWasRenamedToo"), undefined);
 		}
 		const oldName = guild.Name as string;
 		const oldTag = guild.Tag as string;
 		if (name === oldName && (!changeTag || tag === oldTag)) {
-			return $tuple(false, "Pick a new name or tag.", undefined);
+			return $tuple(false, T("GuildService.PickANewNameOr"), undefined);
 		}
 		if (changeTag) {
 			const existing = this._findByTag(tag);
 			if (existing && existing.Id !== guildId) {
-				return $tuple(false, "That guild tag is already in use.", undefined);
+				return $tuple(false, T("GuildService.ThatGuildTagIsAlready"), undefined);
 			}
 		}
 		const [ok, message, updated] = this._update(guildId, (doc) => {
@@ -588,7 +589,7 @@ export class GuildService {
 			}
 			return doc;
 		});
-		if (!ok) return $tuple(false, message ?? "Could not rename the guild.", undefined);
+		if (!ok) return $tuple(false, message ?? T("GuildService.CouldNotRenameTheGuild"), undefined);
 		if (changeTag) {
 			const [released, releaseErr] = pcall(() => {
 				if (this._store.GetAsync(`tag:${oldTag}`) === guildId) {
@@ -624,20 +625,20 @@ export class GuildService {
 		}
 		profile.Cash = OmegaMath.Sub(profile.Cash as never, GuildConfig.RenameCost);
 		membership.Tag = changeTag ? tag : membership.Tag;
-		return $tuple(true, "Guild renamed.", updated);
+		return $tuple(true, T("GuildService.GuildRenamed"), updated);
 	}
 
 	public JoinByTag(player: Player, profile: Profile, rawTag: string): Triple {
-		if (!typeIs(rawTag, "string")) return $tuple(false, "No guild has that tag.", undefined);
+		if (!typeIs(rawTag, "string")) return $tuple(false, T("GuildService.NoGuildHasThatTag"), undefined);
 		const profileGuild = profile.Guild as Dict | undefined;
 		if (isTable(profileGuild) && profileGuild.Id !== "") {
 			const existing =
 				this.GetCachedPublic(profileGuild.Id as string) ?? this.GetPublic(profileGuild.Id as string);
-			if (existing) return $tuple(true, "You're already in this guild.", existing);
-			return $tuple(false, "Leave your current guild first.", undefined);
+			if (existing) return $tuple(true, T("GuildService.YouReAlreadyInThis"), existing);
+			return $tuple(false, T("GuildService.LeaveYourCurrentGuildFirst"), undefined);
 		}
 		const doc = this._findByTag(rawTag);
-		if (!doc) return $tuple(false, "No guild has that tag.", undefined);
+		if (!doc) return $tuple(false, T("GuildService.NoGuildHasThatTag"), undefined);
 		let blockedFull = false;
 		const [ok, message, updated] = this._update(doc.Id as string, (guild) => {
 			blockedFull = false;
@@ -659,11 +660,11 @@ export class GuildService {
 			return guild;
 		});
 		if (!ok) {
-			if (blockedFull) return $tuple(false, "That guild is full.", undefined);
+			if (blockedFull) return $tuple(false, T("GuildService.ThatGuildIsFull"), undefined);
 			return $tuple(false, message, undefined);
 		}
 		const membership = members(updated as Dict)[tostring(player.UserId)];
-		if (!membership) return $tuple(false, "That guild is full.", undefined);
+		if (!membership) return $tuple(false, T("GuildService.ThatGuildIsFull"), undefined);
 		const updatedDoc = updated as Dict;
 		profile.Guild = {
 			Id: updatedDoc.Id,
@@ -671,12 +672,12 @@ export class GuildService {
 			JoinedAt: os.time(),
 			Tag: updatedDoc.Tag,
 		};
-		return $tuple(true, `Joined ${updatedDoc.Name}.`, updated);
+		return $tuple(true, T("GuildService.JoinedS", updatedDoc.Name), updated);
 	}
 
 	public Leave(player: Player, profile: Profile): Triple {
 		const guildId = guildIdOf(profile);
-		if (guildId === "") return $tuple(false, "You are not in a guild.", undefined);
+		if (guildId === "") return $tuple(false, T("GuildCommunity.YouAreNotInA"), undefined);
 		let blockedLastMember = false;
 		const [ok, message] = this._update(guildId, (guild) => {
 			blockedLastMember = false;
@@ -713,29 +714,29 @@ export class GuildService {
 		}
 		profile.Guild = { Id: "", Role: "", JoinedAt: 0, Tag: "" };
 		profile.GuildBonuses = emptyBonuses();
-		return $tuple(true, "Left the guild.", emptyGuild());
+		return $tuple(true, T("GuildService.LeftTheGuild"), emptyGuild());
 	}
 
 	public Disband(player: Player, profile: Profile): Triple {
 		const guildId = guildIdOf(profile);
-		if (guildId === "") return $tuple(false, "You are not in a guild.", undefined);
+		if (guildId === "") return $tuple(false, T("GuildCommunity.YouAreNotInA"), undefined);
 		delete this._cache[guildId];
 		delete this._cacheExpiry[guildId];
 		const guild = this._read(guildId);
-		if (!guild) return $tuple(false, "Guild records are unavailable.", undefined);
+		if (!guild) return $tuple(false, T("GuildService.GuildRecordsAreUnavailable"), undefined);
 		const key = tostring(player.UserId);
 		const member = members(guild)[key];
 		if (!member || member.Role !== "Leader")
-			return $tuple(false, "Only the guild leader can disband it.", undefined);
+			return $tuple(false, T("GuildService.OnlyTheGuildLeaderCan2"), undefined);
 		let memberCount = 0;
 		for (const _ of pairs(members(guild))) memberCount += 1;
 		if (memberCount > 1)
-			return $tuple(false, "Remove every other member before disbanding.", undefined);
+			return $tuple(false, T("GuildService.RemoveEveryOtherMemberBefore"), undefined);
 		const tag = guild.Tag as string;
 		const [removedDoc, removeErr] = pcall(() => this._store.RemoveAsync(guildId));
 		if (!removedDoc && !RunService.IsStudio()) {
 			warn(string.format("[WARN] [GUILD] disband could not delete %s — %s", guildId, tostring(removeErr)));
-			return $tuple(false, "Guild records are unavailable. Try again shortly.", undefined);
+			return $tuple(false, T("GuildCommunity.GuildRecordsAreUnavailableTry"), undefined);
 		}
 		if (removedDoc) {
 			const [released, releaseErr] = pcall(() => {
@@ -756,7 +757,7 @@ export class GuildService {
 					),
 				);
 				if (!RunService.IsStudio()) {
-					return $tuple(false, "Guild records are unavailable. Try again shortly.", undefined);
+					return $tuple(false, T("GuildCommunity.GuildRecordsAreUnavailableTry"), undefined);
 				}
 			}
 		}
@@ -765,7 +766,7 @@ export class GuildService {
 		if (RunService.IsStudio()) delete this._studio[guildId];
 		profile.Guild = { Id: "", Role: "", JoinedAt: 0, Tag: "" };
 		profile.GuildBonuses = emptyBonuses();
-		return $tuple(true, "Guild disbanded.", emptyGuild());
+		return $tuple(true, T("GuildService.GuildDisbanded"), emptyGuild());
 	}
 
 	public Kick(player: Player, profile: Profile, targetUserId: number): Triple {
@@ -782,7 +783,7 @@ export class GuildService {
 	}
 
 	public SetRole(player: Player, profile: Profile, targetUserId: number, role: string): Triple {
-		if (role !== "Officer" && role !== "Member") return $tuple(false, "Invalid guild role.", undefined);
+		if (role !== "Officer" && role !== "Member") return $tuple(false, T("GuildService.InvalidGuildRole"), undefined);
 		const guildId = guildIdOf(profile);
 		const [ok, message, updated] = this._update(guildId, (guild) => {
 			const memberList = members(guild);
@@ -797,22 +798,22 @@ export class GuildService {
 
 	public ContributeBank(player: Player, profile: Profile, amount: number, currency: string): Triple {
 		const guildId = guildIdOf(profile);
-		if (guildId === "") return $tuple(false, "Join a guild before contributing.", undefined);
+		if (guildId === "") return $tuple(false, T("GuildService.JoinAGuildBeforeContributing"), undefined);
 		const [normalized, amountError] = GuildMath.NormalizeContributionAmount(amount);
 		if (normalized === undefined) {
-			return $tuple(false, amountError ?? "Pick a positive contribution amount.", undefined);
+			return $tuple(false, amountError ?? T("GuildService.PickAPositiveContributionAmount"), undefined);
 		}
 		amount = normalized;
 		if (currency !== "Cash" && currency !== "Dust") {
-			return $tuple(false, "Contribute Flux or dust.", undefined);
+			return $tuple(false, T("GuildService.ContributeFluxOrDust"), undefined);
 		}
 		if (currency === "Cash") {
 			if (OmegaMath.Lt(profile.Cash as never, amount)) {
-				return $tuple(false, "You do not have enough currency.", undefined);
+				return $tuple(false, T("GuildService.YouDoNotHaveEnough"), undefined);
 			}
 		} else {
 			if ((num(profile.Stardust) ?? 0) < amount) {
-				return $tuple(false, "You do not have enough currency.", undefined);
+				return $tuple(false, T("GuildService.YouDoNotHaveEnough"), undefined);
 			}
 		}
 
@@ -835,28 +836,28 @@ export class GuildService {
 			);
 			return guild;
 		});
-		if (!ok) return $tuple(false, message ?? "You are not in that guild.", updated);
+		if (!ok) return $tuple(false, message ?? T("OpsMath.YouAreNotInThat"), updated);
 		if (currency === "Cash") {
 			profile.Cash = OmegaMath.Sub(profile.Cash as never, amount);
 		} else {
 			profile.Stardust = (num(profile.Stardust) ?? 0) - amount;
 		}
-		return $tuple(true, "Contribution deposited.", updated);
+		return $tuple(true, T("GuildService.ContributionDeposited"), updated);
 	}
 
 	public BuyUpgrade(player: Player, profile: Profile, upgradeId: string): Triple {
 		const definition = (GuildConfig.Upgrades as Record<string, Dict | undefined>)[upgradeId];
-		if (!definition) return $tuple(false, "Unknown guild upgrade.", undefined);
+		if (!definition) return $tuple(false, T("GuildService.UnknownGuildUpgrade"), undefined);
 		const guildId = guildIdOf(profile);
-		if (guildId === "") return $tuple(false, "Join a guild first.", undefined);
+		if (guildId === "") return $tuple(false, T("GuildService.JoinAGuildFirst"), undefined);
 		const guild = this._read(guildId);
-		if (!guild) return $tuple(false, "Guild records are unavailable.", undefined);
+		if (!guild) return $tuple(false, T("GuildService.GuildRecordsAreUnavailable"), undefined);
 		const member = members(guild)[tostring(player.UserId)];
 		if (!member || (member.Role !== "Leader" && member.Role !== "Officer")) {
-			return $tuple(false, "Only leaders and officers can buy hall upgrades.", undefined);
+			return $tuple(false, T("GuildService.OnlyLeadersAndOfficersCan"), undefined);
 		}
 		const level = num((guild.Upgrades as Dict)[upgradeId]) ?? 0;
-		if (level >= (num(definition.MaxLevel) ?? 0)) return $tuple(false, "That upgrade is already maxed.", undefined);
+		if (level >= (num(definition.MaxLevel) ?? 0)) return $tuple(false, T("GuildService.ThatUpgradeIsAlreadyMaxed"), undefined);
 		const cost = upgradeCost(definition, level);
 		const bankKey = definition.Currency === "Cash" ? "BankCash" : "BankDust";
 		const bank = guild[bankKey] ?? 0;
@@ -893,7 +894,7 @@ export class GuildService {
 
 	public ClaimGoal(player: Player, profile: Profile): LuaTuple<[boolean, string, Dict | undefined, unknown]> {
 		const guildId = guildIdOf(profile);
-		if (guildId === "") return $tuple(false, "Join a guild first.", undefined, undefined);
+		if (guildId === "") return $tuple(false, T("GuildService.JoinAGuildFirst"), undefined, undefined);
 		const userKey = tostring(player.UserId);
 		let failure: string | undefined = undefined;
 		let rewardTypeId: string | undefined = undefined;
@@ -917,11 +918,11 @@ export class GuildService {
 			rewardTypeId = (goal as Dict).TypeId as string;
 			return guild;
 		});
-		if (!ok) return $tuple(false, failure ?? message ?? "Could not claim the guild goal.", undefined, undefined);
+		if (!ok) return $tuple(false, failure ?? message ?? T("GuildService.CouldNotClaimTheGuild"), undefined, undefined);
 		if (failure !== undefined) return $tuple(false, failure, updated, undefined);
 		const definition = rewardTypeId !== undefined ? goalTypeById(rewardTypeId) : undefined;
-		if (!definition) return $tuple(false, "That guild goal is no longer available.", updated, undefined);
-		return $tuple(true, "Guild goal reward claimed.", updated, definition.Reward);
+		if (!definition) return $tuple(false, T("GuildService.ThatGuildGoalIsNo"), updated, undefined);
+		return $tuple(true, T("GuildService.GuildGoalRewardClaimed"), updated, definition.Reward);
 	}
 
 	public GetPublic(guildId: string): Dict | undefined {

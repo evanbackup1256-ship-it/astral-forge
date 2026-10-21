@@ -1,3 +1,4 @@
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import EchoMath from "../../../../Shared/AstralForge/Shared/EchoMath";
 import { Dict, economyKit, isTable, num, truthy } from "../LuaInterop";
 
@@ -45,33 +46,33 @@ function unslot(bag: Bag, uid: string) {
 
 function Act(profile: Dict, payload: unknown, random: Random): ActResult {
 	if (!ProgressionGate.IsFeatureUnlocked(profile, "Echoes")) {
-		return $tuple(false, "Echoes open later in the forge.");
+		return $tuple(false, T("ForgeEcho.EchoesOpenLaterInThe"));
 	}
 	const bag = ensure(profile);
 	const input = isTable(payload) ? payload : {};
 	const op = input.Op;
 	const rand = () => random.NextNumber();
 	if (op === "Strike") {
-		if (bag.Draft.Choices.size() > 0) return $tuple(false, "Pick one of the echoes already waiting.");
-		if (bag.Charge < EchoMath.CHARGE_TARGET) return $tuple(false, "The charge isn't full yet.");
+		if (bag.Draft.Choices.size() > 0) return $tuple(false, T("ForgeEcho.PickOneOfTheEchoes"));
+		if (bag.Charge < EchoMath.CHARGE_TARGET) return $tuple(false, T("ForgeEcho.TheChargeIsnTFull"));
 		bag.Draft = { Choices: EchoMath.strike(bag, rand), Rerolled: false };
 		bag.Charge = 0;
 		bag.Tracks = { Collect: 0, Surge: 0, Build: 0, Explore: 0 };
-		return $tuple(true, "Three echoes answered.", { Choices: bag.Draft.Choices });
+		return $tuple(true, T("ForgeEcho.ThreeEchoesAnswered"), { Choices: bag.Draft.Choices });
 	} else if (op === "Reroll") {
-		if (bag.Draft.Choices.size() === 0) return $tuple(false, "Strike first.");
-		if (bag.Draft.Rerolled) return $tuple(false, "You've already rerolled this strike.");
+		if (bag.Draft.Choices.size() === 0) return $tuple(false, T("ForgeEcho.StrikeFirst"));
+		if (bag.Draft.Rerolled) return $tuple(false, T("ForgeEcho.YouVeAlreadyRerolledThis"));
 		if (bag.Resonance < EchoMath.REROLL_RESONANCE) {
-			return $tuple(false, `Rerolling takes ${EchoMath.REROLL_RESONANCE} resonance.`);
+			return $tuple(false, T("ForgeEcho.RerollingTakesSResonance", EchoMath.REROLL_RESONANCE));
 		}
 		bag.Resonance -= EchoMath.REROLL_RESONANCE;
 		bag.Draft = { Choices: EchoMath.strike(bag, rand), Rerolled: true };
-		return $tuple(true, "Three new echoes.", { Choices: bag.Draft.Choices });
+		return $tuple(true, T("ForgeEcho.ThreeNewEchoes"), { Choices: bag.Draft.Choices });
 	} else if (op === "Keep") {
 		const choice = bag.Draft.Choices[(num(input.Choice) ?? 0) - 1];
-		if (choice === undefined) return $tuple(false, "That echo isn't waiting.");
+		if (choice === undefined) return $tuple(false, T("ForgeEcho.ThatEchoIsnTWaiting"));
 		if (EchoMath.count(bag.Inventory) >= EchoMath.INVENTORY_LIMIT) {
-			return $tuple(false, "Your echoes are full. Dismantle or fuse one first.");
+			return $tuple(false, T("ForgeEcho.YourEchoesAreFullDismantle"));
 		}
 		const uid = newId(bag);
 		bag.Inventory[uid] = { Trait: choice.Trait, Tier: choice.Tier, Level: 1, Imprints: choice.Imprints ?? [], Locked: false, At: os.time() };
@@ -88,20 +89,20 @@ function Act(profile: Dict, payload: unknown, random: Random): ActResult {
 	} else if (op === "Slot") {
 		const slot = num(input.Slot);
 		if (slot === undefined || slot !== math.floor(slot) || slot < 1 || slot > EchoMath.slots(bag.Captures)) {
-			return $tuple(false, "That slot isn't open yet.");
+			return $tuple(false, T("ForgeEcho.ThatSlotIsnTOpen"));
 		}
 		const uid = input.Uid;
 		if (uid === "" || uid === undefined) {
 			bag.Chord[slot - 1] = "";
-			return $tuple(true, "Slot cleared.");
+			return $tuple(true, T("ForgeEcho.SlotCleared"));
 		}
-		if (!typeIs(uid, "string") || bag.Inventory[uid] === undefined) return $tuple(false, "That echo isn't yours.");
+		if (!typeIs(uid, "string") || bag.Inventory[uid] === undefined) return $tuple(false, T("ForgeEcho.ThatEchoIsnTYours"));
 		unslot(bag, uid);
 		bag.Chord[slot - 1] = uid;
-		return $tuple(true, "In the chord.");
+		return $tuple(true, T("ForgeEcho.InTheChord"));
 	} else if (op === "Tune") {
 		const echo = typeIs(input.Uid, "string") ? bag.Inventory[input.Uid] : undefined;
-		if (echo === undefined) return $tuple(false, "That echo isn't yours.");
+		if (echo === undefined) return $tuple(false, T("ForgeEcho.ThatEchoIsnTYours"));
 		const times = math.clamp(math.floor(num(input.Times) ?? 1), 1, 10);
 		let tuned = 0;
 		let spent = 0;
@@ -115,20 +116,20 @@ function Act(profile: Dict, payload: unknown, random: Random): ActResult {
 			spent += cost;
 		}
 		if (tuned === 0) {
-			return $tuple(false, echo.Level >= EchoMath.MAX_LEVEL ? "Already fully tuned." : `Tuning takes ${EchoMath.tuneCost(echo.Level)} Stardust.`);
+			return $tuple(false, echo.Level >= EchoMath.MAX_LEVEL ? T("ForgeEcho.AlreadyFullyTuned") : T("ForgeEcho.TuningTakesSStardust", EchoMath.tuneCost(echo.Level)));
 		}
-		return $tuple(true, `Tuned to level ${echo.Level}.`, { Level: echo.Level, Spent: spent });
+		return $tuple(true, T("ForgeEcho.TunedToLevelS", echo.Level), { Level: echo.Level, Spent: spent });
 	} else if (op === "Fuse") {
 		const a = input.A;
 		const b = input.B;
-		if (!typeIs(a, "string") || !typeIs(b, "string")) return $tuple(false, "Pick two of your echoes.");
+		if (!typeIs(a, "string") || !typeIs(b, "string")) return $tuple(false, T("ForgeEcho.PickTwoOfYourEchoes"));
 		const ea = bag.Inventory[a];
 		const eb = bag.Inventory[b];
-		if (ea === undefined || eb === undefined || a === b) return $tuple(false, "Pick two of your echoes.");
-		if (ea.Trait !== eb.Trait || ea.Tier !== eb.Tier) return $tuple(false, "Only two echoes of the same trait and tier fuse.");
+		if (ea === undefined || eb === undefined || a === b) return $tuple(false, T("ForgeEcho.PickTwoOfYourEchoes"));
+		if (ea.Trait !== eb.Trait || ea.Tier !== eb.Tier) return $tuple(false, T("ForgeEcho.OnlyTwoEchoesOfThe"));
 		const nextTier = EchoMath.nextTier(ea.Tier);
-		if (nextTier === undefined) return $tuple(false, "Perfect echoes can't go higher.");
-		if (truthy(ea.Locked) || truthy(eb.Locked)) return $tuple(false, "Unlock them first.");
+		if (nextTier === undefined) return $tuple(false, T("ForgeEcho.PerfectEchoesCanTGo"));
+		if (truthy(ea.Locked) || truthy(eb.Locked)) return $tuple(false, T("ForgeEcho.UnlockThemFirst"));
 		const trait = EchoMath.trait(ea.Trait)!;
 		ea.Tier = nextTier;
 		ea.Level = math.max(ea.Level, eb.Level);
@@ -140,25 +141,25 @@ function Act(profile: Dict, payload: unknown, random: Random): ActResult {
 		unslot(bag, b);
 		delete bag.Inventory[b];
 		keepInJournal(bag, ea);
-		return $tuple(true, `Fused into a ${nextTier} echo.`, { Uid: a, Tier: nextTier, FreedSlot: wasSlotted });
+		return $tuple(true, T("ForgeEcho.FusedIntoASEcho", nextTier), { Uid: a, Tier: nextTier, FreedSlot: wasSlotted });
 	} else if (op === "Lock") {
 		const echo = typeIs(input.Uid, "string") ? bag.Inventory[input.Uid] : undefined;
-		if (echo === undefined) return $tuple(false, "That echo isn't yours.");
+		if (echo === undefined) return $tuple(false, T("ForgeEcho.ThatEchoIsnTYours"));
 		echo.Locked = !truthy(echo.Locked);
 		return $tuple(true, echo.Locked ? "Locked." : "Unlocked.");
 	} else if (op === "Dismantle") {
 		const uid = input.Uid;
-		if (!typeIs(uid, "string")) return $tuple(false, "That echo isn't yours.");
+		if (!typeIs(uid, "string")) return $tuple(false, T("ForgeEcho.ThatEchoIsnTYours"));
 		const echo = bag.Inventory[uid];
-		if (echo === undefined) return $tuple(false, "That echo isn't yours.");
-		if (truthy(echo.Locked)) return $tuple(false, "It's locked.");
+		if (echo === undefined) return $tuple(false, T("ForgeEcho.ThatEchoIsnTYours"));
+		if (truthy(echo.Locked)) return $tuple(false, T("ForgeEcho.ItSLocked"));
 		const gained = EchoMath.dismantleResonance(echo);
 		unslot(bag, uid);
 		delete bag.Inventory[uid];
 		bag.Resonance += gained;
 		return $tuple(true, `+${gained} resonance.`, { Resonance: gained });
 	}
-	return $tuple(false, "Unknown echo action.");
+	return $tuple(false, T("ForgeEcho.UnknownEchoAction"));
 }
 
 function State(profile: Dict) {

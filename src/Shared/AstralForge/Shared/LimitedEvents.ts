@@ -2,6 +2,7 @@
 // for normal play (capped per day), and has a small shop. Tokens left over when an event ends are
 // turned into Stardust, so nothing earned is simply lost. Add an event by adding a row below.
 // Owner: live ops. Dependencies: none.
+import { T } from "./Locale";
 
 export interface EventReward {
 	Stardust?: number;
@@ -215,18 +216,18 @@ export function buy(
 ): LuaTuple<[item: EventShopItem | undefined, reason: string | undefined]> {
 	const item = shopItem(event, itemId);
 	if (item === undefined) {
-		return $tuple(undefined, "That isn't sold at this stall.");
+		return $tuple(undefined, T("GameService.ThatIsnTSoldAt"));
 	}
 	const bag = readBag(profile.LimitedEvent);
 	if (bag.Id !== event.Id) {
-		return $tuple(undefined, "The event stall is still setting up. Try again in a few seconds.");
+		return $tuple(undefined, T("LimitedEvents.TheEventStallIsStill"));
 	}
 	const bought = bag.Bought[item.Id] ?? 0;
 	if (bought >= item.Stock) {
-		return $tuple(undefined, "Sold out for this event.");
+		return $tuple(undefined, T("LimitedEvents.SoldOutForThisEvent"));
 	}
 	if (bag.Tokens < item.Price) {
-		return $tuple(undefined, string.format("You need %d more %s.", item.Price - bag.Tokens, event.Token.lower()));
+		return $tuple(undefined, T("LimitedEvents.YouNeedDMoreS", item.Price - bag.Tokens, event.Token.lower()));
 	}
 	bag.Tokens -= item.Price;
 	bag.Bought[item.Id] = bought + 1;

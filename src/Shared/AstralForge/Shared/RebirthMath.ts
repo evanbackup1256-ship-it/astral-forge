@@ -7,6 +7,7 @@
 // forge still has a choice to make. Every run is logged with its time, payout and a grade
 // against your best.
 // Pure: the server's rules and the screen's previews agree.
+import { T } from "./Locale";
 
 type Dict = Record<string, unknown>;
 
@@ -276,18 +277,18 @@ function nextStar(bag: Bag): LuaTuple<[number | undefined, number | undefined]> 
 function pickStar(bag: Bag, index: number, pick: number): LuaTuple<[boolean, string | undefined]> {
 	const at = STARS[index - 1];
 	if (at === undefined) {
-		return $tuple(false, "That star doesn't exist.");
+		return $tuple(false, T("RebirthMath.ThatStarDoesnTExist"));
 	}
 	if (int(bag.Lifetime) < at) {
-		return $tuple(false, `That star lights at rebirth ${at}.`);
+		return $tuple(false, T("RebirthMath.ThatStarLightsAtRebirth", at));
 	}
 	if (bag.Stars[tostring(index)] !== undefined) {
-		return $tuple(false, "You already chose that star.");
+		return $tuple(false, T("RebirthMath.YouAlreadyChoseThatStar"));
 	}
 	const pair = pairAt(index);
 	const perk = pair[pick - 1];
 	if (perk === undefined) {
-		return $tuple(false, "Pick one of the two.");
+		return $tuple(false, T("RebirthMath.PickOneOfTheTwo"));
 	}
 	bag.Stars[tostring(index)] = perk;
 	return $tuple(true, PERKS[perk].Name);
@@ -336,7 +337,7 @@ function vowHolds(bag: Bag, run: RunSnapshot): LuaTuple<[boolean, string]> {
 		return $tuple(false, "");
 	}
 	if (bag.VowSince > bag.RunStartedAt + VOW_GRACE) {
-		return $tuple(false, "Sworn too late in the run.");
+		return $tuple(false, T("RebirthMath.SwornTooLateInThe"));
 	}
 	if (v.Id === "Swift") {
 		const left = v.Seconds! - int(run.Seconds);
@@ -481,11 +482,11 @@ function close(
 function swear(bag: Bag, id: string, now: number): LuaTuple<[boolean, string | undefined]> {
 	if (id === "") {
 		bag.Vow = "";
-		return $tuple(true, "Vow dropped.");
+		return $tuple(true, T("RebirthMath.VowDropped"));
 	}
 	const v = vowById[id];
 	if (v === undefined) {
-		return $tuple(false, "That vow doesn't exist.");
+		return $tuple(false, T("RebirthMath.ThatVowDoesnTExist"));
 	}
 	if (int(now) > bag.RunStartedAt + VOW_GRACE) {
 		return $tuple(
@@ -495,7 +496,7 @@ function swear(bag: Bag, id: string, now: number): LuaTuple<[boolean, string | u
 	}
 	bag.Vow = id;
 	bag.VowSince = int(now);
-	return $tuple(true, `Sworn: ${v.Name}.`);
+	return $tuple(true, T("RebirthMath.SwornS", v.Name));
 }
 
 function setKeep(bag: Bag, ids: unknown): boolean {

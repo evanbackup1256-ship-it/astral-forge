@@ -1,4 +1,5 @@
 // Pure admin policy: role permissions and dry-run diffs. No Roblox services so it runs under Lune tests.
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 
 interface Permission {
 	Categories?: Record<string, boolean>;
@@ -100,7 +101,7 @@ const AdminPolicy = {
 	): LuaTuple<[boolean, string | undefined]> {
 		const resolved = AdminPolicy.Resolve(role);
 		if (resolved === undefined) {
-			return $tuple(false, "Administrative access denied.");
+			return $tuple(false, T("AdminPolicy.AdministrativeAccessDenied"));
 		}
 		const policy = AdminPolicy.ROLES[resolved] as Permission & {
 			Categories?: Record<string, boolean>;

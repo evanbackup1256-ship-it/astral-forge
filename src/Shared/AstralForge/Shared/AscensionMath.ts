@@ -9,6 +9,7 @@
 //              raising all six together beats pumping one.
 //
 // Pure: OmegaMath is passed in so the server, the client and Lune share one set of numbers.
+import { T } from "./Locale";
 
 type Dict = Record<string, unknown>;
 
@@ -177,12 +178,12 @@ function aetherGain(state: State, domainRank: number, OmegaMath: Omega): unknown
 function buy(state: State, id: string, OmegaMath: Omega): LuaTuple<[State | undefined, unknown]> {
 	const s = BY_ID[id];
 	if (s === undefined) {
-		return $tuple(undefined, "That sigil doesn't exist.");
+		return $tuple(undefined, T("AscensionMath.ThatSigilDoesnTExist"));
 	}
 	const level = state.Sigils[id] ?? 0;
 	const cost = sigilCost(id, level, OmegaMath);
 	if (OmegaMath.Lt(state.Aether, cost)) {
-		return $tuple(undefined, `You need ${OmegaMath.ToString(OmegaMath.Sub(cost, state.Aether))} more Aether.`);
+		return $tuple(undefined, T("AscensionMath.YouNeedSMoreAether", OmegaMath.ToString(OmegaMath.Sub(cost, state.Aether))));
 	}
 	const nextState = table.clone(state);
 	nextState.Sigils = table.clone(state.Sigils);
@@ -201,7 +202,7 @@ function ascend(
 ): LuaTuple<[State | undefined, unknown]> {
 	const gain = aetherGain(state, domainRank, OmegaMath);
 	if (gain === undefined) {
-		return $tuple(undefined, `Reach Domain rank ${requiredDomainRank(state.Rank)} to ascend.`);
+		return $tuple(undefined, T("AscensionMath.ReachDomainRankSTo", requiredDomainRank(state.Rank)));
 	}
 	return $tuple(
 		{

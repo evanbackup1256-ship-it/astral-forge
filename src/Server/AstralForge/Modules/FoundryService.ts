@@ -2,6 +2,7 @@
 // player move (one FoundryAct action with an Op), passive Shards, Ignite timing and the public state.
 // The rules themselves live in FoundryMath (shared), so the client previews exactly what the server
 // will compute.
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
@@ -257,7 +258,7 @@ const FoundryService = {
 		const f = FoundryService.Ensure(profile, now);
 		FoundryService.Accrue(f, now);
 		if (!typeIs(payload, "table") || !typeIs((payload as Record<string, unknown>).Op, "string")) {
-			return $tuple(false, "That foundry move is not valid.", undefined);
+			return $tuple(false, T("FoundryService.ThatFoundryMoveIsNot"), undefined);
 		}
 		const payloadTable = payload as Record<string, unknown>;
 		const op = payloadTable.Op as string;
@@ -268,36 +269,36 @@ const FoundryService = {
 					? { bench: true as boolean, index: f.Bench.size() + 1 }
 					: slot(f, payloadTable.To);
 			if (from === undefined || to === undefined || from.piece === undefined) {
-				return $tuple(false, "Pick a piece and a free cell.", undefined);
+				return $tuple(false, T("FoundryService.PickAPieceAndA"), undefined);
 			}
 			if (!from.bench && !to.bench && from.key === to.key) {
-				return $tuple(false, "That piece is already there.", undefined);
+				return $tuple(false, T("FoundryService.ThatPieceIsAlreadyThere"), undefined);
 			}
 			const moving = from.piece;
 			const target = to.bench ? undefined : to.piece;
 			if (target !== undefined) {
 				if (!FoundryMath.canFuse(moving, target)) {
-					return $tuple(false, "Only two identical pieces can fuse.", undefined);
+					return $tuple(false, T("FoundryService.OnlyTwoIdenticalPiecesCan"), undefined);
 				}
 				take(f, from);
 				f.Pieces[to.key!] = { Kind: target.Kind, Tier: target.Tier + 1, Facing: target.Facing };
 				recompute(f);
 				return $tuple(
 					true,
-					"Fused into a tier " + (target.Tier + 1) + " " + target.Kind + ".",
+					T("FoundryService.FusedIntoATierS", (target.Tier + 1), target.Kind),
 					{ Sound: "foundryFuse", Cell: to.key },
 				);
 			}
 			if (to.bench && f.Bench.size() >= FoundryMath.BENCH_CAP && !from.bench) {
-				return $tuple(false, "The bench is full.", undefined);
+				return $tuple(false, T("FoundryService.TheBenchIsFull"), undefined);
 			}
 			const piece = take(f, from);
 			if (piece === undefined) {
-				return $tuple(false, "That foundry move is not valid.", undefined);
+				return $tuple(false, T("FoundryService.ThatFoundryMoveIsNot"), undefined);
 			}
 			if (!put(f, to, piece)) {
 				put(f, from, piece);
-				return $tuple(false, "The bench is full.", undefined);
+				return $tuple(false, T("FoundryService.TheBenchIsFull"), undefined);
 			}
 			recompute(f);
 			return $tuple(true, undefined, {
@@ -307,7 +308,7 @@ const FoundryService = {
 		} else if (op === "rotate") {
 			const at = slot(f, payloadTable.At);
 			if (at === undefined || at.bench || at.piece === undefined) {
-				return $tuple(false, "Pick a piece on the board.", undefined);
+				return $tuple(false, T("FoundryService.PickAPieceOnThe"), undefined);
 			}
 			const steps = payloadTable.Back === true ? 5 : 1;
 			at.piece.Facing = (at.piece.Facing + steps) % 6;
@@ -315,11 +316,11 @@ const FoundryService = {
 			return $tuple(true, undefined, { Sound: "foundryRotate", Cell: at.key });
 		} else if (op === "draw") {
 			if (f.Bench.size() >= FoundryMath.BENCH_CAP) {
-				return $tuple(false, "Make room on the bench first.", undefined);
+				return $tuple(false, T("FoundryService.MakeRoomOnTheBench"), undefined);
 			}
 			const cost = FoundryMath.drawCost(f.Draws);
 			if (f.Shards < cost) {
-				return $tuple(false, "You need " + math.ceil(cost - f.Shards) + " more Shards.", undefined);
+				return $tuple(false, T("FoundryService.YouNeedSMoreShards", math.ceil(cost - f.Shards)), undefined);
 			}
 			f.Shards -= cost;
 			f.Draws += 1;
@@ -332,23 +333,23 @@ const FoundryService = {
 			const rare = piece.Tier > 1;
 			return $tuple(
 				true,
-				"New " + piece.Kind + (rare ? " (tier " + piece.Tier + ")" : "") + ".",
+				T("FoundryService.NewSS", piece.Kind, (rare ? " (tier " + piece.Tier + ")" : "")),
 				{ Sound: rare ? "foundryDrawRare" : "foundryDraw", Piece: piece },
 			);
 		} else if (op === "expand") {
 			const cost = FoundryMath.expandCost(f.Radius);
 			if (cost === undefined) {
-				return $tuple(false, "The foundry is as big as it gets.", undefined);
+				return $tuple(false, T("FoundryService.TheFoundryIsAsBig"), undefined);
 			}
 			if (f.Shards < cost) {
-				return $tuple(false, "You need " + math.ceil(cost - f.Shards) + " more Shards.", undefined);
+				return $tuple(false, T("FoundryService.YouNeedSMoreShards", math.ceil(cost - f.Shards)), undefined);
 			}
 			f.Shards -= cost;
 			f.Radius += 1;
 			recompute(f);
 			return $tuple(
 				true,
-				"The foundry grew to " + FoundryMath.cellCount(f.Radius) + " cells.",
+				T("FoundryService.TheFoundryGrewToS", FoundryMath.cellCount(f.Radius)),
 				{ Sound: "foundryExpand" },
 			);
 		} else if (op === "ignite") {
@@ -376,7 +377,7 @@ const FoundryService = {
 				Combo: f.Combo,
 			});
 		}
-		return $tuple(false, "That foundry move is not valid.", undefined);
+		return $tuple(false, T("FoundryService.ThatFoundryMoveIsNot"), undefined);
 	},
 
 	// the economy's view: production, capacity, tap multipliers and the offline bonus (Ignite surge applied)

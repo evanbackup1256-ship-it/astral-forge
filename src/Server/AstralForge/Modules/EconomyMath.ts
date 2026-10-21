@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
 const __loading: Record<string, boolean> = {};
@@ -1497,23 +1498,23 @@ __defs["ForgePathClaim"] = () => {
 		TryClaim(this: void, forgePath: unknown, rawStep: unknown, steps: StepLikeDef[]): LuaTuple<[boolean, string | undefined, StepLikeDef | undefined]> {
 			ForgePathClaim.Ensure(forgePath);
 			if (!typeIs(rawStep, "number")) {
-				return $tuple(false, "Invalid forge path step.", undefined);
+				return $tuple(false, T("EconomyMath.InvalidForgePathStep"), undefined);
 			}
 			const stepIndex = math.floor(rawStep);
 			const step = steps[stepIndex - 1];
 			if (!truthy(step)) {
-				return $tuple(false, "That forge path step doesn't exist.", undefined);
+				return $tuple(false, T("EconomyMath.ThatForgePathStepDoesn"), undefined);
 			}
 			const key = tostring(stepIndex);
 			const bag = forgePath as ForgePathBag;
 			if (bag.ClaimedSteps[key]) {
-				return $tuple(false, "That step was already claimed.", undefined);
+				return $tuple(false, T("EconomyMath.ThatStepWasAlreadyClaimed"), undefined);
 			}
 			if (stepIndex > 1 && !bag.ClaimedSteps[tostring(stepIndex - 1)]) {
-				return $tuple(false, "Claim the previous step first.", undefined);
+				return $tuple(false, T("EconomyMath.ClaimThePreviousStepFirst"), undefined);
 			}
 			if (bag.XP < step.XPCost) {
-				return $tuple(false, "Not enough forge XP for that step.", undefined);
+				return $tuple(false, T("EconomyMath.NotEnoughForgeXPFor"), undefined);
 			}
 			bag.XP -= step.XPCost;
 			bag.ClaimedSteps[key] = true;
@@ -2592,16 +2593,16 @@ __defs["ProgressionOpsMath"] = () => {
 
 		CanClaimQuest(this: void, quest: unknown): LuaTuple<[boolean, string]> {
 			if (!typeIs(quest, "table")) {
-				return $tuple(false, "Mission not found.");
+				return $tuple(false, T("EconomyMath.MissionNotFound"));
 			}
 			const bag = quest as Dict;
 			if (bag.Claimed === true) {
-				return $tuple(false, "That mission reward was already claimed.");
+				return $tuple(false, T("EconomyMath.ThatMissionRewardWasAlready"));
 			}
 			const progress = math.max(0, math.floor(tonumber(bag.Progress) ?? 0));
 			const target = math.max(0, math.floor(tonumber(bag.Target) ?? 0));
 			if (progress < target) {
-				return $tuple(false, "That mission is not complete yet.");
+				return $tuple(false, T("EconomyMath.ThatMissionIsNotComplete"));
 			}
 			return $tuple(true, "");
 		},
@@ -2929,7 +2930,7 @@ __defs["CrateRoll"] = () => {
 		NormalizeOpenCount(this: void, rawCount: unknown): LuaTuple<[number | undefined, string | undefined]> {
 			const count = typeIs(rawCount, "number") ? math.clamp(math.floor(rawCount), 1, 5) : 1;
 			if (count !== 1 && count !== 5) {
-				return $tuple(undefined, "Crates can be opened one or five at a time.");
+				return $tuple(undefined, T("GameService.CratesCanBeOpenedOne"));
 			}
 			return $tuple(count, undefined);
 		},

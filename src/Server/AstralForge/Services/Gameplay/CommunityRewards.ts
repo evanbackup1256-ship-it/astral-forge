@@ -1,5 +1,6 @@
 // Group, like-goal and notification opt-in rewards. Pure: GameService checks group membership (it yields)
 // and applies the returned reward with ProgressionService.ApplyReward inside its usual mutate.
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 type Dict = Record<string, unknown>;
 
 export interface LikeGoal {
@@ -66,15 +67,15 @@ export type ClaimResult = { ok: true; reward: Dict } | { ok: false; message: str
 export function claim(rewards: Dict, kind: unknown, index: unknown, inGroup: boolean | undefined, config: CommunityConfig): ClaimResult {
 	if (kind === "Group") {
 		if (config.GroupId <= 0) {
-			return { ok: false, message: "There's no group reward right now." };
+			return { ok: false, message: T("CommunityRewards.ThereSNoGroupReward") };
 		}
 		if (rewards.GroupClaimed === true) {
-			return { ok: false, message: "You already claimed the group reward." };
+			return { ok: false, message: T("CommunityRewards.YouAlreadyClaimedTheGroup") };
 		}
 		if (inGroup !== true) {
 			return {
 				ok: false,
-				message: inGroup === undefined ? "Couldn't check the group. Try again in a moment." : `Join the ${config.GroupName} group first.`,
+				message: inGroup === undefined ? T("CommunityRewards.CouldnTCheckTheGroup") : T("CommunityRewards.JoinTheSGroupFirst", config.GroupName),
 			};
 		}
 		rewards.GroupClaimed = true;
@@ -82,14 +83,14 @@ export function claim(rewards: Dict, kind: unknown, index: unknown, inGroup: boo
 	}
 	if (kind === "Like") {
 		if (!typeIs(index, "number")) {
-			return { ok: false, message: "That like goal doesn't exist." };
+			return { ok: false, message: T("CommunityRewards.ThatLikeGoalDoesnT") };
 		}
 		const goal = config.LikeGoals[math.floor(index) - 1];
 		if (goal === undefined) {
-			return { ok: false, message: "That like goal doesn't exist." };
+			return { ok: false, message: T("CommunityRewards.ThatLikeGoalDoesnT") };
 		}
 		if (config.Likes < goal.Likes) {
-			return { ok: false, message: "The community hasn't reached that goal yet." };
+			return { ok: false, message: T("CommunityRewards.TheCommunityHasnTReached") };
 		}
 		if (!typeIs(rewards.LikeGoals, "table")) {
 			rewards.LikeGoals = {};
@@ -97,20 +98,20 @@ export function claim(rewards: Dict, kind: unknown, index: unknown, inGroup: boo
 		const goals = rewards.LikeGoals as Dict;
 		const key = tostring(math.floor(index));
 		if (goals[key] === true) {
-			return { ok: false, message: "You already claimed that goal." };
+			return { ok: false, message: T("CommunityRewards.YouAlreadyClaimedThatGoal") };
 		}
 		goals[key] = true;
 		return { ok: true, reward: goal.Reward };
 	}
 	if (kind === "Notify") {
 		if (!config.NotifyEnabled) {
-			return { ok: false, message: "There's no reward for notifications." };
+			return { ok: false, message: T("CommunityRewards.ThereSNoRewardFor") };
 		}
 		if (rewards.NotifyClaimed === true) {
-			return { ok: false, message: "You already claimed this reward." };
+			return { ok: false, message: T("CommunityRewards.YouAlreadyClaimedThisReward") };
 		}
 		rewards.NotifyClaimed = true;
 		return { ok: true, reward: config.NotifyReward };
 	}
-	return { ok: false, message: "That reward doesn't exist." };
+	return { ok: false, message: T("CommunityRewards.ThatRewardDoesnTExist") };
 }

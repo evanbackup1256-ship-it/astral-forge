@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { Service } from "@flamework/core";
 import { Ledger } from "./Security/SecurityLedger";
 import { ServerTelemetry } from "./ServerTelemetry";
@@ -332,8 +333,8 @@ function firePrank(player: Player, kind: string, duration: number, caption: stri
 function applyWorld(_actor: Player, target: Player, command: string, amount: number, option: string): LuaTuple<[boolean, string]> {
 	const duration = math.clamp(math.floor(amount), 3, 20);
 	if (command === "Honk") {
-		ServerEvents.toast.fire(target, { Title: "HONK", Body: "An admin honked at you.", Tone: "Special" });
-		return $tuple(true, "Honked at " + target.Name);
+		ServerEvents.toast.fire(target, { Title: "HONK", Body: T("AdminService.AnAdminHonkedAtYou"), Tone: "Special" });
+		return $tuple(true, T("AdminService.HonkedAtS", target.Name));
 	}
 	let caption = option;
 	if (command === "FakeRareDrop") {
@@ -495,15 +496,15 @@ export class AdminService {
 		let userId = tonumber(entry.UserId);
 		if (!typeIs(action, "string") || !typeIs(userId, "number")) return;
 		userId = math.floor(userId);
-		const reason = typeIs(entry.Reason, "string") && entry.Reason !== "" ? entry.Reason : "Moderated via Discord.";
-		const moderator = typeIs(entry.Moderator, "string") ? entry.Moderator : "Discord staff";
+		const reason = typeIs(entry.Reason, "string") && entry.Reason !== "" ? entry.Reason : T("Discord.DefaultReason");
+		const moderator = typeIs(entry.Moderator, "string") ? entry.Moderator : T("Discord.DefaultModerator");
 		const subject: Subject = { UserId: userId, Name: tostring(userId) };
 		const target = Players.GetPlayerByUserId(userId);
 		if (target !== undefined) subject.Name = target.Name;
 
 		if (action === "Kick") {
 			if (target !== undefined && target.Parent === Players) {
-				target.Kick(string.format("Kicked by %s: %s", moderator, reason));
+				target.Kick(T("AdminService.KickedBySS", moderator, reason));
 				this._record({ Name: "Discord:" + moderator, UserId: 0 } as unknown as Player, subject, "DiscordKick", 0, "", reason, 0);
 			}
 			return;
@@ -513,7 +514,7 @@ export class AdminService {
 			const durationSeconds = tonumber(entry.DurationSeconds);
 			const permanent = entry.DurationSeconds === undefined || durationSeconds === undefined || durationSeconds <= 0;
 			const duration = permanent ? -1 : math.max(60, math.floor(durationSeconds!));
-			const displayReason = string.sub(string.format("Banned by %s: %s", moderator, reason), 1, 400);
+			const displayReason = string.sub(T("AdminService.BannedBySS", moderator, reason), 1, 400);
 			const [banOk, banError] = pcall(() => {
 				Players.BanAsync({
 					UserIds: [userId],
@@ -594,7 +595,7 @@ export class AdminService {
 			this._serverBans.delete(player.UserId);
 			return false;
 		}
-		player.Kick(record.Reason !== "" ? (record.Reason as string) : "You are banned from this server.");
+		player.Kick(record.Reason !== "" ? (record.Reason as string) : T("AdminService.YouAreBannedFromThis"));
 		return true;
 	}
 
@@ -804,7 +805,7 @@ export class AdminService {
 		const targetName = (target !== undefined ? target.Name : undefined) ?? (listed?.Name as string | undefined) ?? tostring(targetUserId);
 		const subject: Subject = { UserId: targetUserId, Name: targetName };
 		if (target !== undefined && roleFor(target) !== undefined && target !== actor) {
-			return { ok: false, error: "Cannot moderate another administrator." };
+			return { ok: false, error: T("AdminService.CannotModerateAnotherAdministrator") };
 		}
 
 		if (command === "Unban") {
@@ -822,7 +823,7 @@ export class AdminService {
 			this._record(actor, subject, command, 0, option, reason, 0);
 			return {
 				ok: true,
-				message: string.format("Cleared bans for %s%s.", targetName, unbanOk ? "" : " (experience ban service unavailable)"),
+				message: T("AdminService.ClearedBansForSS", targetName, unbanOk ? "" : " (experience ban service unavailable)"),
 				Admin: this.State(actor),
 				TargetUserId: targetUserId,
 				Persisted: true,
@@ -830,7 +831,7 @@ export class AdminService {
 		}
 
 		if (target === undefined || target.Parent !== Players) {
-			return { ok: false, error: "Target must be online in this server." };
+			return { ok: false, error: T("AdminService.TargetMustBeOnlineIn") };
 		}
 
 		if (command === "Kick") {
@@ -839,7 +840,7 @@ export class AdminService {
 			target.Kick(kickMessage);
 			return {
 				ok: true,
-				message: string.format("Kicked %s.", targetName),
+				message: T("AdminService.KickedS", targetName),
 				Admin: this.State(actor),
 				TargetUserId: targetUserId,
 				Persisted: true,
@@ -858,7 +859,7 @@ export class AdminService {
 			target.Kick(kickMessage);
 			return {
 				ok: true,
-				message: string.format("Server-banned %s%s.", targetName, untilTime === 0 ? " for this session" : ""),
+				message: T("AdminService.ServerBannedSS", targetName, untilTime === 0 ? " for this session" : ""),
 				Admin: this.State(actor),
 				TargetUserId: targetUserId,
 				Persisted: true,
@@ -867,7 +868,7 @@ export class AdminService {
 
 		if (command === "GlobalBan") {
 			if (target === actor) {
-				return { ok: false, error: "Do not globally ban yourself." };
+				return { ok: false, error: T("AdminService.DoNotGloballyBanYourself") };
 			}
 			const permanent = option === "Permanent" || seconds < 0;
 			const duration = permanent ? -1 : math.max(60, math.floor(seconds));
@@ -902,7 +903,7 @@ export class AdminService {
 				ok: true,
 				message: string.format(
 					"%s globally banned %s%s.",
-					banOk ? "Issued" : "Queued (service failed; kicked this server)",
+					banOk ? "Issued" : T("AdminService.QueuedServiceFailedKickedThis"),
 					targetName,
 					permanent ? " permanently" : "",
 				),
@@ -912,26 +913,26 @@ export class AdminService {
 			};
 		}
 
-		return { ok: false, error: "Unknown moderation command." };
+		return { ok: false, error: T("AdminService.UnknownModerationCommand") };
 	}
 
 	private _execute(actor: Player, payload: Dict): Dict {
 		const role = roleFor(actor);
-		if (role === undefined) return { ok: false, error: "Administrative access denied." };
-		if (!typeIs(payload, "table")) return { ok: false, error: "Malformed admin request." };
+		if (role === undefined) return { ok: false, error: T("AdminPolicy.AdministrativeAccessDenied") };
+		if (!typeIs(payload, "table")) return { ok: false, error: T("AdminService.MalformedAdminRequest") };
 		// Server-side authorization: canonicalization only accepts names in the COMMANDS allowlist.
 		const command = CommandSchema.canonical(cleanText(payload.Command, 48), COMMANDS);
 		const definition = command !== undefined ? COMMANDS[command] : undefined;
-		if (definition === undefined) return { ok: false, error: "Unknown admin command." };
+		if (definition === undefined) return { ok: false, error: T("AdminService.UnknownAdminCommand") };
 		const [permitted, permissionError] = AdminPolicy.Allows(role, command!, definition);
 		if (!permitted) return { ok: false, error: permissionError };
 		const dryRun = payload.DryRun === true;
 		const nonce = cleanText(payload.Nonce, 80);
 		if (nonce.size() < 8 || !this._consumeNonce(actor, nonce)) {
-			return { ok: false, error: "This admin request was already processed." };
+			return { ok: false, error: T("AdminService.ThisAdminRequestWasAlready") };
 		}
 		const reason = cleanText(payload.Reason, 96);
-		if (reason.size() < 3 && !dryRun) return { ok: false, error: "Add a short audit reason." };
+		if (reason.size() < 3 && !dryRun) return { ok: false, error: T("AdminService.AddAShortAuditReason") };
 		const option = cleanText(payload.Option, command === "Announce" ? 140 : 64);
 		if (definition.Global === true) {
 			return this._global(actor, command!, definition, option, reason, dryRun);
@@ -941,14 +942,14 @@ export class AdminService {
 			if (duration === undefined) return { ok: false, error: problem };
 			const targetUserId = tonumber(payload.TargetUserId);
 			if (targetUserId === undefined || targetUserId !== math.floor(targetUserId)) {
-				return { ok: false, error: "Pick a player to moderate." };
+				return { ok: false, error: T("AdminService.PickAPlayerToModerate") };
 			}
 			if (dryRun) {
 				const subject = Players.GetPlayerByUserId(targetUserId);
 				return {
 					ok: true,
 					DryRun: true,
-					message: `Preview: ${definition.Label} → ${subject !== undefined ? subject.Name : tostring(targetUserId)}.`,
+					message: T("AdminService.PreviewSS", definition.Label, subject !== undefined ? subject.Name : tostring(targetUserId)),
 					Preview: [`${definition.Label}: ${option !== "" ? option : tostring(duration)}`],
 					PreviewTotal: 1,
 				};
@@ -956,11 +957,11 @@ export class AdminService {
 			return this._moderate(actor, command!, targetUserId, duration, option, reason);
 		}
 		const target = onlinePlayer(payload.TargetUserId);
-		if (target === undefined || target.Parent !== Players) return { ok: false, error: "Target must be online in this server." };
-		if (this._data.Get(target) === undefined) return { ok: false, error: "Target profile is still loading." };
+		if (target === undefined || target.Parent !== Players) return { ok: false, error: T("AdminService.TargetMustBeOnlineIn") };
+		if (this._data.Get(target) === undefined) return { ok: false, error: T("AdminService.TargetProfileIsStillLoading") };
 		if (command === "InspectPlayer") {
 			// read-only: no transaction, no revision bump
-			return { ok: true, message: "Lookup for " + target.Name + ".", Lookup: this.Lookup(target) };
+			return { ok: true, message: T("AdminService.LookupForS", target.Name), Lookup: this.Lookup(target) };
 		}
 		const [amount, inputError] = CommandSchema.validate(command!, definition, payload.Amount, option);
 		if (amount === undefined) return { ok: false, error: inputError };
@@ -970,17 +971,17 @@ export class AdminService {
 				return {
 					ok: true,
 					DryRun: true,
-					message: `Preview: ${definition.Label} plays on ${target.Name}'s screen only. No saved data changes.`,
+					message: T("AdminService.PreviewSPlaysOnS", definition.Label, target.Name),
 					Preview: [],
 					PreviewTotal: 0,
 				};
 			}
 			const handler = profileHandlers[command!];
-			if (handler === undefined) return { ok: false, error: "Admin command has no executor." };
+			if (handler === undefined) return { ok: false, error: T("AdminService.AdminCommandHasNoExecutor") };
 			const before = AdminPolicy.DeepCopy(this._data.Get(target)!);
 			const scratch = AdminPolicy.DeepCopy(before);
 			const [okRun, applied] = pcall(handler, scratch, amount, option);
-			if (!okRun) return { ok: false, error: "Preview failed: " + tostring(applied) };
+			if (!okRun) return { ok: false, error: T("AdminService.PreviewFailedS", tostring(applied)) };
 			if (typeIs(applied, "table") && (applied as Dict).ok === false) return applied as Dict;
 			const [lines, total] = AdminPolicy.Diff(before, scratch, 10);
 			const previewNote = typeIs(applied, "table") && typeIs((applied as Dict).note, "string") ? " " + ((applied as Dict).note as string) : "";
@@ -1017,7 +1018,7 @@ export class AdminService {
 			target,
 			(profile) => {
 				const handler = profileHandlers[command!];
-				if (handler === undefined) return { ok: false, error: "Admin command has no executor." };
+				if (handler === undefined) return { ok: false, error: T("AdminService.AdminCommandHasNoExecutor") };
 				const applied = handler(profile, amount, option);
 				if (applied.ok === true) {
 					changedAmount = applied.amount as number;
@@ -1028,7 +1029,7 @@ export class AdminService {
 			true,
 			"admin:" + command,
 		);
-		if (!success) return { ok: false, error: "Profile transaction failed: " + tostring(result) };
+		if (!success) return { ok: false, error: T("AdminService.ProfileTransactionFailedS", tostring(result)) };
 		if (typeIs(result, "table") && (result as Dict).ok === false) return result as Dict;
 		const revision = this._data.GetRevision(target);
 		this._record(actor, target, command!, changedAmount, option, reason, revision);
@@ -1088,20 +1089,20 @@ export class AdminService {
 		let message: Dict;
 		if (command === "Announce") {
 			const text = option.gsub("^%s*(.-)%s*$", "%1")[0];
-			if (text.size() < 3) return { ok: false, error: "Write a short announcement." };
+			if (text.size() < 3) return { ok: false, error: T("AdminService.WriteAShortAnnouncement") };
 			message = { Kind: "Announce", Text: text, From: actor.Name, At: os.time() };
 		} else if (command === "ToggleHotFlag") {
 			const [flag, on, parseError] = HotFlags.Parse(option);
 			if (flag === undefined) return { ok: false, error: parseError };
 			message = { Kind: "HotFlag", Flag: flag, On: on, From: actor.Name, At: os.time() };
 		} else {
-			return { ok: false, error: "Admin command has no executor." };
+			return { ok: false, error: T("AdminService.AdminCommandHasNoExecutor") };
 		}
 		if (dryRun) {
 			return {
 				ok: true,
 				DryRun: true,
-				message: `Preview: ${definition.Label}.`,
+				message: T("AdminService.PreviewS", definition.Label),
 				Preview: [`${definition.Label}: ${option}`],
 				PreviewTotal: 1,
 			};
@@ -1320,7 +1321,7 @@ profileHandlers.GrantFreeSpins = (profile, amount, option) => {
 profileHandlers.GrantCrateKeys = (profile, amount, option) => {
 	const changedAmount = amount;
 	const keys = ProfileBagMath.EnsureItemKeys(profile);
-	if (keys[option] === undefined) return { ok: false, error: "Unknown crate id." };
+	if (keys[option] === undefined) return { ok: false, error: T("AdminService.UnknownCrateId") };
 	keys[option] += math.floor(amount);
 	return { ok: true, amount: changedAmount };
 };
@@ -1334,13 +1335,13 @@ profileHandlers.GrantPity = (profile, amount, option) => {
 	const changedAmount = amount;
 	const items = ProfileBagMath.EnsureItems(profile) as ItemsBag;
 	const pity = items.Pity as Dict;
-	if (pity[option] === undefined) return { ok: false, error: "Unknown crate id." };
+	if (pity[option] === undefined) return { ok: false, error: T("AdminService.UnknownCrateId") };
 	pity[option] = (num(pity[option]) ?? 0) + math.floor(amount);
 	return { ok: true, amount: changedAmount };
 };
 profileHandlers.GrantBoost = (profile, amount, option) => {
 	const changedAmount = amount;
-	if (!truthy((GameConfig.Boosts as Dict)[option])) return { ok: false, error: "Unknown boost id." };
+	if (!truthy((GameConfig.Boosts as Dict)[option])) return { ok: false, error: T("AdminService.UnknownBoostId") };
 	const inventory = ProfileBagMath.EnsureBoostInventory(profile);
 	inventory[option] = (inventory[option] ?? 0) + math.floor(amount);
 	return { ok: true, amount: changedAmount };
@@ -1360,7 +1361,7 @@ profileHandlers.GrantRelic = (profile, amount, option) => {
 		if (!createRelic(profile, option)) break;
 		changedAmount += 1;
 	}
-	if (changedAmount <= 0) return { ok: false, error: "Relic id is invalid or inventory is full." };
+	if (changedAmount <= 0) return { ok: false, error: T("AdminService.RelicIdIsInvalidOr") };
 	return { ok: true, amount: changedAmount };
 };
 profileHandlers.ClearActiveBoost = (profile, amount, option) => {
@@ -1719,7 +1720,7 @@ profileHandlers.ResetMarketPurchases = (profile, amount, option) => {
 profileHandlers.CancelMarketRequest = (profile, amount, option) => {
 	const bag = BazaarMath.Ensure(profile.Bazaar) as BazaarBag;
 	profile.Bazaar = bag;
-	if (bag.Market.Procure.Id === "") return { ok: false, error: "That player has no open supply request." };
+	if (bag.Market.Procure.Id === "") return { ok: false, error: T("AdminService.ThatPlayerHasNoOpen") };
 	bag.Market.Procure = { Id: "", Since: 0, Filled: 0 };
 	return { ok: true, amount: amount };
 };

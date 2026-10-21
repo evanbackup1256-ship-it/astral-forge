@@ -118,10 +118,10 @@ export class ServerLifecycle implements OnStart {
 		});
 		makeBindable("StudioAdmin", (action, username, amount) => {
 			if (action !== "GrantUnlimitedMoney" && action !== "ShowRelease" && action !== "GrantWheelSpins") {
-				return { ok: false, message: "Unknown Studio admin action: " + tostring(action) };
+				return { ok: false, message: T("ServerLifecycle.UnknownStudioAdminActionS", tostring(action)) };
 			}
 			if (!typeIs(username, "string") || username === "") {
-				return { ok: false, message: "Provide the username of a player in this test server." };
+				return { ok: false, message: T("ServerLifecycle.ProvideTheUsernameOfA") };
 			}
 			const target = findPlayer(username);
 			if (target === undefined) {

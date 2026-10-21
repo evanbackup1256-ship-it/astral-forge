@@ -1,4 +1,5 @@
 // Lab: lab orders and power routing (stateless functions over a profile).
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import { Dict, d, economyKit, num, req, SharedFolder } from "../LuaInterop";
 import LabOrderMath from "../../Modules/LabOrderMath";
 
@@ -130,7 +131,7 @@ function ClaimOrder(profile: Profile, orderId: string): LuaTuple<[boolean, strin
 	const lab = ensureLab(profile);
 	const orders = lab.Orders;
 	if (!typeIs(orders, "table")) {
-		return $tuple(false, "That order is no longer on the board.", undefined);
+		return $tuple(false, T("LabOrderMath.ThatOrderIsNoLonger"), undefined);
 	}
 	const [ok, message, reward] = LabOrderMath.TryClaim(orders as never[], orderById as never, orderId);
 	if (ok) {
@@ -146,10 +147,10 @@ LabService.ClaimOrder = ClaimOrder;
 
 function RoutePower(profile: Profile, channelId: string, delta: number): LuaTuple<[boolean, string]> {
 	if (!d(d(GameConfig.Lab.Power).Channels)[channelId]) {
-		return $tuple(false, "That power rail does not exist.");
+		return $tuple(false, T("Lab.ThatPowerRailDoesNot"));
 	}
 	if (delta !== -1 && delta !== 1) {
-		return $tuple(false, "Move one cell at a time.");
+		return $tuple(false, T("Lab.MoveOneCellAtA"));
 	}
 	const lab = ensureLab(profile);
 	normalizeRouting(profile);
@@ -161,17 +162,17 @@ function RoutePower(profile: Profile, channelId: string, delta: number): LuaTupl
 	}
 	const current = routing[channelId];
 	if (delta > 0 && used >= total) {
-		return $tuple(false, "All cells are already assigned. Free one first.");
+		return $tuple(false, T("Lab.AllCellsAreAlreadyAssigned"));
 	}
 	if (delta < 0 && current <= 0) {
-		return $tuple(false, "That rail is already empty.");
+		return $tuple(false, T("Lab.ThatRailIsAlreadyEmpty"));
 	}
 	routing[channelId] = current + delta;
 	if (!typeIs(profile.Stats, "table")) {
 		profile.Stats = { PowerMoves: 0 };
 	}
 	d(profile.Stats).PowerMoves = math.max(0, math.floor(num(d(profile.Stats).PowerMoves) ?? 0)) + 1;
-	return $tuple(true, delta > 0 ? "Power cell assigned." : "Power cell returned.");
+	return $tuple(true, delta > 0 ? T("Lab.PowerCellAssigned") : T("Lab.PowerCellReturned"));
 }
 LabService.RoutePower = RoutePower;
 

@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 interface OrderDefinition {
 	Id: string;
 	Kind: string;
@@ -159,24 +160,24 @@ const LabOrderMath = {
 	): LuaTuple<[boolean, string, unknown]> {
 		const definition = orderById[orderId];
 		if (!definition) {
-			return $tuple(false, "That order is no longer on the board.", undefined);
+			return $tuple(false, T("LabOrderMath.ThatOrderIsNoLonger"), undefined);
 		}
 		for (const state of orders) {
 			if (state.Id === orderId) {
 				if (state.Claimed) {
-					return $tuple(false, "That order has already been paid.", undefined);
+					return $tuple(false, T("LabOrderMath.ThatOrderHasAlreadyBeen"), undefined);
 				}
 				const [progress, target] = progressPair(state);
 				if (progress < target) {
-					return $tuple(false, "That order is not finished yet.", undefined);
+					return $tuple(false, T("LabOrderMath.ThatOrderIsNotFinished"), undefined);
 				}
 				state.Claimed = true;
 				state.Progress = progress;
 				state.Target = math.max(1, target);
-				return $tuple(true, "Order paid.", definition.Reward);
+				return $tuple(true, T("LabOrderMath.OrderPaid"), definition.Reward);
 			}
 		}
-		return $tuple(false, "That order is no longer on the board.", undefined);
+		return $tuple(false, T("LabOrderMath.ThatOrderIsNoLonger"), undefined);
 	},
 };
 

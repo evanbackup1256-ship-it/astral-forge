@@ -1,9 +1,8 @@
 --!strict
 -- Group / like-goal / notification rewards: each claims once, only when eligible.
 local fs = require("@lune/fs")
-local luau = require("@lune/luau")
-local src = fs.readFile("out/Server/AstralForge/Services/Gameplay/CommunityRewards.luau")
-local C = (luau.load(src, { debugName = "CommunityRewards" }) :: any)()
+-- loaded through the harness because CommunityRewards imports the shared Locale table
+local C = (require("./_server_harness") :: any).load("Server/AstralForge/Services/Gameplay/CommunityRewards")
 
 local config = {
 	GroupId = 123,

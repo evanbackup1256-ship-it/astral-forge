@@ -9,6 +9,7 @@
 //                                 flag kinds, or the score has stayed above THROTTLE for
 //                                 SUSTAIN seconds. A single noisy signal can't kick anyone.
 // Admins read Recent() through the admin panel state.
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 
 export type Response = "log" | "throttle" | "kick";
 
@@ -240,7 +241,7 @@ export function Report(player: Player, kind: string, weight: number, detail?: st
 	);
 	if (response === "kick" && player.Parent === Players) {
 		ModuleLog.Warn("Security", "kicking player after corroborated flags", { Player: player, Score: score, Kind: kind });
-		player.Kick("Astral Forge disconnected you after repeated suspicious activity.");
+		player.Kick(T("SecurityLedger.AstralForgeDisconnectedYouAfter"));
 	}
 	return response;
 }

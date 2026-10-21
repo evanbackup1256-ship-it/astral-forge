@@ -1,4 +1,5 @@
 // Profile checksum envelope and journal (pure functions over a profile table).
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import { deepCopy, Dict, isFiniteNumber, isTable, num } from "../LuaInterop";
 
 const MOD_ADLER = 65521;
@@ -342,17 +343,17 @@ const ProfileIntegrity = {
 		for (const entry of journal) {
 			if (isTable(entry) && entry.Id === entryId) {
 				if (!isTable(entry.Snapshot) || !typeIs(entry.Hash, "string")) {
-					return $tuple(false, "That journal entry has no snapshot.");
+					return $tuple(false, T("ProfileIntegrity.ThatJournalEntryHasNo"));
 				}
 				const [hashOk, hash] = pcall(ProfileIntegrity.Hash, entry.Snapshot);
 				if (!hashOk || hash !== entry.Hash) {
-					return $tuple(false, "That journal entry failed its integrity check.");
+					return $tuple(false, T("ProfileIntegrity.ThatJournalEntryFailedIts"));
 				}
 				applyCriticalSnapshot(profile, entry.Snapshot as Dict);
-				return $tuple(true, string.format("Restored critical state from %s (%s).", entryId, tostring(entry.Label)));
+				return $tuple(true, T("ProfileIntegrity.RestoredCriticalStateFromS", entryId, tostring(entry.Label)));
 			}
 		}
-		return $tuple(false, "No journal entry with that id.");
+		return $tuple(false, T("ProfileIntegrity.NoJournalEntryWithThat"));
 	},
 
 	Status(this: void, profile: Dict): Dict {

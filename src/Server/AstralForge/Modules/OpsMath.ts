@@ -1,3 +1,4 @@
+import { T } from "../../../Shared/AstralForge/Shared/Locale";
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
 const __loading: Record<string, boolean> = {};
@@ -244,20 +245,20 @@ __defs["GuildGoalMath"] = () => {
 			minContribution: number,
 		): LuaTuple<[boolean, string | undefined]> {
 			if (!isMember) {
-				return $tuple(false, "You are not in that guild.");
+				return $tuple(false, T("OpsMath.YouAreNotInThat"));
 			}
 			if (!typeIs(goal, "table")) {
-				return $tuple(false, "The guild goal is not finished yet.");
+				return $tuple(false, T("OpsMath.TheGuildGoalIsNot"));
 			}
 			const goalBag = goal as Record<string, unknown>;
 			if (goalBag.Completed !== true) {
-				return $tuple(false, "The guild goal is not finished yet.");
+				return $tuple(false, T("OpsMath.TheGuildGoalIsNot"));
 			}
 			const claimed = typeIs(goalBag.Claimed, "table")
 				? (goalBag.Claimed as Record<string, unknown>)
 				: undefined;
 			if (claimed && claimed[userKey]) {
-				return $tuple(false, "You already claimed this goal.");
+				return $tuple(false, T("OpsMath.YouAlreadyClaimedThisGoal"));
 			}
 			const contributors = typeIs(goalBag.Contributors, "table")
 				? (goalBag.Contributors as Record<string, unknown>)
@@ -265,7 +266,7 @@ __defs["GuildGoalMath"] = () => {
 			const contributed = finiteNonNegative(contributors !== undefined ? contributors[userKey] : undefined);
 			const min = math.max(0, tonumber(minContribution) ?? 0);
 			if (contributed < min) {
-				return $tuple(false, "Only members who helped with this goal can claim it.");
+				return $tuple(false, T("OpsMath.OnlyMembersWhoHelpedWith"));
 			}
 			return $tuple(true, undefined);
 		},
@@ -395,7 +396,7 @@ __defs["GuildMath"] = () => {
 				amount < 1 ||
 				amount > GuildMath.MAX_NUMBER
 			) {
-				return $tuple(undefined, "Pick a positive contribution amount.");
+				return $tuple(undefined, T("GuildService.PickAPositiveContributionAmount"));
 			}
 			return $tuple(math.floor(amount), undefined);
 		},
@@ -550,12 +551,12 @@ __defs["AdminGrantMath"] = () => {
 				return safeReason;
 			}
 			if (command === "ServerBan") {
-				return "You are banned from this Astral Forge server.";
+				return T("OpsMath.YouAreBannedFromThis");
 			}
 			if (command === "GlobalBan") {
-				return "You are banned from Astral Forge.";
+				return T("OpsMath.YouAreBannedFromAstral");
 			}
-			return "You were kicked from this Astral Forge server by an administrator.";
+			return T("OpsMath.YouWereKickedFromThis");
 		},
 
 		NextRelicUid(this: void, inventory: unknown, nextId: unknown): LuaTuple<[string | undefined, number]> {

@@ -3,6 +3,7 @@
 // anchor's bonus fills with the links that touch it; every closed triangle (a facet) adds
 // production on top. Links have to grow out of the Hearth, and the whole lattice can be cleared
 // for a full refund once per domain rank. Pure: the server rules and the client both use it.
+import { T } from "./Locale";
 
 interface Anchor {
 	index: number;
@@ -189,16 +190,16 @@ function spent(n: number): number {
 
 function canEtch(links: unknown, a: unknown, b: unknown, points: number): LuaTuple<[boolean, string | undefined]> {
 	if (!typeIs(a, "number") || !typeIs(b, "number") || a !== a || b !== b) {
-		return $tuple(false, "Pick two anchors.");
+		return $tuple(false, T("DomainLattice.PickTwoAnchors"));
 	}
 	const ai = math.floor(a);
 	const bi = math.floor(b);
 	if (!isEdge(ai, bi)) {
-		return $tuple(false, "Those anchors aren't joined.");
+		return $tuple(false, T("DomainLattice.ThoseAnchorsArenTJoined"));
 	}
 	const set = typeIs(links, "table") ? (links as Record<string, unknown>) : {};
 	if (set[makeKey(ai, bi)] === true) {
-		return $tuple(false, "Already etched.");
+		return $tuple(false, T("DomainLattice.AlreadyEtched"));
 	}
 	const degree = degrees(set);
 	const touches =
@@ -207,11 +208,11 @@ function canEtch(links: unknown, a: unknown, b: unknown, points: number): LuaTup
 		(degree[ai] ?? 0) > 0 ||
 		(degree[bi] ?? 0) > 0;
 	if (!touches) {
-		return $tuple(false, "Links grow out from the Hearth.");
+		return $tuple(false, T("DomainLattice.LinksGrowOutFromThe"));
 	}
 	const cost = linkCost(count(set));
 	if (points < cost) {
-		return $tuple(false, cost === 1 ? "Need 1 domain point." : `Need ${cost} domain points.`);
+		return $tuple(false, cost === 1 ? T("DomainLattice.Need1DomainPoint") : T("DomainLattice.NeedSDomainPoints", cost));
 	}
 	return $tuple(true, undefined);
 }

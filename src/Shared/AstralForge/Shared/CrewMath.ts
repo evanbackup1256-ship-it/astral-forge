@@ -5,6 +5,7 @@
 //   bonus    : each other member online adds BONUS_PER_MEMBER production, capped
 //   goal     : vault collects pooled by the crew each UTC day; tiers pay stardust once per
 //              player per day, and only to members who pitched in, so a parked alt earns nothing
+import { T } from "./Locale";
 
 interface Tier {
 	readonly Target: number;
@@ -65,13 +66,13 @@ function isClaimed(record: DailyRecord, tier: number): boolean {
 function canClaim(record: DailyRecord, tier: number, pooled: number, contribution: number): LuaTuple<[boolean, string?]> {
 	const spec = (GOAL_TIERS as unknown as Record<number, Tier | undefined>)[tier];
 	if (spec === undefined) {
-		return $tuple(false, "That crew goal doesn't exist.");
+		return $tuple(false, T("CrewMath.ThatCrewGoalDoesnT"));
 	}
 	if (isClaimed(record, tier)) {
-		return $tuple(false, "You already claimed that crew goal today.");
+		return $tuple(false, T("CrewMath.YouAlreadyClaimedThatCrew"));
 	}
 	if (pooled < spec.Target) {
-		return $tuple(false, "Your crew hasn't reached that goal yet.");
+		return $tuple(false, T("CrewMath.YourCrewHasnTReached"));
 	}
 	if (contribution < MIN_CONTRIBUTION) {
 		return $tuple(

@@ -1050,7 +1050,7 @@ function enforceConfirmedBan(player: Player, proof: unknown): LuaTuple<[boolean,
 	const banConfig = {
 		UserIds: [player.UserId],
 		Duration: -1,
-		DisplayReason: "Your account was removed for confirmed exploitation.",
+		DisplayReason: T("RemoteFirewall.YourAccountWasRemovedFor"),
 		PrivateReason: privateReason,
 		ExcludeAltAccounts: false,
 		ApplyToUniverse: true,
@@ -1125,7 +1125,7 @@ export class RemoteFirewall {
 			);
 		}
 		if (state.Strikes >= 24 && player.Parent === Players) {
-			player.Kick("Astral Forge rejected suspicious remote traffic.");
+			player.Kick(T("RemoteFirewall.AstralForgeRejectedSuspiciousRemote"));
 		}
 	}
 
@@ -1134,7 +1134,7 @@ export class RemoteFirewall {
 			return $tuple(true, undefined);
 		}
 		if (player.Parent !== Players) {
-			return $tuple(false, "Player is not active.");
+			return $tuple(false, T("RemoteFirewall.PlayerIsNotActive"));
 		}
 		const now = os.clock();
 		let state = this._states.get(player);
@@ -1146,24 +1146,24 @@ export class RemoteFirewall {
 			state.LastRejectedAction = tostring(action);
 			this._strike(player, state, "unknown action", 2);
 			Report(player, "unknown-action", 2, string.sub(tostring(action), 1, 48));
-			return $tuple(false, "Unknown forge command.");
+			return $tuple(false, T("RemoteFirewall.UnknownForgeCommand"));
 		}
 		if (state.QuarantineUntil > now && action !== Protocol.Actions.GetState) {
 			this.telemetry.RecordRemote(false, "quarantine");
-			return $tuple(false, "Remote traffic paused briefly. Please try again.");
+			return $tuple(false, T("RemoteFirewall.RemoteTrafficPausedBrieflyPlease"));
 		}
 		const shapeProblem = PayloadShape.Validate(payload);
 		if (shapeProblem !== undefined) {
 			state.LastRejectedAction = action;
 			this._strike(player, state, shapeProblem, 1);
 			Report(player, "payload-shape", 2, action + ": " + shapeProblem);
-			return $tuple(false, "That request could not be validated.");
+			return $tuple(false, T("RemoteFirewall.ThatRequestCouldNotBe"));
 		}
 		const [payloadOk, payloadReason] = validateActionPayload(action, payload);
 		if (!payloadOk) {
 			state.LastRejectedAction = action;
 			this._strike(player, state, payloadReason ?? "invalid payload", 1);
-			return $tuple(false, payloadReason ?? "That request could not be validated.");
+			return $tuple(false, payloadReason ?? T("RemoteFirewall.ThatRequestCouldNotBe"));
 		}
 		if (EXEMPT_ACTIONS[action] === true) {
 			// Even exempt actions can carry a per-action cooldown to prevent abuse
@@ -1174,7 +1174,7 @@ export class RemoteFirewall {
 				const previous = state.LastAction[actionKey] ?? -math.huge;
 				if (now - previous < exemptCooldown) {
 					this.telemetry.RecordRemote(false, "exempt action cooldown");
-					return $tuple(false, "That action is still cooling down.");
+					return $tuple(false, T("RemoteFirewall.ThatActionIsStillCooling"));
 				}
 				state.LastAction[actionKey] = now;
 			}
@@ -1189,7 +1189,7 @@ export class RemoteFirewall {
 		if (!bucketOk) {
 			this.telemetry.RecordRemote(false, "category rate");
 			Report(player, "rate:" + category, 0.5, action);
-			return $tuple(false, "Please slow down for a moment.");
+			return $tuple(false, T("RemoteFirewall.PleaseSlowDownForA"));
 		}
 		if (now - state.WindowStart >= 2) {
 			state.WindowStart = now;
@@ -1198,7 +1198,7 @@ export class RemoteFirewall {
 		state.WindowCount += 1;
 		if (state.WindowCount > 48) {
 			this._strike(player, state, "request burst", 1);
-			return $tuple(false, "Please slow down for a moment.");
+			return $tuple(false, T("RemoteFirewall.PleaseSlowDownForA"));
 		}
 		const rule = RULES[action] ?? DEFAULT_RULE;
 		const elapsed = math.max(0, now - state.LastRefill);
@@ -1208,11 +1208,11 @@ export class RemoteFirewall {
 		const previous = state.LastAction[actionKey] ?? -math.huge;
 		if (now - previous < rule.Cooldown) {
 			this.telemetry.RecordRemote(false, "action cooldown");
-			return $tuple(false, "That action is still cooling down.");
+			return $tuple(false, T("RemoteFirewall.ThatActionIsStillCooling"));
 		}
 		if (state.Tokens < rule.Cost) {
 			this._strike(player, state, "token budget", 0.5);
-			return $tuple(false, "Please slow down for a moment.");
+			return $tuple(false, T("RemoteFirewall.PleaseSlowDownForA"));
 		}
 		state.Tokens -= rule.Cost;
 		if (state.LastAction[actionKey] === undefined) {

@@ -1,3 +1,4 @@
+import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import ProgressionModule = require("./Progression");
 import { Dict, EconomyApi, economyKit, Flux, ModuleLogApi, num, req, truthy } from "../LuaInterop";
 
@@ -329,7 +330,7 @@ Service.Roll = (profile, now, userId) => {
 		// balance that can't represent it (that is only the infinite case).
 		const absorbed = Economy.Lt(profile.Cash, math.huge) && Economy.Gt(profile.Cash, Economy.Mul(refund, 1e12));
 		if (!Economy.Gt(credited, profile.Cash) && !absorbed) {
-			return $tuple(false, "Your balance cannot represent the retired Bazaar refund. The claim is still owed.");
+			return $tuple(false, T("Bazaar.YourBalanceCannotRepresentThe"));
 		}
 		profile.Cash = credited;
 		bag.Market.Refunded = Economy.Persist(Economy.Add(bag.Market.Refunded, refund));
@@ -350,7 +351,7 @@ Service.Roll = (profile, now, userId) => {
 	}
 	bag.Bank = Math.Ensure(undefined).Bank;
 	bag.Lottery.PendingPrize = 0;
-	return $tuple(true, "Retired Bazaar balances and earned claims settled.");
+	return $tuple(true, T("Bazaar.RetiredBazaarBalancesAndEarned"));
 };
 const shelf = (bag: Bag, bucket: number): LuaTuple<[Offer[], Tier]> => {
 	// Standing earned during a shipment only raises stock from the next shipment, so sold-out shelves stay sold out.
@@ -404,10 +405,10 @@ Service.Play = (profile, _random, rawPayload, now, userId) => {
 			previous.Bucket !== payload.Bucket ||
 			previous.Rotation !== payload.Rotation
 		) {
-			return $tuple(false, "That request ID belongs to another order.");
+			return $tuple(false, T("Bazaar.ThatRequestIDBelongsTo"));
 		}
 		if (previous.Bucket < bucket - Math.RECEIPT_BUCKETS + 1) {
-			return $tuple(false, "That order is outside the retry window. Check your purchase history.");
+			return $tuple(false, T("Bazaar.ThatOrderIsOutsideThe"));
 		}
 		return $tuple(true, previous.Message, {
 			Game: "Market",
@@ -419,34 +420,34 @@ Service.Play = (profile, _random, rawPayload, now, userId) => {
 		});
 	}
 	if (payload.Bucket !== bucket) {
-		return $tuple(false, "Stock refreshed. Review the new prices before buying.");
+		return $tuple(false, T("Bazaar.StockRefreshedReviewTheNew"));
 	}
 	const rotation = `${bucket}:${countFor(bucket)}`;
 	if (payload.Rotation !== rotation) {
-		return $tuple(false, "This shipment changed. Refresh stock before buying.");
+		return $tuple(false, T("Bazaar.ThisShipmentChangedRefreshStock"));
 	}
 	const offer = shelfOffer(bag, bucket, payload.Pick);
 	if (!offer) {
-		return $tuple(false, "That shipment is not on the current shelf.");
+		return $tuple(false, T("Bazaar.ThatShipmentIsNotOn"));
 	}
 	const bought = market.Bucket === bucket ? (market.Bought[offer.Id] ?? 0) : 0;
 	if (bought + quantity > offer.Stock) {
-		return $tuple(false, "Not enough stock left for that quantity.");
+		return $tuple(false, T("Bazaar.NotEnoughStockLeftFor"));
 	}
 	const unitPrice = price(profile, offer);
 	if (!Economy.Gte(payload.UnitPrice, unitPrice) || !Economy.Gte(unitPrice, payload.UnitPrice)) {
-		return $tuple(false, "The price changed with your production. Review the updated quote.");
+		return $tuple(false, T("Bazaar.ThePriceChangedWithYour"));
 	}
 	const rewardEssence = offer.Reward.Essence;
 	if (rewardEssence !== undefined) {
 		const held = profile.Domain && profile.Domain.Essence !== undefined ? profile.Domain.Essence : 0;
 		if (held + rewardEssence * quantity > 1_000_000) {
-			return $tuple(false, "Your essence storage cannot hold that order.");
+			return $tuple(false, T("Bazaar.YourEssenceStorageCannotHold"));
 		}
 	}
 	const cost = Economy.Mul(unitPrice, quantity);
 	if (!Economy.Gte(profile.Cash, cost)) {
-		return $tuple(false, "Not enough Flux for that order.");
+		return $tuple(false, T("Bazaar.NotEnoughFluxForThat"));
 	}
 	if (market.Bucket !== bucket) {
 		market.Bucket = bucket;
@@ -497,43 +498,43 @@ Service.Play = (profile, _random, rawPayload, now, userId) => {
 };
 Service.Procure = (profile, payload, now) => {
 	if (!typeIs(payload, "table") || !typeIs((payload as Dict).Id, "string")) {
-		return $tuple(false, "Choose a supply to request.");
+		return $tuple(false, T("Bazaar.ChooseASupplyToRequest"));
 	}
 	const id = (payload as Dict).Id as string;
 	const bag = ensure(profile);
 	const procure = bag.Market.Procure;
 	if (id === "") {
 		if (procure.Id === "") {
-			return $tuple(false, "There is no open request to cancel.");
+			return $tuple(false, T("Bazaar.ThereIsNoOpenRequest"));
 		}
 		bag.Market.Procure = { Id: "", Since: 0, Filled: 0 };
-		return $tuple(true, "Supply request cancelled.");
+		return $tuple(true, T("Bazaar.SupplyRequestCancelled"));
 	}
 	const entry = Math.RegularById(id);
 	if (!entry) {
-		return $tuple(false, "That supply cannot be requested.");
+		return $tuple(false, T("Bazaar.ThatSupplyCannotBeRequested"));
 	}
 	const [, index] = Math.Reputation(bag.Counters.Deals);
 	if (index < Math.PROCURE_TIER) {
-		return $tuple(false, `Requests open at ${(Math.REPUTATION as unknown as Record<number, { Name: string }>)[Math.PROCURE_TIER].Name} standing.`);
+		return $tuple(false, T("Bazaar.RequestsOpenAtSStanding", (Math.REPUTATION as unknown as Record<number, { Name: string }>)[Math.PROCURE_TIER].Name));
 	}
 	// an unfilled request that ran past its window has expired and can be placed again
 	const expired = Math.MarketBucket(now) > procure.Since + Math.PROCURE_BUCKETS;
 	if (procure.Id === entry.Id && procure.Filled === 0 && !expired) {
-		return $tuple(false, "That request is already open.");
+		return $tuple(false, T("Bazaar.ThatRequestIsAlreadyOpen"));
 	}
 	bag.Market.Procure = { Id: entry.Id, Since: Math.MarketBucket(now), Filled: 0 };
-	return $tuple(true, `Request placed. ${entry.Name} arrives with the next shipment.`);
+	return $tuple(true, T("Bazaar.RequestPlacedSArrivesWith", entry.Name));
 };
 Service.SetFavorite = (profile, payload) => {
 	if (!typeIs(payload, "table") || !Math.CatalogById((payload as Dict).Id) || !typeIs((payload as Dict).Saved, "boolean")) {
-		return $tuple(false, "Choose a valid supply to save.");
+		return $tuple(false, T("Bazaar.ChooseAValidSupplyTo"));
 	}
 	const id = (payload as Dict).Id as string;
 	const saved = (payload as Dict).Saved as boolean;
 	const bag = ensure(profile);
 	bag.Market.Saved[id] = saved ? true : undefined;
-	return $tuple(true, saved ? "Supply saved for future shipments." : "Supply removed from saved items.");
+	return $tuple(true, saved ? T("Bazaar.SupplySavedForFutureShipments") : T("Bazaar.SupplyRemovedFromSavedItems"));
 };
 Service.State = (profile, now, userId) => {
 	const bag = ensure(profile);
