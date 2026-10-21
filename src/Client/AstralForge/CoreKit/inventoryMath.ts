@@ -1,5 +1,7 @@
 // Inline helpers so the compiled output has no cross-module TS.import (keeps Lune tests working)
 type Dict = Record<string, unknown>;
+// mirrors Shared/CompanionRelic; kept inline for the same reason as everything else here
+const CompanionRelic = { TARGET: "Companion:1", SHARE: 0.4 };
 function isTable(value: unknown): value is Dict {
 	return typeIs(value, "table");
 }
@@ -119,6 +121,9 @@ export function SalvagePreview(config: unknown, definition: unknown, level: unkn
 export function SocketLabel(target: unknown): string {
 	if (!typeIs(target, "string")) {
 		return tostring(target);
+	}
+	if (target === CompanionRelic.TARGET) {
+		return "Companion";
 	}
 	const parts = target.split(":");
 	return parts.size() >= 2 ? `${parts[0]} / ${parts[1]}` : target;
@@ -393,6 +398,8 @@ export function SocketTargets(state: unknown, config: unknown, definition: unkno
 	} else {
 		pushUpgrade(config.Research, "Research", state.Research);
 	}
+	// any relic can tag along; it fits no socket, so it always goes last
+	out.push({ id: CompanionRelic.TARGET, label: "Companion" });
 	return out;
 }
 
@@ -408,6 +415,11 @@ export function CompareSocket(state: unknown, config: unknown, uid: unknown, def
 	const currentUid = items.Equipped[target];
 	const mine = EffectAtLevel(definition, level, stars);
 	const pct = (value: number) => `${math.floor(value * 1000 + 0.5) / 10}%`;
+	if (target === CompanionRelic.TARGET) {
+		const kind = isTable(definition) ? tostring(definition.EffectKind ?? "") : "";
+		const along = `+${pct(mine * CompanionRelic.SHARE)} ${string.lower(kind)} everywhere`;
+		return typeIs(currentUid, "string") && currentUid !== uid ? `Swaps out your current companion · ${along}` : `Companion · ${along}`;
+	}
 	if (!typeIs(currentUid, "string") || currentUid === uid) {
 		return `Empty socket · adds +${pct(mine)}`;
 	}

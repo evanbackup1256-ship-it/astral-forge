@@ -2,6 +2,7 @@ import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import RelicRigs = require("../../../Shared/AstralForge/Shared/RelicRigs");
+import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
@@ -620,6 +621,9 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 	const equippedItems = new Set<string>();
 	const equipped = d(items.Equipped);
 	for (const [target, uid] of pairs(equipped)) {
+		if (target === CompanionRelic.TARGET) {
+			continue;
+		}
 		const instance = typeIs(uid, "string") ? inventory[uid] : undefined;
 		const definition =
 			instance !== undefined && typeIs(instance, "table") ? itemById[(instance as Dict).DefinitionId as string] : undefined;
@@ -645,6 +649,11 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 			equippedItems.add(uid as string);
 		}
 	}
+	// a companion that is also socketed somewhere keeps the socket; the companion slot empties
+	if (equippedItems.has(CompanionRelic.uidOf(items) ?? "")) {
+		equipped[CompanionRelic.TARGET] = undefined;
+	}
+	CompanionRelic.sanitize(items);
 	ProfileBagMath.EnsureAnomaly(profile);
 	const anomaly = d(profile.Anomaly);
 	if (!typeIs(anomaly.Discoveries, "table")) {

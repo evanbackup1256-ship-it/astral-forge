@@ -464,6 +464,9 @@ __defs["Economy"] = () => {
 	const RelicRigs = require(shared.WaitForChild("RelicRigs") as ModuleScript) as {
 		bonus(this: void, profile: unknown, kind: string): number;
 	};
+	const CompanionRelic = require(shared.WaitForChild("CompanionRelic") as ModuleScript) as {
+		bonus(this: void, items: unknown, kind: string): number;
+	};
 	const OfflineProjection = __load("OfflineProjection") as OfflineProjectionApi;
 	const TapCritProjection = __load("TapCritProjection") as TapCritProjectionApi;
 	const UpgradeCostReason = __load("UpgradeCostReason") as UpgradeCostReasonApi;
@@ -632,7 +635,12 @@ __defs["Economy"] = () => {
 		},
 
 		ItemEffect(this: void, profile: ProfileLike, effectKind: string, slotFilter?: string, targetFilter?: string): number {
-			return EconomyEnvelopeMath.ItemEffect(
+			// the companion is a global bonus, so it rides along with the research-wide lookups only
+			const companion =
+				targetFilter === undefined && (slotFilter === undefined || slotFilter === "Research")
+					? CompanionRelic.bonus(profile.Items, effectKind)
+					: 0;
+			return companion + EconomyEnvelopeMath.ItemEffect(
 				profile.Items,
 				profile.Machines,
 				profile.Research,

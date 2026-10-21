@@ -501,6 +501,8 @@ function PlayerRow(param: PlayerRowProps) {
 		);
 	}
 	const relics = "NO EQUIPPED ARTIFACT";
+	const companionName = Players.GetPlayerByUserId(row.UserId)?.GetAttribute("Companion");
+	const companion = typeIs(companionName, "string") && companionName !== "" ? "  ·  WITH " + string.upper(companionName) : "";
 	return h(
 		"frame",
 		{
@@ -766,11 +768,11 @@ function PlayerRow(param: PlayerRowProps) {
 			row.IsLocal &&
 				h(Text, {
 					value:
-						artifact !== undefined
+						(artifact !== undefined
 							? `ARTIFACT  ${artifact.Name} · ${artifact.Rarity} · LV ${artifact.Level}${
 									artifact.Effect !== undefined ? "  ·  " + artifact.Effect : ""
 								}`
-							: "ARTIFACT  none equipped",
+							: "ARTIFACT  none equipped") + companion,
 					size: 10,
 					color: artifactColor ?? Palette.muted,
 					weight: Enum.FontWeight.Heavy,
@@ -786,7 +788,7 @@ function PlayerRow(param: PlayerRowProps) {
 						artifact !== undefined
 							? string.upper(artifact.Name) + (artifact.Effect !== undefined ? " " + artifact.Effect : "")
 							: relics
-					}  ·  ACCOUNT ${Model.accountAge(row.AccountAge)}${row.Premium ? "  ·  PREMIUM" : ""}`,
+					}${companion}  ·  ACCOUNT ${Model.accountAge(row.AccountAge)}${row.Premium ? "  ·  PREMIUM" : ""}`,
 					size: 10,
 					color: artifactColor ?? Palette.muted,
 					weight: Enum.FontWeight.Bold,

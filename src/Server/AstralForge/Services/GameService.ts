@@ -34,6 +34,7 @@ import * as WeeklyStores from "./WeeklyStores";
 import * as LimitedEvents from "../../../Shared/AstralForge/Shared/LimitedEvents";
 import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
+import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
@@ -1823,6 +1824,12 @@ export class GameService {
 			]) {
 				player.SetAttribute(key, undefined);
 			}
+		}
+		// the companion is public too, so the player list can show who brought what
+		const companion = CompanionRelic.describe(profile.Items);
+		const companionName = companion !== undefined ? companion.Name : undefined;
+		if (player.GetAttribute("Companion") !== companionName) {
+			player.SetAttribute("Companion", companionName);
 		}
 	}
 
@@ -4156,6 +4163,20 @@ export class GameService {
 			if (definition === undefined) {
 				return responseError("That item is not in your inventory.");
 			}
+			if (target === CompanionRelic.TARGET) {
+				const equipped = items.Equipped as Dict;
+				for (const [equippedTarget, equippedUid] of pairs(equipped)) {
+					if (equippedUid === uid) {
+						equipped[equippedTarget as string] = undefined;
+					}
+				}
+				equipped[target] = uid;
+				return responseSuccess((definition.Name as string) + " is your companion now.", {
+					ItemName: definition.Name,
+					Rarity: definition.Rarity,
+					Target: target,
+				});
+			}
 			const [slot, targetId] = target.match("^(%a+):([%w_]+)$");
 			if (definition.Slot !== slot) {
 				return responseError(string.format("%s items only fit %s sockets.", definition.Name as string, definition.Slot as string));
@@ -4480,10 +4501,11 @@ export class GameService {
 				profile.Research,
 			) as unknown[];
 			const candidates: Dict[] = [];
+			const companion = CompanionRelic.uidOf(items);
 			for (const [uid, instance] of pairs(items.Inventory as object)) {
 				const inst = instance as Dict;
 				const definition = itemById[inst.DefinitionId as string] as Dict | undefined;
-				if (definition !== undefined) {
+				if (definition !== undefined && uid !== companion) {
 					candidates.push({
 						Uid: uid,
 						Instance: inst,
@@ -4498,6 +4520,9 @@ export class GameService {
 				GameConfig.Items.Rarities,
 				items.Equipped,
 			) as LuaTuple<[unknown, number, unknown]>;
+			if (companion !== undefined) {
+				(nextEquipped as Dict)[CompanionRelic.TARGET] = companion;
+			}
 			items.Equipped = nextEquipped;
 			const [rigCount, rigNote] = grantLitRigs(profile);
 			const equippedLine =
