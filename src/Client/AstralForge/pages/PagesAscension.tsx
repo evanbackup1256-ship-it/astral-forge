@@ -140,20 +140,35 @@ function HoldButton(props: HoldButtonProps) {
 	const [fill, setFill] = React.useBinding(0);
 	const holding = React.useRef<RBXScriptConnection>();
 	const enabled = props.enabled;
+	const release = React.useRef<RBXScriptConnection>();
 	const stop = () => {
 		if (holding.current) {
 			holding.current.Disconnect();
 			holding.current = undefined;
 		}
+		release.current?.Disconnect();
+		release.current = undefined;
 		setFill(0);
 	};
 	React.useEffect(() => stop, []);
-	const begin = () => {
+	// losing eligibility mid-hold (a snapshot lands) cancels instead of confirming on stale props
+	React.useEffect(() => {
+		if (!enabled) {
+			stop();
+		}
+	}, [enabled]);
+	const begin = (pressed: InputObject) => {
 		if (!enabled || holding.current) {
 			return;
 		}
 		Audio.play("rebirthCharge");
 		const started = os.clock();
+		// a finger or button released anywhere (dragged off the button first) still counts as letting go
+		release.current = game.GetService("UserInputService").InputEnded.Connect((input) => {
+			if (input.UserInputType === pressed.UserInputType && input.KeyCode === pressed.KeyCode) {
+				stop();
+			}
+		});
 		holding.current = RunService.Heartbeat.Connect(() => {
 			const amount = math.clamp((os.clock() - started) / HOLD_SECONDS, 0, 1);
 			setFill(amount);
@@ -177,7 +192,7 @@ function HoldButton(props: HoldButtonProps) {
 			Event={{
 				InputBegan: (_, input) => {
 					if (isPress(input)) {
-						begin();
+						begin(input);
 					}
 				},
 				InputEnded: (_, input) => {
