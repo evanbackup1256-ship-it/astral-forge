@@ -69,7 +69,7 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 					page: reward[0],
 					cta: "Open " + (reward[0] === "ForgePath" ? "Forge Path" : reward[0]),
 					value: tostring(reward[1]),
-					label: "REWARDS READY",
+					label: "Rewards ready",
 					progress: 1,
 				};
 			}
@@ -80,8 +80,8 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 				body: "Review the reset and permanent bonuses before expanding your Domain.",
 				page: "Domain",
 				cta: "Review Domain",
-				value: "READY",
-				label: "DOMAIN EXPANSION",
+				value: "Ready",
+				label: "Domain expansion",
 				progress: 1,
 			};
 		}
@@ -90,7 +90,7 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 				title: "Rebirth rewards are ready",
 				body: `Review the panel below to reset machines and collect ${compact(state.PrestigeReward)} Cores. Research stays permanent.`,
 				value: "+" + compact(state.PrestigeReward),
-				label: "CORES READY",
+				label: "Cores ready",
 				progress: 1,
 			};
 		}
@@ -115,7 +115,7 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 				page,
 				cta: page === "Domain" ? "Review Domain" : page !== undefined ? "Build production" : undefined,
 				value: `${math.floor(progress * 100)}%`,
-				label: "NEXT UNLOCK",
+				label: "Next unlock",
 				progress,
 			};
 		}
@@ -124,8 +124,8 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 			body: "Upgrade your best machine to raise production. Research stays through rebirths.",
 			page: "Workshop",
 			cta: "Compare machines",
-			value: "NEXT",
-			label: "PRODUCTION",
+			value: "Next",
+			label: "Production",
 			progress: 0,
 		};
 	};

@@ -585,7 +585,7 @@ export function search(state: Record<string, unknown>, query: string, chatUnread
 				}
 			}
 			if (items.size() > 0) {
-				sections.push({ title: "READY NOW", entries: items });
+				sections.push({ title: "Ready now", entries: items });
 			}
 		}
 		const recent: SearchEntry[] = [];

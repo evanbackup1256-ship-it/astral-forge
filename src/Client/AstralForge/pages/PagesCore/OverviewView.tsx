@@ -1268,7 +1268,7 @@ export function OverviewView({
 										let cta = "";
 										let ctaAction: (() => unknown) | undefined;
 										let statValue = `${math.floor(progress * 100 + 0.5)}%`;
-										let statLabel = "PAYS 1 CORE";
+										let statLabel = "Pays 1 core";
 										if (vaultFill >= 0.99) {
 											title = "Collect stored Flux";
 											body = "The vault is full, so machines stopped earning. Collect now, then buy another level.";
@@ -1277,7 +1277,7 @@ export function OverviewView({
 											cta = "Collect stored Flux";
 											ctaAction = () => dispatch("CollectVault");
 											statValue = "FULL";
-											statLabel = "VAULT";
+											statLabel = "Vault";
 										} else {
 											const stellar = state.Machines.StellarCore ?? 0;
 											if (stellar < 1) {
@@ -1296,7 +1296,7 @@ export function OverviewView({
 													cta = "Collect stored Flux";
 													ctaAction = fireCollect;
 													statValue = compactNumber(state.Vault);
-													statLabel = "INTO CASH";
+													statLabel = "Into cash";
 												} else {
 													title = "Buy a machine";
 													body =
@@ -1323,7 +1323,7 @@ export function OverviewView({
 													cta = "Open Research";
 													ctaAction = () => navigate?.("Research");
 													statValue = `${efficiency}/3`;
-													statLabel = "UNLOCKS STORAGE";
+													statLabel = "Unlocks storage";
 												} else {
 													const storage = state.Research.Storage ?? 0;
 													if (storage < 3) {
@@ -1334,7 +1334,7 @@ export function OverviewView({
 														cta = "Open Research";
 														ctaAction = () => navigate?.("Research");
 														statValue = `${storage}/3`;
-														statLabel = "UNLOCKS RELAY";
+														statLabel = "Unlocks relay";
 													} else {
 														const offline = state.Research.Offline ?? 0;
 														if (offline < 1) {
@@ -1345,7 +1345,7 @@ export function OverviewView({
 															cta = "Open Research";
 															ctaAction = () => navigate?.("Research");
 															statValue = "NEXT";
-															statLabel = "LONGER AFK";
+															statLabel = "Longer AFK";
 														} else {
 															const overcharge = state.Research.Overcharge ?? 0;
 															if (overcharge < 1) {
@@ -1356,7 +1356,7 @@ export function OverviewView({
 																cta = "Open Research";
 																ctaAction = () => navigate?.("Research");
 																statValue = "NEXT";
-																statLabel = "STRONGER TAPS";
+																statLabel = "Stronger taps";
 															} else if (canRebirth) {
 																title = "Rebirth for Cores";
 																body = `Reset this run's machines and keep Research. Collect ${compactNumber(state.PrestigeReward)} Cores from the panel below.`;
@@ -1364,7 +1364,7 @@ export function OverviewView({
 																meter = 1;
 																accent = Palette.pink;
 																statValue = `+${compactNumber(state.PrestigeReward)}`;
-																statLabel = "CORES READY";
+																statLabel = "Cores ready";
 															} else if (progress < 0.45) {
 																title = "Buy more machines";
 																body = `Buy machines and collect often. Filling this bar pays 1 core + ${compactNumber(coreDust)} stardust.`;
@@ -1372,7 +1372,7 @@ export function OverviewView({
 																cta = "Buy a machine";
 																ctaAction = openWorkshop;
 																statValue = `${math.floor(progress * 100 + 0.5)}%`;
-																statLabel = "PAYS 1 CORE";
+																statLabel = "Pays 1 core";
 															}
 														}
 													}
