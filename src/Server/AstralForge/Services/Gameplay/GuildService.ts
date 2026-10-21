@@ -2,12 +2,15 @@
 import { Service } from "@flamework/core";
 import LeaderboardCodec from "../../Modules/LeaderboardCodec";
 import OpsMath from "../../Modules/OpsMath";
+import ProfileMath from "../../Modules/ProfileMath";
 import StoreAccess from "../../Modules/StoreAccess";
 import ServerConfig from "../../ServerConfig";
 import GameConfig from "../../../../Shared/AstralForge/Shared/GameConfig";
 import OmegaMath from "../../../../Shared/AstralForge/Shared/OmegaMath";
 import SocialProgressionFactory from "../../../../Shared/AstralForge/Shared/SocialProgression";
 import { Dict, isTable, num } from "../LuaInterop";
+
+const Format = ProfileMath("Format") as { Number(this: void, value: unknown): string };
 
 type Profile = Dict;
 
@@ -859,11 +862,15 @@ export class GuildService {
 		const bank = guild[bankKey] ?? 0;
 		if (!GuildMath.CanAffordBank(OmegaMath, definition.Currency as string, bank, cost)) {
 			const label = definition.Currency === "Cash" ? "flux" : "dust";
-			const haveLabel =
-				definition.Currency === "Cash" ? tostring(bank) : tostring(math.floor(num(bank) ?? 0));
+			const have = definition.Currency === "Cash" ? bank : math.floor(num(bank) ?? 0);
 			return $tuple(
 				false,
-				string.format("Need %d %s in the guild bank (have %s). Contribute first.", cost, label, haveLabel),
+				string.format(
+					"Need %s %s in the guild bank (have %s). Contribute first.",
+					Format.Number(cost),
+					label,
+					Format.Number(have),
+				),
 				undefined,
 			);
 		}

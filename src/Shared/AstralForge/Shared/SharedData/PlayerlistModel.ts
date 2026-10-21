@@ -23,7 +23,7 @@ interface Row {
 	Zone: number;
 	Rebirths: number;
 	Production: number | string;
-	LifetimeCash: number;
+	LifetimeCash: number | string;
 	DomainRank: number;
 	PlayTime: number;
 	AccountAge: number;
@@ -104,6 +104,17 @@ function num(value: unknown): number {
 	return 0;
 }
 
+// big-number values (1e15 and up) arrive as encoded strings; keep them for formatting and sorting
+function bigValue(value: unknown): number | string {
+	if (typeIs(value, "number")) {
+		return value === value ? value : 0;
+	}
+	if (typeIs(value, "string") && (value.match("^%-?%d+%.?%d*e%-?%d+$")[0] !== undefined || value === "inf")) {
+		return value;
+	}
+	return 0;
+}
+
 function artifact(raw: unknown): Artifact | undefined {
 	const r = raw as Dict;
 	if (!typeIs(raw, "table") || !typeIs(r.Id, "string") || r.Id === "") {
@@ -171,14 +182,8 @@ function clean(raw: unknown, skipUserId?: number): Row[] {
 			Zone: math.max(1, num(entry.Zone)),
 			Rebirths: num(entry.Rebirths),
 			// big-number output (Googol and up) arrives as an encoded value; keep it for formatting and sorting
-			Production:
-				typeIs(production, "number") && production === production
-					? production
-					: typeIs(production, "string") &&
-						  (production.match("^%-?%d+%.?%d*e%-?%d+$")[0] !== undefined || production === "inf")
-						? production
-						: 0,
-			LifetimeCash: num(entry.LifetimeCash),
+			Production: bigValue(production),
+			LifetimeCash: bigValue(entry.LifetimeCash),
 			DomainRank: num(entry.DomainRank),
 			PlayTime: num(entry.PlayTime),
 			AccountAge: num(entry.AccountAge),
