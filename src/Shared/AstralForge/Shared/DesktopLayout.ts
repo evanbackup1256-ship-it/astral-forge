@@ -29,7 +29,7 @@ const FIELDS: ReadonlyArray<Field> = table.freeze([
 	{ key: "nav.width", element: "nav", kind: "int", default: 0, min: 0, max: 100, step: 5 },
 	{ key: "nav.collapsed", element: "nav", kind: "bool", default: 0 },
 	{ key: "top.height", element: "top", kind: "int", default: 50, min: 0, max: 100, step: 5 },
-	{ key: "top.order", element: "top", kind: "order", default: "EPCDF", letters: CHIP_LETTERS },
+	{ key: "top.order", element: "top", kind: "order", default: "FDCPE", letters: CHIP_LETTERS },
 	{ key: "top.hideCores", element: "top", kind: "bool", default: 0 },
 	{ key: "top.hideDust", element: "top", kind: "bool", default: 0 },
 	{ key: "top.hideEvent", element: "top", kind: "bool", default: 0 },
@@ -159,13 +159,13 @@ function Normalize(raw: unknown): string | undefined {
 }
 
 function ResetElement(layout: Layout, element: string): Layout {
-	const next = table.clone(layout);
+	const updated = table.clone(layout);
 	for (const field of FIELDS) {
 		if (field.element === element) {
-			next[field.key] = field.default;
+			updated[field.key] = field.default;
 		}
 	}
-	return next;
+	return updated;
 }
 
 function SetValue(layout: Layout, key: string, value: unknown): Layout {
@@ -177,9 +177,9 @@ function SetValue(layout: Layout, key: string, value: unknown): Layout {
 	if (cleaned === undefined || layout[key] === cleaned) {
 		return layout;
 	}
-	const next = table.clone(layout);
-	next[key] = cleaned;
-	return next;
+	const updated = table.clone(layout);
+	updated[key] = cleaned;
+	return updated;
 }
 
 function IsCustom(layout: Layout, element?: string): boolean {

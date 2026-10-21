@@ -29,7 +29,7 @@ const PANEL_W = 600;
 const PANEL_H = 214;
 
 export interface DesktopLayoutEditorProps {
-	dispatch: (action: string, payload?: unknown) => void;
+	dispatch: (action: string, payload?: object) => void;
 	viewportWidth: number;
 	viewportHeight: number;
 	// where the floating pieces sit when docked
@@ -58,9 +58,9 @@ function DragBox(props: {
 			position: props.at,
 			snap: DesktopLayout.GRID,
 			bounds: { minX: box.X / 2, maxX: math.max(box.X / 2, viewport.X - box.X / 2), minY: 0, maxY: math.max(0, viewport.Y - box.Y) },
-			onMove: (next) => {
-				setPos(next);
-				moveRef.current(next);
+			onMove: (moved) => {
+				setPos(moved);
+				moveRef.current(moved);
 			},
 		});
 	}, [id, box, viewport, props.at]);
@@ -179,10 +179,10 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 		for (let index = 1; index <= order.size(); index++) letters.push(order.sub(index, index));
 		const swap = (from: number, to: number) => {
 			if (to < 0 || to >= letters.size()) return;
-			const next = table.clone(letters);
-			next[from] = letters[to];
-			next[to] = letters[from];
-			change("top.order", next.join(""));
+			const swapped = table.clone(letters);
+			swapped[from] = letters[to];
+			swapped[to] = letters[from];
+			change("top.order", swapped.join(""));
 		};
 		body = (
 			<>

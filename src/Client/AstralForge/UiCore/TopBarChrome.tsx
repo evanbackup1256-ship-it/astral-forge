@@ -1065,7 +1065,15 @@ interface TopBarProps {
 	openFeedback: () => void;
 	navigate?: (page: string) => void;
 	config?: unknown;
+	// desktop layout editor: island left-to-right letter order, hidden letters, detached spot (screen px) and size
+	chipOrder?: string;
+	chipHidden?: string;
+	islandX?: number;
+	islandY?: number;
+	islandScale?: number;
 }
+
+const CHIP_LETTER: Record<string, string> = { FLUX: "F", CORES: "C", DUST: "D", EVENT: "E", COMPANION: "P" };
 
 function TopBarImpl(_param: TopBarProps) {
 	countRedraw("TopBar", redrawCounterEnabled(_param.state as { Admin?: { Access?: boolean } }));
@@ -1135,6 +1143,21 @@ function TopBarImpl(_param: TopBarProps) {
 		icon: "Flux.21",
 		accent: Palette.cyan,
 	});
+	const chipHidden = _param.chipHidden ?? "";
+	if (chipHidden !== "") {
+		for (let index = allChips.size() - 1; index >= 0; index--) {
+			const [found] = chipHidden.find(CHIP_LETTER[allChips[index].label] ?? "?", 1, true);
+			if (found !== undefined) {
+				allChips.remove(index);
+			}
+		}
+	}
+	const chipOrder = _param.chipOrder;
+	if (chipOrder !== undefined && chipOrder !== "") {
+		// island lists currencies reversed, so sort descending to read left-to-right in chipOrder
+		const rankOf = (chip: ChipDef) => chipOrder.find(CHIP_LETTER[chip.label] ?? "?", 1, true)[0] ?? 99;
+		table.sort(allChips, (a, b) => rankOf(a) > rankOf(b));
+	}
 	const visitPillWidth = visitPill !== undefined ? (tight ? 124 : 156) : 0;
 	const countdownW = 0;
 	const showFps = (tonumber(state.Settings?.ShowFps) ?? 1) >= 0.5;
@@ -1303,12 +1326,30 @@ function TopBarImpl(_param: TopBarProps) {
 			});
 		}
 	}
+	const islandScale = math.clamp(_param.islandScale ?? 1, 0.8, 1.25);
+	const islandDetached = (_param.islandX ?? -1) >= 0 && (_param.islandY ?? -1) >= 0;
+	const islandWrap = (child: React.Element) =>
+		!islandDetached && islandScale === 1
+			? child
+			: h(
+					"frame",
+					{
+						Size: UDim2.fromOffset(0, 0),
+						Position: islandDetached
+							? UDim2.fromOffset(_param.islandX! - edgePad, _param.islandY! - topPad)
+							: new UDim2(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
+						BackgroundTransparency: 1,
+						ZIndex: 24,
+					},
+					h("uiscale", { Scale: islandScale }),
+					child,
+				);
 	const islandElement =
 		!stacked &&
 		h(
 			React.Fragment,
 			undefined,
-			h(BuffStrip.Island, {
+			islandWrap(h(BuffStrip.Island, {
 				state: state,
 				config: _param.config,
 				currencies: islandCurrencies,
@@ -1319,11 +1360,11 @@ function TopBarImpl(_param: TopBarProps) {
 				rate: state.Production,
 				liveVaultFull: true,
 				navigate: _param.navigate,
-				maxWidth: islandRoom,
-				position: new UDim2(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
+				maxWidth: islandDetached ? math.max(islandRoom, 420) : islandRoom,
+				position: islandDetached || islandScale !== 1 ? new UDim2() : new UDim2(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
 				anchorPoint: new Vector2(0.5, 0),
 				reducedMotion: reducedMotion,
-			}),
+			})),
 			visitPill !== undefined &&
 				h(
 					"frame",

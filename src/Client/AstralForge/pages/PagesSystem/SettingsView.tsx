@@ -3,6 +3,7 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { fitTouchGridWidth, moreDockHeight } from "../../CoreKit/mobileLayout";
 import { chromeFor, darken, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motion";
+import { openDesktopEditor } from "../../CoreKit/desktopLayout";
 import { MobileTabPinsEditor, mobileTabPinsEditorHeight } from "./MobileTabPinsEditor";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedModule } from "../luauKits";
 
@@ -982,6 +983,22 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				softMotion={softMotion === true}
 			/>,
 			mobileTabPinsEditorHeight(stack),
+		);
+	}
+	if (!listing && activeSection === "interface" && !chrome.stack) {
+		add(
+			"desktopHud",
+			<Button
+				text="Customize layout"
+				icon="Settings.3"
+				onClick={() => openDesktopEditor(true)}
+				color={accent}
+				textColor={Palette.ink}
+				size={new UDim2(1, 0, 0, 40)}
+				position={UDim2.fromOffset(0, 10)}
+				reducedMotion={softMotion}
+			/>,
+			54,
 		);
 	}
 	if (!listing && activeSection === "interface" && UserInputService.GamepadEnabled) {

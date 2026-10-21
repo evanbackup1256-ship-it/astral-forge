@@ -40,6 +40,8 @@ import { AmbientLayer, TradeReturnPill } from "./ShellFx";
 import { TopBar } from "./TopBarChrome";
 import { Button, Text } from "./ui";
 import { Workspace } from "./WorkspaceChrome";
+import { DesktopLayout, openDesktopEditor, useDesktopEditorOpen, useDesktopPlan } from "../CoreKit/desktopLayout";
+import { DesktopLayoutEditor } from "../UiOverlays/DesktopLayoutEditor";
 import TutorialScript = require("../../../Shared/AstralForge/Shared/SharedData/TutorialScript");
 
 type RevealSession = NonNullable<CrateRevealProps["session"]>;
@@ -204,6 +206,7 @@ function offlineRewardsProps(state: ShellState, reducedMotion: boolean, dispatch
 // static anchors hoisted out of render (Vector2/UDim2 compare by value in Luau, so this saves allocations, not redraws)
 const TOP_CENTER_ANCHOR = new Vector2(0.5, 0);
 const TOP_RIGHT_ANCHOR = new Vector2(1, 0);
+const DESK_DEFAULT_ORDER = DesktopLayout.Defaults()["top.order"] as string;
 
 function AppShell(props: ShellProps) {
 	const { state, config, dispatch, addNotice, celebrate, clearConfetti, pops, comboReadout, visit, setVisit,
@@ -248,8 +251,12 @@ function AppShell(props: ShellProps) {
 	const edgePad = math.max(8, chrome.sideSafe, math.floor(chrome.pagePadding * densityScale));
 	const topPad = chrome.stack ? 6 : Layout.topbarClearance;
 	const keyboardShellCompact = viewport.keyboardOpen && chrome.mobile && (tonumber(state.Settings.MobileKeyboardCompact) ?? 1) >= 0.5;
-	const topbarHeight = keyboardShellCompact ? 0 : chrome.stack ? chrome.topbarRows
-		: (tonumber(state.Settings.CompactTopBar) ?? 0) >= 0.5 ? math.max(52, chrome.topbarRows - 8) : chrome.topbarRows;
+	const stockTopbar = (tonumber(state.Settings.CompactTopBar) ?? 0) >= 0.5 ? math.max(52, chrome.topbarRows - 8) : chrome.topbarRows;
+	// desktop layout editor (Settings > Interface); phones and the drawer layout keep the stock shell
+	const desk = useDesktopPlan(viewport.width, viewport.compact ? Layout.sidebarCollapsedWidth : Layout.sidebarWidth, stockTopbar);
+	const deskEditorOpen = useDesktopEditorOpen();
+	const deskOn = !chrome.stack && !drawerNav;
+	const topbarHeight = keyboardShellCompact ? 0 : chrome.stack ? chrome.topbarRows : deskOn ? desk.topHeight : stockTopbar;
 	const tabBarH = keyboardShellCompact ? 0 : chrome.tabBarH;
 	const shellTop = topPad + topbarHeight + chrome.panelGap;
 	const quickActionsVisible = (tonumber(state.Settings.MobileQuickVisible) ?? 1) >= 0.5 && chrome.stack
@@ -281,13 +288,17 @@ function AppShell(props: ShellProps) {
 	const hideAmount = useFlipperSpring(hidden ? 1 : 0, softMotion, 620, 42);
 	const mobileShell = chrome.stack;
 	const drawerWidth = math.min(Layout.sidebarWidth, math.max(248, viewport.width - edgePad * 2 - 36));
-	const railTarget = railOpen ? drawerNav ? drawerWidth : viewport.compact ? Layout.sidebarCollapsedWidth : Layout.sidebarWidth : 0;
+	const railTarget = railOpen ? drawerNav ? drawerWidth : viewport.compact || desk.navCollapsed ? Layout.sidebarCollapsedWidth : desk.navWidth : 0;
+	const navRight = deskOn && desk.navRight;
+	const islandDock = React.useMemo(() => new Vector2(math.floor(viewport.width / 2), topPad + math.floor((topbarHeight - 44) / 2)), [viewport.width, topPad, topbarHeight]);
+	const comboDock = React.useMemo(() => new Vector2(viewport.width - 18 - 84, topPad + topbarHeight + 8), [viewport.width, topPad, topbarHeight]);
+	const deskHidden = (desk.hideCores ? "C" : "") + (desk.hideDust ? "D" : "") + (desk.hideEvent ? "E" : "") + (desk.hideCompanion ? "P" : "");
 	const railWidth = useFlipperSpring(mobileShell ? 0 : railTarget, softMotion, 900, 46);
 	const drawerProgress = railWidth.map((width) => drawerNav ? math.clamp(width / math.max(drawerWidth, 1), 0, 1) : 0);
 	const drawerScrimTransparency = drawerProgress.map((amount) => 1 - amount * 0.58);
 	const drawerScrimVisible = drawerProgress.map((amount) => amount > 0.01);
 	const drawerPanelVisible = railWidth.map((width) => width > 6);
-	const workspaceOffset = railWidth.map((width) => drawerNav ? UDim2.fromOffset(0, 0)
+	const workspaceOffset = railWidth.map((width) => drawerNav || navRight ? UDim2.fromOffset(0, 0)
 		: new UDim2(0, width > 1 ? width + Layout.panelGap : 0, 0, 0));
 	const workspaceSize = railWidth.map((width) => drawerNav ? UDim2.fromScale(1, 1)
 		: new UDim2(1, -(width > 1 ? width + Layout.panelGap : 0), 1, 0));
@@ -565,10 +576,14 @@ function AppShell(props: ShellProps) {
 						{!keyboardShellCompact && !mobileShell && <TopBar state={state} page={page} railOpen={railOpen} toggleRail={toggleRail} hideUI={hideUI}
 							tight={viewport.tight} width={viewport.width} topPad={topPad} barHeight={topbarHeight} barHeightMotion={topbarLive} edgePad={edgePad} reducedMotion={softMotion}
 							releaseAt={config.Release.CountdownAt ?? 1789272000} visit={visit} config={config} navigate={setPage} openPlayerlist={openPlayerlist}
-							openFeedback={openFeedback} />}
+							openFeedback={openFeedback} chipOrder={deskOn && desk.chipOrder !== DESK_DEFAULT_ORDER ? desk.chipOrder : undefined} chipHidden={deskOn ? deskHidden : undefined}
+							islandX={deskOn && desk.islandAt !== undefined ? math.floor(desk.islandAt.X * viewport.width) : undefined}
+							islandY={deskOn && desk.islandAt !== undefined ? math.floor(desk.islandAt.Y * viewport.height) : undefined}
+							islandScale={deskOn ? desk.islandScale : undefined} />}
 						<frame Size={shellTopLive.map((top) => new UDim2(1, -edgePad * 2, 1, -(top + bottomPad + gamepadReserve)))}
 							Position={shellTopLive.map((top) => UDim2.fromOffset(edgePad, top))} BackgroundTransparency={1} BorderSizePixel={0}>
 							<frame Size={workspaceSize} Position={workspaceOffset} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={5}>
+								{deskOn && desk.pageMax < math.huge && <uisizeconstraint MaxSize={new Vector2(desk.pageMax, math.huge)} />}
 								<AntilagContext.Provider value={pageAntilag}>
 									<Workspace page={page} state={state} dispatch={dispatch} reducedMotion={reducedMotion} navigate={navigateStable}>
 										<PageFrame page={page} ref={pageHostRef}>
@@ -584,9 +599,9 @@ function AppShell(props: ShellProps) {
 							{!mobileShell && drawerNav && <imagebutton Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.void} BackgroundTransparency={drawerScrimTransparency} BorderSizePixel={0}
 								AutoButtonColor={false} Selectable={false} Active={railOpen} Visible={drawerScrimVisible} ZIndex={28} Event={{ Activated: () => { setRailOpen(false); Audio.play("close"); } }} />}
 							{!mobileShell && <frame Size={drawerNav ? new UDim2(0, drawerWidth, 1, 0) : railWidth.map((width) => new UDim2(0, math.max(0, width), 1, 0))}
-								Position={drawerNav ? drawerProgress.map((amount) => new UDim2(0, -drawerWidth * (1 - amount), 0, 0)) : undefined}
+								Position={drawerNav ? drawerProgress.map((amount) => new UDim2(0, -drawerWidth * (1 - amount), 0, 0)) : navRight ? railWidth.map((width) => new UDim2(1, -math.max(0, width), 0, 0)) : undefined}
 								BackgroundTransparency={1} BorderSizePixel={0} ZIndex={drawerNav ? 30 : 10} ClipsDescendants={true} Visible={drawerNav ? drawerScrimVisible : drawerPanelVisible}>
-								<Navigation page={page} setPage={navigateLatest} collapsed={!drawerNav && viewport.compact} width={railWidth} fixedWidth={drawerNav ? drawerWidth : undefined}
+								<Navigation page={page} setPage={navigateLatest} collapsed={!drawerNav && (viewport.compact || desk.navCollapsed)} width={railWidth} fixedWidth={drawerNav ? drawerWidth : undefined}
 									reducedMotion={softMotion} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} includeSecondary={true} fromMore={false}
 									activeBoost={activeBoost} activeBoostEndsAt={activeBoostEndsAt} wallClock={wallClock} openBoosts={openBoosts} />
 							</frame>}
@@ -596,7 +611,13 @@ function AppShell(props: ShellProps) {
 						{mobileShell && <MobileTabBar page={page} setPage={navigateLatest} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} reducedMotion={reducedMotion}
 							height={tabBarH} bottomSafe={chrome.bottomSafe} visible={!keyboardShellCompact} />}
 						{mobileShell && quickActionsVisible && <MobileQuickActions state={state} dispatch={dispatch} reducedMotion={reducedMotion} bottomOffset={quickBottomOffset} edgePad={edgePad} />}
-						{!hidden && <ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2(1, -18, 0, topPad + topbarHeight + 8)} anchorPoint={TOP_RIGHT_ANCHOR} zIndex={65} />}
+						{!hidden && !(deskOn && desk.comboHidden) && (!deskOn || (desk.comboAt === undefined && desk.comboScale === 1)
+							? <ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2(1, -18, 0, topPad + topbarHeight + 8)} anchorPoint={TOP_RIGHT_ANCHOR} zIndex={65} />
+							: <frame Size={UDim2.fromOffset(0, 0)} BackgroundTransparency={1} ZIndex={65}
+								Position={desk.comboAt !== undefined ? UDim2.fromScale(desk.comboAt.X, desk.comboAt.Y) : new UDim2(1, -18, 0, topPad + topbarHeight + 8)}>
+								<uiscale Scale={desk.comboScale} />
+								<ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2()} anchorPoint={desk.comboAt !== undefined ? TOP_CENTER_ANCHOR : TOP_RIGHT_ANCHOR} zIndex={65} />
+							</frame>)}
 						{renderEffectsScale > 0.05 && <EffectLayer pops={visiblePops} />}
 						<QuickFind.QuickFind state={state} dispatch={dispatch} navigate={navigateStable} chatUnread={chat.unread} reducedMotion={reducedMotion}
 							enabled={!hidden && !tutorialOpen && !domainOverlayActive && !showRelease} />
@@ -631,6 +652,8 @@ function AppShell(props: ShellProps) {
 				</UiEffectsPausedContext.Provider>
 				{crateReveal !== undefined && <CrateRevealOverlay session={crateReveal} config={config} skin={state.Cosmetics?.CrateSkin} reducedMotion={reducedMotion} onClose={() => setCrateReveal(undefined)} />}
 				<RebirthCeremonyHost reducedMotion={reducedMotion} />
+				{deskEditorOpen && deskOn && <DesktopLayoutEditor dispatch={dispatch} viewportWidth={viewport.width} viewportHeight={viewport.height}
+					islandDock={islandDock} comboDock={comboDock} onClose={() => openDesktopEditor(false)} />}
 				<RedrawCounterHud enabled={devRedraws} />
 			</>
 		</AntilagContext.Provider>
