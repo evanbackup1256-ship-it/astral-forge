@@ -679,7 +679,7 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 						</frame>
 						<textbox
 							ref={boxRef}
-							Size={new UDim2(1, -(44 + 48 + 76), 1, 0)}
+							Size={new UDim2(1, -(44 + 48 + (phone ? 0 : 76)), 1, 0)}
 							Position={UDim2.fromOffset(44, 0)}
 							BackgroundTransparency={1}
 							Text={query}
@@ -712,7 +712,7 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 							}}
 						/>
 						<SurfaceText
-							text={query === "" ? "" : `${results.total} found`}
+							text={query === "" || phone ? "" : `${results.total} found`}
 							type="hint"
 							color={Palette.creamSoft}
 							align={Enum.TextXAlignment.Right}

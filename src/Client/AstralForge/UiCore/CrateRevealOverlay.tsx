@@ -662,12 +662,14 @@ function EmptyReveal(props: { onClose: () => void }) {
 	const t = useStageClock("empty", 0.4);
 	useOverlayInput(props.onClose);
 	const show = t.map((s) => math.clamp(s / 0.2, 0, 1));
+	// 300 wide, narrower on small phones so it never touches the edges
+	const width = math.min(300, useViewport().width - 32);
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={500}>
 			<Backdrop amount={show} onTap={props.onClose} />
 			<Panel
-				size={UDim2.fromOffset(300, 96)}
-				position={new UDim2(0.5, -150, 0.42, -48)}
+				size={UDim2.fromOffset(width, 96)}
+				position={new UDim2(0.5, -width / 2, 0.42, -48)}
 				accent={Palette.coral}
 				background={Palette.panelRaised}
 				padding={Layout.cardPadding - 6}

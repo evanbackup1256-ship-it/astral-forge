@@ -509,6 +509,7 @@ export function TooltipProvider(props: TooltipProviderProps) {
 	React.useEffect(() => {
 		if (!enabled) {
 			close();
+			setShown(undefined);
 		}
 	}, [enabled]);
 	const playerGui = Players.LocalPlayer?.FindFirstChildOfClass("PlayerGui");
