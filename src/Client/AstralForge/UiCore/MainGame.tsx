@@ -75,6 +75,8 @@ interface JuiceApi {
 	activity(this: void, kind: string, data: unknown): void;
 	celebrateGains(this: void, before: unknown, after: unknown, options?: { spend?: boolean; big?: boolean; coins?: number; skipVault?: boolean }): number;
 	burst(this: void, at?: Vector2, color?: Color3, scale?: number): void;
+	grind(this: void, at?: Vector2, color?: Color3): void;
+	pointer(this: void): Vector2 | undefined;
 	ring(this: void, at?: Vector2, color?: Color3): void;
 	number(this: void, text: string, color?: Color3, options?: { at?: Vector2; big?: boolean; icon?: string }): void;
 	coins(this: void, target: string, color?: Color3, icon?: string, count?: number, from?: Vector2): boolean;
@@ -661,6 +663,7 @@ export function MainGame(_param: MainGameProps) {
 				if (action === "BuySignalOffer" || action === "BuyItemOffer") {
 					addNotice("Bought", response.message ?? "It's yours.", "Success");
 				} else if (machinePurchase) {
+					Juice.grind(Juice.pointer(), Palette.mango);
 					addNotice("Upgraded", response.message ?? "Running a little hotter now.", "Success", false);
 				} else if (progressionPurchase) {
 					addNotice("Upgraded", response.message ?? "One level up.", "Success", false);

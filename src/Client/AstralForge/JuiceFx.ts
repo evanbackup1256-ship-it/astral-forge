@@ -85,6 +85,8 @@ interface EffectSpec {
 	arrived?: boolean;
 	last?: boolean;
 	sparks?: Spark[];
+	/** burst without the flash and ring (grind) */
+	bare?: boolean;
 }
 
 interface Effect extends EffectSpec {
@@ -169,10 +171,38 @@ function now(): number {
 	return frozenAt ?? (os.clock() - frozenTotal);
 }
 
+// A tap can push four effects in one frame and every expiry used to re-render the host too;
+// the list now goes out at most once per frame.
+let notifyQueued = false;
 function notify() {
-	if (hostSetter !== undefined) {
-		hostSetter(table.clone(effects));
+	if (hostSetter === undefined || notifyQueued) {
+		return;
 	}
+	notifyQueued = true;
+	task.defer(() => {
+		notifyQueued = false;
+		if (hostSetter !== undefined) {
+			hostSetter(table.clone(effects));
+		}
+	});
+}
+
+// An effect never changes after it's pushed (it animates off the shared clock), so its element
+// is built once and handed back as the same object; React then skips the whole subtree when the
+// list changes, instead of rebuilding dozens of spark bindings for every live effect.
+const rendered = new Map<number, React.ReactElement | undefined>();
+let renderedFor: React.Binding<number> | undefined = undefined;
+function elementFor(effect: Effect, clock: React.Binding<number>): React.ReactElement | undefined {
+	if (renderedFor !== clock) {
+		rendered.clear();
+		renderedFor = clock;
+	}
+	if (rendered.has(effect.id)) {
+		return rendered.get(effect.id);
+	}
+	const element = renderEffect(effect, clock);
+	rendered.set(effect.id, element);
+	return element;
 }
 
 function push(spec: EffectSpec): Effect {
@@ -355,6 +385,22 @@ const Juice = {
 			sparks[index - 1] = { vx: math.cos(angle) * speed, vy: math.sin(angle) * speed, life: 0.45 + math.random() * 0.45, hot: math.random() < 0.35 };
 		}
 		push({ kind: "burst", at: at ?? Juice.defaultOrigin(), color: color ?? P.mango, scale: s, spin: math.random() * 360, sparks });
+	},
+
+	// a grinder spray for machine installs: a low fan of short, fast sparks thrown off to one side
+	// and dropping, no flash or ring, so it reads as metalwork rather than a celebration
+	grind(this: void, at?: Vector2, color?: Color3) {
+		if (!celebrationsAllowed()) {
+			return;
+		}
+		const side = math.random() < 0.5 ? -1 : 1;
+		const sparks: Spark[] = [];
+		for (let index = 1; index <= 18; index++) {
+			const angle = (side > 0 ? 0 : math.pi) + side * -(0.15 + math.random() * 0.55);
+			const speed = 380 + math.random() * 360;
+			sparks[index - 1] = { vx: math.cos(angle) * speed, vy: math.sin(angle) * speed, life: 0.25 + math.random() * 0.3, hot: math.random() < 0.5 };
+		}
+		push({ kind: "burst", at: at ?? Juice.defaultOrigin(), color: color ?? P.mango, scale: 0.6, spin: 0, sparks, bare: true });
 	},
 
 	// a quick ring under a tap
@@ -754,8 +800,15 @@ const Juice = {
 			};
 		}, []);
 		const children: Record<number, React.ReactElement | undefined> = {};
+		const live = new Set<number>();
 		for (const effect of list) {
-			children[effect.id] = renderEffect(effect, clock);
+			live.add(effect.id);
+			children[effect.id] = elementFor(effect, clock);
+		}
+		for (const [id] of rendered) {
+			if (!live.has(id)) {
+				rendered.delete(id);
+			}
 		}
 		// Studio only: the command bar gets its own copy of this module, so tests reach the live one
 		// through an event on the layer ("number" | "coins" | "burst" | "status" | "flash" | "ring", args...)
@@ -1237,6 +1290,13 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 			};
 			streak("glow", spark.hot ? 9 : 7, true);
 			streak("spark", spark.hot ? 4 : 3, false);
+		}
+		if (effect.bare === true) {
+			return h(
+				"frame",
+				{ key: effect.id, Size: UDim2.fromOffset(0, 0), Position: UDim2.fromOffset(effect.at!.X, effect.at!.Y), BackgroundTransparency: 1, ZIndex: 27 },
+				children,
+			);
 		}
 		children.core = h(
 			"frame",
