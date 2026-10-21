@@ -764,7 +764,6 @@ function FoundryView(props: {
 		"hero",
 		stack ? 186 : 128,
 		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={ACCENT} background={darken(ACCENT, 0.9)}>
-			<Ui.Text value="STAR FOUNDRY" size={12} weight={Enum.FontWeight.Heavy} color={ACCENT} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			<Ui.Text
 				value={
 					`${compact(foundry.Shards)} Shards  ·  ` +
@@ -774,7 +773,7 @@ function FoundryView(props: {
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
 				minSize={13}
-				position={UDim2.fromOffset(0, 20)}
+				position={UDim2.fromOffset(0, 4)}
 				sizeConstraint={new UDim2(1, 0, 0, 30)}
 			/>
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
