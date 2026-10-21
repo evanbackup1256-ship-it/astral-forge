@@ -546,6 +546,12 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	const applyPreset = (entry: SchemaPreset) => {
 		dispatch("SetSetting", { Values: entry.values, Label: entry.notice });
 	};
+	let sectionChanged = 0;
+	for (const entry of changedEntries) {
+		if (entry.section === activeSection) {
+			sectionChanged += 1;
+		}
+	}
 	const resetSection = () => {
 		dispatch("SetSetting", { Values: Schema.sectionDefaults(activeSection), Label: `${section.label} settings reset.` });
 	};
@@ -770,12 +776,26 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				size={18}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
+				fit={true}
+				minSize={13}
 				sizeConstraint={new UDim2(1, -110, 0, 24)}
 			/>
 			<Text
-				value={searching ? "From every section." : showChanged ? "What you changed from the default." : section.blurb}
+				value={
+					searching
+						? "From every section."
+						: showChanged
+							? changedEntries.size() > 0
+								? "What you changed from the default."
+								: "Nothing changed yet. Everything is on its default."
+							: sectionChanged > 0
+								? `${section.blurb} ${sectionChanged} changed.`
+								: section.blurb
+				}
 				size={12}
 				color={Palette.muted}
+				fit={true}
+				minSize={9}
 				position={UDim2.fromOffset(0, 26)}
 				sizeConstraint={new UDim2(1, -110, 0, 16)}
 			/>
@@ -794,6 +814,13 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 								}
 							: resetSection
 					}
+					disabled={showChanged ? changedEntries.size() === 0 : sectionChanged === 0}
+					tooltip={{
+						title: showChanged ? "Reset all" : `Reset ${section.label}`,
+						body: (showChanged ? changedEntries.size() === 0 : sectionChanged === 0)
+							? "Already on the defaults."
+							: "Puts these back to their defaults.",
+					}}
 					color={Palette.panelSoft}
 					textColor={Palette.creamSoft}
 					outline={true}
