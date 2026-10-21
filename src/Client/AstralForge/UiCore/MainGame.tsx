@@ -69,6 +69,7 @@ interface BootLedgerApi {
 
 interface JuiceApi {
 	setToastDensity(this: void, density: number): void;
+	holdNotices(this: void, held: boolean): void;
 	banner(this: void, title: string, subtitle?: string, color?: Color3, icon?: string, duration?: number, tone?: string): void;
 	flash(this: void, color?: Color3, strength?: number): void;
 	activity(this: void, kind: string, data: unknown): void;
@@ -247,7 +248,8 @@ export function MainGame(_param: MainGameProps) {
 		(visitNext: unknown) => dispatchStore(ClientActions.setVisit(visitNext)),
 		[dispatchStore],
 	);
-	const [, setToastsSuppressed] = React.useState(false);
+	// modals (tutorial, release notes, credits, crate reveals) hold toasts until they close
+	const setToastsSuppressed = React.useCallback((held: boolean) => Juice.holdNotices(held), []);
 	const purchasePresentationActive = React.useRef(false);
 	const setPurchasePresentationActive = React.useCallback((active: boolean) => {
 		purchasePresentationActive.current = active;

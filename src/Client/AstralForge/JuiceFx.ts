@@ -406,6 +406,14 @@ const Juice = {
 		return true;
 	},
 
+	/** Hold queued messages (the one showing still finishes) while a modal owns the screen. */
+	holdNotices(this: void, held: boolean) {
+		islandHeld = held;
+		if (!held && islandQueue.size() > 0) {
+			ensureDriver();
+		}
+	},
+
 	setToastDensity(this: void, density: number) {
 		islandQueueLimit = math.min(QUEUE_CAP, NoticeMath.MaxNotices(density));
 		while (islandQueue.size() > islandQueueLimit) {
@@ -810,6 +818,8 @@ let islandCurrent: NoticeInfo | undefined = undefined;
 const islandSubscribers = new Set<(current: NoticeInfo | undefined, queued: number) => void>();
 let islandToken = 0;
 let islandDriver: RBXScriptConnection | undefined = undefined;
+// while a modal owns the screen, the message showing finishes and the rest wait their turn
+let islandHeld = false;
 
 function cleanText(value: unknown, cap: number): string | undefined {
 	if (value === undefined) {
@@ -861,7 +871,7 @@ function holdFor(info: NoticeInfo): number {
 
 function islandAdvance() {
 	islandCurrent = undefined;
-	if (!islandSubscribers.isEmpty()) {
+	if (!islandSubscribers.isEmpty() && !islandHeld) {
 		const nextInfo = islandQueue.shift();
 		if (nextInfo !== undefined) {
 			islandToken += 1;
@@ -884,7 +894,7 @@ function ensureDriver() {
 				if (os.clock() >= islandCurrent.startedAt! + islandCurrent.hold!) {
 					islandAdvance();
 				}
-			} else if (islandQueue.size() > 0 && !islandSubscribers.isEmpty()) {
+			} else if (islandQueue.size() > 0 && !islandSubscribers.isEmpty() && !islandHeld) {
 				islandAdvance();
 			}
 			if (islandCurrent === undefined && islandQueue.size() === 0 && islandDriver !== undefined) {
