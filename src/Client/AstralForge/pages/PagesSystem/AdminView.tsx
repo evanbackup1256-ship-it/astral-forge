@@ -27,6 +27,8 @@ const PLAYER_ROW_STRIDE = PLAYER_ROW + 6;
 const COMMAND_ROW = 48;
 const COMMAND_ROW_STRIDE = COMMAND_ROW + 6;
 const SCROLL_BAR = 4;
+const OPS_H = 236;
+const OPS_LINE = 24;
 
 const ADMIN_CATS = [
 	{ id: "All", label: "ALL" },
@@ -36,6 +38,7 @@ const ADMIN_CATS = [
 	{ id: "Resets", label: "RESET" },
 	{ id: "Troll", label: "TROLL" },
 	{ id: "Moderation", label: "MOD" },
+	{ id: "LiveOps", label: "LIVE" },
 ];
 
 interface AdminPlayer {
@@ -65,7 +68,48 @@ interface AuditRecord {
 	ActorName: string;
 	TargetName: string;
 }
+interface SecurityRow {
+	UserId: number;
+	Name: string;
+	Flags: number;
+	LastKind: string;
+	Score: number;
+	Level: string;
+}
+interface HotFlagRow {
+	Name: string;
+	On: boolean;
+	Description: string;
+}
+interface AnnouncementRow {
+	Text: string;
+	From: string;
+	At: number;
+}
+interface EconomySummary {
+	Players?: number;
+	TotalCash?: unknown;
+	RichestCash?: unknown;
+	MedianProduction?: number;
+	MedianRebirths?: number;
+	TotalStardust?: number;
+	TotalCores?: number;
+	TopActions?: Array<{ Action: string; Count: number }>;
+}
+interface LookupResult {
+	UserId: number;
+	Name: string;
+	Score: number;
+	Level: string;
+	Revision?: number;
+	Flags?: Array<{ At: number; Kind: string; Detail: string }>;
+	Journal?: Array<{ Id: string; At: number; Label?: string; Revision?: number }>;
+}
 interface AdminState {
+	SecurityPlayers?: SecurityRow[];
+	HotFlags?: HotFlagRow[];
+	Announcements?: AnnouncementRow[];
+	Economy?: EconomySummary;
 	Access?: boolean;
 	SelfUserId?: number;
 	Online?: AdminPlayer[];
@@ -81,6 +125,7 @@ interface AdminResponse {
 	message?: string;
 	error?: string;
 	Preview?: unknown;
+	Lookup?: LookupResult;
 }
 interface AdminProps {
 	state: { Admin?: AdminState };
@@ -325,6 +370,59 @@ function AuditLine(props: { record: AuditRecord }) {
 	);
 }
 
+function levelColor(level?: string) {
+	if (level === "kick") return Palette.coral;
+	if (level === "throttle") return Palette.mango;
+	return Palette.muted;
+}
+
+function clockTime(at?: number) {
+	return at !== undefined ? os.date("%H:%M", at) : "--:--";
+}
+
+/** Two-column line in the same shape as AuditLine. */
+function OpsLine(props: { left: string; right: string; accent?: Color3; rightColor?: Color3; layoutOrder?: number }) {
+	return (
+		<frame Size={new UDim2(1, 0, 0, OPS_LINE)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder}>
+			<Text
+				value={props.left}
+				size={10}
+				color={props.accent ?? Palette.cream}
+				weight={Enum.FontWeight.Heavy}
+				fit={true}
+				minSize={8}
+				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
+			/>
+			<Text
+				value={props.right}
+				size={9}
+				color={props.rightColor ?? Palette.cyan}
+				fit={true}
+				minSize={8}
+				position={new UDim2(0.5, 4, 0, 0)}
+				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
+			/>
+		</frame>
+	);
+}
+
+function OpsPanel(props: { title: string; accent: Color3; empty: string; layoutOrder: number; children?: React.Element[] }) {
+	const rows = props.children ?? [];
+	return (
+		<Panel size={new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
+			<SectionTitle value={props.title} accent={props.accent} />
+			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
+				{rows.size() === 0 ? (
+					<Text value={props.empty} size={11} color={Palette.muted} position={UDim2.fromOffset(0, 6)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
+				) : (
+					rows
+				)}
+			</frame>
+		</Panel>
+	);
+}
+
 function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) {
 	const admin = state.Admin!;
 	const antilag = useAntilag();
@@ -349,6 +447,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const [lastNote, setLastNote] = React.useState((admin && admin.LastAction && admin.LastAction.Message) ?? "");
 	const [lastOk, setLastOk] = React.useState<boolean>((admin && admin.LastAction && admin.LastAction.Ok) || true);
 	const [previewLines, setPreviewLines] = React.useState<string[]>([]);
+	const [lookup, setLookup] = React.useState<LookupResult | undefined>(undefined);
 	const mountedRef = React.useRef(true);
 	const executeAttempt = React.useRef(0);
 	const enter = useEntrance(softMotion);
@@ -473,6 +572,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				setLastOk(response.ok === true);
 				setLastNote(response.ok === true ? (response.message ?? "Done.") : (response.error ?? "Failed."));
 				setPreviewLines(dryRun && response.ok === true && typeIs(response.Preview, "table") ? (response.Preview as string[]) : []);
+				if (response.ok === true && typeIs(response.Lookup, "table")) setLookup(response.Lookup);
 				if (response.ok !== true) {
 					setShakeToken((t) => t + 1);
 				}
@@ -888,6 +988,70 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		</Panel>
 	);
 
+	const MAX_OPS_ROWS = 7;
+	const securityRows: React.Element[] = [];
+	if (lookup !== undefined) {
+		securityRows.push(
+			<OpsLine key="lookup" left={`${lookup.Name} · ${lookup.Score}`} right={`${string.upper(lookup.Level)} · rev ${lookup.Revision ?? 0}`} accent={Palette.mint} rightColor={levelColor(lookup.Level)} layoutOrder={0} />,
+		);
+		const flags = lookup.Flags ?? [];
+		for (let i = 0; i < math.min(3, flags.size()); i++) {
+			securityRows.push(<OpsLine key={`lf${i}`} left={flags[i].Kind} right={`${clockTime(flags[i].At)} ${flags[i].Detail}`} rightColor={Palette.muted} layoutOrder={1 + i} />);
+		}
+		const journal = lookup.Journal ?? [];
+		for (let i = 0; i < math.min(MAX_OPS_ROWS - securityRows.size(), journal.size()); i++) {
+			securityRows.push(<OpsLine key={`lj${i}`} left={journal[i].Label ?? "Snapshot"} right={`${clockTime(journal[i].At)} · ${journal[i].Id}`} accent={Palette.steel} rightColor={Palette.muted} layoutOrder={10 + i} />);
+		}
+	} else {
+		const flagged = admin.SecurityPlayers ?? [];
+		for (let i = 0; i < math.min(MAX_OPS_ROWS, flagged.size()); i++) {
+			const row = flagged[i];
+			securityRows.push(
+				<OpsLine key={tostring(row.UserId)} left={`${row.Name} · ${row.Score}`} right={`${row.Flags}× ${row.LastKind}`} rightColor={levelColor(row.Level)} layoutOrder={i} />,
+			);
+		}
+	}
+	const flagRows = (admin.HotFlags ?? []).map((flag, i) => (
+		<OpsLine key={flag.Name} left={flag.Name} right={flag.On ? "ON" : "off"} accent={flag.On ? Palette.coral : Palette.cream} rightColor={flag.On ? Palette.coral : Palette.muted} layoutOrder={i} />
+	));
+	const announcementRows: React.Element[] = [];
+	const announcements = admin.Announcements ?? [];
+	for (let i = 0; i < math.min(MAX_OPS_ROWS, announcements.size()); i++) {
+		const a = announcements[i];
+		announcementRows.push(<OpsLine key={`${a.At}${i}`} left={a.Text} right={`${clockTime(a.At)} ${a.From}`} layoutOrder={i} />);
+	}
+	const economy = admin.Economy;
+	const economyRows: React.Element[] = [];
+	if (economy !== undefined) {
+		economyRows.push(<OpsLine key="p" left="Players" right={tostring(economy.Players ?? 0)} layoutOrder={0} />);
+		economyRows.push(<OpsLine key="c" left="Total Flux" right={compactNumber(economy.TotalCash ?? 0)} layoutOrder={1} />);
+		economyRows.push(<OpsLine key="r" left="Richest" right={compactNumber(economy.RichestCash ?? 0)} layoutOrder={2} />);
+		economyRows.push(<OpsLine key="m" left="Median rate" right={`${compactNumber(economy.MedianProduction ?? 0)}/s`} layoutOrder={3} />);
+		economyRows.push(<OpsLine key="b" left="Median rebirths" right={compactNumber(economy.MedianRebirths ?? 0)} layoutOrder={4} />);
+		const top = economy.TopActions ?? [];
+		for (let i = 0; i < math.min(2, top.size()); i++) {
+			economyRows.push(<OpsLine key={`t${i}`} left={top[i].Action} right={compactNumber(top[i].Count)} accent={Palette.steel} rightColor={Palette.muted} layoutOrder={5 + i} />);
+		}
+	}
+	const opsRow = (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, OPS_H)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
+			<OpsPanel title={lookup !== undefined ? "LOOKUP" : "SECURITY"} accent={Palette.coral} empty="No flagged players." layoutOrder={1}>
+				{securityRows}
+			</OpsPanel>
+			<OpsPanel title="LIVE FLAGS" accent={Palette.mango} empty="No flags." layoutOrder={2}>
+				{flagRows}
+			</OpsPanel>
+			<OpsPanel title="ANNOUNCEMENTS" accent={Palette.violet} empty="Nothing announced yet." layoutOrder={3}>
+				{announcementRows}
+			</OpsPanel>
+			<OpsPanel title="ECONOMY" accent={Palette.cyan} empty="No live profiles." layoutOrder={4}>
+				{economyRows}
+			</OpsPanel>
+		</frame>
+	);
+
 	const BODY_H = inspectH + GAP + executeH + GAP + RECENT_MIN;
 	const consoleBody = (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
@@ -931,6 +1095,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			sections={[
 				{ id: "header", height: HEADER_H, element: header },
 				{ id: "console", fill: true, minHeight: BODY_H, element: consoleBody },
+				{ id: "ops", height: OPS_H, element: opsRow },
 			]}
 		/>
 	);
