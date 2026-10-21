@@ -9,7 +9,7 @@ import React from "@rbxts/react";
 import { InteractionFeedback } from "./CoreKit/interaction";
 import Model from "./BrowseModel";
 import * as theme from "./CoreKit/theme";
-import { useViewport } from "./MotionKit/motion";
+import { revealOffset, usePresence, useViewport } from "./MotionKit/motion";
 import { sinkPadInput } from "./CoreKit/padSink";
 import { mergeEvents, showTooltipFor, useTooltip } from "./Tooltip";
 import { KIND_META, Results, SearchEntry, search } from "./QuickFindIndex";
@@ -248,7 +248,7 @@ function Preview(props: { entry: SearchEntry; touch: boolean; reduced: boolean }
 	return (
 		<frame
 			Size={UDim2.fromScale(1, 1)}
-			Position={enter.map((a) => UDim2.fromOffset(0, math.round((1 - math.clamp(a, 0, 1)) * SurfaceMotion.rise)))}
+			Position={enter.map((a) => UDim2.fromOffset(0, revealOffset(a)))}
 			BackgroundTransparency={1}
 			ZIndex={4}
 		>
@@ -329,19 +329,19 @@ interface QuickFindComponentProps {
 
 const NO_RESULTS: Results = { sections: [], flat: [], total: 0 };
 
-function QuickFindComponent(props: QuickFindComponentProps) {
-	const [open, setOpen] = React.useState(false);
+// Mounted once per open, so it enters with the game's panel presence and leaves with its exit.
+function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void }) {
 	const [query, setQuery] = React.useState("");
 	const [selected, setSelected] = React.useState(1);
-	// bumps on each open and each new result set, so rows remount and stagger in
-	const [wave, setWave] = React.useState(0);
+	// bumps on each new result set, so rows remount and stagger in
+	const wave = React.useRef(0);
 	const boxRef = React.useRef<TextBox>();
 	const listRef = React.useRef<ScrollingFrame>();
 	const contentRef = React.useRef<Frame>();
 	const viewport = useViewport();
 	const reduced = props.reducedMotion === true || GuiService.ReducedMotionEnabled === true;
-	const enabled = props.enabled !== false;
-	const show = useSurfaceSpring(open ? 1 : 0, reduced);
+	const [show, exiting, beginExit] = usePresence(reduced);
+	const open = !exiting;
 	const resultsRef = React.useRef<SearchEntry[]>([]);
 	const pickRef = React.useRef<() => void>(() => {});
 	const openRef = React.useRef(false);
@@ -373,40 +373,17 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 		});
 	};
 
+	const onClosed = props.onClosed;
 	const close = React.useCallback(() => {
-		setOpen(false);
 		boxRef.current?.ReleaseFocus();
-	}, []);
+		if (!exiting) {
+			beginExit(onClosed);
+		}
+	}, [exiting, beginExit, onClosed]);
 	const dismiss = React.useCallback(() => {
 		close();
 		Audio.play("close");
 	}, [close]);
-
-	// open requests from anywhere (top bar, overview, keyboard)
-	React.useEffect(() => {
-		const request = () => {
-			if (enabled) {
-				setQuery("");
-				setSelected(1);
-				setWave((w) => w + 1);
-				setOpen(true);
-				Audio.play("open");
-			}
-		};
-		openers.push(request);
-		return () => {
-			const at = openers.indexOf(request);
-			if (at !== -1) {
-				openers.remove(at);
-			}
-		};
-	}, [enabled]);
-
-	React.useEffect(() => {
-		if (!enabled && open) {
-			setOpen(false);
-		}
-	}, [enabled]);
 
 	// keyboard + gamepad
 	React.useEffect(() => {
@@ -418,18 +395,6 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 			}
 			const key = input.KeyCode;
 			if (!open) {
-				if (pad || !enabled || UserInputService.GetFocusedTextBox() !== undefined) {
-					return;
-				}
-				const ctrl =
-					UserInputService.IsKeyDown(Enum.KeyCode.LeftControl) ||
-					UserInputService.IsKeyDown(Enum.KeyCode.RightControl) ||
-					UserInputService.IsKeyDown(Enum.KeyCode.LeftMeta) ||
-					UserInputService.IsKeyDown(Enum.KeyCode.RightMeta);
-				// "/" belongs to Roblox chat, so only Ctrl/Cmd+K opens it from the keyboard
-				if (key === Enum.KeyCode.K && ctrl) {
-					QuickFind.open();
-				}
 				return;
 			}
 			if (key === Enum.KeyCode.Escape || key === Enum.KeyCode.ButtonB) {
@@ -494,7 +459,7 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 			stick.Disconnect();
 			repeatToken.current += 1;
 		};
-	}, [open, enabled, dismiss]);
+	}, [open, dismiss]);
 
 	// while open, Quick Find holds the pad so focus behind the panel doesn't move or click;
 	// the handlers above still run because UserInputService sees sunk input
@@ -552,10 +517,8 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 	if (lastSignature.current !== signature) {
 		lastSignature.current = signature;
 		followRef.current = true;
+		wave.current += 1;
 	}
-	React.useEffect(() => {
-		setWave((w) => w + 1);
-	}, [signature]);
 
 	// layout: centred panel; full width with 44px rows on phones, inside the notch and home bar
 	const touch = UserInputService.TouchEnabled && !UserInputService.KeyboardEnabled;
@@ -650,7 +613,7 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 			index += 1;
 			list.push(
 				<Row
-					key={`${wave}:${entry.key}#${s}`}
+					key={`${wave.current}:${entry.key}#${s}`}
 					entry={entry}
 					index={index}
 					order={order}
@@ -668,7 +631,6 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 		}
 	}
 
-	const settle = (a: number) => (a >= 0.97 ? 1 : math.clamp(a, 0, 1));
 	const clearLabel = query !== "" ? "Clear" : touch ? "Close" : "Esc";
 
 	return (
@@ -677,7 +639,7 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 			<imagebutton
 				Size={UDim2.fromScale(1, 1)}
 				BackgroundColor3={new Color3(0, 0, 0)}
-				BackgroundTransparency={show.map((a) => 1 - 0.55 * settle(a))}
+				BackgroundTransparency={show.map((a) => 1 - 0.55 * a)}
 				BorderSizePixel={0}
 				AutoButtonColor={false}
 				Selectable={false}
@@ -689,9 +651,7 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 				key="QuickFind"
 				Size={UDim2.fromOffset(width, height)}
 				Position={show.map((a) =>
-					phone
-						? new UDim2(0.5, 0, 0, inset.Y + 12 + math.round((1 - settle(a)) * SurfaceMotion.rise))
-						: new UDim2(0.5, 0, 0.5, inset.Y / 2 + math.round((1 - settle(a)) * SurfaceMotion.rise)),
+					phone ? new UDim2(0.5, 0, 0, inset.Y + 12 + revealOffset(a)) : new UDim2(0.5, 0, 0.5, inset.Y / 2 + revealOffset(a)),
 				)}
 				AnchorPoint={phone ? new Vector2(0.5, 0) : new Vector2(0.5, 0.5)}
 				BackgroundTransparency={1}
@@ -882,6 +842,56 @@ function QuickFindComponent(props: QuickFindComponentProps) {
 			</frame>
 		</frame>
 	);
+}
+
+// Owns the open requests (top bar, overview, Ctrl/Cmd+K) and mounts a fresh panel per open.
+function QuickFindComponent(props: QuickFindComponentProps) {
+	const [session, setSession] = React.useState<number>();
+	const sessionRef = React.useRef<number>();
+	sessionRef.current = session;
+	const enabled = props.enabled !== false;
+	React.useEffect(() => {
+		const request = () => {
+			if (enabled && sessionRef.current === undefined) {
+				const id = os.clock();
+				sessionRef.current = id;
+				setSession(id);
+				Audio.play("open");
+			}
+		};
+		openers.push(request);
+		// "/" belongs to Roblox chat, so only Ctrl/Cmd+K opens it from the keyboard
+		const keys = UserInputService.InputBegan.Connect((input) => {
+			if (input.KeyCode !== Enum.KeyCode.K || UserInputService.GetFocusedTextBox() !== undefined) {
+				return;
+			}
+			const ctrl =
+				UserInputService.IsKeyDown(Enum.KeyCode.LeftControl) ||
+				UserInputService.IsKeyDown(Enum.KeyCode.RightControl) ||
+				UserInputService.IsKeyDown(Enum.KeyCode.LeftMeta) ||
+				UserInputService.IsKeyDown(Enum.KeyCode.RightMeta);
+			if (ctrl) {
+				request();
+			}
+		});
+		return () => {
+			keys.Disconnect();
+			const at = openers.indexOf(request);
+			if (at !== -1) {
+				openers.remove(at);
+			}
+		};
+	}, [enabled]);
+	React.useEffect(() => {
+		if (!enabled) {
+			setSession(undefined);
+		}
+	}, [enabled]);
+	const onClosed = React.useCallback(() => setSession(undefined), []);
+	if (session === undefined || !enabled) {
+		return undefined;
+	}
+	return <QuickFindPanel key={`qf${session}`} {...props} onClosed={onClosed} />;
 }
 
 const QuickFind = {

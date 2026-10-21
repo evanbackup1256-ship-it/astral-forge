@@ -14,7 +14,8 @@ import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
 import { InteractionFeedback } from "./CoreKit/interaction";
 import { Palette } from "./CoreKit/theme";
-import { Surface, SurfaceText, useSurfaceSpring } from "./UiCore/surface";
+import { revealOffset, usePresence } from "./MotionKit/motion";
+import { Surface, SurfaceText } from "./UiCore/surface";
 
 const Players = game.GetService("Players");
 const RunService = game.GetService("RunService");
@@ -400,13 +401,21 @@ export interface TooltipProviderProps {
 	children?: React.ReactNode;
 }
 
-function Bubble(props: { tip: OpenTip; reducedMotion: boolean }) {
+// enters and leaves with the game's panel presence (usePresence), like every other panel
+function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean; onGone: (id: number) => void }) {
 	const tip = props.tip;
 	const data = tip.data;
 	const [spot, setSpot] = React.useBinding(new Vector2(-1000, -1000));
 	// waits a frame so AutomaticSize has measured before the bubble shows
 	const [ready, setReady] = React.useState(false);
-	const appear = useSurfaceSpring(ready ? 1 : 0, props.reducedMotion);
+	const [presence, , beginExit] = usePresence(props.reducedMotion);
+	const appear = presence.map((a) => (ready ? a : 0));
+	const onGone = props.onGone;
+	React.useEffect(() => {
+		if (props.leaving) {
+			beginExit(() => onGone(tip.id));
+		}
+	}, [props.leaving]);
 	const bubbleRef = React.useRef<Frame>();
 	React.useEffect(() => {
 		const target = tip.target;
@@ -414,6 +423,9 @@ function Bubble(props: { tip: OpenTip; reducedMotion: boolean }) {
 		const connection = RunService.RenderStepped.Connect(() => {
 			if (!target.IsDescendantOf(game) || !target.Visible) {
 				close(tip.id);
+				return;
+			}
+			if (props.leaving && frames >= 2) {
 				return;
 			}
 			const bubble = bubbleRef.current;
@@ -426,7 +438,7 @@ function Bubble(props: { tip: OpenTip; reducedMotion: boolean }) {
 			}
 		});
 		return () => connection.Disconnect();
-	}, [tip.target]);
+	}, [tip.target, props.leaving]);
 	const narrow = screenSize().X < 700;
 	const maxW = math.max(120, math.min(narrow ? 220 : 280, screenSize().X - EDGE * 2 - BUBBLE_PAD * 2));
 	const fade = appear.map((a) => 1 - math.clamp(a, 0, 1));
@@ -438,9 +450,7 @@ function Bubble(props: { tip: OpenTip; reducedMotion: boolean }) {
 			padding={BUBBLE_PAD}
 			appear={appear}
 			accent={data.accent}
-			position={React.joinBindings({ spot, appear }).map((v) =>
-				UDim2.fromOffset(v.spot.X, v.spot.Y + (props.reducedMotion ? 0 : math.round((1 - math.clamp(v.appear, 0, 1)) * 4))),
-			)}
+			position={React.joinBindings({ spot, appear }).map((v) => UDim2.fromOffset(v.spot.X, v.spot.Y + revealOffset(v.appear)))}
 		>
 			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
 			{hasTitle && (
@@ -476,9 +486,20 @@ function Bubble(props: { tip: OpenTip; reducedMotion: boolean }) {
 
 export function TooltipProvider(props: TooltipProviderProps) {
 	const [open, setOpen] = React.useState<OpenTip | undefined>(store.open);
+	// the last tip stays mounted while it plays its exit
+	const [shown, setShown] = React.useState<OpenTip | undefined>(store.open);
 	const enabled = props.enabled !== false;
+	const onGone = React.useCallback(
+		(id: number) => setShown((current) => (current !== undefined && current.id === id ? undefined : current)),
+		[],
+	);
 	React.useEffect(() => {
-		const listener = () => setOpen(store.open);
+		const listener = () => {
+			setOpen(store.open);
+			if (store.open !== undefined) {
+				setShown(store.open);
+			}
+		};
 		store.listeners.add(listener);
 		listener();
 		return () => {
@@ -503,7 +524,15 @@ export function TooltipProvider(props: TooltipProviderProps) {
 						ResetOnSpawn={false}
 						ZIndexBehavior={Enum.ZIndexBehavior.Sibling}
 					>
-						{enabled && open !== undefined && <Bubble key={`tip${open.id}`} tip={open} reducedMotion={props.reducedMotion === true} />}
+						{enabled && shown !== undefined && (
+							<Bubble
+								key={`tip${shown.id}`}
+								tip={shown}
+								leaving={open === undefined || open.id !== shown.id}
+								reducedMotion={props.reducedMotion === true}
+								onGone={onGone}
+							/>
+						)}
 					</screengui>,
 					playerGui,
 				)}

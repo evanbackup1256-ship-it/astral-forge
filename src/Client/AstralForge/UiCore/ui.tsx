@@ -20,12 +20,14 @@ import {
 	surfaceGradient,
 } from "../CoreKit/theme";
 import * as TouchGestureService from "../CoreKit/TouchGestureService";
+import * as MotionTokens from "../MotionKit/motionTokens";
 import { Bindable, joinTuple } from "../lua";
 import {
 	ExitPresenceContext,
 	MotionIntent,
 	ScaleFromCenter,
 	composePresence,
+	revealOffset,
 	useClock,
 	useEntrance,
 	useExitPresence,
@@ -1210,8 +1212,8 @@ export function Panel(props: PanelProps) {
 	const automaticReveal = useFlipperSpring(
 		1,
 		entranceMotion,
-		620,
-		48,
+		MotionTokens.SPRING.smooth.stiffness,
+		MotionTokens.SPRING.smooth.damping,
 		reveal !== undefined || effectsPaused || panelEntranceScale <= 0.02 ? 1 : 0,
 	);
 	const activeReveal = reveal ?? automaticReveal;
@@ -1249,7 +1251,7 @@ export function Panel(props: PanelProps) {
 	const paintChrome = true;
 	const derived = React.useMemo(() => {
 		const liftPx = lift.map((amount) => -amount);
-		const revealY = activeReveal.map((amount) => (1 - math.clamp(amount, 0, 1)) * 10);
+		const revealY = activeReveal.map(revealOffset);
 		const surfaceY = joinTuple<[number, number]>(liftPx, revealY).map((values) => values[0] + values[1]);
 		return {
 			strokeColor: highlightOn.map((amount) => {

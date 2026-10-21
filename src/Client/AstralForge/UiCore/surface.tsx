@@ -3,12 +3,13 @@
 // A surface is a flat panel on Palette.panel with a hairline edge, 14px corners and 14px padding.
 // Rows inside it are 44px or taller, sit 2px apart and light up with a tinted plate plus a 3px
 // accent edge. Small caps labels name sections; kind chips and key hints are 20-22px pills.
-// Every hover, selection, enter and exit runs on one spring (SurfaceMotion), and Reduced Motion
-// turns all of it into an instant change. Nothing here glows, and no gradients.
+// Panels enter and leave exactly like the rest of the game (usePresence + revealOffset, the same
+// code Panel uses); hover, selection and row entrances run on the same smooth spring, and Reduced
+// Motion makes them instant. Nothing here glows, and no gradients.
 import React from "@rbxts/react";
 import { darken, Palette, Pad, Radius, TapTarget } from "../CoreKit/theme";
 import * as MotionTokens from "../MotionKit/motionTokens";
-import { useFlipperSpring } from "../MotionKit/motion";
+import { revealOffset, useFlipperSpring } from "../MotionKit/motion";
 
 export const SurfaceMetrics = {
 	radius: Radius.lg,
@@ -47,8 +48,6 @@ export function surfaceFont(weight: Enum.FontWeight): Font {
 export const SurfaceMotion = {
 	stiffness: MotionTokens.SPRING.smooth.stiffness,
 	damping: MotionTokens.SPRING.smooth.damping,
-	/** px a surface or a new row rises while it enters */
-	rise: 6,
 	/** seconds between rows in an entering list, and the most rows that wait their turn */
 	stagger: MotionTokens.STAGGER_STEP,
 	staggerRows: 10,
@@ -83,7 +82,7 @@ export interface SurfaceProps {
 	position?: UDim2 | React.Binding<UDim2>;
 	anchor?: Vector2;
 	zIndex?: number;
-	/** 0..1 presence: fades the panel and rises it by SurfaceMotion.rise */
+	/** 0..1 presence (usePresence): fades the panel; callers move it by revealOffset */
 	appear?: React.Binding<number>;
 	/** "base" floats over the game; "inset" sits inside another surface */
 	tone?: "base" | "inset";
@@ -257,7 +256,7 @@ export interface SurfaceRowProps {
 	accent: Color3;
 	/** 0..1 lit amount, usually useSurfaceSpring(selected ? 1 : 0) */
 	lit: React.Binding<number>;
-	/** 0..1 entrance; rows rise by SurfaceMotion.rise while it runs */
+	/** 0..1 entrance; rows rise by revealOffset while it runs, like Panel */
 	enter?: React.Binding<number>;
 	selectable?: boolean;
 	zIndex?: number;
@@ -286,9 +285,7 @@ export function SurfaceRow(props: SurfaceRowProps) {
 			<RowPlate lit={props.lit} accent={props.accent} zIndex={z} />
 			<frame
 				Size={UDim2.fromScale(1, 1)}
-				Position={
-					enter !== undefined ? enter.map((a) => UDim2.fromOffset(0, math.round((1 - clamp01(a)) * SurfaceMotion.rise))) : undefined
-				}
+				Position={enter !== undefined ? enter.map((a) => UDim2.fromOffset(0, revealOffset(a))) : undefined}
 				BackgroundTransparency={1}
 				ZIndex={z + 2}
 			>

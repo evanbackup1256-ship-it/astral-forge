@@ -1065,6 +1065,23 @@ export function useEntrance(reducedMotion = false): React.Binding<number> {
 	return useFlipperSpring(1, reducedMotion === true, MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping, 0);
 }
 
+/** px a panel sits below its place while it enters or leaves; Panel, overlays and tooltips all use it. */
+export const REVEAL_RISE = 10;
+export function revealOffset(amount: number): number {
+	return (1 - math.clamp(amount, 0, 1)) * REVEAL_RISE;
+}
+
+/**
+ * The game's panel/overlay presence: entrance spring on mount, eased exit when `begin` runs.
+ * Returns [0..1 presence, exiting, begin(after)]; after runs once the exit has finished.
+ */
+export function usePresence(reducedMotion = false): [React.Binding<number>, boolean, (after?: () => void) => void] {
+	const enter = useEntrance(reducedMotion);
+	const [leave, exiting, begin] = useExitTransition(reducedMotion);
+	const presence = React.useMemo(() => composePresence(enter, leave), [enter, leave]);
+	return [presence, exiting, begin];
+}
+
 export function useStagger(index: number, reducedMotion = false, step = 0.025, duration = 0.14): React.Binding<number> {
 	const [stiffness, damping] = MotionTokens.entranceSpring(duration, useMotionSettings().soft === true || reducedMotion === true);
 	const [binding, setBinding, motor] = useMotor(0, stiffness, damping, (active) => cancelArrival(active));

@@ -8,7 +8,7 @@ import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
-import { composePresence, useEntrance, useExitTransition, useViewport } from "../MotionKit/motion";
+import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, SearchField, useGamepadAutofocus } from "./ui";
 import {
 	IconTile,
@@ -486,9 +486,7 @@ function chipWidth(tab: Tab): number {
 
 export function CreditsOverlay(props: { version?: string; reducedMotion?: boolean; onClose: () => void }) {
 	const reduced = props.reducedMotion === true;
-	const enter = useEntrance(reduced);
-	const [exit, exiting, beginExit] = useExitTransition(reduced);
-	const reveal = composePresence(enter, exit);
+	const [reveal, exiting, beginExit] = usePresence(reduced);
 	const [tab, setTab] = React.useState(MODEL.DefaultCategory);
 	const [query, setQuery] = React.useState("");
 	const [picked, setPicked] = React.useState<Spot | undefined>(undefined);
@@ -768,7 +766,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				/>
 				<frame
 					Size={UDim2.fromOffset(width, height)}
-					Position={reveal.map((a) => UDim2.fromOffset(viewport.width / 2, centerY + math.round((1 - a) * SurfaceMotion.rise)))}
+					Position={reveal.map((a) => UDim2.fromOffset(viewport.width / 2, centerY + revealOffset(a)))}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					BackgroundTransparency={1}
 					Active={true}
