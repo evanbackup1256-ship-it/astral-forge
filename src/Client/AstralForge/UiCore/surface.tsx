@@ -10,6 +10,12 @@ import React from "@rbxts/react";
 import { darken, Palette, Pad, Radius, TapTarget } from "../CoreKit/theme";
 import * as MotionTokens from "../MotionKit/motionTokens";
 import { revealOffset, useFlipperSpring } from "../MotionKit/motion";
+import { Icon } from "../ArtKit/Icon";
+import { Audio } from "../AudioKit/audio";
+import { InteractionFeedback } from "../CoreKit/interaction";
+import { joinTuple } from "../lua";
+
+const UserInputService = game.GetService("UserInputService");
 
 export const SurfaceMetrics = {
 	radius: Radius.lg,
@@ -405,5 +411,277 @@ export function KeyHint(props: { keys: string; label: string; order?: number; zI
 			</textlabel>
 			<SurfaceText text={props.label} type="small" color={Palette.creamSoft} autoSize={true} order={2} zIndex={props.zIndex} />
 		</frame>
+	);
+}
+
+// ── SearchField ────────────────────────────────────────────────────────────────
+//
+// The one search box. 44px tall wherever it sits: magnifier, text, an optional count on the right,
+// and a clear button that slides in once there is something to clear. Focus draws the edge in the
+// caller's accent and grows a short accent bar on the left, on the surface spring.
+// Tap anywhere on the field to type (touch), A on a selected field to type (gamepad), Esc or B to
+// let go. Callers get onChange after a short pause; pass debounce={0} to hear every keystroke.
+
+export const SEARCH_H = SurfaceMetrics.rowH;
+
+export interface SearchFieldProps {
+	value: string;
+	onChange?: (text: string) => void;
+	/** Enter pressed while typing */
+	onSubmit?: (text: string) => void;
+	placeholder?: string;
+	accent?: Color3;
+	/** small right-aligned note, e.g. "12 found"; hidden while empty */
+	hint?: string;
+	/** seconds of quiet before onChange; 0 = every keystroke */
+	debounce?: number;
+	autoFocus?: boolean;
+	boxRef?: React.MutableRefObject<TextBox | undefined>;
+	position?: UDim2 | React.Binding<UDim2>;
+	/** width comes from here; the height is always 44 */
+	size?: UDim2;
+	anchor?: Vector2;
+	layoutOrder?: number;
+	reducedMotion?: boolean;
+	zIndex?: number;
+}
+
+export function SearchField(props: SearchFieldProps) {
+	const accent = props.accent ?? Palette.mango;
+	const z = props.zIndex ?? 10;
+	const reduced = props.reducedMotion === true;
+	const wait = props.debounce ?? 0.08;
+	const width = props.size ?? UDim2.fromOffset(220, 0);
+	const ownRef = React.useRef<TextBox>();
+	const boxRef = props.boxRef ?? ownRef;
+	const [draft, setDraft] = React.useState(props.value);
+	const [focused, setFocused] = React.useState(false);
+	const [pointed, setPointed] = React.useState(false);
+	const [clearLit, setClearLit] = React.useState(false);
+	const emitted = React.useRef(props.value);
+	const pending = React.useRef<thread>();
+	const onChangeRef = React.useRef(props.onChange);
+	onChangeRef.current = props.onChange;
+
+	const cancelPending = () => {
+		if (pending.current !== undefined) {
+			pcall(task.cancel, pending.current);
+			pending.current = undefined;
+		}
+	};
+	const emit = (text: string) => {
+		cancelPending();
+		if (text === emitted.current) {
+			return;
+		}
+		emitted.current = text;
+		onChangeRef.current?.(text);
+	};
+	const schedule = (text: string) => {
+		cancelPending();
+		if (wait <= 0) {
+			emit(text);
+			return;
+		}
+		pending.current = task.delay(wait, () => {
+			pending.current = undefined;
+			emit(text);
+		});
+	};
+	const clear = () => {
+		cancelPending();
+		setDraft("");
+		emit("");
+		Audio.play("inputClear");
+		InteractionFeedback.tap();
+		boxRef.current?.CaptureFocus();
+	};
+
+	// the parent owns the query: follow it whenever we aren't mid-edit
+	React.useEffect(() => {
+		if (!focused || props.value === "") {
+			emitted.current = props.value;
+			setDraft(props.value);
+		}
+	}, [props.value, focused]);
+	React.useEffect(() => cancelPending, []);
+	React.useEffect(() => {
+		if (props.autoFocus !== true) {
+			return undefined;
+		}
+		const job = task.defer(() => {
+			const box = boxRef.current;
+			if (box !== undefined && box.Parent !== undefined) {
+				box.CaptureFocus();
+			}
+		});
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, []);
+	React.useEffect(() => {
+		if (!focused) {
+			return undefined;
+		}
+		const conn = UserInputService.InputBegan.Connect((input) => {
+			if (input.KeyCode === Enum.KeyCode.Escape || input.KeyCode === Enum.KeyCode.ButtonB) {
+				boxRef.current?.ReleaseFocus();
+			}
+		});
+		return () => conn.Disconnect();
+	}, [focused]);
+
+	const hasText = draft !== "";
+	const focus = useSurfaceSpring(focused ? 1 : 0, reduced);
+	const lit = useSurfaceSpring(focused ? 1 : pointed ? 0.35 : 0, reduced);
+	const clearIn = useSurfaceSpring(hasText ? 1 : 0, reduced);
+	const clearHover = useSurfaceSpring(clearLit ? 1 : 0, reduced);
+	const hint = hasText ? props.hint : undefined;
+	const hintW = hint !== undefined ? 76 : 0;
+	const clearW = SurfaceMetrics.rowH - 8;
+
+	return (
+		<textbutton
+			Size={new UDim2(width.X.Scale, width.X.Offset, 0, SEARCH_H)}
+			Position={props.position}
+			AnchorPoint={props.anchor}
+			LayoutOrder={props.layoutOrder}
+			BackgroundColor3={Palette.panelSoft}
+			BackgroundTransparency={lit.map((a) => 0.35 - 0.2 * clamp01(a))}
+			BorderSizePixel={0}
+			AutoButtonColor={false}
+			Text=""
+			Selectable={false}
+			ClipsDescendants={true}
+			ZIndex={z}
+			Event={{
+				Activated: () => boxRef.current?.CaptureFocus(),
+				MouseEnter: () => setPointed(true),
+				MouseLeave: () => setPointed(false),
+			}}
+		>
+			<uicorner CornerRadius={new UDim(0, SurfaceMetrics.innerRadius)} />
+			<uistroke
+				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+				Color={focus.map((a) => Palette.lineSoft.Lerp(accent, clamp01(a)))}
+				Thickness={1}
+				Transparency={lit.map((a) => 0.4 - 0.3 * clamp01(a))}
+			/>
+			{/* the focus tell: a short accent bar that grows from the middle of the left edge */}
+			<frame
+				AnchorPoint={new Vector2(0, 0.5)}
+				Position={new UDim2(0, 0, 0.5, 0)}
+				Size={focus.map((a) => new UDim2(0, SurfaceMetrics.edgeW, 0, math.round(18 * clamp01(a))))}
+				BackgroundColor3={accent}
+				BackgroundTransparency={focus.map((a) => 1 - clamp01(a))}
+				BorderSizePixel={0}
+				ZIndex={z + 1}
+			>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>
+			<frame
+				Size={UDim2.fromOffset(18, 18)}
+				Position={new UDim2(0, 14, 0.5, 0)}
+				AnchorPoint={new Vector2(0, 0.5)}
+				BackgroundTransparency={1}
+				ZIndex={z + 1}
+			>
+				<Icon kind="Search.11" color={focused ? accent : Palette.muted} accent={accent} size={18} spin={false} />
+			</frame>
+			<textbox
+				ref={boxRef as React.Ref<TextBox> as never}
+				Size={clearIn.map((a) => new UDim2(1, -(42 + 10 + hintW + (clearW + 4) * clamp01(a)), 1, 0))}
+				Position={UDim2.fromOffset(42, 0)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				Text={draft}
+				PlaceholderText={props.placeholder ?? "Search"}
+				PlaceholderColor3={Palette.muted}
+				TextColor3={Palette.cream}
+				TextSize={15}
+				FontFace={surfaceFont(Enum.FontWeight.Medium)}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				ClearTextOnFocus={false}
+				ClipsDescendants={true}
+				Selectable={true}
+				ZIndex={z + 1}
+				Change={{
+					Text: (box) => {
+						const text = box.Text;
+						if (text === draft) {
+							return;
+						}
+						if (box.IsFocused() && text.size() > draft.size()) {
+							Audio.play("searchType");
+						}
+						setDraft(text);
+						schedule(text);
+					},
+				}}
+				Event={{
+					Focused: () => {
+						setFocused(true);
+						Audio.play("inputFocus");
+						InteractionFeedback.tick();
+					},
+					FocusLost: (box, enter) => {
+						setFocused(false);
+						emit(box.Text);
+						if (enter) {
+							props.onSubmit?.(box.Text);
+						}
+					},
+					SelectionGained: () => setPointed(true),
+					SelectionLost: () => setPointed(false),
+				}}
+			/>
+			{hint !== undefined && (
+				<SurfaceText
+					text={hint}
+					type="hint"
+					color={Palette.creamSoft}
+					align={Enum.TextXAlignment.Right}
+					size={UDim2.fromOffset(hintW, 20)}
+					position={new UDim2(1, -(8 + clearW + 4), 0.5, 0)}
+					anchor={new Vector2(1, 0.5)}
+					zIndex={z + 1}
+				/>
+			)}
+			<textbutton
+				AnchorPoint={new Vector2(1, 0.5)}
+				Position={clearIn.map((a) => new UDim2(1, -4 + math.round((1 - clamp01(a)) * 12), 0.5, 0))}
+				Size={UDim2.fromOffset(clearW, clearW)}
+				BackgroundColor3={Palette.panelRaised}
+				BackgroundTransparency={joinTuple<[number, number]>(clearIn, clearHover).map(
+					([shown, hover]) => 1 - clamp01(shown) * (0.45 + 0.4 * clamp01(hover)),
+				)}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Text=""
+				Active={hasText}
+				Selectable={hasText}
+				Visible={clearIn.map((a) => a > 0.02)}
+				ZIndex={z + 2}
+				Event={{
+					Activated: clear,
+					MouseEnter: () => setClearLit(true),
+					MouseLeave: () => setClearLit(false),
+					SelectionGained: () => setClearLit(true),
+					SelectionLost: () => setClearLit(false),
+				}}
+			>
+				<uicorner CornerRadius={new UDim(0, Radius.sm)} />
+				<Icon
+					kind="Close.9"
+					color={Palette.creamSoft}
+					accent={Palette.muted}
+					size={14}
+					spin={false}
+					position={UDim2.fromScale(0.5, 0.5)}
+					anchorPoint={new Vector2(0.5, 0.5)}
+				/>
+			</textbutton>
+		</textbutton>
 	);
 }

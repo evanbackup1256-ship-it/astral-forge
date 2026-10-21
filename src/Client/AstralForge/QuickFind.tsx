@@ -17,6 +17,8 @@ import {
 	IconTile,
 	KeyHint,
 	KindChip,
+	SEARCH_H,
+	SearchField,
 	SectionLabel,
 	Surface,
 	SurfaceMetrics,
@@ -71,7 +73,6 @@ const openers: Array<() => void> = [];
 const ROW_H = 52;
 const ROW_H_TOUCH = SurfaceMetrics.rowH;
 const SECTION_H = 26;
-const SEARCH_H = 48;
 const FOOTER_H = 40;
 const TIP_LONG_PRESS = 0.45;
 const PAGE_STEP = 5;
@@ -631,8 +632,6 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 		}
 	}
 
-	const clearLabel = query !== "" ? "Clear" : touch ? "Close" : "Esc";
-
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Visible={show.map((a) => a > 0.01)} ZIndex={500}>
 			{/* dim backdrop; tap outside closes */}
@@ -660,96 +659,27 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 			>
 				<Surface appear={show} padding={0} active={true} zIndex={2}>
 					{/* search field */}
-					<Surface
-						tone="inset"
-						padding={0}
+					<SearchField
+						value={query}
+						onChange={(text) => {
+							setQuery(text);
+							setSelected(1);
+						}}
+						onSubmit={() => {
+							if (openRef.current) {
+								pickRef.current();
+							}
+						}}
+						debounce={0}
+						boxRef={boxRef}
+						placeholder="Search pages, settings, relics, machines"
+						hint={phone ? undefined : `${results.total} found`}
+						accent={Palette.mango}
 						size={new UDim2(1, -pad * 2, 0, SEARCH_H)}
 						position={UDim2.fromOffset(pad, pad)}
-						accent={Palette.mango}
+						reducedMotion={reduced}
 						zIndex={3}
-					>
-						<frame
-							Size={UDim2.fromOffset(20, 20)}
-							Position={new UDim2(0, 14, 0.5, 0)}
-							AnchorPoint={new Vector2(0, 0.5)}
-							BackgroundTransparency={1}
-							ZIndex={4}
-						>
-							<Glyph box={20} kind="Search.9" color={Palette.creamSoft} accent={Palette.mango} size={20} spin={false} />
-						</frame>
-						<textbox
-							ref={boxRef}
-							Size={new UDim2(1, -(44 + 48 + (phone ? 0 : 76)), 1, 0)}
-							Position={UDim2.fromOffset(44, 0)}
-							BackgroundTransparency={1}
-							Text={query}
-							PlaceholderText="Search pages, settings, relics, machines…"
-							PlaceholderColor3={Palette.muted}
-							TextColor3={Palette.cream}
-							TextSize={17}
-							FontFace={Font.fromName("BuilderSans", Enum.FontWeight.Medium)}
-							TextXAlignment={Enum.TextXAlignment.Left}
-							TextTruncate={Enum.TextTruncate.AtEnd}
-							ClearTextOnFocus={false}
-							ZIndex={4}
-							Change={{
-								Text: (box) => {
-									if (box.Text !== query) {
-										if (box.IsFocused() && box.Text.size() > query.size()) {
-											Audio.play("searchType");
-										}
-										setQuery(box.Text);
-										setSelected(1);
-									}
-								},
-							}}
-							Event={{
-								FocusLost: (_box, enterPressed) => {
-									if (enterPressed && openRef.current) {
-										pickRef.current();
-									}
-								},
-							}}
-						/>
-						<SurfaceText
-							text={query === "" || phone ? "" : `${results.total} found`}
-							type="hint"
-							color={Palette.creamSoft}
-							align={Enum.TextXAlignment.Right}
-							size={UDim2.fromOffset(72, 30)}
-							position={new UDim2(1, -50, 0.5, 0)}
-							anchor={new Vector2(1, 0.5)}
-							zIndex={4}
-						/>
-						{/* clear (with text) or close (empty); 44px in the 48px field */}
-						<textbutton
-							Size={UDim2.fromOffset(theme.TapTarget, theme.TapTarget)}
-							Position={new UDim2(1, -2, 0.5, 0)}
-							AnchorPoint={new Vector2(1, 0.5)}
-							BackgroundColor3={theme.Palette.panelRaised}
-							BackgroundTransparency={0.2}
-							BorderSizePixel={0}
-							AutoButtonColor={true}
-							Text={clearLabel}
-							TextSize={11}
-							FontFace={Font.fromName("BuilderSans", Enum.FontWeight.Bold)}
-							TextColor3={Palette.creamSoft}
-							ZIndex={4}
-							Event={{
-								Activated: () => {
-									if (query !== "") {
-										setQuery("");
-										setSelected(1);
-										boxRef.current?.CaptureFocus();
-									} else {
-										dismiss();
-									}
-								},
-							}}
-						>
-							<uicorner CornerRadius={new UDim(0, theme.Radius.md)} />
-						</textbutton>
-					</Surface>
+					/>
 					{/* results */}
 					<scrollingframe
 						ref={listRef}

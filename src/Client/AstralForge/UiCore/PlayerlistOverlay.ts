@@ -6,7 +6,8 @@ import { compactNumber } from "../CoreKit/format";
 import { getPlayPolicy } from "../CoreKit/playPolicy";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { composePresence, useEntrance, useExitTransition, useFlipperSpring, useViewport } from "../MotionKit/motion";
-import { Button, OverlayPresence, pixelPosition, SearchField, Text, useGamepadAutofocus, useGuiSize, useTouchTargets } from "./ui";
+import { Button, OverlayPresence, pixelPosition, Text, useGamepadAutofocus, useGuiSize, useTouchTargets } from "./ui";
+import { SearchField } from "./surface";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 

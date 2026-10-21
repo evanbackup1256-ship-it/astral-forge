@@ -9,10 +9,11 @@ import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
-import { Button, OverlayPresence, SearchField, useGamepadAutofocus } from "./ui";
+import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
 import {
 	IconTile,
 	KindChip,
+	SearchField,
 	SectionLabel,
 	Surface,
 	SurfaceMetrics,

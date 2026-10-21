@@ -12,7 +12,8 @@ import { useEntrance, useFlipperSpring, useViewport } from "../MotionKit/motion"
 import { joinTuple } from "../lua";
 import { EVENTS, ServerEvent, accentOf, openServerEventPanel, useServerEvent } from "./serverEventsUi";
 import { readLevelState, openRoadmap, progressFraction } from "./levelRoadmap";
-import { Button, CountBadge, IconTile, LooseComponent, SearchField, Text } from "./ui";
+import { Button, CountBadge, IconTile, LooseComponent, Text } from "./ui";
+import { SearchField } from "./surface";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
