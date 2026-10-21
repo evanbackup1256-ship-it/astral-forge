@@ -4,9 +4,8 @@ import { Flux, asFlux, clockText, compactNumber } from "../CoreKit/format";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import {
 	ScaleFromCenter,
-	composePresence,
-	useEntrance,
-	useExitTransition,
+	revealOffset,
+	usePresence,
 	useGlowStroke,
 	useStagger,
 	useViewport,
@@ -114,9 +113,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const stack = chrome.stack || viewport.width < 720;
-	const enter = useEntrance(softMotion);
-	const [leave, closing, beginExit] = useExitTransition(softMotion, 0.32);
-	const motion = composePresence(enter, leave);
+	const [motion, closing, beginExit] = usePresence(softMotion);
 	const padFocus = useGamepadAutofocus(true);
 	const overlayHostRef = React.useRef<GuiObject>();
 	const parentSize = useGuiSize(overlayHostRef, true);
@@ -201,9 +198,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		}
 	}, []);
 	const cardPosition = joinTuple(motion, parentSize).map(
-		(values) => pixelPosition(values[1] as Vector2, 0.5, 0, 0.5, (1 - (values[0] as number)) * 18),
+		(values) => pixelPosition(values[1] as Vector2, 0.5, 0, 0.5, revealOffset(values[0] as number)),
 	);
-	const cardScale = motion.map((amount) => 0.94 + amount * 0.06);
 	const scrim = motion.map((amount) => math.clamp(1 - amount * 0.78, 0.2, 1));
 	const fade = motion.map((amount) => 1 - amount);
 	const _exp = {
@@ -438,7 +434,6 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 				h(
 					ScaleFromCenter,
 					{
-						scale: cardScale,
 						zIndex: 461,
 					},
 					h(

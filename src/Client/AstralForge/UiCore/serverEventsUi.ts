@@ -6,7 +6,7 @@ import { compactNumber } from "../CoreKit/format";
 import { darken, Palette, TapTarget } from "../CoreKit/theme";
 import { Button } from "./ui";
 import { useAntilag } from "../MotionKit/antilag";
-import { useFlipperSpring, useViewport, useWallClock } from "../MotionKit/motion";
+import { revealOffset, usePresence, useViewport, useWallClock } from "../MotionKit/motion";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -558,7 +558,14 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 	const def = ServerEvents.EVENTS[event.Id ?? ""];
 	const now = useWallClock(true);
 	const viewport = useViewport();
-	const show = useFlipperSpring(1, false, 560, 34, 0);
+	// opens and closes like every other panel, and respects Reduced Motion
+	const [show, closing, beginExit] = usePresence(game.GetService("GuiService").ReducedMotionEnabled);
+	const onClose = props.onClose;
+	const close = () => {
+		if (!closing) {
+			beginExit(onClose);
+		}
+	};
 	const accent = accentOf(def);
 	const width = math.min(460, viewport.width - 24);
 	const rows: Record<string, unknown> = {};
@@ -666,13 +673,13 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 			AutoButtonColor: false,
 			Text: "",
 			ZIndex: 558,
-			Event: { Activated: props.onClose },
+			Event: { Activated: close },
 		},
 		h(
 			"frame",
 			{
 				Size: UDim2.fromOffset(width, math.min(460, viewport.height - 40)),
-				Position: show.map((amount) => new UDim2(0.5, 0, 0.5, math.round((1 - amount) * 24))),
+				Position: show.map((amount) => new UDim2(0.5, 0, 0.5, revealOffset(amount))),
 				AnchorPoint: new Vector2(0.5, 0.5),
 				BackgroundColor3: Palette.panelRaised,
 				BorderSizePixel: 0,
@@ -728,7 +735,7 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 			h(Button, {
 				text: "",
 				icon: "Close.14",
-				onClick: props.onClose,
+				onClick: close,
 				color: Palette.ink,
 				textColor: Palette.coral,
 				size: UDim2.fromOffset(TapTarget, TapTarget),

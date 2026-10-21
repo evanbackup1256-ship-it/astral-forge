@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
-import { ScaleFromCenter, composePresence, useEntrance, useExitTransition, useStagger, useViewport } from "../MotionKit/motion";
+import { ScaleFromCenter, revealOffset, usePresence, useStagger, useViewport } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
 import { Button, IconTile, OverlayPresence, SegmentedTabs, Text, segmentedHeight, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 
@@ -79,11 +79,9 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			mountedRef.current = false;
 		};
 	}, []);
-	const enter = useEntrance(softMotion);
 	const headerReveal = useStagger(0, softMotion);
 	const footerReveal = useStagger(1, softMotion);
-	const [leave, closing, beginExit] = useExitTransition(softMotion);
-	const motion = composePresence(enter, leave);
+	const [motion, closing, beginExit] = usePresence(softMotion);
 	const side = chrome.sideSafe + 16;
 	const width = math.min(compact ? viewport.width - side * 2 : 620, 620);
 	const safeHeight = math.max(1, viewport.height - viewport.topInset - chrome.bottomSafe - 16);
@@ -199,13 +197,11 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			task.cancel(job);
 		};
 	}, [sent]);
-	const cardTravel = 16;
 	const cardPosition = joinTuple(motion, parentSize).map(
-		(values) => pixelPosition(values[1] as Vector2, 0.5, 0, 0.5, (1 - (values[0] as number)) * cardTravel),
+		(values) => pixelPosition(values[1] as Vector2, 0.5, 0, 0.5, revealOffset(values[0] as number)),
 	);
 	const scrimTransparency = motion.map((amount) => 1 - amount * 0.72);
 	const fade = motion.map((amount) => 1 - amount);
-	const cardScale = motion.map((amount) => 0.92 + amount * 0.08);
 	const _exp = h("imagebutton", {
 		Size: UDim2.fromScale(1, 1),
 		BackgroundColor3: Palette.void,
@@ -500,7 +496,6 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 				h(
 					ScaleFromCenter,
 					{
-						scale: cardScale,
 						zIndex: 471,
 					},
 					_exp_1,

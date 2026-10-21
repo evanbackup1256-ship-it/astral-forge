@@ -2,10 +2,9 @@ import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget } from "../CoreKit/theme";
 import {
-	composePresence,
 	MotionSettingsContext,
-	useEntrance,
-	useExitTransition,
+	revealOffset,
+	usePresence,
 	useStagger,
 	useViewport,
 } from "../MotionKit/motion";
@@ -244,9 +243,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 	const met = TutorialScript.goalMet(copy, live, collected);
 	const needsAction = TutorialScript.needsAction(copy);
 
-	const enter = useEntrance(reducedMotion);
-	const [exit, exiting, beginExit] = useExitTransition(reducedMotion);
-	const reveal = composePresence(enter, exit);
+	const [reveal, exiting, beginExit] = usePresence(reducedMotion);
 	const requestNext = React.useCallback(() => {
 		if (exiting) {
 			return undefined;
@@ -1230,9 +1227,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 	React.useEffect(() => {
 		Audio.play("modalOpen");
 	}, []);
-	const enter = useEntrance(reducedMotion);
-	const [exit, exiting, beginExit] = useExitTransition(reducedMotion);
-	const reveal = composePresence(enter, exit);
+	const [reveal, exiting, beginExit] = usePresence(reducedMotion);
 	const closeGuard = React.useRef(false);
 	const closeOnce = React.useCallback(() => {
 		if (closeGuard.current) {
@@ -1457,7 +1452,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 						overlayHostRef.current = node;
 					},
 					Size: UDim2.fromOffset(width, height),
-					Position: reveal.map((amount) => new UDim2(0.5, 0, 0, centerY + math.floor((1 - amount) * 18))),
+					Position: reveal.map((amount) => new UDim2(0.5, 0, 0, centerY + revealOffset(amount))),
 					AnchorPoint: new Vector2(0.5, 0.5),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,

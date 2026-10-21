@@ -3,7 +3,7 @@ import { compactNumber } from "../CoreKit/format";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import { joinTuple } from "../lua";
-import { ScaleFromCenter, composePresence, useEntrance, useExitTransition, useViewport } from "../MotionKit/motion";
+import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 
 const ContextActionService = game.GetService("ContextActionService");
@@ -252,9 +252,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 	React.useEffect(() => {
 		Audio.play("modalOpen");
 	}, []);
-	const enter = useEntrance(softMotion);
-	const [leave, closing, beginExit] = useExitTransition(softMotion);
-	const motion = composePresence(enter, leave);
+	const [motion, closing, beginExit] = usePresence(softMotion);
 	const close = React.useCallback(() => {
 		if (closing) {
 			return;
@@ -383,9 +381,8 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 	}, []);
 
 	const cardPosition = joinTuple<[number, Vector2]>(motion, parentSize).map((values) =>
-		pixelPosition(values[1], 0.5, 0, 0.5, (1 - values[0]) * 12),
+		pixelPosition(values[1], 0.5, 0, 0.5, revealOffset(values[0])),
 	);
-	const cardScale = motion.map((amount) => 0.96 + amount * 0.04);
 	const fade = motion.map((amount) => 1 - amount);
 	const opensNext = nextStep !== undefined ? joinNames(featureNames(state, nextStep.Unlocks)) : "";
 
@@ -426,7 +423,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 					ZIndex={471}
 					Visible={motion.map((amount) => amount > 0.002)}
 				>
-					<ScaleFromCenter scale={cardScale} zIndex={471}>
+					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={471}>
 						<frame
 							Size={UDim2.fromScale(1, 1)}
 							BackgroundColor3={Palette.panelRaised}
@@ -576,7 +573,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 								{rows}
 							</scrollingframe>
 						</frame>
-					</ScaleFromCenter>
+					</frame>
 				</frame>
 			</frame>
 		</OverlayPresence>
