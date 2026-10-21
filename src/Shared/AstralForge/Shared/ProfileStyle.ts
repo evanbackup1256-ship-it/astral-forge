@@ -3,10 +3,101 @@
 // same catalog to draw the picker. Stored in the save as Cosmetics.ProfileAccent / ProfileFrame;
 // missing or unknown values fall back to the defaults, so old saves load unchanged.
 
+/**
+ * What earns a cosmetic. "Free" is always available; every other kind needs Target of that
+ * lifetime milestone (see MilestoneFacts). Titles in GameConfig.Operations.Titles use the same kinds.
+ */
+export type UnlockKind = "Free" | "Rebirths" | "Crates" | "Rigs" | "Guild" | "Trades" | "Seasons" | "Goals" | "Visits" | "Taps";
+
 export interface StyleUnlock {
-	/** "Free" is always available; "Rebirths" needs that many lifetime rebirths. */
-	Kind: "Free" | "Rebirths";
+	Kind: UnlockKind;
 	Target: number;
+}
+
+/** Lifetime counts the unlocks are checked against. Built from the save on the server (factsOf). */
+export interface MilestoneFacts {
+	Rebirths: number;
+	Crates: number;
+	Rigs: number;
+	Guild: number;
+	Trades: number;
+	Seasons: number;
+	Goals: number;
+	Visits: number;
+	Taps: number;
+}
+
+const count = (value: unknown) => (typeIs(value, "number") && value === value ? math.max(0, math.floor(value)) : 0);
+const bag = (value: unknown) => (typeIs(value, "table") ? (value as Record<string, unknown>) : ({} as Record<string, unknown>));
+
+/** Reads the milestone counts out of a save (or out of a snapshot's Cosmetics.Facts). */
+export function factsOf(profile: unknown): MilestoneFacts {
+	const save = bag(profile);
+	const stats = bag(save.Stats);
+	let rigs = 0;
+	for (const [, lit] of pairs(bag(bag(bag(save.Items).Rigs).Lit))) {
+		if (lit !== false) {
+			rigs += 1;
+		}
+	}
+	const goals = bag(save.Flags).FirstGoals;
+	const guildId = bag(save.Guild).Id;
+	return {
+		Rebirths: count(save.Rebirths),
+		Crates: count(stats.CratesOpened),
+		Rigs: rigs,
+		Guild: typeIs(guildId, "string") && guildId !== "" ? 1 : 0,
+		Trades: count(stats.TradesDone),
+		Seasons: count(stats.SeasonTiers),
+		Goals: typeIs(goals, "table") ? (goals as unknown[]).size() : 0,
+		Visits: count(stats.Joins),
+		Taps: count(stats.Taps),
+	};
+}
+
+/** Snapshot copy of the facts; the client reads it back with readFacts. */
+export function readFacts(raw: unknown): MilestoneFacts {
+	const facts = bag(raw);
+	return {
+		Rebirths: count(facts.Rebirths),
+		Crates: count(facts.Crates),
+		Rigs: count(facts.Rigs),
+		Guild: count(facts.Guild),
+		Trades: count(facts.Trades),
+		Seasons: count(facts.Seasons),
+		Goals: count(facts.Goals),
+		Visits: count(facts.Visits),
+		Taps: count(facts.Taps),
+	};
+}
+
+/** Short "what it takes" line, e.g. "Open 50 crates". */
+export function unlockText(unlock: StyleUnlock): string {
+	const n = unlock.Target;
+	const plural = (one: string, many: string) => (n === 1 ? one : many);
+	switch (unlock.Kind) {
+		case "Free":
+			return "Free";
+		case "Rebirths":
+			return `${n} ${plural("rebirth", "rebirths")}`;
+		case "Crates":
+			return `Open ${n} ${plural("crate", "crates")}`;
+		case "Rigs":
+			return `Light ${n} relic ${plural("rig", "rigs")}`;
+		case "Guild":
+			return "Join a guild";
+		case "Trades":
+			return `Finish ${n} ${plural("trade", "trades")}`;
+		case "Seasons":
+			return `Claim ${n} season ${plural("tier", "tiers")}`;
+		case "Goals":
+			return "Finish the first goals";
+		case "Visits":
+			return `Visit ${n} times`;
+		case "Taps":
+			return `Tap ${n} times`;
+	}
+	return "";
 }
 
 export interface AccentOption {
@@ -62,15 +153,108 @@ export const ACCENTS: ReadonlyArray<AccentOption> = [
 	{ Id: "Plum", Name: "Plum", Rgb: [196, 108, 186], Unlock: { Kind: "Rebirths", Target: 40 } },
 	{ Id: "Nebula", Name: "Nebula Blue", Rgb: [92, 132, 240], Unlock: { Kind: "Rebirths", Target: 200 } },
 	{ Id: "Supernova", Name: "Supernova", Rgb: [255, 236, 180], Unlock: { Kind: "Rebirths", Target: 300 } },
+	// day-a batch 38: earned from milestones other than rebirths
+	{ Id: "Brass", Name: "Key Brass", Rgb: [222, 178, 96], Unlock: { Kind: "Crates", Target: 25 } },
+	{ Id: "RigGlow", Name: "Rig Glow", Rgb: [110, 238, 255], Unlock: { Kind: "Rigs", Target: 1 } },
+	{ Id: "Banner", Name: "Banner Green", Rgb: [86, 200, 120], Unlock: { Kind: "Guild", Target: 1 } },
+	{ Id: "Market", Name: "Market Amber", Rgb: [255, 196, 120], Unlock: { Kind: "Trades", Target: 5 } },
+	{ Id: "Frontier", Name: "Frontier Blue", Rgb: [76, 150, 230], Unlock: { Kind: "Seasons", Target: 5 } },
+	{ Id: "FreshPaint", Name: "Fresh Paint", Rgb: [255, 250, 236], Unlock: { Kind: "Goals", Target: 5 } },
+	{ Id: "NightShift", Name: "Night Shift", Rgb: [90, 100, 170], Unlock: { Kind: "Visits", Target: 20 } },
+	{ Id: "Blister", Name: "Blister Pink", Rgb: [255, 150, 160], Unlock: { Kind: "Taps", Target: 5000 } },
 ];
 
 export const FRAMES: ReadonlyArray<FrameOption> = [
 	{ Id: "Plain", Name: "Plain", Description: "A clean, thin ring.", Thickness: 1, Gradient: false, Unlock: { Kind: "Free", Target: 0 } },
-	{ Id: "Bold", Name: "Bold", Description: "A thicker ring in your accent.", Thickness: 2, Gradient: false, Unlock: { Kind: "Rebirths", Target: 3 } },
-	{ Id: "Double", Name: "Heavy", Description: "A thick ring that reads from across the room.", Thickness: 3, Gradient: false, Unlock: { Kind: "Rebirths", Target: 10 } },
-	{ Id: "Glint", Name: "Glint", Description: "A thin gradient ring that catches the light.", Thickness: 1, Gradient: true, Unlock: { Kind: "Rebirths", Target: 15 } },
-	{ Id: "Prism", Name: "Prism", Description: "A shifting gradient ring.", Thickness: 2, Gradient: true, Unlock: { Kind: "Rebirths", Target: 25 } },
-	{ Id: "Forged", Name: "Forged", Description: "A heavy gradient ring for long-time players.", Thickness: 3, Gradient: true, Unlock: { Kind: "Rebirths", Target: 60 } },
+	{
+		Id: "Bold",
+		Name: "Bold",
+		Description: "A thicker ring in your accent.",
+		Thickness: 2,
+		Gradient: false,
+		Unlock: { Kind: "Rebirths", Target: 3 },
+	},
+	{
+		Id: "Double",
+		Name: "Heavy",
+		Description: "A thick ring that reads from across the room.",
+		Thickness: 3,
+		Gradient: false,
+		Unlock: { Kind: "Rebirths", Target: 10 },
+	},
+	{
+		Id: "Glint",
+		Name: "Glint",
+		Description: "A thin gradient ring that catches the light.",
+		Thickness: 1,
+		Gradient: true,
+		Unlock: { Kind: "Rebirths", Target: 15 },
+	},
+	{
+		Id: "Prism",
+		Name: "Prism",
+		Description: "A shifting gradient ring.",
+		Thickness: 2,
+		Gradient: true,
+		Unlock: { Kind: "Rebirths", Target: 25 },
+	},
+	{
+		Id: "Forged",
+		Name: "Forged",
+		Description: "A heavy gradient ring for long-time players.",
+		Thickness: 3,
+		Gradient: true,
+		Unlock: { Kind: "Rebirths", Target: 60 },
+	},
+	// day-a batch 38: earned from milestones other than rebirths
+	{
+		Id: "Riveted",
+		Name: "Riveted",
+		Description: "A thick ring for people who open a lot of crates.",
+		Thickness: 2,
+		Gradient: false,
+		Unlock: { Kind: "Crates", Target: 100 },
+	},
+	{
+		Id: "Rigwork",
+		Name: "Rigwork",
+		Description: "A gradient ring for lighting your relic rigs.",
+		Thickness: 2,
+		Gradient: true,
+		Unlock: { Kind: "Rigs", Target: 5 },
+	},
+	{
+		Id: "GuildBand",
+		Name: "Guild Band",
+		Description: "A thin ring you get for joining a guild.",
+		Thickness: 1,
+		Gradient: false,
+		Unlock: { Kind: "Guild", Target: 1 },
+	},
+	{
+		Id: "Handshake",
+		Name: "Handshake",
+		Description: "A gradient ring for finishing 25 trades.",
+		Thickness: 1,
+		Gradient: true,
+		Unlock: { Kind: "Trades", Target: 25 },
+	},
+	{
+		Id: "SeasonStripe",
+		Name: "Season Stripe",
+		Description: "A heavy ring for sticking with the season.",
+		Thickness: 3,
+		Gradient: false,
+		Unlock: { Kind: "Seasons", Target: 20 },
+	},
+	{
+		Id: "StarterRing",
+		Name: "Clock-In",
+		Description: "A bold ring for finishing the first goals.",
+		Thickness: 2,
+		Gradient: false,
+		Unlock: { Kind: "Goals", Target: 5 },
+	},
 ];
 
 export function findAccent(id: unknown): AccentOption | undefined {
@@ -91,12 +275,19 @@ export function findFrame(id: unknown): FrameOption | undefined {
 	return undefined;
 }
 
-export function isUnlocked(unlock: StyleUnlock, rebirths: unknown): boolean {
+/** Facts may be a plain rebirth count (older callers) or a full MilestoneFacts. */
+export function progressOf(unlock: StyleUnlock, facts: MilestoneFacts | number): number {
 	if (unlock.Kind === "Free") {
-		return true;
+		return unlock.Target;
 	}
-	const count = typeIs(rebirths, "number") && rebirths === rebirths ? rebirths : 0;
-	return count >= unlock.Target;
+	if (typeIs(facts, "number")) {
+		return unlock.Kind === "Rebirths" ? count(facts) : 0;
+	}
+	return facts[unlock.Kind];
+}
+
+export function isUnlocked(unlock: StyleUnlock, facts: MilestoneFacts | number): boolean {
+	return unlock.Kind === "Free" || progressOf(unlock, facts) >= unlock.Target;
 }
 
 /** Reads a save's Cosmetics bag; unknown or missing ids become the defaults. */
@@ -115,7 +306,7 @@ export function validate(
 	current: ProfileStyleState,
 	requestedAccent: unknown,
 	requestedFrame: unknown,
-	rebirths: unknown,
+	facts: MilestoneFacts | number,
 ): LuaTuple<[ProfileStyleState | undefined, string | undefined]> {
 	let accent = current.Accent;
 	let frame = current.Frame;
@@ -124,8 +315,8 @@ export function validate(
 		if (option === undefined) {
 			return $tuple(undefined, "That accent does not exist.");
 		}
-		if (!isUnlocked(option.Unlock, rebirths)) {
-			return $tuple(undefined, `${option.Name} unlocks at ${option.Unlock.Target} rebirths.`);
+		if (!isUnlocked(option.Unlock, facts)) {
+			return $tuple(undefined, `${option.Name} is still locked: ${unlockText(option.Unlock)}.`);
 		}
 		accent = option.Id;
 	}
@@ -134,8 +325,8 @@ export function validate(
 		if (option === undefined) {
 			return $tuple(undefined, "That frame does not exist.");
 		}
-		if (!isUnlocked(option.Unlock, rebirths)) {
-			return $tuple(undefined, `${option.Name} unlocks at ${option.Unlock.Target} rebirths.`);
+		if (!isUnlocked(option.Unlock, facts)) {
+			return $tuple(undefined, `${option.Name} is still locked: ${unlockText(option.Unlock)}.`);
 		}
 		frame = option.Id;
 	}

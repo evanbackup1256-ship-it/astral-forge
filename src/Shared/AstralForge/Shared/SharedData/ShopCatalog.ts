@@ -17,6 +17,8 @@ interface SkinDef {
 	Price?: Price;
 	Default?: boolean;
 	DailyOnly?: boolean;
+	/** Earned skins: never sold, owned once the milestone is met (checked on the server). */
+	Earn?: { Kind: string; Target: number };
 }
 interface PoolEntry {
 	Id: string;
@@ -58,8 +60,21 @@ const BASE_SKINS = table.freeze([
 // (Lune guards used to resolve CrateExpansion by relative path; the static import replaces that.)
 const SKINS = CrateExpansion.extendSkins(BASE_SKINS as unknown as Parameters<typeof CrateExpansion.extendSkins>[0]) as unknown as ReadonlyArray<SkinDef>;
 
+// day-a batch 38: skins earned from milestones. Kept out of SKINS so the Shop never lists them;
+// skin() still finds them so the crate reveal can draw them. Look only, no crate bonuses.
+const EARNED_SKINS: ReadonlyArray<SkinDef> = table.freeze([
+	{ Id: "Strongbox", Name: "Guild Strongbox", Tier: "Rare", Blurb: "Banded oak with your guild's lock on it.", Accent: [ 96, 200, 130 ], Glow: [ 200, 255, 210 ], Vfx: "stars", Earn: { Kind: "Guild", Target: 1 } },
+	{ Id: "TraderCase", Name: "Trader's Case", Tier: "Rare", Blurb: "Scuffed leather, a dozen stamps on the lid.", Accent: [ 255, 196, 120 ], Glow: [ 255, 232, 190 ], Vfx: "shards", Earn: { Kind: "Trades", Target: 10 } },
+	{ Id: "RigCrate", Name: "Rig Crate", Tier: "Epic", Blurb: "Wired straight into a relic rig. It hums.", Accent: [ 110, 238, 255 ], Glow: [ 200, 250, 255 ], Vfx: "embers", Earn: { Kind: "Rigs", Target: 5 } },
+	{ Id: "SeasonLocker", Name: "Season Locker", Tier: "Epic", Blurb: "Painted over every season. The old colours show at the corners.", Accent: [ 76, 150, 230 ], Glow: [ 180, 220, 255 ], Vfx: "frost", Earn: { Kind: "Seasons", Target: 15 } },
+	{ Id: "OldFaithful", Name: "Old Faithful", Tier: "Legendary", Blurb: "Opened so often the hinges are worn smooth.", Accent: [ 214, 132, 92 ], Glow: [ 255, 190, 140 ], Vfx: "magma", Earn: { Kind: "Crates", Target: 500 } },
+] as SkinDef[]);
+
 const skinById: Record<string, SkinDef | undefined> = {};
 for (const skin of SKINS) {
+	skinById[skin.Id] = skin;
+}
+for (const skin of EARNED_SKINS) {
 	skinById[skin.Id] = skin;
 }
 function skin(id: unknown): SkinDef | undefined {
@@ -183,6 +198,7 @@ export = table.freeze({
 	DEAL_DISCOUNT,
 	DAY_SECONDS,
 	SKINS,
+	EARNED_SKINS,
 	skin,
 	DEFAULT_SKIN,
 	POOL,
