@@ -43,6 +43,7 @@ const loadKit = <T extends unknown>(kit: string, member: string): T =>
 	(require(AstralForge.WaitForChild(kit) as ModuleScript) as (member: string) => T)(member);
 
 interface AudioApi {
+	setFurnaceHeat(this: void, heat: number): void;
 	play(this: unknown, name: string, speedMult?: number): boolean;
 	playCelebration(this: unknown, cues: string[], staggerSeconds?: number): boolean;
 	start(this: unknown): void;
@@ -76,6 +77,8 @@ interface JuiceApi {
 	celebrateGains(this: void, before: unknown, after: unknown, options?: { spend?: boolean; big?: boolean; coins?: number; skipVault?: boolean }): number;
 	burst(this: void, at?: Vector2, color?: Color3, scale?: number): void;
 	grind(this: void, at?: Vector2, color?: Color3): void;
+	heat(this: void, heat: number, critical: boolean, at?: Vector2): void;
+	collectPulse(this: void): void;
 	pointer(this: void): Vector2 | undefined;
 	ring(this: void, at?: Vector2, color?: Color3): void;
 	number(this: void, text: string, color?: Color3, options?: { at?: Vector2; big?: boolean; icon?: string }): void;
@@ -889,6 +892,7 @@ export function MainGame(_param: MainGameProps) {
 				InteractionFeedback.reward();
 				celebrate();
 			} else if (action === "CollectVault") {
+				Juice.collectPulse();
 				const payout = payoutWeight(juiceBefore, response.State);
 				Audio.play("vaultDeposit", 1 + payout * 0.12);
 				InteractionFeedback.payout(payout);
@@ -1119,10 +1123,15 @@ export function MainGame(_param: MainGameProps) {
 				if (value.Critical === true) {
 					Juice.number("CRIT!", Palette.mango, { big: true });
 					SessionStats.bump("crits");
-					Juice.burst(undefined, Palette.mango, 0.8);
 				}
 				const combo = typeIs(value.Combo, "number") ? (value.Combo as number) : undefined;
 				const comboMultiplier = typeIs(value.ComboMultiplier, "number") ? (value.ComboMultiplier as number) : undefined;
+				{
+					const heatMax = typeIs(value.ComboMax, "number") && (value.ComboMax as number) > 0 ? (value.ComboMax as number) : 12;
+					const heat = (combo ?? 0) / heatMax;
+					Juice.heat(heat, value.Critical === true);
+					Audio.setFurnaceHeat(heat);
+				}
 				if (combo !== undefined && comboMultiplier !== undefined) {
 					const comboMax = typeIs(value.ComboMax, "number") ? (value.ComboMax as number) : 12;
 					const comboWindow = typeIs(value.ComboWindow, "number") ? (value.ComboWindow as number) : 1.8;

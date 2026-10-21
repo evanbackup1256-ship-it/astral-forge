@@ -132,6 +132,10 @@ const COIN_FLIGHT = 0.5; // the homing curve into the counter
 const GRAVITY = 1100;
 const COIN_STAGGER = 0.035;
 
+// forge colours for heat (ForgeTheme.Base brass and ember)
+const BRASS = Color3.fromRGB(250, 190, 72);
+const EMBER = Color3.fromRGB(244, 92, 84);
+
 const effects: Effect[] = [];
 let hostSetter: ((list: Effect[]) => void) | undefined = undefined;
 let clockSetter: ((time: number) => void) | undefined = undefined;
@@ -401,6 +405,39 @@ const Juice = {
 			sparks[index - 1] = { vx: math.cos(angle) * speed, vy: math.sin(angle) * speed, life: 0.25 + math.random() * 0.3, hot: math.random() < 0.5 };
 		}
 		push({ kind: "burst", at: at ?? Juice.defaultOrigin(), color: color ?? P.mango, scale: 0.6, spin: 0, sparks, bare: true });
+	},
+
+	// Overcharge heat: a band of heat rolls out from the press, brass on a cold start and running
+	// toward ember as the combo builds, a little wider each step. A crit throws it wide and knocks
+	// sparks upward off the strike. Reduced Motion: none of it (the CRIT number still shows).
+	heat(this: void, heat: number, critical: boolean, at?: Vector2) {
+		if (reduced || isReducedMotion()) {
+			return;
+		}
+		const h01 = math.clamp(heat, 0, 1);
+		const origin = at ?? Juice.pointer() ?? Juice.defaultOrigin();
+		const color = BRASS.Lerp(EMBER, h01);
+		push({ kind: "ring", at: origin, color, scale: critical ? 2.4 : 1 + h01 * 0.9, size: critical ? 5 : 2 + h01 * 3 });
+		if (critical && celebrationsAllowed()) {
+			const sparks: Spark[] = [];
+			for (let index = 1; index <= 14; index++) {
+				const angle = -math.pi / 2 + (math.random() - 0.5) * 1.6;
+				const speed = 420 + math.random() * 380;
+				sparks[index - 1] = { vx: math.cos(angle) * speed, vy: math.sin(angle) * speed, life: 0.3 + math.random() * 0.3, hot: math.random() < 0.5 };
+			}
+			push({ kind: "burst", at: origin, color: EMBER, scale: 0.7, spin: 0, sparks, bare: true });
+		}
+	},
+
+	// Collect: one brass pulse out of the vault counter as it empties (the coins fly separately)
+	collectPulse(this: void) {
+		if (reduced || isReducedMotion()) {
+			return;
+		}
+		const at = targetCentre("VAULT");
+		if (at !== undefined) {
+			push({ kind: "ring", at, color: BRASS, scale: 1.6, size: 3 });
+		}
 	},
 
 	// a quick ring under a tap
@@ -1356,7 +1393,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 			{
 				key: effect.id,
 				Size: t.map((a) => {
-					const d = 18 + easeOutCubic(math.clamp(a / LIFE.ring, 0, 1)) * 70;
+					const d = 18 + easeOutCubic(math.clamp(a / LIFE.ring, 0, 1)) * 70 * (effect.scale ?? 1);
 					return UDim2.fromOffset(d, d);
 				}),
 				Position: UDim2.fromOffset(effect.at!.X, effect.at!.Y),
@@ -1367,7 +1404,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uistroke", {
 				Color: effect.color,
-				Thickness: 2,
+				Thickness: t.map((a) => (effect.size ?? 2) * (1 - 0.5 * math.clamp(a / LIFE.ring, 0, 1))),
 				Transparency: t.map((a) => 0.2 + math.clamp(a / LIFE.ring, 0, 1) * 0.8),
 			}),
 		);

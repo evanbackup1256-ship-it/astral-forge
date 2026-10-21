@@ -23,6 +23,9 @@ const AssetManifest = (
 
 const AMBIENCE_BED = "amb_heart";
 const FURNACE_BED = "amb_ember";
+// the furnace bed idles at this share of its level and is stoked up to full by the combo
+const FURNACE_REST = 0.35;
+const TweenService = game.GetService("TweenService");
 const AMBIENCE_VOLUME = 0.32;
 const SHEET_CHANNELS = 14;
 const UI_HOVER = "rbxassetid://10066931761";
@@ -744,6 +747,10 @@ export class Mixer {
 	musicGroup?: SoundGroup;
 	musicDirector?: MusicDirector;
 	ambienceBed?: Sound;
+	furnaceBed?: Sound;
+	furnaceLevel = 0;
+	furnaceTween?: Tween;
+	furnaceSettle?: thread;
 	duckTokenLive?: number;
 	duckClamped?: number;
 	duckReleasing = false;
@@ -1086,6 +1093,7 @@ export class Mixer {
 		this.syncMusicState();
 		musicDirector.start();
 		this.startAmbienceBed(ambientGroup);
+		this.startFurnaceBed(ambientGroup);
 		const preload = this.preloadChannels();
 		ClientLog.debug("audio", `${preload.channels.size()} sounds ready`);
 		this.preloadSoundBank(preload.channels, preload.priorityCount, lifecycle);
@@ -1122,32 +1130,62 @@ export class Mixer {
 		}
 	}
 
-	// The furnace bed: one of the uploaded ambience beds, placed on a part in the world so it
-	// swells as you walk up to your own machines and is gone two plots away. Same Ambience slider.
-	attachFurnaceBed(part: BasePart): (() => void) | undefined {
+	// The furnace bed: the uploaded amb_ember bed, layered quietly under the forge bed on the same
+	// Ambience slider. Overcharging stokes it (setFurnaceHeat) and it settles back once you stop.
+	startFurnaceBed(ambientGroup: SoundGroup) {
 		const ambience = AssetManifest.Ambience;
 		const region = ambience !== undefined && ambience.Id > 0 ? ambience.Regions[FURNACE_BED] : undefined;
-		if (region === undefined || this.ambientGroup === undefined) {
-			return undefined;
+		if (region === undefined) {
+			return;
 		}
-		const sound = new Instance("Sound");
-		sound.Name = "FurnaceBed";
-		sound.SoundId = `rbxassetid://${ambience!.Id}`;
-		sound.PlaybackRegionsEnabled = true;
-		sound.PlaybackRegion = new NumberRange(region[0], region[0] + region[1]);
-		sound.LoopRegion = new NumberRange(region[0], region[0] + region[1]);
-		sound.Looped = true;
-		sound.RollOffMode = Enum.RollOffMode.InverseTapered;
-		sound.RollOffMinDistance = 10;
-		sound.RollOffMaxDistance = 70;
-		const loudness = ambience!.Loudness?.[FURNACE_BED];
-		sound.Volume = 0.55 * (loudness !== undefined ? math.clamp(10 ** ((-20 - loudness) / 20), 0.6, 1.4) : 1);
-		sound.SoundGroup = this.ambientGroup;
-		sound.Parent = part;
-		// start somewhere in the loop so two plots never pulse in step
-		sound.TimePosition = region[0] + math.random() * region[1];
-		pcall(() => sound.Play());
-		return () => sound.Destroy();
+		let bed = this.furnaceBed;
+		if (bed === undefined || bed.Parent === undefined) {
+			bed = new Instance("Sound");
+			bed.Name = "FurnaceBed";
+			bed.SoundId = `rbxassetid://${ambience!.Id}`;
+			bed.PlaybackRegionsEnabled = true;
+			bed.PlaybackRegion = new NumberRange(region[0], region[0] + region[1]);
+			bed.LoopRegion = new NumberRange(region[0], region[0] + region[1]);
+			bed.Looped = true;
+			const loudness = ambience!.Loudness?.[FURNACE_BED];
+			this.furnaceLevel = AMBIENCE_VOLUME * (loudness !== undefined ? math.clamp(10 ** ((-20 - loudness) / 20), 0.6, 1.4) : 1);
+			bed.Volume = this.furnaceLevel * FURNACE_REST;
+			bed.Parent = SoundService;
+			this.furnaceBed = bed;
+		}
+		bed.SoundGroup = ambientGroup;
+		if (!bed.IsPlaying) {
+			// offset from the forge bed so the two loops never swell together
+			bed.TimePosition = region[0] + region[1] * 0.5;
+			pcall(() => bed.Play());
+		}
+	}
+
+	/** 0..1: how hard the furnace is being worked right now (the Overcharge combo) */
+	setFurnaceHeat(heat: number) {
+		const bed = this.furnaceBed;
+		if (bed === undefined || bed.Parent === undefined) {
+			return;
+		}
+		const level = this.furnaceLevel * (FURNACE_REST + (1 - FURNACE_REST) * math.clamp(heat, 0, 1));
+		this.furnaceTween?.Cancel();
+		const up = TweenService.Create(bed, new TweenInfo(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Volume: level });
+		this.furnaceTween = up;
+		up.Play();
+		if (this.furnaceSettle !== undefined) {
+			pcall(task.cancel, this.furnaceSettle);
+		}
+		this.furnaceSettle = task.delay(2.5, () => {
+			this.furnaceSettle = undefined;
+			if (bed.Parent === undefined) {
+				return;
+			}
+			const down = TweenService.Create(bed, new TweenInfo(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+				Volume: this.furnaceLevel * FURNACE_REST,
+			});
+			this.furnaceTween = down;
+			down.Play();
+		});
 	}
 
 	ensureStarted(): boolean {
@@ -2066,6 +2104,15 @@ export class Mixer {
 		if (this.uiGroup !== undefined) {
 			this.uiGroup.Destroy();
 			this.uiGroup = undefined;
+		}
+		this.furnaceTween?.Cancel();
+		if (this.furnaceSettle !== undefined) {
+			pcall(task.cancel, this.furnaceSettle);
+			this.furnaceSettle = undefined;
+		}
+		if (this.furnaceBed !== undefined) {
+			this.furnaceBed.Destroy();
+			this.furnaceBed = undefined;
 		}
 		if (this.ambienceBed !== undefined) {
 			this.ambienceBed.Destroy();
