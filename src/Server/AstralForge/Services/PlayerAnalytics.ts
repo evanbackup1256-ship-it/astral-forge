@@ -1,13 +1,15 @@
 import { Service } from "@flamework/core";
 import { ServerTelemetry } from "./ServerTelemetry";
 import { ModuleLogApi, num, req } from "./LuaInterop";
+import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 
 interface AnalyticsProfile {
 	Stats?: { Joins?: unknown };
 	CurrentZone: number;
 	Rebirths: number;
 	Domain: { Rank: number };
-	Flags: { TutorialStep: number };
+	Flags: { TutorialStep: number; FirstGoals?: unknown };
+	Settings?: { FirstGoals?: unknown };
 }
 
 interface PerformancePayload {
@@ -100,12 +102,37 @@ export class PlayerAnalytics {
 		if (action === "SetTutorialStep" || action === "CompleteTutorial") {
 			emit("onboarding", () => {
 				const step = action === "CompleteTutorial" ? 16 : math.clamp(profile.Flags.TutorialStep, 1, 15);
-				AnalyticsService.LogOnboardingFunnelStepEvent(
-					player,
-					step,
-					action === "CompleteTutorial" ? "First Shift complete" : "First Shift",
-				);
+				AnalyticsService.LogOnboardingFunnelStepEvent(player, step, action === "CompleteTutorial" ? "First Shift complete" : "First Shift");
 			});
+		} else if (action === "ClaimFirstGoal") {
+			// first goals continue the tour's onboarding funnel: step 17 is the first goal
+			const claimed = FirstGoals.normalizeClaimed(profile.Flags.FirstGoals);
+			const last = claimed[claimed.size() - 1];
+			const goal = last !== undefined ? FirstGoals.goalById(last) : undefined;
+			if (goal !== undefined) {
+				emit("first-goal", () => {
+					AnalyticsService.LogOnboardingFunnelStepEvent(
+						player,
+						FirstGoals.FUNNEL_FIRST_STEP + claimed.size() - 1,
+						"First goal: " + goal.title,
+					);
+				});
+			}
+		} else if (action === "SetSetting" && profile.Settings !== undefined && profile.Settings.FirstGoals === 0) {
+			let seen = this._seenActions.get(player);
+			if (!seen) {
+				seen = new Map();
+				this._seenActions.set(player, seen);
+			}
+			if (!seen.get("FirstGoalsOff")) {
+				seen.set("FirstGoalsOff", true);
+				const claimed = FirstGoals.normalizeClaimed(profile.Flags.FirstGoals).size();
+				emit("first-goals-off", () => {
+					AnalyticsService.LogCustomEvent(player, "AF_FirstGoalsSkipped", claimed, {
+						world: tostring(profile.CurrentZone),
+					});
+				});
+			}
 		} else if (CUSTOM_ACTIONS[action]) {
 			let seen = this._seenActions.get(player);
 			if (!seen) {
@@ -148,4 +175,3 @@ export class PlayerAnalytics {
 		this._joinedAt.delete(player);
 	}
 }
-
