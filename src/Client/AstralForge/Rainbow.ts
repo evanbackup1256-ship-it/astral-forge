@@ -503,9 +503,14 @@ function configure(intensity: number, reducedMotion: boolean) {
 	refreshDriver();
 }
 
+/** the player's Rainbow slider and whether colour may move (for text effects that read it) */
+function settings(): { intensity: number; motion: boolean } {
+	return { intensity: globalIntensity, motion: motionAllowed };
+}
+
 /** how many gradients are moving right now (for the perf overlay and tests) */
 function activeCount(): number {
 	return driver === undefined ? 0 : moving.size();
 }
 
-export = table.freeze({ mix, PALETTES: PALETTE_NAMES, loop, LOOP, SOFT, flow, at, family, color, spin, sweep, lookFor, bind, configure, activeCount });
+export = table.freeze({ mix, PALETTES: PALETTE_NAMES, loop, LOOP, SOFT, flow, at, family, color, spin, sweep, lookFor, bind, configure, settings, activeCount });

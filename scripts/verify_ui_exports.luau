@@ -26,6 +26,8 @@ local ALLOWED: { [string]: string } = {
 	["ArtKit/ForgeAnvil2D.tsx:FORGE_LOOP_SECONDS"] = "forge art timing, read when tuning",
 	["ArtKit/ForgeAnvil2D.tsx:FORGE_FINALE_SECONDS"] = "forge art timing, read when tuning",
 	["ArtKit/Icon.tsx:LOCKUP_ASSET"] = "logo asset id",
+	-- the TextLabel upgrade path for the title call-site swaps (fx/04)
+	["UiCore/fancyText.ts:fromLabel"] = "title swaps in A/B files",
 	-- notice timing lives next to the notice copy (copy workstream)
 	["UiCore/notifications.ts:NOTICE_LIFETIME"] = "notice workstream",
 	["UiCore/notifications.ts:NOTICE_EXIT_SECONDS"] = "notice workstream",
