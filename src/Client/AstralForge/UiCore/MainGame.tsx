@@ -250,10 +250,6 @@ export function MainGame(_param: MainGameProps) {
 	);
 	// modals (tutorial, release notes, credits, crate reveals) hold toasts until they close
 	const setToastsSuppressed = React.useCallback((held: boolean) => Juice.holdNotices(held), []);
-	const purchasePresentationActive = React.useRef(false);
-	const setPurchasePresentationActive = React.useCallback((active: boolean) => {
-		purchasePresentationActive.current = active;
-	}, []);
 	const [confettiNonce, setConfettiNonce] = React.useState(0);
 	const celebrationSeed = React.useRef(math.random(1, 100000));
 	const [bootVisible, setBootVisible] = React.useState(!externalBoot);
@@ -1144,7 +1140,7 @@ export function MainGame(_param: MainGameProps) {
 				if (value.UserId === Players.LocalPlayer.UserId) {
 					Juice.moment(`ASCENSION ${value.Rank ?? ""}`, "Aether earned. Spend it on sigils.", Palette.mango, "Rebirth.9");
 				}
-			} else if (kind === "FeatureUnlocked" && !purchasePresentationActive.current) {
+			} else if (kind === "FeatureUnlocked") {
 				Audio.play("unlock");
 				InteractionFeedback.reward();
 				celebrate();
@@ -1155,7 +1151,7 @@ export function MainGame(_param: MainGameProps) {
 					Palette.mint,
 					"Check.24",
 				);
-			} else if (kind === "LevelUp" && !purchasePresentationActive.current) {
+			} else if (kind === "LevelUp") {
 				LevelMoments.pushLevelMoment(value);
 				InteractionFeedback.reward();
 				celebrate();
@@ -1543,7 +1539,6 @@ export function MainGame(_param: MainGameProps) {
 					openDomain: domainUi?.open ?? NOOP,
 					domainOverlayActive: domainUi?.active === true,
 					setToastsSuppressed,
-					setPurchasePresentationActive,
 				} as LooseProps)
 			: undefined;
 	const domainContent =

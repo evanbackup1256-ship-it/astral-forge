@@ -55,15 +55,8 @@ return function(client, snapshot, pages, viewport, soft)
 				setBuyAmount = noop, openWorkshop = noop, openDomain = noop,
 				onWheelLand = noop, clearConfetti = noop, setVisit = noop,
 				addNotice = noop, setCrateReveal = noop, setArcadeBusy = noop,
-				setPurchasePresentationActive = noop,
 				chat = { messages = {}, connected = false, unread = 0, send = noop, clear = noop },
 			})
-			if page == "PurchasePending" or page == "PurchaseSuccess" then
-				element = React.createElement(require(client.UiOverlays)("purchaseOverlay").PurchaseOverlay, {
-					phase = if page == "PurchasePending" then "pending" else "success",
-					onDismiss = noop, reducedMotion = false,
-				})
-			end
 			root:render(React.createElement(Motion.MotionSettingsContext.Provider, {
 				value = { motionScale = 1, soft = soft == true, viewportScale = 1, textScale = 1 },
 			}, React.createElement(AutoScale.ViewportScaleContext.Provider, { value = viewport },

@@ -94,7 +94,6 @@ interface ShellProps {
 	openDomain: () => void;
 	domainOverlayActive: boolean;
 	setToastsSuppressed: (suppressed: boolean) => void;
-	setPurchasePresentationActive: (active: boolean) => void;
 }
 
 export const pausePassivePaints = { current: false };
@@ -208,7 +207,7 @@ const TOP_RIGHT_ANCHOR = new Vector2(1, 0);
 
 function AppShell(props: ShellProps) {
 	const { state, config, dispatch, addNotice, celebrate, clearConfetti, pops, comboReadout, visit, setVisit,
-		openDomain, domainOverlayActive, setToastsSuppressed, setPurchasePresentationActive } = props;
+		openDomain, domainOverlayActive, setToastsSuppressed } = props;
 	const devRedraws = redrawCounterEnabled(state as { Admin?: { Access?: boolean } });
 	countRedraw("shell", devRedraws);
 	const [crateReveal, setCrateReveal] = React.useState<RevealSession>();
@@ -577,7 +576,7 @@ function AppShell(props: ShellProps) {
 												domainOverlayActive={domainOverlayActive} openWorkshop={openWorkshop} openDomain={openDomain} buyAmount={buyAmount} setBuyAmount={setBuyAmount}
 												onWheelLand={onWheelLand} wallClock={wallClock} activeBoostExpired={activeBoostExpired} clearConfetti={clearConfetti} chat={chat} visit={visit}
 												setVisit={setVisit} addNotice={addNotice} crateRevealActive={crateReveal !== undefined} setCrateReveal={setCrateReveal} navigate={navigateStable}
-												setArcadeBusy={setArcadeBusy} setPurchasePresentationActive={setPurchasePresentationActive} />
+												setArcadeBusy={setArcadeBusy} />
 										</PageFrame>
 									</Workspace>
 								</AntilagContext.Provider>

@@ -26,6 +26,7 @@ import {
 	luauKit,
 	sharedModule,
 } from "./luauDeps";
+import { clientModule } from "./luauKits";
 
 const MarketplaceService = game.GetService("MarketplaceService");
 const Players = game.GetService("Players");
@@ -37,7 +38,10 @@ const Workspace = game.GetService("Workspace");
 const { ElementFx } = ElementFxModule;
 
 // Still-Luau dependencies are pulled through their kits like the bundled code did.
-const { PurchaseOverlay } = luauKit<{ PurchaseOverlay: Component }>("UiOverlays", "purchaseOverlay");
+// purchase results are announced on the buff strip island like every other notice
+const Juice = clientModule<{
+	banner(this: void, title: string, subtitle?: string, color?: Color3, icon?: string, duration?: number, tone?: string): void;
+}>("JuiceFx");
 const PageScaffold = loadPageScaffold();
 const {
 	Badge,
@@ -633,7 +637,6 @@ interface ShopViewProps {
 	state: ShopState;
 	dispatch: Dispatch;
 	reducedMotion?: boolean;
-	onPurchasePresentationChange?: (open: boolean) => void;
 }
 
 interface OfferRow {
@@ -645,7 +648,6 @@ function ShopView(props: ShopViewProps) {
 	const state = props.state;
 	const dispatch = props.dispatch;
 	const reducedMotion = props.reducedMotion;
-	const onPurchasePresentationChange = props.onPurchasePresentationChange;
 	const monetization = useMonetization();
 	const policy = usePlayPolicy();
 	const viewport = useViewport();
@@ -660,9 +662,8 @@ function ShopView(props: ShopViewProps) {
 	const [followBusy, setFollowBusy] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
 	const [banner, setBanner] = React.useState("Buy a pack, a pass, or enter a code.");
-	const [purchasePhase, setPurchasePhase] = React.useState("hidden");
-	const [purchaseDetail, setPurchaseDetail] = React.useState<string | undefined>(undefined);
-	const [purchaseItem, setPurchaseItem] = React.useState<{ name: string; price?: string; icon?: string; accent?: Color3 } | undefined>(undefined);
+	// true from opening checkout until Roblox (or the server) answers; blocks a second checkout meanwhile
+	const [purchasePending, setPurchasePending] = React.useState(false);
 	const heroReveal = useStagger(0, softMotion);
 	const catalogReveal = useStagger(1, softMotion);
 	const owned = state.Shop?.OwnedPasses ?? {};
@@ -673,18 +674,11 @@ function ShopView(props: ShopViewProps) {
 	const sessionRef = React.useRef(0);
 	const mountedRef = React.useRef(true);
 	const lastRedeemAt = React.useRef(0);
-	const purchasePhaseRef = React.useRef("hidden");
-	purchasePhaseRef.current = purchasePhase;
-	const purchasePresentationCallback = React.useRef(onPurchasePresentationChange);
-	purchasePresentationCallback.current = onPurchasePresentationChange;
-	React.useEffect(() => {
-		purchasePresentationCallback.current?.(purchasePhase !== "hidden");
-	}, [purchasePhase]);
-	React.useEffect(() => {
-		return () => {
-			purchasePresentationCallback.current?.(false);
-		};
-	}, []);
+	const purchasePendingRef = React.useRef(false);
+	const setPendingGate = (value: boolean) => {
+		purchasePendingRef.current = value;
+		setPurchasePending(value);
+	};
 	const setBusyGate = (value: boolean) => {
 		busyRef.current = value;
 		setBusy(value);
@@ -695,47 +689,40 @@ function ShopView(props: ShopViewProps) {
 			failsafe.current = undefined;
 		}
 	};
-	const dismissPurchase = React.useCallback(() => {
-		clearFailsafe();
-		sessionRef.current += 1;
-		pendingOffer.current = undefined;
-		setPurchasePhase("hidden");
-		setPurchaseDetail(undefined);
-		setBusyGate(false);
-	}, []);
-	const openPending = (label: string, seconds?: number, item?: { PriceLabel?: string; Icon?: string; Accent?: number[] }) => {
+	const openPending = (label: string, seconds?: number) => {
 		const timeout = seconds ?? PRODUCT_PENDING_FAILSAFE;
 		pendingLabel.current = label;
-		const rgb = item?.Accent;
-		setPurchaseItem({
-			name: label,
-			price: item?.PriceLabel,
-			icon: item?.Icon,
-			accent: rgb !== undefined && rgb.size() >= 3 ? Color3.fromRGB(rgb[0], rgb[1], rgb[2]) : undefined,
-		});
-		purchasePresentationCallback.current?.(true);
 		const session = sessionRef.current + 1;
 		sessionRef.current = session;
-		setPurchasePhase("pending");
-		setPurchaseDetail(undefined);
+		setPendingGate(true);
 		clearFailsafe();
 		failsafe.current = task.delay(timeout, () => {
 			failsafe.current = undefined;
 			if (!mountedRef.current || sessionRef.current !== session) {
 				return;
 			}
-			setPurchasePhase("fail");
+			setPendingGate(false);
 			setBusyGate(false);
 			setBanner("That took too long. Try again.");
 		});
 	};
-	const finishPurchase = (ok: boolean, detail?: string) => {
+	// announce: true puts the result on the buff strip (Robux checkouts); Studio test grants already get a
+	// server notice, and a cancelled checkout needs none
+	const finishPurchase = (ok: boolean, detail?: string, announce = false) => {
 		clearFailsafe();
 		sessionRef.current += 1;
 		pendingOffer.current = undefined;
-		setPurchasePhase(ok ? "success" : "fail");
-		setPurchaseDetail(detail);
+		setPendingGate(false);
 		setBusyGate(false);
+		if (announce) {
+			if (ok) {
+				Audio.play("purchase");
+				Juice.banner("Purchased", detail ?? `${pendingLabel.current} is yours.`, Palette.mint, "Shop", undefined, "Success");
+			} else {
+				Audio.play("error");
+				Juice.banner("Purchase pending", detail ?? "Roblox is still confirming it.", Palette.mango, "Shop", undefined, "Info");
+			}
+		}
 	};
 	React.useEffect(() => {
 		mountedRef.current = true;
@@ -755,7 +742,7 @@ function ShopView(props: ShopViewProps) {
 					if (sessionRef.current !== session) {
 						return;
 					}
-					finishPurchase(response.ok !== false);
+					finishPurchase(response.ok !== false, response.ok === false ? response.error : `${label} is yours.`, true);
 					setBanner(
 						response.ok === false
 							? (response.error ?? "Purchase pending. Roblox is still confirming it.")
@@ -781,7 +768,11 @@ function ShopView(props: ShopViewProps) {
 					if (sessionRef.current !== session) {
 						return;
 					}
-					finishPurchase(response.ok !== false);
+					finishPurchase(
+						response.ok !== false,
+						response.ok === false ? (response.error ?? "Pass pending. Reopen the Shop in a moment.") : "Pass unlocked. Its bonuses are active now.",
+						true,
+					);
 					setBanner(
 						response.ok === false
 							? (response.error ?? "Pass pending. Reopen the Shop in a moment.")
@@ -802,20 +793,20 @@ function ShopView(props: ShopViewProps) {
 		};
 	}, []);
 	const promptProduct = (product: DevProduct) => {
-		if (busyRef.current || purchasePhaseRef.current === "pending") {
+		if (busyRef.current || purchasePendingRef.current) {
 			return;
 		}
 		const run = () => {
 			if (!mountedRef.current) {
 				return;
 			}
-			if (busyRef.current || purchasePhaseRef.current === "pending") {
+			if (busyRef.current || purchasePendingRef.current) {
 				return;
 			}
 			if (product.ProductId <= 0) {
 				if (RunService.IsStudio()) {
 					setBusyGate(true);
-					openPending(product.Name, undefined, product);
+					openPending(product.Name);
 					const session = sessionRef.current;
 					dispatch("StudioGrantProduct", { Id: product.Key }, (response) => {
 						if (sessionRef.current !== session) {
@@ -839,7 +830,7 @@ function ShopView(props: ShopViewProps) {
 				kind: "product",
 				id: product.ProductId,
 			};
-			openPending(product.Name, undefined, product);
+			openPending(product.Name);
 			const [ok] = pcall(() => MarketplaceService.PromptProductPurchase(Players.LocalPlayer!, product.ProductId));
 			if (!ok) {
 				finishPurchase(false);
@@ -849,20 +840,20 @@ function ShopView(props: ShopViewProps) {
 		task.defer(run);
 	};
 	const promptPass = (pass: GamePass) => {
-		if (busyRef.current || owned[pass.Key] === true || purchasePhaseRef.current === "pending") {
+		if (busyRef.current || owned[pass.Key] === true || purchasePendingRef.current) {
 			return;
 		}
 		const run = () => {
 			if (!mountedRef.current) {
 				return;
 			}
-			if (busyRef.current || purchasePhaseRef.current === "pending" || owned[pass.Key] === true) {
+			if (busyRef.current || purchasePendingRef.current || owned[pass.Key] === true) {
 				return;
 			}
 			if (pass.PassId <= 0) {
 				if (RunService.IsStudio()) {
 					setBusyGate(true);
-					openPending(pass.Name, undefined, pass);
+					openPending(pass.Name);
 					const session = sessionRef.current;
 					dispatch("StudioGrantProduct", { Id: pass.Key }, (response) => {
 						if (sessionRef.current !== session) {
@@ -886,7 +877,7 @@ function ShopView(props: ShopViewProps) {
 				kind: "pass",
 				id: pass.PassId,
 			};
-			openPending(pass.Name, undefined, pass);
+			openPending(pass.Name);
 			const [ok] = pcall(() => MarketplaceService.PromptGamePassPurchase(Players.LocalPlayer!, pass.PassId));
 			if (!ok) {
 				finishPurchase(false);
@@ -898,7 +889,7 @@ function ShopView(props: ShopViewProps) {
 	const redeem = () => {
 		const trimmed = code.gsub("^%s+", "")[0].gsub("%s+$", "")[0];
 		const now = os.clock();
-		if (trimmed === "" || busyRef.current || purchasePhaseRef.current === "pending") {
+		if (trimmed === "" || busyRef.current || purchasePendingRef.current) {
 			return;
 		}
 		if (now - lastRedeemAt.current < REDEEM_DEBOUNCE) {
@@ -969,7 +960,7 @@ function ShopView(props: ShopViewProps) {
 	const tabRowH = stack ? TapTarget : 50;
 	const sectionLabelH = 34;
 	const codeReady = code.gsub("%s", "")[0] !== "";
-	const redeemDisabled = busy || !codeReady || purchasePhase === "pending";
+	const redeemDisabled = busy || !codeReady || purchasePending;
 	const shopHostRef = React.useRef<Frame>();
 	const offerRows: OfferRow[] = [];
 	if (tab !== "Codes") {
@@ -1008,7 +999,7 @@ function ShopView(props: ShopViewProps) {
 		}
 	}
 	React.useEffect(() => {
-		if (purchasePhase !== "hidden" || !UserInputService.GamepadEnabled) {
+		if (purchasePending || !UserInputService.GamepadEnabled) {
 			return undefined;
 		}
 		const host = shopHostRef.current;
@@ -1024,7 +1015,7 @@ function ShopView(props: ShopViewProps) {
 		return () => {
 			pcall(() => task.cancel(selectJob));
 		};
-	}, [tab, purchasePhase, listCount, redeemDisabled]);
+	}, [tab, purchasePending, listCount, redeemDisabled]);
 	const heroPanel = h(
 		Panel,
 		{
@@ -1458,13 +1449,6 @@ function ShopView(props: ShopViewProps) {
 			scrollBarColor: Palette.mango,
 			scrollBarThickness: 4,
 			sections: sections,
-		}),
-		h(PurchaseOverlay, {
-			phase: purchasePhase,
-			reducedMotion: reducedMotion,
-			detail: purchaseDetail,
-			item: purchaseItem,
-			onDismiss: dismissPurchase,
 		}),
 	) as React.Element;
 }
@@ -3661,7 +3645,6 @@ interface StoreFrontProps {
 	navigate?: (page: string) => void;
 	onCrateReveal?: (request: CrateRevealRequest) => void;
 	crateRevealActive?: boolean;
-	onPurchasePresentationChange?: (open: boolean) => void;
 }
 
 function StoreFront(props: StoreFrontProps) {
@@ -3732,7 +3715,6 @@ function StoreFront(props: StoreFrontProps) {
 			state: props.state,
 			dispatch: props.dispatch,
 			reducedMotion: softMotion,
-			onPurchasePresentationChange: props.onPurchasePresentationChange,
 		});
 	}
 	return h(

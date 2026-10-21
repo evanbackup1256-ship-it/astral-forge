@@ -207,7 +207,6 @@ function PageContentInner(props: PageContentProps) {
 		return (
 			<StoreFront
 				{...base}
-				onPurchasePresentationChange={props.setPurchasePresentationActive}
 				crateRevealActive={props.crateRevealActive}
 				onCrateReveal={props.setCrateReveal}
 				navigate={props.navigate}
