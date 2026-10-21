@@ -129,6 +129,20 @@ desk:RevertExchange(pb, plan.GuestOffer, plan.HostOffer, plan.GuestItems, plan.H
 pb.Items.NextId = beforeB.Items.NextId -- uids are never reused, so only the counter moves
 check(deepEqual(pa, beforeA), "host revert restores the profile exactly")
 check(deepEqual(pb, beforeB), "guest revert restores the profile exactly")
+-- a side that already spent what it received cannot be reverted by clamping at zero
+do
+	local host, guest = deepCopy(beforeA), deepCopy(beforeB)
+	check(desk:ApplyExchange(host, plan.HostOffer, plan.GuestOffer, plan.HostItems, plan.GuestItems, now) == nil, "re-apply host")
+	host.Stardust = 5 -- spent down below the 20 Stardust it received
+	local spent = deepCopy(host)
+	local short = desk:RevertExchange(host, plan.HostOffer, plan.GuestOffer, plan.HostItems, plan.GuestItems, now)
+	check(short == "Stardust", "revert reports the spent currency")
+	check(deepEqual(host, spent), "a refused revert leaves the profile untouched")
+	local host2 = deepCopy(beforeB)
+	check(desk:ApplyExchange(host2, plan.GuestOffer, plan.HostOffer, plan.GuestItems, plan.HostItems, now) == nil, "re-apply guest side")
+	for uid in host2.Items.Inventory do if uid ~= "IT0000001" then host2.Items.Inventory[uid] = nil end end -- salvaged the received relic
+	check(desk:RevertExchange(host2, plan.GuestOffer, plan.HostOffer, plan.GuestItems, plan.HostItems, now) == "Relic IT0000001", "revert reports a salvaged received relic")
+end
 -- a stale relic counter never lets an incoming relic overwrite one already owned
 do
 	local giver, taker = trader(), trader()

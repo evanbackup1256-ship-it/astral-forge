@@ -1090,7 +1090,7 @@ export class GameService {
 						const [revertOk, revertResult] = this._data.AtomicUpdate(
 							host,
 							(hostDraft: Profile) => {
-								this._trades.RevertExchange(
+								const shortfall = this._trades.RevertExchange(
 									hostDraft,
 									plan.HostOffer,
 									plan.GuestOffer,
@@ -1098,6 +1098,10 @@ export class GameService {
 									plan.GuestItems,
 									plan.Now,
 								);
+								if (truthy(shortfall)) {
+									// what the host received was already spent; the settle faults and is journaled
+									return { ok: false, error: "revert shortfall: " + tostring(shortfall) };
+								}
 								// a reverted side never happened, so its history entry goes too
 								TradeHistory.remove(hostDraft.Trade, tostring(session.Id));
 								return { ok: true };

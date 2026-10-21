@@ -117,7 +117,8 @@ interface TradeExchangeApi {
 		giveItems: Dict | undefined,
 		takeItems: Dict | undefined,
 		now: number,
-	): void;
+	): string | undefined;
+	RevertShortfall(this: void, omegaMath: OmegaMathApi, profile: Dict, take: TradeOfferBag, takeItems: Dict | undefined): string | undefined;
 }
 
 interface TradeOfferMathApi {
@@ -243,7 +244,7 @@ interface TradeDeskInstance {
 		giveItems: Dict | undefined,
 		takeItems: Dict | undefined,
 		now: number,
-	): void;
+	): string | undefined;
 	Close(this: TradeDeskInstance, session: TradeSession | undefined): void;
 	SessionFor(this: TradeDeskInstance, userId: number): TradeSession | undefined;
 }
@@ -1080,8 +1081,8 @@ __defs["TradeDesk"] = () => {
 			giveItems: Dict | undefined,
 			takeItems: Dict | undefined,
 			now: number,
-		): void {
-			TradeExchange.RevertExchange(OmegaMath, profile, give, take, giveItems, takeItems, now);
+		): string | undefined {
+			return TradeExchange.RevertExchange(OmegaMath, profile, give, take, giveItems, takeItems, now);
 		},
 
 		Close(this: TradeDeskInstance, session: TradeSession | undefined): void {
@@ -1313,9 +1314,16 @@ __defs["TradeExchange"] = () => {
 			giveItems: Dict | undefined,
 			takeItems: Dict | undefined,
 			now: number,
-		): void {
+		): string | undefined {
 			ensureLedger(profile, now);
 			ensureTradeBags(profile);
+			// A revert must take back everything this side received. If some of it has already
+			// been spent, clamping at zero would let the side keep both what it gave back and
+			// what it bought with the proceeds, so refuse and let the settle fault (journaled).
+			const shortfall = TradeExchange.RevertShortfall(omegaMath, profile, take, takeItems);
+			if (shortfall !== undefined) {
+				return shortfall;
+			}
 
 			profile.Cash = omegaMath.Add(profile.Cash, give.Cash);
 			profile.Cash = omegaMath.Sub(profile.Cash, take.Cash);
@@ -1368,6 +1376,42 @@ __defs["TradeExchange"] = () => {
 			sent.Items = math.max(0, ((sent.Items as number | undefined) ?? 0) - give.ItemIds.size());
 			const trade = profile.Trade as Dict;
 			trade.Completed = math.max(0, ((trade.Completed as number | undefined) ?? 0) - 1);
+			return undefined;
+		},
+
+		/** What this side received in `take` that it no longer holds, or undefined if all of it is still here. */
+		RevertShortfall(
+			this: void,
+			omegaMath: OmegaMathApi,
+			profile: Dict,
+			take: TradeOfferBag,
+			takeItems: Dict | undefined,
+		): string | undefined {
+			if (omegaMath.Gt(take.Cash, profile.Cash)) return "Cash";
+			if (take.Stardust > (tonumber(profile.Stardust) ?? 0)) return "Stardust";
+			if (take.Cores > (tonumber(profile.Cores) ?? 0)) return "Cores";
+			const command = profile.Command as Dict;
+			if (take.Signals > (tonumber(command.Signals) ?? 0)) return "Signals";
+			const items = profile.Items as Dict;
+			if (take.Essence > (tonumber(items.Essence) ?? 0)) return "Essence";
+			const boostInventory = profile.BoostInventory as Dict;
+			for (const id of BOOST_IDS) {
+				if (take.Boosts[id] > (tonumber(boostInventory[id]) ?? 0)) return "Boost " + id;
+			}
+			const keys = items.Keys as Dict;
+			for (const id of KEY_IDS) {
+				if (take.Keys[id] > (tonumber(keys[id]) ?? 0)) return "Key " + id;
+			}
+			const inventory = items.Inventory as Dict;
+			if (typeIs(take.ItemIds, "table")) {
+				for (const uid of take.ItemIds) {
+					const payload = takeItems !== undefined ? (takeItems[uid] as Dict | undefined) : undefined;
+					if (typeIs(payload, "table") && truthy(payload.NewUid) && inventory[payload.NewUid as string] === undefined) {
+						return "Relic " + uid;
+					}
+				}
+			}
+			return undefined;
 		},
 	};
 
