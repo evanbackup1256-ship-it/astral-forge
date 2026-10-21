@@ -859,18 +859,22 @@ export function Workspace(_param: WorkspaceProps) {
 				"frame",
 				{
 					Name: "LevelBarTarget",
-					Size: new UDim2(1, 0, 0, unlockH),
+					// tall enough to hold the tap reach below the strip; content still starts at unlockH
+					Size: new UDim2(1, 0, 0, math.max(unlockH, stripTapH)),
 					Position: UDim2.fromOffset(0, headerHeight),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
 					ZIndex: 19,
 				},
-				// the strip is drawn 32px tall; this invisible catch area under it makes the tap
-				// target 44px by reaching 12px into the content inset below (never into the content)
+				// the strip is drawn 32px tall; this invisible catch area just under it makes the tap
+				// target 44px by reaching into the content inset (never into the content). It starts where
+				// the strip ends so the two buttons don't overlap.
 				stripOpen !== undefined &&
+					stripTapH > unlockH &&
 					h("textbutton", {
 						Name: "StripTapArea",
-						Size: new UDim2(1, 0, 0, stripTapH),
+						Size: new UDim2(1, 0, 0, stripTapH - unlockH),
+						Position: UDim2.fromOffset(0, unlockH),
 						BackgroundTransparency: 1,
 						Text: "",
 						AutoButtonColor: false,
