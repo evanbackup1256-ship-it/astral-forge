@@ -145,6 +145,18 @@ else
 end
 WeeklyStores.ResetForTests()
 
+-- the server player list carries the weekly score, so the board's "this server" tab can rank it
+do
+	local PublicPlayerRecord = H.load("Server/AstralForge/Modules/ProfileMath")("PublicPlayerRecord")
+	local Economy = H.load("Server/AstralForge/Modules/EconomyMath")("Economy")
+	local p = DataTemplate.New()
+	p.LifetimeCash = 7500
+	p.WeeklyBoard = { Week = WeeklyBoard.weekOf(os.time()), Base = 2500, ClaimedWeek = 0 }
+	local listed = H.player("Listed")
+	local record = PublicPlayerRecord.Build(listed, p, listed, {}, { Economy = Economy })
+	check(type(record.Boards) == "table" and record.Boards.Weekly == 5000, "the player list carries this week's Flux")
+end
+
 if #failures > 0 then
 	error("weekly board failed:\n  " .. table.concat(failures, "\n  "))
 end

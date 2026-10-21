@@ -153,8 +153,8 @@ function serverValueFor(summary: Bag, id: string): unknown {
 		return summary.LifetimeCash ?? 0;
 	}
 	if (id === "Weekly") {
-		// the server list only carries lifetime totals; the weekly race is read from the global board
-		return 0;
+		const boards = summary.Boards;
+		return typeIs(boards, "table") ? ((boards as Bag).Weekly ?? 0) : 0;
 	}
 	if (id === "Rebirths") {
 		return summary.Rebirths;

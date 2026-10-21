@@ -1,4 +1,5 @@
 import { Dict, isFiniteNumber, truthy } from "../Services/LuaInterop";
+import * as WeeklyBoard from "../../../Shared/AstralForge/Shared/WeeklyBoard";
 
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
@@ -198,6 +199,8 @@ __defs["PublicPlayerRecord"] = () => {
 					Orders: GeneralBoardValue.Of(profile, "Orders", tostring),
 					Stars: GeneralBoardValue.Of(profile, "Stars", tostring),
 					Cipher: GeneralBoardValue.Of(profile, "Cipher", tostring),
+					// raw, not tostring: it can be an Omega string and the client compares it as one
+					Weekly: WeeklyBoard.scoreOf(profile, os.time()),
 				},
 				Shards:
 					truthy(profile.Foundry) && truthy((profile.Foundry as Dict).Shards)
