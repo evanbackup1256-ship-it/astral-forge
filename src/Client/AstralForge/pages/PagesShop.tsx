@@ -330,12 +330,7 @@ const h = React.createElement as unknown as (
 ) => React.ReactElement;
 
 const SHOP_TABS = ["Featured", "Passes", "Supplies", "Codes"];
-const SHOP_TAB_TIPS: Record<string, string> = {
-	Featured: "What's on sale.",
-	Passes: "Permanent upgrades. Buy once, keep forever.",
-	Supplies: "One-time packs of Flux, dust and boosts.",
-	Codes: "Type a promo code for a free reward.",
-};
+const SHOP_DEFAULT_LINE = "Passes are permanent. Packs are one-time.";
 const PRODUCT_PENDING_FAILSAFE = 40;
 const REDEEM_DEBOUNCE = 0.85;
 
@@ -661,7 +656,7 @@ function ShopView(props: ShopViewProps) {
 	const [followFeedback, setFollowFeedback] = React.useState("");
 	const [followBusy, setFollowBusy] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
-	const [banner, setBanner] = React.useState("Buy a pack, a pass, or enter a code.");
+	const [banner, setBanner] = React.useState(SHOP_DEFAULT_LINE);
 	// true from opening checkout until Roblox (or the server) answers; blocks a second checkout meanwhile
 	const [purchasePending, setPurchasePending] = React.useState(false);
 	const heroReveal = useStagger(0, softMotion);
@@ -1102,7 +1097,7 @@ function ShopView(props: ShopViewProps) {
 		onChange: (entry: unknown) => {
 			const id = entry as string;
 			setTab(id);
-			setBanner(SHOP_TAB_TIPS[id]);
+			setBanner(SHOP_DEFAULT_LINE);
 		},
 		accent: Palette.mango,
 		columns: SHOP_TABS.size(),
@@ -1111,7 +1106,7 @@ function ShopView(props: ShopViewProps) {
 		reducedMotion: softMotion,
 	});
 	const sectionLabel = h(SectionLabel, {
-		value: tab === "Codes" ? "REDEEM" : tab === "Passes" ? "GAME PASSES" : tab === "Supplies" ? "SUPPLY PACKS" : "FEATURED OFFERS",
+		value: tab === "Codes" ? "Redeem a code" : tab === "Passes" ? "Game passes" : tab === "Supplies" ? "Supply packs" : "Featured",
 		color: Palette.mango,
 	});
 	const codesPane = h(
