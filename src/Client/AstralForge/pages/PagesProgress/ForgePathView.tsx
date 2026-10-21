@@ -201,7 +201,7 @@ function ForgePathRow({
 					reducedMotion={reducedMotion}
 				/>
 				<Text
-					value={`STEP ${step.Step}`}
+					value={`Step ${step.Step}`}
 					size={10}
 					color={claimed ? Palette.muted : step.Color}
 					weight={Enum.FontWeight.Heavy}
@@ -397,7 +397,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 			clips={false}
 		>
 			<Text
-				value={ready ? "READY TO CLAIM" : "NEXT STEP"}
+				value={ready ? "Ready to claim" : "Next step"}
 				size={10}
 				color={ready ? step.Color : Palette.violet}
 				weight={Enum.FontWeight.Heavy}
@@ -620,14 +620,6 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								reducedMotion={softMotion}
 							/>
 							<Text
-								value="FORGE PATH"
-								size={10}
-								color={Palette.violet}
-								weight={Enum.FontWeight.Heavy}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 60 : 0)}
-								sizeConstraint={new UDim2(1, stack ? -8 : -220, 0, 16)}
-							/>
-							<Text
 								value={heroBlurb}
 								size={stack ? 16 : 18}
 								color={Palette.cream}
@@ -635,7 +627,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								fit={true}
 								minSize={10}
 								wrap={true}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 78 : 16)}
+								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 64 : 6)}
 								sizeConstraint={new UDim2(1, stack ? -8 : -292, 0, 44)}
 							/>
 							<Meter
@@ -673,7 +665,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 										sizeConstraint={new UDim2(1, 0, 0, 32)}
 									/>
 									<Text
-										value="FORGE XP"
+										value="Forge XP"
 										size={10}
 										color={Palette.muted}
 										weight={Enum.FontWeight.Bold}
