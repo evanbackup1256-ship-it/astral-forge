@@ -136,6 +136,32 @@ do
 	check(type(ensured.Weekly.Scale) == "number", "CommandMath keeps Scale")
 end
 
+-- production only counts lab cells the player still owns (routing can outlive a cell drop)
+do
+	local Economy = H.load("Server/AstralForge/Modules/EconomyMath")("Economy")
+	local p = DataTemplate.New()
+	p.Rebirths = 0 -- 12 base cells
+	p.Lab = p.Lab or {}
+	p.Lab.Routing = { Production = 20, Storage = 0, Tap = 0 }
+	local effect = Economy.LabPowerEffect(p, "Production")
+	check(math.abs(effect - 12 * 0.04) < 1e-9, "lab production clamps to owned cells (got " .. tostring(effect) .. ")")
+	p.Lab.Routing = { Production = 6, Storage = 10, Tap = 0 }
+	check(math.abs(Economy.LabPowerEffect(p, "Storage") - 6 * 0.07) < 1e-9, "later rails get what is left")
+	p.Lab.Routing = { Production = 0 / 0, Storage = 0, Tap = 0 }
+	check(Economy.LabPowerEffect(p, "Production") == 0, "NaN routing gives nothing")
+end
+
+-- weekly board: scores are keyed by the week they were earned, ranks wait for late pushes
+do
+	local WB = H.load("Shared/AstralForge/Shared/WeeklyBoard")
+	check(WB.weekFromKey(WB.pendingKey(2900)) == 2900, "pending key round trip")
+	check(WB.weekFromKey(WB.pendingKey(-3)) == -3, "pending key negative week")
+	check(WB.weekFromKey("Weekly") == nil and WB.weekFromKey("Rebirths@5") == nil, "other boards are not week keys")
+	local ends = WB.weekEndsAt(2900)
+	check(not WB.ranksSettled(2900, ends + 5), "ranks not final right after the week ends")
+	check(WB.ranksSettled(2900, ends + WB.SETTLE_SECONDS), "ranks final after the settle window")
+end
+
 if #failures > 0 then
 	error("gameplay fixes failed:\n  " .. table.concat(failures, "\n  "))
 end

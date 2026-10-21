@@ -42,6 +42,9 @@ export function finalRanks(week: number): Map<number, number> | undefined {
 	if (entry.ranks !== undefined) {
 		return entry.ranks;
 	}
+	if (!WeeklyBoard.ranksSettled(week, os.time())) {
+		return undefined;
+	}
 	if (!entry.busy && os.clock() >= entry.retryAt) {
 		entry.busy = true;
 		const pending = entry;

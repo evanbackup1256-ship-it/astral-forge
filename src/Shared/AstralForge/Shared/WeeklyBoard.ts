@@ -38,6 +38,28 @@ export function weekEndsAt(week: number): number {
 	return (week + 1) * WEEK_SECONDS + MONDAY_OFFSET;
 }
 
+// Servers keep pushing scores they computed just before Monday for a little while after it, so a
+// finished week's final ranks are only read once this long has passed since the week ended.
+export const SETTLE_SECONDS = 10 * 60;
+
+export function ranksSettled(week: number, now: number): boolean {
+	return now >= weekEndsAt(week) + SETTLE_SECONDS;
+}
+
+// Leaderboard pushes carry the week their score was computed for, so a score from late Sunday that
+// is written after midnight still lands on last week's store instead of topping the new week.
+export function pendingKey(week: number): string {
+	return BOARD_ID + "@" + tostring(week);
+}
+
+export function weekFromKey(id: unknown): number | undefined {
+	if (!typeIs(id, "string")) {
+		return undefined;
+	}
+	const [digits] = string.match(id, "^" + BOARD_ID + "@(%-?%d+)$");
+	return digits !== undefined ? tonumber(digits) : undefined;
+}
+
 export function storeName(base: string, week: number): string {
 	return base + "_W" + tostring(week);
 }

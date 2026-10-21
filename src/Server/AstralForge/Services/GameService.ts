@@ -2706,6 +2706,8 @@ export class GameService {
 	// ended event's leftover tokens, and banks the queued points.
 	_settleEventTokens(player: Player, runtime: Runtime, profile: Profile): boolean {
 		if (HotFlags.Get("LimitedEventsPaused")) {
+			// actions taken while paused don't bank up to pay out when the flag is lifted
+			runtime.EventPoints = 0;
 			return false;
 		}
 		const now = os.time();
@@ -2729,15 +2731,29 @@ export class GameService {
 		if (event === undefined || HotFlags.Get("LimitedEventsPaused")) {
 			return responseError("The event stall is closed right now.");
 		}
-		return this._mutate(player, (profile: Profile) => {
-			LimitedEvents.ensure(profile, event);
+		let refunded = 0;
+		const result = this._mutate(player, (profile: Profile) => {
+			// a bag still on the previous event is moved here too, so its leftover tokens are paid out
+			// rather than dropped when the stall is used before the next maintenance pass
+			const [, refund] = LimitedEvents.ensure(profile, event);
+			if (refund > 0) {
+				ProgressionService.ApplyReward(profile, { Stardust: refund }, undefined);
+				refunded = refund;
+			}
 			const [item, reason] = LimitedEvents.buy(profile, event, itemId);
 			if (item === undefined) {
+				if (refunded > 0) {
+					// keep the move and the refund even though the purchase itself was refused
+					return responseSuccess(string.format("Your leftover tokens became %d Stardust. %s", refunded, reason ?? ""), {
+						Refund: refunded,
+					});
+				}
 				return responseError(reason ?? "That isn't sold at this stall.");
 			}
 			const text = ProgressionService.ApplyReward(profile, item.Reward, Economy.Production(profile));
 			return responseSuccess("Bought " + item.Name + ": " + tostring(text), { Item: item.Id });
 		});
+		return result;
 	}
 
 	_eventAct(player: Player, payload: unknown) {

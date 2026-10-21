@@ -601,7 +601,31 @@ __defs["Economy"] = () => {
 			if (!truthy(lab) || !truthy(lab.Routing) || !truthy(channel)) {
 				return 0;
 			}
-			return EconomyEnvelopeMath.LabPowerEffect(lab.Routing, channelId, channel);
+			// only cells the player still owns count, filled in channel order like the Lab state
+			const LabOrderMath = require(script.Parent!.WaitForChild("LabOrderMath") as ModuleScript) as {
+				CHANNEL_ORDER: string[];
+				TotalCells(this: void, rebirths: number, baseCells: number, rebirthsPerCell: number, maxCells: number): number;
+			};
+			const power = GameConfig.Lab.Power as unknown as Dict;
+			let left = LabOrderMath.TotalCells(
+				tonumber(profile.Rebirths) ?? 0,
+				tonumber(power.BaseCells) ?? 0,
+				tonumber(power.RebirthsPerCell) ?? 0,
+				tonumber(power.MaxCells) ?? 0,
+			);
+			const routing = lab.Routing as unknown as Dict;
+			for (const id of LabOrderMath.CHANNEL_ORDER) {
+				const raw = routing[id];
+				const cells =
+					typeIs(raw, "number") && raw === raw && raw < math.huge
+						? math.clamp(math.floor(raw), 0, math.max(0, left))
+						: 0;
+				if (id === channelId) {
+					return EconomyEnvelopeMath.LabPowerEffect({ [id]: cells }, channelId, channel);
+				}
+				left -= cells;
+			}
+			return 0;
 		},
 
 		GetMachine(this: void, id: string): MachineDef | undefined {

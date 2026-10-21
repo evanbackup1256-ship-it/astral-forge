@@ -1110,7 +1110,8 @@ export class DataService {
 		}
 		pending.Stars = stars;
 		pending.Cipher = math.max(0, math.floor(num(typeIs(sky.Cipher, "table") ? (sky.Cipher as Dict).Solves : undefined) ?? 0));
-		pending[WeeklyBoard.BOARD_ID] = WeeklyBoard.scoreOf(profile, os.time());
+		const boardNow = os.time();
+		pending[WeeklyBoard.pendingKey(WeeklyBoard.weekOf(boardNow))] = WeeklyBoard.scoreOf(profile, boardNow);
 		if (this._leaderboardPushBusy.get(userId)) return;
 		this._leaderboardPushBusy.set(userId, true);
 		this._leaderboardWorkers.set(
@@ -1123,9 +1124,13 @@ export class DataService {
 					while ((values = this._leaderboardPending.get(userId)) !== undefined) {
 						this._leaderboardPending.delete(userId);
 						for (const [id, value] of pairs(values)) {
-							// the weekly board writes to this week's store and skips players with nothing yet
-							const weekly = id === WeeklyBoard.BOARD_ID;
-							const store = weekly ? (WeeklyStores.current(os.time()) as unknown as OrderedStoreLike) : this._leaderboardStores[id];
+							// the weekly board writes to the store of the week its score was computed for and
+							// skips players with nothing yet
+							const boardWeek = WeeklyBoard.weekFromKey(id);
+							const weekly = boardWeek !== undefined;
+							const store = weekly
+								? (WeeklyStores.forWeek(boardWeek) as unknown as OrderedStoreLike)
+								: this._leaderboardStores[id as string];
 							if (store !== undefined && mirror[id] !== value && !(weekly && LeaderboardCodec.Encode(value) <= 0)) {
 								const [okWrite, writeErr] = pcall(() => store.SetAsync(tostring(userId), LeaderboardCodec.Encode(value)));
 								if (okWrite) {
