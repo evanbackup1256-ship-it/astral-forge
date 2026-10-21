@@ -309,7 +309,7 @@ function IdleBay(props: IdleBayProps) {
 			reducedMotion={softMotion}
 			clips={false}
 		>
-			<Text value="NOTHING RUNNING · BEST PICK" size={11} color={accent} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, 0, 0, 14)} />
+			<Text value="Best pick" size={13} color={accent} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 14)} />
 			<IconTile
 				kind={boostIconKind(pick.boost.Id)}
 				accent={accent}
@@ -686,10 +686,10 @@ function BoostsView(props: BoostsViewProps) {
 				CellPadding={UDim2.fromOffset(8, 8)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
-			<StatTile label="STORED" value={compactNumber(stored)} accent={Palette.pink} order={1} />
-			<StatTile label="TYPES OWNED" value={`${types} / ${all.size()}`} accent={Palette.cyan} order={2} />
-			<StatTile label="BOOST TIME BANKED" value={`${compactNumber(math.floor(bankedSeconds / 3600))}h`} accent={Palette.mango} order={3} />
-			<StatTile label="BEST MULTIPLIER" value={`${bestMult}x`} accent={Palette.mint} order={4} />
+			<StatTile label="Stored" value={compactNumber(stored)} accent={Palette.pink} order={1} />
+			<StatTile label="Types owned" value={`${types} / ${all.size()}`} accent={Palette.cyan} order={2} />
+			<StatTile label="Time banked" value={`${compactNumber(math.floor(bankedSeconds / 3600))}h`} accent={Palette.mango} order={3} />
+			<StatTile label="Best multiplier" value={`${bestMult}x`} accent={Palette.mint} order={4} />
 		</>
 	);
 	const grid =
