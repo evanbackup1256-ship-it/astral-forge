@@ -1957,7 +1957,8 @@ export function OverviewView({
 										size={10}
 										color={Palette.mango}
 										weight={Enum.FontWeight.Heavy}
-										fit={false}
+										fit={true}
+										minSize={8}
 										sizeConstraint={new UDim2(1, 0, 0, 16)}
 									/>
 									<Text
@@ -1965,7 +1966,8 @@ export function OverviewView({
 										size={phone ? 17 : 19}
 										color={Palette.cream}
 										weight={Enum.FontWeight.Heavy}
-										fit={false}
+										fit={true}
+										minSize={13}
 										position={UDim2.fromOffset(0, 20)}
 										sizeConstraint={new UDim2(1, 0, 0, 26)}
 									/>
@@ -1977,7 +1979,8 @@ export function OverviewView({
 										}
 										size={chrome.labelText}
 										color={Palette.creamSoft}
-										fit={false}
+										fit={true}
+										minSize={9}
 										wrap={phone}
 										position={UDim2.fromOffset(0, 48)}
 										sizeConstraint={new UDim2(1, 0, 0, phone ? 32 : 16)}
@@ -1992,12 +1995,15 @@ export function OverviewView({
 									/>
 									<Text
 										value={
-											journeyRecent.size() > 0 ? `Written: ${journeyRecent.join("  ·  ")}` : "Written: nothing yet. Buy a machine to start."
+											journeyRecent.size() > 0
+												? `Written: ${(phone ? journeyRecent.filter((_, index) => index < 2) : journeyRecent).join("  ·  ")}`
+												: "Written: nothing yet. Buy a machine to start."
 										}
 										size={chrome.labelText}
 										color={Palette.muted}
 										weight={Enum.FontWeight.Bold}
-										fit={false}
+										fit={true}
+										minSize={9}
 										position={UDim2.fromOffset(0, phone ? 96 : 82)}
 										sizeConstraint={new UDim2(1, 0, 0, 16)}
 									/>
