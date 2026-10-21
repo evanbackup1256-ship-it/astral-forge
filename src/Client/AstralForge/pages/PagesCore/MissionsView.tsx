@@ -155,7 +155,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 			/>
 			{reward !== "" && (
 				<frame
-					Size={UDim2.fromOffset(math.min(220, reward.size() * 7 + 24), 20)}
+					Size={UDim2.fromOffset(math.min(stack ? 170 : 220, reward.size() * 7 + 24), 20)}
 					Position={UDim2.fromOffset(56, stack ? 72 : 56)}
 					BackgroundColor3={Palette.ink}
 					BorderSizePixel={0}
@@ -188,7 +188,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 				fit={true}
 				minSize={8}
 				position={UDim2.fromOffset(0, progressY)}
-				sizeConstraint={new UDim2(0, 300, 0, 16)}
+				sizeConstraint={stack ? new UDim2(1, 0, 0, 16) : new UDim2(1, -182, 0, 16)}
 			/>
 			<Meter
 				value={quest.Claimed || ready ? 1 : progressFrac}
@@ -321,6 +321,8 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const stack = chrome.contentStack;
 	const quests = (typeIs(state.Quests, "table") ? state.Quests : []) as TaskEntry[];
 	const counts = taskFilterCounts(quests);
+	// desktop header: the summary card takes 190px on the right, the claim-all button another 214 when shown
+	const headerSide = counts.Ready > 0 ? 420 : 206;
 	const categories = TASK_FILTERS.map((option) => ({
 		id: option.id,
 		label: option.short ?? option.label,
@@ -460,7 +462,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						color={Palette.cyan}
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
-						sizeConstraint={new UDim2(1, -420, 0, 16)}
+						sizeConstraint={new UDim2(1, -headerSide, 0, 16)}
 					/>
 					<Text
 						value={
@@ -473,7 +475,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
 						position={UDim2.fromOffset(0, 16)}
-						sizeConstraint={new UDim2(1, -420, 0, 30)}
+						sizeConstraint={new UDim2(1, -headerSide, 0, 30)}
 					/>
 					<Text
 						value={nextStepText}
@@ -482,7 +484,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						fit={true}
 						minSize={9}
 						position={UDim2.fromOffset(0, 48)}
-						sizeConstraint={new UDim2(1, -420, 0, 16)}
+						sizeConstraint={new UDim2(1, -headerSide, 0, 16)}
 					/>
 					<TaskSummary
 						done={counts.Done}
