@@ -1,6 +1,8 @@
 // Local plot dressing. The server replicates a pad, a collect prompt and a short roster;
 // the parts, lights and sparks live only on this client and only for plots in range.
+import { Dependency } from "@flamework/core";
 import { Audio } from "./AudioKit/audio";
+import type { EffectFeedController } from "./Controllers/EffectFeedController";
 import { getActiveClientStore } from "./CoreKit/clientStore";
 import { currentAntilagInfo } from "./MotionKit/antilag";
 import { isReducedMotion } from "./MotionPreference";
@@ -31,12 +33,18 @@ interface Spinner {
 	lights: PointLight[];
 	emitters: ParticleEmitter[];
 	tweens: Tween[];
+	/** the floor ring a strike sends out; one per plot, restarted rather than re-made */
+	ring?: Part;
+	ringTween?: Tween;
+	stopBed?: () => void;
+	base: BasePart;
 }
 
 interface Watched {
 	model: Model;
 	connections: RBXScriptConnection[];
 	dressed?: Dressed;
+	base?: BasePart;
 	lastRoster: PlotLayout.MachineMark[];
 	localPlot: boolean;
 }
@@ -134,6 +142,8 @@ export function attach(): () => void {
 	let cursor = 0;
 	const watched = new Map<Model, Watched>();
 	let spinners: Spinner[] = [];
+	let spinnersDirty = true;
+	let lights: { light: PointLight; phase: number }[] = [];
 	const connections: RBXScriptConnection[] = [];
 	let worldConnections: RBXScriptConnection[] = [];
 
@@ -184,8 +194,11 @@ export function attach(): () => void {
 			return;
 		}
 		stopTweens(dressed);
+		dressed.ringTween?.Cancel();
+		dressed.stopBed?.();
 		dressed.folder.Destroy();
 		record.dressed = undefined;
+		spinnersDirty = true;
 	}
 
 	function forget(model: Model) {
@@ -359,6 +372,7 @@ export function attach(): () => void {
 			lights: [],
 			emitters: [],
 			tweens: [],
+			base,
 		};
 		const baseCf = base.CFrame;
 		if (budget.trim) {
@@ -442,6 +456,7 @@ export function attach(): () => void {
 
 		folder.Parent = record.model;
 		record.dressed = dressed;
+		spinnersDirty = true;
 
 		if (watching) {
 			for (const id of raised) {
@@ -454,6 +469,16 @@ export function attach(): () => void {
 	}
 
 	function rebuildSpinners() {
+		if (!spinnersDirty) {
+			return;
+		}
+		spinnersDirty = false;
+		lights = [];
+		for (const [, record] of watched) {
+			if (record.dressed !== undefined && record.localPlot) {
+				record.dressed.lights.forEach((light, index) => lights.push({ light, phase: index * 1.3 }));
+			}
+		}
 		const ordered: Spinner[] = [];
 		const rest: Spinner[] = [];
 		for (const [, record] of watched) {
@@ -482,6 +507,12 @@ export function attach(): () => void {
 				continue;
 			}
 			const lit = watching && record.localPlot;
+			if (lit && dressed.stopBed === undefined && dressed.lead !== undefined) {
+				dressed.stopBed = Audio.attachFurnaceBed(dressed.lead) ?? (() => undefined);
+			} else if (!lit && dressed.stopBed !== undefined) {
+				dressed.stopBed();
+				dressed.stopBed = undefined;
+			}
 			for (const light of dressed.lights) {
 				light.Enabled = lit;
 				light.Brightness = 0.3 + glowNow * 1.2;
@@ -491,6 +522,96 @@ export function attach(): () => void {
 				emitter.Enabled = lit && budget.particleRate > 0;
 			}
 		}
+	}
+
+	function localDressed(): Dressed | undefined {
+		for (const [, record] of watched) {
+			if (record.localPlot && record.dressed !== undefined) {
+				return record.dressed;
+			}
+		}
+		return undefined;
+	}
+
+	// A strike sends a flat ring of heat across the plot floor from the lead machine: brass at
+	// first, running hotter toward ember as the combo builds. Crits throw it wider with a few
+	// sparks off the core. No ring with Reduced Motion; the core pulse stays.
+	function strike(heat: number, critical: boolean) {
+		const dressed = localDressed();
+		if (!watching || dressed === undefined || dressed.lead === undefined) {
+			return;
+		}
+		pulseCore(dressed.lead, dressed);
+		if (critical) {
+			for (const emitter of dressed.emitters) {
+				emitter.Emit(math.max(2, math.floor(budget.particleRate * 0.6)));
+				break;
+			}
+		}
+		if (isReducedMotion() || budget.tweens <= 0) {
+			return;
+		}
+		let ring = dressed.ring;
+		if (ring === undefined || ring.Parent === undefined) {
+			ring = new Instance("Part");
+			ring.Name = "HeatRing";
+			ring.Shape = Enum.PartType.Cylinder;
+			ring.Material = Enum.Material.Neon;
+			finish(ring);
+			ring.Parent = dressed.folder;
+			dressed.ring = ring;
+		}
+		dressed.ringTween?.Cancel();
+		const floor = dressed.base.CFrame.mul(new CFrame(0, 2.06, 0));
+		const at = new CFrame(dressed.lead.Position.X, floor.Position.Y, dressed.lead.Position.Z).mul(CFrame.Angles(0, 0, math.rad(90)));
+		ring.CFrame = at;
+		ring.Color = ForgeTheme.Base.brass.Lerp(ForgeTheme.Base.ember, math.clamp(heat, 0, 1));
+		ring.Size = new Vector3(0.05, 2, 2);
+		ring.Transparency = 0.55;
+		const reach = critical ? 30 : 14 + heat * 10;
+		const tween = TweenService.Create(ring, new TweenInfo(critical ? 0.55 : 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size: new Vector3(0.05, reach, reach),
+			Transparency: 1,
+		});
+		dressed.ringTween = tween;
+		tween.Play();
+	}
+
+	// Collecting runs a pulse down the machine line, front to back, instead of one core blinking.
+	function collectWave() {
+		const dressed = localDressed();
+		if (!watching || dressed === undefined) {
+			return;
+		}
+		if (isReducedMotion()) {
+			if (dressed.lead !== undefined) {
+				pulseCore(dressed.lead, dressed);
+			}
+			return;
+		}
+		let index = 0;
+		for (const spinner of dressed.spinners) {
+			const core = spinner.part;
+			const delay = index * 0.045;
+			index += 1;
+			task.delay(delay, () => {
+				if (alive && core.Parent !== undefined && record(dressed)) {
+					pulseCore(core, dressed);
+				}
+			});
+		}
+		for (const emitter of dressed.emitters) {
+			emitter.Emit(3);
+		}
+	}
+
+	function record(dressed: Dressed): boolean {
+		for (const [, each] of watched) {
+			if (each.dressed === dressed) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	function cameraNear(): boolean {
@@ -504,11 +625,7 @@ export function attach(): () => void {
 			if (record.dressed === undefined) {
 				continue;
 			}
-			const base = record.model.FindFirstChild("Base");
-			if (base === undefined || !base.IsA("BasePart")) {
-				continue;
-			}
-			if (base.Position.sub(position).Magnitude <= reach) {
+			if (record.dressed.base.Position.sub(position).Magnitude <= reach) {
 				return true;
 			}
 		}
@@ -685,20 +802,26 @@ export function attach(): () => void {
 			if (!alive || who !== player || prompt.Name !== "CollectPrompt" || !inWorld(prompt)) {
 				return;
 			}
+			// the wave itself comes with the server's Collect effect, so it only plays once
 			task.defer(() => {
 				if (alive) {
 					Audio.play("collect");
 				}
 			});
-			if (!watching) {
+		}),
+	);
+	connections.push(
+		Dependency<EffectFeedController>().connect((raw) => {
+			if (!alive || !typeIs(raw, "table")) {
 				return;
 			}
-			for (const [, record] of watched) {
-				const dressed = record.dressed;
-				if (record.localPlot && dressed !== undefined && dressed.lead !== undefined) {
-					pulseCore(dressed.lead, dressed);
-					break;
-				}
+			const payload = raw as { Type?: unknown; Combo?: unknown; ComboMax?: unknown; Critical?: unknown };
+			if (payload.Type === "Overcharge") {
+				const combo = typeIs(payload.Combo, "number") ? payload.Combo : 0;
+				const comboMax = typeIs(payload.ComboMax, "number") && payload.ComboMax > 0 ? payload.ComboMax : 12;
+				strike(combo / comboMax, payload.Critical === true);
+			} else if (payload.Type === "Collect") {
+				collectWave();
 			}
 		}),
 	);
@@ -723,6 +846,11 @@ export function attach(): () => void {
 			}
 			motionDebt = math.min(motionDebt - step, step);
 			const now = os.clock();
+			// the cores' lights breathe slowly, out of step with each other, like coals
+			const glowBase = 0.3 + glowNow * 1.2;
+			for (const entry of lights) {
+				entry.light.Brightness = glowBase * (0.82 + 0.18 * math.sin(now * 1.9 + entry.phase));
+			}
 			const updates = math.min(budget.spins, spinners.size());
 			for (let index = 0; index < updates; index++) {
 				cursor = (cursor + 1) % spinners.size();

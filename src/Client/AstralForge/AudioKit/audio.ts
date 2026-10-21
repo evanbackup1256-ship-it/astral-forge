@@ -22,6 +22,7 @@ const AssetManifest = (
 )("AssetManifest");
 
 const AMBIENCE_BED = "amb_heart";
+const FURNACE_BED = "amb_ember";
 const AMBIENCE_VOLUME = 0.32;
 const SHEET_CHANNELS = 14;
 const UI_HOVER = "rbxassetid://10066931761";
@@ -1119,6 +1120,34 @@ export class Mixer {
 			bed.TimePosition = region[0];
 			pcall(() => bed.Play());
 		}
+	}
+
+	// The furnace bed: one of the uploaded ambience beds, placed on a part in the world so it
+	// swells as you walk up to your own machines and is gone two plots away. Same Ambience slider.
+	attachFurnaceBed(part: BasePart): (() => void) | undefined {
+		const ambience = AssetManifest.Ambience;
+		const region = ambience !== undefined && ambience.Id > 0 ? ambience.Regions[FURNACE_BED] : undefined;
+		if (region === undefined || this.ambientGroup === undefined) {
+			return undefined;
+		}
+		const sound = new Instance("Sound");
+		sound.Name = "FurnaceBed";
+		sound.SoundId = `rbxassetid://${ambience!.Id}`;
+		sound.PlaybackRegionsEnabled = true;
+		sound.PlaybackRegion = new NumberRange(region[0], region[0] + region[1]);
+		sound.LoopRegion = new NumberRange(region[0], region[0] + region[1]);
+		sound.Looped = true;
+		sound.RollOffMode = Enum.RollOffMode.InverseTapered;
+		sound.RollOffMinDistance = 10;
+		sound.RollOffMaxDistance = 70;
+		const loudness = ambience!.Loudness?.[FURNACE_BED];
+		sound.Volume = 0.55 * (loudness !== undefined ? math.clamp(10 ** ((-20 - loudness) / 20), 0.6, 1.4) : 1);
+		sound.SoundGroup = this.ambientGroup;
+		sound.Parent = part;
+		// start somewhere in the loop so two plots never pulse in step
+		sound.TimePosition = region[0] + math.random() * region[1];
+		pcall(() => sound.Play());
+		return () => sound.Destroy();
 	}
 
 	ensureStarted(): boolean {
