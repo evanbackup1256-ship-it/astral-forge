@@ -1,6 +1,5 @@
 const UserInputService = game.GetService("UserInputService");
 const Players = game.GetService("Players");
-const GuiService = game.GetService("GuiService");
 const Workspace = game.GetService("Workspace");
 
 interface TouchPointer {

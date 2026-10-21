@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import { usesDesktopStructure } from "../CoreKit/interaction";
 import { Breakpoints } from "../CoreKit/theme";
-import { Flipper, FlipperSingleMotor, loadReactRipple, loadSpr, vendoredTs } from "../vendor";
+import { Flipper, FlipperSingleMotor, loadReactRipple, loadSpr } from "../vendor";
 import { ViewportScaleContext } from "./autoScale";
 import * as MotionTokens from "./motionTokens";
 
@@ -14,9 +14,6 @@ const Workspace = game.GetService("Workspace");
 const { Instant, SingleMotor, Spring } = Flipper;
 const useRippleSpring = loadReactRipple().useSpring;
 const spr = loadSpr();
-const { BezierCurve } = vendoredTs<{
-	BezierCurve: { cubicBezier(alpha: number, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3): Vector3 };
-}>("bezierts");
 
 export interface IntentRequest {
 	role?: string;
@@ -48,10 +45,6 @@ export const MotionIntent = require(
 ) as { resolve(this: void, request: IntentRequest): IntentPlan; [key: string]: unknown };
 
 
-function cubicPoint(alpha: number, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3): Vector2 {
-	const point = BezierCurve.cubicBezier(math.clamp(alpha, 0, 1), p0, p1, p2, p3);
-	return new Vector2(point.X, point.Y);
-}
 
 export const easeOutCubic = (value: number) => MotionTokens.EASE.standard(math.clamp(value, 0, 1));
 export const easeInCubic = (value: number) => MotionTokens.EASE.accelerate(math.clamp(value, 0, 1));
@@ -233,41 +226,6 @@ export function createFlipperMotor(initial: number, stiffness = 220, damping = 2
 	};
 }
 
-const nativePackageCache = new Map<string, unknown>();
-const missingNativePackages = new Set<string>();
-
-function loadNativePackage(name: string): unknown {
-	const cached = nativePackageCache.get(name);
-	if (cached !== undefined) {
-		return cached;
-	}
-	if (missingNativePackages.has(name)) {
-		return undefined;
-	}
-	const candidate = ReplicatedStorage.FindFirstChild("Packages")?.FindFirstChild(name);
-	if (candidate === undefined || !candidate.IsA("ModuleScript")) {
-		return undefined;
-	}
-	const [ok, result] = pcall(() => require(candidate));
-	if (!ok) {
-		missingNativePackages.add(name);
-		warn(`[forge] ${name} failed: ${tostring(result)}`);
-		return undefined;
-	}
-	nativePackageCache.set(name, result);
-	return result;
-}
-
-interface OtterMotor {
-	onStep(callback: (value: number) => void): () => void;
-	setGoal(goal: unknown): void;
-	destroy(): void;
-}
-interface Otter {
-	createSingleMotor(initial: number): OtterMotor;
-	spring(goal: number, options: Record<string, number>): unknown;
-}
-
 export interface MotionSettings {
 	motionScale: number;
 	soft: boolean;
@@ -343,8 +301,6 @@ let decorativeClockCount = 0;
 let driver: RBXScriptConnection | undefined;
 const LISTENER_SOFT_CAP = 32;
 let warnedOverCap = false;
-const freezeNav = false;
-let clockBudget = 24;
 const flipperMotors = new Set<FlipperSingleMotor>();
 const flipperToken = new Map<FlipperSingleMotor, number>();
 let flipperCount = 0;
@@ -500,13 +456,6 @@ function dropClock(slot: ClockSlot | undefined, realtime: boolean) {
 	stopDriverIfIdle();
 }
 
-export function setContinuousMotionRate(_rate: number) {}
-export function beginUiTransition(_seconds?: number) {}
-
-export function setClockBudget(budget: unknown) {
-	const requested = typeIs(budget, "number") && budget === budget ? budget : 24;
-	clockBudget = math.clamp(math.floor(requested + 0.5), 20, 48);
-}
 
 function scheduleArrival(motor: ArrivalMotor | undefined, delaySeconds: number) {
 	if (motor === undefined) {

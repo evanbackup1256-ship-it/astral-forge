@@ -51,7 +51,6 @@ const UI_POP_IN = SFX_RAMP;
 const UI_POP_OUT = UI_DOWN;
 const UI_SWITCH = UI_HOVER;
 const UI_SELECT = UI_HOVER;
-const UI_DESELECT = UI_DOWN;
 const UI_WARN = UI_ALERT;
 const UI_NOTIFY = UI_CHIME;
 const UI_POP = UI_CONFIRM;

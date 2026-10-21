@@ -13,7 +13,7 @@ import { Layout, Palette, chromeFor } from "../CoreKit/theme";
 import { AntilagContext, clampAntilagTier, setAntilagPreference, setAntilagScene, useAntilag } from "../MotionKit/antilag";
 import { useDynamicLayoutNumber } from "../MotionKit/dynamicLayout";
 import { Flex, FlexItem } from "../MotionKit/flexbox";
-import { beginUiTransition, setClockBudget, useFlipperSpring, useViewport, useWallClock } from "../MotionKit/motion";
+import { useFlipperSpring, useViewport, useWallClock } from "../MotionKit/motion";
 import { PageContent } from "../pages/PageRouter";
 import QuickFind = require("../QuickFind");
 import { PageFrame } from "../ReactHosts/reactHost";
@@ -341,7 +341,6 @@ function AppShell(props: ShellProps) {
 		}
 		Audio.setView(pageId);
 		ClientLog.debug("nav", pageId);
-		beginUiTransition(0.1);
 		setPage(pageId);
 		if (drawerNav) setRailOpen(false);
 	};
@@ -525,7 +524,6 @@ function AppShell(props: ShellProps) {
 		setAntilagScene(cinematicOpen ? "cinematic" : arcadeBusy ? "arcade" : heavyPage ? "heavy" : "normal");
 		return () => setAntilagScene("normal");
 	}, [arcadeBusy, cinematicOpen, heavyPage]);
-	React.useEffect(() => { setClockBudget(pageAntilag.maxClocks); }, [pageAntilag.maxClocks]);
 	const gamepadReserve = gamepadActive ? 44 : 0;
 	let ownedMachines = 0;
 	if (state.Machines !== undefined) {

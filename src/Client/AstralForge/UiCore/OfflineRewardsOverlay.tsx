@@ -3,7 +3,6 @@ import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Flux, asFlux, clockText, compactNumber } from "../CoreKit/format";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import {
-	ScaleFromCenter,
 	revealOffset,
 	usePresence,
 	useGlowStroke,
@@ -432,9 +431,12 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 					Visible: motion.map((amount) => amount > 0.004),
 				},
 				h(
-					ScaleFromCenter,
+					"frame",
 					{
-						zIndex: 461,
+						Size: UDim2.fromScale(1, 1),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+						ZIndex: 461,
 					},
 					h(
 						"frame",

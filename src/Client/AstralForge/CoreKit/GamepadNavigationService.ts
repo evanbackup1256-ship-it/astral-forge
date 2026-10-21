@@ -13,8 +13,6 @@ let previousAutoSelect = false;
 let previousNavigation = false;
 let overlayFocusDepth = 0;
 const overlaySelectionStack = new Array<{ target?: GuiObject }>();
-// kept for parity with the overlay stack; read by nothing outside this module
-let overlayPreviousSelection: GuiObject | undefined;
 
 export interface ControllerHint {
 	id: string;
@@ -259,7 +257,6 @@ export function GetScrollTarget(): GuiObject | undefined {
 export function BeginOverlayFocus() {
 	const current = GuiService.SelectedObject;
 	overlaySelectionStack.push({ target: current });
-	overlayPreviousSelection = current;
 	if (overlayFocusDepth === 0) {
 		GuiService.GuiNavigationEnabled = false;
 		GuiService.AutoSelectGuiEnabled = false;
@@ -275,8 +272,6 @@ export function EndOverlayFocus() {
 	overlayFocusDepth -= 1;
 	const entry = overlaySelectionStack.pop();
 	const restore = entry !== undefined ? entry.target : undefined;
-	const size = overlaySelectionStack.size();
-	overlayPreviousSelection = size > 0 ? overlaySelectionStack[size - 1].target : undefined;
 	if (overlayFocusDepth === 0) {
 		if (isConsoleMode) {
 			GuiService.GuiNavigationEnabled = true;
@@ -332,7 +327,6 @@ export function Stop() {
 	initialized = false;
 	isConsoleMode = false;
 	overlayFocusDepth = 0;
-	overlayPreviousSelection = undefined;
 	overlaySelectionStack.clear();
 }
 

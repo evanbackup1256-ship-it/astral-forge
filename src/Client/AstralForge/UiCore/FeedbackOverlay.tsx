@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
-import { ScaleFromCenter, revealOffset, usePresence, useStagger, useViewport } from "../MotionKit/motion";
+import { revealOffset, usePresence, useStagger, useViewport } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
 import { Button, IconTile, OverlayPresence, SegmentedTabs, Text, segmentedHeight, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 
@@ -494,9 +494,12 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 					Visible: motion.map((amount) => amount > 0.002),
 				},
 				h(
-					ScaleFromCenter,
+					"frame",
 					{
-						zIndex: 471,
+						Size: UDim2.fromScale(1, 1),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+						ZIndex: 471,
 					},
 					_exp_1,
 					_exp_2,

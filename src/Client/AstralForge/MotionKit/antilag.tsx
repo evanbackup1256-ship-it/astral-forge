@@ -1,7 +1,6 @@
 import type { RequestFunction } from "../ClientNetwork";
 import React from "@rbxts/react";
 import { ClientLog, QualitySample, recordPerformanceTelemetry } from "../CoreKit/log";
-import { setClockBudget, setContinuousMotionRate } from "./motion";
 
 const RunService = game.GetService("RunService");
 const Stats = game.GetService("Stats");
@@ -512,14 +511,6 @@ function sceneLoad(scene: string): number {
 	return 0;
 }
 
-function applyMotionRate(info: AntilagInfo) {
-	const floor = IS_CONSTRAINED ? 18 : 24;
-	const boost = IS_CONSTRAINED ? 32 : 40;
-	const rate = info.tier >= 2 ? math.max(info.renderRate, boost) : math.max(floor, info.renderRate);
-	setContinuousMotionRate(rate);
-	setClockBudget(info.maxClocks);
-}
-
 export function setAntilagScene(scene: string) {
 	if (liveScene === scene) {
 		return;
@@ -589,7 +580,6 @@ export function AntilagProvider(props: { children?: React.ReactNode }) {
 			const seeded = infoFromQuality(quality, fps, 1 - quality, 0);
 			infoRef.current = seeded;
 			setInfo(seeded);
-			applyMotionRate(seeded);
 		};
 		if (bootSeededQuality !== undefined) {
 			apply(bootSeededQuality, bootSeededFps ?? 60);
@@ -602,11 +592,6 @@ export function AntilagProvider(props: { children?: React.ReactNode }) {
 			}
 		};
 	}, []);
-
-	React.useEffect(() => {
-		applyMotionRate(info);
-		return () => setContinuousMotionRate(60);
-	}, [info.renderRate, info.tier]);
 
 	React.useEffect(() => {
 		let quality = startingQuality;
@@ -677,7 +662,6 @@ export function AntilagProvider(props: { children?: React.ReactNode }) {
 			if (scored.tier === published.tier) {
 				pendingTier = published.tier;
 				pendingTierSince = now;
-				applyMotionRate(scored);
 				return;
 			}
 			if (pendingTier !== scored.tier) {
@@ -687,7 +671,6 @@ export function AntilagProvider(props: { children?: React.ReactNode }) {
 			if (now - pendingTierSince < TIER_DEBOUNCE_SECONDS) {
 				return;
 			}
-			applyMotionRate(scored);
 			latestAntilagInfo = scored;
 			infoRef.current = scored;
 			setInfo(scored);
