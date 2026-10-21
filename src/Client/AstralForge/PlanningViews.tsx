@@ -348,7 +348,7 @@ function NextPlan(props: PlanProps) {
 			"next-plan",
 			232,
 			panel(P.pink, [
-				copy("Continuum · permanent", 0, 22, 12, P.pink, true),
+				copy("Continuum", 0, 22, 12, P.pink, true),
 				copy(`Continuum ${plan.rank} → ${plan.nextRank}`, 30, 38, 24, P.cream, true),
 				copy(missing, 78, 66, 14),
 				button(
@@ -452,7 +452,7 @@ function ShiftPlan(props: PlanProps) {
 			"shift-next",
 			240,
 			panel(P.pink, [
-				copy("Reactor · next step", 0, 22, 12, P.pink, true),
+				copy("Next step", 0, 22, 12, P.pink, true),
 				copy(plan.title ?? "", 30, 58, 23, P.cream, true),
 				copy(status !== "" ? status : ((plan.body as string | undefined) ?? ""), 96, 58, 14),
 				button(
