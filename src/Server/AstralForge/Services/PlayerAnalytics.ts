@@ -54,6 +54,12 @@ export class PlayerAnalytics {
 	_lastPerformance = new Map<Player, number>();
 	_seenActions = new Map<Player, Map<string, boolean>>();
 	_joinedAt = new Map<Player, number>();
+	// per-server action counts for the admin economy dashboard (bounded by the action list)
+	_actionCounts = new Map<string, number>();
+
+	ActionCounts(): Map<string, number> {
+		return this._actionCounts;
+	}
 
 	PlayerJoined(player: Player, profile: AnalyticsProfile) {
 		this._joinedAt.set(player, os.clock());
@@ -77,6 +83,9 @@ export class PlayerAnalytics {
 	}
 
 	RecordAction(player: Player, action: string, profile: AnalyticsProfile, elapsedMs: number) {
+		if (this._actionCounts.has(action) || this._actionCounts.size() < 256) {
+			this._actionCounts.set(action, (this._actionCounts.get(action) ?? 0) + 1);
+		}
 		const progression = PROGRESSION_ACTIONS[action];
 		if (progression !== undefined) {
 			emit("progression:" + action, () => {

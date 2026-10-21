@@ -24,6 +24,7 @@ import AnomalyModule = require("./Gameplay/Anomaly");
 import ForgeEchoModule = require("./Gameplay/ForgeEcho");
 import LabModule = require("./Gameplay/Lab");
 import RelicRigModule = require("./Gameplay/RelicRigs");
+import * as HotFlags from "./Security/HotFlags";
 import ProgressionModule = require("./Gameplay/Progression");
 import * as CommunityRewards from "./Gameplay/CommunityRewards";
 import { MatterRuntime } from "./MatterRuntime";
@@ -786,6 +787,17 @@ export class GameService {
 		const profile = this._data.Get(player) as Profile | undefined;
 		if (!profile) {
 			return responseError("Profile is still loading.");
+		}
+		// live-ops kill switch: cancelling, chat and leaving still work while trading is paused
+		if (
+			HotFlags.Get("TradingPaused") &&
+			(action === Protocol.Actions.InviteTrade ||
+				action === Protocol.Actions.RespondTrade ||
+				action === Protocol.Actions.UpdateTradeOffer ||
+				action === Protocol.Actions.SetTradeReady ||
+				action === Protocol.Actions.ConfirmTrade)
+		) {
+			return responseError("Trading is paused for maintenance. Try again shortly.");
 		}
 		const now = os.time();
 		if (action === Protocol.Actions.GetTrade) {
@@ -3907,6 +3919,9 @@ export class GameService {
 	}
 
 	_openItemCrate(player: Player, crateId: unknown, rawCount: unknown) {
+		if (HotFlags.Get("CratesPaused")) {
+			return responseError("Crate decoding is paused for maintenance. Your keys are safe.");
+		}
 		if (!typeIs(crateId, "string") || crateById[crateId] === undefined) {
 			return responseError("That crate channel does not exist.");
 		}

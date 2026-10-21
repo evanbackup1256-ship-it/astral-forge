@@ -1,6 +1,10 @@
 import { Service } from "@flamework/core";
 import { Ledger } from "./Security/SecurityLedger";
 import { ServerTelemetry } from "./ServerTelemetry";
+import { PlayerAnalytics } from "./PlayerAnalytics";
+import * as HotFlags from "./Security/HotFlags";
+import ProfileIntegrity = require("./Security/ProfileIntegrity");
+import * as OpsDashboard from "../Modules/OpsDashboard";
 import type { DataService } from "./DataService";
 import { ServerEvents } from "../Runtime/ServerNetwork";
 import StoreAccess from "../Modules/StoreAccess";
@@ -103,6 +107,8 @@ type CommandDef = {
 	Danger?: string;
 	World?: boolean;
 	Moderation?: boolean;
+	// runs once for the whole experience instead of on a target player
+	Global?: boolean;
 };
 
 type HandlerResult = Dict;
@@ -126,6 +132,9 @@ interface Subject {
 }
 
 const Players = game.GetService("Players");
+const MessagingService = game.GetService("MessagingService");
+// cross-server admin topic: { Kind = "Announce" | "HotFlag", ... }; MessagingService caps a message at 1 kB
+const LIVE_OPS_TOPIC = "AstralForge_AdminLiveOps_v1";
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const RunService = game.GetService("RunService");
 
@@ -263,8 +272,12 @@ const COMMANDS: Record<string, CommandDef> = table.freeze({
 	ServerBan: { Label: "Ban from this server", Option: false, Category: "Moderation", Moderation: true },
 	GlobalBan: { Label: "Ban from the experience", Option: false, Category: "Moderation", Moderation: true },
 	Unban: { Label: "Remove ban", Option: false, Category: "Moderation", Moderation: true },
+	InspectPlayer: { Label: "Look up security flags and journal", Option: false, Category: "Moderation", Danger: "quick" },
+	RollbackCritical: { Label: "Roll back to a journal entry (Option = entry id)", Option: true, Category: "Resets" },
+	Announce: { Label: "Announce to every server", Option: true, Category: "LiveOps", Global: true },
+	ToggleHotFlag: { Label: "Live-ops flag (Option = Name=on|off)", Option: true, Category: "LiveOps", Global: true },
 });
-const CATEGORY_RANK: Record<string, number> = { Economy: 1, Progress: 2, Items: 3, Resets: 4, Troll: 5, Moderation: 6 };
+const CATEGORY_RANK: Record<string, number> = { Economy: 1, Progress: 2, Items: 3, Resets: 4, Troll: 5, Moderation: 6, LiveOps: 7 };
 
 function commandDanger(definition: Record<string, unknown>): string {
 	if (string.sub((definition.Label as string) ?? "", 1, 4) === "Set ") return "arm";
@@ -352,9 +365,13 @@ export class AdminService {
 	private _playerAdded: RBXScriptConnection | undefined;
 	private _discordQueueWorker: thread | undefined;
 
+	private _liveOpsConnection: RBXScriptConnection | undefined;
+	private _announcements: Dict[] = [];
+
 	constructor(
 		private readonly telemetry: ServerTelemetry,
 		dataService: DataService,
+		private readonly analytics: PlayerAnalytics,
 	) {
 		this._data = dataService as unknown as DataApi;
 	}
@@ -369,6 +386,20 @@ export class AdminService {
 		for (const player of Players.GetPlayers()) {
 			this.EnforceServerBan(player);
 		}
+		task.spawn(() => {
+			const [ok, connection] = pcall(() =>
+				MessagingService.SubscribeAsync(LIVE_OPS_TOPIC, (envelope) => {
+					this.ReceiveLiveOps(typeIs(envelope, "table") ? (envelope as Dict).Data : undefined);
+				}),
+			);
+			if (ok && this._alive) {
+				this._liveOpsConnection = connection as RBXScriptConnection;
+			} else if (ok) {
+				(connection as RBXScriptConnection).Disconnect();
+			} else {
+				ModuleLog.Warn("Admin", "live-ops topic subscribe failed: " + tostring(connection));
+			}
+		});
 		this._discordQueueWorker = task.spawn(() => {
 			while (this._alive) {
 				task.wait(ServerConfig.DiscordModQueuePollSeconds);
@@ -604,6 +635,10 @@ export class AdminService {
 
 	Destroy() {
 		this._alive = false;
+		if (this._liveOpsConnection !== undefined) {
+			this._liveOpsConnection.Disconnect();
+			this._liveOpsConnection = undefined;
+		}
 		if (this._playerAdded !== undefined) {
 			this._playerAdded.Disconnect();
 			this._playerAdded = undefined;
@@ -736,6 +771,11 @@ export class AdminService {
 			Telemetry: this.telemetry.Snapshot(),
 			// newest first: { At, UserId, Name, Kind, Weight, Score, Response, Detail }
 			SecurityFlags: Ledger.Recent(25),
+			// one row per flagged player, highest live score first (drill in with InspectPlayer)
+			SecurityPlayers: Ledger.Summary(25),
+			HotFlags: HotFlags.Snapshot(),
+			Announcements: this._announcements,
+			Economy: this._dashboard(),
 		};
 	}
 
@@ -880,7 +920,10 @@ export class AdminService {
 		}
 		const reason = cleanText(payload.Reason, 96);
 		if (reason.size() < 3 && !dryRun) return { ok: false, error: "Add a short audit reason." };
-		const option = cleanText(payload.Option, 64);
+		const option = cleanText(payload.Option, command === "Announce" ? 140 : 64);
+		if (definition.Global === true) {
+			return this._global(actor, command!, definition, option, reason, dryRun);
+		}
 		if (definition.Moderation === true) {
 			const [duration, problem] = CommandSchema.validate(command!, definition, payload.Amount, option);
 			if (duration === undefined) return { ok: false, error: problem };
@@ -903,6 +946,10 @@ export class AdminService {
 		const target = onlinePlayer(payload.TargetUserId);
 		if (target === undefined || target.Parent !== Players) return { ok: false, error: "Target must be online in this server." };
 		if (this._data.Get(target) === undefined) return { ok: false, error: "Target profile is still loading." };
+		if (command === "InspectPlayer") {
+			// read-only: no transaction, no revision bump
+			return { ok: true, message: "Lookup for " + target.Name + ".", Lookup: this.Lookup(target) };
+		}
 		const [amount, inputError] = CommandSchema.validate(command!, definition, payload.Amount, option);
 		if (amount === undefined) return { ok: false, error: inputError };
 
@@ -991,6 +1038,106 @@ export class AdminService {
 		};
 	}
 
+	/** Security flags, live score and recovery journal for one online player. */
+	Lookup(target: Player): Dict {
+		const profile = this._data.Get(target);
+		return {
+			UserId: target.UserId,
+			Name: target.Name,
+			Score: math.floor(Ledger.Score(target.UserId) * 10 + 0.5) / 10,
+			Level: Ledger.Level(target.UserId),
+			Flags: Ledger.ForUser(target.UserId, 25),
+			Revision: this._data.GetRevision(target),
+			Journal: profile !== undefined ? ProfileIntegrity.Journal(profile) : [],
+		};
+	}
+
+	private _dashboard(): Dict {
+		const rows: OpsDashboard.DashboardRow[] = [];
+		for (const player of Players.GetPlayers()) {
+			const profile = this._data.Get(player);
+			if (profile !== undefined) {
+				const [ok, production] = pcall(Economy.Production, profile);
+				rows.push({
+					Cash: profile.Cash,
+					Production: ok ? production : 0,
+					Rebirths: profile.Rebirths,
+					Stardust: profile.Stardust,
+					Cores: profile.Cores,
+				});
+			}
+		}
+		return OpsDashboard.Build(rows, this.analytics.ActionCounts(), OmegaMath) as unknown as Dict;
+	}
+
+	private _global(actor: Player, command: string, definition: CommandDef, option: string, reason: string, dryRun: boolean): Dict {
+		const [, problem] = CommandSchema.validate(command, definition, undefined, option);
+		if (problem !== undefined) return { ok: false, error: problem };
+		let message: Dict;
+		if (command === "Announce") {
+			const text = option.gsub("^%s*(.-)%s*$", "%1")[0];
+			if (text.size() < 3) return { ok: false, error: "Write a short announcement." };
+			message = { Kind: "Announce", Text: text, From: actor.Name, At: os.time() };
+		} else if (command === "ToggleHotFlag") {
+			const [flag, on, parseError] = HotFlags.Parse(option);
+			if (flag === undefined) return { ok: false, error: parseError };
+			message = { Kind: "HotFlag", Flag: flag, On: on, From: actor.Name, At: os.time() };
+		} else {
+			return { ok: false, error: "Admin command has no executor." };
+		}
+		if (dryRun) {
+			return {
+				ok: true,
+				DryRun: true,
+				message: `Preview: ${definition.Label}.`,
+				Preview: [`${definition.Label}: ${option}`],
+				PreviewTotal: 1,
+			};
+		}
+		// apply here first, then tell the other servers (this server ignores its own echo by At)
+		this.ReceiveLiveOps(message);
+		const [published, publishError] = pcall(() => MessagingService.PublishAsync(LIVE_OPS_TOPIC, message));
+		const subject = { Name: "all servers", UserId: 0 } as unknown as Player;
+		this._record(actor, subject as never, command, 0, option, reason, 0);
+		return {
+			ok: true,
+			message: published
+				? `${definition.Label}: sent to every server.`
+				: `${definition.Label}: applied here only (cross-server send failed: ${tostring(publishError)}).`,
+			Admin: true,
+		};
+	}
+
+	/** Applies a live-ops message from this or another server. Unknown or malformed ones are ignored. */
+	ReceiveLiveOps(raw: unknown): boolean {
+		if (!typeIs(raw, "table")) return false;
+		const message = raw as Dict;
+		const at = num(message.At) ?? 0;
+		if (message.Kind === "HotFlag" && HotFlags.IsFlag(message.Flag)) {
+			const changed = HotFlags.Set(message.Flag, message.On === true, at);
+			if (changed) {
+				ModuleLog.Warn("Admin", string.format("live-ops flag %s %s by %s", message.Flag, message.On === true ? "on" : "off", tostring(message.From)));
+			}
+			return changed;
+		}
+		if (message.Kind === "Announce" && typeIs(message.Text, "string")) {
+			const text = cleanText(message.Text, 140);
+			if (text.size() < 1) return false;
+			for (const seen of this._announcements) {
+				if (seen.Text === text && seen.At === at) return false; // our own echo
+			}
+			this._announcements.unshift({ Text: text, From: cleanText(message.From, 40), At: at });
+			while (this._announcements.size() > 10) this._announcements.pop();
+			if (!HotFlags.Get("AnnouncementsMuted")) {
+				for (const player of Players.GetPlayers()) {
+					ServerEvents.toast.fire(player, { Title: "Announcement", Body: text, Tone: "Info" });
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+
 	Execute(actor: Player, payload: Dict): Dict {
 		const result = this._execute(actor, payload);
 		if (typeIs(result, "table")) {
@@ -1019,6 +1166,11 @@ function playerFacingReason(command: string, reason: string): string {
 
 // Each profile command has one executor; the transaction wrapper owns audits and saving.
 const profileHandlers: Record<string, ProfileHandler> = {};
+profileHandlers.RollbackCritical = (profile, _amount, option) => {
+	const [ok, message] = ProfileIntegrity.Restore(profile, option);
+	if (!ok) return { ok: false, error: message };
+	return { ok: true, amount: 0, message };
+};
 profileHandlers.GrantFlux = (profile, amount, option) => {
 	const changedAmount = amount;
 	profile.Cash = Omega.Add(profile.Cash, amount);

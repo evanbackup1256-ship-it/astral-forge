@@ -307,6 +307,54 @@ const ProfileIntegrity = {
 		return $tuple(false, "integrity mismatch; no valid recovery entry");
 	},
 
+	/** The recovery journal, newest first, for the admin player lookup. */
+	Journal(this: void, profile: Dict): Dict[] {
+		ProfileIntegrity.EnsureEnvelope(profile);
+		const journal = (profile.Meta as Dict).Transactions as unknown[];
+		const out: Dict[] = [];
+		for (let index = journal.size(); index >= 1; index--) {
+			const entry = journal[index - 1];
+			if (isTable(entry) && isTable(entry.Snapshot)) {
+				const [hashOk, hash] = pcall(ProfileIntegrity.Hash, entry.Snapshot);
+				out.push({
+					Id: entry.Id,
+					At: entry.At,
+					Revision: entry.Revision,
+					Label: entry.Label,
+					Cash: entry.Snapshot.Cash,
+					Cores: entry.Snapshot.Cores,
+					Stardust: entry.Snapshot.Stardust,
+					Rebirths: entry.Snapshot.Rebirths,
+					Valid: hashOk && hash === entry.Hash,
+				});
+			}
+		}
+		return out;
+	},
+
+	/**
+	 * Admin rollback: puts the critical state (currencies, levels, keys, boosts) back to a
+	 * journal entry. Only an entry whose snapshot still matches its hash is used.
+	 */
+	Restore(this: void, profile: Dict, entryId: string): LuaTuple<[boolean, string]> {
+		ProfileIntegrity.EnsureEnvelope(profile);
+		const journal = (profile.Meta as Dict).Transactions as unknown[];
+		for (const entry of journal) {
+			if (isTable(entry) && entry.Id === entryId) {
+				if (!isTable(entry.Snapshot) || !typeIs(entry.Hash, "string")) {
+					return $tuple(false, "That journal entry has no snapshot.");
+				}
+				const [hashOk, hash] = pcall(ProfileIntegrity.Hash, entry.Snapshot);
+				if (!hashOk || hash !== entry.Hash) {
+					return $tuple(false, "That journal entry failed its integrity check.");
+				}
+				applyCriticalSnapshot(profile, entry.Snapshot as Dict);
+				return $tuple(true, string.format("Restored critical state from %s (%s).", entryId, tostring(entry.Label)));
+			}
+		}
+		return $tuple(false, "No journal entry with that id.");
+	},
+
 	Status(this: void, profile: Dict): Dict {
 		ProfileIntegrity.EnsureEnvelope(profile);
 		const meta = profile.Meta as Dict;

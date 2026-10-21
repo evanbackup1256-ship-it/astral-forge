@@ -146,9 +146,63 @@ export class SecurityLedger {
 		return out;
 	}
 
+	/** This player's flags from the recent log, newest first. */
+	ForUser(userId: number, limit = 25): FlagEntry[] {
+		const out: FlagEntry[] = [];
+		for (const entry of this.recent) {
+			if (entry.UserId === userId) {
+				out.push(entry);
+				if (out.size() >= limit) break;
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * One row per player seen in the recent log, highest live score first: the flag-log view
+	 * the admin panel lists before drilling into a player with ForUser.
+	 */
+	Summary(limit = 25): PlayerSummary[] {
+		const rows = new Map<number, PlayerSummary>();
+		for (const entry of this.recent) {
+			let row = rows.get(entry.UserId);
+			if (row === undefined) {
+				row = {
+					UserId: entry.UserId,
+					Name: entry.Name,
+					Flags: 0,
+					Kinds: {},
+					LastAt: entry.At,
+					LastKind: entry.Kind,
+					Score: math.floor(this.Score(entry.UserId) * 10 + 0.5) / 10,
+					Level: this.Level(entry.UserId),
+				};
+				rows.set(entry.UserId, row);
+			}
+			row.Flags += 1;
+			row.Kinds[entry.Kind] = (row.Kinds[entry.Kind] ?? 0) + 1;
+		}
+		const out: PlayerSummary[] = [];
+		for (const [, row] of rows) out.push(row);
+		out.sort((a, b) => (a.Score !== b.Score ? a.Score > b.Score : a.LastAt > b.LastAt));
+		while (out.size() > limit) out.pop();
+		return out;
+	}
+
 	Forget(userId: number): void {
 		this.records.delete(userId);
 	}
+}
+
+export interface PlayerSummary {
+	UserId: number;
+	Name: string;
+	Flags: number;
+	Kinds: Record<string, number>;
+	LastAt: number;
+	LastKind: string;
+	Score: number;
+	Level: Response;
 }
 
 interface LogApi {
