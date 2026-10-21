@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import { usesDesktopStructure } from "../CoreKit/interaction";
 import { Breakpoints } from "../CoreKit/theme";
+import { flashesAllowed } from "../MotionPreference";
 import { Flipper, FlipperSingleMotor, loadReactRipple, loadSpr } from "../vendor";
 import { ViewportScaleContext } from "./autoScale";
 import * as MotionTokens from "./motionTokens";
@@ -261,6 +262,7 @@ const SOFT_DAMPING = 56;
 const SOFT_CLOCK_SPEED = 0.6;
 const SOFT_PULSE_DEPTH = 0.45;
 const SOFT_FLASH_PEAK = 0.55;
+const QUIET_FLASH_PEAK = 0.2;
 
 function softSpring(stiffness: number, damping: number, soft: boolean): LuaTuple<[number, number]> {
 	if (!soft) {
@@ -1145,7 +1147,10 @@ export function useFlash(trigger: number, reducedMotion = false, duration = 0.22
 		setBinding(1);
 		active.setGoal(0);
 	}, [duration, setBinding, trigger]);
-	const peak = useMotionSettings().soft === true ? SOFT_FLASH_PEAK : 1;
+	// reduced motion or the Screen flashes switch turns the pop into a faint cue instead of a flash
+	const soft = useMotionSettings().soft === true;
+	const quiet = reducedMotion === true || !flashesAllowed();
+	const peak = quiet ? QUIET_FLASH_PEAK : soft ? SOFT_FLASH_PEAK : 1;
 	return React.useMemo(() => (peak >= 1 ? binding : binding.map((value) => value * peak)), [binding, peak]);
 }
 

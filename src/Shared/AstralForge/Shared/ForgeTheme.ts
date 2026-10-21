@@ -36,7 +36,8 @@ export const Base: Palette = table.freeze({
 	lineSoft: rgb(116, 111, 122),
 	cream: rgb(244, 240, 233),
 	creamSoft: rgb(214, 208, 200),
-	muted: rgb(164, 157, 152),
+	// 170/163/158 keeps muted copy at 4.5:1 on panelSoft (164/157/152 measured 4.45)
+	muted: rgb(170, 163, 158),
 	cyan: rgb(98, 200, 222),
 	mint: rgb(112, 212, 168),
 	coral: rgb(236, 112, 108),
@@ -46,7 +47,8 @@ export const Base: Palette = table.freeze({
 	blue: rgb(108, 160, 236),
 	white: rgb(255, 255, 255),
 	green: rgb(110, 208, 154),
-	red: rgb(226, 88, 90),
+	// 236/104/106: error text holds 4.5:1 on raised cards (226/88/90 was 4.18)
+	red: rgb(236, 104, 106),
 	shadow: rgb(0, 0, 0),
 	graphite: rgb(23, 22, 26),
 	steel: rgb(204, 214, 234),
@@ -63,7 +65,8 @@ export const Accessibility: AccessibilityPalettes = table.freeze({
 		red: rgb(230, 159, 0),
 		coral: rgb(230, 159, 0),
 		pink: rgb(204, 121, 167),
-		violet: rgb(0, 158, 115),
+		// Okabe-Ito green, lifted so it still reads 4.5:1 on panelRaised
+		violet: rgb(0, 184, 134),
 	}),
 	HighContrast: table.freeze({
 		void: rgb(0, 0, 0),
