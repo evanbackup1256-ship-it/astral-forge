@@ -2889,13 +2889,25 @@ function CodexProgressImpl(props: CodexProgressProps) {
 				position: UDim2.fromOffset(0, 3),
 				sizeConstraint: new UDim2(0, 84, 0, 16),
 			}),
-			h(Meter, {
-				value: row.found / row.total,
-				color: color,
-				size: new UDim2(1, -230, 0, 8),
-				position: UDim2.fromOffset(90, 7),
-				reducedMotion: props.reducedMotion,
-			}),
+			// the bar takes what's left between the name and the numbers; on a 286px phone that's nothing, and a
+			// negative width drew it mirrored over the rarity name, so the size constraint floors it at 0
+			h(
+				"frame",
+				{
+					Size: new UDim2(1, -230, 0, 8),
+					Position: UDim2.fromOffset(90, 7),
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+				},
+				h("uisizeconstraint", { MinSize: new Vector2(0, 0) }),
+				h(Meter, {
+					value: row.found / row.total,
+					color: color,
+					size: UDim2.fromScale(1, 1),
+					position: UDim2.fromOffset(0, 0),
+					reducedMotion: props.reducedMotion,
+				}),
+			),
 			h(Text, {
 				value: `${row.found}/${row.total}`,
 				size: 12,
