@@ -17,6 +17,12 @@ interface PlayerState {
 	EnforcementStarted: boolean;
 	Raycast?: RaycastParams;
 	LastGroundedAt: number;
+	// the previous sample was over the speed limit: a burst only counts when two samples in a
+	// row are over it, so a one-sample dash, knockback or physics spike never scores
+	LastOverSpeed: boolean;
+	// os.clock() of the last server-side CFrame write on the root (teleports, spawns, pivots)
+	ServerMovedAt: number;
+	ServerMoveConnection?: RBXScriptConnection;
 }
 
 export = () => {
@@ -46,6 +52,9 @@ export = () => {
 		EnforcementStarted: false,
 		Raycast: undefined,
 		LastGroundedAt: 0,
+		LastOverSpeed: false,
+		ServerMovedAt: -math.huge,
+		ServerMoveConnection: undefined,
 	});
 
 	const resetCharacter = (state: PlayerState, character: Model, root: BasePart, now: number): void => {
@@ -68,11 +77,30 @@ export = () => {
 		state.EnforcementStarted = false;
 		state.Raycast = raycast;
 		state.LastGroundedAt = now;
+		state.LastOverSpeed = false;
+		state.ServerMovedAt = -math.huge;
+		// A CFrame written by server code fires this; physics replication from the client does
+		// not. Any server teleport (PivotTo, CFrame, spawn) therefore gets a grace window on its own.
+		state.ServerMoveConnection?.Disconnect();
+		state.ServerMoveConnection = undefined;
+		const [connected, connection] = pcall(() =>
+			root.GetPropertyChangedSignal("CFrame").Connect(() => {
+				state.ServerMovedAt = os.clock();
+			}),
+		);
+		if (connected) state.ServerMoveConnection = connection;
 	};
 
-	const movementExempt = (character: Model, humanoid: Humanoid): boolean => {
+	const SERVER_MOVE_GRACE = 1;
+
+	const movementExempt = (character: Model, humanoid: Humanoid, root: BasePart): boolean => {
 		const graceUntil = character.GetAttribute(SERVER_GRACE_ATTRIBUTE);
 		if (typeIs(graceUntil, "number") && Workspace.GetServerTimeNow() < graceUntil) {
+			return true;
+		}
+		// welded into another assembly (a vehicle body, a carried rig): that assembly moves the root
+		const assemblyRoot = root.AssemblyRootPart;
+		if (assemblyRoot !== undefined && assemblyRoot !== root) {
 			return true;
 		}
 		const state = humanoid.GetState();
@@ -149,6 +177,8 @@ export = () => {
 		_alive = true;
 		_heartbeat?: RBXScriptConnection = undefined;
 		_playerRemoving?: RBXScriptConnection = undefined;
+		_playerAdded?: RBXScriptConnection = undefined;
+		_characterAdded = new Map<Player, RBXScriptConnection>();
 		_accumulator = 0;
 
 		_enforce(player: Player, evidence: unknown): void {
@@ -201,7 +231,9 @@ export = () => {
 				return;
 			}
 
-			if (!lastPosition || elapsed <= 0 || elapsed > 1 || movementExempt(character, humanoid)) {
+			const serverMoved = now - state.ServerMovedAt < SERVER_MOVE_GRACE;
+			if (!lastPosition || elapsed <= 0 || elapsed > 1 || serverMoved || movementExempt(character, humanoid, root)) {
+				state.LastOverSpeed = false;
 				state.LastPosition = root.Position;
 				state.LastSafeCFrame = root.CFrame;
 				state.Score = math.max(0, state.Score - 1);
@@ -210,9 +242,17 @@ export = () => {
 
 			const delta = root.Position.sub(lastPosition);
 			const horizontalDistance = new Vector3(delta.X, 0, delta.Z).Magnitude;
-			const horizontalSpeed = horizontalDistance / math.max(0.05, elapsed);
 			const allowedSpeed = math.max(110, humanoid.WalkSpeed * 4 + 35);
-			const grounded = Workspace.Raycast(root.Position, new Vector3(0, -3, 0), raycast) !== undefined;
+			const floor = Workspace.Raycast(root.Position, new Vector3(0, -3, 0), raycast);
+			const grounded = floor !== undefined;
+			// standing on a moving part (platform, conveyor, unseated vehicle deck): only motion
+			// relative to that floor counts
+			let floorSpeed = 0;
+			if (floor !== undefined && floor.Instance.IsA("BasePart")) {
+				const floorVelocity = floor.Instance.AssemblyLinearVelocity;
+				if (floorVelocity !== undefined) floorSpeed = new Vector3(floorVelocity.X, 0, floorVelocity.Z).Magnitude;
+			}
+			const horizontalSpeed = math.max(0, horizontalDistance / math.max(0.05, elapsed) - floorSpeed);
 			if (grounded) {
 				state.LastGroundedAt = now;
 			}
@@ -221,9 +261,11 @@ export = () => {
 			// so ground speed hacks were never counted.
 			const airborneGrace = !grounded && now - state.LastGroundedAt < 0.4;
 			const fallingSlowly = root.AssemblyLinearVelocity.Y < -20 && horizontalSpeed < allowedSpeed * 0.8;
-			const speedFlag =
+			const overSpeed =
 				(!airborneGrace || fallingSlowly) &&
-				(horizontalSpeed > allowedSpeed || root.AssemblyLinearVelocity.Magnitude > 275);
+				(horizontalSpeed > allowedSpeed || root.AssemblyLinearVelocity.Magnitude - floorSpeed > 275);
+			const speedFlag = overSpeed && state.LastOverSpeed;
+			state.LastOverSpeed = overSpeed;
 			const barrierFlag = crossedBarrier(raycast, lastPosition, root.Position);
 			const flightFlag = !airborneGrace && airbornePlatformMotion(raycast, root, humanoid);
 
@@ -287,31 +329,58 @@ export = () => {
 			character.SetAttribute(SERVER_GRACE_ATTRIBUTE, Workspace.GetServerTimeNow() + math.clamp(seconds ?? 2, 0.1, 30));
 		}
 
-		Start(): void {
-			if (this._heartbeat) {
+		_tick(deltaTime: number): void {
+			this._accumulator += deltaTime;
+			if (this._accumulator < SAMPLE_SECONDS) {
 				return;
 			}
-			if ((Players.CharacterAutoLoads as boolean) === false) {
-				this._alive = true;
-				this._playerRemoving = Players.PlayerRemoving.Connect((player) => {
-					this._players.delete(player);
-				});
+			this._accumulator %= SAMPLE_SECONDS;
+			const now = os.clock();
+			let anyCharacter = false;
+			for (const player of Players.GetPlayers()) {
+				if (player.Character !== undefined) {
+					anyCharacter = true;
+					this._observe(player, now);
+				}
+			}
+			// nothing to watch: sleep until a character spawns again
+			if (!anyCharacter && this._heartbeat) {
+				this._heartbeat.Disconnect();
+				this._heartbeat = undefined;
+			}
+		}
+
+		_wake(): void {
+			if (!this._alive || this._heartbeat) {
+				return;
+			}
+			this._heartbeat = RunService.Heartbeat.Connect((deltaTime) => this._tick(deltaTime));
+		}
+
+		_watch(player: Player): void {
+			const connection = player.CharacterAdded.Connect(() => this._wake());
+			this._characterAdded.set(player, connection);
+			if (player.Character !== undefined) this._wake();
+		}
+
+		/**
+		 * The game boots with CharacterAutoLoads off and shows no avatars, so most servers never
+		 * have a character to watch. Instead of skipping the checks entirely, they now wake the
+		 * moment any character spawns (LoadCharacter, a future world mode, an exploit-spawned rig)
+		 * and go back to sleep when none are left, so an idle server pays nothing.
+		 */
+		Start(): void {
+			if (this._playerAdded) {
 				return;
 			}
 			this._alive = true;
+			this._playerAdded = Players.PlayerAdded.Connect((player) => this._watch(player));
+			for (const player of Players.GetPlayers()) this._watch(player);
 			this._playerRemoving = Players.PlayerRemoving.Connect((player) => {
+				this._characterAdded.get(player)?.Disconnect();
+				this._characterAdded.delete(player);
+				this._players.get(player)?.ServerMoveConnection?.Disconnect();
 				this._players.delete(player);
-			});
-			this._heartbeat = RunService.Heartbeat.Connect((deltaTime) => {
-				this._accumulator += deltaTime;
-				if (this._accumulator < SAMPLE_SECONDS) {
-					return;
-				}
-				this._accumulator %= SAMPLE_SECONDS;
-				const now = os.clock();
-				for (const player of Players.GetPlayers()) {
-					this._observe(player, now);
-				}
 			});
 		}
 
@@ -325,6 +394,11 @@ export = () => {
 				this._playerRemoving.Disconnect();
 				this._playerRemoving = undefined;
 			}
+			this._playerAdded?.Disconnect();
+			this._playerAdded = undefined;
+			for (const [, connection] of this._characterAdded) connection.Disconnect();
+			this._characterAdded.clear();
+			for (const [, state] of this._players) state.ServerMoveConnection?.Disconnect();
 			for (const [token, worker] of this._workers) {
 				pcall(task.cancel, worker);
 				this._workers.delete(token);

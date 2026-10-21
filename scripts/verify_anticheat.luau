@@ -26,7 +26,7 @@ local world = { wall = nil, grounded = true, serverTime = 0 }
 H.services.Workspace = {
 	Raycast = function(_, origin, direction)
 		if direction.Y < 0 and direction.X == 0 and direction.Z == 0 then
-			return world.grounded and { Instance = { IsA = function() return true end, CanCollide = true }, Distance = 2 } or nil
+			return world.grounded and { Instance = { IsA = function() return true end, CanCollide = true, AssemblyLinearVelocity = world.floorVelocity }, Distance = 2 } or nil
 		end
 		if world.wall then
 			return { Instance = { IsA = function(_, c) return c == "BasePart" end, CanCollide = true }, Distance = world.wall }
@@ -45,6 +45,16 @@ local function rig(player)
 	local data = { Position = vec(0, 3, 0), AssemblyLinearVelocity = vec(0, 0, 0), AssemblyAngularVelocity = vec(0, 0, 0) }
 	data.CFrame = { Position = data.Position }
 	data.IsA = function(_, c) return c == "BasePart" end
+	-- server-side CFrame writes fire this, like the engine; physics (the fake moveTo) does not
+	local cframeListeners = {}
+	data.GetPropertyChangedSignal = function(_, prop)
+		return { Connect = function(_, fn) if prop == "CFrame" then table.insert(cframeListeners, fn) end return { Disconnect = function() end } end }
+	end
+	data.serverPivot = function(p)
+		data.CFrame = { Position = p }
+		data.Position = p
+		for _, fn in cframeListeners do fn() end
+	end
 	-- setting CFrame moves the part, like the engine
 	local root = setmetatable({}, {
 		__index = data,
@@ -155,6 +165,90 @@ do
 	H.task.wait(0)
 	check(kicked, "sustained speed + barrier crossing reaches enforcement")
 	world.wall = nil
+end
+
+-- stage 23: legit movement that must never score
+local function run(name, setup, step, samples)
+	world.wall, world.grounded, world.floorVelocity = nil, true, nil
+	local ci = CharacterIntegrity.new()
+	local p = H.player(name)
+	local root, humanoid, moveTo = rig(p)
+	setup(root, humanoid)
+	local t = 0
+	ci:_observe(p, t)
+	for i = 1, samples or 40 do
+		t += 0.2
+		world.serverTime = t
+		step(i, root, moveTo, humanoid)
+		ci:_observe(p, t)
+	end
+	return p, root
+end
+do
+	-- a dash: one 0.2s sample at 60 studs (300/s) every 2s, walking otherwise
+	local x = 0
+	local p = run("Dasher", function() end, function(i, _, moveTo)
+		x += (i % 10 == 0) and 60 or 3.2
+		moveTo(vec(x, 3, 0))
+	end, 100)
+	check((p:GetAttribute("AF_ServerMotionScore") or 0) == 0 and kinds(p.UserId).movement == nil, "dashes (single-sample bursts) never score")
+end
+do
+	-- a server teleport across the map every 2s
+	local p = run("Teleported", function() end, function(i, root, moveTo)
+		if i % 10 == 0 then root.serverPivot(vec(i * 500, 3, 0)) else moveTo(vec(root.Position.X + 3.2, 3, 0)) end
+	end, 100)
+	check((p:GetAttribute("AF_ServerMotionScore") or 0) == 0 and kinds(p.UserId).movement == nil, "server teleports never score")
+end
+do
+	-- riding a fast moving platform / unseated vehicle deck at 200 studs/s
+	world.floorVelocity = vec(200, 0, 0)
+	local x = 0
+	local p = run("Rider", function() world.floorVelocity = vec(200, 0, 0) end, function(_, _, moveTo)
+		x += 40 + 3.2
+		moveTo(vec(x, 3, 0))
+	end, 60)
+	check(kinds(p.UserId).movement == nil and (p:GetAttribute("AF_ServerMotionScore") or 0) == 0, "standing on a moving floor only counts relative motion")
+	world.floorVelocity = nil
+end
+do
+	-- welded into a vehicle assembly (no seat)
+	local x = 0
+	local p = run("Welded", function(root) rawset(getmetatable(root).__index, "AssemblyRootPart", {}) end, function(_, _, moveTo)
+		x += 80
+		moveTo(vec(x, 3, 0))
+	end, 60)
+	check(kinds(p.UserId).movement == nil, "a root welded into another assembly (vehicle) is exempt")
+end
+do
+	-- sustained speed hack still caught with the two-sample rule
+	local x = 0
+	local p, root = run("StillCaught", function() end, function(_, root, moveTo)
+		x = root.Position.X + 60
+		moveTo(vec(x, 3, 0))
+	end, 20)
+	check((kinds(p.UserId).movement or 0) >= 1, "sustained speed is still corrected")
+end
+do
+	-- the checks sleep with no characters and wake when one spawns
+	local beats = 0
+	local hb = { Connect = function(_, fn) beats += 1 return { Disconnect = function() beats -= 1 end } end }
+	H.services.RunService.Heartbeat = hb
+	local added = {}
+	local ci = CharacterIntegrity.new()
+	local p = H.player("Spawner")
+	p.Character = nil
+	p.CharacterAdded = { Connect = function(_, fn) table.insert(added, fn) return { Disconnect = function() end } end }
+	H.Players.__players = { p }
+	ci:Start()
+	check(beats == 0, "no heartbeat while nobody has a character")
+	rig(p)
+	for _, fn in added do fn() end
+	check(beats == 1, "a spawned character wakes the checks")
+	p.Character = nil
+	ci:_tick(1)
+	check(beats == 0, "back to sleep when no characters are left")
+	ci:Destroy()
 end
 
 -- lag hitch (a sample more than 1s late) and seats are exempt
