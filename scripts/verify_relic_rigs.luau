@@ -1,9 +1,11 @@
 --!strict
--- Relic rigs. The bonus is only while every piece is socketed on something you still own.
+-- Relic rigs, and the rebirth stars that follow 100.
+-- The rig bonus is only while every piece is socketed on something you still own.
 -- Lighting a rig is remembered, so the milestone pays once.
 
 local fs = require("@lune/fs")
 local Rigs = require("../out/Shared/AstralForge/Shared/RelicRigs")
+local Rebirth = require("../out/Shared/AstralForge/Shared/RebirthMath")
 
 local function profile(sockets: { { Id: string, Slot: string, Target: string, Level: number? } }, lit: { [string]: any }?)
 	local equipped: { [string]: string } = {}
@@ -174,4 +176,28 @@ assert(looked.Lit.Dock == true and looked.Active.Dock ~= true and looked.Bonus.P
 local freshLedger = Rigs.ensure(nil)
 assert(freshLedger.Lit.Dock == nil and Rigs.litCount(freshLedger) == 0, "a missing ledger is empty")
 
-print("[TEST] relic rigs passed")
+-- rebirth: stars 1-100 stay put, and the wheel keeps turning after that
+assert(Rebirth.STARS[1] == 1 and Rebirth.STARS[14] == 100, "the original stars are untouched")
+assert(Rebirth.STARS[15] == 130 and Rebirth.STARS[20] == 480 and Rebirth.STARS[21] == nil, "six stars follow 100")
+assert(Rebirth.keepSlots(2) == 0 and Rebirth.keepSlots(3) == 1 and Rebirth.keepSlots(12) == 2, "early keepsake slots")
+assert(Rebirth.keepSlots(30) == 3 and Rebirth.keepSlots(80) == 3 and Rebirth.keepSlots(480) == 3, "no new keepsake slot")
+local at100 = Rebirth.ensure(nil, 0, 100)
+local nextIndex, nextAt = Rebirth.nextStar(at100)
+assert(nextIndex == 15 and nextAt == 130, "after 100 the next star is 130, not the end")
+assert(#Rebirth.pendingStars(at100) == 14, "a save at 100 still has the original 14 stars to pick")
+local early = Rebirth.ensure(nil, 0, 129)
+local tooSoon = Rebirth.pickStar(early, 15, 1)
+assert(tooSoon == false, "star 15 waits for rebirth 130")
+local ready = Rebirth.ensure(nil, 0, 130)
+local first = Rebirth.pair(1)
+local again = Rebirth.pair(15)
+assert(first[1] == again[1] and first[2] == again[2], "star 15 offers the same pair as star 1")
+local picked, perkName = Rebirth.pickStar(ready, 15, 1)
+assert(picked == true and type(perkName) == "string" and #perkName > 0, "star 15 can be chosen")
+assert(Rebirth.pickStar(ready, 15, 2) == false, "a star is only chosen once")
+assert(#Rebirth.pendingStars(ready) == 14, "choosing star 15 leaves the earlier stars pending, got " .. #Rebirth.pendingStars(ready))
+local finished = Rebirth.ensure(nil, 0, 480)
+local endIndex = Rebirth.nextStar(finished)
+assert(endIndex == nil, "480 is the last new star")
+
+print("[TEST] relic rigs and rebirth stars passed")

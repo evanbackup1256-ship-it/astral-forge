@@ -3,7 +3,9 @@
 // world, overflow the requirement); keep it and the payout grows, and every few kept vows make
 // that vow stronger. From the third rebirth you can carry keepsakes: a machine comes with you at a
 // share of its level. Milestone rebirths light a star, and each star is a choice between two
-// permanent perks. Every run is logged with its time, payout and a grade against your best.
+// permanent perks. The last of the original stars is 100; six more sit further out, so a long
+// forge still has a choice to make. Every run is logged with its time, payout and a grade
+// against your best.
 // Pure: the server's rules and the screen's previews agree.
 
 type Dict = Record<string, unknown>;
@@ -138,7 +140,9 @@ const PERKS: Record<string, Perk> = table.freeze({
 });
 
 // lifetime rebirth counts that light a star, and the pair offered at each (cycling)
-const STARS = table.freeze([1, 3, 5, 8, 12, 16, 20, 25, 30, 40, 50, 65, 80, 100]);
+// BALANCE: 130, 170, 220, 280, 360 and 480 are new. Stars 1 through 100, the perk
+// steps, vow multipliers and keepsake slots are unchanged. New stars use the same pairs.
+const STARS = table.freeze([1, 3, 5, 8, 12, 16, 20, 25, 30, 40, 50, 65, 80, 100, 130, 170, 220, 280, 360, 480]);
 const PAIRS: ReadonlyArray<[string, string]> = table.freeze([
 	["HeadStart", "StartCash"],
 	["CoreYield", "DustYield"],
