@@ -304,7 +304,6 @@ const SORT_OPTIONS = [
 
 function UpgradeBoard(props: {
 	title: string;
-	eyebrow: string;
 	blurb: string;
 	accent: Color3;
 	entries: Entry[];
@@ -316,7 +315,7 @@ function UpgradeBoard(props: {
 	featurePanel?: React.Element;
 	featurePanelHeight?: number;
 }) {
-	const { title, eyebrow, blurb, accent, entries, state, buyAmount, setBuyAmount, featurePanel } = props;
+	const { title, blurb, accent, entries, state, buyAmount, setBuyAmount, featurePanel } = props;
 	const featurePanelHeight = props.featurePanelHeight ?? 0;
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
@@ -464,20 +463,12 @@ function UpgradeBoard(props: {
 			clips={false}
 		>
 			<Text
-				value={eyebrow}
-				size={10}
-				color={accent}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				sizeConstraint={new UDim2(1, stack ? -8 : -248, 0, stack ? 14 : 18)}
-			/>
-			<Text
 				value={title}
 				size={stack ? (stackCompact ? 18 : 20) : 24}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
-				position={UDim2.fromOffset(0, stack ? 14 : 16)}
+				position={UDim2.fromOffset(0, stack ? 6 : 8)}
 				sizeConstraint={new UDim2(1, stack ? -8 : -248, 0, stack ? 26 : 30)}
 			/>
 			{!stackCompact && (
@@ -886,30 +877,19 @@ function AutoForgePanel(props: {
 				spin={queue.Enabled}
 				reducedMotion={softMotion}
 			/>
-			{/* phones: the badge takes this row, and the title below names the feature instead */}
 			<Text
-				value={stack ? "" : "AUTO-FORGE"}
-				size={10}
-				color={Palette.mango}
-				weight={Enum.FontWeight.Heavy}
-				position={UDim2.fromOffset(62, 0)}
-				sizeConstraint={new UDim2(1, stack ? -(62 + 96) : -220, 0, 16)}
-			/>
-			<Text
-				value={stack ? "Auto-Forge queue" : "Your production queue"}
+				value="Auto-Forge"
 				size={18}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={stack}
 				minSize={12}
-				position={UDim2.fromOffset(62, stack ? 26 : 16)}
+				position={UDim2.fromOffset(62, stack ? 26 : 8)}
 				sizeConstraint={new UDim2(1, stack ? -62 : -220, 0, stack ? 22 : 24)}
 			/>
 			<Text
 				value={
-					stack
-						? "Buys one level at a time and never spends your reserve."
-						: "Pick a machine. Auto-Forge buys one affordable level at a time and leaves your saved Flux alone."
+					"Buys one level at a time and never spends your reserve."
 				}
 				size={11}
 				color={Palette.creamSoft}
@@ -1068,7 +1048,6 @@ function WorkshopView(props: {
 	return (
 		<UpgradeBoard
 			title={firstMachine ? "Buy a machine" : `${ownedMachines} machine${ownedMachines === 1 ? "" : "s"} running`}
-			eyebrow={firstMachine ? "EARNS FLUX" : "BUILD QUEUE"}
 			blurb={
 				firstMachine
 					? "A machine earns Flux into your vault every second."
