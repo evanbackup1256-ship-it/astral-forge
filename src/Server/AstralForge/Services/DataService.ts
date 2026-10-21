@@ -33,6 +33,7 @@ import StoreAccess from "../Modules/StoreAccess";
 import TradeHistory from "../../../Shared/AstralForge/Shared/TradeHistory";
 import UnlockedDocumentStore from "../Modules/Documents/DocumentKit/UnlockedDocumentStore";
 import type Types = require("../Modules/Documents/DocumentService/Types");
+import SaveUtil = require("../Modules/Documents/DocumentService/SaveUtil");
 
 interface GameConfigShape {
 	Game: { DataVersion: number; LiveOpsManifestVersion: unknown };
@@ -1662,9 +1663,19 @@ export class DataService {
 		});
 	}
 
+	/** UpdateAsync requests left this minute (every profile save and release is one UpdateAsync). */
+	_saveBudget(): number {
+		const [ok, budget] = pcall(() => SaveUtil.getUpdateBudget());
+		return ok && typeIs(budget, "number") ? budget : math.huge;
+	}
+
 	_autosaveTick() {
 		const players: Player[] = [];
 		for (const [player] of this._profiles) players.push(player);
+		// Keep one request per held profile in reserve so leave/shutdown release saves never find
+		// the budget empty; routine dirty saves wait for the next tick (they stay dirty).
+		const reserve = players.size();
+		let deferred = 0;
 		for (const player of players) {
 			if (this._profiles.get(player) === undefined) continue;
 			if (player.Parent !== Players) {
@@ -1680,13 +1691,21 @@ export class DataService {
 					this.Save(player, true);
 				}
 			} else if (this._dirty.get(player)) {
+				if (this._saveBudget() <= reserve) {
+					deferred += 1;
+					continue;
+				}
 				this.Save(player, false);
 			}
+		}
+		if (deferred > 0) {
+			ModuleLog.Every("autosave-budget", 60, "Data", string.format("DataStore budget low: %d autosave(s) moved to the next tick", deferred));
 		}
 	}
 
 	Shutdown() {
 		this._closing = true;
+		SaveUtil.useShutdownRetries();
 		if (this._autosaveThread !== undefined) {
 			task.cancel(this._autosaveThread);
 			this._autosaveThread = undefined;

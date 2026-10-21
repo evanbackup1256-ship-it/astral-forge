@@ -10,6 +10,17 @@ const RETRY = {
 	INITIAL_WAIT: 1,
 };
 
+// 5 attempts back off 1+2+4+8 = 15 s, longer than a whole shutdown save budget. Once the server
+// is closing, every store call gets 2 quick attempts so the BindToClose window covers all saves.
+function useShutdownRetries() {
+	RETRY.ATTEMPTS = 2;
+	RETRY.INITIAL_WAIT = 0.5;
+}
+
+function retryPolicy() {
+	return { Attempts: RETRY.ATTEMPTS, InitialWait: RETRY.INITIAL_WAIT };
+}
+
 function assertStorable(data: unknown, fieldName?: string): void {
 	let indexDataType: string | undefined;
 
@@ -168,6 +179,8 @@ const SaveUtil = {
 	updateAsync,
 	getAsync,
 	removeAsync,
+	useShutdownRetries,
+	retryPolicy,
 };
 
 export = SaveUtil;

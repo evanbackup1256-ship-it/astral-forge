@@ -34,8 +34,36 @@ check(byPlayer[gone] == true, "a departed player's leftover profile retries the 
 check(byPlayer[goneBroken] == nil and svc.cleared[goneBroken] == true, "a departed lost-lock profile is dropped, not written")
 check(#svc.saves == 2, "exactly two saves issued")
 
+-- request budget: routine saves wait when the budget is down to the release reserve
+do
+	local svc2 = fake()
+	local a, b, left = H.player("E"), H.player("F"), H.player("G")
+	left.Parent = nil
+	for _, p in { a, b, left } do svc2._profiles[p] = {} svc2._dirty[p] = true end
+	function svc2:_saveBudget() return 3 end -- reserve is 3 held profiles
+	svc2:_autosaveTick()
+	local released, plain = 0, 0
+	for _, s in svc2.saves do if s[2] then released += 1 else plain += 1 end end
+	check(released == 1 and plain == 0, "low budget defers plain saves but still releases a departed player")
+	check(svc2._dirty[a] == true and svc2._dirty[b] == true, "deferred profiles stay dirty for the next tick")
+	svc2.saves = {}
+	function svc2:_saveBudget() return 50 end
+	svc2:_autosaveTick()
+	check(#svc2.saves == 3, "with budget every dirty profile saves")
+end
+
+-- shutdown: store retries shrink so every release fits inside BindToClose
+do
+	local SaveUtil = H.load("Server/AstralForge/Modules/Documents/DocumentService/SaveUtil")
+	local before = SaveUtil.retryPolicy()
+	check(before.Attempts == 5, "normal play keeps 5 store attempts")
+	SaveUtil.useShutdownRetries()
+	local after = SaveUtil.retryPolicy()
+	check(after.Attempts == 2 and after.InitialWait <= 0.5, "shutdown uses 2 quick store attempts")
+end
+
 if #failures > 0 then
 	for _, f in failures do print("  FAIL: " .. f) end
 	error(string.format("data autosave failed: %d problems", #failures))
 end
-print(string.format("[TEST] data autosave: %d checks (leftover release retry, lost-lock drop, dirty-only saves) passed", checks))
+print(string.format("[TEST] data autosave: %d checks (leftover release retry, lost-lock drop, dirty-only saves, request budget, shutdown retries) passed", checks))
