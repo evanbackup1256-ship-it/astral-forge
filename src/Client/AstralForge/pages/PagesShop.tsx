@@ -1386,7 +1386,7 @@ function ShopView(props: ShopViewProps) {
 			key: "shop-empty",
 			icon: "Shop.5",
 			title: "Nothing listed",
-			body: "Nothing listed in this tab right now.",
+			body: "Check back after the next restock.",
 			accent: Palette.mango,
 			layoutOrder: 0,
 			reducedMotion: reducedMotion,
@@ -2807,7 +2807,8 @@ function SkinsSection(props: SectionProps) {
 		});
 	}
 	const cellH = 156;
-	const gridH = rowsHeight(math.max(1, skinBrowse.results.size()), columns, cellH);
+	const noSkins = skinBrowse.results.size() === 0;
+	const gridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), columns, cellH);
 	return h(PageScaffold, {
 		gap: GAP,
 		tailPad: props.tailPad,
@@ -2855,7 +2856,18 @@ function SkinsSection(props: SectionProps) {
 			{
 				id: "grid",
 				height: gridH,
-				element: h(Grid, { columns: columns, cell: cellH, height: gridH, cells: cells }),
+				element: noSkins
+					? h(EmptyState, {
+							icon: "Crate.5",
+							title: skinBrowse.category === "Locked" ? "You own every skin" : "Nothing matches",
+							body:
+								skinBrowse.category === "Locked"
+									? "Every crate skin is in your collection. Pick one above to wear it."
+									: "Switch the filter back to All to see every skin.",
+							accent: Palette.cyan,
+							size: UDim2.fromScale(1, 1),
+						})
+					: h(Grid, { columns: columns, cell: cellH, height: gridH, cells: cells }),
 			},
 		],
 	});
