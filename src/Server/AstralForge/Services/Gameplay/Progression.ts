@@ -5,6 +5,7 @@ import CommandMath from "../../Modules/CommandMath";
 import ProfileBagMath from "../../Modules/ProfileBagMath";
 import GameConfigModule from "../../../../Shared/AstralForge/Shared/GameConfig";
 import SeasonPremium from "../../../../Shared/AstralForge/Shared/SeasonPremium";
+import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
 
 type Bag = Record<string, unknown>;
 type Reward = {
@@ -278,8 +279,30 @@ function currentWeeklyValue(profile: Profile, kind: string): number {
   if (!typeIs(value, "number") || value !== value) return 0;
   return math.clamp(value, -1e308, 1e308);
 }
+// milestone titles (crates, rigs, guild, trades, seasons, goals, visits, taps) use the same
+// lifetime counts as the profile style unlocks
+const MILESTONE_TITLE_KINDS: Record<string, true | undefined> = {
+  Crates: true,
+  Rigs: true,
+  Guild: true,
+  Trades: true,
+  Seasons: true,
+  Goals: true,
+  Visits: true,
+  Taps: true,
+};
 function titleUnlocked(profile: Profile, title: Title): boolean {
   const command = ensureCommand(profile);
+  const kind = (title as { Kind?: unknown }).Kind;
+  if (typeIs(kind, "string") && MILESTONE_TITLE_KINDS[kind]) {
+    return ProfileStyle.isUnlocked(
+      {
+        Kind: kind as ProfileStyle.UnlockKind,
+        Target: tonumber((title as { Target?: unknown }).Target) ?? 0,
+      },
+      ProfileStyle.factsOf(profile),
+    );
+  }
   return ProgressionOpsMath.TitleUnlocked(
     profile,
     title,

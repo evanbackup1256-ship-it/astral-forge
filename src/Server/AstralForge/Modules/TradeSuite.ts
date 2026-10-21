@@ -1300,6 +1300,9 @@ __defs["TradeExchange"] = () => {
 			sent.Items = (sent.Items as number) + give.ItemIds.size();
 			const trade = profile.Trade as Dict;
 			trade.Completed = (trade.Completed as number) + 1;
+			// lifetime count for the trade titles and cosmetics; Trade.Completed resets daily
+			const stats = (typeIs(profile.Stats, "table") ? profile.Stats : (profile.Stats = {})) as Dict;
+			stats.TradesDone = (tonumber(stats.TradesDone) ?? 0) + 1;
 			return undefined;
 		},
 
@@ -1374,6 +1377,10 @@ __defs["TradeExchange"] = () => {
 			sent.Items = math.max(0, ((sent.Items as number | undefined) ?? 0) - give.ItemIds.size());
 			const trade = profile.Trade as Dict;
 			trade.Completed = math.max(0, ((trade.Completed as number | undefined) ?? 0) - 1);
+			if (typeIs(profile.Stats, "table")) {
+				const stats = profile.Stats as Dict;
+				stats.TradesDone = math.max(0, (tonumber(stats.TradesDone) ?? 0) - 1);
+			}
 			return undefined;
 		},
 

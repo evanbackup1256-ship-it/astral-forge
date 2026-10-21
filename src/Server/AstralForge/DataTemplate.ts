@@ -397,6 +397,9 @@ const DataTemplate = {
 				Joins: 0,
 				OreMined: 0,
 				WardenDefeats: 0,
+				// lifetime counts for milestone titles and cosmetics (ProfileStyle.factsOf)
+				TradesDone: 0,
+				SeasonTiers: 0,
 			},
 			Meta: {
 				CreatedAt: now,

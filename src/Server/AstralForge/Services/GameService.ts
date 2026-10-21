@@ -2191,6 +2191,8 @@ export class GameService {
 				CrateSkin: isTable(cosmetics) && truthy(cosmetics.CrateSkin) ? cosmetics.CrateSkin : "Classic",
 				ProfileAccent: ProfileStyle.read(cosmetics).Accent,
 				ProfileFrame: ProfileStyle.read(cosmetics).Frame,
+				// milestone counts the style picker shows unlocks against; the server re-checks on every pick
+				Facts: ProfileStyle.factsOf(profile),
 			},
 			Anomaly: AnomalyService.State(profile),
 			Lab: LabService.State(profile),
@@ -3448,7 +3450,7 @@ export class GameService {
 		const result = this._mutate(player, (profile: Profile) => {
 			saved = undefined;
 			const current = ProfileStyle.read(profile.Cosmetics);
-			const [chosen, problem] = ProfileStyle.validate(current, accent, frame, num(profile.Rebirths) ?? 0);
+			const [chosen, problem] = ProfileStyle.validate(current, accent, frame, ProfileStyle.factsOf(profile));
 			if (chosen === undefined) {
 				return responseError(problem ?? "That style is not available.");
 			}
@@ -3879,7 +3881,15 @@ export class GameService {
 			const cosmetics = ProfileBagMath.EnsureCosmetics(profile, (skinId: unknown) => ShopCatalog.skin(skinId) !== undefined) as Dict;
 			const crateSkins = cosmetics.CrateSkins as Dict;
 			if (crateSkins[skin.Id as string] !== true) {
-				return responseError("You don't own that skin yet.");
+				// earned skins are owned the first time you equip them after meeting the milestone
+				const earn = skin.Earn as ProfileStyle.StyleUnlock | undefined;
+				if (earn === undefined) {
+					return responseError("You don't own that skin yet.");
+				}
+				if (!ProfileStyle.isUnlocked(earn, ProfileStyle.factsOf(profile))) {
+					return responseError(`${skin.Name as string} is still locked: ${ProfileStyle.unlockText(earn)}.`);
+				}
+				crateSkins[skin.Id as string] = true;
 			}
 			cosmetics.CrateSkin = skin.Id;
 			return responseSuccess((skin.Name as string) + " equipped.", { Skin: skin.Id });
