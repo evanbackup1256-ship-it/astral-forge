@@ -69,16 +69,22 @@ function fusionPair(
 		}
 		return a < b;
 	});
-	const target = copies[0];
-	if (stars(inv[target]) >= cap) {
-		return $tuple(undefined, undefined, "That relic already has every star.");
-	}
-	for (let index = copies.size() - 1; index >= 1; index--) {
-		const uid = copies[index];
-		const instance = inv[uid];
-		if (!socketed.get(uid) && instance.Locked !== true) {
-			return $tuple(target, uid, undefined);
+	// The best copy that can still take a star is the target, even when a better copy is
+	// already maxed; the fodder is the weakest other copy that is not socketed, locked or maxed
+	// (a maxed copy is never spent to fuse another).
+	let anyBelowCap = false;
+	for (const target of copies) {
+		if (stars(inv[target]) >= cap) continue;
+		anyBelowCap = true;
+		for (let index = copies.size() - 1; index >= 0; index--) {
+			const uid = copies[index];
+			if (uid !== target && !socketed.get(uid) && inv[uid].Locked !== true && stars(inv[uid]) < cap) {
+				return $tuple(target, uid, undefined);
+			}
 		}
+	}
+	if (!anyBelowCap) {
+		return $tuple(undefined, undefined, "That relic already has every star.");
 	}
 	return $tuple(undefined, undefined, "Every spare copy is socketed or locked.");
 }
