@@ -641,7 +641,7 @@ function LabViewReady(props: LabProps) {
 			scrollBarThickness={SCROLL_BAR}
 			sections={[
 				{ id: "hero", height: heroHeight, element: hero },
-				{ id: "orders-label", height: SECTION_LABEL_H, element: <SectionLabel value="TODAY'S ORDERS" color={Palette.mint} /> },
+				{ id: "orders-label", height: SECTION_LABEL_H, element: <SectionLabel value="Today's orders" color={Palette.mint} /> },
 				{
 					id: "orders-filter",
 					height: lab.Orders.size() > 2 ? Browse.CHIP_H : 0,
@@ -662,7 +662,7 @@ function LabViewReady(props: LabProps) {
 				stack && virtOrders
 					? { id: "orders", fill: true, height: orderBlock, minHeight: orderStride * 4, element: ordersBlock }
 					: { id: "orders", height: virtOrders ? math.min(orderBlock, orderStride * 4) : orderBlock, element: ordersBlock },
-				{ id: "power-label", height: SECTION_LABEL_H, element: <SectionLabel value="POWER BOARD" color={Palette.mango} /> },
+				{ id: "power-label", height: SECTION_LABEL_H, element: <SectionLabel value="Power board" color={Palette.mango} /> },
 				{
 					id: "power",
 					height: powerBoardH,

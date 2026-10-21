@@ -125,7 +125,7 @@ export function CrateDropTable(props: CrateDropTableProps) {
 			padding: PAD,
 			clips: true,
 		},
-		h(SectionLabel, { value: "ALL DROPS", color: Palette.violet }),
+		h(SectionLabel, { value: "All drops", color: Palette.violet }),
 		h(Text, {
 			value: note,
 			size: 11,

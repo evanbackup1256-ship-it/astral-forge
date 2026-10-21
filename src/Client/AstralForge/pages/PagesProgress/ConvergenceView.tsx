@@ -233,7 +233,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 		{
 			id: "tiers-label",
 			height: SECTION_LABEL_H,
-			element: <SectionLabel value="YOUR CONTRIBUTION REWARDS" color={Palette.violet} />,
+			element: <SectionLabel value="Your rewards" color={Palette.violet} />,
 		},
 	];
 	if (tiersH > 0) {
