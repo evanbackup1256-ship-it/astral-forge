@@ -551,6 +551,8 @@ export function RebirthChamber(props: ChamberProps) {
 	const [igniting, setIgniting] = React.useState(false);
 	const [shakeToken, setShakeToken] = React.useState(0);
 	const [ignite, setIgnite] = React.useBinding(0);
+	// the star index whose permanent pick is in flight (one pick per star)
+	const starSentRef = React.useRef<number | undefined>(undefined);
 	const mountedRef = React.useRef(true);
 	const ignitionRef = React.useRef<RBXScriptConnection>();
 	const confirmArmedRef = React.useRef<number>();
@@ -843,7 +845,20 @@ export function RebirthChamber(props: ChamberProps) {
 						accent: art.color,
 					}}
 					onPick={() => {
-						dispatch("RebirthAct", { Op: "Star", Index: index, Pick: slot });
+						// the choice is permanent: only the first tap counts until the server answers
+						if (starSentRef.current === index) {
+							return;
+						}
+						starSentRef.current = index;
+						const fallback = task.delay(8, () => {
+							starSentRef.current = undefined;
+						});
+						dispatch("RebirthAct", { Op: "Star", Index: index, Pick: slot }, (response: { ok?: boolean }) => {
+							pcall(task.cancel, fallback);
+							if (response.ok !== true) {
+								starSentRef.current = undefined;
+							}
+						});
 					}}
 				/>
 			);

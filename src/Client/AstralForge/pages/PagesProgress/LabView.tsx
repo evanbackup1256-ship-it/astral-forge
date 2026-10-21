@@ -24,7 +24,7 @@ const BTN_W = 176;
 const SCROLL_BAR = 4;
 const ROW_RIGHT = SCROLL_BAR + 10;
 
-type Dispatch = (action: string, payload: object) => unknown;
+type Dispatch = (action: string, payload: object, callback?: (response: { ok?: boolean }) => void) => unknown;
 
 interface OrderState {
 	Id: string;
@@ -78,12 +78,23 @@ function OrderRow(props: {
 	const reveal = useStagger(order, reducedMotion);
 	const [claimTrigger, setClaimTrigger] = React.useState(0);
 	const claimFlash = useFlash(claimTrigger, reducedMotion, 0.4);
+	// one claim in flight per order: the button spins until the server answers, a refusal shakes it
+	const [claiming, setClaiming] = React.useState(false);
+	const [refused, setRefused] = React.useState(0);
 	const fireClaim = () => {
-		if (!ready) {
+		if (!ready || claiming) {
 			return undefined;
 		}
 		setClaimTrigger((value) => value + 1);
-		return dispatch("ClaimLabOrder", { Id: state.Id });
+		setClaiming(true);
+		const fallback = task.delay(8, () => setClaiming(false));
+		return dispatch("ClaimLabOrder", { Id: state.Id }, (response) => {
+			pcall(task.cancel, fallback);
+			setClaiming(false);
+			if (response.ok !== true) {
+				setRefused((value) => value + 1);
+			}
+		});
 	};
 	const rowH = stack ? ORDER_HEIGHT_STACK : ORDER_HEIGHT;
 	const pad = stack ? 14 : Layout.cardPadding;
@@ -161,6 +172,8 @@ function OrderRow(props: {
 					text={state.Claimed ? "COLLECTED" : ready ? "COLLECT" : "NOT YET"}
 					icon="Gift.5"
 					onClick={fireClaim}
+					loading={claiming}
+					shakeToken={refused}
 					color={ready ? config.Color : Palette.panelSoft}
 					textColor={ready ? Palette.ink : Palette.creamSoft}
 					size={new UDim2(1, 0, 0, TapTarget)}
@@ -174,6 +187,8 @@ function OrderRow(props: {
 					text={state.Claimed ? "COLLECTED" : ready ? "COLLECT" : "NOT YET"}
 					icon="Gift.6"
 					onClick={fireClaim}
+					loading={claiming}
+					shakeToken={refused}
 					color={ready ? config.Color : Palette.panelSoft}
 					textColor={ready ? Palette.ink : Palette.creamSoft}
 					size={UDim2.fromOffset(BTN_W, 48)}
@@ -353,7 +368,13 @@ function LabViewReady(props: LabProps) {
 			readyOrders += 1;
 		}
 	}
+	// a second tap before the snapshot lands would resend every claim
+	const claimAllAt = React.useRef(-math.huge);
 	const claimAllOrders = () => {
+		if (os.clock() - claimAllAt.current < 1.5) {
+			return;
+		}
+		claimAllAt.current = os.clock();
 		for (const order of lab.Orders) {
 			if (!order.Claimed && order.Progress >= order.Target) {
 				dispatch("ClaimLabOrder", { Id: order.Id });
