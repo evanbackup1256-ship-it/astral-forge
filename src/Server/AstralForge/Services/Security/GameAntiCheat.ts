@@ -144,8 +144,15 @@ export class GameAntiCheat {
 		const state = stateOf(this, player);
 		const now = os.clock();
 		if (state.LastAction === action && now - state.LastActionAt < 0.2) {
-			state.LastActionAt = now;
-			return $tuple(true, false);
+			// Coalesced repeat: the full repair pass ran under 0.2s ago, so skip it, but still
+			// check this credit against the production ceiling. The window is not extended, so
+			// a steady stream of repeats still gets a full pass at least every 0.2s.
+			const wouldReject = this._checkVelocity(player, action, profile, state, true);
+			if (!wouldReject) {
+				state.LastCash = profile.Cash;
+				state.LastSeen = os.clock();
+			}
+			return $tuple(true, wouldReject);
 		}
 		state.LastAction = action;
 		state.LastActionAt = now;
@@ -376,6 +383,18 @@ export class GameAntiCheat {
 			}
 		}
 
+		const wouldReject = this._checkVelocity(player, action, profile, state, false);
+
+		if (!wouldReject) {
+			state.LastCash = profile.Cash;
+			state.LastSeen = os.clock();
+			state.BaselineReady = true;
+		}
+		return $tuple(repairs === 0, wouldReject);
+	}
+
+	/** Production-ceiling check on the Cash credited since the last accepted baseline. */
+	_checkVelocity(player: Player, action: string, profile: Dict, state: PlayerState, coalesced: boolean): boolean {
 		let wouldReject = false;
 		const skipVelocity =
 			!state.BaselineReady ||
@@ -385,7 +404,7 @@ export class GameAntiCheat {
 			action === "Maintenance";
 		if (!skipVelocity) {
 			const elapsed = math.max(0, os.clock() - state.LastSeen);
-			if (elapsed > 0.05 && elapsed < 3600) {
+			if ((coalesced || elapsed > 0.05) && elapsed < 3600) {
 				const delta = Economy.Sub(profile.Cash, state.LastCash);
 				if (Economy.Gt(delta, 0)) {
 					const [productionOk, productionRate] = pcall(Economy.Production, profile, os.time());
@@ -427,13 +446,7 @@ export class GameAntiCheat {
 				}
 			}
 		}
-
-		if (!wouldReject) {
-			state.LastCash = profile.Cash;
-			state.LastSeen = os.clock();
-			state.BaselineReady = true;
-		}
-		return $tuple(repairs === 0, wouldReject);
+		return wouldReject;
 	}
 
 	SyncBaseline(player: Player, profile: unknown): void {

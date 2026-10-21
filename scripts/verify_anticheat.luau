@@ -202,6 +202,40 @@ do
 	check(Ledger:Level(p.UserId) == "log", "one impossible-progress flag does not kick on its own")
 end
 
+-- coalesced repeats: a bad credit inside the 0.2s repeat window is still checked
+do
+	local GameAntiCheat = H.load("Server/AstralForge/Services/Security/GameAntiCheat").GameAntiCheat
+	local DataTemplate = H.load("Server/AstralForge/DataTemplate")
+	local ac = GameAntiCheat.new()
+	local p = H.player("Burst")
+	local profile = DataTemplate.New()
+	profile.Cash = 1000
+	ac:Observe(p, "Load", profile)
+	ac:SyncBaseline(p, profile)
+	local function wait(s) local t0 = os.clock() while os.clock() - t0 < s do end end
+	wait(0.25)
+	profile.Cash = 1200
+	local _, r1 = ac:Observe(p, "Mutation", profile)
+	profile.Cash = 1400
+	local ok2, r2 = ac:Observe(p, "Mutation", profile)
+	check(r1 == false and r2 == false and ok2 == true, "a normal repeat inside the window is not flagged")
+	profile.Cash = 1e15
+	local _, r3 = ac:Observe(p, "Mutation", profile)
+	check(r3 == true, "a bad credit inside the repeat window is rejected (was skipped before)")
+	check(kinds(p.UserId)["impossible-progress"] == 1, "and flagged impossible-progress")
+	profile.Cash = 1400
+	-- a steady stream of repeats does not extend the window forever: the full pass still runs
+	local t0 = os.clock()
+	local repaired = false
+	while os.clock() - t0 < 0.5 do
+		profile.Machines = "bad"
+		ac:Observe(p, "Mutation", profile)
+		if type(profile.Machines) == "table" then repaired = true break end
+		wait(0.05)
+	end
+	check(repaired, "a stream of repeats still gets a full repair pass within the window")
+end
+
 -- capacity hint from the production tick gives the same result as computing it
 do
 	local GameAntiCheat = H.load("Server/AstralForge/Services/Security/GameAntiCheat").GameAntiCheat
