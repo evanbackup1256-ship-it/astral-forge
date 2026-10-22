@@ -4,6 +4,7 @@ import * as Format from "../../CoreKit/format";
 import { chromeFor, Palette, Radius, scrollTail, StrokeWidth } from "../../CoreKit/theme";
 import { useViewport } from "../../MotionKit/motion";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
@@ -986,6 +987,10 @@ function BazaarView(props: BazaarProps) {
 			break;
 		}
 	}
+	// desktop with room: the inspection (detail + per-unit comparison) sits in a right-hand column
+	// beside the shelf instead of pushing the shelf below it
+	const inspectStart = sections.size();
+	const plan = splitColumns(width, 340, 12);
 	if (selected) {
 		const chosen = selected;
 		add(
@@ -1095,6 +1100,9 @@ function BazaarView(props: BazaarProps) {
 			/>,
 		);
 	}
+	const inspectEnd = sections.size();
+	const splitInspect = plan.split && selected !== undefined && inspectEnd > inspectStart;
+	const shelfWidth = splitInspect ? plan.main : width;
 	const offers: Offer[] = [];
 	for (const offer of market ? market.Offers : []) {
 		const text = (offer.Name + " " + Format.formatReward(offer.Reward)).lower();
@@ -1116,7 +1124,7 @@ function BazaarView(props: BazaarProps) {
 		}
 		return a.Name < b.Name;
 	});
-	const cardColumns = math.max(1, math.min(3, math.floor((width + 12) / 300)));
+	const cardColumns = math.max(1, math.min(3, math.floor((shelfWidth + 12) / 300)));
 	const cardHeight = 346;
 	const gap = 12;
 	for (let first = 0; first < offers.size(); first += cardColumns) {
@@ -1185,6 +1193,32 @@ function BazaarView(props: BazaarProps) {
 				sizeConstraint={UDim2.fromScale(1, 1)}
 			/>,
 		);
+	}
+	if (splitInspect) {
+		const head: Section[] = [];
+		const inspection: Section[] = [];
+		const shelf: Section[] = [];
+		sections.forEach((section, index) => {
+			(index < inspectStart ? head : index < inspectEnd ? inspection : shelf).push(section);
+		});
+		const sideH = stackHeight(inspection.map((section) => section.height), 12);
+		const mainH = stackHeight(shelf.map((section) => section.height), 12);
+		const rowH = math.max(sideH, mainH);
+		head.push({
+			id: "shelf-split",
+			height: rowH,
+			element: (
+				<SplitColumns
+					name="BazaarSplit"
+					height={rowH}
+					plan={plan}
+					sideOnRight={true}
+					side={<StackBlocks gap={12} blocks={inspection} />}
+					main={<StackBlocks gap={12} blocks={shelf} />}
+				/>
+			),
+		});
+		return <PageScaffold hostRef={scrollRef} sections={head} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;
 	}
 	return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;
 }

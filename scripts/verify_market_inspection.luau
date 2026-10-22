@@ -66,6 +66,20 @@ local function render(width, inspected, offers)
 		StrokeWidth = setmetatable({}, { __index = function() return 1 end }),
 		Audio = setmetatable({}, { __index = function() return function() end end }),
 		HttpService = { JSONEncode = function() return "" end, GenerateGUID = function() return "guid" end },
+		-- layout rebuild helpers (UiCore/ui): same column maths as splitColumns/stackHeight, components as tags
+		splitColumns = function(w, sideWidth, gap, minWidth)
+			sideWidth, gap, minWidth = sideWidth or 320, gap or 14, minWidth or 860
+			local usable = math.max(0, math.floor(w))
+			if usable < minWidth then return { split = false, side = usable, main = usable, gap = gap } end
+			local side = math.clamp(sideWidth, 220, math.floor(usable * 0.45))
+			return { split = true, side = side, main = usable - side - gap, gap = gap }
+		end,
+		stackHeight = function(heights, gap)
+			local total = 0
+			for index, value in heights do total += value + (if index > 1 then (gap or 10) else 0) end
+			return total
+		end,
+		SplitColumns = "SplitColumns", StackBlocks = "StackBlocks",
 	}, { __index = _G })
 	local first = assert(source:find("local CATEGORIES", 1, true))
 	local last = assert(source:find("return { BazaarView = BazaarView }", first, true) or source:find("return {%s*BazaarView = BazaarView", first))
@@ -83,7 +97,21 @@ local offers = {
 for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 	local tree = render(width, "dust", offers)
 	local sections, comparisons = {}, {}
+	-- wide layouts put the inspection in a side column next to the shelf: read both columns' blocks
+	local flat, split = {}, false
 	for _, section in tree.props.sections do
+		if section.id == "shelf-split" then
+			split = true
+			local props = section.element.props
+			assert(props.plan.split and props.sideOnRight, "inspection sits in the right-hand column")
+			for _, block in props.main.props.blocks do table.insert(flat, block) end
+			for _, block in props.side.props.blocks do table.insert(flat, block) end
+		else
+			table.insert(flat, section)
+		end
+	end
+	assert(split == (width >= 860), "two columns exactly when the page is wide enough")
+	for _, section in flat do
 		sections[section.id] = section
 		if section.id:sub(1, 8) == "compare-" then table.insert(comparisons, section.id) end
 	end
