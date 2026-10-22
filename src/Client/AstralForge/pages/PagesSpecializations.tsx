@@ -373,14 +373,16 @@ function SpecializationsViewBoard(props: Props) {
 		add(
 			"retry",
 			TapTarget,
-			<Ui.Button
-				text="Confirm your last build change"
-				size={UDim2.fromScale(1, 1)}
-				color={Palette.mango}
-				disabled={busy}
-				reducedMotion={props.reducedMotion}
-				onClick={() => selectBuild(unresolved!.Id)}
-			/>,
+			<frame key="RetryConfirm" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<Ui.Button
+					text="Confirm your last build change"
+					size={UDim2.fromScale(1, 1)}
+					color={Palette.mango}
+					disabled={busy}
+					reducedMotion={props.reducedMotion}
+					onClick={() => selectBuild(unresolved!.Id)}
+				/>
+			</frame>,
 		);
 	}
 	if (note !== "") {
@@ -472,16 +474,17 @@ function SpecializationsViewBoard(props: Props) {
 					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 						{compare}
 					</frame>
-					<Ui.Button
-						text={equipped ? "Equipped" : cooling ? `Ready in ${clock(remaining)}` : "Equip " + build.Name}
-						size={new UDim2(1, 0, 0, 44)}
-						position={new UDim2(0, 0, 1, -44)}
-						color={look.accent}
-						textColor={Palette.ink}
-						disabled={locked || equipped}
-						reducedMotion={props.reducedMotion}
-						onClick={() => selectBuild(build.Id)}
-					/>
+					<frame key="EquipBuy" Size={new UDim2(1, 0, 0, 44)} Position={new UDim2(0, 0, 1, -44)} BackgroundTransparency={1} BorderSizePixel={0}>
+						<Ui.Button
+							text={equipped ? "Equipped" : cooling ? `Ready in ${clock(remaining)}` : "Equip " + build.Name}
+							size={UDim2.fromScale(1, 1)}
+							color={look.accent}
+							textColor={Palette.ink}
+							disabled={locked || equipped}
+							reducedMotion={props.reducedMotion}
+							onClick={() => selectBuild(build.Id)}
+						/>
+					</frame>
 				</Ui.Panel>
 			</frame>
 		);
