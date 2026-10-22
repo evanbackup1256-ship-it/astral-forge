@@ -1,6 +1,8 @@
 import React from "@rbxts/react";
 import { useIdleGlint, GLINT_TRANSPARENCY, useFlash, useGlowStroke } from "../../MotionKit/motion";
+import { Audio } from "../../AudioKit/audio";
 import { InteractionFeedback } from "../../CoreKit/interaction";
+import { Palette } from "../../CoreKit/theme";
 import { isTouchOnly } from "../../CoreKit/inputLayer";
 import { FocusRing, PressLayers, pressEvents, usePress } from "./press";
 import { Corner, Fonts, HIT, Iron } from "./tokens";
@@ -54,7 +56,10 @@ export function Button(props: ButtonProps) {
 	React.useEffect(() => {
 		if (shakeToken !== lastShake.current) {
 			lastShake.current = shakeToken;
-			if (shakeToken > 0) InteractionFeedback.fail();
+			if (shakeToken > 0) {
+				Audio.play("noticeError");
+				InteractionFeedback.fail();
+			}
 		}
 	}, [shakeToken]);
 	return (
@@ -91,6 +96,16 @@ export function Button(props: ButtonProps) {
 							<uigradient Transparency={GLINT_TRANSPARENCY} Rotation={20} Offset={glint.map((x) => new Vector2(x, 0))} />
 						</frame>
 					)}
+					<frame
+						Size={UDim2.fromScale(1, 1)}
+						BackgroundColor3={Palette.coral}
+						BackgroundTransparency={shake.map((a) => math.clamp(1 - a * 0.6, 0.4, 1))}
+						BorderSizePixel={0}
+						ZIndex={6}
+						Visible={shake.map((a) => a > 0.02)}
+					>
+						<uicorner CornerRadius={new UDim(0, Corner.card)} />
+					</frame>
 					<PressLayers press={press} radius={Corner.card} color={base} idle={props.highlight === true} zIndex={2} />
 					<textlabel
 						Size={UDim2.fromScale(1, 1)}
