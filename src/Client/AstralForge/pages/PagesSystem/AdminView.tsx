@@ -107,8 +107,21 @@ interface LookupResult {
 	Flags?: Array<{ At: number; Kind: string; Detail: string }>;
 	Journal?: Array<{ Id: string; At: number; Label?: string; Revision?: number }>;
 }
+interface SecurityFlagRow {
+	At: number;
+	Name: string;
+	Kind: string;
+	Detail?: string;
+	Response?: string;
+}
+interface AntiCheatRuleRow {
+	Id: string;
+	Repairs: number;
+}
 interface AdminState {
 	SecurityPlayers?: SecurityRow[];
+	SecurityFlags?: SecurityFlagRow[];
+	AntiCheatRules?: AntiCheatRuleRow[];
 	HotFlags?: HotFlagRow[];
 	Announcements?: AnnouncementRow[];
 	Economy?: EconomySummary;
@@ -1046,6 +1059,19 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			const row = flagged[i];
 			securityRows.push(
 				<OpsLine key={tostring(row.UserId)} left={`${row.Name} · ${row.Score}`} right={`${row.Flags}× ${row.LastKind}`} rightColor={levelColor(row.Level)} layoutOrder={i} />,
+			);
+		}		// newest flags fill the rest of the panel, then any rule that has had to repair a save
+		const recentFlags = admin.SecurityFlags ?? [];
+		for (let i = 0; i < recentFlags.size() && securityRows.size() < MAX_OPS_ROWS; i++) {
+			const flag = recentFlags[i];
+			securityRows.push(
+				<OpsLine key={`sf${i}`} left={`${flag.Kind} · ${flag.Name}`} right={`${clockTime(flag.At)} ${flag.Response ?? ""}`} accent={Palette.coral} rightColor={Palette.muted} layoutOrder={100 + i} />,
+			);
+		}
+		const rules = (admin.AntiCheatRules ?? []).filter((rule) => rule.Repairs > 0);
+		for (let i = 0; i < rules.size() && securityRows.size() < MAX_OPS_ROWS; i++) {
+			securityRows.push(
+				<OpsLine key={`ar${rules[i].Id}`} left={`rule ${rules[i].Id}`} right={`${compactNumber(rules[i].Repairs)} fixed`} accent={Palette.steel} rightColor={Palette.muted} layoutOrder={200 + i} />,
 			);
 		}
 	}

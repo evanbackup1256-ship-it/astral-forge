@@ -128,6 +128,320 @@ function stateOf(owner: { _players: Map<Player, PlayerState> }, player: Player):
 	return state;
 }
 
+/**
+ * Anti-cheat as a list of repair rules. Each rule owns one part of the profile, fixes anything
+ * out of range in place and returns how many fields it touched. Rules run in order, so a later
+ * rule may read what an earlier one recorded on the shared context (vault reads `levelRepairs`).
+ * Add a rule by appending to REPAIR_RULES; nothing else needs to change. The production-ceiling
+ * velocity check runs after every rule and is the only one that can reject a transaction.
+ */
+interface RuleContext {
+	/** Vault capacity the caller already computed this transaction, if any. */
+	capacityHint?: Flux;
+	/** Levels repaired by the "levels" rule; a non-zero value forces a fresh capacity read. */
+	levelRepairs: number;
+}
+
+export interface RepairRule {
+	id: string;
+	describe: string;
+	repair(profile: Dict, ctx: RuleContext): number;
+}
+
+const REPAIR_RULES: RepairRule[] = [
+	{
+		id: "currencies",
+		describe: "Root currencies are non-negative and finite",
+		repair(profile, ctx) {
+			let repairs = 0;
+			const persistKeys: Record<string, boolean | undefined> = { Cash: true, Vault: true, RunCash: true, LifetimeCash: true };
+			for (const key of ROOT_CURRENCIES) {
+				if (persistKeys[key]) {
+					const persisted = Economy.Max(profile[key], 0);
+					if (persisted !== profile[key]) {
+						profile[key] = persisted;
+						repairs += 1;
+					}
+				} else {
+					const [value, changed] = clampNumber(profile[key], 0, MAX_SAFE);
+					if (changed) {
+						profile[key] = value;
+						repairs += 1;
+					}
+				}
+			}
+			return repairs;
+		},
+	},
+	{
+		id: "levels",
+		describe: "Machine, research and grid levels exist and stay within their max",
+		repair(profile, ctx) {
+			let repairs = 0;
+			if (!isTable(profile.Machines)) {
+				profile.Machines = {};
+				repairs += 1;
+			}
+			if (!isTable(profile.Research)) {
+				profile.Research = {};
+				repairs += 1;
+			}
+			if (!isTable(profile.GridUpgrades)) {
+				profile.GridUpgrades = {};
+				repairs += 1;
+			}
+			const levelRepairs =
+				clampSparseLevels(profile.Machines, MACHINE_LEVELS) +
+				clampSparseLevels(profile.Research, RESEARCH_LEVELS) +
+				clampSparseLevels(profile.GridUpgrades, GRID_LEVELS);
+			ctx.levelRepairs = levelRepairs;
+			repairs += levelRepairs;
+			return repairs;
+		},
+	},
+	{
+		id: "vault",
+		describe: "Vault never holds more than its capacity",
+		repair(profile, ctx) {
+			let repairs = 0;
+			let capacityOk = true;
+			let capacityResult: unknown = ctx.capacityHint;
+			if (ctx.capacityHint === undefined || ctx.levelRepairs !== 0) {
+				[capacityOk, capacityResult] = pcall(Economy.Capacity, profile, os.time());
+			}
+			if (capacityOk) {
+				const nextVault = Economy.Min(profile.Vault, capacityResult);
+				if (nextVault !== profile.Vault) {
+					profile.Vault = nextVault;
+					repairs += 1;
+				}
+			}
+			return repairs;
+		},
+	},
+	{
+		id: "boost",
+		describe: "The active boost is a real boost with a sane end time",
+		repair(profile, ctx) {
+			let repairs = 0;
+			const activeBoost = profile.ActiveBoost;
+			const boostValid =
+				isTable(activeBoost) &&
+				(activeBoost.Id === "" || GameConfig.Boosts[activeBoost.Id as string] !== undefined);
+			if (!boostValid) {
+				profile.ActiveBoost = { Id: "", EndsAt: 0 };
+				repairs += 1;
+			} else {
+				const boost = d(activeBoost);
+				const [endsAt, endsChanged] = clampNumber(boost.EndsAt, 0, 4_000_000_000);
+				if (endsChanged) {
+					boost.EndsAt = math.floor(endsAt);
+					repairs += 1;
+				}
+			}
+			return repairs;
+		},
+	},
+	{
+		id: "items",
+		describe: "Inventory entries are real items, levels in range, equips point at owned items",
+		repair(profile, ctx) {
+			let repairs = 0;
+			if (!isTable(profile.Items)) {
+				profile.Items = {
+					Inventory: {},
+					Discovered: {},
+					Equipped: {},
+					Essence: 0,
+					Keys: {},
+					Pity: {},
+					Shop: {},
+					AutoSalvage: { Enabled: false, KeepNew: true, Rarities: {} },
+				};
+				repairs += 1;
+			} else {
+				const items = profile.Items;
+				const [essence, essenceChanged] = clampNumber(items.Essence, 0, MAX_SAFE);
+				if (essenceChanged) {
+					items.Essence = essence;
+					repairs += 1;
+				}
+				if (!isTable(items.Inventory)) {
+					items.Inventory = {};
+					repairs += 1;
+				}
+				if (!isTable(items.Equipped)) {
+					items.Equipped = {};
+					repairs += 1;
+				}
+				const inventory = d(items.Inventory);
+				for (const [uid, item] of pairs(inventory)) {
+					const definition = isTable(item) ? ITEM_DEFINITIONS[item.DefinitionId as string] : undefined;
+					if (!typeIs(uid, "string") || !definition) {
+						inventory[uid] = undefined;
+						repairs += 1;
+					} else {
+						const entry = d(item);
+						const [level, levelChanged] = clampNumber(entry.Level, 1, definition.MaxLevel);
+						if (levelChanged) {
+							entry.Level = math.floor(level);
+							repairs += 1;
+						}
+					}
+				}
+				const equipped = d(items.Equipped);
+				for (const [target, uid] of pairs(equipped)) {
+					if (!typeIs(target, "string") || !typeIs(uid, "string") || !truthy(inventory[uid])) {
+						equipped[target] = undefined;
+						repairs += 1;
+					}
+				}
+			}
+			return repairs;
+		},
+	},
+	{
+		id: "anomaly",
+		describe: "Anomaly charge, core tier and loadout stay within config",
+		repair(profile, ctx) {
+			let repairs = 0;
+			if (!isTable(profile.Anomaly)) {
+				profile.Anomaly = { Charge: 0, Fragments: 0, Stabilizations: 0, Chain: 0, BestChain: 0 };
+				repairs += 1;
+			} else {
+				const anomaly = profile.Anomaly;
+				let maxTargetBonus = 0;
+				for (const [, tierConfig] of pairs(GameConfig.Anomalies.CoreTiers)) {
+					maxTargetBonus = math.max(maxTargetBonus, tierConfig.MaximumTargetBonus);
+				}
+				const [charge, chargeChanged] = clampNumber(
+					anomaly.Charge,
+					0,
+					(GameConfig.Anomalies.MaximumTarget + maxTargetBonus) * 1.5,
+				);
+				const [fragments, fragmentsChanged] = clampNumber(anomaly.Fragments, 0, MAX_SAFE);
+				if (chargeChanged) {
+					anomaly.Charge = charge;
+					repairs += 1;
+				}
+				if (fragmentsChanged) {
+					anomaly.Fragments = math.floor(fragments);
+					repairs += 1;
+				}
+
+				const maxCoreTier = GameConfig.Anomalies.CoreTiers.size();
+				const orZero = (value: unknown) => (truthy(value) ? value : 0);
+				const [coreTier, coreTierChanged] = clampNumber(orZero(anomaly.CoreTier), 0, maxCoreTier);
+				const [coreXP, coreXPChanged] = clampNumber(orZero(anomaly.CoreXP), 0, MAX_SAFE);
+				const [combo, comboChanged] = clampNumber(orZero(anomaly.Combo), 0, GameConfig.Anomalies.PulseComboMax);
+				const [bestCombo, bestComboChanged] = clampNumber(
+					orZero(anomaly.BestCombo),
+					0,
+					GameConfig.Anomalies.PulseComboMax,
+				);
+				if (coreTierChanged) {
+					anomaly.CoreTier = math.floor(coreTier);
+					repairs += 1;
+				}
+				if (coreXPChanged) {
+					anomaly.CoreXP = coreXP;
+					repairs += 1;
+				}
+				if (comboChanged) {
+					anomaly.Combo = math.floor(combo);
+					repairs += 1;
+				}
+				if (bestComboChanged) {
+					anomaly.BestCombo = math.floor(bestCombo);
+					repairs += 1;
+				}
+				if (!isTable(anomaly.Loadout)) {
+					anomaly.Loadout = {};
+					repairs += 1;
+				} else if ((anomaly.Loadout as unknown as defined[]).size() > GameConfig.Anomalies.LoadoutSlots) {
+					const loadout = anomaly.Loadout as unknown as defined[];
+					const trimmed: defined[] = [];
+					for (let index = 0; index < GameConfig.Anomalies.LoadoutSlots; index++) {
+						trimmed[index] = loadout[index];
+					}
+					anomaly.Loadout = trimmed;
+					repairs += 1;
+				}
+			}
+			return repairs;
+		},
+	},
+	{
+		id: "flags",
+		describe: "Unlimited money only exists in Studio",
+		repair(profile, ctx) {
+			let repairs = 0;
+			if (!isTable(profile.Flags)) {
+				profile.Flags = {
+					TutorialDone: false,
+					TutorialStep: 1,
+					TutorialRewardClaimed: false,
+					LastSeenVersion: "",
+					UnlimitedMoney: false,
+				};
+				repairs += 1;
+			} else if (!RunService.IsStudio() && truthy(profile.Flags.UnlimitedMoney)) {
+				profile.Flags.UnlimitedMoney = false;
+				repairs += 1;
+			}
+			return repairs;
+		},
+	},
+	{
+		id: "stats",
+		describe: "Lifetime stats are non-negative",
+		repair(profile, ctx) {
+			let repairs = 0;
+			if (isTable(profile.Stats)) {
+				const stats = profile.Stats;
+				if (stats.Collected !== undefined) {
+					const persisted = Economy.Max(stats.Collected, 0);
+					if (persisted !== stats.Collected) {
+						stats.Collected = persisted;
+						repairs += 1;
+					}
+				}
+				for (const key of STAT_KEYS) {
+					const [value, changed] = clampNumber(stats[key], 0, MAX_SAFE);
+					if (changed) {
+						stats[key] = value;
+						repairs += 1;
+					}
+				}
+			}
+			return repairs;
+		},
+	},
+	{
+		id: "meta",
+		describe: "Save revision is a non-negative integer",
+		repair(profile, ctx) {
+			let repairs = 0;
+			if (isTable(profile.Meta)) {
+				const [revision, revisionChanged] = clampNumber(profile.Meta.Revision, 0, MAX_SAFE);
+				if (revisionChanged) {
+					profile.Meta.Revision = math.floor(revision);
+					repairs += 1;
+				}
+			}
+			return repairs;
+		},
+	},
+];
+
+/** Repairs made per rule since the server started, for the admin panel. */
+const RULE_HITS: Record<string, number> = {};
+
+/** One row per rule with how often it has repaired a profile on this server. */
+export function RuleStats(): Array<{ Id: string; Describe: string; Repairs: number }> {
+	return REPAIR_RULES.map((rule) => ({ Id: rule.id, Describe: rule.describe, Repairs: RULE_HITS[rule.id] ?? 0 }));
+}
+
 @Service({ loadOrder: 2 })
 export class GameAntiCheat {
 	_players = new Map<Player, PlayerState>();
@@ -156,220 +470,13 @@ export class GameAntiCheat {
 		}
 		state.LastAction = action;
 		state.LastActionAt = now;
+		const ctx: RuleContext = { capacityHint, levelRepairs: 0 };
 		let repairs = 0;
-		const persistKeys: Record<string, boolean | undefined> = { Cash: true, Vault: true, RunCash: true, LifetimeCash: true };
-		for (const key of ROOT_CURRENCIES) {
-			if (persistKeys[key]) {
-				const persisted = Economy.Max(profile[key], 0);
-				if (persisted !== profile[key]) {
-					profile[key] = persisted;
-					repairs += 1;
-				}
-			} else {
-				const [value, changed] = clampNumber(profile[key], 0, MAX_SAFE);
-				if (changed) {
-					profile[key] = value;
-					repairs += 1;
-				}
-			}
-		}
-		if (!isTable(profile.Machines)) {
-			profile.Machines = {};
-			repairs += 1;
-		}
-		if (!isTable(profile.Research)) {
-			profile.Research = {};
-			repairs += 1;
-		}
-		if (!isTable(profile.GridUpgrades)) {
-			profile.GridUpgrades = {};
-			repairs += 1;
-		}
-		const levelRepairs =
-			clampSparseLevels(profile.Machines, MACHINE_LEVELS) +
-			clampSparseLevels(profile.Research, RESEARCH_LEVELS) +
-			clampSparseLevels(profile.GridUpgrades, GRID_LEVELS);
-		repairs += levelRepairs;
-
-		let capacityOk = true;
-		let capacityResult: unknown = capacityHint;
-		if (capacityHint === undefined || levelRepairs !== 0) {
-			[capacityOk, capacityResult] = pcall(Economy.Capacity, profile, os.time());
-		}
-		if (capacityOk) {
-			const nextVault = Economy.Min(profile.Vault, capacityResult);
-			if (nextVault !== profile.Vault) {
-				profile.Vault = nextVault;
-				repairs += 1;
-			}
-		}
-
-		const activeBoost = profile.ActiveBoost;
-		const boostValid =
-			isTable(activeBoost) &&
-			(activeBoost.Id === "" || GameConfig.Boosts[activeBoost.Id as string] !== undefined);
-		if (!boostValid) {
-			profile.ActiveBoost = { Id: "", EndsAt: 0 };
-			repairs += 1;
-		} else {
-			const boost = d(activeBoost);
-			const [endsAt, endsChanged] = clampNumber(boost.EndsAt, 0, 4_000_000_000);
-			if (endsChanged) {
-				boost.EndsAt = math.floor(endsAt);
-				repairs += 1;
-			}
-		}
-
-		if (!isTable(profile.Items)) {
-			profile.Items = {
-				Inventory: {},
-				Discovered: {},
-				Equipped: {},
-				Essence: 0,
-				Keys: {},
-				Pity: {},
-				Shop: {},
-				AutoSalvage: { Enabled: false, KeepNew: true, Rarities: {} },
-			};
-			repairs += 1;
-		} else {
-			const items = profile.Items;
-			const [essence, essenceChanged] = clampNumber(items.Essence, 0, MAX_SAFE);
-			if (essenceChanged) {
-				items.Essence = essence;
-				repairs += 1;
-			}
-			if (!isTable(items.Inventory)) {
-				items.Inventory = {};
-				repairs += 1;
-			}
-			if (!isTable(items.Equipped)) {
-				items.Equipped = {};
-				repairs += 1;
-			}
-			const inventory = d(items.Inventory);
-			for (const [uid, item] of pairs(inventory)) {
-				const definition = isTable(item) ? ITEM_DEFINITIONS[item.DefinitionId as string] : undefined;
-				if (!typeIs(uid, "string") || !definition) {
-					inventory[uid] = undefined;
-					repairs += 1;
-				} else {
-					const entry = d(item);
-					const [level, levelChanged] = clampNumber(entry.Level, 1, definition.MaxLevel);
-					if (levelChanged) {
-						entry.Level = math.floor(level);
-						repairs += 1;
-					}
-				}
-			}
-			const equipped = d(items.Equipped);
-			for (const [target, uid] of pairs(equipped)) {
-				if (!typeIs(target, "string") || !typeIs(uid, "string") || !truthy(inventory[uid])) {
-					equipped[target] = undefined;
-					repairs += 1;
-				}
-			}
-		}
-
-		if (!isTable(profile.Anomaly)) {
-			profile.Anomaly = { Charge: 0, Fragments: 0, Stabilizations: 0, Chain: 0, BestChain: 0 };
-			repairs += 1;
-		} else {
-			const anomaly = profile.Anomaly;
-			let maxTargetBonus = 0;
-			for (const [, tierConfig] of pairs(GameConfig.Anomalies.CoreTiers)) {
-				maxTargetBonus = math.max(maxTargetBonus, tierConfig.MaximumTargetBonus);
-			}
-			const [charge, chargeChanged] = clampNumber(
-				anomaly.Charge,
-				0,
-				(GameConfig.Anomalies.MaximumTarget + maxTargetBonus) * 1.5,
-			);
-			const [fragments, fragmentsChanged] = clampNumber(anomaly.Fragments, 0, MAX_SAFE);
-			if (chargeChanged) {
-				anomaly.Charge = charge;
-				repairs += 1;
-			}
-			if (fragmentsChanged) {
-				anomaly.Fragments = math.floor(fragments);
-				repairs += 1;
-			}
-
-			const maxCoreTier = GameConfig.Anomalies.CoreTiers.size();
-			const orZero = (value: unknown) => (truthy(value) ? value : 0);
-			const [coreTier, coreTierChanged] = clampNumber(orZero(anomaly.CoreTier), 0, maxCoreTier);
-			const [coreXP, coreXPChanged] = clampNumber(orZero(anomaly.CoreXP), 0, MAX_SAFE);
-			const [combo, comboChanged] = clampNumber(orZero(anomaly.Combo), 0, GameConfig.Anomalies.PulseComboMax);
-			const [bestCombo, bestComboChanged] = clampNumber(
-				orZero(anomaly.BestCombo),
-				0,
-				GameConfig.Anomalies.PulseComboMax,
-			);
-			if (coreTierChanged) {
-				anomaly.CoreTier = math.floor(coreTier);
-				repairs += 1;
-			}
-			if (coreXPChanged) {
-				anomaly.CoreXP = coreXP;
-				repairs += 1;
-			}
-			if (comboChanged) {
-				anomaly.Combo = math.floor(combo);
-				repairs += 1;
-			}
-			if (bestComboChanged) {
-				anomaly.BestCombo = math.floor(bestCombo);
-				repairs += 1;
-			}
-			if (!isTable(anomaly.Loadout)) {
-				anomaly.Loadout = {};
-				repairs += 1;
-			} else if ((anomaly.Loadout as unknown as defined[]).size() > GameConfig.Anomalies.LoadoutSlots) {
-				const loadout = anomaly.Loadout as unknown as defined[];
-				const trimmed: defined[] = [];
-				for (let index = 0; index < GameConfig.Anomalies.LoadoutSlots; index++) {
-					trimmed[index] = loadout[index];
-				}
-				anomaly.Loadout = trimmed;
-				repairs += 1;
-			}
-		}
-
-		if (!isTable(profile.Flags)) {
-			profile.Flags = {
-				TutorialDone: false,
-				TutorialStep: 1,
-				TutorialRewardClaimed: false,
-				LastSeenVersion: "",
-				UnlimitedMoney: false,
-			};
-			repairs += 1;
-		} else if (!RunService.IsStudio() && truthy(profile.Flags.UnlimitedMoney)) {
-			profile.Flags.UnlimitedMoney = false;
-			repairs += 1;
-		}
-		if (isTable(profile.Stats)) {
-			const stats = profile.Stats;
-			if (stats.Collected !== undefined) {
-				const persisted = Economy.Max(stats.Collected, 0);
-				if (persisted !== stats.Collected) {
-					stats.Collected = persisted;
-					repairs += 1;
-				}
-			}
-			for (const key of STAT_KEYS) {
-				const [value, changed] = clampNumber(stats[key], 0, MAX_SAFE);
-				if (changed) {
-					stats[key] = value;
-					repairs += 1;
-				}
-			}
-		}
-		if (isTable(profile.Meta)) {
-			const [revision, revisionChanged] = clampNumber(profile.Meta.Revision, 0, MAX_SAFE);
-			if (revisionChanged) {
-				profile.Meta.Revision = math.floor(revision);
-				repairs += 1;
+		for (const rule of REPAIR_RULES) {
+			const fixed = rule.repair(profile, ctx);
+			if (fixed > 0) {
+				repairs += fixed;
+				RULE_HITS[rule.id] = (RULE_HITS[rule.id] ?? 0) + fixed;
 			}
 		}
 

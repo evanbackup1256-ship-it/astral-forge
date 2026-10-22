@@ -4,6 +4,7 @@ import { Ledger } from "./Security/SecurityLedger";
 import { ServerTelemetry } from "./ServerTelemetry";
 import { PlayerAnalytics } from "./PlayerAnalytics";
 import * as HotFlags from "./Security/HotFlags";
+import { RuleStats as AntiCheatRuleStats } from "./Security/GameAntiCheat";
 import ProfileIntegrity = require("./Security/ProfileIntegrity");
 import * as OpsDashboard from "../Modules/OpsDashboard";
 import type { DataService } from "./DataService";
@@ -786,6 +787,8 @@ export class AdminService {
 			SecurityFlags: Ledger.Recent(25),
 			// one row per flagged player, highest live score first (drill in with InspectPlayer)
 			SecurityPlayers: Ledger.Summary(25),
+			// repair counts per anti-cheat rule since this server started
+			AntiCheatRules: AntiCheatRuleStats(),
 			HotFlags: HotFlags.Snapshot(),
 			Announcements: this._announcements,
 			Economy: this._dashboard(),
