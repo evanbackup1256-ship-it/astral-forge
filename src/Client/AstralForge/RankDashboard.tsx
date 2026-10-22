@@ -5,7 +5,8 @@ import { frameStroke } from "./CoreKit/profileFrame";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import { useViewport } from "./MotionKit/motion";
-import { FocusClaim, KeyLabel } from "./CoreKit/GamepadNavigationService";
+import { KeyLabel } from "./CoreKit/GamepadNavigationService";
+import { useFocusOrder } from "./CoreKit/focusOrder";
 import { OmegaMathApi } from "./lua";
 import { FittedView } from "./UiCore/viewportKit";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "./UiCore/ui";
@@ -414,23 +415,18 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		const [revision, reload] = React.useState(0);
 		const [query, setQuery] = React.useState("");
 
-		React.useEffect(() => {
-			if (!UserInputService.GamepadEnabled) {
-				return undefined;
-			}
-			const host = hostRef.current!;
-			if (host === undefined) {
-				return undefined;
-			}
-			const focusJob = task.defer(() => {
-				if (host.Parent !== undefined) {
-					FocusClaim(host);
-				}
-			});
-			return () => {
-				pcall(() => task.cancel(focusJob));
-			};
-		}, [selected, scope]);
+		// gamepad: standing > categories (groups, then boards) > scope/refresh/search/only-me > pinned you +
+		// Find me > podium > rows. On wide desktop the left control column (Side) and podium/rows (Main)
+		// step left/right. Re-claimed on board or scope change, like the old FocusClaim.
+		useFocusOrder(
+			hostRef,
+			{
+				regions: ["rank-standing", "rank-categories", "rank-controls", "rank-you", "rank-podium", "rank-row-*", "rank-no-match", "rank-empty"],
+				first: ["rank-categories", "rank-controls"],
+				columns: [["Side", "Main"]],
+			},
+			[selected, scope],
+		);
 
 		// gamepad: right-stick click jumps to your row, same as the Find me button
 		const findPlaceRef = React.useRef<number>();
