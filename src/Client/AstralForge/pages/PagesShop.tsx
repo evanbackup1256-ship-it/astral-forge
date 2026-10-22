@@ -3711,6 +3711,15 @@ function storeFocusPlan(section: string): FocusPlan | undefined {
 		// the offer cards (Deal of the Day first), then the market panel
 		return { regions: ["StoreSections", "offers", "market"], first: ["offers", "market"] };
 	}
+	if (section === "Skins") {
+		// preview actions (equip / buy) first, then filter chips and the skin grid; on desktop the
+		// preview column (Side) and filter + grid (Main) step left/right
+		return {
+			regions: ["StoreSections", "preview", "filter", "grid"],
+			first: ["preview", "grid"],
+			columns: [["Side", "Main"]],
+		};
+	}
 	if (section === "Codex") {
 		// search/filters, then each rarity grid top to bottom
 		return { regions: ["StoreSections", "hero", "progress", "browse", "none", "grid*"], first: ["grid*", "browse"] };
