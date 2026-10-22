@@ -13,6 +13,10 @@ H.services.MessagingService = {
 	PublishAsync = function(_, topic, msg) table.insert(published, { topic, msg }) end,
 	SubscribeAsync = function() return { Disconnect = function() end } end,
 }
+-- TextService fake: broadcast filter passes text through unchanged
+H.services.TextService = {
+	FilterStringAsync = function(_, text) return { GetNonChatStringForBroadcastAsync = function() return text end } end,
+}
 local toasts = {}
 H.mock("Server/AstralForge/Runtime/ServerNetwork", {
 	ServerEvents = setmetatable({ toast = { fire = function(_, p, t) table.insert(toasts, { p, t }) end } }, { __index = function() return H.Stub end }),
