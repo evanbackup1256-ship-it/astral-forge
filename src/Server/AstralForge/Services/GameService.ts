@@ -48,6 +48,7 @@ import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
 import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
+import * as ResetSpec from "../../../Shared/AstralForge/Shared/ResetSpec";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
 // colon-called methods. Values coming back are narrowed where they are used.
@@ -410,6 +411,14 @@ const studioCheck = (): boolean => {
 };
 
 const StoreAccess = require(root.WaitForChild("Modules").WaitForChild("StoreAccess") as ModuleScript) as Kit;
+
+function resetContext(carry?: Dict): ResetSpec.ResetContext {
+	return {
+		StartingCash: GameConfig.Economy.StartingCash as number,
+		LabBaseCells: ((GameConfig.Lab as unknown as Dict).Power as Dict).BaseCells as number,
+		Carry: carry !== undefined ? { Cash: carry.Cash, Machines: carry.Machines } : undefined,
+	};
+}
 const getOrderedStore = StoreAccess.ordered;
 
 const reportLedger = ReportLedger.new() as Svc;
@@ -3466,26 +3475,7 @@ export class GameService {
 			if (counted) {
 				profile.Rebirths = (profile.Rebirths as number) + 1;
 			}
-			profile.Cash = carry.Cash;
-			profile.Vault = 0;
-			profile.RunCash = 0;
-			profile.Zone = 1;
-			profile.CurrentZone = 1;
-			profile.Machines = carry.Machines;
-
-			const items = profile.Items as Dict | undefined;
-			if (items !== undefined && typeIs(items.Equipped, "table")) {
-				const equipped = items.Equipped as Dict;
-				for (const [target] of pairs(equipped)) {
-					const [slot, targetId] = tostring(target).match("^(%a+):([%w_]+)$");
-					if (slot === "Machine") {
-						const level = (profile.Machines as Dict)[targetId as string] as unknown;
-						if (!typeIs(level, "number") || level < 1) {
-							equipped[target as string] = undefined;
-						}
-					}
-				}
-			}
+			ResetSpec.applyReset(ResetSpec.Rebirth, profile as Dict, resetContext(carry));
 			const vow = RebirthMath.vow(quote.Vow) as Dict | undefined;
 			const vowLine =
 				vow !== undefined && truthy(quote.Kept)
@@ -5036,47 +5026,7 @@ export class GameService {
 				return responseError(gainOrReason);
 			}
 			profile.Ascension = nextState;
-			profile.Domain = {
-				Rank: 0,
-				Essence: 0,
-				LastExpandedAt: 0,
-				TotalRebirthsSpent: math.max(0, math.floor(tonumber(domain?.TotalRebirthsSpent) ?? 0)),
-				TotalCoresSpent: math.max(0, math.floor(tonumber(domain?.TotalCoresSpent) ?? 0)),
-				SkillPoints: 0,
-				Links: {},
-				LatticeClearedAtRank: 0,
-			};
-			profile.Cash = GameConfig.Economy.StartingCash;
-			profile.Vault = 0;
-			profile.Cores = 0;
-			profile.Rebirths = 0;
-			profile.RunCash = 0;
-			profile.Zone = 1;
-			profile.CurrentZone = 1;
-			profile.Machines = { StellarCore: 1 };
-			const autoForge = profile.AutoForge as Dict | undefined;
-			if (autoForge !== undefined) {
-				autoForge.Enabled = false;
-				autoForge.MachineId = "StellarCore";
-			}
-			const items = profile.Items as Dict | undefined;
-			if (items !== undefined && typeIs(items.Equipped, "table")) {
-				const equipped = items.Equipped as Dict;
-				for (const [target] of pairs(equipped)) {
-					const [slot] = tostring(target).match("^(%a+):");
-					if (slot === "Machine") {
-						equipped[target as string] = undefined;
-					}
-				}
-			}
-			const lab = profile.Lab as Dict | undefined;
-			if (lab !== undefined) {
-				lab.Routing = {
-					Production: ((GameConfig.Lab as unknown as Dict).Power as Dict).BaseCells,
-					Storage: 0,
-					Tap: 0,
-				};
-			}
+			ResetSpec.applyReset(ResetSpec.Ascension, profile as Dict, resetContext());
 			details = { Rank: nextState.Rank, Aether: gainOrReason, DomainRank: domainRank };
 			return responseSuccess(
 				T("GameService.AscensionDSAether", nextState.Rank as number, (Format.Number as Fn)(gainOrReason) as string),
