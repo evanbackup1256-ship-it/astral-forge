@@ -20,6 +20,7 @@ import { RemoteFirewall } from "./Security/RemoteFirewall";
 import * as ActionBuckets from "./Security/ActionBuckets";
 import * as PayloadShape from "./Security/PayloadShape";
 import { Ledger, Report } from "./Security/SecurityLedger";
+import { Ledgers as EconomyLedgers, Snapshot as walletSnapshot } from "../Modules/EconomyLedger";
 import { ServerEventService } from "./Gameplay/ServerEventService";
 import AnomalyModule = require("./Gameplay/Anomaly");
 import ForgeEchoModule = require("./Gameplay/ForgeEcho");
@@ -626,6 +627,7 @@ export class GameService {
 	_crews!: Svc;
 	_trades!: Svc;
 	_random!: Random;
+	_economyLedgers: EconomyLedgers | undefined;
 	_heartbeat: RBXScriptConnection | undefined;
 	_playerAddedConnection: RBXScriptConnection | undefined;
 	_playerRemovingConnection: RBXScriptConnection | undefined;
@@ -2466,9 +2468,13 @@ export class GameService {
 	}
 
 	_mutate(player: Player, callback: (profile: Profile) => unknown, incrementRevision?: boolean, label = "legacy"): Response {
+		let walletBefore: Record<string, number | string> | undefined;
+		let walletAfter: Record<string, number | string> | undefined;
 		const [success, result] = this._data.AtomicUpdate(
 			player,
 			(profile: Profile) => {
+				walletBefore = walletSnapshot(profile, OmegaMath as never);
+				walletAfter = undefined;
 				const callbackResult = callback(profile);
 				if (isTable(callbackResult) && callbackResult.ok === false) {
 					return callbackResult;
@@ -2481,6 +2487,7 @@ export class GameService {
 					// Returning a failed transaction quarantines the whole mutation, including the illegal credit.
 					return responseError(T("GameService.ThatEconomyChangeWasRejected"));
 				}
+				walletAfter = walletSnapshot(profile, OmegaMath as never);
 				return callbackResult;
 			},
 			incrementRevision,
@@ -2496,7 +2503,18 @@ export class GameService {
 		if (result.ok && runtime) {
 			runtime.SpecializationPreviewKey = undefined;
 		}
+		if (result.ok && walletBefore !== undefined && walletAfter !== undefined) {
+			this._ledgers().For(player.UserId).Record(label, walletBefore, walletAfter, os.time(), OmegaMath as never);
+		}
 		return result;
+	}
+
+	// The economy ledger for every player in the server (see Modules/EconomyLedger).
+	_ledgers(): EconomyLedgers {
+		if (this._economyLedgers === undefined) {
+			this._economyLedgers = new EconomyLedgers();
+		}
+		return this._economyLedgers;
 	}
 
 	_progressAnomalyFromAction(player: Player, action: string) {
@@ -6679,6 +6697,7 @@ export class GameService {
 			this._matter.Despawn(runtime.MatterEntity as number);
 		}
 		this._runtime.delete(player);
+		this._economyLedgers?.Drop(player.UserId);
 		this._firewall.Forget(player);
 		this._session.Forget(player);
 		this._antiCheat.Forget(player);
