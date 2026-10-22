@@ -7,6 +7,7 @@ import type { Session } from "../../state";
 import type { Request } from "../store/net";
 import { OverviewPage } from "../pages/OverviewPage";
 import { InventoryPage } from "../pages/InventoryPage";
+import { FoundryPage } from "../pages/FoundryPage";
 
 export interface PageProps {
 	session: Session;
@@ -23,6 +24,10 @@ export type PageComponent = (props: PageProps) => React.Element | undefined;
 const PORTED: Record<string, PageComponent> = {
 	Overview: OverviewPage,
 	Inventory: InventoryPage,
+	// the Star Foundry replaced Continuum and the Reactor; all three ids land on it
+	Continuum: FoundryPage,
+	Foundry: FoundryPage,
+	Anomaly: FoundryPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
