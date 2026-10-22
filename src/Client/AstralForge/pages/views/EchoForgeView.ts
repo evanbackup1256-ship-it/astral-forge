@@ -2,6 +2,7 @@ import React from "@rbxts/react";
 import { requestConfirm } from "../../UiOverlays/ConfirmDialog";
 import ReactRoblox from "@rbxts/react-roblox";
 import { useBackLayer } from "../../CoreKit/backLayer";
+import { useFocusOrder } from "../../CoreKit/focusOrder";
 import { splitColumns } from "../../UiCore/ui";
 import { PageBlock, splitSection } from "../layoutRise";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
@@ -149,6 +150,13 @@ function __member(): unknown {
 		[slotting, setSlotting] = reactLoose.useState(undefined) as LuaTuple<[unknown, unknown]>;
 		// B backs out of picking a chord slot before it leaves the page
 		useBackLayer(slotting !== undefined, () => (setSlotting as (value: undefined) => void)(undefined));
+		// explicit pad order: loom (Strike) > draft (Keep) > chord > vault > journal; the chord/journal column links left/right
+		const echoHostRef = React.useRef<Frame>();
+		useFocusOrder(
+			echoHostRef,
+			{ regions: ["loom", "draft", "chord", "vault", "journal"], first: ["draft", "EchoClaimActions", "loom"], columns: [["Main", "Side"]] },
+			[luaProp(echoes, "Ready"), len((luaProp(echoes, "Draft") ?? []) as never), slotting],
+		);
 		let readyPulse: unknown = luaCall(usePulse, ((luaProp(echoes, "Ready") === true) && (!luaTruthy(softMotion))), 1.6);
 		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((armed === undefined)) {
@@ -327,9 +335,9 @@ function __member(): unknown {
 			const side = list.filter((block) => sideIds.includes(block.id));
 			const main = list.filter((block) => !sideIds.includes(block.id));
 			const split = splitSection("EchoesSplit", echoPlan, gap as number, side, main, true, list.map((block) => block.id));
-			return reactLoose.createElement(PageScaffold, { gap: gap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), 56), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: [split] });
+			return React.createElement("frame", { ref: echoHostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(PageScaffold, { gap: gap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), 56), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: [split] }) as never);
 		}
-		return reactLoose.createElement(PageScaffold, { gap: gap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), (luaTruthy(stack) ? 72 : 56)), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: sections });
+		return React.createElement("frame", { ref: echoHostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(PageScaffold, { gap: gap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), (luaTruthy(stack) ? 72 : 56)), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: sections }) as never);
 		return undefined;
 	}
 	return { EchoForgeView: EchoForgeView };

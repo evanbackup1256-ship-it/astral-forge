@@ -1,8 +1,8 @@
 import React from "@rbxts/react";
 import { AppHelpers } from "../../CoreKit/appNav";
 import { useBackLayer } from "../../CoreKit/backLayer";
+import { useFocusOrder } from "../../CoreKit/focusOrder";
 import { compactNumber, Flux, gteFlux } from "../../CoreKit/format";
-import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
@@ -11,7 +11,6 @@ import { splitColumns } from "../../UiCore/ui";
 import { splitSection } from "../layoutRise";
 import { loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
-const UserInputService = game.GetService("UserInputService");
 const { Badge, Button, IconTile, Panel, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 const Browse = loadBrowse();
@@ -245,24 +244,6 @@ function WorldsView(props: WorldsViewProps) {
 	const travelReveal = useStagger(1, softMotion);
 	const headerReveal = boardReveal;
 	const worldsHostRef = React.useRef<Frame>();
-	React.useEffect(() => {
-		if (!UserInputService.GamepadEnabled) {
-			return undefined;
-		}
-		const host = worldsHostRef.current;
-		if (host === undefined) {
-			return undefined;
-		}
-		const selectJob = task.defer(() => {
-			if (host.Parent === undefined) {
-				return;
-			}
-			GamepadNavigationService.FocusClaim(host);
-		});
-		return () => {
-			pcall(task.cancel, selectJob);
-		};
-	}, [state.CurrentZone, state.Zone]);
 	// wide desktop: the header, search and Expeditions sit in a side column next to the world list
 	const plan = splitColumns(stack ? 0 : viewport.width, 360, rowGapFor(stack, chrome.panelGap), 1280);
 	const sideColumn = plan.split;
@@ -641,6 +622,12 @@ function WorldsView(props: WorldsViewProps) {
 			),
 		});
 	}
+	// explicit pad order: header (FIND CURRENT, search, filters) > Expeditions > world rows > more; first focus on the rows
+	useFocusOrder(
+		worldsHostRef,
+		{ regions: ["header", "expeditions", "rows", "more"], first: ["rows", "header"], columns: [["Side", "Main"]] },
+		[state.CurrentZone, state.Zone, sideColumn, browsing, shownCount],
+	);
 	const sideBlocks = sections.filter((section) => section.id === "header" || section.id === "expeditions").map((section) => ({ id: section.id, height: section.height ?? 0, element: section.element }));
 	const mainBlocks = sections.filter((section) => section.id !== "header" && section.id !== "expeditions").map((section) => ({ id: section.id, height: section.height ?? 0, element: section.element }));
 	return (
