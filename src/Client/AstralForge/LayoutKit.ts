@@ -1036,10 +1036,14 @@ __defs["layoutSectionPlan"] = () => {
 		chromePanelGap: number;
 		layoutPanelGap: number;
 		fitHeight?: number;
+		// optional, additive: hero card gets a full-width vault-meter band under the readout/CTA row
+		roomyHero?: boolean;
 	}
 
 	interface OverviewPlan {
 		heroH: number;
+		// height of that band (0 when roomyHero is off / not applicable)
+		heroBandH: number;
 		rebirthH: number;
 		domainH: number;
 		notesH: number;
@@ -1069,6 +1073,9 @@ __defs["layoutSectionPlan"] = () => {
 		unlockH: number;
 	}
 
+	const HERO_BAND_H = 58;
+	const HERO_ROOMY_EXTRA = 40;
+
 	function planOverview(flags: OverviewFlags): OverviewPlan {
 		const stack = flags.stack === true;
 		const phone = flags.phone === true;
@@ -1095,6 +1102,11 @@ __defs["layoutSectionPlan"] = () => {
 							: wideOverview
 								? 258
 								: 248;
+		const denseHero = short && wideOverview && !phone;
+		const heroBandH = flags.roomyHero === true && !phone && !denseHero ? HERO_BAND_H : 0;
+		if (heroBandH > 0) {
+			heroH += HERO_ROOMY_EXTRA;
+		}
 		const rebirthH = rebirthVisible ? (phone ? (landscapePhone ? 248 : 300) : ultraOverview ? 220 : 208) : 0;
 		const domainH = domainVisible ? (phone ? (landscapePhone ? 268 : 320) : ultraOverview ? 196 : 188) : 0; // desktop content ends ~150px in
 		let notesH = stack ? (landscapePhone ? 132 : 168) : short ? 168 : ultraOverview ? 160 : 148;
@@ -1126,6 +1138,7 @@ __defs["layoutSectionPlan"] = () => {
 
 		return {
 			heroH,
+			heroBandH,
 			rebirthH,
 			domainH,
 			notesH,

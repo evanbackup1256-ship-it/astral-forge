@@ -15,6 +15,7 @@ import makeOverviewGoal = require("../../OverviewGoals");
 import QuickFind = require("../../QuickFind");
 import ReadyBoard = require("../../ReadyBoard");
 import SessionStats = require("../../SessionStats");
+import { useFocusOrder } from "../../CoreKit/focusOrder";
 import { named } from "../luauDeps";
 import { AudioPlayer, kitMember, LuauComponent } from "../luauKits";
 import { RebirthPanel } from "./RebirthPanel";
@@ -50,9 +51,11 @@ interface OverviewFlags {
 	chromePanelGap: number;
 	layoutPanelGap: number;
 	fitHeight?: number;
+	roomyHero?: boolean;
 }
 interface OverviewPlan {
 	heroH: number;
+	heroBandH?: number;
 	rebirthH: number;
 	domainH: number;
 	notesH: number;
@@ -96,6 +99,9 @@ type FirstGoalState = {
 };
 // main card: room between the vault readout and the Collect column on desktop
 const HERO_COLUMN_GAP = 28;
+// roomy hero: gap between the readout/CTA row and the full-width vault meter band under it
+const HERO_BAND_GAP = 18;
+const denseHeroFor = (short: boolean, wide: boolean, phone: boolean) => short && wide && !phone;
 
 function firstGoalView(raw: unknown): FirstGoalView | undefined {
 	const state = raw as FirstGoalState;
@@ -874,7 +880,10 @@ export function OverviewView({
 		chromePanelGap: chrome.panelGap,
 		layoutPanelGap: Layout.panelGap,
 		fitHeight,
+		roomyHero: !phone && !denseHeroFor(chrome.short === true, wideOverview, phone),
 	});
+	const heroBandH = overviewPlan.heroBandH ?? 0;
+	const roomyHero = heroBandH > 0;
 	const heroH = overviewPlan.heroH;
 	const rebirthH = overviewPlan.rebirthH;
 	const domainH = overviewPlan.domainH;
@@ -888,7 +897,7 @@ export function OverviewView({
 	const overviewTail = overviewPlan.overviewTail;
 	const columnMax = stack ? math.huge : Layout.contentMaxWidth;
 	const columnPad = !stack && viewport.width >= Layout.contentMaxWidth + 80 ? 12 : 0;
-	const denseHero = chrome.short === true && wideOverview && !phone;
+	const denseHero = denseHeroFor(chrome.short === true, wideOverview, phone);
 	const readoutRow = denseHero ? heroH - metricCardH - 8 : heroH;
 	const ctaH = denseHero ? 40 : TapTarget;
 	const heroReadoutH = landscapePhone ? 118 : phone ? 168 : 0;
@@ -944,12 +953,29 @@ export function OverviewView({
 					),
 				}
 			: undefined;
+	// pad order: ready strip, hero (vault actions take the first selection), then the sections top to
+	// bottom; paired sections are named OverviewColumn-<id> and linked left/right
+	const overviewFocusRef = React.useRef<Frame>();
+	const overviewRegions = ["ready", "top"];
+	const overviewColumns: Array<[string, string]> = [];
+	for (const [a, b] of COLUMN_PAIRS) {
+		overviewRegions.push(a, `OverviewColumn-${a}`, b, `OverviewColumn-${b}`);
+		overviewColumns.push([`OverviewColumn-${a}`, `OverviewColumn-${b}`]);
+		if (a === "notes") {
+			overviewRegions.push("countdown");
+		}
+	}
+	useFocusOrder(
+		overviewFocusRef,
+		{ regions: overviewRegions, first: ["OverviewVaultClaimActions", "top"], columns: twoColumn ? overviewColumns : undefined },
+		[twoColumn, rebirthVisible, domainVisible, countdownInPage, roomyHero],
+	);
 	const domainProgress = math.min(
 		math.clamp(asFlux(state.Rebirths ?? 0) / math.max(1, asFlux(domain.RequiredRebirths)), 0, 1),
 		math.clamp(asFlux(state.Cores ?? 0) / math.max(1, asFlux(domain.RequiredCores)), 0, 1),
 	);
 	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} ref={overviewFocusRef}>
 			<frame
 				Size={new UDim2(1, -columnPad * 2, 1, 0)}
 				Position={UDim2.fromScale(0.5, 0)}
@@ -990,7 +1016,7 @@ export function OverviewView({
 										clips={false}
 									>
 										<uigradient Color={surfaceGradient(vaultFill >= 0.99 ? Palette.mango : Palette.green, 0.94)} Rotation={62} />
-										{!phone && (
+										{!phone && !roomyHero && (
 											<uilistlayout
 												FillDirection={Enum.FillDirection.Horizontal}
 												Padding={new UDim(0, denseHero ? 16 : HERO_COLUMN_GAP)}
@@ -999,255 +1025,574 @@ export function OverviewView({
 												HorizontalFlex={Enum.UIFlexAlignment.Fill}
 											/>
 										)}
-										<frame
-											Size={phone ? new UDim2(1, 0, 0, heroReadoutH) : new UDim2(0, 0, 1, 0)}
-											BackgroundTransparency={1}
-											BorderSizePixel={0}
-											ClipsDescendants={false}
-											LayoutOrder={0}
-											ZIndex={2}
-										>
-											<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-											<uilistlayout
-												FillDirection={Enum.FillDirection.Vertical}
-												Padding={new UDim(0, landscapePhone || denseHero ? 4 : phone ? 8 : 10)}
-												SortOrder={Enum.SortOrder.LayoutOrder}
-												VerticalAlignment={Enum.VerticalAlignment.Center}
-											/>
-											<frame
-												Size={new UDim2(1, 0, 0, 18)}
-												BackgroundTransparency={1}
-												BorderSizePixel={0}
-												LayoutOrder={0}
-												ClipsDescendants={false}
-											>
-												<uilistlayout
-													FillDirection={Enum.FillDirection.Horizontal}
-													Padding={new UDim(0, 8)}
-													SortOrder={Enum.SortOrder.LayoutOrder}
-													VerticalAlignment={Enum.VerticalAlignment.Center}
+										{roomyHero ? (
+											<>
+												<frame
+													{...named("OverviewHeroUpper")}
+													Size={new UDim2(1, 0, 1, -(heroBandH + HERO_BAND_GAP))}
+													BackgroundTransparency={1}
+													BorderSizePixel={0}
+													ClipsDescendants={false}
+												>
+													<uilistlayout
+														FillDirection={Enum.FillDirection.Horizontal}
+														Padding={new UDim(0, HERO_COLUMN_GAP)}
+														SortOrder={Enum.SortOrder.LayoutOrder}
+														VerticalAlignment={Enum.VerticalAlignment.Top}
+														HorizontalFlex={Enum.UIFlexAlignment.Fill}
+													/>
+													<frame
+														Size={phone ? new UDim2(1, 0, 0, heroReadoutH) : new UDim2(0, 0, 1, 0)}
+														BackgroundTransparency={1}
+														BorderSizePixel={0}
+														ClipsDescendants={false}
+														LayoutOrder={0}
+														ZIndex={2}
+													>
+														<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+														<uilistlayout
+															FillDirection={Enum.FillDirection.Vertical}
+															Padding={new UDim(0, landscapePhone || denseHero ? 4 : phone ? 8 : 10)}
+															SortOrder={Enum.SortOrder.LayoutOrder}
+															VerticalAlignment={roomyHero ? Enum.VerticalAlignment.Top : Enum.VerticalAlignment.Center}
+														/>
+														<frame
+															Size={new UDim2(1, 0, 0, 18)}
+															BackgroundTransparency={1}
+															BorderSizePixel={0}
+															LayoutOrder={0}
+															ClipsDescendants={false}
+														>
+															<uilistlayout
+																FillDirection={Enum.FillDirection.Horizontal}
+																Padding={new UDim(0, 8)}
+																SortOrder={Enum.SortOrder.LayoutOrder}
+																VerticalAlignment={Enum.VerticalAlignment.Center}
+															/>
+															<Text
+																value={firstRun ? "Your forge" : "This run"}
+																size={11}
+																color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+																weight={Enum.FontWeight.Heavy}
+																fit={false}
+																layoutOrder={0}
+																sizeConstraint={new UDim2(0, phone ? 96 : 110, 1, 0)}
+															/>
+															{vaultFill >= 0.99 && (
+																<Badge
+																	value="FULL"
+																	accent={Palette.mango}
+																	size={UDim2.fromOffset(phone ? 56 : 62, 18)}
+																	filled={false}
+																	layoutOrder={1}
+																/>
+															)}
+														</frame>
+														<Text
+															value={compactNumber(state.Vault)}
+															size={landscapePhone ? 32 : stack ? 38 : 46}
+															color={Palette.cream}
+															weight={Enum.FontWeight.Heavy}
+															fit={true}
+															minSize={22}
+															layoutOrder={1}
+															sizeConstraint={new UDim2(1, 0, 0, landscapePhone || denseHero ? 36 : 54)}
+														/>
+														<Text
+															value={`Flux stored · vault holds ${compactNumber(state.Capacity)}`}
+															size={stack ? chrome.labelText : 12}
+															color={Palette.creamSoft}
+															wrap={true}
+															fit={true}
+															minSize={10}
+															layoutOrder={2}
+															sizeConstraint={new UDim2(1, 0, 0, 18)}
+														/>
+														{!roomyHero && (
+															<>
+																<Meter
+																	value={vaultFill}
+																	rainbow={true}
+																	color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+																	reducedMotion={softMotion}
+																	shimmer={vaultFill >= 0.99 && !effectsPaused}
+																	layoutOrder={3}
+																	size={new UDim2(1, 0, 0, 10)}
+																/>
+																<Text
+																	value={
+																		vaultFill >= 0.99
+																			? "Vault full. Machines stop until you collect."
+																			: firstRun
+																				? "Machines earn Flux into this vault. Collect it, then buy more."
+																				: `${compactNumber(state.Production)} Flux per second flowing in`
+																	}
+																	size={stack ? chrome.labelText : 11}
+																	color={vaultFill >= 0.99 ? Palette.mango : Palette.muted}
+																	weight={Enum.FontWeight.Bold}
+																	wrap={true}
+																	fit={true}
+																	minSize={10}
+																	layoutOrder={4}
+																	sizeConstraint={new UDim2(1, 0, 0, landscapePhone ? 22 : denseHero ? 16 : 28)}
+																/>
+															</>
+														)}
+													</frame>
+													{phone ? (
+														<frame
+															{...named("OverviewVaultClaimActions")}
+															ref={vaultClaimHostRef}
+															Size={new UDim2(1, 0, 0, phoneCtaBlockH)}
+															Position={new UDim2(0, 0, 1, -(phoneCtaBlockH + 4))}
+															BackgroundTransparency={1}
+															BorderSizePixel={0}
+															ZIndex={3}
+															ClipsDescendants={false}
+														>
+															<uilistlayout
+																FillDirection={landscapePhone && showOvercharge ? Enum.FillDirection.Horizontal : Enum.FillDirection.Vertical}
+																Padding={new UDim(0, 8)}
+																SortOrder={Enum.SortOrder.LayoutOrder}
+																VerticalAlignment={Enum.VerticalAlignment.Center}
+															/>
+															<Button
+																text={primaryText}
+																icon={primaryIcon}
+																onClick={primaryClick}
+																color={primaryColor}
+																textColor={Palette.ink}
+																size={landscapePhone && showOvercharge ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
+																reducedMotion={reducedMotion}
+																disabled={primaryDisabled}
+																highlight={primaryHighlight}
+															/>
+															{showOvercharge && (
+																<Button
+																	text={overchargeLabel}
+																	icon="Overcharge.3"
+																	onClick={fireOvercharge}
+																	sound="reactorPulse"
+																	color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
+																	textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
+																	size={landscapePhone ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
+																	reducedMotion={reducedMotion}
+																	disabled={overchargeLeft > 0.02}
+																/>
+															)}
+															{!showOvercharge && !landscapePhone && (
+																<Text
+																	value={comebackLine}
+																	size={stack ? chrome.labelText : 12}
+																	color={Palette.creamSoft}
+																	weight={Enum.FontWeight.Bold}
+																	wrap={true}
+																	fit={true}
+																	minSize={10}
+																	sizeConstraint={new UDim2(1, 0, 0, ctaH)}
+																/>
+															)}
+															{showOvercharge && !landscapePhone && (
+																<Meter
+																	value={overchargeLeft > 0 ? 1 - overchargeLeft / 0.45 : 1}
+																	color={Palette.mango}
+																	reducedMotion={softMotion}
+																	position={new UDim2(0, 0, 1, -4)}
+																	size={new UDim2(1, 0, 0, 4)}
+																/>
+															)}
+															<frame
+																Size={React.joinBindings([collectFlash, overchargeFlash]).map((values) => {
+																	const amount = math.max(values[0], values[1]);
+																	return new UDim2(amount, 0, 0, 2);
+																})}
+																Position={new UDim2(0.5, 0, 1, -2)}
+																AnchorPoint={new Vector2(0.5, 0)}
+																BackgroundColor3={Palette.cream}
+																BackgroundTransparency={React.joinBindings([collectFlash, overchargeFlash]).map(
+																	(values) => 1 - math.max(values[0], values[1]),
+																)}
+																BorderSizePixel={0}
+																ZIndex={8}
+															>
+																<uicorner CornerRadius={new UDim(1, 0)} />
+															</frame>
+														</frame>
+													) : (
+														<frame
+															{...named("OverviewVaultClaimActions")}
+															ref={vaultClaimHostRef}
+															Size={denseHero ? new UDim2(0, 250, 1, 0) : roomyHero ? new UDim2(0, 230, 1, 0) : UDim2.fromOffset(230, 168)}
+															LayoutOrder={1}
+															BackgroundTransparency={1}
+															BorderSizePixel={0}
+															ZIndex={3}
+															ClipsDescendants={false}
+														>
+															<uilistlayout
+																FillDirection={Enum.FillDirection.Vertical}
+																Padding={new UDim(0, denseHero ? 4 : Layout.controlGap)}
+																SortOrder={Enum.SortOrder.LayoutOrder}
+															/>
+															<Button
+																text={primaryText}
+																icon={primaryIcon}
+																onClick={primaryClick}
+																color={primaryColor}
+																textColor={Palette.ink}
+																size={new UDim2(1, 0, 0, ctaH)}
+																reducedMotion={reducedMotion}
+																disabled={primaryDisabled}
+																highlight={primaryHighlight}
+															/>
+															{showOvercharge && (
+																<Button
+																	text={overchargeLabel}
+																	icon="Overcharge.4"
+																	onClick={fireOvercharge}
+																	sound="reactorPulse"
+																	color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
+																	textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
+																	size={new UDim2(1, 0, 0, ctaH)}
+																	reducedMotion={reducedMotion}
+																	disabled={overchargeLeft > 0.02}
+																/>
+															)}
+															{showOvercharge && (
+																<Meter
+																	value={overchargeLeft > 0 ? 1 - overchargeLeft / 0.45 : 1}
+																	color={Palette.mango}
+																	reducedMotion={softMotion}
+																	size={new UDim2(1, 0, 0, 4)}
+																/>
+															)}
+															<Text
+																value={
+																	!showOvercharge
+																		? comebackLine
+																		: overchargeLeft > 0.02
+																			? `Ready in ${string.format("%.1f", overchargeLeft)}s`
+																			: "Tap for an instant burst of Flux"
+																}
+																size={10}
+																color={overchargeLeft > 0.02 ? Palette.mango : Palette.muted}
+																weight={Enum.FontWeight.Bold}
+																fit={false}
+																wrap={!showOvercharge}
+																sizeConstraint={new UDim2(1, 0, 0, showOvercharge ? 16 : 32)}
+																align={Enum.TextXAlignment.Center}
+															/>
+															<frame
+																Size={collectFlash.map((amount) => new UDim2(amount, 0, 0, 2))}
+																Position={new UDim2(0.5, 0, 1, 0)}
+																AnchorPoint={new Vector2(0.5, 1)}
+																BackgroundColor3={Palette.cream}
+																BackgroundTransparency={collectFlash.map((amount) => 1 - amount)}
+																BorderSizePixel={0}
+																ZIndex={8}
+															>
+																<uicorner CornerRadius={new UDim(1, 0)} />
+															</frame>
+														</frame>
+													)}
+												</frame>
+												<frame
+													{...named("OverviewHeroBand")}
+													Size={new UDim2(1, 0, 0, heroBandH)}
+													Position={new UDim2(0, 0, 1, -heroBandH)}
+													BackgroundTransparency={1}
+													BorderSizePixel={0}
+													ClipsDescendants={false}
+													ZIndex={2}
+												>
+													<frame Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.lineSoft} BackgroundTransparency={0.55} BorderSizePixel={0} LayoutOrder={-1} />
+													<uipadding PaddingTop={new UDim(0, 0)} />
+													<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+												<Meter
+													value={vaultFill}
+													rainbow={true}
+													color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+													reducedMotion={softMotion}
+													shimmer={vaultFill >= 0.99 && !effectsPaused}
+													layoutOrder={3}
+													size={new UDim2(1, 0, 0, 10)}
 												/>
 												<Text
-													value={firstRun ? "Your forge" : "This run"}
-													size={11}
-													color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
-													weight={Enum.FontWeight.Heavy}
-													fit={false}
-													layoutOrder={0}
-													sizeConstraint={new UDim2(0, phone ? 96 : 110, 1, 0)}
+													value={
+														vaultFill >= 0.99
+															? "Vault full. Machines stop until you collect."
+															: firstRun
+																? "Machines earn Flux into this vault. Collect it, then buy more."
+																: `${compactNumber(state.Production)} Flux per second flowing in`
+													}
+													size={stack ? chrome.labelText : 11}
+													color={vaultFill >= 0.99 ? Palette.mango : Palette.muted}
+													weight={Enum.FontWeight.Bold}
+													wrap={true}
+													fit={true}
+													minSize={10}
+													layoutOrder={4}
+													sizeConstraint={new UDim2(1, 0, 0, heroBandH - 35)}
 												/>
-												{vaultFill >= 0.99 && (
-													<Badge
-														value="FULL"
-														accent={Palette.mango}
-														size={UDim2.fromOffset(phone ? 56 : 62, 18)}
-														filled={false}
-														layoutOrder={1}
+												</frame>
+											</>
+										) : (
+											<>
+												<frame
+													Size={phone ? new UDim2(1, 0, 0, heroReadoutH) : new UDim2(0, 0, 1, 0)}
+													BackgroundTransparency={1}
+													BorderSizePixel={0}
+													ClipsDescendants={false}
+													LayoutOrder={0}
+													ZIndex={2}
+												>
+													<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+													<uilistlayout
+														FillDirection={Enum.FillDirection.Vertical}
+														Padding={new UDim(0, landscapePhone || denseHero ? 4 : phone ? 8 : 10)}
+														SortOrder={Enum.SortOrder.LayoutOrder}
+														VerticalAlignment={roomyHero ? Enum.VerticalAlignment.Top : Enum.VerticalAlignment.Center}
 													/>
-												)}
-											</frame>
-											<Text
-												value={compactNumber(state.Vault)}
-												size={landscapePhone ? 32 : stack ? 38 : 46}
-												color={Palette.cream}
-												weight={Enum.FontWeight.Heavy}
-												fit={true}
-												minSize={22}
-												layoutOrder={1}
-												sizeConstraint={new UDim2(1, 0, 0, landscapePhone || denseHero ? 36 : 54)}
-											/>
-											<Text
-												value={`Flux stored · vault holds ${compactNumber(state.Capacity)}`}
-												size={stack ? chrome.labelText : 12}
-												color={Palette.creamSoft}
-												wrap={true}
-												fit={true}
-												minSize={10}
-												layoutOrder={2}
-												sizeConstraint={new UDim2(1, 0, 0, 18)}
-											/>
-											<Meter
-												value={vaultFill}
-												rainbow={true}
-												color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
-												reducedMotion={softMotion}
-												shimmer={vaultFill >= 0.99 && !effectsPaused}
-												layoutOrder={3}
-												size={new UDim2(1, 0, 0, 10)}
-											/>
-											<Text
-												value={
-													vaultFill >= 0.99
-														? "Vault full. Machines stop until you collect."
-														: firstRun
-															? "Machines earn Flux into this vault. Collect it, then buy more."
-															: `${compactNumber(state.Production)} Flux per second flowing in`
-												}
-												size={stack ? chrome.labelText : 11}
-												color={vaultFill >= 0.99 ? Palette.mango : Palette.muted}
-												weight={Enum.FontWeight.Bold}
-												wrap={true}
-												fit={true}
-												minSize={10}
-												layoutOrder={4}
-												sizeConstraint={new UDim2(1, 0, 0, landscapePhone ? 22 : denseHero ? 16 : 28)}
-											/>
-										</frame>
-										{phone ? (
-											<frame
-												{...named("OverviewVaultClaimActions")}
-												ref={vaultClaimHostRef}
-												Size={new UDim2(1, 0, 0, phoneCtaBlockH)}
-												Position={new UDim2(0, 0, 1, -(phoneCtaBlockH + 4))}
-												BackgroundTransparency={1}
-												BorderSizePixel={0}
-												ZIndex={3}
-												ClipsDescendants={false}
-											>
-												<uilistlayout
-													FillDirection={landscapePhone && showOvercharge ? Enum.FillDirection.Horizontal : Enum.FillDirection.Vertical}
-													Padding={new UDim(0, 8)}
-													SortOrder={Enum.SortOrder.LayoutOrder}
-													VerticalAlignment={Enum.VerticalAlignment.Center}
-												/>
-												<Button
-													text={primaryText}
-													icon={primaryIcon}
-													onClick={primaryClick}
-													color={primaryColor}
-													textColor={Palette.ink}
-													size={landscapePhone && showOvercharge ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
-													reducedMotion={reducedMotion}
-													disabled={primaryDisabled}
-													highlight={primaryHighlight}
-												/>
-												{showOvercharge && (
-													<Button
-														text={overchargeLabel}
-														icon="Overcharge.3"
-														onClick={fireOvercharge}
-														sound="reactorPulse"
-														color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
-														textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
-														size={landscapePhone ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
-														reducedMotion={reducedMotion}
-														disabled={overchargeLeft > 0.02}
-													/>
-												)}
-												{!showOvercharge && !landscapePhone && (
+													<frame
+														Size={new UDim2(1, 0, 0, 18)}
+														BackgroundTransparency={1}
+														BorderSizePixel={0}
+														LayoutOrder={0}
+														ClipsDescendants={false}
+													>
+														<uilistlayout
+															FillDirection={Enum.FillDirection.Horizontal}
+															Padding={new UDim(0, 8)}
+															SortOrder={Enum.SortOrder.LayoutOrder}
+															VerticalAlignment={Enum.VerticalAlignment.Center}
+														/>
+														<Text
+															value={firstRun ? "Your forge" : "This run"}
+															size={11}
+															color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+															weight={Enum.FontWeight.Heavy}
+															fit={false}
+															layoutOrder={0}
+															sizeConstraint={new UDim2(0, phone ? 96 : 110, 1, 0)}
+														/>
+														{vaultFill >= 0.99 && (
+															<Badge
+																value="FULL"
+																accent={Palette.mango}
+																size={UDim2.fromOffset(phone ? 56 : 62, 18)}
+																filled={false}
+																layoutOrder={1}
+															/>
+														)}
+													</frame>
 													<Text
-														value={comebackLine}
+														value={compactNumber(state.Vault)}
+														size={landscapePhone ? 32 : stack ? 38 : 46}
+														color={Palette.cream}
+														weight={Enum.FontWeight.Heavy}
+														fit={true}
+														minSize={22}
+														layoutOrder={1}
+														sizeConstraint={new UDim2(1, 0, 0, landscapePhone || denseHero ? 36 : 54)}
+													/>
+													<Text
+														value={`Flux stored · vault holds ${compactNumber(state.Capacity)}`}
 														size={stack ? chrome.labelText : 12}
 														color={Palette.creamSoft}
-														weight={Enum.FontWeight.Bold}
 														wrap={true}
 														fit={true}
 														minSize={10}
-														sizeConstraint={new UDim2(1, 0, 0, ctaH)}
+														layoutOrder={2}
+														sizeConstraint={new UDim2(1, 0, 0, 18)}
 													/>
-												)}
-												{showOvercharge && !landscapePhone && (
-													<Meter
-														value={overchargeLeft > 0 ? 1 - overchargeLeft / 0.45 : 1}
-														color={Palette.mango}
-														reducedMotion={softMotion}
-														position={new UDim2(0, 0, 1, -4)}
-														size={new UDim2(1, 0, 0, 4)}
-													/>
-												)}
-												<frame
-													Size={React.joinBindings([collectFlash, overchargeFlash]).map((values) => {
-														const amount = math.max(values[0], values[1]);
-														return new UDim2(amount, 0, 0, 2);
-													})}
-													Position={new UDim2(0.5, 0, 1, -2)}
-													AnchorPoint={new Vector2(0.5, 0)}
-													BackgroundColor3={Palette.cream}
-													BackgroundTransparency={React.joinBindings([collectFlash, overchargeFlash]).map(
-														(values) => 1 - math.max(values[0], values[1]),
+													{!roomyHero && (
+														<>
+															<Meter
+																value={vaultFill}
+																rainbow={true}
+																color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+																reducedMotion={softMotion}
+																shimmer={vaultFill >= 0.99 && !effectsPaused}
+																layoutOrder={3}
+																size={new UDim2(1, 0, 0, 10)}
+															/>
+															<Text
+																value={
+																	vaultFill >= 0.99
+																		? "Vault full. Machines stop until you collect."
+																		: firstRun
+																			? "Machines earn Flux into this vault. Collect it, then buy more."
+																			: `${compactNumber(state.Production)} Flux per second flowing in`
+																}
+																size={stack ? chrome.labelText : 11}
+																color={vaultFill >= 0.99 ? Palette.mango : Palette.muted}
+																weight={Enum.FontWeight.Bold}
+																wrap={true}
+																fit={true}
+																minSize={10}
+																layoutOrder={4}
+																sizeConstraint={new UDim2(1, 0, 0, landscapePhone ? 22 : denseHero ? 16 : 28)}
+															/>
+														</>
 													)}
-													BorderSizePixel={0}
-													ZIndex={8}
-												>
-													<uicorner CornerRadius={new UDim(1, 0)} />
 												</frame>
-											</frame>
-										) : (
-											<frame
-												{...named("OverviewVaultClaimActions")}
-												ref={vaultClaimHostRef}
-												Size={denseHero ? new UDim2(0, 250, 1, 0) : UDim2.fromOffset(230, 168)}
-												LayoutOrder={1}
-												BackgroundTransparency={1}
-												BorderSizePixel={0}
-												ZIndex={3}
-												ClipsDescendants={false}
-											>
-												<uilistlayout
-													FillDirection={Enum.FillDirection.Vertical}
-													Padding={new UDim(0, denseHero ? 4 : Layout.controlGap)}
-													SortOrder={Enum.SortOrder.LayoutOrder}
-												/>
-												<Button
-													text={primaryText}
-													icon={primaryIcon}
-													onClick={primaryClick}
-													color={primaryColor}
-													textColor={Palette.ink}
-													size={new UDim2(1, 0, 0, ctaH)}
-													reducedMotion={reducedMotion}
-													disabled={primaryDisabled}
-													highlight={primaryHighlight}
-												/>
-												{showOvercharge && (
-													<Button
-														text={overchargeLabel}
-														icon="Overcharge.4"
-														onClick={fireOvercharge}
-														sound="reactorPulse"
-														color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
-														textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
-														size={new UDim2(1, 0, 0, ctaH)}
-														reducedMotion={reducedMotion}
-														disabled={overchargeLeft > 0.02}
-													/>
+												{phone ? (
+													<frame
+														{...named("OverviewVaultClaimActions")}
+														ref={vaultClaimHostRef}
+														Size={new UDim2(1, 0, 0, phoneCtaBlockH)}
+														Position={new UDim2(0, 0, 1, -(phoneCtaBlockH + 4))}
+														BackgroundTransparency={1}
+														BorderSizePixel={0}
+														ZIndex={3}
+														ClipsDescendants={false}
+													>
+														<uilistlayout
+															FillDirection={landscapePhone && showOvercharge ? Enum.FillDirection.Horizontal : Enum.FillDirection.Vertical}
+															Padding={new UDim(0, 8)}
+															SortOrder={Enum.SortOrder.LayoutOrder}
+															VerticalAlignment={Enum.VerticalAlignment.Center}
+														/>
+														<Button
+															text={primaryText}
+															icon={primaryIcon}
+															onClick={primaryClick}
+															color={primaryColor}
+															textColor={Palette.ink}
+															size={landscapePhone && showOvercharge ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
+															reducedMotion={reducedMotion}
+															disabled={primaryDisabled}
+															highlight={primaryHighlight}
+														/>
+														{showOvercharge && (
+															<Button
+																text={overchargeLabel}
+																icon="Overcharge.3"
+																onClick={fireOvercharge}
+																sound="reactorPulse"
+																color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
+																textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
+																size={landscapePhone ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
+																reducedMotion={reducedMotion}
+																disabled={overchargeLeft > 0.02}
+															/>
+														)}
+														{!showOvercharge && !landscapePhone && (
+															<Text
+																value={comebackLine}
+																size={stack ? chrome.labelText : 12}
+																color={Palette.creamSoft}
+																weight={Enum.FontWeight.Bold}
+																wrap={true}
+																fit={true}
+																minSize={10}
+																sizeConstraint={new UDim2(1, 0, 0, ctaH)}
+															/>
+														)}
+														{showOvercharge && !landscapePhone && (
+															<Meter
+																value={overchargeLeft > 0 ? 1 - overchargeLeft / 0.45 : 1}
+																color={Palette.mango}
+																reducedMotion={softMotion}
+																position={new UDim2(0, 0, 1, -4)}
+																size={new UDim2(1, 0, 0, 4)}
+															/>
+														)}
+														<frame
+															Size={React.joinBindings([collectFlash, overchargeFlash]).map((values) => {
+																const amount = math.max(values[0], values[1]);
+																return new UDim2(amount, 0, 0, 2);
+															})}
+															Position={new UDim2(0.5, 0, 1, -2)}
+															AnchorPoint={new Vector2(0.5, 0)}
+															BackgroundColor3={Palette.cream}
+															BackgroundTransparency={React.joinBindings([collectFlash, overchargeFlash]).map(
+																(values) => 1 - math.max(values[0], values[1]),
+															)}
+															BorderSizePixel={0}
+															ZIndex={8}
+														>
+															<uicorner CornerRadius={new UDim(1, 0)} />
+														</frame>
+													</frame>
+												) : (
+													<frame
+														{...named("OverviewVaultClaimActions")}
+														ref={vaultClaimHostRef}
+														Size={denseHero ? new UDim2(0, 250, 1, 0) : roomyHero ? new UDim2(0, 230, 1, 0) : UDim2.fromOffset(230, 168)}
+														LayoutOrder={1}
+														BackgroundTransparency={1}
+														BorderSizePixel={0}
+														ZIndex={3}
+														ClipsDescendants={false}
+													>
+														<uilistlayout
+															FillDirection={Enum.FillDirection.Vertical}
+															Padding={new UDim(0, denseHero ? 4 : Layout.controlGap)}
+															SortOrder={Enum.SortOrder.LayoutOrder}
+														/>
+														<Button
+															text={primaryText}
+															icon={primaryIcon}
+															onClick={primaryClick}
+															color={primaryColor}
+															textColor={Palette.ink}
+															size={new UDim2(1, 0, 0, ctaH)}
+															reducedMotion={reducedMotion}
+															disabled={primaryDisabled}
+															highlight={primaryHighlight}
+														/>
+														{showOvercharge && (
+															<Button
+																text={overchargeLabel}
+																icon="Overcharge.4"
+																onClick={fireOvercharge}
+																sound="reactorPulse"
+																color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
+																textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
+																size={new UDim2(1, 0, 0, ctaH)}
+																reducedMotion={reducedMotion}
+																disabled={overchargeLeft > 0.02}
+															/>
+														)}
+														{showOvercharge && (
+															<Meter
+																value={overchargeLeft > 0 ? 1 - overchargeLeft / 0.45 : 1}
+																color={Palette.mango}
+																reducedMotion={softMotion}
+																size={new UDim2(1, 0, 0, 4)}
+															/>
+														)}
+														<Text
+															value={
+																!showOvercharge
+																	? comebackLine
+																	: overchargeLeft > 0.02
+																		? `Ready in ${string.format("%.1f", overchargeLeft)}s`
+																		: "Tap for an instant burst of Flux"
+															}
+															size={10}
+															color={overchargeLeft > 0.02 ? Palette.mango : Palette.muted}
+															weight={Enum.FontWeight.Bold}
+															fit={false}
+															wrap={!showOvercharge}
+															sizeConstraint={new UDim2(1, 0, 0, showOvercharge ? 16 : 32)}
+															align={Enum.TextXAlignment.Center}
+														/>
+														<frame
+															Size={collectFlash.map((amount) => new UDim2(amount, 0, 0, 2))}
+															Position={new UDim2(0.5, 0, 1, 0)}
+															AnchorPoint={new Vector2(0.5, 1)}
+															BackgroundColor3={Palette.cream}
+															BackgroundTransparency={collectFlash.map((amount) => 1 - amount)}
+															BorderSizePixel={0}
+															ZIndex={8}
+														>
+															<uicorner CornerRadius={new UDim(1, 0)} />
+														</frame>
+													</frame>
 												)}
-												{showOvercharge && (
-													<Meter
-														value={overchargeLeft > 0 ? 1 - overchargeLeft / 0.45 : 1}
-														color={Palette.mango}
-														reducedMotion={softMotion}
-														size={new UDim2(1, 0, 0, 4)}
-													/>
-												)}
-												<Text
-													value={
-														!showOvercharge
-															? comebackLine
-															: overchargeLeft > 0.02
-																? `Ready in ${string.format("%.1f", overchargeLeft)}s`
-																: "Tap for an instant burst of Flux"
-													}
-													size={10}
-													color={overchargeLeft > 0.02 ? Palette.mango : Palette.muted}
-													weight={Enum.FontWeight.Bold}
-													fit={false}
-													wrap={!showOvercharge}
-													sizeConstraint={new UDim2(1, 0, 0, showOvercharge ? 16 : 32)}
-													align={Enum.TextXAlignment.Center}
-												/>
-												<frame
-													Size={collectFlash.map((amount) => new UDim2(amount, 0, 0, 2))}
-													Position={new UDim2(0.5, 0, 1, 0)}
-													AnchorPoint={new Vector2(0.5, 1)}
-													BackgroundColor3={Palette.cream}
-													BackgroundTransparency={collectFlash.map((amount) => 1 - amount)}
-													BorderSizePixel={0}
-													ZIndex={8}
-												>
-													<uicorner CornerRadius={new UDim(1, 0)} />
-												</frame>
-											</frame>
+											</>
 										)}
 									</Panel>
 									<Flex
