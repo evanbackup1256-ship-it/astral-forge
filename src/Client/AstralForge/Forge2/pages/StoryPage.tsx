@@ -117,55 +117,129 @@ function ChapterRow(props: { entry: ChapterConfig; state: ChapterState; phone: b
 	);
 }
 
+function Search(props: { value: string; onChange: (v: string) => void; phone: boolean; order: number }) {
+	const [focused, setFocused] = React.useState(false);
+	return (
+		<frame Size={new UDim2(1, 0, 0, 44)} BackgroundColor3={Iron.sunk()} BorderSizePixel={0} LayoutOrder={props.order}>
+			<uicorner CornerRadius={new UDim(0, 6)} />
+			<uistroke Color={focused ? Iron.brass() : Iron.edge()} Transparency={focused ? 0.1 : 0.5} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			<textbox
+				Size={new UDim2(1, -24, 1, 0)}
+				Position={UDim2.fromOffset(12, 0)}
+				BackgroundTransparency={1}
+				Text={props.value}
+				PlaceholderText="Search chapters"
+				PlaceholderColor3={Iron.muted()}
+				TextColor3={Iron.text()}
+				FontFace={Fonts.bold}
+				TextSize={Type.body(props.phone)}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				ClearTextOnFocus={false}
+				Selectable
+				Change={{ Text: (box) => props.onChange(box.Text) }}
+				Event={{ Focused: () => setFocused(true), FocusLost: () => setFocused(false) }}
+			/>
+		</frame>
+	);
+}
+
+function matches(entry: ChapterConfig, query: string): boolean {
+	if (query === "") return true;
+	const needle = query.lower();
+	for (const field of [entry.Title, entry.Chapter ?? "", entry.Summary ?? ""]) {
+		if (field.lower().find(needle, 1, true)[0] !== undefined) return true;
+	}
+	return false;
+}
+
+function Column(props: { size: UDim2; order: number; pad: number; children?: React.ReactNode }) {
+	return (
+		<scrollingframe
+			Size={props.size}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			CanvasSize={new UDim2()}
+			AutomaticCanvasSize={Enum.AutomaticSize.Y}
+			ScrollBarThickness={4}
+			ScrollBarImageColor3={Iron.brassDeep()}
+			LayoutOrder={props.order}
+		>
+			<uipadding PaddingTop={new UDim(0, props.pad)} PaddingBottom={new UDim(0, props.pad * 3)} PaddingLeft={new UDim(0, props.pad)} PaddingRight={new UDim(0, props.pad)} />
+			<uilistlayout Padding={new UDim(0, props.pad)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{props.children}
+		</scrollingframe>
+	);
+}
+
 export function StoryPage(props: PageProps) {
 	const phone = props.phone;
 	const chapters = ((props.session as unknown as { Story?: ChapterState[] }).Story ?? []) as ChapterState[];
 	const configs = ((props.config as unknown as { Story?: ChapterConfig[] }).Story ?? []) as ChapterConfig[];
 	const [reading, setReading] = React.useState<string | undefined>(undefined);
 	const [filter, setFilter] = React.useState<Filter>("All");
+	const [query, setQuery] = React.useState("");
 	const byId = new Map<string, ChapterConfig>();
 	for (const c of configs) byId.set(c.Id, c);
 	const isNew = (c: ChapterState) => c.Unlocked === true && c.Read !== true;
 	const hasReward = (c: ChapterState) => c.Unlocked === true && c.Claimed !== true && byId.get(c.Id)?.Reward !== undefined;
-	const shown = chapters.filter((c) => byId.has(c.Id) && (filter === "All" || (filter === "New" ? isNew(c) : hasReward(c))));
+	const shown = chapters.filter((c) => {
+		const entry = byId.get(c.Id);
+		return entry !== undefined && matches(entry, query) && (filter === "All" || (filter === "New" ? isNew(c) : hasReward(c)));
+	});
 	const openEntry = reading !== undefined ? byId.get(reading) : undefined;
 	const openState = chapters.find((c) => c.Id === reading);
 	const space = gap(phone, "l");
-	return (
-		<scrollingframe
-			Size={UDim2.fromScale(1, 1)}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			CanvasSize={new UDim2()}
-			AutomaticCanvasSize={Enum.AutomaticSize.Y}
-			ScrollBarThickness={phone ? 0 : 4}
-			ScrollBarImageColor3={Iron.brassDeep()}
-		>
-			<uipadding PaddingTop={new UDim(0, space)} PaddingBottom={new UDim(0, space * 3)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
-			<uilistlayout Padding={new UDim(0, space)} SortOrder={Enum.SortOrder.LayoutOrder} />
-			{openEntry !== undefined && openState !== undefined ? (
-				<Reader key={openEntry.Id} page={props} entry={openEntry} state={openState} onClose={() => setReading(undefined)} />
+	const header = (
+		<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} order={0}>
+			<Title text="Story" size={Type.title(phone)} tags={["wave"]} order={0} />
+			<Search value={query} onChange={setQuery} phone={phone} order={1} />
+			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Chip text="All" on={filter === "All"} onPress={() => setFilter("All")} order={0} />
+				<Chip text={`New ${chapters.filter(isNew).size()}`} on={filter === "New"} onPress={() => setFilter("New")} order={1} />
+				<Chip text={`Rewards ${chapters.filter(hasReward).size()}`} on={filter === "Reward"} onPress={() => setFilter("Reward")} order={2} />
+			</frame>
+		</Panel>
+	);
+	const list = (
+		<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
+			<uilistlayout Padding={new UDim(0, gap(phone, "m"))} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{shown.size() === 0 ? (
+				<EmptyState
+					title={query !== "" ? "No chapters match" : filter === "All" ? "No chapters yet" : "Nothing here"}
+					body={query !== "" ? "Try another word." : filter === "All" ? "Chapters open as the forge grows." : "Try All."}
+					phone={phone}
+				/>
 			) : (
+				shown.map((c, i) => <ChapterRow key={c.Id} entry={byId.get(c.Id)!} state={c} phone={phone} index={i} onOpen={() => setReading(c.Id)} />)
+			)}
+		</frame>
+	);
+	const reader = openEntry !== undefined && openState !== undefined ? <Reader key={openEntry.Id} page={props} entry={openEntry} state={openState} onClose={() => setReading(undefined)} /> : undefined;
+	if (!phone) {
+		// desktop: the archive on the left, the open chapter on the right (the old two-column layout)
+		return (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Column size={new UDim2(0.38, 0, 1, 0)} order={0} pad={space}>
+					{header}
+					{list}
+				</Column>
+				<Column size={new UDim2(0.62, 0, 1, 0)} order={1} pad={space}>
+					{reader ?? <EmptyState title="Pick a chapter" body="Open one from the archive to read it here." phone={phone} />}
+				</Column>
+			</frame>
+		);
+	}
+	return (
+		<Column size={UDim2.fromScale(1, 1)} order={0} pad={space}>
+			{reader ?? (
 				<>
-					<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} order={0}>
-						<Title text="Story" size={Type.title(phone)} tags={["wave"]} order={0} />
-						<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
-							<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
-							<Chip text="All" on={filter === "All"} onPress={() => setFilter("All")} order={0} />
-							<Chip text={`New ${chapters.filter(isNew).size()}`} on={filter === "New"} onPress={() => setFilter("New")} order={1} />
-							<Chip text={`Rewards ${chapters.filter(hasReward).size()}`} on={filter === "Reward"} onPress={() => setFilter("Reward")} order={2} />
-						</frame>
-					</Panel>
-					<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
-						<uilistlayout Padding={new UDim(0, gap(phone, "m"))} SortOrder={Enum.SortOrder.LayoutOrder} />
-						{shown.size() === 0 ? (
-							<EmptyState title={filter === "All" ? "No chapters yet" : "Nothing here"} body={filter === "All" ? "Chapters open as the forge grows." : "Try All."} phone={phone} />
-						) : (
-							shown.map((c, i) => <ChapterRow key={c.Id} entry={byId.get(c.Id)!} state={c} phone={phone} index={i} onOpen={() => setReading(c.Id)} />)
-						)}
-					</frame>
+					{header}
+					{list}
 				</>
 			)}
-		</scrollingframe>
+		</Column>
 	);
 }
