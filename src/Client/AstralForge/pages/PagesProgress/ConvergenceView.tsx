@@ -57,7 +57,8 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 	const chrome = chromeFor(viewport);
 	const softMotion = reducedMotion;
 	const stack = chrome.contentStack;
-	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.42), 16);
+	// convergence: an even pair of columns (48%) so both converging halves weigh the same
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.48), 16);
 	const wide = plan.split;
 	const now = useWallClock(event !== undefined);
 	const reveal = useStagger(0, softMotion);
@@ -251,7 +252,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				<SplitColumns
 					plan={plan}
 					height={math.max(stackHeight(side.map((b) => b.height), pageGap), stackHeight(heroBlocks.map((b) => b.height), pageGap))}
-					sideOnRight={false}
+					sideOnRight={true}
 					main={<StackBlocks gap={pageGap} riseFrom={0} blocks={side.map((b, i) => ({ ...b, rise: 1 + i }))} />}
 					side={<StackBlocks gap={pageGap} riseFrom={0} blocks={heroBlocks.map((b, i) => ({ ...b, rise: 0 + i }))} />}
 				/>

@@ -655,7 +655,8 @@ function FoundryView(props: {
 	const chrome = chromeFor(viewport);
 	const stack = chrome.contentStack;
 	// desktop: the board on the left; selection, actions and the bench in a side column
-	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.4), GAP);
+	// foundry floor: the furnace column takes 45% so the forge reads as the centrepiece
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.45), GAP);
 	const wide = plan.split;
 	// side-column controls use the same compact arrangement as phones
 	const narrow = stack || wide;
