@@ -1,5 +1,5 @@
 import React from "@rbxts/react";
-import { useIdleGlint, GLINT_TRANSPARENCY, useFlash } from "../../MotionKit/motion";
+import { useIdleGlint, GLINT_TRANSPARENCY, useFlash, useGlowStroke } from "../../MotionKit/motion";
 import { InteractionFeedback } from "../../CoreKit/interaction";
 import { isTouchOnly } from "../../CoreKit/inputLayer";
 import { FocusRing, PressLayers, pressEvents, usePress } from "./press";
@@ -46,6 +46,8 @@ export function Button(props: ButtonProps) {
 	const size = props.stretch === true ? new UDim2(1, 0, 0, height) : new UDim2(0, props.width ?? 140, 0, height);
 	const textColor = filled ? Iron.sunk() : Iron.text();
 	const base = fill(props.tone);
+	// old highlight breathing stroke (same useGlowStroke curve as the old client / PressButton)
+	const breathe = useGlowStroke(props.highlight === true && !off && press.active, false, 0.5, 0.4, 0.62, 1.15);
 	const shakeToken = props.shakeToken ?? 0;
 	const shake = useFlash(shakeToken, false, 0.42);
 	const lastShake = React.useRef(shakeToken);
@@ -82,6 +84,7 @@ export function Button(props: ButtonProps) {
 				>
 					<uicorner CornerRadius={new UDim(0, Corner.card)} />
 					{!filled && <uistroke Color={Iron.brassDeep()} Transparency={0.3} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />}
+					{filled && props.highlight === true && !off && <uistroke Color={Iron.text()} Thickness={2} Transparency={breathe} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />}
 					{filled && (
 						<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Color3.fromRGB(255, 255, 255)} BackgroundTransparency={0} BorderSizePixel={0} ZIndex={1}>
 							<uicorner CornerRadius={new UDim(0, Corner.card)} />

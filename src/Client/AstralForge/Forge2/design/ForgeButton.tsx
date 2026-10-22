@@ -10,6 +10,5 @@ export interface ForgeButtonProps extends Omit<ButtonProps, "highlight"> {
 }
 
 export function ForgeButton(props: ForgeButtonProps) {
-	const { glint, tooltip: _tooltip, ...rest } = props;
-	return <Button {...rest} highlight={glint === true && props.disabled !== true} />;
+	return <Button {...props} glint={undefined} highlight={props.glint === true && props.disabled !== true} />;
 }
