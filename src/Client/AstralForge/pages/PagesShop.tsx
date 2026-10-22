@@ -3707,6 +3707,17 @@ function storeFocusPlan(section: string): FocusPlan | undefined {
 			columns: [["Side", "Main"]],
 		};
 	}
+	if (section === "Daily") {
+		// the offer cards (Deal of the Day first), then the market panel
+		return { regions: ["StoreSections", "offers", "market"], first: ["offers", "market"] };
+	}
+	if (section === "Codex") {
+		// search/filters, then each rarity grid top to bottom
+		return { regions: ["StoreSections", "hero", "progress", "browse", "none", "grid*"], first: ["grid*", "browse"] };
+	}
+	if (section === "Artifacts") {
+		return { regions: ["StoreSections", "hero", "browse", "none", "grid"], first: ["grid", "browse"] };
+	}
 	return undefined;
 }
 
