@@ -6,7 +6,7 @@ import ReactRoblox from "@rbxts/react-roblox";
 import { AppHelpers, MORE_NAV, NAV_GROUPS, PRIMARY_NAV, NavEntry, NavState, navGroupOf } from "../CoreKit/appNav";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { InteractionFeedback } from "../CoreKit/interaction";
-import { Layout, Palette, TapTarget, chromeFor, darken, lighten, moreDockHeight, strokeGradient, surfaceGradient } from "../CoreKit/theme";
+import { Layout, Palette, Radius, TapTarget, chromeFor, darken, lighten, moreDockHeight, strokeGradient, surfaceGradient } from "../CoreKit/theme";
 import { useFlipperSpring, useViewport } from "../MotionKit/motion";
 import { ActiveBoostIcon } from "./TopBarChrome";
 import {
@@ -219,7 +219,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 						ClipsDescendants: true,
 					},
 					h("uicorner", {
-						CornerRadius: new UDim(0, 14),
+						CornerRadius: new UDim(0, Radius.lg),
 					}),
 					h("uigradient", {
 						Color: surfaceGradient(Palette.panel, 0.7),
@@ -242,7 +242,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 								BorderSizePixel: 0,
 							},
 							h("uicorner", {
-								CornerRadius: new UDim(0, 14),
+								CornerRadius: new UDim(0, Radius.lg),
 							}),
 						),
 					h(
@@ -257,7 +257,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 							Visible: emphasis.map((amount) => amount >= 0.08),
 						},
 						h("uicorner", {
-							CornerRadius: new UDim(0, 6),
+							CornerRadius: new UDim(0, Radius.sm),
 						}),
 					),
 					h(
@@ -271,7 +271,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 							ClipsDescendants: true,
 						},
 						h("uicorner", {
-							CornerRadius: new UDim(0, 6),
+							CornerRadius: new UDim(0, Radius.sm),
 						}),
 						h("uistroke", {
 							ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -533,7 +533,7 @@ function MoreDockButtonImpl(_param: MoreDockButtonProps) {
 							ZIndex: 59,
 						},
 						h("uicorner", {
-							CornerRadius: new UDim(0, 6),
+							CornerRadius: new UDim(0, Radius.sm),
 						}),
 						h(Icon, {
 							kind: entry.icon,
@@ -700,7 +700,7 @@ export function MoreDockPopover(_param: MoreDockPopoverProps) {
 					Visible: reveal.map((amount) => amount > 0.01),
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 14),
+					CornerRadius: new UDim(0, Radius.lg),
 				}),
 				h("uistroke", {
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -810,7 +810,7 @@ function MoreCell(_param: {
 					Scale: chrome.touchScale,
 				}),
 				h("uicorner", {
-					CornerRadius: new UDim(0, 14),
+					CornerRadius: new UDim(0, Radius.lg),
 				}),
 				h("uistroke", {
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -929,7 +929,7 @@ export function MoreDock(_param: MoreDockProps) {
 				ZIndex: 55,
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 14),
+				CornerRadius: new UDim(0, Radius.lg),
 			}),
 			h("uistroke", {
 				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -1021,7 +1021,7 @@ export function MoreDock(_param: MoreDockProps) {
 			ZIndex: 55,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 14),
+			CornerRadius: new UDim(0, Radius.lg),
 		}),
 		h("uistroke", {
 			Color: Palette.lineSoft,
@@ -1326,7 +1326,7 @@ function NavGroup(_param: NavGroupProps) {
 				},
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 10),
+				CornerRadius: new UDim(0, Radius.md),
 			}),
 			headerChildren,
 		);
@@ -1349,7 +1349,7 @@ function NavGroup(_param: NavGroupProps) {
 				ZIndex: 1,
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 10),
+				CornerRadius: new UDim(0, Radius.md),
 			}),
 			h("uigradient", {
 				Color: surfaceGradient(Palette.panelSoft, 0.9),
@@ -1379,7 +1379,7 @@ function NavGroup(_param: NavGroupProps) {
 					BorderSizePixel: 0,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 6),
+					CornerRadius: new UDim(0, Radius.sm),
 				}),
 			),
 		);
@@ -1596,7 +1596,7 @@ function NavigationImpl(_param: NavigationProps) {
 			ClipsDescendants: false,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 10),
+			CornerRadius: new UDim(0, Radius.md),
 		}),
 		h("uigradient", {
 			Color: surfaceGradient(Palette.night, 0.5),
@@ -1611,7 +1611,7 @@ function NavigationImpl(_param: NavigationProps) {
 				BorderSizePixel: 0,
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 10),
+				CornerRadius: new UDim(0, Radius.md),
 			}),
 			h(
 				"uistroke",

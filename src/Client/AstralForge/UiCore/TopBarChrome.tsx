@@ -11,7 +11,7 @@ import { AppHelpers } from "../CoreKit/appNav";
 import * as BoostIconKind from "../CoreKit/boostIconKind";
 import { Flux, asFlux, clockText, compactNumber } from "../CoreKit/format";
 import * as ReleaseClockMath from "../CoreKit/releaseClockMath";
-import { Layout, Palette, TapTarget, darken, ensureContrast, strokeGradient, surfaceGradient } from "../CoreKit/theme";
+import { Layout, Palette, Radius, TapTarget, darken, ensureContrast, strokeGradient, surfaceGradient } from "../CoreKit/theme";
 import { usePerformanceTelemetry } from "../MotionKit/antilag";
 import { useEntrance, useFlash, useGlowStroke, usePulse } from "../MotionKit/motion";
 import { EVENTS, ServerEvent, accentOf, clockText as eventClockText, openServerEventPanel, useServerEvent } from "./serverEventsUi";
@@ -128,7 +128,7 @@ export function StatChip(_param: StatChipProps) {
 	const valueMaxW = _param.narrow ? 40 : tall ? 108 : 116;
 	const chipInnerW = iconSize + 6 + valueMaxW + (tall ? 20 : 18);
 	const _exp = h("uicorner", {
-		CornerRadius: new UDim(0, 10),
+		CornerRadius: new UDim(0, Radius.md),
 	});
 	const _exp_1 = h("uigradient", {
 		Color: surfaceGradient(Palette.panel),
@@ -955,7 +955,7 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 	const strokeTransparency = live ? pulse.map((amount) => 0.3 + (1 - amount) * 0.4) : 0.8;
 	const fillWash = live ? pulse.map((amount) => 0.82 - amount * 0.28) : 1;
 	const _exp = h("uicorner", {
-		CornerRadius: new UDim(0, 10),
+		CornerRadius: new UDim(0, Radius.md),
 	});
 	const _exp_1 = h("uistroke", {
 		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -976,7 +976,7 @@ export function TopbarReleaseCountdown(_param: { releaseAt: unknown; width: numb
 				ZIndex: 1,
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 10),
+				CornerRadius: new UDim(0, Radius.md),
 			}),
 		);
 	const _condition: unknown = undefined;
@@ -1311,7 +1311,7 @@ function TopBarImpl(_param: TopBarProps) {
 	const logoY = controlY + math.floor((SHELL_CHROME.topbarControl - logoMark) / 2);
 	const chipRowH = stacked ? 44 : shortRow ? math.max(28, barHeight - 4) : 44;
 	const _exp_1 = h("uicorner", {
-		CornerRadius: new UDim(0, 14),
+		CornerRadius: new UDim(0, Radius.lg),
 	});
 	const _exp_2 = h("uigradient", {
 		Color: surfaceGradient(Palette.panel, 0.58),

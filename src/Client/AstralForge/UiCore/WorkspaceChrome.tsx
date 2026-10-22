@@ -162,7 +162,7 @@ export function VaultPill(_param: { state: ChromeState; reducedMotion?: boolean;
 				ClipsDescendants: true,
 			},
 			h("uicorner", {
-				CornerRadius: new UDim(0, 14),
+				CornerRadius: new UDim(0, Radius.lg),
 			}),
 			h(
 				"frame",
@@ -173,7 +173,7 @@ export function VaultPill(_param: { state: ChromeState; reducedMotion?: boolean;
 					BorderSizePixel: 0,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 14),
+					CornerRadius: new UDim(0, Radius.lg),
 				}),
 				h("uistroke", {
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -192,7 +192,7 @@ export function VaultPill(_param: { state: ChromeState; reducedMotion?: boolean;
 					BorderSizePixel: 0,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 10),
+					CornerRadius: new UDim(0, Radius.md),
 				}),
 				h(Icon, {
 					kind: "Vault.8",
@@ -686,7 +686,7 @@ export function Workspace(_param: WorkspaceProps) {
 			ClipsDescendants: false,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 14),
+			CornerRadius: new UDim(0, Radius.lg),
 		}),
 		h(
 			"uistroke",
@@ -713,7 +713,7 @@ export function Workspace(_param: WorkspaceProps) {
 					ClipsDescendants: false,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 14),
+					CornerRadius: new UDim(0, Radius.lg),
 				}),
 				h("uigradient", {
 					Color: surfaceGradient(Palette.panel, 0.58),
