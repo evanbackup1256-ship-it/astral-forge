@@ -35,8 +35,8 @@ export const Layout = {
 	controlGap: 16,
 	lineGap: 12,
 	cardPadding: 24,
-	cardRadius: 12,
-	buttonRadius: 8,
+	cardRadius: 14,
+	buttonRadius: 10,
 	topbarHeight: 74,
 	sidebarWidth: 268,
 	sidebarCollapsedWidth: 78,
@@ -57,13 +57,13 @@ export const Layout = {
 // Three radii, used everywhere: sm for chips, badges and bars; md for buttons, inputs and
 // small tiles; lg for cards, panels and sheets. Fully round pills use UDim(1, 0).
 export const Radius = {
-	sm: 4,
-	md: 8,
-	lg: 12,
-	chip: 4,
+	sm: 6,
+	md: 10,
+	lg: 14,
+	chip: 6,
 	control: Layout.buttonRadius,
 	card: Layout.cardRadius,
-	sheet: 12,
+	sheet: 18,
 } as const;
 
 export const StrokeWidth = {
@@ -73,16 +73,55 @@ export const StrokeWidth = {
 
 export const Pad = {
 	tight: 8,
-	control: 12,
-	panel: 20,
-	panelMax: 24,
+	control: 14,
+	panel: 22,
+	panelMax: 28,
+} as const;
+
+/**
+ * Spacing scale (uirevamp 01). Everything snaps to these; pick by role, not by pixel count.
+ * hair 2 · xs 4 · sm 8 · md 12 · lg 16 · xl 24 · xxl 32 · section 48
+ */
+export const Space = {
+	hair: 2,
+	xs: 4,
+	sm: 8,
+	md: 12,
+	lg: 16,
+	xl: 24,
+	xxl: 32,
+	section: 48,
+} as const;
+
+/**
+ * Type scale (uirevamp 01): a 1.2 ratio from a 13px body. Display and title use FancyText for
+ * headings; everything else is BuilderSans. Numbers use the same faces with tabular intent.
+ */
+export const TypeScale = {
+	micro: { size: 11, weight: Enum.FontWeight.Bold },
+	label: { size: 12, weight: Enum.FontWeight.SemiBold },
+	body: { size: 14, weight: Enum.FontWeight.Medium },
+	lead: { size: 16, weight: Enum.FontWeight.SemiBold },
+	title: { size: 20, weight: Enum.FontWeight.Bold },
+	heading: { size: 24, weight: Enum.FontWeight.Bold },
+	display: { size: 34, weight: Enum.FontWeight.Heavy },
+} as const;
+
+/**
+ * The "forged plate" look: a panel is a slab with a cool 1px bevel catching light on its top edge,
+ * a darker foot, and depth from a wide soft shadow instead of outlines.
+ */
+export const Bevel = {
+	topLight: 0.9,
+	topLightHot: 0.78,
+	footShade: 0.82,
 } as const;
 
 /** One subtle elevation: a soft ambient shadow. The key shadow is kept for API shape but is invisible. */
 export const Elevation = {
-	ambientSpread: 8,
-	ambientOffset: 6,
-	ambientAlpha: 0.88,
+	ambientSpread: 12,
+	ambientOffset: 8,
+	ambientAlpha: 0.8,
 	keyOffset: 4,
 	keyAlpha: 1,
 } as const;
@@ -95,7 +134,7 @@ export const Chrome = {
 	buttonShadow: 0.82,
 	railStrokeIdle: 1,
 	railStrokeActive: 0.55,
-	accentHairline: 0.6,
+	accentHairline: 0.45,
 	meterTrack: 0.3,
 };
 

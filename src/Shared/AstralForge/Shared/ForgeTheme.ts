@@ -1,5 +1,5 @@
 // Purpose: Named Astral Forge palette and accessibility variants; colors match the audited baseline.
-// Owner: Astral Forge presentation. Dependencies: Roblox Color3. Last-reviewed: 2026-10-21 (revamp r1a: calmer neutrals, softened accents).
+// Owner: Astral Forge presentation. Dependencies: Roblox Color3. Last-reviewed: 2026-10-21 (uirevamp 01 "Night Iron": cool iron neutrals, parchment text, brass lead accent).
 
 export type Palette = Record<string, Color3>;
 export type NamedPalette = Record<string, string>;
@@ -26,36 +26,36 @@ export interface BootPalette {
 const rgb = (r: number, g: number, b: number) => Color3.fromRGB(r, g, b);
 
 export const Base: Palette = table.freeze({
-	void: rgb(10, 10, 12),
-	ink: rgb(14, 14, 16),
-	night: rgb(20, 19, 22),
-	panel: rgb(28, 27, 31),
-	panelRaised: rgb(38, 37, 42),
-	panelSoft: rgb(56, 54, 61),
-	line: rgb(66, 63, 71),
-	lineSoft: rgb(116, 111, 122),
-	cream: rgb(244, 240, 233),
-	creamSoft: rgb(214, 208, 200),
-	// 170/163/158 keeps muted copy at 4.5:1 on panelSoft (164/157/152 measured 4.45)
-	muted: rgb(170, 163, 158),
-	cyan: rgb(98, 200, 222),
-	mint: rgb(112, 212, 168),
-	coral: rgb(236, 112, 108),
-	mango: rgb(238, 178, 76),
-	violet: rgb(166, 140, 232),
-	pink: rgb(226, 118, 170),
-	blue: rgb(108, 160, 236),
+	void: rgb(8, 9, 14),
+	ink: rgb(11, 12, 18),
+	night: rgb(16, 17, 25),
+	panel: rgb(23, 24, 34),
+	panelRaised: rgb(32, 33, 46),
+	panelSoft: rgb(47, 48, 65),
+	line: rgb(60, 62, 82),
+	lineSoft: rgb(110, 112, 138),
+	cream: rgb(246, 238, 224),
+	creamSoft: rgb(218, 209, 194),
+	// muted is checked at 4.5:1 on panelSoft by verify_mobile_matrix; keep it there when retuning
+	muted: rgb(178, 172, 182),
+	cyan: rgb(96, 206, 222),
+	mint: rgb(120, 214, 170),
+	coral: rgb(238, 116, 100),
+	mango: rgb(242, 176, 72),
+	violet: rgb(170, 146, 240),
+	pink: rgb(232, 122, 172),
+	blue: rgb(112, 164, 240),
 	white: rgb(255, 255, 255),
-	green: rgb(110, 208, 154),
+	green: rgb(116, 210, 152),
 	// 236/104/106: error text holds 4.5:1 on raised cards (226/88/90 was 4.18)
-	red: rgb(236, 104, 106),
+	red: rgb(240, 108, 104),
 	shadow: rgb(0, 0, 0),
-	graphite: rgb(23, 22, 26),
-	steel: rgb(204, 214, 234),
-	steelBright: rgb(244, 240, 233),
-	brass: rgb(232, 184, 88),
-	brassDeep: rgb(140, 92, 30),
-	ember: rgb(244, 92, 84),
+	graphite: rgb(19, 20, 29),
+	steel: rgb(200, 210, 232),
+	steelBright: rgb(246, 238, 224),
+	brass: rgb(236, 182, 92),
+	brassDeep: rgb(138, 90, 34),
+	ember: rgb(246, 104, 72),
 });
 
 export const Accessibility: AccessibilityPalettes = table.freeze({
@@ -145,8 +145,8 @@ export const Stat: StatPalette = table.freeze({
 });
 
 export const Boot: BootPalette = table.freeze({
-	dim: rgb(14, 14, 16),
-	bar: rgb(44, 42, 48),
+	dim: rgb(11, 12, 18),
+	bar: rgb(40, 41, 56),
 	textBright: rgb(200, 194, 186),
 	textDim: rgb(142, 136, 130),
 	textFaint: rgb(106, 101, 98),
