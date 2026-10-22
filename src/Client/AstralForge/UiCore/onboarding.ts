@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
-import { Palette, TapTarget } from "../CoreKit/theme";
+import { Palette, Space, TapTarget } from "../CoreKit/theme";
+
 import {
 	MotionSettingsContext,
 	revealOffset,
@@ -19,6 +20,9 @@ import {
 	Text,
 	useGamepadAutofocus,
 } from "./ui";
+
+// breathing room between release cards (uirevamp spacing)
+const CARD_GAP = Space.md;
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -1270,14 +1274,14 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 	const height = math.min(530, availableHeight);
 	const veryShort = height < 280;
 	const condensed = height < 420;
-	const padding = condensed ? 12 : 22;
+	const padding = veryShort ? 12 : condensed ? Space.lg : Space.xl;
 	const contentHeight = math.max(1, height - padding * 2);
 	const stackActions = onOpenMail !== undefined && (viewport.compact || width < 430) && height >= 320;
 	const actionHeight = stackActions ? TapTarget * 2 + 8 : TapTarget;
-	const headerHeight = veryShort ? 68 : condensed ? 112 : 148;
+	const headerHeight = veryShort ? 70 : condensed ? 118 : 146;
 	// the width a highlight label really has inside the version card
 	const highlightTextWidth = math.max(120, width - padding * 2 - 30); // matches the 577px the labels measure at 650 wide
-	const scrollHeight = math.max(1, contentHeight - headerHeight - actionHeight - 10);
+	const scrollHeight = math.max(1, contentHeight - headerHeight - actionHeight - Space.md);
 	const centerY = safeTop + math.max(0, (viewportHeight - safeTop - safeBottom) / 2);
 	const effectiveHistory: VersionEntry[] =
 		history.size() > 0 ? history : [{ Version: version, Title: season, Date: "", Highlights: notes }];
@@ -1294,7 +1298,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 			(total, entry) => total + versionCardHeight(entry, expandedVersions.includes(entry.Version), highlightTextWidth),
 			0,
 		) +
-		math.max(0, effectiveHistory.size() - 1) * 8;
+		math.max(0, effectiveHistory.size() - 1) * CARD_GAP;
 	const padFocus = useGamepadAutofocus(true) as React.MutableRefObject<Instance | undefined>;
 
 	const overlayHostRef = React.useRef<Instance>();
@@ -1341,55 +1345,46 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 		Selectable: false,
 		ZIndex: 322,
 	});
-	const kicker = h(Text, {
-		value: "What's new",
-		size: 10,
-		color: Palette.violet,
-		weight: Enum.FontWeight.Heavy,
-		fit: true,
-		sizeConstraint: new UDim2(1, -60, 0, 16),
-		zIndex: 325,
-	});
 	const seasonTitle = h(Text, {
 		value: season,
 		size: veryShort ? 18 : 25,
 		color: Palette.cream,
 		weight: Enum.FontWeight.Heavy,
 		fit: true,
-		position: UDim2.fromOffset(0, veryShort ? 16 : 20),
-		sizeConstraint: new UDim2(1, -60, 0, veryShort ? 26 : 34),
+		position: UDim2.fromOffset(0, veryShort ? 2 : 4),
+		sizeConstraint: new UDim2(1, -(TapTarget + Space.md), 0, veryShort ? 26 : 34),
 		zIndex: 325,
 	});
 	const firstEntry = history[0] as VersionEntry | undefined;
 	const versionLine = h(Text, {
 		value:
 			typeIs(history, "table") && firstEntry !== undefined && typeIs(firstEntry.Title, "string")
-				? string.upper(firstEntry.Title)
-				: `VERSION ${version}`,
-		size: 10,
+				? firstEntry.Title
+				: `Version ${version}`,
+		size: 12,
 		color: Palette.muted,
-		weight: Enum.FontWeight.Bold,
+		weight: Enum.FontWeight.SemiBold,
 		fit: true,
-		position: UDim2.fromOffset(0, veryShort ? 43 : 56),
-		sizeConstraint: new UDim2(1, -60, 0, 15),
+		position: UDim2.fromOffset(0, veryShort ? 32 : 44),
+		sizeConstraint: new UDim2(1, -(TapTarget + Space.md), 0, 16),
 		zIndex: 325,
 	});
 	const announcementText =
 		!veryShort &&
 		h(Text, {
 			value: announcement,
-			size: 12,
+			size: 13,
 			color: Palette.creamSoft,
 			wrap: true, fit: true, minSize: 10,
-			position: UDim2.fromOffset(0, 78),
-			sizeConstraint: new UDim2(1, -4, 0, condensed ? 26 : 42),
+			position: UDim2.fromOffset(0, 72),
+			sizeConstraint: new UDim2(1, -4, 0, condensed ? 26 : 44),
 			zIndex: 325,
 		});
 	const meter = h(Meter, {
 		value: 1,
 		color: Palette.violet,
-		position: UDim2.fromOffset(0, veryShort ? 64 : condensed ? 104 : 130),
-		size: new UDim2(1, 0, 0, 3),
+		position: UDim2.fromOffset(0, veryShort ? 56 : condensed ? 104 : 126),
+		size: new UDim2(1, 0, 0, 2),
 		reducedMotion: reducedMotion,
 	});
 	const closeButton = h(
@@ -1416,7 +1411,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 	);
 	const listLayout = h("uilistlayout", {
 		FillDirection: Enum.FillDirection.Vertical,
-		Padding: new UDim(0, 8),
+		Padding: new UDim(0, CARD_GAP),
 		SortOrder: Enum.SortOrder.LayoutOrder,
 	});
 	const cards = effectiveHistory.map((entry, index) =>
@@ -1470,7 +1465,6 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 						zIndex: 323,
 						reveal: reveal,
 					},
-					kicker,
 					seasonTitle,
 					versionLine,
 					announcementText,
