@@ -26,12 +26,15 @@ import * as MotionTokens from "../MotionKit/motionTokens";
 import { Bindable, joinTuple } from "../lua";
 import {
 	ExitPresenceContext,
+	GLINT_TRANSPARENCY,
 	MotionIntent,
 	ScaleFromCenter,
 	composePresence,
 	revealOffset,
+	useChangePop,
 	useClock,
 	useEntrance,
+	useIdleGlint,
 	useExitPresence,
 	useFlash,
 	useFlipperSpring,
@@ -766,6 +769,7 @@ export function QuantityStepper(props: {
 	const step = max >= 100000 ? math.max(1, math.floor(max / 20)) : max >= 100 ? math.max(1, math.floor(max / 10)) : 1;
 	const atMin = value <= 0;
 	const atMax = value >= max || max <= 0;
+	const valuePop = useChangePop(value, props.reducedMotion, 0.2);
 	const controlH = stacked ? TapTarget : 36;
 	const detailText = detail ?? (max <= 0 ? "None tradable" : `${compactNumber(value)} / ${compactNumber(max)}`);
 	return (
@@ -818,15 +822,23 @@ export function QuantityStepper(props: {
 					disabled={atMin}
 					reducedMotion={reducedMotion}
 				/>
-				<Text
-					value={compactNumber(value)}
-					size={15}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					align={Enum.TextXAlignment.Center}
-					position={stacked ? new UDim2(0.22, 0, 0, 0) : UDim2.fromOffset(36, 0)}
-					sizeConstraint={stacked ? new UDim2(0.28, 0, 1, 0) : UDim2.fromOffset(56, 36)}
-				/>
+				<frame
+					Position={stacked ? new UDim2(0.22, 0, 0, 0) : UDim2.fromOffset(36, 0)}
+					Size={stacked ? new UDim2(0.28, 0, 1, 0) : UDim2.fromOffset(56, 36)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+				>
+					{/* the amount hops each time it steps */}
+					<uiscale Scale={valuePop} />
+					<Text
+						value={compactNumber(value)}
+						size={15}
+						color={Palette.cream}
+						weight={Enum.FontWeight.Heavy}
+						align={Enum.TextXAlignment.Center}
+						sizeConstraint={UDim2.fromScale(1, 1)}
+					/>
+				</frame>
 				<Button
 					text="+"
 					onClick={() => onChange(math.min(max, value + step))}
@@ -1000,6 +1012,10 @@ export function Badge(props: {
 	const fill = filled ? darken(accent, 0.28) : Palette.panelRaised;
 	const label = ensureContrast(fill, filled ? Palette.cream : lighten(accent, 0.18));
 	const compressLabel = text.size() > 7;
+	// the badge hops when its label changes; a filled badge catches a glint now and then
+	const effectsPaused = React.useContext(UiEffectsPausedContext);
+	const pop = useChangePop(text, effectsPaused, 0.14);
+	const glint = useIdleGlint(filled && !effectsPaused, 9);
 	return (
 		<frame
 			Size={size}
@@ -1010,8 +1026,15 @@ export function Badge(props: {
 			ZIndex={zIndex}
 			ClipsDescendants={false}
 		>
+			<uiscale Scale={pop} />
 			<uicorner CornerRadius={new UDim(0, 6)} />
 			<uigradient Color={surfaceGradient(fill, 0.55)} Rotation={90} />
+			{filled && (
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.cream} BackgroundTransparency={0} BorderSizePixel={0} ZIndex={zIndex + 1} Active={false}>
+					<uicorner CornerRadius={new UDim(0, 6)} />
+					<uigradient Transparency={GLINT_TRANSPARENCY} Rotation={20} Offset={glint.map((x) => new Vector2(x, 0))} />
+				</frame>
+			)}
 			<frame Size={new UDim2(1, -2, 1, -2)} Position={UDim2.fromOffset(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex}>
 				<uicorner CornerRadius={new UDim(0, 6)} />
 				<Stroke color={accent} thickness={1} transparency={filled ? 0.36 : 0.28} />
@@ -3460,7 +3483,15 @@ export function EmptyState({
 				Padding={new UDim(0, 6)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
-			<frame Size={UDim2.fromOffset(resolvedIcon, resolvedIcon)} LayoutOrder={0} BackgroundTransparency={1} BorderSizePixel={0}>
+			<frame
+				Size={UDim2.fromOffset(resolvedIcon, resolvedIcon)}
+				LayoutOrder={0}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				Rotation={reveal.map((amount) => (1 - math.clamp(amount, 0, 1)) * -14)}
+			>
+				{/* the icon settles in with a small overshoot and tilt before the words fade up */}
+				<uiscale Scale={reveal.map((amount) => 0.6 + 0.4 * easeOutBackMicro(math.clamp(amount, 0, 1)))} />
 				<Icon kind={icon} color={Palette.muted} accent={accent} size={resolvedIcon} spin={false} clipSafe={true} />
 			</frame>
 			<Text
@@ -3487,6 +3518,12 @@ export function EmptyState({
 			/>
 		</frame>
 	);
+}
+
+function easeOutBackMicro(x: number): number {
+	const c1 = 1.4;
+	const c3 = c1 + 1;
+	return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2;
 }
 
 // ---------- Dropdown ----------

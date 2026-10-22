@@ -1289,3 +1289,104 @@ export interface AntilagInfo {
 }
 
 ensureDriver();
+
+// ---------------------------------------------------------------------------------------------
+// Micro motion: small, one-shot touches. Each runs on the shared frame driver only while it is
+// moving, so a screen that is sitting still costs nothing. Reduced motion keeps every layer and
+// just makes the move shorter and smaller.
+
+function microEase(t: number): number {
+	const x = 1 - math.clamp(t, 0, 1);
+	return 1 - x * x * x;
+}
+
+// A quick hop whenever `key` changes (not on first render). Returns a UIScale value.
+export function useChangePop(key: unknown, reducedMotion = false, depth = 0.16): React.Binding<number> {
+	const [trigger, setTrigger] = React.useState(0);
+	const seen = React.useRef(key);
+	React.useEffect(() => {
+		if (seen.current !== key) {
+			seen.current = key;
+			setTrigger((n) => n + 1);
+		}
+	}, [key]);
+	const flash = useFlash(trigger, reducedMotion, 0.32);
+	const soft = useMotionSettings().soft === true || reducedMotion;
+	const amount = soft ? depth * 0.45 : depth;
+	return React.useMemo(() => flash.map((v) => 1 + v * amount), [flash, amount]);
+}
+
+// Hover lift and press dip for anything clickable. Returns the scale binding and the events to merge.
+export function useHoverPress(reducedMotion = false, lift = 0.035, dip = 0.05) {
+	const [hovered, setHovered] = React.useState(false);
+	const [pressed, setPressed] = React.useState(false);
+	const soft = useMotionSettings().soft === true || reducedMotion;
+	const k = soft ? 0.5 : 1;
+	const goal = pressed ? 1 - dip * k : hovered ? 1 + lift * k : 1;
+	const scale = useFlipperSpring(goal, soft, 620, 30, 1);
+	const events = React.useMemo(
+		() => ({
+			MouseEnter: () => setHovered(true),
+			MouseLeave: () => {
+				setHovered(false);
+				setPressed(false);
+			},
+			MouseButton1Down: () => setPressed(true),
+			MouseButton1Up: () => setPressed(false),
+		}),
+		[],
+	);
+	return $tuple(scale, events, hovered);
+}
+
+// A light glint that sweeps across now and then. Between sweeps nothing runs: the next one is a
+// task.delay, and a sweep is a short-lived frame listener. Returns a UIGradient Offset X (-1.4..1.4).
+export function useIdleGlint(enabled: boolean, every = 7, reducedMotion = false): React.Binding<number> {
+	const soft = useMotionSettings().soft === true || reducedMotion;
+	const [binding, setBinding] = React.useBinding(-1.4);
+	React.useEffect(() => {
+		if (!enabled) {
+			setBinding(-1.4);
+			return undefined;
+		}
+		let alive = true;
+		let release: (() => void) | undefined;
+		let job: thread | undefined;
+		const span = soft ? 1.1 : 0.7;
+		const sweep = () => {
+			if (!alive) return;
+			let elapsed = 0;
+			release = subscribeContinuous((dt) => {
+				elapsed += dt;
+				const t = math.clamp(elapsed / span, 0, 1);
+				setBinding(-1.4 + 2.8 * microEase(t));
+				if (t >= 1 && release !== undefined) {
+					release();
+					release = undefined;
+					setBinding(-1.4);
+					job = task.delay(every * (soft ? 1.6 : 1) + math.random() * 2, sweep);
+				}
+			});
+		};
+		job = task.delay(1 + math.random() * every, sweep);
+		return () => {
+			alive = false;
+			if (release !== undefined) release();
+			if (job !== undefined) pcall(task.cancel, job);
+		};
+	}, [enabled, every, soft]);
+	return binding;
+}
+
+// Rows and pills rise in one after another when they first mount.
+export function useListStagger(index: number, reducedMotion = false): React.Binding<number> {
+	return useStagger(math.min(index, 10), reducedMotion, 0.035, 0.18);
+}
+
+export const GLINT_TRANSPARENCY = new NumberSequence([
+	new NumberSequenceKeypoint(0, 1),
+	new NumberSequenceKeypoint(0.42, 1),
+	new NumberSequenceKeypoint(0.5, 0.72),
+	new NumberSequenceKeypoint(0.58, 1),
+	new NumberSequenceKeypoint(1, 1),
+]);

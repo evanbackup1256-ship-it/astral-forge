@@ -5,7 +5,7 @@ import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import { taskFilterCounts, taskMatchesFilter } from "../../CoreKit/taskFilter";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
-import { useEntrance, useFlash, usePulse, useViewport } from "../../MotionKit/motion";
+import { useEntrance, useFlash, useListStagger, usePulse, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import Juice = require("../../JuiceFx");
 
@@ -85,6 +85,21 @@ interface MissionRowProps {
 	reducedMotion?: boolean;
 	position: UDim2;
 	stack: boolean;
+}
+
+// rows slide up and settle one after another the first time the list shows them
+function RowArrive(props: { index: number; reducedMotion?: boolean; children?: React.ReactNode }) {
+	const arrive = useListStagger(props.index, props.reducedMotion);
+	return (
+		<frame
+			Size={UDim2.fromScale(1, 1)}
+			Position={arrive.map((t) => UDim2.fromOffset(0, math.round((1 - math.clamp(t, 0, 1)) * 14)))}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+		>
+			{props.children}
+		</frame>
+	);
 }
 
 // one place for the row height so the list stride can't drift from the row again
@@ -530,8 +545,10 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			scrollBarThickness={3}
 			scrollBarTransparency={0.28}
 			keyExtractor={(quest: TaskEntry) => quest.Id}
-			renderItem={({ item }: { item: TaskEntry }) => (
-				<MissionRow quest={item} dispatch={dispatch} reducedMotion={softMotion} position={UDim2.fromOffset(0, 0)} stack={rowStack} />
+			renderItem={({ item, index }: { item: TaskEntry; index?: number }) => (
+				<RowArrive index={index ?? 0} reducedMotion={softMotion}>
+					<MissionRow quest={item} dispatch={dispatch} reducedMotion={softMotion} position={UDim2.fromOffset(0, 0)} stack={rowStack} />
+				</RowArrive>
 			)}
 			ListEmptyComponent={
 				visible.size() === 0 ? (
