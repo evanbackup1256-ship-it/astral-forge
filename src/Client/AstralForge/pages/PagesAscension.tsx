@@ -432,7 +432,7 @@ function AscensionView(props: AscensionViewProps) {
 				sizeConstraint={new UDim2(1, -col, 0, stack ? 58 : 40)}
 			/>
 			<Ui.Text
-				value="Research, relics, artifacts, Foundry and sigils stay."
+				value="Resets your Domain, rebirths, cores and current run. Research, relics, artifacts, the Star Foundry and sigils stay."
 				size={12}
 				color={Palette.muted}
 				wrap={true}
@@ -482,7 +482,7 @@ function AscensionView(props: AscensionViewProps) {
 				size={new UDim2(1, stack ? 0 : -300, 0, 4)}
 			/>
 			<Ui.Text
-				value={`→ ×${compact(state.NextRankProduction)}`}
+				value={`next ×${compact(state.NextRankProduction)}`}
 				size={12}
 				color={Palette.creamSoft}
 				position={UDim2.fromOffset(0, 76)}

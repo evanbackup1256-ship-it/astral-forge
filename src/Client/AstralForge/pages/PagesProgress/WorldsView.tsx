@@ -166,10 +166,15 @@ function WorldRow(props: WorldRowProps) {
 							sizeConstraint={new UDim2(0, 0, 0, 26)}
 						/>
 						{current && (
-							<Badge value="●" accent={Palette.green} filled={false} size={UDim2.fromOffset(18, 18)} layoutOrder={1} />
+							<frame Size={UDim2.fromOffset(8, 8)} BackgroundColor3={Palette.green} BorderSizePixel={0} LayoutOrder={1}>
+								<uicorner CornerRadius={new UDim(1, 0)} />
+							</frame>
 						)}
 						{canUnlock && (
-							<Badge value="✦" accent={Palette.mango} filled={false} size={UDim2.fromOffset(18, 18)} layoutOrder={1} />
+							<frame Size={UDim2.fromOffset(8, 8)} BackgroundColor3={Palette.mango} BorderSizePixel={0} LayoutOrder={1}>
+								<uicorner CornerRadius={new UDim(1, 0)} />
+								<uistroke Color={Palette.mango} Thickness={2} Transparency={0.55} />
+							</frame>
 						)}
 					</frame>
 					<Text
@@ -195,6 +200,7 @@ function WorldRow(props: WorldRowProps) {
 				</frame>
 				<Button
 					text={cta}
+					tooltip={zone.Tagline}
 					icon="World.4"
 					onClick={onSelect}
 					color={btnColor}
@@ -491,16 +497,6 @@ function WorldsView(props: WorldsViewProps) {
 						fit={false}
 						position={UDim2.fromOffset(0, 10)}
 						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 30)}
-					/>
-					<Text
-						value=""
-						size={stack ? chrome.labelText : 11}
-						color={Palette.muted}
-						wrap={true}
-						fit={true}
-						minSize={10}
-						position={UDim2.fromOffset(0, 38)}
-						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 36)}
 					/>
 					{!stack && (
 						<frame

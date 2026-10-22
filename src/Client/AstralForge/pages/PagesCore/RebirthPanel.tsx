@@ -1291,6 +1291,8 @@ export function RebirthPanel({
 			: info.VowHolds
 				? `${vow.Name}: ${info.VowStatus}`
 				: `${vow.Name} broken. ${info.VowStatus}`;
+	const runs = info.Runs ?? [];
+	const lastRun = runs[runs.size() - 1] as RunEntry | undefined;
 	const notes: string[] = [];
 	if (opens !== "") {
 		notes.push(`Opens ${opens}.`);
@@ -1298,6 +1300,17 @@ export function RebirthPanel({
 	if (gate !== undefined) {
 		notes.push(`${gate.name} at rebirth ${gate.need}.`);
 	}
+	const history: string[] = [];
+	if (lastRun !== undefined) {
+		history.push(
+			`Last run ${clock(lastRun.Seconds)}, grade ${lastRun.Grade}, +${compactNumber(lastRun.Cores)} cores${
+				lastRun.Kept && lastRun.Vow !== "" ? `, ${lastRun.Vow} kept` : ""
+			}.`,
+		);
+		history.push(`Best payout ${compactNumber(info.BestCores)} cores, fastest run ${clock(info.FastestSeconds)}.`);
+	}
+	for (const line of notes) history.push(line);
+	const historyTip = history.size() > 0 ? { title: "Runs", body: history.join("\n"), accent } : undefined;
 	const colW = stack ? 0 : 286;
 	const lively = canRebirth && !effectsPaused && !softMotion;
 	return (
@@ -1407,7 +1420,7 @@ export function RebirthPanel({
 				ClipsDescendants={false}
 			>
 				<Badge
-					value={pending > 0 ? `✦` : `${compactNumber(state.PermanentMultiplier)}×`}
+					value={pending > 0 ? `Star` : `${compactNumber(state.PermanentMultiplier)}×`}
 					accent={pending > 0 ? Palette.mango : Palette.mint}
 					filled={pending > 0}
 					size={new UDim2(1, 0, 0, 26)}
@@ -1419,7 +1432,8 @@ export function RebirthPanel({
 					</frame>
 				)}
 				<Button
-					text={canRebirth ? "Rebirth" : pending > 0 ? "✦" : "Plan"}
+					text={canRebirth ? "Rebirth" : pending > 0 ? "Light star" : "Plan"}
+					tooltip={historyTip}
 					icon="Rebirth.rebirthPlan"
 					onClick={() => setChamberOpen(true)}
 					sound="page"

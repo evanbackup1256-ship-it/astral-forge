@@ -74,7 +74,7 @@ export function ConstellationsView(props: {
 		const nextStar = done ? undefined : chart.Stars[count];
 		const ready = nextStar !== undefined && points >= nextStar.Cost && state.Paused !== true;
 		const current = count * chart.PerStar + (done ? chart.Completion : 0);
-		const dots = chart.Stars.map((star) => (lit[star.Id] === true ? "✦" : "·")).join("  ");
+		const dots = chart.Stars.map((star) => (lit[star.Id] === true ? "*" : "·")).join("  ");
 		const accent = done ? Palette.mango : count > 0 ? Palette.mint : Palette.lineSoft;
 		cards[chart.Id] = (
 			<frame
@@ -105,7 +105,7 @@ export function ConstellationsView(props: {
 					/>
 					{!done && (
 						<Text
-							value={`→ ${nextStar!.Name}`}
+							value={`Next: ${nextStar!.Name}`}
 							size={12}
 							color={Palette.muted}
 							fit={true}
@@ -122,7 +122,14 @@ export function ConstellationsView(props: {
 							BorderSizePixel={0}
 						>
 							<Button
-								text={`✦ ${nextStar!.Cost}`}
+								text={`Light ${nextStar!.Cost}`}
+								tooltip={{
+									title: chart.Name,
+									body: `${chart.Blurb} Next: ${nextStar!.Name}, +${pct(chart.PerStar)}${
+										count === chart.Stars.size() - 1 ? ` and +${pct(chart.Completion)} for finishing` : ""
+									}.`,
+									accent,
+								}}
 								onClick={() => light(nextStar!.Id)}
 								color={ready ? Palette.mango : Palette.panelSoft}
 								textColor={ready ? Palette.ink : Palette.muted}
@@ -146,7 +153,7 @@ export function ConstellationsView(props: {
 				value={
 					state.Paused === true
 						? "Charts closed"
-						: `✦ ${points}`
+						: `${points} pts`
 				}
 				size={28}
 				color={Palette.cream}

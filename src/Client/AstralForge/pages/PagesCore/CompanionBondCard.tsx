@@ -34,7 +34,7 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 		line = "Choose a trait";
 	} else if (companion.NextEvolution !== undefined) {
 		const nextShare = CompanionRelic.shareFor(companion.NextEvolution);
-		line = `${companion.Trait !== undefined ? companion.Trait.Text + "   " : ""}→ ${pct(nextShare)}`;
+		line = `${companion.Trait !== undefined ? companion.Trait.Text + "   " : ""}next ${pct(nextShare)}`;
 	} else {
 		line = companion.Trait !== undefined ? companion.Trait.Text : "Fully bonded.";
 	}
@@ -62,6 +62,7 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 				<frame Size={new UDim2(1, 0, 0, props.stack ? TapTarget * 2 + 6 : TapTarget)} Position={UDim2.fromOffset(0, 72)} BackgroundTransparency={1} BorderSizePixel={0}>
 					<Button
 						text={offer[0].Name}
+						tooltip={{ title: offer[0].Name, body: offer[0].Text, accent: Palette.violet }}
 						onClick={() => pick(offer[0].Id)}
 						size={buttonSize}
 						color={Palette.panelSoft}
@@ -72,6 +73,7 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 					/>
 					<Button
 						text={offer[1].Name}
+						tooltip={{ title: offer[1].Name, body: offer[1].Text, accent: Palette.violet }}
 						onClick={() => pick(offer[1].Id)}
 						size={buttonSize}
 						position={props.stack ? UDim2.fromOffset(0, TapTarget + 6) : new UDim2(0.5, 4, 0, 0)}
