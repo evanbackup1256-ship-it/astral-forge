@@ -271,17 +271,17 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 		}
 	};
 	const barH = Browse.barHeight(stack, true);
-	const introH = stack ? 40 : 70;
+	const introH = stack ? 40 : 64;
 	const claimRowH = stack && counts.Ready > 0 ? TapTarget + 10 : 0;
-	const headerHeight = 32 + introH + claimRowH + 10 + barH;
+	const headerHeight = (stack ? 32 : 44) + introH + claimRowH + 10 + barH;
 	const rowStride = milestoneRowH(rowStack) + 16;
-	const pageGap = stack ? chrome.panelGap : 10;
+	const pageGap = stack ? chrome.panelGap : 18;
 	const headerPanel = (
 		<Panel
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.mango}
 			background={Palette.panelRaised}
-			padding={16}
+			padding={stack ? 16 : 22}
 			reveal={enter}
 			reducedMotion={softMotion}
 			zIndex={30}
@@ -310,18 +310,8 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
-						position={UDim2.fromOffset(0, 8)}
+						position={UDim2.fromOffset(0, 17)}
 						sizeConstraint={new UDim2(1, -420, 0, 30)}
-					/>
-					<Text
-						value="The big ones. Rebirth can't take them."
-						size={12}
-						color={Palette.muted}
-						wrap={true}
-						fit={true}
-						minSize={10}
-						position={UDim2.fromOffset(0, 48)}
-						sizeConstraint={new UDim2(1, -420, 0, 16)}
 					/>
 					<TaskSummary
 						done={counts.Done}
