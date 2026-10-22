@@ -10,6 +10,7 @@ import { InventoryPage } from "../pages/InventoryPage";
 import { FoundryPage } from "../pages/FoundryPage";
 import { LabPage } from "../pages/LabPage";
 import { ExpeditionsPage } from "../pages/ExpeditionsPage";
+import { StoryPage } from "../pages/StoryPage";
 
 export interface PageProps {
 	session: Session;
@@ -32,6 +33,7 @@ const PORTED: Record<string, PageComponent> = {
 	Anomaly: FoundryPage,
 	Lab: LabPage,
 	Expeditions: ExpeditionsPage,
+	Story: StoryPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
