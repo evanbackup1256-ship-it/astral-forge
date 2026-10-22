@@ -44,11 +44,16 @@ interface WorldsSession {
 const CHUNK = 24;
 const SEARCH_SCAN = 600;
 const SEARCH_RESULTS = 60;
-const FILTERS = ["All", "Owned", "Next", "Here"] as const;
+const FILTERS: ReadonlyArray<[string, string]> = [
+	["All", "All"],
+	["Owned", "Owned"],
+	["Next", "Next stops"],
+	["Here", "Current"],
+];
 const SORTS: ReadonlyArray<[string, string]> = [
-	["Order", "In order"],
-	["Newest", "Newest"],
-	["Multiplier", "Best boost"],
+	["Order", "World order"],
+	["Newest", "Newest first"],
+	["Multiplier", "Best multiplier"],
 	["Name", "A to Z"],
 ];
 
@@ -280,7 +285,7 @@ function ConstellationBlock(props: PageProps & { order: number }) {
 				</frame>
 				<Tooltip tip={paused ? "The charts are closed for a moment. Lit stars still count." : "Star Points. Every rebirth you have ever done earns one."} size={new UDim2(0.4, 0, 1, 0)}>
 					<Text
-						text={paused ? "Closed" : tostring(points)}
+						text={paused ? "Charts closed" : tostring(points)}
 						size={Type.hero(phone)}
 						font={Fonts.heavy}
 						color={paused ? Iron.muted() : Iron.brass()}
@@ -429,7 +434,7 @@ export function WorldsPage(props: PageProps) {
 				<Meter value={catalog > 0 ? zone / catalog : 0} order={1} height={6} />
 				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2}>
 					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
-					<Button text="Where I am" tone="iron" width={150} onPress={jumpHere} order={0} />
+					<Button text="Find current" tone="iron" width={150} onPress={jumpHere} order={0} />
 					<Button text={out > 0 ? `Expeditions ${out}/${slots}` : "Expeditions"} tone="iron" width={180} onPress={() => props.navigate("Expeditions")} order={1} />
 				</frame>
 			</Panel>
@@ -440,7 +445,7 @@ export function WorldsPage(props: PageProps) {
 					Size={new UDim2(0, phone ? 200 : 260, 0, HIT)}
 					BackgroundColor3={Iron.sunk()}
 					BackgroundTransparency={0.2}
-					PlaceholderText="Find a world"
+					PlaceholderText="Search worlds by name or feature"
 					PlaceholderColor3={Iron.muted()}
 					Text={query}
 					TextColor3={Iron.text()}
@@ -455,15 +460,15 @@ export function WorldsPage(props: PageProps) {
 					<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
 					<uistroke Color={Iron.edge()} Transparency={0.5} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				</textbox>
-				{FILTERS.map((id, i) => (
-					<Chip key={id} text={id} on={filter === id} onPress={() => setFilter(id)} order={i + 1} />
+				{FILTERS.map(([id, label], i) => (
+					<Chip key={id} text={label} on={filter === id} onPress={() => setFilter(id)} order={i + 1} />
 				))}
 				{SORTS.map(([id, label], i) => (
 					<Chip key={id} text={label} on={sort === id} color={Iron.steel()} onPress={() => setSort(id)} order={10 + i} />
 				))}
 			</frame>
 
-			{earlier && <Button text={`Earlier  ${start - 1}`} tone="quiet" stretch onPress={() => {
+			{earlier && <Button text={`Show earlier  (${start - 1})`} tone="quiet" stretch onPress={() => {
 				const grow = math.min(CHUNK, start - 1);
 				setStart(start - grow);
 				setCount(math.min(count + grow, CHUNK * 3));
@@ -510,7 +515,7 @@ export function WorldsPage(props: PageProps) {
 				</frame>
 			)}
 
-			{later && <Button text={`Later  ${total - (start + count - 1)}`} tone="quiet" stretch onPress={() => {
+			{later && <Button text={`Show more  (${total - (start + count - 1)} left)`} tone="quiet" stretch onPress={() => {
 				if (count >= CHUNK * 3) setStart(start + CHUNK);
 				else setCount(count + CHUNK);
 			}} order={4} />}
