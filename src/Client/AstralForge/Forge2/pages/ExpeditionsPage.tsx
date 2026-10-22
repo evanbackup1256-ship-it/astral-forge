@@ -148,7 +148,7 @@ function OpenSlot(p: { page: PageProps; session: ExpSession; slot: SlotState; ro
 	if (route === undefined) {
 		return (
 			<Card pad={gap(phone, "l")} order={p.order} color={Iron.sunk()}>
-				<Text text="Every route you can run is already out." size={Type.body(phone)} color={Iron.muted()} multiline />
+				<Text text="Every route you can run is out." size={Type.body(phone)} color={Iron.muted()} multiline />
 			</Card>
 		);
 	}
@@ -191,7 +191,7 @@ function OpenSlot(p: { page: PageProps; session: ExpSession; slot: SlotState; ro
 				<Text text={STANCE_LINE[stance]} size={Type.small(phone)} color={Iron.muted()} order={4} />
 				<Text text={`Crew ${crew.size()}/${crewMax}`} size={Type.small(phone)} color={Iron.muted()} order={5} />
 				{shown.size() === 0 ? (
-					<EmptyState title="No free relics" body="The route still pays without a crew." phone={phone} order={6} />
+					<EmptyState title="No free relics." body="The route still pays." phone={phone} order={6} />
 				) : (
 					<Row order={6}>
 						{shown.map((c, i) => (
