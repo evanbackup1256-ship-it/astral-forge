@@ -38,6 +38,7 @@ interface BoostsState {
 }
 interface BoostsConfig {
 	Boosts?: Record<string, BoostDef>;
+	Economy?: { Rebirth?: { StardustBoostPrices?: Record<string, number>; StardustBoostPerRebirth?: number } };
 	[key: string]: unknown;
 }
 type Dispatch = (action: string, payload?: object) => unknown;
@@ -262,6 +263,17 @@ interface IdleBayProps {
 	activateHostRef?: React.MutableRefObject<Frame | undefined>;
 }
 
+// mirrors GameService.stardustBoostPrice: base x (1 + rebirths x PerRebirth), or undefined when not sold
+function stardustPriceFor(config: BoostsConfig, boostId: string, rebirths: number): number | undefined {
+	const rebirth = config.Economy?.Rebirth;
+	const base = rebirth?.StardustBoostPrices?.[boostId];
+	if (!typeIs(base, "number") || base <= 0) {
+		return undefined;
+	}
+	const perRebirth = tonumber(rebirth?.StardustBoostPerRebirth) ?? 0;
+	return math.floor(base * (1 + math.max(0, rebirths) * perRebirth));
+}
+
 function IdleBay(props: IdleBayProps) {
 	const pick = props.pick;
 	const softMotion = props.softMotion;
@@ -410,6 +422,9 @@ interface BoostCardProps {
 	index: number;
 	focus?: boolean;
 	activateHostRef?: React.MutableRefObject<Frame | undefined>;
+	// Stardust price to run this boost without a stored charge (same formula as the server)
+	stardustPrice?: number;
+	stardust: number;
 }
 
 function BoostCard(props: BoostCardProps) {
@@ -417,7 +432,10 @@ function BoostCard(props: BoostCardProps) {
 	const owned = props.owned;
 	const softMotion = props.softMotion;
 	const reveal = useStagger(props.index, softMotion);
-	const ready = owned > 0 && props.canActivate;
+	const price = props.stardustPrice;
+	const buyable = owned <= 0 && price !== undefined;
+	const affordable = buyable && props.stardust >= price;
+	const ready = (owned > 0 || affordable) && props.canActivate;
 	const accent = boost.Color ?? Palette.pink;
 	const shown = owned > 0 ? accent : Palette.muted;
 	const [big, small] = headline(boost);
@@ -514,10 +532,22 @@ function BoostCard(props: BoostCardProps) {
 				ref={ready && props.focus ? props.activateHostRef : undefined}
 			>
 				<Button
-					text={owned <= 0 ? "NONE STORED" : props.canActivate ? "ACTIVATE" : props.busyText}
+					text={
+						!props.canActivate && (owned > 0 || buyable)
+							? props.busyText
+							: owned > 0
+								? "ACTIVATE"
+								: buyable
+									? `RUN · ${compactNumber(price)} STARDUST`
+									: "NONE STORED"
+					}
 					icon={ready ? "Boost.15" : "Lock.5"}
 					onClick={() => {
-						props.dispatch("ActivateBoost", { Id: boost.Id });
+						if (owned > 0) {
+							props.dispatch("ActivateBoost", { Id: boost.Id });
+						} else if (buyable) {
+							props.dispatch("ActivateBoost", { Id: boost.Id, Buy: true });
+						}
 					}}
 					color={ready ? accent : Palette.panelSoft}
 					textColor={ready ? Palette.ink : Palette.muted}
@@ -657,6 +687,8 @@ function BoostsView(props: BoostsViewProps) {
 			pcall(task.cancel, job);
 		};
 	}, [focusId, boostRunning, filter]);
+	const rebirths = math.max(0, math.floor(tonumber(state.Rebirths) ?? 0));
+	const stardust = math.max(0, tonumber(state.Stardust) ?? 0);
 	const busyText = activeBoost !== undefined ? `${string.upper(activeBoost.Name)} RUNNING` : "ONE AT A TIME";
 	// phones in landscape use the wide hero and a single row of stat tiles: the stacked ones
 	// take 318-388px, more than a 360px-tall screen has
@@ -731,6 +763,8 @@ function BoostsView(props: BoostsViewProps) {
 										owned={math.max(0, math.floor(tonumber(inventory[cell.boost.Id]) ?? 0))}
 										canActivate={!boostRunning}
 										busyText={busyText}
+										stardustPrice={stardustPriceFor(config, cell.boost.Id, rebirths)}
+										stardust={stardust}
 										dispatch={dispatch}
 										softMotion={softMotion}
 										index={cell.order}

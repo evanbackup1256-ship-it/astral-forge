@@ -27,9 +27,20 @@ local H = require("./_server_harness")
 local Economy = H.load("Server/AstralForge/Modules/EconomyMath")("Economy")
 local G = H.load("Shared/AstralForge/Shared/GameConfig")
 local base = Economy.PrestigeRequirementFor(0)
-check(base == G.Economy.PrestigeRequirement, "rebirth 0 needs the base requirement")
-check(Economy.PrestigeRequirementFor(10) > base * 3 and Economy.PrestigeRequirementFor(10) < base * 4, "the requirement grows about x1.12 a rebirth")
-check(Economy.PrestigeRequirementFor(1e9) == base * G.Economy.PrestigeRequirementMaxScale, "the growth stops at its cap")
+local full = G.Economy.PrestigeRequirement
+local span = G.Economy.PrestigeEarlyDiscountRebirths
+check(math.abs(base - full * G.Economy.PrestigeEarlyDiscount) < 1, "rebirth 0 needs the discounted base requirement")
+local prev = 0
+for r = 0, span + 2 do
+	local need = Economy.PrestigeRequirementFor(r)
+	check(need > prev, "the requirement rises every rebirth through the early ramp (r=" .. r .. ")")
+	prev = need
+end
+check(math.abs(Economy.PrestigeRequirementFor(span) - full * G.Economy.PrestigeRequirementGrowth ^ span) < 1, "the early discount is gone by rebirth " .. span)
+check(Economy.PrestigeRequirementFor(10) > full * 2.4 and Economy.PrestigeRequirementFor(10) < full * 2.8, "the requirement grows about x1.10 a rebirth")
+check(Economy.PrestigeRequirementFor(1e9) == full * G.Economy.PrestigeRequirementMaxScale, "the growth stops at its cap")
+local w5 = Economy.GetZone(5)
+check(w5.RequiredRebirths <= 10 and w5.RequiredRebirths > Economy.GetZone(4).RequiredRebirths, "world 5 opens by 10 counted rebirths, after world 4")
 check(G.Economy.Rebirth.MinCountedRunSeconds >= 60, "short runs don't count toward world gates")
 local spam = Sim.run({ Days = 1, Sessions = { { Start = 3600, Length = 1800 } }, TapsPerSecond = 4, Step = 5, SpamRebirth = true })
 check(spam.Profile.Rebirths <= 30 * 60 / G.Economy.Rebirth.MinCountedRunSeconds, "rebirth spam can't count more than one rebirth per minimum run")

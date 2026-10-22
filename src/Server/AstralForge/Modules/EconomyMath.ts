@@ -1134,7 +1134,11 @@ __defs["Economy"] = () => {
 			const growth = math.max(1, tonumber(economy.PrestigeRequirementGrowth) ?? 1);
 			const maxScale = math.max(1, tonumber(economy.PrestigeRequirementMaxScale) ?? 1);
 			const count = math.max(0, math.floor(tonumber(rebirths) ?? 0));
-			return base * math.min(maxScale, growth ** math.min(count, 10000));
+			const discountFloor = math.clamp(tonumber(economy.PrestigeEarlyDiscount) ?? 1, 0.05, 1);
+			const discountSpan = math.max(0, tonumber(economy.PrestigeEarlyDiscountRebirths) ?? 0);
+			const discount =
+				discountSpan > 0 && count < discountSpan ? discountFloor + (1 - discountFloor) * (count / discountSpan) : 1;
+			return base * discount * math.min(maxScale, growth ** math.min(count, 10000));
 		},
 
 		PrestigeReward(this: void, runCash: unknown, rebirths?: number): unknown {
