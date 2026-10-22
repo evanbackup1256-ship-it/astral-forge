@@ -102,26 +102,6 @@ export function at(items: unknown, target: string): LuaTuple<[Dict | undefined, 
 	return $tuple(def !== undefined ? found : undefined, def);
 }
 
-// uid -> target for everything equipped anywhere (sockets, companion, expeditions)
-export function equippedIndex(items: unknown): Map<string, string> {
-	const index = new Map<string, string>();
-	const equipped = equippedOf(items);
-	if (equipped === undefined) return index;
-	for (const [target, uid] of pairs(equipped)) {
-		if (typeIs(target, "string") && typeIs(uid, "string")) index.set(uid, target);
-	}
-	return index;
-}
-
-export function isEquipped(items: unknown, uid: string): boolean {
-	const equipped = equippedOf(items);
-	if (equipped === undefined) return false;
-	for (const [, value] of pairs(equipped)) {
-		if (value === uid) return true;
-	}
-	return false;
-}
-
 export function count(items: unknown): number {
 	let total = 0;
 	const inventory = inventoryOf(items);

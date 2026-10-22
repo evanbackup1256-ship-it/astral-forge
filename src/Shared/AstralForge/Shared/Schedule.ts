@@ -31,12 +31,3 @@ export function nextAfter<T extends TimedWindow>(windows: readonly T[], now: num
 	}
 	return best;
 }
-
-/** Seconds until the window's next boundary: its start while upcoming, its end while live, 0 after. */
-export function secondsToBoundary(window: TimedWindow, now: number): number {
-	const phase = phaseOf(window, now);
-	if (phase === "upcoming") {
-		return window.StartsAt - now;
-	}
-	return phase === "live" ? window.EndsAt - now : 0;
-}

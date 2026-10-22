@@ -163,10 +163,6 @@ function appendNew(list: unknown, rows: Row[]): void {
 	}
 }
 
-export function landmarkWorld(id: number): { Name: string; Tagline: string; Lore: string } | undefined {
-	return LANDMARK_WORLDS[id];
-}
-
 // Called once from the bottom of GameConfig. Appends rows and gives the landmark worlds their names;
 // world stats still come from WorldCurve, so nothing about pacing moves.
 export function extend(config: Row): void {

@@ -38,10 +38,6 @@ export function ensureTables(profile: Dict) {
 	bag(profile, "Receipts");
 }
 
-export function ownsPass(profile: Dict, key: string): boolean {
-	return typeIs(profile.OwnedPasses, "table") && (profile.OwnedPasses as Dict)[key] === true;
-}
-
 /** Marks a pass owned. Safe to call any number of times. */
 export function grantPass(profile: Dict, pass: PassDef): PassGrant {
 	const owned = bag(profile, "OwnedPasses");
