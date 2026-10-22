@@ -338,7 +338,7 @@ export const EN = {
 	"AdminService.KickedS": "Kicked %s.",
 	"AdminService.ServerBannedSS": "Server-banned %s%s.",
 	"AdminService.QueuedServiceFailedKickedThis": "Queued (service failed; kicked this server)",
-	"AdminService.PreviewSS": "Preview: %s → %s.",
+	"AdminService.PreviewSS": "Preview: %s to %s.",
 	"AdminService.PreviewSPlaysOnS": "Preview: %s plays on %s's screen only. No saved data changes.",
 	"AdminService.PreviewS": "Preview: %s.",
 	"ChatService.GlobalChatCoolsDownFor": "Global chat cools down for %ss.",

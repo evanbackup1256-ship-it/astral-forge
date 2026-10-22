@@ -352,7 +352,7 @@ function __member(): unknown {
 			if ((_condition === undefined)) {
 				_condition = "the next level";
 			}
-			_result = `${_exp_3} now  →  ${_exp_4} at ${_condition}`;
+			_result = `${_exp_3} now to ${_exp_4} at ${_condition}`;
 		}
 		luaSet(_attributes, "value", _result);
 		luaSet(_attributes, "size", 11);

@@ -366,7 +366,7 @@ function AuditLine(props: { record: AuditRecord }) {
 				sizeConstraint={new UDim2(0.42, -4, 1, 0)}
 			/>
 			<Text
-				value={`${record.ActorName} → ${record.TargetName}`}
+				value={`${record.ActorName} to ${record.TargetName}`}
 				size={9}
 				color={Palette.cyan}
 				fit={true}

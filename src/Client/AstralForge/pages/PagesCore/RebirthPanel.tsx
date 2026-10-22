@@ -962,7 +962,7 @@ export function RebirthChamber(props: ChamberProps) {
 					chosen={chosen}
 					disabled={full}
 					title={entry.name}
-					body={`Lv ${compactNumber(entry.level)} → Lv ${math.clamp(math.floor(entry.level * fxShare), 1, RebirthMath.KEEP_CAP)}`}
+					body={`Lv ${compactNumber(entry.level)} to Lv ${math.clamp(math.floor(entry.level * fxShare), 1, RebirthMath.KEEP_CAP)}`}
 					iconSize={26}
 					size={new UDim2(1 / cols, -(8 * (cols - 1)) / cols, 0, chipH)}
 					position={new UDim2(col / cols, (col * 8) / cols, 0, row * (chipH + 8))}

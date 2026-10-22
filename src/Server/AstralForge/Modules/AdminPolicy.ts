@@ -200,7 +200,7 @@ const AdminPolicy = {
 			}
 			total += 1;
 			if (lines.size() < maxLines) {
-				lines.push(`${path}: ${describe(a)} → ${describe(b)}`);
+				lines.push(`${path}: ${describe(a)} to ${describe(b)}`);
 			}
 		};
 		walk("", before, after, 0);

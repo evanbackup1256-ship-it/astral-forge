@@ -1036,10 +1036,10 @@ function MobileControls(props: MobileControlsProps) {
 			});
 		const nudgeRow = row(
 			editorToolbarY + TapTarget + 8,
-			plain("←", () => nudgeSelected(-1, 0), new UDim2(0.16, -3, 1, 0)),
-			plain("↑", () => nudgeSelected(0, -1), new UDim2(0.16, -3, 1, 0), new UDim2(0.16, 1, 0, 0)),
-			plain("↓", () => nudgeSelected(0, 1), new UDim2(0.16, -3, 1, 0), new UDim2(0.32, 2, 0, 0)),
-			plain("→", () => nudgeSelected(1, 0), new UDim2(0.16, -3, 1, 0), new UDim2(0.48, 3, 0, 0)),
+			plain("<", () => nudgeSelected(-1, 0), new UDim2(0.16, -3, 1, 0)),
+			plain("^", () => nudgeSelected(0, -1), new UDim2(0.16, -3, 1, 0), new UDim2(0.16, 1, 0, 0)),
+			plain("v", () => nudgeSelected(0, 1), new UDim2(0.16, -3, 1, 0), new UDim2(0.32, 2, 0, 0)),
+			plain(">", () => nudgeSelected(1, 0), new UDim2(0.16, -3, 1, 0), new UDim2(0.48, 3, 0, 0)),
 			btn({
 				text: fine ? "1px" : "STEP",
 				onClick: () => setFine(!fine),

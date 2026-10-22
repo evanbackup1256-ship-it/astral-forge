@@ -349,7 +349,7 @@ function NextPlan(props: PlanProps) {
 			232,
 			panel(P.pink, [
 				copy("Continuum", 0, 22, 12, P.pink, true),
-				copy(`Continuum ${plan.rank} → ${plan.nextRank}`, 30, 38, 24, P.cream, true),
+				copy(`Continuum ${plan.rank} to ${plan.nextRank}`, 30, 38, 24, P.cream, true),
 				copy(missing, 78, 66, 14),
 				button(
 					busy ? "UPGRADING…" : plan.capped ? "RANK LIMIT" : "RAISE RANK",
@@ -390,28 +390,28 @@ function NextPlan(props: PlanProps) {
 			panel(P.mint, [
 				copy("Next rank", 0, 24, 13, P.mint, true),
 				copy(
-					`Production · ${compact(rank.ProductionMultiplier ?? 1)}× → ${compact(
+					`Production · ${compact(rank.ProductionMultiplier ?? 1)}× to ${compact(
 						Math.Mul((rank.ProductionMultiplier as OmegaValue | undefined) ?? 1, plan.production),
 					)}×`,
 					34,
 					36,
 				),
 				copy(
-					`Vault capacity · ${compact(rank.CapacityMultiplier ?? 1)}× → ${compact(
+					`Vault capacity · ${compact(rank.CapacityMultiplier ?? 1)}× to ${compact(
 						Math.Mul((rank.CapacityMultiplier as OmegaValue | undefined) ?? 1, plan.capacity),
 					)}×`,
 					76,
 					36,
 				),
 				copy(
-					`Strike power · ${compact(rank.TapMultiplier ?? 1)}× → ${compact(
+					`Strike power · ${compact(rank.TapMultiplier ?? 1)}× to ${compact(
 						Math.Mul((rank.TapMultiplier as OmegaValue | undefined) ?? 1, plan.tap),
 					)}×`,
 					118,
 					36,
 				),
 				copy(
-					`${string.format("%.2f", ((rank.OfflineBonus as number | undefined) ?? 0) * 100)}% → ${string.format(
+					`${string.format("%.2f", ((rank.OfflineBonus as number | undefined) ?? 0) * 100)}% to ${string.format(
 						"%.2f",
 						plan.offline * 100,
 					)}%`,

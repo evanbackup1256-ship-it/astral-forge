@@ -589,7 +589,7 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 						TextColor3: milestone ? Palette.mango : Palette.mint,
 						Text: clock.map((t) => {
 							const k = outCubic(ramp(t, tl.count0, tl.count1));
-							return `${multiplierText(before)}   →   ${multiplierText(blendMultiplier(before, after, k))}`;
+							return `${multiplierText(before)}   to   ${multiplierText(blendMultiplier(before, after, k))}`;
 						}),
 						TextTransparency: clock.map(shown),
 					}),

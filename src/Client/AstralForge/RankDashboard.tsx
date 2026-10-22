@@ -565,7 +565,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			Seat: text(standing, 0, narrow ? 56 : 24, 1, 48, 44, personalIndex === 1 ? MEDAL[1] : P.cream, { weight: Enum.FontWeight.Heavy, align: Enum.TextXAlignment.Right }),
 			Score: text(valueText(own), 0, narrow ? 70 : 64, 0.6, 22, 16, P.cream, { weight: Enum.FontWeight.SemiBold }),
 			Climb: bar(nextRatio, personalIndex === 1 ? MEDAL[1] : meta.accent, new UDim2(0, 0, 0, narrow ? 112 : 100), new UDim2(1, 0, 0, 6)),
-			Gap: text(Math.ToNumber(gap) > 0 ? `+${format.compactNumber(gap)} → #${personalIndex! - 1}` : personalIndex === undefined && rows.size() > 0 ? `${valueText(rows[rows.size() - 1].Value)} → #${rows.size()}` : "", 0, narrow ? 126 : 114, 1, 18, 11, P.creamSoft),
+			Gap: text(Math.ToNumber(gap) > 0 ? `+${format.compactNumber(gap)} to #${personalIndex! - 1}` : personalIndex === undefined && rows.size() > 0 ? `${valueText(rows[rows.size() - 1].Value)} to #${rows.size()}` : "", 0, narrow ? 126 : 114, 1, 18, 11, P.creamSoft),
 		});
 
 		// Category picker: group strip, then the boards inside the group.
