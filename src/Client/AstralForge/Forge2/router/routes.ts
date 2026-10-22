@@ -16,6 +16,7 @@ import { WorldsPage } from "../pages/WorldsPage";
 import { AscensionPage } from "../pages/AscensionPage";
 import { StarGridPage } from "../pages/StarGridPage";
 import { EchoesPage } from "../pages/EchoesPage";
+import { MailPage } from "../pages/MailPage";
 
 export interface PageProps {
 	session: Session;
@@ -44,6 +45,7 @@ const PORTED: Record<string, PageComponent> = {
 	Ascension: AscensionPage,
 	StarGrid: StarGridPage,
 	Echoes: EchoesPage,
+	Mail: MailPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
