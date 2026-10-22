@@ -1,6 +1,7 @@
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, NAVIGATION_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import { mergeEvents, useTooltip } from "../Tooltip";
 import ReactRoblox from "@rbxts/react-roblox";
 import { AppHelpers, MORE_NAV, NAV_GROUPS, PRIMARY_NAV, NavEntry, NavState, navGroupOf } from "../CoreKit/appNav";
@@ -631,9 +632,10 @@ export function MoreDockPopover(_param: MoreDockPopoverProps) {
 	const panelRef = React.useRef<GuiObject>();
 	const onCloseRef = React.useRef(onClose);
 	onCloseRef.current = onClose;
+	useBackLayer(true, () => onCloseRef.current());
 	React.useEffect(() => {
 		const connection = UserInputService.InputBegan.Connect((input) => {
-			if (input.KeyCode === Enum.KeyCode.Escape || input.KeyCode === Enum.KeyCode.ButtonB) {
+			if (input.KeyCode === Enum.KeyCode.Escape) {
 				onCloseRef.current();
 				return;
 			}

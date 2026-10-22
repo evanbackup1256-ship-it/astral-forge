@@ -4,6 +4,7 @@
 // stars waiting to be lit, the run log, and the two-step ignition. The rules are RebirthMath's,
 // and the payout is the server's own quote, so the numbers here are the numbers you get.
 import React from "@rbxts/react";
+import { useBackLayer } from "../../CoreKit/backLayer";
 import ReactRoblox from "@rbxts/react-roblox";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { asFlux, compactNumber, Flux } from "../../CoreKit/format";
@@ -623,7 +624,7 @@ export function RebirthChamber(props: ChamberProps) {
 	};
 	React.useEffect(() => {
 		const connection = UserInputService.InputBegan.Connect((input, processed) => {
-			if (input.KeyCode === Enum.KeyCode.ButtonB || (input.KeyCode === Enum.KeyCode.Escape && !processed)) {
+			if (input.KeyCode === Enum.KeyCode.Escape && !processed) {
 				close();
 			}
 		});
@@ -631,6 +632,8 @@ export function RebirthChamber(props: ChamberProps) {
 			connection.Disconnect();
 		};
 	}, [igniting, busy]);
+	// B: same path as the close button, so it does nothing while igniting or rebirthing
+	useBackLayer(true, close);
 	const commit = () => {
 		setBusy(true);
 		dispatch("Rebirth", { Vow: nextVow, Keep: keep }, (response) => {

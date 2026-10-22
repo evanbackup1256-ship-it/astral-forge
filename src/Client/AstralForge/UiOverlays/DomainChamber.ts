@@ -4,6 +4,7 @@
 //   mode "confirm": the expansion rite; hold to expand, with what it costs, keeps and pays
 //   mode "result":  a ring of heat leaves the Hearth, the new rank lands and the rewards count in
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import { Audio } from "../AudioKit/audio";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { useViewport } from "../MotionKit/motion";
@@ -669,22 +670,26 @@ function DomainChamber(props: ChamberProps) {
 		};
 	}, [mode]);
 
-	// Escape backs out: the rite returns to the lattice, the lattice closes
+	// Escape / B back out: the rite returns to the lattice, the lattice closes
+	const back = () => {
+		if (mode === "confirm" && rank >= 1) {
+			props.onMode("lattice");
+		} else if (mode !== "result") {
+			props.onClose();
+		}
+	};
 	React.useEffect(() => {
 		const connection = UserInputService.InputBegan.Connect((input) => {
-			if (input.KeyCode !== Enum.KeyCode.Escape && input.KeyCode !== Enum.KeyCode.ButtonB) {
+			if (input.KeyCode !== Enum.KeyCode.Escape) {
 				return;
 			}
-			if (mode === "confirm" && rank >= 1) {
-				props.onMode("lattice");
-			} else if (mode !== "result") {
-				props.onClose();
-			}
+			back();
 		});
 		return () => {
 			connection.Disconnect();
 		};
 	}, [mode, rank]);
+	useBackLayer(true, back);
 
 	const burstAt = (index: number, color: Color3, scale: number) => {
 		if (reduced) {

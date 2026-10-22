@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import { compactNumber } from "../CoreKit/format";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
@@ -6,7 +7,6 @@ import { joinTuple } from "../lua";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 
-const ContextActionService = game.GetService("ContextActionService");
 const UserInputService = game.GetService("UserInputService");
 const AstralForge = script.Parent!.Parent!;
 const Audio = (require(AstralForge.WaitForChild("AudioKit") as ModuleScript) as (name: string) => {
@@ -260,22 +260,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 		Audio.play("close");
 		beginExit(onClose);
 	}, [beginExit, closing, onClose]);
-	React.useEffect(() => {
-		const actionName = "AstralForgeLevelRoadmapClose";
-		ContextActionService.BindActionAtPriority(
-			actionName,
-			(_name, inputState) => {
-				if (inputState === Enum.UserInputState.Begin) {
-					close();
-				}
-				return Enum.ContextActionResult.Sink;
-			},
-			false,
-			2400,
-			Enum.KeyCode.ButtonB,
-		);
-		return () => ContextActionService.UnbindAction(actionName);
-	}, [close]);
+	useBackLayer(true, close);
 	const padFocus = useGamepadAutofocus(true);
 	React.useEffect(() => {
 		GamepadNavigationService.BeginOverlayFocus();

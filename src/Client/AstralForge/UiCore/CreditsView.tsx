@@ -5,6 +5,7 @@
 // looking at, and member rows that light up on the same spring. B or Esc closes, LB/RB change
 // section, and a tap outside the panel closes too.
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
@@ -594,12 +595,13 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	}, []);
 	React.useEffect(() => {
 		const connection = UserInputService.InputBegan.Connect((input, processed) => {
-			if (input.KeyCode === Enum.KeyCode.ButtonB || (input.KeyCode === Enum.KeyCode.Escape && !processed)) {
+			if (input.KeyCode === Enum.KeyCode.Escape && !processed) {
 				requestClose();
 			}
 		});
 		return () => connection.Disconnect();
 	}, [requestClose]);
+	useBackLayer(true, requestClose);
 
 	// gamepad: the overlay owns focus while open and starts on its first button
 	const padFocus = useGamepadAutofocus(true);

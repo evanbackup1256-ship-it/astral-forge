@@ -1,5 +1,6 @@
 import { isTouchOnly, lastInputIsGamepad } from "../CoreKit/inputLayer";
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import { TooltipContent, labelFor, mergeEvents, useTooltip } from "../Tooltip";
 import ReactRoblox from "@rbxts/react-roblox";
 import { compactNumber } from "../CoreKit/format";
@@ -3607,12 +3608,16 @@ export function Dropdown({
 	React.useEffect(() => {
 		return () => releaseDropdownPortal();
 	}, []);
+	useBackLayer(open, () => {
+		setOpen(false);
+		Audio.play("close");
+	});
 	React.useEffect(() => {
 		if (!open) {
 			return undefined;
 		}
 		const connection = UserInputService.InputBegan.Connect((input) => {
-			if (input.KeyCode === Enum.KeyCode.Escape || input.KeyCode === Enum.KeyCode.ButtonB) {
+			if (input.KeyCode === Enum.KeyCode.Escape) {
 				setOpen(false);
 				Audio.play("close");
 				return;

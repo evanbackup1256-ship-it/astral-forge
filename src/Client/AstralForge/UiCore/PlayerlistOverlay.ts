@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import { useClientSelector } from "../CoreKit/clientStore";
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
@@ -1494,18 +1495,23 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 		Audio.play("playerlistClose");
 		beginExit(onClose);
 	}, [beginExit, exiting, onClose]);
+	// an open report form backs out first, then the list closes
+	const back = () => {
+		if (reportTarget !== undefined) {
+			setReportTarget(undefined);
+		} else {
+			close();
+		}
+	};
 	React.useEffect(() => {
 		const connection = UserInputService.InputBegan.Connect((input, processed) => {
-			if (input.KeyCode === Enum.KeyCode.ButtonB || (input.KeyCode === Enum.KeyCode.Escape && !processed)) {
-				if (reportTarget !== undefined) {
-					setReportTarget(undefined);
-				} else {
-					close();
-				}
+			if (input.KeyCode === Enum.KeyCode.Escape && !processed) {
+				back();
 			}
 		});
 		return () => connection.Disconnect();
 	}, [close, reportTarget]);
+	useBackLayer(true, back);
 
 	const peerOf = (row: Row) => {
 		const player = Players.GetPlayerByUserId(row.UserId);

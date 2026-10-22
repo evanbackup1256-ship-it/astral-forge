@@ -2,6 +2,7 @@ import { useLiveSessionValue } from "./liveSession";
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, MOBILE_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import { AppHelpers, MORE_NAV, NavEntry, NavState, PRIMARY_NAV } from "../CoreKit/appNav";
 import { Flux, asFlux, compactNumber } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -276,6 +277,7 @@ function MenuSheet(_param: MenuSheetProps) {
 		dragState.current.value = 0;
 		setDrag(0);
 	}, [open]);
+	useBackLayer(open, () => _param.onClose());
 	React.useEffect(() => {
 		if (!open) {
 			return undefined;
@@ -306,7 +308,7 @@ function MenuSheet(_param: MenuSheetProps) {
 			}
 		});
 		const back = UserInputService.InputBegan.Connect((input, processed) => {
-			if (input.KeyCode === Enum.KeyCode.ButtonB || (input.KeyCode === Enum.KeyCode.Escape && !processed)) {
+			if (input.KeyCode === Enum.KeyCode.Escape && !processed) {
 				_param.onClose();
 			}
 		});

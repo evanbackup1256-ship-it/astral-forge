@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import { revealOffset, usePresence, useStagger, useViewport } from "../MotionKit/motion";
@@ -8,7 +9,6 @@ import { Button, IconTile, OverlayPresence, SegmentedTabs, Text, segmentedHeight
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
 const UserInputService = game.GetService("UserInputService");
-const ContextActionService = game.GetService("ContextActionService");
 
 const AstralForge = script.Parent!.Parent!;
 const loadKit = (name: string) => require(AstralForge.WaitForChild(name) as ModuleScript) as (member: string) => unknown;
@@ -106,22 +106,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		Audio.play("close");
 		beginExit(onClose);
 	}, [beginExit, closing, onClose, sending]);
-	React.useEffect(() => {
-		const actionName = "AstralForgeFeedbackClose";
-		ContextActionService.BindActionAtPriority(
-			actionName,
-			(_name, inputState) => {
-				if (inputState === Enum.UserInputState.Begin) {
-					close();
-				}
-				return Enum.ContextActionResult.Sink;
-			},
-			false,
-			2400,
-			Enum.KeyCode.ButtonB,
-		);
-		return () => ContextActionService.UnbindAction(actionName);
-	}, [close]);
+	useBackLayer(true, close);
 	React.useEffect(() => {
 		if (!sent) {
 			return undefined;

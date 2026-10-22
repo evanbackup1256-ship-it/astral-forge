@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Flux, asFlux, clockText, compactNumber } from "../CoreKit/format";
 import { Layout, Palette, Radius, TapTarget, chromeFor } from "../CoreKit/theme";
@@ -184,14 +185,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	// B does what the CLOSE / KEEP VAULT button does (the shell never sees it while the card is up)
 	const finishRef = React.useRef(finish);
 	finishRef.current = finish;
-	React.useEffect(() => {
-		const connection = UserInputService.InputBegan.Connect((input) => {
-			if (input.KeyCode === Enum.KeyCode.ButtonB) {
-				finishRef.current(false);
-			}
-		});
-		return () => connection.Disconnect();
-	}, []);
+	useBackLayer(true, () => finishRef.current(false));
 	React.useEffect(() => {
 		if (bigHaul) {
 			Audio.playCelebration(["offlineOpen", "discovery"], 0.12);
