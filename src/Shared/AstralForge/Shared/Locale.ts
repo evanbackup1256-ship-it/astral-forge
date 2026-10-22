@@ -2,6 +2,9 @@
 // game shipped with before routing, so this table changes nothing on screen. Add a key here, then
 // call T("Key", ...args) at the use site. Keys are typed, so a missing key is a compile error.
 // %s / %d placeholders are filled with string.format, same as the code they replaced.
+// Translations and key linting live in LocalePipeline.
+
+import { translate } from "./LocalePipeline";
 
 export const EN = {
 	"Save.OpenFailed": "Your save could not be opened safely. Please rejoin in a moment.",
@@ -990,7 +993,7 @@ export const EN = {
 
 export type LocaleKey = keyof typeof EN;
 
+// resolves through LocalePipeline: active translation when its placeholders match, else English
 export function T(key: LocaleKey, ...args: unknown[]): string {
-	const copy: string = EN[key];
-	return args.size() > 0 ? string.format(copy, ...(args as Array<string | number>)) : copy;
+	return translate(EN, key, args);
 }
