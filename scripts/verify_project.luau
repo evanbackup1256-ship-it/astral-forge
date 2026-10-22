@@ -59,6 +59,7 @@ require("./verify_gameplay_fixes")
 require("./verify_rebirth_fixes")
 require("./verify_ts_imports")
 require("./verify_service_locals")
+require("./verify_remote_registry")
 -- ---- v8 C: Companion Bonds ----
 require("./verify_companion_bonds")
 -- ---- end v8 C: Companion Bonds ----

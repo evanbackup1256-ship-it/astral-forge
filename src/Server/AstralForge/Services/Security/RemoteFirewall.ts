@@ -6,6 +6,7 @@ import { Ledger, Report } from "./SecurityLedger";
 import BazaarMath from "../../Modules/BazaarMath";
 import OpsMath from "../../Modules/OpsMath";
 import Protocol from "../../../../Shared/AstralForge/Shared/Protocol";
+import * as RemoteRegistry from "../../../../Shared/AstralForge/Shared/Data/RemoteRegistry";
 import { Dependency, Service } from "@flamework/core";
 import { Dict, isTable, req, SharedFolder } from "../LuaInterop";
 import * as SeenHints from "../../../../Shared/AstralForge/Shared/SeenHints";
@@ -259,40 +260,13 @@ function applyFirewallOverrides() {
 
 applyFirewallOverrides();
 
-const NO_PAYLOAD_ACTIONS: Record<string, boolean> = {
-	[Protocol.Actions.GetState]: true,
-	[Protocol.Actions.MeasureLatency]: true,
-	[Protocol.Actions.GetPlayers]: true,
-	[Protocol.Actions.GetTrade]: true,
-	[Protocol.Actions.ConfirmTrade]: true,
-	[Protocol.Actions.CancelTrade]: true,
-	[Protocol.Actions.GetAdminState]: true,
-	[Protocol.Actions.CollectVault]: true,
-	[Protocol.Actions.Overcharge]: true,
-	[Protocol.Actions.DomainExpansion]: true,
-	[Protocol.Actions.UpgradeContinuum]: true,
-	[Protocol.Actions.Ascend]: true,
-	[Protocol.Actions.ClaimDaily]: true,
-	[Protocol.Actions.ClaimExpedition]: true,
-	[Protocol.Actions.CompleteTutorial]: true,
-	[Protocol.Actions.ReplayTutorial]: true,
-	[Protocol.Actions.DismissRelease]: true,
-	[Protocol.Actions.OpenRelease]: true,
-	[Protocol.Actions.PulseAnomaly]: true,
-	[Protocol.Actions.StabilizeAnomaly]: true,
-	[Protocol.Actions.ActivateAnomalySurge]: true,
-	[Protocol.Actions.SyncShop]: true,
-	[Protocol.Actions.LeavePlot]: true,
-	[Protocol.Actions.GetGuild]: true,
-	[Protocol.Actions.LeaveGuild]: true,
-	[Protocol.Actions.DisbandGuild]: true,
-	[Protocol.Actions.ClaimGuildGoal]: true,
-	[Protocol.Actions.EquipBestItems]: true,
-	[Protocol.Actions.ClaimAllMail]: true,
-	[Protocol.Actions.VerifyCreatorFollow]: true,
-	[Protocol.Actions.GetCrew]: true,
-	[Protocol.Actions.CrewLeave]: true,
-};
+// No-payload actions come from the shared remote registry (Shared/Data/RemoteRegistry).
+const NO_PAYLOAD_ACTIONS: Record<string, boolean> = {};
+for (const [name] of pairs(Protocol.Actions)) {
+	if (RemoteRegistry.TakesNoPayload(name)) {
+		NO_PAYLOAD_ACTIONS[name] = true;
+	}
+}
 
 function inspect(
 	value: unknown,
@@ -356,6 +330,12 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 			return $tuple(false, "this action does not accept a payload");
 		}
 	}
+	{
+		const [schemaOk, schemaReason, handled] = RemoteRegistry.Validate(action, payload);
+		if (handled || !schemaOk) {
+			return $tuple(schemaOk, schemaReason);
+		}
+	}
 	if (
 		action === Protocol.Actions.GetGuildChatHistory ||
 		action === Protocol.Actions.GetGuildAnnouncements ||
@@ -373,33 +353,6 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		const [validOffer, offerReason] = RemoteFirewallMath.ValidateTradeOffer(bag.Offer, GameConfig.Trading.MaxItems);
 		if (!validOffer) {
 			return $tuple(false, offerReason);
-		}
-	} else if (action === Protocol.Actions.SubmitFeedback) {
-		if (!stringField(bag, "Category", 3, 16) || !stringField(bag, "Message", 8, 600)) {
-			return $tuple(false, "invalid feedback");
-		}
-		const category = bag.Category;
-		if (
-			category !== "Bug" &&
-			category !== "Suggestion" &&
-			category !== "Balance" &&
-			category !== "Performance" &&
-			category !== "Interface" &&
-			category !== "Other"
-		) {
-			return $tuple(false, "invalid feedback category");
-		}
-		if (bag.Impact !== undefined && !numberField(bag, "Impact", 1, 5, true)) {
-			return $tuple(false, "invalid feedback impact");
-		}
-		if (bag.Device !== undefined && !stringField(bag, "Device", 1, 16)) {
-			return $tuple(false, "invalid feedback device");
-		}
-		if (bag.Screen !== undefined && !stringField(bag, "Screen", 3, 16)) {
-			return $tuple(false, "invalid feedback screen");
-		}
-		if (bag.Page !== undefined && !stringField(bag, "Page", 1, 32)) {
-			return $tuple(false, "invalid feedback page");
 		}
 	} else if (action === Protocol.Actions.ReportPlayer) {
 		if (!stringField(bag, "Reason", 3, 16) || !userIdField(bag)) {
@@ -1026,46 +979,7 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 		if (!stringField(bag, "ActionType", 1, 48) || !stringField(bag, "PenaltyCode", 1, 48)) {
 			return $tuple(false, "invalid integrity envelope");
 		}
-		// ---- v8 C: Companion Bonds ----
-	} else if (action === Protocol.Actions.CompanionAct) {
-		if (bag.Op !== "PickTrait" || !stringField(bag, "Trait", 1, 24)) {
-			return $tuple(false, "invalid companion action");
-		}
-		// ---- end v8 C: Companion Bonds ----
-		// ---- v8 C: Expedition Board ----
-	} else if (action === Protocol.Actions.ExpeditionAct) {
-		if (bag.Op !== "Launch" && bag.Op !== "Claim" && bag.Op !== "Recall") {
-			return $tuple(false, "invalid expedition action");
-		}
-		if (!numberField(bag, "Slot", 1, 5, true)) {
-			return $tuple(false, "invalid expedition slot");
-		}
-		if (bag.Op === "Launch") {
-			if (!stringField(bag, "Id", 1, 48)) return $tuple(false, "invalid expedition route");
-			if (bag.Crew !== undefined && !stringArrayField(bag, "Crew", 3, 1, 32)) return $tuple(false, "invalid expedition crew");
-		}
-		// ---- end v8 C: Expedition Board ----
-		// ---- v8 C: Forge Programs ----
-	} else if (action === Protocol.Actions.ProgramAct) {
-		if (bag.Op !== "Save" && bag.Op !== "Toggle" && bag.Op !== "Delete") {
-			return $tuple(false, "invalid program action");
-		}
-		if (bag.Index !== undefined && !numberField(bag, "Index", 1, 5, true)) {
-			return $tuple(false, "invalid program index");
-		}
-		if (bag.Op !== "Save" && bag.Index === undefined) {
-			return $tuple(false, "invalid program index");
-		}
-		if (bag.Op === "Save") {
-			const rule = bag.Rule;
-			if (!typeIs(rule, "table") || !stringField(rule as Dict, "When", 1, 24) || !stringField(rule as Dict, "Do", 1, 24)) {
-				return $tuple(false, "invalid program rule");
-			}
-			const ruleBag = rule as Dict;
-			if (ruleBag.Arg !== undefined && !numberField(ruleBag, "Arg", 0, 1000)) return $tuple(false, "invalid program value");
-			if (ruleBag.Enabled !== undefined && !typeIs(ruleBag.Enabled, "boolean")) return $tuple(false, "invalid program switch");
-		}
-		// ---- end v8 C: Forge Programs ----
+		// SubmitFeedback, CompanionAct, ExpeditionAct and ProgramAct are checked by RemoteRegistry.
 	}
 	return $tuple(true, undefined);
 }

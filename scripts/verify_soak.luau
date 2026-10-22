@@ -153,10 +153,13 @@ do
 	local rulesStart = string.find(fw, "const RULES", 1, true)
 	local rulesEnd = string.find(fw, "\n};", rulesStart, true)
 	local outside = string.sub(fw, 1, rulesStart) .. string.sub(fw, rulesEnd)
+	local Registry = require("./_out_loader")("out/Shared/AstralForge/Shared/Data/RemoteRegistry")
 	local n = 0
 	for name, action in Protocol.Actions do
 		n += 1
-		check(string.find(outside, "Protocol.Actions." .. name .. "[^%w]") ~= nil, name .. " has a payload rule or is a no-payload action")
+		local entry = Registry.EntryFor(name)
+		local inRegistry = entry ~= nil and entry.Kind ~= "legacy"
+		check(inRegistry or string.find(outside, "Protocol.Actions." .. name .. "[^%w]") ~= nil, name .. " has a payload rule or is a no-payload action")
 		local category = Buckets.CategoryOf(action)
 		check(Buckets.RULES[category] ~= nil, name .. " lands in a real rate bucket")
 		if string.sub(action, 1, 3) == "Buy" or string.sub(action, 1, 5) == "Claim" or action == "EventAct" then
