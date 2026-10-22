@@ -1,4 +1,5 @@
-﻿import React from "@rbxts/react";
+﻿import { SplitColumns, splitFor } from "../../UiCore/splitColumns";
+import React from "@rbxts/react";
 import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
@@ -449,6 +450,85 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const rowStack = stack && !chrome.landscape;
 	const rowStride = missionRowH(rowStack) + 16;
 	const pageGap = 10;
+	// wide desktop: header, summary, claim-all and browse controls in a side column; the list
+	// fills the main column at full height
+	const plan = splitFor(viewport, stack);
+	const sideBarH = Browse.barHeight(true, true);
+	const sideClaimY = 142;
+	const sideBarY = sideClaimY + (counts.Ready > 0 ? 54 : 0);
+	const sideHeaderH = sideBarY + sideBarH + 32;
+	const sidePanel = (
+		<Panel
+			size={UDim2.fromScale(1, 1)}
+			accent={Palette.cyan}
+			background={Palette.panelRaised}
+			padding={16}
+			reveal={enter}
+			reducedMotion={softMotion}
+			zIndex={30}
+			clips={false}
+		>
+			<Text
+				value={`${counts.Done} of ${quests.size()} done today`}
+				size={22}
+				color={Palette.cream}
+				weight={Enum.FontWeight.Heavy}
+				fit={true}
+				minSize={14}
+				position={UDim2.fromOffset(0, 0)}
+				sizeConstraint={new UDim2(1, 0, 0, 30)}
+			/>
+			<Text
+				value={nextStepText}
+				size={12}
+				color={closest !== undefined ? Palette.creamSoft : Palette.muted}
+				wrap={true}
+				fit={true}
+				minSize={9}
+				position={UDim2.fromOffset(0, 36)}
+				sizeConstraint={new UDim2(1, 0, 0, 34)}
+			/>
+			<TaskSummary
+				done={counts.Done}
+				total={quests.size()}
+				accent={Palette.cyan}
+				reducedMotion={softMotion}
+				position={UDim2.fromOffset(0, 76)}
+				size={new UDim2(1, 0, 0, 56)}
+			/>
+			{counts.Ready > 0 && (
+				<frame
+					key="MissionClaimActions"
+					Size={new UDim2(1, 0, 0, 44)}
+					Position={UDim2.fromOffset(0, sideClaimY)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+					ClipsDescendants={false}
+					ref={missionClaimHostRef}
+				>
+					<Button
+						text={`CLAIM ALL · ${counts.Ready}`}
+						icon="Gift.4"
+						onClick={claimAllReady}
+						color={Palette.green}
+						textColor={Palette.ink}
+						size={UDim2.fromScale(1, 1)}
+						reducedMotion={softMotion}
+						highlight={true}
+					/>
+				</frame>
+			)}
+			<Browse.BrowseBar
+				browse={browse}
+				placeholder="Search missions and rewards"
+				accent={Palette.cyan}
+				stack={true}
+				reducedMotion={softMotion}
+				position={UDim2.fromOffset(0, sideBarY)}
+				zIndex={40}
+			/>
+		</Panel>
+	);
 	const headerPanel = (
 		<Panel
 			size={UDim2.fromScale(1, 1)}
@@ -572,10 +652,28 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			tailPad={scrollTail(stack, chrome.bottomSafe, 24)}
 			scrollBarColor={Palette.cyan}
 			scrollBarThickness={4}
-			sections={[
-				{ id: "hero", height: headerHeight, element: headerPanel },
-				{ id: "list", fill: true, minHeight: math.max(160, rowStride * 2), element: missionsList },
-			]}
+			sections={
+				plan.split
+					? [
+							{
+								id: "list",
+								fill: true,
+								minHeight: math.max(sideHeaderH, rowStride * 2),
+								element: (
+									<SplitColumns
+										plan={plan}
+										side={[{ id: "hero", height: sideHeaderH, element: sidePanel }]}
+										main={missionsList}
+										name="MissionsSplit"
+									/>
+								),
+							},
+						]
+					: [
+							{ id: "hero", height: headerHeight, element: headerPanel },
+							{ id: "list", fill: true, minHeight: math.max(160, rowStride * 2), element: missionsList },
+						]
+			}
 		/>
 	);
 }
