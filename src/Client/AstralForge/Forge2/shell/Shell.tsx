@@ -15,6 +15,7 @@ import { Router } from "../router/Router";
 import { RebirthCeremonyHost } from "../../UiCore/RebirthCeremony";
 import type { Request } from "../store/net";
 import { useForge, useForgeStore } from "../store/store";
+import * as NavRoutes from "../../../../Shared/AstralForge/Shared/NavRoutes";
 
 function Readout(props: { label: string; value: unknown; color: Color3; order: number; phone: boolean }) {
 	const text = compactNumber(props.value ?? 0);
@@ -80,8 +81,11 @@ function Rail(props: { page: string; navigate: (id: string) => void; width: numb
 
 function TabBar(props: { page: string; navigate: (id: string) => void; chrome: MobileChrome; width: number }) {
 	const region = useRegion("tabs");
-	const slots = math.max(3, math.min(PHONE_TABS.size(), props.chrome.tabBarSlots));
-	const tabs = PHONE_TABS.filter((_, i) => i < slots);
+	const pins = useForge((st) => (st.session as { Flags?: { MobileTabPins?: unknown } } | undefined)?.Flags?.MobileTabPins);
+	const saved = NavRoutes.normalizeMobileTabPins(pins);
+	const order = [...saved, ...PHONE_TABS.filter((id) => !saved.includes(id))];
+	const slots = math.max(3, math.min(math.max(PHONE_TABS.size(), saved.size()), props.chrome.tabBarSlots));
+	const tabs = order.filter((_, i) => i < slots);
 	const height = math.max(HIT + 12, props.chrome.tabBarH);
 	return (
 		<frame

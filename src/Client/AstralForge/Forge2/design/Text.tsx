@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import * as FancyText from "../../UiCore/fancyText";
 import { FancyTitle } from "../../UiCore/FancyTitle";
+import { useMotionSettings } from "../../MotionKit/motion";
 import { Fonts, Iron } from "./tokens";
 
 export interface TextProps {
@@ -25,18 +26,20 @@ export interface TextProps {
 export function Text(props: TextProps) {
 	const align = Enum.TextXAlignment[props.align ?? "Left"];
 	const grows = props.multiline === true;
+	const scale = useMotionSettings().textScale ?? 1;
+	const size = math.floor(props.size * scale + 0.5);
 	return (
 		<textlabel
 			Text={props.text}
 			FontFace={props.font ?? Fonts.bold}
 			TextColor3={props.color ?? Iron.text()}
-			TextSize={props.size}
+			TextSize={size}
 			TextScaled={!grows}
 			TextWrapped={grows}
 			TextXAlignment={align}
 			TextTransparency={props.transparency ?? 0}
 			BackgroundTransparency={1}
-			Size={props.box ?? (grows ? new UDim2(1, 0, 0, 0) : new UDim2(1, 0, 0, props.size + 6))}
+			Size={props.box ?? (grows ? new UDim2(1, 0, 0, 0) : new UDim2(1, 0, 0, size + 6))}
 			AutomaticSize={grows ? Enum.AutomaticSize.Y : Enum.AutomaticSize.None}
 			Position={props.position}
 			AnchorPoint={props.anchor}
@@ -44,7 +47,7 @@ export function Text(props: TextProps) {
 			ZIndex={props.zIndex}
 			RichText
 		>
-			{!grows && <uitextsizeconstraint MaxTextSize={props.size} MinTextSize={props.minSize ?? math.max(9, props.size - 6)} />}
+			{!grows && <uitextsizeconstraint MaxTextSize={size} MinTextSize={math.min(size, props.minSize ?? math.max(9, size - 6))} />}
 			{props.children}
 		</textlabel>
 	);
