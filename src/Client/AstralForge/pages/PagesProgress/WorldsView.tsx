@@ -6,6 +6,7 @@ import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useStagger, useViewport } from "../../MotionKit/motion";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
 const UserInputService = game.GetService("UserInputService");
@@ -14,6 +15,10 @@ const PageScaffold = loadPageScaffold();
 const Browse = loadBrowse();
 
 const WORLD_SCAN = 600;
+
+function rowGapFor(stack: boolean, phoneGap: number): number {
+	return stack ? phoneGap : Layout.panelGap;
+}
 const WORLD_RESULTS = 60;
 
 interface ZoneDef {
@@ -256,11 +261,15 @@ function WorldsView(props: WorldsViewProps) {
 			pcall(task.cancel, selectJob);
 		};
 	}, [state.CurrentZone, state.Zone]);
-	const barH = Browse.barHeight(stack, true);
-	const headerHeight = (stack ? 168 : 112) + barH + 10;
+	// wide desktop: the header, search and Expeditions sit in a side column next to the world list
+	const plan = splitColumns(stack ? 0 : viewport.width, 360, rowGapFor(stack, chrome.panelGap), 1280);
+	const sideColumn = plan.split;
+	const headerStack = stack || sideColumn;
+	const barH = Browse.barHeight(headerStack, true);
+	const headerHeight = (headerStack ? 168 : 112) + barH + 10;
 	const rowHeight = PageBoardHeights.World(stack);
-	const rowGap = stack ? chrome.panelGap : Layout.panelGap;
-	const worldColumns = stack ? 1 : viewport.width >= 1700 ? 3 : viewport.width >= 1100 ? 2 : 1;
+	const rowGap = rowGapFor(stack, chrome.panelGap);
+	const worldColumns = stack ? 1 : sideColumn ? (viewport.width >= 1800 ? 2 : 1) : viewport.width >= 1100 ? 2 : 1;
 	const listPad = Layout.stackGap * 2;
 	const catalogTotal = config.MaxZone ?? config.Zones.size();
 	const total = catalogTotal > 0 ? math.clamp(state.Zone + 2, 1, catalogTotal) : 0;
@@ -326,7 +335,7 @@ function WorldsView(props: WorldsViewProps) {
 				return;
 			}
 			const localIndex = math.clamp(currentIdx - focused.start, 0, math.max(0, focused.count - 1));
-			scrolling.CanvasPosition = new Vector2(0, math.max(0, headerHeight + rowGap + localIndex * (rowHeight + rowGap) - 40));
+			scrolling.CanvasPosition = new Vector2(0, math.max(0, (sideColumn ? 0 : headerHeight + rowGap) + math.floor(localIndex / worldColumns) * (rowHeight + rowGap) - 40));
 		});
 	};
 	const moreLabel =
@@ -478,7 +487,7 @@ function WorldsView(props: WorldsViewProps) {
 					size={UDim2.fromScale(1, 1)}
 					accent={Palette.mint}
 					background={Palette.panelRaised}
-					padding={stack ? 16 : 14}
+					padding={headerStack ? 16 : 14}
 					reveal={headerReveal}
 					reducedMotion={softMotion}
 					highlight={!softMotion && travelReveal !== undefined}
@@ -491,14 +500,14 @@ function WorldsView(props: WorldsViewProps) {
 								? `You are on World ${compactNumber(state.CurrentZone)} (Farthest: World ${compactNumber(state.Zone)})`
 								: `You are on World ${compactNumber(state.CurrentZone ?? state.Zone)}`
 						}
-						size={stack ? chrome.titleText : 22}
+						size={headerStack ? chrome.titleText : 22}
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
 						fit={false}
 						position={UDim2.fromOffset(0, 10)}
-						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 30)}
+						sizeConstraint={new UDim2(1, headerStack ? -8 : -320, 0, 30)}
 					/>
-					{!stack && (
+					{!headerStack && (
 						<frame
 							Size={UDim2.fromOffset(0, 42)}
 							AutomaticSize={Enum.AutomaticSize.X}
@@ -537,7 +546,7 @@ function WorldsView(props: WorldsViewProps) {
 							/>
 						</frame>
 					)}
-					{stack && (
+					{headerStack && (
 						<Button
 							text="FIND CURRENT"
 							icon="Search.4"
@@ -557,7 +566,7 @@ function WorldsView(props: WorldsViewProps) {
 						browse={browse}
 						placeholder="Search worlds by name or feature"
 						accent={Palette.mint}
-						stack={stack}
+						stack={headerStack}
 						reducedMotion={softMotion}
 						position={new UDim2(0, 0, 1, -barH)}
 						zIndex={30}
@@ -624,6 +633,8 @@ function WorldsView(props: WorldsViewProps) {
 			),
 		});
 	}
+	const sideBlocks = sections.filter((section) => section.id === "header" || section.id === "expeditions").map((section) => ({ id: section.id, height: section.height ?? 0, element: section.element }));
+	const mainBlocks = sections.filter((section) => section.id !== "header" && section.id !== "expeditions").map((section) => ({ id: section.id, height: section.height ?? 0, element: section.element }));
 	return (
 		<frame
 			ref={worldsHostRef}
@@ -633,14 +644,25 @@ function WorldsView(props: WorldsViewProps) {
 			BorderSizePixel={0}
 			ClipsDescendants={false}
 		>
-			<PageScaffold
-				hostRef={scrollRef}
-				gap={rowGap}
-				tailPad={worldTail + listPad}
-				scrollBarColor={Palette.mint}
-				scrollBarThickness={4}
-				sections={sections}
-			/>
+			{sideColumn ? (
+				<PageScaffold
+					hostRef={scrollRef}
+					gap={rowGap}
+					tailPad={worldTail + listPad}
+					scrollBarColor={Palette.mint}
+					scrollBarThickness={4}
+					sections={[{ id: "split", height: math.max(stackHeight(sideBlocks.map((block) => block.height), rowGap), stackHeight(mainBlocks.map((block) => block.height), rowGap)), element: <SplitColumns name="WorldsSplit" height={math.max(stackHeight(sideBlocks.map((block) => block.height), rowGap), stackHeight(mainBlocks.map((block) => block.height), rowGap))} plan={plan} side={<StackBlocks gap={rowGap} blocks={sideBlocks} />} main={<StackBlocks gap={rowGap} blocks={mainBlocks} />} /> }]}
+				/>
+			) : (
+				<PageScaffold
+					hostRef={scrollRef}
+					gap={rowGap}
+					tailPad={worldTail + listPad}
+					scrollBarColor={Palette.mint}
+					scrollBarThickness={4}
+					sections={sections}
+				/>
+			)}
 		</frame>
 	);
 }
