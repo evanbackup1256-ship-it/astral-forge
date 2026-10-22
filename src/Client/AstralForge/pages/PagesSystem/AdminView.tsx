@@ -6,6 +6,8 @@ import { Palette } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../../MotionKit/motion";
 import { chromeFor } from "../../CoreKit/theme";
+import { useFocusOrder } from "../../CoreKit/focusOrder";
+import { named } from "../luauDeps";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 
 const HttpService = game.GetService("HttpService");
@@ -1136,18 +1138,37 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		</frame>
 	);
 
+	// pad order: header tools, players, commands, then the inspect -> execute -> recent column, ops last.
+	// Narrow mode uses the scaffold section ids, wide mode the named console columns.
+	const focusHostRef = React.useRef<Frame>();
+	useFocusOrder(
+		focusHostRef,
+		{
+			regions: narrow
+				? ["header", "players", "commands", "inspect", "execute", "recent", "ops*"]
+				: ["header", "AdminPlayers", "AdminCommands", "AdminInspect", "AdminExecute", "AdminRecent", "ops"],
+			first: narrow ? ["players", "commands"] : ["AdminPlayers", "AdminCommands"],
+			columns: narrow
+				? undefined
+				: [
+						["AdminPlayers", "AdminCommands"],
+						["AdminCommands", "AdminInspect"],
+					],
+		},
+		[narrow],
+	);
 	const BODY_H = inspectH + GAP + executeH + GAP + RECENT_MIN;
 	const consoleBody = (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
 			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, BODY_H)} />
-			<frame Size={new UDim2(0, PLAYERS_W, 1, 0)} BackgroundTransparency={1}>
+			<frame Size={new UDim2(0, PLAYERS_W, 1, 0)} BackgroundTransparency={1} {...named("AdminPlayers")}>
 				{playerSection}
 			</frame>
 			<frame Size={new UDim2(0, DETAIL_W, 1, 0)} Position={new UDim2(1, -DETAIL_W, 0, 0)} BackgroundTransparency={1}>
-				<frame Size={new UDim2(1, 0, 0, inspectH)} BackgroundTransparency={1}>
+				<frame Size={new UDim2(1, 0, 0, inspectH)} BackgroundTransparency={1} {...named("AdminInspect")}>
 					{inspectSection}
 				</frame>
-				<frame Size={new UDim2(1, 0, 0, executeH)} Position={UDim2.fromOffset(0, inspectH + GAP)} BackgroundTransparency={1}>
+				<frame Size={new UDim2(1, 0, 0, executeH)} Position={UDim2.fromOffset(0, inspectH + GAP)} BackgroundTransparency={1} {...named("AdminExecute")}>
 					{executeDock}
 				</frame>
 				<frame
@@ -1155,6 +1176,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					Position={UDim2.fromOffset(0, inspectH + executeH + GAP * 2)}
 					BackgroundTransparency={1}
 					ClipsDescendants={true}
+					{...named("AdminRecent")}
 				>
 					<uisizeconstraint MinSize={new Vector2(0, RECENT_MIN)} />
 					{recentSection}
@@ -1164,6 +1186,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				Size={new UDim2(1, -(PLAYERS_W + DETAIL_W + GAP * 2), 1, 0)}
 				Position={UDim2.fromOffset(PLAYERS_W + GAP, 0)}
 				BackgroundTransparency={1}
+				{...named("AdminCommands")}
 			>
 				{commandSection}
 			</frame>
@@ -1171,6 +1194,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	);
 
 	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ref={focusHostRef}>
 		<PageScaffold
 			gap={GAP}
 			tailPad={8}
@@ -1194,6 +1218,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 						]
 			}
 		/>
+		</frame>
 	);
 }
 
