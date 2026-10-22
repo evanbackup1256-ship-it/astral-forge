@@ -105,6 +105,59 @@ function crewRowAccent(player: unknown): Color3 | undefined {
 	return ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(userId)).accent;
 }
 
+const CREW_WIDE_MIN = 1280;
+
+interface CrewSection {
+	id: string;
+	height?: number;
+	element?: unknown;
+	fill?: boolean;
+	minHeight?: number;
+}
+
+/**
+ * Wide screens: consecutive same-height rows of the same kind (`kindOf` returns a kind, or
+ * undefined to leave a section alone) sit two per row. Each pair becomes one section with both rows side by side; order and keys are unchanged.
+ */
+function pairRows(sections: CrewSection[], kindOf: (id: string) => string | undefined, gap: number): CrewSection[] {
+	const out: CrewSection[] = [];
+	const kind = (section: CrewSection | undefined) =>
+		section !== undefined && section.fill !== true && section.height !== undefined ? kindOf(section.id) : undefined;
+	let index = 0;
+	while (index < sections.size()) {
+		const left = sections[index];
+		const right = sections[index + 1] as CrewSection | undefined;
+		if (kind(left) !== undefined && kind(left) === kind(right) && right!.height === left.height) {
+			out.push({
+				id: `${left.id}+${right!.id}`,
+				height: left.height,
+				element: React.createElement(
+					"frame",
+					{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
+					React.createElement("frame", { key: left.id, Size: new UDim2(0.5, -gap / 2, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0 }, left.element as React.Element),
+					React.createElement("frame", { key: right!.id, Size: new UDim2(0.5, -gap / 2, 1, 0), Position: new UDim2(0.5, gap / 2, 0, 0), BackgroundTransparency: 1, BorderSizePixel: 0 }, right!.element as React.Element),
+				),
+			});
+			index += 2;
+		} else {
+			out.push(left);
+			index += 1;
+		}
+	}
+	return out;
+}
+
+/** Crew members ("crew-member-<id>") and plain roster rows ("crew-<n>") pair up; nothing else does. */
+function crewRowKind(id: string): string | undefined {
+	if (id.match("^crew%-member%-")[0] !== undefined) {
+		return "member";
+	}
+	if (id.match("^crew%-%d+$")[0] !== undefined) {
+		return "roster";
+	}
+	return undefined;
+}
+
 function __member(): unknown {
 	let Players: unknown = colon(game).GetService("Players");
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -771,7 +824,10 @@ function __member(): unknown {
 				rowElements.forEach((row, i) => luaTable.insert(sections, { id: concat("crew-", tostring(i + 1)), height: rowStride, element: row }));
 			}
 		}
-		return reactLoose.createElement("frame", { ref: crewHostRef, Name: "CrewVisitClaim", Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: listGap, tailPad: crewTail, scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, sections: sections }));
+		// wide desktop windows: crew members and roster rows pair up two per row
+		const crewWide = !luaTruthy(stack) && (luaProp(viewport, "width") as number) >= CREW_WIDE_MIN;
+		const laidOut = crewWide ? pairRows(sections as CrewSection[], crewRowKind, listGap as number) : sections;
+		return reactLoose.createElement("frame", { ref: crewHostRef, Name: "CrewVisitClaim", Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: listGap, tailPad: crewTail, scrollBarColor: luaProp(Palette, "blue"), scrollBarThickness: 4, sections: laidOut }));
 		return undefined;
 	}
 	return { CrewView: CrewView };
