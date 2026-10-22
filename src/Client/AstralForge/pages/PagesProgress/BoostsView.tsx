@@ -4,6 +4,7 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { chromeFor, darken, Layout, lighten, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useClock, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
+import { splitFor, splitSections } from "../../UiCore/splitColumns";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
 const UserInputService = game.GetService("UserInputService");
@@ -585,7 +586,10 @@ function BoostsView(props: BoostsViewProps) {
 	const antilag = useAntilag();
 	// phones in landscape fit two boost cards side by side; one column leaves a 360px-tall
 	// screen showing a single card at a time
-	const columns = stack && !chrome.landscape ? 1 : viewport.width >= 1280 ? 3 : 2;
+	// wide desktop: reactor, stats and browse controls in a side column, cards in the main one
+	const plan = splitFor(viewport, stack);
+	const gridWidth = plan.split ? viewport.width - plan.sideWidth - plan.gap : viewport.width;
+	const columns = stack && !chrome.landscape ? 1 : gridWidth >= 1100 ? 3 : 2;
 	const activateHostRef = React.useRef<Frame>();
 	const now = useWallClock(true);
 	const inventory = state.BoostInventory ?? {};
@@ -692,7 +696,8 @@ function BoostsView(props: BoostsViewProps) {
 	const busyText = activeBoost !== undefined ? `${string.upper(activeBoost.Name)} RUNNING` : "ONE AT A TIME";
 	// phones in landscape use the wide hero and a single row of stat tiles: the stacked ones
 	// take 318-388px, more than a 360px-tall screen has
-	const heroStack = stack && !chrome.landscape;
+	const heroStack = (stack && !chrome.landscape) || plan.split;
+	const barStack = stack || plan.split;
 	const heroH = activeBoost !== undefined ? (heroStack ? 260 : 182) : heroStack ? 190 : 132;
 	const statsH = heroStack ? 128 : 60;
 	const rowStride = CARD_H + GAP;
@@ -784,7 +789,8 @@ function BoostsView(props: BoostsViewProps) {
 			tailPad={scrollTail(stack, chrome.bottomSafe, stack ? 56 : 48)}
 			scrollBarColor={Palette.pink}
 			scrollBarThickness={4}
-			sections={
+			sections={splitSections(
+				plan,
 				[
 					{
 						id: "hero",
@@ -813,13 +819,13 @@ function BoostsView(props: BoostsViewProps) {
 					},
 					{
 						id: "filters",
-						height: Browse.barHeight(stack, true),
+						height: Browse.barHeight(barStack, true),
 						element: (
 							<Browse.BrowseBar
 								browse={browse}
 								placeholder="Search boosts"
 								accent={Palette.pink}
-								stack={stack}
+								stack={barStack}
 								reducedMotion={softMotion}
 								zIndex={30}
 							/>
@@ -830,8 +836,9 @@ function BoostsView(props: BoostsViewProps) {
 						height: boosts.size() === 0 ? 220 : gridH,
 						element: grid,
 					},
-				] as Section[]
-			}
+				] as Array<Section & { height: number }>,
+				"Boosts",
+			)}
 		/>
 	);
 }
