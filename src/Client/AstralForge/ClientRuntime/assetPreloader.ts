@@ -304,9 +304,14 @@ function preloadMountedGame(
 		const queue: Item[] = [];
 		const tags = new Map<Item, Tag>();
 		tagSink = tags;
+		// Only what the first frame can show holds the loading screen: the static manifest and the
+		// mounted UI. Config art (every crate, pet and world icon) and the deep Workspace scan load
+		// right after the game opens, in the same batches, so nothing streams in any later than before.
+		const deferred: Item[] = [];
 		collectStaticContent(seenContentIds, queue);
-		collectConfigContent(seenContentIds, queue);
-		collectMountedContent(seenInstances, queue, true);
+		collectMountedContent(seenInstances, queue, false);
+		collectConfigContent(seenContentIds, deferred);
+		collectMountedContent(seenInstances, deferred, true);
 		tagSink = undefined;
 		// per-station counts for the loading screen
 		const totals = { art: 0, world: 0 };
@@ -398,7 +403,7 @@ function preloadMountedGame(
 			const late: Item[] = [];
 			tagSink = tags;
 			collectStaticContent(seenContentIds, late);
-			collectMountedContent(seenInstances, late, sweep >= 2);
+			collectMountedContent(seenInstances, late, false);
 			tagSink = undefined;
 			if (late.size() === 0) {
 				stableSweeps += 1;
@@ -430,8 +435,12 @@ function preloadMountedGame(
 		ClientLog.once(
 			"asset-preload-ready",
 			"assets",
-			`${loaded} assets ready in ${string.format("%.2f", os.clock() - startedAt)}s`,
+			`${loaded} assets ready in ${string.format("%.2f", os.clock() - startedAt)}s (${deferred.size()} more loading behind the game)`,
 		);
+		// config art and the deep world scan load after the game is open
+		if (!cancelled) {
+			drain(deferred);
+		}
 		worker = undefined;
 	});
 	watchdog = task.delay(PRELOAD_FAIL_OPEN_SECONDS, () => {

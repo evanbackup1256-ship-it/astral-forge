@@ -987,7 +987,9 @@ function ensureDriver() {
 			} else if (islandQueue.size() > 0 && !islandSubscribers.isEmpty() && !islandHeld) {
 				islandAdvance();
 			}
-			if (islandCurrent === undefined && islandQueue.size() === 0 && islandDriver !== undefined) {
+			// idle whenever nothing can advance: a hold release and a new subscriber both restart it
+			const stalled = islandQueue.size() === 0 || islandHeld || islandSubscribers.isEmpty();
+			if (islandCurrent === undefined && stalled && islandDriver !== undefined) {
 				islandDriver.Disconnect();
 				islandDriver = undefined;
 			}
