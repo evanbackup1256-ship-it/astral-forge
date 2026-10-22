@@ -1,5 +1,6 @@
 // PagesSocial.luau — compiled page bundle for the Social tab.
 // Members are required lazily: PagesSocial("TradeView") only pays for that page's code.
+import { BRASS, IRON_RADIUS, ironFace } from "../UiCore/castIron";
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { unixNow } from "../CoreKit/deadlines";
@@ -546,7 +547,7 @@ __defs["TradeView"] = () => {
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 10) }),
+			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 			h(Stroke, {
 				color: line.accent,
 				thickness: 1,
@@ -670,7 +671,7 @@ __defs["TradeView"] = () => {
 				BorderSizePixel: 0,
 				ZIndex: 5,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 10) }),
+			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 			h("uipadding", {
 				PaddingTop: new UDim(0, 6),
 				PaddingBottom: new UDim(0, 6),
@@ -844,7 +845,7 @@ __defs["TradeView"] = () => {
 						TextColor3: Palette.cream,
 						TextXAlignment: mine ? Enum.TextXAlignment.Right : Enum.TextXAlignment.Left,
 					},
-					h("uicorner", { CornerRadius: new UDim(0, 10) }),
+					h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 					h("uipadding", {
 						PaddingTop: new UDim(0, 6),
 						PaddingBottom: new UDim(0, 6),
@@ -861,9 +862,9 @@ __defs["TradeView"] = () => {
 				BackgroundColor3: Palette.panel,
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 			h(Stroke, {
-				color: Palette.line,
+				color: BRASS,
 				thickness: 1,
 				transparency: 0.4,
 			}),
@@ -948,7 +949,7 @@ __defs["TradeView"] = () => {
 							},
 						},
 					},
-					h("uicorner", { CornerRadius: new UDim(0, 10) }),
+					h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 					h("uipadding", { PaddingLeft: new UDim(0, 10) }),
 				),
 				h(Button, {
@@ -1049,7 +1050,7 @@ __defs["TradeView"] = () => {
 						},
 					},
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 10) }),
+				h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 				h(Stroke, {
 					color: on ? color : Palette.line,
 					thickness: on ? 2 : 1,
@@ -1084,9 +1085,9 @@ __defs["TradeView"] = () => {
 				BackgroundColor3: Palette.panel,
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 			h(Stroke, {
-				color: Palette.line,
+				color: BRASS,
 				thickness: 1,
 				transparency: 0.4,
 			}),
@@ -1110,7 +1111,7 @@ __defs["TradeView"] = () => {
 							BackgroundColor3: darken(Palette.mango, 0.7),
 							BorderSizePixel: 0,
 						},
-						h("uicorner", { CornerRadius: new UDim(0, 10) }),
+						h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 						h(Text, {
 							value: `${session.PartnerName} wants`,
 							size: 10,
@@ -2329,7 +2330,7 @@ __defs["TradeView"] = () => {
 						{
 							size: new UDim2(1, 0, 0, 86),
 							accent: Palette.muted,
-							padding: compactTrade ? 12 : Layout.cardPadding,
+							padding: compactTrade ? 12 : Layout.cardPadding + 4,
 							reducedMotion: reducedMotion,
 							layoutOrder: 1,
 						},
@@ -2359,7 +2360,7 @@ __defs["TradeView"] = () => {
 						{
 							size: new UDim2(1, 0, 0, 128),
 							accent: Palette.cyan,
-							padding: compactTrade ? 12 : Layout.cardPadding,
+							padding: compactTrade ? 12 : Layout.cardPadding + 4,
 							reducedMotion: reducedMotion,
 							layoutOrder: 2,
 						},
@@ -2435,7 +2436,7 @@ __defs["TradeView"] = () => {
 						{
 							size: new UDim2(1, 0, 0, 124),
 							accent: Palette.mango,
-							padding: compactTrade ? 12 : Layout.cardPadding,
+							padding: compactTrade ? 12 : Layout.cardPadding + 4,
 							reducedMotion: reducedMotion,
 							layoutOrder: 3,
 						},
@@ -2685,7 +2686,7 @@ __defs["TradeView"] = () => {
 						size: UDim2.fromScale(1, 1),
 						accent: accent,
 						background: Palette.panel,
-						padding: 12,
+						padding: 16,
 						clips: false,
 					},
 					h(Text, {

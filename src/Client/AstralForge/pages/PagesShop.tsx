@@ -1,5 +1,6 @@
 // PagesShop.luau — compiled page bundle for the Shop tab.
 // Members are required lazily: PagesShop("WheelView") only pays for that page's code.
+import { BRASS, IRON_RADIUS, ironFace } from "../UiCore/castIron";
 import React from "@rbxts/react";
 import { counted, memoRow, sameFields } from "../UiCore/rowMemo";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -537,7 +538,7 @@ function OfferTileImpl(props: OfferTileProps) {
 					BorderSizePixel={0}
 					ClipsDescendants={true}
 				>
-					<uicorner CornerRadius={new UDim(0, Radius.md)} />
+					<uicorner CornerRadius={new UDim(0, IRON_RADIUS)} />{ironFace()}
 					<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
 					{h(Icon, {
 						kind: icon,
@@ -1166,7 +1167,8 @@ function ShopView(props: ShopViewProps) {
 						BorderSizePixel: 0,
 						ClipsDescendants: false,
 					},
-					<uicorner CornerRadius={new UDim(0, Radius.md)} />,
+					<uicorner CornerRadius={new UDim(0, IRON_RADIUS)} />,
+					ironFace(),
 					<uistroke Color={codeFeedback !== "" ? Palette.cyan : Palette.lineSoft} Thickness={1} Transparency={0.5} />,
 					h("textbox", {
 						Size: new UDim2(1, -20, 1, -12),
@@ -1637,7 +1639,7 @@ function Hero(props: HeroProps) {
 			size: UDim2.fromScale(1, 1),
 			accent: props.accent,
 			background: Palette.panelRaised,
-			padding: 14,
+			padding: 18,
 			reveal: props.reveal,
 			highlight: true,
 			reducedMotion: props.reducedMotion,
@@ -1775,7 +1777,7 @@ function OfferCardImpl(props: OfferCardProps) {
 			size: UDim2.fromScale(1, 1),
 			accent: accent,
 			background: Palette.panelRaised,
-			padding: 12,
+			padding: 16,
 			reveal: reveal,
 			interactive: canBuy,
 			highlight: offer.Deal,
@@ -1791,7 +1793,7 @@ function OfferCardImpl(props: OfferCardProps) {
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, Radius.lg) }),
+			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 			h("uistroke", {
 				Color: accent,
 				Thickness: StrokeWidth.hairline,
@@ -2034,7 +2036,7 @@ function DailySection(props: SectionProps) {
 						size: UDim2.fromScale(1, 1),
 						accent: Palette.coral,
 						background: Palette.panel,
-						padding: 14,
+						padding: 18,
 						reducedMotion: props.reducedMotion,
 						clips: false,
 					},
@@ -2323,7 +2325,7 @@ function CrateChip(props: CrateChipProps) {
 				},
 			},
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 		h("uistroke", {
 			Color: accent,
 			Thickness: props.selected ? 2 : 1,
@@ -2531,7 +2533,7 @@ function SkinPreview(props: SkinPreviewProps) {
 			size: UDim2.fromScale(1, 1),
 			accent: accent,
 			background: Palette.panelRaised,
-			padding: 14,
+			padding: 18,
 			highlight: true,
 			reducedMotion: props.reducedMotion,
 			clips: false,
@@ -2552,7 +2554,7 @@ function SkinPreview(props: SkinPreviewProps) {
 					},
 				},
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }),
 			h("uigradient", {
 				Color: new ColorSequence(darken(accent, 0.5), Palette.void),
 				Rotation: 90,
@@ -2678,7 +2680,7 @@ function SkinCardImpl(props: SkinCardProps) {
 				},
 			},
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 		h("uistroke", {
 			Color: accent,
 			Thickness: props.selected ? 2 : 1,
@@ -2950,7 +2952,7 @@ function CodexProgressImpl(props: CodexProgressProps) {
 			size: UDim2.fromScale(1, 1),
 			accent: Palette.mint,
 			background: Palette.panelRaised,
-			padding: 14,
+			padding: 18,
 			reducedMotion: props.reducedMotion,
 			clips: false,
 		},
@@ -3015,7 +3017,7 @@ function RelicCellImpl(props: RelicCellProps) {
 			BorderSizePixel: 0,
 			LayoutOrder: props.order,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 		h("uistroke", {
 			Color: found ? color : Palette.line,
 			Thickness: 1,
@@ -3339,7 +3341,7 @@ function ArtifactCard(props: ArtifactCardProps) {
 				},
 			},
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 		h("uistroke", {
 			Color: elementColor.Lerp(accent, 0.35),
 			Thickness: hovered || tone.rank >= 5 ? 2 : 1,
@@ -3360,7 +3362,7 @@ function ArtifactCard(props: ArtifactCardProps) {
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }),
 			h("uigradient", {
 				Color: new ColorSequence(darken(elementColor, 0.6), Palette.void),
 				Rotation: 90,

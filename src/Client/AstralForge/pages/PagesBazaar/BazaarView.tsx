@@ -1,3 +1,4 @@
+import { BRASS, IRON_RADIUS, ironFace } from "../../UiCore/castIron";
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
 import { chromeFor, Palette, Radius, scrollTail, StrokeWidth } from "../../CoreKit/theme";
@@ -144,7 +145,7 @@ function MerchantPortrait(props: {
 			BorderSizePixel={0}
 			ClipsDescendants={true}
 		>
-			{round(new UDim(0, Radius.lg))}
+			{round(new UDim(0, IRON_RADIUS))}
 			<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
 			{/* Soft radial atmospheric glow from top */}
 			<frame
@@ -201,7 +202,7 @@ function MerchantPortrait(props: {
 					kind={iconKind}
 					accent={accent}
 					size={50}
-					radius={14}
+					radius={IRON_RADIUS}
 					glow={true}
 					filled={true}
 					reducedMotion={props.reducedMotion}
@@ -217,7 +218,7 @@ function MerchantPortrait(props: {
 				BackgroundTransparency={0.15}
 				BorderSizePixel={0}
 			>
-				{round(new UDim(0, 6))}
+				{round(new UDim(0, IRON_RADIUS))}
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
 				<Ui.Text
 					value={tag}
@@ -251,6 +252,10 @@ interface BazaarOfferCardProps {
 	onBuy: () => void;
 }
 
+function darken3(c: Color3): Color3 {
+	return c.Lerp(Palette.ink, 0.55);
+}
+
 function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 	const offer = props.offer;
 	const quantity = props.quantity;
@@ -266,30 +271,42 @@ function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 		>
 			<Ui.Panel
 				size={UDim2.fromScale(1, 1)}
-				padding={14}
+				padding={18}
 				accent={accent}
 				background={Palette.panel}
 				reducedMotion={reducedMotion}
 			>
-				<Ui.Text
-					value={
-						(offer.Rare
-							? "Rare find"
-							: offer.Procured
-								? "Your request"
-								: offer.Featured
-									? offer.Category + " · merchant's pick"
-									: offer.Category) +
-						"  /  " +
-						math.floor(offer.Discount * 100) +
-						"% off"
-					}
-					size={11}
-					color={accent}
-					sizeConstraint={new UDim2(1, -64, 0, 20)}
-				/>
+				{/* category reads off the brass-edged accent spine; the stamp carries the discount */}
+				<frame
+					{...named("Spine")}
+					Size={new UDim2(0, 3, 1, 0)}
+					Position={UDim2.fromOffset(-12, 0)}
+					BackgroundColor3={accent}
+					BackgroundTransparency={0.2}
+					BorderSizePixel={0}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+				</frame>
+				<frame
+					{...named("Stamp")}
+					Size={UDim2.fromOffset(52, 20)}
+					BackgroundColor3={darken3(accent)}
+					BorderSizePixel={0}
+				>
+					<uicorner CornerRadius={new UDim(0, IRON_RADIUS)} />
+					{ironFace(false)}
+					<uistroke Color={BRASS} Thickness={1} Transparency={0.35} />
+					<Ui.Text
+						value={(offer.Rare ? "✦ " : offer.Procured ? "◆ " : offer.Featured ? "★ " : "") + "-" + math.floor(offer.Discount * 100) + "%"}
+						size={11}
+						weight={Enum.FontWeight.Heavy}
+						color={Palette.cream}
+						align={Enum.TextXAlignment.Center}
+						sizeConstraint={UDim2.fromScale(1, 1)}
+					/>
+				</frame>
 				<Ui.Button
-					text={props.saved ? "Saved" : "Save"}
+					text={props.saved ? "★" : "☆"}
 					color={Palette.panelSoft}
 					size={UDim2.fromOffset(60, 48)}
 					position={new UDim2(1, -60, 0, 0)}
@@ -308,7 +325,7 @@ function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 					sizeConstraint={new UDim2(1, -68, 0, 58)}
 				/>
 				<Ui.Text
-					value={Format.formatReward(offer.Reward) + " per unit"}
+					value={Format.formatReward(offer.Reward)}
 					size={13}
 					color={Palette.muted}
 					wrap={true}
@@ -619,7 +636,7 @@ function BazaarView(props: BazaarProps) {
 			212,
 			<Ui.Panel
 				size={UDim2.fromScale(1, 1)}
-				padding={14}
+				padding={18}
 				accent={accent}
 				background={Palette.panel}
 				reducedMotion={props.reducedMotion}
@@ -803,7 +820,7 @@ function BazaarView(props: BazaarProps) {
 		add(
 			"request-status",
 			112,
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} reducedMotion={props.reducedMotion}>
+			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
 				<Ui.Text value={status} size={14} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 82)} />
 			</Ui.Panel>,
 		);
@@ -886,7 +903,7 @@ function BazaarView(props: BazaarProps) {
 			add(
 				"purchase-" + (i + 1),
 				112,
-				<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} reducedMotion={props.reducedMotion}>
+				<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
 					<Ui.Text
 						value={`${entry.Quantity} × ${name}`}
 						size={17}
@@ -974,8 +991,8 @@ function BazaarView(props: BazaarProps) {
 		add(
 			"inspection-heading",
 			138,
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} reducedMotion={props.reducedMotion}>
-				<Ui.Text value={"Inspecting " + chosen.Name} size={19} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 48)} />
+			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
+				<Ui.Text value={chosen.Name} size={19} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 48)} />
 				<Ui.Button
 					text="Close inspection"
 					size={new UDim2(1, 0, 0, 48)}
@@ -1043,7 +1060,7 @@ function BazaarView(props: BazaarProps) {
 			add(
 				"compare-" + offer.Id,
 				112,
-				<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} reducedMotion={props.reducedMotion}>
+				<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
 					<Ui.Text
 						value={offer.Name + (offer.Id === chosen.Id ? " (selected)" : "")}
 						size={16}
