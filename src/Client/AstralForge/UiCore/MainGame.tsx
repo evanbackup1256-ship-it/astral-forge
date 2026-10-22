@@ -1025,13 +1025,13 @@ export function MainGame(_param: MainGameProps) {
 						}
 					}
 					ClientLog.warnEvery(`timeout:${action}`, 8, "UI", `${action} timed out after ${timeoutSeconds}s`);
-					addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Info", false);
+					addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Warning", false);
 					reject("That took too long. Try again.", true);
 				},
 				onLateState: (lateState) => acceptState(lateState as never),
 				onNoAnswer: () => {
 					ClientLog.warnEvery(`request:${action}`, 5, "UI", `${action} got no answer`);
-					addNotice("Connection hiccup", "That tap didn't go through. Try again.", "Info", false);
+					addNotice("Connection hiccup", "That tap didn't go through. Try again.", "Warning", false);
 					reject("That tap didn't go through. Try again.", true);
 				},
 				onResponse: (raw) => applyResponse(raw as ActionResponse, action, callback),

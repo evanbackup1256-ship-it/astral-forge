@@ -111,6 +111,8 @@ export const EN = {
 	"AdminService.TargetProfileIsStillLoading": "Target profile is still loading.",
 	"AdminService.AdminCommandHasNoExecutor": "Admin command has no executor.",
 	"AdminService.WriteAShortAnnouncement": "Write a short announcement.",
+	"AdminService.AnnouncementFilterFailed": "That announcement could not be sent. Try different wording.",
+	"AdminService.AnnouncementTitle": "Announcement",
 	"AdminService.UnknownCrateId": "Unknown crate id.",
 	"AdminService.UnknownBoostId": "Unknown boost id.",
 	"AdminService.RelicIdIsInvalidOr": "Relic id is invalid or inventory is full.",

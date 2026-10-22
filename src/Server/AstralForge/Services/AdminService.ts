@@ -1090,7 +1090,16 @@ export class AdminService {
 		if (command === "Announce") {
 			const text = option.gsub("^%s*(.-)%s*$", "%1")[0];
 			if (text.size() < 3) return { ok: false, error: T("AdminService.WriteAShortAnnouncement") };
-			message = { Kind: "Announce", Text: text, From: actor.Name, At: os.time() };
+			// Roblox requires every typed string shown to other players to pass the text filter, admin text included
+			const [filterOk, filtered] = pcall(() =>
+				game
+					.GetService("TextService")
+					.FilterStringAsync(text, actor.UserId, Enum.TextFilterContext.PublicChat)
+					.GetNonChatStringForBroadcastAsync(),
+			);
+			if (!filterOk || !typeIs(filtered, "string") || filtered.size() < 1)
+				return { ok: false, error: T("AdminService.AnnouncementFilterFailed") };
+			message = { Kind: "Announce", Text: filtered, From: actor.Name, At: os.time() };
 		} else if (command === "ToggleHotFlag") {
 			const [flag, on, parseError] = HotFlags.Parse(option);
 			if (flag === undefined) return { ok: false, error: parseError };
@@ -1151,7 +1160,7 @@ export class AdminService {
 			while (this._announcements.size() > 10) this._announcements.pop();
 			if (!HotFlags.Get("AnnouncementsMuted")) {
 				for (const player of Players.GetPlayers()) {
-					ServerEvents.toast.fire(player, { Title: "Announcement", Body: text, Tone: "Info" });
+					ServerEvents.toast.fire(player, { Title: T("AdminService.AnnouncementTitle"), Body: text, Tone: "Info" });
 				}
 			}
 			return true;
