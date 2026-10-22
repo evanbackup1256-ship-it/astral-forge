@@ -25,6 +25,7 @@ import { ForgePathPage } from "../pages/ForgePathPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { WorkshopPage } from "../pages/WorkshopPage";
 import { ResearchPage } from "../pages/ResearchPage";
+import { MissionsPage } from "../pages/MissionsPage";
 
 export interface PageProps {
 	session: Session;
@@ -62,6 +63,7 @@ const PORTED: Record<string, PageComponent> = {
 	Settings: SettingsPage,
 	Workshop: WorkshopPage,
 	Research: ResearchPage,
+	Missions: MissionsPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
