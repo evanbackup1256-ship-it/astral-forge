@@ -1,6 +1,9 @@
 import React from "@rbxts/react";
 import { requestConfirm } from "../../UiOverlays/ConfirmDialog";
 import ReactRoblox from "@rbxts/react-roblox";
+import { useBackLayer } from "../../CoreKit/backLayer";
+import { splitColumns } from "../../UiCore/ui";
+import { PageBlock, splitSection } from "../layoutRise";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
@@ -144,6 +147,8 @@ function __member(): unknown {
 		let slotting: unknown;
 		let setSlotting: unknown;
 		[slotting, setSlotting] = reactLoose.useState(undefined) as LuaTuple<[unknown, unknown]>;
+		// B backs out of picking a chord slot before it leaves the page
+		useBackLayer(slotting !== undefined, () => (setSlotting as (value: undefined) => void)(undefined));
 		let readyPulse: unknown = luaCall(usePulse, ((luaProp(echoes, "Ready") === true) && (!luaTruthy(softMotion))), 1.6);
 		reactLoose.useEffect(function(this: void): unknown | undefined {
 			if ((armed === undefined)) {
@@ -168,6 +173,8 @@ function __member(): unknown {
 		}
 		let sections: unknown = {};
 		let gap: unknown = (luaTruthy(stack) ? 10 : 14);
+		// wide desktop: the chord and journal sit in a right column beside the loom, draft and vault
+		const echoPlan = splitColumns(luaTruthy(stack) ? 0 : (viewport as { width: number }).width, 420, gap as number, 1280);
 		// the loom: charge, tracks, strike
 		let tracks: unknown = {};
 		let trackTotal: unknown = 0;
@@ -253,7 +260,7 @@ function __member(): unknown {
 		let slotsH: unknown = (luaTruthy(stack) ? 200 : 110);
 		luaTable.insert(sections, { id: "chord", height: ((((((((((32 as unknown as number) + (slotsH as unknown as number)) as unknown as number) + (8 as unknown as number)) as unknown as number) + (22 as unknown as number)) as unknown as number) + (8 as unknown as number)) as unknown as number) + (36 as unknown as number)), element: luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, luaCall(h, SectionLabel, { value: (luaTruthy(slotting) ? "Pick a slot" : "The Chord"), color: luaProp(Palette, "violet") }), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, slotsH), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 32), BackgroundTransparency: 1 }, luaCall(h, "uigridlayout", { CellSize: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -4, 0, 96) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.25, -6, 1, 0)), CellPadding: luaCall(luaProp(UDim2, "fromOffset"), 8, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), slots), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 22), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((((32 as unknown as number) + (slotsH as unknown as number)) as unknown as number) + (8 as unknown as number))), BackgroundTransparency: 1 }, luaCall(h, "uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 6), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), bonusChips), luaCall(h, Text, { value: (((len(totals) as unknown as number) > (0 as unknown as number)) ? concat("The chord adds ", concat(luaTable.concat(totals, ", "), ".")) : "Put echoes in the chord to feel them. Matching affinities add Harmony; a matched pair adds Unison; four different affinities make a Spectrum."), size: 12, color: luaProp(Palette, "creamSoft"), wrap: true, fit: true, minSize: 10, position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((((((32 as unknown as number) + (slotsH as unknown as number)) as unknown as number) + (8 as unknown as number)) as unknown as number) + (26 as unknown as number))), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 36) })) });
 		// the vault: every echo you keep
-		let columns: unknown = (luaTruthy(stack) ? 1 : (((luaProp(viewport, "width") as unknown as number) >= (1500 as unknown as number)) ? 3 : 2));
+		let columns: unknown = (luaTruthy(stack) ? 1 : (((luaProp(viewport, "width") as unknown as number) >= ((echoPlan.split ? 1800 : 1500) as unknown as number)) ? 3 : 2));
 		let cardH: unknown = 186;
 		let vault: unknown = {};
 		for (const [index, echo] of pairs((luaProp(echoes, "Inventory")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
@@ -314,6 +321,14 @@ function __member(): unknown {
 			luaSetIndex(journalRows, concat("j", index), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 30), LayoutOrder: index, BackgroundTransparency: 1 }, luaCall(h, Icon, { kind: luaCall(traitIcon, "journal", luaProp(trait, "Id")), size: 24, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 3) }), luaCall(h, Text, { value: concat(luaProp(trait, "Name"), ((((reached as unknown as number) >= (len(luaProp(EchoMath, "TIERS")) as unknown as number)) ? "  ·  complete, +3% for good" : ""))), size: 12, color: (((reached as unknown as number) >= (len(luaProp(EchoMath, "TIERS")) as unknown as number)) ? luaProp(Palette, "mango") : luaProp(Palette, "creamSoft")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, minSize: 9, position: luaCall(luaProp(UDim2, "fromOffset"), 32, 7), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.4, -32, 0, 16) }), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.6, 0, 1, 0), Position: luaCall(luaProp(UDim2, "fromScale"), 0.4, 0), BackgroundTransparency: 1 }, luaCall(h, "uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 6), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), VerticalAlignment: luaProp(luaProp(Enum, "VerticalAlignment"), "Center") }), pips)));
 		}
 		luaTable.insert(sections, { id: "journal", height: ((((32 as unknown as number) + (((len(luaProp(EchoMath, "TRAITS")) as unknown as number) * (34 as unknown as number)) as unknown as number)) as unknown as number) + (16 as unknown as number)), element: luaCall(h, Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "lineSoft"), background: luaProp(Palette, "panel"), padding: 14 }, luaCall(h, SectionLabel, { value: "Journal", color: luaProp(Palette, "mango") }), luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, -30), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 30), BackgroundTransparency: 1 }, luaCall(h, "uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 4), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), journalRows)) });
+		if (echoPlan.split) {
+			const list = sections as PageBlock[];
+			const sideIds = ["chord", "journal"];
+			const side = list.filter((block) => sideIds.includes(block.id));
+			const main = list.filter((block) => !sideIds.includes(block.id));
+			const split = splitSection("EchoesSplit", echoPlan, gap as number, side, main, true, list.map((block) => block.id));
+			return reactLoose.createElement(PageScaffold, { gap: gap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), 56), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: [split] });
+		}
 		return reactLoose.createElement(PageScaffold, { gap: gap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), (luaTruthy(stack) ? 72 : 56)), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: sections });
 		return undefined;
 	}
