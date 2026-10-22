@@ -7,7 +7,9 @@ import React from "@rbxts/react";
 import { Audio } from "../../../AudioKit/audio";
 import { asFlux, compactNumber, Flux } from "../../../CoreKit/format";
 import { InteractionFeedback } from "../../../CoreKit/interaction";
-import { useClock, usePulse, useStagger } from "../../../MotionKit/motion";
+import { useClock, useFlash, usePulse, useStagger } from "../../../MotionKit/motion";
+import { TooltipContent, useTooltip } from "../../../Tooltip";
+import { EmptyState, Tooltip } from "../../design/Layers";
 import { ironFace } from "../../../UiCore/castIron";
 import { RainbowGradient } from "../../../UiCore/rainbowFx";
 import * as RebirthCeremony from "../../../UiCore/RebirthCeremony";
@@ -38,6 +40,7 @@ export interface RebirthInfo {
 	Vow: string;
 	VowHolds?: boolean;
 	VowStatus: string;
+	VowOpen?: boolean;
 	KeptVows?: Record<string, number>;
 	RunStartedAt?: number;
 	Lifetime?: number;
@@ -66,6 +69,13 @@ interface MachineDef {
 	Name?: string;
 	RequiredZone?: number;
 }
+
+export const GRADE_LINE: Record<string, string> = {
+	S: "A new best, with the vow kept.",
+	A: "A new best or a kept vow.",
+	B: "At least half your best run.",
+	C: "Under half your best run.",
+};
 
 export const GRADE_COLOR: Record<string, () => Color3> = { S: Iron.brass, A: Iron.steel, B: Iron.soft, C: Iron.muted };
 const VOW_IDS = ["", "Swift", "Lean", "Homebound", "Overflow"];
@@ -273,6 +283,8 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 	const seconds = useRunClock(tonumber(info.RunStartedAt) ?? 0, session.ServerTime);
 	const gradeGlow = usePulse(canRebirth, 1.8);
 	const heat = useClock(igniting, 3);
+	const [fails, setFails] = React.useState(0);
+	const failFlash = useFlash(fails, false, 0.42);
 
 	const stopIgnition = () => {
 		ignition.current?.Disconnect();
@@ -329,6 +341,7 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 			} else {
 				Audio.play("error");
 				MotionFX.play("error");
+				setFails((n) => n + 1);
 			}
 		});
 	};
@@ -391,6 +404,8 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 				? `${vow.Name} holds  ×${"%.2f".format(RebirthMath.vowMultiplier({ Kept: info.KeptVows, Stars: info.Stars }, vow.Id))} ${vow.Pays.lower()}`
 				: `${vow.Name} broken: ${info.VowStatus}`,
 		);
+	} else {
+		reasons.push(info.VowOpen === true ? "No vow yet. You can still swear one this run." : "No vow this run.");
 	}
 	const gradeBonus = RebirthMath.GRADE_BONUS[info.Grade] ?? 0;
 	if (gradeBonus > 0) reasons.push(`grade ${info.Grade} +${math.floor(gradeBonus * 100)}% stardust`);
@@ -420,7 +435,17 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 	const third = phone ? new UDim(1, 0) : new UDim(1 / 3, -6);
 	const runs = info.Runs ?? [];
 	const accent = igniting ? Iron.brass() : confirming ? Iron.ember() : Iron.steel();
-	const claimText = busy ? "…" : igniting ? "Igniting" : confirming ? "Ignite" : canRebirth ? "Rebirth" : "Not ready";
+	const claimText = busy ? "…" : igniting ? "Igniting…" : confirming ? "Ignite rebirth" : canRebirth ? "Rebirth" : "Not ready";
+	const stepTitle = igniting ? "Igniting" : confirming ? "Check your rebirth" : `Rebirth ${(tonumber(info.Lifetime) ?? 0) + 1}`;
+	const stepLine = igniting ? "Stop now or the run resets." : confirming ? "Press again to ignite." : "End this run";
+	const gradeTip: TooltipContent = {
+		title: canRebirth ? `Grade ${info.Grade}` : "Not ready yet",
+		body: canRebirth ? GRADE_LINE[info.Grade] ?? "" : `${compactNumber(toGo)} more flux to go.`,
+		hint: gradeBonus > 0 ? `+${math.floor(gradeBonus * 100)}% stardust` : undefined,
+		accent: gradeColor,
+	};
+	const gradeEvents = useTooltip(gradeTip);
+	const permanent = session.PermanentMultiplier;
 
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Iron.void()} BackgroundTransparency={props.presence.map((p) => 1 - p * 0.55)} ZIndex={50}>
@@ -453,8 +478,9 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 						<uipadding PaddingTop={new UDim(0, gap(phone, "l"))} PaddingBottom={new UDim(0, gap(phone, "l"))} PaddingLeft={new UDim(0, gap(phone, "l"))} PaddingRight={new UDim(0, gap(phone, "l"))} />
 						<uilistlayout Padding={new UDim(0, gap(phone, "xl"))} SortOrder={Enum.SortOrder.LayoutOrder} />
 
-						<frame Size={new UDim2(1, 0, 0, phone ? 96 : 112)} BackgroundTransparency={1} LayoutOrder={0}>
-							<frame Size={UDim2.fromOffset(phone ? 84 : 100, phone ? 84 : 100)} BackgroundColor3={Iron.sunk()}>
+						<Text text={canRebirth ? "This rebirth pays" : "Not ready yet"} size={Type.body(phone)} font={Fonts.heavy} color={Iron.muted()} order={-1} />
+						<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={0}>
+							<frame Size={UDim2.fromOffset(phone ? 84 : 100, phone ? 84 : 100)} BackgroundColor3={Iron.sunk()} Active Event={gradeEvents as never}>
 								<uicorner CornerRadius={new UDim(0, 12)} />
 								<uistroke Color={gradeColor} Thickness={2} Transparency={gradeGlow.map((a) => 0.2 + a * 0.5)} />
 								<Text text={canRebirth ? info.Grade : "-"} size={phone ? 44 : 56} font={Fonts.heavy} color={gradeColor} align="Center" box={UDim2.fromScale(1, 1)} />
@@ -463,13 +489,19 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 								<uilistlayout Padding={new UDim(0, 4)} SortOrder={Enum.SortOrder.LayoutOrder} />
 								<Title text={canRebirth ? `+${compactNumber(info.Cores)} cores` : `${compactNumber(toGo)} flux to go`} size={Type.title(phone)} order={0} />
 								{canRebirth && <Text text={`+${compactNumber(info.Stardust)} stardust`} size={Type.body(phone)} color={Iron.brass()} font={Fonts.heavy} order={1} />}
+								{canRebirth && <Text text={GRADE_LINE[info.Grade] ?? ""} size={Type.small(phone)} color={gradeColor} order={1} />}
 								<Text text={reasons.join("   ")} size={Type.small(phone)} color={Iron.muted()} multiline order={2} />
 								<Text text={clock(seconds)} size={Type.small(phone)} color={Iron.soft()} order={3} />
+								{permanent !== undefined && (
+									<Tooltip tip={`Permanent: every rebirth so far multiplies production by ${compactNumber(permanent)}×.`} size={new UDim2(1, 0, 0, Type.small(phone) + 6)} order={4}>
+										<Text text={`${compactNumber(permanent)}× production`} size={Type.small(phone)} color={Iron.steel()} font={Fonts.heavy} />
+									</Tooltip>
+								)}
 							</frame>
 						</frame>
 
 						{pending.size() > 0 && (
-							<Block title={`Star ${pending[0]}`} note={pending.size() > 1 ? `${pending.size() - 1} more waiting` : "permanent"} phone={phone} order={1}>
+							<Block title={`Light star ${pending[0]}`} note={pending.size() > 1 ? `${pending.size() - 1} more waiting` : "permanent"} phone={phone} order={1}>
 								{RebirthMath.pair(pending[0]).map((perk, i) => {
 									const def = RebirthMath.PERKS[perk];
 									const upcoming = RebirthMath.STARS[pending[0]] as number | undefined;
@@ -503,7 +535,7 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 							</Block>
 						)}
 
-						<Block title="Next vow" note="keep it, earn more" phone={phone} order={2}>
+						<Block title="Vow for the next run" note="keep it and the payout grows" phone={phone} order={2}>
 							{VOW_IDS.map((id, i) => {
 								const def = RebirthMath.vow(id);
 								const kept = def !== undefined ? (tonumber(info.KeptVows?.[id]) ?? 0) : 0;
@@ -571,10 +603,10 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 							)}
 						</Block>
 
-						<Block title="What stays, what resets" phone={phone} order={4}>
+						<Block title="What stays, what goes" phone={phone} order={4}>
 							<frame Size={new UDim2(half.Scale, half.Offset, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={0}>
 								<Card accent={Iron.brass()} pad={gap(phone, "m")} spacing={4}>
-									<Text text="Stays" size={Type.small(phone)} font={Fonts.heavy} color={Iron.brass()} order={0} />
+									<Text text="You keep" size={Type.small(phone)} font={Fonts.heavy} color={Iron.brass()} order={0} />
 									<Text text={keepCopy} size={Type.small(phone)} color={Iron.soft()} multiline order={1} />
 								</Card>
 							</frame>
@@ -592,7 +624,13 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 							phone={phone}
 							order={5}
 						>
-							{runs.size() > 0 ? <RunLog runs={runs} phone={phone} /> : <Text text="Rebirth once and your run shows up here." size={Type.small(phone)} color={Iron.muted()} />}
+							{runs.size() > 0 ? (
+								<RunLog runs={runs} phone={phone} />
+							) : (
+								<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1}>
+									<EmptyState title="No runs yet" body="Rebirth once and your run shows up here." phone={phone} />
+								</frame>
+							)}
 						</Block>
 					</scrollingframe>
 
@@ -603,7 +641,12 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 							<uiscale Scale={heat.map((t) => (igniting ? 1 + math.sin(t * 6) * 0.04 : 1))} />
 							<ChargeDial size={48} fill={ignite} charge={ignite} color={accent} />
 						</frame>
+						<frame Size={UDim2.fromOffset(phone ? 0 : 170, HIT)} BackgroundTransparency={1} LayoutOrder={3} Visible={!phone}>
+							<Text text={stepTitle} size={Type.small(phone) + 1} font={Fonts.heavy} color={accent} box={new UDim2(1, 0, 0, 20)} />
+							<Text text={stepLine} size={Type.small(phone)} color={Iron.muted()} box={new UDim2(1, 0, 0, 16)} position={UDim2.fromOffset(0, 22)} />
+						</frame>
 						<Button
+							shakeToken={fails}
 							text={claimText}
 							tone={confirming || igniting ? "ember" : "brass"}
 							width={phone ? 150 : 220}
@@ -619,6 +662,16 @@ function ChamberBody(props: ChamberProps & { presence: React.Binding<number> }) 
 							else close();
 						}} order={2} />
 					</frame>
+					<frame
+						Size={new UDim2(1, 0, 0, HIT + 40)}
+						Position={new UDim2(0, 0, 1, -(HIT + 40))}
+						BackgroundColor3={Iron.ember()}
+						BackgroundTransparency={failFlash.map((v) => 1 - v * 0.5)}
+						BorderSizePixel={0}
+						Active={false}
+						ZIndex={3}
+						Visible={failFlash.map((v) => v > 0.02)}
+					/>
 				</frame>
 			</frame>
 		</frame>
