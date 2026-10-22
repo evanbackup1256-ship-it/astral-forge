@@ -5,11 +5,12 @@
 import React from "@rbxts/react";
 import Board = require("../../../../Shared/AstralForge/Shared/ExpeditionBoard");
 import { clockText } from "../../CoreKit/format";
+import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { chromeFor, Palette, TapTarget } from "../../CoreKit/theme";
 import { useViewport } from "../../MotionKit/motion";
 import { useServerClock } from "../../hooks/useServerClock";
 import { ScreenFx } from "../../UiCore/screenFx";
-import { loadPageScaffold, loadUi } from "../luauDeps";
+import { loadPageScaffold, loadUi, named } from "../luauDeps";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 
 const { Button, Dropdown, EmptyState, Meter, Panel, SegmentedTabs, Text } = loadUi();
@@ -168,7 +169,7 @@ function openSlotHeight(candidates: number, stack: boolean, wide = false): numbe
 	return PAD * 2 + top + GAP + TapTarget + GAP * 2 + crew + GAP + statsHeight(stack) + 20 + GAP + TapTarget;
 }
 
-function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoutes: Set<string>; candidates: Candidate[]; stack: boolean; wide?: boolean }) {
+function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoutes: Set<string>; candidates: Candidate[]; stack: boolean; wide?: boolean; launchRef?: React.MutableRefObject<Frame | undefined> }) {
 	const board = p.props.state.ExpeditionBoard;
 	const level = p.props.state.Command?.Level ?? 1;
 	const open = p.routes.filter((route) => route.RequiredLevel <= level && !p.busyRoutes.has(route.Id));
@@ -305,17 +306,26 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 				{synergyText !== "" && (
 					<Text value={synergyText} size={13} color={Palette.creamSoft} position={UDim2.fromOffset(0, synergyRow)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
 				)}
-				<Button
-					text="Launch"
-					onClick={launch}
-					disabled={busy || board?.Paused === true}
-					loading={busy}
-					color={STANCE_COLOR[stance]}
-					textColor={Palette.ink}
-					size={new UDim2(p.stack ? 1 : 0, p.stack ? 0 : 200, 0, TapTarget)}
-					position={UDim2.fromOffset(0, launchRow)}
-					reducedMotion={p.props.reducedMotion}
-				/>
+				<frame
+					{...named("ExpeditionLaunch")}
+					ref={p.launchRef}
+					Size={new UDim2(p.stack ? 1 : 0, p.stack ? 0 : 200, 0, TapTarget)}
+					Position={UDim2.fromOffset(0, launchRow)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+					ClipsDescendants={false}
+				>
+					<Button
+						text="Launch"
+						onClick={launch}
+						disabled={busy || board?.Paused === true}
+						loading={busy}
+						color={STANCE_COLOR[stance]}
+						textColor={Palette.ink}
+						size={UDim2.fromScale(1, 1)}
+						reducedMotion={p.props.reducedMotion}
+					/>
+				</frame>
 			</frame>
 		</Panel>
 	);
@@ -323,7 +333,7 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 
 const RUN_H = PAD * 2 + 34 + 12 + 10 + 14 + 18 + 6 + 18 + GAP + TapTarget;
 
-function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number; onResult: (reply: Reply) => void; stack?: boolean }) {
+function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number; onResult: (reply: Reply) => void; stack?: boolean; claimRef?: React.MutableRefObject<Frame | undefined> }) {
 	const timerW = p.stack === true ? 104 : 150;
 	const [busy, setBusy] = React.useState(false);
 	const total = math.max(1, p.slot.EndsAt - p.slot.StartedAt);
@@ -370,19 +380,28 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 				sizeConstraint={new UDim2(1, 0, 0, 18)}
 			/>
 			<Text value={odds.join("  ·  ")} size={13} color={Palette.muted} position={UDim2.fromOffset(0, 94)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
-			<Button
-				text={done ? "Claim" : "Recall"}
-				onClick={() => act(done ? "Claim" : "Recall")}
-				disabled={busy}
-				loading={busy}
-				color={done ? Palette.mint : Palette.panelSoft}
-				textColor={done ? Palette.ink : Palette.cream}
-				outline={!done}
-				highlight={done}
-				size={p.stack === true ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0, 180, 0, TapTarget)}
-				position={UDim2.fromOffset(0, 94 + 18 + GAP)}
-				reducedMotion={p.props.reducedMotion}
-			/>
+			<frame
+				{...named(done ? "ExpeditionClaim" : "ExpeditionRecall")}
+				ref={p.claimRef}
+				Size={p.stack === true ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0, 180, 0, TapTarget)}
+				Position={UDim2.fromOffset(0, 94 + 18 + GAP)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ClipsDescendants={false}
+			>
+				<Button
+					text={done ? "Claim" : "Recall"}
+					onClick={() => act(done ? "Claim" : "Recall")}
+					disabled={busy}
+					loading={busy}
+					color={done ? Palette.mint : Palette.panelSoft}
+					textColor={done ? Palette.ink : Palette.cream}
+					outline={!done}
+					highlight={done}
+					size={UDim2.fromScale(1, 1)}
+					reducedMotion={p.props.reducedMotion}
+				/>
+			</frame>
 		</Panel>
 	);
 }
@@ -424,6 +443,27 @@ function ExpeditionsView(props: Props) {
 	const candidates = candidatesOf(props, defs);
 	const busyRoutes = new Set<string>();
 	for (const slot of slots) if (slot.Id !== "") busyRoutes.add(slot.Id);
+	// gamepad: a finished trip's Claim takes first focus; otherwise the first open slot's Launch
+	const claimHostRef = React.useRef<Frame>();
+	const launchHostRef = React.useRef<Frame>();
+	const firstDone = slots.find((slot) => slot.Id !== "" && slot.EndsAt <= now);
+	const firstOpen = slots.find((slot) => slot.Id === "");
+	const focusKey = firstDone !== undefined ? `claim${firstDone.Slot}` : firstOpen !== undefined ? `launch${firstOpen.Slot}` : "";
+	React.useEffect(() => {
+		if (focusKey === "" || !game.GetService("UserInputService").GamepadEnabled) {
+			return undefined;
+		}
+		const selectJob = task.defer(() => {
+			const host = firstDone !== undefined ? claimHostRef.current : launchHostRef.current;
+			if (host === undefined || host.Parent === undefined) {
+				return;
+			}
+			GamepadNavigationService.FocusClaim(host);
+		});
+		return () => {
+			pcall(task.cancel, selectJob);
+		};
+	}, [focusKey]);
 	const onResult = (reply: Reply) => {
 		playOutcome(reply);
 		setResult({ reply, at: os.time() });
@@ -477,13 +517,13 @@ function ExpeditionsView(props: Props) {
 			openBlocks.push({
 				id: `slot${slot.Slot}`,
 				height: openSlotHeight(candidates.size(), stack, splitWide),
-				element: <OpenSlot props={props} slot={slot} routes={routes} busyRoutes={busyRoutes} candidates={candidates} stack={stack} wide={splitWide} />,
+				element: <OpenSlot props={props} slot={slot} routes={routes} busyRoutes={busyRoutes} candidates={candidates} stack={stack} wide={splitWide} launchRef={slot === firstOpen ? launchHostRef : undefined} />,
 			});
 		} else {
 			runBlocks.push({
 				id: `slot${slot.Slot}`,
 				height: RUN_H,
-				element: <RunningSlot props={props} slot={slot} route={routes.find((r) => r.Id === slot.Id)} defs={defs} now={now} onResult={onResult} stack={stack} />,
+				element: <RunningSlot props={props} slot={slot} route={routes.find((r) => r.Id === slot.Id)} defs={defs} now={now} onResult={onResult} stack={stack} claimRef={slot === firstDone ? claimHostRef : undefined} />,
 			});
 		}
 	}

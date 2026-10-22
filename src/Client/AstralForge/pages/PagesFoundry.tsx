@@ -4,11 +4,12 @@
 // crosses your brightest Anvil for Shards; ten on the beat in a row light a surge.
 // The board you see runs the same FoundryMath the server does, so the flow drawn is the flow you get.
 import React from "@rbxts/react";
+import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Format from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { useClock, useViewport } from "../MotionKit/motion";
 import FoundryMath = require("../../../Shared/AstralForge/Shared/FoundryMath");
-import { Component, loadAudio, loadPageScaffold, loadUi, luauKit, luauModule } from "./luauDeps";
+import { Component, loadAudio, loadPageScaffold, loadUi, luauKit, luauModule, named } from "./luauDeps";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 
 const Ui = loadUi();
@@ -663,6 +664,24 @@ function FoundryView(props: {
 	const [note, setNote] = React.useState("");
 	const [combo, setCombo] = React.useState(0);
 	const [boardWidth, setBoardWidth] = React.useState(stack ? viewport.width - 24 : wide ? math.max(320, math.floor(viewport.width * 0.6)) : math.max(320, viewport.width - 440));
+	// gamepad: first focus goes to Ignite once the foundry has loaded
+	const igniteHostRef = React.useRef<Frame>();
+	const foundryLoaded = typeIs(props.state.Foundry, "table");
+	React.useEffect(() => {
+		if (!foundryLoaded || !game.GetService("UserInputService").GamepadEnabled) {
+			return undefined;
+		}
+		const selectJob = task.defer(() => {
+			const host = igniteHostRef.current;
+			if (host === undefined || host.Parent === undefined) {
+				return;
+			}
+			GamepadNavigationService.FocusClaim(host);
+		});
+		return () => {
+			pcall(task.cancel, selectJob);
+		};
+	}, [foundryLoaded]);
 	const sections: Array<{ id: string; height: number; element: React.Element }> = [];
 	const add = (id: string, height: number, element: React.Element) => {
 		sections.push({ id, height, element });
@@ -953,17 +972,18 @@ function FoundryView(props: {
 	const buttonH = TapTarget;
 	const renderActions = () => (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<Ui.Button
-				text={surgeLeft > 0 ? `SURGE ${math.ceil(surgeLeft)}s · IGNITE` : combo > 0 ? `IGNITE · ×${combo}` : "IGNITE"}
-				icon="Boost.12"
-				onClick={() => act({ Op: "ignite" }, true)}
-				color={ACCENT}
-				textColor={Palette.ink}
-				highlight={true}
-				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.4, -8, 0, buttonH)}
-				position={UDim2.fromOffset(0, 0)}
-				reducedMotion={softMotion}
-			/>
+			<frame {...named("FoundryIgnite")} ref={igniteHostRef} Size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.4, -8, 0, buttonH)} Position={UDim2.fromOffset(0, 0)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				<Ui.Button
+					text={surgeLeft > 0 ? `SURGE ${math.ceil(surgeLeft)}s · IGNITE` : combo > 0 ? `IGNITE · ×${combo}` : "IGNITE"}
+					icon="Boost.12"
+					onClick={() => act({ Op: "ignite" }, true)}
+					color={ACCENT}
+					textColor={Palette.ink}
+					highlight={true}
+					size={UDim2.fromScale(1, 1)}
+					reducedMotion={softMotion}
+				/>
+			</frame>
 			<Ui.Button
 				text={benchFull ? "BENCH FULL" : `DRAW · ${compact(foundry.DrawCost ?? 0)}`}
 				icon="Crate.1"
