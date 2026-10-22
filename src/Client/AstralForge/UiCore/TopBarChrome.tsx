@@ -2,6 +2,7 @@ import { useLiveSessionValue } from "./liveSession";
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, TOPBAR_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
+import { registerRegion } from "../CoreKit/selectionRegions";
 import { mergeEvents, useTooltip } from "../Tooltip";
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import { useClientSelector } from "../CoreKit/clientStore";
@@ -1653,6 +1654,11 @@ function TopBarImpl(_param: TopBarProps) {
 			h(PerformanceStats, _attributes),
 		);
 	}
+	const regionRef = React.useRef<Frame>();
+	React.useEffect(() => {
+		const root = regionRef.current;
+		return root !== undefined ? registerRegion("top", root) : undefined;
+	}, []);
 	return h(
 		"frame",
 		{
@@ -1665,6 +1671,7 @@ function TopBarImpl(_param: TopBarProps) {
 			BorderSizePixel: 0,
 			ZIndex: 20,
 			ClipsDescendants: false,
+			ref: regionRef,
 		},
 		_exp_1,
 		_exp_2,

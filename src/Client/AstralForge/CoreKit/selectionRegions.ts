@@ -9,7 +9,17 @@ import { IsValidFocusTarget } from "./GamepadNavigationService";
 const GuiService = game.GetService("GuiService");
 const UserInputService = game.GetService("UserInputService");
 
-export type RegionName = "nav" | "page";
+export type RegionName = "nav" | "page" | "top" | "tabs";
+
+type Side = "Left" | "Right" | "Up" | "Down";
+
+// Which edges of a region are walls, and which edge hands off to the page's remembered control.
+// nav: vertical rail beside the page. top: horizontal bar above it. tabs: phone tab bar below it.
+const SHAPE: Record<Exclude<RegionName, "page">, { stop: Side[]; toPage: Side }> = {
+	nav: { stop: ["Up", "Down"], toPage: "Right" },
+	top: { stop: ["Up", "Left", "Right"], toPage: "Down" },
+	tabs: { stop: ["Down", "Left", "Right"], toPage: "Up" },
+};
 
 interface Region {
 	root: GuiObject;
@@ -69,11 +79,15 @@ function onSelectionChanged() {
 		return;
 	}
 	regions.get(name)!.last = selected;
-	if (name === "nav") {
-		// D-pad right from the rail lands on the remembered page control
+	if (name !== "page") {
+		// leaving a bar toward the page lands on the remembered page control
 		const target = entryFor("page");
+		const side = SHAPE[name].toPage;
 		pcall(() => {
-			selected.NextSelectionRight = target;
+			if (side === "Right") selected.NextSelectionRight = target;
+			else if (side === "Down") selected.NextSelectionDown = target;
+			else if (side === "Up") selected.NextSelectionUp = target;
+			else selected.NextSelectionLeft = target;
 		});
 	}
 }
@@ -88,12 +102,12 @@ export function registerRegion(name: RegionName, root: GuiObject): () => void {
 	regions.set(name, { root });
 	pcall(() => {
 		root.SelectionGroup = true;
-		root.SelectionBehaviorLeft = Enum.SelectionBehavior.Escape;
-		root.SelectionBehaviorRight = Enum.SelectionBehavior.Escape;
-		// the rail is a vertical list: up/down never falls out into the top bar or the page
-		const vertical = name === "nav" ? Enum.SelectionBehavior.Stop : Enum.SelectionBehavior.Escape;
-		root.SelectionBehaviorUp = vertical;
-		root.SelectionBehaviorDown = vertical;
+		const stops = name === "page" ? [] : SHAPE[name].stop;
+		const behavior = (side: Side) => (stops.includes(side) ? Enum.SelectionBehavior.Stop : Enum.SelectionBehavior.Escape);
+		root.SelectionBehaviorLeft = behavior("Left");
+		root.SelectionBehaviorRight = behavior("Right");
+		root.SelectionBehaviorUp = behavior("Up");
+		root.SelectionBehaviorDown = behavior("Down");
 	});
 	ensureListener();
 	return () => {

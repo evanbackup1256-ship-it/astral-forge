@@ -14,6 +14,7 @@ import { EVENTS, ServerEvent, accentOf, openServerEventPanel, useServerEvent } f
 import { readLevelState, openRoadmap, progressFraction } from "./levelRoadmap";
 import { Button, CountBadge, IconTile, LooseComponent, Text } from "./ui";
 import { SearchField } from "./surface";
+import { registerRegion } from "../CoreKit/selectionRegions";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -648,6 +649,11 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 			setMenuOpen(!menuOpen);
 		},
 	});
+	const regionRef = React.useRef<Frame>();
+	React.useEffect(() => {
+		const root = regionRef.current;
+		return root !== undefined ? registerRegion("tabs", root) : undefined;
+	}, []);
 	return h(
 		React.Fragment,
 		undefined,
@@ -663,6 +669,7 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 				Active: true,
 				Visible: visible,
 				ZIndex: 40,
+				ref: regionRef,
 			},
 			h("frame", {
 				Size: new UDim2(1, 0, 0, 1),
