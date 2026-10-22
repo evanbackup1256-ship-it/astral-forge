@@ -18,6 +18,7 @@ import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
+import { FocusPlan, useFocusOrder } from "../CoreKit/focusOrder";
 import {
 	Component,
 	Components,
@@ -3693,6 +3694,22 @@ function ArtifactsSection(props: SectionProps) {
 	});
 }
 
+// Explicit gamepad order per Shop section (frame Names are scaffold section ids / SplitColumns columns).
+// Premium (ShopView) keeps its own FocusClaim.
+function storeFocusPlan(section: string): FocusPlan | undefined {
+	if (section === "Crates") {
+		// Open (×1, ×5) first; down from it the rest of the stage, the crate picker and the drop table.
+		// Two-column desktop: picker (Side) <-> stage/drops (Main) step left/right.
+		return {
+			regions: ["StoreSections", "CrateOpen", "stage", "chips", "drops"],
+			// no keys (Open locked): the crate picker, so a crate with keys is one press away
+			first: ["CrateOpen", "chips"],
+			columns: [["Side", "Main"]],
+		};
+	}
+	return undefined;
+}
+
 interface StoreFrontProps {
 	state?: ShopState;
 	config?: ShopConfig;
@@ -3741,6 +3758,8 @@ function StoreFront(props: StoreFrontProps) {
 		BrowseModel.remember("Shop", { query: "", category: section });
 	}, [section]);
 	const reveal = useStagger(0, softMotion);
+	const focusPlan = storeFocusPlan(section);
+	useFocusOrder(hostRef, focusPlan ?? { regions: [] }, [section, focusPlan !== undefined]);
 	const [tabColumns, tabH] = sectionTabLayout(contentWidth, stack ? TapTarget : 44, stack);
 	const shared: SectionProps = {
 		key: section,
