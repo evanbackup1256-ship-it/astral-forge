@@ -11,7 +11,7 @@ import { useServerClock } from "../../hooks/useServerClock";
 import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi } from "../luauDeps";
 
-const { Button, Dropdown, Meter, Panel, SegmentedTabs, Text } = loadUi();
+const { Button, Dropdown, EmptyState, Meter, Panel, SegmentedTabs, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 
 type Stance = (typeof Board.STANCES)[number];
@@ -81,6 +81,8 @@ interface Props {
 const PAD = 20;
 const GAP = 12;
 const CHIP_H = TapTarget;
+// the compact EmptyState shown when no relic is free for a crew
+const EMPTY_CREW_H = 112;
 const STAT_H = 52;
 const MAX_SHOWN = 8;
 
@@ -151,7 +153,8 @@ function openSlotHeight(candidates: number, stack: boolean): number {
 	const columns = stack ? 2 : 4;
 	const rows = math.max(1, math.ceil(math.min(MAX_SHOWN, candidates) / columns));
 	const top = stack ? TapTarget * 2 + GAP : TapTarget;
-	return PAD * 2 + top + GAP + TapTarget + GAP * 2 + rows * (CHIP_H + 6) + GAP + STAT_H + 20 + GAP + TapTarget;
+	const crew = candidates === 0 ? EMPTY_CREW_H : rows * (CHIP_H + 6);
+	return PAD * 2 + top + GAP + TapTarget + GAP * 2 + crew + GAP + STAT_H + 20 + GAP + TapTarget;
 }
 
 function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoutes: Set<string>; candidates: Candidate[]; stack: boolean }) {
@@ -200,7 +203,7 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	y = stanceRow + TapTarget + GAP * 2;
 	const crewRow = y;
 	const rows = math.max(1, math.ceil(shown.size() / columns));
-	y += rows * (CHIP_H + 6) + GAP;
+	y += (shown.size() === 0 ? EMPTY_CREW_H : rows * (CHIP_H + 6)) + GAP;
 	const statRow = y;
 	y += STAT_H;
 	const synergyRow = y;
@@ -274,7 +277,15 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 					);
 				})}
 				{shown.size() === 0 && (
-					<Text value="No free relics. The route still pays." size={13} color={Palette.muted} position={UDim2.fromOffset(0, crewRow + 12)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
+					<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(0, crewRow)} Size={new UDim2(1, 0, 0, EMPTY_CREW_H)}>
+						<EmptyState
+							icon="Artifact"
+							title="No free relics."
+							body="The route still pays."
+							compact={true}
+							reducedMotion={p.props.reducedMotion}
+						/>
+					</frame>
 				)}
 				<Stat value={clockText(launchLength(p.props, route, odds))} caption="time" color={Palette.cream} x={0} width={0.25} y={statRow} />
 				<Stat value={string.format("×%.2f", odds.Yield)} caption="haul" color={Palette.mango} x={0.25} width={0.25} y={statRow} />
