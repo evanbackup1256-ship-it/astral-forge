@@ -23,8 +23,14 @@ const PAD = 14;
 const ROW_H = TapTarget;
 const ROW_GAP = 6;
 
+// phones: action, trigger, amount and "Add rule" each get their own row
 function builderHeight(stack: boolean): number {
-	return stack ? TapTarget * 3 + 16 : TapTarget;
+	return stack ? TapTarget * 4 + 24 : TapTarget;
+}
+
+// the On/Off toggle narrows on phones so the rule sentence keeps its room
+function toggleWidth(stack: boolean): number {
+	return stack ? 64 : 96;
 }
 
 export function programsPanelHeight(state: ProgramsState, stack: boolean): number {
@@ -42,8 +48,9 @@ function sentence(rule: Rule): string {
 	return `${when?.Name ?? rule.When}${arg}: ${string.lower(action?.Name ?? rule.Do)}`;
 }
 
-function RuleRow(props: { rule: Rule; index: number; dispatch: Dispatch; reducedMotion?: boolean; y: number }) {
+function RuleRow(props: { rule: Rule; index: number; dispatch: Dispatch; reducedMotion?: boolean; y: number; stack: boolean }) {
 	const on = props.rule.Enabled !== false;
+	const toggleW = toggleWidth(props.stack);
 	return (
 		<frame Size={new UDim2(1, 0, 0, ROW_H)} Position={UDim2.fromOffset(0, props.y)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<Text
@@ -52,7 +59,7 @@ function RuleRow(props: { rule: Rule; index: number; dispatch: Dispatch; reduced
 				color={on ? Palette.cream : Palette.muted}
 				fit={true}
 				minSize={10}
-				sizeConstraint={new UDim2(1, -(96 + 8 + TapTarget + 8), 1, 0)}
+				sizeConstraint={new UDim2(1, -(toggleW + 8 + TapTarget + 8), 1, 0)}
 			/>
 			<Button
 				text={on ? "On" : "Off"}
@@ -60,8 +67,8 @@ function RuleRow(props: { rule: Rule; index: number; dispatch: Dispatch; reduced
 				color={on ? Palette.mint : Palette.panelSoft}
 				textColor={on ? Palette.ink : Palette.cream}
 				outline={!on}
-				size={UDim2.fromOffset(96, TapTarget)}
-				position={new UDim2(1, -(96 + 8 + TapTarget), 0, 0)}
+				size={UDim2.fromOffset(toggleW, TapTarget)}
+				position={new UDim2(1, -(toggleW + 8 + TapTarget), 0, 0)}
 				reducedMotion={props.reducedMotion}
 			/>
 			<Button
@@ -147,16 +154,29 @@ function Builder(props: { dispatch: Dispatch; stack: boolean; reducedMotion?: bo
 						/>
 					</>
 				)}
+				{!props.stack && (
+					<Button
+						text="Add rule"
+						onClick={save}
+						color={Palette.coral}
+						textColor={Palette.ink}
+						size={new UDim2(1, value !== undefined ? -(TapTarget * 2 + 56) : 0, 0, TapTarget)}
+						position={value !== undefined ? UDim2.fromOffset(TapTarget * 2 + 56, 0) : UDim2.fromOffset(0, 0)}
+						reducedMotion={props.reducedMotion}
+					/>
+				)}
+			</frame>
+			{props.stack && (
 				<Button
 					text="Add rule"
 					onClick={save}
 					color={Palette.coral}
 					textColor={Palette.ink}
-					size={new UDim2(1, value !== undefined ? -(TapTarget * 2 + 56) : 0, 0, TapTarget)}
-					position={value !== undefined ? UDim2.fromOffset(TapTarget * 2 + 56, 0) : UDim2.fromOffset(0, 0)}
+					size={new UDim2(1, 0, 0, TapTarget)}
+					position={at(3)}
 					reducedMotion={props.reducedMotion}
 				/>
-			</frame>
+			)}
 		</frame>
 	);
 }
@@ -176,7 +196,7 @@ export function ProgramsPanel(props: { state: ProgramsState; dispatch: Dispatch;
 				sizeConstraint={new UDim2(1, 0, 0, 20)}
 			/>
 			{rules.map((rule, i) => (
-				<RuleRow key={`${i}:${rule.Do}`} rule={rule} index={i + 1} dispatch={props.dispatch} reducedMotion={props.reducedMotion} y={top + i * (ROW_H + ROW_GAP)} />
+				<RuleRow key={`${i}:${rule.Do}`} rule={rule} index={i + 1} dispatch={props.dispatch} reducedMotion={props.reducedMotion} y={top + i * (ROW_H + ROW_GAP)} stack={props.stack} />
 			))}
 			{rules.size() < programs.Max && (
 				<Builder dispatch={props.dispatch} stack={props.stack} reducedMotion={props.reducedMotion} y={top + rules.size() * (ROW_H + ROW_GAP) + 4} />
