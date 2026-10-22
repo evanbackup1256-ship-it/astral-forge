@@ -89,8 +89,22 @@ export function ToastStack(props: { toasts: ReadonlyArray<Toast>; phone: boolean
 /** Wrap anything to give it a hover / gamepad-selection tip. */
 export function Tooltip(props: { tip: string; size: UDim2; order?: number; children?: React.ReactNode }) {
 	const [shown, setShown] = React.useState(false);
+	const hostRef = React.useRef<Frame>();
+	// keep the tip on screen: up to 240px wide, never closer than 8px to either edge (fits 286px phones)
+	let width = 240;
+	let left = 0;
+	const host = hostRef.current;
+	const camera = game.Workspace.CurrentCamera;
+	if (shown && host !== undefined && camera !== undefined) {
+		const screen = camera.ViewportSize.X;
+		width = math.min(240, math.max(120, screen - 16));
+		const centre = host.AbsolutePosition.X + host.AbsoluteSize.X / 2;
+		const wantLeft = math.clamp(centre - width / 2, 8, math.max(8, screen - 8 - width));
+		left = wantLeft - host.AbsolutePosition.X;
+	}
 	return (
 		<frame
+			ref={hostRef}
 			Size={props.size}
 			BackgroundTransparency={1}
 			LayoutOrder={props.order ?? 0}
@@ -98,7 +112,7 @@ export function Tooltip(props: { tip: string; size: UDim2; order?: number; child
 		>
 			{props.children}
 			{shown && (
-				<frame Size={UDim2.fromOffset(240, 0)} AutomaticSize={Enum.AutomaticSize.Y} Position={new UDim2(0.5, 0, 0, -6)} AnchorPoint={new Vector2(0.5, 1)} BackgroundTransparency={1} ZIndex={70}>
+				<frame Size={UDim2.fromOffset(width, 0)} AutomaticSize={Enum.AutomaticSize.Y} Position={new UDim2(0, left, 0, -6)} AnchorPoint={new Vector2(0, 1)} BackgroundTransparency={1} ZIndex={70}>
 					<Panel pad={10} color={Iron.sunk()}>
 						<Text text={props.tip} size={13} color={Iron.soft()} multiline />
 					</Panel>
