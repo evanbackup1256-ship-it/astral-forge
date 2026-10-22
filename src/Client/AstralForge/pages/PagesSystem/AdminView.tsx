@@ -672,7 +672,11 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					size={UDim2.fromOffset(84, 22)}
 				/>
 				{selectedPlayer && selectedPlayer.Unlimited === true && (
-					<Badge value="UNLIMITED" accent={Palette.violet} filled={true} size={UDim2.fromOffset(88, 22)} />
+					<frame Size={UDim2.fromOffset(88, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+						{/* last in the row: on narrow phones it gives up width instead of running past the edge */}
+						<uiflexitem FlexMode={Enum.UIFlexMode.Shrink} />
+						<Badge value="UNLIMITED" accent={Palette.violet} filled={true} size={UDim2.fromScale(1, 1)} />
+					</frame>
 				)}
 			</frame>
 			<Button

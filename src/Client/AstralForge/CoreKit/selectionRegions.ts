@@ -9,16 +9,18 @@ import { IsValidFocusTarget } from "./GamepadNavigationService";
 const GuiService = game.GetService("GuiService");
 const UserInputService = game.GetService("UserInputService");
 
-export type RegionName = "nav" | "page" | "top" | "tabs";
+export type RegionName = "nav" | "page" | "top" | "tabs" | "header";
 
 type Side = "Left" | "Right" | "Up" | "Down";
 
 // Which edges of a region are walls, and which edge hands off to the page's remembered control.
 // nav: vertical rail beside the page. top: horizontal bar above it. tabs: phone tab bar below it.
+// header: the phone top header, same shape as the desktop top bar.
 const SHAPE: Record<Exclude<RegionName, "page">, { stop: Side[]; toPage: Side }> = {
 	nav: { stop: ["Up", "Down"], toPage: "Right" },
 	top: { stop: ["Up", "Left", "Right"], toPage: "Down" },
 	tabs: { stop: ["Down", "Left", "Right"], toPage: "Up" },
+	header: { stop: ["Up", "Left", "Right"], toPage: "Down" },
 };
 
 interface Region {

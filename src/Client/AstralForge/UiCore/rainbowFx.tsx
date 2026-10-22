@@ -80,7 +80,7 @@ export interface RainbowLayersProps {
  * State decides everything: a resting element with no rarity/hover/selection/progress gets the
  * plain base colour and costs nothing per frame.
  */
-export function RainbowLayers(props: RainbowLayersProps) {
+function RainbowLayers(props: RainbowLayersProps) {
 	const radius = props.radius ?? 14;
 	const zIndex = props.zIndex ?? 1;
 	return (

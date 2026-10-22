@@ -828,10 +828,16 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 	const chipsW = math.min(contentW, math.max(48, room));
 	const [level, _tier, nextStep] = readLevelState(state);
 	const fill = nextStep !== undefined ? progressFraction(nextStep) : 1;
+	const regionRef = React.useRef<Frame>();
+	React.useEffect(() => {
+		const root = regionRef.current;
+		return root !== undefined ? registerRegion("header", root) : undefined;
+	}, []);
 	return h(
 		"frame",
 		{
 			Name: "MobileHeader",
+			ref: regionRef,
 			Size: new UDim2(1, -edgePad * 2, 0, barHeight),
 			Position: UDim2.fromOffset(edgePad, topPad),
 			BackgroundColor3: Palette.panel,

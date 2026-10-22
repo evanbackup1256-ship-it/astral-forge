@@ -97,7 +97,7 @@ export const Space = {
  * Type scale (uirevamp 01): a 1.2 ratio from a 13px body. Display and title use FancyText for
  * headings; everything else is BuilderSans. Numbers use the same faces with tabular intent.
  */
-export const TypeScale = {
+const TypeScale = {
 	micro: { size: 11, weight: Enum.FontWeight.Bold },
 	label: { size: 12, weight: Enum.FontWeight.SemiBold },
 	body: { size: 14, weight: Enum.FontWeight.Medium },
