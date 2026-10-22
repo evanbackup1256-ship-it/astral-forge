@@ -1,7 +1,11 @@
 import React from "@rbxts/react";
-import { useHoverPress, useIdleGlint, GLINT_TRANSPARENCY } from "../../MotionKit/motion";
 import { isTouchOnly } from "../../CoreKit/inputLayer";
+import { ButtonShimmer, useButtonChrome } from "../../UiCore/ui";
 import { Corner, Fonts, HIT, Iron } from "./tokens";
+
+// Forge2's pressable. Hover lift, press dip, click impact flash, tilt, touch squash and the
+// shimmer sweep all come from the current client's own button chrome (useButtonChrome +
+// ButtonShimmer), so timing and easing are exactly the old ones; only the cast-iron face differs.
 
 export interface ButtonProps {
 	text: string;
@@ -15,7 +19,7 @@ export interface ButtonProps {
 	busy?: boolean;
 	order?: number;
 	textSize?: number;
-	/** an occasional shine across filled buttons */
+	/** idle shimmer (on by default for filled buttons, as before) */
 	glint?: boolean;
 	onHover?: (on: boolean) => void;
 }
@@ -27,58 +31,103 @@ function fill(tone: ButtonProps["tone"]): Color3 {
 	return Iron.brass();
 }
 
+type Handler = (...args: unknown[]) => void;
+
 export function Button(props: ButtonProps) {
-	const [scale, events] = useHoverPress(false, 0.04, 0.06);
 	const filled = props.tone === undefined || props.tone === "brass" || props.tone === "ember";
-	const glint = useIdleGlint(filled && props.glint !== false && props.disabled !== true, 7);
 	const off = props.disabled === true || props.busy === true;
+	const idle = filled && props.glint !== false && !off;
+	const chrome = useButtonChrome(() => props.onPress(), false, off, "click", true, idle);
 	const height = math.max(props.height ?? HIT, isTouchOnly() ? HIT : 36);
 	const size = props.stretch === true ? new UDim2(1, 0, 0, height) : new UDim2(0, props.width ?? 140, 0, height);
+	const base = fill(props.tone);
 	const textColor = filled ? Iron.sunk() : Iron.text();
+	const corner = <uicorner CornerRadius={new UDim(0, Corner.card)} />;
+	const raw = chrome.events as unknown as Record<string, Handler | undefined>;
+	const events = {
+		...raw,
+		MouseEnter: (...args: unknown[]) => {
+			raw.MouseEnter?.(...args);
+			props.onHover?.(true);
+		},
+		MouseLeave: (...args: unknown[]) => {
+			raw.MouseLeave?.(...args);
+			props.onHover?.(false);
+		},
+		SelectionGained: (...args: unknown[]) => {
+			raw.SelectionGained?.(...args);
+			props.onHover?.(true);
+		},
+		SelectionLost: (...args: unknown[]) => {
+			raw.SelectionLost?.(...args);
+			props.onHover?.(false);
+		},
+	} as unknown as React.InstanceEvent<ImageButton>;
 	return (
-		<textbutton
+		<imagebutton
 			Size={size}
-			BackgroundColor3={fill(props.tone)}
-			BackgroundTransparency={off ? 0.45 : 0}
+			BackgroundTransparency={1}
 			AutoButtonColor={false}
-			Text={props.busy === true ? "…" : props.text}
-			FontFace={Fonts.heavy}
-			TextColor3={textColor}
-			TextTransparency={off ? 0.4 : 0}
-			TextSize={props.textSize ?? 17}
-			TextScaled
+			Image=""
 			Active={!off}
 			Selectable={!off}
 			LayoutOrder={props.order ?? 0}
-			Event={{
-				Activated: () => {
-					if (!off) props.onPress();
-				},
-				MouseEnter: () => {
-					events.MouseEnter();
-					props.onHover?.(true);
-				},
-				MouseLeave: () => {
-					events.MouseLeave();
-					props.onHover?.(false);
-				},
-				MouseButton1Down: events.MouseButton1Down,
-				MouseButton1Up: events.MouseButton1Up,
-				SelectionGained: () => props.onHover?.(true),
-				SelectionLost: () => props.onHover?.(false),
-			}}
+			Event={events}
 		>
-			<uiscale Scale={scale} />
-			<uicorner CornerRadius={new UDim(0, Corner.card)} />
-			<uitextsizeconstraint MaxTextSize={props.textSize ?? 17} MinTextSize={11} />
-			<uipadding PaddingLeft={new UDim(0, 14)} PaddingRight={new UDim(0, 14)} />
-			{!filled && <uistroke Color={Iron.brassDeep()} Transparency={0.3} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />}
-			{filled && (
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Color3.fromRGB(255, 255, 255)} BackgroundTransparency={0} BorderSizePixel={0} ZIndex={0}>
-					<uicorner CornerRadius={new UDim(0, Corner.card)} />
-					<uigradient Transparency={GLINT_TRANSPARENCY} Rotation={20} Offset={glint.map((x) => new Vector2(x, 0))} />
+			<frame Size={UDim2.fromScale(1, 1)} Position={chrome.offsetY.map((y) => UDim2.fromOffset(0, 5 - y))} BackgroundColor3={Iron.void()} BackgroundTransparency={off ? 0.85 : 0.6} BorderSizePixel={0} ZIndex={0}>
+				{corner}
+			</frame>
+			<frame Size={UDim2.fromScale(1, 1)} Position={chrome.offsetY.map((y) => UDim2.fromOffset(0, y))} Rotation={chrome.tilt} BackgroundTransparency={1} ZIndex={1}>
+				<uiscale Scale={chrome.touchScale} />
+				<frame
+					Size={UDim2.fromScale(1, 1)}
+					BackgroundColor3={chrome.hoverAmount.map((h) => base.Lerp(new Color3(1, 1, 1), math.clamp(h, 0, 1) * 0.08))}
+					BackgroundTransparency={off ? 0.45 : 0}
+					BorderSizePixel={0}
+					ZIndex={1}
+				>
+					{corner}
+					{!filled && <uistroke Color={Iron.brassDeep()} Transparency={0.3} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />}
 				</frame>
-			)}
-		</textbutton>
+				{!off && <ButtonShimmer hoverAmount={chrome.hoverAmount} shimmer={chrome.shimmer} live={chrome.shimmerLive} idle={idle} zIndex={2} radius={Corner.card} />}
+				{!off && (
+					<frame
+						Size={UDim2.fromScale(1, 1)}
+						BackgroundColor3={new Color3(1, 1, 1)}
+						BackgroundTransparency={chrome.impact.map((a) => math.clamp(1 - a * 0.48, 0.52, 1))}
+						Visible={chrome.impact.map((a) => a > 0.05)}
+						BorderSizePixel={0}
+						ZIndex={4}
+					>
+						{corner}
+					</frame>
+				)}
+				{!off && (
+					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Visible={chrome.impact.map((a) => a > 0.03)} BorderSizePixel={0} ZIndex={5}>
+						{corner}
+						<uistroke
+							ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+							Color={base}
+							Thickness={chrome.impact.map((a) => 1 + a * 2)}
+							Transparency={chrome.impact.map((a) => math.clamp(1 - a * 0.78, 0.18, 1))}
+						/>
+					</frame>
+				)}
+				<textlabel
+					Size={UDim2.fromScale(1, 1)}
+					BackgroundTransparency={1}
+					Text={props.busy === true ? "…" : props.text}
+					FontFace={Fonts.heavy}
+					TextColor3={textColor}
+					TextTransparency={off ? 0.4 : 0}
+					TextSize={props.textSize ?? 17}
+					TextScaled
+					ZIndex={6}
+				>
+					<uitextsizeconstraint MaxTextSize={props.textSize ?? 17} MinTextSize={11} />
+					<uipadding PaddingLeft={new UDim(0, 14)} PaddingRight={new UDim(0, 14)} />
+				</textlabel>
+			</frame>
+		</imagebutton>
 	);
 }
