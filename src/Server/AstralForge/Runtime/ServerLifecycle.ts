@@ -4,6 +4,8 @@ import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { OnStart, Service } from "@flamework/core";
 import ModuleLog = require("../ModuleLog");
 import { GameService } from "../Services/GameService";
+import { DataService } from "../Services/DataService";
+import { flushBeforeTeleport } from "./TeleportFlush";
 import { RemoteBridge } from "./RemoteBridge";
 
 const Players = game.GetService("Players");
@@ -37,6 +39,7 @@ export class ServerLifecycle implements OnStart {
 	constructor(
 		private readonly bridge: RemoteBridge,
 		private readonly gameplay: GameService,
+		private readonly data: DataService,
 	) {}
 
 	onStart() {
@@ -157,7 +160,15 @@ export class ServerLifecycle implements OnStart {
 		if (!production) {
 			return;
 		}
-		const remainingPlayers = Players.GetPlayers();
+		// only teleport players whose save session this server has released (see TeleportFlush)
+		const flushed = flushBeforeTeleport(Players.GetPlayers(), {
+			held: (player) => this.data.Get(player) !== undefined,
+			release: (player) => this.data.Save(player, true),
+		});
+		if (flushed.held.size() > 0) {
+			ModuleLog.Warn("Shutdown", string.format("%d player(s) kept here until their save is released", flushed.held.size()));
+		}
+		const remainingPlayers = flushed.ready;
 		if (remainingPlayers.size() === 0) {
 			return;
 		}
