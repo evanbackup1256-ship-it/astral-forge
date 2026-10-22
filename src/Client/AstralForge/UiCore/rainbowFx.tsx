@@ -62,3 +62,44 @@ export function RainbowGradient(props: RainbowGradientProps) {
 		/>
 	);
 }
+
+export interface RainbowLayersProps {
+	base: Color3;
+	state?: State;
+	radius?: number;
+	zIndex?: number;
+	/** rim stroke thickness; the rim is the loud layer */
+	thickness?: number;
+	/** how see-through the inner wash stays (1 = no wash) */
+	washTransparency?: number;
+}
+
+/**
+ * Layered rainbow (uirevamp 01): a soft inner wash that flows sideways and a rim that spins,
+ * both bound to the one shared Rainbow clock with offset phases so they never move in lockstep.
+ * State decides everything: a resting element with no rarity/hover/selection/progress gets the
+ * plain base colour and costs nothing per frame.
+ */
+export function RainbowLayers(props: RainbowLayersProps) {
+	const radius = props.radius ?? 14;
+	const zIndex = props.zIndex ?? 1;
+	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false} ZIndex={zIndex}>
+			<uicorner CornerRadius={new UDim(0, radius)} />
+			<frame
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundColor3={Color3.fromRGB(255, 255, 255)}
+				BackgroundTransparency={props.washTransparency ?? 0.93}
+				BorderSizePixel={0}
+				Active={false}
+				ZIndex={zIndex}
+			>
+				<uicorner CornerRadius={new UDim(0, radius)} />
+				<RainbowGradient base={props.base} state={props.state} phase={0.37} rotation={90} />
+			</frame>
+			<uistroke Thickness={props.thickness ?? 1.5} Color={Color3.fromRGB(255, 255, 255)} ApplyStrokeMode={Enum.ApplyStrokeMode.Border}>
+				<RainbowGradient base={props.base} state={props.state} style="spin" />
+			</uistroke>
+		</frame>
+	);
+}

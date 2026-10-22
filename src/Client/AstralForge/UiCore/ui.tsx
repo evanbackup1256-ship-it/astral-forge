@@ -4,6 +4,7 @@ import ReactRoblox from "@rbxts/react-roblox";
 import { compactNumber } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import {
+	Bevel,
 	Chrome,
 	Layout,
 	Elevation,
@@ -19,6 +20,7 @@ import {
 	strokeGradient,
 	surfaceGradient,
 } from "../CoreKit/theme";
+import { RainbowGradient } from "./rainbowFx";
 import * as TouchGestureService from "../CoreKit/TouchGestureService";
 import * as MotionTokens from "../MotionKit/motionTokens";
 import { Bindable, joinTuple } from "../lua";
@@ -1308,19 +1310,35 @@ export function Panel(props: PanelProps) {
 				>
 					<uicorner CornerRadius={new UDim(0, radius)} />
 					<uigradient Color={surfaceGradient(background, 0.92)} Rotation={90} />
+					{
+						// forged-plate bevel: a cool 1px light along the top edge that warms on hover/highlight
+						<frame
+							Size={new UDim2(1, -radius * 2, 0, StrokeWidth.hairline)}
+							Position={UDim2.fromOffset(radius, 0)}
+							BackgroundColor3={Palette.steel}
+							BackgroundTransparency={joinTuple<[number, number, number]>(lift, highlightOn, revealFade).map((values) =>
+								math.clamp(Bevel.topLight - (values[0] + values[1]) * (Bevel.topLight - Bevel.topLightHot) + values[2] * (1 - Bevel.topLight), 0, 1),
+							)}
+							BorderSizePixel={0}
+							Active={false}
+							ZIndex={zIndex}
+						/>
+					}
 					{accent !== undefined && Chrome.accentHairline < 1 && (
 						// faint accent hairline across the top edge ties each panel to its section colour
 						<frame
 							Size={new UDim2(1, -radius * 2, 0, StrokeWidth.hairline)}
 							Position={UDim2.fromOffset(radius, 1)}
-							BackgroundColor3={accent}
+							BackgroundColor3={Palette.white}
 							BackgroundTransparency={revealFade.map((amount) => math.clamp(Chrome.accentHairline + amount * (1 - Chrome.accentHairline), 0, 1))}
 							BorderSizePixel={0}
 							Active={false}
 							ZIndex={zIndex}
 						>
-							<uigradient
-								Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 1)])}
+							<RainbowGradient
+								base={accent}
+								state={{ hover: interactive && hovered && !effectsPaused, selected: highlight }}
+								transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 1)])}
 							/>
 						</frame>
 					)}
