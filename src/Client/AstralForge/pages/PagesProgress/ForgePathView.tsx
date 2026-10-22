@@ -20,6 +20,9 @@ interface UiKit {
 	EmptyState: LuauComponent;
 }
 const { IconTile, Panel, Button, Text, Meter, Badge, EmptyState } = kitMember<UiKit>("UiCore", "ui");
+import { SplitColumns, splitColumns, StackBlocks } from "../../UiCore/ui";
+
+type ColumnSection = { id: string; height: number; element: React.Element };
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const { FlatList } = kitMember<{ FlatList: LuauComponent }>("LayoutKit", "virtualizedList");
 const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
@@ -558,14 +561,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 				)}
 			/>
 		);
-	return (
-		<PageScaffold
-			gap={listGap}
-			tailPad={scrollTail(stack, chrome.bottomSafe, 48)}
-			scrollBarColor={Palette.violet}
-			scrollBarThickness={4}
-			sections={[
-				{
+	const heroSection: ColumnSection = {
 					id: "hero",
 					height: headerH,
 					element: (
@@ -636,8 +632,8 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 							)}
 						</Panel>
 					),
-				},
-				{
+				};
+	const spotlightSection: ColumnSection = {
 					id: "spotlight",
 					height: spotlightH,
 					element: (
@@ -652,7 +648,34 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 							stack={stack}
 						/>
 					),
+				};
+	// wide desktops: progress and the next claim side by side, steps list full width below
+	const topPlan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.45), listGap, 1280);
+	const topH = math.max(headerH, spotlightH);
+	const topSections: ColumnSection[] = topPlan.split
+		? [
+				{
+					id: "top",
+					height: topH,
+					element: (
+						<SplitColumns
+							height={topH}
+							plan={topPlan}
+							side={<StackBlocks blocks={[{ ...heroSection, height: topH }]} />}
+							main={<StackBlocks blocks={[{ ...spotlightSection, height: topH }]} />}
+						/>
+					),
 				},
+			]
+		: [heroSection, spotlightSection];
+	return (
+		<PageScaffold
+			gap={listGap}
+			tailPad={scrollTail(stack, chrome.bottomSafe, 48)}
+			scrollBarColor={Palette.violet}
+			scrollBarThickness={4}
+			sections={[
+				...topSections,
 				{
 					id: "browse",
 					height: Browse.barHeight(stack, true),
