@@ -47,7 +47,7 @@ interface Snapshot {
 type StatKey = "Production" | "Capacity" | "Tap" | "Offline";
 
 const LOOK: Record<string, { accent: () => Color3; line: string }> = {
-	Balanced: { accent: Iron.steel, line: "Even rates, no trade-offs" },
+	Balanced: { accent: Iron.steel, line: "No trade-offs" },
 	Handcraft: { accent: Iron.ember, line: "For players who tap" },
 	Reserve: { accent: Iron.brass, line: "For longer gaps between collects" },
 	NightShift: { accent: Iron.soft, line: "For time away from the game" },
@@ -141,9 +141,10 @@ function BuildCard(props: { build: Build; state: Snapshot; index: number; equipp
 						{deltas}
 					</frame>
 				)}
+				{props.equipped && <Text text="Equipped build" size={Type.small(phone)} font={Fonts.heavy} color={accent} order={4} />}
 				{!props.equipped && (
 					<Button
-						text={props.cooling ? clock(props.remaining) : "Equip"}
+						text={props.cooling ? clock(props.remaining) : `Equip ${props.build.Name}`}
 						tone="iron"
 						stretch
 						disabled={props.locked}
@@ -203,7 +204,7 @@ export function StarGridPage(props: PageProps) {
 			pending.current = false;
 			if (live.current) {
 				setBusy(false);
-				setNote("No answer yet. Press again to confirm the last change.");
+				setNote("No response yet. Retry to confirm the previous build change.");
 			}
 		});
 		props.request("SelectSpecialization", order, (reply) => {
@@ -217,7 +218,7 @@ export function StarGridPage(props: PageProps) {
 			pending.current = false;
 			if (!live.current) return;
 			setBusy(false);
-			setNote(uncertain ? "Not confirmed yet. Press again before picking another." : "");
+			setNote(uncertain ? "Confirm your last build change" : reply.ok === true ? "Build equipped." : (reply.error ?? "The build could not be changed."));
 			if (reply.ok === true) {
 				Audio.play("successChime");
 				Burst.spark(lookOf(id).accent(), 1);
@@ -231,7 +232,7 @@ export function StarGridPage(props: PageProps) {
 		return (
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				<uipadding PaddingTop={new UDim(0, space)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
-				<EmptyState title="Warming the forge" phone={phone} />
+				<EmptyState title="Loading your forge build..." phone={phone} />
 			</frame>
 		);
 	}
@@ -267,7 +268,8 @@ export function StarGridPage(props: PageProps) {
 						<Text text={clock(remaining)} size={Type.small(phone)} color={Iron.muted()} align="Right" position={UDim2.fromOffset(0, 12)} />
 					</Tooltip>
 				)}
-				{note !== "" && <Text text={note} size={Type.small(phone)} color={Iron.ember()} multiline order={3} />}
+				{!cooling && unresolved === undefined && note === "" && <Text text="Ready to switch. Changing builds is free." size={Type.small(phone)} color={Iron.muted()} order={2} />}
+				{note !== "" && <Text text={note} size={Type.small(phone)} color={note === "Build equipped." ? look.accent() : Iron.ember()} multiline order={3} />}
 			</Panel>
 
 			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
@@ -291,7 +293,7 @@ export function StarGridPage(props: PageProps) {
 
 			{state.Foundation.size() > 0 && (
 				<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} order={2}>
-					<Text text="kept from the grid, on every build" size={Type.small(phone)} color={Iron.muted()} order={0} />
+					<Text text="Kept from the Star Grid · applies to every build" size={Type.small(phone)} color={Iron.muted()} order={0} />
 					<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
 						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
 						{state.Foundation.map((bonus, i) => (
