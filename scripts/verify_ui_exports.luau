@@ -31,6 +31,18 @@ local ALLOWED: { [string]: string } = {
 	-- notice timing lives next to the notice copy (copy workstream)
 	["UiCore/notifications.ts:NOTICE_LIFETIME"] = "notice workstream",
 	["UiCore/notifications.ts:NOTICE_EXIT_SECONDS"] = "notice workstream",
+	["CoreKit/store/selectors.ts:selectSession"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectVisit"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectPage"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectBootStatus"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectBootVisible"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectDomainOverlay"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectDomainBusy"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectSettings"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectFlags"] = "client store selector API (rw18)",
+	["CoreKit/store/selectors.ts:selectSessionField"] = "client store selector API (rw18)",
+	["CoreKit/settingsService.ts:useSettingOn"] = "settings service hook API (rw22)",
+	["CoreKit/inputLayer.ts:onKindChanged"] = "input layer subscription API (rw20)",
 }
 
 local function walk(dir: string, out: { string })

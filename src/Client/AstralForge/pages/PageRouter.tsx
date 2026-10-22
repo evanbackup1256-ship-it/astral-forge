@@ -176,10 +176,6 @@ function EmptyPage() {
 	return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} />;
 }
 
-export function hasRoute(page: string): boolean {
-	return ROUTES[page] !== undefined || CUSTOM[page] !== undefined;
-}
-
 function PageContentInner(props: PageContentProps) {
 	const { page, state, config, dispatch, reducedMotion } = props;
 	countRedraw(`page:${page}`, redrawCounterEnabled(state as { Admin?: { Access?: boolean } }));

@@ -175,7 +175,3 @@ export function applyOptimistic(session: Session | undefined, action: string, pa
 	const handler = HANDLERS[action];
 	return handler !== undefined ? handler(session, payload, gameVersion) : session;
 }
-
-export function hasOptimisticHandler(action: string): boolean {
-	return HANDLERS[action] !== undefined;
-}

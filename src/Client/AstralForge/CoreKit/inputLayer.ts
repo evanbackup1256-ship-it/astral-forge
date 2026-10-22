@@ -1,7 +1,6 @@
 // One place that answers "what is the player using?" for mouse, touch and gamepad.
 // Hardware flags come from UserInputService; the active kind follows the last input and is
 // shared by every subscriber through a single LastInputTypeChanged connection, made on first use.
-import React from "@rbxts/react";
 
 const UserInputService = game.GetService("UserInputService");
 
@@ -112,12 +111,6 @@ export function onKindChanged(listener: (kind: InputKind) => void): () => void {
 	activeKind();
 	listeners.add(listener);
 	return () => listeners.delete(listener);
-}
-
-export function useInputKind(): InputKind {
-	const [kind, setKind] = React.useState(activeKind);
-	React.useEffect(() => onKindChanged(setKind), []);
-	return kind;
 }
 
 export function stopInputLayer() {
