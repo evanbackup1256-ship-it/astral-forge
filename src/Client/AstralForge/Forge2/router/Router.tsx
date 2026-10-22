@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { ClientLog } from "../../CoreKit/log";
 import { useStagger } from "../../MotionKit/motion";
 import { EmptyState } from "../design/Layers";
 import { usePageEntry, useRegion } from "../input/input";
@@ -10,22 +11,41 @@ interface BoundaryProps {
 	children?: React.ReactNode;
 }
 
-class PageBoundary extends React.Component<BoundaryProps, { failed: boolean }> {
-	constructor(props: BoundaryProps) {
-		super(props);
-		this.state = { failed: false };
-	}
-	static getDerivedStateFromError(): { failed: boolean } {
+interface BoundaryState {
+	failed: boolean;
+}
+
+// A roblox-ts class only becomes a real React-Lua component through @React.ReactComponent; without it
+// the compiled constructor calls a nil super.constructor and every page render throws.
+@React.ReactComponent
+class PageBoundary extends React.Component<BoundaryProps, BoundaryState> {
+	state: BoundaryState = { failed: false };
+
+	static getDerivedStateFromError(this: void): BoundaryState {
 		return { failed: true };
 	}
+
+	componentDidCatch(err: unknown, info: { componentStack?: unknown }) {
+		let message = tostring(err);
+		let stack = "";
+		if (typeIs(err, "table")) {
+			const e = err as { message?: unknown; stack?: unknown };
+			if (e.message !== undefined) message = tostring(e.message);
+			if (typeIs(e.stack, "string")) stack = e.stack;
+		}
+		const components = typeIs(info, "table") && typeIs(info.componentStack, "string") ? info.componentStack : "";
+		ClientLog.warnEvery(`forge2-page-${this.props.page}`, 5, "React", `Forge2 page ${this.props.page} failed: ${message}\n${stack}${components}`);
+	}
+
 	componentDidUpdate(previous: BoundaryProps) {
 		if (previous.page !== this.props.page && this.state.failed) this.setState({ failed: false });
 	}
+
 	render() {
 		if (this.state.failed) {
 			return <EmptyState title="This page tripped" body="Switch pages and come back. Your progress is safe." phone={this.props.phone} />;
 		}
-		return this.props.children;
+		return this.props.children as React.Element;
 	}
 }
 
