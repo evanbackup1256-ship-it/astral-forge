@@ -3,6 +3,8 @@
 // Remote: ClaimConvergenceReward { Tier }
 import React from "@rbxts/react";
 import { Audio } from "../../AudioKit/audio";
+import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
+import { Palette } from "../../CoreKit/theme";
 import { clockText, compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import { useChangePop, useStagger, useWallClock } from "../../MotionKit/motion";
 import { Button } from "../design/Button";
@@ -32,7 +34,7 @@ interface ConvergenceEvent {
 	Tiers?: Tier[];
 }
 
-function TierCard(props: { tier: Tier; mine: number; phone: boolean; index: number; request: PageProps["request"] }) {
+function TierCard(props: { tier: Tier; mine: number; phone: boolean; index: number; request: PageProps["request"]; hostRef?: React.MutableRefObject<Frame | undefined> }) {
 	const { tier, phone } = props;
 	const rise = useStagger(props.index + 2);
 	const [busy, setBusy] = React.useState(false);
@@ -54,8 +56,20 @@ function TierCard(props: { tier: Tier; mine: number; phone: boolean; index: numb
 				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2}>
 					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
 					<Text text={`${compactNumber(math.min(props.mine, tier.Required))} / ${compactNumber(tier.Required)}`} size={Type.small(phone)} color={Iron.muted()} box={new UDim2(1, phone ? 0 : -170, 0, 20)} order={0} />
-					{!tier.Claimed && <Button text={tier.CanClaim ? "Claim" : "Keep going"} disabled={!tier.CanClaim} busy={busy} width={150} onPress={claim} order={1} />}
-					{tier.Claimed && <Text text="Claimed" size={Type.small(phone)} color={Iron.muted()} box={UDim2.fromOffset(150, 20)} align="Right" order={1} />}
+					<frame {...({ Name: "ConvergenceClaimActions" } as object)} ref={props.hostRef} Size={phone ? new UDim2(1, 0, 0, 48) : UDim2.fromOffset(150, 48)} BackgroundTransparency={1} LayoutOrder={1}>
+						<Button
+							text={tier.Claimed ? "Claimed" : tier.CanClaim ? "Claim" : "Locked"}
+							tone={tier.CanClaim ? "brass" : "iron"}
+							disabled={!tier.CanClaim}
+							busy={busy}
+							glint={tier.CanClaim}
+							stretch
+							height={48}
+							onPress={() => {
+								if (tier.CanClaim) claim();
+							}}
+						/>
+					</frame>
 				</frame>
 			</Card>
 		</frame>
@@ -67,6 +81,19 @@ export function ConvergencePage(props: PageProps) {
 	const event = (props.session as unknown as { Convergence?: ConvergenceEvent }).Convergence;
 	const now = useWallClock(event !== undefined);
 	const phasePop = useChangePop(event?.PhaseName ?? "");
+	const claimHost = React.useRef<Frame>();
+	const firstClaim = (event?.Tiers ?? []).find((t) => t.CanClaim)?.Tier;
+	// a gamepad lands on the first tier that can be claimed (old ConvergenceView did the same)
+	React.useEffect(() => {
+		if (firstClaim === undefined || !game.GetService("UserInputService").GamepadEnabled) return undefined;
+		const job = task.defer(() => {
+			const host = claimHost.current;
+			if (host !== undefined && host.Parent !== undefined) GamepadNavigationService.FocusClaim(host);
+		});
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [firstClaim, event?.EventId]);
 	const space = gap(phone, "l");
 	React.useEffect(() => {
 		if (event !== undefined) MotionFX.play("modeSwitch");
@@ -75,7 +102,7 @@ export function ConvergencePage(props: PageProps) {
 		return (
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				<uipadding PaddingTop={new UDim(0, space)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
-				<EmptyState title="Forge Convergence" body="This week's shared forge is getting ready." phone={phone} />
+				<EmptyState title="Forge Convergence" body="Getting this week's shared forge ready…" phone={phone} />
 			</frame>
 		);
 	}
@@ -93,8 +120,9 @@ export function ConvergencePage(props: PageProps) {
 			<uipadding PaddingTop={new UDim(0, space)} PaddingBottom={new UDim(0, space * 3)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
 			<uilistlayout Padding={new UDim(0, space)} SortOrder={Enum.SortOrder.LayoutOrder} />
 			<Panel pad={gap(phone, "xl")} spacing={gap(phone, "m")} seam rarity="Mythic" order={0}>
+				<Text text="Weekly cooperative event" size={Type.small(phone)} color={Iron.brass()} order={-1} />
 				<Title text={event.Name} size={Type.title(phone)} tags={["rainbow", "wave"]} order={0} />
-				<Text text="Every server, one forge, all week. Clear a phase together and everyone makes more." size={Type.small(phone) + 1} color={Iron.muted()} multiline order={1} />
+				<Text text="One forge, every server, all week. Clear a phase together and everyone's production goes up." size={Type.small(phone) + 1} color={Iron.muted()} multiline order={1} />
 				<frame Size={new UDim2(1, 0, 0, 28)} BackgroundTransparency={1} LayoutOrder={2}>
 					<uiscale Scale={phasePop} />
 					<Text text={event.PhaseName} size={20} font={Fonts.heavy} color={Iron.brass()} box={new UDim2(0.5, 0, 1, 0)} />
@@ -121,10 +149,11 @@ export function ConvergencePage(props: PageProps) {
 			</Panel>
 			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
 				<uilistlayout Padding={new UDim(0, gap(phone, "m"))} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Text text="Your rewards" size={Type.body(phone)} font={Fonts.heavy} color={Palette.violet} order={-1} />
 				{tiers.size() === 0 ? (
 					<EmptyState title="No rewards this week" body="Tiers show up when the event starts." phone={phone} />
 				) : (
-					tiers.map((tier, i) => <TierCard key={`t${tier.Tier}`} tier={tier} mine={event.PersonalContribution} phone={phone} index={i} request={props.request} />)
+					tiers.map((tier, i) => <TierCard key={`t${tier.Tier}`} tier={tier} mine={event.PersonalContribution} phone={phone} index={i} request={props.request} hostRef={tier.Tier === firstClaim ? claimHost : undefined} />)
 				)}
 			</frame>
 		</scrollingframe>
