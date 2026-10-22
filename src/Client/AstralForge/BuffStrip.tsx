@@ -1153,6 +1153,13 @@ function toneMotion(
 	return UDim2.fromOffset(0, 0);
 }
 
+// toast spacing (uirevamp): one edge inset shared by Announcement and LiveActivity, text starts
+// a clear gap after the icon. measureEvent sizes the island from the same numbers.
+const TOAST_INSET = 16;
+const TOAST_TEXT_X = { moment: 88, notice: 68, pill: 52 } as const;
+const LIVE_ICON = 32;
+const LIVE_TEXT_X = 12 + LIVE_ICON + 12;
+
 interface AnnouncementProps {
 	info: IslandNotice;
 	token?: unknown;
@@ -1168,7 +1175,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 	const moment = style === "moment";
 	const pill = style === "pill";
 	const iconBox = moment ? 52 : pill ? 28 : 38;
-	const textX = moment ? 84 : pill ? 50 : 64;
+	const textX = moment ? TOAST_TEXT_X.moment : pill ? TOAST_TEXT_X.pill : TOAST_TEXT_X.notice;
 	const startedAt = info.startedAt ?? os.clock();
 	const hold = math.max(0.5, info.hold ?? 2.6);
 	const titleColor = moment ? undefined : new ColorSequence(theme.lighten(info.color, 0.45), info.color);
@@ -1205,7 +1212,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 			"frame",
 			{
 				Size: UDim2.fromOffset(iconBox, iconBox),
-				Position: new UDim2(0, pill ? 10 : 14, 0.5, 0),
+				Position: new UDim2(0, pill ? 12 : TOAST_INSET, 0.5, 0),
 				AnchorPoint: new Vector2(0, 0.5),
 				BackgroundColor3: theme.darken(info.color, 0.55),
 				BorderSizePixel: 0,
@@ -1249,7 +1256,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 		h(
 			"textlabel",
 			{
-				Size: new UDim2(1, -(textX + 16), 0, moment ? 30 : pill ? 20 : 22),
+				Size: new UDim2(1, -(textX + TOAST_INSET), 0, moment ? 30 : pill ? 20 : 22),
 				Position: arrive.map((t) => {
 					const y = pill ? 12 : moment ? (info.subtitle !== undefined ? 16 : 33) : info.subtitle !== undefined ? 10 : 20;
 					return new UDim2(0, textX + (1 - t) * 12, 0, y);
@@ -1275,7 +1282,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 		info.subtitle !== undefined &&
 			!pill &&
 			h("textlabel", {
-				Size: new UDim2(1, -(textX + 16), 0, 16 * (info.lines ?? 1)),
+				Size: new UDim2(1, -(textX + TOAST_INSET), 0, 16 * (info.lines ?? 1)),
 				Position: arrive.map((t) => new UDim2(0, textX + (1 - t) * 18, 0, moment ? 50 : 33)),
 				BackgroundTransparency: 1,
 				Text: info.subtitle,
@@ -1294,8 +1301,8 @@ function Announcement(props: AnnouncementProps): React.Element {
 				"frame",
 				{
 					// how long this stays up: a thin line that drains along the bottom edge
-					Size: new UDim2(1, -40, 0, 2),
-					Position: new UDim2(0, 20, 1, -5),
+					Size: new UDim2(1, -TOAST_INSET * 2 - 16, 0, 2),
+					Position: new UDim2(0, TOAST_INSET + 8, 1, -6),
 					BackgroundColor3: P.white,
 					BackgroundTransparency: 0.88,
 					BorderSizePixel: 0,
@@ -1321,8 +1328,8 @@ function Announcement(props: AnnouncementProps): React.Element {
 				"textlabel",
 				{
 					// more waiting behind this one
-					Size: UDim2.fromOffset(26, 16),
-					Position: new UDim2(1, -8, 0, 6),
+					Size: UDim2.fromOffset(28, 18),
+					Position: new UDim2(1, -10, 0, 8),
 					AnchorPoint: new Vector2(1, 0),
 					BackgroundColor3: P.white,
 					BackgroundTransparency: 0.86,
@@ -1485,8 +1492,8 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 		h(
 			"frame",
 			{
-				Size: UDim2.fromOffset(30, 30),
-				Position: new UDim2(0, 10, 0.5, 0),
+				Size: UDim2.fromOffset(LIVE_ICON, LIVE_ICON),
+				Position: new UDim2(0, 12, 0.5, 0),
 				AnchorPoint: new Vector2(0, 0.5),
 				BackgroundColor3: theme.darken(color, 0.55),
 				BorderSizePixel: 0,
@@ -1503,7 +1510,7 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 				kind: live.icon ?? "Boost.6",
 				color: P.white,
 				accent: color,
-				size: 18,
+				size: 19,
 				position: UDim2.fromScale(0.5, 0.5),
 				anchorPoint: new Vector2(0.5, 0.5),
 				spin: false,
@@ -1512,8 +1519,8 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 		h(
 			"textlabel",
 			{
-				Size: new UDim2(1, -150, 0, 18),
-				Position: arrive.map((t) => UDim2.fromOffset(48 + (1 - t) * 10, 6)),
+				Size: new UDim2(1, -(LIVE_TEXT_X + 104), 0, 18),
+				Position: arrive.map((t) => UDim2.fromOffset(LIVE_TEXT_X + (1 - t) * 10, 6)),
 				BackgroundTransparency: 1,
 				Text: live.title ?? "",
 				TextColor3: theme.lighten(color, 0.35),
@@ -1528,8 +1535,8 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 		h(
 			"textlabel",
 			{
-				Size: UDim2.fromOffset(110, 18),
-				Position: new UDim2(1, -120, 0, 6),
+				Size: UDim2.fromOffset(88, 18),
+				Position: new UDim2(1, -(88 + TOAST_INSET), 0, 6),
 				BackgroundTransparency: 1,
 				Text: props.clock.map(() => {
 					const left = remaining();
@@ -1549,8 +1556,8 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 		h(
 			"frame",
 			{
-				Size: new UDim2(1, -60, 0, 4),
-				Position: new UDim2(0, 48, 1, -11),
+				Size: new UDim2(1, -(LIVE_TEXT_X + TOAST_INSET), 0, 4),
+				Position: new UDim2(0, LIVE_TEXT_X, 1, -12),
 				BackgroundColor3: P.line,
 				BorderSizePixel: 0,
 				ZIndex: 63,
@@ -1587,18 +1594,18 @@ function measureEvent(info: IslandNotice, maxWidth?: number) {
 	const style = info.style || "notice";
 	if (style === "pill") {
 		const titleW = textWidth(info.title ?? "", 15, Enum.Font.BuilderSansExtraBold);
-		info.width = math.clamp(math.ceil(66 + titleW), 150, cap);
+		info.width = math.clamp(math.ceil(TOAST_TEXT_X.pill + TOAST_INSET + titleW), 150, cap);
 		info.lines = 1;
 		info.height = COMPACT_H;
 		return;
 	}
 	const moment = style === "moment";
-	const textX = moment ? 84 : 64;
+	const textX = moment ? TOAST_TEXT_X.moment : TOAST_TEXT_X.notice;
 	const titleW = textWidth(info.title ?? "", moment ? 26 : 16, Enum.Font.BuilderSansExtraBold);
 	const subtitleW =
 		info.subtitle !== undefined ? textWidth(info.subtitle, moment ? 14 : 13, Enum.Font.BuilderSansBold) : 0;
-	const width = math.clamp(math.ceil(textX + 24 + math.max(titleW, math.min(subtitleW, 400))), moment ? 320 : 240, cap);
-	const room = math.max(80, width - textX - 24);
+	const width = math.clamp(math.ceil(textX + TOAST_INSET + 8 + math.max(titleW, math.min(subtitleW, 400))), moment ? 320 : 240, cap);
+	const room = math.max(80, width - textX - TOAST_INSET - 8);
 	info.width = width;
 	info.lines = subtitleW > room ? 2 : 1;
 	info.height = (moment ? 92 : EVENT_H) + 16 * (info.lines - 1);
