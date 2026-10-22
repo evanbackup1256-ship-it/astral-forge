@@ -1,5 +1,6 @@
 import { resolveTextScale } from "../CoreKit/textScale";
 import type { PushEvent, RequestFunction } from "../ClientNetwork";
+import { applyVolumes, AudioMixerApi, volumesKey } from "../AudioKit/volumes";
 import React from "@rbxts/react";
 import { TooltipProvider } from "../Tooltip";
 import { setEffectSwitches, setInGameReducedMotion } from "../MotionPreference";
@@ -50,16 +51,12 @@ const load = <T extends unknown>(name: string): T => require(AstralForge.WaitFor
 const loadKit = <T extends unknown>(kit: string, member: string): T =>
 	(require(AstralForge.WaitForChild(kit) as ModuleScript) as (member: string) => T)(member);
 
-interface AudioApi {
+interface AudioApi extends AudioMixerApi {
 	setFurnaceHeat(this: void, heat: number): void;
 	play(this: unknown, name: string, speedMult?: number): boolean;
 	playCelebration(this: unknown, cues: string[], staggerSeconds?: number): boolean;
 	start(this: unknown): void;
 	whenWarm(this: unknown, callback: () => void): void;
-	configurePreferences(this: unknown, settings: Record<string, unknown>): void;
-	setVolume(this: unknown, value: number): void;
-	setMusicVolume(this: unknown, value: number): void;
-	setSfxVolume(this: unknown, value: number): void;
 }
 const Audio = loadKit<{ Audio: AudioApi }>("AudioKit", "audio").Audio;
 ScreenFx.setAudio(Audio);
@@ -1426,32 +1423,8 @@ export function MainGame(_param: MainGameProps) {
 	}, [markBoot]);
 	React.useEffect(() => {
 		Audio.start();
-		Audio.configurePreferences({
-			UiVolume: state?.Settings.UiVolume,
-			GameplayVolume: state?.Settings.GameplayVolume,
-			RewardVolume: state?.Settings.RewardVolume,
-			AmbientVolume: state?.Settings.AmbientVolume,
-			HoverSounds: state?.Settings.HoverSounds,
-			NotificationSounds: state?.Settings.NotificationSounds,
-			PageMusic: state?.Settings.PageMusic,
-			SoundVariation: state?.Settings.SoundVariation,
-		});
-		Audio.setVolume((state?.Settings.SoundVolume as number | undefined) ?? 0.75);
-		Audio.setMusicVolume((state?.Settings.MusicVolume as number | undefined) ?? 1);
-		Audio.setSfxVolume((state?.Settings.SfxVolume as number | undefined) ?? 1);
-	}, [
-		state?.Settings.AmbientVolume,
-		state?.Settings.GameplayVolume,
-		state?.Settings.HoverSounds,
-		state?.Settings.SoundVariation,
-		state?.Settings.MusicVolume,
-		state?.Settings.NotificationSounds,
-		state?.Settings.PageMusic,
-		state?.Settings.RewardVolume,
-		state?.Settings.SfxVolume,
-		state?.Settings.SoundVolume,
-		state?.Settings.UiVolume,
-	]);
+		applyVolumes(Audio, state?.Settings);
+	}, [volumesKey(state?.Settings)]);
 	React.useEffect(() => {
 		setScrollSpeed((state?.Settings.ScrollSpeed as number | undefined) ?? 0.65);
 		setScrollMomentum((state?.Settings.ScrollMomentum as number | undefined) ?? 0.75);

@@ -1,4 +1,5 @@
 import { ClientLog } from "../CoreKit/log";
+import { ensureBuses, ensureEffect } from "./buses";
 import * as Voicing from "./audioVoicing";
 import { DECK_NAMES as MUSIC_DECK_NAMES, MusicDirector } from "./musicDirector";
 import SoundSheet = require("./soundSheet");
@@ -984,76 +985,35 @@ export class Mixer {
 		this.ready = true;
 		this.lifecycleToken += 1;
 		const lifecycle = this.lifecycleToken;
-		let masterGroup = SoundService.FindFirstChild("ForgeMaster") as SoundGroup | undefined;
-		if (masterGroup === undefined) {
-			masterGroup = new Instance("SoundGroup");
-			masterGroup.Name = "ForgeMaster";
-			masterGroup.Volume = softMaster(this.masterLinear);
-			masterGroup.Parent = SoundService;
-		}
+		const buses = ensureBuses({
+			master: softMaster(this.masterLinear),
+			sfx: SFX_BUS_GAIN,
+			ui: UI_BUS_GAIN,
+			ambient: this.ambientMix,
+		});
+		const masterGroup = buses.master;
+		const group = buses.sfx;
+		const uiGroup = buses.ui;
+		const ambientGroup = buses.ambient;
+		const musicGroup = buses.music;
 		this.masterGroup = masterGroup;
-		masterGroup.Volume = softMaster(this.masterLinear);
-
-		let group = masterGroup.FindFirstChild("ForgeSfx") as SoundGroup | undefined;
-		if (group === undefined) {
-			group = new Instance("SoundGroup");
-			group.Name = "ForgeSfx";
-			group.Volume = SFX_BUS_GAIN;
-			group.Parent = masterGroup;
-		}
 		this.group = group;
-		group.Volume = SFX_BUS_GAIN;
-
-		let uiGroup = masterGroup.FindFirstChild("ForgeUI") as SoundGroup | undefined;
-		if (uiGroup === undefined) {
-			uiGroup = new Instance("SoundGroup");
-			uiGroup.Name = "ForgeUI";
-			uiGroup.Parent = masterGroup;
-		}
 		this.uiGroup = uiGroup;
-		uiGroup.Volume = UI_BUS_GAIN;
-
-		let ambientGroup = masterGroup.FindFirstChild("ForgeAmbient") as SoundGroup | undefined;
-		if (ambientGroup === undefined) {
-			ambientGroup = new Instance("SoundGroup");
-			ambientGroup.Name = "ForgeAmbient";
-			ambientGroup.Volume = 0.5;
-			ambientGroup.Parent = masterGroup;
-		}
 		this.ambientGroup = ambientGroup;
-		ambientGroup.Volume = this.ambientMix;
+		this.musicGroup = musicGroup;
 
-		let equalizer = group.FindFirstChild("ForgeCurve") as EqualizerSoundEffect | undefined;
-		if (equalizer === undefined) {
-			equalizer = new Instance("EqualizerSoundEffect");
-			equalizer.Name = "ForgeCurve";
+		ensureEffect(group, "EqualizerSoundEffect", "ForgeCurve", (equalizer) => {
 			equalizer.LowGain = 0.3;
 			equalizer.MidGain = 1.05;
 			equalizer.HighGain = 1.35;
-			equalizer.Parent = group;
-		}
-
-		let compressor = group.FindFirstChild("ForgeGlue") as CompressorSoundEffect | undefined;
-		if (compressor === undefined) {
-			compressor = new Instance("CompressorSoundEffect");
-			compressor.Name = "ForgeGlue";
+		});
+		ensureEffect(group, "CompressorSoundEffect", "ForgeGlue", (compressor) => {
 			compressor.Attack = 0.003;
 			compressor.Release = 0.05;
 			compressor.Ratio = 1.15;
 			compressor.Threshold = -28;
 			compressor.GainMakeup = 1.8;
-			compressor.Parent = group;
-		}
-
-		let musicGroup = masterGroup.FindFirstChild("ForgeMusic") as SoundGroup | undefined;
-		if (musicGroup === undefined) {
-			musicGroup = new Instance("SoundGroup");
-			musicGroup.Name = "ForgeMusic";
-			musicGroup.Volume = 1;
-			musicGroup.Parent = masterGroup;
-		}
-		this.musicGroup = musicGroup;
-		musicGroup.Volume = 1;
+		});
 
 		let musicEq = musicGroup.FindFirstChild("ForgeBed") as EqualizerSoundEffect | undefined;
 		if (musicEq === undefined) {
