@@ -349,7 +349,8 @@ function LabViewReady(props: LabProps) {
 	// stacked row with its button underneath fills too much of a 360px-tall screen
 	const rowStack = stack && !chrome.landscape;
 	// desktop: orders on the left, the power board beside them (its rows use the compact layout)
-	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.4), ORDER_GAP + 4);
+	// lab bench: power board column is about a third of the page and the orders take the rest
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.36), ORDER_GAP + 4);
 	const wide = plan.split;
 	const stackPower = stack || wide;
 	const powerStart = POWER_ROW_START + (wide ? 34 : 0);
