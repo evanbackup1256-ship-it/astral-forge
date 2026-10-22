@@ -6,7 +6,6 @@ import React from "@rbxts/react";
 
 export const IRON_RADIUS = 4;
 export const BRASS = Color3.fromRGB(170, 126, 70);
-export const BRASS_HOT = Color3.fromRGB(214, 170, 104);
 
 // Shading lives on its own child plate ("IronShade") at ZIndex 0, so the host tile never gains a
 // UIGradient of its own: a tile that already has (or later gets) a gradient keeps it untouched,

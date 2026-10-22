@@ -34,7 +34,7 @@ local function node(kind, props, ...)
 end
 local function render(width, inspected, offers)
 	local hook = 0
-	local palette = setmetatable({}, { __index = function(_, key) return key end })
+	local palette = setmetatable({}, { __index = function() return roblox.Color3.new(0.5, 0.5, 0.5) end })
 	local environment = setmetatable({
 		h = node, Palette = palette, Format = Format,
 		Ui = setmetatable({ useSegmentedHeight = function(count, cols, rowH, gap) local rows = math.ceil(count / cols); return rows * rowH + (rows - 1) * gap end }, { __index = function(_, key) return key end }),
@@ -49,7 +49,7 @@ local function render(width, inspected, offers)
 		},
 		Browse = { useLinkedTab = function(_, default) return default, function() end end,
 			useLinkedQuery = function() return "", function() end end },
-		PageScaffold = "PageScaffold", UDim2 = roblox.UDim2, Enum = roblox.Enum,
+		PageScaffold = "PageScaffold", UDim2 = roblox.UDim2, UDim = roblox.UDim, Vector2 = roblox.Vector2, Color3 = roblox.Color3, ColorSequence = roblox.ColorSequence, ColorSequenceKeypoint = roblox.ColorSequenceKeypoint, NumberSequence = roblox.NumberSequence, NumberSequenceKeypoint = roblox.NumberSequenceKeypoint, Enum = roblox.Enum,
 		-- offer cards are a memoised component (B34); render them inline here so the geometry checks still see them
 		memoRow = function(impl) return impl end,
 		sameFields = function() return function() return true end end,
@@ -59,6 +59,13 @@ local function render(width, inspected, offers)
 		scrollTail = function(_, _, base) return base end,
 		workspace = { GetServerTimeNow = function() return 3601 end },
 		Workspace = { GetServerTimeNow = function() return 3601 end },
+		-- cast-iron styling helpers (pages revamp): inert stand-ins for geometry checks
+		named = function(name) return { Name = name } end,
+		ironFace = function() return node("IronFace", {}) end,
+		BRASS = roblox.Color3.fromRGB(170, 126, 70), IRON_RADIUS = 4,
+		StrokeWidth = setmetatable({}, { __index = function() return 1 end }),
+		Audio = setmetatable({}, { __index = function() return function() end end }),
+		HttpService = { JSONEncode = function() return "" end, GenerateGUID = function() return "guid" end },
 	}, { __index = _G })
 	local first = assert(source:find("local CATEGORIES", 1, true))
 	local last = assert(source:find("return { BazaarView = BazaarView }", first, true) or source:find("return {%s*BazaarView = BazaarView", first))
@@ -95,7 +102,13 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 				card = card.kind(card.props)
 			end
 			local panel = card.children[1]
-			local inspect, buy = panel.children[7], panel.children[8]
+			local inspect, buy
+			for _, child in panel.children do
+				local text = type(child) == "table" and child.props and child.props.text
+				if text == "Inspect / compare" or text == "Inspecting" then inspect = child
+				elseif type(text) == "string" and (text:sub(1, 3) == "Buy" or text:find("Sold", 1, true)) then buy = child end
+			end
+			assert(inspect and buy, "offer card keeps its inspect and buy buttons")
 			assert(inspect.props.text == "Inspect / compare" or inspect.props.text == "Inspecting")
 			assert(inspect.props.position.Y.Offset + inspect.props.size.Y.Offset < buy.props.position.Y.Offset)
 			assert(buy.props.position.Y.Offset + buy.props.size.Y.Offset <= section.height - 28)
