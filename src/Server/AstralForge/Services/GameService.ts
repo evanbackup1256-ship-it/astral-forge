@@ -1,4 +1,5 @@
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
+import { formatAway } from "../../../Shared/AstralForge/Shared/OfflineProgress";
 import { Service } from "@flamework/core";
 import BazaarModule = require("./Gameplay/Bazaar");
 import { ConvergenceService } from "./ConvergenceService";
@@ -6519,12 +6520,7 @@ export class GameService {
 		if (rigCount > 0) {
 			this._toastPlayer(player, rigCount === 1 ? T("GameService.RigLit") : T("GameService.RigsLit"), rigNote, "Success");
 		}
-		const away =
-			offlineSeconds >= 3600
-				? string.format("%.0fh", offlineSeconds / 3600)
-				: offlineSeconds >= 60
-					? string.format("%.0fm", offlineSeconds / 60)
-					: string.format("%.0fs", offlineSeconds);
+		const away = formatAway(offlineSeconds);
 		ModuleLog.Player(player, string.format("joined world %d after %s away", profile.CurrentZone as number, away));
 	}
 

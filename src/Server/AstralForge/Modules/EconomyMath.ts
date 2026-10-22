@@ -1,4 +1,5 @@
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
+import * as OfflineProgress from "../../../Shared/AstralForge/Shared/OfflineProgress";
 const __defs: Record<string, () => unknown> = {};
 const __cache: Record<string, { value: unknown }> = {};
 const __loading: Record<string, boolean> = {};
@@ -1593,49 +1594,19 @@ __defs["OfflineProjection"] = () => {
 			mul: (this: void, a: unknown, b: unknown) => unknown,
 			persist?: (this: void, value: unknown) => unknown,
 		): LuaTuple<[unknown, number, number, boolean]> {
-			const rawElapsed = math.max(0, endedAt - startedAt);
-			const maximum = math.max(0, maxSeconds);
-			const elapsed = math.min(rawElapsed, maximum);
-			const capped = rawElapsed > maximum;
-			if (elapsed < minElapsed) {
-				return $tuple(0, elapsed, 0, capped);
-			}
-
-			const from = startedAt;
-			const to = startedAt + elapsed;
-			const boundaries: number[] = [from, to];
-			const cycle = math.max(1, cycleSeconds);
-			let nextCycle = (math.floor(from / cycle) + 1) * cycle;
-			while (nextCycle < to) {
-				boundaries.push(nextCycle);
-				nextCycle += cycle;
-			}
-			if (boostEnd > from && boostEnd < to) {
-				boundaries.push(boostEnd);
-			}
-			if (surgeEnd > from && surgeEnd < to) {
-				boundaries.push(surgeEnd);
-			}
-			boundaries.sort();
-
-			let reward: unknown = 0;
-			let weightedEfficiency = 0;
-			for (const index of $range(0, boundaries.size() - 2)) {
-				const left = boundaries[index];
-				const right = boundaries[index + 1];
-				const duration = right - left;
-				if (duration > 0) {
-					const sample = left + duration * 0.5;
-					const result = sampleAt(sample);
-					const efficiency = result.Efficiency;
-					reward = add(reward, mul(result.Production, efficiency * duration));
-					weightedEfficiency += efficiency * duration;
-				}
-			}
-			if (persist !== undefined) {
-				reward = persist(reward);
-			}
-			return $tuple(reward, elapsed, weightedEfficiency / elapsed, capped);
+			// the math lives in Shared/OfflineProgress (pure, tested); this keeps the old tuple shape
+			const result = OfflineProgress.project<unknown>(
+				startedAt,
+				endedAt,
+				{ maxSeconds, minSeconds: minElapsed, cycleSeconds, boostEndsAt: boostEnd, surgeEndsAt: surgeEnd },
+				(at) => {
+					const sample = sampleAt(at);
+					return { production: sample.Production, efficiency: sample.Efficiency };
+				},
+				{ zero: 0, add, scale: (value, factor) => mul(value, factor) },
+			);
+			const reward = persist !== undefined && result.elapsed >= minElapsed ? persist(result.reward) : result.reward;
+			return $tuple(reward, result.elapsed, result.efficiency, result.capped);
 		},
 
 		PublicSnapshot(this: void, args: {
