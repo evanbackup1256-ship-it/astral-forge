@@ -256,10 +256,10 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 	const flash = useFlash(slam, reducedMotion, 1.2);
 	const orbit = useClock(animateLive, 0.48, 1, true);
 	const values = [
-		{ label: "DAYS", value: math.floor(remaining / 86400), color: Palette.cyan },
-		{ label: "HOURS", value: math.floor(remaining / 3600) % 24, color: Palette.violet },
-		{ label: "MINUTES", value: math.floor(remaining / 60) % 60, color: Palette.pink },
-		{ label: "SECONDS", value: remaining % 60, color: Palette.mango },
+		{ label: "days", value: math.floor(remaining / 86400), color: Palette.cyan },
+		{ label: "hrs", value: math.floor(remaining / 3600) % 24, color: Palette.violet },
+		{ label: "min", value: math.floor(remaining / 60) % 60, color: Palette.pink },
+		{ label: "sec", value: remaining % 60, color: Palette.mango },
 	];
 	const railBelowCopy = stack === true || viewport.width < 1080;
 	const height = live ? (railBelowCopy ? 170 : 148) : railBelowCopy ? 162 : 132;
@@ -723,10 +723,10 @@ export function OverviewView({
 	};
 	const overchargeLabel =
 		overchargeLeft > 0.02
-			? `WAIT ${string.format("%.1f", overchargeLeft)}s`
+			? `Cooling ${string.format("%.1f", overchargeLeft)}s`
 			: state.TapPower !== undefined
-				? `OVERCHARGE  +${compactNumber(state.TapPower)}`
-				: "OVERCHARGE";
+				? `Overcharge  +${compactNumber(state.TapPower)}`
+				: "Overcharge";
 	const vaultClaimHostRef = React.useRef<Frame>();
 	React.useEffect(() => {
 		if (!UserInputService.GamepadEnabled) {
@@ -947,7 +947,7 @@ export function OverviewView({
 													VerticalAlignment={Enum.VerticalAlignment.Center}
 												/>
 												<Text
-													value={firstRun ? "YOUR FORGE" : "CURRENT RUN"}
+													value={firstRun ? "Your forge" : "This run"}
 													size={11}
 													color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
 													weight={Enum.FontWeight.Heavy}
@@ -1275,7 +1275,7 @@ export function OverviewView({
 											accent = Palette.mango;
 											cta = "Collect stored Flux";
 											ctaAction = () => dispatch("CollectVault");
-											statValue = "FULL";
+											statValue = "Full";
 											statLabel = "Vault";
 										} else {
 											const stellar = state.Machines.StellarCore ?? 0;
@@ -1310,7 +1310,7 @@ export function OverviewView({
 													cta = "Buy a machine";
 													ctaAction = openWorkshop;
 													statValue = stellarRate > 0 ? `+${compactNumber(stellarRate)}` : "0";
-													statLabel = stellarRate > 0 ? "FLUX/SEC" : "MACHINES";
+													statLabel = stellarRate > 0 ? "flux / sec" : "machines";
 												}
 											} else {
 												const efficiency = state.Research.Efficiency ?? 0;
@@ -1343,7 +1343,7 @@ export function OverviewView({
 															meter = 0.15;
 															cta = "Open Research";
 															ctaAction = () => navigate?.("Research");
-															statValue = "NEXT";
+															statValue = "Next";
 															statLabel = "Longer AFK";
 														} else {
 															const overcharge = state.Research.Overcharge ?? 0;
@@ -1354,7 +1354,7 @@ export function OverviewView({
 																meter = 0.2;
 																cta = "Open Research";
 																ctaAction = () => navigate?.("Research");
-																statValue = "NEXT";
+																statValue = "Next";
 																statLabel = "Stronger taps";
 															} else if (canRebirth) {
 																title = "Rebirth for Cores";
@@ -1398,7 +1398,7 @@ export function OverviewView({
 											meter = firstGoal.have / math.max(1, goal.need);
 											accent = firstGoal.done ? Palette.green : Palette.mango;
 											statValue = firstGoal.done ? `+${compactNumber(goal.rewardFlux)}` : `${firstGoal.have}/${goal.need}`;
-											statLabel = `GOAL ${firstGoal.index} OF ${FirstGoals.GOALS.size()}`;
+											statLabel = `${firstGoal.index} of ${FirstGoals.GOALS.size()}`;
 											cta = firstGoal.done ? "Claim reward" : firstGoal.open ? goal.cta : "";
 											ctaAction = undefined;
 											if (firstGoal.done) {
@@ -1463,7 +1463,7 @@ export function OverviewView({
 													/>
 												)}
 												<Text
-													value={firstGoal !== undefined ? "FIRST GOALS" : "NEXT GOAL"}
+													value={firstGoal !== undefined ? "First goals" : "Next up"}
 													size={10}
 													color={accent}
 													weight={Enum.FontWeight.Heavy}
@@ -1590,7 +1590,7 @@ export function OverviewView({
 										ClipsDescendants={true}
 									>
 										<Text
-											value={firstRun && opsClaims === 0 ? "Rewards later" : (opsGuide?.OpsTitle ?? "OPS PULSE")}
+											value={firstRun && opsClaims === 0 ? "Rewards later" : (opsGuide?.OpsTitle ?? "Ready to claim")}
 											size={10}
 											color={opsClaims > 0 ? Palette.green : Palette.cyan}
 											weight={Enum.FontWeight.Heavy}
@@ -1643,7 +1643,7 @@ export function OverviewView({
 											SortOrder={Enum.SortOrder.LayoutOrder}
 										/>
 										<Button
-											text={missionsReady > 0 ? `MISSIONS · ${missionsReady}` : "MISSIONS"}
+											text={missionsReady > 0 ? `Missions · ${missionsReady}` : "Missions"}
 											icon="Mission.2"
 											onClick={() => navigate?.("Missions")}
 											color={missionsReady > 0 ? Palette.cyan : Palette.panelSoft}
@@ -1654,7 +1654,7 @@ export function OverviewView({
 											layoutOrder={0}
 										/>
 										<Button
-											text={labReady > 0 ? `LAB · ${labReady}` : "LAB"}
+											text={labReady > 0 ? `Lab · ${labReady}` : "Lab"}
 											icon="Lab.3"
 											onClick={() => navigate?.("Lab")}
 											color={labReady > 0 ? Palette.mint : Palette.panelSoft}
@@ -1665,7 +1665,7 @@ export function OverviewView({
 											layoutOrder={1}
 										/>
 										<Button
-											text={pathReady ? (stack ? "PATH · READY" : "FORGE PATH · READY") : "FORGE PATH"}
+											text={pathReady ? (stack ? "Path · ready" : "Forge Path · ready") : "Forge Path"}
 											icon="Forge.6"
 											onClick={() => navigate?.("ForgePath")}
 											color={pathReady ? Palette.violet : Palette.panelSoft}
@@ -1676,7 +1676,7 @@ export function OverviewView({
 											layoutOrder={2}
 										/>
 										<Button
-											text={storyWaiting > 0 && !stack ? "MARKET" : "BLACK MARKET"}
+											text={storyWaiting > 0 && !stack ? "Market" : "Black Market"}
 											icon="Shop.3"
 											onClick={() => navigate?.("Bazaar")}
 											color={Palette.panelSoft}
@@ -1688,7 +1688,7 @@ export function OverviewView({
 										/>
 										{storyWaiting > 0 && (
 											<Button
-												text={`STORY · ${storyWaiting}`}
+												text={`Story · ${storyWaiting}`}
 												icon="Story.1"
 												onClick={() => navigate?.("Story")}
 												color={Palette.mint}
@@ -1765,7 +1765,7 @@ export function OverviewView({
 										ClipsDescendants={true}
 									>
 										<Text
-											value={`DOMAIN RANK ${domain.Rank}`}
+											value={`Domain · rank ${domain.Rank}`}
 											size={10}
 											color={Palette.pink}
 											weight={Enum.FontWeight.Heavy}
@@ -1867,7 +1867,7 @@ export function OverviewView({
 												sizeConstraint={new UDim2(1, 0, 0, 28)}
 											/>
 											<Button
-												text={domain.CanExpand ? "OPEN DOMAIN GATE" : "VIEW DOMAIN"}
+												text={domain.CanExpand ? "Open the gate" : "View domain"}
 												icon="Domain.2"
 												onClick={openDomain}
 												color={domain.CanExpand ? Palette.pink : Palette.panelSoft}
@@ -1922,7 +1922,7 @@ export function OverviewView({
 												size={new UDim2(1, 0, 0, 8)}
 											/>
 											<Button
-												text={domain.CanExpand ? "OPEN DOMAIN GATE" : "VIEW REQUIREMENTS"}
+												text={domain.CanExpand ? "Open the gate" : "Requirements"}
 												icon="Domain.3"
 												onClick={openDomain}
 												color={domain.CanExpand ? Palette.pink : Palette.panelSoft}
@@ -1954,7 +1954,7 @@ export function OverviewView({
 									clips={true}
 								>
 									<Text
-										value={`FORGE JOURNAL  ·  ${journey.Count} / ${journey.Total} CHAPTERS`}
+										value={`Forge journal  ·  ${journey.Count} / ${journey.Total}`}
 										size={10}
 										color={Palette.mango}
 										weight={Enum.FontWeight.Heavy}
