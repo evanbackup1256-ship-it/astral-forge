@@ -457,11 +457,8 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			) : (
 				<>
 					<Text
-						value={
-							counts.Ready > 0
-								? `${counts.Ready} ready to claim · ${counts.Done} of ${quests.size()} done`
-								: `${counts.Done} of ${quests.size()} done today`
-						}
+						// the ready count already shows on Claim All and the Ready chip
+						value={`${counts.Done} of ${quests.size()} done today`}
 						size={22}
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}

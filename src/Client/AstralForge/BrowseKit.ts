@@ -5,6 +5,7 @@ import React from "@rbxts/react";
 import ArtKit = require("./ArtKit");
 import Model = require("./BrowseModel");
 import * as theme from "./CoreKit/theme";
+import { FilterChipRow } from "./UiCore/FilterChips";
 
 const Workspace = game.GetService("Workspace");
 
@@ -310,241 +311,9 @@ const barHeight: BarHeight = (stack, hasChips) => {
 };
 Kit.barHeight = barHeight;
 
-interface ChipProps {
-	id: string;
-	label: string;
-	icon?: string;
-	count?: number;
-	selected?: boolean;
-	accent?: Color3;
-	onSelect?: (this: void, id: string) => void;
-	layoutOrder?: number;
-	zIndex?: number;
-}
-
-function Chip(props: ChipProps): React.Element {
-	const [hovered, setHovered] = React.useState(false);
-	const selected = props.selected === true;
-	const accent = props.accent;
-	const count = props.count;
-	const empty = count !== undefined && count === 0 && !selected;
-	return h(
-		"textbutton",
-		{
-			Size: UDim2.fromOffset(0, Kit.CHIP_H),
-			AutomaticSize: Enum.AutomaticSize.X,
-			BackgroundColor3: selected ? accent : hovered ? Palette.panelRaised : Palette.panelSoft,
-			BackgroundTransparency: selected ? 0.05 : empty ? 0.5 : 0.15,
-			BorderSizePixel: 0,
-			AutoButtonColor: false,
-			Text: "",
-			LayoutOrder: props.layoutOrder,
-			ZIndex: props.zIndex,
-			Event: {
-				Activated: () => {
-					props.onSelect?.(props.id);
-				},
-				MouseEnter: () => {
-					setHovered(true);
-				},
-				MouseLeave: () => {
-					setHovered(false);
-				},
-			},
-		},
-		h("uicorner", { CornerRadius: new UDim(1, 0) }),
-		h("uistroke", {
-			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
-			Color: selected ? theme.lighten(accent ?? Palette.cyan, 0.25) : Palette.lineSoft,
-			Transparency: selected ? 0.2 : 0.55,
-			Thickness: 1,
-		}),
-		h("uipadding", {
-			PaddingLeft: new UDim(0, 12),
-			PaddingRight: new UDim(0, count !== undefined ? 6 : 12),
-		}),
-		h("uilistlayout", {
-			FillDirection: Enum.FillDirection.Horizontal,
-			VerticalAlignment: Enum.VerticalAlignment.Center,
-			SortOrder: Enum.SortOrder.LayoutOrder,
-			Padding: new UDim(0, 6),
-		}),
-		props.icon !== undefined &&
-			h(
-				"frame",
-				{
-					Size: UDim2.fromOffset(16, 16),
-					BackgroundTransparency: 1,
-					LayoutOrder: 0,
-					ZIndex: (props.zIndex ?? 0) + 1,
-				},
-				h(Icon, {
-					kind: props.icon,
-					color: selected ? Palette.ink : Palette.creamSoft,
-					accent: accent,
-					size: 16,
-					spin: false,
-				}),
-			),
-		h("textlabel", {
-			Size: UDim2.fromOffset(0, Kit.CHIP_H),
-			AutomaticSize: Enum.AutomaticSize.X,
-			BackgroundTransparency: 1,
-			Text: props.label,
-			TextSize: 13,
-			FontFace: Font.fromName("BuilderSans", selected ? Enum.FontWeight.Heavy : Enum.FontWeight.Bold),
-			TextColor3: selected ? Palette.ink : empty ? Palette.muted : Palette.creamSoft,
-			LayoutOrder: 1,
-			ZIndex: (props.zIndex ?? 0) + 1,
-		}),
-		count !== undefined &&
-			h(
-				"frame",
-				{
-					Size: UDim2.fromOffset(0, 20),
-					AutomaticSize: Enum.AutomaticSize.X,
-					BackgroundColor3: selected ? Palette.ink : Palette.ink,
-					BackgroundTransparency: selected ? 0.55 : 0.35,
-					BorderSizePixel: 0,
-					LayoutOrder: 2,
-					ZIndex: (props.zIndex ?? 0) + 1,
-				},
-				h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				h("uipadding", {
-					PaddingLeft: new UDim(0, 7),
-					PaddingRight: new UDim(0, 7),
-				}),
-				h("textlabel", {
-					Size: UDim2.fromOffset(0, 20),
-					AutomaticSize: Enum.AutomaticSize.X,
-					BackgroundTransparency: 1,
-					Text: tostring(count),
-					TextSize: 12,
-					FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
-					TextColor3: selected ? Palette.cream : Palette.muted,
-					ZIndex: (props.zIndex ?? 0) + 2,
-				}),
-			),
-	);
-}
-Kit.Chip = Chip;
-
-interface ChipRowProps {
-	options?: ReadonlyArray<BrowseOption>;
-	value?: string;
-	onChange?: (this: void, id: string) => void;
-	counts?: Record<string, number>;
-	accent?: Color3;
-	fadeColor?: Color3;
-	position?: UDim2;
-	size?: UDim2;
-	layoutOrder?: number;
-	zIndex?: number;
-}
-
-// Horizontally scrolling category chips; `counts` adds a live tally to each chip.
-Kit.ChipRow = function (props: ChipRowProps): React.Element {
-	const children: Record<string, React.Element> = {
-		layout: h("uilistlayout", {
-			FillDirection: Enum.FillDirection.Horizontal,
-			VerticalAlignment: Enum.VerticalAlignment.Center,
-			SortOrder: Enum.SortOrder.LayoutOrder,
-			Padding: new UDim(0, 6),
-		}),
-	};
-	const zIndex = props.zIndex ?? 6;
-	for (const [index, entry] of ipairs(props.options ?? [])) {
-		children[entry.id] = h(Chip, {
-			id: entry.id,
-			label: entry.label,
-			icon: entry.icon,
-			count: props.counts !== undefined ? props.counts[entry.id] : undefined,
-			selected: entry.id === props.value,
-			accent: entry.accent ?? props.accent ?? Palette.cyan,
-			onSelect: props.onChange,
-			layoutOrder: index,
-			zIndex: zIndex,
-		});
-	}
-	// when the chips don't all fit, the far edge fades out (and fades back at the start once
-	// scrolled), so a chip cut by the edge reads as "more this way" rather than as broken
-	const rowRef = React.useRef<ScrollingFrame>();
-	const [fades, setFades] = React.useState({ left: false, right: false });
-	React.useEffect(() => {
-		const row = rowRef.current;
-		if (row === undefined) {
-			return undefined;
-		}
-		const measure = () => {
-			const spare = row.AbsoluteCanvasSize.X - row.AbsoluteSize.X;
-			const left = spare > 2 && row.CanvasPosition.X > 2;
-			const right = spare > 2 && row.CanvasPosition.X < spare - 2;
-			setFades((current) => {
-				if (current.left === left && current.right === right) {
-					return current;
-				}
-				return { left: left, right: right };
-			});
-		};
-		measure();
-		const a = row.GetPropertyChangedSignal("AbsoluteCanvasSize").Connect(measure);
-		const b = row.GetPropertyChangedSignal("AbsoluteSize").Connect(measure);
-		const c = row.GetPropertyChangedSignal("CanvasPosition").Connect(measure);
-		return () => {
-			a.Disconnect();
-			b.Disconnect();
-			c.Disconnect();
-		};
-	}, []);
-	const edgeFade = (side: string) => {
-		return h(
-			"frame",
-			{
-				Size: new UDim2(0, 34, 1, 0),
-				Position: side === "right" ? UDim2.fromScale(1, 0) : UDim2.fromScale(0, 0),
-				AnchorPoint: side === "right" ? new Vector2(1, 0) : Vector2.zero,
-				BackgroundColor3: props.fadeColor ?? Palette.panel,
-				BorderSizePixel: 0,
-				Active: false,
-				ZIndex: zIndex + 4,
-			},
-			h("uigradient", {
-				Transparency: new NumberSequence(1, 0),
-				Rotation: side === "right" ? 0 : 180,
-			}),
-		);
-	};
-	return h(
-		"frame",
-		{
-			Size: props.size ?? new UDim2(1, 0, 0, Kit.CHIP_H),
-			Position: props.position,
-			BackgroundTransparency: 1,
-			BorderSizePixel: 0,
-			LayoutOrder: props.layoutOrder,
-			ZIndex: zIndex,
-		},
-		h(
-			"scrollingframe",
-			{
-				ref: rowRef,
-				Size: UDim2.fromScale(1, 1),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-				CanvasSize: new UDim2(),
-				AutomaticCanvasSize: Enum.AutomaticSize.X,
-				ScrollingDirection: Enum.ScrollingDirection.X,
-				ScrollBarThickness: 0,
-				ElasticBehavior: Enum.ElasticBehavior.WhenScrollable,
-				ClipsDescendants: true,
-				ZIndex: zIndex,
-			},
-			children,
-		),
-		fades.right && edgeFade("right"),
-		fades.left && edgeFade("left"),
-	);
-};
+// Every filter chip in the game goes through UiCore/FilterChips (one component, one
+// animated selection plate). Kit.ChipRow stays as the entry point older views call.
+Kit.ChipRow = FilterChipRow;
 
 /*
 	The browse bar: search + sort on the first row, category chips on the second.
@@ -573,8 +342,9 @@ Kit.BrowseBar = function (props: BrowseBarProps): React.Element {
 	const hasSorts = browse.sorts !== undefined && browse.sorts.size() > 1;
 	const hasChips = browse.categories !== undefined && browse.categories.size() > 1;
 	const sortW = !hasSorts ? 0 : stack ? 128 : 184;
-	const countW = stack || !hasChips ? 0 : 124;
-	const summary = browse.filtered ? `${browse.results.size()} of ${browse.total}` : `${browse.total} total`;
+	// "N total" repeated the All chip's count, so the tally only appears once a filter is on
+	const countW = stack || !hasChips || !browse.filtered ? 0 : 124;
+	const summary = `${browse.results.size()} of ${browse.total}`;
 	return h(
 		"frame",
 		{
@@ -625,7 +395,7 @@ Kit.BrowseBar = function (props: BrowseBarProps): React.Element {
 				AnchorPoint: new Vector2(1, 0),
 				BackgroundTransparency: 1,
 				AutoButtonColor: false,
-				Text: browse.filtered ? `${summary} · <u>Clear</u>` : summary,
+				Text: `${summary} · <u>Clear</u>`,
 				RichText: true,
 				TextSize: 13,
 				FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),

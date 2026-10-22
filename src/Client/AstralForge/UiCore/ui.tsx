@@ -3062,7 +3062,7 @@ function SegmentedTabHit({
 		selected,
 		{ text: option.label, size },
 	);
-	const selectedInk = contrastOn(accent);
+	const selectedInk = Palette.cream;
 	const textColor = chrome.hoverAmount.map((amount) =>
 		selected ? selectedInk : Palette.creamSoft.Lerp(Palette.cream, math.clamp(amount, 0, 1) * 0.72),
 	);
@@ -3091,14 +3091,14 @@ function SegmentedTabHit({
 				ZIndex={zIndex}
 			>
 				<uiscale Scale={chrome.touchScale} />
-				<uicorner CornerRadius={new UDim(0, 10)} />
+				<uicorner CornerRadius={new UDim(0, 7)} />
 				<ButtonShimmer
 					hoverAmount={chrome.hoverAmount}
 					shimmer={chrome.shimmer}
 					live={chrome.shimmerLive}
 					idle={selected}
 					zIndex={zIndex + 1}
-					radius={10}
+					radius={7}
 				/>
 				{option.icon !== undefined && (
 					<frame
@@ -3133,7 +3133,7 @@ function SegmentedTabHit({
 				/>
 			</frame>
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex + 3}>
-				<uicorner CornerRadius={new UDim(0, 10)} />
+				<uicorner CornerRadius={new UDim(0, 7)} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					LineJoinMode={Enum.LineJoinMode.Round}
@@ -3217,6 +3217,7 @@ export function SegmentedTabs({
 	const columnTrail = useFlipperSpring(activeColumn, reducedMotion, 390, 38);
 	const rowSlide = useFlipperSpring(activeRow, reducedMotion, 720, 32);
 	const selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.3);
+	const stripSlide = useFlipperSpring(activeIndex, reducedMotion, 700, 38);
 	const selectedAccent = options[activeIndex]?.accent ?? accent;
 	const cellSize = new UDim2(
 		1 / columnCount,
@@ -3279,7 +3280,7 @@ export function SegmentedTabs({
 				CanvasSize={UDim2.fromOffset(count * (PILL_W + gap) - gap + 8, 0)}
 				ElasticBehavior={Enum.ElasticBehavior.WhenScrollable}
 			>
-				<uicorner CornerRadius={new UDim(0, 10)} />
+				<uicorner CornerRadius={new UDim(0, 7)} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					Color={Palette.lineSoft}
@@ -3288,13 +3289,24 @@ export function SegmentedTabs({
 				/>
 				<frame
 					Size={new UDim2(0, PILL_W, 1, -8)}
-					Position={UDim2.fromOffset(4 + activeIndex * (PILL_W + gap), 4)}
-					BackgroundColor3={selectedAccent}
+					Position={stripSlide.map((index) => UDim2.fromOffset(4 + index * (PILL_W + gap), 4))}
+					BackgroundColor3={darken(selectedAccent, 0.35)}
+					BackgroundTransparency={0.45}
 					BorderSizePixel={0}
 					Visible={matched}
 					ZIndex={zIndex + 1}
 				>
-					<uicorner CornerRadius={new UDim(0, 10)} />
+					<uicorner CornerRadius={new UDim(0, 7)} />
+					<uistroke ApplyStrokeMode={Enum.ApplyStrokeMode.Border} Color={selectedAccent} Thickness={1} Transparency={0.35} />
+					<frame
+						Size={new UDim2(1, -12, 0, 3)}
+						Position={new UDim2(0.5, 0, 1, -1)}
+						AnchorPoint={new Vector2(0.5, 1)}
+						BackgroundColor3={lighten(selectedAccent, 0.18)}
+						BorderSizePixel={0}
+					>
+						<uicorner CornerRadius={new UDim(0, 2)} />
+					</frame>
 				</frame>
 				{options.map((option, index) => (
 					<SegmentedTabHit
@@ -3324,7 +3336,7 @@ export function SegmentedTabs({
 			ZIndex={zIndex}
 			ClipsDescendants={true}
 		>
-			<uicorner CornerRadius={new UDim(0, 10)} />
+			<uicorner CornerRadius={new UDim(0, 7)} />
 			<uigradient Color={surfaceGradient(Palette.panel, 0.58)} Rotation={90} />
 			<uistroke
 				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
@@ -3337,33 +3349,30 @@ export function SegmentedTabs({
 				<frame
 					Size={carrierSize}
 					Position={carrierPosition}
-					BackgroundColor3={selectionFlash.map((amount) => lighten(selectedAccent, amount * 0.14))}
+					BackgroundColor3={selectionFlash.map((amount) => lighten(darken(selectedAccent, 0.35), amount * 0.2))}
+					BackgroundTransparency={0.42}
 					BorderSizePixel={0}
 					Visible={matched}
 					ZIndex={zIndex + 1}
 					ClipsDescendants={true}
 				>
-					<uicorner CornerRadius={new UDim(0, 10)} />
-					<uigradient Color={new ColorSequence(lighten(selectedAccent, 0.14), darken(selectedAccent, 0.06))} Rotation={90} />
-					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false} ZIndex={zIndex + 1}>
-						<uicorner CornerRadius={new UDim(0, 10)} />
-						<uistroke
-							ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-							LineJoinMode={Enum.LineJoinMode.Round}
-							Color={lighten(selectedAccent, 0.24)}
-							Thickness={1}
-							Transparency={0.28}
-						/>
-					</frame>
+					<uicorner CornerRadius={new UDim(0, 7)} />
+					<uigradient Transparency={new NumberSequence(0.3, 0)} Rotation={90} />
+					<uistroke
+						ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+						LineJoinMode={Enum.LineJoinMode.Round}
+						Color={selectedAccent}
+						Thickness={1}
+						Transparency={0.3}
+					/>
 					<frame
-						Size={new UDim2(0.52, 0, 0, 2)}
-						Position={new UDim2(0.5, 0, 1, -3)}
+						Size={new UDim2(1, -14, 0, 3)}
+						Position={new UDim2(0.5, 0, 1, -1)}
 						AnchorPoint={new Vector2(0.5, 1)}
-						BackgroundColor3={Palette.cream}
-						BackgroundTransparency={0.12}
+						BackgroundColor3={lighten(selectedAccent, 0.18)}
 						BorderSizePixel={0}
 					>
-						<uicorner CornerRadius={new UDim(1, 0)} />
+						<uicorner CornerRadius={new UDim(0, 2)} />
 					</frame>
 				</frame>
 				{options.map((option, index) => (
