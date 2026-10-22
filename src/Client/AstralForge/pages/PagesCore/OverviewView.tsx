@@ -607,6 +607,82 @@ interface OverviewViewProps {
 	navigate?: (page: string) => unknown;
 }
 
+
+const TWO_COLUMN_MIN = 1440;
+const COLUMN_PAIRS: [string, string][] = [
+	["notes", "ops"],
+	["rebirth", "domain"],
+	["journal", "session"],
+];
+
+// Places paired sections in two columns. A pair only forms when both halves have height; a lone
+// half stays full width. Children keep their own height (top aligned) because several panels
+// position their contents from that height.
+function pairColumns(enabled: boolean, gap: number, sections: Section[]): Section[] {
+	if (!enabled) {
+		return sections;
+	}
+	const byId = new Map<string, Section>();
+	for (const section of sections) {
+		byId.set(section.id, section);
+	}
+	const used = new Set<string>();
+	const out: Section[] = [];
+	for (const section of sections) {
+		if (used.has(section.id)) {
+			continue;
+		}
+		let partner: Section | undefined;
+		let leftFirst = true;
+		for (const [a, b] of COLUMN_PAIRS) {
+			const other = section.id === a ? b : section.id === b ? a : undefined;
+			if (other === undefined) continue;
+			const found = byId.get(other);
+			if (found !== undefined && !used.has(other) && (found.height ?? 0) > 0 && (section.height ?? 0) > 0) {
+				partner = found;
+				leftFirst = section.id === a;
+			}
+		}
+		if (partner === undefined) {
+			out.push(section);
+			continue;
+		}
+		used.add(section.id);
+		used.add(partner.id);
+		const left = leftFirst ? section : partner;
+		const right = leftFirst ? partner : section;
+		const half = new UDim2(0.5, -math.floor(gap / 2), 0, 0);
+		out.push({
+			id: `${left.id}-${right.id}`,
+			height: math.max((left.height ?? 0), (right.height ?? 0)),
+			element: (
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+					<frame
+						{...named(`OverviewColumn-${left.id}`)}
+						Size={new UDim2(half.X.Scale, half.X.Offset, 0, (left.height ?? 0))}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						ClipsDescendants={false}
+					>
+						{left.element}
+					</frame>
+					<frame
+						{...named(`OverviewColumn-${right.id}`)}
+						Size={new UDim2(half.X.Scale, half.X.Offset, 0, (right.height ?? 0))}
+						Position={new UDim2(0.5, math.ceil(gap / 2), 0, 0)}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						ClipsDescendants={false}
+					>
+						{right.element}
+					</frame>
+				</frame>
+			),
+		});
+	}
+	return out;
+}
+
 export function OverviewView({
 	state,
 	config,
@@ -763,6 +839,8 @@ export function OverviewView({
 	const comebackLine = `Earns for ${offlineHours}h while you're away. Then collect.`;
 	const wideOverview = !stack && viewport.width >= 1180;
 	const ultraOverview = !stack && viewport.width >= 1680;
+	// wide desktop: notes|ops, rebirth|domain, journal|session sit side by side (each keeps its own height)
+	const twoColumn = !stack && viewport.width >= TWO_COLUMN_MIN;
 	const countdownInPage =
 		typeIs(releaseAt, "number") &&
 		releaseAt >
@@ -883,7 +961,7 @@ export function OverviewView({
 					tailPad={scrollTail(stack, chrome.bottomSafe, overviewTail)}
 					scrollBarColor={Palette.green}
 					scrollBarThickness={4}
-					sections={withReady(readySection, [
+					sections={pairColumns(twoColumn, sectionGap, withReady(readySection, [
 						{
 							id: "top",
 							height: topBandH,
@@ -2037,7 +2115,7 @@ export function OverviewView({
 								</Panel>
 							),
 						},
-					])}
+					]))}
 				/>
 			</frame>
 		</frame>
