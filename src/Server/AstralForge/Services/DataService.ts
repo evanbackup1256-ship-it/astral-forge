@@ -30,6 +30,7 @@ import OmegaMath from "../../../Shared/AstralForge/Shared/OmegaMath";
 import OreMath from "../Modules/OreMath";
 import ProfileBagMath from "../Modules/ProfileBagMath";
 import ProfileVersionGuard from "../Modules/ProfileVersionGuard";
+import * as ProfileStore from "../Modules/ProfileStore";
 import RebirthMath from "../../../Shared/AstralForge/Shared/RebirthMath";
 import ReceiptLedger from "../Modules/ReceiptLedger";
 import ServerConfig from "../ServerConfig";
@@ -251,14 +252,9 @@ function nonNegative(value: unknown): number {
 	return DataSanitizeMath.NonNegative(value, MAX_PERSISTED_NUMBER);
 }
 
-/**
- * `sourceVersion` is the DataVersion the document was stored with. It must be read before the
- * template is reconciled in, since reconcile fills a missing or mistyped DataVersion with the
- * current one and would hide that the save is old.
- */
-function sanitize(profile: Dict, sourceVersion?: number): Dict {
-	const previousDataVersion = sourceVersion ?? math.floor(nonNegative(profile.DataVersion));
-	profile.DataVersion = GameConfig.Game.DataVersion;
+/** Clamps and repairs a reconciled profile in place and stamps the current DataVersion. */
+function sanitize(profile: Dict): Dict {
+	ProfileStore.Stamp(profile, GameConfig.Game.DataVersion);
 	profile.Cores = math.clamp(nonNegative(profile.Cores), 0, 1e14);
 	profile.Stardust = math.clamp(nonNegative(profile.Stardust), 0, 1e14);
 	profile.Rebirths = math.min(10_000_000, math.floor(nonNegative(profile.Rebirths)));
@@ -514,17 +510,6 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 	}
 	trade.Day = math.floor(nonNegative(trade.Day));
 	trade.Completed = math.floor(nonNegative(trade.Completed));
-	if (previousDataVersion < 5) {
-		if (settings.SoundEffects === false) {
-			settings.SoundVolume = 0;
-		}
-		if (settings.UIEffects === false) {
-			settings.EffectsIntensity = 0;
-		}
-		if (settings.ReducedMotion === true) {
-			settings.MotionIntensity = 0;
-		}
-	}
 	settings.SoundEffects = (settings.SoundVolume as number) > 0.001;
 	settings.UIEffects = (settings.EffectsIntensity as number) > 0.001;
 	settings.ReducedMotion = (settings.MotionIntensity as number) <= 0.03;
@@ -921,17 +906,23 @@ function sanitize(profile: Dict, sourceVersion?: number): Dict {
 	return profile;
 }
 
-/** A stored profile as the server uses it: template defaults filled in, then sanitized. */
+/**
+ * A stored profile as the server uses it: versioned migrations (ProfileStore), then template
+ * defaults filled in, then sanitized. `sourceVersion` is the DataVersion the document was stored
+ * with; it must be read before the template is reconciled in, since reconcile fills a missing
+ * DataVersion with the current one and would hide that the save is old.
+ */
 export function normalizeStoredProfile(data: unknown, sourceVersion?: number): Dict {
 	const from =
 		sourceVersion ??
 		(typeIs(data, "table") ? math.floor(nonNegative(tonumber((data as Dict).DataVersion) ?? 0)) : 0);
-	return sanitize(reconcile(data, DataTemplate.New()) as Dict, from);
+	ProfileStore.Migrate(data, from, GameConfig.Game.DataVersion);
+	return sanitize(reconcile(data, DataTemplate.New()) as Dict);
 }
 
 /** Document migration step: refuses saves from a newer data version, then normalizes. */
 export function migrateLegacyProfile(data: unknown): Dict {
-	const sourceVersion = ProfileVersionGuard.ReadCompatible(data, GameConfig.Game.DataVersion);
+	const sourceVersion = ProfileStore.ReadVersion(data, GameConfig.Game.DataVersion);
 	return normalizeStoredProfile(data, sourceVersion);
 }
 
