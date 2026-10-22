@@ -173,4 +173,88 @@ for _ = 1, 300 do
 	rounds += 1
 end
 
+-- Structural diffs (rewrite 04): long mixed sequences on one cell match a deep-copy reference
+-- model, every committed value is never written afterwards by Transact, unchanged sections are
+-- shared by identity, and aliased or frozen tables a callback inserts behave like deep copies.
+local function inPlaceEdit(p)
+	local k = rand(4)
+	if k == 1 then p.Cash = rand(500)
+	elseif k == 2 and type(p.Stats) == "table" then p.Stats["s" .. rand(4)] = rand(9)
+	elseif k == 3 then p.Meta.LastSeen = rand(99)
+	else p.Extra = rand(3) end
+end
+for _ = 1, 60 do
+	local state = AtomicState.new(newProfile())
+	local model = deepCopy(newProfile())
+	for _ = 1, 25 do
+		local outcome = rand(3)
+		local value = state:Read()
+		local frozenBefore = deepCopy(value)
+		if rand(4) == 1 then
+			local seq = {}
+			local ok = state:TransactInPlace(function(p)
+				for _ = 1, rand(4) do
+					local before = rand(1000000)
+					seed = before
+					inPlaceEdit(p)
+					table.insert(seq, before)
+				end
+				if outcome == 1 then error("boom") end
+				if outcome == 2 then return { ok = false } end
+			end, { "Items" }, { "Stats", "Meta" })
+			if outcome == 3 then
+				for _, s0 in seq do seed = s0; inPlaceEdit(model) end
+				model.Meta.Revision += 1
+			end
+		else
+			local seq = {}
+			local ok = state:Transact(function(draft)
+				for _ = 1, rand(8) do
+					local s0 = rand(1000000)
+					seed = s0
+					mutate(draft)
+					table.insert(seq, s0)
+				end
+				if rand(5) == 1 then draft.Alias = draft.Machines end
+				if rand(5) == 1 then draft.Frozen = table.freeze({ 1, 2 }) end
+				if outcome == 1 then error("boom") end
+				if outcome == 2 then return { ok = false } end
+				return { ok = true, seq = seq }
+			end)
+			local committedValue = state:Read()
+			if outcome == 3 then
+				assert(deepEqual(frozenBefore, value), "commit never writes through to the old value")
+				-- unchanged sections are shared, not copied
+				for key, section in committedValue do
+					if type(section) == "table" and deepEqual(section, frozenBefore[key]) and type(value[key]) == "table" then
+						assert(section == value[key] or not deepEqual(section, value[key]), "an unchanged section keeps its table")
+					end
+				end
+				model = deepCopy(committedValue)
+			else
+				assert(committedValue == value and deepEqual(frozenBefore, value), "rollback leaves the committed value untouched")
+			end
+		end
+		assert(deepEqual(model, state:Read()), "cell matches the deep-copy reference model")
+	end
+	rounds += 1
+end
+-- a frozen table put in by a callback can be edited by the next transaction (it was thawed)
+do
+	local state = AtomicState.new(newProfile())
+	assert(state:Transact(function(d) d.List = table.freeze({ 1 }) end))
+	local ok = state:Transact(function(d) table.insert(d.List, 2) end)
+	assert(ok and #state:Read().List == 2, "frozen tables are thawed like a deep copy would")
+	-- aliasing inside one draft does not leak into the next transaction
+	assert(state:Transact(function(d) d.A = { n = 1 }; d.B = d.A end))
+	assert(state:Transact(function(d) d.A.n = 5 end))
+	local v = state:Read()
+	assert(v.A.n == 5 and v.B.n == 1, "aliased draft tables split on commit")
+	-- an untouched section is the same table across commits
+	local before = state:Read().Items
+	assert(state:Transact(function(d) d.Cash = 1 end))
+	assert(state:Read().Items == before, "untouched sections are shared by identity")
+	rounds += 1
+end
+
 print(string.format("[TEST] atomic state rollback: %d randomized transactions match their pre-image", rounds))
