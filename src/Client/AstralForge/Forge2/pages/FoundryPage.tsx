@@ -45,14 +45,14 @@ interface Look {
 
 const WARM = Color3.fromRGB(255, 176, 92);
 const LOOKS: Record<string, Look> = {
-	Ember: { name: "Ember", color: Color3.fromRGB(255, 132, 64), line: "Pushes energy the way it faces." },
-	Conduit: { name: "Conduit", color: Color3.fromRGB(120, 196, 255), line: "Carries energy on." },
-	Lens: { name: "Lens", color: Color3.fromRGB(150, 236, 255), line: "Carries energy and makes it stronger." },
-	Prism: { name: "Prism", color: Color3.fromRGB(200, 150, 255), line: "Splits energy three ways." },
-	ForgeAnvil: { name: "Forge Anvil", color: Color3.fromRGB(255, 196, 84), line: "Turns energy into production." },
-	StrikeAnvil: { name: "Strike Anvil", color: Color3.fromRGB(255, 104, 112), line: "Turns energy into tap power." },
-	VaultAnvil: { name: "Vault Anvil", color: Color3.fromRGB(96, 220, 168), line: "Turns energy into vault space." },
-	EchoAnvil: { name: "Echo Anvil", color: Color3.fromRGB(176, 140, 255), line: "Turns energy into offline income." },
+	Ember: { name: "Ember", color: Color3.fromRGB(255, 132, 64), line: "Sends energy the way it faces" },
+	Conduit: { name: "Conduit", color: Color3.fromRGB(120, 196, 255), line: "Carries energy onward" },
+	Lens: { name: "Lens", color: Color3.fromRGB(150, 236, 255), line: "Focuses energy, stronger" },
+	Prism: { name: "Prism", color: Color3.fromRGB(200, 150, 255), line: "Splits energy three ways" },
+	ForgeAnvil: { name: "Forge Anvil", color: Color3.fromRGB(255, 196, 84), line: "Energy becomes production" },
+	StrikeAnvil: { name: "Strike Anvil", color: Color3.fromRGB(255, 104, 112), line: "Energy becomes tap power" },
+	VaultAnvil: { name: "Vault Anvil", color: Color3.fromRGB(96, 220, 168), line: "Energy becomes vault capacity" },
+	EchoAnvil: { name: "Echo Anvil", color: Color3.fromRGB(176, 140, 255), line: "Energy becomes offline income" },
 };
 const lookOf = (kind: string) => LOOKS[kind] ?? LOOKS.Conduit;
 const isBench = (key: string | undefined) => key !== undefined && key.sub(1, 6) === "bench:";
@@ -245,6 +245,8 @@ function PieceArt(props: { piece: Piece; size: number; lit?: number; spin?: Reac
 
 function Board(props: { foundry: Foundry; flow: ReturnType<typeof FoundryMath.flow>; width: number; height: number; picked?: string; onCell: (key: string) => void }) {
 	const { foundry, flow, width, height } = props;
+	// hover or gamepad focus on a tile shows what it is and how much energy runs through it
+	const [hover, setHover] = React.useState<string | undefined>(undefined);
 	const spin = useClock(true, 1, 3600, true);
 	const cells = foundry.Radius * 2 + 1;
 	const size = math.floor(math.min(width / (1.5 * cells + 0.6), (height * 0.86) / (SQRT3 * cells + 0.2)));
@@ -355,12 +357,45 @@ function Board(props: { foundry: Foundry; flow: ReturnType<typeof FoundryMath.fl
 				Text=""
 				Selectable
 				ZIndex={5}
-				Event={{ Activated: () => props.onCell(key) }}
+				Event={{
+					Activated: () => props.onCell(key),
+					MouseEnter: () => setHover(key),
+					MouseLeave: () => setHover((h) => (h === key ? undefined : h)),
+					SelectionGained: () => setHover(key),
+					SelectionLost: () => setHover((h) => (h === key ? undefined : h)),
+				}}
 			>
 				{piece !== undefined && (
 					<PieceArt piece={piece} size={math.floor(size * 1.25)} picked={props.picked === key} lit={math.clamp(math.log10(1 + (flow.Lit[key] ?? 0)) / 3, 0, 1)} spin={spin} z={5} />
 				)}
 			</textbutton>
+		);
+	}
+	const tipPiece = hover !== undefined ? foundry.Pieces[hover] : undefined;
+	if (hover !== undefined && tipPiece !== undefined) {
+		const [hq, hr] = FoundryMath.parse(hover);
+		const at = mid.add(cellPoint(hq!, hr!, size));
+		const look = lookOf(tipPiece.Kind);
+		const energy = flow.Lit[hover] ?? 0;
+		const below = at.Y < height * 0.4;
+		kids.tip = (
+			<frame
+				Size={UDim2.fromOffset(220, 0)}
+				AutomaticSize={Enum.AutomaticSize.Y}
+				Position={UDim2.fromOffset(math.clamp(at.X, 116, width - 116), below ? at.Y + size + 6 : at.Y - size - 6)}
+				AnchorPoint={new Vector2(0.5, below ? 0 : 1)}
+				BackgroundColor3={Iron.sunk()}
+				BorderSizePixel={0}
+				ZIndex={20}
+			>
+				<uicorner CornerRadius={new UDim(0, Corner.card)} />
+				<uistroke Color={look.color} Transparency={0.4} />
+				<uipadding PaddingTop={new UDim(0, 8)} PaddingBottom={new UDim(0, 8)} PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
+				<uilistlayout Padding={new UDim(0, 2)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Text text={`${look.name} · Tier ${tipPiece.Tier}`} size={14} font={Fonts.heavy} color={look.color} order={0} zIndex={21} />
+				<Text text={look.line} size={12} color={Iron.soft()} multiline order={1} zIndex={21} />
+				<Text text={energy > 0 ? `${compactNumber(energy)} energy through it` : "No energy reaching it"} size={12} color={energy > 0 ? Iron.text() : Iron.muted()} order={2} zIndex={21} />
+			</frame>
 		);
 	}
 	return (
@@ -414,7 +449,7 @@ export function FoundryPage(props: PageProps) {
 		return (
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				<uipadding PaddingTop={new UDim(0, space)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
-				<EmptyState title="Star Foundry" body="Warming up the board…" phone={phone} />
+				<EmptyState title="Star Foundry" body="Loading the Star Foundry…" phone={phone} />
 			</frame>
 		);
 	}
@@ -573,7 +608,7 @@ export function FoundryPage(props: PageProps) {
 			<Panel pad={gap(phone, "l")} spacing={gap(phone, "m")} seam={surgeLeft > 0} order={0}>
 				<Title text="Star Foundry" size={Type.title(phone)} tags={surgeLeft > 0 ? ["rainbow", "wave"] : ["wave"]} order={0} />
 				<Text
-					text={`${compactNumber(foundry.Shards)} shards · ${dormant ? "dormant, turn an Ember toward an Anvil" : `+${"%.1f".format((foundry.ShardRate ?? 0) * 60)} a minute`}`}
+					text={`${compactNumber(foundry.Shards)} Shards · ${dormant ? "Dormant (rotate Ember to an Anvil)" : `+${"%.1f".format((foundry.ShardRate ?? 0) * 60)}/min`}`}
 					size={Type.body(phone)}
 					color={dormant ? Iron.muted() : Iron.soft()}
 					order={1}
@@ -604,7 +639,7 @@ export function FoundryPage(props: PageProps) {
 			{shown !== undefined && (
 				<Panel pad={gap(phone, "m")} spacing={8} order={2}>
 					<Text text={`${lookOf(shown.Kind).name} · tier ${shown.Tier}`} size={Type.body(phone)} font={Fonts.heavy} color={lookOf(shown.Kind).color} order={0} />
-					<Text text={isBench(picked) ? `${lookOf(shown.Kind).line} Pick a cell to place it.` : lookOf(shown.Kind).line} size={Type.small(phone)} color={Iron.muted()} multiline order={1} />
+					<Text text={isBench(picked) ? `${lookOf(shown.Kind).line}. Pick a cell to place it.` : lookOf(shown.Kind).line} size={Type.small(phone)} color={Iron.muted()} multiline order={1} />
 					<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2}>
 						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
 						{boardPiece !== undefined && roleOf(boardPiece.Kind) !== "sink" && (
@@ -615,7 +650,7 @@ export function FoundryPage(props: PageProps) {
 						)}
 						{boardPiece !== undefined && (
 							<Button
-								text="To bench"
+								text={benchFull ? "Bench full" : "To bench"}
 								tone="iron"
 								width={110}
 								disabled={benchFull}
@@ -634,7 +669,7 @@ export function FoundryPage(props: PageProps) {
 			{!phone && actions}
 
 			<Panel pad={gap(phone, "m")} spacing={8} order={4} color={Iron.sunk()}>
-				<Text text={`Bench ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}`} size={Type.small(phone)} color={Iron.muted()} order={0} />
+				<Text text={`Bench · ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}${benchFull ? " · full, place or fuse a piece to free a slot" : " · tap a piece, then a cell"}`} size={Type.small(phone)} color={Iron.muted()} order={0} />
 				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
 					<uigridlayout CellSize={UDim2.fromOffset(slot, slot)} CellPadding={UDim2.fromOffset(6, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{(() => {
