@@ -80,6 +80,7 @@ local function render(width, inspected, offers)
 			return total
 		end,
 		SplitColumns = "SplitColumns", StackBlocks = "StackBlocks",
+		useFocusOrder = function() end, -- gamepad focus wiring needs live instances
 	}, { __index = _G })
 	local first = assert(source:find("local CATEGORIES", 1, true))
 	local last = assert(source:find("return { BazaarView = BazaarView }", first, true) or source:find("return {%s*BazaarView = BazaarView", first))

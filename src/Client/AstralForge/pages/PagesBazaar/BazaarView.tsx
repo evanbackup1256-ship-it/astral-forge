@@ -5,6 +5,7 @@ import { chromeFor, Palette, Radius, scrollTail, StrokeWidth } from "../../CoreK
 import { useViewport } from "../../MotionKit/motion";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { useFocusOrder } from "../../CoreKit/focusOrder";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
@@ -455,6 +456,30 @@ function BazaarView(props: BazaarProps) {
 	const chrome = chromeFor(useViewport());
 	const bazaarTail = chrome.stack ? scrollTail(true, chrome.bottomSafe, 32) : 72;
 	const scrollRef = React.useRef<GuiObject>();
+	// gamepad: header > search > categories > sort/quantity > (Close inspection) > shelf; the shelf
+	// (Main) and the inspection column (Side, right) step left/right on desktop. First focus: an offer.
+	useFocusOrder(
+		scrollRef,
+		{
+			regions: [
+				"market-header",
+				"legacy-*",
+				"search",
+				"categories",
+				"request-status",
+				"request-cancel",
+				"request-*",
+				"sort",
+				"quantity",
+				"inspection-heading",
+				"shelf-*",
+				"purchase-*",
+			],
+			first: ["shelf-*", "request-*", "categories"],
+			columns: [["Main", "Side"]],
+		},
+		[category],
+	);
 	const pending = React.useRef(false);
 	const nonce = React.useRef(0);
 	const live = React.useRef(true);
