@@ -517,9 +517,49 @@ export function FoundryPage(props: PageProps) {
 		</frame>
 	);
 
+	// phones: Ignite / Draw / Expand stay pinned under the board scroll so the beat is never off-screen
+	const barH = phone ? 52 + 20 : 0;
+	const pinned = (
+		<frame Size={new UDim2(1, 0, 0, 52)} BackgroundTransparency={1}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame Size={new UDim2(0.4, -4, 1, 0)} BackgroundTransparency={1} LayoutOrder={0}>
+				<uiscale Scale={igniteFlash.map((v) => 1 + v * 0.07)} />
+				<Button
+					text={igniteText}
+					tone="ember"
+					stretch
+					height={52}
+					textSize={17}
+					onPress={() => {
+						setIgnites((n) => n + 1);
+						act({ Op: "ignite" }, true);
+					}}
+				/>
+			</frame>
+			<frame Size={new UDim2(0.3, -4, 1, 0)} BackgroundTransparency={1} LayoutOrder={1}>
+				<Button text={benchFull ? "Bench full" : `Draw ${compactNumber(foundry.DrawCost ?? 0)}`} stretch height={52} textSize={15} disabled={!canDraw} busy={busy} onPress={() => act({ Op: "draw" })} />
+			</frame>
+			<frame Size={new UDim2(0.3, -4, 1, 0)} BackgroundTransparency={1} LayoutOrder={2}>
+				<Button
+					text={foundry.ExpandCost === undefined ? "Full size" : `Expand ${compactNumber(foundry.ExpandCost)}`}
+					tone="iron"
+					stretch
+					height={52}
+					textSize={15}
+					disabled={!canExpand}
+					busy={busy}
+					onPress={() => {
+						act({ Op: "expand" });
+						MotionFX.play("success");
+					}}
+				/>
+			</frame>
+		</frame>
+	);
 	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 		<scrollingframe
-			Size={UDim2.fromScale(1, 1)}
+			Size={new UDim2(1, 0, 1, -barH)}
 			BackgroundTransparency={1}
 			BorderSizePixel={0}
 			CanvasSize={new UDim2()}
@@ -591,7 +631,7 @@ export function FoundryPage(props: PageProps) {
 				</Panel>
 			)}
 
-			{actions}
+			{!phone && actions}
 
 			<Panel pad={gap(phone, "m")} spacing={8} order={4} color={Iron.sunk()}>
 				<Text text={`Bench ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}`} size={Type.small(phone)} color={Iron.muted()} order={0} />
@@ -637,5 +677,15 @@ export function FoundryPage(props: PageProps) {
 
 			{note !== "" && <Text text={note} size={Type.small(phone)} color={Iron.soft()} multiline order={5} />}
 		</scrollingframe>
+		{phone && (
+			<frame Size={new UDim2(1, 0, 0, barH)} Position={new UDim2(0, 0, 1, -barH)} BackgroundColor3={Iron.sunk()} BackgroundTransparency={0.1} BorderSizePixel={0} ZIndex={10}>
+				<frame Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Iron.edge()} BorderSizePixel={0} ZIndex={11} />
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={11}>
+					<uipadding PaddingTop={new UDim(0, 10)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
+					{pinned}
+				</frame>
+			</frame>
+		)}
+		</frame>
 	);
 }
