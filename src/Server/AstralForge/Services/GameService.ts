@@ -1,5 +1,6 @@
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { formatAway } from "../../../Shared/AstralForge/Shared/OfflineProgress";
+import { LeaderboardService, StoreRow } from "../Modules/LeaderboardService";
 import { Service } from "@flamework/core";
 import BazaarModule = require("./Gameplay/Bazaar");
 import { ConvergenceService } from "./ConvergenceService";
@@ -234,6 +235,14 @@ const AUTO_FORGE_INTERVAL = 2;
 const PROFILE_MAINTENANCE_INTERVAL = 10;
 const GUILD_REFRESH_INTERVAL = 30;
 const GLOBAL_LB_PAGE = 25;
+// store pages are re-read at most once a minute per board; failed reads back off from 30s
+const boardReader = new LeaderboardService({
+	pageSize: GLOBAL_LB_PAGE,
+	pageTtl: 60,
+	retryAfter: 30,
+	decode: (raw) => LeaderboardCodec.Decode(raw),
+	greater: (a, b) => truthy(Economy.Gt(a, b)),
+});
 const RANK_PING_INTERVAL = 20;
 const RANK_PING_BOARD = "Flux";
 const RANK_PING_BOARD_LABEL = "Lifetime Flux";
@@ -5909,42 +5918,21 @@ export class GameService {
 			return responseSuccess(undefined, { Leaderboard: cached.Entries, LeaderboardId: id });
 		}
 
-		const byUser = new Map<number, unknown>();
-		const [ok, pages] = pcall(() =>
-			(store as { GetSortedAsync(asc: boolean, size: number): { GetCurrentPage(): Dict[] } }).GetSortedAsync(false, GLOBAL_LB_PAGE),
+		// store page: cached per board, shared in-flight read, stale page kept when a read fails
+		const sorted = store as { GetSortedAsync(asc: boolean, size: number): { GetCurrentPage(): Dict[] } };
+		const stored = boardReader.stored(id, weekly ? `week${WeeklyBoard.weekOf(os.time())}` : id, (size) =>
+			sorted.GetSortedAsync(false, size).GetCurrentPage() as unknown as StoreRow[],
 		);
-		if (ok && truthy(pages)) {
-			for (const row of pages.GetCurrentPage()) {
-				const userId = tonumber(row.key);
-				const value = LeaderboardCodec.Decode(row.value);
-				if (userId !== undefined) {
-					byUser.set(userId, value);
-				}
-			}
-		}
-
+		const live = new Map<number, unknown>();
 		for (const online of Players.GetPlayers()) {
 			const profile = this._data.Get(online) as Profile | undefined;
 			if (profile !== undefined) {
-				byUser.set(online.UserId, weekly ? WeeklyBoard.scoreOf(profile, os.time()) : generalBoardValue(profile, id));
+				live.set(online.UserId, weekly ? WeeklyBoard.scoreOf(profile, os.time()) : generalBoardValue(profile, id));
 			}
 		}
-		const rows: Dict[] = [];
-		for (const [userId, value] of byUser) {
-			const counts = id === "Worlds" ? Economy.Gt(value, 1) : Economy.Gt(value, 0);
-			if (truthy(counts)) {
-				rows.push({ UserId: userId, Value: value });
-			}
-		}
-		table.sort(rows, (a, b) => {
-			if (truthy(Economy.Gt(a.Value, b.Value))) {
-				return true;
-			}
-			if (truthy(Economy.Lt(a.Value, b.Value))) {
-				return false;
-			}
-			return (a.UserId as number) < (b.UserId as number);
-		});
+		const rows = boardReader.rank(stored, live, (value) =>
+			truthy(id === "Worlds" ? Economy.Gt(value, 1) : Economy.Gt(value, 0)),
+		) as unknown as Dict[];
 		this._primePlayerNames(rows);
 		const entries: Dict[] = [];
 		for (let index = 0; index < math.min(rows.size(), GLOBAL_LB_PAGE); index++) {
