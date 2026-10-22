@@ -4160,3 +4160,108 @@ export function LogoLockup(props: { micro?: boolean; position?: UDim2 }) {
 		</frame>
 	);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Additive layout helpers (layout rebuild). Pure layout: no colours, motion or sounds of their own.
+// splitColumns(width) decides whether a page has room for a list + detail pair of columns;
+// SplitColumns places two children side by side (side column fixed width, main column fills).
+// ---------------------------------------------------------------------------------------------
+export const SPLIT_MIN_WIDTH = 860;
+export interface SplitPlan {
+	split: boolean;
+	side: number;
+	main: number;
+	gap: number;
+}
+export function splitColumns(width: number, sideWidth = 320, gap = 14, minWidth = SPLIT_MIN_WIDTH): SplitPlan {
+	const usable = math.max(0, math.floor(width));
+	if (usable < minWidth) {
+		return { split: false, side: usable, main: usable, gap: gap };
+	}
+	const side = math.clamp(sideWidth, 220, math.floor(usable * 0.45));
+	return { split: true, side: side, main: usable - side - gap, gap: gap };
+}
+export interface SplitColumnsProps {
+	height: number;
+	plan: SplitPlan;
+	side: React.ReactNode;
+	main: React.ReactNode;
+	sideOnRight?: boolean;
+	name?: string;
+}
+export function SplitColumns(props: SplitColumnsProps) {
+	const plan = props.plan;
+	const right = props.sideOnRight === true;
+	return React.createElement(
+		"frame",
+		{
+			Name: props.name ?? "SplitColumns",
+			Size: new UDim2(1, 0, 0, props.height),
+			BackgroundTransparency: 1,
+			BorderSizePixel: 0,
+			ClipsDescendants: false,
+		},
+		React.createElement(
+			"frame",
+			{
+				key: "Side",
+				Name: "Side",
+				Size: new UDim2(0, plan.side, 1, 0),
+				Position: right ? new UDim2(1, -plan.side, 0, 0) : UDim2.fromOffset(0, 0),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+				ClipsDescendants: false,
+				LayoutOrder: right ? 2 : 1,
+			},
+			props.side,
+		),
+		React.createElement(
+			"frame",
+			{
+				key: "Main",
+				Name: "Main",
+				Size: new UDim2(1, -(plan.side + plan.gap), 1, 0),
+				Position: right ? UDim2.fromOffset(0, 0) : UDim2.fromOffset(plan.side + plan.gap, 0),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+				ClipsDescendants: false,
+				LayoutOrder: right ? 1 : 2,
+			},
+			props.main,
+		),
+	);
+}
+// Stacks fixed-height blocks top to bottom inside one column (used inside SplitColumns).
+export function StackBlocks(props: { gap?: number; blocks: { id: string; height: number; element: React.ReactNode }[] }) {
+	const gap = props.gap ?? 10;
+	const children: Record<string, React.ReactNode> = {};
+	let y = 0;
+	for (const [index, block] of ipairs(props.blocks)) {
+		children[block.id] = React.createElement(
+			"frame",
+			{
+				Name: block.id,
+				Size: new UDim2(1, 0, 0, block.height),
+				Position: UDim2.fromOffset(0, y),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+				ClipsDescendants: false,
+				LayoutOrder: index,
+			},
+			block.element,
+		);
+		y += block.height + gap;
+	}
+	return React.createElement(
+		"frame",
+		{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false },
+		children,
+	);
+}
+export function stackHeight(heights: number[], gap = 10): number {
+	let total = 0;
+	for (const [index, value] of ipairs(heights)) {
+		total += value + (index > 1 ? gap : 0);
+	}
+	return total;
+}
