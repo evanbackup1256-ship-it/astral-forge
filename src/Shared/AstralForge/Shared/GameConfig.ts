@@ -14,6 +14,7 @@ const WorldCurve = require(sharedFolder.WaitForChild("WorldCurve") as ModuleScri
 	apply(this: void, zones: RawList): void;
 	statsFor(this: void, anchor: unknown, id: number): Row;
 };
+const WorldTable = require(sharedFolder.WaitForChild("WorldTable") as ModuleScript) as typeof import("./WorldTable");
 const DescribeGenerated = require(sharedFolder.WaitForChild("DescribeGenerated") as ModuleScript) as {
 	machine(this: void, prefix: string, core: string, prefixIndex: number, cycle: number): string;
 	research(this: void, prefix: string, noun: string, prefixIndex: number, cycle: number): string;
@@ -7278,30 +7279,6 @@ const GameConfig: Dict = {
 	GridUpgrades: [],
 };
 
-const worldPrefixes = [
-	"Ember",
-	"Aether",
-	"Verdant",
-	"Obsidian",
-	"Lumen",
-	"Tidal",
-	"Gilded",
-	"Frost",
-	"Echo",
-	"Violet",
-	"Titan",
-	"Mirage",
-];
-const worldNouns = ["Basin", "Crown", "Concourse", "Garden", "Array", "Reach", "Spire", "Archive", "Tessellation", "Citadel"];
-const worldFeatures = [
-	["Fast lanes", "Safe vaults", "Crew tips"],
-	["Bright freight", "Bonus contracts", "Low waste"],
-	["Heat exchanges", "Core fabs", "Pressure clocks"],
-	["Short routes", "Stable research", "Weird geometry"],
-	["Deep collectors", "Long vaults", "Endless synth"],
-];
-const worldLayouts = ["Dock", "Crystal", "Foundry", "Rift", "Horizon"];
-
 function generateZones() {
 	const zones = rawget(GameConfig, "Zones") as Row[];
 	let count = zones.size();
@@ -7314,37 +7291,29 @@ function generateZones() {
 		}
 	}
 	const startId = lastAuthoredId + 1;
-	for (let id = startId; id <= 125; id++) {
+	for (let id = startId; id <= WorldTable.GENERATED_LAST_ID; id++) {
 		const tier = id - lastAuthoredId;
-		const prefix = worldPrefixes[(tier - 1) % worldPrefixes.size()];
-		const noun = worldNouns[math.floor((tier - 1) / worldPrefixes.size())];
-		const paletteIndex = (id * 17) % 360;
-		const color = Color3.fromHSV(paletteIndex / 360, 0.7, 0.98);
-		const darkColor = color.Lerp(Color3.fromRGB(7, 10, 24), 0.78);
-		const costExponent = math.min(700, math.log(25_000_000_000) + tier * 0.095);
-		const features = worldFeatures[(tier - 1) % worldFeatures.size()];
-		const layout = worldLayouts[(tier - 1) % worldLayouts.size()];
+		const names = WorldTable.generatedNames(tier);
+		const stats = WorldTable.generatedStats(tier);
+		const color = Color3.fromHSV(((id * 17) % 360) / 360, 0.7, 0.98);
+		const tag = string.format("%03d", id);
 		count += 1;
 		rawZones[count] = {
 			Id: id,
-			Name: prefix + " " + noun,
+			Name: names.Name,
 			Tagline: DescribeGenerated.worldTagline(tier),
-			Description: DescribeGenerated.worldDescription(layout, tier),
-			Lore: DescribeGenerated.worldLore(prefix + " " + noun, features[0], tier),
-			Features: [
-				features[0] + " " + string.format("%03d", id),
-				features[1] + " " + string.format("%03d", id),
-				features[2] + " " + string.format("%03d", id),
-			],
-			Layout: layout,
+			Description: DescribeGenerated.worldDescription(names.Layout, tier),
+			Lore: DescribeGenerated.worldLore(names.Name, names.Features[0], tier),
+			Features: names.Features.map((line) => line + " " + tag),
+			Layout: names.Layout,
 			ThemeIndex: id,
-			Trait: layout + " run " + string.format("%03d", id),
-			Cost: math.floor(math.exp(costExponent)),
-			CoreCost: 20 + math.floor(tier * 1.65),
-			Multiplier: 12 * (1 + tier * 0.24),
-			RequiredRebirths: 20 + math.floor(tier * 0.8),
+			Trait: names.Layout + " run " + tag,
+			Cost: stats.Cost,
+			CoreCost: stats.CoreCost,
+			Multiplier: stats.Multiplier,
+			RequiredRebirths: stats.RequiredRebirths,
 			Color: color,
-			DarkColor: darkColor,
+			DarkColor: color.Lerp(Color3.fromRGB(7, 10, 24), 0.78),
 		};
 	}
 	WorldCurve.apply(rawZones);
@@ -7615,21 +7584,6 @@ function generateResearch() {
 	return research;
 }
 
-// prettier-ignore
-const ZONE_NAMES = [
-	"Ashen Reach", "Ion Shelf", "Mirror Trench", "Violet Harbor", "Drift Spire",
-	"Hollow Crown", "Nadir Reef", "Aurora Kiln", "Static Orchard", "Null Causeway",
-	"Ember Causeway", "Signal Bazaar", "Folded Pier", "Quiet Anvil", "Prism Quay",
-];
-const ZONE_FEATURES = [
-	["Bigger multiplier", "Rebirth gate", "Familiar machines"],
-	["Familiar machines", "Steeper core costs", "Bigger multiplier"],
-	["Bigger multiplier", "Rebirth gate", "Long offline time"],
-	["Wide rails", "Rebirth gate", "Safe offline vault"],
-	["Bigger multiplier", "Core costs", "Familiar machines"],
-];
-const ZONE_LAYOUTS = ["Dock", "Crystal", "Foundry", "Rift", "Horizon"];
-
 GameConfig.ResolveZone = (id: number) => {
 	const authored = (GameConfig.Zones as RawList)[id];
 	if (authored !== undefined) {
@@ -7647,16 +7601,17 @@ GameConfig.ResolveZone = (id: number) => {
 		break;
 	}
 	const continued = WorldCurve.statsFor((GameConfig.Zones as RawList)[WorldCurve.ANCHOR_ID], index);
-	const name = ZONE_NAMES[(index - 1) % ZONE_NAMES.size()];
-	const flavor = (index - 1) % ZONE_FEATURES.size();
+	const name = string.format("%s %d", WorldTable.cycle(WorldTable.RESOLVED.Names, index), index);
+	const features = WorldTable.cycle(WorldTable.RESOLVED.Features, index);
+	const layout = WorldTable.cycle(WorldTable.RESOLVED.Layouts, index);
 	return {
 		Id: index,
-		Name: string.format("%s %d", name, index),
+		Name: name,
 		Tagline: DescribeGenerated.worldTagline(index),
-		Description: DescribeGenerated.worldDescription(ZONE_LAYOUTS[(index - 1) % ZONE_LAYOUTS.size()], index),
-		Lore: DescribeGenerated.worldLore(string.format("%s %d", name, index), ZONE_FEATURES[flavor][0], index),
-		Features: ZONE_FEATURES[flavor],
-		Layout: ZONE_LAYOUTS[(index - 1) % ZONE_LAYOUTS.size()],
+		Description: DescribeGenerated.worldDescription(layout, index),
+		Lore: DescribeGenerated.worldLore(name, features[0], index),
+		Features: features,
+		Layout: layout,
 		ThemeIndex: ((index - 1) % 5) + 1,
 		Cost: continued.Cost,
 		CoreCost: continued.CoreCost,
