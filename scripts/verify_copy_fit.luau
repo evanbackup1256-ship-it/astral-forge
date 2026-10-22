@@ -112,7 +112,6 @@ local function phoneCases(phone: number)
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Bonuses apply at once. A new cell unlocks every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Each title shows as it looks on you.", size = 11, bold = false, width = panel, phone = phone },
-		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Train officers with signals.", size = 12, minSize = 10, bold = false, width = panel, phone = phone },
 		{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = panel, phone = phone },
 	}
 end

@@ -159,6 +159,8 @@ const TITLE_FX_FALLBACKS = ["shimmer", "aurora", "pulse", "chrome", "wave", "glo
 const TAB_LABEL: Record<string, string> = { Overview: "Overview", Expeditions: "Expeditions", Artifacts: "Artifacts", Season: "Rank Track" };
 const TAB_OPTIONS = TABS.map((id) => ({ id, label: TAB_LABEL[id] }));
 const CREW_ROLES = ["Pilot", "Engineer", "Navigator"];
+const OVERVIEW_WIDE_MIN = 980;
+const OVERVIEW_MAIN_SHARE = 0.6;
 
 function crewCost(base: number, level: number) {
 	return math.floor(base * math.pow(level, 1.55));
@@ -585,32 +587,38 @@ function CommandViewReady(props: CommandProps) {
 	const passStatus = passOwned
 		? "Season Pass active: every tier pays out twice."
 		: "The Season Pass in the Shop adds a second reward to every tier.";
+	// wide screens split Overview into a main column (rank, jobs, officers, shop) and a side column
+	// (titles, profile style, mastery); grids size their columns from the column they sit in
+	const overviewWide = !stack && contentWidth >= OVERVIEW_WIDE_MIN;
+	const columnGap = stack ? 0 : Layout.panelGap;
+	const mainColW = overviewWide ? math.floor((contentWidth - columnGap) * OVERVIEW_MAIN_SHARE) : contentWidth;
+	const sideColW = overviewWide ? contentWidth - columnGap - mainColW : contentWidth;
 	const panelPad = 14;
 	const gridGap = 8;
 	const heroH = stack ? 196 : 168;
 	const crewCols = stack ? 1 : 3;
 	const crewCellH = 136;
 	const crewRows = math.max(1, math.ceil(CREW_ROLES.size() / crewCols));
-	const crewH = gridPanelHeight(54, crewRows, crewCellH, gridGap, panelPad);
+	const crewH = gridPanelHeight(36, crewRows, crewCellH, gridGap, panelPad);
 	const weeklyItemH = stack ? 148 : 92;
 	const weeklyStride = stack ? 156 : 100;
 	const weeklyCount = math.max(1, command.Weekly.size());
 	const weeklyH = panelPad * 2 + 36 + (weeklyCount - 1) * weeklyStride + weeklyItemH;
-	const titleCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))));
+	const titleCols = math.max(1, math.min(4, math.floor((sideColW - panelPad * 2 + gridGap) / (210 + gridGap))));
 	const titleCellH = 176;
 	const titleRows = math.max(1, math.ceil(math.max(1, command.Titles.size()) / titleCols));
 	// closed titles: the 152px badge sits beside the 18px "Title wardrobe" header (~140px) when there's
 	// room, otherwise on its own line under it (narrow phones), and the panel grows by that line
 	const CLOSED_BADGE_W = 152;
-	const closedBadgeOwnLine = contentWidth - panelPad * 2 < 140 + CLOSED_BADGE_W + 12;
+	const closedBadgeOwnLine = sideColW - panelPad * 2 < 140 + CLOSED_BADGE_W + 12;
 	const closedBadgeLine = closedBadgeOwnLine ? 26 + 8 : 0;
 	const titlesH = titlesEnabled ? gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) : 112 + closedBadgeLine;
 	const styleH = profileStyleHeight(stack) + panelPad * 2;
-	const shopCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (190 + gridGap))));
+	const shopCols = math.max(1, math.min(4, math.floor((mainColW - panelPad * 2 + gridGap) / (190 + gridGap))));
 	const shopCellH = 180;
 	const shopRows = math.max(1, math.ceil(math.max(1, command.Shop.size()) / shopCols));
 	const shopH = gridPanelHeight(36, shopRows, shopCellH, gridGap, panelPad);
-	const masteryCols = math.max(1, math.min(3, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))));
+	const masteryCols = math.max(1, math.min(3, math.floor((sideColW - panelPad * 2 + gridGap) / (210 + gridGap))));
 	const masteryCellH = 64;
 	const masteryRows = math.max(1, math.ceil(math.max(1, config.Machines.size()) / masteryCols));
 	const masteryH = gridPanelHeight(36, masteryRows, masteryCellH, gridGap, panelPad);
@@ -625,20 +633,28 @@ function CommandViewReady(props: CommandProps) {
 	const seasonHeroH = 164;
 	const seasonRowH = stack ? 184 : 144;
 	const heroInfoWidth = stack ? -100 : -(114 + 210 + 14);
+	// trip, relic and tier rows pair up side by side on wide screens
+	const listCols = overviewWide ? 2 : 1;
+	const listHeight = (count: number, rowH: number) => {
+		const rows = math.ceil(count / listCols);
+		return rows * rowH + math.max(0, rows - 1) * Layout.panelGap;
+	};
 	let tabContent = 0;
 	let listContent = 0;
 	let tabHeroH = 0;
 	if (tab === "Overview") {
-		tabContent = heroH + crewH + weeklyH + titlesH + styleH + shopH + masteryH + Layout.panelGap * 6;
+		tabContent = overviewWide
+			? math.max(heroH + weeklyH + crewH + shopH + columnGap * 3, titlesH + styleH + masteryH + columnGap * 2)
+			: heroH + crewH + weeklyH + titlesH + styleH + shopH + masteryH + Layout.panelGap * 6;
 	} else if (tab === "Expeditions") {
 		tabHeroH = expeditionHeroH;
-		listContent = ops.Expeditions.size() * expeditionRowH + math.max(0, ops.Expeditions.size() - 1) * Layout.panelGap;
+		listContent = listHeight(ops.Expeditions.size(), expeditionRowH);
 	} else if (tab === "Artifacts") {
 		tabHeroH = artifactHeroH;
-		listContent = ops.Artifacts.size() * artifactRowH + math.max(0, ops.Artifacts.size() - 1) * Layout.panelGap;
+		listContent = listHeight(ops.Artifacts.size(), artifactRowH);
 	} else {
 		tabHeroH = seasonHeroH;
-		listContent = ops.SeasonTiers.size() * seasonRowH + math.max(0, ops.SeasonTiers.size() - 1) * Layout.panelGap;
+		listContent = listHeight(ops.SeasonTiers.size(), seasonRowH);
 	}
 	const headerH = 56;
 	const tabColumns = math.max(1, math.min(TABS.size(), math.floor((contentWidth + 4) / 140)));
@@ -891,8 +907,7 @@ function CommandViewReady(props: CommandProps) {
 				/>
 			</>
 		);
-		overviewPane = (
-			<TabPane tabKey="Overview" reducedMotion={reducedMotion}>
+		const heroPanel = (
 				<Panel
 					size={new UDim2(1, 0, 0, heroH)}
 					accent={Palette.cyan}
@@ -988,28 +1003,8 @@ function CommandViewReady(props: CommandProps) {
 						/>
 					</frame>
 				</Panel>
-				<Panel size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
-					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
-					<Text
-						value="Train officers with signals."
-						size={12}
-						color={Palette.muted}
-						fit={true}
-						minSize={10}
-						position={UDim2.fromOffset(0, 28)}
-						sizeConstraint={new UDim2(1, 0, 0, 18)}
-					/>
-					<frame
-						Size={new UDim2(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap)}
-						Position={UDim2.fromOffset(0, 54)}
-						BackgroundTransparency={1}
-						BorderSizePixel={0}
-						Active={false}
-					>
-						<AutoGrid columns={crewCols} cellHeight={crewCellH} rowGap={gridGap} columnGap={gridGap} />
-						{crewCells}
-					</frame>
-				</Panel>
+		);
+		const weeklyPanel = (
 				<Panel
 					size={new UDim2(1, 0, 0, weeklyH)}
 					accent={Palette.green}
@@ -1031,6 +1026,23 @@ function CommandViewReady(props: CommandProps) {
 					/>
 					{weeklyGrid}
 				</Panel>
+		);
+		const crewPanel = (
+				<Panel size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
+					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
+					<frame
+						Size={new UDim2(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap)}
+						Position={UDim2.fromOffset(0, 36)}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						Active={false}
+					>
+						<AutoGrid columns={crewCols} cellHeight={crewCellH} rowGap={gridGap} columnGap={gridGap} />
+						{crewCells}
+					</frame>
+				</Panel>
+		);
+		const titlesPanel = (
 				<Panel
 					size={new UDim2(1, 0, 0, titlesH)}
 					accent={titlesEnabled ? Palette.violet : Palette.muted}
@@ -1042,6 +1054,8 @@ function CommandViewReady(props: CommandProps) {
 					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={12} sizeConstraint={new UDim2(1, titlesEnabled || closedBadgeOwnLine ? 0 : -(CLOSED_BADGE_W + 12), 0, 24)} />
 					{titlesBody}
 				</Panel>
+		);
+		const stylePanel = (
 				<Panel
 					size={new UDim2(1, 0, 0, styleH)}
 					accent={Palette.cyan}
@@ -1059,6 +1073,8 @@ function CommandViewReady(props: CommandProps) {
 						reducedMotion={reducedMotion}
 					/>
 				</Panel>
+		);
+		const shopPanel = (
 				<Panel size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text
 						value={`Signal shop · ${compactNumber(command.Signals)} ready`}
@@ -1126,6 +1142,8 @@ function CommandViewReady(props: CommandProps) {
 						}}
 					/>
 				</Panel>
+		);
+		const masteryPanel = (
 				<Panel size={new UDim2(1, 0, 0, masteryH)} accent={Palette.blue} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text value="Machine mastery" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={14} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<VirtualGrid
@@ -1177,6 +1195,68 @@ function CommandViewReady(props: CommandProps) {
 						}}
 					/>
 				</Panel>
+		);
+		overviewPane = (
+			<TabPane tabKey="Overview" reducedMotion={reducedMotion}>
+				{overviewWide ? (
+					<frame
+						key="OverviewColumns"
+						Size={new UDim2(1, 0, 0, 0)}
+						AutomaticSize={Enum.AutomaticSize.Y}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						Active={false}
+						LayoutOrder={nextOrder()}
+					>
+						<uilistlayout
+							FillDirection={Enum.FillDirection.Horizontal}
+							SortOrder={Enum.SortOrder.LayoutOrder}
+							VerticalAlignment={Enum.VerticalAlignment.Top}
+							Padding={new UDim(0, columnGap)}
+						/>
+						<frame
+							key="Main"
+							Size={new UDim2(OVERVIEW_MAIN_SHARE, -math.ceil(columnGap * OVERVIEW_MAIN_SHARE), 0, 0)}
+							AutomaticSize={Enum.AutomaticSize.Y}
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							Active={false}
+							SelectionGroup={true}
+							LayoutOrder={1}
+						>
+							<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, columnGap)} />
+							{heroPanel}
+							{weeklyPanel}
+							{crewPanel}
+							{shopPanel}
+						</frame>
+						<frame
+							key="Side"
+							Size={new UDim2(1 - OVERVIEW_MAIN_SHARE, -math.floor(columnGap * (1 - OVERVIEW_MAIN_SHARE)), 0, 0)}
+							AutomaticSize={Enum.AutomaticSize.Y}
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							Active={false}
+							SelectionGroup={true}
+							LayoutOrder={2}
+						>
+							<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, columnGap)} />
+							{titlesPanel}
+							{stylePanel}
+							{masteryPanel}
+						</frame>
+					</frame>
+				) : (
+					<>
+						{heroPanel}
+						{weeklyPanel}
+						{crewPanel}
+						{titlesPanel}
+						{stylePanel}
+						{shopPanel}
+						{masteryPanel}
+					</>
+				)}
 			</TabPane>
 		);
 	}
@@ -1278,7 +1358,7 @@ function CommandViewReady(props: CommandProps) {
 				<VirtualGrid
 					scrollRef={scrollRef}
 					count={expeditionList.size()}
-					columns={1}
+					columns={listCols}
 					cellHeight={expeditionRowH}
 					gap={Layout.panelGap}
 					overscanRows={softMotion ? 0 : 1}
@@ -1404,7 +1484,7 @@ function CommandViewReady(props: CommandProps) {
 			<VirtualGrid
 				scrollRef={scrollRef}
 				count={ops.Artifacts.size()}
-				columns={1}
+				columns={listCols}
 				cellHeight={artifactRowH}
 				gap={Layout.panelGap}
 				layoutOrder={nextOrder()}
@@ -1571,7 +1651,7 @@ function CommandViewReady(props: CommandProps) {
 			<VirtualGrid
 				scrollRef={scrollRef}
 				count={ops.SeasonTiers.size()}
-				columns={1}
+				columns={listCols}
 				cellHeight={seasonRowH}
 				gap={Layout.panelGap}
 				overscanRows={softMotion ? 0 : 1}
