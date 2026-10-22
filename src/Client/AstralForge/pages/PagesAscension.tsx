@@ -2,7 +2,8 @@
 // hold-to-confirm button, a harmony strip, and the six sigils.
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
+import { splitColumns } from "../UiCore/ui";
+import { splitSection } from "./layoutRise";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { useClock, useFlipperSpring, useViewport } from "../MotionKit/motion";
@@ -490,14 +491,22 @@ function AscensionViewBoard(props: AscensionViewProps) {
 				position={UDim2.fromOffset(0, 76)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -300, 0, 16)}
 			/>
-			<HoldButton
-				enabled={state.CanAscend && !busy}
-				text="Hold"
-				disabledText="—"
-				size={stack ? new UDim2(1, 0, 0, TapTarget + 8) : UDim2.fromOffset(280, 64)}
-				position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -280, 0.5, -32)}
-				onConfirm={() => request("Ascend")}
-			/>
+			<frame
+				key="AscendConfirm"
+				Size={stack ? new UDim2(1, 0, 0, TapTarget + 8) : UDim2.fromOffset(280, 64)}
+				Position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -280, 0.5, -32)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+			>
+				<HoldButton
+					enabled={state.CanAscend && !busy}
+					text="Hold"
+					disabledText="—"
+					size={UDim2.fromScale(1, 1)}
+					position={UDim2.fromOffset(0, 0)}
+					onConfirm={() => request("Ascend")}
+				/>
+			</frame>
 		</Ui.Panel>,
 	);
 	if (note !== "") {
@@ -601,12 +610,7 @@ function AscensionViewBoard(props: AscensionViewProps) {
 	if (sideColumn) {
 		const side = sections.filter((section) => section.id === "constellations");
 		const main = sections.filter((section) => section.id !== "constellations");
-		const height = math.max(stackHeight(side.map((section) => section.height), GAP), stackHeight(main.map((section) => section.height), GAP));
-		const split: Section = {
-			id: "split",
-			height,
-			element: <SplitColumns name="AscensionSplit" height={height} plan={plan} sideOnRight={true} side={<StackBlocks gap={GAP} blocks={side} />} main={<StackBlocks gap={GAP} blocks={main} />} />,
-		};
+		const split = splitSection("AscensionSplit", plan, GAP, side, main, true, sections.map((section) => section.id));
 		return <PageScaffold sections={[split]} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
 	}
 	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;

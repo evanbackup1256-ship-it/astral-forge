@@ -1,12 +1,14 @@
 import React from "@rbxts/react";
 import { AppHelpers } from "../../CoreKit/appNav";
+import { useBackLayer } from "../../CoreKit/backLayer";
 import { compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useStagger, useViewport } from "../../MotionKit/motion";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { splitColumns } from "../../UiCore/ui";
+import { splitSection } from "../layoutRise";
 import { loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
 const UserInputService = game.GetService("UserInputService");
@@ -395,6 +397,11 @@ function WorldsView(props: WorldsViewProps) {
 		],
 	});
 	const browsing = browse.filtered || browse.sort !== "Order";
+	// B clears a search, filter or sort before it leaves the page
+	useBackLayer(browsing, () => {
+		browse.reset();
+		browse.setSort("Order");
+	});
 	const worldRow = (zone: ZoneDef, localOrder: number) => {
 		const unlocked = state.Zone >= zone.Id;
 		const rebirthOk = state.Rebirths >= zone.RequiredRebirths;
@@ -503,7 +510,8 @@ function WorldsView(props: WorldsViewProps) {
 						size={headerStack ? chrome.titleText : 22}
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
-						fit={false}
+						fit={headerStack}
+						minSize={13}
 						position={UDim2.fromOffset(0, 10)}
 						sizeConstraint={new UDim2(1, headerStack ? -8 : -320, 0, 30)}
 					/>
@@ -651,7 +659,7 @@ function WorldsView(props: WorldsViewProps) {
 					tailPad={worldTail + listPad}
 					scrollBarColor={Palette.mint}
 					scrollBarThickness={4}
-					sections={[{ id: "split", height: math.max(stackHeight(sideBlocks.map((block) => block.height), rowGap), stackHeight(mainBlocks.map((block) => block.height), rowGap)), element: <SplitColumns name="WorldsSplit" height={math.max(stackHeight(sideBlocks.map((block) => block.height), rowGap), stackHeight(mainBlocks.map((block) => block.height), rowGap))} plan={plan} side={<StackBlocks gap={rowGap} blocks={sideBlocks} />} main={<StackBlocks gap={rowGap} blocks={mainBlocks} />} /> }]}
+					sections={[splitSection("WorldsSplit", plan, rowGap, sideBlocks, mainBlocks, false, sections.map((section) => section.id))]}
 				/>
 			) : (
 				<PageScaffold
