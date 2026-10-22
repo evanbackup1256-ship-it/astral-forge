@@ -1,6 +1,7 @@
 // Tab and Chip: the two "pick one" controls. Tabs switch whole views; chips filter a list.
 import React from "@rbxts/react";
-import { useChangePop, useHoverPress } from "../../MotionKit/motion";
+import { useChangePop } from "../../MotionKit/motion";
+import { FocusRing, PressLayers, pressEvents, usePress } from "./press";
 import { RainbowGradient } from "../../UiCore/rainbowFx";
 import { Corner, Fonts, HIT, Iron } from "./tokens";
 
@@ -15,7 +16,7 @@ export interface TabProps {
 }
 
 export function Tab(props: TabProps) {
-	const [scale, events] = useHoverPress(false, 0.03, 0.05);
+	const press = usePress(props.onPress, false, { label: props.text });
 	const pop = useChangePop(props.badge ?? 0);
 	return (
 		<textbutton
@@ -29,10 +30,12 @@ export function Tab(props: TabProps) {
 			TextSize={16}
 			LayoutOrder={props.order ?? 0}
 			Selectable
-			Event={{ Activated: props.onPress, ...events }}
+			Event={pressEvents<TextButton>(press)}
 		>
-			<uiscale Scale={scale} />
+			<uiscale Scale={press.touchScale} />
 			<uicorner CornerRadius={new UDim(0, Corner.card)} />
+			<PressLayers press={press} radius={Corner.card} color={Iron.brass()} zIndex={2} />
+			<FocusRing press={press} radius={Corner.card} color={Iron.text()} />
 			{props.active && (
 				<frame Size={new UDim2(1, -16, 0, 2)} Position={new UDim2(0, 8, 1, -3)} BackgroundColor3={Color3.fromRGB(255, 255, 255)} BorderSizePixel={0}>
 					<RainbowGradient base={Iron.brass()} state={{ selected: true, active: true }} style="flow" />
@@ -58,7 +61,7 @@ export interface ChipProps {
 }
 
 export function Chip(props: ChipProps) {
-	const [scale, events] = useHoverPress(false, 0.05, 0.07);
+	const press = usePress(props.onPress, false, { label: props.text });
 	const tint = props.color ?? Iron.brass();
 	const width = math.max(64, props.text.size() * 9 + 28);
 	return (
@@ -73,10 +76,12 @@ export function Chip(props: ChipProps) {
 			TextSize={14}
 			LayoutOrder={props.order ?? 0}
 			Selectable
-			Event={{ Activated: props.onPress, ...events }}
+			Event={pressEvents<TextButton>(press)}
 		>
-			<uiscale Scale={scale} />
+			<uiscale Scale={press.touchScale} />
 			<uicorner CornerRadius={new UDim(0, Corner.chip)} />
+			<PressLayers press={press} radius={Corner.chip} color={tint} zIndex={2} />
+			<FocusRing press={press} radius={Corner.chip} color={Iron.text()} />
 			<uistroke Color={tint} Transparency={props.on ? 1 : 0.55} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 		</textbutton>
 	);
