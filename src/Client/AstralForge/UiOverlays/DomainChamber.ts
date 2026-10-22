@@ -9,7 +9,7 @@ import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { useViewport } from "../MotionKit/motion";
 import { Button } from "../UiCore/ui";
 import { Icon } from "../ArtKit/Icon";
-import { darken, Palette, TapTarget } from "../CoreKit/theme";
+import { darken, Palette, Radius, Space, TapTarget } from "../CoreKit/theme";
 import { compactNumber } from "../CoreKit/format";
 import DomainLattice = require("../../../Shared/AstralForge/Shared/DomainLattice");
 
@@ -474,7 +474,7 @@ function Row(props: RowProps) {
 	return h(
 		"frame",
 		{
-			Size: new UDim2(1, 0, 0, props.height ?? 22),
+			Size: new UDim2(1, 0, 0, props.height ?? 24),
 			LayoutOrder: props.order,
 			BackgroundTransparency: 1,
 			ZIndex: 632,
@@ -510,12 +510,12 @@ function Row(props: RowProps) {
 
 function Heading(props: { order?: number; text: string; color?: Color3 }) {
 	return h("textlabel", {
-		Size: new UDim2(1, 0, 0, 16),
+		Size: new UDim2(1, 0, 0, 20),
 		LayoutOrder: props.order,
 		BackgroundTransparency: 1,
 		Text: props.text,
-		TextSize: 11,
-		FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextSize: 13,
+		FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextColor3: props.color ?? Palette.mango,
 		TextXAlignment: Enum.TextXAlignment.Left,
 		ZIndex: 633,
@@ -800,7 +800,7 @@ function DomainChamber(props: ChamberProps) {
 	let panelNumber: string;
 	const actions: Action[] = [];
 	if (mode === "lattice") {
-		panelTitle = "DOMAIN";
+		panelTitle = "Domain";
 		panelNumber = tostring(rank);
 		row("Production from your domain", `x${string.format("%.2f", asNumber(domain.ProductionMultiplier))}`, {
 			valueColor: Palette.mango,
@@ -811,9 +811,7 @@ function DomainChamber(props: ChamberProps) {
 		if (selected !== undefined && selected.kind === "link" && links[selected.id as string] !== true) {
 			const selectedKey = selected.id as string;
 			const [a, b] = splitKey(selectedKey);
-			heading(
-				`ETCH ${string.upper(DomainLattice.ANCHORS[a].name)} TO ${string.upper(DomainLattice.ANCHORS[b].name)}`,
-			);
+			heading(`${DomainLattice.ANCHORS[a].name} to ${DomainLattice.ANCHORS[b].name}`);
 			for (const preview of etchPreview(links, selectedKey)) {
 				row(preview.text, undefined, { labelColor: preview.color });
 			}
@@ -830,7 +828,7 @@ function DomainChamber(props: ChamberProps) {
 			const anchor = DomainLattice.ANCHORS[selected.id as number];
 			const d = DomainLattice.degrees(links)[anchor.index] ?? 0;
 			const maxD = DomainLattice.maxDegree(anchor.index);
-			heading(string.upper(anchor.name), KIND_COLOR[anchor.kind]);
+			heading(anchor.name, KIND_COLOR[anchor.kind]);
 			row("Gives now", DomainLattice.describe(anchor.kind, DomainLattice.anchorBonus(anchor.index, d)), {
 				valueColor: KIND_COLOR[anchor.kind],
 			});
@@ -847,7 +845,7 @@ function DomainChamber(props: ChamberProps) {
 				);
 			}
 		} else {
-			heading("WHAT YOUR LATTICE GIVES");
+			heading("Lattice bonuses");
 			let anyBonus = false;
 			for (const [, anchor] of pairs(DomainLattice.ANCHORS)) {
 				const total = DomainLattice.bonus(links, anchor.kind);
@@ -891,13 +889,13 @@ function DomainChamber(props: ChamberProps) {
 			onClick: clear,
 		});
 	} else if (mode === "confirm") {
-		panelTitle = "EXPAND TO DOMAIN";
+		panelTitle = "Expand to domain";
 		panelNumber = tostring(rank + 1);
 		const needR = asNumber(domain.RequiredRebirths);
 		const needC = asNumber(domain.RequiredCores);
 		const haveR = asNumber(props.rebirths);
 		const haveC = asNumber(props.cores);
-		heading("IT TAKES");
+		heading("You need");
 		row("Rebirths", `${compactNumber(haveR)} / ${compactNumber(needR)}`, {
 			valueColor: haveR >= needR ? Palette.mint : Palette.coral,
 		});
@@ -905,9 +903,9 @@ function DomainChamber(props: ChamberProps) {
 			valueColor: haveC >= needC ? Palette.mint : Palette.coral,
 		});
 		gap(6);
-		heading("YOU GET");
+		heading("You get");
 		row("Domain essence", `+${compactNumber(asNumber(domain.EssenceReward))}`, { valueColor: Palette.pink });
-		row("Stardust (more for every extra rebirth)", `+${compactNumber(asNumber(domain.StardustReward))}`, {
+		row("Stardust", `+${compactNumber(asNumber(domain.StardustReward))}`, {
 			valueColor: Palette.cyan,
 			size: 12,
 		});
@@ -934,9 +932,9 @@ function DomainChamber(props: ChamberProps) {
 		}
 	} else {
 		const result = props.result ?? {};
-		panelTitle = "DOMAIN";
+		panelTitle = "Domain";
 		panelNumber = tostring(result.rank ?? rank);
-		heading("THE EXPANSION PAID");
+		heading("Rewards");
 		const lines: Array<[string, string, Color3]> = [
 			["Domain essence", `+${compactNumber(asNumber(result.essence))}`, Palette.pink],
 			["Stardust", `+${compactNumber(asNumber(result.stardust))}`, Palette.cyan],
@@ -1019,7 +1017,7 @@ function DomainChamber(props: ChamberProps) {
 						},
 					},
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 10) }),
+				h("uicorner", { CornerRadius: new UDim(0, Radius.md) }),
 				h(
 					"frame",
 					{
@@ -1028,7 +1026,7 @@ function DomainChamber(props: ChamberProps) {
 						BorderSizePixel: 0,
 						ZIndex: 635,
 					},
-					h("uicorner", { CornerRadius: new UDim(0, 10) }),
+					h("uicorner", { CornerRadius: new UDim(0, Radius.md) }),
 					h("uigradient", { Color: new ColorSequence(Palette.mango, WHITE_HOT) }),
 				),
 				h("textlabel", {
@@ -1084,7 +1082,9 @@ function DomainChamber(props: ChamberProps) {
 		}
 	}
 
-	const panelW = stacked ? viewport.width - 24 : 360;
+	const panelW = stacked ? viewport.width - 24 : 380;
+	const panelPad = stacked ? Space.lg : Space.xl;
+	const HEADER_H = stacked ? 78 : 86;
 	const numberSlam =
 		mode === "result"
 			? tick.map((now) => {
@@ -1103,13 +1103,13 @@ function DomainChamber(props: ChamberProps) {
 			BorderSizePixel: 0,
 			ZIndex: 630,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, stacked ? Radius.lg : Radius.sheet) }),
 		h("uistroke", { Color: Palette.lineSoft, Transparency: 0.25 }),
 		h("uipadding", {
-			PaddingTop: new UDim(0, 16),
-			PaddingBottom: new UDim(0, 16),
-			PaddingLeft: new UDim(0, 18),
-			PaddingRight: new UDim(0, 18),
+			PaddingTop: new UDim(0, panelPad),
+			PaddingBottom: new UDim(0, panelPad),
+			PaddingLeft: new UDim(0, panelPad),
+			PaddingRight: new UDim(0, panelPad),
 		}),
 		mode !== "result" &&
 			h(Button, {
@@ -1127,11 +1127,11 @@ function DomainChamber(props: ChamberProps) {
 				zIndex: 634,
 			}),
 		h("textlabel", {
-			Size: new UDim2(1, -60, 0, 14),
+			Size: new UDim2(1, -(TapTarget + Space.md), 0, 16),
 			BackgroundTransparency: 1,
 			Text: panelTitle,
-			TextSize: 11,
-			FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+			TextSize: 13,
+			FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
 			TextColor3: Palette.mango,
 			TextXAlignment: Enum.TextXAlignment.Left,
 			ZIndex: 633,
@@ -1140,7 +1140,7 @@ function DomainChamber(props: ChamberProps) {
 			"textlabel",
 			{
 				Size: new UDim2(1, 0, 0, 52),
-				Position: UDim2.fromOffset(0, 14),
+				Position: UDim2.fromOffset(0, 18),
 				BackgroundTransparency: 1,
 				Text: panelNumber,
 				TextSize: 50,
@@ -1155,8 +1155,8 @@ function DomainChamber(props: ChamberProps) {
 		h(
 			"scrollingframe",
 			{
-				Size: new UDim2(1, 0, 1, -(78 + actions.size() * (TapTarget + 8))),
-				Position: UDim2.fromOffset(0, 74),
+				Size: new UDim2(1, 0, 1, -(HEADER_H + Space.md + actions.size() * (TapTarget + Space.sm))),
+				Position: UDim2.fromOffset(0, HEADER_H),
 				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
 				CanvasSize: new UDim2(),
@@ -1169,7 +1169,7 @@ function DomainChamber(props: ChamberProps) {
 			h("uilistlayout", {
 				FillDirection: Enum.FillDirection.Vertical,
 				SortOrder: Enum.SortOrder.LayoutOrder,
-				Padding: new UDim(0, 4),
+				Padding: new UDim(0, Space.sm),
 			}),
 			rows,
 		),
@@ -1177,7 +1177,7 @@ function DomainChamber(props: ChamberProps) {
 			"frame",
 			{
 				ref: actionsRef,
-				Size: new UDim2(1, 0, 0, actions.size() * (TapTarget + 8)),
+				Size: new UDim2(1, 0, 0, actions.size() * (TapTarget + Space.sm)),
 				Position: UDim2.fromScale(0, 1),
 				AnchorPoint: new Vector2(0, 1),
 				BackgroundTransparency: 1,
@@ -1187,7 +1187,7 @@ function DomainChamber(props: ChamberProps) {
 				FillDirection: Enum.FillDirection.Vertical,
 				VerticalAlignment: Enum.VerticalAlignment.Bottom,
 				SortOrder: Enum.SortOrder.LayoutOrder,
-				Padding: new UDim(0, 8),
+				Padding: new UDim(0, Space.sm),
 			}),
 			buttons,
 		),
