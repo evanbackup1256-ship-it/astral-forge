@@ -5,6 +5,7 @@ import { clockText, compactNumber, formatReward, Reward } from "../../CoreKit/fo
 import { useFlash, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 
 const UserInputService = game.GetService("UserInputService");
 const PageScaffold = loadPageScaffold();
@@ -347,6 +348,11 @@ function LabViewReady(props: LabProps) {
 	// phones in landscape have the width for side-by-side rows (button on the right); the
 	// stacked row with its button underneath fills too much of a 360px-tall screen
 	const rowStack = stack && !chrome.landscape;
+	// desktop: orders on the left, the power board beside them (its rows use the compact layout)
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.4), ORDER_GAP + 4);
+	const wide = plan.split;
+	const stackPower = stack || wide;
+	const powerStart = POWER_ROW_START + (wide ? 34 : 0);
 	const lab = props.state.Lab!;
 	const antilag = useAntilag();
 	const softMotion = reducedMotion;
@@ -403,8 +409,8 @@ function LabViewReady(props: LabProps) {
 	const orderH = rowStack ? ORDER_HEIGHT_STACK : ORDER_HEIGHT;
 	let orderBlock =
 		lab.Orders.size() > 0 ? lab.Orders.size() * orderH + math.max(0, lab.Orders.size() - 1) * ORDER_GAP : 160;
-	const powerStride = stack ? POWER_ROW_STRIDE_STACK : POWER_ROW_STRIDE;
-	const powerBoardH = POWER_ROW_START + CHANNEL_IDS.size() * powerStride + 10 + 28;
+	const powerStride = stackPower ? POWER_ROW_STRIDE_STACK : POWER_ROW_STRIDE;
+	const powerBoardH = powerStart + CHANNEL_IDS.size() * powerStride + 10 + 28;
 	const heroHeight = stack ? (chrome.landscape ? 156 : 188) : 132;
 	const paidCount = lab.Orders.filter((order) => order.Claimed === true).size();
 	const heroBody = stack ? (
@@ -627,21 +633,15 @@ function LabViewReady(props: LabProps) {
 					available={lab.AvailableCells}
 					dispatch={dispatch}
 					reducedMotion={reducedMotion}
-					y={POWER_ROW_START + index * powerStride}
-					stack={stack}
+					y={powerStart + index * powerStride}
+					stack={stackPower}
 				/>
 			)
 		);
 	});
-	return (
-		<PageScaffold
-			gap={ORDER_GAP}
-			tailPad={scrollTail(stack, chrome.bottomSafe, SCROLL_PAD)}
-			scrollBarColor={Palette.lineSoft}
-			scrollBarThickness={SCROLL_BAR}
-			sections={[
-				{ id: "hero", height: heroHeight, element: hero },
-				{ id: "orders-label", height: SECTION_LABEL_H, element: <SectionLabel value="Today's orders" color={Palette.mint} /> },
+	const heroSection = { id: "hero", height: heroHeight, element: hero };
+	const orderSections = [
+		{ id: "orders-label", height: SECTION_LABEL_H, element: <SectionLabel value="Today's orders" color={Palette.mint} /> },
 				{
 					id: "orders-filter",
 					height: lab.Orders.size() > 2 ? Browse.CHIP_H : 0,
@@ -662,8 +662,10 @@ function LabViewReady(props: LabProps) {
 				stack && virtOrders
 					? { id: "orders", fill: true, height: orderBlock, minHeight: orderStride * 4, element: ordersBlock }
 					: { id: "orders", height: virtOrders ? math.min(orderBlock, orderStride * 4) : orderBlock, element: ordersBlock },
-				{ id: "power-label", height: SECTION_LABEL_H, element: <SectionLabel value="Power board" color={Palette.mango} /> },
-				{
+	];
+	const powerSections = [
+		{ id: "power-label", height: SECTION_LABEL_H, element: <SectionLabel value="Power board" color={Palette.mango} /> },
+		{
 					id: "power",
 					height: powerBoardH,
 					element: (
@@ -671,27 +673,27 @@ function LabViewReady(props: LabProps) {
 							size={UDim2.fromScale(1, 1)}
 							accent={Palette.mango}
 							background={Palette.panelRaised}
-							padding={stack ? 14 : Layout.cardPadding}
+							padding={stackPower ? 14 : Layout.cardPadding}
 							clips={false}
 						>
 							<Text
 								value="Move cells whenever you like."
-								size={stack ? 16 : 17}
+								size={stackPower ? 16 : 17}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
 								fit={true}
 								minSize={12}
-								sizeConstraint={new UDim2(1, stack ? -8 : -(220 + ROW_RIGHT), 0, 24)}
+								sizeConstraint={new UDim2(1, stackPower ? -8 : -(220 + ROW_RIGHT), 0, 24)}
 							/>
 							<Text
 								value="Bonuses apply at once. A new cell unlocks every 8 rebirths."
-								size={stack ? 11 : 10}
+								size={stackPower ? 11 : 10}
 								color={Palette.muted}
 								wrap={true}
 								fit={true}
 								minSize={10}
 								position={UDim2.fromOffset(0, 24)}
-								sizeConstraint={new UDim2(1, stack ? -8 : -(220 + ROW_RIGHT), 0, stack ? 32 : 16)}
+								sizeConstraint={new UDim2(1, stackPower ? -8 : -(220 + ROW_RIGHT), 0, stackPower ? 32 : 16)}
 							/>
 							{!stack && (
 								<>
@@ -699,13 +701,13 @@ function LabViewReady(props: LabProps) {
 										value={`${lab.TotalCells} TOTAL`}
 										accent={Palette.mango}
 										filled={true}
-										position={new UDim2(1, -(196 + ROW_RIGHT), 0, 3)}
+										position={wide ? UDim2.fromOffset(0, 62) : new UDim2(1, -(196 + ROW_RIGHT), 0, 3)}
 										size={UDim2.fromOffset(92, 26)}
 									/>
 									<Badge
 										value={`${lab.AvailableCells} FREE`}
 										accent={Palette.mint}
-										position={new UDim2(1, -(94 + ROW_RIGHT), 0, 3)}
+										position={wide ? UDim2.fromOffset(100, 62) : new UDim2(1, -(94 + ROW_RIGHT), 0, 3)}
 										size={UDim2.fromOffset(94, 26)}
 									/>
 								</>
@@ -714,7 +716,30 @@ function LabViewReady(props: LabProps) {
 						</Panel>
 					),
 				},
-			]}
+	];
+	return (
+		<PageScaffold
+			gap={ORDER_GAP}
+			tailPad={scrollTail(stack, chrome.bottomSafe, SCROLL_PAD)}
+			scrollBarColor={Palette.lineSoft}
+			scrollBarThickness={SCROLL_BAR}
+			sections={
+				wide
+					? [heroSection, {
+			id: "lab-columns",
+			height: math.max(stackHeight(orderSections.map((b) => b.height), ORDER_GAP + 4), stackHeight(powerSections.map((b) => b.height), ORDER_GAP + 4)),
+			element: (
+				<SplitColumns
+					plan={plan}
+					height={math.max(stackHeight(orderSections.map((b) => b.height), ORDER_GAP + 4), stackHeight(powerSections.map((b) => b.height), ORDER_GAP + 4))}
+					sideOnRight={true}
+					main={<StackBlocks gap={ORDER_GAP + 4} blocks={orderSections} />}
+					side={<StackBlocks gap={ORDER_GAP + 4} blocks={powerSections} />}
+				/>
+			),
+		}]
+					: [heroSection, ...orderSections, ...powerSections]
+			}
 		/>
 	);
 }
