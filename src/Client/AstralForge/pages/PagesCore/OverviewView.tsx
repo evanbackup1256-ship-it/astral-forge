@@ -6,7 +6,7 @@ import { asFlux, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import * as JourneyMath from "../../CoreKit/journeyMath";
 import * as ReleaseClockMath from "../../CoreKit/releaseClockMath";
-import { chromeFor, darken, Layout, Pad, Palette, scrollTail, surfaceGradient, TapTarget } from "../../CoreKit/theme";
+import { chromeFor, darken, Layout, Pad, Palette, Radius, scrollTail, Space, surfaceGradient, TapTarget, TypeScale } from "../../CoreKit/theme";
 import * as VaultCollectEligibility from "../../CoreKit/vaultCollectEligibility";
 import { useAntilag } from "../../MotionKit/antilag";
 import { Flex, FlexItem } from "../../MotionKit/flexbox";
@@ -273,44 +273,35 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 			size={new UDim2(1, 0, 0, height)}
 			accent={accent}
 			background={Palette.panelRaised}
-			padding={16}
+			padding={Space.lg + Space.xs}
 			reducedMotion={reducedMotion}
 			highlight={live}
 			clips={false}
 		>
 			{live && (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.mint} BackgroundTransparency={wash} BorderSizePixel={0} ZIndex={1}>
-					<uicorner CornerRadius={new UDim(0, 14)} />
+					<uicorner CornerRadius={new UDim(0, Radius.lg)} />
 				</frame>
 			)}
 			<IconTile
 				kind="Calendar"
 				accent={accent}
 				size={46}
-				radius={14}
+				radius={Radius.lg}
 				position={UDim2.fromOffset(0, 2)}
 				glow={live}
 				spin={live && !reducedMotion}
 				reducedMotion={reducedMotion}
 			/>
 			<Text
-				value={live ? "LAUNCH" : "RELEASE COUNTDOWN"}
-				size={11}
-				color={accent}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(58, 2)}
-				sizeConstraint={new UDim2(1, railBelowCopy ? -58 : -420, 0, 16)}
-			/>
-			<Text
-				value={live ? "Astral Forge is now live." : "Official launch is August 31, 2026."}
-				size={railBelowCopy ? 17 : 20}
-				color={Palette.cream}
+				value={live ? "Astral Forge is live." : "Launch · Aug 31, 2026"}
+				size={railBelowCopy ? TypeScale.lead.size + 1 : TypeScale.title.size}
+				color={live ? Palette.mint : Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
 				minSize={13}
-				position={UDim2.fromOffset(58, 21)}
-				sizeConstraint={new UDim2(1, railBelowCopy ? -58 : -420, 0, 28)}
+				position={UDim2.fromOffset(46 + Space.lg, Space.sm)}
+				sizeConstraint={new UDim2(1, railBelowCopy ? -(46 + Space.lg) : -420, 0, 30)}
 			/>
 			<frame
 				Size={new UDim2(1, -railLeft, 0, railBelowCopy ? 58 : 68)}
@@ -351,7 +342,7 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 							ZIndex={5}
 						>
 							<uiscale Scale={flash.map((amount) => 1 + amount * 0.28)} />
-							<uicorner CornerRadius={new UDim(0, 14)} />
+							<uicorner CornerRadius={new UDim(0, Radius.lg)} />
 							<uistroke
 								ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 								LineJoinMode={Enum.LineJoinMode.Round}
@@ -378,23 +369,23 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 					values.map((entry, index) => (
 						<frame
 							key={entry.label}
-							Size={new UDim2(0.25, -6, 1, 0)}
-							Position={new UDim2(index * 0.25, index === 0 ? 0 : 6, 0, 0)}
+							Size={new UDim2(0.25, -Space.sm, 1, 0)}
+							Position={new UDim2(index * 0.25, index === 0 ? 0 : Space.sm, 0, 0)}
 							BackgroundColor3={Palette.ink}
 							BackgroundTransparency={0.04}
 							BorderSizePixel={0}
 							ClipsDescendants={false}
 						>
-							<uicorner CornerRadius={new UDim(0, 10)} />
+							<uicorner CornerRadius={new UDim(0, Radius.md)} />
 							<uigradient Color={surfaceGradient(Palette.ink, 0.8)} Rotation={90} />
 							<uistroke
 								ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 								LineJoinMode={Enum.LineJoinMode.Round}
 								Color={entry.color}
 								Thickness={1}
-								Transparency={0.42}
+								Transparency={0.62}
 							/>
-							<frame Size={new UDim2(0.42, 0, 0, 2)} Position={new UDim2(0.29, 0, 0, 0)} BackgroundColor3={entry.color} BorderSizePixel={0}>
+							<frame Size={new UDim2(0, 3, 0.5, 0)} Position={new UDim2(0, 0, 0.25, 0)} BackgroundColor3={entry.color} BorderSizePixel={0}>
 								<uicorner CornerRadius={new UDim(1, 0)} />
 							</frame>
 							<NumberSpinnerHost
@@ -409,8 +400,8 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 							/>
 							<Text
 								value={entry.label}
-								size={10}
-								color={Palette.creamSoft}
+								size={TypeScale.micro.size}
+								color={Palette.muted}
 								weight={Enum.FontWeight.Heavy}
 								align={Enum.TextXAlignment.Center}
 								fit={false}
@@ -437,49 +428,56 @@ interface MetricProps {
 }
 
 function Metric({ label, value, detail, accent, size = new UDim2(1, 0, 0, 92), layoutOrder = 0, reveal, compact = false }: MetricProps) {
+	// a number on a plate: the figure leads, one quiet caption under it; the accent is a rail, not a heading
+	const inset = compact ? Space.md : Space.lg;
 	return (
 		<Panel
 			size={size}
 			accent={accent}
 			background={Palette.panelRaised}
-			padding={compact ? 8 : 10}
+			padding={compact ? Space.sm : Space.md}
 			layoutOrder={layoutOrder}
 			reveal={reveal}
 		>
-			<uilistlayout
-				FillDirection={Enum.FillDirection.Vertical}
-				HorizontalAlignment={Enum.HorizontalAlignment.Left}
-				VerticalAlignment={Enum.VerticalAlignment.Center}
-				Padding={new UDim(0, 2)}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-			/>
-			<Text
-				value={label}
-				size={10}
-				color={Palette.muted}
-				weight={Enum.FontWeight.Bold}
-				fit={true}
-				layoutOrder={0}
-				sizeConstraint={new UDim2(1, 0, 0, 14)}
-			/>
-			<Text
-				value={value}
-				size={compact ? 18 : 22}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				layoutOrder={1}
-				sizeConstraint={new UDim2(1, 0, 0, compact ? 22 : 26)}
-			/>
-			<Text
-				value={detail}
-				size={11}
-				color={accent}
-				weight={Enum.FontWeight.Bold}
-				fit={true}
-				layoutOrder={2}
-				sizeConstraint={new UDim2(1, 0, 0, 14)}
-			/>
+			<frame
+				Size={new UDim2(0, 3, 1, -Space.md)}
+				Position={new UDim2(0, 0, 0.5, 0)}
+				AnchorPoint={new Vector2(0, 0.5)}
+				BackgroundColor3={accent}
+				BackgroundTransparency={0.15}
+				BorderSizePixel={0}
+			>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>
+			<frame Size={new UDim2(1, -inset, 1, 0)} Position={UDim2.fromOffset(inset, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uilistlayout
+					FillDirection={Enum.FillDirection.Vertical}
+					HorizontalAlignment={Enum.HorizontalAlignment.Left}
+					VerticalAlignment={Enum.VerticalAlignment.Center}
+					Padding={new UDim(0, Space.xs)}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+				/>
+				<Text
+					value={value}
+					size={compact ? TypeScale.title.size : TypeScale.heading.size}
+					color={Palette.cream}
+					weight={Enum.FontWeight.Heavy}
+					fit={true}
+					minSize={14}
+					layoutOrder={0}
+					sizeConstraint={new UDim2(1, 0, 0, compact ? 22 : 28)}
+				/>
+				<Text
+					value={detail === "" ? label : `${label}  ·  ${detail}`}
+					size={TypeScale.micro.size}
+					color={Palette.muted}
+					weight={Enum.FontWeight.SemiBold}
+					fit={true}
+					minSize={9}
+					layoutOrder={1}
+					sizeConstraint={new UDim2(1, 0, 0, 14)}
+				/>
+			</frame>
 		</Panel>
 	);
 }
@@ -1190,7 +1188,7 @@ export function OverviewView({
 											layoutOrder={0}
 										>
 											<Metric
-												label={firstRun ? "Earning now" : "LIVE OUTPUT"}
+												label={firstRun ? "earning now" : "output"}
 												value={`${compactNumber(state.Production)} / sec`}
 												detail={
 													firstRun ? `${compactNumber(state.RawProduction)} before bonuses` : `${compactNumber(state.RawProduction)} base`
@@ -1208,7 +1206,7 @@ export function OverviewView({
 											layoutOrder={1}
 										>
 											<Metric
-												label={firstRun ? "Cash to spend" : "BANKED FLUX"}
+												label={firstRun ? "to spend" : "banked"}
 												value={compactNumber(state.Cash)}
 												detail={`${compactNumber(state.RunCash)} this run`}
 												accent={Palette.mango}
@@ -1224,7 +1222,7 @@ export function OverviewView({
 											layoutOrder={2}
 										>
 											<Metric
-												label={firstRun ? "Bonus that stays" : "LONG-TERM"}
+												label={firstRun ? "bonus that stays" : "permanent"}
 												value={`${compactNumber(state.PermanentMultiplier)}x`}
 												detail={firstRun ? `${compactNumber(state.Rebirths)} rebirths` : `${compactNumber(state.Rebirths)} resets`}
 												accent={Palette.violet}
@@ -1509,7 +1507,7 @@ export function OverviewView({
 														BorderSizePixel={0}
 														ZIndex={3}
 													>
-														<uicorner CornerRadius={new UDim(0, 14)} />
+														<uicorner CornerRadius={new UDim(0, Radius.lg)} />
 														<uistroke
 															ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 															LineJoinMode={Enum.LineJoinMode.Round}
