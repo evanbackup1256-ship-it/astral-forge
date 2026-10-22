@@ -9,6 +9,7 @@ import { AdminService } from "../Services/AdminService";
 import { WorldService } from "../Services/WorldService";
 import { GameService } from "../Services/GameService";
 import { ConvergenceService } from "../Services/ConvergenceService";
+import { BootGraph } from "./BootGraph";
 import CharacterIntegrityModule = require("../Services/Security/CharacterIntegrity");
 
 interface Startable {
@@ -32,16 +33,33 @@ export class CoreRuntime implements OnInit, OnStart {
 	) {}
 	onInit() {
 		const bridge = this.bridge;
-		bridge.bootStep("player data construction", () => this.data.build());
-		bridge.onClose(4, "data service", () => this.data.Shutdown());
-		bridge.bootStep("administration construction", () => this.admin.build());
 		const CharacterIntegrity = CharacterIntegrityModule() as unknown as CharacterIntegrityClass;
-		this.integrity = bridge.bootStep("integrity construction", () => CharacterIntegrity.new());
-		bridge.onClose(2, "security pipeline", () => this.security.Destroy());
-		bridge.onClose(1, "character integrity", () => this.integrity.Destroy());
-		bridge.bootStep("convergence construction", () => this.convergence.build());
-		bridge.bootStep("gameplay construction", () => this.gameplay.build());
-		bridge.onClose(3, "game service", () => this.gameplay.Shutdown());
+		// construction order comes from these dependencies (ties keep the order written here);
+		// each step registers its own teardown once built (lower order closes first), so a
+		// failed boot only tears down what exists
+		const graph = new BootGraph()
+			.add("player data construction", [], () => {
+				this.data.build();
+				bridge.onClose(4, "data service", () => this.data.Shutdown());
+			})
+			.add("administration construction", ["player data construction"], () => this.admin.build())
+			.add("integrity construction", ["player data construction"], () => {
+				this.integrity = CharacterIntegrity.new();
+				bridge.onClose(2, "security pipeline", () => this.security.Destroy());
+				bridge.onClose(1, "character integrity", () => this.integrity.Destroy());
+			})
+			.add("convergence construction", ["player data construction"], () => this.convergence.build())
+			.add(
+				"gameplay construction",
+				["player data construction", "administration construction", "integrity construction", "convergence construction"],
+				() => {
+					this.gameplay.build();
+					bridge.onClose(3, "game service", () => this.gameplay.Shutdown());
+				},
+			);
+		for (const step of graph.order()) {
+			bridge.bootStep(step.name, step.run);
+		}
 	}
 	onStart() {
 		const bridge = this.bridge;
