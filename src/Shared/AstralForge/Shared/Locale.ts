@@ -122,6 +122,7 @@ export const EN = {
 	"AdminService.ThatPlayerHasNoOpen": "That player has no open supply request.",
 	"DataService.ProfileSessionIsClosing": "Profile session is closing",
 	"DataService.ProfileIsNotLoaded": "Profile is not loaded",
+	"DataService.NotEnoughCurrency": "You can't afford that.",
 	"DataService.YourDataSessionChangedServers": "Your data session changed servers and was closed safely. Please rejoin.",
 	"ChatService.PickAnotherPlayerToWhisper": "Pick another player to whisper.",
 	"ChatService.ChatIsStillStartingTry": "Chat is still starting. Try again in a moment.",

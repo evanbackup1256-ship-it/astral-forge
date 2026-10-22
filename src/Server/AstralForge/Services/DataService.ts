@@ -31,6 +31,7 @@ import OreMath from "../Modules/OreMath";
 import ProfileBagMath from "../Modules/ProfileBagMath";
 import ProfileVersionGuard from "../Modules/ProfileVersionGuard";
 import * as ProfileStore from "../Modules/ProfileStore";
+import * as CurrencyGuard from "../Modules/CurrencyGuard";
 import RebirthMath from "../../../Shared/AstralForge/Shared/RebirthMath";
 import ReceiptLedger from "../Modules/ReceiptLedger";
 import ServerConfig from "../ServerConfig";
@@ -1426,9 +1427,20 @@ export class DataService {
 			if (draft.Cores !== undefined && (num(draft.Cores) ?? 0) > 1e14) {
 				draft.Cores = 1e14;
 			}
+			const wallet = CurrencyGuard.Read(draft);
 			const callbackResult = callback(draft, revision);
 			if (typeIs(callbackResult, "table") && (callbackResult as Dict).ok === false) {
 				return callbackResult;
+			}
+			const overdrawn = CurrencyGuard.Overdrawn(wallet, draft, OmegaMath as unknown as CurrencyGuard.SignMath);
+			if (overdrawn !== undefined) {
+				ModuleLog.Every(
+					"overdraw:" + tostring(player.UserId),
+					30,
+					"Data",
+					string.format("%s update '%s' refused: %s would go negative", player.Name, transactionLabel, overdrawn),
+				);
+				return { ok: false, message: T("DataService.NotEnoughCurrency") };
 			}
 			d(draft.Meta).LastSeen = os.time();
 
