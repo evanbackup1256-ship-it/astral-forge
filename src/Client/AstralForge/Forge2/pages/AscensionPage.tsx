@@ -147,7 +147,7 @@ function HoldToAscend(props: { enabled: boolean; phone: boolean; onConfirm: () =
 			<textlabel
 				Size={UDim2.fromScale(1, 1)}
 				BackgroundTransparency={1}
-				Text={fill.map((a) => (!props.enabled ? "Not yet" : a > 0 ? "Keep holding" : "Hold to ascend"))}
+				Text={fill.map((a) => (!props.enabled ? "Not yet" : a > 0 ? "Keep holding…" : "Hold to ascend"))}
 				TextColor3={fill.map((a) => (a > 0.5 ? Iron.sunk() : Iron.text()))}
 				TextSize={18}
 				FontFace={Fonts.heavy}
@@ -181,7 +181,7 @@ function SigilCard(props: { sigil: Sigil; index: number; busy: boolean; phone: b
 					</Tooltip>
 				</frame>
 				<Text
-					text={sigil.Level > 0 ? `×${compactNumber(sigil.Multiplier)} ${sigil.Effect.lower()}${boosted ? `   acts as ${compactNumber(sigil.EffectiveLevel)}` : ""}` : sigil.Line}
+					text={sigil.Level > 0 ? `×${compactNumber(sigil.Multiplier)} ${sigil.Effect.lower()}${boosted ? `   acts as ${compactNumber(sigil.EffectiveLevel)}` : ""}` : "Buy a level to start it"}
 					size={Type.small(phone)}
 					color={sigil.Level > 0 ? Iron.text() : Iron.muted()}
 					order={1}
@@ -205,12 +205,14 @@ export function AscensionPage(props: PageProps) {
 	const phone = props.phone;
 	const state = (props.session as unknown as { Ascension?: AscensionState }).Ascension;
 	const [busy, setBusy] = React.useState(false);
+	const [note, setNote] = React.useState("");
 	const space = gap(phone, "l");
 	const send = (action: string, payload: Record<string, unknown>, color: Color3) => {
 		if (busy) return;
 		setBusy(true);
 		props.request(action, payload, (reply) => {
 			setBusy(false);
+			setNote(reply.ok === true ? (reply.message ?? "") : (reply.error ?? "That didn't work."));
 			if (reply.ok === true) {
 				Audio.play("successChime");
 				Burst.spark(color, action === "Ascend" ? 1.4 : 0.9);
@@ -224,10 +226,11 @@ export function AscensionPage(props: PageProps) {
 		return (
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				<uipadding PaddingTop={new UDim(0, space)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
-				<EmptyState title="Ascension" body="Opening the final door." phone={phone} />
+				<EmptyState title="Loading Ascension…" phone={phone} />
 			</frame>
 		);
 	}
+	const charts = (props.session as unknown as { Constellations?: { Points?: number; Paused?: boolean } }).Constellations;
 	const outer = phone ? 52 : 72;
 	const inner = phone ? 30 : 42;
 	const mark = outer * 2 + 16;
@@ -278,6 +281,7 @@ export function AscensionPage(props: PageProps) {
 				<Tooltip tip={state.CanAscend ? "Going further past the requirement pays more aether." : `Reach Domain rank ${state.RequiredDomainRank} to ascend.`} size={new UDim2(1, 0, 0, 20)} order={2}>
 					<Text text={`next rank ×${compactNumber(state.NextRankProduction)}`} size={Type.small(phone)} color={Iron.muted()} />
 				</Tooltip>
+				{note !== "" && <Text text={note} size={Type.small(phone)} color={Iron.soft()} multiline order={8} />}
 				<HoldToAscend enabled={state.CanAscend && !busy} phone={phone} onConfirm={() => send("Ascend", {}, AETHER)} />
 			</Panel>
 
@@ -322,6 +326,16 @@ export function AscensionPage(props: PageProps) {
 				))}
 			</frame>
 
+			{charts !== undefined && (
+				<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} order={4}>
+					<frame Size={new UDim2(1, 0, 0, HIT)} BackgroundTransparency={1} LayoutOrder={0}>
+						<Text text={charts.Paused === true ? "Charts closed" : `${charts.Points ?? 0} Star Points`} size={Type.body(phone)} font={Fonts.heavy} color={Iron.brass()} box={new UDim2(1, -(phone ? 130 : 170), 1, 0)} />
+						<frame Size={UDim2.fromOffset(phone ? 120 : 160, HIT)} Position={new UDim2(1, 0, 0, 0)} AnchorPoint={new Vector2(1, 0)} BackgroundTransparency={1}>
+							<Button text="Constellations" tone="iron" stretch onPress={() => props.navigate("Worlds")} />
+						</frame>
+					</frame>
+				</Panel>
+			)}
 		</scrollingframe>
 	);
 }
