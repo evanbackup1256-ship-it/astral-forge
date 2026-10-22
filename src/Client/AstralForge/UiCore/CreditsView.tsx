@@ -638,10 +638,9 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 			<SectionLabel
 				key={`l:${entry.category.Id}`}
 				text={string.upper(entry.category.Label)}
-				count={MODEL.ShowCategoryCounts !== false ? entry.members.size() : undefined}
 				accent={accent}
 				order={order}
-				height={30}
+				height={38}
 				zIndex={6}
 			/>,
 		);
@@ -702,7 +701,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		body.push(
 			<SurfaceText
 				key="none"
-				text={query !== "" ? `Nobody matches "${query}".` : MODEL.DefaultEmptyText}
+				text={query !== "" ? `No one called "${query}"` : MODEL.DefaultEmptyText}
 				type="body"
 				color={Palette.muted}
 				align={Enum.TextXAlignment.Center}

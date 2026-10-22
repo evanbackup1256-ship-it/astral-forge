@@ -410,7 +410,7 @@ BuffStrip.Strip = function (props: StripProps): React.Element {
 
 const COMPACT_H = 44;
 const EVENT_H = 62;
-const ROW_H = 36;
+const ROW_H = 40;
 
 function easeOutBack(x: number): number {
 	const c1 = 1.5;
@@ -900,13 +900,14 @@ function Row(
 		h(
 			"frame",
 			{
-				Size: UDim2.fromOffset(26, 26),
+				Size: UDim2.fromOffset(28, 28),
 				Position: new UDim2(0, 0, 0.5, 0),
 				AnchorPoint: new Vector2(0, 0.5),
-				BackgroundColor3: theme.darken(color, 0.6),
+				BackgroundColor3: theme.darken(color, 0.62),
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 10) }),
+			h("uicorner", { CornerRadius: new UDim(0, 9) }),
+			h("uistroke", { Color: color, Thickness: 1, Transparency: 0.6, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 			h(Icon, {
 				kind: icon,
 				color: P.cream,
@@ -918,8 +919,8 @@ function Row(
 			}),
 		),
 		h("textlabel", {
-			Size: new UDim2(1, -170, 0, 18),
-			Position: new UDim2(0, 36, 0, extra !== undefined && extra !== false ? 2 : 9),
+			Size: new UDim2(1, -174, 0, 18),
+			Position: new UDim2(0, 40, 0, extra !== undefined && extra !== false ? 3 : 11),
 			BackgroundTransparency: 1,
 			Text: name,
 			TextColor3: P.cream,
@@ -932,7 +933,7 @@ function Row(
 			"textlabel",
 			{
 				Size: UDim2.fromOffset(130, 18),
-				Position: new UDim2(1, -130, 0, extra !== undefined && extra !== false ? 2 : 9),
+				Position: new UDim2(1, -130, 0, extra !== undefined && extra !== false ? 3 : 11),
 				BackgroundTransparency: 1,
 				Text: value,
 				TextColor3: valueColor,
@@ -984,7 +985,7 @@ function PerfRows(props: PerfRowsProps): React.Element {
 		props.order,
 		fpsColor(fps),
 		"Timer",
-		smooth ? "Running smoothly" : "Running a little slow",
+		smooth ? "Smooth" : "A bit slow",
 		label.join("  ·  "),
 		smooth ? P.mint : P.mango,
 	);
