@@ -62,6 +62,7 @@ require("./verify_service_locals")
 require("./verify_remote_registry")
 require("./verify_profile_store")
 require("./verify_currency_guard")
+require("./verify_trade_rejoin")
 -- ---- v8 C: Companion Bonds ----
 require("./verify_companion_bonds")
 -- ---- end v8 C: Companion Bonds ----

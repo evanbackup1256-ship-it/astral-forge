@@ -1946,10 +1946,12 @@ __defs["TradeRecovery"] = () => {
 			}
 
 			const side = entry.Side;
-			const committed = side === "host" && truthy(entry.HostCommitted) ? entry.HostCommitted : entry.GuestCommitted;
-			const reverted = side === "host" && truthy(entry.HostReverted) ? entry.HostReverted : entry.GuestReverted;
+			// this side's own flags only (the old `side == "host" and x or y` form fell through to the
+			// guest's flags whenever the host had not committed, reverting a trade the host never got)
+			const committed = side === "host" ? entry.HostCommitted : entry.GuestCommitted;
+			const reverted = side === "host" ? entry.HostReverted : entry.GuestReverted;
 			if (truthy(committed) && !truthy(reverted) && typeIs(entry.Give, "table") && typeIs(entry.Take, "table")) {
-				TradeExchange.RevertExchange(
+				const problem = TradeExchange.RevertExchange(
 					OmegaMath,
 					profile,
 					entry.Give as TradeOfferBag,
@@ -1958,6 +1960,23 @@ __defs["TradeRecovery"] = () => {
 					entry.TakeItems as Dict | undefined,
 					now,
 				);
+				if (problem !== undefined) {
+					// part of what this side received is already spent: keep the journal (and the
+					// evidence) so the next load or support can settle it, never half-revert
+					entry.LastAttemptAt = now;
+					entry.Problem = problem;
+					if (typeIs(log, "function")) {
+						log(
+							string.format(
+								"Faulted trade session=%s side=%s could not be reverted yet: %s",
+								tostring(entry.SessionId),
+								tostring(side),
+								tostring(problem),
+							),
+						);
+					}
+					return;
+				}
 				if (side === "host") {
 					entry.HostReverted = true;
 				} else {
