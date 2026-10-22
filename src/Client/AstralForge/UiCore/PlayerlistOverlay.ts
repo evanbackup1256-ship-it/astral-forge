@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -1584,7 +1585,24 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const ctlH = touchRows ? TapTarget : 30;
 	const controlsH = ctlH + (showSearch ? ctlH + 8 : 0);
 	const listTop = controlsTop + controlsH + 8;
-	const listH = math.max(80, height - listTop - 10);
+	// 640x286 landscape: header, boost and controls leave the list almost nothing, so the boost
+	// strip and the controls move into a left column and the list runs full height beside them
+	const shortRoster = height - listTop - 10 < 96 && innerW >= 360;
+	const colW = shortRoster ? math.floor(innerW * 0.45) : innerW;
+	const listX = shortRoster ? 10 + colW + 8 : 10;
+	const listW = shortRoster ? innerW - colW - 8 : innerW;
+	const listY = shortRoster ? headerH + 6 : listTop;
+	const listH = shortRoster ? math.max(1, height - listY - 10) : math.max(80, height - listTop - 10);
+	// pad: invite, filters, the player rows, then the rest of the sheet (search, home, close)
+	useFocusOrder(
+		padFocus,
+		{
+			regions: ["RosterBoost", "RosterFilters", "RosterList", "Roster"],
+			first: ["RosterList", "RosterBoost"],
+			columns: shortRoster ? [["RosterBoost", "RosterList"], ["RosterFilters", "RosterList"]] : [],
+		},
+		[shortRoster, showSearch],
+	);
 
 	const visible = Model.view(rows, sortId, query, friendsOnly, friends);
 	const crewState = (require(AstralForge.WaitForChild("CrewStore") as ModuleScript) as CrewStoreModule).useCrew();
@@ -1609,7 +1627,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 			row: row,
 			artifact: Model.artifactOf(row.IsLocal ? localPlayer : peer, row.Artifact),
 			order: order,
-			width: innerW - 9,
+			width: listW - 9,
 			expanded: expandedId === row.UserId,
 			friend: friends[row.UserId] === true,
 			blocked: blocked[row.UserId] === true,
@@ -1783,6 +1801,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				"frame",
 				{
 					ref: padFocus,
+					Name: "Roster",
 					Size: UDim2.fromOffset(width, height),
 					Position: React.joinBindings([showAmount, listParentSize] as React.Binding<unknown>[]).map((values) =>
 						pixelPosition(values[1] as Vector2, 1, -side + (1 - (values[0] as number)) * 24, 0, top),
@@ -1869,7 +1888,8 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				h(
 					"frame",
 					{
-						Size: new UDim2(1, -20, 0, boostH),
+						Name: "RosterBoost",
+						Size: shortRoster ? UDim2.fromOffset(colW, boostH) : new UDim2(1, -20, 0, boostH),
 						Position: UDim2.fromOffset(10, headerH + 6),
 						BackgroundColor3: Palette.panelRaised,
 						BorderSizePixel: 0,
@@ -1946,14 +1966,15 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 						accent: Palette.cyan,
 						placeholder: "Find a player",
 						position: UDim2.fromOffset(10, controlsTop),
-						size: UDim2.fromOffset(innerW, ctlH),
+						size: UDim2.fromOffset(colW, ctlH),
 						reducedMotion: reducedMotion,
 						zIndex: 616,
 					}),
 				h(
 					"scrollingframe",
 					{
-						Size: UDim2.fromOffset(innerW, ctlH),
+						Name: "RosterFilters",
+						Size: UDim2.fromOffset(colW, ctlH),
 						Position: UDim2.fromOffset(10, controlsTop + (showSearch ? ctlH + 8 : 0)),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
@@ -1968,8 +1989,9 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				h(
 					"scrollingframe",
 					{
-						Size: UDim2.fromOffset(innerW, listH),
-						Position: UDim2.fromOffset(10, listTop),
+						Name: "RosterList",
+						Size: UDim2.fromOffset(listW, listH),
+						Position: UDim2.fromOffset(listX, listY),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
 						CanvasSize: new UDim2(),

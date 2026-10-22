@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../CoreKit/focusOrder";
 // (ZIndex 600+: the main screen sorts globally and the chamber has to sit over the whole shell)
 // The Domain, one screen: the lattice on the left, and on the right whatever you're doing with it.
 //   mode "lattice": etch links between anchors, read what the lattice gives, clear it once per rank
@@ -581,7 +582,11 @@ function DomainChamber(props: ChamberProps) {
 		mode = "confirm";
 	}
 	const viewport = useViewport();
-	const stacked = viewport.width < 760 || viewport.width < viewport.height;
+	// 640x286-style landscape: panel on the right at full height with its actions in one row;
+	// portrait phones under 760px tall give the panel a bit more of the screen than the lattice
+	const shortChamber = viewport.width > viewport.height && viewport.height < 420;
+	const stacked = (viewport.width < 760 || viewport.width < viewport.height) && !shortChamber;
+	const splitAt = stacked && viewport.height < 760 ? 0.44 : 0.52;
 	const reduced = props.reducedMotion === true;
 	const [tick, setTick] = React.useBinding(os.clock());
 	const [flare, setFlare] = React.useBinding(0);
@@ -649,6 +654,9 @@ function DomainChamber(props: ChamberProps) {
 
 	// a controller lands on the chamber's own buttons whenever the mode changes
 	const actionsRef = React.useRef<Frame>();
+	const chamberRef = React.useRef<Frame>();
+	// pad: the chamber's actions first (as before), then the lattice rows, then the rest (close)
+	useFocusOrder(chamberRef, { regions: ["DomainActions", "DomainRows", "DomainChamber"], first: ["DomainActions"] }, [mode]);
 	React.useEffect(() => {
 		GamepadNavigationService.BeginOverlayFocus();
 		return () => {
@@ -979,12 +987,13 @@ function DomainChamber(props: ChamberProps) {
 	const buttons: Record<string, unknown> = {};
 	for (let index = 1; index <= actions.size(); index++) {
 		const action = actions[index - 1];
-		const height = action.quiet ? 30 : TapTarget;
+		const height = shortChamber ? TapTarget : action.quiet ? 30 : TapTarget;
+		const rowW = shortChamber ? new UDim2(1 / actions.size(), -math.ceil((Space.sm * (actions.size() - 1)) / actions.size()), 0, height) : new UDim2(1, 0, 0, height);
 		if (action.hold) {
 			buttons["a" + index] = h(
 				"textbutton",
 				{
-					Size: new UDim2(1, 0, 0, TapTarget),
+					Size: rowW,
 					LayoutOrder: index,
 					BackgroundColor3: darken(Palette.mango, 0.55),
 					AutoButtonColor: false,
@@ -1046,7 +1055,7 @@ function DomainChamber(props: ChamberProps) {
 			);
 		} else if (action.quiet) {
 			buttons["a" + index] = h("textbutton", {
-				Size: new UDim2(1, 0, 0, height),
+				Size: rowW,
 				LayoutOrder: index,
 				BackgroundTransparency: 1,
 				Text: action.text,
@@ -1067,7 +1076,7 @@ function DomainChamber(props: ChamberProps) {
 			buttons["a" + index] = h(
 				"frame",
 				{
-					Size: new UDim2(1, 0, 0, height),
+					Size: rowW,
 					LayoutOrder: index,
 					BackgroundTransparency: 1,
 					ZIndex: 634,
@@ -1087,8 +1096,9 @@ function DomainChamber(props: ChamberProps) {
 		}
 	}
 
-	const panelW = stacked ? viewport.width - 24 : 380;
-	const panelPad = stacked ? Space.lg : Space.xl;
+	const panelW = stacked ? viewport.width - 24 : shortChamber ? math.min(380, math.floor(viewport.width * 0.55)) : 380;
+	const panelPad = stacked || shortChamber ? Space.lg : Space.xl;
+	const actionsH = shortChamber ? (actions.size() > 0 ? TapTarget + Space.sm : 0) : actions.size() * (TapTarget + Space.sm);
 	const HEADER_H = stacked ? 78 : 86;
 	const numberSlam =
 		mode === "result"
@@ -1100,8 +1110,8 @@ function DomainChamber(props: ChamberProps) {
 	const panel = h(
 		"frame",
 		{
-			Size: stacked ? new UDim2(1, -24, 0.48, -12) : new UDim2(0, panelW, 1, -48),
-			Position: stacked ? new UDim2(0, 12, 0.52, 0) : new UDim2(1, -24, 0, 24),
+			Size: stacked ? new UDim2(1, -24, 1 - splitAt, -12) : shortChamber ? new UDim2(0, panelW, 1, -24) : new UDim2(0, panelW, 1, -48),
+			Position: stacked ? new UDim2(0, 12, splitAt, 0) : shortChamber ? new UDim2(1, -12, 0, 12) : new UDim2(1, -24, 0, 24),
 			AnchorPoint: stacked ? Vector2.zero : new Vector2(1, 0),
 			BackgroundColor3: Palette.panel,
 			BackgroundTransparency: 0.08,
@@ -1160,7 +1170,8 @@ function DomainChamber(props: ChamberProps) {
 		h(
 			"scrollingframe",
 			{
-				Size: new UDim2(1, 0, 1, -(HEADER_H + Space.md + actions.size() * (TapTarget + Space.sm))),
+				Name: "DomainRows",
+				Size: new UDim2(1, 0, 1, -(HEADER_H + Space.md + actionsH)),
 				Position: UDim2.fromOffset(0, HEADER_H),
 				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
@@ -1182,14 +1193,15 @@ function DomainChamber(props: ChamberProps) {
 			"frame",
 			{
 				ref: actionsRef,
-				Size: new UDim2(1, 0, 0, actions.size() * (TapTarget + Space.sm)),
+				Name: "DomainActions",
+				Size: new UDim2(1, 0, 0, actionsH),
 				Position: UDim2.fromScale(0, 1),
 				AnchorPoint: new Vector2(0, 1),
 				BackgroundTransparency: 1,
 				ZIndex: 633,
 			},
 			h("uilistlayout", {
-				FillDirection: Enum.FillDirection.Vertical,
+				FillDirection: shortChamber ? Enum.FillDirection.Horizontal : Enum.FillDirection.Vertical,
 				VerticalAlignment: Enum.VerticalAlignment.Bottom,
 				SortOrder: Enum.SortOrder.LayoutOrder,
 				Padding: new UDim(0, Space.sm),
@@ -1203,6 +1215,7 @@ function DomainChamber(props: ChamberProps) {
 		"frame",
 		{
 			Name: "DomainChamber",
+			ref: chamberRef,
 			Size: UDim2.fromScale(1, 1),
 			BackgroundColor3: Palette.void,
 			BackgroundTransparency: 0.04,
@@ -1238,8 +1251,8 @@ function DomainChamber(props: ChamberProps) {
 		h(
 			"frame",
 			{
-				Size: stacked ? new UDim2(1, -24, 0.5, -12) : new UDim2(1, -(panelW + 72), 1, -48),
-				Position: UDim2.fromOffset(stacked ? 12 : 24, stacked ? 12 : 24),
+				Size: stacked ? new UDim2(1, -24, splitAt - 0.02, -12) : shortChamber ? new UDim2(1, -(panelW + 36), 1, -24) : new UDim2(1, -(panelW + 72), 1, -48),
+				Position: UDim2.fromOffset(stacked || shortChamber ? 12 : 24, stacked || shortChamber ? 12 : 24),
 				BackgroundTransparency: 1,
 				ZIndex: 622,
 			},

@@ -1,9 +1,11 @@
+import { named } from "../lua";
 // Credits: everyone who made the game, read from SharedData#CreditsConfig through CreditsModel.
 //
 // Built from the shared surfaces (./surface) like Quick Find and tooltips: one base Surface, a
 // section rail on wide screens (chips on narrow ones), an inset spotlight for the person you're
 // looking at, and member rows that light up on the same spring. B or Esc closes, LB/RB change
 // section, and a tap outside the panel closes too.
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -532,11 +534,21 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const chipsH = !rail && showTabs ? CHIP_ROW_H + GAP : 0;
 	const searchH = !rail && showSearch ? TapTarget + GAP : 0;
 	const compactSpot = stack || mainW < 520;
-	const spotH = compactSpot ? 108 : 128;
-	const spotTop = headerH + chipsH + searchH;
-	const bodyTop = spotTop + spotH + GAP;
-	const bodyH = math.max(80, height - pad * 2 - bodyTop);
-	const contentW = mainW - 10;
+	const stackedSpotH = compactSpot ? 108 : 128;
+	const stackedBodyTop = headerH + chipsH + searchH + stackedSpotH + GAP;
+	// short windows (640x286 landscape): chips and search share one row, and the spotlight sits beside
+	// the list instead of above it, so the list keeps real room instead of running out of the card
+	const shortCredits = !rail && height - pad * 2 - stackedBodyTop < 120 && mainW >= 460;
+	const toolRowH = shortCredits && (showTabs || showSearch) ? TapTarget + GAP : 0;
+	const chipsW = shortCredits && showSearch ? math.floor(mainW * 0.56) : mainW;
+	const sideSpotW = shortCredits ? math.floor(mainW * 0.4) : 0;
+	const listW = shortCredits ? mainW - sideSpotW - GAP : mainW;
+	const spotTop = shortCredits ? headerH + toolRowH : headerH + chipsH + searchH;
+	const spotH = shortCredits ? math.max(1, height - pad * 2 - spotTop) : stackedSpotH;
+	const bodyTop = shortCredits ? spotTop : stackedBodyTop;
+	const bodyH = shortCredits ? math.max(1, height - pad * 2 - bodyTop) : math.max(80, height - pad * 2 - bodyTop);
+	const spotScrolls = shortCredits && spotH < 108;
+	const contentW = listW - 10;
 	const columns = CreditsModel.columns(MODEL, contentW, GAP);
 	const rowH = math.max(TapTarget, math.min(CreditsModel.cardHeight(MODEL), 96));
 	const visible = CreditsModel.visible(MODEL, tab, query);
@@ -607,6 +619,8 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	// gamepad: the overlay owns focus while open and starts on its first button
 	const padFocus = useGamepadAutofocus(true);
 	const hostRef = React.useRef<Frame>();
+	// pad order: section chips, the list, then the rest of the card (close, search, spotlight)
+	useFocusOrder(hostRef, { regions: ["CreditsSections", "CreditsList", "CreditsClaimActions"], first: ["CreditsList", "CreditsClaimActions"] }, [tab, query]);
 	React.useEffect(() => {
 		GamepadNavigationService.BeginOverlayFocus();
 		return () => GamepadNavigationService.EndOverlayFocus();
@@ -840,7 +854,8 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 						{/* sections: chips (narrow) */}
 						{!rail && showTabs && (
 							<scrollingframe
-								Size={new UDim2(1, 0, 0, CHIP_ROW_H)}
+								{...named("CreditsSections")}
+								Size={new UDim2(0, chipsW, 0, CHIP_ROW_H)}
 								Position={UDim2.fromOffset(0, headerH)}
 								BackgroundTransparency={1}
 								BorderSizePixel={0}
@@ -873,44 +888,89 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 								value={query}
 								onChange={setQuery}
 								placeholder="Find someone"
-								size={new UDim2(1, 0, 0, TapTarget)}
-								position={UDim2.fromOffset(0, headerH + chipsH)}
+								size={shortCredits && showTabs ? new UDim2(0, mainW - chipsW - GAP, 0, TapTarget) : new UDim2(1, 0, 0, TapTarget)}
+								position={shortCredits && showTabs ? UDim2.fromOffset(chipsW + GAP, headerH) : UDim2.fromOffset(0, headerH + chipsH)}
 								reducedMotion={reduced}
 								zIndex={323}
 							/>
 						)}
-						{/* spotlight */}
-						<Surface
-							tone="inset"
-							size={new UDim2(0, mainW, 0, spotH)}
-							position={UDim2.fromOffset(mainX, spotTop)}
-							padding={12}
-							zIndex={322}
-						>
-							{spot !== undefined ? (
-								<Spotlight key={spot.key} spot={spot} compact={compactSpot} reducedMotion={reduced} />
-							) : (
-								<IconTile size={44} accent={Palette.muted} position={UDim2.fromScale(0.5, 0.5)} anchor={new Vector2(0.5, 0.5)} zIndex={323}>
-									<frame
-										Size={UDim2.fromOffset(22, 22)}
-										Position={UDim2.fromScale(0.5, 0.5)}
-										AnchorPoint={new Vector2(0.5, 0.5)}
-										BackgroundTransparency={1}
-									>
-										{React.createElement(IconComponent, {
-											kind: "Search.9",
-											color: Palette.muted,
-											accent: Palette.muted,
-											size: 22,
-											spin: false,
-										})}
-									</frame>
-								</IconTile>
-							)}
-						</Surface>
+						{/* spotlight (beside the list on short windows; scrolls when shorter than the card itself) */}
+						{spotScrolls ? (
+							<scrollingframe
+								{...named("CreditsSpot")}
+								Size={UDim2.fromOffset(sideSpotW, spotH)}
+								Position={UDim2.fromOffset(mainX + listW + GAP, spotTop)}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								CanvasSize={UDim2.fromOffset(0, 108)}
+								ScrollingDirection={Enum.ScrollingDirection.Y}
+								ScrollBarThickness={3}
+								ScrollBarImageColor3={Palette.muted}
+								ZIndex={322}
+							>
+								<Surface
+									tone="inset"
+									size={spotScrolls ? new UDim2(1, -4, 0, 108) : new UDim2(0, shortCredits ? sideSpotW : mainW, 0, spotH)}
+									position={spotScrolls ? UDim2.fromOffset(0, 0) : UDim2.fromOffset(shortCredits ? mainX + listW + GAP : mainX, spotTop)}
+									padding={12}
+									zIndex={322}
+								>
+									{spot !== undefined ? (
+										<Spotlight key={spot.key} spot={spot} compact={compactSpot || shortCredits} reducedMotion={reduced} />
+									) : (
+										<IconTile size={44} accent={Palette.muted} position={UDim2.fromScale(0.5, 0.5)} anchor={new Vector2(0.5, 0.5)} zIndex={323}>
+											<frame
+												Size={UDim2.fromOffset(22, 22)}
+												Position={UDim2.fromScale(0.5, 0.5)}
+												AnchorPoint={new Vector2(0.5, 0.5)}
+												BackgroundTransparency={1}
+											>
+												{React.createElement(IconComponent, {
+													kind: "Search.9",
+													color: Palette.muted,
+													accent: Palette.muted,
+													size: 22,
+													spin: false,
+												})}
+											</frame>
+										</IconTile>
+									)}
+								</Surface>
+							</scrollingframe>
+						) : (
+							<Surface
+								tone="inset"
+								size={spotScrolls ? new UDim2(1, -4, 0, 108) : new UDim2(0, shortCredits ? sideSpotW : mainW, 0, spotH)}
+								position={spotScrolls ? UDim2.fromOffset(0, 0) : UDim2.fromOffset(shortCredits ? mainX + listW + GAP : mainX, spotTop)}
+								padding={12}
+								zIndex={322}
+							>
+								{spot !== undefined ? (
+									<Spotlight key={spot.key} spot={spot} compact={compactSpot || shortCredits} reducedMotion={reduced} />
+								) : (
+									<IconTile size={44} accent={Palette.muted} position={UDim2.fromScale(0.5, 0.5)} anchor={new Vector2(0.5, 0.5)} zIndex={323}>
+										<frame
+											Size={UDim2.fromOffset(22, 22)}
+											Position={UDim2.fromScale(0.5, 0.5)}
+											AnchorPoint={new Vector2(0.5, 0.5)}
+											BackgroundTransparency={1}
+										>
+											{React.createElement(IconComponent, {
+												kind: "Search.9",
+												color: Palette.muted,
+												accent: Palette.muted,
+												size: 22,
+												spin: false,
+											})}
+										</frame>
+									</IconTile>
+								)}
+							</Surface>
+						)}
 						{/* everyone */}
 						<scrollingframe
-							Size={UDim2.fromOffset(mainW, bodyH)}
+							{...named("CreditsList")}
+							Size={UDim2.fromOffset(listW, bodyH)}
 							Position={UDim2.fromOffset(mainX, bodyTop)}
 							BackgroundTransparency={1}
 							BorderSizePixel={0}

@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -118,6 +119,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const PAD = stack ? chrome.cardPadding : Layout.cardPadding;
 	const [motion, closing, beginExit] = usePresence(softMotion);
 	const padFocus = useGamepadAutofocus(true);
+	// Collect (top / left) first, then Close; one region, reading order
+	useFocusOrder(padFocus, { regions: ["OfflineRewardsCard"] }, [stack]);
 	const overlayHostRef = React.useRef<GuiObject>();
 	const parentSize = useGuiSize(overlayHostRef, true);
 	React.useEffect(() => {
@@ -169,6 +172,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const innerHeight = cardHeight - PAD * 2;
 	const shortCard = innerHeight < fullInner;
 	const tinyCard = shortCard && innerHeight < statsBottom + 10 + TapTarget;
+	const tightHaul = tinyCard && stack && innerHeight < 60 + 64 + 8 + TapTarget;
 	const finish = React.useCallback(
 		(bankVault: boolean) => {
 			if (closing) {
@@ -288,7 +292,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		"frame",
 		{
 			Size: new UDim2(1, 0, 0, stack ? 64 : 72),
-			Position: UDim2.fromOffset(0, stack ? 60 : 68),
+			// very short cards (286px-tall landscape under the top bar): the haul moves up so the buttons don't cover it
+			Position: UDim2.fromOffset(0, tightHaul ? 46 : stack ? 60 : 68),
 			BackgroundColor3: Palette.ink,
 			BorderSizePixel: 0,
 			ZIndex: 465,
@@ -400,6 +405,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 						padFocus.current = node;
 						overlayHostRef.current = node;
 					},
+					Name: "OfflineRewardsCard",
 					Size: UDim2.fromOffset(cardWidth, cardHeight),
 					Position: cardPosition,
 					AnchorPoint: new Vector2(0.5, 0.5),

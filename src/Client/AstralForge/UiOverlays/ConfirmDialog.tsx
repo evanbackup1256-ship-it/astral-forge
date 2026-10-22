@@ -1,3 +1,5 @@
+import { named } from "../lua";
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { Audio } from "../AudioKit/audio";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -96,6 +98,8 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 		};
 	}, []);
 	const focus = useGamepadAutofocus(true);
+	// pad starts on Cancel (the safe choice, as before); Cancel and Confirm are linked both ways
+	useFocusOrder(focus, { regions: ["ConfirmCancel", "ConfirmOk"], first: ["ConfirmCancel"], columns: [["ConfirmCancel", "ConfirmOk"]] }, []);
 
 	const safeSide = math.max(Space.md, viewport.sideInset);
 	const width = math.clamp(viewport.width - safeSide * 2, math.min(240, viewport.width - 16), 420);
@@ -108,6 +112,8 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	const bodyGap = props.body !== undefined ? Space.sm : 0;
 	const maxH = math.max(200, viewport.height - math.max(Space.lg, viewport.topInset) - math.max(Space.lg, viewport.bottomInset));
 	const height = math.min(maxH, padding * 2 + titleH + bodyGap + bodyH + Space.xl + actionsH);
+	// a long body on a short screen (640x286) scrolls above the buttons instead of running under them
+	const bodyRoom = math.max(0, math.min(bodyH, height - padding * 2 - titleH - bodyGap - Space.xl - actionsH));
 	const confirmText = props.confirmText ?? "Confirm";
 	const cancelText = props.cancelText ?? "Cancel";
 	const buttonW = stackButtons ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0.5, -Space.sm / 2, 0, TapTarget);
@@ -138,12 +144,27 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 					<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={padding} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
 						<AutoHeightText value={props.title} size={20} weight={Enum.FontWeight.Bold} color={Palette.cream} width={inner} zIndex={z + 4} />
 						{props.body !== undefined && (
-							<frame Size={new UDim2(1, 0, 0, bodyH)} Position={UDim2.fromOffset(0, titleH + bodyGap)} BackgroundTransparency={1} ZIndex={z + 4}>
-								<Text value={props.body} size={14} color={Palette.creamSoft} wrap={true} sizeConstraint={UDim2.fromScale(1, 1)} zIndex={z + 4} />
-							</frame>
+							<scrollingframe
+								Size={new UDim2(1, 0, 0, bodyRoom)}
+								Position={UDim2.fromOffset(0, titleH + bodyGap)}
+								CanvasSize={UDim2.fromOffset(0, bodyH)}
+								ScrollingEnabled={bodyRoom < bodyH}
+								ScrollBarThickness={bodyRoom < bodyH ? 3 : 0}
+								ScrollBarImageColor3={Palette.muted}
+								ScrollingDirection={Enum.ScrollingDirection.Y}
+								Selectable={false}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								ZIndex={z + 4}
+							>
+								<frame Size={new UDim2(1, -6, 0, bodyH)} BackgroundTransparency={1} ZIndex={z + 4}>
+									<Text value={props.body} size={14} color={Palette.creamSoft} wrap={true} sizeConstraint={UDim2.fromScale(1, 1)} zIndex={z + 4} />
+								</frame>
+							</scrollingframe>
 						)}
 						{props.children}
 						<frame Size={new UDim2(1, 0, 0, actionsH)} Position={new UDim2(0, 0, 1, -actionsH)} BackgroundTransparency={1} ZIndex={z + 5}>
+							<frame {...named("ConfirmCancel")} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={z + 5}>
 							<Button
 								text={cancelText}
 								onClick={() => resolve(false)}
@@ -157,6 +178,8 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 								sound={false}
 								zIndex={z + 5}
 							/>
+							</frame>
+							<frame {...named("ConfirmOk")} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={z + 5}>
 							<Button
 								text={confirmText}
 								onClick={() => resolve(true)}
@@ -170,6 +193,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 								sound={false}
 								zIndex={z + 5}
 							/>
+							</frame>
 						</frame>
 					</Panel>
 				</frame>

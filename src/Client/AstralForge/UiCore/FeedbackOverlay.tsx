@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -96,6 +97,10 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 	const editorTop = keyboardCompact ? categoryTop + 6 : impactTop + impactH + (impactH > 0 ? 8 : 2);
 	const footerH = TapTarget + (keyboardCompact ? 4 : 14);
 	const editorH = math.max(44, contentHeight - editorTop - footerH - 8);
+	// 640x286 landscape (and any other short window) can't fit header, categories, impact, the 44px
+	// editor floor and the footer: the card body scrolls instead of clipping the Send button
+	const bodyNeededH = editorTop + editorH + 8 + footerH;
+	const bodyScrolls = bodyNeededH > contentHeight + 1;
 	const [trimmedStep] = string.gsub(message, "^%s+", "");
 	const [trimmed] = string.gsub(trimmedStep, "%s+$", "");
 	const canSend = !sending && !sent && trimmed.size() >= 8;
@@ -156,6 +161,14 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		);
 	}, [canSend, category, dispatch, notify, trimmed, impact, attachDevice]);
 	const padFocus = useGamepadAutofocus(true);
+	useFocusOrder(
+		padFocus,
+		{
+			regions: ["FeedbackClose", "FeedbackCategories", "FeedbackImpact", "FeedbackBody"],
+			first: ["FeedbackCategories", "FeedbackBody"],
+		},
+		[sent, keyboardCompact, narrow],
+	);
 	const overlayHostRef = React.useRef<GuiObject>();
 	const parentSize = useGuiSize(overlayHostRef, true);
 	React.useEffect(() => {
@@ -280,7 +293,10 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		sizeConstraint: new UDim2(1, keyboardCompact ? -(TapTarget + 10) : -116, 0, 28),
 		zIndex: 474,
 	});
-	const _exp_6 = h(Button, {
+	const _exp_6 = h(
+		"frame",
+		{ Name: "FeedbackClose", Size: new UDim2(1, 0, 0, TapTarget), BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 474 },
+		h(Button, {
 		text: "",
 		icon: "Close.14",
 		onClick: close,
@@ -290,7 +306,8 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		position: new UDim2(1, -TapTarget, 0, 0),
 		reducedMotion: softMotion,
 		disabled: sending || closing,
-	});
+		}),
+	);
 	let _condition: unknown = !sent && !keyboardCompact;
 	if (_condition) {
 		const _attributes: Record<string, unknown> = {};
@@ -311,6 +328,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		_condition = h(
 			"frame",
 			{
+				Name: "FeedbackCategories",
 				Size: new UDim2(1, 0, 0, categoryH),
 				Position: UDim2.fromOffset(0, categoryTop),
 				BackgroundTransparency: 1,
@@ -373,6 +391,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		impactRow = h(
 			"frame",
 			{
+				Name: "FeedbackImpact",
 				Size: new UDim2(1, 0, 0, impactH),
 				Position: UDim2.fromOffset(0, impactTop),
 				BackgroundTransparency: 1,
@@ -489,13 +508,22 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 					_exp_1,
 					_exp_2,
 					h(
-						"frame",
+						bodyScrolls ? "scrollingframe" : "frame",
 						{
+							Name: "FeedbackBody",
 							Size: new UDim2(1, -32, 1, -28),
 							Position: UDim2.fromOffset(16, 14),
 							BackgroundTransparency: 1,
 							BorderSizePixel: 0,
 							ZIndex: 473,
+							...(bodyScrolls
+								? {
+										CanvasSize: UDim2.fromOffset(0, bodyNeededH),
+										ScrollingDirection: Enum.ScrollingDirection.Y,
+										ScrollBarThickness: 3,
+										ScrollBarImageColor3: Palette.cyan,
+									}
+								: {}),
 						},
 						_exp_3,
 						_exp_4,

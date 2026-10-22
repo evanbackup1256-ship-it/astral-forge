@@ -1,3 +1,5 @@
+import { named } from "../lua";
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { compactNumber } from "../CoreKit/format";
@@ -262,6 +264,8 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 	}, [beginExit, closing, onClose]);
 	useBackLayer(true, close);
 	const padFocus = useGamepadAutofocus(true);
+	// pad: the header (close) first, then the unlock rows
+	useFocusOrder(padFocus, { regions: ["RoadmapHeader", "RoadmapList"], first: ["RoadmapList", "RoadmapHeader"] }, []);
 	React.useEffect(() => {
 		GamepadNavigationService.BeginOverlayFocus();
 		return () => {
@@ -295,6 +299,10 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 	const headerH = nextStep !== undefined ? 132 : 104;
 	const listTop = headerH + UNIT * 3;
 	const listH = math.max(60, height - pad * 2 - listTop);
+	// short landscape (640x286): the header sits in a left column beside a full-height list instead of
+	// leaving the list a sliver under it (or pushing it out of the card)
+	const sideHeader = width >= 520 && height - pad * 2 - listTop < 120;
+	const headerColW = math.floor((width - pad * 2) * 0.42);
 	const rightW = compact ? 64 : 88;
 
 	const rows = new Map<string, React.Element>();
@@ -427,6 +435,13 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 							BorderSizePixel={0}
 							ZIndex={473}
 						>
+							<frame
+								{...named("RoadmapHeader")}
+								Size={sideHeader ? new UDim2(0, headerColW, 0, headerH) : new UDim2(1, 0, 0, headerH)}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								ZIndex={473}
+							>
 							<Text
 								value="UNLOCKS"
 								size={12}
@@ -529,9 +544,10 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 									zIndex={474}
 								/>
 							)}
+							</frame>
 							<frame
-								Size={new UDim2(1, 0, 0, 1)}
-								Position={UDim2.fromOffset(0, headerH)}
+								Size={sideHeader ? new UDim2(0, 1, 1, 0) : new UDim2(1, 0, 0, 1)}
+								Position={sideHeader ? UDim2.fromOffset(headerColW + UNIT * 2, 0) : UDim2.fromOffset(0, headerH)}
 								BackgroundColor3={Palette.lineSoft}
 								BackgroundTransparency={0.4}
 								BorderSizePixel={0}
@@ -539,8 +555,9 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 							/>
 							<scrollingframe
 								ref={listRef}
-								Size={new UDim2(1, 0, 0, listH)}
-								Position={UDim2.fromOffset(0, listTop)}
+								{...named("RoadmapList")}
+								Size={sideHeader ? new UDim2(1, -(headerColW + UNIT * 4), 0, height - pad * 2) : new UDim2(1, 0, 0, listH)}
+								Position={sideHeader ? UDim2.fromOffset(headerColW + UNIT * 4, 0) : UDim2.fromOffset(0, listTop)}
 								CanvasSize={UDim2.fromOffset(0, canvasH)}
 								BackgroundTransparency={1}
 								BorderSizePixel={0}

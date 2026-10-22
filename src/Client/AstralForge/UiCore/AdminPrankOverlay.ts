@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../CoreKit/focusOrder";
 ﻿import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { chromeFor, Palette, TapTarget } from "../CoreKit/theme";
@@ -178,6 +179,8 @@ export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const overlayHostRef = React.useRef<Frame>();
+	// one action (the prank's own button); explicit so the pad lands on it, not on the page behind
+	useFocusOrder(overlayHostRef, { regions: ["AdminPrank"] }, [prank.kind]);
 	const toastInset = math.max(chrome.bottomSafe, viewport.bottomInset ?? 0, 8);
 	const [now, setNow] = React.useState(os.clock());
 	React.useEffect(() => {
@@ -268,6 +271,7 @@ export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean
 		"frame",
 		{
 			ref: overlayHostRef,
+			Name: "AdminPrank",
 			Size: UDim2.fromScale(1, 1),
 			BackgroundColor3: washOn ? washColor : fill,
 			BackgroundTransparency: fillAlpha,
