@@ -4,6 +4,7 @@ import EconomyMath from "../../Modules/EconomyMath";
 import ProfileMath from "../../Modules/ProfileMath";
 import CommandMath from "../../Modules/CommandMath";
 import ProfileBagMath from "../../Modules/ProfileBagMath";
+import * as QuestEngine from "../../Modules/QuestEngine";
 import GameConfigModule from "../../../../Shared/AstralForge/Shared/GameConfig";
 import SeasonPremium from "../../../../Shared/AstralForge/Shared/SeasonPremium";
 import * as ProfileStyle from "../../../../Shared/AstralForge/Shared/ProfileStyle";
@@ -512,79 +513,28 @@ const ProgressionService = {
     const upgradeTarget = math.floor(
       3 + math.min(7, (tonumber(profile.Rebirths) ?? 0) / 2),
     );
-    const rotation = (day + userId) % 3;
     profile.Quests = {
       Day: day,
-      Items: [
-        {
-          Id: string.format("earn_%d", day),
-          Name: "Shift Quota",
-          Description: "Bank Flux from your vault.",
-          Kind: "EarnCash",
-          Target: earnTarget,
-          Progress: 0,
-          Reward: { Cash: math.floor(earnTarget * 0.15), Stardust: 5 },
-          Claimed: false,
-        },
-        {
-          Id: string.format("tap_%d", day),
-          Name: "Hands On",
-          Description: "Use manual overcharge.",
-          Kind: "Tap",
-          Target: tapTarget,
-          Progress: 0,
-          Reward: { Cash: math.floor(earnTarget * 0.08), Stardust: 4 },
-          Claimed: false,
-        },
-        {
-          Id: string.format("upgrade_%d", day),
-          Name:
-            rotation === 0
-              ? "Machinist"
-              : rotation === 1
-                ? "Research Grant"
-                : "Expansion Plan",
-          Description:
-            rotation === 0
-              ? "Upgrade any machines."
-              : rotation === 1
-                ? "Purchase research levels."
-                : "Purchase machines or research.",
-          Kind:
-            rotation === 0
-              ? "BuyMachine"
-              : rotation === 1
-                ? "BuyResearch"
-                : "BuyAny",
-          Target: upgradeTarget,
-          Progress: 0,
-          Reward: { Cash: math.floor(earnTarget * 0.12), Stardust: 6 },
-          Claimed: false,
-        },
-      ],
+      Items: QuestEngine.buildDaily({
+        Day: day,
+        Rotation: (day + userId) % 3,
+        EarnTarget: earnTarget,
+        TapTarget: tapTarget,
+        UpgradeTarget: upgradeTarget,
+      }),
     };
     return true;
   },
   Progress(this: void, profile: Profile, kind: string, amount: number) {
-    ProgressionOpsMath.AdvanceQuestProgress(
-      ensureQuests(profile).Items,
-      kind,
-      amount,
-    );
+    QuestEngine.emit(ensureQuests(profile).Items, kind, amount);
   },
   ClaimQuest(this: void, profile: Profile, questId: string): Result {
-    for (const quest of ensureQuests(profile).Items) {
-      if (quest.Id === questId) {
-        const [ok, reason] = ProgressionOpsMath.CanClaimQuest(quest);
-        if (!ok) return $tuple(false, reason);
-        quest.Claimed = true;
-        return $tuple(
-          true,
-          ProgressionService.ApplyReward(profile, quest.Reward),
-        );
-      }
-    }
-    return $tuple(false, T("EconomyMath.MissionNotFound"));
+    const quest = QuestEngine.findQuest(ensureQuests(profile).Items, questId);
+    if (quest === undefined) return $tuple(false, T("EconomyMath.MissionNotFound"));
+    const [ok, reason] = QuestEngine.canClaim(quest);
+    if (!ok) return $tuple(false, reason);
+    quest.Claimed = true;
+    return $tuple(true, ProgressionService.ApplyReward(profile, quest.Reward));
   },
   AchievementProgress(this: void, profile: Profile, kind: string): number {
     return ProgressionOpsMath.AchievementProgress(
@@ -615,22 +565,17 @@ const ProgressionService = {
     profile: Profile,
     achievementId: string,
   ): Result {
-    for (const achievement of GameConfig.Achievements) {
-      if (achievement.Id === achievementId) {
-        if (!typeIs(profile.Achievements, "table")) profile.Achievements = {};
-        if (profile.Achievements[achievementId])
-          return $tuple(false, T("Progression.ThatMilestoneWasAlreadyClaimed"));
-        if (
-          ProgressionService.AchievementProgress(profile, achievement.Kind) <
-          achievement.Target
-        )
-          return $tuple(false, T("Progression.ThatMilestoneIsNotComplete"));
-        profile.Achievements[achievementId] = true;
-        return $tuple(
-          true,
-          ProgressionService.ApplyReward(profile, achievement.Reward),
-        );
-      }
+    const achievement = QuestEngine.findAchievement(GameConfig.Achievements, achievementId);
+    if (achievement !== undefined) {
+      const [ok, reason] = QuestEngine.canClaimAchievement(
+        profile.Achievements,
+        achievement,
+        ProgressionService.AchievementProgress(profile, achievement.Kind),
+      );
+      if (!ok) return $tuple(false, reason);
+      if (!typeIs(profile.Achievements, "table")) profile.Achievements = {};
+      profile.Achievements[achievementId] = true;
+      return $tuple(true, ProgressionService.ApplyReward(profile, achievement.Reward));
     }
     return $tuple(false, T("Progression.MilestoneNotFound"));
   },
