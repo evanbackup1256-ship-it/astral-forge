@@ -3550,8 +3550,11 @@ export class GameService {
 			const now = os.time();
 			const ledger = rebirthLedger(profile, now);
 			if (payload.Op === "Star") {
-				const index = math.floor(tonumber(payload.Index) ?? 0);
-				const [ok, message] = RebirthMath.pickStar(ledger, index, math.floor(tonumber(payload.Pick) ?? 0)) as LuaTuple<[unknown, unknown]>;
+				const rawIndex = tonumber(payload.Index) ?? 0;
+				const rawPick = tonumber(payload.Pick) ?? 0;
+				const index = rawIndex === rawIndex && math.abs(rawIndex) !== math.huge ? math.floor(rawIndex) : 0;
+				const pick = rawPick === rawPick && math.abs(rawPick) !== math.huge ? math.floor(rawPick) : 0;
+				const [ok, message] = RebirthMath.pickStar(ledger, index, pick) as LuaTuple<[unknown, unknown]>;
 				if (!truthy(ok)) {
 					return responseError(message);
 				}
@@ -4874,6 +4877,10 @@ export class GameService {
 			}
 			const a = tonumber(payload!.A);
 			const b = tonumber(payload!.B);
+			// NaN, infinities and fractions would key the ledger with junk ("nan:1") and still charge points
+			if (a === undefined || b === undefined || a !== a || b !== b || math.abs(a) === math.huge || math.abs(b) === math.huge || a % 1 !== 0 || b % 1 !== 0) {
+				return responseError(T("GameService.ThatLinkCanTBe"));
+			}
 			const [ok, reason] = DomainLattice.canEtch(links, a, b, domain.SkillPoints) as LuaTuple<[unknown, unknown]>;
 			if (!truthy(ok)) {
 				return responseError(truthy(reason) ? reason : T("GameService.ThatLinkCanTBe"));

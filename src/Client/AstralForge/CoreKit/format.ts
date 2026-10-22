@@ -151,8 +151,13 @@ function formatFromLog10(log10: number, sign = 1): string {
 		}
 	}
 	if (log10 >= LAST_NAMED_LOG10) {
-		const exponent = math.floor(log10);
-		const mantissa = 10 ** (log10 - exponent);
+		let exponent = math.floor(log10);
+		let mantissa = 10 ** (log10 - exponent);
+		// 9.996 prints as "10.00"; carry into the exponent so it reads 1.00e(n+1)
+		if ((tonumber("%.2f".format(mantissa)) ?? 0) >= 10) {
+			mantissa /= 10;
+			exponent += 1;
+		}
 		return "%s%.2fe%d".format(sign < 0 ? "-" : "", mantissa, exponent);
 	}
 	let group = math.clamp(math.floor(log10 / 3), 1, NUMBER_SUFFIXES.size());
@@ -191,14 +196,20 @@ function scaleForDisplay(value: number): { scaled: number; suffix: string } {
 		return { scaled: 0, suffix: "" };
 	}
 	if (absolute === math.huge) {
-		return { scaled: 1, suffix: "e308+" };
+		return { scaled: value < 0 ? -1 : 1, suffix: "e308+" };
 	}
 	if (absolute < 1000) {
 		return { scaled: value, suffix: "" };
 	}
 	const log10 = math.log10(absolute);
 	if (log10 >= LAST_NAMED_LOG10) {
-		return { scaled: 10 ** (log10 - math.floor(log10)), suffix: `e${math.floor(log10)}` };
+		let exponent = math.floor(log10);
+		let mantissa = 10 ** (log10 - exponent);
+		if ((tonumber("%.2f".format(mantissa)) ?? 0) >= 10) {
+			mantissa /= 10;
+			exponent += 1;
+		}
+		return { scaled: value < 0 ? -mantissa : mantissa, suffix: `e${exponent}` };
 	}
 	let group = math.clamp(math.floor(log10 / 3), 1, NUMBER_SUFFIXES.size());
 	let scaled = value / 1000 ** group;
