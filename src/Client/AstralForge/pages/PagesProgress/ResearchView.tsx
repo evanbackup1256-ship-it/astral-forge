@@ -8,6 +8,7 @@ import { useTooltip } from "../../Tooltip";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { bulkCost, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
+import { splitFor, splitSections } from "../../UiCore/splitColumns";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
 const UserInputService = game.GetService("UserInputService");
@@ -274,6 +275,10 @@ function ResearchView(props: ResearchProps) {
 	const softMotion = props.reducedMotion;
 	const enter = useEntrance(softMotion);
 	const stack = chrome.contentStack;
+	// wide desktop: hero + controls in a side column, the chain in the main column. The side
+	// column reuses the stacked hero/controls arrangement, which is built for narrow widths.
+	const plan = splitFor(viewport, stack);
+	const heroStack = stack || plan.split;
 	// phones in landscape have the width for side-by-side rows (button on the right); the
 	// stacked row with its button underneath fills too much of a 360px-tall screen
 	const rowStack = stack && !chrome.landscape;
@@ -326,7 +331,7 @@ function ResearchView(props: ResearchProps) {
 		};
 	}, [canBuyAll, buyAmount, unlockedCount]);
 	const listGap = stack ? chrome.panelGap : Layout.panelGap;
-	const headerH = stack ? 208 : 128;
+	const headerH = heroStack ? 208 : 128;
 	const researchGate = state.FeatureUnlocks !== undefined ? state.FeatureUnlocks.Research : undefined;
 	const researchLocked = researchGate !== undefined && researchGate.Unlocked === false;
 	const chainCount = visible.size();
@@ -339,7 +344,7 @@ function ResearchView(props: ResearchProps) {
 			tailPad={scrollTail(stack, chrome.bottomSafe, 48)}
 			scrollBarColor={Palette.cyan}
 			scrollBarThickness={4}
-			sections={[
+			sections={splitSections(plan, [
 				{
 					id: "hero",
 					height: headerH,
@@ -348,7 +353,7 @@ function ResearchView(props: ResearchProps) {
 							size={UDim2.fromScale(1, 1)}
 							accent={Palette.cyan}
 							background={Palette.panelRaised}
-							padding={stack ? 14 : 16}
+							padding={heroStack ? 14 : 16}
 							reveal={enter}
 							reducedMotion={softMotion}
 							clips={false}
@@ -356,9 +361,9 @@ function ResearchView(props: ResearchProps) {
 							<IconTile
 								kind="Research"
 								accent={Palette.cyan}
-								size={stack ? 48 : 56}
+								size={heroStack ? 48 : 56}
 								radius={14}
-								position={UDim2.fromOffset(0, stack ? 4 : 18)}
+								position={UDim2.fromOffset(0, heroStack ? 4 : 18)}
 								glow={true}
 								spin={false}
 								reducedMotion={softMotion}
@@ -368,8 +373,8 @@ function ResearchView(props: ResearchProps) {
 								size={10}
 								color={Palette.cyan}
 								weight={Enum.FontWeight.Heavy}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 60 : 0)}
-								sizeConstraint={new UDim2(1, stack ? -8 : -332, 0, 16)}
+								position={UDim2.fromOffset(heroStack ? 0 : 72, heroStack ? 60 : 0)}
+								sizeConstraint={new UDim2(1, heroStack ? -8 : -332, 0, 16)}
 							/>
 							<Text
 								value={
@@ -379,12 +384,12 @@ function ResearchView(props: ResearchProps) {
 											? `Next: ${nextEntry.config.Name}`
 											: `${unlockedCount} of ${entries.size()} researched`
 								}
-								size={stack ? 18 : 24}
+								size={heroStack ? 18 : 24}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
 								fit={true}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 78 : 18)}
-								sizeConstraint={new UDim2(1, stack ? -8 : -332, 0, 32)}
+								position={UDim2.fromOffset(heroStack ? 0 : 72, heroStack ? 78 : 18)}
+								sizeConstraint={new UDim2(1, heroStack ? -8 : -332, 0, 32)}
 							/>
 							<Text
 								value={`${unlockedCount} of ${entries.size()} unlocked  ·  ${maxedCount} maxed  ·  every level survives rebirth`}
@@ -393,10 +398,10 @@ function ResearchView(props: ResearchProps) {
 								wrap={true}
 								fit={true}
 								minSize={9}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 108 : 56)}
-								sizeConstraint={new UDim2(1, stack ? -8 : -332, 0, 24)}
+								position={UDim2.fromOffset(heroStack ? 0 : 72, heroStack ? 108 : 56)}
+								sizeConstraint={new UDim2(1, heroStack ? -8 : -332, 0, 24)}
 							/>
-							{!stack && (
+							{!heroStack && (
 								<>
 									<AmountToggle
 										value={buyAmount}
@@ -429,7 +434,7 @@ function ResearchView(props: ResearchProps) {
 									</frame>
 								</>
 							)}
-							{stack && (
+							{heroStack && (
 								<>
 									<AmountToggle
 										value={buyAmount}
@@ -467,7 +472,7 @@ function ResearchView(props: ResearchProps) {
 				},
 				{
 					id: "research-controls",
-					height: stack ? 164 : 96,
+					height: heroStack ? 164 : 96,
 					element: (
 						<Tools.ResearchControls
 							query={query}
@@ -475,7 +480,7 @@ function ResearchView(props: ResearchProps) {
 							filter={filter}
 							setFilter={setFilter}
 							count={visible.size()}
-							stack={stack}
+							stack={heroStack}
 							reducedMotion={softMotion}
 							batch={batch}
 						/>
@@ -520,7 +525,7 @@ function ResearchView(props: ResearchProps) {
 							/>
 						),
 				},
-			]}
+			], "Research")}
 		/>
 	);
 }
