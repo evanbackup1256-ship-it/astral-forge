@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { useFocusOrder } from "../../CoreKit/focusOrder";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
@@ -719,7 +720,10 @@ function __member(): unknown {
 			luaSetIndex(prizeRows, luaProp(reward, "Id"), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -6, 0, ((PRIZE_ROW_H as unknown as number) - (6 as unknown as number))), BackgroundTransparency: 1, LayoutOrder: index }, reactLoose.createElement(PrizeCatalogRow, { reward: reward, index: index, weightTotal: weightTotal, reducedMotion: softMotion })));
 		}
 		let prizeList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, prizeRows);
-		return reactLoose.createElement("frame", { Name: "WheelPage", Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, [luaProp(luaProp(React, "Change"), "AbsoluteSize") as never]: function(this: void, host?: unknown): unknown | undefined {
+		// gamepad: Spin first, then recent spins and the prize list
+		const wheelPageRef = React.useRef<Frame>();
+		useFocusOrder(wheelPageRef, { regions: ["WheelSpinClaimActions", "wheel", "recent-spins", "prizes*"], first: ["WheelSpinClaimActions"] }, [luaProp(controller, "spinning"), luaProp(chrome, "contentStack")]);
+		return reactLoose.createElement("frame", { Name: "WheelPage", ref: wheelPageRef, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, [luaProp(luaProp(React, "Change"), "AbsoluteSize") as never]: function(this: void, host?: unknown): unknown | undefined {
 			let absoluteX: unknown = luaProp(luaProp(host, "AbsoluteSize"), "X");
 			if ((!luaTypeIs(absoluteX, "number")) || ((absoluteX as unknown as number) <= (0 as unknown as number))) {
 				return undefined;

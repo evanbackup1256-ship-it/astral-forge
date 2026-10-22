@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { FocusPlan, useFocusOrder } from "../../CoreKit/focusOrder";
 import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { compactNumber, formatReward } from "../../CoreKit/format";
@@ -238,6 +239,9 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 	});
 	const visible = browse.results;
 	const claimHostRef = React.useRef<Frame>();
+	// gamepad: Claim all (when ready) or search first, then down into the list
+	const pageHostRef = React.useRef<Frame>();
+	useFocusOrder(pageHostRef, { regions: ["hero", "list"], first: ["hero", "list"] }, [counts.Ready, browse.category, stack]);
 	let firstReadyId: string | undefined;
 	for (const achievement of visible) {
 		if (taskRank(achievement) === 0) {
@@ -393,15 +397,17 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 		/>
 	);
 	return (
-		<PageScaffold
-			gap={pageGap}
-			tailPad={scrollTail(stack, chrome.bottomSafe, 24)}
-			scrollBarColor={Palette.mango}
-			scrollBarThickness={4}
-			sections={[
-				{ id: "hero", height: headerHeight, element: headerPanel },
-				{ id: "list", fill: true, minHeight: math.max(160, rowStride * 2), element: milestonesList },
-			]}
-		/>
+		<frame ref={pageHostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<PageScaffold
+				gap={pageGap}
+				tailPad={scrollTail(stack, chrome.bottomSafe, 24)}
+				scrollBarColor={Palette.mango}
+				scrollBarThickness={4}
+				sections={[
+					{ id: "hero", height: headerHeight, element: headerPanel },
+					{ id: "list", fill: true, minHeight: math.max(160, rowStride * 2), element: milestonesList },
+				]}
+			/>
+		</frame>
 	);
 }

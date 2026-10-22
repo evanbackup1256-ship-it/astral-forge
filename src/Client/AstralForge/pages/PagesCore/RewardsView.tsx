@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { FocusPlan, useFocusOrder } from "../../CoreKit/focusOrder";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, formatReward, Reward } from "../../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, Radius, scrollTail, StrokeWidth, TapTarget } from "../../CoreKit/theme";
@@ -350,6 +351,14 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const pageGap = stack ? 16 : 24;
 	const community = useCommunityRewards(state.Community, stack);
 	const rewardsClaimHostRef = React.useRef<Frame>();
+	// gamepad: claims first (Claim all, then Daily, then the timed claim), then down the page; columns step left/right
+	const pageHostRef = React.useRef<Frame>();
+	const focusPlan: FocusPlan = {
+		regions: ["header", "event", "daily", "timed", "timeline", "community", "shortcuts"],
+		first: ["header", "daily", "timed", "timeline", "shortcuts"],
+		columns: [["Side", "Main"]],
+	};
+	useFocusOrder(pageHostRef, focusPlan, [dailyReady, readyTimed.size(), timedEntries.size(), viewport.width >= 1180, stack]);
 	const readyCount = (dailyReady ? 1 : 0) + readyTimed.size();
 	const rewardsClaimReady = readyCount > 0;
 	React.useEffect(() => {
@@ -696,12 +705,16 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 							<SplitColumns
 								height={columnsH}
 								plan={plan}
-								side={<StackBlocks gap={pageGap} blocks={claimCol} />}
-								main={<StackBlocks gap={pageGap} blocks={sideCol} />}
+								side={<StackBlocks gap={pageGap} riseFrom={0} blocks={claimCol.map((b, i) => ({ ...b, rise: i }))} />}
+								main={<StackBlocks gap={pageGap} riseFrom={0} blocks={sideCol.map((b, i) => ({ ...b, rise: i }))} />}
 							/>
 						),
 					},
 				]
 			: [...claimCol, ...sideCol];
-	return <PageScaffold gap={pageGap} tailPad={rewardsTail} scrollBarColor={Palette.pink} scrollBarThickness={4} sections={sections} />;
+	return (
+		<frame ref={pageHostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<PageScaffold gap={pageGap} tailPad={rewardsTail} scrollBarColor={Palette.pink} scrollBarThickness={4} sections={sections} />
+		</frame>
+	);
 }

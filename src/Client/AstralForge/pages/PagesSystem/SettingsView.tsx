@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { FocusPlan, useFocusOrder } from "../../CoreKit/focusOrder";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { fitTouchGridWidth, moreDockHeight } from "../../CoreKit/mobileLayout";
 import { chromeFor, darken, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
@@ -1027,6 +1028,17 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		</Panel>
 	);
 	const listPanelH = listH + (stack ? 36 : 56);
+	// gamepad: header (Tour/Notes, search, view chips) > section picker > the section's rows; picker <-> rows left/right
+	const pageHostRef = React.useRef<Frame>();
+	useFocusOrder(
+		pageHostRef,
+		{
+			regions: ["header", "SettingsNav", "sections", "SettingsList", "list"],
+			first: ["SettingsNav", "sections", "header"],
+			columns: [["SettingsNav", "SettingsList"]],
+		},
+		[activeSection, listing, changedOnly, stack],
+	);
 
 	const scaffold: Array<{ id: string; height: number; element: React.Element }> = [{ id: "header", height: headerH, element: header }];
 	if (stack) {
@@ -1048,10 +1060,12 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			height: bodyH,
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-					<Panel size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
-						{navButtons}
-					</Panel>
-					<frame Size={new UDim2(1, -(NAV_W + 24), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
+					<frame key="SettingsNav" Size={new UDim2(0, NAV_W, 0, bodyH)} BackgroundTransparency={1} BorderSizePixel={0}>
+						<Panel size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
+							{navButtons}
+						</Panel>
+					</frame>
+					<frame key="SettingsList" Size={new UDim2(1, -(NAV_W + 24), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
 						{list}
 					</frame>
 				</frame>
@@ -1060,7 +1074,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	}
 
 	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+		<frame ref={pageHostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<PageScaffold gap={stack ? 16 : 24} tailPad={scrollTail(stack, chrome.bottomSafe, 64)} scrollBarColor={accent} scrollBarThickness={4} sections={scaffold} />
 			{mobileHudAvailable && (
 				<MobileControls

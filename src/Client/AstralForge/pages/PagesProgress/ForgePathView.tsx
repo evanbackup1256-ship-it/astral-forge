@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { FocusPlan, useFocusOrder } from "../../CoreKit/focusOrder";
 import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { chromeFor, darken, Layout, lighten, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
@@ -652,6 +653,13 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 	// wide desktops: progress and the next claim side by side, steps list full width below
 	const topPlan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.45), listGap, 1280);
 	const topH = math.max(headerH, spotlightH);
+	// gamepad: the next-step claim first, then search/filters, then the steps list; hero <-> claim side by side
+	const pageHostRef = React.useRef<Frame>();
+	useFocusOrder(
+		pageHostRef,
+		{ regions: ["hero", "spotlight", "browse", "steps"], first: ["spotlight", "browse", "steps"], columns: [["Side", "Main"]] },
+		[nextReady, pathComplete, browse.category, topPlan.split, stack],
+	);
 	const topSections: ColumnSection[] = topPlan.split
 		? [
 				{
@@ -661,43 +669,45 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 						<SplitColumns
 							height={topH}
 							plan={topPlan}
-							side={<StackBlocks blocks={[{ ...heroSection, height: topH }]} />}
-							main={<StackBlocks blocks={[{ ...spotlightSection, height: topH }]} />}
+							side={<StackBlocks riseFrom={0} blocks={[{ ...heroSection, height: topH, rise: 0 }]} />}
+							main={<StackBlocks riseFrom={0} blocks={[{ ...spotlightSection, height: topH, rise: 1 }]} />}
 						/>
 					),
 				},
 			]
 		: [heroSection, spotlightSection];
 	return (
-		<PageScaffold
-			gap={listGap}
-			tailPad={scrollTail(stack, chrome.bottomSafe, 48)}
-			scrollBarColor={Palette.violet}
-			scrollBarThickness={4}
-			sections={[
-				...topSections,
-				{
-					id: "browse",
-					height: Browse.barHeight(stack, true),
-					element: (
-						<Browse.BrowseBar
-							browse={browse}
-							placeholder="Search steps by reward or bonus"
-							accent={Palette.violet}
-							stack={stack}
-							reducedMotion={softMotion}
-							zIndex={30}
-						/>
-					),
-				},
-				{
-					id: "steps",
-					fill: true,
-					minHeight: math.max(160, stepStride * 2),
-					element: stepsElement,
-				},
-			]}
-		/>
+		<frame ref={pageHostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<PageScaffold
+				gap={listGap}
+				tailPad={scrollTail(stack, chrome.bottomSafe, 48)}
+				scrollBarColor={Palette.violet}
+				scrollBarThickness={4}
+				sections={[
+					...topSections,
+					{
+						id: "browse",
+						height: Browse.barHeight(stack, true),
+						element: (
+							<Browse.BrowseBar
+								browse={browse}
+								placeholder="Search steps by reward or bonus"
+								accent={Palette.violet}
+								stack={stack}
+								reducedMotion={softMotion}
+								zIndex={30}
+							/>
+						),
+					},
+					{
+						id: "steps",
+						fill: true,
+						minHeight: math.max(160, stepStride * 2),
+						element: stepsElement,
+					},
+				]}
+			/>
+		</frame>
 	);
 }
 
