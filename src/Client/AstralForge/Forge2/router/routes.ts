@@ -19,6 +19,7 @@ import { EchoesPage } from "../pages/EchoesPage";
 import { MailPage } from "../pages/MailPage";
 import { ChatPage } from "../pages/ChatPage";
 import { RewardsPage } from "../pages/RewardsPage";
+import { MilestonesPage } from "../pages/MilestonesPage";
 
 export interface PageProps {
 	session: Session;
@@ -50,6 +51,7 @@ const PORTED: Record<string, PageComponent> = {
 	Mail: MailPage,
 	Chat: ChatPage,
 	Rewards: RewardsPage,
+	Milestones: MilestonesPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
