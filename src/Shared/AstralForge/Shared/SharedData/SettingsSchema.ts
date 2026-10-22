@@ -64,7 +64,7 @@ const ENTRIES: ReadonlyArray<Entry> = table.freeze([
 	toggle("PageMusic", "sound", "Background music", "Play the soundtrack at all.", 1),
 	toggle("NotificationSounds", "sound", "Alert sounds", "Mail, unlocks and other pings.", 1),
 	toggle("HoverSounds", "sound", "Hover sounds", "A soft tick when you point at a button.", 1),
-	slider("UiVolume", "sound", "Menu clicks", "Taps and page turns.", 0.6, true),
+	slider("UiVolume", "sound", "Menu clicks", "Taps and page turns.", 0.9, true),
 	slider("GameplayVolume", "sound", "Gameplay sounds", "Machines, Star Foundry, arcade.", 1, true),
 	slider("RewardVolume", "sound", "Reward sounds", "Claims, crates, the wheel.", 1, true),
 	slider("AmbientVolume", "sound", "Ambience", "The quiet forge noise under the music.", 0.75, true),
