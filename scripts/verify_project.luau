@@ -67,3 +67,12 @@ require("./verify_expedition_board")
 -- ---- v8 C: Forge Programs ----
 require("./verify_forge_programs")
 -- ---- end v8 C: Forge Programs ----
+-- ---- rewrite 23-28 ----
+require("./verify_locale_pipeline")
+require("./lint_locale")
+require("./verify_log_policy")
+require("./verify_offline_progress")
+require("./verify_leaderboard_service")
+require("./verify_friend_graph")
+require("./verify_boot_order")
+-- ---- end rewrite 23-28 ----

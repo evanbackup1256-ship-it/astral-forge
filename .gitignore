@@ -38,3 +38,7 @@ assets/generated/icons/*.png
 
 # Flamework transformer build cache
 /flamework.build
+
+# CI output (scripts/ci.sh)
+/ci-report.txt
+/rbxtsc-ci.txt

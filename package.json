@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "rbxtsc && lune run scripts/verify_project.luau",
+    "ci": "bash scripts/ci.sh",
     "generate-config": "lune run build/GenerateGameConfig.luau"
   },
   "keywords": [],
