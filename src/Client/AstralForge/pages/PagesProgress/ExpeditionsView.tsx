@@ -488,6 +488,8 @@ function ExpeditionsView(props: Props) {
 		}
 	}
 	if (splitWide) {
+		// the columns are one scaffold section; their blocks still rise in one after another
+		const splitIndex = sections.size();
 		sections.push({
 			id: "slots",
 			height: math.max(stackHeight(openBlocks.map((b) => b.height), 16), stackHeight(runBlocks.map((b) => b.height), 16)),
@@ -496,8 +498,8 @@ function ExpeditionsView(props: Props) {
 					plan={plan}
 					height={math.max(stackHeight(openBlocks.map((b) => b.height), 16), stackHeight(runBlocks.map((b) => b.height), 16))}
 					sideOnRight={true}
-					main={<StackBlocks gap={16} blocks={openBlocks} />}
-					side={<StackBlocks gap={16} blocks={runBlocks} />}
+					main={<StackBlocks gap={16} riseFrom={splitIndex} blocks={openBlocks.map((b, i) => ({ ...b, rise: 0 + i }))} />}
+					side={<StackBlocks gap={16} riseFrom={splitIndex} blocks={runBlocks.map((b, i) => ({ ...b, rise: openBlocks.size() + i }))} />}
 				/>
 			),
 		});

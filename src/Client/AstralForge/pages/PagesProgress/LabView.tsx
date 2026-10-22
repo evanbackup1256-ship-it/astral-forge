@@ -733,8 +733,8 @@ function LabViewReady(props: LabProps) {
 					plan={plan}
 					height={math.max(stackHeight(orderSections.map((b) => b.height), ORDER_GAP + 4), stackHeight(powerSections.map((b) => b.height), ORDER_GAP + 4))}
 					sideOnRight={true}
-					main={<StackBlocks gap={ORDER_GAP + 4} blocks={orderSections} />}
-					side={<StackBlocks gap={ORDER_GAP + 4} blocks={powerSections} />}
+					main={<StackBlocks gap={ORDER_GAP + 4} riseFrom={1} blocks={orderSections.map((b, i) => ({ ...b, rise: 0 + i }))} />}
+					side={<StackBlocks gap={ORDER_GAP + 4} riseFrom={1} blocks={powerSections.map((b, i) => ({ ...b, rise: orderSections.size() + i }))} />}
 				/>
 			),
 		}]

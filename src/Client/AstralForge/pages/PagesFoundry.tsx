@@ -1094,8 +1094,8 @@ function FoundryView(props: {
 					plan={plan}
 					height={math.max(stackHeight(main.map((b) => b.height), GAP), stackHeight(side.map((b) => b.height), GAP))}
 					sideOnRight={true}
-					main={<StackBlocks gap={GAP} blocks={main} />}
-					side={<StackBlocks gap={GAP} blocks={side} />}
+					main={<StackBlocks gap={GAP} riseFrom={top.size()} blocks={main.map((b, i) => ({ ...b, rise: 0 + i }))} />}
+					side={<StackBlocks gap={GAP} riseFrom={top.size()} blocks={side.map((b, i) => ({ ...b, rise: main.size() + i }))} />}
 				/>
 			),
 		}];
