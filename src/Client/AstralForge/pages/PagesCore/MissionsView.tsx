@@ -683,7 +683,8 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 										height={splitH}
 										plan={plan}
 										side={
-											<frame Size={new UDim2(1, 0, 0, sideHeaderH)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
+											<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
+												<uisizeconstraint MinSize={new Vector2(0, sideHeaderH)} />
 												{sidePanel}
 											</frame>
 										}
@@ -692,6 +693,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 												{missionsList}
 											</frame>
 										}
+										sideOnRight={true}
 										name="MissionsSplit"
 									/>
 										)}
