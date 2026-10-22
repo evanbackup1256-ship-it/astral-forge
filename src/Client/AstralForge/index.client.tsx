@@ -893,23 +893,7 @@ const remotes: Remotes = {
 	Shutdown: network.events.shutdown,
 };
 ClientLog.debug("net", `connected to ${config.Game.Version}`);
-// Forge2 (the from-scratch client) mounts only when the AstralForgeClient2 attribute is set on
-// ReplicatedStorage or the local player; the old client stays the default until parity.
-const forge2 = load<typeof import("./Forge2")>("Forge2");
-if (forge2.forge2Enabled()) {
-	ClientLog.info("BOOT", "Forge2 client");
-	Audio.setScene("default");
-	runtime.render(
-		React.createElement(forge2.Forge2App, {
-			network,
-			bridge,
-			config: config as unknown as Record<string, unknown>,
-			version: tostring(config.Game.Version),
-		}),
-	);
-} else {
-	runtime.render(
-		<ClientBootstrap startedAt={clientStartedAt} connection={{ remotes, config }} shutdownLayer={runtime.shutdownLayer} />,
-	);
-}
+runtime.render(
+	<ClientBootstrap startedAt={clientStartedAt} connection={{ remotes, config }} shutdownLayer={runtime.shutdownLayer} />,
+);
 ClientLog.once("ui-ready", "ui", `${config.Game.Version} ui is up`);
