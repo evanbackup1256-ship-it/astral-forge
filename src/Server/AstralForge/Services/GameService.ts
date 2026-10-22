@@ -20,6 +20,7 @@ import { RemoteFirewall } from "./Security/RemoteFirewall";
 import * as ActionBuckets from "./Security/ActionBuckets";
 import * as PayloadShape from "./Security/PayloadShape";
 import { Ledger, Report } from "./Security/SecurityLedger";
+import { Roll as crateRoll, RollRecord as CrateRollRecord } from "../Modules/CrateRng";
 import { Ledgers as EconomyLedgers, Snapshot as walletSnapshot } from "../Modules/EconomyLedger";
 import { ServerEventService } from "./Gameplay/ServerEventService";
 import AnomalyModule = require("./Gameplay/Anomaly");
@@ -4034,18 +4035,23 @@ export class GameService {
 		return uid;
 	}
 
+	// Each roll draws from its own seeded stream (Modules/CrateRng); the seed is kept on
+	// _lastCrateRoll so a disputed or odd roll can be replayed exactly.
+	_lastCrateRoll: CrateRollRecord<Dict> | undefined;
+
 	_rollItemDefinition(crate: Dict, pity: number) {
-		return CrateRollResolver.roll(
-			crate,
+		const record = crateRoll<Dict>(
+			this._random.NextInteger(0, 0x7fffffff),
+			crate as never,
 			pity,
-			GameConfig.Items.Rarities,
-			GameConfig.Items.Definitions,
-			(definition: Dict) => definition.Rarity,
-			(lo: number, hi: number) => this._random.NextNumber(lo, hi),
-			(lo: number, hi: number) => this._random.NextInteger(lo, hi),
-			CrateConfig.RarityOrder,
-			CrateConfig.MinimumRollInterval,
+			GameConfig.Items.Rarities as never,
+			GameConfig.Items.Definitions as never,
+			(definition: Dict) => definition.Rarity as string,
+			CrateConfig.RarityOrder as never,
+			CrateConfig.MinimumRollInterval as never,
 		);
+		this._lastCrateRoll = record;
+		return $tuple(record.Definition, record.Rarity, record.PityHit);
 	}
 
 	// Abuse patterns that are only visible across requests. Each one is a flag, never a rejection
