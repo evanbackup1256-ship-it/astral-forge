@@ -17,6 +17,7 @@ import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppear
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 import {
 	Component,
 	Components,
@@ -2430,59 +2431,84 @@ function CratesSection(props: SectionProps) {
 			},
 		});
 	}
-	const chipsH = rowsHeight(crates.size(), columns, 58);
+	// desktop with room: crate picker on the left, stage + drop table on the right (list + detail)
+	const plan = splitColumns(stack ? 0 : props.width, 300);
+	const pickerColumns = plan.split ? 2 : columns;
+	const chipsH = rowsHeight(crates.size(), pickerColumns, 58);
+	const hero = {
+		id: "hero",
+		height: heroHeight(stack),
+		element: h(Hero, {
+			title: "Crates",
+			body: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
+			accent: Palette.violet,
+			icon: "Crate.4",
+			state: state,
+			stack: stack,
+			reveal: props.reveal,
+			reducedMotion: props.reducedMotion,
+		}),
+	};
+	const stageH = crateStageHeight(stack, crate);
+	const stage = {
+		id: "stage",
+		height: stageH,
+		element: h(CrateStage, {
+			key: crate.Id,
+			crate: crate,
+			config: config,
+			stack: stack,
+			keys: keys[crate.Id] ?? 0,
+			pity: items.Pity?.[crate.Id] ?? 0,
+			skin: skin,
+			busy: busy || props.crateRevealActive === true,
+			onOpen: onOpen,
+			reducedMotion: props.reducedMotion,
+		}),
+	};
+	const picker = {
+		id: "chips",
+		height: chipsH,
+		element: h(Grid, { columns: pickerColumns, cell: 58, height: chipsH, cells: chips }),
+	};
+	const dropsH = crateDropTableHeight(config.Items, crate, stack);
+	const drops = {
+		id: "drops",
+		height: dropsH,
+		element: h(CrateDropTable, {
+			key: crate.Id,
+			items: config.Items,
+			crate: crate,
+			pity: items.Pity?.[crate.Id] ?? 0,
+			stack: stack,
+		}),
+	};
+	let sections: { id: string; height: number; element: unknown }[];
+	if (plan.split) {
+		const detailH = stackHeight([stageH, dropsH], GAP);
+		const rowH = math.max(chipsH, detailH);
+		sections = [
+			hero,
+			{
+				id: "split",
+				height: rowH,
+				element: h(SplitColumns, {
+					name: "CrateSplit",
+					height: rowH,
+					plan: plan,
+					side: h(StackBlocks, { gap: GAP, blocks: [picker as never] }),
+					main: h(StackBlocks, { gap: GAP, blocks: [stage as never, drops as never] }),
+				}),
+			},
+		];
+	} else {
+		sections = [hero, stage, picker, drops];
+	}
 	return h(PageScaffold, {
 		gap: GAP,
 		tailPad: props.tailPad,
 		scrollBarColor: Palette.violet,
-		sections: [
-			{
-				id: "hero",
-				height: heroHeight(stack),
-				element: h(Hero, {
-					title: "Crates",
-					body: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
-					accent: Palette.violet,
-					icon: "Crate.4",
-					state: state,
-					stack: stack,
-					reveal: props.reveal,
-					reducedMotion: props.reducedMotion,
-				}),
-			},
-			{
-				id: "stage",
-				height: crateStageHeight(stack, crate),
-				element: h(CrateStage, {
-					key: crate.Id,
-					crate: crate,
-					config: config,
-					stack: stack,
-					keys: keys[crate.Id] ?? 0,
-					pity: items.Pity?.[crate.Id] ?? 0,
-					skin: skin,
-					busy: busy || props.crateRevealActive === true,
-					onOpen: onOpen,
-					reducedMotion: props.reducedMotion,
-				}),
-			},
-			{
-				id: "chips",
-				height: chipsH,
-				element: h(Grid, { columns: columns, cell: 58, height: chipsH, cells: chips }),
-			},
-			{
-				id: "drops",
-				height: crateDropTableHeight(config.Items, crate, stack),
-				element: h(CrateDropTable, {
-					key: crate.Id,
-					items: config.Items,
-					crate: crate,
-					pity: items.Pity?.[crate.Id] ?? 0,
-					stack: stack,
-				}),
-			},
-		],
+		sections: sections,
 	});
 }
 
@@ -2799,12 +2825,12 @@ function SkinsSection(props: SectionProps) {
 	}
 	const cellH = 156;
 	const noSkins = skinBrowse.results.size() === 0;
-	const gridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), columns, cellH);
-	return h(PageScaffold, {
-		gap: GAP,
-		tailPad: props.tailPad,
-		scrollBarColor: Palette.cyan,
-		sections: [
+	// desktop with room: the preview becomes a side column next to the filter + grid
+	const plan = splitColumns(stack ? 0 : props.width, 340);
+	const gridColumns = plan.split ? (plan.main >= 640 ? 3 : 2) : columns;
+	const previewStack = stack || plan.split;
+	const gridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), gridColumns, cellH);
+	const sections: { id: string; height: number; element: unknown }[] = [
 			{
 				id: "hero",
 				height: heroHeight(stack),
@@ -2821,13 +2847,13 @@ function SkinsSection(props: SectionProps) {
 			},
 			{
 				id: "preview",
-				height: stack ? 200 + 8 + 140 + TapTarget + 28 : 278,
+				height: previewStack ? 200 + 8 + 140 + TapTarget + 28 : 278,
 				element: h(SkinPreview, {
 					key: skin?.Id,
 					skin: skin!,
 					state: state,
 					cosmetics: cosmetics,
-					stack: stack,
+					stack: previewStack,
 					busy: busy,
 					onAction: onAction,
 					reducedMotion: props.reducedMotion,
@@ -2858,9 +2884,37 @@ function SkinsSection(props: SectionProps) {
 							accent: Palette.cyan,
 							size: UDim2.fromScale(1, 1),
 						})
-					: h(Grid, { columns: columns, cell: cellH, height: gridH, cells: cells }),
+					: h(Grid, { columns: gridColumns, cell: cellH, height: gridH, cells: cells }),
 			},
-		],
+	];
+	if (plan.split) {
+		const [hero, preview, filter, grid] = [sections[0], sections[1], sections[2], sections[3]];
+		const rowH = math.max(preview.height, stackHeight([filter.height, grid.height], GAP));
+		return h(PageScaffold, {
+			gap: GAP,
+			tailPad: props.tailPad,
+			scrollBarColor: Palette.cyan,
+			sections: [
+				hero,
+				{
+					id: "split",
+					height: rowH,
+					element: h(SplitColumns, {
+						name: "SkinSplit",
+						height: rowH,
+						plan: plan,
+						side: h(StackBlocks, { gap: GAP, blocks: [preview as never] }),
+						main: h(StackBlocks, { gap: GAP, blocks: [filter as never, grid as never] }),
+					}),
+				},
+			],
+		});
+	}
+	return h(PageScaffold, {
+		gap: GAP,
+		tailPad: props.tailPad,
+		scrollBarColor: Palette.cyan,
+		sections: sections,
 	});
 }
 
@@ -3695,7 +3749,8 @@ function StoreFront(props: StoreFrontProps) {
 		dispatch: props.dispatch,
 		reducedMotion: softMotion,
 		stack: stack,
-		width: viewport.width,
+		// columns follow the page's own content width (the nav rail / side chrome is already excluded)
+		width: contentWidth,
 		reveal: reveal,
 		tailPad: scrollTail(stack, chrome.bottomSafe, 32),
 		navigate: props.navigate,
