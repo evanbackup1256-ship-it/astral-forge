@@ -8,13 +8,29 @@ export const IRON_RADIUS = 4;
 export const BRASS = Color3.fromRGB(170, 126, 70);
 export const BRASS_HOT = Color3.fromRGB(214, 170, 104);
 
-const FALLOFF = new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.4)]);
-const SHADE = new ColorSequence(Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 170, 180));
+// Shading lives on its own child plate ("IronShade") at ZIndex 0, so the host tile never gains a
+// UIGradient of its own: a tile that already has (or later gets) a gradient keeps it untouched,
+// and there is no way for two UIGradients to land on one instance.
+const SHADE_FALLOFF = new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(1, 0.6)]);
 
-/** gradient falloff + brass top lip; pass `lip: false` for small chips */
+/** falloff shade plate + brass top lip; pass `lip: false` for small chips */
 export function ironFace(lip = true): React.Element {
 	const out: React.Element[] = [
-		React.createElement("uigradient", { key: "IronFace", Rotation: 90, Transparency: FALLOFF, Color: SHADE }),
+		React.createElement(
+			"frame",
+			{
+				key: "IronShade",
+				Size: UDim2.fromScale(1, 1),
+				BackgroundColor3: Color3.fromRGB(0, 0, 0),
+				BackgroundTransparency: 0,
+				BorderSizePixel: 0,
+				Active: false,
+				Selectable: false,
+				ZIndex: 0,
+			},
+			React.createElement("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }),
+			React.createElement("uigradient", { Rotation: 90, Transparency: SHADE_FALLOFF }),
+		),
 	];
 	if (lip) {
 		out.push(
@@ -25,6 +41,7 @@ export function ironFace(lip = true): React.Element {
 				BackgroundColor3: BRASS,
 				BackgroundTransparency: 0.55,
 				BorderSizePixel: 0,
+				Active: false,
 			}),
 		);
 	}
