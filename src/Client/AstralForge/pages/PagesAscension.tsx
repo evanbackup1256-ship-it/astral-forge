@@ -1,6 +1,8 @@
 // Ascension: the final, endless reset. One hero (rank, Aether, production), the ascend panel with a
 // hold-to-confirm button, a harmony strip, and the six sigils.
 import React from "@rbxts/react";
+import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { useClock, useFlipperSpring, useViewport } from "../MotionKit/motion";
@@ -337,7 +339,7 @@ interface AscensionViewProps {
 	dispatch: (action: string, payload: object, callback: (response: unknown) => void) => void;
 }
 
-function AscensionView(props: AscensionViewProps) {
+function AscensionViewBoard(props: AscensionViewProps) {
 	const state = props.state.Ascension;
 	const softMotion = props.reducedMotion;
 	const viewport = useViewport();
@@ -547,7 +549,10 @@ function AscensionView(props: AscensionViewProps) {
 	);
 
 	// sigils
-	const columns = stack ? 1 : viewport.width >= 1300 ? 3 : 2;
+	// wide desktop: the star charts get their own column beside the Ascension board
+	const plan = splitColumns(stack || !typeIs(props.state.Constellations, "table") ? 0 : viewport.width, 440, GAP, 1500);
+	const sideColumn = plan.split;
+	const columns = stack ? 1 : sideColumn ? 2 : viewport.width >= 1300 ? 3 : 2;
 	const cardH = 168;
 	const rows = math.ceil(state.Sigils.size() / columns);
 	const cards: Record<string, React.Element> = {};
@@ -577,10 +582,10 @@ function AscensionView(props: AscensionViewProps) {
 	if (typeIs(charts, "table")) {
 		add(
 			"constellations",
-			constellationsHeight(stack),
+			constellationsHeight(stack || sideColumn),
 			<ConstellationsView
 				state={charts}
-				stack={stack}
+				stack={stack || sideColumn}
 				reducedMotion={softMotion}
 				dispatch={(action, payload, callback) =>
 					props.dispatch(action, payload ?? {}, (raw) => {
@@ -593,7 +598,46 @@ function AscensionView(props: AscensionViewProps) {
 			/>,
 		);
 	}
+	if (sideColumn) {
+		const side = sections.filter((section) => section.id === "constellations");
+		const main = sections.filter((section) => section.id !== "constellations");
+		const height = math.max(stackHeight(side.map((section) => section.height), GAP), stackHeight(main.map((section) => section.height), GAP));
+		const split: Section = {
+			id: "split",
+			height,
+			element: <SplitColumns name="AscensionSplit" height={height} plan={plan} sideOnRight={true} side={<StackBlocks gap={GAP} blocks={side} />} main={<StackBlocks gap={GAP} blocks={main} />} />,
+		};
+		return <PageScaffold sections={[split]} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
+	}
 	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
+}
+
+// a gamepad lands on the page's primary action (claim/confirm/buy-tagged controls first) when it opens
+function usePadEntry(ref: React.MutableRefObject<Frame | undefined>, key: unknown) {
+	React.useEffect(() => {
+		if (!game.GetService("UserInputService").GamepadEnabled) {
+			return undefined;
+		}
+		const job = task.defer(() => {
+			const host = ref.current;
+			if (host !== undefined && host.Parent !== undefined) {
+				GamepadNavigationService.FocusClaim(host);
+			}
+		});
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [key]);
+}
+
+function AscensionView(props: AscensionViewProps) {
+	const hostRef = React.useRef<Frame>();
+	usePadEntry(hostRef, props.state.Ascension?.CanAscend === true);
+	return (
+		<frame ref={hostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<AscensionViewBoard {...props} />
+		</frame>
+	);
 }
 
 export = () => ({ AscensionView });
