@@ -1417,7 +1417,7 @@ function TopBarImpl(_param: TopBarProps) {
 						Size: UDim2.fromOffset(0, 0),
 						Position: islandDetached
 							? UDim2.fromOffset(_param.islandX! - edgePad, _param.islandY! - topPad)
-							: new UDim2(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
+							: new UDim2(0, islandLeft + islandRoom / 2, 0, math.max(0, math.floor((row1H - 44) / 2))),
 						BackgroundTransparency: 1,
 						ZIndex: 24,
 					},
@@ -1441,7 +1441,7 @@ function TopBarImpl(_param: TopBarProps) {
 				liveVaultFull: true,
 				navigate: _param.navigate,
 				maxWidth: islandDetached ? math.max(islandRoom, 420) : islandRoom,
-				position: islandDetached || islandScale !== 1 ? new UDim2() : new UDim2(0, islandLeft + islandRoom / 2, 0, math.floor((row1H - 44) / 2)),
+				position: islandDetached || islandScale !== 1 ? new UDim2() : new UDim2(0, islandLeft + islandRoom / 2, 0, math.max(0, math.floor((row1H - 44) / 2))),
 				anchorPoint: new Vector2(0.5, 0),
 				reducedMotion: reducedMotion,
 			})),

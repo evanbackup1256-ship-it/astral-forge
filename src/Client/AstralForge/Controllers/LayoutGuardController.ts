@@ -87,7 +87,14 @@ const MIN_TOUCH_TARGET = 44;
 const INPUT_SHIELD_SHARE = 0.8;
 const COLLISION_CELL = 96;
 const DIRTY_DESCENDANT_CAP = 128;
-const REPORT_EVERY = 60;
+const REPORT_EVERY = 300;
+const ReplicatedStorageService = game.GetService("ReplicatedStorage");
+// The guard is a development tool: it only watches the UI when ReplicatedStorage has
+// AstralLayoutGuard (or AstralDebugLogs) set to true. In normal play it never binds or ticks.
+const GATE_RECHECK_SECONDS = 2;
+function guardEnabled(): boolean {
+	return ReplicatedStorageService.GetAttribute("AstralLayoutGuard") === true || ReplicatedStorageService.GetAttribute("AstralDebugLogs") === true;
+}
 const FRAME_BUDGET_SECONDS = 0.0015;
 // Live clients use a smaller budget; all diagnostics and bounded collision passes still run.
 const IS_STUDIO = game.GetService("RunService").IsStudio();
@@ -172,7 +179,7 @@ function noteThrash(inst: Instance) {
 	entry.thrash += 1;
 	if (entry.thrash === THRASH_LIMIT) {
 		stats.signaturesSuppressed += 1;
-		ClientLog.warnEvery(`layoutguard:fight:${signature}`, 120, "LayoutGuard", `${signature} keeps undoing repairs; learned to leave it alone`);
+		ClientLog.debug("LayoutGuard", `${signature} keeps undoing repairs; learned to leave it alone`);
 	}
 }
 function isFiniteNumber(value: number): boolean {
@@ -377,6 +384,10 @@ function repairButton(button: GuiButton): undefined {
 		tryCount.delete(button);
 		return undefined;
 	}
+	// a floating overlay grows past the bar it is docked to by design
+	if (button.GetAttribute(FLOATING_ATTRIBUTE) === true) {
+		return undefined;
+	}
 	if (isActionable(button) && diagnostics.record(button, "ActionOutsideParent", `Action exceeds its padded parent by ${math.ceil(parentOverflow)}px`)) {
 		stats.actionsOutsideParent += 1;
 	}
@@ -491,7 +502,7 @@ function repairScrollingFrame(descendant: ScrollingFrame): undefined {
 		shortY ? 0 : canvas.Y.Scale, shortY ? math.ceil(maxBottom) : canvas.Y.Offset,
 	);
 	stats.canvasDesyncFixed += 1;
-	ClientLog.warnEvery(`layoutguard:canvas:${descendant.GetFullName()}`, 30, "LayoutGuard", `${descendant.Name} CanvasSize was shorter than its content; scoped recovery applied`);
+	ClientLog.debug("LayoutGuard", `${descendant.Name} CanvasSize was shorter than its content; scoped recovery applied`);
 	return undefined;
 }
 function interactionLayer(instance: Instance): LayerCollector | undefined {
@@ -500,6 +511,39 @@ function interactionLayer(instance: Instance): LayerCollector | undefined {
 		current = current.Parent;
 	}
 	return current as LayerCollector | undefined;
+}
+// Floating overlays (the buff island, popovers) are meant to sit over the page, and sections
+// mid-entrance slide through their neighbours for a few frames. Neither is a layout defect.
+const FLOATING_ATTRIBUTE = "LayoutFloating";
+const MOVING_ATTRIBUTE = "LayoutInMotion";
+function floatingRoot(instance: Instance): Instance | undefined {
+	let current: Instance | undefined = instance;
+	while (current !== undefined && !current.IsA("LayerCollector")) {
+		if (current.GetAttribute(FLOATING_ATTRIBUTE) === true) {
+			return current;
+		}
+		current = current.Parent;
+	}
+	return undefined;
+}
+function inMotion(instance: Instance): boolean {
+	let current: Instance | undefined = instance;
+	while (current !== undefined && !current.IsA("LayerCollector")) {
+		if (current.GetAttribute(MOVING_ATTRIBUTE) === true) {
+			return true;
+		}
+		current = current.Parent;
+	}
+	return false;
+}
+function shortPath(instance: Instance): string {
+	const parts: string[] = [];
+	let current: Instance | undefined = instance;
+	while (current !== undefined && parts.size() < 5 && !current.IsA("LayerCollector")) {
+		parts.unshift(current.Name);
+		current = current.Parent;
+	}
+	return parts.join(".");
 }
 function isAncestorOf(ancestor: Instance, instance: Instance): boolean {
 	let current = instance.Parent;
@@ -595,6 +639,9 @@ function checkOverlappingHitboxes(root: Instance | Instance[]) {
 					if (isAncestorOf(a, b) || isAncestorOf(b, a)) {
 						continue;
 					}
+					if (floatingRoot(a) !== floatingRoot(b) || inMotion(a) || inMotion(b)) {
+						continue;
+					}
 					const overlap = overlapArea(left.rect, right.rect);
 					const smaller = math.min(left.area, right.area);
 					const threshold = a.Parent === b.Parent ? 0.12 : a.ZIndex === b.ZIndex ? 0.35 : 0.2;
@@ -607,7 +654,7 @@ function checkOverlappingHitboxes(root: Instance | Instance[]) {
 						culprit = b;
 						victim = a;
 					}
-					if (diagnostics.record(culprit, "ActionCollision", `Overlaps ${victim.GetFullName()} by ${math.floor(overlap / smaller * 100 + 0.5)}% at the same input layer`)) {
+					if (diagnostics.record(culprit, "ActionCollision", `Overlaps ${shortPath(victim)} by ${math.floor(overlap / smaller * 100 + 0.5)}% at the same input layer`)) {
 						stats.actionCollisions += 1;
 					}
 				}
@@ -1390,7 +1437,18 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 	}
 
 	// Flamework calls this every Heartbeat; a failure is logged at most every 15s instead of every frame.
+	private gateCheckedAt = -math.huge;
+	private gateOpen = false;
+
 	onTick(dt: number) {
+		const now = os.clock();
+		if (now - this.gateCheckedAt >= GATE_RECHECK_SECONDS) {
+			this.gateCheckedAt = now;
+			this.gateOpen = guardEnabled();
+		}
+		if (!this.gateOpen) {
+			return;
+		}
 		const [ok, reason] = pcall(() => this.tick(dt));
 		if (!ok) {
 			ClientLog.warnEvery("framework-layout guard tick", 15, "framework", `layout guard tick failed: ${tostring(reason)}`);
@@ -1493,7 +1551,7 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 		}
 		const delta = total - this.reportedTotal;
 		this.reportedTotal = total;
-		ClientLog.info("LayoutGuard", `${delta} layout diagnostic${delta === 1 ? "" : "s"} in the last ${REPORT_EVERY}s; component owners retain geometry`, {
+		ClientLog.debug("LayoutGuard", `${delta} layout diagnostic${delta === 1 ? "" : "s"} in the last ${REPORT_EVERY}s; component owners retain geometry`, {
 			tracked: this.tracked.size(),
 			textFit: stats.textFitFixed,
 			textOffButton: stats.textClearedOfButton,
@@ -1534,7 +1592,7 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 			shown.add(key);
 			this.reportedActions.add(key);
 			named += 1;
-			ClientLog.info("LayoutGuard", `${issue.Kind}: ${issue.Path}`, { owner: issue.Owner, detail: issue.Detail, samples: issue.Samples });
+			ClientLog.debug("LayoutGuard", `${issue.Kind}: ${issue.Path}`, { owner: issue.Owner, detail: issue.Detail, samples: issue.Samples });
 		}
 		return undefined;
 	}

@@ -1187,15 +1187,19 @@ __defs["pageScaffold"] = () => {
 	const h = React.createElement as unknown as LooseCreate;
 
 	// sections rise into place one after another when a page opens (once; layout changes don't replay it)
-	function sectionEntrance(index: number): Binding<number> {
+	// while a section is still rising it is tagged LayoutInMotion so the layout guard ignores the
+	// few frames where it slides through its neighbour
+	function sectionEntrance(index: number, riseRef: MutableRefObject<GuiObject | undefined>): Binding<number> {
 		const [amount, setAmount] = React.useBinding(0);
 		React.useEffect(() => {
 			const start = os.clock() + math.min(index, 8) * 0.055;
+			riseRef.current?.SetAttribute("LayoutInMotion", true);
 			const connection = game.GetService("RunService").RenderStepped.Connect(() => {
 				const t = math.clamp((os.clock() - start) / 0.45, 0, 1);
 				setAmount(t);
 				if (t >= 1) {
 					connection.Disconnect();
+					riseRef.current?.SetAttribute("LayoutInMotion", undefined);
 				}
 			});
 			return () => {
@@ -1233,7 +1237,8 @@ __defs["pageScaffold"] = () => {
 			},
 			[props.frameRef, props.id],
 		);
-		const entrance = sectionEntrance(props.layoutOrder ?? 0);
+		const riseRef = React.useRef<GuiObject>();
+		const entrance = sectionEntrance(props.layoutOrder ?? 0, riseRef);
 		return h(
 			"frame",
 			{
@@ -1249,6 +1254,7 @@ __defs["pageScaffold"] = () => {
 				"frame",
 				{
 					Name: "Rise",
+					ref: riseRef,
 					Size: UDim2.fromScale(1, 1),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,

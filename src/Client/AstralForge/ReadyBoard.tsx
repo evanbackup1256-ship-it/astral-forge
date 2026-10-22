@@ -3,6 +3,7 @@
 import React from "@rbxts/react";
 import * as theme from "./CoreKit/theme";
 import CrewStore = require("./CrewStore");
+import { useChangePop, useHoverPress, useListStagger } from "./MotionKit/motion";
 
 const TextService = game.GetService("TextService");
 const Players = game.GetService("Players");
@@ -42,6 +43,7 @@ interface StripProps {
 	onOpen: (route: string) => void;
 	onFind?: () => void;
 	compact?: boolean;
+	reducedMotion?: boolean;
 }
 
 interface PillProps {
@@ -50,6 +52,7 @@ interface PillProps {
 	layoutOrder: number;
 	brief: boolean;
 	onOpen: (route: string) => void;
+	reducedMotion?: boolean;
 }
 
 interface BoardApi {
@@ -176,7 +179,10 @@ function total(list: ReadyEntry[]): number {
 
 function Pill(props: PillProps): React.Element {
 	const entry = props.entry;
-	const [hovered, setHovered] = React.useState(false);
+	// lifts on hover, dips on press, rises in after the pills before it, and the count hops when it changes
+	const [hoverScale, hoverEvents, hovered] = useHoverPress(props.reducedMotion);
+	const arrive = useListStagger(props.layoutOrder, props.reducedMotion);
+	const countPop = useChangePop(entry.count, props.reducedMotion, 0.24);
 	return h(
 		"textbutton",
 		{
@@ -192,10 +198,12 @@ function Pill(props: PillProps): React.Element {
 					Audio.play("tabSwitch");
 					props.onOpen(entry.route);
 				},
-				MouseEnter: () => setHovered(true),
-				MouseLeave: () => setHovered(false),
+				...hoverEvents,
 			},
 		},
+		h("uiscale", {
+			Scale: React.joinBindings([hoverScale, arrive]).map(([s, a]) => s * (0.86 + 0.14 * math.clamp(a, 0, 1.05))),
+		}),
 		h("uicorner", { CornerRadius: new UDim(0, 12) }),
 		h("uistroke", {
 			Color: entry.accent,
@@ -241,6 +249,7 @@ function Pill(props: PillProps): React.Element {
 				BorderSizePixel: 0,
 				LayoutOrder: 2,
 			},
+			h("uiscale", { Scale: countPop }),
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uipadding", {
 				PaddingLeft: new UDim(0, 12),
@@ -268,9 +277,13 @@ function textWidth(text: string, font: Enum.Font): number {
 function pillWidth(entry: ReadyEntry, brief: boolean): number {
 	const label = textWidth(entry.label, Enum.Font.BuilderSansBold);
 	const detail = brief ? 0 : textWidth("  " + entry.detail, Enum.Font.BuilderSansMedium);
-	const count = textWidth(tostring(entry.count), Enum.Font.BuilderSansExtraBold) + 16;
-	return 10 + 20 + 8 + label + detail + 8 + count + 12;
+	const count = textWidth(tostring(entry.count), Enum.Font.BuilderSansExtraBold) + 24;
+	// matches Pill: 16 padding, 20 icon, 12 gap, label, 12 gap, count pill (12 + text + 12), 16 padding
+	return 16 + 20 + 12 + label + detail + 12 + count + 16;
 }
+
+// the strip's list padding; plan() must use the same gap or the last pill slides under Find
+const PILL_GAP = 12;
 
 // Fit pills into `room`: full pills if they all fit, else label-only pills, else as many label-only
 // pills as fit beside a "+N" pill. Returns (shown, brief, hidden) so nothing is cut by the edge.
@@ -279,7 +292,7 @@ function plan(list: ReadyEntry[], room: number, widthOf?: (entry: ReadyEntry, br
 	function calculateTotal(entries: ReadyEntry[], brief: boolean, extra?: number): number {
 		let sum = extra ?? 0;
 		for (let index = 0; index < entries.size(); index++) {
-			sum += width(entries[index], brief) + (index > 0 || extra !== undefined ? 8 : 0);
+			sum += width(entries[index], brief) + (index > 0 || extra !== undefined ? PILL_GAP : 0);
 		}
 		return sum;
 	}
@@ -326,12 +339,12 @@ function Strip(props: StripProps): React.Element {
 			FillDirection: Enum.FillDirection.Horizontal,
 			VerticalAlignment: Enum.VerticalAlignment.Center,
 			SortOrder: Enum.SortOrder.LayoutOrder,
-			Padding: new UDim(0, 12),
+			Padding: new UDim(0, PILL_GAP),
 		}),
 	};
 	for (let index = 0; index < shownList.size(); index++) {
 		const entry = shownList[index];
-		children[entry.route] = h(Pill, { entry, layoutOrder: index, height: pillH, onOpen: props.onOpen, brief });
+		children[entry.route] = h(Pill, { entry, layoutOrder: index, height: pillH, onOpen: props.onOpen, brief, reducedMotion: props.reducedMotion });
 	}
 	if (hidden > 0) {
 		children.more = h("textbutton", {

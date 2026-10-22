@@ -1653,6 +1653,10 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 	const [live, setLive] = React.useState<IslandNotice | undefined>(undefined);
 	const [queued, setQueued] = React.useState(0);
 	const islandRef = React.useRef<GuiObject>(undefined);
+	// the island docks in the top bar but opens over the page: it is its own floating layer
+	React.useEffect(() => {
+		islandRef.current?.SetAttribute("LayoutFloating", true);
+	}, []);
 	React.useEffect(() => {
 		return Juice.subscribeIsland((current, waiting) => {
 			setLive(current !== undefined ? (table.clone(current) as IslandNotice) : undefined);
