@@ -10,6 +10,7 @@ import { useAntilag } from "../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../MotionKit/motion";
 import { Icon } from "../ArtKit/Icon";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
 import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
@@ -1288,6 +1289,18 @@ __defs["TradeView"] = () => {
 			const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(measure);
 			return () => connection.Disconnect();
 		}, [session === undefined]);
+		// gamepad (lobby): incoming invite > outgoing > search > roster > Invite > history ("Trade again");
+		// on desktop the roster column (Main) and history column (Side, right) step left/right.
+		// The live session keeps its own FocusClaim on the Ready/Confirm bar.
+		useFocusOrder(
+			lobbyHostRef,
+			{
+				regions: ["daily", "lock", "invite", "outgoing", "search", "roster", "invite-cta", "history-*"],
+				first: ["invite", "roster", "invite-cta", "search"],
+				columns: [["Main", "Side"]],
+			},
+			[session === undefined],
+		);
 		const inventory = state.Items?.Inventory ?? {};
 		const equippedUids: Record<string, boolean> = {};
 		for (const [, uid] of pairs((state.Items?.Equipped ?? {}) as Record<string, string>)) {
