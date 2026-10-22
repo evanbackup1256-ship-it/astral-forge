@@ -18,6 +18,7 @@ import { StarGridPage } from "../pages/StarGridPage";
 import { EchoesPage } from "../pages/EchoesPage";
 import { MailPage } from "../pages/MailPage";
 import { ChatPage } from "../pages/ChatPage";
+import { RewardsPage } from "../pages/RewardsPage";
 
 export interface PageProps {
 	session: Session;
@@ -48,6 +49,7 @@ const PORTED: Record<string, PageComponent> = {
 	Echoes: EchoesPage,
 	Mail: MailPage,
 	Chat: ChatPage,
+	Rewards: RewardsPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
