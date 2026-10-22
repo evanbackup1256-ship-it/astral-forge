@@ -1,21 +1,12 @@
+import { isGamepadInput } from "./inputLayer";
 const HapticService = game.GetService("HapticService");
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
 
 let hapticIntensity = 1;
 const motorGenerations = new Map<Enum.UserInputType, number>();
-const GAMEPAD_INPUTS: Enum.UserInputType[] = [
-	Enum.UserInputType.Gamepad1,
-	Enum.UserInputType.Gamepad2,
-	Enum.UserInputType.Gamepad3,
-	Enum.UserInputType.Gamepad4,
-];
 const RUMBLE_MOTORS = [Enum.VibrationMotor.Small, Enum.VibrationMotor.Large];
 const vibrationSupport = new Map<Enum.UserInputType, Enum.VibrationMotor[]>();
-
-function isGamepadInput(input: Enum.UserInputType): boolean {
-	return GAMEPAD_INPUTS.includes(input);
-}
 
 let gamepadWatchInstalled = false;
 function watchGamepads() {

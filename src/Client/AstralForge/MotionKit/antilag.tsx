@@ -1,3 +1,4 @@
+import { isConstrainedInput } from "../CoreKit/inputLayer";
 import type { RequestFunction } from "../ClientNetwork";
 import React from "@rbxts/react";
 import { ClientLog, QualitySample, recordPerformanceTelemetry } from "../CoreKit/log";
@@ -7,10 +8,7 @@ const Stats = game.GetService("Stats");
 const UserInputService = game.GetService("UserInputService");
 
 export function constrainedDevice(): boolean {
-	if (UserInputService.TouchEnabled && !UserInputService.MouseEnabled) {
-		return true;
-	}
-	if (UserInputService.GamepadEnabled && !UserInputService.KeyboardEnabled && !UserInputService.MouseEnabled) {
+	if (isConstrainedInput()) {
 		return true;
 	}
 	const [preferredOk, preferred] = pcall(() => UserInputService.PreferredInput);

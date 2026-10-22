@@ -1,8 +1,7 @@
 import { vendoredTs } from "../vendor";
 import * as GamepadNavigationService from "./GamepadNavigationService";
 import * as TouchGestureService from "./TouchGestureService";
-
-const UserInputService = game.GetService("UserInputService");
+import { activeKind, stopInputLayer } from "./inputLayer";
 
 interface ThreeA {
 	Input: { setMethods(this: void, methods: unknown[]): void };
@@ -16,11 +15,8 @@ export function configureInputPlatform(): () => void {
 		return () => {};
 	}
 	const { Input, InputMethod } = vendoredTs<ThreeA>("3a");
-	const methods = UserInputService.TouchEnabled
-		? [InputMethod.Touchscreen]
-		: UserInputService.GamepadEnabled
-			? [InputMethod.Gamepad]
-			: [InputMethod.KeyboardMouse];
+	const kind = activeKind();
+	const methods = [kind === "Touch" ? InputMethod.Touchscreen : kind === "Gamepad" ? InputMethod.Gamepad : InputMethod.KeyboardMouse];
 	const [ok, problem] = pcall(() => Input.setMethods(methods));
 	if (!ok) {
 		warn("[ERROR] [INPUT] setMethods failed | Error: " + tostring(problem));
@@ -31,6 +27,7 @@ export function configureInputPlatform(): () => void {
 	return () => {
 		TouchGestureService.Stop();
 		GamepadNavigationService.Stop();
+		stopInputLayer();
 		configured = false;
 	};
 }

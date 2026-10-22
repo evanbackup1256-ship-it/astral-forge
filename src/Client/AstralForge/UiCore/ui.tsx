@@ -1,3 +1,4 @@
+import { isTouchOnly, lastInputIsGamepad } from "../CoreKit/inputLayer";
 import React from "@rbxts/react";
 import { TooltipContent, labelFor, mergeEvents, useTooltip } from "../Tooltip";
 import ReactRoblox from "@rbxts/react-roblox";
@@ -59,7 +60,7 @@ const UserInputService = game.GetService("UserInputService");
 // Mouse desktops stay false, so nothing changes there.
 export function useTouchTargets(): boolean {
 	const stack = chromeFor(useViewport()).stack;
-	return stack || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
+	return stack || isTouchOnly();
 }
 
 // ---------- unconverted sibling modules (Luau), loaded the way Luau loads them ----------
@@ -265,15 +266,6 @@ function assignSelectedObject(object: Instance | undefined) {
 	pcall(() => {
 		GuiService.SelectedObject = object;
 	});
-}
-function lastInputIsGamepad(): boolean {
-	const inputType = UserInputService.GetLastInputType();
-	return (
-		inputType === Enum.UserInputType.Gamepad1 ||
-		inputType === Enum.UserInputType.Gamepad2 ||
-		inputType === Enum.UserInputType.Gamepad3 ||
-		inputType === Enum.UserInputType.Gamepad4
-	);
 }
 export function useGamepadAutofocus(active: boolean): React.MutableRefObject<GuiObject | undefined> {
 	const rootRef = React.useRef<GuiObject>();

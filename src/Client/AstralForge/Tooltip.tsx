@@ -1,3 +1,4 @@
+import { isTouchOnly } from "./CoreKit/inputLayer";
 // Tooltips: one bubble for the whole game, drawn as a small Surface by <TooltipProvider> (mounted
 // once at the UI root) in its own top-layer ScreenGui.
 //
@@ -284,7 +285,7 @@ export function useTooltip(content: TooltipContent | undefined): TooltipEvents {
 		};
 		return {
 			MouseEnter: (rbx) => {
-				if (UserInputService.TouchEnabled && !UserInputService.MouseEnabled) {
+				if (isTouchOnly()) {
 					return;
 				}
 				if (readContent(read()) !== undefined) {

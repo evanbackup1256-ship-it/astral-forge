@@ -1,3 +1,4 @@
+import { isConstrainedInput } from "./CoreKit/inputLayer";
 import type React from "@rbxts/react";
 
 const __defs: Record<string, () => unknown> = {};
@@ -1789,9 +1790,7 @@ __defs["scrolling"] = () => {
 	let lastScrollSound = -math.huge;
 	let motionDriver: RBXScriptConnection | undefined;
 	const globalConnections = new Array<RBXScriptConnection>();
-	const CONSTRAINED_SCROLL =
-		(UserInputService.TouchEnabled && !UserInputService.MouseEnabled) ||
-		(UserInputService.GamepadEnabled && !UserInputService.KeyboardEnabled && !UserInputService.MouseEnabled);
+	const CONSTRAINED_SCROLL = isConstrainedInput();
 	let titleFxHoldUntil = 0;
 
 	function holdTitleFx() {
