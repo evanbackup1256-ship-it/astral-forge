@@ -9,7 +9,7 @@ import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../Co
 import { useAntilag } from "../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../MotionKit/motion";
 import { Icon } from "../ArtKit/Icon";
-import { useTouchTargets } from "../UiCore/ui";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
 import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
@@ -1272,6 +1272,22 @@ __defs["TradeView"] = () => {
 		const offerSessionRef = React.useRef<string | undefined>(session !== undefined ? session.Id : undefined);
 		const [offerPending, setOfferPending] = React.useState(false);
 		const sessionActionsHostRef = React.useRef<Frame>();
+		// lobby layout: measured content width decides whether history gets its own column
+		const lobbyHostRef = React.useRef<Frame>();
+		const [lobbyWidth, setLobbyWidth] = React.useState(0);
+		React.useEffect(() => {
+			const host = lobbyHostRef.current;
+			if (host === undefined) {
+				return undefined;
+			}
+			const measure = () => {
+				const measured = math.floor(host.AbsoluteSize.X);
+				setLobbyWidth((current) => (current === measured ? current : measured));
+			};
+			measure();
+			const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(measure);
+			return () => connection.Disconnect();
+		}, [session === undefined]);
 		const inventory = state.Items?.Inventory ?? {};
 		const equippedUids: Record<string, boolean> = {};
 		for (const [, uid] of pairs((state.Items?.Equipped ?? {}) as Record<string, string>)) {
@@ -2654,6 +2670,10 @@ __defs["TradeView"] = () => {
 		}
 		// completed trades, newest first: who, when, what changed hands
 		const history = (trade !== undefined && typeIs(trade.History, "table") ? trade.History : []) as HistoryEntry[];
+		// desktop with room (and a short, non-virtualised roster): history moves to a right-hand column
+		const lobbyPlan = splitColumns(phone ? 0 : lobbyWidth, 360, chrome.landscape ? 8 : Layout.stackGap);
+		const splitLobby = lobbyPlan.split && visibleRows.size() < 8;
+		const historyStart = sections.size();
 		sections.push({
 			id: "history-heading",
 			height: 30,
@@ -2722,13 +2742,48 @@ __defs["TradeView"] = () => {
 				),
 			});
 		}
-		return h(PageScaffold, {
-			scrollBarColor: accent,
-			scrollBarThickness: 4,
-			tailPad: scrollTail(true, chrome.bottomSafe, chrome.landscape ? 24 : 32),
-			gap: chrome.landscape ? 8 : Layout.stackGap,
-			sections: sections,
-		});
+		const lobbyGap = chrome.landscape ? 8 : Layout.stackGap;
+		let lobbySections = sections;
+		if (splitLobby) {
+			const main = sections.filter((_, index) => index < historyStart);
+			const side = sections.filter((_, index) => index >= historyStart);
+			const rowH = math.max(
+				stackHeight(main.map((section) => section.height), lobbyGap),
+				stackHeight(side.map((section) => section.height), lobbyGap),
+			);
+			lobbySections = [
+				{
+					id: "lobby-split",
+					height: rowH,
+					element: h(SplitColumns, {
+						name: "TradeLobbySplit",
+						height: rowH,
+						plan: lobbyPlan,
+						sideOnRight: true,
+						side: h(StackBlocks, { gap: lobbyGap, blocks: side as never }),
+						main: h(StackBlocks, { gap: lobbyGap, blocks: main as never }),
+					}),
+				},
+			];
+		}
+		return h(
+			"frame",
+			{
+				Name: "TradeLobbyHost",
+				ref: lobbyHostRef,
+				Size: UDim2.fromScale(1, 1),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+				ClipsDescendants: false,
+			},
+			h(PageScaffold, {
+				scrollBarColor: accent,
+				scrollBarThickness: 4,
+				tailPad: scrollTail(true, chrome.bottomSafe, chrome.landscape ? 24 : 32),
+				gap: lobbyGap,
+				sections: lobbySections,
+			}),
+		);
 	}
 
 	return {
