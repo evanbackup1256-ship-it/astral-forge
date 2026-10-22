@@ -719,7 +719,9 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			/>
 		),
 	};
-	const chipW = stack ? math.floor((viewport.width - chrome.pagePadding * 2 - 24 - 12) / 3) : NAV_W - 16;
+	// very narrow phones (down to 286 px) get two section chips per row so labels never clip
+	const navCols = viewport.width < 340 ? 2 : 3;
+	const chipW = stack ? math.floor((viewport.width - chrome.pagePadding * 2 - 24 - 6 * (navCols - 1)) / navCols) : NAV_W - 24;
 	sections.forEach((entry, index) => {
 		navButtons[entry.id] = (
 			<SectionButton
@@ -738,8 +740,8 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			/>
 		);
 	});
-	const navRows = stack ? math.ceil(sections.size() / 3) : sections.size();
-	const navH = stack ? navRows * (TapTarget + 6) + 12 : sections.size() * 48 + 16;
+	const navRows = stack ? math.ceil(sections.size() / navCols) : sections.size();
+	const navH = stack ? navRows * (TapTarget + 6) + 12 : sections.size() * 48 + 24;
 
 	const listChildren: Record<string, React.Element> = {
 		layout: <uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 0)} />,
@@ -1046,10 +1048,10 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			height: bodyH,
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-					<Panel size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={8} reducedMotion={softMotion} clips={false}>
+					<Panel size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
 						{navButtons}
 					</Panel>
-					<frame Size={new UDim2(1, -(NAV_W + 20), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 20, 0)} BackgroundTransparency={1}>
+					<frame Size={new UDim2(1, -(NAV_W + 24), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
 						{list}
 					</frame>
 				</frame>
@@ -1059,7 +1061,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<PageScaffold gap={20} tailPad={scrollTail(stack, chrome.bottomSafe, 64)} scrollBarColor={accent} scrollBarThickness={4} sections={scaffold} />
+			<PageScaffold gap={stack ? 16 : 24} tailPad={scrollTail(stack, chrome.bottomSafe, 64)} scrollBarColor={accent} scrollBarThickness={4} sections={scaffold} />
 			{mobileHudAvailable && (
 				<MobileControls
 					visible={mobileEdit}
