@@ -4,6 +4,9 @@ import { segmentedHeight } from "../../UiCore/ui";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod } from "./viewRuntime";
 
+const CHAT_PEER_SIDE_MIN = 1280;
+const CHAT_PEER_SIDE_W = 220;
+
 function __member(): unknown {
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
 	let _AnimatedTitle: unknown = kit("ReactHosts", "AnimatedTitle");
@@ -605,6 +608,9 @@ function __member(): unknown {
 		let tabColumns: unknown = (luaTruthy(luaProp(viewport, "compact")) ? 3 : len(TAB_DEFS));
 		let tabRows: unknown = (math.ceil as unknown as (...a: unknown[]) => unknown)(((len(TAB_DEFS) as unknown as number) / (tabColumns as unknown as number)));
 		luaTable.insert(sections, { id: "tabs", height: segmentedHeight(len(TAB_DEFS) as number, tabColumns as number, viewport as never, TAB_ROW_H as number, 6), element: reactLoose.createElement(SegmentedTabs, { options: tabOptions, value: tab, onChange: luaProp(chat, "setTab"), accent: luaProp(Palette, "cyan"), columns: tabColumns, gap: 6, size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion }) });
+		// wide desktop windows: whisper threads sit in a side list next to the messages instead of a chip rail
+		const peerSide = tab === "whispers" && (len(luaProp(chat, "whispers")) as number) > 0 && !luaTruthy(luaProp(viewport, "compact")) && (luaProp(viewport, "width") as number) >= CHAT_PEER_SIDE_MIN;
+		const peerButtons: defined[] = [];
 		if (((tab === "whispers") && ((len(luaProp(chat, "whispers")) as unknown as number) > (0 as unknown as number)))) {
 			let peerChips: unknown = {};
 			for (const [_, entry] of pairs((luaProp(chat, "whispers")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
@@ -616,14 +622,28 @@ function __member(): unknown {
 				if ((luaProp(entry, "online") === false)) {
 					label = concat(label, " · away");
 				}
+				peerButtons.push(reactLoose.createElement("frame", { key: `peer-${luaProp(entry, "userId")}`, Size: new UDim2(1, 0, 0, (PEER_ROW_H as number) - 4), LayoutOrder: peerButtons.size(), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Button, { text: label, onClick: function(this: void): unknown | undefined {
+					luaCall(luaProp(chat, "setPeer"), luaProp(entry, "userId"));
+					return undefined;
+				}, color: (luaTruthy(selected) ? luaProp(Palette, "violet") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(selected) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), size: UDim2.fromScale(1, 1), reducedMotion: softMotion })) as defined);
 				luaTable.insert(peerChips, { key: `peer-${luaProp(entry, "userId")}`, element: reactLoose.createElement(Button, { text: label, onClick: function(this: void): unknown | undefined {
 					luaCall(luaProp(chat, "setPeer"), luaProp(entry, "userId"));
 					return undefined;
 				}, color: (luaTruthy(selected) ? luaProp(Palette, "violet") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(selected) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), size: luaCall(luaProp(UDim2, "fromOffset"), 0, ((PEER_ROW_H as unknown as number) - (4 as unknown as number))), hug: true, reducedMotion: softMotion }) });
 			}
-			luaTable.insert(sections, { id: "peers", height: PEER_ROW_H, element: luaCall(chipRail, peerChips, undefined) });
+			if (!peerSide) {
+				luaTable.insert(sections, { id: "peers", height: PEER_ROW_H, element: luaCall(chipRail, peerChips, undefined) });
+			}
 		}
-		luaTable.insert(sections, { id: "messages", fill: true, minHeight: 120, element: (((!luaTruthy(filteringLog)) && (len(shownMessages) === 0)) ? reactLoose.createElement(Text, { value: ((tab === "whispers") ? "No whispers yet. Type /w name message to start one." : ((tab === "friends") ? "Nothing from friends in this server yet." : ((tab === "crew") ? "Crew chat is private to your crew. Start one on the Crew page." : ((tab === "global") ? "Global chat is quiet. Say hello to every server." : "Nobody has said anything here yet. Say hi.")))), size: 14, color: luaProp(Palette, "muted"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20) }) : ((luaTruthy(filteringLog) && (len(shownMessages) === 0)) ? reactLoose.createElement(Text, { value: `No messages match "${logQuery}".`, size: 14, color: luaProp(Palette, "muted"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20) }) : messagesElement)) });
+		const messagesPane: unknown = (((!luaTruthy(filteringLog)) && (len(shownMessages) === 0)) ? reactLoose.createElement(Text, { value: ((tab === "whispers") ? "No whispers yet. Type /w name message to start one." : ((tab === "friends") ? "Nothing from friends in this server yet." : ((tab === "crew") ? "Crew chat is private to your crew. Start one on the Crew page." : ((tab === "global") ? "Global chat is quiet. Say hello to every server." : "Nobody has said anything here yet. Say hi.")))), size: 14, color: luaProp(Palette, "muted"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20) }) : ((luaTruthy(filteringLog) && (len(shownMessages) === 0)) ? reactLoose.createElement(Text, { value: `No messages match "${logQuery}".`, size: 14, color: luaProp(Palette, "muted"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20) }) : messagesElement));
+		luaTable.insert(sections, { id: "messages", fill: true, minHeight: 120, element: peerSide
+			? reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				reactLoose.createElement("scrollingframe", { Name: "WhisperPeers", Size: new UDim2(0, CHAT_PEER_SIDE_W, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, CanvasSize: new UDim2(), AutomaticCanvasSize: Enum.AutomaticSize.Y, ScrollBarThickness: 3, ScrollBarImageColor3: luaProp(Palette, "violet"), SelectionGroup: true },
+					reactLoose.createElement("uilistlayout", { SortOrder: Enum.SortOrder.LayoutOrder, Padding: new UDim(0, 6) }),
+					reactLoose.createElement("uipadding", { PaddingRight: new UDim(0, 6) }),
+					...peerButtons),
+				reactLoose.createElement("frame", { Name: "Thread", Size: new UDim2(1, -(CHAT_PEER_SIDE_W + 10), 1, 0), Position: new UDim2(0, CHAT_PEER_SIDE_W + 10, 0, 0), BackgroundTransparency: 1, BorderSizePixel: 0 }, messagesPane))
+			: messagesPane });
 		if (luaTruthy(showBanner)) {
 			luaTable.insert(sections, { id: "banner", height: BANNER_HEIGHT, element: bannerElement });
 		}
