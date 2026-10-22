@@ -34,7 +34,7 @@ function signature(config: FancyText.TitleConfig): string {
 	const parts = (config.parts ?? []).map((p) => `${p.text ?? ""}|${p.icon ?? ""}|${(p.tags ?? []).join(",")}`).join(";");
 	const state = config.state;
 	const stateKey = state !== undefined ? `${state.rarity}|${state.hover}|${state.selected}|${state.active}|${string.format("%.2f", state.progress ?? -1)}` : "";
-	return [config.text, parts, config.size, tostring(config.color), stateKey, tostring(config.shadow !== undefined && config.shadow !== false), tostring(config.wave), tostring(config.typewrite), config.align ?? ""].join("#");
+	return [config.text, parts, config.size, tostring(config.color), stateKey, tostring(config.shadow !== undefined && config.shadow !== false), tostring(config.wave), tostring(config.typewrite), config.align ?? "", (config.effects ?? []).join(","), tostring(config.transparency ?? 0)].join("#");
 }
 
 export function FancyTitle(props: FancyTitleProps) {

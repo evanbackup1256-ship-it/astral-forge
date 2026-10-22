@@ -142,10 +142,14 @@ export interface TitleConfig {
 	/** a fixed two-colour sweep instead of the state's palette */
 	gradient?: { color: Color3; amount?: number; moving?: boolean };
 	parts?: TitlePart[];
+	/** extra registered effect tags for the whole text, with optional params ("afx_fire 0.015") */
+	effects?: string[];
 	/** scale against 1920x1080 (FancyText's own scaling); off when the tree already scales */
 	scale?: boolean;
 	minSize?: number;
 	maxSize?: number;
+	/** 0 is solid */
+	transparency?: number;
 }
 
 const rgb = (c: Color3) => `${math.floor(c.R * 255 + 0.5)} ${math.floor(c.G * 255 + 0.5)} ${math.floor(c.B * 255 + 0.5)}`;
@@ -194,6 +198,9 @@ export function markup(config: TitleConfig): string {
 	if (config.typewrite !== undefined && !still) {
 		outer.push(`typewrite ${config.typewrite}`);
 	}
+	for (const effect of config.effects ?? []) {
+		outer.push(effect);
+	}
 	let body = plain(config.text);
 	for (const part of config.parts ?? []) {
 		const tags = (part.tags ?? []).filter((tag) => !(still && MOVING[tag]));
@@ -218,6 +225,9 @@ function rawConfig(config: TitleConfig): RawConfig {
 		ZIndex: config.zIndex ?? 1,
 		Scale: config.scale === true,
 	};
+	if (config.transparency !== undefined) {
+		raw.TextTransparency = config.transparency;
+	}
 	if (config.font !== undefined) {
 		raw.FontFace = config.font;
 	}
@@ -228,6 +238,19 @@ function rawConfig(config: TitleConfig): RawConfig {
 		raw.TextSizeConstraint = [config.minSize ?? 1, config.maxSize ?? 100];
 	}
 	return raw;
+}
+
+export interface EffectModule {
+	Init?: (this: void, char: TextLabel | ImageLabel, index: number, trove: never, params?: string[]) => unknown;
+	Update?: (this: void, char: TextLabel | ImageLabel, index: number, dt: number, trove: never, data: unknown, params?: string[]) => void;
+}
+
+/** Add an effect FancyText can use as a tag (looked up before its Effects folder). */
+export function registerEffect(name: string, effect: EffectModule) {
+	library();
+	const root = ReplicatedStorage.WaitForChild("rbxts_include").WaitForChild("node_modules").WaitForChild("@rbxts").WaitForChild("fancytext");
+	const util = require(root.WaitForChild("Dependencies").WaitForChild("Util") as ModuleScript) as { module_cache: Record<string, EffectModule> };
+	util.module_cache[name] = effect;
 }
 
 /** Render a title into `container`; Clean() the trove to remove it. Undefined if FancyText refused the config. */

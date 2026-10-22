@@ -1,9 +1,8 @@
 import React from "@rbxts/react";
-import { ClientLog } from "../CoreKit/log";
 import { darken, lighten, Palette } from "../CoreKit/theme";
 import { markupNumber } from "./hyperTextMarkup";
-
-const ReplicatedStorage = game.GetService("ReplicatedStorage");
+import { FancyTitle } from "../UiCore/FancyTitle";
+import * as TitleFx from "../UiCore/titleFx";
 
 const TITLE_FX_KINDS = [
 	"wave",
@@ -280,78 +279,11 @@ function buildKindMarkup(kind: string, body: string): string {
 	return `<color=${colorTag(accent)}>${body}</color>`;
 }
 
-function buildMarkup(kind: string, text: string, preview: boolean): string {
-	const body = safeText(text);
-	const step = preview ? REVEAL_STAGGER : 0;
-	return `<interval=${step}>${buildKindMarkup(kind, body)}</interval>`;
-}
-
-interface MarkupValue {
-	value: unknown;
-}
-interface HyperTextInstance {
-	UpdateDefaultMarkups(markups: unknown): void;
-	Render(text: string, a: boolean, b: boolean, c: boolean): void;
-	Destroy?: unknown;
-}
-interface HyperTextModule {
-	new: (this: void, host: Instance) => HyperTextInstance;
-	newMarkups: (this: void) => Record<string, MarkupValue>;
-	DELETE: unknown;
-}
-
-let cachedModule: HyperTextModule | undefined;
-let loadFailed = false;
-let pendingWarned = false;
-
-function resolveModuleScript(node: Instance): ModuleScript | undefined {
-	if (node.IsA("ModuleScript")) {
-		return node;
-	}
-	const initChild = node.FindFirstChild("init");
-	if (initChild !== undefined && initChild.IsA("ModuleScript")) {
-		return initChild;
-	}
-	return undefined;
-}
-
-function loadHyperTextModule(): HyperTextModule | undefined {
-	if (cachedModule !== undefined) {
-		return cachedModule;
-	}
-	if (loadFailed) {
-		return undefined;
-	}
-	const astral = ReplicatedStorage.FindFirstChild("AstralForge");
-	const vendor = astral?.FindFirstChild("Vendor");
-	const node = vendor?.FindFirstChild("HyperText");
-	if (node === undefined) {
-		if (!pendingWarned) {
-			pendingWarned = true;
-			ClientLog.warnEvery(
-				"hypertext-root",
-				15,
-				"hypertext",
-				"ReplicatedStorage.AstralForge.Vendor.HyperText is not replicated yet",
-			);
-		}
-		return undefined;
-	}
-	const moduleScript = resolveModuleScript(node);
-	if (moduleScript === undefined) {
-		ClientLog.warn("hypertext", `HyperText is a ${node.ClassName}, not a ModuleScript`);
-		loadFailed = true;
-		return undefined;
-	}
-	const [ok, result] = pcall(() => require(moduleScript));
-	if (!ok || result === undefined || !typeIs((result as { new?: unknown }).new, "function")) {
-		ClientLog.warn("hypertext", `couldn't load HyperText: ${tostring(result)}`);
-		loadFailed = true;
-		return undefined;
-	}
-	cachedModule = result as HyperTextModule;
-	pendingWarned = false;
-	return cachedModule;
+const SPLIT = "\0";
+// the opening run of a look's tag stack (everything before the text), registered once per look
+function lookTag(kind: string, still: boolean): string {
+	const [prefix] = buildKindMarkup(kind, SPLIT).split(SPLIT);
+	return TitleFx.register(kind, prefix, still);
 }
 
 interface AnimatedTitleProps {
@@ -361,109 +293,54 @@ interface AnimatedTitleProps {
 	reducedMotion?: boolean;
 	position?: UDim2;
 	sizeConstraint?: UDim2;
-	// May be a binding (chat rows fade in); HyperText itself only ever gets a number.
+	// May be a binding (chat rows fade in); the title shows once the fade is past halfway.
 	transparency?: number | React.Binding<number>;
 	align?: Enum.TextXAlignment;
 	preview?: boolean;
+	/** played on the text when the pointer enters / on press (equipped-title pickers) */
+	hover?: "clickpop" | "smash";
+	click?: "clickpop" | "smash" | "fade" | "fall";
 }
 
+const ALIGN: Record<string, "Left" | "Right" | "Center"> = { Left: "Left", Right: "Right", Center: "Center" };
+
+/** An equipped title in its look, drawn with FancyText. Reduced motion keeps the colours and layers, still. */
 function AnimatedTitle(props: AnimatedTitleProps) {
 	const text = props.text ?? "";
-	const fx = props.fx;
 	const size = props.size ?? 13;
 	const reducedMotion = props.reducedMotion === true;
 	const position = props.position ?? UDim2.fromOffset(0, 0);
 	const sizeConstraint = props.sizeConstraint ?? new UDim2(1, 0, 0, size + 4);
 	const transparency = props.transparency ?? 0;
 	const fadeBinding = typeIs(transparency, "number") ? undefined : transparency;
-	// Bindings resolve to 0 (where every fade ends) so the render effect keys on a
-	// stable number instead of a fresh binding object each parent render.
-	const markupTrans = fadeBinding === undefined ? markupNumber(transparency, 0) : 0;
+	const fixedTrans = fadeBinding === undefined ? markupNumber(transparency, 0) : 0;
 	const align = props.align ?? Enum.TextXAlignment.Left;
 	const preview = props.preview === true;
-	const kind = parseFx(fx);
+	const kind = parseFx(props.fx);
 	const accent = kind !== undefined ? FX_ACCENT[kind] : Palette.creamSoft;
-	const live = kind !== undefined && !reducedMotion && text !== "";
-	const hostRef = React.useRef<Frame>();
-	const [ready, setReady] = React.useState(false);
-	const horizAlign =
-		align === Enum.TextXAlignment.Center
-			? Enum.HorizontalAlignment.Center
-			: align === Enum.TextXAlignment.Right
-				? Enum.HorizontalAlignment.Right
-				: Enum.HorizontalAlignment.Left;
-	React.useEffect(() => {
-		setReady(false);
-		if (!live) {
-			return undefined;
-		}
-		const host = hostRef.current;
-		if (host === undefined) {
-			return undefined;
-		}
-		const mod = loadHyperTextModule();
-		if (mod === undefined) {
-			return undefined;
-		}
-		host.ClearAllChildren();
-		let instance: HyperTextInstance | undefined;
-		let sizeConn: RBXScriptConnection | undefined;
-		let rendered = false;
-		const runRender = () => {
-			if (rendered || host.Parent === undefined) {
-				return;
-			}
-			if (host.AbsoluteSize.X <= 0 || host.AbsoluteSize.Y <= 0) {
-				return;
-			}
-			rendered = true;
-			if (sizeConn !== undefined) {
-				sizeConn.Disconnect();
-				sizeConn = undefined;
-			}
-			const [ok, err] = pcall(() => {
-				const markups = mod.newMarkups();
-				markups.font.value = "rbxasset://fonts/families/BuilderSans.json";
-				markups.weight.value = Enum.FontWeight.ExtraBold;
-				markups.size.value = markupNumber(size, 13);
-				markups.color.value = accent;
-				markups.trans.value = markupNumber(markupTrans, 0);
-				markups.horizontalAlignment.value = horizAlign;
-				markups.verticalAlignment.value = Enum.VerticalAlignment.Center;
-				markups.ZIndex.value = 2;
-				markups.interval.value = preview ? REVEAL_STAGGER : 0;
-				markups.anim.value = mod.DELETE;
-				const rich = mod.new(host);
-				rich.UpdateDefaultMarkups(markups);
-				rich.Render(buildMarkup(kind!, text, preview), false, false, false);
-				instance = rich;
-			});
-			if (!ok) {
-				ClientLog.warnEvery(`hypertext-${kind}`, 10, "hypertext", `render failed for ${kind}: ${tostring(err)}`);
-				host.ClearAllChildren();
-				return;
-			}
-			setReady(true);
-		};
-		runRender();
-		if (!rendered) {
-			sizeConn = host.GetPropertyChangedSignal("AbsoluteSize").Connect(runRender);
-		}
-		return () => {
-			rendered = true;
-			if (sizeConn !== undefined) {
-				sizeConn.Disconnect();
-				sizeConn = undefined;
-			}
-			setReady(false);
-			pcall(() => {
-				if (instance !== undefined && typeIs(instance.Destroy, "function")) {
-					(instance as unknown as { Destroy(): void }).Destroy();
-				}
-				host.ClearAllChildren();
-			});
-		};
-	}, [live, kind, text, size, markupTrans, horizAlign, preview]);
+	const tag = React.useMemo(() => (kind !== undefined ? lookTag(kind, reducedMotion) : undefined), [kind, reducedMotion]);
+	if (tag === undefined || text === "") {
+		return (
+			<textlabel
+				Size={sizeConstraint}
+				Position={position}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				Text={text}
+				TextColor3={accent}
+				TextSize={size}
+				TextTransparency={transparency}
+				FontFace={Font.fromEnum(Enum.Font.BuilderSansExtraBold)}
+				TextXAlignment={align}
+				TextYAlignment={Enum.TextYAlignment.Center}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				TextScaled={true}
+				ZIndex={2}
+			>
+				<uitextsizeconstraint MinTextSize={math.max(9, size - 4)} MaxTextSize={size} />
+			</textlabel>
+		);
+	}
 	return (
 		<frame
 			Size={sizeConstraint}
@@ -472,35 +349,22 @@ function AnimatedTitle(props: AnimatedTitleProps) {
 			BorderSizePixel={0}
 			ZIndex={2}
 			ClipsDescendants={false}
+			Visible={fadeBinding === undefined ? true : fadeBinding.map((amount) => amount < 0.5)}
 		>
-			<frame
-				ref={hostRef}
-				Size={UDim2.fromScale(1, 1)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-				Visible={fadeBinding === undefined ? live : fadeBinding.map((amount) => live && amount < 0.5)}
-				ZIndex={2}
+			<FancyTitle
+				config={{
+					text,
+					size,
+					color: accent,
+					font: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+					align: ALIGN[align.Name] ?? "Left",
+					zIndex: 2,
+					effects: [preview && !reducedMotion ? `${tag} ${REVEAL_STAGGER}` : tag],
+					transparency: fixedTrans,
+				}}
+				hover={props.hover}
+				click={props.click}
 			/>
-			{!live || !ready ? (
-				<textlabel
-					Size={UDim2.fromScale(1, 1)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					Text={text}
-					TextColor3={accent}
-					TextSize={size}
-					TextTransparency={transparency}
-					FontFace={Font.fromEnum(Enum.Font.BuilderSansExtraBold)}
-					TextXAlignment={align}
-					TextYAlignment={Enum.TextYAlignment.Center}
-					TextTruncate={Enum.TextTruncate.AtEnd}
-					TextScaled={true}
-					ZIndex={2}
-				>
-					<uitextsizeconstraint MinTextSize={math.max(9, size - 4)} MaxTextSize={size} />
-				</textlabel>
-			) : undefined}
 		</frame>
 	);
 }
@@ -512,6 +376,7 @@ function AnimatedTitlePreview(props: {
 	reducedMotion?: boolean;
 	transparency?: number;
 	preview?: boolean;
+	hover?: "clickpop" | "smash";
 }) {
 	return (
 		<AnimatedTitle
@@ -522,6 +387,7 @@ function AnimatedTitlePreview(props: {
 			transparency={props.transparency ?? 0}
 			align={Enum.TextXAlignment.Center}
 			preview={props.preview === true}
+			hover={props.hover ?? "clickpop"}
 		/>
 	);
 }
