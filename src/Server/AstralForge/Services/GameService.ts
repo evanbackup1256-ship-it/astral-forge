@@ -3,6 +3,7 @@ import { Service } from "@flamework/core";
 import BazaarModule = require("./Gameplay/Bazaar");
 import { ConvergenceService } from "./ConvergenceService";
 import { DataService } from "./DataService";
+import * as Purchases from "../Modules/Purchases";
 import { AdminService } from "./AdminService";
 import { WorldService } from "./WorldService";
 import { Security } from "./Security/Security";
@@ -190,7 +191,6 @@ const ItemLoadoutMath = member(modules(), "ProfileMath", "ItemLoadoutMath");
 const GuildMath = member(modules(), "OpsMath", "GuildMath");
 const ForgePathClaim = member(modules(), "EconomyMath", "ForgePathClaim");
 const OfflineProjection = member(modules(), "EconomyMath", "OfflineProjection");
-const ReceiptLedger = mod(modules(), "ReceiptLedger");
 const GameConfig = mod<GameConfigShape>(shared(), "GameConfig");
 const Protocol = mod<{ Actions: Record<string, string>; [key: string]: unknown }>(shared(), "Protocol");
 const MonetizationConfig = SharedDataSuite("MonetizationConfig") as Dict;
@@ -3871,16 +3871,9 @@ export class GameService {
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
 		}
 		const purchaseKey = tostring(receiptInfo.PurchaseId);
-		let rewardText = "";
-		let already = false;
+		let outcome = { kind: "duplicate" } as Purchases.ReceiptOutcome;
 		const [updated] = this._data.Update(player, (profile: Profile) => {
-			const [recorded, alreadyProcessed] = ReceiptLedger.Record(profile.Receipts, purchaseKey, os.time()) as LuaTuple<[unknown, unknown]>;
-			profile.Receipts = recorded;
-			if (truthy(alreadyProcessed)) {
-				already = true;
-				return;
-			}
-			rewardText = this._grantDevProduct(profile, productDef);
+			outcome = Purchases.applyReceipt(profile, purchaseKey, os.time(), () => this._grantDevProduct(profile, productDef));
 		}) as LuaTuple<[unknown]>;
 		if (!truthy(updated)) {
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
@@ -3890,7 +3883,9 @@ export class GameService {
 			ModuleLog.Warn("Shop", string.format("receipt %s is waiting on a save", purchaseKey));
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
 		}
-		if (!already) {
+		// A duplicate means Roblox retried a receipt we already paid out (usually after a slow save).
+		if (outcome.kind === "granted") {
+			const rewardText = outcome.rewardText;
 			this._syncLeaderstats(player, this._data.Get(player) as Profile | undefined);
 			this._pushState(player);
 			this._toastPlayer(player, T("Toast.PurchaseCompleteTitle"), rewardText !== "" ? rewardText : (productDef.Name as string), "Special");
@@ -3914,15 +3909,9 @@ export class GameService {
 			return responseError(T("GameService.ThatForgeSessionIsNo"));
 		}
 		return this._mutate(player, (profile: Profile) => {
-			if (!typeIs(profile.OwnedPasses, "table")) {
-				profile.OwnedPasses = {};
-			}
-			if (!typeIs(profile.Receipts, "table")) {
-				profile.Receipts = {};
-			}
-			const owned = profile.OwnedPasses as Dict;
+			Purchases.ensureTables(profile);
 			for (const passKey of ownedPasses) {
-				owned[passKey] = true;
+				(profile.OwnedPasses as Dict)[passKey] = true;
 			}
 			return responseSuccess(T("GameService.DockInventorySynced"));
 		});
@@ -3943,15 +3932,8 @@ export class GameService {
 			return responseError(T("GameService.ThatForgeSessionIsNo"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
-			if (!typeIs(profile.OwnedPasses, "table")) {
-				profile.OwnedPasses = {};
-			}
-			const owned = profile.OwnedPasses as Dict;
-			if (truthy(owned[passDef.Key as string])) {
-				return responseSuccess((passDef.Name as string) + " already owned.");
-			}
-			owned[passDef.Key as string] = true;
-			return responseSuccess((passDef.Name as string) + " unlocked.");
+			const grant = Purchases.grantPass(profile, passDef as unknown as Purchases.PassDef);
+			return responseSuccess(grant.name + (grant.granted ? " unlocked." : " already owned."));
 		});
 		if (truthy((result as Dict | undefined)?.ok)) {
 			this._pushState(player);
@@ -3973,23 +3955,9 @@ export class GameService {
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			if (passDef !== undefined) {
-				if (!typeIs(profile.OwnedPasses, "table")) {
-					profile.OwnedPasses = {};
-				}
-				const owned = profile.OwnedPasses as Dict;
-				if (truthy(owned[passDef.Key as string])) {
-					return responseSuccess((passDef.Name as string) + " already owned.");
-				}
-				owned[passDef.Key as string] = true;
-				const parts: string[] = [];
-				if ((num(passDef.ProductionBonus) ?? 0) > 0) {
-					parts.push(string.format("+%d%% production", math.floor((num(passDef.ProductionBonus) ?? 0) * 100 + 0.5)));
-				}
-				if ((num(passDef.CapacityBonus) ?? 0) > 0) {
-					parts.push(string.format("+%d%% vault", math.floor((num(passDef.CapacityBonus) ?? 0) * 100 + 0.5)));
-				}
-				const detail = parts.size() > 0 ? parts.join(" · ") : "Pass linked";
-				return responseSuccess((passDef.Name as string) + ": " + detail);
+				const pass = passDef as unknown as Purchases.PassDef;
+				const grant = Purchases.grantPass(profile, pass);
+				return responseSuccess(grant.granted ? pass.Name + ": " + Purchases.passPerks(pass) : pass.Name + " already owned.");
 			}
 			assert(productDef !== undefined, "studio grant missing product");
 			const rewardText = this._grantDevProduct(profile, productDef);
