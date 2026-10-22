@@ -20,6 +20,18 @@ export const RULES: Record<Category, BucketRule> = {
 	Gameplay: { Burst: 48, PerSecond: 24 },
 };
 
+// Actions the firewall exempts from the category buckets (taps, state reads, trade confirm)
+// still get a ceiling of their own, far above any human or lag-spike burst, so a flood can't
+// make the server build thousands of state snapshots or tap rewards a second. The client's own
+// minimum gap for GetState is 0.24s (about 4/s).
+export const EXEMPT_RULES: Record<string, BucketRule> = {
+	GetState: { Burst: 40, PerSecond: 6 },
+	GetTrade: { Burst: 20, PerSecond: 8 },
+	CollectVault: { Burst: 120, PerSecond: 40 },
+	Overcharge: { Burst: 120, PerSecond: 40 },
+};
+export const EXEMPT_DEFAULT: BucketRule = { Burst: 30, PerSecond: 10 };
+
 const EXPLICIT: Record<string, Category> = {
 	MeasureLatency: "Read",
 	ReportPresence: "Read",
@@ -80,6 +92,7 @@ interface Bucket {
 
 export class ActionBuckets {
 	private buckets = new Map<Category, Bucket>();
+	private exempt = new Map<string, Bucket>();
 
 	/** Takes one token from the action's category. `slow` scales refill down (0..1) while throttled. */
 	Take(action: string, now: number, slow = 1): LuaTuple<[boolean, Category]> {
@@ -98,6 +111,24 @@ export class ActionBuckets {
 		}
 		bucket.tokens -= 1;
 		return $tuple(true, category);
+	}
+
+	/** One token from an exempt action's own ceiling bucket (EXEMPT_RULES). */
+	TakeExempt(action: string, now: number): boolean {
+		const rule = EXEMPT_RULES[action] ?? EXEMPT_DEFAULT;
+		let bucket = this.exempt.get(action);
+		if (bucket === undefined) {
+			bucket = { tokens: rule.Burst, at: now };
+			this.exempt.set(action, bucket);
+		}
+		const elapsed = math.max(0, now - bucket.at);
+		bucket.at = now;
+		bucket.tokens = math.min(rule.Burst, bucket.tokens + elapsed * rule.PerSecond);
+		if (bucket.tokens < 1) {
+			return false;
+		}
+		bucket.tokens -= 1;
+		return true;
 	}
 
 	Tokens(category: Category): number {

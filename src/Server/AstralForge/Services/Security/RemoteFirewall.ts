@@ -237,7 +237,7 @@ const EXEMPT_ACTIONS: Record<string, boolean> = {
 
 // Exempt actions skip the token/window/strike enforcement, but some still
 // need a per-action cooldown to prevent spam (e.g. Rebirth, daily claims).
-// Core click actions (CollectVault, Overcharge) remain fully uncapped.
+// Core click actions (CollectVault, Overcharge) get only a flood ceiling far above human speed.
 const EXEMPT_COOLDOWNS: Record<string, number> = {
 	[Protocol.Actions.ConfirmTrade]: 0.22,
 	[Protocol.Actions.CancelTrade]: 0.18,
@@ -1151,6 +1151,13 @@ export class RemoteFirewall {
 			return $tuple(false, payloadReason ?? T("RemoteFirewall.ThatRequestCouldNotBe"));
 		}
 		if (EXEMPT_ACTIONS[action] === true) {
+			// exempt from the category buckets, not from a flood ceiling (ActionBuckets.EXEMPT_RULES);
+			// no strike, a lag burst that hits it just waits
+			if (!state.Categories.TakeExempt(action, now)) {
+				this.telemetry.RecordRemote(false, "exempt rate");
+				Report(player, "rate:exempt", 0.25, action);
+				return $tuple(false, T("RemoteFirewall.PleaseSlowDownForA"));
+			}
 			// Even exempt actions can carry a per-action cooldown to prevent abuse
 			// of high-impact actions like Rebirth or daily claims.
 			const exemptCooldown = EXEMPT_COOLDOWNS[action];
