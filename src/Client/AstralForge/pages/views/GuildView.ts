@@ -17,6 +17,8 @@ function guildMemberAccent(userKey: unknown): Color3 | undefined {
 	return ProfileStyle.fromPlayer(game.GetService("Players").GetPlayerByUserId(userId)).accent;
 }
 
+const GUILD_WIDE_MIN = 1280;
+
 function __member(): unknown {
 	let Players: unknown = colon(game).GetService("Players");
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -837,6 +839,8 @@ function __member(): unknown {
 		let softMotion: unknown = reducedMotion;
 		reducedMotion = softMotion;
 		let stack: unknown = luaProp(chrome, "contentStack");
+		// wide desktop windows: hall + goal side by side, upgrades two per row
+		const wide = !luaTruthy(stack) && (luaProp(viewport, "width") as number) >= GUILD_WIDE_MIN;
 		let enter: unknown = luaCall(useEntrance, softMotion);
 		let reveal: unknown = luaCall(useStagger, 0, softMotion);
 		let bankReveal: unknown = luaCall(useStagger, 1, softMotion);
@@ -1144,8 +1148,10 @@ function __member(): unknown {
 				luaSetIndex(upgradeChildren, index, reactLoose.createElement(UpgradeCard, { key: luaProp(row, "id"), row: row, guild: guild, canBuy: canBuy, stack: stack, reducedMotion: reducedMotion, dispatch: send, busy: busy, shakeToken: shakeToken, layoutOrder: index }));
 			}
 		}
-		let upgradeBlockH: unknown = ((len(rows) === 0) ? 72 : ((((len(rows) as unknown as number) * (upgradeHeight as unknown as number)) as unknown as number) + ((((math.max as unknown as (...a: unknown[]) => unknown)(0, ((len(rows) as unknown as number) - (1 as unknown as number))) as unknown as number) * (pageGap as unknown as number)) as unknown as number)));
-		let upgradeList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pageGap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), upgradeChildren);
+		const upgradeCols = wide ? 2 : 1;
+		const upgradeRows = math.ceil((len(rows) as number) / upgradeCols);
+		let upgradeBlockH: unknown = ((len(rows) === 0) ? 72 : ((((upgradeRows as unknown as number) * (upgradeHeight as unknown as number)) as unknown as number) + ((((math.max as unknown as (...a: unknown[]) => unknown)(0, ((upgradeRows as unknown as number) - (1 as unknown as number))) as unknown as number) * (pageGap as unknown as number)) as unknown as number)));
+		let upgradeList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, (wide && (len(rows) as number) > 0) ? reactLoose.createElement("uigridlayout", { CellSize: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -(pageGap as number) / 2, 0, upgradeHeight), CellPadding: new UDim2(0, pageGap as number, 0, pageGap as number), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }) : reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pageGap), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), upgradeChildren);
 		let roleCounts: unknown = { All: 0, Leader: 0, Officer: 0, Member: 0 };
 		let shownMembers: unknown = {};
 		for (const [_, member] of pairs((members) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
@@ -1210,8 +1216,16 @@ function __member(): unknown {
 			return undefined;
 		}
 		if ((pane === "Overview")) {
-			luaCall(add, "hall-progress", (luaTruthy(stack) ? 132 : 112), reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), padding: 16, accent: luaProp(Palette, "mint") }, reactLoose.createElement(Text, { value: `HALL LEVEL ${luaProp(hall, "Level")} · ${luaProp(hall, "Title")}`, size: 19, wrap: true, weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 26) }), reactLoose.createElement(Meter, { value: luaProp(hall, "Progress"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 10), color: luaProp(Palette, "mint"), reducedMotion: softMotion }), reactLoose.createElement(Text, { value: `${luaProp(hall, "Remaining")} more upgrade level${((luaProp(hall, "Remaining") === 1) ? "" : "s")} to the next hall level. Every five installed upgrade levels add one.`, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 54), size: 13, color: luaProp(Palette, "creamSoft"), wrap: true, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (luaTruthy(stack) ? 44 : 24)) })));
-			luaCall(add, "goal", goalHeight, _exp_12);
+			const hallPanel: unknown = reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), padding: 16, accent: luaProp(Palette, "mint") }, reactLoose.createElement(Text, { value: `HALL LEVEL ${luaProp(hall, "Level")} · ${luaProp(hall, "Title")}`, size: 19, wrap: true, weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 26) }), reactLoose.createElement(Meter, { value: luaProp(hall, "Progress"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 10), color: luaProp(Palette, "mint"), reducedMotion: softMotion }), reactLoose.createElement(Text, { value: `${luaProp(hall, "Remaining")} more upgrade level${((luaProp(hall, "Remaining") === 1) ? "" : "s")} to the next hall level. Every five installed upgrade levels add one.`, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 54), size: 13, color: luaProp(Palette, "creamSoft"), wrap: true, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (luaTruthy(stack) ? 44 : 24)) }));
+			if (wide) {
+				const rowH = math.max(112, goalHeight as number);
+				luaCall(add, "hall-goal", rowH, reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, SelectionGroup: true },
+					reactLoose.createElement("frame", { Name: "Hall", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.4, -(pageGap as number) / 2, 0, 112), BackgroundTransparency: 1, BorderSizePixel: 0 }, hallPanel),
+					reactLoose.createElement("frame", { Name: "Goal", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.6, -(pageGap as number) / 2, 0, goalHeight), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.4, (pageGap as number) / 2, 0, 0), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), _exp_12)));
+			} else {
+				luaCall(add, "hall-progress", (luaTruthy(stack) ? 132 : 112), hallPanel);
+				luaCall(add, "goal", goalHeight, _exp_12);
+			}
 		} else if ((pane === "Treasury")) {
 			luaCall(add, "bank", bankHeight, _exp_19);
 		} else if ((pane === "Upgrades")) {
