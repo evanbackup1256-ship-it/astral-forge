@@ -1,7 +1,8 @@
-// Expedition Board (v8 #4): Launch, Claim and Recall for the multi-slot board. Each slot reuses the
-// v7 single-expedition rules in Progression (commander level gate, crew-upgrade duration and yield,
-// artifact rolls) by running them against that slot, then adds what the relic crew brings back.
-// The old LaunchExpedition / ClaimExpedition remotes are aliases for slot 1.
+// Expeditions v2: Launch, Claim and Recall for the board. Each slot reuses the v7 single-expedition
+// rules in Progression (commander level gate, crew-upgrade duration and yield, artifact rolls) by
+// running them against that slot, then applies the stance, crew and companion forecast from the
+// shared module: duration at launch, then one roll at claim for Setback / Clean / Triumph.
+// The old LaunchExpedition / ClaimExpedition remotes are aliases for slot 1 with a Steady stance.
 import Board = require("../../../../Shared/AstralForge/Shared/ExpeditionBoard");
 import CompanionRelic = require("../../../../Shared/AstralForge/Shared/CompanionRelic");
 import GameConfig = require("../../../../Shared/AstralForge/Shared/GameConfig");
@@ -14,7 +15,12 @@ const PAUSE_FLAG = "ExpeditionBoardPaused" as const;
 
 interface ProgressionApi {
 	LaunchExpedition(this: void, profile: Dict, id: string): LuaTuple<[boolean, string]>;
-	ClaimExpedition(this: void, profile: Dict, random: Random): LuaTuple<[boolean, string, string?, boolean?]>;
+	ClaimExpedition(
+		this: void,
+		profile: Dict,
+		random: Random,
+		opts?: { Yield?: number; ArtifactBonus?: number; NoArtifact?: boolean },
+	): LuaTuple<[boolean, string, string?, boolean?]>;
 	ApplyReward(this: void, profile: Dict, reward: Dict, production?: unknown): string;
 }
 const Progression = ProgressionModule as unknown as ProgressionApi;
@@ -78,6 +84,14 @@ function crewMembers(profile: Dict, crew: string[]) {
 	return out;
 }
 
+function companionKind(profile: Dict): string | undefined {
+	return CompanionRelic.describe(profile.Items)?.Kind;
+}
+
+function forecastFor(profile: Dict, board: NonNullable<ReturnType<typeof Board.ensure>>, routeId: string, stance: unknown, crew: string[]) {
+	return Board.forecast(routeId, stance, crewMembers(profile, crew), companionKind(profile), board.Streak ?? 0);
+}
+
 function Launch(profile: Dict, payload: Dict): Result {
 	if (paused()) return $tuple(false, T("ExpeditionBoard.Paused"));
 	const board = Board.ensure(profile, true);
@@ -100,15 +114,23 @@ function Launch(profile: Dict, payload: Dict): Result {
 		Board.mirror(profile, board);
 		return $tuple(false, message);
 	}
-	let endsAt = launched.EndsAt;
+	const odds = forecastFor(profile, board, launched.Id, payload.Stance, crew);
 	const speed = CompanionRelic.traitBonus(profile.Items, "ExpeditionSpeed");
-	if (speed > 0) {
-		endsAt = launched.StartedAt + math.max(10, math.floor((launched.EndsAt - launched.StartedAt) * (1 - speed)));
-	}
-	board.Slots[index - 1] = { Id: launched.Id, Crew: crew, StartedAt: launched.StartedAt, EndsAt: endsAt };
+	const length = math.max(10, math.floor((launched.EndsAt - launched.StartedAt) * odds.Time * (1 - speed)));
+	const endsAt = launched.StartedAt + length;
+	board.Slots[index - 1] = {
+		Id: launched.Id,
+		Crew: crew,
+		StartedAt: launched.StartedAt,
+		EndsAt: endsAt,
+		Stance: odds.Stance,
+		Yield: odds.Yield,
+		Risk: odds.Risk,
+		Find: odds.Find,
+	};
 	Board.relock(profile, board);
 	Board.mirror(profile, board);
-	return $tuple(true, message, { Slot: index, EndsAt: endsAt });
+	return $tuple(true, message, { Slot: index, EndsAt: endsAt, Stance: odds.Stance, Synergies: odds.Synergies });
 }
 
 function Claim(profile: Dict, payload: Dict, random: Random): Result {
@@ -118,9 +140,19 @@ function Claim(profile: Dict, payload: Dict, random: Random): Result {
 	if (board === undefined || index === undefined) return $tuple(false, T("ExpeditionBoard.NoSuchSlot"));
 	const slot = board.Slots[index - 1];
 	if (slot.Id === "") return $tuple(false, T("ExpeditionBoard.SlotEmpty"));
+	if (os.time() < slot.EndsAt) return $tuple(false, T("Progression.ThatExpeditionIsStillUnderway"));
+	const members = crewMembers(profile, slot.Crew);
+	const odds = Board.slotOdds(slot, members);
+	const outcome = Board.outcomeFor(random.NextNumber(), odds.Risk, odds.Find);
+	const setback = outcome === "Setback";
+	const scoutBonus = odds.Stance === "Daring" ? 0.05 : 0;
 	const command = profile.Command as Dict;
 	command.ActiveExpedition = { Id: slot.Id, StartedAt: slot.StartedAt, EndsAt: slot.EndsAt };
-	const [ok, message, artifactId, artifactNew] = Progression.ClaimExpedition(profile, random);
+	const [ok, message, artifactId, artifactNew] = Progression.ClaimExpedition(profile, random, {
+		Yield: setback ? odds.Yield * 0.5 : odds.Yield,
+		ArtifactBonus: scoutBonus,
+		NoArtifact: setback,
+	});
 	const settled = (command.ActiveExpedition as Dict).Id === "";
 	if (!ok) {
 		if (settled) {
@@ -131,32 +163,47 @@ function Claim(profile: Dict, payload: Dict, random: Random): Result {
 		Board.mirror(profile, board);
 		return $tuple(false, message);
 	}
-	const members = crewMembers(profile, slot.Crew);
-	let text = message;
+	let text = setback ? T("ExpeditionBoard.Setback", message) : message;
 	let bonus: Dict | undefined;
-	if (members.size() > 0 && random.NextNumber() <= Board.bonusChance(members)) {
+	if (outcome === "Triumph" && members.size() > 0) {
 		const loot = Board.bonusLoot(members, slot.EndsAt - slot.StartedAt);
+		const daring = odds.Stance === "Daring" ? 1.5 : 1;
 		const reward: Dict = {};
-		if (loot.Cores > 0) reward.Cores = loot.Cores;
-		if (loot.Stardust > 0) reward.Stardust = loot.Stardust;
+		const cores = math.floor(loot.Cores * daring);
+		const stardust = math.floor(loot.Stardust * daring);
+		const essence = math.floor(loot.Essence * daring);
+		if (cores > 0) reward.Cores = cores;
+		if (stardust > 0) reward.Stardust = stardust;
 		const parts: string[] = [];
 		if (next(reward)[0] !== undefined) parts.push(Progression.ApplyReward(profile, reward));
-		if (loot.Essence > 0) {
+		if (essence > 0) {
 			// relic essence, the salvage currency, since the crew are relics
 			const items = profile.Items as Dict;
-			items.Essence = ((items.Essence as number | undefined) ?? 0) + loot.Essence;
-			reward.Essence = loot.Essence;
-			parts.push(T("ExpeditionBoard.RelicEssence", loot.Essence));
+			items.Essence = ((items.Essence as number | undefined) ?? 0) + essence;
+			reward.Essence = essence;
+			parts.push(T("ExpeditionBoard.RelicEssence", essence));
 		}
 		if (parts.size() > 0) {
 			text = T("ExpeditionBoard.CrewBonus", text, parts.join(", "));
 			bonus = reward;
 		}
 	}
+	const streak = setback ? 0 : math.min(999, (board.Streak ?? 0) + 1);
+	board.Streak = streak > 0 ? streak : undefined;
+	if (streak > (board.Best ?? 0)) board.Best = streak;
 	board.Slots[index - 1] = Board.emptySlot();
 	Board.relock(profile, board);
 	Board.mirror(profile, board);
-	return $tuple(true, text, { Slot: index, ArtifactId: artifactId, ArtifactNew: artifactNew, Bonus: bonus });
+	return $tuple(true, text, {
+		Slot: index,
+		Route: slot.Id,
+		Outcome: outcome,
+		Stance: odds.Stance,
+		Streak: streak,
+		ArtifactId: artifactId,
+		ArtifactNew: artifactNew,
+		Bonus: bonus,
+	});
 }
 
 function Recall(profile: Dict, payload: Dict): Result {
@@ -171,12 +218,23 @@ function Recall(profile: Dict, payload: Dict): Result {
 	return $tuple(true, T("ExpeditionBoard.Recalled"), { Slot: index });
 }
 
+// The exact odds a launch would get, for clients that want the server's word before committing.
+function Preview(profile: Dict, payload: Dict): Result {
+	if (!typeIs(payload.Id, "string")) return $tuple(false, T("ExpeditionBoard.NoSuchSlot"));
+	const [crew, crewProblem] = checkCrew(profile, payload.Crew);
+	if (crew === undefined) return $tuple(false, crewProblem ?? T("ExpeditionBoard.BadCrew"));
+	const board = Board.read(profile);
+	const odds = Board.forecast(payload.Id, payload.Stance, crewMembers(profile, crew), companionKind(profile), board?.Streak ?? 0);
+	return $tuple(true, "", odds as unknown as Dict);
+}
+
 function Act(profile: Dict, payload: unknown, random: Random): Result {
 	const bag = isTable(payload) ? (payload as Dict) : undefined;
 	if (bag === undefined) return $tuple(false, T("ExpeditionBoard.UnknownAction"));
 	if (bag.Op === "Launch") return Launch(profile, bag);
 	if (bag.Op === "Claim") return Claim(profile, bag, random);
 	if (bag.Op === "Recall") return Recall(profile, bag);
+	if (bag.Op === "Preview") return Preview(profile, bag);
 	return $tuple(false, T("ExpeditionBoard.UnknownAction"));
 }
 
@@ -187,9 +245,28 @@ function State(profile: Dict) {
 	const count = Board.slotCount(profile);
 	for (let i = 1; i <= math.max(count, board?.Slots.size() ?? 0); i++) {
 		const slot = board?.Slots[i - 1] ?? Board.emptySlot();
-		slots.push({ Slot: i, Id: slot.Id, Crew: table.clone(slot.Crew), StartedAt: slot.StartedAt, EndsAt: slot.EndsAt });
+		const odds = slot.Id !== "" ? Board.slotOdds(slot, crewMembers(profile, slot.Crew)) : undefined;
+		slots.push({
+			Slot: i,
+			Id: slot.Id,
+			Crew: table.clone(slot.Crew),
+			StartedAt: slot.StartedAt,
+			EndsAt: slot.EndsAt,
+			Stance: odds?.Stance,
+			Yield: odds?.Yield,
+			Risk: odds?.Risk,
+			Find: odds?.Find,
+		});
 	}
-	return { Slots: slots, CrewMax: Board.CREW_MAX, Paused: paused() };
+	return {
+		Slots: slots,
+		CrewMax: Board.CREW_MAX,
+		Paused: paused(),
+		Streak: board?.Streak ?? 0,
+		Best: board?.Best ?? 0,
+		Companion: companionKind(profile),
+		Speed: CompanionRelic.traitBonus(profile.Items, "ExpeditionSpeed"),
+	};
 }
 
-export = table.freeze({ PAUSE_FLAG, Act, Launch, Claim, Recall, State });
+export = table.freeze({ PAUSE_FLAG, Act, Launch, Claim, Recall, Preview, State });

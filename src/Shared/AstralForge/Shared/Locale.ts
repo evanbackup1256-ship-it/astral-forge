@@ -745,6 +745,7 @@ export const EN = {
 	"ExpeditionBoard.CrewBonus": "%s. The crew also found %s",
 	"ExpeditionBoard.RelicEssence": "%d relic essence",
 	"ExpeditionBoard.Recalled": "Recalled. The crew is back with nothing.",
+	"ExpeditionBoard.Setback": "%s. Rough trip, half the haul came back",
 	// ---- end v8 C: Expedition Board ----
 	// ---- v8 C: Forge Programs ----
 	"ForgePrograms.Paused": "Forge Programs are paused for a moment. Your rules are kept.",

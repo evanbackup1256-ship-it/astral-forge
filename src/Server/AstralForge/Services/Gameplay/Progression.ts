@@ -883,10 +883,13 @@ const ProgressionService = {
     };
     return $tuple(true, expedition.Name + " launched.");
   },
+  // opts (Expeditions v2): Yield scales the route reward, ArtifactBonus adds to the find chance and
+  // NoArtifact skips the roll (a setback). Callers without opts get the v7 rules unchanged.
   ClaimExpedition(
     this: void,
     profile: Profile,
     random: Random,
+    opts?: { Yield?: number; ArtifactBonus?: number; NoArtifact?: boolean },
   ): LuaTuple<[boolean, string, string?, boolean?]> {
     const active = profile.Command.ActiveExpedition;
     if (active.Id === "")
@@ -905,7 +908,9 @@ const ProgressionService = {
     }
     const reward = copyReward(expedition.Reward);
     const engineerLevel = profile.Command.Crew.Engineer ?? 1;
-    const yieldScale = 1 + (engineerLevel - 1) * 0.08;
+    const yieldScale = (1 + (engineerLevel - 1) * 0.08) * math.max(0, opts?.Yield ?? 1);
+    if (reward.CommandXP !== undefined && opts?.Yield !== undefined)
+      reward.CommandXP = math.floor(reward.CommandXP * math.max(0.5, opts.Yield));
     if (reward.CashMinutes !== undefined) reward.CashMinutes *= yieldScale;
     if (reward.Stardust !== undefined)
       reward.Stardust = math.floor(reward.Stardust * yieldScale);
@@ -920,9 +925,10 @@ const ProgressionService = {
       Economy.Production(profile),
     );
     const navigatorLevel = profile.Command.Crew.Navigator ?? 1;
+    if (opts?.NoArtifact === true) return $tuple(true, message);
     const chance = math.min(
       0.95,
-      expedition.ArtifactChance + (navigatorLevel - 1) * 0.03,
+      expedition.ArtifactChance + (navigatorLevel - 1) * 0.03 + (opts?.ArtifactBonus ?? 0),
     );
     const artifactState = profile.Command.Artifacts[expedition.ArtifactId];
     const discovered = artifactState === undefined;

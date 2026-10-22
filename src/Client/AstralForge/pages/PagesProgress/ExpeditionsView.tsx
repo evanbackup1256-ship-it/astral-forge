@@ -1,24 +1,40 @@
-// Expedition Board (v8 #4): every expedition slot as a card. An open slot picks a route and up to
-// three relics as crew; a running slot shows its timer and crew with Recall; a finished one Claims.
+// Expeditions v2. One card per slot. An open slot picks a route, a stance and up to three relics,
+// and shows the exact forecast the server will lock in (time, haul, risk, find) with the synergies
+// that apply. A running slot is a big timer over a meter; a finished one claims, and the outcome
+// lands as a banner at the top with a screen moment to match: Triumph, Clean or Setback.
 import React from "@rbxts/react";
 import Board = require("../../../../Shared/AstralForge/Shared/ExpeditionBoard");
 import { clockText } from "../../CoreKit/format";
 import { chromeFor, Palette, TapTarget } from "../../CoreKit/theme";
 import { useViewport } from "../../MotionKit/motion";
 import { useServerClock } from "../../hooks/useServerClock";
+import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi } from "../luauDeps";
 
-const { Button, Dropdown, EmptyState, Meter, Panel, Text } = loadUi();
+const { Button, Dropdown, Meter, Panel, SegmentedTabs, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 
-type Reply = (response: { ok?: boolean; message?: string }) => void;
-type Dispatch = (action: string, payload?: object, callback?: Reply) => unknown;
+type Stance = (typeof Board.STANCES)[number];
+type Role = (typeof Board.ROLES)[number];
+type Forecast = ReturnType<typeof Board.forecast>;
+type Outcome = ReturnType<typeof Board.outcomeFor>;
+
+interface Reply {
+	ok?: boolean;
+	message?: string;
+	Outcome?: Outcome;
+	Streak?: number;
+	Route?: string;
+	ArtifactNew?: boolean;
+}
+type Dispatch = (action: string, payload?: object, callback?: (response: Reply) => void) => unknown;
 
 interface Route {
 	Id: string;
 	Name: string;
 	Duration: number;
 	RequiredLevel: number;
+	Color?: Color3;
 }
 interface SlotState {
 	Slot: number;
@@ -26,6 +42,19 @@ interface SlotState {
 	Crew: string[];
 	StartedAt: number;
 	EndsAt: number;
+	Stance?: Stance;
+	Yield?: number;
+	Risk?: number;
+	Find?: number;
+}
+interface BoardState {
+	Slots: SlotState[];
+	CrewMax: number;
+	Paused?: boolean;
+	Streak?: number;
+	Best?: number;
+	Companion?: string;
+	Speed?: number;
 }
 interface ItemDef {
 	Id: string;
@@ -40,8 +69,8 @@ interface Instance_ {
 
 interface Props {
 	state: {
-		ExpeditionBoard?: { Slots: SlotState[]; CrewMax: number; Paused?: boolean };
-		Command?: { Level?: number };
+		ExpeditionBoard?: BoardState;
+		Command?: { Level?: number; Crew?: { Pilot?: number } };
 		Items?: { Inventory?: Record<string, Instance_>; Equipped?: Record<string, string> };
 	};
 	config: { Operations?: { Expeditions?: Route[] }; Items?: { Definitions?: ItemDef[] } };
@@ -49,9 +78,22 @@ interface Props {
 	reducedMotion?: boolean;
 }
 
-const PAD = 16;
+const PAD = 20;
+const GAP = 12;
 const CHIP_H = TapTarget;
-const RUN_H = PAD * 2 + 22 + 18 + 16 + TapTarget + 8;
+const STAT_H = 52;
+const MAX_SHOWN = 8;
+
+const ROLE_COLOR: Record<Role, Color3> = { Haul: Palette.mango, Guard: Palette.mint, Scout: Palette.cyan };
+const STANCE_COLOR: Record<Stance, Color3> = { Careful: Palette.mint, Steady: Palette.cyan, Daring: Palette.coral };
+const OUTCOME_COLOR: Record<Outcome, Color3> = { Triumph: Palette.violet, Clean: Palette.mint, Setback: Palette.coral };
+const SYNERGY_TEXT: Record<string, string> = {
+	Favoured: "favoured",
+	Balanced: "balanced crew",
+	Resonant: "resonant",
+	Companion: "companion",
+	Streak: "streak",
+};
 
 function defsById(config: Props["config"]): Map<string, ItemDef> {
 	const out = new Map<string, ItemDef>();
@@ -65,6 +107,10 @@ interface Candidate {
 	Stars: number;
 }
 
+function member(c: Candidate) {
+	return { Rarity: c.Def.Rarity, EffectKind: c.Def.EffectKind, Stars: c.Stars };
+}
+
 // free relics (not socketed, not the companion, not away), strongest first
 function candidatesOf(props: Props, defs: Map<string, ItemDef>): Candidate[] {
 	const items = props.state.Items;
@@ -75,24 +121,53 @@ function candidatesOf(props: Props, defs: Map<string, ItemDef>): Candidate[] {
 		const def = defs.get(instance.DefinitionId);
 		if (def !== undefined && !busy.has(uid as string)) out.push({ Uid: uid as string, Def: def, Stars: instance.Stars ?? 0 });
 	}
-	const power = (c: Candidate) => Board.crewPower([{ Rarity: c.Def.Rarity, EffectKind: c.Def.EffectKind, Stars: c.Stars }]);
+	const power = (c: Candidate) => Board.crewPower([member(c)]);
 	out.sort((a, b) => (power(a) !== power(b) ? power(a) > power(b) : a.Uid < b.Uid));
 	return out;
 }
 
+// the v7 launch length (pilot upgrade), then the forecast and the companion's Scout trait
+function launchLength(props: Props, route: Route, odds: Forecast): number {
+	const pilot = props.state.Command?.Crew?.Pilot ?? 1;
+	const base = math.max(10, math.floor(route.Duration * math.max(0.35, 1 - (pilot - 1) * 0.05)));
+	const speed = props.state.ExpeditionBoard?.Speed ?? 0;
+	return math.max(10, math.floor(base * odds.Time * (1 - speed)));
+}
+
+function pct(value: number): string {
+	return `${math.floor(value * 100 + 0.5)}%`;
+}
+
+function Stat(p: { value: string; caption: string; color: Color3; x: number; width: number; y: number }) {
+	return (
+		<frame BackgroundTransparency={1} BorderSizePixel={0} Position={new UDim2(p.x, 0, 0, p.y)} Size={new UDim2(p.width, -8, 0, STAT_H)}>
+			<Text value={p.value} size={22} color={p.color} weight={Enum.FontWeight.Bold} fit={true} minSize={14} sizeConstraint={new UDim2(1, 0, 0, 30)} />
+			<Text value={p.caption} size={12} color={Palette.muted} position={UDim2.fromOffset(0, 32)} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+		</frame>
+	);
+}
+
+function openSlotHeight(candidates: number, stack: boolean): number {
+	const columns = stack ? 2 : 4;
+	const rows = math.max(1, math.ceil(math.min(MAX_SHOWN, candidates) / columns));
+	const top = stack ? TapTarget * 2 + GAP : TapTarget;
+	return PAD * 2 + top + GAP + TapTarget + GAP * 2 + rows * (CHIP_H + 6) + GAP + STAT_H + 20 + GAP + TapTarget;
+}
+
 function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoutes: Set<string>; candidates: Candidate[]; stack: boolean }) {
+	const board = p.props.state.ExpeditionBoard;
 	const level = p.props.state.Command?.Level ?? 1;
 	const open = p.routes.filter((route) => route.RequiredLevel <= level && !p.busyRoutes.has(route.Id));
 	const [routeId, setRouteId] = React.useState<string | undefined>(undefined);
+	const [stance, setStance] = React.useState<Stance>("Steady");
 	const [crew, setCrew] = React.useState<string[]>([]);
 	const [busy, setBusy] = React.useState(false);
 	const route = open.find((r) => r.Id === routeId) ?? open[open.size() - 1];
-	const crewMax = p.props.state.ExpeditionBoard?.CrewMax ?? Board.CREW_MAX;
-	const shown = p.candidates.filter((_, i) => i < 8);
+	const crewMax = board?.CrewMax ?? Board.CREW_MAX;
+	const shown = p.candidates.filter((_, i) => i < MAX_SHOWN);
 	const picked = shown.filter((c) => crew.includes(c.Uid));
-	const chance = Board.bonusChance(picked.map((c) => ({ Rarity: c.Def.Rarity, EffectKind: c.Def.EffectKind, Stars: c.Stars })));
+	const odds = route !== undefined ? Board.forecast(route.Id, stance, picked.map(member), board?.Companion, board?.Streak ?? 0) : undefined;
 	const columns = p.stack ? 2 : 4;
-	const rows = math.ceil(shown.size() / columns);
 	const toggle = (uid: string) => {
 		if (crew.includes(uid)) setCrew(crew.filter((u) => u !== uid));
 		else if (crew.size() < crewMax) setCrew([...crew, uid]);
@@ -100,138 +175,215 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	const launch = () => {
 		if (route === undefined || busy) return;
 		setBusy(true);
-		p.props.dispatch("ExpeditionAct", { Op: "Launch", Slot: p.slot.Slot, Id: route.Id, Crew: crew }, (response) => {
+		p.props.dispatch("ExpeditionAct", { Op: "Launch", Slot: p.slot.Slot, Id: route.Id, Crew: crew, Stance: stance }, (response) => {
 			setBusy(false);
-			if (response.ok === true) setCrew([]);
+			if (response.ok === true) {
+				setCrew([]);
+				ScreenFx.play("confirm", stance === "Daring" ? 1.2 : 0.8);
+			} else {
+				ScreenFx.play("error", 0.6);
+			}
 		});
 	};
-	const crewLine =
-		picked.size() === 0 ? "No crew. The route still pays its reward." : `Crew bonus chance ${math.floor(chance * 100 + 0.5)}%`;
+	if (open.size() === 0 || route === undefined || odds === undefined) {
+		return (
+			<Panel size={UDim2.fromScale(1, 1)} accent={Palette.lineSoft} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion}>
+				<Text value="Every route you can run is out." size={14} color={Palette.muted} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 20)} />
+			</Panel>
+		);
+	}
+	const role = odds.Role;
+	let y = 0;
+	const routeRow = y;
+	y += p.stack ? TapTarget * 2 + GAP : TapTarget;
+	const stanceRow = y + GAP;
+	y = stanceRow + TapTarget + GAP * 2;
+	const crewRow = y;
+	const rows = math.max(1, math.ceil(shown.size() / columns));
+	y += rows * (CHIP_H + 6) + GAP;
+	const statRow = y;
+	y += STAT_H;
+	const synergyRow = y;
+	y += 20 + GAP;
+	const launchRow = y;
+	const synergyText = odds.Synergies.map((s) => SYNERGY_TEXT[s] ?? s).join("  ·  ");
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} clips={false}>
-			{open.size() === 0 ? (
-				<Text value="Every route you can run is already out." size={13} color={Palette.muted} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 20)} />
-			) : (
-				<frame Size={new UDim2(1, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<Dropdown
-						options={open.map((r) => ({ id: r.Id, label: r.Name, detail: clockText(r.Duration) }))}
-						value={route?.Id}
-						onChange={(id: string) => setRouteId(id)}
-						accent={Palette.cyan}
-						size={new UDim2(p.stack ? 1 : 0.5, p.stack ? 0 : -6, 0, TapTarget)}
-						reducedMotion={p.props.reducedMotion}
-						zIndex={40 + (10 - p.slot.Slot)}
-					/>
-					<Button
-						text="Launch"
-						onClick={launch}
-						disabled={busy || route === undefined}
-						color={Palette.cyan}
-						textColor={Palette.ink}
-						size={new UDim2(p.stack ? 1 : 0.5, p.stack ? 0 : -6, 0, TapTarget)}
-						position={p.stack ? UDim2.fromOffset(0, TapTarget + 8) : new UDim2(0.5, 6, 0, 0)}
-						reducedMotion={p.props.reducedMotion}
-					/>
+		<Panel size={UDim2.fromScale(1, 1)} accent={STANCE_COLOR[stance]} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} clips={false}>
+			<frame Size={new UDim2(1, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<Dropdown
+					options={open.map((r) => ({ id: r.Id, label: r.Name, detail: clockText(r.Duration) }))}
+					value={route.Id}
+					onChange={(id: string) => setRouteId(id)}
+					accent={ROLE_COLOR[role]}
+					size={new UDim2(p.stack ? 1 : 0.6, 0, 0, TapTarget)}
+					position={UDim2.fromOffset(0, routeRow)}
+					reducedMotion={p.props.reducedMotion}
+					zIndex={40 + (10 - p.slot.Slot)}
+				/>
+				<frame
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+					Position={p.stack ? UDim2.fromOffset(0, routeRow + TapTarget + GAP) : new UDim2(0.6, 16, 0, routeRow)}
+					Size={new UDim2(p.stack ? 1 : 0.4, p.stack ? 0 : -16, 0, TapTarget)}
+				>
+					<frame
+						BackgroundColor3={ROLE_COLOR[role]}
+						BorderSizePixel={0}
+						AnchorPoint={new Vector2(0, 0.5)}
+						Position={new UDim2(0, 0, 0.5, 0)}
+						Size={UDim2.fromOffset(10, 10)}
+					>
+						<uicorner CornerRadius={new UDim(1, 0)} />
+					</frame>
 					<Text
-						value={crewLine}
-						size={12}
+						value={`${role} route`}
+						size={14}
 						color={Palette.creamSoft}
+						position={new UDim2(0, 20, 0.5, -10)}
+						sizeConstraint={new UDim2(1, -20, 0, 20)}
 						fit={true}
 						minSize={10}
-						position={UDim2.fromOffset(0, (p.stack ? 2 : 1) * (TapTarget + 8))}
-						sizeConstraint={new UDim2(1, 0, 0, 18)}
 					/>
-					{shown.map((c, i) => {
-						const on = crew.includes(c.Uid);
-						return (
-							<Button
-								key={c.Uid}
-								text={c.Def.Name}
-								onClick={() => toggle(c.Uid)}
-								color={on ? Palette.violet : Palette.panelSoft}
-								textColor={on ? Palette.ink : Palette.cream}
-								outline={!on}
-								size={new UDim2(1 / columns, -6, 0, CHIP_H)}
-								position={new UDim2((i % columns) / columns, 0, 0, (p.stack ? 2 : 1) * (TapTarget + 8) + 26 + math.floor(i / columns) * (CHIP_H + 6))}
-								reducedMotion={p.props.reducedMotion}
-							/>
-						);
-					})}
-					{rows === 0 && (
-						<frame
-							BackgroundTransparency={1}
-							BorderSizePixel={0}
-							Position={UDim2.fromOffset(0, (p.stack ? 2 : 1) * (TapTarget + 8) + 26)}
-							Size={new UDim2(1, 0, 0, 112)}
-						>
-							<EmptyState
-								icon="Artifact"
-								title="No free relics"
-								body="Unsocket a relic or wait for a crew to come home."
-								compact={true}
-								reducedMotion={p.props.reducedMotion}
-							/>
-						</frame>
-					)}
 				</frame>
-			)}
+				<SegmentedTabs
+					options={Board.STANCES.map((s) => ({ id: s, label: s, accent: STANCE_COLOR[s] }))}
+					value={stance}
+					onChange={(id: string) => setStance(id as Stance)}
+					accent={STANCE_COLOR[stance]}
+					columns={3}
+					size={new UDim2(1, 0, 0, TapTarget)}
+					position={UDim2.fromOffset(0, stanceRow)}
+					reducedMotion={p.props.reducedMotion}
+				/>
+				{shown.map((c, i) => {
+					const on = crew.includes(c.Uid);
+					const tint = ROLE_COLOR[Board.roleOf(c.Def.EffectKind)];
+					return (
+						<Button
+							key={c.Uid}
+							text={c.Def.Name}
+							onClick={() => toggle(c.Uid)}
+							color={on ? tint : Palette.panelSoft}
+							textColor={on ? Palette.ink : Palette.cream}
+							outline={!on}
+							highlight={on}
+							size={new UDim2(1 / columns, -6, 0, CHIP_H)}
+							position={new UDim2((i % columns) / columns, 0, 0, crewRow + math.floor(i / columns) * (CHIP_H + 6))}
+							reducedMotion={p.props.reducedMotion}
+						/>
+					);
+				})}
+				{shown.size() === 0 && (
+					<Text value="No free relics. The route still pays." size={13} color={Palette.muted} position={UDim2.fromOffset(0, crewRow + 12)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
+				)}
+				<Stat value={clockText(launchLength(p.props, route, odds))} caption="time" color={Palette.cream} x={0} width={0.25} y={statRow} />
+				<Stat value={string.format("×%.2f", odds.Yield)} caption="haul" color={Palette.mango} x={0.25} width={0.25} y={statRow} />
+				<Stat value={pct(odds.Risk)} caption="risk" color={odds.Risk > 0 ? Palette.coral : Palette.muted} x={0.5} width={0.25} y={statRow} />
+				<Stat value={pct(odds.Find)} caption="find" color={odds.Find > 0 ? Palette.violet : Palette.muted} x={0.75} width={0.25} y={statRow} />
+				{synergyText !== "" && (
+					<Text value={synergyText} size={13} color={Palette.creamSoft} position={UDim2.fromOffset(0, synergyRow)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
+				)}
+				<Button
+					text="Launch"
+					onClick={launch}
+					disabled={busy || board?.Paused === true}
+					loading={busy}
+					color={STANCE_COLOR[stance]}
+					textColor={Palette.ink}
+					size={new UDim2(p.stack ? 1 : 0, p.stack ? 0 : 200, 0, TapTarget)}
+					position={UDim2.fromOffset(0, launchRow)}
+					reducedMotion={p.props.reducedMotion}
+				/>
+			</frame>
 		</Panel>
 	);
 }
 
-function openSlotHeight(candidates: number, stack: boolean): number {
-	const columns = stack ? 2 : 4;
-	const rows = math.max(1, math.ceil(math.min(8, candidates) / columns));
-	const body = candidates <= 0 ? 112 : rows * (CHIP_H + 6);
-	return PAD * 2 + (stack ? 2 : 1) * (TapTarget + 8) + 26 + body;
-}
+const RUN_H = PAD * 2 + 34 + 12 + 10 + 14 + 18 + 6 + 18 + GAP + TapTarget;
 
-function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number }) {
+function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number; onResult: (reply: Reply) => void }) {
 	const [busy, setBusy] = React.useState(false);
 	const total = math.max(1, p.slot.EndsAt - p.slot.StartedAt);
 	const left = math.max(0, p.slot.EndsAt - p.now);
 	const done = left <= 0;
+	const stance: Stance = p.slot.Stance ?? "Steady";
 	const inventory = p.props.state.Items?.Inventory ?? {};
 	const names = p.slot.Crew.map((uid) => p.defs.get(inventory[uid]?.DefinitionId ?? "")?.Name ?? "Relic");
+	const accent = done ? Palette.mint : STANCE_COLOR[stance];
+	const odds = [string.format("×%.2f", p.slot.Yield ?? 1)];
+	if ((p.slot.Risk ?? 0) > 0) odds.push(`${pct(p.slot.Risk ?? 0)} risk`);
+	if ((p.slot.Find ?? 0) > 0) odds.push(`${pct(p.slot.Find ?? 0)} find`);
 	const act = (op: "Claim" | "Recall") => {
 		if (busy) return;
 		setBusy(true);
-		p.props.dispatch("ExpeditionAct", { Op: op, Slot: p.slot.Slot }, () => setBusy(false));
+		p.props.dispatch("ExpeditionAct", { Op: op, Slot: p.slot.Slot }, (response) => {
+			setBusy(false);
+			if (op === "Claim" && response.ok === true) p.onResult(response);
+		});
 	};
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={done ? Palette.mint : Palette.cyan} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} clips={false}>
-			<Text value={p.route?.Name ?? p.slot.Id} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={11} sizeConstraint={new UDim2(1, -110, 0, 22)} />
+		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} highlight={done} clips={false}>
+			<Text value={p.route?.Name ?? p.slot.Id} size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={12} sizeConstraint={new UDim2(1, -150, 0, 24)} />
+			<Text value={stance} size={13} color={STANCE_COLOR[stance]} position={UDim2.fromOffset(0, 24)} sizeConstraint={new UDim2(1, -150, 0, 16)} />
 			<Text
 				value={done ? "Back" : clockText(left)}
-				size={13}
-				color={done ? Palette.mint : Palette.creamSoft}
+				size={28}
+				color={done ? Palette.mint : Palette.cream}
+				weight={Enum.FontWeight.Bold}
 				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -110, 0, 0)}
-				sizeConstraint={new UDim2(0, 110, 0, 22)}
+				position={new UDim2(1, -150, 0, 0)}
+				sizeConstraint={new UDim2(0, 150, 0, 34)}
+				fit={true}
+				minSize={16}
 			/>
-			<Meter value={1 - left / total} color={done ? Palette.mint : Palette.cyan} position={UDim2.fromOffset(0, 30)} size={new UDim2(1, 0, 0, 8)} reducedMotion={p.props.reducedMotion} />
+			<Meter value={1 - left / total} color={accent} position={UDim2.fromOffset(0, 46)} size={new UDim2(1, 0, 0, 10)} reducedMotion={p.props.reducedMotion} shimmer={done} />
 			<Text
-				value={names.size() > 0 ? names.join(", ") : "No crew"}
-				size={12}
-				color={Palette.muted}
+				value={names.size() > 0 ? names.join("  ·  ") : "Solo run"}
+				size={13}
+				color={Palette.creamSoft}
 				fit={true}
 				minSize={10}
-				position={UDim2.fromOffset(0, 46)}
+				position={UDim2.fromOffset(0, 70)}
 				sizeConstraint={new UDim2(1, 0, 0, 18)}
 			/>
+			<Text value={odds.join("  ·  ")} size={13} color={Palette.muted} position={UDim2.fromOffset(0, 94)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
 			<Button
 				text={done ? "Claim" : "Recall"}
 				onClick={() => act(done ? "Claim" : "Recall")}
 				disabled={busy}
+				loading={busy}
 				color={done ? Palette.mint : Palette.panelSoft}
 				textColor={done ? Palette.ink : Palette.cream}
 				outline={!done}
-				size={new UDim2(0, 160, 0, TapTarget)}
-				position={UDim2.fromOffset(0, 72)}
+				highlight={done}
+				size={new UDim2(0, 180, 0, TapTarget)}
+				position={UDim2.fromOffset(0, 94 + 18 + GAP)}
 				reducedMotion={p.props.reducedMotion}
 			/>
 		</Panel>
 	);
+}
+
+const BANNER_H = PAD * 2 + 34 + 20;
+const BANNER_SECONDS = 6;
+
+function ResultBanner(p: { reply: Reply; routeName: string; reducedMotion?: boolean }) {
+	const outcome = p.reply.Outcome ?? "Clean";
+	const streak = p.reply.Streak ?? 0;
+	const tail = outcome === "Setback" ? "streak reset" : streak > 1 ? `${streak} in a row` : p.routeName;
+	return (
+		<Panel size={UDim2.fromScale(1, 1)} accent={OUTCOME_COLOR[outcome]} background={Palette.panelRaised} padding={PAD} reducedMotion={p.reducedMotion} highlight={outcome === "Triumph"}>
+			<Text value={outcome} size={28} color={OUTCOME_COLOR[outcome]} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(0.5, 0, 0, 34)} fit={true} minSize={16} />
+			<Text value={tail} size={14} color={Palette.creamSoft} align={Enum.TextXAlignment.Right} position={new UDim2(0.5, 0, 0, 8)} sizeConstraint={new UDim2(0.5, 0, 0, 20)} fit={true} minSize={10} />
+			<Text value={p.reply.message ?? ""} size={13} color={Palette.muted} position={UDim2.fromOffset(0, 36)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
+		</Panel>
+	);
+}
+
+function playOutcome(reply: Reply) {
+	if (reply.Outcome === "Triumph") ScreenFx.play("milestone", 1.1);
+	else if (reply.Outcome === "Setback") ScreenFx.play("warning", 0.9);
+	else ScreenFx.play("success", reply.ArtifactNew === true ? 1.2 : 0.9);
 }
 
 function ExpeditionsView(props: Props) {
@@ -240,18 +392,55 @@ function ExpeditionsView(props: Props) {
 	const board = props.state.ExpeditionBoard;
 	const slots = board?.Slots ?? [];
 	const running = slots.some((slot) => slot.Id !== "");
-	const now = useServerClock(running);
+	const [result, setResult] = React.useState<{ reply: Reply; at: number } | undefined>(undefined);
+	const now = useServerClock(running || result !== undefined);
 	const routes = props.config.Operations?.Expeditions ?? [];
 	const defs = defsById(props.config);
 	const candidates = candidatesOf(props, defs);
 	const busyRoutes = new Set<string>();
 	for (const slot of slots) if (slot.Id !== "") busyRoutes.add(slot.Id);
+	const onResult = (reply: Reply) => {
+		playOutcome(reply);
+		setResult({ reply, at: os.time() });
+	};
+	React.useEffect(() => {
+		if (result === undefined) return;
+		const thread = task.delay(BANNER_SECONDS, () => setResult(undefined));
+		return () => task.cancel(thread);
+	}, [result]);
 	const sections: { id: string; height: number; element: React.Element }[] = [];
+	if (result !== undefined) {
+		const routeName = routes.find((r) => r.Id === result.reply.Route)?.Name ?? "";
+		sections.push({
+			id: `result${result.at}`,
+			height: BANNER_H,
+			element: <ResultBanner reply={result.reply} routeName={routeName} reducedMotion={props.reducedMotion} />,
+		});
+	}
+	const streak = board?.Streak ?? 0;
+	const out = slots.filter((slot) => slot.Id !== "").size();
+	sections.push({
+		id: "summary",
+		height: 40,
+		element: (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<Text value={`${out} / ${slots.size()} out`} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(0.5, 0, 0, 24)} />
+				<Text
+					value={streak > 0 ? `streak ${streak}  ·  ${string.format("+%d%%", math.min(streak, Board.STREAK_CAP) * Board.STREAK_STEP * 100)}` : ""}
+					size={14}
+					color={Palette.mango}
+					align={Enum.TextXAlignment.Right}
+					position={new UDim2(0.5, 0, 0, 2)}
+					sizeConstraint={new UDim2(0.5, 0, 0, 20)}
+				/>
+			</frame>
+		),
+	});
 	if (board?.Paused === true) {
 		sections.push({
 			id: "paused",
 			height: 28,
-			element: <Text value="Expeditions are paused for a moment. Running ones keep going." size={13} color={Palette.mango} fit={true} minSize={10} />,
+			element: <Text value="Paused for a moment. Running trips keep going." size={13} color={Palette.mango} fit={true} minSize={10} />,
 		});
 	}
 	for (const slot of slots) {
@@ -265,10 +454,10 @@ function ExpeditionsView(props: Props) {
 			sections.push({
 				id: `slot${slot.Slot}`,
 				height: RUN_H,
-				element: <RunningSlot props={props} slot={slot} route={routes.find((r) => r.Id === slot.Id)} defs={defs} now={now} />,
+				element: <RunningSlot props={props} slot={slot} route={routes.find((r) => r.Id === slot.Id)} defs={defs} now={now} onResult={onResult} />,
 			});
 		}
 	}
-	return <PageScaffold sections={sections} gap={12} tailPad={stack ? 10 : 14} owner="ExpeditionsView" />;
+	return <PageScaffold sections={sections} gap={16} tailPad={stack ? 12 : 18} owner="ExpeditionsView" />;
 }
 export = { ExpeditionsView };
