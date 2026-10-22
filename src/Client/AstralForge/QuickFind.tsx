@@ -709,7 +709,7 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 										<Glyph box={22} kind="Search.9" color={Palette.muted} accent={Palette.muted} size={22} spin={false} />
 									</IconTile>
 									<SurfaceText
-										text={`Nothing matches "${query}"`}
+										text={`No match for "${query}"`}
 										type="title"
 										align={Enum.TextXAlignment.Center}
 										size={new UDim2(1, -32, 0, 22)}
@@ -717,17 +717,14 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 										zIndex={4}
 									/>
 									<SurfaceText
-										// kept as two literals (a single long string tripped a compiler bug)
-										text={
-											'Search works on page names, settings, relics, machines and research. Try "music", "vault" or a relic' + "'s name."
-										}
+										text={'Try "music", "vault" or a relic' + "'s name"}
 										type="body"
 										color={Palette.muted}
 										wrap={true}
 										fit={true}
 										align={Enum.TextXAlignment.Center}
-										size={new UDim2(1, -32, 0, 40)}
-										position={UDim2.fromOffset(16, 96)}
+										size={new UDim2(1, -32, 0, 22)}
+										position={UDim2.fromOffset(16, 100)}
 										zIndex={4}
 									/>
 								</frame>
@@ -758,13 +755,12 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 								<uilistlayout
 									FillDirection={Enum.FillDirection.Horizontal}
 									VerticalAlignment={Enum.VerticalAlignment.Center}
-									Padding={new UDim(0, 18)}
+									Padding={new UDim(0, 22)}
 									SortOrder={Enum.SortOrder.LayoutOrder}
 								/>
-								<KeyHint keys="↑ ↓ Tab" label="Move" order={1} zIndex={4} />
 								<KeyHint keys="Enter" label="Open" order={2} zIndex={4} />
 								<KeyHint keys="Esc" label="Close" order={3} zIndex={4} />
-								{!phone && <KeyHint keys="Ctrl+K" label="From anywhere" order={4} zIndex={4} />}
+								{!phone && <KeyHint keys="Ctrl+K" label="" order={4} zIndex={4} />}
 							</frame>
 						</frame>
 					)}

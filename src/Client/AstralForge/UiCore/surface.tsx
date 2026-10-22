@@ -410,7 +410,9 @@ export function KeyHint(props: { keys: string; label: string; order?: number; zI
 				<uistroke Color={Palette.lineSoft} Transparency={0.4} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				<uipadding PaddingLeft={new UDim(0, 7)} PaddingRight={new UDim(0, 7)} />
 			</textlabel>
-			<SurfaceText text={props.label} type="small" color={Palette.creamSoft} autoSize={true} order={2} zIndex={props.zIndex} />
+			{props.label !== "" && (
+				<SurfaceText text={props.label} type="small" color={Palette.creamSoft} autoSize={true} order={2} zIndex={props.zIndex} />
+			)}
 		</frame>
 	);
 }

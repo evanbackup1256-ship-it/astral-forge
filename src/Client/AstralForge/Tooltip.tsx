@@ -37,7 +37,7 @@ const Timing = {
 const TOUCH_SLOP = 12;
 const GAP = 8;
 const EDGE = 10;
-const BUBBLE_PAD = 10;
+const BUBBLE_PAD = 12;
 
 // names for icon-only buttons, by icon concept ("Close.24" -> "Close")
 const ICON_NAMES: { [concept: string]: string } = {
@@ -452,9 +452,21 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 			accent={data.accent}
 			position={React.joinBindings({ spot, appear }).map((v) => UDim2.fromOffset(v.spot.X, v.spot.Y + revealOffset(v.appear)))}
 		>
-			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
 			{hasTitle && (
 				<SurfaceText text={data.title!} type="title" autoSize={true} wrap={true} maxWidth={maxW} transparency={fade} order={1} />
+			)}
+			{hasTitle && (
+				// a short hand-drawn rule under the title instead of another label
+				<frame
+					LayoutOrder={2}
+					Size={UDim2.fromOffset(18, 2)}
+					BackgroundColor3={data.accent ?? Palette.mango}
+					BackgroundTransparency={appear.map((a) => 1 - 0.85 * math.clamp(a, 0, 1))}
+					BorderSizePixel={0}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+				</frame>
 			)}
 			{data.body !== undefined && data.body !== "" && (
 				<SurfaceText
@@ -465,7 +477,7 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 					wrap={true}
 					maxWidth={maxW}
 					transparency={fade}
-					order={2}
+					order={3}
 				/>
 			)}
 			{data.hint !== undefined && data.hint !== "" && (
@@ -477,7 +489,7 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 					wrap={true}
 					maxWidth={maxW}
 					transparency={fade}
-					order={3}
+					order={4}
 				/>
 			)}
 		</Surface>
