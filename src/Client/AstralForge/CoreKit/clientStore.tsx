@@ -4,7 +4,7 @@
 import React from "@rbxts/react";
 import { Session } from "../state";
 import { Rodux, RoduxStore } from "../vendor";
-import { ClientAction, ClientState, INITIAL_STATE, clientReducer } from "./store/slices";
+import { BootStatus, ClientAction, ClientState, INITIAL_STATE, clientReducer } from "./store/slices";
 import { Payload } from "./store/optimistic";
 
 export type { BootStatus, ClientAction, ClientState } from "./store/slices";

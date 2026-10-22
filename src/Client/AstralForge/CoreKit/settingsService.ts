@@ -69,8 +69,8 @@ export function onSettingChanged(key: string, callback: (value: number) => void)
 		return () => {};
 	}
 	let last = readSetting(settingsOf(store.getState()), key);
-	const connection = store.changed.connect((next) => {
-		const now = readSetting(settingsOf(next), key);
+	const connection = store.changed.connect((nextState) => {
+		const now = readSetting(settingsOf(nextState), key);
 		if (now !== last) {
 			last = now;
 			callback(now);

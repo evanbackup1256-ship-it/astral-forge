@@ -14,7 +14,7 @@ export function createSelector<S, T>(inputs: unknown, combine: (...args: Array<u
 	let lastArgs: Array<unknown> | undefined;
 	let lastValue: T;
 	return (state: S) => {
-		const args = list.map((select) => select(state));
+		const args = list.map((selector) => selector(state));
 		if (lastArgs !== undefined && lastArgs.size() === args.size()) {
 			let same = true;
 			for (let i = 0; i < args.size(); i++) {
