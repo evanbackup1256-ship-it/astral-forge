@@ -6,6 +6,9 @@ import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motio
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
 import { EventDispatch, EventPanel, eventPanelHeight, EventState } from "./EventPanel";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+
+type ColumnSection = { id: string; height: number; element: React.Element };
 
 const UserInputService = game.GetService("UserInputService");
 const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
@@ -87,7 +90,8 @@ function RewardChargeRail({ value, accent, ready, reducedMotion, position, size 
 	);
 }
 
-function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; position: UDim2; size: UDim2 }) {
+function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; position: UDim2; size: UDim2; gap?: number }) {
+	const gap = props.gap ?? 10;
 	const daily = props.daily;
 	const rewards = daily.Rewards ?? [];
 	const count = math.max(1, rewards.size());
@@ -97,7 +101,7 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 	const weekStart = math.floor((current - 1) / 7) * 7 + 1;
 	const cells: Record<string, React.Element> = {
 		layout: (
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, gap)} />
 		),
 	};
 	for (let offset = 0; offset <= 6; offset++) {
@@ -108,7 +112,7 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 		const accent = today ? Palette.mint : claimed ? Palette.muted : Palette.cyan;
 		cells["d" + day] = (
 			<frame
-				Size={new UDim2(1 / 7, (-10 * 6) / 7, 1, 0)}
+				Size={new UDim2(1 / 7, (-gap * 6) / 7, 1, 0)}
 				LayoutOrder={offset}
 				BackgroundColor3={today ? darken(Palette.mint, 0.55) : Palette.panelSoft}
 				BackgroundTransparency={claimed ? 0.45 : 0}
@@ -340,6 +344,10 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const timedReveal = useStagger(2, softMotion);
 	const streakReveal = useStagger(3, softMotion);
 	const rewardsTail = scrollTail(stack, chrome.bottomSafe, 48);
+	// wide desktops: claims on the left, the timeline and extras on the right
+	const split = !stack && viewport.width >= 1180;
+	const narrow = viewport.width < 360;
+	const pageGap = stack ? 16 : 24;
 	const community = useCommunityRewards(state.Community, stack);
 	const rewardsClaimHostRef = React.useRef<Frame>();
 	const readyCount = (dailyReady ? 1 : 0) + readyTimed.size();
@@ -489,7 +497,13 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 					highlight={dailyReady}
 				/>
 			</frame>
-			<StreakStrip daily={daily} reducedMotion={softMotion} position={UDim2.fromOffset(0, stripY)} size={new UDim2(1, 0, 0, stripH)} />
+			<StreakStrip
+				daily={daily}
+				reducedMotion={softMotion}
+				gap={narrow ? 4 : stack ? 6 : 10}
+				position={UDim2.fromOffset(0, stripY)}
+				size={new UDim2(1, 0, 0, stripH)}
+			/>
 		</Panel>
 	);
 
@@ -562,7 +576,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		</Panel>
 	);
 
-	const columns = stack ? 2 : viewport.width >= 1200 ? 4 : 3;
+	const columns = narrow ? 1 : stack || split ? 2 : viewport.width >= 1200 ? 4 : 3;
 	const timelineRows = math.max(1, math.ceil(timedEntries.size() / columns));
 	const timelineH = 52 + timelineRows * 114;
 	const timelinePanel = (
@@ -596,7 +610,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		{ id: "Milestones", label: "Milestones", icon: "Milestone.2", accent: Palette.mango, badge: readyMilestones },
 		{ id: "Boosts", label: "Boosts", icon: "Boost.9", accent: Palette.pink },
 	];
-	const shortcutCols = stack ? 2 : 4;
+	const shortcutCols = stack || split ? 2 : 4;
 	const shortcutChildren: Record<string, React.Element> = {
 		grid: (
 			<uigridlayout
@@ -632,9 +646,10 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 
 	// a running limited event sits right under the header; between events it's a one-line "next up"
 	const eventH = eventPanelHeight(state.LimitedEvent, stack);
-	const sections = [{ id: "header", height: heroH, element: headerPanel }];
+	const claimCol: ColumnSection[] = [{ id: "header", height: heroH, element: headerPanel }];
+	const sideCol: ColumnSection[] = [];
 	if (state.LimitedEvent !== undefined && eventH > 0) {
-		sections.push({
+		(split ? sideCol : claimCol).push({
 			id: "event",
 			height: eventH,
 			element: (
@@ -642,16 +657,16 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			),
 		});
 	}
-	sections.push(
+	claimCol.push(
 		{ id: "daily", height: dailyCardH, element: dailyPanel },
 		{ id: "timed", height: timedCardH, element: timedPanel },
 	);
 	if (timedEntries.size() > 0) {
-		sections.push({ id: "timeline", height: timelineH, element: timelinePanel });
+		sideCol.push({ id: "timeline", height: timelineH, element: timelinePanel });
 	}
 	// group, like goals and the notification prompt sit with the other free rewards
 	if (state.Community !== undefined && community.height > 0) {
-		sections.push({
+		sideCol.push({
 			id: "community",
 			height: community.height,
 			element: (
@@ -667,7 +682,26 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		});
 	}
 	if (navigate !== undefined) {
-		sections.push({ id: "shortcuts", height: shortcutsH, element: shortcutsRow });
+		(split ? claimCol : sideCol).push({ id: "shortcuts", height: shortcutsH, element: shortcutsRow });
 	}
-	return <PageScaffold gap={20} tailPad={rewardsTail} scrollBarColor={Palette.pink} scrollBarThickness={4} sections={sections} />;
+	const plan = splitColumns(split ? viewport.width : 0, math.floor(viewport.width * 0.42), pageGap, 1180);
+	const columnsH = math.max(stackHeight(claimCol.map((b) => b.height), pageGap), stackHeight(sideCol.map((b) => b.height), pageGap));
+	const sections =
+		plan.split && sideCol.size() > 0
+			? [
+					{
+						id: "columns",
+						height: columnsH,
+						element: (
+							<SplitColumns
+								height={columnsH}
+								plan={plan}
+								side={<StackBlocks gap={pageGap} blocks={claimCol} />}
+								main={<StackBlocks gap={pageGap} blocks={sideCol} />}
+							/>
+						),
+					},
+				]
+			: [...claimCol, ...sideCol];
+	return <PageScaffold gap={pageGap} tailPad={rewardsTail} scrollBarColor={Palette.pink} scrollBarThickness={4} sections={sections} />;
 }
