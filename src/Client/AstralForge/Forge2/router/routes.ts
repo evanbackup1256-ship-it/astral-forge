@@ -26,6 +26,7 @@ import { SettingsPage } from "../pages/SettingsPage";
 import { WorkshopPage } from "../pages/WorkshopPage";
 import { ResearchPage } from "../pages/ResearchPage";
 import { MissionsPage } from "../pages/MissionsPage";
+import { BoostsPage } from "../pages/BoostsPage";
 
 export interface PageProps {
 	session: Session;
@@ -64,6 +65,7 @@ const PORTED: Record<string, PageComponent> = {
 	Workshop: WorkshopPage,
 	Research: ResearchPage,
 	Missions: MissionsPage,
+	Boosts: BoostsPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
