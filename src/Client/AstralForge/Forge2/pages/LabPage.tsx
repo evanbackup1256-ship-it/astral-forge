@@ -74,15 +74,23 @@ function OrderCard(props: { state: OrderState; config: OrderConfig; index: numbe
 	const [claims, setClaims] = React.useState(0);
 	const [claiming, setClaiming] = React.useState(false);
 	const flash = useFlash(claims, false, 0.4);
+	const [refused, setRefused] = React.useState(0);
+	// a refusal shakes the button, same curve as the old client's shakeToken
+	const shake = useFlash(refused, false, 0.42);
 	const claim = () => {
 		if (!ready || claiming) return;
 		setClaims((n) => n + 1);
 		setClaiming(true);
+		// one claim in flight per order; if the server never answers the button frees itself after 8s
+		const fallback = task.delay(8, () => setClaiming(false));
 		props.request("ClaimLabOrder", { Id: state.Id }, (reply) => {
+			pcall(task.cancel, fallback);
 			setClaiming(false);
 			if (reply.ok === true) {
 				Audio.play("missionClaim");
 				Burst.spark(config.Color, 0.8);
+			} else {
+				setRefused((n) => n + 1);
 			}
 		});
 	};
@@ -94,13 +102,15 @@ function OrderCard(props: { state: OrderState; config: OrderConfig; index: numbe
 				<Meter value={state.Claimed === true ? 1 : state.Progress / math.max(1, state.Target)} color={config.Color} order={2} />
 				<Row order={3}>
 					<Text
-						text={state.Claimed === true ? "Paid" : `${math.min(state.Progress, state.Target)}/${state.Target} · ${formatReward(config.Reward)}`}
+						text={`${math.min(state.Progress, state.Target)}/${state.Target} · ${formatReward(config.Reward)}`}
 						size={Type.small(phone)}
 						color={state.Claimed === true ? Iron.muted() : Iron.soft()}
-						box={new UDim2(1, phone ? 0 : -160, 0, 20)}
+						box={new UDim2(1, phone ? 0 : -186, 0, 20)}
 						order={0}
 					/>
-					{state.Claimed !== true && <Button text={ready ? "Claim" : "Working"} disabled={!ready} busy={claiming} width={phone ? 140 : 150} onPress={claim} order={1} />}
+					<frame Size={UDim2.fromOffset(phone ? 140 : 176, 48)} BackgroundTransparency={1} LayoutOrder={1} Position={shake.map((a) => UDim2.fromOffset(math.sin(a * math.pi * 4.5) * a * 7, 0))}>
+						<Button text={state.Claimed === true ? "Collected" : ready ? "Collect" : "Not yet"} tone={ready ? "brass" : "iron"} disabled={!ready} busy={claiming} glint={ready} stretch height={48} onPress={claim} />
+					</frame>
 				</Row>
 			</Card>
 		</frame>
@@ -207,7 +217,7 @@ function ProgramsSection(props: { programs: ProgramsState; phone: boolean; reque
 		<Panel pad={gap(phone, "l")} spacing={gap(phone, "m")} order={props.order}>
 			<Title text="Forge Programs" size={Type.title(phone)} order={0} />
 			<Text
-				text={programs.Paused === true ? "Paused for a moment. Your rules are kept." : `${programs.Rules.size()} of ${programs.Max} rules`}
+				text={programs.Paused === true ? "Programs are paused for a moment" : `${programs.Rules.size()} of ${programs.Max} rules`}
 				size={Type.small(phone)}
 				color={programs.Paused === true ? Iron.ember() : Iron.muted()}
 				order={1}
@@ -253,7 +263,7 @@ export function LabPage(props: PageProps) {
 		return (
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				<uipadding PaddingTop={new UDim(0, space)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
-				<EmptyState title="Lab" body="The Lab opens a little further into the run." phone={phone} />
+				<EmptyState title="Workshop Lab" body="Loading the Lab..." phone={phone} />
 			</frame>
 		);
 	}
@@ -282,7 +292,7 @@ export function LabPage(props: PageProps) {
 			<frame ref={claimHost} Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={0}>
 			<uilistlayout Padding={new UDim(0, space)} SortOrder={Enum.SortOrder.LayoutOrder} />
 			<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} seam={ready.size() > 0} order={0}>
-				<Title text="Lab" size={Type.title(phone)} tags={["wave"]} order={0} />
+				<Title text="Workshop Lab" size={Type.title(phone)} tags={["wave"]} order={0} />
 				<textlabel
 					Size={new UDim2(1, 0, 0, 22)}
 					BackgroundTransparency={1}
@@ -294,13 +304,19 @@ export function LabPage(props: PageProps) {
 					TextTruncate={Enum.TextTruncate.AtEnd}
 					LayoutOrder={1}
 				/>
-				{ready.size() > 1 && <Button text={`Claim all (${ready.size()})`} width={180} glint onPress={claimAll} order={2} />}
+				<Text text={`${lab.Orders.filter((o) => o.Claimed === true).size()} / ${lab.Orders.size()} paid`} size={Type.small(phone)} color={Palette.mint} order={2} />
+				{ready.size() > 0 && (
+					<frame {...({ Name: "LabClaimActions" } as object)} Size={UDim2.fromOffset(phone ? 200 : 220, 48)} BackgroundTransparency={1} LayoutOrder={3}>
+						<Button text={`Claim all · ${ready.size()}`} stretch height={48} glint onPress={claimAll} />
+					</frame>
+				)}
 			</Panel>
 
 			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
 				<uilistlayout Padding={new UDim(0, gap(phone, "m"))} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Text text="Today's orders" size={Type.body(phone)} font={Fonts.heavy} color={Palette.mint} order={-1} />
 				{lab.Orders.size() === 0 ? (
-					<EmptyState title="No orders right now" body={config.ClientPageGuides?.Lab?.EmptyOrders ?? "New orders arrive at the reset."} phone={phone} />
+					<EmptyState title="No orders yet" body={config.ClientPageGuides?.Lab?.EmptyOrders ?? "Orders refresh at the lab reset clock."} phone={phone} />
 				) : (
 					lab.Orders.map((order, i) => {
 						const entry = byId[order.Id];
@@ -311,8 +327,9 @@ export function LabPage(props: PageProps) {
 			</frame>
 
 			<Panel pad={gap(phone, "l")} spacing={gap(phone, "m")} order={2}>
-				<Title text="Power" size={Type.title(phone)} order={0} />
-				<Text text={`${lab.AvailableCells} of ${lab.TotalCells} cells free`} size={Type.small(phone)} color={Iron.muted()} order={1} />
+				<Title text="Power board" size={Type.title(phone)} order={0} />
+				<Text text={`${lab.AvailableCells} of ${lab.TotalCells} cells free. Move cells whenever you like.`} size={Type.small(phone) + 1} color={Iron.soft()} multiline order={1} />
+				<Text text="Bonuses apply at once. A new cell unlocks every 8 rebirths." size={Type.small(phone)} color={Iron.muted()} multiline order={3} />
 				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2}>
 					<uigridlayout CellSize={new UDim2(phone ? 1 : 1 / 3, phone ? 0 : -8, 0, phone ? 150 : 170)} CellPadding={UDim2.fromOffset(10, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{CHANNELS.map((id, i) => {
