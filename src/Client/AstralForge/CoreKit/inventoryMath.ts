@@ -1,7 +1,13 @@
 // Inline helpers so the compiled output has no cross-module TS.import (keeps Lune tests working)
 type Dict = Record<string, unknown>;
-// mirrors Shared/CompanionRelic; kept inline for the same reason as everything else here
-const CompanionRelic = { TARGET: "Companion:1", SHARE: 0.4 };
+// mirrors Shared/CompanionRelic and Shared/RelicEffect; kept inline for the same reason as everything
+// else here. verify scripts compare these numbers with the shared modules.
+const CompanionRelic = {
+	TARGET: "Companion:1",
+	SHARE: 0.4,
+	// 40% plus 10% per evolution at ranks 3, 6 and 10, as RelicEffect.companionShare
+	shareFor: (rank: number) => 0.4 + 0.1 * ((rank >= 3 ? 1 : 0) + (rank >= 6 ? 1 : 0) + (rank >= 10 ? 1 : 0)),
+};
 function isTable(value: unknown): value is Dict {
 	return typeIs(value, "table");
 }
@@ -424,7 +430,7 @@ export function CompareSocket(state: unknown, config: unknown, uid: unknown, def
 		const own = typeIs(uid, "string") ? items.Inventory[uid] : undefined;
 		const bond = isTable(own) && isTable(own.Bond) ? own.Bond : undefined;
 		const rank = bond !== undefined && typeIs(bond.Rank, "number") ? bond.Rank : 1;
-		const share = CompanionRelic.SHARE + 0.1 * ((rank >= 3 ? 1 : 0) + (rank >= 6 ? 1 : 0) + (rank >= 10 ? 1 : 0));
+		const share = CompanionRelic.shareFor(rank);
 		const along = `+${pct(mine * share)} ${string.lower(kind)} everywhere`;
 		return typeIs(currentUid, "string") && currentUid !== uid ? `Swaps out your current companion · ${along}` : `Companion · ${along}`;
 	}

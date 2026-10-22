@@ -5,58 +5,25 @@
 // It gives a share of its own effect as a global bonus of the same kind, so a
 // levelled, starred favourite stays useful even after the sockets fill up.
 // BALANCE: SHARE is a first pass. A socketed relic still pays more than a companion.
-import GameConfig = require("./GameConfig");
 import { T } from "./Locale";
+import * as RelicModel from "./RelicModel";
+import * as RelicEffect from "./RelicEffect";
 
 type Dict = Record<string, unknown>;
 
 const TARGET = "Companion:1";
 const SLOT = "Companion";
-const SHARE = 0.4;
-const STAR_BONUS = 0.25;
-const MAX_STARS = 5;
+const SHARE = RelicEffect.COMPANION_SHARE;
 
-interface Definition {
-	Id: string;
-	Name: string;
-	Rarity: string;
-	EffectKind: string;
-	BaseEffect: number;
-	LevelGrowth: number;
-}
-
-function definitionOf(id: unknown): Definition | undefined {
-	if (!typeIs(id, "string")) {
-		return undefined;
-	}
-	const items = (GameConfig as unknown as { Items: { Definitions: Definition[] } }).Items;
-	for (const definition of items.Definitions) {
-		if (definition.Id === id) {
-			return definition;
-		}
-	}
-	return undefined;
-}
+type Definition = RelicModel.RelicDefinition;
 
 function uidOf(items: unknown): string | undefined {
-	if (!typeIs(items, "table")) {
-		return undefined;
-	}
-	const equipped = (items as Dict).Equipped;
-	const uid = typeIs(equipped, "table") ? (equipped as Dict)[TARGET] : undefined;
-	return typeIs(uid, "string") && uid !== "" ? uid : undefined;
+	return RelicModel.uidAt(items, TARGET);
 }
 
 // the relic instance and its definition, or nothing when the slot is empty or stale
 function current(items: unknown): LuaTuple<[Dict | undefined, Definition | undefined]> {
-	const uid = uidOf(items);
-	const inventory = uid !== undefined ? (items as Dict).Inventory : undefined;
-	const instance = typeIs(inventory, "table") ? (inventory as Dict)[uid as string] : undefined;
-	if (!typeIs(instance, "table")) {
-		return $tuple(undefined, undefined);
-	}
-	const definition = definitionOf((instance as Dict).DefinitionId);
-	return $tuple(definition !== undefined ? (instance as Dict) : undefined, definition);
+	return RelicModel.at(items, TARGET);
 }
 
 
@@ -65,7 +32,7 @@ function current(items: unknown): LuaTuple<[Dict | undefined, Definition | undef
 // steps up (40 -> 50 -> 60 -> 70%) and the player picks one of two traits. Bond lives on the relic
 // instance (Inventory[uid].Bond), so it travels with the relic through trades.
 const MAX_RANK = 10;
-const EVOLUTIONS = [3, 6, 10];
+const EVOLUTIONS = RelicEffect.EVOLUTION_RANKS;
 const SUFFIXES = ["", "Bonded", "Kindred", "Soulbound"];
 // total XP needed to reach each rank; rank 1 is free. About 2h of play to 3, a few weeks to 10.
 const RANK_XP = [0, 200, 600, 1400, 2600, 4400, 7000, 10600, 15400, 21600];
@@ -114,19 +81,11 @@ function rankForXP(xp: number): number {
 }
 
 function shareFor(rank: number): number {
-	let step = 0;
-	for (const at of EVOLUTIONS) {
-		if (rank >= at) step += 1;
-	}
-	return SHARE + 0.1 * step;
+	return RelicEffect.companionShare(rank);
 }
 
 function evolutionStep(rank: number): number {
-	let step = 0;
-	for (const at of EVOLUTIONS) {
-		if (rank >= at) step += 1;
-	}
-	return step;
+	return RelicEffect.evolutionsReached(rank);
 }
 
 function bondOf(instance: unknown): Bond | undefined {
@@ -239,9 +198,7 @@ function nextEvolution(rank: number): number | undefined {
 
 function effectOf(instance: Dict, definition: Definition): number {
 	const level = typeIs(instance.Level, "number") ? math.max(1, instance.Level) : 1;
-	const stars = typeIs(instance.Stars, "number") ? math.clamp(math.floor(instance.Stars), 0, MAX_STARS) : 0;
-	const base = definition.BaseEffect * (1 + definition.LevelGrowth * (level - 1));
-	return base * (1 + STAR_BONUS * stars) * shareFor(rankOf(instance));
+	return RelicEffect.effectAt(definition, level, instance.Stars, shareFor(rankOf(instance)));
 }
 
 function bonus(items: unknown, kind: string): number {
