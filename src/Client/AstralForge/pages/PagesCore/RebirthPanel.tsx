@@ -693,6 +693,8 @@ export function RebirthChamber(props: ChamberProps) {
 		setIgniting(false);
 		Audio.play("close");
 	};
+	// B steps back out of the ignite/confirm steps before it closes the chamber (same as the Stop/Cancel button)
+	useBackLayer(confirming || igniting, igniting ? cancelIgnition : () => setConfirming(false));
 	// The confirm step disarms itself: a second press only counts within CONFIRM_WINDOW seconds of the
 	// first and not as part of the same double-click, so a stray tap later can never start a reset.
 	const CONFIRM_WINDOW = 6;
@@ -720,6 +722,8 @@ export function RebirthChamber(props: ChamberProps) {
 	// wide desktop: payout, stars and vow on the left; keepsakes, ledger and run log on the right
 	const twoColumn = !stack && viewport.width >= 1280 && viewport.height >= 640;
 	const width = math.min(twoColumn ? 1180 : 760, viewport.width - 24);
+	// narrow phones (286 px and up): the ledger stacks and the header line shrinks to fit beside the close button
+	const narrowSheet = width < 420;
 	const top = math.max(viewport.topInset, 36) + 10;
 	const bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 10;
 	const height = math.min(720, viewport.height - top - bottom);
@@ -1015,8 +1019,8 @@ export function RebirthChamber(props: ChamberProps) {
 	// what stays and what goes
 	const ledgerColumn = (title: string, body: string, tint: Color3, x: number, icon: string) => (
 		<frame
-			Size={new UDim2(0.5, -6, 1, 0)}
-			Position={new UDim2(x, x > 0 ? 6 : 0, 0, 0)}
+			Size={narrowSheet ? new UDim2(1, 0, 0.5, -4) : new UDim2(0.5, -6, 1, 0)}
+			Position={narrowSheet ? new UDim2(0, 0, x, x > 0 ? 4 : 0) : new UDim2(x, x > 0 ? 6 : 0, 0, 0)}
 			BackgroundColor3={Palette.ink}
 			BackgroundTransparency={0.3}
 			BorderSizePixel={0}
@@ -1061,7 +1065,7 @@ export function RebirthChamber(props: ChamberProps) {
 		keepCopy += ", plus " + keepNames.join(" and ");
 	}
 	sections.ledger = (
-		<Section name="RebirthLedger" order={5} height={22 + (stack ? 120 : 96)} title="What stays, what goes">
+		<Section name="RebirthLedger" order={5} height={22 + (narrowSheet ? 196 : stack ? 120 : 96)} title="What stays, what goes">
 			{ledgerColumn("You keep", keepCopy, Palette.mint, 0, "Check.rebirthKeeps")}
 			{ledgerColumn(
 				"Resets",
@@ -1155,7 +1159,7 @@ export function RebirthChamber(props: ChamberProps) {
 					weight={Enum.FontWeight.Heavy}
 					fit={false}
 					position={UDim2.fromOffset(84, 18)}
-					sizeConstraint={new UDim2(1, -160, 0, 14)}
+					sizeConstraint={new UDim2(1, -(84 + TapTarget + 20), 0, 14)}
 					zIndex={903}
 				/>
 				<Text
@@ -1163,9 +1167,10 @@ export function RebirthChamber(props: ChamberProps) {
 					size={stack ? 18 : 22}
 					color={Palette.cream}
 					weight={Enum.FontWeight.Heavy}
-					fit={false}
+					fit={narrowSheet}
+					minSize={12}
 					position={UDim2.fromOffset(84, 34)}
-					sizeConstraint={new UDim2(1, -160, 0, 28)}
+					sizeConstraint={new UDim2(1, -(84 + TapTarget + 20), 0, 28)}
 					zIndex={903}
 				/>
 				<Button
