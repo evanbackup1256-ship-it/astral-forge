@@ -42,6 +42,7 @@ import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import * as Constellations from "../../../Shared/AstralForge/Shared/Constellations";
 import * as RelicEngraving from "../../../Shared/AstralForge/Shared/RelicEngraving";
 import * as RelicRecipes from "../../../Shared/AstralForge/Shared/RelicRecipes";
+import * as RelicModel from "../../../Shared/AstralForge/Shared/RelicModel";
 import CompanionRelic = require("../../../Shared/AstralForge/Shared/CompanionRelic");
 import * as ProfileStyle from "../../../Shared/AstralForge/Shared/ProfileStyle";
 import * as SeenHints from "../../../Shared/AstralForge/Shared/SeenHints";
@@ -4020,21 +4021,7 @@ export class GameService {
 		if (itemById[definitionId] === undefined || (inventoryCount(profile) as number) >= (GameConfig.Items.InventoryLimit as number)) {
 			return undefined;
 		}
-		const inventory = items.Inventory as Dict;
-		let uid = "";
-		do {
-			uid = string.format("IT%07d", items.NextId as number);
-			items.NextId = (items.NextId as number) + 1;
-		} while (inventory[uid] !== undefined);
-		inventory[uid] = {
-			DefinitionId: definitionId,
-			Level: 1,
-			AcquiredAt: os.time(),
-		};
-		if (!typeIs(items.Discovered, "table")) {
-			items.Discovered = {};
-		}
-		(items.Discovered as Dict)[definitionId] = true;
+		const uid = RelicModel.add(items, definitionId, os.time());
 		bumpStat(profile, "ItemsFound", 1);
 		return uid;
 	}
@@ -4185,12 +4172,7 @@ export class GameService {
 			} else if (offer.Kind === "Skin") {
 				crateSkins[offer.SkinId as string] = true;
 			} else if (offer.Kind === "Cache") {
-				const candidates: Dict[] = [];
-				for (const definition of GameConfig.Items.Definitions as Dict[]) {
-					if (definition.Rarity === offer.Rarity) {
-						candidates.push(definition);
-					}
-				}
+				const candidates = RelicModel.definitionsOfRarity(offer.Rarity) as unknown as Dict[];
 				if (candidates.size() === 0) {
 					return responseError(T("GameService.ThatCacheIsEmpty"));
 				}
