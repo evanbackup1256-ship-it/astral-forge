@@ -4,7 +4,8 @@ import { compactNumber } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { Palette } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
-import { useEntrance, useStagger } from "../../MotionKit/motion";
+import { useEntrance, useStagger, useViewport } from "../../MotionKit/motion";
+import { chromeFor } from "../../CoreKit/theme";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 
 const HttpService = game.GetService("HttpService");
@@ -29,6 +30,8 @@ const COMMAND_ROW_STRIDE = COMMAND_ROW + 6;
 const SCROLL_BAR = 4;
 const OPS_H = 236;
 const OPS_LINE = 24;
+const NARROW_PLAYERS_H = 360;
+const NARROW_COMMANDS_H = 440;
 
 const ADMIN_CATS = [
 	{ id: "All", label: "ALL" },
@@ -421,10 +424,11 @@ function OpsPanel(props: {
 	layoutOrder: number;
 	onBack?: () => void;
 	children?: React.Element[];
+	size?: UDim2;
 }) {
 	const rows = props.children ?? [];
 	return (
-		<Panel size={new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
+		<Panel size={props.size ?? new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
 			<SectionTitle value={props.title} accent={props.accent} />
 			{props.onBack !== undefined && (
 				<Button
@@ -453,6 +457,9 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const admin = state.Admin!;
 	const antilag = useAntilag();
 	const softMotion = reducedMotion;
+	// below the three-column console width (phones, narrow windows) every block gets its own full-width row
+	const viewport = useViewport();
+	const narrow = chromeFor(viewport).contentStack || viewport.width < CONSOLE_W + 240;
 
 	const [targetId, setTargetId] = React.useState<number>(
 		(admin && admin.SelfUserId) ?? (admin && admin.Online && admin.Online[0] && admin.Online[0].UserId) ?? 0,
@@ -1097,26 +1104,29 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			economyRows.push(<OpsLine key={`t${i}`} left={top[i].Action} right={compactNumber(top[i].Count)} accent={Palette.steel} rightColor={Palette.muted} layoutOrder={5 + i} />);
 		}
 	}
-	const opsRow = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, OPS_H)} />
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
-			<OpsPanel title={lookup !== undefined ? "LOOKUP" : "SECURITY"} accent={Palette.coral}
+	const opsPanels = (size: UDim2 | undefined) => [
+		<OpsPanel key="ops0" size={size} title={lookup !== undefined ? "LOOKUP" : "SECURITY"} accent={Palette.coral}
 				empty="No flagged players."
 				layoutOrder={1}
 				onBack={lookup !== undefined ? () => setLookup(undefined) : undefined}
 			>
 				{securityRows}
-			</OpsPanel>
-			<OpsPanel title="Live flags" accent={Palette.mango} empty="No flags." layoutOrder={2}>
+			</OpsPanel>,
+		<OpsPanel key="ops1" size={size} title="Live flags" accent={Palette.mango} empty="No flags." layoutOrder={2}>
 				{flagRows}
-			</OpsPanel>
-			<OpsPanel title="Announcements" accent={Palette.violet} empty="Nothing announced yet." layoutOrder={3}>
+			</OpsPanel>,
+		<OpsPanel key="ops2" size={size} title="Announcements" accent={Palette.violet} empty="Nothing announced yet." layoutOrder={3}>
 				{announcementRows}
-			</OpsPanel>
-			<OpsPanel title="Economy" accent={Palette.cyan} empty="No live profiles." layoutOrder={4}>
+			</OpsPanel>,
+		<OpsPanel key="ops3" size={size} title="Economy" accent={Palette.cyan} empty="No live profiles." layoutOrder={4}>
 				{economyRows}
-			</OpsPanel>
+			</OpsPanel>,
+	];
+	const opsRow = (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, OPS_H)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
+			{opsPanels(undefined)}
 		</frame>
 	);
 
@@ -1160,11 +1170,23 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			tailPad={8}
 			scrollBarColor={Palette.steel}
 			scrollBarThickness={4}
-			sections={[
-				{ id: "header", height: HEADER_H, element: header },
-				{ id: "console", fill: true, minHeight: BODY_H, element: consoleBody },
-				{ id: "ops", height: OPS_H, element: opsRow },
-			]}
+			sections={
+				narrow
+					? [
+							{ id: "header", height: HEADER_H, element: header },
+							{ id: "players", height: NARROW_PLAYERS_H, element: playerSection },
+							{ id: "commands", height: NARROW_COMMANDS_H, element: commandSection },
+							{ id: "inspect", height: inspectH, element: inspectSection },
+							{ id: "execute", height: executeH, element: executeDock },
+							{ id: "recent", height: RECENT_MIN, element: recentSection },
+							...opsPanels(UDim2.fromScale(1, 1)).map((panel, i) => ({ id: `ops${i}`, height: OPS_H, element: panel })),
+						]
+					: [
+							{ id: "header", height: HEADER_H, element: header },
+							{ id: "console", fill: true, minHeight: BODY_H, element: consoleBody },
+							{ id: "ops", height: OPS_H, element: opsRow },
+						]
+			}
 		/>
 	);
 }
