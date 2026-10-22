@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { requestConfirm } from "../../UiOverlays/ConfirmDialog";
 import { InteractionFeedback } from "../../CoreKit/interaction";
 const ContextActionService = game.GetService("ContextActionService");
 const GuiService = game.GetService("GuiService");
@@ -280,12 +281,21 @@ function __member(): unknown {
 		let confirmKey: unknown = _init12;
 		let setConfirmKey: unknown = _init13;
 		function confirmed(key?: unknown, action?: unknown, payload?: unknown): unknown | undefined {
-			if ((confirmKey === key)) {
-				luaCall(setConfirmKey, undefined);
-				luaCall(run, action, payload);
-			} else {
-				luaCall(setConfirmKey, key);
-			}
+			const leaving = key === "leave";
+			luaCall(setConfirmKey, key);
+			requestConfirm({
+				title: leaving ? "Leave your crew?" : "Remove this member?",
+				body: leaving ? "You can rejoin later if someone invites you." : "They can be invited back later.",
+				confirmText: leaving ? "Leave" : "Remove",
+				tone: "danger",
+				onConfirm: () => {
+					luaCall(setConfirmKey, undefined);
+					luaCall(run, action, payload);
+				},
+				onCancel: () => {
+					luaCall(setConfirmKey, undefined);
+				},
+			});
 			return undefined;
 		}
 		let GAP: unknown = 10;
@@ -310,7 +320,7 @@ function __member(): unknown {
 				luaTable.insert(sections, { id: concat("crew-member-", luaProp(member, "UserId")), height: 56, element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement(Text, { value: concat(luaProp(member, "DisplayName"), concat(((luaTruthy(luaProp(member, "Leader")) ? "  ·  leader" : "")), (((luaProp(member, "UserId") === localId) ? "  ·  you" : "")))), size: 16, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 6), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 22) }), reactLoose.createElement(Text, { value: `${luaProp(member, "Collects")} collect${((luaProp(member, "Collects") === 1) ? "" : "s")} today`, size: 13, color: luaProp(Palette, "muted"), position: luaCall(luaProp(UDim2, "fromOffset"), 14, 30), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -140, 0, 18) }), (((luaProp(member, "UserId") !== localId) && reactLoose.createElement(Button, { text: "Visit", icon: "Visit.4", color: luaProp(Palette, "blue"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 104, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(leader) ? -236 : -110), 0.5, -22), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 					luaCall(dispatch, "VisitPlot", { UserId: luaProp(member, "UserId") });
 					return undefined;
-				} })) || undefined), ((((luaTruthy(leader ) ?  (luaProp(member, "UserId") !== localId) : leader)) && reactLoose.createElement(Button, { text: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? "Sure?" : "Remove"), color: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== concat("kick-", luaProp(member, "UserId"))), size: luaCall(luaProp(UDim2, "fromOffset"), 112, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -118, 0.5, -22), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
+				} })) || undefined), ((((luaTruthy(leader ) ?  (luaProp(member, "UserId") !== localId) : leader)) && reactLoose.createElement(Button, { text: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? "Remove" : "Remove"), color: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === concat("kick-", luaProp(member, "UserId"))) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== concat("kick-", luaProp(member, "UserId"))), size: luaCall(luaProp(UDim2, "fromOffset"), 112, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -118, 0.5, -22), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 					luaCall(confirmed, concat("kick-", luaProp(member, "UserId")), "CrewKick", { UserId: luaProp(member, "UserId") });
 					return undefined;
 				} })) || undefined)) });
@@ -345,7 +355,7 @@ function __member(): unknown {
 			}
 			let goalRows: unknown = (math.ceil as unknown as (...a: unknown[]) => unknown)(((len(luaProp(crew, "Tiers")) as unknown as number) / (columns as unknown as number)));
 			luaTable.insert(sections, { id: "crew-goal", height: ((((68 as unknown as number) + (((goalRows as unknown as number) * ((((TapTarget as unknown as number) + (GAP as unknown as number))) as unknown as number)) as unknown as number)) as unknown as number) + (28 as unknown as number)), element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "green"), background: luaProp(Palette, "panelRaised"), padding: 14, clips: false }, luaTable.unpack(goalChildren)) });
-			let actions: unknown = [reactLoose.createElement(Button, { text: ((confirmKey === "leave") ? "Tap again to leave" : "Leave crew"), color: ((confirmKey === "leave") ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === "leave") ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== "leave"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((luaTruthy(leader) && (!luaTruthy(stack))) ? 0.3 : 1), (((-(GAP as unknown as number)) as unknown as number) / (2 as unknown as number)), 0, TapTarget), position: ((luaTruthy(leader) && (!luaTruthy(stack))) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, ((GAP as unknown as number) / (2 as unknown as number)), 0, 0) : (luaTruthy(leader) ? luaCall(luaProp(UDim2, "fromOffset"), 0, ((TapTarget as unknown as number) + (GAP as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)())), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
+			let actions: unknown = [reactLoose.createElement(Button, { text: ((confirmKey === "leave") ? "Leave crew" : "Leave crew"), color: ((confirmKey === "leave") ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), textColor: ((confirmKey === "leave") ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), outline: (confirmKey !== "leave"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(((luaTruthy(leader) && (!luaTruthy(stack))) ? 0.3 : 1), (((-(GAP as unknown as number)) as unknown as number) / (2 as unknown as number)), 0, TapTarget), position: ((luaTruthy(leader) && (!luaTruthy(stack))) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.7, ((GAP as unknown as number) / (2 as unknown as number)), 0, 0) : (luaTruthy(leader) ? luaCall(luaProp(UDim2, "fromOffset"), 0, ((TapTarget as unknown as number) + (GAP as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)())), reducedMotion: softMotion, onClick: function(this: void): unknown | undefined {
 				luaCall(confirmed, "leave", "CrewLeave");
 				return undefined;
 			} })];

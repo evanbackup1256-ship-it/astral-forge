@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { requestConfirm } from "../../UiOverlays/ConfirmDialog";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
@@ -275,13 +276,22 @@ function __member(): unknown {
 			}, luaProp(Palette, "mango"), (!luaTruthy(canFuse))], [(luaTruthy(luaProp(echo, "Locked")) ? "Unlock" : "Lock"), function(this: void): unknown | undefined {
 				luaCall(act, { Op: "Lock", Uid: luaProp(echo, "Uid") });
 				return undefined;
-			}, luaProp(Palette, "panelSoft"), false], [(luaTruthy(isArmed) ? "Sure?" : `Break · +${luaProp(echo, "Resonance")}`), function(this: void): unknown | undefined {
-				if (luaTruthy(isArmed)) {
-					luaCall(setArmed, undefined);
-					luaCall(act, { Op: "Dismantle", Uid: luaProp(echo, "Uid") });
-				} else {
-					luaCall(setArmed, luaProp(echo, "Uid"));
-				}
+			}, luaProp(Palette, "panelSoft"), false], [`Break · +${luaProp(echo, "Resonance")}`, function(this: void): unknown | undefined {
+				const uid = luaProp(echo, "Uid");
+				luaCall(setArmed, uid);
+				requestConfirm({
+					title: "Break this echo?",
+					body: `It's gone for good. You get ${luaProp(echo, "Resonance")} resonance back.`,
+					confirmText: "Break",
+					tone: "danger",
+					onConfirm: () => {
+						luaCall(setArmed, undefined);
+						luaCall(act, { Op: "Dismantle", Uid: uid });
+					},
+					onCancel: () => {
+						luaCall(setArmed, undefined);
+					},
+				});
 				return undefined;
 			}, (luaTruthy(isArmed) ? luaProp(Palette, "coral") : luaProp(Palette, "panelSoft")), luaProp(echo, "Locked")]];
 			let buttons: unknown = {};

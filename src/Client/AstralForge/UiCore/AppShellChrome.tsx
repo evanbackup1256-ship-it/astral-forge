@@ -42,6 +42,7 @@ import { Button, Text } from "./ui";
 import { Workspace } from "./WorkspaceChrome";
 import { DesktopLayout, openDesktopEditor, useDesktopEditorOpen, useDesktopPlan } from "../CoreKit/desktopLayout";
 import { DesktopLayoutEditor } from "../UiOverlays/DesktopLayoutEditor";
+import { ConfirmHost } from "../UiOverlays/ConfirmDialog";
 import TutorialScript = require("../../../Shared/AstralForge/Shared/SharedData/TutorialScript");
 
 type RevealSession = NonNullable<CrateRevealProps["session"]>;
@@ -654,6 +655,7 @@ function AppShell(props: ShellProps) {
 				<RebirthCeremonyHost reducedMotion={reducedMotion} />
 				{deskEditorOpen && deskOn && <DesktopLayoutEditor dispatch={dispatch} viewportWidth={viewport.width} viewportHeight={viewport.height}
 					islandDock={islandDock} comboDock={comboDock} onClose={() => openDesktopEditor(false)} />}
+				<ConfirmHost reducedMotion={reducedMotion} />
 				<RedrawCounterHud enabled={devRedraws} />
 			</>
 		</AntilagContext.Provider>
