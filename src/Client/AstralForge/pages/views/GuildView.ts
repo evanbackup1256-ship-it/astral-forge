@@ -19,6 +19,43 @@ function guildMemberAccent(userKey: unknown): Color3 | undefined {
 
 const GUILD_WIDE_MIN = 1280;
 
+interface GuildSection {
+	id: string;
+	height: number;
+	element: unknown;
+}
+
+/**
+ * Wide screens: the community panels (moderation, settings, rename, logo) sit two per row, each
+ * keeping its own height; back, chat, announcements and any odd one out stay full width.
+ */
+const PAIRED_PANELS = new Set(["guild-community-moderation", "guild-community-settings", "guild-community-rename", "guild-community-logo"]);
+function pairPanels(sections: GuildSection[], gap: number): GuildSection[] {
+	const out: GuildSection[] = [];
+	let index = 0;
+	while (index < sections.size()) {
+		const left = sections[index];
+		const right = sections[index + 1] as GuildSection | undefined;
+		if (PAIRED_PANELS.has(left.id) && right !== undefined && PAIRED_PANELS.has(right.id)) {
+			out.push({
+				id: `${left.id}+${right.id}`,
+				height: math.max(left.height, right.height),
+				element: React.createElement(
+					"frame",
+					{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
+					React.createElement("frame", { key: left.id, Size: new UDim2(0.5, -gap / 2, 0, left.height), BackgroundTransparency: 1, BorderSizePixel: 0 }, left.element as React.Element),
+					React.createElement("frame", { key: right.id, Size: new UDim2(0.5, -gap / 2, 0, right.height), Position: new UDim2(0.5, gap / 2, 0, 0), BackgroundTransparency: 1, BorderSizePixel: 0 }, right.element as React.Element),
+				),
+			});
+			index += 2;
+		} else {
+			out.push(left);
+			index += 1;
+		}
+	}
+	return out;
+}
+
 function __member(): unknown {
 	let Players: unknown = colon(game).GetService("Players");
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -825,7 +862,8 @@ function __member(): unknown {
 				return undefined;
 			}, color: luaProp(Palette, "violet"), textColor: luaProp(Palette, "cream"), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 38), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 76), disabled: (((busy !== "") || (luaProp(settings, "LogoEnabled") === false)) || (logoAsset === "")), reducedMotion: reducedMotion }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, ((len(logoRows) as unknown as number) * (90 as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 120), BackgroundTransparency: 1 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 6) }), logoRows)) });
 		}
-		return reactLoose.createElement(PageScaffold, { gap: 10, tailPad: luaCall(scrollTail, stack, 0, 72), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: sections });
+		const laidOut = luaProp(_param, "wide") === true ? pairPanels(sections as GuildSection[], 10) : sections;
+		return reactLoose.createElement(PageScaffold, { gap: 10, tailPad: luaCall(scrollTail, stack, 0, 72), scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 4, sections: laidOut });
 		return undefined;
 	}
 	function GuildView(_param?: unknown): unknown | undefined {
@@ -949,7 +987,7 @@ function __member(): unknown {
 			return reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), 80), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, sections: luaCall(withStatus, [{ id: "empty-hero", height: 128, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), background: luaProp(Palette, "panelRaised"), padding: (luaTruthy(stack) ? 16 : 20), highlight: true, reveal: enter, reducedMotion: softMotion, clips: false }, reactLoose.createElement(Text, { value: ((((luaTruthy(guide ) ?  luaProp(guide, "EmptyTitle") : guide))) || "No guild yet"), size: 20, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28) }), reactLoose.createElement(Text, { value: ((((luaTruthy(guide ) ?  luaProp(guide, "EmptyBody") : guide))) || "Charter one for shared upgrades, or join with a tag."), size: 12, color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 36) }), reactLoose.createElement(Text, { value: ((((luaTruthy(guide ) ?  luaProp(guide, "Benefits") : guide))) || "Shared production, vault, offline, automation, and tap boosts."), size: 11, color: luaProp(Palette, "violet"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 78), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28) })) }, { id: "join", height: joinBlockH, element: reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Vertical"), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, pageGap) }), reactLoose.createElement(JoinOrCreate, { config: config, dispatch: send, reducedMotion: softMotion, busy: busy, shakeToken: shakeToken, stack: stack, cash: luaProp(state, "Cash") })) }], 1) });
 		}
 		if ((pane === "Community")) {
-			return reactLoose.createElement(GuildCommunityPanel, { guild: guild, dispatch: dispatch, reducedMotion: softMotion, stack: stack, role: (((luaTruthy(luaIndex(luaProp(guild, "Members"), localKey) ) ?  luaProp(luaIndex(luaProp(guild, "Members"), localKey), "Role") : luaIndex(luaProp(guild, "Members"), localKey))) || "Member"), config: config, onBack: function(this: void): unknown | undefined {
+			return reactLoose.createElement(GuildCommunityPanel, { wide: wide, guild: guild, dispatch: dispatch, reducedMotion: softMotion, stack: stack, role: (((luaTruthy(luaIndex(luaProp(guild, "Members"), localKey) ) ?  luaProp(luaIndex(luaProp(guild, "Members"), localKey), "Role") : luaIndex(luaProp(guild, "Members"), localKey))) || "Member"), config: config, onBack: function(this: void): unknown | undefined {
 				luaCall(setPane, "Overview");
 				return undefined;
 			} });
