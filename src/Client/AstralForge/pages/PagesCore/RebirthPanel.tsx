@@ -5,6 +5,7 @@
 // and the payout is the server's own quote, so the numbers here are the numbers you get.
 import React from "@rbxts/react";
 import { useBackLayer } from "../../CoreKit/backLayer";
+import { useFocusOrder } from "../../CoreKit/focusOrder";
 import ReactRoblox from "@rbxts/react-roblox";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { asFlux, compactNumber, Flux } from "../../CoreKit/format";
@@ -597,6 +598,17 @@ export function RebirthChamber(props: ChamberProps) {
 			pcall(task.cancel, selectJob);
 		};
 	}, [canRebirth, confirming, busy]);
+	// explicit pad order: payout > stars > vows > keepsakes > ledger > run log > claim bar; the two columns link left/right
+	const sheetRef = React.useRef<Frame>();
+	useFocusOrder(
+		sheetRef,
+		{
+			regions: ["RebirthPayout", "RebirthStars", "RebirthVows", "RebirthKeepsakes", "RebirthLedger", "RebirthRunLog", "RebirthClaimActions"],
+			first: ["RebirthClaimActions"],
+			columns: [["Main", "Side"]],
+		},
+		[canRebirth, confirming, busy, viewport.width],
+	);
 	React.useEffect(() => {
 		if (!canRebirth) {
 			stopIgnition();
@@ -727,7 +739,9 @@ export function RebirthChamber(props: ChamberProps) {
 	const top = math.max(viewport.topInset, 36) + 10;
 	const bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 10;
 	const height = math.min(720, viewport.height - top - bottom);
-	const footerH = TapTarget + 30;
+	// narrow phones: Rebirth gets the whole row and Close/Cancel/Stop sits under it
+	const footerH = narrowSheet ? TapTarget * 2 + 40 : TapTarget + 30;
+	const claimShare = narrowSheet ? 1 : stack ? 0.62 : 0.7;
 	const vow = RebirthMath.vow(info.Vow);
 
 	// the payout: grade, cores, stardust, and why
@@ -1140,6 +1154,7 @@ export function RebirthChamber(props: ChamberProps) {
 			/>
 			<frame
 				key="Sheet"
+				ref={sheetRef}
 				AnchorPoint={new Vector2(0.5, 0)}
 				Size={UDim2.fromOffset(width, height)}
 				Position={enter.map((amount) => new UDim2(0.5, 0, 0, top + math.round((1 - math.clamp(amount, 0, 1)) * 18)))}
@@ -1216,7 +1231,7 @@ export function RebirthChamber(props: ChamberProps) {
 					key="RebirthClaimActions"
 					AnchorPoint={new Vector2(0, 1)}
 					Position={new UDim2(0, 20, 1, -16)}
-					Size={new UDim2(1, -40, 0, TapTarget + 8)}
+					Size={new UDim2(1, -40, 0, narrowSheet ? TapTarget * 2 + 18 : TapTarget + 8)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					ClipsDescendants={false}
@@ -1229,7 +1244,7 @@ export function RebirthChamber(props: ChamberProps) {
 						onClick={rebirth}
 						color={canRebirth ? accent : Palette.panelSoft}
 						textColor={canRebirth ? Palette.ink : Palette.muted}
-						size={new UDim2(stack ? 0.62 : 0.7, -6, 0, TapTarget)}
+						size={new UDim2(claimShare, narrowSheet ? 0 : -6, 0, TapTarget)}
 						reducedMotion={softMotion}
 						disabled={!canRebirth || busy}
 						loading={busy}
@@ -1239,7 +1254,7 @@ export function RebirthChamber(props: ChamberProps) {
 					/>
 					<frame
 						key="IgnitionBar"
-						Size={ignite.map((amount) => new UDim2((stack ? 0.62 : 0.7) * amount, -6, 0, 4))}
+						Size={ignite.map((amount) => new UDim2(claimShare * amount, narrowSheet ? 0 : -6, 0, 4))}
 						Position={UDim2.fromOffset(0, TapTarget + 3)}
 						BackgroundColor3={Palette.mango}
 						BorderSizePixel={0}
@@ -1256,8 +1271,8 @@ export function RebirthChamber(props: ChamberProps) {
 						color={Palette.panelSoft}
 						textColor={Palette.cream}
 						outline={true}
-						size={new UDim2(stack ? 0.38 : 0.3, -6, 0, TapTarget)}
-						position={new UDim2(stack ? 0.62 : 0.7, 6, 0, 0)}
+						size={narrowSheet ? new UDim2(1, 0, 0, TapTarget) : new UDim2(stack ? 0.38 : 0.3, -6, 0, TapTarget)}
+						position={narrowSheet ? UDim2.fromOffset(0, TapTarget + 10) : new UDim2(stack ? 0.62 : 0.7, 6, 0, 0)}
 						reducedMotion={softMotion}
 						disabled={busy}
 						zIndex={904}

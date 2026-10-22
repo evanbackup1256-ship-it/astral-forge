@@ -1,7 +1,7 @@
 // Ascension: the final, endless reset. One hero (rank, Aether, production), the ascend panel with a
 // hold-to-confirm button, a harmony strip, and the six sigils.
 import React from "@rbxts/react";
-import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
+import { useFocusOrder } from "../CoreKit/focusOrder";
 import { splitColumns } from "../UiCore/ui";
 import { splitSection } from "./layoutRise";
 import { compactNumber } from "../CoreKit/format";
@@ -255,6 +255,8 @@ function SigilCard(props: SigilCardProps) {
 	const pulse = useClock(!props.softMotion && sigil.Level > 0, 0.6, math.pi * 2);
 	const boughtFlash = useFlipperSpring(sigil.Level, props.softMotion, 300, 22);
 	const boosted = sigil.EffectiveLevel > sigil.Level;
+	// narrow phones: the level number only needs ~44 px, so the name gets the rest of the row
+	const levelW = useViewport().width < 420 ? 44 : 84;
 	return (
 		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={20} accent={color} background={Palette.panelRaised} clips={false}>
 			<frame Size={UDim2.fromOffset(52, 52)} BackgroundColor3={darken(color, 0.72)} BorderSizePixel={0}>
@@ -277,7 +279,7 @@ function SigilCard(props: SigilCardProps) {
 				size={20}
 				weight={Enum.FontWeight.Heavy}
 				position={UDim2.fromOffset(66, 2)}
-				sizeConstraint={new UDim2(1, -150, 0, 24)}
+				sizeConstraint={new UDim2(1, -(66 + levelW), 0, 24)}
 			/>
 			<Ui.Text
 				value={sigil.Line}
@@ -292,8 +294,8 @@ function SigilCard(props: SigilCardProps) {
 				color={color}
 				weight={Enum.FontWeight.Heavy}
 				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -84, 0, 4)}
-				sizeConstraint={UDim2.fromOffset(84, 18)}
+				position={new UDim2(1, -levelW, 0, 4)}
+				sizeConstraint={UDim2.fromOffset(levelW, 18)}
 			/>
 			<Ui.Text
 				value={
@@ -616,27 +618,15 @@ function AscensionViewBoard(props: AscensionViewProps) {
 	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
 }
 
-// a gamepad lands on the page's primary action (claim/confirm/buy-tagged controls first) when it opens
-function usePadEntry(ref: React.MutableRefObject<Frame | undefined>, key: unknown) {
-	React.useEffect(() => {
-		if (!game.GetService("UserInputService").GamepadEnabled) {
-			return undefined;
-		}
-		const job = task.defer(() => {
-			const host = ref.current;
-			if (host !== undefined && host.Parent !== undefined) {
-				GamepadNavigationService.FocusClaim(host);
-			}
-		});
-		return () => {
-			pcall(task.cancel, job);
-		};
-	}, [key]);
-}
 
 function AscensionView(props: AscensionViewProps) {
 	const hostRef = React.useRef<Frame>();
-	usePadEntry(hostRef, props.state.Ascension?.CanAscend === true);
+	useFocusOrder(
+		hostRef,
+		// explicit pad order down the board; Hold first when it can be pressed, then the sigils; the charts column links left/right
+		{ regions: ["hero", "AscendConfirm", "ascend", "harmony", "sigils", "constellations"], first: ["AscendConfirm", "sigils"], columns: [["Main", "Side"]] },
+		[props.state.Ascension?.CanAscend === true, props.state.Ascension?.Rank],
+	);
 	return (
 		<frame ref={hostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<AscensionViewBoard {...props} />
