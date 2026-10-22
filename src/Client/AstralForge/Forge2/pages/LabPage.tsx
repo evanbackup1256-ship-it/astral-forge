@@ -4,12 +4,14 @@
 import React from "@rbxts/react";
 import Programs = require("../../../../Shared/AstralForge/Shared/ForgePrograms");
 import { Audio } from "../../AudioKit/audio";
+import { Palette } from "../../CoreKit/theme";
+import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
+import { Dropdown } from "../../UiCore/ui";
 import { clockText, formatReward, Reward } from "../../CoreKit/format";
 import { useChangePop, useFlash, useStagger, useWallClock } from "../../MotionKit/motion";
 import { Button } from "../design/Button";
 import { EmptyState } from "../design/Layers";
 import { Card, Meter, Panel } from "../design/Panel";
-import { Chip } from "../design/Pick";
 import { Text, Title } from "../design/Text";
 import { Fonts, gap, HIT, Iron, Type } from "../design/tokens";
 import { Burst, MotionFX } from "../motion/motion";
@@ -147,37 +149,37 @@ function RuleBuilder(props: { phone: boolean; request: PageProps["request"]; ord
 	};
 	return (
 		<Panel pad={gap(props.phone, "m")} spacing={8} color={Iron.sunk()} order={props.order}>
-			<Text text="Do" size={Type.small(props.phone)} color={Iron.muted()} order={0} />
-			<Row order={1}>
-				{Programs.ACTIONS.map((a, i) => (
-					<Chip
-						key={a.Id}
-						text={a.Name}
-						on={a.Id === action.Id}
-						order={i}
-						onPress={() => {
-							setDo(a.Id);
-							setArg(undefined);
-							setWhen(a.Whens[0]);
-						}}
-					/>
-				))}
-			</Row>
-			<Text text="When" size={Type.small(props.phone)} color={Iron.muted()} order={2} />
-			<Row order={3}>
-				{action.Whens.map((id, i) => (
-					<Chip
-						key={id}
-						text={Programs.whenOf(id)?.Name ?? id}
-						on={id === when.Id}
-						order={i}
-						onPress={() => {
-							setWhen(id);
-							setArg(undefined);
-						}}
-					/>
-				))}
-			</Row>
+			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1} ZIndex={46}>
+				<uilistlayout FillDirection={props.phone ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Dropdown
+					options={Programs.ACTIONS.map((a) => ({ id: a.Id, label: a.Name }))}
+					value={action.Id}
+					label="Do"
+					onChange={(id: string) => {
+						setDo(id);
+						setArg(undefined);
+						const picked = Programs.actionOf(id);
+						if (picked !== undefined) setWhen(picked.Whens[0]);
+					}}
+					accent={Palette.coral}
+					size={props.phone ? new UDim2(1, 0, 0, HIT) : new UDim2(0.5, -4, 0, HIT)}
+					layoutOrder={0}
+					zIndex={47}
+				/>
+				<Dropdown
+					options={action.Whens.map((id) => ({ id, label: Programs.whenOf(id)?.Name ?? id }))}
+					value={when.Id}
+					label="When"
+					onChange={(id: string) => {
+						setWhen(id);
+						setArg(undefined);
+					}}
+					accent={Palette.coral}
+					size={props.phone ? new UDim2(1, 0, 0, HIT) : new UDim2(0.5, -4, 0, HIT)}
+					layoutOrder={1}
+					zIndex={46}
+				/>
+			</frame>
 			{when.Arg !== undefined && value !== undefined && (
 				<Row order={4} wraps={false}>
 					<Button text="−" tone="iron" width={HIT} onPress={() => step(-1)} order={0} />
@@ -231,6 +233,19 @@ export function LabPage(props: PageProps) {
 	const config = props.config as unknown as { Lab?: { Orders: OrderConfig[]; Power: { Channels: Record<string, ChannelConfig | undefined> } }; ClientPageGuides?: { Lab?: { EmptyOrders?: string } } };
 	const now = useWallClock(true);
 	const lastAll = React.useRef(-math.huge);
+	const claimHost = React.useRef<Frame>();
+	const readyCount = (session.Lab?.Orders ?? []).filter((o) => o.Claimed !== true && o.Progress >= o.Target).size();
+	// a gamepad lands on the first claim when orders come due, like the old Lab
+	React.useEffect(() => {
+		if (readyCount <= 0 || !game.GetService("UserInputService").GamepadEnabled) return undefined;
+		const job = task.defer(() => {
+			const host = claimHost.current;
+			if (host !== undefined && host.Parent !== undefined) GamepadNavigationService.FocusClaim(host);
+		});
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [readyCount]);
 	const space = gap(phone, "l");
 	const lab = session.Lab;
 	const programs = session.ForgePrograms;
@@ -264,6 +279,8 @@ export function LabPage(props: PageProps) {
 			<uipadding PaddingTop={new UDim(0, space)} PaddingBottom={new UDim(0, space * 3)} PaddingLeft={new UDim(0, space)} PaddingRight={new UDim(0, space)} />
 			<uilistlayout Padding={new UDim(0, space)} SortOrder={Enum.SortOrder.LayoutOrder} />
 
+			<frame ref={claimHost} Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={0}>
+			<uilistlayout Padding={new UDim(0, space)} SortOrder={Enum.SortOrder.LayoutOrder} />
 			<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} seam={ready.size() > 0} order={0}>
 				<Title text="Lab" size={Type.title(phone)} tags={["wave"]} order={0} />
 				<textlabel
@@ -290,6 +307,7 @@ export function LabPage(props: PageProps) {
 						return entry !== undefined ? <OrderCard key={order.Id} state={order} config={entry} index={i} phone={phone} request={props.request} /> : undefined;
 					})
 				)}
+			</frame>
 			</frame>
 
 			<Panel pad={gap(phone, "l")} spacing={gap(phone, "m")} order={2}>
