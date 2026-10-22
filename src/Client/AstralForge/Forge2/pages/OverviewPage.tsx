@@ -7,13 +7,15 @@ import { asFlux, compactNumber, gteFlux } from "../../CoreKit/format";
 import * as VaultCollectEligibility from "../../CoreKit/vaultCollectEligibility";
 import { useChangePop, useFlash, useStagger } from "../../MotionKit/motion";
 import { Button } from "../design/Button";
+import { ForgeButton } from "../design/ForgeButton";
 import { Meter, Panel } from "../design/Panel";
 import { Chip } from "../design/Pick";
 import { Text, Title } from "../design/Text";
 import { Tooltip } from "../design/Layers";
-import { Fonts, gap, Iron, Type } from "../design/tokens";
+import { Fonts, gap, HIT, Iron, Type } from "../design/tokens";
 import { Burst, MotionFX } from "../motion/motion";
 import type { PageProps } from "../router/routes";
+import { ChargeDial, RebirthChamber, rebirthOf, RebirthSession } from "./rebirth/RebirthChamber";
 
 interface OverviewSession {
 	Vault?: unknown;
@@ -63,6 +65,10 @@ export function OverviewPage(props: PageProps) {
 	const vaultText = compactNumber(s.Vault ?? 0);
 	const vaultPop = useChangePop(vaultText, false, 0.1);
 	const combo = s.Overcharge?.Combo ?? 0;
+	const [chamber, setChamber] = React.useState(false);
+	const rebirth = rebirthOf(props.session as unknown as RebirthSession);
+	const starsWaiting = (rebirth.Pending ?? []).size();
+	const idle = React.useBinding(0)[0];
 
 	const collect = () => {
 		if (!canCollect) return;
@@ -82,6 +88,7 @@ export function OverviewPage(props: PageProps) {
 
 	const space = gap(phone, "l");
 	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 		<scrollingframe
 			Size={UDim2.fromScale(1, 1)}
 			BackgroundTransparency={1}
@@ -124,8 +131,26 @@ export function OverviewPage(props: PageProps) {
 			</frame>
 
 			{rebirthVisible && (
-				<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} order={2} seam={canRebirth} rarity="Mythic">
-					<Text text={canRebirth ? "Rebirth is ready" : `Next rebirth at ${compactNumber(target)}`} size={Type.body(phone)} font={Fonts.heavy} order={0} />
+				<Panel pad={gap(phone, "l")} spacing={gap(phone, "m")} order={2} seam={canRebirth} rarity="Mythic">
+					<frame Size={new UDim2(1, 0, 0, 56)} BackgroundTransparency={1} LayoutOrder={0}>
+						<ChargeDial size={56} fill={math.clamp(runFill, 0, 1)} charge={idle} color={canRebirth ? Iron.brass() : Iron.ember()} />
+						<frame Size={new UDim2(1, -(phone ? 190 : 240), 1, 0)} Position={UDim2.fromOffset(72, 0)} BackgroundTransparency={1}>
+							<Text text={canRebirth ? `+${compactNumber(s.PrestigeReward ?? 0)} cores` : `${math.floor(math.clamp(runFill, 0, 1) * 100)}%`} size={Type.title(phone)} font={Fonts.heavy} box={new UDim2(1, 0, 0, 30)} />
+							<Text text={canRebirth ? "rebirth" : `of ${compactNumber(target)}`} size={Type.small(phone)} color={Iron.muted()} box={new UDim2(1, 0, 0, 16)} position={UDim2.fromOffset(0, 34)} />
+						</frame>
+						<frame Size={UDim2.fromOffset(phone ? 110 : 150, HIT)} Position={new UDim2(1, 0, 0.5, 0)} AnchorPoint={new Vector2(1, 0.5)} BackgroundTransparency={1}>
+							<ForgeButton
+								text={canRebirth ? "Rebirth" : starsWaiting > 0 ? "Star" : "Plan"}
+								tone={canRebirth || starsWaiting > 0 ? "ember" : "iron"}
+								stretch
+								glint={canRebirth}
+								onPress={() => {
+									Audio.play("page");
+									setChamber(true);
+								}}
+							/>
+						</frame>
+					</frame>
 					<Meter value={runFill} color={Iron.ember()} order={1} />
 				</Panel>
 			)}
@@ -137,5 +162,14 @@ export function OverviewPage(props: PageProps) {
 				<Chip text="Missions" on={false} onPress={() => props.navigate("Missions")} order={2} />
 			</frame>
 		</scrollingframe>
+		<RebirthChamber
+			open={chamber}
+			session={props.session as unknown as RebirthSession}
+			config={props.config}
+			request={props.request}
+			phone={phone}
+			onClose={() => setChamber(false)}
+		/>
+		</frame>
 	);
 }

@@ -12,6 +12,7 @@ import { Fonts, gap, HIT, Iron } from "../design/tokens";
 import { useInputKind, useRegion } from "../input/input";
 import { labelOf, navGroups, PHONE_TABS } from "../router/routes";
 import { Router } from "../router/Router";
+import { RebirthCeremonyHost } from "../../UiCore/RebirthCeremony";
 import type { Request } from "../store/net";
 import { useForge, useForgeStore } from "../store/store";
 
@@ -134,6 +135,8 @@ export function Shell(props: { request: Request; config: Record<string, unknown>
 			)}
 			{phone && <TabBar page={page} navigate={navigate} chrome={chrome} width={viewport.width} />}
 			<ToastStack toasts={toasts} phone={phone} bottom={bottomH + 12} />
+			{/* the shared rebirth ceremony, full screen above everything (B skips) */}
+			<RebirthCeremonyHost />
 			<Modal open={shutdown !== undefined} title="Server restarting" onClose={() => store.update(() => ({ shutdown: undefined }))} phone={phone}>
 				<Text text={shutdown ?? ""} size={16} color={Iron.soft()} multiline />
 			</Modal>
