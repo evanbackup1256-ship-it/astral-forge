@@ -1,6 +1,7 @@
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import { formatAway } from "../../../Shared/AstralForge/Shared/OfflineProgress";
 import { LeaderboardService, StoreRow } from "../Modules/LeaderboardService";
+import { FriendGraph } from "../Modules/FriendGraph";
 import { Service } from "@flamework/core";
 import BazaarModule = require("./Gameplay/Bazaar");
 import { ConvergenceService } from "./ConvergenceService";
@@ -651,7 +652,7 @@ export class GameService {
 	_nameLookupPending!: Map<number, boolean>;
 	_nameCachePruneAt!: number;
 	_globalBoardCache!: Record<string, Dict | undefined>;
-	_friendshipCache!: Record<string, Dict | undefined>;
+	_friendGraph!: FriendGraph;
 	_queuedStatePushes!: Map<Player, thread>;
 	_socialBoostScheduled!: boolean;
 	_socialBoostDirty!: boolean;
@@ -1445,7 +1446,15 @@ export class GameService {
 		this._nameLookupPending = new Map();
 		this._nameCachePruneAt = 0;
 		this._globalBoardCache = {};
-		this._friendshipCache = {};
+		// friends bonus: pairwise IsFriendsWith answers cached per pair (failures count as no)
+		this._friendGraph = new FriendGraph({
+			ttl: GameConfig.Social.FriendshipCacheSeconds as number,
+			failTtl: 20,
+			isFriends: (low, high) => {
+				const player = Players.GetPlayerByUserId(low);
+				return player !== undefined && (player as unknown as Svc).IsFriendsWith(high) === true;
+			},
+		});
 		this._queuedStatePushes = new Map();
 		this._socialBoostScheduled = false;
 		this._socialBoostDirty = false;
@@ -1687,41 +1696,11 @@ export class GameService {
 				if (!this._running) {
 					break;
 				}
-				const cacheNow = os.clock();
-				for (const [key, entry] of pairs(this._friendshipCache)) {
-					if (!isTable(entry) || num(entry.ExpiresAt) === undefined || (entry.ExpiresAt as number) <= cacheNow) {
-						this._friendshipCache[key] = undefined;
-					}
-				}
 				const online = Players.GetPlayers();
+				const friendCounts = this._friendGraph.count(online.map((player) => player.UserId));
 				const counts = new Map<Player, number>();
 				for (const player of online) {
-					counts.set(player, 0);
-				}
-				for (let leftIndex = 0; leftIndex < online.size(); leftIndex++) {
-					const left = online[leftIndex];
-					for (let rightIndex = leftIndex + 1; rightIndex < online.size(); rightIndex++) {
-						const right = online[rightIndex];
-						const low = math.min(left.UserId, right.UserId);
-						const high = math.max(left.UserId, right.UserId);
-						const key = tostring(low) + ":" + tostring(high);
-						const cached = this._friendshipCache[key];
-						let friends: unknown = false;
-						if (cached && (cached.ExpiresAt as number) > os.clock()) {
-							friends = cached.Value;
-						} else {
-							const [ok, result] = pcall(() => (left as unknown as Svc).IsFriendsWith(right.UserId));
-							friends = ok && result === true;
-							this._friendshipCache[key] = {
-								Value: friends,
-								ExpiresAt: os.clock() + (ok ? (GameConfig.Social.FriendshipCacheSeconds as number) : 20),
-							};
-						}
-						if (truthy(friends)) {
-							counts.set(left, (counts.get(left) ?? 0) + 1);
-							counts.set(right, (counts.get(right) ?? 0) + 1);
-						}
-					}
+					counts.set(player, friendCounts.get(player.UserId) ?? 0);
 				}
 				for (const player of online) {
 					const [updated, updateError] = pcall(() => {
