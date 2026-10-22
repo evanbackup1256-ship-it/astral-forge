@@ -363,6 +363,34 @@ function awardForgePathXP(profile: Profile, amount: number) {
     value,
   );
 }
+type SeasonLane = "free" | "premium";
+
+function claimSeasonLane(profile: Profile, rawTier: unknown, lane: SeasonLane): Result {
+  if (!typeIs(rawTier, "number"))
+    return $tuple(false, T("Progression.InvalidSeasonTier"));
+  ProgressionService.EnsureCommandRotations(profile);
+  if (lane === "premium") {
+    const owned = profile.OwnedPasses as Record<string, unknown> | undefined;
+    if (!typeIs(owned, "table") || owned[SeasonPremium.PassKey] !== true)
+      return $tuple(false, T("Progression.TheSeasonPassUnlocksThis"));
+  }
+  const tierIndex = math.floor(rawTier);
+  const tier = GameConfig.Operations.SeasonTiers[tierIndex - 1];
+  if (tier === undefined || profile.Command.SeasonXP < tier.RequiredXP)
+    return $tuple(false, T("Progression.ThatSeasonTierIsStill"));
+  const key = tostring(tierIndex);
+  const claims = lane === "premium" ? profile.Command.PremiumClaims : profile.Command.SeasonClaims;
+  if (claims[key])
+    return $tuple(
+      false,
+      lane === "premium" ? T("Progression.ThatPassRewardWasAlready") : T("Progression.ThatSeasonTierWasAlready"),
+    );
+  claims[key] = true;
+  bumpStat(profile, lane === "premium" ? "SeasonPremiumTiers" : "SeasonTiers", 1);
+  const reward = lane === "premium" ? (SeasonPremium.Reward(tierIndex) as Reward) : tier.Reward;
+  return $tuple(true, ProgressionService.ApplyReward(profile, reward, Economy.Production(profile)));
+}
+
 const ProgressionService = {
   AwardCommandXP: awardCommandXP,
   AwardForgePathXP: awardForgePathXP,
@@ -1047,52 +1075,14 @@ const ProgressionService = {
       ),
     );
   },
+  // Both season lanes share one claim path: the free lane pays the configured tier reward into
+  // SeasonClaims, the premium lane needs the Season Pass and pays SeasonPremium.Reward into
+  // PremiumClaims. Either way a tier pays once, and only after the player has its XP.
   ClaimSeasonTier(this: void, profile: Profile, rawTier: unknown): Result {
-    if (!typeIs(rawTier, "number"))
-      return $tuple(false, T("Progression.InvalidSeasonTier"));
-    ProgressionService.EnsureCommandRotations(profile);
-    const tierIndex = math.floor(rawTier);
-    const tier = GameConfig.Operations.SeasonTiers[tierIndex - 1];
-    if (tier === undefined || profile.Command.SeasonXP < tier.RequiredXP)
-      return $tuple(false, T("Progression.ThatSeasonTierIsStill"));
-    const key = tostring(tierIndex);
-    if (profile.Command.SeasonClaims[key])
-      return $tuple(false, T("Progression.ThatSeasonTierWasAlready"));
-    profile.Command.SeasonClaims[key] = true;
-    bumpStat(profile, "SeasonTiers", 1);
-    return $tuple(
-      true,
-      ProgressionService.ApplyReward(
-        profile,
-        tier.Reward,
-        Economy.Production(profile),
-      ),
-    );
+    return claimSeasonLane(profile, rawTier, "free");
   },
   ClaimSeasonPremium(this: void, profile: Profile, rawTier: unknown): Result {
-    if (!typeIs(rawTier, "number"))
-      return $tuple(false, T("Progression.InvalidSeasonTier"));
-    ProgressionService.EnsureCommandRotations(profile);
-    const owned = profile.OwnedPasses as Record<string, unknown> | undefined;
-    if (!typeIs(owned, "table") || owned[SeasonPremium.PassKey] !== true)
-      return $tuple(false, T("Progression.TheSeasonPassUnlocksThis"));
-    const tierIndex = math.floor(rawTier);
-    const tier = GameConfig.Operations.SeasonTiers[tierIndex - 1];
-    if (tier === undefined || profile.Command.SeasonXP < tier.RequiredXP)
-      return $tuple(false, T("Progression.ThatSeasonTierIsStill"));
-    const key = tostring(tierIndex);
-    if (profile.Command.PremiumClaims[key])
-      return $tuple(false, T("Progression.ThatPassRewardWasAlready"));
-    profile.Command.PremiumClaims[key] = true;
-    bumpStat(profile, "SeasonPremiumTiers", 1);
-    return $tuple(
-      true,
-      ProgressionService.ApplyReward(
-        profile,
-        SeasonPremium.Reward(tierIndex) as Reward,
-        Economy.Production(profile),
-      ),
-    );
+    return claimSeasonLane(profile, rawTier, "premium");
   },
   TotalForgePathXP(this: void, profile: Profile): number {
     ensureForgePath(profile);

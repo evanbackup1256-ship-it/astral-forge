@@ -4,6 +4,7 @@
 // Owner: live ops. Dependencies: none.
 import { T } from "./Locale";
 import { EVENTS as CONTENT_EVENTS } from "./ContentV8";
+import * as Schedule from "./Schedule";
 
 export interface EventReward {
 	Stardust?: number;
@@ -24,7 +25,7 @@ export interface EventShopItem {
 	Reward: EventReward;
 }
 
-export interface LimitedEvent {
+export interface LimitedEvent extends Schedule.TimedWindow {
 	Id: string;
 	Name: string;
 	Blurb: string;
@@ -132,17 +133,11 @@ export function byId(id: unknown): LimitedEvent | undefined {
 }
 
 export function activeAt(now: number): LimitedEvent | undefined {
-	return EVENTS.find((event) => now >= event.StartsAt && now < event.EndsAt);
+	return Schedule.liveAt(EVENTS, now);
 }
 
 export function nextAfter(now: number): LimitedEvent | undefined {
-	let best: LimitedEvent | undefined;
-	for (const event of EVENTS) {
-		if (event.StartsAt > now && (best === undefined || event.StartsAt < best.StartsAt)) {
-			best = event;
-		}
-	}
-	return best;
+	return Schedule.nextAfter(EVENTS, now);
 }
 
 function dayOf(now: number): number {
