@@ -1,4 +1,4 @@
-﻿import { SplitColumns, splitFor } from "../../UiCore/splitColumns";
+﻿import { SplitColumns, splitColumns } from "../../UiCore/ui";
 import React from "@rbxts/react";
 import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -328,6 +328,31 @@ interface MissionsViewProps {
 	reducedMotion?: boolean;
 }
 
+// the list section is a fill section, so its height is only known once laid out; the ui4
+// SplitColumns takes a fixed height, so measure the section and hand that down
+function MeasuredSplit(props: { minHeight: number; render: (height: number) => React.Element }) {
+	const ref = React.useRef<Frame>();
+	const [height, setHeight] = React.useState(props.minHeight);
+	React.useEffect(() => {
+		const host = ref.current;
+		if (host === undefined) {
+			return undefined;
+		}
+		const sync = () => {
+			const measured = math.max(props.minHeight, math.floor(host.AbsoluteSize.Y + 0.5));
+			setHeight((current) => (current === measured ? current : measured));
+		};
+		sync();
+		const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(sync);
+		return () => connection.Disconnect();
+	}, [props.minHeight]);
+	return (
+		<frame ref={ref} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+			{props.render(height)}
+		</frame>
+	);
+}
+
 export function MissionsView({ state, config, dispatch, reducedMotion }: MissionsViewProps) {
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
@@ -452,9 +477,10 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const pageGap = 10;
 	// wide desktop: header, summary, claim-all and browse controls in a side column; the list
 	// fills the main column at full height
-	const plan = splitFor(viewport, stack);
+	// 1100px+ desktop, side 360/400px, 18px gap (ui4 helper in UiCore/ui.tsx)
+	const plan = splitColumns(stack ? 0 : viewport.width, viewport.width >= 1600 ? 400 : 360, 18, 1100);
 	const sideBarH = Browse.barHeight(true, true);
-	const sideClaimY = 142;
+	const sideClaimY = 106;
 	const sideBarY = sideClaimY + (counts.Ready > 0 ? 54 : 0);
 	const sideHeaderH = sideBarY + sideBarH + 32;
 	const sidePanel = (
@@ -469,23 +495,13 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			clips={false}
 		>
 			<Text
-				value={`${counts.Done} of ${quests.size()} done today`}
-				size={22}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={14}
-				position={UDim2.fromOffset(0, 0)}
-				sizeConstraint={new UDim2(1, 0, 0, 30)}
-			/>
-			<Text
 				value={nextStepText}
 				size={12}
 				color={closest !== undefined ? Palette.creamSoft : Palette.muted}
 				wrap={true}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(0, 36)}
+				position={UDim2.fromOffset(0, 0)}
 				sizeConstraint={new UDim2(1, 0, 0, 34)}
 			/>
 			<TaskSummary
@@ -493,7 +509,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				total={quests.size()}
 				accent={Palette.cyan}
 				reducedMotion={softMotion}
-				position={UDim2.fromOffset(0, 76)}
+				position={UDim2.fromOffset(0, 40)}
 				size={new UDim2(1, 0, 0, 56)}
 			/>
 			{counts.Ready > 0 && (
@@ -660,11 +676,25 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 								fill: true,
 								minHeight: math.max(sideHeaderH, rowStride * 2),
 								element: (
+									<MeasuredSplit
+										minHeight={math.max(sideHeaderH, rowStride * 2)}
+										render={(splitH: number) => (
 									<SplitColumns
+										height={splitH}
 										plan={plan}
-										side={[{ id: "hero", height: sideHeaderH, element: sidePanel }]}
-										main={missionsList}
+										side={
+											<frame Size={new UDim2(1, 0, 0, sideHeaderH)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
+												{sidePanel}
+											</frame>
+										}
+										main={
+											<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
+												{missionsList}
+											</frame>
+										}
 										name="MissionsSplit"
+									/>
+										)}
 									/>
 								),
 							},
