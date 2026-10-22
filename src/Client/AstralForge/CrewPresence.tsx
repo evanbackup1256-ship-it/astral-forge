@@ -34,8 +34,12 @@ function CrewTag(props: { head: BasePart; name: string }) {
 				TextColor3={Color3.fromRGB(150, 255, 200)}
 				FontFace={Font.fromEnum(Enum.Font.BuilderSansBold)}
 				TextSize={14}
+				TextScaled={true}
+				TextTruncate={Enum.TextTruncate.AtEnd}
 				Text={"CREW · " + props.name}
 			>
+				<uitextsizeconstraint key="Fit" MaxTextSize={14} MinTextSize={9} />
+				<uipadding key="Pad" PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
 				<uicorner key="Corner" CornerRadius={new UDim(1, 0)} />
 				<uistroke key="Stroke" Color={Color3.fromRGB(110, 240, 170)} Transparency={0.3} />
 			</textlabel>

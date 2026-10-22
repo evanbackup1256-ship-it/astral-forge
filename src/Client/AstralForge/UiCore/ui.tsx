@@ -381,10 +381,11 @@ export function Text(props: TextProps) {
 	const faceAutomaticSize = autoWidth ? Enum.AutomaticSize.X : undefined;
 	const faceScaled = autoWidth ? false : fit;
 	const fontFace = fontFaceFor(font);
-	// phones: a single-line label in a bounded box ends with an ellipsis instead of spilling past it
-	const phoneShell = chromeFor(useViewport()).stack;
+	// a single-line label in a bounded box ends with an ellipsis instead of spilling past it
+	// (every viewport: long locale strings overflow desktop boxes too). Viewport read kept for hook order.
+	useViewport();
 	const truncate =
-		phoneShell && !wrap && !faceScaled && !autoWidth && sizeConstraint !== undefined &&
+		!wrap && !faceScaled && !autoWidth && sizeConstraint !== undefined &&
 		(sizeConstraint.X.Scale > 0 || sizeConstraint.X.Offset > 0)
 			? Enum.TextTruncate.AtEnd
 			: Enum.TextTruncate.None;
@@ -3397,6 +3398,7 @@ export function EmptyState({
 	bodySize,
 	iconSize,
 	compact = false,
+	zIndex,
 }: {
 	icon?: unknown;
 	title?: string;
@@ -3409,6 +3411,7 @@ export function EmptyState({
 	bodySize?: number;
 	iconSize?: number;
 	compact?: boolean;
+	zIndex?: number;
 }) {
 	const reveal = useEntrance(reducedMotion);
 	const fade = reveal.map((amount) => 1 - math.clamp(amount, 0, 1));
@@ -3419,7 +3422,7 @@ export function EmptyState({
 	const titleH = resolvedTitle + 4;
 	const bodyH = math.max(resolvedBody * 2 + 6, 28);
 	return (
-		<frame Size={resolvedSize} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={layoutOrder}>
+		<frame Size={resolvedSize} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={layoutOrder} ZIndex={zIndex}>
 			<uipadding
 				PaddingTop={new UDim(0, 14)}
 				PaddingBottom={new UDim(0, 14)}

@@ -25,11 +25,12 @@ interface UiKit {
 	Meter: LuauComponent;
 	Panel: LuauComponent;
 	Text: LuauComponent;
+	EmptyState: LuauComponent;
 	meterFill: (this: void, value: number, target: number) => number;
 	acquireDropdownPortal: (this: void) => Instance;
 	releaseDropdownPortal: (this: void) => void;
 }
-const { Badge, Button, IconTile, Meter, Panel, Text, meterFill, acquireDropdownPortal, releaseDropdownPortal } = kitMember<UiKit>(
+const { Badge, Button, EmptyState, IconTile, Meter, Panel, Text, meterFill, acquireDropdownPortal, releaseDropdownPortal } = kitMember<UiKit>(
 	"UiCore",
 	"ui",
 );
@@ -1078,12 +1079,13 @@ export function RebirthChamber(props: ChamberProps) {
 			{runs.size() > 0 ? (
 				<RunLog runs={runs} grow={grow.map((amount) => math.clamp(amount, 0, 1))} />
 			) : (
-				<Text
-					value="No runs yet."
-					size={11}
-					color={Palette.muted}
-					fit={false}
-					sizeConstraint={new UDim2(1, 0, 0, 16)}
+				<EmptyState
+					icon="Rebirth"
+					title="No runs yet"
+					body="Rebirth once and your run shows up here."
+					accent={Palette.violet}
+					compact={true}
+					size={new UDim2(1, 0, 0, 104)}
 					zIndex={905}
 				/>
 			)}

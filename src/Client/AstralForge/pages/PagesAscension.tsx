@@ -227,9 +227,14 @@ function HoldButton(props: HoldButtonProps) {
 				})}
 				TextColor3={fill.map((a) => (a > 0.5 ? Palette.ink : Palette.cream))}
 				TextSize={16}
+				TextScaled={true}
+				TextTruncate={Enum.TextTruncate.AtEnd}
 				FontFace={new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy)}
 				ZIndex={3}
-			/>
+			>
+				<uitextsizeconstraint MaxTextSize={16} MinTextSize={11} />
+				<uipadding PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
+			</textlabel>
 		</textbutton>
 	);
 }

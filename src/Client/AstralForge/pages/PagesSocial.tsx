@@ -1629,14 +1629,11 @@ __defs["TradeView"] = () => {
 							value: "Relics",
 						}),
 						relics.size() === 0
-							? h(Text, {
-									value: "No tradeable relics. Equipped and locked pieces stay home.",
-									size: 13,
-									color: Palette.muted,
-									wrap: true,
-									fit: true,
-									minSize: 10,
-									sizeConstraint: new UDim2(1, 0, 0, 36),
+							? h(EmptyState, {
+									icon: "Artifact",
+									title: "No tradeable relics",
+									body: "Equipped and locked pieces stay home.",
+									compact: true,
 								})
 							: undefined,
 						relics.map((relic) => {
@@ -1689,14 +1686,11 @@ __defs["TradeView"] = () => {
 				editorContent,
 				viewerContent,
 				!editor && lines.size() === 0
-					? h(Text, {
-							value: "Nothing on their side yet.",
-							size: 13,
-							color: Palette.muted,
-							wrap: true,
-							fit: true,
-							minSize: 10,
-							sizeConstraint: new UDim2(1, 0, 0, 32),
+					? h(EmptyState, {
+							icon: "Crew",
+							title: "Nothing offered yet",
+							body: "Their side fills in as they add items.",
+							compact: true,
 						})
 					: undefined,
 			);

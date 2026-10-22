@@ -8,7 +8,7 @@ import { useViewport } from "../../MotionKit/motion";
 import { useServerClock } from "../../hooks/useServerClock";
 import { loadPageScaffold, loadUi } from "../luauDeps";
 
-const { Button, Dropdown, Meter, Panel, Text } = loadUi();
+const { Button, Dropdown, EmptyState, Meter, Panel, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
@@ -158,13 +158,20 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 						);
 					})}
 					{rows === 0 && (
-						<Text
-							value="No free relics to crew with."
-							size={12}
-							color={Palette.muted}
-							position={UDim2.fromOffset(0, (p.stack ? 2 : 1) * (TapTarget + 8) + 26)}
-							sizeConstraint={new UDim2(1, 0, 0, 18)}
-						/>
+						<frame
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							Position={UDim2.fromOffset(0, (p.stack ? 2 : 1) * (TapTarget + 8) + 26)}
+							Size={new UDim2(1, 0, 0, 112)}
+						>
+							<EmptyState
+								icon="Artifact"
+								title="No free relics"
+								body="Unsocket a relic or wait for a crew to come home."
+								compact={true}
+								reducedMotion={p.props.reducedMotion}
+							/>
+						</frame>
 					)}
 				</frame>
 			)}
@@ -175,7 +182,8 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 function openSlotHeight(candidates: number, stack: boolean): number {
 	const columns = stack ? 2 : 4;
 	const rows = math.max(1, math.ceil(math.min(8, candidates) / columns));
-	return PAD * 2 + (stack ? 2 : 1) * (TapTarget + 8) + 26 + rows * (CHIP_H + 6);
+	const body = candidates <= 0 ? 112 : rows * (CHIP_H + 6);
+	return PAD * 2 + (stack ? 2 : 1) * (TapTarget + 8) + 26 + body;
 }
 
 function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number }) {

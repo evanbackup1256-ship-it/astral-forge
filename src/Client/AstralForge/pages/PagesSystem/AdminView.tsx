@@ -1014,13 +1014,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
 				{recent.size() === 0 ? (
-					<Text
-						value="No commands run yet."
-						size={11}
-						color={Palette.muted}
-						position={UDim2.fromOffset(0, 6)}
-						sizeConstraint={new UDim2(1, 0, 0, 18)}
-					/>
+					<EmptyState icon="Command" title="No commands run yet" body="Anything you run shows up here." compact={true} />
 				) : (
 					auditRows
 				)}
