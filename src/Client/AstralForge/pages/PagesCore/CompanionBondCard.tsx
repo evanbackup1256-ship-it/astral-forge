@@ -10,7 +10,7 @@ const { Button, Meter, Panel, Text } = kitMember<Record<string, LuauComponent>>(
 type Reply = (response: { ok?: boolean; message?: string }) => void;
 export type BondDispatch = (action: string, payload?: object, callback?: Reply) => unknown;
 
-const PAD = 16;
+const PAD = 20;
 
 export function companionBondHeight(items: unknown, stack: boolean): number {
 	const companion = CompanionRelic.describe(items);
@@ -31,10 +31,10 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 	const atTop = companion.Rank >= CompanionRelic.MAX_RANK;
 	let line: string;
 	if (companion.Offer !== undefined) {
-		line = "Evolved. Choose the trait it keeps.";
+		line = "Choose a trait";
 	} else if (companion.NextEvolution !== undefined) {
 		const nextShare = CompanionRelic.shareFor(companion.NextEvolution);
-		line = `${companion.Trait !== undefined ? companion.Trait.Text + ". " : ""}Rank ${companion.NextEvolution} raises the share to ${pct(nextShare)}.`;
+		line = `${companion.Trait !== undefined ? companion.Trait.Text + "   " : ""}→ ${pct(nextShare)}`;
 	} else {
 		line = companion.Trait !== undefined ? companion.Trait.Text : "Fully bonded.";
 	}
@@ -49,19 +49,19 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 			<Text value={title} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={11} sizeConstraint={new UDim2(1, -150, 0, 22)} />
 			<Text
-				value={`Rank ${companion.Rank} · ${pct(companion.Share)} share`}
-				size={13}
-				color={Palette.creamSoft}
+				value={`${companion.Rank}  ·  ${pct(companion.Share)}`}
+				size={15}
+				color={Palette.violet}
 				align={Enum.TextXAlignment.Right}
 				position={new UDim2(1, -150, 0, 0)}
 				sizeConstraint={new UDim2(0, 150, 0, 22)}
 			/>
-			<Meter value={atTop ? 1 : companion.Progress} color={Palette.violet} position={UDim2.fromOffset(0, 30)} size={new UDim2(1, 0, 0, 8)} reducedMotion={props.reducedMotion} />
+			<Meter value={atTop ? 1 : companion.Progress} color={Palette.violet} position={UDim2.fromOffset(0, 30)} size={new UDim2(1, 0, 0, 4)} reducedMotion={props.reducedMotion} />
 			<Text value={line} size={12} color={Palette.muted} fit={true} minSize={10} position={UDim2.fromOffset(0, 46)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
 			{offer !== undefined && (
 				<frame Size={new UDim2(1, 0, 0, props.stack ? TapTarget * 2 + 6 : TapTarget)} Position={UDim2.fromOffset(0, 72)} BackgroundTransparency={1} BorderSizePixel={0}>
 					<Button
-						text={`${offer[0].Name}: ${offer[0].Text}`}
+						text={offer[0].Name}
 						onClick={() => pick(offer[0].Id)}
 						size={buttonSize}
 						color={Palette.panelSoft}
@@ -71,7 +71,7 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 						reducedMotion={props.reducedMotion}
 					/>
 					<Button
-						text={`${offer[1].Name}: ${offer[1].Text}`}
+						text={offer[1].Name}
 						onClick={() => pick(offer[1].Id)}
 						size={buttonSize}
 						position={props.stack ? UDim2.fromOffset(0, TapTarget + 6) : new UDim2(0.5, 4, 0, 0)}

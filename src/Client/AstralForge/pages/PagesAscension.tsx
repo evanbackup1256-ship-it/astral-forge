@@ -29,7 +29,7 @@ const SIGIL_ICONS: Record<string, string | undefined> = {
 	Crown: "Domain",
 	Lodestar: "StarGrid",
 };
-const GAP = 14;
+const GAP = 20;
 const HOLD_SECONDS = 1.6;
 
 type Flux = number | string;
@@ -253,7 +253,7 @@ function SigilCard(props: SigilCardProps) {
 	const boughtFlash = useFlipperSpring(sigil.Level, props.softMotion, 300, 22);
 	const boosted = sigil.EffectiveLevel > sigil.Level;
 	return (
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={color} background={Palette.panelRaised} clips={false}>
+		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={20} accent={color} background={Palette.panelRaised} clips={false}>
 			<frame Size={UDim2.fromOffset(52, 52)} BackgroundColor3={darken(color, 0.72)} BorderSizePixel={0}>
 				<uicorner CornerRadius={new UDim(1, 0)} />
 				<uistroke
@@ -284,7 +284,7 @@ function SigilCard(props: SigilCardProps) {
 				sizeConstraint={new UDim2(1, -66, 0, 18)}
 			/>
 			<Ui.Text
-				value={sigil.Level > 0 ? `Lv ${compact(sigil.Level)}` : "Not started"}
+				value={sigil.Level > 0 ? compact(sigil.Level) : "—"}
 				size={13}
 				color={color}
 				weight={Enum.FontWeight.Heavy}
@@ -306,7 +306,7 @@ function SigilCard(props: SigilCardProps) {
 				sizeConstraint={new UDim2(1, 0, 0, 20)}
 			/>
 			<Ui.Button
-				text={`Upgrade · ${compact(sigil.Cost)} Aether`}
+				text={`${compact(sigil.Cost)}`}
 				icon="StarGrid.2"
 				color={sigil.Affordable ? color : Palette.panelSoft}
 				textColor={sigil.Affordable ? Palette.ink : Palette.muted}
@@ -413,7 +413,7 @@ function AscensionView(props: AscensionViewProps) {
 				zIndex={3}
 			/>
 			<Ui.Text
-				value={state.Rank > 0 ? `Ascended ${state.Rank} time${state.Rank === 1 ? "" : "s"}` : "The final reset"}
+				value={state.Rank > 0 ? "Ascended" : "Ascension"}
 				size={stack ? 22 : 26}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
@@ -422,7 +422,7 @@ function AscensionView(props: AscensionViewProps) {
 				sizeConstraint={new UDim2(1, -col, 0, 32)}
 			/>
 			<Ui.Text
-				value={`${compact(state.Aether)} Aether to spend  ·  ×${compact(state.Production)} production from Ascension`}
+				value={`${compact(state.Aether)} Aether     ×${compact(state.Production)}`}
 				size={14}
 				color={Palette.creamSoft}
 				wrap={true}
@@ -432,7 +432,7 @@ function AscensionView(props: AscensionViewProps) {
 				sizeConstraint={new UDim2(1, -col, 0, stack ? 58 : 40)}
 			/>
 			<Ui.Text
-				value="Ascension resets your Domain, rebirths, cores and current run. Research, relics, artifacts, the Star Foundry and sigils stay. You can ascend again."
+				value="Research, relics, artifacts, Foundry and sigils stay."
 				size={12}
 				color={Palette.muted}
 				wrap={true}
@@ -458,8 +458,8 @@ function AscensionView(props: AscensionViewProps) {
 			<Ui.Text
 				value={
 					state.CanAscend
-						? `Ascension ${state.Rank + 1} is ready: +${compact(state.Gain)} Aether`
-						: `Reach Domain rank ${state.RequiredDomainRank} to ascend`
+						? `+${compact(state.Gain)} Aether`
+						: `Domain ${state.DomainRank} / ${state.RequiredDomainRank}`
 				}
 				size={19}
 				weight={Enum.FontWeight.Heavy}
@@ -467,8 +467,7 @@ function AscensionView(props: AscensionViewProps) {
 			/>
 			<Ui.Text
 				value={
-					`Domain rank ${state.DomainRank} of ${state.RequiredDomainRank}` +
-					(state.CanAscend ? "  ·  going further past it pays more Aether" : "")
+					state.CanAscend ? `Domain ${state.DomainRank} / ${state.RequiredDomainRank}` : ""
 				}
 				size={13}
 				color={Palette.muted}
@@ -480,10 +479,10 @@ function AscensionView(props: AscensionViewProps) {
 				color={ACCENT}
 				reducedMotion={softMotion}
 				position={UDim2.fromOffset(0, 58)}
-				size={new UDim2(1, stack ? 0 : -300, 0, 8)}
+				size={new UDim2(1, stack ? 0 : -300, 0, 4)}
 			/>
 			<Ui.Text
-				value={`Next rank: ×${compact(state.NextRankProduction)} production`}
+				value={`→ ×${compact(state.NextRankProduction)}`}
 				size={12}
 				color={Palette.creamSoft}
 				position={UDim2.fromOffset(0, 76)}
@@ -491,8 +490,8 @@ function AscensionView(props: AscensionViewProps) {
 			/>
 			<HoldButton
 				enabled={state.CanAscend && !busy}
-				text="HOLD TO ASCEND"
-				disabledText="NOT READY"
+				text="Hold"
+				disabledText="—"
 				size={stack ? new UDim2(1, 0, 0, TapTarget + 8) : UDim2.fromOffset(280, 64)}
 				position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -280, 0.5, -32)}
 				onConfirm={() => request("Ascend")}

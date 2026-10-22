@@ -17,11 +17,11 @@ export interface ConstellationState {
 	Paused?: boolean;
 }
 
-const PAD = 14;
-const HEAD_H = 64;
+const PAD = 20;
+const HEAD_H = 72;
 const CARD_H = 96;
 const CARD_H_STACK = 96 + TapTarget + 8;
-const GAP = 8;
+const GAP = 14;
 
 function pct(value: number): string {
 	const scaled = math.floor(value * 1000 + 0.5) / 10;
@@ -74,7 +74,7 @@ export function ConstellationsView(props: {
 		const nextStar = done ? undefined : chart.Stars[count];
 		const ready = nextStar !== undefined && points >= nextStar.Cost && state.Paused !== true;
 		const current = count * chart.PerStar + (done ? chart.Completion : 0);
-		const dots = chart.Stars.map((star) => (lit[star.Id] === true ? "●" : "○")).join(" ");
+		const dots = chart.Stars.map((star) => (lit[star.Id] === true ? "✦" : "·")).join("  ");
 		const accent = done ? Palette.mango : count > 0 ? Palette.mint : Palette.lineSoft;
 		cards[chart.Id] = (
 			<frame
@@ -83,7 +83,7 @@ export function ConstellationsView(props: {
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
-				<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={12} reducedMotion={props.reducedMotion} clips={false}>
+				<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={16} reducedMotion={props.reducedMotion} clips={false}>
 					<Text
 						value={chart.Name}
 						size={16}
@@ -103,22 +103,17 @@ export function ConstellationsView(props: {
 						position={UDim2.fromOffset(0, 24)}
 						sizeConstraint={new UDim2(1, stack ? 0 : -170, 0, 18)}
 					/>
-					<Text
-						value={
-							done
-								? `${chart.Blurb} Complete.`
-								: `${chart.Blurb} Next: ${nextStar!.Name}, +${pct(chart.PerStar)}${
-										count === chart.Stars.size() - 1 ? ` and +${pct(chart.Completion)} for finishing` : ""
-									}.`
-						}
-						size={12}
-						color={Palette.muted}
-						wrap={true}
-						fit={true}
-						minSize={9}
-						position={UDim2.fromOffset(0, 44)}
-						sizeConstraint={new UDim2(1, stack ? 0 : -170, 0, 30)}
-					/>
+					{!done && (
+						<Text
+							value={`→ ${nextStar!.Name}`}
+							size={12}
+							color={Palette.muted}
+							fit={true}
+							minSize={9}
+							position={UDim2.fromOffset(0, 50)}
+							sizeConstraint={new UDim2(1, stack ? 0 : -170, 0, 18)}
+						/>
+					)}
 					{!done && (
 						<frame
 							Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(156, 44)}
@@ -127,7 +122,7 @@ export function ConstellationsView(props: {
 							BorderSizePixel={0}
 						>
 							<Button
-								text={`Light · ${nextStar!.Cost} pt${nextStar!.Cost === 1 ? "" : "s"}`}
+								text={`✦ ${nextStar!.Cost}`}
 								onClick={() => light(nextStar!.Id)}
 								color={ready ? Palette.mango : Palette.panelSoft}
 								textColor={ready ? Palette.ink : Palette.muted}
@@ -148,25 +143,17 @@ export function ConstellationsView(props: {
 	return (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.mango} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 			<Text
-				value="CONSTELLATIONS"
-				size={11}
-				color={Palette.mango}
-				weight={Enum.FontWeight.Heavy}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-			/>
-			<Text
 				value={
 					state.Paused === true
-						? "The charts are closed for a moment. Lit stars still count."
-						: `${points} Star Point${points === 1 ? "" : "s"} to spend. Every rebirth earns one.`
+						? "Charts closed"
+						: `✦ ${points}`
 				}
-				size={15}
+				size={28}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Bold}
 				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 20)}
-				sizeConstraint={new UDim2(1, 0, 0, 22)}
+				minSize={14}
+				sizeConstraint={new UDim2(1, 0, 0, 40)}
 			/>
 			{cards}
 		</Panel>

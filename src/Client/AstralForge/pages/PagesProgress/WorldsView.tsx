@@ -123,7 +123,7 @@ function WorldRow(props: WorldRowProps) {
 				size={UDim2.fromScale(1, 1)}
 				accent={zone.Color}
 				background={current ? zone.DarkColor.Lerp(Palette.panelRaised, 0.45) : Palette.panel}
-				padding={stack ? 16 : 18}
+				padding={stack ? 18 : 22}
 				reveal={reveal}
 				interactive={!current}
 				highlight={current}
@@ -166,38 +166,29 @@ function WorldRow(props: WorldRowProps) {
 							sizeConstraint={new UDim2(0, 0, 0, 26)}
 						/>
 						{current && (
-							<Badge value="ACTIVE" accent={Palette.green} filled={true} size={UDim2.fromOffset(58, 18)} layoutOrder={1} />
+							<Badge value="●" accent={Palette.green} filled={false} size={UDim2.fromOffset(18, 18)} layoutOrder={1} />
 						)}
 						{canUnlock && (
-							<Badge value="READY" accent={Palette.mango} filled={true} size={UDim2.fromOffset(54, 18)} layoutOrder={1} />
+							<Badge value="✦" accent={Palette.mango} filled={false} size={UDim2.fromOffset(18, 18)} layoutOrder={1} />
 						)}
 					</frame>
-					<Text
-						value={zone.Tagline}
-						size={stack ? 13 : 11}
-						color={Palette.creamSoft}
-						fit={true}
-						minSize={10}
-						position={UDim2.fromOffset(0, 30)}
-						sizeConstraint={new UDim2(1, 0, 0, 20)}
-					/>
 					<Text
 						value={`${feature}  ·  ${AppHelpers.formatWorldMultiplier(tonumber(zone.Multiplier) ?? 0)}x`}
 						size={stack ? 13 : 11}
 						color={zone.Color}
 						weight={Enum.FontWeight.Bold}
 						fit={false}
-						position={UDim2.fromOffset(0, 56)}
+						position={UDim2.fromOffset(0, 38)}
 						sizeConstraint={new UDim2(1, 0, 0, 18)}
 					/>
 					{costLine !== undefined && (
 						<Text
-							value={canUnlock ? `Cost ${costLine}` : `Needs ${costLine}`}
-							size={10}
+							value={costLine}
+							size={12}
 							color={canUnlock ? Palette.mango : Palette.muted}
 							weight={Enum.FontWeight.Bold}
 							fit={false}
-							position={UDim2.fromOffset(0, 78)}
+							position={UDim2.fromOffset(0, 66)}
 							sizeConstraint={new UDim2(1, 0, 0, 16)}
 						/>
 					)}
@@ -502,13 +493,13 @@ function WorldsView(props: WorldsViewProps) {
 						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 30)}
 					/>
 					<Text
-						value="Travel to ones you own, or unlock the next stop."
+						value=""
 						size={stack ? chrome.labelText : 11}
 						color={Palette.muted}
 						wrap={true}
 						fit={true}
 						minSize={10}
-						position={UDim2.fromOffset(0, 56)}
+						position={UDim2.fromOffset(0, 38)}
 						sizeConstraint={new UDim2(1, stack ? -8 : -320, 0, 36)}
 					/>
 					{!stack && (

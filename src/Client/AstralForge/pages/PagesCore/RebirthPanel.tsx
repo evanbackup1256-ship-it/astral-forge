@@ -1299,8 +1299,6 @@ export function RebirthPanel({
 		notes.push(`${gate.name} at rebirth ${gate.need}.`);
 	}
 	const colW = stack ? 0 : 286;
-	const runs = info.Runs ?? [];
-	const lastRun = runs[runs.size() - 1] as RunEntry | undefined;
 	const lively = canRebirth && !effectsPaused && !softMotion;
 	return (
 		<Panel
@@ -1308,7 +1306,7 @@ export function RebirthPanel({
 			size={new UDim2(1, 0, 0, height)}
 			accent={accent}
 			background={Palette.panelRaised}
-			padding={stack ? chrome.cardPadding : 18}
+			padding={stack ? chrome.cardPadding : 22}
 			reveal={reveal ?? heroReveal}
 			highlight={lively}
 			reducedMotion={softMotion || effectsPaused}
@@ -1334,7 +1332,7 @@ export function RebirthPanel({
 				ClipsDescendants={false}
 			>
 				<Text
-					value={`${rebirths} rebirths · this run ${clock(seconds)}`}
+					value={`${rebirths}  ·  ${clock(seconds)}`}
 					size={10}
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
@@ -1344,12 +1342,12 @@ export function RebirthPanel({
 				<Text
 					value={
 						canRebirth
-							? `+${compactNumber(info.Cores)} cores ready · grade ${info.Grade}`
+							? `+${compactNumber(info.Cores)}  ${info.Grade}`
 							: rebirths < 1
-								? "Your first rebirth pays you back."
-								: `${math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}% of the way to rebirth ${rebirths + 1}`
+								? "Rebirth"
+								: `${math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}%`
 					}
-					size={stack ? 18 : 21}
+					size={stack ? 22 : 28}
 					color={Palette.cream}
 					weight={Enum.FontWeight.Heavy}
 					fit={false}
@@ -1384,13 +1382,13 @@ export function RebirthPanel({
 					reducedMotion={softMotion || effectsPaused}
 					shimmer={lively}
 					position={UDim2.fromOffset(0, 86)}
-					size={new UDim2(1, 0, 0, 9)}
+					size={new UDim2(1, 0, 0, 5)}
 				/>
 				<Text
 					value={
 						canRebirth
-							? `+${compactNumber(info.Stardust)} stardust too. ${notes.join(" ")}`
-							: `${compactNumber(conversionFlux)} / ${compactNumber(target)} flux. ${notes.join(" ")}`
+							? `+${compactNumber(info.Stardust)} stardust`
+							: `${compactNumber(conversionFlux)} / ${compactNumber(target)}`
 					}
 					size={10}
 					color={canRebirth ? Palette.mint : Palette.muted}
@@ -1400,18 +1398,6 @@ export function RebirthPanel({
 					position={UDim2.fromOffset(0, 102)}
 					sizeConstraint={new UDim2(1, 0, 0, 30)}
 				/>
-				{!stack && lastRun !== undefined && (
-					<Text
-						value={`Last run: ${clock(lastRun.Seconds)}, grade ${lastRun.Grade}, +${compactNumber(lastRun.Cores)} cores${
-							lastRun.Kept && lastRun.Vow !== "" ? `, ${lastRun.Vow} kept` : ""
-						}.  Best payout ${compactNumber(info.BestCores)} cores, fastest run ${clock(info.FastestSeconds)}.`}
-						size={10}
-						color={Palette.creamSoft}
-						fit={false}
-						position={UDim2.fromOffset(0, 138)}
-						sizeConstraint={new UDim2(1, 0, 0, 16)}
-					/>
-				)}
 			</frame>
 			<frame
 				Size={stack ? new UDim2(1, 0, 0, TapTarget * 2 + 44) : UDim2.fromOffset(colW, height - 36)}
@@ -1421,7 +1407,7 @@ export function RebirthPanel({
 				ClipsDescendants={false}
 			>
 				<Badge
-					value={pending > 0 ? `Choose a star` : `${compactNumber(state.PermanentMultiplier)}× production`}
+					value={pending > 0 ? `✦` : `${compactNumber(state.PermanentMultiplier)}×`}
 					accent={pending > 0 ? Palette.mango : Palette.mint}
 					filled={pending > 0}
 					size={new UDim2(1, 0, 0, 26)}
@@ -1433,7 +1419,7 @@ export function RebirthPanel({
 					</frame>
 				)}
 				<Button
-					text={canRebirth ? "Rebirth…" : pending > 0 ? "Light a star" : "Plan rebirth"}
+					text={canRebirth ? "Rebirth" : pending > 0 ? "✦" : "Plan"}
 					icon="Rebirth.rebirthPlan"
 					onClick={() => setChamberOpen(true)}
 					sound="page"
@@ -1445,7 +1431,7 @@ export function RebirthPanel({
 					highlight={canRebirth && !softMotion}
 				/>
 				<Button
-					text="Open Workshop"
+					text="Workshop"
 					icon="Forge.rebirthWorkshop"
 					onClick={openWorkshop}
 					sound="page"
