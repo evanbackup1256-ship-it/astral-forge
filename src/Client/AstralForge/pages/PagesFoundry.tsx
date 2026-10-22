@@ -9,6 +9,7 @@ import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme
 import { useClock, useViewport } from "../MotionKit/motion";
 import FoundryMath = require("../../../Shared/AstralForge/Shared/FoundryMath");
 import { Component, loadAudio, loadPageScaffold, loadUi, luauKit, luauModule } from "./luauDeps";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 
 const Ui = loadUi();
 const PageScaffold = loadPageScaffold();
@@ -652,11 +653,16 @@ function FoundryView(props: {
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const stack = chrome.contentStack;
+	// desktop: the board on the left; selection, actions and the bench in a side column
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.4), GAP);
+	const wide = plan.split;
+	// side-column controls use the same compact arrangement as phones
+	const narrow = stack || wide;
 	const [selected, setSelected] = React.useState<string | undefined>(undefined);
 	const [busy, setBusy] = React.useState(false);
 	const [note, setNote] = React.useState("");
 	const [combo, setCombo] = React.useState(0);
-	const [boardWidth, setBoardWidth] = React.useState(stack ? viewport.width - 24 : math.max(320, viewport.width - 440));
+	const [boardWidth, setBoardWidth] = React.useState(stack ? viewport.width - 24 : wide ? math.max(320, math.floor(viewport.width * 0.6)) : math.max(320, viewport.width - 440));
 	const sections: Array<{ id: string; height: number; element: React.Element }> = [];
 	const add = (id: string, height: number, element: React.Element) => {
 		sections.push({ id, height, element });
@@ -821,12 +827,12 @@ function FoundryView(props: {
 	if (selected !== undefined && selected.sub(1, 6) !== "bench:" && foundry.Pieces[selected] !== undefined) {
 		const piece = foundry.Pieces[selected];
 		const look = KIND_LOOK[piece.Kind] ?? CONDUIT;
-		const panelH = stack ? 96 : 64;
+		const panelH = narrow ? 96 : 64;
 		add(
 			"selected",
 			panelH,
 			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={12} accent={look.color} background={Palette.panel}>
-				{stack ? (
+				{narrow ? (
 					<>
 						<Ui.Text
 							value={`${look.name} · Tier ${piece.Tier}`}
@@ -954,7 +960,7 @@ function FoundryView(props: {
 				color={ACCENT}
 				textColor={Palette.ink}
 				highlight={true}
-				size={stack ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.4, -8, 0, buttonH)}
+				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.4, -8, 0, buttonH)}
 				position={UDim2.fromOffset(0, 0)}
 				reducedMotion={softMotion}
 			/>
@@ -964,8 +970,8 @@ function FoundryView(props: {
 				onClick={() => act({ Op: "draw" })}
 				color={Palette.panelSoft}
 				disabled={!canDraw || busy}
-				size={stack ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
-				position={stack ? UDim2.fromOffset(0, buttonH + 10) : new UDim2(0.4, 0, 0, 0)}
+				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
+				position={narrow ? UDim2.fromOffset(0, buttonH + 10) : new UDim2(0.4, 0, 0, 0)}
 				reducedMotion={softMotion}
 			/>
 			<Ui.Button
@@ -974,8 +980,8 @@ function FoundryView(props: {
 				onClick={() => act({ Op: "expand" })}
 				color={Palette.panelSoft}
 				disabled={!canExpand || busy}
-				size={stack ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
-				position={stack ? UDim2.fromOffset(0, (buttonH + 10) * 2) : new UDim2(0.7, 0, 0, 0)}
+				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
+				position={narrow ? UDim2.fromOffset(0, (buttonH + 10) * 2) : new UDim2(0.7, 0, 0, 0)}
 				reducedMotion={softMotion}
 			/>
 			{!stack && (
@@ -983,8 +989,9 @@ function FoundryView(props: {
 					value="Ignite when the white hand crosses the gold marker. Ten on the beat in a row: a surge."
 					size={12}
 					color={Palette.muted}
-					position={UDim2.fromOffset(0, buttonH + 8)}
-					sizeConstraint={new UDim2(1, 0, 0, 16)}
+					wrap={wide}
+					position={UDim2.fromOffset(0, wide ? (buttonH + 10) * 3 : buttonH + 8)}
+					sizeConstraint={new UDim2(1, 0, 0, wide ? 34 : 16)}
 				/>
 			)}
 		</frame>
@@ -995,18 +1002,21 @@ function FoundryView(props: {
 	}
 
 	// the bench (centered with exact 5-gap math so slots hit 48-52px touch targets)
-	const benchCols = 6;
+	// phones: six across, or four across when six 44px slots would not fit (narrow phones, 286px)
+	// desktop side column: four across at full size
 	const slotGap = 6;
 	const innerW = stack ? viewport.width - 24 : 380;
+	const benchCols = wide ? 4 : stack && innerW < 6 * 44 + 5 * slotGap ? 4 : 6;
+	const benchGrid = narrow;
 	const slotSize = stack ? math.clamp(math.floor((innerW - (benchCols - 1) * slotGap) / benchCols), 44, 58) : 58;
 	const totalRowW = stack ? benchCols * slotSize + (benchCols - 1) * slotGap : benchCols * (58 + 6);
 	const rowOffset = stack ? math.max(0, math.floor((innerW - totalRowW) / 2)) : 0;
-	const benchRows = stack ? 2 : 1;
+	const benchRows = benchGrid ? math.ceil(FoundryMath.BENCH_CAP / benchCols) : 1;
 	const benchEls: Record<string, React.Element> = {};
 	for (let index = 1; index <= FoundryMath.BENCH_CAP; index++) {
 		const piece = foundry.Bench[index - 1] as Piece | undefined;
-		const col = stack ? (index - 1) % benchCols : index - 1;
-		const row = stack ? math.floor((index - 1) / benchCols) : 0;
+		const col = benchGrid ? (index - 1) % benchCols : index - 1;
+		const row = benchGrid ? math.floor((index - 1) / benchCols) : 0;
 		const key = `bench:${index}`;
 		benchEls["slot" + index] = (
 			<textbutton
@@ -1059,11 +1069,37 @@ function FoundryView(props: {
 		</frame>,
 	);
 
-	if (!stack) {
+	if (wide) {
+		add("actions", (buttonH + 10) * 3 + 36, renderActions());
+	} else if (!stack) {
 		add("actions", buttonH + 30, renderActions());
 	}
 	if (note !== "") {
 		add("note", 26, <Ui.Text value={note} size={14} color={Palette.creamSoft} sizeConstraint={new UDim2(1, 0, 0, 22)} />);
+	}
+	if (wide) {
+		const main: typeof sections = [];
+		const side: typeof sections = [];
+		const top: typeof sections = [];
+		for (const section of sections) {
+			if (section.id === "hero") top.push(section);
+			else if (section.id === "board") main.push(section);
+			else side.push(section);
+		}
+		const folded = [...top, {
+			id: "foundry-columns",
+			height: math.max(stackHeight(main.map((b) => b.height), GAP), stackHeight(side.map((b) => b.height), GAP)),
+			element: (
+				<SplitColumns
+					plan={plan}
+					height={math.max(stackHeight(main.map((b) => b.height), GAP), stackHeight(side.map((b) => b.height), GAP))}
+					sideOnRight={true}
+					main={<StackBlocks gap={GAP} blocks={main} />}
+					side={<StackBlocks gap={GAP} blocks={side} />}
+				/>
+			),
+		}];
+		return <PageScaffold sections={folded} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
 	}
 	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
 }
