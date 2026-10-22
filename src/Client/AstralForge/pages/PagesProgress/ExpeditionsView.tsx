@@ -10,6 +10,7 @@ import { useViewport } from "../../MotionKit/motion";
 import { useServerClock } from "../../hooks/useServerClock";
 import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi } from "../luauDeps";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 
 const { Button, Dropdown, EmptyState, Meter, Panel, SegmentedTabs, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
@@ -149,15 +150,25 @@ function Stat(p: { value: string; caption: string; color: Color3; x: number; wid
 	);
 }
 
-function openSlotHeight(candidates: number, stack: boolean): number {
-	const columns = stack ? 2 : 4;
+// crew chips per row: two on phones, three in the narrower desktop column, four full width
+function crewColumns(stack: boolean, wide: boolean): number {
+	return stack ? 2 : wide ? 3 : 4;
+}
+
+// the four forecast stats sit in one row, or two rows of two on phones
+function statsHeight(stack: boolean): number {
+	return stack ? STAT_H * 2 + 6 : STAT_H;
+}
+
+function openSlotHeight(candidates: number, stack: boolean, wide = false): number {
+	const columns = crewColumns(stack, wide);
 	const rows = math.max(1, math.ceil(math.min(MAX_SHOWN, candidates) / columns));
 	const top = stack ? TapTarget * 2 + GAP : TapTarget;
 	const crew = candidates === 0 ? EMPTY_CREW_H : rows * (CHIP_H + 6);
-	return PAD * 2 + top + GAP + TapTarget + GAP * 2 + crew + GAP + STAT_H + 20 + GAP + TapTarget;
+	return PAD * 2 + top + GAP + TapTarget + GAP * 2 + crew + GAP + statsHeight(stack) + 20 + GAP + TapTarget;
 }
 
-function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoutes: Set<string>; candidates: Candidate[]; stack: boolean }) {
+function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoutes: Set<string>; candidates: Candidate[]; stack: boolean; wide?: boolean }) {
 	const board = p.props.state.ExpeditionBoard;
 	const level = p.props.state.Command?.Level ?? 1;
 	const open = p.routes.filter((route) => route.RequiredLevel <= level && !p.busyRoutes.has(route.Id));
@@ -170,7 +181,7 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	const shown = p.candidates.filter((_, i) => i < MAX_SHOWN);
 	const picked = shown.filter((c) => crew.includes(c.Uid));
 	const odds = route !== undefined ? Board.forecast(route.Id, stance, picked.map(member), board?.Companion, board?.Streak ?? 0) : undefined;
-	const columns = p.stack ? 2 : 4;
+	const columns = crewColumns(p.stack, p.wide === true);
 	const toggle = (uid: string) => {
 		if (crew.includes(uid)) setCrew(crew.filter((u) => u !== uid));
 		else if (crew.size() < crewMax) setCrew([...crew, uid]);
@@ -205,7 +216,7 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	const rows = math.max(1, math.ceil(shown.size() / columns));
 	y += (shown.size() === 0 ? EMPTY_CREW_H : rows * (CHIP_H + 6)) + GAP;
 	const statRow = y;
-	y += STAT_H;
+	y += statsHeight(p.stack);
 	const synergyRow = y;
 	y += 20 + GAP;
 	const launchRow = y;
@@ -287,10 +298,10 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 						/>
 					</frame>
 				)}
-				<Stat value={clockText(launchLength(p.props, route, odds))} caption="time" color={Palette.cream} x={0} width={0.25} y={statRow} />
-				<Stat value={string.format("×%.2f", odds.Yield)} caption="haul" color={Palette.mango} x={0.25} width={0.25} y={statRow} />
-				<Stat value={pct(odds.Risk)} caption="risk" color={odds.Risk > 0 ? Palette.coral : Palette.muted} x={0.5} width={0.25} y={statRow} />
-				<Stat value={pct(odds.Find)} caption="find" color={odds.Find > 0 ? Palette.violet : Palette.muted} x={0.75} width={0.25} y={statRow} />
+				<Stat value={clockText(launchLength(p.props, route, odds))} caption="time" color={Palette.cream} x={0} width={p.stack ? 0.5 : 0.25} y={statRow} />
+				<Stat value={string.format("×%.2f", odds.Yield)} caption="haul" color={Palette.mango} x={p.stack ? 0.5 : 0.25} width={p.stack ? 0.5 : 0.25} y={statRow} />
+				<Stat value={pct(odds.Risk)} caption="risk" color={odds.Risk > 0 ? Palette.coral : Palette.muted} x={p.stack ? 0 : 0.5} width={p.stack ? 0.5 : 0.25} y={p.stack ? statRow + STAT_H + 6 : statRow} />
+				<Stat value={pct(odds.Find)} caption="find" color={odds.Find > 0 ? Palette.violet : Palette.muted} x={p.stack ? 0.5 : 0.75} width={p.stack ? 0.5 : 0.25} y={p.stack ? statRow + STAT_H + 6 : statRow} />
 				{synergyText !== "" && (
 					<Text value={synergyText} size={13} color={Palette.creamSoft} position={UDim2.fromOffset(0, synergyRow)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
 				)}
@@ -312,7 +323,8 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 
 const RUN_H = PAD * 2 + 34 + 12 + 10 + 14 + 18 + 6 + 18 + GAP + TapTarget;
 
-function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number; onResult: (reply: Reply) => void }) {
+function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number; onResult: (reply: Reply) => void; stack?: boolean }) {
+	const timerW = p.stack === true ? 104 : 150;
 	const [busy, setBusy] = React.useState(false);
 	const total = math.max(1, p.slot.EndsAt - p.slot.StartedAt);
 	const left = math.max(0, p.slot.EndsAt - p.now);
@@ -334,16 +346,16 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 	};
 	return (
 		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} highlight={done} clips={false}>
-			<Text value={p.route?.Name ?? p.slot.Id} size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={12} sizeConstraint={new UDim2(1, -150, 0, 24)} />
-			<Text value={stance} size={13} color={STANCE_COLOR[stance]} position={UDim2.fromOffset(0, 24)} sizeConstraint={new UDim2(1, -150, 0, 16)} />
+			<Text value={p.route?.Name ?? p.slot.Id} size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={12} sizeConstraint={new UDim2(1, -timerW, 0, 24)} />
+			<Text value={stance} size={13} color={STANCE_COLOR[stance]} position={UDim2.fromOffset(0, 24)} sizeConstraint={new UDim2(1, -timerW, 0, 16)} />
 			<Text
 				value={done ? "Back" : clockText(left)}
 				size={28}
 				color={done ? Palette.mint : Palette.cream}
 				weight={Enum.FontWeight.Bold}
 				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -150, 0, 0)}
-				sizeConstraint={new UDim2(0, 150, 0, 34)}
+				position={new UDim2(1, -timerW, 0, 0)}
+				sizeConstraint={new UDim2(0, timerW, 0, 34)}
 				fit={true}
 				minSize={16}
 			/>
@@ -367,7 +379,7 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 				textColor={done ? Palette.ink : Palette.cream}
 				outline={!done}
 				highlight={done}
-				size={new UDim2(0, 180, 0, TapTarget)}
+				size={p.stack === true ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0, 180, 0, TapTarget)}
 				position={UDim2.fromOffset(0, 94 + 18 + GAP)}
 				reducedMotion={p.props.reducedMotion}
 			/>
@@ -400,6 +412,8 @@ function playOutcome(reply: Reply) {
 function ExpeditionsView(props: Props) {
 	const viewport = useViewport();
 	const stack = chromeFor(viewport).contentStack;
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.42), 16);
+	const wide = plan.split;
 	const board = props.state.ExpeditionBoard;
 	const slots = board?.Slots ?? [];
 	const running = slots.some((slot) => slot.Id !== "");
@@ -454,20 +468,43 @@ function ExpeditionsView(props: Props) {
 			element: <Text value="Paused for a moment. Running trips keep going." size={13} color={Palette.mango} fit={true} minSize={10} />,
 		});
 	}
+	// open slots (the launch planner) and running trips; on desktop they sit side by side
+	const openBlocks: { id: string; height: number; element: React.Element }[] = [];
+	const runBlocks: { id: string; height: number; element: React.Element }[] = [];
+	const splitWide = wide && slots.some((slot) => slot.Id === "") && running;
 	for (const slot of slots) {
 		if (slot.Id === "") {
-			sections.push({
+			openBlocks.push({
 				id: `slot${slot.Slot}`,
-				height: openSlotHeight(candidates.size(), stack),
-				element: <OpenSlot props={props} slot={slot} routes={routes} busyRoutes={busyRoutes} candidates={candidates} stack={stack} />,
+				height: openSlotHeight(candidates.size(), stack, splitWide),
+				element: <OpenSlot props={props} slot={slot} routes={routes} busyRoutes={busyRoutes} candidates={candidates} stack={stack} wide={splitWide} />,
 			});
 		} else {
-			sections.push({
+			runBlocks.push({
 				id: `slot${slot.Slot}`,
 				height: RUN_H,
-				element: <RunningSlot props={props} slot={slot} route={routes.find((r) => r.Id === slot.Id)} defs={defs} now={now} onResult={onResult} />,
+				element: <RunningSlot props={props} slot={slot} route={routes.find((r) => r.Id === slot.Id)} defs={defs} now={now} onResult={onResult} stack={stack} />,
 			});
 		}
+	}
+	if (splitWide) {
+		sections.push({
+			id: "slots",
+			height: math.max(stackHeight(openBlocks.map((b) => b.height), 16), stackHeight(runBlocks.map((b) => b.height), 16)),
+			element: (
+				<SplitColumns
+					plan={plan}
+					height={math.max(stackHeight(openBlocks.map((b) => b.height), 16), stackHeight(runBlocks.map((b) => b.height), 16))}
+					sideOnRight={true}
+					main={<StackBlocks gap={16} blocks={openBlocks} />}
+					side={<StackBlocks gap={16} blocks={runBlocks} />}
+				/>
+			),
+		});
+	} else {
+		// running trips first so a finished claim is never below the fold
+		for (const block of runBlocks) sections.push(block);
+		for (const block of openBlocks) sections.push(block);
 	}
 	return <PageScaffold sections={sections} gap={16} tailPad={stack ? 12 : 18} owner="ExpeditionsView" />;
 }
