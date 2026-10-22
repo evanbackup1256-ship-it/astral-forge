@@ -5353,6 +5353,7 @@ export class GameService {
 				machinesBought: num(stats.MachinesBought) ?? 0,
 				researchBought: num(stats.ResearchBought) ?? 0,
 				cratesOpened: num(stats.CratesOpened) ?? 0,
+				itemsSalvaged: num(stats.ItemsSalvaged) ?? 0,
 				level: num(levelState.Level) ?? 1,
 				rebirths: num(profile.Rebirths) ?? 0,
 				rebirthReady: (Economy.AsNumber(prestige) as number) >= 1,

@@ -88,7 +88,7 @@ interface FirstGoalView {
 type FirstGoalState = {
 	Flags?: { TutorialDone?: unknown; FirstGoals?: unknown };
 	Settings?: { FirstGoals?: unknown };
-	Stats?: { MachinesBought?: unknown; ResearchBought?: unknown; CratesOpened?: unknown };
+	Stats?: { MachinesBought?: unknown; ResearchBought?: unknown; CratesOpened?: unknown; ItemsSalvaged?: unknown };
 	Level?: { Level?: unknown };
 	Rebirths?: unknown;
 	PrestigeReward?: unknown;
@@ -108,6 +108,7 @@ function firstGoalView(raw: unknown): FirstGoalView | undefined {
 		machinesBought: count(state.Stats?.MachinesBought),
 		researchBought: count(state.Stats?.ResearchBought),
 		cratesOpened: count(state.Stats?.CratesOpened),
+		itemsSalvaged: count(state.Stats?.ItemsSalvaged),
 		level: count(state.Level?.Level),
 		rebirths: count(state.Rebirths),
 		rebirthReady: OmegaMath.Gte((state.PrestigeReward ?? 0) as never, 1),

@@ -11,6 +11,8 @@ export interface GoalFacts {
 	level: number;
 	rebirths: number;
 	rebirthReady: boolean;
+	/** added after launch; older callers may leave it out */
+	itemsSalvaged?: number;
 }
 
 export interface FirstGoal {
@@ -85,6 +87,29 @@ export const GOALS: ReadonlyArray<FirstGoal> = table.freeze([
 		need: 1,
 		have: (facts: GoalFacts) => (facts.rebirthReady || facts.rebirths > 0 ? 1 : 0),
 		rewardFlux: 1000,
+	},
+	{
+		id: "salvage",
+		title: "Salvage a spare relic",
+		line: "Duplicates melt into Flux. Keep the best, salvage the rest.",
+		cta: "Open Inventory",
+		page: "Inventory",
+		pageLevel: 3,
+		need: 1,
+		have: (facts: GoalFacts) => facts.itemsSalvaged ?? 0,
+		rewardFlux: 1500,
+	},
+	{
+		id: "firstRebirth",
+		title: "Rebirth once",
+		line: "Your machines reset, your Cores stay. The next run is faster.",
+		cta: "Open Rebirth",
+		page: "Rebirth",
+		pageLevel: 10,
+		need: 1,
+		have: (facts: GoalFacts) => facts.rebirths,
+		rewardFlux: 5000,
+		rewardKeys: { crate: "ForgeCrate", count: 2 },
 	},
 ]);
 
