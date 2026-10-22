@@ -8,6 +8,7 @@ import { chromeFor, darken, ensureContrast, Layout, Palette, scrollTail, TapTarg
 import { bulkCost, compactNumber, compareFlux, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
 import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
+import { splitFor, splitSections } from "../../UiCore/splitColumns";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
@@ -415,6 +416,11 @@ function UpgradeBoard(props: {
 	const onBuy = batch.buy;
 	const onBuyAll: (() => boolean) | undefined = batch.start;
 	const stack = chrome.contentStack;
+	// wide desktop: header, purchase plan and Auto-Forge in a side column, machines in the main
+	// one. The side column reuses the stacked header arrangement built for narrow widths.
+	const plan = splitFor(viewport, stack);
+	const headerStack = stack || plan.split;
+	const gridWidth = plan.split ? viewport.width - plan.sideWidth - plan.gap : viewport.width;
 	const touchLayout = chrome.mobile;
 	const searchW = 252;
 	const sortW = 176;
@@ -422,11 +428,11 @@ function UpgradeBoard(props: {
 	const controlGap = 12;
 	const controlsWrap = !stack && viewport.width < 900;
 	const stackControlsY = chrome.landscape ? 40 : 56;
-	const headerHeight = chrome.landscape && stack ? 136 : stack ? 268 : controlsWrap ? 232 : 188;
+	const headerHeight = chrome.landscape && stack ? 136 : headerStack ? 268 : controlsWrap ? 232 : 188;
 	const rowH = PageBoardHeights.Machine(machineRowStack(chrome));
 	const gap = stack ? chrome.panelGap : Layout.panelGap;
 	// machine cards put their buy button beside the text; below ~460px a card can't fit both, so add columns late
-	const columns = stack ? 1 : viewport.width >= 2400 ? 4 : viewport.width >= 1750 ? 3 : viewport.width >= 900 ? 2 : 1;
+	const columns = stack ? 1 : gridWidth >= 2400 ? 4 : gridWidth >= 1750 ? 3 : gridWidth >= 900 ? 2 : 1;
 	const columnWidth = new UDim2(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH);
 	const gridRows = math.ceil(math.max(1, visible.size()) / columns);
 	const machinesBlock =
@@ -458,33 +464,46 @@ function UpgradeBoard(props: {
 			size={UDim2.fromScale(1, 1)}
 			accent={accent}
 			background={Palette.panelRaised}
-			padding={stack ? chrome.cardPadding : 14}
+			padding={headerStack ? chrome.cardPadding : 14}
 			reveal={headerReveal}
 			zIndex={30}
 			clips={false}
 		>
 			<Text
 				value={title}
-				size={stack ? (stackCompact ? 18 : 20) : 24}
+				size={headerStack ? (stackCompact ? 18 : 20) : 24}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
-				position={UDim2.fromOffset(0, stack ? 6 : 8)}
-				sizeConstraint={new UDim2(1, stack ? -8 : -248, 0, stack ? 26 : 30)}
+				position={UDim2.fromOffset(0, headerStack ? 6 : 8)}
+				sizeConstraint={new UDim2(1, plan.split ? -124 : headerStack ? -8 : -248, 0, headerStack ? 26 : 30)}
 			/>
+			{plan.split && (
+				<Text
+					value={compactNumber(state.Production) + " / sec"}
+					size={14}
+					color={accent}
+					weight={Enum.FontWeight.Heavy}
+					fit={true}
+					minSize={10}
+					position={new UDim2(1, -116, 0, 10)}
+					sizeConstraint={new UDim2(0, 112, 0, 18)}
+					align={Enum.TextXAlignment.Right}
+				/>
+			)}
 			{!stackCompact && (
 				<Text
 					value={blurb}
-					size={stack ? chrome.labelText : 12}
+					size={headerStack ? chrome.labelText : 12}
 					color={Palette.creamSoft}
 					wrap={true}
 					fit={true}
 					minSize={10}
-					position={UDim2.fromOffset(0, stack ? 42 : 46)}
-					sizeConstraint={new UDim2(1, stack ? -8 : -248, 0, stack ? 20 : 34)}
+					position={UDim2.fromOffset(0, headerStack ? 42 : 46)}
+					sizeConstraint={new UDim2(1, headerStack ? -8 : -248, 0, headerStack ? 20 : 34)}
 				/>
 			)}
-			{!stack && (
+			{!headerStack && (
 				<>
 					<Text
 						value={compactNumber(state.Production) + " / sec"}
@@ -575,7 +594,7 @@ function UpgradeBoard(props: {
 					)}
 				</>
 			)}
-			{stack && (
+			{headerStack && (
 				<>
 					<AmountToggle
 						value={buyAmount}
@@ -724,7 +743,13 @@ function UpgradeBoard(props: {
 		{ id: "machines", height: machinesBlock, element: machinesElement },
 	];
 	if (featurePanel !== undefined) {
-		sections.push({ id: "autoforge", height: featurePanelHeight, element: featurePanel });
+		const autoforge = { id: "autoforge", height: featurePanelHeight, element: featurePanel };
+		if (plan.split) {
+			// side column: header, plan, Auto-Forge; main column: the machine grid
+			sections.insert(2, autoforge);
+		} else {
+			sections.push(autoforge);
+		}
 	}
 	return (
 		<frame
@@ -750,7 +775,7 @@ function UpgradeBoard(props: {
 					tailPad={machineScrollTail}
 					scrollBarColor={accent}
 					scrollBarThickness={4}
-					sections={sections}
+					sections={splitSections(plan, sections, "Workshop")}
 				/>
 			</Panel>
 		</frame>
@@ -778,11 +803,12 @@ function AutoForgePanel(props: {
 	dispatch: Dispatch;
 	reducedMotion?: boolean;
 	height: number;
+	stack?: boolean;
 }) {
 	const { state, machines, dispatch, height } = props;
 	const viewport = useViewport();
 	const softMotion = props.reducedMotion;
-	const stack = chromeFor(viewport).stack;
+	const stack = props.stack ?? chromeFor(viewport).stack;
 	const queue = state.AutoForge ?? {
 		Enabled: false,
 		MachineId: (machines[0] as MachineConfig | undefined)?.Id ?? "StellarCore",
@@ -1045,9 +1071,11 @@ function WorkshopView(props: {
 		[machines, state.Machines, state.Zone, state.Rebirths],
 	);
 	// stacked: controlY 104 + picker 44 + 26 + row 44 = 218, plus 2 x 14 padding; desktop: 102 + 42 + 28
-	const featureHeight = chromeFor(viewport).stack ? 246 : 172;
+	// in the desktop side column Auto-Forge and Programs use their narrow (stacked) arrangement
+	const featureStack = chromeFor(viewport).stack || splitFor(viewport, chainStack).split;
+	const featureHeight = featureStack ? 246 : 172;
 	// Forge Programs sit under Auto-Forge once they unlock
-	const programsHeight = programsPanelHeight(state as ProgramsState, chromeFor(viewport).stack);
+	const programsHeight = programsPanelHeight(state as ProgramsState, featureStack);
 	return (
 		<UpgradeBoard
 			title={firstMachine ? "Buy a machine" : `${ownedMachines} machine${ownedMachines === 1 ? "" : "s"} running`}
@@ -1069,11 +1097,11 @@ function WorkshopView(props: {
 			featurePanel={
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 					<frame Size={new UDim2(1, 0, 0, featureHeight)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={featureHeight} />
+						<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={featureHeight} stack={featureStack} />
 					</frame>
 					{programsHeight > 0 && (
 						<frame Size={new UDim2(1, 0, 0, programsHeight)} Position={UDim2.fromOffset(0, featureHeight + 12)} BackgroundTransparency={1} BorderSizePixel={0}>
-							<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={chromeFor(viewport).stack} reducedMotion={reducedMotion} />
+							<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={featureStack} reducedMotion={reducedMotion} />
 						</frame>
 					)}
 				</frame>
