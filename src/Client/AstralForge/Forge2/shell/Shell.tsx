@@ -16,6 +16,8 @@ import { RebirthCeremonyHost } from "../../UiCore/RebirthCeremony";
 import type { Request } from "../store/net";
 import { useForge, useForgeStore } from "../store/store";
 import * as NavRoutes from "../../../../Shared/AstralForge/Shared/NavRoutes";
+import { useGameChat } from "../../ClientRuntime/chat";
+import { ChatContext } from "./chatContext";
 
 function Readout(props: { label: string; value: unknown; color: Color3; order: number; phone: boolean }) {
 	const text = compactNumber(props.value ?? 0);
@@ -49,7 +51,7 @@ function TopBar(props: { phone: boolean; height: number }) {
 	);
 }
 
-function Rail(props: { page: string; navigate: (id: string) => void; width: number; top: number }) {
+function Rail(props: { page: string; navigate: (id: string) => void; width: number; top: number; badges: Record<string, number> }) {
 	const region = useRegion("nav");
 	const groups = navGroups();
 	return (
@@ -71,7 +73,7 @@ function Rail(props: { page: string; navigate: (id: string) => void; width: numb
 					<uilistlayout Padding={new UDim(0, 4)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					<Text text={group.label} size={12} color={Iron.muted()} box={new UDim2(1, 0, 0, 22)} order={0} />
 					{group.routes.map((id, ri) => (
-						<Tab key={id} text={labelOf(id)} active={props.page === id} onPress={() => props.navigate(id)} width={props.width - 20} order={ri + 1} />
+						<Tab key={id} text={labelOf(id)} active={props.page === id} onPress={() => props.navigate(id)} width={props.width - 20} order={ri + 1} badge={props.badges[id]} />
 					))}
 				</frame>
 			))}
@@ -79,7 +81,7 @@ function Rail(props: { page: string; navigate: (id: string) => void; width: numb
 	);
 }
 
-function TabBar(props: { page: string; navigate: (id: string) => void; chrome: MobileChrome; width: number }) {
+function TabBar(props: { page: string; navigate: (id: string) => void; chrome: MobileChrome; width: number; badges: Record<string, number> }) {
 	const region = useRegion("tabs");
 	const pins = useForge((st) => (st.session as { Flags?: { MobileTabPins?: unknown } } | undefined)?.Flags?.MobileTabPins);
 	const saved = NavRoutes.normalizeMobileTabPins(pins);
@@ -100,7 +102,7 @@ function TabBar(props: { page: string; navigate: (id: string) => void; chrome: M
 			<uipadding PaddingTop={new UDim(0, 6)} PaddingLeft={new UDim(0, 6)} PaddingRight={new UDim(0, 6)} />
 			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, 4)} SortOrder={Enum.SortOrder.LayoutOrder} />
 			{tabs.map((id, i) => (
-				<Tab key={id} text={labelOf(id)} active={props.page === id} onPress={() => props.navigate(id)} width={math.floor((props.width - 12 - (tabs.size() - 1) * 4) / tabs.size())} order={i} />
+				<Tab key={id} text={labelOf(id)} active={props.page === id} onPress={() => props.navigate(id)} width={math.floor((props.width - 12 - (tabs.size() - 1) * 4) / tabs.size())} order={i} badge={props.badges[id]} />
 			))}
 		</frame>
 	);
@@ -117,13 +119,20 @@ export function Shell(props: { request: Request; config: Record<string, unknown>
 	const busy = useForge((s) => s.busy);
 	const shutdown = useForge((s) => s.shutdown);
 	const navigate = React.useCallback((id: string) => store.update(() => ({ page: id })), [store]);
+	const run = React.useCallback(
+		(action: string, payload: Record<string, unknown>, callback: (response: unknown) => void) => props.request(action, payload, callback),
+		[props.request],
+	);
+	const chat = useGameChat(page === "Chat", true, run, (session as unknown as { Settings?: Record<string, unknown> } | undefined)?.Settings);
+	const badges: Record<string, number> = { Chat: page === "Chat" ? 0 : chat.unread };
 	const topH = phone ? 52 : 64;
 	const railW = phone ? 0 : 196;
 	const bottomH = phone ? math.max(HIT + 12, chrome.tabBarH) + chrome.bottomSafe : 0;
 	return (
+		<ChatContext.Provider value={chat}>
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Iron.void()} BorderSizePixel={0}>
 			<TopBar phone={phone} height={topH} />
-			{!phone && <Rail page={page} navigate={navigate} width={railW} top={topH} />}
+			{!phone && <Rail page={page} navigate={navigate} width={railW} top={topH} badges={badges} />}
 			{session === undefined ? (
 				<frame Size={new UDim2(1, 0, 1, -topH)} Position={UDim2.fromOffset(0, topH)} BackgroundTransparency={1}>
 					<uipadding PaddingTop={new UDim(0, 48)} PaddingLeft={new UDim(0, 16)} PaddingRight={new UDim(0, 16)} />
@@ -137,7 +146,7 @@ export function Shell(props: { request: Request; config: Record<string, unknown>
 					inner={{ session, config: props.config, request: props.request, navigate, phone, chrome, busy }}
 				/>
 			)}
-			{phone && <TabBar page={page} navigate={navigate} chrome={chrome} width={viewport.width} />}
+			{phone && <TabBar page={page} navigate={navigate} chrome={chrome} width={viewport.width} badges={badges} />}
 			<ToastStack toasts={toasts} phone={phone} bottom={bottomH + 12} />
 			{/* the shared rebirth ceremony, full screen above everything (B skips) */}
 			<RebirthCeremonyHost />
@@ -145,5 +154,6 @@ export function Shell(props: { request: Request; config: Record<string, unknown>
 				<Text text={shutdown ?? ""} size={16} color={Iron.soft()} multiline />
 			</Modal>
 		</frame>
+		</ChatContext.Provider>
 	);
 }

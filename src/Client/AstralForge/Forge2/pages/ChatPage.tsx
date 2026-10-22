@@ -4,7 +4,8 @@
 // menu, then leaves a whisper thread.
 import React from "@rbxts/react";
 import { Audio } from "../../AudioKit/audio";
-import { useGameChat } from "../../ClientRuntime/chat";
+import type { useGameChat } from "../../ClientRuntime/chat";
+import { useShellChat } from "../shell/chatContext";
 import { useChangePop, useStagger } from "../../MotionKit/motion";
 import { Button } from "../design/Button";
 import { Panel } from "../design/Panel";
@@ -72,13 +73,15 @@ function Line(props: { message: Message; index: number; phone: boolean; size: nu
 }
 
 export function ChatPage(props: PageProps) {
+	const shellChat = useShellChat();
+	if (shellChat === undefined) return undefined;
+	return <ChatBody page={props} chat={shellChat} />;
+}
+
+function ChatBody(outer: { page: PageProps; chat: Chat }) {
+	const props = outer.page;
 	const phone = props.phone;
-	const run = React.useCallback(
-		(action: string, payload: Record<string, unknown>, callback: (response: unknown) => void) => props.request(action, payload, callback),
-		[props.request],
-	);
-	const settings = (props.session as unknown as { Settings?: Record<string, unknown> }).Settings;
-	const chat = useGameChat(true, true, run, settings);
+	const chat = outer.chat;
 	const [draft, setDraft] = React.useState("");
 	const [menuFor, setMenuFor] = React.useState<number | undefined>(undefined);
 	const [note, setNote] = React.useState("");
