@@ -1,10 +1,12 @@
 import { named } from "../lua";
 // Credits: everyone who made the game, read from SharedData#CreditsConfig through CreditsModel.
 //
-// Built from the shared surfaces (./surface) like Quick Find and tooltips: one base Surface, a
-// section rail on wide screens (chips on narrow ones), an inset spotlight for the person you're
-// looking at, and member rows that light up on the same spring. B or Esc closes, LB/RB change
-// section, and a tap outside the panel closes too.
+// A clean, read-only roll. One Surface panel that sizes itself to its content (no empty card
+// below a short list): a title block, then every section in order, each with its own accent rule
+// and a grid of member cards whose column count comes from the layout engine (cards stretch to
+// fill the row instead of leaving holes), then the acknowledgements. Nothing to tap but Close:
+// B, Esc or a tap outside also close it. Motion is unchanged: the panel reveals on usePresence,
+// cards rise on the shared surface stagger and their plates settle on the surface spring.
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
@@ -13,38 +15,18 @@ import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
-import {
-	IconTile,
-	KindChip,
-	SearchField,
-	SectionLabel,
-	Surface,
-	SurfaceMetrics,
-	SurfaceMotion,
-	SurfaceRow,
-	SurfaceText,
-	useSurfaceEnter,
-	useSurfaceSpring,
-} from "./surface";
+import { SectionLabel, Surface, SurfaceMetrics, SurfaceMotion, SurfaceRow, SurfaceText, useSurfaceEnter, useSurfaceSpring } from "./surface";
+import { fitColumns, measureText, Space } from "./layoutEngine";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
-const TextService = game.GetService("TextService");
 
 const AstralForge = script.Parent!.Parent!;
 const loadKit = (name: string) => require(AstralForge.WaitForChild(name) as ModuleScript) as (member: string) => unknown;
-
 interface AudioApi {
 	play(name: string): void;
 }
 const Audio = (loadKit("AudioKit")("audio") as { Audio: AudioApi }).Audio;
-const IconComponent = (loadKit("ArtKit")("Icon") as { Icon: unknown }).Icon as React.FC<{
-	kind: string;
-	color: Color3;
-	accent: Color3;
-	size: number;
-	spin: boolean;
-}>;
 
 interface Member {
 	UserId?: number;
@@ -66,12 +48,6 @@ interface VisibleEntry {
 	category: Category;
 	members: Member[];
 }
-interface Tab {
-	id: string;
-	label: string;
-	count: number;
-	accent: string;
-}
 interface CreditsModelData {
 	FetchNames?: boolean;
 	Categories: Category[];
@@ -83,21 +59,15 @@ interface CreditsModelData {
 	ShowUsernames?: boolean;
 	ShowNotes?: boolean;
 	ShowCategoryCounts?: boolean;
-	DefaultCategory: string;
-	CategoryTabs?: boolean;
-	Tagline: string;
 	DefaultEmptyText: string;
 	Acknowledgements: string[];
 	Footer: string;
-	Eyebrow: string;
 	Title: string;
+	Tagline: string;
 	ShowVersion?: boolean;
 }
 interface CreditsModelModule {
 	normalize(this: void, config: unknown): CreditsModelData;
-	tabs(this: void, model: CreditsModelData): Tab[];
-	showSearch(this: void, model: CreditsModelData): boolean;
-	columns(this: void, model: CreditsModelData, width: number, gap: number): number;
 	cardHeight(this: void, model: CreditsModelData): number;
 	visible(this: void, model: CreditsModelData, tab: string, query: string): VisibleEntry[];
 }
@@ -109,22 +79,14 @@ const CreditsModel = SharedData("CreditsModel") as CreditsModelModule;
 const MODEL = CreditsModel.normalize(SharedData("CreditsConfig"));
 
 const GAP = SurfaceMetrics.gap;
-const CHIP_ROW_H = TapTarget;
-const RAIL_W = 196;
+const LABEL_H = 38;
+const DESC_H = 18;
+const MIN_CARD_W = 248;
+const MAX_CARD_W = 380;
 
 function tone(key: string, fallback: Color3): Color3 {
 	const color = (Palette as unknown as Record<string, unknown>)[key];
 	return typeIs(color, "Color3") ? color : fallback;
-}
-
-function memberKey(category: Category, member: Member): string {
-	return category.Id + ":" + member.Name;
-}
-
-interface Spot {
-	key: string;
-	member: Member;
-	category: Category;
 }
 
 // ── Live names ─────────────────────────────────────────────────────────────────
@@ -244,82 +206,42 @@ function Avatar(props: {
 	);
 }
 
-// ── Member row ─────────────────────────────────────────────────────────────────
+// ── Member card ────────────────────────────────────────────────────────────────
 
-function MemberRow(props: {
-	member: Member;
-	category: Category;
-	accent: Color3;
-	height: number;
-	order: number;
-	delay: number;
-	spotted: boolean;
-	reducedMotion: boolean;
-	onSpot: (spot: Spot) => void;
-}) {
+// read-only: the plate settles in on the surface spring once the card has risen
+function MemberCard(props: { member: Member; accent: Color3; height: number; order: number; delay: number; reducedMotion: boolean }) {
 	const member = props.member;
-	const [hovered, setHovered] = React.useState(false);
-	// hover, gamepad selection and the spotlight share one spring, so they never fight
-	const lit = useSurfaceSpring(props.spotted ? 1 : hovered ? 0.55 : 0, props.reducedMotion);
+	const [settled, setSettled] = React.useState(false);
+	React.useEffect(() => {
+		const job = task.delay(props.delay + SurfaceMotion.stagger * 2, () => setSettled(true));
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, []);
+	const lit = useSurfaceSpring(settled ? 0.22 : 0, props.reducedMotion);
 	const enter = useSurfaceEnter(props.reducedMotion, props.delay);
 	const fade = enter.map((a) => 1 - math.clamp(a, 0, 1));
 	const [display, username] = namesOf(member);
-	const avatar = MODEL.ShowAvatars !== false ? math.min(MODEL.AvatarSize, props.height - 12) : 0;
-	const textX = avatar > 0 ? 12 + avatar + 12 : 14;
-	const spot = () =>
-		props.onSpot({
-			key: memberKey(props.category, member),
-			member,
-			category: props.category,
-		});
+	const avatar = MODEL.ShowAvatars !== false ? math.min(MODEL.AvatarSize, props.height - Space.md * 2) : 0;
+	const textX = avatar > 0 ? Space.md + avatar + Space.md : Space.lg;
 	const second = [MODEL.ShowRoles !== false ? member.Role : "", MODEL.ShowUsernames !== false ? `@${username}` : ""]
 		.filter((part) => part !== "")
 		.join("  ·  ");
 	const showNote = MODEL.ShowNotes !== false && member.Note !== "" && props.height >= 72;
-	const top = showNote ? 10 : (props.height - (second !== "" ? 36 : 18)) / 2;
+	const blockH = 18 + (second !== "" ? 20 : 0) + (showNote ? 34 : 0);
+	const top = math.max(Space.sm, math.floor((props.height - blockH) / 2));
 	return (
-		<SurfaceRow
-			height={props.height}
-			order={props.order}
-			accent={props.accent}
-			lit={lit}
-			enter={enter}
-			selectable={true}
-			zIndex={6}
-			events={{
-				MouseEnter: () => setHovered(true),
-				MouseLeave: () => setHovered(false),
-				SelectionGained: spot,
-				Activated: () => {
-					Audio.play("tick");
-					spot();
-				},
-			}}
-		>
+		<SurfaceRow height={props.height} order={props.order} accent={props.accent} lit={lit} enter={enter} selectable={false} zIndex={6}>
 			{avatar > 0 && (
-				<Avatar
-					member={member}
-					size={avatar}
-					accent={props.accent}
-					position={new UDim2(0, 12, 0.5, 0)}
-					anchor={new Vector2(0, 0.5)}
-					zIndex={9}
-				/>
+				<Avatar member={member} size={avatar} accent={props.accent} position={new UDim2(0, Space.md, 0.5, 0)} anchor={new Vector2(0, 0.5)} zIndex={9} />
 			)}
-			<SurfaceText
-				text={display}
-				type="title"
-				size={new UDim2(1, -(textX + 10), 0, 18)}
-				position={UDim2.fromOffset(textX, top)}
-				transparency={fade}
-				zIndex={9}
-			/>
+			<SurfaceText text={display} type="title" size={new UDim2(1, -(textX + Space.md), 0, 18)} position={UDim2.fromOffset(textX, top)} transparency={fade} zIndex={9} />
 			{second !== "" && (
 				<SurfaceText
 					text={second}
 					type="small"
 					color={Palette.creamSoft}
-					size={new UDim2(1, -(textX + 10), 0, 15)}
+					size={new UDim2(1, -(textX + Space.md), 0, 15)}
 					position={UDim2.fromOffset(textX, top + 20)}
 					transparency={fade}
 					zIndex={9}
@@ -332,8 +254,8 @@ function MemberRow(props: {
 					color={Palette.muted}
 					wrap={true}
 					fit={true}
-					size={new UDim2(1, -(textX + 10), 1, -(top + 40))}
-					position={UDim2.fromOffset(textX, top + 38)}
+					size={new UDim2(1, -(textX + Space.md), 0, 32)}
+					position={UDim2.fromOffset(textX, top + (second !== "" ? 40 : 22))}
 					transparency={fade}
 					zIndex={9}
 				/>
@@ -342,158 +264,11 @@ function MemberRow(props: {
 	);
 }
 
-// ── Spotlight ──────────────────────────────────────────────────────────────────
-
-const cheers: Record<string, number> = {};
-
-// the person you're looking at, big: avatar, name, role, their note, and a cheer button
-function Spotlight(props: { spot: Spot; compact: boolean; reducedMotion: boolean }) {
-	const spot = props.spot;
-	const member = spot.member;
-	const accent = tone(spot.category.Accent, Palette.violet);
-	const [display, username] = namesOf(member);
-	const [popping, setPopping] = React.useState(false);
-	const pop = useSurfaceSpring(popping ? 1 : 0, props.reducedMotion);
-	const [count, setCount] = React.useState(cheers[spot.key] ?? 0);
-	const enter = useSurfaceEnter(props.reducedMotion, 0.001);
-	const fade = enter.map((a) => 1 - math.clamp(a, 0, 1));
-	const cheer = () => {
-		const total = (cheers[spot.key] ?? 0) + 1;
-		cheers[spot.key] = total;
-		setCount(total);
-		Audio.play("confirm");
-		setPopping(true);
-		task.delay(0.14, () => setPopping(false));
-	};
-	const avatar = props.compact ? 52 : 72;
-	const textX = avatar + 16;
-	const buttonW = props.compact ? 104 : 124;
-	const lineW = new UDim(1, -(textX + (props.compact ? 0 : buttonW + 12)));
-	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={6}>
-			<Avatar member={member} size={avatar} accent={accent} pop={pop} zIndex={7} />
-			<SurfaceText
-				text={spot.category.Label}
-				type="label"
-				color={accent}
-				size={new UDim2(lineW, new UDim(0, 14))}
-				position={UDim2.fromOffset(textX, 0)}
-				transparency={fade}
-				zIndex={7}
-			/>
-			<SurfaceText
-				text={display}
-				type="display"
-				size={new UDim2(lineW, new UDim(0, 24))}
-				position={UDim2.fromOffset(textX, 16)}
-				transparency={fade}
-				zIndex={7}
-			/>
-			<SurfaceText
-				text={[MODEL.ShowRoles !== false ? member.Role : "", `@${username}`].filter((part) => part !== "").join("  ·  ")}
-				type="small"
-				color={Palette.creamSoft}
-				size={new UDim2(lineW, new UDim(0, 16))}
-				position={UDim2.fromOffset(textX, 42)}
-				transparency={fade}
-				zIndex={7}
-			/>
-			{!props.compact && member.Note !== "" && (
-				<SurfaceText
-					text={member.Note}
-					type="body"
-					color={Palette.creamSoft}
-					wrap={true}
-					fit={true}
-					size={new UDim2(lineW, new UDim(1, -62))}
-					position={UDim2.fromOffset(textX, 62)}
-					transparency={fade}
-					zIndex={7}
-				/>
-			)}
-			<Button
-				text={count > 0 ? `Cheer ×${count}` : "Cheer"}
-				icon="Wave.3"
-				onClick={cheer}
-				color={accent}
-				textColor={Palette.ink}
-				size={UDim2.fromOffset(buttonW, TapTarget)}
-				position={props.compact ? new UDim2(1, -buttonW, 1, -TapTarget) : new UDim2(1, -buttonW, 0.5, -TapTarget / 2)}
-				tooltip={{ title: "Cheer", body: "Just for fun. Nobody gets pinged." }}
-				reducedMotion={props.reducedMotion}
-				zIndex={8}
-			/>
-		</frame>
-	);
-}
-
-// ── Section pickers ────────────────────────────────────────────────────────────
-
-function SectionPick(props: {
-	tab: Tab;
-	active: boolean;
-	order: number;
-	width?: UDim;
-	reducedMotion: boolean;
-	onPick: (id: string) => void;
-}) {
-	const accent = tone(props.tab.accent, Palette.mango);
-	const [hovered, setHovered] = React.useState(false);
-	const lit = useSurfaceSpring(props.active ? 1 : hovered ? 0.55 : 0, props.reducedMotion);
-	return (
-		<SurfaceRow
-			width={props.width}
-			order={props.order}
-			accent={accent}
-			lit={lit}
-			selectable={true}
-			zIndex={6}
-			events={{
-				MouseEnter: () => setHovered(true),
-				MouseLeave: () => setHovered(false),
-				Activated: () => props.onPick(props.tab.id),
-			}}
-		>
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={8}>
-				<uipadding PaddingLeft={new UDim(0, 14)} PaddingRight={new UDim(0, 10)} />
-				<uilistlayout
-					FillDirection={Enum.FillDirection.Horizontal}
-					VerticalAlignment={Enum.VerticalAlignment.Center}
-					Padding={new UDim(0, 8)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-				/>
-				<SurfaceText
-					text={props.tab.label}
-					type="title"
-					color={props.active ? Palette.cream : Palette.creamSoft}
-					autoSize={true}
-					order={1}
-					zIndex={8}
-				/>
-				{MODEL.ShowCategoryCounts !== false && (
-					<KindChip text={tostring(props.tab.count)} accent={props.active ? accent : undefined} order={2} zIndex={8} />
-				)}
-			</frame>
-		</SurfaceRow>
-	);
-}
-
-function chipWidth(tab: Tab): number {
-	let width = tab.label.size() * 8;
-	pcall(() => {
-		width = TextService.GetTextSize(tab.label, 15, Enum.Font.BuilderSansBold, new Vector2(400, 20)).X;
-	});
-	return math.ceil(width) + 14 + 10 + (MODEL.ShowCategoryCounts !== false ? 8 + 30 : 0);
-}
-
 // ── Overlay ────────────────────────────────────────────────────────────────────
 
 export function CreditsOverlay(props: { version?: string; reducedMotion?: boolean; onClose: () => void }) {
 	const reduced = props.reducedMotion === true;
 	const [reveal, exiting, beginExit] = usePresence(reduced);
-	const [tab, setTab] = React.useState(MODEL.DefaultCategory);
-	const [query, setQuery] = React.useState("");
-	const [picked, setPicked] = React.useState<Spot | undefined>(undefined);
 	useLiveNames();
 	const onClose = props.onClose;
 	const requestClose = React.useCallback(() => {
@@ -503,105 +278,167 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		Audio.play("close");
 		beginExit(onClose);
 	}, [beginExit, exiting, onClose]);
-	const pickTab = (id: string) => {
-		if (id !== tab) {
-			Audio.play("tabSwitch");
-			setTab(id);
-		}
-	};
 
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const stack = chrome.contentStack;
-	const pad = stack ? 12 : SurfaceMetrics.pad + 4;
-	const safeSide = math.max(8, viewport.sideInset, chrome.sideSafe);
-	const safeTop = math.max(8, viewport.topInset);
-	const safeBottom = math.max(8, viewport.bottomInset, chrome.bottomSafe);
-	// fits between the safe insets at any size (286px wide or 286px tall)
-	const width = math.min(940, viewport.width - safeSide * 2 - 12);
-	const height = math.max(1, math.min(680, viewport.height - safeTop - safeBottom - 12));
+	const pad = stack ? Space.md : SurfaceMetrics.pad + Space.xs;
+	const safeSide = math.max(Space.sm, viewport.sideInset, chrome.sideSafe);
+	const safeTop = math.max(Space.sm, viewport.topInset);
+	const safeBottom = math.max(Space.sm, viewport.bottomInset, chrome.bottomSafe);
+	const maxW = math.min(1040, viewport.width - safeSide * 2 - Space.md);
+	const maxH = math.max(1, math.min(720, viewport.height - safeTop - safeBottom - Space.md));
 	const centerY = safeTop + math.max(0, (viewport.height - safeTop - safeBottom) / 2);
+
+	const visible = CreditsModel.visible(MODEL, "All", "");
+	let largest = 1;
+	for (const entry of visible) largest = math.max(largest, entry.members.size());
+	// width follows content: a small team gets a narrower panel instead of a sea of empty cards
+	const widest = fitColumns(maxW - pad * 2 - Space.sm, largest, MIN_CARD_W, 3, GAP, MAX_CARD_W);
+	const width = math.min(maxW, math.max(math.min(maxW, 420), widest.columns * MAX_CARD_W + (widest.columns - 1) * GAP + pad * 2 + Space.sm));
 	const innerW = width - pad * 2;
-
-	const tabs = CreditsModel.tabs(MODEL);
-	const showTabs = MODEL.CategoryTabs === true && tabs.size() > 2;
-	const showSearch = CreditsModel.showSearch(MODEL);
-	// wide: sections in a rail on the left; narrow: a row of section chips above everything
-	const rail = showTabs && !stack && innerW >= 720;
-	const mainX = rail ? RAIL_W + 16 : 0;
-	const mainW = innerW - mainX;
-	const headerH = MODEL.Tagline !== "" || (MODEL.ShowVersion === true && props.version !== undefined) ? 70 : 54;
-	const chipsH = !rail && showTabs ? CHIP_ROW_H + GAP : 0;
-	const searchH = !rail && showSearch ? TapTarget + GAP : 0;
-	const compactSpot = stack || mainW < 520;
-	const stackedSpotH = compactSpot ? 108 : 128;
-	const stackedBodyTop = headerH + chipsH + searchH + stackedSpotH + GAP;
-	// short windows (640x286 landscape): chips and search share one row, and the spotlight sits beside
-	// the list instead of above it, so the list keeps real room instead of running out of the card
-	const shortCredits = !rail && height - pad * 2 - stackedBodyTop < 120 && mainW >= 460;
-	const toolRowH = shortCredits && (showTabs || showSearch) ? TapTarget + GAP : 0;
-	const chipsW = shortCredits && showSearch ? math.floor(mainW * 0.56) : mainW;
-	const sideSpotW = shortCredits ? math.floor(mainW * 0.4) : 0;
-	const listW = shortCredits ? mainW - sideSpotW - GAP : mainW;
-	const spotTop = shortCredits ? headerH + toolRowH : headerH + chipsH + searchH;
-	const spotH = shortCredits ? math.max(1, height - pad * 2 - spotTop) : stackedSpotH;
-	const bodyTop = shortCredits ? spotTop : stackedBodyTop;
-	const bodyH = shortCredits ? math.max(1, height - pad * 2 - bodyTop) : math.max(80, height - pad * 2 - bodyTop);
-	const spotScrolls = shortCredits && spotH < 108;
-	const contentW = listW - 10;
-	const columns = CreditsModel.columns(MODEL, contentW, GAP);
+	const contentW = innerW - Space.sm;
 	const rowH = math.max(TapTarget, math.min(CreditsModel.cardHeight(MODEL), 96));
-	const visible = CreditsModel.visible(MODEL, tab, query);
 
-	// nobody picked yet (or they're filtered away): spotlight the first person on screen
-	let spot = picked;
-	if (spot !== undefined) {
-		const current = spot;
-		const still = visible.some((entry) => entry.category.Id === current.category.Id && entry.members.includes(current.member));
-		if (!still) {
-			spot = undefined;
-		}
-	}
-	if (spot === undefined) {
-		for (const entry of visible) {
-			const first = entry.members[0];
-			if (first !== undefined) {
-				spot = {
-					key: memberKey(entry.category, first),
-					member: first,
-					category: entry.category,
-				};
-				break;
-			}
-		}
-	}
+	const subline = [MODEL.ShowVersion === true && props.version !== undefined ? `Version ${props.version}` : "", MODEL.Tagline]
+		.filter((part) => part !== "")
+		.join("  ·  ");
+	const headerH = subline !== "" ? 64 : 46;
 
-	// LB / RB step through the sections
-	const tabRef = React.useRef(tab);
-	tabRef.current = tab;
-	React.useEffect(() => {
-		if (!showTabs) {
-			return undefined;
+	// body: section label, optional description, member grid; measured so the panel can hug it
+	const body: React.Element[] = [];
+	let order = 0;
+	let rowIndex = 0;
+	let contentH = 0;
+	for (const entry of visible) {
+		const accent = tone(entry.category.Accent, Palette.violet);
+		order += 1;
+		body.push(
+			<SectionLabel
+				key={`l:${entry.category.Id}`}
+				text={string.upper(entry.category.Label)}
+				count={MODEL.ShowCategoryCounts !== false ? entry.members.size() : undefined}
+				accent={accent}
+				order={order}
+				height={LABEL_H}
+				zIndex={6}
+			/>,
+		);
+		contentH += LABEL_H + Space.xs;
+		if (entry.category.Description !== "") {
+			order += 1;
+			const lines = math.max(1, math.ceil(measureText(entry.category.Description, 14, Enum.Font.BuilderSans).X / math.max(1, contentW)));
+			body.push(
+				<SurfaceText
+					key={`d:${entry.category.Id}`}
+					text={entry.category.Description}
+					type="small"
+					color={Palette.creamSoft}
+					wrap={true}
+					size={new UDim2(1, 0, 0, DESC_H * lines)}
+					order={order}
+					zIndex={6}
+				/>,
+			);
+			contentH += DESC_H * lines + Space.xs;
 		}
-		const connection = UserInputService.InputBegan.Connect((input) => {
-			const step = input.KeyCode === Enum.KeyCode.ButtonR1 ? 1 : input.KeyCode === Enum.KeyCode.ButtonL1 ? -1 : 0;
-			if (step === 0) {
-				return;
-			}
-			let at = 0;
-			for (const [i, entry] of ipairs(tabs)) {
-				if (entry.id === tabRef.current) {
-					at = i;
-				}
-			}
-			const target = tabs[math.clamp(at + step, 1, tabs.size()) - 1];
-			if (target !== undefined && target.id !== tabRef.current) {
-				Audio.play("tabSwitch");
-				setTab(target.id);
-			}
-		});
-		return () => connection.Disconnect();
-	}, [showTabs, tabs.size()]);
+		order += 1;
+		if (entry.members.size() === 0) {
+			body.push(
+				<SurfaceText
+					key={`e:${entry.category.Id}`}
+					text={entry.category.EmptyText !== "" ? entry.category.EmptyText : MODEL.DefaultEmptyText}
+					type="body"
+					color={Palette.muted}
+					size={new UDim2(1, 0, 0, 32)}
+					order={order}
+					zIndex={6}
+				/>,
+			);
+			contentH += 32 + Space.xs;
+			continue;
+		}
+		const fit = fitColumns(contentW, entry.members.size(), MIN_CARD_W, 3, GAP, MAX_CARD_W);
+		const gridH = fit.rows * rowH + (fit.rows - 1) * GAP;
+		const cards: React.Element[] = [];
+		for (const [i, member] of ipairs(entry.members)) {
+			rowIndex += 1;
+			cards.push(
+				<MemberCard
+					key={`${entry.category.Id}:${member.Name}`}
+					member={member}
+					accent={accent}
+					height={rowH}
+					order={i}
+					delay={MODEL.EntranceStagger !== false ? math.min(rowIndex, SurfaceMotion.staggerRows) * SurfaceMotion.stagger : 0}
+					reducedMotion={reduced}
+				/>,
+			);
+		}
+		body.push(
+			<frame key={`g:${entry.category.Id}`} Size={new UDim2(1, 0, 0, gridH)} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
+				<uigridlayout
+					CellSize={UDim2.fromOffset(fit.cell, rowH)}
+					CellPadding={UDim2.fromOffset(GAP, GAP)}
+					HorizontalAlignment={Enum.HorizontalAlignment.Center}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+				/>
+				{cards}
+			</frame>,
+		);
+		contentH += gridH + Space.lg;
+	}
+	if (visible.size() === 0) {
+		order += 1;
+		body.push(
+			<SurfaceText
+				key="none"
+				text={MODEL.DefaultEmptyText}
+				type="body"
+				color={Palette.muted}
+				align={Enum.TextXAlignment.Center}
+				size={new UDim2(1, 0, 0, 40)}
+				order={order}
+				zIndex={6}
+			/>,
+		);
+		contentH += 40;
+	}
+	const smallPrint = table.clone(MODEL.Acknowledgements);
+	if (MODEL.Footer !== "") {
+		smallPrint.push(MODEL.Footer);
+	}
+	if (smallPrint.size() > 0) {
+		order += 1;
+		body.push(
+			<frame key="smallprint" Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
+				<uipadding PaddingTop={new UDim(0, Space.md)} PaddingBottom={new UDim(0, Space.sm)} />
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.xs)} />
+				{smallPrint.map((line, i) => (
+					<SurfaceText
+						key={`p${i}`}
+						text={line}
+						type="small"
+						color={Palette.muted}
+						wrap={true}
+						align={Enum.TextXAlignment.Center}
+						size={UDim2.fromScale(1, 0)}
+						autoHeight={true}
+						order={i}
+						zIndex={6}
+					/>
+				))}
+			</frame>,
+		);
+		for (const line of smallPrint) {
+			contentH += Space.xs + 16 * math.max(1, math.ceil(measureText(line, 13, Enum.Font.BuilderSans).X / math.max(1, contentW)));
+		}
+		contentH += Space.xl;
+	}
+	// the panel hugs its content; only a long roll reaches maxH and scrolls
+	const height = math.min(maxH, headerH + contentH + pad * 2 + Space.sm);
+	const bodyH = math.max(1, height - pad * 2 - headerH);
+
 	React.useEffect(() => {
 		ClientLog.debug("nav", "credits opened");
 		return () => ClientLog.debug("nav", "credits closed");
@@ -616,11 +453,10 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	}, [requestClose]);
 	useBackLayer(true, requestClose);
 
-	// gamepad: the overlay owns focus while open and starts on its first button
+	// gamepad: the overlay owns focus while open; the right stick scrolls the roll, B closes
 	const padFocus = useGamepadAutofocus(true);
 	const hostRef = React.useRef<Frame>();
-	// pad order: section chips, the list, then the rest of the card (close, search, spotlight)
-	useFocusOrder(hostRef, { regions: ["CreditsSections", "CreditsList", "CreditsClaimActions"], first: ["CreditsList", "CreditsClaimActions"] }, [tab, query]);
+	useFocusOrder(hostRef, { regions: ["CreditsList", "CreditsClaimActions"], first: ["CreditsClaimActions"] }, []);
 	React.useEffect(() => {
 		GamepadNavigationService.BeginOverlayFocus();
 		return () => GamepadNavigationService.EndOverlayFocus();
@@ -643,134 +479,9 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		};
 	}, []);
 
-	// the list: a label per section, its members in a grid, then the small print
-	const body: React.Element[] = [];
-	let order = 0;
-	let rowIndex = 0;
-	const cellW = math.floor((contentW - GAP * (columns - 1)) / columns);
-	for (const entry of visible) {
-		const accent = tone(entry.category.Accent, Palette.violet);
-		order += 1;
-		body.push(
-			<SectionLabel
-				key={`l:${entry.category.Id}`}
-				text={string.upper(entry.category.Label)}
-				accent={accent}
-				order={order}
-				height={38}
-				zIndex={6}
-			/>,
-		);
-		order += 1;
-		if (entry.members.size() === 0) {
-			body.push(
-				<SurfaceText
-					key={`e:${entry.category.Id}`}
-					text={entry.category.EmptyText !== "" ? entry.category.EmptyText : MODEL.DefaultEmptyText}
-					type="body"
-					color={Palette.muted}
-					size={new UDim2(1, 0, 0, 36)}
-					order={order}
-					zIndex={6}
-				/>,
-			);
-			continue;
-		}
-		const rows = math.ceil(entry.members.size() / columns);
-		const cards: React.Element[] = [];
-		for (const [i, member] of ipairs(entry.members)) {
-			rowIndex += 1;
-			const key = memberKey(entry.category, member);
-			cards.push(
-				<MemberRow
-					key={`${tab}|${key}`}
-					member={member}
-					category={entry.category}
-					accent={accent}
-					height={rowH}
-					order={i}
-					delay={MODEL.EntranceStagger !== false ? math.min(rowIndex, SurfaceMotion.staggerRows) * SurfaceMotion.stagger : 0}
-					spotted={spot !== undefined && spot.key === key}
-					reducedMotion={reduced}
-					onSpot={setPicked}
-				/>,
-			);
-		}
-		body.push(
-			<frame
-				key={`g:${entry.category.Id}`}
-				Size={new UDim2(1, 0, 0, rows * rowH + (rows - 1) * GAP)}
-				LayoutOrder={order}
-				BackgroundTransparency={1}
-				ZIndex={6}
-			>
-				<uigridlayout
-					CellSize={UDim2.fromOffset(cellW, rowH)}
-					CellPadding={UDim2.fromOffset(GAP, GAP)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-				/>
-				{cards}
-			</frame>,
-		);
-	}
-	if (visible.size() === 0) {
-		order += 1;
-		body.push(
-			<SurfaceText
-				key="none"
-				text={query !== "" ? `No one called "${query}"` : MODEL.DefaultEmptyText}
-				type="body"
-				color={Palette.muted}
-				align={Enum.TextXAlignment.Center}
-				size={new UDim2(1, 0, 0, 40)}
-				order={order}
-				zIndex={6}
-			/>,
-		);
-	}
-	const smallPrint = table.clone(MODEL.Acknowledgements);
-	if (MODEL.Footer !== "") {
-		smallPrint.push(MODEL.Footer);
-	}
-	if (smallPrint.size() > 0) {
-		order += 1;
-		body.push(
-			<frame
-				key="smallprint"
-				Size={new UDim2(1, 0, 0, 0)}
-				AutomaticSize={Enum.AutomaticSize.Y}
-				LayoutOrder={order}
-				BackgroundTransparency={1}
-				ZIndex={6}
-			>
-				<uipadding PaddingTop={new UDim(0, 12)} PaddingBottom={new UDim(0, 8)} />
-				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
-				{smallPrint.map((line, i) => (
-					<SurfaceText
-						key={`p${i}`}
-						text={line}
-						type="small"
-						color={Palette.muted}
-						wrap={true}
-						align={Enum.TextXAlignment.Center}
-						size={UDim2.fromScale(1, 0)}
-						autoHeight={true}
-						order={i}
-						zIndex={6}
-					/>
-				))}
-			</frame>,
-		);
-	}
-
-	const subline = [MODEL.ShowVersion === true && props.version !== undefined ? `Version ${props.version}` : "", MODEL.Tagline]
-		.filter((part) => part !== "")
-		.join("  ·  ");
-
 	return (
 		<OverlayPresence amount={reveal}>
 			<frame key="CreditsClaimActions" ref={hostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={320}>
-				{/* tap outside the panel closes */}
 				<imagebutton
 					Size={UDim2.fromScale(1, 1)}
 					BackgroundColor3={new Color3(0, 0, 0)}
@@ -790,21 +501,13 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 					ZIndex={321}
 				>
 					<Surface appear={reveal} padding={pad} active={true} zIndex={321}>
-						{/* header */}
-						{/* revamp r1c: no eyebrow over the title; the title names the panel on its own */}
-						<SurfaceText
-							text={MODEL.Title}
-							type="display"
-							size={new UDim2(1, -56, 0, 30)}
-							position={UDim2.fromOffset(0, 4)}
-							zIndex={322}
-						/>
+						<SurfaceText text={MODEL.Title} type="display" size={new UDim2(1, -(TapTarget + Space.md), 0, 30)} position={UDim2.fromOffset(0, Space.xs)} zIndex={322} />
 						{subline !== "" && (
 							<SurfaceText
 								text={subline}
 								type="small"
 								color={Palette.creamSoft}
-								size={new UDim2(1, -56, 0, 16)}
+								size={new UDim2(1, -(TapTarget + Space.md), 0, 16)}
 								position={UDim2.fromOffset(0, 38)}
 								zIndex={322}
 							/>
@@ -818,160 +521,10 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							reducedMotion={reduced}
 							zIndex={323}
 						/>
-						{/* sections: rail (wide) */}
-						{rail && (
-							<frame
-								Size={new UDim2(0, RAIL_W, 1, -headerH)}
-								Position={UDim2.fromOffset(0, headerH)}
-								BackgroundTransparency={1}
-								ZIndex={322}
-							>
-								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, SurfaceMetrics.rowGap)} />
-								{tabs.map((entry, i) => (
-									<SectionPick key={entry.id} tab={entry} active={entry.id === tab} order={i} reducedMotion={reduced} onPick={pickTab} />
-								))}
-								{showSearch && (
-									<frame
-										key="search"
-										Size={new UDim2(1, 0, 0, TapTarget + GAP)}
-										LayoutOrder={tabs.size() + 1}
-										BackgroundTransparency={1}
-										ZIndex={322}
-									>
-										<SearchField
-											value={query}
-											onChange={setQuery}
-											placeholder="Find someone"
-											size={new UDim2(1, 0, 0, TapTarget)}
-											position={UDim2.fromOffset(0, GAP)}
-											reducedMotion={reduced}
-											zIndex={323}
-										/>
-									</frame>
-								)}
-							</frame>
-						)}
-						{/* sections: chips (narrow) */}
-						{!rail && showTabs && (
-							<scrollingframe
-								{...named("CreditsSections")}
-								Size={new UDim2(0, chipsW, 0, CHIP_ROW_H)}
-								Position={UDim2.fromOffset(0, headerH)}
-								BackgroundTransparency={1}
-								BorderSizePixel={0}
-								CanvasSize={new UDim2()}
-								AutomaticCanvasSize={Enum.AutomaticSize.X}
-								ScrollingDirection={Enum.ScrollingDirection.X}
-								ScrollBarThickness={0}
-								ZIndex={322}
-							>
-								<uilistlayout
-									FillDirection={Enum.FillDirection.Horizontal}
-									SortOrder={Enum.SortOrder.LayoutOrder}
-									Padding={new UDim(0, 6)}
-								/>
-								{tabs.map((entry, i) => (
-									<SectionPick
-										key={entry.id}
-										tab={entry}
-										active={entry.id === tab}
-										order={i}
-										width={new UDim(0, chipWidth(entry))}
-										reducedMotion={reduced}
-										onPick={pickTab}
-									/>
-								))}
-							</scrollingframe>
-						)}
-						{!rail && showSearch && (
-							<SearchField
-								value={query}
-								onChange={setQuery}
-								placeholder="Find someone"
-								size={shortCredits && showTabs ? new UDim2(0, mainW - chipsW - GAP, 0, TapTarget) : new UDim2(1, 0, 0, TapTarget)}
-								position={shortCredits && showTabs ? UDim2.fromOffset(chipsW + GAP, headerH) : UDim2.fromOffset(0, headerH + chipsH)}
-								reducedMotion={reduced}
-								zIndex={323}
-							/>
-						)}
-						{/* spotlight (beside the list on short windows; scrolls when shorter than the card itself) */}
-						{spotScrolls ? (
-							<scrollingframe
-								{...named("CreditsSpot")}
-								Size={UDim2.fromOffset(sideSpotW, spotH)}
-								Position={UDim2.fromOffset(mainX + listW + GAP, spotTop)}
-								BackgroundTransparency={1}
-								BorderSizePixel={0}
-								CanvasSize={UDim2.fromOffset(0, 108)}
-								ScrollingDirection={Enum.ScrollingDirection.Y}
-								ScrollBarThickness={3}
-								ScrollBarImageColor3={Palette.muted}
-								ZIndex={322}
-							>
-								<Surface
-									tone="inset"
-									size={spotScrolls ? new UDim2(1, -4, 0, 108) : new UDim2(0, shortCredits ? sideSpotW : mainW, 0, spotH)}
-									position={spotScrolls ? UDim2.fromOffset(0, 0) : UDim2.fromOffset(shortCredits ? mainX + listW + GAP : mainX, spotTop)}
-									padding={12}
-									zIndex={322}
-								>
-									{spot !== undefined ? (
-										<Spotlight key={spot.key} spot={spot} compact={compactSpot || shortCredits} reducedMotion={reduced} />
-									) : (
-										<IconTile size={44} accent={Palette.muted} position={UDim2.fromScale(0.5, 0.5)} anchor={new Vector2(0.5, 0.5)} zIndex={323}>
-											<frame
-												Size={UDim2.fromOffset(22, 22)}
-												Position={UDim2.fromScale(0.5, 0.5)}
-												AnchorPoint={new Vector2(0.5, 0.5)}
-												BackgroundTransparency={1}
-											>
-												{React.createElement(IconComponent, {
-													kind: "Search.9",
-													color: Palette.muted,
-													accent: Palette.muted,
-													size: 22,
-													spin: false,
-												})}
-											</frame>
-										</IconTile>
-									)}
-								</Surface>
-							</scrollingframe>
-						) : (
-							<Surface
-								tone="inset"
-								size={spotScrolls ? new UDim2(1, -4, 0, 108) : new UDim2(0, shortCredits ? sideSpotW : mainW, 0, spotH)}
-								position={spotScrolls ? UDim2.fromOffset(0, 0) : UDim2.fromOffset(shortCredits ? mainX + listW + GAP : mainX, spotTop)}
-								padding={12}
-								zIndex={322}
-							>
-								{spot !== undefined ? (
-									<Spotlight key={spot.key} spot={spot} compact={compactSpot || shortCredits} reducedMotion={reduced} />
-								) : (
-									<IconTile size={44} accent={Palette.muted} position={UDim2.fromScale(0.5, 0.5)} anchor={new Vector2(0.5, 0.5)} zIndex={323}>
-										<frame
-											Size={UDim2.fromOffset(22, 22)}
-											Position={UDim2.fromScale(0.5, 0.5)}
-											AnchorPoint={new Vector2(0.5, 0.5)}
-											BackgroundTransparency={1}
-										>
-											{React.createElement(IconComponent, {
-												kind: "Search.9",
-												color: Palette.muted,
-												accent: Palette.muted,
-												size: 22,
-												spin: false,
-											})}
-										</frame>
-									</IconTile>
-								)}
-							</Surface>
-						)}
-						{/* everyone */}
 						<scrollingframe
 							{...named("CreditsList")}
-							Size={UDim2.fromOffset(listW, bodyH)}
-							Position={UDim2.fromOffset(mainX, bodyTop)}
+							Size={UDim2.fromOffset(innerW, bodyH)}
+							Position={UDim2.fromOffset(0, headerH)}
 							BackgroundTransparency={1}
 							BorderSizePixel={0}
 							CanvasSize={new UDim2()}
@@ -979,10 +532,11 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							ScrollingDirection={Enum.ScrollingDirection.Y}
 							ScrollBarThickness={3}
 							ScrollBarImageColor3={Palette.muted}
+							Selectable={UserInputService.GamepadEnabled}
 							ZIndex={322}
 						>
 							<frame Size={new UDim2(0, contentW, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} ZIndex={322}>
-								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
+								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.xs)} />
 								{body}
 							</frame>
 						</scrollingframe>
