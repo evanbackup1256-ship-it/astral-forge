@@ -8,6 +8,7 @@ import type { Request } from "../store/net";
 import { OverviewPage } from "../pages/OverviewPage";
 import { InventoryPage } from "../pages/InventoryPage";
 import { FoundryPage } from "../pages/FoundryPage";
+import { LabPage } from "../pages/LabPage";
 
 export interface PageProps {
 	session: Session;
@@ -28,6 +29,7 @@ const PORTED: Record<string, PageComponent> = {
 	Continuum: FoundryPage,
 	Foundry: FoundryPage,
 	Anomaly: FoundryPage,
+	Lab: LabPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
