@@ -2391,7 +2391,13 @@ function CratesSection(props: SectionProps) {
 	}, []);
 	const crate = crateById(config, selected) ?? crates[0];
 	if (crate === undefined) {
-		return h(Text, { value: "No crates right now.", size: 14, color: Palette.creamSoft });
+		return h(EmptyState, {
+			icon: "Crate",
+			title: "No crates right now",
+			body: "Crates come back with the next rotation.",
+			accent: Palette.mango,
+			reducedMotion: props.reducedMotion,
+		});
 	}
 	const skin = state.Cosmetics?.CrateSkin;
 	const onOpen = (count: number) => {

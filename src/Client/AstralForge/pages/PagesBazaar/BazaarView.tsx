@@ -861,8 +861,15 @@ function BazaarView(props: BazaarProps) {
 		if (shown === 0 && market) {
 			add(
 				"request-empty",
-				64,
-				<Ui.Text value="No supplies match that search." size={15} wrap={true} sizeConstraint={UDim2.fromScale(1, 1)} />,
+				112,
+				<Ui.EmptyState
+					icon="Search"
+					title="Nothing here"
+					body="No supplies match that search. Try another word or clear the filter."
+					accent={Palette.violet}
+					compact={true}
+					size={UDim2.fromScale(1, 1)}
+				/>,
 			);
 		}
 		return <PageScaffold hostRef={scrollRef} sections={sections} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;

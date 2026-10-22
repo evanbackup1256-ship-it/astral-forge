@@ -695,7 +695,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const playerList =
 		shownPlayers.size() === 0 ? (
 			<frame Size={listSize} Position={listPos} BackgroundTransparency={1}>
-				<Text value="No players match." size={11} color={Palette.muted} />
+				<EmptyState icon="Search" title="No players match" body="Check the spelling or clear the search." compact={true} />
 			</frame>
 		) : (
 			<FlatList
@@ -767,7 +767,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			</frame>
 			<frame Size={new UDim2(1, 0, 1, -100)} Position={UDim2.fromOffset(0, 100)} BackgroundTransparency={1}>
 				{shownCommands.size() === 0 ? (
-					<Text value="Nothing matches that filter." size={11} color={Palette.muted} />
+					<EmptyState icon="Command" title="No commands" body="Nothing matches that filter." compact={true} />
 				) : (
 					<FlatList
 						data={shownCommands}

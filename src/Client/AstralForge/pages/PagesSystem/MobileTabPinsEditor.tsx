@@ -108,7 +108,8 @@ export function MobileTabPinsEditor(props: Props) {
 		const pinned = pins.includes(id);
 		grid[id] = (
 			<Button
-				text={pinned ? `${labelOf(id)}  ✓` : labelOf(id)}
+				text={labelOf(id)}
+				icon={pinned ? "Check" : undefined}
 				onClick={() => {
 					if (pinned) {
 						setSelected(id);

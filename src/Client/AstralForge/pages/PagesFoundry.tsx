@@ -835,7 +835,9 @@ function FoundryView(props: {
 							sizeConstraint={new UDim2(1, -44, 0, 18)}
 						/>
 						<Ui.Button
-							text="×"
+							text=""
+							icon="Close"
+							tooltip="Deselect"
 							onClick={() => setSelected(undefined)}
 							size={UDim2.fromOffset(36, 26)}
 							position={new UDim2(1, -36, 0, -2)}
@@ -924,7 +926,9 @@ function FoundryView(props: {
 							disabled={benchFull}
 						/>
 						<Ui.Button
-							text="×"
+							text=""
+							icon="Close"
+							tooltip="Deselect"
 							onClick={() => setSelected(undefined)}
 							size={UDim2.fromOffset(64, 40)}
 							position={new UDim2(1, -68, 0, 0)}
