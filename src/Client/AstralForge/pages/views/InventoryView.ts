@@ -7,6 +7,8 @@ import { useTooltip } from "../../Tooltip";
 import { EffectLabel } from "../../CoreKit/inventoryMath";
 import ReactRoblox from "@rbxts/react-roblox";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
+import { SplitColumns, splitColumns, StackBlocks } from "../../UiCore/ui";
+import { useFocusOrder } from "../../CoreKit/focusOrder";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
@@ -37,6 +39,8 @@ function modRel(ups: number, ...names: string[]): unknown {
 	}
 	return luaRequire(current as ModuleScript);
 }
+
+const RELIC_SPLIT_MIN_WIDTH = 1180;
 
 function __member(): unknown {
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -726,6 +730,10 @@ function __member(): unknown {
 		let stack: unknown = luaProp(chrome, "contentStack");
 		const pairWide = !luaTruthy(stack) && ((luaProp(viewport, "width") as number) ?? 0) >= CARD_PAIR_MIN_WIDTH;
 		let touchLayout: unknown = luaProp(chrome, "mobile");
+		// desktop: relic list beside the selected relic's inspect + engraving column
+		const relicPlan = splitColumns(luaTruthy(stack) ? 0 : ((luaProp(viewport, "width") as number) ?? 0), 420, 14, RELIC_SPLIT_MIN_WIDTH);
+		const [relicSplitH, setRelicSplitH] = reactLoose.useState(0) as LuaTuple<[number, (h: number) => void]>;
+		const inventoryHostRef = React.useRef<Frame>();
 		let headerReveal: unknown = luaCall(useStagger, 0, softMotion);
 		let tabsReveal: unknown = luaCall(useStagger, 1, softMotion);
 		let inspectReveal: unknown = luaCall(useStagger, 2, softMotion);
@@ -1305,6 +1313,15 @@ function __member(): unknown {
 			return luaCall(dispatch, "EquipBestItems");
 			return undefined;
 		}, reducedMotion: softMotion, stack: stack, filled: filled, limit: limit, essence: essence });
+		useFocusOrder(
+			inventoryHostRef,
+			{
+				regions: ["tabs", "tools", "companion", "Side", "Main", "inspect", "engrave", "list", "bulk", "crates", "market", "recipes", "loadout"],
+				first: ["Side", "inspect", "bulk"],
+				columns: [["Main", "Side"]],
+			},
+			[tab, (selected as { uid?: string } | undefined)?.uid, bulkMode, relicPlan.split, stack],
+		);
 		let heroPanel: unknown = reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "violet"), background: luaProp(Palette, "panelRaised"), padding: (luaTruthy(stack) ? Space.lg : Space.xl), layoutOrder: 0, reveal: (luaTruthy(reducedMotion) ? tabsReveal : headerReveal), highlight: (!luaTruthy(inventorySoft)), reducedMotion: softMotion, clips: false }, reactLoose.createElement(IconTile, { kind: "Loadout", accent: luaProp(Palette, "violet"), size: (luaTruthy(stack) ? 38 : 44), radius: 10, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (luaTruthy(stack) ? 4 : 6)), spin: false, reducedMotion: softMotion, glow: true }), reactLoose.createElement(Text, { value: "Relics", size: 12, color: luaProp(Palette, "violet"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), (luaTruthy(stack) ? 50 : 56), 2), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -58 : -20), 0, 16) }), reactLoose.createElement(ShimmerText, { value: ((tab === "Crates") ? "Open crates for new relics" : ((tab === "Market") ? "Crate keys and live stock" : ((tab === "Loadout") ? "What your sockets add" : `${filled} of ${limit} relics in your bag`))), size: (luaTruthy(stack) ? 18 : 22), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), (luaTruthy(stack) ? 50 : 56), 20), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -58 : -20), 0, 26), enabled: (!luaTruthy(softMotion)), periodSeconds: 4.8 }), reactLoose.createElement("frame", { Visible: (tab !== "Relics"), Size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28) : luaCall(luaProp(UDim2, "fromOffset"), 220, 30)), Position: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, -28) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -220, 0.5, -15)), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement("uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: (luaTruthy(stack) ? luaProp(luaProp(Enum, "HorizontalAlignment"), "Left") : luaProp(luaProp(Enum, "HorizontalAlignment"), "Right")), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 8), SortOrder: luaProp(luaProp(Enum, "SortOrder"), "LayoutOrder") }), reactLoose.createElement(Badge, { value: `${filled} / ${limit}`, accent: luaProp(Palette, "violet"), filled: true, size: luaCall(luaProp(UDim2, "fromOffset"), (luaTruthy(stack) ? 108 : 118), 28) }), reactLoose.createElement(Badge, { value: `${luaCall(compactNumber, essence)} essence`, accent: luaProp(Palette, "mango"), size: luaCall(luaProp(UDim2, "fromOffset"), (luaTruthy(stack) ? 100 : 112), 28) })));
 		if ((tab === "Relics")) {
 			let listPane: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(SectionLabel, { value: (luaTruthy(bulkMode) ? "Select relics" : "Relics"), color: (luaTruthy(bulkMode) ? luaProp(Palette, "coral") : luaProp(Palette, "violet")) }), reactLoose.createElement(FlatList, { data: filtered, itemHeight: relicRowStride, headerHeight: SCROLL_PAD, overscan: (luaTruthy(softMotion) ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaTruthy(luaProp(antilag, "constrained"))) ? 1 : 2))), canvasTail: SCROLL_PAD, frameRef: relicListRef, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, -34), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 34), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, item?: unknown): unknown | undefined {
@@ -1341,20 +1358,36 @@ function __member(): unknown {
 			if (bondH > 0) {
 				luaTable.insert(sections, { id: "companion", height: bondH, element: reactLoose.createElement(CompanionBondCard, { items: items, dispatch: dispatch as never, stack: luaTruthy(stack), reducedMotion: luaTruthy(reducedMotion) }) });
 			}
-			if ((((inspectPanelH as unknown as number) > (0 as unknown as number)) && (selected !== undefined))) {
-				luaTable.insert(sections, { id: "inspect", height: inspectPanelH, element: reactLoose.createElement(DetailPanel, { item: selected, state: state, config: config, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack, fill: true }) });
-			}
-			// v8 engraving: the selected relic's lines, right under its inspect panel
-			if ((((inspectPanelH as unknown as number) > (0 as unknown as number)) && (selected !== undefined))) {
+			if (relicPlan.split && (inspectPanelH as number) > 0 && selected !== undefined) {
+				// list | inspect side by side; the side column scrolls on its own when it's taller than the window
+				const sideInspectH = luaCall(luaProp(InventoryMath, "InspectPanelHeight"), luaCall(luaProp(InventoryMath, "InspectSocketBlock"), (luaProp(selected, "equippedOn") !== undefined), len(targetsForSelected), (luaProp(selected, "equippedOn") === undefined && (len(targetsForSelected) as number) > 0) ? luaCall(luaProp(InventoryMath, "ChipRows"), len(targetsForSelected), true) : 0, true, TapTarget), true) as number;
 				const engraveItems = (items ?? {}) as { Essence?: number; EngravingPaused?: boolean };
 				const engraveOre = (luaProp(state, "Ore") ?? {}) as { Starsteel?: number };
-				luaTable.insert(sections, { id: "engrave", height: engravingPanelHeight() + 28, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panelRaised"), padding: 14, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(EngravingPanel, { uid: luaProp(selected, "uid") as string, instance: luaProp(selected, "instance") as never, definition: luaProp(selected, "definition") as never, essence: tonumber(engraveItems.Essence) ?? 0, starsteel: tonumber(engraveOre.Starsteel) ?? 0, paused: engraveItems.EngravingPaused === true, dispatch: dispatch as never, reducedMotion: luaTruthy(reducedMotion) })) });
+				const engraveH = engravingPanelHeight() + 28;
+				const riseFrom = (sections as unknown[]).size();
+				const sideBlocks = [
+					{ id: "inspect", height: sideInspectH, rise: 0, element: reactLoose.createElement(DetailPanel, { item: selected, state: state, config: config, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, stack: true, fill: true }) as React.ReactNode },
+					{ id: "engrave", height: engraveH, rise: 1, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panelRaised"), padding: 14, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(EngravingPanel, { uid: luaProp(selected, "uid") as string, instance: luaProp(selected, "instance") as never, definition: luaProp(selected, "definition") as never, essence: tonumber(engraveItems.Essence) ?? 0, starsteel: tonumber(engraveOre.Starsteel) ?? 0, paused: engraveItems.EngravingPaused === true, dispatch: dispatch as never, reducedMotion: luaTruthy(reducedMotion) })) as React.ReactNode },
+				];
+				const sideH = sideInspectH + engraveH + 14;
+				const sideColumn = reactLoose.createElement("scrollingframe", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, CanvasSize: UDim2.fromOffset(0, sideH), ScrollBarThickness: 4, ScrollBarImageColor3: luaProp(Palette, "violet"), ScrollingDirection: Enum.ScrollingDirection.Y, ClipsDescendants: true }, reactLoose.createElement(StackBlocks, { gap: 14, blocks: sideBlocks, riseFrom: riseFrom }));
+				luaTable.insert(sections, { id: "relics", fill: true, minHeight: math.max(320, (luaCall(luaProp(InventoryMath, "RelicRowHeight"), stack) as number) + 48), element: reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, Change: { AbsoluteSize: (rbx: Frame) => setRelicSplitH(math.floor(rbx.AbsoluteSize.Y)) } }, reactLoose.createElement(SplitColumns, { name: "RelicSplit", height: relicSplitH, plan: relicPlan, sideOnRight: true, side: sideColumn, main: listPane })) });
+			} else {
+				if ((((inspectPanelH as unknown as number) > (0 as unknown as number)) && (selected !== undefined))) {
+					luaTable.insert(sections, { id: "inspect", height: inspectPanelH, element: reactLoose.createElement(DetailPanel, { item: selected, state: state, config: config, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack, fill: true }) });
+				}
+				// v8 engraving: the selected relic's lines, right under its inspect panel
+				if ((((inspectPanelH as unknown as number) > (0 as unknown as number)) && (selected !== undefined))) {
+					const engraveItems = (items ?? {}) as { Essence?: number; EngravingPaused?: boolean };
+					const engraveOre = (luaProp(state, "Ore") ?? {}) as { Starsteel?: number };
+					luaTable.insert(sections, { id: "engrave", height: engravingPanelHeight() + 28, element: reactLoose.createElement(Panel, { size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), accent: luaProp(Palette, "mango"), background: luaProp(Palette, "panelRaised"), padding: 14, reducedMotion: reducedMotion, clips: false }, reactLoose.createElement(EngravingPanel, { uid: luaProp(selected, "uid") as string, instance: luaProp(selected, "instance") as never, definition: luaProp(selected, "definition") as never, essence: tonumber(engraveItems.Essence) ?? 0, starsteel: tonumber(engraveOre.Starsteel) ?? 0, paused: engraveItems.EngravingPaused === true, dispatch: dispatch as never, reducedMotion: luaTruthy(reducedMotion) })) });
+				}
+				luaTable.insert(sections, { id: "list", fill: true, minHeight: (math.max as unknown as (...a: unknown[]) => unknown)(160, ((luaCall(luaProp(InventoryMath, "RelicRowHeight"), stack) as unknown as number) + (48 as unknown as number))), element: listPane });
 			}
-			luaTable.insert(sections, { id: "list", fill: true, minHeight: (math.max as unknown as (...a: unknown[]) => unknown)(160, ((luaCall(luaProp(InventoryMath, "RelicRowHeight"), stack) as unknown as number) + (48 as unknown as number))), element: listPane });
 			if (luaTruthy(bulkMode)) {
 				luaTable.insert(sections, { id: "bulk", height: BULK_DOCK_H, element: reactLoose.createElement(BulkDock, { selectedCount: len(selectedForBulk), selectableCount: len(selectableVisible), selectionEssence: selectionEssence, selectVisible: selectVisible, clearSelection: clearSelection, salvageSelected: salvageSelected, bulkArmed: bulkArmed, bulkBusy: bulkBusy, reducedMotion: reducedMotion }) });
 			}
-			return reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: (luaTruthy(stack) ? 10 : 14), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, sections: sections }), ((luaTruthy(autoOpen ) ?  reactLoose.createElement(AutoSalvageSheet, { passOwned: passOwned, rules: autoRules, updateRules: updateAutoRules, autoBusy: autoBusy, openShop: openShop, runNow: runAutoNow, reducedMotion: reducedMotion, stack: stack, config: config, onClose: function(this: void): unknown | undefined {
+			return reactLoose.createElement("frame", { ref: inventoryHostRef, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: (luaTruthy(stack) ? 10 : 14), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, sections: sections }), ((luaTruthy(autoOpen ) ?  reactLoose.createElement(AutoSalvageSheet, { passOwned: passOwned, rules: autoRules, updateRules: updateAutoRules, autoBusy: autoBusy, openShop: openShop, runNow: runAutoNow, reducedMotion: reducedMotion, stack: stack, config: config, onClose: function(this: void): unknown | undefined {
 				return luaCall(setAutoOpen, false);
 				return undefined;
 			} }) : autoOpen)));
@@ -1437,7 +1470,7 @@ function __member(): unknown {
 			luaTable.insert(sections, { id: "loadout-label", height: 28, element: reactLoose.createElement(SectionLabel, { value: "Sockets", color: luaProp(Palette, "mint"), layoutOrder: 0 }) });
 			luaTable.insert(sections, { id: "loadout", height: loadoutH, element: reactLoose.createElement(LoadoutBoard, { state: state, config: config, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack }) });
 		}
-		return reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: (luaTruthy(stack) ? 10 : 14), scrollBarColor: ((tab === "Market") ? luaProp(Palette, "mango") : luaProp(Palette, "violet")), scrollBarThickness: 4, sections: sections }));
+		return reactLoose.createElement("frame", { ref: inventoryHostRef, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(PageScaffold, { gap: pageGap, tailPad: (luaTruthy(stack) ? 10 : 14), scrollBarColor: ((tab === "Market") ? luaProp(Palette, "mango") : luaProp(Palette, "violet")), scrollBarThickness: 4, sections: sections }));
 		return undefined;
 	}
 	return { InventoryView: InventoryView };
