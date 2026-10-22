@@ -4232,11 +4232,76 @@ export function SplitColumns(props: SplitColumnsProps) {
 	);
 }
 // Stacks fixed-height blocks top to bottom inside one column (used inside SplitColumns).
-export function StackBlocks(props: { gap?: number; blocks: { id: string; height: number; element: React.ReactNode }[] }) {
+// Opt-in rise: pass riseFrom (the PageScaffold index of the section holding the columns) and give
+// blocks a `rise` order; each block then rises in as if it were its own scaffold section at
+// index riseFrom + rise (same 0.055s stagger, 0.45s length, soft back ease and 22px drop as
+// PageScaffold), net of the section's own rise. Without riseFrom nothing moves (existing behaviour).
+const STACK_RISE_STAGGER = 0.055;
+const STACK_RISE_SECONDS = 0.45;
+const STACK_RISE_DROP = 22;
+function stackRiseEase(x: number): number {
+	const c1 = 1.2;
+	const c3 = 2.2;
+	return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2;
+}
+function stackRiseOffset(start: number, now: number): number {
+	const t = math.clamp((now - start) / STACK_RISE_SECONDS, 0, 1);
+	return (1 - stackRiseEase(t)) * STACK_RISE_DROP;
+}
+function StackRiseBlock(props: { index: number; sectionIndex: number; children?: React.ReactNode }) {
+	const frameRef = React.useRef<Frame>();
+	const [offset, setOffset] = React.useBinding(0);
+	React.useEffect(() => {
+		const mounted = os.clock();
+		const own = mounted + math.min(props.index, 8) * STACK_RISE_STAGGER;
+		const section = mounted + math.min(props.sectionIndex, 8) * STACK_RISE_STAGGER;
+		const step = () => {
+			const now = os.clock();
+			setOffset(math.round(stackRiseOffset(own, now) - stackRiseOffset(section, now)));
+			return now >= math.max(own, section) + STACK_RISE_SECONDS;
+		};
+		frameRef.current?.SetAttribute("LayoutInMotion", true);
+		step();
+		const connection = game.GetService("RunService").RenderStepped.Connect(() => {
+			if (step()) {
+				connection.Disconnect();
+				setOffset(0);
+				frameRef.current?.SetAttribute("LayoutInMotion", undefined);
+			}
+		});
+		return () => {
+			if (connection.Connected) {
+				connection.Disconnect();
+			}
+		};
+	}, []);
+	return React.createElement(
+		"frame",
+		{
+			Name: "Rise",
+			ref: frameRef,
+			Size: UDim2.fromScale(1, 1),
+			BackgroundTransparency: 1,
+			BorderSizePixel: 0,
+			Position: offset.map((y) => UDim2.fromOffset(0, y)),
+		},
+		props.children,
+	);
+}
+export function StackBlocks(props: {
+	gap?: number;
+	blocks: { id: string; height: number; element: React.ReactNode; rise?: number }[];
+	riseFrom?: number;
+}) {
 	const gap = props.gap ?? 10;
 	const children: Record<string, React.ReactNode> = {};
 	let y = 0;
 	for (const [index, block] of ipairs(props.blocks)) {
+		const riseFrom = props.riseFrom;
+		const body =
+			riseFrom !== undefined && block.rise !== undefined
+				? React.createElement(StackRiseBlock, { index: riseFrom + block.rise, sectionIndex: riseFrom }, block.element)
+				: block.element;
 		children[block.id] = React.createElement(
 			"frame",
 			{
@@ -4248,7 +4313,7 @@ export function StackBlocks(props: { gap?: number; blocks: { id: string; height:
 				ClipsDescendants: false,
 				LayoutOrder: index,
 			},
-			block.element,
+			body,
 		);
 		y += block.height + gap;
 	}
