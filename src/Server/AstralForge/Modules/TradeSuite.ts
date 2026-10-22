@@ -1,3 +1,4 @@
+import * as TradeEngine from "./TradeEngine";
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
 
 function deepCopyValue(value: unknown): unknown {
@@ -939,7 +940,7 @@ __defs["TradeDesk"] = () => {
 			session.Confirmed[session.Host] = false;
 			session.Confirmed[session.Guest] = false;
 			session.ConfirmEndsAt = 0;
-			session.Status = "Open";
+			TradeEngine.Move(session as never, "Open");
 			return $tuple(true, undefined, session);
 		},
 
@@ -969,7 +970,7 @@ __defs["TradeDesk"] = () => {
 			session.Confirmed[session.Host] = false;
 			session.Confirmed[session.Guest] = false;
 			session.ConfirmEndsAt = 0;
-			session.Status = "Open";
+			TradeEngine.Move(session as never, "Open");
 			return $tuple(true, undefined, session);
 		},
 
@@ -986,7 +987,7 @@ __defs["TradeDesk"] = () => {
 			}
 			if (session.ConfirmEndsAt === 0) {
 				session.ConfirmEndsAt = now + GameConfig.Trading.ConfirmSeconds;
-				session.Status = "Confirming";
+				TradeEngine.Move(session as never, "Confirming");
 			} else if (now > session.ConfirmEndsAt) {
 				session.Confirmed[session.Host] = false;
 				session.Confirmed[session.Guest] = false;
@@ -1653,8 +1654,11 @@ __defs["TradeSettle"] = () => {
 			if (session.Confirmed[session.Host] !== true || session.Confirmed[session.Guest] !== true) {
 				return false;
 			}
+			if (!TradeEngine.Move(session as never, "Settling")[0]) {
+				return false;
+			}
 			session.Settling = true;
-			session.Status = "Settling";
+			TradeEngine.Lock(session as never);
 			return true;
 		},
 
@@ -1667,12 +1671,14 @@ __defs["TradeSettle"] = () => {
 			session.Confirmed[session.Guest] = false;
 			session.ConfirmEndsAt = 0;
 			if (truthy(permanent)) {
+				TradeEngine.Move(session as never, "RevertFailed");
 				session.Status = "RevertFailed";
 				session.RevertFailedAt = os.time();
 				session.RevertFailedReason =
 					typeIs(reason, "string") && reason !== "" ? reason : TradeSettle.REASON_HOST_REVERT;
 			} else {
-				session.Status = "Open";
+				TradeEngine.Move(session as never, "Open");
+				TradeEngine.Release(session as never);
 				session.RevertFailedAt = undefined;
 				session.RevertFailedReason = undefined;
 			}

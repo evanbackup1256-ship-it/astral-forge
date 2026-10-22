@@ -20,6 +20,7 @@ import { RemoteFirewall } from "./Security/RemoteFirewall";
 import * as ActionBuckets from "./Security/ActionBuckets";
 import * as PayloadShape from "./Security/PayloadShape";
 import { Ledger, Report } from "./Security/SecurityLedger";
+import * as TradeEngine from "../Modules/TradeEngine";
 import { Roll as crateRoll, RollRecord as CrateRollRecord } from "../Modules/CrateRng";
 import { Ledgers as EconomyLedgers, Snapshot as walletSnapshot } from "../Modules/EconomyLedger";
 import { ServerEventService } from "./Gameplay/ServerEventService";
@@ -1029,6 +1030,13 @@ export class GameService {
 					this._trades.FailSettle(session, false);
 					this._trades.Cancel(player);
 					return responseError(T("GameService.ATraderLeftBeforeThe"));
+				}
+				// Settle only what both sides agreed to: the escrow locked at TryBeginSettle must still
+				// match the live offers (Modules/TradeEngine).
+				if (!TradeEngine.Verify(session as never)[0]) {
+					this._trades.FailSettle(session, false);
+					this._pushTradePartners(session.Host, session.Guest);
+					return responseError(T("GameService.ThatTradeCouldNotBe"));
 				}
 				const [plannedValue, planErr] = this._trades.Plan(session, hostProfile, guestProfile, now) as LuaTuple<[Dict | undefined, unknown]>;
 				if (!plannedValue) {
