@@ -63,6 +63,27 @@ function __member(): unknown {
 	let contrastOn: unknown = luaProp(_theme, "contrastOn");
 	let scrollTail: unknown = luaProp(_theme, "scrollTail");
 	let PageScaffold: unknown = luaProp(kit("LayoutKit", "pageScaffold"), "PageScaffold");
+	// wide desktop: crate and market cards sit two per row (each card keeps its own height)
+	const CARD_PAIR_MIN_WIDTH = 1600;
+	const pairCards = (list: unknown, idOf: (item: unknown) => unknown): unknown[] => {
+		const out: defined[] = [];
+		const items = (list ?? []) as unknown[];
+		for (let index = 0; index < items.size(); index += 2) {
+			const a = items[index];
+			const b = items[index + 1];
+			out.push({ Id: `${tostring(idOf(a))}|${b !== undefined ? tostring(idOf(b)) : ""}`, a, b });
+		}
+		return out;
+	};
+	const pairRow = (gap: number, a: React.Element, b: React.Element | undefined): React.Element =>
+		React.createElement(
+			"frame",
+			{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false },
+			React.createElement("frame", { Size: new UDim2(0.5, -math.floor(gap / 2), 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, a),
+			b !== undefined
+				? React.createElement("frame", { Size: new UDim2(0.5, -math.ceil(gap / 2), 1, 0), Position: new UDim2(0.5, math.ceil(gap / 2), 0, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, b)
+				: undefined,
+		);
 	let FlatList: unknown = luaProp(kit("LayoutKit", "virtualizedList"), "FlatList");
 	let InventoryMath: unknown = kit("CoreKit", "inventoryMath");
 	let _ui: unknown = kit("UiCore", "ui");
@@ -703,6 +724,7 @@ function __member(): unknown {
 		let softMotion: unknown = reducedMotion;
 		reducedMotion = softMotion;
 		let stack: unknown = luaProp(chrome, "contentStack");
+		const pairWide = !luaTruthy(stack) && ((luaProp(viewport, "width") as number) ?? 0) >= CARD_PAIR_MIN_WIDTH;
 		let touchLayout: unknown = luaProp(chrome, "mobile");
 		let headerReveal: unknown = luaCall(useStagger, 0, softMotion);
 		let tabsReveal: unknown = luaCall(useStagger, 1, softMotion);
@@ -1342,10 +1364,24 @@ function __member(): unknown {
 			let crateCardH: unknown = (luaTruthy(stack) ? 248 : 160);
 			let crateStride: unknown = ((crateCardH as unknown as number) + (pageGap as unknown as number));
 			let crateLabelH: unknown = 28;
-			let crateList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: crates, itemHeight: crateStride, headerHeight: ((crateLabelH as unknown as number) + (pageGap as unknown as number)), overscan: (luaTruthy(softMotion) ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaTruthy(luaProp(antilag, "constrained"))) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, crate?: unknown): unknown | undefined {
+			let crateList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: (pairWide ? pairCards(crates, (c) => luaProp(c, "Id")) : crates), itemHeight: crateStride, headerHeight: ((crateLabelH as unknown as number) + (pageGap as unknown as number)), overscan: (luaTruthy(softMotion) ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaTruthy(luaProp(antilag, "constrained"))) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "violet"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, crate?: unknown): unknown | undefined {
 				return luaProp(crate, "Id");
 				return undefined;
 			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
+				if (pairWide) {
+					const row = luaProp(_param_1, "item");
+					const cardFor = (crate: unknown): React.Element | undefined => {
+						if (crate === undefined) return undefined;
+						let keysTable: unknown = ((items !== undefined) ? luaProp(items, "Keys") : undefined);
+						let pityTable: unknown = ((items !== undefined) ? luaProp(items, "Pity") : undefined);
+						let keyCount: unknown = ((luaTypeIs(keysTable, "table")) ? luaIndex(keysTable, luaProp(crate, "Id")) : undefined);
+						let pityCount: unknown = ((luaTypeIs(pityTable, "table")) ? luaIndex(pityTable, luaProp(crate, "Id")) : undefined);
+						return reactLoose.createElement(CrateCardMemo, { crate: crate, keys: ((luaTypeIs(keyCount, "number")) ? keyCount : 0), pity: ((luaTypeIs(pityCount, "number")) ? pityCount : 0), onOpen: function(this: void, count?: unknown): unknown | undefined {
+							return luaCall(openCrate, crate, count);
+						}, busy: crateBusy, reducedMotion: reducedMotion, layoutOrder: 0, stack: stack }) as React.Element;
+					};
+					return pairRow(pageGap as number, cardFor(luaProp(row, "a"))!, cardFor(luaProp(row, "b")));
+				}
 				let crate: unknown = luaProp(_param_1, "item");
 				let keysTable: unknown = ((items !== undefined) ? luaProp(items, "Keys") : undefined);
 				let pityTable: unknown = ((items !== undefined) ? luaProp(items, "Pity") : undefined);
@@ -1361,10 +1397,18 @@ function __member(): unknown {
 		} else if ((tab === "Market")) {
 			let marketCardH: unknown = (luaTruthy(stack) ? MARKET_CARD_H_STACK : MARKET_CARD_H);
 			let marketStride: unknown = ((marketCardH as unknown as number) + (pageGap as unknown as number));
-			let marketList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: shopOffers, itemHeight: marketStride, headerHeight: ((marketBannerH as unknown as number) + (pageGap as unknown as number)), overscan: (luaTruthy(softMotion) ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaTruthy(luaProp(antilag, "constrained"))) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "mango"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, offer?: unknown): unknown | undefined {
+			let marketList: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(FlatList, { data: (pairWide ? pairCards(shopOffers, (o) => luaProp(o, "Id")) : shopOffers), itemHeight: marketStride, headerHeight: ((marketBannerH as unknown as number) + (pageGap as unknown as number)), overscan: (luaTruthy(softMotion) ? 0 : (((((luaProp(antilag, "tier") as unknown as number) <= (1 as unknown as number)) || luaTruthy(luaProp(antilag, "constrained"))) ? 1 : 2))), canvasTail: SCROLL_PAD, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "mango"), scrollBarThickness: 4, scrollBarTransparency: 0.22, keyExtractor: function(this: void, offer?: unknown): unknown | undefined {
 				return luaProp(offer, "Id");
 				return undefined;
 			}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
+				if (pairWide) {
+					const row = luaProp(_param_1, "item");
+					const cardFor = (offer: unknown): React.Element | undefined =>
+						offer === undefined
+							? undefined
+							: (reactLoose.createElement(MarketCardMemo, { offer: offer, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, cash: luaProp(state, "Cash"), stardust: luaProp(state, "Stardust"), cores: luaProp(state, "Cores"), refreshShort: refreshShort, stack: stack }) as React.Element);
+					return pairRow(pageGap as number, cardFor(luaProp(row, "a"))!, cardFor(luaProp(row, "b")));
+				}
 				let offer: unknown = luaProp(_param_1, "item");
 				return reactLoose.createElement(MarketCardMemo, { offer: offer, dispatch: dispatch, reducedMotion: reducedMotion, layoutOrder: 0, cash: luaProp(state, "Cash"), stardust: luaProp(state, "Stardust"), cores: luaProp(state, "Cores"), refreshShort: refreshShort, stack: stack });
 				return undefined;
