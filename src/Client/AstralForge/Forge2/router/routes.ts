@@ -21,6 +21,7 @@ import { ChatPage } from "../pages/ChatPage";
 import { RewardsPage } from "../pages/RewardsPage";
 import { MilestonesPage } from "../pages/MilestonesPage";
 import { WheelPage } from "../pages/WheelPage";
+import { ForgePathPage } from "../pages/ForgePathPage";
 
 export interface PageProps {
 	session: Session;
@@ -54,6 +55,7 @@ const PORTED: Record<string, PageComponent> = {
 	Rewards: RewardsPage,
 	Milestones: MilestonesPage,
 	Wheel: WheelPage,
+	ForgePath: ForgePathPage,
 };
 
 export function pageFor(id: string): PageComponent | undefined {
