@@ -1,40 +1,77 @@
 // Pure admin policy: role permissions and dry-run diffs. No Roblox services so it runs under Lune tests.
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
 
+// Permission matrix. Read a row as "this category or command is open to these roles".
+// Owner and Studio Developer bypass the matrix entirely. Order of checks for everyone else:
+//   1. COMMAND_DENY  - a listed role can never run that command, even if its category is open;
+//   2. COMMAND_ALLOW - a listed role can run that one command outside its categories;
+//   3. CATEGORY_ACCESS - a listed role can run every command in that category.
+// Developer keeps everything it had: every gameplay and live-ops category, minus the three
+// account-wide actions that stay with the Owner.
+
+type Role = "Owner" | "Studio Developer" | "Developer" | "Moderator" | "Support";
+
+const FULL_ACCESS: Record<string, true> = { Owner: true, "Studio Developer": true };
+
+const CATEGORY_ACCESS: Record<string, Role[]> = {
+	Economy: ["Developer"],
+	Progress: ["Developer"],
+	Items: ["Developer"],
+	Resets: ["Developer"],
+	Troll: ["Developer"],
+	LiveOps: ["Developer"],
+	Moderation: ["Developer", "Moderator"],
+};
+
+const COMMAND_ALLOW: Record<string, Role[]> = {
+	InspectMarket: ["Moderator", "Support"],
+	ResetTutorial: ["Moderator", "Support"],
+	ShowUpdates: ["Moderator", "Support"],
+	ResetSettings: ["Support"],
+	ResetWheelCooldown: ["Support"],
+	ResetDailyClaim: ["Support"],
+	CancelMarketRequest: ["Support"],
+	Kick: ["Support"],
+};
+
+const COMMAND_DENY: Record<string, Role[]> = {
+	GlobalBan: ["Developer", "Moderator"],
+	Unban: ["Developer"],
+	GrantEverything: ["Developer"],
+};
+
+const listed = (grid: Record<string, Role[]>, key: string, role: string): boolean => {
+	const roles = grid[key];
+	return roles !== undefined && roles.includes(role as Role);
+};
+
+// Per-role view of the matrix, kept for tools and tests that read AdminPolicy.ROLES.
 interface Permission {
+	All?: boolean;
 	Categories?: Record<string, boolean>;
 	Commands?: Record<string, boolean>;
 	Deny?: Record<string, boolean>;
-	All?: boolean;
 }
 
-const ALL = "*";
+function buildRoles(): Record<string, Permission> {
+	const roles: Record<string, Permission> = {};
+	for (const [role] of pairs(FULL_ACCESS)) {
+		roles[role] = { All: true };
+	}
+	const add = (role: string, field: "Categories" | "Commands" | "Deny", key: string) => {
+		const entry = roles[role] ?? {};
+		roles[role] = entry;
+		const bucket = entry[field] ?? {};
+		entry[field] = bucket;
+		bucket[key] = true;
+	};
+	for (const [category, list] of pairs(CATEGORY_ACCESS)) for (const role of list) add(role, "Categories", category);
+	for (const [command, list] of pairs(COMMAND_ALLOW)) for (const role of list) add(role, "Commands", command);
+	for (const [command, list] of pairs(COMMAND_DENY)) for (const role of list) add(role, "Deny", command);
+	return roles;
+}
 
-const ROLES: Record<string, Permission> = table.freeze({
-	Owner: { All: true },
-	"Studio Developer": { All: true },
-	Developer: {
-		Categories: { Economy: true, Progress: true, Items: true, Resets: true, Troll: true, Moderation: true, LiveOps: true },
-		Deny: { GlobalBan: true, Unban: true, GrantEverything: true },
-	},
-	Moderator: {
-		Categories: { Moderation: true },
-		Commands: { InspectMarket: true, ResetTutorial: true, ShowUpdates: true },
-		Deny: { GlobalBan: true },
-	},
-	Support: {
-		Commands: {
-			InspectMarket: true,
-			ResetTutorial: true,
-			ResetSettings: true,
-			ShowUpdates: true,
-			ResetWheelCooldown: true,
-			ResetDailyClaim: true,
-			CancelMarketRequest: true,
-			Kick: true,
-		},
-	},
-});
+const ROLES = table.freeze(buildRoles());
 
 function describe(value: unknown): string {
 	if (value === undefined) {
@@ -103,25 +140,21 @@ const AdminPolicy = {
 		if (resolved === undefined) {
 			return $tuple(false, T("AdminPolicy.AdministrativeAccessDenied"));
 		}
-		const policy = AdminPolicy.ROLES[resolved] as Permission & {
-			Categories?: Record<string, boolean>;
-			Commands?: Record<string, boolean>;
-			Deny?: Record<string, boolean>;
-		};
-		if (policy.All === true) {
+		if (FULL_ACCESS[resolved]) {
 			return $tuple(true, undefined);
 		}
-		if (policy.Deny && policy.Deny[command]) {
-			return $tuple(false, `${resolved} role can't run ${command}.`);
+		const refused = `${resolved} role can't run ${command}.`;
+		if (listed(COMMAND_DENY, command, resolved)) {
+			return $tuple(false, refused);
 		}
-		if (policy.Commands && policy.Commands[command]) {
+		if (listed(COMMAND_ALLOW, command, resolved)) {
 			return $tuple(true, undefined);
 		}
-		const category = (definition && definition.Category) || "";
-		if (policy.Categories && (policy.Categories[category as string] || policy.Categories[ALL])) {
+		const category = definition !== undefined && typeIs(definition.Category, "string") ? definition.Category : "";
+		if (listed(CATEGORY_ACCESS, category, resolved)) {
 			return $tuple(true, undefined);
 		}
-		return $tuple(false, `${resolved} role can't run ${command}.`);
+		return $tuple(false, refused);
 	},
 
 	DeepCopy<T>(this: void, value: T, seen?: Map<unknown, unknown>): T {
