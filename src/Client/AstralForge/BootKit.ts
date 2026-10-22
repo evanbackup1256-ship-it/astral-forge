@@ -602,7 +602,7 @@ __defs["BootScreen"] = () => {
 			{ ...centred(L.statusY, 20), BackgroundTransparency: 1, ZIndex: 6 },
 			e("textlabel", {
 				Name: "BootStatus",
-				Size: new UDim2(1, -56, 1, 0),
+				Size: UDim2.fromScale(1, 1),
 				BackgroundTransparency: 1,
 				Text: status,
 				TextColor3: Palette.cream,
@@ -612,34 +612,20 @@ __defs["BootScreen"] = () => {
 				TextSize: L.statusSize,
 				TextTruncate: Enum.TextTruncate.AtEnd,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-				TextXAlignment: Enum.TextXAlignment.Left,
-				TextYAlignment: Enum.TextYAlignment.Bottom,
-				ZIndex: 7,
-			}),
-			e("textlabel", {
-				Name: "BootPercent",
-				Size: new UDim2(0, 56, 1, 0),
-				Position: UDim2.fromScale(1, 0),
-				AnchorPoint: new Vector2(1, 0),
-				BackgroundTransparency: 1,
-				Text: progress.map((p) => `${math.floor(p * 100 + 0.5)}%`),
-				TextColor3: Palette.muted,
-				TextTransparency: fadeFrom(0.3),
-				TextSize: L.statusSize,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-				TextXAlignment: Enum.TextXAlignment.Right,
+				TextXAlignment: Enum.TextXAlignment.Center,
 				TextYAlignment: Enum.TextYAlignment.Bottom,
 				ZIndex: 7,
 			}),
 		);
 
+		// progress is the bar itself: a warm two-tone fill with a soft glow and a lit leading edge
 		const bar = e(
 			"frame",
 			{
 				Name: "BootProgress",
-				...centred(L.barY, 3),
+				...centred(L.barY - 1, 5),
 				BackgroundColor3: Palette.line,
-				BackgroundTransparency: fadeFrom(0.65),
+				BackgroundTransparency: fadeFrom(0.78),
 				BorderSizePixel: 0,
 				ZIndex: 6,
 			},
@@ -648,13 +634,34 @@ __defs["BootScreen"] = () => {
 				"frame",
 				{
 					Name: "Fill",
-					Size: progress.map((p) => UDim2.fromScale(math.max(0.01, p), 1)),
-					BackgroundColor3: Palette.mango,
+					Size: progress.map((p) => UDim2.fromScale(math.max(0.012, p), 1)),
+					BackgroundColor3: Palette.white,
 					BackgroundTransparency: fadeFrom(0),
 					BorderSizePixel: 0,
 					ZIndex: 7,
 				},
 				e("uicorner", { CornerRadius: new UDim(1, 0) }),
+				e("uigradient", {
+					Color: new ColorSequence([
+						new ColorSequenceKeypoint(0, Palette.mango.Lerp(Palette.void, 0.35)),
+						new ColorSequenceKeypoint(1, Palette.mango),
+					]),
+				}),
+				e("uistroke", {
+					Color: Palette.mango,
+					Thickness: 2,
+					Transparency: cover.map((c) => clamp01(0.72 + 0.28 * c)),
+				}),
+				e("frame", {
+					Name: "Tip",
+					Size: UDim2.fromOffset(9, 9),
+					Position: UDim2.fromScale(1, 0.5),
+					AnchorPoint: new Vector2(0.5, 0.5),
+					BackgroundColor3: Palette.cream,
+					BackgroundTransparency: fadeFrom(0),
+					BorderSizePixel: 0,
+					ZIndex: 8,
+				}, e("uicorner", { CornerRadius: new UDim(1, 0) })),
 			),
 		);
 
