@@ -515,8 +515,9 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const safeSide = math.max(8, viewport.sideInset, chrome.sideSafe);
 	const safeTop = math.max(8, viewport.topInset);
 	const safeBottom = math.max(8, viewport.bottomInset, chrome.bottomSafe);
-	const width = math.min(940, math.max(260, viewport.width - safeSide * 2 - 12));
-	const height = math.min(680, math.max(260, viewport.height - safeTop - safeBottom - 12));
+	// fits between the safe insets at any size (286px wide or 286px tall)
+	const width = math.min(940, viewport.width - safeSide * 2 - 12);
+	const height = math.max(1, math.min(680, viewport.height - safeTop - safeBottom - 12));
 	const centerY = safeTop + math.max(0, (viewport.height - safeTop - safeBottom) / 2);
 	const innerW = width - pad * 2;
 

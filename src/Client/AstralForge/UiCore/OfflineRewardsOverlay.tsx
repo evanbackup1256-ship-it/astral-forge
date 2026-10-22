@@ -160,7 +160,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	// The card is as tall as the layout it can show: stats, the explanation and stacked buttons
 	// when there is room, otherwise stats and side-by-side buttons with nothing left empty.
 	const statsBottom = stack ? 212 : 228;
-	const roomH = math.max(240, viewport.height - viewport.topInset - chrome.bottomSafe - 24);
+	// the card never grows past the room between the insets (286px-tall landscape phones)
+	const roomH = math.max(1, viewport.height - viewport.topInset - chrome.bottomSafe - 24);
 	const fullInner = statsBottom + 56 + TapTarget * 2 + 12;
 	const shortInner = statsBottom + 16 + TapTarget;
 	const cardHeight =

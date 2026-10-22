@@ -1570,8 +1570,9 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const side = math.max(chrome.sideSafe, viewport.sideInset, 8) + 6;
 	const top = math.max(viewport.topInset, 36) + 8;
 	const bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 8;
-	const width = math.max(240, math.min(460, viewport.width - side * 2));
-	const height = math.max(260, math.min(680, viewport.height - top - bottom));
+	// never wider or taller than the room left between the safe insets (286px phones, 286px-tall landscape)
+	const width = math.min(viewport.width - 12, math.max(240, math.min(460, viewport.width - side * 2)));
+	const height = math.max(1, math.min(680, viewport.height - top - bottom));
 	const innerW = width - 20;
 	const showSearch = rows.size() >= Model.SEARCH_MIN_ROWS;
 	const headerH = 58;

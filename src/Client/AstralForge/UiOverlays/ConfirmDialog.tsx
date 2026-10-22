@@ -98,7 +98,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	const focus = useGamepadAutofocus(true);
 
 	const safeSide = math.max(Space.md, viewport.sideInset);
-	const width = math.clamp(viewport.width - safeSide * 2, 240, 420);
+	const width = math.clamp(viewport.width - safeSide * 2, math.min(240, viewport.width - 16), 420);
 	const padding = width < 320 ? Space.lg : Space.xl;
 	const inner = width - padding * 2;
 	const stackButtons = inner < 300;
