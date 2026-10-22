@@ -4,6 +4,7 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { chromeFor, Palette, scrollTail } from "../../CoreKit/theme";
 import { useEntrance, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
 import { loadPageScaffold, loadUi, named } from "../luauDeps";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 
 const UserInputService = game.GetService("UserInputService");
 const { Badge, Button, Meter, Panel, SectionLabel, Text } = loadUi();
@@ -56,15 +57,17 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 	const chrome = chromeFor(viewport);
 	const softMotion = reducedMotion;
 	const stack = chrome.contentStack;
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.42), 16);
+	const wide = plan.split;
 	const now = useWallClock(event !== undefined);
 	const reveal = useStagger(0, softMotion);
 	const revealTiers = useStagger(1, softMotion);
 	const revealClaim = useStagger(2, softMotion);
 	const globalFill = math.clamp(event.GlobalContribution / math.max(1, event.GlobalTarget), 0, 1);
 	const tiers = event.Tiers ?? [];
-	const heroHeight = stack ? 226 : 198;
+	const heroHeight = stack ? 226 : wide ? 236 : 198;
 	const tierHeight = stack ? 154 : 94;
-	const pageGap = 12;
+	const pageGap = wide ? 16 : 12;
 	const tiersH = tiers.size() > 0 ? tiers.size() * tierHeight + math.max(0, tiers.size() - 1) * pageGap : 0;
 	const claimHostRef = React.useRef<Frame>();
 	let firstClaimTier: number | undefined;
@@ -133,8 +136,10 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				color={Palette.muted}
 				weight={Enum.FontWeight.Bold}
 				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -150, 1, -68)}
-				sizeConstraint={UDim2.fromOffset(150, 28)}
+				fit={true}
+				minSize={8}
+				position={stack ? new UDim2(0, 120, 1, -68) : new UDim2(1, -150, 1, -68)}
+				sizeConstraint={stack ? new UDim2(1, -120, 0, 28) : new UDim2(0, 150, 0, 28)}
 			/>
 			<Meter
 				value={globalFill}
@@ -224,33 +229,40 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 			</Panel>
 		);
 	});
-	const sections: Section[] = [
-		{
-			id: "hero",
-			height: heroHeight,
-			element: heroPanel,
-		},
-		{
-			id: "tiers-label",
-			height: SECTION_LABEL_H,
-			element: <SectionLabel value="Your rewards" color={Palette.violet} />,
-		},
-	];
-	if (tiersH > 0) {
+	const tiersLabel = <SectionLabel value="Your rewards" color={Palette.violet} />;
+	const tiersList = (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, pageGap)} />
+			{tierPanels}
+		</frame>
+	);
+	const sections: Section[] = [];
+	if (wide) {
+		// desktop: the event on the left, your reward tiers beside it
+		const side = [{ id: "tiers-label", height: SECTION_LABEL_H, element: tiersLabel }];
+		if (tiersH > 0) {
+			side.push({ id: "tiers", height: tiersH, element: tiersList });
+		}
+		const heroBlocks = [{ id: "hero", height: heroHeight, element: heroPanel }];
 		sections.push({
-			id: "tiers",
-			height: tiersH,
+			id: "convergence",
+			height: math.max(stackHeight(side.map((b) => b.height), pageGap), stackHeight(heroBlocks.map((b) => b.height), pageGap)),
 			element: (
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<uilistlayout
-						FillDirection={Enum.FillDirection.Vertical}
-						SortOrder={Enum.SortOrder.LayoutOrder}
-						Padding={new UDim(0, pageGap)}
-					/>
-					{tierPanels}
-				</frame>
+				<SplitColumns
+					plan={plan}
+					height={math.max(stackHeight(side.map((b) => b.height), pageGap), stackHeight(heroBlocks.map((b) => b.height), pageGap))}
+					sideOnRight={false}
+					main={<StackBlocks gap={pageGap} blocks={side} />}
+					side={<StackBlocks gap={pageGap} blocks={heroBlocks} />}
+				/>
 			),
 		});
+	} else {
+		sections.push({ id: "hero", height: heroHeight, element: heroPanel });
+		sections.push({ id: "tiers-label", height: SECTION_LABEL_H, element: tiersLabel });
+		if (tiersH > 0) {
+			sections.push({ id: "tiers", height: tiersH, element: tiersList });
+		}
 	}
 	return (
 		<PageScaffold
