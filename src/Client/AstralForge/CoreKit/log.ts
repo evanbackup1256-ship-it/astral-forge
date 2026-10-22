@@ -1,6 +1,6 @@
 import type { RequestFunction } from "../ClientNetwork";
 import * as LogFormat from "../../../Shared/AstralForge/Shared/LogFormat";
-const ReplicatedStorage = game.GetService("ReplicatedStorage");
+import * as LogPolicy from "../../../Shared/AstralForge/Shared/LogPolicy";
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
 
@@ -35,12 +35,13 @@ function available(key: string, seconds: number): boolean {
 	return true;
 }
 
-function debugEnabled(): boolean {
-	return ReplicatedStorage.GetAttribute("AstralDebugLogs") === true;
+function debugEnabled(scope?: string): boolean {
+	return LogPolicy.enabled("DEBUG", scope);
 }
 
 export const ClientLog = {
 	info(scope: string, message: string, params?: Params) {
+		if (!LogPolicy.enabled("INFO", scope)) return;
 		print(formatLine("INFO", scope, message, params));
 	},
 	warn(scope: string, message: string, params?: Params) {
@@ -56,7 +57,7 @@ export const ClientLog = {
 		print(formatLine("NETWORK", scope, message, params));
 	},
 	debug(scope: string, message: string, params?: Params) {
-		if (debugEnabled()) {
+		if (debugEnabled(scope)) {
 			print(formatLine("DEBUG", scope, message, params));
 		}
 	},
