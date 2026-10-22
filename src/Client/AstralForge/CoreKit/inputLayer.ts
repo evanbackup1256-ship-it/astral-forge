@@ -107,7 +107,7 @@ export function lastInputIsGamepad(): boolean {
 	return isGamepadInput(UserInputService.GetLastInputType());
 }
 
-export function onKindChanged(listener: (kind: InputKind) => void): () => void {
+function onKindChanged(listener: (kind: InputKind) => void): () => void {
 	activeKind();
 	listeners.add(listener);
 	return () => listeners.delete(listener);
