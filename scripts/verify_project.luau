@@ -65,6 +65,7 @@ require("./verify_currency_guard")
 require("./verify_trade_rejoin")
 require("./verify_teleport_flush")
 require("./verify_remote_rate_limits")
+require("./verify_leave_leaks")
 -- ---- v8 C: Companion Bonds ----
 require("./verify_companion_bonds")
 -- ---- end v8 C: Companion Bonds ----

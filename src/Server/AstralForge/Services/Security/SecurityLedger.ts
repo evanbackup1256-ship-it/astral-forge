@@ -38,6 +38,8 @@ export const KICK = 20;
 export const SUSTAIN = 45;
 const KIND_MEMORY = 300;
 const RECENT_LIMIT = 200;
+// below this a departed player's record is dropped (a few minor flags that have mostly decayed)
+const QUIET_SCORE = 1;
 
 export class SecurityLedger {
 	private records = new Map<number, PlayerRecord>();
@@ -192,6 +194,28 @@ export class SecurityLedger {
 
 	Forget(userId: number): void {
 		this.records.delete(userId);
+	}
+
+	/**
+	 * Called when a player leaves: drops their record once it has decayed to background noise, so
+	 * a long-running server doesn't keep one record per player who was ever flagged. A record
+	 * still carrying a real score is kept, so leaving and rejoining doesn't wipe it.
+	 */
+	ForgetIfQuiet(userId: number): boolean {
+		if (!this.records.has(userId)) {
+			return false;
+		}
+		const rec = this.record(userId, this.clock());
+		if (rec.score >= QUIET_SCORE) {
+			return false;
+		}
+		this.records.delete(userId);
+		return true;
+	}
+
+	/** Number of players with a record (for leak checks). */
+	Size(): number {
+		return this.records.size();
 	}
 }
 

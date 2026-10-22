@@ -1032,6 +1032,12 @@ export class DataService {
 		this._saveBusy.delete(player);
 		this._releasing.delete(player);
 		this._broken.delete(player);
+		// the leaderboard mirror is per user; a push still in flight drops it when it finishes
+		if (!this._leaderboardWorkers.has(player.UserId)) {
+			this._leaderboardMirrors.delete(player.UserId);
+			this._leaderboardPending.delete(player.UserId);
+			this._leaderboardPushBusy.delete(player.UserId);
+		}
 	}
 
 	_markProfileBroken(player: Player, reason: string) {

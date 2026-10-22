@@ -6542,6 +6542,7 @@ export class GameService {
 		this._runtime.delete(player);
 		this._economyLedgers?.Drop(player.UserId);
 		this._firewall.Forget(player);
+		Ledger.ForgetIfQuiet(player.UserId);
 		this._session.Forget(player);
 		this._antiCheat.Forget(player);
 		if (this._admin !== undefined) {
