@@ -42,7 +42,6 @@ local ALLOWED: { [string]: string } = {
 	["CoreKit/store/selectors.ts:selectFlags"] = "client store selector API (rw18)",
 	["CoreKit/store/selectors.ts:selectSessionField"] = "client store selector API (rw18)",
 	["CoreKit/settingsService.ts:useSettingOn"] = "settings service hook API (rw22)",
-	["CoreKit/inputLayer.ts:onKindChanged"] = "input layer subscription API (rw20)",
 }
 
 local function walk(dir: string, out: { string })
