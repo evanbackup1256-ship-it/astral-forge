@@ -183,7 +183,8 @@ function SectionTitle(props: { value: string; accent: Color3; position?: UDim2; 
 function StatCell(props: { label: string; value: string; accent: Color3 }) {
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
-			<uicorner CornerRadius={new UDim(0, 10)} />
+			<uicorner CornerRadius={new UDim(0, 8)} />
+			<uistroke Color={props.accent} Thickness={1} Transparency={0.82} />
 			<Text
 				value={props.label}
 				size={9}
@@ -253,9 +254,9 @@ function PlayerRow({ player, selected, you, onClick, layoutOrder, reducedMotion 
 				/>
 			</frame>
 			<Text
-				value={you ? `${player.DisplayName}  ·  YOU` : player.DisplayName}
+				value={player.DisplayName}
 				size={13}
-				color={Palette.cream}
+				color={you ? Palette.mint : Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
 				minSize={9}
@@ -319,29 +320,21 @@ function CommandRow(props: { entry: AdminCommand; selected: boolean; onClick: ()
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(15, 6)}
-				sizeConstraint={new UDim2(1, -104, 0, 16)}
+				position={UDim2.fromOffset(15, math.floor((COMMAND_ROW - 22) / 2))}
+				sizeConstraint={new UDim2(1, -40, 0, 16)}
 			/>
-			<Text
-				value={(entry.Category ?? "ECON").upper()}
-				size={9}
-				color={accent}
-				weight={Enum.FontWeight.Heavy}
-				align={Enum.TextXAlignment.Right}
-				fit={false}
-				position={new UDim2(1, -92, 0, 7)}
-				sizeConstraint={UDim2.fromOffset(80, 12)}
-			/>
-			<Text
-				value={arm ? "ARM" : "RUN"}
-				size={8}
-				color={arm ? Palette.mango : Palette.mint}
-				weight={Enum.FontWeight.Heavy}
-				align={Enum.TextXAlignment.Right}
-				fit={false}
-				position={new UDim2(1, -92, 0, 21)}
-				sizeConstraint={UDim2.fromOffset(80, 12)}
-			/>
+			{/* category reads from the edge bar; dangerous commands get a small lock dot instead of a word */}
+			{arm && (
+				<frame
+					Size={UDim2.fromOffset(6, 6)}
+					Position={new UDim2(1, -16, 0.5, 0)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					BackgroundColor3={Palette.mango}
+					BorderSizePixel={0}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+				</frame>
+			)}
 		</textbutton>
 	);
 }
@@ -997,8 +990,8 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 						: lastNote !== ""
 						? lastNote
 						: needsArm
-							? "Arm first. Dangerous commands need a second tap."
-							: "Preview shows saved changes first. Run applies them.") +
+							? "Tap twice to run."
+							: "Preview, then run.") +
 					(previewLines.size() > 0 ? "\n• " + shownPreview.join("\n• ") : "")
 				}
 				size={9}
