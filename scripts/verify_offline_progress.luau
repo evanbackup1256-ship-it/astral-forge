@@ -32,8 +32,8 @@ check(near(long.reward, 10 * 0.5 * 6 * 3600), "capped reward covers only 6h")
 local cut = Offline.planWindow(100, 1900, { maxSeconds = 1e9, minSeconds = 0, cycleSeconds = 600, boostEndsAt = 700, surgeEndsAt = 5000 })
 local edges = {}
 for _, s in cut.segments do table.insert(edges, s.from) end
-check(#cut.segments == 4, "100..1900 splits into 4 pieces")
-check(edges[1] == 100 and edges[2] == 600 and edges[3] == 700 and edges[4] == 1200, "segments are ordered")
+check(#cut.segments == 5, "100..1900 splits into 5 pieces")
+check(edges[1] == 100 and edges[2] == 600 and edges[3] == 700 and edges[4] == 1200 and edges[5] == 1800, "segments are ordered")
 check(cut.segments[1].at == 350, "segments sample at their midpoint")
 
 local boosted = Offline.project(0, 1200, { maxSeconds = 1e9, minSeconds = 0, cycleSeconds = 1e9, boostEndsAt = 600, surgeEndsAt = 0 },
