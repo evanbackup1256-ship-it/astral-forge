@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { fitColumns } from "../../UiCore/layoutEngine";
 import { AppHelpers } from "../../CoreKit/appNav";
 import { useBackLayer } from "../../CoreKit/backLayer";
 import { useFocusOrder } from "../../CoreKit/focusOrder";
@@ -252,10 +253,13 @@ function WorldsView(props: WorldsViewProps) {
 	const headerHeight = (headerStack ? 168 : 112) + barH + 10;
 	const rowHeight = PageBoardHeights.World(stack);
 	const rowGap = rowGapFor(stack, chrome.panelGap);
-	const worldColumns = stack ? 1 : sideColumn ? (viewport.width >= 1800 ? 2 : 1) : viewport.width >= 1100 ? 2 : 1;
 	const listPad = Layout.stackGap * 2;
 	const catalogTotal = config.MaxZone ?? config.Zones.size();
 	const total = catalogTotal > 0 ? math.clamp(state.Zone + 2, 1, catalogTotal) : 0;
+	// layout engine: columns from the room the list really has and how many worlds it shows,
+	// so wide screens get 2-3 columns of world cards instead of one stretched list
+	const listWidth = sideColumn ? plan.main : viewport.width - 2 * math.max(24, chrome.sideSafe) - 96;
+	const worldColumns = stack ? 1 : fitColumns(listWidth, total, 440, 3, rowGap).columns;
 	const currentIdx = math.clamp((state.CurrentZone ?? 0) - 1, 0, math.max(0, total - 1));
 	const [range, setRange] = React.useState(() => AppHelpers.worldWindowAround(currentIdx, total));
 	const scrollRef = React.useRef<ScrollingFrame>();

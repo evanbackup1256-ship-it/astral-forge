@@ -1065,7 +1065,8 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 							{navButtons}
 						</Panel>
 					</frame>
-					<frame key="SettingsList" Size={new UDim2(1, -(NAV_W + 24), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
+					{/* the list panel matches the nav column height so a short section leaves no gap under it */}
+					<frame key="SettingsList" Size={new UDim2(1, -(NAV_W + 24), 0, bodyH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
 						{list}
 					</frame>
 				</frame>

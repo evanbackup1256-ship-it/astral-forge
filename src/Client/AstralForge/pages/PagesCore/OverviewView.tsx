@@ -647,7 +647,11 @@ function pairColumns(enabled: boolean, gap: number, sections: Section[]): Sectio
 			const other = section.id === a ? b : section.id === b ? a : undefined;
 			if (other === undefined) continue;
 			const found = byId.get(other);
-			if (found !== undefined && !used.has(other) && (found.height ?? 0) > 0 && (section.height ?? 0) > 0) {
+			const hA = found?.height ?? 0;
+			const hB = section.height ?? 0;
+			// pair only cards of comparable height; both columns then stretch to the pair height, so
+			// the shorter card never leaves a gap under it (a 2x mismatch stacks full width instead)
+			if (found !== undefined && !used.has(other) && hA > 0 && hB > 0 && math.max(hA, hB) <= math.min(hA, hB) * 2) {
 				partner = found;
 				leftFirst = section.id === a;
 			}
@@ -668,7 +672,7 @@ function pairColumns(enabled: boolean, gap: number, sections: Section[]): Sectio
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
 					<frame
 						{...named(`OverviewColumn-${left.id}`)}
-						Size={new UDim2(half.X.Scale, half.X.Offset, 0, (left.height ?? 0))}
+						Size={new UDim2(half.X.Scale, half.X.Offset, 1, 0)}
 						BackgroundTransparency={1}
 						BorderSizePixel={0}
 						ClipsDescendants={false}
@@ -677,7 +681,7 @@ function pairColumns(enabled: boolean, gap: number, sections: Section[]): Sectio
 					</frame>
 					<frame
 						{...named(`OverviewColumn-${right.id}`)}
-						Size={new UDim2(half.X.Scale, half.X.Offset, 0, (right.height ?? 0))}
+						Size={new UDim2(half.X.Scale, half.X.Offset, 1, 0)}
 						Position={new UDim2(0.5, math.ceil(gap / 2), 0, 0)}
 						BackgroundTransparency={1}
 						BorderSizePixel={0}
