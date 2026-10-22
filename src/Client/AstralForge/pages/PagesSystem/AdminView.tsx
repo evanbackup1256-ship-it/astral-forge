@@ -655,9 +655,9 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
 				position={UDim2.fromOffset(0, 6)}
-				sizeConstraint={new UDim2(1, -340, 0, 22)}
+				sizeConstraint={new UDim2(1, -112, 0, 22)}
 			/>
-			<frame Size={new UDim2(1, -120, 0, 22)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
+			<frame Size={new UDim2(1, 0, 0, 22)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
 				<uilistlayout
 					FillDirection={Enum.FillDirection.Horizontal}
 					Padding={new UDim(0, 6)}
