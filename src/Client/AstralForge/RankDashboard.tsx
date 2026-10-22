@@ -8,6 +8,7 @@ import { useViewport } from "./MotionKit/motion";
 import { FocusClaim, KeyLabel } from "./CoreKit/GamepadNavigationService";
 import { OmegaMathApi } from "./lua";
 import { FittedView } from "./UiCore/viewportKit";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "./UiCore/ui";
 
 const Players = game.GetService("Players");
 const TweenService = game.GetService("TweenService");
@@ -401,7 +402,9 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			return () => connection.Disconnect();
 		}, []);
 
-		const narrow = measuredWidth < 620;
+		// wide desktop: standing, categories and controls sit in a left column beside podium + rows
+		const plan = splitColumns(measuredWidth, 360, 22, 1060);
+		let narrow = measuredWidth < 620;
 		// phones: one-line rows (place, mark, name, value) with the share bar along the bottom edge
 		const phoneRow = measuredWidth < 420;
 		const rankRowH = phoneRow ? 46 : 58;
@@ -556,6 +559,9 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			sections.push({ id, height, element: e(ui.Panel, { size: UDim2.fromScale(1, 1), padding: 22, accent: accent ?? meta.accent }, children) });
 		}
 
+		const mainNarrow = plan.split ? plan.main < 620 : narrow;
+		const panelWidth = plan.split ? plan.side : measuredWidth;
+		narrow = narrow || plan.split;
 		// Standing card: your rank, your score and the climb to the next seat.
 		const nextRatio = ahead !== undefined ? share(own, ahead.Value) : personalIndex === 1 ? 1 : share(own, top);
 		const standing = personalIndex !== undefined ? `#${personalIndex}` : "—";
@@ -570,7 +576,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 
 		// Category picker: group strip, then the boards inside the group.
 		const groupKids: Record<string, React.Element> = {};
-		const groupCols = measuredWidth < 480 ? 2 : measuredWidth < 1000 ? 3 : 6;
+		const groupCols = panelWidth < 480 ? 2 : panelWidth < 1000 ? 3 : 6;
 		for (let index = 0; index < GROUPS.size(); index++) {
 			const entry = GROUPS[index];
 			const col = index % groupCols;
@@ -620,6 +626,8 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		controls.Search = e(ui.SearchField, { value: query, onChange: setQuery, placeholder: guildBoard ? "Find a guild or tag" : "Find a player or user ID", accent: meta.accent, reducedMotion, position: new UDim2(0, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(2 / 3, -8, 0, 48) });
 		controls.Mine = e(ui.Button, { text: mineOnly ? "Show everyone" : "Only me", icon: "Crew.12", color: P.mint, outline: !mineOnly, reducedMotion, position: narrow ? new UDim2(0, 2, 0, 140) : new UDim2(2 / 3, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(1 / 3, -8, 0, 48), onClick: () => setMineOnly((v) => !v) });
 		section("rank-controls", narrow ? 220 : 164, controls);
+		const sideEnd = sections.size();
+		narrow = mainNarrow;
 
 		function rankRow(row: RankRow, place: number | undefined, pinned: boolean): React.Element {
 			const mine = isMine(row);
@@ -735,8 +743,27 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				});
 			}
 		}
+		let planned = sections;
+		if (plan.split) {
+			const side = sections.filter((_, index) => index < sideEnd);
+			const main = sections.filter((_, index) => index >= sideEnd);
+			const rowH = math.max(stackHeight(side.map((entry) => entry.height), 22), stackHeight(main.map((entry) => entry.height), 22));
+			planned = [
+				{
+					id: "rank-split",
+					height: rowH,
+					element: e(SplitColumns, {
+						name: "RankSplit",
+						height: rowH,
+						plan,
+						side: e(StackBlocks, { gap: 22, blocks: side as never }),
+						main: e(StackBlocks, { gap: 22, blocks: main as never }),
+					}),
+				} as never,
+			];
+		}
 		return e("frame", { Name: "RankDashboard", ref: hostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ClipsDescendants: false }, {
-			Content: e(Scaffold, { sections, gap: 22, tailPad: 80, scrollBarColor: meta.accent, scrollBarThickness: 4 }),
+			Content: e(Scaffold, { sections: planned, gap: 22, tailPad: 80, scrollBarColor: meta.accent, scrollBarThickness: 4 }),
 		});
 	};
 }
