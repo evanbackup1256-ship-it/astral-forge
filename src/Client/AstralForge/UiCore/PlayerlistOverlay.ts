@@ -671,18 +671,6 @@ function PlayerRow(param: PlayerRowProps) {
 				sizeConstraint: UDim2.fromOffset(78, 18),
 				zIndex: 623,
 			}),
-			!compact &&
-			h(Text, {
-				value: "OUTPUT",
-				size: 9,
-				color: Palette.muted,
-				weight: Enum.FontWeight.Heavy,
-				align: Enum.TextXAlignment.Right,
-				fit: false,
-				position: new UDim2(1, -110, 0, 31),
-				sizeConstraint: UDim2.fromOffset(78, 14),
-				zIndex: 623,
-			}),
 			h(
 				"frame",
 				{
@@ -1803,8 +1791,8 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				h("uistroke", { Color: Palette.cyan, Thickness: 1.25, Transparency: 0.55 }),
 				h(Icon, { kind: "Crew.18", color: Palette.cream, accent: Palette.cyan, size: 30, position: UDim2.fromOffset(14, 14) }),
 				h(Text, {
-					value: "FORGE ROSTER",
-					size: 18,
+					value: "Roster",
+					size: 20,
 					color: Palette.cream,
 					weight: Enum.FontWeight.Heavy,
 					fit: visitingSomeone,
@@ -1814,7 +1802,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					zIndex: 613,
 				}),
 				h(Text, {
-					value: `${rows.size()} IN THIS FORGE  /  LIVE`,
+					value: tostring(rows.size()),
 					size: 10,
 					color: Palette.cyan,
 					weight: Enum.FontWeight.Bold,

@@ -553,21 +553,19 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			return e(ui.Text, textProps);
 		}
 		function section(id: string, height: number, children: Record<string, React.Element | undefined>, accent?: Color3) {
-			sections.push({ id, height, element: e(ui.Panel, { size: UDim2.fromScale(1, 1), padding: 16, accent: accent ?? meta.accent }, children) });
+			sections.push({ id, height, element: e(ui.Panel, { size: UDim2.fromScale(1, 1), padding: 22, accent: accent ?? meta.accent }, children) });
 		}
 
 		// Standing card: your rank, your score and the climb to the next seat.
 		const nextRatio = ahead !== undefined ? share(own, ahead.Value) : personalIndex === 1 ? 1 : share(own, top);
 		const standing = personalIndex !== undefined ? `#${personalIndex}` : "—";
-		section("rank-standing", narrow ? 220 : 190, {
+		section("rank-standing", narrow ? 190 : 168, {
 			Icon: e(Art.Icon, { kind: meta.icon ?? "Leaderboard.2", color: meta.accent, accent: meta.accent, size: 28, spin: false, position: UDim2.fromOffset(0, 2) }),
-			Eyebrow: text(`Ranks · ${group} · ${guildBoard ? "guild halls" : scope}`, 40, 0, 1, 16, 11, meta.accent, { weight: Enum.FontWeight.Bold }),
-			Title: text(meta.label, 40, 16, 1, 28, 22, P.cream, { weight: Enum.FontWeight.Bold }),
-			About: text(meta.description, 0, 50, narrow ? 1 : 0.62, 34, 12, P.creamSoft),
-			Seat: text(standing, 0, narrow ? 92 : 50, 1, 40, 34, personalIndex === 1 ? MEDAL[1] : P.cream, { weight: Enum.FontWeight.Heavy, align: Enum.TextXAlignment.Right }),
-			Score: text(`${guildBoard ? "Your hall" : "You"} · ${valueText(own)}`, 0, narrow ? 96 : 92, 0.7, 18, 13, P.cream, { weight: Enum.FontWeight.SemiBold }),
-			Climb: bar(nextRatio, personalIndex === 1 ? MEDAL[1] : meta.accent, new UDim2(0, 0, 0, narrow ? 124 : 118), new UDim2(1, 0, 0, 6)),
-			Gap: text(Math.ToNumber(gap) > 0 ? `${format.compactNumber(gap)} more to pass #${personalIndex! - 1} ${ahead!.Name ?? ""}` : personalIndex === 1 ? "You're ranked #1." : personalIndex === undefined && rows.size() > 0 ? `Outside the top ${rows.size()}. Reach ${valueText(rows[rows.size() - 1].Value)} to enter the board.` : "No standings yet for this board.", 0, narrow ? 136 : 130, 1, 18, 11, P.creamSoft),
+			Title: text(meta.label, 44, 0, 1, 32, 24, P.cream, { weight: Enum.FontWeight.Bold }),
+			Seat: text(standing, 0, narrow ? 56 : 24, 1, 48, 44, personalIndex === 1 ? MEDAL[1] : P.cream, { weight: Enum.FontWeight.Heavy, align: Enum.TextXAlignment.Right }),
+			Score: text(valueText(own), 0, narrow ? 70 : 64, 0.6, 22, 16, P.cream, { weight: Enum.FontWeight.SemiBold }),
+			Climb: bar(nextRatio, personalIndex === 1 ? MEDAL[1] : meta.accent, new UDim2(0, 0, 0, narrow ? 112 : 100), new UDim2(1, 0, 0, 6)),
+			Gap: text(Math.ToNumber(gap) > 0 ? `+${format.compactNumber(gap)} → #${personalIndex! - 1}` : personalIndex === undefined && rows.size() > 0 ? `${valueText(rows[rows.size() - 1].Value)} → #${rows.size()}` : "", 0, narrow ? 126 : 114, 1, 18, 11, P.creamSoft),
 		});
 
 		// Category picker: group strip, then the boards inside the group.
@@ -685,9 +683,8 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		}
 
 		if (rows.size() === 0) {
-			section("rank-empty", 120, {
-				title: text(result.loading ? "Finding the current leaders…" : "No one has scored here yet", 0, 0, 1, 30, 18),
-				sub: text("Try another category, switch scope or refresh. Boards sync every few seconds while you play.", 0, 36, 1, 40, 12, P.creamSoft),
+			section("rank-empty", 96, {
+				title: text(result.loading ? "…" : "—", 0, 0, 1, 30, 18),
 			});
 		} else {
 			// Podium: second, first, third, with stepped plinths.
@@ -733,14 +730,13 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				sections.push({ id: `rank-row-${index + 1}`, height: rankRowH, element: rankRow(row, index + 1, false) });
 			}
 			if (shown === 0 && (query !== "" || mineOnly)) {
-				section("rank-no-match", 106, {
-					title: text(mineOnly && personalIndex === undefined ? "Your entry is outside this board." : "No matching entries.", 0, 0, 1, 28, 16),
-					sub: text("Clear the search or show everyone. The podium remains the current three.", 0, 34, 1, 40, 12, P.creamSoft),
+				section("rank-no-match", 84, {
+					title: text("—", 0, 0, 1, 28, 16),
 				});
 			}
 		}
 		return e("frame", { Name: "RankDashboard", ref: hostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ClipsDescendants: false }, {
-			Content: e(Scaffold, { sections, gap: 16, tailPad: 80, scrollBarColor: meta.accent, scrollBarThickness: 4 }),
+			Content: e(Scaffold, { sections, gap: 22, tailPad: 80, scrollBarColor: meta.accent, scrollBarThickness: 4 }),
 		});
 	};
 }

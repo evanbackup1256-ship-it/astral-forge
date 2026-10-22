@@ -25,8 +25,8 @@ const CHIP_HIDE_KEY: Record<string, string | undefined> = { C: "top.hideCores", 
 
 const ISLAND_BOX = new Vector2(360, 44);
 const COMBO_BOX = new Vector2(168, 44);
-const PANEL_W = 600;
-const PANEL_H = 214;
+const PANEL_W = 616;
+const PANEL_H = 250;
 
 export interface DesktopLayoutEditorProps {
 	dispatch: (action: string, payload?: object) => void;
@@ -92,7 +92,7 @@ function DragBox(props: {
 function Stepper(props: { label: string; value: string; onLess: () => void; onMore: () => void; position: UDim2; lessOff?: boolean; moreOff?: boolean }) {
 	return (
 		<frame Size={UDim2.fromOffset(268, 36)} Position={props.position} BackgroundTransparency={1}>
-			<Text value={props.label} size={14} color={Palette.creamSoft} sizeConstraint={UDim2.fromOffset(120, 36)} fit={true} />
+			<Text value={props.label} size={13} color={Palette.muted} sizeConstraint={UDim2.fromOffset(120, 36)} fit={true} />
 			<Button text="−" onClick={props.onLess} disabled={props.lessOff} size={UDim2.fromOffset(36, 36)} position={UDim2.fromOffset(124, 0)} outline={true} />
 			<Text value={props.value} size={14} color={Palette.cream} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(164, 0)} sizeConstraint={UDim2.fromOffset(60, 36)} fit={true} />
 			<Button text="+" onClick={props.onMore} disabled={props.moreOff} size={UDim2.fromOffset(36, 36)} position={UDim2.fromOffset(228, 0)} outline={true} />
@@ -159,7 +159,7 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 	const atMin = (key: string) => (draft[key] as number) <= (field(key).min ?? 0);
 	const atMax = (key: string) => (draft[key] as number) >= (field(key).max ?? 100);
 	const percent = (key: string) => `${draft[key]}%`;
-	const row = (index: number) => UDim2.fromOffset(index % 2 === 0 ? 0 : 296, math.floor(index / 2) * 44);
+	const row = (index: number) => UDim2.fromOffset(index % 2 === 0 ? 0 : 296, math.floor(index / 2) * 50);
 
 	let body: React.Element;
 	if (tab === "nav") {
@@ -238,14 +238,14 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 			)}
 			<DragBox id="island" box={islandBox} at={islandAt} viewport={viewport} selected={tab === "island"} onSelect={() => setTab("island")} onMove={place("island")} />
 			<Panel size={UDim2.fromOffset(PANEL_W, PANEL_H)} position={presence.map((amount) => UDim2.fromOffset(panelX, panelY + (1 - amount) * 16))} background={Palette.panelRaised}
-				padding={14} zIndex={420} reveal={presence} clips={false}>
+				padding={22} zIndex={420} reveal={presence} clips={false}>
 				<frame Size={new UDim2(1, 0, 0, 32)} BackgroundTransparency={1}>
 					{TABS.map((entry, index) => (
 						<Button key={entry.id} text={entry.label} onClick={() => setTab(entry.id)} outline={tab !== entry.id} highlight={DesktopLayout.IsCustom(draft, entry.id)}
 							size={UDim2.fromOffset(108, 32)} position={UDim2.fromOffset(index * 114, 0)} />
 					))}
 				</frame>
-				<frame Size={new UDim2(1, 0, 0, 120)} Position={UDim2.fromOffset(0, 42)} BackgroundTransparency={1}>
+				<frame Size={new UDim2(1, 0, 0, 140)} Position={UDim2.fromOffset(0, 54)} BackgroundTransparency={1}>
 					{body}
 				</frame>
 				<frame Size={new UDim2(1, 0, 0, 32)} Position={new UDim2(0, 0, 1, -32)} BackgroundTransparency={1}>

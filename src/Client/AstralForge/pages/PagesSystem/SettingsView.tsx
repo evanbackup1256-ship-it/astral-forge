@@ -57,7 +57,7 @@ const Schema = sharedModule<(name: string) => SettingsSchema>("SharedData")("Set
 
 type Dispatch = (action: string, payload?: object) => unknown;
 
-const ROW_H = 60;
+const ROW_H = 68;
 const ROW_H_STACK = 110;
 const NAV_W = 196;
 const MOBILE_DOCK_DESTINATIONS = ["Overview", "Workshop", "Inventory", "Research", "Shop", "Settings"];
@@ -325,19 +325,12 @@ function SettingRow(props: SettingRowProps) {
 	return (
 		<frame Size={new UDim2(1, 0, 0, stack ? ROW_H_STACK : ROW_H)} LayoutOrder={props.layoutOrder} BackgroundTransparency={1} BorderSizePixel={0}>
 			<Text
-				value={props.tag !== undefined ? `${entry.label}  ·  ${props.tag}` : entry.label}
-				size={15}
+				value={entry.label}
+				size={16}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Bold}
-				position={UDim2.fromOffset(0, stack ? 8 : 11)}
+				position={UDim2.fromOffset(0, stack ? 10 : 24)}
 				sizeConstraint={new UDim2(1, -textRight, 0, 20)}
-			/>
-			<Text
-				value={entry.help}
-				size={12}
-				color={Palette.muted}
-				position={UDim2.fromOffset(0, stack ? 29 : 32)}
-				sizeConstraint={new UDim2(1, -textRight, 0, 16)}
 			/>
 			{control}
 			<frame
@@ -632,7 +625,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	const chipsY = stack ? searchY + searchH + 8 : searchY + math.floor((searchH - Browse.CHIP_H) / 2);
 	const headerH = (stack ? chipsY + Browse.CHIP_H : searchY + math.max(searchH, Browse.CHIP_H)) + 32;
 	const header = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={16} reveal={reveal} reducedMotion={softMotion} clips={false}>
+		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={22} reveal={reveal} reducedMotion={softMotion} clips={false}>
 			<Text
 				value="Settings"
 				size={stack ? 22 : 26}
@@ -648,7 +641,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				color={Palette.muted}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(0, 34)}
+				position={UDim2.fromOffset(0, 36)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -340, 0, 16)}
 			/>
 			<frame
@@ -661,7 +654,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				ref={settingsClaimHostRef}
 			>
 				<Button
-					text="REPLAY TOUR"
+					text="Tour"
 					icon="Guide.1"
 					onClick={() => {
 						dispatch("ReplayTutorial");
@@ -673,7 +666,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 					reducedMotion={softMotion}
 				/>
 				<Button
-					text="PATCH NOTES"
+					text="Notes"
 					icon="Gift.14"
 					onClick={() => {
 						dispatch("OpenRelease");
@@ -1006,19 +999,11 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			"controller",
 			<>
 				<Text
-					value="CONTROLLER"
-					size={11}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
-					position={UDim2.fromOffset(0, 14)}
-					sizeConstraint={new UDim2(1, 0, 0, 14)}
-				/>
-				<Text
 					value="LB / RB pages  ·  Y vault  ·  X overcharge  ·  LT / RT amount  ·  B back  ·  Start settings"
 					size={12}
 					color={Palette.creamSoft}
 					wrap={true}
-					position={UDim2.fromOffset(0, 32)}
+					position={UDim2.fromOffset(0, 18)}
 					sizeConstraint={new UDim2(1, 0, 0, 34)}
 				/>
 			</>,
@@ -1030,7 +1015,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			size={UDim2.fromScale(1, 1)}
 			accent={listing ? Palette.steel : accent}
 			background={Palette.panel}
-			padding={stack ? 14 : 20}
+			padding={stack ? 18 : 28}
 			reducedMotion={softMotion}
 			clips={false}
 		>
@@ -1039,7 +1024,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			</frame>
 		</Panel>
 	);
-	const listPanelH = listH + (stack ? 28 : 40);
+	const listPanelH = listH + (stack ? 36 : 56);
 
 	const scaffold: Array<{ id: string; height: number; element: React.Element }> = [{ id: "header", height: headerH, element: header }];
 	if (stack) {
@@ -1064,7 +1049,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 					<Panel size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={8} reducedMotion={softMotion} clips={false}>
 						{navButtons}
 					</Panel>
-					<frame Size={new UDim2(1, -(NAV_W + 12), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 12, 0)} BackgroundTransparency={1}>
+					<frame Size={new UDim2(1, -(NAV_W + 20), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 20, 0)} BackgroundTransparency={1}>
 						{list}
 					</frame>
 				</frame>
@@ -1074,7 +1059,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<PageScaffold gap={12} tailPad={scrollTail(stack, chrome.bottomSafe, 64)} scrollBarColor={accent} scrollBarThickness={4} sections={scaffold} />
+			<PageScaffold gap={20} tailPad={scrollTail(stack, chrome.bottomSafe, 64)} scrollBarColor={accent} scrollBarThickness={4} sections={scaffold} />
 			{mobileHudAvailable && (
 				<MobileControls
 					visible={mobileEdit}

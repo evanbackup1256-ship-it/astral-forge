@@ -166,11 +166,6 @@ function ForgePathRow({
 	const locked = !claimed && !unlockedForClaim;
 	const accent = claimed ? Palette.muted : ready ? step.Color : Palette.mango;
 	const progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1);
-	const statusText = claimed
-		? "CLAIMED"
-		: locked
-			? "CLAIM THE STEP BEFORE THIS"
-			: `${compactNumber(math.min(xp, step.XPCost))} / ${compactNumber(step.XPCost)} XP`;
 	const rowH = stack ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT;
 	const textW = stack ? -48 : -200;
 	return (
@@ -185,7 +180,7 @@ function ForgePathRow({
 				size={UDim2.fromScale(1, 1)}
 				accent={accent}
 				background={Palette.panel}
-				padding={12}
+				padding={18}
 				reveal={reveal}
 				highlight={ready}
 				reducedMotion={reducedMotion}
@@ -201,8 +196,8 @@ function ForgePathRow({
 					reducedMotion={reducedMotion}
 				/>
 				<Text
-					value={`Step ${step.Step}`}
-					size={10}
+					value={tostring(step.Step)}
+					size={12}
 					color={claimed ? Palette.muted : step.Color}
 					weight={Enum.FontWeight.Heavy}
 					fit={true}
@@ -218,27 +213,16 @@ function ForgePathRow({
 					position={UDim2.fromOffset(48, 20)}
 					sizeConstraint={new UDim2(1, textW, 0, 20)}
 				/>
-				<Text
-					value={formatReward(step.Reward as Reward | undefined)}
-					size={10}
-					color={Palette.mango}
-					weight={Enum.FontWeight.Bold}
-					wrap={true}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(48, 42)}
-					sizeConstraint={new UDim2(1, textW, 0, 16)}
-				/>
 				<frame
 					Size={new UDim2(1, textW, 0, 26)}
-					Position={UDim2.fromOffset(48, 60)}
+					Position={UDim2.fromOffset(48, 46)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					ClipsDescendants={false}
 				>
 					<uilistlayout
 						FillDirection={Enum.FillDirection.Horizontal}
-						Padding={new UDim(0, 6)}
+						Padding={new UDim(0, 10)}
 						SortOrder={Enum.SortOrder.LayoutOrder}
 						VerticalAlignment={Enum.VerticalAlignment.Center}
 					/>
@@ -252,19 +236,10 @@ function ForgePathRow({
 					position={UDim2.fromOffset(0, stack ? 98 : 104)}
 					size={new UDim2(1, stack ? 0 : -200, 0, 8)}
 				/>
-				<Text
-					value={statusText}
-					size={10}
-					color={ready ? step.Color : Palette.muted}
-					weight={Enum.FontWeight.Bold}
-					fit={false}
-					position={UDim2.fromOffset(0, stack ? 112 : 118)}
-					sizeConstraint={new UDim2(1, stack ? 0 : -200, 0, 16)}
-				/>
 				{stack ? (
 					claimed ? (
 						<Badge
-							value="CLAIMED"
+							value="Done"
 							accent={Palette.muted}
 							filled={true}
 							size={new UDim2(1, 0, 0, TapTarget)}
@@ -272,7 +247,7 @@ function ForgePathRow({
 						/>
 					) : (
 						<Button
-							text={ready ? "CLAIM STEP" : locked ? "LOCKED" : "NEED XP"}
+							text={ready ? "Claim" : locked ? "Locked" : "XP"}
 							icon={ready ? "Check.4" : undefined}
 							onClick={() => onClaim(step.Step)}
 							color={ready ? step.Color : Palette.panelSoft}
@@ -286,7 +261,7 @@ function ForgePathRow({
 					)
 				) : claimed ? (
 					<Badge
-						value="CLAIMED"
+						value="Done"
 						accent={Palette.muted}
 						filled={true}
 						position={new UDim2(1, -150, 0, 26)}
@@ -294,7 +269,7 @@ function ForgePathRow({
 					/>
 				) : (
 					<Button
-						text={ready ? "CLAIM" : locked ? "LOCKED" : "NEED XP"}
+						text={ready ? "Claim" : locked ? "Locked" : "XP"}
 						icon={ready ? "Check.5" : undefined}
 						onClick={() => onClaim(step.Step)}
 						color={ready ? step.Color : Palette.panelSoft}
@@ -348,7 +323,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.mint}
 				background={Palette.panelRaised}
-				padding={stack ? 14 : 16}
+				padding={stack ? 18 : 24}
 				clips={false}
 			>
 				<EmptyState
@@ -369,7 +344,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.violet}
 				background={Palette.panelRaised}
-				padding={stack ? 14 : 16}
+				padding={stack ? 18 : 24}
 				clips={false}
 			>
 				<EmptyState
@@ -391,26 +366,19 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 			size={UDim2.fromScale(1, 1)}
 			accent={ready ? step.Color : Palette.violet}
 			background={Palette.panelRaised}
-			padding={stack ? 14 : 16}
+			padding={stack ? 18 : 24}
 			highlight={ready}
 			reducedMotion={reducedMotion}
 			clips={false}
 		>
 			<Text
-				value={ready ? "Ready to claim" : "Next step"}
-				size={10}
-				color={ready ? step.Color : Palette.violet}
-				weight={Enum.FontWeight.Heavy}
-				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 16)}
-			/>
-			<Text
-				value={`Step ${step.Step} · ${effectLabel(step)}`}
+				value={effectLabel(step)}
 				size={stack ? 18 : 22}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				position={UDim2.fromOffset(0, 18)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 28)}
+				position={UDim2.fromOffset(0, 8)}
+				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 30)}
 			/>
 			<Text
 				value={needXp ? (guide?.NeedXp ?? "Bank Flux to earn Forge Path XP.") : formatReward(step.Reward as Reward | undefined)}
@@ -419,7 +387,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				wrap={true}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(0, 50)}
+				position={UDim2.fromOffset(0, 46)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 32)}
 			/>
 			<Meter
@@ -431,7 +399,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				size={new UDim2(1, stack ? 0 : -180, 0, 8)}
 			/>
 			<Text
-				value={`${compactNumber(math.min(xp, step.XPCost))} / ${compactNumber(step.XPCost)} XP`}
+				value={`${compactNumber(math.min(xp, step.XPCost))} / ${compactNumber(step.XPCost)}`}
 				size={10}
 				color={Palette.muted}
 				weight={Enum.FontWeight.Bold}
@@ -449,7 +417,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 					ref={claimHostRef}
 				>
 					<Button
-						text={ready ? "CLAIM NOW" : "NEED MORE XP"}
+						text={ready ? "Claim" : "XP"}
 						icon={ready ? "Check.7" : undefined}
 						onClick={() => onClaim(step.Step)}
 						color={ready ? step.Color : Palette.panelSoft}
@@ -471,7 +439,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 					ref={claimHostRef}
 				>
 					<Button
-						text={ready ? "CLAIM NOW" : "NEED XP"}
+						text={ready ? "Claim" : "XP"}
 						icon={ready ? "Check.8" : undefined}
 						onClick={() => onClaim(step.Step)}
 						color={ready ? step.Color : Palette.panelSoft}
@@ -605,7 +573,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 							size={UDim2.fromScale(1, 1)}
 							accent={Palette.violet}
 							background={Palette.panelRaised}
-							padding={stack ? 14 : 16}
+							padding={stack ? 18 : 24}
 							reveal={headerReveal}
 							clips={false}
 						>
@@ -639,7 +607,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								size={new UDim2(1, stack ? -8 : -292, 0, 8)}
 							/>
 							<Text
-								value={`${claimedCount} / ${totalCount} steps claimed  ·  ${compactNumber(forgePath.XP)} XP banked`}
+								value={`${claimedCount} / ${totalCount}`}
 								size={11}
 								color={Palette.creamSoft}
 								wrap={true}
@@ -657,21 +625,12 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								>
 									<Text
 										value={`${compactNumber(forgePath.XP)}`}
-										size={26}
+										size={34}
 										color={Palette.violet}
 										weight={Enum.FontWeight.Heavy}
 										fit={true}
 										position={UDim2.fromOffset(0, 0)}
-										sizeConstraint={new UDim2(1, 0, 0, 32)}
-									/>
-									<Text
-										value="Forge XP"
-										size={10}
-										color={Palette.muted}
-										weight={Enum.FontWeight.Bold}
-										fit={true}
-										position={UDim2.fromOffset(0, 34)}
-										sizeConstraint={new UDim2(1, 0, 0, 14)}
+										sizeConstraint={new UDim2(1, 0, 0, 40)}
 									/>
 								</frame>
 							)}

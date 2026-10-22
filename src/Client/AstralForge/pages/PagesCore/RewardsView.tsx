@@ -97,7 +97,7 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 	const weekStart = math.floor((current - 1) / 7) * 7 + 1;
 	const cells: Record<string, React.Element> = {
 		layout: (
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
 		),
 	};
 	for (let offset = 0; offset <= 6; offset++) {
@@ -108,13 +108,13 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 		const accent = today ? Palette.mint : claimed ? Palette.muted : Palette.cyan;
 		cells["d" + day] = (
 			<frame
-				Size={new UDim2(1 / 7, (-6 * 6) / 7, 1, 0)}
+				Size={new UDim2(1 / 7, (-10 * 6) / 7, 1, 0)}
 				LayoutOrder={offset}
 				BackgroundColor3={today ? darken(Palette.mint, 0.55) : Palette.panelSoft}
 				BackgroundTransparency={claimed ? 0.45 : 0}
 				BorderSizePixel={0}
 			>
-				<uicorner CornerRadius={new UDim(0, Radius.md)} />
+				<uicorner CornerRadius={new UDim(0, Radius.lg)} />
 				<uistroke
 					Color={accent}
 					Transparency={today ? 0.1 : 0.7}
@@ -122,8 +122,8 @@ function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; positi
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 				/>
 				<Text
-					value={today ? "Today" : `Day ${day}`}
-					size={11}
+					value={tostring(day)}
+					size={today ? 15 : 12}
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
 					fit={true}
@@ -175,12 +175,12 @@ interface TimelineProps {
 
 function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: TimelineProps) {
 	const softMotion = reducedMotion;
-	const cellH = 92;
+	const cellH = 100;
 	const cells: Record<string, React.Element> = {
 		grid: (
 			<uigridlayout
-				CellSize={new UDim2(1 / columns, -math.ceil((8 * (columns - 1)) / columns), 0, cellH)}
-				CellPadding={UDim2.fromOffset(8, 8)}
+				CellSize={new UDim2(1 / columns, -math.ceil((14 * (columns - 1)) / columns), 0, cellH)}
+				CellPadding={UDim2.fromOffset(14, 14)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
 		),
@@ -203,11 +203,7 @@ function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: Ti
 				<uistroke Color={accent} Transparency={ready ? 0.2 : 0.72} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				<Text
 					value={
-						entry.Claimed
-							? `${clockText(seconds)} · COLLECTED`
-							: ready
-								? "READY"
-								: `AT ${clockText(seconds)} · IN ${clockText(seconds - played)}`
+						entry.Claimed || ready ? clockText(seconds) : clockText(seconds - played)
 					}
 					size={11}
 					color={accent}
@@ -218,7 +214,7 @@ function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: Ti
 					sizeConstraint={new UDim2(1, -20, 0, 14)}
 				/>
 				<Text
-					value={reward !== "" ? reward : "Mystery parcel"}
+					value={reward}
 					size={13}
 					color={entry.Claimed ? Palette.muted : Palette.cream}
 					weight={Enum.FontWeight.Bold}
@@ -229,7 +225,7 @@ function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: Ti
 				/>
 				{ready ? (
 					<Button
-						text="CLAIM"
+						text="Claim"
 						icon="Timer.2"
 						onClick={() => {
 							dispatch("ClaimTimedReward", { Index: entry.Index });
@@ -276,7 +272,7 @@ function ShortcutTile(props: ShortcutTileProps) {
 	return (
 		<frame LayoutOrder={props.layoutOrder} BackgroundTransparency={1} BorderSizePixel={0}>
 			<Button
-				text={badged ? `${props.label} · ${props.badge}` : props.label}
+				text={badged ? tostring(props.badge) : props.label}
 				icon={props.icon}
 				onClick={props.onClick}
 				color={badged ? props.accent : Palette.panelSoft}
@@ -389,37 +385,27 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		}
 	}
 
-	const heroH = stack ? 116 + (readyCount > 0 ? TapTarget + 8 : 0) : 96;
+	const heroH = stack ? 84 + (readyCount > 0 ? TapTarget + 12 : 0) : 96;
 	const headerPanel = (
 		<Panel
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.pink}
 			background={Palette.panelRaised}
-			padding={14}
+			padding={20}
 			layoutOrder={0}
 			reveal={headerReveal}
 			reducedMotion={softMotion}
 			clips={false}
 		>
 			<Text
-				value={readyCount > 0 ? `${readyCount} reward${readyCount === 1 ? "" : "s"} waiting.` : "All caught up."}
-				size={stack ? 20 : 22}
+				value={readyCount > 0 ? tostring(readyCount) : Browse.shortDuration(resetIn)}
+				size={stack ? 26 : 30}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
 				minSize={14}
 				position={UDim2.fromOffset(0, 9)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -240, 0, 28)}
-			/>
-			<Text
-				value={`Daily parcel and playtime drops reset in ${Browse.shortDuration(resetIn)} (midnight UTC).`}
-				size={12}
-				color={Palette.muted}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 50)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -240, 0, stack ? 32 : 16)}
 			/>
 			{readyCount > 0 && (
 				<frame
@@ -432,7 +418,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 					ref={rewardsClaimHostRef}
 				>
 					<Button
-						text={`CLAIM EVERYTHING · ${readyCount}`}
+						text="Claim all"
 						icon="Gift.2"
 						onClick={claimEverything}
 						color={Palette.pink}
@@ -447,15 +433,15 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	);
 
 	const stripH = 72;
-	const stripY = stack ? 80 + TapTarget + 8 : 84;
-	const dailyCardH = stripY + stripH + 28;
+	const stripY = stack ? 80 + TapTarget + 16 : 96;
+	const dailyCardH = stripY + stripH + 40;
 	const dailyRewardText = formatReward(dailyReward);
 	const dailyPanel = (
 		<Panel
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.mint}
 			background={Palette.panel}
-			padding={14}
+			padding={20}
 			layoutOrder={1}
 			reveal={dailyReveal}
 			highlight={dailyReady}
@@ -472,36 +458,15 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				reducedMotion={softMotion}
 			/>
 			<Text
-				value="Daily parcel"
+				value={dailyRewardText}
 				size={16}
-				color={Palette.cream}
+				color={dailyReady ? Palette.cream : Palette.muted}
 				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				position={UDim2.fromOffset(60, 6)}
-				sizeConstraint={new UDim2(1, stack ? -60 : -230, 0, 23)}
-			/>
-			<Text
-				value={dailyRewardText !== "" ? dailyRewardText : dailyReady ? "Ready to open" : "Already collected today"}
-				size={12}
-				color={Palette.muted}
 				wrap={true}
 				fit={true}
 				minSize={10}
-				position={UDim2.fromOffset(60, 32)}
-				sizeConstraint={new UDim2(1, stack ? -60 : -230, 0, 20)}
-			/>
-			<Text
-				value={
-					dailyReady
-						? `Streak ${daily.Streak ?? 0} → ${daily.NextStreak ?? 1} when you claim`
-						: `Streak ${daily.Streak ?? 0}, next parcel in ${Browse.shortDuration(resetIn)}`
-				}
-				size={12}
-				color={Palette.mint}
-				weight={Enum.FontWeight.Bold}
-				fit={true}
-				position={UDim2.fromOffset(60, 56)}
-				sizeConstraint={new UDim2(1, stack ? -60 : -230, 0, 16)}
+				position={UDim2.fromOffset(64, stack ? 16 : 30)}
+				sizeConstraint={new UDim2(1, stack ? -64 : -230, 0, 22)}
 			/>
 			<frame
 				key="RewardsDailyClaimActions"
@@ -513,7 +478,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				ref={dailyReady && readyCount === 0 ? rewardsClaimHostRef : undefined}
 			>
 				<Button
-					text={dailyReady ? "Claim" : "Claimed"}
+					text={dailyReady ? "Claim" : "Done"}
 					icon="Calendar.2"
 					onClick={() => dispatch("ClaimDaily")}
 					color={dailyReady ? Palette.mint : Palette.panelSoft}
@@ -528,14 +493,14 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		</Panel>
 	);
 
-	const timedCardH = stack ? 172 : 110;
+	const timedCardH = stack ? 180 : 124;
 	const nextReward = nextTimed !== undefined ? formatReward(nextTimed.Reward) : "";
 	const timedPanel = (
 		<Panel
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.violet}
 			background={Palette.panel}
-			padding={14}
+			padding={20}
 			layoutOrder={2}
 			reveal={timedReady ? streakReveal : timedReveal}
 			highlight={timedReady && !softMotion}
@@ -552,36 +517,22 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				reducedMotion={softMotion}
 			/>
 			<Text
-				value="Next playtime drop"
+				value={
+					nextTimed === undefined ? "" : nextReward !== "" ? nextReward : clockText(nextTimed.Seconds)
+				}
 				size={16}
-				color={Palette.cream}
+				color={timedReady ? Palette.cream : Palette.muted}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				position={UDim2.fromOffset(60, 6)}
-				sizeConstraint={new UDim2(1, stack ? -60 : -230, 0, 23)}
-			/>
-			<Text
-				value={
-					nextTimed === undefined
-						? "All caught up for today"
-						: nextReward !== ""
-							? nextReward
-							: timedReady
-								? "Ready to collect"
-								: clockText(played) + " of " + clockText(nextTimed.Seconds) + " played"
-				}
-				size={12}
-				color={Palette.muted}
-				fit={true}
-				position={UDim2.fromOffset(60, 32)}
-				sizeConstraint={new UDim2(1, stack ? -60 : -230, 0, 17)}
+				position={UDim2.fromOffset(64, stack ? 16 : 22)}
+				sizeConstraint={new UDim2(1, stack ? -64 : -230, 0, 22)}
 			/>
 			<RewardChargeRail
 				value={timedProgress}
 				accent={timedReady ? Palette.violet : Palette.cyan}
 				ready={timedReady}
 				reducedMotion={softMotion}
-				position={UDim2.fromOffset(stack ? 0 : 60, stack ? 76 : 58)}
+				position={UDim2.fromOffset(stack ? 0 : 64, stack ? 76 : 60)}
 				size={new UDim2(1, stack ? 0 : -230, 0, 6)}
 			/>
 			<frame
@@ -593,7 +544,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				ClipsDescendants={false}
 			>
 				<Button
-					text={timedReady ? "CLAIM" : nextTimed === undefined ? "DONE" : `IN ${clockText(nextTimed.Seconds - played)}`}
+					text={timedReady ? "Claim" : nextTimed === undefined ? "Done" : clockText(nextTimed.Seconds - played)}
 					icon="Timer.3"
 					onClick={() => {
 						if (nextTimed !== undefined) {
@@ -613,34 +564,34 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 
 	const columns = stack ? 2 : viewport.width >= 1200 ? 4 : 3;
 	const timelineRows = math.max(1, math.ceil(timedEntries.size() / columns));
-	const timelineH = 40 + timelineRows * 100;
+	const timelineH = 52 + timelineRows * 114;
 	const timelinePanel = (
 		<Panel
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.cyan}
 			background={Palette.panel}
-			padding={14}
+			padding={20}
 			layoutOrder={3}
 			reveal={streakReveal}
 			reducedMotion={softMotion}
 			clips={false}
 		>
 			<Text
-				value={`Playtime drops, ${clockText(played)} played`}
+				value={clockText(played)}
 				size={13}
 				color={Palette.creamSoft}
 				weight={Enum.FontWeight.SemiBold}
 				fit={true}
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
-			<frame Size={new UDim2(1, 0, 1, -26)} Position={UDim2.fromOffset(0, 26)} BackgroundTransparency={1}>
+			<frame Size={new UDim2(1, 0, 1, -32)} Position={UDim2.fromOffset(0, 32)} BackgroundTransparency={1}>
 				<TimedTimeline entries={timedEntries} played={played} dispatch={dispatch} columns={columns} reducedMotion={softMotion} />
 			</frame>
 		</Panel>
 	);
 
 	const shortcuts: Array<{ id: string; label: string; icon: string; accent: Color3; badge?: number }> = [
-		{ id: "Wheel", label: "Spin the wheel", icon: "Wheel.3", accent: Palette.mango },
+		{ id: "Wheel", label: "Wheel", icon: "Wheel.3", accent: Palette.mango },
 		{ id: "Missions", label: "Missions", icon: "Mission.3", accent: Palette.green, badge: readyMissions },
 		{ id: "Milestones", label: "Milestones", icon: "Milestone.2", accent: Palette.mango, badge: readyMilestones },
 		{ id: "Boosts", label: "Boosts", icon: "Boost.9", accent: Palette.pink },
@@ -649,8 +600,8 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const shortcutChildren: Record<string, React.Element> = {
 		grid: (
 			<uigridlayout
-				CellSize={new UDim2(1 / shortcutCols, -math.ceil((8 * (shortcutCols - 1)) / shortcutCols), 0, TapTarget)}
-				CellPadding={UDim2.fromOffset(8, 8)}
+				CellSize={new UDim2(1 / shortcutCols, -math.ceil((12 * (shortcutCols - 1)) / shortcutCols), 0, TapTarget)}
+				CellPadding={UDim2.fromOffset(12, 12)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
 		),
@@ -672,7 +623,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			/>
 		);
 	});
-	const shortcutsH = math.ceil(shortcuts.size() / shortcutCols) * (TapTarget + 8);
+	const shortcutsH = math.ceil(shortcuts.size() / shortcutCols) * (TapTarget + 12);
 	const shortcutsRow = (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			{shortcutChildren}
@@ -718,5 +669,5 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	if (navigate !== undefined) {
 		sections.push({ id: "shortcuts", height: shortcutsH, element: shortcutsRow });
 	}
-	return <PageScaffold gap={12} tailPad={rewardsTail} scrollBarColor={Palette.pink} scrollBarThickness={4} sections={sections} />;
+	return <PageScaffold gap={20} tailPad={rewardsTail} scrollBarColor={Palette.pink} scrollBarThickness={4} sections={sections} />;
 }

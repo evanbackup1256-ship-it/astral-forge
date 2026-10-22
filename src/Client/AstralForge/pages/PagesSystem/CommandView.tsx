@@ -622,8 +622,8 @@ function CommandViewReady(props: CommandProps) {
 	const artifactHeroH = 110;
 	// relic rows follow the trip rows: side by side on landscape phones
 	const artifactRowH = tripStack ? 180 : 140;
-	const seasonHeroH = 152;
-	const seasonRowH = stack ? 172 : 132;
+	const seasonHeroH = 164;
+	const seasonRowH = stack ? 184 : 144;
 	const heroInfoWidth = stack ? -100 : -(114 + 210 + 14);
 	let tabContent = 0;
 	let listContent = 0;
@@ -1536,14 +1536,14 @@ function CommandViewReady(props: CommandProps) {
 				size={new UDim2(1, 0, 0, seasonHeroH)}
 				accent={Palette.mango}
 				background={Palette.panelRaised}
-				padding={14}
+				padding={20}
 				layoutOrder={nextOrder()}
 				reducedMotion={reducedMotion}
 			>
 				<Text value={ops.SeasonName} size={22} color={Palette.mango} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 28)} />
 				<Text
-					value={`${compactNumber(command.SeasonXP)} season XP · ${ops.SeasonTiers.size()} gifts`}
-					size={12}
+					value={compactNumber(command.SeasonXP)}
+					size={14}
 					color={Palette.muted}
 					fit={false}
 					position={UDim2.fromOffset(0, 36)}
@@ -1588,17 +1588,12 @@ function CommandViewReady(props: CommandProps) {
 					const unlocked = command.SeasonXP >= tier.RequiredXP;
 					const claimed = command.SeasonClaims[tostring(tier.Tier)] === true;
 					const major = tier.Tier % 5 === 0;
-					const progressLabel = claimed
-						? "COLLECTED"
-						: unlocked
-							? "READY TO OPEN"
-							: `${compactNumber(math.min(command.SeasonXP, tier.RequiredXP))} / ${compactNumber(tier.RequiredXP)} XP`;
 					const passClaimed = premiumClaims[tostring(tier.Tier)] === true;
 					const passReady = passOwned && unlocked && !passClaimed;
 					const claimRef = unlocked && (!claimed || passReady) && tier.Tier === firstReadySeasonTier ? claimHostRef : undefined;
 					const passButton = (
 						<Button
-							text={!passOwned ? "PASS" : passClaimed ? "CLAIMED" : unlocked ? "PASS" : "LOCKED"}
+							text={passClaimed ? "Done" : !passOwned || unlocked ? "Pass" : "Locked"}
 							onClick={() => sendPending(`pass:${tier.Tier}`, "ClaimSeasonPremium", { Tier: tier.Tier })}
 							{...pendingProps(`pass:${tier.Tier}`)}
 							color={Palette.mango}
@@ -1611,7 +1606,7 @@ function CommandViewReady(props: CommandProps) {
 					);
 					const freeButton = (
 						<Button
-							text={claimed ? "CLAIMED" : unlocked ? "OPEN" : "LOCKED"}
+							text={claimed ? "Done" : unlocked ? "Open" : "Locked"}
 							onClick={() => sendPending(`season:${tier.Tier}`, "ClaimSeasonTier", { Tier: tier.Tier })}
 							{...pendingProps(`season:${tier.Tier}`)}
 							color={major ? Palette.mango : Palette.green}
@@ -1637,7 +1632,7 @@ function CommandViewReady(props: CommandProps) {
 							size={new UDim2(1, 0, 0, seasonRowH)}
 							accent={major ? Palette.mango : unlocked ? Palette.green : Palette.lineSoft}
 							background={major ? Palette.panelRaised : Palette.panel}
-							padding={12}
+							padding={18}
 							reducedMotion={reducedMotion}
 						>
 							<frame
@@ -1645,7 +1640,7 @@ function CommandViewReady(props: CommandProps) {
 								BackgroundColor3={claimed ? Palette.green : unlocked ? Palette.mango : Palette.panelSoft}
 								BorderSizePixel={0}
 							>
-								<uicorner CornerRadius={new UDim(0, 10)} />
+								<uicorner CornerRadius={new UDim(1, 0)} />
 								<Text
 									value={"%02d".format(tier.Tier)}
 									size={20}
@@ -1677,7 +1672,7 @@ function CommandViewReady(props: CommandProps) {
 								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 28)}
 							/>
 							<Text
-								value={`Pass: ${formatReward(SeasonPremium.Reward(tier.Tier))}`}
+								value={formatReward(SeasonPremium.Reward(tier.Tier))}
 								size={11}
 								color={passOwned ? Palette.mango : Palette.muted}
 								fit={true}
@@ -1706,14 +1701,6 @@ function CommandViewReady(props: CommandProps) {
 								</frame>
 							) : (
 								<>
-									<Text
-										value={progressLabel}
-										size={11}
-										color={unlocked ? Palette.green : Palette.muted}
-										fit={false}
-										position={UDim2.fromOffset(72, 80)}
-										sizeConstraint={new UDim2(1, -250, 0, 16)}
-									/>
 									<frame
 										key="CommandClaimActions"
 										Size={UDim2.fromOffset(236, 44)}
