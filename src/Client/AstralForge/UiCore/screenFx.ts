@@ -433,6 +433,19 @@ function play(nameOrTracks: string | Track[], intensity = 1): boolean {
 	return true;
 }
 
+/** The screen part of an effect only, for moments whose sound already plays elsewhere. */
+function visual(nameOrTracks: string | Track[], intensity = 1): boolean {
+	const tracks = typeIs(nameOrTracks, "table") ? (nameOrTracks as Track[]) : presets[nameOrTracks as string];
+	if (tracks === undefined) {
+		warn(`[ScreenFx] no effect named "${tostring(nameOrTracks)}"`);
+		return false;
+	}
+	return playStack(
+		tracks.filter((track) => track.kind !== "Sound"),
+		intensity,
+	);
+}
+
 /** Play a custom stack of tracks together. */
 function playStack(tracks: Track[], intensity = 1): boolean {
 	const k = math.clamp(intensity, 0, 2);
@@ -492,4 +505,7 @@ function activeCount(): number {
 	return live.size();
 }
 
-export const ScreenFx = table.freeze({ Track, play, playStack, define, names, forRarity, stopAll, configure, setBackend, setAudio, activeCount });
+export const ScreenFx = table.freeze({ Track, play, visual, playStack, define, names, forRarity, stopAll, configure, setBackend, setAudio, activeCount });
+
+/** the same API under the name the effect settings use */
+export const MotionFX = ScreenFx;

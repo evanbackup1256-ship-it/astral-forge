@@ -585,6 +585,7 @@ export function MainGame(_param: MainGameProps) {
 					addNotice("Admin", rawError ?? detail, "Warning", false);
 					return undefined;
 				}
+				ScreenFx.visual(gated ? "warning" : "error");
 				addNotice(ActionCopy.failureTitle(action, gated), ActionCopy.failureBody(action, rawError ?? detail), "Warning", false);
 				return undefined;
 			}
@@ -610,12 +611,16 @@ export function MainGame(_param: MainGameProps) {
 					}
 					if (rewarding && shown > 0) {
 						Juice.burst(undefined, Palette.mango, bigMoment ? 1.6 : 1);
+						if (!bigMoment) {
+							ScreenFx.visual("success", 0.8);
+						}
 					} else if (spending) {
 						Juice.ring(undefined, Palette.cyan);
 					}
 				}
 				if (bigMoment) {
 					Juice.flash(Palette.cream, 0.45);
+					ScreenFx.visual("milestone");
 					if (action === "Rebirth") {
 						Juice.moment(`REBIRTH ${response.Rebirths ?? ""}`, "Production multiplier up.", Palette.violet, "Rebirth.8");
 					} else if (action === "DomainExpansion") {

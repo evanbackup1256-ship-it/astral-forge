@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { Audio } from "../AudioKit/audio";
+import { ScreenFx } from "./screenFx";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import { Layout, Palette, TapTarget } from "../CoreKit/theme";
@@ -396,6 +397,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 		landed.current = true;
 		Audio.play("crateSeal");
 		InteractionFeedback.reward();
+		ScreenFx.visual(ScreenFx.forRarity(best.Rarity));
 		if (bestRank >= 6) {
 			Audio.playCelebration(["crateRevealMythic", "discovery", "reward"], 0.1);
 		} else if (bestRank >= 4) {
