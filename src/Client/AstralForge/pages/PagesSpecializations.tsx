@@ -6,6 +6,7 @@
 //   builds    one card per build: what it trades, how its stats compare with yours, equip
 //   foundation bonuses kept from the retired Star Grid
 import React from "@rbxts/react";
+import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, Palette, TapTarget } from "../CoreKit/theme";
 import { useViewport } from "../MotionKit/motion";
@@ -165,7 +166,7 @@ function statTile(label: string, value: string, tint: Color3 | undefined, size: 
 	);
 }
 
-function SpecializationsView(props: Props) {
+function SpecializationsViewBoard(props: Props) {
 	const state = props.state.Specialization;
 	const [note, setNote] = React.useState("");
 	const [busy, setBusy] = React.useState(false);
@@ -539,6 +540,34 @@ function SpecializationsView(props: Props) {
 		/>,
 	);
 	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={current.accent} />;
+}
+
+// a gamepad lands on the page's primary action (claim/confirm/buy-tagged controls first) when it opens
+function usePadEntry(ref: React.MutableRefObject<Frame | undefined>, key: unknown) {
+	React.useEffect(() => {
+		if (!game.GetService("UserInputService").GamepadEnabled) {
+			return undefined;
+		}
+		const job = task.defer(() => {
+			const host = ref.current;
+			if (host !== undefined && host.Parent !== undefined) {
+				GamepadNavigationService.FocusClaim(host);
+			}
+		});
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [key]);
+}
+
+function SpecializationsView(props: Props) {
+	const hostRef = React.useRef<Frame>();
+	usePadEntry(hostRef, props.state.Specialization !== undefined);
+	return (
+		<frame ref={hostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<SpecializationsViewBoard {...props} />
+		</frame>
+	);
 }
 
 export = () => ({ SpecializationsView });
