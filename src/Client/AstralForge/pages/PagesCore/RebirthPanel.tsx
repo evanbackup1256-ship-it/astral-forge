@@ -12,6 +12,7 @@ import { InteractionFeedback } from "../../CoreKit/interaction";
 import { chromeFor, darken, Palette, TapTarget } from "../../CoreKit/theme";
 import { useFlash, usePulse, useStagger, useViewport } from "../../MotionKit/motion";
 import { TooltipContent, mergeEvents, useTooltip } from "../../Tooltip";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { AudioPlayer, kitMember, LuauComponent, sharedModule } from "../luauKits";
 
 const UserInputService = game.GetService("UserInputService");
@@ -340,6 +341,8 @@ interface SectionProps {
 
 // a titled block inside the chamber
 function Section(props: SectionProps) {
+	// on narrow phones the note shares the title row half and half instead of overlapping it
+	const narrow = useViewport().width < 420;
 	return (
 		<frame
 			key={props.name}
@@ -355,7 +358,7 @@ function Section(props: SectionProps) {
 				color={props.accent ?? Palette.creamSoft}
 				weight={Enum.FontWeight.SemiBold}
 				fit={false}
-				sizeConstraint={new UDim2(1, -120, 0, 16)}
+				sizeConstraint={narrow && props.note !== undefined ? new UDim2(0.55, -4, 0, 16) : new UDim2(1, -120, 0, 16)}
 				zIndex={904}
 			/>
 			{props.note !== undefined && (
@@ -365,8 +368,8 @@ function Section(props: SectionProps) {
 					color={Palette.muted}
 					align={Enum.TextXAlignment.Right}
 					fit={false}
-					position={new UDim2(1, -220, 0, 0)}
-					sizeConstraint={UDim2.fromOffset(220, 14)}
+					position={narrow ? new UDim2(0.55, 4, 0, 0) : new UDim2(1, -220, 0, 0)}
+					sizeConstraint={narrow ? new UDim2(0.45, -4, 0, 14) : UDim2.fromOffset(220, 14)}
 					zIndex={904}
 				/>
 			)}
@@ -714,7 +717,9 @@ export function RebirthChamber(props: ChamberProps) {
 
 	const accent = igniting ? Palette.mango : confirming ? Palette.coral : Palette.violet;
 	const gradeColor = GRADE_COLOR[info.Grade] ?? Palette.muted;
-	const width = math.min(760, viewport.width - 24);
+	// wide desktop: payout, stars and vow on the left; keepsakes, ledger and run log on the right
+	const twoColumn = !stack && viewport.width >= 1280 && viewport.height >= 640;
+	const width = math.min(twoColumn ? 1180 : 760, viewport.width - 24);
 	const top = math.max(viewport.topInset, 36) + 10;
 	const bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 10;
 	const height = math.min(720, viewport.height - top - bottom);
@@ -1095,6 +1100,17 @@ export function RebirthChamber(props: ChamberProps) {
 		</Section>
 	);
 
+	// two-column body: each section is a fixed-height <Section>, so its height prop sizes its block
+	const blockOf = (id: string, element: React.Element | undefined) =>
+		element === undefined ? undefined : { id, height: (element as unknown as { props: { height: number } }).props.height, element };
+	const leftBlocks: { id: string; height: number; element: React.Element }[] = [];
+	const rightBlocks: { id: string; height: number; element: React.Element }[] = [];
+	for (const [id, column] of [["payout", leftBlocks], ["stars", leftBlocks], ["vows", leftBlocks], ["keep", rightBlocks], ["ledger", rightBlocks], ["log", rightBlocks]] as [string, { id: string; height: number; element: React.Element }[]][]) {
+		const block = blockOf(id, sections[id]);
+		if (block !== undefined) column.push(block);
+	}
+	const plan = splitColumns(twoColumn ? width - 28 : 0, (width - 28 - 22) / 2, 22, 900);
+	const splitHeight = math.max(stackHeight(leftBlocks.map((block) => block.height), 22), stackHeight(rightBlocks.map((block) => block.height), 22)) + 24;
 	const claimText = busy
 		? "Rebirthing…"
 		: igniting
@@ -1178,7 +1194,18 @@ export function RebirthChamber(props: ChamberProps) {
 					ScrollBarImageColor3={accent}
 					ZIndex={902}
 				>
-					{sections}
+					{twoColumn ? (
+						<SplitColumns
+							name="RebirthSplit"
+							height={splitHeight}
+							plan={plan}
+							side={<StackBlocks gap={22} blocks={rightBlocks} />}
+							main={<StackBlocks gap={22} blocks={leftBlocks} />}
+							sideOnRight={true}
+						/>
+					) : (
+						sections
+					)}
 				</scrollingframe>
 				<frame
 					key="RebirthClaimActions"
