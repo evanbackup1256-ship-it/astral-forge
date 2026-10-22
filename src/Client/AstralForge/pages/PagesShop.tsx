@@ -330,7 +330,7 @@ const h = React.createElement as unknown as (
 ) => React.ReactElement;
 
 const SHOP_TABS = ["Featured", "Passes", "Supplies", "Codes"];
-const SHOP_DEFAULT_LINE = "Passes are permanent. Packs are one-time.";
+const SHOP_DEFAULT_LINE = "";
 const PRODUCT_PENDING_FAILSAFE = 40;
 const REDEEM_DEBOUNCE = 0.85;
 
@@ -2178,12 +2178,12 @@ function CrateStage(props: CrateStageProps) {
 	const pity = props.pity ?? 0;
 	const pityLine =
 		crate.PityAfter !== undefined && crate.PityRarity !== undefined
-			? `Pity: a ${crate.PityRarity} or better within ${math.max(1, crate.PityAfter - pity)} opens.`
+			? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - pity)}`
 			: "";
 	const openButton = (count: number, order: number) => {
 		const can = keys >= count && !props.busy;
 		return h(Button, {
-			text: keys >= count ? `OPEN ${count}` : `NEED ${count - keys} KEY${count - keys === 1 ? "" : "S"}`,
+			text: keys >= count ? `×${count}` : `${count - keys} more`,
 			icon: keys >= count ? "Crate.2" : "Lock.8",
 			onClick: () => {
 				props.onOpen(count);
@@ -2204,7 +2204,7 @@ function CrateStage(props: CrateStageProps) {
 			size: UDim2.fromScale(1, 1),
 			accent: accent,
 			background: Palette.panelRaised,
-			padding: 14,
+			padding: 20,
 			reveal: props.reveal,
 			reducedMotion: props.reducedMotion,
 			clips: false,
@@ -2217,7 +2217,8 @@ function CrateStage(props: CrateStageProps) {
 				BackgroundTransparency: 0.25,
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, 4) }),
+			h("uistroke", { Color: accent, Transparency: 0.8, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 			h("uigradient", {
 				Color: new ColorSequence(darken(accent, 0.55), Palette.void),
 				Rotation: 90,
@@ -2231,11 +2232,11 @@ function CrateStage(props: CrateStageProps) {
 				zoom: 0.85,
 			}),
 			h(Badge, {
-				value: `${keys} KEY${keys === 1 ? "" : "S"}`,
+				value: `${keys}`,
 				accent: keys > 0 ? accent : Palette.lineSoft,
 				filled: keys > 0,
-				size: UDim2.fromOffset(78, 22),
-				position: UDim2.fromOffset(10, 10),
+				size: UDim2.fromOffset(34, 22),
+				position: UDim2.fromOffset(12, 12),
 			}),
 		),
 		h(
@@ -2256,26 +2257,18 @@ function CrateStage(props: CrateStageProps) {
 				sizeConstraint: new UDim2(1, 0, 0, 26),
 			}),
 			h(Text, {
-				value: crate.Description ?? "",
-				size: 12,
-				color: Palette.creamSoft,
-				wrap: true,
-				position: UDim2.fromOffset(0, 28),
-				sizeConstraint: new UDim2(1, 0, 0, 30),
-			}),
-			h(Text, {
 				value: pityLine,
 				size: 11,
 				color: accent,
 				weight: Enum.FontWeight.Bold,
-				position: UDim2.fromOffset(0, 60),
+				position: UDim2.fromOffset(0, 32),
 				sizeConstraint: new UDim2(1, 0, 0, 16),
 			}),
 			h(
 				"frame",
 				{
 					Size: new UDim2(1, 0, 0, odds.size() * 22),
-					Position: UDim2.fromOffset(0, 82),
+					Position: UDim2.fromOffset(0, 64),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
 				},

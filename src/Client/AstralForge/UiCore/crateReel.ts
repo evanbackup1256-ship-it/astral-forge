@@ -146,18 +146,31 @@ export class Reel {
 		plate.ZIndex = z;
 		plate.Parent = frame;
 		const corner = new Instance("UICorner");
-		corner.CornerRadius = new UDim(0, 10);
+		corner.CornerRadius = new UDim(0, 3);
 		corner.Parent = plate;
+		// a cast-iron tile: dark face falling off toward the bottom, a single struck highlight on top
+		const face = new Instance("UIGradient");
+		face.Rotation = 90;
+		face.Transparency = new NumberSequence(0, 0.45);
+		face.Parent = plate;
+		const lip = new Instance("Frame");
+		lip.Position = UDim2.fromOffset(4, 1);
+		lip.Size = new UDim2(1, -8, 0, 1);
+		lip.BackgroundColor3 = BRASS;
+		lip.BackgroundTransparency = 0.55;
+		lip.BorderSizePixel = 0;
+		lip.ZIndex = z;
+		lip.Parent = plate;
 		const stroke = new Instance("UIStroke");
 		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
-		stroke.Color = Palette.lineSoft;
-		stroke.Transparency = 0.5;
+		stroke.Color = BRASS;
+		stroke.Transparency = 0.7;
 		stroke.Parent = plate;
 		// the rarity reads off a lit strip along the bottom of the slot, not a glow
 		const bar = new Instance("Frame");
 		bar.AnchorPoint = new Vector2(0.5, 1);
-		bar.Position = new UDim2(0.5, 0, 1, -6);
-		bar.Size = new UDim2(0.5, 0, 0, 3);
+		bar.Position = new UDim2(0.5, 0, 1, -5);
+		bar.Size = new UDim2(0, 14, 0, 2);
 		bar.BorderSizePixel = 0;
 		bar.ZIndex = z + 2;
 		bar.Parent = frame;
@@ -268,7 +281,7 @@ export class Reel {
 				slot.stroke.Color = item.color;
 				slot.stroke.Transparency = 0;
 				slot.stroke.Thickness = 2;
-				slot.bar.Size = new UDim2(0.8, 0, 0, 4);
+				slot.bar.Size = new UDim2(0.6, 0, 0, 3);
 			} else {
 				slot.viewport.ImageTransparency = 0.55;
 				slot.bar.BackgroundTransparency = 0.7;

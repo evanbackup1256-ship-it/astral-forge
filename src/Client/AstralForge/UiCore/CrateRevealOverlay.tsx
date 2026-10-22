@@ -558,7 +558,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 					zIndex={510}
 				>
 					<Text
-						value={rest > 0 ? `+${rest} more in the crate` : session.crateName ?? "Crate"}
+						value={rest > 0 ? `+${rest}` : ""}
 						size={12}
 						color={Palette.muted}
 						weight={Enum.FontWeight.Bold}
@@ -581,6 +581,9 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 							ClipsDescendants={true}
 							ZIndex={511}
 						>
+							{/* rails: two hairlines the strip runs between, like a die-cut track */}
+							<frame Position={UDim2.fromOffset(0, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.mango} BackgroundTransparency={0.75} BorderSizePixel={0} ZIndex={515} />
+							<frame AnchorPoint={new Vector2(0, 1)} Position={new UDim2(0, 0, 1, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.mango} BackgroundTransparency={0.75} BorderSizePixel={0} ZIndex={515} />
 							{/* the marker: a brass pin above and below the centre slot */}
 							<frame AnchorPoint={new Vector2(0.5, 0)} Position={new UDim2(0.5, 0, 0, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={Palette.mango} BorderSizePixel={0} ZIndex={516} />
 							<frame AnchorPoint={new Vector2(0.5, 1)} Position={new UDim2(0.5, 0, 1, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={Palette.mango} BorderSizePixel={0} ZIndex={516} />

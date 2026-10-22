@@ -812,7 +812,7 @@ __defs["TradeView"] = () => {
 		};
 		if (lines.size() === 0) {
 			rows.empty = h(Text, {
-				value: `Nothing said yet. Talk it through with ${session.PartnerName}.`,
+				value: "…",
 				size: 12,
 				color: Palette.muted,
 				sizeConstraint: new UDim2(1, 0, 0, 18),
@@ -1112,7 +1112,7 @@ __defs["TradeView"] = () => {
 						},
 						h("uicorner", { CornerRadius: new UDim(0, 10) }),
 						h(Text, {
-							value: `${session.PartnerName.upper()} ASKED FOR`,
+							value: `${session.PartnerName} wants`,
 							size: 10,
 							color: Palette.mango,
 							weight: Enum.FontWeight.Heavy,
@@ -2378,7 +2378,7 @@ __defs["TradeView"] = () => {
 							sizeConstraint: new UDim2(1, -64, 0, 22),
 						}),
 						h(Text, {
-							value: `Accept to open a live table · ${clockLabel(invite.ExpiresAt, now)} left`,
+							value: clockLabel(invite.ExpiresAt, now),
 							size: 13,
 							color: Palette.creamSoft,
 							fit: true,
@@ -2458,7 +2458,7 @@ __defs["TradeView"] = () => {
 							sizeConstraint: new UDim2(1, -40, 0, 22),
 						}),
 						h(Text, {
-							value: `Invite expires in ${clockLabel(outgoing.ExpiresAt, now)}`,
+							value: clockLabel(outgoing.ExpiresAt, now),
 							size: 13,
 							color: Palette.mango,
 							weight: Enum.FontWeight.Bold,
@@ -2696,7 +2696,7 @@ __defs["TradeView"] = () => {
 						sizeConstraint: new UDim2(1, -150, 0, 20),
 					}),
 					h(Text, {
-						value: `You gave ${entry.Gave}.\nYou got ${entry.Got}.`,
+						value: `− ${entry.Gave}\n+ ${entry.Got}`,
 						size: 13,
 						color: Palette.muted,
 						wrap: true,

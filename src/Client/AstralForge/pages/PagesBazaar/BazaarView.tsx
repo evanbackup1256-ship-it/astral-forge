@@ -318,7 +318,7 @@ function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 					sizeConstraint={new UDim2(1, 0, 0, 48)}
 				/>
 				<Ui.Text
-					value={`${offer.Left}/${offer.Stock} left this shipment  ·  ${Format.compactNumber(offer.Price)} flux each`}
+					value={`${offer.Left}/${offer.Stock}  ·  ${Format.compactNumber(offer.Price)}`}
 					size={12}
 					wrap={true}
 					fit={true}
@@ -641,7 +641,7 @@ function BazaarView(props: BazaarProps) {
 					sizeConstraint={new UDim2(1, -98, 0, 26)}
 				/>
 				<Ui.Text
-					value={`${merchant.Title} · this hour's picks lean toward ${merchant.Favors.lower()}`}
+					value={`${merchant.Title} · ${merchant.Favors.lower()}`}
 					size={12}
 					color={accent}
 					wrap={true}
@@ -705,7 +705,7 @@ function BazaarView(props: BazaarProps) {
 			"watched",
 			64,
 			<Ui.Text
-				value={"Saved supplies in stock: " + market.Watched.join(", ")}
+				value={"★ " + market.Watched.join(", ")}
 				size={14}
 				wrap={true}
 				color={Palette.green}
@@ -732,7 +732,7 @@ function BazaarView(props: BazaarProps) {
 			"legacy-refund",
 			36,
 			<Ui.Text
-				value={`${Format.compactNumber(market.Refunded)} flux refunded from old Bazaar savings and tickets.`}
+				value={`+${Format.compactNumber(market.Refunded)} flux refunded`}
 				size={13}
 				wrap={true}
 				color={Palette.green}
@@ -745,7 +745,7 @@ function BazaarView(props: BazaarProps) {
 			"legacy-pending",
 			48,
 			<Ui.Text
-				value="This Bazaar claim is still pending. Refresh to retry. If it remains stuck, include it in a support report."
+				value="Claim pending. Refresh to retry."
 				size={14}
 				wrap={true}
 				color={Palette.mango}
@@ -1053,7 +1053,7 @@ function BazaarView(props: BazaarProps) {
 						sizeConstraint={new UDim2(1, 0, 0, 44)}
 					/>
 					<Ui.Text
-						value={`${Format.compactNumber(comparison.UnitPrice)} flux per reward unit · ${comparison.Units} per pack · ${offer.Left} packs left`}
+						value={`${Format.compactNumber(comparison.UnitPrice)}/unit · ×${comparison.Units} · ${offer.Left} left`}
 						size={13}
 						wrap={true}
 						fit={true}
@@ -1070,7 +1070,7 @@ function BazaarView(props: BazaarProps) {
 			"inspection-expired",
 			96,
 			<Ui.Text
-				value="The inspected supply is no longer in this shipment. Choose another item to inspect its current quote."
+				value="Sold out. Pick another."
 				size={14}
 				wrap={true}
 				color={Palette.muted}
