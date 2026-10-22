@@ -4,8 +4,43 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { chromeFor, darken, Layout, lighten, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useClock, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
-import { splitFor, splitSections } from "../../UiCore/splitColumns";
+import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
+
+// desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
+function pagePlan(width: number, stack: boolean): SplitPlan {
+	return splitColumns(stack ? 0 : width, width >= 1600 ? 400 : 360, 18, 1100);
+}
+
+// folds scaffold sections into one SplitColumns section: all but the last `mainCount` go on the
+// side; each column is a SelectionGroup so gamepad focus stays in a column until moved across
+function splitSections<S extends { id: string; height: number; element: React.Element }>(
+	plan: SplitPlan,
+	sections: S[],
+	name: string,
+	mainCount = 1,
+): Array<{ id: string; height: number; element: React.Element }> {
+	if (!plan.split || sections.size() <= mainCount) {
+		return sections;
+	}
+	const cut = sections.size() - mainCount;
+	const side = sections.filter((_, index) => index < cut);
+	const main = sections.filter((_, index) => index >= cut);
+	const height = math.max(stackHeight(side.map((s) => s.height), plan.gap), stackHeight(main.map((s) => s.height), plan.gap));
+	const column = (blocks: S[]) => (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
+			{blocks.size() === 1 ? blocks[0].element : <StackBlocks gap={plan.gap} blocks={blocks} />}
+		</frame>
+	);
+	return [
+		{
+			id: `${name}-split`,
+			height,
+			element: <SplitColumns height={height} plan={plan} side={column(side)} main={column(main)} name={name} />,
+		},
+	];
+}
+
 
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
@@ -587,8 +622,8 @@ function BoostsView(props: BoostsViewProps) {
 	// phones in landscape fit two boost cards side by side; one column leaves a 360px-tall
 	// screen showing a single card at a time
 	// wide desktop: reactor, stats and browse controls in a side column, cards in the main one
-	const plan = splitFor(viewport, stack);
-	const gridWidth = plan.split ? viewport.width - plan.sideWidth - plan.gap : viewport.width;
+	const plan = pagePlan(viewport.width, stack);
+	const gridWidth = plan.split ? plan.main : viewport.width;
 	const columns = stack && !chrome.landscape ? 1 : gridWidth >= 1100 ? 3 : 2;
 	const activateHostRef = React.useRef<Frame>();
 	const now = useWallClock(true);

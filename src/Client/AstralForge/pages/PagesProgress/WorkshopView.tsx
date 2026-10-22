@@ -8,9 +8,44 @@ import { chromeFor, darken, ensureContrast, Layout, Palette, scrollTail, TapTarg
 import { bulkCost, compactNumber, compareFlux, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
 import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
-import { splitFor, splitSections } from "../../UiCore/splitColumns";
+import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
+
+// desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
+function pagePlan(width: number, stack: boolean): SplitPlan {
+	return splitColumns(stack ? 0 : width, width >= 1600 ? 400 : 360, 18, 1100);
+}
+
+// folds scaffold sections into one SplitColumns section: all but the last `mainCount` go on the
+// side; each column is a SelectionGroup so gamepad focus stays in a column until moved across
+function splitSections<S extends { id: string; height: number; element: React.Element }>(
+	plan: SplitPlan,
+	sections: S[],
+	name: string,
+	mainCount = 1,
+): Array<{ id: string; height: number; element: React.Element }> {
+	if (!plan.split || sections.size() <= mainCount) {
+		return sections;
+	}
+	const cut = sections.size() - mainCount;
+	const side = sections.filter((_, index) => index < cut);
+	const main = sections.filter((_, index) => index >= cut);
+	const height = math.max(stackHeight(side.map((s) => s.height), plan.gap), stackHeight(main.map((s) => s.height), plan.gap));
+	const column = (blocks: S[]) => (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
+			{blocks.size() === 1 ? blocks[0].element : <StackBlocks gap={plan.gap} blocks={blocks} />}
+		</frame>
+	);
+	return [
+		{
+			id: `${name}-split`,
+			height,
+			element: <SplitColumns height={height} plan={plan} side={column(side)} main={column(main)} name={name} />,
+		},
+	];
+}
+
 
 const UserInputService = game.GetService("UserInputService");
 const { AmountToggle, Badge, Button, Dropdown, EmptyState, IconTile, Panel, Text, SearchField } = loadUi();
@@ -418,9 +453,9 @@ function UpgradeBoard(props: {
 	const stack = chrome.contentStack;
 	// wide desktop: header, purchase plan and Auto-Forge in a side column, machines in the main
 	// one. The side column reuses the stacked header arrangement built for narrow widths.
-	const plan = splitFor(viewport, stack);
+	const plan = pagePlan(viewport.width, stack);
 	const headerStack = stack || plan.split;
-	const gridWidth = plan.split ? viewport.width - plan.sideWidth - plan.gap : viewport.width;
+	const gridWidth = plan.split ? plan.main : viewport.width;
 	const touchLayout = chrome.mobile;
 	const searchW = 252;
 	const sortW = 176;
@@ -1072,7 +1107,7 @@ function WorkshopView(props: {
 	);
 	// stacked: controlY 104 + picker 44 + 26 + row 44 = 218, plus 2 x 14 padding; desktop: 102 + 42 + 28
 	// in the desktop side column Auto-Forge and Programs use their narrow (stacked) arrangement
-	const featureStack = chromeFor(viewport).stack || splitFor(viewport, chainStack).split;
+	const featureStack = chromeFor(viewport).stack || pagePlan(viewport.width, chainStack).split;
 	const featureHeight = featureStack ? 246 : 172;
 	// Forge Programs sit under Auto-Forge once they unlock
 	const programsHeight = programsPanelHeight(state as ProgramsState, featureStack);
