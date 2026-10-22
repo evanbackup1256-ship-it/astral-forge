@@ -1,12 +1,12 @@
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
-import { formatAway } from "../../../Shared/AstralForge/Shared/OfflineProgress";
-import { LeaderboardService, StoreRow } from "../Modules/LeaderboardService";
-import { FriendGraph } from "../Modules/FriendGraph";
+import type { StoreRow } from "../Modules/LeaderboardService";
+import type { FriendGraph } from "../Modules/FriendGraph";
+import type { PassDef as PurchasePassDef, ReceiptOutcome as PurchaseReceiptOutcome } from "../Modules/Purchases";
+import * as Deps from "../Modules/GameServiceDeps";
 import { Service } from "@flamework/core";
 import BazaarModule = require("./Gameplay/Bazaar");
 import { ConvergenceService } from "./ConvergenceService";
 import { DataService } from "./DataService";
-import * as Purchases from "../Modules/Purchases";
 import { AdminService } from "./AdminService";
 import { WorldService } from "./WorldService";
 import { Security } from "./Security/Security";
@@ -237,18 +237,20 @@ const PROFILE_MAINTENANCE_INTERVAL = 10;
 const GUILD_REFRESH_INTERVAL = 30;
 const GLOBAL_LB_PAGE = 25;
 // store pages are re-read at most once a minute per board; failed reads back off from 30s
-const boardReader = new LeaderboardService({
+const boardReader = new Deps.LeaderboardService({
 	pageSize: GLOBAL_LB_PAGE,
 	pageTtl: 60,
 	retryAfter: 30,
 	decode: (raw) => LeaderboardCodec.Decode(raw),
 	greater: (a, b) => truthy(Economy.Gt(a, b)),
 });
-const RANK_PING_INTERVAL = 20;
-const RANK_PING_BOARD = "Flux";
-const RANK_PING_BOARD_LABEL = "Lifetime Flux";
-const RANK_PING_BRACKETS = RankBracket.DEFAULT_BRACKETS;
-const RANK_PING_UNRANKED = RankBracket.UNRANKED;
+const RANK_PING = {
+	INTERVAL: 20,
+	BOARD: "Flux",
+	BOARD_LABEL: "Lifetime Flux",
+	BRACKETS: RankBracket.DEFAULT_BRACKETS,
+	UNRANKED: RankBracket.UNRANKED,
+};
 const GUILD_ACTIVITY_MILESTONE_STEP = 250_000;
 
 const applySocialBoost = (profile: Profile, friendCount: number, premium: boolean): boolean =>
@@ -1447,7 +1449,7 @@ export class GameService {
 		this._nameCachePruneAt = 0;
 		this._globalBoardCache = {};
 		// friends bonus: pairwise IsFriendsWith answers cached per pair (failures count as no)
-		this._friendGraph = new FriendGraph({
+		this._friendGraph = new Deps.FriendGraph({
 			ttl: GameConfig.Social.FriendshipCacheSeconds as number,
 			failTtl: 20,
 			isFriends: (low, high) => {
@@ -3860,9 +3862,9 @@ export class GameService {
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
 		}
 		const purchaseKey = tostring(receiptInfo.PurchaseId);
-		let outcome = { kind: "duplicate" } as Purchases.ReceiptOutcome;
+		let outcome = { kind: "duplicate" } as PurchaseReceiptOutcome;
 		const [updated] = this._data.Update(player, (profile: Profile) => {
-			outcome = Purchases.applyReceipt(profile, purchaseKey, os.time(), () => this._grantDevProduct(profile, productDef));
+			outcome = Deps.Purchases.applyReceipt(profile, purchaseKey, os.time(), () => this._grantDevProduct(profile, productDef));
 		}) as LuaTuple<[unknown]>;
 		if (!truthy(updated)) {
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
@@ -3898,7 +3900,7 @@ export class GameService {
 			return responseError(T("GameService.ThatForgeSessionIsNo"));
 		}
 		return this._mutate(player, (profile: Profile) => {
-			Purchases.ensureTables(profile);
+			Deps.Purchases.ensureTables(profile);
 			for (const passKey of ownedPasses) {
 				(profile.OwnedPasses as Dict)[passKey] = true;
 			}
@@ -3921,7 +3923,7 @@ export class GameService {
 			return responseError(T("GameService.ThatForgeSessionIsNo"));
 		}
 		const result = this._mutate(player, (profile: Profile) => {
-			const grant = Purchases.grantPass(profile, passDef as unknown as Purchases.PassDef);
+			const grant = Deps.Purchases.grantPass(profile, passDef as unknown as PurchasePassDef);
 			return responseSuccess(grant.name + (grant.granted ? " unlocked." : " already owned."));
 		});
 		if (truthy((result as Dict | undefined)?.ok)) {
@@ -3944,9 +3946,9 @@ export class GameService {
 		}
 		const result = this._mutate(player, (profile: Profile) => {
 			if (passDef !== undefined) {
-				const pass = passDef as unknown as Purchases.PassDef;
-				const grant = Purchases.grantPass(profile, pass);
-				return responseSuccess(grant.granted ? pass.Name + ": " + Purchases.passPerks(pass) : pass.Name + " already owned.");
+				const pass = passDef as unknown as PurchasePassDef;
+				const grant = Deps.Purchases.grantPass(profile, pass);
+				return responseSuccess(grant.granted ? pass.Name + ": " + Deps.Purchases.passPerks(pass) : pass.Name + " already owned.");
 			}
 			assert(productDef !== undefined, "studio grant missing product");
 			const rewardText = this._grantDevProduct(profile, productDef);
@@ -5826,7 +5828,7 @@ export class GameService {
 	}
 
 	_announceRankClimbs(id: string, rows: Dict[]) {
-		if (id !== RANK_PING_BOARD) {
+		if (id !== RANK_PING.BOARD) {
 			return;
 		}
 		const rankByUser = new Map<number, number>();
@@ -5839,8 +5841,8 @@ export class GameService {
 			if (runtime !== undefined && rank !== undefined) {
 				const previous = math.max(0, math.floor(tonumber(runtime.LeaderboardRank) ?? 0));
 				runtime.LeaderboardRank = rank;
-				if (truthy(RankBracket.ShouldAnnounce(previous, rank, RANK_PING_BRACKETS, RANK_PING_UNRANKED))) {
-					this._toastPlayer(online, T("Toast.LeaderboardClimbTitle"), T("Toast.LeaderboardClimbBody", rank, RANK_PING_BOARD_LABEL), "Special");
+				if (truthy(RankBracket.ShouldAnnounce(previous, rank, RANK_PING.BRACKETS, RANK_PING.UNRANKED))) {
+					this._toastPlayer(online, T("Toast.LeaderboardClimbTitle"), T("Toast.LeaderboardClimbBody", rank, RANK_PING.BOARD_LABEL), "Special");
 				}
 			} else if (runtime !== undefined) {
 				runtime.LeaderboardRank = 0;
@@ -6487,7 +6489,7 @@ export class GameService {
 		if (rigCount > 0) {
 			this._toastPlayer(player, rigCount === 1 ? T("GameService.RigLit") : T("GameService.RigsLit"), rigNote, "Success");
 		}
-		const away = formatAway(offlineSeconds);
+		const away = Deps.formatAway(offlineSeconds);
 		ModuleLog.Player(player, string.format("joined world %d after %s away", profile.CurrentZone as number, away));
 	}
 
@@ -6955,13 +6957,13 @@ export class GameService {
 		this._events.Step(deltaTime);
 
 		this._rankPingAccumulator += deltaTime;
-		if (this._rankPingAccumulator >= RANK_PING_INTERVAL) {
+		if (this._rankPingAccumulator >= RANK_PING.INTERVAL) {
 			this._rankPingAccumulator = 0;
 			if (!this._rankPingBusy && Players.GetPlayers().size() > 0) {
 				this._rankPingBusy = true;
 				const worker = this._spawnWorker(() => {
 					pcall(() => {
-						this._getLeaderboard(RANK_PING_BOARD);
+						this._getLeaderboard(RANK_PING.BOARD);
 					});
 					this._rankPingBusy = false;
 				});
