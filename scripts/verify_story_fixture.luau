@@ -71,7 +71,9 @@ print(`story fixture: {checked} entries match GameConfig`)
 
 -- Quests: the server builds daily quests from a fixed set of templates, so every
 -- quest in the fixture must use a Name (and Description) that the server can send.
+-- templates live in QuestEngine since rewrite 13; Progression still sends a few of its own
 local progression = fs.readFile("src/Server/AstralForge/Services/Gameplay/Progression.ts")
+	.. "\n" .. fs.readFile("src/Server/AstralForge/Modules/QuestEngine.ts")
 local fixtureSource = fs.readFile("src/Stories/StorySnapshot.ts")
 local questBlock = findBlock(fixtureSource, "Quests")
 local questCount, questFailures = 0, {}
