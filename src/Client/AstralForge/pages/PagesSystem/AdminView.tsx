@@ -460,6 +460,8 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	// below the three-column console width (phones, narrow windows) every block gets its own full-width row
 	const viewport = useViewport();
 	const narrow = chromeFor(viewport).contentStack || viewport.width < CONSOLE_W + 240;
+	// phone widths (down to 286px): smaller header badges, two stats per row
+	const tight = narrow && viewport.width < 480;
 
 	const [targetId, setTargetId] = React.useState<number>(
 		(admin && admin.SelfUserId) ?? (admin && admin.Online && admin.Online[0] && admin.Online[0].UserId) ?? 0,
@@ -654,9 +656,13 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const INSPECT_TITLE = 34;
 	const STAT_H = 40;
 	const STAT_GAP = 8;
-	const inspectH = INSPECT_TITLE + STAT_H * 2 + STAT_GAP + 26;
+	// phones: the eight target stats go two per row (four rows) instead of four per row
+	const statCols = tight ? 2 : 4;
+	const statRows = math.ceil(8 / statCols);
+	const inspectH = INSPECT_TITLE + STAT_H * statRows + STAT_GAP * (statRows - 1) + 26;
 	const unhealthy = (integrity && integrity.Healthy) === false;
 
+	const refreshW = tight ? 88 : 104;
 	const header = (
 		<Panel
 			size={new UDim2(1, 0, 0, HEADER_H)}
@@ -675,7 +681,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
 				position={UDim2.fromOffset(0, 6)}
-				sizeConstraint={new UDim2(1, -112, 0, 22)}
+				sizeConstraint={new UDim2(1, -(refreshW + 8), 0, 22)}
 			/>
 			<frame Size={new UDim2(1, 0, 0, 22)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
 				<uilistlayout
@@ -684,12 +690,12 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					SortOrder={Enum.SortOrder.LayoutOrder}
 					VerticalAlignment={Enum.VerticalAlignment.Center}
 				/>
-				<Badge value={admin.Role ?? "ADMIN"} accent={Palette.coral} filled={true} size={UDim2.fromOffset(108, 22)} />
+				<Badge value={admin.Role ?? "ADMIN"} accent={Palette.coral} filled={true} size={UDim2.fromOffset(tight ? 88 : 108, 22)} />
 				<Badge
 					value={unhealthy ? "RESTORED" : "HEALTHY"}
 					accent={unhealthy ? Palette.mango : Palette.mint}
 					filled={true}
-					size={UDim2.fromOffset(84, 22)}
+					size={UDim2.fromOffset(tight ? 76 : 84, 22)}
 				/>
 				{selectedPlayer && selectedPlayer.Unlimited === true && (
 					<frame Size={UDim2.fromOffset(88, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
@@ -707,8 +713,8 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				color={Palette.panelSoft}
 				textColor={Palette.mint}
 				outline={true}
-				size={UDim2.fromOffset(104, 32)}
-				position={new UDim2(1, -104, 0, 3)}
+				size={UDim2.fromOffset(refreshW, 32)}
+				position={new UDim2(1, -refreshW, 0, 3)}
 				reducedMotion={softMotion}
 			/>
 		</Panel>
@@ -824,9 +830,9 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				position={UDim2.fromOffset(0, 15)}
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
-			<frame Size={new UDim2(1, 0, 0, STAT_H * 2 + STAT_GAP)} Position={UDim2.fromOffset(0, INSPECT_TITLE)} BackgroundTransparency={1}>
+			<frame Size={new UDim2(1, 0, 0, STAT_H * statRows + STAT_GAP * (statRows - 1))} Position={UDim2.fromOffset(0, INSPECT_TITLE)} BackgroundTransparency={1}>
 				<uigridlayout
-					CellSize={new UDim2(0.25, -6, 0, STAT_H)}
+					CellSize={new UDim2(1 / statCols, -math.ceil((STAT_GAP * (statCols - 1)) / statCols), 0, STAT_H)}
 					CellPadding={UDim2.fromOffset(STAT_GAP, STAT_GAP)}
 					SortOrder={Enum.SortOrder.LayoutOrder}
 					FillDirection={Enum.FillDirection.Horizontal}
