@@ -4,7 +4,8 @@
 import React from "@rbxts/react";
 import { Audio } from "../../AudioKit/audio";
 import { formatReward, Reward } from "../../CoreKit/format";
-import { useChangePop, useStagger } from "../../MotionKit/motion";
+import { useChangePop, usePulse, useStagger } from "../../MotionKit/motion";
+import { Palette } from "../../CoreKit/theme";
 import { Button } from "../design/Button";
 import { EmptyState } from "../design/Layers";
 import { Card, Meter, Panel } from "../design/Panel";
@@ -44,11 +45,66 @@ function lightUp(text: string, color: Color3): string {
 	return out;
 }
 
+function graphemes(text: string): number {
+	const [count] = utf8.len(text);
+	return typeIs(count, "number") ? count : text.size();
+}
+
+/** One part of the chapter, typed out at the old reader's pace (length/72 per 0.022s step). */
 function Beat(props: { text: string; color: Color3; phone: boolean; index: number }) {
 	const rise = useStagger(0, false, 0, 0.3);
+	const decorated = lightUp(props.text, props.color);
+	const [shown, setShown] = React.useBinding(0);
+	React.useEffect(() => {
+		let alive = true;
+		setShown(0);
+		Audio.play("storyBeat");
+		const length = graphemes(props.text);
+		const step = math.max(1, math.floor(length / 72));
+		const worker = task.spawn(() => {
+			let count = 0;
+			while (alive && count < length) {
+				count = math.min(length, count + step);
+				setShown(count);
+				task.wait(0.022);
+			}
+		});
+		return () => {
+			alive = false;
+			pcall(task.cancel, worker);
+		};
+	}, [props.index, props.text]);
 	return (
 		<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2} Position={rise.map((p) => UDim2.fromOffset((1 - p) * 18, 0))}>
-			<Text text={lightUp(props.text, props.color)} size={Type.body(props.phone) + 1} color={Iron.text()} font={Fonts.body} multiline transparency={rise.map((p) => 1 - p)} />
+			<textlabel
+				Size={new UDim2(1, 0, 0, 0)}
+				AutomaticSize={Enum.AutomaticSize.Y}
+				BackgroundTransparency={1}
+				Text={decorated}
+				RichText
+				MaxVisibleGraphemes={shown.map((n) => (n >= graphemes(props.text) ? -1 : n))}
+				FontFace={Fonts.body}
+				TextColor3={Iron.text()}
+				TextTransparency={rise.map((p) => 1 - p)}
+				TextSize={Type.body(props.phone) + 1}
+				TextWrapped
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextYAlignment={Enum.TextYAlignment.Top}
+			/>
+		</frame>
+	);
+}
+
+function RewardBox(props: { reward: string; claimed: boolean; color: Color3; phone: boolean }) {
+	return (
+		<frame Size={new UDim2(1, 0, 0, 56)} BackgroundColor3={Iron.face()} BorderSizePixel={0} LayoutOrder={3}>
+			<uicorner CornerRadius={new UDim(0, 8)} />
+			<uistroke Color={props.color} Transparency={0.35} />
+			<frame Size={new UDim2(0, 3, 1, -12)} Position={UDim2.fromOffset(0, 6)} BackgroundColor3={props.color} BorderSizePixel={0}>
+				<uicorner CornerRadius={new UDim(0, 2)} />
+			</frame>
+			<Text text={props.claimed ? "Reward claimed" : "Reward"} size={11} font={Fonts.heavy} color={props.color} box={new UDim2(1, -28, 0, 16)} position={UDim2.fromOffset(16, 8)} />
+			<Text text={props.reward} size={Type.body(props.phone)} font={Fonts.heavy} color={props.claimed ? Iron.muted() : Iron.text()} box={new UDim2(1, -28, 0, 22)} position={UDim2.fromOffset(16, 26)} />
 		</frame>
 	);
 }
@@ -56,11 +112,19 @@ function Beat(props: { text: string; color: Color3; phone: boolean; index: numbe
 function Reader(props: { page: PageProps; entry: ChapterConfig; state: ChapterState; onClose: () => void }) {
 	const { entry, state } = props;
 	const phone = props.page.phone;
+	// a finished chapter opens as a replay: every part can be revisited
+	const [replay] = React.useState(state.Read === true || state.Claimed === true);
 	const [beat, setBeat] = React.useState(0);
 	const total = math.max(1, entry.Body.size());
-	const finished = beat >= total - 1;
+	const last = beat >= total - 1;
+	const claimed = state.Claimed === true;
 	const pop = useChangePop(beat);
-	useBack(true, props.onClose);
+	// the chapter mark breathes while it's open (old ArchiveMark: usePulse 1.2, +3% scale)
+	const pulse = usePulse(true, 1.2);
+	useBack(true, () => {
+		Audio.play("close");
+		props.onClose();
+	});
 	React.useEffect(() => {
 		Audio.play("storyOpen");
 		if (state.Read !== true) props.page.request("ReadStoryChapter", { Id: entry.Id });
@@ -73,22 +137,34 @@ function Reader(props: { page: PageProps; entry: ChapterConfig; state: ChapterSt
 			}
 		});
 	};
+	const close = () => {
+		Audio.play("close");
+		props.onClose();
+	};
+	const hasReward = entry.Reward !== undefined;
+	const actionText = last ? (claimed || !hasReward ? "Done" : "Collect reward") : "Continue";
+	const action = last ? (claimed || !hasReward ? close : claim) : () => setBeat(beat + 1);
 	return (
 		<Panel pad={gap(phone, "xl")} spacing={gap(phone, "m")} seam rarity="Legendary" order={0}>
-			<Text text={entry.Chapter ?? ""} size={Type.small(phone)} color={entry.Color} order={0} />
+			<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} LayoutOrder={0}>
+				<uiscale Scale={pulse.map((a) => 1 + a * 0.03)} />
+				<Text text={`${entry.Chapter ?? "Chapter"} · part ${beat + 1} / ${total}`} size={Type.small(phone)} color={entry.Color} box={UDim2.fromScale(1, 1)} />
+			</frame>
 			<Title text={entry.Title} size={Type.title(phone)} tags={["wave"]} order={1} />
 			<Beat key={`beat${beat}`} text={entry.Body[beat] ?? ""} color={entry.Color} phone={phone} index={beat} />
-			<frame Size={new UDim2(1, 0, 0, 10)} BackgroundTransparency={1} LayoutOrder={3}>
+			{last && hasReward && <RewardBox reward={formatReward(entry.Reward!)} claimed={claimed} color={entry.Color} phone={phone} />}
+			<frame Size={new UDim2(1, 0, 0, 10)} BackgroundTransparency={1} LayoutOrder={4}>
 				<uiscale Scale={pop} />
 				<Meter value={(beat + 1) / total} color={entry.Color} height={6} />
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={4}>
+			<Text text={replay ? "Replay: read any part" : `Part ${beat + 1} of ${total}`} size={Type.small(phone)} color={replay ? Palette.green : Iron.muted()} order={5} />
+			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={6}>
 				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<Button text="Back" tone="iron" width={110} disabled={beat === 0} onPress={() => setBeat(math.max(0, beat - 1))} order={0} />
-				{!finished && <Button text="Next" width={140} onPress={() => setBeat(beat + 1)} order={1} />}
-				{finished && state.Claimed !== true && entry.Reward !== undefined && <Button text={`Claim · ${formatReward(entry.Reward)}`} width={phone ? 220 : 260} onPress={claim} order={1} />}
-				{finished && (state.Claimed === true || entry.Reward === undefined) && <Button text="Read again" tone="iron" width={140} onPress={() => setBeat(0)} order={1} />}
-				<Button text="Close" tone="quiet" width={110} onPress={props.onClose} order={2} />
+				<Button text="Back" tone="iron" width={128} disabled={beat === 0} onPress={() => setBeat(math.max(0, beat - 1))} order={0} />
+				<frame {...({ Name: last && !claimed && hasReward ? "StoryClaim" : "StoryContinue" } as object)} Size={UDim2.fromOffset(phone ? 180 : 220, 48)} BackgroundTransparency={1} LayoutOrder={1}>
+					<Button text={actionText} stretch height={48} glint={!claimed || !last} onPress={action} />
+				</frame>
+				{replay && <Button text="Close" tone="quiet" width={110} onPress={close} order={2} />}
 			</frame>
 		</Panel>
 	);
@@ -105,10 +181,13 @@ function ChapterRow(props: { entry: ChapterConfig; state: ChapterState; phone: b
 			<Card accent={open ? entry.Color : Iron.edge()} pad={gap(phone, "m")} spacing={6} selected={open && !done} onPress={open ? props.onOpen : undefined}>
 				<Text text={`${entry.Chapter !== undefined ? `${entry.Chapter} · ` : ""}${entry.Title}`} size={Type.body(phone)} font={Fonts.heavy} color={open ? Iron.text() : Iron.muted()} order={0} />
 				{open ? (
-					<Text text={waiting ? `Reward waiting · ${formatReward(entry.Reward!)}` : done ? (entry.Summary ?? "Read") : (entry.Summary ?? "New")} size={Type.small(phone)} color={waiting ? Iron.brass() : Iron.muted()} multiline order={1} />
+					<>
+					<Text text={waiting ? `Reward waiting · ${formatReward(entry.Reward!)}` : done ? "Finished chapter" : "Ready to read"} size={Type.small(phone)} color={waiting ? Iron.brass() : Iron.muted()} order={1} />
+					{entry.Summary !== undefined && <Text text={entry.Summary} size={Type.small(phone)} color={Iron.muted()} multiline order={2} />}
+					</>
 				) : (
 					<>
-						<Text text={`Opens at ${math.floor(state.Progress ?? 0)}/${state.Target ?? 1}`} size={Type.small(phone)} color={Iron.muted()} order={1} />
+						<Text text={`Keep playing to unlock this chapter. ${math.floor(state.Progress ?? 0)} / ${state.Target ?? 1}`} size={Type.small(phone)} color={Iron.muted()} multiline order={1} />
 						<Meter value={(state.Progress ?? 0) / math.max(1, state.Target ?? 1)} color={entry.Color} height={6} order={2} />
 					</>
 				)}
@@ -190,9 +269,31 @@ export function StoryPage(props: PageProps) {
 	const openEntry = reading !== undefined ? byId.get(reading) : undefined;
 	const openState = chapters.find((c) => c.Id === reading);
 	const space = gap(phone, "l");
+	// the archive's orbit rings breathe while nothing is open (old: usePulse 3.4, +16px)
+	const archivePulse = usePulse(openEntry === undefined, 3.4);
+	const rings = (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ClipsDescendants ZIndex={0}>
+			{[0, 1, 2].map((i) => (
+				<frame
+					key={`orbit${i}`}
+					Size={archivePulse.map((a) => UDim2.fromOffset(260 + i * 82 + a * 16, 260 + i * 82 + a * 16))}
+					Position={UDim2.fromScale(0.85, 0.5)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					Rotation={i * 17}
+					BackgroundTransparency={1}
+					ZIndex={0}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+					<uistroke Color={i === 1 ? Palette.cyan : Iron.brass()} Transparency={0.7 + i * 0.08} />
+				</frame>
+			))}
+		</frame>
+	);
 	const header = (
+		<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={0}>
 		<Panel pad={gap(phone, "l")} spacing={gap(phone, "s")} order={0}>
 			<Title text="Story" size={Type.title(phone)} tags={["wave"]} order={0} />
+			<Text text="Short chapters from under Bay Seven." size={Type.small(phone)} color={Iron.muted()} order={0} />
 			<Search value={query} onChange={setQuery} phone={phone} order={1} />
 			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2}>
 				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
@@ -201,6 +302,8 @@ export function StoryPage(props: PageProps) {
 				<Chip text={`Rewards ${chapters.filter(hasReward).size()}`} on={filter === "Reward"} onPress={() => setFilter("Reward")} order={2} />
 			</frame>
 		</Panel>
+			{rings}
+		</frame>
 	);
 	const list = (
 		<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
@@ -208,7 +311,7 @@ export function StoryPage(props: PageProps) {
 			{shown.size() === 0 ? (
 				<EmptyState
 					title={query !== "" ? "No chapters match" : filter === "All" ? "No chapters yet" : "Nothing here"}
-					body={query !== "" ? "Try another word." : filter === "All" ? "Chapters open as the forge grows." : "Try All."}
+					body={query !== "" || filter !== "All" ? "Clear the search or pick another filter." : "Chapters open as the forge grows."}
 					phone={phone}
 				/>
 			) : (
@@ -227,7 +330,7 @@ export function StoryPage(props: PageProps) {
 					{list}
 				</Column>
 				<Column size={new UDim2(0.62, 0, 1, 0)} order={1} pad={space}>
-					{reader ?? <EmptyState title="Pick a chapter" body="Open one from the archive to read it here." phone={phone} />}
+					{reader ?? <EmptyState title="Story" body="Pick a chapter, then start reading." phone={phone} />}
 				</Column>
 			</frame>
 		);
