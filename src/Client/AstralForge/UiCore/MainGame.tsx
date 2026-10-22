@@ -1,5 +1,6 @@
 import { resolveTextScale } from "../CoreKit/textScale";
 import type { PushEvent, RequestFunction } from "../ClientNetwork";
+import { readSetting } from "../CoreKit/settingsService";
 import { applyVolumes, AudioMixerApi, volumesKey } from "../AudioKit/volumes";
 import React from "@rbxts/react";
 import { TooltipProvider } from "../Tooltip";
@@ -1425,19 +1426,22 @@ export function MainGame(_param: MainGameProps) {
 		Audio.start();
 		applyVolumes(Audio, state?.Settings);
 	}, [volumesKey(state?.Settings)]);
+	const scrollSpeed = readSetting(state?.Settings, "ScrollSpeed");
+	const scrollMomentum = readSetting(state?.Settings, "ScrollMomentum");
+	const hapticIntensity = readSetting(state?.Settings, "HapticIntensity");
 	React.useEffect(() => {
-		setScrollSpeed((state?.Settings.ScrollSpeed as number | undefined) ?? 0.65);
-		setScrollMomentum((state?.Settings.ScrollMomentum as number | undefined) ?? 0.75);
-		setHapticIntensity((state?.Settings.HapticIntensity as number | undefined) ?? 0.65);
-	}, [state?.Settings.HapticIntensity, state?.Settings.ScrollMomentum, state?.Settings.ScrollSpeed]);
-	const motionIntensity = (state?.Settings.MotionIntensity as number | undefined) ?? 1;
+		setScrollSpeed(scrollSpeed);
+		setScrollMomentum(scrollMomentum);
+		setHapticIntensity(hapticIntensity);
+	}, [hapticIntensity, scrollMomentum, scrollSpeed]);
+	const motionIntensity = readSetting(state?.Settings, "MotionIntensity");
 	const softFeel = GuiService.ReducedMotionEnabled === true || motionIntensity < 0.3;
 	React.useEffect(() => {
 		// non-React effects (button press motion, screen flashes, companion sprites) read this
 		setInGameReducedMotion(motionIntensity < 0.3);
 	}, [motionIntensity]);
-	const screenFlashesSetting = (state?.Settings.ScreenFlashes as number | undefined) ?? 0.8;
-	const confettiSetting = (state?.Settings.ConfettiEnabled as number | undefined) ?? 1;
+	const screenFlashesSetting = readSetting(state?.Settings, "ScreenFlashes");
+	const confettiSetting = readSetting(state?.Settings, "ConfettiEnabled");
 	React.useEffect(() => {
 		setEffectSwitches(screenFlashesSetting >= 0.5, confettiSetting >= 0.5);
 	}, [screenFlashesSetting, confettiSetting]);
