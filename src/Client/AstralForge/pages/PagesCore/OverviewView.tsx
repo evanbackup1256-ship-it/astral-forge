@@ -94,6 +94,9 @@ type FirstGoalState = {
 	PrestigeReward?: unknown;
 	FeatureUnlocks?: Record<string, { Unlocked?: unknown } | undefined>;
 };
+// main card: room between the vault readout and the Collect column on desktop
+const HERO_COLUMN_GAP = 28;
+
 function firstGoalView(raw: unknown): FirstGoalView | undefined {
 	const state = raw as FirstGoalState;
 	if (state.Flags?.TutorialDone !== true || state.Settings?.FirstGoals === 0) {
@@ -980,7 +983,7 @@ export function OverviewView({
 										size={denseHero ? new UDim2(1, 0, 0, readoutRow) : wideOverview ? new UDim2(0.62, -6, 1, 0) : new UDim2(1, 0, 0, heroH)}
 										accent={vaultFill >= 0.99 ? Palette.mango : Palette.green}
 										background={Palette.panelRaised}
-										padding={stack ? chrome.cardPadding : denseHero ? 10 : ultraOverview ? 22 : 20}
+										padding={stack ? chrome.cardPadding : denseHero ? 10 : ultraOverview ? 30 : 26}
 										reveal={heroReveal}
 										highlight={vaultFill >= 0.99 && !effectsPaused}
 										reducedMotion={softMotion}
@@ -990,7 +993,7 @@ export function OverviewView({
 										{!phone && (
 											<uilistlayout
 												FillDirection={Enum.FillDirection.Horizontal}
-												Padding={new UDim(0, 16)}
+												Padding={new UDim(0, denseHero ? 16 : HERO_COLUMN_GAP)}
 												SortOrder={Enum.SortOrder.LayoutOrder}
 												VerticalAlignment={Enum.VerticalAlignment.Center}
 												HorizontalFlex={Enum.UIFlexAlignment.Fill}
@@ -1007,7 +1010,7 @@ export function OverviewView({
 											<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 											<uilistlayout
 												FillDirection={Enum.FillDirection.Vertical}
-												Padding={new UDim(0, landscapePhone || denseHero ? 4 : 8)}
+												Padding={new UDim(0, landscapePhone || denseHero ? 4 : phone ? 8 : 10)}
 												SortOrder={Enum.SortOrder.LayoutOrder}
 												VerticalAlignment={Enum.VerticalAlignment.Center}
 											/>
