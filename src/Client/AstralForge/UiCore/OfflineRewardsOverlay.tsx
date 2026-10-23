@@ -1,4 +1,5 @@
 import { useFocusOrder } from "../CoreKit/focusOrder";
+import { ModalSelectionScope } from "./overlayCore";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -118,7 +119,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	// roomy sheet padding on desktop; phones take the chrome card padding
 	const PAD = stack ? chrome.cardPadding : Layout.cardPadding;
 	const [motion, closing, beginExit] = usePresence(softMotion);
-	const padFocus = useGamepadAutofocus(true);
+	const padFocus = useGamepadAutofocus(true, motion);
 	// Collect (top / left) first, then Close; one region, reading order
 	useFocusOrder(padFocus, { regions: ["OfflineRewardsCard"] }, [stack]);
 	const overlayHostRef = React.useRef<GuiObject>();
@@ -406,6 +407,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 						overlayHostRef.current = node;
 					},
 					Name: "OfflineRewardsCard",
+					...ModalSelectionScope,
+
 					Size: UDim2.fromOffset(cardWidth, cardHeight),
 					Position: cardPosition,
 					AnchorPoint: new Vector2(0.5, 0.5),

@@ -160,7 +160,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			},
 		);
 	}, [canSend, category, dispatch, notify, trimmed, impact, attachDevice]);
-	const padFocus = useGamepadAutofocus(true);
+	const padFocus = useGamepadAutofocus(true, motion);
 	useFocusOrder(
 		padFocus,
 		{

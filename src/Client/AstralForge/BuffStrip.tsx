@@ -192,7 +192,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			endsAt: eventTable.PhaseEndsAt,
 			color: P.mango,
 			name: (eventTable.Id as string).gsub("(%l)(%u)", "%1 %2")[0],
-			note: "A server event is live. Click the island to see it.",
+			note: "A server event is live. Open the island to see it.",
 		});
 	}
 	const ascension = bag.Ascension;

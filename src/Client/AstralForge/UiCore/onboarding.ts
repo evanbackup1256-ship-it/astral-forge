@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { ModalSelectionScope } from "./overlayCore";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, Space, TapTarget } from "../CoreKit/theme";
 
@@ -1299,7 +1300,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 			0,
 		) +
 		math.max(0, effectiveHistory.size() - 1) * CARD_GAP;
-	const padFocus = useGamepadAutofocus(true) as React.MutableRefObject<Instance | undefined>;
+	const padFocus = useGamepadAutofocus(true, reveal) as React.MutableRefObject<Instance | undefined>;
 
 	const overlayHostRef = React.useRef<Instance>();
 	React.useEffect(() => {
@@ -1446,6 +1447,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 						padFocus.current = node;
 						overlayHostRef.current = node;
 					},
+					...ModalSelectionScope,
 					Size: UDim2.fromOffset(width, height),
 					Position: reveal.map((amount) => new UDim2(0.5, 0, 0, centerY + revealOffset(amount))),
 					AnchorPoint: new Vector2(0.5, 0.5),
