@@ -7,7 +7,11 @@ import { Layout, Palette, TapTarget } from "../CoreKit/theme";
 import { revealOffset, subscribeContinuous, usePresence, useViewport } from "../MotionKit/motion";
 import { celebrationsAllowed, isReducedMotion } from "../MotionPreference";
 import { Approach, Reel, ReelItem } from "./crateReel";
-import { Badge, Button, IconTile, Panel, Text } from "./ui";
+import { Badge, Button, IconTile, Panel, ShimmerText, Text } from "./ui";
+import { RainbowGradient } from "./rainbowFx";
+import { PrismAura } from "./prismFx";
+import { CrateMoment, momentFor, ringAt } from "./crateMoments";
+import ElementFxModule = require("../ElementFx");
 import { itemIconKind } from "../ArtKit/Icon";
 import { EffectLabel } from "../CoreKit/inventoryMath";
 import Juice = require("../JuiceFx");
@@ -217,6 +221,9 @@ function DropCard(props: {
 	const def = defOf(props.config, roll.DefinitionId);
 	const iconSize = large ? 64 : 40;
 	const textX = iconSize + (large ? 16 : 12);
+	const moment = momentFor(rankOf(roll.Rarity));
+	const element = !salvaged && typeIs(def?.Element, "string") ? (def!.Element as string) : undefined;
+	const sprite = element !== undefined && ElementFxModule.sheet(element) !== undefined;
 	return (
 		<Panel
 			size={UDim2.fromOffset(props.size.X, props.size.Y)}
@@ -232,7 +239,35 @@ function DropCard(props: {
 			zIndex={510}
 		>
 			{/* icon on the left, then name / effect, badges along the top: the same reading order as a relic row */}
-			<IconTile
+			{/* frame: a brass inner rule inside the rarity rim; Legendary and up flow the rim with the shared rainbow */}
+			<frame
+				Size={new UDim2(1, pad * 2 - 6, 1, pad * 2 - 6)}
+				Position={UDim2.fromOffset(-pad + 3, -pad + 3)}
+				BackgroundTransparency={1}
+				ZIndex={510}
+			>
+				<uicorner CornerRadius={new UDim(0, math.max(Layout.buttonRadius - 3, 4))} />
+				<uistroke Color={Palette.brass} Thickness={1} Transparency={0.72} />
+			</frame>
+			{moment.rainbowRim && (
+				<frame Size={new UDim2(1, pad * 2, 1, pad * 2)} Position={UDim2.fromOffset(-pad, -pad)} BackgroundTransparency={1} ZIndex={512}>
+					<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
+					<uistroke Color={Color3.fromRGB(255, 255, 255)} Thickness={1.5} Transparency={fade}>
+						<RainbowGradient base={accent} state={{ rarity: roll.Rarity, selected: props.best }} />
+					</uistroke>
+				</frame>
+			)}
+			{moment.prism && <PrismAura rarity={roll.Rarity} zIndex={509} intensity={props.appear} corner={Layout.buttonRadius} />}
+			{sprite && (
+				<ElementFxModule.ElementFx
+					element={element!}
+					size={UDim2.fromOffset(iconSize + 16, iconSize + 16)}
+					position={UDim2.fromOffset(-8, (large ? 40 : 32) - 8)}
+					reducedMotion={props.reducedMotion}
+					zIndex={511}
+				/>
+			)}
+			{!sprite && <IconTile
 				still
 				kind={salvaged ? "Dust.9" : itemIconKind(roll.DefinitionId, def?.Slot)}
 				accent={accent}
@@ -241,7 +276,7 @@ function DropCard(props: {
 				reducedMotion={props.reducedMotion}
 				position={UDim2.fromOffset(0, large ? 40 : 32)}
 				zIndex={511}
-			/>
+			/>}
 			<Badge value={roll.Rarity} accent={accent} filled={true} size={UDim2.fromOffset(large ? 104 : 80, 20)} zIndex={511} />
 			{tag !== undefined && (
 				<Badge
@@ -252,7 +287,21 @@ function DropCard(props: {
 					zIndex={511}
 				/>
 			)}
-			<Text
+			{moment.shimmerName && !salvaged ? (
+				<ShimmerText
+					value={title}
+					size={large ? 22 : 14}
+					minSize={11}
+					color={Palette.cream}
+					weight={Enum.FontWeight.Bold}
+					fit={true}
+					enabled={true}
+					reducedMotion={props.reducedMotion}
+					position={UDim2.fromOffset(textX, large ? 38 : 30)}
+					sizeConstraint={new UDim2(1, -textX, 0, large ? 52 : 36)}
+					zIndex={511}
+				/>
+			) : <Text
 				value={title}
 				size={large ? 22 : 14}
 				minSize={11}
@@ -264,7 +313,7 @@ function DropCard(props: {
 				position={UDim2.fromOffset(textX, large ? 38 : 30)}
 				sizeConstraint={new UDim2(1, -textX, 0, large ? 52 : 36)}
 				zIndex={511}
-			/>
+			/>}
 			{!salvaged && (
 				<Text
 					value={EffectLabel(def, 1)}
@@ -343,6 +392,37 @@ function stripFor(config: CrateConfig, crateId: string | undefined, roll: Roll, 
 	return items;
 }
 
+// the landing beat: one ring in the best drop's colour opening from the marker, sized by rarity
+function MomentRing(props: { moment: CrateMoment; color: Color3; clock: React.Binding<number>; position: UDim2; active: boolean }) {
+	if (!props.active || props.moment.ring <= 0) {
+		return undefined;
+	}
+	const reach = props.moment.reach;
+	return (
+		<frame
+			AnchorPoint={new Vector2(0.5, 0.5)}
+			Position={props.position}
+			Size={props.clock.map((s) => {
+				const [k] = ringAt(props.moment, s);
+				const d = math.floor(24 + k * reach * 2);
+				return UDim2.fromOffset(d, d);
+			})}
+			BackgroundTransparency={1}
+			ZIndex={513}
+		>
+			<uicorner CornerRadius={new UDim(1, 0)} />
+			<uistroke
+				Color={props.color}
+				Thickness={2}
+				Transparency={props.clock.map((s) => {
+					const [, a] = ringAt(props.moment, s);
+					return a;
+				})}
+			/>
+		</frame>
+	);
+}
+
 function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	const config = props.config;
 	const session = props.session!;
@@ -360,6 +440,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	}, [rolls]);
 	const bestRank = rankOf(best.Rarity);
 	const bestColor = rarityColor(config, best.Rarity);
+	const bestMoment = momentFor(bestRank);
 	const count = rolls.size();
 	const narrow = viewport.width < 520;
 	const phone = narrow || (UserInputService.TouchEnabled && !UserInputService.MouseEnabled);
@@ -583,15 +664,22 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 							ZIndex={511}
 						>
 							{/* rails: two hairlines the strip runs between, like a die-cut track */}
-							<frame Position={UDim2.fromOffset(0, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.mango} BackgroundTransparency={0.75} BorderSizePixel={0} ZIndex={515} />
-							<frame AnchorPoint={new Vector2(0, 1)} Position={new UDim2(0, 0, 1, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.mango} BackgroundTransparency={0.75} BorderSizePixel={0} ZIndex={515} />
+							<frame Position={UDim2.fromOffset(0, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.brass} BackgroundTransparency={phase === "spin" ? 0.75 : 1 - bestMoment.flash * 0.6} BorderSizePixel={0} ZIndex={515} />
+							<frame AnchorPoint={new Vector2(0, 1)} Position={new UDim2(0, 0, 1, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.brass} BackgroundTransparency={phase === "spin" ? 0.75 : 1 - bestMoment.flash * 0.6} BorderSizePixel={0} ZIndex={515} />
 							{/* the marker: a brass pin above and below the centre slot */}
-							<frame AnchorPoint={new Vector2(0.5, 0)} Position={new UDim2(0.5, 0, 0, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={Palette.mango} BorderSizePixel={0} ZIndex={516} />
-							<frame AnchorPoint={new Vector2(0.5, 1)} Position={new UDim2(0.5, 0, 1, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={Palette.mango} BorderSizePixel={0} ZIndex={516} />
+							<frame AnchorPoint={new Vector2(0.5, 0)} Position={new UDim2(0.5, 0, 0, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={phase === "spin" ? Palette.brass : bestColor} BorderSizePixel={0} ZIndex={516} />
+							<frame AnchorPoint={new Vector2(0.5, 1)} Position={new UDim2(0.5, 0, 1, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={phase === "spin" ? Palette.brass : bestColor} BorderSizePixel={0} ZIndex={516} />
 						</frame>
 					))}
 				</Panel>
 			)}
+			<MomentRing
+				moment={bestMoment}
+				color={bestColor}
+				clock={t}
+				position={new UDim2(0.5, 0, 0.45, -panelH / 2 + headerH + rowH / 2)}
+				active={!still && phase === "land"}
+			/>
 			{cards}
 			<ActionButton
 				text={claim}
@@ -686,16 +774,31 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 	const gemIn = t.map((s) => (formed ? (still ? 1 : easeBack(s / 0.35)) : 0));
 	const cardW = math.min(360, useViewport().width - 32);
 	const textIn = t.map((s) => (formed ? math.clamp((s - (still ? 0 : 0.18)) / 0.25, 0, 1) : 0));
+	const moment = momentFor(rankOf(info.rarity));
+	const companion = info.element !== undefined && ElementFxModule.sheet(info.element) !== undefined;
 
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={500}>
 			<Backdrop amount={t.map((s) => (formed ? 1 : math.clamp(s / 0.25, 0, 1)))} onTap={advance} />
 			{shards}
+			{companion && (
+				<frame
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					Size={UDim2.fromOffset(200, 200)}
+					Position={new UDim2(0.5, 0, 0.4, -24)}
+					BackgroundTransparency={1}
+					ZIndex={507}
+				>
+					<uiscale Scale={gemIn.map((g) => math.max(0.01, g))} />
+					<ElementFxModule.ElementFx element={info.element!} size={UDim2.fromScale(1, 1)} reducedMotion={still} zIndex={507} />
+				</frame>
+			)}
 			{/* the artifact: a faceted diamond with an inner facet, no glow loop */}
 			<frame
 				AnchorPoint={new Vector2(0.5, 0.5)}
 				Size={UDim2.fromOffset(96, 96)}
 				Position={new UDim2(0.5, 0, 0.4, 0)}
+				Visible={!companion}
 				Rotation={45}
 				BackgroundColor3={Palette.panelRaised}
 				BackgroundTransparency={gemIn.map((g) => 1 - math.clamp(g, 0, 1))}
@@ -727,6 +830,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 				reducedMotion={still}
 				zIndex={508}
 			>
+				{moment.prism && <PrismAura rarity={info.rarity} zIndex={507} intensity={textIn} corner={Layout.buttonRadius} />}
 				<Badge
 					value={`${info.rarity ?? ""}${info.element !== undefined ? ` · ${info.element}` : ""}`}
 					accent={color}
@@ -734,14 +838,15 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 					size={UDim2.fromOffset(150, 22)}
 					zIndex={509}
 				/>
-				<Text
+				<ShimmerText
 					value={info.name}
 					size={24}
 					minSize={14}
 					color={Palette.cream}
 					weight={Enum.FontWeight.Bold}
 					fit={true}
-					transparency={textIn.map((a) => 1 - a)}
+					enabled={moment.shimmerName}
+					reducedMotion={still}
 					position={UDim2.fromOffset(0, 34)}
 					sizeConstraint={new UDim2(1, 0, 0, 30)}
 					zIndex={509}
