@@ -19,8 +19,10 @@ import {
 	OverlayPresence,
 	Panel,
 	Text,
+	TITLE_FACE,
 	useGamepadAutofocus,
 } from "./ui";
+import { Glyph, spaced } from "./mockKit";
 
 // breathing room between release cards (uirevamp spacing)
 const CARD_GAP = Space.md;
@@ -673,22 +675,6 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 	);
 
 	// the card
-	const segments: Record<string, unknown> = {};
-	for (let n = 1; n <= count; n++) {
-		segments["s" + n] = h(
-			"frame",
-			{
-				Size: new UDim2(1 / count, -3, 1, 0),
-				Position: new UDim2((n - 1) / count, 0, 0, 0),
-				BackgroundColor3:
-					n < step || (n === step && met && needsAction) ? Palette.mango : n === step ? WHITE_HOT : Palette.lineSoft,
-				BackgroundTransparency: n === step ? frame.map((f) => 0.15 + (math.sin(f.t * 4) + 1) * 0.2) : 0,
-				BorderSizePixel: 0,
-				ZIndex: 403,
-			},
-			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-		);
-	}
 	const textArrive = frame.map((f) => easeOut((f.stepAge ?? 1) / 0.32));
 	const arriving = (base: number) =>
 		React.joinBindings([textArrive, reveal]).map((values) =>
@@ -763,17 +749,26 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 						onBack();
 					}
 				},
-				color: Palette.panelSoft,
+				color: Color3.fromRGB(58, 46, 62),
 				textColor: Palette.cream,
-				outline: true,
 				size: new UDim2(0, 96, 1, 0),
 				zIndex: 403,
 			}),
+		// .btn.sm.sec Skip sits just left of Next, as in the mockup
+		h(Button, {
+			text: "Skip",
+			onClick: requestSkip,
+			color: Color3.fromRGB(58, 46, 62),
+			textColor: Palette.cream,
+			size: new UDim2(0, 72, 1, 0),
+			position: new UDim2(1, -((primary !== undefined ? math.min(120, innerW * 0.4) + 8 : 208) + 72), 0, 0),
+			zIndex: 403,
+		}),
 		primary !== undefined
 			? h(
 					"frame",
 					{
-						Size: new UDim2(0, math.min(170, innerW * 0.55), 1, 0),
+						Size: new UDim2(0, math.min(120, innerW * 0.4), 1, 0),
 						Position: UDim2.fromScale(1, 0),
 						AnchorPoint: new Vector2(1, 0),
 						BackgroundTransparency: 1,
@@ -814,13 +809,13 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 				const slide = (1 - math.clamp(values[1] as number, 0, 1)) * 18;
 				return UDim2.fromOffset(f.card.x, f.card.y + slide);
 			}),
-			BackgroundColor3: Palette.panelRaised,
+			BackgroundColor3: Palette.panel,
 			BorderSizePixel: 0,
 			Active: true,
 			ZIndex: 400,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 18) }),
-		h("uistroke", { Color: Palette.mango, Thickness: 1.5, Transparency: 0.45 }),
+		h("uicorner", { CornerRadius: new UDim(0, 16) }),
+		h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.65 }),
 		h("uipadding", {
 			PaddingTop: new UDim(0, 16),
 			PaddingBottom: new UDim(0, 16),
@@ -832,50 +827,37 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 			Padding: new UDim(0, 8),
 			SortOrder: Enum.SortOrder.LayoutOrder,
 		}),
+		// 26-dialogs tutorial card: .pn h3 with the book glyph, Cinzel caps title and "1 of 5" on the right
 		h(
 			"frame",
-			{ Size: new UDim2(1, 0, 0, 28), LayoutOrder: 1, BackgroundTransparency: 1, ZIndex: 402 },
+			{ Size: new UDim2(1, 0, 0, 22), LayoutOrder: 1, BackgroundTransparency: 1, ZIndex: 402 },
+			h(Glyph, { kind: "Journal", size: 18, color: Palette.mango, position: UDim2.fromOffset(0, 2) }),
 			h("textlabel", {
-				Size: new UDim2(0, 120, 1, 0),
+				Size: new UDim2(1, -96, 1, 0),
+				Position: UDim2.fromOffset(28, 0),
 				BackgroundTransparency: 1,
-				RichText: true,
-				Text: `${string.format("%02d", step)}<font color="#8c7a80" size="13"> / ${string.format("%02d", count)}</font>`,
-				TextColor3: Palette.mango,
-				TextSize: 24,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+				Text: spaced(copy.title.upper()),
+				TextColor3: Palette.cream,
+				TextTransparency: arriving(0),
+				TextSize: phone ? 13 : 15,
+				FontFace: TITLE_FACE,
 				TextXAlignment: Enum.TextXAlignment.Left,
+				TextTruncate: Enum.TextTruncate.AtEnd,
 				ZIndex: 403,
 			}),
-			// phones: a 44px (TapTarget) invisible catch area under the 28px button, so a slightly-off
-			// thumb still skips; the visible button sits above it and keeps its own press sound and look
-			phone &&
-				h("textbutton", {
-					Size: new UDim2(0, 124, 0, TapTarget),
-					Position: new UDim2(1, -116, 0.5, -TapTarget / 2),
-					BackgroundTransparency: 1,
-					Text: "",
-					AutoButtonColor: false,
-					Selectable: false,
-					ZIndex: 402,
-					Event: {
-						Activated: () => {
-							Audio.play("click");
-							requestSkip();
-						},
-					},
-				}),
-			h(Button, {
-				text: "Skip guide",
-				onClick: requestSkip,
-				color: Palette.panelSoft,
-				textColor: Palette.muted,
-				outline: true,
-				size: new UDim2(0, 108, 1, 0),
-				position: new UDim2(1, -108, 0, 0),
-				zIndex: 403,
+			h("textlabel", {
+				Size: new UDim2(0, 64, 1, 0),
+				Position: UDim2.fromScale(1, 0),
+				AnchorPoint: new Vector2(1, 0),
+				BackgroundTransparency: 1,
+				Text: `${step} of ${count}`,
+				TextColor3: Palette.muted,
+				TextSize: 12,
+				FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
+				TextXAlignment: Enum.TextXAlignment.Right,
+				ZIndex: 403,
 			}),
 		),
-		h("frame", { Size: new UDim2(1, 0, 0, 3), LayoutOrder: 2, BackgroundTransparency: 1, ZIndex: 402 }, segments),
 		h(
 			"frame",
 			{
@@ -885,23 +867,6 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 				BackgroundTransparency: 1,
 				ZIndex: 402,
 			},
-			h("uilistlayout", {
-				FillDirection: Enum.FillDirection.Vertical,
-				Padding: new UDim(0, 4),
-				SortOrder: Enum.SortOrder.LayoutOrder,
-			}),
-			h(Text, {
-				value: copy.title,
-				size: phone ? 17 : 19,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Heavy,
-				fit: true,
-				minSize: 12,
-				transparency: arriving(0),
-				sizeConstraint: new UDim2(1, 0, 0, 24),
-				layoutOrder: 1,
-				zIndex: 402,
-			}),
 			h(AutoHeightText, {
 				value: copy.line,
 				width: innerW,

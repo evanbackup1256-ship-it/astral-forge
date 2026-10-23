@@ -6,6 +6,7 @@
 // tips add stat rows (with signed deltas in mint/coral), and key hints for the current input.
 // A small arrow on the edge facing the target shows what the tip is about.
 import React from "@rbxts/react";
+import { TITLE_FACE } from "../ui";
 import ReactRoblox from "@rbxts/react-roblox";
 import { Palette } from "../../CoreKit/theme";
 import { revealOffset, usePresence } from "../../MotionKit/motion";
@@ -155,19 +156,22 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 			<Surface frameRef={bubbleRef} autoSize={true} padding={BUBBLE_PAD} appear={appear} accent={data.accent} position={UDim2.fromOffset(0, 0)} zIndex={2}>
 				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
 				{hasTitle && (
-					<SurfaceText text={data.title!} type="title" autoSize={true} wrap={true} maxWidth={maxW} transparency={fade} order={1} />
-				)}
-				{hasTitle && (
-					// a short hand-drawn rule under the title instead of another label
-					<frame
-						LayoutOrder={2}
-						Size={UDim2.fromOffset(18, 2)}
-						BackgroundColor3={data.accent ?? Palette.mango}
-						BackgroundTransparency={appear.map((a) => 1 - 0.85 * math.clamp(a, 0, 1))}
-						BorderSizePixel={0}
+					// 26-dialogs tooltip: Cinzel 16 title over one creamSoft line, no rule
+					<textlabel
+						LayoutOrder={1}
+						Size={UDim2.fromOffset(0, 0)}
+						AutomaticSize={Enum.AutomaticSize.XY}
+						BackgroundTransparency={1}
+						Text={data.title!}
+						TextSize={16}
+						FontFace={TITLE_FACE}
+						TextColor3={Palette.cream}
+						TextTransparency={fade}
+						TextWrapped={true}
+						TextXAlignment={Enum.TextXAlignment.Left}
 					>
-						<uicorner CornerRadius={new UDim(1, 0)} />
-					</frame>
+						<uisizeconstraint MaxSize={new Vector2(maxW, math.huge)} />
+					</textlabel>
 				)}
 				{hasText(data.body) && (
 					<SurfaceText
