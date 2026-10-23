@@ -44,7 +44,7 @@ const BODY_BOLD = new Font("rbxasset://fonts/families/BuilderSans.json", Enum.Fo
 
 /** A serif display line that never scales: one size, truncated with "…" if it would not fit. */
 /** Small spaced caps label (the mockups' eyebrow), 11px floor. */
-export function Eyebrow(p: { text: string; color?: Color3; position?: UDim2; width?: UDim; align?: Enum.TextXAlignment; zIndex?: number }) {
+export function Eyebrow(p: { text: string; color?: Color3; position?: UDim2; width?: UDim; align?: Enum.TextXAlignment; zIndex?: number; layoutOrder?: number }) {
 	return (
 		<textlabel
 			BackgroundTransparency={1}
@@ -57,6 +57,7 @@ export function Eyebrow(p: { text: string; color?: Color3; position?: UDim2; wid
 			TextTruncate={Enum.TextTruncate.AtEnd}
 			Position={p.position ?? UDim2.fromOffset(0, 0)}
 			Size={new UDim2(p.width ?? new UDim(1, 0), new UDim(0, 14))}
+			LayoutOrder={p.layoutOrder ?? 0}
 			ZIndex={p.zIndex ?? 3}
 		/>
 	);
@@ -106,30 +107,58 @@ export function PortPanel(p: {
 export const INFO_ROW_H = 40;
 
 /** Label / value row: small still icon tile, label left, value right in the accent. */
-export function InfoRow(p: { icon: string; label: string; value: string; accent?: Color3; position: UDim2; width?: UDim; reducedMotion?: boolean }) {
+export function InfoRow(p: { icon: string; label: string; value: string; accent?: Color3; position?: UDim2; width?: UDim; layoutOrder?: number; reducedMotion?: boolean }) {
 	const accent = p.accent ?? Palette.pink;
+	// one horizontal list: icon tile, label (fills), value; works both in a UIListLayout and free-placed
 	return (
 		<frame
 			BackgroundColor3={Palette.panelRaised}
 			BackgroundTransparency={0.15}
 			BorderSizePixel={0}
-			Position={p.position}
+			Position={p.position ?? UDim2.fromOffset(0, 0)}
 			Size={new UDim2(p.width ?? new UDim(1, 0), new UDim(0, INFO_ROW_H))}
+			LayoutOrder={p.layoutOrder ?? 0}
 			ZIndex={2}
 		>
 			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke Color={Palette.line} Transparency={0.4} Thickness={1} />
-			<GlyphWell kind={p.icon} accent={accent} size={26} radius={8} still={true} spin={false} position={UDim2.fromOffset(8, 7)} reducedMotion={p.reducedMotion} />
-			<Text value={p.label} size={13} color={Palette.creamSoft} weight={Enum.FontWeight.Bold} position={UDim2.fromOffset(44, 11)} sizeConstraint={new UDim2(0.5, -44, 0, 18)} zIndex={3} />
-			<Text
-				value={p.value}
-				size={13}
-				color={accent}
-				weight={Enum.FontWeight.Bold}
-				align={Enum.TextXAlignment.Right}
-				position={new UDim2(0.5, 0, 0, 11)}
-				sizeConstraint={new UDim2(0.5, -12, 0, 18)}
-				zIndex={3}
+			<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 12)} />
+			<uilistlayout
+				FillDirection={Enum.FillDirection.Horizontal}
+				VerticalAlignment={Enum.VerticalAlignment.Center}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+				Padding={new UDim(0, 10)}
+			/>
+			<frame key="Icon" BackgroundTransparency={1} Size={UDim2.fromOffset(26, 26)} LayoutOrder={0}>
+				<GlyphWell kind={p.icon} accent={accent} size={26} radius={8} still={true} spin={false} position={UDim2.fromOffset(0, 0)} reducedMotion={p.reducedMotion} />
+			</frame>
+			<textlabel
+				key="Label"
+				BackgroundTransparency={1}
+				Size={new UDim2(0, 0, 0, 18)}
+				Text={p.label}
+				TextSize={13}
+				FontFace={BODY_BOLD}
+				TextColor3={Palette.creamSoft}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				LayoutOrder={1}
+				ZIndex={3}
+			>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+			</textlabel>
+			<textlabel
+				key="Value"
+				BackgroundTransparency={1}
+				AutomaticSize={Enum.AutomaticSize.X}
+				Size={new UDim2(0, 0, 0, 18)}
+				Text={p.value}
+				TextSize={13}
+				FontFace={BODY_BOLD}
+				TextColor3={accent}
+				TextXAlignment={Enum.TextXAlignment.Right}
+				LayoutOrder={2}
+				ZIndex={3}
 			/>
 		</frame>
 	);
