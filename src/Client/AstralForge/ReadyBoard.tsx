@@ -51,8 +51,6 @@ interface PillProps {
 	height: number;
 	layoutOrder: number;
 	brief: boolean;
-	/** fixed width so the shown pills fill the strip edge to edge */
-	width?: number;
 	onOpen: (route: string) => void;
 	reducedMotion?: boolean;
 }
@@ -188,8 +186,8 @@ function Pill(props: PillProps): React.Element {
 	return h(
 		"textbutton",
 		{
-			Size: UDim2.fromOffset(props.width ?? 0, props.height),
-			AutomaticSize: props.width !== undefined ? Enum.AutomaticSize.None : Enum.AutomaticSize.X,
+			Size: UDim2.fromOffset(0, props.height),
+			AutomaticSize: Enum.AutomaticSize.X,
 			LayoutOrder: props.layoutOrder,
 			BackgroundColor3: hovered ? theme.darken(entry.accent, 0.45) : theme.darken(entry.accent, 0.62),
 			BorderSizePixel: 0,
@@ -236,14 +234,12 @@ function Pill(props: PillProps): React.Element {
 			AutomaticSize: Enum.AutomaticSize.X,
 			BackgroundTransparency: 1,
 			LayoutOrder: 1,
-			// labels only: the page name and count say enough ("Wheel 1"), captions were noise
-			Text: `<b>${entry.label}</b>`,
+			Text: props.brief ? `<b>${entry.label}</b>` : `<b>${entry.label}</b>  <font transparency="0.35">${entry.detail}</font>`,
 			RichText: true,
-			TextXAlignment: Enum.TextXAlignment.Left,
 			TextSize: 14,
 			FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
 			TextColor3: Palette.cream,
-		}, props.width !== undefined ? h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }) : undefined),
+		}),
 		h(
 			"frame",
 			{
@@ -280,7 +276,7 @@ function textWidth(text: string, font: Enum.Font): number {
 
 function pillWidth(entry: ReadyEntry, brief: boolean): number {
 	const label = textWidth(entry.label, Enum.Font.BuilderSansBold);
-	const detail = 0; // pills show the label only
+	const detail = brief ? 0 : textWidth("  " + entry.detail, Enum.Font.BuilderSansMedium);
 	const count = textWidth(tostring(entry.count), Enum.Font.BuilderSansExtraBold) + 24;
 	// matches Pill: 16 padding, 20 icon, 12 gap, label, 12 gap, count pill (12 + text + 12), 16 padding
 	return 16 + 20 + 12 + label + detail + 12 + count + 16;
@@ -346,14 +342,9 @@ function Strip(props: StripProps): React.Element {
 			Padding: new UDim(0, PILL_GAP),
 		}),
 	};
-	// when every pill fits, share the strip's whole width between them (no dead band before Find)
-	const count = shownList.size();
-	const natural = shownList.reduce((widest, entry) => math.max(widest, pillWidth(entry, true)), 0);
-	const share = count > 0 ? math.floor((room - PILL_GAP * (count - 1)) / count) : 0;
-	const fillWidth = hidden === 0 && room > 0 && share >= natural ? share : undefined;
-	for (let index = 0; index < count; index++) {
+	for (let index = 0; index < shownList.size(); index++) {
 		const entry = shownList[index];
-		children[entry.route] = h(Pill, { entry, layoutOrder: index, height: pillH, width: fillWidth, onOpen: props.onOpen, brief, reducedMotion: props.reducedMotion });
+		children[entry.route] = h(Pill, { entry, layoutOrder: index, height: pillH, onOpen: props.onOpen, brief, reducedMotion: props.reducedMotion });
 	}
 	if (hidden > 0) {
 		children.more = h("textbutton", {
@@ -377,7 +368,7 @@ function Strip(props: StripProps): React.Element {
 			AutomaticSize: Enum.AutomaticSize.X,
 			BackgroundTransparency: 1,
 			LayoutOrder: 1,
-			Text: "Nothing ready",
+			Text: "Nothing waiting right now. Keep forging.",
 			TextSize: 14,
 			FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
 			TextColor3: Palette.muted,
@@ -399,7 +390,7 @@ function Strip(props: StripProps): React.Element {
 		AnchorPoint: new Vector2(0, 0.5),
 		BackgroundTransparency: 1,
 		Visible: !props.compact,
-		Text: "Ready",
+		Text: list.size() > 0 ? `Ready · ${total(list)}` : "Ready",
 		TextSize: 12,
 		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
 		TextColor3: list.size() > 0 ? Palette.green : Palette.muted,

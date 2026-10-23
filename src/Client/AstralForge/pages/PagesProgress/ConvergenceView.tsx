@@ -65,8 +65,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 	const revealClaim = useStagger(2, softMotion);
 	const globalFill = math.clamp(event.GlobalContribution / math.max(1, event.GlobalTarget), 0, 1);
 	const tiers = event.Tiers ?? [];
-	// the flavor line is gone (it overlapped the phase badge by 8 px at 198); hero is sized to what's left
-	const heroHeight = 172;
+	const heroHeight = stack ? 226 : wide ? 236 : 198;
 	const tierHeight = stack ? 154 : 94;
 	const pageGap = wide ? 16 : 12;
 	const tiersH = tiers.size() > 0 ? tiers.size() * tierHeight + math.max(0, tiers.size() - 1) * pageGap : 0;
@@ -107,7 +106,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 			clips={false}
 		>
 			<Text
-				value="This week"
+				value="WEEKLY COOPERATIVE EVENT"
 				size={10}
 				color={Palette.mango}
 				weight={Enum.FontWeight.Heavy}
@@ -121,6 +120,14 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				minSize={18}
 				position={UDim2.fromOffset(0, 22)}
 				sizeConstraint={new UDim2(1, -8, 0, 42)}
+			/>
+			<Text
+				value="One forge, every server, all week. Clear a phase together and everyone's production goes up."
+				size={11}
+				color={Palette.creamSoft}
+				wrap={true} fit={true} minSize={9}
+				position={UDim2.fromOffset(0, 68)}
+				sizeConstraint={new UDim2(1, -8, 0, 38)}
 			/>
 			<Badge value={event.PhaseName} accent={Palette.mango} filled={true} position={new UDim2(0, 0, 1, -68)} size={UDim2.fromOffset(112, 28)} />
 			<Text
@@ -142,7 +149,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				reducedMotion={softMotion}
 			/>
 			<Text
-				value={`${compactNumber(event.GlobalContribution)} / ${compactNumber(event.GlobalTarget)}     ${string.format("%.2fx", event.ProductionMultiplier)} production`}
+				value={`${compactNumber(event.GlobalContribution)} / ${compactNumber(event.GlobalTarget)}  •  ${string.format("%.2fx", event.ProductionMultiplier)} PRODUCTION`}
 				size={10}
 				color={Palette.creamSoft}
 				fit={true}
@@ -169,7 +176,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				clips={false}
 			>
 				<Text
-					value={`Tier ${tier.Tier}     ${compactNumber(event.PersonalContribution)} / ${compactNumber(tier.Required)}`}
+					value={`TIER ${tier.Tier}  •  ${compactNumber(event.PersonalContribution)} / ${compactNumber(tier.Required)}`}
 					size={11}
 					color={tier.CanClaim ? Palette.mint : Palette.creamSoft}
 					weight={Enum.FontWeight.Heavy}

@@ -97,7 +97,7 @@ const GROUPS: GroupMeta[] = [
 	{ id: "Social", label: "Guilds", icon: "Guild.2" },
 ];
 
-const GUILD_META: BoardMeta = { id: "Guilds", short: "Guilds", label: "Guild Halls", icon: "Guild.3", accent: P.violet, group: "Social", description: "Guild activity." };
+const GUILD_META: BoardMeta = { id: "Guilds", short: "Guilds", label: "Guild Halls", icon: "Guild.3", accent: P.violet, group: "Social", description: "Guild activity earned by banking and building together." };
 const PODIUM_ORDER = [2, 1, 3];
 const PODIUM_LIFT: Record<number, number> = { [1]: 1, [2]: 0.74, [3]: 0.56 };
 const MEDAL: Record<number, Color3> = {
@@ -493,7 +493,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 						}
 						rows = eligible;
 					}
-					setResult({ rows, loading: false, status: `${rows.size()} entries` });
+					setResult({ rows, loading: false, status: `Updated · ${rows.size()} entries · ${guildBoard ? "Guild activity" : scope + " board"}` });
 				}
 				task.delay(12, () => finish(undefined));
 				const action = guildBoard ? "GetGuildLeaderboard" : scope === "Server" ? "GetPlayers" : "GetLeaderboard";

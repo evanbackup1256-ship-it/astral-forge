@@ -49,7 +49,7 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 			<Text value={title} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={11} sizeConstraint={new UDim2(1, -150, 0, 22)} />
 			<Text
-				value={`${companion.Rank}, ${pct(companion.Share)}`}
+				value={`${companion.Rank}  ·  ${pct(companion.Share)}`}
 				size={15}
 				color={Palette.violet}
 				align={Enum.TextXAlignment.Right}

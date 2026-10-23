@@ -6,7 +6,7 @@ import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import { taskFilterCounts, taskMatchesFilter } from "../../CoreKit/taskFilter";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
-import { useEntrance, useListStagger, usePulse, useViewport } from "../../MotionKit/motion";
+import { useEntrance, useFlash, useListStagger, usePulse, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import Juice = require("../../JuiceFx");
 
@@ -61,6 +61,18 @@ export function ProgressCloseGlow({ progress, ready, accent, reducedMotion, posi
 	);
 }
 
+function useReadyPop(ready: boolean, reducedMotion?: boolean) {
+	const wasReady = React.useRef(ready);
+	const [trigger, setTrigger] = React.useState(0);
+	React.useEffect(() => {
+		if (ready && !wasReady.current) {
+			setTrigger((current) => current + 1);
+		}
+		wasReady.current = ready;
+	}, [ready]);
+	return useFlash(trigger, reducedMotion, 0.6);
+}
+
 export const TASK_FILTERS = [
 	{ id: "All", label: "Everything", short: "All" },
 	{ id: "Ready", label: "Ready to claim", short: "Ready" },
@@ -110,6 +122,8 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 	const progressFrac = math.clamp(quest.Progress / math.max(1, quest.Target), 0, 1);
 	const meterSize = new UDim2(1, stack ? 0 : -182, 0, 8);
 	const meterPosition = UDim2.fromOffset(0, meterY);
+	const readyPop = useReadyPop(ready, softMotion);
+	const iconScale = readyPop.map((amount) => 1 + amount * 0.22);
 	const claimText = quest.Claimed ? "CLAIMED" : ready ? "CLAIM" : "NOT YET";
 	const claim = () => dispatch("ClaimQuest", { Id: quest.Id });
 	return (
@@ -124,6 +138,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 			reducedMotion={softMotion}
 		>
 			<frame Size={UDim2.fromOffset(42, 42)} Position={UDim2.fromOffset(0, stack ? 4 : 10)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uiscale Scale={iconScale} />
 				<IconTile
 					kind="Mission"
 					accent={quest.Claimed ? Palette.cyan : accent}
@@ -150,7 +165,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 				color={Palette.muted}
 				wrap={true}
 				fit={true}
-				minSize={11}
+				minSize={10}
 				position={UDim2.fromOffset(56, stack ? 32 : 26)}
 				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 36 : 28)}
 			/>
@@ -169,7 +184,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 						color={Palette.cyan}
 						weight={Enum.FontWeight.Heavy}
 						fit={true}
-						minSize={11}
+						minSize={9}
 						position={UDim2.fromOffset(6, 2)}
 						sizeConstraint={new UDim2(1, -12, 1, -4)}
 					/>
@@ -187,7 +202,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 				color={Palette.muted}
 				weight={Enum.FontWeight.Bold}
 				fit={true}
-				minSize={11}
+				minSize={8}
 				position={UDim2.fromOffset(0, progressY)}
 				sizeConstraint={stack ? new UDim2(1, 0, 0, 16) : new UDim2(1, -182, 0, 16)}
 			/>
@@ -485,7 +500,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				color={closest !== undefined ? Palette.creamSoft : Palette.muted}
 				wrap={true}
 				fit={true}
-				minSize={11}
+				minSize={9}
 				position={UDim2.fromOffset(0, 0)}
 				sizeConstraint={new UDim2(1, 0, 0, 34)}
 			/>
@@ -547,7 +562,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					size={13}
 					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
-					wrap={true} fit={true} minSize={11}
+					wrap={true} fit={true} minSize={10}
 					sizeConstraint={new UDim2(1, -8, 0, 34)}
 				/>
 			) : (
@@ -567,7 +582,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						size={12}
 						color={closest !== undefined ? Palette.creamSoft : Palette.muted}
 						fit={true}
-						minSize={11}
+						minSize={9}
 						position={UDim2.fromOffset(0, 48)}
 						sizeConstraint={new UDim2(1, -headerSide, 0, 16)}
 					/>

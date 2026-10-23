@@ -4,7 +4,7 @@ import * as Format from "../../CoreKit/format";
 import { chromeFor, Palette, Radius, scrollTail, StrokeWidth } from "../../CoreKit/theme";
 import { useViewport } from "../../MotionKit/motion";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
-import { columnsBalanced, SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { useFocusOrder } from "../../CoreKit/focusOrder";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
@@ -224,7 +224,7 @@ function MerchantPortrait(props: {
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
 				<Ui.Text
 					value={tag}
-					size={11}
+					size={9}
 					weight={Enum.FontWeight.Heavy}
 					color={accent}
 					align={Enum.TextXAlignment.Center}
@@ -832,16 +832,16 @@ function BazaarView(props: BazaarProps) {
 		} else if (procure && procure.Name !== undefined) {
 			status =
 				procure.State === "Pending"
-					? `${procure.Name} requested: next shipment, held 24 hours.`
+					? `${procure.Name} is requested. It arrives with the next shipment and is held for 24 hours.`
 					: procure.State === "Listed"
-						? `${procure.Name} is on your shelf at 20% off until bought or lapsed.`
+						? `${procure.Name} is on your shelf now at 20% off. It stays until bought or the request lapses.`
 						: procure.State === "Filled"
 							? `Your request for ${procure.Name} was filled. Place a new request any time.`
-							: `${procure.Name} lapsed. Request again for a new 24-hour hold.`;
+							: `Your request for ${procure.Name} lapsed. Place it again to restart the 24-hour hold.`;
 		} else {
 			status = canProcure
-				? "No open request. Pick a supply below: next shipment, held 24 hours."
-				: `Requests open at ${(reputation && reputation.ProcureTier) ?? "Regular"} standing. Every unit bought counts.`;
+				? "No open request. Choose one supply below; it is added to your next shipment and held for 24 hours."
+				: `Requests open at ${(reputation && reputation.ProcureTier) ?? "Regular"} standing. Every unit you buy counts toward it.`;
 		}
 		add(
 			"request-status",
@@ -908,7 +908,7 @@ function BazaarView(props: BazaarProps) {
 				<Ui.EmptyState
 					icon="Search"
 					title="Nothing here"
-					body="No matches."
+					body="No supplies match that search. Try another word or clear the filter."
 					accent={Palette.violet}
 					compact={true}
 					size={UDim2.fromScale(1, 1)}
@@ -1126,6 +1126,8 @@ function BazaarView(props: BazaarProps) {
 		);
 	}
 	const inspectEnd = sections.size();
+	const splitInspect = plan.split && selected !== undefined && inspectEnd > inspectStart;
+	const shelfWidth = splitInspect ? plan.main : width;
 	const offers: Offer[] = [];
 	for (const offer of market ? market.Offers : []) {
 		const text = (offer.Name + " " + Format.formatReward(offer.Reward)).lower();
@@ -1147,29 +1149,9 @@ function BazaarView(props: BazaarProps) {
 		}
 		return a.Name < b.Name;
 	});
+	const cardColumns = math.max(1, math.min(3, math.floor((shelfWidth + 12) / 300)));
 	const cardHeight = 346;
 	const gap = 12;
-	const shelfColumns = (shelfW: number) => math.max(1, math.min(3, math.floor((shelfW + 12) / 300)));
-	// the shelf's height only depends on the offer count and the column count, so it can be worked out
-	// exactly at the split width before deciding; split only when it roughly matches the inspection column
-	const shelfHeightAt = (shelfW: number) => {
-		if (offers.size() === 0) {
-			return market ? 100 : 0;
-		}
-		const rows = math.ceil(offers.size() / shelfColumns(shelfW));
-		return rows * cardHeight + (rows - 1) * gap;
-	};
-	const inspectH = stackHeight(
-		sections.filter((_, index) => index >= inspectStart && index < inspectEnd).map((section) => section.height),
-		12,
-	);
-	const splitInspect =
-		plan.split &&
-		selected !== undefined &&
-		inspectEnd > inspectStart &&
-		columnsBalanced(inspectH, shelfHeightAt(plan.main));
-	const shelfWidth = splitInspect ? plan.main : width;
-	const cardColumns = shelfColumns(shelfWidth);
 	for (let first = 0; first < offers.size(); first += cardColumns) {
 		const cards: Record<string, React.Element> = {};
 		for (let offset = 0; offset <= cardColumns - 1; offset++) {

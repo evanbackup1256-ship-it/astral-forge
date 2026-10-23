@@ -1,10 +1,10 @@
 import React from "@rbxts/react";
+import { isGamepadInput, lastInputIsGamepad } from "./CoreKit/inputLayer";
 import { Dict, OmegaMathApi, OmegaValue, named } from "./lua";
 import createModel = require("./PlanningModel");
 import * as theme from "./CoreKit/theme";
 import { compactNumber as compact } from "./CoreKit/format";
 import * as GamepadNavigationService from "./CoreKit/GamepadNavigationService";
-import { isGamepadInput, lastInputIsGamepad } from "./CoreKit/inputLayer";
 import { useViewport, MotionSettingsContext } from "./MotionKit/motion";
 
 const P = theme.Palette;
@@ -538,13 +538,16 @@ function ShiftPlan(props: PlanProps) {
 	const used = equipped.size();
 	const channelChildren: React.Element[] = [];
 	channelChildren.push(
-		copy(`Loadout ${used} / ${(anomaly.LoadoutSlots as number | undefined) ?? 1}`, 0, 26, 13, P.cyan, true),
+		copy(`CHANNEL LOADOUT · ${used} / ${(anomaly.LoadoutSlots as number | undefined) ?? 1} slots`, 0, 26, 13, P.cyan, true),
+	);
+	channelChildren.push(
+		copy("Mix boosts for your current goal. Unequip one to make room; at least one stays active.", 34, 58, 14),
 	);
 	for (const [index, channel] of ipairs(channels)) {
-		const y = 40 + (index - 1) * 124;
+		const y = 102 + (index - 1) * 124;
 		channelChildren.push(
 			button(
-				`${equipped.has(channel.id) ? "UNEQUIP " : "EQUIP "}${channel.definition.Name}`,
+				`${equipped.has(channel.id) ? "UNEQUIP · " : "EQUIP · "}${channel.definition.Name}`,
 				y,
 				() => {
 					const [loadout, problem] = Model.toggleLoadout(anomaly as AnomalyState, channel.id);
@@ -561,7 +564,7 @@ function ShiftPlan(props: PlanProps) {
 		channelChildren.push(copy(channel.definition.Description, y + 56, 46, 13, P.muted));
 	}
 	if (pane === "Loadout") {
-		sections.push(section("shift-loadout", 72 + channels.size() * 124, panel(P.cyan, channelChildren)));
+		sections.push(section("shift-loadout", 134 + channels.size() * 124, panel(P.cyan, channelChildren)));
 	}
 	for (const [_, job] of ipairs(plan.jobs)) {
 		if (pane !== "Directives") break;
@@ -569,15 +572,16 @@ function ShiftPlan(props: PlanProps) {
 		sections.push(
 			section(
 				`directive-${job.Id}`,
-				238,
+				254,
 				panel((job.Color as Color3 | undefined) ?? P.mango, [
-										copy(job.Name as string, 0, 42, 19, P.cream, true),
-					copy((job.Description as string | undefined) ?? (job.Kind as string | undefined) ?? "", 48, 56, 14),
-					meter(progress, 110, (job.Color as Color3 | undefined) ?? P.mango),
-					copy(`${compact(job.Progress)} / ${compact(job.Target)}`, 126, 22, 12),
+					copy("Daily task", 0, 20, 11, P.mango, true),
+					copy(job.Name as string, 26, 42, 19, P.cream, true),
+					copy((job.Description as string | undefined) ?? (job.Kind as string | undefined) ?? "", 74, 56, 14),
+					meter(progress, 136, (job.Color as Color3 | undefined) ?? P.mango),
+					copy(`${compact(job.Progress)} / ${compact(job.Target)} · ${math.floor(progress * 100)}%`, 152, 22, 12),
 					button(
 						progress >= 1 ? "CLAIM TASK" : "NOT YET",
-						158,
+						184,
 						() => run("ClaimAnomalyDirective", { Id: job.Id }),
 						busy || progress < 1,
 						(job.Color as Color3 | undefined) ?? P.mango,
@@ -593,7 +597,7 @@ function ShiftPlan(props: PlanProps) {
 		sections.push(
 			section(
 				`milestone-${milestone.Tier}`,
-				184,
+				172,
 				panel(P.mint, [
 					copy(`Tier ${milestone.Tier} · ${DescribeGenerated.milestoneName(milestone.Tier)}`, 0, 26, 13, P.mint, true),
 					copy(`${(anomaly.Stabilizations as number | undefined) ?? 0} / ${milestone.Required} stabilizations`, 34, 36, 14),
@@ -615,13 +619,13 @@ function ShiftPlan(props: PlanProps) {
 		sections.push(
 			section(
 				`protocol-${definition.Id}`,
-				230,
+				218,
 				panel(definition.Color, [
 					copy(`${definition.Name} · Lv ${compact(protocol.level)}`, 0, 42, 18, P.cream, true),
 					copy(definition.Description, 50, 54, 14),
 					copy(
 						protocol.capped
-							? "Max level"
+							? "Maximum level reached."
 							: `Next level: ${compact(protocol.cost)} fragments`,
 						110,
 						32,
@@ -643,10 +647,10 @@ function ShiftPlan(props: PlanProps) {
 		sections.push(
 			section(
 				"directives-complete",
-				88,
+				110,
 				panel(P.mint, [
-					copy("All tasks done", 0, 26, 20, P.cream, true),
-					copy("New tasks tomorrow", 30, 24, 14),
+					copy("All of today's tasks are done", 0, 34, 20, P.cream, true),
+					copy("New tasks arrive tomorrow. Keep charging the reactor until then.", 42, 42, 14),
 				]),
 			),
 		);

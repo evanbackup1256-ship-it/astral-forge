@@ -187,7 +187,7 @@ function SectionTitle(props: { value: string; accent: Color3; position?: UDim2; 
 	return (
 		<Text
 			value={props.value}
-			size={11}
+			size={10}
 			color={props.accent}
 			weight={Enum.FontWeight.Heavy}
 			fit={false}
@@ -205,7 +205,7 @@ function StatCell(props: { label: string; value: string; accent: Color3 }) {
 			<uistroke Color={props.accent} Thickness={1} Transparency={0.82} />
 			<Text
 				value={props.label}
-				size={11}
+				size={9}
 				color={Palette.muted}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
@@ -277,16 +277,16 @@ function PlayerRow({ player, selected, you, onClick, layoutOrder, reducedMotion 
 				color={you ? Palette.mint : Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={11}
+				minSize={9}
 				position={UDim2.fromOffset(58, 9)}
 				sizeConstraint={new UDim2(1, -70, 0, 17)}
 			/>
 			<Text
 				value={`@${player.Name}  ·  ${compactNumber(player.Cash ?? 0)}`}
-				size={11}
+				size={10}
 				color={Palette.cyan}
 				fit={true}
-				minSize={11}
+				minSize={8}
 				position={UDim2.fromOffset(58, 28)}
 				sizeConstraint={new UDim2(1, -70, 0, 14)}
 			/>
@@ -337,7 +337,7 @@ function CommandRow(props: { entry: AdminCommand; selected: boolean; onClick: ()
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={11}
+				minSize={9}
 				position={UDim2.fromOffset(15, math.floor((COMMAND_ROW - 22) / 2))}
 				sizeConstraint={new UDim2(1, -40, 0, 16)}
 			/>
@@ -363,19 +363,19 @@ function AuditLine(props: { record: AuditRecord }) {
 		<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true}>
 			<Text
 				value={record.Command}
-				size={11}
+				size={10}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={11}
+				minSize={8}
 				sizeConstraint={new UDim2(0.42, -4, 1, 0)}
 			/>
 			<Text
 				value={`${record.ActorName} to ${record.TargetName}`}
-				size={11}
+				size={9}
 				color={Palette.cyan}
 				fit={true}
-				minSize={11}
+				minSize={8}
 				position={new UDim2(0.42, 4, 0, 0)}
 				sizeConstraint={new UDim2(0.58, -4, 1, 0)}
 			/>
@@ -399,19 +399,19 @@ function OpsLine(props: { left: string; right: string; accent?: Color3; rightCol
 		<frame Size={new UDim2(1, 0, 0, OPS_LINE)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder}>
 			<Text
 				value={props.left}
-				size={11}
+				size={10}
 				color={props.accent ?? Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={11}
+				minSize={8}
 				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
 			/>
 			<Text
 				value={props.right}
-				size={11}
+				size={9}
 				color={props.rightColor ?? Palette.cyan}
 				fit={true}
-				minSize={11}
+				minSize={8}
 				position={new UDim2(0.5, 4, 0, 0)}
 				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
 			/>
@@ -441,18 +441,6 @@ function OpsPanel(props: {
 					outline={true}
 					size={UDim2.fromOffset(56, 18)}
 					position={new UDim2(1, -56, 0, -2)}
-				/>
-			)}
-			{props.onBack !== undefined && (
-				<textbutton
-					Size={UDim2.fromOffset(64, 44)}
-					Position={new UDim2(1, -60, 0, -15)}
-					BackgroundTransparency={1}
-					Text=""
-					Selectable={false}
-					AutoButtonColor={false}
-					ZIndex={8}
-					Event={{ Activated: props.onBack }}
 				/>
 			)}
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
@@ -658,7 +646,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		optionMissing ||
 		(fields.overridesTarget ? fields.amountChoices.size() === 0 : targetId === 0) ||
 		(needsArm && reason.size() < 3);
-	const runLabel = busy ? "APPLYING" : needsArm && !armed ? "ARM" : "RUN";
+	const runLabel = busy ? "APPLYING…" : needsArm && !armed ? "ARM" : "RUN";
 	const runColor = busy ? Palette.panelSoft : needsArm && armed ? Palette.coral : needsArm ? Palette.mango : Palette.mint;
 
 	const FIELD_H = 50;
@@ -719,18 +707,6 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					</frame>
 				)}
 			</frame>
-			{/* invisible 44px hit area: the 32px button keeps its look; this extends 12px upward into the
-			    panel padding (y -9..35), away from the badge row below. Not selectable, so gamepad still
-			    lands on the visible button. Sits under the button so the button keeps its own clicks. */}
-			<textbutton
-				Size={UDim2.fromOffset(refreshW, 44)}
-				Position={new UDim2(1, -refreshW, 0, -9)}
-				BackgroundTransparency={1}
-				Text=""
-				AutoButtonColor={false}
-				Selectable={false}
-				Event={{ Activated: () => dispatch("GetAdminState") }}
-			/>
 			<Button
 				text="REFRESH"
 				onClick={() => {
@@ -751,7 +727,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const playerList =
 		shownPlayers.size() === 0 ? (
 			<frame Size={listSize} Position={listPos} BackgroundTransparency={1}>
-				<EmptyState icon="Search" title="No players match" body="" compact={true} />
+				<EmptyState icon="Search" title="No players match" body="Check the spelling or clear the search." compact={true} />
 			</frame>
 		) : (
 			<FlatList
@@ -783,7 +759,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				value={playerQuery}
 				onChange={setPlayerQuery}
 				accent={Palette.cyan}
-				placeholder="Search players"
+				placeholder="Search players…"
 				size={new UDim2(1, 0, 0, 36)}
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
@@ -792,31 +768,18 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		</Panel>
 	);
 
-	// each 62x28 pill sits in a 68x44 slot: the slot is an invisible hit area (3px each side = half
-	// the old 6px gap, 6px above, 10px below) so slots tile without overlapping, stay clear of the
-	// search field (ends y=56) and the list (starts y=100), and the pill draws exactly where it did.
-	const pills = ADMIN_CATS.map((cat, index) => (
-		<frame key={cat.id} Size={UDim2.fromOffset(68, 44)} BackgroundTransparency={1} LayoutOrder={index}>
-			<textbutton
-				Size={UDim2.fromScale(1, 1)}
-				BackgroundTransparency={1}
-				Text=""
-				AutoButtonColor={false}
-				Selectable={false}
-				Event={{ Activated: () => setCategory(cat.id) }}
-			/>
-			<Button
-				text={cat.label}
-				onClick={() => setCategory(cat.id)}
-				color={category === cat.id ? Palette.violet : Palette.panelSoft}
-				textColor={category === cat.id ? Palette.ink : Palette.creamSoft}
-				outline={category !== cat.id}
-				highlight={category === cat.id}
-				size={UDim2.fromOffset(62, 28)}
-				position={UDim2.fromOffset(3, 6)}
-				reducedMotion={softMotion}
-			/>
-		</frame>
+	const pills = ADMIN_CATS.map((cat) => (
+		<Button
+			key={cat.id}
+			text={cat.label}
+			onClick={() => setCategory(cat.id)}
+			color={category === cat.id ? Palette.violet : Palette.panelSoft}
+			textColor={category === cat.id ? Palette.ink : Palette.creamSoft}
+			outline={category !== cat.id}
+			highlight={category === cat.id}
+			size={UDim2.fromOffset(62, 28)}
+			reducedMotion={softMotion}
+		/>
 	));
 	const commandSection = (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
@@ -825,19 +788,18 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				value={commandQuery}
 				onChange={setCommandQuery}
 				accent={Palette.violet}
-				placeholder="Search commands"
+				placeholder="Search commands…"
 				size={new UDim2(1, 0, 0, 36)}
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
 			/>
-			{/* row spans y 56..100 and x -3..W+3 so the 68x44 slots line pills up at x = i*68, y = 62 as before */}
-			<frame Size={new UDim2(1, 6, 0, 44)} Position={UDim2.fromOffset(-3, 56)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame Size={new UDim2(1, 0, 0, 30)} Position={UDim2.fromOffset(0, 62)} BackgroundTransparency={1} ClipsDescendants={true}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				{pills}
 			</frame>
 			<frame Size={new UDim2(1, 0, 1, -100)} Position={UDim2.fromOffset(0, 100)} BackgroundTransparency={1}>
 				{shownCommands.size() === 0 ? (
-					<EmptyState icon="Command" title="No commands" body="" compact={true} />
+					<EmptyState icon="Command" title="No commands" body="Nothing matches that filter." compact={true} />
 				) : (
 					<FlatList
 						data={shownCommands}
@@ -866,7 +828,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={11}
+				minSize={9}
 				position={UDim2.fromOffset(0, 15)}
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
@@ -936,7 +898,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={11}
+				minSize={10}
 				position={UDim2.fromOffset(0, 15)}
 				sizeConstraint={new UDim2(1, 0, 0, 20)}
 			/>
@@ -1064,10 +1026,10 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 							: "Preview, then run.") +
 					(previewLines.size() > 0 ? "\n• " + shownPreview.join("\n• ") : "")
 				}
-				size={11}
+				size={9}
 				color={optionMissing ? Palette.coral : lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}
 				wrap={true}
-				fit={true} minSize={11}
+				fit={true} minSize={9}
 				position={new UDim2(0, 0, 1, -EXEC_NOTE + 4)}
 				sizeConstraint={new UDim2(1, 0, 0, EXEC_NOTE - 4)}
 			/>
@@ -1084,7 +1046,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
 				{recent.size() === 0 ? (
-					<EmptyState icon="Command" title="No commands run yet" body="" compact={true} />
+					<EmptyState icon="Command" title="No commands run yet" body="Anything you run shows up here." compact={true} />
 				) : (
 					auditRows
 				)}

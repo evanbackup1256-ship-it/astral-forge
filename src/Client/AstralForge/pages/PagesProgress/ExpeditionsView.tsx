@@ -86,7 +86,6 @@ const CHIP_H = TapTarget;
 // the compact EmptyState shown when no relic is free for a crew
 const EMPTY_CREW_H = 112;
 const STAT_H = 52;
-// the crew grid shows at most this many chips before it scrolls; every eligible relic stays pickable
 const MAX_SHOWN = 8;
 
 const ROLE_COLOR: Record<Role, Color3> = { Haul: Palette.mango, Guard: Palette.mint, Scout: Palette.cyan };
@@ -162,13 +161,9 @@ function statsHeight(stack: boolean): number {
 	return stack ? STAT_H * 2 + 6 : STAT_H;
 }
 
-function visibleCrewRows(columns: number): number {
-	return math.ceil(MAX_SHOWN / columns);
-}
-
 function openSlotHeight(candidates: number, stack: boolean, wide = false): number {
 	const columns = crewColumns(stack, wide);
-	const rows = math.min(math.max(1, math.ceil(candidates / columns)), visibleCrewRows(columns));
+	const rows = math.max(1, math.ceil(math.min(MAX_SHOWN, candidates) / columns));
 	const top = stack ? TapTarget * 2 + GAP : TapTarget;
 	const crew = candidates === 0 ? EMPTY_CREW_H : rows * (CHIP_H + 6);
 	return PAD * 2 + top + GAP + TapTarget + GAP * 2 + crew + GAP + statsHeight(stack) + 20 + GAP + TapTarget;
@@ -184,7 +179,7 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	const [busy, setBusy] = React.useState(false);
 	const route = open.find((r) => r.Id === routeId) ?? open[open.size() - 1];
 	const crewMax = board?.CrewMax ?? Board.CREW_MAX;
-	const shown = p.candidates;
+	const shown = p.candidates.filter((_, i) => i < MAX_SHOWN);
 	const picked = shown.filter((c) => crew.includes(c.Uid));
 	const odds = route !== undefined ? Board.forecast(route.Id, stance, picked.map(member), board?.Companion, board?.Streak ?? 0) : undefined;
 	const columns = crewColumns(p.stack, p.wide === true);
@@ -219,16 +214,14 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	const stanceRow = y + GAP;
 	y = stanceRow + TapTarget + GAP * 2;
 	const crewRow = y;
-	const allRows = math.max(1, math.ceil(shown.size() / columns));
-	const rows = math.min(allRows, visibleCrewRows(columns));
-	const scrolls = allRows > rows;
+	const rows = math.max(1, math.ceil(shown.size() / columns));
 	y += (shown.size() === 0 ? EMPTY_CREW_H : rows * (CHIP_H + 6)) + GAP;
 	const statRow = y;
 	y += statsHeight(p.stack);
 	const synergyRow = y;
 	y += 20 + GAP;
 	const launchRow = y;
-	const synergyText = odds.Synergies.map((s) => SYNERGY_TEXT[s] ?? s).join(", ");
+	const synergyText = odds.Synergies.map((s) => SYNERGY_TEXT[s] ?? s).join("  ·  ");
 	return (
 		<Panel size={UDim2.fromScale(1, 1)} accent={STANCE_COLOR[stance]} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} clips={false}>
 			<frame Size={new UDim2(1, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
@@ -277,22 +270,6 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 					position={UDim2.fromOffset(0, stanceRow)}
 					reducedMotion={p.props.reducedMotion}
 				/>
-				<scrollingframe
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					Position={UDim2.fromOffset(-2, crewRow - 2)}
-					Size={new UDim2(1, 4, 0, rows * (CHIP_H + 6) - 6 + 4)}
-					CanvasSize={UDim2.fromOffset(0, allRows * (CHIP_H + 6) - 6 + 4)}
-					ScrollingDirection={Enum.ScrollingDirection.Y}
-					ScrollingEnabled={scrolls}
-					ScrollBarThickness={scrolls ? 6 : 0}
-					ScrollBarImageColor3={Palette.lineSoft}
-					VerticalScrollBarInset={scrolls ? Enum.ScrollBarInset.ScrollBar : Enum.ScrollBarInset.None}
-					ElasticBehavior={Enum.ElasticBehavior.Never}
-					Visible={shown.size() > 0}
-				>
-					{/* 2 px so chip outlines and highlights are not clipped at the grid edge */}
-					<uipadding PaddingLeft={new UDim(0, 2)} PaddingRight={new UDim(0, 2)} PaddingTop={new UDim(0, 2)} PaddingBottom={new UDim(0, 2)} />
 				{shown.map((c, i) => {
 					const on = crew.includes(c.Uid);
 					const tint = ROLE_COLOR[Board.roleOf(c.Def.EffectKind)];
@@ -305,13 +282,12 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 							textColor={on ? Palette.ink : Palette.cream}
 							outline={!on}
 							highlight={on}
-							size={new UDim2(1 / columns, -(6 * (columns - 1)) / columns, 0, CHIP_H)}
-							position={new UDim2((i % columns) / columns, ((i % columns) * 6) / columns, 0, math.floor(i / columns) * (CHIP_H + 6))}
+							size={new UDim2(1 / columns, -6, 0, CHIP_H)}
+							position={new UDim2((i % columns) / columns, 0, 0, crewRow + math.floor(i / columns) * (CHIP_H + 6))}
 							reducedMotion={p.props.reducedMotion}
 						/>
 					);
 				})}
-				</scrollingframe>
 				{shown.size() === 0 && (
 					<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(0, crewRow)} Size={new UDim2(1, 0, 0, EMPTY_CREW_H)}>
 						<EmptyState
@@ -395,7 +371,7 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 			/>
 			<Meter value={1 - left / total} color={accent} position={UDim2.fromOffset(0, 46)} size={new UDim2(1, 0, 0, 10)} reducedMotion={p.props.reducedMotion} shimmer={done} />
 			<Text
-				value={names.size() > 0 ? names.join(", ") : "Solo run"}
+				value={names.size() > 0 ? names.join("  ·  ") : "Solo run"}
 				size={13}
 				color={Palette.creamSoft}
 				fit={true}
@@ -403,7 +379,7 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 				position={UDim2.fromOffset(0, 70)}
 				sizeConstraint={new UDim2(1, 0, 0, 18)}
 			/>
-			<Text value={odds.join("   ")} size={13} color={Palette.muted} position={UDim2.fromOffset(0, 94)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
+			<Text value={odds.join("  ·  ")} size={13} color={Palette.muted} position={UDim2.fromOffset(0, 94)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
 			<frame
 				{...named(done ? "ExpeditionClaim" : "ExpeditionRecall")}
 				ref={p.claimRef}
@@ -515,7 +491,7 @@ function ExpeditionsView(props: Props) {
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 				<Text value={`${out} / ${slots.size()} out`} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(0.5, 0, 0, 24)} />
 				<Text
-					value={streak > 0 ? `streak ${streak}  ${string.format("+%d%%", math.min(streak, Board.STREAK_CAP) * Board.STREAK_STEP * 100)}` : ""}
+					value={streak > 0 ? `streak ${streak}  ·  ${string.format("+%d%%", math.min(streak, Board.STREAK_CAP) * Board.STREAK_STEP * 100)}` : ""}
 					size={14}
 					color={Palette.mango}
 					align={Enum.TextXAlignment.Right}
@@ -536,13 +512,11 @@ function ExpeditionsView(props: Props) {
 	const openBlocks: { id: string; height: number; element: React.Element }[] = [];
 	const runBlocks: { id: string; height: number; element: React.Element }[] = [];
 	const splitWide = wide && slots.some((slot) => slot.Id === "") && running;
-	const level = props.state.Command?.Level ?? 1;
-	const anyRoute = routes.some((route) => route.RequiredLevel <= level && !busyRoutes.has(route.Id));
 	for (const slot of slots) {
 		if (slot.Id === "") {
 			openBlocks.push({
 				id: `slot${slot.Slot}`,
-				height: anyRoute ? openSlotHeight(candidates.size(), stack, splitWide) : PAD * 2 + 20,
+				height: openSlotHeight(candidates.size(), stack, splitWide),
 				element: <OpenSlot props={props} slot={slot} routes={routes} busyRoutes={busyRoutes} candidates={candidates} stack={stack} wide={splitWide} launchRef={slot === firstOpen ? launchHostRef : undefined} />,
 			});
 		} else {

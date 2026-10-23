@@ -4,7 +4,7 @@ import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
 import * as LimitedEvents from "../../../../Shared/AstralForge/Shared/LimitedEvents";
 
-const { Button, EmptyState, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const Workspace = game.GetService("Workspace");
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
@@ -41,10 +41,14 @@ function leftText(seconds: number): string {
 	return hours > 0 ? `${hours}h ${minutes}m` : `${math.max(1, minutes)}m`;
 }
 
+function dateText(at: number): string {
+	return os.date("!%b %d", at).gsub(" 0", " ")[0];
+}
+
 export function eventPanelHeight(state: EventState | undefined, stack: boolean): number {
 	const event = LimitedEvents.byId(state?.Id);
 	if (event === undefined) {
-		return state !== undefined ? SOON_H : 0;
+		return LimitedEvents.byId(state?.NextId) !== undefined ? SOON_H : 0;
 	}
 	const rowH = stack ? ROW_H_STACK : ROW_H;
 	const rows = event.Shop.size();
@@ -81,20 +85,13 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 	if (event === undefined) {
 		const upcoming = LimitedEvents.byId(state.NextId);
 		if (upcoming === undefined) {
-			return (
-				<Panel size={UDim2.fromScale(1, 1)} accent={Palette.muted} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
-					<Text value="Events" size={13} color={Palette.muted} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 16)} />
-					<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<EmptyState title="No event right now" compact={true} inset={0} size={UDim2.fromScale(1, 1)} reducedMotion={props.reducedMotion} />
-					</frame>
-				</Panel>
-			);
+			return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} />;
 		}
 		return (
 			<Panel size={UDim2.fromScale(1, 1)} accent={rgb(upcoming.Accent)} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 				<Text value="Next event" size={13} color={rgb(upcoming.Accent)} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 				<Text
-					value={`${upcoming.Name} in ${leftText(upcoming.StartsAt - now)}`}
+					value={`${upcoming.Name} opens ${dateText(upcoming.StartsAt)}, in ${leftText(upcoming.StartsAt - now)}.`}
 					size={14}
 					color={Palette.cream}
 					weight={Enum.FontWeight.Bold}
@@ -150,7 +147,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 					sizeConstraint={new UDim2(1, stack ? -52 : -(52 + 162), 0, 21)}
 				/>
 				<Text
-					value={`${formatReward(item.Reward as Reward)}   ${left} / ${item.Stock}`}
+					value={`${formatReward(item.Reward as Reward)} · ${left} of ${item.Stock} left`}
 					size={12}
 					color={Palette.muted}
 					wrap={true}
@@ -218,8 +215,8 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 			<Text
 				value={
 					capped
-						? `${tokens} ${event.Token.lower()}   ${event.DailyCap} / ${event.DailyCap} today`
-						: `${tokens} ${event.Token.lower()}   ${dayEarned} / ${event.DailyCap} today`
+						? `${tokens} ${event.Token.lower()} · today's ${event.DailyCap} are in, more tomorrow`
+						: `${tokens} ${event.Token.lower()} · ${dayEarned} of ${event.DailyCap} earned today`
 				}
 				size={12}
 				color={accent}

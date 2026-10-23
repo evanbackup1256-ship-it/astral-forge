@@ -237,8 +237,8 @@ function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: Ti
 						}}
 						color={Palette.violet}
 						textColor={Palette.ink}
-						size={new UDim2(1, -16, 0, TapTarget)}
-						position={new UDim2(0, 8, 1, -(TapTarget + 6))}
+						size={new UDim2(1, -16, 0, 34)}
+						position={new UDim2(0, 8, 1, -40)}
 						reducedMotion={softMotion}
 						highlight={true}
 					/>
@@ -587,8 +587,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 
 	const columns = narrow ? 1 : stack || split ? 2 : viewport.width >= 1200 ? 4 : 3;
 	const timelineRows = math.max(1, math.ceil(timedEntries.size() / columns));
-	// 40 padding + 32 head + rows*100 + (rows-1)*14 gaps
-	const timelineH = 58 + timelineRows * 114;
+	const timelineH = 52 + timelineRows * 114;
 	const timelinePanel = (
 		<Panel
 			size={UDim2.fromScale(1, 1)}

@@ -333,7 +333,13 @@ function Lattice(props: LatticeProps) {
 					BackgroundTransparency: 1,
 					ZIndex: 605,
 				},
-				// facet icons hold still: no idle breathing and no etch pop (no icon motion)
+				h("uiscale", {
+					Scale: tick.map((now) => {
+						const at = props.facetAt[index];
+						const pop = at === undefined ? 0 : 1 - easeOut((now - at) / 0.4);
+						return 1 + pop * 1.6 + math.sin(now * 2 + index) * 0.08;
+					}),
+				}),
 				h(Icon, { kind: "StarGrid.6", color: Palette.mango, accent: WHITE_HOT, size: 16, spin: false }),
 			);
 		}

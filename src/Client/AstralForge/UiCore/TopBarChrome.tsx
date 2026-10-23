@@ -45,15 +45,15 @@ const BuffStrip = require(AstralForge.WaitForChild("BuffStrip") as ModuleScript)
 const CHIP_TIPS: Record<string, { title: string; body: string } | undefined> = {
 	FLUX: {
 		title: "Flux",
-		body: "Buys machines, worlds and research.",
+		body: "What machines, worlds and research cost. Machines fill the vault; collect it to spend.",
 	},
 	DUST: {
 		title: "Stardust",
-		body: "Spent in the Shop and on echoes.",
+		body: "Comes from rebirths, missions and rewards. Spent in the Shop and on tuning echoes.",
 	},
 	CORES: {
 		title: "Cores",
-		body: "From rebirths. Raises production.",
+		body: "Paid out by each rebirth. Every core raises production for good, and Domain ranks cost them.",
 	},
 };
 
@@ -220,7 +220,7 @@ export function StatChip(_param: StatChipProps) {
 			"textlabel",
 			_attributes,
 			h("uitextsizeconstraint", {
-				MinTextSize: 11,
+				MinTextSize: 10,
 				MaxTextSize: valueSize,
 			}),
 		);
@@ -462,7 +462,7 @@ function CompanionChip(_param: { companion: CompanionInfo; config?: unknown; tal
 	const traitLine = companion.Trait !== undefined ? ` ${companion.Trait.Text}.` : "";
 	const tip = useTooltip({
 		title: companion.Suffix !== "" ? `${companion.Name}, ${companion.Suffix}` : companion.Name,
-		body: `${companion.Rarity} companion, rank ${companion.Rank}. +${pct}% ${companion.Kind}.${traitLine}`,
+		body: `${companion.Rarity} companion, bond rank ${companion.Rank}. Gives +${pct}% ${companion.Kind} on top of your sockets.${traitLine}`,
 		hint: companion.Offer !== undefined ? "A trait is waiting in Inventory" : "Swap it from Inventory",
 	});
 	return h(
@@ -1732,7 +1732,7 @@ function TopBarImpl(_param: TopBarProps) {
 				onClick: openPlayerlist,
 				tooltip: {
 					title: "Players",
-					body: "Players in this server.",
+					body: "Everyone in this server: trade, visit, wave or add a friend.",
 					hint: "Tab",
 				},
 				color: Palette.panelSoft,
@@ -1771,7 +1771,7 @@ function TopBarImpl(_param: TopBarProps) {
 					text: feedbackControlW > SHELL_CHROME.topbarControl ? "FEEDBACK" : "",
 					icon: "Chat.5",
 					onClick: openFeedback,
-					tooltip: { title: "Feedback", body: "Report a bug or idea." },
+					tooltip: { title: "Feedback", body: "Tell us about a bug or an idea. It goes straight to the team." },
 					color: Palette.panelSoft,
 					textColor: Palette.mint,
 					size: UDim2.fromScale(1, 1),
@@ -1798,7 +1798,7 @@ function TopBarImpl(_param: TopBarProps) {
 					icon: "Search.12",
 					tooltip: {
 						title: "Find",
-						body: "Search everything.",
+						body: "Jump to any page, machine, setting or command by typing its name.",
 						hint: "Ctrl+K",
 					},
 					onClick: () => {

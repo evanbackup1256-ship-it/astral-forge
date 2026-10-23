@@ -1,7 +1,6 @@
 ﻿import React from "@rbxts/react";
 import { segmentedHeight } from "../../UiCore/ui";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
-import { useFocusOrder } from "../../CoreKit/focusOrder";
 import { clockText, compactNumber, Flux, formatReward, gteFlux, Reward } from "../../CoreKit/format";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { easeOutCubic, useBoatTween, useStagger, useViewport } from "../../MotionKit/motion";
@@ -253,7 +252,7 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 	const actionHeight = props.stack ? TapTarget : 34;
 	const actionSize = new UDim2(1, -14, 0, actionHeight);
 	const actionPosition = new UDim2(0, 7, 1, -(actionHeight + 7));
-	const descText = props.description ?? "";
+	const descText = props.description ?? "This is how the title looks in chat and on your nameplate.";
 	return (
 		<frame
 			Size={UDim2.fromScale(1, 1)}
@@ -500,9 +499,9 @@ function CommandViewReady(props: CommandProps) {
 		activeId === ""
 			? tripReport !== undefined
 				? `${tripReport.name} came back with ${tripReport.haul}.`
-				: "Pick a trip"
+				: "Launch an unlocked adventure below."
 			: expeditionReady
-				? "Crew is back"
+				? "Crew is back. Collect their rewards."
 				: undefined;
 	const tripStatusAt = (now: number) => `Back in ${clockText(math.max(0, activeEnds - now))}, around ${landsAt(activeEnds)}`;
 	const claimLabel =
@@ -576,8 +575,6 @@ function CommandViewReady(props: CommandProps) {
 			pcall(task.cancel, selectJob);
 		};
 	}, [tab, nextClaim, firstReadyWeeklyId, expeditionReady, firstReadySeasonTier, commandClaimReady]);
-	// without a ready claim the pad used to land nowhere; tabs first, then the active pane
-	useFocusOrder(scrollRef, { regions: ["tabs", "body"], first: commandClaimReady ? ["body", "tabs"] : ["tabs"] }, [tab, commandClaimReady]);
 	const activeConfig = ops.Expeditions.find((item) => item.Id === activeId);
 	const ownedArtifacts = ops.Artifacts.filter((artifact) => command.Artifacts[artifact.Id] !== undefined).size();
 	const nextTier = ops.SeasonTiers.find((tier) => command.SeasonClaims[tostring(tier.Tier)] !== true);
@@ -588,8 +585,8 @@ function CommandViewReady(props: CommandProps) {
 			: `${compactNumber(nextTier.RequiredXP - command.SeasonXP)} XP to gift ${nextTier.Tier}`
 		: "All season gifts claimed";
 	const passStatus = passOwned
-		? "Pass active: double rewards"
-		: "Pass doubles every tier";
+		? "Season Pass active: every tier pays out twice."
+		: "The Season Pass in the Shop adds a second reward to every tier.";
 	// wide screens split Overview into a main column (rank, jobs, officers, shop) and a side column
 	// (titles, profile style, mastery); grids size their columns from the column they sit in
 	const overviewWide = !stack && contentWidth >= OVERVIEW_WIDE_MIN;
@@ -615,7 +612,7 @@ function CommandViewReady(props: CommandProps) {
 	const CLOSED_BADGE_W = 152;
 	const closedBadgeOwnLine = sideColW - panelPad * 2 < 140 + CLOSED_BADGE_W + 12;
 	const closedBadgeLine = closedBadgeOwnLine ? 26 + 8 : 0;
-	const titlesH = titlesEnabled ? gridPanelHeight(36, titleRows, titleCellH, gridGap, panelPad) : 112 + closedBadgeLine;
+	const titlesH = titlesEnabled ? gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) : 112 + closedBadgeLine;
 	const styleH = profileStyleHeight(stack) + panelPad * 2;
 	const shopCols = math.max(1, math.min(4, math.floor((mainColW - panelPad * 2 + gridGap) / (190 + gridGap))));
 	const shopCellH = 180;
@@ -848,6 +845,14 @@ function CommandViewReady(props: CommandProps) {
 		);
 		const titlesBody = titlesEnabled ? (
 			<>
+				<Text
+					value="Each title shows as it looks on you."
+					size={11}
+					color={Palette.muted}
+					fit={false}
+					position={UDim2.fromOffset(0, 26)}
+					sizeConstraint={new UDim2(1, 0, 0, 18)}
+				/>
 				<VirtualGrid
 					scrollRef={scrollRef}
 					count={command.Titles.size()}
@@ -855,7 +860,7 @@ function CommandViewReady(props: CommandProps) {
 					cellHeight={titleCellH}
 					gap={gridGap}
 					overscanRows={1}
-					position={UDim2.fromOffset(0, 36)}
+					position={UDim2.fromOffset(0, 52)}
 					itemKey={(index: number) => {
 						const title = command.Titles[index] as TitleEntry | undefined;
 						return title !== undefined ? title.Id : `title-${index}`;
@@ -1460,7 +1465,7 @@ function CommandViewReady(props: CommandProps) {
 					sizeConstraint={new UDim2(1, 0, 0, 28)}
 				/>
 				<Text
-					value="Equip one relic"
+					value="Equip one relic. Duplicates add spark fragments for upgrades."
 					size={12}
 					color={Palette.muted}
 					fit={true}
@@ -1562,7 +1567,7 @@ function CommandViewReady(props: CommandProps) {
 								value={
 									owned
 										? `${artifactEffect(artifact, owned.Level)}  ·  ${owned.Fragments}/${fragmentCost} sparks`
-										: "Found on expeditions"
+										: "Finish its expedition to discover it."
 								}
 								size={11}
 								color={Palette.muted}

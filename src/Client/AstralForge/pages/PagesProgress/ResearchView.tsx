@@ -142,7 +142,7 @@ const ResearchNode = React.memo(
 				? undefined
 				: maxed
 					? "Maxed. The bonus is permanent."
-					: `Level ${compactNumber(entry.level)} of ${compactNumber(entry.config.MaxLevel)}, next ${compactNumber(price)} Flux`,
+					: `Level ${compactNumber(entry.level)} of ${compactNumber(entry.config.MaxLevel)} · next ${compactNumber(price)} Flux`,
 			accent: accent,
 		});
 		return (
@@ -201,7 +201,7 @@ const ResearchNode = React.memo(
 							<Text
 								value={
 									maxed
-										? `Level ${compactNumber(entry.level)}, maxed`
+										? `Level ${compactNumber(entry.level)} · maxed`
 										: `Level ${compactNumber(entry.level)} / ${compactNumber(entry.config.MaxLevel)}`
 								}
 								size={10}
@@ -427,7 +427,7 @@ function ResearchView(props: ResearchProps) {
 								sizeConstraint={new UDim2(1, heroStack ? -8 : -332, 0, 32)}
 							/>
 							<Text
-								value={`${unlockedCount}/${entries.size()} unlocked     ${maxedCount} maxed     kept on rebirth`}
+								value={`${unlockedCount} of ${entries.size()} unlocked  ·  ${maxedCount} maxed  ·  every level survives rebirth`}
 								size={11}
 								color={Palette.creamSoft}
 								wrap={true}
@@ -456,7 +456,7 @@ function ResearchView(props: ResearchProps) {
 										ref={canBuyAll ? buyAllHostRef : undefined}
 									>
 										<Button
-											text={batch.busy ? batch.status : `BUY BATCH (${batch.count})`}
+											text={batch.busy ? batch.status : `BUY BATCH · ${batch.count}`}
 											icon="Flux.8"
 											onClick={onBuyAll}
 											color={canBuyAll ? Palette.cyan : Palette.panelSoft}
@@ -528,7 +528,7 @@ function ResearchView(props: ResearchProps) {
 						visible.size() === 0 ? (
 							<ui.EmptyState
 								title="No matching research"
-								body="Try All research."
+								body="Try another search or choose All research."
 								icon="Research.2"
 								accent={Palette.cyan}
 								reducedMotion={softMotion}

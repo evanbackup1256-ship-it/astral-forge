@@ -9,7 +9,7 @@ import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../Co
 import { useAntilag } from "../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../MotionKit/motion";
 import { Icon } from "../ArtKit/Icon";
-import { columnsBalanced, SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
 import { Dict } from "../lua";
@@ -555,7 +555,6 @@ __defs["TradeView"] = () => {
 				transparency: 0.5,
 			}),
 			h(IconTile, {
-				still: true,
 				kind: line.icon,
 				accent: line.accent,
 				size: tile,
@@ -654,7 +653,7 @@ __defs["TradeView"] = () => {
 			balanceText = "Add items or currency to see the balance";
 			balanceColor = Palette.muted;
 		} else if (yourRatio >= 0.42 && yourRatio <= 0.58) {
-			balanceText = "About even";
+			balanceText = "Fair trade · about even";
 			balanceColor = Palette.mint;
 		} else if (yourRatio > 0.58) {
 			const adv = math.round((yourRatio - 0.5) * 200);
@@ -807,8 +806,6 @@ __defs["TradeView"] = () => {
 			);
 		}
 		const rows: Record<string, unknown> = {
-			// keeps your right-aligned bubbles clear of the 3px scrollbar
-			gutter: h("uipadding", { PaddingRight: new UDim(0, 7) }),
 			layout: h("uilistlayout", {
 				FillDirection: Enum.FillDirection.Vertical,
 				Padding: new UDim(0, 4),
@@ -1072,7 +1069,7 @@ __defs["TradeView"] = () => {
 				}),
 				h(Text, {
 					value: `${relic.Rarity.upper()}  ·  L${relic.Level}${on ? "  ·  ASKED" : ""}`,
-					size: 11,
+					size: 10,
 					color: color,
 					weight: Enum.FontWeight.Heavy,
 					position: UDim2.fromOffset(10, 21),
@@ -1118,7 +1115,7 @@ __defs["TradeView"] = () => {
 						h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 						h(Text, {
 							value: `${session.PartnerName} wants`,
-							size: 11,
+							size: 10,
 							color: Palette.mango,
 							weight: Enum.FontWeight.Heavy,
 							position: UDim2.fromOffset(10, 6),
@@ -1149,8 +1146,8 @@ __defs["TradeView"] = () => {
 			h(Text, {
 				value:
 					partnerCount === 0
-						? "They have no tradeable relics."
-						: "ASK FOR THEIR RELICS",
+						? `${session.PartnerName} has no relics they could trade right now.`
+						: `ASK ${session.PartnerName.upper()} FOR THEIR RELICS`,
 				size: 11,
 				color: Palette.mint,
 				weight: Enum.FontWeight.Heavy,
@@ -1665,7 +1662,7 @@ __defs["TradeView"] = () => {
 							? h(EmptyState, {
 									icon: "Artifact",
 									title: "No tradeable relics",
-									body: "Equipped and locked relics can't be traded.",
+									body: "Equipped and locked pieces stay home.",
 									compact: true,
 								})
 							: undefined,
@@ -1722,6 +1719,7 @@ __defs["TradeView"] = () => {
 					? h(EmptyState, {
 							icon: "Crew",
 							title: "Nothing offered yet",
+							body: "Their side fills in as they add items.",
 							compact: true,
 						})
 					: undefined,
@@ -2472,7 +2470,6 @@ __defs["TradeView"] = () => {
 							layoutOrder: 3,
 						},
 						h(Icon, {
-							still: true,
 							kind: "Timer.4",
 							color: Palette.mango,
 							accent: Palette.mango,
@@ -2695,7 +2692,7 @@ __defs["TradeView"] = () => {
 			height: 30,
 			element: h(Text, {
 				value:
-					history.size() > 0 ? "Recent trades" : "No trades yet",
+					history.size() > 0 ? "Recent trades" : "Recent trades: none yet. Finished trades show up here.",
 				size: 15,
 				color: Palette.cream,
 				weight: Enum.FontWeight.Heavy,
@@ -2740,7 +2737,7 @@ __defs["TradeView"] = () => {
 						fit: true,
 						minSize: 10,
 						position: UDim2.fromOffset(0, 24),
-						sizeConstraint: new UDim2(1, -150, 0, phone ? 46 : 28),
+						sizeConstraint: new UDim2(1, -150, 0, phone ? 56 : 40),
 					}),
 					Players.GetPlayerByUserId(entry.PartnerId) !== undefined
 						? h(Button, {
@@ -2760,15 +2757,13 @@ __defs["TradeView"] = () => {
 		}
 		const lobbyGap = chrome.landscape ? 8 : Layout.stackGap;
 		let lobbySections = sections;
-		const lobbyMain = sections.filter((_, index) => index < historyStart);
-		const lobbySide = sections.filter((_, index) => index >= historyStart);
-		const lobbyMainH = stackHeight(lobbyMain.map((section) => section.height), lobbyGap);
-		const lobbySideH = stackHeight(lobbySide.map((section) => section.height), lobbyGap);
-		// history only moves beside the roster when both columns come out about the same height
-		if (splitLobby && columnsBalanced(lobbyMainH, lobbySideH)) {
-			const main = lobbyMain;
-			const side = lobbySide;
-			const rowH = math.max(lobbyMainH, lobbySideH);
+		if (splitLobby) {
+			const main = sections.filter((_, index) => index < historyStart);
+			const side = sections.filter((_, index) => index >= historyStart);
+			const rowH = math.max(
+				stackHeight(main.map((section) => section.height), lobbyGap),
+				stackHeight(side.map((section) => section.height), lobbyGap),
+			);
 			lobbySections = [
 				{
 					id: "lobby-split",

@@ -482,7 +482,7 @@ function Metric({ label, value, detail, accent, size = new UDim2(1, 0, 0, 92), l
 					color={Palette.muted}
 					weight={Enum.FontWeight.SemiBold}
 					fit={true}
-					minSize={11}
+					minSize={9}
 					layoutOrder={1}
 					sizeConstraint={new UDim2(1, 0, 0, 14)}
 				/>
@@ -916,8 +916,7 @@ export function OverviewView({
 	for (let index = journey.Done.size() - 1; index >= math.max(0, journey.Done.size() - 3); index--) {
 		journeyRecent.push(journey.Done[index].Title);
 	}
-	// label 16 + title 26 + progress 16 + meter 6 (ends at y=76), plus the panel padding on both sides
-	const journalH = 76 + (stack ? chrome.cardPadding * 2 : 32);
+	const journalH = (phone ? 118 : 104) + (stack ? chrome.cardPadding * 2 : 32);
 	const domain =
 		state.Domain ??
 		({
@@ -1105,7 +1104,7 @@ export function OverviewView({
 															color={Palette.creamSoft}
 															wrap={true}
 															fit={true}
-															minSize={11}
+															minSize={10}
 															layoutOrder={2}
 															sizeConstraint={new UDim2(1, 0, 0, 18)}
 														/>
@@ -1133,7 +1132,7 @@ export function OverviewView({
 																	weight={Enum.FontWeight.Bold}
 																	wrap={true}
 																	fit={true}
-																	minSize={11}
+																	minSize={10}
 																	layoutOrder={4}
 																	sizeConstraint={new UDim2(1, 0, 0, landscapePhone ? 22 : denseHero ? 16 : 28)}
 																/>
@@ -1189,7 +1188,7 @@ export function OverviewView({
 																	weight={Enum.FontWeight.Bold}
 																	wrap={true}
 																	fit={true}
-																	minSize={11}
+																	minSize={10}
 																	sizeConstraint={new UDim2(1, 0, 0, ctaH)}
 																/>
 															)}
@@ -1275,7 +1274,7 @@ export function OverviewView({
 																			? `Ready in ${string.format("%.1f", overchargeLeft)}s`
 																			: "Tap for an instant burst of Flux"
 																}
-																size={11}
+																size={10}
 																color={overchargeLeft > 0.02 ? Palette.mango : Palette.muted}
 																weight={Enum.FontWeight.Bold}
 																fit={false}
@@ -1331,7 +1330,7 @@ export function OverviewView({
 													weight={Enum.FontWeight.Bold}
 													wrap={true}
 													fit={true}
-													minSize={11}
+													minSize={10}
 													layoutOrder={4}
 													sizeConstraint={new UDim2(1, 0, 0, heroBandH - 35)}
 												/>
@@ -1402,7 +1401,7 @@ export function OverviewView({
 														color={Palette.creamSoft}
 														wrap={true}
 														fit={true}
-														minSize={11}
+														minSize={10}
 														layoutOrder={2}
 														sizeConstraint={new UDim2(1, 0, 0, 18)}
 													/>
@@ -1430,7 +1429,7 @@ export function OverviewView({
 																weight={Enum.FontWeight.Bold}
 																wrap={true}
 																fit={true}
-																minSize={11}
+																minSize={10}
 																layoutOrder={4}
 																sizeConstraint={new UDim2(1, 0, 0, landscapePhone ? 22 : denseHero ? 16 : 28)}
 															/>
@@ -1486,7 +1485,7 @@ export function OverviewView({
 																weight={Enum.FontWeight.Bold}
 																wrap={true}
 																fit={true}
-																minSize={11}
+																minSize={10}
 																sizeConstraint={new UDim2(1, 0, 0, ctaH)}
 															/>
 														)}
@@ -1572,7 +1571,7 @@ export function OverviewView({
 																		? `Ready in ${string.format("%.1f", overchargeLeft)}s`
 																		: "Tap for an instant burst of Flux"
 															}
-															size={11}
+															size={10}
 															color={overchargeLeft > 0.02 ? Palette.mango : Palette.muted}
 															weight={Enum.FontWeight.Bold}
 															fit={false}
@@ -1688,7 +1687,7 @@ export function OverviewView({
 										const coreDust = firstRebirthStardust(config);
 										let title = "Push toward rebirth";
 										let fillLine = `Full bar pays 1 core + ${compactNumber(coreDust)} stardust.`;
-										let body = `Pays 1 core + ${compactNumber(coreDust)} stardust.`;
+										let body = `Filling this bar pays 1 core + ${compactNumber(coreDust)} stardust. You keep earning for ${offlineHours}h away.`;
 										let meter = progress;
 										let accent = Palette.cyan;
 										let cta = "";
@@ -1697,7 +1696,7 @@ export function OverviewView({
 										let statLabel = "Pays 1 core";
 										if (vaultFill >= 0.99) {
 											title = "Collect stored Flux";
-											body = "Vault full. Collect.";
+											body = "The vault is full, so machines stopped earning. Collect now, then buy another level.";
 											meter = 1;
 											accent = Palette.mango;
 											cta = "Collect stored Flux";
@@ -1743,7 +1742,7 @@ export function OverviewView({
 												const efficiency = state.Research.Efficiency ?? 0;
 												if (efficiency < 3) {
 													title = "Buy Efficiency to 3";
-													body = "Unlocks Storage.";
+													body = "When this bar fills, Storage unlocks. Efficiency stays after rebirth.";
 													fillLine = "Full bar unlocks Storage.";
 													meter = math.clamp(efficiency / 3, 0, 1);
 													cta = "Open Research";
@@ -1754,7 +1753,7 @@ export function OverviewView({
 													const storage = state.Research.Storage ?? 0;
 													if (storage < 3) {
 														title = "Buy Storage to 3";
-														body = "Unlocks the offline relay.";
+														body = "When this bar fills, the offline relay unlocks. Storage lets the vault hold more.";
 														fillLine = "Full bar unlocks the offline relay.";
 														meter = math.clamp(storage / 3, 0, 1);
 														cta = "Open Research";
@@ -1765,7 +1764,7 @@ export function OverviewView({
 														const offline = state.Research.Offline ?? 0;
 														if (offline < 1) {
 															title = "Buy the offline relay";
-															body = "Longer offline pay.";
+															body = "When you buy this, Deep-Space Relay pays you for longer while you're away.";
 															fillLine = "This buy pays you longer while you're away.";
 															meter = 0.15;
 															cta = "Open Research";
@@ -1776,7 +1775,7 @@ export function OverviewView({
 															const overcharge = state.Research.Overcharge ?? 0;
 															if (overcharge < 1) {
 																title = "Buy the tap bonus";
-																body = "Stronger taps.";
+																body = "When you buy this, Overcharge Coil makes the tap button stronger.";
 																fillLine = "This buy makes taps stronger.";
 																meter = 0.2;
 																cta = "Open Research";
@@ -1785,7 +1784,7 @@ export function OverviewView({
 																statLabel = "Stronger taps";
 															} else if (canRebirth) {
 																title = "Rebirth for Cores";
-																body = `Rebirth for ${compactNumber(state.PrestigeReward)} Cores.`;
+																body = `Reset this run's machines and keep Research. Collect ${compactNumber(state.PrestigeReward)} Cores from the panel below.`;
 																fillLine = `Collect ${compactNumber(state.PrestigeReward)} cores below.`;
 																meter = 1;
 																accent = Palette.pink;
@@ -1793,7 +1792,7 @@ export function OverviewView({
 																statLabel = "Cores ready";
 															} else if (progress < 0.45) {
 																title = "Buy more machines";
-																body = `Pays 1 core + ${compactNumber(coreDust)} stardust.`;
+																body = `Buy machines and collect often. Filling this bar pays 1 core + ${compactNumber(coreDust)} stardust.`;
 																fillLine = `Full bar pays 1 core + ${compactNumber(coreDust)} stardust.`;
 																cta = "Buy a machine";
 																ctaAction = openWorkshop;
@@ -1891,7 +1890,7 @@ export function OverviewView({
 												)}
 												<Text
 													value={firstGoal !== undefined ? "First goals" : "Next up"}
-													size={11}
+													size={10}
 													color={accent}
 													weight={Enum.FontWeight.Heavy}
 													fit={false}
@@ -1914,7 +1913,7 @@ export function OverviewView({
 													color={Palette.creamSoft}
 													wrap={true}
 													fit={true}
-													minSize={11}
+													minSize={10}
 													position={UDim2.fromOffset(copyLeft, 52)}
 													sizeConstraint={new UDim2(1, copyWidth - copyLeft, 0, ladder.size() > 0 ? bodyRoom : stack ? 48 : 36)}
 												/>
@@ -1955,7 +1954,7 @@ export function OverviewView({
 														/>
 														<Text
 															value={statLabel}
-															size={11}
+															size={10}
 															color={Palette.creamSoft}
 															weight={Enum.FontWeight.Heavy}
 															align={Enum.TextXAlignment.Center}
@@ -1969,7 +1968,7 @@ export function OverviewView({
 																onClick={action}
 																color={accent}
 																textColor={Palette.ink}
-																size={new UDim2(1, -16, 0, TapTarget)}
+																size={new UDim2(1, -16, 0, 36)}
 																position={UDim2.fromOffset(8, 64)}
 																reducedMotion={softMotion}
 																highlight={meter >= 0.99}
@@ -2018,7 +2017,7 @@ export function OverviewView({
 									>
 										<Text
 											value={firstRun && opsClaims === 0 ? "Rewards later" : (opsGuide?.OpsTitle ?? "Ready to claim")}
-											size={11}
+											size={10}
 											color={opsClaims > 0 ? Palette.green : Palette.cyan}
 											weight={Enum.FontWeight.Heavy}
 											sizeConstraint={new UDim2(1, 0, 0, 16)}
@@ -2050,7 +2049,7 @@ export function OverviewView({
 											color={Palette.creamSoft}
 											wrap={true}
 											fit={true}
-											minSize={11}
+											minSize={9}
 											position={UDim2.fromOffset(0, 46)}
 											sizeConstraint={new UDim2(1, 0, 0, 28)}
 										/>
@@ -2192,8 +2191,8 @@ export function OverviewView({
 										ClipsDescendants={true}
 									>
 										<Text
-											value={`Domain rank ${domain.Rank}`}
-											size={11}
+											value={`Domain · rank ${domain.Rank}`}
+											size={10}
 											color={Palette.pink}
 											weight={Enum.FontWeight.Heavy}
 											fit={false}
@@ -2212,7 +2211,7 @@ export function OverviewView({
 											weight={Enum.FontWeight.Heavy}
 											wrap={true}
 											fit={true}
-											minSize={11}
+											minSize={10}
 											position={UDim2.fromOffset(0, 22)}
 											sizeConstraint={new UDim2(1, 0, 0, 34)}
 										/>
@@ -2222,7 +2221,7 @@ export function OverviewView({
 											color={Palette.creamSoft}
 											wrap={true}
 											fit={true}
-											minSize={11}
+											minSize={10}
 											position={UDim2.fromOffset(0, 60)}
 											sizeConstraint={new UDim2(1, 0, 0, phone ? 58 : 44)}
 										/>
@@ -2239,7 +2238,7 @@ export function OverviewView({
 													}
 													return "Permanent: " + parts.join("  /  ");
 												})()}
-												size={11}
+												size={10}
 												color={Palette.cyan}
 												weight={Enum.FontWeight.Bold}
 												fit={false}
@@ -2289,7 +2288,7 @@ export function OverviewView({
 												weight={Enum.FontWeight.Bold}
 												wrap={true}
 												fit={true}
-												minSize={11}
+												minSize={10}
 												position={UDim2.fromOffset(0, 54)}
 												sizeConstraint={new UDim2(1, 0, 0, 28)}
 											/>
@@ -2323,7 +2322,7 @@ export function OverviewView({
 											/>
 											<Text
 												value={`${compactNumber(state.Rebirths)} / ${compactNumber(domain.RequiredRebirths)} rebirths`}
-												size={11}
+												size={10}
 												color={asFlux(state.Rebirths ?? 0) >= asFlux(domain.RequiredRebirths) ? Palette.green : Palette.muted}
 												weight={Enum.FontWeight.Bold}
 												fit={false}
@@ -2332,7 +2331,7 @@ export function OverviewView({
 											/>
 											<Text
 												value={`${compactNumber(state.Cores)} / ${compactNumber(domain.RequiredCores)} astral cores`}
-												size={11}
+												size={10}
 												color={asFlux(state.Cores ?? 0) >= asFlux(domain.RequiredCores) ? Palette.green : Palette.muted}
 												weight={Enum.FontWeight.Bold}
 												fit={false}
@@ -2390,7 +2389,7 @@ export function OverviewView({
 										sizeConstraint={new UDim2(1, 0, 0, 16)}
 									/>
 									<Text
-										value={journeyNext !== undefined ? journeyNext.Title : "Journal complete"}
+										value={journeyNext !== undefined ? `Next: ${journeyNext.Title}` : "Every chapter written."}
 										size={phone ? 17 : 19}
 										color={Palette.cream}
 										weight={Enum.FontWeight.Heavy}
@@ -2402,32 +2401,46 @@ export function OverviewView({
 									<Text
 										value={
 											journeyNext !== undefined
-												? `${compactNumber(journeyNext.Have)} / ${compactNumber(journeyNext.Target)} ${journeyNext.Unit}`
-												: "Complete"
+												? `${journeyNext.Line}  ${compactNumber(journeyNext.Have)} / ${compactNumber(journeyNext.Target)} ${journeyNext.Unit}`
+												: "The forge remembers everything you've done here."
 										}
 										size={chrome.labelText}
 										color={Palette.creamSoft}
 										fit={true}
 										minSize={9}
+										wrap={phone}
 										position={UDim2.fromOffset(0, 48)}
-										sizeConstraint={new UDim2(1, 0, 0, 16)}
+										sizeConstraint={new UDim2(1, 0, 0, phone ? 32 : 16)}
 									/>
 									<Meter
 										value={journeyNext !== undefined ? journeyNext.Progress : 1}
 										color={Palette.mango}
 										reducedMotion={quietMotion}
 										shimmer={false}
-										position={UDim2.fromOffset(0, 70)}
+										position={UDim2.fromOffset(0, phone ? 84 : 70)}
 										size={new UDim2(1, 0, 0, 6)}
 									/>
-</Panel>
+									<Text
+										value={
+											journeyRecent.size() > 0
+												? `Written: ${(phone ? journeyRecent.filter((_, index) => index < 2) : journeyRecent).join("  ·  ")}`
+												: "Written: nothing yet. Buy a machine to start."
+										}
+										size={chrome.labelText}
+										color={Palette.muted}
+										weight={Enum.FontWeight.Bold}
+										fit={true}
+										minSize={9}
+										position={UDim2.fromOffset(0, phone ? 96 : 82)}
+										sizeConstraint={new UDim2(1, 0, 0, 16)}
+									/>
+								</Panel>
 							),
 						},
 						{
 							// this session, live
 							id: "session",
-							// title row 24 + stat grid + panel padding on both sides (the old +56 clipped the second row)
-							height: SessionStats.height(phone ? 2 : 4) + 24 + 2 * (stack ? chrome.cardPadding : Pad.panel),
+							height: SessionStats.height(phone ? 2 : 4) + 56,
 							element: (
 								<Panel
 									layoutOrder={8}

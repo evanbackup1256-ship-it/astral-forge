@@ -157,7 +157,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			duration: surgeTable.DurationSeconds as number | undefined,
 			color: P.cyan,
 			name: "Flux surge",
-			note: `${multiplier}x flux, whole server.`,
+			note: `Everyone in this server makes ${multiplier}x flux until it ends.`,
 		});
 	}
 	const level = bag.Level;
@@ -179,7 +179,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			duration: surgeTable.DurationSeconds as number | undefined,
 			color: P.pink,
 			name: "Forge surge",
-			note: "Forge Level bonus.",
+			note: "From your last Forge Level. Production is multiplied until the timer runs out.",
 		});
 	}
 	const event = bag.ServerEvent;
@@ -192,7 +192,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			endsAt: eventTable.PhaseEndsAt,
 			color: P.mango,
 			name: (eventTable.Id as string).gsub("(%l)(%u)", "%1 %2")[0],
-			note: "Server event live.",
+			note: "A server event is live. Click the island to see it.",
 		});
 	}
 	const ascension = bag.Ascension;
@@ -204,7 +204,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `x${format.compactNumber(ascensionTable.Production ?? 1)}`,
 			color: P.mango,
 			name: "Ascension",
-			note: `Ascension rank ${ascensionTable.Rank}.`,
+			note: `Ascension rank ${ascensionTable.Rank}. Permanent.`,
 		});
 	}
 	const continuum = bag.Continuum;
@@ -219,7 +219,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `x${format.compactNumber(continuumTable.ProductionMultiplier)}`,
 			color: P.cyan,
 			name: "Star Foundry",
-			note: "Star Foundry.",
+			note: "From the Star Foundry. Permanent.",
 		});
 	}
 	if (format.asFlux((bag.PermanentMultiplier as number | string | undefined) ?? 1) > 1) {
@@ -229,7 +229,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `x${format.compactNumber(bag.PermanentMultiplier)}`,
 			color: P.violet,
 			name: "Cores and rebirths",
-			note: "Cores and rebirths.",
+			note: "Your cores and rebirths together. Permanent; every rebirth raises it.",
 		});
 	}
 	const guild = bag.GuildBonuses;
@@ -241,7 +241,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `+${math.floor((tonumber(guildTable.Production) ?? 0) * 100 + 0.5)}%`,
 			color: P.mint,
 			name: "Guild",
-			note: "Guild perk.",
+			note: "Your guild's production perk, while you're a member.",
 		});
 	}
 	return list;
@@ -256,6 +256,7 @@ interface ChipProps {
 
 function Chip(props: ChipProps): React.Element {
 	const buff = props.buff;
+	const appear = motion.useFlipperSpring(1, props.reducedMotion, 300, 16);
 	const timed = buff.endsAt !== undefined;
 	const pulse = motion.usePulse(timed, 2.2);
 	const tip = useTooltip({
@@ -273,6 +274,9 @@ function Chip(props: ChipProps): React.Element {
 			BackgroundTransparency: 1,
 			ZIndex: 20,
 		},
+		h("uiscale", {
+			Scale: appear.map((v) => math.max(0.01, v)),
+		}),
 		h(
 			"frame",
 			{
@@ -281,7 +285,9 @@ function Chip(props: ChipProps): React.Element {
 				BackgroundColor3: theme.darken(buff.color, 0.62),
 				BorderSizePixel: 0,
 				ZIndex: 21,
-				Position: new UDim2(0.5, 0, 0, 1), // icons hold still (ICON_MOTION)
+				Position: props.clock!.map((t) => {
+					return new UDim2(0.5, 0, 0, 1 + math.sin(t * 2.2 + (props.order ?? 0) * 1.3) * 2);
+				}),
 			},
 			h("uicorner", { CornerRadius: new UDim(0, 10) }),
 			h("uistroke", {
@@ -319,7 +325,7 @@ function Chip(props: ChipProps): React.Element {
 				ZIndex: 22,
 			},
 			h("uistroke", { Color: P.void, Thickness: 1.5, Transparency: 0.2 }),
-			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 9 }),
 		),
 		timed &&
 			h(
@@ -333,14 +339,14 @@ function Chip(props: ChipProps): React.Element {
 					BorderSizePixel: 0,
 					Text: buff.value,
 					TextColor3: P.ink,
-					TextSize: 11,
+					TextSize: 10,
 					TextScaled: true,
 					TextWrapped: false,
 					FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 					ZIndex: 24,
 				},
 				h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				h("uitextsizeconstraint", { MaxTextSize: 11, MinTextSize: 11 }),
+				h("uitextsizeconstraint", { MaxTextSize: 10, MinTextSize: 7 }),
 			),
 	);
 }
@@ -404,7 +410,7 @@ BuffStrip.Strip = function (props: StripProps): React.Element {
 
 const COMPACT_H = 44;
 const EVENT_H = 62;
-const ROW_H = 44;
+const ROW_H = 40;
 
 function easeOutBack(x: number): number {
 	const c1 = 1.5;
@@ -474,8 +480,8 @@ function PerfSegment(props: PerfSegmentProps): React.Element {
 		props.showFps === true && fps < 38 ? fpsColor(fps) : props.showPing === true ? pingColor(ping) : fpsColor(fps);
 	const perfTip = useTooltip({
 		title: "Frame rate and ping",
-		body: "FPS and ping.",
-		hint: "Settings > Interface.",
+		body: "Frames per second on your device, and the round trip to the server.",
+		hint: "Hide either one in Settings > Interface.",
 	});
 	return h(
 		"frame",
@@ -515,7 +521,7 @@ function PerfSegment(props: PerfSegmentProps): React.Element {
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 9 }),
 		),
 	);
 }
@@ -563,7 +569,7 @@ function useRollingValue(target: number, rate: number, reducedMotion?: boolean) 
 
 function CurrencySegment(props: CurrencySegmentProps): React.Element {
 	const currency = props.currency;
-	const [ref] = Juice.useTarget(currency.target);
+	const [ref, bump] = Juice.useTarget(currency.target);
 	const rate = format.asFlux((currency.rate as number | string | undefined) ?? 0);
 	const tip = useTooltip({
 		title: `${format.compactNumber(currency.value)} ${currency.name ?? currency.target}`,
@@ -582,6 +588,9 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 			LayoutOrder: props.order,
 			BackgroundTransparency: 1,
 		},
+		h("uiscale", {
+			Scale: bump.map((b) => 1 + math.sin(b * math.pi) * 0.16),
+		}),
 		h(
 			"frame",
 			{
@@ -621,7 +630,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 10 }),
 		),
 		h(GainPop, { value: currency.value, rate: currency.rate, color: currency.color ?? P.mango }),
 	);
@@ -793,7 +802,9 @@ function CompactRow(props: CompactRowProps): React.Element {
 				accent: buff.color,
 				size: 18,
 				anchorPoint: new Vector2(0, 0.5),
-				position: new UDim2(0, 0, 0.5, 0), // icons hold still (ICON_MOTION)
+				position: props.clock.map((t) => {
+					return new UDim2(0, 0, 0.5, math.sin(t * 2.4 + index * 1.4) * 1.5);
+				}),
 				spin: false,
 			}),
 			h(
@@ -810,7 +821,7 @@ function CompactRow(props: CompactRowProps): React.Element {
 					TextXAlignment: Enum.TextXAlignment.Left,
 					FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				},
-				h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 11 }),
+				h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 8 }),
 			),
 			buff.endsAt !== undefined &&
 				buff.duration !== undefined &&
@@ -932,7 +943,7 @@ function Row(
 				TextXAlignment: Enum.TextXAlignment.Right,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 13, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 13, MinTextSize: 9 }),
 		),
 		extra !== undefined && extra !== false ? extra : undefined,
 	);
@@ -1206,9 +1217,18 @@ function Announcement(props: AnnouncementProps): React.Element {
 				BackgroundColor3: theme.darken(info.color, 0.55),
 				BorderSizePixel: 0,
 				ZIndex: 63,
-				Rotation: 0, // icons hold still (ICON_MOTION)
+				Rotation: moment ? arrive.map((t) => (1 - easeOutBack(t)) * -90) : 0,
 			},
-			// the icon plate holds still (no pop-in); the toast's slide and fade carry the arrival
+			h("uiscale", {
+				Scale: arrive.map((t) => {
+					// good news lands with a pop; everything else just settles in
+					const pop =
+						info.tone === "Success" || info.tone === "success" || moment
+							? math.sin(math.clamp(t, 0, 1) * math.pi) * 0.25
+							: 0;
+					return 0.5 + easeOutBack(t) * 0.5 + pop;
+				}),
+			}),
 			h("uicorner", { CornerRadius: new UDim(pill ? 1 : 0, pill ? 0 : moment ? 16 : 12) }),
 			h(
 				"uistroke",
@@ -1359,9 +1379,9 @@ function ComboActivity(props: ComboActivityProps): React.Element {
 				BackgroundColor3: theme.darken(color, 0.55),
 				BorderSizePixel: 0,
 				ZIndex: 63,
-				Rotation: 0, // icons hold still (ICON_MOTION)
+				Rotation: props.clock.map((t) => math.sin(t * 9) * (hot ? 10 : 4)),
 			},
-			// the icon plate holds still (no pop-in)
+			h("uiscale", { Scale: arrive.map((t) => 0.6 + easeOutBack(t) * 0.4) }),
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h(Icon, {
 				kind: "Overcharge.1",
@@ -1479,7 +1499,7 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 				BorderSizePixel: 0,
 				ZIndex: 63,
 			},
-			// the icon plate holds still (no pop-in)
+			h("uiscale", { Scale: arrive.map((t) => 0.6 + easeOutBack(t) * 0.4) }),
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uistroke", {
 				Color: color,
@@ -1510,7 +1530,7 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				ZIndex: 63,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 10 }),
 		),
 		h(
 			"textlabel",
@@ -1531,7 +1551,7 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
 				ZIndex: 63,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 14, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 14, MinTextSize: 9 }),
 		),
 		h(
 			"frame",
@@ -2107,7 +2127,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				ZIndex: 61,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 8 }),
 		),
 	);
 	return h(React.Fragment, undefined, capsule, bubble);

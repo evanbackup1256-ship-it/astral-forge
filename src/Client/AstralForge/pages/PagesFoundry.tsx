@@ -163,13 +163,13 @@ function TierMark(props: { tier: number; color: Color3; cellSize?: number; zInde
 	if (d < 32 || tier > 5) {
 		return (
 			<textlabel
-				Size={UDim2.fromOffset(d < 32 ? 16 : 22, d < 32 ? 12 : 14)}
+				Size={UDim2.fromOffset(d < 32 ? 18 : 22, d < 32 ? 10 : 12)}
 				Position={d < 32 ? new UDim2(1, -1, 0, 1) : new UDim2(0.5, 0, 1, 2)}
 				AnchorPoint={d < 32 ? new Vector2(1, 0) : new Vector2(0.5, 0)}
 				BackgroundColor3={darken(color, 0.7)}
 				Text={tostring(tier)}
 				TextColor3={lighten(color, 0.5)}
-				TextSize={11}
+				TextScaled={true}
 				FontFace={Font.fromEnum(Enum.Font.BuilderSansExtraBold)}
 				ZIndex={props.zIndex}
 			>
@@ -791,7 +791,7 @@ function FoundryView(props: {
 		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={ACCENT} background={darken(ACCENT, 0.9)}>
 			<Ui.Text
 				value={
-					`${compact(foundry.Shards)} Shards   ` +
+					`${compact(foundry.Shards)} Shards  ·  ` +
 					(dormant ? "Dormant (rotate Ember to an Anvil)" : `+${"%.1f".format((foundry.ShardRate ?? 0) * 60)}/min`)
 				}
 				size={stack ? 17 : 22}
@@ -854,7 +854,7 @@ function FoundryView(props: {
 				{narrow ? (
 					<>
 						<Ui.Text
-							value={`${look.name}, Tier ${piece.Tier}`}
+							value={`${look.name} · Tier ${piece.Tier}`}
 							size={15}
 							weight={Enum.FontWeight.Heavy}
 							sizeConstraint={new UDim2(1, -44, 0, 18)}
@@ -910,7 +910,7 @@ function FoundryView(props: {
 				) : (
 					<>
 						<Ui.Text
-							value={`${look.name}, Tier ${piece.Tier}`}
+							value={`${look.name} · Tier ${piece.Tier}`}
 							size={15}
 							weight={Enum.FontWeight.Heavy}
 							sizeConstraint={new UDim2(1, -330, 0, 20)}
@@ -974,7 +974,7 @@ function FoundryView(props: {
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 			<frame {...named("FoundryIgnite")} ref={igniteHostRef} Size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.4, -8, 0, buttonH)} Position={UDim2.fromOffset(0, 0)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
 				<Ui.Button
-					text={surgeLeft > 0 ? `IGNITE (SURGE ${math.ceil(surgeLeft)}s)` : combo > 0 ? `IGNITE ×${combo}` : "IGNITE"}
+					text={surgeLeft > 0 ? `SURGE ${math.ceil(surgeLeft)}s · IGNITE` : combo > 0 ? `IGNITE · ×${combo}` : "IGNITE"}
 					icon="Boost.12"
 					onClick={() => act({ Op: "ignite" }, true)}
 					color={ACCENT}
@@ -985,7 +985,7 @@ function FoundryView(props: {
 				/>
 			</frame>
 			<Ui.Button
-				text={benchFull ? "BENCH FULL" : `DRAW (${compact(foundry.DrawCost ?? 0)})`}
+				text={benchFull ? "BENCH FULL" : `DRAW · ${compact(foundry.DrawCost ?? 0)}`}
 				icon="Crate.1"
 				onClick={() => act({ Op: "draw" })}
 				color={Palette.panelSoft}
@@ -995,7 +995,7 @@ function FoundryView(props: {
 				reducedMotion={softMotion}
 			/>
 			<Ui.Button
-				text={foundry.ExpandCost === undefined ? "FULL SIZE" : `EXPAND (${compact(foundry.ExpandCost)})`}
+				text={foundry.ExpandCost === undefined ? "FULL SIZE" : `EXPAND · ${compact(foundry.ExpandCost)}`}
 				icon="World.3"
 				onClick={() => act({ Op: "expand" })}
 				color={Palette.panelSoft}
@@ -1077,7 +1077,7 @@ function FoundryView(props: {
 		benchH,
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 			<Ui.Text
-				value={`BENCH ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}     tap a piece, then a cell`}
+				value={`BENCH  ·  ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}  ·  tap a piece, then a cell`}
 				size={12}
 				weight={Enum.FontWeight.Bold}
 				color={Palette.muted}

@@ -381,7 +381,6 @@ function SectionButton(props: SectionButtonProps) {
 								color={active ? accent : Palette.muted}
 								accent={accent}
 								size={18}
-								spin={false}
 								position={new UDim2(0, props.compact ? 10 : 14, 0.5, -9)}
 							/>
 							<Text
@@ -622,9 +621,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	// Desktop keeps search and the view chips on one row beside each other; phones stack them.
 	const searchH = stack ? TapTarget : 40;
 	const actionsY = 56;
-	// Tour / Notes are phone tap targets when stacked (were 40px)
-	const actionsH = stack ? TapTarget : 40;
-	const searchY = stack ? actionsY + actionsH + 10 : 60;
+	const searchY = stack ? actionsY + 40 + 10 : 60;
 	const chipsX = stack ? 0 : 356;
 	const chipsY = stack ? searchY + searchH + 8 : searchY + math.floor((searchH - Browse.CHIP_H) / 2);
 	const headerH = (stack ? chipsY + Browse.CHIP_H : searchY + math.max(searchH, Browse.CHIP_H)) + 32;
@@ -650,7 +647,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			/>
 			<frame
 				key="SettingsClaimActions"
-				Size={stack ? new UDim2(1, 0, 0, actionsH) : UDim2.fromOffset(320, 40)}
+				Size={stack ? new UDim2(1, 0, 0, 40) : UDim2.fromOffset(320, 40)}
 				Position={stack ? UDim2.fromOffset(0, actionsY) : new UDim2(1, -320, 0, 0)}
 				BackgroundTransparency={1}
 				ClipsDescendants={false}
@@ -786,8 +783,8 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 						? "From every section."
 						: showChanged
 							? changedEntries.size() > 0
-								? "Changed from default"
-								: "Nothing changed"
+								? "What you changed from the default."
+								: "Nothing changed yet. Everything is on its default."
 							: sectionChanged > 0
 								? `${section.blurb} ${sectionChanged} changed.`
 								: section.blurb
@@ -818,8 +815,8 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 					tooltip={{
 						title: showChanged ? "Reset all" : `Reset ${section.label}`,
 						body: (showChanged ? changedEntries.size() === 0 : sectionChanged === 0)
-							? "Already default"
-							: "Reset this section",
+							? "Already on the defaults."
+							: "Puts these back to their defaults.",
 					}}
 					color={Palette.panelSoft}
 					textColor={Palette.creamSoft}
@@ -928,7 +925,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		add(
 			"empty",
 			<Text
-				value={showChanged ? "Nothing changed" : 'No match. Try "music" or "text".'}
+				value={showChanged ? "Everything is on its default." : 'No match. Try "music" or "text".'}
 				size={13}
 				color={Palette.muted}
 				sizeConstraint={new UDim2(1, 0, 0, 40)}

@@ -46,20 +46,20 @@ export interface Chapter {
 
 // prettier-ignore
 export const CHAPTERS: ReadonlyArray<Chapter> = table.freeze([
-	{ Id: "spark", Title: "First spark", Line: "", Target: 1, Unit: "machine", Read: statReader("MachinesBought") },
-	{ Id: "hands", Title: "Steady hands", Line: "", Target: 500, Unit: "taps", Read: statReader("Taps") },
-	{ Id: "orders", Title: "Order book", Line: "", Target: 10, Unit: "orders", Read: statReader("OrdersCompleted") },
-	{ Id: "reborn", Title: "Reborn", Line: "", Target: 1, Unit: "rebirth", Read: rebirths },
-	{ Id: "crates", Title: "Deep vault", Line: "", Target: 25, Unit: "crates", Read: statReader("CratesOpened") },
-	{ Id: "scrap", Title: "Scrapper", Line: "", Target: 50, Unit: "salvaged", Read: statReader("ItemsSalvaged") },
-	{ Id: "shift", Title: "Night shift", Line: "", Target: 5 * HOUR, Unit: "hours", Scale: HOUR, Read: statReader("PlayTime") },
-	{ Id: "ten", Title: "Ten lives", Line: "", Target: 10, Unit: "rebirths", Read: rebirths },
-	{ Id: "gate", Title: "Gatekeeper", Line: "", Target: 1, Unit: "gate", Read: domainRank },
-	{ Id: "warden", Title: "Warden breaker", Line: "", Target: 5, Unit: "wardens", Read: statReader("WardenDefeats") },
-	{ Id: "haul", Title: "Long haul", Line: "", Target: 24 * HOUR, Unit: "hours", Scale: HOUR, Read: statReader("PlayTime") },
-	{ Id: "fifty", Title: "Fifty lives", Line: "", Target: 50, Unit: "rebirths", Read: rebirths },
-	{ Id: "rig", Title: "Two parts", Line: "", Target: 1, Unit: "rig", Read: rigsLit },
-	{ Id: "bench", Title: "Full bench", Line: "", Target: RelicRigs.COUNT, Unit: "rigs", Read: rigsLit },
+	{ Id: "spark", Title: "First spark", Line: "Bought the first machine.", Target: 1, Unit: "machine", Read: statReader("MachinesBought") },
+	{ Id: "hands", Title: "Steady hands", Line: "Struck the forge 500 times.", Target: 500, Unit: "taps", Read: statReader("Taps") },
+	{ Id: "orders", Title: "Order book", Line: "Filled ten work orders.", Target: 10, Unit: "orders", Read: statReader("OrdersCompleted") },
+	{ Id: "reborn", Title: "Reborn", Line: "Melted it all down once.", Target: 1, Unit: "rebirth", Read: rebirths },
+	{ Id: "crates", Title: "Deep vault", Line: "Opened 25 crates.", Target: 25, Unit: "crates", Read: statReader("CratesOpened") },
+	{ Id: "scrap", Title: "Scrapper", Line: "Salvaged 50 pieces.", Target: 50, Unit: "salvaged", Read: statReader("ItemsSalvaged") },
+	{ Id: "shift", Title: "Night shift", Line: "Five hours at the anvil.", Target: 5 * HOUR, Unit: "hours", Scale: HOUR, Read: statReader("PlayTime") },
+	{ Id: "ten", Title: "Ten lives", Line: "Rebirthed ten times.", Target: 10, Unit: "rebirths", Read: rebirths },
+	{ Id: "gate", Title: "Gatekeeper", Line: "Opened the first domain gate.", Target: 1, Unit: "gate", Read: domainRank },
+	{ Id: "warden", Title: "Warden breaker", Line: "Beat five wardens.", Target: 5, Unit: "wardens", Read: statReader("WardenDefeats") },
+	{ Id: "haul", Title: "Long haul", Line: "A full day of forging.", Target: 24 * HOUR, Unit: "hours", Scale: HOUR, Read: statReader("PlayTime") },
+	{ Id: "fifty", Title: "Fifty lives", Line: "Rebirthed fifty times.", Target: 50, Unit: "rebirths", Read: rebirths },
+	{ Id: "rig", Title: "Two parts", Line: "Lit a relic rig.", Target: 1, Unit: "rig", Read: rigsLit },
+	{ Id: "bench", Title: "Full bench", Line: "Lit every relic rig.", Target: RelicRigs.COUNT, Unit: "rigs", Read: rigsLit },
 ]);
 
 export interface Entry {

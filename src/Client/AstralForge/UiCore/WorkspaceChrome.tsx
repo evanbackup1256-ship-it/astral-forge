@@ -479,28 +479,25 @@ function MissionGoalStrip(_param: { goal: MissionGoal; onOpen?: () => void }) {
 			BackgroundTransparency: hovered ? 0.96 : 1,
 			BorderSizePixel: 0,
 		}),
-		// no "MISSION" tag: the strip already reads as the current goal; only flag it when claimable
-		ready
-			? h(Text, {
-					value: "CLAIM",
-					size: 11,
-					color: Palette.green,
-					weight: Enum.FontWeight.Heavy,
-					fit: true,
-					minSize: 10,
-					position: UDim2.fromOffset(14, 0),
-					sizeConstraint: new UDim2(0, 64, 1, -3),
-				})
-			: undefined,
 		h(Text, {
-			value: goal.Name,
+			value: ready ? "READY" : "MISSION",
+			size: 11,
+			color: ready ? Palette.green : Palette.cyan,
+			weight: Enum.FontWeight.Heavy,
+			fit: true,
+			minSize: 10,
+			position: UDim2.fromOffset(14, 0),
+			sizeConstraint: new UDim2(0, 64, 1, -3),
+		}),
+		h(Text, {
+			value: ready ? `${goal.Name} is done. Claim it in Missions.` : goal.Name,
 			size: 12,
 			color: Palette.creamSoft,
 			weight: Enum.FontWeight.Bold,
 			fit: true,
 			minSize: 9,
-			position: UDim2.fromOffset(ready ? 64 : 14, 0),
-			sizeConstraint: new UDim2(1, -((ready ? 64 : 14) + progressW + 38), 1, -3),
+			position: UDim2.fromOffset(86, 0),
+			sizeConstraint: new UDim2(1, -(86 + progressW + 38), 1, -3),
 		}),
 		h(Text, {
 			value: `${compactNumber(goal.Progress)} / ${compactNumber(goal.Target)}`,
@@ -732,9 +729,11 @@ export function Workspace(_param: WorkspaceProps) {
 					"frame",
 					{
 						Size: UDim2.fromOffset(headerIconSize, headerIconSize),
-						Position: UDim2.fromOffset(
-							keyboardCompact ? 8 : chrome.stack ? 14 : 20,
-							math.floor((headerHeight - headerIconSize) / 2),
+						Position: enter.map((amount) =>
+							UDim2.fromOffset(
+								(keyboardCompact ? 8 : chrome.stack ? 14 : 20) - math.round((1 - math.clamp(amount, 0, 1)) * 10),
+								math.floor((headerHeight - headerIconSize) / 2),
+							),
 						),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,

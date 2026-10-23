@@ -647,7 +647,7 @@ function AppShell(props: ShellProps) {
 					{gamepadActive && !hidden && !tutorialOpen && <frame Size={new UDim2(1, -edgePad * 2, 0, 36)} Position={new UDim2(0, edgePad, 1, -(bottomPad + 36))} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={180}>
 						<Flex direction="row" wrap={true} justify="space-evenly" align="center" gap={10} size={UDim2.fromScale(1, 1)} exact={true}>
 							{GamepadNavigationService.GetHintLabels().map((hint, index) => <FlexItem key={hint} mode="grow" minWidth={88} minHeight={22} layoutOrder={index}>
-								<Text value={hint} size={11} color={Palette.creamSoft} align={Enum.TextXAlignment.Center} fit={true} minSize={11} sizeConstraint={UDim2.fromScale(1, 1)} />
+								<Text value={hint} size={11} color={Palette.creamSoft} align={Enum.TextXAlignment.Center} fit={true} minSize={9} sizeConstraint={UDim2.fromScale(1, 1)} />
 							</FlexItem>)}
 						</Flex>
 					</frame>}

@@ -113,9 +113,8 @@ function Stat(props: StatProps) {
 				TextSize: 15,
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-				TextTruncate: Enum.TextTruncate.AtEnd,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 10 }),
 		),
 		h(
 			"textlabel",
@@ -128,9 +127,8 @@ function Stat(props: StatProps) {
 				TextSize: 11,
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
-				TextTruncate: Enum.TextTruncate.AtEnd,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 11, MinTextSize: 11 }),
+			h("uitextsizeconstraint", { MaxTextSize: 11, MinTextSize: 8 }),
 		),
 	);
 }

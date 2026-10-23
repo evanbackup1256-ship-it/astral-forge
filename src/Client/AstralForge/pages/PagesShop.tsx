@@ -17,7 +17,7 @@ import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppear
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
-import { columnsBalanced, SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 import { FocusPlan, useFocusOrder } from "../CoreKit/focusOrder";
 import {
 	Component,
@@ -543,7 +543,6 @@ function OfferTileImpl(props: OfferTileProps) {
 					<uicorner CornerRadius={new UDim(0, IRON_RADIUS)} />{ironFace()}
 					<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
 					{h(Icon, {
-						still: true,
 						kind: icon,
 						color: Palette.cream,
 						accent: accent,
@@ -1056,7 +1055,6 @@ function ShopView(props: ShopViewProps) {
 				React.Fragment,
 				{},
 				h(IconTile, {
-					still: true,
 					kind: "Shop",
 					accent: Palette.mango,
 					size: 44,
@@ -1257,7 +1255,6 @@ function ShopView(props: ShopViewProps) {
 					reducedMotion: softMotion,
 				},
 				h(Icon, {
-					still: true,
 					kind: "Pilot.1",
 					color: Palette.cream,
 					accent: Palette.mint,
@@ -1591,7 +1588,6 @@ function Wallet(props: WalletProps) {
 				Thickness: 1,
 			}),
 			h(Icon, {
-				still: true,
 				kind: CURRENCY_ICON[currency],
 				color: Palette.cream,
 				accent: currencyColor(currency),
@@ -1652,7 +1648,6 @@ function Hero(props: HeroProps) {
 			clips: false,
 		},
 		h(IconTile, {
-			still: true,
 			kind: props.icon,
 			accent: props.accent,
 			size: 44,
@@ -1693,7 +1688,7 @@ function Hero(props: HeroProps) {
 }
 
 function heroHeight(stack: boolean): number {
-	return stack ? 136 : 92;
+	return stack ? 124 : 92;
 }
 
 function offerDetail(offer: DailyOffer, config: ShopConfig): string {
@@ -1710,7 +1705,7 @@ function offerDetail(offer: DailyOffer, config: ShopConfig): string {
 		const name = boost !== undefined && boost.Name !== undefined ? boost.Name : tostring(offer.BoostId).gsub("(%l)(%u)", "%1 %2")[0];
 		return `${offer.Amount} ${name} ${offer.Amount === 1 ? "charge" : "charges"}. Use it from Boosts.`;
 	} else if (offer.Kind === "Cache") {
-		return `One guaranteed ${offer.Rarity} relic.`;
+		return `One ${offer.Rarity} relic, guaranteed, revealed on the spot.`;
 	} else if (offer.Kind === "Skin") {
 		const skin = ShopCatalog.skin(offer.SkinId);
 		return `Crate skin. ${skin !== undefined ? skin.Blurb : ""}`;
@@ -1809,12 +1804,11 @@ function OfferCardImpl(props: OfferCardProps) {
 			offer.Kind === "Skin"
 				? h(CrateModel, {
 					skin: offer.SkinId,
-					live: false,
-					spin: false,
+					live: offer.Deal === true && !props.reducedMotion,
+					spin: true,
 					zoom: 0.95,
 				})
 				: h(Icon, {
-					still: true,
 					kind: KIND_ICON[offer.Kind] ?? "Shop.6",
 					color: Palette.cream,
 					accent: accent,
@@ -1863,7 +1857,6 @@ function OfferCardImpl(props: OfferCardProps) {
 			sizeConstraint: new UDim2(1, 0, 0, 16),
 		}),
 		h(Icon, {
-			still: true,
 			kind: CURRENCY_ICON[offer.Currency] ?? "Dust.3",
 			color: Palette.cream,
 			accent: currencyColor(offer.Currency),
@@ -2011,7 +2004,7 @@ function DailySection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Daily Shop",
-					body: "Six offers a day. The first is the Deal of the Day.",
+					body: "Six offers a day, picked for you. The first is the Deal of the Day.",
 					accent: Palette.mango,
 					icon: "Calendar.3",
 					state: state,
@@ -2050,7 +2043,6 @@ function DailySection(props: SectionProps) {
 						clips: false,
 					},
 					h(Icon, {
-						still: true,
 						kind: "Jackpot.3",
 						color: Palette.cream,
 						accent: Palette.coral,
@@ -2067,7 +2059,7 @@ function DailySection(props: SectionProps) {
 						sizeConstraint: new UDim2(1, stack ? -50 : -220, 0, 22),
 					}),
 					h(Text, {
-						value: "Keys, materials and boosts. Restocks hourly.",
+						value: "Keys, materials and boosts from the Black Market's hourly shipments.",
 						fit: true,
 						minSize: 10,
 						size: 12,
@@ -2342,7 +2334,6 @@ function CrateChip(props: CrateChipProps) {
 			Transparency: props.selected ? 0 : 0.6,
 		}),
 		h(Icon, {
-			still: true,
 			kind: "Crate.3",
 			color: Palette.cream,
 			accent: accent,
@@ -2450,7 +2441,7 @@ function CratesSection(props: SectionProps) {
 		height: heroHeight(stack),
 		element: h(Hero, {
 			title: "Crates",
-			body: "Odds for every crate, up to Astral.",
+			body: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
 			accent: Palette.violet,
 			icon: "Crate.4",
 			state: state,
@@ -2495,9 +2486,8 @@ function CratesSection(props: SectionProps) {
 	};
 	let sections: { id: string; height: number; element: unknown }[];
 	if (plan.split) {
-		// picker beside the stage (similar heights); the long drop table runs full width below,
-		// so neither column leaves an empty band beside the other
-		const rowH = math.max(chipsH, stageH);
+		const detailH = stackHeight([stageH, dropsH], GAP);
+		const rowH = math.max(chipsH, detailH);
 		sections = [
 			hero,
 			{
@@ -2508,10 +2498,9 @@ function CratesSection(props: SectionProps) {
 					height: rowH,
 					plan: plan,
 					side: h(StackBlocks, { gap: GAP, blocks: [picker as never] }),
-					main: h(StackBlocks, { gap: GAP, blocks: [stage as never] }),
+					main: h(StackBlocks, { gap: GAP, blocks: [stage as never, drops as never] }),
 				}),
 			},
-			drops,
 		];
 	} else {
 		sections = [hero, stage, picker, drops];
@@ -2650,7 +2639,7 @@ function SkinPreview(props: SkinPreviewProps) {
 				sizeConstraint: new UDim2(1, 0, 0, 40),
 			}),
 			h(Text, {
-				value: owned ? "Owned" : "Equip for its essence bonus.",
+				value: owned ? "Yours. Every crate you open wears the equipped skin." : "Equip this skin for its guaranteed essence bonus.",
 				size: 11,
 				color: accent,
 				weight: Enum.FontWeight.Bold,
@@ -2839,13 +2828,8 @@ function SkinsSection(props: SectionProps) {
 	const noSkins = skinBrowse.results.size() === 0;
 	// desktop with room: the preview becomes a side column next to the filter + grid
 	const plan = splitColumns(stack ? 0 : props.width, 340);
-	const splitGridColumns = plan.main >= 640 ? 3 : 2;
-	const splitGridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), splitGridColumns, cellH);
-	// only split when the preview column and the filter + grid column come out about the same height
-	const useSplit =
-		plan.split && columnsBalanced(200 + 8 + 140 + TapTarget + 28, stackHeight([Browse.CHIP_H, splitGridH], GAP));
-	const gridColumns = useSplit ? splitGridColumns : columns;
-	const previewStack = stack || useSplit;
+	const gridColumns = plan.split ? (plan.main >= 640 ? 3 : 2) : columns;
+	const previewStack = stack || plan.split;
 	const gridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), gridColumns, cellH);
 	const sections: { id: string; height: number; element: unknown }[] = [
 			{
@@ -2853,7 +2837,7 @@ function SkinsSection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Crate Skins",
-					body: "The Celestial Ark is only sold in the Daily Shop.",
+					body: "Dress your crates. The Celestial Ark only shows up in the Daily Shop.",
 					accent: Palette.cyan,
 					icon: "Crate.5",
 					state: state,
@@ -2904,7 +2888,7 @@ function SkinsSection(props: SectionProps) {
 					: h(Grid, { columns: gridColumns, cell: cellH, height: gridH, cells: cells }),
 			},
 	];
-	if (useSplit) {
+	if (plan.split) {
 		const [hero, preview, filter, grid] = [sections[0], sections[1], sections[2], sections[3]];
 		const rowH = math.max(preview.height, stackHeight([filter.height, grid.height], GAP));
 		return h(PageScaffold, {
@@ -3037,7 +3021,7 @@ function CodexProgressImpl(props: CodexProgressProps) {
 			sizeConstraint: new UDim2(1, 0, 0, 22),
 		}),
 		h(Text, {
-			value: "Find every relic of a rarity for a permanent bonus.",
+			value: "Find every relic of a rarity to earn its bonus for good.",
 			size: 12,
 			color: Palette.creamSoft,
 			position: UDim2.fromOffset(0, 24),

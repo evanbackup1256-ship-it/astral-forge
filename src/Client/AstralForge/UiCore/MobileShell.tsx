@@ -903,7 +903,7 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 					BorderSizePixel: 0,
 					Text: `LV ${level}`,
 					TextColor3: Palette.cream,
-					TextSize: 11,
+					TextSize: 10,
 					FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
 					ZIndex: 22,
 				},
