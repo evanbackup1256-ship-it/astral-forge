@@ -31,7 +31,7 @@ local function check(ok: boolean, msg: string)
 end
 
 -- width, height, name, expected shape
-type Size = { w: number, h: number, name: string, kind: string, inset: number?, side: number?, coreSafe: boolean? }
+type Size = { w: number, h: number, name: string, kind: string, inset: number?, side: number? }
 local SIZES: { Size } = {
 	{ w = 286, h = 640, name = "286 portrait", kind = "portrait" },
 	{ w = 360, h = 800, name = "360 portrait", kind = "portrait", inset = 24 },
@@ -43,7 +43,7 @@ local SIZES: { Size } = {
 	-- `h` is the raw screen; the app's ScreenGui uses CoreUISafeInsets, so the live plan height is
 	-- the core-safe area (screen minus Roblox's 44px top bar). The second row feeds that height.
 	{ w = 844, h = 390, name = "844 landscape", kind = "landscape", inset = 21, side = 47 },
-	{ w = 844, h = 346, name = "844 landscape core-safe", kind = "landscape", inset = 21, side = 47, coreSafe = true },
+	{ w = 844, h = 346, name = "844 landscape core-safe", kind = "landscape", inset = 21, side = 47 },
 	{ w = 768, h = 1024, name = "tablet portrait", kind = "tablet" },
 	{ w = 820, h = 1180, name = "tablet 820 portrait", kind = "tablet" },
 	{ w = 1024, h = 768, name = "tablet landscape", kind = "desktop-touch" },
@@ -51,22 +51,11 @@ local SIZES: { Size } = {
 	{ w = 1920, h = 1080, name = "desktop", kind = "desktop" },
 }
 
--- The app ScreenGui uses CoreUISafeInsets, so on touch devices the live plan height is the screen
--- minus Roblox's top bar (CORE_TOP). Landscape phones put the shell bar inside that row
--- (GuiService.TopbarInset: screen width minus the side insets and Roblox's own buttons), so the bar
--- costs no content height when the row has room for it.
-local CORE_TOP = 44
-local ROBLOX_BUTTONS_W = 200
-local ROW_MIN_W = 320
 for _, s in SIZES do
 	local touch = s.kind ~= "desktop"
-	local planH = if touch and not s.coreSafe then s.h - CORE_TOP else s.h
-	local rowW = s.w - 2 * (s.side or 0) - ROBLOX_BUTTONS_W
-	local inRow = s.kind == "landscape" and rowW >= ROW_MIN_W
 	local p = M.planMobileLayout({
 		width = s.w,
-		height = planH,
-		topbarInRow = inRow,
+		height = s.h,
 		compact = s.w < 1100,
 		tight = s.w < 840,
 		short = s.h < 740,
@@ -94,10 +83,6 @@ for _, s in SIZES do
 		local inner = s.w - 2 * math.max(p.pagePadding, p.sideSafe) - 2 * p.cardPadding
 		check(inner >= 220, `{n}: only {inner}px left inside a card (need 220)`)
 		check(p.pagePadding <= 18 and p.cardPadding <= 18, `{n}: phone padding grew past 18px (page {p.pagePadding}, card {p.cardPadding})`)
-		if s.kind == "landscape" then
-			check(p.topbarInRow == inRow, `{n}: top bar should {if inRow then "" else "not "}sit in Roblox's top-bar row (row {rowW}px)`)
-			check(not inRow or rowW - 8 >= ROW_MIN_W - 8, `{n}: top-bar row {rowW}px too narrow for the shell bar`)
-		end
 		local minBudget = if p.landscape then 160 else 360
 		check(p.contentBudget >= minBudget, `{n}: content budget {p.contentBudget}px < {minBudget}`)
 		check(p.bottomSafe >= (s.inset or 0), `{n}: bottom safe area {p.bottomSafe} ignores inset {s.inset}`)

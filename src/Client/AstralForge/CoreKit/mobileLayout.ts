@@ -43,8 +43,6 @@ export interface MobileLayoutInput {
 	orientationHeight?: number;
 	bottomInset?: number;
 	sideInset?: number;
-	// landscape phones: the shell bar lives in Roblox's top-bar row, so it costs no content height
-	topbarInRow?: boolean;
 }
 
 export interface MobileLayoutPlan {
@@ -68,7 +66,6 @@ export interface MobileLayoutPlan {
 	bottomSafe: number;
 	sideSafe: number;
 	topbarRows: number;
-	topbarInRow: boolean;
 	moreCols: number;
 	moreCellH: number;
 	moreDockH: number;
@@ -92,7 +89,6 @@ const planKey: {
 	orientationHeight: number | false;
 	bottomInset: number | false;
 	sideInset: number | false;
-	topbarInRow: boolean;
 } = {
 	width: false,
 	height: false,
@@ -104,7 +100,6 @@ const planKey: {
 	orientationHeight: false,
 	bottomInset: false,
 	sideInset: false,
-	topbarInRow: false,
 };
 
 function quantize(value: unknown): number {
@@ -136,8 +131,7 @@ export function planMobileLayout(input: MobileLayoutInput): MobileLayoutPlan {
 		planKey.orientationWidth === orientationWidth &&
 		planKey.orientationHeight === orientationHeight &&
 		planKey.bottomInset === bottomInset &&
-		planKey.sideInset === sideInset &&
-		planKey.topbarInRow === (input.topbarInRow === true)
+		planKey.sideInset === sideInset
 	) {
 		return planCache;
 	}
@@ -169,8 +163,7 @@ export function planMobileLayout(input: MobileLayoutInput): MobileLayoutPlan {
 	const moreCellH = landscape ? 50 : tablet ? 58 : 54;
 	const moreDockH = phone ? moreDockHeight(true, 8, moreCols, moreCellH, landscape ? 6 : 8) : 0;
 	const quickBarH = 0;
-	const topbarInRow = input.topbarInRow === true && phone && landscape;
-	const chromeReserve = (topbarInRow ? 0 : topbarRows) + (phone ? tabBarH + panelGap : 20) + workspaceHeaderH;
+	const chromeReserve = topbarRows + (phone ? tabBarH + panelGap : 20) + workspaceHeaderH;
 	const contentBudget = math.max(1, height - chromeReserve - 4);
 	planKey.width = width;
 	planKey.height = height;
@@ -182,7 +175,6 @@ export function planMobileLayout(input: MobileLayoutInput): MobileLayoutPlan {
 	planKey.orientationHeight = orientationHeight;
 	planKey.bottomInset = bottomInset;
 	planKey.sideInset = sideInset;
-	planKey.topbarInRow = input.topbarInRow === true;
 	planCache = {
 		mobile,
 		stack,
@@ -204,7 +196,6 @@ export function planMobileLayout(input: MobileLayoutInput): MobileLayoutPlan {
 		bottomSafe,
 		sideSafe,
 		topbarRows,
-		topbarInRow,
 		moreCols,
 		moreCellH,
 		moreDockH,

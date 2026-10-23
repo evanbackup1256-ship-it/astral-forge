@@ -1,5 +1,4 @@
 import React from "@rbxts/react";
-import ReactRoblox from "@rbxts/react-roblox";
 import { Audio } from "../AudioKit/audio";
 import { countRedraw, RedrawCounterHud, redrawCounterEnabled } from "./devRedrawCounter";
 import BuffStrip = require("../BuffStrip");
@@ -259,18 +258,14 @@ function AppShell(props: ShellProps) {
 	const offlineDismissed = offlineReceiptKey !== "" && dismissedOfflineKey === offlineReceiptKey;
 	const densityScale = 0.82 + (tonumber(state.Settings.UiDensity) ?? 0.55) * 0.36;
 	const edgePad = math.max(8, chrome.sideSafe, math.floor(chrome.pagePadding * densityScale));
-	const playerGui = game.GetService("Players").LocalPlayer?.FindFirstChildOfClass("PlayerGui");
-	const topbarRow = useTopbarRow(chrome.stack && chrome.landscape && !viewport.keyboardOpen);
-	const barInRow = topbarRow !== undefined && playerGui !== undefined;
-	const topPad = barInRow ? 0 : chrome.stack ? 6 : Layout.topbarClearance;
+	const topPad = chrome.stack ? 6 : Layout.topbarClearance;
 	const keyboardShellCompact = viewport.keyboardOpen && chrome.mobile && (tonumber(state.Settings.MobileKeyboardCompact) ?? 1) >= 0.5;
 	const stockTopbar = (tonumber(state.Settings.CompactTopBar) ?? 0) >= 0.5 ? math.max(52, chrome.topbarRows - 8) : chrome.topbarRows;
 	// desktop layout editor (Settings > Interface); phones and the drawer layout keep the stock shell
 	const desk = useDesktopPlan(viewport.width, viewport.compact ? Layout.sidebarCollapsedWidth : Layout.sidebarWidth, stockTopbar);
 	const deskEditorOpen = useDesktopEditorOpen();
 	const deskOn = !chrome.stack && !drawerNav;
-	const topbarHeight = keyboardShellCompact || barInRow ? 0 : chrome.stack ? chrome.topbarRows : deskOn ? desk.topHeight : stockTopbar;
-	const rowBarH = topbarRow !== undefined ? math.min(chrome.topbarRows, math.floor(topbarRow.Height)) : 0;
+	const topbarHeight = keyboardShellCompact ? 0 : chrome.stack ? chrome.topbarRows : deskOn ? desk.topHeight : stockTopbar;
 	const tabBarH = keyboardShellCompact ? 0 : chrome.tabBarH;
 	const shellTop = topPad + topbarHeight + chrome.panelGap;
 	const quickActionsVisible = (tonumber(state.Settings.MobileQuickVisible) ?? 1) >= 0.5 && chrome.stack
@@ -588,15 +583,7 @@ function AppShell(props: ShellProps) {
 							<frame Size={UDim2.fromOffset(420, 420)} Position={new UDim2(0, -170, 0, -130)} AnchorPoint={new Vector2(0.5, 0.5)} BackgroundColor3={Palette.cyan}
 								BackgroundTransparency={1 - 0.025 * math.clamp(glowIntensity, 0, 1)} BorderSizePixel={0}><uicorner CornerRadius={new UDim(1, 0)} /></frame>}
 						{!keyboardShellCompact && mobileShell && <>
-							{barInRow && topbarRow !== undefined && playerGui !== undefined
-								? ReactRoblox.createPortal(
-										<screengui key="AstralForgeTopbarRow" DisplayOrder={81} IgnoreGuiInset={true} ScreenInsets={Enum.ScreenInsets.None} ResetOnSpawn={false} ZIndexBehavior={Enum.ZIndexBehavior.Sibling}>
-											<MobileHeader state={state} page={page} accent={accent} topPad={math.floor(topbarRow.Min.Y + (topbarRow.Height - rowBarH) / 2)} barHeight={rowBarH}
-												edgePad={edgePad} left={math.floor(topbarRow.Min.X)} barWidth={math.floor(topbarRow.Width) - edgePad} reducedMotion={softMotion} openPlayerlist={openPlayerlist} />
-										</screengui>,
-										playerGui,
-									)
-								: <MobileHeader state={state} page={page} accent={accent} topPad={topPad} barHeight={topbarHeight} edgePad={edgePad} reducedMotion={softMotion} openPlayerlist={openPlayerlist} />}
+							<MobileHeader state={state} page={page} accent={accent} topPad={topPad} barHeight={topbarHeight} edgePad={edgePad} reducedMotion={softMotion} openPlayerlist={openPlayerlist} />
 							<BuffStrip.Island state={state} config={config} reducedMotion={softMotion} restHidden={true} maxWidth={viewport.width - edgePad * 2}
 								position={new UDim2(0.5, 0, 0, topPad + topbarHeight + 6)} anchorPoint={TOP_CENTER_ANCHOR} />
 						</>}
@@ -686,28 +673,6 @@ function AppShell(props: ShellProps) {
 			</>
 		</AntilagContext.Provider>
 	);
-}
-
-// Roblox's top-bar row (GuiService.TopbarInset: the free space right of the Roblox buttons, screen px),
-// read live. Landscape phones put the shell bar there instead of a second 44px row under it.
-const TOPBAR_ROW_MIN_W = 320;
-function readTopbarRow(): Rect | undefined {
-	const GuiService = game.GetService("GuiService");
-	const [ok, rect] = pcall(() => GuiService.TopbarInset);
-	return ok && typeIs(rect, "Rect") && rect.Width >= TOPBAR_ROW_MIN_W && rect.Height >= 32 ? rect : undefined;
-}
-function useTopbarRow(enabled: boolean): Rect | undefined {
-	const [row, setRow] = React.useState<Rect | undefined>(() => (enabled ? readTopbarRow() : undefined));
-	React.useEffect(() => {
-		if (!enabled) {
-			setRow(undefined);
-			return undefined;
-		}
-		setRow(readTopbarRow());
-		const connection = game.GetService("GuiService").GetPropertyChangedSignal("TopbarInset").Connect(() => setRow(readTopbarRow()));
-		return () => connection.Disconnect();
-	}, [enabled]);
-	return row;
 }
 
 export function Shell(props: ShellProps) {
