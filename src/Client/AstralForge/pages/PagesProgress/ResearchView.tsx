@@ -9,6 +9,8 @@ import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit
 import { bulkCost, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
 import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
+import { Bar, Chip, MockPanel, PanelHeading } from "../../UiCore/mockKit";
+import { BigFigure, ChipRow, HEADING_SECTION_H, HeadingSection, MockBtn, TILE_ROW_H, TileRow } from "../mockRows";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
 // desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
@@ -48,13 +50,14 @@ function splitSections<S extends { id: string; height: number; element: React.El
 
 const UserInputService = game.GetService("UserInputService");
 const ui = loadUi();
-const { IconTile, Panel, Button, Text, Meter, Badge, AmountToggle } = ui;
+const { AmountToggle } = ui;
 const PageScaffold = loadPageScaffold();
 const VirtualGrid = luauKit<{ VirtualGrid: Component }>("LayoutKit", "scrolling").VirtualGrid;
 
-const NODE_ROW_HEIGHT = 116; // content ends at 86px plus padding; taller only added an empty band
-const NODE_ROW_HEIGHT_STACK = 190;
-const CONNECTOR_HEIGHT = 22;
+// 03-forge machine rows: 64px .row (56 on phones) with a 10px gap between rows
+const NODE_ROW_HEIGHT = TILE_ROW_H;
+const NODE_ROW_HEIGHT_STACK = 56;
+const CONNECTOR_HEIGHT = 10;
 
 interface ResearchConfig extends UpgradeConfig {
 	Accent?: Color3;
@@ -71,20 +74,6 @@ function researchEffectLine(entry: Entry) {
 		return `+${compactNumber(production)} effect per level`;
 	}
 	return entry.config.Description;
-}
-
-function ResearchConnector({ active, accent }: { active: boolean; accent?: Color3 }) {
-	return (
-		<frame
-			Size={new UDim2(0, 3, 0, CONNECTOR_HEIGHT)}
-			Position={new UDim2(0, 25, 0, 0)}
-			BackgroundColor3={active ? accent : Palette.line}
-			BackgroundTransparency={active ? 0.15 : 0.65}
-			BorderSizePixel={0}
-		>
-			<uicorner CornerRadius={new UDim(1, 0)} />
-		</frame>
-	);
 }
 
 interface NodeProps {
@@ -120,15 +109,7 @@ const ResearchNode = React.memo(
 		const price = bulkCost(entry.config.BaseCost, entry.config.CostScale, entry.level, buyAmount, entry.config.MaxLevel, cash);
 		const ready = entry.unlocked && !maxed && gteFlux(cash, price);
 		const levelFrac = math.clamp(entry.level / math.max(1, entry.config.MaxLevel), 0, 1);
-		const buyLabel = !entry.unlocked
-			? "LOCKED"
-			: maxed
-				? "MAXED"
-				: ready
-					? `BUY ${compactNumber(price)}`
-					: `NEED ${compactNumber(price)}`;
-		const rowH = stack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT;
-		const textReserve = stack ? 0 : -200;
+		const buyLabel = !entry.unlocked ? "Locked" : maxed ? "Maxed" : compactNumber(price);
 		const buy = () => {
 			if (!ready) {
 				return undefined;
@@ -145,127 +126,27 @@ const ResearchNode = React.memo(
 					: `Level ${compactNumber(entry.level)} of ${compactNumber(entry.config.MaxLevel)} · next ${compactNumber(price)} Flux`,
 			accent: accent,
 		});
+		const tint = accent ?? Palette.cyan;
+		const production = entry.config.BaseProduction ?? 0;
 		return (
-			<frame
-				Event={tip}
-				Size={new UDim2(1, -4, 0, rowH + CONNECTOR_HEIGHT)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-			>
-				{index > 0 && <ResearchConnector active={entry.unlocked} accent={accent} />}
-				<Panel radius={18} rule
-					size={new UDim2(1, 0, 0, rowH)}
-					position={UDim2.fromOffset(0, CONNECTOR_HEIGHT)}
-					accent={entry.unlocked ? accent : Palette.lineSoft}
-					background={Palette.panel}
-					padding={14}
-					reveal={reveal}
-					highlight={ready}
-					reducedMotion={reducedMotion}
-					clips={false}
-				>
-					<IconTile
-						kind={entry.unlocked ? "Research" : "Lock"}
-						accent={entry.unlocked ? accent : Palette.muted}
-						size={44}
-						radius={18}
-						position={UDim2.fromOffset(0, 6)}
-						glow={maxed}
-						spin={false}
-						reducedMotion={reducedMotion}
+			<frame Size={new UDim2(1, 0, 0, (stack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT) + CONNECTOR_HEIGHT)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				<canvasgroup Size={new UDim2(1, 0, 0, stack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT)} BackgroundTransparency={1} GroupTransparency={reveal.map((v: number) => 1 - v)}>
+					<TileRow
+						event={tip}
+						phone={stack}
+						icon={entry.unlocked ? "Research" : "Lock"}
+						accent={tint}
+						dim={!entry.unlocked}
+						title={entry.config.Name}
+						meta={entry.unlocked ? (maxed ? `Lv ${compactNumber(entry.level)} · Max` : `Lv ${compactNumber(entry.level)}`) : "Locked"}
+						fill={entry.unlocked ? levelFrac : 0}
+						barColor={maxed ? Palette.mango : tint}
+						value={entry.unlocked ? (production > 0 ? `+${compactNumber(production)}/lv` : `${compactNumber(entry.level)}/${compactNumber(entry.config.MaxLevel)}`) : entry.lockReason}
+						valueColor={entry.unlocked ? tint : Palette.muted}
+						rightWidth={stack ? 84 : 120}
+						right={<MockBtn text={buyLabel} icon={entry.unlocked && !maxed ? "Flux" : undefined} accent={tint} sm={true} phone={stack} fill={true} disabled={!ready} onClick={buy} reducedMotion={reducedMotion} />}
 					/>
-					<Text
-						value={entry.config.Name}
-						size={16}
-						color={entry.unlocked ? Palette.cream : Palette.muted}
-						weight={Enum.FontWeight.Heavy}
-						fit={true}
-						minSize={11}
-						position={UDim2.fromOffset(56, 4)}
-						sizeConstraint={new UDim2(1, textReserve, 0, 22)}
-					/>
-					<Text
-						value={entry.unlocked ? researchEffectLine(entry) : entry.lockReason}
-						size={11}
-						color={entry.unlocked ? Palette.creamSoft : accent}
-						weight={entry.unlocked ? Enum.FontWeight.Regular : Enum.FontWeight.Bold}
-						wrap={true}
-						fit={true}
-						minSize={9}
-						position={UDim2.fromOffset(56, 27)}
-						sizeConstraint={new UDim2(1, textReserve, 0, 32)}
-					/>
-					{entry.unlocked && (
-						<>
-							<Text
-								value={
-									maxed
-										? `Level ${compactNumber(entry.level)} · maxed`
-										: `Level ${compactNumber(entry.level)} / ${compactNumber(entry.config.MaxLevel)}`
-								}
-								size={10}
-								color={accent}
-								weight={Enum.FontWeight.Bold}
-								fit={true}
-								position={UDim2.fromOffset(56, 62)}
-								sizeConstraint={new UDim2(1, textReserve, 0, 14)}
-							/>
-							<Meter
-								value={levelFrac}
-								color={maxed ? Palette.mango : accent}
-								reducedMotion={reducedMotion}
-								position={UDim2.fromOffset(56, 80)}
-								size={new UDim2(1, textReserve, 0, 6)}
-							/>
-						</>
-					)}
-					{stack ? (
-						maxed ? (
-							<Badge
-								value="MAXED"
-								accent={Palette.mango}
-								filled={true}
-								position={new UDim2(0, 0, 1, -TapTarget)}
-								size={new UDim2(1, 0, 0, TapTarget)}
-							/>
-						) : (
-							<Button
-								text={buyLabel}
-								icon={entry.unlocked ? "Flux.6" : "Lock.2"}
-								onClick={buy}
-								color={ready ? accent : Palette.panelSoft}
-								textColor={ready ? Palette.ink : Palette.muted}
-								size={new UDim2(1, 0, 0, TapTarget)}
-								position={new UDim2(0, 0, 1, -TapTarget)}
-								reducedMotion={reducedMotion}
-								disabled={!ready}
-								highlight={ready}
-							/>
-						)
-					) : maxed ? (
-						<Badge
-							value="MAXED"
-							accent={Palette.mango}
-							filled={true}
-							position={new UDim2(1, -140, 0, 24)}
-							size={UDim2.fromOffset(130, 32)}
-						/>
-					) : (
-						<Button
-							text={buyLabel}
-							icon={entry.unlocked ? "Flux.7" : "Lock.3"}
-							onClick={buy}
-							color={ready ? accent : Palette.panelSoft}
-							textColor={ready ? Palette.ink : Palette.muted}
-							size={UDim2.fromOffset(130, 32)}
-							position={new UDim2(1, -140, 0, 24)}
-							reducedMotion={reducedMotion}
-							disabled={!ready}
-							highlight={ready}
-						/>
-					)}
-				</Panel>
+				</canvasgroup>
 			</frame>
 		);
 	}),
@@ -366,7 +247,7 @@ function ResearchView(props: ResearchProps) {
 		};
 	}, [canBuyAll, buyAmount, unlockedCount]);
 	const listGap = stack ? chrome.panelGap : Layout.panelGap;
-	const headerH = heroStack ? 208 : 128;
+	const summaryH = stack ? 10 * 2 + 26 + 38 + 8 + 24 + 8 + 10 + 8 + TapTarget : 18 * 2 + 34 + 62 + 12 + 28 + 12 + 10 + 12 + 44;
 	const researchGate = state.FeatureUnlocks !== undefined ? state.FeatureUnlocks.Research : undefined;
 	const researchLocked = researchGate !== undefined && researchGate.Unlocked === false;
 	const chainCount = visible.size();
@@ -381,128 +262,41 @@ function ResearchView(props: ResearchProps) {
 			scrollBarThickness={4}
 			sections={splitSections(plan, [
 				{
-					id: "hero",
-					height: headerH,
+					id: "summary",
+					height: summaryH,
 					element: (
-						<Panel radius={18} rule
-							size={UDim2.fromScale(1, 1)}
-							accent={Palette.cyan}
-							background={Palette.panelRaised}
-							padding={heroStack ? 14 : 16}
-							reveal={enter}
-							reducedMotion={softMotion}
-							clips={false}
-						>
-							<IconTile
-								kind="Research"
-								accent={Palette.cyan}
-								size={heroStack ? 48 : 56}
-								radius={18}
-								position={UDim2.fromOffset(0, heroStack ? 4 : 18)}
-								glow={true}
-								spin={false}
-								reducedMotion={softMotion}
-							/>
-							<Text
-								value={researchLocked ? "Unlocks at 100 Flux" : "Research chain"}
-								size={10}
-								color={Palette.cyan}
-								weight={Enum.FontWeight.Heavy}
-								position={UDim2.fromOffset(heroStack ? 0 : 72, heroStack ? 60 : 0)}
-								sizeConstraint={new UDim2(1, heroStack ? -8 : -332, 0, 16)}
-							/>
-							<Text
-								value={
-									researchLocked
-										? "Earn 100 Flux to begin research."
-										: nextEntry !== undefined
-											? `Next: ${nextEntry.config.Name}`
-											: `${unlockedCount} of ${entries.size()} researched`
-								}
-								size={heroStack ? 18 : 24}
-								color={Palette.cream}
-								weight={Enum.FontWeight.Heavy}
-								fit={true}
-								position={UDim2.fromOffset(heroStack ? 0 : 72, heroStack ? 78 : 18)}
-								sizeConstraint={new UDim2(1, heroStack ? -8 : -332, 0, 32)}
-							/>
-							<Text
-								value={`${unlockedCount} of ${entries.size()} unlocked  ·  ${maxedCount} maxed  ·  every level survives rebirth`}
-								size={11}
-								color={Palette.creamSoft}
-								wrap={true}
-								fit={true}
-								minSize={9}
-								position={UDim2.fromOffset(heroStack ? 0 : 72, heroStack ? 108 : 56)}
-								sizeConstraint={new UDim2(1, heroStack ? -8 : -332, 0, 24)}
-							/>
-							{!heroStack && (
-								<>
-									<AmountToggle
-										value={buyAmount}
-										onChange={setBuyAmount}
+						<MockPanel size={UDim2.fromScale(1, 1)} phone={stack} accent={Palette.cyan} glow={Palette.cyan} reveal={enter} reducedMotion={softMotion} name="ResearchSummary">
+							<PanelHeading icon="Research" title="Research" note={researchLocked ? "Unlocks at 100 Flux" : `${maxedCount} maxed`} accent={Palette.cyan} phone={stack} layoutOrder={0} />
+							<BigFigure value={`${unlockedCount} of ${entries.size()}`} unit="researched" color={Palette.cyan} phone={stack} layoutOrder={1} />
+							<ChipRow height={stack ? 24 : 28} layoutOrder={2}>
+								<Chip text={nextEntry !== undefined ? `Next: ${nextEntry.config.Name}` : "All researched"} accent={Palette.cyan} phone={stack} layoutOrder={0} />
+								<Chip text="Kept through rebirth" phone={stack} layoutOrder={1} />
+							</ChipRow>
+							<Bar fill={entries.size() > 0 ? unlockedCount / entries.size() : 0} color={Palette.cyan} layoutOrder={3} />
+							<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, stack ? TapTarget : 44)} LayoutOrder={4}>
+								<AmountToggle value={buyAmount} onChange={setBuyAmount} accent={Palette.cyan} size={new UDim2(1, -(stack ? 112 : 190), 1, 0)} reducedMotion={softMotion} />
+								<frame
+									{...named("ResearchBuyClaimActions")}
+									Size={new UDim2(0, stack ? 104 : 180, 1, 0)}
+									Position={new UDim2(1, stack ? -104 : -180, 0, 0)}
+									BackgroundTransparency={1}
+									BorderSizePixel={0}
+									ClipsDescendants={false}
+									ref={canBuyAll ? buyAllHostRef : undefined}
+								>
+									<MockBtn
+										text={batch.busy ? batch.status : `Buy ${batch.count}`}
+										icon="Flux"
 										accent={Palette.cyan}
-										position={new UDim2(1, -240, 0, 16)}
-										size={UDim2.fromOffset(240, 32)}
+										phone={stack}
+										fill={true}
+										disabled={!canBuyAll}
+										onClick={onBuyAll}
 										reducedMotion={softMotion}
 									/>
-									<frame
-										{...named("ResearchBuyClaimActions")}
-										Size={UDim2.fromOffset(240, 32)}
-										Position={new UDim2(1, -240, 0, 56)}
-										BackgroundTransparency={1}
-										BorderSizePixel={0}
-										ClipsDescendants={false}
-										ref={canBuyAll ? buyAllHostRef : undefined}
-									>
-										<Button
-											text={batch.busy ? batch.status : `BUY BATCH · ${batch.count}`}
-											icon="Flux.8"
-											onClick={onBuyAll}
-											color={canBuyAll ? Palette.cyan : Palette.panelSoft}
-											textColor={canBuyAll ? Palette.ink : Palette.muted}
-											size={UDim2.fromScale(1, 1)}
-											reducedMotion={softMotion}
-											disabled={!canBuyAll}
-											highlight={canBuyAll}
-										/>
-									</frame>
-								</>
-							)}
-							{heroStack && (
-								<>
-									<AmountToggle
-										value={buyAmount}
-										onChange={setBuyAmount}
-										accent={Palette.cyan}
-										position={new UDim2(0, 0, 0, 132)}
-										size={new UDim2(1, -104, 0, TapTarget)}
-										reducedMotion={softMotion}
-									/>
-									<frame
-										{...named("ResearchBuyClaimActions")}
-										Size={UDim2.fromOffset(96, TapTarget)}
-										Position={new UDim2(1, -96, 0, 132)}
-										BackgroundTransparency={1}
-										BorderSizePixel={0}
-										ClipsDescendants={false}
-										ref={canBuyAll ? buyAllHostRef : undefined}
-									>
-										<Button
-											text={batch.busy ? "…" : `BUY ${batch.count}`}
-											icon="Flux.9"
-											onClick={onBuyAll}
-											color={canBuyAll ? Palette.cyan : Palette.panelSoft}
-											textColor={canBuyAll ? Palette.ink : Palette.muted}
-											size={UDim2.fromScale(1, 1)}
-											reducedMotion={softMotion}
-											disabled={!canBuyAll}
-											highlight={canBuyAll}
-										/>
-									</frame>
-								</>
-							)}
-						</Panel>
+								</frame>
+							</frame>
+						</MockPanel>
 					),
 				},
 				{
@@ -520,6 +314,11 @@ function ResearchView(props: ResearchProps) {
 							batch={batch}
 						/>
 					),
+				},
+				{
+					id: "chain-head",
+					height: HEADING_SECTION_H,
+					element: <HeadingSection icon="Research" title="Chain" note={`${visible.size()} shown`} accent={Palette.cyan} phone={stack} />,
 				},
 				{
 					id: "chain",
@@ -560,7 +359,7 @@ function ResearchView(props: ResearchProps) {
 							/>
 						),
 				},
-			], "Research")}
+			], "Research", 2)}
 		/>
 	);
 }
