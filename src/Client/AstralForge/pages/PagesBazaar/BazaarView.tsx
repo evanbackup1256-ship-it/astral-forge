@@ -587,10 +587,9 @@ function BazaarView(props: BazaarProps) {
 	// wide: title left, next shipment and Refresh right, rules below. Narrow: the title gets its own row.
 	const narrowHeader = width < 560;
 	const rowY = narrowHeader ? 44 : 0;
-	// one row on wide (16 + 40 + 16 = 72), title over countdown/Refresh on narrow (16 + 44 + 40 + 16 = 116); no rules paragraph
 	add(
 		"market-header",
-		narrowHeader ? 116 : 72,
+		narrowHeader ? 168 : 112,
 		<Ui.Panel
 			size={UDim2.fromScale(1, 1)}
 			padding={16}
@@ -630,6 +629,20 @@ function BazaarView(props: BazaarProps) {
 				reducedMotion={props.reducedMotion}
 				onClick={() => request("GetState", {})}
 			/>
+			<Ui.Text
+				value={
+					(market
+						? `${market.Offers.size()} shipments from a ${market.CatalogSize}-item catalog. Stock limits are yours alone. `
+						: "Opening the supply ledger... ") + "Prices follow your steady production, with a 1,000-Flux minimum."
+				}
+				size={13}
+				wrap={true}
+				fit={true}
+				minSize={10}
+				color={Palette.muted}
+				position={UDim2.fromOffset(0, rowY + 50)}
+				sizeConstraint={new UDim2(1, 0, 0, 44)}
+			/>
 		</Ui.Panel>,
 	);
 	if (note !== "") {
@@ -644,11 +657,9 @@ function BazaarView(props: BazaarProps) {
 	if (merchant && reputation) {
 		const accent = Color3.fromRGB(merchant.Accent[0], merchant.Accent[1], merchant.Accent[2]);
 		const progress = reputation.NextAt !== undefined ? reputation.Units / reputation.NextAt : 1;
-		// merchant card: portrait, name, title, standing meter, request status. No quote or rules copy.
-		// 18 pad + 72 portrait + 10 + 6 meter + 6 + 18 status + 18 pad = 148
 		add(
 			"merchant",
-			148,
+			212,
 			<Ui.Panel
 				size={UDim2.fromScale(1, 1)}
 				padding={18}
@@ -658,7 +669,7 @@ function BazaarView(props: BazaarProps) {
 			>
 				<MerchantPortrait
 					accent={accent}
-					size={UDim2.fromOffset(64, 72)}
+					size={UDim2.fromOffset(84, 96)}
 					position={UDim2.fromOffset(0, 0)}
 					tilt={((merchant.Name.size() % 3) - 1) * 5}
 					favors={merchant.Favors}
@@ -669,49 +680,65 @@ function BazaarView(props: BazaarProps) {
 					value={merchant.Name}
 					size={19}
 					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={13}
-					position={UDim2.fromOffset(78, 0)}
-					sizeConstraint={new UDim2(1, -78, 0, 26)}
+					position={UDim2.fromOffset(98, 0)}
+					sizeConstraint={new UDim2(1, -98, 0, 26)}
 				/>
 				<Ui.Text
-					value={merchant.Title}
+					value={`${merchant.Title} · ${merchant.Favors.lower()}`}
 					size={12}
 					color={accent}
+					wrap={true}
 					fit={true}
-					minSize={11}
-					position={UDim2.fromOffset(78, 26)}
-					sizeConstraint={new UDim2(1, -78, 0, 18)}
+					minSize={10}
+					position={UDim2.fromOffset(98, 28)}
+					sizeConstraint={new UDim2(1, -98, 0, 32)}
+				/>
+				<Ui.Text
+					value={"“" + merchant.Line + "”"}
+					size={13}
+					color={Palette.creamSoft}
+					wrap={true}
+					fit={true}
+					minSize={10}
+					position={UDim2.fromOffset(98, 60)}
+					sizeConstraint={new UDim2(1, -98, 0, 40)}
 				/>
 				<Ui.Text
 					value={
-						reputation.Next !== undefined
-							? `${reputation.Name}  ${reputation.Units}/${reputation.NextAt!}` + (reputation.Bonus > 0 ? `  +${reputation.Bonus} stock` : "")
-							: reputation.Name + (reputation.Bonus > 0 ? `  +${reputation.Bonus} stock` : "")
+						`Standing: ${reputation.Name}` +
+						(reputation.Bonus > 0 ? ` · +${reputation.Bonus} stock on regular shelves` : "") +
+						(reputation.Next !== undefined
+							? ` · ${math.max(0, reputation.NextAt! - reputation.Units)} more units bought for ${reputation.Next}`
+							: " · highest standing")
 					}
-					size={13}
-					weight={Enum.FontWeight.Bold}
-					color={Palette.creamSoft}
+					size={12}
+					wrap={true}
 					fit={true}
-					minSize={11}
-					position={UDim2.fromOffset(78, 48)}
-					sizeConstraint={new UDim2(1, -78, 0, 20)}
+					minSize={10}
+					color={Palette.muted}
+					position={UDim2.fromOffset(0, 108)}
+					sizeConstraint={new UDim2(1, 0, 0, 40)}
 				/>
 				<Ui.Meter
 					value={math.clamp(progress, 0, 1)}
 					color={accent}
 					reducedMotion={props.reducedMotion}
-					position={UDim2.fromOffset(0, 82)}
+					position={UDim2.fromOffset(0, 154)}
 					size={new UDim2(1, 0, 0, 6)}
 				/>
 				<Ui.Text
-					value={reputation.CanProcure ? "Requests open" : `Requests at ${reputation.ProcureTier}`}
+					value={
+						reputation.CanProcure
+							? "Requests are open: ask for any supply and it is held for you."
+							: `Supply requests open at ${reputation.ProcureTier} standing.`
+					}
 					size={12}
+					wrap={true}
 					fit={true}
-					minSize={11}
+					minSize={10}
 					color={Palette.muted}
-					position={UDim2.fromOffset(0, 94)}
-					sizeConstraint={new UDim2(1, 0, 0, 18)}
+					position={UDim2.fromOffset(0, 166)}
+					sizeConstraint={new UDim2(1, 0, 0, 22)}
 				/>
 			</Ui.Panel>,
 		);
@@ -1201,8 +1228,8 @@ function BazaarView(props: BazaarProps) {
 			<Ui.Text
 				value={
 					category === "Saved"
-						? "Nothing saved"
-						: "No matches"
+						? "No saved supplies on this shipment. Save an item to keep it in view."
+						: "No supplies match those filters."
 				}
 				size={15}
 				wrap={true}

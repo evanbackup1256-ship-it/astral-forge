@@ -1383,6 +1383,7 @@ function ShopView(props: ShopViewProps) {
 			key: "shop-empty",
 			icon: "Shop.5",
 			title: "Nothing listed",
+			body: "Check back after the next restock.",
 			accent: Palette.mango,
 			layoutOrder: 0,
 			reducedMotion: reducedMotion,
@@ -1625,7 +1626,7 @@ function Wallet(props: WalletProps) {
 
 interface HeroProps {
 	title: string;
-	body?: string;
+	body: string;
 	accent: Color3;
 	icon: string;
 	state: ShopState;
@@ -1635,18 +1636,16 @@ interface HeroProps {
 	extra?: unknown;
 }
 
-// Hero is a slim header strip (forge-ui-4 Shop P1): icon + title on the left, wallet on the right,
-// no body copy. Desktop is one 64px row; stacked layouts put the wallet on a second row.
 function Hero(props: HeroProps) {
 	const stack = props.stack;
-	const rowH = 36;
+	const textW = stack ? -56 : -300;
 	return h(
 		Panel,
 		{
 			size: UDim2.fromScale(1, 1),
 			accent: props.accent,
 			background: Palette.panelRaised,
-			padding: 14,
+			padding: 18,
 			reveal: props.reveal,
 			highlight: true,
 			reducedMotion: props.reducedMotion,
@@ -1656,9 +1655,9 @@ function Hero(props: HeroProps) {
 			still: true,
 			kind: props.icon,
 			accent: props.accent,
-			size: rowH,
-			radius: 12,
-			position: UDim2.fromOffset(0, 0),
+			size: 44,
+			radius: 14,
+			position: UDim2.fromOffset(0, 2),
 			glow: true,
 			reducedMotion: props.reducedMotion,
 		}),
@@ -1669,23 +1668,32 @@ function Hero(props: HeroProps) {
 			weight: Enum.FontWeight.Heavy,
 			fit: true,
 			minSize: 13,
-			position: UDim2.fromOffset(rowH + 12, 4),
-			sizeConstraint: new UDim2(1, stack ? -(rowH + 12) : -(rowH + 12 + 252), 0, 28),
+			position: UDim2.fromOffset(56, 0),
+			sizeConstraint: new UDim2(1, textW, 0, 28),
+		}),
+		h(Text, {
+			value: props.body,
+			size: 12,
+			color: Palette.creamSoft,
+			wrap: true,
+			fit: true,
+			minSize: 10,
+			position: UDim2.fromOffset(56, 30),
+			sizeConstraint: new UDim2(1, textW, 0, 34),
 		}),
 		h(Wallet, {
 			state: props.state,
 			left: stack,
 			size: stack ? new UDim2(1, 0, 0, 30) : UDim2.fromOffset(240, 30),
-			position: stack ? new UDim2(0, 0, 1, -30) : new UDim2(1, 0, 0, 3),
+			position: stack ? new UDim2(0, 0, 1, -30) : UDim2.fromScale(1, 0),
 			anchorPoint: stack ? undefined : new Vector2(1, 0),
 		}),
 		props.extra,
 	);
 }
 
-/** 14 + 36 + 14 on one row; stacked adds a 30px wallet row and an 8px gap. */
 function heroHeight(stack: boolean): number {
-	return stack ? 102 : 64;
+	return stack ? 136 : 92;
 }
 
 function offerDetail(offer: DailyOffer, config: ShopConfig): string {
@@ -2003,6 +2011,7 @@ function DailySection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Daily Shop",
+					body: "Six offers a day. The first is the Deal of the Day.",
 					accent: Palette.mango,
 					icon: "Calendar.3",
 					state: state,
@@ -2391,6 +2400,7 @@ function CratesSection(props: SectionProps) {
 		return h(EmptyState, {
 			icon: "Crate",
 			title: "No crates right now",
+			body: "Crates come back with the next rotation.",
 			accent: Palette.mango,
 			reducedMotion: props.reducedMotion,
 		});
@@ -2440,6 +2450,7 @@ function CratesSection(props: SectionProps) {
 		height: heroHeight(stack),
 		element: h(Hero, {
 			title: "Crates",
+			body: "Odds for every crate, up to Astral.",
 			accent: Palette.violet,
 			icon: "Crate.4",
 			state: state,
@@ -2842,6 +2853,7 @@ function SkinsSection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Crate Skins",
+					body: "The Celestial Ark is only sold in the Daily Shop.",
 					accent: Palette.cyan,
 					icon: "Crate.5",
 					state: state,
@@ -3222,6 +3234,7 @@ function CodexSection(props: SectionProps) {
 			height: heroHeight(stack),
 			element: h(Hero, {
 				title: "Relic Codex",
+				body: `Every relic in the forge. Fuse a spare copy into a relic for a star: +${math.floor((config.Items?.StarBonus ?? 0.25) * 100)}% effect each, up to ${maxStars}.`,
 				accent: Palette.mint,
 				icon: "Artifact.2",
 				state: state,
@@ -3645,7 +3658,8 @@ function ArtifactsSection(props: SectionProps) {
 			id: "hero",
 			height: heroHeight(stack),
 			element: h(Hero, {
-				title: `Artifact Vault  ${ownedCount}/${artifacts.size()}`,
+				title: "Artifact Vault",
+				body: `Buy rare artifacts outright for stardust. Ones you hold restock as upgrade fragments. ${ownedCount}/${artifacts.size()} held.`,
 				accent: Palette.violet,
 				icon: "Artifact.4",
 				state: state,
