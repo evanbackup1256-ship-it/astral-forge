@@ -67,8 +67,9 @@ const WHERES = table.freeze([
 
 const SORTS = table.freeze([
 	{ id: "Production", label: "Output" },
+	{ id: "Lifetime", label: "Lifetime" },
 	{ id: "Rebirths", label: "Rebirths" },
-	{ id: "Name", label: "Name" },
+	{ id: "Played", label: "Played" },
 ]);
 
 const DETAILS_MAX = 400;
@@ -219,21 +220,46 @@ function view(rows: Row[], sortId: string, query?: string, friendsOnly?: boolean
 		if (left.IsLocal !== right.IsLocal) {
 			return left.IsLocal;
 		}
-		if (sortId === "Name") {
-			const a = left.DisplayName.lower();
-			const b = right.DisplayName.lower();
-			if (a !== b) {
-				return a < b;
-			}
-		} else if (sortId === "Rebirths") {
-			if (left.Rebirths !== right.Rebirths) {
-				return left.Rebirths > right.Rebirths;
-			}
-		} else if (!productionEqual(left.Production, right.Production)) {
-			return productionGreater(left.Production, right.Production);
-		}
-		return left.UserId < right.UserId;
+		return statBefore(left, right, sortId);
 	});
+	return out;
+}
+
+// the leaderboard order for one stat, ties broken by user id so ranks never jump between refreshes
+function statBefore(left: Row, right: Row, sortId: string): boolean {
+	if (sortId === "Name") {
+		const a = left.DisplayName.lower();
+		const b = right.DisplayName.lower();
+		if (a !== b) {
+			return a < b;
+		}
+	} else if (sortId === "Rebirths") {
+		if (left.Rebirths !== right.Rebirths) {
+			return left.Rebirths > right.Rebirths;
+		}
+	} else if (sortId === "Lifetime") {
+		if (!productionEqual(left.LifetimeCash, right.LifetimeCash)) {
+			return productionGreater(left.LifetimeCash, right.LifetimeCash);
+		}
+	} else if (sortId === "Played") {
+		if (left.PlayTime !== right.PlayTime) {
+			return left.PlayTime > right.PlayTime;
+		}
+	} else if (!productionEqual(left.Production, right.Production)) {
+		return productionGreater(left.Production, right.Production);
+	}
+	return left.UserId < right.UserId;
+}
+
+// rank of every player on the server for one stat (the local row is pinned on top of the list,
+// but its rank is its real place)
+function ranks(rows: Row[], sortId: string): Record<number, number> {
+	const ordered = [...rows];
+	ordered.sort((left, right) => statBefore(left, right, sortId));
+	const out: Record<number, number> = {};
+	for (const [index, row] of ipairs(ordered)) {
+		out[row.UserId] = index;
+	}
 	return out;
 }
 
@@ -279,6 +305,7 @@ export = table.freeze({
 	WHENS,
 	WHERES,
 	SORTS,
+	ranks,
 	DETAILS_MAX,
 	SEARCH_MIN_ROWS,
 	artifact,

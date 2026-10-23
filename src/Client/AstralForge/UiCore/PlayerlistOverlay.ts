@@ -67,6 +67,7 @@ interface PlayerlistModel {
 	accountAge(this: void, days: unknown): string;
 	details(this: void, text: string): string;
 	view(this: void, rows: Row[], sortId: string, query: string, friendsOnly: boolean, friends: Record<number, boolean>): Row[];
+	ranks(this: void, rows: Row[], sortId: string): Record<number, number>;
 	artifactOf(this: void, player: Player | undefined, raw: unknown): Artifact | undefined;
 	REASONS: Option[];
 	SEVERITIES: Option[];
@@ -273,6 +274,9 @@ interface PlayerRowProps {
 	reported: boolean;
 	reducedMotion?: boolean;
 	crewmate: boolean;
+	/** place on the server for the selected stat (1 is the top) */
+	rank: number;
+	sortId: string;
 	/** you're on this player's forge right now (button flips to GO HOME and sends LeavePlot) */
 	visiting: boolean;
 	onToggle: () => void;
@@ -321,6 +325,17 @@ function PlayerRow(param: PlayerRowProps) {
 	const compact = width < COMPACT_W;
 	const rowH = compact ? COMPACT_ROW_H : ROW_H;
 	const avatarSize = compact ? 28 : 40;
+	// rank column ahead of the avatar; everything after it shifts right by this much
+	const rankW = compact ? 22 : 28;
+	const topRank = param.rank === 1;
+	let statValue = `${compactNumber(row.Production)}/s`;
+	if (param.sortId === "Lifetime") {
+		statValue = compactNumber(row.LifetimeCash);
+	} else if (param.sortId === "Rebirths") {
+		statValue = `${compactNumber(row.Rebirths)} RB`;
+	} else if (param.sortId === "Played") {
+		statValue = Model.playTime(row.PlayTime);
+	}
 	// phones: swipe a closed row left to show Message and Visit without opening the details
 	const canSwipe = compact && !row.IsLocal && !expanded;
 	const [swiped, setSwiped] = React.useState(false);
@@ -524,12 +539,16 @@ function PlayerRow(param: PlayerRowProps) {
 		h(
 			"uistroke",
 			{
-				Color: style.frame?.Gradient ? new Color3(1, 1, 1) : strokeColor,
+				// your own row always carries a 1.5px mango rim so you can find yourself at a glance
+				Color: row.IsLocal ? Palette.mango : style.frame?.Gradient ? new Color3(1, 1, 1) : strokeColor,
 				// compact rows show the frame as a left bar instead, so the thin card keeps a 1px edge
-				Thickness: compact ? 1 : (style.frame?.Thickness ?? 1),
-				Transparency: hover.map((amount) => (style.frame !== undefined ? 0.45 : 0.8) - math.clamp(amount, 0, 1) * 0.45),
+				Thickness: row.IsLocal ? 1.5 : compact ? 1 : (style.frame?.Thickness ?? 1),
+				Transparency: row.IsLocal
+					? hover.map((amount) => 0.1 - math.clamp(amount, 0, 1) * 0.1)
+					: hover.map((amount) => (style.frame !== undefined ? 0.45 : 0.8) - math.clamp(amount, 0, 1) * 0.45),
 			},
-			style.frame?.Gradient === true &&
+			!row.IsLocal &&
+				style.frame?.Gradient === true &&
 				h("uigradient", {
 					Color: new ColorSequence([
 						new ColorSequenceKeypoint(0, strokeColor),
@@ -601,7 +620,7 @@ function PlayerRow(param: PlayerRowProps) {
 				h(ElementFx, {
 					element: artifact.Element,
 					size: compact ? UDim2.fromOffset(46, 46) : UDim2.fromOffset(66, 66),
-					position: new UDim2(0, compact ? 24 : 30, 0.5, compact ? -2 : -3),
+					position: new UDim2(0, (compact ? 24 : 30) + rankW, 0.5, compact ? -2 : -3),
 					transparency: 0.2,
 					reducedMotion: reducedMotion,
 					zIndex: 622,
@@ -609,12 +628,24 @@ function PlayerRow(param: PlayerRowProps) {
 					reaction: "equip",
 					reactionKey: `${artifact.Name}:${artifact.Level}`,
 				}),
+			h(Text, {
+				value: `#${param.rank}`,
+				size: compact ? 12 : 14,
+				color: topRank ? Palette.mango : Palette.muted,
+				weight: Enum.FontWeight.Heavy,
+				align: Enum.TextXAlignment.Center,
+				fit: true,
+				minSize: 8,
+				position: new UDim2(0, 6, 0.5, -9),
+				sizeConstraint: UDim2.fromOffset(rankW, 18),
+				zIndex: 623,
+			}),
 			h(Avatar, {
 				userId: row.UserId,
-				accent: artifactColor ?? accent,
+				accent: topRank ? Palette.mango : artifactColor ?? accent,
 				size: avatarSize,
 				away: away,
-				position: new UDim2(0, 10, 0.5, 0),
+				position: new UDim2(0, 10 + rankW, 0.5, 0),
 			}),
 			compact &&
 				style.frame !== undefined &&
@@ -646,10 +677,22 @@ function PlayerRow(param: PlayerRowProps) {
 				weight: Enum.FontWeight.Heavy,
 				fit: true,
 				minSize: 11,
-				position: compact ? UDim2.fromOffset(46, 12) : UDim2.fromOffset(60, 9),
-				sizeConstraint: compact ? new UDim2(1, -46 - 96, 0, 20) : new UDim2(1, -150, 0, 20),
+				position: compact ? UDim2.fromOffset(46 + rankW, 12) : UDim2.fromOffset(60 + rankW, 9),
+				sizeConstraint: compact
+					? new UDim2(1, -46 - rankW - 96, 0, 20)
+					: new UDim2(1, -150 - rankW - (param.crewmate ? 24 : 0), 0, 20),
 				zIndex: 623,
 			}),
+			!compact &&
+				param.crewmate &&
+				h(Icon, {
+					kind: "Crew.18",
+					color: Palette.cream,
+					accent: Palette.mint,
+					size: 16,
+					spin: false,
+					position: new UDim2(1, -112, 0, 11),
+				}),
 			!compact &&
 			h(Text, {
 				value: tags.size() > 0 ? tags.join(" · ") + "  ·  " + subtitle : subtitle,
@@ -658,14 +701,14 @@ function PlayerRow(param: PlayerRowProps) {
 				weight: Enum.FontWeight.Bold,
 				fit: true,
 				minSize: 8,
-				position: UDim2.fromOffset(60, 32),
-				sizeConstraint: new UDim2(1, -150, 0, 16),
+				position: UDim2.fromOffset(60 + rankW, 32),
+				sizeConstraint: new UDim2(1, -150 - rankW, 0, 16),
 				zIndex: 623,
 			}),
 			h(Text, {
-				value: `${compactNumber(row.Production)}/s`,
+				value: statValue,
 				size: 13,
-				color: Palette.creamSoft,
+				color: topRank ? Palette.mango : Palette.creamSoft,
 				weight: Enum.FontWeight.Heavy,
 				align: Enum.TextXAlignment.Right,
 				fit: true,
@@ -1574,7 +1617,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const top = math.max(viewport.topInset, 36) + 8;
 	const bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 8;
 	// never wider or taller than the room left between the safe insets (286px phones, 286px-tall landscape)
-	const width = math.min(viewport.width - 12, math.max(240, math.min(460, viewport.width - side * 2)));
+	const width = math.min(viewport.width - 12, math.max(240, math.min(viewport.height < 500 ? 560 : 620, viewport.width - side * 2)));
 	const height = math.max(1, math.min(680, viewport.height - top - bottom));
 	const innerW = width - 20;
 	const showSearch = rows.size() >= Model.SEARCH_MIN_ROWS;
@@ -1607,6 +1650,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	);
 
 	const visible = Model.view(rows, sortId, query, friendsOnly, friends);
+	const rankOf = Model.ranks(rows, sortId);
 	const crewState = (require(AstralForge.WaitForChild("CrewStore") as ModuleScript) as CrewStoreModule).useCrew();
 	const crewmates: Record<number, boolean> = {};
 	if (crewState.crew) {
@@ -1667,6 +1711,8 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				onClose();
 			},
 			crewmate: crewmates[row.UserId] === true,
+			rank: rankOf[row.UserId] ?? order,
+			sortId: sortId,
 			visiting: visitingId === row.UserId,
 			onCrew: () => {
 				if (peerOf(row) === undefined) {
