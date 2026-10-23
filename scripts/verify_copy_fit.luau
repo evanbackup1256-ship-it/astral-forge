@@ -82,6 +82,12 @@ local CASES: { Case } = {
 	-- trade chat placeholder at 360 (textbox leaves 78 for SEND), 13px
 	{ file = "pages/PagesSocial.tsx", needle = "Say something to ${session.PartnerName}", fill = { ["session.PartnerName"] = "WWWWWWWWWWWW" }, size = 13, bold = false, width = PHONE - 14 * 2 - 78 },
 	-- Shop
+	-- Bazaar helper and standing copy (keeps the 24-hour hold and the 1,000 Flux minimum)
+	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "Prices track your output; 1,000 Flux minimum.", size = 13, minSize = 10, bold = false, width = PHONE - 36, box = 44 },
+	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "Requests open: any supply, held 24 hours.", size = 12, minSize = 10, bold = false, width = PHONE - 36, box = 22 },
+	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "${procure.Name} requested: next shipment, held 24 hours.", fill = { ["procure.Name"] = "Nebula Coolant Cell" }, size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
+	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "${procure.Name} lapsed. Request again for a new 24-hour hold.", fill = { ["procure.Name"] = "Nebula Coolant Cell" }, size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
+	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "No open request. Pick a supply below: next shipment, held 24 hours.", size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
 	{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = shopPanel },
 	{ file = "pages/PagesShop.tsx", needle = "Type a code to claim it. Each one works once.", size = 12, minSize = 10, bold = false, width = shopPanel, box = 26 },
 	{ file = "pages/PagesShop.tsx", needle = "Follow the creator on Roblox, then check here for a one-time reward.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
