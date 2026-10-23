@@ -1601,7 +1601,7 @@ export function OverviewView({
 										)}
 									</Panel>
 									<Flex
-										direction={denseHero ? "row" : wideOverview || stack ? "column" : "row"}
+										direction={denseHero || landscapePhone ? "row" : wideOverview || stack ? "column" : "row"}
 										wrap={false}
 										justify="fill"
 										align="stretch"
