@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
+import { BODY_BOLD, NUM, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
@@ -63,7 +64,7 @@ function __member(): unknown {
 	let EmptyState: unknown = luaProp(_ui, "EmptyState");
 	let SearchField: unknown = luaProp(_ui, "SearchField");
 	let Browse: unknown = mod("BrowseKit");
-	let CHAPTER_ROW_H: unknown = 58;
+	let CHAPTER_ROW_H: unknown = 60;
 	let CHAPTER_ROW_GAP: unknown = 8;
 	let CHAPTER_ROW_STRIDE: unknown = ((CHAPTER_ROW_H as unknown as number) + (CHAPTER_ROW_GAP as unknown as number));
 	function illuminate(text?: unknown, accent?: unknown): unknown | undefined {
@@ -150,21 +151,38 @@ function __member(): unknown {
 		let done: unknown = ((luaTruthy(luaProp(chapter, "Claimed") ) ? luaProp(chapter, "Claimed") :  luaProp(chapter, "Read")));
 		let label: unknown = ((!luaTruthy(open)) ? "LOCK" : (luaTruthy(done) ? "DONE" : "NEW"));
 		let accent: unknown = luaProp(entry, "Color");
-		return reactLoose.createElement("textbutton", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, CHAPTER_ROW_H), BackgroundColor3: (luaTruthy(selected) ? luaProp(Palette, "panel") : luaProp(Palette, "ink")), BorderSizePixel: 0, Text: "", AutoButtonColor: false, Active: true, Selectable: true, LayoutOrder: layoutOrder, Event: { Activated: function(this: void): unknown | undefined {
-			if (luaTruthy(open)) {
-				luaCall(onSelect);
-				colon(Audio).play("storyPage");
-			} else {
-				colon(Audio).play("locked");
-			}
-			return undefined;
-		}, MouseEnter: function(this: void): unknown | undefined {
-			return colon(Audio).play("hover");
-			return undefined;
-		}, SelectionGained: function(this: void): unknown | undefined {
-			return colon(Audio).play("hover");
-			return undefined;
-		} } }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement("uistroke", { Color: (luaTruthy(selected) ? accent : luaProp(Palette, "lineSoft")), Thickness: 1, Transparency: (luaTruthy(selected) ? 0.15 : 0.55) }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 3, 1, -12), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 6), BackgroundColor3: (luaTruthy(open) ? accent : luaProp(Palette, "muted")), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 2) })), reactLoose.createElement(Text, { value: luaProp(entry, "Chapter"), size: 10, color: (luaTruthy(open) ? accent : luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 12, 8), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -84, 0, 14) }), reactLoose.createElement(Text, { value: luaProp(entry, "Title"), size: 13, color: (luaTruthy(open) ? luaProp(Palette, "cream") : luaProp(Palette, "muted")), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, minSize: 9, position: luaCall(luaProp(UDim2, "fromOffset"), 12, 24), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -84, 0, 18) }), ((!luaTruthy(open)) && reactLoose.createElement(Text, { value: `${(math.floor as unknown as (...a: unknown[]) => unknown)(luaProp(chapter, "Progress"))} / ${luaProp(chapter, "Target")}`, size: 10, color: luaProp(Palette, "muted"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 12, 42), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -84, 0, 12) })), reactLoose.createElement(Badge, { value: label, accent: (luaTruthy(open) ? ((luaTruthy(done) ? luaProp(Palette, "mint") : accent)) : luaProp(Palette, "muted")), filled: open, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -70, 0.5, -11), size: luaCall(luaProp(UDim2, "fromOffset"), 62, 22) }));
+		// design/19-journal page card: num (mango 18) + title (title font 18), then a Done chip (accent) or progress chip
+		const P = Palette as Record<string, Color3>;
+		const chapterNo = tostring(luaProp(entry, "Chapter") ?? "");
+		const chipText = !luaTruthy(open) ? `${math.floor(luaProp(chapter, "Progress") as number)} of ${luaProp(chapter, "Target") as number}` : luaTruthy(done) ? "Done" : "New";
+		const chipOn = luaTruthy(open);
+		return React.createElement("textbutton", {
+			Size: new UDim2(1, -4, 0, CHAPTER_ROW_H as number), BackgroundColor3: P.white, BorderSizePixel: 0, Text: "", AutoButtonColor: false, Active: true, Selectable: true, LayoutOrder: layoutOrder as number,
+			Event: {
+				Activated: () => {
+					if (luaTruthy(open)) {
+						luaCall(onSelect);
+						colon(Audio).play("storyPage");
+					} else {
+						colon(Audio).play("locked");
+					}
+				},
+				MouseEnter: () => colon(Audio).play("hover"),
+				SelectionGained: () => colon(Audio).play("hover"),
+			},
+		},
+			React.createElement(RowSurface, {}),
+			luaTruthy(done) ? React.createElement("uigradient", { Rotation: 90, Color: new ColorSequence(P.mango, P.white), Transparency: new NumberSequence(0.9, 0.98) }) : undefined,
+			luaTruthy(selected) ? React.createElement("uistroke", { Color: P.mango, Thickness: 2, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }) : undefined,
+			React.createElement("textlabel", { Text: chapterNo, FontFace: NUM, TextSize: 18, TextColor3: luaTruthy(open) ? P.mango : P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(14, 8), Size: UDim2.fromOffset(28, 22) }),
+			React.createElement("textlabel", { Text: tostring(luaProp(entry, "Title") ?? ""), FontFace: TITLE_FACE, TextSize: 18, TextColor3: luaTruthy(open) ? P.cream : P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(46, 8), Size: new UDim2(1, -60, 0, 22) }),
+			React.createElement("frame", { Position: UDim2.fromOffset(14, 34), Size: UDim2.fromOffset(0, 18), AutomaticSize: Enum.AutomaticSize.X, BackgroundColor3: chipOn ? P.mango : P.white, BackgroundTransparency: chipOn ? 0.8 : 0.95, BorderSizePixel: 0 },
+				React.createElement("uicorner", { CornerRadius: new UDim(0, 6) }),
+				React.createElement("uistroke", { Color: chipOn ? P.mango : P.white, Transparency: chipOn ? 0.4 : 0.9, Thickness: 1 }),
+				React.createElement("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) }),
+				React.createElement("textlabel", { Text: chipText, FontFace: BODY_BOLD, TextSize: 11, TextColor3: chipOn ? P.cream : P.creamSoft, BackgroundTransparency: 1, AutomaticSize: Enum.AutomaticSize.X, Size: UDim2.fromScale(0, 1) }),
+			),
+		);
 		return undefined;
 	}
 	function StoryBeat(_param?: unknown): unknown | undefined {
@@ -517,7 +535,7 @@ function __member(): unknown {
 		let railMarkH: unknown = ((luaTruthy(multi) && (!luaTruthy(stack))) ? 84 : ((luaTruthy(stack) ? markH : 0)));
 		// the mark is ~76px of content; taller only left an empty card
 		let readerPad: unknown = (luaTruthy(shortLandscape) ? 12 : (luaTruthy(stack) ? ((luaTruthy(started) ? 12 : 14)) : luaProp(Layout, "contentInset")));
-		let _exp: unknown = reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 14) });
+		let _exp: unknown = reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 16) });
 		let _exp_1: unknown = reactLoose.createElement("uistroke", { Color: luaProp(story, "Color"), Thickness: 1, Transparency: 0.52 });
 		let _condition: unknown = (!luaTruthy(reducedMotion));
 		if (luaTruthy(_condition)) {
@@ -567,7 +585,7 @@ function __member(): unknown {
 			}
 			_condition_1 = reactLoose.createElement("frame", { Size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, markH) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(railShare, (((-(railGap as unknown as number)) as unknown as number) / (2 as unknown as number)), 1, 0)), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, _exp_2, _condition_2, (((!luaTruthy(stack)) && (!luaTruthy(multi))) && reactLoose.createElement(ArchiveMark, { accent: luaProp(story, "Color"), active: started, reducedMotion: softMotion, beat: beat, total: len(luaProp(story, "Body")), compact: false, finished: finished, unlocked: luaProp(status, "Unlocked"), unlockProgress: unlockFill, unlockLabel: unlockLabel, reward: luaCall(formatReward, luaProp(story, "Reward")), claimed: luaProp(status, "Claimed") })));
 		}
-		let _exp_2: unknown = reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 14) });
+		let _exp_2: unknown = reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 16) });
 		let _exp_3: unknown = reactLoose.createElement("uistroke", { Color: luaProp(Palette, "lineSoft"), Thickness: 1, Transparency: 0.6 });
 		let _exp_4: unknown = ((!luaTruthy(stack)) && reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 2, 1, -32), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 16), BackgroundColor3: luaProp(story, "Color"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 2) })));
 		let _condition_2: unknown = (((!luaTruthy(started)) && multi) && stack);
@@ -607,7 +625,7 @@ function __member(): unknown {
 		let _exp_5: unknown = (((!luaTruthy(started)) && (((!luaTruthy(multi)) || (!luaTruthy(stack))))) && reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((readerPad as unknown as number) * (2 as unknown as number))) as unknown as number)), 1, (luaTruthy(shortLandscape) ? -16 : -36)), Position: colon(intro).map(function(this: void, amount?: unknown): unknown | undefined {
 			return new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, ((readerPad as unknown as number) + ((math.floor as unknown as (...a: unknown[]) => unknown)((((((1 as unknown as number) - (amount as unknown as number))) as unknown as number) * (12 as unknown as number))) as unknown as number)), 0, (luaTruthy(shortLandscape) ? 8 : 18));
 			return undefined;
-		}), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Badge, { value: (luaTruthy(multi) ? "CHAPTER" : "STORY"), accent: luaProp(story, "Color"), filled: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 2), size: luaCall(luaProp(UDim2, "fromOffset"), 110, 26) }), reactLoose.createElement(Text, { value: luaProp(story, "Chapter"), size: 13, color: luaProp(story, "Color"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), wrap: true, fit: false, align: luaProp(luaProp(Enum, "TextXAlignment"), "Right"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 120, 0, 4), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -120, 0, 20) })), reactLoose.createElement(Text, { value: luaProp(story, "Title"), size: (luaTruthy(shortLandscape) ? 22 : (luaTruthy(stack) ? 22 : 34)), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (luaTruthy(shortLandscape) ? 34 : 40)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(shortLandscape) ? -224 : 0), 0, (luaTruthy(shortLandscape) ? 34 : (luaTruthy(stack) ? 64 : 78))) }), ((!luaTruthy(shortLandscape)) && reactLoose.createElement(Text, { value: luaProp(story, "Summary"), size: (luaTruthy(stack) ? 14 : 16), color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (luaTruthy(stack) ? 112 : 128)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (luaTruthy(stack) ? 96 : 80)) })), ((!luaTruthy(shortLandscape)) && reactLoose.createElement(Text, { value: (luaTruthy(finished) ? "Finished. Open it any time to read again." : (luaTruthy(locked) ? "Keep playing to unlock this chapter." : (luaTruthy(multi) ? "Pick a chapter, then start reading." : "Short chapters from under Bay Seven."))), size: 13, color: luaProp(Palette, "muted"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (luaTruthy(stack) ? 220 : 224)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) })), reactLoose.createElement(Button, { text: (luaTruthy(locked) ? "Locked" : (luaTruthy(finished) ? "Replay" : "Start reading")), icon: "Story.5", onClick: begin, color: (luaTruthy(locked) ? luaProp(Palette, "panelSoft") : luaProp(story, "Color")), textColor: (luaTruthy(locked) ? luaProp(Palette, "muted") : luaProp(Palette, "ink")), size: (luaTruthy(shortLandscape) ? luaCall(luaProp(UDim2, "fromOffset"), 210, TapTarget) : (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0, 0, 52))), position: (luaTruthy(shortLandscape) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -210, 1, (-(TapTarget as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-(((luaTruthy(stack) ? ((TapTarget as unknown as number) + (4 as unknown as number)) : 56)) as unknown as number)))), disabled: locked, reducedMotion: softMotion, highlight: (!luaTruthy(locked)) })));
+		}), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 28), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Badge, { value: (luaTruthy(multi) ? "CHAPTER" : "STORY"), accent: luaProp(story, "Color"), filled: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 2), size: luaCall(luaProp(UDim2, "fromOffset"), 110, 26) }), reactLoose.createElement(Text, { value: luaProp(story, "Chapter"), size: 13, color: luaProp(story, "Color"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), wrap: true, fit: false, align: luaProp(luaProp(Enum, "TextXAlignment"), "Right"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 120, 0, 4), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -120, 0, 20) })), React.createElement("textlabel", { Text: tostring(luaProp(story, "Title") ?? ""), FontFace: TITLE_FACE, TextSize: luaTruthy(shortLandscape) || luaTruthy(stack) ? 26 : 72, TextColor3: (Palette as Record<string, Color3>).cream, BackgroundTransparency: 1, TextWrapped: true, TextXAlignment: Enum.TextXAlignment.Left, TextYAlignment: Enum.TextYAlignment.Top, Position: UDim2.fromOffset(0, luaTruthy(shortLandscape) ? 34 : 40), Size: new UDim2(1, luaTruthy(shortLandscape) ? -224 : 0, 0, luaTruthy(shortLandscape) ? 34 : luaTruthy(stack) ? 64 : 78) }), ((!luaTruthy(shortLandscape)) && reactLoose.createElement(Text, { value: luaProp(story, "Summary"), size: (luaTruthy(stack) ? 14 : 20), color: luaProp(Palette, "creamSoft"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (luaTruthy(stack) ? 112 : 128)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, (luaTruthy(stack) ? 96 : 80)) })), ((!luaTruthy(shortLandscape)) && reactLoose.createElement(Text, { value: (luaTruthy(finished) ? "Finished. Open it any time to read again." : (luaTruthy(locked) ? "Keep playing to unlock this chapter." : (luaTruthy(multi) ? "Pick a chapter, then start reading." : "Short chapters from under Bay Seven."))), size: 13, color: luaProp(Palette, "muted"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 0, (luaTruthy(stack) ? 220 : 224)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40) })), reactLoose.createElement(Button, { text: (luaTruthy(locked) ? "Locked" : (luaTruthy(finished) ? "Replay" : "Start reading")), icon: "Story.5", onClick: begin, color: (luaTruthy(locked) ? luaProp(Palette, "panelSoft") : luaProp(Palette, "mango")), textColor: (luaTruthy(locked) ? luaProp(Palette, "muted") : luaProp(Palette, "ink")), size: (luaTruthy(shortLandscape) ? luaCall(luaProp(UDim2, "fromOffset"), 210, TapTarget) : (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, TapTarget) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0, 0, 52))), position: (luaTruthy(shortLandscape) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -210, 1, (-(TapTarget as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-(((luaTruthy(stack) ? ((TapTarget as unknown as number) + (4 as unknown as number)) : 56)) as unknown as number)))), disabled: locked, reducedMotion: softMotion, highlight: (!luaTruthy(locked)) })));
 		let _condition_3: unknown = started;
 		if (luaTruthy(_condition_3)) {
 			let _attributes: unknown = { key: `${luaProp(story, "Id")}:${beat}:${(luaTruthy(finished) ? "replay" : "live")}` };
