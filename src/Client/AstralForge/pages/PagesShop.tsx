@@ -17,7 +17,7 @@ import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppear
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
+import { columnsBalanced, SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 import { FocusPlan, useFocusOrder } from "../CoreKit/focusOrder";
 import {
 	Component,
@@ -2475,8 +2475,9 @@ function CratesSection(props: SectionProps) {
 	};
 	let sections: { id: string; height: number; element: unknown }[];
 	if (plan.split) {
-		const detailH = stackHeight([stageH, dropsH], GAP);
-		const rowH = math.max(chipsH, detailH);
+		// picker beside the stage (similar heights); the long drop table runs full width below,
+		// so neither column leaves an empty band beside the other
+		const rowH = math.max(chipsH, stageH);
 		sections = [
 			hero,
 			{
@@ -2487,9 +2488,10 @@ function CratesSection(props: SectionProps) {
 					height: rowH,
 					plan: plan,
 					side: h(StackBlocks, { gap: GAP, blocks: [picker as never] }),
-					main: h(StackBlocks, { gap: GAP, blocks: [stage as never, drops as never] }),
+					main: h(StackBlocks, { gap: GAP, blocks: [stage as never] }),
 				}),
 			},
+			drops,
 		];
 	} else {
 		sections = [hero, stage, picker, drops];
@@ -2817,8 +2819,13 @@ function SkinsSection(props: SectionProps) {
 	const noSkins = skinBrowse.results.size() === 0;
 	// desktop with room: the preview becomes a side column next to the filter + grid
 	const plan = splitColumns(stack ? 0 : props.width, 340);
-	const gridColumns = plan.split ? (plan.main >= 640 ? 3 : 2) : columns;
-	const previewStack = stack || plan.split;
+	const splitGridColumns = plan.main >= 640 ? 3 : 2;
+	const splitGridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), splitGridColumns, cellH);
+	// only split when the preview column and the filter + grid column come out about the same height
+	const useSplit =
+		plan.split && columnsBalanced(200 + 8 + 140 + TapTarget + 28, stackHeight([Browse.CHIP_H, splitGridH], GAP));
+	const gridColumns = useSplit ? splitGridColumns : columns;
+	const previewStack = stack || useSplit;
 	const gridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), gridColumns, cellH);
 	const sections: { id: string; height: number; element: unknown }[] = [
 			{
@@ -2876,7 +2883,7 @@ function SkinsSection(props: SectionProps) {
 					: h(Grid, { columns: gridColumns, cell: cellH, height: gridH, cells: cells }),
 			},
 	];
-	if (plan.split) {
+	if (useSplit) {
 		const [hero, preview, filter, grid] = [sections[0], sections[1], sections[2], sections[3]];
 		const rowH = math.max(preview.height, stackHeight([filter.height, grid.height], GAP));
 		return h(PageScaffold, {

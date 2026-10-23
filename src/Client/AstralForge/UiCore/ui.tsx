@@ -4415,6 +4415,12 @@ export function StackBlocks(props: {
 		children,
 	);
 }
+// QA checklist rule: two columns side by side may differ by at most 18% of the taller one,
+// otherwise the short column leaves an empty band (or a stretched lone card) beside the long one.
+export function columnsBalanced(a: number, b: number, tolerance = 0.18): boolean {
+	const tall = math.max(a, b);
+	return tall <= 0 || (tall - math.min(a, b)) / tall <= tolerance;
+}
 export function stackHeight(heights: number[], gap = 10): number {
 	let total = 0;
 	for (const [index, value] of ipairs(heights)) {

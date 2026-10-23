@@ -9,7 +9,7 @@ import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../Co
 import { useAntilag } from "../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../MotionKit/motion";
 import { Icon } from "../ArtKit/Icon";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
+import { columnsBalanced, SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
 import { Dict } from "../lua";
@@ -1148,8 +1148,8 @@ __defs["TradeView"] = () => {
 			h(Text, {
 				value:
 					partnerCount === 0
-						? `${session.PartnerName} has no relics they could trade right now.`
-						: `ASK ${session.PartnerName.upper()} FOR THEIR RELICS`,
+						? "They have no tradeable relics."
+						: "ASK FOR THEIR RELICS",
 				size: 11,
 				color: Palette.mint,
 				weight: Enum.FontWeight.Heavy,
@@ -2738,7 +2738,7 @@ __defs["TradeView"] = () => {
 						fit: true,
 						minSize: 10,
 						position: UDim2.fromOffset(0, 24),
-						sizeConstraint: new UDim2(1, -150, 0, phone ? 56 : 40),
+						sizeConstraint: new UDim2(1, -150, 0, phone ? 46 : 28),
 					}),
 					Players.GetPlayerByUserId(entry.PartnerId) !== undefined
 						? h(Button, {
@@ -2758,13 +2758,15 @@ __defs["TradeView"] = () => {
 		}
 		const lobbyGap = chrome.landscape ? 8 : Layout.stackGap;
 		let lobbySections = sections;
-		if (splitLobby) {
-			const main = sections.filter((_, index) => index < historyStart);
-			const side = sections.filter((_, index) => index >= historyStart);
-			const rowH = math.max(
-				stackHeight(main.map((section) => section.height), lobbyGap),
-				stackHeight(side.map((section) => section.height), lobbyGap),
-			);
+		const lobbyMain = sections.filter((_, index) => index < historyStart);
+		const lobbySide = sections.filter((_, index) => index >= historyStart);
+		const lobbyMainH = stackHeight(lobbyMain.map((section) => section.height), lobbyGap);
+		const lobbySideH = stackHeight(lobbySide.map((section) => section.height), lobbyGap);
+		// history only moves beside the roster when both columns come out about the same height
+		if (splitLobby && columnsBalanced(lobbyMainH, lobbySideH)) {
+			const main = lobbyMain;
+			const side = lobbySide;
+			const rowH = math.max(lobbyMainH, lobbySideH);
 			lobbySections = [
 				{
 					id: "lobby-split",
