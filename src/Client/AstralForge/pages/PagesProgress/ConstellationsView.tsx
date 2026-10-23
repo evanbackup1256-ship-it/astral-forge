@@ -6,7 +6,9 @@ import React from "@rbxts/react";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
 import * as Constellations from "../../../../Shared/AstralForge/Shared/Constellations";
-import { BrassDivider, Eyebrow, INFO_ROW_H, InfoRow, PORT_TOKENS, PortPanel, SerifTitle, StarField } from "./portKit";
+import { Eyebrow, StarField } from "./portKit";
+import { BODY, DiamondRule, MockPanel, PanelHeading } from "../../UiCore/mockKit";
+import { MockRow, SEC } from "../mockRows";
 
 const { Button, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 
@@ -20,7 +22,7 @@ export interface ConstellationState {
 	Paused?: boolean;
 }
 
-const GAP = 12;
+const GAP = 18;
 const HEAD_H = 22;
 const ROW_GAP = 8;
 const LINE_W = 1.5;
@@ -28,11 +30,12 @@ const LINE_W = 1.5;
 const ROW_MODE_MIN = 560;
 const GRAPH_H_COLUMN = 240;
 // full detail: header 40, blurb 36, cost + gives rows, button, divider, three status rows
-const DETAIL_PAD = 16;
-const DETAIL_FULL_H = DETAIL_PAD * 2 + 40 + 8 + 36 + 10 + INFO_ROW_H * 2 + ROW_GAP + 10 + TapTarget + 22 + INFO_ROW_H * 3 + ROW_GAP * 2;
+// 11-constellations detail .pn (460px): h3 + note, 15px blurb, Cost / Gives rows, violet button, rule, three status rows
+const DETAIL_PAD = 18;
+const DETAIL_FULL_H = DETAIL_PAD * 2 + 22 + 12 + 40 + 12 + (48 + 12) * 2 + 44 + 12 + 12 + 12 + 48 * 3 + 12 * 2;
 // compact detail (phones): next star row, status row, the Light button
-const COMPACT_PAD = 12;
-const DETAIL_COMPACT_H = COMPACT_PAD * 2 + INFO_ROW_H * 2 + ROW_GAP + 10 + TapTarget;
+const COMPACT_PAD = 10;
+const DETAIL_COMPACT_H = COMPACT_PAD * 2 + 44 * 2 + 8 * 2 + TapTarget;
 const PHONE_BODY_H = 220;
 
 // node positions (0..1 of the chart area) and the lines between them, per chart
@@ -72,7 +75,7 @@ function layoutFor(stack: boolean, width: number, phone: boolean): Layout {
 	const tabColumns = width >= 520 ? count : 3;
 	const tabRows = math.ceil(count / tabColumns);
 	const tabsH = tabRows * TapTarget + (tabRows - 1) * 6;
-	const sideW = phone ? math.clamp(math.floor(width * 0.36), 220, 300) : math.clamp(math.floor(width * 0.34), 280, 340);
+	const sideW = phone ? math.clamp(math.floor(width * 0.36), 220, 300) : math.clamp(math.floor(width * 0.4), 300, 460);
 	const detailH = compact ? DETAIL_COMPACT_H : DETAIL_FULL_H;
 	const bodyH = rowMode ? (phone ? math.max(PHONE_BODY_H, detailH) : detailH) : GRAPH_H_COLUMN + GAP + detailH;
 	const total = HEAD_H + ROW_GAP + tabsH + GAP + bodyH;
@@ -232,13 +235,12 @@ function StarGraph(p: { chart: Constellations.Constellation; status: ChartStatus
 		});
 	}
 	return (
-		<PortPanel padding={0} background={Palette.night} reducedMotion={p.reducedMotion}>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={false} accent={Palette.violet} reducedMotion={p.reducedMotion} name="StarGraphPanel">
 			<frame ref={hostRef} {...{ Name: "StarGraph" }} BackgroundTransparency={1} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)} ClipsDescendants={true} ZIndex={2}>
-				<uicorner CornerRadius={new UDim(0, PORT_TOKENS.radius)} />
 				<StarField count={34} seed={p.chart.Id.size() * 17 + 3} zIndex={2} />
 				{pieces}
 			</frame>
-		</PortPanel>
+		</MockPanel>
 	);
 }
 
@@ -268,12 +270,12 @@ function ChartDetail(p: {
 					: "Light this star"
 				: `Need ${nextStar.Cost - points} more pts`;
 	const button = (y: UDim) => (
-		<frame BackgroundTransparency={1} BorderSizePixel={0} Position={new UDim2(new UDim(0, 0), y)} Size={new UDim2(1, 0, 0, TapTarget)} ZIndex={4}>
+		<frame BackgroundTransparency={1} BorderSizePixel={0} Position={new UDim2(new UDim(0, 0), y)} Size={new UDim2(1, 0, 0, TapTarget)} ZIndex={4} LayoutOrder={2}>
 			<Button
 				text={buttonText}
 				icon="StarGrid.2"
 				onClick={p.onLight}
-				color={ready ? Palette.violet : Palette.panelSoft}
+				color={ready ? Palette.violet : SEC}
 				textColor={ready ? Palette.ink : Palette.muted}
 				size={UDim2.fromScale(1, 1)}
 				disabled={!ready}
@@ -287,58 +289,69 @@ function ChartDetail(p: {
 	);
 	if (p.compact) {
 		return (
-			<PortPanel padding={COMPACT_PAD} reducedMotion={p.reducedMotion}>
-				<InfoRow icon="StarGrid" label={nextStar !== undefined ? "Next star" : "All lit"} value={nextStar !== undefined ? nextStar.Name : chart.Name} position={UDim2.fromOffset(0, 0)} reducedMotion={p.reducedMotion} />
-				<InfoRow
-					icon="Forge"
-					label={`${status.count} of ${chart.Stars.size()} lit`}
-					value={`+${pct(status.current)} ${kind}`}
-					accent={Palette.mint}
-					position={UDim2.fromOffset(0, INFO_ROW_H + ROW_GAP)}
-					reducedMotion={p.reducedMotion}
-				/>
-				{button(new UDim(1, -TapTarget))}
-			</PortPanel>
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={true} accent={Palette.violet} reducedMotion={p.reducedMotion} name="ChartDetail">
+				<MockRow phone={true} icon="StarGrid" accent={Palette.violet} title={nextStar !== undefined ? "Next star" : "All lit"} value={nextStar !== undefined ? nextStar.Name : chart.Name} layoutOrder={0} />
+				<MockRow phone={true} icon="Forge" accent={Palette.violet} title={`${status.count} of ${chart.Stars.size()} lit`} value={`+${pct(status.current)} ${kind}`} layoutOrder={1} />
+				{button(new UDim(0, 0))}
+			</MockPanel>
 		);
 	}
-	let y = 0;
-	const headY = y;
-	y += 40 + 8;
-	const blurbY = y;
-	y += 36 + 10;
-	const costY = y;
-	const givesY = costY + INFO_ROW_H + ROW_GAP;
-	y = givesY + INFO_ROW_H + 10;
-	const buttonY = y;
-	y += TapTarget + 6;
-	const dividerY = y;
-	y += 16;
-	const litY = y;
-	const bonusY = litY + INFO_ROW_H + ROW_GAP;
-	const pointsY = bonusY + INFO_ROW_H + ROW_GAP;
 	return (
-		<PortPanel padding={DETAIL_PAD} reducedMotion={p.reducedMotion}>
-			<Eyebrow text={nextStar !== undefined ? `Next star · ${status.count + 1} of ${chart.Stars.size()}` : "Every star lit"} color={Palette.pink} position={UDim2.fromOffset(0, headY)} />
-			<SerifTitle text={nextStar !== undefined ? nextStar.Name : chart.Name} size={18} position={UDim2.fromOffset(0, headY + 16)} height={24} />
-			<Text value={chart.Blurb} size={13} color={Palette.creamSoft} wrap={true} fit={true} minSize={10} position={UDim2.fromOffset(0, blurbY)} sizeConstraint={new UDim2(1, 0, 0, 36)} zIndex={3} />
-			{nextStar !== undefined ? (
-				<InfoRow icon="Dust" label="Cost" value={`${nextStar.Cost} pts`} position={UDim2.fromOffset(0, costY)} reducedMotion={p.reducedMotion} />
-			) : (
-				<InfoRow icon="Dust" label="Finishing bonus" value={`+${pct(chart.Completion)} ${kind}`} position={UDim2.fromOffset(0, costY)} reducedMotion={p.reducedMotion} />
-			)}
-			<InfoRow
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={false} accent={Palette.violet} reducedMotion={p.reducedMotion} name="ChartDetail">
+			<PanelHeading
 				icon="StarGrid"
-				label="Gives"
-				value={nextStar !== undefined ? `+${pct(chart.PerStar)}${last ? ` (+${pct(chart.Completion)} to finish)` : ""}` : `+${pct(chart.PerStar)} per star`}
-				position={UDim2.fromOffset(0, givesY)}
-				reducedMotion={p.reducedMotion}
+				title={nextStar !== undefined ? nextStar.Name : chart.Name}
+				note={nextStar !== undefined ? `Next star · ${status.count + 1} of ${chart.Stars.size()}` : "Every star lit"}
+				accent={Palette.violet}
+				phone={false}
+				layoutOrder={0}
 			/>
-			{button(new UDim(0, buttonY))}
-			<BrassDivider position={UDim2.fromOffset(0, dividerY)} />
-			<InfoRow icon="Forge" label="Stars lit" value={`${status.count} of ${chart.Stars.size()}`} accent={Palette.mint} position={UDim2.fromOffset(0, litY)} reducedMotion={p.reducedMotion} />
-			<InfoRow icon="Vault" label="Bonus now" value={`+${pct(status.current)} ${kind}`} accent={Palette.mint} position={UDim2.fromOffset(0, bonusY)} reducedMotion={p.reducedMotion} />
-			<InfoRow icon="Core" label="Star points" value={p.paused ? "Closed" : `${points}`} accent={Palette.mango} position={UDim2.fromOffset(0, pointsY)} reducedMotion={p.reducedMotion} />
-		</PortPanel>
+			<textlabel
+				BackgroundTransparency={1}
+				Text={chart.Blurb}
+				TextSize={15}
+				FontFace={BODY}
+				TextColor3={Palette.creamSoft}
+				TextWrapped={true}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextYAlignment={Enum.TextYAlignment.Top}
+				Size={new UDim2(1, 0, 0, 40)}
+				LayoutOrder={1}
+			/>
+			{nextStar !== undefined ? (
+				<MockRow phone={false} icon="Dust" accent={Palette.violet} title="Cost" value={`${nextStar.Cost} pts`} layoutOrder={2} />
+			) : (
+				<MockRow phone={false} icon="Dust" accent={Palette.violet} title="Finishing bonus" value={`+${pct(chart.Completion)} ${kind}`} layoutOrder={2} />
+			)}
+			<MockRow
+				phone={false}
+				icon="StarGrid"
+				accent={Palette.violet}
+				title="Gives"
+				value={nextStar !== undefined ? `+${pct(chart.PerStar)}${last ? ` (+${pct(chart.Completion)} to finish)` : ""}` : `+${pct(chart.PerStar)} per star`}
+				layoutOrder={3}
+			/>
+			<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, 44)} LayoutOrder={4}>
+				<Button
+					text={buttonText}
+					icon="StarGrid.2"
+					onClick={p.onLight}
+					color={ready ? Palette.violet : SEC}
+					textColor={ready ? Palette.ink : Palette.cream}
+					size={UDim2.fromScale(1, 1)}
+					disabled={!ready}
+					highlight={ready}
+					loading={p.pending}
+					shakeToken={p.shakeToken}
+					reducedMotion={p.reducedMotion}
+					tooltip={{ title: chart.Name, body: chart.Blurb, accent: Palette.pink }}
+				/>
+			</frame>
+			<DiamondRule layoutOrder={5} />
+			<MockRow phone={false} icon="Forge" accent={Palette.violet} title="Stars lit" value={`${status.count} of ${chart.Stars.size()}`} layoutOrder={6} />
+			<MockRow phone={false} icon="Vault" accent={Palette.violet} title="Bonus now" value={`+${pct(status.current)} ${kind}`} layoutOrder={7} />
+			<MockRow phone={false} icon="Core" accent={Palette.violet} title="Star points" value={p.paused ? "Closed" : `${points}`} layoutOrder={8} />
+		</MockPanel>
 	);
 }
 
