@@ -5,7 +5,7 @@ export const PAGE_ROUTES: ReadonlyArray<string> = table.freeze([
 	"Overview", "Workshop", "Research", "StarGrid", "Rebirth", "Ascension", "Echoes", "Continuum", "Convergence",
 	"Lab", "Anomaly", "Worlds", "Missions", "Milestones", "Wheel", "Bazaar", "Rewards", "Boosts",
 	"Command", "Story", "Mail", "Chat", "Crew", "Guild", "Leaderboards", "Shop", "Inventory", "Trade",
-	"Settings", "Admin", "ForgePath", "Expeditions", "Companions", "Journal",
+	"Settings", "Admin", "ForgePath", "Expeditions", "Companions", "Journal", "Season",
 ]);
 
 export interface NavGroup {
@@ -14,15 +14,23 @@ export interface NavGroup {
 	routes: ReadonlyArray<string>;
 }
 
+// Four rail groups, as in design/02-nav-shell: Home, Progress, Social, System. The daily pages
+// (missions, rewards, wheel...) moved into Progress and Social; no route left the rail.
 export const NAV_GROUPS: ReadonlyArray<NavGroup> = table.freeze([
-	{ key: "Home", label: "Home", routes: table.freeze(["Overview", "Workshop", "Inventory", "Research", "Shop", "Bazaar"]) },
-	{ key: "Daily", label: "Daily", routes: table.freeze(["Missions", "Rewards", "Boosts", "Milestones", "Wheel"]) },
+	{ key: "Home", label: "Home", routes: table.freeze(["Overview", "Workshop", "Inventory", "Shop", "Bazaar", "Research"]) },
 	{
 		key: "Progress",
 		label: "Progress",
-		routes: table.freeze(["Worlds", "Expeditions", "Companions", "Journal", "Lab", "StarGrid", "Echoes", "Continuum", "ForgePath", "Story", "Rebirth", "Ascension"]),
+		routes: table.freeze([
+			"Rebirth", "Ascension", "Worlds", "Companions", "Journal", "Season", "Missions", "Milestones", "Boosts",
+			"Expeditions", "Lab", "StarGrid", "Echoes", "Continuum", "ForgePath", "Story",
+		]),
 	},
-	{ key: "Social", label: "Social", routes: table.freeze(["Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards"]) },
+	{
+		key: "Social",
+		label: "Social",
+		routes: table.freeze(["Trade", "Rewards", "Wheel", "Leaderboards", "Command", "Convergence", "Guild", "Crew", "Chat", "Mail"]),
+	},
 	{ key: "System", label: "System", routes: table.freeze(["Settings", "Credits", "Admin"]) },
 ]);
 for (const group of NAV_GROUPS) {
