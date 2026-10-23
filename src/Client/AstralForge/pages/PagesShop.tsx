@@ -16,7 +16,6 @@ import ElementFxModule = require("../ElementFx");
 import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppearance");
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
-import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
 import { SpriteCard } from "./views/PortSpriteCard";
 import { HeaderArt } from "../UiCore/HeaderArt";
 import { RarityRim } from "../UiCore/effectsLayer";
@@ -646,6 +645,435 @@ function OfferTileImpl(props: OfferTileProps) {
 const OfferTile = memoRow<OfferTileProps>(counted("OfferTile", OfferTileImpl), ["onClick"],
 	sameFields<OfferTileProps>(["title", "detail", "meta", "accent", "icon", "cta", "disabled", "owned", "layoutOrder", "reducedMotion", "staggerIndex", "packed"]));
 
+// ---- mockup kit (design/system/af.css at 1920x1080; phone values from the .p rules) ----
+// .pn: radius 16 (forge 18), padding 18/20, gap 12; phone .p .pn: padding 10/12, gap 8
+const MOCK_SEC = Color3.fromRGB(58, 46, 62); // .btn.sec base #3a2e3e
+const MOCK_ROW_TINT = Color3.fromRGB(255, 255, 255);
+
+interface MockPad {
+	y: number;
+	x: number;
+	gap: number;
+}
+
+function mockPad(phone: boolean): MockPad {
+	return phone ? { y: 10, x: 12, gap: 8 } : { y: 18, x: 20, gap: 12 };
+}
+
+function mockHeadH(phone: boolean): number {
+	return phone ? 16 : 22;
+}
+
+interface PanelHeadProps {
+	icon: string;
+	title: string;
+	note?: string;
+	accent: Color3;
+	phone: boolean;
+	position?: UDim2;
+}
+
+// .pn h3: 18px icon in the accent, 15px title face, uppercase, .12em tracking; small note on the right
+function PanelHead(props: PanelHeadProps) {
+	const headH = mockHeadH(props.phone);
+	const icon = props.phone ? 14 : 18;
+	return h(
+		"frame",
+		{ Name: "Head", Size: new UDim2(1, 0, 0, headH), Position: props.position, BackgroundTransparency: 1, BorderSizePixel: 0 },
+		h(Icon, {
+			kind: props.icon,
+			color: props.accent,
+			accent: props.accent,
+			size: icon,
+			spin: false,
+			position: UDim2.fromOffset(0, (headH - icon) / 2),
+		}),
+		h(Text, {
+			value: props.title.upper(),
+			title: true,
+			size: props.phone ? 12 : 15,
+			color: Palette.cream,
+			fit: true,
+			minSize: 10,
+			position: UDim2.fromOffset(icon + 10, 0),
+			sizeConstraint: new UDim2(props.note !== undefined ? 0.6 : 1, -(icon + 10), 0, headH),
+		}),
+		props.note !== undefined &&
+			h(Text, {
+				value: props.note,
+				size: 12,
+				color: Palette.muted,
+				weight: Enum.FontWeight.SemiBold,
+				align: Enum.TextXAlignment.Right,
+				fit: true,
+				minSize: 9,
+				position: new UDim2(0.6, 0, 0, 0),
+				sizeConstraint: new UDim2(0.4, 0, 0, headH),
+			}),
+	);
+}
+
+// .row: radius 11, rgba(255,255,255,.035) to rgba(0,0,0,.12) wash, 1px rgba(255,255,255,.05) inset line
+function mockRowSkin(outline?: Color3): React.Element {
+	return h(React.Fragment, {}, ...[
+		h("uicorner", { key: "Corner", CornerRadius: new UDim(0, 11) }),
+		h("uigradient", {
+			key: "Wash",
+			Color: new ColorSequence(MOCK_ROW_TINT, Color3.fromRGB(0, 0, 0)),
+			Transparency: new NumberSequence(0.965, 0.88),
+			Rotation: 90,
+		}),
+		h("uistroke", {
+			key: "Line",
+			Color: outline ?? MOCK_ROW_TINT,
+			Thickness: outline !== undefined ? 2 : 1,
+			Transparency: outline !== undefined ? 0 : 0.95,
+			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
+		}),
+	]);
+}
+
+// .chip.a: small brass-edged tag
+function MockChip(props: { value: string; color: Color3; position?: UDim2; anchor?: Vector2; strike?: boolean }) {
+	const width = math.max(44, props.value.size() * 7 + 18);
+	return h(
+		"frame",
+		{
+			Name: "Chip",
+			Size: UDim2.fromOffset(width, 22),
+			Position: props.position,
+			AnchorPoint: props.anchor,
+			BackgroundColor3: darken(props.color, 0.72),
+			BorderSizePixel: 0,
+		},
+		h("uicorner", { CornerRadius: new UDim(0, 7) }),
+		h("uistroke", { Color: props.color, Thickness: 1, Transparency: 0.45 }),
+		h(Text, {
+			value: props.value,
+			size: 11,
+			color: props.strike === true ? Palette.muted : props.color,
+			weight: Enum.FontWeight.Bold,
+			align: Enum.TextXAlignment.Center,
+			fit: true,
+			minSize: 9,
+			sizeConstraint: UDim2.fromScale(1, 1),
+		}),
+	);
+}
+
+// ---- Shop (mockup 05-shop) ----
+interface MockOfferProps {
+	title: string;
+	chip?: string;
+	detail: string;
+	cta: string;
+	accent: Color3;
+	icon: string;
+	disabled?: boolean;
+	owned?: boolean;
+	onClick?: () => void;
+	layoutOrder?: number;
+	staggerIndex?: number;
+	reducedMotion?: boolean;
+	phone: boolean;
+}
+
+function offerCardHeight(phone: boolean): number {
+	// padding 16, 22px title row, gap 10, 18px detail, gap 10, 44px button, padding 16
+	return phone ? 12 + 22 + 8 + 18 + 8 + TapTarget + 12 : 16 + 22 + 10 + 18 + 10 + 44 + 16;
+}
+
+function MockOfferImpl(props: MockOfferProps) {
+	const phone = props.phone;
+	const pad = phone ? 12 : 16;
+	const gap = phone ? 8 : 10;
+	const ctaH = phone ? TapTarget : 44;
+	const reveal = useStagger(props.staggerIndex ?? 0, props.reducedMotion, 0.036, 0.26);
+	const canBuy = props.owned !== true && props.disabled !== true;
+	return h(
+		"frame",
+		{
+			Name: "Offer",
+			Size: UDim2.fromScale(1, 1),
+			BackgroundColor3: MOCK_ROW_TINT,
+			BorderSizePixel: 0,
+			LayoutOrder: props.layoutOrder,
+		},
+		mockRowSkin(),
+		h(
+			"frame",
+			{
+				Size: new UDim2(1, -pad * 2, 1, -pad * 2),
+				Position: reveal.map((amount: number) => UDim2.fromOffset(pad, pad + math.round((1 - math.clamp(amount, 0, 1)) * 8))),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+			},
+			h(Icon, { kind: props.icon, color: props.accent, accent: props.accent, size: 18, spin: false, position: UDim2.fromOffset(0, 2) }),
+			h(Text, {
+				value: props.title,
+				size: 17,
+				color: Palette.cream,
+				weight: Enum.FontWeight.Bold,
+				fit: true,
+				minSize: 11,
+				position: UDim2.fromOffset(28, 0),
+				sizeConstraint: new UDim2(1, props.chip !== undefined ? -128 : -28, 0, 22),
+			}),
+			props.chip !== undefined &&
+				h(MockChip, {
+					value: props.chip,
+					color: props.owned === true ? Palette.green : Palette.mango,
+					position: UDim2.fromScale(1, 0),
+					anchor: new Vector2(1, 0),
+				}),
+			h(Text, {
+				value: props.detail,
+				size: phone ? 13 : 14,
+				color: Palette.muted,
+				weight: Enum.FontWeight.Medium,
+				fit: true,
+				minSize: 10,
+				position: UDim2.fromOffset(0, 22 + gap),
+				sizeConstraint: new UDim2(1, 0, 0, 18),
+			}),
+			h(
+				"frame",
+				{
+					Name: "ShopBuyCta",
+					Size: new UDim2(1, 0, 0, ctaH),
+					Position: new UDim2(0, 0, 1, -ctaH),
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+				},
+				h(Button, {
+					text: props.cta,
+					icon: props.owned === true ? "Check.10" : props.disabled === true ? "Lock.6" : undefined,
+					onClick: props.onClick ?? (() => {}),
+					color: canBuy ? props.accent : MOCK_SEC,
+					textColor: canBuy ? Palette.ink : Palette.creamSoft,
+					size: UDim2.fromScale(1, 1),
+					disabled: !canBuy,
+					reducedMotion: props.reducedMotion,
+					highlight: canBuy,
+					selectable: canBuy,
+				}),
+			),
+		),
+	);
+}
+
+const MockOffer = memoRow<MockOfferProps>(counted("ShopOffer", MockOfferImpl), ["onClick"],
+	sameFields<MockOfferProps>(["title", "chip", "detail", "cta", "accent", "icon", "disabled", "owned", "layoutOrder", "staggerIndex", "reducedMotion", "phone"]));
+
+function packCellHeight(phone: boolean): number {
+	// .row column, padding 14, gap 6: 20px icon, 26px name, 16px detail, 36px button (phone: tap target)
+	return phone ? 10 + 20 + 4 + 22 + 2 + 16 + 6 + TapTarget + 10 : 14 + 20 + 6 + 26 + 2 + 16 + 6 + 36 + 14;
+}
+
+interface MockPackProps {
+	title: string;
+	detail: string;
+	cta: string;
+	accent: Color3;
+	icon: string;
+	disabled?: boolean;
+	onClick?: () => void;
+	layoutOrder?: number;
+	staggerIndex?: number;
+	reducedMotion?: boolean;
+	phone: boolean;
+}
+
+function MockPackImpl(props: MockPackProps) {
+	const phone = props.phone;
+	const pad = phone ? 10 : 14;
+	const ctaH = phone ? TapTarget : 36;
+	const reveal = useStagger(props.staggerIndex ?? 0, props.reducedMotion, 0.036, 0.26);
+	const canBuy = props.disabled !== true;
+	return h(
+		"frame",
+		{ Name: "Pack", Size: UDim2.fromScale(1, 1), BackgroundColor3: MOCK_ROW_TINT, BorderSizePixel: 0, LayoutOrder: props.layoutOrder },
+		mockRowSkin(),
+		h(
+			"frame",
+			{
+				Size: new UDim2(1, -pad * 2, 1, -pad * 2),
+				Position: reveal.map((amount: number) => UDim2.fromOffset(pad, pad + math.round((1 - math.clamp(amount, 0, 1)) * 8))),
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+			},
+			h(Icon, { kind: props.icon, color: props.accent, accent: props.accent, size: 20, spin: false, position: new UDim2(0.5, -10, 0, 0) }),
+			h(Text, {
+				value: props.title,
+				size: phone ? 17 : 22,
+				color: Palette.cream,
+				weight: Enum.FontWeight.Heavy,
+				align: Enum.TextXAlignment.Center,
+				fit: true,
+				minSize: 11,
+				position: UDim2.fromOffset(0, phone ? 24 : 26),
+				sizeConstraint: new UDim2(1, 0, 0, phone ? 22 : 26),
+			}),
+			h(Text, {
+				value: props.detail,
+				size: 12,
+				color: Palette.muted,
+				weight: Enum.FontWeight.Medium,
+				align: Enum.TextXAlignment.Center,
+				fit: true,
+				minSize: 9,
+				position: UDim2.fromOffset(0, phone ? 48 : 54),
+				sizeConstraint: new UDim2(1, 0, 0, 16),
+			}),
+			h(
+				"frame",
+				{ Name: "ShopBuyCta", Size: new UDim2(1, 0, 0, ctaH), Position: new UDim2(0, 0, 1, -ctaH), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h(Button, {
+					text: props.cta,
+					icon: canBuy ? undefined : "Lock.6",
+					onClick: props.onClick ?? (() => {}),
+					color: canBuy ? props.accent : MOCK_SEC,
+					textColor: canBuy ? Palette.ink : Palette.creamSoft,
+					size: UDim2.fromScale(1, 1),
+					disabled: !canBuy,
+					reducedMotion: props.reducedMotion,
+					highlight: canBuy,
+					selectable: canBuy,
+				}),
+			),
+		),
+	);
+}
+
+const MockPack = memoRow<MockPackProps>(counted("ShopPack", MockPackImpl), ["onClick"],
+	sameFields<MockPackProps>(["title", "detail", "cta", "accent", "icon", "disabled", "layoutOrder", "staggerIndex", "reducedMotion", "phone"]));
+
+interface FeaturedPanelProps {
+	product: DevProduct;
+	cta: string;
+	disabled: boolean;
+	onClick: () => void;
+	phone: boolean;
+	reveal?: React.Binding<number>;
+	reducedMotion?: boolean;
+}
+
+// the 620px "this week" panel: 12px kicker, 46px title face, 16px line, the art, a 58px price button
+function FeaturedPanel(props: FeaturedPanelProps) {
+	const product = props.product;
+	const phone = props.phone;
+	const pad = mockPad(phone);
+	const accent = accentOf(product.Accent);
+	const titleSize = phone ? 26 : 46;
+	const ctaH = phone ? TapTarget : 58;
+	const detail = product.Description !== "" ? product.Description : rewardLine(product.Reward);
+	return h(
+		Panel,
+		{
+			size: UDim2.fromScale(1, 1),
+			accent: Palette.mango,
+			background: Palette.panelRaised,
+			radius: 18,
+			rule: true,
+			padding: 0,
+			reveal: props.reveal,
+			reducedMotion: props.reducedMotion,
+			highlight: true,
+			clips: true,
+		},
+		// radial mango wash at 75% / 30%, drawn as a soft disc
+		h(
+			"frame",
+			{
+				Name: "Glow",
+				Size: UDim2.fromOffset(phone ? 360 : 800, phone ? 240 : 520),
+				Position: UDim2.fromScale(0.75, 0.3),
+				AnchorPoint: new Vector2(0.5, 0.5),
+				BackgroundColor3: Palette.mango,
+				BorderSizePixel: 0,
+				ZIndex: 0,
+			},
+			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			h("uigradient", {
+				Transparency: new NumberSequence([
+					new NumberSequenceKeypoint(0, 1),
+					new NumberSequenceKeypoint(0.5, 0.8),
+					new NumberSequenceKeypoint(1, 1),
+				]),
+			}),
+		),
+		h(
+			"frame",
+			{ Name: "featured", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
+			h(Text, {
+				value: "FEATURED",
+				size: 12,
+				color: Palette.mango,
+				weight: Enum.FontWeight.Bold,
+				sizeConstraint: new UDim2(1, 0, 0, 14),
+			}),
+			h(Text, {
+				value: product.Name,
+				title: true,
+				size: titleSize,
+				color: Palette.cream,
+				fit: true,
+				minSize: 18,
+				position: UDim2.fromOffset(0, 14 + pad.gap),
+				sizeConstraint: new UDim2(1, 0, 0, titleSize + 4),
+			}),
+			h(Text, {
+				value: detail,
+				size: phone ? 13 : 16,
+				color: Palette.creamSoft,
+				weight: Enum.FontWeight.Medium,
+				wrap: true,
+				fit: true,
+				minSize: 10,
+				position: UDim2.fromOffset(0, 14 + pad.gap + titleSize + 4 + pad.gap),
+				sizeConstraint: new UDim2(1, 0, 0, phone ? 34 : 42),
+			}),
+			h(
+				"frame",
+				{
+					Name: "Art",
+					Size: new UDim2(1, 0, 1, -(14 + titleSize + 4 + (phone ? 34 : 42) + ctaH + pad.gap * 4)),
+					Position: UDim2.fromOffset(0, 14 + titleSize + 4 + (phone ? 34 : 42) + pad.gap * 3),
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+				},
+				h("uiaspectratioconstraint", { AspectRatio: 1, DominantAxis: Enum.DominantAxis.Height }),
+				h(Icon, {
+					kind: iconOf(product.Icon),
+					color: Palette.cream,
+					accent: accent,
+					size: phone ? 72 : 200,
+					spin: false,
+					position: UDim2.fromScale(0.5, 0.5),
+					anchorPoint: new Vector2(0.5, 0.5),
+					reducedMotion: props.reducedMotion,
+				}),
+			),
+			h(
+				"frame",
+				{ Name: "ShopBuyCta", Size: new UDim2(1, 0, 0, ctaH), Position: new UDim2(0, 0, 1, -ctaH), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h(Button, {
+					text: props.cta,
+					icon: props.disabled ? "Lock.6" : undefined,
+					onClick: props.onClick,
+					color: props.disabled ? MOCK_SEC : Palette.mango,
+					textColor: props.disabled ? Palette.creamSoft : Palette.ink,
+					size: UDim2.fromScale(1, 1),
+					disabled: props.disabled,
+					reducedMotion: props.reducedMotion,
+					highlight: !props.disabled,
+					selectable: !props.disabled,
+				}),
+			),
+		),
+	);
+}
+
 interface ShopViewProps {
 	state: ShopState;
 	dispatch: Dispatch;
@@ -669,6 +1097,7 @@ function ShopView(props: ShopViewProps) {
 	const softMotion = reducedMotion;
 	const stack = chrome.contentStack;
 	const [tab, setTab] = React.useState("Featured");
+	const [hostW, setHostW] = React.useState(viewport.width);
 	const [code, setCode] = React.useState("");
 	const [codeFeedback, setCodeFeedback] = React.useState("");
 	const [followFeedback, setFollowFeedback] = React.useState("");
@@ -962,56 +1391,14 @@ function ShopView(props: ShopViewProps) {
 				: tab === "Passes"
 					? passes.size()
 					: products.size();
-	const packCols = useShopColumns();
-	const packedH = stack ? 208 : 244;
 	const codePanelH = stack ? 214 : 176;
 	const followPanelH = stack ? 186 : 148;
 	const codesH = codePanelH + Layout.panelGap + followPanelH;
 	const pageGap = stack ? Layout.stackGap : Layout.panelGap;
-	const offerStride = packedH + pageGap;
-	const heroH = stack ? 104 : 92; // same height as the other shop tabs' headers
 	const tabRowH = stack ? TapTarget : 50;
-	const sectionLabelH = 34;
 	const codeReady = code.gsub("%s", "")[0] !== "";
 	const redeemDisabled = busy || !codeReady || purchasePending;
 	const shopHostRef = React.useRef<Frame>();
-	const offerRows: OfferRow[] = [];
-	if (tab !== "Codes") {
-		const passList = tab === "Featured" ? featuredPasses : tab === "Passes" ? passes : [];
-		// on Featured, the first featured product gets the wide card above the grid
-		const productList = tab === "Featured" ? featuredProducts.filter((_, index) => index > 0) : tab === "Supplies" ? products : [];
-		const flatOffers: { kind: string; key: string; pass?: GamePass; product?: DevProduct }[] = [];
-		for (const pass of passList) {
-			flatOffers.push({
-				kind: "pass",
-				key: pass.Key,
-				pass: pass,
-			});
-		}
-		for (const product of productList) {
-			flatOffers.push({
-				kind: "product",
-				key: product.Key,
-				product: product,
-			});
-		}
-		let index = 0;
-		while (index < flatOffers.size()) {
-			const row: OfferRow = {
-				Id: `row-${tab}-${index + 1}`,
-				cells: [],
-			};
-			for (let col = 1; col <= packCols; col++) {
-				const entry = flatOffers[index];
-				if (entry === undefined) {
-					break;
-				}
-				row.cells.push(entry);
-				index += 1;
-			}
-			offerRows.push(row);
-		}
-	}
 	React.useEffect(() => {
 		if (purchasePending || !UserInputService.GamepadEnabled) {
 			return undefined;
@@ -1030,86 +1417,6 @@ function ShopView(props: ShopViewProps) {
 			pcall(() => task.cancel(selectJob));
 		};
 	}, [tab, purchasePending, listCount, redeemDisabled]);
-	const heroPanel = h(
-		Panel,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: Palette.mango,
-			background: Palette.panelRaised,
-			padding: stack ? 14 : 20,
-			reveal: heroReveal,
-			highlight: true,
-			reducedMotion: softMotion,
-			clips: false,
-		},
-		stack
-			? h(
-				React.Fragment,
-				{},
-				h(Text, {
-					value: "Passes, packs and codes",
-					size: 18,
-					color: Palette.cream,
-					weight: Enum.FontWeight.Heavy,
-					fit: true,
-					minSize: 14,
-					position: UDim2.fromOffset(0, 12),
-					sizeConstraint: new UDim2(1, 0, 0, 24),
-				}),
-				h(Text, {
-					value: monetization.Error ?? banner,
-					size: 12,
-					color: Palette.creamSoft,
-					wrap: true,
-					fit: true,
-					minSize: 10,
-					position: UDim2.fromOffset(0, 52),
-					sizeConstraint: new UDim2(1, 0, 0, 36),
-				}),
-			)
-			: h(
-				React.Fragment,
-				{},
-				h(IconTile, {
-					kind: "Shop",
-					accent: Palette.mango,
-					size: 44,
-					radius: 18,
-					position: UDim2.fromOffset(0, 4),
-					glow: true,
-					reducedMotion: softMotion,
-				}),
-				h(
-					"frame",
-					{
-						Size: new UDim2(1, -60, 0, 60),
-						Position: UDim2.fromOffset(60, 0),
-						BackgroundTransparency: 1,
-						BorderSizePixel: 0,
-						ClipsDescendants: false,
-					},
-					h(Text, {
-						value: "Passes, packs and codes",
-						size: 24,
-						color: Palette.cream,
-						weight: Enum.FontWeight.Heavy,
-						fit: false,
-						position: UDim2.fromOffset(0, 0),
-						sizeConstraint: new UDim2(1, 0, 0, 30),
-					}),
-					h(Text, {
-						value: monetization.Error ?? banner,
-						size: 12,
-						color: Palette.creamSoft,
-						wrap: true,
-						fit: true,
-						minSize: 10,
-						position: UDim2.fromOffset(0, 32),
-						sizeConstraint: new UDim2(1, 0, 0, 28),
-					}),
-				),
-			),
-	);
 	const tabsBar = h(SegmentedTabs, {
 		options: SHOP_TAB_OPTIONS,
 		value: tab,
@@ -1123,10 +1430,6 @@ function ShopView(props: ShopViewProps) {
 		gap: Layout.stackGap,
 		size: UDim2.fromScale(1, 1),
 		reducedMotion: softMotion,
-	});
-	const sectionLabel = h(SectionLabel, {
-		value: tab === "Codes" ? "Redeem a code" : tab === "Passes" ? "Game passes" : tab === "Supplies" ? "Supply packs" : "Featured",
-		color: Palette.mango,
 	});
 	const codesPane = h(
 		TabPane,
@@ -1317,157 +1620,178 @@ function ShopView(props: ShopViewProps) {
 			),
 		),
 	);
-	const catalogH = math.max(offerStride, offerRows.size() * offerStride);
-	const offerList = h(FlatList, {
-		data: offerRows,
-		itemHeight: offerStride,
-		headerHeight: 0,
-		overscan: softMotion ? 0 : antilag.constrained ? 1 : 2,
-		canvasTail: 8,
-		embedded: true,
-		Size: new UDim2(1, 0, 0, catalogH),
-		scrollBarColor: Palette.mango,
-		scrollBarThickness: 3,
-		scrollBarTransparency: 0.28,
-		keyExtractor: (row: OfferRow) => row.Id,
-		renderItem: (info: { item: OfferRow; index: number }) => {
-			const row = info.item;
-			const rowIndex = info.index;
-			return h(
-				FlexGrid,
-				{
-					columns: packCols,
-					cellMinHeight: packedH,
-					size: UDim2.fromScale(1, 1),
-				},
-				(() => {
-					const tiles: defined[] = [];
-					for (const [cellIndex, entry] of ipairs(row.cells)) {
-						const staggerIndex = (rowIndex - 1) * packCols + (cellIndex - 1);
-						if (entry.kind === "pass") {
-							const pass = entry.pass!;
-							const cta = owned[pass.Key] === true ? "Owned" : priceText(pass.PriceLabel, pass.StudioPrice, pass.PassId);
-							const unavailable = pass.PassId <= 0 && !RunService.IsStudio();
-							tiles.push(
-								h(OfferTile, {
-									key: `${tab}-${pass.Key}`,
-									layoutOrder: cellIndex,
-									staggerIndex: staggerIndex,
-									title: pass.Name,
-									detail: pass.Description,
-									meta: passBenefitLine(pass),
-									accent: accentOf(pass.Accent),
-									icon: iconOf(pass.Icon),
-									cta: cta,
-									disabled: unavailable || busy,
-									owned: owned[pass.Key] === true,
-									onClick: () => promptPass(pass),
-									reducedMotion: softMotion,
-									packed: true,
-								}),
-							);
-						} else {
-							const product = entry.product!;
-							const unavailable = product.ProductId <= 0 && !RunService.IsStudio();
-							tiles.push(
-								h(OfferTile, {
-									key: `${tab}-${product.Key}`,
-									layoutOrder: cellIndex,
-									staggerIndex: staggerIndex,
-									title: product.Name,
-									detail: product.Description,
-									meta: rewardLine(product.Reward),
-									accent: accentOf(product.Accent),
-									icon: iconOf(product.Icon),
-									cta: priceText(product.PriceLabel, product.StudioPrice, product.ProductId),
-									disabled: unavailable || busy,
-									onClick: () => promptProduct(product),
-									reducedMotion: reducedMotion,
-									packed: true,
-								}),
-							);
-						}
-					}
-					return tiles;
-				})(),
-			);
-		},
-		ListEmptyComponent: h(EmptyState, {
-			key: "shop-empty",
-			icon: "Shop.5",
-			title: "Nothing listed",
-			body: "Check back after the next restock.",
-			accent: Palette.mango,
-			layoutOrder: 0,
-			reducedMotion: reducedMotion,
-		}),
-	});
+	// mockup 05-shop: featured panel (620px) beside an Upgrades (2-up) + packs (4-up) panel
+	const phone = stack;
+	const pad = mockPad(phone);
+	const headH = mockHeadH(phone);
+	const contentW = hostW;
+	const passCta = (pass: GamePass) => (owned[pass.Key] === true ? "Owned" : priceText(pass.PriceLabel, pass.StudioPrice, pass.PassId));
 	const featuredProduct = tab === "Featured" ? featuredProducts[0] : undefined;
-	const sections: { id: string; height: number; element: unknown }[] = [
-		{
-			id: "hero",
-			height: heroH,
-			element: heroPanel,
-		},
-		{
-			id: "tabs",
-			height: tabRowH,
-			element: tabsBar,
-		},
-	];
-	if (featuredProduct !== undefined) {
-		const unavailable = featuredProduct.ProductId <= 0 && !RunService.IsStudio();
-		sections.push({
-			id: "featured",
-			height: stack ? 184 : 168,
-			element: h(OfferTile, {
-				key: `featured-${featuredProduct.Key}`,
-				layoutOrder: 0,
-				staggerIndex: 0,
-				title: featuredProduct.Name,
-				detail: featuredProduct.Description,
-				meta: rewardLine(featuredProduct.Reward) !== "" ? `Featured · ${rewardLine(featuredProduct.Reward)}` : "Featured",
-				accent: accentOf(featuredProduct.Accent),
-				icon: iconOf(featuredProduct.Icon),
-				cta: priceText(featuredProduct.PriceLabel, featuredProduct.StudioPrice, featuredProduct.ProductId),
-				disabled: unavailable || busy,
-				onClick: () => promptProduct(featuredProduct),
-				reducedMotion: reducedMotion,
-			}),
+	const upgradeList = tab === "Featured" ? featuredPasses : tab === "Passes" ? passes : [];
+	const packList =
+		tab === "Featured" ? featuredProducts.filter((_, index) => index > 0) : tab === "Supplies" ? products : [];
+	const upCols = phone ? 2 : 2;
+	const packCols = phone ? 2 : 4;
+	const offerH = offerCardHeight(phone);
+	const packH = packCellHeight(phone);
+	const upRows = math.ceil(upgradeList.size() / upCols);
+	const packRows = math.ceil(packList.size() / packCols);
+	const upGridH = upRows > 0 ? upRows * offerH + (upRows - 1) * pad.gap : 0;
+	const packGridH = packRows > 0 ? packRows * packH + (packRows - 1) * pad.gap : 0;
+	const upCells: Record<string, unknown> = {};
+	for (const [index, pass] of ipairs(upgradeList)) {
+		const benefit = passBenefitLine(pass);
+		const isOwned = owned[pass.Key] === true;
+		upCells[pass.Key] = h(MockOffer, {
+			key: `${tab}-${pass.Key}`,
+			layoutOrder: index,
+			staggerIndex: index,
+			title: pass.Name,
+			chip: isOwned ? "Owned" : benefit.size() <= 14 ? benefit : undefined,
+			detail: benefit.size() <= 14 || isOwned ? pass.Description : benefit,
+			cta: passCta(pass),
+			accent: accentOf(pass.Accent),
+			icon: iconOf(pass.Icon),
+			disabled: (pass.PassId <= 0 && !RunService.IsStudio()) || busy,
+			owned: isOwned,
+			onClick: () => promptPass(pass),
+			reducedMotion: softMotion,
+			phone: phone,
 		});
 	}
-	sections.push(
-		{
-			id: "label",
-			height: sectionLabelH,
-			element: sectionLabel,
-		},
-	);
-	if (tab === "Codes") {
-		sections.push({
-			id: "list",
-			height: codesH,
-			element: codesPane,
+	const packCells: Record<string, unknown> = {};
+	for (const [index, product] of ipairs(packList)) {
+		const line = rewardLine(product.Reward);
+		packCells[product.Key] = h(MockPack, {
+			key: `${tab}-${product.Key}`,
+			layoutOrder: index,
+			staggerIndex: upgradeList.size() + index,
+			title: product.Name,
+			detail: line !== "" ? line : product.Description,
+			cta: priceText(product.PriceLabel, product.StudioPrice, product.ProductId),
+			accent: accentOf(product.Accent),
+			icon: iconOf(product.Icon),
+			disabled: (product.ProductId <= 0 && !RunService.IsStudio()) || busy,
+			onClick: () => promptProduct(product),
+			reducedMotion: reducedMotion,
+			phone: phone,
 		});
-	} else {
-		const catalogH = math.max(offerStride, offerRows.size() * offerStride);
-		sections.push({
-			id: "list",
-			height: catalogH,
-			element: h(
+	}
+	const blocks: { name: string; icon: string; title: string; gridH: number; cols: number; cell: number; cells: Record<string, unknown> }[] = [];
+	if (upgradeList.size() > 0) {
+		blocks.push({ name: "Upgrades", icon: "Shop", title: tab === "Passes" ? "Game passes" : "Upgrades", gridH: upGridH, cols: upCols, cell: offerH, cells: upCells });
+	}
+	if (packList.size() > 0) {
+		blocks.push({ name: "Packs", icon: "Flux", title: tab === "Supplies" ? "Supply packs" : "Packs", gridH: packGridH, cols: packCols, cell: packH, cells: packCells });
+	}
+	let catalogInner = 0;
+	const blockEls: React.Element[] = [];
+	for (const block of blocks) {
+		if (catalogInner > 0) {
+			catalogInner += pad.gap;
+		}
+		const y = catalogInner;
+		blockEls.push(
+			h(
+				"frame",
+				{ key: block.name, Name: block.name, Size: new UDim2(1, 0, 0, headH + pad.gap + block.gridH), Position: UDim2.fromOffset(0, y), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h(PanelHead, { icon: block.icon, title: block.title, accent: Palette.mango, phone: phone }),
+				h(
+					"frame",
+					{ Size: new UDim2(1, 0, 0, block.gridH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
+					h(Grid, { columns: block.cols, cell: block.cell, height: block.gridH, cells: block.cells, gap: pad.gap }),
+				),
+			),
+		);
+		catalogInner += headH + pad.gap + block.gridH;
+	}
+	const catalogH = blocks.size() > 0 ? pad.y * 2 + catalogInner : 0;
+	const catalogPanel =
+		blocks.size() > 0
+			? h(
 				Panel,
 				{
-					size: new UDim2(1, 0, 0, catalogH),
+					size: UDim2.fromScale(1, 1),
 					accent: Palette.mango,
-					background: Palette.panel,
+					background: Palette.panelRaised,
+					radius: 18,
+					rule: true,
 					padding: 0,
 					reveal: catalogReveal,
 					reducedMotion: reducedMotion,
 					clips: false,
 				},
-				offerList,
-			),
+				h(
+					"frame",
+					{ Name: "list", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
+					...blockEls,
+				),
+			)
+			: h(EmptyState, {
+				icon: "Shop.5",
+				title: "Nothing listed",
+				body: "Check back after the next restock.",
+				accent: Palette.mango,
+				reducedMotion: reducedMotion,
+			});
+	const statusLine = monetization.Error ?? banner;
+	const sections: { id: string; height: number; element: unknown }[] = [
+		{ id: "tabs", height: tabRowH, element: tabsBar },
+	];
+	if (statusLine !== "") {
+		sections.push({
+			id: "status",
+			height: 20,
+			element: h(Text, {
+				value: statusLine,
+				size: 13,
+				color: Palette.creamSoft,
+				weight: Enum.FontWeight.Medium,
+				fit: true,
+				minSize: 10,
+				sizeConstraint: new UDim2(1, 0, 0, 20),
+			}),
 		});
+	}
+	if (tab === "Codes") {
+		sections.push({ id: "list", height: codesH, element: codesPane });
+	} else if (featuredProduct !== undefined) {
+		const unavailable = featuredProduct.ProductId <= 0 && !RunService.IsStudio();
+		const featured = h(FeaturedPanel, {
+			key: `featured-${featuredProduct.Key}`,
+			product: featuredProduct,
+			cta: priceText(featuredProduct.PriceLabel, featuredProduct.StudioPrice, featuredProduct.ProductId),
+			disabled: unavailable || busy,
+			onClick: () => promptProduct(featuredProduct),
+			phone: phone,
+			reveal: heroReveal,
+			reducedMotion: reducedMotion,
+		});
+		const plan = splitColumns(phone ? 0 : contentW, 620, 18);
+		if (plan.split && blocks.size() > 0) {
+			// featured on the left at 620px; the row is as tall as the catalog, never under 600
+			const rowH = math.max(catalogH, 600);
+			const featuredPlan = { split: true, side: plan.side, main: plan.main, gap: plan.gap };
+			sections.push({
+				id: "row",
+				height: rowH,
+				element: h(SplitColumns, {
+					name: "ShopSplit",
+					height: rowH,
+					plan: featuredPlan,
+					sideOnRight: false,
+					side: featured,
+					main: catalogPanel,
+				}),
+			});
+		} else {
+			sections.push({ id: "featured", height: phone ? 300 : 600, element: featured });
+			if (blocks.size() > 0) {
+				sections.push({ id: "list", height: catalogH, element: catalogPanel });
+			}
+		}
+	} else {
+		sections.push({ id: "list", height: math.max(catalogH, 180), element: catalogPanel });
 	}
 	return React.createElement("frame", {
 		ref: tab !== "Codes" ? shopHostRef : undefined,
@@ -1476,9 +1800,16 @@ function ShopView(props: ShopViewProps) {
 		BackgroundTransparency: 1,
 		BorderSizePixel: 0,
 		ClipsDescendants: false,
+		Change: {
+			AbsoluteSize: (rbx: Frame) => {
+				if (rbx.AbsoluteSize.X > 0 && math.abs(rbx.AbsoluteSize.X - hostW) >= 1) {
+					setHostW(rbx.AbsoluteSize.X);
+				}
+			},
+		},
 	},
 		h(PageScaffold, {
-			gap: pageGap,
+			gap: phone ? 8 : 18,
 			tailPad: scrollTail(stack, chrome.bottomSafe, SCROLL_PAD),
 			scrollBarColor: Palette.mango,
 			scrollBarThickness: 4,
@@ -1486,6 +1817,8 @@ function ShopView(props: ShopViewProps) {
 		}),
 	) as React.Element;
 }
+
+
 const GAP = 10;
 const SECTIONS = [
 	{ id: "Daily", label: "Daily" },
@@ -1563,6 +1896,7 @@ function rowsHeight(count: number, columns: number, cell: number): number {
 }
 
 interface GridProps {
+	gap?: number;
 	columns: number;
 	cell: number;
 	height: number;
@@ -1576,9 +1910,10 @@ const SectionHeading = React.memo(Text as unknown as React.FunctionComponent<Rec
 
 function Grid(props: GridProps) {
 	const children: Record<string, unknown> = { ...props.cells };
+	const gap = props.gap ?? GAP;
 	children.Layout = h("uigridlayout", {
-		CellSize: new UDim2(1 / props.columns, -math.ceil((GAP * (props.columns - 1)) / props.columns), 0, props.cell),
-		CellPadding: UDim2.fromOffset(GAP, GAP),
+		CellSize: new UDim2(1 / props.columns, -math.ceil((gap * (props.columns - 1)) / props.columns), 0, props.cell),
+		CellPadding: UDim2.fromOffset(gap, gap),
 		FillDirectionMaxCells: props.columns,
 		SortOrder: Enum.SortOrder.LayoutOrder,
 	});
@@ -2131,233 +2466,97 @@ function DailySection(props: SectionProps) {
 	});
 }
 
-interface OddsRowProps {
+interface MockOddsRowProps {
 	row: { rarity: string; chance: number };
 	config: ShopConfig;
 	order: number;
+	top: number;
+	phone: boolean;
 }
 
-function OddsRow(props: OddsRowProps) {
+// .row min-height 48 (phone 36)
+function oddsRowHeight(phone: boolean): number {
+	return phone ? 36 : 48;
+}
+
+// odds rail row: 10px rotated swatch, rarity name, 200px thin bar scaled to the top chance, 17px value
+function MockOddsRow(props: MockOddsRowProps) {
 	const row = props.row;
 	const color = rarityColor(props.config, row.rarity);
+	const rowH = oddsRowHeight(props.phone);
+	const barW = props.phone ? 120 : 200;
+	const fill = props.top > 0 ? math.clamp(row.chance / props.top, 0, 1) : 0;
+	const ascended = isAscended(row.rarity);
 	return h(
 		"frame",
 		{
-			Size: new UDim2(1, 0, 0, 20),
-			BackgroundColor3: color,
-			BackgroundTransparency: isAscended(row.rarity) ? 0.86 : 1,
+			Name: row.rarity,
+			Size: new UDim2(1, 0, 0, rowH),
+			BackgroundColor3: MOCK_ROW_TINT,
+			BackgroundTransparency: 0,
 			BorderSizePixel: 0,
 			LayoutOrder: props.order,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 6) }),
-		isAscended(row.rarity) &&
+		mockRowSkin(),
+		ascended &&
 			h(PrismAura, {
 				rarity: row.rarity,
 				intensity: 0.8,
 				rays: false,
 				sparks: false,
 				thickness: 1.5,
-				corner: 6,
+				corner: 11,
 			}),
 		h("frame", {
-			Size: UDim2.fromOffset(8, 8),
-			Position: new UDim2(0, 6, 0.5, 0),
+			Name: "Swatch",
+			Size: UDim2.fromOffset(10, 10),
+			Position: new UDim2(0, 14, 0.5, 0),
 			AnchorPoint: new Vector2(0, 0.5),
 			Rotation: 45,
 			BackgroundColor3: color,
 			BorderSizePixel: 0,
-		}),
+		}, h("uicorner", { CornerRadius: new UDim(0, 2) })),
 		h(Text, {
 			value: row.rarity,
-			size: 12,
-			color: isAscended(row.rarity) ? Palette.cream : color,
-			weight: Enum.FontWeight.Bold,
-			position: UDim2.fromOffset(22, 2),
-			sizeConstraint: new UDim2(0.6, -22, 0, 16),
+			size: props.phone ? 13 : 15,
+			color: Palette.cream,
+			weight: Enum.FontWeight.SemiBold,
+			fit: true,
+			minSize: 10,
+			position: new UDim2(0, 34, 0.5, -10),
+			sizeConstraint: new UDim2(1, -(34 + barW + 12 + 64 + 12), 0, 20),
 		}),
+		h(
+			"frame",
+			{
+				Name: "Bar",
+				Size: UDim2.fromOffset(barW, 6),
+				Position: new UDim2(1, -(12 + 64 + 12 + barW), 0.5, -3),
+				BackgroundColor3: Color3.fromRGB(9, 6, 10),
+				BorderSizePixel: 0,
+			},
+			h("uicorner", { CornerRadius: new UDim(0, 3) }),
+			h(
+				"frame",
+				{ Name: "Fill", Size: UDim2.fromScale(fill, 1), BackgroundColor3: Palette.violet, BorderSizePixel: 0 },
+				h("uicorner", { CornerRadius: new UDim(0, 3) }),
+			),
+		),
 		h(Text, {
 			value: RelicSystem.chanceText(row.chance),
-			size: 12,
-			color: Palette.cream,
+			size: props.phone ? 14 : 17,
+			color: Palette.violet,
 			weight: Enum.FontWeight.Bold,
 			align: Enum.TextXAlignment.Right,
-			position: new UDim2(0.4, 0, 0, 2),
-			sizeConstraint: new UDim2(0.6, -8, 0, 16),
+			fit: true,
+			minSize: 10,
+			position: new UDim2(1, -(12 + 64), 0.5, -11),
+			sizeConstraint: UDim2.fromOffset(64, 22),
 		}),
-	);
-}
-
-interface CrateStageProps {
-	crate: CrateConfig;
-	config: ShopConfig;
-	stack: boolean;
-	keys: number;
-	pity: number;
-	skin?: string;
-	busy: boolean;
-	reveal?: React.Binding<number>;
-	onOpen: (count: number) => void;
-	auto: boolean;
-	onAuto: () => void;
-	reducedMotion?: boolean;
-}
-
-function CrateStage(props: CrateStageProps) {
-	const crate = props.crate;
-	const config = props.config;
-	const stack = props.stack;
-	const keys = props.keys;
-	const odds = RelicSystem.odds(crate.Weights);
-	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
-	const oddsRows: Record<string, unknown> = {
-		Layout: h("uilistlayout", {
-			FillDirection: Enum.FillDirection.Vertical,
-			Padding: new UDim(0, 2),
-			SortOrder: Enum.SortOrder.LayoutOrder,
-		}),
-	};
-	for (let index = odds.size(); index >= 1; index--) {
-		const row = odds[index - 1];
-		oddsRows[row.rarity] = h(OddsRow, { row: row, config: config, order: odds.size() - index });
-	}
-	const modelH = stack ? 190 : 280;
-	const infoX = stack ? 0 : 300;
-	const infoY = stack ? modelH + 6 : 0;
-	const pity = props.pity ?? 0;
-	const pityLine =
-		crate.PityAfter !== undefined && crate.PityRarity !== undefined
-			? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - pity)}`
-			: "";
-	const openButton = (count: number, order: number) => {
-		const can = keys >= count && !props.busy && !props.auto;
-		return h(Button, {
-			text: keys >= count ? `×${count}` : `${count - keys} more`,
-			icon: keys >= count ? "Crate.2" : "Lock.8",
-			onClick: () => {
-				props.onOpen(count);
-			},
-			color: can ? accent : Palette.panelSoft,
-			textColor: can ? Palette.ink : Palette.creamSoft,
-			size: new UDim2(1 / 3, -6, 1, 0),
-			position: new UDim2((order - 1) / 3, order === 1 ? 0 : 3 * (order - 1), 0, 0),
-			disabled: !can,
-			reducedMotion: props.reducedMotion,
-			highlight: can,
-			selectable: can,
-		});
-	};
-	return h(
-		Panel,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: accent,
-			background: Palette.panelRaised,
-			padding: 20,
-			reveal: props.reveal,
-			reducedMotion: props.reducedMotion,
-			clips: false,
-		},
-		h(
-			"frame",
-			{
-				Size: stack ? new UDim2(1, 0, 0, modelH) : UDim2.fromOffset(286, modelH),
-				BackgroundColor3: Palette.void,
-				BackgroundTransparency: 0.25,
-				BorderSizePixel: 0,
-			},
-			h("uicorner", { CornerRadius: new UDim(0, 4) }),
-			h("uistroke", { Color: accent, Transparency: 0.8, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
-			h("uigradient", {
-				Color: new ColorSequence(darken(accent, 0.55), Palette.void),
-				Rotation: 90,
-			}),
-			h(CrateModel, {
-				skin: CrateAppearance.resolve(props.skin, crate.Id, (config.Items?.Crates ?? []) as { Id: string; ModelId?: string }[]),
-				spin: true,
-				open: props.busy ? 0.35 : 0,
-				shake: props.busy ? 1 : 0,
-				live: !props.reducedMotion,
-				zoom: 0.85,
-			}),
-			h(Badge, {
-				value: `${keys}`,
-				accent: keys > 0 ? accent : Palette.lineSoft,
-				filled: keys > 0,
-				size: UDim2.fromOffset(34, 22),
-				position: UDim2.fromOffset(12, 12),
-			}),
-		),
-		h(
-			"frame",
-			{
-				Size: stack ? new UDim2(1, 0, 1, -infoY) : new UDim2(1, -infoX, 1, 0),
-				Position: UDim2.fromOffset(infoX, infoY),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			h(Text, {
-				value: crate.Name,
-				size: 20,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Heavy,
-				fit: true,
-				minSize: 13,
-				sizeConstraint: new UDim2(1, 0, 0, 26),
-			}),
-			h(Text, {
-				value: pityLine,
-				size: 11,
-				color: accent,
-				weight: Enum.FontWeight.Bold,
-				position: UDim2.fromOffset(0, 32),
-				sizeConstraint: new UDim2(1, 0, 0, 16),
-			}),
-			h(
-				"frame",
-				{
-					Size: new UDim2(1, 0, 0, odds.size() * 22),
-					Position: UDim2.fromOffset(0, 64),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				oddsRows,
-			),
-			h(
-				"frame",
-				{
-					Name: "CrateOpen",
-					Size: new UDim2(1, 0, 0, TapTarget),
-					Position: new UDim2(0, 0, 1, -TapTarget),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				openButton(1, 1),
-				openButton(10, 2),
-				// Auto opens one at a time after each reveal closes; press again to stop, and it stops itself at 0 keys
-				h(Button, {
-					text: props.auto ? "Stop" : "Auto",
-					icon: props.auto ? "Close.3" : keys > 0 ? "Crate.2" : "Lock.8",
-					onClick: props.onAuto,
-					color: props.auto ? Palette.coral : Palette.panelSoft,
-					textColor: props.auto ? Palette.ink : keys > 0 ? Palette.cream : Palette.creamSoft,
-					size: new UDim2(1 / 3, -6, 1, 0),
-					position: new UDim2(2 / 3, 6, 0, 0),
-					disabled: !props.auto && keys <= 0,
-					reducedMotion: props.reducedMotion,
-					selectable: props.auto || keys > 0,
-				}),
-			),
-		),
 	);
 }
 
 const OPEN_BATCH = 5;
-
-function crateStageHeight(stack: boolean, crate: CrateConfig | undefined): number {
-	const rows = RelicSystem.odds(crate?.Weights).size();
-	const info = 82 + rows * 22 + 10 + TapTarget + 28;
-	return stack ? 190 + 6 + info : math.max(280, info) + 28;
-}
 
 interface CrateChipProps {
 	crate: CrateConfig;
@@ -2424,13 +2623,23 @@ function crateTopRarity(crate: CrateConfig): string | undefined {
 	return odds.size() > 0 ? odds[odds.size() - 1].rarity : undefined;
 }
 
+// crate card (.row column): padding 16, gap 10, line-art crate, 17px name, 13px range, 36px key pill
+const CRATE_CARD_H = 214;
+const CRATE_CARD_H_PHONE = 200;
+
 function CrateChip(props: CrateChipProps) {
 	const crate = props.crate;
 	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
 	const selected = props.selected;
-	const compact = props.compact === true;
-	const glyph = compact ? 40 : 52;
+	const phone = props.compact === true;
+	const glyph = phone ? 56 : 64;
+	const pillH = phone ? TapTarget : 36;
 	const lift = useBoatTween(selected ? 1 : 0, 0.18, props.reducedMotion, easeOutCubic, 0);
+	const pick = () => {
+		Audio.play("tabSwitch");
+		props.onSelect();
+	};
+	const nameY = 16 + 80 + 10;
 	return h(
 		"frame",
 		{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: props.order },
@@ -2440,64 +2649,57 @@ function CrateChip(props: CrateChipProps) {
 				Name: "CrateCard",
 				Size: UDim2.fromScale(1, 1),
 				Position: lift.map((amount) => UDim2.fromOffset(0, -4 * amount)),
-				BackgroundColor3: selected ? darken(accent, 0.62) : Palette.panelRaised,
+				BackgroundColor3: MOCK_ROW_TINT,
 				BorderSizePixel: 0,
 				AutoButtonColor: false,
 				Text: "",
-				Event: {
-					Activated: () => {
-						Audio.play("tabSwitch");
-						props.onSelect();
-					},
-				},
+				Event: { Activated: pick },
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 12) }), ironFace(),
-			// rim in the crate's top rarity (its pity rarity when it has one), brass inner rule; full alpha when selected
-			h(RarityRim, { rarity: crateTopRarity(crate), corner: 12, selected: selected }),
-			crateGlyph(accent, glyph, compact ? 10 : 16),
+			mockRowSkin(selected ? accent : undefined),
+			crateGlyph(accent, glyph, 16 + (80 - glyph) / 2),
 			h(Text, {
 				value: crate.Name,
-				size: compact ? 13 : 15,
+				size: 17,
 				color: Palette.cream,
-				weight: Enum.FontWeight.Heavy,
+				weight: Enum.FontWeight.Bold,
 				fit: true,
-				minSize: 10,
+				minSize: 11,
 				align: Enum.TextXAlignment.Center,
-				position: UDim2.fromOffset(8, glyph + (compact ? 16 : 26)),
-				sizeConstraint: new UDim2(1, -16, 0, 20),
+				position: UDim2.fromOffset(16, nameY),
+				sizeConstraint: new UDim2(1, -32, 0, 22),
 			}),
 			h(Text, {
 				value: crateRangeLine(crate),
-				size: 11,
+				size: 13,
 				color: Palette.muted,
+				weight: Enum.FontWeight.Medium,
 				fit: true,
 				minSize: 9,
 				align: Enum.TextXAlignment.Center,
-				position: UDim2.fromOffset(8, glyph + (compact ? 36 : 48)),
-				sizeConstraint: new UDim2(1, -16, 0, 16),
+				position: UDim2.fromOffset(16, nameY + 22 + 6),
+				sizeConstraint: new UDim2(1, -32, 0, 18),
 			}),
 			h(
 				"frame",
 				{
 					Name: "Keys",
-					Size: new UDim2(1, -16, 0, 26),
-					Position: new UDim2(0, 8, 1, -34),
-					BackgroundColor3: props.keys > 0 ? Palette.mango : Palette.panelSoft,
+					Size: new UDim2(1, -32, 0, pillH),
+					Position: new UDim2(0, 16, 1, -(16 + pillH)),
+					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 8) }),
-				h(Text, {
-					value: props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys",
-					size: 12,
-					color: props.keys > 0 ? Palette.ink : Palette.creamSoft,
-					weight: Enum.FontWeight.Heavy,
-					fit: true,
-					minSize: 9,
-					align: Enum.TextXAlignment.Center,
-					sizeConstraint: UDim2.fromScale(1, 1),
+				h(Button, {
+					text: props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys",
+					onClick: pick,
+					color: props.keys > 0 ? Palette.mango : MOCK_SEC,
+					textColor: props.keys > 0 ? Palette.ink : Palette.creamSoft,
+					size: UDim2.fromScale(1, 1),
+					reducedMotion: props.reducedMotion,
+					selectable: true,
 				}),
 			),
-		),	);
+		),
+	);
 }
 
 interface CratePull {
@@ -2576,7 +2778,6 @@ function CratesSection(props: SectionProps) {
 			reducedMotion: props.reducedMotion,
 		});
 	}
-	const skin = state.Cosmetics?.CrateSkin;
 	const onOpen = (count: number) => {
 		if (busy || props.crateRevealActive) {
 			return;
@@ -2650,13 +2851,23 @@ function CratesSection(props: SectionProps) {
 		};
 		step(count);
 	};
-	// cards for every crate on one row (three across on phones too), odds and last pulls in a right rail
-	const plan = splitColumns(stack ? 0 : props.width, 340);
-	const mainW = plan.split ? plan.main : props.width;
-	const pickerColumns = math.clamp(crates.size(), 1, mainW >= 900 ? 4 : 3);
-	const compact = stack;
-	const cardH = compact ? 150 : 184;
 	openRef.current = onOpen;
+	// mockup 07-crates: crate panel (3-up grid + Open 1 / Open 10 / Auto) beside a 520px odds + last pulls rail
+	const phone = stack;
+	const pad = mockPad(phone);
+	const headH = mockHeadH(phone);
+	const plan = splitColumns(phone ? 0 : props.width, 520, 18);
+	const columns = math.clamp(crates.size(), 1, 3);
+	const cardH = phone ? CRATE_CARD_H_PHONE : CRATE_CARD_H;
+	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
+	const busyNow = busy || props.crateRevealActive === true;
+	const pity = items.Pity?.[crate.Id] ?? 0;
+	const pityNote =
+		crate.PityAfter !== undefined && crate.PityRarity !== undefined
+			? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - pity)} opens`
+			: undefined;
+
+	// crate grid
 	const chips: Record<string, unknown> = {};
 	for (const [index, entry] of ipairs(crates)) {
 		chips[entry.Id] = h(CrateChip, {
@@ -2664,7 +2875,7 @@ function CratesSection(props: SectionProps) {
 			order: index,
 			keys: keys[entry.Id] ?? 0,
 			selected: entry.Id === crate.Id,
-			compact: compact,
+			compact: phone,
 			reducedMotion: props.reducedMotion,
 			onSelect: () => {
 				setAuto(false);
@@ -2672,68 +2883,110 @@ function CratesSection(props: SectionProps) {
 			},
 		});
 	}
-	const chipsH = rowsHeight(crates.size(), pickerColumns, cardH) + 4;
-	const hero = {
-		id: "hero",
-		height: heroHeight(stack),
-		element: h(Hero, {
-			title: "Crates",
-			art: "crates",
-			body: crate.PityAfter !== undefined && crate.PityRarity !== undefined
-				? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - (items.Pity?.[crate.Id] ?? 0))} opens`
-				: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
+	const gridRows = math.max(1, math.ceil(crates.size() / columns));
+	const gridH = gridRows * cardH + (gridRows - 1) * pad.gap;
+	const openH = phone ? TapTarget : 44;
+	const autoW = phone ? 96 : 104;
+	const openButton = (count: number, order: number) => {
+		const can = crateKeys >= count && !busyNow && !auto;
+		const label =
+			count === 1
+				? crateKeys >= 1 ? "Open 1" : "Open 1 · no keys"
+				: crateKeys >= count ? `Open ${count} · ${count} keys` : `Open ${count} · ${count - crateKeys} more keys`;
+		// .flexr gap 18 (phone 8): two flex buttons share what Auto leaves
+		const gap = phone ? 8 : 18;
+		return h(Button, {
+			text: label,
+			onClick: () => onOpen(count),
+			color: order === 1 ? MOCK_SEC : Palette.violet,
+			textColor: order === 1 ? Palette.cream : Palette.ink,
+			size: new UDim2(0.5, -(autoW + gap * 2) / 2, 1, 0),
+			position: new UDim2(order === 1 ? 0 : 0.5, order === 1 ? 0 : -(autoW + gap * 2) / 2 + gap, 0, 0),
+			disabled: !can,
+			reducedMotion: props.reducedMotion,
+			highlight: can && order === 2,
+			selectable: can,
+		});
+	};
+	const mainH = pad.y * 2 + headH + pad.gap + gridH + pad.gap + openH;
+	const mainPanel = h(
+		Panel,
+		{
+			size: UDim2.fromScale(1, 1),
 			accent: Palette.violet,
-			icon: "Crate.4",
-			state: state,
-			stack: stack,
+			background: Palette.panelRaised,
+			radius: 18,
+			rule: true,
+			padding: 0,
 			reveal: props.reveal,
 			reducedMotion: props.reducedMotion,
-		}),
-	};
-	const stageH = crateStageHeight(stack, crate);
-	const stage = {
-		id: "stage",
-		height: stageH,
-		element: h(CrateStage, {
-			key: crate.Id,
-			crate: crate,
-			config: config,
-			stack: stack,
-			keys: keys[crate.Id] ?? 0,
-			pity: items.Pity?.[crate.Id] ?? 0,
-			skin: skin,
-			busy: busy || props.crateRevealActive === true,
-			onOpen: onOpen,
-			auto: auto,
-			onAuto: () => setAuto(!auto),
-			reducedMotion: props.reducedMotion,
-		}),
-	};
-	const picker = {
-		id: "chips",
-		height: chipsH,
-		element: h(
+			clips: false,
+		},
+		h(
 			"frame",
-			{ Size: new UDim2(1, 0, 0, chipsH), BackgroundTransparency: 1, BorderSizePixel: 0 },
-			h("uipadding", { PaddingTop: new UDim(0, 4) }),
-			h(Grid, { columns: pickerColumns, cell: cardH, height: chipsH - 4, cells: chips }),
+			{ Name: "chips", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
+			h(PanelHead, { icon: "Crate", title: "Crates", note: plan.split ? undefined : pityNote, accent: Palette.violet, phone: phone }),
+			h(
+				"frame",
+				{ Name: "Grid", Size: new UDim2(1, 0, 0, gridH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h(Grid, { columns: columns, cell: cardH, height: gridH, cells: chips, gap: pad.gap }),
+			),
+			h(
+				"frame",
+				{
+					Name: "CrateOpen",
+					Size: new UDim2(1, 0, 0, openH),
+					Position: UDim2.fromOffset(0, headH + pad.gap + gridH + pad.gap),
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+				},
+				openButton(1, 1),
+				openButton(10, 2),
+				// Auto opens one at a time after each reveal closes; press again to stop, and it stops itself at 0 keys
+				h(Button, {
+					text: auto ? "Stop" : "Auto",
+					icon: auto ? "Close.3" : "Settings",
+					onClick: () => setAuto(!auto),
+					color: auto ? Palette.coral : MOCK_SEC,
+					textColor: auto ? Palette.ink : crateKeys > 0 ? Palette.cream : Palette.creamSoft,
+					size: new UDim2(0, autoW, 1, 0),
+					position: new UDim2(1, -autoW, 0, 0),
+					disabled: !auto && crateKeys <= 0,
+					reducedMotion: props.reducedMotion,
+					selectable: auto || crateKeys > 0,
+				}),
+			),
 		),
-	};
-	const dropsH = crateDropTableHeight(config.Items, crate, stack);
-	const drops = {
-		id: "drops",
-		height: dropsH,
-		element: h(CrateDropTable, {
-			key: crate.Id,
-			items: config.Items,
-			crate: crate,
-			pity: items.Pity?.[crate.Id] ?? 0,
-			stack: stack,
+	);
+
+	// odds rail
+	const odds = RelicSystem.odds(crate.Weights);
+	let top = 0;
+	for (const row of odds) {
+		top = math.max(top, row.chance);
+	}
+	const oddsRowH = oddsRowHeight(phone);
+	const oddsGap = phone ? 6 : 12;
+	const oddsChildren: Record<string, unknown> = {
+		Layout: h("uilistlayout", {
+			FillDirection: Enum.FillDirection.Vertical,
+			Padding: new UDim(0, oddsGap),
+			SortOrder: Enum.SortOrder.LayoutOrder,
 		}),
 	};
-	const pullCols = plan.split ? 2 : stack ? 3 : 6;
-	const pullCell = plan.split ? 150 : 140;
-	const pullCells: Record<string, unknown> = {};
+	for (const [index, row] of ipairs(odds)) {
+		oddsChildren[row.rarity] = h(MockOddsRow, { row: row, config: config, order: index, top: top, phone: phone });
+	}
+	const oddsH = odds.size() * oddsRowH + math.max(0, odds.size() - 1) * oddsGap;
+	const pullW = phone ? 120 : 176;
+	const pullH = phone ? 160 : 234;
+	const pullCells: Record<string, unknown> = {
+		Layout: h("uigridlayout", {
+			CellSize: UDim2.fromOffset(pullW, pullH),
+			CellPadding: UDim2.fromOffset(pad.gap, pad.gap),
+			SortOrder: Enum.SortOrder.LayoutOrder,
+		}),
+	};
 	for (const [index, pull] of ipairs(pulls)) {
 		const def = definitionOf(config, pull.definitionId);
 		const element = def !== undefined && typeIs(def.Element, "string") ? def.Element : undefined;
@@ -2744,32 +2997,80 @@ function CratesSection(props: SectionProps) {
 			element: element,
 			iconKind: pull.salvaged ? "Dust.9" : "Artifact",
 			layoutOrder: index,
+			size: UDim2.fromOffset(pullW, pullH),
 			reducedMotion: props.reducedMotion,
 		});
 	}
-	const pullsGridH = rowsHeight(pulls.size(), pullCols, pullCell);
-	const pullsH = pulls.size() > 0 ? 34 + pullsGridH : 0;
-	const lastPulls = {
-		id: "pulls",
-		height: pullsH,
-		element: h(
+	const sideW = plan.split ? plan.side : props.width;
+	const perRow = math.max(1, math.floor((sideW - pad.x * 2 + pad.gap) / (pullW + pad.gap)));
+	const pullRows = math.ceil(pulls.size() / perRow);
+	const pullsGridH = pulls.size() > 0 ? pullRows * pullH + (pullRows - 1) * pad.gap : 20;
+	const ruleY = headH + pad.gap + oddsH + pad.gap;
+	const pullsHeadY = ruleY + 12 + pad.gap;
+	const sideH = pad.y * 2 + pullsHeadY + headH + pad.gap + pullsGridH;
+	const sidePanel = h(
+		Panel,
+		{
+			size: UDim2.fromScale(1, 1),
+			accent: Palette.violet,
+			background: Palette.panelRaised,
+			radius: 18,
+			rule: true,
+			padding: 0,
+			reveal: props.reveal,
+			reducedMotion: props.reducedMotion,
+			clips: false,
+		},
+		h(
 			"frame",
-			{ Size: new UDim2(1, 0, 0, pullsH), BackgroundTransparency: 1, BorderSizePixel: 0 },
-			h(SectionLabel, { value: "Last pulls", color: Palette.violet }),
+			{ Name: "drops", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
+			h(PanelHead, { icon: "Info", title: `${crate.Name} odds`, note: pityNote, accent: accent, phone: phone }),
 			h(
 				"frame",
-				{ Size: new UDim2(1, 0, 0, pullsGridH), Position: UDim2.fromOffset(0, 34), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h(Grid, { columns: pullCols, cell: pullCell, height: pullsGridH, cells: pullCells }),
+				{ Name: "Odds", Size: new UDim2(1, 0, 0, oddsH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				oddsChildren,
+			),
+			// .rule: brass hairlines fading in toward a 9px glowing diamond
+			h(
+				"frame",
+				{ Name: "Rule", Size: new UDim2(1, 0, 0, 12), Position: UDim2.fromOffset(0, ruleY), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h("frame", { Size: new UDim2(0.5, -14, 0, 1), Position: new UDim2(0, 0, 0.5, 0), BackgroundColor3: Palette.brass, BorderSizePixel: 0 },
+					h("uigradient", { Transparency: new NumberSequence(1, 0.45) })),
+				h("frame", { Size: new UDim2(0.5, -14, 0, 1), Position: new UDim2(0.5, 14, 0.5, 0), BackgroundColor3: Palette.brass, BorderSizePixel: 0 },
+					h("uigradient", { Transparency: new NumberSequence(0.45, 1) })),
+				h("frame", {
+					Size: UDim2.fromOffset(9, 9),
+					Position: UDim2.fromScale(0.5, 0.5),
+					AnchorPoint: new Vector2(0.5, 0.5),
+					Rotation: 45,
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+				}, h("uistroke", { Color: Palette.brass, Thickness: 1 })),
+			),
+			h(
+				"frame",
+				{ Name: "pulls", Size: new UDim2(1, 0, 0, headH + pad.gap + pullsGridH), Position: UDim2.fromOffset(0, pullsHeadY), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h(PanelHead, { icon: "Calendar", title: "Last pulls", accent: accent, phone: phone }),
+				pulls.size() > 0
+					? h(
+						"frame",
+						{ Size: new UDim2(1, 0, 0, pullsGridH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
+						pullCells,
+					)
+					: h(Text, {
+						value: "Nothing opened yet this session.",
+						size: 13,
+						color: Palette.muted,
+						position: UDim2.fromOffset(0, headH + pad.gap),
+						sizeConstraint: new UDim2(1, 0, 0, 20),
+					}),
 			),
 		),
-	};
+	);
 	let sections: { id: string; height: number; element: unknown }[];
 	if (plan.split) {
-		const mainBlocks = [picker, stage];
-		const sideBlocks = pulls.size() > 0 ? [drops, lastPulls] : [drops];
-		const rowH = math.max(stackHeight(mainBlocks.map((block) => block.height), GAP), stackHeight(sideBlocks.map((block) => block.height), GAP));
+		const rowH = math.max(mainH, sideH);
 		sections = [
-			hero,
 			{
 				id: "split",
 				height: rowH,
@@ -2778,16 +3079,19 @@ function CratesSection(props: SectionProps) {
 					height: rowH,
 					plan: plan,
 					sideOnRight: true,
-					side: h(StackBlocks, { gap: GAP, blocks: sideBlocks as never }),
-					main: h(StackBlocks, { gap: GAP, blocks: mainBlocks as never }),
+					side: sidePanel,
+					main: mainPanel,
 				}),
 			},
 		];
 	} else {
-		sections = pulls.size() > 0 ? [hero, picker, stage, drops, lastPulls] : [hero, picker, stage, drops];
+		sections = [
+			{ id: "crates", height: mainH, element: mainPanel },
+			{ id: "odds", height: sideH, element: sidePanel },
+		];
 	}
 	return h(PageScaffold, {
-		gap: GAP,
+		gap: phone ? 8 : 18,
 		tailPad: props.tailPad,
 		scrollBarColor: Palette.violet,
 		sections: sections,
@@ -3982,7 +4286,7 @@ function storeFocusPlan(section: string): FocusPlan | undefined {
 		// Open (×1, ×10, Auto) first; down from it the rest of the stage, the crate picker and the drop table.
 		// Two-column desktop: picker (Side) <-> stage/drops (Main) step left/right.
 		return {
-			regions: ["StoreSections", "chips", "CrateOpen", "stage", "drops", "pulls"],
+			regions: ["StoreSections", "chips", "CrateOpen", "drops", "pulls"],
 			// no keys (Open locked): the crate picker, so a crate with keys is one press away
 			first: ["CrateOpen", "chips"],
 			// crate cards + stage (Main) on the left, odds + last pulls (Side) on the right

@@ -85,7 +85,6 @@ local CASES: { Case } = {
 	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "${procure.Name} requested: next shipment, held 24 hours.", fill = { ["procure.Name"] = "Nebula Coolant Cell" }, size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
 	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "${procure.Name} lapsed. Request again for a new 24-hour hold.", fill = { ["procure.Name"] = "Nebula Coolant Cell" }, size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
 	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "No open request. Pick a supply below: next shipment, held 24 hours.", size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
-	{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = shopPanel },
 	{ file = "pages/PagesShop.tsx", needle = "Type a code to claim it. Each one works once.", size = 12, minSize = 10, bold = false, width = shopPanel, box = 26 },
 	{ file = "pages/PagesShop.tsx", needle = "Follow the creator on Roblox, then check here for a one-time reward.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
 	{ file = "pages/PagesShop.tsx", needle = "Reward claimed. Thanks for the follow.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
@@ -109,7 +108,6 @@ local function phoneCases(phone: number)
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Power cells", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "A new cell every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
-		{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = panel, phone = phone },
 	}
 end
 for _, phone in { 360, 286 } do
