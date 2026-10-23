@@ -5,7 +5,7 @@ export const PAGE_ROUTES: ReadonlyArray<string> = table.freeze([
 	"Overview", "Workshop", "Research", "StarGrid", "Rebirth", "Ascension", "Echoes", "Continuum", "Convergence",
 	"Lab", "Anomaly", "Worlds", "Missions", "Milestones", "Wheel", "Bazaar", "Rewards", "Boosts",
 	"Command", "Story", "Mail", "Chat", "Crew", "Guild", "Leaderboards", "Shop", "Inventory", "Trade",
-	"Settings", "Admin", "ForgePath", "Expeditions",
+	"Settings", "Admin", "ForgePath", "Expeditions", "Companions", "Journal",
 ]);
 
 export interface NavGroup {
@@ -20,7 +20,7 @@ export const NAV_GROUPS: ReadonlyArray<NavGroup> = table.freeze([
 	{
 		key: "Progress",
 		label: "Progress",
-		routes: table.freeze(["Worlds", "Expeditions", "Lab", "StarGrid", "Echoes", "Continuum", "ForgePath", "Story", "Rebirth", "Ascension"]),
+		routes: table.freeze(["Worlds", "Expeditions", "Companions", "Journal", "Lab", "StarGrid", "Echoes", "Continuum", "ForgePath", "Story", "Rebirth", "Ascension"]),
 	},
 	{ key: "Social", label: "Social", routes: table.freeze(["Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards"]) },
 	{ key: "System", label: "System", routes: table.freeze(["Settings", "Credits", "Admin"]) },
