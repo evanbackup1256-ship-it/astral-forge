@@ -5,7 +5,7 @@ import { counted, memoRow, sameFields } from "../UiCore/rowMemo";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Fmt from "../CoreKit/format";
 import { ClientLog } from "../CoreKit/log";
-import { chromeFor, darken, Layout, Palette, Radius, scrollTail, StrokeWidth, TapTarget } from "../CoreKit/theme";
+import { chromeFor, darken, Palette, scrollTail, StrokeWidth, TapTarget } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
 import { FlexGrid, useShopColumns } from "../MotionKit/flexbox";
 import { easeOutCubic, useBoatTween, useStagger, useViewport, useWallClock } from "../MotionKit/motion";
@@ -16,36 +16,31 @@ import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppear
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { SpriteCard } from "./views/PortSpriteCard";
-import { HeaderArt } from "../UiCore/HeaderArt";
-import { RarityRim } from "../UiCore/effectsLayer";
-import type { HeaderArtName } from "../ArtKit/uiArt";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
+import { splitColumns } from "../UiCore/ui";
 import { FocusPlan, useFocusOrder } from "../CoreKit/focusOrder";
 import {
 	Component,
-	Components,
 	loadAudio,
 	loadBrowse,
-	loadPageScaffold,
-	loadUi,
 	luauKit,
 	sharedModule,
+	type BrowseState,
 } from "./luauDeps";
 import { clientModule } from "./luauKits";
 import {
+	Bar,
 	BODY,
 	BODY_BOLD,
 	BODY_SEMI,
 	Chip,
+	DiamondRule,
 	Glyph,
-	GlyphWell,
 	Line,
 	MockPanel,
 	mockGap,
 	NUM,
 	PanelHeading,
 	panelPad,
-	PnSurface,
 	ROW_RADIUS,
 	rowFace,
 	spaced,
@@ -67,17 +62,6 @@ const { ElementFx } = ElementFxModule;
 const Juice = clientModule<{
 	banner(this: void, title: string, subtitle?: string, color?: Color3, icon?: string, duration?: number, tone?: string): void;
 }>("JuiceFx");
-const PageScaffold = loadPageScaffold();
-const {
-	Badge,
-	Button,
-	EmptyState,
-	Meter,
-	SectionLabel,
-	SegmentedTabs,
-	Text,
-} = loadUi() as Components;
-const { FlatList } = luauKit<{ FlatList: Component }>("LayoutKit", "virtualizedList");
 const Audio = loadAudio();
 const { CrateModel, skinAccent } = luauKit<{
 	CrateModel: Component;
@@ -482,92 +466,80 @@ function priceText(label: Fmt.Flux, studioPrice: Fmt.Flux, offerId: number): str
 	return "Unavailable";
 }
 
-// ---- mockup kit (design/system/af.css at 1920x1080; phone values from the .p rules) ----
-// .pn: radius 16 (forge 18), padding 18/20, gap 12; phone .p .pn: padding 10/12, gap 8
-const MOCK_SEC = Color3.fromRGB(58, 46, 62); // .btn.sec base #3a2e3e
-const MOCK_ROW_TINT = Color3.fromRGB(255, 255, 255);
-
-interface MockPad {
-	y: number;
-	x: number;
-	gap: number;
-}
-
-function mockPad(phone: boolean): MockPad {
-	return phone ? { y: 10, x: 12, gap: 8 } : { y: 18, x: 20, gap: 12 };
-}
-
-function mockHeadH(phone: boolean): number {
-	return phone ? 16 : 22;
-}
-
-interface PanelHeadProps {
-	icon: string;
-	title: string;
-	note?: string;
+/** Section/tab switcher in the kit language: .chip pills, the live one a filled .btn in the accent.
+ * Desktop lays them on a grid (columns x rows fill the host); phone strip mode scrolls one row. */
+function PillTabs(p: {
+	options: { id: string; label: string }[];
+	value: string;
+	onChange: (id: string) => void;
 	accent: Color3;
-	phone: boolean;
-	position?: UDim2;
-}
-
-// .pn h3: 18px icon in the accent, 15px title face, uppercase, .12em tracking; small note on the right
-function PanelHead(props: PanelHeadProps) {
-	const headH = mockHeadH(props.phone);
-	const icon = props.phone ? 14 : 18;
-	return h(
-		"frame",
-		{ Name: "Head", Size: new UDim2(1, 0, 0, headH), Position: props.position, BackgroundTransparency: 1, BorderSizePixel: 0 },
-		h(Icon, {
-			kind: props.icon,
-			color: props.accent,
-			accent: props.accent,
-			size: icon,
-			spin: false,
-			position: UDim2.fromOffset(0, (headH - icon) / 2),
-		}),
-		h(Text, {
-			value: props.title.upper(),
-			title: true,
-			size: props.phone ? 12 : 15,
-			color: Palette.cream,
-			fit: true,
-			minSize: 10,
-			position: UDim2.fromOffset(icon + 10, 0),
-			sizeConstraint: new UDim2(props.note !== undefined ? 0.6 : 1, -(icon + 10), 0, headH),
-		}),
-		props.note !== undefined &&
-			h(Text, {
-				value: props.note,
-				size: 12,
-				color: Palette.muted,
-				weight: Enum.FontWeight.SemiBold,
-				align: Enum.TextXAlignment.Right,
-				fit: true,
-				minSize: 9,
-				position: new UDim2(0.6, 0, 0, 0),
-				sizeConstraint: new UDim2(0.4, 0, 0, headH),
-			}),
+	columns: number;
+	gap: number;
+	strip?: boolean;
+}) {
+	const count = p.options.size();
+	const columns = math.max(1, p.columns);
+	const rows = math.max(1, math.ceil(count / columns));
+	const pills: React.Element[] = [];
+	for (const [index, option] of ipairs(p.options)) {
+		const on = option.id === p.value;
+		pills.push(
+			<textbutton
+				key={option.id}
+				Size={p.strip === true ? new UDim2(0, 96, 1, 0) : UDim2.fromScale(1, 1)}
+				BackgroundColor3={on ? p.accent : Palette.white}
+				BackgroundTransparency={on ? 0 : 0.95}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Text={option.label}
+				TextSize={13}
+				FontFace={BODY_BOLD}
+				TextColor3={on ? Palette.ink : Palette.creamSoft}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				LayoutOrder={index}
+				Event={{
+					Activated: () => {
+						if (!on) {
+							Audio.play("tabSwitch");
+							p.onChange(option.id);
+						}
+					},
+				}}
+			>
+				<uicorner CornerRadius={new UDim(0, 10)} />
+				<uistroke Color={on ? p.accent : Palette.white} Transparency={on ? 0 : 0.9} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+				<uipadding PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
+			</textbutton>,
+		);
+	}
+	if (p.strip === true) {
+		return (
+			<scrollingframe
+				key="Pills"
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				CanvasSize={new UDim2(0, 0, 0, 0)}
+				AutomaticCanvasSize={Enum.AutomaticSize.X}
+				ScrollingDirection={Enum.ScrollingDirection.X}
+				ScrollBarThickness={0}
+				Selectable={false}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, p.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{pills}
+			</scrollingframe>
+		);
+	}
+	return (
+		<frame key="Pills" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<uigridlayout
+				CellSize={new UDim2(1 / columns, -(p.gap * (columns - 1)) / columns, 1 / rows, -(p.gap * (rows - 1)) / rows)}
+				CellPadding={UDim2.fromOffset(p.gap, p.gap)}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+			/>
+			{pills}
+		</frame>
 	);
-}
-
-// .row: radius 11, rgba(255,255,255,.035) to rgba(0,0,0,.12) wash, 1px rgba(255,255,255,.05) inset line
-function mockRowSkin(outline?: Color3): React.Element {
-	return h(React.Fragment, {}, ...[
-		h("uicorner", { key: "Corner", CornerRadius: new UDim(0, 11) }),
-		h("uigradient", {
-			key: "Wash",
-			Color: new ColorSequence(MOCK_ROW_TINT, Color3.fromRGB(0, 0, 0)),
-			Transparency: new NumberSequence(0.965, 0.88),
-			Rotation: 90,
-		}),
-		h("uistroke", {
-			key: "Line",
-			Color: outline ?? MOCK_ROW_TINT,
-			Thickness: outline !== undefined ? 2 : 1,
-			Transparency: outline !== undefined ? 0 : 0.95,
-			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
-		}),
-	]);
 }
 
 // ---- Shop (mockup 05-shop, design/system/af.css at 1920x1080; phone = the .p rules) ----
@@ -1296,15 +1268,7 @@ function ShopView(props: ShopViewProps) {
 				))}
 			</MockPanel>
 		) : (
-			<frame key="Catalog" Size={new UDim2(1, 0, 0, 180)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
-				{h(EmptyState, {
-					icon: "Shop.5",
-					title: "Nothing listed",
-					body: "Check back after the next restock.",
-					accent: Palette.mango,
-					reducedMotion: reducedMotion,
-				})}
-			</frame>
+			<EmptyNote key="Catalog" name="Catalog" icon="Shop.5" title="Nothing listed" body="Check back after the next restock." accent={Palette.mango} phone={phone} reducedMotion={reducedMotion} layoutOrder={2} />
 		);
 	const featuredPanel =
 		featuredProduct !== undefined ? (
@@ -1480,19 +1444,18 @@ function ShopView(props: ShopViewProps) {
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
 			<frame key="Tabs" Size={tabsW !== undefined ? UDim2.fromOffset(tabsW, tabRowH) : UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				{h(SegmentedTabs, {
-					options: SHOP_TAB_OPTIONS,
-					value: tab,
-					onChange: (entry: unknown) => {
-						setTab(entry as string);
+				<PillTabs
+					options={SHOP_TAB_OPTIONS}
+					value={tab}
+					onChange={(entry) => {
+						setTab(entry);
 						setBanner(SHOP_DEFAULT_LINE);
-					},
-					accent: Palette.mango,
-					columns: SHOP_TABS.size(),
-					gap: 6,
-					size: UDim2.fromScale(1, 1),
-					reducedMotion: softMotion,
-				})}
+					}}
+					accent={Palette.mango}
+					columns={SHOP_TABS.size()}
+					gap={6}
+					strip={phone}
+				/>
 			</frame>
 		</frame>
 	);
@@ -1571,7 +1534,7 @@ const SECTIONS = [
 ];
 function sectionTabLayout(width: number, rowHeight: number, phone = false): LuaTuple<[number, number]> {
 	const gap = 6;
-	// phones get one scrolling row of tabs (SegmentedTabs strip mode), so reserve a single row
+	// phones get one scrolling row of tabs (PillTabs strip mode), so reserve a single row
 	if (phone) {
 		return $tuple(SECTIONS.size(), rowHeight);
 	}
@@ -1631,182 +1594,259 @@ function dayClockText(seconds: number): string {
 	return `${minutes}m ${left % 60}s`;
 }
 
-function rowsHeight(count: number, columns: number, cell: number): number {
+// ---- Store sections (Daily / Crates / Skins / Codex / Artifacts) in the mockup-05 language ----
+// Every section is one auto-canvas scroller holding a vertical list of .pn panels (MockPanel) with
+// PanelHeading, .row cards (RowFace) in UIGridLayouts, .chip pills and MockBtn buttons. Nothing is
+// hand-placed: each block is a list or grid child with a LayoutOrder, sized from the rows it holds.
+// Crates follows mockup 07-crates: crate panel (3-up cards + Open 1 / Open 10 / Auto) beside a 520px
+// odds + last pulls rail. Frame names stay the gamepad regions storeFocusPlan points at.
+
+function rowsHeight(count: number, columns: number, cell: number, gap: number): number {
 	const rows = math.max(1, math.ceil(count / math.max(1, columns)));
-	return rows * cell + (rows - 1) * GAP;
+	return rows * cell + (rows - 1) * gap;
 }
 
-interface GridProps {
-	gap?: number;
-	columns: number;
-	cell: number;
-	height: number;
-	cells: Record<string, unknown>;
+/** A .pn's height for `content` px of stacked children plus its own padding. */
+function pnHeight(phone: boolean, content: number): number {
+	return content + panelPad(phone).y * 2;
 }
 
-// section heading text: every prop is a string/number/Color3/UDim2/enum, so React.memo's own shallow
-// check (== per prop, by value for Roblox value types) is exactly "what it shows"; a binding prop (the
-// daily reset clock) is compared by identity, and its text updates through the binding
-const SectionHeading = React.memo(Text as unknown as React.FunctionComponent<Record<string, unknown>>);
-
-function Grid(props: GridProps) {
-	const children: Record<string, unknown> = { ...props.cells };
-	const gap = props.gap ?? GAP;
-	children.Layout = h("uigridlayout", {
-		CellSize: new UDim2(1 / props.columns, -math.ceil((gap * (props.columns - 1)) / props.columns), 0, props.cell),
-		CellPadding: UDim2.fromOffset(gap, gap),
-		FillDirectionMaxCells: props.columns,
-		SortOrder: Enum.SortOrder.LayoutOrder,
-	});
-	return h(
-		"frame",
-		{
-			Size: new UDim2(1, 0, 0, props.height),
-			BackgroundTransparency: 1,
-			BorderSizePixel: 0,
-		},
-		children,
+/** The section page: an auto-canvas vertical scroller; children are list items with LayoutOrder. */
+function SectionPage(p: { phone: boolean; tailPad: number; bar: Color3; children?: React.ReactNode }) {
+	return (
+		<scrollingframe
+			Size={UDim2.fromScale(1, 1)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			CanvasSize={new UDim2(0, 0, 0, 0)}
+			AutomaticCanvasSize={Enum.AutomaticSize.Y}
+			ScrollingDirection={Enum.ScrollingDirection.Y}
+			ScrollBarThickness={4}
+			ScrollBarImageColor3={p.bar}
+			ScrollBarImageTransparency={0.35}
+			VerticalScrollBarInset={Enum.ScrollBarInset.ScrollBar}
+			ElasticBehavior={Enum.ElasticBehavior.Never}
+			Selectable={false}
+		>
+			<uipadding PaddingBottom={new UDim(0, p.tailPad)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, mockGap(p.phone))} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{p.children}
+		</scrollingframe>
 	);
 }
 
-interface WalletProps {
-	state: ShopState;
-	left?: boolean;
-	size: UDim2;
-	position: UDim2;
-	anchorPoint?: Vector2;
+/** .flexr: a fixed-width rail and a flex column side by side (named Main / Side for gamepad columns). */
+function SplitRow(p: { phone: boolean; height: number; sideWidth: number; sideOnRight: boolean; main: React.Element; side: React.Element; layoutOrder: number }) {
+	return (
+		<frame Size={new UDim2(1, 0, 0, p.height)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={p.layoutOrder}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, mockGap(p.phone))} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame key="Main" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={p.sideOnRight ? 1 : 2}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				{p.main}
+			</frame>
+			<frame key="Side" Size={new UDim2(0, p.sideWidth, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={p.sideOnRight ? 2 : 1}>
+				{p.side}
+			</frame>
+		</frame>
+	);
 }
 
-function Wallet(props: WalletProps) {
-	const state = props.state;
-	const chips: Record<string, unknown> = {
-		Layout: h("uilistlayout", {
-			FillDirection: Enum.FillDirection.Horizontal,
-			HorizontalAlignment: props.left ? Enum.HorizontalAlignment.Left : Enum.HorizontalAlignment.Right,
-			Padding: new UDim(0, 6),
-			SortOrder: Enum.SortOrder.LayoutOrder,
-		}),
-	};
-	for (const [index, currency] of ipairs(["Stardust", "Cores"])) {
-		chips[currency] = h(
-			"frame",
-			{
-				Size: UDim2.fromOffset(112, 30),
-				BackgroundColor3: Palette.panelSoft,
-				BackgroundTransparency: 0.15,
-				BorderSizePixel: 0,
-				LayoutOrder: index,
-			},
-			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			h("uistroke", {
-				Color: currencyColor(currency),
-				Transparency: 0.55,
-				Thickness: 1,
-			}),
-			h(Icon, {
-				kind: CURRENCY_ICON[currency],
-				color: Palette.cream,
-				accent: currencyColor(currency),
-				size: 20,
-				position: UDim2.fromOffset(6, 5),
-				spin: false,
-			}),
-			h(Text, {
-				value: Fmt.compactNumber(state[currency]),
-				size: 13,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Bold,
-				fit: true,
-				minSize: 9,
-				position: UDim2.fromOffset(32, 6),
-				sizeConstraint: new UDim2(1, -40, 0, 18),
-			}),
+function chipHeight(phone: boolean): number {
+	return phone ? TapTarget : 32;
+}
+
+/** Filter pills: .chip (.chip.a for the live one) as buttons, with the match count. */
+function FilterChips(p: { browse: BrowseState<unknown>; accent: Color3; phone: boolean; layoutOrder: number; name?: string }) {
+	const browse = p.browse;
+	const chips: React.Element[] = [];
+	for (const [index, option] of ipairs(browse.categories ?? [])) {
+		const on = option.id === browse.category;
+		const count = browse.counts[option.id];
+		chips.push(
+			<textbutton
+				key={option.id}
+				Size={UDim2.fromOffset(0, chipHeight(p.phone))}
+				AutomaticSize={Enum.AutomaticSize.X}
+				BackgroundColor3={on ? p.accent : Palette.white}
+				BackgroundTransparency={on ? 0.8 : 0.95}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Text={count !== undefined ? `${option.label}  ${count}` : option.label}
+				TextSize={12}
+				FontFace={BODY_BOLD}
+				TextColor3={on ? Palette.cream : Palette.creamSoft}
+				LayoutOrder={index}
+				Event={{
+					Activated: () => {
+						Audio.play("tabSwitch");
+						browse.setCategory(option.id);
+					},
+				}}
+			>
+				<uicorner CornerRadius={new UDim(0, 8)} />
+				<uistroke Color={on ? p.accent : Palette.white} Transparency={on ? 0.4 : 0.9} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+				<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
+			</textbutton>,
 		);
 	}
-	return h(
-		"frame",
-		{
-			Size: props.size,
-			Position: props.position,
-			AnchorPoint: props.anchorPoint,
-			BackgroundTransparency: 1,
-			BorderSizePixel: 0,
-		},
-		chips,
+	return (
+		<scrollingframe
+			key={p.name ?? "Chips"}
+			Size={new UDim2(1, 0, 0, chipHeight(p.phone))}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			CanvasSize={new UDim2(0, 0, 0, 0)}
+			AutomaticCanvasSize={Enum.AutomaticSize.X}
+			ScrollingDirection={Enum.ScrollingDirection.X}
+			ScrollBarThickness={0}
+			Selectable={false}
+			LayoutOrder={p.layoutOrder}
+			{...(p.name !== undefined ? { Name: p.name } : {})}
+		>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{chips}
+		</scrollingframe>
 	);
 }
 
-interface HeroProps {
-	title: string;
-	body: string;
-	accent: Color3;
-	icon: string;
-	state: ShopState;
-	stack: boolean;
-	reveal?: React.Binding<number>;
-	reducedMotion?: boolean;
-	extra?: unknown;
-	art?: HeaderArtName;
+function searchHeight(phone: boolean): number {
+	return phone ? TapTarget : 40;
 }
 
-function Hero(props: HeroProps) {
-	const stack = props.stack;
-	const textW = stack ? -56 : -300;
-	return h(
-		PnSurface,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: props.accent,
-			background: Palette.panelRaised,
-			padding: 18,
-			reveal: props.reveal,
-			highlight: true,
-			reducedMotion: props.reducedMotion,
-			clips: false,
-		},
-		props.art !== undefined && h(HeaderArt, { art: props.art, inset: 18, radius: Layout.cardRadius }),
-		h(GlyphWell, {
-			kind: props.icon,
-			accent: props.accent,
-			size: 44,
-			radius: 18,
-			position: UDim2.fromOffset(0, 2),
-			glow: true,
-			reducedMotion: props.reducedMotion,
-		}),
-		h(Text, {
-			value: props.title,
-			size: stack ? 18 : 22,
-			color: Palette.cream,
-			weight: Enum.FontWeight.Heavy,
-			fit: true,
-			minSize: 13,
-			position: UDim2.fromOffset(56, 0),
-			sizeConstraint: new UDim2(1, textW, 0, 28),
-		}),
-		h(Text, {
-			value: props.body,
-			size: 12,
-			color: Palette.creamSoft,
-			wrap: true,
-			fit: true,
-			minSize: 10,
-			position: UDim2.fromOffset(56, 30),
-			sizeConstraint: new UDim2(1, textW, 0, 34),
-		}),
-		h(Wallet, {
-			state: props.state,
-			left: stack,
-			size: stack ? new UDim2(1, 0, 0, 30) : UDim2.fromOffset(240, 30),
-			position: stack ? new UDim2(0, 0, 1, -30) : UDim2.fromScale(1, 0),
-			anchorPoint: stack ? undefined : new Vector2(1, 0),
-		}),
-		props.extra,
+/** Search field on a .row face: glyph, text box (flex), Clear when there is a query. */
+function SearchField(p: { browse: BrowseState<unknown>; placeholder: string; accent: Color3; phone: boolean; reducedMotion?: boolean; layoutOrder: number }) {
+	const browse = p.browse;
+	return (
+		<frame Size={new UDim2(1, 0, 0, searchHeight(p.phone))} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={p.layoutOrder}>
+			<RowFace outline={browse.query !== "" ? p.accent : undefined} />
+			<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 4)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<Glyph kind="Search.9" size={16} color={browse.query !== "" ? p.accent : Palette.muted} layoutOrder={1} />
+			<textbox
+				key="Query"
+				Size={new UDim2(0, 0, 1, 0)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ClearTextOnFocus={false}
+				Text={browse.query}
+				PlaceholderText={p.placeholder}
+				PlaceholderColor3={Palette.muted}
+				TextSize={14}
+				FontFace={BODY}
+				TextColor3={Palette.cream}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				LayoutOrder={2}
+				Change={{
+					Text: (box: TextBox) => {
+						if (box.Text !== browse.query) {
+							browse.setQuery(box.Text);
+						}
+					},
+				}}
+			>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+			</textbox>
+			{browse.query !== "" && (
+				<MockBtn text="Clear" sec={true} sm={true} phone={p.phone} width={72} onClick={() => browse.setQuery("")} reducedMotion={p.reducedMotion} layoutOrder={3} />
+			)}
+		</frame>
 	);
 }
 
-function heroHeight(stack: boolean): number {
-	return stack ? 124 : 92;
+function browseHeight(phone: boolean): number {
+	return searchHeight(phone) + (phone ? 8 : 10) + chipHeight(phone);
+}
+
+/** The search + filter block (gamepad region "browse"). */
+function BrowseBlock(p: { browse: BrowseState<unknown>; placeholder: string; accent: Color3; phone: boolean; reducedMotion?: boolean; layoutOrder: number }) {
+	const gap = p.phone ? 8 : 10;
+	return (
+		<frame Size={new UDim2(1, 0, 0, browseHeight(p.phone))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={p.layoutOrder} ZIndex={30} {...{ Name: "browse" }}>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<SearchField browse={p.browse} placeholder={p.placeholder} accent={p.accent} phone={p.phone} reducedMotion={p.reducedMotion} layoutOrder={1} />
+			<FilterChips browse={p.browse} accent={p.accent} phone={p.phone} layoutOrder={2} />
+		</frame>
+	);
+}
+
+const EMPTY_NOTE_H = 196;
+
+/** Empty / no-match block: a .row face with glyph, 17px title, muted line and an optional reset. */
+function EmptyNote(p: { icon: string; title: string; body: string; accent: Color3; phone: boolean; action?: string; onAction?: () => void; reducedMotion?: boolean; layoutOrder?: number; name?: string }) {
+	return (
+		<frame Size={new UDim2(1, 0, 0, EMPTY_NOTE_H)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={p.layoutOrder ?? 0} {...(p.name !== undefined ? { Name: p.name } : {})}>
+			<RowFace />
+			<uipadding PaddingLeft={new UDim(0, 16)} PaddingRight={new UDim(0, 16)} />
+			<uilistlayout
+				FillDirection={Enum.FillDirection.Vertical}
+				Padding={new UDim(0, 8)}
+				HorizontalAlignment={Enum.HorizontalAlignment.Center}
+				VerticalAlignment={Enum.VerticalAlignment.Center}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+			/>
+			<Glyph kind={p.icon} size={28} color={p.accent} layoutOrder={1} />
+			<Line text={p.title} size={17} font={BODY_BOLD} width={new UDim(1, 0)} height={22} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+			<Line text={p.body} size={13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={18} align={Enum.TextXAlignment.Center} layoutOrder={3} />
+			{p.action !== undefined && <MockBtn text={p.action} accent={p.accent} sm={true} phone={p.phone} onClick={p.onAction} reducedMotion={p.reducedMotion} layoutOrder={4} />}
+		</frame>
+	);
+}
+
+/** Browse.NoResults in the kit language: names the query/filter and offers to clear it. */
+function NoMatches(p: { browse: BrowseState<unknown>; noun: string; icon: string; accent: Color3; phone: boolean; reducedMotion?: boolean; layoutOrder: number }) {
+	const browse = p.browse;
+	const what = browse.query !== "" ? `No ${p.noun} match "${browse.query}"` : `No ${p.noun} in ${browse.label(browse.category)}`;
+	return (
+		<EmptyNote
+			name="none"
+			icon={p.icon}
+			title={what}
+			body="Clear the search or switch the filter back to All."
+			accent={p.accent}
+			phone={p.phone}
+			action="Show all"
+			onAction={() => browse.reset()}
+			reducedMotion={p.reducedMotion}
+			layoutOrder={p.layoutOrder}
+		/>
+	);
+}
+
+/** One card's inner padding + vertical stack (the .row column). */
+function CardBody(p: { pad: number; gap: number; center?: boolean; children?: React.ReactNode }) {
+	return (
+		<>
+			<uipadding PaddingTop={new UDim(0, p.pad)} PaddingBottom={new UDim(0, p.pad)} PaddingLeft={new UDim(0, p.pad)} PaddingRight={new UDim(0, p.pad)} />
+			<uilistlayout
+				FillDirection={Enum.FillDirection.Vertical}
+				Padding={new UDim(0, p.gap)}
+				HorizontalAlignment={p.center === true ? Enum.HorizontalAlignment.Center : Enum.HorizontalAlignment.Left}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+			/>
+			{p.children}
+		</>
+	);
+}
+
+/** Wrapped copy of a fixed height (the .row 14px line when it needs two lines). */
+function Copy(p: { text: string; size: number; height: number; color?: Color3; font?: Font; layoutOrder: number }) {
+	return (
+		<textlabel
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			Text={p.text}
+			TextSize={p.size}
+			FontFace={p.font ?? BODY}
+			TextColor3={p.color ?? Palette.muted}
+			TextXAlignment={Enum.TextXAlignment.Left}
+			TextYAlignment={Enum.TextYAlignment.Top}
+			TextWrapped={true}
+			TextTruncate={Enum.TextTruncate.AtEnd}
+			Size={new UDim2(1, 0, 0, p.height)}
+			LayoutOrder={p.layoutOrder}
+		/>
+	);
 }
 
 function offerDetail(offer: DailyOffer, config: ShopConfig): string {
@@ -1866,15 +1906,23 @@ interface OfferCardProps {
 	left: number;
 	busy: boolean;
 	pending: boolean;
+	phone: boolean;
 	reducedMotion?: boolean;
 	policyNote?: string;
 	onBuy: () => void;
 }
 
+function offerCardHeight(phone: boolean): number {
+	// .row column: padding 16 (12), gap 10 (8): 44px head, two-line detail, price line, .btn
+	return phone ? 12 + 40 + 8 + 30 + 8 + 24 + 8 + TapTarget + 12 : 16 + 44 + 10 + 34 + 10 + 26 + 10 + 44 + 16;
+}
+
+// .row (column): art well + 17px name / stock line + deal chip; detail; currency price (was ...); .btn
 function OfferCardImpl(props: OfferCardProps) {
 	const offer = props.offer;
+	const phone = props.phone;
 	const accent = offerAccent(offer, props.config);
-	const reveal = useStagger(props.index, props.reducedMotion, 0.04, 0.26);
+	const reveal = useStagger(props.index, props.reducedMotion, 0.036, 0.26);
 	const left = props.left;
 	const soldOut = left <= 0;
 	const have = tonumber(props.state[offer.Currency]) ?? 0;
@@ -1882,156 +1930,61 @@ function OfferCardImpl(props: OfferCardProps) {
 	const blocked = props.policyNote !== undefined;
 	const canBuy = !soldOut && !blocked && short === 0 && !props.busy;
 	const fullPrice = offer.Deal ? math.floor(offer.Price / (1 - ShopCatalog.DEAL_DISCOUNT) + 0.5) : undefined;
-	const cta = soldOut
-		? "SOLD OUT"
-		: blocked
-			? "UNAVAILABLE"
-			: short > 0
-				? `NEED ${commas(short)}`
-				: props.pending
-					? "BUYING…"
-					: "BUY";
-	return h(
-		PnSurface,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: accent,
-			background: Palette.panelRaised,
-			padding: 16,
-			reveal: reveal,
-			interactive: canBuy,
-			highlight: offer.Deal,
-			reducedMotion: props.reducedMotion,
-			clips: false,
-			layoutOrder: props.index,
-		},
-		h(
-			"frame",
-			{
-				Size: UDim2.fromOffset(62, 62),
-				BackgroundColor3: darken(accent, 0.4),
-				BorderSizePixel: 0,
-				ClipsDescendants: true,
-			},
-			h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
-			h("uistroke", {
-				Color: accent,
-				Thickness: StrokeWidth.hairline,
-				Transparency: 0.5,
-			}),
-			offer.Kind === "Skin"
-				? h(CrateModel, {
-					skin: offer.SkinId,
-					live: offer.Deal === true && !props.reducedMotion,
-					spin: true,
-					zoom: 0.95,
-				})
-				: h(Icon, {
-					kind: KIND_ICON[offer.Kind] ?? "Shop.6",
-					color: Palette.cream,
-					accent: accent,
-					size: 38,
-					position: UDim2.fromOffset(12, 12),
-					spin: false,
-					reducedMotion: props.reducedMotion,
-				}),
-		),
-		h(Text, {
-			value: offer.Name,
-			size: 15,
-			color: Palette.cream,
-			weight: Enum.FontWeight.Heavy,
-			fit: true,
-			minSize: 11,
-			position: UDim2.fromOffset(74, 0),
-			sizeConstraint: new UDim2(1, -74 - (offer.Deal ? 76 : 0), 0, 22),
-		}),
-		h(Text, {
-			value: offerDetail(offer, props.config),
-			fit: true,
-			minSize: 10,
-			size: 12,
-			color: Palette.creamSoft,
-			wrap: true,
-			position: UDim2.fromOffset(74, 24),
-			sizeConstraint: new UDim2(1, -74, 0, 44),
-		}),
-		offer.Deal === true &&
-			h(Badge, {
-				value: `DEAL -${math.floor(ShopCatalog.DEAL_DISCOUNT * 100)}%`,
-				accent: Palette.mango,
-				filled: true,
-				size: UDim2.fromOffset(72, 20),
-				position: new UDim2(1, -72, 0, 0),
-			}),
-		h(Text, {
-			value: soldOut ? "Bought out today" : `${left} left today`,
-			fit: true,
-			minSize: 9,
-			size: 11,
-			color: soldOut ? Palette.muted : accent,
-			weight: Enum.FontWeight.Bold,
-			position: UDim2.fromOffset(0, 74),
-			sizeConstraint: new UDim2(1, 0, 0, 16),
-		}),
-		h(Icon, {
-			kind: CURRENCY_ICON[offer.Currency] ?? "Dust.3",
-			color: Palette.cream,
-			accent: currencyColor(offer.Currency),
-			size: 22,
-			position: new UDim2(0, 0, 1, fullPrice !== undefined ? -38 : -31),
-			spin: false,
-		}),
-		h(Text, {
-			value: commas(offer.Price),
-			fit: true,
-			minSize: 12,
-			size: 18,
-			color: Palette.cream,
-			weight: Enum.FontWeight.Heavy,
-			position: new UDim2(0, 28, 1, fullPrice !== undefined ? -40 : -32),
-			sizeConstraint: UDim2.fromOffset(80, 24),
-		}),
-		fullPrice !== undefined &&
-			h(Text, {
-				value: `was ${commas(fullPrice)}`,
-				fit: true,
-				minSize: 9,
-				size: 11,
-				color: Palette.muted,
-				position: new UDim2(0, 28, 1, -15),
-				sizeConstraint: UDim2.fromOffset(80, 14),
-			}),
-		h(
-			"frame",
-			{
-				Name: "DailyBuy",
-				Size: UDim2.fromOffset(124, 48),
-				Position: new UDim2(1, -124, 1, -48),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			h(Button, {
-				text: cta,
-				icon: soldOut ? "Check.11" : blocked || short > 0 ? "Lock.7" : "Shop.7",
-				onClick: props.onBuy,
-				tooltip: props.policyNote,
-				color: canBuy ? accent : Palette.panelSoft,
-				textColor: canBuy ? Palette.ink : Palette.creamSoft,
-				size: UDim2.fromScale(1, 1),
-				disabled: !canBuy,
-				reducedMotion: props.reducedMotion,
-				highlight: canBuy,
-				selectable: canBuy,
-			}),
-		),
+	const cta = soldOut ? "Sold out" : blocked ? "Unavailable" : short > 0 ? `Need ${commas(short)}` : props.pending ? "Buying…" : "Buy";
+	const well = phone ? 40 : 44;
+	const stock = blocked ? props.policyNote! : soldOut ? "Bought out today" : `${left} left today`;
+	return (
+		<CardCell name={`Offer${offer.Slot}`} layoutOrder={props.index} reveal={reveal}>
+			<RowFace outline={offer.Deal === true ? Palette.mango : undefined} />
+			<CardBody pad={phone ? 12 : 16} gap={phone ? 8 : 10}>
+				<frame key="Head" Size={new UDim2(1, 0, 0, well)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 12)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<frame key="Art" Size={UDim2.fromOffset(well, well)} BackgroundColor3={darken(accent, 0.4)} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={1}>
+						<uicorner CornerRadius={new UDim(0, ROW_RADIUS)} />
+						<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+						{offer.Kind === "Skin" ? (
+							h(CrateModel, { skin: offer.SkinId, live: offer.Deal === true && !props.reducedMotion, spin: true, zoom: 0.95 })
+						) : (
+							<Glyph kind={KIND_ICON[offer.Kind] ?? "Shop.6"} size={well - 16} color={accent} position={UDim2.fromOffset(8, 8)} />
+						)}
+					</frame>
+					<frame key="Title" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 2)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<Line text={offer.Name ?? ""} size={phone ? 15 : 17} font={BODY_BOLD} width={new UDim(1, 0)} height={22} layoutOrder={1} />
+						<Line text={stock} size={12} font={BODY_BOLD} color={soldOut || blocked ? Palette.muted : accent} width={new UDim(1, 0)} height={16} layoutOrder={2} />
+					</frame>
+					{offer.Deal === true && <Chip text={`Deal -${math.floor(ShopCatalog.DEAL_DISCOUNT * 100)}%`} accent={Palette.mango} phone={true} layoutOrder={3} />}
+				</frame>
+				<Copy text={offerDetail(offer, props.config)} size={phone ? 12 : 13} height={phone ? 30 : 34} layoutOrder={2} />
+				<frame key="Price" Size={new UDim2(1, 0, 0, phone ? 24 : 26)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<Glyph kind={CURRENCY_ICON[offer.Currency] ?? "Dust.3"} size={20} color={currencyColor(offer.Currency)} layoutOrder={1} />
+					<Line text={commas(offer.Price)} size={phone ? 18 : 20} font={NUM} layoutOrder={2} />
+					{fullPrice !== undefined && <Line text={`was ${commas(fullPrice)}`} size={12} font={BODY} color={Palette.muted} layoutOrder={3} />}
+				</frame>
+				<frame key="DailyBuy" Size={new UDim2(1, 0, 0, phone ? TapTarget : 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+					<MockBtn
+						text={cta}
+						icon={soldOut ? "Check.11" : blocked || short > 0 ? "Lock.7" : undefined}
+						accent={accent}
+						sec={!canBuy}
+						disabled={!canBuy}
+						fill={true}
+						phone={phone}
+						onClick={props.onBuy}
+						reducedMotion={props.reducedMotion}
+					/>
+				</frame>
+			</CardBody>
+		</CardCell>
 	);
 }
 
 // shows: the offer (price, reward, slot), its accent/detail from config, stock left, busy/pending button state,
-// stagger index, motion, and only the one wallet balance it prices in (state[offer.Currency]) for "can afford"
+// stagger index, motion, phone, and only the one wallet balance it prices in (state[offer.Currency]) for "can afford"
 const OfferCard = memoRow<OfferCardProps>(counted("DailyOffer", OfferCardImpl), ["onBuy"], (prev, incoming) =>
-	sameFields<OfferCardProps>(["offer", "index", "config", "left", "busy", "pending", "reducedMotion", "policyNote"])(prev, incoming) &&
+	sameFields<OfferCardProps>(["offer", "index", "config", "left", "busy", "pending", "phone", "reducedMotion", "policyNote"])(prev, incoming) &&
 	prev.state[incoming.offer.Currency] === incoming.state[incoming.offer.Currency]);
 
 function useDay(): number {
@@ -2050,7 +2003,7 @@ function useDay(): number {
 function DailySection(props: SectionProps) {
 	const state = props.state;
 	const config = props.config;
-	const stack = props.stack;
+	const phone = props.stack;
 	const day = useDay();
 	const wall = useWallClock(true);
 	const [pendingSlot, setPendingSlot] = React.useState<number | undefined>(undefined);
@@ -2067,8 +2020,9 @@ function DailySection(props: SectionProps) {
 	const owned = current && typeIs(daily.Owned, "table") ? daily.Owned : (state.Cosmetics?.CrateSkins ?? {});
 	const bought = current ? (daily.Bought ?? {}) : {};
 	const offers = ShopCatalog.roll(Players.LocalPlayer!.UserId, day, owned);
-	const columns = stack ? 1 : props.width >= 1000 ? 3 : 2;
-	const cellH = 178;
+	const columns = phone ? 1 : props.width >= 1000 ? 3 : 2;
+	const pad = panelPad(phone);
+	const cellH = offerCardHeight(phone);
 	const buy = (offer: DailyOffer) => {
 		if (pendingSlot !== undefined) {
 			return;
@@ -2092,127 +2046,80 @@ function DailySection(props: SectionProps) {
 			}
 		});
 	};
-	const cells: Record<string, unknown> = {};
+	const cards: React.Element[] = [];
 	for (const [index, offer] of ipairs(offers)) {
-		cells[`Offer${offer.Slot}`] = h(OfferCard, {
-			key: `${day}-${offer.Id}`,
-			offer: offer,
-			index: index,
-			config: config,
-			state: state,
-			left: ShopCatalog.remaining(offer, bought),
-			busy: pendingSlot !== undefined,
-			pending: pendingSlot === offer.Slot,
-			reducedMotion: props.reducedMotion,
-			policyNote: PlayPolicy.offerBlocked(policy, offer),
-			onBuy: () => buy(offer),
-		});
+		cards.push(
+			h(OfferCard, {
+				key: `${day}-${offer.Id}`,
+				offer: offer,
+				index: index,
+				config: config,
+				state: state,
+				left: ShopCatalog.remaining(offer, bought),
+				busy: pendingSlot !== undefined,
+				pending: pendingSlot === offer.Slot,
+				phone: phone,
+				reducedMotion: props.reducedMotion,
+				policyNote: PlayPolicy.offerBlocked(policy, offer),
+				onBuy: () => buy(offer),
+			}) as React.Element,
+		);
 	}
-	const gridH = rowsHeight(offers.size(), columns, cellH);
-	// one binding per mount (B35), so the memoised heading below keeps the same prop between renders
+	// one binding per mount (B35), so the heading note keeps the same prop between renders
 	const resetText = React.useMemo(() => wall.map((now) => `New offers in ${dayClockText(ShopCatalog.secondsLeft(now))}`), [wall]);
-	const marketH = stack ? 132 : 96;
-	return h(PageScaffold, {
-		gap: GAP,
-		tailPad: props.tailPad,
-		scrollBarColor: Palette.mango,
-		sections: [
-			{
-				id: "hero",
-				height: heroHeight(stack),
-				element: h(Hero, {
-					title: "Daily Shop",
-					body: "Six offers a day, picked for you. The first is the Deal of the Day.",
-					accent: Palette.mango,
-					icon: "Calendar.3",
-					state: state,
-					stack: stack,
-					reveal: props.reveal,
-					reducedMotion: props.reducedMotion,
-				}),
-			},
-			{
-				id: "clock",
-				height: 22,
-				element: h(SectionHeading, {
-					value: resetText,
-					size: 13,
-					color: Palette.mango,
-					weight: Enum.FontWeight.Bold,
-					sizeConstraint: new UDim2(1, 0, 0, 20),
-				}),
-			},
-			{
-				id: "offers",
-				height: gridH,
-				element: h(Grid, { columns: columns, cell: cellH, height: gridH, cells: cells }),
-			},
-			{
-				id: "market",
-				height: marketH,
-				element: h(
-					PnSurface,
-					{
-						size: UDim2.fromScale(1, 1),
-						accent: Palette.coral,
-						background: Palette.panel,
-						padding: 18,
-						reducedMotion: props.reducedMotion,
-						clips: false,
-					},
-					h(Icon, {
-						kind: "Jackpot.3",
-						color: Palette.cream,
-						accent: Palette.coral,
-						size: 38,
-						position: UDim2.fromOffset(0, 4),
-						spin: false,
-					}),
-					h(Text, {
-						value: "The Black Market",
-						size: 16,
-						color: Palette.cream,
-						weight: Enum.FontWeight.Heavy,
-						position: UDim2.fromOffset(50, 0),
-						sizeConstraint: new UDim2(1, stack ? -50 : -220, 0, 22),
-					}),
-					h(Text, {
-						value: "Keys, materials and boosts from the Black Market's hourly shipments.",
-						fit: true,
-						minSize: 10,
-						size: 12,
-						color: Palette.creamSoft,
-						wrap: true,
-						position: UDim2.fromOffset(50, 24),
-						sizeConstraint: new UDim2(1, stack ? -50 : -220, 0, 36),
-					}),
-					h(Button, {
-						text: "VISIT MARKET",
-						icon: "Visit.1",
-						onClick: () => {
-							if (props.navigate !== undefined) {
-								props.navigate("Bazaar");
-							}
-						},
-						color: Palette.coral,
-						textColor: Palette.ink,
-						size: stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(190, 44),
-						position: stack ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(1, -190, 0.5, -22),
-						reducedMotion: props.reducedMotion,
-						highlight: true,
-					}),
-				),
-			},
-		],
-	});
-}
-
-interface MockOddsRowProps {
-	row: { rarity: string; chance: number };
-	config: ShopConfig;
-	order: number;
-	top: number;
-	phone: boolean;
+	const gridH = rowsHeight(offers.size(), columns, cellH, pad.gap);
+	const offersH = pnHeight(phone, headingBlock(phone) + 18 + pad.gap + gridH);
+	const marketRowH = phone ? 36 + pad.gap + TapTarget : 44;
+	const marketH = pnHeight(phone, headingBlock(phone) + marketRowH);
+	const visit = () => {
+		if (props.navigate !== undefined) {
+			props.navigate("Bazaar");
+		}
+	};
+	return (
+		<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.mango}>
+			<MockPanel name="offers" size={new UDim2(1, 0, 0, offersH)} phone={phone} accent={Palette.mango} glow={Palette.mango} reveal={props.reveal} reducedMotion={props.reducedMotion} layoutOrder={1}>
+				<PanelHeading icon="Calendar.3" title="Daily shop" note={resetText} accent={Palette.mango} phone={phone} layoutOrder={1} />
+				<Line text="Six offers a day, picked for you. The first is the Deal of the Day." size={phone ? 13 : 14} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={2} />
+				<MockGrid columns={columns} gap={pad.gap} cellHeight={cellH} count={offers.size()} layoutOrder={3}>
+					{cards}
+				</MockGrid>
+			</MockPanel>
+			<MockPanel name="market" size={new UDim2(1, 0, 0, marketH)} phone={phone} accent={Palette.coral} reducedMotion={props.reducedMotion} layoutOrder={2}>
+				<PanelHeading icon="Jackpot.3" title="The Black Market" accent={Palette.coral} phone={phone} layoutOrder={1} />
+				<frame key="Visit" Size={new UDim2(1, 0, 0, marketRowH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uilistlayout
+						FillDirection={phone ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
+						Padding={new UDim(0, pad.gap)}
+						VerticalAlignment={Enum.VerticalAlignment.Center}
+						SortOrder={Enum.SortOrder.LayoutOrder}
+					/>
+					<frame key="Copy" Size={phone ? new UDim2(1, 0, 0, 36) : new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+						{!phone && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
+						<textlabel
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							Size={UDim2.fromScale(1, 1)}
+							Text="Keys, materials and boosts from the Black Market's hourly shipments."
+							TextSize={phone ? 13 : 14}
+							FontFace={BODY}
+							TextColor3={Palette.creamSoft}
+							TextWrapped={true}
+							TextXAlignment={Enum.TextXAlignment.Left}
+							TextYAlignment={Enum.TextYAlignment.Center}
+						/>
+					</frame>
+					{phone ? (
+						<frame key="Go" Size={new UDim2(1, 0, 0, TapTarget)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+							<MockBtn text="Visit market" icon="Visit.1" accent={Palette.coral} fill={true} phone={true} onClick={visit} reducedMotion={props.reducedMotion} />
+						</frame>
+					) : (
+						<MockBtn text="Visit market" icon="Visit.1" accent={Palette.coral} width={190} onClick={visit} reducedMotion={props.reducedMotion} layoutOrder={2} />
+					)}
+				</frame>
+			</MockPanel>
+		</SectionPage>
+	);
 }
 
 // .row min-height 48 (phone 36)
@@ -2220,127 +2127,66 @@ function oddsRowHeight(phone: boolean): number {
 	return phone ? 36 : 48;
 }
 
-// odds rail row: 10px rotated swatch, rarity name, 200px thin bar scaled to the top chance, 17px value
-function MockOddsRow(props: MockOddsRowProps) {
+interface OddsRowProps {
+	row: { rarity: string; chance: number };
+	config: ShopConfig;
+	order: number;
+	top: number;
+	phone: boolean;
+}
+
+// odds rail .row: 10px rotated swatch, rarity name (flex), 200px thin bar scaled to the top chance, 17px value
+function OddsRow(props: OddsRowProps) {
 	const row = props.row;
+	const phone = props.phone;
 	const color = rarityColor(props.config, row.rarity);
-	const rowH = oddsRowHeight(props.phone);
-	const barW = props.phone ? 120 : 200;
 	const fill = props.top > 0 ? math.clamp(row.chance / props.top, 0, 1) : 0;
 	const ascended = isAscended(row.rarity);
-	return h(
-		"frame",
-		{
-			Name: row.rarity,
-			Size: new UDim2(1, 0, 0, rowH),
-			BackgroundColor3: MOCK_ROW_TINT,
-			BackgroundTransparency: 0,
-			BorderSizePixel: 0,
-			LayoutOrder: props.order,
-		},
-		mockRowSkin(),
-		ascended &&
-			h(PrismAura, {
-				rarity: row.rarity,
-				intensity: 0.8,
-				rays: false,
-				sparks: false,
-				thickness: 1.5,
-				corner: 11,
-			}),
-		h("frame", {
-			Name: "Swatch",
-			Size: UDim2.fromOffset(10, 10),
-			Position: new UDim2(0, 14, 0.5, 0),
-			AnchorPoint: new Vector2(0, 0.5),
-			Rotation: 45,
-			BackgroundColor3: color,
-			BorderSizePixel: 0,
-		}, h("uicorner", { CornerRadius: new UDim(0, 2) })),
-		h(Text, {
-			value: row.rarity,
-			size: props.phone ? 13 : 15,
-			color: Palette.cream,
-			weight: Enum.FontWeight.SemiBold,
-			fit: true,
-			minSize: 10,
-			position: new UDim2(0, 34, 0.5, -10),
-			sizeConstraint: new UDim2(1, -(34 + barW + 12 + 64 + 12), 0, 20),
-		}),
-		h(
-			"frame",
-			{
-				Name: "Bar",
-				Size: UDim2.fromOffset(barW, 6),
-				Position: new UDim2(1, -(12 + 64 + 12 + barW), 0.5, -3),
-				BackgroundColor3: Color3.fromRGB(9, 6, 10),
-				BorderSizePixel: 0,
-			},
-			h("uicorner", { CornerRadius: new UDim(0, 3) }),
-			h(
-				"frame",
-				{ Name: "Fill", Size: UDim2.fromScale(fill, 1), BackgroundColor3: Palette.violet, BorderSizePixel: 0 },
-				h("uicorner", { CornerRadius: new UDim(0, 3) }),
-			),
-		),
-		h(Text, {
-			value: RelicSystem.chanceText(row.chance),
-			size: props.phone ? 14 : 17,
-			color: Palette.violet,
-			weight: Enum.FontWeight.Bold,
-			align: Enum.TextXAlignment.Right,
-			fit: true,
-			minSize: 10,
-			position: new UDim2(1, -(12 + 64), 0.5, -11),
-			sizeConstraint: UDim2.fromOffset(64, 22),
-		}),
+	return (
+		<frame Size={new UDim2(1, 0, 0, oddsRowHeight(phone))} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={props.order}>
+			<RowFace />
+			{ascended && h(PrismAura, { rarity: row.rarity, intensity: 0.8, rays: false, sparks: false, thickness: 1.5, corner: ROW_RADIUS })}
+			<frame key="Body" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uipadding PaddingLeft={new UDim(0, 14)} PaddingRight={new UDim(0, 12)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 12)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame key="Swatch" Size={UDim2.fromOffset(10, 10)} Rotation={45} BackgroundColor3={color} BorderSizePixel={0} LayoutOrder={1}>
+					<uicorner CornerRadius={new UDim(0, 2)} />
+				</frame>
+				<frame key="Name" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<Line text={row.rarity} size={phone ? 13 : 15} font={BODY_SEMI} width={new UDim(1, 0)} height={oddsRowHeight(phone)} />
+				</frame>
+				<Bar fill={fill} color={Palette.violet} thin={true} width={new UDim(0, phone ? 120 : 200)} layoutOrder={3} />
+				<Line text={RelicSystem.chanceText(row.chance)} size={phone ? 14 : 17} font={NUM} color={Palette.violet} width={new UDim(0, 64)} height={22} align={Enum.TextXAlignment.Right} layoutOrder={4} />
+			</frame>
+		</frame>
 	);
 }
 
 const OPEN_BATCH = 5;
 
-interface CrateChipProps {
-	crate: CrateConfig;
-	selected: boolean;
-	order: number;
-	keys: number;
-	onSelect: () => void;
-	compact?: boolean;
-	reducedMotion?: boolean;
-}
-
-// Line-art crate drawn in code: a box face, a lid line, a dashed seam and a brass latch.
-function crateGlyph(accent: Color3, side: number, y: number): React.Element {
+// Line-art crate drawn in code: a box face, a lid line, a dashed seam and a brass latch (art, not layout).
+function CrateGlyph(p: { accent: Color3; side: number; layoutOrder: number }) {
+	const accent = p.accent;
 	const dashes: React.Element[] = [];
 	for (let index = 0; index < 4; index++) {
-		dashes.push(h("frame", {
-			key: `Dash${index}`,
-			Size: new UDim2(0.14, 0, 0, 2),
-			Position: new UDim2(0.12 + index * 0.2, 0, 0.3, 0),
-			BackgroundColor3: Palette.mango,
-			BorderSizePixel: 0,
-		}));
+		dashes.push(
+			<frame key={`Dash${index}`} Size={new UDim2(0.14, 0, 0, 2)} Position={new UDim2(0.12 + index * 0.2, 0, 0.3, 0)} BackgroundColor3={Palette.mango} BorderSizePixel={0} />,
+		);
 	}
-	return h(
-		"frame",
-		{
-			Name: "CrateGlyph",
-			Size: UDim2.fromOffset(side, side),
-			Position: new UDim2(0.5, -side / 2, 0, y),
-			BackgroundColor3: darken(accent, 0.7),
-			BackgroundTransparency: 0.4,
-			BorderSizePixel: 0,
-		},
-		h("uicorner", { CornerRadius: new UDim(0, 4) }),
-		h("uistroke", { Color: accent, Thickness: 2, Transparency: 0 }),
-		h("frame", { Name: "Lid", Size: new UDim2(1, 0, 0, 2), Position: UDim2.fromScale(0, 0.18), BackgroundColor3: accent, BorderSizePixel: 0 }),
-		h("frame", { Name: "Spine", Size: new UDim2(0, 2, 0.82, 0), Position: UDim2.fromScale(0.5, 0.18), BackgroundColor3: accent, BorderSizePixel: 0 }),
-		h("frame", { Name: "Seam", Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, ...dashes),
-		h(
-			"frame",
-			{ Name: "Latch", Size: UDim2.fromOffset(8, 8), Position: new UDim2(0.5, -4, 0.5, -2), BackgroundColor3: Palette.mango, BorderSizePixel: 0 },
-			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-		),
+	return (
+		<frame Size={UDim2.fromOffset(p.side, p.side)} BackgroundColor3={darken(accent, 0.7)} BackgroundTransparency={0.4} BorderSizePixel={0} LayoutOrder={p.layoutOrder}>
+			<uicorner CornerRadius={new UDim(0, 4)} />
+			<uistroke Color={accent} Thickness={2} Transparency={0} />
+			<frame key="Lid" Size={new UDim2(1, 0, 0, 2)} Position={UDim2.fromScale(0, 0.18)} BackgroundColor3={accent} BorderSizePixel={0} />
+			<frame key="Spine" Size={new UDim2(0, 2, 0.82, 0)} Position={UDim2.fromScale(0.5, 0.18)} BackgroundColor3={accent} BorderSizePixel={0} />
+			<frame key="Seam" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				{dashes}
+			</frame>
+			<frame key="Latch" Size={UDim2.fromOffset(8, 8)} Position={new UDim2(0.5, -4, 0.5, -2)} BackgroundColor3={Palette.mango} BorderSizePixel={0}>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>
+		</frame>
 	);
 }
 
@@ -2356,90 +2202,67 @@ function crateRangeLine(crate: CrateConfig): string {
 	return `${odds[0].rarity} to ${odds[odds.size() - 1].rarity}`;
 }
 
-function crateTopRarity(crate: CrateConfig): string | undefined {
-	if (crate.PityRarity !== undefined) {
-		return crate.PityRarity;
-	}
-	const odds = RelicSystem.odds(crate.Weights);
-	return odds.size() > 0 ? odds[odds.size() - 1].rarity : undefined;
+// crate card (.row column, centred): padding 16, gap 10, 80px crate well, 17px name, 13px range, .btn.sm pill
+function crateCardHeight(phone: boolean): number {
+	return phone ? 12 + 64 + 8 + 20 + 8 + 16 + 8 + TapTarget + 12 : 16 + 80 + 10 + 22 + 10 + 18 + 10 + 36 + 16;
 }
 
-// crate card (.row column): padding 16, gap 10, line-art crate, 17px name, 13px range, 36px key pill
-const CRATE_CARD_H = 214;
-const CRATE_CARD_H_PHONE = 200;
+interface CrateCardProps {
+	crate: CrateConfig;
+	selected: boolean;
+	order: number;
+	keys: number;
+	onSelect: () => void;
+	phone: boolean;
+	reducedMotion?: boolean;
+}
 
-function CrateChip(props: CrateChipProps) {
+function CrateCard(props: CrateCardProps) {
 	const crate = props.crate;
+	const phone = props.phone;
 	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
 	const selected = props.selected;
-	const phone = props.compact === true;
-	const glyph = phone ? 56 : 64;
-	const pillH = phone ? TapTarget : 36;
+	// the picked card lifts 4px inside its grid cell (the cell itself never moves)
 	const lift = useBoatTween(selected ? 1 : 0, 0.18, props.reducedMotion, easeOutCubic, 0);
 	const pick = () => {
 		Audio.play("tabSwitch");
 		props.onSelect();
 	};
-	const nameY = 16 + 80 + 10;
-	return h(
-		"frame",
-		{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: props.order },
-		h(
-			"textbutton",
-			{
-				Name: "CrateCard",
-				Size: UDim2.fromScale(1, 1),
-				Position: lift.map((amount) => UDim2.fromOffset(0, -4 * amount)),
-				BackgroundColor3: MOCK_ROW_TINT,
-				BorderSizePixel: 0,
-				AutoButtonColor: false,
-				Text: "",
-				Event: { Activated: pick },
-			},
-			mockRowSkin(selected ? accent : undefined),
-			crateGlyph(accent, glyph, 16 + (80 - glyph) / 2),
-			h(Text, {
-				value: crate.Name,
-				size: 17,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Bold,
-				fit: true,
-				minSize: 11,
-				align: Enum.TextXAlignment.Center,
-				position: UDim2.fromOffset(16, nameY),
-				sizeConstraint: new UDim2(1, -32, 0, 22),
-			}),
-			h(Text, {
-				value: crateRangeLine(crate),
-				size: 13,
-				color: Palette.muted,
-				weight: Enum.FontWeight.Medium,
-				fit: true,
-				minSize: 9,
-				align: Enum.TextXAlignment.Center,
-				position: UDim2.fromOffset(16, nameY + 22 + 6),
-				sizeConstraint: new UDim2(1, -32, 0, 18),
-			}),
-			h(
-				"frame",
-				{
-					Name: "Keys",
-					Size: new UDim2(1, -32, 0, pillH),
-					Position: new UDim2(0, 16, 1, -(16 + pillH)),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				h(Button, {
-					text: props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys",
-					onClick: pick,
-					color: props.keys > 0 ? Palette.mango : MOCK_SEC,
-					textColor: props.keys > 0 ? Palette.ink : Palette.creamSoft,
-					size: UDim2.fromScale(1, 1),
-					reducedMotion: props.reducedMotion,
-					selectable: true,
-				}),
-			),
-		),
+	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={props.order}>
+			<textbutton
+				key="CrateCard"
+				Size={UDim2.fromScale(1, 1)}
+				Position={lift.map((amount) => UDim2.fromOffset(0, -4 * amount))}
+				BackgroundColor3={Palette.white}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Text=""
+				Event={{ Activated: pick }}
+			>
+				<RowFace outline={selected ? accent : undefined} strong={selected} />
+				<CardBody pad={phone ? 12 : 16} gap={phone ? 8 : 10} center={true}>
+					<frame key="Well" Size={UDim2.fromOffset(80, phone ? 64 : 80)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+						<uilistlayout HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<CrateGlyph accent={accent} side={phone ? 56 : 64} layoutOrder={1} />
+					</frame>
+					<Line text={crate.Name} size={phone ? 15 : 17} font={BODY_BOLD} width={new UDim(1, 0)} height={phone ? 20 : 22} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+					<Line text={crateRangeLine(crate)} size={phone ? 12 : 13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={phone ? 16 : 18} align={Enum.TextXAlignment.Center} layoutOrder={3} />
+					<frame key="Keys" Size={new UDim2(1, 0, 0, phone ? TapTarget : 36)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+						<MockBtn
+							text={props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys"}
+							accent={Palette.mango}
+							sec={props.keys <= 0}
+							sm={true}
+							fill={true}
+							phone={phone}
+							onClick={pick}
+							reducedMotion={props.reducedMotion}
+						/>
+					</frame>
+				</CardBody>
+			</textbutton>
+		</frame>
 	);
 }
 
@@ -2462,10 +2285,11 @@ function definitionOf(config: ShopConfig, id: string | undefined): RelicDefiniti
 	return undefined;
 }
 
+const CRATE_RAIL_W = 520;
 function CratesSection(props: SectionProps) {
 	const state = props.state;
 	const config = props.config;
-	const stack = props.stack;
+	const phone = props.stack;
 	const crates = config.Items?.Crates ?? [];
 	const items = state.Items ?? {};
 	const keys = items.Keys ?? {};
@@ -2511,13 +2335,11 @@ function CratesSection(props: SectionProps) {
 		return () => task.cancel(token);
 	}, [auto, crateKeys, busy, props.crateRevealActive, crate?.Id]);
 	if (crate === undefined) {
-		return h(EmptyState, {
-			icon: "Crate",
-			title: "No crates right now",
-			body: "Crates come back with the next rotation.",
-			accent: Palette.mango,
-			reducedMotion: props.reducedMotion,
-		});
+		return (
+			<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.violet}>
+				<EmptyNote icon="Crate" title="No crates right now" body="Crates come back with the next rotation." accent={Palette.mango} phone={phone} layoutOrder={1} />
+			</SectionPage>
+		);
 	}
 	const onOpen = (count: number) => {
 		if (busy || props.crateRevealActive) {
@@ -2593,13 +2415,11 @@ function CratesSection(props: SectionProps) {
 		step(count);
 	};
 	openRef.current = onOpen;
-	// mockup 07-crates: crate panel (3-up grid + Open 1 / Open 10 / Auto) beside a 520px odds + last pulls rail
-	const phone = stack;
-	const pad = mockPad(phone);
-	const headH = mockHeadH(phone);
-	const plan = splitColumns(phone ? 0 : props.width, 520, 18);
+	// mockup 07-crates: crate panel (3-up cards + Open 1 / Open 10 / Auto) beside a 520px odds + last pulls rail
+	const pad = panelPad(phone);
+	const plan = splitColumns(phone ? 0 : props.width, CRATE_RAIL_W, mockGap(phone));
 	const columns = math.clamp(crates.size(), 1, 3);
-	const cardH = phone ? CRATE_CARD_H_PHONE : CRATE_CARD_H;
+	const cardH = crateCardHeight(phone);
 	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
 	const busyNow = busy || props.crateRevealActive === true;
 	const pity = items.Pity?.[crate.Id] ?? 0;
@@ -2608,24 +2428,26 @@ function CratesSection(props: SectionProps) {
 			? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - pity)} opens`
 			: undefined;
 
-	// crate grid
-	const chips: Record<string, unknown> = {};
+	// crate cards
+	const cards: React.Element[] = [];
 	for (const [index, entry] of ipairs(crates)) {
-		chips[entry.Id] = h(CrateChip, {
-			crate: entry,
-			order: index,
-			keys: keys[entry.Id] ?? 0,
-			selected: entry.Id === crate.Id,
-			compact: phone,
-			reducedMotion: props.reducedMotion,
-			onSelect: () => {
-				setAuto(false);
-				setSelected(entry.Id);
-			},
-		});
+		cards.push(
+			<CrateCard
+				key={entry.Id}
+				crate={entry}
+				order={index}
+				keys={keys[entry.Id] ?? 0}
+				selected={entry.Id === crate.Id}
+				phone={phone}
+				reducedMotion={props.reducedMotion}
+				onSelect={() => {
+					setAuto(false);
+					setSelected(entry.Id);
+				}}
+			/>,
+		);
 	}
-	const gridRows = math.max(1, math.ceil(crates.size() / columns));
-	const gridH = gridRows * cardH + (gridRows - 1) * pad.gap;
+	const gridH = rowsHeight(crates.size(), columns, cardH, pad.gap);
 	const openH = phone ? TapTarget : 44;
 	const autoW = phone ? 96 : 104;
 	const openButton = (count: number, order: number) => {
@@ -2634,70 +2456,51 @@ function CratesSection(props: SectionProps) {
 			count === 1
 				? crateKeys >= 1 ? "Open 1" : "Open 1 · no keys"
 				: crateKeys >= count ? `Open ${count} · ${count} keys` : `Open ${count} · ${count - crateKeys} more keys`;
-		// .flexr gap 18 (phone 8): two flex buttons share what Auto leaves
-		const gap = phone ? 8 : 18;
-		return h(Button, {
-			text: label,
-			onClick: () => onOpen(count),
-			color: order === 1 ? MOCK_SEC : Palette.violet,
-			textColor: order === 1 ? Palette.cream : Palette.ink,
-			size: new UDim2(0.5, -(autoW + gap * 2) / 2, 1, 0),
-			position: new UDim2(order === 1 ? 0 : 0.5, order === 1 ? 0 : -(autoW + gap * 2) / 2 + gap, 0, 0),
-			disabled: !can,
-			reducedMotion: props.reducedMotion,
-			highlight: can && order === 2,
-			selectable: can,
-		});
+		// .flexr: Open 1 (.btn.sec) and Open 10 (violet) share what Auto leaves
+		return (
+			<frame key={`Open${count}`} Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={order}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<MockBtn
+					text={label}
+					accent={order === 1 ? undefined : Palette.violet}
+					sec={order === 1 || !can}
+					disabled={!can}
+					fill={true}
+					phone={phone}
+					onClick={() => onOpen(count)}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+		);
 	};
-	const mainH = pad.y * 2 + headH + pad.gap + gridH + pad.gap + openH;
-	const mainPanel = h(
-		PnSurface,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: Palette.violet,
-			background: Palette.panelRaised,
-			radius: 18,
-			rule: true,
-			padding: 0,
-			reveal: props.reveal,
-			reducedMotion: props.reducedMotion,
-			clips: false,
-		},
-		h(
-			"frame",
-			{ Name: "chips", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
-			h(PanelHead, { icon: "Crate", title: "Crates", note: plan.split ? undefined : pityNote, accent: Palette.violet, phone: phone }),
-			h(
-				"frame",
-				{ Name: "Grid", Size: new UDim2(1, 0, 0, gridH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h(Grid, { columns: columns, cell: cardH, height: gridH, cells: chips, gap: pad.gap }),
-			),
-			h(
-				"frame",
-				{
-					Name: "CrateOpen",
-					Size: new UDim2(1, 0, 0, openH),
-					Position: UDim2.fromOffset(0, headH + pad.gap + gridH + pad.gap),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				openButton(1, 1),
-				openButton(10, 2),
-				// Auto opens one at a time after each reveal closes; press again to stop, and it stops itself at 0 keys
-				h(Button, {
-					text: auto ? "Stop" : "Auto",
-					icon: auto ? "Close.3" : "Settings",
-					onClick: () => setAuto(!auto),
-					color: auto ? Palette.coral : MOCK_SEC,
-					textColor: auto ? Palette.ink : crateKeys > 0 ? Palette.cream : Palette.creamSoft,
-					size: new UDim2(0, autoW, 1, 0),
-					position: new UDim2(1, -autoW, 0, 0),
-					disabled: !auto && crateKeys <= 0,
-					reducedMotion: props.reducedMotion,
-					selectable: auto || crateKeys > 0,
-				}),
-			),
-		),
+	const mainContent = headingBlock(phone) + gridH + pad.gap + openH;
+	const mainPanel = (
+		<MockPanel name="CratesPanel" size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reveal={props.reveal} reducedMotion={props.reducedMotion}>
+			<PanelHeading icon="Crate" title="Crates" note={plan.split ? undefined : pityNote} accent={Palette.violet} phone={phone} layoutOrder={1} />
+			<frame Size={new UDim2(1, 0, 0, gridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2} {...{ Name: "chips" }}>
+				<MockGrid columns={columns} gap={pad.gap} cellHeight={cardH} count={crates.size()}>
+					{cards}
+				</MockGrid>
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, openH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} {...{ Name: "CrateOpen" }}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, mockGap(phone))} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{openButton(1, 1)}
+				{openButton(10, 2)}
+				{/* Auto opens one at a time after each reveal closes; press again to stop, and it stops itself at 0 keys */}
+				<MockBtn
+					text={auto ? "Stop" : "Auto"}
+					icon={auto ? "Close.3" : "Settings"}
+					accent={auto ? Palette.coral : undefined}
+					sec={!auto}
+					disabled={!auto && crateKeys <= 0}
+					width={autoW}
+					phone={phone}
+					onClick={() => setAuto(!auto)}
+					reducedMotion={props.reducedMotion}
+					layoutOrder={3}
+				/>
+			</frame>
+		</MockPanel>
 	);
 
 	// odds rail
@@ -2706,137 +2509,82 @@ function CratesSection(props: SectionProps) {
 	for (const row of odds) {
 		top = math.max(top, row.chance);
 	}
-	const oddsRowH = oddsRowHeight(phone);
 	const oddsGap = phone ? 6 : 12;
-	const oddsChildren: Record<string, unknown> = {
-		Layout: h("uilistlayout", {
-			FillDirection: Enum.FillDirection.Vertical,
-			Padding: new UDim(0, oddsGap),
-			SortOrder: Enum.SortOrder.LayoutOrder,
-		}),
-	};
+	const oddsRows: React.Element[] = [];
 	for (const [index, row] of ipairs(odds)) {
-		oddsChildren[row.rarity] = h(MockOddsRow, { row: row, config: config, order: index, top: top, phone: phone });
+		oddsRows.push(<OddsRow key={row.rarity} row={row} config={config} order={index} top={top} phone={phone} />);
 	}
-	const oddsH = odds.size() * oddsRowH + math.max(0, odds.size() - 1) * oddsGap;
+	const oddsH = odds.size() * oddsRowHeight(phone) + math.max(0, odds.size() - 1) * oddsGap;
 	const pullW = phone ? 120 : 176;
 	const pullH = phone ? 160 : 234;
-	const pullCells: Record<string, unknown> = {
-		Layout: h("uigridlayout", {
-			CellSize: UDim2.fromOffset(pullW, pullH),
-			CellPadding: UDim2.fromOffset(pad.gap, pad.gap),
-			SortOrder: Enum.SortOrder.LayoutOrder,
-		}),
-	};
+	const pullCards: React.Element[] = [];
 	for (const [index, pull] of ipairs(pulls)) {
 		const def = definitionOf(config, pull.definitionId);
 		const element = def !== undefined && typeIs(def.Element, "string") ? def.Element : undefined;
-		pullCells[pull.id] = h(SpriteCard, {
-			name: pull.salvaged ? "Recycled" : def?.Name ?? pull.rarity,
-			rarity: pull.rarity,
-			color: rarityColor(config, pull.rarity),
-			element: element,
-			iconKind: pull.salvaged ? "Dust.9" : "Artifact",
-			layoutOrder: index,
-			size: UDim2.fromOffset(pullW, pullH),
-			reducedMotion: props.reducedMotion,
-		});
+		pullCards.push(
+			h(SpriteCard, {
+				key: pull.id,
+				name: pull.salvaged ? "Recycled" : def?.Name ?? pull.rarity,
+				rarity: pull.rarity,
+				color: rarityColor(config, pull.rarity),
+				element: element,
+				iconKind: pull.salvaged ? "Dust.9" : "Artifact",
+				layoutOrder: index,
+				size: UDim2.fromOffset(pullW, pullH),
+				reducedMotion: props.reducedMotion,
+			}) as React.Element,
+		);
 	}
 	const sideW = plan.split ? plan.side : props.width;
 	const perRow = math.max(1, math.floor((sideW - pad.x * 2 + pad.gap) / (pullW + pad.gap)));
 	const pullRows = math.ceil(pulls.size() / perRow);
 	const pullsGridH = pulls.size() > 0 ? pullRows * pullH + (pullRows - 1) * pad.gap : 20;
-	const ruleY = headH + pad.gap + oddsH + pad.gap;
-	const pullsHeadY = ruleY + 12 + pad.gap;
-	const sideH = pad.y * 2 + pullsHeadY + headH + pad.gap + pullsGridH;
-	const sidePanel = h(
-		PnSurface,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: Palette.violet,
-			background: Palette.panelRaised,
-			radius: 18,
-			rule: true,
-			padding: 0,
-			reveal: props.reveal,
-			reducedMotion: props.reducedMotion,
-			clips: false,
-		},
-		h(
-			"frame",
-			{ Name: "drops", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
-			h(PanelHead, { icon: "Info", title: `${crate.Name} odds`, note: pityNote, accent: accent, phone: phone }),
-			h(
-				"frame",
-				{ Name: "Odds", Size: new UDim2(1, 0, 0, oddsH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				oddsChildren,
-			),
-			// .rule: brass hairlines fading in toward a 9px glowing diamond
-			h(
-				"frame",
-				{ Name: "Rule", Size: new UDim2(1, 0, 0, 12), Position: UDim2.fromOffset(0, ruleY), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h("frame", { Size: new UDim2(0.5, -14, 0, 1), Position: new UDim2(0, 0, 0.5, 0), BackgroundColor3: Palette.brass, BorderSizePixel: 0 },
-					h("uigradient", { Transparency: new NumberSequence(1, 0.45) })),
-				h("frame", { Size: new UDim2(0.5, -14, 0, 1), Position: new UDim2(0.5, 14, 0.5, 0), BackgroundColor3: Palette.brass, BorderSizePixel: 0 },
-					h("uigradient", { Transparency: new NumberSequence(0.45, 1) })),
-				h("frame", {
-					Size: UDim2.fromOffset(9, 9),
-					Position: UDim2.fromScale(0.5, 0.5),
-					AnchorPoint: new Vector2(0.5, 0.5),
-					Rotation: 45,
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				}, h("uistroke", { Color: Palette.brass, Thickness: 1 })),
-			),
-			h(
-				"frame",
-				{ Name: "pulls", Size: new UDim2(1, 0, 0, headH + pad.gap + pullsGridH), Position: UDim2.fromOffset(0, pullsHeadY), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h(PanelHead, { icon: "Calendar", title: "Last pulls", accent: accent, phone: phone }),
-				pulls.size() > 0
-					? h(
-						"frame",
-						{ Size: new UDim2(1, 0, 0, pullsGridH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
-						pullCells,
-					)
-					: h(Text, {
-						value: "Nothing opened yet this session.",
-						size: 13,
-						color: Palette.muted,
-						position: UDim2.fromOffset(0, headH + pad.gap),
-						sizeConstraint: new UDim2(1, 0, 0, 20),
-					}),
-			),
-		),
+	const dropsH = headingBlock(phone) + oddsH;
+	const pullsH = headingBlock(phone) + pullsGridH;
+	const sideContent = dropsH + pad.gap + 12 + pad.gap + pullsH;
+	const sidePanel = (
+		<MockPanel name="OddsPanel" size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reveal={props.reveal} reducedMotion={props.reducedMotion}>
+			<frame Size={new UDim2(1, 0, 0, dropsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} {...{ Name: "drops" }}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<PanelHeading icon="Info" title={`${crate.Name} odds`} note={pityNote} accent={accent} phone={phone} layoutOrder={1} />
+				<frame key="Odds" Size={new UDim2(1, 0, 0, oddsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, oddsGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					{oddsRows}
+				</frame>
+			</frame>
+			<DiamondRule layoutOrder={2} />
+			<frame Size={new UDim2(1, 0, 0, pullsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} {...{ Name: "pulls" }}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<PanelHeading icon="Calendar" title="Last pulls" accent={accent} phone={phone} layoutOrder={1} />
+				{pulls.size() > 0 ? (
+					<frame key="Cards" Size={new UDim2(1, 0, 0, pullsGridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+						<uigridlayout CellSize={UDim2.fromOffset(pullW, pullH)} CellPadding={UDim2.fromOffset(pad.gap, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+						{pullCards}
+					</frame>
+				) : (
+					<Line text="Nothing opened yet this session." size={13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={20} layoutOrder={2} />
+				)}
+			</frame>
+		</MockPanel>
 	);
-	let sections: { id: string; height: number; element: unknown }[];
 	if (plan.split) {
-		const rowH = math.max(mainH, sideH);
-		sections = [
-			{
-				id: "split",
-				height: rowH,
-				element: h(SplitColumns, {
-					name: "CrateSplit",
-					height: rowH,
-					plan: plan,
-					sideOnRight: true,
-					side: sidePanel,
-					main: mainPanel,
-				}),
-			},
-		];
-	} else {
-		sections = [
-			{ id: "crates", height: mainH, element: mainPanel },
-			{ id: "odds", height: sideH, element: sidePanel },
-		];
+		const rowH = pnHeight(phone, math.max(mainContent, sideContent));
+		return (
+			<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.violet}>
+				<SplitRow phone={phone} height={rowH} sideWidth={plan.side} sideOnRight={true} main={mainPanel} side={sidePanel} layoutOrder={1} />
+			</SectionPage>
+		);
 	}
-	return h(PageScaffold, {
-		gap: phone ? 8 : 18,
-		tailPad: props.tailPad,
-		scrollBarColor: Palette.violet,
-		sections: sections,
-	});
+	return (
+		<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.violet}>
+			<frame key="Main" Size={new UDim2(1, 0, 0, pnHeight(phone, mainContent))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				{mainPanel}
+			</frame>
+			<frame key="Side" Size={new UDim2(1, 0, 0, pnHeight(phone, sideContent))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				{sidePanel}
+			</frame>
+		</SectionPage>
+	);
 }
 
 function skinStatus(skin: SkinDef, cosmetics: CosmeticsState): LuaTuple<[boolean, boolean]> {
@@ -2849,15 +2597,27 @@ interface SkinPreviewProps {
 	skin: SkinDef;
 	state: ShopState;
 	cosmetics: CosmeticsState;
-	stack: boolean;
+	phone: boolean;
 	busy: boolean;
 	onAction: (action: string, id: string) => void;
+	reveal?: React.Binding<number>;
 	reducedMotion?: boolean;
 }
 
+function skinModelSize(phone: boolean): number {
+	return phone ? 200 : 250;
+}
+
+function skinPreviewContent(phone: boolean): number {
+	const gap = panelPad(phone).gap;
+	// model well, tier chips, title-face name, two-line blurb, note, claim .btn
+	return skinModelSize(phone) + gap + 24 + gap + 28 + gap + 36 + gap + 30 + gap + (phone ? TapTarget : 44);
+}
+
+// .pn "preview": model well (tap to look inside), tier .chip, title-face name, blurb, note, full-width .btn
 function SkinPreview(props: SkinPreviewProps) {
 	const skin = props.skin;
-	const stack = props.stack;
+	const phone = props.phone;
 	const [owned, equipped] = skinStatus(skin, props.cosmetics);
 	const accent = skinAccent(skin.Id);
 	const price = skin.Price;
@@ -2868,140 +2628,78 @@ function SkinPreview(props: SkinPreviewProps) {
 	let label: string;
 	let enabled: boolean;
 	if (equipped) {
-		[action, label, enabled] = [undefined, "EQUIPPED", false];
+		[action, label, enabled] = [undefined, "Equipped", false];
 	} else if (owned) {
-		[action, label, enabled] = ["EquipCrateSkin", "EQUIP", true];
+		[action, label, enabled] = ["EquipCrateSkin", "Equip", true];
 	} else if (skin.DailyOnly === true) {
-		[action, label, enabled] = [undefined, "DAILY SHOP ONLY", false];
+		[action, label, enabled] = [undefined, "Daily Shop only", false];
 	} else if (short > 0) {
-		[action, label, enabled] = [undefined, `NEED ${commas(short)} ${price!.Currency.upper()}`, false];
+		[action, label, enabled] = [undefined, `Need ${commas(short)} ${price!.Currency.lower()}`, false];
 	} else {
-		[action, label, enabled] = ["BuyCrateSkin", `BUY · ${commas(price!.Amount)} ${price!.Currency.upper()}`, true];
+		[action, label, enabled] = ["BuyCrateSkin", `Buy · ${commas(price!.Amount)} ${price!.Currency.lower()}`, true];
 	}
 	enabled = enabled && !props.busy;
-	const modelSize = stack ? 200 : 250;
-	return h(
-		PnSurface,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: accent,
-			background: Palette.panelRaised,
-			padding: 18,
-			highlight: true,
-			reducedMotion: props.reducedMotion,
-			clips: false,
-		},
-		h(
-			"textbutton",
-			{
-				Size: stack ? new UDim2(1, 0, 0, modelSize) : UDim2.fromOffset(modelSize, modelSize),
-				BackgroundColor3: Palette.void,
-				BackgroundTransparency: 0.2,
-				BorderSizePixel: 0,
-				AutoButtonColor: false,
-				Text: "",
-				Event: {
+	const tier = skin.Tier ?? "Common";
+	return (
+		<MockPanel name="preview" size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} reveal={props.reveal} reducedMotion={props.reducedMotion}>
+			<textbutton
+				key="Model"
+				Size={new UDim2(1, 0, 0, skinModelSize(phone))}
+				BackgroundColor3={Palette.void}
+				BackgroundTransparency={0.2}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Text=""
+				LayoutOrder={1}
+				Event={{
 					Activated: () => {
 						setPeek(!peek);
 						Audio.play(peek ? "close" : "crateOpen");
 					},
-				},
-			},
-			h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }),
-			h("uigradient", {
-				Color: new ColorSequence(darken(accent, 0.5), Palette.void),
-				Rotation: 90,
-			}),
-			h(CrateModel, {
-				skin: skin.Id,
-				spin: true,
-				open: peek ? 1 : 0,
-				live: !props.reducedMotion,
-				zoom: 0.82,
-			}),
-			h(Text, {
-				value: peek ? "Tap to close" : "Tap to look inside",
-				size: 11,
-				color: Palette.muted,
-				align: Enum.TextXAlignment.Center,
-				position: new UDim2(0, 0, 1, -20),
-				fit: true,
-				minSize: 9,
-				sizeConstraint: new UDim2(1, 0, 0, 16),
-			}),
-		),
-		h(
-			"frame",
-			{
-				Size: stack ? new UDim2(1, 0, 1, -(modelSize + 8)) : new UDim2(1, -(modelSize + 16), 1, 0),
-				Position: stack ? UDim2.fromOffset(0, modelSize + 8) : UDim2.fromOffset(modelSize + 16, 0),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			h(Badge, {
-				value: (skin.Tier ?? "Common").upper(),
-				accent: TIER_COLOR[skin.Tier ?? ""] ?? accent,
-				filled: true,
-				size: UDim2.fromOffset(92, 20),
-			}),
-			h(Text, {
-				value: skin.Name,
-				size: 22,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Heavy,
-				fit: true,
-				minSize: 14,
-				position: UDim2.fromOffset(0, 26),
-				sizeConstraint: new UDim2(1, 0, 0, 30),
-			}),
-			h(Text, {
-				value: skin.Blurb,
-				size: 13,
-				color: Palette.creamSoft,
-				wrap: true,
-				fit: true,
-				minSize: 10,
-				position: UDim2.fromOffset(0, 60),
-				sizeConstraint: new UDim2(1, 0, 0, 40),
-			}),
-			h(Text, {
-				value: owned ? "Yours. Every crate you open wears the equipped skin." : "Equip this skin for its guaranteed essence bonus.",
-				size: 11,
-				color: accent,
-				weight: Enum.FontWeight.Bold,
-				wrap: true,
-				fit: true,
-				minSize: 9,
-				position: UDim2.fromOffset(0, 104),
-				sizeConstraint: new UDim2(1, 0, 0, 30),
-			}),
-			h(
-				"frame",
-				{
-					Name: "SkinClaim",
-					Size: new UDim2(1, 0, 0, TapTarget),
-					Position: new UDim2(0, 0, 1, -TapTarget),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				h(Button, {
-					text: label,
-					icon: equipped ? "Check.12" : enabled ? "Shop.8" : "Lock.9",
-					onClick: () => {
+				}}
+			>
+				<uicorner CornerRadius={new UDim(0, ROW_RADIUS)} />
+				<uigradient Color={new ColorSequence(darken(accent, 0.5), Palette.void)} Rotation={90} />
+				{h(CrateModel, { skin: skin.Id, spin: true, open: peek ? 1 : 0, live: !props.reducedMotion, zoom: 0.82 })}
+				<frame key="Hint" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<uipadding PaddingBottom={new UDim(0, 6)} />
+					<uilistlayout VerticalAlignment={Enum.VerticalAlignment.Bottom} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<Line text={peek ? "Tap to close" : "Tap to look inside"} size={11} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={16} align={Enum.TextXAlignment.Center} />
+				</frame>
+			</textbutton>
+			<frame key="Tier" Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Chip text={tier.upper()} accent={TIER_COLOR[tier] ?? accent} phone={true} layoutOrder={1} />
+				{equipped ? <Chip text="Equipped" accent={Palette.mint} phone={true} layoutOrder={2} /> : owned ? <Chip text="Owned" phone={true} layoutOrder={2} /> : undefined}
+			</frame>
+			<Line text={skin.Name} size={phone ? 20 : 24} font={TITLE_FACE} width={new UDim(1, 0)} height={28} layoutOrder={3} />
+			<Copy text={skin.Blurb} size={phone ? 13 : 14} height={36} color={Palette.creamSoft} layoutOrder={4} />
+			<Copy
+				text={owned ? "Yours. Every crate you open wears the equipped skin." : "Equip this skin for its guaranteed essence bonus."}
+				size={12}
+				height={30}
+				color={accent}
+				font={BODY_BOLD}
+				layoutOrder={5}
+			/>
+			<frame Size={new UDim2(1, 0, 0, phone ? TapTarget : 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={6} {...{ Name: "SkinClaim" }}>
+				<MockBtn
+					text={label}
+					icon={equipped ? "Check.12" : enabled ? undefined : "Lock.9"}
+					accent={accent}
+					sec={!enabled}
+					disabled={!enabled}
+					fill={true}
+					phone={phone}
+					onClick={() => {
 						if (action !== undefined) {
 							props.onAction(action, skin.Id);
 						}
-					},
-					color: enabled ? accent : Palette.panelSoft,
-					textColor: enabled ? Palette.ink : Palette.creamSoft,
-					size: UDim2.fromScale(1, 1),
-					disabled: !enabled,
-					reducedMotion: props.reducedMotion,
-					highlight: enabled,
-					selectable: enabled,
-				}),
-			),
-		),
+					}}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+		</MockPanel>
 	);
 }
 
@@ -3013,82 +2711,60 @@ interface SkinCardProps {
 	onSelect: () => void;
 }
 
+const SKIN_CELL_H = 156;
+
+// .row cell: crate model, 13px name, status / price line; picked = accent outline
 function SkinCardImpl(props: SkinCardProps) {
 	const skin = props.skin;
 	const [owned, equipped] = skinStatus(skin, props.cosmetics);
 	const accent = skinAccent(skin.Id);
-	return h(
-		"textbutton",
-		{
-			Size: UDim2.fromScale(1, 1),
-			BackgroundColor3: props.selected ? darken(accent, 0.5) : Palette.panel,
-			BorderSizePixel: 0,
-			AutoButtonColor: false,
-			Text: "",
-			LayoutOrder: props.order,
-			Event: {
+	return (
+		<textbutton
+			Size={UDim2.fromScale(1, 1)}
+			BackgroundColor3={props.selected ? darken(accent, 0.5) : Palette.white}
+			BorderSizePixel={0}
+			AutoButtonColor={false}
+			Text=""
+			LayoutOrder={props.order}
+			Event={{
 				Activated: () => {
 					Audio.play("tabSwitch");
 					props.onSelect();
 				},
-			},
-		},
-		h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
-		h("uistroke", {
-			Color: accent,
-			Thickness: props.selected ? 2 : 1,
-			Transparency: props.selected ? 0 : 0.55,
-		}),
-		h(CrateModel, {
-			skin: skin.Id,
-			live: false,
-			size: new UDim2(1, 0, 1, -40),
-			zoom: 0.9,
-		}),
-		skin.Id === "Celestial" &&
-			h(PrismAura, {
-				rarity: "Celestial",
-				intensity: 0.7,
-				rays: false,
-				corner: 14,
-			}),
-		h(Text, {
-			value: skin.Name,
-			size: 13,
-			color: Palette.cream,
-			weight: Enum.FontWeight.Bold,
-			fit: true,
-			minSize: 10,
-			align: Enum.TextXAlignment.Center,
-			position: new UDim2(0, 6, 1, -38),
-			sizeConstraint: new UDim2(1, -12, 0, 18),
-		}),
-		h(Text, {
-			value: equipped
-				? "EQUIPPED"
-				: owned
-					? "OWNED"
-					: skin.DailyOnly === true
-						? "DAILY SHOP"
-						: `${commas(skin.Price!.Amount)} ${skin.Price!.Currency.upper()}`,
-			size: 11,
-			color: equipped ? Palette.mint : owned ? Palette.creamSoft : accent,
-			weight: Enum.FontWeight.Bold,
-			align: Enum.TextXAlignment.Center,
-			position: new UDim2(0, 6, 1, -20),
-			fit: true,
-			minSize: 9,
-			sizeConstraint: new UDim2(1, -12, 0, 16),
-		}),
+			}}
+		>
+			<RowFace outline={props.selected ? accent : undefined} strong={props.selected} />
+			{skin.Id === "Celestial" && h(PrismAura, { rarity: "Celestial", intensity: 0.7, rays: false, corner: ROW_RADIUS })}
+			<frame key="Body" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<CardBody pad={8} gap={2} center={true}>
+					<frame key="Model" Size={new UDim2(1, 0, 0, SKIN_CELL_H - 16 - 18 - 16 - 4)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+						{h(CrateModel, { skin: skin.Id, live: false, size: UDim2.fromScale(1, 1), zoom: 0.9 })}
+					</frame>
+					<Line text={skin.Name} size={13} font={BODY_BOLD} width={new UDim(1, 0)} height={18} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+					<Line
+						text={equipped ? "Equipped" : owned ? "Owned" : skin.DailyOnly === true ? "Daily Shop" : `${commas(skin.Price!.Amount)} ${skin.Price!.Currency.lower()}`}
+						size={11}
+						font={BODY_BOLD}
+						color={equipped ? Palette.mint : owned ? Palette.creamSoft : accent}
+						width={new UDim(1, 0)}
+						height={16}
+						align={Enum.TextXAlignment.Center}
+						layoutOrder={3}
+					/>
+				</CardBody>
+			</frame>
+		</textbutton>
 	);
 }
 
 // shows: the skin, owned/equipped from the cosmetics section, selected highlight, grid order
 const SkinCard = memoRow<SkinCardProps>(counted("Skin", SkinCardImpl), ["onSelect"], sameFields<SkinCardProps>(["skin", "cosmetics", "selected", "order"]));
 
+const SKIN_RAIL_W = 340;
+
 function SkinsSection(props: SectionProps) {
 	const state = props.state;
-	const stack = props.stack;
+	const phone = props.stack;
 	const cosmetics = state.Cosmetics ?? { CrateSkins: { Classic: true }, CrateSkin: ShopCatalog.DEFAULT_SKIN };
 	const [selected, setSelected] = React.useState(cosmetics.CrateSkin ?? ShopCatalog.DEFAULT_SKIN);
 	const [busy, setBusy] = React.useState(false);
@@ -3115,7 +2791,6 @@ function SkinsSection(props: SectionProps) {
 			}
 		});
 	};
-	const columns = stack ? 2 : props.width >= 1000 ? 4 : 3;
 	const ownedSkins = cosmetics.CrateSkins ?? {};
 	const skinBrowse = Browse.useBrowse({
 		id: "Skins",
@@ -3138,131 +2813,135 @@ function SkinsSection(props: SectionProps) {
 			},
 		],
 	});
-	const cells: Record<string, unknown> = {};
+	const cards: React.Element[] = [];
 	for (const [index, entry] of ipairs(skinBrowse.results as SkinDef[])) {
-		cells[entry.Id] = h(SkinCard, {
-			skin: entry,
-			order: index,
-			cosmetics: cosmetics,
-			selected: entry.Id === skin?.Id,
-			onSelect: () => {
-				setSelected(entry.Id);
-			},
-		});
-	}
-	const cellH = 156;
-	const noSkins = skinBrowse.results.size() === 0;
-	// desktop with room: the preview becomes a side column next to the filter + grid
-	const plan = splitColumns(stack ? 0 : props.width, 340);
-	const gridColumns = plan.split ? (plan.main >= 640 ? 3 : 2) : columns;
-	const previewStack = stack || plan.split;
-	const gridH = noSkins ? 150 : rowsHeight(math.max(1, skinBrowse.results.size()), gridColumns, cellH);
-	const sections: { id: string; height: number; element: unknown }[] = [
-			{
-				id: "hero",
-				height: heroHeight(stack),
-				element: h(Hero, {
-					title: "Crate Skins",
-					body: "Dress your crates. The Celestial Ark only shows up in the Daily Shop.",
-					accent: Palette.cyan,
-					icon: "Crate.5",
-					state: state,
-					stack: stack,
-					reveal: props.reveal,
-					reducedMotion: props.reducedMotion,
-				}),
-			},
-			{
-				id: "preview",
-				height: previewStack ? 200 + 8 + 140 + TapTarget + 28 : 278,
-				element: h(SkinPreview, {
-					key: skin?.Id,
-					skin: skin!,
-					state: state,
-					cosmetics: cosmetics,
-					stack: previewStack,
-					busy: busy,
-					onAction: onAction,
-					reducedMotion: props.reducedMotion,
-				}),
-			},
-			{
-				id: "filter",
-				height: Browse.CHIP_H,
-				element: h(Browse.ChipRow, {
-					options: skinBrowse.categories,
-					value: skinBrowse.category,
-					onChange: skinBrowse.setCategory,
-					counts: skinBrowse.counts,
-					accent: Palette.cyan,
-				}),
-			},
-			{
-				id: "grid",
-				height: gridH,
-				element: noSkins
-					? h(EmptyState, {
-							icon: "Crate.5",
-							title: skinBrowse.category === "Locked" ? "You own every skin" : "Nothing matches",
-							body:
-								skinBrowse.category === "Locked"
-									? "Every crate skin is in your collection. Pick one above to wear it."
-									: "Switch the filter back to All to see every skin.",
-							accent: Palette.cyan,
-							size: UDim2.fromScale(1, 1),
-						})
-					: h(Grid, { columns: gridColumns, cell: cellH, height: gridH, cells: cells }),
-			},
-	];
-	if (plan.split) {
-		const [hero, preview, filter, grid] = [sections[0], sections[1], sections[2], sections[3]];
-		const rowH = math.max(preview.height, stackHeight([filter.height, grid.height], GAP));
-		return h(PageScaffold, {
-			gap: GAP,
-			tailPad: props.tailPad,
-			scrollBarColor: Palette.cyan,
-			sections: [
-				hero,
-				{
-					id: "split",
-					height: rowH,
-					element: h(SplitColumns, {
-						name: "SkinSplit",
-						height: rowH,
-						plan: plan,
-						side: h(StackBlocks, { gap: GAP, blocks: [preview as never] }),
-						main: h(StackBlocks, { gap: GAP, blocks: [filter as never, grid as never] }),
-					}),
+		cards.push(
+			h(SkinCard, {
+				key: entry.Id,
+				skin: entry,
+				order: index,
+				cosmetics: cosmetics,
+				selected: entry.Id === skin?.Id,
+				onSelect: () => {
+					setSelected(entry.Id);
 				},
-			],
-		});
+			}) as React.Element,
+		);
 	}
-	return h(PageScaffold, {
-		gap: GAP,
-		tailPad: props.tailPad,
-		scrollBarColor: Palette.cyan,
-		sections: sections,
-	});
+	let ownedCount = 0;
+	for (const entry of ShopCatalog.SKINS) {
+		const [has] = skinStatus(entry, cosmetics);
+		if (has) {
+			ownedCount += 1;
+		}
+	}
+	const pad = panelPad(phone);
+	const noSkins = skinBrowse.results.size() === 0;
+	// desktop with room: the preview becomes a 340px rail beside the filter + grid panel
+	const plan = splitColumns(phone ? 0 : props.width, SKIN_RAIL_W, mockGap(phone));
+	const gridColumns = phone ? 2 : plan.split ? (plan.main >= 640 ? 3 : 2) : props.width >= 1000 ? 4 : 3;
+	const gridH = noSkins ? EMPTY_NOTE_H : rowsHeight(skinBrowse.results.size(), gridColumns, SKIN_CELL_H, pad.gap);
+	const mainContent = headingBlock(phone) + chipHeight(phone) + pad.gap + gridH;
+	const previewContent = skinPreviewContent(phone);
+	const preview =
+		skin !== undefined ? (
+			<SkinPreview
+				key={skin.Id}
+				skin={skin}
+				state={state}
+				cosmetics={cosmetics}
+				phone={phone}
+				busy={busy}
+				onAction={onAction}
+				reveal={props.reveal}
+				reducedMotion={props.reducedMotion}
+			/>
+		) : (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} />
+		);
+	const main = (
+		<MockPanel name="SkinsPanel" size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.cyan} reveal={props.reveal} reducedMotion={props.reducedMotion}>
+			<PanelHeading icon="Crate.5" title="Crate skins" note={`${ownedCount}/${ShopCatalog.SKINS.size()} owned`} accent={Palette.cyan} phone={phone} layoutOrder={1} />
+			<FilterChips browse={skinBrowse as unknown as BrowseState<unknown>} accent={Palette.cyan} phone={phone} layoutOrder={2} name="filter" />
+			{noSkins ? (
+				<EmptyNote
+					name="grid"
+					icon="Crate.5"
+					title={skinBrowse.category === "Locked" ? "You own every skin" : "Nothing matches"}
+					body={skinBrowse.category === "Locked" ? "Every crate skin is in your collection. Pick one to wear it." : "Switch the filter back to All to see every skin."}
+					accent={Palette.cyan}
+					phone={phone}
+					layoutOrder={3}
+				/>
+			) : (
+				<frame Size={new UDim2(1, 0, 0, gridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} {...{ Name: "grid" }}>
+					<MockGrid columns={gridColumns} gap={pad.gap} cellHeight={SKIN_CELL_H} count={skinBrowse.results.size()}>
+						{cards}
+					</MockGrid>
+				</frame>
+			)}
+		</MockPanel>
+	);
+	if (plan.split) {
+		const rowH = pnHeight(phone, math.max(mainContent, previewContent));
+		return (
+			<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.cyan}>
+				<SplitRow phone={phone} height={rowH} sideWidth={plan.side} sideOnRight={false} main={main} side={preview} layoutOrder={1} />
+			</SectionPage>
+		);
+	}
+	return (
+		<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.cyan}>
+			<frame key="Side" Size={new UDim2(1, 0, 0, pnHeight(phone, previewContent))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				{preview}
+			</frame>
+			<frame key="Main" Size={new UDim2(1, 0, 0, pnHeight(phone, mainContent))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				{main}
+			</frame>
+		</SectionPage>
+	);
 }
 
 interface CodexProgressProps {
 	config: ShopConfig;
 	progress: Record<string, { found: number; total: number }>;
 	bonus?: number;
+	starLine: string;
+	phone: boolean;
+	height: number;
+	reveal?: React.Binding<number>;
 	reducedMotion?: boolean;
 }
 
+const CODEX_ROW_H = 22;
+const CODEX_ROW_GAP = 6;
+
+function codexRowCount(progress: Record<string, { found: number; total: number }>): number {
+	let count = 0;
+	for (const rarity of RelicSystem.ORDER) {
+		if (progress[rarity] !== undefined && progress[rarity].total > 0) {
+			count += 1;
+		}
+	}
+	return count;
+}
+
+function codexProgressContent(phone: boolean, rows: number): number {
+	const gap = panelPad(phone).gap;
+	return headingBlock(phone) + 18 + gap + rows * CODEX_ROW_H + math.max(0, rows - 1) * CODEX_ROW_GAP;
+}
+
+function pct(value: number | undefined): string {
+	return `+${math.floor((tonumber(value) ?? 0) * 1000 + 0.5) / 10}%`;
+}
+
+// .pn "progress": heading (note = codex bonus), star line, one row per rarity: name, flex thin bar, found/total, bonus
 function CodexProgressImpl(props: CodexProgressProps) {
 	const config = props.config;
 	const progress = props.progress;
+	const phone = props.phone;
 	const bonuses = config.Items?.CodexBonus ?? {};
-	const rows: Record<string, unknown> = {
-		Layout: h("uilistlayout", {
-			FillDirection: Enum.FillDirection.Vertical,
-			Padding: new UDim(0, 4),
-			SortOrder: Enum.SortOrder.LayoutOrder,
-		}),
-	};
+	const rows: React.Element[] = [];
 	for (const [index, rarity] of ipairs(RelicSystem.ORDER)) {
 		const row = progress[rarity];
 		if (row === undefined || row.total === 0) {
@@ -3270,107 +2949,45 @@ function CodexProgressImpl(props: CodexProgressProps) {
 		}
 		const done = row.found === row.total;
 		const color = rarityColor(config, rarity);
-		rows[rarity] = h(
-			"frame",
-			{
-				Size: new UDim2(1, 0, 0, 22),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-				LayoutOrder: index,
-			},
-			h(Text, {
-				value: rarity,
-				size: 12,
-				color: color,
-				weight: Enum.FontWeight.Bold,
-				position: UDim2.fromOffset(0, 3),
-				sizeConstraint: new UDim2(0, 84, 0, 16),
-			}),
-			// the bar takes what's left between the name and the numbers; on a 286px phone that's nothing, and a
-			// negative width drew it mirrored over the rarity name, so the size constraint floors it at 0
-			h(
-				"frame",
-				{
-					Size: new UDim2(1, -230, 0, 8),
-					Position: UDim2.fromOffset(90, 7),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				h("uisizeconstraint", { MinSize: new Vector2(0, 0) }),
-				h(Meter, {
-					value: row.found / row.total,
-					color: color,
-					size: UDim2.fromScale(1, 1),
-					position: UDim2.fromOffset(0, 0),
-					reducedMotion: props.reducedMotion,
-				}),
-			),
-			h(Text, {
-				value: `${row.found}/${row.total}`,
-				size: 12,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Bold,
-				align: Enum.TextXAlignment.Right,
-				position: new UDim2(1, -134, 0, 3),
-				sizeConstraint: UDim2.fromOffset(44, 16),
-			}),
-			h(Text, {
-				value: `${done ? "Complete · " : ""}+${math.floor((tonumber(bonuses[rarity]) ?? 0) * 1000 + 0.5) / 10}%`,
-				size: 12,
-				color: done ? Palette.mint : Palette.muted,
-				weight: Enum.FontWeight.Bold,
-				align: Enum.TextXAlignment.Right,
-				position: new UDim2(1, -84, 0, 3),
-				fit: true,
-				minSize: 9,
-				sizeConstraint: UDim2.fromOffset(84, 16),
-			}),
+		rows.push(
+			<frame key={rarity} Size={new UDim2(1, 0, 0, CODEX_ROW_H)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={index}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={rarity} size={12} font={BODY_BOLD} color={color} width={new UDim(0, phone ? 70 : 84)} height={16} layoutOrder={1} />
+				<frame key="Meter" Size={new UDim2(0, 0, 0, 8)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<Bar fill={row.found / row.total} color={color} thin={true} width={new UDim(1, 0)} layoutOrder={1} />
+				</frame>
+				<Line text={`${row.found}/${row.total}`} size={12} font={NUM} width={new UDim(0, 44)} height={16} align={Enum.TextXAlignment.Right} layoutOrder={3} />
+				<Line
+					text={`${done ? "Complete · " : ""}${pct(tonumber(bonuses[rarity]))}`}
+					size={12}
+					font={BODY_BOLD}
+					color={done ? Palette.mint : Palette.muted}
+					width={new UDim(0, phone ? 64 : 110)}
+					height={16}
+					align={Enum.TextXAlignment.Right}
+					layoutOrder={4}
+				/>
+			</frame>,
 		);
 	}
-	return h(
-		PnSurface,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: Palette.mint,
-			background: Palette.panelRaised,
-			padding: 18,
-			reducedMotion: props.reducedMotion,
-			clips: false,
-		},
-		h(Text, {
-			value: `Codex bonus: +${math.floor((tonumber(props.bonus) ?? 0) * 1000 + 0.5) / 10}% production`,
-			size: 16,
-			color: Palette.cream,
-			weight: Enum.FontWeight.Heavy,
-			fit: true,
-			minSize: 12,
-			sizeConstraint: new UDim2(1, 0, 0, 22),
-		}),
-		h(Text, {
-			value: "Find every relic of a rarity to earn its bonus for good.",
-			size: 12,
-			color: Palette.creamSoft,
-			position: UDim2.fromOffset(0, 24),
-			fit: true,
-			minSize: 9,
-			sizeConstraint: new UDim2(1, 0, 0, 18),
-		}),
-		h(
-			"frame",
-			{
-				Size: new UDim2(1, 0, 1, -50),
-				Position: UDim2.fromOffset(0, 50),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			rows,
-		),
+	return (
+		<MockPanel name="progress" size={new UDim2(1, 0, 0, props.height)} phone={phone} accent={Palette.mint} reveal={props.reveal} reducedMotion={props.reducedMotion} layoutOrder={1}>
+			<PanelHeading icon="Artifact.2" title="Relic codex" note={`Codex bonus ${pct(props.bonus)} production`} accent={Palette.mint} phone={phone} layoutOrder={1} />
+			<Line text={props.starLine} size={phone ? 12 : 13} font={BODY} color={Palette.creamSoft} width={new UDim(1, 0)} height={18} layoutOrder={2} />
+			<frame key="Rows" Size={new UDim2(1, 0, 0, rows.size() * CODEX_ROW_H + math.max(0, rows.size() - 1) * CODEX_ROW_GAP)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, CODEX_ROW_GAP)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{rows}
+			</frame>
+		</MockPanel>
 	);
 }
 
-// shows: per-rarity found/total (progress, rebuilt each render so compared by value), bonus tiers from
-// config, the bonus total, motion
-const CodexProgress = React.memo(counted("CodexProgress", CodexProgressImpl), sameFields<CodexProgressProps>(["config", "progress", "bonus", "reducedMotion"]));
+// shows: per-rarity found/total (compared by value), bonus tiers from config, the bonus total, layout, motion
+const CodexProgress = React.memo(
+	counted("CodexProgress", CodexProgressImpl),
+	sameFields<CodexProgressProps>(["config", "progress", "bonus", "starLine", "phone", "height", "reveal", "reducedMotion"]),
+);
 
 interface RelicCellProps {
 	definition: RelicDefinition;
@@ -3381,85 +2998,63 @@ interface RelicCellProps {
 	busy: boolean;
 	order: number;
 	config: ShopConfig;
+	phone: boolean;
 	onFuse: () => void;
 	reducedMotion?: boolean;
 }
 
+function relicCellHeight(phone: boolean): number {
+	return 10 + 18 + 4 + 16 + 8 + (phone ? TapTarget : 36) + 10;
+}
+
+// .row cell: name (??? until found), status line, Fuse .btn.sm when a spare copy can fuse
 function RelicCellImpl(props: RelicCellProps) {
 	const definition = props.definition;
 	const found = props.found;
 	const color = rarityColor(props.config, definition.Rarity);
 	const ascended = isAscended(definition.Rarity);
-	return h(
-		"frame",
-		{
-			Size: UDim2.fromScale(1, 1),
-			BackgroundColor3: found ? darken(color, 0.72) : Palette.panel,
-			BorderSizePixel: 0,
-			LayoutOrder: props.order,
-		},
-		h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
-		h("uistroke", {
-			Color: found ? color : Palette.line,
-			Thickness: 1,
-			Transparency: found ? 0.25 : 0.5,
-		}),
-		found &&
-			ascended &&
-			h(PrismAura, {
-				rarity: definition.Rarity,
-				intensity: 1,
-				rays: false,
-				corner: 12,
-			}),
-		h(Text, {
-			value: found ? definition.Name : "???",
-			size: 13,
-			color: found ? Palette.cream : Palette.muted,
-			weight: Enum.FontWeight.Bold,
-			fit: true,
-			minSize: 10,
-			position: UDim2.fromOffset(10, 8),
-			sizeConstraint: new UDim2(1, -20, 0, 18),
-		}),
-		h(Text, {
-			value: found
-				? props.copies > 0
-					? `${props.copies} owned${props.stars > 0 ? "  " + "★".rep(props.stars) : ""}`
-					: "Found before"
-				: `${definition.Slot} relic · not found yet`,
-			size: 11,
-			color: found ? color : Palette.muted,
-			weight: Enum.FontWeight.Bold,
-			fit: true,
-			minSize: 9,
-			position: UDim2.fromOffset(10, 28),
-			sizeConstraint: new UDim2(1, -20, 0, 16),
-		}),
-		props.canFuse &&
-			h(Button, {
-				text: "FUSE",
-				icon: "Forge.14",
-				onClick: props.onFuse,
-				color: color,
-				textColor: Palette.ink,
-				size: new UDim2(1, -20, 0, 30),
-				position: new UDim2(0, 10, 1, -38),
-				disabled: props.busy,
-				reducedMotion: props.reducedMotion,
-				highlight: !props.busy,
-			}),
+	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={props.order}>
+			<RowFace outline={found ? color : undefined} />
+			{found && ascended && h(PrismAura, { rarity: definition.Rarity, intensity: 1, rays: false, corner: ROW_RADIUS })}
+			<frame key="Body" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<CardBody pad={10} gap={4}>
+					<Line text={found ? definition.Name : "???"} size={13} font={BODY_BOLD} color={found ? Palette.cream : Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={1} />
+					<Line
+						text={
+							found
+								? props.copies > 0
+									? `${props.copies} owned${props.stars > 0 ? "  " + "★".rep(props.stars) : ""}`
+									: "Found before"
+								: `${definition.Slot} relic · not found yet`
+						}
+						size={11}
+						font={BODY_BOLD}
+						color={found ? color : Palette.muted}
+						width={new UDim(1, 0)}
+						height={16}
+						layoutOrder={2}
+					/>
+					{props.canFuse && (
+						<frame key="Fuse" Size={new UDim2(1, 0, 0, (props.phone ? TapTarget : 36) + 4)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+							<uipadding PaddingTop={new UDim(0, 4)} />
+							<MockBtn text="Fuse" icon="Forge.14" accent={color} sm={true} fill={true} disabled={props.busy} phone={props.phone} onClick={props.onFuse} reducedMotion={props.reducedMotion} />
+						</frame>
+					)}
+				</CardBody>
+			</frame>
+		</frame>
 	);
 }
 
-// shows: the relic definition (rarity colour from config), found, copies, stars, fuse button (canFuse, busy), order, motion
+// shows: the relic definition (rarity colour from config), found, copies, stars, fuse button (canFuse, busy), order, layout, motion
 const RelicCell = memoRow<RelicCellProps>(counted("Relic", RelicCellImpl), ["onFuse"],
-	sameFields<RelicCellProps>(["definition", "found", "copies", "stars", "canFuse", "busy", "order", "config", "reducedMotion"]));
+	sameFields<RelicCellProps>(["definition", "found", "copies", "stars", "canFuse", "busy", "order", "config", "phone", "reducedMotion"]));
 
 function CodexSection(props: SectionProps) {
 	const state = props.state;
 	const config = props.config;
-	const stack = props.stack;
+	const phone = props.stack;
 	const items = state.Items ?? {};
 	const discovered = items.Discovered ?? {};
 	const inventory = items.Inventory ?? {};
@@ -3536,121 +3131,92 @@ function CodexSection(props: SectionProps) {
 			}
 		});
 	};
-	const columns = stack ? 2 : props.width >= 1000 ? 4 : 3;
-	const cellH = 96;
-	const sections: { id: string; height: number; element: unknown }[] = [
-		{
-			id: "hero",
-			height: heroHeight(stack),
-			element: h(Hero, {
-				title: "Relic Codex",
-				body: `Every relic in the forge. Fuse a spare copy into a relic for a star: +${math.floor((config.Items?.StarBonus ?? 0.25) * 100)}% effect each, up to ${maxStars}.`,
-				accent: Palette.mint,
-				icon: "Artifact.2",
-				state: state,
-				stack: stack,
-				reveal: props.reveal,
-				reducedMotion: props.reducedMotion,
-			}),
-		},
+	const pad = panelPad(phone);
+	const columns = phone ? 2 : props.width >= 1000 ? 4 : 3;
+	const cellH = relicCellHeight(phone);
+	const starLine = `Fuse a spare copy into a relic for a star: +${math.floor((config.Items?.StarBonus ?? 0.25) * 100)}% effect each, up to ${maxStars}.`;
+	const progressH = pnHeight(phone, codexProgressContent(phone, codexRowCount(progress)));
+	const blocks: React.Element[] = [
+		<CodexProgress
+			key="progress"
+			config={config}
+			progress={progress}
+			bonus={items.CodexBonus}
+			starLine={starLine}
+			phone={phone}
+			height={progressH}
+			reveal={props.reveal}
+			reducedMotion={props.reducedMotion}
+		/>,
+		<BrowseBlock
+			key="browse"
+			browse={codexBrowse as unknown as BrowseState<unknown>}
+			placeholder="Search relics by name, slot or rarity"
+			accent={Palette.mint}
+			phone={phone}
+			reducedMotion={props.reducedMotion}
+			layoutOrder={2}
+		/>,
 	];
-	let progressRows = 0;
-	for (const rarity of RelicSystem.ORDER) {
-		if (progress[rarity] !== undefined && progress[rarity].total > 0) {
-			progressRows += 1;
-		}
-	}
-	sections.push({
-		id: "progress",
-		height: 50 + progressRows * 26 + 24,
-		element: h(CodexProgress, {
-			config: config,
-			progress: progress,
-			bonus: items.CodexBonus,
-			reducedMotion: props.reducedMotion,
-		}),
-	});
-	sections.push({
-		id: "browse",
-		height: Browse.barHeight(stack, true),
-		element: h(Browse.BrowseBar, {
-			browse: codexBrowse,
-			placeholder: "Search relics by name, slot or rarity",
-			accent: Palette.mint,
-			stack: stack,
-			reducedMotion: props.reducedMotion,
-			zIndex: 30,
-		}),
-	});
 	if (codexBrowse.results.size() === 0) {
-		sections.push({
-			id: "none",
-			height: 220,
-			element: h(Browse.NoResults, {
-				browse: codexBrowse,
-				noun: "relics",
-				icon: "Artifact.3",
-				accent: Palette.mint,
-				reducedMotion: props.reducedMotion,
-				size: UDim2.fromScale(1, 1),
-			}),
-		});
+		blocks.push(<NoMatches key="none" browse={codexBrowse as unknown as BrowseState<unknown>} noun="relics" icon="Artifact.3" accent={Palette.mint} phone={phone} reducedMotion={props.reducedMotion} layoutOrder={3} />);
 	}
+	// one .pn per rarity, rarest first
+	let order = 10;
 	for (let index = RelicSystem.ORDER.size(); index >= 1; index--) {
 		const rarity = RelicSystem.ORDER[index - 1];
-		const cells: Record<string, unknown> = {};
-		let count = 0;
-		for (const [order, definition] of ipairs(definitions)) {
+		const cells: React.Element[] = [];
+		for (const [defOrder, definition] of ipairs(definitions)) {
 			if (definition.Rarity !== rarity || !shownIds[definition.Id]) {
 				continue;
 			}
-			count += 1;
-			const canFuse = canFuseRelic(definition);
-			cells[definition.Id] = h(RelicCell, {
-				definition: definition,
-				order: order,
-				config: config,
-				found: discovered[definition.Id] === true || (copies[definition.Id] ?? 0) > 0,
-				copies: copies[definition.Id] ?? 0,
-				stars: stars[definition.Id] ?? 0,
-				canFuse: canFuse,
-				busy: busy,
-				onFuse: () => {
-					fuse(definition);
-				},
-				reducedMotion: props.reducedMotion,
-			});
+			cells.push(
+				h(RelicCell, {
+					key: definition.Id,
+					definition: definition,
+					order: defOrder,
+					config: config,
+					found: discovered[definition.Id] === true || (copies[definition.Id] ?? 0) > 0,
+					copies: copies[definition.Id] ?? 0,
+					stars: stars[definition.Id] ?? 0,
+					canFuse: canFuseRelic(definition),
+					busy: busy,
+					phone: phone,
+					onFuse: () => {
+						fuse(definition);
+					},
+					reducedMotion: props.reducedMotion,
+				}) as React.Element,
+			);
 		}
-		if (count === 0) {
+		if (cells.size() === 0) {
 			continue;
 		}
-		const gridH = rowsHeight(count, columns, cellH);
+		order += 1;
 		const color = rarityColor(config, rarity);
-		sections.push({
-			id: `label${rarity}`,
-			height: 22,
-			element: h(SectionHeading, {
-				value: `${rarity.upper()}  ·  ${progress[rarity].found}/${progress[rarity].total}`,
-				size: 13,
-				color: color,
-				weight: Enum.FontWeight.Heavy,
-				fit: true,
-				minSize: 10,
-				sizeConstraint: new UDim2(1, 0, 0, 20),
-			}),
-		});
-		sections.push({
-			id: `grid${rarity}`,
-			height: gridH,
-			element: h(Grid, { columns: columns, cell: cellH, height: gridH, cells: cells }),
-		});
+		const gridH = rowsHeight(cells.size(), columns, cellH, pad.gap);
+		blocks.push(
+			<MockPanel
+				key={`grid${rarity}`}
+				name={`grid${rarity}`}
+				size={new UDim2(1, 0, 0, pnHeight(phone, headingBlock(phone) + gridH))}
+				phone={phone}
+				accent={color}
+				reducedMotion={props.reducedMotion}
+				layoutOrder={order}
+			>
+				<PanelHeading icon="Artifact" title={rarity} note={`${progress[rarity]?.found ?? 0}/${progress[rarity]?.total ?? 0} found`} accent={color} phone={phone} layoutOrder={1} />
+				<MockGrid columns={columns} gap={pad.gap} cellHeight={cellH} count={cells.size()} layoutOrder={2}>
+					{cells}
+				</MockGrid>
+			</MockPanel>,
+		);
 	}
-	return h(PageScaffold, {
-		gap: GAP,
-		tailPad: props.tailPad,
-		scrollBarColor: Palette.mint,
-		sections: sections,
-	});
+	return (
+		<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.mint}>
+			{blocks}
+		</SectionPage>
+	);
 }
 
 function artifactEffectText(artifact: ArtifactDef): string {
@@ -3669,6 +3235,7 @@ interface ElementSheet {
 }
 const elementSheet = ElementFxModule.sheet as unknown as (element?: string) => ElementSheet | undefined;
 
+
 interface ArtifactCardProps {
 	artifact: ArtifactDef;
 	order: number;
@@ -3676,13 +3243,23 @@ interface ArtifactCardProps {
 	price?: ArtifactPrice;
 	dust: number;
 	busy: boolean;
-	stack: boolean;
+	phone: boolean;
 	onBuy: (artifact: ArtifactDef) => void;
 	reducedMotion?: boolean;
 }
 
+function artifactStageHeight(phone: boolean): number {
+	return phone ? 116 : 132;
+}
+
+function artifactCardHeight(phone: boolean): number {
+	return 10 + artifactStageHeight(phone) + 6 + 20 + 6 + 14 + 6 + 28 + 6 + (phone ? TapTarget : 36) + 10;
+}
+
+// .row card: element stage (ElementFx + rarity/element .chips), name, effect, blurb, .btn.sm in the element colour
 function ArtifactCard(props: ArtifactCardProps) {
 	const artifact = props.artifact;
+	const phone = props.phone;
 	const tone = ARTIFACT_RARITY[artifact.Rarity] ?? ARTIFACT_RARITY.COMMON;
 	const accent = artifact.Color ?? tone.color;
 	const element = artifact.Element ?? "Void";
@@ -3696,162 +3273,88 @@ function ArtifactCard(props: ArtifactCardProps) {
 	const enabled = cost !== undefined && have >= cost && !props.busy;
 	const label =
 		cost === undefined
-			? "NOT SOLD"
+			? "Not sold"
 			: have < cost
-				? `NEED ${commas(cost - have)} DUST`
+				? `Need ${commas(cost - have)} dust`
 				: owned !== undefined
-					? `+${price!.Fragments} FRAGMENTS · ${commas(cost)}`
-					: `ACQUIRE · ${commas(cost)} DUST`;
+					? `+${price!.Fragments} fragments · ${commas(cost)}`
+					: `Acquire · ${commas(cost)} dust`;
 	const [hovered, setHovered] = React.useState(false);
-	const lightH = props.stack ? 116 : 132;
-	const fxSize = lightH;
-	const elementBadgeW = math.max(62, (sheet?.Label ?? element).size() * 7 + 14);
-	return h(
-		"frame",
-		{
-			Size: UDim2.fromScale(1, 1),
-			BackgroundColor3: Palette.panel,
-			BorderSizePixel: 0,
-			LayoutOrder: props.order,
-			Event: {
-				MouseEnter: () => {
-					setHovered(true);
-				},
-				MouseLeave: () => {
-					setHovered(false);
-				},
-			},
-		},
-		h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
-		h("uistroke", {
-			Color: elementColor.Lerp(accent, 0.35),
-			Thickness: hovered || tone.rank >= 5 ? 2 : 1,
-			Transparency: hovered ? 0.05 : owned !== undefined ? 0.3 : 0.55,
-		}),
-		h("uipadding", {
-			PaddingTop: new UDim(0, 8),
-			PaddingBottom: new UDim(0, 8),
-			PaddingLeft: new UDim(0, 8),
-			PaddingRight: new UDim(0, 8),
-		}),
-		h(
-			"frame",
-			{
-				Name: "Stage",
-				Size: new UDim2(1, 0, 0, lightH),
-				BackgroundColor3: Palette.void,
-				BorderSizePixel: 0,
-				ClipsDescendants: true,
-			},
-			h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }),
-			h("uigradient", {
-				Color: new ColorSequence(darken(elementColor, 0.6), Palette.void),
-				Rotation: 90,
-			}),
-			h(ElementFx, {
-				element: element,
-				size: UDim2.fromOffset(fxSize, fxSize),
-				position: UDim2.fromScale(0.5, 0.5),
-				framerate: 24,
-				// acquiring the artifact plays its companion's reveal
-				reaction: "reveal",
-				reactionKey: owned !== undefined,
-				reducedMotion: props.reducedMotion,
-				zIndex: 2,
-			}),
-			h(Badge, {
-				value: tone.label.upper(),
-				accent: tone.color,
-				filled: tone.rank >= 4,
-				size: UDim2.fromOffset(84, 18),
-				position: UDim2.fromOffset(6, 6),
-			}),
-			h(Badge, {
-				value: sheet?.Label ?? element.upper(),
-				accent: elementColor,
-				filled: true,
-				size: UDim2.fromOffset(elementBadgeW, 18),
-				position: new UDim2(1, -(elementBadgeW + 6), 0, 6),
-			}),
-			artifact.ShopOnly === true && owned === undefined
-				? h(Badge, {
-					value: "Shop exclusive",
-					accent: elementGlow,
-					filled: false,
-					size: UDim2.fromOffset(106, 18),
-					position: new UDim2(1, -112, 1, -24),
-				})
-				: undefined,
-			owned !== undefined
-				? h(Badge, {
-					value: `LV ${owned.Level ?? 1} · ${owned.Fragments ?? 0} FRAG`,
-					accent: Palette.cream,
-					filled: false,
-					size: UDim2.fromOffset(112, 18),
-					position: new UDim2(0, 6, 1, -24),
-				})
-				: undefined,
-		),
-		h(Text, {
-			value: artifact.Name,
-			size: 15,
-			color: Palette.cream,
-			weight: Enum.FontWeight.Heavy,
-			fit: true,
-			minSize: 11,
-			position: UDim2.fromOffset(2, lightH + 8),
-			sizeConstraint: new UDim2(1, -4, 0, 20),
-		}),
-		h(Text, {
-			value: artifactEffectText(artifact),
-			size: 11,
-			color: elementColor.Lerp(Palette.cream, 0.25),
-			weight: Enum.FontWeight.Bold,
-			position: UDim2.fromOffset(2, lightH + 28),
-			sizeConstraint: new UDim2(1, -4, 0, 14),
-		}),
-		h(Text, {
-			value: artifact.Description,
-			size: 11,
-			color: Palette.muted,
-			wrap: true,
-			fit: true,
-			minSize: 9,
-			position: UDim2.fromOffset(2, lightH + 44),
-			sizeConstraint: new UDim2(1, -4, 0, 28),
-		}),
-		h(
-			"frame",
-			{
-				Size: new UDim2(1, 0, 0, 36),
-				Position: new UDim2(0, 0, 1, -36),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			h(Button, {
-				text: label,
-				icon: enabled ? "Shop.9" : "Lock.10",
-				onClick: () => {
-					if (enabled) {
-						props.onBuy(artifact);
-					}
-				},
-				color: enabled ? elementColor : Palette.panelSoft,
-				textColor: enabled ? Palette.ink : Palette.creamSoft,
-				size: UDim2.fromScale(1, 1),
-				disabled: !enabled,
-				reducedMotion: props.reducedMotion,
-				highlight: enabled && tone.rank >= 4,
-				selectable: enabled,
-			}),
-		),
+	const stageH = artifactStageHeight(phone);
+	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={props.order}>
+			<frame
+				key="Face"
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundColor3={Palette.white}
+				BorderSizePixel={0}
+				Event={{
+					MouseEnter: () => setHovered(true),
+					MouseLeave: () => setHovered(false),
+				}}
+			>
+				<RowFace outline={hovered || tone.rank >= 5 || owned !== undefined ? elementColor.Lerp(accent, 0.35) : undefined} strong={hovered || tone.rank >= 5} />
+				<CardBody pad={10} gap={6}>
+					<frame key="Stage" Size={new UDim2(1, 0, 0, stageH)} BackgroundColor3={Palette.void} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={1}>
+						<uicorner CornerRadius={new UDim(0, ROW_RADIUS)} />
+						<uigradient Color={new ColorSequence(darken(elementColor, 0.6), Palette.void)} Rotation={90} />
+						{h(ElementFx, {
+							element: element,
+							size: UDim2.fromOffset(stageH, stageH),
+							position: UDim2.fromScale(0.5, 0.5),
+							framerate: 24,
+							// acquiring the artifact plays its companion's reveal
+							reaction: "reveal",
+							reactionKey: owned !== undefined,
+							reducedMotion: props.reducedMotion,
+							zIndex: 2,
+						})}
+						<frame key="Tags" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={3}>
+							<uipadding PaddingTop={new UDim(0, 6)} PaddingBottom={new UDim(0, 6)} PaddingLeft={new UDim(0, 6)} PaddingRight={new UDim(0, 6)} />
+							<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalFlex={Enum.UIFlexAlignment.SpaceBetween} SortOrder={Enum.SortOrder.LayoutOrder} />
+							<frame key="Top" Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+								<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalFlex={Enum.UIFlexAlignment.SpaceBetween} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+								<Chip text={tone.label.upper()} accent={tone.color} phone={true} layoutOrder={1} />
+								<Chip text={sheet?.Label ?? element.upper()} accent={elementColor} phone={true} layoutOrder={2} />
+							</frame>
+							<frame key="Bottom" Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+								<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalFlex={Enum.UIFlexAlignment.SpaceBetween} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+								{owned !== undefined ? <Chip text={`Lv ${owned.Level ?? 1} · ${owned.Fragments ?? 0} frag`} phone={true} layoutOrder={1} /> : undefined}
+								{artifact.ShopOnly === true && owned === undefined ? <Chip text="Shop exclusive" accent={elementGlow} phone={true} layoutOrder={2} /> : undefined}
+							</frame>
+						</frame>
+					</frame>
+					<Line text={artifact.Name} size={15} font={BODY_BOLD} width={new UDim(1, 0)} height={20} layoutOrder={2} />
+					<Line text={artifactEffectText(artifact)} size={11} font={BODY_BOLD} color={elementColor.Lerp(Palette.cream, 0.25)} width={new UDim(1, 0)} height={14} layoutOrder={3} />
+					<Copy text={artifact.Description} size={11} height={28} color={Palette.muted} layoutOrder={4} />
+					<frame key="Buy" Size={new UDim2(1, 0, 0, phone ? TapTarget : 36)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={5}>
+						<MockBtn
+							text={label}
+							icon={enabled ? "Shop.9" : "Lock.10"}
+							accent={elementColor}
+							sec={!enabled}
+							disabled={!enabled}
+							sm={true}
+							fill={true}
+							phone={phone}
+							onClick={() => {
+								if (enabled) {
+									props.onBuy(artifact);
+								}
+							}}
+							reducedMotion={props.reducedMotion}
+						/>
+					</frame>
+				</CardBody>
+			</frame>
+		</frame>
 	);
 }
 
 function ArtifactsSection(props: SectionProps) {
 	const state = props.state;
 	const config = props.config;
-	const stack = props.stack;
+	const phone = props.stack;
 	const ops = config.Operations ?? {};
 	const artifacts = ops.Artifacts ?? [];
 	const prices = ops.ArtifactShop ?? {};
@@ -3941,21 +3444,25 @@ function ArtifactsSection(props: SectionProps) {
 			}
 		});
 	};
-	const columns = stack ? 2 : props.width >= 1000 ? 4 : 3;
-	const cellH = stack ? 262 : 282;
-	const cells: Record<string, unknown> = {};
+	const pad = panelPad(phone);
+	const columns = phone ? 2 : props.width >= 1000 ? 4 : 3;
+	const cellH = artifactCardHeight(phone);
+	const cards: React.Element[] = [];
 	for (const [order, artifact] of ipairs(browse.results as ArtifactDef[])) {
-		cells[artifact.Id] = h(ArtifactCard, {
-			artifact: artifact,
-			order: order,
-			owned: owned[artifact.Id],
-			price: prices[artifact.Rarity],
-			dust: dust,
-			busy: busy,
-			stack: stack,
-			onBuy: onBuy,
-			reducedMotion: props.reducedMotion,
-		});
+		cards.push(
+			<ArtifactCard
+				key={artifact.Id}
+				artifact={artifact}
+				order={order}
+				owned={owned[artifact.Id]}
+				price={prices[artifact.Rarity]}
+				dust={dust}
+				busy={busy}
+				phone={phone}
+				onBuy={onBuy}
+				reducedMotion={props.reducedMotion}
+			/>,
+		);
 	}
 	let ownedCount = 0;
 	for (const artifact of artifacts) {
@@ -3963,62 +3470,26 @@ function ArtifactsSection(props: SectionProps) {
 			ownedCount += 1;
 		}
 	}
-	const sections: { id: string; height: number; element: unknown }[] = [
-		{
-			id: "hero",
-			height: heroHeight(stack),
-			element: h(Hero, {
-				title: "Artifact Vault",
-				body: `Buy rare artifacts outright for stardust. Ones you hold restock as upgrade fragments. ${ownedCount}/${artifacts.size()} held.`,
-				accent: Palette.violet,
-				icon: "Artifact.4",
-				state: state,
-				stack: stack,
-				reveal: props.reveal,
-				reducedMotion: props.reducedMotion,
-			}),
-		},
-		{
-			id: "browse",
-			height: Browse.barHeight(stack, true),
-			element: h(Browse.BrowseBar, {
-				browse: browse,
-				placeholder: "Search artifacts by name, effect or rarity",
-				accent: Palette.violet,
-				stack: stack,
-				reducedMotion: props.reducedMotion,
-				zIndex: 30,
-			}),
-		},
-	];
-	if (browse.results.size() === 0) {
-		sections.push({
-			id: "none",
-			height: 220,
-			element: h(Browse.NoResults, {
-				browse: browse,
-				noun: "artifacts",
-				icon: "Artifact.5",
-				accent: Palette.violet,
-				reducedMotion: props.reducedMotion,
-				size: UDim2.fromScale(1, 1),
-			}),
-		});
-	} else {
-		const gridH = rowsHeight(browse.results.size(), columns, cellH);
-		sections.push({
-			id: "grid",
-			height: gridH,
-			element: h(Grid, { columns: columns, cell: cellH, height: gridH, cells: cells }),
-		});
-	}
-	return h(PageScaffold, {
-		gap: GAP,
-		tailPad: props.tailPad,
-		scrollBarColor: Palette.violet,
-		sections: sections,
-	});
+	const browseState = browse as unknown as BrowseState<unknown>;
+	const gridH = rowsHeight(cards.size(), columns, cellH, pad.gap);
+	return (
+		<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.violet}>
+			<BrowseBlock browse={browseState} placeholder="Search artifacts by name, effect or rarity" accent={Palette.violet} phone={phone} reducedMotion={props.reducedMotion} layoutOrder={1} />
+			{cards.size() === 0 ? (
+				<NoMatches browse={browseState} noun="artifacts" icon="Artifact.5" accent={Palette.violet} phone={phone} reducedMotion={props.reducedMotion} layoutOrder={2} />
+			) : (
+				<MockPanel name="grid" size={new UDim2(1, 0, 0, pnHeight(phone, headingBlock(phone) + 18 + pad.gap + gridH))} phone={phone} accent={Palette.violet} reveal={props.reveal} reducedMotion={props.reducedMotion} layoutOrder={2}>
+					<PanelHeading icon="Artifact.4" title="Artifact vault" note={`${ownedCount}/${artifacts.size()} held`} accent={Palette.violet} phone={phone} layoutOrder={1} />
+					<Line text="Buy artifacts outright for stardust. Ones you hold restock as upgrade fragments." size={phone ? 12 : 13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={2} />
+					<MockGrid columns={columns} gap={pad.gap} cellHeight={cellH} count={cards.size()} layoutOrder={3}>
+						{cards}
+					</MockGrid>
+				</MockPanel>
+			)}
+		</SectionPage>
+	);
 }
+
 
 // Explicit gamepad order per Shop section (frame Names are scaffold section ids / SplitColumns columns).
 // Premium (ShopView) keeps its own FocusClaim.
@@ -4161,17 +3632,16 @@ function StoreFront(props: StoreFrontProps) {
 				BorderSizePixel: 0,
 				LayoutOrder: 1,
 			},
-			h(SegmentedTabs, {
+			h(PillTabs, {
 				options: SECTIONS,
 				value: section,
-				onChange: (entry: unknown) => {
-					setSection(entry as string);
+				onChange: (entry: string) => {
+					setSection(entry);
 				},
 				accent: Palette.mango,
 				columns: tabColumns,
 				gap: 6,
-				size: UDim2.fromScale(1, 1),
-				reducedMotion: softMotion,
+				strip: stack,
 			}),
 		),
 		h(
