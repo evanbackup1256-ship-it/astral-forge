@@ -88,10 +88,10 @@ export class AutoFitController implements OnStart {
 	}
 
 	private wanted(): boolean {
-		if (Workspace.GetAttribute("LayoutAutoFit") === false) return false;
+		// off by default: the design layouts render as authored. LayoutAutoFit = true (Workspace or player) opts in.
+		if (Workspace.GetAttribute("LayoutAutoFit") === true) return true;
 		const player = Players.LocalPlayer;
-		if (player !== undefined && player.GetAttribute("LayoutAutoFit") === false) return false;
-		return true;
+		return player !== undefined && player.GetAttribute("LayoutAutoFit") === true;
 	}
 
 	private updateEnabled() {
