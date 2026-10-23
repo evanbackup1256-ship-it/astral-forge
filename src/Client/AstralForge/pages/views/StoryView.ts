@@ -1,6 +1,6 @@
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
-import { BODY_BOLD, NUM, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, NUM, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
@@ -40,7 +40,6 @@ function __member(): unknown {
 	let ClientLog: unknown = luaProp(kit("CoreKit", "log"), "ClientLog");
 	let GamepadNavigationService: unknown = kit("CoreKit", "GamepadNavigationService");
 	let useAntilag: unknown = luaProp(kit("MotionKit", "antilag"), "useAntilag");
-	let FlatList: unknown = luaProp(kit("LayoutKit", "virtualizedList"), "FlatList");
 	let _motion: unknown = kit("MotionKit", "motion");
 	let useEntrance: unknown = luaProp(_motion, "useEntrance");
 	let useFlipperSpring: unknown = luaProp(_motion, "useFlipperSpring");
@@ -66,6 +65,8 @@ function __member(): unknown {
 	let Browse: unknown = mod("BrowseKit");
 	let CHAPTER_ROW_H: unknown = 60;
 	let CHAPTER_ROW_GAP: unknown = 8;
+	const CHAPTER_CARD_H = 124;
+	const CHAPTER_GRID_GAP = 12;
 	let CHAPTER_ROW_STRIDE: unknown = ((CHAPTER_ROW_H as unknown as number) + (CHAPTER_ROW_GAP as unknown as number));
 	function illuminate(text?: unknown, accent?: unknown): unknown | undefined {
 		let rgb: unknown = `${(math.floor as unknown as (...a: unknown[]) => unknown)(((luaProp(accent, "R") as unknown as number) * (255 as unknown as number)))},${(math.floor as unknown as (...a: unknown[]) => unknown)(((luaProp(accent, "G") as unknown as number) * (255 as unknown as number)))},${(math.floor as unknown as (...a: unknown[]) => unknown)(((luaProp(accent, "B") as unknown as number) * (255 as unknown as number)))}`;
@@ -156,8 +157,9 @@ function __member(): unknown {
 		const chapterNo = tostring(luaProp(entry, "Chapter") ?? "");
 		const chipText = !luaTruthy(open) ? `${math.floor(luaProp(chapter, "Progress") as number)} of ${luaProp(chapter, "Target") as number}` : luaTruthy(done) ? "Done" : "New";
 		const chipOn = luaTruthy(open);
+		const grid = luaProp(_param, "grid") === true;
 		return React.createElement("textbutton", {
-			Size: new UDim2(1, -4, 0, CHAPTER_ROW_H as number), BackgroundColor3: P.white, BorderSizePixel: 0, Text: "", AutoButtonColor: false, Active: true, Selectable: true, LayoutOrder: layoutOrder as number,
+			Size: grid ? UDim2.fromScale(1, 1) : new UDim2(1, -4, 0, CHAPTER_ROW_H as number), BackgroundColor3: P.white, BorderSizePixel: 0, Text: "", AutoButtonColor: false, Active: true, Selectable: true, LayoutOrder: layoutOrder as number,
 			Event: {
 				Activated: () => {
 					if (luaTruthy(open)) {
@@ -176,7 +178,8 @@ function __member(): unknown {
 			luaTruthy(selected) ? React.createElement("uistroke", { Color: P.mango, Thickness: 2, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }) : undefined,
 			React.createElement("textlabel", { Text: chapterNo, FontFace: NUM, TextSize: 18, TextColor3: luaTruthy(open) ? P.mango : P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(14, 8), Size: UDim2.fromOffset(28, 22) }),
 			React.createElement("textlabel", { Text: tostring(luaProp(entry, "Title") ?? ""), FontFace: TITLE_FACE, TextSize: 18, TextColor3: luaTruthy(open) ? P.cream : P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(46, 8), Size: new UDim2(1, -60, 0, 22) }),
-			React.createElement("frame", { Position: UDim2.fromOffset(14, 34), Size: UDim2.fromOffset(0, 18), AutomaticSize: Enum.AutomaticSize.X, BackgroundColor3: chipOn ? P.mango : P.white, BackgroundTransparency: chipOn ? 0.8 : 0.95, BorderSizePixel: 0 },
+			grid ? React.createElement("textlabel", { Text: tostring(luaProp(entry, "Summary") ?? ""), FontFace: BODY, TextSize: 14, TextColor3: P.creamSoft, BackgroundTransparency: 1, TextWrapped: true, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, TextYAlignment: Enum.TextYAlignment.Top, Position: UDim2.fromOffset(14, 38), Size: new UDim2(1, -28, 0, 38) }) : undefined,
+			React.createElement("frame", { Position: grid ? new UDim2(0, 14, 1, -34) : UDim2.fromOffset(14, 34), Size: UDim2.fromOffset(0, grid ? 22 : 18), AutomaticSize: Enum.AutomaticSize.X, BackgroundColor3: chipOn ? P.mango : P.white, BackgroundTransparency: chipOn ? 0.8 : 0.95, BorderSizePixel: 0 },
 				React.createElement("uicorner", { CornerRadius: new UDim(0, 6) }),
 				React.createElement("uistroke", { Color: chipOn ? P.mango : P.white, Transparency: chipOn ? 0.4 : 0.9, Thickness: 1 }),
 				React.createElement("uipadding", { PaddingLeft: new UDim(0, 8), PaddingRight: new UDim(0, 8) }),
@@ -516,7 +519,7 @@ function __member(): unknown {
 		let readingMobile: unknown = ((luaTruthy(stack ) ?  started : stack));
 		let markH: unknown = (luaTruthy(readingMobile) ? 0 : ((luaTruthy(stack) ? ((luaTruthy(luaProp(chrome, "landscape")) ? 0 : 68)) : 76)));
 		let railGap: unknown = 14;
-		let railShare: unknown = 0.26;
+		let railShare: unknown = 0.58;
 		let chapterCount: unknown = len(chapters);
 		let unlockedCount: unknown = 0;
 		let claimedCount: unknown = 0;
@@ -570,18 +573,19 @@ function __member(): unknown {
 				_condition_2 = reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, (-(railListTop as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, railListTop), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Text, { value: "CHAPTERS", size: 10, color: luaProp(Palette, "muted"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 16), transparency: colon(archiveReveal).map(function(this: void, amount?: unknown): unknown | undefined {
 					return ((1 as unknown as number) - (amount as unknown as number));
 					return undefined;
-				}) }), reactLoose.createElement(SearchField, { value: luaProp(chapterBrowse, "query"), onChange: luaProp(chapterBrowse, "setQuery"), placeholder: "Search chapters", accent: luaProp(story, "Color"), reducedMotion: softMotion, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, TapTarget), zIndex: 12 }), reactLoose.createElement(luaProp(Browse, "ChipRow"), { options: luaProp(chapterBrowse, "categories"), value: luaProp(chapterBrowse, "category"), onChange: luaProp(chapterBrowse, "setCategory"), counts: luaProp(chapterBrowse, "counts"), accent: luaProp(story, "Color"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((((20 as unknown as number) + (TapTarget as unknown as number)) as unknown as number) + (8 as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, luaProp(Browse, "CHIP_H")) }), ((len(railChapters) === 0) && reactLoose.createElement("frame", { BackgroundTransparency: 1, BorderSizePixel: 0, Position: luaCall(luaProp(UDim2, "fromOffset"), 0, railHeaderH), Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 112) }, reactLoose.createElement(EmptyState, { icon: "Story", title: "No chapters match", body: "Clear the search or pick another filter.", accent: luaProp(story, "Color"), compact: true, size: luaCall(luaProp(UDim2, "fromScale"), 1, 1) }))), reactLoose.createElement(FlatList, { data: railChapters, itemHeight: CHAPTER_ROW_STRIDE, headerHeight: 0, overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 8, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, (-(railHeaderH as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, railHeaderH), scrollBarColor: luaProp(story, "Color"), scrollBarThickness: 3, keyExtractor: function(this: void, item?: unknown): unknown | undefined {
-					return luaProp(luaProp(item, "chapter"), "Id");
-					return undefined;
-				}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
-					let item: unknown = luaProp(_param_1, "item");
-					let index: unknown = luaProp(_param_1, "index");
-					return reactLoose.createElement(ChapterRailRow, { chapter: luaProp(item, "chapter"), entry: luaProp(item, "entry"), selected: (luaProp(luaProp(item, "chapter"), "Id") === luaProp(status, "Id")), onSelect: function(this: void): unknown | undefined {
-						return luaCall(selectChapter, luaProp(luaProp(item, "chapter"), "Id"));
-						return undefined;
-					}, layoutOrder: index });
-					return undefined;
-				} }));
+				}) }), reactLoose.createElement(SearchField, { value: luaProp(chapterBrowse, "query"), onChange: luaProp(chapterBrowse, "setQuery"), placeholder: "Search chapters", accent: luaProp(story, "Color"), reducedMotion: softMotion, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, TapTarget), zIndex: 12 }), reactLoose.createElement(luaProp(Browse, "ChipRow"), { options: luaProp(chapterBrowse, "categories"), value: luaProp(chapterBrowse, "category"), onChange: luaProp(chapterBrowse, "setCategory"), counts: luaProp(chapterBrowse, "counts"), accent: luaProp(story, "Color"), position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((((20 as unknown as number) + (TapTarget as unknown as number)) as unknown as number) + (8 as unknown as number))), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, luaProp(Browse, "CHIP_H")) }), ((len(railChapters) === 0) && reactLoose.createElement("frame", { BackgroundTransparency: 1, BorderSizePixel: 0, Position: luaCall(luaProp(UDim2, "fromOffset"), 0, railHeaderH), Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 112) }, reactLoose.createElement(EmptyState, { icon: "Story", title: "No chapters match", body: "Clear the search or pick another filter.", accent: luaProp(story, "Color"), compact: true, size: luaCall(luaProp(UDim2, "fromScale"), 1, 1) }))), React.createElement("scrollingframe", {
+					// design/19-journal: chapters as a 3-column grid of page cards
+					Size: new UDim2(1, 0, 1, -(railHeaderH as number)), Position: UDim2.fromOffset(0, railHeaderH as number), BackgroundTransparency: 1, BorderSizePixel: 0,
+					CanvasSize: new UDim2(), AutomaticCanvasSize: Enum.AutomaticSize.Y, ScrollingDirection: Enum.ScrollingDirection.Y, ScrollBarThickness: 3, ScrollBarImageColor3: (Palette as Record<string, Color3>).mango, ElasticBehavior: Enum.ElasticBehavior.Never,
+				},
+					React.createElement("uigridlayout", { CellSize: new UDim2(1 / 3, -CHAPTER_GRID_GAP, 0, CHAPTER_CARD_H), CellPadding: UDim2.fromOffset(CHAPTER_GRID_GAP, CHAPTER_GRID_GAP), SortOrder: Enum.SortOrder.LayoutOrder, FillDirectionMaxCells: 3 }),
+					React.createElement("uipadding", { PaddingBottom: new UDim(0, 8), PaddingRight: new UDim(0, 6) }),
+					...(railChapters as { chapter: unknown; entry: unknown }[]).map((item, index) =>
+						reactLoose.createElement(ChapterRailRow, { key: tostring(luaProp(item.chapter, "Id")), chapter: item.chapter, entry: item.entry, grid: true, selected: (luaProp(item.chapter, "Id") === luaProp(status, "Id")), onSelect: function(this: void): unknown | undefined {
+							return luaCall(selectChapter, luaProp(item.chapter, "Id"));
+						}, layoutOrder: index }) as React.Element,
+					),
+				));
 			}
 			_condition_1 = reactLoose.createElement("frame", { Size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, markH) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(railShare, (((-(railGap as unknown as number)) as unknown as number) / (2 as unknown as number)), 1, 0)), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, _exp_2, _condition_2, (((!luaTruthy(stack)) && (!luaTruthy(multi))) && reactLoose.createElement(ArchiveMark, { accent: luaProp(story, "Color"), active: started, reducedMotion: softMotion, beat: beat, total: len(luaProp(story, "Body")), compact: false, finished: finished, unlocked: luaProp(status, "Unlocked"), unlockProgress: unlockFill, unlockLabel: unlockLabel, reward: luaCall(formatReward, luaProp(story, "Reward")), claimed: luaProp(status, "Claimed") })));
 		}
