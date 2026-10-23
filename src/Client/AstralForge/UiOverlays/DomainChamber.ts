@@ -1,4 +1,5 @@
 import { useFocusOrder } from "../CoreKit/focusOrder";
+import { SEC } from "../pages/mockRows";
 // (ZIndex 600+: the main screen sorts globally and the chamber has to sit over the whole shell)
 // The Domain, one screen: the lattice on the left, and on the right whatever you're doing with it.
 //   mode "lattice": etch links between anchors, read what the lattice gives, clear it once per rank
@@ -1084,7 +1085,7 @@ function DomainChamber(props: ChamberProps) {
 				h(Button, {
 					text: action.text,
 					onClick: action.onClick,
-					color: action.primary ? Palette.mango : Palette.panelSoft,
+					color: action.primary ? Palette.mango : SEC,
 					textColor: action.primary ? Palette.ink : Palette.cream,
 					size: UDim2.fromScale(1, 1),
 					disabled: action.disabled,
@@ -1118,13 +1119,14 @@ function DomainChamber(props: ChamberProps) {
 			BorderSizePixel: 0,
 			ZIndex: 630,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 18) }),
-		h("uistroke", { Color: Palette.lineSoft, Transparency: 0.25 }),
+		// af.css .pn: 16px radius, faint white rim
+		h("uicorner", { CornerRadius: new UDim(0, 16) }),
+		h("uistroke", { Color: Palette.white, Transparency: 0.9 }),
 		// forge card treatment: 1px brass inner rule 3px inside the edge (the padding is undone so it hugs the edge)
 		h(
 			"frame",
 			{ Name: "BrassRule", Size: new UDim2(1, panelPad * 2 - 6, 1, panelPad * 2 - 6), Position: UDim2.fromOffset(3 - panelPad, 3 - panelPad), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false, ZIndex: 630 },
-			h("uicorner", { CornerRadius: new UDim(0, 15) }),
+			h("uicorner", { CornerRadius: new UDim(0, 13) }),
 			h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 }),
 		),
 		h("uipadding", {
@@ -1142,8 +1144,8 @@ function DomainChamber(props: ChamberProps) {
 						props.onClose();
 					}
 				},
-				color: Palette.ink,
-				textColor: Palette.coral,
+				color: SEC,
+				textColor: Palette.cream,
 				size: UDim2.fromOffset(TapTarget, TapTarget),
 				position: new UDim2(1, -TapTarget, 0, -4),
 				zIndex: 634,

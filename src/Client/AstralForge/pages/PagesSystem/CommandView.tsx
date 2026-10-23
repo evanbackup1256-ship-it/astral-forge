@@ -323,7 +323,7 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 			/>
 			{props.unlocked && !props.equipped ? (
 				<Button
-					text="EQUIP CREST"
+					text="Equip crest"
 					icon="Loadout.5"
 					onClick={equip}
 					color={accent}
@@ -890,7 +890,7 @@ function CommandViewReady(props: CommandProps) {
 		) : (
 			<>
 				<Badge
-					value="TEMPORARILY CLOSED"
+					value="Temporarily closed"
 					accent={Palette.muted}
 					size={UDim2.fromOffset(CLOSED_BADGE_W, 26)}
 					position={closedBadgeOwnLine ? UDim2.fromOffset(0, 30) : new UDim2(1, -CLOSED_BADGE_W, 0, 0)}
@@ -908,10 +908,10 @@ function CommandViewReady(props: CommandProps) {
 			</>
 		);
 		const heroPanel = (
-				<Panel radius={18} rule={true}
+				<Panel radius={16} rule={true}
 					size={new UDim2(1, 0, 0, heroH)}
 					accent={Palette.cyan}
-					background={Palette.panelRaised}
+					background={Palette.panel}
 					padding={16}
 					layoutOrder={nextOrder()}
 					reducedMotion={softMotion}
@@ -1005,7 +1005,7 @@ function CommandViewReady(props: CommandProps) {
 				</Panel>
 		);
 		const weeklyPanel = (
-				<Panel radius={18} rule={true}
+				<Panel radius={16} rule={true}
 					size={new UDim2(1, 0, 0, weeklyH)}
 					accent={Palette.green}
 					background={Palette.panel}
@@ -1028,7 +1028,7 @@ function CommandViewReady(props: CommandProps) {
 				</Panel>
 		);
 		const crewPanel = (
-				<Panel radius={18} rule={true} size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
+				<Panel radius={16} rule={true} size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<frame
 						Size={new UDim2(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap)}
@@ -1043,7 +1043,7 @@ function CommandViewReady(props: CommandProps) {
 				</Panel>
 		);
 		const titlesPanel = (
-				<Panel radius={18} rule={true}
+				<Panel radius={16} rule={true}
 					size={new UDim2(1, 0, 0, titlesH)}
 					accent={titlesEnabled ? Palette.violet : Palette.muted}
 					background={Palette.panel}
@@ -1056,7 +1056,7 @@ function CommandViewReady(props: CommandProps) {
 				</Panel>
 		);
 		const stylePanel = (
-				<Panel radius={18} rule={true}
+				<Panel radius={16} rule={true}
 					size={new UDim2(1, 0, 0, styleH)}
 					accent={Palette.cyan}
 					background={Palette.panel}
@@ -1075,7 +1075,7 @@ function CommandViewReady(props: CommandProps) {
 				</Panel>
 		);
 		const shopPanel = (
-				<Panel radius={18} rule={true} size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
+				<Panel radius={16} rule={true} size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text
 						value={`Signal shop · ${compactNumber(command.Signals)} ready`}
 						size={18}
@@ -1144,7 +1144,7 @@ function CommandViewReady(props: CommandProps) {
 				</Panel>
 		);
 		const masteryPanel = (
-				<Panel radius={18} rule={true} size={new UDim2(1, 0, 0, masteryH)} accent={Palette.blue} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
+				<Panel radius={16} rule={true} size={new UDim2(1, 0, 0, masteryH)} accent={Palette.blue} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text value="Machine mastery" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={14} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<VirtualGrid
 						scrollRef={scrollRef}
@@ -1179,7 +1179,7 @@ function CommandViewReady(props: CommandProps) {
 										position={UDim2.fromOffset(8, 6)}
 										sizeConstraint={new UDim2(1, -70, 0, 18)}
 									/>
-									<Badge value={`RANK ${rank}`} accent={machine.Color} filled={true} position={new UDim2(1, -58, 0, 6)} size={UDim2.fromOffset(48, 20)} />
+									<Badge value={`Rank ${rank}`} accent={machine.Color} filled={true} position={new UDim2(1, -58, 0, 6)} size={UDim2.fromOffset(48, 20)} />
 									<Meter value={fill} color={machine.Color} reducedMotion={reducedMotion} position={UDim2.fromOffset(8, 34)} size={new UDim2(1, -16, 0, 6)} />
 									<Text
 										value={`${compactNumber(mastery)} built`}
@@ -1265,10 +1265,10 @@ function CommandViewReady(props: CommandProps) {
 	if (tab === "Expeditions") {
 		expeditionsPane = (
 			<TabPane tabKey="Expeditions" reducedMotion={reducedMotion}>
-				<Panel radius={18} rule={true}
+				<Panel radius={16} rule={true}
 					size={new UDim2(1, 0, 0, expeditionHeroH)}
 					accent={expeditionReady ? Palette.green : Palette.cyan}
-					background={Palette.panelRaised}
+					background={Palette.panel}
 					padding={14}
 					layoutOrder={nextOrder()}
 					reducedMotion={reducedMotion}
@@ -1377,7 +1377,7 @@ function CommandViewReady(props: CommandProps) {
 						const can = !locked && !busy;
 						const pilot = command.Crew.Pilot ?? 1;
 						return (
-							<Panel radius={18} rule={true}
+							<Panel radius={16} rule={true}
 								size={new UDim2(1, 0, 0, expeditionRowH)}
 								accent={expedition.Color}
 								background={Palette.panel}
@@ -1390,7 +1390,7 @@ function CommandViewReady(props: CommandProps) {
 									kind={artifactIcon(expedition.ArtifactId ?? expedition.Id)}
 									accent={expedition.Color}
 									size={46}
-									radius={18}
+									radius={16}
 									position={UDim2.fromOffset(0, tripStack ? 6 : 18)}
 									reducedMotion={reducedMotion}
 								/>
@@ -1447,10 +1447,10 @@ function CommandViewReady(props: CommandProps) {
 
 	const artifactsPane = tab === "Artifacts" && (
 		<TabPane tabKey="Artifacts" reducedMotion={reducedMotion}>
-			<Panel radius={18} rule={true}
+			<Panel radius={16} rule={true}
 				size={new UDim2(1, 0, 0, artifactHeroH)}
 				accent={Palette.violet}
-				background={Palette.panelRaised}
+				background={Palette.panel}
 				padding={14}
 				layoutOrder={nextOrder()}
 				reducedMotion={reducedMotion}
@@ -1504,10 +1504,10 @@ function CommandViewReady(props: CommandProps) {
 					const canUpgrade =
 						owned !== undefined && owned.Level < 10 && owned.Fragments >= fragmentCost && gteFlux(state.Stardust as Flux, dustCost);
 					return (
-						<Panel radius={18} rule={true}
+						<Panel radius={16} rule={true}
 							size={new UDim2(1, 0, 0, artifactRowH)}
 							accent={owned ? artifact.Color : Palette.lineSoft}
-							background={owned ? Palette.panel : Palette.panelSoft}
+							background={Palette.panel}
 							padding={14}
 							reducedMotion={reducedMotion}
 						>
@@ -1612,10 +1612,10 @@ function CommandViewReady(props: CommandProps) {
 
 	const seasonPane = tab === "Season" && (
 		<TabPane tabKey="Season" reducedMotion={reducedMotion}>
-			<Panel radius={18} rule={true}
+			<Panel radius={16} rule={true}
 				size={new UDim2(1, 0, 0, seasonHeroH)}
 				accent={Palette.mango}
-				background={Palette.panelRaised}
+				background={Palette.panel}
 				padding={20}
 				layoutOrder={nextOrder()}
 				reducedMotion={reducedMotion}
@@ -1708,10 +1708,10 @@ function CommandViewReady(props: CommandProps) {
 						</>
 					);
 					return (
-						<Panel radius={18} rule={true}
+						<Panel radius={16} rule={true}
 							size={new UDim2(1, 0, 0, seasonRowH)}
 							accent={major ? Palette.mango : unlocked ? Palette.green : Palette.lineSoft}
-							background={major ? Palette.panelRaised : Palette.panel}
+							background={Palette.panel}
 							padding={18}
 							reducedMotion={reducedMotion}
 						>

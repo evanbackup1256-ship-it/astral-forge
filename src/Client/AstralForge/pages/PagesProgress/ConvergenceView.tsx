@@ -1,4 +1,6 @@
 import React from "@rbxts/react";
+import { Chip, spaced } from "../../UiCore/mockKit";
+import { SEC } from "../mockRows";
 import { clockText, compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { chromeFor, Palette, scrollTail } from "../../CoreKit/theme";
@@ -7,7 +9,7 @@ import { loadPageScaffold, loadUi, named } from "../luauDeps";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 
 const UserInputService = game.GetService("UserInputService");
-const { Badge, Button, Meter, Panel, SectionLabel, Text } = loadUi();
+const { Button, Meter, Panel, SectionLabel, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 
 const SECTION_LABEL_H = 28;
@@ -96,17 +98,17 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 		};
 	}, [firstClaimTier, event.EventId]);
 	const heroPanel = (
-		<Panel radius={18} rule={true}
+		<Panel radius={16} rule={true}
 			size={UDim2.fromScale(1, 1)}
-			accent={Palette.mango}
-			background={Palette.panelRaised}
-			padding={16}
+			accent={Palette.brass}
+			background={Palette.panel}
+			padding={18}
 			reveal={reveal}
 			reducedMotion={softMotion}
 			clips={false}
 		>
 			<Text
-				value="WEEKLY COOPERATIVE EVENT"
+				value={spaced("WEEKLY COOPERATIVE EVENT")}
 				size={10}
 				color={Palette.mango}
 				weight={Enum.FontWeight.Heavy}
@@ -129,9 +131,11 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				position={UDim2.fromOffset(0, 68)}
 				sizeConstraint={new UDim2(1, -8, 0, 38)}
 			/>
-			<Badge value={event.PhaseName} accent={Palette.mango} filled={true} position={new UDim2(0, 0, 1, -68)} size={UDim2.fromOffset(112, 28)} />
+			<frame Size={UDim2.fromOffset(0, 28)} AutomaticSize={Enum.AutomaticSize.X} Position={new UDim2(0, 0, 1, -68)} BackgroundTransparency={1}>
+				<Chip text={event.PhaseName} accent={Palette.mango} />
+			</frame>
 			<Text
-				value={now.map((timestamp) => `${clockText(math.max(0, event.EndsAt - timestamp))} LEFT`)}
+				value={now.map((timestamp) => `${clockText(math.max(0, event.EndsAt - timestamp))} left`)}
 				size={10}
 				color={Palette.muted}
 				weight={Enum.FontWeight.Bold}
@@ -149,7 +153,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				reducedMotion={softMotion}
 			/>
 			<Text
-				value={`${compactNumber(event.GlobalContribution)} / ${compactNumber(event.GlobalTarget)}  •  ${string.format("%.2fx", event.ProductionMultiplier)} PRODUCTION`}
+				value={`${compactNumber(event.GlobalContribution)} / ${compactNumber(event.GlobalTarget)}  •  ${string.format("%.2fx", event.ProductionMultiplier)} production`}
 				size={10}
 				color={Palette.creamSoft}
 				fit={true}
@@ -161,13 +165,14 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 	);
 	const tierPanels = tiers.map((tier, index) => {
 		const progress = math.clamp(event.PersonalContribution / math.max(1, tier.Required), 0, 1);
-		const buttonColor = tier.CanClaim ? Palette.mint : tier.Claimed ? Palette.panelSoft : Palette.violet;
+		const buttonColor = tier.CanClaim ? Palette.mint : tier.Claimed ? SEC : Palette.violet;
 		const tierReveal = tier.CanClaim ? revealClaim : revealTiers;
 		return (
-			<Panel radius={18} rule={true}
+			<Panel radius={16} rule={true}
 				key={`tier-${tier.Tier}`}
 				size={new UDim2(1, 0, 0, tierHeight)}
-				accent={tier.CanClaim ? Palette.mint : Palette.violet}
+				accent={tier.CanClaim ? Palette.mint : Palette.brass}
+				background={Palette.panel}
 				padding={13}
 				layoutOrder={index}
 				reveal={tierReveal}
@@ -176,7 +181,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				clips={false}
 			>
 				<Text
-					value={`TIER ${tier.Tier}  •  ${compactNumber(event.PersonalContribution)} / ${compactNumber(tier.Required)}`}
+					value={`Tier ${tier.Tier}  ·  ${compactNumber(event.PersonalContribution)} / ${compactNumber(tier.Required)}`}
 					size={11}
 					color={tier.CanClaim ? Palette.mint : Palette.creamSoft}
 					weight={Enum.FontWeight.Heavy}
@@ -211,7 +216,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 					ref={tier.Tier === firstClaimTier ? claimHostRef : undefined}
 				>
 					<Button
-						text={tier.Claimed ? "CLAIMED" : tier.CanClaim ? "CLAIM" : "LOCKED"}
+						text={tier.Claimed ? "Claimed" : tier.CanClaim ? "Claim" : "Locked"}
 						icon={tier.Claimed ? "Check.9" : "Gift.8"}
 						onClick={() => {
 							if (tier.CanClaim) {
@@ -286,15 +291,15 @@ function ConvergenceView(props: ConvergenceViewProps) {
 	const convergenceSoft = softMotion === true || revealHero === undefined || revealFill === undefined;
 	if (event === undefined) {
 		return (
-			<Panel radius={18} rule={true}
+			<Panel radius={16} rule={true}
 				size={UDim2.fromScale(1, 1)}
-				accent={Palette.mango}
-				padding={22}
+				accent={Palette.brass}
+				padding={18}
 				reveal={softMotion ? revealHero : enter}
 				highlight={!convergenceSoft}
 				reducedMotion={softMotion}
 			>
-				<Text value="FORGE CONVERGENCE" size={26} weight={Enum.FontWeight.Heavy} />
+				<Text value="Forge Convergence" size={26} weight={Enum.FontWeight.Heavy} />
 				<Text
 					value="Getting this week's shared forge ready…"
 					size={12}
