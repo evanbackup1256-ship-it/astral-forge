@@ -5,10 +5,6 @@ import { Rect } from "./geom";
 import { clusterByGap } from "./metrics";
 import { GNode, Snapshot } from "./types";
 
-export function nodeOf(snap: Snapshot, id: number): GNode | undefined {
-	return snap.byId.get(id);
-}
-
 export function isAncestor(snap: Snapshot, ancestor: number, id: number): boolean {
 	let current = snap.byId.get(id);
 	while (current !== undefined && current.parent >= 0) {
@@ -20,22 +16,6 @@ export function isAncestor(snap: Snapshot, ancestor: number, id: number): boolea
 
 export function related(snap: Snapshot, a: number, b: number): boolean {
 	return a === b || isAncestor(snap, a, b) || isAncestor(snap, b, a);
-}
-
-/** Lowest common ancestor id, or -1 when the nodes are in different layers. */
-export function commonAncestor(snap: Snapshot, a: number, b: number): number {
-	const seen = new Set<number>();
-	let current = snap.byId.get(a);
-	while (current !== undefined) {
-		seen.add(current.id);
-		current = current.parent >= 0 ? snap.byId.get(current.parent) : undefined;
-	}
-	current = snap.byId.get(b);
-	while (current !== undefined) {
-		if (seen.has(current.id)) return current.id;
-		current = current.parent >= 0 ? snap.byId.get(current.parent) : undefined;
-	}
-	return -1;
 }
 
 /**
@@ -135,13 +115,4 @@ export function readingOrder(nodes: ReadonlyArray<GNode>): number[] {
 		for (const m of members) out.push(m.id);
 	}
 	return out;
-}
-
-/** True when a node or any ancestor is a floating layer (LayoutFloating). */
-export function floatingRoot(n: GNode): number {
-	return n.floating;
-}
-
-export function shortName(n: GNode): string {
-	return n.path;
 }

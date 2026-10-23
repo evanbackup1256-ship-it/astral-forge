@@ -210,27 +210,3 @@ export function offsetForTopLeft(spec: ElementSpec, content: Rect, desiredTopLef
 		yo: math.round(anchorY - spec.position.ys * ph),
 	};
 }
-
-/** UIStroke with ApplyStrokeMode Border grows the drawn box outward by its thickness. */
-export function strokeOutset(thickness: number, borderMode: boolean): Insets {
-	const t = borderMode ? math.max(0, thickness) : 0;
-	return { left: t, top: t, right: t, bottom: t };
-}
-
-/** UICorner radius in pixels: scale resolves against the smaller side, capped at half of it. */
-export function cornerRadius(radius: UDimV, w: number, h: number): number {
-	const side = math.min(w, h);
-	return math.clamp(radius.scale * side + radius.offset, 0, side / 2);
-}
-
-/**
- * Hit area of a rounded rect as a share of its bounding box: corners cut (4 - pi) r^2.
- * Used for touch-target estimation on pill buttons.
- */
-export function roundedAreaShare(w: number, h: number, r: number): number {
-	const a = w * h;
-	if (a <= 0) {
-		return 0;
-	}
-	return (a - (4 - math.pi) * r * r) / a;
-}

@@ -83,8 +83,3 @@ export function measure(text: string, size: number, font: string, maxWidth: numb
 	cacheSize += 1;
 	return m;
 }
-
-export function clearMeasureCache() {
-	cache.clear();
-	cacheSize = 0;
-}

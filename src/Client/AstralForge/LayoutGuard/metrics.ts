@@ -75,20 +75,6 @@ export function gini(values: ReadonlyArray<number>): number {
 	return (2 * weighted) / (n * total) - (n + 1) / n;
 }
 
-/** Shannon entropy (bits) of a histogram, normalised to [0, 1] by log2(bins). */
-export function normalizedEntropy(counts: ReadonlyArray<number>): number {
-	const total = sum(counts);
-	if (total <= 0 || counts.size() < 2) return 0;
-	let h = 0;
-	for (const c of counts) {
-		if (c > 0) {
-			const p = c / total;
-			h -= p * (math.log(p) / math.log(2));
-		}
-	}
-	return h / (math.log(counts.size()) / math.log(2));
-}
-
 // ---------------------------------------------------------------------------------------------
 // 1-D clustering
 
@@ -338,27 +324,6 @@ export function largestEmptyRect(r: Raster): Rect {
 	};
 }
 
-/** Per-cell density heat (0..1) on a coarse grid: share of each cell covered by any rect. */
-export function densityGrid(container: Rect, rects: ReadonlyArray<Rect>, cols: number, rows: number): number[] {
-	const out: number[] = [];
-	const cw = (container.x1 - container.x0) / cols;
-	const ch = (container.y1 - container.y0) / rows;
-	for (let y = 0; y < rows; y++) {
-		for (let x = 0; x < cols; x++) {
-			const cellRect = {
-				x0: container.x0 + x * cw,
-				y0: container.y0 + y * ch,
-				x1: container.x0 + (x + 1) * cw,
-				y1: container.y0 + (y + 1) * ch,
-			};
-			let covered = 0;
-			for (const r of rects) covered += area(intersect(r, cellRect));
-			out.push(math.clamp(covered / math.max(1, cw * ch), 0, 1));
-		}
-	}
-	return out;
-}
-
 // ---------------------------------------------------------------------------------------------
 // Columns
 
@@ -455,9 +420,4 @@ export function lisLength(values: ReadonlyArray<number>): number {
 		else tails[lo] = v;
 	}
 	return tails.size();
-}
-
-/** Exponential moving average helper for learning per-signature defect rates. */
-export function ema(previous: number, sample: number, alpha: number): number {
-	return previous + (sample - previous) * alpha;
 }

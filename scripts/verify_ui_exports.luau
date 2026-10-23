@@ -56,7 +56,6 @@ local ALLOWED: { [string]: string } = {
 	["UiCore/primitives.tsx:UiChips"] = "UiCore primitive kit (uicore revamp)",
 	["UiCore/primitives.tsx:UiList"] = "UiCore primitive kit (uicore revamp)",
 	["UiCore/primitives.tsx:UiGrid"] = "UiCore primitive kit (uicore revamp)",
-	["UiCore/primitives.tsx:UiModal"] = "UiCore primitive kit (uicore revamp)",
 	["UiCore/tooltip/content.ts:contentKey"] = "tooltip content identity for callers that cache tips",
 	["UiOverlays/ConfirmDialog.tsx:pendingConfirms"] = "confirm queue inspection API",
 }

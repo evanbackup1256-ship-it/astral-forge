@@ -40,10 +40,6 @@ export function fromPosSize(x: number, y: number, w: number, h: number): Rect {
 	return { x0: x, y0: y, x1: x + w, y1: y + h };
 }
 
-export function fromCenter(cx: number, cy: number, w: number, h: number): Rect {
-	return { x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 };
-}
-
 export function width(r: Rect): number {
 	return math.max(0, r.x1 - r.x0);
 }
@@ -108,17 +104,6 @@ export function bounds(a: Rect, b: Rect): Rect {
 	return { x0: math.min(a.x0, b.x0), y0: math.min(a.y0, b.y0), x1: math.max(a.x1, b.x1), y1: math.max(a.y1, b.y1) };
 }
 
-export function boundsOf(rects: ReadonlyArray<Rect>): Rect {
-	if (rects.size() === 0) {
-		return EMPTY;
-	}
-	let out = rects[0];
-	for (let i = 1; i < rects.size(); i++) {
-		out = bounds(out, rects[i]);
-	}
-	return out;
-}
-
 export function contains(outer: Rect, inner: Rect, slop = 0): boolean {
 	return inner.x0 >= outer.x0 - slop && inner.y0 >= outer.y0 - slop && inner.x1 <= outer.x1 + slop && inner.y1 <= outer.y1 + slop;
 }
@@ -158,26 +143,12 @@ export function outset(r: Rect, i: Insets): Rect {
 	return { x0: r.x0 - i.left, y0: r.y0 - i.top, x1: r.x1 + i.right, y1: r.y1 + i.bottom };
 }
 
-export function addInsets(a: Insets, b: Insets): Insets {
-	return { left: a.left + b.left, top: a.top + b.top, right: a.right + b.right, bottom: a.bottom + b.bottom };
-}
-
 export function maxInsets(a: Insets, b: Insets): Insets {
 	return {
 		left: math.max(a.left, b.left),
 		top: math.max(a.top, b.top),
 		right: math.max(a.right, b.right),
 		bottom: math.max(a.bottom, b.bottom),
-	};
-}
-
-/** Scales a rect about a pivot point (UIScale scales about the element's anchor point). */
-export function scaleAbout(r: Rect, pivot: Vec, s: number): Rect {
-	return {
-		x0: pivot.x + (r.x0 - pivot.x) * s,
-		y0: pivot.y + (r.y0 - pivot.y) * s,
-		x1: pivot.x + (r.x1 - pivot.x) * s,
-		y1: pivot.y + (r.y1 - pivot.y) * s,
 	};
 }
 

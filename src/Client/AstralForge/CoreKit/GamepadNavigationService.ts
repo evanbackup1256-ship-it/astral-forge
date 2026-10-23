@@ -346,7 +346,3 @@ export function Stop() {
 	overlayFocusDepth = 0;
 	overlaySelectionStack.clear();
 }
-
-export function IsConsole(): boolean {
-	return isConsoleMode;
-}
