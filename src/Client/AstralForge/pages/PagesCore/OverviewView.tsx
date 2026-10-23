@@ -627,6 +627,66 @@ const COLUMN_PAIRS: [string, string][] = [
 // Places paired sections in two columns. A pair only forms when both halves have height; a lone
 // half stays full width. Children keep their own height (top aligned) because several panels
 // position their contents from that height.
+// landscape phones: hero (readout + CTAs) on the left 44%, notes / ops / rebirth / domain stacked on the right
+const PHONE_RIGHT_IDS = ["notes", "ops", "rebirth", "domain"];
+function phoneColumns(enabled: boolean, gap: number, sections: Section[]): Section[] {
+	if (!enabled) {
+		return sections;
+	}
+	const top = sections.find((section) => section.id === "top");
+	const right = sections.filter((section) => PHONE_RIGHT_IDS.includes(section.id) && (section.height ?? 0) > 0);
+	if (top === undefined || right.size() === 0) {
+		return sections;
+	}
+	let rightH = 0;
+	right.forEach((section, i) => {
+		rightH += (section.height ?? 0) + (i > 0 ? gap : 0);
+	});
+	const leftShare = 0.44;
+	const out: Section[] = [];
+	for (const section of sections) {
+		if (section.id === "top") {
+			let y = 0;
+			out.push({
+				id: "top-phone",
+				height: math.max(top.height ?? 0, rightH),
+				element: (
+					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+						<frame
+							{...named("OverviewColumn-top")}
+							Size={new UDim2(leftShare, -math.floor(gap / 2), 0, top.height ?? 0)}
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							ClipsDescendants={false}
+						>
+							{top.element}
+						</frame>
+						{right.map((card) => {
+							const cardY = y;
+							y += (card.height ?? 0) + gap;
+							return (
+								<frame
+									{...named(`OverviewColumn-${card.id}`)}
+									Size={new UDim2(1 - leftShare, -math.ceil(gap / 2), 0, card.height ?? 0)}
+									Position={new UDim2(leftShare, math.ceil(gap / 2), 0, cardY)}
+									BackgroundTransparency={1}
+									BorderSizePixel={0}
+									ClipsDescendants={false}
+								>
+									{card.element}
+								</frame>
+							);
+						})}
+					</frame>
+				),
+			});
+		} else if (!right.includes(section)) {
+			out.push(section);
+		}
+	}
+	return out;
+}
+
 function pairColumns(enabled: boolean, gap: number, sections: Section[]): Section[] {
 	if (!enabled) {
 		return sections;
@@ -995,7 +1055,7 @@ export function OverviewView({
 					tailPad={scrollTail(stack, chrome.bottomSafe, overviewTail)}
 					scrollBarColor={Palette.green}
 					scrollBarThickness={4}
-					sections={pairColumns(twoColumn, sectionGap, withReady(readySection, [
+					sections={phoneColumns(landscapePhone, sectionGap, pairColumns(twoColumn, sectionGap, withReady(readySection, [
 						{
 							id: "top",
 							height: topBandH,
@@ -2454,7 +2514,7 @@ export function OverviewView({
 								</Panel>
 							),
 						},
-					]))}
+					])))}
 				/>
 			</frame>
 		</frame>

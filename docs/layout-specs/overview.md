@@ -20,3 +20,8 @@ Landscape phone (844x390: 719 wide, 219 fold; 640x286: 588 wide):
 - Worlds: two columns on wide screens through SplitColumns; taglines are already tooltips; locked rows use a requirement colour on the button.
   The current-world hero split (forge-ui-5 R1/R2) is a follow-up.
 - Workshop: the wide tool column landed in look-prog (2a9b0177). No change in this batch.
+
+## Landscape phones: two columns (P2)
+- Left 44%: the top band (hero readout, CTAs, metrics row). Right 56%: notes, ops, rebirth, domain stacked with the section gap.
+- Section height = max(top, right stack); journal / session / countdown stay full width below.
+- 844x390 (content 719): left ~312, right ~399. Notes start at y=0 instead of below the hero, so they sit above the 219 fold.
