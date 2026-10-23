@@ -120,30 +120,33 @@ export function GcRow(p: GcRowProps) {
 					<uistroke Color={p.ring} Thickness={2} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				</frame>
 			)}
-			<uipadding PaddingLeft={new UDim(0, p.phone ? 10 : 12)} PaddingRight={new UDim(0, p.phone ? 10 : 12)} />
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 12)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-			{p.lead}
-			{p.lead === undefined && p.icon !== undefined && <IconWell icon={p.icon} accent={accent} size={p.phone ? 30 : 36} layoutOrder={0} />}
-			<frame Size={new UDim2(0, p.titleWidth ?? 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				{p.titleWidth === undefined && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 2)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<Line text={p.title} size={p.phone ? 13 : 15} font={BODY_SEMI} width={new UDim(1, 0)} layoutOrder={0} />
-				{p.sub !== undefined && <Line text={p.sub} size={p.phone ? 11 : 12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} layoutOrder={1} />}
+			{/* content sits in its own frame so the highlight ring above is not stacked as a list item */}
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<uipadding PaddingLeft={new UDim(0, p.phone ? 10 : 12)} PaddingRight={new UDim(0, p.phone ? 10 : 12)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 12)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{p.lead}
+				{p.lead === undefined && p.icon !== undefined && <IconWell icon={p.icon} accent={accent} size={p.phone ? 30 : 36} layoutOrder={0} />}
+				<frame Size={new UDim2(0, p.titleWidth ?? 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					{p.titleWidth === undefined && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 2)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<Line text={p.title} size={p.phone ? 13 : 15} font={BODY_SEMI} width={new UDim(1, 0)} layoutOrder={0} />
+					{p.sub !== undefined && <Line text={p.sub} size={p.phone ? 11 : 12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} layoutOrder={1} />}
+				</frame>
+				{p.middle !== undefined && (
+					<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+						{p.middle}
+					</frame>
+				)}
+				{p.value !== undefined && <Line text={p.value} size={p.phone ? 15 : 17} font={p.valueFont ?? NUM} color={p.valueColor ?? accent} layoutOrder={3} />}
+				{p.right !== undefined && (
+					<frame Size={UDim2.fromOffset(0, h - 8)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+						{p.right}
+					</frame>
+				)}
 			</frame>
-			{p.middle !== undefined && (
-				<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
-					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-					{p.middle}
-				</frame>
-			)}
-			{p.value !== undefined && <Line text={p.value} size={p.phone ? 15 : 17} font={p.valueFont ?? NUM} color={p.valueColor ?? accent} layoutOrder={3} />}
-			{p.right !== undefined && (
-				<frame Size={UDim2.fromOffset(0, h - 8)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
-					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-					{p.right}
-				</frame>
-			)}
 		</frame>
 	);
 }

@@ -492,7 +492,7 @@ function OpsPanel(props: {
 			>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, OPS_GAP)} />
 				{rows.size() === 0 ? (
-					<Text value={props.empty} size={11} color={Palette.muted} position={UDim2.fromOffset(0, 6)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
+					<Text value={props.empty} size={11} color={Palette.muted} sizeConstraint={new UDim2(1, 0, 0, 18)} />
 				) : (
 					rows
 				)}

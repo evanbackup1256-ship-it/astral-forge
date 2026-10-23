@@ -85,17 +85,20 @@ function DayCell(p: {
 					<uistroke Color={Palette.mango} Thickness={2} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				</frame>
 			)}
-			<uipadding PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 8)} HorizontalAlignment={Enum.HorizontalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<Line text={`DAY ${p.day}`} size={11} color={Palette.muted} layoutOrder={0} />
-			<Glyph kind={rewardGlyph(p.reward)} size={20} color={p.today ? Palette.mango : Palette.cream} layoutOrder={1} />
-			<Line text={text !== "" ? text : "-"} size={15} font={BODY_BOLD} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
-			{p.claimed && <Glyph kind="Check" size={20} color={Palette.muted} layoutOrder={3} />}
-			{p.today && (
-				<frame Size={UDim2.fromOffset(0, 36)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} ref={p.claimRef}>
-					<Button text="Claim" onClick={p.claim} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, 36)} reducedMotion={p.reducedMotion} highlight={true} />
-				</frame>
-			)}
+			{/* content sits in its own frame so the highlight ring above is not stacked as a list item */}
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<uipadding PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 8)} HorizontalAlignment={Enum.HorizontalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={`DAY ${p.day}`} size={11} color={Palette.muted} layoutOrder={0} />
+				<Glyph kind={rewardGlyph(p.reward)} size={20} color={p.today ? Palette.mango : Palette.cream} layoutOrder={1} />
+				<Line text={text !== "" ? text : "-"} size={15} font={BODY_BOLD} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+				{p.claimed && <Glyph kind="Check" size={20} color={Palette.muted} layoutOrder={3} />}
+				{p.today && (
+					<frame Size={UDim2.fromOffset(0, 36)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} ref={p.claimRef}>
+						<Button text="Claim" onClick={p.claim} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, 36)} reducedMotion={p.reducedMotion} highlight={true} />
+					</frame>
+				)}
+			</frame>
 		</frame>
 	);
 }
