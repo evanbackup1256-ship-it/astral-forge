@@ -11,7 +11,6 @@ import { IconTile, Text } from "../../UiCore/ui";
 
 export const SPRITE_CARD_W = 104;
 export const SPRITE_CARD_H = 132;
-export const SPRITE_CARD_GAP = 10;
 
 export interface SpriteCardProps {
 	name: string;
@@ -30,11 +29,6 @@ export interface SpriteCardProps {
 	layoutOrder?: number;
 	onSelect?: () => void;
 	events?: Record<string, unknown>;
-}
-
-// how many cards fit across `width`, never fewer than `min`
-export function spriteCardColumns(width: number, min = 2, cardW = SPRITE_CARD_W, gap = SPRITE_CARD_GAP): number {
-	return math.max(min, math.floor((width + gap) / (cardW + gap)));
 }
 
 function sentence(value: string): string {
