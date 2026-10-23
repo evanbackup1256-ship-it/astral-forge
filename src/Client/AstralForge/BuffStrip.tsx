@@ -285,9 +285,7 @@ function Chip(props: ChipProps): React.Element {
 				BackgroundColor3: theme.darken(buff.color, 0.62),
 				BorderSizePixel: 0,
 				ZIndex: 21,
-				Position: props.clock!.map((t) => {
-					return new UDim2(0.5, 0, 0, 1 + math.sin(t * 2.2 + (props.order ?? 0) * 1.3) * 2);
-				}),
+				Position: new UDim2(0.5, 0, 0, 1), // icons hold still (ICON_MOTION)
 			},
 			h("uicorner", { CornerRadius: new UDim(0, 10) }),
 			h("uistroke", {
@@ -802,9 +800,7 @@ function CompactRow(props: CompactRowProps): React.Element {
 				accent: buff.color,
 				size: 18,
 				anchorPoint: new Vector2(0, 0.5),
-				position: props.clock.map((t) => {
-					return new UDim2(0, 0, 0.5, math.sin(t * 2.4 + index * 1.4) * 1.5);
-				}),
+				position: new UDim2(0, 0, 0.5, 0), // icons hold still (ICON_MOTION)
 				spin: false,
 			}),
 			h(
@@ -1217,7 +1213,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 				BackgroundColor3: theme.darken(info.color, 0.55),
 				BorderSizePixel: 0,
 				ZIndex: 63,
-				Rotation: moment ? arrive.map((t) => (1 - easeOutBack(t)) * -90) : 0,
+				Rotation: 0, // icons hold still (ICON_MOTION)
 			},
 			h("uiscale", {
 				Scale: arrive.map((t) => {
@@ -1379,7 +1375,7 @@ function ComboActivity(props: ComboActivityProps): React.Element {
 				BackgroundColor3: theme.darken(color, 0.55),
 				BorderSizePixel: 0,
 				ZIndex: 63,
-				Rotation: props.clock.map((t) => math.sin(t * 9) * (hot ? 10 : 4)),
+				Rotation: 0, // icons hold still (ICON_MOTION)
 			},
 			h("uiscale", { Scale: arrive.map((t) => 0.6 + easeOutBack(t) * 0.4) }),
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),

@@ -3,6 +3,7 @@ import { useExitPresence, useMotionSettings } from "../MotionKit/motion";
 import { Palette } from "../CoreKit/theme";
 import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 import IconManifest = require("../IconManifest");
+import { ICON_MOTION } from "../MotionKit/motionTokens";
 
 const RunService = game.GetService("RunService");
 
@@ -361,7 +362,9 @@ export function Icon(props: IconProps) {
 	const settings = useMotionSettings();
 	const motionScale = settings.motionScale ?? 1;
 	const [entry, sheet, lightSheet] = artFor(kind);
-	const still = motionScale < 0.05 || settings.reducedMotion === true;
+	// ICON_MOTION is the single switch for icon movement (bob, spin, pulse, beat, twinkle, glint,
+	// hover scale). It is off game-wide: icons hold still; panels and cards keep their own motion.
+	const still = !ICON_MOTION || motionScale < 0.05 || settings.reducedMotion === true;
 	const paused = React.useContext(UiEffectsPausedContext);
 	const clock = useIconClock(entry !== undefined && !still && !paused);
 	if (entry === undefined) {

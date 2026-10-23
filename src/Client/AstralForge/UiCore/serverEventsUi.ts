@@ -414,7 +414,7 @@ function StarField(props: { clock: React.Binding<number>; dispatch: Dispatch }) 
 					Size: UDim2.fromOffset(40, 40),
 					Position: UDim2.fromScale(0.5, 0.5),
 					AnchorPoint: new Vector2(0.5, 0.5),
-					Rotation: clock.map((t) => (t * 60 + slot * 30) % 360),
+					Rotation: slot * 30, // icons hold still (ICON_MOTION)
 					BackgroundTransparency: 1,
 					ZIndex: 141,
 				},

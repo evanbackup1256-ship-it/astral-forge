@@ -1397,7 +1397,10 @@ __defs["pageScaffold"] = () => {
 					PaddingTop: new UDim(0, inset),
 					PaddingBottom: new UDim(0, inset),
 				})
-			: undefined;
+			: h("uipadding", {
+					// keep an 8px gutter between the content and the scrollbar so cards never sit under it
+					PaddingRight: new UDim(0, 8),
+				});
 		const _newValue: unknown[] = table.create(sections.size());
 		const _callback_2 = (section: ScaffoldSection, index: number) => {
 			const _attributes: Record<string, unknown> = {

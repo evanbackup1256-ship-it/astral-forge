@@ -193,3 +193,6 @@ export const fx = {
 		return v - math.floor(v);
 	},
 };
+
+/** Single switch for icon movement game-wide (ArtKit/Icon and every icon wrapper). Off: icons never bob, spin, pulse or wiggle. */
+export const ICON_MOTION = false;

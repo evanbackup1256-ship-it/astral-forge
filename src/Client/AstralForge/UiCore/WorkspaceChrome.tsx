@@ -479,25 +479,28 @@ function MissionGoalStrip(_param: { goal: MissionGoal; onOpen?: () => void }) {
 			BackgroundTransparency: hovered ? 0.96 : 1,
 			BorderSizePixel: 0,
 		}),
+		// no "MISSION" tag: the strip already reads as the current goal; only flag it when claimable
+		ready
+			? h(Text, {
+					value: "CLAIM",
+					size: 11,
+					color: Palette.green,
+					weight: Enum.FontWeight.Heavy,
+					fit: true,
+					minSize: 10,
+					position: UDim2.fromOffset(14, 0),
+					sizeConstraint: new UDim2(0, 64, 1, -3),
+				})
+			: undefined,
 		h(Text, {
-			value: ready ? "READY" : "MISSION",
-			size: 11,
-			color: ready ? Palette.green : Palette.cyan,
-			weight: Enum.FontWeight.Heavy,
-			fit: true,
-			minSize: 10,
-			position: UDim2.fromOffset(14, 0),
-			sizeConstraint: new UDim2(0, 64, 1, -3),
-		}),
-		h(Text, {
-			value: ready ? `${goal.Name} is done. Claim it in Missions.` : goal.Name,
+			value: goal.Name,
 			size: 12,
 			color: Palette.creamSoft,
 			weight: Enum.FontWeight.Bold,
 			fit: true,
 			minSize: 9,
-			position: UDim2.fromOffset(86, 0),
-			sizeConstraint: new UDim2(1, -(86 + progressW + 38), 1, -3),
+			position: UDim2.fromOffset(ready ? 64 : 14, 0),
+			sizeConstraint: new UDim2(1, -((ready ? 64 : 14) + progressW + 38), 1, -3),
 		}),
 		h(Text, {
 			value: `${compactNumber(goal.Progress)} / ${compactNumber(goal.Target)}`,

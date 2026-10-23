@@ -920,7 +920,8 @@ export function OverviewView({
 	for (let index = journey.Done.size() - 1; index >= math.max(0, journey.Done.size() - 3); index--) {
 		journeyRecent.push(journey.Done[index].Title);
 	}
-	const journalH = (phone ? 118 : 104) + (stack ? chrome.cardPadding * 2 : 32);
+	// label 16 + title 26 + progress 16 + meter 6 (ends at y=76), plus the panel padding on both sides
+	const journalH = 76 + (stack ? chrome.cardPadding * 2 : 32);
 	const domain =
 		state.Domain ??
 		({
@@ -2393,7 +2394,7 @@ export function OverviewView({
 										sizeConstraint={new UDim2(1, 0, 0, 16)}
 									/>
 									<Text
-										value={journeyNext !== undefined ? `Next: ${journeyNext.Title}` : "Every chapter written."}
+										value={journeyNext !== undefined ? journeyNext.Title : "Journal complete"}
 										size={phone ? 17 : 19}
 										color={Palette.cream}
 										weight={Enum.FontWeight.Heavy}
@@ -2405,46 +2406,32 @@ export function OverviewView({
 									<Text
 										value={
 											journeyNext !== undefined
-												? `${journeyNext.Line}  ${compactNumber(journeyNext.Have)} / ${compactNumber(journeyNext.Target)} ${journeyNext.Unit}`
-												: "The forge remembers everything you've done here."
+												? `${compactNumber(journeyNext.Have)} / ${compactNumber(journeyNext.Target)} ${journeyNext.Unit}`
+												: "Complete"
 										}
 										size={chrome.labelText}
 										color={Palette.creamSoft}
 										fit={true}
 										minSize={9}
-										wrap={phone}
 										position={UDim2.fromOffset(0, 48)}
-										sizeConstraint={new UDim2(1, 0, 0, phone ? 32 : 16)}
+										sizeConstraint={new UDim2(1, 0, 0, 16)}
 									/>
 									<Meter
 										value={journeyNext !== undefined ? journeyNext.Progress : 1}
 										color={Palette.mango}
 										reducedMotion={quietMotion}
 										shimmer={false}
-										position={UDim2.fromOffset(0, phone ? 84 : 70)}
+										position={UDim2.fromOffset(0, 70)}
 										size={new UDim2(1, 0, 0, 6)}
 									/>
-									<Text
-										value={
-											journeyRecent.size() > 0
-												? `Written: ${(phone ? journeyRecent.filter((_, index) => index < 2) : journeyRecent).join("  ·  ")}`
-												: "Written: nothing yet. Buy a machine to start."
-										}
-										size={chrome.labelText}
-										color={Palette.muted}
-										weight={Enum.FontWeight.Bold}
-										fit={true}
-										minSize={9}
-										position={UDim2.fromOffset(0, phone ? 96 : 82)}
-										sizeConstraint={new UDim2(1, 0, 0, 16)}
-									/>
-								</Panel>
+</Panel>
 							),
 						},
 						{
 							// this session, live
 							id: "session",
-							height: SessionStats.height(phone ? 2 : 4) + 56,
+							// title row 24 + stat grid + panel padding on both sides (the old +56 clipped the second row)
+							height: SessionStats.height(phone ? 2 : 4) + 24 + 2 * (stack ? chrome.cardPadding : Pad.panel),
 							element: (
 								<Panel
 									layoutOrder={8}
