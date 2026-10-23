@@ -4,17 +4,16 @@
 // crosses your brightest Anvil for Shards; ten on the beat in a row light a surge.
 // The board you see runs the same FoundryMath the server does, so the flow drawn is the flow you get.
 import React from "@rbxts/react";
-import { RowFace, SEC } from "./mockRows";
-import { PnSurface, spaced } from "../UiCore/mockKit";
+import { headingBlock, MockBtn, MockRow, panelHeight, rowHeight, useWidth } from "./mockRows";
+import { BODY, Line, MockPanel, mockGap, PanelHeading, panelPad } from "../UiCore/mockKit";
+import { FlexCol, FlexFill, FlexFixed, FlexRow, stackSum } from "./mockLayout";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Format from "../CoreKit/format";
-import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
+import { chromeFor, darken, lighten, Palette, scrollTail, TapTarget } from "../CoreKit/theme";
 import { useClock, useViewport } from "../MotionKit/motion";
 import FoundryMath = require("../../../Shared/AstralForge/Shared/FoundryMath");
-import { Component, loadAudio, loadPageScaffold, loadUi, luauKit, luauModule, named } from "./luauDeps";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
+import { Component, loadAudio, loadPageScaffold, luauKit, luauModule } from "./luauDeps";
 
-const Ui = loadUi();
 const PageScaffold = loadPageScaffold();
 const Audio = loadAudio();
 const Icon = luauKit<{ Icon: Component }>("ArtKit", "Icon").Icon;
@@ -50,7 +49,6 @@ interface Look {
 }
 
 const ACCENT = Palette.brass;
-const GAP = 14;
 const KIND_LOOK: Record<string, Look | undefined> = {
 	Ember: { name: "Ember", color: Color3.fromRGB(255, 132, 64), icon: "Flux.5", line: "Sends energy the way it faces" },
 	Conduit: { name: "Conduit", color: Color3.fromRGB(120, 196, 255), icon: "Travel.1", line: "Carries energy onward" },
@@ -605,31 +603,6 @@ function Board(props: {
 	);
 }
 
-function Chip(props: { size: UDim2; position: UDim2; color: Color3; label: string; value: string }) {
-	return (
-		<frame Size={props.size} Position={props.position} BackgroundColor3={Palette.white} BorderSizePixel={0}>
-			<RowFace />
-			<Ui.Text
-				value={spaced(props.label.upper())}
-				size={11}
-				weight={Enum.FontWeight.Bold}
-				color={props.color}
-				position={UDim2.fromOffset(10, 6)}
-				sizeConstraint={new UDim2(1, -20, 0, 14)}
-			/>
-			<Ui.Text
-				value={props.value}
-				size={17}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(10, 22)}
-				sizeConstraint={new UDim2(1, -20, 0, 22)}
-			/>
-		</frame>
-	);
-}
-
 interface FoundryResponse {
 	ok?: boolean;
 	Sound?: string;
@@ -646,6 +619,28 @@ interface Payload {
 	Back?: boolean;
 }
 
+type Section = { id: string; height: number; element: React.Element };
+
+/** A bench slot: a raised square with the piece face, tap to pick it up or to store the selection. */
+function BenchSlot(props: { piece?: Piece; selected: boolean; size: number; index: number; onPress: () => void }) {
+	return (
+		<textbutton
+			Size={UDim2.fromScale(1, 1)}
+			BackgroundColor3={Palette.panelRaised}
+			BackgroundTransparency={props.piece ? 0.6 : 0.3}
+			BorderSizePixel={0}
+			AutoButtonColor={false}
+			Text=""
+			LayoutOrder={props.index}
+			Event={{ Activated: props.onPress }}
+		>
+			<uicorner CornerRadius={new UDim(0, 12)} />
+			<uistroke Color={props.selected ? Palette.white : Palette.lineSoft} Thickness={props.selected ? 2 : 1} Transparency={0.4} />
+			{props.piece && <PieceFace piece={props.piece} size={math.floor(props.size * 0.82)} selected={props.selected} zIndex={2} />}
+		</textbutton>
+	);
+}
+
 function FoundryView(props: {
 	state: { Foundry?: unknown };
 	reducedMotion?: boolean;
@@ -654,17 +649,14 @@ function FoundryView(props: {
 	const softMotion = props.reducedMotion;
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
-	const stack = chrome.contentStack;
-	// desktop: the board on the left; selection, actions and the bench in a side column
-	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.4), GAP);
-	const wide = plan.split;
-	// side-column controls use the same compact arrangement as phones
-	const narrow = stack || wide;
+	const phone = chrome.contentStack;
+	// design/11: the board panel fills the row, the 460px side panel holds the readout and controls
+	const wide = !phone && viewport.width >= 1100;
 	const [selected, setSelected] = React.useState<string | undefined>(undefined);
 	const [busy, setBusy] = React.useState(false);
 	const [note, setNote] = React.useState("");
 	const [combo, setCombo] = React.useState(0);
-	const [boardWidth, setBoardWidth] = React.useState(stack ? viewport.width - 24 : wide ? math.max(320, math.floor(viewport.width * 0.6)) : math.max(320, viewport.width - 440));
+	const [boardWidth, onBoardSize] = useWidth(phone ? viewport.width - 48 : math.max(320, viewport.width - 460 - 120));
 	// gamepad: first focus goes to Ignite once the foundry has loaded
 	const igniteHostRef = React.useRef<Frame>();
 	const foundryLoaded = typeIs(props.state.Foundry, "table");
@@ -683,17 +675,32 @@ function FoundryView(props: {
 			pcall(task.cancel, selectJob);
 		};
 	}, [foundryLoaded]);
-	const sections: Array<{ id: string; height: number; element: React.Element }> = [];
-	const add = (id: string, height: number, element: React.Element) => {
-		sections.push({ id, height, element });
-	};
+	const gap = mockGap(phone);
+	const pad = panelPad(phone);
+	const head = headingBlock(phone);
+	const rowH = rowHeight(phone);
+	const bH = phone ? TapTarget : 44;
+	const tail = scrollTail(phone, chrome.bottomSafe, 24);
 	if (!typeIs(props.state.Foundry, "table")) {
-		add(
-			"loading",
-			80,
-			<Ui.Text value="Loading the Star Foundry…" size={16} color={Palette.muted} sizeConstraint={new UDim2(1, 0, 0, 24)} />,
+		return (
+			<PageScaffold
+				gap={gap}
+				tailPad={tail}
+				owner="FoundryView"
+				sections={[
+					{
+						id: "loading",
+						height: panelHeight(phone, head + rowH),
+						element: (
+							<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reducedMotion={softMotion}>
+								<PanelHeading icon="Forge" title="Star Foundry" phone={phone} layoutOrder={0} />
+								<MockRow phone={phone} icon="Timer" title="Loading the Star Foundry…" dim={true} layoutOrder={1} />
+							</MockPanel>
+						),
+					},
+				]}
+			/>
 		);
-		return <PageScaffold sections={sections} gap={GAP} tailPad={72} />;
 	}
 	const foundry = props.state.Foundry as Foundry;
 	const act = (payload: Payload, quiet?: boolean) => {
@@ -763,366 +770,249 @@ function FoundryView(props: {
 	const effects = foundry.Effects ?? {};
 	const surgeLeft = math.max(0, (foundry.SurgeEndsAt ?? 0) - Workspace.GetServerTimeNow());
 	const dormant = (flow.Delivered ?? 0) <= 0;
-
-	// hero: what the board is worth right now
-	const chipW = stack ? new UDim2(0.5, -6, 0, 50) : new UDim2(0.25, -9, 0, 50);
-	const chips: Array<[string, string, Color3]> = [
-		["PRODUCTION", `×${compact(effects.Production ?? 1)}`, Color3.fromRGB(255, 196, 84)],
-		["TAP", `×${compact(effects.Tap ?? 1)}`, Color3.fromRGB(255, 104, 112)],
-		["CAPACITY", `×${compact(effects.Capacity ?? 1)}`, Color3.fromRGB(96, 220, 168)],
-		["OFFLINE", `+${math.floor((effects.Offline ?? 0) * 100 + 0.5)}%`, Color3.fromRGB(176, 140, 255)],
-	];
-	const chipEls: Record<string, React.Element> = {};
-	chips.forEach((chip, i) => {
-		const col = stack ? i % 2 : i;
-		const row = stack ? math.floor(i / 2) : 0;
-		chipEls["chip" + (i + 1)] = (
-			<Chip
-				label={chip[0]}
-				value={chip[1]}
-				color={chip[2]}
-				size={chipW}
-				position={stack ? new UDim2(col * 0.5, col * 6, 0, 64 + row * 58) : new UDim2(i * 0.25, i * 3, 0, 64)}
-			/>
-		);
-	});
-	add(
-		"hero",
-		stack ? 186 : 128,
-		<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass} background={Palette.panel}>
-			<Ui.Text
-				value={
-					`${compact(foundry.Shards)} Shards  ·  ` +
-					(dormant ? "Dormant (rotate Ember to an Anvil)" : `+${"%.1f".format((foundry.ShardRate ?? 0) * 60)}/min`)
-				}
-				size={stack ? 17 : 22}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={13}
-				position={UDim2.fromOffset(0, 4)}
-				sizeConstraint={new UDim2(1, 0, 0, 30)}
-			/>
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-				{chipEls}
-			</frame>
-		</PnSurface>,
-	);
-
-	// the board
-	const boardH = stack ? math.min(viewport.width - 24, 420) : 480;
-	const boardW = math.max(200, boardWidth);
-	const cells = foundry.Radius * 2 + 1;
-	// the lattice (and the orbit ring round it) fits the shorter side with a margin
-	const cellSize = math.floor(math.min(boardW / (1.5 * cells + 0.6), (boardH * 0.86) / (math.sqrt(3) * cells + 0.2)));
-	add(
-		"board",
-		boardH,
-		<frame
-			Size={UDim2.fromScale(1, 1)}
-			BackgroundTransparency={1}
-			Change={{
-				AbsoluteSize: (frame) => {
-					const measured = math.floor(frame.AbsoluteSize.X);
-					if (measured > 0 && math.abs(measured - boardWidth) > 2) {
-						setBoardWidth(measured);
-					}
-				},
-			}}
-		>
-			<Board
-				foundry={foundry}
-				flow={flow}
-				cellSize={cellSize}
-				width={boardW}
-				height={boardH}
-				selected={selected}
-				onCell={onCell}
-				softMotion={softMotion}
-			/>
-		</frame>,
-	);
-
 	const benchFull = foundry.Bench.size() >= FoundryMath.BENCH_CAP;
-	// controls for a selected board piece
-	if (selected !== undefined && selected.sub(1, 6) !== "bench:" && foundry.Pieces[selected] !== undefined) {
-		const piece = foundry.Pieces[selected];
-		const look = KIND_LOOK[piece.Kind] ?? CONDUIT;
-		const panelH = narrow ? 96 : 64;
-		add(
-			"selected",
-			panelH,
-			<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={12} accent={Palette.brass} background={Palette.panel}>
-				{narrow ? (
-					<>
-						<Ui.Text
-							value={`${look.name} · Tier ${piece.Tier}`}
-							size={15}
-							weight={Enum.FontWeight.Heavy}
-							sizeConstraint={new UDim2(1, -44, 0, 18)}
-						/>
-						<Ui.Button
-							text=""
-							icon="Close"
-							tooltip="Deselect"
-							onClick={() => setSelected(undefined)}
-							size={UDim2.fromOffset(36, 26)}
-							position={new UDim2(1, -36, 0, -2)}
-							color={SEC}
-							reducedMotion={softMotion}
-						/>
-						<Ui.Text
-							value={look.line}
-							size={11}
-							color={Palette.muted}
-							position={UDim2.fromOffset(0, 18)}
-							sizeConstraint={new UDim2(1, -44, 0, 14)}
-						/>
-						<frame Size={new UDim2(1, 0, 0, 36)} Position={UDim2.fromOffset(0, 38)} BackgroundTransparency={1}>
-							<Ui.Button
-								text="⟲ Left"
-								onClick={() => act({ Op: "rotate", At: selected, Back: true }, true)}
-								size={new UDim2(0.28, -4, 1, 0)}
-								position={new UDim2(0, 0, 0, 0)}
-								color={SEC}
-								reducedMotion={softMotion}
-							/>
-							<Ui.Button
-								text="⟳ Right"
-								onClick={() => act({ Op: "rotate", At: selected }, true)}
-								size={new UDim2(0.28, -4, 1, 0)}
-								position={new UDim2(0.28, 0, 0, 0)}
-								color={SEC}
-								reducedMotion={softMotion}
-							/>
-							<Ui.Button
-								text="To bench"
-								onClick={() => {
-									act({ Op: "store", From: selected }, true);
-									setSelected(undefined);
-								}}
-								size={new UDim2(0.44, 0, 1, 0)}
-								position={new UDim2(0.56, 4, 0, 0)}
-								color={SEC}
-								reducedMotion={softMotion}
-								disabled={benchFull}
-							/>
-						</frame>
-					</>
-				) : (
-					<>
-						<Ui.Text
-							value={`${look.name} · Tier ${piece.Tier}`}
-							size={15}
-							weight={Enum.FontWeight.Heavy}
-							sizeConstraint={new UDim2(1, -330, 0, 20)}
-						/>
-						<Ui.Text
-							value={look.line}
-							size={12}
-							color={Palette.muted}
-							position={UDim2.fromOffset(0, 22)}
-							sizeConstraint={new UDim2(1, -330, 0, 16)}
-						/>
-						<Ui.Button
-							text="⟲"
-							onClick={() => act({ Op: "rotate", At: selected, Back: true }, true)}
-							size={UDim2.fromOffset(56, 40)}
-							position={new UDim2(1, -320, 0, 0)}
-							color={SEC}
-							reducedMotion={softMotion}
-						/>
-						<Ui.Button
-							text="⟳"
-							onClick={() => act({ Op: "rotate", At: selected }, true)}
-							size={UDim2.fromOffset(56, 40)}
-							position={new UDim2(1, -258, 0, 0)}
-							color={SEC}
-							reducedMotion={softMotion}
-						/>
-						<Ui.Button
+	const canDraw = foundry.Shards >= (foundry.DrawCost ?? math.huge) && !benchFull;
+	const canExpand = foundry.ExpandCost !== undefined && foundry.Shards >= foundry.ExpandCost;
+
+	// ---------- readout panel: shards, rate, the four bonuses, Ignite ----------
+	const stats: Array<[string, string, string, Color3]> = [
+		["Production", `×${compact(effects.Production ?? 1)}`, "Production", Color3.fromRGB(255, 196, 84)],
+		["Tap", `×${compact(effects.Tap ?? 1)}`, "Boost", Color3.fromRGB(255, 104, 112)],
+		["Capacity", `×${compact(effects.Capacity ?? 1)}`, "Vault", Color3.fromRGB(96, 220, 168)],
+		["Offline", `+${math.floor((effects.Offline ?? 0) * 100 + 0.5)}%`, "Timer", Color3.fromRGB(176, 140, 255)],
+	];
+	const statGap = pad.gap;
+	const statRows = 2;
+	const statGridH = statRows * rowH + (statRows - 1) * statGap;
+	const hintText = "Ignite when the white hand crosses the gold marker. Ten on the beat in a row: a surge.";
+	const hintH = phone ? 32 : 36;
+	const igniteText = surgeLeft > 0 ? `Surge ${math.ceil(surgeLeft)}s · Ignite` : combo > 0 ? `Ignite · ×${combo}` : "Ignite";
+	const readoutH = panelHeight(phone, head + rowH + pad.gap + statGridH + pad.gap + bH + pad.gap + hintH);
+	const readout = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reveal={undefined} reducedMotion={softMotion} name="FoundryReadout">
+			<PanelHeading icon="Forge" title="Star Foundry" note={`Radius ${foundry.Radius}`} phone={phone} layoutOrder={0} />
+			<MockRow
+				phone={phone}
+				icon="Flux"
+				title={`${compact(foundry.Shards)} Shards`}
+				value={dormant ? "Dormant" : `+${"%.1f".format((foundry.ShardRate ?? 0) * 60)}/min`}
+				valueColor={dormant ? Palette.muted : undefined}
+				sub={dormant ? "Rotate an Ember to face an Anvil" : undefined}
+				height={rowH}
+				layoutOrder={1}
+			/>
+			<frame key="Bonuses" Size={new UDim2(1, 0, 0, statGridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				<uigridlayout
+					CellSize={new UDim2(0.5, -math.ceil(statGap / 2), 0, rowH)}
+					CellPadding={UDim2.fromOffset(statGap, statGap)}
+					FillDirectionMaxCells={2}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+				/>
+				{stats.map(([label, value, icon, color], index) => (
+					<MockRow key={label} phone={phone} icon={icon} accent={color} title={label} value={value} valueColor={color} layoutOrder={index} />
+				))}
+			</frame>
+			<frame key="FoundryIgnite" ref={igniteHostRef} Size={new UDim2(1, 0, 0, bH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+				<MockBtn text={igniteText} icon="Boost.12" accent={ACCENT} fill={true} phone={phone} onClick={() => act({ Op: "ignite" }, true)} reducedMotion={softMotion} />
+			</frame>
+			<textlabel
+				Size={new UDim2(1, 0, 0, hintH)}
+				BackgroundTransparency={1}
+				Text={hintText}
+				TextSize={phone ? 11 : 13}
+				FontFace={BODY}
+				TextColor3={Palette.muted}
+				TextWrapped={true}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextYAlignment={Enum.TextYAlignment.Top}
+				LayoutOrder={4}
+			/>
+		</MockPanel>
+	);
+
+	// ---------- selection panel: what is picked up and what to do with it ----------
+	const boardPick = selected !== undefined && selected.sub(1, 6) !== "bench:" ? foundry.Pieces[selected] : undefined;
+	const benchPick = selected !== undefined && selected.sub(1, 6) === "bench:" ? (foundry.Bench[(tonumber(selected.sub(7)) ?? 0) - 1] as Piece | undefined) : undefined;
+	const picked = boardPick ?? benchPick;
+	const look = picked !== undefined ? KIND_LOOK[picked.Kind] ?? CONDUIT : undefined;
+	const selectH = panelHeight(phone, head + rowH + (boardPick !== undefined ? pad.gap + bH : 0));
+	const selectPanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reducedMotion={softMotion} name="FoundrySelected">
+			<PanelHeading
+				icon={look?.icon ?? "Search"}
+				title={look !== undefined ? look.name : "Selected"}
+				note={picked !== undefined ? `Tier ${picked.Tier}` : "Nothing picked up"}
+				accent={look?.color}
+				phone={phone}
+				layoutOrder={0}
+			/>
+			<MockRow
+				phone={phone}
+				icon={look?.icon ?? "Info"}
+				accent={look?.color}
+				title={look !== undefined ? look.line : "Tap a piece, then a cell"}
+				sub={benchPick !== undefined ? "Now tap a board cell to place it" : boardPick !== undefined ? "Tap a cell to move or fuse" : "Place, move or fuse pieces on the board"}
+				dim={picked === undefined}
+				right={
+					picked !== undefined ? (
+						<MockBtn text="" icon="Close" sec={true} sm={true} phone={phone} width={44} onClick={() => setSelected(undefined)} reducedMotion={softMotion} />
+					) : undefined
+				}
+				rightWidth={picked !== undefined ? 44 : undefined}
+				layoutOrder={1}
+			/>
+			{boardPick !== undefined && (
+				<FlexRow height={bH} gap={8} layoutOrder={2}>
+					<FlexFill layoutOrder={0}>
+						<MockBtn text="Left" icon="Back.2" sec={true} fill={true} phone={phone} onClick={() => act({ Op: "rotate", At: selected, Back: true }, true)} reducedMotion={softMotion} />
+					</FlexFill>
+					<FlexFill layoutOrder={1}>
+						<MockBtn text="Right" icon="Refresh" sec={true} fill={true} phone={phone} onClick={() => act({ Op: "rotate", At: selected }, true)} reducedMotion={softMotion} />
+					</FlexFill>
+					<FlexFill layoutOrder={2}>
+						<MockBtn
 							text="To bench"
+							icon="Crate.1"
+							sec={true}
+							fill={true}
+							phone={phone}
+							disabled={benchFull}
 							onClick={() => {
 								act({ Op: "store", From: selected }, true);
 								setSelected(undefined);
 							}}
-							size={UDim2.fromOffset(120, 40)}
-							position={new UDim2(1, -196, 0, 0)}
-							color={SEC}
-							reducedMotion={softMotion}
-							disabled={benchFull}
-						/>
-						<Ui.Button
-							text=""
-							icon="Close"
-							tooltip="Deselect"
-							onClick={() => setSelected(undefined)}
-							size={UDim2.fromOffset(64, 40)}
-							position={new UDim2(1, -68, 0, 0)}
-							color={SEC}
 							reducedMotion={softMotion}
 						/>
-					</>
-				)}
-			</PnSurface>,
-		);
-	}
-
-	// actions: ignite, draw, expand (placed directly below board on mobile for instant visibility)
-	const canDraw = foundry.Shards >= (foundry.DrawCost ?? math.huge) && !benchFull;
-	const canExpand = foundry.ExpandCost !== undefined && foundry.Shards >= foundry.ExpandCost;
-	const buttonH = TapTarget;
-	const renderActions = () => (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<frame {...named("FoundryIgnite")} ref={igniteHostRef} Size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.4, -8, 0, buttonH)} Position={UDim2.fromOffset(0, 0)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
-				<Ui.Button
-					text={surgeLeft > 0 ? `Surge ${math.ceil(surgeLeft)}s · Ignite` : combo > 0 ? `Ignite · ×${combo}` : "Ignite"}
-					icon="Boost.12"
-					onClick={() => act({ Op: "ignite" }, true)}
-					color={ACCENT}
-					textColor={Palette.ink}
-					highlight={true}
-					size={UDim2.fromScale(1, 1)}
-					reducedMotion={softMotion}
-				/>
-			</frame>
-			<Ui.Button
-				text={benchFull ? "Bench full" : `Draw · ${compact(foundry.DrawCost ?? 0)}`}
-				icon="Crate.1"
-				onClick={() => act({ Op: "draw" })}
-				color={SEC}
-				disabled={!canDraw || busy}
-				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
-				position={narrow ? UDim2.fromOffset(0, buttonH + 10) : new UDim2(0.4, 0, 0, 0)}
-				reducedMotion={softMotion}
-			/>
-			<Ui.Button
-				text={foundry.ExpandCost === undefined ? "Full size" : `Expand · ${compact(foundry.ExpandCost)}`}
-				icon="World.3"
-				onClick={() => act({ Op: "expand" })}
-				color={SEC}
-				disabled={!canExpand || busy}
-				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
-				position={narrow ? UDim2.fromOffset(0, (buttonH + 10) * 2) : new UDim2(0.7, 0, 0, 0)}
-				reducedMotion={softMotion}
-			/>
-			{!stack && (
-				<Ui.Text
-					value="Ignite when the white hand crosses the gold marker. Ten on the beat in a row: a surge."
-					size={12}
-					color={Palette.muted}
-					wrap={wide}
-					position={UDim2.fromOffset(0, wide ? (buttonH + 10) * 3 : buttonH + 8)}
-					sizeConstraint={new UDim2(1, 0, 0, wide ? 34 : 16)}
-				/>
+					</FlexFill>
+				</FlexRow>
 			)}
-		</frame>
+		</MockPanel>
 	);
 
-	if (stack) {
-		add("actions", buttonH * 3 + 20, renderActions());
-	}
-
-	// the bench (centered with exact 5-gap math so slots hit 48-52px touch targets)
-	// phones: six across, or four across when six 44px slots would not fit (narrow phones, 286px)
-	// desktop side column: four across at full size
+	// ---------- bench panel: the spare pieces, Draw and Expand ----------
 	const slotGap = 6;
-	const innerW = stack ? viewport.width - 24 : 380;
-	const benchCols = wide ? 4 : stack && innerW < 6 * 44 + 5 * slotGap ? 4 : 6;
-	const benchGrid = narrow;
-	const slotSize = stack ? math.clamp(math.floor((innerW - (benchCols - 1) * slotGap) / benchCols), 44, 58) : 58;
-	const totalRowW = stack ? benchCols * slotSize + (benchCols - 1) * slotGap : benchCols * (58 + 6);
-	const rowOffset = stack ? math.max(0, math.floor((innerW - totalRowW) / 2)) : 0;
-	const benchRows = benchGrid ? math.ceil(FoundryMath.BENCH_CAP / benchCols) : 1;
-	const benchEls: Record<string, React.Element> = {};
+	const benchInner = wide ? 460 - pad.x * 2 : viewport.width - 24 - pad.x * 2;
+	const benchCols = phone && benchInner < 6 * 44 + 5 * slotGap ? 4 : 6;
+	const slotSize = math.clamp(math.floor((benchInner - (benchCols - 1) * slotGap) / benchCols), 44, 64);
+	const benchRows = math.ceil(FoundryMath.BENCH_CAP / benchCols);
+	const benchGridH = benchRows * slotSize + (benchRows - 1) * slotGap;
+	const noteH = note !== "" ? (phone ? 18 : 20) + pad.gap : 0;
+	const benchH = panelHeight(phone, head + benchGridH + pad.gap + bH + noteH);
+	const slots: React.Element[] = [];
 	for (let index = 1; index <= FoundryMath.BENCH_CAP; index++) {
 		const piece = foundry.Bench[index - 1] as Piece | undefined;
-		const col = benchGrid ? (index - 1) % benchCols : index - 1;
-		const row = benchGrid ? math.floor((index - 1) / benchCols) : 0;
 		const key = `bench:${index}`;
-		benchEls["slot" + index] = (
-			<textbutton
-				Size={UDim2.fromOffset(slotSize, slotSize)}
-				Position={UDim2.fromOffset(rowOffset + col * (slotSize + slotGap), 24 + row * (slotSize + slotGap))}
-				BackgroundColor3={Palette.panelRaised}
-				BackgroundTransparency={piece ? 0.6 : 0.3}
-				BorderSizePixel={0}
-				AutoButtonColor={false}
-				Text=""
-				Event={{
-					Activated: () => {
-						if (piece === undefined) {
-							if (selected !== undefined && selected.sub(1, 6) !== "bench:") {
-								act({ Op: "store", From: selected }, true);
-								setSelected(undefined);
-							}
-							return;
+		slots.push(
+			<BenchSlot
+				key={key}
+				piece={piece}
+				selected={selected === key}
+				size={slotSize}
+				index={index}
+				onPress={() => {
+					if (piece === undefined) {
+						if (selected !== undefined && selected.sub(1, 6) !== "bench:") {
+							act({ Op: "store", From: selected }, true);
+							setSelected(undefined);
 						}
-						Audio.play("foundryPickUp");
-						setSelected(selected === key ? undefined : key);
-					},
+						return;
+					}
+					Audio.play("foundryPickUp");
+					setSelected(selected === key ? undefined : key);
 				}}
-			>
-				<uicorner CornerRadius={new UDim(0, 14)} />
-				<uistroke
-					Color={selected === key ? Palette.white : Palette.lineSoft}
-					Thickness={selected === key ? 2 : 1}
-					Transparency={0.4}
-				/>
-				{piece && <PieceFace piece={piece} size={math.floor(slotSize * 0.82)} selected={selected === key} zIndex={2} />}
-			</textbutton>
+			/>,
 		);
 	}
-	const benchH = 24 + benchRows * (slotSize + slotGap);
-	add(
-		"bench",
-		benchH,
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<Ui.Text
-				value={`Bench  ·  ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}  ·  tap a piece, then a cell`}
-				size={12}
-				weight={Enum.FontWeight.Bold}
-				color={Palette.muted}
-				sizeConstraint={new UDim2(1, 0, 0, 18)}
-			/>
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-				{benchEls}
+	const benchPanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reducedMotion={softMotion} name="FoundryBench">
+			<PanelHeading icon="Crate.1" title="Bench" note={`${foundry.Bench.size()} of ${FoundryMath.BENCH_CAP}`} phone={phone} layoutOrder={0} />
+			<frame key="BenchSlots" Size={new UDim2(1, 0, 0, benchGridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uigridlayout
+					CellSize={UDim2.fromOffset(slotSize, slotSize)}
+					CellPadding={UDim2.fromOffset(slotGap, slotGap)}
+					FillDirectionMaxCells={benchCols}
+					HorizontalAlignment={Enum.HorizontalAlignment.Center}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+				/>
+				{slots}
 			</frame>
-		</frame>,
+			<FlexRow height={bH} gap={8} layoutOrder={2}>
+				<FlexFill layoutOrder={0}>
+					<MockBtn
+						text={benchFull ? "Bench full" : `Draw · ${compact(foundry.DrawCost ?? 0)}`}
+						icon="Crate.1"
+						sec={true}
+						fill={true}
+						phone={phone}
+						disabled={!canDraw || busy}
+						onClick={() => act({ Op: "draw" })}
+						reducedMotion={softMotion}
+					/>
+				</FlexFill>
+				<FlexFill layoutOrder={1}>
+					<MockBtn
+						text={foundry.ExpandCost === undefined ? "Full size" : `Expand · ${compact(foundry.ExpandCost)}`}
+						icon="World.3"
+						sec={true}
+						fill={true}
+						phone={phone}
+						disabled={!canExpand || busy}
+						onClick={() => act({ Op: "expand" })}
+						reducedMotion={softMotion}
+					/>
+				</FlexFill>
+			</FlexRow>
+			{note !== "" && <Line text={note} size={phone ? 12 : 14} font={BODY} color={Palette.creamSoft} width={new UDim(1, 0)} height={phone ? 18 : 20} layoutOrder={3} />}
+		</MockPanel>
 	);
 
+	// ---------- the board panel (.pn.f1): the hex lattice fills it ----------
+	const sideH = stackSum([readoutH, selectH, benchH], gap);
+	const boardPanelH = wide ? math.max(560, sideH) : panelHeight(phone, math.min(viewport.width - 24, 420));
+	const boardH = boardPanelH - pad.y * 2;
+	const boardW = math.max(200, boardWidth);
+	const cells = foundry.Radius * 2 + 1;
+	// the lattice (and the orbit ring round it) fits the shorter side with a margin
+	const cellSize = math.floor(math.min(boardW / (1.5 * cells + 0.6), (boardH * 0.86) / (math.sqrt(3) * cells + 0.2)));
+	const boardPanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reducedMotion={softMotion} gap={0} name="FoundryBoard">
+			<frame key="Board" Size={new UDim2(1, 0, 0, boardH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} Change={{ AbsoluteSize: onBoardSize }}>
+				<Board foundry={foundry} flow={flow} cellSize={cellSize} width={boardW} height={boardH} selected={selected} onCell={onCell} softMotion={softMotion} />
+			</frame>
+		</MockPanel>
+	);
+
+	const sections: Section[] = [];
 	if (wide) {
-		add("actions", (buttonH + 10) * 3 + 36, renderActions());
-	} else if (!stack) {
-		add("actions", buttonH + 30, renderActions());
-	}
-	if (note !== "") {
-		add("note", 26, <Ui.Text value={note} size={14} color={Palette.creamSoft} sizeConstraint={new UDim2(1, 0, 0, 22)} />);
-	}
-	if (wide) {
-		const main: typeof sections = [];
-		const side: typeof sections = [];
-		const top: typeof sections = [];
-		for (const section of sections) {
-			if (section.id === "hero") top.push(section);
-			else if (section.id === "board") main.push(section);
-			else side.push(section);
-		}
-		const folded = [...top, {
-			id: "foundry-columns",
-			height: math.max(stackHeight(main.map((b) => b.height), GAP), stackHeight(side.map((b) => b.height), GAP)),
+		sections.push({
+			id: "foundry",
+			height: boardPanelH,
 			element: (
-				<SplitColumns
-					plan={plan}
-					height={math.max(stackHeight(main.map((b) => b.height), GAP), stackHeight(side.map((b) => b.height), GAP))}
-					sideOnRight={true}
-					main={<StackBlocks gap={GAP} riseFrom={top.size()} blocks={main.map((b, i) => ({ ...b, rise: 0 + i }))} />}
-					side={<StackBlocks gap={GAP} riseFrom={top.size()} blocks={side.map((b, i) => ({ ...b, rise: main.size() + i }))} />}
-				/>
+				<FlexRow fillHeight={true} gap={gap} name="FoundryBody">
+					<FlexFill layoutOrder={0}>{boardPanel}</FlexFill>
+					<FlexFixed width={460} layoutOrder={1}>
+						<FlexCol fill={true} gap={gap}>
+							<FlexFixed width={460} height={readoutH} layoutOrder={0}>
+								{readout}
+							</FlexFixed>
+							<FlexFixed width={460} height={selectH} layoutOrder={1}>
+								{selectPanel}
+							</FlexFixed>
+							<FlexFixed width={460} height={math.max(benchH, boardPanelH - readoutH - selectH - gap * 2)} layoutOrder={2}>
+								{benchPanel}
+							</FlexFixed>
+						</FlexCol>
+					</FlexFixed>
+				</FlexRow>
 			),
-		}];
-		return <PageScaffold sections={folded} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
+		});
+	} else {
+		sections.push({ id: "readout", height: readoutH, element: readout });
+		sections.push({ id: "board", height: boardPanelH, element: boardPanel });
+		sections.push({ id: "selected", height: selectH, element: selectPanel });
+		sections.push({ id: "bench", height: benchH, element: benchPanel });
 	}
-	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
+	return <PageScaffold sections={sections} gap={gap} tailPad={tail} scrollBarColor={ACCENT} scrollBarThickness={4} owner="FoundryView" />;
 }
 
 export = () => ({ FoundryView });
