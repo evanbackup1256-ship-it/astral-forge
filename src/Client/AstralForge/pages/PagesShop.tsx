@@ -17,6 +17,7 @@ import CrateAppearance = require("../../../Shared/AstralForge/Shared/CrateAppear
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
+import { SpriteCard } from "./views/PortSpriteCard";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 import { FocusPlan, useFocusOrder } from "../CoreKit/focusOrder";
 import {
@@ -2306,60 +2307,150 @@ interface CrateChipProps {
 	order: number;
 	keys: number;
 	onSelect: () => void;
+	compact?: boolean;
+	reducedMotion?: boolean;
+}
+
+// Line-art crate drawn in code: a box face, a lid line, a dashed seam and a brass latch.
+function crateGlyph(accent: Color3, side: number, y: number): React.Element {
+	const dashes: React.Element[] = [];
+	for (let index = 0; index < 4; index++) {
+		dashes.push(h("frame", {
+			key: `Dash${index}`,
+			Size: new UDim2(0.14, 0, 0, 2),
+			Position: new UDim2(0.12 + index * 0.2, 0, 0.3, 0),
+			BackgroundColor3: Palette.mango,
+			BorderSizePixel: 0,
+		}));
+	}
+	return h(
+		"frame",
+		{
+			Name: "CrateGlyph",
+			Size: UDim2.fromOffset(side, side),
+			Position: new UDim2(0.5, -side / 2, 0, y),
+			BackgroundColor3: darken(accent, 0.7),
+			BackgroundTransparency: 0.4,
+			BorderSizePixel: 0,
+		},
+		h("uicorner", { CornerRadius: new UDim(0, 4) }),
+		h("uistroke", { Color: accent, Thickness: 2, Transparency: 0 }),
+		h("frame", { Name: "Lid", Size: new UDim2(1, 0, 0, 2), Position: UDim2.fromScale(0, 0.18), BackgroundColor3: accent, BorderSizePixel: 0 }),
+		h("frame", { Name: "Spine", Size: new UDim2(0, 2, 0.82, 0), Position: UDim2.fromScale(0.5, 0.18), BackgroundColor3: accent, BorderSizePixel: 0 }),
+		h("frame", { Name: "Seam", Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 }, ...dashes),
+		h(
+			"frame",
+			{ Name: "Latch", Size: UDim2.fromOffset(8, 8), Position: new UDim2(0.5, -4, 0.5, -2), BackgroundColor3: Palette.mango, BorderSizePixel: 0 },
+			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+		),
+	);
+}
+
+// "Common · Rare · Epic" for short ranges, "Rare to Legendary" for long ones
+function crateRangeLine(crate: CrateConfig): string {
+	const odds = RelicSystem.odds(crate.Weights);
+	if (odds.size() === 0) {
+		return "";
+	}
+	if (odds.size() <= 3) {
+		return odds.map((row) => row.rarity).join(" · ");
+	}
+	return `${odds[0].rarity} to ${odds[odds.size() - 1].rarity}`;
 }
 
 function CrateChip(props: CrateChipProps) {
 	const crate = props.crate;
 	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
+	const selected = props.selected;
+	const compact = props.compact === true;
+	const glyph = compact ? 40 : 52;
+	const lift = useBoatTween(selected ? 1 : 0, 0.18, props.reducedMotion, easeOutCubic, 0);
 	return h(
-		"textbutton",
-		{
-			Size: UDim2.fromScale(1, 1),
-			BackgroundColor3: props.selected ? darken(accent, 0.45) : Palette.panel,
-			BorderSizePixel: 0,
-			AutoButtonColor: false,
-			Text: "",
-			LayoutOrder: props.order,
-			Event: {
-				Activated: () => {
-					Audio.play("tabSwitch");
-					props.onSelect();
+		"frame",
+		{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: props.order },
+		h(
+			"textbutton",
+			{
+				Name: "CrateCard",
+				Size: UDim2.fromScale(1, 1),
+				Position: lift.map((amount) => UDim2.fromOffset(0, -4 * amount)),
+				BackgroundColor3: selected ? darken(accent, 0.62) : Palette.panelRaised,
+				BorderSizePixel: 0,
+				AutoButtonColor: false,
+				Text: "",
+				Event: {
+					Activated: () => {
+						Audio.play("tabSwitch");
+						props.onSelect();
+					},
 				},
 			},
-		},
-		h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
-		h("uistroke", {
-			Color: accent,
-			Thickness: props.selected ? 2 : 1,
-			Transparency: props.selected ? 0 : 0.6,
-		}),
-		h(Icon, {
-			kind: "Crate.3",
-			color: Palette.cream,
-			accent: accent,
-			size: 30,
-			position: new UDim2(0, 10, 0.5, -15),
-			spin: false,
-		}),
-		h(Text, {
-			value: crate.Name,
-			size: 13,
-			color: Palette.cream,
-			weight: Enum.FontWeight.Bold,
-			fit: true,
-			minSize: 10,
-			position: UDim2.fromOffset(48, 8),
-			sizeConstraint: new UDim2(1, -56, 0, 18),
-		}),
-		h(Text, {
-			value: props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys",
-			size: 11,
-			color: props.keys > 0 ? accent : Palette.muted,
-			weight: Enum.FontWeight.Bold,
-			position: UDim2.fromOffset(48, 28),
-			sizeConstraint: new UDim2(1, -56, 0, 16),
-		}),
+			h("uicorner", { CornerRadius: new UDim(0, 12) }), ironFace(),
+			h("uistroke", { Color: accent, Thickness: selected ? 1.5 : 1, Transparency: selected ? 0 : 0.7 }),
+			crateGlyph(accent, glyph, compact ? 10 : 16),
+			h(Text, {
+				value: crate.Name,
+				size: compact ? 13 : 15,
+				color: Palette.cream,
+				weight: Enum.FontWeight.Heavy,
+				fit: true,
+				minSize: 10,
+				align: Enum.TextXAlignment.Center,
+				position: UDim2.fromOffset(8, glyph + (compact ? 16 : 26)),
+				sizeConstraint: new UDim2(1, -16, 0, 20),
+			}),
+			h(Text, {
+				value: crateRangeLine(crate),
+				size: 11,
+				color: Palette.muted,
+				fit: true,
+				minSize: 9,
+				align: Enum.TextXAlignment.Center,
+				position: UDim2.fromOffset(8, glyph + (compact ? 36 : 48)),
+				sizeConstraint: new UDim2(1, -16, 0, 16),
+			}),
+			h(
+				"frame",
+				{
+					Name: "Keys",
+					Size: new UDim2(1, -16, 0, 26),
+					Position: new UDim2(0, 8, 1, -34),
+					BackgroundColor3: props.keys > 0 ? Palette.mango : Palette.panelSoft,
+					BorderSizePixel: 0,
+				},
+				h("uicorner", { CornerRadius: new UDim(0, 8) }),
+				h(Text, {
+					value: props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys",
+					size: 12,
+					color: props.keys > 0 ? Palette.ink : Palette.creamSoft,
+					weight: Enum.FontWeight.Heavy,
+					fit: true,
+					minSize: 9,
+					align: Enum.TextXAlignment.Center,
+					sizeConstraint: UDim2.fromScale(1, 1),
+				}),
+			),
+		),
 	);
+}
+
+interface CratePull {
+	id: string;
+	definitionId?: string;
+	rarity: string;
+	salvaged: boolean;
+}
+
+function definitionOf(config: ShopConfig, id: string | undefined): RelicDefinition | undefined {
+	if (id === undefined) {
+		return undefined;
+	}
+	for (const def of config.Items?.Definitions ?? []) {
+		if (def.Id === id) {
+			return def;
+		}
+	}
+	return undefined;
 }
 
 function CratesSection(props: SectionProps) {
@@ -2378,6 +2469,8 @@ function CratesSection(props: SectionProps) {
 	}
 	const [selected, setSelected] = React.useState<string | undefined>(firstWithKeys ?? crates[0]?.Id);
 	const [busy, setBusy] = React.useState(false);
+	const [pulls, setPulls] = React.useState<CratePull[]>([]);
+	const pullSeq = React.useRef(0);
 	const attempt = React.useRef(0);
 	const mounted = React.useRef(true);
 	React.useEffect(() => {
@@ -2409,6 +2502,33 @@ function CratesSection(props: SectionProps) {
 				return;
 			}
 			setBusy(false);
+			if (response.ok && typeIs(response.Rolls, "table")) {
+				const fresh: CratePull[] = [];
+				for (const roll of response.Rolls as { DefinitionId?: unknown; Rarity?: unknown; AutoSalvaged?: unknown }[]) {
+					pullSeq.current += 1;
+					fresh.push({
+						id: `pull-${pullSeq.current}`,
+						definitionId: typeIs(roll.DefinitionId, "string") ? roll.DefinitionId : undefined,
+						rarity: typeIs(roll.Rarity, "string") ? roll.Rarity : "Common",
+						salvaged: roll.AutoSalvaged === true,
+					});
+				}
+				if (fresh.size() > 0) {
+					setPulls((previous) => {
+						const merged: CratePull[] = [];
+						for (let index = fresh.size() - 1; index >= 0 && merged.size() < 6; index--) {
+							merged.push(fresh[index]);
+						}
+						for (const entry of previous) {
+							if (merged.size() >= 6) {
+								break;
+							}
+							merged.push(entry);
+						}
+						return merged;
+					});
+				}
+			}
 			if (response.ok && typeIs(response.Rolls, "table") && (response.Rolls as unknown[]).size() > 0 && props.onCrateReveal !== undefined) {
 				props.onCrateReveal({
 					crateId: crate.Id,
@@ -2419,7 +2539,12 @@ function CratesSection(props: SectionProps) {
 			}
 		});
 	};
-	const columns = stack ? 2 : props.width >= 1000 ? 4 : 3;
+	// cards for every crate on one row (three across on phones too), odds and last pulls in a right rail
+	const plan = splitColumns(stack ? 0 : props.width, 340);
+	const mainW = plan.split ? plan.main : props.width;
+	const pickerColumns = math.clamp(crates.size(), 1, mainW >= 900 ? 4 : 3);
+	const compact = stack;
+	const cardH = compact ? 150 : 184;
 	const chips: Record<string, unknown> = {};
 	for (const [index, entry] of ipairs(crates)) {
 		chips[entry.Id] = h(CrateChip, {
@@ -2427,21 +2552,22 @@ function CratesSection(props: SectionProps) {
 			order: index,
 			keys: keys[entry.Id] ?? 0,
 			selected: entry.Id === crate.Id,
+			compact: compact,
+			reducedMotion: props.reducedMotion,
 			onSelect: () => {
 				setSelected(entry.Id);
 			},
 		});
 	}
-	// desktop with room: crate picker on the left, stage + drop table on the right (list + detail)
-	const plan = splitColumns(stack ? 0 : props.width, 300);
-	const pickerColumns = plan.split ? 2 : columns;
-	const chipsH = rowsHeight(crates.size(), pickerColumns, 58);
+	const chipsH = rowsHeight(crates.size(), pickerColumns, cardH) + 4;
 	const hero = {
 		id: "hero",
 		height: heroHeight(stack),
 		element: h(Hero, {
 			title: "Crates",
-			body: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
+			body: crate.PityAfter !== undefined && crate.PityRarity !== undefined
+				? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - (items.Pity?.[crate.Id] ?? 0))} opens`
+				: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
 			accent: Palette.violet,
 			icon: "Crate.4",
 			state: state,
@@ -2470,7 +2596,12 @@ function CratesSection(props: SectionProps) {
 	const picker = {
 		id: "chips",
 		height: chipsH,
-		element: h(Grid, { columns: pickerColumns, cell: 58, height: chipsH, cells: chips }),
+		element: h(
+			"frame",
+			{ Size: new UDim2(1, 0, 0, chipsH), BackgroundTransparency: 1, BorderSizePixel: 0 },
+			h("uipadding", { PaddingTop: new UDim(0, 4) }),
+			h(Grid, { columns: pickerColumns, cell: cardH, height: chipsH - 4, cells: chips }),
+		),
 	};
 	const dropsH = crateDropTableHeight(config.Items, crate, stack);
 	const drops = {
@@ -2484,10 +2615,43 @@ function CratesSection(props: SectionProps) {
 			stack: stack,
 		}),
 	};
+	const pullCols = plan.split ? 2 : stack ? 3 : 6;
+	const pullCell = plan.split ? 150 : 140;
+	const pullCells: Record<string, unknown> = {};
+	for (const [index, pull] of ipairs(pulls)) {
+		const def = definitionOf(config, pull.definitionId);
+		const element = def !== undefined && typeIs(def.Element, "string") ? def.Element : undefined;
+		pullCells[pull.id] = h(SpriteCard, {
+			name: pull.salvaged ? "Recycled" : def?.Name ?? pull.rarity,
+			rarity: pull.rarity,
+			color: rarityColor(config, pull.rarity),
+			element: element,
+			iconKind: pull.salvaged ? "Dust.9" : "Artifact",
+			layoutOrder: index,
+			reducedMotion: props.reducedMotion,
+		});
+	}
+	const pullsGridH = rowsHeight(pulls.size(), pullCols, pullCell);
+	const pullsH = pulls.size() > 0 ? 34 + pullsGridH : 0;
+	const lastPulls = {
+		id: "pulls",
+		height: pullsH,
+		element: h(
+			"frame",
+			{ Size: new UDim2(1, 0, 0, pullsH), BackgroundTransparency: 1, BorderSizePixel: 0 },
+			h(SectionLabel, { value: "Last pulls", color: Palette.violet }),
+			h(
+				"frame",
+				{ Size: new UDim2(1, 0, 0, pullsGridH), Position: UDim2.fromOffset(0, 34), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h(Grid, { columns: pullCols, cell: pullCell, height: pullsGridH, cells: pullCells }),
+			),
+		),
+	};
 	let sections: { id: string; height: number; element: unknown }[];
 	if (plan.split) {
-		const detailH = stackHeight([stageH, dropsH], GAP);
-		const rowH = math.max(chipsH, detailH);
+		const mainBlocks = [picker, stage];
+		const sideBlocks = pulls.size() > 0 ? [drops, lastPulls] : [drops];
+		const rowH = math.max(stackHeight(mainBlocks.map((block) => block.height), GAP), stackHeight(sideBlocks.map((block) => block.height), GAP));
 		sections = [
 			hero,
 			{
@@ -2497,13 +2661,14 @@ function CratesSection(props: SectionProps) {
 					name: "CrateSplit",
 					height: rowH,
 					plan: plan,
-					side: h(StackBlocks, { gap: GAP, blocks: [picker as never] }),
-					main: h(StackBlocks, { gap: GAP, blocks: [stage as never, drops as never] }),
+					sideOnRight: true,
+					side: h(StackBlocks, { gap: GAP, blocks: sideBlocks as never }),
+					main: h(StackBlocks, { gap: GAP, blocks: mainBlocks as never }),
 				}),
 			},
 		];
 	} else {
-		sections = [hero, stage, picker, drops];
+		sections = pulls.size() > 0 ? [hero, picker, stage, drops, lastPulls] : [hero, picker, stage, drops];
 	}
 	return h(PageScaffold, {
 		gap: GAP,
@@ -3701,10 +3866,11 @@ function storeFocusPlan(section: string): FocusPlan | undefined {
 		// Open (×1, ×5) first; down from it the rest of the stage, the crate picker and the drop table.
 		// Two-column desktop: picker (Side) <-> stage/drops (Main) step left/right.
 		return {
-			regions: ["StoreSections", "CrateOpen", "stage", "chips", "drops"],
+			regions: ["StoreSections", "chips", "CrateOpen", "stage", "drops", "pulls"],
 			// no keys (Open locked): the crate picker, so a crate with keys is one press away
 			first: ["CrateOpen", "chips"],
-			columns: [["Side", "Main"]],
+			// crate cards + stage (Main) on the left, odds + last pulls (Side) on the right
+			columns: [["Main", "Side"]],
 		};
 	}
 	if (section === "Daily") {
