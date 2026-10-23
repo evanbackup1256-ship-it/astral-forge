@@ -125,3 +125,89 @@ export function TabStrip(p: {
 		</FlexRow>
 	);
 }
+
+/** One line slot in a vertical list: fixed height, full width, holds a single text/meter element. */
+export function Slot(p: { height: number; layoutOrder: number; name?: string; children?: React.ReactNode }) {
+	return (
+		<frame
+			Size={new UDim2(1, 0, 0, p.height)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			LayoutOrder={p.layoutOrder}
+			ClipsDescendants={false}
+			{...(p.name !== undefined ? { Name: p.name } : {})}
+		>
+			{p.children}
+		</frame>
+	);
+}
+
+/**
+ * The mockups' card row (.row / .it): [lead tile] [copy column, fills] [action column].
+ * Wide: one horizontal list, action vertically centred. Stacked: copy row on top, the action
+ * full width underneath. Everything is list-laid; `copy` children should carry LayoutOrder.
+ */
+export function CardBody(p: {
+	stack: boolean;
+	gap?: number;
+	copyGap?: number;
+	lead?: React.Element;
+	leadSize?: number;
+	action?: React.Element;
+	actionWidth?: number;
+	actionHeight?: number;
+	actionName?: string;
+	actionRef?: React.Ref<Frame>;
+	children?: React.ReactNode;
+}) {
+	const gap = p.gap ?? 12;
+	const actionH = p.actionHeight ?? TapTarget;
+	const action =
+		p.action !== undefined ? (
+			<frame
+				key={p.actionName ?? "Action"}
+				Size={p.stack ? new UDim2(1, 0, 0, actionH) : UDim2.fromOffset(p.actionWidth ?? 140, actionH)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ClipsDescendants={false}
+				LayoutOrder={2}
+				ref={p.actionRef}
+			>
+				{p.action}
+			</frame>
+		) : undefined;
+	const lead =
+		p.lead !== undefined ? (
+			<frame key="Lead" Size={UDim2.fromOffset(p.leadSize ?? 48, p.leadSize ?? 48)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+				{p.lead}
+			</frame>
+		) : undefined;
+	const copy = (
+		<frame key="Copy" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} ClipsDescendants={false}>
+			<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, p.copyGap ?? 4)} VerticalAlignment={Enum.VerticalAlignment.Center} />
+			{p.children}
+		</frame>
+	);
+	if (p.stack) {
+		return (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+				<frame key="Top" Size={new UDim2(1, 0, 1, -(actionH + 8))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={false}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, gap)} />
+					{lead}
+					{copy}
+				</frame>
+				{action}
+			</frame>
+		);
+	}
+	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, gap)} VerticalAlignment={Enum.VerticalAlignment.Center} />
+			{lead}
+			{copy}
+			{action}
+		</frame>
+	);
+}
