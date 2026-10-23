@@ -658,7 +658,7 @@ function __member(): unknown {
 			luaTable.insert(sections, { id: "suggest", height: SUGGEST_ROW_H, element: luaCall(chipRail, suggestChips, 24) });
 		}
 		luaTable.insert(sections, { id: "input", height: inputHeight, element: inputElement });
-		return reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 18) }), reactLoose.createElement("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 15) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: 0.75 })), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "cyan"), Thickness: 1, Transparency: 0.55 }), reactLoose.createElement(PageScaffold, { gap: chromeGap, inset: SIDE_INSET, tailPad: chromeGap, scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 0, sections: sections }));
+		return reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 18) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "cyan"), Thickness: 1, Transparency: 0.55 }), reactLoose.createElement(PageScaffold, { gap: chromeGap, inset: SIDE_INSET, tailPad: chromeGap, scrollBarColor: luaProp(Palette, "cyan"), scrollBarThickness: 0, sections: sections }));
 		return undefined;
 	}
 	return { ChatView: ChatView };
