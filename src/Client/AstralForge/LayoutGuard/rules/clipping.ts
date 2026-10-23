@@ -25,6 +25,28 @@ function scrollClipped(ctx: RuleContext, n: GNode): boolean {
 	return s !== undefined && (n.clipper === s.id || isAncestor(ctx.snap, n.clipper, s.id));
 }
 
+/**
+ * Content hidden on purpose is not "clipped": a collapsed card (Rise/Collapse tween closing a
+ * CanvasGroup), a zero-size or fully transparent holder, anything in motion, anything inside a
+ * ScrollingFrame (off-canvas content is reached by scrolling), and content that is entirely
+ * hidden (a real clip cuts a control *partly*; 100% hidden means the container is closed).
+ */
+function intentionallyHidden(ctx: RuleContext, n: GNode, hidden: number): boolean {
+	if (hidden >= 0.98) return true;
+	if (n.opacity >= 0.99) return true;
+	let id = n.parent;
+	while (id !== -1) {
+		const a = ctx.snap.byId.get(id);
+		if (a === undefined) break;
+		if (a.inMotion || a.kind === "scroll" || a.className === "ScrollingFrame") return true;
+		if (a.rect.x1 - a.rect.x0 < 2 || a.rect.y1 - a.rect.y0 < 2) return true;
+		if (a.clips && a.className === "CanvasGroup") return true;
+		if (id === n.clipper) break;
+		id = a.parent;
+	}
+	return false;
+}
+
 export const ClippedContent: Rule = {
 	id: "ClippedContent",
 	title: "Control or text cut off by a clipping ancestor",
@@ -42,6 +64,7 @@ export const ClippedContent: Rule = {
 			const hidden = 1 - share;
 			const amount = G.overflowAmount(n.rect, n.clipRect);
 			if (hidden < minShare || amount < minPx) return;
+			if (intentionallyHidden(ctx, n, hidden)) return;
 			const clipper = ctx.snap.byId.get(n.clipper);
 			const base = n.interactive ? 0.35 : 0.2;
 			out.push(

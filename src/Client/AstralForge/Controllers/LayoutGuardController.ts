@@ -343,7 +343,7 @@ class LayoutGuardController implements OnInit, OnStart {
 		const resume = (): boolean => {
 			const [ok, err] = coroutine.resume(work);
 			if (!ok) {
-				ClientLog.warnEvery("layoutguard-scan", 15, "LayoutGuard", `scan failed: ${tostring(err)}`);
+				if (IS_STUDIO) ClientLog.warnEvery("layoutguard-scan", 15, "LayoutGuard", `scan failed: ${tostring(err)}`);
 				return true;
 			}
 			return coroutine.status(work) === "dead";
@@ -369,7 +369,7 @@ class LayoutGuardController implements OnInit, OnStart {
 		if (cap.truncated) stats.truncated += 1;
 		const pathOf = (id: number) => snap.byId.get(id)?.path ?? "?";
 		const [findings, run] = runRules(snap, this.configs, profile, measure, step);
-		for (const f of run.failures) ClientLog.warnEvery("layoutguard-rule " + f, 60, "LayoutGuard", `rule failed: ${f}`);
+		for (const f of run.failures) if (IS_STUDIO) ClientLog.warnEvery("layoutguard-rule " + f, 60, "LayoutGuard", `rule failed: ${f}`);
 		const now = os.clock();
 		const tracked = this.tracker.update(findings, snap, now, pathOf);
 		this.active = tracked.active;
@@ -438,7 +438,7 @@ class LayoutGuardController implements OnInit, OnStart {
 
 	private sink(level: string, line: string) {
 		// Studio prints grouped warn+ lines to Output (each line at most once per 5 min); live servers stay quiet
-		if (this.mode === "full" && (level === "error" || (IS_STUDIO && level === "warn"))) ClientLog.warnEvery("layoutguard " + line, 300, "LayoutGuard", line);
+		if (IS_STUDIO && this.mode === "full" && (level === "error" || level === "warn")) ClientLog.warnEvery("layoutguard " + line, 300, "LayoutGuard", line);
 		else ClientLog.debug("LayoutGuard", line);
 	}
 

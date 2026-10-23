@@ -125,6 +125,8 @@ export const GutterInconsistency: Rule = {
 		const minRange = ctx.param("minRangePx", 4);
 		eligible(snap, "GutterInconsistency", (n) => n.children.size() >= 3).forEach((parent, i) => {
 			stepEvery(ctx, i, 8);
+			// the loading screen places its tip on purpose, away from the logo/progress stack
+			if (parent.name === "boot" || parent.path.find(".boot", 1, true)[0] !== undefined) return;
 			const run = runOf(freeChildren(snap, parent));
 			if (run === undefined) return;
 			const gaps: number[] = [];
