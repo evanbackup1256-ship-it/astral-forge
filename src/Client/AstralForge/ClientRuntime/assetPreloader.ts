@@ -1,6 +1,6 @@
 import { seedAntilagFromBoot } from "../MotionKit/antilag";
 import { FORGE_ASSET_MANIFEST } from "../ArtKit/ForgeAnvil2D";
-import { GAME_ICON_ASSET, VECTOR_ICON_ATLAS } from "../ArtKit/Icon";
+import { GAME_ICON_ASSET, VECTOR_ICON_ATLAS, VECTOR_ICON_ATLAS_B } from "../ArtKit/Icon";
 import { ClientLog } from "../CoreKit/log";
 
 const ContentProvider = game.GetService("ContentProvider");
@@ -34,6 +34,7 @@ const FAILURE_RETRY_ROUNDS = 1;
 const GOTHAM_FONT_FAMILY = "rbxasset://fonts/families/GothamSSm.json";
 const STATIC_ASSET_MANIFEST = [
 	VECTOR_ICON_ATLAS,
+	VECTOR_ICON_ATLAS_B,
 	GAME_ICON_ASSET,
 	GOTHAM_FONT_FAMILY,
 	"rbxasset://fonts/families/BuilderSans.json",

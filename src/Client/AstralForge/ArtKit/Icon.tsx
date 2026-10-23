@@ -14,11 +14,14 @@ function fadeWithPresence(local_: number | React.Binding<number>, presence: Reac
 	return React.joinBindings([local_, presence]).map((values) => math.clamp(values[0] + (1 - values[1]), 0, 1));
 }
 
-export const VECTOR_ICON_ATLAS = "rbxassetid://139083324249955";
-export const GAME_ICON_ASSET = "rbxassetid://77239367431949";
+export const VECTOR_ICON_ATLAS = "rbxassetid://105262447644762"
+/** rows 8+ of the vector atlas (indexes 64..): Roblox caps an image at 1024px, so the sheet is split */
+export const VECTOR_ICON_ATLAS_B = "rbxassetid://115863993090062";
+export const VECTOR_ICON_SHEET_ROWS = 8;
+export const GAME_ICON_ASSET = "rbxassetid://74290074754222";
 export const WORDMARK_ASSET = "rbxassetid://75854849112049";
-export const COMPACT_MARK_ASSET = "rbxassetid://93834740732329";
-export const LOCKUP_ASSET = "rbxassetid://94028186779182";
+export const COMPACT_MARK_ASSET = "rbxassetid://137100865466961";
+export const LOCKUP_ASSET = "rbxassetid://126797903300109";
 export const VECTOR_ICON_CELL = 128;
 export const VECTOR_ICON_COLUMNS = 8;
 export const VECTOR_ICON_INDEX: Record<string, number> = {
@@ -83,6 +86,25 @@ export const VECTOR_ICON_INDEX: Record<string, number> = {
 	Timer: 61,
 	Wave: 62,
 	Visit: 63,
+	Gems: 64,
+	Tokens: 65,
+	Trade: 66,
+	Journal: 67,
+	Session: 68,
+	Info: 69,
+	Warning: 70,
+	Ascension: 71,
+	Constellation: 72,
+	Companion: 73,
+	Expedition: 74,
+	Season: 75,
+	RarityCommon: 76,
+	RarityRare: 77,
+	RarityEpic: 78,
+	RarityLegendary: 79,
+	RarityMythic: 80,
+	RarityCelestial: 81,
+	RarityAstral: 82,
 };
 
 function vectorIconIndex(kind: unknown): number {
@@ -108,13 +130,15 @@ export function VectorIconFace({
 	const faded = React.useMemo(() => fadeWithPresence(transparency, presence), [transparency, presence]);
 	const index = vectorIconIndex(kind);
 	const column = index % VECTOR_ICON_COLUMNS;
-	const row = math.floor(index / VECTOR_ICON_COLUMNS);
+	const fullRow = math.floor(index / VECTOR_ICON_COLUMNS);
+	const onSecondSheet = fullRow >= VECTOR_ICON_SHEET_ROWS;
+	const row = onSecondSheet ? fullRow - VECTOR_ICON_SHEET_ROWS : fullRow;
 	return (
 		<imagelabel
 			Size={UDim2.fromScale(1, 1)}
 			BackgroundTransparency={1}
 			BorderSizePixel={0}
-			Image={VECTOR_ICON_ATLAS}
+			Image={onSecondSheet ? VECTOR_ICON_ATLAS_B : VECTOR_ICON_ATLAS}
 			ImageColor3={color}
 			ImageTransparency={faded}
 			ImageRectOffset={new Vector2(column * VECTOR_ICON_CELL, row * VECTOR_ICON_CELL)}

@@ -1,5 +1,5 @@
 // Purpose: Named Astral Forge palette and accessibility variants; colors match the audited baseline.
-// Owner: Astral Forge presentation. Dependencies: Roblox Color3. Last-reviewed: 2026-10-21 (uirevamp 01 "Night Iron": cool iron neutrals, parchment text, brass lead accent).
+// Owner: Astral Forge presentation. Dependencies: Roblox Color3. Last-reviewed: 2026-10-22 (2026-10 revamp: warm plum-black neutrals from design/system/af.css, brass lead accent).
 
 export type Palette = Record<string, Color3>;
 export type NamedPalette = Record<string, string>;
@@ -26,36 +26,36 @@ export interface BootPalette {
 const rgb = (r: number, g: number, b: number) => Color3.fromRGB(r, g, b);
 
 export const Base: Palette = table.freeze({
-	void: rgb(8, 9, 14),
-	ink: rgb(11, 12, 18),
-	night: rgb(16, 17, 25),
-	panel: rgb(23, 24, 34),
-	panelRaised: rgb(32, 33, 46),
-	panelSoft: rgb(47, 48, 65),
-	line: rgb(60, 62, 82),
-	lineSoft: rgb(110, 112, 138),
-	cream: rgb(246, 238, 224),
-	creamSoft: rgb(218, 209, 194),
+	void: rgb(8, 6, 10),
+	ink: rgb(12, 9, 14),
+	night: rgb(19, 14, 20),
+	panel: rgb(27, 21, 29),
+	panelRaised: rgb(39, 31, 42),
+	panelSoft: rgb(62, 49, 66),
+	line: rgb(74, 58, 80),
+	lineSoft: rgb(132, 110, 142),
+	cream: rgb(252, 247, 240),
+	creamSoft: rgb(230, 220, 212),
 	// muted is checked at 4.5:1 on panelSoft by verify_mobile_matrix; keep it there when retuning
-	muted: rgb(178, 172, 182),
-	cyan: rgb(96, 206, 222),
-	mint: rgb(120, 214, 170),
-	coral: rgb(238, 116, 100),
-	mango: rgb(242, 176, 72),
-	violet: rgb(170, 146, 240),
-	pink: rgb(232, 122, 172),
-	blue: rgb(112, 164, 240),
+	muted: rgb(178, 160, 166),
+	cyan: rgb(70, 218, 242),
+	mint: rgb(86, 236, 178),
+	coral: rgb(255, 104, 112),
+	mango: rgb(255, 184, 52),
+	violet: rgb(178, 134, 255),
+	pink: rgb(250, 104, 178),
+	blue: rgb(96, 166, 255),
 	white: rgb(255, 255, 255),
-	green: rgb(116, 210, 152),
+	green: rgb(98, 232, 164),
 	// 236/104/106: error text holds 4.5:1 on raised cards (226/88/90 was 4.18)
 	red: rgb(240, 108, 104),
 	shadow: rgb(0, 0, 0),
-	graphite: rgb(19, 20, 29),
-	steel: rgb(200, 210, 232),
-	steelBright: rgb(246, 238, 224),
-	brass: rgb(236, 182, 92),
-	brassDeep: rgb(138, 90, 34),
-	ember: rgb(246, 104, 72),
+	graphite: rgb(19, 14, 20),
+	steel: rgb(204, 214, 234),
+	steelBright: rgb(252, 247, 240),
+	brass: rgb(250, 190, 72),
+	brassDeep: rgb(140, 92, 30),
+	ember: rgb(244, 92, 84),
 });
 
 export const Accessibility: AccessibilityPalettes = table.freeze({
