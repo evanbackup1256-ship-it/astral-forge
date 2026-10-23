@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { HudBoost, HudQuickActions } from "./HudQuickActions";
 import { Audio } from "../AudioKit/audio";
 import { countRedraw, RedrawCounterHud, redrawCounterEnabled } from "./devRedrawCounter";
 import BuffStrip = require("../BuffStrip");
@@ -618,6 +619,8 @@ function AppShell(props: ShellProps) {
 										</PageFrame>
 									</Workspace>
 								</AntilagContext.Provider>
+								{!mobileShell && page === "Overview" && <HudQuickActions vault={state.Vault} dispatch={dispatch}
+									boost={activeBoost as HudBoost | undefined} boostEndsAt={activeBoostEndsAt as number} openBoosts={openBoosts} reducedMotion={reducedMotion} />}
 							</frame>
 							{!mobileShell && drawerNav && <imagebutton Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.void} BackgroundTransparency={drawerScrimTransparency} BorderSizePixel={0}
 								AutoButtonColor={false} Selectable={false} Active={railOpen} Visible={drawerScrimVisible} ZIndex={28} Event={{ Activated: () => { setRailOpen(false); Audio.play("close"); } }} />}

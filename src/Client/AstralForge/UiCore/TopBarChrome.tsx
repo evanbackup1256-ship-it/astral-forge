@@ -1,4 +1,5 @@
 import { useLiveSessionValue } from "./liveSession";
+import { progressFraction, readLevelState } from "./levelRoadmap";
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, TOPBAR_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
@@ -129,11 +130,12 @@ export function StatChip(_param: StatChipProps) {
 	// room for long scale names ("37.3 Googolchime"); FPS/ping only ever show a few digits
 	const valueMaxW = _param.narrow ? 40 : tall ? 108 : 116;
 	const chipInnerW = iconSize + 6 + valueMaxW + (tall ? 20 : 18);
+	// 01-hud-session chip: a dark pill, round icon on the left, Gotham numbers
 	const _exp = h("uicorner", {
-		CornerRadius: new UDim(0, Radius.md),
+		CornerRadius: new UDim(1, 0),
 	});
 	const _exp_1 = h("uigradient", {
-		Color: surfaceGradient(Palette.panel),
+		Color: surfaceGradient(Palette.ink),
 		Rotation: 90,
 	});
 	const _exp_2 = h(
@@ -151,7 +153,7 @@ export function StatChip(_param: StatChipProps) {
 		}),
 	);
 	const _exp_3 = h("uipadding", {
-		PaddingLeft: new UDim(0, tall ? 10 : 9),
+		PaddingLeft: new UDim(0, tall ? 8 : 7),
 		PaddingRight: new UDim(0, tall ? 12 : 11),
 		PaddingTop: new UDim(0, tall ? 6 : 8),
 		PaddingBottom: new UDim(0, tall ? 6 : 8),
@@ -213,7 +215,7 @@ export function StatChip(_param: StatChipProps) {
 		_attributes.Text = placeholder ?? compactNumber(value);
 		_attributes.TextColor3 = ensureContrast(Palette.panel, Palette.cream);
 		_attributes.TextSize = valueSize;
-		_attributes.FontFace = Font.fromEnum(Enum.Font.BuilderSansBold);
+		_attributes.FontFace = Font.fromEnum(Enum.Font.GothamBold);
 		_attributes.TextXAlignment = Enum.TextXAlignment.Left;
 		_attributes.TextYAlignment = Enum.TextYAlignment.Center;
 		_attributes.LayoutOrder = 2;
@@ -245,7 +247,7 @@ export function StatChip(_param: StatChipProps) {
 		{
 			Size: UDim2.fromOffset(chipInnerW, chipH),
 			AutomaticSize: Enum.AutomaticSize.None,
-			BackgroundColor3: Palette.panel,
+			BackgroundColor3: Palette.ink,
 			BorderSizePixel: 0,
 			ClipsDescendants: true,
 		},
@@ -1264,12 +1266,16 @@ function TopBarImpl(_param: TopBarProps) {
 	// 01-hud-session: Shop pill, leftmost of the controls (dropped first on the narrowest bars)
 	const shopControlW = _param.navigate === undefined || width < 420 ? 0 : micro || stacked || width < 1380 ? SHELL_CHROME.topbarControl : 96;
 	const shopSlot = shopControlW > 0 ? sessionControlGap + shopControlW : 0;
+	// level meter left of the Shop pill, wide bars only
+	const levelMeterW = micro || stacked || width < 1280 ? 0 : 132;
+	const levelSlot = levelMeterW > 0 ? sessionControlGap + levelMeterW : 0;
 	const controlsW =
 		controlsBeforeSearch +
 		(searchControlW > 0 ? feedbackControlGap + searchControlW : 0) +
 		sessionControlGap +
 		sessionControlW +
-		shopSlot;
+		shopSlot +
+		levelSlot;
 	const fixedSingleRow =
 		edgePad * 2 +
 		(logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) +
@@ -1802,7 +1808,7 @@ function TopBarImpl(_param: TopBarProps) {
 					Size: UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
 					Position: new UDim2(
 						1,
-						-(controlsRight + controlsW - shopSlot - sessionControlGap - sessionControlW),
+						-(controlsRight + controlsW - levelSlot - shopSlot - sessionControlGap - sessionControlW),
 						0,
 						math.floor((row1H - SHELL_CHROME.topbarControl) / 2),
 					),
@@ -1836,7 +1842,7 @@ function TopBarImpl(_param: TopBarProps) {
 			{
 				Name: "SessionButton",
 				Size: UDim2.fromOffset(sessionControlW, SHELL_CHROME.topbarControl),
-				Position: new UDim2(1, -(controlsRight + controlsW - shopSlot), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+				Position: new UDim2(1, -(controlsRight + controlsW - levelSlot - shopSlot), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
 				BackgroundTransparency: 1,
 				ZIndex: 22,
 			},
@@ -1848,14 +1854,14 @@ function TopBarImpl(_param: TopBarProps) {
 				{
 					Name: "ShopButton",
 					Size: UDim2.fromOffset(shopControlW, SHELL_CHROME.topbarControl),
-					Position: new UDim2(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+					Position: new UDim2(1, -(controlsRight + controlsW - levelSlot), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
 					BackgroundTransparency: 1,
 					ZIndex: 22,
 				},
 				h(Button, {
 					text: shopControlW > SHELL_CHROME.topbarControl ? "SHOP" : "",
 					icon: "Shop.11",
-					tooltip: { title: "Shop", body: "Passes, boosts and Flux packs." },
+					tooltip: { title: "Shop", body: "Daily deals, crates, skins and passes." },
 					onClick: () => _param.navigate?.("Shop"),
 					color: darken(Palette.mango, 0.5),
 					textColor: Palette.mango,
@@ -1869,6 +1875,59 @@ function TopBarImpl(_param: TopBarProps) {
 					}),
 				}),
 			),
+		levelMeterW > 0 &&
+			h(
+				"frame",
+				{
+					Name: "LevelMeter",
+					Size: UDim2.fromOffset(levelMeterW, SHELL_CHROME.topbarControl),
+					Position: new UDim2(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+					BackgroundTransparency: 1,
+					ZIndex: 22,
+				},
+				h(LevelMeter, { width: levelMeterW }),
+			),
+	);
+}
+
+// Forge level and progress to the next step, read live so the memoised TopBar stays asleep.
+export function LevelMeter(_param: { width: number }) {
+	const key = useClientSelector((client) => {
+		const [level, , nextStep] = readLevelState(client.session as never);
+		return `${level}|${math.floor(progressFraction(nextStep) * 100)}`;
+	});
+	const [levelText, pctText] = key.split("|") as unknown as [string, string];
+	const fraction = (tonumber(pctText) ?? 0) / 100;
+	const tipEvents = useTooltip({ title: `Forge level ${levelText}`, body: `${pctText}% of the way to the next level.` });
+	const labelW = 44;
+	return h(
+		"frame",
+		{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, Event: tipEvents },
+		h("textlabel", {
+			Size: new UDim2(0, labelW, 1, 0),
+			BackgroundTransparency: 1,
+			Text: `Lv ${levelText}`,
+			TextColor3: Palette.cream,
+			TextSize: 13,
+			FontFace: Font.fromEnum(Enum.Font.GothamBold),
+			TextXAlignment: Enum.TextXAlignment.Right,
+		}),
+		h(
+			"frame",
+			{
+				Size: new UDim2(1, -(labelW + 8), 0, 6),
+				Position: new UDim2(0, labelW + 8, 0.5, -3),
+				BackgroundColor3: Palette.line,
+				BorderSizePixel: 0,
+				ClipsDescendants: true,
+			},
+			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			h(
+				"frame",
+				{ Size: UDim2.fromScale(math.clamp(fraction, 0, 1), 1), BackgroundColor3: Palette.cyan, BorderSizePixel: 0 },
+				h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			),
+		),
 	);
 }
 
