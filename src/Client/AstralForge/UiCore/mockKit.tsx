@@ -88,7 +88,7 @@ export function spaced(text: string): string {
 	for (const [ch] of text.gmatch(utf8.charpattern)) {
 		out.push(ch as string);
 	}
-	return out.join("\u200A");
+	return out.join("\u{200A}");
 }
 
 /** .pn h3: icon in the accent, 15px title caps, optional small note pushed right. */

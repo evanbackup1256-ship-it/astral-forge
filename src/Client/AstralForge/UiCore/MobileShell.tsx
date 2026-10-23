@@ -518,7 +518,7 @@ function DockedMenuSheet(_param: MenuSheetProps) {
 				Size: new UDim2(1, -(pad * 2 + 26), 0, 18),
 				Position: UDim2.fromOffset(pad + 26, 9),
 				BackgroundTransparency: 1,
-				Text: "M\u200AO\u200AR\u200AE",
+				Text: "M\u{200A}O\u{200A}R\u{200A}E",
 				TextColor3: Palette.cream,
 				TextSize: 13,
 				TextXAlignment: Enum.TextXAlignment.Left,
