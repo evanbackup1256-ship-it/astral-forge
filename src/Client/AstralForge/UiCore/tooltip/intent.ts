@@ -40,7 +40,7 @@ export interface OpenTip {
 
 type Listener = () => void;
 
-const state = {
+const tip = {
 	open: undefined as OpenTip | undefined,
 	timer: undefined as thread | undefined,
 	closedAt: -math.huge,
@@ -54,46 +54,46 @@ const state = {
 };
 
 export function subscribeTooltip(listener: Listener): () => void {
-	state.listeners.add(listener);
+	tip.listeners.add(listener);
 	return () => {
-		state.listeners.delete(listener);
+		tip.listeners.delete(listener);
 	};
 }
 
 export function openTooltip(): OpenTip | undefined {
-	return state.open;
+	return tip.open;
 }
 
 function notify() {
-	for (const listener of state.listeners) {
+	for (const listener of tip.listeners) {
 		listener();
 	}
 }
 
 export function nextTooltipId(): number {
-	state.ids += 1;
-	return state.ids;
+	tip.ids += 1;
+	return tip.ids;
 }
 
 function stopTimer() {
-	if (state.timer !== undefined) {
-		pcall(task.cancel, state.timer);
-		state.timer = undefined;
+	if (tip.timer !== undefined) {
+		pcall(task.cancel, tip.timer);
+		tip.timer = undefined;
 	}
 }
 
 export function closeTooltip(id?: number) {
 	stopTimer();
-	if (state.open !== undefined && (id === undefined || state.open.id === id)) {
-		state.open = undefined;
-		state.closedAt = os.clock();
+	if (tip.open !== undefined && (id === undefined || tip.open.id === id)) {
+		tip.open = undefined;
+		tip.closedAt = os.clock();
 		notify();
 	}
 }
 
 /** retarget an open tip's content (or close it when the content went empty) */
 export function refreshTooltip(id: number, content: TooltipContent | undefined) {
-	const open = state.open;
+	const open = tip.open;
 	if (open === undefined || open.id !== id) {
 		return;
 	}
@@ -101,13 +101,13 @@ export function refreshTooltip(id: number, content: TooltipContent | undefined) 
 	if (data === undefined) {
 		closeTooltip(id);
 	} else if (data !== open.data) {
-		state.open = { id, target: open.target, data, input: open.input, manual: open.manual };
+		tip.open = { id, target: open.target, data, input: open.input, manual: open.manual };
 		notify();
 	}
 }
 
 function warm(): boolean {
-	return os.clock() - state.closedAt < TooltipTiming.warmWindow;
+	return os.clock() - tip.closedAt < TooltipTiming.warmWindow;
 }
 
 function showable(target: GuiObject): boolean {
@@ -123,10 +123,10 @@ export function scheduleTooltip(
 	manual = false,
 ) {
 	stopTimer();
-	state.timer = task.delay(wait, () => {
-		state.timer = undefined;
+	tip.timer = task.delay(wait, () => {
+		tip.timer = undefined;
 		// hover intent: a pointer still sweeping across doesn't mean "tell me about this"
-		if (input === "keyboard" && !manual && state.speed > TooltipTiming.settleSpeed) {
+		if (input === "keyboard" && !manual && tip.speed > TooltipTiming.settleSpeed) {
 			scheduleTooltip(id, target, read, TooltipTiming.settleRetry, input, manual);
 			return;
 		}
@@ -134,7 +134,7 @@ export function scheduleTooltip(
 		if (data === undefined || !showable(target)) {
 			return;
 		}
-		state.open = { id, target, data, input, manual };
+		tip.open = { id, target, data, input, manual };
 		if (input === "touch") {
 			InteractionFeedback.tick();
 		}
@@ -155,25 +155,25 @@ export function showTooltipFor(target: GuiObject, content: TooltipContent): () =
 	const id = nextTooltipId();
 	scheduleTooltip(id, target, () => content, padDelay(), currentInput(), true);
 	return () => {
-		if (state.open !== undefined && state.open.id === id) {
+		if (tip.open !== undefined && tip.open.id === id) {
 			closeTooltip(id);
-		} else if (state.open === undefined) {
+		} else if (tip.open === undefined) {
 			stopTimer();
 		}
 	};
 }
 
 export function currentInput(): InputKind {
-	return isTouchOnly() ? "touch" : state.input;
+	return isTouchOnly() ? "touch" : tip.input;
 }
 
 export function beginPress(at: Vector2) {
-	state.pressFrom = at;
-	state.input = "touch";
+	tip.pressFrom = at;
+	tip.input = "touch";
 }
 
 export function endPress() {
-	state.pressFrom = undefined;
+	tip.pressFrom = undefined;
 }
 
 // ── Screen rects ───────────────────────────────────────────────────────────────
@@ -237,15 +237,15 @@ const GAMEPAD_TYPES = new Set<Enum.UserInputType>([
 
 function noteInput(kind: Enum.UserInputType) {
 	if (GAMEPAD_TYPES.has(kind)) {
-		state.input = "gamepad";
+		tip.input = "gamepad";
 	} else if (kind === Enum.UserInputType.Touch) {
-		state.input = "touch";
+		tip.input = "touch";
 	} else if (
 		kind === Enum.UserInputType.Keyboard ||
 		kind === Enum.UserInputType.MouseMovement ||
 		kind === Enum.UserInputType.MouseButton1
 	) {
-		state.input = "keyboard";
+		tip.input = "keyboard";
 	}
 }
 
@@ -255,20 +255,20 @@ UserInputService.InputChanged.Connect((input) => {
 		noteInput(kind);
 		const now = os.clock();
 		const at = new Vector2(input.Position.X, input.Position.Y);
-		const dt = math.max(now - state.pointerAt, 1 / 240);
+		const dt = math.max(now - tip.pointerAt, 1 / 240);
 		// light smoothing so one jittery frame doesn't decide intent
-		state.speed = state.speed * 0.5 + (at.sub(state.pointer).Magnitude / dt) * 0.5;
-		state.pointer = at;
-		state.pointerAt = now;
+		tip.speed = tip.speed * 0.5 + (at.sub(tip.pointer).Magnitude / dt) * 0.5;
+		tip.pointer = at;
+		tip.pointerAt = now;
 		return;
 	}
-	if (kind === Enum.UserInputType.MouseWheel && state.open !== undefined) {
+	if (kind === Enum.UserInputType.MouseWheel && tip.open !== undefined) {
 		closeTooltip();
 	}
-	const from = state.pressFrom;
+	const from = tip.pressFrom;
 	if (kind === Enum.UserInputType.Touch && from !== undefined) {
 		if (new Vector2(input.Position.X, input.Position.Y).sub(from).Magnitude > TOUCH_SLOP) {
-			state.pressFrom = undefined;
+			tip.pressFrom = undefined;
 			closeTooltip();
 		}
 	}
@@ -277,7 +277,7 @@ UserInputService.InputChanged.Connect((input) => {
 UserInputService.InputBegan.Connect((input) => {
 	const kind = input.UserInputType;
 	noteInput(kind);
-	const open = state.open;
+	const open = tip.open;
 	if (open === undefined) {
 		return;
 	}
@@ -301,7 +301,7 @@ UserInputService.InputBegan.Connect((input) => {
 // a gamepad tip goes away the moment selection leaves its target, even if the target never
 // heard SelectionLost (it was removed, or selection jumped to a CoreGui menu)
 GuiService.GetPropertyChangedSignal("SelectedObject").Connect(() => {
-	const open = state.open;
+	const open = tip.open;
 	if (open !== undefined && open.input === "gamepad" && !open.manual && GuiService.SelectedObject !== open.target) {
 		closeTooltip(open.id);
 	}

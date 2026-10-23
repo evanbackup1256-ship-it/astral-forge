@@ -42,6 +42,23 @@ local ALLOWED: { [string]: string } = {
 	["CoreKit/store/selectors.ts:selectFlags"] = "client store selector API (rw18)",
 	["CoreKit/store/selectors.ts:selectSessionField"] = "client store selector API (rw18)",
 	["CoreKit/settingsService.ts:useSettingOn"] = "settings service hook API (rw22)",
+	-- UiCore public kit: primitives, motion scheduler and overlay stack for pages to adopt
+	["UiCore/motionScheduler.ts:activeTweens"] = "shared motion scheduler API (uicore revamp)",
+	["UiCore/motionScheduler.ts:staggerDelay"] = "shared motion scheduler API (uicore revamp)",
+	["UiCore/motionScheduler.ts:useTween"] = "shared motion scheduler API (uicore revamp)",
+	["UiCore/overlayCore.ts:PanelSelectionScope"] = "overlay/focus stack API (uicore revamp)",
+	["UiCore/overlayCore.ts:backOutOfTop"] = "overlay/focus stack API (uicore revamp)",
+	["UiCore/overlayCore.ts:overlayDepth"] = "overlay/focus stack API (uicore revamp)",
+	["UiCore/primitives.tsx:UiPanel"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/primitives.tsx:UiCard"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/primitives.tsx:UiButton"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/primitives.tsx:UiTabs"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/primitives.tsx:UiChips"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/primitives.tsx:UiList"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/primitives.tsx:UiGrid"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/primitives.tsx:UiModal"] = "UiCore primitive kit (uicore revamp)",
+	["UiCore/tooltip/content.ts:contentKey"] = "tooltip content identity for callers that cache tips",
+	["UiOverlays/ConfirmDialog.tsx:pendingConfirms"] = "confirm queue inspection API",
 }
 
 local function walk(dir: string, out: { string })
