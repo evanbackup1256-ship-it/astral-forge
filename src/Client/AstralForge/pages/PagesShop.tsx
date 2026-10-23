@@ -32,7 +32,26 @@ import {
 	sharedModule,
 } from "./luauDeps";
 import { clientModule } from "./luauKits";
-import { GlyphWell, PnSurface, ROW_RADIUS, rowFace } from "../UiCore/mockKit";
+import {
+	BODY,
+	BODY_BOLD,
+	BODY_SEMI,
+	Chip,
+	Glyph,
+	GlyphWell,
+	Line,
+	MockPanel,
+	mockGap,
+	NUM,
+	PanelHeading,
+	panelPad,
+	PnSurface,
+	ROW_RADIUS,
+	rowFace,
+	spaced,
+	TITLE_FACE,
+} from "../UiCore/mockKit";
+import { Grid as MockGrid, headingBlock, IconWell, MockBtn, RowFace } from "./mockRows";
 
 const MarketplaceService = game.GetService("MarketplaceService");
 const Players = game.GetService("Players");
@@ -333,7 +352,7 @@ const h = React.createElement as unknown as (
 	...children: unknown[]
 ) => React.ReactElement;
 
-const SHOP_TABS = ["Featured", "Passes", "Supplies", "Codes"];
+const SHOP_TABS = ["Featured", "Flux", "Gems", "Passes", "Codes"];
 const SHOP_DEFAULT_LINE = "";
 const PRODUCT_PENDING_FAILSAFE = 40;
 const REDEEM_DEBOUNCE = 0.85;
@@ -387,9 +406,10 @@ function useMonetization(): MonetizationCatalog {
 
 const SCROLL_PAD = 16 + 16;
 const TAB_LABELS: Record<string, string> = {
-	Featured: "Picks",
+	Featured: "Featured",
+	Flux: "Flux",
+	Gems: "Gems",
 	Passes: "Passes",
-	Supplies: "Packs",
 	Codes: "Codes",
 };
 const SHOP_TAB_OPTIONS = SHOP_TABS.map((id) => ({
@@ -402,6 +422,10 @@ function accentOf(rgb: number[] | undefined): Color3 {
 }
 
 function iconOf(name: string | undefined): string {
+	// catalog icons are "Kind.frame" ids ("Dust.16"); the glyph kind is the part before the dot
+	if (name !== undefined) {
+		name = name.split(".")[0];
+	}
 	const known = ["Dust", "Flux", "Forge", "Core", "StarGrid", "Research", "Vault", "Shop", "Gift", "Chat"];
 	for (const entry of known) {
 		if (entry === name) {
@@ -457,191 +481,6 @@ function priceText(label: Fmt.Flux, studioPrice: Fmt.Flux, offerId: number): str
 	}
 	return "Unavailable";
 }
-
-interface TabPaneProps {
-	reducedMotion?: boolean;
-	height: number;
-	children?: React.ReactNode;
-}
-
-function TabPane(props: TabPaneProps) {
-	const reducedMotion = props.reducedMotion;
-	const height = props.height;
-	const children = props.children;
-	const enter = useBoatTween(1, reducedMotion ? 0.01 : 0.12, reducedMotion, easeOutCubic, 0);
-	const slide = enter.map((amount) => new UDim2(0, 0, 0, math.round((1 - math.clamp(amount, 0, 1)) * 10)));
-	return (
-		<frame Size={new UDim2(1, 0, 0, height)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
-			<frame Size={UDim2.fromScale(1, 1)} Position={slide} BackgroundTransparency={1} BorderSizePixel={0}>
-				{children}
-			</frame>
-		</frame>
-	);
-}
-
-interface OfferTileProps {
-	title: string;
-	detail: string;
-	meta: string;
-	accent: Color3;
-	icon: string;
-	cta: string;
-	disabled?: boolean;
-	owned?: boolean;
-	onClick?: () => void;
-	layoutOrder?: number;
-	reducedMotion?: boolean;
-	staggerIndex?: number;
-	packed?: boolean;
-}
-
-function OfferTileImpl(props: OfferTileProps) {
-	const title = props.title;
-	const detail = props.detail;
-	const meta = props.meta;
-	const accent = props.accent;
-	const icon = props.icon;
-	const cta = props.cta;
-	const disabled = props.disabled;
-	const owned = props.owned;
-	const onClick = props.onClick;
-	const layoutOrder = props.layoutOrder;
-	const reducedMotion = props.reducedMotion;
-	const staggerIndex = props.staggerIndex;
-	const packed = props.packed ?? false;
-	const viewport = useViewport();
-	const chrome = chromeFor(viewport);
-	const stack = packed || chrome.contentStack;
-	const reveal = useStagger(staggerIndex ?? 0, reducedMotion, 0.036, 0.26);
-	const canBuy = owned !== true && !disabled;
-	const rowH = packed ? 244 : stack ? 184 : 168;
-	const ctaH = stack ? TapTarget : 44;
-	return (
-		<frame
-			Size={packed ? UDim2.fromScale(1, 1) : new UDim2(1, -4, 0, rowH)}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			LayoutOrder={layoutOrder}
-			ClipsDescendants={false}
-		>
-			{h(PnSurface, {
-				size: UDim2.fromScale(1, 1),
-				accent: accent,
-				background: Palette.panelRaised,
-				padding: packed ? 12 : 16,
-				radius: 18,
-				reveal: reveal,
-				interactive: owned !== true,
-				reducedMotion: reducedMotion,
-				clips: false,
-			},
-				<frame
-					Size={new UDim2(1, packed ? 12 : 16, 1, packed ? 12 : 16)}
-					Position={UDim2.fromOffset(packed ? -6 : -8, packed ? -6 : -8)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(0, 14)} />
-					<uistroke Color={Palette.brass} Thickness={1} Transparency={0.75} />
-				</frame>,
-				<frame
-					Size={UDim2.fromOffset(50, 50)}
-					Position={UDim2.fromOffset(0, stack ? 0 : 8)}
-					BackgroundColor3={darken(accent, 0.32)}
-					BorderSizePixel={0}
-					ClipsDescendants={true}
-				>
-					<uicorner CornerRadius={new UDim(0, ROW_RADIUS)} />{rowFace()}
-					<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
-					{h(Icon, {
-						kind: icon,
-						color: Palette.cream,
-						accent: accent,
-						size: 32,
-						position: UDim2.fromOffset(9, 9),
-						reducedMotion: reducedMotion,
-						spin: false,
-					})}
-				</frame>,
-				<frame
-					Size={
-						stack
-							? new UDim2(1, packed ? 0 : -64, 0, packed ? 78 : 86)
-							: new UDim2(1, -174, 0, 96)
-					}
-					Position={UDim2.fromOffset(packed ? 0 : 64, packed ? 56 : stack ? 0 : 6)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={true}
-				>
-					{h(Text, {
-						value: title,
-						size: packed ? 15 : stack ? 17 : 16,
-						color: Palette.cream,
-						weight: Enum.FontWeight.Heavy,
-						fit: true,
-						minSize: 11,
-						sizeConstraint: new UDim2(1, 0, 0, 22),
-					})}
-					{h(Text, {
-						value: detail,
-						size: stack ? chrome.labelText : 11,
-						color: Palette.creamSoft,
-						wrap: true,
-						fit: true,
-						minSize: 10,
-						position: UDim2.fromOffset(0, 24),
-						sizeConstraint: new UDim2(1, 0, 0, packed ? 32 : 38),
-					})}
-					{h(Text, {
-						value: meta,
-						size: stack ? chrome.labelText : 11,
-						color: accent,
-						weight: Enum.FontWeight.Bold,
-						fit: false,
-						position: UDim2.fromOffset(0, packed ? 58 : 66),
-						sizeConstraint: new UDim2(1, 0, 0, 16),
-					})}
-				</frame>,
-				owned === true
-					? h(Badge, {
-						value: "OWNED",
-						accent: Palette.green,
-						filled: true,
-						position: new UDim2(stack ? 0 : 1, stack ? 0 : -150, 1, -(ctaH + 4)),
-						size: stack ? new UDim2(1, 0, 0, ctaH) : UDim2.fromOffset(136, ctaH),
-					})
-					: h(
-						"frame",
-						{
-							Name: "ShopBuyCta",
-							Size: stack ? new UDim2(1, 0, 0, ctaH) : UDim2.fromOffset(148, ctaH),
-							Position: new UDim2(stack ? 0 : 1, stack ? 0 : -158, 1, -(ctaH + 4)),
-							BackgroundTransparency: 1,
-							BorderSizePixel: 0,
-						},
-						h(Button, {
-							text: cta,
-							icon: disabled ? "Lock.6" : "Shop.4",
-							onClick: onClick,
-							// Robux checkouts use the pink price pill
-							color: disabled ? Palette.panelSoft : Palette.pink,
-							textColor: disabled ? Palette.creamSoft : Palette.ink,
-							size: UDim2.fromScale(1, 1),
-							disabled: !canBuy,
-							reducedMotion: reducedMotion,
-							highlight: canBuy,
-							selectable: canBuy,
-						}),
-					),
-			)}
-		</frame>
-	);
-}
-
-// shows: title, detail, meta, accent, icon, cta, disabled/owned (button state), layout order, motion/stagger, packed size
-const OfferTile = memoRow<OfferTileProps>(counted("OfferTile", OfferTileImpl), ["onClick"],
-	sameFields<OfferTileProps>(["title", "detail", "meta", "accent", "icon", "cta", "disabled", "owned", "layoutOrder", "reducedMotion", "staggerIndex", "packed"]));
 
 // ---- mockup kit (design/system/af.css at 1920x1080; phone values from the .p rules) ----
 // .pn: radius 16 (forge 18), padding 18/20, gap 12; phone .p .pn: padding 10/12, gap 8
@@ -731,38 +570,44 @@ function mockRowSkin(outline?: Color3): React.Element {
 	]);
 }
 
-// .chip.a: small brass-edged tag
-function MockChip(props: { value: string; color: Color3; position?: UDim2; anchor?: Vector2; strike?: boolean }) {
-	const width = math.max(44, props.value.size() * 7 + 18);
-	return h(
-		"frame",
-		{
-			Name: "Chip",
-			Size: UDim2.fromOffset(width, 22),
-			Position: props.position,
-			AnchorPoint: props.anchor,
-			BackgroundColor3: darken(props.color, 0.72),
-			BorderSizePixel: 0,
-		},
-		h("uicorner", { CornerRadius: new UDim(0, 7) }),
-		h("uistroke", { Color: props.color, Thickness: 1, Transparency: 0.45 }),
-		h(Text, {
-			value: props.value,
-			size: 11,
-			color: props.strike === true ? Palette.muted : props.color,
-			weight: Enum.FontWeight.Bold,
-			align: Enum.TextXAlignment.Center,
-			fit: true,
-			minSize: 9,
-			sizeConstraint: UDim2.fromScale(1, 1),
-		}),
+// ---- Shop (mockup 05-shop, design/system/af.css at 1920x1080; phone = the .p rules) ----
+// Every block is a list or grid child: no hand-placed offsets, so nothing can drift onto a sibling.
+//   .flexr        featured .pn (620px) | catalog .pn (flex 1), both as tall as the page
+//   .pn h3        PanelHeading           grid 2x1fr / 4x1fr   Grid (mockRows) with LayoutOrder cells
+//   .row column   UpgradeCard / PackCard (RowFace + padding + vertical UIListLayout)
+const SHOP_FEATURED_W = 620;
+const SHOP_UPGRADE_COLS = 2;
+
+function upgradeCardHeight(phone: boolean): number {
+	// .row padding 16, gap 10: 22px head, 18px detail, .btn 44 (phone: tap target)
+	return phone ? 12 + 22 + 8 + 18 + 8 + TapTarget + 12 : 16 + 22 + 10 + 18 + 10 + 44 + 16;
+}
+
+function packCardHeight(phone: boolean): number {
+	// .row column padding 14, gap 6: 20px glyph, 26px .big figure (+4 line), 16px unit, .btn.sm 36
+	return phone ? 10 + 18 + 4 + 24 + 4 + 16 + 4 + TapTarget + 10 : 14 + 20 + 6 + 30 + 6 + 16 + 6 + 36 + 14;
+}
+
+/** Card entrance: the face rides `reveal` up 8px inside its grid cell (the cell itself never moves). */
+function CardCell(p: { name: string; layoutOrder: number; reveal: React.Binding<number>; children?: React.ReactNode }) {
+	return (
+		<frame key={p.name} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={p.layoutOrder} ClipsDescendants={false}>
+			<frame
+				Size={UDim2.fromScale(1, 1)}
+				Position={p.reveal.map((amount: number) => UDim2.fromOffset(0, math.round((1 - math.clamp(amount, 0, 1)) * 8)))}
+				BackgroundColor3={Palette.white}
+				BorderSizePixel={0}
+			>
+				{p.children}
+			</frame>
+		</frame>
 	);
 }
 
-// ---- Shop (mockup 05-shop) ----
-interface MockOfferProps {
+interface UpgradeCardProps {
 	title: string;
 	chip?: string;
+	chipColor?: Color3;
 	detail: string;
 	cta: string;
 	accent: Color3;
@@ -770,181 +615,124 @@ interface MockOfferProps {
 	disabled?: boolean;
 	owned?: boolean;
 	onClick?: () => void;
-	layoutOrder?: number;
+	layoutOrder: number;
 	staggerIndex?: number;
 	reducedMotion?: boolean;
 	phone: boolean;
 }
 
-function offerCardHeight(phone: boolean): number {
-	// padding 16, 22px title row, gap 10, 18px detail, gap 10, 44px button, padding 16
-	return phone ? 12 + 22 + 8 + 18 + 8 + TapTarget + 12 : 16 + 22 + 10 + 18 + 10 + 44 + 16;
-}
-
-function MockOfferImpl(props: MockOfferProps) {
+// .row (column): glyph + 17px name + chip pushed right / 14px muted line / full-width .btn in the accent
+function UpgradeCardImpl(props: UpgradeCardProps) {
 	const phone = props.phone;
 	const pad = phone ? 12 : 16;
-	const gap = phone ? 8 : 10;
-	const ctaH = phone ? TapTarget : 44;
 	const reveal = useStagger(props.staggerIndex ?? 0, props.reducedMotion, 0.036, 0.26);
 	const canBuy = props.owned !== true && props.disabled !== true;
-	return h(
-		"frame",
-		{
-			Name: "Offer",
-			Size: UDim2.fromScale(1, 1),
-			BackgroundColor3: MOCK_ROW_TINT,
-			BorderSizePixel: 0,
-			LayoutOrder: props.layoutOrder,
-		},
-		mockRowSkin(),
-		h(
-			"frame",
-			{
-				Size: new UDim2(1, -pad * 2, 1, -pad * 2),
-				Position: reveal.map((amount: number) => UDim2.fromOffset(pad, pad + math.round((1 - math.clamp(amount, 0, 1)) * 8))),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			h(Icon, { kind: props.icon, color: props.accent, accent: props.accent, size: 18, spin: false, position: UDim2.fromOffset(0, 2) }),
-			h(Text, {
-				value: props.title,
-				size: 17,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Bold,
-				fit: true,
-				minSize: 11,
-				position: UDim2.fromOffset(28, 0),
-				sizeConstraint: new UDim2(1, props.chip !== undefined ? -128 : -28, 0, 22),
-			}),
-			props.chip !== undefined &&
-				h(MockChip, {
-					value: props.chip,
-					color: props.owned === true ? Palette.green : Palette.mango,
-					position: UDim2.fromScale(1, 0),
-					anchor: new Vector2(1, 0),
-				}),
-			h(Text, {
-				value: props.detail,
-				size: phone ? 13 : 14,
-				color: Palette.muted,
-				weight: Enum.FontWeight.Medium,
-				fit: true,
-				minSize: 10,
-				position: UDim2.fromOffset(0, 22 + gap),
-				sizeConstraint: new UDim2(1, 0, 0, 18),
-			}),
-			h(
-				"frame",
-				{
-					Name: "ShopBuyCta",
-					Size: new UDim2(1, 0, 0, ctaH),
-					Position: new UDim2(0, 0, 1, -ctaH),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				h(Button, {
-					text: props.cta,
-					icon: props.owned === true ? "Check.10" : props.disabled === true ? "Lock.6" : undefined,
-					onClick: props.onClick ?? (() => {}),
-					color: canBuy ? props.accent : MOCK_SEC,
-					textColor: canBuy ? Palette.ink : Palette.creamSoft,
-					size: UDim2.fromScale(1, 1),
-					disabled: !canBuy,
-					reducedMotion: props.reducedMotion,
-					highlight: canBuy,
-					selectable: canBuy,
-				}),
-			),
-		),
+	return (
+		<CardCell name="Offer" layoutOrder={props.layoutOrder} reveal={reveal}>
+			<RowFace />
+			<uipadding PaddingTop={new UDim(0, pad)} PaddingBottom={new UDim(0, pad)} PaddingLeft={new UDim(0, pad)} PaddingRight={new UDim(0, pad)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, phone ? 8 : 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame key="Head" Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Glyph kind={props.icon} size={18} color={props.accent} layoutOrder={1} />
+				<frame key="Name" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<Line text={props.title} size={phone ? 15 : 17} font={BODY_BOLD} width={new UDim(1, 0)} height={22} />
+				</frame>
+				{props.chip !== undefined && <Chip text={props.chip} accent={props.chipColor ?? Palette.mango} phone={true} layoutOrder={3} />}
+			</frame>
+			<Line text={props.detail} size={phone ? 13 : 14} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={2} />
+			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+				<MockBtn
+					text={props.cta}
+					icon={props.owned === true ? "Check.10" : props.disabled === true ? "Lock.6" : undefined}
+					accent={props.accent}
+					sec={!canBuy}
+					disabled={!canBuy}
+					fill={true}
+					phone={phone}
+					onClick={props.onClick}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+		</CardCell>
 	);
 }
 
-const MockOffer = memoRow<MockOfferProps>(counted("ShopOffer", MockOfferImpl), ["onClick"],
-	sameFields<MockOfferProps>(["title", "chip", "detail", "cta", "accent", "icon", "disabled", "owned", "layoutOrder", "staggerIndex", "reducedMotion", "phone"]));
+const UpgradeCard = memoRow<UpgradeCardProps>(counted("ShopOffer", UpgradeCardImpl), ["onClick"],
+	sameFields<UpgradeCardProps>(["title", "chip", "chipColor", "detail", "cta", "accent", "icon", "disabled", "owned", "layoutOrder", "staggerIndex", "reducedMotion", "phone"]));
 
-function packCellHeight(phone: boolean): number {
-	// .row column, padding 14, gap 6: 20px icon, 26px name, 16px detail, 36px button (phone: tap target)
-	return phone ? 10 + 20 + 4 + 22 + 2 + 16 + 6 + TapTarget + 10 : 14 + 20 + 6 + 26 + 2 + 16 + 6 + 36 + 14;
-}
-
-interface MockPackProps {
-	title: string;
-	detail: string;
+interface PackCardProps {
+	figure: string;
+	unit: string;
 	cta: string;
 	accent: Color3;
 	icon: string;
 	disabled?: boolean;
 	onClick?: () => void;
-	layoutOrder?: number;
+	layoutOrder: number;
 	staggerIndex?: number;
 	reducedMotion?: boolean;
 	phone: boolean;
 }
 
-function MockPackImpl(props: MockPackProps) {
+// .row (column, centred): glyph / .big 26px figure / unit / .btn.sm pink price pill
+function PackCardImpl(props: PackCardProps) {
 	const phone = props.phone;
 	const pad = phone ? 10 : 14;
-	const ctaH = phone ? TapTarget : 36;
 	const reveal = useStagger(props.staggerIndex ?? 0, props.reducedMotion, 0.036, 0.26);
 	const canBuy = props.disabled !== true;
-	return h(
-		"frame",
-		{ Name: "Pack", Size: UDim2.fromScale(1, 1), BackgroundColor3: MOCK_ROW_TINT, BorderSizePixel: 0, LayoutOrder: props.layoutOrder },
-		mockRowSkin(),
-		h(
-			"frame",
-			{
-				Size: new UDim2(1, -pad * 2, 1, -pad * 2),
-				Position: reveal.map((amount: number) => UDim2.fromOffset(pad, pad + math.round((1 - math.clamp(amount, 0, 1)) * 8))),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			h(Icon, { kind: props.icon, color: props.accent, accent: props.accent, size: 20, spin: false, position: new UDim2(0.5, -10, 0, 0) }),
-			h(Text, {
-				value: props.title,
-				size: phone ? 17 : 22,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Heavy,
-				align: Enum.TextXAlignment.Center,
-				fit: true,
-				minSize: 11,
-				position: UDim2.fromOffset(0, phone ? 24 : 26),
-				sizeConstraint: new UDim2(1, 0, 0, phone ? 22 : 26),
-			}),
-			h(Text, {
-				value: props.detail,
-				size: 12,
-				color: Palette.muted,
-				weight: Enum.FontWeight.Medium,
-				align: Enum.TextXAlignment.Center,
-				fit: true,
-				minSize: 9,
-				position: UDim2.fromOffset(0, phone ? 48 : 54),
-				sizeConstraint: new UDim2(1, 0, 0, 16),
-			}),
-			h(
-				"frame",
-				{ Name: "ShopBuyCta", Size: new UDim2(1, 0, 0, ctaH), Position: new UDim2(0, 0, 1, -ctaH), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h(Button, {
-					text: props.cta,
-					icon: canBuy ? undefined : "Lock.6",
-					onClick: props.onClick ?? (() => {}),
-					color: canBuy ? props.accent : MOCK_SEC,
-					textColor: canBuy ? Palette.ink : Palette.creamSoft,
-					size: UDim2.fromScale(1, 1),
-					disabled: !canBuy,
-					reducedMotion: props.reducedMotion,
-					highlight: canBuy,
-					selectable: canBuy,
-				}),
-			),
-		),
+	return (
+		<CardCell name="Pack" layoutOrder={props.layoutOrder} reveal={reveal}>
+			<RowFace />
+			<uipadding PaddingTop={new UDim(0, pad)} PaddingBottom={new UDim(0, pad)} PaddingLeft={new UDim(0, pad)} PaddingRight={new UDim(0, pad)} />
+			<uilistlayout
+				FillDirection={Enum.FillDirection.Vertical}
+				Padding={new UDim(0, phone ? 4 : 6)}
+				HorizontalAlignment={Enum.HorizontalAlignment.Center}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+			/>
+			<Glyph kind={props.icon} size={phone ? 18 : 20} color={props.accent} layoutOrder={1} />
+			<Line text={props.figure} size={phone ? 20 : 26} font={NUM} width={new UDim(1, 0)} height={phone ? 24 : 30} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+			<Line text={props.unit} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={16} align={Enum.TextXAlignment.Center} layoutOrder={3} />
+			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : 36)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+				<MockBtn
+					text={props.cta}
+					icon={canBuy ? undefined : "Lock.6"}
+					accent={Palette.pink}
+					sec={!canBuy}
+					disabled={!canBuy}
+					sm={true}
+					fill={true}
+					phone={phone}
+					onClick={props.onClick}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+		</CardCell>
 	);
 }
 
-const MockPack = memoRow<MockPackProps>(counted("ShopPack", MockPackImpl), ["onClick"],
-	sameFields<MockPackProps>(["title", "detail", "cta", "accent", "icon", "disabled", "layoutOrder", "staggerIndex", "reducedMotion", "phone"]));
+const PackCard = memoRow<PackCardProps>(counted("ShopPack", PackCardImpl), ["onClick"],
+	sameFields<PackCardProps>(["figure", "unit", "cta", "accent", "icon", "disabled", "layoutOrder", "staggerIndex", "reducedMotion", "phone"]));
+
+/** The pack's headline amount and unit (".big 40" + "gems"); non-numeric rewards show the item name. */
+function packFigure(product: DevProduct): LuaTuple<[string, string]> {
+	const reward = product.Reward;
+	if (reward !== undefined) {
+		if (typeIs(reward.Stardust, "number")) return $tuple(Fmt.compactNumber(reward.Stardust), "stardust");
+		if (typeIs(reward.Cores, "number")) return $tuple(Fmt.compactNumber(reward.Cores), reward.Cores === 1 ? "core" : "cores");
+		if (reward.Cash !== undefined) return $tuple(Fmt.compactNumber(reward.Cash), "flux");
+		if (reward.CashMinutes !== undefined) return $tuple(`${reward.CashMinutes}m`, "of production");
+		if (typeIs(reward.Signals, "number")) return $tuple(Fmt.compactNumber(reward.Signals), "signals");
+	}
+	return $tuple(product.Name, rewardLine(reward));
+}
+
+/** Gems = the premium currencies (stardust, cores); everything else is a flux-side pack. */
+function isGemPack(product: DevProduct): boolean {
+	return product.Reward !== undefined && (product.Reward.Stardust !== undefined || product.Reward.Cores !== undefined);
+}
 
 interface FeaturedPanelProps {
 	product: DevProduct;
@@ -952,96 +740,50 @@ interface FeaturedPanelProps {
 	disabled: boolean;
 	onClick: () => void;
 	phone: boolean;
+	height: number;
+	layoutOrder: number;
 	reveal?: React.Binding<number>;
 	reducedMotion?: boolean;
 }
 
-// the 620px "this week" panel: 12px kicker, 46px title face, 16px line, the art, a 58px price button
+// the 620px "this week" .pn: 12px kicker, 46px title face, 16px line, art (flex 1), a 58px price button
 function FeaturedPanel(props: FeaturedPanelProps) {
 	const product = props.product;
 	const phone = props.phone;
-	const pad = mockPad(phone);
 	const accent = accentOf(product.Accent);
 	const titleSize = phone ? 26 : 46;
-	const ctaH = phone ? TapTarget : 58;
 	const detail = product.Description !== "" ? product.Description : rewardLine(product.Reward);
-	return h(
-		PnSurface,
-		{
-			size: UDim2.fromScale(1, 1),
-			accent: Palette.mango,
-			background: Palette.panelRaised,
-			radius: 18,
-			rule: true,
-			padding: 0,
-			reveal: props.reveal,
-			reducedMotion: props.reducedMotion,
-			highlight: true,
-			clips: true,
-		},
-		// radial mango wash at 75% / 30%, drawn as a soft disc
-		h(
-			"frame",
-			{
-				Name: "Glow",
-				Size: UDim2.fromOffset(phone ? 360 : 800, phone ? 240 : 520),
-				Position: UDim2.fromScale(0.75, 0.3),
-				AnchorPoint: new Vector2(0.5, 0.5),
-				BackgroundColor3: Palette.mango,
-				BorderSizePixel: 0,
-				ZIndex: 0,
-			},
-			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			h("uigradient", {
-				Transparency: new NumberSequence([
-					new NumberSequenceKeypoint(0, 1),
-					new NumberSequenceKeypoint(0.5, 0.8),
-					new NumberSequenceKeypoint(1, 1),
-				]),
-			}),
-		),
-		h(
-			"frame",
-			{ Name: "featured", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
-			h(Text, {
-				value: "FEATURED",
-				size: 12,
-				color: Palette.mango,
-				weight: Enum.FontWeight.Bold,
-				sizeConstraint: new UDim2(1, 0, 0, 14),
-			}),
-			h(Text, {
-				value: product.Name,
-				title: true,
-				size: titleSize,
-				color: Palette.cream,
-				fit: true,
-				minSize: 18,
-				position: UDim2.fromOffset(0, 14 + pad.gap),
-				sizeConstraint: new UDim2(1, 0, 0, titleSize + 4),
-			}),
-			h(Text, {
-				value: detail,
-				size: phone ? 13 : 16,
-				color: Palette.creamSoft,
-				weight: Enum.FontWeight.Medium,
-				wrap: true,
-				fit: true,
-				minSize: 10,
-				position: UDim2.fromOffset(0, 14 + pad.gap + titleSize + 4 + pad.gap),
-				sizeConstraint: new UDim2(1, 0, 0, phone ? 34 : 42),
-			}),
-			h(
-				"frame",
-				{
-					Name: "Art",
-					Size: new UDim2(1, 0, 1, -(14 + titleSize + 4 + (phone ? 34 : 42) + ctaH + pad.gap * 4)),
-					Position: UDim2.fromOffset(0, 14 + titleSize + 4 + (phone ? 34 : 42) + pad.gap * 3),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-				},
-				h("uiaspectratioconstraint", { AspectRatio: 1, DominantAxis: Enum.DominantAxis.Height }),
-				h(Icon, {
+	return (
+		<MockPanel
+			name="Featured"
+			size={phone ? new UDim2(1, 0, 0, props.height) : new UDim2(0, SHOP_FEATURED_W, 0, props.height)}
+			phone={phone}
+			accent={Palette.mango}
+			glow={Palette.mango}
+			reveal={props.reveal}
+			reducedMotion={props.reducedMotion}
+			layoutOrder={props.layoutOrder}
+		>
+			<Line text={spaced("THIS WEEK")} size={12} font={BODY_BOLD} color={Palette.mango} width={new UDim(1, 0)} height={14} layoutOrder={1} />
+			<Line text={product.Name} size={titleSize} font={TITLE_FACE} width={new UDim(1, 0)} height={titleSize + 4} layoutOrder={2} />
+			<textlabel
+				key="Detail"
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				Text={detail}
+				TextSize={phone ? 13 : 16}
+				FontFace={BODY}
+				TextColor3={Palette.creamSoft}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextYAlignment={Enum.TextYAlignment.Top}
+				TextWrapped={true}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				Size={new UDim2(1, 0, 0, phone ? 34 : 42)}
+				LayoutOrder={3}
+			/>
+			<frame key="Art" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				{h(Icon, {
 					kind: iconOf(product.Icon),
 					color: Palette.cream,
 					accent: accent,
@@ -1050,26 +792,43 @@ function FeaturedPanel(props: FeaturedPanelProps) {
 					position: UDim2.fromScale(0.5, 0.5),
 					anchorPoint: new Vector2(0.5, 0.5),
 					reducedMotion: props.reducedMotion,
-				}),
-			),
-			h(
-				"frame",
-				{ Name: "ShopBuyCta", Size: new UDim2(1, 0, 0, ctaH), Position: new UDim2(0, 0, 1, -ctaH), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h(Button, {
-					text: props.cta,
-					icon: props.disabled ? "Lock.6" : undefined,
-					onClick: props.onClick,
-					color: props.disabled ? MOCK_SEC : Palette.mango,
-					textColor: props.disabled ? Palette.creamSoft : Palette.ink,
-					size: UDim2.fromScale(1, 1),
-					disabled: props.disabled,
-					reducedMotion: props.reducedMotion,
-					highlight: !props.disabled,
-					selectable: !props.disabled,
-				}),
-			),
-		),
+				})}
+			</frame>
+			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : 58)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={5}>
+				<MockBtn
+					text={props.cta}
+					icon={props.disabled ? "Lock.6" : undefined}
+					accent={Palette.mango}
+					sec={props.disabled}
+					disabled={props.disabled}
+					fill={true}
+					phone={phone}
+					onClick={props.onClick}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+		</MockPanel>
 	);
+}
+
+interface CatalogBlock {
+	name: string;
+	icon: string;
+	title: string;
+	columns: number;
+	cellHeight: number;
+	count: number;
+	cells: React.Element[];
+}
+
+function catalogHeight(phone: boolean, blocks: CatalogBlock[]): number {
+	const pad = panelPad(phone);
+	let inner = 0;
+	for (const [index, block] of ipairs(blocks)) {
+		const rows = math.max(1, math.ceil(block.count / block.columns));
+		inner += (index > 1 ? pad.gap : 0) + headingBlock(phone) + rows * block.cellHeight + (rows - 1) * pad.gap;
+	}
+	return inner + pad.y * 2;
 }
 
 interface ShopViewProps {
@@ -1096,6 +855,7 @@ function ShopView(props: ShopViewProps) {
 	const stack = chrome.contentStack;
 	const [tab, setTab] = React.useState("Featured");
 	const [hostW, setHostW] = React.useState(viewport.width);
+	const [viewH, setViewH] = React.useState(math.max(0, viewport.height - 260));
 	const [code, setCode] = React.useState("");
 	const [codeFeedback, setCodeFeedback] = React.useState("");
 	const [followFeedback, setFollowFeedback] = React.useState("");
@@ -1379,29 +1139,36 @@ function ShopView(props: ShopViewProps) {
 	// keys and spins for Robux aren't sold where paid random items are restricted
 	const products = monetization.DevProducts.filter((product) => !PlayPolicy.productBlocked(policy, product));
 	const passes = monetization.GamePasses;
-	const featuredProducts = products.filter((_, index) => index < 2);
-	const featuredPasses = passes.filter((pass, index) => index < 1 || pass.Key === "AutoSalvage");
 	const listCount =
 		tab === "Codes"
 			? 1
-			: tab === "Featured"
-				? featuredProducts.size() + featuredPasses.size()
-				: tab === "Passes"
-					? passes.size()
+			: tab === "Passes"
+				? passes.size()
+				: tab === "Featured"
+					? math.min(products.size(), 5) + math.min(passes.size(), 4)
 					: products.size();
-	const codePanelH = stack ? 214 : 176;
-	const followPanelH = stack ? 186 : 148;
-	const codesH = codePanelH + Layout.panelGap + followPanelH;
-	const pageGap = stack ? Layout.stackGap : Layout.panelGap;
-	const tabRowH = stack ? TapTarget : 50;
 	const codeReady = code.gsub("%s", "")[0] !== "";
 	const redeemDisabled = busy || !codeReady || purchasePending;
-	const shopHostRef = React.useRef<Frame>();
+	const shopHostRef = React.useRef<ScrollingFrame>();
+	const claimHostRef = React.useRef<Frame>();
+	// first measure: Change.AbsoluteSize only fires on later resizes
+	React.useEffect(() => {
+		const host = shopHostRef.current;
+		if (host === undefined) {
+			return;
+		}
+		if (host.AbsoluteWindowSize.X > 0) {
+			setHostW(host.AbsoluteWindowSize.X);
+		}
+		if (host.AbsoluteSize.Y > 0) {
+			setViewH(host.AbsoluteSize.Y);
+		}
+	}, []);
 	React.useEffect(() => {
 		if (purchasePending || !UserInputService.GamepadEnabled) {
 			return undefined;
 		}
-		const host = shopHostRef.current;
+		const host: GuiObject | undefined = tab === "Codes" ? claimHostRef.current : shopHostRef.current;
 		if (host === undefined) {
 			return undefined;
 		}
@@ -1415,416 +1182,392 @@ function ShopView(props: ShopViewProps) {
 			pcall(() => task.cancel(selectJob));
 		};
 	}, [tab, purchasePending, listCount, redeemDisabled]);
-	const tabsBar = h(SegmentedTabs, {
-		options: SHOP_TAB_OPTIONS,
-		value: tab,
-		onChange: (entry: unknown) => {
-			const id = entry as string;
-			setTab(id);
-			setBanner(SHOP_DEFAULT_LINE);
-		},
-		accent: Palette.mango,
-		columns: SHOP_TABS.size(),
-		gap: Layout.stackGap,
-		size: UDim2.fromScale(1, 1),
-		reducedMotion: softMotion,
-	});
-	const codesPane = h(
-		TabPane,
-		{
-			key: "Codes",
-			reducedMotion: softMotion,
-			height: codesH,
-		},
-		h(
-			"frame",
-			{
-				Size: UDim2.fromScale(1, 1),
-				BackgroundTransparency: 1,
-				BorderSizePixel: 0,
-			},
-			<uilistlayout
-				FillDirection={Enum.FillDirection.Vertical}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-				Padding={new UDim(0, pageGap)}
-			/>,
-			h(
-				PnSurface,
-				{
-					layoutOrder: 1,
-					size: new UDim2(1, -4, 0, codePanelH),
-					accent: Palette.cyan,
-					background: Palette.panelRaised,
-					padding: stack ? 14 : 18,
-					reducedMotion: softMotion,
-					clips: false,
-				},
-				h(Text, {
-					value: "Promo codes",
-					size: 18,
-					color: Palette.cream,
-					weight: Enum.FontWeight.Heavy,
-					fit: true,
-					sizeConstraint: new UDim2(1, 0, 0, 26),
-				}),
-				h(Text, {
-					value: "Type a code to claim it. Each one works once.",
-					size: 12,
-					color: Palette.muted,
-					wrap: true,
-					fit: true,
-					minSize: 10,
-					position: UDim2.fromOffset(0, 30),
-					sizeConstraint: new UDim2(1, 0, 0, 26),
-				}),
-				h(
-					"frame",
-					{
-						Size: stack ? new UDim2(1, 0, 0, TapTarget) : new UDim2(1, -168, 0, 48),
-						Position: UDim2.fromOffset(0, 66),
-						BackgroundColor3: Palette.ink,
-						BorderSizePixel: 0,
-						ClipsDescendants: false,
-					},
-					<uicorner CornerRadius={new UDim(0, ROW_RADIUS)} />,
-					rowFace(),
-					<uistroke Color={codeFeedback !== "" ? Palette.cyan : Palette.lineSoft} Thickness={1} Transparency={0.5} />,
-					h("textbox", {
-						Size: new UDim2(1, -20, 1, -12),
-						Position: UDim2.fromOffset(10, 6),
-						BackgroundTransparency: 1,
-						BorderSizePixel: 0,
-						ClearTextOnFocus: false,
-						Text: code,
-						PlaceholderText: "ENTER CODE",
-						PlaceholderColor3: Palette.muted,
-						TextColor3: Palette.cream,
-						TextSize: 14,
-						FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-						TextXAlignment: Enum.TextXAlignment.Left,
-						TextYAlignment: Enum.TextYAlignment.Center,
-						TextTruncate: Enum.TextTruncate.AtEnd,
-						MultiLine: false,
-						TextEditable: !busy,
-						MaxVisibleGraphemes: 24,
-						Change: {
-							Text: (box: TextBox) => {
-								setCode(box.Text.upper().sub(1, 24));
-								if (codeFeedback !== "") {
-									setCodeFeedback("");
-								}
-							},
-						},
-						Event: {
-							Focused: () => Audio.play("inputFocus"),
-							FocusLost: (_box: TextBox, enter: boolean) => {
-								if (enter) {
-									redeem();
-								}
-							},
-						},
-					}),
-				),
-				h(
-					"frame",
-					{
-						Name: "ShopClaimCode",
-						Size: stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(148, 48),
-						Position: stack ? UDim2.fromOffset(0, 122) : new UDim2(1, -148, 0, 66),
-						BackgroundTransparency: 1,
-						BorderSizePixel: 0,
-						ClipsDescendants: false,
-						ref: tab === "Codes" ? shopHostRef : undefined,
-					},
-					h(Button, {
-						text: busy ? "CHECKING…" : "CLAIM CODE",
-						icon: "Code.1",
-						onClick: redeem,
-						color: Palette.cyan,
-						textColor: Palette.ink,
-						size: UDim2.fromScale(1, 1),
-						disabled: redeemDisabled,
-						reducedMotion: softMotion,
-						highlight: !redeemDisabled,
-						selectable: !redeemDisabled,
-					}),
-				),
-				codeFeedback !== "" &&
-					h(Text, {
-						value: codeFeedback,
-						size: 11,
-						color: Palette.creamSoft,
-						weight: Enum.FontWeight.Bold,
-						fit: true,
-						minSize: 9,
-						position: UDim2.fromOffset(0, stack ? 174 : 120),
-						sizeConstraint: new UDim2(1, 0, 0, 18),
-					}),
-			),
-			h(
-				PnSurface,
-				{
-					layoutOrder: 2,
-					size: new UDim2(1, -4, 0, followPanelH),
-					accent: Palette.mint,
-					background: Palette.panelRaised,
-					padding: 16,
-					reducedMotion: softMotion,
-				},
-				h(Icon, {
-					kind: "Pilot.1",
-					color: Palette.cream,
-					accent: Palette.mint,
-					size: stack ? 38 : 42,
-					spin: false,
-					position: UDim2.fromOffset(0, 2),
-				}),
-				h(Text, {
-					value: `Follow @${creatorName}`,
-					size: 16,
-					color: Palette.cream,
-					weight: Enum.FontWeight.Heavy,
-					fit: true,
-					position: UDim2.fromOffset(52, 0),
-					sizeConstraint: new UDim2(1, stack ? -52 : -230, 0, 24),
-				}),
-				h(Text, {
-					value:
-						followFeedback !== ""
-							? followFeedback
-							: followClaimed
-								? "Reward claimed. Thanks for the follow."
-								: "Follow the creator on Roblox, then check here for a one-time reward.",
-					size: 11,
-					color: followClaimed || followFeedback !== "" ? Palette.mint : Palette.muted,
-					wrap: true,
-					fit: true,
-					minSize: 9,
-					position: UDim2.fromOffset(52, 28),
-					sizeConstraint: new UDim2(1, stack ? -52 : -230, 0, stack ? 42 : 36),
-				}),
-				h(Button, {
-					text: followClaimed ? "CLAIMED" : followBusy ? "CHECKING…" : "CHECK FOLLOW",
-					icon: followClaimed ? "Check.10" : "Search.5",
-					onClick: verifyFollow,
-					color: followClaimed ? Palette.panelSoft : Palette.mint,
-					textColor: followClaimed ? Palette.muted : Palette.ink,
-					size: stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(190, 48),
-					position: stack ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(1, -190, 0.5, -24),
-					disabled: followClaimed || followBusy,
-					reducedMotion: softMotion,
-					highlight: !followClaimed && !followBusy,
-				}),
-			),
-		),
-	);
-	// mockup 05-shop: featured panel (620px) beside an Upgrades (2-up) + packs (4-up) panel
+	// ---- layout (mockup 05-shop) ----
 	const phone = stack;
-	const pad = mockPad(phone);
-	const headH = mockHeadH(phone);
-	const contentW = hostW;
+	const pad = panelPad(phone);
+	const pageGap = mockGap(phone);
+	const tabRowH = phone ? TapTarget : 40;
+	const tailPad = scrollTail(stack, chrome.bottomSafe, SCROLL_PAD);
 	const passCta = (pass: GamePass) => (owned[pass.Key] === true ? "Owned" : priceText(pass.PriceLabel, pass.StudioPrice, pass.PassId));
-	const featuredProduct = tab === "Featured" ? featuredProducts[0] : undefined;
-	const upgradeList = tab === "Featured" ? featuredPasses : tab === "Passes" ? passes : [];
-	const packList =
-		tab === "Featured" ? featuredProducts.filter((_, index) => index > 0) : tab === "Supplies" ? products : [];
-	const upCols = phone ? 2 : 2;
-	const packCols = phone ? 2 : 4;
-	const offerH = offerCardHeight(phone);
-	const packH = packCellHeight(phone);
-	const upRows = math.ceil(upgradeList.size() / upCols);
-	const packRows = math.ceil(packList.size() / packCols);
-	const upGridH = upRows > 0 ? upRows * offerH + (upRows - 1) * pad.gap : 0;
-	const packGridH = packRows > 0 ? packRows * packH + (packRows - 1) * pad.gap : 0;
-	const upCells: Record<string, unknown> = {};
-	for (const [index, pass] of ipairs(upgradeList)) {
+	const upgradeCell = (pass: GamePass, index: number) => {
 		const benefit = passBenefitLine(pass);
 		const isOwned = owned[pass.Key] === true;
-		upCells[pass.Key] = h(MockOffer, {
-			key: `${tab}-${pass.Key}`,
-			layoutOrder: index,
-			staggerIndex: index,
-			title: pass.Name,
-			chip: isOwned ? "Owned" : benefit.size() <= 14 ? benefit : undefined,
-			detail: benefit.size() <= 14 || isOwned ? pass.Description : benefit,
-			cta: passCta(pass),
-			accent: accentOf(pass.Accent),
-			icon: iconOf(pass.Icon),
-			disabled: (pass.PassId <= 0 && !RunService.IsStudio()) || busy,
-			owned: isOwned,
-			onClick: () => promptPass(pass),
-			reducedMotion: softMotion,
-			phone: phone,
-		});
-	}
-	const packCells: Record<string, unknown> = {};
-	for (const [index, product] of ipairs(packList)) {
-		const line = rewardLine(product.Reward);
-		packCells[product.Key] = h(MockPack, {
-			key: `${tab}-${product.Key}`,
-			layoutOrder: index,
-			staggerIndex: upgradeList.size() + index,
-			title: product.Name,
-			detail: line !== "" ? line : product.Description,
-			cta: priceText(product.PriceLabel, product.StudioPrice, product.ProductId),
-			accent: accentOf(product.Accent),
-			icon: iconOf(product.Icon),
-			disabled: (product.ProductId <= 0 && !RunService.IsStudio()) || busy,
-			onClick: () => promptProduct(product),
-			reducedMotion: reducedMotion,
-			phone: phone,
-		});
-	}
-	const blocks: { name: string; icon: string; title: string; gridH: number; cols: number; cell: number; cells: Record<string, unknown> }[] = [];
+		const shortBenefit = benefit.size() <= 14;
+		return (
+			<UpgradeCard
+				key={`${tab}-${pass.Key}`}
+				layoutOrder={index}
+				staggerIndex={index}
+				title={pass.Name}
+				chip={isOwned ? "Owned" : shortBenefit ? benefit : undefined}
+				chipColor={isOwned ? Palette.green : Palette.mango}
+				detail={shortBenefit || isOwned ? pass.Description : benefit}
+				cta={passCta(pass)}
+				accent={accentOf(pass.Accent)}
+				icon={iconOf(pass.Icon)}
+				disabled={(pass.PassId <= 0 && !RunService.IsStudio()) || busy}
+				owned={isOwned}
+				onClick={() => promptPass(pass)}
+				reducedMotion={softMotion}
+				phone={phone}
+			/>
+		);
+	};
+	const packCell = (product: DevProduct, index: number, stagger: number) => {
+		const [figure, unit] = packFigure(product);
+		return (
+			<PackCard
+				key={`${tab}-${product.Key}`}
+				layoutOrder={index}
+				staggerIndex={stagger}
+				figure={figure}
+				unit={unit}
+				cta={priceText(product.PriceLabel, product.StudioPrice, product.ProductId)}
+				accent={accentOf(product.Accent)}
+				icon={iconOf(product.Icon)}
+				disabled={(product.ProductId <= 0 && !RunService.IsStudio()) || busy}
+				onClick={() => promptProduct(product)}
+				reducedMotion={softMotion}
+				phone={phone}
+			/>
+		);
+	};
+	const featuredProduct = tab === "Featured" ? products[0] : undefined;
+	const upgradeList = tab === "Featured" ? passes.filter((_, index) => index < 4) : tab === "Passes" ? passes : [];
+	const packList =
+		tab === "Featured"
+			? products.filter((_, index) => index > 0 && index <= 4)
+			: tab === "Flux"
+				? products.filter((product) => !isGemPack(product))
+				: tab === "Gems"
+					? products.filter((product) => isGemPack(product))
+					: [];
+	const packCols = phone ? 2 : 4;
+	const blocks: CatalogBlock[] = [];
 	if (upgradeList.size() > 0) {
-		blocks.push({ name: "Upgrades", icon: "Shop", title: tab === "Passes" ? "Game passes" : "Upgrades", gridH: upGridH, cols: upCols, cell: offerH, cells: upCells });
+		blocks.push({
+			name: "Upgrades",
+			icon: "Shop",
+			title: tab === "Passes" ? "Game passes" : "Upgrades",
+			columns: SHOP_UPGRADE_COLS,
+			cellHeight: upgradeCardHeight(phone),
+			count: upgradeList.size(),
+			cells: upgradeList.map((pass, index) => upgradeCell(pass, index + 1)),
+		});
 	}
 	if (packList.size() > 0) {
-		blocks.push({ name: "Packs", icon: "Flux", title: tab === "Supplies" ? "Supply packs" : "Packs", gridH: packGridH, cols: packCols, cell: packH, cells: packCells });
+		blocks.push({
+			name: "Packs",
+			icon: tab === "Flux" ? "Flux" : "Dust",
+			title: tab === "Flux" ? "Flux" : tab === "Gems" ? "Gems" : "Packs",
+			columns: packCols,
+			cellHeight: packCardHeight(phone),
+			count: packList.size(),
+			cells: packList.map((product, index) => packCell(product, index + 1, upgradeList.size() + index + 1)),
+		});
 	}
-	let catalogInner = 0;
-	const blockEls: React.Element[] = [];
-	for (const block of blocks) {
-		if (catalogInner > 0) {
-			catalogInner += pad.gap;
-		}
-		const y = catalogInner;
-		blockEls.push(
-			h(
-				"frame",
-				{ key: block.name, Name: block.name, Size: new UDim2(1, 0, 0, headH + pad.gap + block.gridH), Position: UDim2.fromOffset(0, y), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h(PanelHead, { icon: block.icon, title: block.title, accent: Palette.mango, phone: phone }),
-				h(
-					"frame",
-					{ Size: new UDim2(1, 0, 0, block.gridH), Position: UDim2.fromOffset(0, headH + pad.gap), BackgroundTransparency: 1, BorderSizePixel: 0 },
-					h(Grid, { columns: block.cols, cell: block.cell, height: block.gridH, cells: block.cells, gap: pad.gap }),
-				),
-			),
-		);
-		catalogInner += headH + pad.gap + block.gridH;
-	}
-	const catalogH = blocks.size() > 0 ? pad.y * 2 + catalogInner : 0;
-	const catalogPanel =
-		blocks.size() > 0
-			? h(
-				PnSurface,
-				{
-					size: UDim2.fromScale(1, 1),
-					accent: Palette.mango,
-					background: Palette.panelRaised,
-					radius: 18,
-					rule: true,
-					padding: 0,
-					reveal: catalogReveal,
-					reducedMotion: reducedMotion,
-					clips: false,
-				},
-				h(
-					"frame",
-					{ Name: "list", Size: new UDim2(1, -pad.x * 2, 1, -pad.y * 2), Position: UDim2.fromOffset(pad.x, pad.y), BackgroundTransparency: 1, BorderSizePixel: 0 },
-					...blockEls,
-				),
-			)
-			: h(EmptyState, {
-				icon: "Shop.5",
-				title: "Nothing listed",
-				body: "Check back after the next restock.",
-				accent: Palette.mango,
-				reducedMotion: reducedMotion,
-			});
 	const statusLine = monetization.Error ?? banner;
-	const sections: { id: string; height: number; element: unknown }[] = [
-		{ id: "tabs", height: tabRowH, element: tabsBar },
-	];
-	if (statusLine !== "") {
-		sections.push({
-			id: "status",
-			height: 20,
-			element: h(Text, {
-				value: statusLine,
-				size: 13,
-				color: Palette.creamSoft,
-				weight: Enum.FontWeight.Medium,
-				fit: true,
-				minSize: 10,
-				sizeConstraint: new UDim2(1, 0, 0, 20),
-			}),
-		});
-	}
+	const statusH = statusLine !== "" ? 20 : 0;
+	// the .flexr row fills the page under the tabs (flex: 1), and grows with the catalog when that is taller
+	const fillH = math.max(0, viewH - tailPad - tabRowH - pageGap - (statusH > 0 ? statusH + pageGap : 0));
+	const catalogH = blocks.size() > 0 ? catalogHeight(phone, blocks) : 0;
+	const showFeatured = featuredProduct !== undefined;
+	const split = showFeatured && !phone && hostW >= SHOP_FEATURED_W + pageGap + 420;
+	const featuredH = split ? math.max(catalogH, fillH, 560) : phone ? 300 : 560;
+	const catalogPanelH = split ? featuredH : math.max(catalogH, showFeatured ? 0 : math.min(fillH, 180));
+	const catalogPanel =
+		blocks.size() > 0 ? (
+			<MockPanel
+				name="Catalog"
+				size={split ? new UDim2(0, 0, 0, catalogPanelH) : new UDim2(1, 0, 0, catalogPanelH)}
+				phone={phone}
+				flex={split}
+				reveal={catalogReveal}
+				reducedMotion={reducedMotion}
+				layoutOrder={2}
+			>
+				{blocks.map((block, index) => (
+					<React.Fragment key={block.name}>
+						<PanelHeading icon={block.icon} title={block.title} phone={phone} layoutOrder={index * 2 + 1} />
+						<MockGrid columns={block.columns} gap={pad.gap} cellHeight={block.cellHeight} count={block.count} layoutOrder={index * 2 + 2}>
+							{block.cells}
+						</MockGrid>
+					</React.Fragment>
+				))}
+			</MockPanel>
+		) : (
+			<frame key="Catalog" Size={new UDim2(1, 0, 0, 180)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				{h(EmptyState, {
+					icon: "Shop.5",
+					title: "Nothing listed",
+					body: "Check back after the next restock.",
+					accent: Palette.mango,
+					reducedMotion: reducedMotion,
+				})}
+			</frame>
+		);
+	const featuredPanel =
+		featuredProduct !== undefined ? (
+			<FeaturedPanel
+				key={`featured-${featuredProduct.Key}`}
+				product={featuredProduct}
+				cta={priceText(featuredProduct.PriceLabel, featuredProduct.StudioPrice, featuredProduct.ProductId)}
+				disabled={(featuredProduct.ProductId <= 0 && !RunService.IsStudio()) || busy}
+				onClick={() => promptProduct(featuredProduct)}
+				phone={!split}
+				height={featuredH}
+				layoutOrder={1}
+				reveal={heroReveal}
+				reducedMotion={reducedMotion}
+			/>
+		) : undefined;
+	// Codes: promo-code .pn and the creator-follow .pn, stacked
+	const codeFieldH = phone ? TapTarget : 48;
+	const codesBody = (
+		<frame key="Codes" Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, pageGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<MockPanel
+				name="PromoCodes"
+				size={new UDim2(1, 0, 0, pad.y * 2 + headingBlock(phone) + 18 + pad.gap + (phone ? codeFieldH * 2 + pad.gap : codeFieldH) + pad.gap + 18)}
+				phone={phone}
+				accent={Palette.cyan}
+				reducedMotion={softMotion}
+				layoutOrder={1}
+			>
+				<PanelHeading icon="Code" title="Promo codes" accent={Palette.cyan} phone={phone} layoutOrder={1} />
+				<Line text="Type a code to claim it. Each one works once." size={phone ? 12 : 14} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={2} />
+				<frame key="CodeRow" Size={new UDim2(1, 0, 0, phone ? codeFieldH * 2 + pad.gap : codeFieldH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+					<uilistlayout
+						FillDirection={phone ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
+						Padding={new UDim(0, pad.gap)}
+						SortOrder={Enum.SortOrder.LayoutOrder}
+					/>
+					<frame
+						key="CodeField"
+						Size={phone ? new UDim2(1, 0, 0, codeFieldH) : new UDim2(0, 0, 1, 0)}
+						BackgroundColor3={Palette.ink}
+						BorderSizePixel={0}
+						LayoutOrder={1}
+					>
+						{!phone && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
+						<uicorner CornerRadius={new UDim(0, ROW_RADIUS)} />
+						{rowFace()}
+						<uistroke Color={codeFeedback !== "" ? Palette.cyan : Palette.lineSoft} Thickness={1} Transparency={0.5} />
+						<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
+						{h("textbox", {
+							Size: UDim2.fromScale(1, 1),
+							BackgroundTransparency: 1,
+							BorderSizePixel: 0,
+							ClearTextOnFocus: false,
+							Text: code,
+							PlaceholderText: "ENTER CODE",
+							PlaceholderColor3: Palette.muted,
+							TextColor3: Palette.cream,
+							TextSize: 14,
+							FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
+							TextXAlignment: Enum.TextXAlignment.Left,
+							TextYAlignment: Enum.TextYAlignment.Center,
+							TextTruncate: Enum.TextTruncate.AtEnd,
+							MultiLine: false,
+							TextEditable: !busy,
+							MaxVisibleGraphemes: 24,
+							Change: {
+								Text: (box: TextBox) => {
+									setCode(box.Text.upper().sub(1, 24));
+									if (codeFeedback !== "") {
+										setCodeFeedback("");
+									}
+								},
+							},
+							Event: {
+								Focused: () => Audio.play("inputFocus"),
+								FocusLost: (_box: TextBox, enter: boolean) => {
+									if (enter) {
+										redeem();
+									}
+								},
+							},
+						})}
+					</frame>
+					{h(
+						"frame",
+						{
+							Name: "ShopClaimCode",
+							Size: phone ? new UDim2(1, 0, 0, codeFieldH) : UDim2.fromOffset(148, codeFieldH),
+							BackgroundTransparency: 1,
+							BorderSizePixel: 0,
+							LayoutOrder: 2,
+							ref: claimHostRef,
+						},
+						<MockBtn
+							text={busy ? "Checking…" : "Claim code"}
+							icon="Code.1"
+							accent={Palette.cyan}
+							disabled={redeemDisabled}
+							fill={true}
+							phone={phone}
+							onClick={redeem}
+							reducedMotion={softMotion}
+						/>,
+					)}
+				</frame>
+				<Line text={codeFeedback} size={12} font={BODY_SEMI} color={Palette.creamSoft} width={new UDim(1, 0)} height={18} layoutOrder={4} />
+			</MockPanel>
+			<MockPanel
+				name="CreatorFollow"
+				size={new UDim2(1, 0, 0, pad.y * 2 + (phone ? 52 + pad.gap + TapTarget : 52))}
+				phone={phone}
+				accent={Palette.mint}
+				reducedMotion={softMotion}
+				layoutOrder={2}
+			>
+				<frame key="FollowRow" Size={new UDim2(1, 0, 0, phone ? 52 + pad.gap + TapTarget : 52)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout
+						FillDirection={phone ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
+						Padding={new UDim(0, phone ? pad.gap : 14)}
+						VerticalAlignment={Enum.VerticalAlignment.Center}
+						SortOrder={Enum.SortOrder.LayoutOrder}
+					/>
+					<frame key="Copy" Size={phone ? new UDim2(1, 0, 0, 52) : new UDim2(0, 0, 0, 52)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+						{!phone && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 12)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<IconWell icon="Pilot.1" accent={Palette.mint} size={phone ? 40 : 44} layoutOrder={1} />
+						<frame key="Text" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+							<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+							<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 4)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+							<Line text={`Follow @${creatorName}`} size={phone ? 15 : 17} font={BODY_BOLD} width={new UDim(1, 0)} height={22} layoutOrder={1} />
+							<Line
+								text={
+									followFeedback !== ""
+										? followFeedback
+										: followClaimed
+											? "Reward claimed. Thanks for the follow."
+											: "Follow the creator on Roblox, then check here for a one-time reward."
+								}
+								size={phone ? 12 : 14}
+								font={BODY}
+								color={followClaimed || followFeedback !== "" ? Palette.mint : Palette.muted}
+								width={new UDim(1, 0)}
+								height={18}
+								layoutOrder={2}
+							/>
+						</frame>
+					</frame>
+					<MockBtn
+						text={followClaimed ? "Claimed" : followBusy ? "Checking…" : "Check follow"}
+						icon={followClaimed ? "Check.10" : "Search.5"}
+						accent={Palette.mint}
+						disabled={followClaimed || followBusy}
+						fill={phone}
+						width={phone ? undefined : 190}
+						phone={phone}
+						onClick={verifyFollow}
+						reducedMotion={softMotion}
+						layoutOrder={2}
+					/>
+				</frame>
+			</MockPanel>
+		</frame>
+	);
+	// Featured / Flux / Gems / Passes (+ Codes) pill tabs, right-aligned like the hero .tabs
+	const tabsW = phone ? undefined : SHOP_TABS.size() * 96 + (SHOP_TABS.size() - 1) * 6;
+	const tabsRow = (
+		<frame key="ShopTabs" Size={new UDim2(1, 0, 0, tabRowH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+			<uilistlayout
+				FillDirection={Enum.FillDirection.Horizontal}
+				HorizontalAlignment={Enum.HorizontalAlignment.Right}
+				VerticalAlignment={Enum.VerticalAlignment.Center}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+			/>
+			<frame key="Tabs" Size={tabsW !== undefined ? UDim2.fromOffset(tabsW, tabRowH) : UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				{h(SegmentedTabs, {
+					options: SHOP_TAB_OPTIONS,
+					value: tab,
+					onChange: (entry: unknown) => {
+						setTab(entry as string);
+						setBanner(SHOP_DEFAULT_LINE);
+					},
+					accent: Palette.mango,
+					columns: SHOP_TABS.size(),
+					gap: 6,
+					size: UDim2.fromScale(1, 1),
+					reducedMotion: softMotion,
+				})}
+			</frame>
+		</frame>
+	);
+	let body: React.Element;
 	if (tab === "Codes") {
-		sections.push({ id: "list", height: codesH, element: codesPane });
-	} else if (featuredProduct !== undefined) {
-		const unavailable = featuredProduct.ProductId <= 0 && !RunService.IsStudio();
-		const featured = h(FeaturedPanel, {
-			key: `featured-${featuredProduct.Key}`,
-			product: featuredProduct,
-			cta: priceText(featuredProduct.PriceLabel, featuredProduct.StudioPrice, featuredProduct.ProductId),
-			disabled: unavailable || busy,
-			onClick: () => promptProduct(featuredProduct),
-			phone: phone,
-			reveal: heroReveal,
-			reducedMotion: reducedMotion,
-		});
-		const plan = splitColumns(phone ? 0 : contentW, 620, 18);
-		if (plan.split && blocks.size() > 0) {
-			// featured on the left at 620px; the row is as tall as the catalog, never under 600
-			const rowH = math.max(catalogH, 600);
-			const featuredPlan = { split: true, side: plan.side, main: plan.main, gap: plan.gap };
-			sections.push({
-				id: "row",
-				height: rowH,
-				element: h(SplitColumns, {
-					name: "ShopSplit",
-					height: rowH,
-					plan: featuredPlan,
-					sideOnRight: false,
-					side: featured,
-					main: catalogPanel,
-				}),
-			});
-		} else {
-			sections.push({ id: "featured", height: phone ? 300 : 600, element: featured });
-			if (blocks.size() > 0) {
-				sections.push({ id: "list", height: catalogH, element: catalogPanel });
-			}
-		}
+		body = codesBody;
+	} else if (featuredPanel !== undefined) {
+		body = (
+			<frame
+				key="ShopSplit"
+				Size={new UDim2(1, 0, 0, split ? featuredH : featuredH + pageGap + catalogPanelH)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				LayoutOrder={3}
+			>
+				<uilistlayout
+					FillDirection={split ? Enum.FillDirection.Horizontal : Enum.FillDirection.Vertical}
+					Padding={new UDim(0, pageGap)}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+				/>
+				{featuredPanel}
+				{catalogPanel}
+			</frame>
+		);
 	} else {
-		sections.push({ id: "list", height: math.max(catalogH, 180), element: catalogPanel });
+		body = catalogPanel;
 	}
-	return React.createElement("frame", {
-		ref: tab !== "Codes" ? shopHostRef : undefined,
-		Name: "ShopViewHost",
-		Size: UDim2.fromScale(1, 1),
-		BackgroundTransparency: 1,
-		BorderSizePixel: 0,
-		ClipsDescendants: false,
-		Change: {
-			AbsoluteSize: (rbx: Frame) => {
-				if (rbx.AbsoluteSize.X > 0 && math.abs(rbx.AbsoluteSize.X - hostW) >= 1) {
-					setHostW(rbx.AbsoluteSize.X);
-				}
-			},
-		},
-	},
-		h(PageScaffold, {
-			gap: phone ? 8 : 18,
-			tailPad: scrollTail(stack, chrome.bottomSafe, SCROLL_PAD),
-			scrollBarColor: Palette.mango,
-			scrollBarThickness: 4,
-			sections: sections,
-		}),
-	) as React.Element;
+	return (
+		<scrollingframe
+			ref={shopHostRef}
+			key="ShopViewHost"
+			Size={UDim2.fromScale(1, 1)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			CanvasSize={new UDim2(0, 0, 0, 0)}
+			AutomaticCanvasSize={Enum.AutomaticSize.Y}
+			ScrollingDirection={Enum.ScrollingDirection.Y}
+			ScrollBarThickness={4}
+			ScrollBarImageColor3={Palette.mango}
+			VerticalScrollBarInset={Enum.ScrollBarInset.ScrollBar}
+			ElasticBehavior={Enum.ElasticBehavior.Never}
+			Selectable={false}
+			Change={{
+				AbsoluteSize: (rbx: ScrollingFrame) => {
+					const size = rbx.AbsoluteWindowSize;
+					if (size.X > 0 && math.abs(size.X - hostW) >= 1) {
+						setHostW(size.X);
+					}
+					if (size.Y > 0 && math.abs(rbx.AbsoluteSize.Y - viewH) >= 1) {
+						setViewH(rbx.AbsoluteSize.Y);
+					}
+				},
+			}}
+		>
+			<uipadding PaddingBottom={new UDim(0, tailPad)} PaddingRight={new UDim(0, 2)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, pageGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{tabsRow}
+			{statusLine !== "" && (
+				<Line text={statusLine} size={13} font={BODY} color={Palette.creamSoft} width={new UDim(1, 0)} height={20} layoutOrder={2} />
+			)}
+			{body}
+		</scrollingframe>
+	);
 }
 
 
 const GAP = 10;
+// Premium is the mockup 05 storefront (featured bundle, upgrades, gems), so the Shop opens on it
 const SECTIONS = [
+	{ id: "Premium", label: "Premium" },
 	{ id: "Daily", label: "Daily" },
 	{ id: "Crates", label: "Crates" },
 	{ id: "Skins", label: "Skins" },
 	{ id: "Codex", label: "Codex" },
 	{ id: "Artifacts", label: "Artifacts" },
-	{ id: "Premium", label: "Premium" },
 ];
 function sectionTabLayout(width: number, rowHeight: number, phone = false): LuaTuple<[number, number]> {
 	const gap = 6;
@@ -4349,7 +4092,7 @@ function StoreFront(props: StoreFrontProps) {
 	const stack = chrome.contentStack;
 	const softMotion = props.reducedMotion;
 	const linked = BrowseModel.recall("Shop");
-	const [section, setSection] = React.useState(props.initialSection ?? linked?.category ?? "Daily");
+	const [section, setSection] = React.useState(props.initialSection ?? linked?.category ?? "Premium");
 	// Quick Find opens a section directly ("crates", "codex", "skins" ...)
 	React.useEffect(() => {
 		return BrowseModel.listen("Shop", (entry) => {
@@ -4408,6 +4151,7 @@ function StoreFront(props: StoreFrontProps) {
 			BorderSizePixel: 0,
 			ClipsDescendants: false,
 		},
+		h("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, Padding: new UDim(0, GAP), SortOrder: Enum.SortOrder.LayoutOrder }),
 		h(
 			"frame",
 			{
@@ -4415,6 +4159,7 @@ function StoreFront(props: StoreFrontProps) {
 				Size: new UDim2(1, 0, 0, tabH),
 				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
+				LayoutOrder: 1,
 			},
 			h(SegmentedTabs, {
 				options: SECTIONS,
@@ -4434,7 +4179,7 @@ function StoreFront(props: StoreFrontProps) {
 			{
 				Name: "StoreSection",
 				Size: new UDim2(1, 0, 1, -(tabH + GAP)),
-				Position: UDim2.fromOffset(0, tabH + GAP),
+				LayoutOrder: 2,
 				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
 				ClipsDescendants: false,
