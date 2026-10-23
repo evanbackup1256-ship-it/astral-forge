@@ -224,12 +224,14 @@ function Medallion(props: {
 	const [display] = namesOf(member);
 	const initial = display.sub(1, 1).upper();
 	const size = props.size;
-	const nameSize = props.lead ? 17 : 14;
+	// 21-credits at 1920x1080: 230px lead with a 22px name, 150px ring with 17px names and 14px roles
+	const nameSize = size >= 200 ? 22 : size >= 150 ? 17 : props.lead ? 17 : 14;
+	const roleSize = size >= 150 ? 14 : 12;
 	const role = MODEL.ShowRoles !== false ? props.credit.roles.join(" · ") : "";
 	const cell = CompanionSheets.FRAME;
 	return (
 		<frame
-			Size={UDim2.fromOffset(props.width, size + 8 + nameSize + 4 + (role !== "" ? 16 : 0))}
+			Size={UDim2.fromOffset(props.width, size + 8 + nameSize + 4 + (role !== "" ? roleSize + 4 : 0))}
 			LayoutOrder={props.order}
 			BackgroundTransparency={1}
 			ZIndex={6}
@@ -338,13 +340,13 @@ function Medallion(props: {
 			/>
 			{role !== "" && (
 				<textlabel
-					Size={new UDim2(1, 0, 0, 16)}
+					Size={new UDim2(1, 0, 0, roleSize + 4)}
 					Position={UDim2.fromOffset(0, size + 8 + nameSize + 4)}
 					BackgroundTransparency={1}
 					Text={role}
 					TextColor3={Palette.muted}
 					TextTransparency={fade}
-					TextSize={12}
+					TextSize={roleSize}
 					TextTruncate={Enum.TextTruncate.AtEnd}
 					FontFace={BODY}
 					ZIndex={8}
@@ -417,19 +419,20 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const safeSide = math.max(Space.sm, viewport.sideInset, chrome.sideSafe);
 	const safeTop = math.max(Space.sm, viewport.topInset);
 	const safeBottom = math.max(Space.sm, viewport.bottomInset, chrome.bottomSafe);
-	const maxW = math.min(1040, viewport.width - safeSide * 2 - Space.md);
-	const maxH = math.max(1, math.min(720, viewport.height - safeTop - safeBottom - Space.md));
+	const roomy = !stack && viewport.height >= 900 && viewport.width >= 1400;
+	const maxW = math.min(roomy ? 1500 : 1040, viewport.width - safeSide * 2 - Space.md);
+	const maxH = math.max(1, math.min(roomy ? 1000 : 720, viewport.height - safeTop - safeBottom - Space.md));
 	const centerY = safeTop + math.max(0, (viewport.height - safeTop - safeBottom) / 2);
 	const short = viewport.height < 520;
 
 	const visible = CreditsModel.visible(MODEL, "All", "");
 	const [credits, thanks] = rollOf(visible);
-	const leadSize = short ? 84 : stack ? 104 : 124;
-	const ringSize = short ? 60 : stack ? 68 : 80;
-	const cellW = stack ? 120 : 156;
+	const leadSize = roomy ? 230 : short ? 84 : stack ? 104 : 124;
+	const ringSize = roomy ? 150 : short ? 60 : stack ? 68 : 80;
+	const cellW = roomy ? 240 : stack ? 120 : 156;
 	const perRow = stack ? 3 : 4;
 
-	const width = math.min(maxW, 860);
+	const width = math.min(maxW, roomy ? 1400 : 860);
 	const innerW = width - pad * 2;
 	const contentW = innerW - Space.sm;
 
@@ -465,11 +468,11 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	let order = 0;
 	let contentH = Space.lg;
 	let index = 0;
-	const roleH = MODEL.ShowRoles !== false ? 16 : 0;
+	const roleH = MODEL.ShowRoles !== false ? (roomy ? 18 : 16) : 0;
 	for (const [r, row] of ipairs(rows)) {
 		order += 1;
 		const lead = r === 1;
-		const rowH = (lead ? leadSize : ringSize) + 8 + (lead ? 21 : 18) + roleH;
+		const rowH = (lead ? leadSize : ringSize) + 8 + (roomy ? (lead ? 26 : 21) : lead ? 21 : 18) + roleH;
 		body.push(
 			<frame key={`r${r}`} Size={new UDim2(1, 0, 0, rowH)} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
 				<uilistlayout
@@ -477,7 +480,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 					HorizontalAlignment={Enum.HorizontalAlignment.Center}
 					VerticalAlignment={Enum.VerticalAlignment.Bottom}
 					SortOrder={Enum.SortOrder.LayoutOrder}
-					Padding={new UDim(0, stack ? Space.sm : Space.lg)}
+					Padding={new UDim(0, roomy ? 70 : stack ? Space.sm : Space.lg)}
 				/>
 				{row.map((credit, i) => {
 					index += 1;
