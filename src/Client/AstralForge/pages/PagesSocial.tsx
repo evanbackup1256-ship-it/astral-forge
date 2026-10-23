@@ -653,7 +653,7 @@ __defs["TradeView"] = () => {
 			balanceText = "Add items or currency to see the balance";
 			balanceColor = Palette.muted;
 		} else if (yourRatio >= 0.42 && yourRatio <= 0.58) {
-			balanceText = "Fair trade · about even";
+			balanceText = "About even";
 			balanceColor = Palette.mint;
 		} else if (yourRatio > 0.58) {
 			const adv = math.round((yourRatio - 0.5) * 200);

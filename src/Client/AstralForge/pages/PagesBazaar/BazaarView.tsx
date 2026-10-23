@@ -845,16 +845,16 @@ function BazaarView(props: BazaarProps) {
 		} else if (procure && procure.Name !== undefined) {
 			status =
 				procure.State === "Pending"
-					? `${procure.Name} is requested. It arrives with the next shipment and is held for 24 hours.`
+					? `${procure.Name} requested: next shipment, held 24 hours.`
 					: procure.State === "Listed"
-						? `${procure.Name} is on your shelf now at 20% off. It stays until bought or the request lapses.`
+						? `${procure.Name} is on your shelf at 20% off until bought or lapsed.`
 						: procure.State === "Filled"
 							? `Your request for ${procure.Name} was filled. Place a new request any time.`
-							: `Your request for ${procure.Name} lapsed. Place it again to restart the 24-hour hold.`;
+							: `${procure.Name} lapsed. Request again for a new 24-hour hold.`;
 		} else {
 			status = canProcure
-				? "No open request. Choose one supply below; it is added to your next shipment and held for 24 hours."
-				: `Requests open at ${(reputation && reputation.ProcureTier) ?? "Regular"} standing. Every unit you buy counts toward it.`;
+				? "No open request. Pick a supply below: next shipment, held 24 hours."
+				: `Requests open at ${(reputation && reputation.ProcureTier) ?? "Regular"} standing. Every unit bought counts.`;
 		}
 		add(
 			"request-status",

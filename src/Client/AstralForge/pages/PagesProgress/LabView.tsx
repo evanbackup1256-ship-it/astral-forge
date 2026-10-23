@@ -677,7 +677,7 @@ function LabViewReady(props: LabProps) {
 							clips={false}
 						>
 							<Text
-								value="Move cells whenever you like."
+								value="Power cells"
 								size={stackPower ? 16 : 17}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
@@ -686,7 +686,7 @@ function LabViewReady(props: LabProps) {
 								sizeConstraint={new UDim2(1, stackPower ? -8 : -(220 + ROW_RIGHT), 0, 24)}
 							/>
 							<Text
-								value="Bonuses apply at once. A new cell unlocks every 8 rebirths."
+								value="A new cell every 8 rebirths."
 								size={stackPower ? 11 : 10}
 								color={Palette.muted}
 								wrap={true}
