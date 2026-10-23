@@ -719,6 +719,18 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					</frame>
 				)}
 			</frame>
+			{/* invisible 44px hit area: the 32px button keeps its look; this extends 12px upward into the
+			    panel padding (y -9..35), away from the badge row below. Not selectable, so gamepad still
+			    lands on the visible button. Sits under the button so the button keeps its own clicks. */}
+			<textbutton
+				Size={UDim2.fromOffset(refreshW, 44)}
+				Position={new UDim2(1, -refreshW, 0, -9)}
+				BackgroundTransparency={1}
+				Text=""
+				AutoButtonColor={false}
+				Selectable={false}
+				Event={{ Activated: () => dispatch("GetAdminState") }}
+			/>
 			<Button
 				text="REFRESH"
 				onClick={() => {
@@ -780,18 +792,31 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		</Panel>
 	);
 
-	const pills = ADMIN_CATS.map((cat) => (
-		<Button
-			key={cat.id}
-			text={cat.label}
-			onClick={() => setCategory(cat.id)}
-			color={category === cat.id ? Palette.violet : Palette.panelSoft}
-			textColor={category === cat.id ? Palette.ink : Palette.creamSoft}
-			outline={category !== cat.id}
-			highlight={category === cat.id}
-			size={UDim2.fromOffset(62, 28)}
-			reducedMotion={softMotion}
-		/>
+	// each 62x28 pill sits in a 68x44 slot: the slot is an invisible hit area (3px each side = half
+	// the old 6px gap, 6px above, 10px below) so slots tile without overlapping, stay clear of the
+	// search field (ends y=56) and the list (starts y=100), and the pill draws exactly where it did.
+	const pills = ADMIN_CATS.map((cat, index) => (
+		<frame key={cat.id} Size={UDim2.fromOffset(68, 44)} BackgroundTransparency={1} LayoutOrder={index}>
+			<textbutton
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				Text=""
+				AutoButtonColor={false}
+				Selectable={false}
+				Event={{ Activated: () => setCategory(cat.id) }}
+			/>
+			<Button
+				text={cat.label}
+				onClick={() => setCategory(cat.id)}
+				color={category === cat.id ? Palette.violet : Palette.panelSoft}
+				textColor={category === cat.id ? Palette.ink : Palette.creamSoft}
+				outline={category !== cat.id}
+				highlight={category === cat.id}
+				size={UDim2.fromOffset(62, 28)}
+				position={UDim2.fromOffset(3, 6)}
+				reducedMotion={softMotion}
+			/>
+		</frame>
 	));
 	const commandSection = (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
@@ -805,8 +830,9 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
 			/>
-			<frame Size={new UDim2(1, 0, 0, 30)} Position={UDim2.fromOffset(0, 62)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{/* row spans y 56..100 and x -3..W+3 so the 68x44 slots line pills up at x = i*68, y = 62 as before */}
+			<frame Size={new UDim2(1, 6, 0, 44)} Position={UDim2.fromOffset(-3, 56)} BackgroundTransparency={1} ClipsDescendants={true}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				{pills}
 			</frame>
 			<frame Size={new UDim2(1, 0, 1, -100)} Position={UDim2.fromOffset(0, 100)} BackgroundTransparency={1}>
