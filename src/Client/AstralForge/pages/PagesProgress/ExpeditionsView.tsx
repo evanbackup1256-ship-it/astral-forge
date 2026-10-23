@@ -11,7 +11,9 @@ import { useViewport } from "../../MotionKit/motion";
 import { useServerClock } from "../../hooks/useServerClock";
 import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi, named } from "../luauDeps";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { StackBlocks, stackHeight } from "../../UiCore/ui";
+import { Bar, BODY, BODY_SEMI, MockPanel, PanelHeading, RowSurface } from "../../UiCore/mockKit";
+import { headingBlock, IconWell, MockBtn, MockRow, panelHeight, rowHeight } from "../mockRows";
 import ElementFxModule = require("../../ElementFx");
 import { itemIconKind } from "../../ArtKit/Icon";
 import { rarityColor } from "./portKit";
@@ -20,17 +22,18 @@ const { Button, Dropdown, EmptyState, IconTile, Meter, Panel, SegmentedTabs, Tex
 
 const SPRITE = 36;
 // port 13-expeditions: the crew lead's sprite (element sheet, or its item icon) on a dark well with a rarity rim
-function CrewSprite(p: { def?: ItemDef; definitionId: string; reducedMotion?: boolean }) {
+function CrewSprite(p: { def?: ItemDef; definitionId: string; reducedMotion?: boolean; size?: number }) {
+	const box = p.size ?? SPRITE;
 	const color = rarityColor(p.def?.Rarity);
 	const element = p.def?.Element;
 	return (
-		<frame Size={UDim2.fromOffset(SPRITE, SPRITE)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
+		<frame Size={UDim2.fromOffset(box, box)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
 			<uicorner CornerRadius={new UDim(0, 9)} />
 			<uistroke Color={color} Thickness={1.5} Transparency={0.3} />
 			{element !== undefined && ElementFxModule.sheet(element) !== undefined ? (
 				<ElementFxModule.ElementFx element={element} size={UDim2.fromScale(1.1, 1.1)} reducedMotion={p.reducedMotion} />
 			) : (
-				<IconTile kind={itemIconKind(p.definitionId)} accent={color} size={28} radius={8} position={UDim2.fromScale(0.5, 0.5)} anchorPoint={new Vector2(0.5, 0.5)} spin={false} reducedMotion={p.reducedMotion} />
+				<IconTile kind={itemIconKind(p.definitionId)} accent={color} size={math.floor(box * 0.78)} radius={8} position={UDim2.fromScale(0.5, 0.5)} anchorPoint={new Vector2(0.5, 0.5)} spin={false} reducedMotion={p.reducedMotion} />
 			)}
 		</frame>
 	);
@@ -353,23 +356,36 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	);
 }
 
-const RUN_H = PAD * 2 + 34 + 12 + 10 + 14 + 18 + 6 + 18 + GAP + TapTarget;
+// 13-expeditions .row (min-height 76): 64px sprite, route + crew/time line, thin mint bar, sm button
+const CREW_ROW_H = 76;
+const CREW_ROW_H_PHONE = 64;
 
-function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Map<string, ItemDef>; now: number; onResult: (reply: Reply) => void; stack?: boolean; claimRef?: React.MutableRefObject<Frame | undefined> }) {
-	const timerW = p.stack === true ? 104 : 150;
+function CrewRow(p: {
+	props: Props;
+	slot: SlotState;
+	route?: Route;
+	defs: Map<string, ItemDef>;
+	now: number;
+	onResult: (reply: Reply) => void;
+	phone: boolean;
+	claimRef?: React.MutableRefObject<Frame | undefined>;
+	selected?: boolean;
+	onSend?: () => void;
+	layoutOrder: number;
+}) {
 	const [busy, setBusy] = React.useState(false);
+	const open = p.slot.Id === "";
 	const total = math.max(1, p.slot.EndsAt - p.slot.StartedAt);
-	const left = math.max(0, p.slot.EndsAt - p.now);
-	const done = left <= 0;
+	const left = open ? 0 : math.max(0, p.slot.EndsAt - p.now);
+	const done = !open && left <= 0;
 	const stance: Stance = p.slot.Stance ?? "Steady";
 	const inventory = p.props.state.Items?.Inventory ?? {};
 	const names = p.slot.Crew.map((uid) => p.defs.get(inventory[uid]?.DefinitionId ?? "")?.Name ?? "Relic");
-	const accent = done ? Palette.mint : STANCE_COLOR[stance];
 	const leadId = p.slot.Crew.size() > 0 ? (inventory[p.slot.Crew[0]]?.DefinitionId ?? "") : "";
 	const leadDef = p.defs.get(leadId);
-	const odds = [string.format("×%.2f", p.slot.Yield ?? 1)];
+	const sprite = p.phone ? 48 : 64;
+	const odds = [string.format("x%.2f", p.slot.Yield ?? 1)];
 	if ((p.slot.Risk ?? 0) > 0) odds.push(`${pct(p.slot.Risk ?? 0)} risk`);
-	if ((p.slot.Find ?? 0) > 0) odds.push(`${pct(p.slot.Find ?? 0)} find`);
 	const act = (op: "Claim" | "Recall") => {
 		if (busy) return;
 		setBusy(true);
@@ -378,72 +394,74 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 			if (op === "Claim" && response.ok === true) p.onResult(response);
 		});
 	};
+	const crewText = names.size() > 0 ? names.join(", ") : "Solo";
+	const sub = open
+		? `Slot ${p.slot.Slot} · Open`
+		: done
+			? `${crewText} · Back now`
+			: `${crewText} · ${clockText(left)} left · ${stance} · ${odds.join(" · ")}`;
+	const btnW = p.phone ? 84 : 110;
+	const h = p.phone ? CREW_ROW_H_PHONE : CREW_ROW_H;
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} highlight={done} clips={false}>
-			<CrewSprite def={leadDef} definitionId={leadId} reducedMotion={p.props.reducedMotion} />
-			<Text value={p.route?.Name ?? p.slot.Id} size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={12} position={UDim2.fromOffset(SPRITE + 10, 0)} sizeConstraint={new UDim2(1, -(timerW + SPRITE + 10), 0, 24)} />
-			<Text value={stance} size={13} color={STANCE_COLOR[stance]} position={UDim2.fromOffset(SPRITE + 10, 24)} sizeConstraint={new UDim2(1, -(timerW + SPRITE + 10), 0, 16)} />
-			<Text
-				value={done ? "Back" : clockText(left)}
-				size={28}
-				color={done ? Palette.mint : Palette.cream}
-				weight={Enum.FontWeight.Bold}
-				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -timerW, 0, 0)}
-				sizeConstraint={new UDim2(0, timerW, 0, 34)}
-				fit={true}
-				minSize={16}
-			/>
-			<Meter value={1 - left / total} color={accent} position={UDim2.fromOffset(0, 46)} size={new UDim2(1, 0, 0, 10)} reducedMotion={p.props.reducedMotion} shimmer={done} />
-			<Text
-				value={names.size() > 0 ? names.join("  ·  ") : "Solo run"}
-				size={13}
-				color={Palette.creamSoft}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 70)}
-				sizeConstraint={new UDim2(1, 0, 0, 18)}
-			/>
-			<Text value={odds.join("  ·  ")} size={13} color={Palette.muted} position={UDim2.fromOffset(0, 94)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
+		<frame {...named(`Crew${p.slot.Slot}`)} BackgroundColor3={Palette.white} BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, h)} LayoutOrder={p.layoutOrder}>
+			<RowSurface />
+			{p.selected === true || done ? <uistroke Color={Palette.mint} Transparency={0.4} Thickness={1.5} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} /> : undefined}
+			<uipadding PaddingLeft={new UDim(0, p.phone ? 10 : 14)} PaddingRight={new UDim(0, p.phone ? 10 : 14)} />
+			<frame BackgroundTransparency={1} BorderSizePixel={0} AnchorPoint={new Vector2(0, 0.5)} Position={new UDim2(0, 0, 0.5, 0)} Size={UDim2.fromOffset(sprite, sprite)}>
+				{open ? (
+					<frame BackgroundTransparency={1} Size={UDim2.fromScale(1, 1)}>
+						<IconWell icon="Travel" accent={Palette.mint} size={36} />
+					</frame>
+				) : (
+					<CrewSprite def={leadDef} definitionId={leadId} reducedMotion={p.props.reducedMotion} size={sprite} />
+				)}
+			</frame>
+			<frame BackgroundTransparency={1} BorderSizePixel={0} AnchorPoint={new Vector2(0, 0.5)} Position={new UDim2(0, sprite + 14, 0.5, 0)} Size={new UDim2(1, -(sprite + 14 + btnW + 14), 0, 48)}>
+				<textlabel BackgroundTransparency={1} Text={open ? "Open slot" : (p.route?.Name ?? p.slot.Id)} TextSize={p.phone ? 14 : 15} FontFace={BODY_SEMI} TextColor3={Palette.cream} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 18)} />
+				<textlabel BackgroundTransparency={1} Text={sub} TextSize={12} FontFace={BODY} TextColor3={Palette.muted} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Position={UDim2.fromOffset(0, 19)} Size={new UDim2(1, 0, 0, 15)} />
+				<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(0, 40)} Size={new UDim2(1, 0, 0, 6)}>
+					<Bar fill={open ? 0 : 1 - left / total} color={Palette.mint} thin={true} />
+				</frame>
+			</frame>
 			<frame
-				{...named(done ? "ExpeditionClaim" : "ExpeditionRecall")}
-				ref={p.claimRef}
-				Size={p.stack === true ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0, 180, 0, TapTarget)}
-				Position={UDim2.fromOffset(0, 94 + 18 + GAP)}
+				{...named(open ? `ExpeditionSend${p.slot.Slot}` : done ? "ExpeditionClaim" : "ExpeditionRecall")}
+				ref={open ? undefined : p.claimRef}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
-				ClipsDescendants={false}
+				AnchorPoint={new Vector2(1, 0.5)}
+				Position={new UDim2(1, 0, 0.5, 0)}
+				Size={UDim2.fromOffset(btnW, 36)}
 			>
-				<Button
-					text={done ? "Claim" : "Recall"}
-					onClick={() => act(done ? "Claim" : "Recall")}
-					disabled={busy}
-					loading={busy}
-					color={done ? Palette.mint : Palette.panelSoft}
-					textColor={done ? Palette.ink : Palette.cream}
-					outline={!done}
-					highlight={done}
-					size={UDim2.fromScale(1, 1)}
-					reducedMotion={p.props.reducedMotion}
-				/>
+				{open ? (
+					<MockBtn text="Send" sec={true} sm={true} phone={p.phone} fill={true} onClick={() => p.onSend?.()} />
+				) : done ? (
+					<MockBtn text="Claim" icon="Collect" accent={Palette.mint} sm={true} phone={p.phone} fill={true} disabled={busy} onClick={() => act("Claim")} />
+				) : (
+					<MockBtn text="Recall" sec={true} sm={true} phone={p.phone} fill={true} disabled={busy} onClick={() => act("Recall")} />
+				)}
 			</frame>
-		</Panel>
+		</frame>
 	);
 }
 
-const BANNER_H = PAD * 2 + 34 + 20;
 const BANNER_SECONDS = 6;
 
-function ResultBanner(p: { reply: Reply; routeName: string; reducedMotion?: boolean }) {
+function haulHeight(phone: boolean): number {
+	return panelHeight(phone, headingBlock(phone) + (rowHeight(phone) + (phone ? 8 : 12)) * 2 + 18);
+}
+
+// 13-expeditions right panel: "<route> haul" with the outcome rows from the claim reply
+function HaulPanel(p: { reply: Reply; routeName: string; phone: boolean; reducedMotion?: boolean }) {
 	const outcome = p.reply.Outcome ?? "Clean";
 	const streak = p.reply.Streak ?? 0;
-	const tail = outcome === "Setback" ? "streak reset" : streak > 1 ? `${streak} in a row` : p.routeName;
+	const color = OUTCOME_COLOR[outcome];
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={OUTCOME_COLOR[outcome]} background={Palette.panelRaised} padding={PAD} reducedMotion={p.reducedMotion} highlight={outcome === "Triumph"}>
-			<Text value={outcome} size={28} color={OUTCOME_COLOR[outcome]} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(0.5, 0, 0, 34)} fit={true} minSize={16} />
-			<Text value={tail} size={14} color={Palette.creamSoft} align={Enum.TextXAlignment.Right} position={new UDim2(0.5, 0, 0, 8)} sizeConstraint={new UDim2(0.5, 0, 0, 20)} fit={true} minSize={10} />
-			<Text value={p.reply.message ?? ""} size={13} color={Palette.muted} position={UDim2.fromOffset(0, 36)} sizeConstraint={new UDim2(1, 0, 0, 18)} fit={true} minSize={10} />
-		</Panel>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={p.phone} accent={color} glow={outcome === "Triumph" ? color : undefined} reducedMotion={p.reducedMotion} name="ExpeditionHaul">
+			<PanelHeading icon="Collect" title={p.routeName !== "" ? `${p.routeName} haul` : "Haul"} accent={color} phone={p.phone} layoutOrder={0} />
+			<MockRow phone={p.phone} icon="Milestone" accent={color} title="Outcome" value={outcome} valueColor={color} layoutOrder={1} />
+			<MockRow phone={p.phone} icon="Wave" accent={color} title="Streak" value={outcome === "Setback" ? "Reset" : `${streak}`} layoutOrder={2} />
+			<textlabel BackgroundTransparency={1} Text={p.reply.message ?? ""} TextSize={13} FontFace={BODY} TextColor3={Palette.muted} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 18)} LayoutOrder={3} />
+		</MockPanel>
 	);
 }
 
@@ -456,8 +474,6 @@ function playOutcome(reply: Reply) {
 function ExpeditionsView(props: Props) {
 	const viewport = useViewport();
 	const stack = chromeFor(viewport).contentStack;
-	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.42), 16);
-	const wide = plan.split;
 	const board = props.state.ExpeditionBoard;
 	const slots = board?.Slots ?? [];
 	const running = slots.some((slot) => slot.Id !== "");
@@ -498,81 +514,76 @@ function ExpeditionsView(props: Props) {
 		const thread = task.delay(BANNER_SECONDS, () => setResult(undefined));
 		return () => task.cancel(thread);
 	}, [result]);
-	const sections: { id: string; height: number; element: React.Element }[] = [];
-	if (result !== undefined) {
-		const routeName = routes.find((r) => r.Id === result.reply.Route)?.Name ?? "";
-		sections.push({
-			id: `result${result.at}`,
-			height: BANNER_H,
-			element: <ResultBanner reply={result.reply} routeName={routeName} reducedMotion={props.reducedMotion} />,
-		});
-	}
+	const phone = stack;
 	const streak = board?.Streak ?? 0;
 	const out = slots.filter((slot) => slot.Id !== "").size();
-	sections.push({
-		id: "summary",
-		height: 40,
-		element: (
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<Text value={`${out} / ${slots.size()} out`} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(0.5, 0, 0, 24)} />
-				<Text
-					value={streak > 0 ? `streak ${streak}  ·  ${string.format("+%d%%", math.min(streak, Board.STREAK_CAP) * Board.STREAK_STEP * 100)}` : ""}
-					size={14}
-					color={Palette.mango}
-					align={Enum.TextXAlignment.Right}
-					position={new UDim2(0.5, 0, 0, 2)}
-					sizeConstraint={new UDim2(0.5, 0, 0, 20)}
+	const openSlots = slots.filter((slot) => slot.Id === "");
+	const [pickSlot, setPickSlot] = React.useState<number | undefined>(undefined);
+	const planSlot = openSlots.find((slot) => slot.Slot === pickSlot) ?? openSlots[0];
+	const rowGap = phone ? 8 : 12;
+	const crewH = phone ? CREW_ROW_H_PHONE : CREW_ROW_H;
+	const note = `${out} of ${slots.size()} crews out${streak > 0 ? ` · streak ${streak} (${string.format("+%d%%", math.min(streak, Board.STREAK_CAP) * Board.STREAK_STEP * 100)})` : ""}`;
+	const crewsH = panelHeight(phone, headingBlock(phone) + math.max(1, slots.size()) * (crewH + rowGap) - rowGap + (board?.Paused === true ? rowGap + 18 : 0));
+	const crews = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.mint} reducedMotion={props.reducedMotion} name="Crews">
+			<PanelHeading icon="Travel" title="Crews" note={note} accent={Palette.mint} phone={phone} layoutOrder={0} />
+			{slots.map((slot, i) => (
+				<CrewRow
+					key={`slot${slot.Slot}`}
+					props={props}
+					slot={slot}
+					route={routes.find((r) => r.Id === slot.Id)}
+					defs={defs}
+					now={now}
+					onResult={onResult}
+					phone={phone}
+					claimRef={slot === firstDone ? claimHostRef : undefined}
+					selected={slot.Id === "" && slot === planSlot}
+					onSend={() => setPickSlot(slot.Slot)}
+					layoutOrder={1 + i}
 				/>
-			</frame>
-		),
-	});
-	if (board?.Paused === true) {
-		sections.push({
-			id: "paused",
-			height: 28,
-			element: <Text value="Paused for a moment. Running trips keep going." size={13} color={Palette.mango} fit={true} minSize={10} />,
+			))}
+			{board?.Paused === true ? (
+				<textlabel BackgroundTransparency={1} Text="Paused for a moment. Running trips keep going." TextSize={13} FontFace={BODY} TextColor3={Palette.mango} TextXAlignment={Enum.TextXAlignment.Left} Size={new UDim2(1, 0, 0, 18)} LayoutOrder={99} />
+			) : undefined}
+		</MockPanel>
+	);
+	// right column: the last haul, then the launch planner for the picked open slot
+	const side: { id: string; height: number; element: React.Element }[] = [];
+	if (result !== undefined) {
+		const routeName = routes.find((r) => r.Id === result.reply.Route)?.Name ?? "";
+		side.push({ id: `haul${result.at}`, height: haulHeight(phone), element: <HaulPanel reply={result.reply} routeName={routeName} phone={phone} reducedMotion={props.reducedMotion} /> });
+	}
+	if (planSlot !== undefined) {
+		side.push({
+			id: `plan${planSlot.Slot}`,
+			height: openSlotHeight(candidates.size(), true, false),
+			element: <OpenSlot props={props} slot={planSlot} routes={routes} busyRoutes={busyRoutes} candidates={candidates} stack={true} wide={false} launchRef={launchHostRef} />,
 		});
 	}
-	// open slots (the launch planner) and running trips; on desktop they sit side by side
-	const openBlocks: { id: string; height: number; element: React.Element }[] = [];
-	const runBlocks: { id: string; height: number; element: React.Element }[] = [];
-	const splitWide = wide && slots.some((slot) => slot.Id === "") && running;
-	for (const slot of slots) {
-		if (slot.Id === "") {
-			openBlocks.push({
-				id: `slot${slot.Slot}`,
-				height: openSlotHeight(candidates.size(), stack, splitWide),
-				element: <OpenSlot props={props} slot={slot} routes={routes} busyRoutes={busyRoutes} candidates={candidates} stack={stack} wide={splitWide} launchRef={slot === firstOpen ? launchHostRef : undefined} />,
-			});
-		} else {
-			runBlocks.push({
-				id: `slot${slot.Slot}`,
-				height: RUN_H,
-				element: <RunningSlot props={props} slot={slot} route={routes.find((r) => r.Id === slot.Id)} defs={defs} now={now} onResult={onResult} stack={stack} claimRef={slot === firstDone ? claimHostRef : undefined} />,
-			});
-		}
-	}
-	if (splitWide) {
-		// the columns are one scaffold section; their blocks still rise in one after another
-		const splitIndex = sections.size();
+	const sections: { id: string; height: number; element: React.Element }[] = [];
+	const sideW = 500;
+	const sideH = stackHeight(side.map((b) => b.height), 18);
+	if (!phone && side.size() > 0 && viewport.width >= 1000) {
+		const h = math.max(crewsH, sideH);
 		sections.push({
-			id: "slots",
-			height: math.max(stackHeight(openBlocks.map((b) => b.height), 16), stackHeight(runBlocks.map((b) => b.height), 16)),
+			id: "board",
+			height: h,
 			element: (
-				<SplitColumns
-					plan={plan}
-					height={math.max(stackHeight(openBlocks.map((b) => b.height), 16), stackHeight(runBlocks.map((b) => b.height), 16))}
-					sideOnRight={true}
-					main={<StackBlocks gap={16} riseFrom={splitIndex} blocks={openBlocks.map((b, i) => ({ ...b, rise: 0 + i }))} />}
-					side={<StackBlocks gap={16} riseFrom={splitIndex} blocks={runBlocks.map((b, i) => ({ ...b, rise: openBlocks.size() + i }))} />}
-				/>
+				<frame BackgroundTransparency={1} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)}>
+					<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, -(sideW + 18), 0, crewsH)}>
+						{crews}
+					</frame>
+					<frame BackgroundTransparency={1} BorderSizePixel={0} Position={new UDim2(1, -sideW, 0, 0)} Size={new UDim2(0, sideW, 1, 0)}>
+						<StackBlocks gap={18} riseFrom={1} blocks={side} />
+					</frame>
+				</frame>
 			),
 		});
 	} else {
-		// running trips first so a finished claim is never below the fold
-		for (const block of runBlocks) sections.push(block);
-		for (const block of openBlocks) sections.push(block);
+		sections.push({ id: "crews", height: crewsH, element: crews });
+		for (const block of side) sections.push(block);
 	}
-	return <PageScaffold sections={sections} gap={16} tailPad={stack ? 12 : 18} owner="ExpeditionsView" />;
+	return <PageScaffold sections={sections} gap={phone ? 8 : 18} tailPad={stack ? 12 : 18} owner="ExpeditionsView" />;
 }
 export = { ExpeditionsView };
