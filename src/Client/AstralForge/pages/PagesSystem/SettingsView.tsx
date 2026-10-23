@@ -8,6 +8,7 @@ import { openDesktopEditor } from "../../CoreKit/desktopLayout";
 import { MobileTabPinsEditor, mobileTabPinsEditorHeight } from "./MobileTabPinsEditor";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedModule } from "../luauKits";
 import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
+import { BODY, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
 
 const UserInputService = game.GetService("UserInputService");
 const { Audio } = kitMember<{ Audio: AudioPlayer }>("AudioKit", "audio");
@@ -59,8 +60,6 @@ const Schema = sharedModule<(name: string) => SettingsSchema>("SharedData")("Set
 
 type Dispatch = (action: string, payload?: object) => unknown;
 
-const ROW_H = 68;
-const ROW_H_STACK = 110;
 const NAV_W = 196;
 const MOBILE_DOCK_DESTINATIONS = ["Overview", "Workshop", "Inventory", "Research", "Shop", "Settings"];
 
@@ -76,10 +75,12 @@ for (const section of Schema.SECTIONS) {
 // glyph all move together instead of snapping: the knob stretches like jelly mid-travel and
 // settles with a small overshoot, the track fills with the section colour, a dot lights inside
 // the knob when on. Hover brightens the edge; pressing squeezes the knob.
-const SWITCH_W = 58;
+const SWITCH_W = 52;
 const SWITCH_H = 30;
-const SWITCH_KNOB = 22;
-const SWITCH_PAD = 4;
+const SWITCH_KNOB = 24;
+const SWITCH_PAD = 3;
+// design/18-settings toggle: #271F2A off, mint on, cream knob
+const SWITCH_OFF = Color3.fromRGB(39, 31, 42);
 
 interface SwitchProps {
 	on: boolean;
@@ -128,32 +129,19 @@ function Switch(props: SwitchProps) {
 				MouseButton1Up: () => setPressed(false),
 			}}
 		>
-			{/* halo behind the track, only when on */}
-			<frame
-				key="Halo"
-				Size={UDim2.fromOffset(SWITCH_W + 8, SWITCH_H + 8)}
-				Position={new UDim2(trackX, trackX === 1 ? 4 : -4, 0.5, 0)}
-				AnchorPoint={new Vector2(trackX, 0.5)}
-				BackgroundColor3={accent}
-				BackgroundTransparency={amount.map((a) => 1 - 0.16 * settle(a))}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-			</frame>
 			<frame
 				key="Track"
 				Size={UDim2.fromOffset(SWITCH_W, SWITCH_H)}
 				Position={UDim2.fromScale(trackX, 0.5)}
 				AnchorPoint={new Vector2(trackX, 0.5)}
-				BackgroundColor3={amount.map((a) => Palette.graphite.Lerp(accent, settle(a)))}
+				BackgroundColor3={amount.map((a) => SWITCH_OFF.Lerp(Palette.mint, settle(a)))}
 				BorderSizePixel={0}
 			>
 				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uigradient Rotation={90} Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.18)])} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-					Color={amount.map((a) => Palette.lineSoft.Lerp(accent, settle(a)))}
-					Transparency={hover.map((h) => 0.4 - 0.32 * math.clamp(h, 0, 1))}
+					Color={new Color3(0, 0, 0)}
+					Transparency={hover.map((h) => 0.6 - 0.2 * math.clamp(h, 0, 1))}
 					Thickness={1}
 				/>
 				{/* stretches toward its direction of travel, squeezes while pressed */}
@@ -167,38 +155,11 @@ function Switch(props: SwitchProps) {
 					})}
 					Position={amount.map((a) => new UDim2(0, SWITCH_PAD + SWITCH_KNOB / 2 + math.clamp(a, -0.08, 1.08) * travel, 0.5, 0))}
 					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={amount.map((a) => Palette.creamSoft.Lerp(Palette.cream, settle(a)))}
+					BackgroundColor3={Color3.fromRGB(252, 247, 240)}
 					BorderSizePixel={0}
 					ZIndex={2}
 				>
 					<uicorner CornerRadius={new UDim(1, 0)} />
-					{/* off: a short dash */}
-					<frame
-						key="Off"
-						Size={UDim2.fromOffset(8, 2)}
-						Position={UDim2.fromScale(0.5, 0.5)}
-						AnchorPoint={new Vector2(0.5, 0.5)}
-						BackgroundColor3={Palette.graphite}
-						BackgroundTransparency={amount.map((a) => 0.25 + 0.75 * settle(a))}
-						BorderSizePixel={0}
-						ZIndex={3}
-					/>
-					{/* on: a lit dot in the section colour */}
-					<frame
-						key="On"
-						Size={amount.map((a) => {
-							const d = 4 + 4 * settle(a);
-							return UDim2.fromOffset(d, d);
-						})}
-						Position={UDim2.fromScale(0.5, 0.5)}
-						AnchorPoint={new Vector2(0.5, 0.5)}
-						BackgroundColor3={accent}
-						BackgroundTransparency={amount.map((a) => 1 - settle(a))}
-						BorderSizePixel={0}
-						ZIndex={3}
-					>
-						<uicorner CornerRadius={new UDim(1, 0)} />
-					</frame>
 				</frame>
 			</frame>
 		</textbutton>
@@ -269,81 +230,111 @@ function SettingRow(props: SettingRowProps) {
 		setDraft(value);
 		dispatch("SetSetting", { Key: entry.key, Value: value });
 	};
-	const controlW = entry.kind === "toggle" ? 68 : entry.kind === "choice" ? math.min(260, 64 * (entry.choices ?? []).size()) : 240;
-	const textRight = stack ? 0 : controlW + 20;
+	// design/18-settings .row: sliders are title (160px) | thin bar | .v value; toggles and choices are title + help | control
+	const rowH = settingRowH(entry, stack);
+	const lineH = stack ? 44 : 48;
+	const padX = 12;
 	let control: React.Element;
+	let titleW: UDim2;
 	if (entry.kind === "toggle") {
+		titleW = new UDim2(1, -(SWITCH_W + 10 + 12), 0, lineH - 12);
 		control = (
 			<Switch
 				on={draft >= 0.5}
 				accent={accent}
 				softMotion={softMotion}
-				position={stack ? new UDim2(0, 0, 1, -(TapTarget + 2)) : new UDim2(1, 0, 0.5, 0)}
-				anchorPoint={stack ? new Vector2(0, 0) : new Vector2(1, 0.5)}
+				position={new UDim2(1, -padX, 0, lineH / 2)}
+				anchorPoint={new Vector2(1, 0.5)}
 				onToggle={() => commit(draft >= 0.5 ? 0 : 1)}
 			/>
 		);
 	} else if (entry.kind === "choice") {
+		const choiceW = math.min(260, 64 * (entry.choices ?? []).size());
+		titleW = stack ? new UDim2(1, -padX * 2, 0, lineH - 12) : new UDim2(1, -(choiceW + padX * 2 + 12), 0, lineH - 12);
 		control = (
 			<Choice
 				choices={entry.choices!}
 				value={draft}
 				accent={accent}
-				size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(controlW, TapTarget)}
-				position={stack ? new UDim2(0, 0, 1, -(TapTarget + 2)) : new UDim2(1, 0, 0.5, 0)}
+				size={stack ? new UDim2(1, -padX * 2, 0, TapTarget) : UDim2.fromOffset(choiceW, 36)}
+				position={stack ? UDim2.fromOffset(padX, lineH) : new UDim2(1, -padX, 0, lineH / 2)}
 				anchorPoint={stack ? new Vector2(0, 0) : new Vector2(1, 0.5)}
 				onPick={commit}
 				softMotion={softMotion}
 			/>
 		);
 	} else {
+		const labelW = stack ? 110 : 160;
+		const valueW = 44;
+		titleW = UDim2.fromOffset(labelW, lineH - 12);
 		control = (
 			<frame
-				Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(controlW, 32)}
-				Position={stack ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(1, 0, 0.5, 0)}
-				AnchorPoint={stack ? new Vector2(0, 0) : new Vector2(1, 0.5)}
+				Size={new UDim2(1, -(padX + labelW + 12 + valueW + 12 + padX), 0, 30)}
+				Position={new UDim2(0, padX + labelW + 12, 0, lineH / 2)}
+				AnchorPoint={new Vector2(0, 0.5)}
 				BackgroundTransparency={1}
 			>
 				<Slider
 					value={draft}
-					accent={accent}
+					accent={Palette.mango}
 					reducedMotion={softMotion}
-					size={new UDim2(1, -52, 1, 0)}
+					size={UDim2.fromScale(1, 1)}
 					onChange={setDraft}
 					onCommit={(value: number) => commit(value)}
 				/>
-				<Text
-					value={`${math.floor(draft * 100 + 0.5)}%`}
-					size={13}
-					color={Palette.creamSoft}
-					weight={Enum.FontWeight.Bold}
-					align={Enum.TextXAlignment.Right}
-					position={new UDim2(1, -46, 0, 0)}
-					sizeConstraint={new UDim2(0, 46, 1, 0)}
+				<textlabel
+					Size={UDim2.fromOffset(valueW, 30)}
+					Position={new UDim2(1, 12, 0, 0)}
+					BackgroundTransparency={1}
+					Text={tostring(math.floor(draft * 100 + 0.5))}
+					TextColor3={Palette.mango}
+					TextSize={17}
+					FontFace={NUM}
+					TextXAlignment={Enum.TextXAlignment.Right}
 				/>
 			</frame>
 		);
 	}
+	const showHelp = (entry.kind === "toggle" || entry.kind === "choice") && entry.help !== "";
 	return (
-		<frame Size={new UDim2(1, 0, 0, stack ? ROW_H_STACK : ROW_H)} LayoutOrder={props.layoutOrder} BackgroundTransparency={1} BorderSizePixel={0}>
-			<Text
-				value={entry.label}
-				size={16}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Bold}
-				position={UDim2.fromOffset(0, stack ? 10 : 24)}
-				sizeConstraint={new UDim2(1, -textRight, 0, 20)}
-			/>
+		<frame Size={new UDim2(1, 0, 0, rowH)} LayoutOrder={props.layoutOrder} BackgroundTransparency={0} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+			<RowSurface />
+			<frame Size={titleW} Position={UDim2.fromOffset(padX, 6)} BackgroundTransparency={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<textlabel
+					LayoutOrder={1}
+					Size={new UDim2(1, 0, 0, 19)}
+					BackgroundTransparency={1}
+					Text={entry.label}
+					TextColor3={Palette.cream}
+					TextSize={stack ? 13 : 15}
+					FontFace={BODY_SEMI}
+					TextXAlignment={Enum.TextXAlignment.Left}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+				/>
+				{showHelp && (
+					<textlabel
+						LayoutOrder={2}
+						Size={new UDim2(1, 0, 0, 15)}
+						BackgroundTransparency={1}
+						Text={entry.help}
+						TextColor3={Palette.muted}
+						TextSize={stack ? 11 : 12}
+						FontFace={BODY}
+						TextXAlignment={Enum.TextXAlignment.Left}
+						TextTruncate={Enum.TextTruncate.AtEnd}
+					/>
+				)}
+			</frame>
 			{control}
-			<frame
-				Size={new UDim2(1, 0, 0, 1)}
-				Position={new UDim2(0, 0, 1, 0)}
-				BackgroundColor3={Palette.lineSoft}
-				BackgroundTransparency={0.75}
-				BorderSizePixel={0}
-			/>
 		</frame>
 	);
+}
+
+// one place for the row height so the list stride can't drift from the row
+function settingRowH(entry: SchemaEntry, stack: boolean): number {
+	const lineH = stack ? 44 : 48;
+	return entry.kind === "choice" && stack ? lineH + TapTarget + 8 : lineH;
 }
 
 interface SectionButtonProps {
@@ -748,7 +739,6 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	const listChildren: Record<string, React.Element> = {
 		layout: <uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 0)} />,
 	};
-	const rowH = stack ? ROW_H_STACK : ROW_H;
 	let listH = 0;
 	let order = 0;
 	const add = (key: string, element: React.Element, height: number) => {
@@ -919,7 +909,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				dispatch={dispatch}
 				layoutOrder={index + 1}
 			/>,
-			rowH,
+			settingRowH(entry, stack) + (stack ? 8 : 12),
 		);
 	});
 	if (listing && rows.size() === 0) {
