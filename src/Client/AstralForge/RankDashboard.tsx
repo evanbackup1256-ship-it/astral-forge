@@ -700,6 +700,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 
 			// Remaining rows: compact, with a share-of-leader bar.
 			let shown = 0;
+			const rankRows: Record<string, React.Element> = {};
 			const start = query !== "" || mineOnly ? 0 : 3;
 			for (let index = start; index < rows.size(); index++) {
 				const row = rows[index];
@@ -708,7 +709,19 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 					continue;
 				}
 				shown += 1;
-				sections.push({ id: `rank-row-${index + 1}`, height: rankRowH, element: rankRow(row, index + 1, false) });
+				rankRows[`rank-row-${index + 1}`] = e("frame", { Name: `rank-row-${index + 1}`, BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, rankRowH), LayoutOrder: index }, { Row: rankRow(row, index + 1, false) });
+			}
+			if (shown > 0) {
+				// design/17: ranked rows sit 12px apart inside one block (the page scaffold gap is 22)
+				const rankRowGap = 12;
+				sections.push({
+					id: "rank-rows",
+					height: shown * rankRowH + (shown - 1) * rankRowGap,
+					element: e("frame", { BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, {
+						List: e("uilistlayout", { Padding: new UDim(0, rankRowGap), SortOrder: Enum.SortOrder.LayoutOrder }),
+						...rankRows,
+					}),
+				});
 			}
 			if (shown === 0 && (query !== "" || mineOnly)) {
 				section("rank-no-match", 84, {
