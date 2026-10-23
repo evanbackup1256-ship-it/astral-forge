@@ -16,7 +16,6 @@ local ALLOWED: { [string]: string } = {
 	-- revamp effects kit (UiCore/effectsLayer.tsx): shared motion/rim helpers for the remaining page ports
 	["UiCore/effectsLayer.tsx:ButtonMotionScale"] = "effects kit for page ports",
 	["UiCore/effectsLayer.tsx:PANEL_TIMING"] = "effects kit for page ports",
-	["UiCore/effectsLayer.tsx:RarityRim"] = "effects kit for page ports",
 	["UiCore/effectsLayer.tsx:usePanelSpring"] = "effects kit for page ports",
 	-- Flamework finds controllers by decorator, not by name
 	["Controllers/SessionControllers.ts:PresenceController"] = "Flamework controller",

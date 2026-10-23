@@ -19,6 +19,7 @@ import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
 import { SpriteCard } from "./views/PortSpriteCard";
 import { HeaderArt } from "../UiCore/HeaderArt";
+import { RarityRim } from "../UiCore/effectsLayer";
 import type { HeaderArtName } from "../ArtKit/uiArt";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 import { FocusPlan, useFocusOrder } from "../CoreKit/focusOrder";
@@ -2415,6 +2416,14 @@ function crateRangeLine(crate: CrateConfig): string {
 	return `${odds[0].rarity} to ${odds[odds.size() - 1].rarity}`;
 }
 
+function crateTopRarity(crate: CrateConfig): string | undefined {
+	if (crate.PityRarity !== undefined) {
+		return crate.PityRarity;
+	}
+	const odds = RelicSystem.odds(crate.Weights);
+	return odds.size() > 0 ? odds[odds.size() - 1].rarity : undefined;
+}
+
 function CrateChip(props: CrateChipProps) {
 	const crate = props.crate;
 	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
@@ -2443,7 +2452,8 @@ function CrateChip(props: CrateChipProps) {
 				},
 			},
 			h("uicorner", { CornerRadius: new UDim(0, 12) }), ironFace(),
-			h("uistroke", { Color: accent, Thickness: selected ? 1.5 : 1, Transparency: selected ? 0 : 0.7 }),
+			// rim in the crate's top rarity (its pity rarity when it has one), brass inner rule; full alpha when selected
+			h(RarityRim, { rarity: crateTopRarity(crate), corner: 12, selected: selected }),
 			crateGlyph(accent, glyph, compact ? 10 : 16),
 			h(Text, {
 				value: crate.Name,
@@ -2487,8 +2497,7 @@ function CrateChip(props: CrateChipProps) {
 					sizeConstraint: UDim2.fromScale(1, 1),
 				}),
 			),
-		),
-	);
+		),	);
 }
 
 interface CratePull {
