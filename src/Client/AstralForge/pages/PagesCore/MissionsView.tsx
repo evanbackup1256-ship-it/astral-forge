@@ -150,7 +150,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 				color={Palette.muted}
 				wrap={true}
 				fit={true}
-				minSize={10}
+				minSize={11}
 				position={UDim2.fromOffset(56, stack ? 32 : 26)}
 				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 36 : 28)}
 			/>
@@ -169,7 +169,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 						color={Palette.cyan}
 						weight={Enum.FontWeight.Heavy}
 						fit={true}
-						minSize={9}
+						minSize={11}
 						position={UDim2.fromOffset(6, 2)}
 						sizeConstraint={new UDim2(1, -12, 1, -4)}
 					/>
@@ -187,7 +187,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 				color={Palette.muted}
 				weight={Enum.FontWeight.Bold}
 				fit={true}
-				minSize={8}
+				minSize={11}
 				position={UDim2.fromOffset(0, progressY)}
 				sizeConstraint={stack ? new UDim2(1, 0, 0, 16) : new UDim2(1, -182, 0, 16)}
 			/>
@@ -485,7 +485,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				color={closest !== undefined ? Palette.creamSoft : Palette.muted}
 				wrap={true}
 				fit={true}
-				minSize={9}
+				minSize={11}
 				position={UDim2.fromOffset(0, 0)}
 				sizeConstraint={new UDim2(1, 0, 0, 34)}
 			/>
@@ -547,7 +547,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					size={13}
 					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
-					wrap={true} fit={true} minSize={10}
+					wrap={true} fit={true} minSize={11}
 					sizeConstraint={new UDim2(1, -8, 0, 34)}
 				/>
 			) : (
@@ -567,7 +567,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						size={12}
 						color={closest !== undefined ? Palette.creamSoft : Palette.muted}
 						fit={true}
-						minSize={9}
+						minSize={11}
 						position={UDim2.fromOffset(0, 48)}
 						sizeConstraint={new UDim2(1, -headerSide, 0, 16)}
 					/>

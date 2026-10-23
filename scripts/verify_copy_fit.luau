@@ -73,7 +73,7 @@ local CASES: { Case } = {
 	{ file = "pages/PagesSocial.tsx", needle = "Add items or currency to see the balance", size = 12, minSize = 10, bold = true, width = tradeWidth },
 	{ file = "pages/views/GuildView.ts", needle = "Every deposit and build counts toward it.", size = 11, bold = false, width = PHONE - 14 * 2 - 8, box = 30 },
 	{ file = "pages/views/GuildView.ts", needle = "Leader turned chat off", size = 14, bold = false, width = chatWidth },
-	{ file = "pages/views/GuildView.ts", needle = "Message your guild…", size = 14, bold = false, width = chatWidth },
+	{ file = "pages/views/GuildView.ts", needle = "Message your guild", size = 14, bold = false, width = chatWidth },
 	-- player list at its 286px minimum (inner width 266)
 	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Just you in here. Invite friends for a production boost, trades, crews and visits.", size = 12, minSize = 11, bold = false, width = 266 - 24, box = 54 },
 	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Thanks for helping keep the server friendly.", size = 12, minSize = 11, bold = false, width = 266 - 20, box = 34 },

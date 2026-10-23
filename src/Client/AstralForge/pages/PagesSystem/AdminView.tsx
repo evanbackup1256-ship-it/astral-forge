@@ -187,7 +187,7 @@ function SectionTitle(props: { value: string; accent: Color3; position?: UDim2; 
 	return (
 		<Text
 			value={props.value}
-			size={10}
+			size={11}
 			color={props.accent}
 			weight={Enum.FontWeight.Heavy}
 			fit={false}
@@ -205,7 +205,7 @@ function StatCell(props: { label: string; value: string; accent: Color3 }) {
 			<uistroke Color={props.accent} Thickness={1} Transparency={0.82} />
 			<Text
 				value={props.label}
-				size={9}
+				size={11}
 				color={Palette.muted}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
@@ -277,16 +277,16 @@ function PlayerRow({ player, selected, you, onClick, layoutOrder, reducedMotion 
 				color={you ? Palette.mint : Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={9}
+				minSize={11}
 				position={UDim2.fromOffset(58, 9)}
 				sizeConstraint={new UDim2(1, -70, 0, 17)}
 			/>
 			<Text
 				value={`@${player.Name}  ·  ${compactNumber(player.Cash ?? 0)}`}
-				size={10}
+				size={11}
 				color={Palette.cyan}
 				fit={true}
-				minSize={8}
+				minSize={11}
 				position={UDim2.fromOffset(58, 28)}
 				sizeConstraint={new UDim2(1, -70, 0, 14)}
 			/>
@@ -337,7 +337,7 @@ function CommandRow(props: { entry: AdminCommand; selected: boolean; onClick: ()
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={9}
+				minSize={11}
 				position={UDim2.fromOffset(15, math.floor((COMMAND_ROW - 22) / 2))}
 				sizeConstraint={new UDim2(1, -40, 0, 16)}
 			/>
@@ -363,19 +363,19 @@ function AuditLine(props: { record: AuditRecord }) {
 		<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true}>
 			<Text
 				value={record.Command}
-				size={10}
+				size={11}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={8}
+				minSize={11}
 				sizeConstraint={new UDim2(0.42, -4, 1, 0)}
 			/>
 			<Text
 				value={`${record.ActorName} to ${record.TargetName}`}
-				size={9}
+				size={11}
 				color={Palette.cyan}
 				fit={true}
-				minSize={8}
+				minSize={11}
 				position={new UDim2(0.42, 4, 0, 0)}
 				sizeConstraint={new UDim2(0.58, -4, 1, 0)}
 			/>
@@ -399,19 +399,19 @@ function OpsLine(props: { left: string; right: string; accent?: Color3; rightCol
 		<frame Size={new UDim2(1, 0, 0, OPS_LINE)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder}>
 			<Text
 				value={props.left}
-				size={10}
+				size={11}
 				color={props.accent ?? Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={8}
+				minSize={11}
 				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
 			/>
 			<Text
 				value={props.right}
-				size={9}
+				size={11}
 				color={props.rightColor ?? Palette.cyan}
 				fit={true}
-				minSize={8}
+				minSize={11}
 				position={new UDim2(0.5, 4, 0, 0)}
 				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
 			/>
@@ -658,7 +658,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		optionMissing ||
 		(fields.overridesTarget ? fields.amountChoices.size() === 0 : targetId === 0) ||
 		(needsArm && reason.size() < 3);
-	const runLabel = busy ? "APPLYING…" : needsArm && !armed ? "ARM" : "RUN";
+	const runLabel = busy ? "APPLYING" : needsArm && !armed ? "ARM" : "RUN";
 	const runColor = busy ? Palette.panelSoft : needsArm && armed ? Palette.coral : needsArm ? Palette.mango : Palette.mint;
 
 	const FIELD_H = 50;
@@ -739,7 +739,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const playerList =
 		shownPlayers.size() === 0 ? (
 			<frame Size={listSize} Position={listPos} BackgroundTransparency={1}>
-				<EmptyState icon="Search" title="No players match" body="Check the spelling or clear the search." compact={true} />
+				<EmptyState icon="Search" title="No players match" body="" compact={true} />
 			</frame>
 		) : (
 			<FlatList
@@ -771,7 +771,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				value={playerQuery}
 				onChange={setPlayerQuery}
 				accent={Palette.cyan}
-				placeholder="Search players…"
+				placeholder="Search players"
 				size={new UDim2(1, 0, 0, 36)}
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
@@ -800,7 +800,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				value={commandQuery}
 				onChange={setCommandQuery}
 				accent={Palette.violet}
-				placeholder="Search commands…"
+				placeholder="Search commands"
 				size={new UDim2(1, 0, 0, 36)}
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
@@ -811,7 +811,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			</frame>
 			<frame Size={new UDim2(1, 0, 1, -100)} Position={UDim2.fromOffset(0, 100)} BackgroundTransparency={1}>
 				{shownCommands.size() === 0 ? (
-					<EmptyState icon="Command" title="No commands" body="Nothing matches that filter." compact={true} />
+					<EmptyState icon="Command" title="No commands" body="" compact={true} />
 				) : (
 					<FlatList
 						data={shownCommands}
@@ -840,7 +840,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={9}
+				minSize={11}
 				position={UDim2.fromOffset(0, 15)}
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
@@ -910,7 +910,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				minSize={10}
+				minSize={11}
 				position={UDim2.fromOffset(0, 15)}
 				sizeConstraint={new UDim2(1, 0, 0, 20)}
 			/>
@@ -1038,10 +1038,10 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 							: "Preview, then run.") +
 					(previewLines.size() > 0 ? "\n• " + shownPreview.join("\n• ") : "")
 				}
-				size={9}
+				size={11}
 				color={optionMissing ? Palette.coral : lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}
 				wrap={true}
-				fit={true} minSize={9}
+				fit={true} minSize={11}
 				position={new UDim2(0, 0, 1, -EXEC_NOTE + 4)}
 				sizeConstraint={new UDim2(1, 0, 0, EXEC_NOTE - 4)}
 			/>
@@ -1058,7 +1058,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
 				{recent.size() === 0 ? (
-					<EmptyState icon="Command" title="No commands run yet" body="Anything you run shows up here." compact={true} />
+					<EmptyState icon="Command" title="No commands run yet" body="" compact={true} />
 				) : (
 					auditRows
 				)}

@@ -3548,7 +3548,7 @@ export function EmptyState({
 				layoutOrder={1}
 				sizeConstraint={new UDim2(1, 0, 0, titleH)}
 			/>
-			{innerWidth > 0 ? (
+			{body === undefined || body === "" ? undefined : innerWidth > 0 ? (
 				<AutoHeightText
 					value={body}
 					width={innerWidth}
@@ -3566,7 +3566,7 @@ export function EmptyState({
 					color={Palette.muted}
 					wrap={true}
 					align={Enum.TextXAlignment.Center}
-					fit={true} minSize={10}
+					fit={true} minSize={11}
 					transparency={fade}
 					layoutOrder={2}
 					sizeConstraint={new UDim2(1, 0, 0, bodyH)}
