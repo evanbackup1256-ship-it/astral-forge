@@ -1,7 +1,7 @@
 ﻿const CreditsConfig = {
-	Title: "ASTRAL FORGE",
+	Title: "Astral Forge",
 	Eyebrow: "CREDITS",
-	Tagline: "The people who built, run and test the forge.",
+	Tagline: "",
 	ShowVersion: true,
 	Accent: "violet",
 
@@ -33,7 +33,7 @@
 		{
 			Id: "Owner",
 			Label: "Owner",
-			Description: "Runs the forge.",
+			Description: "",
 			Accent: "mango",
 			Icon: "Admin.4",
 			Members: [
@@ -43,7 +43,7 @@
 		{
 			Id: "Developers",
 			Label: "Developers",
-			Description: "Build the game.",
+			Description: "",
 			Accent: "cyan",
 			Icon: "Forge.30",
 			Members: [
@@ -53,7 +53,7 @@
 		{
 			Id: "Moderators",
 			Label: "Moderators",
-			Description: "Keep servers friendly.",
+			Description: "",
 			Accent: "mint",
 			Icon: "Check.30",
 			Members: {},
@@ -61,14 +61,14 @@
 		{
 			Id: "Testers",
 			Label: "Testers",
-			Description: "Break things before you do.",
+			Description: "",
 			Accent: "pink",
 			Icon: "Guide.2",
 			Members: {},
 		},
 		{
 			Id: "Thanks",
-			Label: "Special Thanks",
+			Label: "Special thanks",
 			Description: "",
 			Accent: "violet",
 			Icon: "Gift.19",
@@ -81,7 +81,7 @@
 	Acknowledgements: [
 		"Interface icons by Flaticon / Freepik Company",
 	],
-	Footer: "Thanks for playing.",
+	Footer: "",
 }
 
 export = CreditsConfig;

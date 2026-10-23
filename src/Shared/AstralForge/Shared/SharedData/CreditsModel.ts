@@ -74,7 +74,7 @@ function num(value: unknown, fallback: number, low: number, high: number): numbe
 function normalize(raw: unknown): Model {
 	const config = (typeIs(raw, "table") ? raw : {}) as Dict;
 	const model: Model = {
-		Title: text(config.Title, "ASTRAL FORGE"),
+		Title: text(config.Title, "Astral Forge"),
 		Eyebrow: text(config.Eyebrow, "CREDITS"),
 		Tagline: text(config.Tagline, ""),
 		ShowVersion: flag(config.ShowVersion, true),

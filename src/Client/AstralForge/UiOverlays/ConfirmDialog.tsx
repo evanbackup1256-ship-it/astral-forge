@@ -151,7 +151,8 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	const inner = width - padding * 2;
 	const stackButtons = inner < 300;
 	const titleH = math.max(26, measureWrappedTextHeight(props.title, inner, 20, Enum.FontWeight.Bold));
-	const bodyH = props.body !== undefined ? measureWrappedTextHeight(props.body, inner, 14) : 0;
+	// measured at the width the body really wraps at (the 6px scrollbar gutter comes off the frame below)
+	const bodyH = props.body !== undefined ? measureWrappedTextHeight(props.body, inner - 6, 14) : 0;
 	const actionsH = stackButtons ? TapTarget * 2 + Space.sm : TapTarget;
 	const bodyGap = props.body !== undefined ? Space.sm : 0;
 	const maxH = math.max(200, viewport.height - math.max(Space.lg, viewport.topInset) - math.max(Space.lg, viewport.bottomInset));

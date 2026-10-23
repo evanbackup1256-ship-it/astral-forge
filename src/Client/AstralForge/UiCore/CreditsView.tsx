@@ -316,7 +316,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		body.push(
 			<SectionLabel
 				key={`l:${entry.category.Id}`}
-				text={string.upper(entry.category.Label)}
+				text={entry.category.Label}
 				count={MODEL.ShowCategoryCounts !== false ? entry.members.size() : undefined}
 				accent={accent}
 				order={order}
@@ -335,6 +335,8 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 					type="small"
 					color={Palette.creamSoft}
 					wrap={true}
+					fit={true}
+					minSize={11}
 					size={new UDim2(1, 0, 0, DESC_H * lines)}
 					order={order}
 					zIndex={6}
@@ -386,7 +388,8 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				{cards}
 			</frame>,
 		);
-		contentH += gridH + Space.lg;
+		// the list layout puts Space.xs after the grid; counting more left an empty band under the roll
+		contentH += gridH + Space.xs;
 	}
 	if (visible.size() === 0) {
 		order += 1;
