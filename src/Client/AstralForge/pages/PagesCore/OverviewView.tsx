@@ -653,7 +653,7 @@ function phoneColumns(enabled: boolean, gap: number, sections: Section[]): Secti
 				element: (
 					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
 						<frame
-							{...named("top")}
+							{...named("OverviewColumn-top")}
 							Size={new UDim2(leftShare, -math.floor(gap / 2), 0, top.height ?? 0)}
 							BackgroundTransparency={1}
 							BorderSizePixel={0}
@@ -1032,13 +1032,8 @@ export function OverviewView({
 	}
 	useFocusOrder(
 		overviewFocusRef,
-		{
-			regions: overviewRegions,
-			first: ["OverviewVaultClaimActions", "top"],
-			// landscape phones: hero column on the left, the right stack is reached with right on the pad
-			columns: twoColumn ? overviewColumns : landscapePhone ? [["top", "OverviewColumn-notes"], ["top", "OverviewColumn-ops"]] : undefined,
-		},
-		[twoColumn, landscapePhone, rebirthVisible, domainVisible, countdownInPage, roomyHero],
+		{ regions: overviewRegions, first: ["OverviewVaultClaimActions", "top"], columns: twoColumn ? overviewColumns : undefined },
+		[twoColumn, rebirthVisible, domainVisible, countdownInPage, roomyHero],
 	);
 	const domainProgress = math.min(
 		math.clamp(asFlux(state.Rebirths ?? 0) / math.max(1, asFlux(domain.RequiredRebirths)), 0, 1),
