@@ -580,17 +580,20 @@ __defs["BootScreen"] = () => {
 		}
 
 		const fadeFrom = (base: number) => cover.map((c) => clamp01(base + (1 - base) * c));
-		// everything sits on one card in the bottom-right corner: emblem + wordmark, status, meter, tip
+		// design/28-world loading card (.pn, 380px, bottom-right): emblem + wordmark row, .bar, one status line
 		const cardW = math.min(380, math.max(220, viewport.width - 24));
-		const pad = 16;
-		const inner = cardW - pad * 2;
-		const headH = L.short ? 36 : 44;
-		const statusY = pad + headH + 12;
-		const barY = statusY + 20 + 8;
-		const tipY = barY + 5 + 10;
-		const cardH = tipY + L.tipH + pad - 4;
+		const padX = L.short ? 12 : 20;
+		const padY = L.short ? 10 : 18;
+		const gap = L.short ? 8 : 12;
+		const inner = cardW - padX * 2;
+		const headH = L.short ? 32 : 40;
+		const barH = 10;
+		const barY = padY + headH + gap;
+		const statusY = barY + barH + gap;
+		const statusH = 16;
+		const cardH = statusY + statusH + padY;
 		const inCard = (y: number, height: number, x?: number, width?: number) => ({
-			Position: UDim2.fromOffset(x ?? pad, y),
+			Position: UDim2.fromOffset(x ?? padX, y),
 			Size: UDim2.fromOffset(width ?? inner, height),
 		});
 
@@ -598,61 +601,40 @@ __defs["BootScreen"] = () => {
 			"imagelabel",
 			{
 				Name: "BootEmblem",
-				...inCard(pad, headH, pad, headH),
-				BackgroundColor3: Palette.raised,
-				BackgroundTransparency: fadeFrom(0),
-				Image: BrandArt.GAME_ICON_ASSET,
+				...inCard(padY, headH, padX, headH),
+				BackgroundTransparency: 1,
+				Image: BrandArt.COMPACT_MARK_ASSET,
 				ImageTransparency: fadeFrom(0),
-				ScaleType: Enum.ScaleType.Crop,
+				ScaleType: Enum.ScaleType.Fit,
 				ZIndex: 7,
 			},
-			e("uicorner", { CornerRadius: new UDim(0, 10) }),
-			e("uistroke", { Color: Palette.brass, Thickness: 1.5, Transparency: fadeFrom(0.35) }),
 		);
 
-		const wordmark = e("imagelabel", {
+		const wordmark = e("textlabel", {
 			Name: "BootWordmark",
-			...inCard(pad, headH, pad + headH + 12, inner - headH - 12),
+			...inCard(padY, headH, padX + headH + (L.short ? 8 : 18), inner - headH - 18),
 			BackgroundTransparency: 1,
-			Image: BrandArt.WORDMARK_ASSET,
-			ImageTransparency: fadeFrom(0),
-			ScaleType: Enum.ScaleType.Fit,
+			Text: "Astral Forge",
+			TextColor3: Palette.cream,
+			TextTransparency: fadeFrom(0),
+			TextSize: L.short ? 16 : 20,
+			FontFace: new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold),
+			TextXAlignment: Enum.TextXAlignment.Left,
 			ZIndex: 7,
 		});
 
-		const statusRow = e(
-			"frame",
-			{ ...inCard(statusY, 20), BackgroundTransparency: 1, ZIndex: 7 },
-			e("textlabel", {
-				Name: "BootStatus",
-				Size: UDim2.fromScale(1, 1),
-				BackgroundTransparency: 1,
-				Text: status,
-				TextColor3: Palette.cream,
-				TextTransparency: React.joinBindings({ c: cover, s: statusIn }).map((v) =>
-					clamp01(1 - (1 - (v.c as number)) * (v.s as number)),
-				),
-				TextSize: L.statusSize,
-				TextTruncate: Enum.TextTruncate.AtEnd,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-				TextXAlignment: Enum.TextXAlignment.Left,
-				TextYAlignment: Enum.TextYAlignment.Bottom,
-				ZIndex: 8,
-			}),
-		);
-
-		// progress is the bar itself: a warm two-tone fill with a soft glow and a lit leading edge
+		// .bar: 10px well, mango fill with a lit top and a soft glow (leading tip kept)
 		const bar = e(
 			"frame",
 			{
 				Name: "BootProgress",
-				...inCard(barY, 5),
-				BackgroundColor3: Palette.line,
-				BackgroundTransparency: fadeFrom(0.78),
+				...inCard(barY, barH),
+				BackgroundColor3: Color3.fromRGB(9, 6, 10),
+				BackgroundTransparency: fadeFrom(0),
 				BorderSizePixel: 0,
 				ZIndex: 7,
 			},
-			e("uicorner", { CornerRadius: new UDim(1, 0) }),
+			e("uicorner", { CornerRadius: new UDim(0, 5) }),
 			e(
 				"frame",
 				{
@@ -663,11 +645,13 @@ __defs["BootScreen"] = () => {
 					BorderSizePixel: 0,
 					ZIndex: 8,
 				},
-				e("uicorner", { CornerRadius: new UDim(1, 0) }),
+				e("uicorner", { CornerRadius: new UDim(0, 5) }),
 				e("uigradient", {
+					Rotation: 90,
 					Color: new ColorSequence([
-						new ColorSequenceKeypoint(0, Palette.mango.Lerp(Palette.void, 0.35)),
-						new ColorSequenceKeypoint(1, Palette.mango),
+						new ColorSequenceKeypoint(0, Palette.mango.Lerp(Palette.white, 0.4)),
+						new ColorSequenceKeypoint(0.55, Palette.mango),
+						new ColorSequenceKeypoint(1, Palette.mango.Lerp(new Color3(0, 0, 0), 0.3)),
 					]),
 				}),
 				e("uistroke", {
@@ -688,23 +672,21 @@ __defs["BootScreen"] = () => {
 			),
 		);
 
-		const tipText = stalled ? "Still loading. Your save is safe." : (LOADING_TIPS[tipIndex - 1] ?? "");
-		const tip = e("textlabel", {
-			Name: "BootTip",
-			...inCard(tipY, L.tipH),
+		// one status line; a stall swaps in the reassurance, otherwise the rotating tip is not shown (mockup has none)
+		const statusRow = e("textlabel", {
+			Name: "BootStatus",
+			...inCard(statusY, statusH),
 			BackgroundTransparency: 1,
-			Text: tipText,
+			Text: stalled ? "Still loading. Your save is safe." : status,
 			TextColor3: Palette.muted,
-			TextTransparency: React.joinBindings({ c: cover, t: tipIn }).map((v) =>
-				clamp01(1 - (1 - (v.c as number)) * (v.t as number)),
+			TextTransparency: React.joinBindings({ c: cover, s: statusIn }).map((v) =>
+				clamp01(1 - (1 - (v.c as number)) * (v.s as number)),
 			),
-			TextSize: L.tipSize,
-			TextWrapped: true,
+			TextSize: 12,
 			TextTruncate: Enum.TextTruncate.AtEnd,
 			FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
 			TextXAlignment: Enum.TextXAlignment.Left,
-			TextYAlignment: Enum.TextYAlignment.Top,
-			ZIndex: 7,
+			ZIndex: 8,
 		});
 
 		const side = math.max(12, viewport.sideInset);
@@ -713,33 +695,32 @@ __defs["BootScreen"] = () => {
 			{
 				Name: "BootCard",
 				Size: UDim2.fromOffset(cardW, cardH),
-				Position: new UDim2(1, -side, 1, -math.max(12, viewport.bottomInset)),
+				Position: new UDim2(1, -(L.short ? side : math.max(40, side)), 1, -(L.short ? math.max(12, viewport.bottomInset) : math.max(40, viewport.bottomInset))),
 				AnchorPoint: new Vector2(1, 1),
 				BackgroundColor3: Palette.panel,
 				BackgroundTransparency: fadeFrom(0.06),
 				BorderSizePixel: 0,
 				ZIndex: 6,
 			},
-			e("uicorner", { CornerRadius: new UDim(0, 18) }),
+			e("uicorner", { CornerRadius: new UDim(0, L.short ? 12 : 16) }),
 			e("uistroke", { Color: Palette.line, Thickness: 1, Transparency: fadeFrom(0) }),
 			// brass inner rule, 1px in from the edge
 			e(
 				"frame",
 				{
 					Name: "Rule",
-					Size: new UDim2(1, -4, 1, -4),
-					Position: UDim2.fromOffset(2, 2),
+					Size: new UDim2(1, -2, 1, -2),
+					Position: UDim2.fromOffset(1, 1),
 					BackgroundTransparency: 1,
 					ZIndex: 6,
 				},
-				e("uicorner", { CornerRadius: new UDim(0, 16) }),
+				e("uicorner", { CornerRadius: new UDim(0, L.short ? 11 : 15) }),
 				e("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: fadeFrom(0.75) }),
 			),
 			emblem,
 			wordmark,
-			statusRow,
 			bar,
-			tip,
+			statusRow,
 		);
 
 		return e(
