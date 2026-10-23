@@ -4,8 +4,10 @@ import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
 import * as LimitedEvents from "../../../../Shared/AstralForge/Shared/LimitedEvents";
 import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
+import { BODY, BODY_SEMI, Label, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
+import { IconWell } from "../gcKit";
 
-const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const Workspace = game.GetService("Workspace");
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
@@ -22,9 +24,9 @@ export interface EventState {
 
 const PAD = 14;
 const HEAD_H = 92;
-const ROW_H = 58;
-const ROW_H_STACK = 58 + TapTarget + 6;
-const ROW_GAP = 8;
+const ROW_H = 60;
+const ROW_H_STACK = 60 + TapTarget + 6;
+const ROW_GAP = 12;
 const SOON_H = PAD * 2 + 44;
 
 function rgb(accent: [number, number, number]): Color3 {
@@ -90,7 +92,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 		}
 		return (
 			<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={rgb(upcoming.Accent)} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
-				<Text value="Next event" size={13} color={rgb(upcoming.Accent)} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+				<Label text="Next event" color={rgb(upcoming.Accent)} />
 				<Text
 					value={`${upcoming.Name} opens ${dateText(upcoming.StartsAt)}, in ${leftText(upcoming.StartsAt - now)}.`}
 					size={14}
@@ -136,30 +138,38 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
-				<IconTile kind="Gift" accent={ready ? accent : Palette.panelSoft} size={40} radius={12} position={UDim2.fromOffset(0, 6)} glow={false} reducedMotion={props.reducedMotion} />
-				<Text
-					value={item.Name}
-					size={15}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={11}
-					position={UDim2.fromOffset(52, 6)}
-					sizeConstraint={new UDim2(1, stack ? -52 : -(52 + 162), 0, 21)}
+				{/* design/16-season row: .row surface, icon well, semibold name over a muted reward line */}
+				<frame Size={new UDim2(1, 0, 0, ROW_H)} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+					<RowSurface />
+				</frame>
+				<frame Position={UDim2.fromOffset(10, 12)} Size={UDim2.fromOffset(36, 36)} BackgroundTransparency={1}>
+					<IconWell icon="Gift" accent={ready ? accent : Palette.muted} />
+				</frame>
+				<textlabel
+					Text={item.Name}
+					FontFace={BODY_SEMI}
+					TextSize={15}
+					TextColor3={Palette.cream}
+					BackgroundTransparency={1}
+					TextXAlignment={Enum.TextXAlignment.Left}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+					Position={UDim2.fromOffset(58, 10)}
+					Size={new UDim2(1, stack ? -68 : -(58 + 170), 0, 20)}
 				/>
-				<Text
-					value={`${formatReward(item.Reward as Reward)} · ${left} of ${item.Stock} left`}
-					size={12}
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(52, 28)}
-					sizeConstraint={new UDim2(1, stack ? -52 : -(52 + 162), 0, 28)}
+				<textlabel
+					Text={`${formatReward(item.Reward as Reward)} · ${left} of ${item.Stock} left`}
+					FontFace={BODY}
+					TextSize={12}
+					TextColor3={Palette.muted}
+					BackgroundTransparency={1}
+					TextXAlignment={Enum.TextXAlignment.Left}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+					Position={UDim2.fromOffset(58, 32)}
+					Size={new UDim2(1, stack ? -68 : -(58 + 170), 0, 16)}
 				/>
 				<frame
 					Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(150, 44)}
-					Position={stack ? UDim2.fromOffset(0, ROW_H) : new UDim2(1, -150, 0.5, -22)}
+					Position={stack ? UDim2.fromOffset(0, ROW_H + 6) : new UDim2(1, -158, 0, 8)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 				>
@@ -184,24 +194,17 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 	const capped = dayEarned >= event.DailyCap;
 	return (
 		<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
-			<Text
-				value={`Ends in ${leftText(event.EndsAt - now)}`}
-				size={13}
-				color={accent}
-				weight={Enum.FontWeight.SemiBold}
-				fit={true}
-				minSize={9}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-			/>
-			<Text
-				value={event.Name}
-				size={20}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={13}
-				position={UDim2.fromOffset(0, 18)}
-				sizeConstraint={new UDim2(1, 0, 0, 26)}
+			<Label text={`Ends in ${leftText(event.EndsAt - now)}`} color={accent} />
+			<textlabel
+				Text={event.Name}
+				FontFace={TITLE_FACE}
+				TextSize={20}
+				TextColor3={Palette.cream}
+				BackgroundTransparency={1}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				Position={UDim2.fromOffset(0, 18)}
+				Size={new UDim2(1, 0, 0, 26)}
 			/>
 			<Text
 				value={event.Blurb}
