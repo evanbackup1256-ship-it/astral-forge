@@ -18,7 +18,7 @@ import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { Component, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit } from "./luauDeps";
-import { Chip, GlyphWell, PanelHeading, PnSurface, ROW_RADIUS, rowFace } from "../UiCore/mockKit";
+import { Chip, GlyphWell, Label, NUM, PanelHeading, PnSurface, ROW_RADIUS, rowFace } from "../UiCore/mockKit";
 import { SEC } from "./mockRows";
 
 const Players = game.GetService("Players");

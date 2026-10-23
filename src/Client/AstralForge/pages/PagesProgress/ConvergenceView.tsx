@@ -1,5 +1,5 @@
 import React from "@rbxts/react";
-import { Chip, PnSurface, spaced } from "../../UiCore/mockKit";
+import { Bar, Chip, Label, PnSurface, spaced } from "../../UiCore/mockKit";
 import { SEC } from "../mockRows";
 import { clockText, compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";

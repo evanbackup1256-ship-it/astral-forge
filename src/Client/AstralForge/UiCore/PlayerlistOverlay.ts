@@ -1640,7 +1640,8 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const listX = shortRoster ? 10 + colW + 8 : 10;
 	const listW = shortRoster ? innerW - colW - 8 : innerW;
 	const listY = shortRoster ? headerH + 6 : listTop;
-	const listH = shortRoster ? math.max(1, height - listY - 10) : math.max(80, height - listTop - 10);
+	// never a fixed minimum: an 80px floor pushed the list past the sheet bottom / up over the header block on short screens
+	const listH = math.max(1, height - listY - 10);
 	// pad: invite, filters, the player rows, then the rest of the sheet (search, home, close)
 	useFocusOrder(
 		padFocus,

@@ -1,6 +1,6 @@
 ﻿import { SplitColumns, splitColumns } from "../../UiCore/ui";
 import React from "@rbxts/react";
-import { BODY, BODY_SEMI, GlyphWell, Line, NUM, PnSurface, RowSurface } from "../../UiCore/mockKit";
+import { Bar, BODY, BODY_SEMI, GlyphWell, Line, NUM, PnSurface, RowSurface } from "../../UiCore/mockKit";
 import { IconWell } from "../gcKit";
 import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";

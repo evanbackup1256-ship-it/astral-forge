@@ -6,7 +6,7 @@
 //   builds    one card per build: what it trades, how its stats compare with yours, equip
 //   foundation bonuses kept from the retired Star Grid
 import React from "@rbxts/react";
-import { Chip, GlyphWell, Label, PnSurface, spaced } from "../UiCore/mockKit";
+import { Bar, Chip, GlyphWell, Label, PnSurface, spaced } from "../UiCore/mockKit";
 import { MockBtn, RowFace } from "./mockRows";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import { compactNumber } from "../CoreKit/format";

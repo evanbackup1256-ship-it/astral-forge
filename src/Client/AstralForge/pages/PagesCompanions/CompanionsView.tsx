@@ -9,11 +9,12 @@ import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useEntrance, useFlash, useViewport } from "../../MotionKit/motion";
 import { Rarity } from "../../../../Shared/AstralForge/Shared/ForgeTheme";
 import { clientModule, kitMember, LuauComponent } from "../luauKits";
-import { PnSurface } from "../../UiCore/mockKit";
+import { Bar, DiamondRule, Line, PanelHeading, PnSurface, spaced, TITLE_FACE } from "../../UiCore/mockKit";
+import { MockBtn, MockRow, rowHeight } from "../mockRows";
 
 const TweenService = game.GetService("TweenService");
 
-const { Button, Meter, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const ElementFxModule = clientModule<{
 	ElementFx: LuauComponent;
@@ -362,30 +363,94 @@ export function CompanionsView(props: CompanionsProps) {
 		</PnSurface>
 	);
 
-	const grid = (
-		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 16} radius={18} reducedMotion={reducedMotion}>
-			<Text value={tab === "Owned" ? "OWNED" : "INDEX"} size={11} color={Palette.creamSoft} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, -60, 0, 14)} />
-			<Text
-				value={tab === "Owned" ? tostring(foundCount) : `${foundCount} / ${totalCount}`}
-				size={11}
-				color={Palette.muted}
-				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -60, 0, 0)}
-				sizeConstraint={UDim2.fromOffset(60, 14)}
+	// mockup 14 right column: one .pn with the OWNED h3 + card wrap, a diamond rule, then the FUSE h3 + its row.
+	// The game has no three-of-a-kind fuse action, so the row is the level-up (sparks + stardust -> next level).
+	const fuseRowH = stack ? 96 : 120;
+	const fuseH = 22 + 12 + fuseRowH;
+	const fuseRow = (() => {
+		if (selected === undefined) return undefined;
+		const mine = owned[selected.Id]!;
+		const atMax = mine.Level >= MAX_LEVEL;
+		const sparksNeed = sparkCost(mine.Level);
+		const dustNeed = dustCost(mine.Level);
+		const dust = state.Stardust ?? 0;
+		const sparksOk = !atMax && mine.Fragments >= sparksNeed;
+		const dustOk = !atMax && gteFlux(dust, dustNeed);
+		const slotW = stack ? 84 : 104;
+		const input = (key: string, order: number, title: string, value: string, ok: boolean, fill: number) => (
+			<frame key={key} Size={UDim2.fromOffset(slotW, fuseRowH)} BackgroundColor3={Palette.ink} BorderSizePixel={0} LayoutOrder={order}>
+				<uicorner CornerRadius={new UDim(0, 14)} />
+				<uistroke Color={ok ? Palette.mango : Palette.line} Thickness={1.5} Transparency={ok ? 0.2 : 0.4} />
+				<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} PaddingTop={new UDim(0, 10)} PaddingBottom={new UDim(0, 10)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalAlignment={Enum.VerticalAlignment.Bottom} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={spaced(title.upper())} size={10} color={Palette.muted} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={0} />
+				<Line text={value} size={13} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={1} />
+				<Bar fill={math.clamp(fill, 0, 1)} color={Palette.mango} thin={true} layoutOrder={2} />
+			</frame>
+		);
+		return (
+			<frame Size={new UDim2(1, 0, 0, fuseRowH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, stack ? 8 : 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{input("Sparks", 0, "Sparks", `${mine.Fragments} / ${atMax ? "-" : sparksNeed}`, sparksOk, mine.Fragments / math.max(1, sparksNeed))}
+				{input("Dust", 1, "Stardust", compactNumber(dustNeed), dustOk, gteFlux(dust, dustNeed) ? 1 : 0.4)}
+				<frame key="Arrow" Size={UDim2.fromOffset(stack ? 28 : 44, fuseRowH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<frame Size={new UDim2(0.8, 0, 0, 2)} Position={UDim2.fromScale(0.5, 0.5)} AnchorPoint={new Vector2(0.5, 0.5)} BackgroundColor3={Palette.brass} BorderSizePixel={0} />
+					<frame Size={UDim2.fromOffset(8, 2)} Position={new UDim2(0.9, -7, 0.5, -3)} Rotation={40} BackgroundColor3={Palette.brass} BorderSizePixel={0} />
+					<frame Size={UDim2.fromOffset(8, 2)} Position={new UDim2(0.9, -7, 0.5, 2)} Rotation={-40} BackgroundColor3={Palette.brass} BorderSizePixel={0} />
+				</frame>
+				<SpriteCard
+					element={selected.Element}
+					name={atMax ? "Max level" : `Lv ${mine.Level + 1}`}
+					rarity={selected.Rarity}
+					found={sparksOk && dustOk}
+					following={false}
+					selected={false}
+					onSelect={() => undefined}
+					size={UDim2.fromOffset(slotW, fuseRowH)}
+					reducedMotion={reducedMotion}
+					layoutOrder={3}
+				/>
+				<frame key="Spacer" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				</frame>
+				<MockBtn
+					text={atMax ? "Max level" : `Feed · ${compactNumber(dustNeed)} dust`}
+					icon="Dust"
+					accent={Palette.violet}
+					phone={stack}
+					disabled={!(sparksOk && dustOk) || busy}
+					onClick={() => {
+						if (busy) return;
+						setBusy(true);
+						dispatch("UpgradeArtifact", { Id: selected!.Id }, () => setBusy(false));
+					}}
+					reducedMotion={reducedMotion}
+					layoutOrder={5}
+				/>
+			</frame>
+		);
+	})();
+	const gridPad = stack ? 10 : 16;
+	const gridCount = shown.size() + shownNamed.size();
+	const grid = (gridW: number) => {
+		const cols = math.max(1, math.floor((gridW - gridPad * 2 + gap) / (cardW + gap)));
+		const rowsN = math.max(1, math.ceil(gridCount / cols));
+		const wrapH = rowsN * cardH + (rowsN - 1) * gap + 8;
+		return { cols, wrapH };
+	};
+	const gridPanel = (wrapH: number) => (
+		<PnSurface size={UDim2.fromScale(1, 1)} radius={16} rule={true} accent={Palette.brass} background={Palette.panel} padding={gridPad} reducedMotion={reducedMotion}>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<PanelHeading
+				icon="Artifact"
+				title={tab === "Owned" ? "Owned" : "Index"}
+				note={tab === "Owned" ? tostring(foundCount) : `${foundCount} / ${totalCount}`}
+				accent={Palette.mint}
+				phone={stack}
+				layoutOrder={0}
 			/>
-			<scrollingframe
-				Size={new UDim2(1, 0, 1, -22)}
-				Position={UDim2.fromOffset(0, 22)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				CanvasSize={new UDim2()}
-				AutomaticCanvasSize={Enum.AutomaticSize.Y}
-				ScrollingDirection={Enum.ScrollingDirection.Y}
-				ScrollBarThickness={3}
-				ScrollBarImageColor3={Palette.brass}
-				ClipsDescendants={true}
-			>
-				<uipadding PaddingTop={new UDim(0, 6)} PaddingLeft={new UDim(0, 2)} PaddingRight={new UDim(0, 6)} PaddingBottom={new UDim(0, 8)} />
+			<frame Size={new UDim2(1, 0, 0, wrapH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uipadding PaddingTop={new UDim(0, 4)} PaddingLeft={new UDim(0, 2)} PaddingBottom={new UDim(0, 4)} />
 				<uigridlayout CellSize={UDim2.fromOffset(cardW, cardH)} CellPadding={UDim2.fromOffset(gap, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				{shown.map((artifact, index) => {
 					const mine = owned[artifact.Id];
@@ -423,20 +488,15 @@ export function CompanionsView(props: CompanionsProps) {
 						layoutOrder={shown.size() + index}
 					/>
 				))}
-			</scrollingframe>
-			{shown.size() + shownNamed.size() === 0 && (
-				<Text
-					value="Companions turn up on Command expeditions, and now and then in crates."
-					size={13}
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					align={Enum.TextXAlignment.Center}
-					position={new UDim2(0, 20, 0.5, -20)}
-					sizeConstraint={new UDim2(1, -40, 0, 40)}
-				/>
+				{gridCount === 0 && (
+					<Line text="Companions turn up on Command expeditions, and now and then in crates." size={13} color={Palette.muted} width={new UDim(1, 0)} layoutOrder={0} />
+				)}
+			</frame>
+			{fuseRow !== undefined && <DiamondRule layoutOrder={2} />}
+			{fuseRow !== undefined && (
+				<PanelHeading icon="Research" title="Level up" note="Sparks and stardust raise the next level" accent={Palette.violet} phone={stack} layoutOrder={3} />
 			)}
+			{fuseRow}
 		</PnSurface>
 	);
 
@@ -469,13 +529,12 @@ export function CompanionsView(props: CompanionsProps) {
 			});
 		};
 		const spriteH = stack ? 150 : 230;
-		const rowH = 34;
-		const tag = `${rarityName(artifact.Rarity)}  ·  ${sheet !== undefined ? sheet.Label.sub(1, 1) + sheet.Label.sub(2).lower() : ""}`;
-		const rowsY = spriteH + 64;
-		const fuseY = rowsY + rowH * 2 + 14;
+		const tag = `${rarityName(artifact.Rarity)} · ${sheet !== undefined ? sheet.Label.sub(1, 1) + sheet.Label.sub(2).lower() : ""}`;
+		const rh = rowHeight(stack);
 		stage = (
-			<PnSurface size={UDim2.fromScale(1, 1)} accent={color} background={Palette.panel} padding={stack ? 14 : 18} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={false}>
-				<frame Size={new UDim2(1, 0, 0, spriteH)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<PnSurface size={UDim2.fromScale(1, 1)} radius={16} rule={true} accent={Palette.brass} background={Palette.panel} padding={stack ? 14 : 18} reveal={enter} reducedMotion={reducedMotion} clips={false}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, stack ? 8 : 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={new UDim2(1, 0, 0, spriteH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 					<frame
 						key="EquipRing"
 						Size={UDim2.fromOffset(spriteH * 0.8, spriteH * 0.8)}
@@ -496,134 +555,79 @@ export function CompanionsView(props: CompanionsProps) {
 						reactionKey={`${artifact.Id}:${equipNonce}`}
 					/>
 				</frame>
-				<textlabel
-					Text={artifact.Name}
-					FontFace={SERIF}
-					TextSize={stack ? 20 : 24}
-					TextColor3={Palette.cream}
-					TextXAlignment={Enum.TextXAlignment.Left}
-					TextScaled={false}
-					TextTruncate={Enum.TextTruncate.AtEnd}
-					BackgroundTransparency={1}
-					Position={UDim2.fromOffset(0, spriteH + 4)}
-					Size={new UDim2(0.6, 0, 0, 30)}
-				/>
-				<frame Size={UDim2.fromOffset(tag.size() * 6 + 16, 18)} Position={new UDim2(1, 0, 0, spriteH + 10)} AnchorPoint={new Vector2(1, 0)} BackgroundColor3={color.Lerp(Palette.ink, 0.7)} BorderSizePixel={0}>
-					<uicorner CornerRadius={new UDim(0, 5)} />
-					<uistroke Color={color} Thickness={1} Transparency={0.4} />
-					<Text value={tag} size={10} color={color} weight={Enum.FontWeight.Bold} align={Enum.TextXAlignment.Center} sizeConstraint={UDim2.fromScale(1, 1)} />
+				<frame Size={new UDim2(1, 0, 0, stack ? 26 : 32)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<Line text={spaced(artifact.Name)} size={stack ? 20 : 26} font={TITLE_FACE} layoutOrder={0} />
+					<frame Size={UDim2.fromOffset(0, 20)} AutomaticSize={Enum.AutomaticSize.X} BackgroundColor3={color.Lerp(Palette.ink, 0.7)} BorderSizePixel={0} LayoutOrder={1}>
+						<uicorner CornerRadius={new UDim(0, 6)} />
+						<uistroke Color={color} Thickness={1} Transparency={0.4} />
+						<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
+						<Line text={tag} size={11} color={color} height={20} />
+					</frame>
 				</frame>
-				<Text
-					value={artifact.Description ?? ""}
-					size={12}
-					color={Palette.muted}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, spriteH + 36)}
-					sizeConstraint={new UDim2(1, 0, 0, 18)}
+				<Line text={artifact.Description ?? ""} size={13} color={Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={2} />
+				<MockRow title={kindLabel(artifact.EffectKind)} icon="Boost" accent={Palette.mint} value={effectText(artifact, mine.Level)} valueColor={Palette.mint} phone={stack} height={rh} layoutOrder={3} />
+				<MockRow
+					title="Level"
+					icon="Milestone"
+					value={atMax ? `${mine.Level} / ${MAX_LEVEL} · Max` : `${mine.Level} / ${MAX_LEVEL}`}
+					valueColor={Palette.mango}
+					phone={stack}
+					height={rh}
+					layoutOrder={4}
 				/>
-				{[
-					[kindLabel(artifact.EffectKind), effectText(artifact, mine.Level), Palette.mint],
-					["Level", atMax ? `${mine.Level} / ${MAX_LEVEL}  ·  Max` : `${mine.Level} / ${MAX_LEVEL}`, Palette.mango],
-				].map((row, index) => (
-					<frame
-						key={`Row${index}`}
-						Size={new UDim2(1, 0, 0, rowH - 4)}
-						Position={UDim2.fromOffset(0, rowsY + index * rowH)}
-						BackgroundColor3={Palette.panelRaised}
-						BorderSizePixel={0}
-					>
-						<uicorner CornerRadius={new UDim(0, 8)} />
-						<uistroke Color={Palette.line} Thickness={1} Transparency={0.4} />
-						<Text value={row[0] as string} size={12} color={Palette.creamSoft} weight={Enum.FontWeight.Medium} position={UDim2.fromOffset(12, 7)} sizeConstraint={new UDim2(0.6, 0, 0, 16)} />
-						<Text
-							value={row[1] as string}
-							size={12}
-							color={row[2] as Color3}
-							weight={Enum.FontWeight.Bold}
-							align={Enum.TextXAlignment.Right}
-							position={new UDim2(0.4, 0, 0, 7)}
-							sizeConstraint={new UDim2(0.6, -12, 0, 16)}
+				<Bar fill={mine.Level / MAX_LEVEL} color={Palette.mango} layoutOrder={5} />
+				<frame Size={new UDim2(1, 0, 0, stack ? TapTarget : 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={6}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<MockBtn
+							text={isFollowing ? "Equipped" : "Equip"}
+							icon="Check"
+							fill={true}
+							phone={stack}
+							disabled={isFollowing || busy}
+							onClick={() => act("EquipArtifact", () => setEquipNonce((value) => value + 1))}
+							reducedMotion={reducedMotion}
 						/>
 					</frame>
-				))}
-				<frame key="FuseRow" Size={new UDim2(1, 0, 0, 52)} Position={UDim2.fromOffset(0, fuseY)} BackgroundTransparency={1} BorderSizePixel={0}>
-					{[
-						["Sparks", `${mine.Fragments} / ${atMax ? "-" : sparksNeed}`, !atMax && mine.Fragments >= sparksNeed, mine.Fragments / math.max(1, sparksNeed)],
-						["Stardust", `${compactNumber(dustNeed)}`, !atMax && gteFlux(dust, dustNeed), gteFlux(dust, dustNeed) ? 1 : 0.4],
-					].map((input, index) => (
-						<frame
-							key={`In${index}`}
-							Size={new UDim2(0.36, -8, 1, 0)}
-							Position={new UDim2(index * 0.36, 0, 0, 0)}
-							BackgroundColor3={Palette.ink}
-							BorderSizePixel={0}
-						>
-							<uicorner CornerRadius={new UDim(0, 10)} />
-							<uistroke Color={input[2] ? Palette.mango : Palette.line} Thickness={1} Transparency={input[2] ? 0.2 : 0.4} />
-							<Text value={input[0] as string} size={10} color={Palette.muted} weight={Enum.FontWeight.Bold} position={UDim2.fromOffset(10, 6)} sizeConstraint={new UDim2(1, -20, 0, 13)} />
-							<Text value={input[1] as string} size={13} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={10} position={UDim2.fromOffset(10, 20)} sizeConstraint={new UDim2(1, -20, 0, 16)} />
-							<Meter value={math.clamp(input[3] as number, 0, 1)} color={Palette.mango} position={new UDim2(0, 10, 1, -9)} size={new UDim2(1, -20, 0, 3)} reducedMotion={reducedMotion} />
-						</frame>
-					))}
-					<frame key="Arrow" Size={new UDim2(0.08, 0, 1, 0)} Position={new UDim2(0.72, -8, 0, 0)} BackgroundTransparency={1}>
-						<frame Size={new UDim2(0.7, 0, 0, 2)} Position={UDim2.fromScale(0.5, 0.5)} AnchorPoint={new Vector2(0.5, 0.5)} BackgroundColor3={Palette.brass} BorderSizePixel={0} />
-						<frame Size={UDim2.fromOffset(8, 2)} Position={new UDim2(0.85, -6, 0.5, -3)} Rotation={40} BackgroundColor3={Palette.brass} BorderSizePixel={0} />
-						<frame Size={UDim2.fromOffset(8, 2)} Position={new UDim2(0.85, -6, 0.5, 2)} Rotation={-40} BackgroundColor3={Palette.brass} BorderSizePixel={0} />
-					</frame>
-					<frame key="Result" Size={new UDim2(0.2, 0, 1, 0)} Position={UDim2.fromScale(0.8, 0)} BackgroundColor3={Palette.ink} BorderSizePixel={0}>
-						<uicorner CornerRadius={new UDim(0, 10)} />
-						<uistroke Color={canFeed ? color : Palette.line} Thickness={1.5} Transparency={canFeed ? 0 : 0.4} />
-						<Text value={atMax ? "Max" : `Lv ${mine.Level + 1}`} size={14} color={canFeed ? color : Palette.creamSoft} weight={Enum.FontWeight.Heavy} align={Enum.TextXAlignment.Center} sizeConstraint={UDim2.fromScale(1, 1)} />
-					</frame>
-				</frame>
-				<frame Size={new UDim2(1, 0, 0, TapTarget)} Position={new UDim2(0, 0, 1, -TapTarget)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<Button
-						text={isFollowing ? "Equipped" : "Equip"}
-						onClick={() => act("EquipArtifact", () => setEquipNonce((value) => value + 1))}
-						color={Palette.mango}
-						textColor={Palette.ink}
-						size={new UDim2(0.58, -5, 1, 0)}
-						disabled={isFollowing || busy}
-						reducedMotion={reducedMotion}
-					/>
-					<Button
-						text={atMax ? "Max level" : `Feed  ·  ${compactNumber(dustNeed)} dust`}
-						onClick={() => act("UpgradeArtifact")}
-						color={Palette.panelSoft}
-						textColor={Palette.cream}
-						outline={true}
-						size={new UDim2(0.42, -5, 1, 0)}
-						position={new UDim2(0.58, 5, 0, 0)}
+					<MockBtn
+						text={atMax ? "Max level" : `Feed · ${compactNumber(dustNeed)} dust`}
+						icon="Dust"
+						sec={true}
+						phone={stack}
 						disabled={!canFeed || busy}
-						highlight={canFeed}
+						onClick={() => act("UpgradeArtifact")}
 						reducedMotion={reducedMotion}
+						layoutOrder={1}
 					/>
 				</frame>
 			</PnSurface>
 		);
 	}
-	const stageMinH = (stack ? 150 : 230) + 64 + 68 + 14 + 52 + 14 + TapTarget + 36;
+	const stageMinH = (stack ? 150 : 230) + (stack ? 26 : 32) + 18 + rowHeight(stack) * 2 + 10 + (stack ? TapTarget : 44) + (stack ? 8 : 10) * 6 + (stack ? 28 : 36);
 
 	const sections: { id: string; height?: number; fill?: boolean; minHeight?: number; element: React.Element }[] = [
 		{ id: "hero", height: heroH, element: hero },
 	];
 	if (stack) {
-		sections.push({ id: "grid", fill: true, minHeight: cardH + 60, element: grid });
+		const g = grid(viewport.width - 24);
+		sections.push({ id: "grid", height: gridPad * 2 + 22 + 12 + g.wrapH + (fuseRow !== undefined ? 12 + 12 + fuseH : 0), element: gridPanel(g.wrapH) });
 		sections.push({ id: "stage", height: stageMinH, element: stage });
 	} else {
-		const stageW = math.clamp(math.floor(viewport.width * 0.3), 300, 400);
+		const stageW = math.clamp(math.floor(viewport.width * 0.36), 320, 560);
+		const g = grid(math.max(200, viewport.width - 300 - stageW - 14));
 		sections.push({
 			id: "body",
 			fill: true,
-			minHeight: stageMinH,
+			minHeight: math.max(stageMinH, gridPad * 2 + 22 + 12 + g.wrapH + (fuseRow !== undefined ? 12 + 12 + fuseH : 0)),
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 					<frame Size={new UDim2(0, stageW, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
 						{stage}
 					</frame>
 					<frame Size={new UDim2(1, -(stageW + 14), 1, 0)} Position={UDim2.fromOffset(stageW + 14, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-						{grid}
+						{gridPanel(g.wrapH)}
 					</frame>
 				</frame>
 			),
