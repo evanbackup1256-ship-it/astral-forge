@@ -4,7 +4,8 @@
 // overlay, scoped recovery and the diagnostics endpoint.
 //
 // Modes
-//   off   default. No connections beyond attribute listeners; zero per-frame cost.
+//   full  default in Studio (set ReplicatedStorage AstralLayoutGuard = false to silence it).
+//   off   default in live servers outside the sample. No connections beyond attribute listeners; zero per-frame cost.
 //   full  ReplicatedStorage AstralLayoutGuard / AstralDebugLogs = true, or Workspace LayoutDebug
 //         set. All rules, overlay when LayoutDebug, device matrix when LayoutDebug = "matrix" or
 //         AstralLayoutGuardMatrix = true.
@@ -89,6 +90,8 @@ function attr(name: string): unknown {
 
 function wantedMode(userId: number): Mode {
 	if (attr("AstralLayoutGuard") === true || attr("AstralDebugLogs") === true) return "full";
+	// Studio: on by default so layout problems show up in Output while playtesting
+	if (IS_STUDIO && attr("AstralLayoutGuard") !== false) return "full";
 	const debug = Workspace.GetAttribute("LayoutDebug");
 	if (debug !== undefined && debug !== false && debug !== "") return "full";
 	const sample = attr("AstralLayoutGuardSample");
@@ -433,7 +436,8 @@ class LayoutGuardController implements OnInit, OnStart {
 	}
 
 	private sink(level: string, line: string) {
-		if (level === "error" && this.mode === "full") ClientLog.warnEvery("layoutguard " + line, 300, "LayoutGuard", line);
+		// Studio prints grouped warn+ lines to Output (each line at most once per 5 min); live servers stay quiet
+		if (this.mode === "full" && (level === "error" || (IS_STUDIO && level === "warn"))) ClientLog.warnEvery("layoutguard " + line, 300, "LayoutGuard", line);
 		else ClientLog.debug("LayoutGuard", line);
 	}
 
