@@ -1215,16 +1215,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 				ZIndex: 63,
 				Rotation: 0, // icons hold still (ICON_MOTION)
 			},
-			h("uiscale", {
-				Scale: arrive.map((t) => {
-					// good news lands with a pop; everything else just settles in
-					const pop =
-						info.tone === "Success" || info.tone === "success" || moment
-							? math.sin(math.clamp(t, 0, 1) * math.pi) * 0.25
-							: 0;
-					return 0.5 + easeOutBack(t) * 0.5 + pop;
-				}),
-			}),
+			// the icon plate holds still (no pop-in); the toast's slide and fade carry the arrival
 			h("uicorner", { CornerRadius: new UDim(pill ? 1 : 0, pill ? 0 : moment ? 16 : 12) }),
 			h(
 				"uistroke",
@@ -1377,7 +1368,7 @@ function ComboActivity(props: ComboActivityProps): React.Element {
 				ZIndex: 63,
 				Rotation: 0, // icons hold still (ICON_MOTION)
 			},
-			h("uiscale", { Scale: arrive.map((t) => 0.6 + easeOutBack(t) * 0.4) }),
+			// the icon plate holds still (no pop-in)
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h(Icon, {
 				kind: "Overcharge.1",
@@ -1495,7 +1486,7 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 				BorderSizePixel: 0,
 				ZIndex: 63,
 			},
-			h("uiscale", { Scale: arrive.map((t) => 0.6 + easeOutBack(t) * 0.4) }),
+			// the icon plate holds still (no pop-in)
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uistroke", {
 				Color: color,
