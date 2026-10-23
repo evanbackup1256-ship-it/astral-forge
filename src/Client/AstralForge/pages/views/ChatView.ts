@@ -573,7 +573,7 @@ function __member(): unknown {
 			return undefined;
 		} });
 		if (((unseen as unknown as number) > (0 as unknown as number))) {
-			messagesElement = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, messagesElement, reactLoose.createElement(Button, { text: `${unseen} new message${((unseen === 1) ? "" : "s")}`, icon: "Chat.4", color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), hug: true, reducedMotion: softMotion, size: luaCall(luaProp(UDim2, "fromOffset"), 0, 40), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -90, 1, -52), zIndex: 30, onClick: function(this: void): unknown | undefined {
+			messagesElement = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, messagesElement, reactLoose.createElement(Button, { text: `${unseen} new message${((unseen === 1) ? "" : "s")}`, icon: "Chat.4", color: luaProp(Palette, "cyan"), textColor: luaProp(Palette, "ink"), hug: true, reducedMotion: softMotion, size: luaCall(luaProp(UDim2, "fromOffset"), 0, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -90, 1, -56), zIndex: 30, onClick: function(this: void): unknown | undefined {
 				luaCall(setUnseen, 0);
 				luaCall(scrollToBottom, true);
 				return undefined;
