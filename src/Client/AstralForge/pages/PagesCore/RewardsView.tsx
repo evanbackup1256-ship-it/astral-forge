@@ -8,6 +8,7 @@ import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
 import { EventDispatch, EventPanel, eventPanelHeight, EventState } from "./EventPanel";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
 
 type ColumnSection = { id: string; height: number; element: React.Element };
 
@@ -404,16 +405,16 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 
 	const heroH = stack ? 84 + (readyCount > 0 ? TapTarget + 12 : 0) : 96;
 	const headerPanel = (
-		<Panel
+		<Panel radius={FORGE_RADIUS}
 			size={UDim2.fromScale(1, 1)}
-			accent={Palette.pink}
+			accent={Palette.brass}
 			background={Palette.panelRaised}
 			padding={20}
 			layoutOrder={0}
 			reveal={headerReveal}
 			reducedMotion={softMotion}
 			clips={false}
-		>
+		><BrassRule pad={20} />
 			<Text
 				value={readyCount > 0 ? tostring(readyCount) : Browse.shortDuration(resetIn)}
 				size={stack ? 26 : 30}
@@ -454,7 +455,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const dailyCardH = stripY + stripH + 40;
 	const dailyRewardText = formatReward(dailyReward);
 	const dailyPanel = (
-		<Panel
+		<Panel radius={FORGE_RADIUS}
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.mint}
 			background={Palette.panel}
@@ -464,7 +465,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			highlight={dailyReady}
 			reducedMotion={softMotion}
 			clips={false}
-		>
+		><BrassRule pad={20} />
 			<IconTile
 				kind="Calendar"
 				accent={dailyReady ? Palette.mint : Palette.panelSoft}
@@ -519,7 +520,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const timedCardH = stack ? 180 : 124;
 	const nextReward = nextTimed !== undefined ? formatReward(nextTimed.Reward) : "";
 	const timedPanel = (
-		<Panel
+		<Panel radius={FORGE_RADIUS}
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.violet}
 			background={Palette.panel}
@@ -529,7 +530,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			highlight={timedReady && !softMotion}
 			reducedMotion={softMotion}
 			clips={false}
-		>
+		><BrassRule pad={20} />
 			<IconTile
 				kind="Timer"
 				accent={timedReady ? Palette.violet : Palette.panelSoft}
@@ -589,7 +590,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const timelineRows = math.max(1, math.ceil(timedEntries.size() / columns));
 	const timelineH = 52 + timelineRows * 114;
 	const timelinePanel = (
-		<Panel
+		<Panel radius={FORGE_RADIUS}
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.cyan}
 			background={Palette.panel}
@@ -598,7 +599,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			reveal={streakReveal}
 			reducedMotion={softMotion}
 			clips={false}
-		>
+		><BrassRule pad={20} />
 			<Text
 				value={clockText(played)}
 				size={13}

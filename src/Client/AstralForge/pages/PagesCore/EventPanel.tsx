@@ -3,6 +3,7 @@ import { formatReward, Reward } from "../../CoreKit/format";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
 import * as LimitedEvents from "../../../../Shared/AstralForge/Shared/LimitedEvents";
+import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
 
 const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const Workspace = game.GetService("Workspace");
@@ -88,7 +89,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 			return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} />;
 		}
 		return (
-			<Panel size={UDim2.fromScale(1, 1)} accent={rgb(upcoming.Accent)} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
+			<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={rgb(upcoming.Accent)} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
 				<Text value="Next event" size={13} color={rgb(upcoming.Accent)} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 				<Text
 					value={`${upcoming.Name} opens ${dateText(upcoming.StartsAt)}, in ${leftText(upcoming.StartsAt - now)}.`}
@@ -182,7 +183,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 	const dayEarned = state.DayEarned ?? 0;
 	const capped = dayEarned >= event.DailyCap;
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
+		<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
 			<Text
 				value={`Ends in ${leftText(event.EndsAt - now)}`}
 				size={13}
