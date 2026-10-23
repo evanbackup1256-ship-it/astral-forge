@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod } from "./viewRuntime";
+import { BODY, BODY_BOLD, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
 
 function __member(): unknown {
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -33,8 +34,8 @@ function __member(): unknown {
 	let Browse: unknown = mod("BrowseKit");
 	let ChatText: unknown = kit("CoreKit", "chatText");
 	let h: unknown = reactLoose.createElement;
-	let ROW_H: unknown = 84;
-	let ROW_GAP: unknown = 8;
+	let ROW_H: unknown = 52;
+	let ROW_GAP: unknown = 12;
 	let FILTERS: unknown = [{ id: "All", label: "All" }, { id: "Unread", label: "Unread" }, { id: "Gifts", label: "Gifts" }, { id: "Collected", label: "Collected" }, { id: "Alerts", label: "Alerts" }];
 	let NoticeMath: unknown = kit("CoreKit", "noticeMath");
 	let ALERT_COLORS: unknown = { Success: "mint", Warning: "mango", Error: "coral", Special: "violet" };
@@ -76,35 +77,46 @@ function __member(): unknown {
 		let setHover: unknown;
 		[hover, setHover] = reactLoose.useState(false) as LuaTuple<[unknown, unknown]>;
 		let glow: unknown = luaCall(useFlipperSpring, (luaTruthy(luaProp(props, "active")) ? 1 : (luaTruthy(hover) ? 0.5 : 0)), softMotion, 640, 36);
-		return luaCall(h, "imagebutton", { Name: "MailRow", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, ROW_H), BackgroundColor3: luaProp(Palette, "panelRaised"), BackgroundTransparency: colon(reveal).map(function(this: void, a?: unknown): unknown | undefined {
-			return ((1 as unknown as number) - (a as unknown as number));
-			return undefined;
-		}), AutoButtonColor: false, BorderSizePixel: 0, Selectable: true, ClipsDescendants: false, Event: { Activated: function(this: void): unknown | undefined {
-			luaCall(luaProp(props, "onChoose"), luaProp(item, "Id"));
-			return undefined;
-		}, MouseEnter: function(this: void): unknown | undefined {
-			luaCall(setHover, true);
-			colon(Audio).play("hover");
-			return undefined;
-		}, MouseLeave: function(this: void): unknown | undefined {
-			luaCall(setHover, false);
-			return undefined;
-		}, SelectionGained: function(this: void): unknown | undefined {
-			luaCall(setHover, true);
-			return undefined;
-		}, SelectionLost: function(this: void): unknown | undefined {
-			luaCall(setHover, false);
-			return undefined;
-		} } }, luaCall(h, "uicorner", { CornerRadius: new UDim(0, 16) }), luaCall(h, "frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, luaCall(h, "uicorner", { CornerRadius: new UDim(0, 15) }), luaCall(h, "uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: 0.75 })), luaCall(h, "uistroke", { Color: ((luaTruthy(luaProp(props, "active")) || luaTruthy(unread)) ? luaProp(item, "Color") : luaProp(Palette, "lineSoft")), Thickness: colon(glow).map(function(this: void, a?: unknown): unknown | undefined {
-			return ((1 as unknown as number) + (a as unknown as number));
-			return undefined;
-		}), Transparency: colon(glow).map(function(this: void, a?: unknown): unknown | undefined {
-			return (luaTruthy(unread) ? ((0.35 as unknown as number) - (((a as unknown as number) * (0.3 as unknown as number)) as unknown as number)) : ((0.7 as unknown as number) - (((a as unknown as number) * (0.5 as unknown as number)) as unknown as number)));
-			return undefined;
-		}) }), luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(item, "Color"), BackgroundTransparency: colon(glow).map(function(this: void, a?: unknown): unknown | undefined {
-			return ((1 as unknown as number) - (((a as unknown as number) * (0.1 as unknown as number)) as unknown as number));
-			return undefined;
-		}), BorderSizePixel: 0 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 16) })), luaCall(h, Avatar, { item: item, unread: unread, size: 44, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 12, 0.5, -22) }), luaCall(h, Text, { value: luaProp(item, "Subject"), size: 15, color: luaProp(Palette, "cream"), weight: (luaTruthy(unread) ? luaProp(luaProp(Enum, "FontWeight"), "Heavy") : luaProp(luaProp(Enum, "FontWeight"), "Bold")), fit: true, minSize: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 68, 12), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -150, 0, 20), zIndex: 3 }), luaCall(h, Text, { value: luaProp(item, "Sender"), size: 12, color: luaProp(item, "Color"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, minSize: 9, position: luaCall(luaProp(UDim2, "fromOffset"), 68, 33), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -150, 0, 16), zIndex: 3 }), luaCall(h, Text, { value: ((luaTruthy(luaProp(item, "Preview") ) ? luaProp(item, "Preview") :  "")), size: 12, color: luaProp(Palette, "muted"), position: luaCall(luaProp(UDim2, "fromOffset"), 68, 52), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -80, 0, 18), zIndex: 3 }), luaCall(h, Text, { value: ((luaTruthy(luaProp(item, "Date") ) ? luaProp(item, "Date") :  "")), size: 11, color: luaProp(Palette, "muted"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Right"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -94, 0, 12), sizeConstraint: luaCall(luaProp(UDim2, "fromOffset"), 82, 16), zIndex: 3 }), luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 70, 20), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -82, 0, 32), BackgroundTransparency: 1, ZIndex: 3 }, luaCall(h, "uilistlayout", { FillDirection: luaProp(luaProp(Enum, "FillDirection"), "Horizontal"), HorizontalAlignment: luaProp(luaProp(Enum, "HorizontalAlignment"), "Right"), Padding: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 4) }), ((luaTruthy(unread ) ?  luaCall(h, Badge, { value: "NEW", accent: luaProp(item, "Color"), filled: true, size: luaCall(luaProp(UDim2, "fromOffset"), 40, 18) }) : unread)), ((luaTruthy(gift ) ?  luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 22, 18), BackgroundColor3: luaProp(Palette, "mint"), BorderSizePixel: 0 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 6) }), luaCall(h, Icon, { kind: "Gift.10", color: luaProp(Palette, "ink"), accent: luaProp(Palette, "mint"), size: 14, position: luaCall(luaProp(UDim2, "fromScale"), 0.5, 0.5), anchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5), spin: false })) : gift)), ((((!luaTruthy(gift)) && luaProp(mail, "Claimed")) && luaCall(hasGift, item)) && luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 22, 18), BackgroundColor3: luaProp(Palette, "panelSoft"), BorderSizePixel: 0 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 6) }), luaCall(h, Icon, { kind: "Check.15", color: luaProp(Palette, "mint"), accent: luaProp(Palette, "mint"), size: 14, position: luaCall(luaProp(UDim2, "fromScale"), 0.5, 0.5), anchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5), spin: false })))));
+		// design/27 mail .row: 36px icon well (sender initial), subject over "from <sender>", date muted,
+		// and the action on the right (Claim when a gift waits, otherwise Open) in the accent
+		const P = Palette as Record<string, Color3>;
+		const tint = luaProp(item, "Color") as Color3;
+		const active = luaTruthy(luaProp(props, "active"));
+		const action = luaTruthy(gift) ? "Claim" : "Open";
+		return React.createElement("imagebutton", {
+			Name: "MailRow", Size: new UDim2(1, -4, 0, ROW_H as number), BackgroundColor3: P.white, BackgroundTransparency: colon(reveal).map((a: number) => 1 - a) as never,
+			AutoButtonColor: false, BorderSizePixel: 0, Selectable: true, ClipsDescendants: false,
+			Event: {
+				Activated: () => luaCall(luaProp(props, "onChoose"), luaProp(item, "Id")),
+				MouseEnter: () => { luaCall(setHover, true); colon(Audio).play("hover"); },
+				MouseLeave: () => luaCall(setHover, false),
+				SelectionGained: () => luaCall(setHover, true),
+				SelectionLost: () => luaCall(setHover, false),
+			},
+		},
+			React.createElement(RowSurface, {}),
+			React.createElement("uistroke", {
+				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
+				Color: active || luaTruthy(unread) ? P.mango : P.white,
+				Thickness: colon(glow).map((a: number) => 1 + a) as never,
+				Transparency: colon(glow).map((a: number) => (active ? 0.2 : luaTruthy(unread) ? 0.55 - a * 0.3 : 0.95 - a * 0.6)) as never,
+			}),
+			React.createElement("frame", { Size: UDim2.fromOffset(36, 36), Position: new UDim2(0, 12, 0.5, -18), BackgroundColor3: P.void, BackgroundTransparency: 0.35, BorderSizePixel: 0, ZIndex: 3 },
+				React.createElement("uicorner", { CornerRadius: new UDim(0, 9) }),
+				React.createElement("uistroke", { ApplyStrokeMode: Enum.ApplyStrokeMode.Border, Color: P.white, Transparency: 0.92, Thickness: 1 }),
+				React.createElement("textlabel", { Text: tostring(luaCall(luaProp(ChatText, "initial"), luaProp(item, "Sender")) ?? ""), FontFace: BODY_BOLD, TextSize: 16, TextColor3: tint, BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1), ZIndex: 3 }),
+			),
+			luaTruthy(unread) ? React.createElement("frame", { Size: UDim2.fromOffset(8, 8), Position: UDim2.fromOffset(42, 8), BackgroundColor3: P.mango, BorderSizePixel: 0, ZIndex: 4 }, React.createElement("uicorner", { CornerRadius: new UDim(1, 0) })) : undefined,
+			React.createElement("textlabel", { Text: tostring(luaProp(item, "Subject") ?? ""), FontFace: luaTruthy(unread) ? BODY_BOLD : BODY_SEMI, TextSize: 15, TextColor3: P.cream, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(60, 6), Size: new UDim2(1, -160, 0, 20), ZIndex: 3 }),
+			React.createElement("textlabel", { Text: `from ${tostring(luaProp(item, "Sender") ?? "")}${luaTruthy(luaProp(item, "Date")) ? `  ·  ${tostring(luaProp(item, "Date"))}` : ""}`, FontFace: BODY, TextSize: 12, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(60, 27), Size: new UDim2(1, -160, 0, 16), ZIndex: 3 }),
+			React.createElement("frame", { Size: UDim2.fromOffset(88, 24), Position: new UDim2(1, -100, 0.5, -12), BackgroundTransparency: 1, ZIndex: 3 },
+				React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, HorizontalAlignment: Enum.HorizontalAlignment.Right, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 6) }),
+				luaTruthy(luaProp(mail, "Claimed")) && luaCall(hasGift, item)
+					? (luaCall(h, Icon, { kind: "Check.15", color: P.mint, accent: P.mint, size: 16, spin: false }) as React.Element)
+					: undefined,
+				React.createElement("textlabel", { Text: action, FontFace: NUM, TextSize: 17, TextColor3: luaTruthy(gift) ? P.mango : P.creamSoft, BackgroundTransparency: 1, AutomaticSize: Enum.AutomaticSize.X, Size: UDim2.fromOffset(0, 24), LayoutOrder: 2 }),
+			),
+		);
 		return undefined;
 	}
 	function Parcel(props?: unknown): unknown | undefined {
