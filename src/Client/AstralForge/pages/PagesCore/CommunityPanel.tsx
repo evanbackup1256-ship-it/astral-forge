@@ -232,7 +232,7 @@ export function CommunityPanel(props: {
 		);
 	});
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
+		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
 			<Text value="Community" size={13} color={Palette.cyan} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			{children}
 		</Panel>
