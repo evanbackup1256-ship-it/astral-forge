@@ -371,7 +371,7 @@ __defs["BootScreen"] = () => {
 		statusSize: number;
 	}
 
-	// one centred column: wordmark, status + percent, the bar; the tip sits near the bottom
+	// sizes for the loading card (bottom-right): wordmark, status, the bar and the tip
 	function layoutFor(width: number, height: number): BootLayout {
 		const short = height < 420;
 		const column = math.min(440, math.max(200, width - 48));
@@ -580,26 +580,49 @@ __defs["BootScreen"] = () => {
 		}
 
 		const fadeFrom = (base: number) => cover.map((c) => clamp01(base + (1 - base) * c));
-		const column = L.column;
-		const centred = (y: number, height: number, width?: number) => ({
-			Position: new UDim2(0.5, 0, 0, y),
-			Size: UDim2.fromOffset(width ?? column, height),
-			AnchorPoint: new Vector2(0.5, 0),
+		// everything sits on one card in the bottom-right corner: emblem + wordmark, status, meter, tip
+		const cardW = math.min(380, math.max(220, viewport.width - 24));
+		const pad = 16;
+		const inner = cardW - pad * 2;
+		const headH = L.short ? 36 : 44;
+		const statusY = pad + headH + 12;
+		const barY = statusY + 20 + 8;
+		const tipY = barY + 5 + 10;
+		const cardH = tipY + L.tipH + pad - 4;
+		const inCard = (y: number, height: number, x?: number, width?: number) => ({
+			Position: UDim2.fromOffset(x ?? pad, y),
+			Size: UDim2.fromOffset(width ?? inner, height),
 		});
+
+		const emblem = e(
+			"imagelabel",
+			{
+				Name: "BootEmblem",
+				...inCard(pad, headH, pad, headH),
+				BackgroundColor3: Palette.raised,
+				BackgroundTransparency: fadeFrom(0),
+				Image: BrandArt.GAME_ICON_ASSET,
+				ImageTransparency: fadeFrom(0),
+				ScaleType: Enum.ScaleType.Crop,
+				ZIndex: 7,
+			},
+			e("uicorner", { CornerRadius: new UDim(0, 10) }),
+			e("uistroke", { Color: Palette.brass, Thickness: 1.5, Transparency: fadeFrom(0.35) }),
+		);
 
 		const wordmark = e("imagelabel", {
 			Name: "BootWordmark",
-			...centred(L.wordY, L.wordH),
+			...inCard(pad, headH, pad + headH + 12, inner - headH - 12),
 			BackgroundTransparency: 1,
 			Image: BrandArt.WORDMARK_ASSET,
 			ImageTransparency: fadeFrom(0),
 			ScaleType: Enum.ScaleType.Fit,
-			ZIndex: 6,
+			ZIndex: 7,
 		});
 
 		const statusRow = e(
 			"frame",
-			{ ...centred(L.statusY, 20), BackgroundTransparency: 1, ZIndex: 6 },
+			{ ...inCard(statusY, 20), BackgroundTransparency: 1, ZIndex: 7 },
 			e("textlabel", {
 				Name: "BootStatus",
 				Size: UDim2.fromScale(1, 1),
@@ -612,9 +635,9 @@ __defs["BootScreen"] = () => {
 				TextSize: L.statusSize,
 				TextTruncate: Enum.TextTruncate.AtEnd,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-				TextXAlignment: Enum.TextXAlignment.Center,
+				TextXAlignment: Enum.TextXAlignment.Left,
 				TextYAlignment: Enum.TextYAlignment.Bottom,
-				ZIndex: 7,
+				ZIndex: 8,
 			}),
 		);
 
@@ -623,11 +646,11 @@ __defs["BootScreen"] = () => {
 			"frame",
 			{
 				Name: "BootProgress",
-				...centred(L.barY - 1, 5),
+				...inCard(barY, 5),
 				BackgroundColor3: Palette.line,
 				BackgroundTransparency: fadeFrom(0.78),
 				BorderSizePixel: 0,
-				ZIndex: 6,
+				ZIndex: 7,
 			},
 			e("uicorner", { CornerRadius: new UDim(1, 0) }),
 			e(
@@ -638,7 +661,7 @@ __defs["BootScreen"] = () => {
 					BackgroundColor3: Palette.white,
 					BackgroundTransparency: fadeFrom(0),
 					BorderSizePixel: 0,
-					ZIndex: 7,
+					ZIndex: 8,
 				},
 				e("uicorner", { CornerRadius: new UDim(1, 0) }),
 				e("uigradient", {
@@ -660,7 +683,7 @@ __defs["BootScreen"] = () => {
 					BackgroundColor3: Palette.cream,
 					BackgroundTransparency: fadeFrom(0),
 					BorderSizePixel: 0,
-					ZIndex: 8,
+					ZIndex: 9,
 				}, e("uicorner", { CornerRadius: new UDim(1, 0) })),
 			),
 		);
@@ -668,7 +691,7 @@ __defs["BootScreen"] = () => {
 		const tipText = stalled ? "Still loading. Your save is safe." : (LOADING_TIPS[tipIndex - 1] ?? "");
 		const tip = e("textlabel", {
 			Name: "BootTip",
-			...centred(L.tipY, L.tipH),
+			...inCard(tipY, L.tipH),
 			BackgroundTransparency: 1,
 			Text: tipText,
 			TextColor3: Palette.muted,
@@ -679,10 +702,45 @@ __defs["BootScreen"] = () => {
 			TextWrapped: true,
 			TextTruncate: Enum.TextTruncate.AtEnd,
 			FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-			TextXAlignment: Enum.TextXAlignment.Center,
+			TextXAlignment: Enum.TextXAlignment.Left,
 			TextYAlignment: Enum.TextYAlignment.Top,
-			ZIndex: 6,
+			ZIndex: 7,
 		});
+
+		const side = math.max(12, viewport.sideInset);
+		const card = e(
+			"frame",
+			{
+				Name: "BootCard",
+				Size: UDim2.fromOffset(cardW, cardH),
+				Position: new UDim2(1, -side, 1, -math.max(12, viewport.bottomInset)),
+				AnchorPoint: new Vector2(1, 1),
+				BackgroundColor3: Palette.panel,
+				BackgroundTransparency: fadeFrom(0.06),
+				BorderSizePixel: 0,
+				ZIndex: 6,
+			},
+			e("uicorner", { CornerRadius: new UDim(0, 18) }),
+			e("uistroke", { Color: Palette.line, Thickness: 1, Transparency: fadeFrom(0) }),
+			// brass inner rule, 1px in from the edge
+			e(
+				"frame",
+				{
+					Name: "Rule",
+					Size: new UDim2(1, -4, 1, -4),
+					Position: UDim2.fromOffset(2, 2),
+					BackgroundTransparency: 1,
+					ZIndex: 6,
+				},
+				e("uicorner", { CornerRadius: new UDim(0, 16) }),
+				e("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: fadeFrom(0.75) }),
+			),
+			emblem,
+			wordmark,
+			statusRow,
+			bar,
+			tip,
+		);
 
 		return e(
 			"frame",
@@ -702,22 +760,20 @@ __defs["BootScreen"] = () => {
 					new ColorSequenceKeypoint(1, Palette.void),
 				]),
 			}),
-			wordmark,
-			statusRow,
-			bar,
-			tip,
+			card,
 			_version !== undefined &&
 				e("textlabel", {
 					Size: UDim2.fromOffset(160, 14),
-					Position: new UDim2(1, -16, 1, -14),
-					AnchorPoint: new Vector2(1, 1),
+					// bottom-left: the loading card owns the bottom-right corner
+					Position: new UDim2(0, 16, 1, -14),
+					AnchorPoint: new Vector2(0, 1),
 					BackgroundTransparency: 1,
 					Text: `v${_version}`,
 					TextColor3: Palette.line,
 					TextTransparency: fadeFrom(0),
 					TextSize: 11,
 					FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-					TextXAlignment: Enum.TextXAlignment.Right,
+					TextXAlignment: Enum.TextXAlignment.Left,
 					ZIndex: 6,
 				}),
 		);

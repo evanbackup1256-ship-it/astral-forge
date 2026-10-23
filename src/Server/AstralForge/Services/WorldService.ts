@@ -38,6 +38,8 @@ const attachCollectPrompt = (part: Part, player: Player, handler: unknown) => {
 	prompt.MaxActivationDistance = 18;
 	prompt.HoldDuration = 0;
 	prompt.RequiresLineOfSight = false;
+	// drawn by the client (PromptStyle): brass key cap plus the action panel
+	prompt.Style = Enum.ProximityPromptStyle.Custom;
 	prompt.Enabled = true;
 	prompt.Parent = part;
 	prompt.Triggered.Connect((triggerPlayer: Player) => {

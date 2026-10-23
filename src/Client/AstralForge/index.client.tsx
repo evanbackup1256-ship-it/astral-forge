@@ -519,6 +519,8 @@ class ClientRuntime {
 		this.disposers.push(load<typeof import("./ArtifactPresence")>("ArtifactPresence").attach());
 		// crewmates get a tag above their heads so you can find them in the world
 		this.disposers.push(load<typeof import("./CrewPresence")>("CrewPresence").attach());
+		// world prompts marked Style Custom get the brass key cap and action panel
+		this.disposers.push(load<typeof import("./PromptStyle")>("PromptStyle").attach());
 		// game-feel layer: same insets as the main screen so effect positions line up with the UI
 		const fxLayer = new Instance("ScreenGui");
 		fxLayer.Name = "AstralForgeFx";

@@ -109,13 +109,16 @@ function visibleRig(rig: Rig, camera: Camera | undefined): boolean {
 	return projected.Z > 0 && projected.X >= -120 && projected.X <= viewport.X + 120 && projected.Y >= -70 && projected.Y <= viewport.Y + 70;
 }
 
+// nameplate serif (the closest Roblox serif to the design's Cinzel)
+const PLATE_SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
+
 function nameplate(info: ArtifactInfo, adornee: BasePart): [BillboardGui, ImageLabel, boolean] {
 	const gui = new Instance("BillboardGui");
 	gui.Name = "ArtifactPlate";
 	gui.Adornee = adornee;
 	gui.AlwaysOnTop = false;
 	gui.LightInfluence = 0;
-	gui.MaxDistance = 80;
+	gui.MaxDistance = 60;
 	gui.Size = UDim2.fromOffset(240, 70);
 	gui.StudsOffsetWorldSpace = new Vector3(0, 3.6, 0);
 	gui.ResetOnSpawn = false;
@@ -141,14 +144,24 @@ function nameplate(info: ArtifactInfo, adornee: BasePart): [BillboardGui, ImageL
 	title.BackgroundTransparency = 1;
 	title.Position = UDim2.fromOffset(70, 12);
 	title.Size = new UDim2(1, -70, 0, 22);
-	title.FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold);
+	title.FontFace = PLATE_SERIF;
 	title.TextScaled = true;
 	title.TextXAlignment = Enum.TextXAlignment.Left;
 	title.TextColor3 = lighten(info.Color, 0.25);
 	title.TextStrokeColor3 = Theme.Base.void;
 	title.TextStrokeTransparency = 0.35;
 	title.Text = string.upper(info.Name);
+	title.ZIndex = 3;
 	title.Parent = gui;
+	// 2px black drop under the serif name
+	const drop = title.Clone();
+	drop.Name = "TitleDrop";
+	drop.Position = UDim2.fromOffset(72, 14);
+	drop.TextColor3 = new Color3(0, 0, 0);
+	drop.TextStrokeTransparency = 1;
+	drop.TextTransparency = 0.25;
+	drop.ZIndex = 2;
+	drop.Parent = gui;
 
 	const detail = new Instance("TextLabel");
 	detail.Name = "Detail";
