@@ -96,7 +96,7 @@ export function MobileTabPinsEditor(props: Props) {
 					BorderSizePixel={0}
 				>
 					<uicorner CornerRadius={new UDim(0, 10)} />
-					<uistroke Color={Palette.lineSoft} Transparency={0.55} Thickness={1} />
+					<uistroke Color={Palette.brass} Transparency={0.75} Thickness={1} />
 				</frame>
 			);
 	}
