@@ -202,10 +202,26 @@ export function FocusClaim(root: Instance | undefined): GuiObject | undefined {
 		}
 	}
 	const target = preferred ?? fallback;
+	if (overlayFocusDepth > 0 && root.IsA("GuiObject")) {
+		scopeOverlay(root);
+	}
 	if (target !== undefined) {
 		AssignSelection(target);
 	}
 	return target;
+}
+
+// Overlays that do not scope themselves (UiCore's ModalSelectionScope already covers ConfirmDialog,
+// ReleaseNotes, OfflineRewards and UiModal) get the same walls here, so the pad cannot leave them.
+function scopeOverlay(root: GuiObject) {
+	if (root.SelectionGroup) {
+		return;
+	}
+	root.SelectionGroup = true;
+	root.SelectionBehaviorLeft = Enum.SelectionBehavior.Stop;
+	root.SelectionBehaviorRight = Enum.SelectionBehavior.Stop;
+	root.SelectionBehaviorUp = Enum.SelectionBehavior.Stop;
+	root.SelectionBehaviorDown = Enum.SelectionBehavior.Stop;
 }
 
 export function GetScrollTarget(): GuiObject | undefined {
@@ -258,7 +274,8 @@ export function BeginOverlayFocus() {
 	const current = GuiService.SelectedObject;
 	overlaySelectionStack.push({ target: current });
 	if (overlayFocusDepth === 0) {
-		GuiService.GuiNavigationEnabled = false;
+		// navigation stays on so the D-pad can move inside the overlay; auto-select stays off so
+		// nothing behind it is picked up
 		GuiService.AutoSelectGuiEnabled = false;
 		ClearSelection();
 	}
