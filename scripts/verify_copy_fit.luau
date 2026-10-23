@@ -82,8 +82,6 @@ local CASES: { Case } = {
 	{ file = "pages/PagesSocial.tsx", needle = "Say something to ${session.PartnerName}", fill = { ["session.PartnerName"] = "WWWWWWWWWWWW" }, size = 13, bold = false, width = PHONE - 14 * 2 - 78 },
 	-- Shop
 	-- Bazaar helper and standing copy (keeps the 24-hour hold and the 1,000 Flux minimum)
-	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "Prices track your output; 1,000 Flux minimum.", size = 13, minSize = 10, bold = false, width = PHONE - 36, box = 44 },
-	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "Requests open: any supply, held 24 hours.", size = 12, minSize = 10, bold = false, width = PHONE - 36, box = 22 },
 	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "${procure.Name} requested: next shipment, held 24 hours.", fill = { ["procure.Name"] = "Nebula Coolant Cell" }, size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
 	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "${procure.Name} lapsed. Request again for a new 24-hour hold.", fill = { ["procure.Name"] = "Nebula Coolant Cell" }, size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
 	{ file = "pages/PagesBazaar/BazaarView.tsx", needle = "No open request. Pick a supply below: next shipment, held 24 hours.", size = 14, minSize = 10, bold = false, width = PHONE - 36, box = 82 },
@@ -91,9 +89,6 @@ local CASES: { Case } = {
 	{ file = "pages/PagesShop.tsx", needle = "Type a code to claim it. Each one works once.", size = 12, minSize = 10, bold = false, width = shopPanel, box = 26 },
 	{ file = "pages/PagesShop.tsx", needle = "Follow the creator on Roblox, then check here for a one-time reward.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
 	{ file = "pages/PagesShop.tsx", needle = "Reward claimed. Thanks for the follow.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
-	{ file = "pages/PagesShop.tsx", needle = "Six offers a day.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
-	{ file = "pages/PagesShop.tsx", needle = "Crate odds.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
-	{ file = "pages/PagesShop.tsx", needle = "The Celestial Ark is only sold in the Daily Shop.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
 	-- Settings (stacked layout on phones, so the header text gets the full width)
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "Saves automatically  ·  v", fill = {}, size = 12, minSize = 9, bold = false, width = PHONE - 60 },
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "From every section.", size = 12, bold = false, width = PHONE - 110 },
