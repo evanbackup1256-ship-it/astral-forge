@@ -4,6 +4,7 @@ import createModel = require("./PlanningModel");
 import * as theme from "./CoreKit/theme";
 import { compactNumber as compact } from "./CoreKit/format";
 import * as GamepadNavigationService from "./CoreKit/GamepadNavigationService";
+import { isGamepadInput, lastInputIsGamepad } from "./CoreKit/inputLayer";
 import { useViewport, MotionSettingsContext } from "./MotionKit/motion";
 
 const P = theme.Palette;
@@ -304,13 +305,21 @@ function scaffold(sections: Section[], viewport: theme.ChromeViewport, props: Pl
 	motion.soft = softMotion;
 	const root = React.useRef<Frame | undefined>(undefined);
 	React.useEffect(() => {
+		// any platform: claim first focus when a pad was the last input, and again when the player
+		// picks one up while nothing is selected
 		const job = task.delay(0.15, () => {
-			if (root.current && GamepadNavigationService.IsConsole()) {
+			if (root.current && lastInputIsGamepad()) {
+				GamepadNavigationService.FocusClaim(root.current);
+			}
+		});
+		const switched = game.GetService("UserInputService").LastInputTypeChanged.Connect((inputType) => {
+			if (root.current && isGamepadInput(inputType) && game.GetService("GuiService").SelectedObject === undefined) {
 				GamepadNavigationService.FocusClaim(root.current);
 			}
 		});
 		return () => {
 			pcall(task.cancel, job);
+			switched.Disconnect();
 		};
 	}, []);
 	return (

@@ -3,7 +3,7 @@ import { formatReward, Reward } from "../../CoreKit/format";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
 
-const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, EmptyState, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
 export type CommunityDispatch = (action: string, payload?: object, callback?: Reply) => unknown;
@@ -239,14 +239,9 @@ export function CommunityPanel(props: {
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
 			<Text value="Community" size={13} color={Palette.cyan} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			{rows.size() === 0 ? (
-				<Text
-					value="Nothing here yet"
-					size={14}
-					color={Palette.muted}
-					weight={Enum.FontWeight.SemiBold}
-					position={UDim2.fromOffset(0, HEADER_H)}
-					sizeConstraint={new UDim2(1, 0, 0, 20)}
-				/>
+				<frame Size={new UDim2(1, 0, 1, -HEADER_H)} Position={UDim2.fromOffset(0, HEADER_H)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<EmptyState title="Nothing here yet" compact={true} inset={0} size={UDim2.fromScale(1, 1)} reducedMotion={props.reducedMotion} />
+				</frame>
 			) : (
 				children
 			)}

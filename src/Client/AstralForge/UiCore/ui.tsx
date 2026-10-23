@@ -3478,8 +3478,12 @@ export function EmptyState({
 	compact = false,
 	zIndex,
 	action,
+	inset = 14,
 }: {
+	/** leave out for a text-only empty state: no icon slot, no space reserved */
 	icon?: unknown;
+	/** inner padding; text-only rows inside an already padded panel pass 0 */
+	inset?: number;
 	title?: string;
 	body?: string;
 	/** optional next step shown under the body, e.g. clear filters */
@@ -3514,16 +3518,16 @@ export function EmptyState({
 			ZIndex={zIndex}
 			Change={{
 				AbsoluteSize: (rbx: Frame) => {
-					const measured = math.max(0, math.floor(rbx.AbsoluteSize.X - 28));
+					const measured = math.max(0, math.floor(rbx.AbsoluteSize.X - inset * 2));
 					if (measured !== innerWidth) setInnerWidth(measured);
 				},
 			}}
 		>
 			<uipadding
-				PaddingTop={new UDim(0, 14)}
-				PaddingBottom={new UDim(0, 14)}
-				PaddingLeft={new UDim(0, 14)}
-				PaddingRight={new UDim(0, 14)}
+				PaddingTop={new UDim(0, inset)}
+				PaddingBottom={new UDim(0, inset)}
+				PaddingLeft={new UDim(0, inset)}
+				PaddingRight={new UDim(0, inset)}
 			/>
 			<uilistlayout
 				FillDirection={Enum.FillDirection.Vertical}
@@ -3532,14 +3536,16 @@ export function EmptyState({
 				Padding={new UDim(0, 6)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
-			<frame
-				Size={UDim2.fromOffset(resolvedIcon, resolvedIcon)}
-				LayoutOrder={0}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-			>
-				<Icon kind={icon} color={Palette.muted} accent={accent} size={resolvedIcon} spin={false} clipSafe={true} />
-			</frame>
+			{icon === undefined ? undefined : (
+				<frame
+					Size={UDim2.fromOffset(resolvedIcon, resolvedIcon)}
+					LayoutOrder={0}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+				>
+					<Icon kind={icon} color={Palette.muted} accent={accent} size={resolvedIcon} spin={false} clipSafe={true} />
+				</frame>
+			)}
 			<Text
 				value={title}
 				size={resolvedTitle}

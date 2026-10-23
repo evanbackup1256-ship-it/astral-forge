@@ -4,7 +4,7 @@ import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
 import * as LimitedEvents from "../../../../Shared/AstralForge/Shared/LimitedEvents";
 
-const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, EmptyState, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const Workspace = game.GetService("Workspace");
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
@@ -84,14 +84,9 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 			return (
 				<Panel size={UDim2.fromScale(1, 1)} accent={Palette.muted} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 					<Text value="Events" size={13} color={Palette.muted} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 16)} />
-					<Text
-						value="No event right now"
-						size={14}
-						color={Palette.creamSoft}
-						weight={Enum.FontWeight.Bold}
-						position={UDim2.fromOffset(0, 20)}
-						sizeConstraint={new UDim2(1, 0, 0, 22)}
-					/>
+					<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} BorderSizePixel={0}>
+						<EmptyState title="No event right now" compact={true} inset={0} size={UDim2.fromScale(1, 1)} reducedMotion={props.reducedMotion} />
+					</frame>
 				</Panel>
 			);
 		}
