@@ -91,3 +91,29 @@ export function Subscribe(listener: () => void): () => void {
 		logListeners.delete(listener);
 	};
 }
+
+// ── Toast rules ────────────────────────────────────────────────────────────────
+// One visible card per lane (the island). A notice stays up at least MIN_ON_SCREEN seconds, and
+// long copy earns reading time: about one second per 12 words on top of the player's setting,
+// capped at READING_CAP (or the setting, if the player chose longer).
+export const MIN_ON_SCREEN = 2.5;
+export const WORDS_PER_SECOND = 12;
+export const READING_CAP = 6;
+
+export function WordCount(text: unknown): number {
+	if (!typeIs(text, "string")) {
+		return 0;
+	}
+	let count = 0;
+	for (const [_word] of text.gmatch("%S+")) {
+		count += 1;
+	}
+	return count;
+}
+
+export function ReadingHold(lifetime: number, title: unknown, body: unknown): number {
+	const words = WordCount(title) + WordCount(body);
+	const reading = words / WORDS_PER_SECOND;
+	const cap = math.max(READING_CAP, lifetime);
+	return math.clamp(lifetime + math.max(0, reading - 1), MIN_ON_SCREEN, cap);
+}

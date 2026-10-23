@@ -24,6 +24,10 @@ export interface ConfirmRequest {
 	tone?: ConfirmTone;
 	onConfirm: () => void;
 	onCancel?: () => void;
+	/** requests with the same key collapse into one: a repeat refreshes the queued one */
+	key?: string;
+	/** old behaviour: drop the open and queued requests (they count as cancelled) */
+	replace?: boolean;
 }
 
 type Listener = (request: ConfirmRequest | undefined) => void;
@@ -36,13 +40,52 @@ function publish(request: ConfirmRequest | undefined) {
 	}
 }
 
-/** Ask the player to confirm. A newer request replaces an open one (the old one counts as cancelled). */
+// Requests queue first in, first out; the next one opens after the previous dialog has closed.
+const queue: ConfirmRequest[] = [];
+
+function sameKey(a: ConfirmRequest | undefined, b: ConfirmRequest): boolean {
+	return a !== undefined && b.key !== undefined && a.key === b.key;
+}
+
+function advance() {
+	publish(queue.shift());
+}
+
+/**
+ * Ask the player to confirm. If a dialog is already open the request waits its turn instead of
+ * cancelling it (a crew kick and an echo break landing together both get answered). A request
+ * whose `key` matches the open one is dropped; one matching a queued request replaces it in place.
+ */
 export function requestConfirm(request: ConfirmRequest) {
-	const previous = current;
-	publish(request);
-	if (previous !== undefined && previous.onCancel !== undefined) {
-		previous.onCancel();
+	if (request.replace === true) {
+		const dropped = [current, ...queue];
+		queue.clear();
+		publish(request);
+		for (const old of dropped) {
+			if (old !== undefined && old.onCancel !== undefined) {
+				old.onCancel();
+			}
+		}
+		return;
 	}
+	if (sameKey(current, request)) {
+		return;
+	}
+	const index = queue.findIndex((queued) => sameKey(queued, request));
+	if (index >= 0) {
+		queue[index] = request;
+		return;
+	}
+	if (current === undefined) {
+		publish(request);
+	} else {
+		queue.push(request);
+	}
+}
+
+/** how many confirms are waiting behind the open one */
+export function pendingConfirms(): number {
+	return queue.size();
 }
 
 function toneColor(tone: ConfirmTone | undefined): Color3 {
@@ -97,7 +140,8 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 			GamepadNavigationService.EndOverlayFocus();
 		};
 	}, []);
-	const focus = useGamepadAutofocus(true);
+	// focus lands when the open motion settles, inside the card's selection group
+	const focus = useGamepadAutofocus(true, reveal);
 	// pad starts on Cancel (the safe choice, as before); Cancel and Confirm are linked both ways
 	useFocusOrder(focus, { regions: ["ConfirmCancel", "ConfirmOk"], first: ["ConfirmCancel"], columns: [["ConfirmCancel", "ConfirmOk"]] }, []);
 
@@ -134,6 +178,11 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 				/>
 				<frame
 					ref={focus as React.Ref<Frame>}
+					SelectionGroup={true}
+					SelectionBehaviorUp={Enum.SelectionBehavior.Stop}
+					SelectionBehaviorDown={Enum.SelectionBehavior.Stop}
+					SelectionBehaviorLeft={Enum.SelectionBehavior.Stop}
+					SelectionBehaviorRight={Enum.SelectionBehavior.Stop}
 					Size={UDim2.fromOffset(width, height)}
 					Position={reveal.map((a) => new UDim2(0.5, 0, 0.5, revealOffset(a)))}
 					AnchorPoint={new Vector2(0.5, 0.5)}
@@ -202,7 +251,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	);
 }
 
-/** Mount once near the app root; renders whatever requestConfirm last asked for. */
+/** Mount once near the app root; shows the queued confirms one at a time. */
 export function ConfirmHost(props: { reducedMotion?: boolean }) {
 	const [request, setRequest] = React.useState<ConfirmRequest | undefined>(current);
 	const [serial, setSerial] = React.useState(0);
@@ -230,7 +279,7 @@ export function ConfirmHost(props: { reducedMotion?: boolean }) {
 			reducedMotion={props.reducedMotion}
 			onResolve={(confirmed) => {
 				if (current === request) {
-					publish(undefined);
+					advance();
 				}
 				if (confirmed) {
 					request.onConfirm();

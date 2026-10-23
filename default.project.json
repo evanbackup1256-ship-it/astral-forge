@@ -62,7 +62,7 @@
               "$path": "vendor/@rbxts/lemon-signal"
             },
             "pretty-react-hooks": {
-              "$path": "vendor/@rbxts/pretty-react-hooks"
+              "$path": "node_modules/@rbxts/pretty-react-hooks"
             },
             "ripple": {
               "$path": "vendor/@rbxts/ripple"

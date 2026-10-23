@@ -475,7 +475,6 @@ export function MainGame(_param: MainGameProps) {
 			);
 		}
 		// every notice plays in the island (queued until it mounts); there is no other toast surface
-		const lifetime = NoticeMath.Lifetime(notificationDurationRef.current);
 		const color =
 			toneValue === "Special"
 				? Palette.violet
@@ -497,6 +496,8 @@ export function MainGame(_param: MainGameProps) {
 							? "Close.10"
 							: "Wave.14";
 		const bodyText = typeIs(bodyValue, "string") ? bodyValue : tostring(bodyValue ?? "");
+		// the player's duration, plus reading time for long copy (toast rules in noticeMath)
+		const lifetime = NoticeMath.ReadingHold(NoticeMath.Lifetime(notificationDurationRef.current), normalizedTitle, bodyText);
 		Juice.banner(normalizedTitle, bodyText !== "" ? bodyText : undefined, color, icon, lifetime, toneValue);
 		return undefined;
 	}, []);

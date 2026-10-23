@@ -1,4 +1,5 @@
 import { isTouchOnly, lastInputIsGamepad } from "../CoreKit/inputLayer";
+import { useBindingListener } from "@rbxts/pretty-react-hooks";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { TooltipContent, labelFor, mergeEvents, useTooltip } from "../Tooltip";
@@ -268,25 +269,52 @@ function assignSelectedObject(object: Instance | undefined) {
 		GuiService.SelectedObject = object;
 	});
 }
-export function useGamepadAutofocus(active: boolean): React.MutableRefObject<GuiObject | undefined> {
+/** the focus target a root starts on: lowest SelectionOrder, then tree order (GuiService:Select rules) */
+function firstFocusTarget(root: Instance): GuiObject | undefined {
+	let best: GuiObject | undefined;
+	for (const child of root.GetDescendants()) {
+		if (child.IsA("GuiButton") && isValidSelectionTarget(child)) {
+			if (best === undefined || child.SelectionOrder < best.SelectionOrder) {
+				best = child;
+			}
+		}
+	}
+	return best;
+}
+
+/**
+ * Gamepad focus for an overlay: selects its first target once it is on screen and gives selection
+ * back on unmount. Pass the overlay's presence binding as `settle` and focus lands when the open
+ * motion settles (presence >= 0.95) instead of on a timer; selection fails while a panel is still
+ * rising in, so this is what makes the first press of A reliable. Without `settle` it waits 0.16s.
+ */
+export function useGamepadAutofocus(active: boolean, settle?: React.Binding<number>): React.MutableRefObject<GuiObject | undefined> {
 	const rootRef = React.useRef<GuiObject>();
+	const doneRef = React.useRef(false);
+	const focusNow = React.useCallback(() => {
+		const root = rootRef.current;
+		if (doneRef.current || root === undefined) {
+			return;
+		}
+		const target = firstFocusTarget(root);
+		if (target !== undefined) {
+			doneRef.current = true;
+			assignSelectedObject(target);
+		}
+	}, []);
+	useBindingListener<number>(settle ?? 0, (amount) => {
+		if (active && settle !== undefined && amount >= 0.95 && lastInputIsGamepad()) {
+			focusNow();
+		}
+	});
 	React.useEffect(() => {
 		if (!active || !lastInputIsGamepad()) {
 			return undefined;
 		}
+		doneRef.current = false;
 		const previous = GuiService.SelectedObject;
-		const worker = task.delay(0.16, () => {
-			const root = rootRef.current;
-			if (root === undefined) {
-				return;
-			}
-			for (const child of root.GetDescendants()) {
-				if (child.IsA("GuiButton") && isValidSelectionTarget(child)) {
-					assignSelectedObject(child);
-					return;
-				}
-			}
-		});
+		// with a settle binding the timer is only a backstop (reduced motion can skip the frames)
+		const worker = task.delay(settle !== undefined ? 0.6 : 0.16, focusNow);
 		return () => {
 			task.cancel(worker);
 			if (isValidSelectionTarget(previous)) {
