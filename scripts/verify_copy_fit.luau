@@ -106,7 +106,7 @@ local function phoneCases(phone: number)
 	local panel = page - 14 * 2
 	return {
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Power cells", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
-		{ file = "pages/PagesProgress/LabView.tsx", needle = "A new cell every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
+		{ file = "pages/PagesProgress/LabView.tsx", needle = "A new cell every 8 rebirths", size = 12, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
 	}
 end

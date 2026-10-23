@@ -131,10 +131,10 @@ function ForgePathRow({
 /** 15-rewards "This week" cell: label, glyph, figure, Claim on the live one; claimed cells at .55. */
 const DAY_CELL_H = 148;
 const DAY_CELL_H_PHONE = 118;
-function DayCell(p: { step: DecoratedForgePathStep; claimed: boolean; ready: boolean; next: boolean; phone: boolean; onClaim: (step: number) => unknown; reducedMotion?: boolean; order: number }) {
+function DayCell(p: { step: DecoratedForgePathStep; claimed: boolean; ready: boolean; next: boolean; phone: boolean; onClaim: (step: number) => unknown; reducedMotion?: boolean; order: number; size: UDim2 }) {
 	const { step, phone } = p;
 	return (
-		<canvasgroup BackgroundTransparency={1} GroupTransparency={p.claimed ? 0.45 : 0} LayoutOrder={p.order}>
+		<canvasgroup BackgroundTransparency={1} Size={p.size} GroupTransparency={p.claimed ? 0.45 : 0} LayoutOrder={p.order}>
 			<frame BackgroundColor3={Palette.white} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)}>
 				<RowFace outline={p.next ? Palette.mango : undefined} strong={p.next} />
 				<uipadding PaddingTop={new UDim(0, phone ? 10 : 14)} PaddingBottom={new UDim(0, phone ? 10 : 14)} PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
@@ -316,7 +316,8 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 				scrollBarThickness={4}
 				keyExtractor={(step: DecoratedForgePathStep) => step.Step}
 				renderItem={({ item, index }: { item: DecoratedForgePathStep; index: number }) => (
-					<ForgePathRow
+					<frame BackgroundTransparency={1} Size={new UDim2(1, 0, 0, stepRowHeight)}>
+						<ForgePathRow
 						step={item}
 						claimed={claimedSet.has(item.Step)}
 						unlockedForClaim={item.Step === 1 || claimedSet.has(item.Step - 1)}
@@ -326,7 +327,8 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 						reducedMotion={reducedMotion}
 						index={index + 1}
 						stack={rowStack}
-					/>
+						/>
+					</frame>
 				)}
 			/>
 		);
@@ -344,6 +346,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 					{windowSteps.map((step, i) => (
 						<DayCell
 							key={step.Step}
+							size={new UDim2(1, 0, 0, dayH)}
 							step={step}
 							claimed={claimedSet.has(step.Step)}
 							next={nextStep !== undefined && step.Step === nextStep.Step}

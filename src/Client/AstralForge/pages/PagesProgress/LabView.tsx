@@ -332,6 +332,7 @@ function LabViewReady(props: LabProps) {
 						return undefined;
 					}
 					return (
+						<frame BackgroundTransparency={1} Size={new UDim2(1, 0, 0, orderH)}>
 						<OrderRow
 							state={orderState}
 							config={orderConfig}
@@ -340,6 +341,7 @@ function LabViewReady(props: LabProps) {
 							order={index}
 							stack={rowStack}
 						/>
+						</frame>
 					);
 				}}
 			/>
