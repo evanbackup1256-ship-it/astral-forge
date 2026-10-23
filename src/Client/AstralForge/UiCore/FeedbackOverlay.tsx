@@ -30,8 +30,8 @@ const CATEGORY_HINTS: Record<string, string> = {
 	Other: "Anything else on your mind. (8+ characters)",
 };
 const IMPACT_LABELS = ["Minor", "Noticeable", "Annoying", "Major", "Blocking"];
-// the four impact tabs map onto the server's 1-5 scale (3, "Annoying", has no tab)
-const IMPACT_TABS = [1, 2, 4, 5];
+// one tab per step of the server's 1-5 impact scale
+const IMPACT_TABS = [1, 2, 3, 4, 5];
 const ACCENT = Palette.brass;
 
 function deviceTag() {
@@ -96,8 +96,10 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 	const categoryColumns = narrow ? 3 : 6;
 	const categoryH = keyboardCompact ? 0 : segmentedHeight(CATEGORIES.size(), categoryColumns, viewport, 44, 8);
 	const impactTop = categoryTop + categoryH + 8;
-	// phones hide the impact row (it stays on Noticeable)
-	const impactH = keyboardCompact || sent || compact ? 0 : 22 + TapTarget;
+	// narrow screens wrap the five impact tabs onto two rows
+	const impactColumns = narrow ? 3 : IMPACT_TABS.size();
+	const impactTabsH = segmentedHeight(IMPACT_TABS.size(), impactColumns, viewport, 44, 8);
+	const impactH = keyboardCompact || sent ? 0 : 22 + impactTabsH;
 	const editorTop = keyboardCompact ? categoryTop + 6 : impactTop + impactH + (impactH > 0 ? 8 : 2);
 	const footerH = TapTarget + (keyboardCompact ? 4 : 14) + (narrow && !sent ? TapTarget + 6 : 0);
 	const editorH = math.max(44, contentHeight - editorTop - footerH - 8);
@@ -364,14 +366,14 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			}),
 			h(
 				"frame",
-				{ Size: new UDim2(1, 0, 0, TapTarget), Position: UDim2.fromOffset(0, 22), BackgroundTransparency: 1, ZIndex: 475 },
+				{ Size: new UDim2(1, 0, 0, impactTabsH), Position: UDim2.fromOffset(0, 22), BackgroundTransparency: 1, ZIndex: 475 },
 				h(SegmentedTabs, {
 					options: IMPACT_TABS.map((level) => ({ id: tostring(level), label: IMPACT_LABELS[level - 1], accent: ACCENT })),
 					value: tostring(impact),
 					onChange: (id: string) => setImpact(tonumber(id) ?? 2),
 					accent: ACCENT,
 					sound: "tabSwitch",
-					columns: IMPACT_TABS.size(),
+					columns: impactColumns,
 					gap: 6,
 					size: UDim2.fromScale(1, 1),
 					reducedMotion: softMotion,
