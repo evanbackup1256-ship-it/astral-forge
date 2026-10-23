@@ -9,6 +9,8 @@ import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme
 import { useClock, useFlipperSpring, useViewport } from "../MotionKit/motion";
 import { ConstellationsView, constellationsHeight, ConstellationState } from "./PagesProgress/ConstellationsView";
 import { AudioPlayer, kitMember, LuauComponent } from "./luauKits";
+import { Bar, BODY, BODY_SEMI, Chip, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, RowSurface } from "../UiCore/mockKit";
+import { Grid, headingBlock, IconWell, MockBtn, MockRow, panelHeight, rowHeight } from "./mockRows";
 
 const RunService = game.GetService("RunService");
 const Ui = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
@@ -32,7 +34,7 @@ const SIGIL_ICONS: Record<string, string | undefined> = {
 	Crown: "Domain",
 	Lodestar: "StarGrid",
 };
-const GAP = 20;
+const GAP = 18;
 const HOLD_SECONDS = 1.6;
 
 type Flux = number | string;
@@ -294,90 +296,67 @@ interface SigilCardProps {
 	onBuy: (id: string) => void;
 }
 
-function SigilCard(props: SigilCardProps) {
+// sigil cell: a .row column (radius 11) with the icon well, name + line, level, effect and a cost button
+const SIGIL_CELL_H = 150;
+function SigilCard(props: SigilCardProps & { phone: boolean }) {
 	const sigil = props.sigil;
 	const color = SIGIL_COLORS[sigil.Id] ?? ACCENT;
 	const pulse = useClock(!props.softMotion && sigil.Level > 0, 0.6, math.pi * 2);
 	const boughtFlash = useFlipperSpring(sigil.Level, props.softMotion, 300, 22);
 	const boosted = sigil.EffectiveLevel > sigil.Level;
-	// narrow phones: the level number only needs ~44 px, so the name gets the rest of the row
-	const levelW = useViewport().width < 420 ? 44 : 84;
+	const phone = props.phone;
+	const pad = phone ? 10 : 14;
 	return (
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={20} accent={color} background={Palette.panelRaised} clips={false}>
-			<frame Size={UDim2.fromOffset(52, 52)} BackgroundColor3={darken(color, 0.72)} BorderSizePixel={0}>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uistroke
-					Color={color}
-					Thickness={2}
-					Transparency={pulse.map((a) => (sigil.Level > 0 ? 0.15 + (math.sin(a) + 1) * 0.2 : 0.6))}
-				/>
-				<Ui.IconTile
-					kind={SIGIL_ICONS[sigil.Id] ?? "StarGrid"}
-					accent={color}
-					size={34}
-					position={UDim2.fromOffset(9, 9)}
-					reducedMotion={props.softMotion}
-				/>
-			</frame>
-			<Ui.Text
-				value={sigil.Name}
-				size={20}
-				weight={Enum.FontWeight.Heavy}
-				position={UDim2.fromOffset(66, 2)}
-				sizeConstraint={new UDim2(1, -(66 + levelW), 0, 24)}
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+			<RowSurface />
+			<uistroke
+				Color={color}
+				Thickness={1}
+				Transparency={pulse.map((a) => (sigil.Level > 0 ? 0.55 + (math.sin(a) + 1) * 0.15 : 0.92))}
+				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 			/>
-			<Ui.Text
-				value={sigil.Line}
-				size={13}
-				color={Palette.muted}
-				position={UDim2.fromOffset(66, 28)}
-				sizeConstraint={new UDim2(1, -66, 0, 18)}
-			/>
-			<Ui.Text
-				value={sigil.Level > 0 ? compact(sigil.Level) : "—"}
-				size={13}
-				color={color}
-				weight={Enum.FontWeight.Heavy}
-				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -levelW, 0, 4)}
-				sizeConstraint={UDim2.fromOffset(levelW, 18)}
-			/>
-			<Ui.Text
-				value={
+			<uipadding PaddingLeft={new UDim(0, pad)} PaddingRight={new UDim(0, pad)} PaddingTop={new UDim(0, pad)} PaddingBottom={new UDim(0, pad)} />
+			<IconWell icon={SIGIL_ICONS[sigil.Id] ?? "StarGrid"} accent={color} />
+			<Line text={sigil.Name} size={phone ? 13 : 15} font={BODY_SEMI} position={UDim2.fromOffset(48, 0)} width={new UDim(1, -48 - 70)} height={19} />
+			<Line text={sigil.Line} size={phone ? 11 : 12} font={BODY} color={Palette.muted} position={UDim2.fromOffset(48, 21)} width={new UDim(1, -48)} height={15} />
+			<Line text={sigil.Level > 0 ? `Lv ${compact(sigil.Level)}` : "Lv 0"} size={phone ? 14 : 17} font={NUM} color={color} position={UDim2.fromScale(1, 0)} anchor={new Vector2(1, 0)} width={new UDim(0, 70)} align={Enum.TextXAlignment.Right} />
+			<Line
+				text={
 					sigil.Level > 0
-						? `×${compact(sigil.Multiplier)} ${sigil.Effect.lower()}` +
-							(boosted ? `, as Lv ${compact(sigil.EffectiveLevel)}` : "")
+						? `×${compact(sigil.Multiplier)} ${sigil.Effect.lower()}` + (boosted ? `, as Lv ${compact(sigil.EffectiveLevel)}` : "")
 						: "Buy a level to start it"
 				}
-				size={15}
-				weight={Enum.FontWeight.Bold}
-				color={Palette.cream}
-				position={UDim2.fromOffset(0, 60)}
-				sizeConstraint={new UDim2(1, 0, 0, 20)}
+				size={phone ? 12 : 13}
+				font={BODY_SEMI}
+				color={Palette.creamSoft}
+				position={UDim2.fromOffset(0, 46)}
+				width={new UDim(1, 0)}
 			/>
-			<Ui.Button
-				text={`${compact(sigil.Cost)}`}
-				icon="StarGrid.2"
-				color={sigil.Affordable ? color : Palette.panelSoft}
-				textColor={sigil.Affordable ? Palette.ink : Palette.muted}
+			<MockBtn
+				text={compact(sigil.Cost)}
+				icon="StarGrid"
+				sm={true}
+				phone={phone}
+				fill={true}
+				accent={color}
 				disabled={!sigil.Affordable || props.busy}
-				highlight={sigil.Affordable}
-				size={new UDim2(1, 0, 0, 44)}
-				position={new UDim2(0, 0, 1, -44)}
+				position={new UDim2(0, 0, 1, 0)}
+				anchor={new Vector2(0, 1)}
 				reducedMotion={props.softMotion}
 				onClick={() => props.onBuy(sigil.Id)}
 			/>
 			{/* a brief glow when a level lands */}
 			<frame
-				Size={UDim2.fromScale(1, 1)}
+				Size={new UDim2(1, pad * 2, 1, pad * 2)}
+				Position={UDim2.fromOffset(-pad, -pad)}
 				BackgroundColor3={color}
 				BackgroundTransparency={boughtFlash.map((value) => 1 - math.clamp(math.abs(value - sigil.Level), 0, 1) * 0.35)}
 				BorderSizePixel={0}
 				ZIndex={0}
 			>
-				<uicorner CornerRadius={new UDim(0, 14)} />
+				<uicorner CornerRadius={new UDim(0, 11)} />
 			</frame>
-		</Ui.Panel>
+		</frame>
 	);
 }
 
@@ -422,184 +401,121 @@ function AscensionViewBoard(props: AscensionViewProps) {
 		return <PageScaffold sections={sections} gap={GAP} tailPad={72} />;
 	}
 
-	// hero (phones: a smaller orbit and a narrower left column so the copy keeps its width)
-	const heroH = stack ? 96 : 120;
-	const outer = stack ? 30 : 42;
-	const inner = stack ? 18 : 26;
-	const orbitY = heroH / 2;
-	add(
-		"hero",
-		heroH,
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={stack ? 14 : 18} accent={Palette.brass} background={darken(ACCENT, 0.9)} radius={18} clips={true}>
-			<Orbit count={12} radius={outer} dot={6} speed={1} color={ACCENT} position={new UDim2(1, -(outer + 14), 0, orbitY - (stack ? 14 : 18))} softMotion={softMotion} zIndex={2} />
-			<Orbit count={7} radius={inner} dot={5} speed={-1.6} color={lighten(ACCENT, 0.25)} position={new UDim2(1, -(outer + 14), 0, orbitY - (stack ? 14 : 18))} softMotion={softMotion} zIndex={2} />
-			<Ui.Text value={`TIER ${state.Rank} → ${state.Rank + 1}`} size={10} weight={Enum.FontWeight.Heavy} color={Palette.violet} sizeConstraint={new UDim2(1, -140, 0, 14)} />
-			<Ui.Text value="Ascension" size={stack ? 22 : 30} weight={Enum.FontWeight.Heavy} fit={true} minSize={16} position={UDim2.fromOffset(0, 16)} sizeConstraint={new UDim2(1, -140, 0, stack ? 26 : 36)} />
-			<Ui.Text
-				value={`${compact(state.Aether)} Aether · ×${compact(state.Production)}`}
-				size={12}
-				color={Palette.creamSoft}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, stack ? 46 : 58)}
-				sizeConstraint={new UDim2(1, -(outer * 2 + 40), 0, 16)}
-			/>
-		</Ui.Panel>,
-	);
-
-	// orbit diagram + requirements
+	// 10-ascension: orbit panel (f1) beside the 480px tier perks panel; harmony and sigils follow as panels
+	const phone = stack;
+	const gap = mockGap(phone);
+	const pad = panelPad(phone);
+	const head = headingBlock(phone);
 	const progress = math.clamp(state.DomainRank / math.max(1, state.RequiredDomainRank), 0, 1);
-	const diagramH = stack ? 220 : 320;
-	const reqRows: [string, string, string, boolean][] = [
-		["Domain.1", "Domain rank", `${state.DomainRank} / ${state.RequiredDomainRank}`, state.DomainRank >= state.RequiredDomainRank],
-		["StarGrid.2", "Aether gain", `+${compact(state.Gain)}`, state.CanAscend],
-		["Forge.3", "Next tier", `×${compact(state.NextRankProduction)}`, false],
+	const rowH2 = rowHeight(phone, true);
+	const reqRows: [string, string, string, string, boolean][] = [
+		["Domain", "Domain rank", "Reach it to ascend", `${state.DomainRank} / ${state.RequiredDomainRank}`, state.DomainRank >= state.RequiredDomainRank],
+		["StarGrid", "Aether gain", "Paid when you ascend", `+${compact(state.Gain)}`, state.CanAscend],
+		["Forge", "Next tier", "Production multiplier", `×${compact(state.NextRankProduction)}`, false],
 	];
-	const reqH = 30 + reqRows.size() * 46 + 56 + 16 + 12;
-	const reqItems: Record<string, React.Element> = {};
-	reqRows.forEach(([icon, label, value, met], i) => {
-		reqItems["r" + i] = (
-			<frame Size={new UDim2(1, 0, 0, 40)} Position={UDim2.fromOffset(0, 28 + i * 46)} BackgroundColor3={Palette.panelSoft} BackgroundTransparency={0.4} BorderSizePixel={0}>
-				<uicorner CornerRadius={new UDim(0, 10)} />
-				<Ui.IconTile kind={icon} accent={met ? Palette.violet : Palette.lineSoft} size={26} position={UDim2.fromOffset(7, 7)} reducedMotion={softMotion} />
-				<Ui.Text value={label} size={13} weight={Enum.FontWeight.Bold} position={UDim2.fromOffset(42, 11)} sizeConstraint={new UDim2(1, -140, 0, 18)} />
-				<Ui.Text value={value} size={13} weight={Enum.FontWeight.Heavy} color={met ? Palette.violet : Palette.creamSoft} align={Enum.TextXAlignment.Right} position={new UDim2(1, -102, 0, 11)} sizeConstraint={UDim2.fromOffset(92, 18)} />
-			</frame>
-		);
-	});
-	const requirements = (
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={state.CanAscend ? ACCENT : Palette.lineSoft} background={Palette.panel} radius={18}>
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uicorner CornerRadius={new UDim(0, 12)} />
-				<uistroke Color={Palette.brass} Transparency={0.75} Thickness={1} />
-			</frame>
-			<Ui.Text value={`TIER ${state.Rank + 1}`} size={12} weight={Enum.FontWeight.Heavy} color={Palette.brass} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-			{reqItems}
-			<Ui.Meter value={progress} color={Palette.violet} reducedMotion={softMotion} position={new UDim2(0, 0, 1, -(TapTarget + 8 + 14))} size={new UDim2(1, 0, 0, 6)} />
-			<frame key="AscendConfirm" Size={new UDim2(1, 0, 0, TapTarget + 8)} Position={new UDim2(0, 0, 1, -(TapTarget + 8))} BackgroundTransparency={1} BorderSizePixel={0}>
+	const btnH = phone ? TapTarget : 44;
+	const perksContent = head + reqRows.size() * (rowH2 + pad.gap) + pad.gap + 10 + pad.gap + btnH;
+	const perksH = panelHeight(phone, perksContent);
+	const diagramH = phone ? 220 : 400;
+	const orbitContent = diagramH + 12 + 20;
+	const boardH = phone ? panelHeight(true, orbitContent) + gap + perksH : math.max(panelHeight(false, orbitContent), perksH);
+	const perks = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reducedMotion={softMotion} name="TierPerks">
+			<PanelHeading icon="StarGrid" title={`Tier ${state.Rank + 1}`} accent={Palette.violet} phone={phone} layoutOrder={0} />
+			{reqRows.map(([icon, label, sub, value, met], i) => (
+				<MockRow key={"r" + i} phone={phone} icon={icon} accent={Palette.violet} dim={!met} title={label} sub={sub} value={value} valueColor={met ? Palette.violet : Palette.creamSoft} layoutOrder={i + 1} />
+			))}
+			<frame Size={new UDim2(1, 0, 0, math.max(0, (phone ? perksH : boardH) - perksH))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={8} />
+			<Bar fill={progress} color={Palette.violet} layoutOrder={9} />
+			<frame key="AscendConfirm" Size={new UDim2(1, 0, 0, btnH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={10}>
 				<HoldButton
 					enabled={state.CanAscend && !busy}
 					text="Hold to ascend"
-					disabledText={`Domain ${state.RequiredDomainRank} needed`}
+					disabledText={`Ascend at Domain ${state.RequiredDomainRank}`}
 					size={UDim2.fromScale(1, 1)}
 					position={UDim2.fromOffset(0, 0)}
 					onConfirm={() => request("Ascend")}
 				/>
 			</frame>
-		</Ui.Panel>
+		</MockPanel>
 	);
 	const diagram = (
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} background={Palette.panelRaised} radius={18} clips={true}>
-			<OrbitDiagram rank={state.Rank} height={diagramH - 28} />
-			<Ui.Text
-				value={`Domain ${state.DomainRank} / ${state.RequiredDomainRank}   ·   Aether ${compact(state.Aether)}`}
-				size={12}
-				color={Palette.creamSoft}
-				align={Enum.TextXAlignment.Center}
-				fit={true}
-				minSize={10}
-				position={new UDim2(0, 0, 1, -18)}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-				zIndex={4}
-			/>
-		</Ui.Panel>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} glow={Palette.violet} reducedMotion={softMotion} name="AscensionOrbit">
+			<frame Size={new UDim2(1, 0, 0, diagramH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={true}>
+				<OrbitDiagram rank={state.Rank} height={diagramH} />
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, 20)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, 30)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={`Domain ${state.DomainRank} / ${state.RequiredDomainRank}`} size={15} font={BODY_SEMI} color={Palette.cream} layoutOrder={0} />
+				<Line text={`Aether ${compact(state.Aether)}`} size={15} font={BODY_SEMI} color={Palette.cream} layoutOrder={1} />
+				<Line text={`Production ×${compact(state.Production)}`} size={15} font={BODY_SEMI} color={Palette.muted} layoutOrder={2} />
+			</frame>
+		</MockPanel>
 	);
-	const pairPlan = splitColumns(stack ? 0 : viewport.width - 40, 300, GAP, 760);
-	const boardH = pairPlan.split ? math.max(diagramH, reqH) : diagramH + GAP + reqH;
 	add(
 		"ascend",
 		boardH,
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<frame Size={pairPlan.split ? new UDim2(1, -(pairPlan.side + GAP), 1, 0) : new UDim2(1, 0, 0, diagramH)} BackgroundTransparency={1}>
+			<frame Size={phone ? new UDim2(1, 0, 0, boardH - perksH - gap) : new UDim2(1, -(480 + gap), 1, 0)} BackgroundTransparency={1}>
 				{diagram}
 			</frame>
-			<frame
-				Size={pairPlan.split ? new UDim2(0, pairPlan.side, 1, 0) : new UDim2(1, 0, 0, reqH)}
-				Position={pairPlan.split ? new UDim2(1, -pairPlan.side, 0, 0) : UDim2.fromOffset(0, diagramH + GAP)}
-				BackgroundTransparency={1}
-			>
-				{requirements}
+			<frame Size={phone ? new UDim2(1, 0, 0, perksH) : new UDim2(0, 480, 1, 0)} Position={phone ? new UDim2(0, 0, 1, -perksH) : new UDim2(1, -480, 0, 0)} BackgroundTransparency={1}>
+				{perks}
 			</frame>
 		</frame>,
 	);
 	if (note !== "") {
-		add("note", 28, <Ui.Text value={note} size={14} color={Palette.creamSoft} sizeConstraint={new UDim2(1, 0, 0, 24)} />);
+		add("note", 24, <Line text={note} size={14} font={BODY_SEMI} color={Palette.creamSoft} width={new UDim(1, 0)} />);
 	}
 
-	// harmony
-	// pips sat at y 40 in a 54 px body (12 px past the panel); phones get two rows of three so names fit
-	const pipCols = stack ? 3 : 6;
-	const pipRows = math.ceil(state.Sigils.size() / pipCols);
-	const pips: Record<string, React.Element> = {};
+	// harmony: one chip per sigil, accent when it is above the harmony floor
+	const harmonyLine =
+		state.Harmony > 0
+			? `Started sigils act ${state.Harmony} level${state.Harmony === 1 ? "" : "s"} higher`
+			: "Raise all six together";
+	const chips: React.Element[] = [];
 	state.Sigils.forEach((sigil, index) => {
 		const color = SIGIL_COLORS[sigil.Id] ?? ACCENT;
-		pips[sigil.Id] = (
-			<frame
-				Size={new UDim2(1 / pipCols, -8, 0, 26)}
-				Position={new UDim2((index % pipCols) / pipCols, 4, 0, 30 + math.floor(index / pipCols) * 32)}
-				BackgroundColor3={darken(color, sigil.Level > state.Harmony ? 0.4 : 0.75)}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<Ui.Text
-					value={`${sigil.Name} ${compact(sigil.Level)}`}
-					size={11}
-					weight={Enum.FontWeight.Bold}
-					align={Enum.TextXAlignment.Center}
-					fit={false}
-					sizeConstraint={new UDim2(1, -12, 0, 26)}
-					position={UDim2.fromOffset(6, 0)}
-				/>
-			</frame>
-		);
+		chips.push(<Chip key={sigil.Id} text={`${sigil.Name} ${compact(sigil.Level)}`} accent={sigil.Level > state.Harmony ? color : undefined} layoutOrder={index} phone={phone} />);
 	});
+	const chipRows = phone ? 2 : 1;
+	const chipH = phone ? 24 : 28;
 	add(
 		"harmony",
-		28 + 30 + pipRows * 26 + (pipRows - 1) * 6,
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.mint} background={Palette.panel}>
-			<Ui.Text
-				value={
-					state.Harmony > 0
-						? `Harmony ${state.Harmony}: started sigils act ${state.Harmony} level${state.Harmony === 1 ? "" : "s"} higher`
-						: "Harmony 0: raise all six together"
-				}
-				size={15}
-				weight={Enum.FontWeight.Bold}
-				sizeConstraint={new UDim2(1, 0, 0, 22)}
-			/>
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-				{pips}
+		panelHeight(phone, head + chipRows * chipH + (chipRows - 1) * 6),
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.mint} reducedMotion={softMotion} name="Harmony">
+			<PanelHeading icon="Wave" title={`Harmony ${state.Harmony}`} note={harmonyLine} accent={Palette.mint} phone={phone} layoutOrder={0} />
+			<frame Size={new UDim2(1, 0, 0, chipRows * chipH + (chipRows - 1) * 6)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Wraps={true} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{chips}
 			</frame>
-		</Ui.Panel>,
+		</MockPanel>,
 	);
 
 	// sigils
 	// wide desktop: the star charts get their own column beside the Ascension board
-	const plan = splitColumns(stack || !typeIs(props.state.Constellations, "table") ? 0 : viewport.width, 440, GAP, 1500);
+	const plan = splitColumns(stack || !typeIs(props.state.Constellations, "table") ? 0 : viewport.width, 440, gap, 1500);
 	const sideColumn = plan.split;
 	const columns = stack ? 1 : sideColumn ? 2 : viewport.width >= 1300 ? 3 : 2;
-	const cardH = 168;
 	const rows = math.ceil(state.Sigils.size() / columns);
-	const cards: Record<string, React.Element> = {};
+	const cellH = phone ? SIGIL_CELL_H - 20 + TapTarget - 36 : SIGIL_CELL_H;
+	const cells: React.Element[] = [];
 	state.Sigils.forEach((sigil, index) => {
-		const cardCol = index % columns;
-		const row = math.floor(index / columns);
-		cards[sigil.Id] = (
-			<frame
-				Size={new UDim2(1 / columns, -GAP + GAP / columns, 0, cardH)}
-				Position={new UDim2(cardCol / columns, (cardCol * GAP) / columns, 0, row * (cardH + GAP))}
-				BackgroundTransparency={1}
-			>
-				<SigilCard sigil={sigil} softMotion={softMotion} busy={busy} onBuy={(id) => request("UpgradeSigil", { Id: id })} />
-			</frame>
+		cells.push(
+			<frame key={sigil.Id} BackgroundTransparency={1} LayoutOrder={index}>
+				<SigilCard sigil={sigil} softMotion={softMotion} busy={busy} phone={phone} onBuy={(id) => request("UpgradeSigil", { Id: id })} />
+			</frame>,
 		);
 	});
 	add(
 		"sigils",
-		rows * cardH + (rows - 1) * GAP,
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			{cards}
-		</frame>,
+		panelHeight(phone, head + rows * cellH + (rows - 1) * 12),
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reducedMotion={softMotion} name="Sigils">
+			<PanelHeading icon="StarGrid" title="Sigils" note={`${compact(state.Aether)} Aether`} phone={phone} layoutOrder={0} />
+			<Grid columns={columns} gap={12} cellHeight={cellH} count={state.Sigils.size()} layoutOrder={1}>
+				{cells}
+			</Grid>
+		</MockPanel>,
 	);
 
 	// v8 star charts: every rebirth is a Star Point
@@ -630,10 +546,10 @@ function AscensionViewBoard(props: AscensionViewProps) {
 	if (sideColumn) {
 		const side = sections.filter((section) => section.id === "constellations");
 		const main = sections.filter((section) => section.id !== "constellations");
-		const split = splitSection("AscensionSplit", plan, GAP, side, main, true, sections.map((section) => section.id));
-		return <PageScaffold sections={[split]} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
+		const split = splitSection("AscensionSplit", plan, gap, side, main, true, sections.map((section) => section.id));
+		return <PageScaffold sections={[split]} gap={gap} tailPad={72} scrollBarColor={ACCENT} />;
 	}
-	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
+	return <PageScaffold sections={sections} gap={gap} tailPad={72} scrollBarColor={ACCENT} />;
 }
 
 
@@ -642,7 +558,7 @@ function AscensionView(props: AscensionViewProps) {
 	useFocusOrder(
 		hostRef,
 		// explicit pad order down the board; Hold first when it can be pressed, then the sigils; the charts column links left/right
-		{ regions: ["hero", "AscendConfirm", "ascend", "harmony", "sigils", "constellations"], first: ["AscendConfirm", "sigils"], columns: [["Main", "Side"]] },
+		{ regions: ["AscendConfirm", "ascend", "harmony", "sigils", "constellations"], first: ["AscendConfirm", "sigils"], columns: [["Main", "Side"]] },
 		[props.state.Ascension?.CanAscend === true, props.state.Ascension?.Rank],
 	);
 	return (
