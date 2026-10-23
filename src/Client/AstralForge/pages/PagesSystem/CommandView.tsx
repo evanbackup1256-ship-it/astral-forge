@@ -215,7 +215,7 @@ function TabPane(props: { tabKey: string; reducedMotion?: boolean; children?: Re
 			BorderSizePixel={0}
 			LayoutOrder={20}
 		>
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Layout.panelGap)} />
+			{/* no layout here: the single inner pane slides in on Position, which a UIListLayout would pin */}
 			<frame
 				Size={new UDim2(1, 0, 0, 0)}
 				AutomaticSize={Enum.AutomaticSize.Y}

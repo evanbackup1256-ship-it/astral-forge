@@ -1,5 +1,4 @@
 [
 	"list-child-position-dynamic|pages/PagesCore/OverviewView.tsx|frame under uilistlayout sets Position portrait ? undefined : phone ? new UDim2(0, 12, 1, -12) : ne (ignored by the layout)",
-	"list-child-position-dynamic|pages/PagesSystem/CommandView.tsx|frame under uilistlayout sets Position enter.map((a) => new UDim2(0, math.round((1 - math.clamp(a,  (ignored by the layout)",
 	"list-child-position|pages/PagesCore/OverviewView.tsx|<MockPanel> under uilistlayout passes position new UDim2(1, -30, 0, 24) (ignored by the layout)"
 ]

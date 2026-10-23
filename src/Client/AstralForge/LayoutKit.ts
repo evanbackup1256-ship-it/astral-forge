@@ -2249,35 +2249,9 @@ __defs["scrolling"] = () => {
 		);
 		globalConnections.push(
 			UserInputService.InputChanged.Connect((input) => {
+				// mouse wheel is left to the native ScrollingFrame: the extra deferred impulse on top of
+				// Roblox's own wheel step double-scrolled and fought it (jittery, overshooting wheel scrolling)
 				if (input.UserInputType === Enum.UserInputType.MouseWheel) {
-					const direction = input.Position.Z;
-					if (direction === 0) {
-						return undefined;
-					}
-					task.defer(() => {
-						if (!installed) {
-							return undefined;
-						}
-						const innermost = frameUnderPointer();
-						if (innermost === undefined) {
-							return undefined;
-						}
-						const travel = 78 + scrollPreference * 110;
-						const shift =
-							UserInputService.IsKeyDown(Enum.KeyCode.LeftShift) || UserInputService.IsKeyDown(Enum.KeyCode.RightShift);
-						let frame: ScrollingFrame | undefined = innermost;
-						while (frame !== undefined) {
-							const horizontal =
-								frame.ScrollingDirection === Enum.ScrollingDirection.X ||
-								(shift && frame.ScrollingDirection === Enum.ScrollingDirection.XY);
-							const delta = horizontal ? new Vector2(-direction * travel, 0) : new Vector2(0, -direction * travel);
-							if (canScrollToward(frame, delta)) {
-								addImpulse(frame, delta);
-								return undefined;
-							}
-							frame = scrollingAncestor(frame.Parent);
-						}
-					});
 					return undefined;
 				}
 				if (input.UserInputType === Enum.UserInputType.Gamepad1 && input.KeyCode === Enum.KeyCode.Thumbstick2) {
