@@ -537,7 +537,8 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				color={Palette.creamSoft}
 				wrap={true}
 				align={Enum.TextXAlignment.Center}
-				size={new UDim2(1, 0, 0, 20 * lines)}
+				size={UDim2.fromScale(1, 0)}
+				autoHeight={true}
 				order={order}
 				zIndex={6}
 			/>,
