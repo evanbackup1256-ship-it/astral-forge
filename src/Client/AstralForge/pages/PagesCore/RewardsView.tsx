@@ -1,24 +1,23 @@
+// Rewards, ported from design/15-rewards (desktop.html 1920x1080, phone.html 844x390).
+// Desktop: "This week" panel with the 7-day strip (12px gap, column rows, today ringed in mango with
+// a Claim button), then a row of two equal panels: Playtime gifts (icon well, minutes, time left)
+// and Codes (code field + Redeem, one muted note). Phone: the strip at 4 per row, panels stacked.
+// The limited event, community rewards and the reward shortcuts follow underneath, as before.
 import React from "@rbxts/react";
-import { FocusPlan, useFocusOrder } from "../../CoreKit/focusOrder";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, formatReward, Reward } from "../../CoreKit/format";
-import { chromeFor, darken, lighten, Palette, Radius, scrollTail, StrokeWidth, TapTarget } from "../../CoreKit/theme";
-import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motion";
-import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { chromeFor, Palette } from "../../CoreKit/theme";
+import { useStagger, useViewport } from "../../MotionKit/motion";
+import { Button } from "../../UiCore/ui";
+import { BODY, BODY_BOLD, Glyph, Line, MockPanel, PanelHeading, RowSurface } from "../../UiCore/mockKit";
+import { Flex, GcRow, GcScroll, Note, rowH } from "../gcKit";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
 import { EventDispatch, EventPanel, eventPanelHeight, EventState } from "./EventPanel";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
-import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
-
-type ColumnSection = { id: string; height: number; element: React.Element };
 
 const UserInputService = game.GetService("UserInputService");
-const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
-const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
-const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
-const Browse = clientModule<BrowseApi>("BrowseKit");
 
-type Dispatch = (action: string, payload?: { Index?: number }) => unknown;
+type Reply = (response: { ok?: boolean; message?: string }) => void;
+type Dispatch = (action: string, payload?: object, callback?: Reply) => unknown;
 
 interface DailyState {
 	Rewards?: Reward[];
@@ -39,265 +38,66 @@ interface ClaimableTask {
 	Target?: number;
 }
 
-interface ChargeRailProps {
-	value: number;
-	accent: Color3;
-	ready: boolean;
-	reducedMotion?: boolean;
-	position: UDim2;
-	size: UDim2;
-}
-
-function RewardChargeRail({ value, accent, ready, reducedMotion, position, size }: ChargeRailProps) {
-	const softMotion = reducedMotion;
-	const progress = useFlipperSpring(math.clamp(value, 0, 1), softMotion, 420, 32);
-	const emphasis = useFlipperSpring(ready ? 1 : 0, softMotion, 460, 32);
-	const fillSize = progress.map((amount) => new UDim2(math.clamp(amount, 0, 1), 0, 1, 0));
-	const markerPosition = progress.map((amount) => new UDim2(math.clamp(amount, 0, 1), 0, 0.5, 0));
-	const markerScale = emphasis.map((amount) => 0.78 + math.clamp(amount, 0, 1) * 0.22);
-	return (
-		<frame
-			Size={size}
-			Position={position}
-			BackgroundColor3={Palette.panelSoft}
-			BackgroundTransparency={0.22}
-			BorderSizePixel={0}
-			ClipsDescendants={false}
-		>
-			<uicorner CornerRadius={new UDim(1, 0)} />
-			<frame Size={fillSize} BackgroundColor3={accent} BorderSizePixel={0} ClipsDescendants={false}>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uigradient Color={new ColorSequence(darken(accent, 0.18), lighten(accent, 0.3))} />
-			</frame>
-			<frame
-				Size={UDim2.fromOffset(8, 8)}
-				Position={markerPosition}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Rotation={45}
-				BackgroundColor3={ready ? Palette.cream : accent}
-				BackgroundTransparency={progress.map((amount) => (amount > 0.025 ? 0 : 1))}
-				BorderSizePixel={0}
-				ZIndex={2}
-			>
-				<uiscale Scale={markerScale} />
-				<uistroke
-					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-					LineJoinMode={Enum.LineJoinMode.Round}
-					Color={accent}
-					Thickness={1}
-					Transparency={emphasis.map((amount) => 0.68 - math.clamp(amount, 0, 1) * 0.46)}
-				/>
-			</frame>
-		</frame>
-	);
-}
-
-function StreakStrip(props: { daily: DailyState; reducedMotion?: boolean; position: UDim2; size: UDim2; gap?: number }) {
-	const gap = props.gap ?? 10;
-	const daily = props.daily;
-	const rewards = daily.Rewards ?? [];
-	const count = math.max(1, rewards.size());
-	const canClaim = daily.CanClaim === true;
-	let current = canClaim ? (tonumber(daily.NextStreak) ?? 1) : (tonumber(daily.Streak) ?? 0);
-	current = math.max(1, current);
-	const weekStart = math.floor((current - 1) / 7) * 7 + 1;
-	const cells: Record<string, React.Element> = {
-		layout: (
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, gap)} />
-		),
-	};
-	for (let offset = 0; offset <= 6; offset++) {
-		const day = weekStart + offset;
-		const reward = rewards[(day - 1) % count];
-		const claimed = day < current || (day === current && !canClaim);
-		const today = day === current && canClaim;
-		const accent = today ? Palette.mint : claimed ? Palette.muted : Palette.cyan;
-		cells["d" + day] = (
-			<frame
-				Size={new UDim2(1 / 7, (-gap * 6) / 7, 1, 0)}
-				LayoutOrder={offset}
-				BackgroundColor3={today ? darken(Palette.mint, 0.55) : Palette.panelSoft}
-				BackgroundTransparency={claimed ? 0.45 : 0}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(0, Radius.lg)} />
-				<uistroke
-					Color={accent}
-					Transparency={today ? 0.1 : 0.7}
-					Thickness={today ? StrokeWidth.focus : StrokeWidth.hairline}
-					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-				/>
-				<Text
-					value={tostring(day)}
-					size={today ? 15 : 12}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={8}
-					align={Enum.TextXAlignment.Center}
-					position={UDim2.fromOffset(4, 6)}
-					sizeConstraint={new UDim2(1, -8, 0, 14)}
-				/>
-				{claimed ? (
-					<frame
-						Size={UDim2.fromOffset(18, 18)}
-						Position={new UDim2(0.5, 0, 0, 24)}
-						AnchorPoint={new Vector2(0.5, 0)}
-						BackgroundTransparency={1}
-					>
-						<Icon kind="Check.3" color={Palette.muted} accent={Palette.muted} size={18} spin={false} />
-					</frame>
-				) : (
-					<Text
-						value={formatReward(reward)}
-						size={11}
-						color={today ? Palette.cream : Palette.creamSoft}
-						weight={Enum.FontWeight.Bold}
-						wrap={true}
-						fit={true}
-						minSize={8}
-						align={Enum.TextXAlignment.Center}
-						position={UDim2.fromOffset(4, 22)}
-						sizeConstraint={new UDim2(1, -8, 1, -26)}
-					/>
-				)}
-			</frame>
-		);
-	}
-	return (
-		<frame Size={props.size} Position={props.position} BackgroundTransparency={1} BorderSizePixel={0}>
-			{cells}
-		</frame>
-	);
-}
-
-interface TimelineProps {
-	entries: TimedEntry[];
-	played: number;
-	dispatch: Dispatch;
-	columns: number;
-	reducedMotion?: boolean;
-}
-
-function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: TimelineProps) {
-	const softMotion = reducedMotion;
-	const cellH = 100;
-	const cells: Record<string, React.Element> = {
-		grid: (
-			<uigridlayout
-				CellSize={new UDim2(1 / columns, -math.ceil((14 * (columns - 1)) / columns), 0, cellH)}
-				CellPadding={UDim2.fromOffset(14, 14)}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-			/>
-		),
-	};
-	entries.forEach((entry, i) => {
-		const index = i + 1;
-		const seconds = tonumber(entry.Seconds) ?? 0;
-		const ready = !entry.Claimed && played >= seconds;
-		const accent = entry.Claimed ? Palette.muted : ready ? Palette.violet : Palette.cyan;
-		const reward = formatReward(entry.Reward);
-		cells["t" + tostring(entry.Index ?? index)] = (
-			<frame
-				LayoutOrder={index}
-				BackgroundColor3={ready ? Palette.panelRaised : Palette.panelSoft}
-				BackgroundTransparency={entry.Claimed ? 0.45 : 0}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-			>
-				<uicorner CornerRadius={new UDim(0, Radius.md)} />
-				<uistroke Color={accent} Transparency={ready ? 0.2 : 0.72} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
-				<Text
-					value={
-						entry.Claimed || ready ? clockText(seconds) : clockText(seconds - played)
-					}
-					size={11}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={8}
-					position={UDim2.fromOffset(10, 8)}
-					sizeConstraint={new UDim2(1, -20, 0, 14)}
-				/>
-				<Text
-					value={reward}
-					size={13}
-					color={entry.Claimed ? Palette.muted : Palette.cream}
-					weight={Enum.FontWeight.Bold}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(10, 26)}
-					sizeConstraint={new UDim2(1, -20, 0, 18)}
-				/>
-				{ready ? (
-					<Button
-						text="Claim"
-						icon="Timer.2"
-						onClick={() => {
-							dispatch("ClaimTimedReward", { Index: entry.Index });
-						}}
-						color={Palette.violet}
-						textColor={Palette.ink}
-						size={new UDim2(1, -16, 0, 34)}
-						position={new UDim2(0, 8, 1, -40)}
-						reducedMotion={softMotion}
-						highlight={true}
-					/>
-				) : (
-					<RewardChargeRail
-						value={entry.Claimed ? 1 : played / math.max(1, seconds)}
-						accent={accent}
-						ready={false}
-						reducedMotion={softMotion}
-						position={new UDim2(0, 10, 1, -16)}
-						size={new UDim2(1, -20, 0, 5)}
-					/>
-				)}
-			</frame>
-		);
-	});
-	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			{cells}
-		</frame>
-	);
-}
-
-interface ShortcutTileProps {
-	reducedMotion?: boolean;
-	layoutOrder: number;
-	badge?: number;
-	label: string;
-	icon: string;
-	accent: Color3;
-	onClick: () => void;
-}
-
-function ShortcutTile(props: ShortcutTileProps) {
-	const badged = props.badge !== undefined && props.badge > 0;
-	return (
-		<frame LayoutOrder={props.layoutOrder} BackgroundTransparency={1} BorderSizePixel={0}>
-			<Button
-				text={badged ? tostring(props.badge) : props.label}
-				icon={props.icon}
-				onClick={props.onClick}
-				color={badged ? props.accent : Palette.panelSoft}
-				textColor={badged ? Palette.ink : Palette.cream}
-				outline={!badged}
-				highlight={badged}
-				size={UDim2.fromScale(1, 1)}
-				reducedMotion={props.reducedMotion}
-			/>
-		</frame>
-	);
-}
-
 function readyTask(entry: unknown): boolean {
-	if (!typeIs(entry, "table")) {
-		return false;
-	}
+	if (!typeIs(entry, "table")) return false;
 	const item = entry as ClaimableTask;
 	return !item.Claimed && (tonumber(item.Progress) ?? 0) >= (tonumber(item.Target) ?? math.huge);
+}
+
+/** The glyph the strip shows for a reward: its biggest part. */
+export function rewardGlyph(reward: Reward | undefined): string {
+	if (reward === undefined) return "Gift";
+	if (reward.Keys !== undefined && next(reward.Keys)[0] !== undefined) return "Crate";
+	if ((reward.Cores ?? 0) > 0) return "Core";
+	if ((reward.Stardust ?? 0) > 0) return "Dust";
+	if ((reward.Signals ?? 0) > 0) return "Wave";
+	if ((reward.FreeSpins ?? 0) > 0) return "Wheel";
+	if ((reward.Cash ?? 0) > 0 || (reward.CashMinutes ?? 0) > 0) return "Flux";
+	return "Gift";
+}
+
+function minutesText(seconds: number): string {
+	const m = math.floor(seconds / 60);
+	if (m >= 60 && m % 60 === 0) return `${m / 60} ${m === 60 ? "hour" : "hours"}`;
+	return `${m} minutes`;
+}
+
+// .row column cell: lbl "Day n", 20px glyph, 700 15px reward, then a check (claimed) or Claim (today)
+function DayCell(p: {
+	day: number;
+	reward?: Reward;
+	claimed: boolean;
+	today: boolean;
+	phone: boolean;
+	order: number;
+	claim: () => void;
+	claimRef?: React.MutableRefObject<Frame | undefined>;
+	reducedMotion?: boolean;
+}) {
+	const text = formatReward(p.reward);
+	return (
+		<frame BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={p.order}>
+			<RowSurface />
+			{p.claimed && <uigradient Transparency={new NumberSequence(0.55)} />}
+			{p.today && (
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={2}>
+					<uicorner CornerRadius={new UDim(0, 11)} />
+					<uistroke Color={Palette.mango} Thickness={2} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+				</frame>
+			)}
+			<uipadding PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 8)} HorizontalAlignment={Enum.HorizontalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<Line text={`DAY ${p.day}`} size={11} color={Palette.muted} layoutOrder={0} />
+			<Glyph kind={rewardGlyph(p.reward)} size={20} color={p.today ? Palette.mango : Palette.cream} layoutOrder={1} />
+			<Line text={text !== "" ? text : "-"} size={15} font={BODY_BOLD} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+			{p.claimed && <Glyph kind="Check" size={20} color={Palette.muted} layoutOrder={3} />}
+			{p.today && (
+				<frame Size={UDim2.fromOffset(0, 36)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} ref={p.claimRef}>
+					<Button text="Claim" onClick={p.claim} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, 36)} reducedMotion={p.reducedMotion} highlight={true} />
+				</frame>
+			)}
+		</frame>
+	);
 }
 
 interface RewardsViewProps {
@@ -317,405 +117,219 @@ interface RewardsViewProps {
 export function RewardsView({ state, dispatch, navigate, reducedMotion }: RewardsViewProps) {
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
-	const stack = chrome.contentStack;
-	const softMotion = reducedMotion;
+	const phone = chrome.stack;
 	const daily = state.Daily ?? {};
 	const dailyReady = daily.CanClaim === true;
-	const timed = state.TimedRewards ?? {};
-	const timedEntries = timed.Rewards ?? [];
-	const played = tonumber(timed.PlaySeconds) ?? 0;
-	let nextTimed: TimedEntry | undefined;
-	const readyTimed: TimedEntry[] = [];
-	for (const entry of timedEntries) {
-		if (!entry.Claimed) {
-			if (nextTimed === undefined) {
-				nextTimed = entry;
-			}
-			if (played >= (tonumber(entry.Seconds) ?? math.huge)) {
-				readyTimed.push(entry);
-			}
-		}
-	}
-	const timedReady = nextTimed !== undefined && played >= nextTimed.Seconds;
-	const timedProgress = nextTimed !== undefined ? math.clamp(played / math.max(1, nextTimed.Seconds), 0, 1) : 1;
-	const dailyReward = daily.RewardIndex !== undefined ? (daily.Rewards ?? [])[daily.RewardIndex - 1] : undefined;
-	const now = Browse.useServerNow(1);
-	const resetIn = Browse.untilUtcReset(now);
-	const headerReveal = useStagger(0, softMotion);
-	const dailyReveal = useStagger(1, softMotion);
-	const timedReveal = useStagger(2, softMotion);
-	const streakReveal = useStagger(3, softMotion);
-	const rewardsTail = scrollTail(stack, chrome.bottomSafe, 48);
-	// wide desktops: claims on the left, the timeline and extras on the right
-	const split = !stack && viewport.width >= 1180;
-	const narrow = viewport.width < 360;
-	const pageGap = stack ? 16 : 24;
-	const community = useCommunityRewards(state.Community, stack);
-	const rewardsClaimHostRef = React.useRef<Frame>();
-	// gamepad: claims first (Claim all, then Daily, then the timed claim), then down the page; columns step left/right
-	const pageHostRef = React.useRef<Frame>();
-	const focusPlan: FocusPlan = {
-		regions: ["header", "event", "daily", "timed", "timeline", "community", "shortcuts"],
-		first: ["header", "daily", "timed", "timeline", "shortcuts"],
-		columns: [["Side", "Main"]],
-	};
-	useFocusOrder(pageHostRef, focusPlan, [dailyReady, readyTimed.size(), timedEntries.size(), viewport.width >= 1180, stack]);
-	const readyCount = (dailyReady ? 1 : 0) + readyTimed.size();
-	const rewardsClaimReady = readyCount > 0;
+	const timedEntries = state.TimedRewards?.Rewards ?? [];
+	const played = tonumber(state.TimedRewards?.PlaySeconds) ?? 0;
+	const weekReveal = useStagger(0, reducedMotion);
+	const giftsReveal = useStagger(1, reducedMotion);
+	const codesReveal = useStagger(2, reducedMotion);
+	const community = useCommunityRewards(state.Community, phone);
+	const claimRef = React.useRef<Frame>();
+
 	React.useEffect(() => {
-		if (!rewardsClaimReady || !UserInputService.GamepadEnabled) {
-			return undefined;
-		}
-		const host = rewardsClaimHostRef.current;
-		if (host === undefined) {
-			return undefined;
-		}
-		const selectJob = task.defer(() => {
-			if (host.Parent === undefined) {
-				return;
-			}
-			GamepadNavigationService.FocusClaim(host);
+		if (!dailyReady || !UserInputService.GamepadEnabled) return undefined;
+		const host = claimRef.current;
+		if (host === undefined) return undefined;
+		const job = task.defer(() => {
+			if (host.Parent !== undefined) GamepadNavigationService.FocusClaim(host);
 		});
 		return () => {
-			pcall(task.cancel, selectJob);
+			pcall(task.cancel, job);
 		};
-	}, [dailyReady, timedReady, rewardsClaimReady]);
-	const claimEverything = () => {
-		if (dailyReady) {
-			dispatch("ClaimDaily");
-		}
-		for (const entry of readyTimed) {
-			dispatch("ClaimTimedReward", { Index: entry.Index });
-		}
-	};
+	}, [dailyReady]);
 
-	// counts for the shortcut tiles
-	let readyMissions = 0;
-	for (const quest of (typeIs(state.Quests, "table") ? state.Quests : []) as unknown[]) {
-		if (readyTask(quest)) {
-			readyMissions += 1;
-		}
+	// --- This week ---------------------------------------------------------------------------
+	const rewards = daily.Rewards ?? [];
+	const count = math.max(1, rewards.size());
+	const current = math.max(1, dailyReady ? (tonumber(daily.NextStreak) ?? 1) : (tonumber(daily.Streak) ?? 0));
+	const weekStart = math.floor((current - 1) / 7) * 7 + 1;
+	const cols = phone ? 4 : 7;
+	const cellH = phone ? 138 : 152;
+	const gridRows = math.ceil(7 / cols);
+	const gap = 12;
+	const days: React.Element[] = [];
+	for (let offset = 0; offset < 7; offset++) {
+		const day = weekStart + offset;
+		days.push(
+			<DayCell
+				key={`d${day}`}
+				day={day - weekStart + 1}
+				reward={rewards[(day - 1) % count]}
+				claimed={day < current || (day === current && !dailyReady)}
+				today={day === current && dailyReady}
+				phone={phone}
+				order={offset}
+				claim={() => dispatch("ClaimDaily")}
+				claimRef={day === current ? claimRef : undefined}
+				reducedMotion={reducedMotion}
+			/>,
+		);
 	}
-	let readyMilestones = 0;
-	for (const achievement of state.Achievements ?? []) {
-		if (readyTask(achievement)) {
-			readyMilestones += 1;
-		}
-	}
-
-	const heroH = stack ? 84 + (readyCount > 0 ? TapTarget + 12 : 0) : 96;
-	const headerPanel = (
-		<Panel radius={FORGE_RADIUS}
-			size={UDim2.fromScale(1, 1)}
-			accent={Palette.brass}
-			background={Palette.panelRaised}
-			padding={20}
-			layoutOrder={0}
-			reveal={headerReveal}
-			reducedMotion={softMotion}
-			clips={false}
-		><BrassRule pad={20} />
-			<Text
-				value={readyCount > 0 ? tostring(readyCount) : Browse.shortDuration(resetIn)}
-				size={stack ? 26 : 30}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={14}
-				position={UDim2.fromOffset(0, 9)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -240, 0, 28)}
-			/>
-			{readyCount > 0 && (
-				<frame
-					key="RewardsClaimAllActions"
-					Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(220, 44)}
-					Position={stack ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(1, -220, 0.5, -22)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-					ref={rewardsClaimHostRef}
-				>
-					<Button
-						text="Claim all"
-						icon="Gift.2"
-						onClick={claimEverything}
-						color={Palette.pink}
-						textColor={Palette.ink}
-						size={UDim2.fromScale(1, 1)}
-						reducedMotion={softMotion}
-						highlight={true}
-					/>
-				</frame>
-			)}
-		</Panel>
-	);
-
-	const stripH = 72;
-	const stripY = stack ? 80 + TapTarget + 16 : 96;
-	const dailyCardH = stripY + stripH + 40;
-	const dailyRewardText = formatReward(dailyReward);
-	const dailyPanel = (
-		<Panel radius={FORGE_RADIUS}
-			size={UDim2.fromScale(1, 1)}
-			accent={Palette.mint}
-			background={Palette.panel}
-			padding={20}
-			layoutOrder={1}
-			reveal={dailyReveal}
-			highlight={dailyReady}
-			reducedMotion={softMotion}
-			clips={false}
-		><BrassRule pad={20} />
-			<IconTile
-				kind="Calendar"
-				accent={dailyReady ? Palette.mint : Palette.panelSoft}
-				size={46}
-				radius={18}
-				position={UDim2.fromOffset(0, stack ? 4 : 18)}
-				glow={dailyReady}
-				reducedMotion={softMotion}
-			/>
-			<Text
-				value={dailyRewardText}
-				size={16}
-				color={dailyReady ? Palette.cream : Palette.muted}
-				weight={Enum.FontWeight.Heavy}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(64, stack ? 16 : 30)}
-				sizeConstraint={new UDim2(1, stack ? -64 : -230, 0, 22)}
-			/>
-			<frame
-				key="RewardsDailyClaimActions"
-				Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(150, 44)}
-				Position={stack ? UDim2.fromOffset(0, 80) : new UDim2(1, -150, 0, 18)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-				ref={dailyReady && readyCount === 0 ? rewardsClaimHostRef : undefined}
-			>
-				<Button
-					text={dailyReady ? "Claim" : "Done"}
-					icon="Calendar.2"
-					onClick={() => dispatch("ClaimDaily")}
-					color={dailyReady ? Palette.mint : Palette.panelSoft}
-					textColor={dailyReady ? Palette.ink : Palette.muted}
-					size={UDim2.fromScale(1, 1)}
-					reducedMotion={softMotion}
-					disabled={!dailyReady}
-					highlight={dailyReady}
+	const weekGridH = gridRows * cellH + (gridRows - 1) * gap;
+	const weekPanelH = (phone ? 20 : 36) + (phone ? 18 : 22) + 12 + weekGridH;
+	const weekPanel = (
+		<MockPanel size={new UDim2(1, 0, 0, weekPanelH)} phone={phone} layoutOrder={0} reveal={weekReveal} reducedMotion={reducedMotion} name="RewardsWeek">
+			<PanelHeading icon="Calendar" title="This week" note={`Day ${math.min(current - weekStart + 1, 7)} of 7`} phone={phone} layoutOrder={0} />
+			<frame Size={new UDim2(1, 0, 0, weekGridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uigridlayout
+					CellSize={new UDim2(1 / cols, -math.ceil((gap * (cols - 1)) / cols), 0, cellH)}
+					CellPadding={UDim2.fromOffset(gap, gap)}
+					SortOrder={Enum.SortOrder.LayoutOrder}
 				/>
+				{days}
 			</frame>
-			<StreakStrip
-				daily={daily}
-				reducedMotion={softMotion}
-				gap={narrow ? 4 : stack ? 6 : 10}
-				position={UDim2.fromOffset(0, stripY)}
-				size={new UDim2(1, 0, 0, stripH)}
-			/>
-		</Panel>
+		</MockPanel>
 	);
 
-	const timedCardH = stack ? 180 : 124;
-	const nextReward = nextTimed !== undefined ? formatReward(nextTimed.Reward) : "";
-	const timedPanel = (
-		<Panel radius={FORGE_RADIUS}
-			size={UDim2.fromScale(1, 1)}
-			accent={Palette.violet}
-			background={Palette.panel}
-			padding={20}
-			layoutOrder={2}
-			reveal={timedReady ? streakReveal : timedReveal}
-			highlight={timedReady && !softMotion}
-			reducedMotion={softMotion}
-			clips={false}
-		><BrassRule pad={20} />
-			<IconTile
-				kind="Timer"
-				accent={timedReady ? Palette.violet : Palette.panelSoft}
-				size={46}
-				radius={18}
-				position={UDim2.fromOffset(0, stack ? 4 : 18)}
-				glow={timedReady}
-				reducedMotion={softMotion}
-			/>
-			<Text
-				value={
-					nextTimed === undefined ? "" : nextReward !== "" ? nextReward : clockText(nextTimed.Seconds)
+	// --- Playtime gifts ------------------------------------------------------------------------
+	const giftRows = timedEntries.map((entry, i) => {
+		const seconds = tonumber(entry.Seconds) ?? 0;
+		const ready = !entry.Claimed && played >= seconds;
+		const locked = !entry.Claimed && !ready && i > 0 && !(timedEntries[i - 1].Claimed === true || played >= (tonumber(timedEntries[i - 1].Seconds) ?? 0));
+		const reward = formatReward(entry.Reward);
+		return (
+			<GcRow
+				key={`t${entry.Index ?? i + 1}`}
+				phone={phone}
+				layoutOrder={i + 1}
+				icon={entry.Claimed ? "Check" : locked ? "Lock" : "Timer"}
+				title={minutesText(seconds)}
+				sub={reward !== "" ? reward : undefined}
+				value={entry.Claimed ? "Claimed" : ready ? undefined : clockText(seconds - played)}
+				right={
+					ready ? (
+						<Button
+							text="Claim"
+							onClick={() => dispatch("ClaimTimedReward", { Index: entry.Index })}
+							color={Palette.mango}
+							textColor={Color3.fromRGB(27, 15, 8)}
+							hug={true}
+							size={UDim2.fromOffset(0, 36)}
+							reducedMotion={reducedMotion}
+							highlight={true}
+						/>
+					) : undefined
 				}
-				size={16}
-				color={timedReady ? Palette.cream : Palette.muted}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				position={UDim2.fromOffset(64, stack ? 16 : 22)}
-				sizeConstraint={new UDim2(1, stack ? -64 : -230, 0, 22)}
-			/>
-			<RewardChargeRail
-				value={timedProgress}
-				accent={timedReady ? Palette.violet : Palette.cyan}
-				ready={timedReady}
-				reducedMotion={softMotion}
-				position={UDim2.fromOffset(stack ? 0 : 64, stack ? 76 : 60)}
-				size={new UDim2(1, stack ? 0 : -230, 0, 6)}
-			/>
-			<frame
-				key="RewardsTimedClaimActions"
-				Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(150, 44)}
-				Position={stack ? new UDim2(0, 0, 1, -(TapTarget + 4)) : new UDim2(1, -150, 0.5, -22)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-			>
-				<Button
-					text={timedReady ? "Claim" : nextTimed === undefined ? "Done" : clockText(nextTimed.Seconds - played)}
-					icon="Timer.3"
-					onClick={() => {
-						if (nextTimed !== undefined) {
-							dispatch("ClaimTimedReward", { Index: nextTimed.Index });
-						}
-					}}
-					color={timedReady ? Palette.violet : Palette.panelSoft}
-					textColor={timedReady ? Palette.ink : Palette.muted}
-					size={UDim2.fromScale(1, 1)}
-					reducedMotion={softMotion}
-					disabled={!timedReady}
-					highlight={timedReady}
-				/>
-			</frame>
-		</Panel>
-	);
-
-	const columns = narrow ? 1 : stack || split ? 2 : viewport.width >= 1200 ? 4 : 3;
-	const timelineRows = math.max(1, math.ceil(timedEntries.size() / columns));
-	const timelineH = 52 + timelineRows * 114;
-	const timelinePanel = (
-		<Panel radius={FORGE_RADIUS}
-			size={UDim2.fromScale(1, 1)}
-			accent={Palette.cyan}
-			background={Palette.panel}
-			padding={20}
-			layoutOrder={3}
-			reveal={streakReveal}
-			reducedMotion={softMotion}
-			clips={false}
-		><BrassRule pad={20} />
-			<Text
-				value={clockText(played)}
-				size={13}
-				color={Palette.creamSoft}
-				weight={Enum.FontWeight.SemiBold}
-				fit={true}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-			/>
-			<frame Size={new UDim2(1, 0, 1, -32)} Position={UDim2.fromOffset(0, 32)} BackgroundTransparency={1}>
-				<TimedTimeline entries={timedEntries} played={played} dispatch={dispatch} columns={columns} reducedMotion={softMotion} />
-			</frame>
-		</Panel>
-	);
-
-	const shortcuts: Array<{ id: string; label: string; icon: string; accent: Color3; badge?: number }> = [
-		{ id: "Wheel", label: "Wheel", icon: "Wheel.3", accent: Palette.mango },
-		{ id: "Missions", label: "Missions", icon: "Mission.3", accent: Palette.green, badge: readyMissions },
-		{ id: "Milestones", label: "Milestones", icon: "Milestone.2", accent: Palette.mango, badge: readyMilestones },
-		{ id: "Boosts", label: "Boosts", icon: "Boost.9", accent: Palette.pink },
-	];
-	const shortcutCols = stack || split ? 2 : 4;
-	const shortcutChildren: Record<string, React.Element> = {
-		grid: (
-			<uigridlayout
-				CellSize={new UDim2(1 / shortcutCols, -math.ceil((12 * (shortcutCols - 1)) / shortcutCols), 0, TapTarget)}
-				CellPadding={UDim2.fromOffset(12, 12)}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-			/>
-		),
-	};
-	shortcuts.forEach((entry, index) => {
-		shortcutChildren[entry.id] = (
-			<ShortcutTile
-				label={entry.label}
-				icon={entry.icon}
-				accent={entry.accent}
-				badge={entry.badge}
-				layoutOrder={index + 1}
-				reducedMotion={softMotion}
-				onClick={() => {
-					if (navigate !== undefined) {
-						navigate(entry.id);
-					}
-				}}
 			/>
 		);
 	});
-	const shortcutsH = math.ceil(shortcuts.size() / shortcutCols) * (TapTarget + 12);
-	const shortcutsRow = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			{shortcutChildren}
+	const rh = rowH(phone) + (phone ? 0 : 4);
+	const listH = (n: number) => n * rh + math.max(0, n - 1) * (phone ? 8 : 12);
+	const giftsH = (phone ? 20 : 36) + (phone ? 18 : 22) + (phone ? 8 : 12) + listH(math.max(1, timedEntries.size()));
+
+	// --- Codes ---------------------------------------------------------------------------------
+	const [code, setCode] = React.useState("");
+	const [codeNote, setCodeNote] = React.useState("New codes drop with each update.");
+	const redeem = () => {
+		const trimmed = code.gsub("^%s+", "")[0].gsub("%s+$", "")[0];
+		if (trimmed === "") return;
+		setCodeNote("Checking code…");
+		dispatch("RedeemCode", { Code: trimmed }, (response) => {
+			if (response.ok === true) setCode("");
+			setCodeNote(response.message ?? (response.ok === true ? "Code claimed." : "That code didn't work."));
+		});
+	};
+	const codesH = (phone ? 20 : 36) + (phone ? 18 : 22) + (phone ? 8 : 12) * 2 + rowH(phone) + 18;
+	const codeField = (
+		<frame Size={new UDim2(1, 0, 0, rowH(phone))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 8 : 18)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame Size={new UDim2(0, 0, 1, 0)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={0}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<RowSurface />
+				<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
+				<Glyph kind="Code" size={20} color={Palette.muted} position={new UDim2(0, 0, 0.5, -10)} />
+				<textbox
+					Size={new UDim2(1, -32, 1, 0)}
+					Position={UDim2.fromOffset(32, 0)}
+					BackgroundTransparency={1}
+					Text={code}
+					PlaceholderText="Enter a code"
+					PlaceholderColor3={Palette.muted}
+					TextColor3={Palette.cream}
+					TextSize={phone ? 13 : 15}
+					FontFace={BODY}
+					TextXAlignment={Enum.TextXAlignment.Left}
+					ClearTextOnFocus={false}
+					Change={{ Text: (rbx) => setCode(rbx.Text) }}
+					Event={{ FocusLost: (_, enter) => (enter ? redeem() : undefined) }}
+				/>
+			</frame>
+			<frame Size={UDim2.fromOffset(0, 44)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<Button text="Redeem" onClick={redeem} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, 44)} reducedMotion={reducedMotion} />
+			</frame>
 		</frame>
 	);
 
-	// a running limited event sits right under the header; between events it's a one-line "next up"
-	const eventH = eventPanelHeight(state.LimitedEvent, stack);
-	const claimCol: ColumnSection[] = [{ id: "header", height: heroH, element: headerPanel }];
-	const sideCol: ColumnSection[] = [];
-	if (state.LimitedEvent !== undefined && eventH > 0) {
-		(split ? sideCol : claimCol).push({
-			id: "event",
-			height: eventH,
-			element: (
-				<EventPanel state={state.LimitedEvent} dispatch={dispatch as unknown as EventDispatch} stack={stack} reducedMotion={softMotion} />
-			),
-		});
-	}
-	claimCol.push(
-		{ id: "daily", height: dailyCardH, element: dailyPanel },
-		{ id: "timed", height: timedCardH, element: timedPanel },
+	const sideBySide = !phone;
+	const pairH = sideBySide ? math.max(giftsH, codesH) : giftsH + 8 + codesH;
+	const pair = (
+		<Flex dir={sideBySide ? "row" : "col"} phone={phone} size={new UDim2(1, 0, 0, pairH)} layoutOrder={1}>
+			<MockPanel size={sideBySide ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, giftsH)} flex={sideBySide} phone={phone} layoutOrder={0} reveal={giftsReveal} reducedMotion={reducedMotion} name="RewardsPlaytime">
+				<PanelHeading icon="Timer" title="Playtime gifts" note={clockText(played)} phone={phone} layoutOrder={0} />
+				{giftRows.size() > 0 ? giftRows : <Note text="No playtime gifts right now." phone={phone} layoutOrder={1} />}
+			</MockPanel>
+			<MockPanel size={sideBySide ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, codesH)} flex={sideBySide} phone={phone} layoutOrder={1} reveal={codesReveal} reducedMotion={reducedMotion} name="RewardsCodes">
+				<PanelHeading icon="Code" title="Codes" phone={phone} layoutOrder={0} />
+				{codeField}
+				<Note text={codeNote} phone={phone} layoutOrder={2} />
+			</MockPanel>
+		</Flex>
 	);
-	if (timedEntries.size() > 0) {
-		sideCol.push({ id: "timeline", height: timelineH, element: timelinePanel });
-	}
-	// group, like goals and the notification prompt sit with the other free rewards
-	if (state.Community !== undefined && community.height > 0) {
-		sideCol.push({
-			id: "community",
-			height: community.height,
-			element: (
-				<CommunityPanel
-					state={state.Community}
-					dispatch={dispatch as unknown as CommunityDispatch}
-					stack={stack}
-					canNotify={community.canNotify}
-					promptNotify={community.promptNotify}
-					reducedMotion={softMotion}
-				/>
-			),
-		});
-	}
-	if (navigate !== undefined) {
-		(split ? claimCol : sideCol).push({ id: "shortcuts", height: shortcutsH, element: shortcutsRow });
-	}
-	const plan = splitColumns(split ? viewport.width : 0, math.floor(viewport.width * 0.42), pageGap, 1180);
-	const columnsH = math.max(stackHeight(claimCol.map((b) => b.height), pageGap), stackHeight(sideCol.map((b) => b.height), pageGap));
-	const sections =
-		plan.split && sideCol.size() > 0
-			? [
-					{
-						id: "columns",
-						height: columnsH,
-						element: (
-							<SplitColumns
-								height={columnsH}
-								plan={plan}
-								side={<StackBlocks gap={pageGap} riseFrom={0} blocks={claimCol.map((b, i) => ({ ...b, rise: i }))} />}
-								main={<StackBlocks gap={pageGap} riseFrom={0} blocks={sideCol.map((b, i) => ({ ...b, rise: i }))} />}
-							/>
-						),
-					},
-				]
-			: [...claimCol, ...sideCol];
+
+	// --- what was on the page before the port stays reachable underneath -----------------------
+	const eventH = eventPanelHeight(state.LimitedEvent, phone);
+	let readyMissions = 0;
+	for (const quest of (typeIs(state.Quests, "table") ? state.Quests : []) as unknown[]) if (readyTask(quest)) readyMissions += 1;
+	let readyMilestones = 0;
+	for (const a of state.Achievements ?? []) if (readyTask(a)) readyMilestones += 1;
+	const shortcuts: Array<{ id: string; label: string; icon: string; badge?: number }> = [
+		{ id: "Missions", label: "Missions", icon: "Mission", badge: readyMissions },
+		{ id: "Milestones", label: "Milestones", icon: "Milestone", badge: readyMilestones },
+		{ id: "Wheel", label: "Wheel", icon: "Wheel" },
+		{ id: "Boosts", label: "Boosts", icon: "Boost" },
+	];
+
 	return (
-		<frame ref={pageHostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<PageScaffold gap={pageGap} tailPad={rewardsTail} scrollBarColor={Palette.pink} scrollBarThickness={4} sections={sections} />
-		</frame>
+		<GcScroll phone={phone} name="RewardsPage" tail={chrome.bottomSafe + (phone ? 10 : 24)}>
+			{weekPanel}
+			{pair}
+			{state.LimitedEvent !== undefined && eventH > 0 && (
+				<frame Size={new UDim2(1, 0, 0, eventH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<EventPanel state={state.LimitedEvent} dispatch={dispatch as unknown as EventDispatch} stack={phone} reducedMotion={reducedMotion} />
+				</frame>
+			)}
+			{state.Community !== undefined && community.height > 0 && (
+				<frame Size={new UDim2(1, 0, 0, community.height)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+					<CommunityPanel
+						state={state.Community}
+						dispatch={dispatch as unknown as CommunityDispatch}
+						stack={phone}
+						canNotify={community.canNotify}
+						promptNotify={community.promptNotify}
+						reducedMotion={reducedMotion}
+					/>
+				</frame>
+			)}
+			{navigate !== undefined && (
+				<frame Size={new UDim2(1, 0, 0, 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 8 : 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					{shortcuts.map((s, i) => (
+						<frame key={s.id} Size={new UDim2(0.25, phone ? -6 : -9, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={i}>
+							<Button
+								text={s.badge !== undefined && s.badge > 0 ? `${s.label} · ${s.badge}` : s.label}
+								icon={s.icon}
+								onClick={() => navigate(s.id)}
+								color={s.badge !== undefined && s.badge > 0 ? Palette.mango : undefined}
+								textColor={s.badge !== undefined && s.badge > 0 ? Color3.fromRGB(27, 15, 8) : undefined}
+								size={UDim2.fromScale(1, 1)}
+								reducedMotion={reducedMotion}
+							/>
+						</frame>
+					))}
+				</frame>
+			)}
+		</GcScroll>
 	);
 }
