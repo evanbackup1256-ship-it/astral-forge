@@ -249,8 +249,16 @@ export function whitespaceReport(container: GuiObject, minBand = 24): { ratio: n
 export function layoutDebugEnabled(): boolean {
 	return Workspace.GetAttribute("LayoutDebug") === true;
 }
+// Containers registered through attachWhitespaceDebug, read by LayoutGuard so its whitespace
+// rules analyse exactly these panels (and label findings with the same names).
+const registeredWhitespace = new Map<GuiObject, string>();
+export function whitespaceContainers(): ReadonlyMap<GuiObject, string> {
+	return registeredWhitespace;
+}
+
 /** Outlines empty bands in red while Workspace.LayoutDebug is true. Returns a cleanup. */
 export function attachWhitespaceDebug(container: GuiObject, label: string): () => void {
+	registeredWhitespace.set(container, label);
 	let overlay: Frame | undefined;
 	const draw = () => {
 		overlay?.Destroy();
@@ -297,6 +305,7 @@ export function attachWhitespaceDebug(container: GuiObject, label: string): () =
 	return () => {
 		for (const c of connections) c.Disconnect();
 		overlay?.Destroy();
+		if (registeredWhitespace.get(container) === label) registeredWhitespace.delete(container);
 	};
 }
 

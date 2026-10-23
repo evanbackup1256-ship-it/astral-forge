@@ -1,1378 +1,138 @@
-import { Controller, OnInit, OnStart, OnTick } from "@flamework/core";
+// LayoutGuard 2: event-driven layout checker. The heavy lifting is in ../LayoutGuard (pure
+// geometry, layout emulation, spatial index, rules, engine); this controller only decides *when*
+// to scan, runs the scan as a frame-budgeted coroutine, and routes results to the log, the debug
+// overlay, scoped recovery and the diagnostics endpoint.
+//
+// Modes
+//   off   default. No connections beyond attribute listeners; zero per-frame cost.
+//   full  ReplicatedStorage AstralLayoutGuard / AstralDebugLogs = true, or Workspace LayoutDebug
+//         set. All rules, overlay when LayoutDebug, device matrix when LayoutDebug = "matrix" or
+//         AstralLayoutGuardMatrix = true.
+//   lite  live servers only, for a deterministic sample of players (AstralLayoutGuardSample,
+//         default 2%): cheap rules, at most one scan per 30 s, small node cap, errors only.
+//
+// Scheduling: DescendantAdded/Removing under PlayerGui, root/viewport size and the toggles mark
+// the UI dirty; a scan starts after `QUIET` seconds without further changes. While findings wait
+// for confirmation a follow-up scan is scheduled; full mode also rescans every SAFETY_RESCAN
+// seconds to see property-only changes (tweens settle, text changes). A Heartbeat connection exists
+// only while a scan is running.
+import { Controller, OnInit, OnStart } from "@flamework/core";
 import { ClientLog } from "../CoreKit/log";
 import { UiRootRegistry } from "./UiRootRegistry";
 import Diagnostics = require("../LayoutDiagnostics");
+import { whitespaceContainers, layoutDebugEnabled } from "../UiCore/layoutEngine";
+import { capture, Captured, OVERLAY_NAME } from "../LayoutGuard/capture";
+import { DEFAULT_OPTIONS, Tracked, Tracker, inSample, parseConfig, runRules } from "../LayoutGuard/engine";
+import { GroupedLogger } from "../LayoutGuard/logger";
+import { measure, measureStats } from "../LayoutGuard/measure";
+import { MATRIX_RULES } from "../LayoutGuard/rules";
+import { runMatrix, summarizeMatrix } from "../LayoutGuard/matrix";
+import { Overlay } from "../LayoutGuard/overlay";
+import { recover, recoveryStats } from "../LayoutGuard/recovery";
+import { Report, buildReport, reportText } from "../LayoutGuard/report";
+import { Finding, Profile, RuleConfig, Snapshot } from "../LayoutGuard/types";
 
+const Players = game.GetService("Players");
+const ReplicatedStorage = game.GetService("ReplicatedStorage");
+const RunService = game.GetService("RunService");
+const Workspace = game.GetService("Workspace");
 
-interface Rect {
-	x0: number;
-	y0: number;
-	x1: number;
-	y1: number;
-}
+const IS_STUDIO = RunService.IsStudio();
+const QUIET = 0.35;
+const CONFIRM_DELAY = 0.5;
+const MAX_CONFIRM_RESCANS = 4;
+const SAFETY_RESCAN = 5;
+const LITE_MIN_INTERVAL = 30;
+const BUDGET_FULL = IS_STUDIO ? 0.0015 : 0.0005;
+const BUDGET_LITE = 0.00025;
+const MAX_NODES_FULL = 6000;
+const MAX_NODES_LITE = 1500;
+const DEFAULT_SAMPLE = IS_STUDIO ? 0 : 0.02;
+const ROOT_ID = "client/framework/init@UiRootComponent";
 
-interface LayoutGeom {
-	rect(this: void, x0: number, y0: number, x1: number, y1: number): Rect;
-	rectFromPosSize(this: void, x: number, y: number, w: number, h: number): Rect;
-	rectWidth(this: void, r: Rect): number;
-	rectHeight(this: void, r: Rect): number;
-	overflowAmount(this: void, inner: Rect, outer: Rect): number;
-}
-
-interface GuardPlan {
-	MAX_TRIES: number;
-	FRESH_CAP: number;
-	SETTLE_FRAMES: number;
-	MIN_SWEEP_SECONDS: number;
-	BURST_FRAMES: number;
-	budget(this: void, burstFramesLeft: number, freshWaiting: number): { fresh: number; sweep: number };
-	resized(this: void, lastWidth: number, lastHeight: number, width: number, height: number): boolean;
-	labelsCollide(this: void, a: Rect, b: Rect): boolean;
-	nudgeIntoView(this: void, x0: number, y0: number, x1: number, y1: number, screenW: number, screenH: number): LuaTuple<[number, number]>;
-}
-
-// LayoutKit is still Luau; require its members through the kit factory like the bundled code did.
-const LayoutKit = require(script.Parent!.Parent!.WaitForChild("LayoutKit") as ModuleScript) as (name: string) => unknown;
-const Geom = LayoutKit("layoutGeom") as LayoutGeom;
-const Plan = LayoutKit("layoutGuardPlan") as GuardPlan;
-
-const diagnostics = Diagnostics.new(os.clock);
-// action problems named in the log (at most this many new ones per report)
-const ACTION_REPORT_MAX = 16;
-const ACTION_REPORT_KINDS: Record<string, true | undefined> = {
-	ClippedAction: true,
-	ActionCollision: true,
-	ActionOutsideParent: true,
-	ActionOutsideViewport: true,
-};
-const UserInputService = game.GetService("UserInputService");
-const IGNORE_ATTRIBUTE = "LayoutGuardIgnore";
-const FIT_SLOP = 6;
-const WILD_ASPECT_SLOP = 2;
-const MAX_TRIES = Plan.MAX_TRIES;
-const stats = {
-	scans: 0,
-	freshChecked: 0,
-	sweepChecked: 0,
-	bursts: 0,
-	canvasDesyncFixed: 0,
-	scrollingReenabled: 0,
-	degenerateHidden: 0,
-	overlapDemoted: 0,
-	outOfBoxFixed: 0,
-	textFitFixed: 0,
-	textFloorRaised: 0,
-	textFloorReverted: 0,
-	canvasSharpFixed: 0,
-	textClearedOfButton: 0,
-	textUnderButtonSeen: 0,
-	textWrapped: 0,
-	labelsUntangled: 0,
-	stackSeparated: 0,
-	pulledIntoView: 0,
-	gaveUp: 0,
-	learnedUpdates: 0,
-	hotChecked: 0,
-	signaturesSuppressed: 0,
-	smallTouchTargets: 0,
-	actionsOutsideViewport: 0,
-	actionsOutsideParent: 0,
-	actionCollisions: 0,
-	clippedActions: 0,
-	geometryChanges: 0,
-	dirtyDescendants: 0,
-	nestedScrollConflicts: 0,
-};
-const MIN_TOUCH_TARGET = 44;
-const INPUT_SHIELD_SHARE = 0.8;
-const COLLISION_CELL = 96;
-const DIRTY_DESCENDANT_CAP = 128;
-const REPORT_EVERY = 300;
-const ReplicatedStorageService = game.GetService("ReplicatedStorage");
-// The guard is a development tool: it only watches the UI when ReplicatedStorage has
-// AstralLayoutGuard (or AstralDebugLogs) set to true. In normal play it never binds or ticks.
-const GATE_RECHECK_SECONDS = 2;
-function guardEnabled(): boolean {
-	return ReplicatedStorageService.GetAttribute("AstralLayoutGuard") === true || ReplicatedStorageService.GetAttribute("AstralDebugLogs") === true;
-}
-const FRAME_BUDGET_SECONDS = 0.0015;
-// Live clients use a smaller budget; all diagnostics and bounded collision passes still run.
-const IS_STUDIO = game.GetService("RunService").IsStudio();
-const LIVE_BUDGET_SECONDS = 0.0005;
-const TEXT_COVER_SHARE = 0.08;
-const TEXT_COVER_HEIGHT = 0.3;
-const tryCount = setmetatable(new Map<Instance, number>(), { __mode: "k" } as LuaMetatable<Map<Instance, number>>);
-const abandoned = setmetatable(new Map<Instance, boolean>(), { __mode: "k" } as LuaMetatable<Map<Instance, boolean>>);
-// Inspection priority is learned from observed defects, not from changing the UI.
-const LEARN_RATE = 0.18;
-const HOT_THRESHOLD = 0.3;
-const HOT_CAP = 48;
-const HOT_EVERY_FRAMES = 6;
-const HOT_BUDGET = 8;
-const THRASH_LIMIT = 3;
-const MODEL_CAP = 2048;
-const signatureCache = setmetatable(new Map<Instance, string>(), { __mode: "k" } as LuaMetatable<Map<Instance, string>>);
-interface ModelEntry {
-	p: number;
-	n: number;
-	thrash: number;
-}
-const model = new Map<string, ModelEntry>();
-let modelSize = 0;
-const hotList: Instance[] = [];
-const hotSet = setmetatable(new Map<Instance, boolean>(), { __mode: "k" } as LuaMetatable<Map<Instance, boolean>>);
-function signatureOf(inst: Instance): string {
-	const cached = signatureCache.get(inst);
-	if (cached !== undefined) {
-		return cached;
-	}
-	const parent = inst.Parent;
-	const signature = `${inst.ClassName}|${inst.Name}|${parent !== undefined ? parent.Name : ""}`;
-	signatureCache.set(inst, signature);
-	return signature;
-}
-function forgetWeakest() {
-	let kept = 0;
-	for (const [signature, entry] of model) {
-		if (entry.thrash === 0 && entry.p < 0.05) {
-			model.delete(signature);
-		} else {
-			kept += 1;
-		}
-	}
-	if (kept >= MODEL_CAP) {
-		model.clear();
-		kept = 0;
-	}
-	modelSize = kept;
-}
-function entryFor(signature: string): ModelEntry {
-	let entry = model.get(signature);
-	if (entry === undefined) {
-		if (modelSize >= MODEL_CAP) {
-			forgetWeakest();
-		}
-		entry = { p: 0, n: 0, thrash: 0 };
-		model.set(signature, entry);
-		modelSize += 1;
-	}
-	return entry;
-}
-function learn(inst: Instance, repaired: boolean) {
-	const entry = entryFor(signatureOf(inst));
-	entry.n += 1;
-	const rate = math.max(LEARN_RATE, 1 / entry.n);
-	entry.p += ((repaired ? 1 : 0) - entry.p) * rate;
-	stats.learnedUpdates += 1;
-	if (entry.p >= HOT_THRESHOLD && !hotSet.get(inst) && hotList.size() < HOT_CAP) {
-		hotSet.set(inst, true);
-		hotList.push(inst);
-	}
-}
-function suppressed(inst: Instance): boolean {
-	const entry = model.get(signatureOf(inst));
-	return entry !== undefined && entry.thrash >= THRASH_LIMIT;
-}
-function noteThrash(inst: Instance) {
-	const signature = signatureOf(inst);
-	const entry = entryFor(signature);
-	entry.thrash += 1;
-	if (entry.thrash === THRASH_LIMIT) {
-		stats.signaturesSuppressed += 1;
-		ClientLog.debug("LayoutGuard", `${signature} keeps undoing repairs; learned to leave it alone`);
-	}
-}
-function isFiniteNumber(value: number): boolean {
-	return value === value && value !== math.huge && value !== -math.huge;
-}
-function rectOf(object: GuiObject | LayerCollector): Rect {
-	const pos = object.AbsolutePosition;
-	const size = object.AbsoluteSize;
-	return {
-		x0: pos.X,
-		y0: pos.Y,
-		x1: pos.X + size.X,
-		y1: pos.Y + size.Y,
-	};
-}
-function overlapArea(a: Rect, b: Rect): number {
-	const x = math.max(0, math.min(a.x1, b.x1) - math.max(a.x0, b.x0));
-	const y = math.max(0, math.min(a.y1, b.y1) - math.max(a.y0, b.y0));
-	return x * y;
-}
-function rectArea(rect: Rect): number {
-	return math.max(0, rect.x1 - rect.x0) * math.max(0, rect.y1 - rect.y0);
-}
-function engineOwns(gui: GuiObject): boolean {
-	if (gui.FindFirstChildOfClass("UIFlexItem") !== undefined) {
-		return true;
-	}
-	const parent = gui.Parent;
-	if (parent === undefined) {
-		return false;
-	}
-	for (const child of parent.GetChildren()) {
-		if (child.IsA("UIListLayout") || child.IsA("UIGridLayout") || child.IsA("UIPageLayout") || child.IsA("UITableLayout")) {
-			return true;
-		}
-	}
-	return false;
-}
-function allowWrite(inst: Instance): boolean {
-	if (!Diagnostics.canRecover(inst, "Canvas") && !Diagnostics.canRecover(inst, "FloatingPanel")) {
-		return false;
-	}
-	if (abandoned.get(inst) || suppressed(inst)) {
-		return false;
-	}
-	const tries = tryCount.get(inst) ?? 0;
-	if (tries >= MAX_TRIES) {
-		diagnostics.record(inst, "OwnerConflict", "Scoped recovery repeatedly reset by owner; further writes suppressed");
-		abandoned.set(inst, true);
-		stats.gaveUp += 1;
-		noteThrash(inst);
-		return false;
-	}
-	tryCount.set(inst, tries + 1);
-	return true;
-}
-function isFloatingPanel(instance: Instance): boolean {
-	return instance.IsA("Frame") && instance.Parent !== undefined && instance.Parent.IsA("LayerCollector");
-}
-function isTrackedClass(instance: Instance): boolean {
-	let ancestor: Instance | undefined = instance;
-	while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
-		if (ancestor.GetAttribute(IGNORE_ATTRIBUTE) === true) {
-			return false;
-		}
-		ancestor = ancestor.Parent;
-	}
-	return instance.IsA("TextLabel") || instance.IsA("TextBox") || instance.IsA("GuiButton") || instance.IsA("CanvasGroup") || instance.IsA("ScrollingFrame") || isFloatingPanel(instance);
-}
-function isActionable(instance: Instance): boolean {
-	return (instance.IsA("GuiButton") && instance.Active) || (instance.IsA("TextBox") && instance.TextEditable);
-}
-// a control inside a scroller that can actually scroll is allowed to sit partly past the scroller's
-// window (and so past the screen or a clipping frame around the scroller): the player scrolls to it
-function insideScrollableArea(instance: Instance): boolean {
-	let ancestor = instance.Parent;
-	while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
-		if (ancestor.IsA("ScrollingFrame")) {
-			const canvas = ancestor.AbsoluteCanvasSize;
-			const window = ancestor.AbsoluteWindowSize;
-			if (canvas.X > window.X + 1 || canvas.Y > window.Y + 1) {
-				return true;
-			}
-		}
-		ancestor = ancestor.Parent;
-	}
-	return false;
-}
-function recordViewportAction(instance: Instance, rect: Rect) {
-	if (insideScrollableArea(instance)) {
-		return;
-	}
-	const layer = interactionLayer(instance);
-	if (layer === undefined) {
-		return;
-	}
-	const layerRect = rectOf(layer);
-	if (Geom.overflowAmount(rect, layerRect) > FIT_SLOP) {
-		if (diagnostics.record(instance, "ActionOutsideViewport", "Active control extends beyond the visible viewport")) {
-			stats.actionsOutsideViewport += 1;
-		}
-	}
-}
-function clippingAncestor(instance: Instance, rect: Rect): GuiObject | undefined {
-	let ancestor = instance.Parent;
-	while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
-		// clipping outside a scrollable scroller is scroll position, not a layout bug; clipping inside
-		// the scrolled content (a card cutting off its own button) is still reported
-		if (ancestor.IsA("ScrollingFrame")) {
-			const canvas = ancestor.AbsoluteCanvasSize;
-			const window = ancestor.AbsoluteWindowSize;
-			if (canvas.X > window.X + 1 || canvas.Y > window.Y + 1) {
-				return undefined;
-			}
-		}
-		if (ancestor.IsA("GuiObject") && ancestor.ClipsDescendants && !ancestor.IsA("ScrollingFrame")) {
-			if (Geom.overflowAmount(rect, rectOf(ancestor)) > FIT_SLOP) {
-				return ancestor;
-			}
-		}
-		ancestor = ancestor.Parent;
-	}
-	return undefined;
-}
-function repairText(label: TextLabel | TextBox | TextButton): undefined {
-	if (abandoned.get(label) || label.GetAttribute(IGNORE_ATTRIBUTE) === true) {
-		return undefined;
-	}
-	if (label.Text === "" || !label.Visible) {
-		return undefined;
-	}
-	const size = label.AbsoluteSize;
-	if (size.X < 8 || size.Y < 8 || !isFiniteNumber(size.X) || !isFiniteNumber(size.Y)) {
-		return undefined;
-	}
-	const pos = label.AbsolutePosition;
-	const rect = Geom.rectFromPosSize(pos.X, pos.Y, size.X, size.Y);
-	if (isActionable(label)) {
-		if (UserInputService.TouchEnabled && (size.X < MIN_TOUCH_TARGET || size.Y < MIN_TOUCH_TARGET)) {
-			if (diagnostics.record(label, "SmallTouchTarget", `Editable field is ${math.floor(size.X)}×${math.floor(size.Y)}px; touch fields need at least ${MIN_TOUCH_TARGET}×${MIN_TOUCH_TARGET}px`)) {
-				stats.smallTouchTargets += 1;
-			}
-		}
-		recordViewportAction(label, rect);
-		const clippedBy = clippingAncestor(label, rect);
-		if (clippedBy !== undefined && diagnostics.record(label, "ClippedAction", `Action exceeds clipped ancestor ${clippedBy.GetFullName()}`)) {
-			stats.clippedActions += 1;
-		}
-	}
-	if (label.TextFits) {
-		tryCount.delete(label);
-		return undefined;
-	}
-	diagnostics.record(label, "TextOverflow", `Text ${label.TextBounds.X}×${label.TextBounds.Y} exceeds box ${size.X}×${size.Y}; owner must wrap, reflow or allocate space`);
-	return undefined;
-}
-function repairButton(button: GuiButton): undefined {
-	if (button.IsA("TextButton")) {
-		repairText(button);
-	}
-	if (abandoned.get(button) || button.GetAttribute(IGNORE_ATTRIBUTE) === true) {
-		return undefined;
-	}
-	const pos = button.AbsolutePosition;
-	const size = button.AbsoluteSize;
-	if (!isFiniteNumber(size.X) || !isFiniteNumber(size.Y) || !isFiniteNumber(pos.X) || !isFiniteNumber(pos.Y)) {
-		return undefined;
-	}
-	const rect = Geom.rectFromPosSize(pos.X, pos.Y, size.X, size.Y);
-	if (isActionable(button)) {
-		if (UserInputService.TouchEnabled && (size.X < MIN_TOUCH_TARGET || size.Y < MIN_TOUCH_TARGET)) {
-			if (diagnostics.record(button, "SmallTouchTarget", `Active control is ${math.floor(size.X)}×${math.floor(size.Y)}px; touch controls need at least ${MIN_TOUCH_TARGET}×${MIN_TOUCH_TARGET}px`)) {
-				stats.smallTouchTargets += 1;
-			}
-		}
-		recordViewportAction(button, rect);
-		const clippedBy = clippingAncestor(button, rect);
-		if (clippedBy !== undefined && diagnostics.record(button, "ClippedAction", `Action exceeds clipped ancestor ${clippedBy.GetFullName()}`)) {
-			stats.clippedActions += 1;
-		}
-	}
-	const parent = button.Parent;
-	if (parent === undefined || !parent.IsA("GuiObject") || parent.IsA("ScrollingFrame") || engineOwns(button)) {
-		return undefined;
-	}
-	const pad = parent.FindFirstChildOfClass("UIPadding");
-	const parentSize = parent.AbsoluteSize;
-	const parentPos = parent.AbsolutePosition;
-	if (!isFiniteNumber(parentSize.X) || !isFiniteNumber(parentSize.Y) || !isFiniteNumber(parentPos.X) || !isFiniteNumber(parentPos.Y)) {
-		return undefined;
-	}
-	const left = pad !== undefined ? pad.PaddingLeft.Scale * parentSize.X + pad.PaddingLeft.Offset : 0;
-	const top = pad !== undefined ? pad.PaddingTop.Scale * parentSize.Y + pad.PaddingTop.Offset : 0;
-	const right = pad !== undefined ? pad.PaddingRight.Scale * parentSize.X + pad.PaddingRight.Offset : 0;
-	const bottom = pad !== undefined ? pad.PaddingBottom.Scale * parentSize.Y + pad.PaddingBottom.Offset : 0;
-	const box = Geom.rect(parentPos.X + left, parentPos.Y + top, parentPos.X + parentSize.X - right, parentPos.Y + parentSize.Y - bottom);
-	if (Geom.rectWidth(box) < 8 || Geom.rectHeight(box) < 8) {
-		return undefined;
-	}
-	const parentOverflow = Geom.overflowAmount(rect, box);
-	if (parentOverflow <= (math.max(size.X, size.Y) < 64 ? WILD_ASPECT_SLOP : FIT_SLOP)) {
-		tryCount.delete(button);
-		return undefined;
-	}
-	// a floating overlay grows past the bar it is docked to by design
-	if (button.GetAttribute(FLOATING_ATTRIBUTE) === true) {
-		return undefined;
-	}
-	if (isActionable(button) && diagnostics.record(button, "ActionOutsideParent", `Action exceeds its padded parent by ${math.ceil(parentOverflow)}px`)) {
-		stats.actionsOutsideParent += 1;
-	}
-	return undefined;
-}
-function repairFloatingPanel(panel: Frame): undefined {
-	if (abandoned.get(panel) || panel.GetAttribute(IGNORE_ATTRIBUTE) === true || !panel.Visible) {
-		return undefined;
-	}
-	const layer = panel.Parent;
-	if (layer === undefined || !layer.IsA("LayerCollector")) {
-		return undefined;
-	}
-	const screen = layer.AbsoluteSize;
-	const pos = panel.AbsolutePosition;
-	const size = panel.AbsoluteSize;
-	const layerPos = layer.AbsolutePosition;
-	if (!isFiniteNumber(pos.X) || !isFiniteNumber(pos.Y) || !isFiniteNumber(size.X) || !isFiniteNumber(size.Y) || size.X < 8 || size.Y < 8) {
-		return undefined;
-	}
-	if (size.X >= screen.X - 2 && size.Y >= screen.Y - 2) {
-		return undefined;
-	}
-	const [x0, y0] = [pos.X - layerPos.X, pos.Y - layerPos.Y];
-	const [dx, dy] = Plan.nudgeIntoView(x0, y0, x0 + size.X, y0 + size.Y, screen.X, screen.Y);
-	if (math.abs(dx) < 1 && math.abs(dy) < 1) {
-		tryCount.delete(panel);
-		return undefined;
-	}
-	diagnostics.record(panel, "ViewportOverflow", `Panel exceeds viewport by ${dx}, ${dy} pixels`);
-	if (!Diagnostics.canRecover(panel, "FloatingPanel")) return undefined;
-	if (!allowWrite(panel)) {
-		return undefined;
-	}
-	panel.Position = new UDim2(panel.Position.X.Scale, panel.Position.X.Offset + dx, panel.Position.Y.Scale, panel.Position.Y.Offset + dy);
-	stats.pulledIntoView += 1;
-	return undefined;
-}
-function repairScrollingFrame(descendant: ScrollingFrame): undefined {
-	if (descendant.GetAttribute(IGNORE_ATTRIBUTE) === true) {
-		return undefined;
-	}
-	if (descendant.GetAttribute("LayoutGuardAllowNestedScroll") !== true) {
-		let ancestor = descendant.Parent;
-		while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
-			if (ancestor.IsA("ScrollingFrame") && ancestor.ScrollingEnabled && ancestor.GetAttribute("LayoutGuardAllowNestedScroll") !== true) {
-				const childDirection = descendant.ScrollingDirection;
-				const parentDirection = ancestor.ScrollingDirection;
-				const childX = childDirection === Enum.ScrollingDirection.X || childDirection === Enum.ScrollingDirection.XY;
-				const childY = childDirection !== Enum.ScrollingDirection.X;
-				const parentX = parentDirection === Enum.ScrollingDirection.X || parentDirection === Enum.ScrollingDirection.XY;
-				const parentY = parentDirection !== Enum.ScrollingDirection.X;
-				if ((childX && parentX) || (childY && parentY)) {
-					if (diagnostics.record(descendant, "NestedScrollConflict", `Shares a scroll axis with ${ancestor.GetFullName()}`)) {
-						stats.nestedScrollConflicts += 1;
-					}
-					break;
-				}
-			}
-			ancestor = ancestor.Parent;
-		}
-	}
-	let heldScroll = false;
-	if (!descendant.ScrollingEnabled && descendant.GetAttribute("LayoutGuardAllowDisabledScroll") !== true) {
-		heldScroll = true;
-		diagnostics.record(descendant, "DisabledScroll", "Owner disabled scrolling without LayoutGuardAllowDisabledScroll");
-	}
-	if (descendant.AutomaticCanvasSize !== Enum.AutomaticSize.None) {
-		return undefined;
-	}
-	let [maxBottom, maxRight] = [0, 0];
-	const size = descendant.AbsoluteSize;
-	const pad = descendant.FindFirstChildOfClass("UIPadding");
-	const bottomPad = pad ? pad.PaddingBottom.Scale * size.Y + pad.PaddingBottom.Offset : 0;
-	const rightPad = pad ? pad.PaddingRight.Scale * size.X + pad.PaddingRight.Offset : 0;
-	for (const child of descendant.GetChildren()) {
-		if (child.IsA("UIListLayout") || child.IsA("UIGridLayout")) {
-			const layoutContentHeight = child.AbsoluteContentSize.Y;
-			const layoutContentWidth = child.AbsoluteContentSize.X;
-			if (isFiniteNumber(layoutContentHeight)) maxBottom = math.max(maxBottom, layoutContentHeight);
-			if (isFiniteNumber(layoutContentWidth)) maxRight = math.max(maxRight, layoutContentWidth);
-		} else if (child.IsA("GuiObject") && child.Visible) {
-			const bottom = child.AbsolutePosition.Y - descendant.AbsolutePosition.Y + descendant.CanvasPosition.Y + child.AbsoluteSize.Y;
-			const right = child.AbsolutePosition.X - descendant.AbsolutePosition.X + descendant.CanvasPosition.X + child.AbsoluteSize.X;
-			if (isFiniteNumber(bottom)) maxBottom = math.max(maxBottom, bottom);
-			if (isFiniteNumber(right)) maxRight = math.max(maxRight, right);
-		}
-	}
-	if (maxBottom > 0) maxBottom += bottomPad;
-	if (maxRight > 0) maxRight += rightPad;
-	const direction = descendant.ScrollingDirection;
-	const xScroll = direction === Enum.ScrollingDirection.X || direction === Enum.ScrollingDirection.XY;
-	const yScroll = direction !== Enum.ScrollingDirection.X;
-	const canvas = descendant.CanvasSize;
-	const currentX = math.max(size.X, canvas.X.Scale * size.X + canvas.X.Offset);
-	const currentY = math.max(size.Y, canvas.Y.Scale * size.Y + canvas.Y.Offset);
-	const shortX = xScroll && currentX + 1 < maxRight;
-	const shortY = yScroll && currentY + 1 < maxBottom;
-	if (!shortX && !shortY) {
-		if (!heldScroll) {
-			tryCount.delete(descendant);
-		}
-		return undefined;
-	}
-	diagnostics.record(descendant, "CanvasOverflow", `Canvas ${currentX}×${currentY}px is shorter than content ${maxRight}×${maxBottom}px`);
-	if (!Diagnostics.canRecover(descendant, "Canvas")) return undefined;
-	if (!allowWrite(descendant)) {
-		return undefined;
-	}
-	descendant.CanvasSize = new UDim2(
-		shortX ? 0 : canvas.X.Scale, shortX ? math.ceil(maxRight) : canvas.X.Offset,
-		shortY ? 0 : canvas.Y.Scale, shortY ? math.ceil(maxBottom) : canvas.Y.Offset,
-	);
-	stats.canvasDesyncFixed += 1;
-	ClientLog.debug("LayoutGuard", `${descendant.Name} CanvasSize was shorter than its content; scoped recovery applied`);
-	return undefined;
-}
-function interactionLayer(instance: Instance): LayerCollector | undefined {
-	let current = instance.Parent;
-	while (current !== undefined && !current.IsA("LayerCollector")) {
-		current = current.Parent;
-	}
-	return current as LayerCollector | undefined;
-}
-// Floating overlays (the buff island, popovers) are meant to sit over the page, and sections
-// mid-entrance slide through their neighbours for a few frames. Neither is a layout defect.
-const FLOATING_ATTRIBUTE = "LayoutFloating";
-const MOVING_ATTRIBUTE = "LayoutInMotion";
-function floatingRoot(instance: Instance): Instance | undefined {
-	let current: Instance | undefined = instance;
-	while (current !== undefined && !current.IsA("LayerCollector")) {
-		if (current.GetAttribute(FLOATING_ATTRIBUTE) === true) {
-			return current;
-		}
-		current = current.Parent;
-	}
-	return undefined;
-}
-function inMotion(instance: Instance): boolean {
-	let current: Instance | undefined = instance;
-	while (current !== undefined && !current.IsA("LayerCollector")) {
-		if (current.GetAttribute(MOVING_ATTRIBUTE) === true) {
-			return true;
-		}
-		current = current.Parent;
-	}
-	return false;
-}
-function shortPath(instance: Instance): string {
-	const parts: string[] = [];
-	let current: Instance | undefined = instance;
-	while (current !== undefined && parts.size() < 5 && !current.IsA("LayerCollector")) {
-		parts.unshift(current.Name);
-		current = current.Parent;
-	}
-	return parts.join(".");
-}
-function isAncestorOf(ancestor: Instance, instance: Instance): boolean {
-	let current = instance.Parent;
-	while (current !== undefined) {
-		if (current === ancestor) {
-			return true;
-		}
-		current = current.Parent;
-	}
-	return false;
-}
-interface HitItem {
-	instance: GuiButton;
-	rect: Rect;
-	area: number;
-}
-function checkOverlappingHitboxes(root: Instance | Instance[]) {
-	const cellSize = COLLISION_CELL || 64;
-	const shieldShare = INPUT_SHIELD_SHARE || 0.8;
-	const byLayer = new Map<Instance, HitItem[]>();
-	const list = typeIs((root as Instance).GetDescendants, "function") ? (root as Instance).GetDescendants() : (root as Instance[]);
-	for (const descendant of list) {
-		coroutine.yield();
-		if (descendant.Parent === undefined || !descendant.IsA("GuiButton") || !isTrackedClass(descendant)) {
-			continue;
-		}
-		if (!Diagnostics.visible(descendant) || !descendant.Active) {
-			continue;
-		}
-		if (descendant.GetAttribute(IGNORE_ATTRIBUTE) === true) {
-			continue;
-		}
-		const layer = interactionLayer(descendant);
-		if (layer === undefined) {
-			continue;
-		}
-		const rect = rectOf(descendant);
-		const area = rectArea(rect);
-		const layerArea = rectArea(rectOf(layer));
-		if (area <= 0 || (layerArea > 0 && area >= layerArea * shieldShare)) {
-			continue;
-		}
-		let items = byLayer.get(layer);
-		if (items === undefined) {
-			items = [];
-			byLayer.set(layer, items);
-		}
-		items.push({ instance: descendant, rect, area });
-	}
-	for (const [, items] of byLayer) {
-		if (items.size() < 2) {
-			continue;
-		}
-		const cells = new Map<string, number[]>();
-		for (let index = 0; index < items.size(); index++) {
-			const item = items[index];
-			coroutine.yield();
-			const x0 = math.floor(item.rect.x0 / cellSize);
-			const x1 = math.floor((item.rect.x1 - 0.001) / cellSize);
-			const y0 = math.floor(item.rect.y0 / cellSize);
-			const y1 = math.floor((item.rect.y1 - 0.001) / cellSize);
-			for (let x = x0; x <= x1; x++) {
-				for (let y = y0; y <= y1; y++) {
-					const key = `${x}:${y}`;
-					let bucket = cells.get(key);
-					if (bucket === undefined) {
-						bucket = [];
-						cells.set(key, bucket);
-					}
-					bucket.push(index);
-				}
-			}
-		}
-		const compared = new Set<string>();
-		for (const [, bucket] of cells) {
-			for (let leftSlot = 0; leftSlot < bucket.size(); leftSlot++) {
-				for (let rightSlot = leftSlot + 1; rightSlot < bucket.size(); rightSlot++) {
-					coroutine.yield();
-					const leftIndex = bucket[leftSlot];
-					const rightIndex = bucket[rightSlot];
-					const pairKey = `${leftIndex}:${rightIndex}`;
-					if (compared.has(pairKey)) {
-						continue;
-					}
-					compared.add(pairKey);
-					const left = items[leftIndex];
-					const right = items[rightIndex];
-					const a = left.instance;
-					const b = right.instance;
-					if (a.Parent === undefined || b.Parent === undefined || !Diagnostics.visible(a) || !Diagnostics.visible(b)) {
-						continue;
-					}
-					if (isAncestorOf(a, b) || isAncestorOf(b, a)) {
-						continue;
-					}
-					if (floatingRoot(a) !== floatingRoot(b) || inMotion(a) || inMotion(b)) {
-						continue;
-					}
-					const overlap = overlapArea(left.rect, right.rect);
-					const smaller = math.min(left.area, right.area);
-					const threshold = a.Parent === b.Parent ? 0.12 : a.ZIndex === b.ZIndex ? 0.35 : 0.2;
-					if (smaller <= 0 || overlap < 64 || overlap / smaller < threshold) {
-						continue;
-					}
-					let culprit = a;
-					let victim = b;
-					if ((a.ZIndex ?? 1) < (b.ZIndex ?? 1)) {
-						culprit = b;
-						victim = a;
-					}
-					if (diagnostics.record(culprit, "ActionCollision", `Overlaps ${shortPath(victim)} by ${math.floor(overlap / smaller * 100 + 0.5)}% at the same input layer`)) {
-						stats.actionCollisions += 1;
-					}
-				}
-			}
-		}
-	}
-}
-function paintsOver(button: GuiButton): boolean {
-	if (button.IsA("TextButton")) {
-		return (button.BackgroundTransparency ?? 0) < 0.6 || (button.Text ?? "") !== "";
-	}
-	if (button.IsA("ImageButton")) {
-		return (button.BackgroundTransparency ?? 0) < 0.6 || ((button.Image ?? "") !== "" && (button.ImageTransparency ?? 0) < 0.6);
-	}
-	return false;
-}
-function textRectOf(label: TextLabel): Rect {
-	const pos = label.AbsolutePosition;
-	const size = label.AbsoluteSize;
-	const bounds = label.TextBounds;
-	const w = math.min(bounds.X, size.X);
-	const h = math.min(bounds.Y, size.Y);
-	let x0 = pos.X;
-	if (label.TextXAlignment === Enum.TextXAlignment.Right) {
-		x0 = pos.X + size.X - w;
-	} else if (label.TextXAlignment === Enum.TextXAlignment.Center) {
-		x0 = pos.X + (size.X - w) / 2;
-	}
-	let y0 = pos.Y;
-	if (label.TextYAlignment === Enum.TextYAlignment.Bottom) {
-		y0 = pos.Y + size.Y - h;
-	} else if (label.TextYAlignment === Enum.TextYAlignment.Center) {
-		y0 = pos.Y + (size.Y - h) / 2;
-	}
-	return { x0, y0, x1: x0 + w, y1: y0 + h };
-}
-function clearTextOfButton(label: Instance, button: Instance, _buttonRect: Rect): boolean {
-	diagnostics.record(label, "TextCollision", `Text overlaps ${button.GetFullName()}; owner must reserve space`);
-	return false;
-}
-const textPassLabels = new Map<Instance, TextLabel[]>();
-const textPassButtons = new Map<Instance, GuiButton[]>();
-const textPassLayerLabels = new Map<Instance, TextLabel[]>();
-const textPassLayerButtons = new Map<Instance, GuiButton[]>();
-function checkTextUnderButtons(list: Instance[]) {
-	textPassLabels.clear();
-	textPassButtons.clear();
-	textPassLayerLabels.clear();
-	textPassLayerButtons.clear();
-	for (const inst of list) {
-		coroutine.yield();
-		if (inst.Parent === undefined || !isTrackedClass(inst) || !Diagnostics.visible(inst as GuiObject)) {
-			continue;
-		}
-		const layer = interactionLayer(inst);
-		if (inst.IsA("GuiButton")) {
-			if (inst.Visible && paintsOver(inst) && inst.GetAttribute(IGNORE_ATTRIBUTE) !== true) {
-				let bucket = textPassButtons.get(inst.Parent);
-				if (bucket === undefined) {
-					bucket = [];
-					textPassButtons.set(inst.Parent, bucket);
-				}
-				bucket.push(inst);
-				if (layer !== undefined) {
-					let layerBucket = textPassLayerButtons.get(layer);
-					if (layerBucket === undefined) {
-						layerBucket = [];
-						textPassLayerButtons.set(layer, layerBucket);
-					}
-					layerBucket.push(inst);
-				}
-			}
-		} else if (inst.IsA("TextLabel") && inst.Visible && inst.Text !== "") {
-			let bucket = textPassLabels.get(inst.Parent);
-			if (bucket === undefined) {
-				bucket = [];
-				textPassLabels.set(inst.Parent, bucket);
-			}
-			bucket.push(inst);
-			if (layer !== undefined) {
-				let layerBucket = textPassLayerLabels.get(layer);
-				if (layerBucket === undefined) {
-					layerBucket = [];
-					textPassLayerLabels.set(layer, layerBucket);
-				}
-				layerBucket.push(inst);
-			}
-		}
-	}
-	for (const [parent, labels] of textPassLabels) {
-		const buttons = textPassButtons.get(parent);
-		if (labels.size() > 1 && !parent.FindFirstChildWhichIsA("UIGridStyleLayout")) {
-			for (let i = 0; i < labels.size(); i++) {
-				const left = labels[i];
-				if (left.AbsoluteSize.X < 8) {
-					continue;
-				}
-				const leftText = textRectOf(left);
-				for (let j = 0; j < labels.size(); j++) {
-					coroutine.yield();
-					const right = labels[j];
-					if (left.Parent === undefined || right.Parent !== left.Parent || !Diagnostics.visible(left) || !Diagnostics.visible(right)) {
-						continue;
-					}
-					if (right === left || right.AbsoluteSize.X < 8) {
-						continue;
-					}
-					const rightText = textRectOf(right);
-					if (rightText.x0 > leftText.x0 + 4 && Plan.labelsCollide(leftText, rightText)) {
-						clearTextOfButton(left, right, rightText);
-						break;
-					}
-				}
-			}
-		}
-		if (buttons === undefined) {
-			continue;
-		}
-		for (const label of labels) {
-			const size = label.AbsoluteSize;
-			if (size.X < 8 || size.Y < 8 || !isFiniteNumber(size.X) || !isFiniteNumber(size.Y)) {
-				continue;
-			}
-			const textRect = textRectOf(label);
-			const textWidth = textRect.x1 - textRect.x0;
-			const textHeight = textRect.y1 - textRect.y0;
-			if (textWidth <= 0 || textHeight <= 0) {
-				continue;
-			}
-			for (const button of buttons ?? []) {
-				coroutine.yield();
-				if (label.Parent === undefined || button.Parent !== label.Parent || !Diagnostics.visible(label) || !Diagnostics.visible(button)) {
-					continue;
-				}
-				if (button.ZIndex < label.ZIndex) {
-					continue;
-				}
-				const buttonRect = rectOf(button);
-				const hidden = math.max(0, math.min(textRect.x1, buttonRect.x1) - math.max(textRect.x0, buttonRect.x0));
-				const shared = math.max(0, math.min(textRect.y1, buttonRect.y1) - math.max(textRect.y0, buttonRect.y0));
-				if (hidden / textWidth < TEXT_COVER_SHARE || shared / textHeight < TEXT_COVER_HEIGHT) {
-					continue;
-				}
-				stats.textUnderButtonSeen += 1;
-				clearTextOfButton(label, button, buttonRect);
-				break;
-			}
-		}
-	}
-	for (const [, labels] of textPassLayerLabels) {
-		for (const label of labels) {
-			const layer = interactionLayer(label);
-			const buttons = layer !== undefined ? textPassLayerButtons.get(layer) : undefined;
-			if (buttons === undefined) {
-				continue;
-			}
-			const size = label.AbsoluteSize;
-			if (size.X < 8 || size.Y < 8 || !isFiniteNumber(size.X) || !isFiniteNumber(size.Y)) {
-				continue;
-			}
-			const textRect = textRectOf(label);
-			const textWidth = textRect.x1 - textRect.x0;
-			const textHeight = textRect.y1 - textRect.y0;
-			if (textWidth <= 0 || textHeight <= 0) {
-				continue;
-			}
-			for (const button of buttons) {
-				coroutine.yield();
-				if (label.Parent === undefined || button.Parent === undefined || button.Parent === label.Parent || !Diagnostics.visible(label) || !Diagnostics.visible(button)) {
-					continue;
-				}
-				if (isAncestorOf(label, button) || isAncestorOf(button, label) || (button.ZIndex ?? 1) < (label.ZIndex ?? 1)) {
-					continue;
-				}
-				const buttonRect = rectOf(button);
-				const hidden = math.max(0, math.min(textRect.x1, buttonRect.x1) - math.max(textRect.x0, buttonRect.x0));
-				const shared = math.max(0, math.min(textRect.y1, buttonRect.y1) - math.max(textRect.y0, buttonRect.y0));
-				if (hidden / textWidth < TEXT_COVER_SHARE || shared / textHeight < TEXT_COVER_HEIGHT) {
-					continue;
-				}
-				stats.textUnderButtonSeen += 1;
-				clearTextOfButton(label, button, buttonRect);
-				break;
-			}
-		}
-	}
-	textPassLayerLabels.clear();
-	textPassLayerButtons.clear();
-}
-const SOLID_MIN_GAP = 4;
-const stackPassLabels = new Map<Instance, TextLabel[]>();
-const stackPassSolids = new Map<Instance, GuiObject[]>();
-function isSolid(inst: Instance): boolean {
-	if (!inst.IsA("GuiObject") || !inst.Visible || inst.IsA("TextLabel")) {
-		return false;
-	}
-	if (inst.GetAttribute(IGNORE_ATTRIBUTE) === true) {
-		return false;
-	}
-	if (inst.IsA("TextBox") || inst.IsA("GuiButton")) {
-		return true;
-	}
-	if (inst.BackgroundTransparency < 0.9) {
-		return true;
-	}
-	return inst.FindFirstChildWhichIsA("TextBox") !== undefined || inst.FindFirstChildWhichIsA("GuiButton") !== undefined;
-}
-function separateStack(label: TextLabel, solid: GuiObject): boolean {
-	const textRect = textRectOf(label);
-	const solidRect = rectOf(solid);
-	const across = math.min(textRect.x1, solidRect.x1) - math.max(textRect.x0, solidRect.x0);
-	if (across < 8) {
-		return false;
-	}
-	const labelRect = rectOf(label);
-	if (labelRect.y0 >= solidRect.y0) {
-		return false;
-	}
-	const intrude = textRect.y1 + SOLID_MIN_GAP - solidRect.y0;
-	if (intrude <= 0.5) {
-		return false;
-	}
-	diagnostics.record(label, "StackCollision", `Text runs into ${solid.GetFullName()} by ${math.ceil(intrude)}px`);
-	return true;
-}
-function checkStackedText(list: Instance[]) {
-	stackPassLabels.clear();
-	stackPassSolids.clear();
-	const seen = new Set<Instance>();
-	const addSolid = (solid: Instance) => {
-		const parent = solid.Parent;
-		if (parent === undefined || seen.has(solid) || !isSolid(solid)) {
-			return;
-		}
-		seen.add(solid);
-		let bucket = stackPassSolids.get(parent);
-		if (bucket === undefined) {
-			bucket = [];
-			stackPassSolids.set(parent, bucket);
-		}
-		bucket.push(solid as GuiObject);
-	};
-	for (const inst of list) {
-		coroutine.yield();
-		const parent = inst.Parent;
-		if (parent === undefined || !isTrackedClass(inst) || !Diagnostics.visible(inst as GuiObject)) {
-			continue;
-		}
-		if (inst.IsA("TextLabel")) {
-			if (inst.Visible && inst.Text !== "" && inst.GetAttribute(IGNORE_ATTRIBUTE) !== true) {
-				let bucket = stackPassLabels.get(parent);
-				if (bucket === undefined) {
-					bucket = [];
-					stackPassLabels.set(parent, bucket);
-				}
-				bucket.push(inst);
-			}
-		} else if (inst.IsA("TextBox") || inst.IsA("GuiButton")) {
-			addSolid(inst);
-			if (parent.IsA("Frame") && !engineOwns(inst)) {
-				addSolid(parent);
-			}
-		}
-	}
-	for (const [parent, labels] of stackPassLabels) {
-		const solids = stackPassSolids.get(parent);
-		if (solids === undefined || parent.FindFirstChildWhichIsA("UIGridStyleLayout")) {
-			continue;
-		}
-		for (const label of labels) {
-			if (label.AbsoluteSize.X < 8 || label.AbsoluteSize.Y < 4) {
-				continue;
-			}
-			for (const solid of solids) {
-				coroutine.yield();
-				if (label.Parent === undefined || solid.Parent !== label.Parent || !Diagnostics.visible(label) || !Diagnostics.visible(solid)) {
-					continue;
-				}
-				if (separateStack(label, solid)) {
-					break;
-				}
-			}
-		}
-	}
-	stackPassLabels.clear();
-	stackPassSolids.clear();
-}
-function inspect(inst: Instance) {
-	const before = diagnostics.observations();
-	inspectOnce(inst);
-	if (inst.Parent !== undefined && inst.GetAttribute(IGNORE_ATTRIBUTE) !== true) {
-		learn(inst, diagnostics.observations() > before);
-	}
-}
-function inspectOnce(inst: Instance): undefined {
-	if (inst.Parent === undefined || !isTrackedClass(inst)) {
-		return undefined;
-	}
-	if (!Diagnostics.visible(inst as GuiObject)) return undefined;
-	const size = (inst as GuiObject).AbsoluteSize;
-	const pos = (inst as GuiObject).AbsolutePosition;
-	const broken = !isFiniteNumber(size.X) || !isFiniteNumber(size.Y) || !isFiniteNumber(pos.X) || !isFiniteNumber(pos.Y);
-	if (broken && inst.IsA("GuiObject") && inst.Visible && inst.GetAttribute(IGNORE_ATTRIBUTE) !== true) {
-		diagnostics.record(inst, "InvalidGeometry", "Non-finite geometry; owner must reject invalid layout values");
-		return undefined;
-	}
-	if (inst.IsA("ScrollingFrame")) {
-		repairScrollingFrame(inst);
-	} else if (isFloatingPanel(inst)) {
-		repairFloatingPanel(inst as Frame);
-	} else if (inst.IsA("CanvasGroup")) {
-		return undefined;
-	} else if (inst.IsA("GuiButton")) {
-		repairButton(inst);
-	} else if (inst.IsA("TextLabel") || inst.IsA("TextBox")) {
-		repairText(inst);
-	}
-	return undefined;
-}
+type Mode = "off" | Profile;
 
 interface UiRootComponent {
 	instance: GuiObject;
 }
-
 interface ComponentsApi {
 	onComponentAdded(callback: (component: UiRootComponent) => unknown, id: string): void;
 	getAllComponents(id: string): UiRootComponent[];
 }
-
 interface RuntimeApi {
 	primary(): UiRootComponent | undefined;
 }
 
+const diagnostics = Diagnostics.new(os.clock);
+const stats = {
+	scans: 0,
+	liteScans: 0,
+	nodes: 0,
+	findings: 0,
+	confirmed: 0,
+	logged: 0,
+	resolved: 0,
+	ruleFailures: 0,
+	truncated: 0,
+	matrixRuns: 0,
+	lastScanMs: 0,
+	lastScanFrames: 0,
+	measureHits: 0,
+	measureMisses: 0,
+	canvasFixed: 0,
+	panelsNudged: 0,
+};
+
+function attr(name: string): unknown {
+	return ReplicatedStorage.GetAttribute(name);
+}
+
+function wantedMode(userId: number): Mode {
+	if (attr("AstralLayoutGuard") === true || attr("AstralDebugLogs") === true) return "full";
+	const debug = Workspace.GetAttribute("LayoutDebug");
+	if (debug !== undefined && debug !== false && debug !== "") return "full";
+	const sample = attr("AstralLayoutGuardSample");
+	const rate = typeIs(sample, "number") ? sample : DEFAULT_SAMPLE;
+	return inSample(userId, rate) ? "lite" : "off";
+}
+
+const reportListeners: Array<(report: Report) => void> = [];
+// the Flamework singleton, for the module-level admin hooks below
+let instance: { report(): Report } | undefined;
+
 @Controller({ loadOrder: 2 })
-class LayoutGuardController implements OnInit, OnStart, OnTick {
+class LayoutGuardController implements OnInit, OnStart {
 	components: ComponentsApi;
 	runtime: RuntimeApi | undefined;
 	target: UiRootComponent | undefined;
 	diagnosticEndpoint: BindableFunction | undefined;
-	frame = 0;
-	sinceSweep = 0;
-	fresh: Instance[] = [];
-	freshReady: number[] = [];
-	freshSet = setmetatable(new Map<Instance, boolean>(), { __mode: "k" } as LuaMetatable<Map<Instance, boolean>>);
-	freshScratch: Instance[] = [];
-	freshReadyScratch: number[] = [];
-	tracked: Instance[] = [];
-	trackedIndex = setmetatable(new Map<Instance, number>(), { __mode: "k" } as LuaMetatable<Map<Instance, number>>);
-	lastReportAt = os.clock();
-	reportedTotal = 0;
-	queue = this.tracked;
-	cursor = 1;
-	lastWidth = -1;
-	lastHeight = -1;
-	burstLeft = 0;
-	armed = false;
-	rootConnections: RBXScriptConnection[] = [];
-	geometryConnections = setmetatable(new Map<Instance, RBXScriptConnection[]>(), { __mode: "k" } as LuaMetatable<Map<Instance, RBXScriptConnection[]>>);
-	geometryReadyAt = setmetatable(new Map<Instance, number>(), { __mode: "k" } as LuaMetatable<Map<Instance, number>>);
-	geometryUsers = setmetatable(new Map<Instance, number>(), { __mode: "k" } as LuaMetatable<Map<Instance, number>>);
-	trackedAncestors = setmetatable(new Map<Instance, Instance[]>(), { __mode: "k" } as LuaMetatable<Map<Instance, Instance[]>>);
-	layerConnections = new Map<Instance, RBXScriptConnection[]>();
-	watchedLayers = new Map<Instance, boolean>();
-	pendingOverlap = false;
-	hotCursor = 1;
-	deadline = math.huge;
-	overlapPhase = 1;
-	collisionWork: thread | undefined = undefined;
+	mode: Mode = "off";
+	private configs = new Map<string, RuleConfig>();
+	private configErrors: string[] = [];
+	private tracker = new Tracker(DEFAULT_OPTIONS);
+	private logger = new GroupedLogger((level, line) => this.sink(level, line), os.clock());
+	private overlay: Overlay | undefined;
+	private watch: RBXScriptConnection[] = [];
+	private gateConnections: RBXScriptConnection[] = [];
+	private generation = 0;
+	private scanning = false;
+	private rerun = false;
+	private confirmRescans = 0;
+	private lastScanAt = -math.huge;
+	private lastSnap: Snapshot | undefined;
+	private lastCapture: Captured | undefined;
+	private active: Tracked[] = [];
+	private matrix: Finding[] = [];
+	private safetyThread: thread | undefined;
 
 	constructor(registry: UiRootRegistry) {
 		this.components = registry;
 		this.runtime = registry;
-	}
-
-	hotPass(budget: number) {
-		let cursor = this.hotCursor || 1;
-		while (budget > 0 && hotList.size() > 0 && os.clock() < this.deadline) {
-			if (cursor > hotList.size()) {
-				cursor = 1;
-			}
-			const inst = hotList[cursor - 1];
-			const entry = model.get(signatureOf(inst));
-			if (inst.Parent === undefined || entry === undefined || entry.p < HOT_THRESHOLD * 0.5 || entry.thrash >= THRASH_LIMIT) {
-				hotSet.delete(inst);
-				hotList[cursor - 1] = hotList[hotList.size() - 1];
-				hotList.pop();
-			} else {
-				cursor += 1;
-				budget -= 1;
-				if (!this.freshSet.get(inst)) {
-					inspect(inst);
-					stats.hotChecked += 1;
-				}
-			}
-		}
-		this.hotCursor = cursor;
+		instance = this;
 	}
 
 	onInit() {
-		this.armed = true;
-	}
-
-	enqueue(instance: Instance, delay?: number): undefined {
-		if (this.freshSet.get(instance) || !isTrackedClass(instance)) {
-			return undefined;
-		}
-		if (this.fresh.size() >= Plan.FRESH_CAP) {
-			return undefined;
-		}
-		this.freshSet.set(instance, true);
-		this.fresh.push(instance);
-		this.freshReady.push(this.frame + (delay ?? Plan.SETTLE_FRAMES));
-		return undefined;
-	}
-
-	queueGeometryDirty(instance: Instance) {
-		const now = os.clock();
-		if (now < (this.geometryReadyAt.get(instance) ?? 0)) {
-			return;
-		}
-		this.geometryReadyAt.set(instance, now + 0.2);
-		stats.geometryChanges += 1;
-		this.markDirty(instance);
-		const parent = instance.Parent;
-		if (parent !== undefined && this.trackedIndex.get(parent) !== undefined) {
-			this.enqueue(parent, Plan.SETTLE_FRAMES);
-		}
-		let queued = 0;
-		if (instance.IsA("GuiObject")) {
-			for (const descendant of instance.GetDescendants()) {
-				if (this.trackedIndex.get(descendant) !== undefined && !this.freshSet.get(descendant)) {
-					this.enqueue(descendant, Plan.SETTLE_FRAMES);
-					queued += 1;
-					if (queued >= DIRTY_DESCENDANT_CAP) {
-						break;
-					}
-				}
-			}
-		}
-		stats.dirtyDescendants += queued;
-		if (queued >= DIRTY_DESCENDANT_CAP) {
-			this.sinceSweep = math.max(this.sinceSweep, Plan.MIN_SWEEP_SECONDS);
-		}
-		this.pendingOverlap = true;
-	}
-
-	watchGeometry(instance: Instance) {
-		if (!instance.IsA("GuiObject")) {
-			return;
-		}
-		const users = (this.geometryUsers.get(instance) ?? 0) + 1;
-		this.geometryUsers.set(instance, users);
-		if (this.geometryConnections.get(instance) !== undefined) {
-			return;
-		}
-		const properties = ["Position", "Size", "Visible", "ClipsDescendants"];
-		if (instance.IsA("GuiButton")) {
-			properties.push("Active");
-			properties.push("Rotation");
-			properties.push("ZIndex");
-		} else if (instance.IsA("TextLabel") || instance.IsA("TextBox")) {
-			properties.push("Text");
-			properties.push("TextFits");
-			properties.push("TextWrapped");
-			properties.push("TextScaled");
-			properties.push("TextSize");
-			if (instance.IsA("TextBox")) {
-				properties.push("TextEditable");
-			}
-		} else if (instance.IsA("ScrollingFrame")) {
-			properties.push("AutomaticCanvasSize");
-			properties.push("CanvasPosition");
-			properties.push("CanvasSize");
-			properties.push("ScrollingDirection");
-			properties.push("ScrollingEnabled");
-		}
-		const connections: RBXScriptConnection[] = [];
-		for (const property of properties) {
-			const [ok, signal] = pcall(() => {
-				return (instance as GuiObject).GetPropertyChangedSignal(property as "Name");
-			});
-			if (ok && signal !== undefined) {
-				connections.push(signal.Connect(() => {
-					this.queueGeometryDirty(instance);
-				}));
-			}
-		}
-		this.geometryConnections.set(instance, connections);
-	}
-
-	unwatchGeometry(instance: Instance) {
-		const users = this.geometryUsers.get(instance);
-		if (users === undefined) {
-			return;
-		}
-		if (users > 1) {
-			this.geometryUsers.set(instance, users - 1);
-			return;
-		}
-		this.geometryUsers.delete(instance);
-		const connections = this.geometryConnections.get(instance);
-		if (connections !== undefined) {
-			for (const connection of connections) {
-				connection.Disconnect();
-			}
-			this.geometryConnections.delete(instance);
-		}
-		this.geometryReadyAt.delete(instance);
-	}
-
-	track(instance: Instance): undefined {
-		if (this.trackedIndex.get(instance) !== undefined || !isTrackedClass(instance)) {
-			return undefined;
-		}
-		const tracked = this.tracked;
-		const index = tracked.size() + 1;
-		tracked[index - 1] = instance;
-		this.trackedIndex.set(instance, index);
-		const ancestors: GuiObject[] = [];
-		let ancestor = instance.Parent;
-		while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
-			if (ancestor.IsA("GuiObject")) {
-				ancestors.push(ancestor);
-				this.watchGeometry(ancestor);
-			}
-			ancestor = ancestor.Parent;
-		}
-		this.trackedAncestors.set(instance, ancestors);
-		this.watchGeometry(instance);
-		return undefined;
-	}
-
-	untrack(instance: Instance): undefined {
-		const index = this.trackedIndex.get(instance);
-		if (index === undefined) {
-			return undefined;
-		}
-		const tracked = this.tracked;
-		const last = tracked.size();
-		const moved = tracked[last - 1];
-		tracked[index - 1] = moved;
-		this.trackedIndex.set(moved, index);
-		tracked.pop();
-		this.trackedIndex.delete(instance);
-		this.unwatchGeometry(instance);
-		const ancestors = this.trackedAncestors.get(instance);
-		if (ancestors !== undefined) {
-			for (const ancestor of ancestors) {
-				this.unwatchGeometry(ancestor);
-			}
-			this.trackedAncestors.delete(instance);
-		}
-		return undefined;
-	}
-
-	releaseSubtree(instance: Instance) {
-		this.untrack(instance);
-		const [ok, descendants] = pcall(() => {
-			return instance.GetDescendants();
-		});
-		if (!ok || descendants === undefined) {
-			return;
-		}
-		for (const descendant of descendants) {
-			this.untrack(descendant);
-		}
-	}
-
-	markDirty(instance: Instance | undefined) {
-		if (instance !== undefined) {
-			tryCount.delete(instance);
-			abandoned.delete(instance);
-			this.enqueue(instance, Plan.SETTLE_FRAMES);
-		}
-	}
-
-	watchLayer(layer: Instance): undefined {
-		if (this.watchedLayers.get(layer)) {
-			return undefined;
-		}
-		this.watchedLayers.set(layer, true);
-		for (const descendant of layer.GetDescendants()) {
-			this.track(descendant);
-		}
-		const connections: RBXScriptConnection[] = [];
-		this.layerConnections.set(layer, connections);
-		connections.push(layer.DescendantAdded.Connect((instance) => {
-			this.track(instance);
-			this.markDirty(instance);
-		}));
-		connections.push(layer.DescendantRemoving.Connect((instance) => {
-			this.releaseSubtree(instance);
-			tryCount.delete(instance);
-			abandoned.delete(instance);
-		}));
-		return undefined;
-	}
-
-	unwatchLayer(layer: Instance) {
-		const connections = this.layerConnections.get(layer);
-		if (connections !== undefined) {
-			for (const connection of connections) {
-				connection.Disconnect();
-			}
-			this.layerConnections.delete(layer);
-		}
-		if (!this.watchedLayers.get(layer)) {
-			return;
-		}
-		this.watchedLayers.delete(layer);
-		this.releaseSubtree(layer);
-	}
-
-	bindRoot(root: GuiObject | undefined): undefined {
-		if (this.diagnosticEndpoint) {
-			this.diagnosticEndpoint.Destroy();
-			this.diagnosticEndpoint = undefined;
-		}
-		if (this.layerConnections !== undefined) {
-			for (const [layer] of this.layerConnections) {
-				this.unwatchLayer(layer);
-			}
-		}
-		for (const connection of this.rootConnections) {
-			connection.Disconnect();
-		}
-		for (const [instance, connections] of this.geometryConnections) {
-			for (const connection of connections) {
-				connection.Disconnect();
-			}
-			this.geometryConnections.delete(instance);
-		}
-		this.rootConnections.clear();
-		this.tracked.clear();
-		this.trackedIndex.clear();
-		this.fresh.clear();
-		this.freshReady.clear();
-		this.freshSet.clear();
-		this.freshScratch.clear();
-		this.freshReadyScratch.clear();
-		if (this.geometryUsers !== undefined) this.geometryUsers.clear();
-		if (this.trackedAncestors !== undefined) this.trackedAncestors.clear();
-		if (this.geometryReadyAt !== undefined) this.geometryReadyAt.clear();
-		this.collisionWork = undefined;
-		this.layerConnections = new Map();
-		this.watchedLayers = new Map();
-		if (root === undefined) {
-			return undefined;
-		}
-		this.watchLayer(root);
-		const playerGui = root.FindFirstAncestorOfClass("PlayerGui");
-		const endpoint = new Instance("BindableFunction");
-		endpoint.Name = "AstralForgeLayoutDiagnostics";
-		endpoint.OnInvoke = () => {
-			return {
-				Diagnostics: diagnostics.snapshot(),
-				Stats: table.clone(stats),
-				Tracked: this.tracked.size(),
-				Fresh: this.fresh.size(),
-				Cursor: this.cursor,
-				PendingOverlap: this.pendingOverlap,
-				OverlapPhase: this.overlapPhase,
-			};
-		};
-		// React owns root descendants and removes children created before mounting.
-		endpoint.Parent = playerGui ?? root;
-		this.diagnosticEndpoint = endpoint;
-		this.rootConnections.push(root.Destroying.Connect(() => {
-			endpoint.Destroy();
-		}));
-		if (playerGui !== undefined) {
-			const consider = (layer: Instance) => {
-				if (layer.IsA("LayerCollector") && layer !== (root as Instance) && layer.GetAttribute(IGNORE_ATTRIBUTE) !== true) {
-					this.watchLayer(layer);
-				}
-			};
-			for (const layer of playerGui.GetChildren()) {
-				consider(layer);
-			}
-			this.rootConnections.push(playerGui.ChildAdded.Connect(consider));
-			this.rootConnections.push(playerGui.ChildRemoved.Connect((layer) => {
-				this.unwatchLayer(layer);
-			}));
-		}
-		this.rootConnections.push(root.GetPropertyChangedSignal("AbsoluteSize").Connect(() => {
-			this.checkResize(root);
-		}));
-		this.lastWidth = -1;
-		this.lastHeight = -1;
-		this.checkResize(root);
-		return undefined;
-	}
-
-	checkResize(root: GuiObject): boolean {
-		const size = root.AbsoluteSize;
-		if (!Plan.resized(this.lastWidth, this.lastHeight, size.X, size.Y)) {
-			return false;
-		}
-		const first = this.lastWidth < 0;
-		this.lastWidth = size.X;
-		this.lastHeight = size.Y;
-		if (!first) {
-			diagnostics.reset();
-			tryCount.clear();
-			abandoned.clear();
-			// A fight at the old size must not suppress repairs in the new layout.
-			for (const [, entry] of model) {
-				entry.thrash = 0;
-			}
-		}
-		this.cursor = 1;
-		this.sinceSweep = Plan.MIN_SWEEP_SECONDS;
-		this.pendingOverlap = false;
-		this.overlapPhase = 1;
-		this.collisionWork = undefined;
-		this.burstLeft = Plan.BURST_FRAMES;
-		stats.bursts += 1;
-		return true;
+		this.reloadConfig();
 	}
 
 	onStart() {
@@ -1380,221 +140,314 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 			this.target = component;
 			this.bindRoot(component.instance);
 			return this.target;
-		}, "client/framework/init@UiRootComponent");
-		const _binding = this.components.getAllComponents("client/framework/init@UiRootComponent");
-		const existing = _binding[0];
+		}, ROOT_ID);
+		const existing = this.components.getAllComponents(ROOT_ID)[0];
 		if (existing !== undefined) {
 			this.target = existing;
 			this.bindRoot(existing.instance);
 		}
+		const gate = () => this.updateMode();
+		for (const name of ["AstralLayoutGuard", "AstralDebugLogs", "AstralLayoutGuardSample", "AstralLayoutGuardMatrix"]) {
+			this.gateConnections.push(ReplicatedStorage.GetAttributeChangedSignal(name).Connect(gate));
+		}
+		this.gateConnections.push(ReplicatedStorage.GetAttributeChangedSignal("LayoutGuardRules").Connect(() => this.reloadConfig()));
+		this.gateConnections.push(
+			Workspace.GetAttributeChangedSignal("LayoutDebug").Connect(() => {
+				this.updateMode();
+				if (!layoutDebugEnabled() && Workspace.GetAttribute("LayoutDebug") === undefined) this.overlay?.destroy();
+				this.markDirty();
+			}),
+		);
+		this.updateMode();
 	}
 
-	drainFresh(budget: number): undefined {
-		const fresh = this.fresh;
-		const ready = this.freshReady;
-		if (fresh.size() === 0 || budget <= 0) {
-			return undefined;
-		}
-		let anyDue = false;
-		for (let index = 0; index < fresh.size(); index++) {
-			if (ready[index] <= this.frame) {
-				anyDue = true;
-				break;
-			}
-		}
-		if (!anyDue) {
-			return undefined;
-		}
-		const keptItems = this.freshScratch;
-		const keptReady = this.freshReadyScratch;
-		keptItems.clear();
-		keptReady.clear();
-		const count = fresh.size();
-		let done = 0;
-		for (let index = 0; index < count; index++) {
-			const instance = fresh[index];
-			if (done < budget && ready[index] <= this.frame && os.clock() < this.deadline) {
-				done += 1;
-				this.freshSet.delete(instance);
-				if (instance.Parent !== undefined) {
-					inspect(instance);
-					stats.freshChecked += 1;
-				}
-			} else {
-				keptItems.push(instance);
-				keptReady.push(ready[index]);
-			}
-		}
-		for (let index = count; index < fresh.size(); index++) {
-			keptItems.push(fresh[index]);
-			keptReady.push(ready[index]);
-		}
-		this.freshScratch = fresh;
-		this.freshReadyScratch = ready;
-		this.fresh = keptItems;
-		this.freshReady = keptReady;
-		return undefined;
+	private reloadConfig() {
+		const spec = attr("LayoutGuardRules");
+		const [configs, errors] = parseConfig(typeIs(spec, "string") ? spec : undefined);
+		this.configs = configs;
+		this.configErrors = errors;
+		for (const e of errors) ClientLog.warnEvery("layoutguard-config " + e, 60, "LayoutGuard", `LayoutGuardRules: ${e}`);
+		this.markDirty();
 	}
 
-	// Flamework calls this every Heartbeat; a failure is logged at most every 15s instead of every frame.
-	private gateCheckedAt = -math.huge;
-	private gateOpen = false;
+	private playerGui(): PlayerGui | undefined {
+		const player = Players.LocalPlayer;
+		return player !== undefined ? (player.FindFirstChildOfClass("PlayerGui") as PlayerGui | undefined) : undefined;
+	}
 
-	onTick(dt: number) {
-		const now = os.clock();
-		if (now - this.gateCheckedAt >= GATE_RECHECK_SECONDS) {
-			this.gateCheckedAt = now;
-			this.gateOpen = guardEnabled();
-		}
-		if (!this.gateOpen) {
+	private updateMode() {
+		const player = Players.LocalPlayer;
+		const wanted = wantedMode(player !== undefined ? player.UserId : 0);
+		if (wanted === this.mode) return;
+		const previous = this.mode;
+		this.mode = wanted;
+		this.unwatch();
+		if (wanted === "off") {
+			this.overlay?.destroy();
+			this.overlay = undefined;
+			this.tracker.clear();
+			this.active = [];
+			ClientLog.debug("LayoutGuard", `off (was ${previous})`);
 			return;
 		}
-		const [ok, reason] = pcall(() => this.tick(dt));
-		if (!ok) {
-			ClientLog.warnEvery("framework-layout guard tick", 15, "framework", `layout guard tick failed: ${tostring(reason)}`);
-		}
+		this.watchUi();
+		ClientLog.debug("LayoutGuard", `${wanted} mode`, { rules: this.enabledRuleCount() });
+		this.markDirty();
 	}
 
-	tick(_dt: number): undefined {
-		let _root: GuiObject | undefined = undefined;
-		const target = this.target;
-		if (target !== undefined) {
-			_root = target.instance;
+	private enabledRuleCount(): number {
+		let n = 0;
+		for (const [, c] of this.configs) if (c.enabled) n += 1;
+		return n;
+	}
+
+	bindRoot(root: GuiObject | undefined): undefined {
+		if (root === undefined) return undefined;
+		if (this.mode !== "off") {
+			this.unwatch();
+			this.watchUi();
 		}
-		let root = _root;
-		if (root === undefined && this.runtime !== undefined) {
-			const primary = this.runtime.primary();
-			if (primary !== undefined) {
-				this.target = primary;
-				root = primary.instance;
-				this.bindRoot(root);
-			}
-		}
-		if (root === undefined) {
-			return undefined;
-		}
-		this.frame += 1;
-		this.deadline = os.clock() + (IS_STUDIO ? FRAME_BUDGET_SECONDS : LIVE_BUDGET_SECONDS);
-		diagnostics.beginPairs(this.deadline);
-		this.sinceSweep += _dt;
-		this.checkResize(root);
-		const budget = Plan.budget(this.burstLeft, this.fresh.size());
-		if (this.burstLeft > 0) {
-			this.burstLeft -= 1;
-		}
-		this.drainFresh(budget.fresh);
-		const tracked = this.tracked;
-		if (this.cursor > tracked.size()) {
-			if (this.pendingOverlap) {
-				if (os.clock() >= this.deadline) {
-					return undefined;
-				}
-				if (this.collisionWork === undefined) {
-					this.collisionWork = coroutine.create(() => {
-						if (this.overlapPhase === 1) {
-							checkOverlappingHitboxes(this.queue);
-						} else if (this.overlapPhase === 2) {
-							checkTextUnderButtons(this.queue);
-						} else {
-							checkStackedText(this.queue);
-							textPassLabels.clear();
-							textPassButtons.clear();
-						}
-					});
-				}
-				if (diagnostics.runWork(this.collisionWork)) {
-					this.collisionWork = undefined;
-					if (this.overlapPhase === 3) this.pendingOverlap = false;
-					this.overlapPhase = this.overlapPhase % 3 + 1;
-				}
-				this.report();
-				return undefined;
-			}
-			if (this.sinceSweep < Plan.MIN_SWEEP_SECONDS) {
-				this.report();
-				return undefined;
-			}
-			this.sinceSweep = 0;
-			this.cursor = 1;
-			this.pendingOverlap = true;
-			stats.scans += 1;
-		}
-		let sweepBudget = budget.sweep;
-		while (sweepBudget > 0 && this.cursor <= tracked.size() && os.clock() < this.deadline) {
-			const inst = tracked[this.cursor - 1];
-			this.cursor += 1;
-			sweepBudget -= 1;
-			if (inst.Parent === undefined || this.freshSet.get(inst)) {
-				continue;
-			}
-			inspect(inst);
-			stats.sweepChecked += 1;
-		}
-		if (this.frame % HOT_EVERY_FRAMES === 0) {
-			this.hotPass(HOT_BUDGET);
-		}
-		this.report();
+		this.ensureEndpoint(root);
+		this.markDirty();
 		return undefined;
 	}
 
-	private reportedActions = new Set<string>();
-
-	report(): undefined {
-		const now = os.clock();
-		if (now - this.lastReportAt < REPORT_EVERY) {
-			return undefined;
-		}
-		this.lastReportAt = now;
-		const total = diagnostics.total();
-		if (total === this.reportedTotal) {
-			return undefined;
-		}
-		const delta = total - this.reportedTotal;
-		this.reportedTotal = total;
-		ClientLog.debug("LayoutGuard", `${delta} layout diagnostic${delta === 1 ? "" : "s"} in the last ${REPORT_EVERY}s; component owners retain geometry`, {
-			tracked: this.tracked.size(),
-			textFit: stats.textFitFixed,
-			textOffButton: stats.textClearedOfButton,
-			wrapped: stats.textWrapped,
-			labels: stats.labelsUntangled,
-			stacked: stats.stackSeparated,
-			intoView: stats.pulledIntoView,
-			overlap: stats.overlapDemoted,
-			outOfBox: stats.outOfBoxFixed,
-			gaveUp: stats.gaveUp,
-			learned: modelSize,
-			hot: hotList.size(),
-			hotChecked: stats.hotChecked,
-			fighting: stats.signaturesSuppressed,
-			smallTouch: stats.smallTouchTargets,
-			outsideViewport: stats.actionsOutsideViewport,
-			outsideParent: stats.actionsOutsideParent,
-			actionCollisions: stats.actionCollisions,
-			clippedActions: stats.clippedActions,
-			geometryChanges: stats.geometryChanges,
-			dirtyDescendants: stats.dirtyDescendants,
-			nestedScroll: stats.nestedScrollConflicts,
+	private ensureEndpoint(root: Instance) {
+		if (this.diagnosticEndpoint !== undefined && this.diagnosticEndpoint.Parent !== undefined) return;
+		const playerGui = root.FindFirstAncestorOfClass("PlayerGui");
+		const endpoint = new Instance("BindableFunction");
+		endpoint.Name = "AstralForgeLayoutDiagnostics";
+		endpoint.OnInvoke = (command?: unknown) => {
+			if (command === "rescan") {
+				this.markDirty(0);
+				return true;
+			}
+			const report = this.report();
+			if (command === "text") return reportText(report);
+			return {
+				Diagnostics: diagnostics.snapshot(),
+				Stats: table.clone(stats),
+				Tracked: this.tracker.size(),
+				Mode: this.mode,
+				Report: report,
+				ConfigErrors: [...this.configErrors],
+			};
+		};
+		// React owns root descendants and removes children created before mounting.
+		endpoint.Parent = playerGui ?? root;
+		this.diagnosticEndpoint = endpoint;
+		root.Destroying.Once(() => {
+			if (this.diagnosticEndpoint === endpoint) this.diagnosticEndpoint = undefined;
+			endpoint.Destroy();
 		});
-		// name the action problems, not just count them, so a Studio log is enough to find the component
-		const shown = new Set<string>();
-		let named = 0;
-		for (const issue of diagnostics.snapshot().Issues) {
-			if (named >= ACTION_REPORT_MAX) {
-				break;
-			}
-			if (ACTION_REPORT_KINDS[issue.Kind] !== true || this.reportedActions.has(issue.Kind + ":" + issue.Path)) {
-				continue;
-			}
-			const key = issue.Kind + ":" + issue.Path;
-			if (shown.has(key)) {
-				continue;
-			}
-			shown.add(key);
-			this.reportedActions.add(key);
-			named += 1;
-			ClientLog.debug("LayoutGuard", `${issue.Kind}: ${issue.Path}`, { owner: issue.Owner, detail: issue.Detail, samples: issue.Samples });
+	}
+
+	private watchUi() {
+		const playerGui = this.playerGui();
+		if (playerGui === undefined) return;
+		const relevant = (inst: Instance) => inst.IsA("GuiObject") || inst.IsA("UIComponent") || inst.IsA("LayerCollector");
+		const ours = (inst: Instance) => inst.Name === OVERLAY_NAME || inst.Name === "WhitespaceDebug" || inst.FindFirstAncestor(OVERLAY_NAME) !== undefined;
+		this.watch.push(
+			playerGui.DescendantAdded.Connect((inst) => {
+				if (relevant(inst) && !ours(inst)) this.markDirty();
+			}),
+		);
+		this.watch.push(
+			playerGui.DescendantRemoving.Connect((inst) => {
+				if (relevant(inst) && !ours(inst)) this.markDirty();
+			}),
+		);
+		const camera = Workspace.CurrentCamera;
+		if (camera !== undefined) this.watch.push(camera.GetPropertyChangedSignal("ViewportSize").Connect(() => this.markDirty()));
+		const root = this.target?.instance;
+		if (root !== undefined) this.watch.push(root.GetPropertyChangedSignal("AbsoluteSize").Connect(() => this.markDirty()));
+		if (this.mode === "full") {
+			const generation = this.generation;
+			this.safetyThread = task.spawn(() => {
+				while (this.mode === "full" && generation === this.generation) {
+					task.wait(SAFETY_RESCAN);
+					if (this.mode === "full" && generation === this.generation && !this.scanning) this.startScan();
+				}
+			});
 		}
-		return undefined;
+	}
+
+	private unwatch() {
+		for (const c of this.watch) c.Disconnect();
+		this.watch.clear();
+		this.generation += 1;
+		if (this.safetyThread !== undefined && coroutine.status(this.safetyThread) === "suspended") task.cancel(this.safetyThread);
+		this.safetyThread = undefined;
+	}
+
+	/** Debounced scan request: the scan runs once changes have been quiet for `delay` seconds. */
+	markDirty(delay = QUIET) {
+		if (this.mode === "off") return;
+		this.generation += 1;
+		const generation = this.generation;
+		this.confirmRescans = 0;
+		task.delay(delay, () => {
+			if (generation !== this.generation || this.mode === "off") return;
+			this.startScan();
+		});
+	}
+
+	private startScan() {
+		if (this.scanning) {
+			this.rerun = true;
+			return;
+		}
+		const now = os.clock();
+		if (this.mode === "lite" && now - this.lastScanAt < LITE_MIN_INTERVAL) {
+			const wait = LITE_MIN_INTERVAL - (now - this.lastScanAt);
+			const generation = this.generation;
+			task.delay(wait, () => {
+				if (generation === this.generation) this.startScan();
+			});
+			return;
+		}
+		const playerGui = this.playerGui();
+		if (playerGui === undefined) return;
+		this.scanning = true;
+		this.lastScanAt = now;
+		const profile: Profile = this.mode === "lite" ? "lite" : "full";
+		const budget = profile === "lite" ? BUDGET_LITE : BUDGET_FULL;
+		let deadline = os.clock() + budget;
+		let frames = 1;
+		let busy = 0;
+		const step = () => {
+			if (os.clock() >= deadline) {
+				busy += os.clock() - (deadline - budget);
+				coroutine.yield();
+				deadline = os.clock() + budget;
+				frames += 1;
+			}
+		};
+		const work = coroutine.create(() => {
+			this.scan(playerGui, profile, step);
+		});
+		const finish = (connection?: RBXScriptConnection) => {
+			connection?.Disconnect();
+			this.scanning = false;
+			stats.lastScanMs = math.floor((busy + (os.clock() - (deadline - budget))) * 100000) / 100;
+			stats.lastScanFrames = frames;
+			if (this.rerun) {
+				this.rerun = false;
+				this.markDirty();
+			}
+		};
+		const resume = (): boolean => {
+			const [ok, err] = coroutine.resume(work);
+			if (!ok) {
+				ClientLog.warnEvery("layoutguard-scan", 15, "LayoutGuard", `scan failed: ${tostring(err)}`);
+				return true;
+			}
+			return coroutine.status(work) === "dead";
+		};
+		if (resume()) {
+			finish();
+			return;
+		}
+		const connection = RunService.Heartbeat.Connect(() => {
+			if (resume()) finish(connection);
+		});
+	}
+
+	private scan(playerGui: PlayerGui, profile: Profile, step: () => void) {
+		const wantMatrix = profile === "full" && (Workspace.GetAttribute("LayoutDebug") === "matrix" || attr("AstralLayoutGuardMatrix") === true);
+		const cap = capture(playerGui, {
+			maxNodes: profile === "lite" ? MAX_NODES_LITE : MAX_NODES_FULL,
+			step,
+			withVNodes: wantMatrix,
+			whitespace: whitespaceContainers(),
+		});
+		const snap = cap.snap;
+		if (cap.truncated) stats.truncated += 1;
+		const pathOf = (id: number) => snap.byId.get(id)?.path ?? "?";
+		const [findings, run] = runRules(snap, this.configs, profile, measure, step);
+		for (const f of run.failures) ClientLog.warnEvery("layoutguard-rule " + f, 60, "LayoutGuard", `rule failed: ${f}`);
+		const now = os.clock();
+		const tracked = this.tracker.update(findings, snap, now, pathOf);
+		this.active = tracked.active;
+		this.lastSnap = snap;
+		this.lastCapture = cap;
+		stats.scans += 1;
+		if (profile === "lite") stats.liteScans += 1;
+		stats.nodes = snap.nodes.size();
+		stats.findings = findings.size();
+		stats.confirmed = tracked.active.size();
+		stats.resolved += tracked.resolved.size();
+		stats.ruleFailures += run.failures.size();
+		stats.measureHits = measureStats.hits;
+		stats.measureMisses = measureStats.misses;
+		// lite mode only speaks up for errors; full mode logs warn+ (engine logMinSeverity)
+		const toLog = profile === "lite" ? tracked.toLog.filter((f) => f.level === "error") : tracked.toLog;
+		for (const f of toLog) {
+			const inst = cap.instances.get(f.node);
+			if (inst !== undefined) diagnostics.record(inst, f.rule, f.message);
+		}
+		stats.logged += this.logger.emit(toLog, pathOf, now);
+		if (tracked.resolved.size() > 0 && profile === "full") ClientLog.debug("LayoutGuard", `${tracked.resolved.size()} reported issue(s) resolved`);
+		const fixes = recover(snap, tracked.active.map((t) => t.finding), cap.instances);
+		stats.canvasFixed = recoveryStats.canvasFixed;
+		stats.panelsNudged = recoveryStats.panelsNudged;
+		for (const fix of fixes) ClientLog.debug("LayoutGuard", `scoped recovery: ${fix}`);
+		if (wantMatrix) {
+			const results = runMatrix(
+				snap,
+				cap.roots,
+				(s) => runRules(s, this.configs, "full", measure, step, MATRIX_RULES)[0],
+				measure,
+				undefined,
+				step,
+			);
+			this.matrix = summarizeMatrix(results);
+			stats.matrixRuns += 1;
+			this.logger.emit(
+				this.matrix.filter((f) => f.severity >= DEFAULT_OPTIONS.logMinSeverity),
+				pathOf,
+				now,
+				"[matrix] ",
+			);
+		}
+		if (profile === "full" && Workspace.GetAttribute("LayoutDebug") !== undefined && Workspace.GetAttribute("LayoutDebug") !== false) {
+			this.overlay = this.overlay ?? new Overlay(playerGui);
+			const debug = Workspace.GetAttribute("LayoutDebug");
+			this.overlay.draw(
+				tracked.active.map((t) => t.finding),
+				snap.viewport.width,
+				snap.viewport.height,
+				debug === "heat" || debug === true,
+				(f) => `${f.rule} ${f.message}`,
+			);
+		}
+		if (tracked.pending > 0 && this.confirmRescans < MAX_CONFIRM_RESCANS) {
+			this.confirmRescans += 1;
+			const generation = this.generation;
+			task.delay(CONFIRM_DELAY, () => {
+				if (generation === this.generation) this.startScan();
+			});
+		}
+		const report = this.report();
+		for (const listener of reportListeners) task.spawn(listener, report);
+	}
+
+	private sink(level: string, line: string) {
+		if (level === "error" && this.mode === "full") ClientLog.warnEvery("layoutguard " + line, 300, "LayoutGuard", line);
+		else ClientLog.debug("LayoutGuard", line);
+	}
+
+	report(): Report {
+		const snap = this.lastSnap;
+		const pathOf = (id: number) => snap?.byId.get(id)?.path ?? "?";
+		const s: Record<string, number> = {};
+		for (const [k, v] of pairs(stats)) s[k as string] = v as number;
+		return buildReport(snap, this.active, this.matrix, this.mode, s, pathOf);
+	}
+
+	/** instances behind the last report rows, for admin tooling that wants to select them */
+	instanceFor(id: number): GuiObject | undefined {
+		return this.lastCapture?.instances.get(id);
 	}
 }
 
@@ -1603,8 +456,24 @@ function layoutGuardStats() {
 	return stats;
 }
 
+/** Admin panel hook: latest report (undefined before the first scan or while off). */
+function layoutGuardReport(): Report | undefined {
+	return instance?.report();
+}
+
+/** Admin panel hook: called after every scan with the fresh report. Returns a disconnect. */
+function onLayoutGuardReport(listener: (report: Report) => void): () => void {
+	reportListeners.push(listener);
+	return () => {
+		const i = reportListeners.indexOf(listener);
+		if (i !== -1) reportListeners.remove(i);
+	};
+}
+
 export = {
 	layoutGuardStats,
 	layoutGuardDiagnostics: () => diagnostics.snapshot(),
+	layoutGuardReport,
+	onLayoutGuardReport,
 	LayoutGuardController,
 };
