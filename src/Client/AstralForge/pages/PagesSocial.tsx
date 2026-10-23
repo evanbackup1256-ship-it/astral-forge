@@ -5,19 +5,19 @@ import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { unixNow } from "../CoreKit/deadlines";
 import { asFlux, compactNumber } from "../CoreKit/format";
 import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../CoreKit/theme";
-import { useAntilag } from "../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../MotionKit/motion";
 import { Icon } from "../ArtKit/Icon";
 import { HEADER_ART } from "../ArtKit/uiArt";
 import * as ForgeTheme from "../../../Shared/AstralForge/Shared/ForgeTheme";
 import { SpriteCard, SPRITE_CARD_GAP, SPRITE_CARD_H, SPRITE_CARD_W } from "./views/PortSpriteCard";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
+import { useTouchTargets } from "../UiCore/ui";
+import { MockTabs } from "./socialKit";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
 import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
-import { Component, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit } from "./luauDeps";
+import { loadAudio, loadBrowse, loadPageScaffold, loadUi } from "./luauDeps";
 import { Chip, GlyphWell, Label, NUM, PanelHeading, PnSurface, ROW_RADIUS, rowFace } from "../UiCore/mockKit";
 import { SEC } from "./mockRows";
 
@@ -85,14 +85,12 @@ function tradeFace(): React.ReactElement {
 __defs["TradeView"] = () => {
 	const Audio = loadAudio();
 	const PageScaffold = loadPageScaffold();
-	const { FlatList } = luauKit<{ FlatList: Component }>("LayoutKit", "virtualizedList");
 	const {
 		Badge,
 		Button,
 		EmptyState,
 		QuantityStepper,
 		SearchField,
-		SegmentedTabs,
 		Stroke,
 		Text,
 } = loadUi();
@@ -273,6 +271,8 @@ __defs["TradeView"] = () => {
 
 	const TRADE_SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
 	const TRADE_NUMERIC = NUM;
+	// 08 .sc .w well #0d090f
+	const SLOT_WELL = Color3.fromRGB(13, 9, 15);
 
 	function relicArt(config: TradeConfig, definitionId: string): RelicArt {
 		for (const definition of config.Items?.Definitions ?? []) {
@@ -542,22 +542,22 @@ __defs["TradeView"] = () => {
 		userId: number;
 		accent: Color3;
 		size: number;
-		position?: UDim2;
+		layoutOrder?: number;
 	}
 
+	// round headshot well: 2px inset via padding, so it drops straight into a row list
 	function AvatarMark(_param: AvatarMarkProps) {
 		const userId = _param.userId;
 		const accent = _param.accent;
 		const size = _param.size;
-		const position = _param.position;
 		return h(
 			"frame",
 			{
 				Size: UDim2.fromOffset(size, size),
-				Position: position,
 				BackgroundColor3: darken(accent, 0.62),
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
+				LayoutOrder: _param.layoutOrder ?? 0,
 			},
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h(Stroke, {
@@ -565,11 +565,16 @@ __defs["TradeView"] = () => {
 				thickness: 1,
 				transparency: 0.28,
 			}),
+			h("uipadding", {
+				PaddingTop: new UDim(0, 2),
+				PaddingBottom: new UDim(0, 2),
+				PaddingLeft: new UDim(0, 2),
+				PaddingRight: new UDim(0, 2),
+			}),
 			h(
 				"imagelabel",
 				{
-					Size: new UDim2(1, -4, 1, -4),
-					Position: UDim2.fromOffset(2, 2),
+					Size: UDim2.fromScale(1, 1),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
 					Image: `rbxthumb://type=AvatarHeadShot&id=${userId > 0 ? userId : 1}&w=150&h=150`,
@@ -583,57 +588,75 @@ __defs["TradeView"] = () => {
 	interface OfferRowProps {
 		line: OfferLine;
 		touch?: boolean;
+		layoutOrder?: number;
 	}
 
+	// 08 .row: [36px well] [name, flex] [value]; one horizontal list, 12px gap, 6/12 padding
 	function OfferRow(_param: OfferRowProps) {
 		const line = _param.line;
 		const touch = _param.touch ?? false;
-		const rowH = touch ? 56 : 50;
-		const tile = touch ? 40 : 36;
-		const textX = tile + 16;
+		const rowH = touch ? 52 : 48;
+		const tile = 36;
 		return h(
 			"frame",
 			{
 				Size: new UDim2(1, 0, 0, rowH),
 				BackgroundColor3: Palette.panelRaised,
+				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
+				LayoutOrder: _param.layoutOrder ?? 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 10) }),
-			h(Stroke, {
-				color: Palette.line,
-				thickness: 1,
-				transparency: 0.35,
+			rowFace(),
+			h("uipadding", {
+				PaddingTop: new UDim(0, 6),
+				PaddingBottom: new UDim(0, 6),
+				PaddingLeft: new UDim(0, 12),
+				PaddingRight: new UDim(0, 12),
+			}),
+			h("uilistlayout", {
+				FillDirection: Enum.FillDirection.Horizontal,
+				VerticalAlignment: Enum.VerticalAlignment.Center,
+				Padding: new UDim(0, 12),
+				SortOrder: Enum.SortOrder.LayoutOrder,
 			}),
 			h(GlyphWell, {
 				kind: line.icon,
 				accent: line.accent,
 				size: tile,
-				position: UDim2.fromOffset(8, math.floor((rowH - tile) / 2)),
+				layoutOrder: 0,
 			}),
-			h(Text, {
-				value: line.detail,
-				size: 14,
-				color: Palette.cream,
-				weight: Enum.FontWeight.SemiBold,
-				fit: true,
-				position: new UDim2(0, textX, 0.5, -10),
-				sizeConstraint: new UDim2(0.45, -textX, 0, 20),
-			}),
+			h(
+				"frame",
+				{
+					Size: new UDim2(0, 0, 0, 20),
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+					LayoutOrder: 1,
+				},
+				h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+				h(Text, {
+					value: line.detail,
+					size: 14,
+					color: Palette.cream,
+					weight: Enum.FontWeight.SemiBold,
+					fit: true,
+					sizeConstraint: new UDim2(1, 0, 0, 20),
+				}),
+			),
 			h(
 				"textlabel",
 				{
 					Text: line.label,
 					FontFace: TRADE_NUMERIC,
 					TextColor3: line.accent,
-					TextScaled: true,
-					TextTruncate: Enum.TextTruncate.AtEnd,
+					TextSize: 17,
 					TextXAlignment: Enum.TextXAlignment.Right,
 					BackgroundTransparency: 1,
-					Position: new UDim2(0.45, 0, 0.5, -10),
-					Size: new UDim2(0.55, -12, 0, 20),
+					Size: new UDim2(0, 0, 0, 20),
+					AutomaticSize: Enum.AutomaticSize.X,
+					LayoutOrder: 2,
 				},
-				h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 9 }),
 			),
 		);
 	}
@@ -665,87 +688,29 @@ __defs["TradeView"] = () => {
 		return math.round(total);
 	}
 
-	interface TradeFairnessMeterProps {
-		draft: TradeOffer;
-		them?: TradeOffer;
-	}
-
-	function TradeFairnessMeter(props: TradeFairnessMeterProps) {
-		const yourScore = calcOfferValue(props.draft);
-		const theirScore = calcOfferValue(props.them);
-		const total = yourScore + theirScore;
-		const yourRatio = total > 0 ? yourScore / total : 0.5;
-		let balanceText: string;
-		let balanceColor: Color3;
-		if (total === 0) {
-			balanceText = "Add items or currency to see the balance";
-			balanceColor = Palette.muted;
-		} else if (yourRatio >= 0.42 && yourRatio <= 0.58) {
-			balanceText = "About even";
-			balanceColor = Palette.mint;
-		} else if (yourRatio > 0.58) {
-			const adv = math.round((yourRatio - 0.5) * 200);
-			balanceText = `You're giving +${adv}% more than you get`;
-			balanceColor = Palette.mango;
-		} else {
-			const adv = math.round((0.5 - yourRatio) * 200);
-			balanceText = `You're getting +${adv}% more than you give`;
-			balanceColor = Palette.cyan;
+	// 08 action bar chip: "Value check: you give about 1.4x what you get"
+	function tradeBalance(draft: TradeOffer, them: TradeOffer | undefined): { text: string; accent?: Color3 } {
+		const yourScore = calcOfferValue(draft);
+		const theirScore = calcOfferValue(them);
+		if (yourScore === 0 && theirScore === 0) {
+			return { text: "Value check: add something to compare" };
 		}
-		return h(
-			"frame",
-			{
-				Size: new UDim2(1, 0, 0, 48),
-				BackgroundColor3: Palette.panelSoft,
-				BorderSizePixel: 0,
-				ZIndex: 5,
-			},
-			h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
-			h("uipadding", {
-				PaddingTop: new UDim(0, 6),
-				PaddingBottom: new UDim(0, 6),
-				PaddingLeft: new UDim(0, 10),
-				PaddingRight: new UDim(0, 10),
-			}),
-			h(Text, {
-				value: balanceText,
-				size: 12,
-				fit: true,
-				minSize: 10,
-				color: balanceColor,
-				weight: Enum.FontWeight.Bold,
-				sizeConstraint: new UDim2(1, 0, 0, 16),
-			}),
-			h(
-				"frame",
-				{
-					Size: new UDim2(1, 0, 0, 8),
-					Position: UDim2.fromOffset(0, 24),
-					BackgroundColor3: Palette.graphite,
-					BorderSizePixel: 0,
-				},
-				h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				h(
-					"frame",
-					{
-						Size: new UDim2(yourRatio, 0, 1, 0),
-						BackgroundColor3: Palette.mango,
-						BorderSizePixel: 0,
-					},
-					h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				),
-				h(
-					"frame",
-					{
-						Size: new UDim2(1 - yourRatio, 0, 1, 0),
-						Position: new UDim2(yourRatio, 0, 0, 0),
-						BackgroundColor3: Palette.cyan,
-						BorderSizePixel: 0,
-					},
-					h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				),
-			),
-		);
+		if (theirScore === 0) {
+			return { text: "Value check: they haven't added anything yet", accent: Palette.mango };
+		}
+		if (yourScore === 0) {
+			return { text: "Value check: you haven't added anything yet", accent: Palette.cyan };
+		}
+		const ratio = yourScore / theirScore;
+		if (ratio >= 0.85 && ratio <= 1.18) {
+			return { text: "Value check: about even", accent: Palette.mint };
+		}
+		const factor = math.min(99, ratio > 1 ? ratio : 1 / ratio);
+		// 1.4x under ten, whole numbers above (capped at 99x) so the phone line never outgrows 360px
+		const times = factor < 10 ? string.format("%.1f", factor) : tostring(math.floor(factor));
+		return ratio > 1
+			? { text: `Value check: you give about ${times}x what you get`, accent: Palette.mango }
+			: { text: `Value check: you get about ${times}x what you give`, accent: Palette.cyan };
 	}
 
 	// quick phrases: the same list as the server's (TradeDesk.PHRASES), sent by index so they never need filtering
@@ -765,12 +730,14 @@ __defs["TradeView"] = () => {
 		dispatch: SocialDispatch;
 	}
 
-	// table talk: the real conversation from the server, quick phrases, and a filtered line of your own
+	// table talk: the real conversation from the server, quick phrases, and a filtered line of your own.
+	// One vertical list: heading, the log (fills, newest pinned to the bottom, older lines clip off the top:
+	// no scroller inside the page scroller), wrapping phrase pills, then the input row.
+	const CHAT_VISIBLE_LINES = 14;
 	function TradeChatStream(props: TradeChatStreamProps) {
 		const session = props.session;
 		const dispatch = props.dispatch;
 		const [inputVal, setInputVal] = React.useState("");
-		const scrollRef = React.useRef<ScrollingFrame>();
 		// phones and touch: quick phrases and the input row get full tap height
 		const touchRows = useTouchTargets();
 		const pillH = touchRows ? TapTarget : 26;
@@ -779,17 +746,11 @@ __defs["TradeView"] = () => {
 		const myId = Players.LocalPlayer!.UserId;
 		const seen = React.useRef(lines.size());
 		React.useEffect(() => {
-			// a new line from them gets a sound; the list stays pinned to the newest line
+			// a new line from them gets a sound
 			if (lines.size() > seen.current && lines[lines.size() - 1] !== undefined && lines[lines.size() - 1].From !== myId) {
 				Audio.play("chatReceive");
 			}
 			seen.current = lines.size();
-			const list = scrollRef.current;
-			if (list) {
-				task.defer(() => {
-					list.CanvasPosition = new Vector2(0, math.max(0, list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y));
-				});
-			}
 		}, [lines.size()]);
 		const send = (text?: string, phrase?: number) => {
 			const clean = text !== undefined ? string.gsub(text, "^%s*(.-)%s*$", "%1")[0] : undefined;
@@ -803,6 +764,7 @@ __defs["TradeView"] = () => {
 		const pills: Record<string, unknown> = {
 			layout: h("uilistlayout", {
 				FillDirection: Enum.FillDirection.Horizontal,
+				Wraps: true,
 				Padding: new UDim(0, 6),
 				SortOrder: Enum.SortOrder.LayoutOrder,
 			}),
@@ -836,6 +798,7 @@ __defs["TradeView"] = () => {
 		const rows: Record<string, unknown> = {
 			layout: h("uilistlayout", {
 				FillDirection: Enum.FillDirection.Vertical,
+				VerticalAlignment: Enum.VerticalAlignment.Bottom,
 				Padding: new UDim(0, 4),
 				SortOrder: Enum.SortOrder.LayoutOrder,
 			}),
@@ -845,10 +808,15 @@ __defs["TradeView"] = () => {
 				value: "…",
 				size: 12,
 				color: Palette.muted,
+				layoutOrder: 0,
 				sizeConstraint: new UDim2(1, 0, 0, 18),
 			});
 		}
+		const firstShown = math.max(1, lines.size() - CHAT_VISIBLE_LINES + 1);
 		for (const [index, line] of ipairs(lines)) {
+			if (index < firstShown) {
+				continue;
+			}
 			const mine = line.From === myId;
 			rows[`l${index}`] = h(
 				"frame",
@@ -858,13 +826,18 @@ __defs["TradeView"] = () => {
 					AutomaticSize: Enum.AutomaticSize.Y,
 					BackgroundTransparency: 1,
 				},
+				// mine sit right, theirs left: a one-item list aligned to the speaker's side
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Horizontal,
+					HorizontalAlignment: mine ? Enum.HorizontalAlignment.Right : Enum.HorizontalAlignment.Left,
+					SortOrder: Enum.SortOrder.LayoutOrder,
+				}),
 				h(
 					"textlabel",
 					{
 						Size: new UDim2(0.82, 0, 0, 0),
 						AutomaticSize: Enum.AutomaticSize.Y,
-						Position: UDim2.fromScale(mine ? 1 : 0, 0),
-						AnchorPoint: new Vector2(mine ? 1 : 0, 0),
+						LayoutOrder: 0,
 						BackgroundColor3: mine ? darken(Palette.mint, 0.6) : Palette.panelSoft,
 						Text: `${mine ? "" : `<b>${line.Name}</b>  `}${line.Text}`,
 						RichText: true,
@@ -903,41 +876,41 @@ __defs["TradeView"] = () => {
 				PaddingLeft: new UDim(0, 12),
 				PaddingRight: new UDim(0, 12),
 			}),
+			h("uilistlayout", {
+				FillDirection: Enum.FillDirection.Vertical,
+				Padding: new UDim(0, 6),
+				SortOrder: Enum.SortOrder.LayoutOrder,
+			}),
 			h(Text, {
 				value: session.PartnerAway === true ? `${session.PartnerName} stepped away` : "Table talk",
 				size: 11,
 				color: session.PartnerAway === true ? Palette.coral : Palette.mint,
 				weight: Enum.FontWeight.Heavy,
+				layoutOrder: 0,
 				sizeConstraint: new UDim2(1, 0, 0, 14),
 			}),
 			h(
-				"scrollingframe",
+				"frame",
 				{
-					ref: scrollRef,
-					Size: new UDim2(1, 0, 1, -(18 + inputH + pillH + 12)),
-					Position: UDim2.fromOffset(0, 18),
+					Name: "TradeChatLog",
+					Size: new UDim2(1, 0, 0, 0),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
-					CanvasSize: new UDim2(),
-					AutomaticCanvasSize: Enum.AutomaticSize.Y,
-					ScrollBarThickness: 3,
-					ScrollBarImageColor3: Palette.muted,
-					// vertical only, so a sideways drag on the phrase row doesn't nudge the log
-					ScrollingDirection: Enum.ScrollingDirection.Y,
+					ClipsDescendants: true,
+					LayoutOrder: 1,
 				},
+				h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
 				rows,
 			),
 			h(
-				"scrollingframe",
+				"frame",
 				{
-					Size: new UDim2(1, 0, 0, pillH + 4),
-					Position: new UDim2(0, 0, 1, -(inputH + pillH + 8)),
+					Name: "TradeChatPhrases",
+					Size: new UDim2(1, 0, 0, 0),
+					AutomaticSize: Enum.AutomaticSize.Y,
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
-					CanvasSize: new UDim2(),
-					AutomaticCanvasSize: Enum.AutomaticSize.X,
-					ScrollingDirection: Enum.ScrollingDirection.X,
-					ScrollBarThickness: 0,
+					LayoutOrder: 2,
 				},
 				pills,
 			),
@@ -945,13 +918,19 @@ __defs["TradeView"] = () => {
 				"frame",
 				{
 					Size: new UDim2(1, 0, 0, inputH),
-					Position: new UDim2(0, 0, 1, -inputH),
 					BackgroundTransparency: 1,
+					LayoutOrder: 3,
 				},
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Horizontal,
+					Padding: new UDim(0, 8),
+					SortOrder: Enum.SortOrder.LayoutOrder,
+				}),
 				h(
 					"textbox",
 					{
-						Size: new UDim2(1, -78, 1, 0),
+						Size: new UDim2(0, 0, 1, 0),
+						LayoutOrder: 0,
 						BackgroundColor3: Palette.graphite,
 						TextColor3: Palette.cream,
 						PlaceholderText: `Say something to ${session.PartnerName}`,
@@ -978,19 +957,28 @@ __defs["TradeView"] = () => {
 							},
 						},
 					},
+					h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
 					h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 					h("uipadding", { PaddingLeft: new UDim(0, 10) }),
 				),
-				h(Button, {
-					text: "Send",
-					onClick: () => {
-						send(inputVal);
+				h(
+					"frame",
+					{
+						Size: new UDim2(0, 70, 1, 0),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+						LayoutOrder: 1,
 					},
-					color: Palette.mint,
-					textColor: Palette.ink,
-					size: new UDim2(0, 70, 1, 0),
-					position: new UDim2(1, -70, 0, 0),
-				}),
+					h(Button, {
+						text: "Send",
+						onClick: () => {
+							send(inputVal);
+						},
+						color: Palette.mint,
+						textColor: Palette.ink,
+						size: UDim2.fromScale(1, 1),
+					}),
+				),
 			),
 		);
 	}
@@ -1085,6 +1073,16 @@ __defs["TradeView"] = () => {
 					thickness: on ? 2 : 1,
 					transparency: on ? 0 : 0.5,
 				}),
+				h("uipadding", {
+					PaddingTop: new UDim(0, 4),
+					PaddingLeft: new UDim(0, 10),
+					PaddingRight: new UDim(0, 10),
+				}),
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Vertical,
+					Padding: new UDim(0, 1),
+					SortOrder: Enum.SortOrder.LayoutOrder,
+				}),
 				h(Text, {
 					value: relic.Name,
 					size: 12,
@@ -1092,16 +1090,16 @@ __defs["TradeView"] = () => {
 					weight: Enum.FontWeight.Bold,
 					fit: true,
 					minSize: 9,
-					position: UDim2.fromOffset(10, 4),
-					sizeConstraint: new UDim2(1, -20, 0, 16),
+					layoutOrder: 0,
+					sizeConstraint: new UDim2(1, 0, 0, 16),
 				}),
 				h(Text, {
 					value: `${relic.Rarity.upper()}  ·  L${relic.Level}${on ? "  ·  ASKED" : ""}`,
 					size: 10,
 					color: color,
 					weight: Enum.FontWeight.Heavy,
-					position: UDim2.fromOffset(10, 21),
-					sizeConstraint: new UDim2(1, -20, 0, 14),
+					layoutOrder: 1,
+					sizeConstraint: new UDim2(1, 0, 0, 14),
 				}),
 			);
 		}
@@ -1141,34 +1139,67 @@ __defs["TradeView"] = () => {
 							BorderSizePixel: 0,
 						},
 						h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
-						h(Text, {
-							value: `${session.PartnerName} wants`,
-							size: 10,
-							color: Palette.mango,
-							weight: Enum.FontWeight.Heavy,
-							position: UDim2.fromOffset(10, 6),
-							sizeConstraint: new UDim2(1, -150, 0, 14),
+						h("uipadding", {
+							PaddingLeft: new UDim(0, 10),
+							PaddingRight: new UDim(0, 10),
 						}),
-						h(Text, {
-							value: theirLine,
-							size: 13,
-							color: Palette.cream,
-							weight: Enum.FontWeight.Bold,
-							fit: true,
-							minSize: 9,
-							position: UDim2.fromOffset(10, 24),
-							sizeConstraint: new UDim2(1, -150, 0, 26),
+						h("uilistlayout", {
+							FillDirection: Enum.FillDirection.Horizontal,
+							VerticalAlignment: Enum.VerticalAlignment.Center,
+							Padding: new UDim(0, 10),
+							SortOrder: Enum.SortOrder.LayoutOrder,
 						}),
-						h(Button, {
-							text: "Add to my offer",
-							onClick: () => {
-								props.onAddRequested(theirs!);
+						h(
+							"frame",
+							{
+								Size: new UDim2(0, 0, 0, 44),
+								BackgroundTransparency: 1,
+								BorderSizePixel: 0,
+								LayoutOrder: 0,
 							},
-							color: Palette.mango,
-							textColor: Palette.ink,
-							size: UDim2.fromOffset(130, 36),
-							position: new UDim2(1, -140, 0.5, -18),
-						}),
+							h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+							h("uilistlayout", {
+								FillDirection: Enum.FillDirection.Vertical,
+								Padding: new UDim(0, 4),
+								SortOrder: Enum.SortOrder.LayoutOrder,
+							}),
+							h(Text, {
+								value: `${session.PartnerName} wants`,
+								size: 10,
+								color: Palette.mango,
+								weight: Enum.FontWeight.Heavy,
+								layoutOrder: 0,
+								sizeConstraint: new UDim2(1, 0, 0, 14),
+							}),
+							h(Text, {
+								value: theirLine,
+								size: 13,
+								color: Palette.cream,
+								weight: Enum.FontWeight.Bold,
+								fit: true,
+								minSize: 9,
+								layoutOrder: 1,
+								sizeConstraint: new UDim2(1, 0, 0, 26),
+							}),
+						),
+						h(
+							"frame",
+							{
+								Size: UDim2.fromOffset(130, 36),
+								BackgroundTransparency: 1,
+								BorderSizePixel: 0,
+								LayoutOrder: 1,
+							},
+							h(Button, {
+								text: "Add to my offer",
+								onClick: () => {
+									props.onAddRequested(theirs!);
+								},
+								color: Palette.mango,
+								textColor: Palette.ink,
+								size: UDim2.fromScale(1, 1),
+							}),
+						),
 					)
 				: undefined,
 			h(Text, {
@@ -1265,7 +1296,6 @@ __defs["TradeView"] = () => {
 		let reducedMotion = _param.reducedMotion;
 		const viewport = useViewport();
 		const chrome = chromeFor(viewport);
-		const antilag = useAntilag();
 		const softMotion = reducedMotion;
 		reducedMotion = softMotion;
 		const enter = useEntrance(reducedMotion);
@@ -1294,29 +1324,14 @@ __defs["TradeView"] = () => {
 		const [youReadyLocal, setYouReadyLocal] = React.useState(false);
 		const [busy, setBusy] = React.useState("");
 		const [shakeAction, setShakeAction] = React.useState<{ action: string; token: number }>();
-		const [offerTab, setOfferTab] = React.useState("You");
+		const [deskTab, setDeskTab] = React.useState("Trade");
 		const dirtyRef = React.useRef(false);
 		const flushRef = React.useRef<thread>();
 		const offerRevisionRef = React.useRef(0);
 		const offerSessionRef = React.useRef<string | undefined>(session !== undefined ? session.Id : undefined);
 		const [offerPending, setOfferPending] = React.useState(false);
 		const sessionActionsHostRef = React.useRef<Frame>();
-		// lobby layout: measured content width decides whether history gets its own column
 		const lobbyHostRef = React.useRef<Frame>();
-		const [lobbyWidth, setLobbyWidth] = React.useState(0);
-		React.useEffect(() => {
-			const host = lobbyHostRef.current;
-			if (host === undefined) {
-				return undefined;
-			}
-			const measure = () => {
-				const measured = math.floor(host.AbsoluteSize.X);
-				setLobbyWidth((current) => (current === measured ? current : measured));
-			};
-			measure();
-			const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(measure);
-			return () => connection.Disconnect();
-		}, [session === undefined]);
 		// gamepad (lobby): incoming invite > outgoing > search > roster > Invite > history ("Trade again");
 		// on desktop the roster column (Main) and history column (Side, right) step left/right.
 		// The live session keeps its own FocusClaim on the Ready/Confirm bar.
@@ -1325,9 +1340,8 @@ __defs["TradeView"] = () => {
 			{
 				regions: ["daily", "lock", "invite", "outgoing", "search", "roster", "invite-cta", "history-*"],
 				first: ["invite", "roster", "invite-cta", "search"],
-				columns: [["Main", "Side"]],
 			},
-			[session === undefined],
+			[session === undefined, deskTab],
 		);
 		const inventory = state.Items?.Inventory ?? {};
 		const equippedUids: Record<string, boolean> = {};
@@ -1498,7 +1512,8 @@ __defs["TradeView"] = () => {
 		const tableEmpty = session !== undefined && offerEmpty(draft) && offerEmpty(session.Them);
 		const bothReady = youReadyLocal && session?.ThemReady === true;
 		const lockBanner = !unlocked;
-		const actionH = compactTrade ? TapTarget * 3 + 24 : TapTarget + 8;
+		const actionPad = phone ? 8 : 10;
+		const actionH = TapTarget + actionPad * 2;
 		const rosterRowH = compactTrade ? 64 : 66;
 		const searchH = TapTarget;
 		const relics: TradeRelic[] = [];
@@ -1589,10 +1604,11 @@ __defs["TradeView"] = () => {
 				? TradeHistory.warnings(draft, session.Them, raritiesOf(draft, true), raritiesOf(session.Them, false))
 				: [];
 		// sprite-card well: cards wrap left to right and the frame grows with them
-		const relicGrid = (cards: React.ReactElement[]) =>
+		const relicGrid = (cards: React.ReactElement[], order?: number) =>
 			h(
 				"frame",
 				{
+					LayoutOrder: order,
 					Size: new UDim2(1, 0, 0, 0),
 					AutomaticSize: Enum.AutomaticSize.Y,
 					BackgroundTransparency: 1,
@@ -1608,276 +1624,6 @@ __defs["TradeView"] = () => {
 				}),
 				cards,
 			);
-		const offerBody = (editor: boolean, lines: OfferLine[]) => {
-			const clearButton =
-				editor && !offerEmpty(draft)
-					? h(Button, {
-							text: "Clear offer",
-							icon: "Refresh.1",
-							onClick: () => queueOffer(emptyOffer()),
-							color: SEC,
-							textColor: Palette.creamSoft,
-							size: new UDim2(1, 0, 0, phone ? TapTarget : 34),
-							reducedMotion: softInvite,
-						})
-					: undefined;
-			const fluxStepper = h(QuantityStepper, {
-				label: "Flux",
-				detail:
-					cap("Cash", asFlux(state.Cash)) <= 0
-						? "None tradable"
-						: `${compactNumber(draft.Cash)} / ${compactNumber(cap("Cash", asFlux(state.Cash)))}`,
-				value: draft.Cash,
-				max: cap("Cash", asFlux(state.Cash)),
-				accent: Palette.cyan,
-				reducedMotion: softConfirm,
-				onChange: (value: number) => queueOffer({ ...draft, Cash: value }),
-			});
-			const stardustStepper = h(QuantityStepper, {
-				label: "Stardust",
-				value: draft.Stardust,
-				max: cap("Stardust", tonumber(state.Stardust) ?? 0),
-				accent: Palette.mango,
-				reducedMotion: softMotion,
-				onChange: (value: number) => queueOffer({ ...draft, Stardust: value }),
-			});
-			const coresStepper = h(QuantityStepper, {
-				label: "Cores",
-				value: draft.Cores,
-				max: cap("Cores", tonumber(state.Cores) ?? 0),
-				accent: Palette.violet,
-				reducedMotion: softMotion,
-				onChange: (value: number) => queueOffer({ ...draft, Cores: value }),
-			});
-			const signalsStepper = h(QuantityStepper, {
-				label: "Signals",
-				value: draft.Signals,
-				max: cap("Signals", tonumber(state.Command?.Signals) ?? 0),
-				accent: Palette.cyan,
-				reducedMotion: softMotion,
-				onChange: (value: number) => queueOffer({ ...draft, Signals: value }),
-			});
-			const essenceStepper = h(QuantityStepper, {
-				label: "Essence",
-				value: draft.Essence,
-				max: cap("Essence", tonumber(state.Items?.Essence) ?? 0),
-				accent: Palette.pink,
-				reducedMotion: softMotion,
-				onChange: (value: number) => queueOffer({ ...draft, Essence: value }),
-			});
-			const boostSteppers = BOOSTS.map((id) => {
-				const perTradeBoostCap = daily?.PerTrade?.Boost ?? 3;
-				const otherBoostsUsed = BOOSTS.reduce(
-					(sum, other) => sum + (other === id ? 0 : (draft.Boosts[other] ?? 0)),
-					0,
-				);
-				const remainingBudget = math.max(0, perTradeBoostCap - otherBoostsUsed);
-				return h(QuantityStepper, {
-					key: id,
-					label: BOOST_LABELS[id] ?? id,
-					value: draft.Boosts[id] ?? 0,
-					max: math.min(remainingBudget, state.BoostInventory?.[id] ?? 0),
-					accent: Palette.coral,
-					reducedMotion: softMotion,
-					onChange: (value: number) => queueOffer({ ...draft, Boosts: { ...draft.Boosts, [id]: value } }),
-				});
-			});
-			const keySteppers = KEYS.map((id) => {
-				return h(QuantityStepper, {
-					key: id,
-					label: KEY_LABELS[id] ?? id,
-					value: draft.Keys[id] ?? 0,
-					max: math.min(daily?.PerTrade?.Keys ?? 5, state.Items?.Keys?.[id] ?? 0),
-					accent: Palette.mango,
-					reducedMotion: softMotion,
-					onChange: (value: number) => queueOffer({ ...draft, Keys: { ...draft.Keys, [id]: value } }),
-				});
-			});
-			const editorContent = editor
-				? h(
-						React.Fragment,
-						undefined,
-						fluxStepper,
-						stardustStepper,
-						coresStepper,
-						signalsStepper,
-						essenceStepper,
-						boostSteppers,
-						keySteppers,
-						h(Label, {
-							text: "Relics",
-						}),
-						relics.size() === 0
-							? h(EmptyState, {
-									icon: "Artifact",
-									title: "No tradeable relics",
-									body: "Equipped and locked pieces stay home.",
-									compact: true,
-								})
-							: undefined,
-						relics.size() > 0
-							? relicGrid(
-									relics.map((relic, index) => {
-										const picked = draft.ItemIds.indexOf(relic.uid) >= 0;
-										const onToggle = () => {
-											const pickedIds: string[] = [];
-											if (picked) {
-												for (const id of draft.ItemIds) {
-													if (id !== relic.uid) {
-														pickedIds.push(id);
-													}
-												}
-											} else {
-												const itemCap = daily?.PerTrade?.Items ?? 6;
-												if (draft.ItemIds.size() < itemCap) {
-													for (const id of draft.ItemIds) {
-														pickedIds.push(id);
-													}
-													pickedIds.push(relic.uid);
-												} else {
-													return;
-												}
-											}
-											Audio.play("tick");
-											queueOffer({ ...draft, ItemIds: pickedIds });
-										};
-										return h(SpriteCard, {
-											key: relic.uid,
-											name: relic.name,
-											rarity: relic.art.rarity,
-											color: rarityTint(relic.art.rarity),
-											element: relic.art.element,
-											iconKind: "Inventory.4",
-											selected: picked,
-											tag: picked ? "In" : undefined,
-											tagColor: Palette.brass,
-											reducedMotion: softMotion,
-											layoutOrder: index,
-											onSelect: onToggle,
-										});
-									}),
-								)
-							: undefined,
-					)
-				: undefined;
-			const relicLines = lines.filter((line) => line.relic !== undefined);
-			const viewerContent = !editor
-				? h(
-						React.Fragment,
-						undefined,
-						relicLines.size() > 0
-							? relicGrid(
-									relicLines.map((line, index) =>
-										h(SpriteCard, {
-											key: line.key,
-											name: line.label,
-											rarity: line.relic!.rarity,
-											color: rarityTint(line.relic!.rarity),
-											element: line.relic!.element,
-											iconKind: line.icon,
-											reducedMotion: softMotion,
-											layoutOrder: index,
-										}),
-									),
-								)
-							: undefined,
-						lines
-							.filter((line) => line.relic === undefined)
-							.map((line) =>
-								h(OfferRow, {
-									key: line.key,
-									line: line,
-									touch: phone,
-								}),
-							),
-					)
-				: undefined;
-			return h(
-				React.Fragment,
-				undefined,
-				clearButton,
-				editorContent,
-				viewerContent,
-				!editor && lines.size() === 0
-					? h(EmptyState, {
-							icon: "Crew",
-							title: "Nothing offered yet",
-							body: "Their side fills in as they add items.",
-							compact: true,
-						})
-					: undefined,
-			);
-		};
-		const offerPane = (
-			title: string,
-			partnerName: string,
-			ready: boolean | undefined,
-			confirmed: boolean | undefined,
-			lines: OfferLine[],
-			editor: boolean,
-			flow?: boolean,
-			flowOrder?: number,
-		) => {
-			if (flow === undefined) {
-				flow = false;
-			}
-			// 08 .pn heading: icon + spaced title, partner note at the right, state chip below
-			const stateText = confirmed ? "Confirmed" : ready ? "Ready" : "Not ready";
-			const stateAccent = confirmed ? Palette.mango : ready ? Palette.mint : undefined;
-			const header = h(
-				"frame",
-				{
-					Size: new UDim2(1, 0, 0, phone ? 54 : 62),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-					ZIndex: 4,
-					LayoutOrder: 0,
-				},
-				h("uilistlayout", { SortOrder: Enum.SortOrder.LayoutOrder, Padding: new UDim(0, phone ? 8 : 10) }),
-				h(PanelHeading, { icon: "Trade", title: title, note: partnerName, accent: accent, phone: phone, layoutOrder: 0 }),
-				h(Chip, { text: stateText, accent: stateAccent, icon: confirmed || ready ? "Check" : undefined, phone: phone, layoutOrder: 1 }),
-			);
-			if (flow === false) {
-				flow = true;
-			}
-			return h(
-				"frame",
-				{
-					Size: new UDim2(1, 0, 0, 0),
-					AutomaticSize: Enum.AutomaticSize.Y,
-					BackgroundColor3: Palette.panel,
-					BorderSizePixel: 0,
-					ClipsDescendants: false,
-					LayoutOrder: flowOrder,
-				},
-				// af.css .pn: panel fill, 16px radius, faint white rim
-				h("uicorner", { CornerRadius: new UDim(0, 16) }),
-				h("uistroke", { Color: Palette.white, Thickness: 1, Transparency: 0.9, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
-				h(
-					"frame",
-					{
-						Size: new UDim2(1, 0, 0, 0),
-						AutomaticSize: Enum.AutomaticSize.Y,
-						BackgroundTransparency: 1,
-						BorderSizePixel: 0,
-						ClipsDescendants: false,
-					},
-					h("uipadding", {
-						PaddingTop: new UDim(0, phone ? 10 : 18),
-						PaddingBottom: new UDim(0, phone ? 10 : 18),
-						PaddingLeft: new UDim(0, phone ? 12 : 20),
-						PaddingRight: new UDim(0, phone ? 12 : 20),
-					}),
-					h("uilistlayout", {
-						FillDirection: Enum.FillDirection.Vertical,
-						SortOrder: Enum.SortOrder.LayoutOrder,
-						Padding: new UDim(0, phone ? 8 : 12),
-					}),
-					header,
-					offerBody(editor, lines),
-				),
-			);
-		};
 		const dailyLimit = daily?.Limit ?? config.Trading?.DailyTrades;
 		const dailyLabel =
 			daily !== undefined && dailyLimit !== undefined
@@ -1929,125 +1675,354 @@ __defs["TradeView"] = () => {
 				pcall(() => task.cancel(selectJob));
 			};
 		}, [session !== undefined, bothReady, youReadyLocal, tableEmpty, busy, readyDisabled, confirmDisabled]);
-		const buildConfirmActions = (orientation: string) => {
+		// 08 .sc empty slot: dark well, faint rim, "+" over "Empty"
+		const emptySlot = (index: number) =>
+			h(
+				"frame",
+				{
+					key: `empty${index}`,
+					LayoutOrder: 1000 + index,
+					BackgroundColor3: SLOT_WELL,
+					BorderSizePixel: 0,
+				},
+				h("uicorner", { CornerRadius: new UDim(0, 11) }),
+				h("uistroke", { Color: Palette.white, Thickness: 1, Transparency: 0.9, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Vertical,
+					HorizontalAlignment: Enum.HorizontalAlignment.Center,
+					VerticalAlignment: Enum.VerticalAlignment.Center,
+					Padding: new UDim(0, 2),
+					SortOrder: Enum.SortOrder.LayoutOrder,
+				}),
+				h(Text, {
+					value: "+",
+					size: 26,
+					color: Palette.muted,
+					weight: Enum.FontWeight.Bold,
+					align: Enum.TextXAlignment.Center,
+					layoutOrder: 0,
+					sizeConstraint: new UDim2(1, 0, 0, 30),
+				}),
+				h(Text, {
+					value: "Empty",
+					size: 12,
+					color: Palette.muted,
+					align: Enum.TextXAlignment.Center,
+					layoutOrder: 1,
+					sizeConstraint: new UDim2(1, 0, 0, 16),
+				}),
+			);
+		const minSlots = phone ? 2 : 3;
+		const paneGridColumns = phone ? 1 : 2;
+		const panePad = phone ? 10 : 18;
+		const paneGap = phone ? 8 : 12;
+		const paneHeadingH = phone ? 18 : 22;
+		const paneChipH = phone ? 24 : 28;
+		const paneRowH = phone ? 52 : 48;
+		// a side's table: relic cards (yours lift out with a tap), then Flux and the other currencies as .rows
+		const sideCards = (lines: OfferLine[], mine: boolean) => {
+			const relicLines = lines.filter((line) => line.relic !== undefined);
+			const cards: React.ReactElement[] = relicLines.map((line, index) =>
+				h(SpriteCard, {
+					key: line.key,
+					name: line.label,
+					rarity: line.relic!.rarity,
+					color: rarityTint(line.relic!.rarity),
+					element: line.relic!.element,
+					iconKind: line.icon,
+					reducedMotion: softMotion,
+					layoutOrder: index,
+					onSelect: mine
+						? () => {
+								Audio.play("tick");
+								queueOffer({ ...draft, ItemIds: draft.ItemIds.filter((id) => id !== line.key) });
+							}
+						: undefined,
+				}),
+			);
+			for (let index = relicLines.size(); index < minSlots; index++) {
+				cards.push(emptySlot(index));
+			}
+			return cards;
+		};
+		const sideRows = (lines: OfferLine[]) => {
+			const rest = lines.filter((line) => line.relic === undefined);
+			if (rest.size() === 0) {
+				rest.push({ key: "cash", label: "0 Flux", detail: "Currency", accent: Palette.cyan, icon: "Flux.15" });
+			}
+			return rest;
+		};
+		const offerPaneHeight = (lines: OfferLine[]): number => {
+			const relicCount = lines.filter((line) => line.relic !== undefined).size();
+			const rows = sideRows(lines).size();
+			return (
+				panePad * 2 +
+				paneHeadingH +
+				paneGap +
+				relicGridHeight(math.max(minSlots, relicCount), paneGridColumns) +
+				paneGap +
+				rows * (paneRowH + paneGap) +
+				paneChipH
+			);
+		};
+		// 08 .pn "You give" / "You get": heading with the partner note, the card wrap, the rows, the state chip
+		const offerPane = (
+			title: string,
+			note: string,
+			stateText: string,
+			stateAccent: Color3 | undefined,
+			lines: OfferLine[],
+			mine: boolean,
+			order: number,
+		) =>
+			h(
+				"frame",
+				{
+					Name: mine ? "TradeGive" : "TradeGet",
+					Size: new UDim2(0, 0, 1, 0),
+					BackgroundColor3: Palette.panel,
+					BorderSizePixel: 0,
+					ClipsDescendants: true,
+					LayoutOrder: order,
+				},
+				h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+				// af.css .pn: panel fill, 16px radius, faint white rim
+				h("uicorner", { CornerRadius: new UDim(0, phone ? 12 : 16) }),
+				h("uistroke", { Color: Palette.white, Thickness: 1, Transparency: 0.9, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+				h("uipadding", {
+					PaddingTop: new UDim(0, panePad),
+					PaddingBottom: new UDim(0, panePad),
+					PaddingLeft: new UDim(0, phone ? 12 : 20),
+					PaddingRight: new UDim(0, phone ? 12 : 20),
+				}),
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Vertical,
+					SortOrder: Enum.SortOrder.LayoutOrder,
+					Padding: new UDim(0, paneGap),
+				}),
+				h(PanelHeading, { icon: "Trade", title: title, note: note, accent: accent, phone: phone, layoutOrder: 0 }),
+				relicGrid(sideCards(lines, mine), 1),
+				sideRows(lines).map((line, index) => h(OfferRow, { key: line.key, line: line, touch: phone, layoutOrder: 10 + index })),
+				h(Chip, {
+					text: stateText,
+					accent: stateAccent,
+					icon: stateAccent !== undefined ? "Check" : undefined,
+					phone: phone,
+					layoutOrder: 100,
+				}),
+			);
+		// what you put on the table: clear, currency steppers, the relic picker
+		const stepperCount = 5 + BOOSTS.size() + KEYS.size();
+		const stepperH = phone || viewport.width < 560 || viewport.height < 420 ? 108 : 52;
+		const editorColumns = phone ? 2 : 3;
+		const editorHeight =
+			panePad * 2 +
+			paneHeadingH +
+			paneGap +
+			(!offerEmpty(draft) ? (phone ? TapTarget : 34) + paneGap : 0) +
+			stepperCount * (stepperH + paneGap) +
+			20 +
+			paneGap +
+			(relics.size() > 0 ? relicGridHeight(relics.size(), editorColumns) : 120);
+		const offerEditor = () => {
+			const stepper = (order: number, props: Record<string, unknown>) =>
+				h(QuantityStepper, { ...props, layoutOrder: order });
+			const boostSteppers = BOOSTS.map((id, index) => {
+				const perTradeBoostCap = daily?.PerTrade?.Boost ?? 3;
+				const otherBoostsUsed = BOOSTS.reduce(
+					(sum, other) => sum + (other === id ? 0 : (draft.Boosts[other] ?? 0)),
+					0,
+				);
+				const remainingBudget = math.max(0, perTradeBoostCap - otherBoostsUsed);
+				return h(QuantityStepper, {
+					key: id,
+					label: BOOST_LABELS[id] ?? id,
+					value: draft.Boosts[id] ?? 0,
+					max: math.min(remainingBudget, state.BoostInventory?.[id] ?? 0),
+					accent: Palette.coral,
+					reducedMotion: softMotion,
+					layoutOrder: 20 + index,
+					onChange: (value: number) => queueOffer({ ...draft, Boosts: { ...draft.Boosts, [id]: value } }),
+				});
+			});
+			const keySteppers = KEYS.map((id, index) =>
+				h(QuantityStepper, {
+					key: id,
+					label: KEY_LABELS[id] ?? id,
+					value: draft.Keys[id] ?? 0,
+					max: math.min(daily?.PerTrade?.Keys ?? 5, state.Items?.Keys?.[id] ?? 0),
+					accent: Palette.mango,
+					reducedMotion: softMotion,
+					layoutOrder: 60 + index,
+					onChange: (value: number) => queueOffer({ ...draft, Keys: { ...draft.Keys, [id]: value } }),
+				}),
+			);
+			return h(
+				"frame",
+				{
+					Name: "TradeOfferEditor",
+					Size: new UDim2(1, 0, 0, 0),
+					AutomaticSize: Enum.AutomaticSize.Y,
+					BackgroundColor3: Palette.panel,
+					BorderSizePixel: 0,
+				},
+				h("uicorner", { CornerRadius: new UDim(0, phone ? 12 : 16) }),
+				h("uistroke", { Color: Palette.white, Thickness: 1, Transparency: 0.9, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+				h("uipadding", {
+					PaddingTop: new UDim(0, panePad),
+					PaddingBottom: new UDim(0, panePad),
+					PaddingLeft: new UDim(0, phone ? 12 : 20),
+					PaddingRight: new UDim(0, phone ? 12 : 20),
+				}),
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Vertical,
+					SortOrder: Enum.SortOrder.LayoutOrder,
+					Padding: new UDim(0, paneGap),
+				}),
+				h(PanelHeading, { icon: "Inventory.4", title: "Add to your offer", note: dailyLabel, accent: accent, phone: phone, layoutOrder: 0 }),
+				!offerEmpty(draft)
+					? h(
+							"frame",
+							{
+								Size: new UDim2(1, 0, 0, phone ? TapTarget : 34),
+								BackgroundTransparency: 1,
+								BorderSizePixel: 0,
+								LayoutOrder: 1,
+							},
+							h(Button, {
+								text: "Clear offer",
+								icon: "Refresh.1",
+								onClick: () => queueOffer(emptyOffer()),
+								color: SEC,
+								textColor: Palette.creamSoft,
+								size: UDim2.fromScale(1, 1),
+								reducedMotion: softInvite,
+							}),
+						)
+					: undefined,
+				stepper(10, {
+					label: "Flux",
+					detail:
+						cap("Cash", asFlux(state.Cash)) <= 0
+							? "None tradable"
+							: `${compactNumber(draft.Cash)} / ${compactNumber(cap("Cash", asFlux(state.Cash)))}`,
+					value: draft.Cash,
+					max: cap("Cash", asFlux(state.Cash)),
+					accent: Palette.cyan,
+					reducedMotion: softConfirm,
+					onChange: (value: number) => queueOffer({ ...draft, Cash: value }),
+				}),
+				stepper(11, {
+					label: "Stardust",
+					value: draft.Stardust,
+					max: cap("Stardust", tonumber(state.Stardust) ?? 0),
+					accent: Palette.mango,
+					reducedMotion: softMotion,
+					onChange: (value: number) => queueOffer({ ...draft, Stardust: value }),
+				}),
+				stepper(12, {
+					label: "Cores",
+					value: draft.Cores,
+					max: cap("Cores", tonumber(state.Cores) ?? 0),
+					accent: Palette.violet,
+					reducedMotion: softMotion,
+					onChange: (value: number) => queueOffer({ ...draft, Cores: value }),
+				}),
+				stepper(13, {
+					label: "Signals",
+					value: draft.Signals,
+					max: cap("Signals", tonumber(state.Command?.Signals) ?? 0),
+					accent: Palette.cyan,
+					reducedMotion: softMotion,
+					onChange: (value: number) => queueOffer({ ...draft, Signals: value }),
+				}),
+				stepper(14, {
+					label: "Essence",
+					value: draft.Essence,
+					max: cap("Essence", tonumber(state.Items?.Essence) ?? 0),
+					accent: Palette.pink,
+					reducedMotion: softMotion,
+					onChange: (value: number) => queueOffer({ ...draft, Essence: value }),
+				}),
+				boostSteppers,
+				keySteppers,
+				h(Label, {
+					text: "Relics",
+					layoutOrder: 90,
+				}),
+				relics.size() === 0
+					? h(EmptyState, {
+							icon: "Artifact",
+							title: "No tradeable relics",
+							body: "Equipped and locked pieces stay home.",
+							compact: true,
+							layoutOrder: 91,
+						})
+					: relicGrid(
+							relics.map((relic, index) => {
+								const picked = draft.ItemIds.indexOf(relic.uid) >= 0;
+								const onToggle = () => {
+									const pickedIds: string[] = [];
+									if (picked) {
+										for (const id of draft.ItemIds) {
+											if (id !== relic.uid) {
+												pickedIds.push(id);
+											}
+										}
+									} else {
+										const itemCap = daily?.PerTrade?.Items ?? 6;
+										if (draft.ItemIds.size() < itemCap) {
+											for (const id of draft.ItemIds) {
+												pickedIds.push(id);
+											}
+											pickedIds.push(relic.uid);
+										} else {
+											return;
+										}
+									}
+									Audio.play("tick");
+									queueOffer({ ...draft, ItemIds: pickedIds });
+								};
+								return h(SpriteCard, {
+									key: relic.uid,
+									name: relic.name,
+									rarity: relic.art.rarity,
+									color: rarityTint(relic.art.rarity),
+									element: relic.art.element,
+									iconKind: "Inventory.4",
+									selected: picked,
+									tag: picked ? "In" : undefined,
+									tagColor: Palette.brass,
+									reducedMotion: softMotion,
+									layoutOrder: index,
+									onSelect: onToggle,
+								});
+							}),
+							91,
+						),
+			);
+		};
+		const balance = session !== undefined ? tradeBalance(draft, session.Them) : { text: "" };
+		// 08 bottom .pn: [value check chip] [spacer] [Cancel] [Ready] [Confirm]; phones drop the chip
+		// (it rides in the status block) and split the three buttons evenly
+		const buildConfirmActions = () => {
 			if (session === undefined) {
 				return undefined;
 			}
-			const vertical = orientation === "vertical";
-			const readySlot = h(
-				"frame",
-				{
-					Name: "TradeReady",
-					Size: vertical ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0, 0, 0, TapTarget),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-					LayoutOrder: 1,
-				},
-				!vertical
-					? h("uiflexitem", {
-							FlexMode: Enum.UIFlexMode.Fill,
-						})
-					: undefined,
-				h(Button, {
-					text: offerPending
-						? "Sending…"
-						: youReadyLocal
-							? "Unready"
-							: tableEmpty
-								? "Add something first"
-								: "Ready",
-					onClick: onReadyClick,
-					color: youReadyLocal ? SEC : accent,
-					textColor: youReadyLocal ? Palette.cream : Palette.ink,
-					size: UDim2.fromScale(1, 1),
-					disabled: readyDisabled,
-					loading: busy === "SetTradeReady",
-					shakeToken: shakeFor("SetTradeReady"),
-					reducedMotion: softMotion,
-					highlight: !youReadyLocal && !tableEmpty,
-					selectable: !readyDisabled,
-				}),
-			);
-			const confirmSlot = h(
-				"frame",
-				{
-					Name: "TradeConfirm",
-					Size: vertical ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0, 0, 0, TapTarget),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-					LayoutOrder: 2,
-				},
-				!vertical
-					? h("uiflexitem", {
-							FlexMode: Enum.UIFlexMode.Fill,
-						})
-					: undefined,
-				h(Button, {
-					text: session.YouConfirmed
-						? "Confirmed"
-						: confirmLeft > 0
-							? `Confirm  ${clockLabel(session.ConfirmEndsAt, now)}`
-							: "Confirm",
-					onClick: onConfirmClick,
-					color: Palette.mango,
-					textColor: Palette.ink,
-					size: UDim2.fromScale(1, 1),
-					disabled: confirmDisabled,
-					loading: busy === "ConfirmTrade",
-					shakeToken: shakeFor("ConfirmTrade"),
-					reducedMotion: reducedMotion,
-					highlight: bothReady && !session.YouConfirmed,
-					selectable: !confirmDisabled,
-				}),
-			);
-			const cancelSlot = h(
-				"frame",
-				{
-					Name: "TradeCancel",
-					Size: vertical ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0, 0, 0, TapTarget),
-					BackgroundTransparency: 1,
-					BorderSizePixel: 0,
-					LayoutOrder: 3,
-				},
-				!vertical
-					? h("uiflexitem", {
-							FlexMode: Enum.UIFlexMode.Fill,
-						})
-					: undefined,
-				h(Button, {
-					text: "Cancel",
-					onClick: onCancelClick,
-					color: SEC,
-					textColor: Palette.cream,
-					size: UDim2.fromScale(1, 1),
-					disabled: busy !== "",
-					loading: busy === "CancelTrade",
-					shakeToken: shakeFor("CancelTrade"),
-					reducedMotion: reducedMotion,
-					selectable: busy === "",
-				}),
-			);
-			if (vertical) {
-				return h(
+			const slot = (name: string, order: number, width: number, button: React.ReactElement) =>
+				h(
 					"frame",
 					{
-						ref: sessionActionsHostRef,
-						Name: "TradeSessionActions",
-						Size: UDim2.fromScale(1, 1),
+						Name: name,
+						Size: new UDim2(0, phone ? 0 : width, 0, TapTarget),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
-						ClipsDescendants: false,
+						LayoutOrder: order,
 					},
-					h("uilistlayout", {
-						FillDirection: Enum.FillDirection.Vertical,
-						SortOrder: Enum.SortOrder.LayoutOrder,
-						Padding: new UDim(0, 8),
-					}),
-					readySlot,
-					confirmSlot,
-					cancelSlot,
+					phone ? h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }) : undefined,
+					button,
 				);
-			}
+			const waitingOnThem = youReadyLocal && session.ThemReady !== true;
 			return h(
 				"frame",
 				{
@@ -2063,13 +2038,127 @@ __defs["TradeView"] = () => {
 					SortOrder: Enum.SortOrder.LayoutOrder,
 					Padding: new UDim(0, 8),
 					VerticalAlignment: Enum.VerticalAlignment.Center,
-					HorizontalFlex: Enum.UIFlexAlignment.Fill,
 				}),
-				readySlot,
-				confirmSlot,
-				cancelSlot,
+				!phone ? h(Chip, { text: balance.text, accent: balance.accent, layoutOrder: 0 }) : undefined,
+				!phone
+					? h(
+							"frame",
+							{ Size: new UDim2(0, 0, 0, TapTarget), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 1 },
+							h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+						)
+					: undefined,
+				slot(
+					"TradeCancel",
+					2,
+					120,
+					h(Button, {
+						text: "Cancel",
+						onClick: onCancelClick,
+						color: SEC,
+						textColor: Palette.cream,
+						size: UDim2.fromScale(1, 1),
+						disabled: busy !== "",
+						loading: busy === "CancelTrade",
+						shakeToken: shakeFor("CancelTrade"),
+						reducedMotion: reducedMotion,
+						selectable: busy === "",
+					}),
+				),
+				slot(
+					"TradeReady",
+					3,
+					180,
+					h(Button, {
+						text: offerPending
+							? "Sending…"
+							: youReadyLocal
+								? "Unready"
+								: tableEmpty
+									? "Add something first"
+									: "Ready",
+						onClick: onReadyClick,
+						color: youReadyLocal ? SEC : accent,
+						textColor: youReadyLocal ? Palette.cream : Palette.ink,
+						size: UDim2.fromScale(1, 1),
+						disabled: readyDisabled,
+						loading: busy === "SetTradeReady",
+						shakeToken: shakeFor("SetTradeReady"),
+						reducedMotion: softMotion,
+						highlight: !youReadyLocal && !tableEmpty,
+						selectable: !readyDisabled,
+					}),
+				),
+				slot(
+					"TradeConfirm",
+					4,
+					260,
+					h(Button, {
+						text: session.YouConfirmed
+							? "Confirmed"
+							: confirmLeft > 0
+								? `Confirm  ${clockLabel(session.ConfirmEndsAt, now)}`
+								: waitingOnThem && !phone
+									? `Confirm · waiting for ${session.PartnerName}`
+									: "Confirm",
+						icon: confirmDisabled && !session.YouConfirmed ? "Lock.1" : undefined,
+						onClick: onConfirmClick,
+						color: Palette.mango,
+						textColor: Palette.ink,
+						size: UDim2.fromScale(1, 1),
+						disabled: confirmDisabled,
+						loading: busy === "ConfirmTrade",
+						shakeToken: shakeFor("ConfirmTrade"),
+						reducedMotion: reducedMotion,
+						highlight: bothReady && !session.YouConfirmed,
+						selectable: !confirmDisabled,
+					}),
+				),
 			);
 		};
+		// a two-line text column that takes the rest of a row
+		const textColumn = (order: number, height: number, children: unknown[]) =>
+			h(
+				"frame",
+				{
+					Size: new UDim2(0, 0, 0, height),
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+					LayoutOrder: order,
+				},
+				h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Vertical,
+					VerticalAlignment: Enum.VerticalAlignment.Center,
+					Padding: new UDim(0, 2),
+					SortOrder: Enum.SortOrder.LayoutOrder,
+				}),
+				...(children as React.ReactElement[]),
+			);
+		const rowList = (gap: number) =>
+			h("uilistlayout", {
+				FillDirection: Enum.FillDirection.Horizontal,
+				VerticalAlignment: Enum.VerticalAlignment.Center,
+				Padding: new UDim(0, gap),
+				SortOrder: Enum.SortOrder.LayoutOrder,
+			});
+		const stackList = (gap: number) =>
+			h("uilistlayout", {
+				FillDirection: Enum.FillDirection.Vertical,
+				Padding: new UDim(0, gap),
+				SortOrder: Enum.SortOrder.LayoutOrder,
+			});
+		const fixedBox = (order: number, size: UDim2, child: unknown, name?: string) =>
+			h(
+				"frame",
+				{
+					Name: name,
+					Size: size,
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+					LayoutOrder: order,
+				},
+				child,
+			);
 		const rosterCards = visibleRows.map((row, index) => {
 			const active = row.UserId === selected;
 			const waiting = outgoingLive && outgoing?.ToUserId === row.UserId;
@@ -2086,6 +2175,7 @@ __defs["TradeView"] = () => {
 					reducedMotion: reducedMotion === true || tradeSoft,
 					layoutOrder: 6 + index,
 				},
+				// whole-card hit area under the row content
 				h("textbutton", {
 					Size: UDim2.fromScale(1, 1),
 					BackgroundTransparency: 1,
@@ -2104,62 +2194,95 @@ __defs["TradeView"] = () => {
 						},
 					},
 				}),
-				h(AvatarMark, {
-					userId: row.UserId,
-					accent: active ? accent : Palette.cyan,
-					size: 44,
-				}),
-				h(Text, {
-					value: row.DisplayName,
-					size: 16,
-					color: Palette.cream,
-					weight: Enum.FontWeight.Heavy,
-					fit: true,
-					position: UDim2.fromOffset(56, 4),
-					sizeConstraint: new UDim2(1, compactTrade ? -70 : -176, 0, 22),
-				}),
-				h(Text, {
-					value: `${row.Rebirths} rebirths · world ${row.CurrentZone}`,
-					size: 12,
-					color: Palette.creamSoft,
-					fit: true,
-					position: UDim2.fromOffset(56, 28),
-					sizeConstraint: new UDim2(1, compactTrade ? -70 : -176, 0, 18),
-				}),
-				!compactTrade
-					? h(Button, {
-							text: waiting ? "WAITING" : "INVITE",
-							onClick: () => {
-								setSelected(row.UserId);
-								if (!waiting) {
-									run("InviteTrade", {
-										UserId: row.UserId,
-									});
-								}
-							},
-							color: waiting ? Palette.panelSoft : accent,
-							textColor: waiting ? Palette.cream : Palette.ink,
-							size: UDim2.fromOffset(110, 40),
-							position: new UDim2(1, -110, 0.5, -20),
-							disabled: busy !== "" || waiting || !unlocked,
-							loading: busy === "InviteTrade",
-							shakeToken: shakeFor("InviteTrade"),
-							reducedMotion: reducedMotion,
-							highlight: !waiting,
-						})
-					: waiting
-						? h(Badge, {
-								value: "WAITING",
-								accent: Palette.mango,
-								filled: true,
-								position: new UDim2(1, -84, 0.5, -12),
-								size: UDim2.fromOffset(80, 24),
-							})
-						: undefined,
+				h(
+					"frame",
+					{
+						Size: UDim2.fromScale(1, 1),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+					},
+					rowList(12),
+					h(AvatarMark, {
+						userId: row.UserId,
+						accent: active ? accent : Palette.cyan,
+						size: 44,
+						layoutOrder: 0,
+					}),
+					textColumn(1, 44, [
+						h(Text, {
+							value: row.DisplayName,
+							size: 16,
+							color: Palette.cream,
+							weight: Enum.FontWeight.Heavy,
+							fit: true,
+							layoutOrder: 0,
+							sizeConstraint: new UDim2(1, 0, 0, 22),
+						}),
+						h(Text, {
+							value: `${row.Rebirths} rebirths · world ${row.CurrentZone}`,
+							size: 12,
+							color: Palette.creamSoft,
+							fit: true,
+							layoutOrder: 1,
+							sizeConstraint: new UDim2(1, 0, 0, 18),
+						}),
+					]),
+					!compactTrade
+						? fixedBox(
+								2,
+								UDim2.fromOffset(110, 40),
+								h(Button, {
+									text: waiting ? "WAITING" : "INVITE",
+									onClick: () => {
+										setSelected(row.UserId);
+										if (!waiting) {
+											run("InviteTrade", {
+												UserId: row.UserId,
+											});
+										}
+									},
+									color: waiting ? Palette.panelSoft : accent,
+									textColor: waiting ? Palette.cream : Palette.ink,
+									size: UDim2.fromScale(1, 1),
+									disabled: busy !== "" || waiting || !unlocked,
+									loading: busy === "InviteTrade",
+									shakeToken: shakeFor("InviteTrade"),
+									reducedMotion: reducedMotion,
+									highlight: !waiting,
+								}),
+							)
+						: waiting
+							? fixedBox(
+									2,
+									UDim2.fromOffset(80, 24),
+									h(Badge, {
+										value: "WAITING",
+										accent: Palette.mango,
+										filled: true,
+										size: UDim2.fromScale(1, 1),
+									}),
+								)
+							: undefined,
+				),
 			);
 		});
-		// 08-trading hero: market header art behind a serif title, eyebrow names the partner when a table is open
+		// 08-trading hero: market header art behind a serif title, eyebrow names the partner when a table is open;
+		// the Trade / Requests / History tabs sit at the right (phones get them as their own row)
 		const heroH = compactTrade ? 72 : 104;
+		const deskTabs = h(MockTabs, {
+			options: [
+				{ id: "Trade", label: "Trade" },
+				{ id: "Requests", label: "Requests" },
+				{ id: "History", label: "History" },
+			],
+			value: deskTab,
+			onChange: setDeskTab,
+			accent: accent,
+			phone: phone,
+			reducedMotion: reducedMotion,
+			fill: phone,
+			layoutOrder: 1,
+		});
 		const tradeHero = (eyebrow: string, subline: string) =>
 			h(
 				"frame",
@@ -2190,35 +2313,56 @@ __defs["TradeView"] = () => {
 						]),
 					}),
 				),
+				// brass inner rule, 3px in from the edge
 				h(
 					"frame",
 					{
-						Size: new UDim2(1, -6, 1, -6),
-						Position: UDim2.fromScale(0.5, 0.5),
-						AnchorPoint: new Vector2(0.5, 0.5),
+						Size: UDim2.fromScale(1, 1),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
 					},
-					h("uicorner", { CornerRadius: new UDim(0, 15) }),
-					h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 }),
+					h("uipadding", {
+						PaddingTop: new UDim(0, 3),
+						PaddingBottom: new UDim(0, 3),
+						PaddingLeft: new UDim(0, 3),
+						PaddingRight: new UDim(0, 3),
+					}),
+					h(
+						"frame",
+						{
+							Size: UDim2.fromScale(1, 1),
+							BackgroundTransparency: 1,
+							BorderSizePixel: 0,
+						},
+						h("uicorner", { CornerRadius: new UDim(0, 15) }),
+						h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 }),
+					),
 				),
 				h(
 					"frame",
 					{
-						Size: new UDim2(1, -36, 1, 0),
-						Position: UDim2.fromOffset(18, 0),
+						Size: UDim2.fromScale(1, 1),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
 					},
-					h("uilistlayout", {
-						FillDirection: Enum.FillDirection.Vertical,
-						VerticalAlignment: Enum.VerticalAlignment.Center,
-						SortOrder: Enum.SortOrder.LayoutOrder,
-						Padding: new UDim(0, compactTrade ? 1 : 3),
-					}),
+					h("uipadding", { PaddingLeft: new UDim(0, 18), PaddingRight: new UDim(0, 18) }),
+					rowList(12),
 					h(
-						"textlabel",
+						"frame",
 						{
+							Size: new UDim2(0, 0, 1, 0),
+							BackgroundTransparency: 1,
+							BorderSizePixel: 0,
+							LayoutOrder: 0,
+						},
+						h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+						h("uilistlayout", {
+							FillDirection: Enum.FillDirection.Vertical,
+							VerticalAlignment: Enum.VerticalAlignment.Center,
+							SortOrder: Enum.SortOrder.LayoutOrder,
+							Padding: new UDim(0, compactTrade ? 1 : 3),
+						}),
+						h("textlabel", {
 							Text: eyebrow.upper(),
 							FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
 							TextColor3: Palette.brass,
@@ -2229,11 +2373,8 @@ __defs["TradeView"] = () => {
 							BackgroundTransparency: 1,
 							Size: new UDim2(1, 0, 0, 14),
 							LayoutOrder: 1,
-						},
-					),
-					h(
-						"textlabel",
-						{
+						}),
+						h("textlabel", {
 							Text: "Trading",
 							FontFace: TRADE_SERIF,
 							TextColor3: Palette.cream,
@@ -2243,45 +2384,272 @@ __defs["TradeView"] = () => {
 							BackgroundTransparency: 1,
 							Size: new UDim2(1, 0, 0, compactTrade ? 28 : 38),
 							LayoutOrder: 2,
-						},
+						}),
+						!compactTrade
+							? h("textlabel", {
+									Text: subline,
+									FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
+									TextColor3: Palette.creamSoft,
+									TextSize: 13,
+									TextTransparency: fade,
+									TextTruncate: Enum.TextTruncate.AtEnd,
+									TextXAlignment: Enum.TextXAlignment.Left,
+									BackgroundTransparency: 1,
+									Size: new UDim2(1, 0, 0, 16),
+									LayoutOrder: 3,
+								})
+							: undefined,
 					),
-					!compactTrade
-						? h("textlabel", {
-								Text: subline,
-								FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
-								TextColor3: Palette.creamSoft,
-								TextSize: 13,
-								TextTransparency: fade,
-								TextTruncate: Enum.TextTruncate.AtEnd,
-								TextXAlignment: Enum.TextXAlignment.Left,
-								BackgroundTransparency: 1,
-								Size: new UDim2(1, 0, 0, 16),
-								LayoutOrder: 3,
-							})
-						: undefined,
+					!phone ? deskTabs : undefined,
 				),
 			);
+		const heroSections = (eyebrow: string, subline: string) => {
+			const list: { id: string; height: number; element: unknown; fill?: boolean; minHeight?: number }[] = [
+				{ id: "hero", height: heroH, element: tradeHero(eyebrow, subline) },
+			];
+			if (phone) {
+				list.push({ id: "desk-tabs", height: TapTarget + 8, element: deskTabs });
+			}
+			return list;
+		};
+		// completed trades, newest first: who, when, what changed hands
+		const history = (trade !== undefined && typeIs(trade.History, "table") ? trade.History : []) as HistoryEntry[];
+		const historySections = () => {
+			const list: { id: string; height: number; element: unknown; fill?: boolean; minHeight?: number }[] = [
+				{
+					id: "history-heading",
+					height: 30,
+					element: h(Text, {
+						value:
+							history.size() > 0 ? "Recent trades" : "Recent trades: none yet. Finished trades show up here.",
+						size: 15,
+						color: Palette.cream,
+						weight: Enum.FontWeight.Heavy,
+						wrap: true,
+						fit: true,
+						minSize: 10,
+						sizeConstraint: new UDim2(1, 0, 0, 28),
+					}),
+				},
+			];
+			for (const [index, entry] of ipairs(history)) {
+				const ago = math.max(0, os.time() - entry.At);
+				const when =
+					ago < 3600
+						? `${math.max(1, math.floor(ago / 60))}m ago`
+						: ago < 86400
+							? `${math.floor(ago / 3600)}h ago`
+							: `${math.floor(ago / 86400)}d ago`;
+				const again = Players.GetPlayerByUserId(entry.PartnerId) !== undefined;
+				const bodyH = phone ? 56 : 40;
+				list.push({
+					id: `history-${index}`,
+					height: phone ? 104 : 84,
+					element: h(
+						PnSurface,
+						{
+							size: UDim2.fromScale(1, 1),
+							accent: accent,
+							background: Palette.panel,
+							padding: 16,
+							clips: false,
+						},
+						rowList(10),
+						textColumn(0, 24 + bodyH, [
+							h(Text, {
+								value: `With ${entry.Partner}  ·  ${when}`,
+								size: 14,
+								color: Palette.cream,
+								weight: Enum.FontWeight.Bold,
+								layoutOrder: 0,
+								sizeConstraint: new UDim2(1, 0, 0, 20),
+							}),
+							h(Text, {
+								value: `− ${entry.Gave}\n+ ${entry.Got}`,
+								size: 13,
+								color: Palette.muted,
+								wrap: true,
+								fit: true,
+								minSize: 10,
+								layoutOrder: 1,
+								sizeConstraint: new UDim2(1, 0, 0, bodyH),
+							}),
+						]),
+						again
+							? fixedBox(
+									1,
+									UDim2.fromOffset(140, TapTarget),
+									h(Button, {
+										// the same partner is still here: one tap opens a fresh trade with them
+										text: "Trade again",
+										icon: "Send.3",
+										color: accent,
+										textColor: Palette.ink,
+										size: UDim2.fromScale(1, 1),
+										reducedMotion: reducedMotion,
+										onClick: () => dispatch("InviteTrade", { UserId: entry.PartnerId }),
+									}),
+								)
+							: undefined,
+					),
+				});
+			}
+			return list;
+		};
 		if (session !== undefined) {
-			const pinnedActions = buildConfirmActions(compactTrade ? "vertical" : "horizontal");
-			const stepRow = phone ? TapTarget + 10 : 48;
-			const lineRow = phone ? 64 : 58;
-			// heights assume two cards across (the narrowest pane), so the floor never undershoots
-			const offerFloor = (editor: boolean, lines: OfferLine[]): number => {
-				const header = 96;
-				if (!editor) {
-					const relicCount = lines.filter((line) => line.relic !== undefined).size();
-					const rest = lines.size() - relicCount;
-					return header + math.max(rest, relicCount > 0 ? 0 : 1) * lineRow + relicGridHeight(relicCount, 2) + 24;
+			const pinnedActions = buildConfirmActions();
+			const giveLines = yourLines;
+			const offersH = math.max(offerPaneHeight(giveLines), offerPaneHeight(theirLines));
+			const youState = session.YouConfirmed ? "Confirmed" : youReadyLocal ? "Ready" : "Not ready";
+			const youAccent = session.YouConfirmed ? Palette.mango : youReadyLocal ? Palette.mint : undefined;
+			const themState =
+				session.ThemConfirmed === true ? "Confirmed" : session.ThemReady === true ? "Ready" : "Still choosing";
+			const themAccent =
+				session.ThemConfirmed === true ? Palette.mango : session.ThemReady === true ? Palette.mint : undefined;
+			const sections = heroSections(`Trade with ${session.PartnerName}`, "Both sides lock in before anything moves.");
+			if (deskTab === "Trade") {
+				sections.push({
+					id: "status",
+					height: (chrome.landscape ? 52 : 60) + (tradeWarnings.size() > 0 ? 40 : 0) + (phone ? 18 : 0),
+					element: h(
+						"frame",
+						{
+							Size: UDim2.fromScale(1, 1),
+							BackgroundTransparency: 1,
+							BorderSizePixel: 0,
+						},
+						stackList(2),
+						h(Text, {
+							value: bothReady
+								? "Both ready. Confirm to finish the trade."
+								: youReadyLocal
+									? `Waiting on ${session.PartnerName}.`
+									: "Add your offer, then select Ready.",
+							size: 13,
+							color: bothReady ? Palette.mango : Palette.creamSoft,
+							wrap: true,
+							fit: true,
+							minSize: 10,
+							layoutOrder: 0,
+							sizeConstraint: new UDim2(1, 0, 0, 32),
+						}),
+						h(
+							"frame",
+							{
+								Size: new UDim2(1, 0, 0, 18),
+								BackgroundTransparency: 1,
+								BorderSizePixel: 0,
+								LayoutOrder: 1,
+							},
+							rowList(10),
+							h(Text, {
+								value: sessionLeft > 0 ? `Table ${clockLabel(session.ExpiresAt, now)}` : "Table expired",
+								size: 11,
+								color: sessionLeft > 12 ? Palette.mint : Palette.coral,
+								weight: Enum.FontWeight.Bold,
+								fit: true,
+								layoutOrder: 0,
+								sizeConstraint: new UDim2(0, 110, 0, 18),
+							}),
+						),
+						// phones: the value check gets its own full-width line (desktop shows it as the action-bar chip)
+						phone
+							? h(Text, {
+									value: balance.text,
+									size: 12,
+									fit: true,
+									minSize: 10,
+									color: balance.accent ?? Palette.creamSoft,
+									weight: Enum.FontWeight.Bold,
+									layoutOrder: 2,
+									sizeConstraint: new UDim2(1, 0, 0, 16),
+								})
+							: undefined,
+						tradeWarnings.size() > 0
+							? h(Text, {
+									// one-sided offers are allowed (gifts), but never by accident
+									value: tradeWarnings[0],
+									size: 13,
+									color: Palette.coral,
+									weight: Enum.FontWeight.Bold,
+									wrap: true,
+									fit: true,
+									minSize: 10,
+									layoutOrder: 3,
+									sizeConstraint: new UDim2(1, 0, 0, 36),
+								})
+							: undefined,
+					),
+				});
+				// 08 .flexr: [You give] [⇄ 70px] [You get]
+				sections.push({
+					id: "offer",
+					height: offersH,
+					element: h(
+						"frame",
+						{
+							Name: "TradeOffers",
+							Size: UDim2.fromScale(1, 1),
+							BackgroundTransparency: 1,
+							BorderSizePixel: 0,
+						},
+						h("uilistlayout", {
+							FillDirection: Enum.FillDirection.Horizontal,
+							Padding: new UDim(0, phone ? 8 : 18),
+							SortOrder: Enum.SortOrder.LayoutOrder,
+						}),
+						offerPane("You give", session.PartnerName, youState, youAccent, giveLines, true, 0),
+						!phone
+							? h(
+									"frame",
+									{
+										Name: "TradeSwap",
+										Size: new UDim2(0, 70, 1, 0),
+										BackgroundTransparency: 1,
+										BorderSizePixel: 0,
+										LayoutOrder: 1,
+									},
+									h("uilistlayout", {
+										FillDirection: Enum.FillDirection.Vertical,
+										HorizontalAlignment: Enum.HorizontalAlignment.Center,
+										VerticalAlignment: Enum.VerticalAlignment.Center,
+										SortOrder: Enum.SortOrder.LayoutOrder,
+									}),
+									h(GlyphWell, { kind: "Trade", accent: accent, size: 48, glow: true, layoutOrder: 0 }),
+								)
+							: undefined,
+						offerPane("You get", session.PartnerName, themState, themAccent, theirLines, false, 2),
+					),
+				});
+				sections.push({
+					id: "offer-editor",
+					height: editorHeight,
+					element: offerEditor(),
+				});
+			} else if (deskTab === "Requests") {
+				sections.push({
+					id: "asks",
+					height: tradeAsksHeight(session),
+					element: h(TradeAsks, {
+						session: session,
+						dispatch: dispatch,
+						myRelics: relics,
+						onAddRequested: addRequested,
+					}),
+				});
+				sections.push({
+					id: "chat",
+					height: compactTrade ? 260 : 300,
+					element: h(TradeChatStream, {
+						session: session,
+						dispatch: dispatch,
+					}),
+				});
+			} else {
+				for (const section of historySections()) {
+					sections.push(section);
 				}
-				return header + 40 + 6 * stepRow + 140 + relicGridHeight(relics.size(), 2);
-			};
-			const youFloor = offerFloor(true, yourLines);
-			const themFloor = offerFloor(false, theirLines);
-			const offerContentFloor = compactTrade
-				? offerTab === "You"
-					? youFloor
-					: themFloor
-				: math.max(youFloor, themFloor);
+			}
 			return h(
 				"frame",
 				{
@@ -2290,202 +2658,46 @@ __defs["TradeView"] = () => {
 					BorderSizePixel: 0,
 					ClipsDescendants: false,
 				},
+				stackList(8),
 				h(
 					"frame",
 					{
-						Size: new UDim2(1, 0, 1, -(actionH + 8)),
+						Name: "TradeDeskScroll",
+						Size: new UDim2(1, 0, 0, 0),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
 						ClipsDescendants: true,
+						LayoutOrder: 0,
 					},
+					h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
 					h(PageScaffold, {
 						scrollBarColor: accent,
 						scrollBarThickness: 4,
 						tailPad: scrollTail(true, chrome.bottomSafe, chrome.landscape ? 16 : 20),
 						gap: chrome.landscape ? 8 : Layout.stackGap,
-						sections: [
-							{
-								id: "hero",
-								height: heroH,
-								element: tradeHero(`Trade with ${session.PartnerName}`, "Both sides lock in before anything moves."),
-							},
-							{
-								id: "status",
-								height: (chrome.landscape ? 52 : 60) + (tradeWarnings.size() > 0 ? 40 : 0),
-								element: h(
-									"frame",
-									{
-										Size: UDim2.fromScale(1, 1),
-										BackgroundTransparency: 1,
-										BorderSizePixel: 0,
-									},
-									h(Text, {
-										value: bothReady
-											? "Both ready. Confirm to finish the trade."
-											: youReadyLocal
-												? `Waiting on ${session.PartnerName}.`
-												: "Add your offer, then select Ready.",
-										size: 13,
-										color: bothReady ? Palette.mango : Palette.creamSoft,
-										wrap: true,
-										fit: true,
-										minSize: 10,
-										sizeConstraint: new UDim2(1, 0, 0, 32),
-									}),
-									h(Text, {
-										value:
-											sessionLeft > 0 ? `Table ${clockLabel(session.ExpiresAt, now)}` : "Table expired",
-										size: 11,
-										color: sessionLeft > 12 ? Palette.mint : Palette.coral,
-										weight: Enum.FontWeight.Bold,
-										fit: true,
-										position: UDim2.fromOffset(0, 34),
-										sizeConstraint: new UDim2(1, 0, 0, 18),
-									}),
-									tradeWarnings.size() > 0
-										? h(Text, {
-												// one-sided offers are allowed (gifts), but never by accident
-												value: tradeWarnings[0],
-												size: 13,
-												color: Palette.coral,
-												weight: Enum.FontWeight.Bold,
-												wrap: true,
-												fit: true,
-												minSize: 10,
-												position: UDim2.fromOffset(0, 56),
-												sizeConstraint: new UDim2(1, 0, 0, 36),
-											})
-										: undefined,
-								),
-							},
-							{
-								id: "meter",
-								height: 54,
-								element: h(TradeFairnessMeter, {
-									draft: draft,
-									them: session.Them,
-								}),
-							},
-							{
-								id: "chat",
-								height: compactTrade ? 200 : 230,
-								element: h(TradeChatStream, {
-									session: session,
-									dispatch: dispatch,
-								}),
-							},
-							{
-								id: "asks",
-								height: tradeAsksHeight(session),
-								element: h(TradeAsks, {
-									session: session,
-									dispatch: dispatch,
-									myRelics: relics,
-									onAddRequested: addRequested,
-								}),
-							},
-							{
-								id: "tabs",
-								height: TapTarget,
-								element: h(
-									"frame",
-									{
-										Size: UDim2.fromScale(1, 1),
-										BackgroundTransparency: 1,
-										BorderSizePixel: 0,
-									},
-									h(SegmentedTabs, {
-										options: [
-											{
-												id: "You",
-												label: `YOUR OFFER${youReadyLocal ? " · READY" : ""}`,
-											},
-											{
-												id: "Them",
-												label: `${session.PartnerName.upper()}${session.ThemReady === true ? " · READY" : ""}`,
-											},
-										],
-										value: offerTab,
-										onChange: setOfferTab,
-										accent: accent,
-										columns: 2,
-										size: UDim2.fromScale(1, 1),
-										reducedMotion: reducedMotion,
-									}),
-								),
-							},
-							{
-								id: "offer",
-								fill: true,
-								minHeight: 120,
-								height: offerContentFloor,
-								element: compactTrade ? (
-									offerTab === "You" ? (
-										offerPane("You give", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true)
-									) : (
-										offerPane(
-											"You get",
-											session.ThemReady === true ? `${session.PartnerName} is ready` : `${session.PartnerName} is still choosing`,
-											session.ThemReady,
-											session.ThemConfirmed,
-											theirLines,
-											false,
-											true,
-										)
-									)
-								) : (
-									h(
-										"frame",
-										{
-											Size: UDim2.fromScale(1, 1),
-											BackgroundTransparency: 1,
-											BorderSizePixel: 0,
-										},
-										h(
-											"frame",
-											{
-												Size: new UDim2(0.49, -4, 0, 0),
-												AutomaticSize: Enum.AutomaticSize.Y,
-												BackgroundTransparency: 1,
-												BorderSizePixel: 0,
-											},
-											offerPane("You give", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true),
-										),
-										h(
-											"frame",
-											{
-												Size: new UDim2(0.49, -4, 0, 0),
-												Position: new UDim2(0.51, 4, 0, 0),
-												AutomaticSize: Enum.AutomaticSize.Y,
-												BackgroundTransparency: 1,
-												BorderSizePixel: 0,
-											},
-											offerPane(
-												"You get",
-												session.ThemReady === true ? `${session.PartnerName} is ready` : `${session.PartnerName} is still choosing`,
-												session.ThemReady,
-												session.ThemConfirmed,
-												theirLines,
-												false,
-												true,
-											),
-										),
-									)
-								),
-							},
-						],
+						sections: sections,
 					}),
 				),
 				h(
 					"frame",
 					{
+						Name: "TradeActionBar",
 						Size: new UDim2(1, 0, 0, actionH),
-						Position: new UDim2(0, 0, 1, -actionH),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
 						ZIndex: 6,
+						LayoutOrder: 1,
 					},
-					pinnedActions,
+					h(
+						PnSurface,
+						{
+							size: UDim2.fromScale(1, 1),
+							padding: actionPad,
+							phone: phone,
+							reducedMotion: reducedMotion,
+						},
+						pinnedActions,
+					),
 				),
 			);
 		}
@@ -2509,11 +2721,13 @@ __defs["TradeView"] = () => {
 							reducedMotion: reducedMotion,
 							layoutOrder: 1,
 						},
+						stackList(4),
 						h(Text, {
 							value: regionBlocked ? PlayPolicy.Copy.TradingShort : "Player trading is locked",
 							size: 15,
 							color: Palette.cream,
 							weight: Enum.FontWeight.Heavy,
+							layoutOrder: 0,
 							sizeConstraint: new UDim2(1, 0, 0, 22),
 						}),
 						h(Text, {
@@ -2523,7 +2737,7 @@ __defs["TradeView"] = () => {
 							wrap: true,
 							fit: true,
 							minSize: 10,
-							position: UDim2.fromOffset(0, 26),
+							layoutOrder: 1,
 							sizeConstraint: new UDim2(1, 0, 0, 48),
 						}),
 					)
@@ -2539,68 +2753,95 @@ __defs["TradeView"] = () => {
 							reducedMotion: reducedMotion,
 							layoutOrder: 2,
 						},
-						h(AvatarMark, {
-							userId: invite.FromUserId,
-							accent: Palette.cyan,
-							size: 44,
-						}),
-						h(Text, {
-							value: `${invite.FromName ?? "Someone"} invited you`,
-							size: 16,
-							color: Palette.cream,
-							weight: Enum.FontWeight.Heavy,
-							fit: true,
-							position: UDim2.fromOffset(56, 2),
-							sizeConstraint: new UDim2(1, -64, 0, 22),
-						}),
-						h(Text, {
-							value: clockLabel(invite.ExpiresAt, now),
-							size: 13,
-							color: Palette.creamSoft,
-							fit: true,
-							position: UDim2.fromOffset(56, 26),
-							sizeConstraint: new UDim2(1, -64, 0, 20),
-						}),
+						stackList(8),
+						h(
+							"frame",
+							{
+								Size: new UDim2(1, 0, 0, 44),
+								BackgroundTransparency: 1,
+								BorderSizePixel: 0,
+								LayoutOrder: 0,
+							},
+							rowList(12),
+							h(AvatarMark, {
+								userId: invite.FromUserId,
+								accent: Palette.cyan,
+								size: 44,
+								layoutOrder: 0,
+							}),
+							textColumn(1, 44, [
+								h(Text, {
+									value: `${invite.FromName ?? "Someone"} invited you`,
+									size: 16,
+									color: Palette.cream,
+									weight: Enum.FontWeight.Heavy,
+									fit: true,
+									layoutOrder: 0,
+									sizeConstraint: new UDim2(1, 0, 0, 22),
+								}),
+								h(Text, {
+									value: clockLabel(invite.ExpiresAt, now),
+									size: 13,
+									color: Palette.creamSoft,
+									fit: true,
+									layoutOrder: 1,
+									sizeConstraint: new UDim2(1, 0, 0, 20),
+								}),
+							]),
+						),
 						h(
 							"frame",
 							{
 								Size: new UDim2(1, 0, 0, TapTarget),
-								Position: new UDim2(0, 0, 1, -TapTarget),
 								BackgroundTransparency: 1,
 								BorderSizePixel: 0,
+								LayoutOrder: 1,
 							},
-							h(Button, {
-								text: "Accept",
-								onClick: () => {
-									return run("RespondTrade", {
-										Accept: true,
-									});
-								},
-								color: Palette.mint,
-								textColor: Palette.ink,
-								size: new UDim2(0.48, -4, 1, 0),
-								disabled: busy !== "",
-								loading: busy === "RespondTrade",
-								shakeToken: shakeFor("RespondTrade"),
-								reducedMotion: reducedMotion,
-								highlight: true,
+							h("uilistlayout", {
+								FillDirection: Enum.FillDirection.Horizontal,
+								HorizontalFlex: Enum.UIFlexAlignment.Fill,
+								Padding: new UDim(0, 8),
+								SortOrder: Enum.SortOrder.LayoutOrder,
 							}),
-							h(Button, {
-								text: "Decline",
-								onClick: () => {
-									return run("RespondTrade", {
-										Accept: false,
-									});
-								},
-								color: SEC,
-								textColor: Palette.cream,
-								size: new UDim2(0.48, -4, 1, 0),
-								position: new UDim2(0.52, 4, 0, 0),
-								disabled: busy !== "",
-								loading: busy === "RespondTrade",
-								shakeToken: shakeFor("RespondTrade"),
-								reducedMotion: reducedMotion,
-							}),
+							fixedBox(
+								0,
+								new UDim2(0, 0, 1, 0),
+								h(Button, {
+									text: "Accept",
+									onClick: () => {
+										return run("RespondTrade", {
+											Accept: true,
+										});
+									},
+									color: Palette.mint,
+									textColor: Palette.ink,
+									size: UDim2.fromScale(1, 1),
+									disabled: busy !== "",
+									loading: busy === "RespondTrade",
+									shakeToken: shakeFor("RespondTrade"),
+									reducedMotion: reducedMotion,
+									highlight: true,
+								}),
+							),
+							fixedBox(
+								1,
+								new UDim2(0, 0, 1, 0),
+								h(Button, {
+									text: "Decline",
+									onClick: () => {
+										return run("RespondTrade", {
+											Accept: false,
+										});
+									},
+									color: SEC,
+									textColor: Palette.cream,
+									size: UDim2.fromScale(1, 1),
+									disabled: busy !== "",
+									loading: busy === "RespondTrade",
+									shakeToken: shakeFor("RespondTrade"),
+									reducedMotion: reducedMotion,
+								}),
+							),
 						),
 					)
 				: undefined;
@@ -2615,47 +2856,66 @@ __defs["TradeView"] = () => {
 							reducedMotion: reducedMotion,
 							layoutOrder: 3,
 						},
-						h(Icon, {
-							kind: "Timer.4",
-							color: Palette.mango,
-							accent: Palette.mango,
-							size: 22,
-							position: UDim2.fromOffset(2, 6),
-							clipSafe: true,
-							spin: false,
-						}),
-						h(Text, {
-							value: `Waiting on ${outgoing.ToName ?? "partner"}`,
-							size: 15,
-							color: Palette.cream,
-							weight: Enum.FontWeight.Heavy,
-							fit: true,
-							position: UDim2.fromOffset(32, 2),
-							sizeConstraint: new UDim2(1, -40, 0, 22),
-						}),
-						h(Text, {
-							value: clockLabel(outgoing.ExpiresAt, now),
-							size: 13,
-							color: Palette.mango,
-							weight: Enum.FontWeight.Bold,
-							fit: true,
-							position: UDim2.fromOffset(32, 26),
-							sizeConstraint: new UDim2(1, -40, 0, 18),
-						}),
-						h(Button, {
-							text: "Cancel",
-							onClick: () => {
-								return run("CancelTrade");
+						stackList(8),
+						h(
+							"frame",
+							{
+								Size: new UDim2(1, 0, 0, 44),
+								BackgroundTransparency: 1,
+								BorderSizePixel: 0,
+								LayoutOrder: 0,
 							},
-							color: Palette.coral,
-							textColor: Palette.ink,
-							size: new UDim2(1, 0, 0, TapTarget),
-							position: new UDim2(0, 0, 1, -TapTarget),
-							disabled: busy !== "",
-							loading: busy === "CancelTrade",
-							shakeToken: shakeFor("CancelTrade"),
-							reducedMotion: reducedMotion,
-						}),
+							rowList(10),
+							fixedBox(
+								0,
+								UDim2.fromOffset(22, 22),
+								h(Icon, {
+									kind: "Timer.4",
+									color: Palette.mango,
+									accent: Palette.mango,
+									size: 22,
+									clipSafe: true,
+									spin: false,
+								}),
+							),
+							textColumn(1, 44, [
+								h(Text, {
+									value: `Waiting on ${outgoing.ToName ?? "partner"}`,
+									size: 15,
+									color: Palette.cream,
+									weight: Enum.FontWeight.Heavy,
+									fit: true,
+									layoutOrder: 0,
+									sizeConstraint: new UDim2(1, 0, 0, 22),
+								}),
+								h(Text, {
+									value: clockLabel(outgoing.ExpiresAt, now),
+									size: 13,
+									color: Palette.mango,
+									weight: Enum.FontWeight.Bold,
+									fit: true,
+									layoutOrder: 1,
+									sizeConstraint: new UDim2(1, 0, 0, 18),
+								}),
+							]),
+						),
+						fixedBox(
+							1,
+							new UDim2(1, 0, 0, TapTarget),
+							h(Button, {
+								text: "Cancel",
+								onClick: () => {
+									return run("CancelTrade");
+								},
+								color: Palette.coral,
+								textColor: Palette.ink,
+								size: UDim2.fromScale(1, 1),
+								disabled: busy !== "",
+								loading: busy === "CancelTrade",
+								shakeToken: shakeFor("CancelTrade"),
+								reducedMotion: reducedMotion,
+							}),
+						),
 					)
 				: undefined;
 		const searchElement =
@@ -2668,6 +2928,7 @@ __defs["TradeView"] = () => {
 							BorderSizePixel: 0,
 							LayoutOrder: 4,
 						},
+						rowList(8),
 						h(SearchField, {
 							value: query,
 							onChange: setQuery,
@@ -2675,19 +2936,23 @@ __defs["TradeView"] = () => {
 							placeholder: "Find a forgemaster",
 							size: new UDim2(1, -(searchH + 8), 0, searchH),
 							reducedMotion: reducedMotion,
+							layoutOrder: 0,
 						}),
-						h(Button, {
-							text: "",
-							icon: "Refresh.2",
-							onClick: () => {
-								return loadRoster();
-							},
-							color: Palette.panelSoft,
-							textColor: Palette.cream,
-							size: UDim2.fromOffset(searchH, searchH),
-							position: new UDim2(1, -searchH, 0, 0),
-							reducedMotion: reducedMotion,
-						}),
+						fixedBox(
+							1,
+							UDim2.fromOffset(searchH, searchH),
+							h(Button, {
+								text: "",
+								icon: "Refresh.2",
+								onClick: () => {
+									return loadRoster();
+								},
+								color: Palette.panelSoft,
+								textColor: Palette.cream,
+								size: UDim2.fromScale(1, 1),
+								reducedMotion: reducedMotion,
+							}),
+						),
 					)
 				: undefined;
 		const emptyElement =
@@ -2744,191 +3009,95 @@ __defs["TradeView"] = () => {
 				: undefined;
 		const rosterStride = rosterRowH + (chrome.landscape ? 8 : Layout.stackGap);
 		const rosterFloor = visibleRows.size() === 0 ? 140 : visibleRows.size() * rosterStride;
-		const sections: { id: string; height: number; element: unknown; fill?: boolean; minHeight?: number }[] = [
-			{
-				id: "hero",
-				height: heroH,
-				element: tradeHero("Social", "Both sides lock in before anything moves."),
-			},
-			{
+		const sections = heroSections("Social", "Both sides lock in before anything moves.");
+		const pushRequests = () => {
+			if (inviteElement !== undefined) {
+				sections.push({
+					id: "invite",
+					height: 128,
+					element: inviteElement,
+				});
+			}
+			if (outgoingElement !== undefined) {
+				sections.push({
+					id: "outgoing",
+					height: 124,
+					element: outgoingElement,
+				});
+			}
+		};
+		if (deskTab === "Trade") {
+			sections.push({
 				id: "daily",
 				height: 22,
 				element: dailyElement,
-			},
-		];
-		if (lockElement !== undefined) {
-			sections.push({
-				id: "lock",
-				height: 86,
-				element: lockElement,
 			});
-		}
-		if (inviteElement !== undefined) {
-			sections.push({
-				id: "invite",
-				height: 128,
-				element: inviteElement,
-			});
-		}
-		if (outgoingElement !== undefined) {
-			sections.push({
-				id: "outgoing",
-				height: 124,
-				element: outgoingElement,
-			});
-		}
-		if (searchElement !== undefined) {
-			sections.push({
-				id: "search",
-				height: searchH,
-				element: searchElement,
-			});
-		}
-		const rosterElement =
-			emptyElement !== undefined
-				? emptyElement
-				: visibleRows.size() >= 8
-					? h(FlatList, {
-							data: visibleRows,
-							itemHeight: rosterStride,
-							overscan: softMotion === true ? 0 : antilag.constrained ? 1 : 2,
-							canvasTail: 8,
-							Size: UDim2.fromScale(1, 1),
-							scrollBarColor: accent,
-							scrollBarThickness: 4,
-							keyExtractor: (row: RosterRow) => {
-								return row.UserId;
-							},
-							renderItem: (_param_1: { index: number }) => {
-								const index = _param_1.index;
-								return rosterCards[index];
-							},
-						})
+			if (lockElement !== undefined) {
+				sections.push({
+					id: "lock",
+					height: 86,
+					element: lockElement,
+				});
+			}
+			pushRequests();
+			if (searchElement !== undefined) {
+				sections.push({
+					id: "search",
+					height: searchH,
+					element: searchElement,
+				});
+			}
+			const rosterElement =
+				emptyElement !== undefined
+					? emptyElement
 					: h(
-							"frame",
-							{
-								Size: UDim2.fromScale(1, 1),
-								BackgroundTransparency: 1,
-								BorderSizePixel: 0,
-							},
-							h("uilistlayout", {
-								FillDirection: Enum.FillDirection.Vertical,
-								SortOrder: Enum.SortOrder.LayoutOrder,
-								Padding: new UDim(0, chrome.landscape ? 8 : Layout.stackGap),
-							}),
-							rosterCards,
-						);
-		sections.push({
-			id: "roster",
-			fill: visibleRows.size() >= 4,
-			minHeight: rosterFloor,
-			height: rosterFloor,
-			element: rosterElement,
-		});
-		if (ctaElement !== undefined) {
+								"frame",
+								{
+									Size: UDim2.fromScale(1, 1),
+									BackgroundTransparency: 1,
+									BorderSizePixel: 0,
+								},
+								h("uilistlayout", {
+									FillDirection: Enum.FillDirection.Vertical,
+									SortOrder: Enum.SortOrder.LayoutOrder,
+									Padding: new UDim(0, chrome.landscape ? 8 : Layout.stackGap),
+								}),
+								rosterCards,
+							);
+			// a plain list (a server holds a few dozen at most): no virtualised scroller inside the page scroller
 			sections.push({
-				id: "invite-cta",
-				height: TapTarget,
-				element: ctaElement,
+				id: "roster",
+				minHeight: rosterFloor,
+				height: rosterFloor,
+				element: rosterElement,
 			});
-		}
-		// completed trades, newest first: who, when, what changed hands
-		const history = (trade !== undefined && typeIs(trade.History, "table") ? trade.History : []) as HistoryEntry[];
-		// desktop with room (and a short, non-virtualised roster): history moves to a right-hand column
-		const lobbyPlan = splitColumns(phone ? 0 : lobbyWidth, 360, chrome.landscape ? 8 : Layout.stackGap);
-		const splitLobby = lobbyPlan.split && visibleRows.size() < 8;
-		const historyStart = sections.size();
-		sections.push({
-			id: "history-heading",
-			height: 30,
-			element: h(Text, {
-				value:
-					history.size() > 0 ? "Recent trades" : "Recent trades: none yet. Finished trades show up here.",
-				size: 15,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Heavy,
-				wrap: true,
-				fit: true,
-				minSize: 10,
-				sizeConstraint: new UDim2(1, 0, 0, 28),
-			}),
-		});
-		for (const [index, entry] of ipairs(history)) {
-			const ago = math.max(0, os.time() - entry.At);
-			const when =
-				ago < 3600
-					? `${math.max(1, math.floor(ago / 60))}m ago`
-					: ago < 86400
-						? `${math.floor(ago / 3600)}h ago`
-						: `${math.floor(ago / 86400)}d ago`;
-			sections.push({
-				id: `history-${index}`,
-				height: phone ? 104 : 84,
-				element: h(
-					PnSurface,
-					{
-						size: UDim2.fromScale(1, 1),
+			if (ctaElement !== undefined) {
+				sections.push({
+					id: "invite-cta",
+					height: TapTarget,
+					element: ctaElement,
+				});
+			}
+		} else if (deskTab === "Requests") {
+			pushRequests();
+			if (inviteElement === undefined && outgoingElement === undefined) {
+				sections.push({
+					id: "requests-empty",
+					height: 140,
+					element: h(EmptyState, {
+						icon: "Send.2",
+						title: "No open requests",
+						body: "Invites you send or receive show up here until they're answered.",
 						accent: accent,
-						background: Palette.panel,
-						padding: 16,
-						clips: false,
-					},
-					h(Text, {
-						value: `With ${entry.Partner}  ·  ${when}`,
-						size: 14,
-						color: Palette.cream,
-						weight: Enum.FontWeight.Bold,
-						sizeConstraint: new UDim2(1, -150, 0, 20),
+						compact: true,
+						reducedMotion: reducedMotion,
 					}),
-					h(Text, {
-						value: `− ${entry.Gave}\n+ ${entry.Got}`,
-						size: 13,
-						color: Palette.muted,
-						wrap: true,
-						fit: true,
-						minSize: 10,
-						position: UDim2.fromOffset(0, 24),
-						sizeConstraint: new UDim2(1, -150, 0, phone ? 56 : 40),
-					}),
-					Players.GetPlayerByUserId(entry.PartnerId) !== undefined
-						? h(Button, {
-								// the same partner is still here: one tap opens a fresh trade with them
-								text: "Trade again",
-								icon: "Send.3",
-								color: accent,
-								textColor: Palette.ink,
-								size: UDim2.fromOffset(140, TapTarget),
-								position: new UDim2(1, -140, 0, 4),
-								reducedMotion: reducedMotion,
-								onClick: () => dispatch("InviteTrade", { UserId: entry.PartnerId }),
-							})
-						: undefined,
-				),
-			});
-		}
-		const lobbyGap = chrome.landscape ? 8 : Layout.stackGap;
-		let lobbySections = sections;
-		if (splitLobby) {
-			const main = sections.filter((_, index) => index < historyStart);
-			const side = sections.filter((_, index) => index >= historyStart);
-			const rowH = math.max(
-				stackHeight(main.map((section) => section.height), lobbyGap),
-				stackHeight(side.map((section) => section.height), lobbyGap),
-			);
-			lobbySections = [
-				{
-					id: "lobby-split",
-					height: rowH,
-					element: h(SplitColumns, {
-						name: "TradeLobbySplit",
-						height: rowH,
-						plan: lobbyPlan,
-						sideOnRight: true,
-						side: h(StackBlocks, { gap: lobbyGap, blocks: side as never }),
-						main: h(StackBlocks, { gap: lobbyGap, blocks: main as never }),
-					}),
-				},
-			];
+				});
+			}
+		} else {
+			for (const section of historySections()) {
+				sections.push(section);
+			}
 		}
 		return h(
 			"frame",
@@ -2944,12 +3113,11 @@ __defs["TradeView"] = () => {
 				scrollBarColor: accent,
 				scrollBarThickness: 4,
 				tailPad: scrollTail(true, chrome.bottomSafe, chrome.landscape ? 24 : 32),
-				gap: lobbyGap,
-				sections: lobbySections,
+				gap: chrome.landscape ? 8 : Layout.stackGap,
+				sections: sections,
 			}),
 		);
 	}
-
 	return {
 		TradeView: TradeView,
 	};

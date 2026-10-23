@@ -67,10 +67,13 @@ local shopPanel = PHONE - 14 * 2
 local heroWidth = shopPanel - 56
 
 local CASES: { Case } = {
-	{ file = "pages/PagesSocial.tsx", needle = "You're giving +${adv}% more than you get", fill = { adv = "100" }, size = 12, minSize = 10, bold = true, width = tradeWidth },
-	{ file = "pages/PagesSocial.tsx", needle = "You're getting +${adv}% more than you give", fill = { adv = "100" }, size = 12, minSize = 10, bold = true, width = tradeWidth },
-	{ file = "pages/PagesSocial.tsx", needle = "About even", size = 12, minSize = 10, bold = true, width = tradeWidth },
-	{ file = "pages/PagesSocial.tsx", needle = "Add items or currency to see the balance", size = 12, minSize = 10, bold = true, width = tradeWidth },
+	-- trade value check (phone status line, 12px bold, fit down to 10)
+	{ file = "pages/PagesSocial.tsx", needle = "Value check: you give about ${times}x what you get", fill = { times = "9.9" }, size = 12, minSize = 10, bold = true, width = tradeWidth },
+	{ file = "pages/PagesSocial.tsx", needle = "Value check: you get about ${times}x what you give", fill = { times = "9.9" }, size = 12, minSize = 10, bold = true, width = tradeWidth },
+	{ file = "pages/PagesSocial.tsx", needle = "Value check: about even", size = 12, minSize = 10, bold = true, width = tradeWidth },
+	{ file = "pages/PagesSocial.tsx", needle = "Value check: add something to compare", size = 12, minSize = 10, bold = true, width = tradeWidth },
+	{ file = "pages/PagesSocial.tsx", needle = "Value check: they haven't added anything yet", size = 12, minSize = 10, bold = true, width = tradeWidth },
+	{ file = "pages/PagesSocial.tsx", needle = "Value check: you haven't added anything yet", size = 12, minSize = 10, bold = true, width = tradeWidth },
 	{ file = "pages/views/GuildView.ts", needle = "Every deposit and build counts toward it.", size = 11, bold = false, width = PHONE - 14 * 2 - 8, box = 30 },
 	{ file = "pages/views/GuildView.ts", needle = "Leader turned chat off", size = 14, bold = false, width = chatWidth },
 	{ file = "pages/views/GuildView.ts", needle = "Message your guild", size = 14, bold = false, width = chatWidth },
@@ -142,7 +145,7 @@ end
 
 -- the fairness line depends on shrink-to-fit for the 100% case
 local social = fs.readFile(ROOT .. "pages/PagesSocial.tsx")
-if not string.find(social, "value: balanceText,%s*size: 12,%s*fit: true") then
+if not string.find(social, "value: balance%.text,%s*size: 12,%s*fit: true") then
 	table.insert(bad, "pages/PagesSocial.tsx: trade balance Text lost fit/minSize")
 end
 
