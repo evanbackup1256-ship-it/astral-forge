@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { BODY_SEMI, NUM, TITLE_FACE, spaced } from "./mockKit";
 import { asFlux, compactNumber, Flux } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import { Palette } from "../CoreKit/theme";
@@ -21,8 +22,9 @@ const Audio = (
 ).Audio;
 
 const GOLDEN = math.pi * (3 - math.sqrt(5));
-const HEAVY = Font.fromEnum(Enum.Font.BuilderSansExtraBold);
-const BOLD = Font.fromEnum(Enum.Font.BuilderSansBold);
+// af.css faces: --num for the counter and multiplier, --body for lines, --title for the heading
+const HEAVY = NUM;
+const BOLD = BODY_SEMI;
 interface Timeline {
 	shock: number;
 	count0: number;
@@ -475,7 +477,7 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 					Name: "Card",
 					AnchorPoint: new Vector2(0.5, 0.5),
 					Size: UDim2.fromOffset(450, 276),
-					BackgroundColor3: Color3.fromRGB(12, 14, 22),
+					BackgroundColor3: Palette.panel,
 					BackgroundTransparency: clock.map((t) => 1 - 0.94 * contentIn(t) * (1 - fadeOut(t))),
 					BorderSizePixel: 0,
 					Position: clock.map((t) => {
@@ -483,9 +485,10 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 						return new UDim2(0.5, 0, 0.5, (1 - contentIn(t)) * 18 - rise);
 					}),
 				},
-				corner(new UDim(0, 16)),
+				corner(new UDim(0, 18)),
 				cardScale < 1 && h("uiscale", { Scale: cardScale }),
-				h("uistroke", { Color: Palette.violet, Thickness: 1.5, Transparency: clock.map((t) => 0.2 + 0.8 * fadeOut(t)) }),
+				// .pn edge: brass line at .35, as on the 09-rebirth cards
+				h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: clock.map((t) => 0.65 + 0.35 * fadeOut(t)) }),
 				h(
 					"frame",
 					{
@@ -493,7 +496,7 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 						AnchorPoint: new Vector2(0.5, 0),
 						Position: new UDim2(0.5, 0, 0, 0),
 						Size: new UDim2(0.38, 0, 0, 2),
-						BackgroundColor3: Palette.violet,
+						BackgroundColor3: Palette.brass,
 						BorderSizePixel: 0,
 						BackgroundTransparency: clock.map(shown),
 					},
@@ -504,10 +507,10 @@ function RebirthCeremonyHostImpl(props: { reducedMotion?: boolean }) {
 					Position: UDim2.fromOffset(0, 12),
 					Size: new UDim2(1, 0, 0, 20),
 					BackgroundTransparency: 1,
-					FontFace: HEAVY,
-					Text: heading,
-					TextSize: 12,
-					TextColor3: Palette.violet,
+					FontFace: TITLE_FACE,
+					Text: spaced(heading),
+					TextSize: 15,
+					TextColor3: Palette.brass,
 					TextTransparency: clock.map(shown),
 				}),
 				h(

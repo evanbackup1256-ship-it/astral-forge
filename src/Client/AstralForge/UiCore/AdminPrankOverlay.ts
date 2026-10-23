@@ -52,7 +52,7 @@ function PrankCard(param: PrankCardProps) {
 		},
 		h(
 			Panel,
-			{ size: UDim2.fromScale(1, 1), accent: accent, background: Palette.panelRaised, padding: 18, zIndex: 422, clips: false },
+			{ size: UDim2.fromScale(1, 1), accent: accent, background: Palette.panel, padding: 18, radius: 18, rule: true, zIndex: 422, clips: false },
 			h(Text, {
 				value: "ASTRAL FORGE",
 				size: 10,
@@ -388,7 +388,7 @@ export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean
 				},
 				h(
 					Panel,
-					{ size: UDim2.fromScale(1, 1), accent: Palette.coral, background: Palette.panel, padding: 12, zIndex: 430, clips: false },
+					{ size: UDim2.fromScale(1, 1), accent: Palette.coral, background: Palette.panel, padding: 12, radius: 18, rule: true, zIndex: 430, clips: false },
 					h(Text, {
 						value: "Ledger Sync",
 						size: 13,
