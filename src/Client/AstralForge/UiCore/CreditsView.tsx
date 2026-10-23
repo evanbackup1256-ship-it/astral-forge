@@ -19,7 +19,6 @@ import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
 import { Surface, SurfaceMetrics, SurfaceMotion, SurfaceText, useSurfaceEnter, useSurfaceSpring } from "./surface";
 import { measureText, Space } from "./layoutEngine";
 import { Glow } from "./depth";
-import { COMPANION_SHEETS, COMPANION_SHEET_GRID } from "../ArtKit/uiArt";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
@@ -84,14 +83,15 @@ const MODEL = CreditsModel.normalize(SharedData("CreditsConfig"));
 
 const SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
 const BODY = Font.fromName("BuilderSans", Enum.FontWeight.Medium);
-const STILLS = [
-	COMPANION_SHEETS.Cinder,
-	COMPANION_SHEETS.BrassOwl,
-	COMPANION_SHEETS.Lumen,
-	COMPANION_SHEETS.Voidmote,
-	COMPANION_SHEETS.Tidepup,
-	COMPANION_SHEETS.Frostlet,
-];
+// companion idle sheets come from Shared/ElementSprites (the one source for them)
+interface CompanionSheetsApi {
+	FRAME: number;
+	sheet(this: void, element?: string): { Image: string } | undefined;
+}
+const CompanionSheets = require(
+	ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("ElementSprites") as ModuleScript,
+) as CompanionSheetsApi;
+const STILLS = ["Cinder", "BrassOwl", "Lumen", "Voidmote", "Tidepup", "Frostlet"].map((key) => CompanionSheets.sheet(key)?.Image ?? "");
 
 function tone(key: string, fallback: Color3): Color3 {
 	const color = (Palette as unknown as Record<string, unknown>)[key];
@@ -226,7 +226,7 @@ function Medallion(props: {
 	const size = props.size;
 	const nameSize = props.lead ? 17 : 14;
 	const role = MODEL.ShowRoles !== false ? props.credit.roles.join(" · ") : "";
-	const cell = COMPANION_SHEET_GRID.frame;
+	const cell = CompanionSheets.FRAME;
 	return (
 		<frame
 			Size={UDim2.fromOffset(props.width, size + 8 + nameSize + 4 + (role !== "" ? 16 : 0))}

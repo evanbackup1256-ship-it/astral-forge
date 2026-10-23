@@ -11,6 +11,7 @@ import { IconTile, Text } from "../../UiCore/ui";
 
 export const SPRITE_CARD_W = 104;
 export const SPRITE_CARD_H = 132;
+export const SPRITE_CARD_GAP = 10;
 
 export interface SpriteCardProps {
 	name: string;
