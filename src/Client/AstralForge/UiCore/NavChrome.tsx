@@ -82,22 +82,26 @@ function RailButtonImpl(_param: RailButtonProps) {
 	const iconHover = pose.map((value) => math.clamp(value, 0, 1));
 	const press = pose.map((value) => math.clamp(-value, 0, 1));
 	const fill = emphasis.map((raw) => (disabled ? Palette.panelRaised : Palette.panel.Lerp(Palette.panelSoft, math.clamp(raw, 0, 1))));
+	// design/02-nav-shell: idle rows sit flat on the rail (no fill, no outline); hover lifts a soft
+	// fill, and the active row's brass pill is drawn by NavGroup underneath
 	const fillTransparency = emphasis.map((raw) => {
 		const amount = math.clamp(raw, 0, 1);
-		return 0.34 - amount * 0.34;
+		return active ? 1 : 1 - amount * 0.9;
 	});
 	const strokeTransparency = emphasis.map((raw) => {
 		const amount = math.clamp(raw, 0, 1);
-		return math.clamp(0.82 - amount * 0.62, 0.18, 0.85);
+		return active ? 1 : math.clamp(1 - amount * 0.5, 0.5, 1);
 	});
 	const markerSize = emphasis.map((raw) => {
 		const amount = math.clamp(raw, 0, 1);
 		return new UDim2(0, 3, 1, -18 - math.round((1 - amount) * 16));
 	});
 	const tileFill = emphasis.map((raw) =>
-		disabled ? Palette.panelSoft : Palette.panelRaised.Lerp(darken(entry.accent, 0.52), math.clamp(raw, 0, 1)),
+		disabled ? Palette.panelSoft : Palette.panelRaised.Lerp(darken(Palette.brass, 0.52), math.clamp(raw, 0, 1)),
 	);
-	const ringTransparency = emphasis.map((raw) => math.clamp(1 - math.clamp(raw, 0, 1) * 0.6, 0.4, 1));
+	// the icon tile only shows on the collapsed rail; the full rail draws bare glyphs
+	const tileTransparency = collapsed ? 0 : 1;
+	const ringTransparency = emphasis.map((raw) => (collapsed ? math.clamp(1 - math.clamp(raw, 0, 1) * 0.6, 0.4, 1) : 1));
 	const labelColor = emphasis.map((raw) =>
 		disabled ? Palette.muted : Palette.creamSoft.Lerp(Palette.cream, math.clamp(raw, 0, 1)),
 	);
@@ -252,10 +256,11 @@ function RailButtonImpl(_param: RailButtonProps) {
 							Size: markerSize,
 							Position: UDim2.fromScale(0, 0.5),
 							AnchorPoint: new Vector2(0, 0.5),
-							BackgroundColor3: entry.accent,
+							BackgroundColor3: Palette.brass,
 							BackgroundTransparency: emphasis.map((amount) => (amount < 0.08 ? 1 : 0.75 - amount * 0.75)),
 							BorderSizePixel: 0,
-							Visible: emphasis.map((amount) => amount >= 0.08),
+							// the active row's bar belongs to the sliding pill
+							Visible: emphasis.map((amount) => !active && amount >= 0.08),
 						},
 						h("uicorner", {
 							CornerRadius: new UDim(0, Radius.sm),
@@ -268,6 +273,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 							Position: new UDim2(0, iconX, 0.5, 0),
 							AnchorPoint: new Vector2(0, 0.5),
 							BackgroundColor3: tileFill,
+							BackgroundTransparency: tileTransparency,
 							BorderSizePixel: 0,
 							ClipsDescendants: true,
 						},
@@ -283,8 +289,8 @@ function RailButtonImpl(_param: RailButtonProps) {
 						}),
 						h(Icon, {
 							kind: entry.icon,
-							color: disabled ? Palette.muted : Palette.creamSoft,
-							accent: disabled ? Palette.lineSoft : active ? lighten(entry.accent, 0.42) : Palette.muted,
+							color: disabled ? Palette.muted : active ? Palette.cream : Palette.creamSoft,
+							accent: disabled ? Palette.lineSoft : active ? Palette.brass : Palette.muted,
 							size: iconSize,
 							spin: !disabled && hovered,
 							hoverAmount: iconHover,
@@ -1196,7 +1202,8 @@ function NavGroup(_param: NavGroupProps) {
 	const selectionTrail = useFlipperSpring(heldSelection.current, reducedMotion, 300, 46);
 	const selectionSpan = React.joinBindings([selectionLead, selectionTrail]);
 	const hasActive = activeIndex !== undefined;
-	const selectionAccent = hasActive ? AppHelpers.pageAccent(page) : Palette.muted;
+	// the active row is brass on every page (design/02-nav-shell), not the page's own accent
+	const selectionAccent = hasActive ? Palette.brass : Palette.muted;
 	const labelColor = hover.map((amount) => {
 		const base = hasActive ? lighten(selectionAccent, 0.2) : Palette.muted;
 		return base.Lerp(Palette.cream, math.clamp(amount, 0, 1) * 0.7);
@@ -1267,35 +1274,24 @@ function NavGroup(_param: NavGroupProps) {
 				BorderSizePixel: 0,
 			});
 		} else {
+			// design/02-nav-shell: a small spaced caps label with a hairline running to the edge;
+			// groups stay open on the full rail, so there is no chevron or count
+			const labelText = string.upper(_param.label).gsub(".", "%0 ")[0];
+			const labelW = _param.label.size() * 15;
 			headerChildren.label = h(Text, {
-				value: string.upper(_param.label),
-				size: 11,
-				color: labelColor,
-				weight: Enum.FontWeight.Heavy,
-				fit: false,
-				position: UDim2.fromOffset(26, 0),
-				sizeConstraint: new UDim2(1, -70, 1, 0),
-			});
-			headerChildren.chevron = h(NavChevron, {
-				openAmount: openAmount,
-				color: hasActive ? selectionAccent : Palette.muted,
-				position: new UDim2(0, 12, 0.5, 0),
-			});
-			headerChildren.count = h(Text, {
-				value: tostring(entries.size()),
+				value: labelText,
 				size: 10,
 				color: Palette.muted,
 				weight: Enum.FontWeight.Bold,
-				align: Enum.TextXAlignment.Right,
 				fit: false,
-				position: new UDim2(1, -40 - countShift, 0, 0),
-				sizeConstraint: new UDim2(0, 32, 1, 0),
+				position: UDim2.fromOffset(6, 0),
+				sizeConstraint: new UDim2(0, labelW, 1, 0),
 			});
 			headerChildren.rule = h("frame", {
-				Size: new UDim2(1, -16, 0, 1),
-				Position: new UDim2(0, 8, 1, -1),
+				Size: new UDim2(1, -(labelW + 14), 0, 1),
+				Position: new UDim2(0, labelW + 8, 0.5, 0),
 				BackgroundColor3: Palette.lineSoft,
-				BackgroundTransparency: hover.map((amount) => 0.72 - math.clamp(amount, 0, 1) * 0.3),
+				BackgroundTransparency: 0.5,
 				BorderSizePixel: 0,
 			});
 		}
@@ -1313,14 +1309,15 @@ function NavGroup(_param: NavGroupProps) {
 			{
 				Size: new UDim2(1, 0, 0, headerHeight),
 				BackgroundColor3: Palette.panelSoft,
-				BackgroundTransparency: hover.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.55),
+				BackgroundTransparency: hover.map((amount) => (collapsed ? 1 - math.clamp(amount, 0, 1) * 0.55 : 1)),
 				BorderSizePixel: 0,
 				AutoButtonColor: false,
 				Text: "",
-				Selectable: true,
+				Selectable: collapsed,
+				Active: collapsed,
 				ZIndex: 3,
 				Event: {
-					Activated: toggle,
+					Activated: collapsed ? toggle : undefined,
 					MouseEnter: () => setHovered(true),
 					MouseLeave: () => setHovered(false),
 					SelectionGained: () => setHovered(true),
@@ -1345,24 +1342,26 @@ function NavGroup(_param: NavGroupProps) {
 				Position: selectionSpan.map((values) =>
 					UDim2.fromOffset(2, NAV_BODY_PAD + math.round(math.min(values[0], values[1])) + 2),
 				),
-				BackgroundColor3: Palette.panelSoft,
-				BackgroundTransparency: 0.2,
+				BackgroundColor3: Palette.brassDeep,
+				BackgroundTransparency: 0.35,
 				BorderSizePixel: 0,
 				ZIndex: 1,
 			},
 			h("uicorner", {
 				CornerRadius: new UDim(0, Radius.md),
 			}),
+			// brass tint that fades out to the right, over the rail's own colour
 			h("uigradient", {
-				Color: surfaceGradient(Palette.panelSoft, 0.9),
-				Rotation: 90,
+				Color: new ColorSequence(Palette.brassDeep, Palette.panelSoft),
+				Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(0.55, 0.55), new NumberSequenceKeypoint(1, 0.85)]),
+				Rotation: 0,
 			}),
 			h(
 				"uistroke",
 				{
 					Color: selectionAccent,
 					Thickness: 1,
-					Transparency: 0.38,
+					Transparency: 0.45,
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 					LineJoinMode: Enum.LineJoinMode.Round,
 				},
@@ -1493,12 +1492,15 @@ function NavigationImpl(_param: NavigationProps) {
 	const boostReserve = showBoost ? boostHeight + SHELL_CHROME.railGutter * 2 : 0;
 	const railScrollRef = React.useRef<GuiObject>();
 	const grouped = includeSecondary && !fromMore;
-	const groupHeaderH = collapsed ? 22 : 30;
+	const groupHeaderH = collapsed ? 22 : 26;
 	const activeGroup = navGroupOf(page);
 	const [groupOpen, setGroupOpen] = React.useState<Record<string, boolean | undefined>>(() => ({
 		...railGroupMemory,
 	}));
 	function isGroupOpen(id: string): boolean {
+		if (!collapsed) {
+			return true;
+		}
 		const remembered = groupOpen[id];
 		if (remembered !== undefined) {
 			return remembered;
