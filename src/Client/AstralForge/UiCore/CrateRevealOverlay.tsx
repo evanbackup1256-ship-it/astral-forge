@@ -9,6 +9,7 @@ import { revealOffset, subscribeContinuous, usePresence, useViewport } from "../
 import { celebrationsAllowed, isReducedMotion } from "../MotionPreference";
 import { Approach, Reel, ReelItem } from "./crateReel";
 import { Badge, Button, IconTile, Panel, ShimmerText, Text } from "./ui";
+import { TITLE_FACE, spaced } from "./mockKit";
 import { RainbowGradient } from "./rainbowFx";
 import { PrismAura } from "./prismFx";
 import { CrateMoment, momentFor, ringAt } from "./crateMoments";
@@ -620,16 +621,20 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={500}>
 			<Backdrop amount={backdrop} onTap={advance} />
-			<Text
-				value={header}
-				size={20}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Bold}
-				align={Enum.TextXAlignment.Center}
-				position={new UDim2(0, 0, 0, math.max(viewport.topInset, 0) + 64)}
-				sizeConstraint={new UDim2(1, 0, 0, 26)}
-				zIndex={505}
-			/>
+			{/* 29-crate-opening: the heading in serif caps over the reel */}
+			<textlabel
+				Text={spaced(string.upper(header))}
+				TextSize={viewport.width >= 1400 ? 32 : 20}
+				TextScaled={true}
+				FontFace={TITLE_FACE}
+				TextColor3={Palette.cream}
+				BackgroundTransparency={1}
+				Position={new UDim2(0, 0, 0, math.max(viewport.topInset, 0) + 60)}
+				Size={new UDim2(1, 0, 0, viewport.width >= 1400 ? 40 : 26)}
+				ZIndex={505}
+			>
+				<uitextsizeconstraint MaxTextSize={viewport.width >= 1400 ? 32 : 20} MinTextSize={14} />
+			</textlabel>
 			{!still && (
 				<Panel
 					size={UDim2.fromOffset(panelW, panelH)}
@@ -885,7 +890,9 @@ function EmptyReveal(props: { onClose: () => void }) {
 				size={UDim2.fromOffset(width, 112)}
 				position={new UDim2(0.5, -width / 2, 0.42, -56)}
 				accent={Palette.coral}
-				background={Palette.panelRaised}
+				background={Palette.panel}
+				radius={18}
+				rule={true}
 				padding={Layout.cardPadding}
 				reveal={show}
 				zIndex={505}

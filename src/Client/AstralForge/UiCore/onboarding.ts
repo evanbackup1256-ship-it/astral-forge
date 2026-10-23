@@ -1303,16 +1303,29 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 		Selectable: false,
 		ZIndex: 322,
 	});
-	const seasonTitle = h(Text, {
-		value: season,
-		size: veryShort ? 18 : 25,
-		color: Palette.cream,
-		weight: Enum.FontWeight.Heavy,
-		fit: true,
-		position: UDim2.fromOffset(0, veryShort ? 2 : 4),
-		sizeConstraint: new UDim2(1, -(TapTarget + Space.md), 0, veryShort ? 26 : 34),
-		zIndex: 325,
-	});
+	// 26-dialogs: Info glyph and the title in serif caps
+	const seasonTitle = h(
+		"frame",
+		{
+			Size: new UDim2(1, -(TapTarget + Space.md), 0, veryShort ? 26 : 34),
+			Position: UDim2.fromOffset(0, veryShort ? 2 : 4),
+			BackgroundTransparency: 1,
+			ZIndex: 325,
+		},
+		h(Glyph, { kind: "Info", size: 18, color: Palette.brass, position: new UDim2(0, 0, 0.5, -9) }),
+		h("textlabel", {
+			Size: new UDim2(1, -28, 1, 0),
+			Position: UDim2.fromOffset(28, 0),
+			BackgroundTransparency: 1,
+			Text: spaced(string.upper(season)),
+			TextSize: veryShort ? 16 : 20,
+			TextScaled: true,
+			FontFace: TITLE_FACE,
+			TextColor3: Palette.cream,
+			TextXAlignment: Enum.TextXAlignment.Left,
+			ZIndex: 325,
+		}, h("uitextsizeconstraint", { MaxTextSize: veryShort ? 16 : 20, MinTextSize: 12 })),
+	);
 	const firstEntry = history[0] as VersionEntry | undefined;
 	const versionLine = h(Text, {
 		value:
@@ -1340,7 +1353,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 		});
 	const meter = h(Meter, {
 		value: 1,
-		color: Palette.violet,
+		color: Palette.brass,
 		position: UDim2.fromOffset(0, veryShort ? 56 : condensed ? 104 : 126),
 		size: new UDim2(1, 0, 0, 2),
 		reducedMotion: reducedMotion,
@@ -1358,9 +1371,8 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 			text: "",
 			icon: "Close.20",
 			onClick: closeOnce,
-			color: Palette.panelSoft,
-			textColor: Palette.cream,
-			outline: true,
+			color: Color3.fromRGB(58, 46, 62),
+			textColor: Palette.creamSoft,
 			size: UDim2.fromScale(1, 1),
 			reducedMotion: reducedMotion,
 			disabled: exiting,
@@ -1419,7 +1431,9 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 					{
 						size: UDim2.fromScale(1, 1),
 						accent: Palette.violet,
-						background: Palette.panelRaised,
+						background: Palette.panel,
+						radius: 18,
+						rule: true,
 						padding: padding,
 						zIndex: 323,
 						reveal: reveal,
