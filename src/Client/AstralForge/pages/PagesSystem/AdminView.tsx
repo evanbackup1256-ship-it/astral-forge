@@ -33,7 +33,9 @@ const COMMAND_ROW_STRIDE = COMMAND_ROW + 6;
 const SCROLL_BAR = 4;
 // title, seven 34 px rows on a 3 px gap, panel padding
 const OPS_H = 304;
-const OPS_LINE = 34;
+// design/22: .row height; panels scroll when MAX_OPS_ROWS rows do not fit
+const OPS_LINE = 48;
+const OPS_GAP = 8;
 const NARROW_PLAYERS_H = 360;
 const NARROW_COMMANDS_H = 440;
 
@@ -413,16 +415,16 @@ function OpsLine(props: { left: string; right: string; chip?: string; sub?: stri
 			<textlabel
 				Text={props.left}
 				FontFace={BODY_SEMI}
-				TextSize={14}
+				TextSize={15}
 				TextColor3={props.accent ?? Palette.cream}
 				BackgroundTransparency={1}
 				TextXAlignment={Enum.TextXAlignment.Left}
 				TextTruncate={Enum.TextTruncate.AtEnd}
-				Position={UDim2.fromOffset(textX, props.sub !== undefined ? 2 : 9)}
+				Position={UDim2.fromOffset(textX, props.sub !== undefined ? 7 : 16)}
 				Size={new UDim2(0.62, -textX, 0, 16)}
 			/>
 			{props.sub !== undefined && (
-				<textlabel Text={props.sub} FontFace={BODY} TextSize={11} TextColor3={Palette.muted} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Position={UDim2.fromOffset(textX, 18)} Size={new UDim2(0.62, -textX, 0, 13)} />
+				<textlabel Text={props.sub} FontFace={BODY} TextSize={11} TextColor3={Palette.muted} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Position={UDim2.fromOffset(textX, 25)} Size={new UDim2(0.62, -textX, 0, 14)} />
 			)}
 			<textlabel
 				Text={props.right}
@@ -432,8 +434,8 @@ function OpsLine(props: { left: string; right: string; chip?: string; sub?: stri
 				BackgroundTransparency={1}
 				TextXAlignment={Enum.TextXAlignment.Right}
 				TextTruncate={Enum.TextTruncate.AtEnd}
-				Position={new UDim2(0.62, 0, 0, 9)}
-				Size={new UDim2(0.38, -12, 0, 16)}
+				Position={new UDim2(0.62, 0, 0.5, -9)}
+				Size={new UDim2(0.38, -12, 0, 18)}
 			/>
 		</frame>
 	);
@@ -475,14 +477,26 @@ function OpsPanel(props: {
 					Event={{ Activated: props.onBack }}
 				/>
 			)}
-			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
+			<scrollingframe
+				Size={new UDim2(1, 0, 1, -24)}
+				Position={UDim2.fromOffset(0, 24)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ClipsDescendants={true}
+				CanvasSize={new UDim2()}
+				AutomaticCanvasSize={Enum.AutomaticSize.Y}
+				ScrollingDirection={Enum.ScrollingDirection.Y}
+				ScrollBarThickness={4}
+				ScrollBarImageColor3={Palette.brass}
+				ElasticBehavior={Enum.ElasticBehavior.Never}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, OPS_GAP)} />
 				{rows.size() === 0 ? (
 					<Text value={props.empty} size={11} color={Palette.muted} position={UDim2.fromOffset(0, 6)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
 				) : (
 					rows
 				)}
-			</frame>
+			</scrollingframe>
 		</Panel>
 	);
 }
@@ -1101,14 +1115,26 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const recentSection = (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.steel} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
 			<SectionTitle value="Recent" accent={Palette.steel} />
-			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
+			<scrollingframe
+				Size={new UDim2(1, 0, 1, -24)}
+				Position={UDim2.fromOffset(0, 24)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ClipsDescendants={true}
+				CanvasSize={new UDim2()}
+				AutomaticCanvasSize={Enum.AutomaticSize.Y}
+				ScrollingDirection={Enum.ScrollingDirection.Y}
+				ScrollBarThickness={4}
+				ScrollBarImageColor3={Palette.brass}
+				ElasticBehavior={Enum.ElasticBehavior.Never}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, OPS_GAP)} />
 				{recent.size() === 0 ? (
 					<EmptyState icon="Command" title="No commands run yet" body="" compact={true} />
 				) : (
 					auditRows
 				)}
-			</frame>
+			</scrollingframe>
 		</Panel>
 	);
 
