@@ -238,7 +238,7 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 				<DragBox id="combo" box={comboBox} at={comboAt} viewport={viewport} selected={tab === "combo"} onSelect={() => setTab("combo")} onMove={place("combo")} />
 			)}
 			<DragBox id="island" box={islandBox} at={islandAt} viewport={viewport} selected={tab === "island"} onSelect={() => setTab("island")} onMove={place("island")} />
-			<Panel size={UDim2.fromOffset(PANEL_W, PANEL_H)} position={presence.map((amount) => UDim2.fromOffset(panelX, panelY + (1 - amount) * 16))} background={Palette.panelRaised}
+			<Panel radius={18} rule size={UDim2.fromOffset(PANEL_W, PANEL_H)} position={presence.map((amount) => UDim2.fromOffset(panelX, panelY + (1 - amount) * 16))} background={Palette.panelRaised}
 				padding={22} zIndex={420} reveal={presence} clips={false}>
 				<frame Size={new UDim2(1, 0, 0, 32)} BackgroundTransparency={1}>
 					{TABS.map((entry, index) => (

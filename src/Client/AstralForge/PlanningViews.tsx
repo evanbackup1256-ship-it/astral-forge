@@ -215,7 +215,7 @@ function copy(value: unknown, y: number, height: number, size = 14, color: Color
 
 function panel(accent: Color3, children: React.ReactNode) {
 	return (
-		<ui.Panel size={UDim2.fromScale(1, 1)} accent={accent} padding={16} background={P.panelRaised} clips={true}>
+		<ui.Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={accent} padding={16} background={P.panelRaised} clips={true}>
 			{children}
 		</ui.Panel>
 	);

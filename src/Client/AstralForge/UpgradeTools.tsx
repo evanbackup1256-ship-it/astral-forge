@@ -84,7 +84,7 @@ interface ResearchControlsProps {
 function ResearchControls(props: ResearchControlsProps) {
 	const height = props.stack ? 164 : 96;
 	return (
-		<ui.Panel accent={Palette.cyan} size={UDim2.fromScale(1, 1)} clips={false}>
+		<ui.Panel radius={18} rule accent={Palette.cyan} size={UDim2.fromScale(1, 1)} clips={false}>
 			<ui.SearchField
 				value={props.query}
 				onChange={props.setQuery}
@@ -146,7 +146,7 @@ function Planner(props: PlannerProps) {
 		}
 	}
 	return (
-		<ui.Panel accent={props.accent} size={UDim2.fromScale(1, 1)}>
+		<ui.Panel radius={18} rule accent={props.accent} size={UDim2.fromScale(1, 1)}>
 			<ui.Text
 				value={best ? `BEST NEXT-LEVEL RETURN · ${best.config.Name}` : "PLAN YOUR NEXT PURCHASE"}
 				size={13}
