@@ -5,6 +5,8 @@ import { chromeFor, darken, Layout, lighten, Palette, scrollTail, TapTarget } fr
 import { useAntilag } from "../../MotionKit/antilag";
 import { useClock, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
 import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
+import { Bar, BODY, BODY_BOLD, BODY_SEMI, Glyph, MockPanel, PanelHeading, spaced, TITLE_FACE } from "../../UiCore/mockKit";
+import { Grid, headingBlock, MockBtn, MockRow, panelHeight, Rise, RowFace, rowHeight } from "../mockRows";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
 // desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
@@ -44,15 +46,14 @@ function splitSections<S extends { id: string; height: number; element: React.El
 
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
-const { Badge, Button, IconTile, Panel, Text } = loadUi();
-const { Icon } = luauKit<{ Icon: Component }>("ArtKit", "Icon");
+const { Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 const { FlatList } = luauKit<{ FlatList: Component }>("LayoutKit", "virtualizedList");
 const Browse = loadBrowse();
 
-const GAP = 10;
+const GAP = 12;
 const TICKS = 36;
-const CARD_H = 196;
+const CARD_H = 176;
 
 interface BoostDef {
 	Id: string;
@@ -206,88 +207,40 @@ function ActiveReactor(props: ActiveReactorProps) {
 	const fraction = now.map((t) => math.clamp((endsAt - t) / math.max(1, boost.Duration ?? 1), 0, 1));
 	const [big, small] = headline(boost);
 	const gaugeSize = stack ? 132 : 150;
+	const phone = stack === true;
 	return (
-		<Panel radius={18} rule
-			size={UDim2.fromScale(1, 1)}
-			accent={accent}
-			background={Palette.panelRaised}
-			padding={16}
-			highlight={true}
-			reducedMotion={softMotion}
-			clips={false}
-		>
-			<Gauge
-				fraction={fraction}
-				accent={accent}
-				size={gaugeSize}
-				spin={spin}
-				position={stack ? new UDim2(0.5, 0, 0, 0) : UDim2.fromOffset(0, 0)}
-				anchorPoint={stack ? new Vector2(0.5, 0) : undefined}
-			>
-				<Text
-					value={big}
-					size={math.floor(gaugeSize * 0.22)}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					align={Enum.TextXAlignment.Center}
-					position={new UDim2(0, 0, 0.5, -math.floor(gaugeSize * 0.17))}
-					sizeConstraint={new UDim2(1, 0, 0, math.floor(gaugeSize * 0.24))}
-				/>
-				<Text
-					value={now.map((t) => clockText(math.max(0, endsAt - t)))}
-					size={12}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
-					align={Enum.TextXAlignment.Center}
-					position={new UDim2(0, 0, 0.5, math.floor(gaugeSize * 0.08))}
-					sizeConstraint={new UDim2(1, 0, 0, 16)}
-				/>
-			</Gauge>
-			<frame
-				Size={stack ? new UDim2(1, 0, 0, 96) : new UDim2(1, -(gaugeSize + 20), 1, 0)}
-				Position={stack ? UDim2.fromOffset(0, gaugeSize + 10) : UDim2.fromOffset(gaugeSize + 20, 0)}
-				BackgroundTransparency={1}
-			>
-				<Badge value="RUNNING" accent={accent} filled={true} size={UDim2.fromOffset(96, 22)} />
-				<Text
-					value={boost.Name}
-					size={stack ? 22 : 26}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={14}
-					position={UDim2.fromOffset(0, 28)}
-					sizeConstraint={new UDim2(1, 0, 0, 30)}
-				/>
-				<Text
-					value={`${big} ${string.lower(small)}  ·  ${boost.Description}`}
-					size={12}
-					color={Palette.creamSoft}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, 60)}
-					sizeConstraint={new UDim2(1, 0, 0, 34)}
-				/>
-				{!stack && (
-					<frame
-						Size={new UDim2(1, 0, 0, 8)}
-						Position={new UDim2(0, 0, 1, -14)}
-						BackgroundColor3={Palette.ink}
-						BorderSizePixel={0}
-					>
-						<uicorner CornerRadius={new UDim(1, 0)} />
-						<frame
-							Size={fraction.map((f) => UDim2.fromScale(f, 1))}
-							BackgroundColor3={accent}
-							BorderSizePixel={0}
-						>
-							<uicorner CornerRadius={new UDim(1, 0)} />
-						</frame>
-					</frame>
-				)}
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} reducedMotion={softMotion} name="BoostRunning">
+			<PanelHeading icon="Boost" title="Running" note={now.map((t) => `${clockText(math.max(0, endsAt - t))} left`)} accent={accent} phone={phone} layoutOrder={0} />
+			<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, gaugeSize)} LayoutOrder={1}>
+				<Gauge fraction={fraction} accent={accent} size={gaugeSize} spin={spin}>
+					<Text
+						value={big}
+						size={math.floor(gaugeSize * 0.22)}
+						color={Palette.cream}
+						weight={Enum.FontWeight.Heavy}
+						align={Enum.TextXAlignment.Center}
+						position={new UDim2(0, 0, 0.5, -math.floor(gaugeSize * 0.17))}
+						sizeConstraint={new UDim2(1, 0, 0, math.floor(gaugeSize * 0.24))}
+					/>
+					<Text
+						value={now.map((t) => clockText(math.max(0, endsAt - t)))}
+						size={12}
+						color={accent}
+						weight={Enum.FontWeight.Heavy}
+						align={Enum.TextXAlignment.Center}
+						position={new UDim2(0, 0, 0.5, math.floor(gaugeSize * 0.08))}
+						sizeConstraint={new UDim2(1, 0, 0, 16)}
+					/>
+				</Gauge>
+				<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(gaugeSize + 18, 0)} Size={new UDim2(1, -(gaugeSize + 18), 1, 0)}>
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<textlabel BackgroundTransparency={1} Text={boost.Name} TextSize={phone ? 20 : 26} FontFace={TITLE_FACE} TextColor3={Palette.cream} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, phone ? 24 : 32)} LayoutOrder={0} />
+					<textlabel BackgroundTransparency={1} Text={`${big} ${string.lower(small)}`} TextSize={phone ? 13 : 15} FontFace={BODY_SEMI} TextColor3={accent} TextXAlignment={Enum.TextXAlignment.Left} Size={new UDim2(1, 0, 0, 18)} LayoutOrder={1} />
+					<textlabel BackgroundTransparency={1} Text={boost.Description ?? ""} TextSize={phone ? 12 : 14} FontFace={BODY} TextColor3={Palette.creamSoft} TextWrapped={true} TextXAlignment={Enum.TextXAlignment.Left} TextYAlignment={Enum.TextYAlignment.Top} Size={new UDim2(1, 0, 0, phone ? 32 : 40)} LayoutOrder={2} />
+				</frame>
 			</frame>
-		</Panel>
+			<Bar fill={fraction} color={accent} layoutOrder={2} />
+		</MockPanel>
 	);
 }
 
@@ -314,137 +267,33 @@ function IdleBay(props: IdleBayProps) {
 	const pick = props.pick;
 	const softMotion = props.softMotion;
 	const stack = props.stack;
+	const phone = stack === true;
 	if (pick === undefined) {
 		return (
-			<Panel radius={18} rule
-				size={UDim2.fromScale(1, 1)}
-				accent={Palette.muted}
-				background={Palette.panelRaised}
-				padding={16}
-				clips={false}
-			>
-				<IconTile kind="Boost" accent={Palette.muted} size={48} radius={14} spin={false} />
-				<Text
-					value="The boost bay is empty"
-					size={18}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					position={UDim2.fromOffset(62, 4)}
-					sizeConstraint={new UDim2(1, -62, 0, 24)}
-				/>
-				<Text
-					value="Win boosts from the prize wheel, daily rewards and the Shop's Daily offers."
-					size={12}
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(62, 32)}
-					sizeConstraint={new UDim2(1, -62, 0, 34)}
-				/>
-			</Panel>
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.muted} reducedMotion={softMotion} name="BoostBay">
+				<PanelHeading icon="Boost" title="Boost bay" note="Empty" accent={Palette.muted} phone={phone} layoutOrder={0} />
+				<MockRow phone={phone} icon="Info" accent={Palette.muted} title="Nothing stored" sub="Win boosts from the prize wheel, daily rewards and the Shop's Daily offers." layoutOrder={1} />
+			</MockPanel>
 		);
 	}
 	const accent = pick.boost.Color ?? Palette.pink;
 	const [big, small] = headline(pick.boost);
 	return (
-		<Panel radius={18} rule
-			size={UDim2.fromScale(1, 1)}
-			accent={accent}
-			background={Palette.panelRaised}
-			padding={16}
-			highlight={true}
-			reducedMotion={softMotion}
-			clips={false}
-		>
-			<Text value="Best pick" size={13} color={accent} weight={Enum.FontWeight.SemiBold} sizeConstraint={new UDim2(1, 0, 0, 14)} />
-			<IconTile
-				kind={boostIconKind(pick.boost.Id)}
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} reducedMotion={softMotion} name="BoostBay">
+			<PanelHeading icon="Boost" title="Best pick" note={`${compactNumber(pick.owned)} stored`} accent={accent} phone={phone} layoutOrder={0} />
+			<MockRow
+				phone={phone}
+				icon={boostIconKind(pick.boost.Id)}
 				accent={accent}
-				size={stack ? 52 : 64}
-				radius={18}
-				glow={true}
-				position={UDim2.fromOffset(0, 22)}
-				reducedMotion={softMotion}
+				title={pick.boost.Name}
+				sub={`${big} ${string.lower(small)} for ${clockText(pick.boost.Duration ?? 0)}`}
+				value={big}
+				layoutOrder={1}
 			/>
-			<Text
-				value={pick.boost.Name}
-				size={stack ? 18 : 22}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={12}
-				position={UDim2.fromOffset(stack ? 64 : 78, 24)}
-				sizeConstraint={new UDim2(1, stack ? -64 : -(78 + 220), 0, 28)}
-			/>
-			<Text
-				value={`${big} ${string.lower(small)} for ${clockText(pick.boost.Duration ?? 0)}  ·  ${compactNumber(pick.owned)} stored`}
-				size={12}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(stack ? 64 : 78, 54)}
-				sizeConstraint={new UDim2(1, stack ? -64 : -(78 + 220), 0, 32)}
-			/>
-			<frame
-				{...named("BoostClaimActions")}
-				Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(200, TapTarget)}
-				Position={stack ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(1, -200, 0.5, -TapTarget / 2 + 8)}
-				BackgroundTransparency={1}
-				ClipsDescendants={false}
-				ref={props.activateHostRef}
-			>
-				<Button
-					text={`FIRE ${string.upper(pick.boost.Name)}`}
-					icon="Boost.14"
-					onClick={() => {
-						props.dispatch("ActivateBoost", { Id: pick.boost.Id });
-					}}
-					color={accent}
-					textColor={Palette.ink}
-					size={UDim2.fromScale(1, 1)}
-					highlight={true}
-					reducedMotion={softMotion}
-				/>
+			<frame {...named("BoostClaimActions")} Size={new UDim2(1, 0, 0, phone ? TapTarget : 44)} BackgroundTransparency={1} ClipsDescendants={false} ref={props.activateHostRef} LayoutOrder={2}>
+				<MockBtn text={`Fire ${pick.boost.Name}`} icon="Boost" accent={accent} phone={phone} fill={true} onClick={() => props.dispatch("ActivateBoost", { Id: pick.boost.Id })} reducedMotion={softMotion} />
 			</frame>
-		</Panel>
-	);
-}
-
-interface StatTileProps {
-	label: string;
-	value: string;
-	accent: Color3;
-	order: number;
-}
-
-function StatTile(props: StatTileProps) {
-	return (
-		<frame BackgroundColor3={darken(props.accent, 0.78)} BorderSizePixel={0} LayoutOrder={props.order}>
-			<uicorner CornerRadius={new UDim(0, 14)} />
-			<uistroke Color={props.accent} Transparency={0.6} />
-			<Text
-				value={props.value}
-				size={18}
-				color={lighten(props.accent, 0.12)}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(12, 8)}
-				sizeConstraint={new UDim2(1, -24, 0, 24)}
-			/>
-			<Text
-				value={props.label}
-				size={10}
-				color={props.accent}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={8}
-				position={UDim2.fromOffset(12, 34)}
-				sizeConstraint={new UDim2(1, -24, 0, 14)}
-			/>
-		</frame>
+		</MockPanel>
 	);
 }
 
@@ -475,125 +324,51 @@ function BoostCard(props: BoostCardProps) {
 	const accent = boost.Color ?? Palette.pink;
 	const shown = owned > 0 ? accent : Palette.muted;
 	const [big, small] = headline(boost);
+	const label = !props.canActivate && (owned > 0 || buyable) ? props.busyText : owned > 0 ? "Activate" : buyable ? `Run · ${compactNumber(price)} dust` : "None stored";
+	// 15-rewards day cell: label, glyph, figure, line, button; cells with nothing stored sit at .55
 	return (
-		<Panel radius={18} rule
-			size={UDim2.fromScale(1, 1)}
-			accent={shown}
-			background={Palette.panelRaised}
-			padding={0}
-			reveal={reveal}
-			interactive={true}
-			highlight={ready}
-			reducedMotion={softMotion}
-			clips={false}
-		>
-			<frame
-				{...named("Band")}
-				Size={new UDim2(1, 0, 0, 58)}
-				BackgroundColor3={darken(shown, owned > 0 ? 0.45 : 0.75)}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(0, Layout.cardRadius ?? 14)} />
-				<uigradient Color={new ColorSequence(darken(shown, 0.3), darken(shown, 0.75))} Rotation={20} />
-				<Icon
-					kind={boostIconKind(boost.Id)}
-					color={Palette.cream}
-					accent={shown}
-					size={30}
-					position={UDim2.fromOffset(14, 14)}
-					spin={false}
-				/>
-				<Text
-					value={big}
-					size={26}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					align={Enum.TextXAlignment.Right}
-					position={new UDim2(0, 0, 0, 6)}
-					sizeConstraint={new UDim2(1, -14, 0, 30)}
-				/>
-				<Text
-					value={small}
-					size={10}
-					color={Palette.creamSoft}
-					weight={Enum.FontWeight.Heavy}
-					align={Enum.TextXAlignment.Right}
-					fit={true}
-					minSize={8}
-					position={new UDim2(0, 56, 0, 36)}
-					sizeConstraint={new UDim2(1, -70, 0, 14)}
-				/>
-			</frame>
-			<Text
-				value={boost.Name}
-				size={16}
-				color={owned > 0 ? Palette.cream : Palette.creamSoft}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(14, 66)}
-				sizeConstraint={new UDim2(1, -110, 0, 20)}
-			/>
-			<Badge
-				value={owned > 0 ? `×${compactNumber(owned)}` : "NONE"}
-				accent={owned > 0 ? accent : Palette.lineSoft}
-				filled={owned > 0}
-				size={UDim2.fromOffset(84, 20)}
-				position={new UDim2(1, -98, 0, 66)}
-			/>
-			<Text
-				value={boost.Description}
-				size={11}
-				color={Palette.muted}
-				wrap={true}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(14, 90)}
-				sizeConstraint={new UDim2(1, -28, 0, 30)}
-			/>
-			<Text
-				value={`Lasts ${clockText(boost.Duration ?? 0)}`}
-				size={11}
-				color={shown}
-				weight={Enum.FontWeight.Bold}
-				position={UDim2.fromOffset(14, 120)}
-				sizeConstraint={new UDim2(1, -28, 0, 16)}
-			/>
-			<frame
-				{...named("BoostClaimActions")}
-				Size={new UDim2(1, -28, 0, TapTarget)}
-				Position={new UDim2(0, 14, 1, -(TapTarget + 12))}
-				BackgroundTransparency={1}
-				ClipsDescendants={false}
-				ref={ready && props.focus ? props.activateHostRef : undefined}
-			>
-				<Button
-					text={
-						!props.canActivate && (owned > 0 || buyable)
-							? props.busyText
-							: owned > 0
-								? "ACTIVATE"
-								: buyable
-									? `RUN · ${compactNumber(price)} STARDUST`
-									: "NONE STORED"
-					}
-					icon={ready ? "Boost.15" : "Lock.5"}
-					onClick={() => {
-						if (owned > 0) {
-							props.dispatch("ActivateBoost", { Id: boost.Id });
-						} else if (buyable) {
-							props.dispatch("ActivateBoost", { Id: boost.Id, Buy: true });
-						}
-					}}
-					color={ready ? accent : Palette.panelSoft}
-					textColor={ready ? Palette.ink : Palette.muted}
-					size={UDim2.fromScale(1, 1)}
-					disabled={!ready}
-					highlight={ready}
-					reducedMotion={softMotion}
-				/>
-			</frame>
-		</Panel>
+		<Rise reveal={reveal} height={CARD_H}>
+			<canvasgroup Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} GroupTransparency={owned > 0 || buyable ? 0 : 0.45}>
+				<frame BackgroundColor3={Palette.white} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)}>
+					<RowFace outline={ready && owned > 0 ? accent : undefined} />
+					<uipadding PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<textlabel BackgroundTransparency={1} Text={spaced(small)} TextSize={11} FontFace={BODY_BOLD} TextColor3={Palette.muted} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 14)} LayoutOrder={0} />
+					<frame BackgroundTransparency={1} Size={UDim2.fromOffset(28, 28)} LayoutOrder={1}>
+						<Glyph kind={boostIconKind(boost.Id)} size={28} color={shown} />
+					</frame>
+					<textlabel BackgroundTransparency={1} Text={`${big} ${boost.Name}`} TextSize={15} FontFace={BODY_BOLD} TextColor3={Palette.cream} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 18)} LayoutOrder={2} />
+					<textlabel
+						BackgroundTransparency={1}
+						Text={`${clockText(boost.Duration ?? 0)} · ${owned > 0 ? `${compactNumber(owned)} stored` : "none stored"}`}
+						TextSize={12}
+						FontFace={BODY}
+						TextColor3={Palette.muted}
+						TextTruncate={Enum.TextTruncate.AtEnd}
+						Size={new UDim2(1, 0, 0, 15)}
+						LayoutOrder={3}
+					/>
+					<frame {...named("BoostClaimActions")} Size={new UDim2(1, 0, 0, 36)} BackgroundTransparency={1} ClipsDescendants={false} ref={ready && props.focus ? props.activateHostRef : undefined} LayoutOrder={4}>
+						<MockBtn
+							text={label}
+							icon={ready ? "Boost" : undefined}
+							accent={accent}
+							sm={true}
+							fill={true}
+							disabled={!ready}
+							onClick={() => {
+								if (owned > 0) {
+									props.dispatch("ActivateBoost", { Id: boost.Id });
+								} else if (buyable) {
+									props.dispatch("ActivateBoost", { Id: boost.Id, Buy: true });
+								}
+							}}
+							reducedMotion={softMotion}
+						/>
+					</frame>
+				</frame>
+			</canvasgroup>
+		</Rise>
 	);
 }
 
@@ -733,8 +508,14 @@ function BoostsView(props: BoostsViewProps) {
 	// take 318-388px, more than a 360px-tall screen has
 	const heroStack = (stack && !chrome.landscape) || plan.split;
 	const barStack = stack || plan.split;
-	const heroH = activeBoost !== undefined ? (heroStack ? 260 : 182) : heroStack ? 190 : 132;
-	const statsH = heroStack ? 128 : 60;
+	const ph = stack;
+	const heroH =
+		activeBoost !== undefined
+			? panelHeight(ph, headingBlock(ph) + (ph ? 132 : 150) + (ph ? 8 : 12) + 10)
+			: pick === undefined
+				? panelHeight(ph, headingBlock(ph) + rowHeight(ph, true))
+				: panelHeight(ph, headingBlock(ph) + rowHeight(ph, true) + (ph ? 8 : 12) + (ph ? TapTarget : 44));
+	const statsH = panelHeight(ph, headingBlock(ph) + rowHeight(ph) * 2 + (ph ? 8 : 12));
 	const rowStride = CARD_H + GAP;
 	const rows: BoostRow[] = [];
 	let index = 1;
@@ -752,17 +533,15 @@ function BoostsView(props: BoostsViewProps) {
 	}
 	const gridH = math.max(rowStride, rows.size() * rowStride);
 	const statTiles = (
-		<>
-			<uigridlayout
-				CellSize={new UDim2(heroStack ? 0.5 : 0.25, -8, 0, 56)}
-				CellPadding={UDim2.fromOffset(8, 8)}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-			/>
-			<StatTile label="Stored" value={compactNumber(stored)} accent={Palette.pink} order={1} />
-			<StatTile label="Types owned" value={`${types} / ${all.size()}`} accent={Palette.cyan} order={2} />
-			<StatTile label="Time banked" value={`${compactNumber(math.floor(bankedSeconds / 3600))}h`} accent={Palette.mango} order={3} />
-			<StatTile label="Best multiplier" value={`${bestMult}x`} accent={Palette.mint} order={4} />
-		</>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={ph} accent={Palette.pink} reducedMotion={softMotion} name="BoostStock">
+			<PanelHeading icon="Vault" title="Stock" accent={Palette.pink} phone={ph} layoutOrder={0} />
+			<Grid columns={2} gap={ph ? 8 : 12} cellHeight={rowHeight(ph)} count={4} layoutOrder={1}>
+				<MockRow phone={ph} icon="Boost" accent={Palette.pink} title="Stored" value={compactNumber(stored)} layoutOrder={1} />
+				<MockRow phone={ph} icon="StarGrid" accent={Palette.cyan} title="Types" value={`${types} / ${all.size()}`} layoutOrder={2} />
+				<MockRow phone={ph} icon="Timer" accent={Palette.mango} title="Banked" value={`${compactNumber(math.floor(bankedSeconds / 3600))}h`} layoutOrder={3} />
+				<MockRow phone={ph} icon="Production" accent={Palette.mint} title="Best" value={`${bestMult}x`} layoutOrder={4} />
+			</Grid>
+		</MockPanel>
 	);
 	const grid =
 		boosts.size() === 0 ? (
@@ -820,7 +599,7 @@ function BoostsView(props: BoostsViewProps) {
 		);
 	return (
 		<PageScaffold
-			gap={stack ? 12 : Layout.panelGap}
+			gap={stack ? 8 : 18}
 			tailPad={scrollTail(stack, chrome.bottomSafe, stack ? 56 : 48)}
 			scrollBarColor={Palette.pink}
 			scrollBarThickness={4}
@@ -846,11 +625,7 @@ function BoostsView(props: BoostsViewProps) {
 					{
 						id: "stats",
 						height: statsH,
-						element: (
-							<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-								{statTiles}
-							</frame>
-						),
+						element: statTiles,
 					},
 					{
 						id: "filters",
