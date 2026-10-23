@@ -425,6 +425,25 @@ function ReleaseCountdown({ releaseAt, reducedMotion, stack, layoutOrder }: Rele
 	);
 }
 
+// forge port (03-forge): radius 18 cards with a 1px brass rule inset 2px inside the line stroke
+const CARD_RADIUS = 18;
+function BrassRule({ pad, transparency = 0.75 }: { pad: number; transparency?: number }) {
+	// the Panel pads its children, so the rule reaches back out to 2px inside the card edge
+	return (
+		<frame
+			Size={new UDim2(1, pad * 2 - 4, 1, pad * 2 - 4)}
+			Position={UDim2.fromScale(0.5, 0.5)}
+			AnchorPoint={new Vector2(0.5, 0.5)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			ZIndex={1}
+		>
+			<uicorner CornerRadius={new UDim(0, CARD_RADIUS - 2)} />
+			<uistroke Color={Palette.brass} Thickness={1} Transparency={transparency} />
+		</frame>
+	);
+}
+
 interface MetricProps {
 	label: string;
 	value: string;
@@ -443,11 +462,13 @@ function Metric({ label, value, detail, accent, size = new UDim2(1, 0, 0, 92), l
 		<Panel
 			size={size}
 			accent={accent}
-			background={Palette.panelRaised}
+			background={Palette.panel}
+			radius={CARD_RADIUS}
 			padding={compact ? Space.sm : Space.md}
 			layoutOrder={layoutOrder}
 			reveal={reveal}
 		>
+			<BrassRule pad={compact ? Space.sm : Space.md} />
 			<frame
 				Size={new UDim2(0, 3, 1, -Space.md)}
 				Position={new UDim2(0, 0, 0.5, 0)}
@@ -843,7 +864,7 @@ export function OverviewView({
 	const primaryClick = primaryIsBuy ? openWorkshop : fireCollect;
 	const primaryDisabled = primaryIsBuy ? false : !canCollect;
 	const primaryIcon = primaryIsBuy ? "Forge" : "Collect";
-	const primaryColor = primaryIsBuy ? Palette.coral : Palette.green;
+	const primaryColor = primaryIsBuy ? Palette.coral : Palette.brass;
 	const primaryHighlight = primaryIsBuy ? true : canCollect ? firstRun || vaultFill >= 0.85 : false;
 	const comebackLine = `Earns for ${offlineHours}h while you're away. Then collect.`;
 	const wideOverview = !stack && viewport.width >= 1180;
@@ -898,6 +919,7 @@ export function OverviewView({
 	const columnMax = stack ? math.huge : Layout.contentMaxWidth;
 	const columnPad = !stack && viewport.width >= Layout.contentMaxWidth + 80 ? 12 : 0;
 	const denseHero = denseHeroFor(chrome.short === true, wideOverview, phone);
+	const heroPad = stack ? chrome.cardPadding : denseHero ? 10 : ultraOverview ? 30 : 26;
 	const readoutRow = denseHero ? heroH - metricCardH - 8 : heroH;
 	const ctaH = denseHero ? 40 : TapTarget;
 	const heroReadoutH = landscapePhone ? 118 : phone ? 168 : 0;
@@ -988,7 +1010,7 @@ export function OverviewView({
 				<PageScaffold
 					gap={sectionGap}
 					tailPad={scrollTail(stack, chrome.bottomSafe, overviewTail)}
-					scrollBarColor={Palette.green}
+					scrollBarColor={Palette.brass}
 					scrollBarThickness={4}
 					sections={pairColumns(twoColumn, sectionGap, withReady(readySection, [
 						{
@@ -1007,15 +1029,17 @@ export function OverviewView({
 									<Panel
 										layoutOrder={0}
 										size={denseHero ? new UDim2(1, 0, 0, readoutRow) : wideOverview ? new UDim2(0.62, -6, 1, 0) : new UDim2(1, 0, 0, heroH)}
-										accent={vaultFill >= 0.99 ? Palette.mango : Palette.green}
-										background={Palette.panelRaised}
-										padding={stack ? chrome.cardPadding : denseHero ? 10 : ultraOverview ? 30 : 26}
+										accent={vaultFill >= 0.99 ? Palette.mango : Palette.brass}
+										background={Palette.panel}
+										radius={CARD_RADIUS}
+										padding={heroPad}
 										reveal={heroReveal}
 										highlight={vaultFill >= 0.99 && !effectsPaused}
 										reducedMotion={softMotion}
 										clips={false}
 									>
-										<uigradient Color={surfaceGradient(vaultFill >= 0.99 ? Palette.mango : Palette.green, 0.94)} Rotation={62} />
+										<uigradient Color={surfaceGradient(vaultFill >= 0.99 ? Palette.mango : Palette.brass, 0.94)} Rotation={62} />
+										<BrassRule pad={heroPad} />
 										{!phone && !roomyHero && (
 											<uilistlayout
 												FillDirection={Enum.FillDirection.Horizontal}
@@ -1072,7 +1096,7 @@ export function OverviewView({
 															<Text
 																value={firstRun ? "Your forge" : "This run"}
 																size={11}
-																color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+																color={vaultFill >= 0.99 ? Palette.mango : Palette.brass}
 																weight={Enum.FontWeight.Heavy}
 																fit={false}
 																layoutOrder={0}
@@ -1113,7 +1137,7 @@ export function OverviewView({
 																<Meter
 																	value={vaultFill}
 																	rainbow={true}
-																	color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+																	color={vaultFill >= 0.99 ? Palette.mango : Palette.brass}
 																	reducedMotion={softMotion}
 																	shimmer={vaultFill >= 0.99 && !effectsPaused}
 																	layoutOrder={3}
@@ -1173,8 +1197,8 @@ export function OverviewView({
 																	icon="Overcharge.3"
 																	onClick={fireOvercharge}
 																	sound="reactorPulse"
-																	color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
-																	textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
+																	color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.raised}
+																	textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.cream}
 																	size={landscapePhone ? new UDim2(0.5, -4, 0, ctaH) : new UDim2(1, 0, 0, ctaH)}
 																	reducedMotion={reducedMotion}
 																	disabled={overchargeLeft > 0.02}
@@ -1251,8 +1275,8 @@ export function OverviewView({
 																	icon="Overcharge.4"
 																	onClick={fireOvercharge}
 																	sound="reactorPulse"
-																	color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.mango}
-																	textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.ink}
+																	color={overchargeLeft > 0.02 ? Palette.panelSoft : Palette.raised}
+																	textColor={overchargeLeft > 0.02 ? Palette.muted : Palette.cream}
 																	size={new UDim2(1, 0, 0, ctaH)}
 																	reducedMotion={reducedMotion}
 																	disabled={overchargeLeft > 0.02}
@@ -1311,7 +1335,7 @@ export function OverviewView({
 												<Meter
 													value={vaultFill}
 													rainbow={true}
-													color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+													color={vaultFill >= 0.99 ? Palette.mango : Palette.brass}
 													reducedMotion={softMotion}
 													shimmer={vaultFill >= 0.99 && !effectsPaused}
 													layoutOrder={3}
@@ -1369,7 +1393,7 @@ export function OverviewView({
 														<Text
 															value={firstRun ? "Your forge" : "This run"}
 															size={11}
-															color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+															color={vaultFill >= 0.99 ? Palette.mango : Palette.brass}
 															weight={Enum.FontWeight.Heavy}
 															fit={false}
 															layoutOrder={0}
@@ -1410,7 +1434,7 @@ export function OverviewView({
 															<Meter
 																value={vaultFill}
 																rainbow={true}
-																color={vaultFill >= 0.99 ? Palette.mango : Palette.green}
+																color={vaultFill >= 0.99 ? Palette.mango : Palette.brass}
 																reducedMotion={softMotion}
 																shimmer={vaultFill >= 0.99 && !effectsPaused}
 																layoutOrder={3}
