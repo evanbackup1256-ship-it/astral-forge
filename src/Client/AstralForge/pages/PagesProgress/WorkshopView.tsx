@@ -13,9 +13,8 @@ import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from 
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
 // desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
-// page identity (workbench: a wide tool column on the left, about 38% of the page)
 function pagePlan(width: number, stack: boolean): SplitPlan {
-	return splitColumns(stack ? 0 : width, math.clamp(math.floor(width * 0.38), 380, 560), 18, 1100);
+	return splitColumns(stack ? 0 : width, width >= 1600 ? 400 : 360, 18, 1100);
 }
 
 // folds scaffold sections into one SplitColumns section: all but the last `mainCount` go on the
@@ -42,7 +41,7 @@ function splitSections<S extends { id: string; height: number; element: React.El
 		{
 			id: `${name}-split`,
 			height,
-			element: <SplitColumns height={height} plan={plan} sideOnRight={false} side={column(side)} main={column(main)} name={name} />,
+			element: <SplitColumns height={height} plan={plan} side={column(side)} main={column(main)} name={name} />,
 		},
 	];
 }
