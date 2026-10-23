@@ -2,12 +2,13 @@
 // A right-anchored card with six stat tiles, a flux-per-minute bar chart and Reset / Share card.
 // All depth is built in code (SoftShadow, RimLight, gradients); no image assets.
 import React from "@rbxts/react";
-import { Palette, darken } from "../CoreKit/theme";
+import { Palette } from "../CoreKit/theme";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { useViewport } from "../MotionKit/motion";
 import { SoftShadow, RimLight } from "./depth";
 import { rarityColor } from "./SpriteCard";
-import { Button, LooseComponent } from "./ui";
+import { Button, LooseComponent, TITLE_FACE } from "./ui";
+import { NUM, RowSurface, spaced } from "./mockKit";
 import SessionStats = require("../SessionStats");
 
 const AstralForge = script.Parent!.Parent!;
@@ -17,9 +18,11 @@ const Icon = (
 	}
 ).Icon;
 
-const TITLE_FONT = Font.fromEnum(Enum.Font.Merriweather); // closest Roblox serif to Cinzel
+const TITLE_FONT = TITLE_FACE; // closest Roblox serif to Cinzel
 const LABEL_FONT = Font.fromEnum(Enum.Font.BuilderSansBold);
-const NUMBER_FONT = new Font("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold);
+// af.css .btn.sec base
+const SEC = Color3.fromRGB(58, 46, 62);
+const NUMBER_FONT = NUM;
 
 function useTick(seconds: number) {
 	const [, setTick] = React.useState(0);
@@ -83,23 +86,25 @@ interface TileProps {
 	compact: boolean;
 }
 
+function tileHeight(compact: boolean): number {
+	return compact ? 52 : 84;
+}
+
 function Tile(props: TileProps) {
-	const h = props.compact ? 50 : 56;
+	// 01-hud-session .row (column): padding 14/16, .lbl with icon, .big value at 30px
+	const h = tileHeight(props.compact);
+	const px = props.compact ? 10 : 16;
+	const py = props.compact ? 8 : 14;
 	return (
-		<frame Size={new UDim2(0, 0, 0, h)} LayoutOrder={props.order} BackgroundColor3={Palette.panelRaised} BorderSizePixel={0} ZIndex={61}>
+		<frame Size={new UDim2(0, 0, 0, h)} LayoutOrder={props.order} BackgroundColor3={Palette.white} BackgroundTransparency={0} BorderSizePixel={0} ZIndex={61}>
 			<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<uistroke Color={Palette.line} Thickness={1} Transparency={0.35} />
-			<uigradient
-				Color={new ColorSequence(Palette.panelRaised, darken(Palette.panelRaised, 0.18))}
-				Rotation={90}
-			/>
-			<Icon kind={props.icon} color={Palette.muted} accent={props.accent} size={14} position={UDim2.fromOffset(10, 9)} />
-			<Label text={props.label} size={11} minSize={10} color={Palette.muted} font={LABEL_FONT}
-				frame={new UDim2(1, -36, 0, 14)} position={UDim2.fromOffset(30, 9)} />
-			<Label text={props.value} size={props.compact ? 17 : 20} minSize={12} color={props.valueColor ?? Palette.cream}
-				font={props.valueColor !== undefined ? TITLE_FONT : NUMBER_FONT}
-				frame={new UDim2(1, -20, 0, props.compact ? 20 : 24)} position={new UDim2(0, 10, 1, -(props.compact ? 6 : 8))}
+			<RowSurface />
+			<Icon kind={props.icon} color={Palette.muted} accent={props.accent} size={14} position={UDim2.fromOffset(px, py + 1)} />
+			<Label text={spaced(props.label)} size={props.compact ? 10 : 11} minSize={9} color={Palette.muted} font={LABEL_FONT}
+				frame={new UDim2(1, -(px * 2 + 22), 0, 16)} position={UDim2.fromOffset(px + 22, py)} />
+			<Label text={props.value} size={props.compact ? 18 : 30} minSize={12} color={props.valueColor ?? Palette.cream}
+				font={NUMBER_FONT}
+				frame={new UDim2(1, -px * 2, 0, props.compact ? 22 : 36)} position={new UDim2(0, px, 1, -py)}
 				anchor={new Vector2(0, 1)} />
 		</frame>
 	);
@@ -133,7 +138,7 @@ function Chart(props: { values: number[]; height: number }) {
 	}
 	return (
 		<frame Size={new UDim2(1, 0, 0, props.height)} BackgroundTransparency={1} LayoutOrder={3} ZIndex={61}>
-			<Label text="FLUX PER MINUTE" size={11} color={Palette.muted} font={LABEL_FONT} frame={new UDim2(1, 0, 0, 14)} />
+			<Label text={spaced("FLUX PER MINUTE")} size={11} color={Palette.muted} font={LABEL_FONT} frame={new UDim2(1, 0, 0, 14)} />
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundColor3={Palette.ink}
 				BackgroundTransparency={0.4} BorderSizePixel={0} ClipsDescendants={true} ZIndex={61}>
 				<uicorner CornerRadius={new UDim(0, 8)} />
@@ -169,7 +174,7 @@ export function SessionPanel(props: SessionPanelProps) {
 	const data = SessionStats.read();
 	const phone = viewport.width < 700 || viewport.height < 500;
 	const sideInset = viewport.sideInset ?? 0;
-	const width = math.min(560, viewport.width - props.edgePad * 2 - sideInset * 2 - 8);
+	const width = math.min(phone ? 560 : 700, viewport.width - props.edgePad * 2 - sideInset * 2 - 8);
 	const maxHeight = math.max(160, viewport.height - props.top - 12 - (viewport.bottomInset ?? 0));
 	const columns = width < 420 ? 2 : 3;
 	const compact = phone;
@@ -190,12 +195,12 @@ export function SessionPanel(props: SessionPanelProps) {
 		{ order: 5, label: "PLAYTIME", value: SessionStats.clockText(data.playedSeconds), icon: "Timer.31", accent: Palette.mint, compact },
 		{ order: 6, label: "FLUX SPENT", value: data.fluxSpentText, icon: "Flux.32", accent: Palette.mango, compact },
 	];
-	const tileH = compact ? 50 : 56;
+	const tileH = tileHeight(compact);
 	const rows = math.ceil(tiles.size() / columns);
-	const gridH = rows * tileH + (rows - 1) * 8;
+	const gridH = rows * tileH + (rows - 1) * 10;
 	const chartH = compact ? 96 : 120;
-	const headerH = compact ? 40 : 58;
-	const footerH = 40;
+	const headerH = compact ? 40 : 70;
+	const footerH = compact ? 36 : 44;
 	const bodyH = gridH + 12 + chartH + 12 + footerH;
 	const height = math.min(maxHeight, headerH + 14 + bodyH + 16);
 	const canShare = SessionStats.canShare();
@@ -213,7 +218,7 @@ export function SessionPanel(props: SessionPanelProps) {
 		}
 		rowsEls.push(
 			<frame key={`row${r}`} Size={new UDim2(1, 0, 0, tileH)} BackgroundTransparency={1} LayoutOrder={r} ZIndex={61}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)}
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)}
 					SortOrder={Enum.SortOrder.LayoutOrder} HorizontalFlex={Enum.UIFlexAlignment.Fill} />
 				{cells}
 			</frame>,
@@ -238,21 +243,21 @@ export function SessionPanel(props: SessionPanelProps) {
 			{/* header */}
 			<frame Size={new UDim2(1, -32, 0, headerH)} Position={UDim2.fromOffset(16, 12)} BackgroundTransparency={1} ZIndex={61}>
 				{!compact && (
-					<Label text="SINCE YOU JOINED" size={10} color={Palette.mango} font={LABEL_FONT} frame={new UDim2(1, -150, 0, 12)} />
+					<Label text={spaced("SINCE YOU JOINED")} size={11} color={Palette.mango} font={LABEL_FONT} frame={new UDim2(1, -150, 0, 12)} />
 				)}
-				<Label text={compact ? "THIS SESSION" : "This Session"} size={compact ? 15 : 24} minSize={13} color={Palette.cream}
-					font={TITLE_FONT} frame={new UDim2(1, -150, 0, compact ? 24 : 30)} position={UDim2.fromOffset(compact ? 22 : 0, compact ? 0 : 14)} />
+				<Label text={compact ? "THIS SESSION" : "This Session"} size={compact ? 15 : 40} minSize={13} color={Palette.cream}
+					font={TITLE_FONT} frame={new UDim2(1, -150, 0, compact ? 24 : 44)} position={UDim2.fromOffset(compact ? 22 : 0, compact ? 0 : 20)} />
 				{compact && <Icon kind="Session.2" color={Palette.mango} accent={Palette.mango} size={16} position={UDim2.fromOffset(0, 4)} />}
 				{/* playtime pill + close */}
-				<frame Size={UDim2.fromOffset(72, 26)} Position={new UDim2(1, -46, 0, compact ? 0 : 16)} AnchorPoint={new Vector2(1, 0)}
-					BackgroundColor3={darken(Palette.brassDeep, 0.35)} BorderSizePixel={0} ZIndex={61}>
-					<uicorner CornerRadius={new UDim(0, 6)} />
-					<uistroke Color={Palette.brass} Thickness={1} Transparency={0.4} />
+				<frame Size={UDim2.fromOffset(80, 28)} Position={new UDim2(1, -46, 0, compact ? 0 : 30)} AnchorPoint={new Vector2(1, 0)}
+					BackgroundColor3={Palette.mango} BackgroundTransparency={0.8} BorderSizePixel={0} ZIndex={61}>
+					<uicorner CornerRadius={new UDim(0, 8)} />
+					<uistroke Color={Palette.mango} Thickness={1} Transparency={0.4} />
 					<Label text={SessionStats.clockText(data.playedSeconds)} size={12} minSize={10} color={Palette.cream} font={NUMBER_FONT}
 						frame={new UDim2(1, -8, 1, 0)} position={UDim2.fromOffset(4, 0)} align={Enum.TextXAlignment.Center} />
 				</frame>
 				<Button text="" icon="Close.31" onClick={() => SessionStats.setOpen(false)} size={UDim2.fromOffset(34, 34)}
-					position={new UDim2(1, 0, 0, compact ? -4 : 12)} color={Palette.panelSoft} textColor={Palette.cream}
+					position={new UDim2(1, 0, 0, compact ? -4 : 27)} color={SEC} textColor={Palette.cream}
 					reducedMotion={props.reducedMotion} zIndex={63} />
 			</frame>
 			{/* brass rule under the title */}
@@ -279,15 +284,15 @@ export function SessionPanel(props: SessionPanelProps) {
 				<uipadding PaddingRight={new UDim(0, 8)} />
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<frame Size={new UDim2(1, 0, 0, gridH)} BackgroundTransparency={1} LayoutOrder={1} ZIndex={61}>
-					<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{rowsEls}
 				</frame>
 				<Chart values={data.perMinute} height={chartH} />
 				<frame Size={new UDim2(1, 0, 0, footerH)} BackgroundTransparency={1} LayoutOrder={4} ZIndex={61}>
-					<Button text="Reset" icon="Refresh.31" onClick={() => SessionStats.reset()} size={UDim2.fromOffset(110, 36)}
-						color={Palette.panelSoft} textColor={Palette.cream} reducedMotion={props.reducedMotion} zIndex={62} />
+					<Button text="Reset" icon="Refresh.31" onClick={() => SessionStats.reset()} size={UDim2.fromOffset(110, footerH)}
+						color={SEC} textColor={Palette.cream} reducedMotion={props.reducedMotion} zIndex={62} />
 					{canShare && (
-						<Button text="Share card" onClick={() => SessionStats.share()} size={UDim2.fromOffset(140, 36)}
+						<Button text="Share card" onClick={() => SessionStats.share()} size={UDim2.fromOffset(150, footerH)}
 							position={new UDim2(1, -140, 0, 0)} color={Palette.brass} textColor={Palette.ink}
 							reducedMotion={props.reducedMotion} zIndex={62} />
 					)}
