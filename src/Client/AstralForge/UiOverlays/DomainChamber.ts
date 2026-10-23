@@ -1118,8 +1118,15 @@ function DomainChamber(props: ChamberProps) {
 			BorderSizePixel: 0,
 			ZIndex: 630,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, stacked ? Radius.lg : Radius.sheet) }),
+		h("uicorner", { CornerRadius: new UDim(0, 18) }),
 		h("uistroke", { Color: Palette.lineSoft, Transparency: 0.25 }),
+		// forge card treatment: 1px brass inner rule 3px inside the edge (the padding is undone so it hugs the edge)
+		h(
+			"frame",
+			{ Name: "BrassRule", Size: new UDim2(1, panelPad * 2 - 6, 1, panelPad * 2 - 6), Position: UDim2.fromOffset(3 - panelPad, 3 - panelPad), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false, ZIndex: 630 },
+			h("uicorner", { CornerRadius: new UDim(0, 15) }),
+			h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 }),
+		),
 		h("uipadding", {
 			PaddingTop: new UDim(0, panelPad),
 			PaddingBottom: new UDim(0, panelPad),
