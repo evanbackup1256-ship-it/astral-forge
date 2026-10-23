@@ -13,7 +13,8 @@ import {
 	useViewport,
 } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
-import { Button, IconTile, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
+import { Button, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
+import { PanelHeading, RowSurface } from "./mockKit";
 import { SHELL_PAD_KEYS, usePadSink } from "../CoreKit/padSink";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
@@ -42,19 +43,18 @@ function StatTile(_param: { label: string; value: string; color: Color3; index: 
 		{
 			Size: new UDim2(0.25, -9, 1, 0),
 			Position: new UDim2(index * 0.25, index * 3, 0, 0),
-			BackgroundColor3: Palette.ink,
-			BackgroundTransparency: reveal.map((amount) => 1 - amount * 0.55),
+			BackgroundColor3: Palette.white,
+			BackgroundTransparency: reveal.map((amount) => 1 - amount),
 			BorderSizePixel: 0,
 		},
-		h("uicorner", {
-			CornerRadius: new UDim(0, Radius.md),
-		}),
+		// af.css .row surface (radius 11, top-lit fill, faint inner line)
+		h(RowSurface, {}),
 		// value first, quiet caption underneath: the number is what people read
 		h(Text, {
 			value: value,
 			size: value.size() > 6 ? 15 : 17,
 			color: color,
-			weight: Enum.FontWeight.Bold,
+			weight: Enum.FontWeight.ExtraBold,
 			align: Enum.TextXAlignment.Center,
 			fit: true,
 			minSize: 11,
@@ -160,13 +160,13 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 	const rewardAmount = asFlux(reward);
 	const bigHaul = rate > 0 && rewardAmount >= rate * 3600;
 	const rewardGlow = useGlowStroke(bigHaul, softMotion, 0.35, 0.15, 0.62, 1.6);
-	const cardWidth = math.min(stack ? math.min(viewport.width - 16, math.max(260, viewport.width - chrome.sideSafe * 2 - 20)) : 560, 560);
+	const cardWidth = math.min(stack ? math.min(viewport.width - 16, math.max(260, viewport.width - chrome.sideSafe * 2 - 20)) : 520, 520);
 	// The card is as tall as the layout it can show: stats, the explanation and stacked buttons
 	// when there is room, otherwise stats and side-by-side buttons with nothing left empty.
-	const statsBottom = stack ? 212 : 228;
+	const statsBottom = stack ? 180 : 196;
 	// the card never grows past the room between the insets (286px-tall landscape phones)
 	const roomH = math.max(1, viewport.height - viewport.topInset - chrome.bottomSafe - 24);
-	const fullInner = statsBottom + 56 + TapTarget * 2 + 12;
+	const fullInner = statsBottom + 56 + TapTarget;
 	const shortInner = statsBottom + 16 + TapTarget;
 	const cardHeight =
 		roomH >= fullInner + PAD * 2 ? math.min(math.max(stack ? 480 : 452, fullInner + PAD * 2), roomH) : math.min(shortInner + PAD * 2, roomH);
@@ -261,46 +261,39 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		Selectable: false,
 		ZIndex: 460,
 	});
-	const _exp_4 = h("uicorner", {
-		CornerRadius: new UDim(0, Radius.sheet),
-	});
+	// design/26-dialogs .pn: radius 16, 1px brass inner line at .35, top-lit panel fill
+	const _exp_4 = h(
+		React.Fragment,
+		{},
+		h("uicorner", { CornerRadius: new UDim(0, stack ? 12 : 16) }),
+		h("uigradient", { Rotation: 90, Color: new ColorSequence(Palette.panelRaised, Palette.panel) }),
+	);
 	const _exp_5 = h("uistroke", {
 		Color: Palette.brass,
 		Thickness: 1,
-		Transparency: motion.map((amount) => 1 - amount * 0.5),
+		Transparency: motion.map((amount) => 1 - amount * 0.35),
+		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 	});
-	const _exp_6 = h(IconTile, {
-		kind: "Gift",
-		accent: Palette.brass,
-		size: stack ? 40 : 44,
-		radius: Radius.md,
-		position: UDim2.fromOffset(0, 0),
-		glow: effectsEnabled === true || bigHaul,
-		spin: false,
-		reducedMotion: softMotion,
-	});
-		const _exp_8 = h(Text, {
-		value: "Welcome back",
-		size: stack ? 20 : 24,
-		color: Palette.cream,
-		weight: Enum.FontWeight.Bold,
-		fit: true,
-		minSize: 14,
-		position: UDim2.fromOffset(stack ? 56 : 60, stack ? 6 : 8),
-		sizeConstraint: new UDim2(1, -76, 0, 30),
-	});
+	// .pn h3: gift glyph in the accent, 15px caps title, how long you were away on the right
+	const _exp_6 = h(
+		"frame",
+		{ Size: new UDim2(1, 0, 0, stack ? 18 : 22), BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 465 },
+		h(PanelHeading, { icon: "Gift", title: "Welcome back", note: clockText(actualAway), phone: stack, accent: Palette.mango }),
+	);
+	const _exp_8 = undefined;
 	const _exp_9 = h(
 		"frame",
 		{
 			Size: new UDim2(1, 0, 0, stack ? 64 : 72),
 			// very short cards (286px-tall landscape under the top bar): the haul moves up so the buttons don't cover it
-			Position: UDim2.fromOffset(0, tightHaul ? 46 : stack ? 60 : 68),
-			BackgroundColor3: Palette.ink,
+			Position: UDim2.fromOffset(0, tightHaul ? 30 : stack ? 34 : 40),
+			BackgroundColor3: Palette.void,
+			BackgroundTransparency: 0.35,
 			BorderSizePixel: 0,
 			ZIndex: 465,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, Radius.md),
+			CornerRadius: new UDim(0, 11),
 		}),
 		h("uistroke", {
 			Color: Palette.brass,
@@ -337,7 +330,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		"frame",
 		{
 			Size: new UDim2(1, 0, 0, 68),
-			Position: UDim2.fromOffset(0, stack ? 144 : 160),
+			Position: UDim2.fromOffset(0, stack ? 112 : 128),
 			BackgroundTransparency: 1,
 			BorderSizePixel: 0,
 			Visible: !tinyCard,
@@ -353,7 +346,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 				wrap: true,
 				fit: true,
 				minSize: 9,
-				position: new UDim2(0, 0, 1, -(TapTarget * 2 + 52)),
+				position: new UDim2(0, 0, 1, -(TapTarget + 46)),
 				sizeConstraint: new UDim2(1, 0, 0, 36),
 			});
 	let _result_1: React.Element;
@@ -362,10 +355,10 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		_attributes.text = hasExtras ? "Collect all" : `Bank vault  ${compactNumber(vault ?? 0)}`;
 		_attributes.icon = "Collect.3";
 		_attributes.onClick = () => finish(true);
-		_attributes.color = Palette.mint;
-		_attributes.textColor = Palette.ink;
-		_attributes.size = shortCard ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(1, 0, 0, TapTarget);
-		_attributes.position = shortCard ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(0, 0, 1, -(TapTarget * 2 + 12));
+		_attributes.color = Palette.mango;
+		_attributes.textColor = Color3.fromRGB(27, 15, 8);
+		_attributes.size = new UDim2(0.5, stack ? -4 : -9, 0, TapTarget);
+		_attributes.position = new UDim2(0.5, stack ? 4 : 9, 1, -TapTarget);
 		_attributes.reducedMotion = reducedMotion;
 		_attributes.disabled = closing;
 		_attributes.highlight = true;
@@ -375,10 +368,10 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 			text: "Continue",
 			icon: "Collect.4",
 			onClick: () => finish(false),
-			color: Palette.mint,
-			textColor: Palette.ink,
-			size: shortCard ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(1, 0, 0, TapTarget),
-			position: shortCard ? new UDim2(0, 0, 1, -TapTarget) : new UDim2(0, 0, 1, -(TapTarget * 2 + 12)),
+			color: Palette.mango,
+			textColor: Color3.fromRGB(27, 15, 8),
+			size: new UDim2(0.5, stack ? -4 : -9, 0, TapTarget),
+			position: new UDim2(0.5, stack ? 4 : 9, 1, -TapTarget),
 			reducedMotion: reducedMotion,
 			disabled: closing,
 			highlight: true,
@@ -458,8 +451,8 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 								onClick: () => finish(false),
 								color: Palette.panelSoft,
 								textColor: Palette.cream,
-								size: shortCard ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(1, 0, 0, TapTarget),
-								position: shortCard ? new UDim2(0.5, 5, 1, -TapTarget) : new UDim2(0, 0, 1, -TapTarget),
+								size: new UDim2(0.5, stack ? -4 : -9, 0, TapTarget),
+								position: new UDim2(0, 0, 1, -TapTarget),
 								reducedMotion: reducedMotion,
 								disabled: closing,
 							}),
