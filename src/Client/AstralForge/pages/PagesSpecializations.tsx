@@ -263,7 +263,7 @@ function SpecializationsViewBoard(props: Props) {
 		add(
 			"loading",
 			96,
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.mango}>
+			<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.mango}>
 				<Ui.Text value="Loading your forge build..." size={16} color={Palette.muted} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 			</Ui.Panel>,
 		);
@@ -297,7 +297,7 @@ function SpecializationsViewBoard(props: Props) {
 	add(
 		"hero",
 		heroH,
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={current.accent} clips={false}>
+		<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={current.accent} clips={false}>
 			<Ui.IconTile kind={current.icon} accent={current.accent} size={56} filled={true} reducedMotion={props.reducedMotion} />
 			<Ui.Text
 				value="Equipped build"
@@ -330,7 +330,7 @@ function SpecializationsViewBoard(props: Props) {
 	add(
 		"status",
 		92,
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={cooling ? Palette.mango : Palette.green}>
+		<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={cooling ? Palette.mango : Palette.green}>
 			<Ui.IconTile
 				kind={cooling ? "Timer" : "Check"}
 				accent={cooling ? Palette.mango : Palette.green}
@@ -431,7 +431,7 @@ function SpecializationsViewBoard(props: Props) {
 				Position={new UDim2(col / columns, (col * GAP) / columns, 0, row * (CARD_H + GAP))}
 				BackgroundTransparency={1}
 			>
-				<Ui.Panel
+				<Ui.Panel radius={18} rule={true}
 					size={UDim2.fromScale(1, 1)}
 					padding={16}
 					accent={look.accent}
@@ -510,7 +510,7 @@ function SpecializationsViewBoard(props: Props) {
 		add(
 			"foundation",
 			52 + chipRows * (CHIP_H + 8),
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.creamSoft}>
+			<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.creamSoft}>
 				<Ui.Text
 					value="Kept from the Star Grid · applies to every build"
 					size={14}
