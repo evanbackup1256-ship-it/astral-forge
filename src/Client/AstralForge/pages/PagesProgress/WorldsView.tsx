@@ -10,8 +10,10 @@ import { useStagger, useViewport } from "../../MotionKit/motion";
 import { splitColumns } from "../../UiCore/ui";
 import { splitSection } from "../layoutRise";
 import { loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
+import { Planet } from "./portKit";
+import { HEADER_ART } from "../../ArtKit/uiArt";
 
-const { Badge, Button, IconTile, Panel, Text } = loadUi();
+const { Badge, Button, Panel, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 const Browse = loadBrowse();
 
@@ -106,16 +108,16 @@ function WorldRow(props: WorldRowProps) {
 						: undefined
 			: undefined;
 	const cta = current
-		? "CURRENT"
+		? "Here"
 		: unlocked
-			? "ENTER"
+			? "Travel"
 			: canUnlock
-				? "UNLOCK"
+				? "Unlock"
 				: missing !== undefined
-					? string.upper(missing)
-					: "LOCKED";
-	const btnColor = current ? Palette.green : unlocked ? Palette.green : canUnlock ? Palette.mango : Palette.panelSoft;
-	const btnText = current || unlocked || canUnlock ? Palette.ink : Palette.muted;
+					? missing
+					: "Locked";
+	const btnColor = current ? Palette.panelSoft : unlocked ? Palette.brass : canUnlock ? Palette.mango : Palette.panelSoft;
+	const btnText = current ? Palette.brass : unlocked || canUnlock ? Palette.ink : Palette.muted;
 	const rowH = PageBoardHeights.World(stack);
 	return (
 		<frame
@@ -136,16 +138,12 @@ function WorldRow(props: WorldRowProps) {
 				reducedMotion={skipMotion}
 				clips={false}
 			>
-				<IconTile
-					kind="World"
-					accent={zone.Color}
-					size={stack ? 48 : 56}
-					radius={14}
-					position={UDim2.fromOffset(0, stack ? 12 : 30)}
-					spin={false}
-					glow={current || canUnlock}
-					filled={current}
-					reducedMotion={reducedMotion}
+				{/* port 12-worlds: the engraved planet (code-drawn strokes) in the world's colour */}
+				<Planet
+					color={zone.Color}
+					size={stack ? 40 : 46}
+					position={UDim2.fromOffset(stack ? 24 : 28, stack ? 36 : 58)}
+					dim={!unlocked && !current && !canUnlock}
 				/>
 				<frame
 					Size={stack ? new UDim2(1, -64, 0, 126) : new UDim2(1, -200, 1, -6)}
@@ -482,6 +480,20 @@ function WorldsView(props: WorldsViewProps) {
 					layoutOrder={0}
 					clips={false}
 				>
+					{/* port 12-worlds hero: the uploaded worlds header strip behind the text, faded in code */}
+					<frame
+						Size={new UDim2(1, (headerStack ? 16 : 14) * 2, 1, (headerStack ? 16 : 14) * 2)}
+						Position={UDim2.fromOffset(-(headerStack ? 16 : 14), -(headerStack ? 16 : 14))}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						ClipsDescendants={true}
+						ZIndex={0}
+					>
+						<uicorner CornerRadius={new UDim(0, 18)} />
+						<imagelabel Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Image={HEADER_ART.worlds} ScaleType={Enum.ScaleType.Crop} ImageTransparency={0.3} ZIndex={0}>
+							<uigradient Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.9), new NumberSequenceKeypoint(0.5, 0.45), new NumberSequenceKeypoint(1, 0.1)])} />
+						</imagelabel>
+					</frame>
 					<Text
 						value={
 							state.CurrentZone !== undefined && state.CurrentZone !== state.Zone
@@ -515,12 +527,12 @@ function WorldsView(props: WorldsViewProps) {
 							/>
 							<Badge
 								// how far along you are, rather than a bare catalogue size that reads like a typo next to "6 total"
-								value={`${compactNumber(state.Zone ?? 1)} OF ${compactNumber(catalogTotal)} OPEN`}
+								value={`${compactNumber(state.Zone ?? 1)} of ${compactNumber(catalogTotal)} open`}
 								accent={Palette.mint}
 								size={UDim2.fromOffset(150, 28)}
 							/>
 							<Button
-								text="FIND CURRENT"
+								text="Find current"
 								icon="Search.3"
 								onClick={() => {
 									browse.reset();
@@ -537,7 +549,7 @@ function WorldsView(props: WorldsViewProps) {
 					)}
 					{headerStack && (
 						<Button
-							text="FIND CURRENT"
+							text="Find current"
 							icon="Search.4"
 							onClick={() => {
 								browse.reset();
