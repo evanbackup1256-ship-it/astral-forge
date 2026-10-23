@@ -10,6 +10,7 @@ import { chromeFor } from "../../CoreKit/theme";
 import { useFocusOrder } from "../../CoreKit/focusOrder";
 import { named } from "../luauDeps";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { Slot } from "../mockLayout";
 
 const HttpService = game.GetService("HttpService");
 const UserInputService = game.GetService("UserInputService");
@@ -25,17 +26,19 @@ const PLAYERS_W = 280;
 const DETAIL_W = 340;
 const CMD_MIN = 360;
 const CONSOLE_W = PLAYERS_W + DETAIL_W + CMD_MIN + GAP * 2;
-const RECENT_MIN = 200;
+// Recent shows its last 6 runs, sized to fit them (no inner scroller): pad, title, 6 × 24 rows
+const RECENT_MIN = 12 * 2 + 16 + 8 + 6 * 24 + 5 * 8;
 const PLAYER_ROW = 56;
 const PLAYER_ROW_STRIDE = PLAYER_ROW + 6;
 const COMMAND_ROW = 48;
 const COMMAND_ROW_STRIDE = COMMAND_ROW + 6;
 const SCROLL_BAR = 4;
 // title, seven 34 px rows on a 3 px gap, panel padding
-const OPS_H = 304;
-// design/22: .row height; panels scroll when MAX_OPS_ROWS rows do not fit
+// design/22: .row height; ops panels are sized for OPS_ROWS rows (lists are capped there, no inner scroller)
 const OPS_LINE = 48;
 const OPS_GAP = 8;
+const OPS_ROWS = 7;
+const OPS_H = 12 * 2 + 18 + 8 + OPS_ROWS * OPS_LINE + (OPS_ROWS - 1) * OPS_GAP;
 const NARROW_PLAYERS_H = 360;
 const NARROW_COMMANDS_H = 440;
 
@@ -198,30 +201,19 @@ function SectionTitle(props: { value: string; accent: Color3; position?: UDim2; 
 	);
 }
 
-function StatCell(props: { label: string; value: string; accent: Color3 }) {
+function StatCell(props: { label: string; value: string; accent: Color3; layoutOrder?: number }) {
 	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder ?? 0}>
 			<uicorner CornerRadius={new UDim(0, 8)} />
 			<uistroke Color={props.accent} Thickness={1} Transparency={0.82} />
-			<Text
-				value={props.label}
-				size={11}
-				color={Palette.muted}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(8, 6)}
-				sizeConstraint={new UDim2(1, -12, 0, 11)}
-			/>
-			<Text
-				value={props.value}
-				size={14}
-				color={props.accent}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={7}
-				position={UDim2.fromOffset(8, 19)}
-				sizeConstraint={new UDim2(1, -12, 0, 18)}
-			/>
+			<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 4)} PaddingTop={new UDim(0, 6)} />
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 2)} />
+			<Slot height={11} layoutOrder={0}>
+				<Text value={props.label} size={11} color={Palette.muted} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 11)} />
+			</Slot>
+			<Slot height={18} layoutOrder={1}>
+				<Text value={props.value} size={14} color={props.accent} weight={Enum.FontWeight.Heavy} fit={true} minSize={7} sizeConstraint={new UDim2(1, 0, 0, 18)} />
+			</Slot>
 		</frame>
 	);
 }
@@ -260,47 +252,26 @@ function PlayerRow({ player, selected, you, onClick, layoutOrder, reducedMotion 
 		>
 			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke Color={accent} Thickness={1} Transparency={selected ? 0.45 : 1} />
-			<frame Size={UDim2.fromOffset(36, 36)} Position={UDim2.fromOffset(12, 10)} BackgroundColor3={Palette.ink} BorderSizePixel={0}>
+			{/* .row: [avatar well | name / handle (fills) | selected dot], one horizontal list */}
+			<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 16)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+			<frame key="Avatar" Size={UDim2.fromOffset(36, 36)} BackgroundColor3={Palette.ink} BorderSizePixel={0} LayoutOrder={0}>
 				<uicorner CornerRadius={new UDim(1, 0)} />
-				<Icon
-					kind="Crew.10"
-					color={selected ? Palette.mint : Palette.muted}
-					accent={Palette.mint}
-					size={18}
-					spin={false}
-					position={UDim2.fromOffset(9, 9)}
-				/>
+				<Icon kind="Crew.10" color={selected ? Palette.mint : Palette.muted} accent={Palette.mint} size={18} spin={false} position={UDim2.fromOffset(9, 9)} />
 			</frame>
-			<Text
-				value={player.DisplayName}
-				size={13}
-				color={you ? Palette.mint : Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(58, 9)}
-				sizeConstraint={new UDim2(1, -70, 0, 17)}
-			/>
-			<Text
-				value={`@${player.Name}  ·  ${compactNumber(player.Cash ?? 0)}`}
-				size={11}
-				color={Palette.cyan}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(58, 28)}
-				sizeConstraint={new UDim2(1, -70, 0, 14)}
-			/>
-			{selected && (
-				<frame
-					Size={UDim2.fromOffset(8, 8)}
-					Position={new UDim2(1, -20, 0.5, -4)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={Palette.mint}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-				</frame>
-			)}
+			<frame key="Copy" Size={new UDim2(0, 0, 0, 33)} BackgroundTransparency={1} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 2)} />
+				<Slot height={17} layoutOrder={0}>
+					<Text value={player.DisplayName} size={13} color={you ? Palette.mint : Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={11} sizeConstraint={new UDim2(1, 0, 0, 17)} />
+				</Slot>
+				<Slot height={14} layoutOrder={1}>
+					<Text value={`@${player.Name}  ·  ${compactNumber(player.Cash ?? 0)}`} size={11} color={Palette.cyan} fit={true} minSize={11} sizeConstraint={new UDim2(1, 0, 0, 14)} />
+				</Slot>
+			</frame>
+			<frame key="Dot" Size={UDim2.fromOffset(8, 8)} BackgroundColor3={Palette.mint} BackgroundTransparency={selected ? 0 : 1} BorderSizePixel={0} LayoutOrder={2}>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>
 		</textbutton>
 	);
 }
@@ -328,31 +299,20 @@ function CommandRow(props: { entry: AdminCommand; selected: boolean; onClick: ()
 		>
 			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke Color={selected ? accent : Palette.line} Thickness={1} Transparency={selected ? 0.3 : 0.78} />
-			<frame Size={new UDim2(0, 4, 1, -14)} Position={UDim2.fromOffset(0, 7)} BackgroundColor3={accent} BorderSizePixel={0}>
+			{/* [category edge bar | label (fills) | arm dot], one horizontal list */}
+			<uipadding PaddingRight={new UDim(0, 13)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 11)} />
+			<frame key="Edge" Size={new UDim2(0, 4, 1, -14)} BackgroundColor3={accent} BorderSizePixel={0} LayoutOrder={0}>
 				<uicorner CornerRadius={new UDim(1, 0)} />
 			</frame>
-			<Text
-				value={entry.Label}
-				size={12}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(15, math.floor((COMMAND_ROW - 22) / 2))}
-				sizeConstraint={new UDim2(1, -40, 0, 16)}
-			/>
+			<frame key="Label" Size={new UDim2(0, 0, 0, 16)} BackgroundTransparency={1} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<Text value={entry.Label} size={12} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={11} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+			</frame>
 			{/* category reads from the edge bar; dangerous commands get a small lock dot instead of a word */}
-			{arm && (
-				<frame
-					Size={UDim2.fromOffset(6, 6)}
-					Position={new UDim2(1, -16, 0.5, 0)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={Palette.mango}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-				</frame>
-			)}
+			<frame key="Arm" Size={UDim2.fromOffset(6, 6)} BackgroundColor3={Palette.mango} BackgroundTransparency={arm ? 0 : 1} BorderSizePixel={0} LayoutOrder={2}>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>
 		</textbutton>
 	);
 }
@@ -361,24 +321,13 @@ function AuditLine(props: { record: AuditRecord; layoutOrder?: number }) {
 	const record = props.record;
 	return (
 		<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder ?? 0}>
-			<Text
-				value={record.Command}
-				size={11}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				sizeConstraint={new UDim2(0.42, -4, 1, 0)}
-			/>
-			<Text
-				value={`${record.ActorName} to ${record.TargetName}`}
-				size={11}
-				color={Palette.cyan}
-				fit={true}
-				minSize={11}
-				position={new UDim2(0.42, 4, 0, 0)}
-				sizeConstraint={new UDim2(0.58, -4, 1, 0)}
-			/>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+			<frame Size={new UDim2(0.42, -4, 1, 0)} BackgroundTransparency={1} LayoutOrder={0}>
+				<Text value={record.Command} size={11} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={11} sizeConstraint={UDim2.fromScale(1, 1)} />
+			</frame>
+			<frame Size={new UDim2(0.58, -4, 1, 0)} BackgroundTransparency={1} LayoutOrder={1}>
+				<Text value={`${record.ActorName} to ${record.TargetName}`} size={11} color={Palette.cyan} fit={true} minSize={11} sizeConstraint={UDim2.fromScale(1, 1)} />
+			</frame>
 		</frame>
 	);
 }
@@ -397,42 +346,51 @@ function clockTime(at?: number) {
 function OpsLine(props: { left: string; right: string; chip?: string; sub?: string; accent?: Color3; rightColor?: Color3; layoutOrder?: number }) {
 	// design/22-admin row: coral kind chip, two-line text, right value (num, accent)
 	const chipW = props.chip !== undefined ? math.clamp(props.chip.size() * 6 + 18, 44, 96) : 0;
-	const textX = props.chip !== undefined ? chipW + 18 : 12;
 	return (
 		<frame Size={new UDim2(1, 0, 0, OPS_LINE)} BackgroundColor3={Palette.white} BackgroundTransparency={0} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder}>
 			<RowSurface />
-			{props.chip !== undefined && (
-				<frame Size={UDim2.fromOffset(chipW, 22)} Position={new UDim2(0, 8, 0.5, -11)} BackgroundColor3={Palette.coral} BackgroundTransparency={0.82} BorderSizePixel={0}>
-					<uicorner CornerRadius={new UDim(0, 8)} />
-					<uistroke Color={Palette.coral} Transparency={0.45} Thickness={1} />
-					<textlabel Text={props.chip} FontFace={BODY_BOLD} TextSize={11} TextColor3={Palette.coral} BackgroundTransparency={1} TextScaled={false} TextTruncate={Enum.TextTruncate.AtEnd} Size={UDim2.fromScale(1, 1)} />
+			{/* design/22 .row: [kind chip] [name / sub (fills)] [value], one horizontal list */}
+			<frame key="Cells" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={2}>
+				<uipadding PaddingLeft={new UDim(0, props.chip !== undefined ? 8 : 12)} PaddingRight={new UDim(0, 12)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+				{props.chip !== undefined && (
+					<frame key="Chip" Size={UDim2.fromOffset(chipW, 22)} BackgroundColor3={Palette.coral} BackgroundTransparency={0.82} BorderSizePixel={0} LayoutOrder={0}>
+						<uicorner CornerRadius={new UDim(0, 8)} />
+						<uistroke Color={Palette.coral} Transparency={0.45} Thickness={1} />
+						<textlabel Text={props.chip} FontFace={BODY_BOLD} TextSize={11} TextColor3={Palette.coral} BackgroundTransparency={1} TextScaled={false} TextTruncate={Enum.TextTruncate.AtEnd} Size={UDim2.fromScale(1, 1)} />
+					</frame>
+				)}
+				<frame key="Copy" Size={new UDim2(0, 0, 0, props.sub !== undefined ? 34 : 16)} BackgroundTransparency={1} LayoutOrder={1}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 2)} />
+					<textlabel
+						Text={props.left}
+						FontFace={BODY_SEMI}
+						TextSize={15}
+						TextColor3={props.accent ?? Palette.cream}
+						BackgroundTransparency={1}
+						TextXAlignment={Enum.TextXAlignment.Left}
+						TextTruncate={Enum.TextTruncate.AtEnd}
+						Size={new UDim2(1, 0, 0, 16)}
+						LayoutOrder={0}
+					/>
+					{props.sub !== undefined && (
+						<textlabel Text={props.sub} FontFace={BODY} TextSize={11} TextColor3={Palette.muted} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 14)} LayoutOrder={1} />
+					)}
 				</frame>
-			)}
-			<textlabel
-				Text={props.left}
-				FontFace={BODY_SEMI}
-				TextSize={15}
-				TextColor3={props.accent ?? Palette.cream}
-				BackgroundTransparency={1}
-				TextXAlignment={Enum.TextXAlignment.Left}
-				TextTruncate={Enum.TextTruncate.AtEnd}
-				Position={UDim2.fromOffset(textX, props.sub !== undefined ? 7 : 16)}
-				Size={new UDim2(0.62, -textX, 0, 16)}
-			/>
-			{props.sub !== undefined && (
-				<textlabel Text={props.sub} FontFace={BODY} TextSize={11} TextColor3={Palette.muted} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Position={UDim2.fromOffset(textX, 25)} Size={new UDim2(0.62, -textX, 0, 14)} />
-			)}
-			<textlabel
-				Text={props.right}
-				FontFace={NUM}
-				TextSize={14}
-				TextColor3={props.rightColor ?? Palette.mango}
-				BackgroundTransparency={1}
-				TextXAlignment={Enum.TextXAlignment.Right}
-				TextTruncate={Enum.TextTruncate.AtEnd}
-				Position={new UDim2(0.62, 0, 0.5, -9)}
-				Size={new UDim2(0.38, -12, 0, 18)}
-			/>
+				<textlabel
+					key="Value"
+					Text={props.right}
+					FontFace={NUM}
+					TextSize={14}
+					TextColor3={props.rightColor ?? Palette.mango}
+					BackgroundTransparency={1}
+					TextXAlignment={Enum.TextXAlignment.Right}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+					Size={new UDim2(0.38, -12, 0, 18)}
+					LayoutOrder={2}
+				/>
+			</frame>
 		</frame>
 	);
 }
@@ -449,50 +407,40 @@ function OpsPanel(props: {
 	const rows = props.children ?? [];
 	return (
 		<PnSurface size={props.size ?? new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
-			<SectionTitle value={string.upper(props.title)} accent={Palette.brass} />
-			{props.onBack !== undefined && (
-				<Button
-					text="BACK"
-					onClick={props.onBack}
-					color={Palette.panelSoft}
-					textColor={props.accent}
-					outline={true}
-					size={UDim2.fromOffset(56, 18)}
-					position={new UDim2(1, -56, 0, -2)}
-				/>
-			)}
-			{props.onBack !== undefined && (
-				<textbutton
-					Size={UDim2.fromOffset(64, 44)}
-					Position={new UDim2(1, -60, 0, -15)}
-					BackgroundTransparency={1}
-					Text=""
-					Selectable={false}
-					AutoButtonColor={false}
-					ZIndex={8}
-					Event={{ Activated: props.onBack }}
-				/>
-			)}
-			<scrollingframe
-				Size={new UDim2(1, 0, 1, -24)}
-				Position={UDim2.fromOffset(0, 24)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={true}
-				CanvasSize={new UDim2()}
-				AutomaticCanvasSize={Enum.AutomaticSize.Y}
-				ScrollingDirection={Enum.ScrollingDirection.Y}
-				ScrollBarThickness={4}
-				ScrollBarImageColor3={Palette.brass}
-				ElasticBehavior={Enum.ElasticBehavior.Never}
-			>
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+			<frame key="Heading" Size={new UDim2(1, 0, 0, 18)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={false}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+				<frame Size={new UDim2(0, 0, 0, 16)} BackgroundTransparency={1} LayoutOrder={0}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<SectionTitle value={string.upper(props.title)} accent={Palette.brass} />
+				</frame>
+				{props.onBack !== undefined && (
+					<frame key="Back" Size={UDim2.fromOffset(56, 18)} BackgroundTransparency={1} LayoutOrder={1} ClipsDescendants={false}>
+						<Button text="BACK" onClick={props.onBack} color={Palette.panelSoft} textColor={props.accent} outline={true} size={UDim2.fromScale(1, 1)} />
+						{/* 44px tap area round the 18px chip; not selectable so the pad lands on the button */}
+						<textbutton
+							Size={UDim2.fromOffset(64, 44)}
+							Position={UDim2.fromScale(0.5, 0.5)}
+							AnchorPoint={new Vector2(0.5, 0.5)}
+							BackgroundTransparency={1}
+							Text=""
+							Selectable={false}
+							AutoButtonColor={false}
+							ZIndex={8}
+							Event={{ Activated: props.onBack }}
+						/>
+					</frame>
+				)}
+			</frame>
+			{/* rows are capped at MAX_OPS_ROWS and the panel is sized for them: no inner scroller */}
+			<frame key="Rows" Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, OPS_GAP)} />
 				{rows.size() === 0 ? (
 					<Text value={props.empty} size={11} color={Palette.muted} sizeConstraint={new UDim2(1, 0, 0, 18)} />
 				) : (
 					rows
 				)}
-			</scrollingframe>
+			</frame>
 		</PnSurface>
 	);
 }
@@ -773,11 +721,10 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		</PnSurface>
 	);
 
-	const listSize = new UDim2(1, 0, 1, -64);
-	const listPos = UDim2.fromOffset(0, 64);
+	const listSize = UDim2.fromScale(1, 1);
 	const playerList =
 		shownPlayers.size() === 0 ? (
-			<frame Size={listSize} Position={listPos} BackgroundTransparency={1}>
+			<frame Size={listSize} BackgroundTransparency={1}>
 				<EmptyState icon="Search" title="No players match" body="" compact={true} />
 			</frame>
 		) : (
@@ -787,7 +734,6 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				overscan={softMotion ? 0 : antilag.constrained ? 1 : 2}
 				canvasTail={4}
 				Size={listSize}
-				Position={listPos}
 				scrollBarColor={Palette.cyan}
 				scrollBarThickness={SCROLL_BAR}
 				keyExtractor={(player: AdminPlayer) => tostring(player.UserId)}
@@ -805,44 +751,40 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		);
 	const playerSection = (
 		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={12} layoutOrder={1} clips={false}>
-			<SectionTitle value="Players" accent={Palette.cyan} />
-			<SearchField
-				value={playerQuery}
-				onChange={setPlayerQuery}
-				accent={Palette.cyan}
-				placeholder="Search players"
-				size={new UDim2(1, 0, 0, 36)}
-				position={UDim2.fromOffset(0, 20)}
-				reducedMotion={softMotion}
-			/>
-			{playerList}
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+			<SectionTitle value="Players" accent={Palette.cyan} layoutOrder={0} />
+			<Slot height={36} layoutOrder={1}>
+				<SearchField value={playerQuery} onChange={setPlayerQuery} accent={Palette.cyan} placeholder="Search players" size={new UDim2(1, 0, 0, 36)} reducedMotion={softMotion} />
+			</Slot>
+			{/* the list takes the rest of the column (its own virtualised scroller) */}
+			<frame key="List" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				{playerList}
+			</frame>
 		</PnSurface>
 	);
 
 	const commandSection = (
 		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
-			<SectionTitle value="Commands" accent={Palette.violet} />
-			<SearchField
-				value={commandQuery}
-				onChange={setCommandQuery}
-				accent={Palette.violet}
-				placeholder="Search commands"
-				size={new UDim2(1, 0, 0, 36)}
-				position={UDim2.fromOffset(0, 20)}
-				reducedMotion={softMotion}
-			/>
-			{/* category tabs per admin mockup: one SegmentedTabs row, 34px tall, 5px between tabs, y 61..95 */}
-			<SegmentedTabs
-				options={ADMIN_CATS}
-				value={category}
-				accent={Palette.violet}
-				gap={5}
-				size={new UDim2(1, 0, 0, 34)}
-				position={UDim2.fromOffset(0, 61)}
-				reducedMotion={softMotion}
-				onChange={(id: string) => setCategory(id)}
-			/>
-			<frame Size={new UDim2(1, 0, 1, -100)} Position={UDim2.fromOffset(0, 100)} BackgroundTransparency={1}>
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+			<SectionTitle value="Commands" accent={Palette.violet} layoutOrder={0} />
+			<Slot height={36} layoutOrder={1}>
+				<SearchField value={commandQuery} onChange={setCommandQuery} accent={Palette.violet} placeholder="Search commands" size={new UDim2(1, 0, 0, 36)} reducedMotion={softMotion} />
+			</Slot>
+			{/* category tabs per admin mockup: one SegmentedTabs row, 34px tall, 5px between tabs */}
+			<Slot height={34} layoutOrder={2}>
+				<SegmentedTabs
+					options={ADMIN_CATS}
+					value={category}
+					accent={Palette.violet}
+					gap={5}
+					size={new UDim2(1, 0, 0, 34)}
+					reducedMotion={softMotion}
+					onChange={(id: string) => setCategory(id)}
+				/>
+			</Slot>
+			<frame key="List" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} LayoutOrder={3}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				{shownCommands.size() === 0 ? (
 					<EmptyState icon="Command" title="No commands" body="" compact={true} />
 				) : (
@@ -866,36 +808,38 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 
 	const inspectSection = (
 		<PnSurface size={new UDim2(1, 0, 0, inspectH)} accent={Palette.mint} background={Palette.panel} padding={12} layoutOrder={0} clips={false}>
-			<SectionTitle value="Target" accent={Palette.mint} />
-			<Text
-				value={selectedPlayer ? `${selectedPlayer.DisplayName}  ·  ${selectedPlayer.UserId}` : "Select a player."}
-				size={12}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(0, 15)}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-			/>
-			<frame Size={new UDim2(1, 0, 0, STAT_H * statRows + STAT_GAP * (statRows - 1))} Position={UDim2.fromOffset(0, INSPECT_TITLE)} BackgroundTransparency={1}>
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 1)} />
+			<SectionTitle value="Target" accent={Palette.mint} layoutOrder={0} />
+			<Slot height={INSPECT_TITLE - 18} layoutOrder={1}>
+				<Text
+					value={selectedPlayer ? `${selectedPlayer.DisplayName}  ·  ${selectedPlayer.UserId}` : "Select a player."}
+					size={12}
+					color={Palette.cream}
+					weight={Enum.FontWeight.Heavy}
+					fit={true}
+					minSize={11}
+					sizeConstraint={new UDim2(1, 0, 0, 16)}
+				/>
+			</Slot>
+			<frame key="Stats" Size={new UDim2(1, 0, 0, STAT_H * statRows + STAT_GAP * (statRows - 1))} BackgroundTransparency={1} LayoutOrder={2}>
 				<uigridlayout
 					CellSize={new UDim2(1 / statCols, -math.ceil((STAT_GAP * (statCols - 1)) / statCols), 0, STAT_H)}
 					CellPadding={UDim2.fromOffset(STAT_GAP, STAT_GAP)}
 					SortOrder={Enum.SortOrder.LayoutOrder}
 					FillDirection={Enum.FillDirection.Horizontal}
 				/>
-				<StatCell label="CASH" value={selectedPlayer ? compactNumber(selectedPlayer.Cash ?? 0) : "--"} accent={Palette.cyan} />
-				<StatCell
+				<StatCell layoutOrder={1} label="CASH" value={selectedPlayer ? compactNumber(selectedPlayer.Cash ?? 0) : "--"} accent={Palette.cyan} />
+				<StatCell layoutOrder={2}
 					label="VAULT"
 					value={selectedPlayer ? `${compactNumber(selectedPlayer.Vault ?? 0)}/${compactNumber(selectedPlayer.Capacity ?? 0)}` : "--"}
 					accent={Palette.mint}
 				/>
-				<StatCell label="CORES" value={selectedPlayer ? compactNumber(selectedPlayer.Cores ?? 0) : "--"} accent={Palette.violet} />
-				<StatCell label="REBIRTHS" value={selectedPlayer ? compactNumber(selectedPlayer.Rebirths ?? 0) : "--"} accent={Palette.pink} />
-				<StatCell label="WORLD" value={selectedPlayer ? tostring(selectedPlayer.Zone ?? 1) : "--"} accent={Palette.mango} />
-				<StatCell label="RATE" value={selectedPlayer ? `${compactNumber(selectedPlayer.Production ?? 0)}/s` : "--"} accent={Palette.cyan} />
-				<StatCell label="DUST" value={selectedPlayer ? compactNumber(selectedPlayer.Stardust ?? 0) : "--"} accent={Palette.steel} />
-				<StatCell label="KEYS" value={selectedPlayer ? compactNumber(selectedPlayer.Keys ?? 0) : "--"} accent={Palette.violet} />
+				<StatCell layoutOrder={3} label="CORES" value={selectedPlayer ? compactNumber(selectedPlayer.Cores ?? 0) : "--"} accent={Palette.violet} />
+				<StatCell layoutOrder={4} label="REBIRTHS" value={selectedPlayer ? compactNumber(selectedPlayer.Rebirths ?? 0) : "--"} accent={Palette.pink} />
+				<StatCell layoutOrder={5} label="WORLD" value={selectedPlayer ? tostring(selectedPlayer.Zone ?? 1) : "--"} accent={Palette.mango} />
+				<StatCell layoutOrder={6} label="RATE" value={selectedPlayer ? `${compactNumber(selectedPlayer.Production ?? 0)}/s` : "--"} accent={Palette.cyan} />
+				<StatCell layoutOrder={7} label="DUST" value={selectedPlayer ? compactNumber(selectedPlayer.Stardust ?? 0) : "--"} accent={Palette.steel} />
+				<StatCell layoutOrder={8} label="KEYS" value={selectedPlayer ? compactNumber(selectedPlayer.Keys ?? 0) : "--"} accent={Palette.violet} />
 			</frame>
 		</PnSurface>
 	);
@@ -936,22 +880,26 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			reducedMotion={softMotion}
 			clips={false}
 		>
-			<SectionTitle value={needsArm ? "OFF" : "READY"} accent={armed ? Palette.coral : accent} />
-			<Text
-				value={(selected && selected.Label) ?? command}
-				size={15}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(0, 15)}
-				sizeConstraint={new UDim2(1, 0, 0, 20)}
-			/>
+			{/* title, command, fields, actions, note: one vertical list (gaps match the old 42/50/46 rhythm) */}
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 0)} />
+			<SectionTitle value={needsArm ? "OFF" : "READY"} accent={armed ? Palette.coral : accent} layoutOrder={0} />
+			<Slot height={EXEC_TITLE - 16} layoutOrder={1}>
+				<Text
+					value={(selected && selected.Label) ?? command}
+					size={15}
+					color={Palette.cream}
+					weight={Enum.FontWeight.Heavy}
+					fit={true}
+					minSize={11}
+					sizeConstraint={new UDim2(1, 0, 0, 20)}
+				/>
+			</Slot>
 			<frame
-				Size={new UDim2(1, 0, 0, math.max(0, fieldSlots * FIELD_H - 6))}
-				Position={UDim2.fromOffset(0, EXEC_TITLE)}
+				key="Fields"
+				Size={new UDim2(1, 0, 0, math.max(0, fieldSlots) * FIELD_H)}
 				BackgroundTransparency={1}
 				ZIndex={50}
+				LayoutOrder={2}
 			>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
 				{fields.usesAmount && (
@@ -1017,21 +965,21 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			<frame
 				key="AdminExecuteActions"
 				Size={new UDim2(1, 0, 0, EXEC_BUTTON)}
-				Position={UDim2.fromOffset(0, EXEC_TITLE + fieldSlots * FIELD_H)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				ClipsDescendants={false}
+				LayoutOrder={3}
 				ref={executeActionsHostRef}
 			>
-				<frame key="AdminPreviewRun" Size={new UDim2(0.34, -5, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+				<frame key="AdminPreviewRun" Size={new UDim2(0.34, -5, 0, 48)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} LayoutOrder={0}>
 					<Button
 						text="PREVIEW"
 						icon="Search.8"
 						onClick={preview}
 						color={Palette.panelSoft}
 						textColor={Palette.text}
-						size={new UDim2(1, 0, 0, 48)}
-						position={new UDim2(0, 0, 0.5, -24)}
+						size={UDim2.fromScale(1, 1)}
 						disabled={runDisabled}
 						reducedMotion={softMotion}
 					/>
@@ -1039,8 +987,8 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				<frame
 					key="AdminConfirmRun"
 					ClipsDescendants={false}
-					Size={new UDim2(0.66, -5, 1, 0)}
-					Position={UDim2.fromScale(0.34, 0).add(UDim2.fromOffset(5, 0))}
+					Size={new UDim2(0.66, -5, 0, 48)}
+					LayoutOrder={1}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 				>
@@ -1050,8 +998,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 						onClick={execute}
 						color={runColor}
 						textColor={Palette.ink}
-						size={new UDim2(1, 0, 0, 48)}
-						position={new UDim2(0, 0, 0.5, -24)}
+						size={UDim2.fromScale(1, 1)}
 						disabled={runDisabled}
 						loading={busy}
 						shakeToken={shakeToken}
@@ -1060,6 +1007,10 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					/>
 				</frame>
 			</frame>
+			<frame key="Spacer" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} LayoutOrder={4}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+			</frame>
+			<Slot height={EXEC_NOTE - 4} layoutOrder={5}>
 			<Text
 				value={
 					(optionMissing
@@ -1075,9 +1026,9 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				color={optionMissing ? Palette.coral : lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}
 				wrap={true}
 				fit={true} minSize={11}
-				position={new UDim2(0, 0, 1, -EXEC_NOTE + 4)}
 				sizeConstraint={new UDim2(1, 0, 0, EXEC_NOTE - 4)}
 			/>
+			</Slot>
 		</PnSurface>
 	);
 
@@ -1087,31 +1038,17 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	}
 	const recentSection = (
 		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.steel} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
-			<SectionTitle value="Recent" accent={Palette.steel} />
-			<scrollingframe
-				Size={new UDim2(1, 0, 1, -24)}
-				Position={UDim2.fromOffset(0, 24)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={true}
-				CanvasSize={new UDim2()}
-				AutomaticCanvasSize={Enum.AutomaticSize.Y}
-				ScrollingDirection={Enum.ScrollingDirection.Y}
-				ScrollBarThickness={4}
-				ScrollBarImageColor3={Palette.brass}
-				ElasticBehavior={Enum.ElasticBehavior.Never}
-			>
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+			<SectionTitle value="Recent" accent={Palette.steel} layoutOrder={0} />
+			<frame key="Rows" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, OPS_GAP)} />
-				{recent.size() === 0 ? (
-					<EmptyState icon="Command" title="No commands run yet" body="" compact={true} />
-				) : (
-					auditRows
-				)}
-			</scrollingframe>
+				{recent.size() === 0 ? <EmptyState icon="Command" title="No commands run yet" body="" compact={true} /> : auditRows}
+			</frame>
 		</PnSurface>
 	);
 
-	const MAX_OPS_ROWS = 7;
+	const MAX_OPS_ROWS = OPS_ROWS;
 	const securityRows: React.Element[] = [];
 	if (lookup !== undefined) {
 		securityRows.push(
@@ -1147,7 +1084,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			);
 		}
 	}
-	const flagRows = (admin.HotFlags ?? []).map((flag, i) => (
+	const flagRows = (admin.HotFlags ?? []).filter((_, i) => i < MAX_OPS_ROWS).map((flag, i) => (
 		<OpsLine key={flag.Name} left={flag.Name} right={flag.On ? "ON" : "off"} accent={flag.On ? Palette.coral : Palette.cream} rightColor={flag.On ? Palette.coral : Palette.muted} layoutOrder={i} />
 	));
 	const announcementRows: React.Element[] = [];
