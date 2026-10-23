@@ -1376,6 +1376,9 @@ export function RebirthPanel({
 	const colW = side ? 188 : stack ? 0 : 286;
 	const stackBody = stack && !side;
 	const lively = canRebirth && !effectsPaused && !softMotion;
+	const DIAL = stack ? 56 : 64;
+	const COPY_H = 16 + 28 + 22 + 13 + 30 + 4 * 4;
+	const ACTIONS_H = 26 + TapTarget * 2 + 16;
 	return (
 		<PnSurface radius={18} rule
 			layoutOrder={layoutOrder}
@@ -1388,151 +1391,164 @@ export function RebirthPanel({
 			reducedMotion={softMotion || effectsPaused}
 			clips={false}
 		>
-			<ChargeDial size={stack ? 56 : 64} position={UDim2.fromOffset(-3, stack ? 2 : 6)} accent={accent} fill={dialFill} charge={ignite}>
-				<GlyphWell
-					kind={REBIRTH_ICONS.Dial}
-					accent={accent}
-					size={(stack ? 56 : 64) - 18}
-					radius={18}
-					position={UDim2.fromOffset(9, 9)}
-					glow={lively}
-					spin={lively}
-					reducedMotion={softMotion || effectsPaused}
+			{/* design/09 row: charge dial | copy column | action column, all list-laid (no absolute body) */}
+			<frame key="RebirthBody" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				<uilistlayout
+					FillDirection={stackBody ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+					Padding={new UDim(0, stackBody ? 10 : stack ? 12 : 16)}
 				/>
-			</ChargeDial>
-			<frame
-				Size={new UDim2(1, -((stack ? 66 : 76) + colW + (stackBody ? 0 : stack ? 12 : 16)), 0, stackBody ? 134 : height - 36)}
-				Position={UDim2.fromOffset(stack ? 66 : 76, 0)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-			>
-				<Text
-					value={`Rebirth ${rebirths}   ${clock(seconds)}`}
-					size={10}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
-					fit={false}
-					sizeConstraint={new UDim2(1, 0, 0, 16)}
-				/>
-				<Text
-					value={
-						canRebirth
-							? `+${compactNumber(info.Cores)}  ${info.Grade}`
-							: rebirths < 1
-								? "Rebirth"
-								: `${math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}%`
-					}
-					size={stack ? 22 : 28}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					fit={false}
-					position={UDim2.fromOffset(0, 20)}
-					sizeConstraint={new UDim2(1, 0, 0, 28)}
-				/>
-				<frame
-					key="RebirthVowLine"
-					Position={UDim2.fromOffset(0, 54)}
-					Size={new UDim2(1, 0, 0, 22)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					<Icon
-						kind={REBIRTH_ICONS["PanelVow" + (info.Vow === "" ? "None" : info.Vow)] ?? REBIRTH_ICONS.PanelVowNone}
-						size={20}
-						position={UDim2.fromOffset(0, 1)}
-					/>
-					<Text
-						value={vowLine}
-						size={11}
-						color={vow === undefined ? Palette.muted : info.VowHolds ? vowArt.color : Palette.coral}
-						fit={false}
-						position={UDim2.fromOffset(26, 3)}
-						sizeConstraint={new UDim2(1, -26, 0, 16)}
-					/>
-				</frame>
-				<Meter
-					value={progress}
-					rainbow={true}
-					color={accent}
-					reducedMotion={softMotion || effectsPaused}
-					shimmer={lively}
-					position={UDim2.fromOffset(0, 86)}
-					size={new UDim2(1, 0, 0, 5)}
-				/>
-				<Text
-					value={
-						canRebirth
-							? `+${compactNumber(info.Stardust)} stardust`
-							: `${compactNumber(conversionFlux)} / ${compactNumber(target)}`
-					}
-					size={10}
-					color={canRebirth ? Palette.mint : Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(0, 102)}
-					sizeConstraint={new UDim2(1, 0, 0, 30)}
-				/>
-			</frame>
-			<frame
-				Size={stackBody ? new UDim2(1, 0, 0, TapTarget * 2 + 44) : UDim2.fromOffset(colW, height - 36)}
-				Position={stackBody ? new UDim2(0, 0, 1, -(TapTarget * 2 + 44)) : new UDim2(1, -colW, 0, 0)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-			>
-				<Badge
-					value={pending > 0 ? `Star` : `${compactNumber(state.PermanentMultiplier)}×`}
-					accent={pending > 0 ? Palette.mango : Palette.mint}
-					filled={pending > 0}
-					size={new UDim2(1, 0, 0, 26)}
-				/>
-				{pending > 0 && (
-					<frame Size={new UDim2(1, 4, 0, 30)} Position={UDim2.fromOffset(-2, -2)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<uicorner CornerRadius={new UDim(1, 0)} />
-						<uistroke Color={Palette.mango} Thickness={2} Transparency={starPulse.map((amount) => 0.25 + amount * 0.6)} />
+				<frame key="RebirthTop" Size={stackBody ? new UDim2(1, 0, 0, COPY_H) : new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={false}>
+					{!stackBody && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 12)} />
+					<frame key="Dial" Size={UDim2.fromOffset(DIAL, DIAL)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={false}>
+						<ChargeDial size={DIAL} position={UDim2.fromOffset(0, 0)} accent={accent} fill={dialFill} charge={ignite}>
+							<GlyphWell
+								kind={REBIRTH_ICONS.Dial}
+								accent={accent}
+								size={DIAL - 18}
+								radius={18}
+								position={UDim2.fromOffset(9, 9)}
+								glow={lively}
+								spin={lively}
+								reducedMotion={softMotion || effectsPaused}
+							/>
+						</ChargeDial>
+						{lively && (
+							<frame
+								Size={readiness.map((amount) => UDim2.fromOffset(18 + amount * 54, 18 + amount * 54))}
+								Position={UDim2.fromScale(0.5, 0.5)}
+								AnchorPoint={new Vector2(0.5, 0.5)}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								ZIndex={8}
+							>
+								<uicorner CornerRadius={new UDim(1, 0)} />
+								<uistroke Color={accent} Thickness={2} Transparency={readiness.map((amount) => 1 - amount * 0.54)} />
+							</frame>
+						)}
 					</frame>
-				)}
-				<Button
-					text={canRebirth ? "Rebirth" : pending > 0 ? "Light star" : "Plan"}
-					tooltip={historyTip}
-					icon="Rebirth.rebirthPlan"
-					onClick={() => setChamberOpen(true)}
-					sound="page"
-					color={canRebirth || pending > 0 ? accent : Palette.panelSoft}
-					textColor={canRebirth || pending > 0 ? Palette.ink : Palette.cream}
-					size={new UDim2(1, 0, 0, TapTarget)}
-					position={UDim2.fromOffset(0, 36)}
-					reducedMotion={softMotion}
-					highlight={canRebirth && !softMotion}
-				/>
-				<Button
-					text="Workshop"
-					icon="Forge.rebirthWorkshop"
-					onClick={openWorkshop}
-					sound="page"
-					color={Palette.panelSoft}
-					textColor={Palette.cream}
-					outline={true}
-					size={new UDim2(1, 0, 0, TapTarget)}
-					position={UDim2.fromOffset(0, 44 + TapTarget)}
-					reducedMotion={softMotion}
-				/>
-			</frame>
-			{lively && (
+					<frame key="Copy" Size={new UDim2(0, 0, 0, COPY_H)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} ClipsDescendants={false}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
+						<frame key="Kick" Size={new UDim2(1, 0, 0, 16)} BackgroundTransparency={1} LayoutOrder={0}>
+							<Text
+								value={`Rebirth ${rebirths}   ${clock(seconds)}`}
+								size={10}
+								color={accent}
+								weight={Enum.FontWeight.Heavy}
+								fit={false}
+								sizeConstraint={new UDim2(1, 0, 0, 16)}
+							/>
+						</frame>
+						<frame key="Headline" Size={new UDim2(1, 0, 0, 28)} BackgroundTransparency={1} LayoutOrder={1}>
+							<Text
+								value={
+									canRebirth
+										? `+${compactNumber(info.Cores)}  ${info.Grade}`
+										: rebirths < 1
+											? "Rebirth"
+											: `${math.floor(math.clamp(conversionFlux / target, 0, 1) * 100)}%`
+								}
+								size={stack ? 22 : 28}
+								color={Palette.cream}
+								weight={Enum.FontWeight.Heavy}
+								fit={false}
+								sizeConstraint={new UDim2(1, 0, 0, 28)}
+							/>
+						</frame>
+						<frame key="RebirthVowLine" Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+							<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+							<frame Size={UDim2.fromOffset(20, 20)} BackgroundTransparency={1} LayoutOrder={0}>
+								<Icon kind={REBIRTH_ICONS["PanelVow" + (info.Vow === "" ? "None" : info.Vow)] ?? REBIRTH_ICONS.PanelVowNone} size={20} />
+							</frame>
+							<frame Size={new UDim2(0, 0, 0, 16)} BackgroundTransparency={1} LayoutOrder={1}>
+								<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+								<Text
+									value={vowLine}
+									size={11}
+									color={vow === undefined ? Palette.muted : info.VowHolds ? vowArt.color : Palette.coral}
+									fit={false}
+									sizeConstraint={new UDim2(1, 0, 0, 16)}
+								/>
+							</frame>
+						</frame>
+						<frame key="Meter" Size={new UDim2(1, 0, 0, 13)} BackgroundTransparency={1} LayoutOrder={3}>
+							<Meter
+								value={progress}
+								rainbow={true}
+								color={accent}
+								reducedMotion={softMotion || effectsPaused}
+								shimmer={lively}
+								position={UDim2.fromOffset(0, 4)}
+								size={new UDim2(1, 0, 0, 5)}
+							/>
+						</frame>
+						<frame key="Payout" Size={new UDim2(1, 0, 0, 30)} BackgroundTransparency={1} LayoutOrder={4}>
+							<Text
+								value={canRebirth ? `+${compactNumber(info.Stardust)} stardust` : `${compactNumber(conversionFlux)} / ${compactNumber(target)}`}
+								size={10}
+								color={canRebirth ? Palette.mint : Palette.muted}
+								wrap={true}
+								fit={true}
+								minSize={9}
+								sizeConstraint={new UDim2(1, 0, 0, 30)}
+							/>
+						</frame>
+					</frame>
+				</frame>
 				<frame
-					Size={readiness.map((amount) => UDim2.fromOffset(18 + amount * 54, 18 + amount * 54))}
-					Position={UDim2.fromOffset(29, 38)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
+					key="RebirthActions"
+					Size={stackBody ? new UDim2(1, 0, 0, ACTIONS_H) : new UDim2(0, colW, 0, ACTIONS_H)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
-					ZIndex={8}
+					LayoutOrder={1}
+					ClipsDescendants={false}
 				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-					<uistroke Color={accent} Thickness={2} Transparency={readiness.map((amount) => 1 - amount * 0.54)} />
+					<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+					<frame key="Badge" Size={new UDim2(1, 0, 0, 26)} BackgroundTransparency={1} LayoutOrder={0} ClipsDescendants={false}>
+						<Badge
+							value={pending > 0 ? `Star` : `${compactNumber(state.PermanentMultiplier)}×`}
+							accent={pending > 0 ? Palette.mango : Palette.mint}
+							filled={pending > 0}
+							size={new UDim2(1, 0, 0, 26)}
+						/>
+						{pending > 0 && (
+							<frame Size={new UDim2(1, 4, 1, 4)} Position={UDim2.fromScale(0.5, 0.5)} AnchorPoint={new Vector2(0.5, 0.5)} BackgroundTransparency={1} BorderSizePixel={0}>
+								<uicorner CornerRadius={new UDim(1, 0)} />
+								<uistroke Color={Palette.mango} Thickness={2} Transparency={starPulse.map((amount) => 0.25 + amount * 0.6)} />
+							</frame>
+						)}
+					</frame>
+					<frame key="Plan" Size={new UDim2(1, 0, 0, TapTarget)} BackgroundTransparency={1} LayoutOrder={1}>
+						<Button
+							text={canRebirth ? "Rebirth" : pending > 0 ? "Light star" : "Plan"}
+							tooltip={historyTip}
+							icon="Rebirth.rebirthPlan"
+							onClick={() => setChamberOpen(true)}
+							sound="page"
+							color={canRebirth || pending > 0 ? accent : Palette.panelSoft}
+							textColor={canRebirth || pending > 0 ? Palette.ink : Palette.cream}
+							size={new UDim2(1, 0, 0, TapTarget)}
+							reducedMotion={softMotion}
+							highlight={canRebirth && !softMotion}
+						/>
+					</frame>
+					<frame key="Workshop" Size={new UDim2(1, 0, 0, TapTarget)} BackgroundTransparency={1} LayoutOrder={2}>
+						<Button
+							text="Workshop"
+							icon="Forge.rebirthWorkshop"
+							onClick={openWorkshop}
+							sound="page"
+							color={Palette.panelSoft}
+							textColor={Palette.cream}
+							outline={true}
+							size={new UDim2(1, 0, 0, TapTarget)}
+							reducedMotion={softMotion}
+						/>
+					</frame>
 				</frame>
-			)}
+			</frame>
 			{chamberOpen && (
 				<RebirthChamber
 					state={state}
