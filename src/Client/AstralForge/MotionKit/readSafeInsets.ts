@@ -23,17 +23,8 @@ function readSafeInsets(): SafeInsets {
 	const GuiService = game.GetService("GuiService");
 	// 1. DeviceSafeInsets: hardware notches, cutouts, dynamic island, home bars
 	pcall(() => {
-		// GetInsetArea rects are relative to the CoreUISafeInsets area, not the screen (creator-docs
-		// GuiService.yaml: GetInsetArea(None) returns a negative Min). Measure the device-safe rect
-		// against the full-screen rect (ScreenInsets.None) so both share one origin.
 		const safeArea = GuiService.GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets);
-		const full = GuiService.GetInsetArea(Enum.ScreenInsets.None);
-		if (safeArea && typeIs(safeArea, "Rect") && full && typeIs(full, "Rect") && full.Width > 0) {
-			left = math.max(0, safeArea.Min.X - full.Min.X);
-			top = math.max(0, safeArea.Min.Y - full.Min.Y);
-			right = math.max(0, full.Max.X - safeArea.Max.X);
-			bottom = math.max(0, full.Max.Y - safeArea.Max.Y);
-		} else if (safeArea && typeIs(safeArea, "Rect")) {
+		if (safeArea && typeIs(safeArea, "Rect")) {
 			left = math.max(0, safeArea.Min.X);
 			top = math.max(0, safeArea.Min.Y);
 			right = math.max(0, vpX - safeArea.Max.X);
