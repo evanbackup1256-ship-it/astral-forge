@@ -378,7 +378,7 @@ function flatMenuCell(_param: { entry: NavEntry; active: boolean; badge?: number
 				},
 			},
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 10) }),
+		h("uicorner", { CornerRadius: new UDim(0, 11) }),
 		h("uigradient", {
 			Rotation: 90,
 			Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.35)]),
@@ -518,7 +518,7 @@ function DockedMenuSheet(_param: MenuSheetProps) {
 				Size: new UDim2(1, -(pad * 2 + 26), 0, 18),
 				Position: UDim2.fromOffset(pad + 26, 9),
 				BackgroundTransparency: 1,
-				Text: "MORE",
+				Text: "M\u200AO\u200AR\u200AE",
 				TextColor3: Palette.cream,
 				TextSize: 13,
 				TextXAlignment: Enum.TextXAlignment.Left,

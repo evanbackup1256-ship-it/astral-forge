@@ -27,6 +27,7 @@ const CHIP_HIDE_KEY: Record<string, string | undefined> = { C: "top.hideCores", 
 const ISLAND_BOX = new Vector2(360, 44);
 const COMBO_BOX = new Vector2(168, 44);
 const PANEL_W = 616;
+const SEC = Color3.fromRGB(58, 46, 62);
 const PANEL_H = 250;
 
 export interface DesktopLayoutEditorProps {
@@ -238,7 +239,7 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 				<DragBox id="combo" box={comboBox} at={comboAt} viewport={viewport} selected={tab === "combo"} onSelect={() => setTab("combo")} onMove={place("combo")} />
 			)}
 			<DragBox id="island" box={islandBox} at={islandAt} viewport={viewport} selected={tab === "island"} onSelect={() => setTab("island")} onMove={place("island")} />
-			<Panel radius={18} rule size={UDim2.fromOffset(PANEL_W, PANEL_H)} position={presence.map((amount) => UDim2.fromOffset(panelX, panelY + (1 - amount) * 16))} background={Palette.panelRaised}
+			<Panel radius={18} rule size={UDim2.fromOffset(PANEL_W, PANEL_H)} position={presence.map((amount) => UDim2.fromOffset(panelX, panelY + (1 - amount) * 16))} background={Palette.panel}
 				padding={22} zIndex={420} reveal={presence} clips={false}>
 				<frame Size={new UDim2(1, 0, 0, 32)} BackgroundTransparency={1}>
 					{TABS.map((entry, index) => (
@@ -249,13 +250,14 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 				<frame Size={new UDim2(1, 0, 0, 140)} Position={UDim2.fromOffset(0, 54)} BackgroundTransparency={1}>
 					{body}
 				</frame>
-				<frame Size={new UDim2(1, 0, 0, 32)} Position={new UDim2(0, 0, 1, -32)} BackgroundTransparency={1}>
+				{/* 18-settings .btn.sm: 36px; secondary actions on the sec fill, Done in brass */}
+				<frame Size={new UDim2(1, 0, 0, 36)} Position={new UDim2(0, 0, 1, -36)} BackgroundTransparency={1}>
 					<Button text="Reset" onClick={() => setDraft((current) => DesktopLayout.ResetElement(current, tab))} disabled={!DesktopLayout.IsCustom(draft, tab)}
-						size={UDim2.fromOffset(96, 32)} outline={true} />
+						size={UDim2.fromOffset(96, 36)} color={SEC} textColor={Palette.cream} />
 					<Button text="Reset all" onClick={() => setDraft(DesktopLayout.Defaults())} disabled={!DesktopLayout.IsCustom(draft)}
-						size={UDim2.fromOffset(110, 32)} position={UDim2.fromOffset(104, 0)} outline={true} />
-					<Button text="Cancel" onClick={() => close(false)} size={UDim2.fromOffset(100, 32)} position={new UDim2(1, -208, 0, 0)} outline={true} />
-					<Button text="Done" onClick={() => close(true)} color={Palette.brass} textColor={Palette.ink} size={UDim2.fromOffset(100, 32)} position={new UDim2(1, -100, 0, 0)} />
+						size={UDim2.fromOffset(110, 36)} position={UDim2.fromOffset(104, 0)} color={SEC} textColor={Palette.cream} />
+					<Button text="Cancel" onClick={() => close(false)} size={UDim2.fromOffset(100, 36)} position={new UDim2(1, -208, 0, 0)} color={SEC} textColor={Palette.cream} />
+					<Button text="Done" onClick={() => close(true)} color={Palette.brass} textColor={Palette.ink} size={UDim2.fromOffset(100, 36)} position={new UDim2(1, -100, 0, 0)} />
 				</frame>
 			</Panel>
 		</frame>
