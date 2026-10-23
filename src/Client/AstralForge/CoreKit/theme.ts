@@ -36,7 +36,7 @@ export const Layout = {
 	lineGap: 12,
 	cardPadding: 24,
 	cardRadius: 18,
-	buttonRadius: 10,
+	buttonRadius: 12,
 	topbarHeight: 74,
 	sidebarWidth: 268,
 	sidebarCollapsedWidth: 78,

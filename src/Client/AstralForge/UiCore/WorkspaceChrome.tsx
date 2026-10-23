@@ -834,6 +834,7 @@ export function Workspace(_param: WorkspaceProps) {
 						}),
 					h(ShimmerText, {
 						value: entry.label === "Ranks" ? "Leaderboards" : entry.label,
+						title: hero,
 						size: hero ? 54 : chrome.stack ? chrome.titleText : denseHeader ? 20 : 24,
 						color: ensureContrast(Palette.panel, Palette.cream),
 						weight: Enum.FontWeight.Bold,

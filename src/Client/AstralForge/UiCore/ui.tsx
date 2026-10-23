@@ -351,8 +351,13 @@ function fontFaceFor(font: Enum.Font): Font {
 	return face;
 }
 
+// Mockup titles are Cinzel (fallback: serif). Roblox ships no Cinzel; Merriweather is its closest serif.
+export const TITLE_FACE = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
+
 // ---------- Text ----------
 export interface TextProps {
+	/** set in the title serif (TITLE_FACE) and allowed up to 64px */
+	title?: boolean;
 	value?: string;
 	size?: number;
 	color?: Bindable<Color3>;
@@ -392,7 +397,7 @@ export function Text(props: TextProps) {
 	const boldText = settings.boldText ?? 0;
 	const presence = useExitPresence();
 	const faded = React.useMemo(() => withExitFade(transparency, presence), [transparency, presence]);
-	let scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42);
+	let scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, props.title === true ? 64 : 42);
 	// a larger text setting must never push a single line out of its own box
 	if (!wrap && sizeConstraint !== undefined && sizeConstraint.Y.Scale === 0 && sizeConstraint.Y.Offset > 0) {
 		scaledSize = math.max(8, math.min(scaledSize, sizeConstraint.Y.Offset));
@@ -419,7 +424,7 @@ export function Text(props: TextProps) {
 	const faceSize = autoWidth ? UDim2.fromScale(0, 1) : UDim2.fromScale(1, 1);
 	const faceAutomaticSize = autoWidth ? Enum.AutomaticSize.X : undefined;
 	const faceScaled = autoWidth ? false : fit;
-	const fontFace = fontFaceFor(font);
+	const fontFace = props.title === true ? TITLE_FACE : fontFaceFor(font);
 	// a single-line label in a bounded box ends with an ellipsis instead of spilling past it
 	// (every viewport: long locale strings overflow desktop boxes too). Viewport read kept for hook order.
 	useViewport();
@@ -633,6 +638,7 @@ export function OverlayPresence({ amount, children }: { amount: React.Binding<nu
 }
 
 export interface ShimmerTextProps {
+	title?: boolean;
 	value?: string;
 	size?: number;
 	color?: Color3;
@@ -663,6 +669,7 @@ export function ShimmerText({
 	reducedMotion = false,
 	enabled = false,
 	periodSeconds = 3.6,
+	title = false,
 }: ShimmerTextProps) {
 	const effectsPaused = React.useContext(UiEffectsPausedContext);
 	const settings = useMotionSettings();
@@ -671,7 +678,7 @@ export function ShimmerText({
 	const want = enabled && !reducedMotion && !effectsPaused && shimmerScale > 0.02;
 	const speed = (1 / math.max(1.2, periodSeconds)) * math.clamp(0.45 + shimmerScale * 0.55, 0.45, 1);
 	const phase = useClock(want, speed, 1, false);
-	const scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42);
+	const scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, title ? 64 : 42);
 	const font =
 		weight === Enum.FontWeight.Heavy
 			? Enum.Font.BuilderSansExtraBold
@@ -699,7 +706,7 @@ export function ShimmerText({
 				TextColor3={Palette.cream}
 				TextTransparency={math.clamp(1 - shimmerScale * 0.55, 0.35, 0.82)}
 				TextSize={scaledSize}
-				FontFace={Font.fromEnum(font)}
+				FontFace={title ? TITLE_FACE : Font.fromEnum(font)}
 				TextXAlignment={align}
 				TextYAlignment={Enum.TextYAlignment.Center}
 				TextScaled={true}
@@ -738,6 +745,7 @@ export function ShimmerText({
 				minSize={minSize}
 				sizeConstraint={UDim2.fromScale(1, 1)}
 				zIndex={zIndex}
+				title={title}
 			/>
 			{glint}
 		</frame>

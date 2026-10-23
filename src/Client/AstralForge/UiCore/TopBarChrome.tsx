@@ -81,6 +81,8 @@ interface StatChipProps {
 	narrow?: boolean;
 	// read this session field live (B35) instead of `value`, so the chip redraws on its own ticks
 	liveKey?: string;
+	/** af.css .cur .add: 24px accent square at the pill's end (opens the shop) */
+	onAdd?: () => void;
 }
 
 export function StatChip(_param: StatChipProps) {
@@ -131,7 +133,8 @@ export function StatChip(_param: StatChipProps) {
 	);
 	// room for long scale names ("37.3 Googolchime"); FPS/ping only ever show a few digits
 	const valueMaxW = _param.narrow ? 40 : tall ? 108 : 116;
-	const chipInnerW = iconSize + 7 + valueMaxW + (tall ? 20 : 15);
+	const addW = _param.onAdd !== undefined && !tall ? 24 : 0;
+	const chipInnerW = iconSize + 7 + valueMaxW + (addW > 0 ? addW + 7 : 0) + (tall ? 20 : 15);
 	// 01-hud-session chip: a dark pill, round icon on the left, Gotham numbers
 	const _exp = h("uicorner", {
 		CornerRadius: new UDim(1, 0),
@@ -276,6 +279,28 @@ export function StatChip(_param: StatChipProps) {
 			_exp_7,
 			_result,
 		),
+		addW > 0 &&
+			h(
+				"textbutton",
+				{
+					Name: "Add",
+					Size: UDim2.fromOffset(addW, addW),
+					BackgroundColor3: accent,
+					AutoButtonColor: true,
+					BorderSizePixel: 0,
+					Text: "+",
+					TextColor3: Color3.fromRGB(20, 12, 16),
+					TextSize: 18,
+					FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+					LayoutOrder: 3,
+					Event: { Activated: () => _param.onAdd?.() },
+				},
+				h("uicorner", { CornerRadius: new UDim(0, 7) }),
+				h("uigradient", {
+					Rotation: 90,
+					Color: new ColorSequence(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 205, 205)),
+				}),
+			),
 	);
 	return h(
 		"frame",
@@ -1247,7 +1272,8 @@ function TopBarImpl(_param: TopBarProps) {
 	const countdownW = 0;
 	const showFps = (tonumber(state.Settings?.ShowFps) ?? 1) >= 0.5;
 	const showPing = (tonumber(state.Settings?.ShowPing) ?? 1) >= 0.5;
-	const showLabels = (tonumber(state.Settings?.ShowResourceLabels) ?? 1) >= 0.5;
+	// the mockup pill is number-only; players can turn names back on in Settings
+	const showLabels = (tonumber(state.Settings?.ShowResourceLabels) ?? 0) >= 0.5;
 	const performanceCount = (showFps ? 1 : 0) + (showPing ? 1 : 0);
 	const fullPerformanceW =
 		micro || performanceCount === 0 ? 0 : performanceCount === 1 ? (stacked ? 96 : 90) : stacked ? 200 : 188;
@@ -1555,6 +1581,10 @@ function TopBarImpl(_param: TopBarProps) {
 				velocity: chip.label === "FLUX" ? state.Production : 0,
 			};
 			_attributes.showLabel = showLabels;
+			if (_param.navigate !== undefined) {
+				const go = _param.navigate;
+				_attributes.onAdd = () => go("Shop");
+			}
 			return h(StatChip, _attributes);
 		});
 		_condition_3 = h(
@@ -1864,7 +1894,7 @@ function TopBarImpl(_param: TopBarProps) {
 					ZIndex: 22,
 				},
 				h(Button, {
-					text: shopControlW > SHELL_CHROME.topbarControl ? "SHOP" : "",
+					text: shopControlW > SHELL_CHROME.topbarControl ? "Shop" : "",
 					icon: "Shop.11",
 					tooltip: { title: "Shop", body: "Daily deals, crates, skins and passes." },
 					onClick: () => _param.navigate?.("Shop"),
@@ -1874,7 +1904,7 @@ function TopBarImpl(_param: TopBarProps) {
 					size: UDim2.fromScale(1, 1),
 					reducedMotion: reducedMotion,
 					motion: resolvePressMotion({
-						text: shopControlW > SHELL_CHROME.topbarControl ? "SHOP" : "",
+						text: shopControlW > SHELL_CHROME.topbarControl ? "Shop" : "",
 						icon: "Shop.12",
 						size: UDim2.fromOffset(shopControlW, SHELL_CHROME.topbarControl),
 					}),
@@ -1940,7 +1970,7 @@ export function LevelMeter(_param: { width: number }) {
 export function SessionToggle(_param: { width: number; reducedMotion?: boolean }) {
 	SessionStats.useStats();
 	const open = SessionStats.isOpen();
-	const label = _param.width > SHELL_CHROME.topbarControl ? "SESSION" : "";
+	const label = _param.width > SHELL_CHROME.topbarControl ? "Session" : "";
 	return h(Button, {
 		text: label,
 		icon: "Session.3",
