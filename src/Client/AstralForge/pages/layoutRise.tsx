@@ -96,28 +96,7 @@ export interface ComposeBlocks {
 	tiles?: PageBlock[];
 	footer?: PageBlock[];
 }
-export function composeSection(name: string, estimate: number, gap: number, blocks: ComposeBlocks, options: Omit<ComposeSpec, "hero" | "primary" | "secondary" | "tiles" | "footer">): PageBlock {
-	const heights = (list?: PageBlock[]) => (list ?? []).map((block) => block.height);
-	// plan against the section's real width (the scaffold reserves the scrollbar and a gutter),
-	// not the viewport estimate, so no zone runs under the scrollbar
-	return { id: name, height: planComposition(estimate, gap, { ...options, hero: heights(blocks.hero), primary: heights(blocks.primary), secondary: heights(blocks.secondary), tiles: heights(blocks.tiles), footer: heights(blocks.footer) }).height, element: <ComposedZones key={name} name={name} estimate={estimate} gap={gap} blocks={blocks} options={options} /> };
-}
-
-function ComposedZones(props: { name: string; estimate: number; gap: number; blocks: ComposeBlocks; options: Omit<ComposeSpec, "hero" | "primary" | "secondary" | "tiles" | "footer"> }) {
-	const { gap, blocks, options } = props;
-	const hostRef = React.useRef<Frame>();
-	const [width, setWidth] = React.useState(props.estimate);
-	React.useEffect(() => {
-		const host = hostRef.current;
-		if (host === undefined) return undefined;
-		const sync = () => {
-			const measured = math.floor(host.AbsoluteSize.X);
-			if (measured > 0) setWidth(measured);
-		};
-		sync();
-		const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(sync);
-		return () => connection.Disconnect();
-	}, []);
+export function composeSection(name: string, width: number, gap: number, blocks: ComposeBlocks, options: Omit<ComposeSpec, "hero" | "primary" | "secondary" | "tiles" | "footer">): PageBlock {
 	const heights = (list?: PageBlock[]) => (list ?? []).map((block) => block.height);
 	const plan = planComposition(width, gap, {
 		...options,
@@ -150,9 +129,13 @@ function ComposedZones(props: { name: string; estimate: number; gap: number; blo
 			</frame>
 		);
 	});
-	return (
-		<frame ref={hostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
-			{children}
-		</frame>
-	);
+	return {
+		id: name,
+		height: plan.height,
+		element: (
+			<frame key={name} Size={new UDim2(1, 0, 0, plan.height)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				{children}
+			</frame>
+		),
+	};
 }
