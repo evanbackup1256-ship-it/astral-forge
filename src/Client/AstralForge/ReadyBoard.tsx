@@ -399,7 +399,7 @@ function Strip(props: StripProps): React.Element {
 		AnchorPoint: new Vector2(0, 0.5),
 		BackgroundTransparency: 1,
 		Visible: !props.compact,
-		Text: list.size() > 0 ? `Ready · ${total(list)}` : "Ready",
+		Text: "Ready",
 		TextSize: 12,
 		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
 		TextColor3: list.size() > 0 ? Palette.green : Palette.muted,
