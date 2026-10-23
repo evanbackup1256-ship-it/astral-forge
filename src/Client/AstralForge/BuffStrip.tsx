@@ -1208,6 +1208,21 @@ function Announcement(props: AnnouncementProps): React.Element {
 					]),
 				}),
 			),
+		!moment &&
+			!pill &&
+			h(
+				"frame",
+				{
+					// 3 px rim down the left edge in the notice's accent
+					Size: new UDim2(0, 3, 1, -16),
+					Position: new UDim2(0, 4, 0.5, 0),
+					AnchorPoint: new Vector2(0, 0.5),
+					BackgroundColor3: info.color,
+					BorderSizePixel: 0,
+					ZIndex: 63,
+				},
+				h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			),
 		h(
 			"frame",
 			{
@@ -1604,7 +1619,8 @@ function measureEvent(info: IslandNotice, maxWidth?: number) {
 	const titleW = textWidth(info.title ?? "", moment ? 26 : 16, Enum.Font.BuilderSansExtraBold);
 	const subtitleW =
 		info.subtitle !== undefined ? textWidth(info.subtitle, moment ? 14 : 13, Enum.Font.BuilderSansBold) : 0;
-	const width = math.clamp(math.ceil(textX + TOAST_INSET + 8 + math.max(titleW, math.min(subtitleW, 400))), moment ? 320 : 240, cap);
+	// notices are at most 420 px wide (the island's own cap keeps them narrower on phones); moments keep 560
+	const width = math.clamp(math.ceil(textX + TOAST_INSET + 8 + math.max(titleW, math.min(subtitleW, 400))), moment ? 320 : 240, moment ? cap : math.min(cap, 420));
 	const room = math.max(80, width - textX - TOAST_INSET - 8);
 	info.width = width;
 	info.lines = subtitleW > room ? 2 : 1;
