@@ -187,18 +187,14 @@ function commandNeedsArm(entry?: AdminCommand) {
 	return category === "Troll" || category === "Resets" || category === "Moderation";
 }
 
+/** .pn h3 (design/22): accent glyph dot, Cinzel caps with letter spacing, cream. */
 function SectionTitle(props: { value: string; accent: Color3; position?: UDim2; layoutOrder?: number }) {
 	return (
-		<Text
-			value={props.value}
-			size={11}
-			color={props.accent}
-			weight={Enum.FontWeight.Heavy}
-			fit={false}
-			position={props.position ?? UDim2.fromOffset(0, 0)}
-			sizeConstraint={new UDim2(1, -8, 0, 13)}
-			layoutOrder={props.layoutOrder}
-		/>
+		<frame Size={new UDim2(1, -8, 0, 16)} Position={props.position ?? UDim2.fromOffset(0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={props.layoutOrder ?? 0}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame Size={UDim2.fromOffset(6, 6)} Rotation={45} BackgroundColor3={props.accent} BorderSizePixel={0} LayoutOrder={0} />
+			<Line text={spaced(string.upper(props.value))} size={12} font={TITLE_FACE} color={Palette.cream} height={16} layoutOrder={1} />
+		</frame>
 	);
 }
 
@@ -714,7 +710,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const header = (
 		<PnSurface
 			size={new UDim2(1, 0, 0, HEADER_H)}
-			accent={Palette.coral}
+			accent={Palette.brass}
 			background={Palette.panel}
 			padding={12}
 			layoutOrder={0}
@@ -722,14 +718,14 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			reducedMotion={softMotion}
 			clips={false}
 		>
-			<Text
-				value="Owner Console"
-				size={16}
+			<Line
+				text={spaced("ADMIN")}
+				size={20}
+				font={TITLE_FACE}
 				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
+				width={new UDim(1, -(refreshW + 8))}
+				height={22}
 				position={UDim2.fromOffset(0, 6)}
-				sizeConstraint={new UDim2(1, -(refreshW + 8), 0, 22)}
 			/>
 			<frame Size={new UDim2(1, 0, 0, 22)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
 				<uilistlayout
@@ -934,7 +930,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 	const executeDock = (
 		<PnSurface
 			size={new UDim2(1, 0, 0, executeH)}
-			accent={armed ? Palette.coral : accent}
+			accent={armed ? Palette.coral : Palette.brass}
 			background={Palette.panelRaised}
 			padding={12}
 			layoutOrder={1}

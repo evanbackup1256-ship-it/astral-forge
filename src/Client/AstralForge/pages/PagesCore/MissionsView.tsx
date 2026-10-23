@@ -196,7 +196,7 @@ export function TaskRow({
 					text={quest.Claimed ? "Claimed" : ready ? "Claim" : "Not yet"}
 					onClick={claim}
 					color={ready ? Palette.mango : undefined}
-					textColor={ready ? Color3.fromRGB(27, 15, 8) : Palette.creamSoft}
+					textColor={ready ? Palette.ink : Palette.creamSoft}
 					size={UDim2.fromScale(1, 1)}
 					reducedMotion={softMotion}
 					disabled={quest.Claimed || !ready}
@@ -477,7 +477,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						icon="Gift.4"
 						onClick={claimAllReady}
 						color={Palette.mango}
-						textColor={Color3.fromRGB(27, 15, 8)}
+						textColor={Palette.ink}
 						size={UDim2.fromScale(1, 1)}
 						reducedMotion={softMotion}
 						highlight={true}
@@ -562,7 +562,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						icon="Gift.4"
 						onClick={claimAllReady}
 						color={Palette.mango}
-						textColor={Color3.fromRGB(27, 15, 8)}
+						textColor={Palette.ink}
 						size={UDim2.fromScale(1, 1)}
 						reducedMotion={softMotion}
 						highlight={true}

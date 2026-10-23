@@ -540,8 +540,8 @@ function BazaarView(props: BazaarProps) {
 		<PnSurface
 			size={UDim2.fromScale(1, 1)}
 			padding={16}
-			accent={Palette.violet}
-			background={Palette.panelRaised}
+			accent={Palette.brass}
+			background={Palette.panel}
 			reducedMotion={props.reducedMotion}
 		>
 			<HeaderArt art="market" inset={16} />
@@ -611,7 +611,7 @@ function BazaarView(props: BazaarProps) {
 			<PnSurface
 				size={UDim2.fromScale(1, 1)}
 				padding={18}
-				accent={accent}
+				accent={Palette.brass}
 				background={Palette.panel}
 				reducedMotion={props.reducedMotion}
 			>

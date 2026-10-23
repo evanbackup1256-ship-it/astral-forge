@@ -24,7 +24,7 @@ import Geometry = require("./WheelGeometry");
 const Palette = theme.Palette;
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
-const BRASS = Color3.fromRGB(214, 176, 104);
+const BRASS = Palette.brass;
 const BRASS_DEEP = Color3.fromRGB(120, 92, 48);
 const FACE_SCALE = 0.86;
 const BULBS = 24;
