@@ -564,7 +564,6 @@ export function search(state: Record<string, unknown>, query: string, chatUnread
 			for (const entry of ready as Array<{
 				route: string;
 				label: string;
-				detail: string;
 				icon: string;
 				accent: Color3;
 				count: number;
@@ -575,7 +574,8 @@ export function search(state: Record<string, unknown>, query: string, chatUnread
 						key: page.key,
 						kind: "Page",
 						title: entry.label,
-						subtitle: entry.detail,
+						// no subtitle: the badge count already says it is ready ("Wheel 1")
+						subtitle: undefined,
 						icon: entry.icon,
 						accent: entry.accent,
 						route: entry.route,

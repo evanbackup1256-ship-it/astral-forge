@@ -198,7 +198,7 @@ function Row(props: RowProps) {
 				type="title"
 				color={entry.locked ? Palette.creamSoft : lit.map((a) => Palette.cream.Lerp(Palette.white, math.clamp(a, 0, 1)))}
 				size={new UDim2(1, -(textLeft + rightW + 12), 0, 18)}
-				position={new UDim2(0, textLeft, 0.5, -18)}
+				position={new UDim2(0, textLeft, 0.5, entry.subtitle !== undefined && entry.subtitle !== "" ? -18 : -9)}
 				transparency={fade}
 				zIndex={7}
 				onFits={(fits) => setTitleCut(!fits)}
