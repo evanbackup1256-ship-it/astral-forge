@@ -6,7 +6,6 @@
 // so every section rises exactly once on its own staggered curve.
 import React from "@rbxts/react";
 import { SplitColumns, SplitPlan, StackBlocks, stackHeight } from "../UiCore/ui";
-import { balanceColumns } from "../UiCore/layoutEngine";
 
 const RunService = game.GetService("RunService");
 
@@ -58,9 +57,7 @@ export interface PageBlock {
 }
 
 /** One scaffold section holding two columns of blocks; block order follows `order` so the rise staggers like a single list. */
-export function splitSection(name: string, plan: SplitPlan, gap: number, sideIn: PageBlock[], mainIn: PageBlock[], sideOnRight: boolean, order: string[]): PageBlock {
-	// side by side, uneven columns trade tail blocks so neither leaves a tall empty gap
-	const [side, main] = plan.split ? balanceColumns(sideIn, mainIn, gap) : [sideIn, mainIn];
+export function splitSection(name: string, plan: SplitPlan, gap: number, side: PageBlock[], main: PageBlock[], sideOnRight: boolean, order: string[]): PageBlock {
 	const risen = (blocks: PageBlock[]) =>
 		blocks.map((block) => ({
 			id: block.id,

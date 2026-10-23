@@ -330,7 +330,6 @@ export { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 // the shared search box lives with the other surface primitives
 export { SearchField } from "./surface";
 import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
-import { attachWhitespaceDebug } from "./layoutEngine";
 
 function withExitFade(localFade: Bindable<number>, presence: React.Binding<number>): React.Binding<number> {
 	if (typeIs(localFade, "number") && localFade === 0) {
@@ -4246,10 +4245,6 @@ export function LogoLockup(props: { micro?: boolean; position?: UDim2 }) {
 // SplitColumns places two children side by side (side column fixed width, main column fills).
 // ---------------------------------------------------------------------------------------------
 export const SPLIT_MIN_WIDTH = 860;
-// Columns placed by SplitColumns stretch their last block to the column's full height, so a short
-// column never leaves an empty gap beside a long one (layout engine).
-const SplitFillContext = React.createContext(false);
-export { balanceColumns, breakpointFor, fitColumns, measureText, packMasonry, resolveTrack, Space, spacingFor } from "./layoutEngine";
 export interface SplitPlan {
 	split: boolean;
 	side: number;
@@ -4275,18 +4270,9 @@ export interface SplitColumnsProps {
 export function SplitColumns(props: SplitColumnsProps) {
 	const plan = props.plan;
 	const right = props.sideOnRight === true;
-	const hostRef = React.useRef<Frame>();
-	React.useEffect(() => {
-		const host = hostRef.current;
-		return host !== undefined ? attachWhitespaceDebug(host, props.name ?? "SplitColumns") : undefined;
-	}, []);
 	return React.createElement(
-		SplitFillContext.Provider,
-		{ value: true },
-		React.createElement(
 		"frame",
 		{
-			ref: hostRef,
 			Name: props.name ?? "SplitColumns",
 			Size: new UDim2(1, 0, 0, props.height),
 			BackgroundTransparency: 1,
@@ -4320,7 +4306,6 @@ export function SplitColumns(props: SplitColumnsProps) {
 				LayoutOrder: right ? 1 : 2,
 			},
 			props.main,
-		),
 		),
 	);
 }
@@ -4385,13 +4370,8 @@ export function StackBlocks(props: {
 	gap?: number;
 	blocks: { id: string; height: number; element: React.ReactNode; rise?: number }[];
 	riseFrom?: number;
-	/** stretch the last block to the bottom of the parent (default: on inside SplitColumns) */
-	fill?: boolean;
 }) {
 	const gap = props.gap ?? 10;
-	const inSplit = React.useContext(SplitFillContext);
-	const fill = props.fill ?? inSplit;
-	const last = props.blocks.size();
 	const children: Record<string, React.ReactNode> = {};
 	let y = 0;
 	for (const [index, block] of ipairs(props.blocks)) {
@@ -4404,17 +4384,14 @@ export function StackBlocks(props: {
 			"frame",
 			{
 				Name: block.id,
-				// the last block takes whatever the column has left, never less than its own height
-				Size: fill && index === last ? new UDim2(1, 0, 1, -y) : new UDim2(1, 0, 0, block.height),
+				Size: new UDim2(1, 0, 0, block.height),
 				Position: UDim2.fromOffset(0, y),
 				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
 				ClipsDescendants: false,
 				LayoutOrder: index,
 			},
-			fill && index === last
-				? [React.createElement("uisizeconstraint", { key: "FillFloor", MinSize: new Vector2(0, block.height) }), body]
-				: body,
+			body,
 		);
 		y += block.height + gap;
 	}

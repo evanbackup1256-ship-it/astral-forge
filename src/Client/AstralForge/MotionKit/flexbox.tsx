@@ -216,8 +216,7 @@ export function packColumns(width: number, surface: FlexSurface = flexSurface())
 	if (surface === "gamepad" || width < 1100) {
 		return 3;
 	}
-	// ultrawide: a fifth column instead of very wide cards
-	return width >= 1700 ? 5 : 4;
+	return 4;
 }
 
 function isFlexChildList(value: unknown): value is unknown[] {
@@ -263,8 +262,7 @@ export function useShopColumns(): number {
 	if (contentW < 900) {
 		return 2;
 	}
-	// wide monitors: a fourth shop column instead of stretched cards
-	return contentW >= 1320 ? 4 : 3;
+	return 3;
 }
 
 export function usePackColumns(): number {
@@ -290,11 +288,10 @@ export interface FlexGridProps {
 
 export function FlexGrid({ children, columns, gap, cellMinHeight = 160, size = new UDim2(1, 0, 0, 0), layoutOrder = 0 }: FlexGridProps) {
 	const packed = usePackColumns();
+	const cols = math.max(1, columns ?? packed);
 	const platform = useFlexPlatform();
 	const gapPx = gap ?? platform.gap;
 	const nodes = flattenFlexChildren(children);
-	// content-aware: never more columns than cards, so a short row stretches instead of leaving holes
-	const cols = math.clamp(columns ?? packed, 1, math.max(1, nodes.size()));
 	return (
 		<frame Size={size} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={layoutOrder} ClipsDescendants={false}>
 			<uigridlayout
