@@ -5,6 +5,8 @@ import React from "@rbxts/react";
 import { asFlux, compactNumber } from "../../CoreKit/format";
 import { useFocusOrder } from "../../CoreKit/focusOrder";
 import { chromeFor, darken, Palette, TapTarget } from "../../CoreKit/theme";
+import { Bar, BODY_SEMI, ItemTile, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, spaced, TITLE_FACE } from "../../UiCore/mockKit";
+import { headingBlock, MockRow, panelHeight, rowHeight, SEC } from "../mockRows";
 import { useClock, useViewport } from "../../MotionKit/motion";
 import { splitColumns } from "../../UiCore/ui";
 import { splitSection, PageBlock } from "../layoutRise";
@@ -25,7 +27,6 @@ const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit",
 const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
 const meterFill = (Ui as unknown as { meterFill: (this: void, a: number, b: number) => number }).meterFill;
 
-const GAP = 14;
 const RING_SEGMENTS = 48;
 const GRADE_COLOR: Record<string, Color3 | undefined> = { S: Palette.mango, A: Palette.mint, B: Palette.cyan, C: Palette.muted };
 
@@ -82,38 +83,14 @@ function SweptRing(props: { size: number; fill: number; accent: Color3; softMoti
 	);
 }
 
-function Row(props: { icon: string; label: string; sub?: string; value: string; color: Color3; order: number }) {
-	return (
-		<frame Size={new UDim2(1, 0, 0, 40)} Position={UDim2.fromOffset(0, 30 + props.order * 46)} BackgroundColor3={Palette.panelSoft} BackgroundTransparency={0.4} BorderSizePixel={0}>
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<Icon kind={props.icon} size={20} position={UDim2.fromOffset(10, 10)} />
-			<Ui.Text value={props.label} size={13} weight={Enum.FontWeight.Bold} position={UDim2.fromOffset(38, props.sub !== undefined ? 4 : 11)} sizeConstraint={new UDim2(1, -110, 0, 18)} />
-			{props.sub !== undefined && (
-				<Ui.Text value={props.sub} size={10} color={Palette.muted} position={UDim2.fromOffset(38, 22)} sizeConstraint={new UDim2(1, -110, 0, 14)} />
-			)}
-			<Ui.Text value={props.value} size={13} weight={Enum.FontWeight.Heavy} color={props.color} align={Enum.TextXAlignment.Right} position={new UDim2(1, -80, 0, 11)} sizeConstraint={UDim2.fromOffset(70, 18)} />
-		</frame>
-	);
-}
-
-function Card(props: { title: string; accent: Color3; children?: React.ReactNode }) {
-	return (
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={props.accent} background={Palette.panel} radius={18}>
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uistroke Color={Palette.brass} Transparency={0.75} Thickness={1} />
-				<uicorner CornerRadius={new UDim(0, 12)} />
-			</frame>
-			<Ui.Text value={props.title} size={12} weight={Enum.FontWeight.Heavy} color={Palette.brass} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-			{props.children}
-		</Ui.Panel>
-	);
-}
-
+// 09-rebirth body: 640px dial panel left; You get / You lose, Keepsakes + 340px History, Milestones on the right
 function RebirthBoard(props: RebirthViewProps) {
 	const { state, config, reducedMotion } = props;
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
-	const stack = chrome.contentStack;
+	const phone = chrome.contentStack;
+	const gap = mockGap(phone);
+	const pad = panelPad(phone);
 	const info = rebirthOf(state);
 	const [chamberOpen, setChamberOpen] = React.useState(false);
 	const rebirths = math.max(0, math.floor(tonumber(state.Rebirths) ?? 0));
@@ -122,117 +99,141 @@ function RebirthBoard(props: RebirthViewProps) {
 	const earned = math.max(0, asFlux(state.RunCash)) + math.max(0, asFlux(state.Vault));
 	const progress = ready ? 1 : meterFill(earned, target);
 	const accent = Palette.pink;
+	const rowH = rowHeight(phone);
+	const rowH2 = rowHeight(phone, true);
+	const head = headingBlock(phone);
 
-	const sections: PageBlock[] = [];
-	// hero
-	sections.push({
-		id: "hero",
-		height: stack ? 76 : 104,
-		element: (
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={stack ? 12 : 18} accent={Palette.brass} background={darken(accent, 0.9)} radius={18} clips={true}>
-				<Ui.Text value={`REBIRTH ${rebirths} → ${rebirths + 1}`} size={10} weight={Enum.FontWeight.Heavy} color={accent} sizeConstraint={new UDim2(1, 0, 0, 14)} />
-				<Ui.Text value="Rebirth" size={stack ? 22 : 30} weight={Enum.FontWeight.Heavy} position={UDim2.fromOffset(0, 16)} sizeConstraint={new UDim2(1, 0, 0, stack ? 26 : 36)} />
-				<Ui.Text value="Melt it all down. Come back brighter." size={12} color={Palette.creamSoft} position={UDim2.fromOffset(0, stack ? 44 : 56)} sizeConstraint={new UDim2(1, -120, 0, 16)} />
-				<SweptRing size={stack ? 52 : 72} fill={progress} accent={accent} softMotion={reducedMotion} />
-			</Ui.Panel>
-		),
-	});
-	// the main dial and the button
-	const dialSize = stack ? 180 : 260;
-	const dialH = dialSize + 24 + 34 + 12 + TapTarget + 36;
-	sections.push({
-		id: "dial",
-		height: dialH,
-		element: (
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={accent} background={Palette.panelRaised} radius={18} highlight={ready && !reducedMotion} reducedMotion={reducedMotion} clips={false}>
+	// .pn dial: 400px ring, bar + earned / needed, 60px pink button
+	const dialSize = phone ? 200 : 400;
+	const btnH = phone ? TapTarget : 60;
+	const dialContent = dialSize + 18 + 10 + 8 + 18 + 18 + btnH;
+	const dialPanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} reducedMotion={reducedMotion} gap={18} name="RebirthDial">
+			<frame Size={new UDim2(1, 0, 0, dialSize)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 				<SweptRing size={dialSize} fill={progress} accent={accent} softMotion={reducedMotion}>
-					<Ui.Text value={`REBIRTH ${rebirths + 1}`} size={12} weight={Enum.FontWeight.Heavy} color={Palette.muted} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, -46)} sizeConstraint={new UDim2(1, 0, 0, 16)} zIndex={4} />
-					<Ui.Text value={ready ? "Ready" : `${math.floor(progress * 100)}%`} size={stack ? 30 : 42} weight={Enum.FontWeight.Heavy} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, -28)} sizeConstraint={new UDim2(1, 0, 0, 48)} zIndex={4} />
-					<Ui.Text value={`+${compactNumber(info.Cores)} cores`} size={12} color={accent} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, 22)} sizeConstraint={new UDim2(1, 0, 0, 16)} zIndex={4} />
+					<Line text={spaced(`REBIRTH ${rebirths + 1}`)} size={phone ? 11 : 13} color={Palette.muted} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, phone ? -40 : -70)} zIndex={4} />
+					<Line text={ready ? "Ready" : `${math.floor(progress * 100)}%`} size={phone ? 40 : 72} font={TITLE_FACE} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, 0)} anchor={new Vector2(0, 0.5)} zIndex={4} />
+					<Line text={`+${compactNumber(info.Cores)} cores`} size={phone ? 12 : 15} font={BODY_SEMI} color={accent} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, phone ? 26 : 48)} zIndex={4} />
 				</SweptRing>
-				<Ui.Meter value={progress} color={accent} rainbow={true} shimmer={ready} reducedMotion={reducedMotion} position={UDim2.fromOffset(0, dialSize + 24)} size={new UDim2(1, 0, 0, 6)} />
-				<Ui.Text value={`${compactNumber(earned)} earned`} size={11} color={Palette.muted} position={UDim2.fromOffset(0, dialSize + 36)} sizeConstraint={new UDim2(0.5, 0, 0, 16)} />
-				<Ui.Text value={`${compactNumber(target)} needed`} size={11} color={Palette.muted} align={Enum.TextXAlignment.Right} position={new UDim2(0.5, 0, 0, dialSize + 36)} sizeConstraint={new UDim2(0.5, 0, 0, 16)} />
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, 10 + 8 + 18)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<Bar fill={progress} color={accent} />
+				<Line text={`${compactNumber(earned)} cash earned`} size={14} font={BODY_SEMI} color={Palette.muted} position={UDim2.fromOffset(0, 18)} />
+				<Line text={`${compactNumber(target)} needed`} size={14} font={BODY_SEMI} color={Palette.muted} position={UDim2.fromScale(1, 0)} anchor={new Vector2(1, 0)} width={new UDim(0.5, 0)} align={Enum.TextXAlignment.Right} />
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, btnH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
 				<Ui.Button
 					text={ready ? "Rebirth now" : "Plan rebirth"}
 					icon="Rebirth.rebirthPlan"
 					sound="page"
-					color={ready ? accent : Palette.panelSoft}
+					color={ready ? accent : SEC}
 					textColor={ready ? Palette.ink : Palette.cream}
 					highlight={ready && !reducedMotion}
 					reducedMotion={reducedMotion}
-					size={new UDim2(1, 0, 0, TapTarget)}
-					position={new UDim2(0, 0, 1, -TapTarget)}
+					size={UDim2.fromScale(1, 1)}
 					onClick={() => setChamberOpen(true)}
 				/>
-			</Ui.Panel>
-		),
-	});
+			</frame>
+		</MockPanel>
+	);
+
 	// you get / you lose
 	const machines = state.Machines ?? {};
 	let levels = 0;
 	for (const [, level] of pairs(machines)) levels += tonumber(level) ?? 0;
-	const listH = 30 + 3 * 46 + 14;
-	const gainLose = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<frame Size={stack ? new UDim2(1, 0, 0, listH) : new UDim2(0.5, -GAP / 2, 1, 0)} BackgroundTransparency={1}>
-				<Card title="YOU GET" accent={Palette.mint}>
-					<Row order={0} icon="Production.rebirthStarCores" label="Cores" value={`+${compactNumber(info.Cores)}`} color={accent} />
-					<Row order={1} icon="Dust.rebirthStarDust" label="Stardust" value={`+${compactNumber(info.Stardust)}`} color={accent} />
-					<Row order={2} icon="Rebirth.rebirthDial" label="Run grade" sub={info.Runs !== undefined && info.Runs.size() > 0 ? "beat your last run" : undefined} value={info.Grade} color={GRADE_COLOR[info.Grade] ?? Palette.cream} />
-				</Card>
-			</frame>
-			<frame Size={stack ? new UDim2(1, 0, 0, listH) : new UDim2(0.5, -GAP / 2, 1, 0)} Position={stack ? UDim2.fromOffset(0, listH + GAP) : new UDim2(0.5, GAP / 2, 0, 0)} BackgroundTransparency={1}>
-				<Card title="YOU LOSE" accent={Palette.coral}>
-					<Row order={0} icon="Flux.rebirthStarSeed" label="Cash" value={compactNumber(state.RunCash)} color={Palette.coral} />
-					<Row order={1} icon="Forge.rebirthWorkshop" label="Machine levels" value={compactNumber(levels)} color={Palette.coral} />
-					<Row order={2} icon="Vault.rebirthVowOverflow" label="Vault" value={compactNumber(state.Vault)} color={Palette.coral} />
-				</Card>
-			</frame>
-		</frame>
+	const listH = panelHeight(phone, head + rowH * 2 + rowH2 + pad.gap * 2);
+	const getPanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.mint} reducedMotion={reducedMotion} name="YouGet">
+			<PanelHeading icon="Collect" title="You get" accent={Palette.mint} phone={phone} layoutOrder={0} />
+			<MockRow phone={phone} icon="Production" title="Cores" value={`+${compactNumber(info.Cores)}`} layoutOrder={1} />
+			<MockRow phone={phone} icon="Dust" title="Stardust" value={`+${compactNumber(info.Stardust)}`} layoutOrder={2} />
+			<MockRow
+				phone={phone}
+				icon="Rebirth"
+				title="Run grade"
+				sub={(info.Runs ?? []).size() > 0 ? "beat your last run" : "first run"}
+				value={info.Grade}
+				valueColor={GRADE_COLOR[info.Grade] ?? Palette.cream}
+				layoutOrder={3}
+			/>
+		</MockPanel>
 	);
-	// keepsakes and history
+	const losePanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.coral} reducedMotion={reducedMotion} name="YouLose">
+			<PanelHeading icon="Minus" title="You lose" accent={Palette.coral} phone={phone} layoutOrder={0} />
+			<MockRow phone={phone} icon="Flux" accent={Palette.coral} title="Cash" value={compactNumber(state.RunCash)} layoutOrder={1} />
+			<MockRow phone={phone} icon="Forge" accent={Palette.coral} title="Machine levels" value={compactNumber(levels)} layoutOrder={2} />
+			<MockRow phone={phone} icon="Vault" accent={Palette.coral} title="Vault" sub="banked cash" value={compactNumber(state.Vault)} layoutOrder={3} />
+		</MockPanel>
+	);
+
+	// keepsakes (.it cards with a Kept count) and the last three runs
 	const keep = info.Keep ?? [];
 	const names = new Map<string, string>();
+	const levelsOf = state.Machines ?? {};
 	for (const machine of (config?.Machines ?? []) as MachineConfig[]) names.set(machine.Id, machine.Name ?? machine.Id);
 	const slots = math.max(keep.size(), info.KeepSlots ?? 0);
-	const keepCards: Record<string, React.Element> = {};
-	const cardW = 1 / math.max(3, slots);
+	const tileW = phone ? 96 : 132;
+	const tiles: React.Element[] = [];
 	for (let i = 0; i < math.max(1, slots); i++) {
 		const id = keep[i];
-		keepCards["k" + i] = (
-			<frame Size={new UDim2(cardW, -8, 1, -30)} Position={new UDim2(i * cardW, 0, 0, 26)} BackgroundColor3={id !== undefined ? darken(Palette.violet, 0.75) : Palette.panelSoft} BackgroundTransparency={id !== undefined ? 0 : 0.5} BorderSizePixel={0}>
-				<uicorner CornerRadius={new UDim(0, 10)} />
-				<uistroke Color={id !== undefined ? Palette.violet : Palette.lineSoft} Thickness={1.5} Transparency={id !== undefined ? 0 : 0.6} />
-				<Icon kind={id !== undefined ? "Loadout.rebirthKeepOther" : "Lock.rebirthStarVow"} size={28} position={new UDim2(0.5, -14, 0, 10)} />
-				<Ui.Text value={id !== undefined ? (names.get(id) ?? id) : "Empty"} size={11} weight={Enum.FontWeight.Bold} align={Enum.TextXAlignment.Center} fit={true} minSize={9} position={new UDim2(0, 4, 1, -24)} sizeConstraint={new UDim2(1, -8, 0, 18)} />
-			</frame>
+		tiles.push(
+			<ItemTile
+				key={"k" + i}
+				color={id !== undefined ? Palette.violet : Palette.muted}
+				icon={id !== undefined ? "Loadout" : "Lock"}
+				width={tileW}
+				locked={id === undefined}
+				name={id !== undefined ? (names.get(id) ?? id) : slots > 0 ? "Empty" : "No slots yet"}
+				tag={id !== undefined ? "Kept" : undefined}
+				count={id !== undefined ? `Lv ${compactNumber(tonumber(levelsOf[id]) ?? 0)}` : undefined}
+				layoutOrder={i}
+				phone={phone}
+			/>,
 		);
 	}
+	const tileH = (() => {
+		const p2 = phone ? 5 : 8;
+		const well = tileW - p2 * 2;
+		return p2 + math.floor(well / 1.15) + (phone ? 4 : 6) * 2 + (phone ? 14 : 17) * 2 + (phone ? 7 : 10);
+	})();
+	const keepPanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reducedMotion={reducedMotion} name="Keepsakes">
+			<PanelHeading icon="Loadout" title="Keepsakes" note="Survive every rebirth" phone={phone} layoutOrder={0} />
+			<frame Size={new UDim2(1, 0, 0, tileH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 6 : 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{tiles}
+			</frame>
+		</MockPanel>
+	);
 	const runs = (info.Runs ?? []) as RunEntry[];
-	const historyRows: Record<string, React.Element> = {};
 	const shown = math.min(3, runs.size());
+	const historyRows: React.Element[] = [];
 	for (let i = 0; i < shown; i++) {
 		const run = runs[runs.size() - 1 - i];
-		historyRows["h" + i] = (
-			<Row order={i} icon="Timer.rebirthVowSwift" label={`#${rebirths - i}`} sub={clock(run.Seconds)} value={`${run.Grade} +${compactNumber(run.Cores ?? 0)}`} color={GRADE_COLOR[run.Grade] ?? Palette.cream} />
+		historyRows.push(
+			<MockRow
+				key={"h" + i}
+				phone={phone}
+				title={clock(run.Seconds)}
+				value={`${run.Grade}  +${compactNumber(run.Cores ?? 0)}`}
+				valueColor={GRADE_COLOR[run.Grade] ?? Palette.cream}
+				right={<Line text={`#${rebirths - i}`} size={phone ? 14 : 17} font={NUM} color={accent} width={new UDim(0, 48)} />}
+				rightWidth={0}
+				layoutOrder={i + 1}
+			/>,
 		);
 	}
-	const keepH = 150;
-	const histH = 30 + math.max(1, shown) * 46 + 14;
-	const keepHistory = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<frame Size={stack ? new UDim2(1, 0, 0, keepH) : new UDim2(0.58, -GAP / 2, 1, 0)} BackgroundTransparency={1}>
-				<Card title="KEEPSAKES" accent={Palette.violet}>{keepCards}</Card>
-			</frame>
-			<frame Size={stack ? new UDim2(1, 0, 0, histH) : new UDim2(0.42, -GAP / 2, 1, 0)} Position={stack ? UDim2.fromOffset(0, keepH + GAP) : new UDim2(0.58, GAP / 2, 0, 0)} BackgroundTransparency={1}>
-				<Card title="HISTORY" accent={Palette.pink}>
-					{shown > 0 ? historyRows : <Ui.Text value="No runs yet" size={12} color={Palette.muted} position={UDim2.fromOffset(0, 40)} sizeConstraint={new UDim2(1, 0, 0, 18)} />}
-				</Card>
-			</frame>
-		</frame>
+	const histH = panelHeight(phone, head + math.max(1, shown) * rowH + math.max(0, shown - 1) * pad.gap);
+	const keepH = math.max(panelHeight(phone, head + tileH), histH);
+	const historyPanel = (
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} reducedMotion={reducedMotion} name="History">
+			<PanelHeading icon="Timer" title="History" phone={phone} layoutOrder={0} />
+			{shown > 0 ? historyRows : <MockRow phone={phone} title="No runs yet" layoutOrder={1} />}
+		</MockPanel>
 	);
-	// milestones: the next rebirth unlocks from config
+
+	// milestones: the next four rebirth unlocks from config, 44px nodes on a pink/line track
 	const steps: { need: number; name: string }[] = [];
 	const unlocks = config !== undefined && typeIs(config.Unlocks, "table") ? (config.Unlocks as unknown[]) : [];
 	for (const raw of unlocks) {
@@ -247,43 +248,95 @@ function RebirthBoard(props: RebirthViewProps) {
 		if (steps[i].need <= rebirths) first = i;
 	}
 	const track = steps.filter((_, i) => i >= first && i < first + 4);
-	const nodes: Record<string, React.Element> = {};
+	let doneCount = 0;
+	for (const step of track) if (step.need <= rebirths) doneCount += 1;
+	const node = phone ? 34 : 44;
+	const trackH = node + 8 + 18;
+	const nodes: React.Element[] = [];
 	track.forEach((step, i) => {
 		const done = step.need <= rebirths;
-		const x = track.size() <= 1 ? 0.5 : i / (track.size() - 1);
-		nodes["m" + i] = (
-			<frame Size={UDim2.fromOffset(96, 64)} Position={new UDim2(x, -48 + (1 - x * 2) * 30, 0, 26)} BackgroundTransparency={1}>
-				<frame Size={UDim2.fromOffset(28, 28)} Position={new UDim2(0.5, -14, 0, 0)} BackgroundColor3={done ? accent : Palette.panelSoft} BorderSizePixel={0} ZIndex={3}>
+		nodes.push(
+			<frame key={"m" + i} Size={new UDim2(1 / math.max(1, track.size()), 0, 1, 0)} Position={new UDim2(i / math.max(1, track.size()), 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<frame Size={UDim2.fromOffset(node, node)} Position={new UDim2(0.5, 0, 0, 0)} AnchorPoint={new Vector2(0.5, 0)} BackgroundColor3={done ? accent : Color3.fromRGB(27, 21, 29)} BorderSizePixel={0} ZIndex={3}>
 					<uicorner CornerRadius={new UDim(1, 0)} />
-					<uistroke Color={done ? Palette.cream : Palette.lineSoft} Thickness={1.5} Transparency={0.3} />
-					<Ui.Text value={tostring(step.need)} size={10} weight={Enum.FontWeight.Heavy} color={done ? Palette.ink : Palette.cream} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(0, 7)} sizeConstraint={new UDim2(1, 0, 0, 14)} zIndex={4} />
+					{done && <uigradient Rotation={90} Color={new ColorSequence(Color3.fromRGB(255, 200, 240), accent)} />}
+					<uistroke Color={done ? accent : Color3.fromRGB(74, 58, 80)} Thickness={2} />
+					<Line text={tostring(step.need)} size={phone ? 14 : 17} font={NUM} color={done ? Color3.fromRGB(42, 15, 29) : Palette.muted} width={new UDim(1, 0)} height={node} align={Enum.TextXAlignment.Center} zIndex={4} />
 				</frame>
-				<Ui.Text value={step.name} size={10} color={done ? Palette.cream : Palette.muted} wrap={true} fit={true} minSize={9} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(0, 32)} sizeConstraint={new UDim2(1, 0, 0, 30)} />
-			</frame>
+				<Line text={step.name} size={phone ? 12 : 14} font={BODY_SEMI} color={done ? Palette.cream : Palette.muted} width={new UDim(1, -8)} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(4, node + 8)} height={18} />
+			</frame>,
 		);
 	});
+	const lit = track.size() > 0 ? math.clamp((doneCount - 0.5) / track.size(), 0, 1) : 0;
+	const milestonesH = panelHeight(phone, head + trackH);
 	const milestones = (
-		<Card title="MILESTONES" accent={Palette.brass}>
-			<frame Size={new UDim2(1, -60, 0, 2)} Position={UDim2.fromOffset(30, 39)} BackgroundColor3={Palette.lineSoft} BackgroundTransparency={0.5} BorderSizePixel={0} />
-			{track.size() > 0 ? nodes : <Ui.Text value="All unlocked" size={12} color={Palette.muted} position={UDim2.fromOffset(0, 36)} sizeConstraint={new UDim2(1, 0, 0, 18)} />}
-		</Card>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reducedMotion={reducedMotion} name="Milestones">
+			<PanelHeading icon="Milestone" title="Milestones" phone={phone} layoutOrder={0} />
+			<frame Size={new UDim2(1, 0, 0, trackH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				{track.size() > 0 ? (
+					<>
+						<frame Size={new UDim2(0.76, 0, 0, 2)} Position={new UDim2(0.12, 0, 0, node / 2 - 1)} BackgroundColor3={Color3.fromRGB(74, 58, 80)} BorderSizePixel={0}>
+							<frame Size={UDim2.fromScale(lit, 1)} BackgroundColor3={accent} BorderSizePixel={0} />
+						</frame>
+						{nodes}
+					</>
+				) : (
+					<Line text="Every rebirth unlock is open" size={14} font={BODY_SEMI} color={Palette.muted} />
+				)}
+			</frame>
+		</MockPanel>
 	);
 
-	const right: PageBlock[] = [
-		{ id: "gainLose", height: stack ? listH * 2 + GAP : listH, element: gainLose },
-		{ id: "keepHistory", height: stack ? keepH + histH + GAP : math.max(keepH, histH), element: keepHistory },
-		{ id: "milestones", height: 104, element: milestones },
-	];
-	const plan = splitColumns(stack ? 0 : viewport.width - 40, math.floor((viewport.width - 40) * 0.36), GAP, 900);
-	let body: PageBlock[];
-	if (plan.split) {
-		body = [sections[0], splitSection("RebirthSplit", plan, GAP, [sections[1]], right, false, ["dial", "gainLose", "keepHistory", "milestones"])];
-	} else {
-		body = [...sections, ...right];
-	}
+	const pair = (left: React.Element, right: React.Element, rightWidth: number | undefined, height: number, id: string): PageBlock => ({
+		id,
+		height: phone ? height * 2 + gap : height,
+		element: (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<frame Size={phone ? new UDim2(1, 0, 0, height) : new UDim2(1, -(rightWidth ?? 0) - gap, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+					{left}
+				</frame>
+				<frame
+					Size={phone ? new UDim2(1, 0, 0, height) : new UDim2(0, rightWidth ?? 0, 1, 0)}
+					Position={phone ? UDim2.fromOffset(0, height + gap) : new UDim2(1, -(rightWidth ?? 0), 0, 0)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+				>
+					{right}
+				</frame>
+			</frame>
+		),
+	});
+	const right: PageBlock[] = [];
+	// You get / You lose split evenly: give each half the same width
+	right.push({
+		id: "gainLose",
+		height: phone ? listH * 2 + gap : listH,
+		element: (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<frame Size={phone ? new UDim2(1, 0, 0, listH) : new UDim2(0.5, -gap / 2, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+					{getPanel}
+				</frame>
+				<frame Size={phone ? new UDim2(1, 0, 0, listH) : new UDim2(0.5, -gap / 2, 1, 0)} Position={phone ? UDim2.fromOffset(0, listH + gap) : new UDim2(0.5, gap / 2, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+					{losePanel}
+				</frame>
+			</frame>
+		),
+	});
+	right.push(pair(keepPanel, historyPanel, 340, keepH, "keepHistory"));
+	right.push({ id: "milestones", height: milestonesH, element: milestones });
+	let rightH = 0;
+	for (const block of right) rightH += block.height + gap;
+	rightH -= gap;
+	const dialH = phone ? panelHeight(true, dialContent) : math.max(panelHeight(false, dialContent), rightH);
+	const dialBlock: PageBlock = { id: "dial", height: dialH, element: dialPanel };
+	const wide = !phone && viewport.width >= 1280;
+	const plan = splitColumns(wide ? viewport.width - 40 : 0, 640, gap, 900);
+	const body: PageBlock[] = plan.split
+		? [splitSection("RebirthSplit", plan, gap, [dialBlock], right, false, ["dial", "gainLose", "keepHistory", "milestones"])]
+		: [dialBlock, ...right];
 	return (
 		<>
-			<PageScaffold sections={body} gap={GAP} tailPad={72} scrollBarColor={accent} owner="RebirthView" />
+			<PageScaffold sections={body} gap={gap} tailPad={72} scrollBarColor={accent} owner="RebirthView" />
 			{chamberOpen && (
 				<RebirthChamber state={state} config={config} dispatch={props.dispatch} reducedMotion={reducedMotion} onClose={() => setChamberOpen(false)} />
 			)}
@@ -293,7 +346,7 @@ function RebirthBoard(props: RebirthViewProps) {
 
 export function RebirthView(props: RebirthViewProps) {
 	const hostRef = React.useRef<Frame>();
-	useFocusOrder(hostRef, { regions: ["hero", "dial", "gainLose", "keepHistory", "milestones"], first: ["dial"], columns: [["Side", "Main"]] }, [
+	useFocusOrder(hostRef, { regions: ["dial", "gainLose", "keepHistory", "milestones"], first: ["dial"], columns: [["Side", "Main"]] }, [
 		rebirthOf(props.state).Ready === true,
 	]);
 	return (
