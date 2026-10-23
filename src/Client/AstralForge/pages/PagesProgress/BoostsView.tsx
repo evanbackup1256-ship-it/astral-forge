@@ -4,9 +4,43 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { chromeFor, darken, Layout, lighten, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useClock, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
-import { composeSection } from "../layoutRise";
+import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
+// desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
+// page identity (boost shelf: active boosts lead, the side summary sits on the right)
+function pagePlan(width: number, stack: boolean): SplitPlan {
+	return splitColumns(stack ? 0 : width, math.clamp(math.floor(width * 0.34), 360, 500), 18, 1100);
+}
+
+// folds scaffold sections into one SplitColumns section: all but the last `mainCount` go on the
+// side; each column is a SelectionGroup so gamepad focus stays in a column until moved across
+function splitSections<S extends { id: string; height: number; element: React.Element }>(
+	plan: SplitPlan,
+	sections: S[],
+	name: string,
+	mainCount = 1,
+): Array<{ id: string; height: number; element: React.Element }> {
+	if (!plan.split || sections.size() <= mainCount) {
+		return sections;
+	}
+	const cut = sections.size() - mainCount;
+	const side = sections.filter((_, index) => index < cut);
+	const main = sections.filter((_, index) => index >= cut);
+	const height = math.max(stackHeight(side.map((s) => s.height), plan.gap), stackHeight(main.map((s) => s.height), plan.gap));
+	const column = (blocks: S[]) => (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
+			{blocks.size() === 1 ? blocks[0].element : <StackBlocks gap={plan.gap} blocks={blocks} />}
+		</frame>
+	);
+	return [
+		{
+			id: `${name}-split`,
+			height,
+			element: <SplitColumns height={height} plan={plan} sideOnRight={true} side={column(side)} main={column(main)} name={name} />,
+		},
+	];
+}
 
 
 const UserInputService = game.GetService("UserInputService");
@@ -589,10 +623,9 @@ function BoostsView(props: BoostsViewProps) {
 	// phones in landscape fit two boost cards side by side; one column leaves a 360px-tall
 	// screen showing a single card at a time
 	// wide desktop: reactor, stats and browse controls in a side column, cards in the main one
-	// composition (docs/layout-specs/boosts.md): reactor hero band, stat strip, browse bar, then a
-	// full-width card wall; the old side rail stretched into an empty column beside the cards
-	const gridWidth = viewport.width;
-	const columns = stack && !chrome.landscape ? 1 : gridWidth >= 1500 ? 4 : gridWidth >= 1000 ? 3 : 2;
+	const plan = pagePlan(viewport.width, stack);
+	const gridWidth = plan.split ? plan.main : viewport.width;
+	const columns = stack && !chrome.landscape ? 1 : gridWidth >= 1100 ? 3 : 2;
 	const activateHostRef = React.useRef<Frame>();
 	const now = useWallClock(true);
 	const inventory = state.BoostInventory ?? {};
@@ -699,8 +732,8 @@ function BoostsView(props: BoostsViewProps) {
 	const busyText = activeBoost !== undefined ? `${string.upper(activeBoost.Name)} RUNNING` : "ONE AT A TIME";
 	// phones in landscape use the wide hero and a single row of stat tiles: the stacked ones
 	// take 318-388px, more than a 360px-tall screen has
-	const heroStack = stack && !chrome.landscape;
-	const barStack = stack;
+	const heroStack = (stack && !chrome.landscape) || plan.split;
+	const barStack = stack || plan.split;
 	const heroH = activeBoost !== undefined ? (heroStack ? 260 : 182) : heroStack ? 190 : 132;
 	const statsH = heroStack ? 128 : 60;
 	const rowStride = CARD_H + GAP;
@@ -792,13 +825,9 @@ function BoostsView(props: BoostsViewProps) {
 			tailPad={scrollTail(stack, chrome.bottomSafe, stack ? 56 : 48)}
 			scrollBarColor={Palette.pink}
 			scrollBarThickness={4}
-			sections={[
-				composeSection(
-					"Boosts",
-					viewport.width,
-					stack ? 12 : Layout.panelGap,
-					{
-						hero: [
+			sections={splitSections(
+				plan,
+				[
 					{
 						id: "hero",
 						height: heroH,
@@ -824,8 +853,6 @@ function BoostsView(props: BoostsViewProps) {
 							</frame>
 						),
 					},
-						],
-						primary: [
 					{
 						id: "filters",
 						height: Browse.barHeight(barStack, true),
@@ -845,11 +872,9 @@ function BoostsView(props: BoostsViewProps) {
 						height: boosts.size() === 0 ? 220 : gridH,
 						element: grid,
 					},
-						],
-					},
-					{},
-				),
-			]}
+				] as Array<Section & { height: number }>,
+				"Boosts",
+			)}
 		/>
 	);
 }
