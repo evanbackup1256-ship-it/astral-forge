@@ -718,61 +718,58 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			reducedMotion={softMotion}
 			clips={false}
 		>
-			<Line
-				text={spaced("ADMIN")}
-				size={20}
-				font={TITLE_FACE}
-				color={Palette.cream}
-				width={new UDim(1, -(refreshW + 8))}
-				height={22}
-				position={UDim2.fromOffset(0, 6)}
-			/>
-			<frame Size={new UDim2(1, 0, 0, 22)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
-				<uilistlayout
-					FillDirection={Enum.FillDirection.Horizontal}
-					Padding={new UDim(0, 6)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-					VerticalAlignment={Enum.VerticalAlignment.Center}
-				/>
-				<Badge value={admin.Role ?? "ADMIN"} accent={Palette.coral} filled={true} size={UDim2.fromOffset(tight ? 88 : 108, 22)} />
-				<Badge
-					value={unhealthy ? "RESTORED" : "HEALTHY"}
-					accent={unhealthy ? Palette.mango : Palette.mint}
-					filled={true}
-					size={UDim2.fromOffset(tight ? 76 : 84, 22)}
-				/>
-				{selectedPlayer && selectedPlayer.Unlimited === true && (
-					<frame Size={UDim2.fromOffset(88, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
-						{/* last in the row: on narrow phones it gives up width instead of running past the edge */}
-						<uiflexitem FlexMode={Enum.UIFlexMode.Shrink} />
-						<Badge value="UNLIMITED" accent={Palette.violet} filled={true} size={UDim2.fromScale(1, 1)} />
+			{/* design/22 header: title + badges column (fills) | refresh, one horizontal list */}
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+			<frame key="Titles" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} LayoutOrder={0}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+				<Line text={spaced("ADMIN")} size={20} font={TITLE_FACE} color={Palette.cream} width={new UDim(1, 0)} height={22} layoutOrder={0} />
+					<frame Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} LayoutOrder={1}>
+						<uilistlayout
+							FillDirection={Enum.FillDirection.Horizontal}
+							Padding={new UDim(0, 6)}
+							SortOrder={Enum.SortOrder.LayoutOrder}
+							VerticalAlignment={Enum.VerticalAlignment.Center}
+						/>
+						<Badge value={admin.Role ?? "ADMIN"} accent={Palette.coral} filled={true} size={UDim2.fromOffset(tight ? 88 : 108, 22)} />
+						<Badge
+							value={unhealthy ? "RESTORED" : "HEALTHY"}
+							accent={unhealthy ? Palette.mango : Palette.mint}
+							filled={true}
+							size={UDim2.fromOffset(tight ? 76 : 84, 22)}
+						/>
+						{selectedPlayer && selectedPlayer.Unlimited === true && (
+							<frame Size={UDim2.fromOffset(88, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+								{/* last in the row: on narrow phones it gives up width instead of running past the edge */}
+								<uiflexitem FlexMode={Enum.UIFlexMode.Shrink} />
+								<Badge value="UNLIMITED" accent={Palette.violet} filled={true} size={UDim2.fromScale(1, 1)} />
+							</frame>
+						)}
 					</frame>
-				)}
 			</frame>
-			{/* invisible 44px hit area: the 32px button keeps its look; this extends 12px upward into the
-			    panel padding (y -9..35), away from the badge row below. Not selectable, so gamepad still
-			    lands on the visible button. Sits under the button so the button keeps its own clicks. */}
-			<textbutton
-				Size={UDim2.fromOffset(refreshW, 44)}
-				Position={new UDim2(1, -refreshW, 0, -9)}
-				BackgroundTransparency={1}
-				Text=""
-				AutoButtonColor={false}
-				Selectable={false}
-				Event={{ Activated: () => dispatch("GetAdminState") }}
-			/>
-			<Button
-				text="REFRESH"
-				onClick={() => {
-					dispatch("GetAdminState");
-				}}
-				color={Palette.panelSoft}
-				textColor={Palette.mint}
-				outline={true}
-				size={UDim2.fromOffset(refreshW, 32)}
-				position={new UDim2(1, -refreshW, 0, 3)}
-				reducedMotion={softMotion}
-			/>
+			{/* 44px hit area round the 32px button: the button keeps its look, the frame takes the tap */}
+			<frame key="Refresh" Size={UDim2.fromOffset(refreshW, 44)} BackgroundTransparency={1} LayoutOrder={1}>
+				<textbutton
+					Size={UDim2.fromScale(1, 1)}
+					BackgroundTransparency={1}
+					Text=""
+					AutoButtonColor={false}
+					Selectable={false}
+					Event={{ Activated: () => dispatch("GetAdminState") }}
+				/>
+				<Button
+					text="REFRESH"
+					onClick={() => {
+						dispatch("GetAdminState");
+					}}
+					color={Palette.panelSoft}
+					textColor={Palette.mint}
+					outline={true}
+					size={UDim2.fromOffset(refreshW, 32)}
+					position={UDim2.fromOffset(0, 6)}
+					reducedMotion={softMotion}
+				/>
+			</frame>
 		</PnSurface>
 	);
 
@@ -1218,37 +1215,30 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		[narrow],
 	);
 	const BODY_H = inspectH + GAP + executeH + GAP + RECENT_MIN;
+	// design/22 body: players | commands (fills) | inspect / execute / recent column, one horizontal list
 	const consoleBody = (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
 			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, BODY_H)} />
-			<frame Size={new UDim2(0, PLAYERS_W, 1, 0)} BackgroundTransparency={1} {...named("AdminPlayers")}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
+			<frame Size={new UDim2(0, PLAYERS_W, 1, 0)} BackgroundTransparency={1} LayoutOrder={0} {...named("AdminPlayers")}>
 				{playerSection}
 			</frame>
-			<frame Size={new UDim2(0, DETAIL_W, 1, 0)} Position={new UDim2(1, -DETAIL_W, 0, 0)} BackgroundTransparency={1}>
-				<frame Size={new UDim2(1, 0, 0, inspectH)} BackgroundTransparency={1} {...named("AdminInspect")}>
+			<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} LayoutOrder={1} {...named("AdminCommands")}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				{commandSection}
+			</frame>
+			<frame Size={new UDim2(0, DETAIL_W, 1, 0)} BackgroundTransparency={1} LayoutOrder={2}>
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
+				<frame Size={new UDim2(1, 0, 0, inspectH)} BackgroundTransparency={1} LayoutOrder={0} {...named("AdminInspect")}>
 					{inspectSection}
 				</frame>
-				<frame Size={new UDim2(1, 0, 0, executeH)} Position={UDim2.fromOffset(0, inspectH + GAP)} BackgroundTransparency={1} {...named("AdminExecute")}>
+				<frame Size={new UDim2(1, 0, 0, executeH)} BackgroundTransparency={1} LayoutOrder={1} {...named("AdminExecute")}>
 					{executeDock}
 				</frame>
-				<frame
-					Size={new UDim2(1, 0, 1, -(inspectH + executeH + GAP * 2))}
-					Position={UDim2.fromOffset(0, inspectH + executeH + GAP * 2)}
-					BackgroundTransparency={1}
-					ClipsDescendants={true}
-					{...named("AdminRecent")}
-				>
-					<uisizeconstraint MinSize={new Vector2(0, RECENT_MIN)} />
+				<frame Size={new UDim2(1, 0, 0, RECENT_MIN)} BackgroundTransparency={1} ClipsDescendants={true} LayoutOrder={2} {...named("AdminRecent")}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 					{recentSection}
 				</frame>
-			</frame>
-			<frame
-				Size={new UDim2(1, -(PLAYERS_W + DETAIL_W + GAP * 2), 1, 0)}
-				Position={UDim2.fromOffset(PLAYERS_W + GAP, 0)}
-				BackgroundTransparency={1}
-				{...named("AdminCommands")}
-			>
-				{commandSection}
 			</frame>
 		</frame>
 	);
