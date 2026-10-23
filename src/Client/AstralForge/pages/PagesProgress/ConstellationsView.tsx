@@ -74,7 +74,6 @@ export function ConstellationsView(props: {
 		const nextStar = done ? undefined : chart.Stars[count];
 		const ready = nextStar !== undefined && points >= nextStar.Cost && state.Paused !== true;
 		const current = count * chart.PerStar + (done ? chart.Completion : 0);
-		const dots = chart.Stars.map((star) => (lit[star.Id] === true ? "*" : "·")).join("  ");
 		const accent = done ? Palette.mango : count > 0 ? Palette.mint : Palette.lineSoft;
 		cards[chart.Id] = (
 			<frame
@@ -94,13 +93,13 @@ export function ConstellationsView(props: {
 						sizeConstraint={new UDim2(1, stack ? 0 : -170, 0, 22)}
 					/>
 					<Text
-						value={`${dots}   ·   +${pct(current)} ${chart.Kind.lower()}`}
+						value={`${count}/${chart.Stars.size()} stars   +${pct(current)} ${chart.Kind.lower()}`}
 						size={13}
 						color={accent}
 						weight={Enum.FontWeight.Bold}
 						fit={true}
 						minSize={9}
-						position={UDim2.fromOffset(0, 24)}
+						position={UDim2.fromOffset(0, 22)}
 						sizeConstraint={new UDim2(1, stack ? 0 : -170, 0, 18)}
 					/>
 					{!done && (
@@ -110,14 +109,14 @@ export function ConstellationsView(props: {
 							color={Palette.muted}
 							fit={true}
 							minSize={9}
-							position={UDim2.fromOffset(0, 50)}
+							position={UDim2.fromOffset(0, 44)}
 							sizeConstraint={new UDim2(1, stack ? 0 : -170, 0, 18)}
 						/>
 					)}
 					{!done && (
 						<frame
 							Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(156, 44)}
-							Position={stack ? UDim2.fromOffset(0, CARD_H - 16) : new UDim2(1, -156, 0.5, -22)}
+							Position={stack ? UDim2.fromOffset(0, CARD_H - 24) : new UDim2(1, -156, 0.5, -22)}
 							BackgroundTransparency={1}
 							BorderSizePixel={0}
 						>
