@@ -1231,41 +1231,8 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		</frame>
 	);
 
-	// sticky 48px action footer on narrow screens: PREVIEW / RUN stay reachable while the console scrolls
-	const FOOTER_H = 48;
-	const footerReserve = narrow ? FOOTER_H + GAP + chromeFor(viewport).bottomSafe : 0;
-	const actionFooter = narrow ? (
-		<frame Size={new UDim2(1, 0, 0, FOOTER_H)} Position={new UDim2(0, 0, 1, -(FOOTER_H + chromeFor(viewport).bottomSafe))} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} ZIndex={5}>
-			<Button
-				text="PREVIEW"
-				icon="Search.8"
-				onClick={preview}
-				color={Palette.panelSoft}
-				textColor={Palette.text}
-				size={new UDim2(0.34, -5, 1, 0)}
-				disabled={runDisabled}
-				reducedMotion={softMotion}
-			/>
-			<Button
-				text={runLabel}
-				icon="Lock.16"
-				onClick={execute}
-				color={runColor}
-				textColor={Palette.ink}
-				size={new UDim2(0.66, -5, 1, 0)}
-				position={UDim2.fromScale(0.34, 0).add(UDim2.fromOffset(5, 0))}
-				disabled={runDisabled}
-				loading={busy}
-				shakeToken={shakeToken}
-				highlight={armed || !needsArm}
-				reducedMotion={softMotion}
-			/>
-		</frame>
-	) : undefined;
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ref={focusHostRef}>
-		{actionFooter}
-		<frame Size={new UDim2(1, 0, 1, -footerReserve)} BackgroundTransparency={1} BorderSizePixel={0}>
 		<PageScaffold
 			gap={GAP}
 			tailPad={8}
@@ -1289,7 +1256,6 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 						]
 			}
 		/>
-		</frame>
 		</frame>
 	);
 }

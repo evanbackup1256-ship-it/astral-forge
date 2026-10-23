@@ -1806,48 +1806,6 @@ function CommandViewReady(props: CommandProps) {
 		</frame>
 	);
 	const bodyIntrinsic = useFillList ? tabHeroH + listContent + Layout.panelGap : tabContent;
-	// sticky 48px action footer on phones: the tab's one ready action stays on screen while the list scrolls
-	const footerAction: { text: string; icon: string; color: Color3; run: () => void; pending?: string } | undefined = !stack
-		? undefined
-		: tab === "Overview" && nextClaim !== undefined
-			? { text: `CLAIM LEVEL ${nextClaim}`, icon: "Gift.15", color: Palette.cyan, pending: "commander", run: () => sendPending("commander", "ClaimCommanderReward", { Level: nextClaim }) }
-			: tab === "Expeditions" && claimLabel !== undefined && (expeditionReady || canRepeat)
-				? { text: claimLabel, icon: "Gift.15", color: Palette.mint, run: onHeroAction }
-				: undefined;
-	const FOOTER_H = 48;
-	if (footerAction !== undefined) {
-		return (
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false}>
-				<frame Size={new UDim2(1, 0, 1, -(FOOTER_H + 8 + chrome.bottomSafe))} BackgroundTransparency={1} BorderSizePixel={0} Active={false}>
-					<PageScaffold
-						hostRef={scrollRef}
-						gap={Layout.panelGap}
-						tailPad={Layout.panelGap}
-						scrollBarColor={Palette.cyan}
-						scrollBarThickness={4}
-						sections={[
-							{ id: "header", height: headerH, element: header },
-							{ id: "tabs", height: tabsH, element: tabsRow },
-							{ id: "body", fill: true, minHeight: 200, height: bodyIntrinsic, element: bodyPane },
-						]}
-					/>
-				</frame>
-				<frame Size={new UDim2(1, 0, 0, FOOTER_H)} Position={new UDim2(0, 0, 1, -(FOOTER_H + chrome.bottomSafe))} BackgroundTransparency={1} BorderSizePixel={0}>
-					<Button
-						text={footerAction.text}
-						icon={footerAction.icon}
-						onClick={footerAction.run}
-						color={footerAction.color}
-						textColor={Palette.ink}
-						size={UDim2.fromScale(1, 1)}
-						{...(footerAction.pending !== undefined ? pendingProps(footerAction.pending) : {})}
-						reducedMotion={softMotion}
-						highlight={true}
-					/>
-				</frame>
-			</frame>
-		);
-	}
 	return (
 		<PageScaffold
 			hostRef={scrollRef}

@@ -13,7 +13,3 @@ Checked at 1920x1080, 1366x768 and 844x390 (719 wide, 219 fold):
 - Command / Admin: two columns at >= 640 already. Sticky 48px footers are a follow-up.
 - Anomaly, Story, Wheel, Inventory, EchoForge: the per-page QA sweep covers text and overlap here. Inventory's
   "Relics" label moving into the chip row (P2.4, +34px) is a follow-up.
-
-## Sticky action footers (P2)
-- Command (phones): a 48px footer pins the tab's ready action (CLAIM LEVEL n on Overview; COLLECT / SEND AGAIN on Expeditions). No ready action, no footer. Scroll area shrinks by 48 + 8 + bottomSafe.
-- Admin (narrow): 48px footer with PREVIEW (34%) and RUN (66%), the same handlers as the execute dock. Pattern: mobile bottom action bars (Material bottom app bar, iOS toolbar).
