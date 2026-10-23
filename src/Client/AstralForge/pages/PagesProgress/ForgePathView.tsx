@@ -578,7 +578,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								kind="Forge"
 								accent={Palette.violet}
 								size={stack ? 48 : 56}
-								radius={14}
+								radius={18}
 								position={UDim2.fromOffset(0, stack ? 4 : 18)}
 								glow={true}
 								spin={false}

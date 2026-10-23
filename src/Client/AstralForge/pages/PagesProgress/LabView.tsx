@@ -519,7 +519,7 @@ function LabViewReady(props: LabProps) {
 					kind="Lab"
 					accent={Palette.mint}
 					size={52}
-					radius={14}
+					radius={18}
 					position={UDim2.fromOffset(0, 10)}
 					spin={false}
 					glow={true}

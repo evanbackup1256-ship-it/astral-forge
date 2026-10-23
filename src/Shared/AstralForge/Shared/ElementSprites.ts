@@ -154,12 +154,12 @@ function companion(name: string, element: Element, rarity: Companion["Rarity"], 
 }
 
 const COMPANIONS: Record<string, Companion> = table.freeze({
-	Cinder: companion("Cinder", "Fire", "Rare", art("rbxassetid://96721820700576")),
-	Frostlet: companion("Frostlet", "Ice", "Rare", art("rbxassetid://102982024064892")),
-	Tidepup: companion("Tidepup", "Water", "Epic", art("rbxassetid://112367869722042")),
-	BrassOwl: companion("Brass Owl", "Gold", "Legendary", art("rbxassetid://92141659344017")),
-	Lumen: companion("Lumen", "Starlight", "Mythic", art("rbxassetid://125440001868646")),
-	Voidmote: companion("Voidmote", "Void", "Celestial", art("rbxassetid://111706636066465")),
+	Cinder: companion("Cinder", "Fire", "Rare", art("rbxassetid://120858201878321")),
+	Frostlet: companion("Frostlet", "Ice", "Rare", art("rbxassetid://85330838570425")),
+	Tidepup: companion("Tidepup", "Water", "Epic", art("rbxassetid://127418915485161")),
+	BrassOwl: companion("Brass Owl", "Gold", "Legendary", art("rbxassetid://87743293258593")),
+	Lumen: companion("Lumen", "Starlight", "Mythic", art("rbxassetid://95796397300290")),
+	Voidmote: companion("Voidmote", "Void", "Celestial", art("rbxassetid://72812559138325")),
 });
 
 const ElementSprites = {

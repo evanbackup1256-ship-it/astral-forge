@@ -1394,7 +1394,7 @@ export function RebirthPanel({
 					kind={REBIRTH_ICONS.Dial}
 					accent={accent}
 					size={(stack ? 56 : 64) - 18}
-					radius={14}
+					radius={18}
 					position={UDim2.fromOffset(9, 9)}
 					glow={lively}
 					spin={lively}

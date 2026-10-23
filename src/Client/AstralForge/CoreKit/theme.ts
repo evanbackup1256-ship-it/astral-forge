@@ -35,7 +35,7 @@ export const Layout = {
 	controlGap: 16,
 	lineGap: 12,
 	cardPadding: 24,
-	cardRadius: 14,
+	cardRadius: 18,
 	buttonRadius: 10,
 	topbarHeight: 74,
 	sidebarWidth: 268,
@@ -59,7 +59,7 @@ export const Layout = {
 export const Radius = {
 	sm: 6,
 	md: 10,
-	lg: 14,
+	lg: 18,
 	chip: 6,
 	control: Layout.buttonRadius,
 	card: Layout.cardRadius,

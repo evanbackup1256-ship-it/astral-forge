@@ -158,6 +158,8 @@ export const Occlusion: Rule = {
 				if (s.id === n.id || s.layer !== n.layer && s.displayOrder <= n.displayOrder) continue;
 				if (isAncestor(snap, s.id, n.id) || isAncestor(snap, n.id, s.id)) continue;
 				if (s.floating !== n.floating && s.inMotion) continue;
+				// popovers (session card, notice island) float over the page on purpose while open
+				if (s.floating !== -1 && s.floating !== n.floating) continue;
 				if (G.area(s.rect) >= (layerArea.get(s.layer) ?? math.huge) * shield) continue;
 				const above = s.displayOrder !== n.displayOrder ? s.displayOrder > n.displayOrder : s.paintOrder > n.paintOrder;
 				if (!above) continue;

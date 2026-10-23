@@ -470,7 +470,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				kind="Calendar"
 				accent={dailyReady ? Palette.mint : Palette.panelSoft}
 				size={46}
-				radius={14}
+				radius={18}
 				position={UDim2.fromOffset(0, stack ? 4 : 18)}
 				glow={dailyReady}
 				reducedMotion={softMotion}
@@ -535,7 +535,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 				kind="Timer"
 				accent={timedReady ? Palette.violet : Palette.panelSoft}
 				size={46}
-				radius={14}
+				radius={18}
 				position={UDim2.fromOffset(0, stack ? 4 : 18)}
 				glow={timedReady}
 				reducedMotion={softMotion}

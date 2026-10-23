@@ -2201,7 +2201,7 @@ export function OverviewView({
 										kind="World"
 										accent={domain.CanExpand ? Palette.pink : Palette.violet}
 										size={phone ? 54 : 62}
-										radius={14}
+										radius={18}
 										position={UDim2.fromOffset(0, phone ? 4 : 18)}
 										glow={domain.CanExpand && !effectsPaused}
 										spin={domain.CanExpand && !effectsPaused}

@@ -832,7 +832,7 @@ function MoreCell(_param: {
 					shimmer: chrome.shimmer,
 					live: chrome.shimmerLive,
 					zIndex: 95,
-					radius: 14,
+					radius: 18,
 				}),
 				h(
 					"frame",

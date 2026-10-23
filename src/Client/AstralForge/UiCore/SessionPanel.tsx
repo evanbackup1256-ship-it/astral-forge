@@ -229,6 +229,7 @@ export function SessionPanel(props: SessionPanelProps) {
 			BorderSizePixel={0}
 			Active={true}
 			ZIndex={60}
+			ref={(node: Frame | undefined) => node?.SetAttribute("LayoutFloating", true)}
 		>
 			<uicorner CornerRadius={new UDim(0, 18)} />
 			<uigradient Color={new ColorSequence(Palette.panelRaised, Palette.panel)} Rotation={90} />

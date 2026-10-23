@@ -1,3 +1,5 @@
+// The art was re-uploaded as Images on 2026-10-23 (assets/upload image_ids.json) and the sources
+// point at those; this decal table stays as a fallback for any decal id that comes back.
 // Purpose: the 2026-10 UI art was uploaded through Open Cloud as Decals. An ImageLabel cannot draw a
 // Decal id ("Asset type does not match"), so the server loads each decal once at boot, reads the
 // Image id inside it and publishes it on ReplicatedStorage. art() swaps a decal url for that image,

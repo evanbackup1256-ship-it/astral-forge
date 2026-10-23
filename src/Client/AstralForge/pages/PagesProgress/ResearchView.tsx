@@ -169,7 +169,7 @@ const ResearchNode = React.memo(
 						kind={entry.unlocked ? "Research" : "Lock"}
 						accent={entry.unlocked ? accent : Palette.muted}
 						size={44}
-						radius={14}
+						radius={18}
 						position={UDim2.fromOffset(0, 6)}
 						glow={maxed}
 						spin={false}
@@ -397,7 +397,7 @@ function ResearchView(props: ResearchProps) {
 								kind="Research"
 								accent={Palette.cyan}
 								size={heroStack ? 48 : 56}
-								radius={14}
+								radius={18}
 								position={UDim2.fromOffset(0, heroStack ? 4 : 18)}
 								glow={true}
 								spin={false}

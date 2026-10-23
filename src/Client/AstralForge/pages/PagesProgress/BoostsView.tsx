@@ -362,7 +362,7 @@ function IdleBay(props: IdleBayProps) {
 				kind={boostIconKind(pick.boost.Id)}
 				accent={accent}
 				size={stack ? 52 : 64}
-				radius={14}
+				radius={18}
 				glow={true}
 				position={UDim2.fromOffset(0, 22)}
 				reducedMotion={softMotion}

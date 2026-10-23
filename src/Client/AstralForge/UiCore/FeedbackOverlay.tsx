@@ -275,7 +275,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			kind: sent ? "Check" : "Chat",
 			accent: sent ? Palette.mint : ACCENT,
 			size: compact ? 44 : 50,
-			radius: 14,
+			radius: 18,
 			filled: sent,
 			reveal: headerReveal,
 			reducedMotion: softMotion,

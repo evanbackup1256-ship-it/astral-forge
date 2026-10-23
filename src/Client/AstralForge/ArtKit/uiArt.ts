@@ -4,16 +4,16 @@ import { art } from "../../../Shared/AstralForge/Shared/UiArt";
 
 /** 1024x120 page header strips, placed behind a hero title with ScaleType Crop */
 export const HEADER_ART = {
-	ascension: art("rbxassetid://82657390275902"),
-	companions: art("rbxassetid://72852035944524"),
-	crates: art("rbxassetid://132832534777726"),
-	forge: art("rbxassetid://129306695928995"),
-	journal: art("rbxassetid://140334966513714"),
-	market: art("rbxassetid://91615259534204"),
-	ranks: art("rbxassetid://79586395880216"),
-	rebirth: art("rbxassetid://77379807257881"),
-	vault: art("rbxassetid://73472877278952"),
-	worlds: art("rbxassetid://132294712138207"),
+	ascension: art("rbxassetid://106300584464828"),
+	companions: art("rbxassetid://75520061387345"),
+	crates: art("rbxassetid://71586073946515"),
+	forge: art("rbxassetid://112579218626393"),
+	journal: art("rbxassetid://84327795355564"),
+	market: art("rbxassetid://140571630022360"),
+	ranks: art("rbxassetid://110034657498031"),
+	rebirth: art("rbxassetid://140703475465390"),
+	vault: art("rbxassetid://114592875107751"),
+	worlds: art("rbxassetid://132104599653570"),
 };
 
 export type HeaderArtName = keyof typeof HEADER_ART;
