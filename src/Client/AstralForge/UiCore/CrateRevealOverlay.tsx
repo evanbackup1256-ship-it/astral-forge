@@ -233,6 +233,7 @@ function DropCard(props: {
 		>
 			{/* icon on the left, then name / effect, badges along the top: the same reading order as a relic row */}
 			<IconTile
+				still
 				kind={salvaged ? "Dust.9" : itemIconKind(roll.DefinitionId, def?.Slot)}
 				accent={accent}
 				size={iconSize}

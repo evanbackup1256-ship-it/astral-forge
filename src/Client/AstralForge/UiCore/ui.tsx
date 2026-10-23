@@ -943,6 +943,7 @@ export interface IconTileProps {
 	position?: Bindable<UDim2>;
 	anchorPoint?: Vector2;
 	spin?: boolean;
+	still?: boolean;
 	hoverAmount?: React.Binding<number>;
 	reducedMotion?: boolean;
 	glow?: boolean;
@@ -962,6 +963,7 @@ export function IconTile({
 	glow = false,
 	filled = false,
 	zIndex = 1,
+	still,
 }: IconTileProps) {
 	const effectsPaused = React.useContext(UiEffectsPausedContext);
 	const interactionMotion = reducedMotion || effectsPaused;
@@ -996,6 +998,7 @@ export function IconTile({
 					accent={accent}
 					size={inner}
 					spin={spin}
+					still={still}
 					hoverAmount={hoverAmount}
 					clipSafe={true}
 					reducedMotion={reducedMotion}

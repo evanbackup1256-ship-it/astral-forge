@@ -555,6 +555,7 @@ __defs["TradeView"] = () => {
 				transparency: 0.5,
 			}),
 			h(IconTile, {
+				still: true,
 				kind: line.icon,
 				accent: line.accent,
 				size: tile,
@@ -2471,6 +2472,7 @@ __defs["TradeView"] = () => {
 							layoutOrder: 3,
 						},
 						h(Icon, {
+							still: true,
 							kind: "Timer.4",
 							color: Palette.mango,
 							accent: Palette.mango,

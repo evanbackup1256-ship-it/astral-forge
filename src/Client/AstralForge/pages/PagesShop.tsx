@@ -543,6 +543,7 @@ function OfferTileImpl(props: OfferTileProps) {
 					<uicorner CornerRadius={new UDim(0, IRON_RADIUS)} />{ironFace()}
 					<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
 					{h(Icon, {
+						still: true,
 						kind: icon,
 						color: Palette.cream,
 						accent: accent,
@@ -1055,6 +1056,7 @@ function ShopView(props: ShopViewProps) {
 				React.Fragment,
 				{},
 				h(IconTile, {
+					still: true,
 					kind: "Shop",
 					accent: Palette.mango,
 					size: 44,
@@ -1255,6 +1257,7 @@ function ShopView(props: ShopViewProps) {
 					reducedMotion: softMotion,
 				},
 				h(Icon, {
+					still: true,
 					kind: "Pilot.1",
 					color: Palette.cream,
 					accent: Palette.mint,
@@ -1587,6 +1590,7 @@ function Wallet(props: WalletProps) {
 				Thickness: 1,
 			}),
 			h(Icon, {
+				still: true,
 				kind: CURRENCY_ICON[currency],
 				color: Palette.cream,
 				accent: currencyColor(currency),
@@ -1649,6 +1653,7 @@ function Hero(props: HeroProps) {
 			clips: false,
 		},
 		h(IconTile, {
+			still: true,
 			kind: props.icon,
 			accent: props.accent,
 			size: rowH,
@@ -1801,6 +1806,7 @@ function OfferCardImpl(props: OfferCardProps) {
 					zoom: 0.95,
 				})
 				: h(Icon, {
+					still: true,
 					kind: KIND_ICON[offer.Kind] ?? "Shop.6",
 					color: Palette.cream,
 					accent: accent,
@@ -1849,6 +1855,7 @@ function OfferCardImpl(props: OfferCardProps) {
 			sizeConstraint: new UDim2(1, 0, 0, 16),
 		}),
 		h(Icon, {
+			still: true,
 			kind: CURRENCY_ICON[offer.Currency] ?? "Dust.3",
 			color: Palette.cream,
 			accent: currencyColor(offer.Currency),
@@ -2034,6 +2041,7 @@ function DailySection(props: SectionProps) {
 						clips: false,
 					},
 					h(Icon, {
+						still: true,
 						kind: "Jackpot.3",
 						color: Palette.cream,
 						accent: Palette.coral,
@@ -2325,6 +2333,7 @@ function CrateChip(props: CrateChipProps) {
 			Transparency: props.selected ? 0 : 0.6,
 		}),
 		h(Icon, {
+			still: true,
 			kind: "Crate.3",
 			color: Palette.cream,
 			accent: accent,
