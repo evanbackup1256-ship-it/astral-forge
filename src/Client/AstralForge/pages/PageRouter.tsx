@@ -2,6 +2,7 @@ import { countRedraw, redrawCounterEnabled } from "../UiCore/devRedrawCounter";
 import React from "@rbxts/react";
 import { bulkCost, Flux, gteFlux } from "../CoreKit/format";
 import { LuauComponent, LuauProps } from "./luauKits";
+import { SOCIAL_PAGES, SocialShell } from "./SocialShell";
 
 const PAGE_SUITES: Record<string, string> = {
 	AdminView: "PagesSystem",
@@ -190,13 +191,26 @@ function PageContentInner(props: PageContentProps) {
 	if (config === undefined) {
 		return <EmptyPage />;
 	}
+	const inner = pageElement(props, config);
+	if (inner !== undefined && SOCIAL_PAGES.includes(page)) {
+		return (
+			<SocialShell page={page} state={state} config={config} dispatch={dispatch} reducedMotion={reducedMotion} navigate={props.navigate}>
+				{inner}
+			</SocialShell>
+		);
+	}
+	return inner ?? <EmptyPage />;
+}
+
+function pageElement(props: PageContentProps, config: PageConfig): React.Element | undefined {
+	const { page, state, dispatch, reducedMotion } = props;
 	const custom = CUSTOM[page];
 	if (custom !== undefined) {
 		return custom(props);
 	}
 	const route = ROUTES[page];
 	if (route === undefined) {
-		return <EmptyPage />;
+		return undefined;
 	}
 	const View = view(route.view);
 	const base: LuauProps = route.bare ? { state, dispatch, reducedMotion } : { state, config, dispatch, reducedMotion };
@@ -209,7 +223,8 @@ function PageContentInner(props: PageContentProps) {
 // Every other page compares the whole session as before. Keep a list in sync with its view: a
 // field read but not listed here would go stale on that page.
 const PAGE_STATE_KEYS: Record<string, string[] | undefined> = {
-	Chat: [],
+	// the Chat page's side column shows your newest mail
+	Chat: ["Mailbox"],
 	Settings: ["Settings", "Game", "FeatureUnlocks", "Flags"],
 	Mail: ["Mailbox"],
 	Crew: ["CurrentZone", "Visitors"],
