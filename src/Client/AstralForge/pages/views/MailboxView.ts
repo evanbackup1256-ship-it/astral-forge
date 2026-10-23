@@ -130,10 +130,7 @@ function __member(): unknown {
 		let chrome: unknown = luaCall(chromeFor, viewport);
 		let antilag: unknown = luaCall(useAntilag);
 		let stack: unknown = luaProp(chrome, "contentStack");
-		// push navigation only where a split can't fit: portrait phones and pages under 560px.
-		// Landscape phones (588px at 640x286, 719px at 844x390) get the 38/62 list | reader split (forge-ui-2 P2.4 Mail).
-		const pageW = luaProp(viewport, "width") as number;
-		let mobileRoute: unknown = pageW < 560 || (luaTruthy(luaProp(chrome, "mobile")) && !luaTruthy(luaProp(chrome, "landscape"))) || (!luaTruthy(luaProp(chrome, "mobile")) && pageW < 760);
+		let mobileRoute: unknown = ((luaTruthy(luaProp(chrome, "mobile") ) ? luaProp(chrome, "mobile") :  ((luaProp(viewport, "width") as unknown as number) < (760 as unknown as number))));
 		let mountedRef: unknown = reactLoose.useRef(true);
 		let mailActionsHostRef: unknown = reactLoose.useRef(undefined);
 		reactLoose.useEffect(function(this: void): unknown | undefined {
