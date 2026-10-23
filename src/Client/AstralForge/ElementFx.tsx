@@ -1,4 +1,4 @@
-// Purpose: an animated elemental companion (any of the 57 in Shared/ElementSprites) as a React
+// Purpose: an animated companion (any of the 57 elemental ones, or a named one such as Cinder, in Shared/ElementSprites) as a React
 // element, driven by the shared visibility-budgeted companion clock. Each companion's elemental
 // light is lit into its own frames, so this is one image layer with nothing played behind it.
 // Reduced motion shows a still frame.

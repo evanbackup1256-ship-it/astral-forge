@@ -1,4 +1,4 @@
-﻿// Purpose: the 57 elemental companions (tools/spritegen/companions), each an original character with its
+﻿// Purpose: the 57 elemental companions plus the six named companions (Cinder to Voidmote) (tools/spritegen/companions), each an original character with its
 // elemental light lit into its own frames, played with Vendor/Sprite. Every 4096-square sheet contains
 // 6 x 6 native frames of 682 px, looping seamlessly over 36 frames.
 // Owner: presentation. Dependencies: none. Review: 2026-10-08.
@@ -69,6 +69,14 @@ interface Sheet {
 	Label: string;
 }
 
+// Named companions: same 4096 sheet format (6 x 6 cells of 682 px, 36 frames, 24 fps), aura lit into the
+// frames. Each borrows its element's colours so glows, trails and tints match the element it belongs to.
+interface Companion extends Sheet {
+	Name: string;
+	Element: Element;
+	Rarity: "Rare" | "Epic" | "Legendary" | "Mythic" | "Celestial";
+}
+
 const SHEETS: Record<string, Sheet> = table.freeze({
 	Fire: table.freeze({ Image: "rbxassetid://103559340980670", Color: Color3.fromRGB(255, 132, 46), Glow: Color3.fromRGB(255, 196, 96), Label: "FIRE" }),
 	Magma: table.freeze({ Image: "rbxassetid://136228071865089", Color: Color3.fromRGB(255, 96, 24), Glow: Color3.fromRGB(255, 190, 90), Label: "MAGMA" }),
@@ -128,6 +136,20 @@ const SHEETS: Record<string, Sheet> = table.freeze({
 	Mirror: table.freeze({ Image: "rbxassetid://135536979183555", Color: Color3.fromRGB(210, 225, 240), Glow: Color3.fromRGB(255, 255, 255), Label: "MIRROR" }),
 	Ink: table.freeze({ Image: "rbxassetid://74053721441984", Color: Color3.fromRGB(70, 80, 120), Glow: Color3.fromRGB(170, 180, 230), Label: "INK" }),
 	Frostfire: table.freeze({ Image: "rbxassetid://96246143015158", Color: Color3.fromRGB(80, 190, 255), Glow: Color3.fromRGB(255, 150, 70), Label: "FROSTFIRE" }),
+});
+
+function companion(name: string, element: Element, rarity: Companion["Rarity"], image: string): Companion {
+	const base = SHEETS[element];
+	return table.freeze({ Image: image, Color: base.Color, Glow: base.Glow, Label: string.upper(name), Name: name, Element: element, Rarity: rarity });
+}
+
+const COMPANIONS: Record<string, Companion> = table.freeze({
+	Cinder: companion("Cinder", "Fire", "Rare", "rbxassetid://96721820700576"),
+	Frostlet: companion("Frostlet", "Ice", "Rare", "rbxassetid://102982024064892"),
+	Tidepup: companion("Tidepup", "Water", "Epic", "rbxassetid://112367869722042"),
+	BrassOwl: companion("Brass Owl", "Gold", "Legendary", "rbxassetid://92141659344017"),
+	Lumen: companion("Lumen", "Starlight", "Mythic", "rbxassetid://125440001868646"),
+	Voidmote: companion("Voidmote", "Void", "Celestial", "rbxassetid://111706636066465"),
 });
 
 const ElementSprites = {
@@ -200,15 +222,22 @@ const ElementSprites = {
 		"Ink",
 		"Frostfire",
 	]) as ReadonlyArray<Element>,
+	// named companions, by rarity
+	COMPANION_ORDER: table.freeze(["Cinder", "Frostlet", "Tidepup", "BrassOwl", "Lumen", "Voidmote"]) as ReadonlyArray<string>,
 };
 
+// accepts an element key or a named companion key
 function sheet(element: string | undefined): Sheet | undefined {
-	return element ? SHEETS[element] : undefined;
+	return element ? (SHEETS[element] ?? COMPANIONS[element]) : undefined;
+}
+
+function companionInfo(key: string | undefined): Companion | undefined {
+	return key ? COMPANIONS[key] : undefined;
 }
 
 // the Sprite library's ArrayConfig for one element
 function animation(element: string, framerate?: number): Record<string, unknown> | undefined {
-	const s = SHEETS[element];
+	const s = sheet(element);
 	if (s === undefined) {
 		return undefined;
 	}
@@ -227,6 +256,7 @@ const Module = {
 	...ElementSprites,
 	sheet,
 	animation,
+	companion: companionInfo,
 };
 
 export = table.freeze(Module);
