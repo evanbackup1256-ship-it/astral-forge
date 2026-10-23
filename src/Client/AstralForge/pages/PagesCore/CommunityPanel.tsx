@@ -35,6 +35,7 @@ const HEADER_H = 26;
 const ROW_H = 58;
 const ROW_H_STACK = 58 + TapTarget + 6;
 const ROW_GAP = 8;
+const EMPTY_H = 14 * 2 + HEADER_H + 20;
 
 // can this player be shown Roblox's notification prompt? (13+, not already opted in, not prompted in 30 days)
 function useCanPromptNotifications(): [boolean, () => void] {
@@ -66,8 +67,11 @@ function useCanPromptNotifications(): [boolean, () => void] {
 
 export function communityPanelHeight(state: CommunityState | undefined, stack: boolean, canNotify: boolean): number {
 	const rows = communityRowCount(state, canNotify);
-	if (rows === 0) {
+	if (state === undefined) {
 		return 0;
+	}
+	if (rows === 0) {
+		return EMPTY_H;
 	}
 	const rowH = stack ? ROW_H_STACK : ROW_H;
 	return 14 * 2 + HEADER_H + rows * rowH + (rows - 1) * ROW_GAP;
@@ -127,7 +131,7 @@ export function CommunityPanel(props: {
 			icon: "Guild",
 			accent: Palette.cyan,
 			title: claimed ? `In the ${groupName} group` : `Join the ${groupName} group`,
-			detail: claimed ? "Reward collected. Thanks for joining." : formatReward(state.GroupReward),
+			detail: claimed ? "Claimed" : formatReward(state.GroupReward),
 			button: claimed ? "Claimed" : "Check & claim",
 			ready: !claimed,
 			onClick: () => claim("group", { Kind: "Group", Index: 1 }),
@@ -234,7 +238,18 @@ export function CommunityPanel(props: {
 	return (
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
 			<Text value="Community" size={13} color={Palette.cyan} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
-			{children}
+			{rows.size() === 0 ? (
+				<Text
+					value="Nothing here yet"
+					size={14}
+					color={Palette.muted}
+					weight={Enum.FontWeight.SemiBold}
+					position={UDim2.fromOffset(0, HEADER_H)}
+					sizeConstraint={new UDim2(1, 0, 0, 20)}
+				/>
+			) : (
+				children
+			)}
 		</Panel>
 	);
 }

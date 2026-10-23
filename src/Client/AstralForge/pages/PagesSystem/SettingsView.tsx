@@ -381,6 +381,7 @@ function SectionButton(props: SectionButtonProps) {
 								color={active ? accent : Palette.muted}
 								accent={accent}
 								size={18}
+								spin={false}
 								position={new UDim2(0, props.compact ? 10 : 14, 0.5, -9)}
 							/>
 							<Text

@@ -1030,7 +1030,7 @@ function ReportSheet(param: ReportSheetProps) {
 					ZIndex: 704,
 				},
 				h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				h(Icon, { kind: "Check.26", color: Palette.cream, accent: Palette.mint, size: 56 }),
+				h(Icon, { kind: "Check.26", color: Palette.cream, accent: Palette.mint, size: 56, spin: false }),
 			),
 			h(Text, {
 				value: "REPORT SENT",
@@ -1277,6 +1277,7 @@ function ReportSheet(param: ReportSheetProps) {
 					CanvasSize: UDim2.fromOffset(0, sheetH),
 					ScrollingDirection: Enum.ScrollingDirection.Y,
 					ScrollBarThickness: sheetH > param.maxHeight ? 3 : 0,
+					VerticalScrollBarInset: Enum.ScrollBarInset.ScrollBar,
 					ScrollBarImageColor3: Palette.coral,
 					ScrollingEnabled: sheetH > param.maxHeight,
 					ZIndex: 702,
@@ -1817,7 +1818,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				},
 				h("uicorner", { CornerRadius: new UDim(0, 14) }),
 				h("uistroke", { Color: Palette.cyan, Thickness: 1.25, Transparency: 0.55 }),
-				h(Icon, { kind: "Crew.18", color: Palette.cream, accent: Palette.cyan, size: 30, position: UDim2.fromOffset(14, 14) }),
+				h(Icon, { kind: "Crew.18", color: Palette.cream, accent: Palette.cyan, size: 30, spin: false, position: UDim2.fromOffset(14, 14) }),
 				h(Text, {
 					value: "Roster",
 					size: 20,
