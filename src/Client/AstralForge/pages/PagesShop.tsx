@@ -529,11 +529,21 @@ function OfferTileImpl(props: OfferTileProps) {
 				accent: accent,
 				background: Palette.panelRaised,
 				padding: packed ? 12 : 16,
+				radius: 18,
 				reveal: reveal,
 				interactive: owned !== true,
 				reducedMotion: reducedMotion,
 				clips: false,
 			},
+				<frame
+					Size={new UDim2(1, packed ? 12 : 16, 1, packed ? 12 : 16)}
+					Position={UDim2.fromOffset(packed ? -6 : -8, packed ? -6 : -8)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+				>
+					<uicorner CornerRadius={new UDim(0, 14)} />
+					<uistroke Color={Palette.brass} Thickness={1} Transparency={0.75} />
+				</frame>,
 				<frame
 					Size={UDim2.fromOffset(50, 50)}
 					Position={UDim2.fromOffset(0, stack ? 0 : 8)}
@@ -614,7 +624,8 @@ function OfferTileImpl(props: OfferTileProps) {
 							text: cta,
 							icon: disabled ? "Lock.6" : "Shop.4",
 							onClick: onClick,
-							color: disabled ? Palette.panelSoft : accent,
+							// Robux checkouts use the pink price pill
+							color: disabled ? Palette.panelSoft : Palette.pink,
 							textColor: disabled ? Palette.creamSoft : Palette.ink,
 							size: UDim2.fromScale(1, 1),
 							disabled: !canBuy,
