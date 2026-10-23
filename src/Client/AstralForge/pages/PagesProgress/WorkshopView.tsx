@@ -204,7 +204,7 @@ function MachineRowImpl(props: MachineRowProps) {
 						/>
 						{level > 0 && (
 							<Badge
-								value={maxed ? "MAX" : `LV ${compactNumber(level)}`}
+								value={maxed ? "Max" : `Lv ${compactNumber(level)}`}
 								accent={maxed ? Palette.cyan : accent}
 								size={UDim2.fromOffset(58, 18)}
 								filled={true}
@@ -237,14 +237,23 @@ function MachineRowImpl(props: MachineRowProps) {
 					)}
 					{running && (
 						<frame
-							Size={new UDim2(1, 0, 0, 2)}
-							Position={UDim2.fromOffset(0, stack || !buttonBesideText ? 88 : 84)}
-							BackgroundColor3={Palette.line}
-							BackgroundTransparency={0.4}
+							Size={new UDim2(1, 0, 0, 5)}
+							Position={UDim2.fromOffset(0, stack || !buttonBesideText ? 86 : 82)}
+							BackgroundColor3={Palette.ink}
+							BackgroundTransparency={0.2}
 							BorderSizePixel={0}
 							ClipsDescendants={true}
 						>
 							<uicorner CornerRadius={new UDim(1, 0)} />
+							{/* port 03-forge: the level track (level / max) in brass, under the existing flow sweep */}
+							<frame
+								Size={UDim2.fromScale(math.clamp(level / math.max(1, machine.MaxLevel), 0.02, 1), 1)}
+								BackgroundColor3={Palette.brass}
+								BorderSizePixel={0}
+							>
+								<uicorner CornerRadius={new UDim(1, 0)} />
+								<uigradient Color={new ColorSequence(Palette.brassDeep, Palette.brass)} />
+							</frame>
 							<frame
 								Size={new UDim2(0.28, 0, 1, 0)}
 								Position={flow.map((phase) => new UDim2(phase * 1.4 - 0.32, 0, 0, 0))}
@@ -283,7 +292,7 @@ function MachineRowImpl(props: MachineRowProps) {
 						text={buyLabel}
 						icon={unlocked ? "Flux.11" : "Lock.4"}
 						onClick={onBuy}
-						color={ready ? machine.Color : Palette.panelSoft}
+						color={ready ? Palette.brass : Palette.panelSoft}
 						textColor={ready ? Palette.ink : Palette.creamSoft}
 						size={buttonBesideText ? UDim2.fromOffset(150, TapTarget) : new UDim2(1, 0, 0, TapTarget)}
 						position={buttonBesideText ? new UDim2(1, -158, 0.5, -TapTarget / 2) : new UDim2(0, 0, 1, -(TapTarget + 4))}
