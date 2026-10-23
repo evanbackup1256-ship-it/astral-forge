@@ -17,11 +17,21 @@ function truthy<T>(value: T): value is Exclude<T, undefined | false> {
 
 export const AUTO_RARITIES = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"];
 
-// relic sprite cards (port brief 04-inventory): a card grid, each grid row is one list row
-export const ROW_H = 132;
-export const ROW_H_STACK = 132;
-export const RELIC_CARD_W = 104;
-export const RELIC_CARD_GAP = 10;
+// relic cards, design/04-inventory (.sc in af.css). Desktop at 1920x1080: 176px wide, 8px padding,
+// a square 160px art well, 6px gaps, 15px name and a 10px tag pill = 226px tall, 12px apart.
+// Phone (844x390): 104px wide, 5px padding, 94px well, 3px gaps, 11px name, 8px tag = 136px, 6px apart.
+export const ROW_H = 226;
+export const ROW_H_STACK = 136;
+export const RELIC_CARD_W = 176;
+export const RELIC_CARD_W_STACK = 104;
+export const RELIC_CARD_GAP = 12;
+export const RELIC_CARD_GAP_STACK = 6;
+export function RelicCardWidth(stack?: boolean): number {
+	return stack === true ? RELIC_CARD_W_STACK : RELIC_CARD_W;
+}
+export function RelicCardGap(stack?: boolean): number {
+	return stack === true ? RELIC_CARD_GAP_STACK : RELIC_CARD_GAP;
+}
 
 export interface ItemDefinition {
 	Id?: string;
@@ -64,11 +74,14 @@ export function RelicRowHeight(stack: boolean): number {
 }
 
 // cards across a grid of `width` px (at least two, so a 286px phone still gets a grid)
-export function RelicGridColumns(width: number): number {
+export function RelicGridColumns(width: number, stack?: boolean): number {
 	if (width <= 0) {
 		return 5;
 	}
-	return math.max(2, math.floor((width - 8 + RELIC_CARD_GAP) / (RELIC_CARD_W + RELIC_CARD_GAP)));
+	const cardW = RelicCardWidth(stack);
+	const gap = RelicCardGap(stack);
+	// the grid sits inside the panel's 20px side padding
+	return math.max(2, math.floor((width - 40 + gap) / (cardW + gap)));
 }
 
 // splits a list into grid rows of `columns` items, in order
@@ -516,10 +529,28 @@ export function OfferStock(offer: unknown): { stock: number; stockMax: number; s
 	};
 }
 
-export const INSPECT_PAD = 14;
-export const INSPECT_BTN_GAP = 8;
+// inspect panel (.pn 440px wide): 18px padding, 12px gaps, a 22px title row, a 260px art well
+// (140px on phone) and three 48px stat rows, then sockets, actions (44px .btn) and a footer line
+export const INSPECT_PAD = 18;
+export const INSPECT_BTN_GAP = 12;
 export const INSPECT_FOOTER_H = 18;
-export const ACTION_BTN = 56;
+export const ACTION_BTN = 44;
+export const INSPECT_TITLE_H = 22;
+export const INSPECT_ART_H = 260;
+export const INSPECT_ART_H_STACK = 140;
+export const INSPECT_STAT_H = 48;
+export const INSPECT_STAT_GAP = 8;
+export const INSPECT_STAT_COUNT = 3;
+export function InspectHeadHeight(stack?: boolean): number {
+	return (
+		INSPECT_TITLE_H +
+		INSPECT_BTN_GAP +
+		(stack === true ? INSPECT_ART_H_STACK : INSPECT_ART_H) +
+		INSPECT_BTN_GAP +
+		INSPECT_STAT_COUNT * INSPECT_STAT_H +
+		(INSPECT_STAT_COUNT - 1) * INSPECT_STAT_GAP
+	);
+}
 
 export function InspectSocketBlock(equipped: unknown, targetCount: unknown, chipRows: unknown, stack?: boolean, tapTarget?: number): number {
 	const stacked = stack === true;
@@ -538,9 +569,13 @@ export function InspectActionsHeight(stack?: boolean): number {
 	return stack === true ? ACTION_BTN * 2 + INSPECT_BTN_GAP : ACTION_BTN;
 }
 
-export function InspectPanelHeight(socketBlock: unknown, stack?: boolean): number {
+// `phone` picks the art well height; it follows `stack` unless the caller says otherwise (the
+// desktop side column lays its buttons out two by two but keeps the full 260px well)
+export function InspectPanelHeight(socketBlock: unknown, stack?: boolean, phone?: boolean): number {
 	return (
 		INSPECT_PAD * 2 +
+		InspectHeadHeight(phone ?? stack) +
+		INSPECT_BTN_GAP +
 		math.max(0, tonumber(socketBlock) ?? 0) +
 		INSPECT_BTN_GAP +
 		InspectActionsHeight(stack) +
