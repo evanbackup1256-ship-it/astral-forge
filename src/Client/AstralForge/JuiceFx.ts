@@ -1536,10 +1536,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 					const spot = a1.Lerp(a2, p);
 					return UDim2.fromOffset(spot.X, spot.Y);
 				}),
-				Rotation: t.map((a) => {
-					const local_ = math.max(0, a - (effect.delay ?? 0));
-					return (local_ * (effect.spin ?? 360)) % 360;
-				}),
+				// icons hold still (user rule): the gem flies to its counter but no longer spins
 				Visible: t.map((a) => a >= (effect.delay ?? 0)),
 			},
 			h("uiscale", {
@@ -1547,8 +1544,7 @@ function renderEffect(effect: Effect, clock: React.Binding<number>): React.React
 					const local_ = a - (effect.delay ?? 0);
 					const grow = easeOutBack(math.clamp(local_ / 0.16, 0, 1));
 					const shrink = 1 - 0.4 * math.clamp((local_ - COIN_SCATTER - COIN_FLIGHT * 0.6) / (COIN_FLIGHT * 0.4), 0, 1);
-					const tumble = 0.8 + math.abs(math.cos(local_ * 12)) * 0.35;
-					return math.max(0.05, grow * shrink * tumble);
+					return math.max(0.05, grow * shrink);
 				}),
 			}),
 			h(
