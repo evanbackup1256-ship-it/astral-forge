@@ -275,10 +275,21 @@ function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 			<Ui.Panel
 				size={UDim2.fromScale(1, 1)}
 				padding={18}
+				radius={18}
 				accent={accent}
 				background={Palette.panel}
 				reducedMotion={reducedMotion}
 			>
+				<frame
+					{...named("BrassRule")}
+					Size={new UDim2(1, 24, 1, 24)}
+					Position={UDim2.fromOffset(-12, -12)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+				>
+					<uicorner CornerRadius={new UDim(0, 12)} />
+					<uistroke Color={BRASS} Thickness={1} Transparency={0.75} />
+				</frame>
 				{/* category reads off the brass-edged accent spine; the stamp carries the discount */}
 				<frame
 					{...named("Spine")}
