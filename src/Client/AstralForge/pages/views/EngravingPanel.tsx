@@ -1,7 +1,9 @@
 // Engraving block for one relic (v8). Self-contained so the Inventory inspect panel can drop it
 // in once the restyle settles: pass the relic instance, its definition and the wallet.
 import React from "@rbxts/react";
-import { Palette, TapTarget } from "../../CoreKit/theme";
+import { Palette } from "../../CoreKit/theme";
+import { Label } from "../../UiCore/mockKit";
+import { RowFace, SEC } from "../mockRows";
 import { kitMember, LuauComponent } from "../luauKits";
 import * as RelicEngraving from "../../../../Shared/AstralForge/Shared/RelicEngraving";
 
@@ -10,9 +12,10 @@ const { Button, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui"
 type Reply = (response: { ok?: boolean; message?: string }) => void;
 export type EngravingDispatch = (action: string, payload?: object, callback?: Reply) => unknown;
 
-const LINE_H = 40;
-const LINE_GAP = 6;
-const HEAD_H = 22;
+// 04-inventory detail panel: each engraving line is a .row (48px, hairline face), section label above
+const LINE_H = 48;
+const LINE_GAP = 8;
+const HEAD_H = 24;
 const FOOT_H = 18;
 
 export function engravingPanelHeight(): number {
@@ -78,25 +81,27 @@ export function EngravingPanel(props: {
 			<frame
 				Size={new UDim2(1, 0, 0, LINE_H)}
 				Position={UDim2.fromOffset(0, HEAD_H + index * (LINE_H + LINE_GAP))}
-				BackgroundTransparency={1}
+				BackgroundColor3={Palette.white}
 				BorderSizePixel={0}
 			>
+				<RowFace outline={locked ? Palette.mango : undefined} />
+				<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 2)} />
 				<Text
 					value={label}
-					size={13}
+					size={15}
 					color={line !== undefined ? (locked ? Palette.mango : Palette.cream) : Palette.muted}
 					weight={line !== undefined ? Enum.FontWeight.Bold : Enum.FontWeight.Regular}
 					fit={true}
 					minSize={9}
-					position={UDim2.fromOffset(0, 10)}
+					position={UDim2.fromOffset(0, 14)}
 					sizeConstraint={new UDim2(1, -196, 0, 20)}
 				/>
 				{line !== undefined && (
-					<frame Size={UDim2.fromOffset(84, TapTarget)} Position={new UDim2(1, -190, 0.5, -TapTarget / 2)} BackgroundTransparency={1}>
+					<frame Size={UDim2.fromOffset(84, 36)} Position={new UDim2(1, -190, 0.5, -18)} BackgroundTransparency={1}>
 						<Button
 							text={locked ? "Unlock" : "Lock"}
 							onClick={() => send("Lock", number)}
-							color={Palette.panelSoft}
+							color={SEC}
 							textColor={locked ? Palette.mango : Palette.cream}
 							size={UDim2.fromScale(1, 1)}
 							loading={pending === `Lock${number}`}
@@ -106,11 +111,11 @@ export function EngravingPanel(props: {
 					</frame>
 				)}
 				{(fresh || (line !== undefined && !locked)) && (
-					<frame Size={UDim2.fromOffset(100, TapTarget)} Position={new UDim2(1, -100, 0.5, -TapTarget / 2)} BackgroundTransparency={1}>
+					<frame Size={UDim2.fromOffset(100, 36)} Position={new UDim2(1, -100, 0.5, -18)} BackgroundTransparency={1}>
 						<Button
 							text={line !== undefined ? "Reroll" : "Engrave"}
 							onClick={() => send("Roll", number)}
-							color={affordable ? Palette.mango : Palette.panelSoft}
+							color={affordable ? Palette.mango : SEC}
 							textColor={affordable ? Palette.ink : Palette.muted}
 							size={UDim2.fromScale(1, 1)}
 							disabled={!affordable}
@@ -128,7 +133,7 @@ export function EngravingPanel(props: {
 	const footY = HEAD_H + RelicEngraving.UNLOCK_LEVELS.size() * (LINE_H + LINE_GAP);
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<Text value="ENGRAVING" size={11} color={Palette.mango} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+			<Label text="Engraving" color={Palette.mango} icon="Artifact" />
 			{rows}
 			<Text
 				value={
@@ -136,10 +141,10 @@ export function EngravingPanel(props: {
 						? "The engraver is away for a moment. Engraved lines still count."
 						: `Next roll: ${price.Essence} Essence and ${price.Starsteel} Starsteel. Lines pay while the relic is socketed or your companion.`
 				}
-				size={11}
+				size={12}
 				color={Palette.muted}
 				fit={true}
-				minSize={8}
+				minSize={9}
 				position={UDim2.fromOffset(0, footY)}
 				sizeConstraint={new UDim2(1, 0, 0, FOOT_H)}
 			/>

@@ -3,6 +3,9 @@
 import React from "@rbxts/react";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
+import { Label } from "../../UiCore/mockKit";
+import { rarityColor } from "../PagesProgress/portKit";
+import { RowFace, SEC, TileWell } from "../mockRows";
 import * as RelicRecipes from "../../../../Shared/AstralForge/Shared/RelicRecipes";
 
 const { Button, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
@@ -23,10 +26,12 @@ interface ItemsState {
 	Recipes?: { Crafted?: Record<string, number>; Paused?: boolean };
 }
 
+// 04-inventory / 03-forge: each recipe is a 64px .row with a rarity tile, name, cost line and sm Forge
 const ROW_H = 64;
-const ROW_H_STACK = 64 + TapTarget + 6;
+const ROW_H_STACK = 64 + TapTarget + 8;
 const GAP = 8;
-const HEAD_H = 40;
+const HEAD_H = 44;
+const TILE = 48;
 
 export function recipeBenchHeight(definitions: Definition[], items: ItemsState, stack: boolean): number {
 	const rows = definitions.filter((d) => items.Discovered?.[d.Id] === true).size();
@@ -113,7 +118,10 @@ export function RecipeBench(props: {
 			(ore.Starsteel ?? 0) >= recipe.Starsteel &&
 			(recipe.SacrificeRarity === undefined || spare !== undefined);
 		rows[definition.Id] = (
-			<frame Size={new UDim2(1, 0, 0, rowH)} Position={UDim2.fromOffset(0, HEAD_H + index * (rowH + GAP))} BackgroundTransparency={1} BorderSizePixel={0}>
+			<frame Size={new UDim2(1, 0, 0, rowH)} Position={UDim2.fromOffset(0, HEAD_H + index * (rowH + GAP))} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+				<RowFace outline={ready ? Palette.mango : undefined} />
+				<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 12)} PaddingTop={new UDim(0, 8)} />
+				<TileWell icon="Artifact" accent={rarityColor(definition.Rarity)} size={TILE} dim={!ready} />
 				<Text
 					value={`${definition.Name} · ${definition.Rarity}`}
 					size={15}
@@ -121,7 +129,8 @@ export function RecipeBench(props: {
 					weight={Enum.FontWeight.Heavy}
 					fit={true}
 					minSize={11}
-					sizeConstraint={new UDim2(1, stack ? 0 : -150, 0, 21)}
+					position={UDim2.fromOffset(TILE + 12, 2)}
+					sizeConstraint={new UDim2(1, stack ? -(TILE + 12) : -(TILE + 12 + 132), 0, 20)}
 				/>
 				<Text
 					value={`${costText(recipe)}  ·  ${made} of ${recipe.WeeklyCap} this week`}
@@ -130,19 +139,19 @@ export function RecipeBench(props: {
 					wrap={true}
 					fit={true}
 					minSize={9}
-					position={UDim2.fromOffset(0, 24)}
-					sizeConstraint={new UDim2(1, stack ? 0 : -150, 0, 36)}
+					position={UDim2.fromOffset(TILE + 12, 24)}
+					sizeConstraint={new UDim2(1, stack ? -(TILE + 12) : -(TILE + 12 + 132), 0, 24)}
 				/>
 				<frame
-					Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(140, 44)}
-					Position={stack ? UDim2.fromOffset(0, ROW_H) : new UDim2(1, -140, 0.5, -22)}
+					Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(120, 36)}
+					Position={stack ? UDim2.fromOffset(0, ROW_H - 8) : new UDim2(1, -120, 0, (TILE - 36) / 2)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 				>
 					<Button
 						text="Forge"
 						onClick={() => craft(definition.Id, spare)}
-						color={ready ? Palette.mango : Palette.panelSoft}
+						color={ready ? Palette.mango : SEC}
 						textColor={ready ? Palette.ink : Palette.muted}
 						size={UDim2.fromScale(1, 1)}
 						disabled={!ready}
@@ -159,7 +168,7 @@ export function RecipeBench(props: {
 
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<Text value="RECIPES" size={11} color={Palette.mango} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+			<Label text="Recipes" color={Palette.mango} icon="Forge" />
 			<Text
 				value={
 					paused
@@ -169,10 +178,10 @@ export function RecipeBench(props: {
 							: `${weekTotal} of ${RelicRecipes.WEEKLY_TOTAL} crafts used this week. Resets Monday.`
 				}
 				size={13}
-				color={Palette.cream}
+				color={Palette.creamSoft}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(0, 18)}
+				position={UDim2.fromOffset(0, 22)}
 				sizeConstraint={new UDim2(1, 0, 0, 18)}
 			/>
 			{rows}
