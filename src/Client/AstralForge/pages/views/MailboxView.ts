@@ -325,7 +325,7 @@ function __member(): unknown {
 				return undefined;
 			} })) : gift)));
 		} else if ((!luaTruthy(mobileRoute))) {
-			bodyArea = luaCall(h, EmptyState, { icon: "Mail.4", title: "Pick a letter", body: "Choose a message on the left to read it.", accent: luaProp(Palette, "cyan"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion });
+			bodyArea = luaCall(h, EmptyState, { icon: "Mail.4", title: "Pick a letter", body: "No letter open", accent: luaProp(Palette, "cyan"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion });
 		}
 		let bodyTop: unknown = ((headerH as unknown as number) + (10 as unknown as number));
 		return luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, ClipsDescendants: true }, header, luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, (-(bodyTop as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, bodyTop), BackgroundTransparency: 1, ClipsDescendants: true }, luaCall(h, "frame", { Name: "Inbox", SelectionGroup: true, Size: (luaTruthy(mobileRoute) ? luaCall(luaProp(UDim2, "fromScale"), 1, 1) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.38, -6, 1, 0)), Position: (luaTruthy(mobileRoute) ? colon(slide).map(function(this: void, a?: unknown): unknown | undefined {
