@@ -2192,6 +2192,8 @@ interface CrateStageProps {
 	busy: boolean;
 	reveal?: React.Binding<number>;
 	onOpen: (count: number) => void;
+	auto: boolean;
+	onAuto: () => void;
 	reducedMotion?: boolean;
 }
 
@@ -2222,7 +2224,7 @@ function CrateStage(props: CrateStageProps) {
 			? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - pity)}`
 			: "";
 	const openButton = (count: number, order: number) => {
-		const can = keys >= count && !props.busy;
+		const can = keys >= count && !props.busy && !props.auto;
 		return h(Button, {
 			text: keys >= count ? `×${count}` : `${count - keys} more`,
 			icon: keys >= count ? "Crate.2" : "Lock.8",
@@ -2231,8 +2233,8 @@ function CrateStage(props: CrateStageProps) {
 			},
 			color: can ? accent : Palette.panelSoft,
 			textColor: can ? Palette.ink : Palette.creamSoft,
-			size: new UDim2(0.5, -4, 1, 0),
-			position: UDim2.fromScale(order === 1 ? 0 : 0.5, 0),
+			size: new UDim2(1 / 3, -6, 1, 0),
+			position: new UDim2((order - 1) / 3, order === 1 ? 0 : 3 * (order - 1), 0, 0),
 			disabled: !can,
 			reducedMotion: props.reducedMotion,
 			highlight: can,
@@ -2325,11 +2327,26 @@ function CrateStage(props: CrateStageProps) {
 					BorderSizePixel: 0,
 				},
 				openButton(1, 1),
-				openButton(5, 2),
+				openButton(10, 2),
+				// Auto opens one at a time after each reveal closes; press again to stop, and it stops itself at 0 keys
+				h(Button, {
+					text: props.auto ? "Stop" : "Auto",
+					icon: props.auto ? "Close.3" : keys > 0 ? "Crate.2" : "Lock.8",
+					onClick: props.onAuto,
+					color: props.auto ? Palette.coral : Palette.panelSoft,
+					textColor: props.auto ? Palette.ink : keys > 0 ? Palette.cream : Palette.creamSoft,
+					size: new UDim2(1 / 3, -6, 1, 0),
+					position: new UDim2(2 / 3, 6, 0, 0),
+					disabled: !props.auto && keys <= 0,
+					reducedMotion: props.reducedMotion,
+					selectable: props.auto || keys > 0,
+				}),
 			),
 		),
 	);
 }
+
+const OPEN_BATCH = 5;
 
 function crateStageHeight(stack: boolean, crate: CrateConfig | undefined): number {
 	const rows = RelicSystem.odds(crate?.Weights).size();
@@ -2507,6 +2524,7 @@ function CratesSection(props: SectionProps) {
 	const [busy, setBusy] = React.useState(false);
 	const [pulls, setPulls] = React.useState<CratePull[]>([]);
 	const pullSeq = React.useRef(0);
+	const [auto, setAuto] = React.useState(false);
 	const attempt = React.useRef(0);
 	const mounted = React.useRef(true);
 	React.useEffect(() => {
@@ -2516,6 +2534,26 @@ function CratesSection(props: SectionProps) {
 		};
 	}, []);
 	const crate = crateById(config, selected) ?? crates[0];
+	const openRef = React.useRef<(count: number) => void>();
+	const crateKeys = crate !== undefined ? (keys[crate.Id] ?? 0) : 0;
+	React.useEffect(() => {
+		if (!auto) {
+			return;
+		}
+		if (crateKeys <= 0) {
+			setAuto(false);
+			return;
+		}
+		if (busy || props.crateRevealActive) {
+			return;
+		}
+		const token = task.delay(0.4, () => {
+			if (mounted.current) {
+				openRef.current?.(1);
+			}
+		});
+		return () => task.cancel(token);
+	}, [auto, crateKeys, busy, props.crateRevealActive, crate?.Id]);
 	if (crate === undefined) {
 		return h(EmptyState, {
 			icon: "Crate",
@@ -2533,14 +2571,13 @@ function CratesSection(props: SectionProps) {
 		attempt.current += 1;
 		const mine = attempt.current;
 		setBusy(true);
-		props.dispatch("OpenItemCrate", { Id: crate.Id, Count: count }, (response) => {
-			if (!mounted.current || attempt.current !== mine) {
-				return;
-			}
+		// the server opens at most 5 per call, so ×10 is two calls in a row with one reveal for all of them
+		const rolls: defined[] = [];
+		const finish = () => {
 			setBusy(false);
-			if (response.ok && typeIs(response.Rolls, "table")) {
+			if (rolls.size() > 0) {
 				const fresh: CratePull[] = [];
-				for (const roll of response.Rolls as { DefinitionId?: unknown; Rarity?: unknown; AutoSalvaged?: unknown }[]) {
+				for (const roll of rolls as { DefinitionId?: unknown; Rarity?: unknown; AutoSalvaged?: unknown }[]) {
 					pullSeq.current += 1;
 					fresh.push({
 						id: `pull-${pullSeq.current}`,
@@ -2565,15 +2602,40 @@ function CratesSection(props: SectionProps) {
 					});
 				}
 			}
-			if (response.ok && typeIs(response.Rolls, "table") && (response.Rolls as unknown[]).size() > 0 && props.onCrateReveal !== undefined) {
+			if (rolls.size() > 0 && props.onCrateReveal !== undefined) {
 				props.onCrateReveal({
 					crateId: crate.Id,
 					crateName: crate.Name,
 					accent: typeIs(crate.Color, "Color3") ? crate.Color : undefined,
-					rolls: response.Rolls as unknown[],
+					rolls: rolls,
 				});
 			}
-		});
+		};
+		const step = (left: number) => {
+			const batch = math.min(OPEN_BATCH, left);
+			props.dispatch("OpenItemCrate", { Id: crate.Id, Count: batch }, (response) => {
+				if (!mounted.current || attempt.current !== mine) {
+					return;
+				}
+				const got = response.ok && typeIs(response.Rolls, "table") ? (response.Rolls as defined[]) : [];
+				for (const roll of got) {
+					rolls.push(roll);
+				}
+				if (!response.ok) {
+					setAuto(false);
+				}
+				if (response.ok && left - batch > 0) {
+					task.delay(0.25, () => {
+						if (mounted.current && attempt.current === mine) {
+							step(left - batch);
+						}
+					});
+				} else {
+					finish();
+				}
+			});
+		};
+		step(count);
 	};
 	// cards for every crate on one row (three across on phones too), odds and last pulls in a right rail
 	const plan = splitColumns(stack ? 0 : props.width, 340);
@@ -2581,6 +2643,7 @@ function CratesSection(props: SectionProps) {
 	const pickerColumns = math.clamp(crates.size(), 1, mainW >= 900 ? 4 : 3);
 	const compact = stack;
 	const cardH = compact ? 150 : 184;
+	openRef.current = onOpen;
 	const chips: Record<string, unknown> = {};
 	for (const [index, entry] of ipairs(crates)) {
 		chips[entry.Id] = h(CrateChip, {
@@ -2591,6 +2654,7 @@ function CratesSection(props: SectionProps) {
 			compact: compact,
 			reducedMotion: props.reducedMotion,
 			onSelect: () => {
+				setAuto(false);
 				setSelected(entry.Id);
 			},
 		});
@@ -2626,6 +2690,8 @@ function CratesSection(props: SectionProps) {
 			skin: skin,
 			busy: busy || props.crateRevealActive === true,
 			onOpen: onOpen,
+			auto: auto,
+			onAuto: () => setAuto(!auto),
 			reducedMotion: props.reducedMotion,
 		}),
 	};
@@ -3899,7 +3965,7 @@ function ArtifactsSection(props: SectionProps) {
 // Premium (ShopView) keeps its own FocusClaim.
 function storeFocusPlan(section: string): FocusPlan | undefined {
 	if (section === "Crates") {
-		// Open (×1, ×5) first; down from it the rest of the stage, the crate picker and the drop table.
+		// Open (×1, ×10, Auto) first; down from it the rest of the stage, the crate picker and the drop table.
 		// Two-column desktop: picker (Side) <-> stage/drops (Main) step left/right.
 		return {
 			regions: ["StoreSections", "chips", "CrateOpen", "stage", "drops", "pulls"],
