@@ -38,6 +38,7 @@ const PAGE_SUITES: Record<string, string> = {
 	WheelView: "PagesShop",
 	WorkshopView: "PagesProgress",
 	WorldsView: "PagesProgress",
+	SeasonView: "PagesSeason",
 	// ---- v8 C: Expedition Board ----
 	ExpeditionsView: "PagesProgress",
 	CompanionsView: "PagesCompanions",
@@ -156,6 +157,7 @@ const ROUTES: Record<string, Route | undefined> = {
 	Expeditions: { view: "ExpeditionsView" },
 	Companions: { view: "CompanionsView" },
 	Journal: { view: "JournalView", props: withNavigate },
+	Season: { view: "SeasonView", props: withNavigate },
 };
 
 // Chat and Crew take their own props rather than the shared base.

@@ -43,9 +43,6 @@ export const MORE_ROUTES: ReadonlyArray<RouteDef> = table.freeze([
 	{ id: "Leaderboards", label: "Ranks", eyebrow: "Top 25", icon: "Leaderboard.1", accentKey: "cyan" },
 	{ id: "Credits", label: "Credits", eyebrow: "About", icon: "Credits.1", accentKey: "violet" },
 	{ id: "Admin", label: "Admin", eyebrow: "Owner", icon: "Admin.1", accentKey: "coral" },
-	{ id: "Rebirth", label: "Rebirth", eyebrow: "Reset for Cores", icon: "Rebirth.1", accentKey: "pink" },
-	{ id: "Companions", label: "Companions", eyebrow: "Pets that forge", icon: "Companion.1", accentKey: "mint" },
-	{ id: "Journal", label: "Journal", eyebrow: "Your records", icon: "Journal.1", accentKey: "mango" },
 	{ id: "Season", label: "Season", eyebrow: "Tier track", icon: "Season.1", accentKey: "violet" },
 	// ---- v8 C: Expedition Board ----
 	{ id: "Expeditions", label: "Expeditions", eyebrow: "Send relics out", icon: "Command.2", accentKey: "cyan" },
