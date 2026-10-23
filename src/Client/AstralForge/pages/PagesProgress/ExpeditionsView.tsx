@@ -12,8 +12,29 @@ import { useServerClock } from "../../hooks/useServerClock";
 import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi, named } from "../luauDeps";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import ElementFxModule = require("../../ElementFx");
+import { itemIconKind } from "../../ArtKit/Icon";
+import { rarityColor } from "./portKit";
 
-const { Button, Dropdown, EmptyState, Meter, Panel, SegmentedTabs, Text } = loadUi();
+const { Button, Dropdown, EmptyState, IconTile, Meter, Panel, SegmentedTabs, Text } = loadUi();
+
+const SPRITE = 36;
+// port 13-expeditions: the crew lead's sprite (element sheet, or its item icon) on a dark well with a rarity rim
+function CrewSprite(p: { def?: ItemDef; definitionId: string; reducedMotion?: boolean }) {
+	const color = rarityColor(p.def?.Rarity);
+	const element = p.def?.Element;
+	return (
+		<frame Size={UDim2.fromOffset(SPRITE, SPRITE)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
+			<uicorner CornerRadius={new UDim(0, 9)} />
+			<uistroke Color={color} Thickness={1.5} Transparency={0.3} />
+			{element !== undefined && ElementFxModule.sheet(element) !== undefined ? (
+				<ElementFxModule.ElementFx element={element} size={UDim2.fromScale(1.1, 1.1)} reducedMotion={p.reducedMotion} />
+			) : (
+				<IconTile kind={itemIconKind(p.definitionId)} accent={color} size={28} radius={8} position={UDim2.fromScale(0.5, 0.5)} anchorPoint={new Vector2(0.5, 0.5)} spin={false} reducedMotion={p.reducedMotion} />
+			)}
+		</frame>
+	);
+}
 const PageScaffold = loadPageScaffold();
 
 type Stance = (typeof Board.STANCES)[number];
@@ -63,6 +84,7 @@ interface ItemDef {
 	Name: string;
 	Rarity: string;
 	EffectKind: string;
+	Element?: string;
 }
 interface Instance_ {
 	DefinitionId: string;
@@ -343,6 +365,8 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 	const inventory = p.props.state.Items?.Inventory ?? {};
 	const names = p.slot.Crew.map((uid) => p.defs.get(inventory[uid]?.DefinitionId ?? "")?.Name ?? "Relic");
 	const accent = done ? Palette.mint : STANCE_COLOR[stance];
+	const leadId = p.slot.Crew.size() > 0 ? (inventory[p.slot.Crew[0]]?.DefinitionId ?? "") : "";
+	const leadDef = p.defs.get(leadId);
 	const odds = [string.format("×%.2f", p.slot.Yield ?? 1)];
 	if ((p.slot.Risk ?? 0) > 0) odds.push(`${pct(p.slot.Risk ?? 0)} risk`);
 	if ((p.slot.Find ?? 0) > 0) odds.push(`${pct(p.slot.Find ?? 0)} find`);
@@ -356,8 +380,9 @@ function RunningSlot(p: { props: Props; slot: SlotState; route?: Route; defs: Ma
 	};
 	return (
 		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} highlight={done} clips={false}>
-			<Text value={p.route?.Name ?? p.slot.Id} size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={12} sizeConstraint={new UDim2(1, -timerW, 0, 24)} />
-			<Text value={stance} size={13} color={STANCE_COLOR[stance]} position={UDim2.fromOffset(0, 24)} sizeConstraint={new UDim2(1, -timerW, 0, 16)} />
+			<CrewSprite def={leadDef} definitionId={leadId} reducedMotion={p.props.reducedMotion} />
+			<Text value={p.route?.Name ?? p.slot.Id} size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={12} position={UDim2.fromOffset(SPRITE + 10, 0)} sizeConstraint={new UDim2(1, -(timerW + SPRITE + 10), 0, 24)} />
+			<Text value={stance} size={13} color={STANCE_COLOR[stance]} position={UDim2.fromOffset(SPRITE + 10, 24)} sizeConstraint={new UDim2(1, -(timerW + SPRITE + 10), 0, 16)} />
 			<Text
 				value={done ? "Back" : clockText(left)}
 				size={28}
