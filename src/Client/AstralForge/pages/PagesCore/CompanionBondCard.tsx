@@ -46,7 +46,7 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 	const offer = companion.Offer;
 	const buttonSize = props.stack ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0.5, -4, 0, TapTarget);
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
+		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 			<Text value={title} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={11} sizeConstraint={new UDim2(1, -150, 0, 22)} />
 			<Text
 				value={`${companion.Rank}  ·  ${pct(companion.Share)}`}

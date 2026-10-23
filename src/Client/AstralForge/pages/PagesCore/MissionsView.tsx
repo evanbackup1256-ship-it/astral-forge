@@ -127,7 +127,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 	const claimText = quest.Claimed ? "CLAIMED" : ready ? "CLAIM" : "NOT YET";
 	const claim = () => dispatch("ClaimQuest", { Id: quest.Id });
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={new UDim2(1, 0, 0, rowH)}
 			position={position}
 			accent={accent}
@@ -484,7 +484,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const sideBarY = sideClaimY + (counts.Ready > 0 ? 54 : 0);
 	const sideHeaderH = sideBarY + sideBarH + 32;
 	const sidePanel = (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.cyan}
 			background={Palette.panelRaised}
@@ -546,7 +546,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 		</Panel>
 	);
 	const headerPanel = (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.cyan}
 			background={Palette.panelRaised}

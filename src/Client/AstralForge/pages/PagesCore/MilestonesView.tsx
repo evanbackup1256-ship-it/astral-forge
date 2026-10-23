@@ -71,7 +71,7 @@ function MilestoneRowImpl({ achievement, dispatch, reducedMotion, position, stac
 	const claimText = achievement.Claimed ? "CLAIMED" : ready ? "CLAIM REWARD" : "LOCKED";
 	const claim = () => dispatch("ClaimAchievement", { Id: achievement.Id });
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={new UDim2(1, 0, 0, rowH)}
 			position={position}
 			accent={accent}
@@ -281,7 +281,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 	const rowStride = milestoneRowH(rowStack) + 16;
 	const pageGap = stack ? chrome.panelGap : 18;
 	const headerPanel = (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.mango}
 			background={Palette.panelRaised}

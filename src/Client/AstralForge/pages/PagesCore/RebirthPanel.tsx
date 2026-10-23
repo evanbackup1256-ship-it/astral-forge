@@ -1378,7 +1378,7 @@ export function RebirthPanel({
 	const stackBody = stack && !side;
 	const lively = canRebirth && !effectsPaused && !softMotion;
 	return (
-		<Panel
+		<Panel radius={18} rule
 			layoutOrder={layoutOrder}
 			size={new UDim2(1, 0, 0, height)}
 			accent={accent}
