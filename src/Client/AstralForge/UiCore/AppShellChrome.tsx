@@ -637,6 +637,11 @@ function AppShell(props: ShellProps) {
 						{mobileShell && <MobileTabBar page={page} setPage={navigateLatest} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} reducedMotion={reducedMotion}
 							height={phoneRail ? chrome.tabBarH : tabBarH} bottomSafe={chrome.bottomSafe} visible={!keyboardShellCompact}
 							railTop={phoneRail ? topPad + topbarHeight + 4 : undefined} railWidth={phoneRail ? phoneRailW : undefined} />}
+						{!keyboardShellCompact && !mobileShell && !hidden && <frame Size={new UDim2(0, 0, 0, 0)}
+							Position={railWidth.map((w) => new UDim2(0, shellLeft + w + 16, 1, -(bottomPad + gamepadReserve + 16)))} BackgroundTransparency={1} ZIndex={60}>
+							<BuffStrip.Island state={state} config={config} reducedMotion={softMotion} role="buffs" liveVaultFull={true} navigate={setPage}
+								maxWidth={math.max(280, viewport.width - 560)} position={new UDim2()} anchorPoint={new Vector2(0, 1)} />
+						</frame>}
 						{mobileShell && quickActionsVisible && <MobileQuickActions state={state} dispatch={dispatch} reducedMotion={reducedMotion} bottomOffset={quickBottomOffset} edgePad={edgePad} />}
 						{!hidden && !(deskOn && desk.comboHidden) && (!deskOn || (desk.comboAt === undefined && desk.comboScale === 1)
 							? <ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2(1, -18, 0, topPad + topbarHeight + 8)} anchorPoint={TOP_RIGHT_ANCHOR} zIndex={65} />

@@ -96,6 +96,8 @@ interface IslandProps {
 	anchorPoint?: Vector2;
 	restHidden?: boolean;
 	reducedMotion?: boolean;
+	/** desktop split (25-toasts): "toasts" shows only messages/combo/live, "buffs" only the resting chips */
+	role?: "toasts" | "buffs";
 }
 
 const BuffStrip = {} as {
@@ -1674,6 +1676,9 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 		islandRef.current?.SetAttribute("LayoutFloating", true);
 	}, []);
 	React.useEffect(() => {
+		if (islandProps.role === "buffs") {
+			return undefined;
+		}
 		return Juice.subscribeIsland((current, waiting) => {
 			setLive(current !== undefined ? (table.clone(current) as IslandNotice) : undefined);
 			setQueued(waiting);
@@ -1921,8 +1926,23 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 		plan.width > 30 &&
 		((props.currencies !== undefined && props.currencies.size() > 0) || plan.buffs.size() > 0 || plan.perf);
 	const comboLive = combo !== undefined && combo.count >= 2;
+	const role = props.role;
 	const mode =
-		event !== undefined
+		role === "buffs"
+			? hovered || pinned
+				? "expanded"
+				: hasContent
+					? "compact"
+					: "hidden"
+			: role === "toasts"
+				? event !== undefined
+					? "event"
+					: comboLive
+						? "combo"
+						: activity !== undefined
+							? "live"
+							: "hidden"
+			: event !== undefined
 			? "event"
 			: comboLive && !(hovered || pinned)
 				? "combo"

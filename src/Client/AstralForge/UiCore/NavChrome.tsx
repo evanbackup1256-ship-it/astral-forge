@@ -117,7 +117,8 @@ function RailButtonImpl(_param: RailButtonProps) {
 		return 1 - math.clamp(-value, 0, 1) * rowPress;
 	});
 	const tilt = pose.map((value) => math.clamp(value, 0, 1) * rowTilt);
-	const iconSize = collapsed ? 34 : 30;
+	// 02-nav-shell: 44px rows, 20px icon at x12, label at x44, 10px corners
+	const iconSize = collapsed ? 34 : 20;
 	const iconX = collapsed ? math.floor((Layout.sidebarCollapsedWidth - SHELL_CHROME.railGutter * 2 - 4 - iconSize) / 2) : 12;
 	const markHover = () => {
 		if (disabled) {
@@ -224,7 +225,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 						ClipsDescendants: true,
 					},
 					h("uicorner", {
-						CornerRadius: new UDim(0, Radius.lg),
+						CornerRadius: new UDim(0, collapsed ? Radius.lg : 10),
 					}),
 					h("uigradient", {
 						Color: surfaceGradient(Palette.panel, 0.7),
@@ -247,7 +248,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 								BorderSizePixel: 0,
 							},
 							h("uicorner", {
-								CornerRadius: new UDim(0, Radius.lg),
+								CornerRadius: new UDim(0, collapsed ? Radius.lg : 10),
 							}),
 						),
 					h(
@@ -304,8 +305,8 @@ function RailButtonImpl(_param: RailButtonProps) {
 							color: labelColor,
 							weight: Enum.FontWeight.SemiBold,
 							fit: false,
-							position: new UDim2(0, 56, 0.5, -13),
-							sizeConstraint: new UDim2(1, -66, 0, 26),
+							position: new UDim2(0, 44, 0.5, -11),
+							sizeConstraint: new UDim2(1, -54, 0, 22),
 						}),
 					badge > 0 &&
 						h(CountBadge, {
@@ -1492,7 +1493,7 @@ function NavigationImpl(_param: NavigationProps) {
 	const boostReserve = showBoost ? boostHeight + SHELL_CHROME.railGutter * 2 : 0;
 	const railScrollRef = React.useRef<GuiObject>();
 	const grouped = includeSecondary && !fromMore;
-	const groupHeaderH = collapsed ? 22 : 26;
+	const groupHeaderH = collapsed ? 22 : 34;
 	const activeGroup = navGroupOf(page);
 	const [groupOpen, setGroupOpen] = React.useState<Record<string, boolean | undefined>>(() => ({
 		...railGroupMemory,
@@ -1540,7 +1541,7 @@ function NavigationImpl(_param: NavigationProps) {
 			rowHeight: rowHeight,
 			gap: chrome.railGap,
 			headerHeight: groupHeaderH,
-			bodySize: chrome.bodyText,
+			bodySize: chrome.mobile ? chrome.bodyText : 15,
 			state: state,
 			chatUnread: chatUnread,
 			reducedMotion: reducedMotion,

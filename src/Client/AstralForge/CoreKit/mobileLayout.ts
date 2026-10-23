@@ -155,7 +155,8 @@ export function planMobileLayout(input: MobileLayoutInput): MobileLayoutPlan {
 	const panelGap = landscape ? 10 : phone ? 14 : shortDesktop ? 14 : 18;
 	const pagePadding = landscape ? 10 : phone ? (tablet ? 18 : 14) : shortDesktop || compact ? 16 : 20;
 	const contentInset = landscape ? 10 : phone ? (tablet ? 18 : 14) : shortDesktop || compact ? 16 : 20;
-	const workspaceHeaderH = phone ? 0 : shortDesktop ? 62 : 86;
+	// full desktop gets the 178px painted hero from the mockups; compact desktop keeps the slim bar
+	const workspaceHeaderH = phone ? 0 : shortDesktop ? 62 : compact ? 86 : 178;
 	const tabBarCore = landscape ? TAP_TARGET : tablet ? 56 : 52;
 	const tabBarH = phone ? tabBarCore + bottomSafe : 0;
 	const tabBarSlots = phone ? math.max(3, math.min(6, math.floor((width - sideSafe * 2) / 64))) : 0;
@@ -187,9 +188,9 @@ export function planMobileLayout(input: MobileLayoutInput): MobileLayoutPlan {
 		cardPadding: landscape ? 14 : phone ? (tablet ? 18 : 16) : shortDesktop ? 16 : 20,
 		panelGap,
 		controlGap: landscape ? 10 : phone ? 12 : 16,
-		railRow: landscape ? 52 : phone ? 60 : shortDesktop || compact ? 52 : 64,
+		railRow: landscape ? 52 : phone ? 60 : 44,
 		railCollapsedRow: landscape ? 48 : phone ? 54 : shortDesktop || compact ? 48 : 56,
-		railGap: phone ? 8 : compact ? 10 : 12,
+		railGap: phone ? 8 : 2,
 		bodyText: landscape ? 14 : phone ? 15 : 16,
 		labelText: landscape ? 12 : phone ? 13 : 14,
 		titleText: landscape ? 17 : phone ? (tablet ? 20 : 18) : shortDesktop ? 24 : 26,

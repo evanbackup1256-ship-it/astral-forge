@@ -82,7 +82,7 @@ export interface BrowseApi {
 	useServerNow(this: void, period?: number): number;
 	untilUtcReset(this: void, now: number): number;
 	shortDuration(this: void, seconds: number): string;
-	barHeight(this: void, stack: boolean, hasChips?: boolean): number;
+	barHeight(this: void, stack: boolean, hasChips?: boolean, chipLines?: number): number;
 	CHIP_H: number;
 	ChipRow: LuauComponent;
 	BrowseBar: LuauComponent;

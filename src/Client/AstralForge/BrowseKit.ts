@@ -87,7 +87,7 @@ const Kit: Record<string, unknown> & { Model: typeof Model; CHIP_H: number; ROW_
 	ROW_GAP: 8,
 };
 
-type BarHeight = (this: void, stack: boolean | undefined, hasChips: boolean | undefined) => number;
+type BarHeight = (this: void, stack: boolean | undefined, hasChips: boolean | undefined, chipLines?: number) => number;
 
 // Normalized fields are cached per item table, so typing stays cheap on long lists.
 // Snapshots replace item tables when data changes, which naturally invalidates the cache.
@@ -305,9 +305,10 @@ Kit.shortDuration = function (seconds: number): string {
 	return `${seconds}s`;
 };
 
-const barHeight: BarHeight = (stack, hasChips) => {
+const barHeight: BarHeight = (stack, hasChips, chipLines) => {
 	const row = stack === true ? TapTarget : 40;
-	return row + (hasChips === true ? Kit.ROW_GAP + Kit.CHIP_H : 0);
+	const lines = math.max(1, chipLines ?? 1);
+	return row + (hasChips === true ? Kit.ROW_GAP + Kit.CHIP_H * lines + 4 * (lines - 1) : 0);
 };
 Kit.barHeight = barHeight;
 
@@ -331,6 +332,8 @@ interface BrowseBarProps {
 	layoutOrder?: number;
 	zIndex?: number;
 	extra?: unknown;
+	/** >1: chips get their own full-width block and wrap instead of scrolling under a fade */
+	chipLines?: number;
 }
 
 Kit.BrowseBar = function (props: BrowseBarProps): React.Element {
@@ -345,10 +348,11 @@ Kit.BrowseBar = function (props: BrowseBarProps): React.Element {
 	// "N total" repeated the All chip's count, so the tally only appears once a filter is on
 	const countW = stack || !hasChips || !browse.filtered ? 0 : 124;
 	const summary = `${browse.results.size()} of ${browse.total}`;
+	const chipLines = math.max(1, props.chipLines ?? 1);
 	return h(
 		"frame",
 		{
-			Size: props.size ?? new UDim2(1, 0, 0, barHeight(stack, hasChips)),
+			Size: props.size ?? new UDim2(1, 0, 0, barHeight(stack, hasChips, chipLines)),
 			Position: props.position,
 			BackgroundTransparency: 1,
 			BorderSizePixel: 0,
@@ -385,10 +389,12 @@ Kit.BrowseBar = function (props: BrowseBarProps): React.Element {
 				counts: browse.counts,
 				accent: accent,
 				position: UDim2.fromOffset(0, rowH + Kit.ROW_GAP),
-				size: new UDim2(1, -countW, 0, Kit.CHIP_H),
+				size: new UDim2(1, chipLines > 1 ? 0 : -countW, 0, Kit.CHIP_H * chipLines + 4 * (chipLines - 1)),
+				wrap: chipLines > 1,
 				zIndex: zIndex + 1,
 			}),
 		countW > 0 &&
+			chipLines === 1 &&
 			h("textbutton", {
 				Size: UDim2.fromOffset(countW - 8, Kit.CHIP_H),
 				Position: new UDim2(1, 0, 0, rowH + Kit.ROW_GAP),

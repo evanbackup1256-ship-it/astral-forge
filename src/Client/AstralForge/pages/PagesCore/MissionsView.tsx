@@ -479,7 +479,8 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	// fills the main column at full height
 	// 1100px+ desktop, side 360/400px, 18px gap (ui4 helper in UiCore/ui.tsx)
 	const plan = splitColumns(stack ? 0 : viewport.width, viewport.width >= 1600 ? 400 : 360, 18, 1100);
-	const sideBarH = Browse.barHeight(true, true);
+	// side column is ~330px: four counted chips don't fit one line, so they wrap onto a second
+	const sideBarH = Browse.barHeight(true, true, 2);
 	const sideClaimY = 106;
 	const sideBarY = sideClaimY + (counts.Ready > 0 ? 54 : 0);
 	const sideHeaderH = sideBarY + sideBarH + 32;
@@ -539,6 +540,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				placeholder="Search missions and rewards"
 				accent={Palette.cyan}
 				stack={true}
+				chipLines={2}
 				reducedMotion={softMotion}
 				position={UDim2.fromOffset(0, sideBarY)}
 				zIndex={40}

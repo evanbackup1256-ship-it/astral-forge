@@ -116,12 +116,13 @@ function FilterChip(props: ChipProps) {
 }
 
 /** Moving selection plate; lives beside the chip list so the list layout never places it. */
-function SelectionPlate(props: { left: number; width: number; visible: boolean; accent: Color3; zIndex: number }) {
+function SelectionPlate(props: { left: number; top?: number; width: number; visible: boolean; accent: Color3; zIndex: number }) {
+	const top = props.top ?? 0;
 	const lead = useFlipperSpring(props.left, false, 980, 44);
 	const tail = useFlipperSpring(props.left, false, 420, 34);
 	const width = useFlipperSpring(props.width, false, 700, 40);
 	const span = joinTuple<[number, number, number]>(lead, tail, width);
-	const position = span.map(([a, b]) => UDim2.fromOffset(math.min(a, b), 0));
+	const position = span.map(([a, b]) => UDim2.fromOffset(math.min(a, b), top));
 	const size = span.map(([a, b, w]) => UDim2.fromOffset(w + math.abs(a - b), FILTER_CHIP_H));
 	const accent = props.accent;
 	return (
@@ -163,6 +164,8 @@ export interface FilterChipRowProps {
 	size?: UDim2;
 	layoutOrder?: number;
 	zIndex?: number;
+	/** wrap chips onto extra lines instead of scrolling (narrow side columns) */
+	wrap?: boolean;
 }
 
 /** The one filter-chip row used by every list page. Scrolls sideways when the chips don't fit. */
@@ -172,7 +175,7 @@ export function FilterChipRow(props: FilterChipRowProps) {
 	const rowRef = React.useRef<ScrollingFrame>();
 	const listRef = React.useRef<Frame>();
 	const chips = React.useRef(new Map<string, TextButton>());
-	const [plate, setPlate] = React.useState({ left: 0, width: 0, visible: false });
+	const [plate, setPlate] = React.useState({ left: 0, top: 0, width: 0, visible: false });
 	const [fades, setFades] = React.useState({ left: false, right: false });
 	let selectedAccent = props.accent ?? Palette.cyan;
 	for (const option of options) {
@@ -189,9 +192,10 @@ export function FilterChipRow(props: FilterChipRowProps) {
 			return;
 		}
 		const left = math.round(chip.AbsolutePosition.X - list.AbsolutePosition.X);
+		const top = math.round(chip.AbsolutePosition.Y - list.AbsolutePosition.Y);
 		const width = math.round(chip.AbsoluteSize.X);
 		setPlate((current) =>
-			current.visible && current.left === left && current.width === width ? current : { left, width, visible: true },
+			current.visible && current.left === left && current.top === top && current.width === width ? current : { left, top, width, visible: true },
 		);
 	}, [props.value]);
 
@@ -279,8 +283,9 @@ export function FilterChipRow(props: FilterChipRowProps) {
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				CanvasSize={new UDim2()}
-				AutomaticCanvasSize={Enum.AutomaticSize.X}
+				AutomaticCanvasSize={props.wrap === true ? Enum.AutomaticSize.None : Enum.AutomaticSize.X}
 				ScrollingDirection={Enum.ScrollingDirection.X}
+				ScrollingEnabled={props.wrap !== true}
 				ScrollBarThickness={0}
 				ElasticBehavior={Enum.ElasticBehavior.WhenScrollable}
 				ClipsDescendants={true}
@@ -297,17 +302,18 @@ export function FilterChipRow(props: FilterChipRowProps) {
 				/>
 				<frame
 					ref={listRef}
-					Size={new UDim2(0, 0, 1, 0)}
-					AutomaticSize={Enum.AutomaticSize.X}
+					Size={props.wrap === true ? UDim2.fromScale(1, 1) : new UDim2(0, 0, 1, 0)}
+					AutomaticSize={props.wrap === true ? Enum.AutomaticSize.None : Enum.AutomaticSize.X}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					ZIndex={zIndex}
 				>
-					<SelectionPlate left={plate.left} width={plate.width} visible={plate.visible} accent={selectedAccent} zIndex={zIndex} />
-					<frame Size={new UDim2(0, 0, 1, 0)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} ZIndex={zIndex + 2}>
+					<SelectionPlate left={plate.left} top={plate.top} width={plate.width} visible={plate.visible} accent={selectedAccent} zIndex={zIndex} />
+					<frame Size={props.wrap === true ? UDim2.fromScale(1, 1) : new UDim2(0, 0, 1, 0)} AutomaticSize={props.wrap === true ? Enum.AutomaticSize.None : Enum.AutomaticSize.X} BackgroundTransparency={1} ZIndex={zIndex + 2}>
 						<uilistlayout
+							Wraps={props.wrap === true}
 							FillDirection={Enum.FillDirection.Horizontal}
-							VerticalAlignment={Enum.VerticalAlignment.Center}
+							VerticalAlignment={props.wrap === true ? Enum.VerticalAlignment.Top : Enum.VerticalAlignment.Center}
 							SortOrder={Enum.SortOrder.LayoutOrder}
 							Padding={new UDim(0, 4)}
 						/>

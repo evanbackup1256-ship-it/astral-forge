@@ -15,6 +15,8 @@ import {
 	useViewport,
 } from "../MotionKit/motion";
 import * as PageTransition from "../MotionKit/pageTransition";
+import { HeaderArt } from "./HeaderArt";
+import type { HeaderArtName } from "../ArtKit/uiArt";
 import { featureNames, openRoadmap, progressFraction, readLevelState, tierAccent } from "./levelRoadmap";
 import {
 	Button,
@@ -114,6 +116,46 @@ function pageOrderFor(phone: boolean): string[] {
 	}
 	PAGE_ORDER[key] = order;
 	return order;
+}
+
+
+// header art per page (design/headers); pages without their own painting share the forge one
+const HERO_ART: Record<string, HeaderArtName | undefined> = {
+	Overview: "forge",
+	Workshop: "forge",
+	Forge: "forge",
+	Inventory: "vault",
+	Vault: "vault",
+	Shop: "market",
+	Bazaar: "market",
+	Crates: "crates",
+	Rebirth: "rebirth",
+	Ascension: "ascension",
+	Companions: "companions",
+	Journal: "journal",
+	Ranks: "ranks",
+	Leaderboards: "ranks",
+	Worlds: "worlds",
+};
+
+function heroKicker(page: string, state: { CurrentZone?: unknown }, eyebrow: string): string {
+	if (page === "Overview" || page === "Workshop" || page === "Forge") {
+		return `World ${tostring(state.CurrentZone ?? 1)}`;
+	}
+	return eyebrow;
+}
+
+const HERO_LINES: Record<string, string | undefined> = {
+	Inventory: "Everything the forge has given you",
+	Shop: "Flux, gems and upgrades that stay",
+	Crates: "Pick a crate. Odds are always shown.",
+};
+
+function heroLine(page: string, state: { Production?: unknown }): string {
+	if (page === "Overview" || page === "Workshop" || page === "Forge") {
+		return `${compactNumber(state.Production as Flux)} cash every second`;
+	}
+	return HERO_LINES[page] ?? "";
 }
 
 export function VaultPill(_param: { state: ChromeState; reducedMotion?: boolean; accent: Color3; top?: number }) {
@@ -667,14 +709,17 @@ export function Workspace(_param: WorkspaceProps) {
 		const t = math.clamp(amount, 0, 1);
 		return (1 - t) * 0.4;
 	});
-	const titleLeft = keyboardCompact ? 54 : chrome.stack ? 66 : 84;
+	// 03-forge .hero: 178px painted header, art on the right, kicker / 54px title / line bottom-left
+	const hero = !keyboardCompact && !chrome.stack && !chrome.landscape && headerHeight >= 150;
+	const heroArt: HeaderArtName = HERO_ART[page] ?? "forge";
+	const titleLeft = hero ? 30 : keyboardCompact ? 54 : chrome.stack ? 66 : 84;
 	const titleReserve = keyboardCompact
 		? -(titleLeft + vaultBtn + 18)
 		: (chrome.stack ? -(vaultBtn + 18) : chrome.tight ? -(vaultBtn + 28) : -344) - (titleLeft - (chrome.stack ? 14 : 22));
 	const denseHeader = !keyboardCompact && !chrome.landscape && !chrome.stack && headerHeight < 74;
-	const titleBlockH = keyboardCompact ? 32 : chrome.landscape ? 28 : chrome.stack ? 36 : denseHeader ? 44 : 72;
+	const titleBlockH = hero ? 98 : keyboardCompact ? 32 : chrome.landscape ? 28 : chrome.stack ? 36 : denseHeader ? 44 : 72;
 	const headerIconSize = keyboardCompact ? 28 : chrome.landscape ? 28 : chrome.stack ? 32 : denseHeader ? 36 : 48;
-	const headerTitleY = keyboardCompact ? 6 : chrome.landscape ? 10 : chrome.stack ? 12 : math.max(10, math.floor((headerHeight - titleBlockH) / 2));
+	const headerTitleY = hero ? headerHeight - 24 - titleBlockH : keyboardCompact ? 6 : chrome.landscape ? 10 : chrome.stack ? 12 : math.max(10, math.floor((headerHeight - titleBlockH) / 2));
 	const vaultPillY = math.max(8, math.floor((headerHeight - 52) / 2));
 	return h(
 		"frame",
@@ -720,13 +765,27 @@ export function Workspace(_param: WorkspaceProps) {
 					Color: surfaceGradient(Palette.panel, 0.58),
 					Rotation: 90,
 				}),
-				h("frame", {
+				!hero && h("frame", {
 					Size: new UDim2(1, 0, 0, 14),
 					Position: new UDim2(0, 0, 1, -14),
 					BackgroundColor3: darken(Palette.panel, 0.24),
 					BorderSizePixel: 0,
 				}),
-				h(
+				hero && h(HeaderArt, { art: heroArt, inset: 0, radius: 18, fill: Palette.ink, transparency: 0 }),
+				// .hero::after: 2px accent rule along the bottom, fading out past the middle
+				hero &&
+					h(
+						"frame",
+						{ Size: new UDim2(1, 0, 0, 2), Position: new UDim2(0, 0, 1, -2), BackgroundColor3: accent, BorderSizePixel: 0, ZIndex: 2 },
+						h("uigradient", {
+							Transparency: new NumberSequence([
+								new NumberSequenceKeypoint(0, 0),
+								new NumberSequenceKeypoint(0.55, 0.8),
+								new NumberSequenceKeypoint(1, 1),
+							]),
+						}),
+					),
+				!hero && h(
 					"frame",
 					{
 						Size: UDim2.fromOffset(headerIconSize, headerIconSize),
@@ -761,17 +820,29 @@ export function Workspace(_param: WorkspaceProps) {
 						ClipsDescendants: false,
 						ZIndex: 3,
 					},
+					hero &&
+						h(Text, {
+							value: string.upper(heroKicker(page, state, entry.eyebrow)),
+							size: 12,
+							color: ensureContrast(Palette.ink, accent),
+							weight: Enum.FontWeight.Bold,
+							fit: true,
+							minSize: 10,
+							position: UDim2.fromOffset(0, 0),
+							sizeConstraint: new UDim2(1, 0, 0, 16),
+							transparency: revealFade,
+						}),
 					h(ShimmerText, {
 						value: entry.label === "Ranks" ? "Leaderboards" : entry.label,
-						size: chrome.stack ? chrome.titleText : denseHeader ? 20 : 24,
+						size: hero ? 54 : chrome.stack ? chrome.titleText : denseHeader ? 20 : 24,
 						color: ensureContrast(Palette.panel, Palette.cream),
 						weight: Enum.FontWeight.Bold,
 						fit: false,
 						minSize: 14,
 						position: enter.map(
-							(amount) => new UDim2(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, chrome.landscape ? 4 : 2),
+							(amount) => new UDim2(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, hero ? 16 : chrome.landscape ? 4 : 2),
 						),
-						sizeConstraint: new UDim2(1, 0, 0, chrome.landscape ? 26 : chrome.stack ? 24 : denseHeader ? 24 : 28),
+						sizeConstraint: new UDim2(1, 0, 0, hero ? 56 : chrome.landscape ? 26 : chrome.stack ? 24 : denseHeader ? 24 : 28),
 						reducedMotion: reducedMotion,
 						// page titles sit still; the sweeping glint read as decoration, not information
 						enabled: false,
@@ -779,6 +850,19 @@ export function Workspace(_param: WorkspaceProps) {
 					}),
 					// the info line only stays where it carries live numbers (Overview); elsewhere it
 					// restated the page name, so the title stands alone
+					hero &&
+						h(Text, {
+							value: heroLine(page, state),
+							size: 15,
+							color: ensureContrast(Palette.ink, Palette.creamSoft),
+							weight: Enum.FontWeight.Medium,
+							fit: true,
+							minSize: 11,
+							position: UDim2.fromOffset(0, 78),
+							sizeConstraint: new UDim2(1, 0, 0, 20),
+							transparency: revealFade,
+						}),
+					!hero &&
 					page === "Overview" &&
 						!keyboardCompact &&
 						!mobileHeaderCompact &&

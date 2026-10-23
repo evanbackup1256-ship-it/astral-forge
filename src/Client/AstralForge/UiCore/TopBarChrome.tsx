@@ -95,7 +95,8 @@ export function StatChip(_param: StatChipProps) {
 	const tall = _param.tall ?? false;
 	const reactiveFlash = _param.reactiveFlash ?? true;
 	const placeholder = _param.placeholder;
-	const showLabel = _param.showLabel ?? true;
+	// 01-hud-session desktop pill shows the number only; the name lives in the tooltip
+	const showLabel = _param.showLabel ?? (_param.tall ?? false);
 	const animateValue = _param.animateValue ?? true;
 	const [gains, setGains] = React.useState(0);
 	const previous = React.useRef(value);
@@ -114,9 +115,10 @@ export function StatChip(_param: StatChipProps) {
 	const flash = useFlash(gains, reducedMotion);
 	// flying coins land here; the chip bounces each time they do
 	const [juiceRef, juiceBump] = JuiceFx.useTarget(label);
-	const chipH = tall ? TapTarget : 44;
-	const iconSize = tall ? 28 : 24;
-	const valueSize = tall ? 15 : 14;
+	// af.css .cur: 38px pill, 28px gem, 18px numbers, 5/6px side padding
+	const chipH = tall ? TapTarget : 38;
+	const iconSize = 28;
+	const valueSize = tall ? 15 : 18;
 	const tip = CHIP_TIPS[label];
 	const tipEvents = useTooltip(
 		tip !== undefined
@@ -129,7 +131,7 @@ export function StatChip(_param: StatChipProps) {
 	);
 	// room for long scale names ("37.3 Googolchime"); FPS/ping only ever show a few digits
 	const valueMaxW = _param.narrow ? 40 : tall ? 108 : 116;
-	const chipInnerW = iconSize + 6 + valueMaxW + (tall ? 20 : 18);
+	const chipInnerW = iconSize + 7 + valueMaxW + (tall ? 20 : 15);
 	// 01-hud-session chip: a dark pill, round icon on the left, Gotham numbers
 	const _exp = h("uicorner", {
 		CornerRadius: new UDim(1, 0),
@@ -153,16 +155,16 @@ export function StatChip(_param: StatChipProps) {
 		}),
 	);
 	const _exp_3 = h("uipadding", {
-		PaddingLeft: new UDim(0, tall ? 8 : 7),
-		PaddingRight: new UDim(0, tall ? 12 : 11),
-		PaddingTop: new UDim(0, tall ? 6 : 8),
-		PaddingBottom: new UDim(0, tall ? 6 : 8),
+		PaddingLeft: new UDim(0, tall ? 8 : 5),
+		PaddingRight: new UDim(0, tall ? 12 : 10),
+		PaddingTop: new UDim(0, tall ? 6 : 5),
+		PaddingBottom: new UDim(0, tall ? 6 : 5),
 	});
 	const _exp_4 = h("uilistlayout", {
 		FillDirection: Enum.FillDirection.Horizontal,
 		SortOrder: Enum.SortOrder.LayoutOrder,
 		VerticalAlignment: Enum.VerticalAlignment.Center,
-		Padding: new UDim(0, 6),
+		Padding: new UDim(0, 7),
 	});
 	const _exp_5 = h(
 		"frame",
@@ -1457,9 +1459,12 @@ function TopBarImpl(_param: TopBarProps) {
 				rate: state.Production,
 				liveVaultFull: true,
 				navigate: _param.navigate,
-				maxWidth: islandDetached ? math.max(islandRoom, 420) : islandRoom,
-				position: islandDetached || islandScale !== 1 ? new UDim2() : new UDim2(0, islandLeft + islandRoom / 2, 0, math.max(0, math.floor((row1H - 44) / 2))),
-				anchorPoint: new Vector2(0.5, 0),
+				// 25-toasts: messages stack top-right under the bar, 420 wide, 16 in from the page edge;
+				// the resting buff chips live bottom-left (AppShellChrome)
+				role: "toasts",
+				maxWidth: 420,
+				position: islandDetached || islandScale !== 1 ? new UDim2() : new UDim2(1, -16, 0, barHeight + 16),
+				anchorPoint: islandDetached ? new Vector2(0.5, 0) : new Vector2(1, 0),
 				reducedMotion: reducedMotion,
 			})),
 			visitPill !== undefined &&
