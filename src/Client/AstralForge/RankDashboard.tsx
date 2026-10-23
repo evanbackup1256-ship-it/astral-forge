@@ -106,6 +106,28 @@ const MEDAL: Record<number, Color3> = {
 	[3]: Color3.fromRGB(214, 146, 98),
 };
 
+// 17-leaderboards card: radius 18 with a thin brass inner rule over the padded panel
+const FORGE_RADIUS = 18;
+function BrassRule(props: { pad: number }): React.Element {
+	return e("frame", {
+		Size: new UDim2(1, props.pad * 2 - 4, 1, props.pad * 2 - 4), Position: UDim2.fromScale(0.5, 0.5), AnchorPoint: new Vector2(0.5, 0.5),
+		BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 1,
+	}, {
+		Corner: e("uicorner", { CornerRadius: new UDim(0, FORGE_RADIUS - 2) }),
+		Rule: e("uistroke", { Color: P.brass, Thickness: 1, Transparency: 0.75 }),
+	});
+}
+
+// 17-leaderboards type: serif for titles and podium numerals, GothamBold for numbers
+const SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
+const NUMERIC = Font.fromEnum(Enum.Font.GothamBold);
+function face(font: Font, value: string, size: number, color: Color3, position: UDim2, box: UDim2, align?: Enum.TextXAlignment): React.Element {
+	return e("textlabel", {
+		Text: value, FontFace: font, TextColor3: color, TextScaled: true, TextWrapped: false, TextTruncate: Enum.TextTruncate.AtEnd,
+		TextXAlignment: align ?? Enum.TextXAlignment.Left, BackgroundTransparency: 1, BorderSizePixel: 0, Position: position, Size: box, ZIndex: 3,
+	}, { Fit: e("uitextsizeconstraint", { MaxTextSize: size, MinTextSize: 9 }) });
+}
+
 function share(value: unknown, top: unknown): number {
 	if (!Math.Gt(top, 0)) {
 		return 0;
@@ -129,7 +151,7 @@ function matchesRank(row: RankRow, query: string): boolean {
 }
 
 function bar(ratio: number, color: Color3, position: UDim2, size: UDim2): React.Element {
-	return e("frame", { BackgroundColor3: Color3.fromRGB(20, 24, 38), BackgroundTransparency: 0.2, BorderSizePixel: 0, Position: position, Size: size }, {
+	return e("frame", { BackgroundColor3: P.ink, BackgroundTransparency: 0.1, BorderSizePixel: 0, Position: position, Size: size }, {
 		Corner: e("uicorner", { CornerRadius: new UDim(1, 0) }),
 		Fill: e("frame", { BackgroundColor3: color, BorderSizePixel: 0, Size: UDim2.fromScale(math.max(ratio, 0.015), 1) }, {
 			Corner: e("uicorner", { CornerRadius: new UDim(1, 0) }),
@@ -552,7 +574,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			return e(ui.Text, textProps);
 		}
 		function section(id: string, height: number, children: Record<string, React.Element | undefined>, accent?: Color3) {
-			sections.push({ id, height, element: e(ui.Panel, { size: UDim2.fromScale(1, 1), padding: 22, accent: accent ?? meta.accent }, children) });
+			sections.push({ id, height, element: e(ui.Panel, { size: UDim2.fromScale(1, 1), padding: 22, radius: FORGE_RADIUS, background: P.panel, accent: accent ?? P.brass }, { BrassRule: e(BrassRule, { pad: 22 }), ...children }) });
 		}
 
 		const mainNarrow = plan.split ? plan.main < 620 : narrow;
@@ -563,10 +585,10 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		const standing = personalIndex !== undefined ? `#${personalIndex}` : "—";
 		section("rank-standing", narrow ? 190 : 168, {
 			Icon: e(Art.Icon, { kind: meta.icon ?? "Leaderboard.2", color: meta.accent, accent: meta.accent, size: 28, spin: false, position: UDim2.fromOffset(0, 2) }),
-			Title: text(meta.label, 44, 0, 1, 32, 24, P.cream, { weight: Enum.FontWeight.Bold }),
-			Seat: text(standing, 0, narrow ? 56 : 24, 1, 48, 44, personalIndex === 1 ? MEDAL[1] : P.cream, { weight: Enum.FontWeight.Heavy, align: Enum.TextXAlignment.Right }),
-			Score: text(valueText(own), 0, narrow ? 70 : 64, 0.6, 22, 16, P.cream, { weight: Enum.FontWeight.SemiBold }),
-			Climb: bar(nextRatio, personalIndex === 1 ? MEDAL[1] : meta.accent, new UDim2(0, 0, 0, narrow ? 112 : 100), new UDim2(1, 0, 0, 6)),
+			Title: face(SERIF, meta.label, 24, P.cream, UDim2.fromOffset(44, 0), new UDim2(1, -44, 0, 32)),
+			Seat: face(SERIF, standing, 44, personalIndex === 1 ? MEDAL[1] : P.brass, UDim2.fromOffset(0, narrow ? 56 : 24), new UDim2(1, 0, 0, 48), Enum.TextXAlignment.Right),
+			Score: face(NUMERIC, valueText(own), 16, P.cream, UDim2.fromOffset(0, narrow ? 70 : 64), new UDim2(0.6, 0, 0, 22)),
+			Climb: bar(nextRatio, personalIndex === 1 ? MEDAL[1] : P.brass, new UDim2(0, 0, 0, narrow ? 112 : 100), new UDim2(1, 0, 0, 6)),
 			Gap: text(Math.ToNumber(gap) > 0 ? `+${format.compactNumber(gap)} to #${personalIndex! - 1}` : personalIndex === undefined && rows.size() > 0 ? `${valueText(rows[rows.size() - 1].Value)} to #${rows.size()}` : "", 0, narrow ? 126 : 114, 1, 18, 11, P.creamSoft),
 		});
 
@@ -601,7 +623,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				onClick: () => setSelected(board.id),
 			});
 		}
-		groupKids.Divider = e("frame", { BackgroundColor3: meta.accent, BackgroundTransparency: 0.75, BorderSizePixel: 0, Position: new UDim2(0, 0, 0, groupRows * 56 + 5), Size: new UDim2(1, 0, 0, 1) });
+		groupKids.Divider = e("frame", { BackgroundColor3: P.brass, BackgroundTransparency: 0.6, BorderSizePixel: 0, Position: new UDim2(0, 0, 0, groupRows * 56 + 5), Size: new UDim2(1, 0, 0, 1) });
 		section("rank-categories", groupRows * 56 + 14 + math.ceil(inGroup.size() / boardCols) * 56 + 32, groupKids);
 
 		// Scope, refresh and search in one card.
@@ -632,24 +654,24 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			// same frame treatment as the player list card (thickness, gradient frames, a bit more opaque)
 			const ring = frameStroke(styled?.frame, accent, pinned ? 2 : 1);
 			return e("frame", {
-				BackgroundColor3: mine ? Color3.fromRGB(22, 48, 44) : Color3.fromRGB(22, 26, 40),
-				BackgroundTransparency: 0.08, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
+				BackgroundColor3: mine ? P.brassDeep.Lerp(P.panelRaised, 0.72) : P.panelRaised,
+				BackgroundTransparency: 0.04, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
 			}, {
 				Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
 				Stroke: e("uistroke", { Color: ring.color, Transparency: mine ? 0.2 : ring.framed ? 0.45 : 0.8, Thickness: ring.thickness }, ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
 				...(phoneRow
 					? {
-							Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 13, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(2, 0), sizeConstraint: new UDim2(0, 28, 1, -4) }),
+							Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 13, weight: Enum.FontWeight.Bold, color: mine ? P.brass : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(2, 0), sizeConstraint: new UDim2(0, 28, 1, -4) }),
 							Mark: mark({ row, guildBoard, accent, size: 26, position: new UDim2(0, 44, 0.5, -15) }),
-							Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.mint : P.cream), position: UDim2.fromOffset(64, 12), sizeConstraint: new UDim2(1, -64 - 92, 0, 18) }),
-							Value: e(ui.Text, { value: valueText(row.Value), size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.Bold, color: P.cream, align: Enum.TextXAlignment.Right, position: new UDim2(1, -90, 0, 12), sizeConstraint: UDim2.fromOffset(80, 18) }),
+							Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.brass : P.cream), position: UDim2.fromOffset(64, 12), sizeConstraint: new UDim2(1, -64 - 92, 0, 18) }),
+							Value: face(NUMERIC, valueText(row.Value), 13, mine ? P.brass : P.cream, new UDim2(1, -90, 0, 12), UDim2.fromOffset(80, 18), Enum.TextXAlignment.Right),
 							Share: bar(share(row.Value, top), accent, new UDim2(0, 64, 1, -7), new UDim2(1, -76, 0, 3)),
 						}
 					: {
-						Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.mint : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
+						Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.brass : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
 						Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
-						Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.mint : P.cream), position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),
-						Value: e(ui.Text, { value: valueText(row.Value), size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.Bold, color: P.cream, align: Enum.TextXAlignment.Right, position: narrow ? UDim2.fromOffset(90, 29) : new UDim2(0.6, 0, 0, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.4, narrow ? -104 : -14, 0, 18) }),
+						Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.brass : P.cream), position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),
+						Value: face(NUMERIC, valueText(row.Value), 13, mine ? P.brass : P.cream, narrow ? UDim2.fromOffset(90, 29) : new UDim2(0.6, 0, 0, 9), new UDim2(narrow ? 1 : 0.4, narrow ? -104 : -14, 0, 18), Enum.TextXAlignment.Right),
 						Share: bar(share(row.Value, top), accent, new UDim2(0, 90, 0, narrow ? 51 : 36), new UDim2(1, -104, 0, 4)),
 						}),
 			});
@@ -707,14 +729,14 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 					podium[`seat${place}`] = e("frame", { Name: `PodiumSeat${place}`, BackgroundTransparency: 1, Position: narrow ? UDim2.fromOffset(0, (slot - 1) * 242) : new UDim2((slot - 1) / 3, 4, 0, 0), Size: new UDim2(narrow ? 1 : 1 / 3, narrow ? 0 : -8, 0, seatHeight) }, {
 						Avatar: !guildBoard ? e(AvatarView, { userId: row.UserId!, accent: color, reducedMotion, position: UDim2.fromOffset(4, 0), size: new UDim2(narrow ? 0.46 : 1, -8, 0, narrow ? 222 : 230) }) : undefined,
 						Mark: guildBoard ? mark({ row, guildBoard: true, accent: color, size: 70, position: narrow ? new UDim2(0.23, 0, 0, 58) : new UDim2(0.5, 0, 0, 90) }) : undefined,
-						Name: text(`${row.Name ?? "Unknown"}${isMine(row) ? " · YOU" : ""}`, 0, 0, 1, 36, 14, rankRowStyle(row, guildBoard)?.accent ?? (isMine(row) ? P.mint : P.cream), { weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, fit: true, minSize: 10, position: new UDim2(infoX, 0, 0, narrow ? 34 : 236), sizeConstraint: new UDim2(infoWidth, 0, 0, 36) }),
-						Value: text(valueText(row.Value), 0, 0, 1, 28, 12, P.creamSoft, { align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: new UDim2(infoX, 0, 0, narrow ? 80 : 273), sizeConstraint: new UDim2(infoWidth, 0, 0, 28) }),
+						Name: text(`${row.Name ?? "Unknown"}${isMine(row) ? " · YOU" : ""}`, 0, 0, 1, 36, 14, rankRowStyle(row, guildBoard)?.accent ?? (isMine(row) ? P.brass : P.cream), { weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, fit: true, minSize: 10, position: new UDim2(infoX, 0, 0, narrow ? 34 : 236), sizeConstraint: new UDim2(infoWidth, 0, 0, 36) }),
+						Value: face(NUMERIC, valueText(row.Value), 12, P.creamSoft, new UDim2(infoX, 0, 0, narrow ? 80 : 273), new UDim2(infoWidth, 0, 0, 28), Enum.TextXAlignment.Center),
 						Share: bar(share(row.Value, top), color, new UDim2(infoX, 8, 0, narrow ? 118 : 307), new UDim2(infoWidth, -16, 0, 4)),
-						Plinth: e("frame", { BackgroundColor3: color, BackgroundTransparency: 0.72, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: new UDim2(infoX, 0, 1, 0), Size: new UDim2(infoWidth, 0, 0, narrow ? plinth : 32) }, {
+						Plinth: e("frame", { BackgroundColor3: color, BackgroundTransparency: 0.08, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: new UDim2(infoX, 0, 1, 0), Size: new UDim2(infoWidth, 0, 0, narrow ? plinth : 32) }, {
 							Corner: e("uicorner", { CornerRadius: new UDim(0, 8) }),
 							Stroke: e("uistroke", { Color: color, Transparency: 0.35, Thickness: 1 }),
-							Shade: e("uigradient", { Rotation: 90, Transparency: new NumberSequence(0, 0.65) }),
-							Place: e(ui.Text, { value: tostring(place), size: place === 1 ? 26 : 20, weight: Enum.FontWeight.Heavy, color, align: Enum.TextXAlignment.Center, sizeConstraint: UDim2.fromScale(1, 1) }),
+							Shade: e("uigradient", { Rotation: 90, Color: new ColorSequence(new Color3(1, 1, 1), new Color3(0.42, 0.42, 0.42)), Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(0.7, 0.1), new NumberSequenceKeypoint(1, 0.75)]) }),
+							Place: face(SERIF, tostring(place), place === 1 ? 28 : 22, P.ink, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Enum.TextXAlignment.Center),
 						}),
 					});
 				}
@@ -759,7 +781,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			];
 		}
 		return e("frame", { Name: "RankDashboard", ref: hostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ClipsDescendants: false }, {
-			Content: e(Scaffold, { sections: planned, gap: 22, tailPad: 80, scrollBarColor: meta.accent, scrollBarThickness: 4 }),
+			Content: e(Scaffold, { sections: planned, gap: 22, tailPad: 80, scrollBarColor: P.brass, scrollBarThickness: 4 }),
 		});
 	};
 }
