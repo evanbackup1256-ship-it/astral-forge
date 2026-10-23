@@ -13,7 +13,7 @@ import { InteractionFeedback } from "../../CoreKit/interaction";
 import { chromeFor, darken, Palette, TapTarget } from "../../CoreKit/theme";
 import { useFlash, usePulse, useStagger, useViewport } from "../../MotionKit/motion";
 import { TooltipContent, mergeEvents, useTooltip } from "../../Tooltip";
-import { balanceColumns, SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { AudioPlayer, kitMember, LuauComponent, sharedModule } from "../luauKits";
 
 const UserInputService = game.GetService("UserInputService");
@@ -1136,15 +1136,7 @@ export function RebirthChamber(props: ChamberProps) {
 		const block = blockOf(id, sections[id]);
 		if (block !== undefined) column.push(block);
 	}
-	const plan = splitColumns(twoColumn ? width - 28 - 9 : 0, (width - 28 - 9 - 22) / 2, 22, 900);
-	if (plan.split) {
-		// layout engine: level the two columns (payout/stars/vows vs keep/ledger/log)
-		const [l, r] = balanceColumns(leftBlocks, rightBlocks, 22);
-		leftBlocks.clear();
-		rightBlocks.clear();
-		for (const b of l) leftBlocks.push(b);
-		for (const b of r) rightBlocks.push(b);
-	}
+	const plan = splitColumns(twoColumn ? width - 28 : 0, (width - 28 - 22) / 2, 22, 900);
 	const splitHeight = math.max(stackHeight(leftBlocks.map((block) => block.height), 22), stackHeight(rightBlocks.map((block) => block.height), 22)) + 24;
 	const claimText = busy
 		? "Rebirthing…"

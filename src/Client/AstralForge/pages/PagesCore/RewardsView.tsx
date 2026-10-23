@@ -7,7 +7,7 @@ import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motio
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
 import { EventDispatch, EventPanel, eventPanelHeight, EventState } from "./EventPanel";
-import { balanceColumns, SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 
 type ColumnSection = { id: string; height: number; element: React.Element };
 
@@ -695,14 +695,6 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		(split ? claimCol : sideCol).push({ id: "shortcuts", height: shortcutsH, element: shortcutsRow });
 	}
 	const plan = splitColumns(split ? viewport.width : 0, math.floor(viewport.width * 0.42), pageGap, 1180);
-	if (plan.split && sideCol.size() > 0) {
-		// layout engine: trade tail blocks between the claim and side columns so they end level
-		const [c, d] = balanceColumns(claimCol, sideCol, pageGap);
-		claimCol.clear();
-		sideCol.clear();
-		for (const b of c) claimCol.push(b);
-		for (const b of d) sideCol.push(b);
-	}
 	const columnsH = math.max(stackHeight(claimCol.map((b) => b.height), pageGap), stackHeight(sideCol.map((b) => b.height), pageGap));
 	const sections =
 		plan.split && sideCol.size() > 0
