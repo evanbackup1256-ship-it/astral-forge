@@ -2,6 +2,7 @@
 // Pins are saved to Flags.MobileTabPins through SetMobileLayout; the bar fills the rest from
 // its priority order.
 import React from "@rbxts/react";
+import { Label, RowSurface } from "../../UiCore/mockKit";
 import { darken, Palette, TapTarget } from "../../CoreKit/theme";
 import * as NavRouteTable from "../../CoreKit/navRouteTable";
 import * as NavRoutes from "../../../../Shared/AstralForge/Shared/NavRoutes";
@@ -80,8 +81,8 @@ export function MobileTabPinsEditor(props: Props) {
 				<Button
 					text={labelOf(id)}
 					onClick={() => setSelected(chosen === id ? undefined : id)}
-					color={chosen === id ? accent : Palette.panelSoft}
-					textColor={chosen === id ? Palette.ink : Palette.cream}
+					color={chosen === id ? Palette.mango : Palette.panelSoft}
+					textColor={chosen === id ? Color3.fromRGB(27, 15, 8) : Palette.cream}
 					outline={chosen !== id}
 					size={new UDim2(pinW, -6, 0, TapTarget)}
 					position={new UDim2(pinW * i, 0, 0, 0)}
@@ -91,12 +92,10 @@ export function MobileTabPinsEditor(props: Props) {
 				<frame
 					Size={new UDim2(pinW, -6, 0, TapTarget)}
 					Position={new UDim2(pinW * i, 0, 0, 0)}
-					BackgroundColor3={darken(Palette.panelSoft, 0.35)}
-					BackgroundTransparency={0.4}
+					BackgroundColor3={Palette.white}
 					BorderSizePixel={0}
 				>
-					<uicorner CornerRadius={new UDim(0, 10)} />
-					<uistroke Color={Palette.brass} Transparency={0.75} Thickness={1} />
+					<RowSurface />
 				</frame>
 			);
 	}
@@ -118,7 +117,7 @@ export function MobileTabPinsEditor(props: Props) {
 					}
 				}}
 				disabled={!pinned && full}
-				color={pinned ? darken(accent, 0.55) : Palette.panelSoft}
+				color={pinned ? darken(Palette.mango, 0.55) : Palette.panelSoft}
 				textColor={Palette.cream}
 				outline={!pinned}
 				size={new UDim2(cellW, -6, 0, TapTarget)}
@@ -135,20 +134,16 @@ export function MobileTabPinsEditor(props: Props) {
 	const third = 1 / 3;
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<Text
-				value={`PHONE TAB BAR  ·  ${pins.size()}/${NavRoutes.MAX_MOBILE_TAB_PINS} PINNED`}
-				size={11}
-				color={accent}
-				weight={Enum.FontWeight.Heavy}
-				position={UDim2.fromOffset(0, 12)}
-				sizeConstraint={new UDim2(1, 0, 0, 14)}
-			/>
+			{/* .lbl: 11px bold, spaced caps, muted */}
+			<frame Size={new UDim2(1, 0, 0, 14)} Position={UDim2.fromOffset(0, 12)} BackgroundTransparency={1}>
+				<Label text={`Phone tab bar · ${pins.size()}/${NavRoutes.MAX_MOBILE_TAB_PINS} pinned`} phone={stack} />
+			</frame>
 			<frame Size={new UDim2(1, 0, 0, TapTarget)} Position={UDim2.fromOffset(0, y0)} BackgroundTransparency={1}>
 				{pinRow}
 			</frame>
 			<frame Size={new UDim2(1, 0, 0, TapTarget)} Position={UDim2.fromOffset(0, y1)} BackgroundTransparency={1}>
 				<Button
-					text="MOVE LEFT"
+					text="Move left"
 					icon="Chevron.3"
 					onClick={() => move(-1)}
 					disabled={chosen === undefined || pins.indexOf(chosen) === 0}
@@ -159,7 +154,7 @@ export function MobileTabPinsEditor(props: Props) {
 					reducedMotion={softMotion}
 				/>
 				<Button
-					text="MOVE RIGHT"
+					text="Move right"
 					icon="Chevron.3"
 					onClick={() => move(1)}
 					disabled={chosen === undefined || pins.indexOf(chosen) === pins.size() - 1}
@@ -171,7 +166,7 @@ export function MobileTabPinsEditor(props: Props) {
 					reducedMotion={softMotion}
 				/>
 				<Button
-					text={chosen !== undefined ? "UNPIN" : "CLEAR ALL"}
+					text={chosen !== undefined ? "Unpin" : "Clear all"}
 					icon="Hide.1"
 					onClick={() => {
 						if (chosen !== undefined) {

@@ -1,5 +1,6 @@
 import { mergeEvents, useTooltip } from "../../Tooltip";
 import React from "@rbxts/react";
+import { Label } from "../../UiCore/mockKit";
 import { FrameStroke, frameStroke } from "../../CoreKit/profileFrame";
 import { PlayerMark } from "../../ArtKit/Icon";
 import { Palette, Radius, TapTarget } from "../../CoreKit/theme";
@@ -366,7 +367,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 						}
 					}}
 					color={selected ? tint : Palette.panelSoft}
-					textColor={selected ? Palette.ink : Palette.cream}
+					textColor={selected ? Color3.fromRGB(27, 15, 8) : Palette.cream}
 					outline={!selected}
 					size={UDim2.fromScale(1, 1)}
 					reducedMotion={props.reducedMotion}
@@ -417,7 +418,7 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 						hint: unlocked ? undefined : ProfileStyle.unlockText(option.Unlock),
 					}}
 					color={selected ? accentColor : Palette.panelSoft}
-					textColor={selected ? Palette.ink : Palette.cream}
+					textColor={selected ? Color3.fromRGB(27, 15, 8) : Palette.cream}
 					outline={!selected}
 					size={UDim2.fromScale(1, 1)}
 					reducedMotion={props.reducedMotion}
@@ -440,11 +441,11 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 			<frame
 				Size={new UDim2(1, 0, 0, PREVIEW_H)}
 				Position={UDim2.fromOffset(0, 26 + 22 + 10)}
-				BackgroundColor3={Palette.panelSoft}
-				BackgroundTransparency={0.2}
+				BackgroundColor3={Color3.fromRGB(0, 0, 0)}
+				BackgroundTransparency={0.65}
 				BorderSizePixel={0}
 			>
-				<uicorner CornerRadius={new UDim(0, 14)} />
+				<uicorner CornerRadius={new UDim(0, 11)} />
 				{/* drawn exactly as the player list, chat and ranks draw it */}
 				<uistroke Color={ring.color} Thickness={ring.thickness} Transparency={0.1}>
 					{ring.gradient !== undefined && <uigradient Color={ring.gradient} Rotation={35} />}
@@ -506,15 +507,9 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 				<StyleSample stack={props.stack} order={2} label="Chat" ring={ring} accent={accentColor} kind="mark" name={localName} />
 				<StyleSample stack={props.stack} order={3} label="Ranks" ring={ring} accent={accentColor} kind="row" name={localName} />
 			</frame>
-			<Text
-				value="Accent"
-				size={12}
-				color={Palette.creamSoft}
-				weight={Enum.FontWeight.Bold}
-				fit={false}
-				position={UDim2.fromOffset(0, accentTop)}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-			/>
+			<frame Size={new UDim2(1, 0, 0, 16)} Position={UDim2.fromOffset(0, accentTop)} BackgroundTransparency={1}>
+				<Label text="Accent" phone={props.stack} />
+			</frame>
 			<scrollingframe
 				Size={new UDim2(1, 0, 0, SWATCH_ROW_H)}
 				Position={UDim2.fromOffset(0, accentTop + 18)}
@@ -528,15 +523,9 @@ export function ProfileStylePanel(props: ProfileStylePanelProps) {
 			>
 				{swatches}
 			</scrollingframe>
-			<Text
-				value="Frame"
-				size={12}
-				color={Palette.creamSoft}
-				weight={Enum.FontWeight.Bold}
-				fit={false}
-				position={UDim2.fromOffset(0, frameTop)}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-			/>
+			<frame Size={new UDim2(1, 0, 0, 16)} Position={UDim2.fromOffset(0, frameTop)} BackgroundTransparency={1}>
+				<Label text="Frame" phone={props.stack} />
+			</frame>
 			<scrollingframe
 				Size={new UDim2(1, 0, 0, TapTarget + 4)}
 				Position={UDim2.fromOffset(0, frameTop + 18)}

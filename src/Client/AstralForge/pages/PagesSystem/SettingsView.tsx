@@ -5,6 +5,7 @@ import { fitTouchGridWidth, moreDockHeight } from "../../CoreKit/mobileLayout";
 import { chromeFor, darken, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motion";
 import { openDesktopEditor } from "../../CoreKit/desktopLayout";
+import { CONTROLS_W, controlsPanelHeight, SettingsControlsPanel } from "./settingsControls";
 import { MobileTabPinsEditor, mobileTabPinsEditorHeight } from "./MobileTabPinsEditor";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedModule } from "../luauKits";
 import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
@@ -1045,7 +1046,10 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		});
 		scaffold.push({ id: "list", height: listPanelH, element: list });
 	} else {
-		const bodyH = math.max(listPanelH, navH);
+		// wide desktop: the Controls panel takes a 520px right column (design/18-settings)
+		const withControls = viewport.width >= 1500;
+		const controlsW = withControls ? CONTROLS_W + 18 : 0;
+		const bodyH = math.max(listPanelH, navH, withControls ? controlsPanelHeight() : 0);
 		scaffold.push({
 			id: "body",
 			height: bodyH,
@@ -1056,9 +1060,14 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 							{navButtons}
 						</Panel>
 					</frame>
-					<frame key="SettingsList" Size={new UDim2(1, -(NAV_W + 24), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
+					<frame key="SettingsList" Size={new UDim2(1, -(NAV_W + 24 + controlsW), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
 						{list}
 					</frame>
+					{withControls && (
+						<frame key="SettingsControls" Size={UDim2.fromOffset(CONTROLS_W, controlsPanelHeight())} Position={new UDim2(1, -CONTROLS_W, 0, 0)} BackgroundTransparency={1}>
+							<SettingsControlsPanel reducedMotion={softMotion} />
+						</frame>
+					)}
 				</frame>
 			),
 		});
