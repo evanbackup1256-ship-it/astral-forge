@@ -73,10 +73,15 @@ export function captureViewport(): Viewport {
 	const size = camera !== undefined ? camera.ViewportSize : new Vector2(1280, 720);
 	let deviceInsets = G.ZERO_INSETS;
 	let coreInsets = G.ZERO_INSETS;
-	const [ok, full, device, core] = pcall(() => {
-		return [GuiService.GetInsetArea(Enum.ScreenInsets.None), GuiService.GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets), GuiService.GetInsetArea(Enum.ScreenInsets.CoreUISafeInsets)] as const;
-	}) as unknown as LuaTuple<[boolean, Rect, Rect, Rect]>;
-	if (ok) {
+	const [ok, rects] = pcall(() => [
+		GuiService.GetInsetArea(Enum.ScreenInsets.None),
+		GuiService.GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets),
+		GuiService.GetInsetArea(Enum.ScreenInsets.CoreUISafeInsets),
+	]);
+	const full = ok && typeIs(rects, "table") ? (rects as Rect[])[0] : undefined;
+	const device = ok && typeIs(rects, "table") ? (rects as Rect[])[1] : undefined;
+	const core = ok && typeIs(rects, "table") ? (rects as Rect[])[2] : undefined;
+	if (full !== undefined && device !== undefined && core !== undefined) {
 		deviceInsets = insetsFromRects(full, device);
 		coreInsets = insetsFromRects(full, core);
 	} else {
