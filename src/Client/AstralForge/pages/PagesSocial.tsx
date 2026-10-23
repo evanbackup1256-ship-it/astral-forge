@@ -653,7 +653,7 @@ __defs["TradeView"] = () => {
 			balanceText = "Add items or currency to see the balance";
 			balanceColor = Palette.muted;
 		} else if (yourRatio >= 0.42 && yourRatio <= 0.58) {
-			balanceText = "Fair trade · about even";
+			balanceText = "About even";
 			balanceColor = Palette.mint;
 		} else if (yourRatio > 0.58) {
 			const adv = math.round((yourRatio - 0.5) * 200);
@@ -806,6 +806,8 @@ __defs["TradeView"] = () => {
 			);
 		}
 		const rows: Record<string, unknown> = {
+			// keeps your right-aligned bubbles clear of the 3px scrollbar
+			gutter: h("uipadding", { PaddingRight: new UDim(0, 7) }),
 			layout: h("uilistlayout", {
 				FillDirection: Enum.FillDirection.Vertical,
 				Padding: new UDim(0, 4),
@@ -1069,7 +1071,7 @@ __defs["TradeView"] = () => {
 				}),
 				h(Text, {
 					value: `${relic.Rarity.upper()}  ·  L${relic.Level}${on ? "  ·  ASKED" : ""}`,
-					size: 10,
+					size: 11,
 					color: color,
 					weight: Enum.FontWeight.Heavy,
 					position: UDim2.fromOffset(10, 21),
@@ -1115,7 +1117,7 @@ __defs["TradeView"] = () => {
 						h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
 						h(Text, {
 							value: `${session.PartnerName} wants`,
-							size: 10,
+							size: 11,
 							color: Palette.mango,
 							weight: Enum.FontWeight.Heavy,
 							position: UDim2.fromOffset(10, 6),
@@ -1662,7 +1664,7 @@ __defs["TradeView"] = () => {
 							? h(EmptyState, {
 									icon: "Artifact",
 									title: "No tradeable relics",
-									body: "Equipped and locked pieces stay home.",
+									body: "Equipped and locked relics can't be traded.",
 									compact: true,
 								})
 							: undefined,
@@ -1719,7 +1721,6 @@ __defs["TradeView"] = () => {
 					? h(EmptyState, {
 							icon: "Crew",
 							title: "Nothing offered yet",
-							body: "Their side fills in as they add items.",
 							compact: true,
 						})
 					: undefined,
@@ -2692,7 +2693,7 @@ __defs["TradeView"] = () => {
 			height: 30,
 			element: h(Text, {
 				value:
-					history.size() > 0 ? "Recent trades" : "Recent trades: none yet. Finished trades show up here.",
+					history.size() > 0 ? "Recent trades" : "No trades yet",
 				size: 15,
 				color: Palette.cream,
 				weight: Enum.FontWeight.Heavy,

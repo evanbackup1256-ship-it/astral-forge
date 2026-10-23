@@ -1688,7 +1688,7 @@ function Hero(props: HeroProps) {
 }
 
 function heroHeight(stack: boolean): number {
-	return stack ? 124 : 92;
+	return stack ? 136 : 92;
 }
 
 function offerDetail(offer: DailyOffer, config: ShopConfig): string {
@@ -1705,7 +1705,7 @@ function offerDetail(offer: DailyOffer, config: ShopConfig): string {
 		const name = boost !== undefined && boost.Name !== undefined ? boost.Name : tostring(offer.BoostId).gsub("(%l)(%u)", "%1 %2")[0];
 		return `${offer.Amount} ${name} ${offer.Amount === 1 ? "charge" : "charges"}. Use it from Boosts.`;
 	} else if (offer.Kind === "Cache") {
-		return `One ${offer.Rarity} relic, guaranteed, revealed on the spot.`;
+		return `One guaranteed ${offer.Rarity} relic.`;
 	} else if (offer.Kind === "Skin") {
 		const skin = ShopCatalog.skin(offer.SkinId);
 		return `Crate skin. ${skin !== undefined ? skin.Blurb : ""}`;
@@ -1804,8 +1804,8 @@ function OfferCardImpl(props: OfferCardProps) {
 			offer.Kind === "Skin"
 				? h(CrateModel, {
 					skin: offer.SkinId,
-					live: offer.Deal === true && !props.reducedMotion,
-					spin: true,
+					live: false,
+					spin: false,
 					zoom: 0.95,
 				})
 				: h(Icon, {
@@ -2004,7 +2004,7 @@ function DailySection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Daily Shop",
-					body: "Six offers a day, picked for you. The first is the Deal of the Day.",
+					body: "Six offers a day. The first is the Deal of the Day.",
 					accent: Palette.mango,
 					icon: "Calendar.3",
 					state: state,
@@ -2059,7 +2059,7 @@ function DailySection(props: SectionProps) {
 						sizeConstraint: new UDim2(1, stack ? -50 : -220, 0, 22),
 					}),
 					h(Text, {
-						value: "Keys, materials and boosts from the Black Market's hourly shipments.",
+						value: "Keys, materials and boosts. Restocks hourly.",
 						fit: true,
 						minSize: 10,
 						size: 12,
@@ -2441,7 +2441,7 @@ function CratesSection(props: SectionProps) {
 		height: heroHeight(stack),
 		element: h(Hero, {
 			title: "Crates",
-			body: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
+			body: "Odds for every crate, up to Astral.",
 			accent: Palette.violet,
 			icon: "Crate.4",
 			state: state,
@@ -2639,7 +2639,7 @@ function SkinPreview(props: SkinPreviewProps) {
 				sizeConstraint: new UDim2(1, 0, 0, 40),
 			}),
 			h(Text, {
-				value: owned ? "Yours. Every crate you open wears the equipped skin." : "Equip this skin for its guaranteed essence bonus.",
+				value: owned ? "Owned" : "Equip for its essence bonus.",
 				size: 11,
 				color: accent,
 				weight: Enum.FontWeight.Bold,
@@ -2837,7 +2837,7 @@ function SkinsSection(props: SectionProps) {
 				height: heroHeight(stack),
 				element: h(Hero, {
 					title: "Crate Skins",
-					body: "Dress your crates. The Celestial Ark only shows up in the Daily Shop.",
+					body: "The Celestial Ark is only sold in the Daily Shop.",
 					accent: Palette.cyan,
 					icon: "Crate.5",
 					state: state,
@@ -3021,7 +3021,7 @@ function CodexProgressImpl(props: CodexProgressProps) {
 			sizeConstraint: new UDim2(1, 0, 0, 22),
 		}),
 		h(Text, {
-			value: "Find every relic of a rarity to earn its bonus for good.",
+			value: "Find every relic of a rarity for a permanent bonus.",
 			size: 12,
 			color: Palette.creamSoft,
 			position: UDim2.fromOffset(0, 24),

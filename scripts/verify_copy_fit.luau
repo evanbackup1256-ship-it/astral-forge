@@ -69,7 +69,7 @@ local heroWidth = shopPanel - 56
 local CASES: { Case } = {
 	{ file = "pages/PagesSocial.tsx", needle = "You're giving +${adv}% more than you get", fill = { adv = "100" }, size = 12, minSize = 10, bold = true, width = tradeWidth },
 	{ file = "pages/PagesSocial.tsx", needle = "You're getting +${adv}% more than you give", fill = { adv = "100" }, size = 12, minSize = 10, bold = true, width = tradeWidth },
-	{ file = "pages/PagesSocial.tsx", needle = "Fair trade · about even", size = 12, minSize = 10, bold = true, width = tradeWidth },
+	{ file = "pages/PagesSocial.tsx", needle = "About even", size = 12, minSize = 10, bold = true, width = tradeWidth },
 	{ file = "pages/PagesSocial.tsx", needle = "Add items or currency to see the balance", size = 12, minSize = 10, bold = true, width = tradeWidth },
 	{ file = "pages/views/GuildView.ts", needle = "Every deposit and build counts toward it.", size = 11, bold = false, width = PHONE - 14 * 2 - 8, box = 30 },
 	{ file = "pages/views/GuildView.ts", needle = "Leader turned chat off", size = 14, bold = false, width = chatWidth },
@@ -86,9 +86,9 @@ local CASES: { Case } = {
 	{ file = "pages/PagesShop.tsx", needle = "Type a code to claim it. Each one works once.", size = 12, minSize = 10, bold = false, width = shopPanel, box = 26 },
 	{ file = "pages/PagesShop.tsx", needle = "Follow the creator on Roblox, then check here for a one-time reward.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
 	{ file = "pages/PagesShop.tsx", needle = "Reward claimed. Thanks for the follow.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
-	{ file = "pages/PagesShop.tsx", needle = "Six offers a day, picked for you. The first is the Deal of the Day.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
-	{ file = "pages/PagesShop.tsx", needle = "Odds for every crate, up to Astral. Your equipped skin opens them all.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
-	{ file = "pages/PagesShop.tsx", needle = "Dress your crates. The Celestial Ark only shows up in the Daily Shop.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
+	{ file = "pages/PagesShop.tsx", needle = "Six offers a day. The first is the Deal of the Day.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
+	{ file = "pages/PagesShop.tsx", needle = "Odds for every crate, up to Astral.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
+	{ file = "pages/PagesShop.tsx", needle = "The Celestial Ark is only sold in the Daily Shop.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
 	-- Settings (stacked layout on phones, so the header text gets the full width)
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "Saves automatically  ·  v", fill = {}, size = 12, minSize = 9, bold = false, width = PHONE - 60 },
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "What you changed from the default.", size = 12, bold = false, width = PHONE - 110 },
