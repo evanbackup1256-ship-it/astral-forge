@@ -7,6 +7,7 @@ import Juice = require("./JuiceFx");
 import Rainbow = require("./Rainbow");
 import { useTooltip } from "./Tooltip";
 import { GainPop } from "./UiCore/GainPop";
+import { BODY, TITLE_FACE, spaced } from "./UiCore/mockKit";
 import { useLiveSessionValue, useLiveVaultFull } from "./UiCore/liveSession";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
@@ -104,6 +105,7 @@ const BuffStrip = {} as {
 	list(this: void, state: unknown, config: unknown, now: number): BuffInfo[];
 	Strip(this: void, props: StripProps): React.Element;
 	Island(this: void, props: IslandProps): React.Element;
+	MomentBanner(this: void, props: { reducedMotion?: boolean; position?: UDim2 }): React.Element | undefined;
 };
 
 const CHIP_W = 58;
@@ -448,7 +450,8 @@ const telemetryHook = usePerformanceTelemetry;
 
 const PERF_W = 104;
 const CURRENCY_W = 104;
-const BUFF_W = 58;
+// 25-toasts .chip: glyph, value and time left in one 28px chip
+const BUFF_W = 96;
 const SEP_W = 21;
 const VAULT_W = 92;
 
@@ -786,7 +789,7 @@ function CompactRow(props: CompactRowProps): React.Element {
 			),
 		);
 	}
-	if (plan.buffs.size() > 0) {
+	if (plan.buffs.size() > 0 && order > 0) {
 		items.sep2 = Separator(nextOrder());
 	}
 	for (const [index, buff] of pairs(plan.buffs)) {
@@ -798,53 +801,72 @@ function CompactRow(props: CompactRowProps): React.Element {
 				LayoutOrder: nextOrder(),
 				BackgroundTransparency: 1,
 			},
-			h(Icon, {
-				kind: buff.icon,
-				color: P.cream,
-				accent: buff.color,
-				size: 18,
-				anchorPoint: new Vector2(0, 0.5),
-				position: props.clock.map((t) => {
-					return new UDim2(0, 0, 0.5, math.sin(t * 2.4 + index * 1.4) * 1.5);
-				}),
-				spin: false,
-			}),
 			h(
-				"textlabel",
+				"frame",
 				{
-					Size: new UDim2(1, -22, 1, 0),
-					Position: UDim2.fromOffset(22, 0),
-					BackgroundTransparency: 1,
-					Text: buff.value,
-					TextColor3: theme.lighten(buff.color, 0.35),
-					TextSize: 12,
-					TextScaled: true,
-					TextWrapped: false,
-					TextXAlignment: Enum.TextXAlignment.Left,
-					FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+					// .chip: 28px, radius 8, white .05 fill, white .1 inner line
+					Size: new UDim2(1, 0, 0, 28),
+					Position: UDim2.fromScale(0, 0.5),
+					AnchorPoint: new Vector2(0, 0.5),
+					BackgroundColor3: P.white,
+					BackgroundTransparency: 0.95,
+					BorderSizePixel: 0,
+					ClipsDescendants: true,
 				},
-				h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 8 }),
-			),
-			buff.endsAt !== undefined &&
-				buff.duration !== undefined &&
-				h(
-					"frame",
-					{
-						// time left on a running buff
-						Size: new UDim2(1, -4, 0, 2),
-						Position: new UDim2(0, 0, 1, -7),
-						BackgroundColor3: P.line,
-						BorderSizePixel: 0,
-					},
-					h("frame", {
-						Size: props.clock.map(() => {
-							const left = (tonumber(buff.endsAt) ?? 0) - Workspace.GetServerTimeNow();
-							return UDim2.fromScale(math.clamp(left / math.max(1, buff.duration!), 0, 1), 1);
-						}),
-						BackgroundColor3: buff.color,
-						BorderSizePixel: 0,
+				h("uicorner", { CornerRadius: new UDim(0, 8) }),
+				h("uistroke", { Color: P.white, Transparency: 0.9, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+				h(Icon, {
+					kind: buff.icon,
+					color: P.creamSoft,
+					accent: buff.color,
+					size: 14,
+					anchorPoint: new Vector2(0, 0.5),
+					position: props.clock.map((t) => {
+						return new UDim2(0, 10, 0.5, math.sin(t * 2.4 + index * 1.4) * 1.5);
 					}),
+					spin: false,
+				}),
+				h(
+					"textlabel",
+					{
+						Size: new UDim2(1, -40, 1, 0),
+						Position: UDim2.fromOffset(30, 0),
+						BackgroundTransparency: 1,
+						Text: props.clock.map(() => {
+							const left = buff.endsAt !== undefined ? (tonumber(buff.endsAt) ?? 0) - Workspace.GetServerTimeNow() : 0;
+							return left > 0 ? `${buff.value} ${clockText(left)}` : buff.value;
+						}),
+						TextColor3: P.creamSoft,
+						TextSize: 12,
+						TextScaled: true,
+						TextWrapped: false,
+						TextXAlignment: Enum.TextXAlignment.Left,
+						FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
+					},
+					h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 8 }),
 				),
+				buff.endsAt !== undefined &&
+					buff.duration !== undefined &&
+					h(
+						"frame",
+						{
+							// time left on a running buff: a hairline in the buff's colour along the chip's foot
+							Size: new UDim2(1, 0, 0, 2),
+							Position: new UDim2(0, 0, 1, -2),
+							BackgroundTransparency: 1,
+							BorderSizePixel: 0,
+						},
+						h("frame", {
+							Size: props.clock.map(() => {
+								const left = (tonumber(buff.endsAt) ?? 0) - Workspace.GetServerTimeNow();
+								return UDim2.fromScale(math.clamp(left / math.max(1, buff.duration!), 0, 1), 1);
+							}),
+							BackgroundColor3: buff.color,
+							BackgroundTransparency: 0.3,
+							BorderSizePixel: 0,
+						}),
+					),
+			),
 		);
 	}
 	return h(
@@ -1686,7 +1708,8 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 	}, []);
 	// sized for this island's room (a copy: other islands may have a different width)
 	const event = React.useMemo(() => {
-		if (live === undefined) {
+		// 25-toasts: a level moment is not a toast; BuffStrip.MomentBanner shows it top-centre
+		if (live === undefined || live.style === "moment") {
 			return undefined;
 		}
 		const shown = table.clone(live);
@@ -1700,7 +1723,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 	}, [live, maxWidth]);
 	// every new message sheds a few embers off the bottom edge
 	React.useEffect(() => {
-		if (live === undefined) {
+		if (live === undefined || live.style === "moment") {
 			return undefined;
 		}
 		const job = task.delay(0.08, () => {
@@ -1712,21 +1735,6 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 					const x = p.X + sz.X * (0.2 + 0.3 * (index - 1) + math.random() * 0.1);
 					Juice.spark(new Vector2(x, p.Y + sz.Y + 2), theme.lighten(live.color ?? P.mango, 0.4), 12 + math.random() * 8);
 				}
-			}
-		});
-		return () => {
-			pcall(() => task.cancel(job));
-		};
-	}, [live !== undefined ? live.token : undefined]);
-	// a milestone throws sparks out of the island as it opens
-	React.useEffect(() => {
-		if (live === undefined || live.style !== "moment") {
-			return undefined;
-		}
-		const job = task.delay(0.12, () => {
-			const island = islandRef.current;
-			if (island !== undefined && island.Parent !== undefined && island.AbsoluteSize.X > 4) {
-				Juice.burst(island.AbsolutePosition.add(island.AbsoluteSize.div(2)), live.color, 0.9);
 			}
 		});
 		return () => {
@@ -2048,6 +2056,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 								})
 							: undefined;
 	const momentRim = event !== undefined && event.style === "moment";
+	const bareChips = role === "buffs" && mode === "compact";
 	const capsule = h(
 		"imagebutton",
 		{
@@ -2059,7 +2068,8 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 			Position: props.position,
 			AnchorPoint: props.anchorPoint ?? new Vector2(0.5, 0),
 			BackgroundColor3: Color3.fromRGB(6, 6, 10),
-			BackgroundTransparency: 0.02,
+			// 25-toasts: the resting buff chips sit bare on the page; the capsule only shows once opened
+			BackgroundTransparency: bareChips ? 1 : 0.02,
 			AutoButtonColor: false,
 			Image: "",
 			ClipsDescendants: true,
@@ -2088,6 +2098,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 		h("uicorner", {
 			CornerRadius: new UDim(0, mode === "expanded" || mode === "event" ? 18 : 22),
 		}),
+		!bareChips &&
 		h(
 			"uistroke",
 			{
@@ -2167,6 +2178,96 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 		),
 	);
 	return h(React.Fragment, undefined, capsule, bubble);
+};
+
+// 25-toasts moment banner: top-centre of the play area, 44px serif caps in brass with one line under it.
+// It reads the same island queue (Juice), so a moment still holds its turn and a tap still skips it.
+BuffStrip.MomentBanner = function (props: { reducedMotion?: boolean; position?: UDim2 }): React.Element | undefined {
+	const [live, setLive] = React.useState<IslandNotice | undefined>(undefined);
+	React.useEffect(() => {
+		return Juice.subscribeIsland((current) => {
+			setLive(current !== undefined && current.style === "moment" ? (table.clone(current) as IslandNotice) : undefined);
+		});
+	}, []);
+	const token = live !== undefined ? live.token : undefined;
+	const arrive = useArrive(token);
+	const clock = motion.useClock(live !== undefined, 1, 3600, true);
+	const ref = React.useRef<GuiObject>(undefined);
+	// a milestone still throws its sparks as it opens
+	React.useEffect(() => {
+		if (live === undefined) {
+			return undefined;
+		}
+		const job = task.delay(0.12, () => {
+			const banner = ref.current;
+			if (banner !== undefined && banner.Parent !== undefined && banner.AbsoluteSize.X > 4) {
+				Juice.burst(banner.AbsolutePosition.add(banner.AbsoluteSize.div(2)), live.color, 0.9);
+			}
+		});
+		return () => {
+			pcall(() => task.cancel(job));
+		};
+	}, [token]);
+	if (live === undefined) {
+		return undefined;
+	}
+	const title = (live.count ?? 1) > 1 ? `${live.title}  ×${live.count}` : live.title ?? "";
+	return h(
+		"textbutton",
+		{
+			Name: "MomentBanner",
+			ref,
+			Size: UDim2.fromOffset(720, 80),
+			Position: arrive.map((t) => (props.position ?? new UDim2(0.5, 0, 0, 60)).add(UDim2.fromOffset(0, props.reducedMotion ? 0 : (1 - t) * -12))),
+			AnchorPoint: new Vector2(0.5, 0),
+			BackgroundTransparency: 1,
+			Text: "",
+			AutoButtonColor: false,
+			Selectable: false,
+			ZIndex: 62,
+			Event: { Activated: () => Juice.skipIsland() },
+		},
+		h("uisizeconstraint", { MaxSize: new Vector2(720, 80) }),
+		h(
+			"textlabel",
+			{
+				Size: new UDim2(1, 0, 0, 52),
+				BackgroundTransparency: 1,
+				Text: spaced(string.upper(title)),
+				TextColor3: P.brass,
+				TextTransparency: arrive.map((t) => 1 - t),
+				TextSize: 44,
+				TextScaled: true,
+				FontFace: TITLE_FACE,
+				ZIndex: 63,
+			},
+			h("uitextsizeconstraint", { MaxTextSize: 44, MinTextSize: 22 }),
+			// the brass catches the light: a soft highlight sweeping across the title
+			h("uigradient", {
+				Color: new ColorSequence([
+					new ColorSequenceKeypoint(0, Color3.fromRGB(214, 214, 214)),
+					new ColorSequenceKeypoint(0.42, Color3.fromRGB(214, 214, 214)),
+					new ColorSequenceKeypoint(0.5, P.white),
+					new ColorSequenceKeypoint(0.58, Color3.fromRGB(214, 214, 214)),
+					new ColorSequenceKeypoint(1, Color3.fromRGB(214, 214, 214)),
+				]),
+				Offset: clock.map((t) => new Vector2(props.reducedMotion ? 0 : ((t * 0.5) % 2) - 1, 0)),
+			}),
+		),
+		live.subtitle !== undefined &&
+			h("textlabel", {
+				Size: new UDim2(1, 0, 0, 20),
+				Position: UDim2.fromOffset(0, 56),
+				BackgroundTransparency: 1,
+				Text: live.subtitle,
+				TextColor3: P.creamSoft,
+				TextTransparency: arrive.map((t) => 1 - t),
+				TextSize: 15,
+				TextTruncate: Enum.TextTruncate.AtEnd,
+				FontFace: BODY,
+				ZIndex: 63,
+			}),
+	);
 };
 
 export = BuffStrip;

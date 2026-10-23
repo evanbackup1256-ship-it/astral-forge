@@ -621,6 +621,7 @@ function AppShell(props: ShellProps) {
 								</AntilagContext.Provider>
 								{!mobileShell && page === "Overview" && <HudQuickActions vault={state.Vault} dispatch={dispatch}
 									boost={activeBoost as HudBoost | undefined} boostEndsAt={activeBoostEndsAt as number} openBoosts={openBoosts} reducedMotion={reducedMotion} />}
+								{!hidden && <BuffStrip.MomentBanner reducedMotion={softMotion} position={new UDim2(0.5, 0, 0, mobileShell ? 12 : 60)} />}
 							</frame>
 							{!mobileShell && drawerNav && <imagebutton Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.void} BackgroundTransparency={drawerScrimTransparency} BorderSizePixel={0}
 								AutoButtonColor={false} Selectable={false} Active={railOpen} Visible={drawerScrimVisible} ZIndex={28} Event={{ Activated: () => { setRailOpen(false); Audio.play("close"); } }} />}
