@@ -61,6 +61,7 @@ import * as Moderation from "./Moderation";
 import { orElse, orEmpty, Players, ReplicatedStorage, RunService, MarketplaceService, HttpService, ServerStorage, Workspace, liveEvent, limitedEventPublic, communityConfig, NO_PENDING_ACTIONS, emptyBonuses, MAX_SAFE_CURRENCY, AUTO_FORGE_INTERVAL, PROFILE_MAINTENANCE_INTERVAL, GUILD_REFRESH_INTERVAL, GLOBAL_LB_PAGE, boardReader, RANK_PING, GUILD_ACTIVITY_MILESTONE_STEP, applySocialBoost, GENERAL_BOARD_STORE_NAMES, generalBoardValue, anomalyChargeByAction, encodeTelemetry, anomalySignalByAction, featureByAction, enforceUnlimitedMoney, itemById, crateById, itemOfferById, storyById, mailById, utcDay, nextUtcMidnight, offerStockMax, inventoryCount, ensureItemShop, ensureStats, bumpStat, grantLitRigs, ensureActiveBoost, ensureBoostInventory, ensureCommandMastery, copyDictionary, responseError, TXN_PRINT_IGNORE, responseSuccess, publicPlayerRecord, buildVisitSnapshot, extractUserId, PRESENCE_PAGES, studioCheck, StoreAccess, resetContext, getOrderedStore, reportLedger, itemSalvageValue, shopShared, spendShopCurrency, ensureAutoSalvage, progressionNumber, clampProgressionNumbers, OVERCHARGE_COMBO_WINDOW, OVERCHARGE_COMBO_MAX, OVERCHARGE_COMBO_BONUS, overchargeComboWindow, overchargeComboMultiplier, FULL_SNAPSHOT_EVERY, sameValue, fingerprint, anomalyCall, rebirthLedger, rebirthRun, softCapCores, stardustBoostPrice, rebirthBase, keepsakeAllowed } from "../GameServiceCore";
 import type { Fn, Method, Kit, Svc, Profile, Response, Runtime } from "../GameServiceCore";
 import type { GameService } from "../GameService";
+import * as CompanionDrops from "../../../../Shared/AstralForge/Shared/CompanionDrops";
 
 
 export function openItemCrate(svc: GameService, player: Player, crateId: unknown, rawCount: unknown) {
@@ -133,7 +134,15 @@ export function openItemCrate(svc: GameService, player: Player, crateId: unknown
 					}
 				}
 				pityBag[crateId] = truthy(pityHit) ? 0 : pity + pityStep;
+				// companion entries: one extra draw on the landed rarity; a hit is always a new companion
+				const companion = CompanionDrops.rollCompanion(rarity, CompanionDrops.ensureOwned(profile as Dict), () =>
+					svc._random.NextNumber(),
+				);
+				if (companion !== undefined) {
+					CompanionDrops.ensureOwned(profile as Dict)[companion] = true;
+				}
 				rolls[index] = {
+					Companion: companion,
 					Uid: uid,
 					DefinitionId: definition.Id,
 					Rarity: rarity,

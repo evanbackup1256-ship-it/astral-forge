@@ -10,6 +10,8 @@ export interface Session {
 	Vault?: Flux;
 	Cores?: number;
 	Stardust?: number;
+	/** named companions owned (crate drops): key -> true */
+	Companions?: Record<string, boolean>;
 	Rebirths?: number;
 	CurrentZone?: number;
 	Settings: Record<string, unknown>;

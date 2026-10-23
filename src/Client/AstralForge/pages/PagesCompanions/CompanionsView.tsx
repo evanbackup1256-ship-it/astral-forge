@@ -2,6 +2,7 @@
 // sprite cards, a large stage for the picked one (its sheet playing, bonus, level and sparks) with
 // Equip and Feed, and the level-up row (sparks + stardust into the next level). Index shows every
 // companion, unfound ones as a dim still. Uses the existing EquipArtifact / UpgradeArtifact actions.
+import * as CompanionDrops from "../../../../Shared/AstralForge/Shared/CompanionDrops";
 import React from "@rbxts/react";
 import { compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
@@ -38,7 +39,7 @@ interface Owned {
 	Fragments: number;
 }
 interface CompanionsProps {
-	state: { Command?: { Artifacts?: Record<string, Owned | undefined>; EquippedArtifact?: string }; Stardust?: Flux };
+	state: { Command?: { Artifacts?: Record<string, Owned | undefined>; EquippedArtifact?: string }; Stardust?: Flux; Companions?: Record<string, boolean> };
 	config: { Operations?: { Artifacts?: ArtifactDef[] } };
 	dispatch: (action: string, payload?: object, callback?: (response: { ok?: boolean }) => void) => unknown;
 	reducedMotion?: boolean;
@@ -306,6 +307,12 @@ export function CompanionsView(props: CompanionsProps) {
 	const following = state.Command?.EquippedArtifact;
 	const ownedDefs = defs.filter((artifact) => owned[artifact.Id] !== undefined);
 	const shown = tab === "Owned" ? ownedDefs : defs;
+	// named companions from crate drops sit after the expedition ones; they only follow the crate odds
+	const ownedNamedSet = state.Companions ?? {};
+	const ownedNamed = CompanionDrops.COMPANION_DROPS.filter((drop) => ownedNamedSet[drop.Key] === true);
+	const shownNamed = tab === "Owned" ? ownedNamed : CompanionDrops.COMPANION_DROPS;
+	const foundCount = ownedDefs.size() + ownedNamed.size();
+	const totalCount = defs.size() + CompanionDrops.COMPANION_DROPS.size();
 	let selected = defs.find((artifact) => artifact.Id === picked && owned[artifact.Id] !== undefined);
 	if (selected === undefined) {
 		selected = ownedDefs.find((artifact) => artifact.Id === following) ?? ownedDefs[0];
@@ -321,7 +328,7 @@ export function CompanionsView(props: CompanionsProps) {
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panelRaised} padding={stack ? 12 : 20} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={true}>
 			<HeaderStars reducedMotion={reducedMotion} />
 			{!stack && (
-				<Text value={`${ownedDefs.size()} OF ${defs.size()} FOUND`} size={11} color={Palette.mint} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(0.5, 0, 0, 14)} />
+				<Text value={`${foundCount} OF ${totalCount} FOUND`} size={11} color={Palette.mint} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(0.5, 0, 0, 14)} />
 			)}
 			<textlabel
 				Text="Companions"
@@ -358,7 +365,7 @@ export function CompanionsView(props: CompanionsProps) {
 		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 16} radius={18} reducedMotion={reducedMotion}>
 			<Text value={tab === "Owned" ? "OWNED" : "INDEX"} size={11} color={Palette.creamSoft} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, -60, 0, 14)} />
 			<Text
-				value={tab === "Owned" ? tostring(ownedDefs.size()) : `${ownedDefs.size()} / ${defs.size()}`}
+				value={tab === "Owned" ? tostring(foundCount) : `${foundCount} / ${totalCount}`}
 				size={11}
 				color={Palette.muted}
 				align={Enum.TextXAlignment.Right}
@@ -400,10 +407,25 @@ export function CompanionsView(props: CompanionsProps) {
 						/>
 					);
 				})}
+				{shownNamed.map((drop, index) => (
+					<SpriteCard
+						key={`named-${drop.Key}`}
+						element={drop.Key}
+						name={drop.Name}
+						rarity={drop.Rarity}
+						found={ownedNamedSet[drop.Key] === true}
+						following={false}
+						selected={false}
+						onSelect={() => undefined}
+						size={UDim2.fromScale(1, 1)}
+						reducedMotion={reducedMotion}
+						layoutOrder={shown.size() + index}
+					/>
+				))}
 			</scrollingframe>
-			{shown.size() === 0 && (
+			{shown.size() + shownNamed.size() === 0 && (
 				<Text
-					value="Companions turn up on Command expeditions. Send a crew out to find your first."
+					value="Companions turn up on Command expeditions, and now and then in crates."
 					size={13}
 					color={Palette.muted}
 					wrap={true}

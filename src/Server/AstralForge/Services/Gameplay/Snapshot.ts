@@ -1,4 +1,5 @@
 // Moved out of GameService (todo500). Behaviour, remote names and payloads are unchanged; GameService delegates here.
+import * as CompanionDrops from "../../../../Shared/AstralForge/Shared/CompanionDrops";
 import { T } from "../../../../Shared/AstralForge/Shared/Locale";
 import type { StoreRow } from "../../Modules/LeaderboardService";
 import type { FriendGraph } from "../../Modules/FriendGraph";
@@ -213,6 +214,7 @@ export function snapshot(svc: GameService, player: Player): Dict | undefined {
 			Vault: profile.Vault,
 			Cores: profile.Cores,
 			Stardust: profile.Stardust,
+			Companions: CompanionDrops.publicOwned(profile.Companions),
 			Rebirths: profile.Rebirths,
 			Domain: K.ContinuumDomainMath.SnapshotDomainPublic({
 				domain: domain,

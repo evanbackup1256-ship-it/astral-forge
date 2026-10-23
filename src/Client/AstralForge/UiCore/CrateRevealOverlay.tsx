@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import * as CompanionDrops from "../../../Shared/AstralForge/Shared/CompanionDrops";
 import { Audio } from "../AudioKit/audio";
 import { ScreenFx } from "./screenFx";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -39,6 +40,8 @@ interface Roll {
 	Pity?: boolean;
 	AutoSalvaged?: boolean;
 	Essence?: number;
+	/** companion key when this roll also hit a companion entry (granted server-side) */
+	Companion?: string;
 }
 interface Definition {
 	Id: string;
@@ -904,5 +907,39 @@ export function CrateRevealOverlay(props: CrateRevealProps) {
 	if (session === undefined || rolls.size() === 0) {
 		return <EmptyReveal onClose={props.onClose} />;
 	}
-	return <CrateReveal {...props} rolls={rolls} />;
+	return <CrateRevealThenCompanions {...props} rolls={rolls} />;
+}
+
+// After the crate reveal, any companion the rolls granted gets its own sprite reveal, one at a time.
+function CrateRevealThenCompanions(props: CrateRevealProps & { rolls: Roll[] }) {
+	const companions = React.useMemo(() => {
+		const list = new Array<ArtifactRevealInfo>();
+		for (const roll of props.rolls) {
+			const drop = CompanionDrops.dropOf(roll.Companion);
+			if (drop !== undefined) {
+				list.push({
+					name: drop.Name,
+					rarity: drop.Rarity,
+					element: drop.Key,
+					description: "Joined your companions.",
+					fresh: true,
+				});
+			}
+		}
+		return list;
+	}, [props.rolls]);
+	const [step, setStep] = React.useState(-1);
+	if (step < 0 || companions.size() === 0) {
+		return <CrateReveal {...props} onClose={() => (companions.size() > 0 ? setStep(0) : props.onClose())} />;
+	}
+	const info = companions[math.min(step, companions.size() - 1)];
+	return (
+		<ArtifactReveal
+			key={`companion-${step}`}
+			info={info}
+			config={props.config}
+			reducedMotion={props.reducedMotion}
+			onClose={() => (step + 1 < companions.size() ? setStep(step + 1) : props.onClose())}
+		/>
+	);
 }
