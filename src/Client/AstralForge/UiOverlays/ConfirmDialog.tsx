@@ -5,7 +5,8 @@ import { Audio } from "../AudioKit/audio";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, Space, TapTarget } from "../CoreKit/theme";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
-import { AutoHeightText, Button, OverlayPresence, Panel, Text, measureWrappedTextHeight, useGamepadAutofocus } from "../UiCore/ui";
+import { Button, OverlayPresence, Panel, TITLE_FACE, Text, measureWrappedTextHeight, useGamepadAutofocus } from "../UiCore/ui";
+import { Glyph, spaced } from "../UiCore/mockKit";
 
 const ContextActionService = game.GetService("ContextActionService");
 
@@ -150,7 +151,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	const padding = width < 320 ? Space.lg : Space.xl;
 	const inner = width - padding * 2;
 	const stackButtons = inner < 300;
-	const titleH = math.max(22, measureWrappedTextHeight(props.title.upper(), inner - 24, 15, Enum.FontWeight.Heavy));
+	const titleH = math.max(22, measureWrappedTextHeight(props.title.upper(), inner - 60, 15, Enum.FontWeight.Heavy));
 	// measured at the width the body really wraps at (the 6px scrollbar gutter comes off the frame below)
 	const bodyH = props.body !== undefined ? measureWrappedTextHeight(props.body, inner - 6, 14) : 0;
 	const actionsH = stackButtons ? TapTarget * 2 + Space.sm : TapTarget;
@@ -191,15 +192,25 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 					ZIndex={z + 2}
 				>
 					<imagebutton Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} AutoButtonColor={false} Active={true} Selectable={false} ZIndex={z + 2} />
-					<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={padding} radius={18} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
-						<frame Size={new UDim2(1, padding * 2 - 8, 1, padding * 2 - 8)} Position={UDim2.fromOffset(-padding + 4, -padding + 4)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={z + 3}>
-							<uicorner CornerRadius={new UDim(0, 14)} />
-							<uistroke Color={Palette.brass} Thickness={1} Transparency={0.75} />
+					<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={padding} radius={18} rule={true} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
+						{/* 26-dialogs .pn h3: tone glyph, Cinzel caps title, close X pushed right */}
+						<Glyph kind={props.tone === "danger" ? "Warning" : "Info"} size={18} color={accent} position={UDim2.fromOffset(0, 2)} />
+						<frame Size={new UDim2(1, -60, 0, titleH)} Position={UDim2.fromOffset(28, 0)} BackgroundTransparency={1} ZIndex={z + 4}>
+							<textlabel Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Text={spaced(props.title.upper())} TextSize={15} FontFace={TITLE_FACE} TextColor3={Palette.cream} TextWrapped={true} TextXAlignment={Enum.TextXAlignment.Left} TextYAlignment={Enum.TextYAlignment.Top} ZIndex={z + 4} />
 						</frame>
-						<frame Size={UDim2.fromOffset(8, 8)} Position={UDim2.fromOffset(0, 6)} Rotation={45} BackgroundColor3={accent} BorderSizePixel={0} ZIndex={z + 4} />
-						<frame Size={new UDim2(1, -20, 0, titleH)} Position={UDim2.fromOffset(20, 0)} BackgroundTransparency={1} ZIndex={z + 4}>
-							<AutoHeightText value={props.title.upper()} size={15} weight={Enum.FontWeight.Heavy} color={props.tone === "danger" ? Palette.cream : Palette.brass} width={inner - 24} zIndex={z + 4} />
-						</frame>
+						<textbutton
+							Size={UDim2.fromOffset(24, 24)}
+							Position={new UDim2(1, 0, 0, -1)}
+							AnchorPoint={new Vector2(1, 0)}
+							BackgroundTransparency={1}
+							Text=""
+							AutoButtonColor={false}
+							Selectable={false}
+							ZIndex={z + 5}
+							Event={{ Activated: () => resolve(false) }}
+						>
+							<Glyph kind="Close" size={18} color={Palette.muted} position={UDim2.fromOffset(3, 3)} />
+						</textbutton>
 						{props.body !== undefined && (
 							<scrollingframe
 								Size={new UDim2(1, 0, 0, bodyRoom)}
@@ -225,7 +236,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 							<Button
 								text={cancelText}
 								onClick={() => resolve(false)}
-								color={Palette.panelSoft}
+								color={Color3.fromRGB(58, 46, 62)}
 								textColor={Palette.cream}
 								size={buttonW}
 								position={stackButtons ? UDim2.fromOffset(0, TapTarget + Space.sm) : UDim2.fromScale(0, 0)}

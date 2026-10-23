@@ -1,9 +1,10 @@
 import React from "@rbxts/react";
-import { Palette, darken, ensureContrast, lighten } from "../CoreKit/theme";
+import { BODY_BOLD } from "./mockKit";
+import { Palette } from "../CoreKit/theme";
 import { joinTuple } from "../lua";
 import { useAntilag } from "../MotionKit/antilag";
 import { ScaleFromCenter, useClock, useFlash, useGlowStroke, useOptionalFlipperSpring, usePulse } from "../MotionKit/motion";
-import { LooseComponent, Stroke, Text } from "./ui";
+import { LooseComponent, Stroke } from "./ui";
 
 const AstralForge = script.Parent!.Parent!;
 const Icon = (require(AstralForge.WaitForChild("ArtKit") as ModuleScript) as (name: string) => { Icon: LooseComponent })("Icon").Icon;
@@ -120,9 +121,11 @@ export function ComboBadge(props: {
 	if (!everVisible) {
 		return <frame Size={UDim2.fromOffset(0, 0)} BackgroundTransparency={1} BorderSizePixel={0} />;
 	}
+	// 25-toasts .chip.a: 28px, radius 8, accent fill at .8, accent line at .4, 12px bold "x12 combo"
+	const label = maxed ? `×${math.floor(combo)} combo · max` : `×${math.floor(combo)} combo`;
 	return (
 		<frame
-			Size={UDim2.fromOffset(96, 40)}
+			Size={UDim2.fromOffset(maxed ? 150 : 112, 28)}
 			Position={position}
 			AnchorPoint={anchorPoint}
 			BackgroundTransparency={1}
@@ -135,88 +138,44 @@ export function ComboBadge(props: {
 				<frame
 					Size={UDim2.fromScale(1, 1)}
 					Position={rise.map((offset) => UDim2.fromOffset(0, offset))}
-					BackgroundColor3={darken(accent, 0.58)}
-					BackgroundTransparency={fade.map((amount) => math.clamp(0.12 + amount * 0.88, 0, 1))}
+					BackgroundColor3={accent}
+					BackgroundTransparency={fade.map((amount) => math.clamp(0.8 + amount * 0.2, 0, 1))}
 					BorderSizePixel={0}
 					ClipsDescendants={false}
 				>
-					<uicorner CornerRadius={new UDim(0, 14)} />
+					<uicorner CornerRadius={new UDim(0, 8)} />
 					<Stroke
 						color={accent}
-						thickness={maxed ? 2 : 1.4}
-						transparency={maxed ? glow : fade.map((amount) => math.clamp(0.28 + amount * 0.72, 0, 1))}
+						thickness={1}
+						transparency={maxed ? glow : fade.map((amount) => math.clamp(0.4 + amount * 0.6, 0, 1))}
 					/>
-					<frame
-						Size={UDim2.fromOffset(28, 28)}
-						Position={UDim2.fromOffset(6, 6)}
-						BackgroundColor3={darken(accent, 0.3)}
-						BackgroundTransparency={fade}
-						BorderSizePixel={0}
-						ZIndex={zIndex + 1}
-					>
-						<uicorner CornerRadius={new UDim(0, 10)} />
+					<frame Size={UDim2.fromOffset(18, 18)} Position={UDim2.fromOffset(8, 5)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex + 1}>
 						{!maxed && readout !== undefined && visible && (
-							<frame
-								Size={UDim2.fromScale(1, 1)}
-								Position={UDim2.fromOffset(-2, -2)}
-								BackgroundTransparency={1}
-								BorderSizePixel={0}
-								ClipsDescendants={false}
-							>
-								<uisizeconstraint MaxSize={new Vector2(32, 32)} />
-								<DecayRing
-									accent={accent}
-									updatedAt={readout.updatedAt}
-									windowSeconds={readout.comboWindow}
-									animate={!reducedMotion && antilag.allowAmbient}
-								/>
-							</frame>
+							<DecayRing accent={accent} updatedAt={readout.updatedAt} windowSeconds={readout.comboWindow} animate={!reducedMotion && antilag.allowAmbient} />
 						)}
-						<frame
-							Size={UDim2.fromScale(1, 1)}
-							BackgroundTransparency={1}
-							BorderSizePixel={0}
-							ClipsDescendants={true}
-							ZIndex={zIndex + 1}
-						>
-							<uicorner CornerRadius={new UDim(0, 10)} />
-								<Icon
-									kind="Overcharge.9"
-									color={Palette.cream}
-									accent={accent}
-									size={17}
-									spin={false}
-									reducedMotion={reducedMotion}
-									position={UDim2.fromScale(0.5, 0.5)}
-									anchorPoint={new Vector2(0.5, 0.5)}
-								/>
-						</frame>
+						<Icon
+							kind="Overcharge.9"
+							color={Palette.cream}
+							accent={accent}
+							size={14}
+							spin={false}
+							reducedMotion={reducedMotion}
+							position={UDim2.fromScale(0.5, 0.5)}
+							anchorPoint={new Vector2(0.5, 0.5)}
+						/>
 					</frame>
-					<Text
-						value={`×${math.floor(combo)}`}
-						size={maxed ? 19 : 16}
-						color={ensureContrast(darken(accent, 0.58), Palette.cream)}
-						weight={Enum.FontWeight.Heavy}
-						align={Enum.TextXAlignment.Left}
-						fit={true}
-						minSize={12}
-						position={UDim2.fromOffset(40, 4)}
-						sizeConstraint={new UDim2(1, -46, 0, 20)}
-						transparency={fade}
-						zIndex={zIndex + 1}
-					/>
-					<Text
-						value={maxed ? "MAXED" : `${string.format("%.2f", multiplier)}x`}
-						size={10}
-						color={ensureContrast(darken(accent, 0.58), accent)}
-						weight={Enum.FontWeight.Bold}
-						align={Enum.TextXAlignment.Left}
-						fit={true}
-						minSize={9}
-						position={UDim2.fromOffset(40, 22)}
-						sizeConstraint={new UDim2(1, -46, 0, 14)}
-						transparency={fade}
-						zIndex={zIndex + 1}
+					<textlabel
+						Size={new UDim2(1, -38, 1, 0)}
+						Position={UDim2.fromOffset(30, 0)}
+						BackgroundTransparency={1}
+						Text={label}
+						TextSize={12}
+						FontFace={BODY_BOLD}
+						TextColor3={Palette.cream}
+						TextTransparency={fade}
+						TextXAlignment={Enum.TextXAlignment.Left}
+						TextTruncate={Enum.TextTruncate.AtEnd}
+						ZIndex={zIndex + 1}
 					/>
 					{maxed && (
 						<frame
@@ -226,7 +185,7 @@ export function ComboBadge(props: {
 							BorderSizePixel={0}
 							ZIndex={zIndex - 1}
 						>
-							<uicorner CornerRadius={new UDim(0, 14)} />
+							<uicorner CornerRadius={new UDim(0, 8)} />
 						</frame>
 					)}
 				</frame>

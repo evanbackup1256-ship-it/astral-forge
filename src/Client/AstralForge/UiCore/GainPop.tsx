@@ -1,6 +1,7 @@
 import React from "@rbxts/react";
 import { Flux, asFlux, compactNumber } from "../CoreKit/format";
 import { isReducedMotion } from "../MotionPreference";
+import { NUM } from "./mockKit";
 
 const RunService = game.GetService("RunService");
 
@@ -55,15 +56,15 @@ export function GainPop(props: GainPopProps) {
 	return (
 		<textlabel
 			AnchorPoint={new Vector2(1, 0)}
-			Size={UDim2.fromOffset(90, 16)}
+			Size={UDim2.fromOffset(110, 20)}
 			Position={t.map((s) => new UDim2(1, -2, 1, still ? 2 : 2 + math.floor((s / LIFE) * 14)))}
 			BackgroundTransparency={1}
 			Text={label}
 			TextColor3={props.color}
 			TextTransparency={t.map((s) => (s < 0.15 ? 1 - s / 0.15 : math.clamp((s - 0.6) / (LIFE - 0.6), 0, 1)))}
 			TextStrokeTransparency={t.map((s) => (s < 0.15 ? 1 : 0.4 + math.clamp((s - 0.6) / (LIFE - 0.6), 0, 1) * 0.6))}
-			TextSize={13}
-			FontFace={Font.fromEnum(Enum.Font.BuilderSansBold)}
+			TextSize={17}
+			FontFace={NUM}
 			TextXAlignment={Enum.TextXAlignment.Right}
 			ZIndex={props.zIndex ?? 30}
 		/>
