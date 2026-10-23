@@ -12,7 +12,7 @@ import { Bar, BODY, Chip, Glyph, Line, MockPanel, mockGap, NUM, PanelHeading, pa
 import { headingBlock, MockBtn, MockRow, panelHeight, RowFace, rowHeight } from "../mockRows";
 import { FlexCol, FlexFill, FlexFixed, FlexRow, stackSum, TAB_STRIP_H, TabStrip } from "../mockLayout";
 
-const TweenService = game.GetService("TweenService");
+import { MotionFX } from "../../UiCore/screenFx";
 
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const PAGES_PER_CHAPTER = 6;
@@ -117,11 +117,10 @@ function StarMap(props: { id: string; fraction: number; width: number; height: n
 		const tweens: Tween[] = [];
 		dots.current.forEach((dot, index) => {
 			if (index >= lit) return;
-			const tween = TweenService.Create(dot, new TweenInfo(2 + (index % 4), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			const tween = MotionFX.tween(dot, new TweenInfo(2 + (index % 4), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
 				BackgroundTransparency: 0.45,
-			});
-			tween.Play();
-			tweens.push(tween);
+			}, false);
+			if (tween) tweens.push(tween);
 		});
 		return () => tweens.forEach((tween) => tween.Cancel());
 	}, [props.id, lit, props.reducedMotion]);

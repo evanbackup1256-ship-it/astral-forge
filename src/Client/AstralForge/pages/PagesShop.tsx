@@ -8,7 +8,8 @@ import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, scrollTail, StrokeWidth, TapTarget } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
 import { FlexGrid, useShopColumns } from "../MotionKit/flexbox";
-import { easeOutCubic, useBoatTween, useStagger, useViewport, useWallClock } from "../MotionKit/motion";
+import { MotionFX } from "../UiCore/screenFx";
+import { useStagger, useViewport, useWallClock } from "../MotionKit/motion";
 import { Icon } from "../ArtKit/Icon";
 import BrowseModel = require("../BrowseModel");
 import ElementFxModule = require("../ElementFx");
@@ -2223,7 +2224,7 @@ function CrateCard(props: CrateCardProps) {
 	const accent = typeIs(crate.Color, "Color3") ? crate.Color : Palette.violet;
 	const selected = props.selected;
 	// the picked card lifts 4px inside its grid cell (the cell itself never moves)
-	const lift = useBoatTween(selected ? 1 : 0, 0.18, props.reducedMotion, easeOutCubic, 0);
+	const lift = MotionFX.useEase(selected ? 1 : 0, 0.18, props.reducedMotion, 0);
 	const pick = () => {
 		Audio.play("tabSwitch");
 		props.onSelect();

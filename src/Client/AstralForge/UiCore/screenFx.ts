@@ -15,6 +15,7 @@
 // with ScreenFx.setBackend; anything it declines falls back to this one.
 import { flashesAllowed, isReducedMotion } from "../MotionPreference";
 import { Palette } from "../CoreKit/theme";
+import { easeOutCubic, useBoatTween, useStagger, useTokenEntrance } from "../MotionKit/motion";
 
 const Players = game.GetService("Players");
 const RunService = game.GetService("RunService");
@@ -505,7 +506,47 @@ function activeCount(): number {
 	return live.size();
 }
 
-export const ScreenFx = table.freeze({ Track, play, visual, playStack, define, names, forRarity, stopAll, configure, setBackend, setAudio, activeCount });
+// ---- value motion: thin hooks over MotionKit so surfaces ask MotionFX for motion instead of
+// hand-rolling it. No new curves: these are the same tweens/springs the pre-redesign UI used.
+const TweenService = game.GetService("TweenService");
+
+/** eased 0..1 value (MotionKit useBoatTween, easeOutCubic): tab slides, selection lifts */
+function useEase(goal: number, seconds: number, reducedMotion = false, initial?: number) {
+	return useBoatTween(goal, reducedMotion ? 0.01 : seconds, reducedMotion, easeOutCubic, initial);
+}
+
+/** 0..1 entrance that replays whenever `token` changes (MotionKit entrance spring) */
+function useEnter(token: unknown, reducedMotion = false, seconds?: number) {
+	return useTokenEntrance(token, reducedMotion, seconds);
+}
+
+/** list item reveal (MotionKit useStagger) */
+function useReveal(index: number, reducedMotion = false) {
+	return useStagger(index, reducedMotion);
+}
+
+/**
+ * Imperative property tween for instance-driven surfaces (prompts, sprite stages). Same
+ * TweenService curves those surfaces always used; reduced motion snaps to the goal.
+ */
+function tween<T extends Instance>(
+	instance: T,
+	info: TweenInfo,
+	goal: Partial<ExtractMembers<T, Tweenable>>,
+	reducedMotion?: boolean,
+): Tween | undefined {
+	if (reducedMotion ?? isReducedMotion()) {
+		for (const [key, value] of pairs(goal as object)) {
+			(instance as unknown as Record<string, unknown>)[key as string] = value;
+		}
+		return undefined;
+	}
+	const t = TweenService.Create(instance, info, goal);
+	t.Play();
+	return t;
+}
+
+export const ScreenFx = table.freeze({ Track, play, visual, playStack, define, names, forRarity, stopAll, configure, setBackend, setAudio, activeCount, useEase, useEnter, useReveal, tween });
 
 /** the same API under the name the effect settings use */
 export const MotionFX = ScreenFx;

@@ -13,6 +13,7 @@ import { Bar, DiamondRule, Line, PanelHeading, PnSurface, spaced, TITLE_FACE } f
 import { MockBtn, MockRow, rowHeight } from "../mockRows";
 
 const TweenService = game.GetService("TweenService");
+import { MotionFX } from "../../UiCore/screenFx";
 
 const { SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
@@ -111,9 +112,8 @@ function SpriteCard(props: SpriteCardProps) {
 			host.Position = target;
 			return;
 		}
-		const tween = TweenService.Create(host, new TweenInfo(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position: target });
-		tween.Play();
-		return () => tween.Cancel();
+		const tween = MotionFX.tween(host, new TweenInfo(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position: target }, props.reducedMotion);
+		return () => tween?.Cancel();
 	}, [props.selected, props.reducedMotion]);
 	// Legendary and above: a slow sheen across the rim, 4 s period
 	React.useEffect(() => {
@@ -260,11 +260,10 @@ function HeaderStars(props: { reducedMotion?: boolean }) {
 		if (props.reducedMotion) return;
 		const tweens: Tween[] = [];
 		refs.current.forEach((dot, index) => {
-			const tween = TweenService.Create(dot, new TweenInfo(2 + ((index * 7) % 4), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			const tween = MotionFX.tween(dot, new TweenInfo(2 + ((index * 7) % 4), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
 				BackgroundTransparency: 0.85,
-			});
-			tween.Play();
-			tweens.push(tween);
+			}, false);
+			if (tween) tweens.push(tween);
 		});
 		return () => tweens.forEach((tween) => tween.Cancel());
 	}, [props.reducedMotion]);

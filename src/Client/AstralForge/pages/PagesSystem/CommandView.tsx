@@ -3,7 +3,8 @@ import { segmentedHeight } from "../../UiCore/ui";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, compactNumber, Flux, formatReward, gteFlux, Reward } from "../../CoreKit/format";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
-import { easeOutCubic, useBoatTween, useStagger, useViewport } from "../../MotionKit/motion";
+import { MotionFX } from "../../UiCore/screenFx";
+import { useStagger, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { useServerClock } from "../../hooks/useServerClock";
 import { ProfileStylePanel, profileStyleHeight } from "./ProfileStylePanel";
@@ -206,7 +207,7 @@ function TabRail(props: { active: string; setActive: (tab: string) => void; redu
 
 function TabPane(props: { tabKey: string; reducedMotion?: boolean; children?: React.ReactNode }) {
 	const reducedMotion = props.reducedMotion;
-	const enter = useBoatTween(1, reducedMotion ? 0.01 : 0.2, reducedMotion, easeOutCubic, 0);
+	const enter = MotionFX.useEase(1, 0.2, reducedMotion, 0);
 	return (
 		<frame
 			key={props.tabKey}
