@@ -1,4 +1,4 @@
-// World interaction prompts (ProximityPrompt Style Custom): a 44px brass key cap with a small
+// World interaction prompts (ProximityPrompt Style Custom): a 44px brass-ringed key cap with a small
 // action / object panel beside it. Only prompts the game marks Custom are drawn here; anything
 // left on Default keeps the Roblox look.
 // Owner: presentation. Dependencies: Shared/ForgeTheme, MotionPreference.
@@ -18,8 +18,9 @@ const ForgeTheme = require(
 const Palette = ForgeTheme.newPalette();
 
 const CAP = 44;
-const GAP = 8;
-const SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
+const GAP = 10;
+const BODY_SEMI = new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold);
+const CAP_FILL = Color3.fromRGB(27, 21, 29);
 const NUMBERS = Font.fromEnum(Enum.Font.GothamBold);
 const BODY = Font.fromEnum(Enum.Font.BuilderSans);
 
@@ -60,7 +61,7 @@ function build(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType
 	gui.LightInfluence = 0;
 	gui.Active = true;
 	gui.ResetOnSpawn = false;
-	gui.Size = UDim2.fromOffset(300, CAP + 8);
+	gui.Size = UDim2.fromOffset(300, 60);
 	gui.SizeOffset = new Vector2(0, 0.6);
 	gui.Adornee = prompt.Parent as PVInstance | Attachment;
 
@@ -80,56 +81,55 @@ function build(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType
 	layout.SortOrder = Enum.SortOrder.LayoutOrder;
 	layout.Parent = row;
 
-	// key cap: brass face over a deep-brass base, the key letter in ink
+	// key cap (design/28-world): #1B151D well, 1.5px brass inset ring, 18px num key in cream
 	const cap = new Instance("TextButton");
 	cap.Name = "KeyCap";
 	cap.LayoutOrder = 1;
 	cap.Size = UDim2.fromOffset(CAP, CAP);
 	cap.AutoButtonColor = false;
-	cap.BackgroundColor3 = Palette.brass;
+	cap.BackgroundColor3 = CAP_FILL;
 	cap.Text = keyLabel(prompt, inputType);
 	cap.FontFace = NUMBERS;
-	cap.TextColor3 = Palette.ink;
-	cap.TextSize = cap.Text.size() > 1 ? 13 : 20;
+	cap.TextColor3 = Palette.cream;
+	cap.TextSize = cap.Text.size() > 1 ? 13 : 18;
 	cap.Parent = row;
-	corner(cap, 10);
-	stroke(cap, Palette.brassDeep, 2, 0);
-	const face = new Instance("UIGradient");
-	face.Rotation = 90;
-	face.Color = new ColorSequence(Palette.brass.Lerp(Palette.cream, 0.25), Palette.brass);
-	face.Parent = cap;
+	corner(cap, 12);
+	stroke(cap, Palette.brass, 1.5, 0);
 	// hold progress fills up from the bottom of the cap
 	const fill = new Instance("Frame");
 	fill.Name = "Hold";
 	fill.AnchorPoint = new Vector2(0, 1);
 	fill.Position = UDim2.fromScale(0, 1);
 	fill.Size = UDim2.fromScale(1, 0);
-	fill.BackgroundColor3 = Palette.cream;
-	fill.BackgroundTransparency = 0.55;
+	fill.BackgroundColor3 = Palette.brass;
+	fill.BackgroundTransparency = 0.6;
 	fill.BorderSizePixel = 0;
 	fill.ZIndex = 2;
 	fill.Parent = cap;
-	corner(fill, 10);
+	corner(fill, 12);
 
 	// action / object panel
 	const panel = new Instance("Frame");
 	panel.Name = "Panel";
 	panel.LayoutOrder = 2;
-	panel.AutomaticSize = Enum.AutomaticSize.X;
-	panel.Size = UDim2.fromOffset(0, CAP);
+	panel.AutomaticSize = Enum.AutomaticSize.XY;
+	panel.Size = UDim2.fromOffset(0, 0);
 	panel.BackgroundColor3 = Palette.panel;
 	panel.BackgroundTransparency = 0.08;
 	panel.Parent = row;
-	corner(panel, 12);
+	corner(panel, 16);
 	stroke(panel, Palette.line, 1, 0);
 	const pad = new Instance("UIPadding");
-	pad.PaddingLeft = new UDim(0, 12);
-	pad.PaddingRight = new UDim(0, 12);
+	pad.PaddingLeft = new UDim(0, 14);
+	pad.PaddingRight = new UDim(0, 14);
+	pad.PaddingTop = new UDim(0, 8);
+	pad.PaddingBottom = new UDim(0, 8);
 	pad.Parent = panel;
 	const stack = new Instance("UIListLayout");
 	stack.FillDirection = Enum.FillDirection.Vertical;
 	stack.VerticalAlignment = Enum.VerticalAlignment.Center;
 	stack.SortOrder = Enum.SortOrder.LayoutOrder;
+	stack.Padding = new UDim(0, 2);
 	stack.Parent = panel;
 	const action = new Instance("TextLabel");
 	action.Name = "Action";
@@ -137,7 +137,7 @@ function build(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType
 	action.BackgroundTransparency = 1;
 	action.AutomaticSize = Enum.AutomaticSize.X;
 	action.Size = UDim2.fromOffset(0, 20);
-	action.FontFace = SERIF;
+	action.FontFace = BODY_SEMI;
 	action.TextSize = 15;
 	action.TextColor3 = Palette.cream;
 	action.TextXAlignment = Enum.TextXAlignment.Left;
@@ -147,7 +147,7 @@ function build(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType
 	detail.LayoutOrder = 2;
 	detail.BackgroundTransparency = 1;
 	detail.AutomaticSize = Enum.AutomaticSize.X;
-	detail.Size = UDim2.fromOffset(0, 15);
+	detail.Size = UDim2.fromOffset(0, 16);
 	detail.FontFace = BODY;
 	detail.TextSize = 12;
 	detail.TextColor3 = Palette.muted;
@@ -194,7 +194,7 @@ function build(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType
 			cap.BackgroundColor3 = Palette.cream;
 			scale.Scale = reduced ? 1 : 0.92;
 			tween(scale, 0.25, { Scale: 1 } as never);
-			tween(cap, 0.3, { BackgroundColor3: Palette.brass } as never, Enum.EasingStyle.Quad);
+			tween(cap, 0.3, { BackgroundColor3: CAP_FILL } as never, Enum.EasingStyle.Quad);
 		}),
 	);
 	// touch and mouse: the cap itself is the button
