@@ -15,6 +15,7 @@ import { useFlash, usePulse, useStagger, useViewport } from "../../MotionKit/mot
 import { TooltipContent, mergeEvents, useTooltip } from "../../Tooltip";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { AudioPlayer, kitMember, LuauComponent, sharedModule } from "../luauKits";
+import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
 
 const UserInputService = game.GetService("UserInputService");
 const RunService = game.GetService("RunService");
@@ -24,16 +25,14 @@ const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
 interface UiKit {
 	Badge: LuauComponent;
 	Button: LuauComponent;
-	IconTile: LuauComponent;
 	Meter: LuauComponent;
-	Panel: LuauComponent;
 	Text: LuauComponent;
 	EmptyState: LuauComponent;
 	meterFill: (this: void, value: number, target: number) => number;
 	acquireDropdownPortal: (this: void) => Instance;
 	releaseDropdownPortal: (this: void) => void;
 }
-const { Badge, Button, EmptyState, IconTile, Meter, Panel, Text, meterFill, acquireDropdownPortal, releaseDropdownPortal } = kitMember<UiKit>(
+const { Badge, Button, EmptyState, Meter, Text, meterFill, acquireDropdownPortal, releaseDropdownPortal } = kitMember<UiKit>(
 	"UiCore",
 	"ui",
 );
@@ -1378,19 +1377,19 @@ export function RebirthPanel({
 	const stackBody = stack && !side;
 	const lively = canRebirth && !effectsPaused && !softMotion;
 	return (
-		<Panel radius={18} rule
+		<PnSurface radius={18} rule
 			layoutOrder={layoutOrder}
 			size={new UDim2(1, 0, 0, height)}
 			accent={accent}
 			background={Palette.panelRaised}
 			padding={stack ? chrome.cardPadding : 22}
-			reveal={reveal ?? heroReveal}
+			reveal={(reveal as React.Binding<number> | undefined) ?? heroReveal}
 			highlight={lively}
 			reducedMotion={softMotion || effectsPaused}
 			clips={false}
 		>
 			<ChargeDial size={stack ? 56 : 64} position={UDim2.fromOffset(-3, stack ? 2 : 6)} accent={accent} fill={dialFill} charge={ignite}>
-				<IconTile
+				<GlyphWell
 					kind={REBIRTH_ICONS.Dial}
 					accent={accent}
 					size={(stack ? 56 : 64) - 18}
@@ -1544,6 +1543,6 @@ export function RebirthPanel({
 					onClose={() => setChamberOpen(false)}
 				/>
 			)}
-		</Panel>
+		</PnSurface>
 	);
 }

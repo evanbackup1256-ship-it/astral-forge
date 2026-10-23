@@ -7,13 +7,13 @@ import { bulkCost, compactNumber, compareFlux, Flux, gteFlux } from "../../CoreK
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
 import { asFlux } from "../../CoreKit/format";
 import * as VaultCollectEligibility from "../../CoreKit/vaultCollectEligibility";
-import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, ItemTile, Line, MockPanel, NUM, PanelHeading, RowSurface, mockGap, panelPad } from "../../UiCore/mockKit";
+import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, GlyphWell, ItemTile, Line, MockPanel, NUM, PanelHeading, PnSurface, RowSurface, mockGap, panelPad } from "../../UiCore/mockKit";
 import { loadUi } from "../luauDeps";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
 // header-forge.png (1024x120), already uploaded (assets/uploaded.md)
 const UserInputService = game.GetService("UserInputService");
-const { Badge, Button, Dropdown, IconTile, Panel, Text } = loadUi();
+const { Badge, Button, Dropdown, Text } = loadUi();
 
 interface MachineConfig extends UpgradeConfig {
 	Accent?: Color3;
@@ -140,7 +140,7 @@ function AutoForgePanel(props: {
 	const reserveW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, -8, 0, 42);
 	const buttonW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, 0, 0, 42);
 	return (
-		<Panel radius={18} rule
+		<PnSurface radius={18} rule
 			size={new UDim2(1, -4, 0, height)}
 			accent={Palette.mango}
 			background={darken(Palette.mango, 0.9)}
@@ -150,7 +150,7 @@ function AutoForgePanel(props: {
 			zIndex={24}
 			clips={false}
 		>
-			<IconTile
+			<GlyphWell
 				kind="Forge"
 				accent={queue.Enabled ? Palette.mango : Palette.muted}
 				size={48}
@@ -240,7 +240,7 @@ function AutoForgePanel(props: {
 					zIndex={27}
 				/>
 			</frame>
-		</Panel>
+		</PnSurface>
 	);
 }
 

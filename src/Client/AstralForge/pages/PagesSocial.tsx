@@ -1,6 +1,5 @@
 // PagesSocial.luau — compiled page bundle for the Social tab.
 // Members are required lazily: PagesSocial("TradeView") only pays for that page's code.
-import { BRASS, IRON_RADIUS, ironFace } from "../UiCore/castIron";
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { unixNow } from "../CoreKit/deadlines";
@@ -19,7 +18,7 @@ import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { Component, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit } from "./luauDeps";
-import { Chip, PanelHeading } from "../UiCore/mockKit";
+import { Chip, GlyphWell, PanelHeading, PnSurface, ROW_RADIUS, rowFace } from "../UiCore/mockKit";
 import { SEC } from "./mockRows";
 
 const Players = game.GetService("Players");
@@ -77,15 +76,13 @@ __defs["TradeView"] = () => {
 		Badge,
 		Button,
 		EmptyState,
-		IconTile,
-		Panel,
 		QuantityStepper,
 		SearchField,
 		SectionLabel,
 		SegmentedTabs,
 		Stroke,
 		Text,
-	} = loadUi();
+} = loadUi();
 	const Browse = loadBrowse();
 
 	const BOOSTS = [
@@ -595,7 +592,7 @@ __defs["TradeView"] = () => {
 				thickness: 1,
 				transparency: 0.35,
 			}),
-			h(IconTile, {
+			h(GlyphWell, {
 				kind: line.icon,
 				accent: line.accent,
 				size: tile,
@@ -693,7 +690,7 @@ __defs["TradeView"] = () => {
 				BorderSizePixel: 0,
 				ZIndex: 5,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+			h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 			h("uipadding", {
 				PaddingTop: new UDim(0, 6),
 				PaddingBottom: new UDim(0, 6),
@@ -867,7 +864,7 @@ __defs["TradeView"] = () => {
 						TextColor3: Palette.cream,
 						TextXAlignment: mine ? Enum.TextXAlignment.Right : Enum.TextXAlignment.Left,
 					},
-					h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+					h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 					h("uipadding", {
 						PaddingTop: new UDim(0, 6),
 						PaddingBottom: new UDim(0, 6),
@@ -884,9 +881,9 @@ __defs["TradeView"] = () => {
 				BackgroundColor3: Palette.panel,
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+			h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 			h(Stroke, {
-				color: BRASS,
+				color: Palette.brass,
 				thickness: 1,
 				transparency: 0.4,
 			}),
@@ -971,7 +968,7 @@ __defs["TradeView"] = () => {
 							},
 						},
 					},
-					h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+					h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 					h("uipadding", { PaddingLeft: new UDim(0, 10) }),
 				),
 				h(Button, {
@@ -1072,7 +1069,7 @@ __defs["TradeView"] = () => {
 						},
 					},
 				},
-				h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+				h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 				h(Stroke, {
 					color: on ? color : Palette.line,
 					thickness: on ? 2 : 1,
@@ -1107,9 +1104,9 @@ __defs["TradeView"] = () => {
 				BackgroundColor3: Palette.panel,
 				BorderSizePixel: 0,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+			h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 			h(Stroke, {
-				color: BRASS,
+				color: Palette.brass,
 				thickness: 1,
 				transparency: 0.4,
 			}),
@@ -1133,7 +1130,7 @@ __defs["TradeView"] = () => {
 							BackgroundColor3: darken(Palette.mango, 0.7),
 							BorderSizePixel: 0,
 						},
-						h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+						h("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }), rowFace(),
 						h(Text, {
 							value: `${session.PartnerName} wants`,
 							size: 10,
@@ -2067,7 +2064,7 @@ __defs["TradeView"] = () => {
 			const active = row.UserId === selected;
 			const waiting = outgoingLive && outgoing?.ToUserId === row.UserId;
 			return h(
-				Panel,
+				PnSurface,
 				{
 					key: row.UserId,
 					size: new UDim2(1, 0, 0, rosterRowH),
@@ -2494,7 +2491,7 @@ __defs["TradeView"] = () => {
 		const lockElement =
 			lockBanner && session === undefined
 				? h(
-						Panel,
+						PnSurface,
 						{
 							size: new UDim2(1, 0, 0, 86),
 							accent: Palette.muted,
@@ -2524,7 +2521,7 @@ __defs["TradeView"] = () => {
 		const inviteElement =
 			inviteLive && session === undefined
 				? h(
-						Panel,
+						PnSurface,
 						{
 							size: new UDim2(1, 0, 0, 128),
 							accent: Palette.cyan,
@@ -2600,7 +2597,7 @@ __defs["TradeView"] = () => {
 		const outgoingElement =
 			outgoingLive && session === undefined && !inviteLive
 				? h(
-						Panel,
+						PnSurface,
 						{
 							size: new UDim2(1, 0, 0, 124),
 							accent: Palette.mango,
@@ -2858,7 +2855,7 @@ __defs["TradeView"] = () => {
 				id: `history-${index}`,
 				height: phone ? 104 : 84,
 				element: h(
-					Panel,
+					PnSurface,
 					{
 						size: UDim2.fromScale(1, 1),
 						accent: accent,

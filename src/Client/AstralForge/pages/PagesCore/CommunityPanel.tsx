@@ -2,8 +2,9 @@ import React from "@rbxts/react";
 import { formatReward, Reward } from "../../CoreKit/format";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
+import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
 
-const { Button, IconTile, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
 export type CommunityDispatch = (action: string, payload?: object, callback?: Reply) => unknown;
@@ -188,7 +189,7 @@ export function CommunityPanel(props: {
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
-				<IconTile kind={row.icon} accent={row.ready ? row.accent : Palette.panelSoft} size={40} radius={12} position={UDim2.fromOffset(0, 6)} glow={row.ready} reducedMotion={props.reducedMotion} />
+				<GlyphWell kind={row.icon} accent={row.ready ? row.accent : Palette.panelSoft} size={40} radius={12} position={UDim2.fromOffset(0, 6)} glow={row.ready} reducedMotion={props.reducedMotion} />
 				<Text
 					value={row.title}
 					size={15}
@@ -232,9 +233,9 @@ export function CommunityPanel(props: {
 		);
 	});
 	return (
-		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.mango} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
+		<PnSurface radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.mango} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
 			<Text value="Community" size={13} color={Palette.mango} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			{children}
-		</Panel>
+		</PnSurface>
 	);
 }

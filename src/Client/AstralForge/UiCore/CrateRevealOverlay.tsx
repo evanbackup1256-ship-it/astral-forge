@@ -8,8 +8,8 @@ import { Layout, Palette, TapTarget } from "../CoreKit/theme";
 import { revealOffset, subscribeContinuous, usePresence, useViewport } from "../MotionKit/motion";
 import { celebrationsAllowed, isReducedMotion } from "../MotionPreference";
 import { Approach, Reel, ReelItem } from "./crateReel";
-import { Badge, Button, IconTile, Panel, ShimmerText, Text } from "./ui";
-import { TITLE_FACE, spaced } from "./mockKit";
+import { Badge, Button, ShimmerText, Text } from "./ui";
+import { GlyphWell, PnSurface, TITLE_FACE, spaced } from "./mockKit";
 import { RainbowGradient } from "./rainbowFx";
 import { PrismAura } from "./prismFx";
 import { CrateMoment, momentFor, ringAt } from "./crateMoments";
@@ -229,7 +229,7 @@ function DropCard(props: {
 	const element = !salvaged && typeIs(def?.Element, "string") ? (def!.Element as string) : undefined;
 	const sprite = element !== undefined && ElementFxModule.sheet(element) !== undefined;
 	return (
-		<Panel
+		<PnSurface
 			size={UDim2.fromOffset(props.size.X, props.size.Y)}
 			position={props.appear.map((a) =>
 				props.position.add(UDim2.fromOffset(-props.size.X / 2, -props.size.Y / 2 + math.floor((1 - easeOut(a)) * 26))),
@@ -271,7 +271,7 @@ function DropCard(props: {
 					zIndex={511}
 				/>
 			)}
-			{!sprite && <IconTile
+			{!sprite && <GlyphWell
 				still
 				kind={salvaged ? "Dust.9" : itemIconKind(roll.DefinitionId, def?.Slot)}
 				accent={accent}
@@ -332,7 +332,7 @@ function DropCard(props: {
 					zIndex={511}
 				/>
 			)}
-		</Panel>
+		</PnSurface>
 	);
 }
 
@@ -636,7 +636,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 				<uitextsizeconstraint MaxTextSize={viewport.width >= 1400 ? 32 : 20} MinTextSize={14} />
 			</textlabel>
 			{!still && (
-				<Panel
+				<PnSurface
 					size={UDim2.fromOffset(panelW, panelH)}
 					position={show.map((a) => new UDim2(0.5, -panelW / 2, 0.45, -panelH / 2 + revealOffset(a)))}
 					accent={Palette.mango}
@@ -679,7 +679,7 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 							<frame AnchorPoint={new Vector2(0.5, 1)} Position={new UDim2(0.5, 0, 1, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={phase === "spin" ? Palette.brass : bestColor} BorderSizePixel={0} ZIndex={516} />
 						</frame>
 					))}
-				</Panel>
+				</PnSurface>
 			)}
 			<MomentRing
 				moment={bestMoment}
@@ -828,7 +828,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 					<uicorner CornerRadius={new UDim(0, 8)} />
 				</frame>
 			</frame>
-			<Panel
+			<PnSurface
 				size={UDim2.fromOffset(cardW, 156)}
 				position={textIn.map((a) => new UDim2(0.5, -cardW / 2, 0.4, 92 + math.floor((1 - a) * 10)))}
 				accent={color}
@@ -869,7 +869,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 					sizeConstraint={new UDim2(1, 0, 0, 36)}
 					zIndex={509}
 				/>
-			</Panel>
+			</PnSurface>
 			<ActionButton text="Done" accent={color} position={new UDim2(0.5, 0, 1, -48)} onClick={advance} shown={formed} reducedMotion={still} />
 		</frame>
 	);
@@ -886,7 +886,7 @@ function EmptyReveal(props: { onClose: () => void }) {
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={500}>
 			<Backdrop amount={show} onTap={props.onClose} />
-			<Panel
+			<PnSurface
 				size={UDim2.fromOffset(width, 112)}
 				position={new UDim2(0.5, -width / 2, 0.42, -56)}
 				accent={Palette.coral}
@@ -899,7 +899,7 @@ function EmptyReveal(props: { onClose: () => void }) {
 			>
 				<Text value="Crate didn't open" size={18} color={Palette.cream} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(1, 0, 0, 24)} zIndex={506} />
 				<Text value="Nothing was used. Try again." size={13} color={Palette.creamSoft} position={UDim2.fromOffset(0, 34)} sizeConstraint={new UDim2(1, 0, 0, 20)} zIndex={506} />
-			</Panel>
+			</PnSurface>
 			<ActionButton text="Back to inventory" accent={Palette.coral} position={new UDim2(0.5, 0, 1, -48)} onClick={props.onClose} shown={true} reducedMotion={isReducedMotion()} />
 		</frame>
 	);

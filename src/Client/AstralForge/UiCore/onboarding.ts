@@ -17,12 +17,11 @@ import {
 	measureWrappedTextHeight,
 	Meter,
 	OverlayPresence,
-	Panel,
 	Text,
 	TITLE_FACE,
 	useGamepadAutofocus,
 } from "./ui";
-import { Glyph, spaced } from "./mockKit";
+import { Glyph, PnSurface, spaced } from "./mockKit";
 
 // breathing room between release cards (uirevamp spacing)
 const CARD_GAP = Space.md;
@@ -1427,7 +1426,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 				},
 				blocker,
 				h(
-					Panel,
+					PnSurface,
 					{
 						size: UDim2.fromScale(1, 1),
 						accent: Palette.violet,

@@ -12,8 +12,6 @@ import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 const UserInputService = game.GetService("UserInputService");
 
 interface UiKit {
-	IconTile: LuauComponent;
-	Panel: LuauComponent;
 	Button: LuauComponent;
 	Text: LuauComponent;
 	Meter: LuauComponent;
@@ -22,7 +20,7 @@ interface UiKit {
 }
 const { EmptyState } = kitMember<UiKit>("UiCore", "ui");
 import { SplitColumns, splitColumns, StackBlocks } from "../../UiCore/ui";
-import { Bar, BODY_BOLD, Glyph, MockPanel, PanelHeading, spaced } from "../../UiCore/mockKit";
+import { BODY_BOLD, Bar, Glyph, GlyphWell, MockPanel, PanelHeading, PnSurface, spaced } from "../../UiCore/mockKit";
 import { Grid, headingBlock, MockBtn, MockRow, panelHeight, RowFace, rowHeight, Rise } from "../mockRows";
 
 type ColumnSection = { id: string; height: number; element: React.Element };

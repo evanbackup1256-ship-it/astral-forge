@@ -289,7 +289,10 @@ export function MainGame(_param: MainGameProps) {
 	});
 	const [assetProgress, setAssetProgress] = React.useState({ loaded: 0, total: 0 });
 	const [moduleProgress, setModuleProgress] = React.useState({ loaded: 0, total: 0 });
-	const onBootExitDone = React.useCallback(() => setBootVisible(false), []);
+	const onBootExitDone = React.useCallback(() => {
+		setBootVisible(false);
+		dispatchStore(ClientActions.setBootVisible(false));
+	}, []);
 	const markBoot = React.useCallback((key: string) => {
 		setBootMarks((current) => {
 			if (current[key]) {

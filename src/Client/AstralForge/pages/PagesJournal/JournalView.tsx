@@ -8,10 +8,11 @@ import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useEntrance, useFlash, useViewport } from "../../MotionKit/motion";
 import { kitMember, LuauComponent } from "../luauKits";
+import { PnSurface } from "../../UiCore/mockKit";
 
 const TweenService = game.GetService("TweenService");
 
-const { Button, Meter, Panel, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, Meter, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 
 const SERIF = Font.fromName("Merriweather", Enum.FontWeight.Bold);
@@ -311,7 +312,7 @@ function EntryView(props: {
 	const rewardH = 16 + 12 + math.max(1, rewards.size()) * 34 + 24;
 	const nearbyH = 16 + 12 + math.max(1, props.nearby.size()) * 34 + 24;
 	const book = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panel} padding={stack ? 14 : 28} radius={18} reveal={props.enter} reducedMotion={props.reducedMotion}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panel} padding={stack ? 14 : 28} radius={18} reveal={props.enter} reducedMotion={props.reducedMotion}>
 			<uigradient Rotation={120} Color={new ColorSequence(Palette.brassDeep.Lerp(Palette.panel, 0.7), Palette.panel)} />
 			{!stack && (
 				<frame key="Spine" Size={new UDim2(0, 1, 1, 0)} Position={UDim2.fromScale(0.5, 0)} BackgroundColor3={Palette.brass} BackgroundTransparency={0.8} BorderSizePixel={0} />
@@ -349,10 +350,10 @@ function EntryView(props: {
 			>
 				<StarMap id={page.entry.Id} fraction={page.fraction} width={artW} height={artH} reducedMotion={props.reducedMotion} />
 			</frame>
-		</Panel>
+		</PnSurface>
 	);
 	const progressPanel = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={12} radius={18} reducedMotion={props.reducedMotion}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={12} radius={18} reducedMotion={props.reducedMotion}>
 			<SideLabel text="Progress" />
 			<InfoRow label={page.done ? "Filled" : "Progress"} value={chipText(page)} position={UDim2.fromOffset(0, 26)} />
 			<Meter value={page.fraction} color={Palette.mango} shimmer={page.ready} position={UDim2.fromOffset(0, 64)} size={new UDim2(1, 0, 0, 6)} reducedMotion={props.reducedMotion} />
@@ -361,20 +362,20 @@ function EntryView(props: {
 					<Button text="Claim page" onClick={props.onClaim} color={Palette.mango} textColor={Palette.ink} size={UDim2.fromScale(1, 1)} highlight={true} reducedMotion={props.reducedMotion} />
 				</frame>
 			)}
-		</Panel>
+		</PnSurface>
 	);
 	const rewardPanel = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={12} radius={18} reducedMotion={props.reducedMotion}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={12} radius={18} reducedMotion={props.reducedMotion}>
 			<SideLabel text="Page reward" />
 			{rewards.size() === 0 ? (
 				<InfoRow label="No reward on this page" value="" position={UDim2.fromOffset(0, 26)} />
 			) : (
 				rewards.map((line, index) => <InfoRow key={`R${index}`} label={line} value={page.done ? "Claimed" : ""} position={UDim2.fromOffset(0, 26 + index * 34)} />)
 			)}
-		</Panel>
+		</PnSurface>
 	);
 	const nearbyPanel = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={12} radius={18} reducedMotion={props.reducedMotion}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={12} radius={18} reducedMotion={props.reducedMotion}>
 			<SideLabel text="Nearby pages" />
 			{props.nearby.size() === 0 ? (
 				<InfoRow label="Every other page is filled" value="" position={UDim2.fromOffset(0, 26)} />
@@ -383,7 +384,7 @@ function EntryView(props: {
 					<InfoRow key={other.entry.Id} label={other.entry.Name} value={chipText(other)} position={UDim2.fromOffset(0, 26 + index * 34)} onClick={() => props.onOpen(other.entry.Id)} />
 				))
 			)}
-		</Panel>
+		</PnSurface>
 	);
 	const sections: { id: string; height?: number; fill?: boolean; minHeight?: number; element: React.Element }[] = [];
 	if (stack) {
@@ -486,7 +487,7 @@ export function JournalView(props: JournalProps) {
 	const heroH = stack ? 64 : 118;
 	const tabsW = stack ? 230 : 280;
 	const hero = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panelRaised} padding={stack ? 12 : 20} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={true}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panelRaised} padding={stack ? 12 : 20} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={true}>
 			{!stack && current !== undefined && (
 				<Text value={`CHAPTER ${current.index + 1}`} size={11} color={Palette.mango} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(0.5, 0, 0, 14)} />
 			)}
@@ -518,7 +519,7 @@ export function JournalView(props: JournalProps) {
 				position={new UDim2(1, -tabsW, 0.5, -TapTarget / 2)}
 				reducedMotion={reducedMotion}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 
 	// which pages the main panel lists
@@ -543,7 +544,7 @@ export function JournalView(props: JournalProps) {
 	if (tab === "Keepsakes") {
 		const finished = chapters.filter((chapter) => chapter.filled === chapter.pages.size());
 		mainPanel = (
-			<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 14} radius={18} reducedMotion={reducedMotion}>
+			<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 14} radius={18} reducedMotion={reducedMotion}>
 				<SideLabel text="Finished chapters" />
 				<scrollingframe Size={new UDim2(1, 0, 1, -24)} Position={UDim2.fromOffset(0, 24)} BackgroundTransparency={1} BorderSizePixel={0} CanvasSize={new UDim2()} AutomaticCanvasSize={Enum.AutomaticSize.Y} ScrollBarThickness={3} ScrollBarImageColor3={Palette.brass}>
 					<uilistlayout Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
@@ -565,12 +566,12 @@ export function JournalView(props: JournalProps) {
 						))
 					)}
 				</scrollingframe>
-			</Panel>
+			</PnSurface>
 		);
 	} else {
 		const chapterNav = tab === "Pages" && current !== undefined;
 		mainPanel = (
-			<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 14} radius={18} reducedMotion={reducedMotion}>
+			<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 14} radius={18} reducedMotion={reducedMotion}>
 				<frame Size={new UDim2(1, chapterNav ? -76 : 0, 0, 16)} BackgroundTransparency={1}>
 					<SideLabel text={panelTitle} />
 				</frame>
@@ -620,7 +621,7 @@ export function JournalView(props: JournalProps) {
 						reducedMotion={reducedMotion}
 					/>
 				)}
-			</Panel>
+			</PnSurface>
 		);
 	}
 
@@ -641,7 +642,7 @@ export function JournalView(props: JournalProps) {
 	const sideRows = math.max(1, chapterRewards.size()) + 1;
 	const sideH = 16 + 12 + sideRows * 34 + 8 + TapTarget + 28;
 	const side = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panel} padding={12} radius={18} reducedMotion={reducedMotion}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panel} padding={12} radius={18} reducedMotion={reducedMotion}>
 			<SideLabel text="Chapter rewards" />
 			{chapterRewards.size() === 0 ? (
 				<InfoRow label="No rewards in this chapter" value="" position={UDim2.fromOffset(0, 26)} />
@@ -658,7 +659,7 @@ export function JournalView(props: JournalProps) {
 					<Button text="Open next page" onClick={() => setOpenId(nextOpen.entry.Id)} color={Palette.mango} textColor={Palette.ink} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
 				</frame>
 			)}
-		</Panel>
+		</PnSurface>
 	);
 
 	const sections: { id: string; height?: number; fill?: boolean; minHeight?: number; element: React.Element }[] = [

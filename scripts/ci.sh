@@ -68,6 +68,15 @@ log "   ok"
 
 # Import cycle guard: roblox-ts aborts the whole require chain on a circular top-level import
 # ("Failed to import! Detected a circular dependency chain"), so any cycle in out/ fails CI.
+log "== legacy ui guard"
+legacy_out=$(node scripts/check_legacy_ui.js 2>&1)
+status=$?
+printf '%s\n' "$legacy_out" | tee -a "$REPORT"
+if [ "$status" -ne 0 ]; then
+	log "ci: legacy Panel/IconTile/castIron use found"
+	exit 1
+fi
+
 log "== import cycle guard"
 cycle_out=$(node scripts/check_import_cycles.js out 2>&1)
 status=$?

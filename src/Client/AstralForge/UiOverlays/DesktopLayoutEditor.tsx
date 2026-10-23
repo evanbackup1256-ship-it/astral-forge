@@ -8,8 +8,9 @@ import { EDIT_BOUNDS } from "../CoreKit/mobileLayout";
 import { Palette } from "../CoreKit/theme";
 import { usePresence } from "../MotionKit/motion";
 import { useEventListener } from "../ReactHosts/reactModules";
-import { Button, Panel, Text } from "../UiCore/ui";
+import { Button, Text } from "../UiCore/ui";
 import { MobileDragging } from "./MobileControls";
+import { PnSurface } from "../UiCore/mockKit";
 
 const UserInputService = game.GetService("UserInputService");
 
@@ -239,7 +240,7 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 				<DragBox id="combo" box={comboBox} at={comboAt} viewport={viewport} selected={tab === "combo"} onSelect={() => setTab("combo")} onMove={place("combo")} />
 			)}
 			<DragBox id="island" box={islandBox} at={islandAt} viewport={viewport} selected={tab === "island"} onSelect={() => setTab("island")} onMove={place("island")} />
-			<Panel radius={18} rule size={UDim2.fromOffset(PANEL_W, PANEL_H)} position={presence.map((amount) => UDim2.fromOffset(panelX, panelY + (1 - amount) * 16))} background={Palette.panel}
+			<PnSurface radius={18} rule size={UDim2.fromOffset(PANEL_W, PANEL_H)} position={presence.map((amount) => UDim2.fromOffset(panelX, panelY + (1 - amount) * 16))} background={Palette.panel}
 				padding={22} zIndex={420} reveal={presence} clips={false}>
 				<frame Size={new UDim2(1, 0, 0, 32)} BackgroundTransparency={1}>
 					{TABS.map((entry, index) => (
@@ -259,7 +260,7 @@ export function DesktopLayoutEditor(props: DesktopLayoutEditorProps) {
 					<Button text="Cancel" onClick={() => close(false)} size={UDim2.fromOffset(100, 36)} position={new UDim2(1, -208, 0, 0)} color={SEC} textColor={Palette.cream} />
 					<Button text="Done" onClick={() => close(true)} color={Palette.brass} textColor={Palette.ink} size={UDim2.fromOffset(100, 36)} position={new UDim2(1, -100, 0, 0)} />
 				</frame>
-			</Panel>
+			</PnSurface>
 		</frame>
 	);
 }

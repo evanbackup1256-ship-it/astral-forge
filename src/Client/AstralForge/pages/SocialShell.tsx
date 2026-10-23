@@ -4,8 +4,9 @@ import React from "@rbxts/react";
 import { Palette } from "../CoreKit/theme";
 import { kitMember, LuauComponent } from "./luauKits";
 import CrewStore = require("../CrewStore");
+import { PnSurface } from "../UiCore/mockKit";
 
-const { Button, Panel, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 
 const Players = game.GetService("Players");
 
@@ -85,7 +86,7 @@ function CrewCard(props: { reducedMotion?: boolean; navigate: (page: string) => 
 		);
 	}
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.mint} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={true}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.mint} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={true}>
 			<Text value={crew.crew?.Name ?? "Crew"} size={13} color={Palette.mint} weight={Enum.FontWeight.SemiBold} fit={true} minSize={10} sizeConstraint={new UDim2(1, -80, 0, 16)} />
 			{members.size() === 0 ? (
 				<Text
@@ -104,7 +105,7 @@ function CrewCard(props: { reducedMotion?: boolean; navigate: (page: string) => 
 			<frame Size={UDim2.fromOffset(72, 28)} Position={new UDim2(1, -72, 0, -6)} BackgroundTransparency={1}>
 				<Button text="Open" onClick={() => props.navigate("Crew")} color={Palette.raised} textColor={Palette.cream} size={UDim2.fromScale(1, 1)} reducedMotion={props.reducedMotion} />
 			</frame>
-		</Panel>
+		</PnSurface>
 	);
 }
 
@@ -177,14 +178,14 @@ function MailCard(props: { state: unknown; config: unknown; dispatch: Dispatch; 
 	}
 	const unread = mailbox?.Unread ?? 0;
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={true}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={true}>
 			<Text value={unread > 0 ? `Mail · ${unread} unread` : "Mail"} size={13} color={Palette.cyan} weight={Enum.FontWeight.SemiBold} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			{shown === 0 ? (
 				<Text value="No letters right now." size={13} color={Palette.muted} fit={true} minSize={10} position={UDim2.fromOffset(0, 26)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
 			) : (
 				rows
 			)}
-		</Panel>
+		</PnSurface>
 	);
 }
 

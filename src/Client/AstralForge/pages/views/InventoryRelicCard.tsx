@@ -10,8 +10,9 @@ import React from "@rbxts/react";
 import Fx = require("../../ElementFx");
 import { useFlipperSpring } from "../../MotionKit/motion";
 import { Palette } from "../../CoreKit/theme";
-import { IconTile, Text } from "../../UiCore/ui";
+import { Text } from "../../UiCore/ui";
 import { FxTokens, RarityRim } from "../../UiCore/effectsLayer";
+import { GlyphWell } from "../../UiCore/mockKit";
 
 export interface RelicCardMetrics {
 	width: number;
@@ -193,7 +194,7 @@ export function InventoryRelicCard(props: RelicCardProps) {
 							transparency={props.dim ? 0.45 : 0}
 						/>
 					) : (
-						<IconTile
+						<GlyphWell
 							kind={props.iconKind ?? "Loadout"}
 							accent={props.color}
 							size={math.floor(m.well * 0.42)}

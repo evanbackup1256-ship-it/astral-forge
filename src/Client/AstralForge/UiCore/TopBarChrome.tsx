@@ -18,7 +18,8 @@ import { usePerformanceTelemetry } from "../MotionKit/antilag";
 import { useEntrance, useFlash, useGlowStroke, usePulse } from "../MotionKit/motion";
 import { EVENTS, ServerEvent, accentOf, clockText as eventClockText, openServerEventPanel, useServerEvent } from "./serverEventsUi";
 import SessionStats = require("../SessionStats");
-import { Button, ButtonShimmer, IconTile, LogoLockup, LooseComponent, Text, resolvePressMotion, useButtonChrome } from "./ui";
+import { Button, ButtonShimmer, LogoLockup, LooseComponent, Text, resolvePressMotion, useButtonChrome } from "./ui";
+import { GlyphWell } from "./mockKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -178,7 +179,7 @@ export function StatChip(_param: StatChipProps) {
 			LayoutOrder: 1,
 			ClipsDescendants: true,
 		},
-		h(IconTile, {
+		h(GlyphWell, {
 			kind: icon,
 			accent: accent,
 			size: iconSize,
@@ -776,7 +777,7 @@ export function ActiveBoostIcon(_param: {
 						zIndex: 2,
 						radius: radius,
 					}),
-					h(IconTile, {
+					h(GlyphWell, {
 						kind: boostIconKind(boost.Id),
 						accent: boost.Color,
 						size: compact ? 34 : 40,

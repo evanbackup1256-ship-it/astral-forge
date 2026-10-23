@@ -1,5 +1,5 @@
 import React from "@rbxts/react";
-import { Chip, spaced } from "../../UiCore/mockKit";
+import { Chip, PnSurface, spaced } from "../../UiCore/mockKit";
 import { SEC } from "../mockRows";
 import { clockText, compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -9,7 +9,7 @@ import { loadPageScaffold, loadUi, named } from "../luauDeps";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 
 const UserInputService = game.GetService("UserInputService");
-const { Button, Meter, Panel, SectionLabel, Text } = loadUi();
+const { Button, Meter, SectionLabel, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
 
 const SECTION_LABEL_H = 28;
@@ -98,7 +98,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 		};
 	}, [firstClaimTier, event.EventId]);
 	const heroPanel = (
-		<Panel radius={16} rule={true}
+		<PnSurface radius={16} rule={true}
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.brass}
 			background={Palette.panel}
@@ -161,14 +161,14 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				position={new UDim2(0, 0, 1, -18)}
 				sizeConstraint={new UDim2(1, 0, 0, 18)}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 	const tierPanels = tiers.map((tier, index) => {
 		const progress = math.clamp(event.PersonalContribution / math.max(1, tier.Required), 0, 1);
 		const buttonColor = tier.CanClaim ? Palette.mint : tier.Claimed ? SEC : Palette.violet;
 		const tierReveal = tier.CanClaim ? revealClaim : revealTiers;
 		return (
-			<Panel radius={16} rule={true}
+			<PnSurface radius={16} rule={true}
 				key={`tier-${tier.Tier}`}
 				size={new UDim2(1, 0, 0, tierHeight)}
 				accent={tier.CanClaim ? Palette.mint : Palette.brass}
@@ -231,7 +231,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 						highlight={tier.CanClaim && !softMotion}
 					/>
 				</frame>
-			</Panel>
+			</PnSurface>
 		);
 	});
 	const tiersLabel = <SectionLabel value="Your rewards" color={Palette.violet} />;
@@ -291,7 +291,7 @@ function ConvergenceView(props: ConvergenceViewProps) {
 	const convergenceSoft = softMotion === true || revealHero === undefined || revealFill === undefined;
 	if (event === undefined) {
 		return (
-			<Panel radius={16} rule={true}
+			<PnSurface radius={16} rule={true}
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.brass}
 				padding={18}
@@ -307,7 +307,7 @@ function ConvergenceView(props: ConvergenceViewProps) {
 					position={UDim2.fromOffset(0, 42)}
 					sizeConstraint={new UDim2(1, 0, 0, 30)}
 				/>
-			</Panel>
+			</PnSurface>
 		);
 	}
 	return <ConvergenceViewReady {...props} />;

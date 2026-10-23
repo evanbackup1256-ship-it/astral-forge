@@ -7,7 +7,8 @@ import React from "@rbxts/react";
 import Fx = require("../../ElementFx");
 import { useFlipperSpring } from "../../MotionKit/motion";
 import { Palette } from "../../CoreKit/theme";
-import { IconTile, Text } from "../../UiCore/ui";
+import { Text } from "../../UiCore/ui";
+import { GlyphWell } from "../../UiCore/mockKit";
 
 export const SPRITE_CARD_W = 104;
 export const SPRITE_CARD_H = 132;
@@ -124,7 +125,7 @@ export function SpriteCard(props: SpriteCardProps) {
 							transparency={props.dim ? 0.45 : 0}
 						/>
 					) : (
-						<IconTile
+						<GlyphWell
 							kind={props.iconKind ?? "Loadout"}
 							accent={props.color}
 							size={44}

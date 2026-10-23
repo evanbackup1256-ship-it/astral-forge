@@ -710,7 +710,5 @@ export function SearchField(props: SearchFieldProps) {
 	);
 }
 
-/** @deprecated use SurfaceIconTile; ui.tsx IconTile is the glyph tile, this one is the bare framed square. */
-export const IconTile = SurfaceIconTile;
 /** @deprecated use SurfaceSectionLabel; ui.tsx SectionLabel is the page heading, this one is the small-caps list divider. */
 export const SectionLabel = SurfaceSectionLabel;

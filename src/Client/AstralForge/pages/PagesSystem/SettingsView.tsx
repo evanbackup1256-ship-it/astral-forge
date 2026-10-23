@@ -9,14 +9,14 @@ import { CONTROLS_W, controlsPanelHeight, SettingsControlsPanel } from "./settin
 import { MobileTabPinsEditor, mobileTabPinsEditorHeight } from "./MobileTabPinsEditor";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedModule } from "../luauKits";
 import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
-import { BODY, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
+import { BODY, BODY_SEMI, NUM, PnSurface, RowSurface } from "../../UiCore/mockKit";
 
 const UserInputService = game.GetService("UserInputService");
 const { Audio } = kitMember<{ Audio: AudioPlayer }>("AudioKit", "audio");
 const { MobileControls } = kitMember<{ MobileControls: LuauComponent }>("UiOverlays", "MobileControls");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
-const { Button, Panel, SearchField, Slider, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, SearchField, Slider, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const Browse = clientModule<BrowseApi>("BrowseKit");
 
 interface SchemaSection {
@@ -619,7 +619,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	const chipsY = stack ? searchY + searchH + 8 : searchY + math.floor((searchH - Browse.CHIP_H) / 2);
 	const headerH = (stack ? chipsY + Browse.CHIP_H : searchY + math.max(searchH, Browse.CHIP_H)) + 32;
 	const header = (
-		<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={22} reveal={reveal} reducedMotion={softMotion} clips={false}><BrassRule pad={22} />
+		<PnSurface radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={22} reveal={reveal} reducedMotion={softMotion} clips={false}><BrassRule pad={22} />
 			<Text
 				value="Settings"
 				size={stack ? 22 : 26}
@@ -700,7 +700,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 				position={UDim2.fromOffset(chipsX, chipsY)}
 				size={new UDim2(1, -chipsX, 0, Browse.CHIP_H)}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 
 	const navButtons: Record<string, React.Element> = {
@@ -1006,7 +1006,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		);
 	}
 	const list = (
-		<Panel radius={FORGE_RADIUS}
+		<PnSurface radius={FORGE_RADIUS}
 			size={UDim2.fromScale(1, 1)}
 			accent={listing ? Palette.steel : accent}
 			background={Palette.panel}
@@ -1017,7 +1017,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				{listChildren}
 			</frame>
-		</Panel>
+		</PnSurface>
 	);
 	const listPanelH = listH + (stack ? 36 : 56);
 	// gamepad: header (Tour/Notes, search, view chips) > section picker > the section's rows; picker <-> rows left/right
@@ -1056,9 +1056,12 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 					<frame key="SettingsNav" Size={new UDim2(0, NAV_W, 0, bodyH)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<Panel radius={FORGE_RADIUS} size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}><BrassRule pad={12} />
-							{navButtons}
-						</Panel>
+						<PnSurface radius={FORGE_RADIUS} size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
+							{/* own list host: the panel's rule/plate siblings never take a list slot or paint over the section chips */}
+							<frame key="SectionList" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={3}>
+								{navButtons}
+							</frame>
+						</PnSurface>
 					</frame>
 					<frame key="SettingsList" Size={new UDim2(1, -(NAV_W + 24 + controlsW), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
 						{list}

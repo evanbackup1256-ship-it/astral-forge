@@ -5,7 +5,7 @@
 // The board you see runs the same FoundryMath the server does, so the flow drawn is the flow you get.
 import React from "@rbxts/react";
 import { RowFace, SEC } from "./mockRows";
-import { spaced } from "../UiCore/mockKit";
+import { PnSurface, spaced } from "../UiCore/mockKit";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Format from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
@@ -789,7 +789,7 @@ function FoundryView(props: {
 	add(
 		"hero",
 		stack ? 186 : 128,
-		<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass} background={Palette.panel}>
+		<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass} background={Palette.panel}>
 			<Ui.Text
 				value={
 					`${compact(foundry.Shards)} Shards  ·  ` +
@@ -805,7 +805,7 @@ function FoundryView(props: {
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				{chipEls}
 			</frame>
-		</Ui.Panel>,
+		</PnSurface>,
 	);
 
 	// the board
@@ -851,7 +851,7 @@ function FoundryView(props: {
 		add(
 			"selected",
 			panelH,
-			<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={12} accent={Palette.brass} background={Palette.panel}>
+			<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={12} accent={Palette.brass} background={Palette.panel}>
 				{narrow ? (
 					<>
 						<Ui.Text
@@ -963,7 +963,7 @@ function FoundryView(props: {
 						/>
 					</>
 				)}
-			</Ui.Panel>,
+			</PnSurface>,
 		);
 	}
 

@@ -18,9 +18,10 @@ import {
 	TaskRow,
 	TaskSummary,
 } from "./MissionsView";
+import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
 
 const UserInputService = game.GetService("UserInputService");
-const { Button, IconTile, Meter, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, Meter, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { FlatList } = kitMember<{ FlatList: LuauComponent }>("LayoutKit", "virtualizedList");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const Browse = clientModule<BrowseApi>("BrowseKit");
@@ -148,7 +149,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 	const rowStride = milestoneRowH(rowStack) + rowGap;
 	const pageGap = stack ? chrome.panelGap : 18;
 	const headerPanel = (
-		<Panel radius={18} rule
+		<PnSurface radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.brass}
 			background={Palette.panel}
@@ -224,7 +225,7 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 				position={UDim2.fromOffset(0, introH + claimRowH + 10)}
 				zIndex={40}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 	const milestonesList = (
 		<FlatList

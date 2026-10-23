@@ -5,8 +5,8 @@ import { Audio } from "../AudioKit/audio";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, Space, TapTarget } from "../CoreKit/theme";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
-import { Button, OverlayPresence, Panel, TITLE_FACE, Text, measureWrappedTextHeight, useGamepadAutofocus } from "../UiCore/ui";
-import { Glyph, spaced } from "../UiCore/mockKit";
+import { Button, OverlayPresence, TITLE_FACE, Text, measureWrappedTextHeight, useGamepadAutofocus } from "../UiCore/ui";
+import { Glyph, PnSurface, spaced } from "../UiCore/mockKit";
 
 const ContextActionService = game.GetService("ContextActionService");
 
@@ -192,7 +192,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 					ZIndex={z + 2}
 				>
 					<imagebutton Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} AutoButtonColor={false} Active={true} Selectable={false} ZIndex={z + 2} />
-					<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={padding} radius={18} rule={true} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
+					<PnSurface size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={padding} radius={18} rule={true} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
 						{/* 26-dialogs .pn h3: tone glyph, Cinzel caps title, close X pushed right */}
 						<Glyph kind={props.tone === "danger" ? "Warning" : "Info"} size={18} color={accent} position={UDim2.fromOffset(0, 2)} />
 						<frame Size={new UDim2(1, -60, 0, titleH)} Position={UDim2.fromOffset(28, 0)} BackgroundTransparency={1} ZIndex={z + 4}>
@@ -262,7 +262,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 							/>
 							</frame>
 						</frame>
-					</Panel>
+					</PnSurface>
 				</frame>
 			</frame>
 		</OverlayPresence>

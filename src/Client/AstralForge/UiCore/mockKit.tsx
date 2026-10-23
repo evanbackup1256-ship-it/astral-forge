@@ -6,7 +6,8 @@
 //   .bar   -> Bar                                          .it   -> ItemTile
 import React from "@rbxts/react";
 import { Palette } from "../CoreKit/theme";
-import { Panel, TITLE_FACE } from "./ui";
+import { Panel, PanelProps, TITLE_FACE } from "./ui";
+import { Bindable } from "../lua";
 
 const ArtIcon = ((require(script.Parent!.Parent!.FindFirstChild("ArtKit")! as ModuleScript) as CallableFunction)("Icon") as { Icon: unknown }).Icon;
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
@@ -338,6 +339,104 @@ export function ItemTile(p: {
 					<Line text={spaced(p.tag.upper())} size={p.phone === true ? 8 : 9} font={NUM} color={Color3.fromRGB(20, 12, 16)} height={tagH} />
 				</frame>
 			)}
+		</frame>
+	);
+}
+
+/**
+ * .pn surface without the vertical stack: the star-forged panel (radius 16 / phone 12, brass inner
+ * rule, panel fill) for hosts that place their own children. Replaces direct use of the kit Panel.
+ */
+export function PnSurface(p: PanelProps & { phone?: boolean }) {
+	const pad = panelPad(p.phone === true);
+	return (
+		<Panel
+			{...p}
+			radius={p.radius ?? pad.radius}
+			rule={p.rule ?? true}
+			accent={p.accent ?? Palette.brass}
+			background={p.background ?? Palette.panel}
+			padding={p.padding ?? pad.y}
+		/>
+	);
+}
+
+/** .row radius: rows, small cards and list tiles. */
+export const ROW_RADIUS = 11;
+
+/**
+ * .row face as a child plate (ZIndex 0): faint top-lit fill and the 1px white .05 inner line.
+ * Lives on its own child so a host with its own UIGradient / UIStroke keeps them untouched.
+ */
+export function rowFace(): React.Element {
+	return (
+		<frame key="RowFace" Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.white} BorderSizePixel={0} Active={false} Selectable={false} ZIndex={0}>
+			<uicorner CornerRadius={new UDim(0, ROW_RADIUS)} />
+			<uigradient
+				Rotation={90}
+				Color={new ColorSequence(Palette.white, Palette.void)}
+				Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.965), new NumberSequenceKeypoint(1, 0.88)])}
+			/>
+			<uistroke Color={Palette.white} Transparency={0.95} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+		</frame>
+	);
+}
+
+/**
+ * .it .ar art well for one icon: radius 9, #0c090e well, a soft accent glow under the glyph,
+ * glyph at 56% in the accent mixed toward white. Takes the retired IconTile props so call sites
+ * swap one name; `glow` brightens the rim, `filled` deepens the glow.
+ */
+export function GlyphWell(p: {
+	kind?: unknown;
+	accent?: Color3;
+	size?: number;
+	radius?: number;
+	position?: Bindable<UDim2>;
+	anchorPoint?: Vector2;
+	spin?: boolean;
+	still?: boolean;
+	hoverAmount?: React.Binding<number>;
+	reducedMotion?: boolean;
+	glow?: boolean;
+	filled?: boolean;
+	zIndex?: number;
+	layoutOrder?: number;
+}) {
+	const size = p.size ?? 48;
+	const accent = p.accent ?? Palette.mango;
+	const glyph = math.floor(size * 0.56);
+	const z = p.zIndex ?? 1;
+	return (
+		<frame
+			Size={UDim2.fromOffset(size, size)}
+			Position={p.position}
+			AnchorPoint={p.anchorPoint}
+			BackgroundColor3={Color3.fromRGB(12, 9, 14)}
+			BorderSizePixel={0}
+			ZIndex={z}
+			LayoutOrder={p.layoutOrder ?? 0}
+			ClipsDescendants={true}
+		>
+			<uicorner CornerRadius={new UDim(0, p.radius ?? math.min(9, math.floor(size * 0.24)))} />
+			<uistroke Color={accent} Transparency={p.glow === true ? 0.35 : 0.7} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			<frame Size={UDim2.fromScale(0.9, 0.9)} Position={UDim2.fromScale(0.5, 0.58)} AnchorPoint={new Vector2(0.5, 0.5)} BackgroundColor3={accent} BorderSizePixel={0} ZIndex={z}>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+				<uigradient Transparency={new NumberSequence([new NumberSequenceKeypoint(0, p.filled === true ? 0.4 : 0.55), new NumberSequenceKeypoint(1, 1)])} />
+			</frame>
+			{h(ArtIcon, {
+				kind: p.kind,
+				color: accent.Lerp(Palette.white, 0.65),
+				accent: accent,
+				size: glyph,
+				spin: p.spin === true,
+				still: p.still,
+				hoverAmount: p.hoverAmount,
+				clipSafe: true,
+				reducedMotion: p.reducedMotion,
+				position: UDim2.fromScale(0.5, 0.5),
+				anchorPoint: new Vector2(0.5, 0.5),
+			})}
 		</frame>
 	);
 }

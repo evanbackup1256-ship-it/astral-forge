@@ -20,7 +20,6 @@ import type { HeaderArtName } from "../ArtKit/uiArt";
 import { featureNames, openRoadmap, progressFraction, readLevelState, tierAccent } from "./levelRoadmap";
 import {
 	Button,
-	IconTile,
 	LooseComponent,
 	ScrollEdgeFade,
 	ShimmerText,
@@ -28,6 +27,7 @@ import {
 	meterFill,
 	resolvePressMotion,
 } from "./ui";
+import { GlyphWell } from "./mockKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -800,7 +800,7 @@ export function Workspace(_param: WorkspaceProps) {
 						ClipsDescendants: true,
 						ZIndex: 4,
 					},
-					h(IconTile, {
+					h(GlyphWell, {
 						kind: entry.icon,
 						accent: accent,
 						size: headerIconSize,

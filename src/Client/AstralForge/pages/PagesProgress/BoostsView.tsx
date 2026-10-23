@@ -332,7 +332,7 @@ function BoostCard(props: BoostCardProps) {
 				<frame BackgroundColor3={Palette.white} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)}>
 					<RowFace outline={ready && owned > 0 ? accent : undefined} />
 					<uipadding PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
-					<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					<textlabel BackgroundTransparency={1} Text={spaced(small)} TextSize={11} FontFace={BODY_BOLD} TextColor3={Palette.muted} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 14)} LayoutOrder={0} />
 					<frame BackgroundTransparency={1} Size={UDim2.fromOffset(28, 28)} LayoutOrder={1}>
 						<Glyph kind={boostIconKind(boost.Id)} size={28} color={shown} />
@@ -515,7 +515,10 @@ function BoostsView(props: BoostsViewProps) {
 			: pick === undefined
 				? panelHeight(ph, headingBlock(ph) + rowHeight(ph, true))
 				: panelHeight(ph, headingBlock(ph) + rowHeight(ph, true) + (ph ? 8 : 12) + (ph ? TapTarget : 44));
-	const statsH = panelHeight(ph, headingBlock(ph) + rowHeight(ph) * 2 + (ph ? 8 : 12));
+	// split layout puts Stock in the narrow side column: one tile per row so values never run into a neighbour
+	const statCols = plan.split ? 1 : 2;
+	const statRows = 4 / statCols;
+	const statsH = panelHeight(ph, headingBlock(ph) + rowHeight(ph) * statRows + (ph ? 8 : 12) * (statRows - 1));
 	const rowStride = CARD_H + GAP;
 	const rows: BoostRow[] = [];
 	let index = 1;
@@ -535,7 +538,7 @@ function BoostsView(props: BoostsViewProps) {
 	const statTiles = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={ph} accent={Palette.pink} reducedMotion={softMotion} name="BoostStock">
 			<PanelHeading icon="Vault" title="Stock" accent={Palette.pink} phone={ph} layoutOrder={0} />
-			<Grid columns={2} gap={ph ? 8 : 12} cellHeight={rowHeight(ph)} count={4} layoutOrder={1}>
+			<Grid columns={statCols} gap={ph ? 8 : 12} cellHeight={rowHeight(ph)} count={4} layoutOrder={1}>
 				<MockRow phone={ph} icon="Boost" accent={Palette.pink} title="Stored" value={compactNumber(stored)} layoutOrder={1} />
 				<MockRow phone={ph} icon="StarGrid" accent={Palette.cyan} title="Types" value={`${types} / ${all.size()}`} layoutOrder={2} />
 				<MockRow phone={ph} icon="Timer" accent={Palette.mango} title="Banked" value={`${compactNumber(math.floor(bankedSeconds / 3600))}h`} layoutOrder={3} />

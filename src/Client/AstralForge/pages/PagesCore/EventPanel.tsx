@@ -4,10 +4,10 @@ import { Palette, TapTarget } from "../../CoreKit/theme";
 import { kitMember, LuauComponent } from "../luauKits";
 import * as LimitedEvents from "../../../../Shared/AstralForge/Shared/LimitedEvents";
 import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
-import { BODY, BODY_SEMI, Label, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
+import { BODY, BODY_SEMI, Label, PnSurface, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
 import { IconWell } from "../gcKit";
 
-const { Button, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const Workspace = game.GetService("Workspace");
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
@@ -91,7 +91,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 			return <frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} />;
 		}
 		return (
-			<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={rgb(upcoming.Accent)} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
+			<PnSurface radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={rgb(upcoming.Accent)} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
 				<Label text="Next event" color={rgb(upcoming.Accent)} />
 				<Text
 					value={`${upcoming.Name} opens ${dateText(upcoming.StartsAt)}, in ${leftText(upcoming.StartsAt - now)}.`}
@@ -103,7 +103,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 					position={UDim2.fromOffset(0, 20)}
 					sizeConstraint={new UDim2(1, 0, 0, 22)}
 				/>
-			</Panel>
+			</PnSurface>
 		);
 	}
 
@@ -193,7 +193,7 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 	const dayEarned = state.DayEarned ?? 0;
 	const capped = dayEarned >= event.DailyCap;
 	return (
-		<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
+		<PnSurface radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}><BrassRule pad={PAD} />
 			<Label text={`Ends in ${leftText(event.EndsAt - now)}`} color={accent} />
 			<textlabel
 				Text={event.Name}
@@ -231,6 +231,6 @@ export function EventPanel(props: { state: EventState; dispatch: EventDispatch; 
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
 			{rows}
-		</Panel>
+		</PnSurface>
 	);
 }

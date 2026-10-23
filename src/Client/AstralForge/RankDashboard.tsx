@@ -11,7 +11,7 @@ import { OmegaMathApi } from "./lua";
 import { FittedView } from "./UiCore/viewportKit";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "./UiCore/ui";
 
-import { BODY_BOLD, BODY_SEMI, DiamondRule, NUM, PanelHeading, RowSurface, TITLE_FACE } from "./UiCore/mockKit";
+import { BODY_BOLD, BODY_SEMI, DiamondRule, NUM, PanelHeading, PnSurface, RowSurface, TITLE_FACE } from "./UiCore/mockKit";
 const Players = game.GetService("Players");
 const TweenService = game.GetService("TweenService");
 const ContextActionService = game.GetService("ContextActionService");
@@ -30,7 +30,6 @@ interface UiApi {
 	Button: unknown;
 	Text: unknown;
 	SearchField: unknown;
-	Panel: unknown;
 }
 const UiCore = require(script.Parent!.FindFirstChild("UiCore")! as ModuleScript) as CallableFunction;
 const ui = UiCore("ui") as UiApi;
@@ -575,7 +574,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			return e(ui.Text, textProps);
 		}
 		function section(id: string, height: number, children: Record<string, React.Element | undefined>, accent?: Color3) {
-			sections.push({ id, height, element: e(ui.Panel, { size: UDim2.fromScale(1, 1), padding: 22, radius: FORGE_RADIUS, background: P.panel, accent: accent ?? P.brass }, { BrassRule: e(BrassRule, { pad: 22 }), ...children }) });
+			sections.push({ id, height, element: e(PnSurface, { size: UDim2.fromScale(1, 1), padding: 22, radius: FORGE_RADIUS, background: P.panel, accent: accent ?? P.brass }, { BrassRule: e(BrassRule, { pad: 22 }), ...children }) });
 		}
 
 		const mainNarrow = plan.split ? plan.main < 620 : narrow;

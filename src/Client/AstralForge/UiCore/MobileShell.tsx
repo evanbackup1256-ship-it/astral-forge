@@ -13,10 +13,11 @@ import { useEntrance, useFlipperSpring, useViewport } from "../MotionKit/motion"
 import { joinTuple } from "../lua";
 import { EVENTS, ServerEvent, accentOf, openServerEventPanel, useServerEvent } from "./serverEventsUi";
 import { readLevelState, openRoadmap, progressFraction } from "./levelRoadmap";
-import { Button, CountBadge, IconTile, LooseComponent, Text } from "./ui";
+import { Button, CountBadge, LooseComponent, Text } from "./ui";
 import { SearchField } from "./surface";
 import SessionStats = require("../SessionStats");
 import { registerRegion } from "../CoreKit/selectionRegions";
+import { GlyphWell } from "./mockKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -324,7 +325,7 @@ function MenuCell(_param: { entry: NavEntry; active: boolean; badge?: number; or
 			Thickness: 1,
 			Transparency: active ? 0.5 : 1,
 		}),
-		h(IconTile, {
+		h(GlyphWell, {
 			kind: entry.icon,
 			accent: accent,
 			size: 34,
@@ -1190,7 +1191,7 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 			Color: Palette.line,
 			Transparency: 0.75,
 		}),
-		h(IconTile, {
+		h(GlyphWell, {
 			kind: entry.icon,
 			accent: accent,
 			size: iconSize,

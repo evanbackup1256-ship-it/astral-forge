@@ -10,8 +10,9 @@ import React from "@rbxts/react";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import ElementFxModule = require("../../ElementFx");
 import { loadUi, named } from "../luauDeps";
+import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
 
-const { IconTile, Panel, Text } = loadUi();
+const { Text } = loadUi();
 const { ElementFx } = ElementFxModule;
 
 export const PORT_TOKENS = {
@@ -74,7 +75,7 @@ export function PortPanel(p: {
 }) {
 	const pad = p.padding ?? 16;
 	return (
-		<Panel
+		<PnSurface
 			size={p.size ?? UDim2.fromScale(1, 1)}
 			position={p.position}
 			accent={p.accent ?? Palette.lineSoft}
@@ -97,7 +98,7 @@ export function PortPanel(p: {
 				<uistroke Color={PORT_TOKENS.brass} Transparency={0.75} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 			</frame>
 			{p.children}
-		</Panel>
+		</PnSurface>
 	);
 }
 
@@ -118,7 +119,7 @@ export function InfoRow(p: { icon: string; label: string; value: string; accent?
 		>
 			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke Color={Palette.line} Transparency={0.4} Thickness={1} />
-			<IconTile kind={p.icon} accent={accent} size={26} radius={8} still={true} spin={false} position={UDim2.fromOffset(8, 7)} reducedMotion={p.reducedMotion} />
+			<GlyphWell kind={p.icon} accent={accent} size={26} radius={8} still={true} spin={false} position={UDim2.fromOffset(8, 7)} reducedMotion={p.reducedMotion} />
 			<Text value={p.label} size={13} color={Palette.creamSoft} weight={Enum.FontWeight.Bold} position={UDim2.fromOffset(44, 11)} sizeConstraint={new UDim2(0.5, -44, 0, 18)} zIndex={3} />
 			<Text
 				value={p.value}

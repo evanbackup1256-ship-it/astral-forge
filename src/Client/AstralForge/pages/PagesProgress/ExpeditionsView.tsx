@@ -12,13 +12,13 @@ import { useServerClock } from "../../hooks/useServerClock";
 import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi, named } from "../luauDeps";
 import { StackBlocks, stackHeight } from "../../UiCore/ui";
-import { Bar, BODY, BODY_SEMI, MockPanel, PanelHeading } from "../../UiCore/mockKit";
+import { BODY, BODY_SEMI, Bar, GlyphWell, MockPanel, PanelHeading, PnSurface } from "../../UiCore/mockKit";
 import { headingBlock, IconWell, MockBtn, MockRow, panelHeight, rowHeight } from "../mockRows";
 import ElementFxModule = require("../../ElementFx");
 import { itemIconKind } from "../../ArtKit/Icon";
 import { rarityColor } from "./portKit";
 
-const { Button, Dropdown, EmptyState, IconTile, Meter, Panel, SegmentedTabs, Text } = loadUi();
+const { Button, Dropdown, EmptyState, Meter, SegmentedTabs, Text } = loadUi();
 
 const SPRITE = 36;
 // port 13-expeditions: the crew lead's sprite (element sheet, or its item icon) on a dark well with a rarity rim
@@ -33,7 +33,7 @@ function CrewSprite(p: { def?: ItemDef; definitionId: string; reducedMotion?: bo
 			{element !== undefined && ElementFxModule.sheet(element) !== undefined ? (
 				<ElementFxModule.ElementFx element={element} size={UDim2.fromScale(1.1, 1.1)} reducedMotion={p.reducedMotion} />
 			) : (
-				<IconTile kind={itemIconKind(p.definitionId)} accent={color} size={math.floor(box * 0.78)} radius={8} position={UDim2.fromScale(0.5, 0.5)} anchorPoint={new Vector2(0.5, 0.5)} spin={false} reducedMotion={p.reducedMotion} />
+				<GlyphWell kind={itemIconKind(p.definitionId)} accent={color} size={math.floor(box * 0.78)} radius={8} position={UDim2.fromScale(0.5, 0.5)} anchorPoint={new Vector2(0.5, 0.5)} spin={false} reducedMotion={p.reducedMotion} />
 			)}
 		</frame>
 	);
@@ -227,9 +227,9 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	};
 	if (open.size() === 0 || route === undefined || odds === undefined) {
 		return (
-			<Panel size={UDim2.fromScale(1, 1)} accent={Palette.lineSoft} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion}>
+			<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.lineSoft} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion}>
 				<Text value="Every route you can run is out." size={14} color={Palette.muted} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 20)} />
-			</Panel>
+			</PnSurface>
 		);
 	}
 	const role = odds.Role;
@@ -248,7 +248,7 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	const launchRow = y;
 	const synergyText = odds.Synergies.map((s) => SYNERGY_TEXT[s] ?? s).join("  ·  ");
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={STANCE_COLOR[stance]} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} clips={false}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={STANCE_COLOR[stance]} background={Palette.panel} padding={PAD} reducedMotion={p.props.reducedMotion} clips={false}>
 			<frame Size={new UDim2(1, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
 				<Dropdown
 					options={open.map((r) => ({ id: r.Id, label: r.Name, detail: clockText(r.Duration) }))}
@@ -352,7 +352,7 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 					/>
 				</frame>
 			</frame>
-		</Panel>
+		</PnSurface>
 	);
 }
 

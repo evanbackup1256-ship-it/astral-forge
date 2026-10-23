@@ -1,4 +1,3 @@
-import { BRASS, IRON_RADIUS, ironFace } from "../../UiCore/castIron";
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
 import { chromeFor, Palette, Radius, scrollTail, StrokeWidth, TapTarget } from "../../CoreKit/theme";
@@ -9,7 +8,7 @@ import { useFocusOrder } from "../../CoreKit/focusOrder";
 import type { Session } from "../../state";
 import { HeaderArt } from "../../UiCore/HeaderArt";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
-import { Bar, BODY, BODY_BOLD, Line, MockPanel, NUM, PanelHeading } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, Bar, GlyphWell, Line, MockPanel, NUM, PanelHeading, PnSurface, ROW_RADIUS } from "../../UiCore/mockKit";
 import { HEADING_SECTION_H, HeadingSection, headingBlock, MockBtn, MockRow, panelHeight, rowHeight, RowFace, SEC, TileWell } from "../mockRows";
 
 const Ui = loadUi();
@@ -150,7 +149,7 @@ function MerchantPortrait(props: {
 			BorderSizePixel={0}
 			ClipsDescendants={true}
 		>
-			{round(new UDim(0, IRON_RADIUS))}
+			{round(new UDim(0, ROW_RADIUS))}
 			<uistroke Color={accent} Thickness={StrokeWidth.hairline} Transparency={0.5} />
 			{/* Soft radial atmospheric glow from top */}
 			<frame
@@ -194,7 +193,7 @@ function MerchantPortrait(props: {
 			>
 				{round(new UDim(1, 0))}
 			</frame>
-			{/* Centered Heraldic Sigil IconTile */}
+			{/* Centered Heraldic Sigil GlyphWell */}
 			<frame
 				{...named("SigilWell")}
 				Size={UDim2.fromOffset(50, 50)}
@@ -203,11 +202,11 @@ function MerchantPortrait(props: {
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 			>
-				<Ui.IconTile
+				<GlyphWell
 					kind={iconKind}
 					accent={accent}
 					size={50}
-					radius={IRON_RADIUS}
+					radius={ROW_RADIUS}
 					glow={true}
 					filled={true}
 					reducedMotion={props.reducedMotion}
@@ -223,7 +222,7 @@ function MerchantPortrait(props: {
 				BackgroundTransparency={0.15}
 				BorderSizePixel={0}
 			>
-				{round(new UDim(0, IRON_RADIUS))}
+				{round(new UDim(0, ROW_RADIUS))}
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
 				<Ui.Text
 					value={tag}
@@ -538,7 +537,7 @@ function BazaarView(props: BazaarProps) {
 	add(
 		"market-header",
 		narrowHeader ? 168 : 112,
-		<Ui.Panel
+		<PnSurface
 			size={UDim2.fromScale(1, 1)}
 			padding={16}
 			accent={Palette.violet}
@@ -592,7 +591,7 @@ function BazaarView(props: BazaarProps) {
 				position={UDim2.fromOffset(0, rowY + 50)}
 				sizeConstraint={new UDim2(1, 0, 0, 44)}
 			/>
-		</Ui.Panel>,
+		</PnSurface>,
 	);
 	if (note !== "") {
 		add(
@@ -609,7 +608,7 @@ function BazaarView(props: BazaarProps) {
 		add(
 			"merchant",
 			212,
-			<Ui.Panel
+			<PnSurface
 				size={UDim2.fromScale(1, 1)}
 				padding={18}
 				accent={accent}
@@ -689,7 +688,7 @@ function BazaarView(props: BazaarProps) {
 					position={UDim2.fromOffset(0, 166)}
 					sizeConstraint={new UDim2(1, 0, 0, 22)}
 				/>
-			</Ui.Panel>,
+			</PnSurface>,
 		);
 	}
 	if (market && market.Watched && market.Watched.size() > 0) {

@@ -325,6 +325,9 @@ export function OverviewView({ state, config, dispatch, reducedMotion, effectsPa
 	const pad = panelPad(phone);
 	const deskInner = 700 - pad.x * 2;
 	const headH = 16 + 44;
+	// the desk card never runs past the stage: when the stage is shorter than the card it scales down
+	// from its top-right anchor instead of pushing the Reset row off screen
+	const [stageH, setStageH] = React.useBinding(0);
 	const deskPanelH = pad.y * 2 + headH + 12 + 12 + 12 + (STAT_H * 2 + 10) + 12 + 16 + 12 + CHART_H + 12 + 44;
 	const phonePanelH = pad.y * 2 + 18 + 8 + (44 * 2 + 6) + 8 + 36;
 	const grid = (
@@ -365,6 +368,7 @@ export function OverviewView({ state, config, dispatch, reducedMotion, effectsPa
 			reducedMotion={reducedMotion}
 			name="OverviewSession"
 		>
+			<uiscale Scale={stageH.map((h) => (h <= 0 ? 1 : math.clamp((h - 48) / deskPanelH, 0.5, 1)))} />
 			<frame Size={new UDim2(1, 0, 0, headH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 16)} VerticalAlignment={Enum.VerticalAlignment.Bottom} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
@@ -407,6 +411,7 @@ export function OverviewView({ state, config, dispatch, reducedMotion, effectsPa
 	const stage = (
 		<frame
 			{...named("OverviewStage")}
+			Change={{ AbsoluteSize: (f: Frame) => setStageH(f.AbsoluteSize.Y) }}
 			Size={portrait ? new UDim2(1, 0, 0, 160) : phone ? new UDim2(1, -(380 + 8), 1, 0) : UDim2.fromScale(1, 1)}
 			BackgroundColor3={Palette.ink}
 			BackgroundTransparency={stageReveal.map((v) => 1 - math.clamp(v, 0, 1))}

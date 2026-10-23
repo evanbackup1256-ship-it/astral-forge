@@ -3,7 +3,7 @@ import { AdminConfig, BanEntry, fieldsFor, reasonsFor } from "../../CoreKit/admi
 import { compactNumber } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { Palette } from "../../CoreKit/theme";
-import { BODY, BODY_BOLD, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, BODY_SEMI, NUM, PnSurface, RowSurface } from "../../UiCore/mockKit";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../../MotionKit/motion";
 import { chromeFor } from "../../CoreKit/theme";
@@ -15,7 +15,7 @@ const HttpService = game.GetService("HttpService");
 const UserInputService = game.GetService("UserInputService");
 const { Audio } = kitMember<{ Audio: AudioPlayer }>("AudioKit", "audio");
 const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
-const { Badge, Button, Dropdown, EmptyState, Panel, SearchField, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Badge, Button, Dropdown, EmptyState, SearchField, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { FlatList } = kitMember<{ FlatList: LuauComponent }>("LayoutKit", "virtualizedList");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 
@@ -452,7 +452,7 @@ function OpsPanel(props: {
 }) {
 	const rows = props.children ?? [];
 	return (
-		<Panel size={props.size ?? new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
+		<PnSurface size={props.size ?? new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
 			<SectionTitle value={string.upper(props.title)} accent={Palette.brass} />
 			{props.onBack !== undefined && (
 				<Button
@@ -497,7 +497,7 @@ function OpsPanel(props: {
 					rows
 				)}
 			</scrollingframe>
-		</Panel>
+		</PnSurface>
 	);
 }
 
@@ -712,7 +712,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 
 	const refreshW = tight ? 88 : 104;
 	const header = (
-		<Panel
+		<PnSurface
 			size={new UDim2(1, 0, 0, HEADER_H)}
 			accent={Palette.coral}
 			background={Palette.panel}
@@ -777,7 +777,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				position={new UDim2(1, -refreshW, 0, 3)}
 				reducedMotion={softMotion}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 
 	const listSize = new UDim2(1, 0, 1, -64);
@@ -811,7 +811,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 			/>
 		);
 	const playerSection = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={12} layoutOrder={1} clips={false}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={12} layoutOrder={1} clips={false}>
 			<SectionTitle value="Players" accent={Palette.cyan} />
 			<SearchField
 				value={playerQuery}
@@ -823,37 +823,11 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				reducedMotion={softMotion}
 			/>
 			{playerList}
-		</Panel>
+		</PnSurface>
 	);
 
-	// each 62x28 pill sits in a 68x44 slot: the slot is an invisible hit area (3px each side = half
-	// the old 6px gap, 6px above, 10px below) so slots tile without overlapping, stay clear of the
-	// search field (ends y=56) and the list (starts y=100), and the pill draws exactly where it did.
-	const pills = ADMIN_CATS.map((cat, index) => (
-		<frame key={cat.id} Size={UDim2.fromOffset(68, 44)} BackgroundTransparency={1} LayoutOrder={index}>
-			<textbutton
-				Size={UDim2.fromScale(1, 1)}
-				BackgroundTransparency={1}
-				Text=""
-				AutoButtonColor={false}
-				Selectable={false}
-				Event={{ Activated: () => setCategory(cat.id) }}
-			/>
-			<Button
-				text={cat.label}
-				onClick={() => setCategory(cat.id)}
-				color={category === cat.id ? Palette.violet : Palette.panelSoft}
-				textColor={category === cat.id ? Palette.ink : Palette.creamSoft}
-				outline={category !== cat.id}
-				highlight={category === cat.id}
-				size={UDim2.fromOffset(62, 28)}
-				position={UDim2.fromOffset(3, 6)}
-				reducedMotion={softMotion}
-			/>
-		</frame>
-	));
 	const commandSection = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
 			<SectionTitle value="Commands" accent={Palette.violet} />
 			<SearchField
 				value={commandQuery}
@@ -864,11 +838,17 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				position={UDim2.fromOffset(0, 20)}
 				reducedMotion={softMotion}
 			/>
-			{/* row spans y 56..100 and x -3..W+3 so the 68x44 slots line pills up at x = i*68, y = 62 as before */}
-			<frame Size={new UDim2(1, 6, 0, 44)} Position={UDim2.fromOffset(-3, 56)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				{pills}
-			</frame>
+			{/* category tabs per admin mockup: one SegmentedTabs row, 34px tall, 5px between tabs, y 61..95 */}
+			<SegmentedTabs
+				options={ADMIN_CATS}
+				value={category}
+				accent={Palette.violet}
+				gap={5}
+				size={new UDim2(1, 0, 0, 34)}
+				position={UDim2.fromOffset(0, 61)}
+				reducedMotion={softMotion}
+				onChange={(id: string) => setCategory(id)}
+			/>
 			<frame Size={new UDim2(1, 0, 1, -100)} Position={UDim2.fromOffset(0, 100)} BackgroundTransparency={1}>
 				{shownCommands.size() === 0 ? (
 					<EmptyState icon="Command" title="No commands" body="" compact={true} />
@@ -888,11 +868,11 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					/>
 				)}
 			</frame>
-		</Panel>
+		</PnSurface>
 	);
 
 	const inspectSection = (
-		<Panel size={new UDim2(1, 0, 0, inspectH)} accent={Palette.mint} background={Palette.panel} padding={12} layoutOrder={0} clips={false}>
+		<PnSurface size={new UDim2(1, 0, 0, inspectH)} accent={Palette.mint} background={Palette.panel} padding={12} layoutOrder={0} clips={false}>
 			<SectionTitle value="Target" accent={Palette.mint} />
 			<Text
 				value={selectedPlayer ? `${selectedPlayer.DisplayName}  ·  ${selectedPlayer.UserId}` : "Select a player."}
@@ -924,7 +904,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				<StatCell label="DUST" value={selectedPlayer ? compactNumber(selectedPlayer.Stardust ?? 0) : "--"} accent={Palette.steel} />
 				<StatCell label="KEYS" value={selectedPlayer ? compactNumber(selectedPlayer.Keys ?? 0) : "--"} accent={Palette.violet} />
 			</frame>
-		</Panel>
+		</PnSurface>
 	);
 
 	const executeActionsHostRef = React.useRef<Frame>();
@@ -952,7 +932,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		shownPreview.push(previewLines[i]);
 	}
 	const executeDock = (
-		<Panel
+		<PnSurface
 			size={new UDim2(1, 0, 0, executeH)}
 			accent={armed ? Palette.coral : accent}
 			background={Palette.panelRaised}
@@ -1105,7 +1085,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 				position={new UDim2(0, 0, 1, -EXEC_NOTE + 4)}
 				sizeConstraint={new UDim2(1, 0, 0, EXEC_NOTE - 4)}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 
 	const auditRows: React.Element[] = [];
@@ -1113,7 +1093,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		auditRows.push(<AuditLine key={recent[i].Id} record={recent[i]} />);
 	}
 	const recentSection = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.steel} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.steel} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
 			<SectionTitle value="Recent" accent={Palette.steel} />
 			<scrollingframe
 				Size={new UDim2(1, 0, 1, -24)}
@@ -1135,7 +1115,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 					auditRows
 				)}
 			</scrollingframe>
-		</Panel>
+		</PnSurface>
 	);
 
 	const MAX_OPS_ROWS = 7;

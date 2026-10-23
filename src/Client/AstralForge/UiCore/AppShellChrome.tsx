@@ -337,7 +337,9 @@ function AppShell(props: ShellProps) {
 		if (state.Flags.LastSeenVersion === "") setReleaseClosedLocally(false);
 	}, [state.Flags.LastSeenVersion]);
 	const showRelease = state.Flags.TutorialDone === true && state.Flags.LastSeenVersion !== config.Game.Version && !releaseClosedLocally;
-	const offlineRewardsOpen = offlineReceiptKey !== "" && !offlineDismissed && state.Flags.TutorialDone === true
+	// the offline card waits for the boot card to finish leaving instead of opening underneath it
+	const bootUp = useClientSelector((client) => client.boot.visible);
+	const offlineRewardsOpen = !bootUp && offlineReceiptKey !== "" && !offlineDismissed && state.Flags.TutorialDone === true
 		&& gteFlux(state.Offline?.Reward ?? 0, 0.01) && !showRelease && page !== "Credits" && crateReveal === undefined
 		&& !playerlistOpen && !feedbackOpen && !domainOverlayActive;
 	const modalOwnsScreen = tutorialOpen || showRelease || page === "Credits" || crateReveal !== undefined || domainOverlayActive;

@@ -14,7 +14,8 @@ import { fitColumns } from "./layoutEngine";
 import { ModalSelectionScope, overlayZ, useOverlay } from "./overlayCore";
 import { SpaceToken, space } from "./tokens";
 import { TooltipContent } from "./tooltip/content";
-import { Button as CoreButton, OverlayPresence, Panel as CorePanel, SegmentedOption, SegmentedTabs, useGamepadAutofocus } from "./ui";
+import { Button as CoreButton, OverlayPresence, SegmentedOption, SegmentedTabs, useGamepadAutofocus } from "./ui";
+import { PnSurface as CorePanel } from "./mockKit";
 
 type Bindable<T> = T | React.Binding<T>;
 

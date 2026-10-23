@@ -9,10 +9,11 @@ import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useEntrance, useFlash, useViewport } from "../../MotionKit/motion";
 import { Rarity } from "../../../../Shared/AstralForge/Shared/ForgeTheme";
 import { clientModule, kitMember, LuauComponent } from "../luauKits";
+import { PnSurface } from "../../UiCore/mockKit";
 
 const TweenService = game.GetService("TweenService");
 
-const { Button, Meter, Panel, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, Meter, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const ElementFxModule = clientModule<{
 	ElementFx: LuauComponent;
@@ -325,7 +326,7 @@ export function CompanionsView(props: CompanionsProps) {
 	const heroH = stack ? 64 : 118;
 
 	const hero = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panelRaised} padding={stack ? 12 : 20} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={true}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panelRaised} padding={stack ? 12 : 20} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={true}>
 			<HeaderStars reducedMotion={reducedMotion} />
 			{!stack && (
 				<Text value={`${foundCount} OF ${totalCount} FOUND`} size={11} color={Palette.mint} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(0.5, 0, 0, 14)} />
@@ -358,11 +359,11 @@ export function CompanionsView(props: CompanionsProps) {
 				position={new UDim2(1, stack ? -170 : -200, 0.5, -TapTarget / 2)}
 				reducedMotion={reducedMotion}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 
 	const grid = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 16} radius={18} reducedMotion={reducedMotion}>
+		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={stack ? 10 : 16} radius={18} reducedMotion={reducedMotion}>
 			<Text value={tab === "Owned" ? "OWNED" : "INDEX"} size={11} color={Palette.creamSoft} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(1, -60, 0, 14)} />
 			<Text
 				value={tab === "Owned" ? tostring(foundCount) : `${foundCount} / ${totalCount}`}
@@ -436,17 +437,17 @@ export function CompanionsView(props: CompanionsProps) {
 					sizeConstraint={new UDim2(1, -40, 0, 40)}
 				/>
 			)}
-		</Panel>
+		</PnSurface>
 	);
 
 	// ---------- stage ----------
 	let stage: React.Element;
 	if (selected === undefined) {
 		stage = (
-			<Panel size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={20} radius={18} reducedMotion={reducedMotion}>
+			<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.line} background={Palette.panel} padding={20} radius={18} reducedMotion={reducedMotion}>
 				<Text value="No companion yet" size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(1, 0, 0, 22)} />
 				<Text value="Expeditions can bring one home." size={13} color={Palette.muted} position={UDim2.fromOffset(0, 26)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-			</Panel>
+			</PnSurface>
 		);
 	} else {
 		const artifact = selected;
@@ -473,7 +474,7 @@ export function CompanionsView(props: CompanionsProps) {
 		const rowsY = spriteH + 64;
 		const fuseY = rowsY + rowH * 2 + 14;
 		stage = (
-			<Panel size={UDim2.fromScale(1, 1)} accent={color} background={Palette.panel} padding={stack ? 14 : 18} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={false}>
+			<PnSurface size={UDim2.fromScale(1, 1)} accent={color} background={Palette.panel} padding={stack ? 14 : 18} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={false}>
 				<frame Size={new UDim2(1, 0, 0, spriteH)} BackgroundTransparency={1} BorderSizePixel={0}>
 					<frame
 						key="EquipRing"
@@ -599,7 +600,7 @@ export function CompanionsView(props: CompanionsProps) {
 						reducedMotion={reducedMotion}
 					/>
 				</frame>
-			</Panel>
+			</PnSurface>
 		);
 	}
 	const stageMinH = (stack ? 150 : 230) + 64 + 68 + 14 + 52 + 14 + TapTarget + 36;

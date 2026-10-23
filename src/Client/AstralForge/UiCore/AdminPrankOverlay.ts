@@ -3,8 +3,9 @@ import { useFocusOrder } from "../CoreKit/focusOrder";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { chromeFor, Palette, TapTarget } from "../CoreKit/theme";
 import { useClock, useRotation, useViewport } from "../MotionKit/motion";
-import { Button, Panel, Text } from "./ui";
+import { Button, Text } from "./ui";
 import { SHELL_PAD_KEYS, usePadSink } from "../CoreKit/padSink";
+import { PnSurface } from "./mockKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -51,7 +52,7 @@ function PrankCard(param: PrankCardProps) {
 			ZIndex: 422,
 		},
 		h(
-			Panel,
+			PnSurface,
 			{ size: UDim2.fromScale(1, 1), accent: accent, background: Palette.panel, padding: 18, radius: 18, rule: true, zIndex: 422, clips: false },
 			h(Text, {
 				value: "ASTRAL FORGE",
@@ -387,7 +388,7 @@ export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean
 					ZIndex: 430,
 				},
 				h(
-					Panel,
+					PnSurface,
 					{ size: UDim2.fromScale(1, 1), accent: Palette.coral, background: Palette.panel, padding: 12, radius: 18, rule: true, zIndex: 430, clips: false },
 					h(Text, {
 						value: "Ledger Sync",

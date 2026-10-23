@@ -6,7 +6,7 @@
 //   builds    one card per build: what it trades, how its stats compare with yours, equip
 //   foundation bonuses kept from the retired Star Grid
 import React from "@rbxts/react";
-import { Chip, Label, spaced } from "../UiCore/mockKit";
+import { Chip, GlyphWell, Label, PnSurface, spaced } from "../UiCore/mockKit";
 import { MockBtn, RowFace } from "./mockRows";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import { compactNumber } from "../CoreKit/format";
@@ -259,9 +259,9 @@ function SpecializationsViewBoard(props: Props) {
 		add(
 			"loading",
 			96,
-			<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.brass}>
+			<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.brass}>
 				<Ui.Text value="Loading your forge build..." size={16} color={Palette.muted} sizeConstraint={new UDim2(1, 0, 0, 24)} />
-			</Ui.Panel>,
+			</PnSurface>,
 		);
 		return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={Palette.mango} />;
 	}
@@ -293,8 +293,8 @@ function SpecializationsViewBoard(props: Props) {
 	add(
 		"hero",
 		heroH,
-		<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.brass} clips={false}>
-			<Ui.IconTile kind={current.icon} accent={current.accent} size={56} filled={true} reducedMotion={props.reducedMotion} />
+		<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.brass} clips={false}>
+			<GlyphWell kind={current.icon} accent={current.accent} size={56} filled={true} reducedMotion={props.reducedMotion} />
 			<Ui.Text
 				value={spaced("EQUIPPED BUILD")}
 				size={12}
@@ -318,7 +318,7 @@ function SpecializationsViewBoard(props: Props) {
 				sizeConstraint={new UDim2(1, -72, 0, 18)}
 			/>
 			{tiles}
-		</Ui.Panel>,
+		</PnSurface>,
 	);
 
 	// status: switching is free, but the forge needs time to reconfigure between switches
@@ -326,8 +326,8 @@ function SpecializationsViewBoard(props: Props) {
 	add(
 		"status",
 		92,
-		<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass}>
-			<Ui.IconTile
+		<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass}>
+			<GlyphWell
 				kind={cooling ? "Timer" : "Check"}
 				accent={cooling ? Palette.mango : Palette.green}
 				size={40}
@@ -362,7 +362,7 @@ function SpecializationsViewBoard(props: Props) {
 					sizeConstraint={new UDim2(1, -54, 0, 36)}
 				/>
 			)}
-		</Ui.Panel>,
+		</PnSurface>,
 	);
 
 	if (unresolved) {
@@ -427,7 +427,7 @@ function SpecializationsViewBoard(props: Props) {
 				Position={new UDim2(col / columns, (col * GAP) / columns, 0, row * (CARD_H + GAP))}
 				BackgroundTransparency={1}
 			>
-				<Ui.Panel radius={16} rule={true}
+				<PnSurface radius={16} rule={true}
 					size={UDim2.fromScale(1, 1)}
 					padding={16}
 					accent={Palette.brass}
@@ -435,7 +435,7 @@ function SpecializationsViewBoard(props: Props) {
 					highlight={equipped}
 					reducedMotion={props.reducedMotion}
 				>
-					<Ui.IconTile
+					<GlyphWell
 						kind={look.icon}
 						accent={look.accent}
 						size={44}
@@ -478,7 +478,7 @@ function SpecializationsViewBoard(props: Props) {
 							onClick={() => selectBuild(build.Id)}
 						/>
 					</frame>
-				</Ui.Panel>
+				</PnSurface>
 			</frame>
 		);
 	});
@@ -503,7 +503,7 @@ function SpecializationsViewBoard(props: Props) {
 		add(
 			"foundation",
 			52 + chipRows * (CHIP_H + 8),
-			<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass}>
+			<PnSurface radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass}>
 				<Label text="Kept from the Star Grid · every build" />
 				<frame Size={new UDim2(1, 0, 0, chipRows * (CHIP_H + 8))} Position={UDim2.fromOffset(0, 26)} BackgroundTransparency={1}>
 					<uigridlayout
@@ -513,7 +513,7 @@ function SpecializationsViewBoard(props: Props) {
 					/>
 					{chips}
 				</frame>
-			</Ui.Panel>,
+			</PnSurface>,
 		);
 	}
 	add(

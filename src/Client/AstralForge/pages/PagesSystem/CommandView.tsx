@@ -7,6 +7,7 @@ import { easeOutCubic, useBoatTween, useStagger, useViewport } from "../../Motio
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { useServerClock } from "../../hooks/useServerClock";
 import { ProfileStylePanel, profileStyleHeight } from "./ProfileStylePanel";
+import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
 
 const UserInputService = game.GetService("UserInputService");
 
@@ -33,15 +34,13 @@ const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit",
 interface UiKit {
 	Badge: LuauComponent;
 	Button: LuauComponent;
-	IconTile: LuauComponent;
 	Meter: LuauComponent;
-	Panel: LuauComponent;
 	SectionLabel: LuauComponent;
 	SegmentedTabs: LuauComponent;
 	Text: LuauComponent;
 	meterFill: (this: void, value: number, target: number, full?: boolean) => number;
 }
-const { Badge, Button, IconTile, Meter, meterFill, Panel, SectionLabel, SegmentedTabs, Text } = kitMember<UiKit>("UiCore", "ui");
+const { Badge, Button, Meter, meterFill, SectionLabel, SegmentedTabs, Text } = kitMember<UiKit>("UiCore", "ui");
 const ElementFxModule = clientModule<{
 	ElementFx: LuauComponent;
 	sheet: (this: void, element: unknown) => { Color: Color3; Label: string } | undefined;
@@ -908,7 +907,7 @@ function CommandViewReady(props: CommandProps) {
 			</>
 		);
 		const heroPanel = (
-				<Panel radius={16} rule={true}
+				<PnSurface radius={16} rule={true}
 					size={new UDim2(1, 0, 0, heroH)}
 					accent={Palette.cyan}
 					background={Palette.panel}
@@ -1002,10 +1001,10 @@ function CommandViewReady(props: CommandProps) {
 							highlight={nextClaim !== undefined}
 						/>
 					</frame>
-				</Panel>
+				</PnSurface>
 		);
 		const weeklyPanel = (
-				<Panel radius={16} rule={true}
+				<PnSurface radius={16} rule={true}
 					size={new UDim2(1, 0, 0, weeklyH)}
 					accent={Palette.green}
 					background={Palette.panel}
@@ -1025,10 +1024,10 @@ function CommandViewReady(props: CommandProps) {
 						sizeConstraint={new UDim2(1, 0, 0, 18)}
 					/>
 					{weeklyGrid}
-				</Panel>
+				</PnSurface>
 		);
 		const crewPanel = (
-				<Panel radius={16} rule={true} size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
+				<PnSurface radius={16} rule={true} size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<frame
 						Size={new UDim2(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap)}
@@ -1040,10 +1039,10 @@ function CommandViewReady(props: CommandProps) {
 						<AutoGrid columns={crewCols} cellHeight={crewCellH} rowGap={gridGap} columnGap={gridGap} />
 						{crewCells}
 					</frame>
-				</Panel>
+				</PnSurface>
 		);
 		const titlesPanel = (
-				<Panel radius={16} rule={true}
+				<PnSurface radius={16} rule={true}
 					size={new UDim2(1, 0, 0, titlesH)}
 					accent={titlesEnabled ? Palette.violet : Palette.muted}
 					background={Palette.panel}
@@ -1053,10 +1052,10 @@ function CommandViewReady(props: CommandProps) {
 				>
 					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={12} sizeConstraint={new UDim2(1, titlesEnabled || closedBadgeOwnLine ? 0 : -(CLOSED_BADGE_W + 12), 0, 24)} />
 					{titlesBody}
-				</Panel>
+				</PnSurface>
 		);
 		const stylePanel = (
-				<Panel radius={16} rule={true}
+				<PnSurface radius={16} rule={true}
 					size={new UDim2(1, 0, 0, styleH)}
 					accent={Palette.cyan}
 					background={Palette.panel}
@@ -1072,10 +1071,10 @@ function CommandViewReady(props: CommandProps) {
 						stack={stack}
 						reducedMotion={reducedMotion}
 					/>
-				</Panel>
+				</PnSurface>
 		);
 		const shopPanel = (
-				<Panel radius={16} rule={true} size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
+				<PnSurface radius={16} rule={true} size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text
 						value={`Signal shop · ${compactNumber(command.Signals)} ready`}
 						size={18}
@@ -1141,10 +1140,10 @@ function CommandViewReady(props: CommandProps) {
 							);
 						}}
 					/>
-				</Panel>
+				</PnSurface>
 		);
 		const masteryPanel = (
-				<Panel radius={16} rule={true} size={new UDim2(1, 0, 0, masteryH)} accent={Palette.blue} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
+				<PnSurface radius={16} rule={true} size={new UDim2(1, 0, 0, masteryH)} accent={Palette.blue} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
 					<Text value="Machine mastery" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={14} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 					<VirtualGrid
 						scrollRef={scrollRef}
@@ -1194,7 +1193,7 @@ function CommandViewReady(props: CommandProps) {
 							);
 						}}
 					/>
-				</Panel>
+				</PnSurface>
 		);
 		overviewPane = (
 			<TabPane tabKey="Overview" reducedMotion={reducedMotion}>
@@ -1265,7 +1264,7 @@ function CommandViewReady(props: CommandProps) {
 	if (tab === "Expeditions") {
 		expeditionsPane = (
 			<TabPane tabKey="Expeditions" reducedMotion={reducedMotion}>
-				<Panel radius={16} rule={true}
+				<PnSurface radius={16} rule={true}
 					size={new UDim2(1, 0, 0, expeditionHeroH)}
 					accent={expeditionReady ? Palette.green : Palette.cyan}
 					background={Palette.panel}
@@ -1335,7 +1334,7 @@ function CommandViewReady(props: CommandProps) {
 							)}
 						/>
 					</frame>
-				</Panel>
+				</PnSurface>
 				<Browse.BrowseBar
 					browse={expeditionBrowse}
 					placeholder="Search adventures by name or reward"
@@ -1377,7 +1376,7 @@ function CommandViewReady(props: CommandProps) {
 						const can = !locked && !busy;
 						const pilot = command.Crew.Pilot ?? 1;
 						return (
-							<Panel radius={16} rule={true}
+							<PnSurface radius={16} rule={true}
 								size={new UDim2(1, 0, 0, expeditionRowH)}
 								accent={expedition.Color}
 								background={Palette.panel}
@@ -1386,7 +1385,7 @@ function CommandViewReady(props: CommandProps) {
 								highlight={can}
 								reducedMotion={reducedMotion}
 							>
-								<IconTile
+								<GlyphWell
 									kind={artifactIcon(expedition.ArtifactId ?? expedition.Id)}
 									accent={expedition.Color}
 									size={46}
@@ -1437,7 +1436,7 @@ function CommandViewReady(props: CommandProps) {
 									reducedMotion={reducedMotion}
 									highlight={can}
 								/>
-							</Panel>
+							</PnSurface>
 						);
 					}}
 				/>
@@ -1447,7 +1446,7 @@ function CommandViewReady(props: CommandProps) {
 
 	const artifactsPane = tab === "Artifacts" && (
 		<TabPane tabKey="Artifacts" reducedMotion={reducedMotion}>
-			<Panel radius={16} rule={true}
+			<PnSurface radius={16} rule={true}
 				size={new UDim2(1, 0, 0, artifactHeroH)}
 				accent={Palette.violet}
 				background={Palette.panel}
@@ -1480,7 +1479,7 @@ function CommandViewReady(props: CommandProps) {
 					position={UDim2.fromOffset(0, 68)}
 					size={new UDim2(1, 0, 0, 8)}
 				/>
-			</Panel>
+			</PnSurface>
 			<VirtualGrid
 				scrollRef={scrollRef}
 				count={ops.Artifacts.size()}
@@ -1504,7 +1503,7 @@ function CommandViewReady(props: CommandProps) {
 					const canUpgrade =
 						owned !== undefined && owned.Level < 10 && owned.Fragments >= fragmentCost && gteFlux(state.Stardust as Flux, dustCost);
 					return (
-						<Panel radius={16} rule={true}
+						<PnSurface radius={16} rule={true}
 							size={new UDim2(1, 0, 0, artifactRowH)}
 							accent={owned ? artifact.Color : Palette.lineSoft}
 							background={Palette.panel}
@@ -1603,7 +1602,7 @@ function CommandViewReady(props: CommandProps) {
 									highlight={canUpgrade}
 								/>
 							</frame>
-						</Panel>
+						</PnSurface>
 					);
 				}}
 			/>
@@ -1612,7 +1611,7 @@ function CommandViewReady(props: CommandProps) {
 
 	const seasonPane = tab === "Season" && (
 		<TabPane tabKey="Season" reducedMotion={reducedMotion}>
-			<Panel radius={16} rule={true}
+			<PnSurface radius={16} rule={true}
 				size={new UDim2(1, 0, 0, seasonHeroH)}
 				accent={Palette.mango}
 				background={Palette.panel}
@@ -1647,7 +1646,7 @@ function CommandViewReady(props: CommandProps) {
 					position={UDim2.fromOffset(0, 104)}
 					sizeConstraint={new UDim2(1, 0, 0, 18)}
 				/>
-			</Panel>
+			</PnSurface>
 			<VirtualGrid
 				scrollRef={scrollRef}
 				count={ops.SeasonTiers.size()}
@@ -1708,7 +1707,7 @@ function CommandViewReady(props: CommandProps) {
 						</>
 					);
 					return (
-						<Panel radius={16} rule={true}
+						<PnSurface radius={16} rule={true}
 							size={new UDim2(1, 0, 0, seasonRowH)}
 							accent={major ? Palette.mango : unlocked ? Palette.green : Palette.lineSoft}
 							background={Palette.panel}
@@ -1794,7 +1793,7 @@ function CommandViewReady(props: CommandProps) {
 									</frame>
 								</>
 							)}
-						</Panel>
+						</PnSurface>
 					);
 				}}
 			/>

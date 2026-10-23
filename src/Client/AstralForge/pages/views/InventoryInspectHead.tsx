@@ -6,7 +6,7 @@
 import React from "@rbxts/react";
 import Fx = require("../../ElementFx");
 import { Palette } from "../../CoreKit/theme";
-import { IconTile, Text } from "../../UiCore/ui";
+import { Text } from "../../UiCore/ui";
 import { Icon } from "../../ArtKit/Icon";
 import {
 	INSPECT_ART_H,
@@ -17,6 +17,7 @@ import {
 	INSPECT_TITLE_H,
 	InspectHeadHeight,
 } from "../../CoreKit/inventoryMath";
+import { GlyphWell } from "../../UiCore/mockKit";
 
 const WELL = Color3.fromHex("0D090F");
 const MUTED_ROW = Color3.fromHex("FFFFFF");
@@ -176,7 +177,7 @@ export function InspectHead(props: InspectHeadProps) {
 						reactionKey={props.name}
 					/>
 				) : (
-					<IconTile
+					<GlyphWell
 						kind={props.iconKind ?? "Loadout"}
 						accent={props.color}
 						size={math.floor(artH * 0.4)}

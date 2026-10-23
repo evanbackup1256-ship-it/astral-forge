@@ -1,6 +1,6 @@
 ﻿import { SplitColumns, splitColumns } from "../../UiCore/ui";
 import React from "@rbxts/react";
-import { BODY, BODY_SEMI, Line, NUM, RowSurface } from "../../UiCore/mockKit";
+import { BODY, BODY_SEMI, GlyphWell, Line, NUM, PnSurface, RowSurface } from "../../UiCore/mockKit";
 import { IconWell } from "../gcKit";
 import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -13,7 +13,7 @@ import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import Juice = require("../../JuiceFx");
 
 const UserInputService = game.GetService("UserInputService");
-const { Button, IconTile, Meter, Panel, Stroke, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, Meter, Stroke, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const { FlatList } = kitMember<{ FlatList: LuauComponent }>("LayoutKit", "virtualizedList");
 const Browse = clientModule<BrowseApi>("BrowseKit");
@@ -440,7 +440,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const sideBarY = sideClaimY + (counts.Ready > 0 ? 54 : 0);
 	const sideHeaderH = sideBarY + sideBarH + 32;
 	const sidePanel = (
-		<Panel radius={18} rule
+		<PnSurface radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.brass}
 			background={Palette.panel}
@@ -500,10 +500,10 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				position={UDim2.fromOffset(0, sideBarY)}
 				zIndex={40}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 	const headerPanel = (
-		<Panel radius={18} rule
+		<PnSurface radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.brass}
 			background={Palette.panel}
@@ -584,7 +584,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				position={UDim2.fromOffset(0, introH + claimRowH + 10)}
 				zIndex={40}
 			/>
-		</Panel>
+		</PnSurface>
 	);
 	const missionsList = (
 		<FlatList
