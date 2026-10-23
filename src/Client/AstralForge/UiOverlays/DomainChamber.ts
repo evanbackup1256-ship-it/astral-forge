@@ -1093,7 +1093,8 @@ function DomainChamber(props: ChamberProps) {
 	const panelW = stacked ? viewport.width - 24 : shortChamber ? math.min(380, math.floor(viewport.width * 0.55)) : 380;
 	const panelPad = stacked || shortChamber ? Space.lg : Space.xl;
 	const actionsH = shortChamber ? (actions.size() > 0 ? TapTarget + Space.sm : 0) : actions.size() * (TapTarget + Space.sm);
-	const HEADER_H = stacked ? 78 : 86;
+	// landscape phones: 48px header (16 title + 30 number) so the rows keep the short screen
+	const HEADER_H = shortChamber ? 48 : stacked ? 78 : 86;
 	const numberSlam =
 		mode === "result"
 			? tick.map((now) => {
@@ -1148,11 +1149,11 @@ function DomainChamber(props: ChamberProps) {
 		h(
 			"textlabel",
 			{
-				Size: new UDim2(1, 0, 0, 52),
-				Position: UDim2.fromOffset(0, 18),
+				Size: new UDim2(1, shortChamber ? -(TapTarget + Space.md) : 0, 0, shortChamber ? 30 : 52),
+				Position: UDim2.fromOffset(0, shortChamber ? 17 : 18),
 				BackgroundTransparency: 1,
 				Text: panelNumber,
-				TextSize: 50,
+				TextSize: shortChamber ? 30 : 50,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				TextColor3: mode === "result" ? WHITE_HOT : Palette.cream,
 				TextXAlignment: Enum.TextXAlignment.Left,
