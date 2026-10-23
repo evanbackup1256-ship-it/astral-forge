@@ -1204,6 +1204,8 @@ export interface PanelProps {
 	shimmer?: boolean;
 	highlight?: boolean;
 	reducedMotion?: boolean;
+	/** forge card treatment: 1px brass inner rule 3px inside the edge (pair with radius 18) */
+	rule?: boolean;
 }
 export function Panel(props: PanelProps) {
 	const {
@@ -1222,6 +1224,7 @@ export function Panel(props: PanelProps) {
 		shimmer = false,
 		highlight = false,
 		reducedMotion = false,
+		rule = false,
 	} = props;
 	let padding = props.padding;
 	if (padding === undefined) {
@@ -1409,6 +1412,16 @@ export function Panel(props: PanelProps) {
 						<frame Size={new UDim2(1, -2, 1, -2)} Position={UDim2.fromOffset(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex}>
 							<uicorner CornerRadius={new UDim(0, math.max(1, radius - 1))} />
 							<Stroke color={derived.strokeColor} thickness={1} transparency={strokeTransparency} />
+						</frame>
+					)}
+					{rule && (
+						<frame Size={new UDim2(1, -6, 1, -6)} Position={UDim2.fromOffset(3, 3)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex}>
+							<uicorner CornerRadius={new UDim(0, math.max(1, radius - 3))} />
+							<uistroke
+								Color={Palette.brass}
+								Thickness={1}
+								Transparency={revealFade.map((amount) => math.clamp(0.75 + amount * 0.25, 0, 1))}
+							/>
 						</frame>
 					)}
 					{glowWanted && (
