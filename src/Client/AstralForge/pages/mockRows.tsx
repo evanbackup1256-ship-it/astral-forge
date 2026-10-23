@@ -3,7 +3,7 @@
 import React from "@rbxts/react";
 import { Palette, TapTarget } from "../CoreKit/theme";
 import { Button } from "../UiCore/ui";
-import { BODY, BODY_SEMI, Glyph, Line, NUM, RowSurface, TITLE_FACE } from "../UiCore/mockKit";
+import { Bar, BODY, BODY_SEMI, Glyph, Line, NUM, PanelHeading, TITLE_FACE } from "../UiCore/mockKit";
 
 /** .btn.sec base #3a2e3e */
 export const SEC = Color3.fromRGB(58, 46, 62);
@@ -107,8 +107,7 @@ export function MockRow(p: {
 			LayoutOrder={p.layoutOrder ?? 0}
 			{...(p.name !== undefined ? { Name: p.name } : {})}
 		>
-			<RowSurface />
-			{p.outline !== undefined && <uistroke Color={p.outline} Thickness={1.5} Transparency={0.2} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />}
+			<RowFace outline={p.outline} />
 			<uipadding PaddingLeft={new UDim(0, phone ? 10 : 12)} PaddingRight={new UDim(0, phone ? 10 : 12)} />
 			{p.icon !== undefined && (
 				<frame Size={UDim2.fromOffset(wellSize, wellSize)} Position={new UDim2(0, 0, 0.5, 0)} AnchorPoint={new Vector2(0, 0.5)} BackgroundTransparency={1}>
@@ -212,4 +211,182 @@ export function useWidth(initial: number): [number, (rbx: GuiObject) => void] {
 		if (w > 0) setWidth((prev) => (math.abs(prev - w) >= 2 ? w : prev));
 	}, []);
 	return [width, onSize];
+}
+
+/** .row surface with exactly one stroke: the white .05 hairline, or `outline` when set (picked / live). */
+export function RowFace(p: { outline?: Color3; radius?: number; strong?: boolean }) {
+	return (
+		<>
+			<uicorner CornerRadius={new UDim(0, p.radius ?? 11)} />
+			<uigradient
+				Rotation={90}
+				Color={new ColorSequence(Palette.white, Palette.void)}
+				Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.965), new NumberSequenceKeypoint(1, 0.88)])}
+			/>
+			<uistroke
+				Color={p.outline ?? Palette.white}
+				Transparency={p.outline !== undefined ? (p.strong === true ? 0 : 0.2) : 0.95}
+				Thickness={p.outline !== undefined ? (p.strong === true ? 2 : 1.5) : 1}
+				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+			/>
+		</>
+	);
+}
+
+/** .it rarity tile (03 machine rows / 04 cards): dark square, rarity rim, glyph. */
+export function TileWell(p: { icon: string; accent: Color3; size: number; dim?: boolean; position?: UDim2; anchor?: Vector2; layoutOrder?: number; children?: React.ReactNode }) {
+	return (
+		<frame
+			Size={UDim2.fromOffset(p.size, p.size)}
+			Position={p.position}
+			AnchorPoint={p.anchor}
+			BackgroundColor3={Color3.fromRGB(0, 0, 0)}
+			BackgroundTransparency={0.6}
+			BorderSizePixel={0}
+			LayoutOrder={p.layoutOrder ?? 0}
+		>
+			<uicorner CornerRadius={new UDim(0, math.max(8, math.floor(p.size / 5)))} />
+			<uistroke Color={p.dim === true ? Palette.muted : p.accent} Thickness={1.5} Transparency={p.dim === true ? 0.6 : 0.25} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			<Glyph
+				kind={p.icon}
+				size={math.floor(p.size * 0.5)}
+				color={p.dim === true ? Palette.muted : p.accent}
+				position={UDim2.fromOffset(math.floor(p.size * 0.25), math.floor(p.size * 0.25))}
+			/>
+			{p.children}
+		</frame>
+	);
+}
+
+/** 03-forge machine row: 64px .row, 56px tile, "Name · Lv" with a thin bar, value, sm button. */
+export const TILE_ROW_H = 64;
+export function TileRow(p: {
+	icon: string;
+	accent: Color3;
+	title: string;
+	meta?: string;
+	sub?: string;
+	fill?: number;
+	barColor?: Color3;
+	value?: string;
+	valueColor?: Color3;
+	right?: React.ReactNode;
+	rightWidth?: number;
+	phone: boolean;
+	dim?: boolean;
+	outline?: Color3;
+	height?: number;
+	layoutOrder?: number;
+	size?: UDim2;
+	position?: UDim2;
+	name?: string;
+	event?: React.InstanceEvent<Frame>;
+}) {
+	const phone = p.phone;
+	const h = p.height ?? (phone ? 56 : TILE_ROW_H);
+	const tile = phone ? 44 : 56;
+	const rw = p.rightWidth ?? 0;
+	const vw = p.value !== undefined ? (phone ? 76 : 130) : 0;
+	const left = tile + (phone ? 10 : 14);
+	const reserve = rw + vw + (rw > 0 ? 12 : 0) + (vw > 0 ? 12 : 0);
+	const title = p.meta !== undefined ? `${p.title} <font color="#9C8AA5" weight="500">· ${p.meta}</font>` : p.title;
+	return (
+		<frame
+			Size={p.size ?? new UDim2(1, 0, 0, h)}
+			Position={p.position}
+			BackgroundColor3={Palette.white}
+			BorderSizePixel={0}
+			LayoutOrder={p.layoutOrder ?? 0}
+			Event={p.event}
+			{...(p.name !== undefined ? { Name: p.name } : {})}
+		>
+			<RowFace outline={p.outline} />
+			<uipadding PaddingLeft={new UDim(0, phone ? 6 : 4)} PaddingRight={new UDim(0, phone ? 10 : 12)} />
+			<TileWell icon={p.icon} accent={p.accent} size={tile} dim={p.dim} position={new UDim2(0, 0, 0.5, 0)} anchor={new Vector2(0, 0.5)} />
+			<frame BackgroundTransparency={1} BorderSizePixel={0} Position={new UDim2(0, left, 0.5, 0)} AnchorPoint={new Vector2(0, 0.5)} Size={new UDim2(1, -(left + reserve), 0, 34)}>
+				<textlabel
+					BackgroundTransparency={1}
+					RichText={true}
+					Text={title}
+					TextSize={phone ? 13 : 15}
+					FontFace={BODY_SEMI}
+					TextColor3={p.dim === true ? Palette.creamSoft : Palette.cream}
+					TextXAlignment={Enum.TextXAlignment.Left}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+					Size={new UDim2(1, 0, 0, 18)}
+				/>
+				{p.fill !== undefined ? (
+					<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(0, 26)} Size={new UDim2(1, 0, 0, 6)}>
+						<Bar fill={p.fill} color={p.barColor ?? Palette.mango} thin={true} />
+					</frame>
+				) : p.sub !== undefined ? (
+					<textlabel
+						BackgroundTransparency={1}
+						Text={p.sub}
+						TextSize={12}
+						FontFace={BODY}
+						TextColor3={Palette.muted}
+						TextXAlignment={Enum.TextXAlignment.Left}
+						TextTruncate={Enum.TextTruncate.AtEnd}
+						Position={UDim2.fromOffset(0, 19)}
+						Size={new UDim2(1, 0, 0, 15)}
+					/>
+				) : undefined}
+			</frame>
+			{p.value !== undefined ? (
+				<textlabel
+					BackgroundTransparency={1}
+					Text={p.value}
+					TextSize={phone ? 14 : 17}
+					FontFace={NUM}
+					TextColor3={p.valueColor ?? p.accent}
+					TextXAlignment={Enum.TextXAlignment.Right}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+					AnchorPoint={new Vector2(1, 0.5)}
+					Position={new UDim2(1, -(rw > 0 ? rw + 12 : 0), 0.5, 0)}
+					Size={UDim2.fromOffset(vw, 22)}
+				/>
+			) : undefined}
+			{p.right !== undefined ? (
+				<frame BackgroundTransparency={1} BorderSizePixel={0} AnchorPoint={new Vector2(1, 0.5)} Position={new UDim2(1, 0, 0.5, 0)} Size={UDim2.fromOffset(rw, phone ? TapTarget : 36)}>
+					{p.right}
+				</frame>
+			) : undefined}
+		</frame>
+	);
+}
+
+/** Free-standing .pn h3 (heading above a virtualised list that cannot sit inside a panel stack). */
+export const HEADING_SECTION_H = 30;
+export function HeadingSection(p: { icon: string; title: string; note?: string; accent?: Color3; phone: boolean }) {
+	return (
+		<frame BackgroundTransparency={1} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)}>
+			<uipadding PaddingLeft={new UDim(0, 4)} PaddingRight={new UDim(0, 4)} PaddingTop={new UDim(0, 4)} />
+			<PanelHeading icon={p.icon} title={p.title} note={p.note} accent={p.accent} phone={p.phone} />
+		</frame>
+	);
+}
+
+/** .big number line (Output panel): 58px accent figure + muted unit. */
+export function BigFigure(p: { value: string; unit?: string; color: Color3; phone: boolean; layoutOrder?: number }) {
+	const size = p.phone ? 34 : 58;
+	return (
+		<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, size + 4)} LayoutOrder={p.layoutOrder ?? 0}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Bottom} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<textlabel BackgroundTransparency={1} AutomaticSize={Enum.AutomaticSize.X} Text={p.value} TextSize={size} FontFace={NUM} TextColor3={p.color} Size={UDim2.fromOffset(0, size + 4)} LayoutOrder={0} />
+			{p.unit !== undefined ? (
+				<textlabel BackgroundTransparency={1} AutomaticSize={Enum.AutomaticSize.X} Text={p.unit} TextSize={p.phone ? 13 : 16} FontFace={BODY_SEMI} TextColor3={Palette.muted} Size={UDim2.fromOffset(0, p.phone ? 22 : 30)} LayoutOrder={1} />
+			) : undefined}
+		</frame>
+	);
+}
+
+/** Horizontal chip row (fixed height). */
+export function ChipRow(p: { height?: number; layoutOrder?: number; children?: React.ReactNode }) {
+	return (
+		<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, p.height ?? 28)} LayoutOrder={p.layoutOrder ?? 0}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} VerticalAlignment={Enum.VerticalAlignment.Center} />
+			{p.children}
+		</frame>
+	);
 }

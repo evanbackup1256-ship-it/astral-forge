@@ -12,7 +12,7 @@ import { useServerClock } from "../../hooks/useServerClock";
 import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi, named } from "../luauDeps";
 import { StackBlocks, stackHeight } from "../../UiCore/ui";
-import { Bar, BODY, BODY_SEMI, MockPanel, PanelHeading, RowSurface } from "../../UiCore/mockKit";
+import { Bar, BODY, BODY_SEMI, MockPanel, PanelHeading } from "../../UiCore/mockKit";
 import { headingBlock, IconWell, MockBtn, MockRow, panelHeight, rowHeight } from "../mockRows";
 import ElementFxModule = require("../../ElementFx");
 import { itemIconKind } from "../../ArtKit/Icon";
@@ -404,8 +404,19 @@ function CrewRow(p: {
 	const h = p.phone ? CREW_ROW_H_PHONE : CREW_ROW_H;
 	return (
 		<frame {...named(`Crew${p.slot.Slot}`)} BackgroundColor3={Palette.white} BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, h)} LayoutOrder={p.layoutOrder}>
-			<RowSurface />
-			{p.selected === true || done ? <uistroke Color={Palette.mint} Transparency={0.4} Thickness={1.5} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} /> : undefined}
+			<uicorner CornerRadius={new UDim(0, 11)} />
+			<uigradient
+				Rotation={90}
+				Color={new ColorSequence(Palette.white, Palette.void)}
+				Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.965), new NumberSequenceKeypoint(1, 0.88)])}
+			/>
+			{/* one stroke only: the .row hairline, or mint when picked / back */}
+			<uistroke
+				Color={p.selected === true || done ? Palette.mint : Palette.white}
+				Transparency={p.selected === true || done ? 0.4 : 0.95}
+				Thickness={p.selected === true || done ? 1.5 : 1}
+				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+			/>
 			<uipadding PaddingLeft={new UDim(0, p.phone ? 10 : 14)} PaddingRight={new UDim(0, p.phone ? 10 : 14)} />
 			<frame BackgroundTransparency={1} BorderSizePixel={0} AnchorPoint={new Vector2(0, 0.5)} Position={new UDim2(0, 0, 0.5, 0)} Size={UDim2.fromOffset(sprite, sprite)}>
 				{open ? (
