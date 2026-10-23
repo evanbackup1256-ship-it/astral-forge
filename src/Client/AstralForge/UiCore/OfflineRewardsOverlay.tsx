@@ -265,13 +265,13 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 		CornerRadius: new UDim(0, Radius.sheet),
 	});
 	const _exp_5 = h("uistroke", {
-		Color: Palette.lineSoft,
+		Color: Palette.brass,
 		Thickness: 1,
 		Transparency: motion.map((amount) => 1 - amount * 0.5),
 	});
 	const _exp_6 = h(IconTile, {
 		kind: "Gift",
-		accent: Palette.mint,
+		accent: Palette.brass,
 		size: stack ? 40 : 44,
 		radius: Radius.md,
 		position: UDim2.fromOffset(0, 0),
@@ -303,7 +303,7 @@ export function OfflineRewardsOverlay(_param: OfflineRewardsOverlayProps) {
 			CornerRadius: new UDim(0, Radius.md),
 		}),
 		h("uistroke", {
-			Color: Palette.mint,
+			Color: Palette.brass,
 			Thickness: 1,
 			Transparency: rewardGlow,
 			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
