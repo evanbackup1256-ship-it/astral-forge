@@ -58,8 +58,10 @@ const Schema = sharedModule<(name: string) => SettingsSchema>("SharedData")("Set
 
 type Dispatch = (action: string, payload?: object) => unknown;
 
-const ROW_H = 68;
-const ROW_H_STACK = 110;
+// rows hold a label and a control only: desktop 6 + 44 control + 6 = 56;
+// stacked 10 + 20 label + 10 + 44 control + 2 = 86 (was 68 / 110, which left a 34px dead band on phones)
+const ROW_H = 56;
+const ROW_H_STACK = 86;
 const NAV_W = 196;
 const MOBILE_DOCK_DESTINATIONS = ["Overview", "Workshop", "Inventory", "Research", "Shop", "Settings"];
 
@@ -330,7 +332,7 @@ function SettingRow(props: SettingRowProps) {
 				size={16}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Bold}
-				position={UDim2.fromOffset(0, stack ? 10 : 24)}
+				position={UDim2.fromOffset(0, stack ? 10 : 18)}
 				sizeConstraint={new UDim2(1, -textRight, 0, 20)}
 			/>
 			{control}
