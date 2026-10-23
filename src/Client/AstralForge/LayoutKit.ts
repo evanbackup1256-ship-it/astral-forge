@@ -1112,9 +1112,7 @@ __defs["layoutSectionPlan"] = () => {
 		let notesH = stack ? (landscapePhone ? 132 : 168) : short ? 168 : ultraOverview ? 160 : 148;
 		const opsH = landscapePhone ? 156 : stack ? 196 : short || ultraOverview ? 176 : 172;
 		let metricCardH = stack ? (landscapePhone ? 72 : 92) : wideOverview ? (ultraOverview ? 84 : 80) : 0;
-		// landscape phones lay the three metric cards in one row (3 x >=160 + 2 x 10 fits the 588-719 width):
-		// 72 instead of 3 x 72 + 16 = 232, which pulls Notes 160px closer to the fold (forge-ui-2 P2.4 Overview)
-		let metricsH = stack ? (landscapePhone ? metricCardH : metricCardH * 3 + 16) : wideOverview ? heroH : 104;
+		let metricsH = stack ? metricCardH * 3 + 16 : wideOverview ? heroH : 104;
 		const countdownH = countdownInPage ? (stack ? (landscapePhone ? 128 : 168) : ultraOverview ? 152 : 140) : 0;
 		let sectionGap = stack ? chromePanelGap : short ? 10 : ultraOverview ? 18 : wideOverview ? 16 : layoutPanelGap;
 		const fitHeight = tonumber(flags.fitHeight);
