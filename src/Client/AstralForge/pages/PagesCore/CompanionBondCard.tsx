@@ -2,21 +2,20 @@
 // bond bar, the current trait, what the next evolution brings, and the trait choice when one is open.
 import React from "@rbxts/react";
 import CompanionRelic = require("../../../../Shared/AstralForge/Shared/CompanionRelic");
-import { Palette, TapTarget } from "../../CoreKit/theme";
-import { kitMember, LuauComponent } from "../luauKits";
-
-const { Button, Meter, Panel, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+import { Palette } from "../../CoreKit/theme";
+import { Bar, MockPanel, PanelHeading } from "../../UiCore/mockKit";
+import { headingBlock, MockBtn, MockRow, panelHeight, rowHeight } from "../mockRows";
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
 export type BondDispatch = (action: string, payload?: object, callback?: Reply) => unknown;
 
-const PAD = 20;
-
+// 14-companions detail panel: heading with rank/share, bar, a .row for the trait line, sec trait buttons
 export function companionBondHeight(items: unknown, stack: boolean): number {
 	const companion = CompanionRelic.describe(items);
 	if (companion === undefined) return 0;
-	const choice = companion.Offer !== undefined ? (stack ? TapTarget * 2 + 14 : TapTarget + 8) : 0;
-	return PAD * 2 + 22 + 16 + 20 + choice;
+	const g = stack ? 8 : 12;
+	const choice = companion.Offer !== undefined ? (stack ? g + 44 * 2 + 8 : g + 44) : 0;
+	return panelHeight(stack, headingBlock(stack) + 10 + g + rowHeight(stack) + choice);
 }
 
 function pct(value: number): string {
@@ -44,47 +43,27 @@ export function CompanionBondCard(props: { items: unknown; dispatch: BondDispatc
 		props.dispatch("CompanionAct", { Op: "PickTrait", Trait: trait }, () => setBusy(false));
 	};
 	const offer = companion.Offer;
-	const buttonSize = props.stack ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0.5, -4, 0, TapTarget);
+	const g = props.stack ? 8 : 12;
+	const choiceBtn = (i: number) => (
+		<MockBtn text={offer![i].Name} sec={true} phone={props.stack} fill={true} disabled={busy} onClick={() => pick(offer![i].Id)} />
+	);
 	return (
-		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
-			<Text value={title} size={16} color={Palette.cream} weight={Enum.FontWeight.Bold} fit={true} minSize={11} sizeConstraint={new UDim2(1, -150, 0, 22)} />
-			<Text
-				value={`${companion.Rank}  ·  ${pct(companion.Share)}`}
-				size={15}
-				color={Palette.violet}
-				align={Enum.TextXAlignment.Right}
-				position={new UDim2(1, -150, 0, 0)}
-				sizeConstraint={new UDim2(0, 150, 0, 22)}
-			/>
-			<Meter value={atTop ? 1 : companion.Progress} color={Palette.violet} position={UDim2.fromOffset(0, 30)} size={new UDim2(1, 0, 0, 4)} reducedMotion={props.reducedMotion} />
-			<Text value={line} size={12} color={Palette.muted} fit={true} minSize={10} position={UDim2.fromOffset(0, 46)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-			{offer !== undefined && (
-				<frame Size={new UDim2(1, 0, 0, props.stack ? TapTarget * 2 + 6 : TapTarget)} Position={UDim2.fromOffset(0, 72)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<Button
-						text={offer[0].Name}
-						tooltip={{ title: offer[0].Name, body: offer[0].Text, accent: Palette.violet }}
-						onClick={() => pick(offer[0].Id)}
-						size={buttonSize}
-						color={Palette.panelSoft}
-						textColor={Palette.cream}
-						outline={true}
-						disabled={busy}
-						reducedMotion={props.reducedMotion}
-					/>
-					<Button
-						text={offer[1].Name}
-						tooltip={{ title: offer[1].Name, body: offer[1].Text, accent: Palette.violet }}
-						onClick={() => pick(offer[1].Id)}
-						size={buttonSize}
-						position={props.stack ? UDim2.fromOffset(0, TapTarget + 6) : new UDim2(0.5, 4, 0, 0)}
-						color={Palette.panelSoft}
-						textColor={Palette.cream}
-						outline={true}
-						disabled={busy}
-						reducedMotion={props.reducedMotion}
-					/>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={props.stack} accent={Palette.mango} reducedMotion={props.reducedMotion} name="CompanionBond">
+			<PanelHeading icon="Milestone" title={title} note={`Rank ${companion.Rank} · ${pct(companion.Share)}`} accent={Palette.mango} phone={props.stack} layoutOrder={0} />
+			<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, 10)} LayoutOrder={1}>
+				<Bar fill={atTop ? 1 : companion.Progress} color={Palette.mango} />
+			</frame>
+			<MockRow phone={props.stack} icon="Info" accent={Palette.mango} title={offer !== undefined ? "Trait" : "Bond"} sub={undefined} value={line} layoutOrder={2} />
+			{offer !== undefined ? (
+				<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, props.stack ? 44 * 2 + 8 : 44)} LayoutOrder={3}>
+					<frame BackgroundTransparency={1} Size={props.stack ? new UDim2(1, 0, 0, 44) : new UDim2(0.5, -g / 2, 0, 44)}>
+						{choiceBtn(0)}
+					</frame>
+					<frame BackgroundTransparency={1} Position={props.stack ? UDim2.fromOffset(0, 52) : new UDim2(0.5, g / 2, 0, 0)} Size={props.stack ? new UDim2(1, 0, 0, 44) : new UDim2(0.5, -g / 2, 0, 44)}>
+						{choiceBtn(1)}
+					</frame>
 				</frame>
-			)}
-		</Panel>
+			) : undefined}
+		</MockPanel>
 	);
 }
