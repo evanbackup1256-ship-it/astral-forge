@@ -128,10 +128,10 @@ function MachineRowImpl(props: MachineRowProps) {
 		: hasOutput
 			? level < 1
 				? `+${compactNumber(production)} Flux/sec once bought`
-				: `${compactNumber(production)} Flux/sec · level ${compactNumber(level)}`
+				: `${compactNumber(production)} Flux/sec, level ${compactNumber(level)}`
 			: maxed
-				? `Level ${compactNumber(level)} · maxed`
-				: `Level ${compactNumber(level)} · next ${compactNumber(price)}`;
+				? `Level ${compactNumber(level)}, maxed`
+				: `Level ${compactNumber(level)}, next ${compactNumber(price)}`;
 	// a locked card still says what it will give, so it isn't half empty
 	const lockedGain = !unlocked && hasOutput ? `+${compactNumber(machine.BaseProduction)} Flux/sec once unlocked` : undefined;
 	// machine accents can be deep (violet, indigo); lift them until the line reads on the card
@@ -560,7 +560,7 @@ function UpgradeBoard(props: {
 						reducedMotion={reducedMotion}
 					/>
 					<Button
-						text={batch.busy ? batch.status : batch.count > 0 ? `Buy batch · ${batch.count}` : "Nothing to buy yet"}
+						text={batch.busy ? batch.status : batch.count > 0 ? `Buy batch (${batch.count})` : "Nothing to buy yet"}
 						icon="Flux.12"
 						onClick={buyAll}
 						color={affordableCount > 0 ? accent : Palette.panelSoft}
@@ -641,7 +641,7 @@ function UpgradeBoard(props: {
 						reducedMotion={reducedMotion}
 					/>
 					<Button
-						text={batch.busy ? batch.status : batch.count > 0 ? `Buy batch · ${batch.count}` : "Nothing to buy"}
+						text={batch.busy ? batch.status : batch.count > 0 ? `Buy batch (${batch.count})` : "Nothing to buy"}
 						icon="Flux.13"
 						onClick={buyAll}
 						color={affordableCount > 0 ? accent : Palette.panelSoft}

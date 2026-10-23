@@ -68,7 +68,7 @@ function headline(boost: BoostDef): [string, string] {
 	const production = tonumber(boost.Multiplier);
 	const vault = tonumber(boost.CapacityMultiplier);
 	if (production !== undefined && vault !== undefined) {
-		return [`${production}x`, `PRODUCTION · ${vault}x VAULT`];
+		return [`${production}x`, `production, ${vault}x vault`];
 	} else if (production !== undefined) {
 		return [`${production}x`, "PRODUCTION"];
 	} else if (vault !== undefined) {
@@ -227,7 +227,7 @@ function ActiveReactor(props: ActiveReactorProps) {
 					sizeConstraint={new UDim2(1, 0, 0, 30)}
 				/>
 				<Text
-					value={`${big} ${string.lower(small)}  ·  ${boost.Description}`}
+					value={`${big} ${string.lower(small)}: ${boost.Description}`}
 					size={12}
 					color={Palette.creamSoft}
 					wrap={true}
@@ -345,7 +345,7 @@ function IdleBay(props: IdleBayProps) {
 				sizeConstraint={new UDim2(1, stack ? -64 : -(78 + 220), 0, 28)}
 			/>
 			<Text
-				value={`${big} ${string.lower(small)} for ${clockText(pick.boost.Duration ?? 0)}  ·  ${compactNumber(pick.owned)} stored`}
+				value={`${big} ${string.lower(small)} for ${clockText(pick.boost.Duration ?? 0)}, ${compactNumber(pick.owned)} stored`}
 				size={12}
 				color={Palette.creamSoft}
 				wrap={true}
@@ -541,7 +541,7 @@ function BoostCard(props: BoostCardProps) {
 							: owned > 0
 								? "ACTIVATE"
 								: buyable
-									? `RUN · ${compactNumber(price)} STARDUST`
+									? `RUN (${compactNumber(price)} STARDUST)`
 									: "NONE STORED"
 					}
 					icon={ready ? "Boost.15" : "Lock.5"}
