@@ -19,6 +19,8 @@ import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { Component, loadAudio, loadBrowse, loadPageScaffold, loadUi, luauKit } from "./luauDeps";
+import { Chip, PanelHeading } from "../UiCore/mockKit";
+import { SEC } from "./mockRows";
 
 const Players = game.GetService("Players");
 const UserInputService = game.GetService("UserInputService");
@@ -1603,10 +1605,10 @@ __defs["TradeView"] = () => {
 			const clearButton =
 				editor && !offerEmpty(draft)
 					? h(Button, {
-							text: "CLEAR OFFER",
+							text: "Clear offer",
 							icon: "Refresh.1",
 							onClick: () => queueOffer(emptyOffer()),
-							color: Palette.panelSoft,
+							color: SEC,
 							textColor: Palette.creamSoft,
 							size: new UDim2(1, 0, 0, phone ? TapTarget : 34),
 							reducedMotion: softInvite,
@@ -1812,87 +1814,22 @@ __defs["TradeView"] = () => {
 			if (flow === undefined) {
 				flow = false;
 			}
-			const paneTitle = (value: string, size: UDim2) =>
-				h(
-					"frame",
-					{ Size: size, BackgroundTransparency: 1, BorderSizePixel: 0 },
-					h("frame", {
-						Size: UDim2.fromOffset(7, 7),
-						Position: new UDim2(0, 4, 0.5, 0),
-						AnchorPoint: new Vector2(0.5, 0.5),
-						Rotation: 45,
-						BackgroundColor3: Palette.brass,
-						BorderSizePixel: 0,
-					}),
-					h(
-						"textlabel",
-						{
-							Text: value.upper(),
-							FontFace: TRADE_SERIF,
-							TextColor3: Palette.cream,
-							TextScaled: true,
-							TextTruncate: Enum.TextTruncate.AtEnd,
-							TextXAlignment: Enum.TextXAlignment.Left,
-							BackgroundTransparency: 1,
-							Position: UDim2.fromOffset(16, 0),
-							Size: new UDim2(1, -16, 1, 0),
-						},
-						h("uitextsizeconstraint", { MaxTextSize: 14, MinTextSize: 9 }),
-					),
-				);
-			const header = flow
-				? h(
-						"frame",
-						{
-							Size: new UDim2(1, 0, 0, 78),
-							BackgroundTransparency: 1,
-							BorderSizePixel: 0,
-							ZIndex: 4,
-							LayoutOrder: 0,
-						},
-						paneTitle(title, new UDim2(1, 0, 0, 20)),
-						h(Text, {
-							value: partnerName,
-							size: 13,
-							color: Palette.creamSoft,
-							fit: true,
-							position: UDim2.fromOffset(0, 22),
-							sizeConstraint: new UDim2(1, 0, 0, 18),
-						}),
-						h(Badge, {
-							value: confirmed ? "CONFIRMED" : ready ? "READY" : "NOT READY",
-							accent: confirmed ? Palette.mango : ready ? Palette.mint : Palette.muted,
-							filled: confirmed === true || ready === true,
-							position: UDim2.fromOffset(0, 46),
-							size: UDim2.fromOffset(120, 28),
-						}),
-					)
-				: h(
-						"frame",
-						{
-							Size: new UDim2(1, 0, 0, 52),
-							BackgroundTransparency: 1,
-							BorderSizePixel: 0,
-							ZIndex: 4,
-							LayoutOrder: 0,
-						},
-						paneTitle(title, new UDim2(1, -120, 0, 18)),
-						h(Text, {
-							value: partnerName,
-							size: 12,
-							color: Palette.creamSoft,
-							fit: true,
-							position: UDim2.fromOffset(0, 22),
-							sizeConstraint: new UDim2(1, -120, 0, 18),
-						}),
-						h(Badge, {
-							value: confirmed ? "CONFIRMED" : ready ? "READY" : "NOT READY",
-							accent: confirmed ? Palette.mango : ready ? Palette.mint : Palette.muted,
-							filled: confirmed === true || ready === true,
-							position: new UDim2(1, -108, 0, 8),
-							size: UDim2.fromOffset(108, 28),
-						}),
-					);
+			// 08 .pn heading: icon + spaced title, partner note at the right, state chip below
+			const stateText = confirmed ? "Confirmed" : ready ? "Ready" : "Not ready";
+			const stateAccent = confirmed ? Palette.mango : ready ? Palette.mint : undefined;
+			const header = h(
+				"frame",
+				{
+					Size: new UDim2(1, 0, 0, phone ? 54 : 62),
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+					ZIndex: 4,
+					LayoutOrder: 0,
+				},
+				h("uilistlayout", { SortOrder: Enum.SortOrder.LayoutOrder, Padding: new UDim(0, phone ? 8 : 10) }),
+				h(PanelHeading, { icon: "Trade", title: title, note: partnerName, accent: accent, phone: phone, layoutOrder: 0 }),
+				h(Chip, { text: stateText, accent: stateAccent, icon: confirmed || ready ? "Check" : undefined, phone: phone, layoutOrder: 1 }),
+			);
 			if (flow === false) {
 				flow = true;
 			}
@@ -1906,27 +1843,9 @@ __defs["TradeView"] = () => {
 					ClipsDescendants: false,
 					LayoutOrder: flowOrder,
 				},
-				h("uicorner", {
-					CornerRadius: new UDim(0, 18),
-				}),
-				h(Stroke, {
-					color: Palette.line,
-					thickness: 1,
-					transparency: 0.2,
-				}),
-				// brass inner rule (03-forge card treatment); the list lives in its own child so the rule stays out of the flow
-				h(
-					"frame",
-					{
-						Size: new UDim2(1, -6, 1, -6),
-						Position: UDim2.fromScale(0.5, 0.5),
-						AnchorPoint: new Vector2(0.5, 0.5),
-						BackgroundTransparency: 1,
-						BorderSizePixel: 0,
-					},
-					h("uicorner", { CornerRadius: new UDim(0, 15) }),
-					h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 }),
-				),
+				// af.css .pn: panel fill, 16px radius, faint white rim
+				h("uicorner", { CornerRadius: new UDim(0, 16) }),
+				h("uistroke", { Color: Palette.white, Thickness: 1, Transparency: 0.9, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 				h(
 					"frame",
 					{
@@ -1937,15 +1856,15 @@ __defs["TradeView"] = () => {
 						ClipsDescendants: false,
 					},
 					h("uipadding", {
-						PaddingTop: new UDim(0, 12),
-						PaddingBottom: new UDim(0, 12),
-						PaddingLeft: new UDim(0, 12),
-						PaddingRight: new UDim(0, 12),
+						PaddingTop: new UDim(0, phone ? 10 : 18),
+						PaddingBottom: new UDim(0, phone ? 10 : 18),
+						PaddingLeft: new UDim(0, phone ? 12 : 20),
+						PaddingRight: new UDim(0, phone ? 12 : 20),
 					}),
 					h("uilistlayout", {
 						FillDirection: Enum.FillDirection.Vertical,
 						SortOrder: Enum.SortOrder.LayoutOrder,
-						Padding: new UDim(0, 8),
+						Padding: new UDim(0, phone ? 8 : 12),
 					}),
 					header,
 					offerBody(editor, lines),
@@ -2024,14 +1943,14 @@ __defs["TradeView"] = () => {
 					: undefined,
 				h(Button, {
 					text: offerPending
-						? "SENDING…"
+						? "Sending…"
 						: youReadyLocal
-							? "UNREADY"
+							? "Unready"
 							: tableEmpty
-								? "ADD SOMETHING FIRST"
-								: "READY",
+								? "Add something first"
+								: "Ready",
 					onClick: onReadyClick,
-					color: youReadyLocal ? Palette.panelSoft : accent,
+					color: youReadyLocal ? SEC : accent,
 					textColor: youReadyLocal ? Palette.cream : Palette.ink,
 					size: UDim2.fromScale(1, 1),
 					disabled: readyDisabled,
@@ -2058,10 +1977,10 @@ __defs["TradeView"] = () => {
 					: undefined,
 				h(Button, {
 					text: session.YouConfirmed
-						? "CONFIRMED"
+						? "Confirmed"
 						: confirmLeft > 0
-							? `CONFIRM  ${clockLabel(session.ConfirmEndsAt, now)}`
-							: "CONFIRM",
+							? `Confirm  ${clockLabel(session.ConfirmEndsAt, now)}`
+							: "Confirm",
 					onClick: onConfirmClick,
 					color: Palette.mango,
 					textColor: Palette.ink,
@@ -2089,9 +2008,9 @@ __defs["TradeView"] = () => {
 						})
 					: undefined,
 				h(Button, {
-					text: "CANCEL",
+					text: "Cancel",
 					onClick: onCancelClick,
-					color: Palette.panelRaised,
+					color: SEC,
 					textColor: Palette.cream,
 					size: UDim2.fromScale(1, 1),
 					disabled: busy !== "",
@@ -2644,7 +2563,7 @@ __defs["TradeView"] = () => {
 								BorderSizePixel: 0,
 							},
 							h(Button, {
-								text: "ACCEPT",
+								text: "Accept",
 								onClick: () => {
 									return run("RespondTrade", {
 										Accept: true,
@@ -2660,14 +2579,14 @@ __defs["TradeView"] = () => {
 								highlight: true,
 							}),
 							h(Button, {
-								text: "DECLINE",
+								text: "Decline",
 								onClick: () => {
 									return run("RespondTrade", {
 										Accept: false,
 									});
 								},
-								color: Palette.coral,
-								textColor: Palette.ink,
+								color: SEC,
+								textColor: Palette.cream,
 								size: new UDim2(0.48, -4, 1, 0),
 								position: new UDim2(0.52, 4, 0, 0),
 								disabled: busy !== "",
@@ -2717,7 +2636,7 @@ __defs["TradeView"] = () => {
 							sizeConstraint: new UDim2(1, -40, 0, 18),
 						}),
 						h(Button, {
-							text: "CANCEL",
+							text: "Cancel",
 							onClick: () => {
 								return run("CancelTrade");
 							},
