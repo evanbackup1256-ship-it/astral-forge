@@ -488,13 +488,7 @@ function OpsPanel(props: {
 			>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, OPS_GAP)} />
 				{rows.size() === 0 ? (
-<<<<<<< HEAD
 					<Text value={props.empty} size={11} color={Palette.muted} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-=======
-					<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
-						<Text value={props.empty} size={11} color={Palette.muted} position={UDim2.fromOffset(0, 6)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-					</frame>
->>>>>>> 664e9e329 (Audit part2: rebase fixes (mockKit imports), Companions laid out per mockup 14 (stage list: sprite, title+tag, bonus rows, bar, Equip/Feed; one Owned+rule+Level-up panel, sized grid), playerlist roster drops 80px min, admin empty text out of list, CommandView TabPane slide no longer under a list, gcKit row ring out of the list)
 				) : (
 					rows
 				)}
