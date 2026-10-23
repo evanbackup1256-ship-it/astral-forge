@@ -455,8 +455,7 @@ function playOutcome(reply: Reply) {
 function ExpeditionsView(props: Props) {
 	const viewport = useViewport();
 	const stack = chromeFor(viewport).contentStack;
-	// expedition board: the crew/dispatch rail moves left at about a third, so the board leads
-	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.34), 16);
+	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.42), 16);
 	const wide = plan.split;
 	const board = props.state.ExpeditionBoard;
 	const slots = board?.Slots ?? [];
@@ -564,7 +563,7 @@ function ExpeditionsView(props: Props) {
 				<SplitColumns
 					plan={plan}
 					height={math.max(stackHeight(openBlocks.map((b) => b.height), 16), stackHeight(runBlocks.map((b) => b.height), 16))}
-					sideOnRight={false}
+					sideOnRight={true}
 					main={<StackBlocks gap={16} riseFrom={splitIndex} blocks={openBlocks.map((b, i) => ({ ...b, rise: 0 + i }))} />}
 					side={<StackBlocks gap={16} riseFrom={splitIndex} blocks={runBlocks.map((b, i) => ({ ...b, rise: openBlocks.size() + i }))} />}
 				/>

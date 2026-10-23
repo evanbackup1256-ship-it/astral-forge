@@ -613,7 +613,7 @@ function AscensionViewBoard(props: AscensionViewProps) {
 	if (sideColumn) {
 		const side = sections.filter((section) => section.id === "constellations");
 		const main = sections.filter((section) => section.id !== "constellations");
-		const split = splitSection("AscensionSplit", plan, GAP, side, main, false, sections.map((section) => section.id));
+		const split = splitSection("AscensionSplit", plan, GAP, side, main, true, sections.map((section) => section.id));
 		return <PageScaffold sections={[split]} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
 	}
 	return <PageScaffold sections={sections} gap={GAP} tailPad={72} scrollBarColor={ACCENT} />;
