@@ -282,7 +282,7 @@ export function AdminPrankOverlay(param: { prank: Prank; reducedMotion?: boolean
 			h(Text, {
 				value: `${banner}  ${string.format("%.1f", left)}s`,
 				size: 16,
-				color: Palette.cyan,
+				color: Palette.mango,
 				weight: Enum.FontWeight.Heavy,
 				align: Enum.TextXAlignment.Center,
 				sizeConstraint: new UDim2(1, -24, 0, 24),

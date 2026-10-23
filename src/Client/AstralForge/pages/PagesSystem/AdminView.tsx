@@ -3,6 +3,7 @@ import { AdminConfig, BanEntry, fieldsFor, reasonsFor } from "../../CoreKit/admi
 import { compactNumber } from "../../CoreKit/format";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { Palette } from "../../CoreKit/theme";
+import { BODY, BODY_BOLD, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../../MotionKit/motion";
 import { chromeFor } from "../../CoreKit/theme";
@@ -396,41 +397,43 @@ function clockTime(at?: number) {
 
 /** One ops row: optional kind chip, the name (with an optional second line), the value on the right. */
 function OpsLine(props: { left: string; right: string; chip?: string; sub?: string; accent?: Color3; rightColor?: Color3; layoutOrder?: number }) {
-	const chipW = props.chip !== undefined ? math.clamp(props.chip.size() * 6 + 16, 44, 96) : 0;
-	const textX = props.chip !== undefined ? chipW + 16 : 10;
+	// design/22-admin row: coral kind chip, two-line text, right value (num, accent)
+	const chipW = props.chip !== undefined ? math.clamp(props.chip.size() * 6 + 18, 44, 96) : 0;
+	const textX = props.chip !== undefined ? chipW + 18 : 12;
 	return (
-		<frame Size={new UDim2(1, 0, 0, OPS_LINE)} BackgroundColor3={Palette.panelSoft} BackgroundTransparency={0.55} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder}>
-			<uicorner CornerRadius={new UDim(0, 8)} />
+		<frame Size={new UDim2(1, 0, 0, OPS_LINE)} BackgroundColor3={Palette.white} BackgroundTransparency={0} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder}>
+			<RowSurface />
 			{props.chip !== undefined && (
-				<frame Size={UDim2.fromOffset(chipW, 20)} Position={new UDim2(0, 8, 0.5, -10)} BackgroundColor3={Palette.panel} BorderSizePixel={0}>
-					<uicorner CornerRadius={new UDim(0, 6)} />
-					<uistroke Color={Palette.coral} Transparency={0.5} Thickness={1} />
-					<Text value={props.chip} size={10} color={Palette.coral} weight={Enum.FontWeight.Bold} align={Enum.TextXAlignment.Center} fit={true} minSize={9} position={UDim2.fromOffset(4, 3)} sizeConstraint={new UDim2(1, -8, 0, 14)} />
+				<frame Size={UDim2.fromOffset(chipW, 22)} Position={new UDim2(0, 8, 0.5, -11)} BackgroundColor3={Palette.coral} BackgroundTransparency={0.82} BorderSizePixel={0}>
+					<uicorner CornerRadius={new UDim(0, 8)} />
+					<uistroke Color={Palette.coral} Transparency={0.45} Thickness={1} />
+					<textlabel Text={props.chip} FontFace={BODY_BOLD} TextSize={11} TextColor3={Palette.coral} BackgroundTransparency={1} TextScaled={false} TextTruncate={Enum.TextTruncate.AtEnd} Size={UDim2.fromScale(1, 1)} />
 				</frame>
 			)}
-			<Text
-				value={props.left}
-				size={12}
-				color={props.accent ?? Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(textX, props.sub !== undefined ? 3 : 9)}
-				sizeConstraint={new UDim2(0.62, -textX, 0, 16)}
+			<textlabel
+				Text={props.left}
+				FontFace={BODY_SEMI}
+				TextSize={14}
+				TextColor3={props.accent ?? Palette.cream}
+				BackgroundTransparency={1}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				Position={UDim2.fromOffset(textX, props.sub !== undefined ? 2 : 9)}
+				Size={new UDim2(0.62, -textX, 0, 16)}
 			/>
 			{props.sub !== undefined && (
-				<Text value={props.sub} size={10} color={Palette.muted} fit={true} minSize={9} position={UDim2.fromOffset(textX, 18)} sizeConstraint={new UDim2(0.62, -textX, 0, 13)} />
+				<textlabel Text={props.sub} FontFace={BODY} TextSize={11} TextColor3={Palette.muted} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Position={UDim2.fromOffset(textX, 18)} Size={new UDim2(0.62, -textX, 0, 13)} />
 			)}
-			<Text
-				value={props.right}
-				size={12}
-				color={props.rightColor ?? Palette.cyan}
-				weight={Enum.FontWeight.Bold}
-				align={Enum.TextXAlignment.Right}
-				fit={true}
-				minSize={11}
-				position={new UDim2(0.62, 0, 0, 9)}
-				sizeConstraint={new UDim2(0.38, -10, 0, 16)}
+			<textlabel
+				Text={props.right}
+				FontFace={NUM}
+				TextSize={14}
+				TextColor3={props.rightColor ?? Palette.mango}
+				BackgroundTransparency={1}
+				TextXAlignment={Enum.TextXAlignment.Right}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				Position={new UDim2(0.62, 0, 0, 9)}
+				Size={new UDim2(0.38, -12, 0, 16)}
 			/>
 		</frame>
 	);
