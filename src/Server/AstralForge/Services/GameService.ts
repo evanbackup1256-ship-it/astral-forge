@@ -51,6 +51,7 @@ import * as FirstGoals from "../../../Shared/AstralForge/Shared/FirstGoals";
 import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import * as K from "./GameKits";
 import * as ResetSpec from "../../../Shared/AstralForge/Shared/ResetSpec";
+import * as TradeDomain from "./Gameplay/TradeDomain";
 
 // Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
 // colon-called methods. Values coming back are narrowed where they are used.
@@ -771,441 +772,7 @@ export class GameService {
 	}
 
 	_tradeAction(player: Player, action: string, rawPayload: unknown) {
-		const payload = rawPayload as Dict;
-		const profile = this._data.Get(player) as Profile | undefined;
-		if (!profile) {
-			return responseError(T("GameService.ProfileIsStillLoading"));
-		}
-		// live-ops kill switch: cancelling, chat and leaving still work while trading is paused
-		if (
-			HotFlags.Get("TradingPaused") &&
-			(action === K.Protocol.Actions.InviteTrade ||
-				action === K.Protocol.Actions.RespondTrade ||
-				action === K.Protocol.Actions.UpdateTradeOffer ||
-				action === K.Protocol.Actions.SetTradeReady ||
-				action === K.Protocol.Actions.ConfirmTrade)
-		) {
-			return responseError(T("GameService.TradingIsPausedForMaintenance"));
-		}
-		const now = os.time();
-		if (action === K.Protocol.Actions.GetTrade) {
-			return responseSuccess(undefined);
-		}
-		if (!truthy(this._trades.Unlocked(profile))) {
-			return responseError(T("TradeSuite.TradeFloorUnlocksAfterYour"));
-		}
-		if (action === K.Protocol.Actions.InviteTrade) {
-			const userId = RemoteFirewall.CoerceUserId(payload.UserId) as number | undefined;
-			if (userId === undefined) {
-				return responseError(T("GameService.ChooseAPlayerToInvite"));
-			}
-			this._flagTradeInvite(player, userId);
-			if (!truthy(this._trades.Unlocked(profile))) {
-				return responseError(T("TradeSuite.TradeFloorUnlocksAfterYour"));
-			}
-			const target = userId === -999 ? undefined : Players.GetPlayerByUserId(userId);
-			const targetProfile = target ? (this._data.Get(target) as Profile | undefined) : undefined;
-			if (userId !== -999 && targetProfile && !truthy(this._trades.Unlocked(targetProfile))) {
-				return responseError(T("GameService.TheyHaveNotUnlockedTrade"));
-			}
-			// the target's Social setting decides who may invite them
-			const targetSettings = targetProfile ? (targetProfile.Settings as Dict | undefined) : undefined;
-			const tradePolicy = targetSettings ? targetSettings.TradeInvitePolicy : undefined;
-			if (target && typeIs(tradePolicy, "number") && tradePolicy >= 0.25) {
-				const [okFriend, isFriend] = pcall(() => (target as unknown as Svc).IsFriendsWith(player.UserId));
-				if (!truthy(K.ChatRules.allows(tradePolicy, okFriend && isFriend === true))) {
-					return responseError(
-						tradePolicy >= 0.75
-							? `${target.DisplayName} isn't taking trade invites.`
-							: `${target.DisplayName} only takes trade invites from friends.`,
-					);
-				}
-			}
-			const [ok, err] = this._trades.Invite(player, profile, userId, now) as LuaTuple<[unknown, unknown]>;
-			if (!truthy(ok)) {
-				return responseError(err);
-			}
-			if (target) {
-				this._toastPlayer(target, T("Toast.TradeInviteTitle"), T("Toast.TradeInviteBody", player.DisplayName), "Info");
-				this._pushState(target, true);
-			}
-			this._pushState(player, true);
-			return responseSuccess(userId === -999 ? T("GameService.PracticeTradeOpened") : T("GameService.InviteSent"));
-		} else if (action === K.Protocol.Actions.RespondTrade) {
-			const accept = payload.Accept === true;
-			const [ok, err, session, fromId] = this._trades.Respond(player, profile, accept, now) as LuaTuple<
-				[unknown, unknown, Dict | undefined, number | undefined]
-			>;
-			if (!truthy(ok)) {
-				return responseError(err);
-			}
-			if (fromId !== undefined) {
-				const host = Players.GetPlayerByUserId(fromId);
-				if (host) {
-					this._toastPlayer(
-						host,
-						accept ? T("GameService.TradeOpened") : T("GameService.InviteDeclined"),
-						accept ? player.DisplayName + " accepted." : player.DisplayName + " declined.",
-						accept ? "Success" : "Info",
-					);
-					this._pushState(host, true);
-				}
-			}
-			if (session) {
-				this._pushTradePartners(session.Host, session.Guest);
-			}
-			return responseSuccess(accept ? T("GameService.TradeOpened2") : T("CrewService.InviteDeclined"));
-		} else if (action === K.Protocol.Actions.UpdateTradeOffer) {
-			const [ok, err, session] = this._trades.UpdateOffer(player, profile, payload.Offer, now) as LuaTuple<
-				[unknown, unknown, Dict | undefined]
-			>;
-			if (!truthy(ok)) {
-				return responseError(err);
-			}
-			if (session) {
-				this._pushTradePartners(session.Host, session.Guest);
-			}
-			return responseSuccess(T("GameService.OfferUpdated"));
-		} else if (action === K.Protocol.Actions.SetTradeReady) {
-			const [ok, err, session] = this._trades.SetReady(player, profile, payload.Ready === true, now) as LuaTuple<
-				[unknown, unknown, Dict | undefined]
-			>;
-			if (!truthy(ok)) {
-				return responseError(err);
-			}
-			if (session) {
-				this._pushTradePartners(session.Host, session.Guest);
-			}
-			return responseSuccess(payload.Ready === true ? T("GameService.YouAreReady") : T("GameService.ReadyCleared"));
-		} else if (action === K.Protocol.Actions.ConfirmTrade) {
-			const [ok, err, maybeSession] = this._trades.Confirm(player, now) as LuaTuple<[unknown, unknown, Dict | undefined]>;
-			if (!truthy(ok)) {
-				return responseError(err);
-			}
-			const confirmed = maybeSession ? (maybeSession.Confirmed as Record<number, unknown>) : undefined;
-			if (maybeSession && confirmed && truthy(confirmed[maybeSession.Host as number]) && truthy(confirmed[maybeSession.Guest as number])) {
-				const session = maybeSession;
-				if (!truthy(this._trades.TryBeginSettle(session))) {
-					this._pushTradePartners(session.Host, session.Guest);
-					return responseSuccess(T("GameService.TradeIsSettling"));
-				}
-				const isPractice = session.Guest === -999 || session.Host === -999;
-				if (isPractice) {
-					// The practice table is a tutorial: it walks through ready and confirm, then
-					// closes without moving anything either way (no payout, no loss, no daily count).
-					this._trades.Close(session);
-					this._pushTradePartners(session.Host, session.Guest);
-					const practicePlayer = Players.GetPlayerByUserId(session.Host as number);
-					if (practicePlayer) {
-						this._toastPlayer(practicePlayer, T("Toast.PracticeCompleteTitle"), T("Toast.PracticeCompleteBody"), "Success");
-					}
-					return responseSuccess(T("GameService.PracticeTradeCompleteNothingChanged"));
-				}
-				const host = Players.GetPlayerByUserId(session.Host as number);
-				const guest = (
-					session.Guest === -999
-						? {
-								UserId: -999,
-								Name: "ForgeAutomaton",
-								DisplayName: "Forge Automaton [Practice]",
-							}
-						: Players.GetPlayerByUserId(session.Guest as number)
-				) as Player | undefined;
-				const hostProfile = host ? (this._data.Get(host) as Profile | undefined) : undefined;
-				let mockBotProfile: Profile | undefined = undefined;
-				if (isPractice) {
-					mockBotProfile = {
-						Cash: 1e6,
-						Stardust: 1e5,
-						Cores: 100,
-						Command: { Signals: 100 },
-						Items: {
-							Essence: 100,
-							Inventory: {},
-							Equipped: {},
-							Keys: { Bronze: 10, Silver: 10, Gold: 10, Astral: 10, ForgeCrate: 10 },
-						},
-						BoostInventory: { Surge: 10, Overdrive: 10, Hyperdrive: 10, VaultSurge: 10 },
-						Trade: {
-							Day: -1,
-							Completed: 0,
-							Sent: { Cash: 0, Stardust: 0, Cores: 0, Signals: 0, Essence: 0, Boost: 0, Keys: 0, Items: 0 },
-							History: {},
-						},
-					};
-				}
-				const guestProfile = session.Guest === -999 ? mockBotProfile : guest ? (this._data.Get(guest) as Profile | undefined) : undefined;
-				if (!host || !guest || !hostProfile || !guestProfile) {
-					this._trades.FailSettle(session, false);
-					this._trades.Cancel(player);
-					return responseError(T("GameService.ATraderLeftBeforeThe"));
-				}
-				// Settle only what both sides agreed to: the escrow locked at TryBeginSettle must still
-				// match the live offers (Modules/TradeEngine).
-				if (!TradeEngine.Verify(session as never)[0]) {
-					this._trades.FailSettle(session, false);
-					this._pushTradePartners(session.Host, session.Guest);
-					return responseError(T("GameService.ThatTradeCouldNotBe"));
-				}
-				const [plannedValue, planErr] = this._trades.Plan(session, hostProfile, guestProfile, now) as LuaTuple<[Dict | undefined, unknown]>;
-				if (!plannedValue) {
-					this._trades.FailSettle(session, false);
-					this._pushTradePartners(session.Host, session.Guest);
-					return responseError(orElse(planErr, () => T("GameService.ThatTradeCouldNotBe")));
-				}
-				const plan = plannedValue;
-
-				// One side's record of this trade: what it gave and what it got, with item names.
-				const tradeHistoryEntry = (
-					tradeSession: Dict,
-					partner: Player,
-					gave: unknown,
-					gaveItems: unknown,
-					got: unknown,
-					gotItems: unknown,
-					at: unknown,
-				) => {
-					const names = (snapshot: unknown) => {
-						const list: string[] = [];
-						for (const [, instance] of pairs((truthy(snapshot) ? snapshot : {}) as Dict)) {
-							const definition = isTable(instance) ? itemById[instance.DefinitionId as string] : undefined;
-							list.push(definition ? (definition.Name as string) : "an item");
-						}
-						return list;
-					};
-					const amount = (value: unknown) => {
-						const number = num(value);
-						if (number === undefined) {
-							return (
-								require(
-									ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("OmegaMath") as ModuleScript,
-								) as Kit
-							).ToString(value);
-						}
-						for (const step of [
-							[1e12, "T"],
-							[1e9, "B"],
-							[1e6, "M"],
-							[1e3, "K"],
-						] as Array<[number, string]>) {
-							if (math.abs(number) >= step[0]) {
-								return "%.1f%s".format(number / step[0], step[1]).gsub("%.0(%a)", "%1")[0];
-							}
-						}
-						return tostring(math.floor(number));
-					};
-					return {
-						Id: tostring(tradeSession.Id),
-						At: at,
-						PartnerId: partner.UserId,
-						Partner: partner.DisplayName,
-						Gave: K.TradeHistory.summarize(gave, names(gaveItems), amount),
-						Got: K.TradeHistory.summarize(got, names(gotItems), amount),
-					};
-				};
-
-				// Durability hook: stamp a per-profile fault journal so a faulted trade
-				// can be reconciled the next time the affected profile loads.
-				const writeTradeJournal = (targetPlayer: Player, side: string, status: string, reason?: unknown) => {
-					if (status !== "faulted") {
-						return;
-					}
-					const [journalOk, journalErr] = pcall(() =>
-						this._data.AtomicUpdate(
-							targetPlayer,
-							(journalProfile: Profile) => {
-								const entry = K.TradeRecovery.MakeFaultedEntry(
-									session,
-									side,
-									plan,
-									orElse(reason, () => "unknown"),
-									now,
-								);
-								(journalProfile.Trade as Dict).FaultedJournal = entry;
-								return { ok: true };
-							},
-							true,
-							"trade-journal-" + side,
-						),
-					);
-					if (!journalOk) {
-						K.ModuleLog.Warn("Trade", "Could not write %s fault journal: %s".format(side, tostring(journalErr)));
-					}
-				};
-
-				const outcome = K.TradeSettle.RunHostGuest(session, {
-					plan: plan,
-					applyHost: () =>
-						this._data.AtomicUpdate(
-							host,
-							(hostDraft: Profile) => {
-								const applyErr = this._trades.ApplyExchange(
-									hostDraft,
-									plan.HostOffer,
-									plan.GuestOffer,
-									plan.HostItems,
-									plan.GuestItems,
-									plan.Now,
-								);
-								if (truthy(applyErr)) {
-									return { ok: false, error: applyErr };
-								}
-								// history commits in the same save as the exchange
-								K.TradeHistory.record(
-									hostDraft.Trade,
-									tradeHistoryEntry(session, guest, plan.HostOffer, plan.HostItems, plan.GuestOffer, plan.GuestItems, plan.Now),
-								);
-								return { ok: true };
-							},
-							true,
-							"trade-host",
-						),
-					guestPresent: () => {
-						if (isPractice) {
-							return true;
-						}
-						return this._data.Get(guest) !== undefined;
-					},
-					applyGuest: () => {
-						if (isPractice) {
-							// RunHostGuest reads (committed, result); a bare table left committed as the table and failed the guest side.
-							return $tuple(true, { ok: true });
-						}
-						return this._data.AtomicUpdate(
-							guest,
-							(guestDraft: Profile) => {
-								const applyErr = this._trades.ApplyExchange(
-									guestDraft,
-									plan.GuestOffer,
-									plan.HostOffer,
-									plan.GuestItems,
-									plan.HostItems,
-									plan.Now,
-								);
-								if (truthy(applyErr)) {
-									return { ok: false, error: applyErr };
-								}
-								K.TradeHistory.record(
-									guestDraft.Trade,
-									tradeHistoryEntry(session, host, plan.GuestOffer, plan.GuestItems, plan.HostOffer, plan.HostItems, plan.Now),
-								);
-								return { ok: true };
-							},
-							true,
-							"trade-guest",
-						);
-					},
-					revertHostOnce: () => {
-						const [revertOk, revertResult] = this._data.AtomicUpdate(
-							host,
-							(hostDraft: Profile) => {
-								const shortfall = this._trades.RevertExchange(
-									hostDraft,
-									plan.HostOffer,
-									plan.GuestOffer,
-									plan.HostItems,
-									plan.GuestItems,
-									plan.Now,
-								);
-								if (truthy(shortfall)) {
-									// what the host received was already spent; the settle faults and is journaled
-									return { ok: false, error: "revert shortfall: " + tostring(shortfall) };
-								}
-								// a reverted side never happened, so its history entry goes too
-								K.TradeHistory.remove(hostDraft.Trade, tostring(session.Id));
-								return { ok: true };
-							},
-							true,
-							"trade-revert",
-						) as LuaTuple<[unknown, unknown]>;
-						return K.TradeSettle.IsCommitOk(revertOk, revertResult);
-					},
-					writeHostJournal: (status: string, reason?: unknown) => {
-						writeTradeJournal(host, "host", status, reason);
-					},
-					writeGuestJournal: (status: string, reason?: unknown) => {
-						writeTradeJournal(guest, "guest", status, reason);
-					},
-				}) as Dict;
-				this._pushTradePartners(session.Host, session.Guest);
-				if (!truthy(outcome.ok)) {
-					if (typeIs(outcome.log, "string")) {
-						K.ModuleLog.Warn("Trade", outcome.log, { SessionId: session.Id, Host: session.Host, Guest: session.Guest });
-					}
-					return responseError(orElse(outcome.message, () => T("GameService.ThatTradeCouldNotBe")));
-				}
-				this._trades.Close(session);
-				this._toastPlayer(host, T("Toast.TradeCompleteTitle"), T("Toast.TradeCompleteBody"), "Success");
-				this._toastPlayer(guest, T("Toast.TradeCompleteTitle"), T("Toast.TradeCompleteBody"), "Success");
-				return responseSuccess(T("GameService.TradeComplete"));
-			}
-			if (maybeSession) {
-				this._pushTradePartners(maybeSession.Host, maybeSession.Guest);
-			}
-			return responseSuccess(T("GameService.ConfirmationNoted"));
-		} else if (action === K.Protocol.Actions.TradeChat) {
-			let text: unknown = undefined;
-			if (typeIs(payload.Text, "string") && payload.Text.size() > 0) {
-				// free text goes through Roblox's filter for the partner before anyone sees it
-				const raw = payload.Text.sub(1, 140);
-				const [okFilter, filtered] = K.TradeChatFilter.Apply(
-					game.GetService("TextService"),
-					raw,
-					player.UserId,
-					Enum.TextFilterContext.PrivateChat,
-				) as LuaTuple<[unknown, unknown]>;
-				if (!truthy(okFilter)) {
-					return responseError(T("GameService.ThatMessageCouldnTBe"));
-				}
-				text = filtered;
-			}
-			const [ok, err, session] = this._trades.Say(player, text, num(payload.Phrase), now) as LuaTuple<[unknown, unknown, Dict]>;
-			if (!truthy(ok)) {
-				return responseError(err);
-			}
-			this._pushTradePartners(session.Host, session.Guest);
-			return responseSuccess();
-		} else if (action === K.Protocol.Actions.TradeRequest) {
-			const [ok, err, session] = this._trades.Request(player, payload.Request, now) as LuaTuple<[unknown, unknown, Dict]>;
-			if (!truthy(ok)) {
-				return responseError(err);
-			}
-			this._pushTradePartners(session.Host, session.Guest);
-			return responseSuccess(T("GameService.RequestSent"));
-		} else if (action === K.Protocol.Actions.TradeViewAway) {
-			const away = truthy(payload) ? payload.Away === true : payload;
-			const session = this._trades.SetAway(player, away) as Dict | undefined;
-			if (!session) {
-				return responseSuccess();
-			}
-			const otherId = session.Host === player.UserId && truthy(session.Guest) ? session.Guest : session.Host;
-			const other = Players.GetPlayerByUserId(otherId as number);
-			if (other) {
-				if (truthy(payload) && payload.Away === true) {
-					this._toastPlayer(other, "Trade", T("Toast.TradeAwayBody", player.DisplayName), "Info");
-				} else {
-					this._toastPlayer(other, "Trade", T("Toast.TradeBackBody", player.DisplayName), "Info");
-				}
-			}
-			return responseSuccess();
-		} else if (action === K.Protocol.Actions.CancelTrade) {
-			const [session, otherId, cancelErr] = this._trades.Cancel(player) as LuaTuple<[unknown, number | undefined, unknown]>;
-			if (truthy(cancelErr)) {
-				return responseError(cancelErr);
-			}
-			if (otherId !== undefined) {
-				const other = Players.GetPlayerByUserId(otherId);
-				if (other) {
-					this._toastPlayer(other, T("Toast.TradeCancelledTitle"), T("Toast.TradeCancelledBody", player.DisplayName), "Info");
-					this._pushState(other, true);
-				}
-			}
-			if (truthy(session)) {
-				return responseSuccess(T("GameService.TradeCancelled"));
-			}
-			return responseSuccess(T("GameService.InviteCleared"));
-		}
-		return responseError(T("GameService.UnknownTradeAction"));
+		return TradeDomain.tradeAction(this as unknown as TradeDomain.TradeHost, itemById, player, action, rawPayload);
 	}
 
 	_getPlayerMirror(viewer: Player, rawUserId: unknown) {
@@ -5826,6 +5393,450 @@ export class GameService {
 		return responseSuccess(undefined, { Leaderboard: entries, LeaderboardId: id });
 	}
 
+	// action name -> handler (todo500 #2); action strings are unchanged, the first branch for a name wins
+	_actionHandlers?: Map<string, (player: Player, action: string, payload: Dict | undefined) => Response>;
+	_actionTable(): Map<string, (player: Player, action: string, payload: Dict | undefined) => Response> {
+		if (this._actionHandlers !== undefined) {
+			return this._actionHandlers;
+		}
+		const handlers = new Map<string, (player: Player, action: string, payload: Dict | undefined) => Response>();
+		const on = (names: unknown[], handler: (player: Player, action: string, payload: Dict | undefined) => Response) => {
+			for (const name of names) {
+				if (typeIs(name, "string") && !handlers.has(name)) {
+					handlers.set(name, handler);
+				}
+			}
+		};
+		on([K.Protocol.Actions.GetState], (player, action, payload) => {
+			const runtime = this._runtime.get(player);
+			if (runtime !== undefined) {
+				runtime.BazaarRecoveryRetryAt = undefined;
+			}
+			const snapshot = this._snapshot(player);
+			this._forgetSentSections(player);
+			return snapshot !== undefined ? responseSuccess(undefined, { State: snapshot }) : responseError(T("GameService.ProfileIsStillLoading"));
+		});
+		on([K.Protocol.Actions.MeasureLatency], (player, action, payload) => {
+			return responseSuccess(undefined);
+		});
+		on([K.Protocol.Actions.SubmitFeedback], (player, action, payload) => {
+			return this._submitFeedback(player, payload);
+		});
+		on([K.Protocol.Actions.ReportPlayer], (player, action, payload) => {
+			return this._reportPlayer(player, payload);
+		});
+		on([K.Protocol.Actions.GetPlayers], (player, action, payload) => {
+			return this._getPlayers(player);
+		});
+		on([K.Protocol.Actions.GetPlayerMirror], (player, action, payload) => {
+			return this._getPlayerMirror(player, payload);
+		});
+		on([K.Protocol.Actions.VisitPlot], (player, action, payload) => {
+			return this._visitPlot(player, payload);
+		});
+		on([K.Protocol.Actions.LeavePlot], (player, action, payload) => {
+			return this._leavePlot(player);
+		});
+		on([K.Protocol.Actions.NudgeCrew], (player, action, payload) => {
+			return this._nudgeCrew(player, payload);
+		});
+		on([K.Protocol.Actions.ReportPresence], (player, action, payload) => {
+			return this._reportPresence(player, payload);
+		});
+		on([K.Protocol.Actions.GetGuild], (player, action, payload) => {
+			const profile = this._data.Get(player) as Profile | undefined;
+			return responseSuccess(undefined, {
+				Guild: profile !== undefined ? this._guilds.GetPublic(typeIs(profile.Guild, "table") ? (profile.Guild as Dict).Id : "") : undefined,
+			});
+			return responseError(T("RemoteFirewall.UnknownForgeCommand"));
+		});
+		on([K.Protocol.Actions.GetGuildLeaderboard], (player, action, payload) => {
+			return responseSuccess(undefined, {
+				GuildLeaderboard: this._guilds.GetLeaderboard(payload !== undefined ? (payload.Page ?? 1) : 1),
+			});
+			return responseError(T("RemoteFirewall.UnknownForgeCommand"));
+		});
+		on([K.Protocol.Actions.GetLeaderboard], (player, action, payload) => {
+			return this._getLeaderboard(payload !== undefined ? payload.Id : undefined);
+		});
+		on([K.Protocol.Actions.GetAdminState], (player, action, payload) => {
+			return this._admin !== undefined
+				? responseSuccess(undefined, { Admin: this._admin.State(player) })
+				: responseError(T("GameService.AdministrationIsUnavailable"));
+			return responseError(T("RemoteFirewall.UnknownForgeCommand"));
+		});
+		on([K.Protocol.Actions.AdminExecute], (player, action, payload) => {
+			if (this._admin === undefined) {
+				return responseError(T("GameService.AdministrationIsUnavailable"));
+			}
+			const result = this._admin.Execute(player, payload) as Dict;
+			if (truthy(result.ok) && typeIs(result.TargetUserId, "number")) {
+				const target = Players.GetPlayerByUserId(result.TargetUserId);
+				const targetProfile = target !== undefined ? (this._data.Get(target) as Profile | undefined) : undefined;
+				if (target !== undefined && targetProfile !== undefined && result.World !== true) {
+					this._syncLeaderstats(target, targetProfile);
+					if (target !== player) {
+						this._pushState(target);
+						this._toastPlayer(
+							target,
+							T("GameService.ForgemasterGrant"),
+							truthy(result.message) ? result.message : T("GameService.YourProfileWasUpdated"),
+							"Special",
+						);
+					}
+				}
+			}
+			return result;
+		});
+		on([K.Protocol.Actions.CreateGuild, K.Protocol.Actions.JoinGuild, K.Protocol.Actions.LeaveGuild, K.Protocol.Actions.DisbandGuild, K.Protocol.Actions.KickGuildMember, K.Protocol.Actions.SetGuildRole, K.Protocol.Actions.RenameGuild, K.Protocol.Actions.ContributeGuild, K.Protocol.Actions.BuyGuildUpgrade, K.Protocol.Actions.ClaimGuildGoal, K.Protocol.Actions.SendGuildChat, K.Protocol.Actions.GetGuildChatHistory, K.Protocol.Actions.GetGuildAnnouncements, K.Protocol.Actions.GetGuildSettings, K.Protocol.Actions.SetGuildSettings, K.Protocol.Actions.GetGuildLogoReview, K.Protocol.Actions.CreateGuildAnnouncement, K.Protocol.Actions.EditGuildAnnouncement, K.Protocol.Actions.PinGuildAnnouncement, K.Protocol.Actions.ArchiveGuildAnnouncement, K.Protocol.Actions.SetGuildAnnouncementExpiry, K.Protocol.Actions.MuteGuildMember, K.Protocol.Actions.UnmuteGuildMember, K.Protocol.Actions.BanGuildMember, K.Protocol.Actions.UnbanGuildMember, K.Protocol.Actions.UploadGuildLogo, K.Protocol.Actions.ModerateGuildLogo], (player, action, payload) => {
+			return this._guildAction(player, action as string, payload ?? {}) as Response;
+		});
+		on([K.Protocol.Actions.GetTrade, K.Protocol.Actions.InviteTrade, K.Protocol.Actions.RespondTrade, K.Protocol.Actions.UpdateTradeOffer, K.Protocol.Actions.SetTradeReady, K.Protocol.Actions.ConfirmTrade, K.Protocol.Actions.CancelTrade, K.Protocol.Actions.TradeViewAway, K.Protocol.Actions.TradeChat, K.Protocol.Actions.TradeRequest], (player, action, payload) => {
+			const policyNote = PolicyGate.TradeBlocked(player, action as string, payload);
+			if (policyNote !== undefined) {
+				return responseError(policyNote);
+			}
+			return this._tradeAction(player, action as string, payload ?? {});
+		});
+		on([K.Protocol.Actions.CollectVault], (player, action, payload) => {
+			return this._collect(player);
+		});
+		on([K.Protocol.Actions.Overcharge], (player, action, payload) => {
+			return this._overcharge(player);
+		});
+		on([K.Protocol.Actions.BuyMachine], (player, action, payload) => {
+			return this._buyMachine(player, payload?.Id, payload?.Amount);
+		});
+		on([K.Protocol.Actions.SetAutoForge], (player, action, payload) => {
+			return this._setAutoForge(player, payload);
+		});
+		on([K.Protocol.Actions.BuyResearch], (player, action, payload) => {
+			return this._buyResearch(player, payload?.Id, payload?.Amount);
+		});
+		on([K.Protocol.Actions.BuyGridUpgrade], (player, action, payload) => {
+			return responseError(
+				T("GameService.StarGridPurchasesHaveRetired"),
+			);
+			return responseError(T("RemoteFirewall.UnknownForgeCommand"));
+		});
+		on([K.Protocol.Actions.UpgradeContinuum], (player, action, payload) => {
+			return this._upgradeContinuum(player);
+		});
+		on([K.Protocol.Actions.FoundryAct], (player, action, payload) => {
+			return this._foundryAct(player, payload);
+		});
+		on([K.Protocol.Actions.EchoAct], (player, action, payload) => {
+			return this._echoAct(player, payload);
+		});
+		on([K.Protocol.Actions.UnlockZone], (player, action, payload) => {
+			return this._unlockZone(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.SelectZone], (player, action, payload) => {
+			return this._selectZone(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.Rebirth], (player, action, payload) => {
+			return this._rebirth(player, payload);
+		});
+		on([K.Protocol.Actions.RebirthAct], (player, action, payload) => {
+			return this._rebirthAct(player, payload);
+		});
+		on([K.Protocol.Actions.Ascend], (player, action, payload) => {
+			return this._ascend(player);
+		});
+		on([K.Protocol.Actions.UpgradeSigil], (player, action, payload) => {
+			return this._upgradeSigil(player, payload);
+		});
+		on([K.Protocol.Actions.DomainExpansion], (player, action, payload) => {
+			return this._domainExpansion(player);
+		});
+		on([K.Protocol.Actions.DomainLattice], (player, action, payload) => {
+			return this._domainLattice(player, payload);
+		});
+		on([K.Protocol.Actions.EventAct], (player, action, payload) => {
+			return this._eventAct(player, payload);
+		});
+		on([K.Protocol.Actions.CompanionAct], (player, action, payload) => {
+			return this._companionAct(player, payload);
+		});
+		on([K.Protocol.Actions.ExpeditionAct], (player, action, payload) => {
+			return this._expeditionAct(player, payload);
+		});
+		on([K.Protocol.Actions.ProgramAct], (player, action, payload) => {
+			return this._programAct(player, payload);
+		});
+		on([K.Protocol.Actions.ConstellationAct], (player, action, payload) => {
+			return this._constellationAct(player, payload);
+		});
+		on([K.Protocol.Actions.ClaimConvergenceReward], (player, action, payload) => {
+			return this._convergence.Claim(player, payload?.Tier) as Response;
+		});
+		on([K.Protocol.Actions.ClaimQuest], (player, action, payload) => {
+			return this._claimQuest(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimAchievement], (player, action, payload) => {
+			return this._claimAchievement(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimDaily], (player, action, payload) => {
+			return this._claimDaily(player);
+		});
+		on([K.Protocol.Actions.ClaimTimedReward], (player, action, payload) => {
+			return this._claimTimedReward(player, payload?.Index);
+		});
+		on([K.Protocol.Actions.SpinWheel], (player, action, payload) => {
+			return this._spinWheel(player, payload);
+		});
+		on([K.Protocol.Actions.BazaarPlay], (player, action, payload) => {
+			return this._bazaarPlay(player, payload);
+		});
+		on([K.Protocol.Actions.SelectSpecialization], (player, action, payload) => {
+			return this._mutate(player, (profile: Profile) => {
+				const [selected, message] = K.Specializations.Select(profile.Specialization, payload?.Id, os.time()) as LuaTuple<
+					[Dict | undefined, unknown]
+				>;
+				if (selected === undefined) {
+					return responseError(message);
+				}
+				const previous = profile.Specialization;
+				if (selected.Focus === (K.Specializations.Sanitize(previous) as Dict).Focus) {
+					return responseSuccess(message);
+				}
+				profile.Specialization = selected;
+				if (truthy(K.Economy.Gt(profile.Vault, K.Economy.Capacity(profile)))) {
+					profile.Specialization = previous;
+					return responseError(T("GameService.CollectYourVaultBeforeEquipping"));
+				}
+				return responseSuccess(message);
+			});
+			return responseError(T("RemoteFirewall.UnknownForgeCommand"));
+		});
+		on([K.Protocol.Actions.SetMarketFavorite], (player, action, payload) => {
+			return this._mutate(player, (profile: Profile) => {
+				const [ok, message] = K.BazaarService.SetFavorite(profile, payload) as LuaTuple<[unknown, unknown]>;
+				return truthy(ok) ? responseSuccess(message) : responseError(message);
+			});
+			return responseError(T("RemoteFirewall.UnknownForgeCommand"));
+		});
+		on([K.Protocol.Actions.RequestProcurement], (player, action, payload) => {
+			return this._mutate(player, (profile: Profile) => {
+				const [ok, message] = K.BazaarService.Procure(profile, payload, os.time()) as LuaTuple<[unknown, unknown]>;
+				return truthy(ok) ? responseSuccess(message) : responseError(message);
+			});
+			return responseError(T("RemoteFirewall.UnknownForgeCommand"));
+		});
+		on([K.Protocol.Actions.LaunchExpedition], (player, action, payload) => {
+			return this._launchExpedition(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimExpedition], (player, action, payload) => {
+			return this._claimExpedition(player);
+		});
+		on([K.Protocol.Actions.EquipArtifact], (player, action, payload) => {
+			return this._equipArtifact(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.UpgradeArtifact], (player, action, payload) => {
+			return this._upgradeArtifact(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.BuyArtifact], (player, action, payload) => {
+			return this._buyArtifact(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.UpgradeCrew], (player, action, payload) => {
+			return this._upgradeCrew(player, payload?.Role);
+		});
+		on([K.Protocol.Actions.ClaimCommanderReward], (player, action, payload) => {
+			return this._claimCommanderReward(player, payload?.Level);
+		});
+		on([K.Protocol.Actions.ClaimWeeklyDirective], (player, action, payload) => {
+			return this._claimWeeklyDirective(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimSeasonTier], (player, action, payload) => {
+			return this._claimSeasonTier(player, payload?.Tier);
+		});
+		on([K.Protocol.Actions.ClaimSeasonPremium], (player, action, payload) => {
+			return this._claimSeasonPremium(player, payload?.Tier);
+		});
+		on([K.Protocol.Actions.ClaimForgePathStep], (player, action, payload) => {
+			return this._claimForgePathStep(player, payload?.Step);
+		});
+		on([K.Protocol.Actions.BuySignalOffer], (player, action, payload) => {
+			return this._buySignalOffer(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.EquipTitle], (player, action, payload) => {
+			return this._equipTitle(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.SetProfileStyle], (player, action, payload) => {
+			return this._setProfileStyle(player, payload?.Accent, payload?.Frame);
+		});
+		on([K.Protocol.Actions.RedeemCode], (player, action, payload) => {
+			return this._redeemCode(player, payload?.Code);
+		});
+		on([K.Protocol.Actions.VerifyCreatorFollow], (player, action, payload) => {
+			return this._verifyCreatorFollow(player);
+		});
+		on([K.Protocol.Actions.ClaimCommunityReward], (player, action, payload) => {
+			return this._claimCommunityReward(player, payload?.Kind, payload?.Index);
+		});
+		on([K.Protocol.Actions.SyncShop], (player, action, payload) => {
+			return this._syncShop(player);
+		});
+		on([K.Protocol.Actions.StudioGrantProduct], (player, action, payload) => {
+			return this._studioGrantProduct(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ActivateBoost], (player, action, payload) => {
+			return this._activateBoost(player, payload?.Id, payload?.Buy);
+		});
+		on([K.Protocol.Actions.BuyDailyOffer], (player, action, payload) => {
+			return this._buyDailyOffer(player, payload?.Slot);
+		});
+		on([K.Protocol.Actions.BuyCrateSkin], (player, action, payload) => {
+			return this._buyCrateSkin(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.EquipCrateSkin], (player, action, payload) => {
+			return this._equipCrateSkin(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.FuseRelics], (player, action, payload) => {
+			return this._fuseRelics(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.EngraveRelic], (player, action, payload) => {
+			return this._engraveRelic(player, payload);
+		});
+		on([K.Protocol.Actions.CraftRelic], (player, action, payload) => {
+			return this._craftRelic(player, payload?.Id, payload?.Sacrifice);
+		});
+		on([K.Protocol.Actions.BuyItemOffer], (player, action, payload) => {
+			return this._buyItemOffer(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.OpenItemCrate], (player, action, payload) => {
+			return this._openItemCrate(player, payload?.Id, payload?.Count);
+		});
+		on([K.Protocol.Actions.EquipItem], (player, action, payload) => {
+			return this._equipItem(player, payload?.Uid, payload?.Target);
+		});
+		on([K.Protocol.Actions.UnequipItem], (player, action, payload) => {
+			return this._unequipItem(player, payload?.Target);
+		});
+		on([K.Protocol.Actions.UpgradeItem], (player, action, payload) => {
+			return this._upgradeItem(player, payload?.Uid);
+		});
+		on([K.Protocol.Actions.SalvageItem], (player, action, payload) => {
+			return this._salvageItem(player, payload?.Uid);
+		});
+		on([K.Protocol.Actions.BulkSalvageItems], (player, action, payload) => {
+			return this._bulkSalvageItems(player, payload?.Uids);
+		});
+		on([K.Protocol.Actions.EquipBestItems], (player, action, payload) => {
+			return this._equipBestItems(player);
+		});
+		on([K.Protocol.Actions.ToggleItemLock], (player, action, payload) => {
+			return this._toggleItemLock(player, payload?.Uid);
+		});
+		on([K.Protocol.Actions.SetItemAutoSalvage], (player, action, payload) => {
+			return this._setItemAutoSalvage(player, payload);
+		});
+		on([K.Protocol.Actions.SetSetting], (player, action, payload) => {
+			return this._setSetting(player, payload);
+		});
+		on([K.Protocol.Actions.SetMobileLayout], (player, action, payload) => {
+			return this._setMobileLayout(player, payload);
+		});
+		on([K.Protocol.Actions.ChatOpenWhisper], (player, action, payload) => {
+			return this._chat.OpenWhisper(player, payload) as Response;
+		});
+		on([K.Protocol.Actions.ChatGlobal], (player, action, payload) => {
+			return this._chat.SendGlobal(player, payload) as Response;
+		});
+		on([K.Protocol.Actions.GetCrew], (player, action, payload) => {
+			return this._crews.Get(player) as Response;
+		});
+		on([K.Protocol.Actions.CrewInvite], (player, action, payload) => {
+			return this._crews.Invite(player, payload) as Response;
+		});
+		on([K.Protocol.Actions.CrewRespond], (player, action, payload) => {
+			return this._crews.Respond(player, payload) as Response;
+		});
+		on([K.Protocol.Actions.CrewLeave], (player, action, payload) => {
+			return this._crews.Leave(player) as Response;
+		});
+		on([K.Protocol.Actions.CrewKick], (player, action, payload) => {
+			return this._crews.Kick(player, payload) as Response;
+		});
+		on([K.Protocol.Actions.CrewRename], (player, action, payload) => {
+			return this._crews.Rename(player, payload) as Response;
+		});
+		on([K.Protocol.Actions.CrewClaim], (player, action, payload) => {
+			return this._crews.Claim(player, payload) as Response;
+		});
+		on([K.Protocol.Actions.SetTutorialStep], (player, action, payload) => {
+			return this._setTutorialStep(player, payload?.Step);
+		});
+		on([K.Protocol.Actions.MarkHintSeen], (player, action, payload) => {
+			return this._markHintSeen(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimFirstGoal], (player, action, payload) => {
+			return this._claimFirstGoal(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.CompleteTutorial], (player, action, payload) => {
+			return this._completeTutorial(player);
+		});
+		on([K.Protocol.Actions.ReplayTutorial], (player, action, payload) => {
+			return this._replayTutorial(player);
+		});
+		on([K.Protocol.Actions.DismissRelease], (player, action, payload) => {
+			return this._dismissRelease(player);
+		});
+		on([K.Protocol.Actions.OpenRelease], (player, action, payload) => {
+			return this._openRelease(player);
+		});
+		on([K.Protocol.Actions.ReadStoryChapter], (player, action, payload) => {
+			return this._readStoryChapter(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimStoryChapter], (player, action, payload) => {
+			return this._claimStoryChapter(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ReadMail], (player, action, payload) => {
+			return this._readMail(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimMail], (player, action, payload) => {
+			return this._claimMail(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimAllMail], (player, action, payload) => {
+			return this._claimAllMail(player);
+		});
+		on([K.Protocol.Actions.DeleteMail], (player, action, payload) => {
+			return this._deleteMail(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.PulseAnomaly], (player, action, payload) => {
+			return this._pulseAnomaly(player);
+		});
+		on([K.Protocol.Actions.StabilizeAnomaly], (player, action, payload) => {
+			return this._stabilizeAnomaly(player);
+		});
+		on([K.Protocol.Actions.BuyAnomalyProtocol], (player, action, payload) => {
+			return this._buyAnomalyProtocol(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ActivateAnomalySurge], (player, action, payload) => {
+			return this._activateAnomalySurge(player);
+		});
+		on([K.Protocol.Actions.SetAnomalyChannel], (player, action, payload) => {
+			return this._setAnomalyChannel(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.SetAnomalyLoadout], (player, action, payload) => {
+			return this._setAnomalyLoadout(player, payload?.Loadout);
+		});
+		on([K.Protocol.Actions.ClaimAnomalyMilestone], (player, action, payload) => {
+			return this._claimAnomalyMilestone(player, payload?.Tier);
+		});
+		on([K.Protocol.Actions.ClaimAnomalyDirective], (player, action, payload) => {
+			return this._claimAnomalyDirective(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.ClaimLabOrder], (player, action, payload) => {
+			return this._claimLabOrder(player, payload?.Id);
+		});
+		on([K.Protocol.Actions.RouteLabPower], (player, action, payload) => {
+			return this._routeLabPower(player, payload?.Channel, payload?.Delta);
+		});
+		this._actionHandlers = handlers;
+		return handlers;
+	}
+
 	_handleAction(player: Player, action: unknown, rawPayload: unknown): Response {
 		if (!truthy(K.CommandActionValidators.IsValidAction(action))) {
 			return responseError(T("GameService.InvalidRequest"));
@@ -5866,345 +5877,9 @@ export class GameService {
 				);
 			}
 		}
-		if (action === K.Protocol.Actions.GetState) {
-			const runtime = this._runtime.get(player);
-			if (runtime !== undefined) {
-				runtime.BazaarRecoveryRetryAt = undefined;
-			}
-			const snapshot = this._snapshot(player);
-			this._forgetSentSections(player);
-			return snapshot !== undefined ? responseSuccess(undefined, { State: snapshot }) : responseError(T("GameService.ProfileIsStillLoading"));
-		} else if (action === K.Protocol.Actions.MeasureLatency) {
-			return responseSuccess(undefined);
-		} else if (action === K.Protocol.Actions.SubmitFeedback) {
-			return this._submitFeedback(player, payload);
-		} else if (action === K.Protocol.Actions.ReportPlayer) {
-			return this._reportPlayer(player, payload);
-		} else if (action === K.Protocol.Actions.GetPlayers) {
-			return this._getPlayers(player);
-		} else if (action === K.Protocol.Actions.GetPlayerMirror) {
-			return this._getPlayerMirror(player, payload);
-		} else if (action === K.Protocol.Actions.VisitPlot) {
-			return this._visitPlot(player, payload);
-		} else if (action === K.Protocol.Actions.LeavePlot) {
-			return this._leavePlot(player);
-		} else if (action === K.Protocol.Actions.NudgeCrew) {
-			return this._nudgeCrew(player, payload);
-		} else if (action === K.Protocol.Actions.ReportPresence) {
-			return this._reportPresence(player, payload);
-		} else if (action === K.Protocol.Actions.GetGuild) {
-			const profile = this._data.Get(player) as Profile | undefined;
-			return responseSuccess(undefined, {
-				Guild: profile !== undefined ? this._guilds.GetPublic(typeIs(profile.Guild, "table") ? (profile.Guild as Dict).Id : "") : undefined,
-			});
-		} else if (action === K.Protocol.Actions.GetGuildLeaderboard) {
-			return responseSuccess(undefined, {
-				GuildLeaderboard: this._guilds.GetLeaderboard(payload !== undefined ? (payload.Page ?? 1) : 1),
-			});
-		} else if (action === K.Protocol.Actions.GetLeaderboard) {
-			return this._getLeaderboard(payload !== undefined ? payload.Id : undefined);
-		} else if (action === K.Protocol.Actions.GetAdminState) {
-			return this._admin !== undefined
-				? responseSuccess(undefined, { Admin: this._admin.State(player) })
-				: responseError(T("GameService.AdministrationIsUnavailable"));
-		} else if (action === K.Protocol.Actions.AdminExecute) {
-			if (this._admin === undefined) {
-				return responseError(T("GameService.AdministrationIsUnavailable"));
-			}
-			const result = this._admin.Execute(player, payload) as Dict;
-			if (truthy(result.ok) && typeIs(result.TargetUserId, "number")) {
-				const target = Players.GetPlayerByUserId(result.TargetUserId);
-				const targetProfile = target !== undefined ? (this._data.Get(target) as Profile | undefined) : undefined;
-				if (target !== undefined && targetProfile !== undefined && result.World !== true) {
-					this._syncLeaderstats(target, targetProfile);
-					if (target !== player) {
-						this._pushState(target);
-						this._toastPlayer(
-							target,
-							T("GameService.ForgemasterGrant"),
-							truthy(result.message) ? result.message : T("GameService.YourProfileWasUpdated"),
-							"Special",
-						);
-					}
-				}
-			}
-			return result;
-		} else if (
-			action === K.Protocol.Actions.CreateGuild ||
-			action === K.Protocol.Actions.JoinGuild ||
-			action === K.Protocol.Actions.LeaveGuild ||
-			action === K.Protocol.Actions.DisbandGuild ||
-			action === K.Protocol.Actions.KickGuildMember ||
-			action === K.Protocol.Actions.SetGuildRole ||
-			action === K.Protocol.Actions.RenameGuild ||
-			action === K.Protocol.Actions.ContributeGuild ||
-			action === K.Protocol.Actions.BuyGuildUpgrade ||
-			action === K.Protocol.Actions.ClaimGuildGoal ||
-			action === K.Protocol.Actions.SendGuildChat ||
-			action === K.Protocol.Actions.GetGuildChatHistory ||
-			action === K.Protocol.Actions.GetGuildAnnouncements ||
-			action === K.Protocol.Actions.GetGuildSettings ||
-			action === K.Protocol.Actions.SetGuildSettings ||
-			action === K.Protocol.Actions.GetGuildLogoReview ||
-			action === K.Protocol.Actions.CreateGuildAnnouncement ||
-			action === K.Protocol.Actions.EditGuildAnnouncement ||
-			action === K.Protocol.Actions.PinGuildAnnouncement ||
-			action === K.Protocol.Actions.ArchiveGuildAnnouncement ||
-			action === K.Protocol.Actions.SetGuildAnnouncementExpiry ||
-			action === K.Protocol.Actions.MuteGuildMember ||
-			action === K.Protocol.Actions.UnmuteGuildMember ||
-			action === K.Protocol.Actions.BanGuildMember ||
-			action === K.Protocol.Actions.UnbanGuildMember ||
-			action === K.Protocol.Actions.UploadGuildLogo ||
-			action === K.Protocol.Actions.ModerateGuildLogo
-		) {
-			return this._guildAction(player, action as string, payload ?? {}) as Response;
-		} else if (
-			action === K.Protocol.Actions.GetTrade ||
-			action === K.Protocol.Actions.InviteTrade ||
-			action === K.Protocol.Actions.RespondTrade ||
-			action === K.Protocol.Actions.UpdateTradeOffer ||
-			action === K.Protocol.Actions.SetTradeReady ||
-			action === K.Protocol.Actions.ConfirmTrade ||
-			action === K.Protocol.Actions.CancelTrade ||
-			action === K.Protocol.Actions.TradeViewAway ||
-			action === K.Protocol.Actions.TradeChat ||
-			action === K.Protocol.Actions.TradeRequest
-		) {
-			const policyNote = PolicyGate.TradeBlocked(player, action as string, payload);
-			if (policyNote !== undefined) {
-				return responseError(policyNote);
-			}
-			return this._tradeAction(player, action as string, payload ?? {});
-		} else if (action === K.Protocol.Actions.CollectVault) {
-			return this._collect(player);
-		} else if (action === K.Protocol.Actions.Overcharge) {
-			return this._overcharge(player);
-		} else if (action === K.Protocol.Actions.BuyMachine) {
-			return this._buyMachine(player, payload?.Id, payload?.Amount);
-		} else if (action === K.Protocol.Actions.SetAutoForge) {
-			return this._setAutoForge(player, payload);
-		} else if (action === K.Protocol.Actions.BuyResearch) {
-			return this._buyResearch(player, payload?.Id, payload?.Amount);
-		} else if (action === K.Protocol.Actions.BuyGridUpgrade) {
-			return responseError(
-				T("GameService.StarGridPurchasesHaveRetired"),
-			);
-		} else if (action === K.Protocol.Actions.UpgradeContinuum) {
-			return this._upgradeContinuum(player);
-		} else if (action === K.Protocol.Actions.FoundryAct) {
-			return this._foundryAct(player, payload);
-		} else if (action === K.Protocol.Actions.EchoAct) {
-			return this._echoAct(player, payload);
-		} else if (action === K.Protocol.Actions.UnlockZone) {
-			return this._unlockZone(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.SelectZone) {
-			return this._selectZone(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.Rebirth) {
-			return this._rebirth(player, payload);
-		} else if (action === K.Protocol.Actions.RebirthAct) {
-			return this._rebirthAct(player, payload);
-		} else if (action === K.Protocol.Actions.Ascend) {
-			return this._ascend(player);
-		} else if (action === K.Protocol.Actions.UpgradeSigil) {
-			return this._upgradeSigil(player, payload);
-		} else if (action === K.Protocol.Actions.DomainExpansion) {
-			return this._domainExpansion(player);
-		} else if (action === K.Protocol.Actions.DomainLattice) {
-			return this._domainLattice(player, payload);
-		} else if (action === K.Protocol.Actions.EventAct) {
-			return this._eventAct(player, payload);
-		} else if (action === K.Protocol.Actions.CompanionAct) {
-			return this._companionAct(player, payload);
-		} else if (action === K.Protocol.Actions.ExpeditionAct) {
-			return this._expeditionAct(player, payload);
-		} else if (action === K.Protocol.Actions.ProgramAct) {
-			return this._programAct(player, payload);
-		} else if (action === K.Protocol.Actions.ConstellationAct) {
-			return this._constellationAct(player, payload);
-		} else if (action === K.Protocol.Actions.ClaimConvergenceReward) {
-			return this._convergence.Claim(player, payload?.Tier) as Response;
-		} else if (action === K.Protocol.Actions.ClaimQuest) {
-			return this._claimQuest(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimAchievement) {
-			return this._claimAchievement(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimDaily) {
-			return this._claimDaily(player);
-		} else if (action === K.Protocol.Actions.ClaimTimedReward) {
-			return this._claimTimedReward(player, payload?.Index);
-		} else if (action === K.Protocol.Actions.SpinWheel) {
-			return this._spinWheel(player, payload);
-		} else if (action === K.Protocol.Actions.BazaarPlay) {
-			return this._bazaarPlay(player, payload);
-		} else if (action === K.Protocol.Actions.SelectSpecialization) {
-			return this._mutate(player, (profile: Profile) => {
-				const [selected, message] = K.Specializations.Select(profile.Specialization, payload?.Id, os.time()) as LuaTuple<
-					[Dict | undefined, unknown]
-				>;
-				if (selected === undefined) {
-					return responseError(message);
-				}
-				const previous = profile.Specialization;
-				if (selected.Focus === (K.Specializations.Sanitize(previous) as Dict).Focus) {
-					return responseSuccess(message);
-				}
-				profile.Specialization = selected;
-				if (truthy(K.Economy.Gt(profile.Vault, K.Economy.Capacity(profile)))) {
-					profile.Specialization = previous;
-					return responseError(T("GameService.CollectYourVaultBeforeEquipping"));
-				}
-				return responseSuccess(message);
-			});
-		} else if (action === K.Protocol.Actions.SetMarketFavorite) {
-			return this._mutate(player, (profile: Profile) => {
-				const [ok, message] = K.BazaarService.SetFavorite(profile, payload) as LuaTuple<[unknown, unknown]>;
-				return truthy(ok) ? responseSuccess(message) : responseError(message);
-			});
-		} else if (action === K.Protocol.Actions.RequestProcurement) {
-			return this._mutate(player, (profile: Profile) => {
-				const [ok, message] = K.BazaarService.Procure(profile, payload, os.time()) as LuaTuple<[unknown, unknown]>;
-				return truthy(ok) ? responseSuccess(message) : responseError(message);
-			});
-		} else if (action === K.Protocol.Actions.LaunchExpedition) {
-			return this._launchExpedition(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimExpedition) {
-			return this._claimExpedition(player);
-		} else if (action === K.Protocol.Actions.EquipArtifact) {
-			return this._equipArtifact(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.UpgradeArtifact) {
-			return this._upgradeArtifact(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.BuyArtifact) {
-			return this._buyArtifact(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.UpgradeCrew) {
-			return this._upgradeCrew(player, payload?.Role);
-		} else if (action === K.Protocol.Actions.ClaimCommanderReward) {
-			return this._claimCommanderReward(player, payload?.Level);
-		} else if (action === K.Protocol.Actions.ClaimWeeklyDirective) {
-			return this._claimWeeklyDirective(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimSeasonTier) {
-			return this._claimSeasonTier(player, payload?.Tier);
-		} else if (action === K.Protocol.Actions.ClaimSeasonPremium) {
-			return this._claimSeasonPremium(player, payload?.Tier);
-		} else if (action === K.Protocol.Actions.ClaimForgePathStep) {
-			return this._claimForgePathStep(player, payload?.Step);
-		} else if (action === K.Protocol.Actions.BuySignalOffer) {
-			return this._buySignalOffer(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.EquipTitle) {
-			return this._equipTitle(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.SetProfileStyle) {
-			return this._setProfileStyle(player, payload?.Accent, payload?.Frame);
-		} else if (action === K.Protocol.Actions.RedeemCode) {
-			return this._redeemCode(player, payload?.Code);
-		} else if (action === K.Protocol.Actions.VerifyCreatorFollow) {
-			return this._verifyCreatorFollow(player);
-		} else if (action === K.Protocol.Actions.ClaimCommunityReward) {
-			return this._claimCommunityReward(player, payload?.Kind, payload?.Index);
-		} else if (action === K.Protocol.Actions.SyncShop) {
-			return this._syncShop(player);
-		} else if (action === K.Protocol.Actions.StudioGrantProduct) {
-			return this._studioGrantProduct(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ActivateBoost) {
-			return this._activateBoost(player, payload?.Id, payload?.Buy);
-		} else if (action === K.Protocol.Actions.BuyDailyOffer) {
-			return this._buyDailyOffer(player, payload?.Slot);
-		} else if (action === K.Protocol.Actions.BuyCrateSkin) {
-			return this._buyCrateSkin(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.EquipCrateSkin) {
-			return this._equipCrateSkin(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.FuseRelics) {
-			return this._fuseRelics(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.EngraveRelic) {
-			return this._engraveRelic(player, payload);
-		} else if (action === K.Protocol.Actions.CraftRelic) {
-			return this._craftRelic(player, payload?.Id, payload?.Sacrifice);
-		} else if (action === K.Protocol.Actions.BuyItemOffer) {
-			return this._buyItemOffer(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.OpenItemCrate) {
-			return this._openItemCrate(player, payload?.Id, payload?.Count);
-		} else if (action === K.Protocol.Actions.EquipItem) {
-			return this._equipItem(player, payload?.Uid, payload?.Target);
-		} else if (action === K.Protocol.Actions.UnequipItem) {
-			return this._unequipItem(player, payload?.Target);
-		} else if (action === K.Protocol.Actions.UpgradeItem) {
-			return this._upgradeItem(player, payload?.Uid);
-		} else if (action === K.Protocol.Actions.SalvageItem) {
-			return this._salvageItem(player, payload?.Uid);
-		} else if (action === K.Protocol.Actions.BulkSalvageItems) {
-			return this._bulkSalvageItems(player, payload?.Uids);
-		} else if (action === K.Protocol.Actions.EquipBestItems) {
-			return this._equipBestItems(player);
-		} else if (action === K.Protocol.Actions.ToggleItemLock) {
-			return this._toggleItemLock(player, payload?.Uid);
-		} else if (action === K.Protocol.Actions.SetItemAutoSalvage) {
-			return this._setItemAutoSalvage(player, payload);
-		} else if (action === K.Protocol.Actions.SetSetting) {
-			return this._setSetting(player, payload);
-		} else if (action === K.Protocol.Actions.SetMobileLayout) {
-			return this._setMobileLayout(player, payload);
-		} else if (action === K.Protocol.Actions.ChatOpenWhisper) {
-			return this._chat.OpenWhisper(player, payload) as Response;
-		} else if (action === K.Protocol.Actions.ChatGlobal) {
-			return this._chat.SendGlobal(player, payload) as Response;
-		} else if (action === K.Protocol.Actions.GetCrew) {
-			return this._crews.Get(player) as Response;
-		} else if (action === K.Protocol.Actions.CrewInvite) {
-			return this._crews.Invite(player, payload) as Response;
-		} else if (action === K.Protocol.Actions.CrewRespond) {
-			return this._crews.Respond(player, payload) as Response;
-		} else if (action === K.Protocol.Actions.CrewLeave) {
-			return this._crews.Leave(player) as Response;
-		} else if (action === K.Protocol.Actions.CrewKick) {
-			return this._crews.Kick(player, payload) as Response;
-		} else if (action === K.Protocol.Actions.CrewRename) {
-			return this._crews.Rename(player, payload) as Response;
-		} else if (action === K.Protocol.Actions.CrewClaim) {
-			return this._crews.Claim(player, payload) as Response;
-		} else if (action === K.Protocol.Actions.SetTutorialStep) {
-			return this._setTutorialStep(player, payload?.Step);
-		} else if (action === K.Protocol.Actions.MarkHintSeen) {
-			return this._markHintSeen(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimFirstGoal) {
-			return this._claimFirstGoal(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.CompleteTutorial) {
-			return this._completeTutorial(player);
-		} else if (action === K.Protocol.Actions.ReplayTutorial) {
-			return this._replayTutorial(player);
-		} else if (action === K.Protocol.Actions.DismissRelease) {
-			return this._dismissRelease(player);
-		} else if (action === K.Protocol.Actions.OpenRelease) {
-			return this._openRelease(player);
-		} else if (action === K.Protocol.Actions.ReadStoryChapter) {
-			return this._readStoryChapter(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimStoryChapter) {
-			return this._claimStoryChapter(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ReadMail) {
-			return this._readMail(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimMail) {
-			return this._claimMail(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimAllMail) {
-			return this._claimAllMail(player);
-		} else if (action === K.Protocol.Actions.DeleteMail) {
-			return this._deleteMail(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.PulseAnomaly) {
-			return this._pulseAnomaly(player);
-		} else if (action === K.Protocol.Actions.StabilizeAnomaly) {
-			return this._stabilizeAnomaly(player);
-		} else if (action === K.Protocol.Actions.BuyAnomalyProtocol) {
-			return this._buyAnomalyProtocol(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ActivateAnomalySurge) {
-			return this._activateAnomalySurge(player);
-		} else if (action === K.Protocol.Actions.SetAnomalyChannel) {
-			return this._setAnomalyChannel(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.SetAnomalyLoadout) {
-			return this._setAnomalyLoadout(player, payload?.Loadout);
-		} else if (action === K.Protocol.Actions.ClaimAnomalyMilestone) {
-			return this._claimAnomalyMilestone(player, payload?.Tier);
-		} else if (action === K.Protocol.Actions.ClaimAnomalyDirective) {
-			return this._claimAnomalyDirective(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.ClaimLabOrder) {
-			return this._claimLabOrder(player, payload?.Id);
-		} else if (action === K.Protocol.Actions.RouteLabPower) {
-			return this._routeLabPower(player, payload?.Channel, payload?.Delta);
+		const handler = this._actionTable().get(action as string);
+		if (handler !== undefined) {
+			return handler(player, action as string, payload);
 		}
 		return responseError(T("RemoteFirewall.UnknownForgeCommand"));
 	}
