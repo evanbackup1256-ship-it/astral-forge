@@ -1,7 +1,7 @@
 import { BRASS, IRON_RADIUS, ironFace } from "../../UiCore/castIron";
 import React from "@rbxts/react";
 import * as Format from "../../CoreKit/format";
-import { chromeFor, Palette, Radius, scrollTail, StrokeWidth } from "../../CoreKit/theme";
+import { chromeFor, Palette, Radius, scrollTail, StrokeWidth, TapTarget } from "../../CoreKit/theme";
 import { useViewport } from "../../MotionKit/motion";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
 import { columnsBalanced, SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
@@ -9,6 +9,8 @@ import { useFocusOrder } from "../../CoreKit/focusOrder";
 import type { Session } from "../../state";
 import { HeaderArt } from "../../UiCore/HeaderArt";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
+import { Bar, BODY, BODY_BOLD, Line, MockPanel, NUM, PanelHeading } from "../../UiCore/mockKit";
+import { HEADING_SECTION_H, HeadingSection, headingBlock, MockBtn, MockRow, panelHeight, rowHeight, RowFace, SEC, TileWell } from "../mockRows";
 
 const Ui = loadUi();
 const Audio = loadAudio();
@@ -250,6 +252,7 @@ interface BazaarOfferCardProps {
 	reducedMotion?: boolean;
 	size: UDim2;
 	position: UDim2;
+	phone?: boolean;
 	onToggleSave: () => void;
 	onInspect: () => void;
 	onBuy: () => void;
@@ -259,138 +262,71 @@ function darken3(c: Color3): Color3 {
 	return c.Lerp(Palette.ink, 0.55);
 }
 
+// 06-bazaar listing .row: tile, Name over the deal line, stock, price, sm buttons
+const OFFER_ROW_H = 72;
+const OFFER_ROW_H_PHONE = 64 + TapTarget + 8;
+function offerRowHeight(phone: boolean): number {
+	return phone ? OFFER_ROW_H_PHONE : OFFER_ROW_H;
+}
+
 function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 	const offer = props.offer;
 	const quantity = props.quantity;
 	const total = props.total;
 	const enough = props.enough;
 	const reducedMotion = props.reducedMotion;
+	const phone = props.phone === true;
 	const accent = ACCENTS[offer.Category] ?? Palette.violet;
+	const flag = offer.Rare ? "Rare find · " : offer.Procured ? "Requested · " : offer.Featured ? "Featured · " : "";
+	const buyText = props.expired
+		? "Refresh stock"
+		: offer.Left === 0
+			? "Sold out"
+			: offer.Left < quantity
+				? "Not enough stock"
+				: `Buy ${quantity}`;
+	const canBuy = !(props.busy || props.expired || !enough || offer.Left < quantity);
+	const buttonsW = phone ? 0 : 44 + 8 + 96 + 8 + 128;
+	const buttons = (
+		<>
+			<MockBtn text={props.saved ? "★" : "☆"} sec={true} sm={true} phone={phone} width={44} disabled={props.busy} onClick={props.onToggleSave} reducedMotion={reducedMotion} layoutOrder={0} />
+			<MockBtn text={props.inspected ? "Inspecting" : "Inspect"} sec={true} sm={true} phone={phone} width={96} onClick={props.onInspect} reducedMotion={reducedMotion} layoutOrder={1} />
+			<MockBtn text={buyText} accent={accent} sm={true} phone={phone} width={128} disabled={!canBuy} onClick={props.onBuy} reducedMotion={reducedMotion} layoutOrder={2} />
+		</>
+	);
 	return (
-		<frame
-			Size={props.size}
-			Position={props.position}
-			BackgroundTransparency={1}
-		>
-			<Ui.Panel
-				size={UDim2.fromScale(1, 1)}
-				padding={18}
-				radius={18}
-				accent={accent}
-				background={Palette.panel}
-				reducedMotion={reducedMotion}
-			>
-				<frame
-					{...named("BrassRule")}
-					Size={new UDim2(1, 24, 1, 24)}
-					Position={UDim2.fromOffset(-12, -12)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(0, 12)} />
-					<uistroke Color={BRASS} Thickness={1} Transparency={0.75} />
-				</frame>
-				{/* category reads off the brass-edged accent spine; the stamp carries the discount */}
-				<frame
-					{...named("Spine")}
-					Size={new UDim2(0, 3, 1, 0)}
-					Position={UDim2.fromOffset(-12, 0)}
-					BackgroundColor3={accent}
-					BackgroundTransparency={0.2}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-				</frame>
-				<frame
-					{...named("Stamp")}
-					Size={UDim2.fromOffset(52, 20)}
-					BackgroundColor3={darken3(accent)}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(0, IRON_RADIUS)} />
-					{ironFace(false)}
-					<uistroke Color={BRASS} Thickness={1} Transparency={0.35} />
-					<Ui.Text
-						value={(offer.Rare ? "✦ " : offer.Procured ? "◆ " : offer.Featured ? "★ " : "") + "-" + math.floor(offer.Discount * 100) + "%"}
-						size={11}
-						weight={Enum.FontWeight.Heavy}
-						color={Palette.cream}
-						align={Enum.TextXAlignment.Center}
-						sizeConstraint={UDim2.fromScale(1, 1)}
-					/>
-				</frame>
-				<Ui.Button
-					text={props.saved ? "★" : "☆"}
-					color={Palette.panelSoft}
-					size={UDim2.fromOffset(60, 48)}
-					position={new UDim2(1, -60, 0, 0)}
-					reducedMotion={reducedMotion}
-					onClick={props.onToggleSave}
-					disabled={props.busy}
-				/>
-				<Ui.Text
-					value={offer.Name}
-					size={19}
-					weight={Enum.FontWeight.Heavy}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, 28)}
-					sizeConstraint={new UDim2(1, -68, 0, 58)}
-				/>
-				<Ui.Text
-					value={Format.formatReward(offer.Reward)}
-					size={13}
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, 90)}
-					sizeConstraint={new UDim2(1, 0, 0, 48)}
-				/>
-				<Ui.Text
-					value={`${offer.Left}/${offer.Stock}  ·  ${Format.compactNumber(offer.Price)}`}
+		<frame Size={props.size} Position={props.position} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+			<RowFace outline={props.inspected ? accent : undefined} />
+			<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 12)} PaddingTop={new UDim(0, 8)} PaddingBottom={new UDim(0, 8)} />
+			<TileWell icon="Shop" accent={accent} size={56} dim={offer.Left === 0} />
+			<frame BackgroundTransparency={1} Position={UDim2.fromOffset(68, 6)} Size={new UDim2(1, -(68 + buttonsW + (phone ? 0 : 12) + 110), 0, 44)}>
+				<Line text={offer.Name} size={phone ? 14 : 16} font={BODY_BOLD} width={new UDim(1, 0)} />
+				<Line
+					text={`${flag}-${math.floor(offer.Discount * 100)}% · ${Format.formatReward(offer.Reward)}`}
 					size={12}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					color={Palette.creamSoft}
-					position={UDim2.fromOffset(0, 144)}
-					sizeConstraint={new UDim2(1, 0, 0, 36)}
+					font={BODY}
+					color={Palette.muted}
+					width={new UDim(1, 0)}
+					position={UDim2.fromOffset(0, 22)}
+					height={16}
 				/>
-				<Ui.Meter
-					value={offer.Left / math.max(1, offer.Stock)}
-					color={accent}
-					reducedMotion={reducedMotion}
-					position={UDim2.fromOffset(0, 186)}
-					size={new UDim2(1, 0, 0, 6)}
-				/>
-				<Ui.Button
-					text={props.inspected ? "Inspecting" : "Inspect / compare"}
-					size={new UDim2(1, 0, 0, 48)}
-					position={UDim2.fromOffset(0, 204)}
-					color={Palette.panelSoft}
-					reducedMotion={reducedMotion}
-					onClick={props.onInspect}
-				/>
-				<Ui.Button
-					text={
-						props.expired
-							? "Refresh stock"
-							: offer.Left === 0
-								? "Sold out"
-								: offer.Left < quantity
-									? "Not enough stock"
-									: `Buy ${quantity}  ·  ${Format.compactNumber(total)} flux`
-					}
-					size={new UDim2(1, 0, 0, 48)}
-					position={UDim2.fromOffset(0, 264)}
-					color={accent}
-					disabled={props.busy || props.expired || !enough || offer.Left < quantity}
-					reducedMotion={reducedMotion}
-					onClick={props.onBuy}
-				/>
-			</Ui.Panel>
+			</frame>
+			<frame BackgroundTransparency={1} AnchorPoint={new Vector2(1, 0)} Position={new UDim2(1, -(buttonsW + (phone ? 0 : 12)), 0, 6)} Size={UDim2.fromOffset(110, 44)}>
+				<Line text={Format.compactNumber(total)} size={phone ? 14 : 17} font={NUM} color={Palette.mango} width={new UDim(1, 0)} align={Enum.TextXAlignment.Right} />
+				<Line text={`${offer.Left}/${offer.Stock} left`} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} align={Enum.TextXAlignment.Right} position={UDim2.fromOffset(0, 22)} height={16} />
+			</frame>
+			<frame
+				BackgroundTransparency={1}
+				AnchorPoint={phone ? new Vector2(0, 1) : new Vector2(1, 0.5)}
+				Position={phone ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, 28)}
+				Size={phone ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(buttonsW, 36)}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Right} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{buttons}
+			</frame>
+			<frame BackgroundTransparency={1} Position={new UDim2(0, 68, 0, 52)} Size={new UDim2(1, -(68 + buttonsW + (phone ? 0 : 12)), 0, 4)}>
+				<Bar fill={offer.Left / math.max(1, offer.Stock)} color={accent} thin={true} />
+			</frame>
 		</frame>
 	);
 }
@@ -399,7 +335,7 @@ function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 // total for the chosen amount, can-afford, saved/inspected button text, busy/expired button state,
 // motion, and its grid slot (size/position); the three handlers go through memoRow's latest-callback refs
 const BazaarOfferCard = memoRow<BazaarOfferCardProps>(counted("BazaarOffer", BazaarOfferCardImpl), ["onToggleSave", "onInspect", "onBuy"],
-	sameFields<BazaarOfferCardProps>(["offer", "quantity", "total", "enough", "saved", "inspected", "busy", "expired", "reducedMotion", "size", "position"]));
+	sameFields<BazaarOfferCardProps>(["offer", "quantity", "total", "enough", "saved", "inspected", "busy", "expired", "reducedMotion", "size", "position", "phone"]));
 
 function orderTotal(price: Flux, quantity: number): Flux {
 	const value = tonumber(price);
@@ -856,12 +792,14 @@ function BazaarView(props: BazaarProps) {
 				? "No open request. Pick a supply below: next shipment, held 24 hours."
 				: `Requests open at ${(reputation && reputation.ProcureTier) ?? "Regular"} standing. Every unit bought counts.`;
 		}
+		const rph = chrome.stack === true;
 		add(
 			"request-status",
-			112,
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
-				<Ui.Text value={status} size={14} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 82)} />
-			</Ui.Panel>,
+			panelHeight(rph, headingBlock(rph) + rowHeight(rph, true)),
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={rph} accent={Palette.violet} reducedMotion={props.reducedMotion}>
+				<PanelHeading icon="Mail" title="Requests" note={canProcure ? "Open" : "Locked"} accent={Palette.violet} phone={rph} layoutOrder={0} />
+				<MockRow phone={rph} icon="Info" accent={Palette.violet} title={procure && procure.Name !== undefined ? procure.Name : "No open request"} sub={status} layoutOrder={1} />
+			</MockPanel>,
 		);
 		if (procure && procure.Name !== undefined && procure.State !== "Filled" && procure.State !== "Expired") {
 			add(
@@ -870,7 +808,7 @@ function BazaarView(props: BazaarProps) {
 				<Ui.Button
 					text="Cancel request"
 					size={UDim2.fromScale(1, 1)}
-					color={Palette.panelSoft}
+					color={SEC}
 					disabled={busy}
 					reducedMotion={props.reducedMotion}
 					onClick={() => request("RequestProcurement", { Id: "" })}
@@ -885,33 +823,30 @@ function BazaarView(props: BazaarProps) {
 			shown += 1;
 			const current =
 				procure !== undefined && procure.Id === entry.Id && (procure.State === "Pending" || procure.State === "Listed");
+			const rowPhone = chrome.stack === true;
 			add(
 				"request-" + entry.Id,
-				64,
-				<Ui.Panel
-					size={UDim2.fromScale(1, 1)}
-					padding={8}
+				rowHeight(rowPhone, true),
+				<MockRow
+					phone={rowPhone}
+					icon="Shop"
 					accent={ACCENTS[entry.Category] ?? Palette.violet}
-					reducedMotion={props.reducedMotion}
-				>
-					<Ui.Text value={entry.Name} size={15} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, -132, 0, 24)} />
-					<Ui.Text
-						value={entry.Category}
-						size={11}
-						color={Palette.muted}
-						position={UDim2.fromOffset(0, 26)}
-						sizeConstraint={new UDim2(1, -132, 0, 20)}
-					/>
-					<Ui.Button
-						text={current ? "Requested" : "Request"}
-						size={UDim2.fromOffset(120, 48)}
-						position={new UDim2(1, -120, 0, 0)}
-						color={Palette.violet}
-						disabled={busy || current || !canProcure}
-						reducedMotion={props.reducedMotion}
-						onClick={() => request("RequestProcurement", { Id: entry.Id })}
-					/>
-				</Ui.Panel>,
+					title={entry.Name}
+					sub={entry.Category}
+					outline={current ? Palette.violet : undefined}
+					rightWidth={120}
+					right={
+						<MockBtn
+							text={current ? "Requested" : "Request"}
+							sm={true}
+							width={120}
+							accent={Palette.violet}
+							disabled={busy || current || !canProcure}
+							reducedMotion={props.reducedMotion}
+							onClick={() => request("RequestProcurement", { Id: entry.Id })}
+						/>
+					}
+				/>,
 			);
 		}
 		if (shown === 0 && market) {
@@ -941,27 +876,15 @@ function BazaarView(props: BazaarProps) {
 			shown += 1;
 			add(
 				"purchase-" + (i + 1),
-				112,
-				<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
-					<Ui.Text
-						value={`${entry.Quantity} × ${name}`}
-						size={17}
-						wrap={true}
-						fit={true}
-						minSize={10}
-						sizeConstraint={new UDim2(1, 0, 0, 46)}
-					/>
-					<Ui.Text
-						value={`${Format.compactNumber(entry.Cost)} flux · ${DateTime.fromUnixTimestamp(entry.At).FormatUniversalTime("MMM D, HH:mm", "en-us")} UTC`}
-						size={13}
-						wrap={true}
-						fit={true}
-						minSize={10}
-						color={Palette.muted}
-						position={UDim2.fromOffset(0, 50)}
-						sizeConstraint={new UDim2(1, 0, 0, 38)}
-					/>
-				</Ui.Panel>,
+				rowHeight(chrome.stack === true, true),
+				<MockRow
+					phone={chrome.stack === true}
+					icon="Shop"
+					accent={Palette.violet}
+					title={`${entry.Quantity} × ${name}`}
+					sub={`${DateTime.fromUnixTimestamp(entry.At).FormatUniversalTime("MMM D, HH:mm", "en-us")} UTC`}
+					value={`${Format.compactNumber(entry.Cost)} flux`}
+				/>,
 			);
 		});
 		if (shown === 0) {
@@ -1031,44 +954,12 @@ function BazaarView(props: BazaarProps) {
 	const plan = splitColumns(width, 340, 12);
 	if (selected) {
 		const chosen = selected;
-		add(
-			"inspection-heading",
-			138,
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
-				<Ui.Text value={chosen.Name} size={19} wrap={true} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 48)} />
-				<Ui.Button
-					text="Close inspection"
-					size={new UDim2(1, 0, 0, 48)}
-					position={UDim2.fromOffset(0, 52)}
-					color={Palette.panelSoft}
-					reducedMotion={props.reducedMotion}
-					onClick={() => setInspected(undefined)}
-				/>
-			</Ui.Panel>,
-		);
-		const holdings: string[] = [];
+		const iph = chrome.stack === true;
+		const holdings: Array<{ Label: string; Count: unknown }> = [];
 		for (const entry of chosen.Holdings ?? []) {
-			holdings.push(entry.Label + ": " + Format.compactNumber(entry.Count));
+			holdings.push(entry);
 		}
 		const quantity = amount === "Three" ? 3 : amount === "Shelf" ? math.clamp(chosen.Left, 1, 8) : 1;
-		add(
-			"inspection-detail",
-			198,
-			<Ui.Text
-				value={
-					Format.formatReward(chosen.Reward) +
-					" per unit\n\n" +
-					(holdings.size() > 0
-						? "Currently held\n" + holdings.join("\n")
-						: "Still loading your inventory. Refresh in a sec.") +
-					`\n\nOrder: ${quantity} units for ${Format.compactNumber(orderTotal(chosen.Price, quantity))} flux` +
-					`\nPersonal limit: ${chosen.Left} of ${chosen.Stock} units remaining this hour.`
-				}
-				size={14}
-				wrap={true}
-				sizeConstraint={UDim2.fromScale(1, 1)}
-			/>,
-		);
 		const [identity] = supplyUnit(chosen.Reward);
 		const comparisons: Array<{ Offer: Offer; Units: number; UnitPrice: Flux }> = [];
 		if (identity !== undefined) {
@@ -1083,46 +974,52 @@ function BazaarView(props: BazaarProps) {
 			const comparison = Format.compareFlux(a.UnitPrice, b.UnitPrice);
 			return comparison !== 0 ? comparison < 0 : a.Offer.Name < b.Offer.Name;
 		});
+		// 06 side panel: heading, .row facts, held amounts, close
+		const rowsN = 3 + math.max(1, holdings.size());
+		const ig = iph ? 8 : 12;
+		add(
+			"inspection-heading",
+			panelHeight(iph, headingBlock(iph) + rowsN * rowHeight(iph) + (rowsN - 1) * ig + ig + (iph ? TapTarget : 44)),
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={iph} accent={Palette.violet} glow={Palette.violet} reducedMotion={props.reducedMotion}>
+				<PanelHeading icon="Search" title={chosen.Name} note="Inspecting" accent={Palette.violet} phone={iph} layoutOrder={0} />
+				<MockRow phone={iph} icon="Gift" accent={Palette.violet} title="Per unit" value={Format.formatReward(chosen.Reward)} layoutOrder={1} />
+				<MockRow phone={iph} icon="Flux" accent={Palette.mango} title={`Order of ${quantity}`} value={`${Format.compactNumber(orderTotal(chosen.Price, quantity))} flux`} layoutOrder={2} />
+				<MockRow phone={iph} icon="Timer" accent={Palette.violet} title="Your limit" value={`${chosen.Left} of ${chosen.Stock} this hour`} layoutOrder={3} />
+				{holdings.size() > 0 ? (
+					holdings.map((entry, index) => (
+						<MockRow phone={iph} icon="Vault" accent={Palette.creamSoft} title={`Held · ${entry.Label}`} value={Format.compactNumber(entry.Count as Flux)} layoutOrder={4 + index} />
+					))
+				) : (
+					<MockRow phone={iph} icon="Vault" accent={Palette.muted} title="Held" value="Loading…" layoutOrder={4} />
+				)}
+				<MockBtn text="Close inspection" sec={true} fill={true} phone={iph} reducedMotion={props.reducedMotion} onClick={() => setInspected(undefined)} layoutOrder={99} />
+			</MockPanel>,
+		);
 		add(
 			"comparison-heading",
-			76,
-			<Ui.Text
-				value={
-					comparisons.size() > 1
-						? "The same supply in every pack size, compared by price per unit."
-						: "No matching single-supply offers in this shipment. Mixed kits and different keys or boosts are not compared."
-				}
-				size={14}
-				wrap={true}
-				color={Palette.muted}
-				sizeConstraint={UDim2.fromScale(1, 1)}
+			HEADING_SECTION_H,
+			<HeadingSection
+				icon="StarGrid"
+				title="Per unit"
+				note={comparisons.size() > 1 ? "Same supply, every pack size" : "Nothing comparable this shipment"}
+				accent={Palette.violet}
+				phone={iph}
 			/>,
 		);
 		for (const comparison of comparisons) {
 			const offer = comparison.Offer;
 			add(
 				"compare-" + offer.Id,
-				112,
-				<Ui.Panel size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.violet} reducedMotion={props.reducedMotion}>
-					<Ui.Text
-						value={offer.Name + (offer.Id === chosen.Id ? " (selected)" : "")}
-						size={16}
-						wrap={true}
-						fit={true}
-						minSize={10}
-						sizeConstraint={new UDim2(1, 0, 0, 44)}
-					/>
-					<Ui.Text
-						value={`${Format.compactNumber(comparison.UnitPrice)}/unit · ×${comparison.Units} · ${offer.Left} left`}
-						size={13}
-						wrap={true}
-						fit={true}
-						minSize={10}
-						color={Palette.muted}
-						position={UDim2.fromOffset(0, 48)}
-						sizeConstraint={new UDim2(1, 0, 0, 40)}
-					/>
-				</Ui.Panel>,
+				rowHeight(iph, true),
+				<MockRow
+					phone={iph}
+					icon="Shop"
+					accent={Palette.violet}
+					title={offer.Name + (offer.Id === chosen.Id ? " (selected)" : "")}
+					sub={`×${comparison.Units} · ${offer.Left} left`}
+					value={`${Format.compactNumber(comparison.UnitPrice)}/unit`}
+					outline={offer.Id === chosen.Id ? Palette.violet : undefined}
+				/>,
 			);
 		}
 	} else if (inspected !== undefined) {
@@ -1160,9 +1057,10 @@ function BazaarView(props: BazaarProps) {
 		}
 		return a.Name < b.Name;
 	});
-	const cardHeight = 346;
-	const gap = 12;
-	const shelfColumns = (shelfW: number) => math.max(1, math.min(3, math.floor((shelfW + 12) / 300)));
+	const phone = chrome.stack === true;
+	const cardHeight = offerRowHeight(phone);
+	const gap = 10;
+	const shelfColumns = (_shelfW: number) => 1;
 	// the shelf's height only depends on the offer count and the column count, so it can be worked out
 	// exactly at the split width before deciding; split only when it roughly matches the inspection column
 	const shelfHeightAt = (shelfW: number) => {
@@ -1205,6 +1103,7 @@ function BazaarView(props: BazaarProps) {
 					busy={busy}
 					expired={expired}
 					reducedMotion={props.reducedMotion}
+					phone={phone}
 					size={new UDim2(1 / cardColumns, (-gap * (cardColumns - 1)) / cardColumns, 1, 0)}
 					position={new UDim2(offset / cardColumns, (gap * offset) / cardColumns, 0, 0)}
 					onToggleSave={() => {

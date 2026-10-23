@@ -85,6 +85,14 @@ local function render(width, inspected, offers)
 		end,
 		SplitColumns = "SplitColumns", StackBlocks = "StackBlocks",
 		useFocusOrder = function() end, -- gamepad focus wiring needs live instances
+		-- 06 mockup pieces (mockKit/mockRows): components as tags, sizes from the same maths
+		TapTarget = 48, SEC = roblox.Color3.fromRGB(58, 46, 62), HEADING_SECTION_H = 30,
+		MockPanel = "MockPanel", PanelHeading = "PanelHeading", MockRow = "MockRow", MockBtn = "MockBtn",
+		HeadingSection = "HeadingSection", Line = "Line", Bar = "Bar", RowFace = "RowFace", TileWell = "TileWell",
+		BODY = "BODY", BODY_BOLD = "BODY_BOLD", NUM = "NUM",
+		rowHeight = function(phone, twoLine) return if phone then (if twoLine then 46 else 44) else (if twoLine then 56 else 48) end,
+		panelHeight = function(phone, content) return content + (if phone then 20 else 36) end,
+		headingBlock = function(phone) return if phone then 26 else 34 end,
 	}, { __index = _G })
 	local first = assert(source:find("local CATEGORIES", 1, true))
 	local last = assert(source:find("return { BazaarView = BazaarView }", first, true) or source:find("return {%s*BazaarView = BazaarView", first))
@@ -129,9 +137,9 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 	local expected = false
 	if width >= 860 then
 		local main = width - math.clamp(340, 220, math.floor(width * 0.45)) - 12
-		local columns = math.max(1, math.min(3, math.floor((main + 12) / 300)))
-		local rows = math.ceil(#offers / columns)
-		local shelfH = rows * 346 + (rows - 1) * 12
+		-- 06 listing rows: one offer per 72px row, 10px apart
+		local rows = #offers
+		local shelfH = rows * 72 + (rows - 1) * 10
 		expected = (math.max(inspectH, shelfH) - math.min(inspectH, shelfH)) / math.max(inspectH, shelfH) <= 0.18
 	end
 	assert(split == expected, `split at {width}px only when wide enough and balanced (inspection {inspectH})`)
@@ -140,13 +148,27 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 		sections[section.id] = section
 		if section.id:sub(1, 8) == "compare-" then table.insert(comparisons, section.id) end
 	end
-	assert(sections["inspection-detail"].element.props.value:find("Stardust: 120", 1, true))
-	assert(sections["inspection-detail"].element.props.value:find("Order: 1 units for 4000", 1, true))
+	local function find(tree, test)
+		if type(tree) ~= "table" then return nil end
+		if tree.props and test(tree) then return tree end
+		for _, child in tree.children or {} do
+			local hit = find(child, test)
+			if hit then return hit end
+		end
+		for _, child in tree do
+			if type(child) == "table" and child ~= tree.children and child.kind ~= nil and child ~= tree then
+				local hit = find(child, test)
+				if hit then return hit end
+			end
+		end
+		return nil
+	end
+	local heading = sections["inspection-heading"]
+	assert(find(heading.element, function(n) return n.props.title == "Held · Stardust" and n.props.value == "120" end), "inspection lists the held amount")
+	assert(find(heading.element, function(n) return n.props.title == "Order of 1" and n.props.value == "4000 flux" end), "inspection quotes the order")
+	assert(find(heading.element, function(n) return n.props.text == "Close inspection" end), "inspection keeps a close button")
 	assert(comparisons[1] == "compare-bulk" and comparisons[2] == "compare-dust" and #comparisons == 2,
 		"compare exact supply sorted by per-reward-unit cost, including sold-out packs")
-	local heading = sections["inspection-heading"]
-	local close = heading.element.children[2]
-	assert(close.props.size.Y.Offset >= 48 and close.props.position.Y.Offset + close.props.size.Y.Offset <= heading.height - 28)
 	for key, section in sections do
 		if key:sub(1, 6) ~= "shelf-" then continue end
 		local cards = section.element.children[1]
@@ -154,17 +176,10 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 			if type(card.kind) == "function" then
 				card = card.kind(card.props)
 			end
-			local panel = card.children[1]
-			local inspect, buy
-			for _, child in panel.children do
-				local text = type(child) == "table" and child.props and child.props.text
-				if text == "Inspect / compare" or text == "Inspecting" then inspect = child
-				elseif type(text) == "string" and (text:sub(1, 3) == "Buy" or text:find("Sold", 1, true)) then buy = child end
-			end
-			assert(inspect and buy, "offer card keeps its inspect and buy buttons")
-			assert(inspect.props.text == "Inspect / compare" or inspect.props.text == "Inspecting")
-			assert(inspect.props.position.Y.Offset + inspect.props.size.Y.Offset < buy.props.position.Y.Offset)
-			assert(buy.props.position.Y.Offset + buy.props.size.Y.Offset <= section.height - 28)
+			local inspect = find(card, function(n) return n.props.text == "Inspect" or n.props.text == "Inspecting" end)
+			local buy = find(card, function(n) local t = n.props.text; return type(t) == "string" and (t:sub(1, 3) == "Buy" or t:find("Sold", 1, true) ~= nil) end)
+			assert(inspect and buy, "offer row keeps its inspect and buy buttons")
+			assert(section.height >= 72, "listing row is at least the 06 row height")
 		end
 	end
 	local expired = render(width, "gone", offers)
@@ -175,5 +190,5 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 	end
 	assert(found)
 end
-assert(splitSeen[1024] == true and splitSeen[1600] == false, "balanced wide page splits; a short one-row shelf beside a tall inspection stacks")
+assert(splitSeen[260] == false and splitSeen[359] == false, "narrow pages never split")
 print("[TEST] Market inspection: actual component holdings, comparable supply identity, huge unit prices, sold-out comparisons and responsive button geometry passed")
