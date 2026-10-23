@@ -121,6 +121,53 @@ function Orbit(props: OrbitProps) {
 	);
 }
 
+// Concentric tilted rings around the ascension star; one ring per tier, nodes sit still (icons don't move).
+const TIER_RINGS = 3;
+function OrbitDiagram(props: { rank: number; height: number }) {
+	const rings: Record<string, React.Element> = {};
+	const tilt = -18;
+	for (let i = 1; i <= TIER_RINGS; i++) {
+		const w = props.height * (0.55 + i * 0.42);
+		const h = w * 0.42;
+		const lit = props.rank >= i;
+		const nodes: Record<string, React.Element> = {};
+		for (let n = 0; n < 2; n++) {
+			const a = (n * math.pi) + i * 0.9;
+			nodes["n" + n] = (
+				<frame
+					Size={UDim2.fromOffset(lit ? 12 : 8, lit ? 12 : 8)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					Position={new UDim2(0.5 + math.cos(a) * 0.5, 0, 0.5 + math.sin(a) * 0.5, 0)}
+					BackgroundColor3={lit ? Palette.pink : Palette.panel}
+					BorderSizePixel={0}
+					ZIndex={3}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+					<uistroke Color={Palette.violet} Thickness={1.5} />
+				</frame>
+			);
+		}
+		rings["ring" + i] = (
+			<frame Size={UDim2.fromOffset(w, h)} AnchorPoint={new Vector2(0.5, 0.5)} Position={UDim2.fromScale(0.5, 0.5)} Rotation={tilt} BackgroundTransparency={1} ZIndex={2}>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+				<uistroke Color={Palette.violet} Thickness={lit ? 2 : 1} Transparency={lit ? 0.15 : 0.55} />
+				{nodes}
+			</frame>
+		);
+	}
+	const core = math.floor(props.height * 0.22);
+	return (
+		<frame Size={new UDim2(1, 0, 0, props.height)} BackgroundTransparency={1} ClipsDescendants={false}>
+			{rings}
+			<frame Size={UDim2.fromOffset(core, core)} AnchorPoint={new Vector2(0.5, 0.5)} Position={UDim2.fromScale(0.5, 0.5)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ZIndex={4}>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+				<uistroke Color={Palette.violet} Thickness={2} />
+				<Ui.Text value={tostring(props.rank)} size={math.floor(core * 0.45)} weight={Enum.FontWeight.Heavy} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, -math.floor(core * 0.3))} sizeConstraint={new UDim2(1, 0, 0, math.floor(core * 0.6))} zIndex={5} />
+			</frame>
+		</frame>
+	);
+}
+
 interface HoldButtonProps {
 	enabled: boolean;
 	text: string;
@@ -376,138 +423,104 @@ function AscensionViewBoard(props: AscensionViewProps) {
 	}
 
 	// hero (phones: a smaller orbit and a narrower left column so the copy keeps its width)
-	const heroH = stack ? 216 : 176;
-	const col = stack ? 104 : 140;
-	const orbitX = stack ? 44 : 60;
-	const outer = stack ? 38 : 52;
-	const inner = stack ? 22 : 30;
+	const heroH = stack ? 96 : 120;
+	const outer = stack ? 30 : 42;
+	const inner = stack ? 18 : 26;
+	const orbitY = heroH / 2;
 	add(
 		"hero",
 		heroH,
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={stack ? 16 : 20} accent={ACCENT} background={darken(ACCENT, 0.9)} clips={true}>
-			<Orbit
-				count={12}
-				radius={outer}
-				dot={6}
-				speed={1}
-				color={ACCENT}
-				position={new UDim2(0, orbitX, 0, outer + 12)}
-				softMotion={softMotion}
-				zIndex={2}
-			/>
-			<Orbit
-				count={7}
-				radius={inner}
-				dot={5}
-				speed={-1.6}
-				color={lighten(ACCENT, 0.25)}
-				position={new UDim2(0, orbitX, 0, outer + 12)}
-				softMotion={softMotion}
-				zIndex={2}
-			/>
+		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={stack ? 14 : 18} accent={Palette.brass} background={darken(ACCENT, 0.9)} radius={18} clips={true}>
+			<Orbit count={12} radius={outer} dot={6} speed={1} color={ACCENT} position={new UDim2(1, -(outer + 14), 0, orbitY - (stack ? 14 : 18))} softMotion={softMotion} zIndex={2} />
+			<Orbit count={7} radius={inner} dot={5} speed={-1.6} color={lighten(ACCENT, 0.25)} position={new UDim2(1, -(outer + 14), 0, orbitY - (stack ? 14 : 18))} softMotion={softMotion} zIndex={2} />
+			<Ui.Text value={`TIER ${state.Rank} → ${state.Rank + 1}`} size={10} weight={Enum.FontWeight.Heavy} color={Palette.violet} sizeConstraint={new UDim2(1, -140, 0, 14)} />
+			<Ui.Text value="Ascension" size={stack ? 22 : 30} weight={Enum.FontWeight.Heavy} fit={true} minSize={16} position={UDim2.fromOffset(0, 16)} sizeConstraint={new UDim2(1, -140, 0, stack ? 26 : 36)} />
 			<Ui.Text
-				value={tostring(state.Rank)}
-				size={stack ? 24 : 30}
-				weight={Enum.FontWeight.Heavy}
-				color={Palette.cream}
-				align={Enum.TextXAlignment.Center}
-				position={new UDim2(0, orbitX - 30, 0, outer + 12 - 18)}
-				sizeConstraint={UDim2.fromOffset(60, 36)}
-				zIndex={3}
-			/>
-			<Ui.Text
-				value={state.Rank > 0 ? "Ascended" : "Ascension"}
-				size={stack ? 22 : 26}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={16}
-				position={UDim2.fromOffset(col, 9)}
-				sizeConstraint={new UDim2(1, -col, 0, 32)}
-			/>
-			<Ui.Text
-				value={`${compact(state.Aether)} Aether     ×${compact(state.Production)}`}
-				size={14}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(col, 56)}
-				sizeConstraint={new UDim2(1, -col, 0, stack ? 58 : 40)}
-			/>
-			<Ui.Text
-				value="Resets your Domain, rebirths, cores and current run. Research, relics, artifacts, the Star Foundry and sigils stay."
+				value={`${compact(state.Aether)} Aether · ×${compact(state.Production)}`}
 				size={12}
-				color={Palette.muted}
-				wrap={true}
+				color={Palette.creamSoft}
 				fit={true}
 				minSize={10}
-				position={stack ? UDim2.fromOffset(0, 124) : UDim2.fromOffset(col, 96)}
-				sizeConstraint={stack ? new UDim2(1, 0, 0, 56) : new UDim2(1, -col, 0, 36)}
+				position={UDim2.fromOffset(0, stack ? 46 : 58)}
+				sizeConstraint={new UDim2(1, -(outer * 2 + 40), 0, 16)}
 			/>
 		</Ui.Panel>,
 	);
 
-	// ascend
+	// orbit diagram + requirements
 	const progress = math.clamp(state.DomainRank / math.max(1, state.RequiredDomainRank), 0, 1);
-	add(
-		"ascend",
-		stack ? 196 : 132,
-		<Ui.Panel
-			size={UDim2.fromScale(1, 1)}
-			padding={18}
-			accent={state.CanAscend ? ACCENT : Palette.lineSoft}
-			background={Palette.panel}
-		>
-			<Ui.Text
-				value={
-					state.CanAscend
-						? `+${compact(state.Gain)} Aether`
-						: `Domain ${state.DomainRank} / ${state.RequiredDomainRank}`
-				}
-				size={19}
-				weight={Enum.FontWeight.Heavy}
-				sizeConstraint={new UDim2(1, stack ? 0 : -300, 0, 26)}
-			/>
-			<Ui.Text
-				value={
-					state.CanAscend ? `Domain ${state.DomainRank} / ${state.RequiredDomainRank}` : ""
-				}
-				size={13}
-				color={Palette.muted}
-				position={UDim2.fromOffset(0, 30)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -300, 0, 18)}
-			/>
-			<Ui.Meter
-				value={progress}
-				color={ACCENT}
-				reducedMotion={softMotion}
-				position={UDim2.fromOffset(0, 58)}
-				size={new UDim2(1, stack ? 0 : -300, 0, 4)}
-			/>
-			<Ui.Text
-				value={`next ×${compact(state.NextRankProduction)}`}
-				size={12}
-				color={Palette.creamSoft}
-				position={UDim2.fromOffset(0, 76)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -300, 0, 16)}
-			/>
-			<frame
-				key="AscendConfirm"
-				Size={stack ? new UDim2(1, 0, 0, TapTarget + 8) : UDim2.fromOffset(280, 64)}
-				Position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -280, 0.5, -32)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-			>
+	const diagramH = stack ? 220 : 320;
+	const reqRows: [string, string, string, boolean][] = [
+		["Domain.1", "Domain rank", `${state.DomainRank} / ${state.RequiredDomainRank}`, state.DomainRank >= state.RequiredDomainRank],
+		["StarGrid.2", "Aether gain", `+${compact(state.Gain)}`, state.CanAscend],
+		["Forge.3", "Next tier", `×${compact(state.NextRankProduction)}`, false],
+	];
+	const reqH = 30 + reqRows.size() * 46 + 56 + 16 + 12;
+	const reqItems: Record<string, React.Element> = {};
+	reqRows.forEach(([icon, label, value, met], i) => {
+		reqItems["r" + i] = (
+			<frame Size={new UDim2(1, 0, 0, 40)} Position={UDim2.fromOffset(0, 28 + i * 46)} BackgroundColor3={Palette.panelSoft} BackgroundTransparency={0.4} BorderSizePixel={0}>
+				<uicorner CornerRadius={new UDim(0, 10)} />
+				<Ui.IconTile kind={icon} accent={met ? Palette.violet : Palette.lineSoft} size={26} position={UDim2.fromOffset(7, 7)} reducedMotion={softMotion} />
+				<Ui.Text value={label} size={13} weight={Enum.FontWeight.Bold} position={UDim2.fromOffset(42, 11)} sizeConstraint={new UDim2(1, -140, 0, 18)} />
+				<Ui.Text value={value} size={13} weight={Enum.FontWeight.Heavy} color={met ? Palette.violet : Palette.creamSoft} align={Enum.TextXAlignment.Right} position={new UDim2(1, -102, 0, 11)} sizeConstraint={UDim2.fromOffset(92, 18)} />
+			</frame>
+		);
+	});
+	const requirements = (
+		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={state.CanAscend ? ACCENT : Palette.lineSoft} background={Palette.panel} radius={18}>
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uicorner CornerRadius={new UDim(0, 12)} />
+				<uistroke Color={Palette.brass} Transparency={0.75} Thickness={1} />
+			</frame>
+			<Ui.Text value={`TIER ${state.Rank + 1}`} size={12} weight={Enum.FontWeight.Heavy} color={Palette.brass} sizeConstraint={new UDim2(1, 0, 0, 18)} />
+			{reqItems}
+			<Ui.Meter value={progress} color={Palette.violet} reducedMotion={softMotion} position={new UDim2(0, 0, 1, -(TapTarget + 8 + 14))} size={new UDim2(1, 0, 0, 6)} />
+			<frame key="AscendConfirm" Size={new UDim2(1, 0, 0, TapTarget + 8)} Position={new UDim2(0, 0, 1, -(TapTarget + 8))} BackgroundTransparency={1} BorderSizePixel={0}>
 				<HoldButton
 					enabled={state.CanAscend && !busy}
-					text="Hold"
-					disabledText="Not ready"
+					text="Hold to ascend"
+					disabledText={`Domain ${state.RequiredDomainRank} needed`}
 					size={UDim2.fromScale(1, 1)}
 					position={UDim2.fromOffset(0, 0)}
 					onConfirm={() => request("Ascend")}
 				/>
 			</frame>
-		</Ui.Panel>,
+		</Ui.Panel>
+	);
+	const diagram = (
+		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.violet} background={Palette.panelRaised} radius={18} clips={true}>
+			<OrbitDiagram rank={state.Rank} height={diagramH - 28} />
+			<Ui.Text
+				value={`Domain ${state.DomainRank} / ${state.RequiredDomainRank}   ·   Aether ${compact(state.Aether)}`}
+				size={12}
+				color={Palette.creamSoft}
+				align={Enum.TextXAlignment.Center}
+				fit={true}
+				minSize={10}
+				position={new UDim2(0, 0, 1, -18)}
+				sizeConstraint={new UDim2(1, 0, 0, 16)}
+				zIndex={4}
+			/>
+		</Ui.Panel>
+	);
+	const pairPlan = splitColumns(stack ? 0 : viewport.width - 40, 300, GAP, 760);
+	const boardH = pairPlan.split ? math.max(diagramH, reqH) : diagramH + GAP + reqH;
+	add(
+		"ascend",
+		boardH,
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+			<frame Size={pairPlan.split ? new UDim2(1, -(pairPlan.side + GAP), 1, 0) : new UDim2(1, 0, 0, diagramH)} BackgroundTransparency={1}>
+				{diagram}
+			</frame>
+			<frame
+				Size={pairPlan.split ? new UDim2(0, pairPlan.side, 1, 0) : new UDim2(1, 0, 0, reqH)}
+				Position={pairPlan.split ? new UDim2(1, -pairPlan.side, 0, 0) : UDim2.fromOffset(0, diagramH + GAP)}
+				BackgroundTransparency={1}
+			>
+				{requirements}
+			</frame>
+		</frame>,
 	);
 	if (note !== "") {
 		add("note", 28, <Ui.Text value={note} size={14} color={Palette.creamSoft} sizeConstraint={new UDim2(1, 0, 0, 24)} />);
