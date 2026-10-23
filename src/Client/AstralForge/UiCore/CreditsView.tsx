@@ -222,6 +222,7 @@ function Medallion(props: {
 	const enter = useSurfaceEnter(props.reducedMotion, props.delay);
 	const fade = enter.map((a) => 1 - math.clamp(a, 0, 1));
 	const [display] = namesOf(member);
+	const initial = display.sub(1, 1).upper();
 	const size = props.size;
 	const nameSize = props.lead ? 17 : 14;
 	const role = MODEL.ShowRoles !== false ? props.credit.roles.join(" · ") : "";
@@ -255,6 +256,17 @@ function Medallion(props: {
 					Rotation={90}
 					Color={new ColorSequence(lighten3(Palette.panel), darken(Palette.panel, 0.55))}
 				/>
+				{/* initial sits underneath, so the medallion is never empty while images stream in */}
+				<textlabel
+					Size={UDim2.fromScale(1, 1)}
+					BackgroundTransparency={1}
+					Text={initial}
+					TextColor3={Palette.brass}
+					TextTransparency={fade.map((f) => 0.4 + f * 0.6)}
+					TextSize={math.floor(size * 0.4)}
+					FontFace={SERIF}
+					ZIndex={7}
+				/>
 				<imagelabel
 					Size={UDim2.fromScale(0.86, 0.86)}
 					Position={UDim2.fromScale(0.5, 0.54)}
@@ -267,6 +279,39 @@ function Medallion(props: {
 					ScaleType={Enum.ScaleType.Fit}
 					ZIndex={8}
 				/>
+				{member.UserId !== undefined && (
+					<frame
+						Size={UDim2.fromOffset(math.floor(size * 0.34), math.floor(size * 0.34))}
+						Position={UDim2.fromScale(0.86, 0.86)}
+						AnchorPoint={new Vector2(0.5, 0.5)}
+						BackgroundColor3={darken(Palette.panel, 0.35)}
+						BackgroundTransparency={fade}
+						BorderSizePixel={0}
+						ZIndex={10}
+					>
+						<uicorner CornerRadius={new UDim(1, 0)} />
+						<uistroke Color={Palette.brass} Thickness={1} Transparency={fade.map((f) => 0.3 + f * 0.7)} />
+						<textlabel
+							Size={UDim2.fromScale(1, 1)}
+							BackgroundTransparency={1}
+							Text={initial}
+							TextColor3={Palette.cream}
+							TextTransparency={fade}
+							TextScaled={true}
+							FontFace={SERIF}
+							ZIndex={10}
+						/>
+						<imagelabel
+							Size={UDim2.fromScale(1, 1)}
+							BackgroundTransparency={1}
+							Image={`rbxthumb://type=AvatarHeadShot&id=${member.UserId}&w=150&h=150`}
+							ImageTransparency={fade}
+							ZIndex={11}
+						>
+							<uicorner CornerRadius={new UDim(1, 0)} />
+						</imagelabel>
+					</frame>
+				)}
 				<frame
 					Size={new UDim2(1, -6, 1, -6)}
 					Position={UDim2.fromScale(0.5, 0.5)}
