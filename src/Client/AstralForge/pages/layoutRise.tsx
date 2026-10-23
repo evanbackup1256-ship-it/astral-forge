@@ -96,17 +96,33 @@ export interface ComposeBlocks {
 	tiles?: PageBlock[];
 	footer?: PageBlock[];
 }
+/** Width the page scaffold takes from a section: 3px scrollbar (ScrollBarInset.ScrollBar) + 8px gutter. */
+export const SCAFFOLD_RESERVE = 11;
+
+/**
+ * One plan, one height: the composition is planned once at the width the section will really get
+ * (viewport estimate minus the scaffold reserve), and that plan's height is the section height.
+ * At runtime the measured width only rescales x/w, never y/h, so the section can't clip or leave a gap
+ * when the measured width differs from the estimate.
+ */
 export function composeSection(name: string, estimate: number, gap: number, blocks: ComposeBlocks, options: Omit<ComposeSpec, "hero" | "primary" | "secondary" | "tiles" | "footer">): PageBlock {
 	const heights = (list?: PageBlock[]) => (list ?? []).map((block) => block.height);
-	// plan against the section's real width (the scaffold reserves the scrollbar and a gutter),
-	// not the viewport estimate, so no zone runs under the scrollbar
-	return { id: name, height: planComposition(estimate, gap, { ...options, hero: heights(blocks.hero), primary: heights(blocks.primary), secondary: heights(blocks.secondary), tiles: heights(blocks.tiles), footer: heights(blocks.footer) }).height, element: <ComposedZones key={name} name={name} estimate={estimate} gap={gap} blocks={blocks} options={options} /> };
+	const planned = math.max(1, estimate - SCAFFOLD_RESERVE);
+	const plan = planComposition(planned, gap, {
+		...options,
+		hero: heights(blocks.hero),
+		primary: heights(blocks.primary),
+		secondary: heights(blocks.secondary),
+		tiles: heights(blocks.tiles),
+		footer: heights(blocks.footer),
+	});
+	return { id: name, height: plan.height, element: <ComposedZones key={name} planned={planned} plan={plan} blocks={blocks} /> };
 }
 
-function ComposedZones(props: { name: string; estimate: number; gap: number; blocks: ComposeBlocks; options: Omit<ComposeSpec, "hero" | "primary" | "secondary" | "tiles" | "footer"> }) {
-	const { gap, blocks, options } = props;
+function ComposedZones(props: { planned: number; plan: ReturnType<typeof planComposition>; blocks: ComposeBlocks }) {
+	const { planned, plan, blocks } = props;
 	const hostRef = React.useRef<Frame>();
-	const [width, setWidth] = React.useState(props.estimate);
+	const [width, setWidth] = React.useState(planned);
 	React.useEffect(() => {
 		const host = hostRef.current;
 		if (host === undefined) return undefined;
@@ -118,15 +134,8 @@ function ComposedZones(props: { name: string; estimate: number; gap: number; blo
 		const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(sync);
 		return () => connection.Disconnect();
 	}, []);
-	const heights = (list?: PageBlock[]) => (list ?? []).map((block) => block.height);
-	const plan = planComposition(width, gap, {
-		...options,
-		hero: heights(blocks.hero),
-		primary: heights(blocks.primary),
-		secondary: heights(blocks.secondary),
-		tiles: heights(blocks.tiles),
-		footer: heights(blocks.footer),
-	});
+	const sx = width / planned;
+	const snap = (value: number) => math.floor(value * sx + 0.5);
 	const lists: Record<ZoneRect["role"], PageBlock[]> = {
 		hero: blocks.hero ?? [],
 		primary: blocks.primary,
@@ -140,8 +149,8 @@ function ComposedZones(props: { name: string; estimate: number; gap: number; blo
 		if (block === undefined) return;
 		children[`${rect.role}-${block.id}`] = (
 			<frame
-				Size={UDim2.fromOffset(rect.w, rect.h)}
-				Position={UDim2.fromOffset(rect.x, rect.y)}
+				Size={UDim2.fromOffset(snap(rect.x + rect.w) - snap(rect.x), rect.h)}
+				Position={UDim2.fromOffset(snap(rect.x), rect.y)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				SelectionGroup={rect.role === "secondary" || rect.role === "primary"}
