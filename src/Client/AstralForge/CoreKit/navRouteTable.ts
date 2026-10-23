@@ -62,7 +62,7 @@ export function groupOf(pageId: string): string | undefined {
 	return GROUP_OF.get(pageId);
 }
 
-export const MOBILE_TAB_PRIORITY: ReadonlyArray<string> = table.freeze(["Overview", "Workshop", "Research", "Shop", "Inventory", "Missions", "Rewards"]);
+export const MOBILE_TAB_PRIORITY: ReadonlyArray<string> = table.freeze(["Overview", "Workshop", "Inventory", "Shop", "Rebirth", "Research", "Missions", "Rewards"]);
 
 /** Bar tabs: saved pins first (in their order), then filled from MOBILE_TAB_PRIORITY. */
 export function mobileTabs(

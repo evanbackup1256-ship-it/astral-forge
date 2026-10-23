@@ -29,7 +29,7 @@ import { EffectLayer, PopEntry, StarField } from "./effects";
 import { FeedbackOverlay } from "./FeedbackOverlay";
 import { LevelMomentHost } from "./levelMoments";
 import { LevelRoadmapHost } from "./levelRoadmap";
-import { MobileHeader, MobileQuickActions, MobileTabBar } from "./MobileShell";
+import { MobileHeader, MobileQuickActions, MobileTabBar, PHONE_RAIL_W } from "./MobileShell";
 import { Navigation } from "./NavChrome";
 import { OfflineRewardsOverlay } from "./OfflineRewardsOverlay";
 import Juice = require("../JuiceFx");
@@ -266,13 +266,17 @@ function AppShell(props: ShellProps) {
 	const deskEditorOpen = useDesktopEditorOpen();
 	const deskOn = !chrome.stack && !drawerNav;
 	const topbarHeight = keyboardShellCompact ? 0 : chrome.stack ? chrome.topbarRows : deskOn ? desk.topHeight : stockTopbar;
-	const tabBarH = keyboardShellCompact ? 0 : chrome.tabBarH;
+	// phone landscape uses a left icon rail (design/02-nav-shell phone.png), so nothing is reserved at the bottom
+	const phoneRail = chrome.stack && chrome.landscape && !keyboardShellCompact;
+	const phoneRailW = phoneRail ? PHONE_RAIL_W + math.max(0, chrome.sideSafe - 16) : 0;
+	const tabBarH = keyboardShellCompact || phoneRail ? 0 : chrome.tabBarH;
+	const shellLeft = phoneRail ? phoneRailW + 8 : edgePad;
 	const shellTop = topPad + topbarHeight + chrome.panelGap;
 	const quickActionsVisible = (tonumber(state.Settings.MobileQuickVisible) ?? 1) >= 0.5 && chrome.stack
 		&& page === "Workshop" && !viewport.keyboardOpen && !arcadeBusy && crateReveal === undefined && !railOpen;
 	const quickBottomOffset = tabBarH + 12;
 	const bottomPad = keyboardShellCompact ? 4 : chrome.stack
-		? quickActionsVisible ? tabBarH + 76 + chrome.panelGap : tabBarH + chrome.panelGap
+		? quickActionsVisible ? tabBarH + 76 + chrome.panelGap : phoneRail ? math.max(chrome.panelGap, chrome.bottomSafe) : tabBarH + chrome.panelGap
 		: math.max(8, math.floor(edgePad * 0.6));
 	// The source intentionally keeps shell transitions animated regardless of the saved motion setting.
 	const reducedMotion = false;
@@ -594,8 +598,12 @@ function AppShell(props: ShellProps) {
 							islandX={deskOn && desk.islandAt !== undefined ? math.floor(desk.islandAt.X * viewport.width) : undefined}
 							islandY={deskOn && desk.islandAt !== undefined ? math.floor(desk.islandAt.Y * viewport.height) : undefined}
 							islandScale={deskOn ? desk.islandScale : undefined} />}
-						<frame Size={shellTopLive.map((top) => new UDim2(1, -edgePad * 2, 1, -(top + bottomPad + gamepadReserve)))}
-							Position={shellTopLive.map((top) => UDim2.fromOffset(edgePad, top))} BackgroundTransparency={1} BorderSizePixel={0}>
+						{!keyboardShellCompact && <frame Size={new UDim2(1, 0, 0, 1)} Position={UDim2.fromOffset(0, topPad + topbarHeight)} BackgroundColor3={Palette.brass}
+							BackgroundTransparency={0.55} BorderSizePixel={0} ZIndex={3}>
+							<uigradient Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.15, 0.2), new NumberSequenceKeypoint(0.85, 0.2), new NumberSequenceKeypoint(1, 1)])} />
+						</frame>}
+						<frame Size={shellTopLive.map((top) => new UDim2(1, -(shellLeft + edgePad), 1, -(top + bottomPad + gamepadReserve)))}
+							Position={shellTopLive.map((top) => UDim2.fromOffset(shellLeft, top))} BackgroundTransparency={1} BorderSizePixel={0}>
 							<frame ref={pageRegionRef} Size={workspaceSize} Position={workspaceOffset} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={5}>
 								{deskOn && desk.pageMax < math.huge && <uisizeconstraint MaxSize={new Vector2(desk.pageMax, math.huge)} />}
 								<AntilagContext.Provider value={pageAntilag}>
@@ -623,7 +631,8 @@ function AppShell(props: ShellProps) {
 						{state.Trade?.Session !== undefined && page !== "Trade" && <TradeReturnPill stack={chrome.stack} bottomPad={bottomPad} reducedMotion={softMotion}
 							onReturn={returnToTrade} />}
 						{mobileShell && <MobileTabBar page={page} setPage={navigateLatest} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} reducedMotion={reducedMotion}
-							height={tabBarH} bottomSafe={chrome.bottomSafe} visible={!keyboardShellCompact} />}
+							height={phoneRail ? chrome.tabBarH : tabBarH} bottomSafe={chrome.bottomSafe} visible={!keyboardShellCompact}
+							railTop={phoneRail ? topPad + topbarHeight + 4 : undefined} railWidth={phoneRail ? phoneRailW : undefined} />}
 						{mobileShell && quickActionsVisible && <MobileQuickActions state={state} dispatch={dispatch} reducedMotion={reducedMotion} bottomOffset={quickBottomOffset} edgePad={edgePad} />}
 						{!hidden && !(deskOn && desk.comboHidden) && (!deskOn || (desk.comboAt === undefined && desk.comboScale === 1)
 							? <ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2(1, -18, 0, topPad + topbarHeight + 8)} anchorPoint={TOP_RIGHT_ANCHOR} zIndex={65} />
