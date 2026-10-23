@@ -2098,7 +2098,6 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 		h("uicorner", {
 			CornerRadius: new UDim(0, mode === "expanded" || mode === "event" ? 18 : 22),
 		}),
-		!bareChips &&
 		h(
 			"uistroke",
 			{
@@ -2212,6 +2211,8 @@ BuffStrip.MomentBanner = function (props: { reducedMotion?: boolean; position?: 
 		return undefined;
 	}
 	const title = (live.count ?? 1) > 1 ? `${live.title}  ×${live.count}` : live.title ?? "";
+	const startedAt = live.startedAt ?? os.clock();
+	const hold = math.max(0.5, live.hold ?? 2.6);
 	return h(
 		"textbutton",
 		{
@@ -2229,12 +2230,57 @@ BuffStrip.MomentBanner = function (props: { reducedMotion?: boolean; position?: 
 		},
 		h("uisizeconstraint", { MaxSize: new Vector2(720, 80) }),
 		h(
+			"frame",
+			{
+				// a wash of colour that breathes behind a milestone (unchanged from the island moment)
+				Size: UDim2.fromScale(1, 1),
+				BackgroundColor3: P.white,
+				BackgroundTransparency: clock.map((t) => 0.9 + math.sin(t * 2.4) * 0.03),
+				BorderSizePixel: 0,
+				ZIndex: 61,
+			},
+			h("uigradient", {
+				Color: Rainbow.SOFT,
+				Rotation: clock.map((t) => Rainbow.spin(t, 6)),
+				Transparency: new NumberSequence([
+					new NumberSequenceKeypoint(0, 0.2),
+					new NumberSequenceKeypoint(0.5, 0.75),
+					new NumberSequenceKeypoint(1, 0.2),
+				]),
+			}),
+		),
+		h(
+			"frame",
+			{
+				// how long this stays up: the same rainbow drain line as before
+				Size: new UDim2(1, -TOAST_INSET * 2 - 16, 0, 2),
+				Position: new UDim2(0, TOAST_INSET + 8, 1, -2),
+				BackgroundColor3: P.white,
+				BackgroundTransparency: 0.88,
+				BorderSizePixel: 0,
+				ZIndex: 63,
+			},
+			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			h(
+				"frame",
+				{
+					Size: clock.map(() => UDim2.fromScale(1 - math.clamp((os.clock() - startedAt) / hold, 0, 1), 1)),
+					BackgroundColor3: P.white,
+					BackgroundTransparency: 0.15,
+					BorderSizePixel: 0,
+				},
+				h("uicorner", { CornerRadius: new UDim(1, 0) }),
+				h("uigradient", { Color: Rainbow.LOOP }),
+			),
+		),
+		h(
 			"textlabel",
 			{
 				Size: new UDim2(1, 0, 0, 52),
 				BackgroundTransparency: 1,
 				Text: spaced(string.upper(title)),
-				TextColor3: P.brass,
+				// the original moment shimmer runs over the title unchanged (white base, as before)
+				TextColor3: P.white,
 				TextTransparency: arrive.map((t) => 1 - t),
 				TextSize: 44,
 				TextScaled: true,
@@ -2242,16 +2288,9 @@ BuffStrip.MomentBanner = function (props: { reducedMotion?: boolean; position?: 
 				ZIndex: 63,
 			},
 			h("uitextsizeconstraint", { MaxTextSize: 44, MinTextSize: 22 }),
-			// the brass catches the light: a soft highlight sweeping across the title
 			h("uigradient", {
-				Color: new ColorSequence([
-					new ColorSequenceKeypoint(0, Color3.fromRGB(214, 214, 214)),
-					new ColorSequenceKeypoint(0.42, Color3.fromRGB(214, 214, 214)),
-					new ColorSequenceKeypoint(0.5, P.white),
-					new ColorSequenceKeypoint(0.58, Color3.fromRGB(214, 214, 214)),
-					new ColorSequenceKeypoint(1, Color3.fromRGB(214, 214, 214)),
-				]),
-				Offset: clock.map((t) => new Vector2(props.reducedMotion ? 0 : ((t * 0.5) % 2) - 1, 0)),
+				Color: clock.map((t) => Rainbow.at(t * 0.35, 0.45, 1)),
+				Rotation: 0,
 			}),
 		),
 		live.subtitle !== undefined &&

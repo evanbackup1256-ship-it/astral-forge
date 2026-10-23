@@ -2903,7 +2903,7 @@ export function Slider({
 					Transparency={engagement.map((active) => 1 - math.clamp(active, 0, 1) * 0.72)}
 				/>
 			</frame>
-			{/* 18-settings .bar.thin: a 6px near-black well, the fill lit from the top; the thumb only shows
+			{/* 18-settings .bar.thin: a 6px near-black well (fill and thumb gradients unchanged); the thumb only shows
 			    while the slider is in use (always on touch, which has no hover) */}
 			<frame
 				Size={new UDim2(1, -trackInset * 2, 0, 6)}
@@ -2914,16 +2914,9 @@ export function Slider({
 				ClipsDescendants={true}
 			>
 				<uicorner CornerRadius={new UDim(0, 3)} />
-				<frame Size={thumb.map((current) => new UDim2(current, 0, 1, 0))} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+				<frame Size={thumb.map((current) => new UDim2(current, 0, 1, 0))} BackgroundColor3={accent} BorderSizePixel={0}>
 					<uicorner CornerRadius={new UDim(0, 3)} />
-					<uigradient
-						Rotation={90}
-						Color={new ColorSequence([
-							new ColorSequenceKeypoint(0, lighten(accent, 0.4)),
-							new ColorSequenceKeypoint(0.55, accent),
-							new ColorSequenceKeypoint(1, accent.Lerp(Color3.fromRGB(0, 0, 0), 0.3)),
-						])}
-					/>
+					<uigradient Color={new ColorSequence(lighten(accent, 0.28), accent)} />
 				</frame>
 			</frame>
 			<frame
@@ -2935,6 +2928,7 @@ export function Slider({
 				BorderSizePixel={0}
 			>
 				<uicorner CornerRadius={new UDim(1, 0)} />
+				<uigradient Color={new ColorSequence(Palette.white, lighten(accent, 0.42))} Rotation={90} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					Color={accent}

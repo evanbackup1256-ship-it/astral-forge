@@ -2,13 +2,13 @@
 // A right-anchored card with six stat tiles, a flux-per-minute bar chart and Reset / Share card.
 // All depth is built in code (SoftShadow, RimLight, gradients); no image assets.
 import React from "@rbxts/react";
-import { Palette } from "../CoreKit/theme";
+import { Palette, darken } from "../CoreKit/theme";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { useViewport } from "../MotionKit/motion";
 import { SoftShadow, RimLight } from "./depth";
 import { rarityColor } from "./SpriteCard";
 import { Button, LooseComponent, TITLE_FACE } from "./ui";
-import { NUM, RowSurface, spaced } from "./mockKit";
+import { NUM, spaced } from "./mockKit";
 import SessionStats = require("../SessionStats");
 
 const AstralForge = script.Parent!.Parent!;
@@ -96,9 +96,15 @@ function Tile(props: TileProps) {
 	const px = props.compact ? 10 : 16;
 	const py = props.compact ? 8 : 14;
 	return (
-		<frame Size={new UDim2(0, 0, 0, h)} LayoutOrder={props.order} BackgroundColor3={Palette.white} BackgroundTransparency={0} BorderSizePixel={0} ZIndex={61}>
+		<frame Size={new UDim2(0, 0, 0, h)} LayoutOrder={props.order} BackgroundColor3={Palette.panelRaised} BorderSizePixel={0} ZIndex={61}>
 			<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-			<RowSurface />
+			{/* .row radius and hairline; the tile's own gradient stays as it was */}
+			<uicorner CornerRadius={new UDim(0, 11)} />
+			<uistroke Color={Palette.white} Transparency={0.95} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			<uigradient
+				Color={new ColorSequence(Palette.panelRaised, darken(Palette.panelRaised, 0.18))}
+				Rotation={90}
+			/>
 			<Icon kind={props.icon} color={Palette.muted} accent={props.accent} size={14} position={UDim2.fromOffset(px, py + 1)} />
 			<Label text={spaced(props.label)} size={props.compact ? 10 : 11} minSize={9} color={Palette.muted} font={LABEL_FONT}
 				frame={new UDim2(1, -(px * 2 + 22), 0, 16)} position={UDim2.fromOffset(px + 22, py)} />
