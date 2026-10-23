@@ -11,6 +11,7 @@ import { OmegaMathApi } from "./lua";
 import { FittedView } from "./UiCore/viewportKit";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "./UiCore/ui";
 
+import { BODY_BOLD, BODY_SEMI, DiamondRule, NUM, PanelHeading, RowSurface, TITLE_FACE } from "./UiCore/mockKit";
 const Players = game.GetService("Players");
 const TweenService = game.GetService("TweenService");
 const ContextActionService = game.GetService("ContextActionService");
@@ -99,12 +100,12 @@ const GROUPS: GroupMeta[] = [
 
 const GUILD_META: BoardMeta = { id: "Guilds", short: "Guilds", label: "Guild Halls", icon: "Guild.3", accent: P.violet, group: "Social", description: "Guild activity earned by banking and building together." };
 const PODIUM_ORDER = [2, 1, 3];
-const PODIUM_LIFT: Record<number, number> = { [1]: 1, [2]: 0.74, [3]: 0.56 };
 const MEDAL: Record<number, Color3> = {
-	[1]: Color3.fromRGB(255, 196, 92),
-	[2]: Color3.fromRGB(196, 212, 230),
-	[3]: Color3.fromRGB(214, 146, 98),
+	[1]: Color3.fromRGB(255, 190, 70),
+	[2]: Color3.fromRGB(230, 220, 212),
+	[3]: Color3.fromRGB(208, 138, 74),
 };
+const PODIUM_HEIGHT: Record<number, number> = { [1]: 210, [2]: 150, [3]: 110 };
 
 // 17-leaderboards card: radius 18 with a thin brass inner rule over the padded panel
 const FORGE_RADIUS = 18;
@@ -430,7 +431,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		let narrow = measuredWidth < 620;
 		// phones: one-line rows (place, mark, name, value) with the share bar along the bottom edge
 		const phoneRow = measuredWidth < 420;
-		const rankRowH = phoneRow ? 46 : 58;
+		const rankRowH = phoneRow ? 44 : 48;
 		const reducedMotion = props.reducedMotion;
 		const [selected, setSelected] = React.useState("Flux");
 		const [scope, setScope] = React.useState("Global");
@@ -653,59 +654,20 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			const accent = styled?.accent ?? (mine ? P.mint : meta.accent);
 			// same frame treatment as the player list card (thickness, gradient frames, a bit more opaque)
 			const ring = frameStroke(styled?.frame, accent, pinned ? 2 : 1);
+			// design/17-leaderboards .row: 44px num rank (22px, muted), name, .v value; your row ringed mango,
+			// profile-style rank rings keep their own colours
+			const ringColor = mine ? P.mango : ring.color;
+			const ringT = mine ? 0 : ring.framed ? 0.45 : 0.95;
 			return e("frame", {
-				BackgroundColor3: mine ? P.brassDeep.Lerp(P.panelRaised, 0.72) : P.panelRaised,
-				BackgroundTransparency: 0.04, BorderSizePixel: 0, Size: UDim2.fromScale(1, 1),
+				BackgroundColor3: P.white, BackgroundTransparency: 0, BorderSizePixel: 0, Size: new UDim2(1, 0, 0, rankRowH),
 			}, {
-				Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
-				Stroke: e("uistroke", { Color: ring.color, Transparency: mine ? 0.2 : ring.framed ? 0.45 : 0.8, Thickness: ring.thickness }, ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
-				...(phoneRow
-					? {
-							Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 13, weight: Enum.FontWeight.Bold, color: mine ? P.brass : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(2, 0), sizeConstraint: new UDim2(0, 28, 1, -4) }),
-							Mark: mark({ row, guildBoard, accent, size: 26, position: new UDim2(0, 44, 0.5, -15) }),
-							Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 13, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.brass : P.cream), position: UDim2.fromOffset(64, 12), sizeConstraint: new UDim2(1, -64 - 92, 0, 18) }),
-							Value: face(NUMERIC, valueText(row.Value), 13, mine ? P.brass : P.cream, new UDim2(1, -90, 0, 12), UDim2.fromOffset(80, 18), Enum.TextXAlignment.Right),
-							Share: bar(share(row.Value, top), accent, new UDim2(0, 64, 1, -7), new UDim2(1, -76, 0, 3)),
-						}
-					: {
-						Place: e(ui.Text, { value: place !== undefined ? tostring(place) : "–", size: 15, weight: Enum.FontWeight.Bold, color: mine ? P.brass : P.muted, align: Enum.TextXAlignment.Center, fit: true, minSize: 9, position: UDim2.fromOffset(4, 0), sizeConstraint: new UDim2(0, 40, 1, 0) }),
-						Mark: mark({ row, guildBoard, accent, size: 34, position: new UDim2(0, 62, 0.5, -17) }),
-						Name: e(ui.Text, { value: `${row.Name ?? "Unknown pilot"}${mine ? " · YOU" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, size: 14, fit: true, minSize: 9, weight: Enum.FontWeight.SemiBold, color: styled?.accent ?? (mine ? P.brass : P.cream), position: UDim2.fromOffset(90, 9), sizeConstraint: new UDim2(narrow ? 1 : 0.6, narrow ? -104 : -90, 0, 18) }),
-						Value: face(NUMERIC, valueText(row.Value), 13, mine ? P.brass : P.cream, narrow ? UDim2.fromOffset(90, 29) : new UDim2(0.6, 0, 0, 9), new UDim2(narrow ? 1 : 0.4, narrow ? -104 : -14, 0, 18), Enum.TextXAlignment.Right),
-						Share: bar(share(row.Value, top), accent, new UDim2(0, 90, 0, narrow ? 51 : 36), new UDim2(1, -104, 0, 4)),
-						}),
+				Surface: e(RowSurface, {}),
+				Stroke: e("uistroke", { Color: ringColor, Transparency: ringT, Thickness: mine ? 2 : ring.thickness, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }, !mine && ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
+				Place: e("textlabel", { Text: place !== undefined ? tostring(place) : "–", FontFace: NUM, TextSize: phoneRow ? 18 : 22, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(12, 0), Size: new UDim2(0, 44, 1, 0) }),
+				Mark: mark({ row, guildBoard, accent, size: phoneRow ? 24 : 30, position: new UDim2(0, 12 + 44 + 12, 0.5, phoneRow ? -12 : -15) }),
+				Name: e("textlabel", { Text: `${row.Name ?? "Unknown pilot"}${mine ? " (you)" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, FontFace: BODY_SEMI, TextSize: phoneRow ? 13 : 15, TextColor3: styled?.accent ?? P.cream, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(12 + 44 + 12 + (phoneRow ? 24 : 30) + 12, 0), Size: new UDim2(1, -(12 + 44 + 12 + (phoneRow ? 24 : 30) + 12 + 110), 1, 0) }),
+				Value: e("textlabel", { Text: valueText(row.Value), FontFace: NUM, TextSize: phoneRow ? 15 : 17, TextColor3: P.mango, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Right, Position: new UDim2(1, -110, 0, 0), Size: new UDim2(0, 98, 1, 0) }),
 			});
-		}
-
-		// Pinned "you" row: always visible above the podium so you never scroll to find yourself.
-		if (rows.size() > 0 && !mineOnly && query === "") {
-			const you: RankRow = personalIndex !== undefined
-				? rows[personalIndex - 1]
-				: { Name: guildBoard ? "Your guild" : Players.LocalPlayer.DisplayName, UserId: guildBoard ? undefined : localId, Id: guildBoard ? guildId : undefined, Value: own };
-			if (!guildBoard || guildId !== undefined) {
-				// Find me: only when you're on the board below; jumps the list to your own row
-				const findable = personalIndex !== undefined;
-				sections.push({
-					id: "rank-you",
-					height: rankRowH + (findable ? theme.TapTarget + 8 : 0),
-					element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, {
-						Row: e("frame", { BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, rankRowH) }, { Row: rankRow(you, personalIndex, true) }),
-						Find: findable
-							? e(ui.Button, {
-									// with a pad connected, name the shortcut the way the hint bar does
-									text: UserInputService.GamepadEnabled ? `Find me · ${KeyLabel(Enum.KeyCode.ButtonR3, "R3")}` : "Find me",
-									icon: "Crew.12",
-									color: P.mint,
-									outline: true,
-									reducedMotion,
-									size: UDim2.fromOffset(UserInputService.GamepadEnabled ? 168 : 132, theme.TapTarget),
-									position: new UDim2(1, UserInputService.GamepadEnabled ? -168 : -132, 0, rankRowH + 8),
-									onClick: () => scrollToRankRow(personalIndex!, reducedMotion === true),
-								})
-							: undefined,
-					}),
-				});
-			}
 		}
 
 		if (rows.size() === 0) {
@@ -713,35 +675,28 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				title: text(result.loading ? "…" : "—", 0, 0, 1, 30, 18),
 			});
 		} else {
-			// Podium: second, first, third, with stepped plinths.
+			// Podium (design/17-leaderboards "Top three"): name, muted num value, then a plinth 150/210/110 tall,
+			// medal colour fading to #1B151D, with the place in 40px title type
 			const podium: Record<string, React.Element> = {};
-			const podiumOrder = narrow ? [1, 2, 3] : PODIUM_ORDER;
-			for (const place of podiumOrder) {
+			const podiumScale = narrow ? 0.6 : 1;
+			const podiumH = math.floor(210 * podiumScale) + 10 + 22 + 10 + 18 + 10;
+			for (const place of PODIUM_ORDER) {
 				const row = rows[place - 1];
 				if (row !== undefined) {
-					const lift = PODIUM_LIFT[place];
-					const color = MEDAL[place];
-					const plinth = math.floor(64 * lift);
-					const seatHeight = narrow ? 230 : 352;
-					const infoX = narrow ? 0.5 : 0;
-					const infoWidth = narrow ? 0.5 : 1;
-					const slot = podiumOrder.indexOf(place) + 1;
-					podium[`seat${place}`] = e("frame", { Name: `PodiumSeat${place}`, BackgroundTransparency: 1, Position: narrow ? UDim2.fromOffset(0, (slot - 1) * 242) : new UDim2((slot - 1) / 3, 4, 0, 0), Size: new UDim2(narrow ? 1 : 1 / 3, narrow ? 0 : -8, 0, seatHeight) }, {
-						Avatar: !guildBoard ? e(AvatarView, { userId: row.UserId!, accent: color, reducedMotion, position: UDim2.fromOffset(4, 0), size: new UDim2(narrow ? 0.46 : 1, -8, 0, narrow ? 222 : 230) }) : undefined,
-						Mark: guildBoard ? mark({ row, guildBoard: true, accent: color, size: 70, position: narrow ? new UDim2(0.23, 0, 0, 58) : new UDim2(0.5, 0, 0, 90) }) : undefined,
-						Name: text(`${row.Name ?? "Unknown"}${isMine(row) ? " · YOU" : ""}`, 0, 0, 1, 36, 14, rankRowStyle(row, guildBoard)?.accent ?? (isMine(row) ? P.brass : P.cream), { weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, fit: true, minSize: 10, position: new UDim2(infoX, 0, 0, narrow ? 34 : 236), sizeConstraint: new UDim2(infoWidth, 0, 0, 36) }),
-						Value: face(NUMERIC, valueText(row.Value), 12, P.creamSoft, new UDim2(infoX, 0, 0, narrow ? 80 : 273), new UDim2(infoWidth, 0, 0, 28), Enum.TextXAlignment.Center),
-						Share: bar(share(row.Value, top), color, new UDim2(infoX, 8, 0, narrow ? 118 : 307), new UDim2(infoWidth, -16, 0, 4)),
-						Plinth: e("frame", { BackgroundColor3: color, BackgroundTransparency: 0.08, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: new UDim2(infoX, 0, 1, 0), Size: new UDim2(infoWidth, 0, 0, narrow ? plinth : 32) }, {
-							Corner: e("uicorner", { CornerRadius: new UDim(0, 8) }),
-							Stroke: e("uistroke", { Color: color, Transparency: 0.35, Thickness: 1 }),
-							Shade: e("uigradient", { Rotation: 90, Color: new ColorSequence(new Color3(1, 1, 1), new Color3(0.42, 0.42, 0.42)), Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(0.7, 0.1), new NumberSequenceKeypoint(1, 0.75)]) }),
-							Place: face(SERIF, tostring(place), place === 1 ? 28 : 22, P.ink, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Enum.TextXAlignment.Center),
+					const slot = PODIUM_ORDER.indexOf(place);
+					const plinthH = math.floor((PODIUM_HEIGHT[place] ?? 110) * podiumScale);
+					podium[`seat${place}`] = e("frame", { Name: `PodiumSeat${place}`, BackgroundTransparency: 1, Position: new UDim2(slot / 3, slot === 0 ? 0 : 7, 0, 0), Size: new UDim2(1 / 3, -10, 1, 0) }, {
+						Name: e("textlabel", { Text: `${row.Name ?? "Unknown"}${isMine(row) ? " (you)" : ""}`, FontFace: BODY_BOLD, TextSize: narrow ? 14 : 18, TextColor3: rankRowStyle(row, guildBoard)?.accent ?? P.cream, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + 10 + 18 + 10)), Size: new UDim2(1, 0, 0, 22) }),
+						Value: e("textlabel", { Text: valueText(row.Value), FontFace: NUM, TextSize: narrow ? 12 : 14, TextColor3: P.muted, BackgroundTransparency: 1, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + 10)), Size: new UDim2(1, 0, 0, 18) }),
+						Plinth: e("frame", { BackgroundColor3: P.white, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: UDim2.fromScale(0, 1), Size: new UDim2(1, 0, 0, plinthH) }, {
+							Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
+							Fade: e("uigradient", { Rotation: 90, Color: new ColorSequence(MEDAL[place], Color3.fromRGB(27, 21, 29)) }),
+							Place: e("textlabel", { Text: tostring(place), FontFace: TITLE_FACE, TextSize: narrow ? 28 : 40, TextColor3: Color3.fromRGB(12, 9, 14), BackgroundTransparency: 1, Position: UDim2.fromOffset(0, 12), Size: new UDim2(1, 0, 0, narrow ? 30 : 42) }),
 						}),
 					});
 				}
 			}
-			section("rank-podium", narrow ? math.min(rows.size(), 3) * 242 + 24 : 384, podium, MEDAL[1]);
+			section("rank-podium", podiumH + 44, { Heading: e(PanelHeading, { icon: "Leaderboard.2", title: "Top three", phone: narrow }), Seats: e("frame", { BackgroundTransparency: 1, Position: UDim2.fromOffset(0, 44), Size: new UDim2(1, 0, 0, podiumH) }, podium) }, P.brass);
 
 			// Remaining rows: compact, with a share-of-leader bar.
 			let shown = 0;
@@ -761,6 +716,38 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				});
 			}
 		}
+		// Your row, pinned under the list after a diamond rule (design/17-leaderboards).
+		if (rows.size() > 0 && !mineOnly && query === "") {
+			const you: RankRow = personalIndex !== undefined
+				? rows[personalIndex - 1]
+				: { Name: guildBoard ? "Your guild" : Players.LocalPlayer.DisplayName, UserId: guildBoard ? undefined : localId, Id: guildBoard ? guildId : undefined, Value: own };
+			if (!guildBoard || guildId !== undefined) {
+				// Find me: only when you're on the board below; jumps the list to your own row
+				const findable = personalIndex !== undefined;
+				sections.push({
+					id: "rank-you",
+					height: 9 + 12 + rankRowH + (findable ? theme.TapTarget + 8 : 0),
+					element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, {
+						Rule: e("frame", { BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, 9) }, { Rule: e(DiamondRule, {}) }),
+						Row: e("frame", { BackgroundTransparency: 1, Position: UDim2.fromOffset(0, 21), Size: new UDim2(1, 0, 0, rankRowH) }, { Row: rankRow(you, personalIndex, true) }),
+						Find: findable
+							? e(ui.Button, {
+									// with a pad connected, name the shortcut the way the hint bar does
+									text: UserInputService.GamepadEnabled ? `Find me · ${KeyLabel(Enum.KeyCode.ButtonR3, "R3")}` : "Find me",
+									icon: "Crew.12",
+									color: P.mint,
+									outline: true,
+									reducedMotion,
+									size: UDim2.fromOffset(UserInputService.GamepadEnabled ? 168 : 132, theme.TapTarget),
+									position: new UDim2(1, UserInputService.GamepadEnabled ? -168 : -132, 0, 21 + rankRowH + 8),
+									onClick: () => scrollToRankRow(personalIndex!, reducedMotion === true),
+								})
+							: undefined,
+					}),
+				});
+			}
+		}
+
 		let planned = sections;
 		if (plan.split) {
 			const side = sections.filter((_, index) => index < sideEnd);
