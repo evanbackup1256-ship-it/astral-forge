@@ -42,25 +42,6 @@ const BODY_BOLD = new Font("rbxasset://fonts/families/BuilderSans.json", Enum.Fo
 
 
 /** A serif display line that never scales: one size, truncated with "…" if it would not fit. */
-export function SerifTitle(p: { text: string; size: number; color?: Color3; position?: UDim2; width?: UDim; height?: number; heavy?: boolean; zIndex?: number }) {
-	return (
-		<textlabel
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			Text={p.text}
-			TextSize={p.size}
-			FontFace={p.heavy === true ? SERIF_HEAVY : SERIF}
-			TextColor3={p.color ?? Palette.cream}
-			TextXAlignment={Enum.TextXAlignment.Left}
-			TextYAlignment={Enum.TextYAlignment.Center}
-			TextTruncate={Enum.TextTruncate.AtEnd}
-			Position={p.position ?? UDim2.fromOffset(0, 0)}
-			Size={new UDim2(p.width ?? new UDim(1, 0), new UDim(0, p.height ?? math.ceil(p.size * 1.3)))}
-			ZIndex={p.zIndex ?? 3}
-		/>
-	);
-}
-
 /** Small spaced caps label (the mockups' eyebrow), 11px floor. */
 export function Eyebrow(p: { text: string; color?: Color3; position?: UDim2; width?: UDim; align?: Enum.TextXAlignment; zIndex?: number }) {
 	return (
@@ -121,24 +102,6 @@ export function PortPanel(p: {
 }
 
 /** Thin brass divider with a centre stud, as between the mockups' row groups. */
-export function BrassDivider(p: { position: UDim2; zIndex?: number }) {
-	return (
-		<frame BackgroundTransparency={1} BorderSizePixel={0} Position={p.position} Size={new UDim2(1, 0, 0, 10)} ZIndex={p.zIndex ?? 2}>
-			<frame BackgroundColor3={PORT_TOKENS.brass} BackgroundTransparency={0.6} BorderSizePixel={0} AnchorPoint={new Vector2(0, 0.5)} Position={UDim2.fromScale(0, 0.5)} Size={new UDim2(1, 0, 0, 1)}>
-				<uigradient
-					Transparency={
-						new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 1)])
-					}
-				/>
-			</frame>
-			<frame BackgroundColor3={Palette.panel} BorderSizePixel={0} AnchorPoint={new Vector2(0.5, 0.5)} Position={UDim2.fromScale(0.5, 0.5)} Size={UDim2.fromOffset(9, 9)}>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uistroke Color={PORT_TOKENS.brass} Transparency={0.2} Thickness={1.5} />
-			</frame>
-		</frame>
-	);
-}
-
 export const INFO_ROW_H = 40;
 
 /** Label / value row: small still icon tile, label left, value right in the accent. */
