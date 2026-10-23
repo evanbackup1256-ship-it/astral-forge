@@ -5,6 +5,7 @@ import React from "@rbxts/react";
 import { compactNumber } from "../CoreKit/format";
 import { darken, Palette, TapTarget } from "../CoreKit/theme";
 import { Button } from "./ui";
+import { TITLE_FACE } from "./mockKit";
 import { useAntilag } from "../MotionKit/antilag";
 import { revealOffset, usePresence, useViewport, useWallClock } from "../MotionKit/motion";
 
@@ -532,9 +533,10 @@ function Bar(props: { value: number; color: Color3; order: number }) {
 	return h(
 		"frame",
 		{
+			// af.css .bar: 10px, near-black well
 			Size: new UDim2(1, 0, 0, 10),
 			LayoutOrder: props.order,
-			BackgroundColor3: Palette.graphite,
+			BackgroundColor3: Color3.fromRGB(9, 6, 10),
 			BorderSizePixel: 0,
 			ZIndex: 563,
 		},
@@ -681,7 +683,7 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 				Size: UDim2.fromOffset(width, math.min(460, viewport.height - 40)),
 				Position: show.map((amount) => new UDim2(0.5, 0, 0.5, revealOffset(amount))),
 				AnchorPoint: new Vector2(0.5, 0.5),
-				BackgroundColor3: Palette.panelRaised,
+				BackgroundColor3: Palette.panel,
 				BorderSizePixel: 0,
 				Active: true,
 				ClipsDescendants: true,
@@ -689,7 +691,8 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 			},
 			h("uicorner", { CornerRadius: new UDim(0, 18) }),
 			h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
-			h("uistroke", { Color: accent, Thickness: 1.5, Transparency: 0.3 }),
+			// .pn edge: a 1px line with the brass rule inside; the accent stays on the event icon and clock
+			h("uistroke", { Color: Palette.line, Thickness: 1, Transparency: 0 }),
 			h(
 				"frame",
 				{
@@ -707,8 +710,8 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 				Position: UDim2.fromOffset(82, 18),
 				BackgroundTransparency: 1,
 				Text: def ? def.Name : "Server events",
-				TextSize: 21,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+				TextSize: 22,
+				FontFace: TITLE_FACE,
 				TextColor3: Palette.cream,
 				TextXAlignment: Enum.TextXAlignment.Left,
 				ZIndex: 561,
@@ -737,8 +740,8 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 				text: "",
 				icon: "Close.14",
 				onClick: close,
-				color: Palette.ink,
-				textColor: Palette.coral,
+				color: Color3.fromRGB(58, 46, 62),
+				textColor: Palette.creamSoft,
 				size: UDim2.fromOffset(TapTarget, TapTarget),
 				position: new UDim2(1, -(TapTarget + 12), 0, 12),
 				zIndex: 562,

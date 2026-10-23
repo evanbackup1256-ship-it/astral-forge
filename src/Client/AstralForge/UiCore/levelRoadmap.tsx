@@ -9,6 +9,7 @@ import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import { joinTuple } from "../lua";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, Text, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
+import { Glyph, TITLE_FACE, spaced } from "./mockKit";
 
 const UserInputService = game.GetService("UserInputService");
 const AstralForge = script.Parent!.Parent!;
@@ -421,7 +422,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={471}>
 						<frame
 							Size={UDim2.fromScale(1, 1)}
-							BackgroundColor3={Palette.panelRaised}
+							BackgroundColor3={Palette.panel}
 							BackgroundTransparency={fade}
 							BorderSizePixel={0}
 							ZIndex={472}
@@ -448,26 +449,28 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 								BorderSizePixel={0}
 								ZIndex={473}
 							>
-							<Text
-								value="UNLOCKS"
-								size={12}
-								color={Palette.muted}
-								weight={Enum.FontWeight.Bold}
-								fit={true}
-								minSize={10}
-								position={UDim2.fromOffset(0, 0)}
-								sizeConstraint={new UDim2(1, -(TapTarget + UNIT * 3), 0, 16)}
-								zIndex={474}
+							{/* 26-dialogs .pn h3: glyph in the accent, 15px serif caps */}
+							<Glyph kind="Journal" size={18} color={accent} position={UDim2.fromOffset(0, 1)} />
+							<textlabel
+								Size={new UDim2(1, -(TapTarget + UNIT * 3 + 28), 0, 20)}
+								Position={UDim2.fromOffset(28, 0)}
+								BackgroundTransparency={1}
+								Text={spaced("UNLOCKS")}
+								TextSize={15}
+								FontFace={TITLE_FACE}
+								TextColor3={Palette.cream}
+								TextXAlignment={Enum.TextXAlignment.Left}
+								ZIndex={474}
 							/>
 							<Text
 								value={nextStep !== undefined ? "What opens next" : "Everything is open"}
-								size={compact ? 24 : 28}
+								size={compact ? 20 : 22}
 								color={Palette.cream}
-								weight={Enum.FontWeight.Heavy}
+								weight={Enum.FontWeight.Bold}
 								fit={true}
-								minSize={18}
-								position={UDim2.fromOffset(0, 18)}
-								sizeConstraint={new UDim2(1, -(TapTarget + UNIT * 3), 0, 34)}
+								minSize={16}
+								position={UDim2.fromOffset(0, 26)}
+								sizeConstraint={new UDim2(1, -(TapTarget + UNIT * 3), 0, 28)}
 								zIndex={474}
 							/>
 							<Text
@@ -485,7 +488,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 								text=""
 								icon="Close.13"
 								onClick={close}
-								color={Palette.panel}
+								color={Color3.fromRGB(58, 46, 62)}
 								textColor={Palette.creamSoft}
 								size={UDim2.fromOffset(TapTarget, TapTarget)}
 								position={new UDim2(1, -TapTarget, 0, 0)}

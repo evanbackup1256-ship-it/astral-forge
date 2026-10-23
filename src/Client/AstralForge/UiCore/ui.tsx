@@ -2854,7 +2854,8 @@ export function Slider({
 		Audio.play("sliderStep");
 		InteractionFeedback.tick();
 	}, []);
-	const thumbDiameter = !sliderViewport.desktop && UserInputService.TouchEnabled ? 20 : 18;
+	const touchThumb = !sliderViewport.desktop && UserInputService.TouchEnabled;
+	const thumbDiameter = touchThumb ? 20 : 18;
 	const thumbCenter = thumb.map((current) => new UDim2(current, trackInset - current * trackInset * 2, 0.5, 0));
 	return (
 		<imagebutton
@@ -2902,64 +2903,44 @@ export function Slider({
 					Transparency={engagement.map((active) => 1 - math.clamp(active, 0, 1) * 0.72)}
 				/>
 			</frame>
+			{/* 18-settings .bar.thin: a 6px near-black well, the fill lit from the top; the thumb only shows
+			    while the slider is in use (always on touch, which has no hover) */}
 			<frame
-				Size={new UDim2(1, -trackInset * 2, 0, 7)}
+				Size={new UDim2(1, -trackInset * 2, 0, 6)}
 				Position={new UDim2(0, trackInset, 0.5, 0)}
 				AnchorPoint={new Vector2(0, 0.5)}
-				BackgroundColor3={Palette.line}
-				BackgroundTransparency={engagement.map((active) => 0.2 - math.clamp(active, 0, 1) * 0.08)}
+				BackgroundColor3={Color3.fromRGB(9, 6, 10)}
 				BorderSizePixel={0}
 				ClipsDescendants={true}
 			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<frame Size={thumb.map((current) => new UDim2(current, 0, 1, 0))} BackgroundColor3={accent} BorderSizePixel={0}>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-					<uigradient Color={new ColorSequence(lighten(accent, 0.28), accent)} />
+				<uicorner CornerRadius={new UDim(0, 3)} />
+				<frame Size={thumb.map((current) => new UDim2(current, 0, 1, 0))} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+					<uicorner CornerRadius={new UDim(0, 3)} />
+					<uigradient
+						Rotation={90}
+						Color={new ColorSequence([
+							new ColorSequenceKeypoint(0, lighten(accent, 0.4)),
+							new ColorSequenceKeypoint(0.55, accent),
+							new ColorSequenceKeypoint(1, accent.Lerp(Color3.fromRGB(0, 0, 0), 0.3)),
+						])}
+					/>
 				</frame>
 			</frame>
 			<frame
-				Size={UDim2.fromOffset(30, 30)}
-				Position={thumbCenter}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				BackgroundColor3={accent}
-				BackgroundTransparency={engagement.map((active) => 1 - math.clamp(active, 0, 1) * 0.14)}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uistroke
-					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-					LineJoinMode={Enum.LineJoinMode.Round}
-					Color={accent}
-					Thickness={1}
-					Transparency={engagement.map((active) => 1 - math.clamp(active, 0, 1) * 0.5)}
-				/>
-			</frame>
-			<frame
-				Size={UDim2.fromOffset(thumbDiameter, thumbDiameter)}
+				Size={UDim2.fromOffset(thumbDiameter - 4, thumbDiameter - 4)}
 				Position={thumbCenter}
 				AnchorPoint={new Vector2(0.5, 0.5)}
 				BackgroundColor3={Palette.cream}
+				BackgroundTransparency={touchThumb ? 0 : engagement.map((active) => 1 - math.clamp(active, 0, 1))}
 				BorderSizePixel={0}
 			>
-				<uiscale Scale={engagement.map((active) => 1 + math.clamp(active, 0, 1) * 0.07)} />
 				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uigradient Color={new ColorSequence(Palette.white, lighten(accent, 0.42))} Rotation={90} />
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-					LineJoinMode={Enum.LineJoinMode.Round}
 					Color={accent}
-					Thickness={engagement.map((active) => 2 + math.clamp(active, 0, 1) * 0.5)}
-					Transparency={0.06}
+					Thickness={2}
+					Transparency={touchThumb ? 0.06 : engagement.map((active) => 1 - math.clamp(active, 0, 1) * 0.94)}
 				/>
-				<frame
-					Size={UDim2.fromOffset(5, 5)}
-					Position={UDim2.fromScale(0.5, 0.5)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={accent}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-				</frame>
 			</frame>
 		</imagebutton>
 	);
