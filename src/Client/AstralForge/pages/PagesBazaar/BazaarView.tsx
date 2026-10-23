@@ -224,7 +224,7 @@ function MerchantPortrait(props: {
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
 				<Ui.Text
 					value={tag}
-					size={9}
+					size={11}
 					weight={Enum.FontWeight.Heavy}
 					color={accent}
 					align={Enum.TextXAlignment.Center}
