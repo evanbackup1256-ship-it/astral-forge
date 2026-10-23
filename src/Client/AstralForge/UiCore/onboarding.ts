@@ -1262,7 +1262,7 @@ export function ReleaseNotesModal(param: ReleaseNotesModalProps) {
 	const safeTop = math.max(8, viewport.topInset);
 	const safeBottom = math.max(8, viewport.bottomInset);
 	const safeSide = math.max(8, viewport.sideInset);
-	const width = math.max(240, math.min(650, viewportWidth - safeSide * 2 - 16));
+	const width = math.max(240, math.min(560, viewportWidth - safeSide * 2 - 16));
 	const availableHeight = math.max(160, viewportHeight - safeTop - safeBottom - 16);
 	const height = math.min(530, availableHeight);
 	const veryShort = height < 280;

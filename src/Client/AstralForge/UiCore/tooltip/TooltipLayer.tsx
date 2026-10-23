@@ -142,7 +142,7 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 	}, [tip.target, props.leaving]);
 	const view = screenSize();
 	const narrow = view.X < 700;
-	const maxW = math.max(120, math.min(narrow ? 220 : 280, view.X - EDGE * 2 - BUBBLE_PAD * 2));
+	const maxW = math.max(120, math.min(narrow ? 220 : 260 - BUBBLE_PAD * 2, view.X - EDGE * 2 - BUBBLE_PAD * 2));
 	const fade = React.useMemo(() => appear.map((a) => 1 - math.clamp(a, 0, 1)), [appear]);
 	const hasTitle = hasText(data.title);
 	const input = currentInput();

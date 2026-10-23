@@ -150,7 +150,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	const padding = width < 320 ? Space.lg : Space.xl;
 	const inner = width - padding * 2;
 	const stackButtons = inner < 300;
-	const titleH = math.max(26, measureWrappedTextHeight(props.title, inner, 20, Enum.FontWeight.Bold));
+	const titleH = math.max(22, measureWrappedTextHeight(props.title.upper(), inner - 24, 15, Enum.FontWeight.Heavy));
 	// measured at the width the body really wraps at (the 6px scrollbar gutter comes off the frame below)
 	const bodyH = props.body !== undefined ? measureWrappedTextHeight(props.body, inner - 6, 14) : 0;
 	const actionsH = stackButtons ? TapTarget * 2 + Space.sm : TapTarget;
@@ -160,7 +160,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	// a long body on a short screen (640x286) scrolls above the buttons instead of running under them
 	const bodyRoom = math.max(0, math.min(bodyH, height - padding * 2 - titleH - bodyGap - Space.xl - actionsH));
 	const confirmText = props.confirmText ?? "Confirm";
-	const cancelText = props.cancelText ?? "Cancel";
+	const cancelText = props.cancelText ?? (props.tone === "danger" ? "Keep" : "Cancel");
 	const buttonW = stackButtons ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0.5, -Space.sm / 2, 0, TapTarget);
 
 	return (
@@ -191,8 +191,15 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 					ZIndex={z + 2}
 				>
 					<imagebutton Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} AutoButtonColor={false} Active={true} Selectable={false} ZIndex={z + 2} />
-					<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={padding} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
-						<AutoHeightText value={props.title} size={20} weight={Enum.FontWeight.Bold} color={Palette.cream} width={inner} zIndex={z + 4} />
+					<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={padding} radius={18} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
+						<frame Size={new UDim2(1, padding * 2 - 8, 1, padding * 2 - 8)} Position={UDim2.fromOffset(-padding + 4, -padding + 4)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={z + 3}>
+							<uicorner CornerRadius={new UDim(0, 14)} />
+							<uistroke Color={Palette.brass} Thickness={1} Transparency={0.75} />
+						</frame>
+						<frame Size={UDim2.fromOffset(8, 8)} Position={UDim2.fromOffset(0, 6)} Rotation={45} BackgroundColor3={accent} BorderSizePixel={0} ZIndex={z + 4} />
+						<frame Size={new UDim2(1, -20, 0, titleH)} Position={UDim2.fromOffset(20, 0)} BackgroundTransparency={1} ZIndex={z + 4}>
+							<AutoHeightText value={props.title.upper()} size={15} weight={Enum.FontWeight.Heavy} color={props.tone === "danger" ? Palette.cream : Palette.brass} width={inner - 24} zIndex={z + 4} />
+						</frame>
 						{props.body !== undefined && (
 							<scrollingframe
 								Size={new UDim2(1, 0, 0, bodyRoom)}
@@ -220,7 +227,6 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 								onClick={() => resolve(false)}
 								color={Palette.panelSoft}
 								textColor={Palette.cream}
-								outline={true}
 								size={buttonW}
 								position={stackButtons ? UDim2.fromOffset(0, TapTarget + Space.sm) : UDim2.fromScale(0, 0)}
 								disabled={exiting}
