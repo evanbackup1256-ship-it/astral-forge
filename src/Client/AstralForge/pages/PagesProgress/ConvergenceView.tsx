@@ -96,7 +96,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 		};
 	}, [firstClaimTier, event.EventId]);
 	const heroPanel = (
-		<Panel
+		<Panel radius={18} rule={true}
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.mango}
 			background={Palette.panelRaised}
@@ -164,7 +164,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 		const buttonColor = tier.CanClaim ? Palette.mint : tier.Claimed ? Palette.panelSoft : Palette.violet;
 		const tierReveal = tier.CanClaim ? revealClaim : revealTiers;
 		return (
-			<Panel
+			<Panel radius={18} rule={true}
 				key={`tier-${tier.Tier}`}
 				size={new UDim2(1, 0, 0, tierHeight)}
 				accent={tier.CanClaim ? Palette.mint : Palette.violet}
@@ -286,7 +286,7 @@ function ConvergenceView(props: ConvergenceViewProps) {
 	const convergenceSoft = softMotion === true || revealHero === undefined || revealFill === undefined;
 	if (event === undefined) {
 		return (
-			<Panel
+			<Panel radius={18} rule={true}
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.mango}
 				padding={22}
