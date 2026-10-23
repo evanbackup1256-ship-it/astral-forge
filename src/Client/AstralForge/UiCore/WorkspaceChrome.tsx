@@ -686,7 +686,7 @@ export function Workspace(_param: WorkspaceProps) {
 			ClipsDescendants: false,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, Radius.lg),
+			CornerRadius: new UDim(0, 18),
 		}),
 		h(
 			"uistroke",
@@ -702,6 +702,7 @@ export function Workspace(_param: WorkspaceProps) {
 				Color: strokeGradient(Palette.lineSoft),
 			}),
 		),
+		h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false, ZIndex: 21 }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 		headerHeight > 0 &&
 			h(
 				"frame",
@@ -713,7 +714,7 @@ export function Workspace(_param: WorkspaceProps) {
 					ClipsDescendants: false,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, Radius.lg),
+					CornerRadius: new UDim(0, 18),
 				}),
 				h("uigradient", {
 					Color: surfaceGradient(Palette.panel, 0.58),

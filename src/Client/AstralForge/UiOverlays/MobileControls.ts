@@ -823,7 +823,8 @@ function MobileControls(props: MobileControlsProps) {
 					BorderSizePixel: 0,
 					ZIndex: 502,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 14) }),
+				h("uicorner", { CornerRadius: new UDim(0, 18) }),
+				h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 				h("uistroke", {
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 					LineJoinMode: Enum.LineJoinMode.Round,
@@ -920,7 +921,8 @@ function MobileControls(props: MobileControlsProps) {
 				BorderSizePixel: 0,
 				ZIndex: 510,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, 18) }),
+			h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 			h("uistroke", {
 				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 				LineJoinMode: Enum.LineJoinMode.Round,
@@ -1241,7 +1243,8 @@ function MobileControls(props: MobileControlsProps) {
 				BorderSizePixel: 0,
 				ZIndex: 510,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, 18) }),
+			h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 			h("uistroke", {
 				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 				LineJoinMode: Enum.LineJoinMode.Round,
