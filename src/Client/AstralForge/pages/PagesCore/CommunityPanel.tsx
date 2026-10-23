@@ -180,62 +180,58 @@ export function CommunityPanel(props: {
 	}
 
 	const rowH = stack ? ROW_H_STACK : ROW_H;
+	const textW = stack ? -52 : -(52 + 162);
 	const children: Record<string, React.Element> = {};
 	rows.forEach((row, index) => {
-		children[row.key] = (
-			<frame
-				Size={new UDim2(1, 0, 0, rowH)}
-				Position={UDim2.fromOffset(0, HEADER_H + index * (rowH + ROW_GAP))}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-			>
-				<GlyphWell kind={row.icon} accent={row.ready ? row.accent : Palette.panelSoft} size={40} radius={12} position={UDim2.fromOffset(0, 6)} glow={row.ready} reducedMotion={props.reducedMotion} />
-				<Text
-					value={row.title}
-					size={15}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={11}
-					position={UDim2.fromOffset(52, 6)}
-					sizeConstraint={new UDim2(1, stack ? -52 : -(52 + 162), 0, 21)}
-				/>
-				<Text
-					value={row.detail}
-					size={12}
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(52, 28)}
-					sizeConstraint={new UDim2(1, stack ? -52 : -(52 + 162), 0, 28)}
-				/>
-				<frame
-					Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(150, 44)}
-					Position={stack ? UDim2.fromOffset(0, ROW_H) : new UDim2(1, -150, 0.5, -22)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					<Button
-						text={row.button}
-						onClick={row.onClick}
-						color={row.ready ? row.accent : Palette.panelSoft}
-						textColor={row.ready ? Palette.ink : Palette.muted}
-						size={UDim2.fromScale(1, 1)}
-						disabled={!row.ready}
-						highlight={row.ready}
-						loading={pending === row.key}
-						shakeToken={refused.key === row.key ? refused.token : 0}
-						reducedMotion={props.reducedMotion}
-					/>
+		const info = (
+			<frame Size={new UDim2(1, 0, 0, ROW_H)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={UDim2.fromOffset(40, 40)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<GlyphWell kind={row.icon} accent={row.ready ? row.accent : Palette.panelSoft} size={40} radius={12} glow={row.ready} reducedMotion={props.reducedMotion} />
 				</frame>
+				<frame Size={new UDim2(1, textW, 0, 51)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 2)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<Text value={row.title} size={15} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={11} layoutOrder={0} sizeConstraint={new UDim2(1, 0, 0, 21)} />
+					<Text value={row.detail} size={12} color={Palette.muted} wrap={true} fit={true} minSize={9} layoutOrder={1} sizeConstraint={new UDim2(1, 0, 0, 28)} />
+				</frame>
+				{!stack ? action(row, 2) : undefined}
+			</frame>
+		);
+		children[row.key] = (
+			<frame Size={new UDim2(1, 0, 0, rowH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={index + 1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{info}
+				{stack ? action(row, 1) : undefined}
 			</frame>
 		);
 	});
+	function action(row: (typeof rows)[number], order: number) {
+		return (
+			<frame Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(150, 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={order}>
+				<Button
+					text={row.button}
+					onClick={row.onClick}
+					color={row.ready ? row.accent : Palette.panelSoft}
+					textColor={row.ready ? Palette.ink : Palette.muted}
+					size={UDim2.fromScale(1, 1)}
+					disabled={!row.ready}
+					highlight={row.ready}
+					loading={pending === row.key}
+					shakeToken={refused.key === row.key ? refused.token : 0}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+		);
+	}
 	return (
 		<PnSurface radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.mango} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
-			<Text value="Community" size={13} color={Palette.mango} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
-			{children}
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, ROW_GAP)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={new UDim2(1, 0, 0, HEADER_H - ROW_GAP)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<Text value="Community" size={13} color={Palette.mango} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+				</frame>
+				{children}
+			</frame>
 		</PnSurface>
 	);
 }

@@ -3,7 +3,12 @@ import { frameStroke } from "../../CoreKit/profileFrame";
 import { segmentedHeight } from "../../UiCore/ui";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod } from "./viewRuntime";
-import { BODY, BODY_BOLD, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, BODY_SEMI, Line, MockPanel, NUM, PanelHeading, ROW_RADIUS, RowSurface, mockGap } from "../../UiCore/mockKit";
+import { IconWell, MockRow, SEC } from "../mockRows";
+import { TapTarget } from "../../CoreKit/theme";
+
+// .row avatar in design/27-social: a #2a2030 disc
+const AVATAR_FILL = Color3.fromRGB(42, 32, 48);
 
 const CHAT_PEER_SIDE_MIN = 1280;
 const CHAT_PEER_SIDE_W = 220;
@@ -143,98 +148,125 @@ function __member(): unknown {
 		return luaCall(useFlipperSpring, (luaTruthy(live) ? 1 : 0), reducedMotion, 780, 38);
 		return undefined;
 	}
+	// design/27-social .row: a 30px avatar ring (brass, or the sender's profile frame), the name (and title)
+	// over the message, the time muted on the right. One horizontal list per row, no hand-placed offsets.
+	const P = Palette as Record<string, Color3>;
+	function rowShell(rowHeight: number, enter: React.Binding<number>, fade: React.Binding<number>, face: React.Element[], content: (React.Element | undefined)[], overlay?: React.Element) {
+		return React.createElement("frame", { Size: new UDim2(1, 0, 0, rowHeight), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true },
+			React.createElement("frame", {
+				Name: "Card",
+				Size: new UDim2(1, -4, 0, rowHeight - CHAT_ROW_GAP),
+				Position: enter.map((amount: number) => UDim2.fromOffset(math.round((1 - amount) * 14), math.round((1 - amount) * 10))),
+				BackgroundColor3: P.white,
+				BackgroundTransparency: 1,
+				BorderSizePixel: 0,
+				ClipsDescendants: true,
+			},
+				React.createElement("uiscale", { Scale: enter.map((amount: number) => 0.97 + amount * 0.03) }),
+				React.createElement(React.Fragment, undefined, ...face),
+				React.createElement("frame", { Name: "Content", Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
+					React.createElement("uipadding", { PaddingLeft: new UDim(0, 12), PaddingRight: new UDim(0, 12), PaddingTop: new UDim(0, 6), PaddingBottom: new UDim(0, 6) }),
+					React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 12), SortOrder: Enum.SortOrder.LayoutOrder }),
+					...content,
+				),
+				overlay,
+			),
+		);
+	}
 	function MessageRow(_param?: unknown): unknown | undefined {
-		let message: unknown = luaProp(_param, "message");
-		let position: unknown = luaProp(_param, "position");
-		let reducedMotion: unknown = luaProp(_param, "reducedMotion");
-		let bodySize: unknown = luaProp(_param, "bodySize");
-		let animate: unknown = luaProp(_param, "animate");
-		let rowHeight: unknown = luaProp(_param, "rowHeight");
-		let softMotion: unknown = reducedMotion;
-		let enter: unknown = luaCall(useMessageEntrance, animate, reducedMotion);
-		let accent: unknown = (luaTruthy(luaProp(message, "system")) ? luaProp(Palette, "mango") : (luaProp(message, "profileAccent") ?? luaCall(userColor, luaProp(message, "userId"))));
-		// the sender's chosen profile frame on their mark ring (default frame: unchanged 1px ring)
-		const markRing = frameStroke(luaTruthy(luaProp(message, "system")) ? undefined : (luaProp(message, "profileFrame") as string | undefined), accent as Color3);
-		let authorId: unknown = (tonumber(luaProp(message, "userId")) || 0);
-		if (((authorId !== authorId) || ((math.abs as unknown as (...a: unknown[]) => unknown)(authorId) === luaProp(math, "huge")))) {
-			authorId = 0;
+		const message = luaProp(_param, "message");
+		const reducedMotion = luaProp(_param, "reducedMotion");
+		const bodySize = luaProp(_param, "bodySize") as number;
+		const rowHeight = luaProp(_param, "rowHeight") as number;
+		const enter = luaCall(useMessageEntrance, luaProp(_param, "animate"), reducedMotion) as React.Binding<number>;
+		const system = luaTruthy(luaProp(message, "system"));
+		const accent = (system ? P.mango : (luaProp(message, "profileAccent") ?? luaCall(userColor, luaProp(message, "userId")))) as Color3;
+		const fade = enter.map((amount: number) => 1 - amount);
+		if (system) {
+			// game notices: a panel-raised card with the accent sliver, a 38px icon well and two lines
+			return rowShell(rowHeight, enter, fade, [
+				React.createElement("uicorner", { key: "corner", CornerRadius: new UDim(0, ROW_RADIUS) }),
+				React.createElement("frame", { key: "fill", Size: UDim2.fromScale(1, 1), BackgroundColor3: P.panelRaised, BackgroundTransparency: fade.map((a: number) => 0.08 + a * 0.92), BorderSizePixel: 0, ZIndex: 0 }, React.createElement("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) })),
+				React.createElement("uistroke", { key: "stroke", Color: accent, Thickness: 1, Transparency: fade.map((a: number) => 0.42 + a * 0.58), ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+				React.createElement("frame", { key: "sliver", Size: new UDim2(0, 3, 1, -12), Position: UDim2.fromOffset(0, 6), BackgroundColor3: accent, BackgroundTransparency: fade, BorderSizePixel: 0, ZIndex: 3 }, React.createElement("uicorner", { CornerRadius: new UDim(0, 2) })),
+			], [
+				React.createElement("frame", { key: "well", Size: UDim2.fromOffset(36, 36), BackgroundTransparency: 1, LayoutOrder: 0 }, React.createElement(IconWell, { icon: "Chat.2", accent, size: 36 })),
+				React.createElement("frame", { key: "text", Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+					React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+					React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 2), SortOrder: Enum.SortOrder.LayoutOrder }),
+					React.createElement(Line, { text: "Game message", size: 12, font: BODY_BOLD, color: accent, width: new UDim(1, 0), height: 16, layoutOrder: 0 }),
+					React.createElement("textlabel", { Text: tostring(luaProp(message, "text") ?? ""), FontFace: BODY, TextSize: bodySize - 1, TextColor3: P.cream, TextTransparency: fade, BackgroundTransparency: 1, TextWrapped: true, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, TextYAlignment: Enum.TextYAlignment.Top, Size: new UDim2(1, 0, 0, math.max(16, rowHeight - CHAT_ROW_GAP - 12 - 18)), LayoutOrder: 1 }),
+				),
+			]);
 		}
-		let pulse: unknown = luaCall(usePulse, (!luaTruthy(luaProp(message, "system"))), ((2.4 as unknown as number) + ((((math.abs as unknown as (...a: unknown[]) => unknown)(((authorId as unknown as number) % (5 as unknown as number))) as unknown as number) * (0.14 as unknown as number)) as unknown as number)));
-		let fade: unknown = colon(enter).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((1 as unknown as number) - (amount as unknown as number));
-			return undefined;
-		});
-		let cardY: unknown = (luaTruthy(luaProp(message, "system")) ? (math.floor as unknown as (...a: unknown[]) => unknown)((((((rowHeight as unknown as number) - (SYSTEM_CARD_H as unknown as number))) as unknown as number) / (2 as unknown as number))) : 4);
-		let cardH: unknown = (luaTruthy(luaProp(message, "system")) ? SYSTEM_CARD_H : (math.max as unknown as (...a: unknown[]) => unknown)(CARD_H, ((rowHeight as unknown as number) - (8 as unknown as number))));
-		if (luaTruthy(luaProp(message, "system"))) {
-			return reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, rowHeight), Position: position, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, cardH), Position: colon(enter).map(function(this: void, amount?: unknown): unknown | undefined {
-				return luaCall(luaProp(UDim2, "fromOffset"), (math.round as unknown as (...a: unknown[]) => unknown)((((((1 as unknown as number) - (amount as unknown as number))) as unknown as number) * (14 as unknown as number))), ((cardY as unknown as number) + ((math.round as unknown as (...a: unknown[]) => unknown)((((((1 as unknown as number) - (amount as unknown as number))) as unknown as number) * (8 as unknown as number))) as unknown as number)));
-				return undefined;
-			}), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0, 0), BackgroundColor3: luaProp(Palette, "panelRaised"), BackgroundTransparency: colon(fade).map(function(this: void, amount?: unknown): unknown | undefined {
-				return ((0.08 as unknown as number) + (((amount as unknown as number) * (0.92 as unknown as number)) as unknown as number));
-				return undefined;
-			}), BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uiscale", { Scale: colon(enter).map(function(this: void, amount?: unknown): unknown | undefined {
-				return ((0.97 as unknown as number) + (((amount as unknown as number) * (0.03 as unknown as number)) as unknown as number));
-				return undefined;
-			}) }), reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 16) }), reactLoose.createElement("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 15) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: colon(fade).map(function(this: void, amount?: unknown): unknown | undefined { return 0.75 + (amount as number) * 0.25; }) })), reactLoose.createElement("uistroke", { Color: accent, Thickness: 1, Transparency: colon(fade).map(function(this: void, amount?: unknown): unknown | undefined {
-				return ((0.42 as unknown as number) + (((amount as unknown as number) * (0.58 as unknown as number)) as unknown as number));
-				return undefined;
-			}) }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 3, 1, -12), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 6), BackgroundColor3: accent, BackgroundTransparency: fade, BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 2) })), reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 38, 38), Position: luaCall(luaProp(UDim2, "fromOffset"), 14, 14), BackgroundColor3: luaCall(darken, accent, 0.62), BackgroundTransparency: fade, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement(Icon, { kind: "Chat.2", color: luaProp(Palette, "ink"), accent: accent, size: 22, position: luaCall(luaProp(UDim2, "fromOffset"), 8, 8), spin: false })), reactLoose.createElement(Text, { value: "Game message", size: 12, color: accent, weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 64, 12), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -78, 0, 16), transparency: fade }), reactLoose.createElement(Text, { value: luaProp(message, "text"), size: bodySize, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Medium"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 64, 32), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -78, 0, 28), transparency: fade })));
-		}
-		// design/27-social chat row: 30px avatar ring (brass, or the sender's profile frame), name + title,
-		// the message under it, the time (and channel) muted on the right
-		const P = Palette as Record<string, Color3>;
+		// the sender's chosen profile frame on their avatar ring (default frame: the brass .4 ring)
+		const markRing = frameStroke(luaProp(message, "profileFrame") as string | undefined, accent);
 		const mention = luaTruthy(luaProp(message, "mention"));
 		const mine = luaTruthy(luaProp(message, "localPlayer"));
 		const artifactName = luaProp(message, "artifactName") as string | undefined;
-		const artifactColor = (luaProp(message, "artifactColor") as Color3 | undefined) ?? (accent as Color3);
+		const artifactColor = (luaProp(message, "artifactColor") as Color3 | undefined) ?? accent;
 		const ringColor = markRing.gradient !== undefined || luaProp(message, "profileFrame") !== undefined ? markRing.color : P.brass;
-		const rightW = artifactName !== undefined ? 96 + (ARTIFACT_CHIP_W as number) : 96;
 		const badge = luaCall(channelBadge, message) as string | undefined;
 		const clock = tostring(luaCall(luaProp(ChatRules, "clock"), luaProp(message, "at")));
-		return React.createElement("frame", { Size: new UDim2(1, 0, 0, rowHeight as number), Position: position as UDim2, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true },
-			React.createElement("frame", {
-				Size: new UDim2(1, -4, 0, (rowHeight as number) - CHAT_ROW_GAP),
-				Position: colon(enter).map((amount: number) => UDim2.fromOffset(math.round((1 - amount) * 14), math.round((1 - amount) * 10))) as never,
-				BackgroundColor3: mention ? P.mango : P.white, BackgroundTransparency: mention ? 0.86 : 0, BorderSizePixel: 0, ClipsDescendants: true,
-			},
-				React.createElement("uiscale", { Scale: colon(enter).map((amount: number) => 0.97 + amount * 0.03) as never }),
-				mention ? React.createElement("uicorner", { CornerRadius: new UDim(0, 11) }) : React.createElement(RowSurface, {}),
-				mention ? React.createElement("uistroke", { Color: P.mango, Transparency: 0.5, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }) : undefined,
-				mine ? React.createElement("frame", { Size: new UDim2(0, 3, 1, -16), Position: UDim2.fromOffset(0, 8), BackgroundColor3: accent as Color3, BorderSizePixel: 0 }, React.createElement("uicorner", { CornerRadius: new UDim(0, 2) })) : undefined,
-				React.createElement("frame", { Size: UDim2.fromOffset(30, 30), Position: new UDim2(0, 12, 0.5, -15), BackgroundColor3: Color3.fromRGB(42, 32, 48), BorderSizePixel: 0 },
-					React.createElement("uicorner", { CornerRadius: new UDim(1, 0) }),
-					React.createElement("uistroke", { Color: ringColor, Thickness: math.max(1.5, markRing.thickness), Transparency: markRing.gradient !== undefined ? 0 : 0.6, ApplyStrokeMode: Enum.ApplyStrokeMode.Border },
-						markRing.gradient !== undefined ? React.createElement("uigradient", { Color: markRing.gradient, Rotation: 35 }) : undefined),
-					reactLoose.createElement(PlayerMark, { userId: luaProp(message, "userId"), color: P.cream, accent: accent, size: 18, position: UDim2.fromOffset(6, 6) }) as React.Element,
-				),
-				React.createElement("frame", { Size: new UDim2(1, -(54 + rightW), 0, 20), Position: UDim2.fromOffset(54, 6), BackgroundTransparency: 1 },
+		const onWhisper = luaProp(_param, "onWhisper");
+		const titleName = luaProp(message, "titleName");
+		const face: React.Element[] = mention
+			? [
+					React.createElement("uicorner", { key: "corner", CornerRadius: new UDim(0, ROW_RADIUS) }),
+					React.createElement("frame", { key: "fill", Size: UDim2.fromScale(1, 1), BackgroundColor3: P.mango, BackgroundTransparency: 0.86, BorderSizePixel: 0, ZIndex: 0 }, React.createElement("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) })),
+					React.createElement("uistroke", { key: "stroke", Color: P.mango, Transparency: 0.5, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+				]
+			: [React.createElement(RowSurface, { key: "surface" })];
+		if (mine) {
+			face.push(React.createElement("frame", { key: "mine", Size: new UDim2(0, 3, 1, -16), Position: UDim2.fromOffset(0, 8), BackgroundColor3: accent, BorderSizePixel: 0, ZIndex: 3 }, React.createElement("uicorner", { CornerRadius: new UDim(0, 2) })));
+		}
+		const textBlock = React.createElement("frame", { key: "text", Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+			React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+			React.createElement("frame", { Name: "Lines", Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1 },
+				React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 2), SortOrder: Enum.SortOrder.LayoutOrder }),
+				// .tt b: name 600 15px, then the title chip when they wear one
+				React.createElement("frame", { Size: new UDim2(1, 0, 0, 20), BackgroundTransparency: 1, LayoutOrder: 0 },
 					React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, Padding: new UDim(0, 8), VerticalAlignment: Enum.VerticalAlignment.Center, SortOrder: Enum.SortOrder.LayoutOrder }),
-					React.createElement("textlabel", { Text: tostring(luaProp(message, "displayName") ?? ""), FontFace: BODY_SEMI, TextSize: 15, TextColor3: mine ? (accent as Color3) : P.cream, BackgroundTransparency: 1, AutomaticSize: Enum.AutomaticSize.X, Size: UDim2.fromOffset(0, 20), LayoutOrder: 1 },
+					React.createElement("textlabel", { Text: tostring(luaProp(message, "displayName") ?? ""), FontFace: BODY_SEMI, TextSize: 15, TextColor3: mine ? accent : P.cream, TextTransparency: fade, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, AutomaticSize: Enum.AutomaticSize.X, Size: UDim2.fromOffset(0, 20), LayoutOrder: 0 },
 						React.createElement("uisizeconstraint", { MaxSize: new Vector2(220, 20) })),
-					luaProp(message, "titleName") !== undefined
-						? React.createElement("frame", { Size: UDim2.fromOffset(160, 16), BackgroundTransparency: 1, LayoutOrder: 2 }, reactLoose.createElement(AnimatedTitle, { text: luaProp(message, "titleName"), fx: luaProp(message, "titleFx"), size: 12, reducedMotion: reducedMotion, inline: true, sizeConstraint: UDim2.fromScale(1, 1) }) as React.Element)
+					titleName !== undefined
+						? React.createElement("frame", { Size: UDim2.fromOffset(160, 16), BackgroundTransparency: 1, LayoutOrder: 1 }, reactLoose.createElement(AnimatedTitle, { text: titleName, fx: luaProp(message, "titleFx"), size: 12, reducedMotion, inline: true, sizeConstraint: UDim2.fromScale(1, 1) }) as React.Element)
 						: undefined,
 				),
-				React.createElement("textlabel", { Text: tostring(luaProp(message, "text") ?? ""), FontFace: BODY, TextSize: (bodySize as number) - 1, TextColor3: P.creamSoft, BackgroundTransparency: 1, TextWrapped: true, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, TextYAlignment: Enum.TextYAlignment.Top, Position: UDim2.fromOffset(54, 27), Size: new UDim2(1, -(54 + rightW), 1, -31) }),
-				artifactName !== undefined
-					? React.createElement("frame", { Size: UDim2.fromOffset(ARTIFACT_CHIP_W as number, 28), Position: new UDim2(1, -(96 + (ARTIFACT_CHIP_W as number)), 0.5, -14), BackgroundColor3: P.white, BackgroundTransparency: 0.95, BorderSizePixel: 0 },
-							React.createElement("uicorner", { CornerRadius: new UDim(0, 8) }),
-							React.createElement("uistroke", { Color: artifactColor, Transparency: 0.5, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
-							luaProp(message, "artifactElement") !== undefined ? (reactLoose.createElement(ElementFx, { element: luaProp(message, "artifactElement"), size: UDim2.fromOffset(20, 20), position: UDim2.fromOffset(6, 4), reducedMotion: reducedMotion }) as React.Element) : undefined,
-							React.createElement("textlabel", { Text: artifactName, FontFace: BODY_BOLD, TextSize: 12, TextColor3: artifactColor, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(30, 0), Size: new UDim2(1, -36, 1, 0) }),
-						)
-					: undefined,
-				React.createElement("textlabel", { Text: clock, FontFace: NUM, TextSize: 15, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Right, Position: new UDim2(1, -88, 0, luaTruthy(badge) ? 8 : 0), Size: new UDim2(0, 76, luaTruthy(badge) ? 0 : 1, luaTruthy(badge) ? 18 : 0) }),
-				luaTruthy(badge)
-					? React.createElement("textlabel", { Text: tostring(badge), FontFace: BODY_BOLD, TextSize: 11, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Right, Position: new UDim2(1, -88, 0, 28), Size: UDim2.fromOffset(76, 14) })
-					: undefined,
-				luaProp(_param, "onWhisper") !== undefined && !mine
-					? React.createElement("textbutton", { Name: "WhisperAuthor", Size: new UDim2(1, -(54 + rightW), 1, 0), Position: UDim2.fromOffset(54, 0), BackgroundTransparency: 1, Text: "", AutoButtonColor: false, ZIndex: 5, Event: { Activated: () => luaCall(luaProp(_param, "onWhisper"), luaProp(message, "userId")) } })
-					: undefined,
+				// .tt small: the message (wraps to the row height, then truncates)
+				React.createElement("textlabel", { Text: tostring(luaProp(message, "text") ?? ""), FontFace: BODY, TextSize: bodySize - 1, TextColor3: P.creamSoft, TextTransparency: fade, BackgroundTransparency: 1, TextWrapped: true, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, TextYAlignment: Enum.TextYAlignment.Top, Size: new UDim2(1, 0, 0, math.max(16, rowHeight - CHAT_ROW_GAP - 12 - 22)), LayoutOrder: 1 }),
 			),
+			onWhisper !== undefined && !mine
+				? React.createElement("textbutton", { Name: "WhisperAuthor", Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, Text: "", AutoButtonColor: false, ZIndex: 5, Event: { Activated: () => luaCall(onWhisper, luaProp(message, "userId")) } })
+				: undefined,
 		);
-		return undefined;
+		return rowShell(rowHeight, enter, fade, face, [
+			React.createElement("frame", { key: "avatar", Size: UDim2.fromOffset(30, 30), BackgroundColor3: AVATAR_FILL, BorderSizePixel: 0, LayoutOrder: 0 },
+				React.createElement("uicorner", { CornerRadius: new UDim(1, 0) }),
+				React.createElement("uistroke", { Color: ringColor, Thickness: math.max(1.5, markRing.thickness), Transparency: markRing.gradient !== undefined ? 0 : 0.6, ApplyStrokeMode: Enum.ApplyStrokeMode.Border },
+					markRing.gradient !== undefined ? React.createElement("uigradient", { Color: markRing.gradient, Rotation: 35 }) : undefined),
+				reactLoose.createElement(PlayerMark, { userId: luaProp(message, "userId"), color: P.cream, accent, size: 18, position: UDim2.fromOffset(6, 6) }) as React.Element,
+			),
+			textBlock,
+			artifactName !== undefined
+				? React.createElement("frame", { key: "artifact", Size: UDim2.fromOffset(ARTIFACT_CHIP_W as number, 28), BackgroundColor3: P.white, BackgroundTransparency: 0.95, BorderSizePixel: 0, LayoutOrder: 2 },
+						React.createElement("uicorner", { CornerRadius: new UDim(0, 8) }),
+						React.createElement("uistroke", { Color: artifactColor, Transparency: 0.5, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+						React.createElement("uipadding", { PaddingLeft: new UDim(0, 6), PaddingRight: new UDim(0, 8) }),
+						React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 4), SortOrder: Enum.SortOrder.LayoutOrder }),
+						luaProp(message, "artifactElement") !== undefined
+							? React.createElement("frame", { Size: UDim2.fromOffset(20, 20), BackgroundTransparency: 1, LayoutOrder: 0 }, reactLoose.createElement(ElementFx, { element: luaProp(message, "artifactElement"), size: UDim2.fromOffset(20, 20), reducedMotion }) as React.Element)
+							: undefined,
+						React.createElement("textlabel", { Text: artifactName, FontFace: BODY_BOLD, TextSize: 12, TextColor3: artifactColor, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, Size: new UDim2(0, 0, 1, 0), LayoutOrder: 1 }, React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill })),
+					)
+				: undefined,
+			// .v.num in muted: the clock, with the channel tag under it
+			React.createElement("frame", { key: "time", Size: new UDim2(0, 76, 1, 0), BackgroundTransparency: 1, LayoutOrder: 3 },
+				React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Vertical, VerticalAlignment: Enum.VerticalAlignment.Center, HorizontalAlignment: Enum.HorizontalAlignment.Right, Padding: new UDim(0, 2), SortOrder: Enum.SortOrder.LayoutOrder }),
+				React.createElement(Line, { text: clock, size: 17, font: NUM, color: P.muted, width: new UDim(1, 0), height: 20, align: Enum.TextXAlignment.Right, layoutOrder: 0 }),
+				luaTruthy(badge) ? React.createElement(Line, { text: tostring(badge), size: 11, font: BODY_BOLD, color: P.muted, width: new UDim(1, 0), height: 14, align: Enum.TextXAlignment.Right, layoutOrder: 1 }) : undefined,
+			),
+		]);
 	}
 	function ChatView(_param?: unknown): unknown | undefined {
 		let chat: unknown = ((luaTruthy(luaProp(_param, "chat") ) ? luaProp(_param, "chat") :  EMPTY_CHAT));
@@ -575,123 +607,144 @@ function __member(): unknown {
 		let statusLabel: unknown = (luaTruthy(luaProp(chat, "connected")) ? "ONLINE" : "CONNECTING");
 		let statusAccent: unknown = (luaTruthy(luaProp(chat, "connected")) ? luaProp(Palette, "mint") : luaProp(Palette, "mango"));
 		let placeholder: unknown = ((failure !== "") ? failure : (luaTruthy(luaProp(chrome, "mobile")) ? (((tab === "global") ? "Message global…  (/help)" : ((tab === "server") ? "Message server…  (/help)" : ((tab === "crew") ? "Message crew…  (/help)" : ((tab === "friends") ? "Message friends…  (/help)" : ((tab === "whispers") ? "Private message…  (/help)" : "Message…  (/help)")))))) : (((luaTruthy(luaProp(chat, "placeholder") ) ? luaProp(chat, "placeholder") :  "Say something... (/help)")))));
-		let statusElement: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "panelRaised"), BorderSizePixel: 0, ClipsDescendants: true, ZIndex: 20 }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 16) }), reactLoose.createElement("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 15) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: 0.75 })), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "lineSoft"), Thickness: 1, Transparency: 0.5 }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 3, 1, -16), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 8), BackgroundColor3: luaProp(Palette, "mango"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 2) })), reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 42, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 14, 11), BackgroundColor3: luaCall(darken, luaProp(Palette, "mango"), 0.72), BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 11) }), reactLoose.createElement("uigradient", { Color: new (ColorSequence as unknown as new (...args: unknown[]) => unknown)(luaCall(lighten, luaProp(Palette, "mango"), 0.15), luaCall(darken, luaProp(Palette, "mango"), 0.45)), Rotation: 120 }), reactLoose.createElement(Icon, { kind: "Chat.3", color: luaProp(Palette, "ink"), accent: luaProp(Palette, "mango"), size: 26, position: luaCall(luaProp(UDim2, "fromOffset"), 8, 8), spin: false, reducedMotion: softMotion })), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((((STATUS_RESERVE as unknown as number) + (68 as unknown as number)) as unknown as number) + (52 as unknown as number))) as unknown as number)), 0, 48), Position: luaCall(luaProp(UDim2, "fromOffset"), 68, 8), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement(Text, { value: "Chat", size: 18, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 24), transparency: colon(headerReveal).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((1 as unknown as number) - (amount as unknown as number));
-			return undefined;
-		}) }), reactLoose.createElement(Text, { value: (luaTruthy(filteringLog) ? `${len(shownMessages)} of ${count} match` : `${count} log${((count === 1) ? "" : "s")}  ·  Roblox-filtered`), size: 13, color: luaProp(Palette, "muted"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 0, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 18), transparency: colon(((luaTruthy(showBanner) ? bannerReveal : statusReveal))).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((1 as unknown as number) - (amount as unknown as number));
-			return undefined;
-		}) })), reactLoose.createElement(Button, { text: "", icon: (luaTruthy(searchOpen) ? "Close.5" : "Search.7"), onClick: function(this: void): unknown | undefined {
-			if (luaTruthy(searchOpen)) {
-				luaCall(setLogQuery, "");
-			}
-			luaCall(setSearchOpen, (!luaTruthy(searchOpen)));
-			return undefined;
-		}, color: (luaTruthy(searchOpen) ? luaProp(Palette, "mango") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(searchOpen) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), size: luaCall(luaProp(UDim2, "fromOffset"), 44, 44), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((STATUS_RESERVE as unknown as number) + (48 as unknown as number))) as unknown as number)), 0.5, -22), reducedMotion: softMotion }), reactLoose.createElement(Badge, { value: statusLabel, accent: statusAccent, filled: true, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((STATUS_RESERVE as unknown as number) - (4 as unknown as number))) as unknown as number)), 0.5, -13), size: luaCall(luaProp(UDim2, "fromOffset"), ((STATUS_RESERVE as unknown as number) - (16 as unknown as number)), 26) }));
-		let composerSoft: unknown = ((luaTruthy(reducedMotion ) ? reducedMotion :  (composerReveal === undefined)));
-		let _chatSoftKeep: unknown = (luaTruthy(composerSoft) ? bannerReveal : statusReveal);
-		let messagesElement: unknown = reactLoose.createElement(FlatList, { data: shownMessages, itemHeight: rowHeight, headerHeight: topPad, overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 0, Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), scrollBarColor: luaProp(Palette, "mango"), scrollBarThickness: 4, scrollBarTransparency: 0.12, ZIndex: 10, frameRef: listFrame, keyExtractor: function(this: void, message?: unknown): unknown | undefined {
-			return luaProp(message, "id");
-			return undefined;
-		}, renderItem: function(this: void, _param_1?: unknown): unknown | undefined {
-			let message: unknown = luaProp(_param_1, "item");
-			let animate: unknown = (luaIndex(renderedIds, luaProp(message, "id")) === true);
-			return reactLoose.createElement(MessageRow, { message: message, reducedMotion: softMotion, bodySize: bodySize, animate: animate, rowHeight: rowHeight, onWhisper: ((((!luaTruthy(luaProp(message, "system"))) && (luaProp(chat, "openWhisper") !== undefined)) && (!luaTruthy(luaProp(message, "remote")))) ? function(this: void, userId?: unknown): unknown | undefined {
-				luaCall(luaProp(chat, "openWhisper"), userId);
-				return undefined;
-			} : undefined) });
-			return undefined;
-		} });
-		if (((unseen as unknown as number) > (0 as unknown as number))) {
-			messagesElement = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1 }, messagesElement, reactLoose.createElement(Button, { text: `${unseen} new message${((unseen === 1) ? "" : "s")}`, icon: "Chat.4", color: luaProp(Palette, "mango"), textColor: luaProp(Palette, "ink"), hug: true, reducedMotion: softMotion, size: luaCall(luaProp(UDim2, "fromOffset"), 0, 40), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.5, -90, 1, -52), zIndex: 30, onClick: function(this: void): unknown | undefined {
-				luaCall(setUnseen, 0);
-				luaCall(scrollToBottom, true);
-				return undefined;
-			} }));
+		const phone = luaTruthy(luaProp(chrome, "mobile")) || luaTruthy(luaProp(viewport, "compact"));
+		const gap = condensed ? 8 : mockGap(phone);
+		// header: .pn h3 "Server chat" with the log count, then the ONLINE badge and the search toggle
+		const tabLabel = (TAB_DEFS as { id: string; label: string }[]).find((def) => def.id === tab)?.label ?? "Server";
+		const heading = React.createElement("frame", { key: "heading", Size: new UDim2(1, 0, 0, 44), BackgroundTransparency: 1, LayoutOrder: 0 },
+			React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 10), SortOrder: Enum.SortOrder.LayoutOrder }),
+			React.createElement("frame", { Size: new UDim2(0, 0, 0, 22), BackgroundTransparency: 1, LayoutOrder: 0 },
+				React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+				React.createElement(PanelHeading, {
+					icon: "Chat.3",
+					title: tab === "all" || tab === "server" ? (phone ? "Server" : "Server chat") : `${tabLabel} chat`,
+					note: luaTruthy(filteringLog) ? `${len(shownMessages)} of ${count} match` : `${count} log${count === 1 ? "" : "s"} · Roblox-filtered`,
+					accent: P.mint,
+					phone,
+				}),
+			),
+			showStatus ? React.createElement("frame", { Size: UDim2.fromOffset(phone ? 96 : 112, 26), BackgroundTransparency: 1, LayoutOrder: 1 }, reactLoose.createElement(Badge, { value: statusLabel, accent: statusAccent, filled: true, size: UDim2.fromScale(1, 1) }) as React.Element) : undefined,
+			showStatus
+				? React.createElement("frame", { Size: UDim2.fromOffset(44, 44), BackgroundTransparency: 1, LayoutOrder: 2 },
+						reactLoose.createElement(Button, { text: "", icon: luaTruthy(searchOpen) ? "Close.5" : "Search.7", onClick: () => {
+							if (luaTruthy(searchOpen)) {
+								luaCall(setLogQuery, "");
+							}
+							luaCall(setSearchOpen, !luaTruthy(searchOpen));
+						}, color: luaTruthy(searchOpen) ? P.mint : SEC, textColor: luaTruthy(searchOpen) ? P.ink : P.cream, size: UDim2.fromScale(1, 1), reducedMotion: softMotion }) as React.Element)
+				: undefined,
+		);
+		const children: React.Element[] = [heading];
+		// channel tabs: All / Global / Server / Crew / Friends / Whispers with their unread counts
+		const unreadByTab = (luaProp(chat, "unreadByTab") ?? {}) as Record<string, number>;
+		const tabOptions = (TAB_DEFS as { id: string; label: string }[]).map((def) => {
+			const waiting = unreadByTab[def.id] ?? 0;
+			return { id: def.id, label: waiting > 0 ? `${def.label} ${waiting}` : def.label };
+		});
+		const tabColumns = luaTruthy(luaProp(viewport, "compact")) ? 3 : tabOptions.size();
+		const tabsH = segmentedHeight(tabOptions.size(), tabColumns, viewport as never, TAB_ROW_H as number, 6);
+		children.push(React.createElement("frame", { key: "tabs", Size: new UDim2(1, 0, 0, tabsH), BackgroundTransparency: 1, LayoutOrder: 1 },
+			reactLoose.createElement(SegmentedTabs, { options: tabOptions, value: tab, onChange: luaProp(chat, "setTab"), accent: P.mint, columns: tabColumns, gap: 6, size: UDim2.fromScale(1, 1), reducedMotion: softMotion }) as React.Element));
+		if (showStatus && luaTruthy(searchOpen)) {
+			children.push(React.createElement("frame", { key: "search", Size: new UDim2(1, 0, 0, 44), BackgroundTransparency: 1, LayoutOrder: 2 },
+				reactLoose.createElement(SearchField, { value: logQuery, onChange: setLogQuery, placeholder: "Search words, from:name or in:global", accent: P.mint, reducedMotion: softMotion, size: UDim2.fromScale(1, 1), zIndex: 22 }) as React.Element));
 		}
-		let bannerElement: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0, ClipsDescendants: true, ZIndex: 20 }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 16) }), reactLoose.createElement("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 15) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: 0.75 })), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "mango"), Thickness: 1, Transparency: 0.32 }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 3, 1, -12), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 6), BackgroundColor3: luaProp(Palette, "mango"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 2) })), reactLoose.createElement(Icon, { kind: "Forge.18", color: luaProp(Palette, "ink"), accent: luaProp(Palette, "mango"), size: 24, position: luaCall(luaProp(UDim2, "fromOffset"), 14, 14), spin: false, reducedMotion: softMotion }), reactLoose.createElement(Text, { value: "Keep it clean", size: 12, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 48, 8), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -60, 0, 16) }), reactLoose.createElement(Text, { value: "Roblox filters messages. /help for shortcuts.", size: 13, minSize: 10, color: luaProp(Palette, "creamSoft"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, position: luaCall(luaProp(UDim2, "fromOffset"), 48, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -60, 0, 16) }));
-		let inputElement: unknown = reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "panelRaised"), BorderSizePixel: 0, ClipsDescendants: false, ZIndex: 20 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), reactLoose.createElement("uistroke", { Color: ((failure !== "") ? luaProp(Palette, "coral") : luaProp(Palette, "lineSoft")), Thickness: 1, Transparency: 0.45 }), reactLoose.createElement("textbox", { ref: input, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -148, 1, -14), Position: luaCall(luaProp(UDim2, "fromOffset"), 14, 7), BackgroundTransparency: 1, BorderSizePixel: 0, ClearTextOnFocus: false, Text: draft, PlaceholderText: placeholder, PlaceholderColor3: ((failure !== "") ? luaProp(Palette, "coral") : luaProp(Palette, "muted")), TextColor3: luaProp(Palette, "cream"), TextSize: 16, FontFace: luaCall(luaProp(Font, "fromEnum"), luaProp(luaProp(Enum, "Font"), "BuilderSansMedium")), TextXAlignment: luaProp(luaProp(Enum, "TextXAlignment"), "Left"), TextYAlignment: luaProp(luaProp(Enum, "TextYAlignment"), "Center"), TextTruncate: luaProp(luaProp(Enum, "TextTruncate"), "None"), TextScaled: false, MultiLine: false, TextEditable: true, MaxVisibleGraphemes: DRAFT_LIMIT, Change: { Text: function(this: void, box?: unknown): unknown | undefined {
-			return luaCall(setDraft, luaCall(luaProp(ChatText, "limit"), luaProp(box, "Text"), DRAFT_LIMIT));
-			return undefined;
-		} }, Event: { Focused: function(this: void): unknown | undefined {
-			return colon(Audio).play("inputFocus");
-			return undefined;
-		}, FocusLost: function(this: void, _box?: unknown, enterPressed?: unknown): unknown | undefined {
-			if (luaTruthy(enterPressed)) {
-				luaCall(submit);
-			}
-			return undefined;
-		} } }), reactLoose.createElement("frame", { Name: "ChatClaimActions", Size: luaCall(luaProp(UDim2, "fromOffset"), 0, 48), AutomaticSize: luaProp(luaProp(Enum, "AutomaticSize"), "X"), AnchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(1, 0.5), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -8, 0.5, 0), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, ref: chatClaimHostRef }, reactLoose.createElement(Button, { text: "SEND", icon: "Send.4", onClick: submit, color: luaProp(Palette, "mango"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 0, 48), hug: true, disabled: (!luaTruthy(canSend)), reducedMotion: reducedMotion, highlight: canSend })));
-		let sections: unknown = {};
-		if (luaTruthy(showStatus)) {
-			luaTable.insert(sections, { id: "status", height: STATUS_HEIGHT, element: statusElement });
-		}
-		if ((luaTruthy(showStatus) && luaTruthy(searchOpen))) {
-			luaTable.insert(sections, { id: "search", height: 44, element: reactLoose.createElement(SearchField, { value: logQuery, onChange: setLogQuery, placeholder: "Search words, from:name or in:global", accent: luaProp(Palette, "mango"), reducedMotion: softMotion, size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), zIndex: 22 }) });
-		}
-		let unreadByTab: unknown = ((luaTruthy(luaProp(chat, "unreadByTab") ) ? luaProp(chat, "unreadByTab") :  {}));
-		let tabOptions: unknown = {};
-		for (const [_, def] of pairs((TAB_DEFS) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-			let waiting: unknown = ((luaTruthy(luaIndex(unreadByTab, luaProp(def, "id")) ) ? luaIndex(unreadByTab, luaProp(def, "id")) :  0));
-			luaTable.insert(tabOptions, { id: luaProp(def, "id"), label: (((waiting as unknown as number) > (0 as unknown as number)) ? `${luaProp(def, "label")} ${waiting}` : luaProp(def, "label")) });
-		}
-		let tabColumns: unknown = (luaTruthy(luaProp(viewport, "compact")) ? 3 : len(TAB_DEFS));
-		let tabRows: unknown = (math.ceil as unknown as (...a: unknown[]) => unknown)(((len(TAB_DEFS) as unknown as number) / (tabColumns as unknown as number)));
-		luaTable.insert(sections, { id: "tabs", height: segmentedHeight(len(TAB_DEFS) as number, tabColumns as number, viewport as never, TAB_ROW_H as number, 6), element: reactLoose.createElement(SegmentedTabs, { options: tabOptions, value: tab, onChange: luaProp(chat, "setTab"), accent: luaProp(Palette, "mango"), columns: tabColumns, gap: 6, size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion }) });
-		// wide desktop windows: whisper threads sit in a side list next to the messages instead of a chip rail
-		const peerSide = tab === "whispers" && (len(luaProp(chat, "whispers")) as number) > 0 && !luaTruthy(luaProp(viewport, "compact")) && (luaProp(viewport, "width") as number) >= CHAT_PEER_SIDE_MIN;
-		const peerButtons: defined[] = [];
-		if (((tab === "whispers") && ((len(luaProp(chat, "whispers")) as unknown as number) > (0 as unknown as number)))) {
-			let peerChips: unknown = {};
-			for (const [_, entry] of pairs((luaProp(chat, "whispers")) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				let selected: unknown = (luaProp(entry, "userId") === luaProp(chat, "peer"));
-				let label: unknown = luaProp(entry, "displayName");
-				if (((luaProp(entry, "unread") as unknown as number) > (0 as unknown as number))) {
-					label = `${label} (${luaProp(entry, "unread")})`;
+		// whisper threads: a side list on wide windows, a one-row chip rail otherwise
+		const whispers = (luaProp(chat, "whispers") ?? {}) as { userId: number; displayName: string; unread?: number; online?: boolean }[];
+		const hasWhispers = tab === "whispers" && whispers.size() > 0;
+		const peerSide = hasWhispers && !luaTruthy(luaProp(viewport, "compact")) && (luaProp(viewport, "width") as number) >= CHAT_PEER_SIDE_MIN;
+		const peerButtons: React.Element[] = [];
+		const peerChips: { key: string; element: unknown }[] = [];
+		if (hasWhispers) {
+			for (const entry of whispers) {
+				const selected = entry.userId === luaProp(chat, "peer");
+				let label = entry.displayName;
+				if ((entry.unread ?? 0) > 0) {
+					label = `${label} (${entry.unread})`;
 				}
-				if ((luaProp(entry, "online") === false)) {
-					label = concat(label, " · away");
+				if (entry.online === false) {
+					label = `${label} · away`;
 				}
-				peerButtons.push(reactLoose.createElement("frame", { key: `peer-${luaProp(entry, "userId")}`, Size: new UDim2(1, 0, 0, (PEER_ROW_H as number) - 4), LayoutOrder: peerButtons.size(), BackgroundTransparency: 1, BorderSizePixel: 0 }, reactLoose.createElement(Button, { text: label, onClick: function(this: void): unknown | undefined {
-					luaCall(luaProp(chat, "setPeer"), luaProp(entry, "userId"));
-					return undefined;
-				}, color: (luaTruthy(selected) ? luaProp(Palette, "violet") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(selected) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), size: UDim2.fromScale(1, 1), reducedMotion: softMotion })) as defined);
-				luaTable.insert(peerChips, { key: `peer-${luaProp(entry, "userId")}`, element: reactLoose.createElement(Button, { text: label, onClick: function(this: void): unknown | undefined {
-					luaCall(luaProp(chat, "setPeer"), luaProp(entry, "userId"));
-					return undefined;
-				}, color: (luaTruthy(selected) ? luaProp(Palette, "violet") : luaProp(Palette, "panelSoft")), textColor: (luaTruthy(selected) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), size: luaCall(luaProp(UDim2, "fromOffset"), 0, ((PEER_ROW_H as unknown as number) - (4 as unknown as number))), hug: true, reducedMotion: softMotion }) });
+				const pick = () => luaCall(luaProp(chat, "setPeer"), entry.userId);
+				peerButtons.push(React.createElement("frame", { key: `peer-${entry.userId}`, Size: new UDim2(1, 0, 0, (PEER_ROW_H as number) - 4), LayoutOrder: peerButtons.size(), BackgroundTransparency: 1, BorderSizePixel: 0 },
+					reactLoose.createElement(Button, { text: label, onClick: pick, color: selected ? P.violet : SEC, textColor: selected ? P.ink : P.cream, size: UDim2.fromScale(1, 1), reducedMotion: softMotion }) as React.Element));
+				peerChips.push({ key: `peer-${entry.userId}`, element: reactLoose.createElement(Button, { text: label, onClick: pick, color: selected ? P.violet : SEC, textColor: selected ? P.ink : P.cream, size: UDim2.fromOffset(0, (PEER_ROW_H as number) - 4), hug: true, reducedMotion: softMotion }) });
 			}
 			if (!peerSide) {
-				luaTable.insert(sections, { id: "peers", height: PEER_ROW_H, element: luaCall(chipRail, peerChips, undefined) });
+				children.push(React.createElement("frame", { key: "peers", Size: new UDim2(1, 0, 0, PEER_ROW_H as number), BackgroundTransparency: 1, LayoutOrder: 3 }, luaCall(chipRail, peerChips, undefined) as React.Element));
 			}
 		}
-		const messagesPane: unknown = (((!luaTruthy(filteringLog)) && (len(shownMessages) === 0)) ? reactLoose.createElement(Text, { value: ((tab === "whispers") ? "No whispers yet. Type /w name message to start one." : ((tab === "friends") ? "Nothing from friends in this server yet." : ((tab === "crew") ? "Crew chat is private to your crew. Start one on the Crew page." : ((tab === "global") ? "Global chat is quiet. Say hello to every server." : "Nobody has said anything here yet. Say hi.")))), size: 14, color: luaProp(Palette, "muted"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20) }) : ((luaTruthy(filteringLog) && (len(shownMessages) === 0)) ? reactLoose.createElement(Text, { value: `No messages match "${logQuery}".`, size: 14, color: luaProp(Palette, "muted"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, 40), position: luaCall(luaProp(UDim2, "fromOffset"), 0, 20) }) : messagesElement));
-		luaTable.insert(sections, { id: "messages", fill: true, minHeight: 120, element: peerSide
-			? reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				reactLoose.createElement("scrollingframe", { Name: "WhisperPeers", Size: new UDim2(0, CHAT_PEER_SIDE_W, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, CanvasSize: new UDim2(), AutomaticCanvasSize: Enum.AutomaticSize.Y, ScrollBarThickness: 3, ScrollBarImageColor3: luaProp(Palette, "violet"), SelectionGroup: true },
-					reactLoose.createElement("uilistlayout", { SortOrder: Enum.SortOrder.LayoutOrder, Padding: new UDim(0, 6) }),
-					reactLoose.createElement("uipadding", { PaddingRight: new UDim(0, 6) }),
-					...peerButtons),
-				reactLoose.createElement("frame", { Name: "Thread", Size: new UDim2(1, -(CHAT_PEER_SIDE_W + 10), 1, 0), Position: new UDim2(0, CHAT_PEER_SIDE_W + 10, 0, 0), BackgroundTransparency: 1, BorderSizePixel: 0 }, messagesPane))
-			: messagesPane });
-		if (luaTruthy(showBanner)) {
-			luaTable.insert(sections, { id: "banner", height: BANNER_HEIGHT, element: bannerElement });
+		const emptyLine = (text: string) =>
+			React.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1 },
+				React.createElement("uipadding", { PaddingTop: new UDim(0, 20) }),
+				React.createElement(Line, { text, size: 14, font: BODY, color: P.muted, width: new UDim(1, 0), height: 40, align: Enum.TextXAlignment.Center }));
+		const messagesPane =
+			!luaTruthy(filteringLog) && len(shownMessages) === 0
+				? emptyLine(tab === "whispers" ? "No whispers yet. Type /w name message to start one." : tab === "friends" ? "Nothing from friends in this server yet." : tab === "crew" ? "Crew chat is private to your crew. Start one on the Crew page." : tab === "global" ? "Global chat is quiet. Say hello to every server." : "Nobody has said anything here yet. Say hi.")
+				: luaTruthy(filteringLog) && len(shownMessages) === 0
+					? emptyLine(`No messages match "${logQuery}".`)
+					: React.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1 },
+							reactLoose.createElement(FlatList, { data: shownMessages, itemHeight: rowHeight, headerHeight: topPad, overscan: luaTruthy(softMotion) ? 0 : luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2, canvasTail: 0, Size: UDim2.fromScale(1, 1), scrollBarColor: P.mint, scrollBarThickness: 4, scrollBarTransparency: 0.12, ZIndex: 10, frameRef: listFrame, keyExtractor: (message: unknown) => luaProp(message, "id"), renderItem: (_item: unknown) => {
+								const message = luaProp(_item, "item");
+								const animate = luaIndex(renderedIds, luaProp(message, "id")) === true;
+								return reactLoose.createElement(MessageRow, { message, reducedMotion: softMotion, bodySize, animate, rowHeight, onWhisper: !luaTruthy(luaProp(message, "system")) && luaProp(chat, "openWhisper") !== undefined && !luaTruthy(luaProp(message, "remote")) ? (userId: unknown) => luaCall(luaProp(chat, "openWhisper"), userId) : undefined });
+							} }) as React.Element,
+							// reading history: the "N new messages" pill floats over the bottom of the list
+							(unseen as number) > 0
+								? React.createElement("frame", { Name: "NewMessages", Size: UDim2.fromOffset(0, 40), AutomaticSize: Enum.AutomaticSize.X, AnchorPoint: new Vector2(0.5, 1), Position: new UDim2(0.5, 0, 1, -12), BackgroundTransparency: 1, ZIndex: 30 },
+										reactLoose.createElement(Button, { text: `${unseen} new message${unseen === 1 ? "" : "s"}`, icon: "Chat.4", color: P.mint, textColor: P.ink, hug: true, reducedMotion: softMotion, size: UDim2.fromOffset(0, 40), zIndex: 30, onClick: () => {
+											luaCall(setUnseen, 0);
+											luaCall(scrollToBottom, true);
+										} }) as React.Element)
+								: undefined,
+						);
+		children.push(React.createElement("frame", { key: "messages", Name: "Messages", Size: new UDim2(1, 0, 0, 120), BackgroundTransparency: 1, LayoutOrder: 4 },
+			React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+			peerSide
+				? React.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
+						React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, Padding: new UDim(0, 10), SortOrder: Enum.SortOrder.LayoutOrder }),
+						React.createElement("scrollingframe", { Name: "WhisperPeers", Size: new UDim2(0, CHAT_PEER_SIDE_W, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, CanvasSize: new UDim2(), AutomaticCanvasSize: Enum.AutomaticSize.Y, ScrollBarThickness: 3, ScrollBarImageColor3: P.violet, SelectionGroup: true, LayoutOrder: 0 },
+							React.createElement("uilistlayout", { SortOrder: Enum.SortOrder.LayoutOrder, Padding: new UDim(0, 6) }),
+							React.createElement("uipadding", { PaddingRight: new UDim(0, 6) }),
+							...peerButtons),
+						React.createElement("frame", { Name: "Thread", Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 1 },
+							React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+							messagesPane))
+				: messagesPane));
+		if (showBanner) {
+			children.push(React.createElement(MockRow, { key: "banner", title: "Keep it clean", sub: "Roblox filters messages. /help for shortcuts.", icon: "Forge.18", accent: P.mango, phone, layoutOrder: 5, height: BANNER_HEIGHT as number }));
 		}
-		if (((len(suggestions) as unknown as number) > (0 as unknown as number))) {
-			let suggestChips: unknown = {};
-			for (const [order, suggestion] of pairs((suggestions) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				luaTable.insert(suggestChips, { key: `suggest-${order}`, element: reactLoose.createElement(Button, { text: ((luaProp(suggestion, "kind") === "command") ? luaProp(suggestion, "label") : `${luaProp(suggestion, "label")}  ${luaProp(suggestion, "detail")}`), onClick: function(this: void): unknown | undefined {
-					luaCall(applySuggestion, luaProp(suggestion, "fill"));
-					return undefined;
-				}, color: ((order === 1) ? luaProp(Palette, "mango") : luaProp(Palette, "panelSoft")), textColor: ((order === 1) ? luaProp(Palette, "ink") : luaProp(Palette, "cream")), size: luaCall(luaProp(UDim2, "fromOffset"), 0, ((SUGGEST_ROW_H as unknown as number) - (4 as unknown as number))), hug: true, reducedMotion: softMotion }) });
-			}
-			luaTable.insert(sections, { id: "suggest", height: SUGGEST_ROW_H, element: luaCall(chipRail, suggestChips, 24) });
+		const suggestions2 = suggestions as { kind?: string; label: string; detail?: string; fill: string }[];
+		if (len(suggestions2) > 0) {
+			const chips = suggestions2.map((suggestion, index) => ({ key: `suggest-${index + 1}`, element: reactLoose.createElement(Button, { text: suggestion.kind === "command" ? suggestion.label : `${suggestion.label}  ${suggestion.detail}`, onClick: () => luaCall(applySuggestion, suggestion.fill), color: index === 0 ? P.mint : SEC, textColor: index === 0 ? P.ink : P.cream, size: UDim2.fromOffset(0, (SUGGEST_ROW_H as number) - 4), hug: true, reducedMotion: softMotion }) }));
+			children.push(React.createElement("frame", { key: "suggest", Size: new UDim2(1, 0, 0, SUGGEST_ROW_H as number), BackgroundTransparency: 1, LayoutOrder: 6 }, luaCall(chipRail, chips, 24) as React.Element));
 		}
-		luaTable.insert(sections, { id: "input", height: inputHeight, element: inputElement });
-		return reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaProp(Palette, "void"), BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 16) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "mango"), Thickness: 1, Transparency: 0.55 }), reactLoose.createElement(PageScaffold, { gap: chromeGap, inset: SIDE_INSET, tailPad: chromeGap, scrollBarColor: luaProp(Palette, "mango"), scrollBarThickness: 0, sections: sections }));
-		return undefined;
+		// .flexr input: the "Say something" chip (fills) and the icon send button
+		const fieldH = math.max(TapTarget, (inputHeight as number) - 14);
+		children.push(React.createElement("frame", { key: "input", Name: "Composer", Size: new UDim2(1, 0, 0, fieldH), BackgroundTransparency: 1, LayoutOrder: 7, ClipsDescendants: false },
+			React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, gap), SortOrder: Enum.SortOrder.LayoutOrder }),
+			React.createElement("frame", { Name: "Field", Size: new UDim2(0, 0, 1, 0), BackgroundColor3: P.white, BackgroundTransparency: 0.95, BorderSizePixel: 0, LayoutOrder: 0 },
+				React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+				React.createElement("uicorner", { CornerRadius: new UDim(0, 8) }),
+				React.createElement("uistroke", { Color: failure !== "" ? P.coral : P.white, Transparency: failure !== "" ? 0.45 : 0.9, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+				React.createElement("uipadding", { PaddingLeft: new UDim(0, 14), PaddingRight: new UDim(0, 14) }),
+				React.createElement("textbox", { ref: input as never, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClearTextOnFocus: false, Text: draft as string, PlaceholderText: placeholder as string, PlaceholderColor3: failure !== "" ? P.coral : P.muted, TextColor3: P.cream, TextSize: 16, FontFace: BODY, TextXAlignment: Enum.TextXAlignment.Left, TextYAlignment: Enum.TextYAlignment.Center, TextTruncate: Enum.TextTruncate.None, TextScaled: false, MultiLine: false, TextEditable: true, MaxVisibleGraphemes: DRAFT_LIMIT as number,
+					Change: { Text: (box: TextBox) => luaCall(setDraft, luaCall(luaProp(ChatText, "limit"), box.Text, DRAFT_LIMIT)) },
+					Event: {
+						Focused: () => colon(Audio).play("inputFocus"),
+						FocusLost: (_box: TextBox, enterPressed: boolean) => {
+							if (enterPressed) {
+								luaCall(submit);
+							}
+						},
+					} }),
+			),
+			React.createElement("frame", { Name: "ChatClaimActions", ref: chatClaimHostRef as never, Size: UDim2.fromOffset(phone ? fieldH : 0, fieldH), AutomaticSize: phone ? Enum.AutomaticSize.None : Enum.AutomaticSize.X, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false, LayoutOrder: 1 },
+				reactLoose.createElement(Button, { text: phone ? "" : "SEND", icon: "Send.4", onClick: submit, color: P.mint, textColor: P.ink, size: phone ? UDim2.fromScale(1, 1) : UDim2.fromOffset(0, fieldH), hug: !phone, disabled: !luaTruthy(canSend), reducedMotion, highlight: canSend }) as React.Element),
+		));
+		// .pn.f1 "Server chat": the brass-ruled panel holds the whole conversation, top to bottom
+		return React.createElement(MockPanel as never, { size: UDim2.fromScale(1, 1), phone, accent: P.brass, gap, name: "ChatPanel", reducedMotion: softMotion } as never, ...children);
 	}
 	return { ChatView: ChatView };
-	return undefined;
 }
 export = __member();

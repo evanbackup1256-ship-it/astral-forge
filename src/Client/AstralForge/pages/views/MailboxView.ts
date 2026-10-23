@@ -1,7 +1,8 @@
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod } from "./viewRuntime";
-import { BODY, BODY_BOLD, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, BODY_SEMI, Line, MockPanel, NUM, PanelHeading, ROW_RADIUS, RowSurface, TITLE_FACE, mockGap } from "../../UiCore/mockKit";
+import { SEC } from "../mockRows";
 
 function __member(): unknown {
 	let UserInputService: unknown = colon(game).GetService("UserInputService");
@@ -60,79 +61,115 @@ function __member(): unknown {
 		return ((luaProp(item, "Attachment") !== undefined) && (luaCall(next, luaProp(item, "Attachment")) !== undefined));
 		return undefined;
 	}
+	const P = Palette as Record<string, Color3>;
+	const hl = (component: unknown, props: object, ...children: unknown[]) => luaCall(h, component, props, ...children) as React.Element;
+	const list = (direction: "Horizontal" | "Vertical", padding: number, extra?: object) =>
+		React.createElement("uilistlayout", { FillDirection: Enum.FillDirection[direction], Padding: new UDim(0, padding), SortOrder: Enum.SortOrder.LayoutOrder, VerticalAlignment: direction === "Horizontal" ? Enum.VerticalAlignment.Center : undefined, ...(extra ?? {}) });
+	const fill = () => React.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill });
+	/** sender initial in a round well tinted by the letter's colour (reader head) */
 	function Avatar(props?: unknown): unknown | undefined {
-		let item: unknown = luaProp(props, "item");
-		let letter: unknown = luaCall(luaProp(ChatText, "initial"), luaProp(item, "Sender"));
-		return luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), luaProp(props, "size"), luaProp(props, "size")), Position: luaProp(props, "position"), BackgroundColor3: luaCall(darken, luaProp(item, "Color"), (luaTruthy(luaProp(props, "unread")) ? 0.25 : 0.65)), BorderSizePixel: 0, ZIndex: 3 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(1, 0) }), luaCall(h, "uistroke", { Color: luaProp(item, "Color"), Thickness: 1.5, Transparency: (luaTruthy(luaProp(props, "unread")) ? 0.05 : 0.55) }), luaCall(h, Text, { value: letter, size: (math.floor as unknown as (...a: unknown[]) => unknown)(((luaProp(props, "size") as unknown as number) * (0.42 as unknown as number))), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), sizeConstraint: luaCall(luaProp(UDim2, "fromScale"), 1, 1), zIndex: 4 }));
-		return undefined;
+		const item = luaProp(props, "item");
+		const size = luaProp(props, "size") as number;
+		const tint = luaProp(item, "Color") as Color3;
+		const unread = luaTruthy(luaProp(props, "unread"));
+		return React.createElement("frame", { Size: UDim2.fromOffset(size, size), BackgroundColor3: luaCall(darken, tint, unread ? 0.25 : 0.65) as Color3, BorderSizePixel: 0, LayoutOrder: (luaProp(props, "layoutOrder") as number) ?? 0 },
+			React.createElement("uicorner", { CornerRadius: new UDim(1, 0) }),
+			React.createElement("uistroke", { Color: tint, Thickness: 1.5, Transparency: unread ? 0.05 : 0.55 }),
+			React.createElement("textlabel", { Text: tostring(luaCall(luaProp(ChatText, "initial"), luaProp(item, "Sender")) ?? ""), FontFace: BODY_BOLD, TextSize: math.floor(size * 0.42), TextColor3: P.cream, BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }));
 	}
 	function MailRow(props?: unknown): unknown | undefined {
-		let item: unknown = luaProp(props, "item");
-		let mail: unknown = luaProp(props, "mail");
-		let unread: unknown = (!luaTruthy(luaProp(mail, "Read")));
-		let gift: unknown = (luaCall(hasGift, item) && (!luaTruthy(luaProp(mail, "Claimed"))));
-		let softMotion: unknown = luaProp(props, "softMotion");
-		let reveal: unknown = luaCall(useStagger, luaProp(props, "order"), softMotion, 0.02, 0.2);
-		let hover: unknown;
-		let setHover: unknown;
-		[hover, setHover] = reactLoose.useState(false) as LuaTuple<[unknown, unknown]>;
-		let glow: unknown = luaCall(useFlipperSpring, (luaTruthy(luaProp(props, "active")) ? 1 : (luaTruthy(hover) ? 0.5 : 0)), softMotion, 640, 36);
-		// design/27 mail .row: 36px icon well (sender initial), subject over "from <sender>", date muted,
-		// and the action on the right (Claim when a gift waits, otherwise Open) in the accent
-		const P = Palette as Record<string, Color3>;
-		const tint = luaProp(item, "Color") as Color3;
+		const item = luaProp(props, "item");
+		const mail = luaProp(props, "mail");
+		const unread = !luaTruthy(luaProp(mail, "Read"));
+		const gift = luaTruthy(luaCall(hasGift, item)) && !luaTruthy(luaProp(mail, "Claimed"));
+		const softMotion = luaProp(props, "softMotion");
+		const reveal = luaCall(useStagger, luaProp(props, "order"), softMotion, 0.02, 0.2) as React.Binding<number>;
+		const [hover, setHover] = React.useState(false);
 		const active = luaTruthy(luaProp(props, "active"));
-		const action = luaTruthy(gift) ? "Claim" : "Open";
+		const glow = luaCall(useFlipperSpring, active ? 1 : hover ? 0.5 : 0, softMotion, 640, 36) as React.Binding<number>;
+		// design/27 mail .row: 36px icon well (sender initial), subject over "from <sender>", and the action
+		// on the right in the accent (Claim when a gift waits, otherwise Open)
+		const tint = luaProp(item, "Color") as Color3;
+		const action = gift ? "Claim" : "Open";
 		return React.createElement("imagebutton", {
-			Name: "MailRow", Size: new UDim2(1, -4, 0, ROW_H as number), BackgroundColor3: P.white, BackgroundTransparency: colon(reveal).map((a: number) => 1 - a) as never,
-			AutoButtonColor: false, BorderSizePixel: 0, Selectable: true, ClipsDescendants: false,
+			Name: "MailRow", Size: new UDim2(1, -4, 0, ROW_H as number), BackgroundColor3: P.white, BackgroundTransparency: reveal.map((a: number) => 1 - a),
+			AutoButtonColor: false, BorderSizePixel: 0, Selectable: true, ClipsDescendants: false, Image: "",
 			Event: {
 				Activated: () => luaCall(luaProp(props, "onChoose"), luaProp(item, "Id")),
-				MouseEnter: () => { luaCall(setHover, true); colon(Audio).play("hover"); },
-				MouseLeave: () => luaCall(setHover, false),
-				SelectionGained: () => luaCall(setHover, true),
-				SelectionLost: () => luaCall(setHover, false),
+				MouseEnter: () => { setHover(true); colon(Audio).play("hover"); },
+				MouseLeave: () => setHover(false),
+				SelectionGained: () => setHover(true),
+				SelectionLost: () => setHover(false),
 			},
 		},
 			React.createElement(RowSurface, {}),
 			React.createElement("uistroke", {
 				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
-				Color: active || luaTruthy(unread) ? P.mango : P.white,
-				Thickness: colon(glow).map((a: number) => 1 + a) as never,
-				Transparency: colon(glow).map((a: number) => (active ? 0.2 : luaTruthy(unread) ? 0.55 - a * 0.3 : 0.95 - a * 0.6)) as never,
+				Color: active || unread ? P.mint : P.white,
+				Thickness: glow.map((a: number) => 1 + a),
+				Transparency: glow.map((a: number) => (active ? 0.2 : unread ? 0.55 - a * 0.3 : 0.95 - a * 0.6)),
 			}),
-			React.createElement("frame", { Size: UDim2.fromOffset(36, 36), Position: new UDim2(0, 12, 0.5, -18), BackgroundColor3: P.void, BackgroundTransparency: 0.35, BorderSizePixel: 0, ZIndex: 3 },
+			React.createElement("uipadding", { PaddingLeft: new UDim(0, 12), PaddingRight: new UDim(0, 12), PaddingTop: new UDim(0, 6), PaddingBottom: new UDim(0, 6) }),
+			list("Horizontal", 12),
+			React.createElement("frame", { Size: UDim2.fromOffset(36, 36), BackgroundColor3: P.void, BackgroundTransparency: 0.35, BorderSizePixel: 0, LayoutOrder: 0 },
 				React.createElement("uicorner", { CornerRadius: new UDim(0, 9) }),
 				React.createElement("uistroke", { ApplyStrokeMode: Enum.ApplyStrokeMode.Border, Color: P.white, Transparency: 0.92, Thickness: 1 }),
-				React.createElement("textlabel", { Text: tostring(luaCall(luaProp(ChatText, "initial"), luaProp(item, "Sender")) ?? ""), FontFace: BODY_BOLD, TextSize: 16, TextColor3: tint, BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1), ZIndex: 3 }),
+				React.createElement("textlabel", { Text: tostring(luaCall(luaProp(ChatText, "initial"), luaProp(item, "Sender")) ?? ""), FontFace: BODY_BOLD, TextSize: 16, TextColor3: tint, BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }),
+				// unread pip on the well's top-right corner
+				unread ? React.createElement("frame", { Size: UDim2.fromOffset(8, 8), AnchorPoint: new Vector2(0.5, 0.5), Position: UDim2.fromScale(1, 0), BackgroundColor3: P.mint, BorderSizePixel: 0, ZIndex: 4 }, React.createElement("uicorner", { CornerRadius: new UDim(1, 0) })) : undefined,
 			),
-			luaTruthy(unread) ? React.createElement("frame", { Size: UDim2.fromOffset(8, 8), Position: UDim2.fromOffset(42, 8), BackgroundColor3: P.mango, BorderSizePixel: 0, ZIndex: 4 }, React.createElement("uicorner", { CornerRadius: new UDim(1, 0) })) : undefined,
-			React.createElement("textlabel", { Text: tostring(luaProp(item, "Subject") ?? ""), FontFace: luaTruthy(unread) ? BODY_BOLD : BODY_SEMI, TextSize: 15, TextColor3: P.cream, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(60, 6), Size: new UDim2(1, -160, 0, 20), ZIndex: 3 }),
-			React.createElement("textlabel", { Text: `from ${tostring(luaProp(item, "Sender") ?? "")}${luaTruthy(luaProp(item, "Date")) ? `  ·  ${tostring(luaProp(item, "Date"))}` : ""}`, FontFace: BODY, TextSize: 12, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(60, 27), Size: new UDim2(1, -160, 0, 16), ZIndex: 3 }),
-			React.createElement("frame", { Size: UDim2.fromOffset(88, 24), Position: new UDim2(1, -100, 0.5, -12), BackgroundTransparency: 1, ZIndex: 3 },
-				React.createElement("uilistlayout", { SortOrder: Enum.SortOrder.LayoutOrder, FillDirection: Enum.FillDirection.Horizontal, HorizontalAlignment: Enum.HorizontalAlignment.Right, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 6) }),
-				luaTruthy(luaProp(mail, "Claimed")) && luaCall(hasGift, item)
-					? (luaCall(h, Icon, { kind: "Check.15", color: P.mint, accent: P.mint, size: 16, spin: false, layoutOrder: 1 }) as React.Element)
+			React.createElement("frame", { Size: new UDim2(0, 0, 0, 38), BackgroundTransparency: 1, LayoutOrder: 1 },
+				fill(),
+				list("Vertical", 2),
+				React.createElement(Line, { text: tostring(luaProp(item, "Subject") ?? ""), size: 15, font: unread ? BODY_BOLD : BODY_SEMI, color: P.cream, width: new UDim(1, 0), height: 20, layoutOrder: 0 }),
+				React.createElement(Line, { text: `from ${tostring(luaProp(item, "Sender") ?? "")}${luaTruthy(luaProp(item, "Date")) ? `  ·  ${tostring(luaProp(item, "Date"))}` : ""}`, size: 12, font: BODY, color: P.muted, width: new UDim(1, 0), height: 16, layoutOrder: 1 }),
+			),
+			React.createElement("frame", { Size: UDim2.fromOffset(0, 24), AutomaticSize: Enum.AutomaticSize.X, BackgroundTransparency: 1, LayoutOrder: 2 },
+				list("Horizontal", 6),
+				luaTruthy(luaProp(mail, "Claimed")) && luaTruthy(luaCall(hasGift, item))
+					? React.createElement("frame", { Size: UDim2.fromOffset(16, 16), BackgroundTransparency: 1, LayoutOrder: 0 }, hl(Icon, { kind: "Check.15", color: P.mint, accent: P.mint, size: 16, spin: false }))
 					: undefined,
-				React.createElement("textlabel", { Text: action, FontFace: NUM, TextSize: 17, TextColor3: luaTruthy(gift) ? P.mango : P.creamSoft, BackgroundTransparency: 1, AutomaticSize: Enum.AutomaticSize.X, Size: UDim2.fromOffset(0, 24), LayoutOrder: 2 }),
+				React.createElement(Line, { text: action, size: 17, font: NUM, color: gift ? P.mint : P.creamSoft, height: 24, layoutOrder: 1 }),
 			),
 		);
-		return undefined;
 	}
+	/** The attached gift under a letter: well, label and reward, then Claim / Archive. */
 	function Parcel(props?: unknown): unknown | undefined {
-		let item: unknown = luaProp(props, "item");
-		let claimed: unknown = luaProp(props, "claimed");
-		let softMotion: unknown = luaProp(props, "softMotion");
-		let stack: unknown = luaProp(props, "stack");
-		let pop: unknown = luaCall(useFlash, luaProp(props, "claimToken"), softMotion, 0.7);
-		return luaCall(h, "frame", { Name: "MailClaimActions", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, luaProp(props, "height")), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 0, 1, (-(luaProp(props, "height") as unknown as number))), BackgroundColor3: luaCall(darken, luaProp(item, "Color"), (luaTruthy(claimed) ? 0.85 : 0.72)), BorderSizePixel: 0, ClipsDescendants: false, ZIndex: 6 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 11) }), luaCall(h, "uistroke", { Color: (luaTruthy(claimed) ? luaProp(Palette, "lineSoft") : luaProp(item, "Color")), Thickness: colon(pop).map(function(this: void, a?: unknown): unknown | undefined {
-			return ((1.5 as unknown as number) + (((a as unknown as number) * (2 as unknown as number)) as unknown as number));
-			return undefined;
-		}), Transparency: (luaTruthy(claimed) ? 0.6 : 0.15) }), luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 48, 48), Position: luaCall(luaProp(UDim2, "fromOffset"), 14, 14), BackgroundColor3: (luaTruthy(claimed) ? luaProp(Palette, "panelSoft") : luaProp(item, "Color")), BorderSizePixel: 0, ZIndex: 7 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), luaCall(h, "uiscale", { Scale: colon(pop).map(function(this: void, a?: unknown): unknown | undefined {
-			return ((1 as unknown as number) + (((a as unknown as number) * (0.3 as unknown as number)) as unknown as number));
-			return undefined;
-		}) }), luaCall(h, Icon, { kind: (luaTruthy(claimed) ? "Check.16" : "Gift.11"), color: (luaTruthy(claimed) ? luaProp(Palette, "mint") : luaProp(Palette, "ink")), accent: luaProp(item, "Color"), size: 28, position: luaCall(luaProp(UDim2, "fromScale"), 0.5, 0.5), anchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5), spin: false, reducedMotion: softMotion })), luaCall(h, Text, { value: (luaTruthy(claimed) ? "COLLECTED" : "ATTACHED GIFT"), size: 11, color: (luaTruthy(claimed) ? luaProp(Palette, "mint") : luaProp(item, "Color")), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 74, 16), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -86 : -340), 0, 14), zIndex: 7 }), luaCall(h, Text, { value: luaCall(formatReward, luaProp(item, "Attachment")), size: 15, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 10, position: luaCall(luaProp(UDim2, "fromOffset"), 74, 34), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(stack) ? -86 : -340), 0, 22), zIndex: 7 }), luaCall(h, "frame", { Size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -28, 0, TapTarget) : luaCall(luaProp(UDim2, "fromOffset"), 310, TapTarget)), Position: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 14, 1, (-((((TapTarget as unknown as number) + (14 as unknown as number))) as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -324, 0.5, (((-(TapTarget as unknown as number)) as unknown as number) / (2 as unknown as number)))), BackgroundTransparency: 1, ClipsDescendants: false, ZIndex: 8 }, luaCall(h, "frame", { Name: "MailClaim", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.62, -4, 1, 0), BackgroundTransparency: 1, ClipsDescendants: false }, luaCall(h, Button, { text: (luaTruthy(claimed) ? "COLLECTED" : "CLAIM GIFT"), icon: "Gift.12", onClick: luaProp(props, "onClaim"), color: (luaTruthy(claimed) ? luaProp(Palette, "panelSoft") : luaProp(item, "Color")), textColor: (luaTruthy(claimed) ? luaProp(Palette, "muted") : luaProp(Palette, "ink")), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), disabled: claimed, highlight: (!luaTruthy(claimed)), reducedMotion: softMotion })), luaCall(h, "frame", { Name: "MailArchive", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.38, -4, 1, 0), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.62, 4, 0, 0), BackgroundTransparency: 1 }, luaCall(h, Button, { text: "ARCHIVE", icon: "Close.4", onClick: luaProp(props, "onArchive"), color: luaProp(Palette, "coral"), textColor: (luaTruthy(claimed) ? luaProp(Palette, "cream") : luaProp(Palette, "muted")), outline: true, size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), disabled: (!luaTruthy(claimed)), reducedMotion: softMotion }))));
-		return undefined;
+		const item = luaProp(props, "item");
+		const claimed = luaTruthy(luaProp(props, "claimed"));
+		const softMotion = luaProp(props, "softMotion");
+		const stack = luaTruthy(luaProp(props, "stack"));
+		const tint = luaProp(item, "Color") as Color3;
+		const pop = luaCall(useFlash, luaProp(props, "claimToken"), softMotion, 0.7) as React.Binding<number>;
+		const actions = React.createElement("frame", { Size: stack ? new UDim2(1, 0, 0, TapTarget as number) : UDim2.fromOffset(310, TapTarget as number), BackgroundTransparency: 1, ClipsDescendants: false, LayoutOrder: 2 },
+			list("Horizontal", 8, { HorizontalFlex: Enum.UIFlexAlignment.Fill }),
+			React.createElement("frame", { Name: "MailClaim", Size: new UDim2(0.62, 0, 1, 0), BackgroundTransparency: 1, ClipsDescendants: false, LayoutOrder: 0 },
+				hl(Button, { text: claimed ? "COLLECTED" : "CLAIM GIFT", icon: "Gift.12", onClick: luaProp(props, "onClaim"), color: claimed ? SEC : P.mint, textColor: claimed ? P.muted : P.ink, size: UDim2.fromScale(1, 1), disabled: claimed, highlight: !claimed, reducedMotion: softMotion })),
+			React.createElement("frame", { Name: "MailArchive", Size: new UDim2(0.38, 0, 1, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+				hl(Button, { text: "ARCHIVE", icon: "Close.4", onClick: luaProp(props, "onArchive"), color: P.coral, textColor: claimed ? P.cream : P.muted, outline: true, size: UDim2.fromScale(1, 1), disabled: !claimed, reducedMotion: softMotion })),
+		);
+		const head = React.createElement("frame", { Size: new UDim2(stack ? 1 : 0, 0, 0, 48), BackgroundTransparency: 1, LayoutOrder: 1 },
+			stack ? undefined : fill(),
+			list("Horizontal", 12),
+			React.createElement("frame", { Size: UDim2.fromOffset(48, 48), BackgroundColor3: claimed ? SEC : tint, BorderSizePixel: 0, LayoutOrder: 0 },
+				React.createElement("uicorner", { CornerRadius: new UDim(0, 12) }),
+				React.createElement("uiscale", { Scale: pop.map((a: number) => 1 + a * 0.3) }),
+				hl(Icon, { kind: claimed ? "Check.16" : "Gift.11", color: claimed ? P.mint : P.ink, accent: tint, size: 28, position: UDim2.fromScale(0.5, 0.5), anchorPoint: new Vector2(0.5, 0.5), spin: false, reducedMotion: softMotion })),
+			React.createElement("frame", { Size: new UDim2(0, 0, 0, 40), BackgroundTransparency: 1, LayoutOrder: 1 },
+				fill(),
+				list("Vertical", 2),
+				React.createElement(Line, { text: claimed ? "COLLECTED" : "ATTACHED GIFT", size: 11, font: BODY_BOLD, color: claimed ? P.mint : tint, width: new UDim(1, 0), height: 14, layoutOrder: 0 }),
+				React.createElement(Line, { text: tostring(luaCall(formatReward, luaProp(item, "Attachment"))), size: 15, font: NUM, color: P.cream, width: new UDim(1, 0), height: 22, layoutOrder: 1 }),
+			),
+		);
+		return React.createElement("frame", { Name: "MailClaimActions", Size: UDim2.fromScale(1, 1), BackgroundColor3: luaCall(darken, tint, claimed ? 0.85 : 0.72) as Color3, BorderSizePixel: 0, ClipsDescendants: false },
+			React.createElement("uicorner", { CornerRadius: new UDim(0, ROW_RADIUS) }),
+			React.createElement("uistroke", { Color: claimed ? P.lineSoft : tint, Thickness: pop.map((a: number) => 1.5 + a * 2), Transparency: claimed ? 0.6 : 0.15, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+			React.createElement("uipadding", { PaddingLeft: new UDim(0, 14), PaddingRight: new UDim(0, 14), PaddingTop: new UDim(0, stack ? 12 : 0), PaddingBottom: new UDim(0, stack ? 12 : 0) }),
+			list(stack ? "Vertical" : "Horizontal", stack ? 10 : 14, stack ? {} : { VerticalAlignment: Enum.VerticalAlignment.Center }),
+			head,
+			actions,
+		);
 	}
 	function MailboxView(_param?: unknown): unknown | undefined {
 		let state: unknown = luaProp(_param, "state");
@@ -262,101 +299,140 @@ function __member(): unknown {
 			}
 			return undefined;
 		};
-		let headerH: unknown = (luaTruthy(stack) ? 118 : 64);
-		let header: unknown = luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, headerH), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0 }, luaCall(h, "uicorner", { CornerRadius: new UDim(0, 16) }), luaCall(h, "frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, luaCall(h, "uicorner", { CornerRadius: new UDim(0, 15) }), luaCall(h, "uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: 0.75 })), luaCall(h, "uistroke", { Color: luaProp(Palette, "lineSoft"), Transparency: 0.5 }), luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 40, 40), Position: luaCall(luaProp(UDim2, "fromOffset"), 12, 12), BackgroundColor3: luaCall(darken, luaProp(Palette, "mango"), 0.6), BorderSizePixel: 0 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 12) }), luaCall(h, Icon, { kind: "Mail.2", color: luaProp(Palette, "cream"), accent: luaProp(Palette, "mango"), size: 24, position: luaCall(luaProp(UDim2, "fromScale"), 0.5, 0.5), anchorPoint: new (Vector2 as unknown as new (...args: unknown[]) => unknown)(0.5, 0.5), reducedMotion: softMotion })), luaCall(h, Text, { value: "Mailbox", size: 11, color: luaProp(Palette, "mango"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), position: luaCall(luaProp(UDim2, "fromOffset"), 62, 12), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 160, 0, 14) }), luaCall(h, Text, { value: (((unread === 0) && (gifts === 0)) ? "All caught up" : `${unread} unread · ${gifts} gift${((gifts === 1) ? "" : "s")} waiting`), size: 16, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 11, position: luaCall(luaProp(UDim2, "fromOffset"), 62, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)((luaTruthy(stack) ? 1 : 0), (luaTruthy(stack) ? (-((((62 as unknown as number) + (150 as unknown as number))) as unknown as number)) : 260), 0, 22) }), (((gifts as unknown as number) > (0 as unknown as number)) && luaCall(h, Button, { text: `CLAIM ALL (${gifts})`, icon: "Gift.13", onClick: function(this: void): unknown | undefined {
-			colon(Audio).play("mailClaim");
-			luaCall(setClaimToken, function(this: void, n?: unknown): unknown | undefined {
-				return ((n as unknown as number) + (1 as unknown as number));
-				return undefined;
-			});
-			luaCall(dispatch, "ClaimAllMail", {});
-			return undefined;
-		}, color: luaProp(Palette, "mint"), textColor: luaProp(Palette, "ink"), size: luaCall(luaProp(UDim2, "fromOffset"), 140, ((TapTarget as unknown as number) - (4 as unknown as number))), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -152, 0, 10), highlight: true, reducedMotion: softMotion })), luaCall(h, "frame", { Size: (luaTruthy(stack) ? new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -24, 0, ((TapTarget as unknown as number) + (8 as unknown as number))) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((380 as unknown as number) + (((((gifts as unknown as number) > (0 as unknown as number)) ? 164 : 12)) as unknown as number))) as unknown as number)), 0, 40)), Position: (luaTruthy(stack) ? luaCall(luaProp(UDim2, "fromOffset"), 12, ((((headerH as unknown as number) - (TapTarget as unknown as number)) as unknown as number) - (18 as unknown as number))) : luaCall(luaProp(UDim2, "fromOffset"), 372, 12)), BackgroundTransparency: 1 }, luaCall(h, SegmentedTabs, { options: FILTERS, value: filter, onChange: function(this: void, id?: unknown): unknown | undefined {
-			luaCall(setFilter, id);
-			luaCall(setSelectedId, "");
-			return undefined;
-		}, accent: luaProp(Palette, "mango"), columns: len(FILTERS), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion })));
-		let selectedRowId: unknown = (((luaTruthy(selected ) ?  luaProp(selected, "Id") : selected)) || "");
-		let searchH: unknown = (luaTruthy(stack) ? TapTarget : 40);
-		let list: unknown = ((len(rows) === 0) ? luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, (-((((searchH as unknown as number) + (12 as unknown as number))) as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, ((searchH as unknown as number) + (12 as unknown as number))), BackgroundTransparency: 1 }, luaCall(h, EmptyState, { icon: ((query !== "") ? "Search.6" : "Mail.3"), title: ((query !== "") ? `No letters match "${query}"` : ((filter === "All") ? "Your tray is empty" : ((filter === "Alerts") ? "No recent alerts" : concat("Nothing in ", (string.lower as unknown as (...a: unknown[]) => unknown)(filter))))), body: ((query !== "") ? "Try the sender's name or one word from the subject." : ((filter === "Alerts") ? "Pop-ups from this session are kept here so you can read them again." : "Patch notes, letters and gifts land here.")), accent: luaProp(Palette, "mango"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion })) : reactLoose.createElement(FlatList, { data: rows, itemHeight: ((ROW_H as unknown as number) + (ROW_GAP as unknown as number)), overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 6, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -12, 1, (-((((searchH as unknown as number) + (18 as unknown as number))) as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 6, ((searchH as unknown as number) + (12 as unknown as number))), scrollBarColor: luaProp(Palette, "mango"), scrollBarThickness: 3, keyExtractor: function(this: void, row?: unknown): unknown | undefined {
-			return luaProp(row, "Id");
-			return undefined;
-		}, renderItem: function(this: void, entry?: unknown): unknown | undefined {
-			let row: unknown = luaProp(entry, "item");
-			return luaCall(h, MailRow, { item: luaProp(row, "item"), mail: luaProp(row, "mail"), active: (luaProp(row, "Id") === selectedRowId), order: 0, softMotion: softMotion, onChoose: choose });
-			return undefined;
-		} }));
-		let bodyArea: unknown = undefined;
-		if ((selected !== undefined)) {
-			let item: unknown = luaProp(selected, "item");
-			let readerW: unknown = (luaTruthy(mobileRoute) ? ((luaProp(viewport, "width") as unknown as number) - (24 as unknown as number)) : ((luaProp(viewport, "width") as unknown as number) * (0.6 as unknown as number)));
-			let textW: unknown = (math.max as unknown as (...a: unknown[]) => unknown)(60, ((readerW as unknown as number) - (64 as unknown as number)));
-			let bodySize: unknown = (luaTruthy(stack) ? 16 : 15);
-			let bodyRows: unknown = {};
-			let stride: unknown = 28;
-			for (const [index, paragraph] of pairs((((luaTruthy(luaProp(item, "Body") ) ? luaProp(item, "Body") :  {}))) as object) as IterableFunction<LuaTuple<[unknown, unknown]>>) {
-				let height: unknown = luaCall(paragraphHeight, paragraph, textW, bodySize);
-				stride = (math.max as unknown as (...a: unknown[]) => unknown)(stride, ((height as unknown as number) + (10 as unknown as number)));
-				luaSetIndex(bodyRows, index, { Id: `${luaProp(item, "Id")}:${index}`, Text: paragraph, Index: ((index as unknown as number) - (1 as unknown as number)), Height: height });
-			}
-			let gift: unknown = luaCall(hasGift, item);
-			let claimed: unknown = (luaProp(luaProp(selected, "mail"), "Claimed") === true);
-			let parcelH: unknown = ((!luaTruthy(gift)) ? 0 : (luaTruthy(stack) ? 138 : 78));
-			let letterTop: unknown = (luaTruthy(stack) ? 74 : 92);
-			bodyArea = luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundColor3: luaCall(lighten, luaProp(Palette, "panel"), 0.02), BorderSizePixel: 0, ClipsDescendants: true }, luaCall(h, "uicorner", { CornerRadius: new UDim(0, 16) }), luaCall(h, "frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, luaCall(h, "uicorner", { CornerRadius: new UDim(0, 15) }), luaCall(h, "uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: 0.75 })), luaCall(h, "uistroke", { Color: luaProp(item, "Color"), Transparency: 0.5 }), luaCall(h, "frame", { Name: "LetterHead", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, letterTop), BackgroundColor3: luaCall(darken, luaProp(item, "Color"), 0.8), BorderSizePixel: 0 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 16) }), ((luaTruthy(mobileRoute ) ?  luaCall(h, Button, { text: "", icon: "Back.1", onClick: function(this: void): unknown | undefined {
+		const phone = luaTruthy(stack);
+		const gap = mockGap(phone);
+		const nGifts = gifts as number;
+		// header .pn: Mailbox heading with the unread/gift count, CLAIM ALL, and the filter tabs
+		const claimAll = nGifts > 0
+			? React.createElement("frame", { Size: UDim2.fromOffset(phone ? 0 : 150, (TapTarget as number) - 4), AutomaticSize: phone ? Enum.AutomaticSize.X : Enum.AutomaticSize.None, BackgroundTransparency: 1, LayoutOrder: 1 },
+					hl(Button, { text: `CLAIM ALL (${nGifts})`, icon: "Gift.13", onClick: () => {
+						colon(Audio).play("mailClaim");
+						luaCall(setClaimToken, (n: number) => n + 1);
+						luaCall(dispatch, "ClaimAllMail", {});
+					}, color: P.mint, textColor: P.ink, size: phone ? UDim2.fromOffset(0, (TapTarget as number) - 4) : UDim2.fromScale(1, 1), hug: phone, highlight: true, reducedMotion: softMotion }))
+			: undefined;
+		const filters = React.createElement("frame", { Size: phone ? new UDim2(1, 0, 0, (TapTarget as number) + 4) : UDim2.fromOffset(420, 40), BackgroundTransparency: 1, LayoutOrder: phone ? 1 : 2 },
+			hl(SegmentedTabs, { options: FILTERS, value: filter, onChange: (id: unknown) => {
+				luaCall(setFilter, id);
 				luaCall(setSelectedId, "");
-				return undefined;
-			}, color: luaProp(Palette, "panelSoft"), textColor: luaProp(item, "Color"), outline: true, size: luaCall(luaProp(UDim2, "fromOffset"), TapTarget, TapTarget), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 10, 0.5, (((-(TapTarget as unknown as number)) as unknown as number) / (2 as unknown as number))), reducedMotion: softMotion }) : mobileRoute)), ((!luaTruthy(mobileRoute)) && luaCall(h, Avatar, { item: item, unread: true, size: 52, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 18, 0.5, -26) })), luaCall(h, Text, { value: luaProp(item, "Subject"), size: (luaTruthy(stack) ? 18 : 22), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 12, position: luaCall(luaProp(UDim2, "fromOffset"), (luaTruthy(mobileRoute) ? 64 : 84), (luaTruthy(stack) ? 12 : 20)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(mobileRoute) ? -76 : -104), 0, (luaTruthy(stack) ? 24 : 30)) }), luaCall(h, Text, { value: `From ${luaProp(item, "Sender")}${(luaTruthy(luaProp(item, "Date")) ? concat("  ·  ", luaProp(item, "Date")) : "")}`, size: 12, color: luaProp(item, "Color"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: true, minSize: 9, position: luaCall(luaProp(UDim2, "fromOffset"), (luaTruthy(mobileRoute) ? 64 : 84), (luaTruthy(stack) ? 40 : 54)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (luaTruthy(mobileRoute) ? -76 : -104), 0, 18) })), reactLoose.createElement(FlatList, { key: luaProp(item, "Id"), data: bodyRows, itemHeight: stride, overscan: (luaTruthy(softMotion) ? 0 : (luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2)), canvasTail: 8, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -40, 1, (-((((((letterTop as unknown as number) + (parcelH as unknown as number)) as unknown as number) + (24 as unknown as number))) as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 20, ((letterTop as unknown as number) + (10 as unknown as number))), scrollBarColor: luaProp(item, "Color"), scrollBarThickness: 3, keyExtractor: function(this: void, row?: unknown): unknown | undefined {
-				return luaProp(row, "Id");
-				return undefined;
-			}, renderItem: function(this: void, entry?: unknown): unknown | undefined {
-				let row: unknown = luaProp(entry, "item");
-				if ((luaProp(row, "Index") === 0)) {
-					return luaCall(h, ScriptedText, { key: luaProp(row, "Id"), text: luaProp(row, "Text"), width: textW, height: luaProp(row, "Height"), size: bodySize, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "SemiBold"), typewriterInterval: 0.01, reducedMotion: softMotion });
-				}
-				return luaCall(h, Text, { key: luaProp(row, "Id"), value: luaProp(row, "Text"), size: bodySize, color: luaProp(Palette, "creamSoft"), wrap: true, sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -8, 0, luaProp(row, "Height")) });
-				return undefined;
-			} }), ((luaTruthy(gift ) ?  luaCall(h, "frame", { ref: mailActionsHostRef, Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -20, 0, parcelH), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 10, 1, (-((((parcelH as unknown as number) + (10 as unknown as number))) as unknown as number))), BackgroundTransparency: 1, ClipsDescendants: false }, luaCall(h, Parcel, { item: item, claimed: claimed, stack: stack, height: parcelH, softMotion: softMotion, claimToken: claimToken, onClaim: function(this: void): unknown | undefined {
-				colon(Audio).play("mailClaim");
-				luaCall(setClaimToken, function(this: void, n?: unknown): unknown | undefined {
-					return ((n as unknown as number) + (1 as unknown as number));
-					return undefined;
-				});
-				luaCall(dispatch, "ClaimMail", { Id: luaProp(item, "Id") });
-				return undefined;
-			}, onArchive: function(this: void): unknown | undefined {
-				luaCall(dispatch, "DeleteMail", { Id: luaProp(item, "Id") }, function(this: void, response?: unknown): unknown | undefined {
-					if ((luaTruthy(luaProp(mountedRef, "current")) && luaTruthy(luaProp(response, "ok")))) {
-						luaCall(setSelectedId, "");
+			}, accent: P.mint, columns: len(FILTERS), size: UDim2.fromScale(1, 1), reducedMotion: softMotion }));
+		const summary = unread === 0 && nGifts === 0 ? "All caught up" : `${unread} unread · ${nGifts} gift${nGifts === 1 ? "" : "s"} waiting`;
+		const headingRow = React.createElement("frame", { Size: new UDim2(1, 0, 0, phone ? 40 : 44), BackgroundTransparency: 1, LayoutOrder: 0 },
+			list("Horizontal", 12),
+			React.createElement("frame", { Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, LayoutOrder: 0 },
+				fill(),
+				React.createElement(PanelHeading, { icon: "Mail.2", title: "Mailbox", note: summary, accent: P.mint, phone, layoutOrder: 0 })),
+			claimAll,
+			phone ? undefined : filters,
+		);
+		const headerH = phone ? 40 + 8 + (TapTarget as number) + 4 + 20 : 44 + 36;
+		const header = React.createElement(MockPanel as never, { size: new UDim2(1, 0, 0, headerH), phone, accent: P.brass, gap: 8, layoutOrder: 0, name: "MailHeader" } as never, headingRow, phone ? filters : undefined) as unknown as React.Element;
+		const selectedRowId = (luaTruthy(selected) ? luaProp(selected, "Id") : undefined) ?? "";
+		const searchH = phone ? (TapTarget as number) : 40;
+		const nRows = len(rows) as number;
+		const inboxList = nRows === 0
+			? React.createElement("frame", { Size: new UDim2(1, 0, 0, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+					fill(),
+					hl(EmptyState, { icon: query !== "" ? "Search.6" : "Mail.3", title: query !== "" ? `No letters match "${query}"` : filter === "All" ? "Your tray is empty" : filter === "Alerts" ? "No recent alerts" : `Nothing in ${string.lower(filter as string)}`, body: query !== "" ? "Try the sender's name or one word from the subject." : filter === "Alerts" ? "Pop-ups from this session are kept here so you can read them again." : "Patch notes, letters and gifts land here.", accent: P.mint, size: UDim2.fromScale(1, 1), reducedMotion: softMotion }))
+			: React.createElement("frame", { Size: new UDim2(1, 0, 0, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+					fill(),
+					hl(FlatList, { data: rows, itemHeight: (ROW_H as number) + (ROW_GAP as number), overscan: luaTruthy(softMotion) ? 0 : luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2, canvasTail: 6, Size: UDim2.fromScale(1, 1), scrollBarColor: P.mint, scrollBarThickness: 3, keyExtractor: (row: unknown) => luaProp(row, "Id"), renderItem: (entry: unknown) => {
+						const row = luaProp(entry, "item");
+						return hl(MailRow, { item: luaProp(row, "item"), mail: luaProp(row, "mail"), active: luaProp(row, "Id") === selectedRowId, order: 0, softMotion, onChoose: choose });
+					} }));
+		const inboxChildren = [
+			React.createElement("frame", { key: "search", Size: new UDim2(1, 0, 0, searchH), BackgroundTransparency: 1, LayoutOrder: 0 },
+				hl(SearchField, { value: query, onChange: (text: unknown) => {
+					luaCall(setQuery, text);
+					luaCall(setSelectedId, "");
+				}, placeholder: "Search letters", accent: P.mint, reducedMotion: softMotion, size: UDim2.fromScale(1, 1), zIndex: 6 })),
+			inboxList,
+		];
+		let reader: React.Element | undefined;
+		if (selected !== undefined) {
+			const item = luaProp(selected, "item");
+			const tint = luaProp(item, "Color") as Color3;
+			const readerW = luaTruthy(mobileRoute) ? (luaProp(viewport, "width") as number) - 24 : (luaProp(viewport, "width") as number) * 0.6;
+			const textW = math.max(60, readerW - 64);
+			const bodySize = phone ? 16 : 15;
+			const bodyRows: defined[] = [];
+			let stride = 28;
+			for (const [index, paragraph] of pairs((luaProp(item, "Body") ?? {}) as object) as IterableFunction<LuaTuple<[number, unknown]>>) {
+				const height = luaCall(paragraphHeight, paragraph, textW, bodySize) as number;
+				stride = math.max(stride, height + 10);
+				bodyRows.push({ Id: `${luaProp(item, "Id")}:${index}`, Text: paragraph, Index: index - 1, Height: height });
+			}
+			const gift = luaTruthy(luaCall(hasGift, item));
+			const claimed = luaProp(luaProp(selected, "mail"), "Claimed") === true;
+			const parcelH = !gift ? 0 : phone ? 48 + 10 + (TapTarget as number) + 24 : 78;
+			const letterH = phone ? 52 : 64;
+			const head = React.createElement("frame", { key: "head", Name: "LetterHead", Size: new UDim2(1, 0, 0, letterH), BackgroundTransparency: 1, LayoutOrder: 0 },
+				list("Horizontal", 14),
+				luaTruthy(mobileRoute)
+					? React.createElement("frame", { Size: UDim2.fromOffset(TapTarget as number, TapTarget as number), BackgroundTransparency: 1, LayoutOrder: 0 },
+							hl(Button, { text: "", icon: "Back.1", onClick: () => luaCall(setSelectedId, ""), color: SEC, textColor: tint, outline: true, size: UDim2.fromScale(1, 1), reducedMotion: softMotion }))
+					: hl(Avatar, { item, unread: true, size: 52, layoutOrder: 0 }),
+				React.createElement("frame", { Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+					fill(),
+					list("Vertical", 4, { VerticalAlignment: Enum.VerticalAlignment.Center }),
+					React.createElement(Line, { text: tostring(luaProp(item, "Subject") ?? ""), size: phone ? 18 : 22, font: TITLE_FACE, color: P.cream, width: new UDim(1, 0), height: phone ? 24 : 30, layoutOrder: 0 }),
+					React.createElement(Line, { text: `From ${luaProp(item, "Sender")}${luaTruthy(luaProp(item, "Date")) ? `  ·  ${luaProp(item, "Date")}` : ""}`, size: 12, font: BODY_BOLD, color: tint, width: new UDim(1, 0), height: 18, layoutOrder: 1 }),
+				),
+			);
+			const body = React.createElement("frame", { key: "body", Size: new UDim2(1, 0, 0, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+				fill(),
+				hl(FlatList, { key: luaProp(item, "Id"), data: bodyRows, itemHeight: stride, overscan: luaTruthy(softMotion) ? 0 : luaTruthy(luaProp(antilag, "constrained")) ? 1 : 2, canvasTail: 8, Size: UDim2.fromScale(1, 1), scrollBarColor: tint, scrollBarThickness: 3, keyExtractor: (row: unknown) => luaProp(row, "Id"), renderItem: (entry: unknown) => {
+					const row = luaProp(entry, "item");
+					if (luaProp(row, "Index") === 0) {
+						return hl(ScriptedText, { key: luaProp(row, "Id"), text: luaProp(row, "Text"), width: textW, height: luaProp(row, "Height"), size: bodySize, color: P.cream, weight: Enum.FontWeight.SemiBold, typewriterInterval: 0.01, reducedMotion: softMotion });
 					}
-					return undefined;
-				});
-				return undefined;
-			} })) : gift)));
-		} else if ((!luaTruthy(mobileRoute))) {
-			bodyArea = luaCall(h, EmptyState, { icon: "Mail.4", title: "Pick a letter", body: "Choose a message on the left to read it.", accent: luaProp(Palette, "mango"), size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), reducedMotion: softMotion });
+					return hl(Text, { key: luaProp(row, "Id"), value: luaProp(row, "Text"), size: bodySize, color: P.creamSoft, wrap: true, fit: true, minSize: 10, sizeConstraint: new UDim2(1, -8, 0, luaProp(row, "Height") as number) });
+				} }));
+			const parcel = gift
+				? React.createElement("frame", { key: "parcel", ref: mailActionsHostRef as never, Size: new UDim2(1, 0, 0, parcelH), BackgroundTransparency: 1, ClipsDescendants: false, LayoutOrder: 2 },
+						hl(Parcel, { item, claimed, stack, height: parcelH, softMotion, claimToken, onClaim: () => {
+							colon(Audio).play("mailClaim");
+							luaCall(setClaimToken, (n: number) => n + 1);
+							luaCall(dispatch, "ClaimMail", { Id: luaProp(item, "Id") });
+						}, onArchive: () => {
+							luaCall(dispatch, "DeleteMail", { Id: luaProp(item, "Id") }, (response: unknown) => {
+								if (luaTruthy(luaProp(mountedRef, "current")) && luaTruthy(luaProp(response, "ok"))) {
+									luaCall(setSelectedId, "");
+								}
+							});
+						} }))
+				: undefined;
+			reader = React.createElement(MockPanel as never, { size: UDim2.fromScale(1, 1), phone, accent: tint, gap, name: "Letter" } as never, head, body, parcel) as unknown as React.Element;
+		} else if (!luaTruthy(mobileRoute)) {
+			reader = hl(EmptyState, { icon: "Mail.4", title: "Pick a letter", body: "Choose a message on the left to read it.", accent: P.mint, size: UDim2.fromScale(1, 1), reducedMotion: softMotion });
 		}
-		let bodyTop: unknown = ((headerH as unknown as number) + (10 as unknown as number));
-		return luaCall(h, "frame", { Size: luaCall(luaProp(UDim2, "fromScale"), 1, 1), BackgroundTransparency: 1, ClipsDescendants: true }, header, luaCall(h, "frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 1, (-(bodyTop as unknown as number))), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, bodyTop), BackgroundTransparency: 1, ClipsDescendants: true }, luaCall(h, "frame", { Name: "Inbox", SelectionGroup: true, Size: (luaTruthy(mobileRoute) ? luaCall(luaProp(UDim2, "fromScale"), 1, 1) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.38, -6, 1, 0)), Position: (luaTruthy(mobileRoute) ? colon(slide).map(function(this: void, a?: unknown): unknown | undefined {
-			return luaCall(luaProp(UDim2, "fromScale"), (-((math.clamp as unknown as (...a: unknown[]) => unknown)(a, 0, 1) as unknown as number)), 0);
-			return undefined;
-		}) : undefined), Visible: (luaTruthy(mobileRoute) ? colon(slide).map(function(this: void, a?: unknown): unknown | undefined {
-			return ((a as unknown as number) < (0.99 as unknown as number));
-			return undefined;
-		}) : true), BackgroundColor3: luaProp(Palette, "panel"), BorderSizePixel: 0 }, luaCall(h, "uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 11) }), luaCall(h, SearchField, { value: query, onChange: function(this: void, text?: unknown): unknown | undefined {
-			luaCall(setQuery, text);
-			luaCall(setSelectedId, "");
-			return undefined;
-		}, placeholder: "Search letters", accent: luaProp(Palette, "mango"), reducedMotion: softMotion, position: luaCall(luaProp(UDim2, "fromOffset"), 6, 6), size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -12, 0, searchH), zIndex: 6 }), list), ((bodyArea !== undefined) && luaCall(h, "frame", { Name: "Reader", SelectionGroup: true, Size: (luaTruthy(mobileRoute) ? luaCall(luaProp(UDim2, "fromScale"), 1, 1) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.62, -6, 1, 0)), Position: (luaTruthy(mobileRoute) ? colon(slide).map(function(this: void, a?: unknown): unknown | undefined {
-			return luaCall(luaProp(UDim2, "fromScale"), ((1 as unknown as number) - ((math.clamp as unknown as (...a: unknown[]) => unknown)(a, 0, 1) as unknown as number)), 0);
-			return undefined;
-		}) : new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0.38, 6, 0, 0)), Visible: (luaTruthy(mobileRoute) ? colon(slide).map(function(this: void, a?: unknown): unknown | undefined {
-			return ((a as unknown as number) > (0.01 as unknown as number));
-			return undefined;
-		}) : true), BackgroundTransparency: 1 }, bodyArea))));
-		return undefined;
+		const inboxPanel = React.createElement(MockPanel as never, { size: UDim2.fromScale(1, 1), phone, accent: P.brass, gap: 8 } as never, ...inboxChildren) as unknown as React.Element;
+		let bodyRow: React.Element;
+		if (luaTruthy(mobileRoute)) {
+			// phones: the inbox and the letter are two pages; the spring slides one off as the other comes in
+			const s = slide as React.Binding<number>;
+			bodyRow = React.createElement("frame", { Name: "MailPager", Size: new UDim2(1, 0, 0, 0), BackgroundTransparency: 1, ClipsDescendants: true, LayoutOrder: 1 },
+				fill(),
+				React.createElement("frame", { Name: "Inbox", SelectionGroup: true, Size: UDim2.fromScale(1, 1), Position: s.map((a: number) => UDim2.fromScale(-math.clamp(a, 0, 1), 0)), Visible: s.map((a: number) => a < 0.99), BackgroundTransparency: 1 }, inboxPanel),
+				reader !== undefined
+					? React.createElement("frame", { Name: "Reader", SelectionGroup: true, Size: UDim2.fromScale(1, 1), Position: s.map((a: number) => UDim2.fromScale(1 - math.clamp(a, 0, 1), 0)), Visible: s.map((a: number) => a > 0.01), BackgroundTransparency: 1 }, reader)
+					: undefined,
+			);
+		} else {
+			// desktop .flexr: inbox 38%, the open letter fills the rest
+			bodyRow = React.createElement("frame", { Name: "MailBody", Size: new UDim2(1, 0, 0, 0), BackgroundTransparency: 1, LayoutOrder: 1 },
+				fill(),
+				list("Horizontal", gap, { VerticalAlignment: Enum.VerticalAlignment.Top }),
+				React.createElement("frame", { Name: "Inbox", SelectionGroup: true, Size: new UDim2(0.38, 0, 1, 0), BackgroundTransparency: 1, LayoutOrder: 0 }, inboxPanel),
+				React.createElement("frame", { Name: "Reader", SelectionGroup: true, Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, LayoutOrder: 1 }, fill(), reader),
+			);
+		}
+		return React.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ClipsDescendants: true },
+			list("Vertical", gap, { VerticalAlignment: Enum.VerticalAlignment.Top }),
+			header,
+			bodyRow,
+		);
 	}
 	return { MailboxView: MailboxView };
-	return undefined;
 }
 export = __member();

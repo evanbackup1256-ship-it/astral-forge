@@ -136,6 +136,11 @@ const HERO_ART: Record<string, HeaderArtName | undefined> = {
 	Ranks: "ranks",
 	Leaderboards: "ranks",
 	Worlds: "worlds",
+	// design/27-social: the social pages share the market painting
+	Chat: "market",
+	Crew: "market",
+	Guild: "market",
+	Mail: "market",
 };
 
 function heroKicker(page: string, state: { CurrentZone?: unknown }, eyebrow: string): string {
@@ -149,7 +154,13 @@ const HERO_LINES: Record<string, string | undefined> = {
 	Inventory: "Everything the forge has given you",
 	Shop: "Flux, gems and upgrades that stay",
 	Crates: "Pick a crate. Odds are always shown.",
+	Chat: "Crew, guild and mail",
+	Crew: "Crew, guild and mail",
+	Guild: "Crew, guild and mail",
+	Mail: "Crew, guild and mail",
 };
+// design/27-social: Chat, Crew, Guild and Mail are tabs of one "Social" screen
+const SOCIAL_TITLE_PAGES: Record<string, true | undefined> = { Chat: true, Crew: true, Guild: true, Mail: true };
 
 function heroLine(page: string, state: { Production?: unknown }): string {
 	if (page === "Overview" || page === "Workshop" || page === "Forge") {
@@ -833,7 +844,7 @@ export function Workspace(_param: WorkspaceProps) {
 							transparency: revealFade,
 						}),
 					h(ShimmerText, {
-						value: entry.label === "Ranks" ? "Leaderboards" : entry.label,
+						value: entry.label === "Ranks" ? "Leaderboards" : SOCIAL_TITLE_PAGES[page] ? "Social" : entry.label,
 						title: hero,
 						size: hero ? 54 : chrome.stack ? chrome.titleText : denseHeader ? 20 : 24,
 						color: ensureContrast(Palette.panel, Palette.cream),

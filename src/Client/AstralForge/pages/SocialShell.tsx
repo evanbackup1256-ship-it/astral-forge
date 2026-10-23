@@ -1,21 +1,27 @@
-// Social pages (Chat, Crew, Guild, Mail) share one shell: a hero row with the four tabs, and on
-// wide screens the Chat page gets a right column with your crew and your newest mail.
+// Social pages (Chat, Crew, Guild, Mail) share one shell, laid out after design/27-social:
+//   .tabs (Chat / Crew / Guild / Mail, mint accent) right-aligned over the page body
+//   .flexr body: the page fills the row; on Chat at desktop widths a 520px .flexc column on the right
+//   holds the Crew panel ("3 of 6", status in mint) and the Mail panel ("2 new", Claim / Open in mint)
 import React from "@rbxts/react";
 import { Palette } from "../CoreKit/theme";
-import { kitMember, LuauComponent } from "./luauKits";
 import CrewStore = require("../CrewStore");
-import { PnSurface } from "../UiCore/mockKit";
-
-const { Button, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+import { Line, MockPanel, PanelHeading, mockGap, BODY } from "../UiCore/mockKit";
+import { MockBtn, MockRow, rowHeight } from "./mockRows";
+import { AvatarRing, GcRow } from "./gcKit";
+import { FitPanel, MockTabs, fitPanelHeight } from "./socialKit";
 
 const Players = game.GetService("Players");
 
 export const SOCIAL_PAGES = ["Chat", "Crew", "Guild", "Mail"];
 const TAB_OPTIONS = SOCIAL_PAGES.map((id) => ({ id, label: id }));
-const SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
-const SIDE_W = 300;
+/** .flexc style="width:520px" at the 1920 reference; narrower desktops scale it down to 30% */
+const SIDE_W = 520;
+const SIDE_MIN = 320;
 const WIDE_MIN = 1000;
-const GAP = 12;
+const PHONE_MAX = 700;
+const CREW_SHOWN = 4;
+const MAIL_SHOWN = 3;
+const HEADING_H = 22;
 
 interface CrewMember {
 	UserId: number;
@@ -36,80 +42,53 @@ interface MailState {
 }
 type Dispatch = (action: string, payload?: object, callback?: (response: { ok?: boolean }) => void) => unknown;
 
-function AvatarRing(props: { userId: number; size: number; position: UDim2; accent: Color3 }) {
-	return (
-		<imagelabel
-			Size={UDim2.fromOffset(props.size, props.size)}
-			Position={props.position}
-			BackgroundColor3={Palette.raised}
-			Image={`rbxthumb://type=AvatarHeadShot&id=${props.userId}&w=48&h=48`}
-			BorderSizePixel={0}
-		>
-			<uicorner CornerRadius={new UDim(1, 0)} />
-			<uistroke Color={props.accent} Thickness={1.5} Transparency={0.2} />
-		</imagelabel>
-	);
-}
-
-function CrewCard(props: { reducedMotion?: boolean; navigate: (page: string) => unknown }) {
-	const crew = CrewStore.useCrew() as { crew?: { Name?: string; Members?: CrewMember[] } };
+function CrewCard(props: { reducedMotion?: boolean; navigate: (page: string) => unknown; layoutOrder: number }) {
+	const crew = CrewStore.useCrew() as { crew?: { Name?: string; Members?: CrewMember[]; Max?: number } };
 	const members = crew.crew?.Members ?? [];
-	const rows: Record<string, React.Element> = {};
-	const shown = math.min(members.size(), 4);
+	const shown = math.min(members.size(), CREW_SHOWN);
+	const rowH = rowHeight(false, true);
+	const rows: React.Element[] = [];
 	for (let i = 0; i < shown; i++) {
 		const member = members[i];
 		const here = Players.GetPlayerByUserId(member.UserId) !== undefined;
-		rows[`m${member.UserId}`] = (
-			<frame Size={new UDim2(1, 0, 0, 36)} Position={UDim2.fromOffset(0, 26 + i * 40)} BackgroundTransparency={1}>
-				<AvatarRing userId={member.UserId} size={32} position={UDim2.fromOffset(0, 2)} accent={here ? Palette.mint : Palette.line} />
-				<Text
-					value={(member.DisplayName ?? tostring(member.UserId)) + (member.Leader ? " · Leader" : "")}
-					size={14}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Bold}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(42, 2)}
-					sizeConstraint={new UDim2(1, -42, 0, 18)}
-				/>
-				<Text
-					value={here ? (member.Zone !== undefined ? `In world ${member.Zone}` : "In this server") : "Not in this server"}
-					size={11}
-					color={here ? Palette.mint : Palette.muted}
-					weight={Enum.FontWeight.SemiBold}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(42, 20)}
-					sizeConstraint={new UDim2(1, -42, 0, 14)}
-				/>
-			</frame>
+		rows.push(
+			<GcRow
+				key={`m${member.UserId}`}
+				title={(member.DisplayName ?? tostring(member.UserId)) + (member.Leader ? " · Leader" : "")}
+				sub={here ? (member.Zone !== undefined ? `World ${member.Zone}` : "In this server") : "Not in this server"}
+				lead={<AvatarRing name={member.DisplayName ?? tostring(member.UserId)} image={`rbxthumb://type=AvatarHeadShot&id=${member.UserId}&w=48&h=48`} />}
+				accent={Palette.mint}
+				value={here ? "Online" : "Away"}
+				valueColor={here ? Palette.mint : Palette.muted}
+				phone={false}
+				height={rowH}
+				layoutOrder={1 + i}
+			/>,
 		);
 	}
+	const emptyH = 36;
+	const height = fitPanelHeight(false, HEADING_H, shown === 0 ? [emptyH] : rows.map(() => rowH));
+	const note = crew.crew !== undefined ? `${members.size()} of ${crew.crew.Max ?? 6}` : undefined;
 	return (
-		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.mint} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={true}>
-			<Text value={crew.crew?.Name ?? "Crew"} size={13} color={Palette.mint} weight={Enum.FontWeight.SemiBold} fit={true} minSize={10} sizeConstraint={new UDim2(1, -80, 0, 16)} />
-			{members.size() === 0 ? (
-				<Text
-					value="Not in a crew yet. Open the player list to invite someone."
-					size={13}
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, 26)}
-					sizeConstraint={new UDim2(1, 0, 0, 36)}
-				/>
+		<FitPanel height={height} phone={false} layoutOrder={props.layoutOrder} name="CrewCard" reducedMotion={props.reducedMotion}>
+			<frame Size={new UDim2(1, 0, 0, HEADING_H)} BackgroundTransparency={1} LayoutOrder={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} LayoutOrder={0}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<PanelHeading icon="Crew.1" title={crew.crew?.Name ?? "Crew"} note={note} accent={Palette.mint} phone={false} />
+				</frame>
+				<MockBtn text="Open" sec={true} sm={true} width={72} onClick={() => props.navigate("Crew")} reducedMotion={props.reducedMotion} layoutOrder={1} />
+			</frame>
+			{shown === 0 ? (
+				<Line text="Not in a crew yet. Open the player list to invite someone." size={13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={emptyH} layoutOrder={1} />
 			) : (
 				rows
 			)}
-			<frame Size={UDim2.fromOffset(72, 28)} Position={new UDim2(1, -72, 0, -6)} BackgroundTransparency={1}>
-				<Button text="Open" onClick={() => props.navigate("Crew")} color={Palette.raised} textColor={Palette.cream} size={UDim2.fromScale(1, 1)} reducedMotion={props.reducedMotion} />
-			</frame>
-		</PnSurface>
+		</FitPanel>
 	);
 }
 
-function MailCard(props: { state: unknown; config: unknown; dispatch: Dispatch; reducedMotion?: boolean; navigate: (page: string) => unknown }) {
+function MailCard(props: { state: unknown; config: unknown; dispatch: Dispatch; reducedMotion?: boolean; navigate: (page: string) => unknown; layoutOrder: number }) {
 	const [pending, setPending] = React.useState<string | undefined>(undefined);
 	const mailbox = (props.state as { Mailbox?: { Messages?: MailState[]; Unread?: number } } | undefined)?.Mailbox;
 	const defs: Record<string, MailDef> = {};
@@ -119,7 +98,7 @@ function MailCard(props: { state: unknown; config: unknown; dispatch: Dispatch; 
 			defs[def.Id] = def;
 		}
 	}
-	// unclaimed gifts first, then unread, newest last in the list stays where the server put it
+	// unclaimed gifts first, then unread; otherwise the server's order stands
 	const picks: { def: MailDef; mail: MailState; gift: boolean }[] = [];
 	for (const [, mail] of pairs(mailbox?.Messages ?? [])) {
 		const def = mail.Id !== undefined ? defs[mail.Id] : undefined;
@@ -128,64 +107,44 @@ function MailCard(props: { state: unknown; config: unknown; dispatch: Dispatch; 
 		}
 	}
 	picks.sort((a, b) => (a.gift !== b.gift ? a.gift : a.mail.Read !== b.mail.Read ? b.mail.Read === true : false));
-	const rows: Record<string, React.Element> = {};
-	const shown = math.min(picks.size(), 3);
+	const shown = math.min(picks.size(), MAIL_SHOWN);
+	const rowH = rowHeight(false, true);
+	const rows: React.Element[] = [];
 	for (let i = 0; i < shown; i++) {
 		const pick = picks[i];
 		const id = pick.def.Id!;
-		rows[`mail${i}`] = (
-			<frame Size={new UDim2(1, 0, 0, 40)} Position={UDim2.fromOffset(0, 26 + i * 44)} BackgroundTransparency={1}>
-				<Text
-					value={pick.def.Subject ?? "Letter"}
-					size={14}
-					color={pick.mail.Read === true ? Palette.muted : Palette.cream}
-					weight={Enum.FontWeight.Bold}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, 2)}
-					sizeConstraint={new UDim2(1, -84, 0, 18)}
-				/>
-				<Text
-					value={pick.def.Sender ?? ""}
-					size={11}
-					color={Palette.muted}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(0, 21)}
-					sizeConstraint={new UDim2(1, -84, 0, 14)}
-				/>
-				<frame Size={UDim2.fromOffset(76, 32)} Position={new UDim2(1, -76, 0, 4)} BackgroundTransparency={1}>
-					<Button
-						text={pick.gift ? "Claim" : "Open"}
-						onClick={() => {
-							if (!pick.gift) {
-								props.navigate("Mail");
-								return;
-							}
-							setPending(id);
-							props.dispatch("ClaimMail", { Id: id }, () => setPending(undefined));
-						}}
-						color={pick.gift ? Palette.mango : Palette.raised}
-						textColor={pick.gift ? Palette.ink : Palette.cream}
-						size={UDim2.fromScale(1, 1)}
-						highlight={pick.gift}
-						loading={pending === id}
-						reducedMotion={props.reducedMotion}
-					/>
-				</frame>
-			</frame>
+		const open = () => {
+			if (!pick.gift) {
+				props.navigate("Mail");
+				return;
+			}
+			setPending(id);
+			props.dispatch("ClaimMail", { Id: id }, () => setPending(undefined));
+		};
+		rows.push(
+			<MockRow
+				key={`mail${i}`}
+				title={pick.def.Subject ?? "Letter"}
+				sub={`from ${pick.def.Sender ?? "Astral Forge"}`}
+				icon={pick.gift ? "Gift.1" : "Mail.1"}
+				accent={Palette.mint}
+				dim={pick.mail.Read === true && !pick.gift}
+				phone={false}
+				height={rowH}
+				layoutOrder={1 + i}
+				right={<MockBtn text={pending === id ? "…" : pick.gift ? "Claim" : "Open"} accent={Palette.mint} sec={!pick.gift} sm={true} width={84} disabled={pending === id} onClick={open} reducedMotion={props.reducedMotion} />}
+				rightWidth={84}
+			/>,
 		);
 	}
 	const unread = mailbox?.Unread ?? 0;
+	const emptyH = 22;
+	const height = fitPanelHeight(false, HEADING_H, shown === 0 ? [emptyH] : rows.map(() => rowH));
 	return (
-		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={true}>
-			<Text value={unread > 0 ? `Mail · ${unread} unread` : "Mail"} size={13} color={Palette.cyan} weight={Enum.FontWeight.SemiBold} fit={true} minSize={10} sizeConstraint={new UDim2(1, 0, 0, 16)} />
-			{shown === 0 ? (
-				<Text value="No letters right now." size={13} color={Palette.muted} fit={true} minSize={10} position={UDim2.fromOffset(0, 26)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-			) : (
-				rows
-			)}
-		</PnSurface>
+		<FitPanel height={height} phone={false} layoutOrder={props.layoutOrder} name="MailCard" reducedMotion={props.reducedMotion}>
+			<PanelHeading icon="Mail.1" title="Mail" note={unread > 0 ? `${unread} new` : undefined} accent={Palette.mint} phone={false} layoutOrder={0} />
+			{shown === 0 ? <Line text="No letters right now." size={13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={emptyH} layoutOrder={1} /> : rows}
+		</FitPanel>
 	);
 }
 
@@ -210,78 +169,63 @@ export function SocialShell(props: {
 		const conn = host.GetPropertyChangedSignal("AbsoluteSize").Connect(update);
 		return () => conn.Disconnect();
 	}, []);
-	const short = size.Y < 460;
-	const heroH = short ? 40 : 52;
+	const phone = size.X < PHONE_MAX;
+	const gap = mockGap(phone);
 	const wide = props.page === "Chat" && size.X >= WIDE_MIN && size.Y >= 420;
-	const titleW = short || size.X < 640 ? 0 : 150;
-	const tabsW = math.min(size.X - titleW - 12, 420);
+	const sideW = math.clamp(math.floor(size.X * 0.3), SIDE_MIN, SIDE_W);
 	return (
 		<frame ref={ref} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<frame key="Hero" Size={new UDim2(1, 0, 0, heroH)} BackgroundTransparency={1} BorderSizePixel={0}>
-				{titleW > 0 && (
-					<textlabel
-						Size={new UDim2(0, titleW, 1, 0)}
-						BackgroundTransparency={1}
-						Text="Social"
-						FontFace={SERIF}
-						TextSize={26}
-						TextColor3={Palette.cream}
-						TextXAlignment={Enum.TextXAlignment.Left}
-					/>
-				)}
-				<frame
-					Size={new UDim2(0, tabsW, 1, short ? -4 : -10)}
-					Position={new UDim2(1, 0, 0.5, 0)}
-					AnchorPoint={new Vector2(1, 0.5)}
-					BackgroundTransparency={1}
-				>
-					<SegmentedTabs
-						options={TAB_OPTIONS}
-						value={props.page}
-						onChange={(id: unknown) => {
-							if (id !== props.page) {
-								props.navigate(id as string);
-							}
-						}}
-						accent={Palette.brass}
-						columns={SOCIAL_PAGES.size()}
-						gap={6}
-						size={UDim2.fromScale(1, 1)}
-						reducedMotion={props.reducedMotion}
-					/>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{/* .hero .tabs: right-aligned on desktop, full width on phones (.ph-head .tabs) */}
+			<frame key="Tabs" Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Right} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<MockTabs
+					options={TAB_OPTIONS}
+					value={props.page}
+					onChange={(id) => {
+						if (id !== props.page) {
+							props.navigate(id);
+						}
+					}}
+					accent={Palette.mint}
+					phone={phone}
+					fill={phone}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+			<frame key="SocialBody" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame key="SocialPage" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					{props.children}
 				</frame>
-			</frame>
-			<frame
-				key="Body"
-				Size={new UDim2(1, wide ? -(SIDE_W + GAP) : 0, 1, -(heroH + 8))}
-				Position={UDim2.fromOffset(0, heroH + 8)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-			>
-				{props.children}
-			</frame>
-			{wide && (
-				<frame
-					key="Side"
-					Size={new UDim2(0, SIDE_W, 1, -(heroH + 8))}
-					Position={new UDim2(1, -SIDE_W, 0, heroH + 8)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					<frame key="Crew" Size={new UDim2(1, 0, 0.5, -GAP / 2)} BackgroundTransparency={1}>
-						<CrewCard reducedMotion={props.reducedMotion} navigate={props.navigate} />
-					</frame>
-					<frame key="Mail" Size={new UDim2(1, 0, 0.5, -GAP / 2)} Position={new UDim2(0, 0, 0.5, GAP / 2)} BackgroundTransparency={1}>
+				{wide && (
+					<scrollingframe
+						key="SocialSide"
+						Size={new UDim2(0, sideW, 1, 0)}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						CanvasSize={new UDim2()}
+						AutomaticCanvasSize={Enum.AutomaticSize.Y}
+						ScrollBarThickness={3}
+						ScrollBarImageColor3={Palette.mint}
+						ScrollingDirection={Enum.ScrollingDirection.Y}
+						LayoutOrder={1}
+					>
+						<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<CrewCard reducedMotion={props.reducedMotion} navigate={props.navigate} layoutOrder={0} />
 						<MailCard
 							state={props.state}
 							config={props.config}
 							dispatch={props.dispatch as Dispatch}
 							reducedMotion={props.reducedMotion}
 							navigate={props.navigate}
+							layoutOrder={1}
 						/>
-					</frame>
-				</frame>
-			)}
+					</scrollingframe>
+				)}
+			</frame>
 		</frame>
 	);
 }
