@@ -7,22 +7,12 @@ import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
 import { useStagger, useViewport } from "../../MotionKit/motion";
-import { splitColumns } from "../../UiCore/ui";
-import { splitSection } from "../layoutRise";
-import { loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
+import { loadPageScaffold, named } from "../luauDeps";
 import { Planet } from "./portKit";
-import { HEADER_ART } from "../../ArtKit/uiArt";
+import { BODY, Chip, DiamondRule, Line, MockPanel, mockGap, PanelHeading, panelPad, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
+import { headingBlock, MockBtn, MockRow, panelHeight, rowHeight, useWidth } from "../mockRows";
 
-const { Badge, Button, Panel, Text } = loadUi();
 const PageScaffold = loadPageScaffold();
-const Browse = loadBrowse();
-
-const WORLD_SCAN = 600;
-
-function rowGapFor(stack: boolean, phoneGap: number): number {
-	return stack ? phoneGap : Layout.panelGap;
-}
-const WORLD_RESULTS = 60;
 
 interface ZoneDef {
 	Id: number;
@@ -61,162 +51,79 @@ interface Section {
 	element: React.Element;
 }
 
-interface WorldRowProps {
+interface WorldCardProps {
 	zone: ZoneDef;
 	current: boolean;
 	unlocked: boolean;
 	canUnlock: boolean;
+	missing?: string;
 	onSelect: () => unknown;
 	reducedMotion?: boolean;
 	layoutOrder: number;
-	stack: boolean;
-	cashOk: boolean;
-	coresOk: boolean;
-	rebirthOk: boolean;
+	phone: boolean;
+	artHeight: number;
 }
 
-function WorldRow(props: WorldRowProps) {
-	const { zone, current, unlocked, canUnlock, onSelect, layoutOrder, stack, cashOk, coresOk, rebirthOk } = props;
+// 12-worlds map card: .row column, 300x140 engraved art (#110C13), then a 12/14 padded footer
+function worldCardHeight(phone: boolean, artHeight: number): number {
+	return artHeight + (phone ? 10 : 12) * 2 + (phone ? TapTarget : 38);
+}
+
+function WorldCard(props: WorldCardProps) {
+	const { zone, current, unlocked, canUnlock, phone, artHeight } = props;
 	const antilag = useAntilag();
-	const softMotion = props.reducedMotion;
-	const reducedMotion = softMotion;
-	const skipMotion = softMotion || layoutOrder > 4 || antilag.skipEntrance;
-	const reveal = useStagger(math.min(layoutOrder, 4), skipMotion, 0.02, 0.14);
-	const feature = zone.Features?.[0] ?? zone.Description;
-	const actionable = current || unlocked || canUnlock;
-	const costBits: string[] = [];
-	if (!unlocked && !current) {
-		if (zone.RequiredRebirths > 0) {
-			costBits.push(`${zone.RequiredRebirths} rebirth${zone.RequiredRebirths === 1 ? "" : "s"}`);
-		}
-		if (zone.CoreCost > 0) {
-			costBits.push(`${compactNumber(zone.CoreCost)} cores`);
-		}
-		if (gteFlux(zone.Cost, 0.01)) {
-			costBits.push(`${compactNumber(zone.Cost)} flux`);
-		}
-	}
-	const costLine = costBits.size() > 0 ? costBits.join(" · ") : undefined;
-	const missing =
-		!unlocked && !current
-			? !rebirthOk
-				? `${zone.RequiredRebirths} rebirths`
-				: !coresOk
-					? `${compactNumber(zone.CoreCost)} cores`
-					: !cashOk
-						? `${compactNumber(zone.Cost)} flux`
-						: undefined
-			: undefined;
-	const cta = current
-		? "Here"
-		: unlocked
-			? "Travel"
-			: canUnlock
-				? "Unlock"
-				: missing !== undefined
-					? missing
-					: "Locked";
-	const btnColor = current ? Palette.panelSoft : unlocked ? Palette.brass : canUnlock ? Palette.mango : Palette.panelSoft;
-	const btnText = current ? Palette.brass : unlocked || canUnlock ? Palette.ink : Palette.muted;
-	const rowH = PageBoardHeights.World(stack);
+	const skipMotion = props.reducedMotion === true || props.layoutOrder > 8 || antilag.skipEntrance;
+	const reveal = useStagger(math.min(props.layoutOrder, 8), skipMotion, 0.03, 0.2);
+	const locked = !current && !unlocked;
+	const padY = phone ? 10 : 12;
+	const padX = phone ? 12 : 14;
+	const titleSize = phone ? 15 : 17;
+	const action = current ? (
+		<Chip text="Here" accent={Palette.mango} />
+	) : unlocked ? (
+		<MockBtn text="Travel" icon="Travel" sm={true} phone={phone} onClick={() => props.onSelect()} reducedMotion={props.reducedMotion} />
+	) : canUnlock ? (
+		<MockBtn text="Unlock" icon="Lock" sm={true} phone={phone} onClick={() => props.onSelect()} reducedMotion={props.reducedMotion} />
+	) : (
+		<MockBtn text={props.missing ?? "Locked"} icon="Lock" sm={true} sec={true} phone={phone} disabled={true} reducedMotion={props.reducedMotion} />
+	);
 	return (
 		<frame
-			Size={new UDim2(1, -4, 0, rowH)}
-			BackgroundTransparency={1}
+			{...named(`World${zone.Id}`)}
+			Size={UDim2.fromScale(1, 1)}
+			BackgroundColor3={Palette.white}
+			BackgroundTransparency={0}
 			BorderSizePixel={0}
-			LayoutOrder={layoutOrder}
-			ClipsDescendants={false}
+			LayoutOrder={props.layoutOrder}
+			ClipsDescendants={true}
 		>
-			<Panel
-				size={UDim2.fromScale(1, 1)}
-				accent={zone.Color}
-				background={current ? zone.DarkColor.Lerp(Palette.panelRaised, 0.45) : Palette.panel}
-				padding={stack ? 18 : 22}
-				reveal={reveal}
-				interactive={!current}
-				highlight={current}
-				reducedMotion={skipMotion}
-				clips={false}
+			<RowSurface />
+			<canvasgroup
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				GroupTransparency={reveal.map((v: number) => (locked ? 0.28 : 0) + (1 - math.clamp(v, 0, 1)) * 0.7)}
 			>
-				{/* port 12-worlds: the engraved planet (code-drawn strokes) in the world's colour */}
-				<Planet
-					color={zone.Color}
-					size={stack ? 40 : 46}
-					position={UDim2.fromOffset(stack ? 24 : 28, stack ? 36 : 58)}
-					dim={!unlocked && !current && !canUnlock}
-				/>
-				<frame
-					Size={stack ? new UDim2(1, -64, 0, 126) : new UDim2(1, -200, 1, -6)}
-					Position={UDim2.fromOffset(stack ? 60 : 72, stack ? 4 : 6)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-				>
-					<frame Size={new UDim2(1, 0, 0, 26)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<uilistlayout
-							FillDirection={Enum.FillDirection.Horizontal}
-							Padding={new UDim(0, 8)}
-							VerticalAlignment={Enum.VerticalAlignment.Center}
-							SortOrder={Enum.SortOrder.LayoutOrder}
-						/>
-						<Text
-							value={zone.Name}
-							size={stack ? 18 : 19}
-							color={Palette.cream}
-							weight={Enum.FontWeight.Heavy}
-							// the name sizes to itself so ACTIVE/READY sit right after it (a zero-width box hid it)
-							autoWidth={true}
-							layoutOrder={0}
-							sizeConstraint={new UDim2(0, 0, 0, 26)}
-						/>
-						{current && (
-							<frame Size={UDim2.fromOffset(8, 8)} BackgroundColor3={Palette.green} BorderSizePixel={0} LayoutOrder={1}>
-								<uicorner CornerRadius={new UDim(1, 0)} />
-							</frame>
-						)}
-						{canUnlock && (
-							<frame Size={UDim2.fromOffset(8, 8)} BackgroundColor3={Palette.mango} BorderSizePixel={0} LayoutOrder={1}>
-								<uicorner CornerRadius={new UDim(1, 0)} />
-								<uistroke Color={Palette.mango} Thickness={2} Transparency={0.55} />
-							</frame>
-						)}
-					</frame>
-					<Text
-						value={`${feature}  ·  ${AppHelpers.formatWorldMultiplier(tonumber(zone.Multiplier) ?? 0)}x`}
-						size={stack ? 13 : 11}
-						color={zone.Color}
-						weight={Enum.FontWeight.Bold}
-						fit={false}
-						position={UDim2.fromOffset(0, 38)}
-						sizeConstraint={new UDim2(1, 0, 0, 18)}
-					/>
-					{costLine !== undefined && (
-						<Text
-							value={costLine}
-							size={12}
-							color={canUnlock ? Palette.mango : Palette.muted}
-							weight={Enum.FontWeight.Bold}
-							fit={false}
-							position={UDim2.fromOffset(0, 66)}
-							sizeConstraint={new UDim2(1, 0, 0, 16)}
-						/>
-					)}
+				<uicorner CornerRadius={new UDim(0, 11)} />
+				<frame Size={new UDim2(1, 0, 0, artHeight)} BackgroundColor3={Color3.fromRGB(17, 12, 19)} BorderSizePixel={0} ClipsDescendants={true}>
+					<Planet color={zone.Color} size={math.floor(artHeight * 0.6)} position={UDim2.fromScale(0.68, 0.5)} dim={locked} />
 				</frame>
-				<Button
-					text={cta}
-					tooltip={zone.Tagline}
-					icon="World.4"
-					onClick={onSelect}
-					color={btnColor}
-					textColor={btnText}
-					size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(150, TapTarget)}
-					position={stack ? new UDim2(0, 0, 1, -(TapTarget + 4)) : new UDim2(1, -166, 0.5, -TapTarget / 2)}
-					reducedMotion={reducedMotion}
-					disabled={!actionable || current}
-					highlight={actionable && !current}
-					zIndex={12}
-				/>
-			</Panel>
+				<frame Size={new UDim2(1, -padX * 2, 0, phone ? TapTarget : 38)} Position={UDim2.fromOffset(padX, artHeight + padY)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<Line text={zone.Name} size={titleSize} font={TITLE_FACE} width={new UDim(1, -(phone ? 120 : 130))} height={titleSize + 4} position={new UDim2(0, 0, 0.5, -titleSize / 2 - 6)} anchor={new Vector2(0, 0.5)} />
+					<Line
+						text={`Cash x${compactNumber(zone.Multiplier ?? 1)}`}
+						size={phone ? 11 : 12}
+						font={BODY}
+						color={Palette.muted}
+						width={new UDim(1, -(phone ? 120 : 130))}
+						position={new UDim2(0, 0, 0.5, 10)}
+						anchor={new Vector2(0, 0.5)}
+					/>
+					<frame Size={UDim2.fromScale(0, 1)} AutomaticSize={Enum.AutomaticSize.X} Position={UDim2.fromScale(1, 0)} AnchorPoint={new Vector2(1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} HorizontalAlignment={Enum.HorizontalAlignment.Right} />
+						{action}
+					</frame>
+				</frame>
+			</canvasgroup>
 		</frame>
 	);
 }
@@ -227,6 +134,7 @@ interface WorldsViewProps {
 	dispatch: Dispatch;
 	reducedMotion?: boolean;
 	navigate?: (page: string) => void;
+	[key: string]: unknown;
 }
 
 function WorldsView(props: WorldsViewProps) {
@@ -234,29 +142,17 @@ function WorldsView(props: WorldsViewProps) {
 	const config = props.config;
 	const dispatch = props.dispatch;
 	const softMotion = props.reducedMotion;
-	const reducedMotion = softMotion;
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
-	const stack = chrome.contentStack;
-	const boardReveal = useStagger(0, softMotion);
-	const travelReveal = useStagger(1, softMotion);
-	const headerReveal = boardReveal;
+	const phone = chrome.contentStack;
+	const gap = mockGap(phone);
+	const panelReveal = useStagger(0, softMotion);
 	const worldsHostRef = React.useRef<Frame>();
-	// wide desktop: the header, search and Expeditions sit in a side column next to the world list
-	const plan = splitColumns(stack ? 0 : viewport.width, 360, rowGapFor(stack, chrome.panelGap), 1280);
-	const sideColumn = plan.split;
-	const headerStack = stack || sideColumn;
-	const barH = Browse.barHeight(headerStack, true);
-	const headerHeight = (headerStack ? 168 : 112) + barH + 10;
-	const rowHeight = PageBoardHeights.World(stack);
-	const rowGap = rowGapFor(stack, chrome.panelGap);
-	const worldColumns = stack ? 1 : sideColumn ? (viewport.width >= 1800 ? 2 : 1) : viewport.width >= 1100 ? 2 : 1;
-	const listPad = Layout.stackGap * 2;
+	const scrollRef = React.useRef<ScrollingFrame>();
 	const catalogTotal = config.MaxZone ?? config.Zones.size();
 	const total = catalogTotal > 0 ? math.clamp(state.Zone + 2, 1, catalogTotal) : 0;
 	const currentIdx = math.clamp((state.CurrentZone ?? 0) - 1, 0, math.max(0, total - 1));
 	const [range, setRange] = React.useState(() => AppHelpers.worldWindowAround(currentIdx, total));
-	const scrollRef = React.useRef<ScrollingFrame>();
 	React.useEffect(() => {
 		setRange((prev) => {
 			const stop = prev.start + prev.count;
@@ -267,409 +163,159 @@ function WorldsView(props: WorldsViewProps) {
 		});
 	}, [currentIdx, total]);
 	const rangeEnd = math.min(total, range.start + range.count);
-	let shownCount = math.max(0, rangeEnd - range.start);
 	const remainingBelow = math.max(0, total - rangeEnd);
 	const remainingAbove = range.start;
-	let canShowMore = remainingBelow > 0 || remainingAbove > 0;
+	const canShowMore = remainingBelow > 0 || remainingAbove > 0;
 	const showMore = () => {
 		setRange((prev) => {
 			const stop = math.min(total, prev.start + prev.count);
 			if (stop < total) {
-				if (prev.count >= AppHelpers.worldWindow.maxMounted) {
-					const nextStart = math.min(
-						math.max(0, total - AppHelpers.worldWindow.maxMounted),
-						prev.start + AppHelpers.worldWindow.chunk,
-					);
-					return {
-						start: nextStart,
-						count: math.min(AppHelpers.worldWindow.maxMounted, total - nextStart),
-					};
-				}
+				const nextStart =
+					prev.count >= AppHelpers.worldWindow.maxMounted
+						? math.min(math.max(0, total - AppHelpers.worldWindow.maxMounted), prev.start + AppHelpers.worldWindow.chunk)
+						: prev.start;
 				return {
-					start: prev.start,
-					count: math.min(AppHelpers.worldWindow.maxMounted, total - prev.start, prev.count + AppHelpers.worldWindow.chunk),
+					start: nextStart,
+					count: math.min(AppHelpers.worldWindow.maxMounted, total - nextStart, stop - nextStart + AppHelpers.worldWindow.chunk),
 				};
 			}
 			if (prev.start > 0) {
-				if (prev.count >= AppHelpers.worldWindow.maxMounted) {
-					const nextStart = math.max(0, prev.start - AppHelpers.worldWindow.chunk);
-					return {
-						start: nextStart,
-						count: math.min(AppHelpers.worldWindow.maxMounted, total - nextStart),
-					};
-				}
-				const grow = math.min(AppHelpers.worldWindow.chunk, prev.start, AppHelpers.worldWindow.maxMounted - prev.count);
-				return {
-					start: prev.start - grow,
-					count: prev.count + grow,
-				};
+				const nextStart = math.max(0, prev.start - AppHelpers.worldWindow.chunk);
+				return { start: nextStart, count: math.min(AppHelpers.worldWindow.maxMounted, total - nextStart) };
 			}
 			return prev;
 		});
 	};
-	const jumpToCurrent = () => {
-		const focused = AppHelpers.worldWindowAround(currentIdx, total, AppHelpers.worldWindow.chunk);
-		setRange(focused);
-		task.defer(() => {
-			const scrolling = scrollRef.current;
-			if (scrolling === undefined) {
-				return;
-			}
-			const localIndex = math.clamp(currentIdx - focused.start, 0, math.max(0, focused.count - 1));
-			scrolling.CanvasPosition = new Vector2(0, math.max(0, (sideColumn ? 0 : headerHeight + rowGap) + math.floor(localIndex / worldColumns) * (rowHeight + rowGap) - 40));
-		});
-	};
-	const moreLabel =
-		remainingBelow > 0 ? `SHOW MORE  (${remainingBelow} left)` : remainingAbove > 0 ? `SHOW EARLIER  (${remainingAbove})` : "SHOW MORE";
-	const worldTail = scrollTail(stack, chrome.bottomSafe, 40);
 	const resolveZone = (id: number) => (config.ResolveZone !== undefined ? config.ResolveZone(id) : config.Zones[id - 1]);
-	// search covers the newest WORLD_SCAN worlds you can see (owned plus the next stops)
-	const zoneItems = React.useMemo(() => {
-		const list: ZoneDef[] = [];
-		for (let id = math.max(1, total - WORLD_SCAN + 1); id <= total; id++) {
-			const zone = resolveZone(id);
-			if (zone !== undefined) {
-				list.push(zone);
-			}
-		}
-		return list;
-	}, [total]);
-	const browse = Browse.useBrowse<ZoneDef>({
-		id: "Worlds",
-		items: zoneItems,
-		text: (zone) => [zone.Name, zone.Tagline, (zone.Features ?? []).join(" "), zone.Description, `world ${zone.Id}`],
-		categories: [
-			{ id: "All", label: "All" },
-			{
-				id: "Owned",
-				label: "Owned",
-				test: (zone) => state.Zone >= zone.Id,
-			},
-			{
-				id: "Locked",
-				label: "Next stops",
-				test: (zone) => state.Zone < zone.Id,
-			},
-			{
-				id: "Current",
-				label: "Current",
-				test: (zone) => state.CurrentZone === zone.Id,
-			},
-		],
-		sorts: [
-			{ id: "Order", label: "World order" },
-			{
-				id: "Newest",
-				label: "Newest first",
-				compare: (a, b) => a.Id > b.Id,
-			},
-			{
-				id: "Multiplier",
-				label: "Best multiplier",
-				compare: (a, b) => (tonumber(a.Multiplier) ?? 0) > (tonumber(b.Multiplier) ?? 0),
-			},
-			{
-				id: "Name",
-				label: "A to Z",
-				compare: (a, b) => tostring(a.Name) < tostring(b.Name),
-			},
-		],
-	});
-	const browsing = browse.filtered || browse.sort !== "Order";
-	// B clears a search, filter or sort before it leaves the page
-	useBackLayer(browsing, () => {
-		browse.reset();
-		browse.setSort("Order");
-	});
-	const worldRow = (zone: ZoneDef, localOrder: number) => {
+	const missingFor = (zone: ZoneDef): string | undefined => {
+		if (state.Rebirths < zone.RequiredRebirths) return `Rebirth ${compactNumber(zone.RequiredRebirths)}`;
+		if (state.Cores < zone.CoreCost) return `${compactNumber(zone.CoreCost)} cores`;
+		if (!gteFlux(state.Cash, zone.Cost)) return `${compactNumber(zone.Cost)} cash`;
+		return undefined;
+	};
+	// .pn grid: repeat(4, 1fr) gap 12 on desktop; the phone shows two cards a row with no panel around them
+	const columns = phone ? 2 : viewport.width >= 1200 ? 4 : viewport.width >= 800 ? 3 : 2;
+	const cardGap = phone ? gap : 12;
+	const [gridWidth, onGridSize] = useWidth(phone ? 700 : 1500);
+	const cellWidth = math.max(120, (gridWidth - cardGap * (columns - 1)) / columns);
+	const artHeight = math.floor((cellWidth * 140) / 300);
+	const cardH = worldCardHeight(phone, artHeight);
+	const cards: React.Element[] = [];
+	let nextLocked: ZoneDef | undefined;
+	for (let index = range.start; index < rangeEnd; index++) {
+		const zone = resolveZone(index + 1);
+		if (zone === undefined) continue;
 		const unlocked = state.Zone >= zone.Id;
-		const rebirthOk = state.Rebirths >= zone.RequiredRebirths;
-		const coresOk = state.Cores >= zone.CoreCost;
-		const cashOk = gteFlux(state.Cash, zone.Cost);
-		const canUnlock = !unlocked && zone.Id === state.Zone + 1 && rebirthOk && coresOk && cashOk;
-		return (
-			<WorldRow
+		const missing = unlocked ? undefined : missingFor(zone);
+		const canUnlock = !unlocked && zone.Id === state.Zone + 1 && missing === undefined;
+		if (!unlocked && nextLocked === undefined) nextLocked = zone;
+		cards.push(
+			<WorldCard
 				key={zone.Id}
 				zone={zone}
-				current={state.CurrentZone === zone.Id}
+				current={(state.CurrentZone ?? state.Zone) === zone.Id}
 				unlocked={unlocked}
 				canUnlock={canUnlock}
-				cashOk={cashOk}
-				coresOk={coresOk}
-				rebirthOk={rebirthOk}
-				reducedMotion={reducedMotion}
-				onSelect={() => dispatch(unlocked ? "SelectZone" : "UnlockZone", { Id: zone.Id })}
-				layoutOrder={localOrder}
-				stack={stack}
-			/>
-		);
-	};
-	let rows: React.Element[] = [];
-	if (browsing) {
-		let order = 0;
-		for (const zone of browse.results) {
-			order += 1;
-			if (order > WORLD_RESULTS) {
-				break;
-			}
-			rows.push(worldRow(zone, order));
-		}
-		shownCount = rows.size();
-		canShowMore = false;
-	} else {
-		for (let index = range.start; index < rangeEnd; index++) {
-			const zone = resolveZone(index + 1);
-			if (zone !== undefined) {
-				rows.push(worldRow(zone, index - range.start + 1));
-			}
-		}
-	}
-	const gridRows = math.ceil(math.max(1, shownCount) / worldColumns);
-	const rowsHeight = math.max(rowHeight, gridRows * (rowHeight + rowGap) - rowGap);
-	if (browsing && rows.size() === 0) {
-		rows = [
-			<Browse.NoResults
-				key="none"
-				browse={browse}
-				noun="worlds"
-				icon="World.5"
-				accent={Palette.mint}
+				missing={missing}
 				reducedMotion={softMotion}
-				size={new UDim2(1, 0, 0, rowHeight)}
+				onSelect={() => dispatch(unlocked ? "SelectZone" : "UnlockZone", { Id: zone.Id })}
+				layoutOrder={index - range.start + 1}
+				phone={phone}
+				artHeight={artHeight}
 			/>,
-		];
+		);
 	}
-	const rowsBlock = (
+	const gridRows = math.max(1, math.ceil(cards.size() / columns));
+	const gridH = gridRows * cardH + (gridRows - 1) * cardGap;
+	const grid = (
 		<frame
-			Size={new UDim2(1, 0, 0, math.max(rowHeight, gridRows * (rowHeight + rowGap) - rowGap))}
+			{...named("WorldGrid")}
+			Size={new UDim2(1, 0, 0, gridH)}
 			BackgroundTransparency={1}
 			BorderSizePixel={0}
 			LayoutOrder={1}
-			ClipsDescendants={false}
+			Change={{ AbsoluteSize: onGridSize }}
 		>
-			{worldColumns > 1 ? (
-				<uigridlayout
-					CellSize={new UDim2(1 / worldColumns, -math.ceil((rowGap * (worldColumns - 1)) / worldColumns), 0, rowHeight)}
-					CellPadding={UDim2.fromOffset(rowGap, rowGap)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-					FillDirectionMaxCells={worldColumns}
-				/>
-			) : (
-				<uilistlayout
-					FillDirection={Enum.FillDirection.Vertical}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-					Padding={new UDim(0, rowGap)}
-				/>
-			)}
-			{rows}
+			<uigridlayout
+				CellSize={new UDim2(1 / columns, -math.ceil((cardGap * (columns - 1)) / columns), 0, cardH)}
+				CellPadding={UDim2.fromOffset(cardGap, cardGap)}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+				FillDirectionMaxCells={columns}
+			/>
+			{cards}
 		</frame>
 	);
-	const sections: Section[] = [
-		{
-			id: "header",
-			height: headerHeight,
-			element: (
-				<Panel
-					size={UDim2.fromScale(1, 1)}
-					accent={Palette.mint}
-					background={Palette.panelRaised}
-					padding={headerStack ? 16 : 14}
-					reveal={headerReveal}
-					reducedMotion={softMotion}
-					highlight={!softMotion && travelReveal !== undefined}
-					layoutOrder={0}
-					clips={false}
-				>
-					{/* port 12-worlds hero: the uploaded worlds header strip behind the text, faded in code */}
-					<frame
-						Size={new UDim2(1, (headerStack ? 16 : 14) * 2, 1, (headerStack ? 16 : 14) * 2)}
-						Position={UDim2.fromOffset(-(headerStack ? 16 : 14), -(headerStack ? 16 : 14))}
-						BackgroundTransparency={1}
-						BorderSizePixel={0}
-						ClipsDescendants={true}
-						ZIndex={0}
-					>
-						<uicorner CornerRadius={new UDim(0, 18)} />
-						<imagelabel Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Image={HEADER_ART.worlds} ScaleType={Enum.ScaleType.Crop} ImageTransparency={0.3} ZIndex={0}>
-							<uigradient Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.9), new NumberSequenceKeypoint(0.5, 0.45), new NumberSequenceKeypoint(1, 0.1)])} />
-						</imagelabel>
-					</frame>
-					<Text
-						value={
-							state.CurrentZone !== undefined && state.CurrentZone !== state.Zone
-								? `You are on World ${compactNumber(state.CurrentZone)} (Farthest: World ${compactNumber(state.Zone)})`
-								: `You are on World ${compactNumber(state.CurrentZone ?? state.Zone)}`
-						}
-						size={headerStack ? chrome.titleText : 22}
-						color={Palette.cream}
-						weight={Enum.FontWeight.Heavy}
-						fit={headerStack}
-						minSize={13}
-						position={UDim2.fromOffset(0, 10)}
-						sizeConstraint={new UDim2(1, headerStack ? -8 : -320, 0, 30)}
-					/>
-					{!headerStack && (
-						<frame
-							Size={UDim2.fromOffset(0, 42)}
-							AutomaticSize={Enum.AutomaticSize.X}
-							AnchorPoint={new Vector2(1, 0)}
-							Position={new UDim2(1, 0, 0, 14)}
-							BackgroundTransparency={1}
-							BorderSizePixel={0}
-							ClipsDescendants={false}
-						>
-							<uilistlayout
-								FillDirection={Enum.FillDirection.Horizontal}
-								HorizontalAlignment={Enum.HorizontalAlignment.Right}
-								VerticalAlignment={Enum.VerticalAlignment.Center}
-								Padding={new UDim(0, 10)}
-								SortOrder={Enum.SortOrder.LayoutOrder}
-							/>
-							<Badge
-								// how far along you are, rather than a bare catalogue size that reads like a typo next to "6 total"
-								value={`${compactNumber(state.Zone ?? 1)} of ${compactNumber(catalogTotal)} open`}
-								accent={Palette.mint}
-								size={UDim2.fromOffset(150, 28)}
-							/>
-							<Button
-								text="Find current"
-								icon="Search.3"
-								onClick={() => {
-									browse.reset();
-									browse.setSort("Order");
-									jumpToCurrent();
-								}}
-								color={Palette.mint}
-								textColor={Palette.ink}
-								size={UDim2.fromOffset(0, 42)}
-								hug={true}
-								reducedMotion={softMotion}
-							/>
-						</frame>
-					)}
-					{headerStack && (
-						<Button
-							text="Find current"
-							icon="Search.4"
-							onClick={() => {
-								browse.reset();
-								browse.setSort("Order");
-								jumpToCurrent();
-							}}
-							color={Palette.mint}
-							textColor={Palette.ink}
-							size={new UDim2(1, 0, 0, TapTarget)}
-							position={new UDim2(0, 0, 1, -(TapTarget + 8 + barH + 10))}
-							reducedMotion={softMotion}
-						/>
-					)}
-					<Browse.BrowseBar
-						browse={browse}
-						placeholder="Search worlds by name or feature"
-						accent={Palette.mint}
-						stack={headerStack}
-						reducedMotion={softMotion}
-						position={new UDim2(0, 0, 1, -barH)}
-						zIndex={30}
-					/>
-				</Panel>
-			),
-		},
-		{
-			id: "rows",
-			height: rowsHeight,
-			element: rowsBlock,
-		},
-	];
-	// v8 Expedition Board: the way in sits right under the header
+	const nextLine =
+		nextLocked !== undefined ? `${nextLocked.Name} at ${missingFor(nextLocked) ?? "the next unlock"}` : "Every world is open";
+	// expedition board entry stays on Worlds (it was here before the port); one .row under the info rows
 	const navigate = props.navigate;
+	const board = (state as { ExpeditionBoard?: { Slots?: Array<{ Id: string; EndsAt: number }> } }).ExpeditionBoard;
+	let out = 0;
+	for (const slot of board?.Slots ?? []) if (slot.Id !== "") out += 1;
+	const slotsTotal = board?.Slots?.size() ?? 3;
+	const rowH = rowHeight(phone);
+	const btnW = phone ? 150 : 140;
+	const infoRows: React.Element[] = [
+		<DiamondRule key="rule" layoutOrder={2} />,
+		<MockRow key="travel" phone={phone} icon="Info" title="Travel cost" value="Free between open worlds" layoutOrder={3} />,
+		<MockRow key="next" phone={phone} icon="Lock" title="Next unlock" value={nextLine} layoutOrder={4} />,
+	];
 	if (navigate !== undefined) {
-		const board = (state as { ExpeditionBoard?: { Slots?: Array<{ Id: string; EndsAt: number }> } }).ExpeditionBoard;
-		let out = 0;
-		for (const slot of board?.Slots ?? []) if (slot.Id !== "") out += 1;
-		const total = board?.Slots?.size() ?? 3;
-		const entry: Section = {
-			id: "expeditions",
-			height: TapTarget + 8,
-			element: (
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<Button
-						text={out > 0 ? `Expeditions  ${out}/${total} out` : "Expeditions"}
-						icon="Command.2"
-						onClick={() => navigate("Expeditions")}
-						color={Palette.panelSoft}
-						textColor={Palette.cream}
-						size={new UDim2(1, 0, 0, TapTarget)}
-						reducedMotion={softMotion}
-						outline={true}
-					/>
-				</frame>
-			),
-		};
-		const reordered: Section[] = [];
-		sections.forEach((section, index) => {
-			reordered.push(section);
-			if (index === 0) reordered.push(entry);
-		});
-		sections.clear();
-		for (const section of reordered) sections.push(section);
+		infoRows.push(
+			<MockRow
+				key="exp"
+				phone={phone}
+				icon="Command"
+				title="Expeditions"
+				value={out > 0 ? `${out}/${slotsTotal} out` : undefined}
+				rightWidth={btnW}
+				right={<MockBtn text="Open" sm={true} sec={true} phone={phone} width={btnW} onClick={() => navigate("Expeditions")} reducedMotion={softMotion} />}
+				layoutOrder={5}
+			/>,
+		);
 	}
 	if (canShowMore) {
-		sections.push({
-			id: "more",
-			height: TapTarget + 8,
-			element: (
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<Button
-						text={moreLabel}
-						icon="Chevron.2"
-						onClick={showMore}
-						color={Palette.panelSoft}
-						textColor={Palette.cream}
-						size={new UDim2(1, 0, 0, TapTarget)}
-						reducedMotion={softMotion}
-						outline={true}
-					/>
-				</frame>
-			),
-		});
+		infoRows.push(
+			<MockBtn
+				key="more"
+				text={remainingBelow > 0 ? `Show more (${remainingBelow} left)` : `Show earlier (${remainingAbove})`}
+				icon="Chevron"
+				sec={true}
+				fill={true}
+				phone={phone}
+				onClick={showMore}
+				reducedMotion={softMotion}
+				layoutOrder={6}
+			/>,
+		);
 	}
-	// explicit pad order: header (FIND CURRENT, search, filters) > Expeditions > world rows > more; first focus on the rows
-	useFocusOrder(
-		worldsHostRef,
-		{ regions: ["header", "expeditions", "rows", "more"], first: ["rows", "header"], columns: [["Side", "Main"]] },
-		[state.CurrentZone, state.Zone, sideColumn, browsing, shownCount],
+	const infoH = 12 + 12 + rowH * 2 + 12 * 2 + (navigate !== undefined ? rowH + 12 : 0) + (canShowMore ? (phone ? TapTarget : 44) + 12 : 0);
+	const panelGap = panelPad(phone).gap;
+	const body = phone ? (
+		<frame Size={new UDim2(1, 0, 0, gridH + panelGap + infoH)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<uilistlayout Padding={new UDim(0, panelGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{grid}
+			{infoRows}
+		</frame>
+	) : (
+		<MockPanel size={new UDim2(1, 0, 0, panelHeight(false, headingBlock(false) + gridH + panelGap + infoH))} phone={false} reveal={panelReveal} reducedMotion={softMotion} name="WorldMap">
+			<PanelHeading icon="World" title="Map" phone={false} layoutOrder={0} />
+			{grid}
+			{infoRows}
+		</MockPanel>
 	);
-	const sideBlocks = sections.filter((section) => section.id === "header" || section.id === "expeditions").map((section) => ({ id: section.id, height: section.height ?? 0, element: section.element }));
-	const mainBlocks = sections.filter((section) => section.id !== "header" && section.id !== "expeditions").map((section) => ({ id: section.id, height: section.height ?? 0, element: section.element }));
+	const bodyH = phone ? gridH + panelGap + infoH : panelHeight(false, headingBlock(false) + gridH + panelGap + infoH);
+	useFocusOrder(worldsHostRef, { regions: ["map"], first: ["map"] }, [state.CurrentZone, state.Zone, range.start]);
 	return (
-		<frame
-			ref={worldsHostRef}
-			{...named("WorldsTravelClaim")}
-			Size={UDim2.fromScale(1, 1)}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			ClipsDescendants={false}
-		>
-			{sideColumn ? (
-				<PageScaffold
-					hostRef={scrollRef}
-					gap={rowGap}
-					tailPad={worldTail + listPad}
-					scrollBarColor={Palette.mint}
-					scrollBarThickness={4}
-					sections={[splitSection("WorldsSplit", plan, rowGap, sideBlocks, mainBlocks, false, sections.map((section) => section.id))]}
-				/>
-			) : (
-				<PageScaffold
-					hostRef={scrollRef}
-					gap={rowGap}
-					tailPad={worldTail + listPad}
-					scrollBarColor={Palette.mint}
-					scrollBarThickness={4}
-					sections={sections}
-				/>
-			)}
+		<frame ref={worldsHostRef} {...named("WorldsTravelClaim")} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+			<PageScaffold
+				hostRef={scrollRef}
+				gap={gap}
+				tailPad={scrollTail(phone, chrome.bottomSafe, 40) + Layout.stackGap * 2}
+				scrollBarColor={Palette.mango}
+				scrollBarThickness={4}
+				sections={[{ id: "map", height: bodyH, element: body }]}
+			/>
 		</frame>
 	);
 }
