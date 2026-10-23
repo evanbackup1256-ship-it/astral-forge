@@ -142,42 +142,63 @@ function nameplate(info: ArtifactInfo, adornee: BasePart): [BillboardGui, ImageL
 	const title = new Instance("TextLabel");
 	title.Name = "Title";
 	title.BackgroundTransparency = 1;
-	title.Position = UDim2.fromOffset(70, 12);
+	title.Position = UDim2.fromOffset(70, 6);
 	title.Size = new UDim2(1, -70, 0, 22);
 	title.FontFace = PLATE_SERIF;
-	title.TextScaled = true;
+	// design/28-world nameplate: 18px title-font name with a 2px black drop, then a .chip
+	title.TextSize = 18;
+	title.TextTruncate = Enum.TextTruncate.AtEnd;
 	title.TextXAlignment = Enum.TextXAlignment.Left;
 	title.TextColor3 = lighten(info.Color, 0.25);
 	title.TextStrokeColor3 = Theme.Base.void;
 	title.TextStrokeTransparency = 0.35;
-	title.Text = string.upper(info.Name);
+	title.Text = info.Name;
 	title.ZIndex = 3;
 	title.Parent = gui;
 	// 2px black drop under the serif name
 	const drop = title.Clone();
 	drop.Name = "TitleDrop";
-	drop.Position = UDim2.fromOffset(72, 14);
+	drop.Position = UDim2.fromOffset(72, 8);
 	drop.TextColor3 = new Color3(0, 0, 0);
 	drop.TextStrokeTransparency = 1;
 	drop.TextTransparency = 0.25;
 	drop.ZIndex = 2;
 	drop.Parent = gui;
 
+	// .chip: 28px, radius 8, white .05 fill with a .1 hairline
+	const chip = new Instance("Frame");
+	chip.Name = "Detail";
+	chip.Position = UDim2.fromOffset(70, 34);
+	chip.Size = UDim2.fromOffset(0, 28);
+	chip.AutomaticSize = Enum.AutomaticSize.X;
+	chip.BackgroundColor3 = new Color3(1, 1, 1);
+	chip.BackgroundTransparency = 0.95;
+	chip.BorderSizePixel = 0;
+	const corner = new Instance("UICorner");
+	corner.CornerRadius = new UDim(0, 8);
+	corner.Parent = chip;
+	const stroke = new Instance("UIStroke");
+	stroke.Color = new Color3(1, 1, 1);
+	stroke.Transparency = 0.9;
+	stroke.Thickness = 1;
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+	stroke.Parent = chip;
+	const chipPad = new Instance("UIPadding");
+	chipPad.PaddingLeft = new UDim(0, 10);
+	chipPad.PaddingRight = new UDim(0, 10);
+	chipPad.Parent = chip;
 	const detail = new Instance("TextLabel");
-	detail.Name = "Detail";
+	detail.Name = "Text";
 	detail.BackgroundTransparency = 1;
-	detail.Position = UDim2.fromOffset(70, 36);
-	detail.Size = new UDim2(1, -70, 0, 26);
-	detail.FontFace = Font.fromEnum(Enum.Font.BuilderSansBold);
-	detail.TextScaled = true;
-	detail.TextWrapped = true;
-	detail.TextXAlignment = Enum.TextXAlignment.Left;
+	detail.Size = UDim2.fromOffset(0, 28);
+	detail.AutomaticSize = Enum.AutomaticSize.X;
+	detail.FontFace = new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold);
+	detail.TextSize = 12;
 	detail.TextColor3 = Theme.Base.creamSoft;
-	detail.TextStrokeColor3 = Theme.Base.void;
-	detail.TextStrokeTransparency = 0.45;
 	const effect = typeIs(info.Effect, "string") && info.Effect !== "" ? ` · ${info.Effect}` : "";
-	detail.Text = `${string.upper(info.Rarity)} LV${info.Level}${effect}`;
-	detail.Parent = gui;
+	detail.Text = `${info.Rarity} · Lv ${info.Level}${effect}`;
+	detail.Parent = chip;
+	chip.Parent = gui;
 	return [gui, glyph, sheet !== undefined];
 }
 

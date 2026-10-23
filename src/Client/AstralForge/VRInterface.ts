@@ -4,6 +4,12 @@ const RunService = game.GetService("RunService");
 const ContextActionService = game.GetService("ContextActionService");
 const Workspace = game.GetService("Workspace");
 
+// design/system/af.css: --panel, --raised, --brass, --cream
+const SHELL_PANEL = Color3.fromHex("#1B151D");
+const SHELL_RAISED = Color3.fromHex("#271F2A");
+const SHELL_BRASS = Color3.fromHex("#FABE48");
+const SHELL_CREAM = Color3.fromHex("#FCF7F0");
+
 interface VRHost {
 	active: boolean;
 	disposed: boolean;
@@ -61,9 +67,18 @@ const VRInterface = {
 		content.Name = "Content";
 		content.Size = new UDim2(1, 0, 1, -64);
 		content.Position = UDim2.fromOffset(0, 0);
-		content.BackgroundColor3 = Color3.fromRGB(14, 11, 20);
+		// design/28-world shell: .pn panel, radius 16, brass hairline
+		content.BackgroundColor3 = SHELL_PANEL;
 		content.BorderSizePixel = 0;
 		content.ClipsDescendants = true;
+		const contentCorner = new Instance("UICorner");
+		contentCorner.CornerRadius = new UDim(0, 16);
+		contentCorner.Parent = content;
+		const contentStroke = new Instance("UIStroke");
+		contentStroke.Color = SHELL_BRASS;
+		contentStroke.Transparency = 0.6;
+		contentStroke.Thickness = 1.5;
+		contentStroke.Parent = content;
 		content.Parent = surface;
 		host.container = content;
 		const overlay = new Instance("Frame");
@@ -75,13 +90,22 @@ const VRInterface = {
 		host.overlay = overlay;
 		const header = new Instance("TextButton");
 		header.Name = "VRRecenter";
-		header.Size = new UDim2(1, 0, 0, 64);
-		header.Position = new UDim2(0, 0, 1, -64);
-		header.BackgroundColor3 = Color3.fromRGB(27, 23, 39);
-		header.TextColor3 = Color3.fromRGB(230, 239, 255);
-		header.FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Bold);
-		header.TextSize = 23;
-		header.Text = "ASTRAL FORGE  ·  RECENTER PANEL  ·  L3 recenter / R3 show or hide";
+		header.Size = new UDim2(1, -24, 0, 52);
+		header.Position = new UDim2(0, 12, 1, -58);
+		header.AutoButtonColor = false;
+		header.BackgroundColor3 = SHELL_RAISED;
+		header.TextColor3 = SHELL_CREAM;
+		header.FontFace = new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold);
+		header.TextSize = 20;
+		header.Text = "Recenter panel  ·  L3 recenter, R3 show or hide";
+		const headerCorner = new Instance("UICorner");
+		headerCorner.CornerRadius = new UDim(0, 12);
+		headerCorner.Parent = header;
+		const headerStroke = new Instance("UIStroke");
+		headerStroke.Color = SHELL_BRASS;
+		headerStroke.Transparency = 0.6;
+		headerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
+		headerStroke.Parent = header;
 		header.Selectable = true;
 		header.Parent = surface;
 		const previousLaser = VRService.LaserPointer;
