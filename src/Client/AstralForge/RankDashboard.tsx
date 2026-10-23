@@ -493,7 +493,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 						}
 						rows = eligible;
 					}
-					setResult({ rows, loading: false, status: `Updated · ${rows.size()} entries · ${guildBoard ? "Guild activity" : scope + " board"}` });
+					setResult({ rows, loading: false, status: `${rows.size()} entries` });
 				}
 				task.delay(12, () => finish(undefined));
 				const action = guildBoard ? "GetGuildLeaderboard" : scope === "Server" ? "GetPlayers" : "GetLeaderboard";

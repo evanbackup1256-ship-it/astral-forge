@@ -1043,7 +1043,7 @@ function ReportSheet(param: ReportSheetProps) {
 				zIndex: 704,
 			}),
 			h(Text, {
-				value: alsoBlock ? `Thanks. You also blocked ${target.DisplayName}.` : "Thanks for helping keep the server friendly.",
+				value: alsoBlock ? `Thanks. You also blocked ${target.DisplayName}.` : "Report sent.",
 				size: 12,
 				color: Palette.muted,
 				align: Enum.TextXAlignment.Center,
@@ -1914,7 +1914,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					h(Text, {
 						value: social.Premium
 							? `PREMIUM +${math.floor(social.PremiumBonus * 100 + 0.5)}%`
-							: "Play with friends for more output",
+							: "Friends boost output",
 						size: 10,
 						color: social.Premium ? Palette.mango : Palette.muted,
 						weight: Enum.FontWeight.Bold,

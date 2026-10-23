@@ -333,7 +333,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				<EmptyState
 					icon="Check.6"
 					title="Forge Path complete"
-					body={guide?.Complete ?? "Path cleared. Permanent bonuses stay through rebirth."}
+					body={guide?.Complete ?? "Bonuses kept on rebirth"}
 					accent={Palette.mint}
 					compact={true}
 					size={UDim2.fromScale(1, 1)}
@@ -499,7 +499,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 	const rowStack = stack && !chrome.landscape;
 	const stepRowHeight = rowStack ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT;
 	const progressFrac = totalCount > 0 ? claimedCount / totalCount : 0;
-	const heroBlurb = guide?.HeroBlurb ?? "One track. Every step pays out.";
+	const heroBlurb = guide?.HeroBlurb ?? "Claim each step";
 	const stepStride = stepRowHeight + listGap;
 	const browse = Browse.useBrowse<DecoratedForgePathStep>({
 		id: "ForgePath",

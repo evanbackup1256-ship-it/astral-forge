@@ -41,10 +41,6 @@ function leftText(seconds: number): string {
 	return hours > 0 ? `${hours}h ${minutes}m` : `${math.max(1, minutes)}m`;
 }
 
-function dateText(at: number): string {
-	return os.date("!%b %d", at).gsub(" 0", " ")[0];
-}
-
 export function eventPanelHeight(state: EventState | undefined, stack: boolean): number {
 	const event = LimitedEvents.byId(state?.Id);
 	if (event === undefined) {
