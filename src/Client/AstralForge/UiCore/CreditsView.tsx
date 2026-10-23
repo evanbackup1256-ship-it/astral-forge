@@ -1,12 +1,12 @@
 import { named } from "../lua";
 // Credits: everyone who made the game, read from SharedData#CreditsConfig through CreditsModel.
 //
-// A clean, read-only roll. One Surface panel that sizes itself to its content (no empty card
-// below a short list): a title block, then every section in order, each with its own accent rule
-// and a grid of member cards whose column count comes from the layout engine (cards stretch to
-// fill the row instead of leaving holes), then the acknowledgements. Nothing to tap but Close:
-// B, Esc or a tap outside also close it. Motion is unchanged: the panel reveals on usePresence,
-// cards rise on the shared surface stagger and their plates settle on the surface spring.
+// 21-credits: one brass-ruled Surface that hugs its content. A serif title block, the lead in a
+// large round viewport with the rest of the team ringed around it (each viewport holds a
+// companion still), name and role only, then a brass hairline and the thank-you line, with the
+// acknowledgements in small print. Nothing to tap but Close: B, Esc or a tap outside also close
+// it. Motion is unchanged: the panel reveals on usePresence, medallions rise on the shared surface
+// stagger and settle on the surface spring.
 import { ModalSelectionScope } from "./overlayCore";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
@@ -16,8 +16,10 @@ import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
-import { Surface, SurfaceSectionLabel, SurfaceMetrics, SurfaceMotion, SurfaceRow, SurfaceText, useSurfaceEnter, useSurfaceSpring } from "./surface";
-import { fitColumns, measureText, Space } from "./layoutEngine";
+import { Surface, SurfaceMetrics, SurfaceMotion, SurfaceText, useSurfaceEnter, useSurfaceSpring } from "./surface";
+import { measureText, Space } from "./layoutEngine";
+import { Glow } from "./depth";
+import { COMPANION_SHEETS, COMPANION_SHEET_GRID } from "../ArtKit/uiArt";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
@@ -64,6 +66,7 @@ interface CreditsModelData {
 	Acknowledgements: string[];
 	Footer: string;
 	Title: string;
+	Eyebrow?: string;
 	Tagline: string;
 	ShowVersion?: boolean;
 }
@@ -79,11 +82,16 @@ const SharedData = require(
 const CreditsModel = SharedData("CreditsModel") as CreditsModelModule;
 const MODEL = CreditsModel.normalize(SharedData("CreditsConfig"));
 
-const GAP = SurfaceMetrics.gap;
-const LABEL_H = 38;
-const DESC_H = 18;
-const MIN_CARD_W = 248;
-const MAX_CARD_W = 380;
+const SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
+const BODY = Font.fromName("BuilderSans", Enum.FontWeight.Medium);
+const STILLS = [
+	COMPANION_SHEETS.Cinder,
+	COMPANION_SHEETS.BrassOwl,
+	COMPANION_SHEETS.Lumen,
+	COMPANION_SHEETS.Voidmote,
+	COMPANION_SHEETS.Tidepup,
+	COMPANION_SHEETS.Frostlet,
+];
 
 function tone(key: string, fallback: Color3): Color3 {
 	const color = (Palette as unknown as Record<string, unknown>)[key];
@@ -154,64 +162,55 @@ function namesOf(member: Member): LuaTuple<[string, string]> {
 	return $tuple(display, username);
 }
 
-// ── Avatar ─────────────────────────────────────────────────────────────────────
+// ── Roll ───────────────────────────────────────────────────────────────────────
 
-// the member's initial, with their headshot loaded over it when they have a UserId
-function Avatar(props: {
+interface Credit {
 	member: Member;
-	size: number;
+	roles: string[];
 	accent: Color3;
-	position?: UDim2;
-	anchor?: Vector2;
-	pop?: React.Binding<number>;
-	zIndex: number;
-}) {
-	const member = props.member;
-	const size = props.size;
-	const radius = MODEL.AvatarShape === "Circle" ? new UDim(1, 0) : new UDim(0, math.floor(size * 0.22));
-	const initial = string.upper((string.match(member.DisplayName, utf8.charpattern)[0] as string | undefined) ?? "?");
-	return (
-		<frame
-			Size={UDim2.fromOffset(size, size)}
-			Position={props.position}
-			AnchorPoint={props.anchor}
-			BackgroundColor3={darken(props.accent, 0.6)}
-			BorderSizePixel={0}
-			ZIndex={props.zIndex}
-		>
-			{props.pop !== undefined && <uiscale Scale={props.pop.map((v) => 1 + v * 0.06)} />}
-			<uicorner CornerRadius={radius} />
-			<uistroke Color={props.accent} Thickness={1} Transparency={0.7} />
-			<textlabel
-				Size={UDim2.fromScale(1, 1)}
-				BackgroundTransparency={1}
-				Text={initial}
-				TextColor3={Palette.cream}
-				TextSize={math.floor(size * 0.46)}
-				FontFace={Font.fromName("BuilderSans", Enum.FontWeight.Heavy)}
-				ZIndex={props.zIndex + 1}
-			/>
-			{member.UserId !== undefined && (
-				<imagelabel
-					Size={new UDim2(1, -4, 1, -4)}
-					Position={UDim2.fromOffset(2, 2)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					Image={`rbxthumb://type=AvatarHeadShot&id=${member.UserId}&w=150&h=150`}
-					ZIndex={props.zIndex + 2}
-				>
-					<uicorner CornerRadius={radius} />
-				</imagelabel>
-			)}
-		</frame>
-	);
 }
 
-// ── Member card ────────────────────────────────────────────────────────────────
+// one entry per person: someone listed under several sections keeps every role, in config order
+function rollOf(visible: VisibleEntry[]): LuaTuple<[Credit[], string[]]> {
+	const credits: Credit[] = [];
+	const byName = new Map<string, Credit>();
+	const thanks: string[] = [];
+	for (const entry of visible) {
+		const accent = tone(entry.category.Accent, Palette.brass);
+		for (const member of entry.members) {
+			// a thanks entry with no account behind it ("You") is the thank-you line, not a person
+			if (entry.category.Id === "Thanks" && member.UserId === undefined) {
+				if (member.Note !== "") thanks.push(member.Note);
+				continue;
+			}
+			const key = member.UserId !== undefined ? tostring(member.UserId) : member.Name;
+			const known = byName.get(key);
+			if (known !== undefined) {
+				if (member.Role !== "" && !known.roles.includes(member.Role)) known.roles.push(member.Role);
+				continue;
+			}
+			const credit: Credit = { member, roles: member.Role !== "" ? [member.Role] : [], accent };
+			byName.set(key, credit);
+			credits.push(credit);
+		}
+	}
+	return $tuple(credits, thanks);
+}
 
-// read-only: the plate settles in on the surface spring once the card has risen
-function MemberCard(props: { member: Member; accent: Color3; height: number; order: number; delay: number; reducedMotion: boolean }) {
-	const member = props.member;
+// ── Medallion ──────────────────────────────────────────────────────────────────
+
+// a round viewport holding a companion still, the name in serif and the role under it
+function Medallion(props: {
+	credit: Credit;
+	still: string;
+	size: number;
+	width: number;
+	lead: boolean;
+	order: number;
+	delay: number;
+	reducedMotion: boolean;
+}) {
+	const member = props.credit.member;
 	const [settled, setSettled] = React.useState(false);
 	React.useEffect(() => {
 		const job = task.delay(props.delay + SurfaceMotion.stagger * 2, () => setSettled(true));
@@ -219,49 +218,135 @@ function MemberCard(props: { member: Member; accent: Color3; height: number; ord
 			pcall(task.cancel, job);
 		};
 	}, []);
-	const lit = useSurfaceSpring(settled ? 0.22 : 0, props.reducedMotion);
+	const lit = useSurfaceSpring(settled ? 1 : 0, props.reducedMotion);
 	const enter = useSurfaceEnter(props.reducedMotion, props.delay);
 	const fade = enter.map((a) => 1 - math.clamp(a, 0, 1));
-	const [display, username] = namesOf(member);
-	const avatar = MODEL.ShowAvatars !== false ? math.min(MODEL.AvatarSize, props.height - Space.md * 2) : 0;
-	const textX = avatar > 0 ? Space.md + avatar + Space.md : Space.lg;
-	const second = [MODEL.ShowRoles !== false ? member.Role : "", MODEL.ShowUsernames !== false ? `@${username}` : ""]
-		.filter((part) => part !== "")
-		.join("  ·  ");
-	const showNote = MODEL.ShowNotes !== false && member.Note !== "" && props.height >= 72;
-	const blockH = 18 + (second !== "" ? 20 : 0) + (showNote ? 34 : 0);
-	const top = math.max(Space.sm, math.floor((props.height - blockH) / 2));
+	const [display] = namesOf(member);
+	const size = props.size;
+	const nameSize = props.lead ? 17 : 14;
+	const role = MODEL.ShowRoles !== false ? props.credit.roles.join(" · ") : "";
+	const cell = COMPANION_SHEET_GRID.frame;
 	return (
-		<SurfaceRow height={props.height} order={props.order} accent={props.accent} lit={lit} enter={enter} selectable={false} zIndex={6}>
-			{avatar > 0 && (
-				<Avatar member={member} size={avatar} accent={props.accent} position={new UDim2(0, Space.md, 0.5, 0)} anchor={new Vector2(0, 0.5)} zIndex={9} />
-			)}
-			<SurfaceText text={display} type="title" size={new UDim2(1, -(textX + Space.md), 0, 18)} position={UDim2.fromOffset(textX, top)} transparency={fade} zIndex={9} />
-			{second !== "" && (
-				<SurfaceText
-					text={second}
-					type="small"
-					color={Palette.creamSoft}
-					size={new UDim2(1, -(textX + Space.md), 0, 15)}
-					position={UDim2.fromOffset(textX, top + 20)}
-					transparency={fade}
-					zIndex={9}
+		<frame
+			Size={UDim2.fromOffset(props.width, size + 8 + nameSize + 4 + (role !== "" ? 16 : 0))}
+			LayoutOrder={props.order}
+			BackgroundTransparency={1}
+			ZIndex={6}
+		>
+			<frame
+				Size={UDim2.fromOffset(size, size)}
+				Position={enter.map((a) => new UDim2(0.5, 0, 0, (1 - math.clamp(a, 0, 1)) * 14))}
+				AnchorPoint={new Vector2(0.5, 0)}
+				BackgroundColor3={darken(Palette.panel, 0.35)}
+				BackgroundTransparency={fade}
+				BorderSizePixel={0}
+				ZIndex={7}
+			>
+				<uiscale Scale={lit.map((v) => 0.94 + v * 0.06)} />
+				<uicorner CornerRadius={new UDim(1, 0)} />
+				{props.lead && <Glow color={Palette.brass} radius={size / 2} spread={18} strength={0.88} zIndex={6} />}
+				<uistroke
+					Color={Palette.brass}
+					Thickness={props.lead ? 2 : 1.5}
+					Transparency={lit.map((v) => 0.55 - v * 0.35)}
+					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+				/>
+				<uigradient
+					Rotation={90}
+					Color={new ColorSequence(lighten3(Palette.panel), darken(Palette.panel, 0.55))}
+				/>
+				<imagelabel
+					Size={UDim2.fromScale(0.86, 0.86)}
+					Position={UDim2.fromScale(0.5, 0.54)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					BackgroundTransparency={1}
+					Image={props.still}
+					ImageRectOffset={Vector2.zero}
+					ImageRectSize={new Vector2(cell, cell)}
+					ImageTransparency={fade}
+					ScaleType={Enum.ScaleType.Fit}
+					ZIndex={8}
+				/>
+				<frame
+					Size={new UDim2(1, -6, 1, -6)}
+					Position={UDim2.fromScale(0.5, 0.5)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					BackgroundTransparency={1}
+					ZIndex={9}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+					<uistroke Color={Palette.brass} Thickness={1} Transparency={0.75} />
+				</frame>
+			</frame>
+			<textlabel
+				Size={new UDim2(1, 0, 0, nameSize + 4)}
+				Position={UDim2.fromOffset(0, size + 8)}
+				BackgroundTransparency={1}
+				Text={display}
+				TextColor3={Palette.cream}
+				TextTransparency={fade}
+				TextSize={nameSize}
+				TextScaled={false}
+				TextTruncate={Enum.TextTruncate.AtEnd}
+				FontFace={SERIF}
+				ZIndex={8}
+			/>
+			{role !== "" && (
+				<textlabel
+					Size={new UDim2(1, 0, 0, 16)}
+					Position={UDim2.fromOffset(0, size + 8 + nameSize + 4)}
+					BackgroundTransparency={1}
+					Text={role}
+					TextColor3={Palette.muted}
+					TextTransparency={fade}
+					TextSize={12}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+					FontFace={BODY}
+					ZIndex={8}
 				/>
 			)}
-			{showNote && (
-				<SurfaceText
-					text={member.Note}
-					type="small"
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					size={new UDim2(1, -(textX + Space.md), 0, 32)}
-					position={UDim2.fromOffset(textX, top + (second !== "" ? 40 : 22))}
-					transparency={fade}
-					zIndex={9}
+		</frame>
+	);
+}
+
+function lighten3(color: Color3): Color3 {
+	return color.Lerp(new Color3(1, 1, 1), 0.04);
+}
+
+// brass hairline with a small diamond in the middle
+function Hairline(props: { order: number; width: number }) {
+	return (
+		<frame Size={new UDim2(1, 0, 0, 14)} LayoutOrder={props.order} BackgroundTransparency={1} ZIndex={6}>
+			<frame
+				Size={UDim2.fromOffset(props.width, 1)}
+				Position={UDim2.fromScale(0.5, 0.5)}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				BackgroundColor3={Palette.brass}
+				BorderSizePixel={0}
+				ZIndex={6}
+			>
+				<uigradient
+					Transparency={
+						new NumberSequence([
+							new NumberSequenceKeypoint(0, 1),
+							new NumberSequenceKeypoint(0.5, 0.45),
+							new NumberSequenceKeypoint(1, 1),
+						])
+					}
 				/>
-			)}
-		</SurfaceRow>
+			</frame>
+			<frame
+				Size={UDim2.fromOffset(7, 7)}
+				Position={UDim2.fromScale(0.5, 0.5)}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				Rotation={45}
+				BackgroundColor3={Palette.panel}
+				BorderSizePixel={0}
+				ZIndex={7}
+			>
+				<uistroke Color={Palette.brass} Thickness={1} Transparency={0.2} />
+			</frame>
+		</frame>
 	);
 }
 
@@ -290,109 +375,87 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const maxW = math.min(1040, viewport.width - safeSide * 2 - Space.md);
 	const maxH = math.max(1, math.min(720, viewport.height - safeTop - safeBottom - Space.md));
 	const centerY = safeTop + math.max(0, (viewport.height - safeTop - safeBottom) / 2);
+	const short = viewport.height < 520;
 
 	const visible = CreditsModel.visible(MODEL, "All", "");
-	let largest = 1;
-	for (const entry of visible) largest = math.max(largest, entry.members.size());
-	// width follows content: a small team gets a narrower panel instead of a sea of empty cards
-	const widest = fitColumns(maxW - pad * 2 - Space.sm, largest, MIN_CARD_W, 3, GAP, MAX_CARD_W);
-	const width = math.min(maxW, math.max(math.min(maxW, 420), widest.columns * MAX_CARD_W + (widest.columns - 1) * GAP + pad * 2 + Space.sm));
+	const [credits, thanks] = rollOf(visible);
+	const leadSize = short ? 84 : stack ? 104 : 124;
+	const ringSize = short ? 60 : stack ? 68 : 80;
+	const cellW = stack ? 120 : 156;
+	const perRow = stack ? 3 : 4;
+
+	const width = math.min(maxW, 860);
 	const innerW = width - pad * 2;
 	const contentW = innerW - Space.sm;
-	const rowH = math.max(TapTarget, math.min(CreditsModel.cardHeight(MODEL), 96));
 
-	const subline = [MODEL.ShowVersion === true && props.version !== undefined ? `Version ${props.version}` : "", MODEL.Tagline]
+	const eyebrow = [string.upper(MODEL.Title), MODEL.ShowVersion === true && props.version !== undefined ? `V${props.version}` : ""]
 		.filter((part) => part !== "")
-		.join("  ·  ");
-	const headerH = subline !== "" ? 64 : 46;
+		.join(" · ");
+	const rawHeading = MODEL.Eyebrow !== undefined && MODEL.Eyebrow !== "" ? MODEL.Eyebrow : "Credits";
+	const heading = string.upper(string.sub(rawHeading, 1, 1)) + string.lower(string.sub(rawHeading, 2));
+	const titleSize = stack ? 26 : 32;
+	const headerH = 16 + titleSize + 6 + (MODEL.Tagline !== "" ? 20 : 0) + Space.sm;
 
-	// body: section label, optional description, member grid; measured so the panel can hug it
+	// rows: the lead flanked by the first two names, then the rest in rows of perRow
+	const rows: Credit[][] = [];
+	if (credits.size() > 0) {
+		const lead = credits[0];
+		const first: Credit[] = [];
+		if (credits.size() > 1) first.push(credits[1]);
+		first.push(lead);
+		if (credits.size() > 2) first.push(credits[2]);
+		rows.push(first);
+		let row: Credit[] = [];
+		for (let i = 3; i < credits.size(); i++) {
+			row.push(credits[i]);
+			if (row.size() === perRow) {
+				rows.push(row);
+				row = [];
+			}
+		}
+		if (row.size() > 0) rows.push(row);
+	}
+
 	const body: React.Element[] = [];
 	let order = 0;
-	let rowIndex = 0;
-	let contentH = 0;
-	for (const entry of visible) {
-		const accent = tone(entry.category.Accent, Palette.violet);
+	let contentH = Space.lg;
+	let index = 0;
+	const roleH = MODEL.ShowRoles !== false ? 16 : 0;
+	for (const [r, row] of ipairs(rows)) {
 		order += 1;
+		const lead = r === 1;
+		const rowH = (lead ? leadSize : ringSize) + 8 + (lead ? 21 : 18) + roleH;
 		body.push(
-			<SurfaceSectionLabel
-				key={`l:${entry.category.Id}`}
-				text={entry.category.Label}
-				count={MODEL.ShowCategoryCounts !== false ? entry.members.size() : undefined}
-				accent={accent}
-				order={order}
-				height={LABEL_H}
-				zIndex={6}
-			/>,
-		);
-		contentH += LABEL_H + Space.xs;
-		if (entry.category.Description !== "") {
-			order += 1;
-			const lines = math.max(1, math.ceil(measureText(entry.category.Description, 14, Enum.Font.BuilderSans).X / math.max(1, contentW)));
-			body.push(
-				<SurfaceText
-					key={`d:${entry.category.Id}`}
-					text={entry.category.Description}
-					type="small"
-					color={Palette.creamSoft}
-					wrap={true}
-					fit={true}
-					minSize={11}
-					size={new UDim2(1, 0, 0, DESC_H * lines)}
-					order={order}
-					zIndex={6}
-				/>,
-			);
-			contentH += DESC_H * lines + Space.xs;
-		}
-		order += 1;
-		if (entry.members.size() === 0) {
-			body.push(
-				<SurfaceText
-					key={`e:${entry.category.Id}`}
-					text={entry.category.EmptyText !== "" ? entry.category.EmptyText : MODEL.DefaultEmptyText}
-					type="body"
-					color={Palette.muted}
-					size={new UDim2(1, 0, 0, 32)}
-					order={order}
-					zIndex={6}
-				/>,
-			);
-			contentH += 32 + Space.xs;
-			continue;
-		}
-		const fit = fitColumns(contentW, entry.members.size(), MIN_CARD_W, 3, GAP, MAX_CARD_W);
-		const gridH = fit.rows * rowH + (fit.rows - 1) * GAP;
-		const cards: React.Element[] = [];
-		for (const [i, member] of ipairs(entry.members)) {
-			rowIndex += 1;
-			cards.push(
-				<MemberCard
-					key={`${entry.category.Id}:${member.Name}`}
-					member={member}
-					accent={accent}
-					height={rowH}
-					order={i}
-					delay={MODEL.EntranceStagger !== false ? math.min(rowIndex, SurfaceMotion.staggerRows) * SurfaceMotion.stagger : 0}
-					reducedMotion={reduced}
-				/>,
-			);
-		}
-		body.push(
-			<frame key={`g:${entry.category.Id}`} Size={new UDim2(1, 0, 0, gridH)} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
-				<uigridlayout
-					CellSize={UDim2.fromOffset(fit.cell, rowH)}
-					CellPadding={UDim2.fromOffset(GAP, GAP)}
+			<frame key={`r${r}`} Size={new UDim2(1, 0, 0, rowH)} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
+				<uilistlayout
+					FillDirection={Enum.FillDirection.Horizontal}
 					HorizontalAlignment={Enum.HorizontalAlignment.Center}
+					VerticalAlignment={Enum.VerticalAlignment.Bottom}
 					SortOrder={Enum.SortOrder.LayoutOrder}
+					Padding={new UDim(0, stack ? Space.sm : Space.lg)}
 				/>
-				{cards}
+				{row.map((credit, i) => {
+					index += 1;
+					const isLead = lead && credit === credits[0];
+					return (
+						<Medallion
+							key={credit.member.UserId !== undefined ? tostring(credit.member.UserId) : credit.member.Name}
+							credit={credit}
+							still={STILLS[(credits.indexOf(credit) + STILLS.size()) % STILLS.size()]}
+							size={isLead ? leadSize : ringSize}
+							width={math.min(cellW, math.floor((contentW - Space.lg * 2) / math.max(1, row.size())))}
+							lead={isLead}
+							order={i}
+							delay={MODEL.EntranceStagger !== false ? math.min(index, SurfaceMotion.staggerRows) * SurfaceMotion.stagger : 0}
+							reducedMotion={reduced}
+						/>
+					);
+				})}
 			</frame>,
 		);
-		// the list layout puts Space.xs after the grid; counting more left an empty band under the roll
-		contentH += gridH + Space.xs;
+		contentH += rowH + Space.sm;
 	}
-	if (visible.size() === 0) {
+	if (credits.size() === 0) {
 		order += 1;
 		body.push(
 			<SurfaceText
@@ -406,17 +469,41 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				zIndex={6}
 			/>,
 		);
-		contentH += 40;
+		contentH += 40 + Space.sm;
 	}
 	const smallPrint = table.clone(MODEL.Acknowledgements);
 	if (MODEL.Footer !== "") {
 		smallPrint.push(MODEL.Footer);
 	}
+	if (thanks.size() > 0 || smallPrint.size() > 0) {
+		order += 1;
+		body.push(<Hairline key="rule" order={order} width={math.floor(contentW * 0.82)} />);
+		contentH += 14 + Space.sm;
+	}
+	if (thanks.size() > 0) {
+		order += 1;
+		const line = thanks.join(" ");
+		const lines = math.max(1, math.ceil(measureText(line, 14, Enum.Font.BuilderSans).X / math.max(1, contentW)));
+		body.push(
+			<SurfaceText
+				key="thanks"
+				text={line}
+				type="body"
+				color={Palette.creamSoft}
+				wrap={true}
+				align={Enum.TextXAlignment.Center}
+				size={new UDim2(1, 0, 0, 20 * lines)}
+				order={order}
+				zIndex={6}
+			/>,
+		);
+		contentH += 20 * lines + Space.sm;
+	}
 	if (smallPrint.size() > 0) {
 		order += 1;
 		body.push(
 			<frame key="smallprint" Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
-				<uipadding PaddingTop={new UDim(0, Space.md)} PaddingBottom={new UDim(0, Space.sm)} />
+				<uipadding PaddingBottom={new UDim(0, Space.sm)} />
 				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.xs)} />
 				{smallPrint.map((line, i) => (
 					<SurfaceText
@@ -437,7 +524,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		for (const line of smallPrint) {
 			contentH += Space.xs + 16 * math.max(1, math.ceil(measureText(line, 13, Enum.Font.BuilderSans).X / math.max(1, contentW)));
 		}
-		contentH += Space.xl;
+		contentH += Space.lg;
 	}
 	// the panel hugs its content; only a long roll reaches maxH and scrolls
 	const height = math.min(maxH, headerH + contentH + pad * 2 + Space.sm);
@@ -504,15 +591,46 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 					Active={true}
 					ZIndex={321}
 				>
-					<Surface appear={reveal} padding={pad} active={true} zIndex={321}>
-						<SurfaceText text={MODEL.Title} type="display" size={new UDim2(1, -(TapTarget + Space.md), 0, 30)} position={UDim2.fromOffset(0, Space.xs)} zIndex={322} />
-						{subline !== "" && (
+					<Surface appear={reveal} padding={pad} accent={Palette.brass} active={true} zIndex={321}>
+						<frame
+							Size={new UDim2(1, pad * 2 - 6, 1, pad * 2 - 6)}
+							Position={UDim2.fromScale(0.5, 0.5)}
+							AnchorPoint={new Vector2(0.5, 0.5)}
+							BackgroundTransparency={1}
+							ZIndex={321}
+						>
+							<uicorner CornerRadius={new UDim(0, SurfaceMetrics.radius - 3)} />
+							<uistroke Color={Palette.brass} Thickness={1} Transparency={reveal.map((a) => 1 - 0.25 * a)} />
+						</frame>
+						<textlabel
+							Size={new UDim2(1, -(TapTarget + Space.md), 0, 14)}
+							Position={UDim2.fromOffset(0, 2)}
+							BackgroundTransparency={1}
+							Text={eyebrow}
+							TextColor3={Palette.brass}
+							TextSize={11}
+							TextXAlignment={Enum.TextXAlignment.Left}
+							FontFace={Font.fromName("BuilderSans", Enum.FontWeight.Bold)}
+							ZIndex={322}
+						/>
+						<textlabel
+							Size={new UDim2(1, -(TapTarget + Space.md), 0, titleSize + 4)}
+							Position={UDim2.fromOffset(0, 16)}
+							BackgroundTransparency={1}
+							Text={heading}
+							TextColor3={Palette.cream}
+							TextSize={titleSize}
+							TextXAlignment={Enum.TextXAlignment.Left}
+							FontFace={SERIF}
+							ZIndex={322}
+						/>
+						{MODEL.Tagline !== "" && (
 							<SurfaceText
-								text={subline}
+								text={MODEL.Tagline}
 								type="small"
 								color={Palette.creamSoft}
 								size={new UDim2(1, -(TapTarget + Space.md), 0, 16)}
-								position={UDim2.fromOffset(0, 38)}
+								position={UDim2.fromOffset(0, 16 + titleSize + 8)}
 								zIndex={322}
 							/>
 						)}
@@ -535,12 +653,13 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							AutomaticCanvasSize={Enum.AutomaticSize.Y}
 							ScrollingDirection={Enum.ScrollingDirection.Y}
 							ScrollBarThickness={3}
-							ScrollBarImageColor3={Palette.muted}
+							ScrollBarImageColor3={Palette.brass}
 							Selectable={UserInputService.GamepadEnabled}
 							ZIndex={322}
 						>
 							<frame Size={new UDim2(0, contentW, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} ZIndex={322}>
-								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.xs)} />
+								<uipadding PaddingTop={new UDim(0, Space.lg)} />
+								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.sm)} />
 								{body}
 							</frame>
 						</scrollingframe>
