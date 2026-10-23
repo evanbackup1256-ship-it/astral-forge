@@ -47,3 +47,19 @@ export function Overdrawn(before: Record<string, unknown>, profile: Dict, omega:
 	}
 	return undefined;
 }
+
+/** Share of lifetime cash a single update may grant before it is logged for review (todo500 #74). */
+export const LARGE_GRANT_SHARE = 0.05;
+/** Lifetime below this is early game, where one action routinely beats 5%. */
+export const LARGE_GRANT_MIN_LIFETIME = 1e6;
+
+/** The cash gained by an update when it exceeds LARGE_GRANT_SHARE of lifetime cash, else undefined. Only plain numbers are compared. */
+export function LargeCashGrant(before: Record<string, unknown>, profile: Dict): number | undefined {
+	const was = before.Cash;
+	const now = profile.Cash;
+	const lifetime = profile.LifetimeCash;
+	if (!typeIs(was, "number") || !typeIs(now, "number") || !typeIs(lifetime, "number")) return undefined;
+	if (lifetime !== lifetime || lifetime < LARGE_GRANT_MIN_LIFETIME || lifetime === math.huge) return undefined;
+	const gain = now - was;
+	return gain > lifetime * LARGE_GRANT_SHARE && gain !== math.huge ? gain : undefined;
+}

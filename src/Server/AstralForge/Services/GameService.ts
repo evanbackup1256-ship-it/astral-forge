@@ -3990,7 +3990,14 @@ export class GameService {
 		}
 		const handler = this._actionTable().get(action as string);
 		if (handler !== undefined) {
-			return handler(player, action as string, payload);
+			// Flag remote handlers that yield for over a second (todo500 #34); the response is unchanged.
+			const started = os.clock();
+			const response = handler(player, action as string, payload);
+			const took = os.clock() - started;
+			if (took > 1) {
+				K.ModuleLog.Every("slow-action:" + (action as string), 60, "Perf", string.format("%s took %.2fs", action as string, took));
+			}
+			return response;
 		}
 		return responseError(T("RemoteFirewall.UnknownForgeCommand"));
 	}

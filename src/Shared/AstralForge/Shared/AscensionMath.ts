@@ -170,7 +170,11 @@ function aetherGain(state: State, domainRank: number, OmegaMath: Omega): unknown
 	if (reached < required) {
 		return undefined;
 	}
-	const base = math.floor((reached / required) ** 1.5 * (3 + state.Rank));
+	let base = math.floor((reached / required) ** 1.5 * (3 + state.Rank));
+	// Extreme ranks can push the plain-number base to inf/NaN before OmegaMath takes over; cap it (todo500 #78).
+	if (base !== base || base > 1e300) {
+		base = 1e300;
+	}
 	return OmegaMath.Floor(OmegaMath.Mul(math.max(1, base), effect(state, "Aether", OmegaMath)));
 }
 

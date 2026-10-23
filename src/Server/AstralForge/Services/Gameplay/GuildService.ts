@@ -9,7 +9,10 @@ import ServerConfig from "../../ServerConfig";
 import GameConfig from "../../../../Shared/AstralForge/Shared/GameConfig";
 import OmegaMath from "../../../../Shared/AstralForge/Shared/OmegaMath";
 import SocialProgressionFactory from "../../../../Shared/AstralForge/Shared/SocialProgression";
-import { Dict, isTable, num } from "../LuaInterop";
+import { Dict, isTable, ModuleLogApi, num, req } from "../LuaInterop";
+
+// Guild warnings go through ModuleLog so LogPolicy levels apply (todo500 #29).
+const ModuleLog = req<ModuleLogApi>(script.Parent!.Parent!.Parent!.WaitForChild("ModuleLog"));
 
 const Format = ProfileMath("Format") as { Number(this: void, value: unknown): string };
 
@@ -241,9 +244,10 @@ export class GuildService {
 							if (readOk) {
 								this._leaderboardCacheExpires = 0;
 							} else {
-								warn(
+								ModuleLog.Warn(
+									"Guild",
 									string.format(
-										"[WARN] [GUILD] warm read failed for %s — %s",
+										"warm read failed for %s — %s",
 										tostring(nextId),
 										tostring(readErr),
 									),
@@ -254,7 +258,7 @@ export class GuildService {
 				});
 				this._warmWorkers -= 1;
 				if (!ok) {
-					warn(string.format("[WARN] [GUILD] warm worker crashed — %s", tostring(err)));
+					ModuleLog.Warn("Guild",string.format("warm worker crashed — %s", tostring(err)));
 				}
 			});
 			if (worker === undefined) {
@@ -284,9 +288,10 @@ export class GuildService {
 						const now = os.clock();
 						if (now - lastWarnAt >= 30) {
 							lastWarnAt = now;
-							warn(
+							ModuleLog.Warn(
+								"Guild",
 								string.format(
-									"[WARN] [GUILD] leaderboard write failed for %s — %s",
+									"leaderboard write failed for %s — %s",
 									id,
 									tostring(writeErr),
 								),
@@ -298,9 +303,10 @@ export class GuildService {
 			});
 			delete this._leaderboardBusy[id];
 			if (!ok) {
-				warn(
+				ModuleLog.Warn(
+					"Guild",
 					string.format(
-						"[WARN] [GUILD] leaderboard worker crashed for %s — %s",
+						"leaderboard worker crashed for %s — %s",
 						tostring(id),
 						tostring(err),
 					),
@@ -493,15 +499,16 @@ export class GuildService {
 			});
 		});
 		if (!ok) {
-			warn(string.format("[WARN] [GUILD] create failed for %s — %s", player.Name, tostring(err)));
+			ModuleLog.Warn("Guild",string.format("create failed for %s — %s", player.Name, tostring(err)));
 		}
 		if (!RunService.IsStudio() && (!ok || !documentCreated || !tagClaimed)) {
 			if (documentCreated && !tagClaimed) {
 				const [removed, removeErr] = pcall(() => this._store.RemoveAsync(id));
 				if (!removed) {
-					warn(
+					ModuleLog.Warn(
+						"Guild",
 						string.format(
-							"[WARN] [GUILD] could not roll back guild %s — %s",
+							"could not roll back guild %s — %s",
 							id,
 							tostring(removeErr),
 						),
@@ -597,9 +604,10 @@ export class GuildService {
 				}
 			});
 			if (!released) {
-				warn(
+				ModuleLog.Warn(
+					"Guild",
 					string.format(
-						"[WARN] [GUILD] rename could not release old tag %s — %s",
+						"rename could not release old tag %s — %s",
 						oldTag,
 						tostring(releaseErr),
 					),
@@ -614,9 +622,10 @@ export class GuildService {
 				});
 			});
 			if (!claimed) {
-				warn(
+				ModuleLog.Warn(
+					"Guild",
 					string.format(
-						"[WARN] [GUILD] rename could not claim new tag %s — %s",
+						"rename could not claim new tag %s — %s",
 						tag,
 						tostring(claimErr),
 					),
@@ -735,7 +744,7 @@ export class GuildService {
 		const tag = guild.Tag as string;
 		const [removedDoc, removeErr] = pcall(() => this._store.RemoveAsync(guildId));
 		if (!removedDoc && !RunService.IsStudio()) {
-			warn(string.format("[WARN] [GUILD] disband could not delete %s — %s", guildId, tostring(removeErr)));
+			ModuleLog.Warn("Guild",string.format("disband could not delete %s — %s", guildId, tostring(removeErr)));
 			return $tuple(false, T("GuildCommunity.GuildRecordsAreUnavailableTry"), undefined);
 		}
 		if (removedDoc) {
@@ -748,9 +757,10 @@ export class GuildService {
 				this._leaderboard.RemoveAsync(guildId);
 			});
 			if (!released) {
-				warn(
+				ModuleLog.Warn(
+					"Guild",
 					string.format(
-						"[WARN] [GUILD] disband deleted %s but the tag %s is still reserved — %s",
+						"disband deleted %s but the tag %s is still reserved — %s",
 						guildId,
 						tostring(tag),
 						tostring(releaseErr),

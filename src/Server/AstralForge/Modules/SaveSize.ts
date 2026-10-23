@@ -4,6 +4,8 @@
 
 export const WARN_BYTES = 1_000_000;
 export const LIMIT_BYTES = 4_194_304;
+/** 75% of the DataStore cap: past this a save is one bad week from failing. */
+export const NEAR_LIMIT_BYTES = math.floor(LIMIT_BYTES * 0.75);
 
 export interface SaveMeasure {
 	Bytes: number;

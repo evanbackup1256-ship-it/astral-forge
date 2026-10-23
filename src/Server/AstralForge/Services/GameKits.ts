@@ -27,13 +27,45 @@ export interface GameConfigShape {
 	[key: string]: unknown;
 }
 
+// Every module GameKits loads, so a typo in a kit name fails at compile time (todo500 #25).
+type KitModule =
+	| "ModuleLog"
+	| "ServerConfig"
+	| "AscensionMath"
+	| "ChatRules"
+	| "CrateConfig"
+	| "CrateExpansion"
+	| "DomainLattice"
+	| "GameConfig"
+	| "MobileLayoutSlots"
+	| "OmegaMath"
+	| "RebirthMath"
+	| "Specializations"
+	| "TradeHistory"
+	| "CommandMath"
+	| "CrateRollResolver"
+	| "DataSanitizeMath"
+	| "EconomyMath"
+	| "FoundryService"
+	| "LeaderboardCodec"
+	| "OpsMath"
+	| "ProfileBagMath"
+	| "ProfileMath"
+	| "TradeSuite"
+	| "SharedData"
+	| "Protocol"
+	| "DesktopLayout"
+	| "GuildCommunity"
+	| "ChatService"
+	| "CrewService";
+
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
 export const root = script.Parent!.Parent!;
 const modules = () => root.WaitForChild("Modules");
 const shared = () => ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared");
-const mod = <T = Kit>(parent: Instance, name: string): T => require(parent.WaitForChild(name) as ModuleScript) as T;
-const member = <T = Kit>(parent: Instance, name: string, memberName: string): T =>
+const mod = <T = Kit>(parent: Instance, name: KitModule): T => require(parent.WaitForChild(name) as ModuleScript) as T;
+const member = <T = Kit>(parent: Instance, name: KitModule, memberName: string): T =>
 	(require(parent.WaitForChild(name) as ModuleScript) as (this: void, m: string) => unknown)(memberName) as T;
 
 export const ModuleLog = mod<{

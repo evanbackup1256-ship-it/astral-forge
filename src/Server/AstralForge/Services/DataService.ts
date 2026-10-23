@@ -1448,6 +1448,15 @@ export class DataService {
 				);
 				return { ok: false, message: T("DataService.NotEnoughCurrency") };
 			}
+			const largeGrant = CurrencyGuard.LargeCashGrant(wallet, draft);
+			if (largeGrant !== undefined) {
+				ModuleLog.Every(
+					"large-grant:" + tostring(player.UserId),
+					60,
+					"Economy",
+					string.format("%s update '%s' granted %.0f cash (over 5%% of lifetime)", player.Name, tostring(transactionLabel), largeGrant),
+				);
+			}
 			d(draft.Meta).LastSeen = os.time();
 
 			if (hot === undefined) {
@@ -1680,15 +1689,19 @@ export class DataService {
 
 		if (releaseSessions) {
 			let remaining = players.size();
+			const unsaved = new Set<string>();
+			for (const player of players) unsaved.add(player.Name);
 			for (const player of players) {
 				const target = player;
 				task.spawn(() => {
+					let saved = false;
 					const [ok, err] = pcall(() => {
-						this.Save(target, true);
+						saved = this.Save(target, true) !== false;
 					});
 					if (!ok) {
 						ModuleLog.Warn("Data", string.format("shutdown save failed for %s — %s", target.Name, tostring(err)));
 					}
+					if (ok && saved) unsaved.delete(target.Name);
 					remaining -= 1;
 				});
 			}
@@ -1699,6 +1712,13 @@ export class DataService {
 			}
 			if (remaining > 0) {
 				ModuleLog.Warn("Data", string.format("shutdown save deadline reached with %d profile(s) still closing", remaining));
+			}
+			if (unsaved.size() > 0) {
+				const names: string[] = [];
+				for (const name of unsaved) names.push(name);
+				ModuleLog.Warn("Data", string.format("shutdown left %d profile(s) unsaved: %s", names.size(), names.join(", ")));
+			}
+			if (remaining > 0) {
 				return false;
 			}
 			return true;
@@ -1732,6 +1752,13 @@ export class DataService {
 				300,
 				"Data",
 				string.format("%s save is over the DataStore limit and will not save: %s", player.Name, SaveSize.Describe(result)),
+			);
+		} else if (result.Bytes >= SaveSize.NEAR_LIMIT_BYTES) {
+			ModuleLog.Every(
+				"save-size-near:" + tostring(player.UserId),
+				300,
+				"Data",
+				string.format("%s save is over 75%% of the DataStore limit: %s", player.Name, SaveSize.Describe(result)),
 			);
 		} else if (result.Bytes >= SaveSize.WARN_BYTES) {
 			ModuleLog.Every(
