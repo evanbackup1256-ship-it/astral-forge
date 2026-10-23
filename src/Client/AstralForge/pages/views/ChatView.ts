@@ -3,6 +3,7 @@ import { frameStroke } from "../../CoreKit/profileFrame";
 import { segmentedHeight } from "../../UiCore/ui";
 import ReactRoblox from "@rbxts/react-roblox";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable, luaRequire, instChild, kit, mod } from "./viewRuntime";
+import { BODY, BODY_BOLD, BODY_SEMI, NUM, RowSurface } from "../../UiCore/mockKit";
 
 const CHAT_PEER_SIDE_MIN = 1280;
 const CHAT_PEER_SIDE_W = 220;
@@ -39,7 +40,8 @@ function __member(): unknown {
 	let SegmentedTabs: unknown = luaProp(_ui, "SegmentedTabs");
 	let ElementFx: unknown = luaProp(mod("ElementFx"), "ElementFx");
 	let ARTIFACT_CHIP_W: unknown = 124;
-	let ROW_HEIGHT: unknown = 98;
+	let ROW_HEIGHT: unknown = 68;
+	const CHAT_ROW_GAP = 12;
 	let CARD_H: unknown = 90;
 	let SYSTEM_CARD_H: unknown = 66;
 	let STATUS_HEIGHT: unknown = 64;
@@ -179,31 +181,59 @@ function __member(): unknown {
 				return undefined;
 			}) }), reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(0, 3, 1, -12), Position: luaCall(luaProp(UDim2, "fromOffset"), 0, 6), BackgroundColor3: accent, BackgroundTransparency: fade, BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 2) })), reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 38, 38), Position: luaCall(luaProp(UDim2, "fromOffset"), 14, 14), BackgroundColor3: luaCall(darken, accent, 0.62), BackgroundTransparency: fade, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(0, 10) }), reactLoose.createElement(Icon, { kind: "Chat.2", color: luaProp(Palette, "ink"), accent: accent, size: 22, position: luaCall(luaProp(UDim2, "fromOffset"), 8, 8), spin: false })), reactLoose.createElement(Text, { value: "Game message", size: 12, color: accent, weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 64, 12), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -78, 0, 16), transparency: fade }), reactLoose.createElement(Text, { value: luaProp(message, "text"), size: bodySize, color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Medium"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 64, 32), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -78, 0, 28), transparency: fade })));
 		}
-		return reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, 0, 0, rowHeight), Position: position, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("frame", { Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -4, 0, cardH), Position: colon(enter).map(function(this: void, amount?: unknown): unknown | undefined {
-			return luaCall(luaProp(UDim2, "fromOffset"), (math.round as unknown as (...a: unknown[]) => unknown)((((((1 as unknown as number) - (amount as unknown as number))) as unknown as number) * (14 as unknown as number))), ((cardY as unknown as number) + ((math.round as unknown as (...a: unknown[]) => unknown)((((((1 as unknown as number) - (amount as unknown as number))) as unknown as number) * (10 as unknown as number))) as unknown as number)));
-			return undefined;
-		}), BackgroundColor3: (luaTruthy(luaProp(message, "mention")) ? luaCall(darken, luaProp(Palette, "mango"), 0.8) : (luaTruthy(luaProp(message, "localPlayer")) ? luaCall(darken, accent, 0.88) : luaProp(Palette, "panel"))), BackgroundTransparency: colon(fade).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((0.04 as unknown as number) + (((amount as unknown as number) * (0.96 as unknown as number)) as unknown as number));
-			return undefined;
-		}), BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uiscale", { Scale: colon(enter).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((0.97 as unknown as number) + (((amount as unknown as number) * (0.03 as unknown as number)) as unknown as number));
-			return undefined;
-		}) }), reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 16) }), reactLoose.createElement("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, reactLoose.createElement("uicorner", { CornerRadius: new UDim(0, 15) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "brass"), Thickness: 1, Transparency: colon(fade).map(function(this: void, amount?: unknown): unknown | undefined { return 0.75 + (amount as number) * 0.25; }) })), reactLoose.createElement("uistroke", { Color: (luaTruthy(luaProp(message, "mention")) ? luaProp(Palette, "mango") : accent), Thickness: (luaTruthy(luaProp(message, "mention")) ? 2 : 1), Transparency: colon(fade).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((((luaTruthy(luaProp(message, "mention")) ? 0.1 : (luaTruthy(luaProp(message, "localPlayer")) ? 0.32 : 0.58))) as unknown as number) + (((amount as unknown as number) * (0.42 as unknown as number)) as unknown as number));
-			return undefined;
-		}) }), ((luaProp(message, "artifactElement") !== undefined) && reactLoose.createElement(ElementFx, { element: luaProp(message, "artifactElement"), size: luaCall(luaProp(UDim2, "fromOffset"), 64, 64), position: luaCall(luaProp(UDim2, "fromOffset"), 33, 38), transparency: 0.25, reducedMotion: reducedMotion })), reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 42, 42), Position: luaCall(luaProp(UDim2, "fromOffset"), 12, 17), BackgroundColor3: luaCall(darken, accent, 0.5), BackgroundTransparency: fade, BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(1, 0) }), reactLoose.createElement("uistroke", { Color: markRing.color, Thickness: markRing.thickness, Transparency: colon(pulse).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((0.2 as unknown as number) + (((amount as unknown as number) * (0.4 as unknown as number)) as unknown as number));
-			return undefined;
-		}) }, markRing.gradient !== undefined ? reactLoose.createElement("uigradient", { Color: markRing.gradient, Rotation: 35 }) : undefined), reactLoose.createElement(PlayerMark, { userId: luaProp(message, "userId"), color: luaProp(Palette, "ink"), accent: accent, size: 26, position: luaCall(luaProp(UDim2, "fromOffset"), 8, 8) }), reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), 10, 10), Position: luaCall(luaProp(UDim2, "fromOffset"), 30, 30), BackgroundColor3: luaProp(Palette, "mint"), BorderSizePixel: 0 }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(1, 0) }), reactLoose.createElement("uistroke", { Color: luaProp(Palette, "ink"), Thickness: 1 }))), reactLoose.createElement(Text, { value: luaProp(message, "displayName"), size: 15, color: accent, weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 10, position: luaCall(luaProp(UDim2, "fromOffset"), 66, 8), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((((MESSAGE_RIGHT as unknown as number)) as unknown as number) + ((((luaProp(message, "artifactName") !== undefined) ? ((ARTIFACT_CHIP_W as unknown as number) + (6 as unknown as number)) : 0)) as unknown as number))) as unknown as number)), 0, 18), transparency: fade }), ((luaProp(message, "artifactName") !== undefined) && reactLoose.createElement("frame", { Size: luaCall(luaProp(UDim2, "fromOffset"), ARTIFACT_CHIP_W, 20), Position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((78 as unknown as number) + (ARTIFACT_CHIP_W as unknown as number))) as unknown as number)), 0, 9), BackgroundColor3: luaCall(darken, ((luaTruthy(luaProp(message, "artifactColor") ) ? luaProp(message, "artifactColor") :  accent)), 0.72), BackgroundTransparency: colon(fade).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((0.1 as unknown as number) + (((amount as unknown as number) * (0.9 as unknown as number)) as unknown as number));
-			return undefined;
-		}), BorderSizePixel: 0, ClipsDescendants: true }, reactLoose.createElement("uicorner", { CornerRadius: new (UDim as unknown as new (...args: unknown[]) => unknown)(1, 0) }), reactLoose.createElement("uistroke", { Color: ((luaTruthy(luaProp(message, "artifactColor") ) ? luaProp(message, "artifactColor") :  accent)), Thickness: 1, Transparency: colon(pulse).map(function(this: void, amount?: unknown): unknown | undefined {
-			return ((0.25 as unknown as number) + (((amount as unknown as number) * (0.35 as unknown as number)) as unknown as number));
-			return undefined;
-		}) }), ((luaProp(message, "artifactElement") !== undefined) && reactLoose.createElement(ElementFx, { element: luaProp(message, "artifactElement"), size: luaCall(luaProp(UDim2, "fromOffset"), 22, 22), position: luaCall(luaProp(UDim2, "fromOffset"), 12, 10), reducedMotion: reducedMotion })), reactLoose.createElement(Text, { value: (string.upper as unknown as (...a: unknown[]) => unknown)(luaProp(message, "artifactName")), size: 10, color: luaCall(lighten, ((luaTruthy(luaProp(message, "artifactColor") ) ? luaProp(message, "artifactColor") :  accent)), 0.2), weight: luaProp(luaProp(Enum, "FontWeight"), "Heavy"), fit: true, minSize: 8, position: luaCall(luaProp(UDim2, "fromOffset"), 24, 3), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -30, 0, 14), transparency: fade }))), ((luaProp(message, "titleName") !== undefined) ? reactLoose.createElement(AnimatedTitle, { text: luaProp(message, "titleName"), fx: luaProp(message, "titleFx"), size: 12, reducedMotion: reducedMotion, inline: true, position: luaCall(luaProp(UDim2, "fromOffset"), 66, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((MESSAGE_RIGHT as unknown as number))) as unknown as number)), 0, 18), transparency: fade }) : reactLoose.createElement(Text, { value: `@${luaProp(message, "username")}`, size: 12, color: luaProp(Palette, "muted"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 66, 28), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -80, 0, 16), transparency: fade })), reactLoose.createElement(Badge, { value: luaCall(channelBadge, message), accent: ((luaProp(message, "titleFx") !== undefined) ? luaCall(titleFxAccent, luaProp(message, "titleFx")) : accent), filled: true, position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -72, 0, 10), size: luaCall(luaProp(UDim2, "fromOffset"), 62, 26) }), reactLoose.createElement(Text, { value: luaCall(luaProp(ChatRules, "clock"), luaProp(message, "at")), size: 11, color: luaProp(Palette, "muted"), align: luaProp(luaProp(Enum, "TextXAlignment"), "Center"), position: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -72, 0, 38), sizeConstraint: luaCall(luaProp(UDim2, "fromOffset"), 62, 16), transparency: fade }), ((((luaProp(_param, "onWhisper") !== undefined) && (!luaTruthy(luaProp(message, "localPlayer")))) && reactLoose.createElement("textbutton", { Name: "WhisperAuthor", Size: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, (-((((MESSAGE_RIGHT as unknown as number))) as unknown as number)), 0, 24), Position: luaCall(luaProp(UDim2, "fromOffset"), 66, 6), BackgroundTransparency: 1, Text: "", AutoButtonColor: false, ZIndex: 5, [luaProp(luaProp(React, "Event"), "Activated") as never]: function(this: void): unknown | undefined {
-			luaCall(luaProp(_param, "onWhisper"), luaProp(message, "userId"));
-			return undefined;
-		} })) || undefined), ((luaProp(message, "titleName") !== undefined) && reactLoose.createElement(Text, { value: `@${luaProp(message, "username")}`, size: 11, color: luaProp(Palette, "muted"), weight: luaProp(luaProp(Enum, "FontWeight"), "Bold"), fit: false, position: luaCall(luaProp(UDim2, "fromOffset"), 66, 46), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -80, 0, 14), transparency: fade })), reactLoose.createElement(Text, { value: luaProp(message, "text"), size: ((bodySize as unknown as number) + (1 as unknown as number)), color: luaProp(Palette, "cream"), weight: luaProp(luaProp(Enum, "FontWeight"), "Medium"), wrap: true, position: luaCall(luaProp(UDim2, "fromOffset"), 66, ((luaProp(message, "titleName") !== undefined) ? 62 : 48)), sizeConstraint: new (UDim2 as unknown as new (...args: unknown[]) => unknown)(1, -78, 0, (math.max as unknown as (...a: unknown[]) => unknown)(((luaProp(message, "titleName") !== undefined) ? 26 : 34), ((cardH as unknown as number) - ((((luaProp(message, "titleName") !== undefined) ? 70 : 56)) as unknown as number)))), transparency: fade })));
+		// design/27-social chat row: 30px avatar ring (brass, or the sender's profile frame), name + title,
+		// the message under it, the time (and channel) muted on the right
+		const P = Palette as Record<string, Color3>;
+		const mention = luaTruthy(luaProp(message, "mention"));
+		const mine = luaTruthy(luaProp(message, "localPlayer"));
+		const artifactName = luaProp(message, "artifactName") as string | undefined;
+		const artifactColor = (luaProp(message, "artifactColor") as Color3 | undefined) ?? (accent as Color3);
+		const ringColor = markRing.gradient !== undefined || luaProp(message, "profileFrame") !== undefined ? markRing.color : P.brass;
+		const rightW = artifactName !== undefined ? 96 + (ARTIFACT_CHIP_W as number) : 96;
+		const badge = luaCall(channelBadge, message) as string | undefined;
+		const clock = tostring(luaCall(luaProp(ChatRules, "clock"), luaProp(message, "at")));
+		return React.createElement("frame", { Size: new UDim2(1, 0, 0, rowHeight as number), Position: position as UDim2, BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: true },
+			React.createElement("frame", {
+				Size: new UDim2(1, -4, 0, (rowHeight as number) - CHAT_ROW_GAP),
+				Position: colon(enter).map((amount: number) => UDim2.fromOffset(math.round((1 - amount) * 14), math.round((1 - amount) * 10))) as never,
+				BackgroundColor3: mention ? P.mango : P.white, BackgroundTransparency: mention ? 0.86 : 0, BorderSizePixel: 0, ClipsDescendants: true,
+			},
+				React.createElement("uiscale", { Scale: colon(enter).map((amount: number) => 0.97 + amount * 0.03) as never }),
+				mention ? React.createElement("uicorner", { CornerRadius: new UDim(0, 11) }) : React.createElement(RowSurface, {}),
+				mention ? React.createElement("uistroke", { Color: P.mango, Transparency: 0.5, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }) : undefined,
+				mine ? React.createElement("frame", { Size: new UDim2(0, 3, 1, -16), Position: UDim2.fromOffset(0, 8), BackgroundColor3: accent as Color3, BorderSizePixel: 0 }, React.createElement("uicorner", { CornerRadius: new UDim(0, 2) })) : undefined,
+				React.createElement("frame", { Size: UDim2.fromOffset(30, 30), Position: new UDim2(0, 12, 0.5, -15), BackgroundColor3: Color3.fromRGB(42, 32, 48), BorderSizePixel: 0 },
+					React.createElement("uicorner", { CornerRadius: new UDim(1, 0) }),
+					React.createElement("uistroke", { Color: ringColor, Thickness: math.max(1.5, markRing.thickness), Transparency: markRing.gradient !== undefined ? 0 : 0.6, ApplyStrokeMode: Enum.ApplyStrokeMode.Border },
+						markRing.gradient !== undefined ? React.createElement("uigradient", { Color: markRing.gradient, Rotation: 35 }) : undefined),
+					reactLoose.createElement(PlayerMark, { userId: luaProp(message, "userId"), color: P.cream, accent: accent, size: 18, position: UDim2.fromOffset(6, 6) }) as React.Element,
+				),
+				React.createElement("frame", { Size: new UDim2(1, -(54 + rightW), 0, 20), Position: UDim2.fromOffset(54, 6), BackgroundTransparency: 1 },
+					React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, Padding: new UDim(0, 8), VerticalAlignment: Enum.VerticalAlignment.Center, SortOrder: Enum.SortOrder.LayoutOrder }),
+					React.createElement("textlabel", { Text: tostring(luaProp(message, "displayName") ?? ""), FontFace: BODY_SEMI, TextSize: 15, TextColor3: mine ? (accent as Color3) : P.cream, BackgroundTransparency: 1, AutomaticSize: Enum.AutomaticSize.X, Size: UDim2.fromOffset(0, 20), LayoutOrder: 1 },
+						React.createElement("uisizeconstraint", { MaxSize: new Vector2(220, 20) })),
+					luaProp(message, "titleName") !== undefined
+						? React.createElement("frame", { Size: UDim2.fromOffset(160, 16), BackgroundTransparency: 1, LayoutOrder: 2 }, reactLoose.createElement(AnimatedTitle, { text: luaProp(message, "titleName"), fx: luaProp(message, "titleFx"), size: 12, reducedMotion: reducedMotion, inline: true, sizeConstraint: UDim2.fromScale(1, 1) }) as React.Element)
+						: undefined,
+				),
+				React.createElement("textlabel", { Text: tostring(luaProp(message, "text") ?? ""), FontFace: BODY, TextSize: (bodySize as number) - 1, TextColor3: P.creamSoft, BackgroundTransparency: 1, TextWrapped: true, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, TextYAlignment: Enum.TextYAlignment.Top, Position: UDim2.fromOffset(54, 27), Size: new UDim2(1, -(54 + rightW), 1, -31) }),
+				artifactName !== undefined
+					? React.createElement("frame", { Size: UDim2.fromOffset(ARTIFACT_CHIP_W as number, 28), Position: new UDim2(1, -(96 + (ARTIFACT_CHIP_W as number)), 0.5, -14), BackgroundColor3: P.white, BackgroundTransparency: 0.95, BorderSizePixel: 0 },
+							React.createElement("uicorner", { CornerRadius: new UDim(0, 8) }),
+							React.createElement("uistroke", { Color: artifactColor, Transparency: 0.5, Thickness: 1, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
+							luaProp(message, "artifactElement") !== undefined ? (reactLoose.createElement(ElementFx, { element: luaProp(message, "artifactElement"), size: UDim2.fromOffset(20, 20), position: UDim2.fromOffset(6, 4), reducedMotion: reducedMotion }) as React.Element) : undefined,
+							React.createElement("textlabel", { Text: artifactName, FontFace: BODY_BOLD, TextSize: 12, TextColor3: artifactColor, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(30, 0), Size: new UDim2(1, -36, 1, 0) }),
+						)
+					: undefined,
+				React.createElement("textlabel", { Text: clock, FontFace: NUM, TextSize: 15, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Right, Position: new UDim2(1, -88, 0, luaTruthy(badge) ? 8 : 0), Size: new UDim2(0, 76, luaTruthy(badge) ? 0 : 1, luaTruthy(badge) ? 18 : 0) }),
+				luaTruthy(badge)
+					? React.createElement("textlabel", { Text: tostring(badge), FontFace: BODY_BOLD, TextSize: 11, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Right, Position: new UDim2(1, -88, 0, 28), Size: UDim2.fromOffset(76, 14) })
+					: undefined,
+				luaProp(_param, "onWhisper") !== undefined && !mine
+					? React.createElement("textbutton", { Name: "WhisperAuthor", Size: new UDim2(1, -(54 + rightW), 1, 0), Position: UDim2.fromOffset(54, 0), BackgroundTransparency: 1, Text: "", AutoButtonColor: false, ZIndex: 5, Event: { Activated: () => luaCall(luaProp(_param, "onWhisper"), luaProp(message, "userId")) } })
+					: undefined,
+			),
+		);
 		return undefined;
 	}
 	function ChatView(_param?: unknown): unknown | undefined {
@@ -216,7 +246,7 @@ function __member(): unknown {
 		reducedMotion = softMotion;
 		let textScale: unknown = ((luaTruthy(luaProp(chat, "textScale") ) ? luaProp(chat, "textScale") :  1.075));
 		let bodySize: unknown = (math.floor as unknown as (...a: unknown[]) => unknown)(((((((luaTruthy(luaProp(chrome, "mobile")) ? 15 : 14)) as unknown as number) * (textScale as unknown as number)) as unknown as number) + (0.5 as unknown as number)));
-		let rowHeight: unknown = (math.floor as unknown as (...a: unknown[]) => unknown)(((((((luaTruthy(luaProp(chrome, "mobile")) ? 144 : ROW_HEIGHT)) as unknown as number) * ((math.max as unknown as (...a: unknown[]) => unknown)(1, ((textScale as unknown as number) * (0.95 as unknown as number))) as unknown as number)) as unknown as number) + (0.5 as unknown as number)));
+		let rowHeight: unknown = (math.floor as unknown as (...a: unknown[]) => unknown)(((((((luaTruthy(luaProp(chrome, "mobile")) ? 84 : ROW_HEIGHT)) as unknown as number) * ((math.max as unknown as (...a: unknown[]) => unknown)(1, ((textScale as unknown as number) * (0.95 as unknown as number))) as unknown as number)) as unknown as number) + (0.5 as unknown as number)));
 		let condensed: unknown = (((luaTruthy(luaProp(chrome, "landscape") ) ? luaProp(chrome, "landscape") :  luaProp(viewport, "keyboardOpen"))) || ((luaProp(viewport, "height") as unknown as number) < (700 as unknown as number)));
 		let showStatus: unknown = (!luaTruthy(condensed));
 		let showBanner: unknown = ((!luaTruthy(condensed)) && ((luaProp(viewport, "height") as unknown as number) >= (760 as unknown as number)));
