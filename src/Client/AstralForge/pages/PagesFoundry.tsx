@@ -47,7 +47,7 @@ interface Look {
 	line: string;
 }
 
-const ACCENT = Color3.fromRGB(255, 176, 92);
+const ACCENT = Palette.brass;
 const GAP = 14;
 const KIND_LOOK: Record<string, Look | undefined> = {
 	Ember: { name: "Ember", color: Color3.fromRGB(255, 132, 64), icon: "Flux.5", line: "Sends energy the way it faces" },
@@ -415,7 +415,7 @@ function Board(props: {
 	children.nebula = (
 		<Halo
 			size={math.min(props.width, props.height) * 1.25}
-			color={Color3.fromRGB(120, 60, 30)}
+			color={Palette.brassDeep}
 			transparency={0.55}
 			position={UDim2.fromOffset(centre.X, centre.Y)}
 			zIndex={0}
@@ -565,7 +565,7 @@ function Board(props: {
 		children["socket" + key] = (
 			<Hexagon
 				radius={size * 0.94}
-				color={targeted && piece === undefined ? darken(ACCENT, 0.55) : Color3.fromRGB(28, 26, 38)}
+				color={targeted && piece === undefined ? darken(ACCENT, 0.55) : Palette.panelSoft}
 				transparency={piece ? 0.6 : 0.2}
 				position={UDim2.fromOffset(p.X, p.Y)}
 				zIndex={1}
@@ -596,8 +596,8 @@ function Board(props: {
 		);
 	}
 	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Color3.fromRGB(8, 7, 14)} BorderSizePixel={0} ClipsDescendants={true}>
-			<uicorner CornerRadius={new UDim(0, 14)} />
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
+			<uicorner CornerRadius={new UDim(0, 18)} />
 			{children}
 		</frame>
 	);
@@ -788,7 +788,7 @@ function FoundryView(props: {
 	add(
 		"hero",
 		stack ? 186 : 128,
-		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={ACCENT} background={darken(ACCENT, 0.9)}>
+		<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={ACCENT} background={darken(ACCENT, 0.9)}>
 			<Ui.Text
 				value={
 					`${compact(foundry.Shards)} Shards  ·  ` +
@@ -850,7 +850,7 @@ function FoundryView(props: {
 		add(
 			"selected",
 			panelH,
-			<Ui.Panel size={UDim2.fromScale(1, 1)} padding={12} accent={look.color} background={Palette.panel}>
+			<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={12} accent={look.color} background={Palette.panel}>
 				{narrow ? (
 					<>
 						<Ui.Text
