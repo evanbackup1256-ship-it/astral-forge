@@ -256,7 +256,6 @@ interface ChipProps {
 
 function Chip(props: ChipProps): React.Element {
 	const buff = props.buff;
-	const appear = motion.useFlipperSpring(1, props.reducedMotion, 300, 16);
 	const timed = buff.endsAt !== undefined;
 	const pulse = motion.usePulse(timed, 2.2);
 	const tip = useTooltip({
@@ -274,9 +273,6 @@ function Chip(props: ChipProps): React.Element {
 			BackgroundTransparency: 1,
 			ZIndex: 20,
 		},
-		h("uiscale", {
-			Scale: appear.map((v) => math.max(0.01, v)),
-		}),
 		h(
 			"frame",
 			{
@@ -567,7 +563,7 @@ function useRollingValue(target: number, rate: number, reducedMotion?: boolean) 
 
 function CurrencySegment(props: CurrencySegmentProps): React.Element {
 	const currency = props.currency;
-	const [ref, bump] = Juice.useTarget(currency.target);
+	const [ref] = Juice.useTarget(currency.target);
 	const rate = format.asFlux((currency.rate as number | string | undefined) ?? 0);
 	const tip = useTooltip({
 		title: `${format.compactNumber(currency.value)} ${currency.name ?? currency.target}`,
@@ -586,9 +582,6 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 			LayoutOrder: props.order,
 			BackgroundTransparency: 1,
 		},
-		h("uiscale", {
-			Scale: bump.map((b) => 1 + math.sin(b * math.pi) * 0.16),
-		}),
 		h(
 			"frame",
 			{
