@@ -343,13 +343,7 @@ function SpecializationsViewBoard(props: Props) {
 				sizeConstraint={new UDim2(1, -54, 0, 20)}
 			/>
 			{cooling ? (
-				<Ui.Meter
-					value={1 - remaining / math.max(1, state.Cooldown)}
-					color={Palette.mango}
-					reducedMotion={props.reducedMotion}
-					position={UDim2.fromOffset(54, 30)}
-					size={new UDim2(1, -54, 0, 8)}
-				/>
+				<Bar fill={1 - remaining / math.max(1, state.Cooldown)} color={Palette.mango} thin={true} position={UDim2.fromOffset(54, 30)} width={new UDim(1, -54)} />
 			) : (
 				<Ui.Text
 					value={`After a switch the forge needs ${math.ceil(state.Cooldown / 60)} minutes before the next one.`}

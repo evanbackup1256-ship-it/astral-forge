@@ -110,9 +110,9 @@ function __member(): unknown {
 			React.createElement("textlabel", { Text: tostring(luaProp(item, "Subject") ?? ""), FontFace: luaTruthy(unread) ? BODY_BOLD : BODY_SEMI, TextSize: 15, TextColor3: P.cream, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(60, 6), Size: new UDim2(1, -160, 0, 20), ZIndex: 3 }),
 			React.createElement("textlabel", { Text: `from ${tostring(luaProp(item, "Sender") ?? "")}${luaTruthy(luaProp(item, "Date")) ? `  ·  ${tostring(luaProp(item, "Date"))}` : ""}`, FontFace: BODY, TextSize: 12, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(60, 27), Size: new UDim2(1, -160, 0, 16), ZIndex: 3 }),
 			React.createElement("frame", { Size: UDim2.fromOffset(88, 24), Position: new UDim2(1, -100, 0.5, -12), BackgroundTransparency: 1, ZIndex: 3 },
-				React.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, HorizontalAlignment: Enum.HorizontalAlignment.Right, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 6) }),
+				React.createElement("uilistlayout", { SortOrder: Enum.SortOrder.LayoutOrder, FillDirection: Enum.FillDirection.Horizontal, HorizontalAlignment: Enum.HorizontalAlignment.Right, VerticalAlignment: Enum.VerticalAlignment.Center, Padding: new UDim(0, 6) }),
 				luaTruthy(luaProp(mail, "Claimed")) && luaCall(hasGift, item)
-					? (luaCall(h, Icon, { kind: "Check.15", color: P.mint, accent: P.mint, size: 16, spin: false }) as React.Element)
+					? (luaCall(h, Icon, { kind: "Check.15", color: P.mint, accent: P.mint, size: 16, spin: false, layoutOrder: 1 }) as React.Element)
 					: undefined,
 				React.createElement("textlabel", { Text: action, FontFace: NUM, TextSize: 17, TextColor3: luaTruthy(gift) ? P.mango : P.creamSoft, BackgroundTransparency: 1, AutomaticSize: Enum.AutomaticSize.X, Size: UDim2.fromOffset(0, 24), LayoutOrder: 2 }),
 			),

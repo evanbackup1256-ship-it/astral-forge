@@ -667,13 +667,7 @@ function BazaarView(props: BazaarProps) {
 					position={UDim2.fromOffset(0, 108)}
 					sizeConstraint={new UDim2(1, 0, 0, 40)}
 				/>
-				<Ui.Meter
-					value={math.clamp(progress, 0, 1)}
-					color={accent}
-					reducedMotion={props.reducedMotion}
-					position={UDim2.fromOffset(0, 154)}
-					size={new UDim2(1, 0, 0, 6)}
-				/>
+				<Bar fill={math.clamp(progress, 0, 1)} color={accent} thin={true} position={UDim2.fromOffset(0, 154)} />
 				<Ui.Text
 					value={
 						reputation.CanProcure

@@ -68,6 +68,20 @@ type SocialDispatch = (
 	reply?: (this: void, response: DispatchResponse) => void,
 ) => void;
 
+/** af.css .row face (radius 11, faint top-lit fill) for trade cards; replaces the old cast-iron plate and brass lip. */
+function tradeFace(): React.ReactElement {
+	return h(
+		React.Fragment,
+		{ key: "Face" },
+		h("uicorner", { CornerRadius: new UDim(0, 11) }),
+		h("uigradient", {
+			Rotation: 90,
+			Color: new ColorSequence(Palette.white, Palette.void),
+			Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0.965), new NumberSequenceKeypoint(1, 0.88)]),
+		}),
+	);
+}
+
 __defs["TradeView"] = () => {
 	const Audio = loadAudio();
 	const PageScaffold = loadPageScaffold();
@@ -78,7 +92,6 @@ __defs["TradeView"] = () => {
 		EmptyState,
 		QuantityStepper,
 		SearchField,
-		SectionLabel,
 		SegmentedTabs,
 		Stroke,
 		Text,
@@ -259,7 +272,7 @@ __defs["TradeView"] = () => {
 	}
 
 	const TRADE_SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
-	const TRADE_NUMERIC = Font.fromEnum(Enum.Font.GothamBold);
+	const TRADE_NUMERIC = NUM;
 
 	function relicArt(config: TradeConfig, definitionId: string): RelicArt {
 		for (const definition of config.Items?.Definitions ?? []) {
@@ -596,10 +609,7 @@ __defs["TradeView"] = () => {
 				kind: line.icon,
 				accent: line.accent,
 				size: tile,
-				radius: 10,
 				position: UDim2.fromOffset(8, math.floor((rowH - tile) / 2)),
-				spin: false,
-				reducedMotion: true,
 			}),
 			h(Text, {
 				value: line.detail,
@@ -1694,8 +1704,8 @@ __defs["TradeView"] = () => {
 						essenceStepper,
 						boostSteppers,
 						keySteppers,
-						h(SectionLabel, {
-							value: "Relics",
+						h(Label, {
+							text: "Relics",
 						}),
 						relics.size() === 0
 							? h(EmptyState, {

@@ -245,13 +245,7 @@ export function TaskSummary(props: TaskSummaryProps) {
 				position={UDim2.fromOffset(0, 26)}
 				sizeConstraint={new UDim2(1, 0, 0, 16)}
 			/>
-			<Meter
-				value={fraction}
-				color={accent}
-				reducedMotion={props.reducedMotion}
-				position={UDim2.fromOffset(0, 46)}
-				size={new UDim2(1, 0, 0, 6)}
-			/>
+			<Bar fill={fraction} color={accent} thin={true} position={UDim2.fromOffset(0, 46)} />
 		</frame>
 	);
 }

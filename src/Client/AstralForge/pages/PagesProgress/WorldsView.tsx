@@ -119,7 +119,7 @@ function WorldCard(props: WorldCardProps) {
 						anchor={new Vector2(0, 0.5)}
 					/>
 					<frame Size={UDim2.fromScale(0, 1)} AutomaticSize={Enum.AutomaticSize.X} Position={UDim2.fromScale(1, 0)} AnchorPoint={new Vector2(1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} HorizontalAlignment={Enum.HorizontalAlignment.Right} />
+						<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} HorizontalAlignment={Enum.HorizontalAlignment.Right} />
 						{action}
 					</frame>
 				</frame>

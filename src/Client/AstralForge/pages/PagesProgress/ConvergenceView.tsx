@@ -145,13 +145,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 				position={stack ? new UDim2(0, 120, 1, -68) : new UDim2(1, -150, 1, -68)}
 				sizeConstraint={stack ? new UDim2(1, -120, 0, 28) : new UDim2(0, 150, 0, 28)}
 			/>
-			<Meter
-				value={globalFill}
-				color={Palette.mango}
-				position={new UDim2(0, 0, 1, -28)}
-				size={new UDim2(1, 0, 0, 9)}
-				reducedMotion={softMotion}
-			/>
+			<Bar fill={globalFill} color={Palette.mango} position={new UDim2(0, 0, 1, -28)} />
 			<Text
 				value={`${compactNumber(event.GlobalContribution)} / ${compactNumber(event.GlobalTarget)}  •  ${string.format("%.2fx", event.ProductionMultiplier)} production`}
 				size={10}
@@ -234,7 +228,7 @@ function ConvergenceViewReady(props: ConvergenceViewProps) {
 			</PnSurface>
 		);
 	});
-	const tiersLabel = <SectionLabel value="Your rewards" color={Palette.violet} />;
+	const tiersLabel = <Label text="Your rewards" color={Palette.violet} />;
 	const tiersList = (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, pageGap)} />

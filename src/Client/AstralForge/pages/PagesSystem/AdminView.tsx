@@ -361,10 +361,10 @@ function CommandRow(props: { entry: AdminCommand; selected: boolean; onClick: ()
 	);
 }
 
-function AuditLine(props: { record: AuditRecord }) {
+function AuditLine(props: { record: AuditRecord; layoutOrder?: number }) {
 	const record = props.record;
 	return (
-		<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true}>
+		<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder ?? 0}>
 			<Text
 				value={record.Command}
 				size={11}
@@ -1090,7 +1090,7 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 
 	const auditRows: React.Element[] = [];
 	for (let i = 0; i < math.min(6, recent.size()); i++) {
-		auditRows.push(<AuditLine key={recent[i].Id} record={recent[i]} />);
+		auditRows.push(<AuditLine key={recent[i].Id} record={recent[i]} layoutOrder={i} />);
 	}
 	const recentSection = (
 		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.steel} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
