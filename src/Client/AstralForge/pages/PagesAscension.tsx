@@ -604,13 +604,17 @@ function AscensionViewBoard(props: AscensionViewProps) {
 
 	// v8 star charts: every rebirth is a Star Point
 	const charts = props.state.Constellations;
+	// the room the charts get: their side column, or the page width less its padding
+	const chartsWidth = sideColumn ? plan.side : math.max(0, viewport.width - 48);
 	if (typeIs(charts, "table")) {
 		add(
 			"constellations",
-			constellationsHeight(stack || sideColumn),
+			constellationsHeight(stack || sideColumn, chartsWidth, stack),
 			<ConstellationsView
 				state={charts}
 				stack={stack || sideColumn}
+				width={chartsWidth}
+				phone={stack}
 				reducedMotion={softMotion}
 				dispatch={(action, payload, callback) =>
 					props.dispatch(action, payload ?? {}, (raw) => {
