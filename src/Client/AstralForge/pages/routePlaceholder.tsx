@@ -73,7 +73,8 @@ export function PlaceholderPage(props: PlaceholderPageProps) {
 				color={Palette.muted}
 				align={Enum.TextXAlignment.Center}
 				wrap={true}
-				fit={false}
+				fit={true}
+				minSize={10}
 				sizeConstraint={new UDim2(1, 0, 0, phone ? 36 : 40)}
 			/>
 			<frame LayoutOrder={4} Size={UDim2.fromOffset(phone ? 200 : 220, 44)} BackgroundTransparency={1}>
