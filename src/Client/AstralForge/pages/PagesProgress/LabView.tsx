@@ -1,4 +1,5 @@
 import React from "@rbxts/react";
+import { glyphButton } from "../../UiCore/glyphIcons";
 import { useAntilag } from "../../MotionKit/antilag";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, compactNumber, formatReward, Reward } from "../../CoreKit/format";
@@ -280,7 +281,7 @@ function PowerRow(props: {
 						Padding={new UDim(0, 8)}
 					/>
 					<Button
-						text="−"
+						{...glyphButton("Minus", "−")}
 						onClick={route(-1)}
 						color={Palette.panelSoft}
 						textColor={value > 0 ? Palette.cream : Palette.muted}
@@ -291,7 +292,7 @@ function PowerRow(props: {
 					/>
 					<Badge value={`${value} CELLS`} accent={config.Color} filled={true} size={UDim2.fromOffset(86, 28)} />
 					<Button
-						text="+"
+						{...glyphButton("Plus", "+")}
 						onClick={route(1)}
 						color={config.Color}
 						textColor={Palette.ink}
@@ -303,7 +304,7 @@ function PowerRow(props: {
 			) : (
 				<>
 					<Button
-						text="−"
+						{...glyphButton("Minus", "−")}
 						onClick={route(-1)}
 						color={Palette.panelSoft}
 						textColor={value > 0 ? Palette.cream : Palette.muted}
@@ -321,7 +322,7 @@ function PowerRow(props: {
 						size={UDim2.fromOffset(86, 28)}
 					/>
 					<Button
-						text="+"
+						{...glyphButton("Plus", "+")}
 						onClick={route(1)}
 						color={config.Color}
 						textColor={Palette.ink}

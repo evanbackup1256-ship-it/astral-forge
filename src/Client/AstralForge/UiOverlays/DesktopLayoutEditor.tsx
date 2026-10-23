@@ -1,5 +1,6 @@
 // Desktop HUD editor: drag the alert island and combo badge on an 8px grid, and tune the side
 // menu, top bar and page width inside fixed limits. Changes preview live and save on Done.
+import { glyphButton } from "../UiCore/glyphIcons";
 import React from "@rbxts/react";
 import { Audio } from "../AudioKit/audio";
 import { DesktopLayout, DesktopLayoutValues, openDesktopEditor, setDesktopPreview, useSavedDesktopLayout } from "../CoreKit/desktopLayout";
@@ -93,9 +94,9 @@ function Stepper(props: { label: string; value: string; onLess: () => void; onMo
 	return (
 		<frame Size={UDim2.fromOffset(268, 36)} Position={props.position} BackgroundTransparency={1}>
 			<Text value={props.label} size={13} color={Palette.muted} sizeConstraint={UDim2.fromOffset(120, 36)} fit={true} />
-			<Button text="−" onClick={props.onLess} disabled={props.lessOff} size={UDim2.fromOffset(36, 36)} position={UDim2.fromOffset(124, 0)} outline={true} />
+			<Button {...glyphButton("Minus", "−")} onClick={props.onLess} disabled={props.lessOff} size={UDim2.fromOffset(36, 36)} position={UDim2.fromOffset(124, 0)} outline={true} />
 			<Text value={props.value} size={14} color={Palette.cream} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(164, 0)} sizeConstraint={UDim2.fromOffset(60, 36)} fit={true} />
-			<Button text="+" onClick={props.onMore} disabled={props.moreOff} size={UDim2.fromOffset(36, 36)} position={UDim2.fromOffset(228, 0)} outline={true} />
+			<Button {...glyphButton("Plus", "+")} onClick={props.onMore} disabled={props.moreOff} size={UDim2.fromOffset(36, 36)} position={UDim2.fromOffset(228, 0)} outline={true} />
 		</frame>
 	);
 }

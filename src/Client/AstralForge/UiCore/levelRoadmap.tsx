@@ -1,4 +1,5 @@
 import { named } from "../lua";
+import { ModalSelectionScope } from "./overlayCore";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
@@ -263,7 +264,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 		beginExit(onClose);
 	}, [beginExit, closing, onClose]);
 	useBackLayer(true, close);
-	const padFocus = useGamepadAutofocus(true);
+	const padFocus = useGamepadAutofocus(true, motion);
 	// pad: the header (close) first, then the unlock rows
 	useFocusOrder(padFocus, { regions: ["RoadmapHeader", "RoadmapList"], first: ["RoadmapList", "RoadmapHeader"] }, []);
 	React.useEffect(() => {
@@ -408,6 +409,7 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 						padFocus.current = node;
 						cardRef.current = node;
 					}}
+					{...ModalSelectionScope}
 					Size={UDim2.fromOffset(width, height)}
 					Position={cardPosition}
 					AnchorPoint={new Vector2(0.5, 0.5)}

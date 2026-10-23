@@ -1,4 +1,5 @@
 import { useFocusOrder } from "../CoreKit/focusOrder";
+import { ModalSelectionScope } from "./overlayCore";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -1565,7 +1566,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 		});
 	};
 
-	const padFocus = useGamepadAutofocus(true);
+	const padFocus = useGamepadAutofocus(true, enter);
 	const social = state.SocialBoost ?? { FriendCount: 0, FriendLimit: 5, FriendBonus: 0, Premium: false, PremiumBonus: 0 };
 	const listParentSize = useGuiSize(padFocus, true);
 	const side = math.max(chrome.sideSafe, viewport.sideInset, 8) + 6;
@@ -1801,6 +1802,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				"frame",
 				{
 					ref: padFocus,
+					...ModalSelectionScope,
 					Name: "Roster",
 					Size: UDim2.fromOffset(width, height),
 					Position: React.joinBindings([showAmount, listParentSize] as React.Binding<unknown>[]).map((values) =>

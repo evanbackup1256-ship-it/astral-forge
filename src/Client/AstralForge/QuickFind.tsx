@@ -14,12 +14,12 @@ import { sinkPadInput } from "./CoreKit/padSink";
 import { mergeEvents, showTooltipFor, useTooltip } from "./Tooltip";
 import { KIND_META, Results, SearchEntry, search } from "./QuickFindIndex";
 import {
-	IconTile,
 	KeyHint,
 	KindChip,
 	SEARCH_H,
 	SearchField,
-	SectionLabel,
+	SurfaceIconTile,
+	SurfaceSectionLabel,
 	Surface,
 	SurfaceMetrics,
 	SurfaceMotion,
@@ -182,7 +182,7 @@ function Row(props: RowProps) {
 				props.register(props.index, row);
 			}}
 		>
-			<IconTile size={compact ? 30 : 32} accent={entry.accent} position={new UDim2(0, 12, 0.5, 0)} anchor={new Vector2(0, 0.5)} zIndex={7}>
+			<SurfaceIconTile size={compact ? 30 : 32} accent={entry.accent} position={new UDim2(0, 12, 0.5, 0)} anchor={new Vector2(0, 0.5)} zIndex={7}>
 				<Glyph
 					box={18}
 					kind={entry.locked ? "Lock.18" : entry.icon}
@@ -191,7 +191,7 @@ function Row(props: RowProps) {
 					size={18}
 					spin={false}
 				/>
-			</IconTile>
+			</SurfaceIconTile>
 			<SurfaceText
 				text={Model.highlight(entry.title, props.query, "#" + entry.accent.ToHex())}
 				rich={true}
@@ -253,7 +253,7 @@ function Preview(props: { entry: SearchEntry; touch: boolean; reduced: boolean }
 			BackgroundTransparency={1}
 			ZIndex={4}
 		>
-			<IconTile size={48} accent={accent} zIndex={5}>
+			<SurfaceIconTile size={48} accent={accent} zIndex={5}>
 				<Glyph
 					box={26}
 					kind={entry.locked ? "Lock.18" : entry.icon}
@@ -262,7 +262,7 @@ function Preview(props: { entry: SearchEntry; touch: boolean; reduced: boolean }
 					size={26}
 					spin={false}
 				/>
-			</IconTile>
+			</SurfaceIconTile>
 			<SurfaceText
 				text={string.upper(KIND_META[entry.kind].label)}
 				type="label"
@@ -608,7 +608,7 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 	let index = 0;
 	for (const [s, section] of ipairs(results.sections)) {
 		order += 1;
-		list.push(<SectionLabel key={`s${s}`} text={string.upper(section.title)} order={order} height={SECTION_H} zIndex={4} />);
+		list.push(<SurfaceSectionLabel key={`s${s}`} text={string.upper(section.title)} order={order} height={SECTION_H} zIndex={4} />);
 		for (const entry of section.entries) {
 			order += 1;
 			index += 1;
@@ -705,9 +705,9 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 							{list}
 							{open && flat.size() === 0 && (
 								<frame key="empty" Size={new UDim2(1, 0, 0, 150)} BackgroundTransparency={1} LayoutOrder={1} ZIndex={4}>
-									<IconTile size={44} accent={Palette.muted} position={new UDim2(0.5, 0, 0, 16)} anchor={new Vector2(0.5, 0)} zIndex={4}>
+									<SurfaceIconTile size={44} accent={Palette.muted} position={new UDim2(0.5, 0, 0, 16)} anchor={new Vector2(0.5, 0)} zIndex={4}>
 										<Glyph box={22} kind="Search.9" color={Palette.muted} accent={Palette.muted} size={22} spin={false} />
-									</IconTile>
+									</SurfaceIconTile>
 									<SurfaceText
 										text={`No match for "${query}"`}
 										type="title"

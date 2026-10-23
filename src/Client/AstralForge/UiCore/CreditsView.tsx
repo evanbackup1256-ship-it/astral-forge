@@ -7,6 +7,7 @@ import { named } from "../lua";
 // fill the row instead of leaving holes), then the acknowledgements. Nothing to tap but Close:
 // B, Esc or a tap outside also close it. Motion is unchanged: the panel reveals on usePresence,
 // cards rise on the shared surface stagger and their plates settle on the surface spring.
+import { ModalSelectionScope } from "./overlayCore";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
@@ -15,7 +16,7 @@ import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
-import { SectionLabel, Surface, SurfaceMetrics, SurfaceMotion, SurfaceRow, SurfaceText, useSurfaceEnter, useSurfaceSpring } from "./surface";
+import { Surface, SurfaceSectionLabel, SurfaceMetrics, SurfaceMotion, SurfaceRow, SurfaceText, useSurfaceEnter, useSurfaceSpring } from "./surface";
 import { fitColumns, measureText, Space } from "./layoutEngine";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
@@ -314,7 +315,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		const accent = tone(entry.category.Accent, Palette.violet);
 		order += 1;
 		body.push(
-			<SectionLabel
+			<SurfaceSectionLabel
 				key={`l:${entry.category.Id}`}
 				text={entry.category.Label}
 				count={MODEL.ShowCategoryCounts !== false ? entry.members.size() : undefined}
@@ -457,7 +458,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	useBackLayer(true, requestClose);
 
 	// gamepad: the overlay owns focus while open; the right stick scrolls the roll, B closes
-	const padFocus = useGamepadAutofocus(true);
+	const padFocus = useGamepadAutofocus(true, reveal);
 	const hostRef = React.useRef<Frame>();
 	useFocusOrder(hostRef, { regions: ["CreditsList", "CreditsClaimActions"], first: ["CreditsClaimActions"] }, []);
 	React.useEffect(() => {
@@ -484,7 +485,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 
 	return (
 		<OverlayPresence amount={reveal}>
-			<frame key="CreditsClaimActions" ref={hostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={320}>
+			<frame key="CreditsClaimActions" ref={hostRef} {...ModalSelectionScope} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={320}>
 				<imagebutton
 					Size={UDim2.fromScale(1, 1)}
 					BackgroundColor3={new Color3(0, 0, 0)}

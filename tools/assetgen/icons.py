@@ -277,6 +277,15 @@ def g_back(m, d):
     m.line([(0.46, 0.28), (0.24, 0.5), (0.46, 0.72)], 0.11)
 
 
+def g_minus(m, d):
+    m.line([(0.24, 0.5), (0.76, 0.5)], 0.13)
+
+
+def g_plus(m, d):
+    m.line([(0.24, 0.5), (0.76, 0.5)], 0.13)
+    m.line([(0.5, 0.24), (0.5, 0.76)], 0.13)
+
+
 def g_check(m, d):
     m.line([(0.20, 0.52), (0.42, 0.74), (0.80, 0.28)], 0.13)
 
@@ -571,7 +580,7 @@ GLYPHS = {
     "Flux": g_flux, "Core": g_core, "Dust": g_dust, "Forge": g_forge, "Research": g_research, "Grid": g_grid,
     "World": g_world, "Mission": g_mission, "Milestone": g_milestone, "Leaderboard": g_leaderboard, "Crew": g_crew,
     "Guild": g_guild, "Wheel": g_wheel, "Games": g_games, "Credits": g_credits, "Gift": g_gift, "Guide": g_guide,
-    "Settings": g_settings, "Close": g_close, "Menu": g_menu, "Chevron": g_chevron, "Back": g_back, "Check": g_check,
+    "Settings": g_settings, "Close": g_close, "Menu": g_menu, "Chevron": g_chevron, "Back": g_back, "Check": g_check, "Minus": g_minus, "Plus": g_plus,
     "StarGrid": g_stargrid, "Command": g_command, "Anomaly": g_anomaly, "Reactor": g_reactor, "Lab": g_lab,
     "Loadout": g_loadout, "Artifact": g_artifact, "Vault": g_vault, "Rebirth": g_rebirth, "Hide": g_hide, "Lock": g_lock,
     "Story": g_story, "Mail": g_mail, "Chat": g_chat, "Shop": g_shop, "Boost": g_boost, "Jackpot": g_jackpot,
@@ -582,7 +591,7 @@ GLYPHS = {
     "Production": g_production, "Travel": g_travel, "Brand": g_brand,
 }
 # drawn without a badge: small controls that must read at a glance
-CHROME = {"Close", "Menu", "Chevron", "Back", "Check", "Search", "Hide", "Lock", "Pause", "Play", "Refresh", "Send", "Code", "Settings"}
+CHROME = {"Minus", "Plus", "Close", "Menu", "Chevron", "Back", "Check", "Search", "Hide", "Lock", "Pause", "Play", "Refresh", "Send", "Code", "Settings"}
 # glyphs whose direction carries meaning: never mirrored, barely turned
 DIRECTIONAL = {"Back", "Chevron", "Play", "Send", "Collect", "Boost", "Travel", "Refresh", "Rebirth", "Code", "Check", "Leaderboard", "Story", "Overview", "Timer"}
 ANIM = {

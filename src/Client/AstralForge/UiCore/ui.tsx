@@ -1,4 +1,5 @@
 import { isTouchOnly, lastInputIsGamepad } from "../CoreKit/inputLayer";
+import { glyphButton } from "./glyphIcons";
 import { useBindingListener } from "@rbxts/pretty-react-hooks";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
@@ -836,7 +837,7 @@ export function QuantityStepper(props: {
 				BorderSizePixel={0}
 			>
 				<Button
-					text="-"
+					{...glyphButton("Minus", "-")}
 					onClick={() => onChange(math.max(0, value - step))}
 					color={Palette.panelSoft}
 					textColor={Palette.cream}
@@ -862,7 +863,7 @@ export function QuantityStepper(props: {
 					/>
 				</frame>
 				<Button
-					text="+"
+					{...glyphButton("Plus", "+")}
 					onClick={() => onChange(math.min(max, value + step))}
 					color={accent}
 					textColor={accent}
@@ -3455,6 +3456,11 @@ export function SegmentedTabs({
 }
 
 // ---------- EmptyState ----------
+export interface EmptyStateAction {
+	label: string;
+	onActivated: () => void;
+	icon?: unknown;
+}
 export function EmptyState({
 	icon,
 	title,
@@ -3468,10 +3474,13 @@ export function EmptyState({
 	iconSize,
 	compact = false,
 	zIndex,
+	action,
 }: {
 	icon?: unknown;
 	title?: string;
 	body?: string;
+	/** optional next step shown under the body, e.g. clear filters */
+	action?: EmptyStateAction;
 	accent?: Color3;
 	size?: UDim2;
 	layoutOrder?: number;
@@ -3490,8 +3499,23 @@ export function EmptyState({
 	const resolvedSize = size ?? (compact ? new UDim2(1, 0, 0, 112) : new UDim2(1, 0, 0, 150));
 	const titleH = resolvedTitle + 4;
 	const bodyH = math.max(resolvedBody * 2 + 6, 28);
+	// the given size is a floor; long or translated bodies grow the box instead of clipping
+	const [innerWidth, setInnerWidth] = React.useState(0);
 	return (
-		<frame Size={resolvedSize} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={layoutOrder} ZIndex={zIndex}>
+		<frame
+			Size={resolvedSize}
+			AutomaticSize={Enum.AutomaticSize.Y}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			LayoutOrder={layoutOrder}
+			ZIndex={zIndex}
+			Change={{
+				AbsoluteSize: (rbx: Frame) => {
+					const measured = math.max(0, math.floor(rbx.AbsoluteSize.X - 28));
+					if (measured !== innerWidth) setInnerWidth(measured);
+				},
+			}}
+		>
 			<uipadding
 				PaddingTop={new UDim(0, 14)}
 				PaddingBottom={new UDim(0, 14)}
@@ -3527,17 +3551,43 @@ export function EmptyState({
 				layoutOrder={1}
 				sizeConstraint={new UDim2(1, 0, 0, titleH)}
 			/>
-			<Text
-				value={body}
-				size={resolvedBody}
-				color={Palette.muted}
-				wrap={true}
-				align={Enum.TextXAlignment.Center}
-				fit={true} minSize={10}
-				transparency={fade}
-				layoutOrder={2}
-				sizeConstraint={new UDim2(1, 0, 0, bodyH)}
-			/>
+			{innerWidth > 0 ? (
+				<AutoHeightText
+					value={body}
+					width={innerWidth}
+					size={resolvedBody}
+					color={Palette.muted}
+					align={Enum.TextXAlignment.Center}
+					minHeight={bodyH}
+					transparency={fade}
+					layoutOrder={2}
+				/>
+			) : (
+				<Text
+					value={body}
+					size={resolvedBody}
+					color={Palette.muted}
+					wrap={true}
+					align={Enum.TextXAlignment.Center}
+					fit={true} minSize={10}
+					transparency={fade}
+					layoutOrder={2}
+					sizeConstraint={new UDim2(1, 0, 0, bodyH)}
+				/>
+			)}
+			{action !== undefined ? (
+				<frame Size={UDim2.fromOffset(0, TapTarget)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} LayoutOrder={3}>
+					<Button
+						text={action.label}
+						icon={action.icon}
+						onClick={action.onActivated}
+						hug={true}
+						size={UDim2.fromOffset(compact ? 128 : 150, TapTarget)}
+						reducedMotion={reducedMotion}
+						zIndex={zIndex}
+					/>
+				</frame>
+			) : undefined}
 		</frame>
 	);
 }

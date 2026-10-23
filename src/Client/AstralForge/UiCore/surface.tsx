@@ -303,7 +303,7 @@ export function SurfaceRow(props: SurfaceRowProps) {
 }
 
 /** Square icon tile used at the start of rows and in spotlights. */
-export function IconTile(props: {
+export function SurfaceIconTile(props: {
 	size: number;
 	accent: Color3;
 	position?: UDim2;
@@ -330,7 +330,7 @@ export function IconTile(props: {
 // ── Labels ─────────────────────────────────────────────────────────────────────
 
 /** Small caps section label with an optional count and a hairline to the right. */
-export function SectionLabel(props: { text: string; count?: number; order?: number; accent?: Color3; height?: number; zIndex?: number }) {
+export function SurfaceSectionLabel(props: { text: string; count?: number; order?: number; accent?: Color3; height?: number; zIndex?: number }) {
 	const label = props.count !== undefined ? `${props.text}  ${props.count}` : props.text;
 	return (
 		<frame Size={new UDim2(1, 0, 0, props.height ?? 26)} LayoutOrder={props.order} BackgroundTransparency={1} ZIndex={props.zIndex}>
@@ -688,3 +688,8 @@ export function SearchField(props: SearchFieldProps) {
 		</textbutton>
 	);
 }
+
+/** @deprecated use SurfaceIconTile; ui.tsx IconTile is the glyph tile, this one is the bare framed square. */
+export const IconTile = SurfaceIconTile;
+/** @deprecated use SurfaceSectionLabel; ui.tsx SectionLabel is the page heading, this one is the small-caps list divider. */
+export const SectionLabel = SurfaceSectionLabel;
