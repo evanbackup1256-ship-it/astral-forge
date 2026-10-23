@@ -8,43 +8,8 @@ import { useTooltip } from "../../Tooltip";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { bulkCost, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
-import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
-// desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
-// page identity (research tree reads left to right: the controls rail sits on the right)
-function pagePlan(width: number, stack: boolean): SplitPlan {
-	return splitColumns(stack ? 0 : width, math.clamp(math.floor(width * 0.3), 340, 460), 18, 1100);
-}
-
-// folds scaffold sections into one SplitColumns section: all but the last `mainCount` go on the
-// side; each column is a SelectionGroup so gamepad focus stays in a column until moved across
-function splitSections<S extends { id: string; height: number; element: React.Element }>(
-	plan: SplitPlan,
-	sections: S[],
-	name: string,
-	mainCount = 1,
-): Array<{ id: string; height: number; element: React.Element }> {
-	if (!plan.split || sections.size() <= mainCount) {
-		return sections;
-	}
-	const cut = sections.size() - mainCount;
-	const side = sections.filter((_, index) => index < cut);
-	const main = sections.filter((_, index) => index >= cut);
-	const height = math.max(stackHeight(side.map((s) => s.height), plan.gap), stackHeight(main.map((s) => s.height), plan.gap));
-	const column = (blocks: S[]) => (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
-			{blocks.size() === 1 ? blocks[0].element : <StackBlocks gap={plan.gap} blocks={blocks} />}
-		</frame>
-	);
-	return [
-		{
-			id: `${name}-split`,
-			height,
-			element: <SplitColumns height={height} plan={plan} sideOnRight={true} side={column(side)} main={column(main)} name={name} />,
-		},
-	];
-}
 
 
 const UserInputService = game.GetService("UserInputService");
@@ -313,8 +278,11 @@ function ResearchView(props: ResearchProps) {
 	const stack = chrome.contentStack;
 	// wide desktop: hero + controls in a side column, the chain in the main column. The side
 	// column reuses the stacked hero/controls arrangement, which is built for narrow widths.
-	const plan = pagePlan(viewport.width, stack);
-	const heroStack = stack || plan.split;
+	// composition (docs/layout-specs/research.md): full-width hero band, a one-row controls
+	// toolbar, then the chain as a full-width vertical tree. The old side rail left an empty
+	// stretched controls panel beside a chain many screens tall.
+	// phones in landscape keep the one-row hero and toolbar so the chain starts on the first screen
+	const heroStack = stack && !chrome.landscape;
 	// phones in landscape have the width for side-by-side rows (button on the right); the
 	// stacked row with its button underneath fills too much of a 360px-tall screen
 	const rowStack = stack && !chrome.landscape;
@@ -380,7 +348,7 @@ function ResearchView(props: ResearchProps) {
 			tailPad={scrollTail(stack, chrome.bottomSafe, 48)}
 			scrollBarColor={Palette.cyan}
 			scrollBarThickness={4}
-			sections={splitSections(plan, [
+			sections={[
 				{
 					id: "hero",
 					height: headerH,
@@ -561,7 +529,7 @@ function ResearchView(props: ResearchProps) {
 							/>
 						),
 				},
-			], "Research")}
+			]}
 		/>
 	);
 }

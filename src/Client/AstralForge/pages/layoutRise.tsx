@@ -6,7 +6,7 @@
 // so every section rises exactly once on its own staggered curve.
 import React from "@rbxts/react";
 import { SplitColumns, SplitPlan, StackBlocks, stackHeight } from "../UiCore/ui";
-import { balanceColumns } from "../UiCore/layoutEngine";
+import { balanceColumns, ComposeSpec, planComposition, ZoneRect } from "../UiCore/layoutEngine";
 
 const RunService = game.GetService("RunService");
 
@@ -80,6 +80,62 @@ export function splitSection(name: string, plan: SplitPlan, gap: number, sideIn:
 				side={<StackBlocks gap={gap} blocks={risen(side)} />}
 				main={<StackBlocks gap={gap} blocks={risen(main)} />}
 			/>
+		),
+	};
+}
+
+// ---------------------------------------------------------------------------------------------
+// ComposedPage: renders a planComposition (UiCore/layoutEngine) as one scaffold section of
+// absolutely placed zones. Every zone keeps the shared staggered rise (RiseIn), in reading order:
+// hero, primary, secondary, tiles, footer.
+// ---------------------------------------------------------------------------------------------
+export interface ComposeBlocks {
+	hero?: PageBlock[];
+	primary: PageBlock[];
+	secondary?: PageBlock[];
+	tiles?: PageBlock[];
+	footer?: PageBlock[];
+}
+export function composeSection(name: string, width: number, gap: number, blocks: ComposeBlocks, options: Omit<ComposeSpec, "hero" | "primary" | "secondary" | "tiles" | "footer">): PageBlock {
+	const heights = (list?: PageBlock[]) => (list ?? []).map((block) => block.height);
+	const plan = planComposition(width, gap, {
+		...options,
+		hero: heights(blocks.hero),
+		primary: heights(blocks.primary),
+		secondary: heights(blocks.secondary),
+		tiles: heights(blocks.tiles),
+		footer: heights(blocks.footer),
+	});
+	const lists: Record<ZoneRect["role"], PageBlock[]> = {
+		hero: blocks.hero ?? [],
+		primary: blocks.primary,
+		secondary: blocks.secondary ?? [],
+		tiles: blocks.tiles ?? [],
+		footer: blocks.footer ?? [],
+	};
+	const children: Record<string, React.Element> = {};
+	plan.rects.forEach((rect, order) => {
+		const block = lists[rect.role][rect.index];
+		if (block === undefined) return;
+		children[`${rect.role}-${block.id}`] = (
+			<frame
+				Size={UDim2.fromOffset(rect.w, rect.h)}
+				Position={UDim2.fromOffset(rect.x, rect.y)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				SelectionGroup={rect.role === "secondary" || rect.role === "primary"}
+			>
+				<RiseIn index={order}>{block.element}</RiseIn>
+			</frame>
+		);
+	});
+	return {
+		id: name,
+		height: plan.height,
+		element: (
+			<frame key={name} Size={new UDim2(1, 0, 0, plan.height)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				{children}
+			</frame>
 		),
 	};
 }
