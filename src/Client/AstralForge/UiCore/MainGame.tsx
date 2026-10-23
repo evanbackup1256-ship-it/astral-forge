@@ -99,6 +99,8 @@ interface SessionStatsApi {
 	best(this: void, key: string, value: number): void;
 	bump(this: void, key: string, amount?: number): void;
 	addFlux(this: void, amount: unknown): void;
+	spendFlux(this: void, before: unknown, after: unknown): void;
+	drop(this: void, name: unknown, rarity: unknown): void;
 }
 const SessionStats = load<SessionStatsApi>("SessionStats");
 
@@ -636,6 +638,21 @@ export function MainGame(_param: MainGameProps) {
 				}
 				if (action === "OpenItemCrate" && typeIs(response.Rolls, "table") && response.Rolls.size() > 0) {
 					Juice.burst(undefined, Palette.violet, 1.2);
+				}
+				if (action === "Rebirth") {
+					SessionStats.bump("rebirths");
+				}
+				if (action === "OpenItemCrate" && typeIs(response.Rolls, "table")) {
+					SessionStats.bump("crates", math.max(1, response.Rolls.size()));
+					for (const roll of response.Rolls) {
+						if (typeIs(roll, "table")) {
+							const r = roll as { Name?: unknown; Rarity?: unknown };
+							SessionStats.drop(r.Name, r.Rarity);
+						}
+					}
+				}
+				if (spending && juiceBefore !== undefined && after !== undefined) {
+					SessionStats.spendFlux((juiceBefore as { Cash?: unknown }).Cash, (after as { Cash?: unknown }).Cash);
 				}
 			}
 			const machinePurchase = action === "BuyMachine";

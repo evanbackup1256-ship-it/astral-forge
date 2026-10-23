@@ -15,6 +15,7 @@ import { EVENTS, ServerEvent, accentOf, openServerEventPanel, useServerEvent } f
 import { readLevelState, openRoadmap, progressFraction } from "./levelRoadmap";
 import { Button, CountBadge, IconTile, LooseComponent, Text } from "./ui";
 import { SearchField } from "./surface";
+import SessionStats = require("../SessionStats");
 import { registerRegion } from "../CoreKit/selectionRegions";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
@@ -1136,7 +1137,8 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 	const liveEvent = useServerEvent(state.ServerEvent);
 	const eventDef = liveEvent !== undefined && liveEvent.Phase !== "Rest" ? EVENTS[liveEvent.Id ?? ""] : undefined;
 	const eventAccent = accentOf(eventDef);
-	const eventW = eventDef !== undefined ? playersW + 6 : 0;
+	// eventW also reserves the Session button slot
+	const eventW = (eventDef !== undefined ? playersW + 6 : 0) + playersW + 6;
 	const titleMin = width < 440 ? 60 : 110;
 	const room = width - (8 + iconSize + 8 + titleMin + playersW + eventW + 22);
 	// narrow phones shrink the chips so every currency stays readable without scrolling
@@ -1296,6 +1298,32 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 					anchorPoint: new Vector2(0.5, 0.5),
 				}),
 			),
+		h(
+			"imagebutton",
+			{
+				Name: "MobileSessionButton",
+				Size: UDim2.fromOffset(playersW, playersW),
+				Position: new UDim2(1, -(playersW + 10 + (eventDef !== undefined ? playersW + 6 : 0)), 0.5, 0),
+				AnchorPoint: new Vector2(1, 0.5),
+				BackgroundColor3: Palette.panelSoft,
+				BorderSizePixel: 0,
+				AutoButtonColor: false,
+				ZIndex: 22,
+				Event: {
+					Activated: () => SessionStats.toggle(),
+				},
+			},
+			h("uicorner", { CornerRadius: new UDim(0, 10) }),
+			h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.6 }),
+			h(Icon, {
+				kind: "Session.5",
+				color: Palette.cream,
+				accent: Palette.brass,
+				size: math.floor(playersW * 0.62),
+				position: UDim2.fromScale(0.5, 0.5),
+				anchorPoint: new Vector2(0.5, 0.5),
+			}),
+		),
 		h(
 			"imagebutton",
 			{

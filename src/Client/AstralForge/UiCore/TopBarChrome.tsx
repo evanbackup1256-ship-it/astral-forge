@@ -16,6 +16,7 @@ import { Layout, Palette, Radius, TapTarget, darken, ensureContrast, strokeGradi
 import { usePerformanceTelemetry } from "../MotionKit/antilag";
 import { useEntrance, useFlash, useGlowStroke, usePulse } from "../MotionKit/motion";
 import { EVENTS, ServerEvent, accentOf, clockText as eventClockText, openServerEventPanel, useServerEvent } from "./serverEventsUi";
+import SessionStats = require("../SessionStats");
 import { Button, ButtonShimmer, IconTile, LogoLockup, LooseComponent, Text, resolvePressMotion, useButtonChrome } from "./ui";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
@@ -1258,7 +1259,10 @@ function TopBarImpl(_param: TopBarProps) {
 		playerControlGap +
 		playerControlW +
 		(showFeedbackControl ? feedbackControlGap + feedbackControlW : 0);
-	const controlsW = controlsBeforeSearch + (searchControlW > 0 ? feedbackControlGap + searchControlW : 0);
+	const sessionControlGap = feedbackControlGap;
+	const sessionControlW = micro || stacked || width < 1180 ? SHELL_CHROME.topbarControl : 118;
+	const controlsW =
+		controlsBeforeSearch + (searchControlW > 0 ? feedbackControlGap + searchControlW : 0) + sessionControlGap + sessionControlW;
 	const fixedSingleRow =
 		edgePad * 2 +
 		(logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) +
@@ -1789,7 +1793,12 @@ function TopBarImpl(_param: TopBarProps) {
 				{
 					Name: "QuickFindButton",
 					Size: UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
-					Position: new UDim2(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+					Position: new UDim2(
+						1,
+						-(controlsRight + controlsW - sessionControlGap - sessionControlW),
+						0,
+						math.floor((row1H - SHELL_CHROME.topbarControl) / 2),
+					),
 					BackgroundTransparency: 1,
 					ZIndex: 22,
 				},
@@ -1815,7 +1824,41 @@ function TopBarImpl(_param: TopBarProps) {
 					}),
 				}),
 			),
+		h(
+			"frame",
+			{
+				Name: "SessionButton",
+				Size: UDim2.fromOffset(sessionControlW, SHELL_CHROME.topbarControl),
+				Position: new UDim2(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+				BackgroundTransparency: 1,
+				ZIndex: 22,
+			},
+			h(SessionToggle, { width: sessionControlW, reducedMotion: reducedMotion }),
+		),
 	);
+}
+
+// Own component so it re-renders on open/close without waking the memoised TopBar.
+export function SessionToggle(_param: { width: number; reducedMotion?: boolean }) {
+	SessionStats.useStats();
+	const open = SessionStats.isOpen();
+	const label = _param.width > SHELL_CHROME.topbarControl ? "SESSION" : "";
+	return h(Button, {
+		text: label,
+		icon: "Session.3",
+		onClick: () => SessionStats.toggle(),
+		tooltip: { title: "Session", body: "Your stats since you joined." },
+		color: open ? darken(Palette.brass, 0.55) : Palette.panelSoft,
+		textColor: open ? Palette.brass : Palette.cream,
+		outline: open,
+		size: UDim2.fromScale(1, 1),
+		reducedMotion: _param.reducedMotion,
+		motion: resolvePressMotion({
+			text: label,
+			icon: "Session.4",
+			size: UDim2.fromOffset(_param.width, SHELL_CHROME.topbarControl),
+		}),
+	});
 }
 
 export const TopBar = React.memo(TopBarImpl, sameChromeProps(TOPBAR_STATE_KEYS));

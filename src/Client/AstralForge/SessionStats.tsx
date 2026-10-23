@@ -11,15 +11,45 @@ const Icon = ((require(script.Parent!.FindFirstChild("ArtKit")! as ModuleScript)
 const P = theme.Palette;
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
-const startedAt = os.clock();
-const counts: Record<string, number> = { collects: 0, overcharges: 0, crits: 0, claims: 0, upgrades: 0, bestCombo: 0 };
+let startedAt = os.clock();
+const counts: Record<string, number> = {
+	collects: 0,
+	overcharges: 0,
+	crits: 0,
+	claims: 0,
+	upgrades: 0,
+	bestCombo: 0,
+	crates: 0,
+	rebirths: 0,
+};
 let fluxCollected: OmegaValue = 0;
 let fluxText = "0";
+let fluxSpent: OmegaValue = 0;
+let fluxSpentText = "0";
+let bestDrop: { name: string; rarity: string; rank: number } | undefined;
+const RARITY_RANK: Record<string, number> = { Common: 1, Rare: 2, Epic: 3, Legendary: 4, Mythic: 5, Celestial: 6, Astral: 7 };
+// flux earned per minute: one bucket per minute since join, newest last, at most CHART_BARS kept
+const CHART_BARS = 40;
+const minuteBuckets: number[] = [0];
+let bucketStartedAt = os.clock();
+let panelOpen = false;
+let shareHandler: (() => void) | undefined;
 const listeners = new Set<() => void>();
 
 function notify() {
 	for (const listener of listeners) {
 		task.spawn(listener);
+	}
+}
+
+function rollBuckets() {
+	const now = os.clock();
+	while (now - bucketStartedAt >= 60) {
+		bucketStartedAt += 60;
+		minuteBuckets.push(0);
+		if (minuteBuckets.size() > CHART_BARS) {
+			minuteBuckets.remove(0);
+		}
 	}
 }
 
@@ -174,8 +204,106 @@ const SessionStats = {
 		if (ok) {
 			fluxCollected = (O.Persist as (value: unknown) => OmegaValue)(total);
 			fluxText = format.compactNumber(fluxCollected);
+			rollBuckets();
+			const [okN, n] = pcall(O.ToNumber, amount);
+			if (okN && n === n && n < math.huge) {
+				minuteBuckets[minuteBuckets.size() - 1] += math.max(0, n);
+			}
 			notify();
 		}
+	},
+
+	/** Records flux spent when Cash went down between two snapshots. */
+	spendFlux(this: void, before: unknown, after: unknown) {
+		const O = omega();
+		if (O === undefined || before === undefined || after === undefined) {
+			return;
+		}
+		const [okGt, lower] = pcall(O.Lt, after, before);
+		if (!okGt || !lower) {
+			return;
+		}
+		const [ok, total] = pcall(() => O.Add(fluxSpent, O.Sub(before, after)));
+		if (ok) {
+			fluxSpent = (O.Persist as (value: unknown) => OmegaValue)(total);
+			fluxSpentText = format.compactNumber(fluxSpent);
+			notify();
+		}
+	},
+
+	/** Keeps the rarest item seen this session (ties keep the first). */
+	drop(this: void, name: unknown, rarity: unknown) {
+		if (!typeIs(name, "string") || name === "") {
+			return;
+		}
+		const tier = typeIs(rarity, "string") ? rarity : "Common";
+		const rank = RARITY_RANK[tier] ?? 0;
+		if (bestDrop === undefined || rank > bestDrop.rank) {
+			bestDrop = { name, rarity: tier, rank };
+			notify();
+		}
+	},
+
+	reset(this: void) {
+		for (const [key] of pairs(counts)) {
+			counts[key] = 0;
+		}
+		fluxCollected = 0;
+		fluxText = "0";
+		fluxSpent = 0;
+		fluxSpentText = "0";
+		bestDrop = undefined;
+		minuteBuckets.clear();
+		minuteBuckets.push(0);
+		startedAt = os.clock();
+		bucketStartedAt = startedAt;
+		notify();
+	},
+
+	/** Snapshot for the Session panel. */
+	read(this: void) {
+		rollBuckets();
+		return {
+			counts,
+			fluxText,
+			fluxSpentText,
+			bestDrop,
+			playedSeconds: os.clock() - startedAt,
+			perMinute: table.clone(minuteBuckets),
+		};
+	},
+
+	clockText(this: void, seconds: number) {
+		return clockText(seconds);
+	},
+
+	useStats(this: void) {
+		return useStats();
+	},
+
+	isOpen(this: void) {
+		return panelOpen;
+	},
+	setOpen(this: void, open: boolean) {
+		if (panelOpen !== open) {
+			panelOpen = open;
+			notify();
+		}
+	},
+	toggle(this: void) {
+		panelOpen = !panelOpen;
+		notify();
+	},
+	/** Whoever owns sharing (screenshot card, chat post) registers here; without it the button is hidden. */
+	setShareHandler(this: void, handler: (() => void) | undefined) {
+		shareHandler = handler;
+		notify();
+	},
+	share(this: void) {
+		shareHandler?.();
+	},
+	canShare(this: void) {
+		return shareHandler !== undefined;
 	},
 
 	Card(this: void, props: CardProps) {

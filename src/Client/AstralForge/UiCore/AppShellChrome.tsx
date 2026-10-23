@@ -27,6 +27,7 @@ import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 import { CreditsOverlay } from "./CreditsView";
 import { EffectLayer, PopEntry, StarField } from "./effects";
 import { FeedbackOverlay } from "./FeedbackOverlay";
+import { SessionPanel } from "./SessionPanel";
 import { LevelMomentHost } from "./levelMoments";
 import { LevelRoadmapHost } from "./levelRoadmap";
 import { MobileHeader, MobileQuickActions, MobileTabBar, PHONE_RAIL_W } from "./MobileShell";
@@ -666,6 +667,7 @@ function AppShell(props: ShellProps) {
 					{page === "Credits" && <CreditsOverlay version={state.Game.Version} reducedMotion={reducedMotion} onClose={() => navigate("Overview")} />}
 					{playerlistOpen && <PlayerlistOverlay state={state} dispatch={dispatch} reducedMotion={reducedMotion} onClose={() => setPlayerlistOpen(false)}
 						onMessage={(userId) => { setPlayerlistOpen(false); navigate("Chat"); chat.openWhisper(userId); }} notify={notify} />}
+					{!keyboardShellCompact && <SessionPanel top={topPad + topbarHeight} edgePad={edgePad} reducedMotion={reducedMotion} />}
 					{feedbackOpen && <FeedbackOverlay dispatch={dispatch} page={page} reducedMotion={reducedMotion} onClose={() => setFeedbackOpen(false)} notify={notify} />}
 					<LevelRoadmapHost state={state} config={config} reducedMotion={reducedMotion} />
 					<LevelMomentHost />
