@@ -16,6 +16,7 @@ import { TooltipContent, mergeEvents, useTooltip } from "../../Tooltip";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { AudioPlayer, kitMember, LuauComponent, sharedModule } from "../luauKits";
 import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
+import { Slot } from "../mockLayout";
 
 const UserInputService = game.GetService("UserInputService");
 const RunService = game.GetService("RunService");
@@ -265,7 +266,7 @@ const DIAL_DOTS = 18;
 
 interface ChargeDialProps {
 	size: number;
-	position: UDim2;
+	position?: UDim2;
 	accent: Color3;
 	fill: React.Binding<number>;
 	charge: React.Binding<number>;
@@ -345,30 +346,38 @@ function Section(props: SectionProps) {
 			BorderSizePixel={0}
 			ZIndex={903}
 		>
+			{/* head row (title Fill | note) then the body, one vertical list */}
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+			<frame key="Head" Size={new UDim2(1, 0, 0, 16)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ZIndex={903}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+				<frame key="Title" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 			<Text
 				value={props.title}
 				size={13}
 				color={props.accent ?? Palette.creamSoft}
 				weight={Enum.FontWeight.SemiBold}
 				fit={false}
-				sizeConstraint={
-					props.note === undefined ? new UDim2(1, 0, 0, 16) : narrow ? new UDim2(0.55, -4, 0, 16) : new UDim2(1, -228, 0, 16)
-				}
+				sizeConstraint={new UDim2(1, 0, 0, 16)}
 				zIndex={904}
 			/>
+				</frame>
 			{props.note !== undefined && (
+				<frame key="Note" Size={narrow ? new UDim2(0.45, -4, 1, 0) : new UDim2(0, 220, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				<Text
 					value={props.note}
 					size={10}
 					color={Palette.muted}
 					align={Enum.TextXAlignment.Right}
 					fit={false}
-					position={narrow ? new UDim2(0.55, 4, 0, 0) : new UDim2(1, -220, 0, 0)}
-					sizeConstraint={narrow ? new UDim2(0.45, -4, 0, 14) : UDim2.fromOffset(220, 14)}
+					sizeConstraint={new UDim2(1, 0, 0, 14)}
 					zIndex={904}
 				/>
+				</frame>
 			)}
-			<frame Position={UDim2.fromOffset(0, 22)} Size={new UDim2(1, 0, 1, -22)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={903}>
+			</frame>
+			<frame key="Body" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={903} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				{props.children}
 			</frame>
 		</frame>
@@ -379,7 +388,7 @@ interface ChoiceCardProps {
 	name: string;
 	order?: number;
 	size: UDim2;
-	position: UDim2;
+	position?: UDim2;
 	chosen?: boolean;
 	color: Color3;
 	icon: string;
@@ -737,7 +746,8 @@ export function RebirthChamber(props: ChamberProps) {
 	// short landscape phones (286-390 px tall): a 56 px header and a tighter footer leave the body room to scroll
 	const shortSheet = height < 330;
 	const headerH = shortSheet ? 58 : 84;
-	const footerH = narrowSheet ? TapTarget * 2 + 40 : shortSheet ? TapTarget + 20 : TapTarget + 30;
+	// claim bar: one row (claim + 7px ignition bar | stop) or, on narrow sheets, claim column then stop
+	const claimH = narrowSheet ? TapTarget * 2 + 10 : TapTarget + 8;
 	const claimShare = narrowSheet ? 1 : stack ? 0.62 : 0.7;
 	const vow = RebirthMath.vow(info.Vow);
 
@@ -774,9 +784,12 @@ export function RebirthChamber(props: ChamberProps) {
 			title={canRebirth ? "This rebirth pays" : "Not ready yet"}
 			note={`run time ${clock(runSeconds)}`}
 		>
-			<frame Size={UDim2.fromOffset(78, 78)} BackgroundColor3={darken(gradeColor, 0.7)} BorderSizePixel={0} ZIndex={905}>
+			{/* grade tile | copy column, one horizontal list */}
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 16)} />
+			<frame key="Grade" Size={UDim2.fromOffset(78, 78)} LayoutOrder={0} BackgroundColor3={darken(gradeColor, 0.7)} BorderSizePixel={0} ZIndex={905}>
 				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke Color={gradeColor} Thickness={1} Transparency={gradeGlow.map((amount) => 0.4 + amount * 0.4)} />
+				<uipadding PaddingTop={new UDim(0, 15)} />
 				<Text
 					value={canRebirth ? info.Grade : "–"}
 					size={44}
@@ -784,11 +797,14 @@ export function RebirthChamber(props: ChamberProps) {
 					weight={Enum.FontWeight.Heavy}
 					align={Enum.TextXAlignment.Center}
 					fit={false}
-					position={UDim2.fromOffset(0, 15)}
 					sizeConstraint={new UDim2(1, 0, 0, 48)}
 					zIndex={906}
 				/>
 			</frame>
+			<frame key="Copy" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 2)} />
+			<Slot height={30} layoutOrder={0}>
 			<Text
 				value={
 					canRebirth
@@ -799,21 +815,23 @@ export function RebirthChamber(props: ChamberProps) {
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
-				position={UDim2.fromOffset(94, 0)}
-				sizeConstraint={new UDim2(1, -94, 0, 30)}
+				sizeConstraint={new UDim2(1, 0, 0, 30)}
 				zIndex={905}
 			/>
+			</Slot>
 			{canRebirth && (
+				<Slot height={20} layoutOrder={1}>
 				<Text
 					value={`+${compactNumber(info.Stardust)} stardust`}
 					size={12}
 					color={Palette.mint}
 					fit={false}
-					position={UDim2.fromOffset(94, 32)}
-					sizeConstraint={new UDim2(1, -94, 0, 16)}
+					sizeConstraint={new UDim2(1, 0, 0, 16)}
 					zIndex={905}
 				/>
+				</Slot>
 			)}
+			<Slot height={34} layoutOrder={2}>
 			<Text
 				value={reasons.join("; ")}
 				size={10}
@@ -821,10 +839,11 @@ export function RebirthChamber(props: ChamberProps) {
 				wrap={true}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(94, 54)}
-				sizeConstraint={new UDim2(1, -94, 0, 34)}
+				sizeConstraint={new UDim2(1, 0, 0, 34)}
 				zIndex={905}
 			/>
+			</Slot>
+			</frame>
 		</Section>
 	);
 
@@ -848,8 +867,8 @@ export function RebirthChamber(props: ChamberProps) {
 					title={def.Name}
 					body={def.Line}
 					iconSize={34}
+					order={slot}
 					size={new UDim2(0.5, -6, 1, 0)}
-					position={new UDim2((slot - 1) * 0.5, slot === 2 ? 6 : 0, 0, 0)}
 					sound="reward"
 					tooltip={{
 						title: def.Name,
@@ -885,6 +904,7 @@ export function RebirthChamber(props: ChamberProps) {
 				accent={Palette.mango}
 				note={pending.size() > 1 ? `${pending.size() - 1} more waiting` : undefined}
 			>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 12)} />
 				{cards}
 			</Section>
 		);
@@ -899,13 +919,12 @@ export function RebirthChamber(props: ChamberProps) {
 	vowIds.forEach((id, i) => {
 		const def = RebirthMath.vow(id);
 		const art = VOW_ART[id]!;
-		const col = i % vowCols;
-		const row = math.floor(i / vowCols);
 		const mastery = def ? RebirthMath.mastery({ Kept: info.KeptVows }, id) : 0;
 		const kept = def && typeIs(info.KeptVows, "table") ? (tonumber(info.KeptVows[id]) ?? 0) : 0;
 		vowCards[id !== "" ? id : "None"] = (
 			<ChoiceCard
 				name={"Vow" + (id === "" ? "None" : id)}
+				order={i}
 				icon={art.icon}
 				color={art.color}
 				chosen={nextVow === id}
@@ -930,7 +949,6 @@ export function RebirthChamber(props: ChamberProps) {
 						: undefined
 				}
 				size={new UDim2(1 / vowCols, -(vowGap * (vowCols - 1)) / vowCols, 0, vowCardH)}
-				position={new UDim2(col / vowCols, (col * vowGap) / vowCols, 0, row * (vowCardH + vowGap))}
 				onPick={() => {
 					setNextVow(id);
 				}}
@@ -945,6 +963,11 @@ export function RebirthChamber(props: ChamberProps) {
 			height={22 + vowRows * vowCardH + (vowRows - 1) * vowGap}
 			title="Vow for the next run"
 		>
+			<uigridlayout
+				CellSize={new UDim2(1 / vowCols, -(vowGap * (vowCols - 1)) / vowCols, 0, vowCardH)}
+				CellPadding={UDim2.fromOffset(vowGap, vowGap)}
+				SortOrder={Enum.SortOrder.LayoutOrder}
+			/>
 			{vowCards}
 		</Section>
 	);
@@ -971,11 +994,10 @@ export function RebirthChamber(props: ChamberProps) {
 			const entry = owned[i];
 			const chosen = keep.includes(entry.id);
 			const full = !chosen && keep.size() >= slots;
-			const col = i % cols;
-			const row = math.floor(i / cols);
 			chips[entry.id] = (
 				<ChoiceCard
 					name={"Keep" + entry.id}
+					order={i}
 					icon={REBIRTH_ICONS["Keep" + entry.id] ?? REBIRTH_ICONS.KeepOther!}
 					color={Palette.mint}
 					chosen={chosen}
@@ -984,7 +1006,6 @@ export function RebirthChamber(props: ChamberProps) {
 					body={`Lv ${compactNumber(entry.level)} to Lv ${math.clamp(math.floor(entry.level * fxShare), 1, RebirthMath.KEEP_CAP)}`}
 					iconSize={26}
 					size={new UDim2(1 / cols, -(8 * (cols - 1)) / cols, 0, chipH)}
-					position={new UDim2(col / cols, (col * 8) / cols, 0, row * (chipH + 8))}
 					onPick={() => {
 						const nextKeep = table.clone(keep);
 						const at = nextKeep.indexOf(entry.id);
@@ -1000,15 +1021,17 @@ export function RebirthChamber(props: ChamberProps) {
 		}
 		const rows = math.max(1, math.ceil(math.min(owned.size(), 9) / cols));
 		const hidden = owned.size() - 9;
+		let more: React.Element | undefined;
 		if (hidden > 0) {
-			chips.more = (
+			more = (
+				<Slot height={28} layoutOrder={1} name="More">
 				<Badge
 					value={`+${hidden} more`}
 					accent={Palette.muted}
-					position={UDim2.fromOffset(0, rows * (chipH + 8))}
 					size={UDim2.fromOffset(84, 28)}
 					zIndex={905}
 				/>
+				</Slot>
 			);
 		}
 		sections.keep = (
@@ -1019,7 +1042,13 @@ export function RebirthChamber(props: ChamberProps) {
 				title={`Keepsakes ${keep.size()}/${slots}`}
 				note={`keeps ${math.floor(fxShare * 100 + 0.5)}% of the level`}
 			>
-				{chips}
+				{/* chip grid, then the "+N more" badge, one vertical list */}
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+				<frame key="Chips" Size={new UDim2(1, 0, 0, rows * chipH + (rows - 1) * 8)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<uigridlayout CellSize={new UDim2(1 / cols, -(8 * (cols - 1)) / cols, 0, chipH)} CellPadding={UDim2.fromOffset(8, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					{chips}
+				</frame>
+				{more}
 			</Section>
 		);
 	} else {
@@ -1042,7 +1071,7 @@ export function RebirthChamber(props: ChamberProps) {
 	const ledgerColumn = (title: string, body: string, tint: Color3, x: number, icon: string) => (
 		<frame
 			Size={narrowSheet ? new UDim2(1, 0, 0.5, -4) : new UDim2(0.5, -6, 1, 0)}
-			Position={narrowSheet ? new UDim2(0, 0, x, x > 0 ? 4 : 0) : new UDim2(x, x > 0 ? 6 : 0, 0, 0)}
+			LayoutOrder={x > 0 ? 1 : 0}
 			BackgroundColor3={Palette.ink}
 			BackgroundTransparency={0.3}
 			BorderSizePixel={0}
@@ -1050,17 +1079,29 @@ export function RebirthChamber(props: ChamberProps) {
 		>
 			<uicorner CornerRadius={new UDim(0, 10)} />
 			<uistroke Color={tint} Transparency={0.55} />
-			<Icon kind={icon} size={22} position={UDim2.fromOffset(10, 10)} zIndex={906} />
+			<uipadding PaddingTop={new UDim(0, 10)} PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 12)} PaddingBottom={new UDim(0, 6)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+			<frame key="Head" Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} VerticalAlignment={Enum.VerticalAlignment.Center} />
+				<frame key="Icon" Size={UDim2.fromOffset(22, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<Icon kind={icon} size={22} zIndex={906} />
+				</frame>
+				<frame key="Title" Size={new UDim2(0, 0, 0, 14)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 			<Text
 				value={title}
 				size={10}
 				color={tint}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
-				position={UDim2.fromOffset(40, 13)}
-				sizeConstraint={new UDim2(1, -50, 0, 14)}
+				sizeConstraint={new UDim2(1, 0, 0, 14)}
 				zIndex={906}
 			/>
+				</frame>
+			</frame>
+			<frame key="Copy" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<uipadding PaddingLeft={new UDim(0, 2)} />
 			<Text
 				value={body}
 				size={11}
@@ -1068,10 +1109,10 @@ export function RebirthChamber(props: ChamberProps) {
 				wrap={true}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(12, 38)}
-				sizeConstraint={new UDim2(1, -24, 1, -44)}
+				sizeConstraint={UDim2.fromScale(1, 1)}
 				zIndex={906}
 			/>
+			</frame>
 		</frame>
 	);
 	const keepNames: string[] = [];
@@ -1088,6 +1129,7 @@ export function RebirthChamber(props: ChamberProps) {
 	}
 	sections.ledger = (
 		<Section name="RebirthLedger" order={5} height={22 + (narrowSheet ? 196 : stack ? 120 : 96)} title="What stays, what goes">
+			<uilistlayout FillDirection={narrowSheet ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, narrowSheet ? 8 : 12)} />
 			{ledgerColumn("You keep", keepCopy, Palette.mint, 0, "Check.rebirthKeeps")}
 			{ledgerColumn(
 				"Resets",
@@ -1172,47 +1214,65 @@ export function RebirthChamber(props: ChamberProps) {
 			>
 				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
-				<ChargeDial size={shortSheet ? 40 : 54} position={UDim2.fromOffset(16, shortSheet ? 9 : 14)} accent={accent} fill={ignite} charge={ignite} zIndex={903}>
-					<Icon kind="Rebirth.rebirthChamber" size={shortSheet ? 26 : 34} position={UDim2.fromOffset(7, 7)} zIndex={904} />
-				</ChargeDial>
-				<Text
-					value={igniting ? "Igniting" : confirming ? "Check your rebirth" : `Rebirth ${(tonumber(info.Lifetime) ?? 0) + 1}`}
-					size={10}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
-					fit={false}
-					position={UDim2.fromOffset(shortSheet ? 66 : 84, shortSheet ? 8 : 18)}
-					sizeConstraint={new UDim2(1, -((shortSheet ? 66 : 84) + TapTarget + 20), 0, 14)}
-					zIndex={903}
-				/>
-				<Text
-					value={igniting ? "Stop now or the run resets." : confirming ? "Press again to ignite." : "End this run"}
-					size={stack ? 18 : 22}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					fit={narrowSheet || shortSheet}
-					minSize={12}
-					position={UDim2.fromOffset(shortSheet ? 66 : 84, shortSheet ? 22 : 34)}
-					sizeConstraint={new UDim2(1, -((shortSheet ? 66 : 84) + TapTarget + 20), 0, shortSheet ? 26 : 28)}
-					zIndex={903}
-				/>
-				<Button
-					text=""
-					icon="Close.rebirthChamber"
-					onClick={close}
-					color={Palette.panelSoft}
-					textColor={Palette.cream}
-					outline={true}
-					size={UDim2.fromOffset(TapTarget, TapTarget)}
-					position={new UDim2(1, -(TapTarget + 16), 0, shortSheet ? 7 : 18)}
-					reducedMotion={softMotion}
-					disabled={igniting || busy}
-					zIndex={903}
-				/>
+				{/* header, body, claim bar: one vertical list (the sheet's own enter motion is untouched) */}
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame key="Header" Size={new UDim2(1, 0, 0, headerH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ZIndex={903}>
+					<uipadding PaddingLeft={new UDim(0, 16)} PaddingRight={new UDim(0, 16)} PaddingTop={new UDim(0, shortSheet ? 7 : 14)} />
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, shortSheet ? 10 : 14)} />
+					<frame key="Dial" Size={UDim2.fromOffset(shortSheet ? 40 : 54, shortSheet ? 40 : 54)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+						<ChargeDial size={shortSheet ? 40 : 54} accent={accent} fill={ignite} charge={ignite} zIndex={903}>
+							<Icon kind="Rebirth.rebirthChamber" size={shortSheet ? 26 : 34} position={UDim2.fromOffset(7, 7)} zIndex={904} />
+						</ChargeDial>
+					</frame>
+					<frame key="Copy" Size={new UDim2(0, 0, 0, shortSheet ? 42 : 48)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<uipadding PaddingTop={new UDim(0, shortSheet ? 1 : 4)} />
+						<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} />
+						<Slot height={14} layoutOrder={0}>
+							<Text
+								value={igniting ? "Igniting" : confirming ? "Check your rebirth" : `Rebirth ${(tonumber(info.Lifetime) ?? 0) + 1}`}
+								size={10}
+								color={accent}
+								weight={Enum.FontWeight.Heavy}
+								fit={false}
+								sizeConstraint={new UDim2(1, 0, 0, 14)}
+								zIndex={903}
+							/>
+						</Slot>
+						<Slot height={shortSheet ? 26 : 28} layoutOrder={1}>
+							<Text
+								value={igniting ? "Stop now or the run resets." : confirming ? "Press again to ignite." : "End this run"}
+								size={stack ? 18 : 22}
+								color={Palette.cream}
+								weight={Enum.FontWeight.Heavy}
+								fit={narrowSheet || shortSheet}
+								minSize={12}
+								sizeConstraint={new UDim2(1, 0, 0, shortSheet ? 26 : 28)}
+								zIndex={903}
+							/>
+						</Slot>
+					</frame>
+					<frame key="Close" Size={UDim2.fromOffset(TapTarget, TapTarget)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+						<Button
+							text=""
+							icon="Close.rebirthChamber"
+							onClick={close}
+							color={Palette.panelSoft}
+							textColor={Palette.cream}
+							outline={true}
+							size={UDim2.fromScale(1, 1)}
+							reducedMotion={softMotion}
+							disabled={igniting || busy}
+							zIndex={903}
+						/>
+					</frame>
+				</frame>
+				<frame key="BodyHost" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} ZIndex={902}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<uipadding PaddingLeft={new UDim(0, 20)} PaddingRight={new UDim(0, 8)} />
 				<scrollingframe
 					key="Body"
-					Position={UDim2.fromOffset(20, headerH)}
-					Size={new UDim2(1, -28, 1, -(headerH + footerH + 6))}
+					Size={UDim2.fromScale(1, 1)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					CanvasSize={UDim2.fromOffset(0, 0)}
@@ -1237,56 +1297,70 @@ export function RebirthChamber(props: ChamberProps) {
 						sections
 					)}
 				</scrollingframe>
-				<frame
-					key="RebirthClaimActions"
-					AnchorPoint={new Vector2(0, 1)}
-					Position={new UDim2(0, 20, 1, shortSheet ? -8 : -16)}
-					Size={new UDim2(1, -40, 0, narrowSheet ? TapTarget * 2 + 18 : TapTarget + 8)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-					ZIndex={903}
-					ref={rebirthClaimHostRef}
-				>
-					<Button
-						text={claimText}
-						icon="Rebirth.rebirthIgnite"
-						onClick={rebirth}
-						color={canRebirth ? accent : Palette.panelSoft}
-						textColor={canRebirth ? Palette.ink : Palette.muted}
-						size={new UDim2(claimShare, narrowSheet ? 0 : -6, 0, TapTarget)}
-						reducedMotion={softMotion}
-						disabled={!canRebirth || busy}
-						loading={busy}
-						shakeToken={shakeToken}
-						highlight={canRebirth && !igniting && !softMotion}
-						zIndex={904}
-					/>
+				</frame>
+				<frame key="Footer" Size={new UDim2(1, 0, 0, claimH + 6 + (shortSheet ? 8 : 16))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2} ZIndex={903}>
+					<uipadding PaddingTop={new UDim(0, 6)} PaddingLeft={new UDim(0, 20)} PaddingRight={new UDim(0, 20)} PaddingBottom={new UDim(0, shortSheet ? 8 : 16)} />
 					<frame
-						key="IgnitionBar"
-						Size={ignite.map((amount) => new UDim2(claimShare * amount, narrowSheet ? 0 : -6, 0, 4))}
-						Position={UDim2.fromOffset(0, TapTarget + 3)}
-						BackgroundColor3={Palette.mango}
+						key="RebirthClaimActions"
+						Size={UDim2.fromScale(1, 1)}
+						BackgroundTransparency={1}
 						BorderSizePixel={0}
-						Visible={igniting}
-						ZIndex={904}
+						ClipsDescendants={false}
+						ZIndex={903}
+						ref={rebirthClaimHostRef}
 					>
-						<uicorner CornerRadius={new UDim(1, 0)} />
+						{/* claim column (button + ignition bar) | stop; stacked on narrow sheets */}
+						<uilistlayout
+							FillDirection={narrowSheet ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
+							SortOrder={Enum.SortOrder.LayoutOrder}
+							Padding={new UDim(0, narrowSheet ? 3 : 12)}
+						/>
+						<frame key="Claim" Size={new UDim2(claimShare, narrowSheet ? 0 : -6, 0, TapTarget + 7)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={false}>
+							<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
+							<frame key="Button" Size={new UDim2(1, 0, 0, TapTarget)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={false}>
+								<Button
+									text={claimText}
+									icon="Rebirth.rebirthIgnite"
+									onClick={rebirth}
+									color={canRebirth ? accent : Palette.panelSoft}
+									textColor={canRebirth ? Palette.ink : Palette.muted}
+									size={UDim2.fromScale(1, 1)}
+									reducedMotion={softMotion}
+									disabled={!canRebirth || busy}
+									loading={busy}
+									shakeToken={shakeToken}
+									highlight={canRebirth && !igniting && !softMotion}
+									zIndex={904}
+								/>
+							</frame>
+							<frame
+								key="IgnitionBar"
+								Size={ignite.map((amount) => new UDim2(math.clamp(amount, 0, 1), 0, 0, 4))}
+								BackgroundColor3={Palette.mango}
+								BorderSizePixel={0}
+								Visible={igniting}
+								LayoutOrder={1}
+								ZIndex={904}
+							>
+								<uicorner CornerRadius={new UDim(1, 0)} />
+							</frame>
+						</frame>
+						<frame key="Stop" Size={narrowSheet ? new UDim2(1, 0, 0, TapTarget) : new UDim2(1 - claimShare, -6, 0, TapTarget)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} ClipsDescendants={false}>
+							<Button
+								text={igniting ? "Stop" : confirming ? "Cancel" : "Close"}
+								icon="Close.rebirthIgniteStop"
+								onClick={igniting ? cancelIgnition : confirming ? () => setConfirming(false) : close}
+								sound={igniting ? undefined : "close"}
+								color={Palette.panelSoft}
+								textColor={Palette.cream}
+								outline={true}
+								size={UDim2.fromScale(1, 1)}
+								reducedMotion={softMotion}
+								disabled={busy}
+								zIndex={904}
+							/>
+						</frame>
 					</frame>
-					<Button
-						text={igniting ? "Stop" : confirming ? "Cancel" : "Close"}
-						icon="Close.rebirthIgniteStop"
-						onClick={igniting ? cancelIgnition : confirming ? () => setConfirming(false) : close}
-						sound={igniting ? undefined : "close"}
-						color={Palette.panelSoft}
-						textColor={Palette.cream}
-						outline={true}
-						size={narrowSheet ? new UDim2(1, 0, 0, TapTarget) : new UDim2(stack ? 0.38 : 0.3, -6, 0, TapTarget)}
-						position={narrowSheet ? UDim2.fromOffset(0, TapTarget + 10) : new UDim2(stack ? 0.62 : 0.7, 6, 0, 0)}
-						reducedMotion={softMotion}
-						disabled={busy}
-						zIndex={904}
-					/>
 				</frame>
 			</frame>
 		</frame>,
