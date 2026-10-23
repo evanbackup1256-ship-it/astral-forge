@@ -9,6 +9,9 @@ import { chromeFor, darken, Layout, Palette, scrollTail, TapTarget } from "../Co
 import { useAntilag } from "../MotionKit/antilag";
 import { useEntrance, useStagger, useViewport } from "../MotionKit/motion";
 import { Icon } from "../ArtKit/Icon";
+import { HEADER_ART } from "../ArtKit/uiArt";
+import * as ForgeTheme from "../../../Shared/AstralForge/Shared/ForgeTheme";
+import { SpriteCard, SPRITE_CARD_GAP, SPRITE_CARD_H, SPRITE_CARD_W } from "./views/PortSpriteCard";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight, useTouchTargets } from "../UiCore/ui";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import TradeHistory = require("../../../Shared/AstralForge/Shared/TradeHistory");
@@ -247,6 +250,39 @@ __defs["TradeView"] = () => {
 	interface TradeRelic {
 		uid: string;
 		name: string;
+		art: RelicArt;
+	}
+
+	// 08-trading: relics show as sprite cards; rarity and element come from the item definition
+	interface RelicArt {
+		rarity: string;
+		element?: string;
+	}
+
+	const TRADE_SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
+	const TRADE_NUMERIC = Font.fromEnum(Enum.Font.GothamBold);
+
+	function relicArt(config: TradeConfig, definitionId: string): RelicArt {
+		for (const definition of config.Items?.Definitions ?? []) {
+			if (definition.Id === definitionId) {
+				const element = (definition as { Element?: unknown }).Element;
+				return { rarity: definition.Rarity ?? "Common", element: typeIs(element, "string") ? element : undefined };
+			}
+		}
+		return { rarity: "Common" };
+	}
+
+	function rarityTint(rarity: string): Color3 {
+		return (ForgeTheme.Rarity as Record<string, Color3 | undefined>)[rarity] ?? Palette.lineSoft;
+	}
+
+	// card grid height for `count` cards at a conservative column count (the pane hugs its content)
+	function relicGridHeight(count: number, columns: number): number {
+		if (count <= 0) {
+			return 0;
+		}
+		const rows = math.ceil(count / math.max(1, columns));
+		return rows * SPRITE_CARD_H + (rows - 1) * SPRITE_CARD_GAP + 12;
 	}
 
 	interface RosterRow {
@@ -265,6 +301,7 @@ __defs["TradeView"] = () => {
 		detail: string;
 		accent: Color3;
 		icon: string;
+		relic?: RelicArt;
 	}
 
 	function emptyOffer(): TradeOffer {
@@ -449,6 +486,7 @@ __defs["TradeView"] = () => {
 					detail: "Relic",
 					accent: Palette.mint,
 					icon: "Inventory.2",
+					relic: relicArt(config, preview.DefinitionId),
 				});
 			}
 		} else {
@@ -460,6 +498,7 @@ __defs["TradeView"] = () => {
 					detail: "Relic",
 					accent: Palette.mint,
 					icon: "Inventory.3",
+					relic: instance !== undefined ? relicArt(config, instance.DefinitionId) : { rarity: "Common" },
 				});
 			}
 		}
@@ -544,15 +583,15 @@ __defs["TradeView"] = () => {
 			"frame",
 			{
 				Size: new UDim2(1, 0, 0, rowH),
-				BackgroundColor3: Palette.ink,
+				BackgroundColor3: Palette.panelRaised,
 				BorderSizePixel: 0,
 				ClipsDescendants: true,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, IRON_RADIUS) }), ironFace(),
+			h("uicorner", { CornerRadius: new UDim(0, 10) }),
 			h(Stroke, {
-				color: line.accent,
+				color: Palette.line,
 				thickness: 1,
-				transparency: 0.5,
+				transparency: 0.35,
 			}),
 			h(IconTile, {
 				kind: line.icon,
@@ -564,50 +603,30 @@ __defs["TradeView"] = () => {
 				reducedMotion: true,
 			}),
 			h(Text, {
-				value: line.label,
-				size: 15,
-				color: Palette.cream,
-				weight: Enum.FontWeight.Heavy,
-				fit: true,
-				position: UDim2.fromOffset(textX, touch ? 6 : 5),
-				sizeConstraint: new UDim2(1, -(textX + 12), 0, 22),
-			}),
-			h(Text, {
 				value: line.detail,
-				size: 12,
-				color: line.accent,
-				weight: Enum.FontWeight.Bold,
+				size: 14,
+				color: Palette.cream,
+				weight: Enum.FontWeight.SemiBold,
 				fit: true,
-				position: UDim2.fromOffset(textX, touch ? 30 : 28),
-				sizeConstraint: new UDim2(1, -(textX + 12), 0, 16),
+				position: new UDim2(0, textX, 0.5, -10),
+				sizeConstraint: new UDim2(0.45, -textX, 0, 20),
 			}),
+			h(
+				"textlabel",
+				{
+					Text: line.label,
+					FontFace: TRADE_NUMERIC,
+					TextColor3: line.accent,
+					TextScaled: true,
+					TextTruncate: Enum.TextTruncate.AtEnd,
+					TextXAlignment: Enum.TextXAlignment.Right,
+					BackgroundTransparency: 1,
+					Position: new UDim2(0.45, 0, 0.5, -10),
+					Size: new UDim2(0.55, -12, 0, 20),
+				},
+				h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 9 }),
+			),
 		);
-	}
-
-	interface RelicPickProps {
-		name: string;
-		picked: boolean;
-		reducedMotion?: boolean;
-		onToggle: () => void;
-		touch?: boolean;
-	}
-
-	function RelicPick(_param: RelicPickProps) {
-		const name = _param.name;
-		const picked = _param.picked;
-		const reducedMotion = _param.reducedMotion;
-		const onToggle = _param.onToggle;
-		const touch = _param.touch ?? false;
-		return h(Button, {
-			text: `${picked ? "IN OFFER  ·  " : ""}${name}`,
-			icon: "Inventory.4",
-			onClick: onToggle,
-			color: picked ? Palette.mint : Palette.panelSoft,
-			textColor: picked ? Palette.ink : Palette.cream,
-			size: new UDim2(1, 0, 0, touch ? TapTarget : 40),
-			reducedMotion: reducedMotion,
-			highlight: picked,
-		});
 	}
 
 	function calcOfferValue(offer: unknown): number {
@@ -1441,7 +1460,7 @@ __defs["TradeView"] = () => {
 			return math.max(0, math.min(owned, per ?? owned, dailyLeft));
 		};
 		const lock = state.FeatureUnlocks?.Trade;
-		const accent = Palette.mint;
+		const accent = Palette.brass;
 		const fade = enter.map((amount) => {
 			return 1 - math.clamp(amount, 0, 1);
 		});
@@ -1481,6 +1500,7 @@ __defs["TradeView"] = () => {
 			relics.push({
 				uid: uid,
 				name: itemName(config, instance.DefinitionId),
+				art: relicArt(config, instance.DefinitionId),
 			});
 			if (relics.size() >= 40) {
 				break;
@@ -1559,6 +1579,26 @@ __defs["TradeView"] = () => {
 			session !== undefined
 				? TradeHistory.warnings(draft, session.Them, raritiesOf(draft, true), raritiesOf(session.Them, false))
 				: [];
+		// sprite-card well: cards wrap left to right and the frame grows with them
+		const relicGrid = (cards: React.ReactElement[]) =>
+			h(
+				"frame",
+				{
+					Size: new UDim2(1, 0, 0, 0),
+					AutomaticSize: Enum.AutomaticSize.Y,
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+					ClipsDescendants: false,
+				},
+				h("uipadding", { PaddingTop: new UDim(0, 6), PaddingBottom: new UDim(0, 6) }),
+				h("uigridlayout", {
+					CellSize: UDim2.fromOffset(SPRITE_CARD_W, SPRITE_CARD_H),
+					CellPadding: UDim2.fromOffset(SPRITE_CARD_GAP, SPRITE_CARD_GAP),
+					SortOrder: Enum.SortOrder.LayoutOrder,
+					FillDirectionMaxCells: 0,
+				}),
+				cards,
+			);
 		const offerBody = (editor: boolean, lines: OfferLine[]) => {
 			const clearButton =
 				editor && !offerEmpty(draft)
@@ -1666,47 +1706,81 @@ __defs["TradeView"] = () => {
 									compact: true,
 								})
 							: undefined,
-						relics.map((relic) => {
-							const picked = draft.ItemIds.indexOf(relic.uid) >= 0;
-							return h(RelicPick, {
-								key: relic.uid,
-								uid: relic.uid,
-								name: relic.name,
-								picked: picked,
-								touch: phone,
-								reducedMotion: softMotion,
-								onToggle: () => {
-									const pickedIds: string[] = [];
-									if (picked) {
-										for (const id of draft.ItemIds) {
-											if (id !== relic.uid) {
-												pickedIds.push(id);
+						relics.size() > 0
+							? relicGrid(
+									relics.map((relic, index) => {
+										const picked = draft.ItemIds.indexOf(relic.uid) >= 0;
+										const onToggle = () => {
+											const pickedIds: string[] = [];
+											if (picked) {
+												for (const id of draft.ItemIds) {
+													if (id !== relic.uid) {
+														pickedIds.push(id);
+													}
+												}
+											} else {
+												const itemCap = daily?.PerTrade?.Items ?? 6;
+												if (draft.ItemIds.size() < itemCap) {
+													for (const id of draft.ItemIds) {
+														pickedIds.push(id);
+													}
+													pickedIds.push(relic.uid);
+												} else {
+													return;
+												}
 											}
-										}
-									} else {
-										const itemCap = daily?.PerTrade?.Items ?? 6;
-										if (draft.ItemIds.size() < itemCap) {
-											for (const id of draft.ItemIds) {
-												pickedIds.push(id);
-											}
-											pickedIds.push(relic.uid);
-										} else {
-											return;
-										}
-									}
-									queueOffer({ ...draft, ItemIds: pickedIds });
-								},
-							});
-						}),
+											Audio.play("tick");
+											queueOffer({ ...draft, ItemIds: pickedIds });
+										};
+										return h(SpriteCard, {
+											key: relic.uid,
+											name: relic.name,
+											rarity: relic.art.rarity,
+											color: rarityTint(relic.art.rarity),
+											element: relic.art.element,
+											iconKind: "Inventory.4",
+											selected: picked,
+											tag: picked ? "In" : undefined,
+											tagColor: Palette.brass,
+											reducedMotion: softMotion,
+											layoutOrder: index,
+											onSelect: onToggle,
+										});
+									}),
+								)
+							: undefined,
 					)
 				: undefined;
+			const relicLines = lines.filter((line) => line.relic !== undefined);
 			const viewerContent = !editor
-				? lines.map((line) =>
-						h(OfferRow, {
-							key: line.key,
-							line: line,
-							touch: phone,
-						}),
+				? h(
+						React.Fragment,
+						undefined,
+						relicLines.size() > 0
+							? relicGrid(
+									relicLines.map((line, index) =>
+										h(SpriteCard, {
+											key: line.key,
+											name: line.label,
+											rarity: line.relic!.rarity,
+											color: rarityTint(line.relic!.rarity),
+											element: line.relic!.element,
+											iconKind: line.icon,
+											reducedMotion: softMotion,
+											layoutOrder: index,
+										}),
+									),
+								)
+							: undefined,
+						lines
+							.filter((line) => line.relic === undefined)
+							.map((line) =>
+								h(OfferRow, {
+									key: line.key,
+									line: line,
+									touch: phone,
+								}),
+							),
 					)
 				: undefined;
 			return h(
@@ -1738,7 +1812,34 @@ __defs["TradeView"] = () => {
 			if (flow === undefined) {
 				flow = false;
 			}
-			const paneAccent = editor ? accent : Palette.cyan;
+			const paneTitle = (value: string, size: UDim2) =>
+				h(
+					"frame",
+					{ Size: size, BackgroundTransparency: 1, BorderSizePixel: 0 },
+					h("frame", {
+						Size: UDim2.fromOffset(7, 7),
+						Position: new UDim2(0, 4, 0.5, 0),
+						AnchorPoint: new Vector2(0.5, 0.5),
+						Rotation: 45,
+						BackgroundColor3: Palette.brass,
+						BorderSizePixel: 0,
+					}),
+					h(
+						"textlabel",
+						{
+							Text: value.upper(),
+							FontFace: TRADE_SERIF,
+							TextColor3: Palette.cream,
+							TextScaled: true,
+							TextTruncate: Enum.TextTruncate.AtEnd,
+							TextXAlignment: Enum.TextXAlignment.Left,
+							BackgroundTransparency: 1,
+							Position: UDim2.fromOffset(16, 0),
+							Size: new UDim2(1, -16, 1, 0),
+						},
+						h("uitextsizeconstraint", { MaxTextSize: 14, MinTextSize: 9 }),
+					),
+				);
 			const header = flow
 				? h(
 						"frame",
@@ -1749,14 +1850,7 @@ __defs["TradeView"] = () => {
 							ZIndex: 4,
 							LayoutOrder: 0,
 						},
-						h(Text, {
-							value: title,
-							size: 14,
-							color: paneAccent,
-							weight: Enum.FontWeight.Heavy,
-							fit: true,
-							sizeConstraint: new UDim2(1, 0, 0, 20),
-						}),
+						paneTitle(title, new UDim2(1, 0, 0, 20)),
 						h(Text, {
 							value: partnerName,
 							size: 13,
@@ -1782,14 +1876,7 @@ __defs["TradeView"] = () => {
 							ZIndex: 4,
 							LayoutOrder: 0,
 						},
-						h(Text, {
-							value: title,
-							size: 13,
-							color: paneAccent,
-							weight: Enum.FontWeight.Heavy,
-							fit: true,
-							sizeConstraint: new UDim2(1, -120, 0, 18),
-						}),
+						paneTitle(title, new UDim2(1, -120, 0, 18)),
 						h(Text, {
 							value: partnerName,
 							size: 12,
@@ -1820,26 +1907,49 @@ __defs["TradeView"] = () => {
 					LayoutOrder: flowOrder,
 				},
 				h("uicorner", {
-					CornerRadius: new UDim(0, 14),
+					CornerRadius: new UDim(0, 18),
 				}),
 				h(Stroke, {
-					color: paneAccent,
+					color: Palette.line,
 					thickness: 1,
-					transparency: 0.42,
+					transparency: 0.2,
 				}),
-				h("uipadding", {
-					PaddingTop: new UDim(0, 12),
-					PaddingBottom: new UDim(0, 12),
-					PaddingLeft: new UDim(0, 12),
-					PaddingRight: new UDim(0, 12),
-				}),
-				h("uilistlayout", {
-					FillDirection: Enum.FillDirection.Vertical,
-					SortOrder: Enum.SortOrder.LayoutOrder,
-					Padding: new UDim(0, 8),
-				}),
-				header,
-				offerBody(editor, lines),
+				// brass inner rule (03-forge card treatment); the list lives in its own child so the rule stays out of the flow
+				h(
+					"frame",
+					{
+						Size: new UDim2(1, -6, 1, -6),
+						Position: UDim2.fromScale(0.5, 0.5),
+						AnchorPoint: new Vector2(0.5, 0.5),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+					},
+					h("uicorner", { CornerRadius: new UDim(0, 15) }),
+					h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 }),
+				),
+				h(
+					"frame",
+					{
+						Size: new UDim2(1, 0, 0, 0),
+						AutomaticSize: Enum.AutomaticSize.Y,
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+						ClipsDescendants: false,
+					},
+					h("uipadding", {
+						PaddingTop: new UDim(0, 12),
+						PaddingBottom: new UDim(0, 12),
+						PaddingLeft: new UDim(0, 12),
+						PaddingRight: new UDim(0, 12),
+					}),
+					h("uilistlayout", {
+						FillDirection: Enum.FillDirection.Vertical,
+						SortOrder: Enum.SortOrder.LayoutOrder,
+						Padding: new UDim(0, 8),
+					}),
+					header,
+					offerBody(editor, lines),
+				),
 			);
 		};
 		const dailyLimit = daily?.Limit ?? config.Trading?.DailyTrades;
@@ -1981,9 +2091,8 @@ __defs["TradeView"] = () => {
 				h(Button, {
 					text: "CANCEL",
 					onClick: onCancelClick,
-					color: Palette.coral,
-					textColor: Palette.coral,
-					outline: true,
+					color: Palette.panelRaised,
+					textColor: Palette.cream,
 					size: UDim2.fromScale(1, 1),
 					disabled: busy !== "",
 					loading: busy === "CancelTrade",
@@ -2123,16 +2232,122 @@ __defs["TradeView"] = () => {
 						: undefined,
 			);
 		});
+		// 08-trading hero: market header art behind a serif title, eyebrow names the partner when a table is open
+		const heroH = compactTrade ? 72 : 104;
+		const tradeHero = (eyebrow: string, subline: string) =>
+			h(
+				"frame",
+				{
+					Size: UDim2.fromScale(1, 1),
+					BackgroundColor3: Palette.panel,
+					BorderSizePixel: 0,
+					ClipsDescendants: true,
+				},
+				h("uicorner", { CornerRadius: new UDim(0, 18) }),
+				h(Stroke, { color: Palette.line, thickness: 1, transparency: 0.2 }),
+				h(
+					"imagelabel",
+					{
+						Size: UDim2.fromScale(1, 1),
+						BackgroundTransparency: 1,
+						Image: HEADER_ART.market,
+						ScaleType: Enum.ScaleType.Crop,
+						ImageTransparency: fade.map((amount) => 0.15 + amount * 0.85),
+					},
+					h("uicorner", { CornerRadius: new UDim(0, 18) }),
+					// fade the art out under the title so the text always reads
+					h("uigradient", {
+						Transparency: new NumberSequence([
+							new NumberSequenceKeypoint(0, 0.9),
+							new NumberSequenceKeypoint(0.45, 0.55),
+							new NumberSequenceKeypoint(1, 0),
+						]),
+					}),
+				),
+				h(
+					"frame",
+					{
+						Size: new UDim2(1, -6, 1, -6),
+						Position: UDim2.fromScale(0.5, 0.5),
+						AnchorPoint: new Vector2(0.5, 0.5),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+					},
+					h("uicorner", { CornerRadius: new UDim(0, 15) }),
+					h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 }),
+				),
+				h(
+					"frame",
+					{
+						Size: new UDim2(1, -36, 1, 0),
+						Position: UDim2.fromOffset(18, 0),
+						BackgroundTransparency: 1,
+						BorderSizePixel: 0,
+					},
+					h("uilistlayout", {
+						FillDirection: Enum.FillDirection.Vertical,
+						VerticalAlignment: Enum.VerticalAlignment.Center,
+						SortOrder: Enum.SortOrder.LayoutOrder,
+						Padding: new UDim(0, compactTrade ? 1 : 3),
+					}),
+					h(
+						"textlabel",
+						{
+							Text: eyebrow.upper(),
+							FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
+							TextColor3: Palette.brass,
+							TextSize: 11,
+							TextTransparency: fade,
+							TextTruncate: Enum.TextTruncate.AtEnd,
+							TextXAlignment: Enum.TextXAlignment.Left,
+							BackgroundTransparency: 1,
+							Size: new UDim2(1, 0, 0, 14),
+							LayoutOrder: 1,
+						},
+					),
+					h(
+						"textlabel",
+						{
+							Text: "Trading",
+							FontFace: TRADE_SERIF,
+							TextColor3: Palette.cream,
+							TextSize: compactTrade ? 24 : 32,
+							TextTransparency: fade,
+							TextXAlignment: Enum.TextXAlignment.Left,
+							BackgroundTransparency: 1,
+							Size: new UDim2(1, 0, 0, compactTrade ? 28 : 38),
+							LayoutOrder: 2,
+						},
+					),
+					!compactTrade
+						? h("textlabel", {
+								Text: subline,
+								FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Medium),
+								TextColor3: Palette.creamSoft,
+								TextSize: 13,
+								TextTransparency: fade,
+								TextTruncate: Enum.TextTruncate.AtEnd,
+								TextXAlignment: Enum.TextXAlignment.Left,
+								BackgroundTransparency: 1,
+								Size: new UDim2(1, 0, 0, 16),
+								LayoutOrder: 3,
+							})
+						: undefined,
+				),
+			);
 		if (session !== undefined) {
 			const pinnedActions = buildConfirmActions(compactTrade ? "vertical" : "horizontal");
 			const stepRow = phone ? TapTarget + 10 : 48;
 			const lineRow = phone ? 64 : 58;
+			// heights assume two cards across (the narrowest pane), so the floor never undershoots
 			const offerFloor = (editor: boolean, lines: OfferLine[]): number => {
 				const header = 96;
 				if (!editor) {
-					return header + math.max(lines.size(), 1) * lineRow + 24;
+					const relicCount = lines.filter((line) => line.relic !== undefined).size();
+					const rest = lines.size() - relicCount;
+					return header + math.max(rest, relicCount > 0 ? 0 : 1) * lineRow + relicGridHeight(relicCount, 2) + 24;
 				}
-				return header + 40 + 6 * stepRow + 140 + math.min(relics.size(), 24) * stepRow;
+				return header + 40 + 6 * stepRow + 140 + relicGridHeight(relics.size(), 2);
 			};
 			const youFloor = offerFloor(true, yourLines);
 			const themFloor = offerFloor(false, theirLines);
@@ -2163,6 +2378,11 @@ __defs["TradeView"] = () => {
 						tailPad: scrollTail(true, chrome.bottomSafe, chrome.landscape ? 16 : 20),
 						gap: chrome.landscape ? 8 : Layout.stackGap,
 						sections: [
+							{
+								id: "hero",
+								height: heroH,
+								element: tradeHero(`Trade with ${session.PartnerName}`, "Both sides lock in before anything moves."),
+							},
 							{
 								id: "status",
 								height: (chrome.landscape ? 52 : 60) + (tradeWarnings.size() > 0 ? 40 : 0),
@@ -2275,11 +2495,11 @@ __defs["TradeView"] = () => {
 								height: offerContentFloor,
 								element: compactTrade ? (
 									offerTab === "You" ? (
-										offerPane("Your offer", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true)
+										offerPane("You give", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true)
 									) : (
 										offerPane(
-											`${session.PartnerName}\'s offer`,
-											session.ThemReady === true ? "They locked their side" : "Still arranging",
+											"You get",
+											session.ThemReady === true ? `${session.PartnerName} is ready` : `${session.PartnerName} is still choosing`,
 											session.ThemReady,
 											session.ThemConfirmed,
 											theirLines,
@@ -2303,7 +2523,7 @@ __defs["TradeView"] = () => {
 												BackgroundTransparency: 1,
 												BorderSizePixel: 0,
 											},
-											offerPane("Your offer", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true),
+											offerPane("You give", `${yourLines.size()} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true),
 										),
 										h(
 											"frame",
@@ -2315,8 +2535,8 @@ __defs["TradeView"] = () => {
 												BorderSizePixel: 0,
 											},
 											offerPane(
-												`${session.PartnerName}\'s offer`,
-												session.ThemReady === true ? "They locked their side" : "Still arranging",
+												"You get",
+												session.ThemReady === true ? `${session.PartnerName} is ready` : `${session.PartnerName} is still choosing`,
 												session.ThemReady,
 												session.ThemConfirmed,
 												theirLines,
@@ -2599,6 +2819,11 @@ __defs["TradeView"] = () => {
 		const rosterStride = rosterRowH + (chrome.landscape ? 8 : Layout.stackGap);
 		const rosterFloor = visibleRows.size() === 0 ? 140 : visibleRows.size() * rosterStride;
 		const sections: { id: string; height: number; element: unknown; fill?: boolean; minHeight?: number }[] = [
+			{
+				id: "hero",
+				height: heroH,
+				element: tradeHero("Social", "Both sides lock in before anything moves."),
+			},
 			{
 				id: "daily",
 				height: 22,
