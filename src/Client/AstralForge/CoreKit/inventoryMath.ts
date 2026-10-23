@@ -17,8 +17,11 @@ function truthy<T>(value: T): value is Exclude<T, undefined | false> {
 
 export const AUTO_RARITIES = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"];
 
-export const ROW_H = 112;
+// relic sprite cards (port brief 04-inventory): a card grid, each grid row is one list row
+export const ROW_H = 132;
 export const ROW_H_STACK = 132;
+export const RELIC_CARD_W = 104;
+export const RELIC_CARD_GAP = 10;
 
 export interface ItemDefinition {
 	Id?: string;
@@ -58,6 +61,28 @@ interface RarityConfig {
 
 export function RelicRowHeight(stack: boolean): number {
 	return stack ? ROW_H_STACK : ROW_H;
+}
+
+// cards across a grid of `width` px (at least two, so a 286px phone still gets a grid)
+export function RelicGridColumns(width: number): number {
+	if (width <= 0) {
+		return 5;
+	}
+	return math.max(2, math.floor((width - 8 + RELIC_CARD_GAP) / (RELIC_CARD_W + RELIC_CARD_GAP)));
+}
+
+// splits a list into grid rows of `columns` items, in order
+export function RelicGridRows<T extends defined>(items: ReadonlyArray<T>, columns: number): T[][] {
+	const rows: T[][] = [];
+	const across = math.max(1, columns);
+	for (let index = 0; index < items.size(); index++) {
+		const row = math.floor(index / across);
+		if (rows[row] === undefined) {
+			rows[row] = [];
+		}
+		rows[row].push(items[index]);
+	}
+	return rows;
 }
 
 function rarityEntry(config: unknown, rarity: unknown): { Rank?: unknown; Color?: unknown } | undefined {
