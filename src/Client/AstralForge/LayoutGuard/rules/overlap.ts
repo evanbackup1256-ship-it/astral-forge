@@ -34,6 +34,8 @@ export function surfaceIndex(snap: Snapshot): [RectIndex, Map<number, GNode>] {
 	const map = new Map<number, GNode>();
 	for (const n of snap.nodes) {
 		if (!n.visible || !n.valid || !n.drawn || n.opacity > 0.35) continue;
+		// LayoutGuardIgnore subtrees (scroll edge fades, shimmer glints) are decoration, never a covering surface
+		if (n.suppress.has("*")) continue;
 		if (G.area(n.rect) < 400) continue;
 		items.push({ id: n.id, rect: visibleRect(n) });
 		map.set(n.id, n);
@@ -77,7 +79,7 @@ export const ActionCollision: Rule = {
 		for (const l of snap.layers) layerArea.set(l.id, G.area(l.rect));
 		const shield = ctx.param("shieldShare", 0.8);
 		const actions = eligible(snap, "ActionCollision", (n) => {
-			if (!n.interactive) return false;
+			if (!n.interactive || n.suppress.has("Scrim")) return false;
 			const a = G.area(hitArea(n));
 			// a full-screen click shield (modal backdrop) is not a control that can collide
 			return a > 0 && a < (layerArea.get(n.layer) ?? math.huge) * shield;

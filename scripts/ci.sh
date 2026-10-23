@@ -66,6 +66,18 @@ if [ -n "$style_bad" ]; then
 fi
 log "   ok"
 
+# UI layout guard: static checks on src/Client (list children with Position, missing LayoutOrder,
+# Scale inside AutomaticSize, negative sizes, dead ScrollingFrames, legacy IconTile/Panel). Only findings
+# not in scripts/ui_layout_baseline.json fail CI.
+log "== ui layout guard"
+uil_out=$(node scripts/check_ui_layout.js 2>&1)
+status=$?
+printf '%s\n' "$uil_out" | tee -a "$REPORT"
+if [ "$status" -ne 0 ]; then
+	log "ci: new ui layout findings"
+	exit 1
+fi
+
 # Import cycle guard: roblox-ts aborts the whole require chain on a circular top-level import
 # ("Failed to import! Detected a circular dependency chain"), so any cycle in out/ fails CI.
 log "== legacy ui guard"

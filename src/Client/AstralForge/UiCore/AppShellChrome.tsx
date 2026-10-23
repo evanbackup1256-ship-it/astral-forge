@@ -240,6 +240,8 @@ function AppShell(props: ShellProps) {
 	const chrome = chromeFor(viewport);
 	const drawerNav = chrome.stack || (!viewport.desktop && UserInputService.TouchEnabled && viewport.compact);
 	const page = useClientSelector((client) => client.navigation.page);
+	// the boot card paints above the shell until it fades; hold the offline receipt until it is gone
+	const bootCardVisible = useClientSelector((client) => client.boot.visible) === true;
 	const dispatchStore = useClientDispatch();
 	const setPage = React.useCallback((nextPage: string) => dispatchStore(ClientActions.navigate(nextPage)), [dispatchStore]);
 	React.useEffect(() => { setPresencePage(page); }, [page]);
@@ -341,7 +343,7 @@ function AppShell(props: ShellProps) {
 	const bootUp = useClientSelector((client) => client.boot.visible);
 	const offlineRewardsOpen = !bootUp && offlineReceiptKey !== "" && !offlineDismissed && state.Flags.TutorialDone === true
 		&& gteFlux(state.Offline?.Reward ?? 0, 0.01) && !showRelease && page !== "Credits" && crateReveal === undefined
-		&& !playerlistOpen && !feedbackOpen && !domainOverlayActive;
+		&& !playerlistOpen && !feedbackOpen && !domainOverlayActive && !bootCardVisible;
 	const modalOwnsScreen = tutorialOpen || showRelease || page === "Credits" || crateReveal !== undefined || domainOverlayActive;
 	React.useEffect(() => {
 		setToastsSuppressed(modalOwnsScreen);

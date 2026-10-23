@@ -30,7 +30,7 @@ export function finding(
 const backdropCache = new WeakMap<Snapshot, GNode[]>();
 
 /**
- * Active modal backdrops: visible interactive click shields covering (nearly) the whole layer
+ * Active modal backdrops (and nodes tagged LayoutGuardSuppress="Scrim"): visible interactive click shields covering (nearly) the whole layer
  * (offline rewards, player list, dialogs). Everything painted beneath one is dimmed on purpose
  * while the modal is open, so rules skip it instead of reporting the HUD as overlapped.
  */
@@ -41,7 +41,13 @@ function modalBackdrops(snap: Snapshot): GNode[] {
 	for (const l of snap.layers) layerArea.set(l.id, area(l.rect));
 	const out: GNode[] = [];
 	for (const n of snap.nodes) {
-		if (!n.visible || !n.valid || !n.interactive || n.opacity >= 0.995) continue;
+		if (!n.visible || !n.valid || !n.interactive) continue;
+		// tagged partial scrims (the tutorial spotlight's four dim bands) count as a backdrop at any size
+		if (n.suppress.has("Scrim")) {
+			out.push(n);
+			continue;
+		}
+		if (n.opacity >= 0.995) continue;
 		if (area(n.rect) >= (layerArea.get(n.layer) ?? math.huge) * 0.9) out.push(n);
 	}
 	backdropCache.set(snap, out);
@@ -53,6 +59,12 @@ export function underModal(snap: Snapshot, n: GNode): boolean {
 		if (b.id === n.id || isAncestor(snap, n.id, b.id)) continue;
 		// the modal's own content is a sibling of (or under) the backdrop's parent and paints above it
 		if (b.parent >= 0 && (n.parent === b.parent || isAncestor(snap, b.parent, n.id)) && n.paintOrder > b.paintOrder) continue;
+		// a partial scrim only dims what sits under it (node centre inside the band)
+		if (b.suppress.has("Scrim")) {
+			const cx = (n.rect.x0 + n.rect.x1) / 2;
+			const cy = (n.rect.y0 + n.rect.y1) / 2;
+			if (cx < b.rect.x0 || cx > b.rect.x1 || cy < b.rect.y0 || cy > b.rect.y1) continue;
+		}
 		const below = b.displayOrder !== n.displayOrder ? b.displayOrder > n.displayOrder : b.paintOrder > n.paintOrder;
 		if (below) return true;
 	}

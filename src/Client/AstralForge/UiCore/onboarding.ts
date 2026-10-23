@@ -506,13 +506,14 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 	}, [copy]);
 
 	// the dim around the target (blocks taps outside it, never takes gamepad focus)
+	const tagScrim = (inst: Instance | undefined) => {
+		if (inst !== undefined) inst.SetAttribute("LayoutGuardSuppress", "Scrim");
+	};
 	const dim = (key: string, sizeFn: (f: GuideFrame) => UDim2, posFn: (f: GuideFrame) => UDim2) =>
 		h("textbutton", {
 			key: key,
-			// the four spotlight scrims are deliberate input shields around the target: tell
-			// LayoutGuard they are not content (they were reported as ActionCollision with the top
-			// bar, quick actions, level bar and every control they dim)
-			ref: (instance: Instance | undefined) => instance?.SetAttribute("LayoutGuardIgnore", true),
+			// a dim band of the spotlight: blocks input on purpose, so LayoutGuard treats it as a modal scrim
+			ref: tagScrim,
 			Text: "",
 			AutoButtonColor: false,
 			Selectable: false,

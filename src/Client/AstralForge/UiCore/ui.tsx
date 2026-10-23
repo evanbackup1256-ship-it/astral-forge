@@ -901,7 +901,8 @@ export function QuantityStepper(props: {
 export const SCROLL_EDGE = 18;
 export function ScrollEdgeFade({ color = Palette.ink, height = SCROLL_EDGE, zIndex = 200 }: { color?: Color3; height?: number; zIndex?: number }) {
 	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex} Active={false}>
+		// decorative fade over the scroll edges: never an occluder for LayoutGuard
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex} Active={false} ref={pinLayoutGuardIgnore}>
 			<frame
 				Size={new UDim2(1, 0, 0, height)}
 				Position={UDim2.fromOffset(0, 0)}
