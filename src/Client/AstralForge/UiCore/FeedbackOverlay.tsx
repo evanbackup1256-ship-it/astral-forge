@@ -5,7 +5,8 @@ import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import { revealOffset, usePresence, useStagger, useViewport } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
-import { Button, IconTile, OverlayPresence, SegmentedTabs, Text, segmentedHeight, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
+import { Glyph, Line, spaced } from "./mockKit";
+import { Button, OverlayPresence, TITLE_FACE, SegmentedTabs, Text, segmentedHeight, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -83,7 +84,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			mountedRef.current = false;
 		};
 	}, []);
-	const headerReveal = useStagger(0, softMotion);
+	useStagger(0, softMotion);
 	const footerReveal = useStagger(1, softMotion);
 	const [motion, closing, beginExit] = usePresence(softMotion);
 	const side = chrome.sideSafe + 16;
@@ -91,8 +92,8 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 	const safeHeight = math.max(1, viewport.height - viewport.topInset - chrome.bottomSafe - 16);
 	const height = math.min(keyboardCompact ? 210 : wideShort ? 300 : compact ? 456 : 486, safeHeight);
 	const contentHeight = math.max(1, height - 28);
-	const headerH = keyboardCompact ? 46 : compact ? 64 : 72;
-	const categoryTop = headerH + (keyboardCompact ? 0 : 8);
+	const headerH = keyboardCompact ? 46 : compact ? 30 : 34;
+	const categoryTop = headerH + (keyboardCompact ? 0 : 22);
 	const categoryColumns = narrow ? 3 : 6;
 	const categoryH = keyboardCompact ? 0 : segmentedHeight(CATEGORIES.size(), categoryColumns, viewport, 44, 8);
 	const impactTop = categoryTop + categoryH + 8;
@@ -234,7 +235,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		"frame",
 		{
 			Size: UDim2.fromScale(1, 1),
-			BackgroundColor3: Palette.panelRaised,
+			BackgroundColor3: Palette.panel,
 			BackgroundTransparency: fade,
 			BorderSizePixel: 0,
 			ZIndex: 472,
@@ -256,54 +257,23 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			Thickness: 1,
 			Transparency: motion.map((amount) => 0.55 - amount * 0.4),
 		}),
-		h(
-			"frame",
-			{
-				Size: UDim2.fromOffset(64, 2),
-				Position: UDim2.fromOffset(20, 0),
-				BackgroundColor3: sent ? Palette.mint : ACCENT,
-				BorderSizePixel: 0,
-			},
-			h("uicorner", {
-				CornerRadius: new UDim(1, 0),
-			}),
-		),
 	);
-	const _exp_3 =
-		!keyboardCompact &&
-		h(IconTile, {
-			kind: sent ? "Check" : "Chat",
-			accent: sent ? Palette.mint : ACCENT,
-			size: compact ? 44 : 50,
-			radius: 18,
-			filled: sent,
-			reveal: headerReveal,
-			reducedMotion: softMotion,
-			glow: sent && !softMotion,
-		});
+	// 23-feedback .pn h3: glyph, Cinzel caps title, close X on the right
+	const _exp_3 = !keyboardCompact && h(Glyph, { kind: sent ? "Check" : "Chat", size: 18, color: sent ? Palette.mint : Palette.mango, position: UDim2.fromOffset(0, 2 + math.floor((TapTarget - 22) / 2)) });
 	const _exp_4 =
+		!sent &&
 		!keyboardCompact &&
-		h(Text, {
-			value: sent ? "THANK YOU" : "FEEDBACK",
-			size: 11,
-			color: sent ? Palette.mint : ACCENT,
-			weight: Enum.FontWeight.Heavy,
-			fit: false,
-			position: UDim2.fromOffset(compact ? 56 : 62, 0),
-			sizeConstraint: new UDim2(1, -116, 0, 16),
-			zIndex: 474,
-			transparency: headerReveal.map((amount) => 1 - amount),
-		});
-	const _exp_5 = h(Text, {
-		value: sent ? "Got it. Thanks." : "Send feedback",
-		size: keyboardCompact ? 18 : compact ? 18 : 22,
-		color: Palette.cream,
-		weight: Enum.FontWeight.Heavy,
-		fit: true,
-		minSize: 15,
-		position: UDim2.fromOffset(keyboardCompact ? 0 : compact ? 56 : 62, keyboardCompact ? 3 : 18),
-		sizeConstraint: new UDim2(1, keyboardCompact ? -(TapTarget + 10) : -116, 0, 28),
-		zIndex: 474,
+		h(Line, { text: spaced("TYPE"), size: 12, font: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold), color: Palette.muted, position: UDim2.fromOffset(0, headerH + 2), zIndex: 475 });
+	const _exp_5 = h("textlabel", {
+		Text: spaced((sent ? "Thank you" : "Feedback").upper()),
+		TextSize: 15,
+		FontFace: TITLE_FACE,
+		TextColor3: Palette.cream,
+		TextXAlignment: Enum.TextXAlignment.Left,
+		BackgroundTransparency: 1,
+		Position: UDim2.fromOffset(keyboardCompact ? 0 : 28, math.floor((TapTarget - 22) / 2)),
+		Size: new UDim2(1, -(TapTarget + 40), 0, 22),
+		ZIndex: 474,
 	});
 	const _exp_6 = h(
 		"frame",
@@ -312,8 +282,8 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		text: "",
 		icon: "Close.14",
 		onClick: close,
-		color: Palette.ink,
-		textColor: Palette.coral,
+		color: Palette.panel,
+		textColor: Palette.muted,
 		size: UDim2.fromOffset(TapTarget, TapTarget),
 		position: new UDim2(1, -TapTarget, 0, 0),
 		reducedMotion: softMotion,
@@ -355,15 +325,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		impactRow = h(
 			"frame",
 			{ Name: "FeedbackImpact", Size: new UDim2(1, 0, 0, impactH), Position: UDim2.fromOffset(0, impactTop), BackgroundTransparency: 1, ZIndex: 474 },
-			h(Text, {
-				value: "IMPACT",
-				size: 11,
-				color: Palette.muted,
-				weight: Enum.FontWeight.Heavy,
-				fit: false,
-				sizeConstraint: new UDim2(1, 0, 0, 16),
-				zIndex: 475,
-			}),
+			h(Line, { text: spaced("IMPACT"), size: 12, font: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold), color: Palette.muted, zIndex: 475 }),
 			h(
 				"frame",
 				{ Size: new UDim2(1, 0, 0, impactTabsH), Position: UDim2.fromOffset(0, 22), BackgroundTransparency: 1, ZIndex: 475 },
@@ -391,8 +353,8 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 				Name: "FeedbackDevice",
 				Size: UDim2.fromOffset(deviceChipW, TapTarget),
 				Position: narrow ? new UDim2(0, 0, 1, -(TapTarget * 2 + 6)) : new UDim2(0, 0, 1, -TapTarget),
-				BackgroundColor3: attachDevice ? Palette.brassDeep : Palette.ink,
-				BackgroundTransparency: attachDevice ? 0.55 : 0.2,
+				BackgroundColor3: attachDevice ? Palette.mango : Palette.white,
+				BackgroundTransparency: attachDevice ? 0.8 : 0.95,
 				AutoButtonColor: false,
 				BorderSizePixel: 0,
 				Text: "",
@@ -404,8 +366,8 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 					},
 				},
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 10) }),
-			h("uistroke", { Color: attachDevice ? ACCENT : Palette.lineSoft, Transparency: attachDevice ? 0.3 : 0.6 }),
+			h("uicorner", { CornerRadius: new UDim(0, 8) }),
+			h("uistroke", { Color: attachDevice ? Palette.mango : Palette.white, Transparency: attachDevice ? 0.4 : 0.9, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 			h(Text, {
 				value: (attachDevice ? "✓  " : "") + "Attach device info",
 				size: 12,
@@ -491,8 +453,8 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 								{
 									Size: new UDim2(1, 0, 0, editorH),
 									Position: UDim2.fromOffset(0, editorTop),
-									BackgroundColor3: Palette.ink,
-									BackgroundTransparency: 0.08,
+									BackgroundColor3: Color3.fromRGB(0, 0, 0),
+									BackgroundTransparency: 0.65,
 									BorderSizePixel: 0,
 									ZIndex: 474,
 								},
@@ -502,9 +464,9 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 								h("uistroke", {
 									ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 									LineJoinMode: Enum.LineJoinMode.Round,
-									Color: Palette.lineSoft,
+									Color: Palette.white,
 									Thickness: 1,
-									Transparency: 0.45,
+									Transparency: 0.9,
 								}),
 								h("textbox", {
 									Size: new UDim2(1, -24, 1, -38),
