@@ -4,6 +4,8 @@
 // crosses your brightest Anvil for Shards; ten on the beat in a row light a surge.
 // The board you see runs the same FoundryMath the server does, so the flow drawn is the flow you get.
 import React from "@rbxts/react";
+import { RowFace, SEC } from "./mockRows";
+import { spaced } from "../UiCore/mockKit";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import * as Format from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
@@ -605,11 +607,10 @@ function Board(props: {
 
 function Chip(props: { size: UDim2; position: UDim2; color: Color3; label: string; value: string }) {
 	return (
-		<frame Size={props.size} Position={props.position} BackgroundColor3={darken(props.color, 0.78)} BorderSizePixel={0}>
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<uistroke Color={props.color} Thickness={1} Transparency={0.55} />
+		<frame Size={props.size} Position={props.position} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+			<RowFace />
 			<Ui.Text
-				value={props.label}
+				value={spaced(props.label.upper())}
 				size={11}
 				weight={Enum.FontWeight.Bold}
 				color={props.color}
@@ -788,7 +789,7 @@ function FoundryView(props: {
 	add(
 		"hero",
 		stack ? 186 : 128,
-		<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={ACCENT} background={darken(ACCENT, 0.9)}>
+		<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass} background={Palette.panel}>
 			<Ui.Text
 				value={
 					`${compact(foundry.Shards)} Shards  ·  ` +
@@ -850,7 +851,7 @@ function FoundryView(props: {
 		add(
 			"selected",
 			panelH,
-			<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={12} accent={look.color} background={Palette.panel}>
+			<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={12} accent={Palette.brass} background={Palette.panel}>
 				{narrow ? (
 					<>
 						<Ui.Text
@@ -866,7 +867,7 @@ function FoundryView(props: {
 							onClick={() => setSelected(undefined)}
 							size={UDim2.fromOffset(36, 26)}
 							position={new UDim2(1, -36, 0, -2)}
-							color={Palette.panelSoft}
+							color={SEC}
 							reducedMotion={softMotion}
 						/>
 						<Ui.Text
@@ -878,30 +879,30 @@ function FoundryView(props: {
 						/>
 						<frame Size={new UDim2(1, 0, 0, 36)} Position={UDim2.fromOffset(0, 38)} BackgroundTransparency={1}>
 							<Ui.Button
-								text="⟲ LEFT"
+								text="⟲ Left"
 								onClick={() => act({ Op: "rotate", At: selected, Back: true }, true)}
 								size={new UDim2(0.28, -4, 1, 0)}
 								position={new UDim2(0, 0, 0, 0)}
-								color={Palette.panelSoft}
+								color={SEC}
 								reducedMotion={softMotion}
 							/>
 							<Ui.Button
-								text="⟳ RIGHT"
+								text="⟳ Right"
 								onClick={() => act({ Op: "rotate", At: selected }, true)}
 								size={new UDim2(0.28, -4, 1, 0)}
 								position={new UDim2(0.28, 0, 0, 0)}
-								color={Palette.panelSoft}
+								color={SEC}
 								reducedMotion={softMotion}
 							/>
 							<Ui.Button
-								text="TO BENCH"
+								text="To bench"
 								onClick={() => {
 									act({ Op: "store", From: selected }, true);
 									setSelected(undefined);
 								}}
 								size={new UDim2(0.44, 0, 1, 0)}
 								position={new UDim2(0.56, 4, 0, 0)}
-								color={Palette.panelSoft}
+								color={SEC}
 								reducedMotion={softMotion}
 								disabled={benchFull}
 							/>
@@ -927,7 +928,7 @@ function FoundryView(props: {
 							onClick={() => act({ Op: "rotate", At: selected, Back: true }, true)}
 							size={UDim2.fromOffset(56, 40)}
 							position={new UDim2(1, -320, 0, 0)}
-							color={Palette.panelSoft}
+							color={SEC}
 							reducedMotion={softMotion}
 						/>
 						<Ui.Button
@@ -935,18 +936,18 @@ function FoundryView(props: {
 							onClick={() => act({ Op: "rotate", At: selected }, true)}
 							size={UDim2.fromOffset(56, 40)}
 							position={new UDim2(1, -258, 0, 0)}
-							color={Palette.panelSoft}
+							color={SEC}
 							reducedMotion={softMotion}
 						/>
 						<Ui.Button
-							text="TO BENCH"
+							text="To bench"
 							onClick={() => {
 								act({ Op: "store", From: selected }, true);
 								setSelected(undefined);
 							}}
 							size={UDim2.fromOffset(120, 40)}
 							position={new UDim2(1, -196, 0, 0)}
-							color={Palette.panelSoft}
+							color={SEC}
 							reducedMotion={softMotion}
 							disabled={benchFull}
 						/>
@@ -957,7 +958,7 @@ function FoundryView(props: {
 							onClick={() => setSelected(undefined)}
 							size={UDim2.fromOffset(64, 40)}
 							position={new UDim2(1, -68, 0, 0)}
-							color={Palette.panelSoft}
+							color={SEC}
 							reducedMotion={softMotion}
 						/>
 					</>
@@ -974,7 +975,7 @@ function FoundryView(props: {
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 			<frame {...named("FoundryIgnite")} ref={igniteHostRef} Size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.4, -8, 0, buttonH)} Position={UDim2.fromOffset(0, 0)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
 				<Ui.Button
-					text={surgeLeft > 0 ? `SURGE ${math.ceil(surgeLeft)}s · IGNITE` : combo > 0 ? `IGNITE · ×${combo}` : "IGNITE"}
+					text={surgeLeft > 0 ? `Surge ${math.ceil(surgeLeft)}s · Ignite` : combo > 0 ? `Ignite · ×${combo}` : "Ignite"}
 					icon="Boost.12"
 					onClick={() => act({ Op: "ignite" }, true)}
 					color={ACCENT}
@@ -985,20 +986,20 @@ function FoundryView(props: {
 				/>
 			</frame>
 			<Ui.Button
-				text={benchFull ? "BENCH FULL" : `DRAW · ${compact(foundry.DrawCost ?? 0)}`}
+				text={benchFull ? "Bench full" : `Draw · ${compact(foundry.DrawCost ?? 0)}`}
 				icon="Crate.1"
 				onClick={() => act({ Op: "draw" })}
-				color={Palette.panelSoft}
+				color={SEC}
 				disabled={!canDraw || busy}
 				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
 				position={narrow ? UDim2.fromOffset(0, buttonH + 10) : new UDim2(0.4, 0, 0, 0)}
 				reducedMotion={softMotion}
 			/>
 			<Ui.Button
-				text={foundry.ExpandCost === undefined ? "FULL SIZE" : `EXPAND · ${compact(foundry.ExpandCost)}`}
+				text={foundry.ExpandCost === undefined ? "Full size" : `Expand · ${compact(foundry.ExpandCost)}`}
 				icon="World.3"
 				onClick={() => act({ Op: "expand" })}
-				color={Palette.panelSoft}
+				color={SEC}
 				disabled={!canExpand || busy}
 				size={narrow ? new UDim2(1, 0, 0, buttonH) : new UDim2(0.3, -8, 0, buttonH)}
 				position={narrow ? UDim2.fromOffset(0, (buttonH + 10) * 2) : new UDim2(0.7, 0, 0, 0)}
@@ -1077,7 +1078,7 @@ function FoundryView(props: {
 		benchH,
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 			<Ui.Text
-				value={`BENCH  ·  ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}  ·  tap a piece, then a cell`}
+				value={`Bench  ·  ${foundry.Bench.size()}/${FoundryMath.BENCH_CAP}  ·  tap a piece, then a cell`}
 				size={12}
 				weight={Enum.FontWeight.Bold}
 				color={Palette.muted}

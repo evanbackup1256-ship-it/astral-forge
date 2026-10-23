@@ -6,6 +6,8 @@
 //   builds    one card per build: what it trades, how its stats compare with yours, equip
 //   foundation bonuses kept from the retired Star Grid
 import React from "@rbxts/react";
+import { Chip, Label, spaced } from "../UiCore/mockKit";
+import { MockBtn, RowFace } from "./mockRows";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import { compactNumber } from "../CoreKit/format";
 import { chromeFor, Palette, TapTarget } from "../CoreKit/theme";
@@ -109,8 +111,8 @@ function chip(text: string, accent: Color3, order: number, fill?: boolean) {
 			BackgroundTransparency={0.8}
 			BorderSizePixel={0}
 		>
-			<uicorner CornerRadius={new UDim(1, 0)} />
-			<uistroke Color={accent} Transparency={0.45} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			<uicorner CornerRadius={new UDim(0, 8)} />
+			<uistroke Color={accent} Transparency={0.4} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 			<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
 			<textlabel
 				Size={UDim2.fromScale(fill ? 1 : 0, 1)}
@@ -138,16 +140,10 @@ function chipRow(children: React.Element[], position: UDim2) {
 // one stat: small label over a value, tinted when this build raises or lowers it
 function statTile(label: string, value: string, tint: Color3 | undefined, size: UDim2, position: UDim2) {
 	return (
-		<frame Size={size} Position={position} BackgroundColor3={Palette.panelSoft} BackgroundTransparency={0.25} BorderSizePixel={0}>
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<uistroke
-				Color={tint ?? Palette.line}
-				Thickness={1}
-				Transparency={tint !== undefined ? 0.5 : 0.8}
-				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-			/>
+		<frame Size={size} Position={position} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+			<RowFace outline={tint} />
 			<Ui.Text
-				value={label.upper()}
+				value={spaced(label.upper())}
 				size={11}
 				color={Palette.muted}
 				weight={Enum.FontWeight.Bold}
@@ -263,7 +259,7 @@ function SpecializationsViewBoard(props: Props) {
 		add(
 			"loading",
 			96,
-			<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.mango}>
+			<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.brass}>
 				<Ui.Text value="Loading your forge build..." size={16} color={Palette.muted} sizeConstraint={new UDim2(1, 0, 0, 24)} />
 			</Ui.Panel>,
 		);
@@ -297,10 +293,10 @@ function SpecializationsViewBoard(props: Props) {
 	add(
 		"hero",
 		heroH,
-		<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={current.accent} clips={false}>
+		<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={18} accent={Palette.brass} clips={false}>
 			<Ui.IconTile kind={current.icon} accent={current.accent} size={56} filled={true} reducedMotion={props.reducedMotion} />
 			<Ui.Text
-				value="Equipped build"
+				value={spaced("EQUIPPED BUILD")}
 				size={12}
 				color={current.accent}
 				weight={Enum.FontWeight.Heavy}
@@ -330,7 +326,7 @@ function SpecializationsViewBoard(props: Props) {
 	add(
 		"status",
 		92,
-		<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={cooling ? Palette.mango : Palette.green}>
+		<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass}>
 			<Ui.IconTile
 				kind={cooling ? "Timer" : "Check"}
 				accent={cooling ? Palette.mango : Palette.green}
@@ -431,10 +427,10 @@ function SpecializationsViewBoard(props: Props) {
 				Position={new UDim2(col / columns, (col * GAP) / columns, 0, row * (CARD_H + GAP))}
 				BackgroundTransparency={1}
 			>
-				<Ui.Panel radius={18} rule={true}
+				<Ui.Panel radius={16} rule={true}
 					size={UDim2.fromScale(1, 1)}
 					padding={16}
-					accent={look.accent}
+					accent={Palette.brass}
 					clips={false}
 					highlight={equipped}
 					reducedMotion={props.reducedMotion}
@@ -462,24 +458,21 @@ function SpecializationsViewBoard(props: Props) {
 						sizeConstraint={new UDim2(1, -58, 0, 18)}
 					/>
 					{equipped ? (
-						<Ui.Badge
-							value="EQUIPPED"
-							accent={look.accent}
-							filled={true}
-							position={new UDim2(1, -88, 0, 4)}
-							size={UDim2.fromOffset(88, 24)}
-						/>
+						<frame Size={UDim2.fromOffset(0, 28)} AutomaticSize={Enum.AutomaticSize.X} Position={new UDim2(1, 0, 0, 2)} AnchorPoint={new Vector2(1, 0)} BackgroundTransparency={1}>
+							<Chip text="Equipped" accent={look.accent} icon="Check" />
+						</frame>
 					) : undefined}
 					{chipRow(chips, UDim2.fromOffset(0, 54))}
 					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 						{compare}
 					</frame>
 					<frame key="EquipBuy" Size={new UDim2(1, 0, 0, 44)} Position={new UDim2(0, 0, 1, -44)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<Ui.Button
+						<MockBtn
 							text={equipped ? "Equipped" : cooling ? `Ready in ${clock(remaining)}` : "Equip " + build.Name}
-							size={UDim2.fromScale(1, 1)}
-							color={look.accent}
-							textColor={Palette.ink}
+							fill={true}
+							accent={look.accent}
+							sec={equipped}
+							phone={stack}
 							disabled={locked || equipped}
 							reducedMotion={props.reducedMotion}
 							onClick={() => selectBuild(build.Id)}
@@ -510,14 +503,8 @@ function SpecializationsViewBoard(props: Props) {
 		add(
 			"foundation",
 			52 + chipRows * (CHIP_H + 8),
-			<Ui.Panel radius={18} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.creamSoft}>
-				<Ui.Text
-					value="Kept from the Star Grid · applies to every build"
-					size={14}
-					color={Palette.muted}
-					weight={Enum.FontWeight.Bold}
-					sizeConstraint={new UDim2(1, 0, 0, 18)}
-				/>
+			<Ui.Panel radius={16} rule={true} size={UDim2.fromScale(1, 1)} padding={16} accent={Palette.brass}>
+				<Label text="Kept from the Star Grid · every build" />
 				<frame Size={new UDim2(1, 0, 0, chipRows * (CHIP_H + 8))} Position={UDim2.fromOffset(0, 26)} BackgroundTransparency={1}>
 					<uigridlayout
 						CellSize={new UDim2(1 / perRow, -8, 0, CHIP_H)}
