@@ -26,6 +26,7 @@ export const MORE_ROUTES: ReadonlyArray<RouteDef> = table.freeze([
 	{ id: "Worlds", label: "Worlds", eyebrow: "Zones", icon: "World.2", accentKey: "mint" },
 	{ id: "Lab", label: "Lab", eyebrow: "Orders", icon: "Lab.2", accentKey: "mint" },
 	{ id: "StarGrid", label: "Specializations", eyebrow: "Forge builds", icon: "Forge.4", accentKey: "mango" },
+	{ id: "Rebirth", label: "Rebirth", eyebrow: "Reset for cores", icon: "Rebirth.1", accentKey: "pink" },
 	{ id: "Ascension", label: "Ascension", eyebrow: "Final rebirth", icon: "Rebirth.4", accentKey: "mango" },
 	{ id: "Echoes", label: "Echoes", eyebrow: "Trait journal", icon: "Wave.3", accentKey: "cyan" },
 	{ id: "Continuum", label: "Star Foundry", eyebrow: "Tile board", icon: "StarGrid.1", accentKey: "mango" },

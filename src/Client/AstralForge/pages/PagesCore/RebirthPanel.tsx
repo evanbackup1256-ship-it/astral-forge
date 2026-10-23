@@ -99,14 +99,14 @@ const REBIRTH_ICONS: Record<string, string | undefined> = {
 	KeepOther: "Loadout.rebirthKeepOther",
 };
 const GRADE_COLOR: Record<string, Color3 | undefined> = { S: Palette.mango, A: Palette.mint, B: Palette.cyan, C: Palette.muted };
-interface RunEntry {
+export interface RunEntry {
 	Cores?: number;
 	Grade: string;
 	Seconds: number;
 	Kept?: boolean;
 	Vow: string;
 }
-interface RebirthInfo {
+export interface RebirthInfo {
 	Ready?: boolean;
 	Cores: Flux;
 	Stardust: Flux;
@@ -126,20 +126,20 @@ interface RebirthInfo {
 	BestCores: Flux;
 	FastestSeconds: number;
 }
-interface MachineConfig {
+export interface MachineConfig {
 	Id: string;
 	Name?: string;
 	Icon?: string;
 	RequiredZone?: number;
 	RequiredRebirths?: unknown;
 }
-interface RebirthConfig {
+export interface RebirthConfig {
 	Unlocks?: unknown;
 	Machines?: MachineConfig[];
 	Zones?: unknown;
 	[key: string]: unknown;
 }
-interface RebirthState {
+export interface RebirthState {
 	Rebirth?: unknown;
 	ServerTime?: number;
 	Rebirths?: number;
@@ -150,9 +150,9 @@ interface RebirthState {
 	Machines?: Record<string, number | undefined>;
 	[key: string]: unknown;
 }
-type Dispatch = (action: string, payload?: object, callback?: (response: { ok?: boolean }) => void) => unknown;
+export type Dispatch = (action: string, payload?: object, callback?: (response: { ok?: boolean }) => void) => unknown;
 
-function clock(raw: number): string {
+export function clock(raw: number): string {
 	const seconds = math.max(0, math.floor(raw));
 	const hours = math.floor(seconds / 3600);
 	const minutes = math.floor((seconds % 3600) / 60);
@@ -163,7 +163,7 @@ function clock(raw: number): string {
 }
 
 // the server's rebirth snapshot, or a quiet empty one before the first state arrives
-function rebirthOf(state: RebirthState): RebirthInfo {
+export function rebirthOf(state: RebirthState): RebirthInfo {
 	const info = state.Rebirth;
 	if (typeIs(info, "table")) {
 		return info as RebirthInfo;
@@ -231,7 +231,7 @@ function featuresOpeningOnNextRebirth(config: RebirthConfig | undefined, nextCou
 	return names.join(", ");
 }
 
-function rebirthGate(config: RebirthConfig | undefined, rebirths: number) {
+export function rebirthGate(config: RebirthConfig | undefined, rebirths: number) {
 	let bestName = "";
 	let bestNeed = math.huge;
 	let lastNeed = 0;
