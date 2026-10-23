@@ -7,6 +7,7 @@ import { Dict } from "./lua";
 import type { UiShellController } from "./Controllers/UiShellController";
 import type { PushEvent, RequestFunction, ShutdownEvent } from "./ClientNetwork";
 import type { NetworkController } from "./Controllers/NetworkController";
+import { awaitUiArt } from "../../Shared/AstralForge/Shared/UiArt";
 
 type Loose = (props: Dict) => React.Element | undefined;
 
@@ -30,6 +31,8 @@ function load<T>(name: string): T {
 	return require(child(name)) as T;
 }
 
+// the revamp art is published as decals; wait (bounded) for the server to resolve their images
+awaitUiArt(6);
 const MainGame = kit<{ MainGame: Loose }>("UiCore", "MainGame").MainGame;
 task.wait();
 const _antilag = kit<typeof import("./MotionKit/antilag")>("MotionKit", "antilag");

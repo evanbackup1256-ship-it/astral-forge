@@ -138,18 +138,28 @@ const SHEETS: Record<string, Sheet> = table.freeze({
 	Frostfire: table.freeze({ Image: "rbxassetid://96246143015158", Color: Color3.fromRGB(80, 190, 255), Glow: Color3.fromRGB(255, 150, 70), Label: "FROSTFIRE" }),
 });
 
+// Companion sheets were uploaded as Decals: draw the image the server resolved (Shared/UiArt,
+// attribute UiArt_<id>). Kept import-free so the sprite tests can load this module on its own.
+function art(url: string): string {
+	const [ok, resolved] = pcall(() => {
+		const [digits] = string.match(url, "%d+$");
+		return game.GetService("ReplicatedStorage").GetAttribute("UiArt_" + tostring(digits));
+	});
+	return ok && typeIs(resolved, "string") && resolved !== "" ? resolved : url;
+}
+
 function companion(name: string, element: Element, rarity: Companion["Rarity"], image: string): Companion {
 	const base = SHEETS[element];
 	return table.freeze({ Image: image, Color: base.Color, Glow: base.Glow, Label: string.upper(name), Name: name, Element: element, Rarity: rarity });
 }
 
 const COMPANIONS: Record<string, Companion> = table.freeze({
-	Cinder: companion("Cinder", "Fire", "Rare", "rbxassetid://96721820700576"),
-	Frostlet: companion("Frostlet", "Ice", "Rare", "rbxassetid://102982024064892"),
-	Tidepup: companion("Tidepup", "Water", "Epic", "rbxassetid://112367869722042"),
-	BrassOwl: companion("Brass Owl", "Gold", "Legendary", "rbxassetid://92141659344017"),
-	Lumen: companion("Lumen", "Starlight", "Mythic", "rbxassetid://125440001868646"),
-	Voidmote: companion("Voidmote", "Void", "Celestial", "rbxassetid://111706636066465"),
+	Cinder: companion("Cinder", "Fire", "Rare", art("rbxassetid://96721820700576")),
+	Frostlet: companion("Frostlet", "Ice", "Rare", art("rbxassetid://102982024064892")),
+	Tidepup: companion("Tidepup", "Water", "Epic", art("rbxassetid://112367869722042")),
+	BrassOwl: companion("Brass Owl", "Gold", "Legendary", art("rbxassetid://92141659344017")),
+	Lumen: companion("Lumen", "Starlight", "Mythic", art("rbxassetid://125440001868646")),
+	Voidmote: companion("Voidmote", "Void", "Celestial", art("rbxassetid://111706636066465")),
 });
 
 const ElementSprites = {

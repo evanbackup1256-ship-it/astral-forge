@@ -21,6 +21,7 @@ import "./Services/Security/GameAntiCheat";
 import "./Services/Security/RemoteFirewall";
 import "./Services/Security/Security";
 import "./Services/Security/SessionGate";
+import { resolveUiArt } from "./UiArtResolver";
 
 const Players = game.GetService("Players");
 const TextChatService = game.GetService("TextChatService");
@@ -32,6 +33,8 @@ pcall(() => {
 pcall(() => {
 	(TextChatService as unknown as { CreateDefaultTextChannels: boolean }).CreateDefaultTextChannels = true;
 });
+
+resolveUiArt();
 
 Flamework.addPaths("src/Server/AstralForge/Runtime");
 Flamework.ignite();

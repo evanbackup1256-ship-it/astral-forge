@@ -14,14 +14,16 @@ function fadeWithPresence(local_: number | React.Binding<number>, presence: Reac
 	return React.joinBindings([local_, presence]).map((values) => math.clamp(values[0] + (1 - values[1]), 0, 1));
 }
 
-export const VECTOR_ICON_ATLAS = "rbxassetid://105262447644762"
+import { art } from "../../../Shared/AstralForge/Shared/UiArt";
+export const VECTOR_ICON_ATLAS = art("rbxassetid://105262447644762")
 /** rows 8+ of the vector atlas (indexes 64..): Roblox caps an image at 1024px, so the sheet is split */
-export const VECTOR_ICON_ATLAS_B = "rbxassetid://115863993090062";
+export const VECTOR_ICON_ATLAS_B = art("rbxassetid://115863993090062");
 export const VECTOR_ICON_SHEET_ROWS = 8;
-export const GAME_ICON_ASSET = "rbxassetid://74290074754222";
+// 74290074754222 is the experience icon decal (set in Creator Hub); in-game art draws the image
+export const GAME_ICON_ASSET = "rbxassetid://77239367431949";
 export const WORDMARK_ASSET = "rbxassetid://75854849112049";
-export const COMPACT_MARK_ASSET = "rbxassetid://137100865466961";
-export const LOCKUP_ASSET = "rbxassetid://126797903300109";
+export const COMPACT_MARK_ASSET = art("rbxassetid://137100865466961");
+export const LOCKUP_ASSET = art("rbxassetid://126797903300109");
 export const VECTOR_ICON_CELL = 128;
 export const VECTOR_ICON_COLUMNS = 8;
 export const VECTOR_ICON_INDEX: Record<string, number> = {

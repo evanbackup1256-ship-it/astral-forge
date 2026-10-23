@@ -63,7 +63,8 @@ export function RedrawCounterHud(props: { enabled: boolean; position?: UDim2 }) 
 	return (
 		<textlabel
 			key="DevRedrawCounter"
-			Size={UDim2.fromOffset(260, 18)}
+			Size={UDim2.fromOffset(0, 18)}
+			AutomaticSize={Enum.AutomaticSize.X}
 			Position={props.position ?? new UDim2(0, 8, 1, -26)}
 			BackgroundColor3={Palette.ink}
 			BackgroundTransparency={0.3}
@@ -74,6 +75,8 @@ export function RedrawCounterHud(props: { enabled: boolean; position?: UDim2 }) 
 			Font={Enum.Font.Code}
 			TextXAlignment={Enum.TextXAlignment.Left}
 			ZIndex={900}
-		/>
+		>
+			<uipadding PaddingLeft={new UDim(0, 6)} PaddingRight={new UDim(0, 6)} />
+		</textlabel>
 	);
 }

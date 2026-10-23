@@ -142,6 +142,10 @@ export const Occlusion: Rule = {
 		const lo = ctx.param("minCovered", 0.15);
 		const hi = ctx.param("maxCovered", 0.92);
 		const nodes = eligible(snap, "Occlusion", (n) => n.interactive && !n.inMotion);
+		// a modal backdrop or full-screen sheet covers the HUD on purpose while it is open
+		const layerArea = new Map<number, number>();
+		for (const l of snap.layers) layerArea.set(l.id, G.area(l.rect));
+		const shield = ctx.param("shieldShare", 0.8);
 		nodes.forEach((n, i) => {
 			stepEvery(ctx, i, 16);
 			const vis = visibleRect(n);
@@ -154,6 +158,7 @@ export const Occlusion: Rule = {
 				if (s.id === n.id || s.layer !== n.layer && s.displayOrder <= n.displayOrder) continue;
 				if (isAncestor(snap, s.id, n.id) || isAncestor(snap, n.id, s.id)) continue;
 				if (s.floating !== n.floating && s.inMotion) continue;
+				if (G.area(s.rect) >= (layerArea.get(s.layer) ?? math.huge) * shield) continue;
 				const above = s.displayOrder !== n.displayOrder ? s.displayOrder > n.displayOrder : s.paintOrder > n.paintOrder;
 				if (!above) continue;
 				holes.push(G.intersect(box.rect, vis));

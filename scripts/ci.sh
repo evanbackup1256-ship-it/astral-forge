@@ -38,6 +38,20 @@ if [ "${SKIP_COMPILE:-0}" != "1" ]; then
 	fi
 fi
 
+# UI art guard: the revamp art is uploaded as Decals; GuiObjects must draw it through art()
+# (Shared/UiArt), and the experience icon decal is never drawn in-game.
+log "== ui art guard"
+art_bad=$(grep -rnE '"rbxassetid://(74290074754222)"' src || true)
+for id in $(grep -oE '^\s*"[0-9]{8,}":' src/Shared/AstralForge/Shared/UiArt.ts | tr -dc '0-9\n'); do
+	art_bad="$art_bad$(grep -rn "rbxassetid://$id" src --include=*.ts --include=*.tsx | grep -v 'Shared/UiArt.ts' | grep -v "art(\"rbxassetid://$id\")" || true)"
+done
+if [ -n "$art_bad" ]; then
+	printf '%s\n' "$art_bad" | tee -a "$REPORT"
+	log "ci: decal art referenced as an image (wrap it in art())"
+	exit 1
+fi
+log "   ok"
+
 checks=()
 for file in scripts/verify_*.luau scripts/lint_locale.luau; do
 	name=$(basename "$file" .luau)
