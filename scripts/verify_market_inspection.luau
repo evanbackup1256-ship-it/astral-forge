@@ -79,6 +79,10 @@ local function render(width, inspected, offers)
 			for index, value in heights do total += value + (if index > 1 then (gap or 10) else 0) end
 			return total
 		end,
+		columnsBalanced = function(a, b, tolerance)
+			local tall = math.max(a, b)
+			return tall <= 0 or (tall - math.min(a, b)) / tall <= (tolerance or 0.18)
+		end,
 		SplitColumns = "SplitColumns", StackBlocks = "StackBlocks",
 		useFocusOrder = function() end, -- gamepad focus wiring needs live instances
 	}, { __index = _G })
@@ -95,6 +99,7 @@ local offers = {
 	{ Id = "bulk", Name = "Stardust Shipment", Category = "Resources", Reward = { Stardust = 300 }, Price = 15000, Discount = 0.3, Left = 0, Stock = 2, Holdings = { { Label = "Stardust", Count = 120 } } },
 	{ Id = "cores", Name = "Loose Core", Category = "Resources", Reward = { Cores = 1 }, Price = 1000, Discount = 0.4, Left = 2, Stock = 2, Holdings = { { Label = "Cores", Count = 2 } } },
 }
+local splitSeen = {}
 for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 	local tree = render(width, "dust", offers)
 	local sections, comparisons = {}, {}
@@ -111,7 +116,26 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 			table.insert(flat, section)
 		end
 	end
-	assert(split == (width >= 860), "two columns exactly when the page is wide enough")
+	-- two columns only when wide enough AND the inspection column and the shelf (worked out at the
+	-- split width) come out within 18% of each other
+	local inspectH, inspectCount = 0, 0
+	for _, section in flat do
+		local id = section.id
+		if id:sub(1, 10) == "inspection" or id:sub(1, 8) == "compare-" then
+			inspectH += section.height + (if inspectCount > 0 then 12 else 0)
+			inspectCount += 1
+		end
+	end
+	local expected = false
+	if width >= 860 then
+		local main = width - math.clamp(340, 220, math.floor(width * 0.45)) - 12
+		local columns = math.max(1, math.min(3, math.floor((main + 12) / 300)))
+		local rows = math.ceil(#offers / columns)
+		local shelfH = rows * 346 + (rows - 1) * 12
+		expected = (math.max(inspectH, shelfH) - math.min(inspectH, shelfH)) / math.max(inspectH, shelfH) <= 0.18
+	end
+	assert(split == expected, `split at {width}px only when wide enough and balanced (inspection {inspectH})`)
+	splitSeen[width] = split
 	for _, section in flat do
 		sections[section.id] = section
 		if section.id:sub(1, 8) == "compare-" then table.insert(comparisons, section.id) end
@@ -151,4 +175,5 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 	end
 	assert(found)
 end
+assert(splitSeen[1024] == true and splitSeen[1600] == false, "balanced wide page splits; a short one-row shelf beside a tall inspection stacks")
 print("[TEST] Market inspection: actual component holdings, comparable supply identity, huge unit prices, sold-out comparisons and responsive button geometry passed")

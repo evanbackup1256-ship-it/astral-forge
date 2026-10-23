@@ -4,7 +4,7 @@ import * as Format from "../../CoreKit/format";
 import { chromeFor, Palette, Radius, scrollTail, StrokeWidth } from "../../CoreKit/theme";
 import { useViewport } from "../../MotionKit/motion";
 import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { columnsBalanced, SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { useFocusOrder } from "../../CoreKit/focusOrder";
 import type { Session } from "../../state";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
@@ -1099,8 +1099,6 @@ function BazaarView(props: BazaarProps) {
 		);
 	}
 	const inspectEnd = sections.size();
-	const splitInspect = plan.split && selected !== undefined && inspectEnd > inspectStart;
-	const shelfWidth = splitInspect ? plan.main : width;
 	const offers: Offer[] = [];
 	for (const offer of market ? market.Offers : []) {
 		const text = (offer.Name + " " + Format.formatReward(offer.Reward)).lower();
@@ -1122,9 +1120,29 @@ function BazaarView(props: BazaarProps) {
 		}
 		return a.Name < b.Name;
 	});
-	const cardColumns = math.max(1, math.min(3, math.floor((shelfWidth + 12) / 300)));
 	const cardHeight = 346;
 	const gap = 12;
+	const shelfColumns = (shelfW: number) => math.max(1, math.min(3, math.floor((shelfW + 12) / 300)));
+	// the shelf's height only depends on the offer count and the column count, so it can be worked out
+	// exactly at the split width before deciding; split only when it roughly matches the inspection column
+	const shelfHeightAt = (shelfW: number) => {
+		if (offers.size() === 0) {
+			return market ? 100 : 0;
+		}
+		const rows = math.ceil(offers.size() / shelfColumns(shelfW));
+		return rows * cardHeight + (rows - 1) * gap;
+	};
+	const inspectH = stackHeight(
+		sections.filter((_, index) => index >= inspectStart && index < inspectEnd).map((section) => section.height),
+		12,
+	);
+	const splitInspect =
+		plan.split &&
+		selected !== undefined &&
+		inspectEnd > inspectStart &&
+		columnsBalanced(inspectH, shelfHeightAt(plan.main));
+	const shelfWidth = splitInspect ? plan.main : width;
+	const cardColumns = shelfColumns(shelfWidth);
 	for (let first = 0; first < offers.size(); first += cardColumns) {
 		const cards: Record<string, React.Element> = {};
 		for (let offset = 0; offset <= cardColumns - 1; offset++) {
