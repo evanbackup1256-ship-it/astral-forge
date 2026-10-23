@@ -85,7 +85,7 @@ interface OrbitProps {
 	zIndex: number;
 }
 
-// A ring of dots slowly orbiting a centre: the Ascension mark.
+// A ring of dots around a centre: the Ascension mark. Icons never move (QA rule), so the ring is still.
 function Orbit(props: OrbitProps) {
 	const spin = useClock(!props.softMotion, 0.05, math.pi * 2);
 	const dots: Record<string, React.Element> = {};
@@ -134,7 +134,8 @@ function isPress(input: InputObject) {
 	return (
 		input.UserInputType === Enum.UserInputType.MouseButton1 ||
 		input.UserInputType === Enum.UserInputType.Touch ||
-		input.KeyCode === Enum.KeyCode.ButtonA
+		input.KeyCode === Enum.KeyCode.ButtonA ||
+		input.KeyCode === Enum.KeyCode.ButtonR2
 	);
 }
 
@@ -226,16 +227,14 @@ function HoldButton(props: HoldButtonProps) {
 					if (!enabled) {
 						return props.disabledText;
 					}
-					return a > 0 ? "KEEP HOLDING…" : props.text;
+					return a > 0 ? "Keep holding…" : props.text;
 				})}
 				TextColor3={fill.map((a) => (a > 0.5 ? Palette.ink : Palette.cream))}
 				TextSize={16}
-				TextScaled={true}
 				TextTruncate={Enum.TextTruncate.AtEnd}
 				FontFace={new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy)}
 				ZIndex={3}
 			>
-				<uitextsizeconstraint MaxTextSize={16} MinTextSize={11} />
 				<uipadding PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
 			</textlabel>
 		</textbutton>
@@ -301,13 +300,13 @@ function SigilCard(props: SigilCardProps) {
 				value={
 					sigil.Level > 0
 						? `×${compact(sigil.Multiplier)} ${sigil.Effect.lower()}` +
-							(boosted ? `  ·  acts as Lv ${compact(sigil.EffectiveLevel)}` : "")
+							(boosted ? `, as Lv ${compact(sigil.EffectiveLevel)}` : "")
 						: "Buy a level to start it"
 				}
 				size={15}
 				weight={Enum.FontWeight.Bold}
 				color={Palette.cream}
-				position={UDim2.fromOffset(0, 66)}
+				position={UDim2.fromOffset(0, 60)}
 				sizeConstraint={new UDim2(1, 0, 0, 20)}
 			/>
 			<Ui.Button
@@ -378,7 +377,7 @@ function AscensionViewBoard(props: AscensionViewProps) {
 	}
 
 	// hero (phones: a smaller orbit and a narrower left column so the copy keeps its width)
-	const heroH = stack ? 216 : 168;
+	const heroH = stack ? 216 : 176;
 	const col = stack ? 104 : 140;
 	const orbitX = stack ? 44 : 60;
 	const outer = stack ? 38 : 52;
@@ -503,7 +502,7 @@ function AscensionViewBoard(props: AscensionViewProps) {
 				<HoldButton
 					enabled={state.CanAscend && !busy}
 					text="Hold"
-					disabledText="—"
+					disabledText="Not ready"
 					size={UDim2.fromScale(1, 1)}
 					position={UDim2.fromOffset(0, 0)}
 					onConfirm={() => request("Ascend")}
@@ -516,13 +515,16 @@ function AscensionViewBoard(props: AscensionViewProps) {
 	}
 
 	// harmony
+	// pips sat at y 40 in a 54 px body (12 px past the panel); phones get two rows of three so names fit
+	const pipCols = stack ? 3 : 6;
+	const pipRows = math.ceil(state.Sigils.size() / pipCols);
 	const pips: Record<string, React.Element> = {};
 	state.Sigils.forEach((sigil, index) => {
 		const color = SIGIL_COLORS[sigil.Id] ?? ACCENT;
 		pips[sigil.Id] = (
 			<frame
-				Size={new UDim2(1 / 6, -8, 0, 26)}
-				Position={new UDim2(index / 6, 4, 0, 40)}
+				Size={new UDim2(1 / pipCols, -8, 0, 26)}
+				Position={new UDim2((index % pipCols) / pipCols, 4, 0, 30 + math.floor(index / pipCols) * 32)}
 				BackgroundColor3={darken(color, sigil.Level > state.Harmony ? 0.4 : 0.75)}
 				BorderSizePixel={0}
 			>
@@ -532,22 +534,22 @@ function AscensionViewBoard(props: AscensionViewProps) {
 					size={11}
 					weight={Enum.FontWeight.Bold}
 					align={Enum.TextXAlignment.Center}
-					fit={true}
-					minSize={8}
-					sizeConstraint={UDim2.fromScale(1, 1)}
+					fit={false}
+					sizeConstraint={new UDim2(1, -12, 0, 26)}
+					position={UDim2.fromOffset(6, 0)}
 				/>
 			</frame>
 		);
 	});
 	add(
 		"harmony",
-		82,
+		28 + 30 + pipRows * 26 + (pipRows - 1) * 6,
 		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.mint} background={Palette.panel}>
 			<Ui.Text
 				value={
 					state.Harmony > 0
-						? `Harmony ${state.Harmony}: every started sigil acts ${state.Harmony} level${state.Harmony === 1 ? "" : "s"} higher`
-						: "Harmony 0: raise all six sigils together and each one acts higher"
+						? `Harmony ${state.Harmony}: started sigils act ${state.Harmony} level${state.Harmony === 1 ? "" : "s"} higher`
+						: "Harmony 0: raise all six together"
 				}
 				size={15}
 				weight={Enum.FontWeight.Bold}
