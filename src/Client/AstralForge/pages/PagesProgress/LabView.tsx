@@ -411,56 +411,54 @@ function LabViewReady(props: LabProps) {
 		lab.Orders.size() > 0 ? lab.Orders.size() * orderH + math.max(0, lab.Orders.size() - 1) * ORDER_GAP : 160;
 	const powerStride = stackPower ? POWER_ROW_STRIDE_STACK : POWER_ROW_STRIDE;
 	const powerBoardH = powerStart + CHANNEL_IDS.size() * powerStride + 10 + 28;
-	const heroHeight = stack ? (chrome.landscape ? 156 : 188) : 132;
+	// sized to the copy: the instruction line is gone, so 156/188/132 left 50-70% of the hero empty
+	// phones add a full-width 44 px claim-all row under the badges when orders are ready
+	const heroHeight = stack ? 32 + 18 + 10 + 28 + (readyOrders > 0 ? 8 + TapTarget : 0) : 116;
+	const claimAllButton = (
+		<Button
+			text={`CLAIM ALL (${readyOrders})`}
+			icon="Gift.7"
+			onClick={claimAllOrders}
+			color={Palette.mint}
+			textColor={Palette.ink}
+			size={UDim2.fromScale(1, 1)}
+			reducedMotion={softMotion}
+			highlight={true}
+		/>
+	);
 	const paidCount = lab.Orders.filter((order) => order.Claimed === true).size();
 	const heroBody = stack ? (
 		<>
 			<Text value={resetText} size={12} color={Palette.mint} weight={Enum.FontWeight.Bold} fit={false} sizeConstraint={new UDim2(1, -8, 0, 18)} />
-			<Text
-				value="Clear today's jobs, then dump spare cells into output, vault, or taps."
-				size={12}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 24)}
-				sizeConstraint={new UDim2(1, -8, 0, chrome.landscape ? 28 : 40)}
-			/>
-			<frame Size={new UDim2(1, 0, 0, 28)} Position={new UDim2(0, 0, 1, -36)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<frame Size={new UDim2(1, 0, 0, 28)} Position={UDim2.fromOffset(0, 28)} BackgroundTransparency={1} BorderSizePixel={0}>
 				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} />
 				<Badge value={`${paidCount} / ${lab.Orders.size()} PAID`} accent={Palette.mint} filled={true} size={UDim2.fromOffset(120, 26)} />
 				<Badge value={`${lab.AvailableCells} FREE`} accent={Palette.mango} size={UDim2.fromOffset(100, 24)} />
 			</frame>
+			{readyOrders > 0 && (
+				<frame
+					{...named("LabClaimActions")}
+					Size={new UDim2(1, 0, 0, TapTarget)}
+					Position={new UDim2(0, 0, 1, -TapTarget)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+					ClipsDescendants={false}
+					ref={labClaimHostRef}
+				>
+					{claimAllButton}
+				</frame>
+			)}
 		</>
 	) : (
 		<>
-			<Text
-				value="WORKSHOP LAB"
-				size={10}
-				color={Palette.mint}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(68, 0)}
-				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 16)}
-			/>
 			<Text
 				value={`${lab.AvailableCells} power cell${lab.AvailableCells === 1 ? "" : "s"} free`}
 				size={22}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
-				position={UDim2.fromOffset(68, 16)}
+				position={UDim2.fromOffset(68, 12)}
 				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 30)}
-			/>
-			<Text
-				value="Clear today's jobs, then dump spare cells into output, vault, or taps."
-				size={10}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(68, 46)}
-				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 26)}
 			/>
 			<Text
 				value={resetText}
@@ -468,37 +466,28 @@ function LabViewReady(props: LabProps) {
 				color={Palette.mint}
 				weight={Enum.FontWeight.Bold}
 				fit={false}
-				position={UDim2.fromOffset(68, 80)}
+				position={UDim2.fromOffset(68, 48)}
 				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 18)}
 			/>
 			<Badge
 				value={`${paidCount} / ${lab.Orders.size()} PAID`}
 				accent={Palette.mint}
 				filled={true}
-				position={new UDim2(1, -(156 + ROW_RIGHT), 0, 12)}
+				position={new UDim2(1, -(156 + ROW_RIGHT), 0, 0)}
 				size={UDim2.fromOffset(148, 26)}
 			/>
 			{/* the headline already says how many cells are free, so no separate badge for it */}
 			{readyOrders > 0 && (
 				<frame
 					{...named("LabClaimActions")}
-					Size={UDim2.fromOffset(148, 36)}
-					Position={new UDim2(1, -(156 + ROW_RIGHT), 0, 46)}
+					Size={UDim2.fromOffset(148, TapTarget)}
+					Position={new UDim2(1, -(156 + ROW_RIGHT), 0, 34)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					ClipsDescendants={false}
 					ref={labClaimHostRef}
 				>
-					<Button
-						text={`CLAIM ALL · ${readyOrders}`}
-						icon="Gift.7"
-						onClick={claimAllOrders}
-						color={Palette.mint}
-						textColor={Palette.ink}
-						size={UDim2.fromScale(1, 1)}
-						reducedMotion={softMotion}
-						highlight={true}
-					/>
+					{claimAllButton}
 				</frame>
 			)}
 		</>
@@ -677,7 +666,7 @@ function LabViewReady(props: LabProps) {
 							clips={false}
 						>
 							<Text
-								value="Move cells whenever you like."
+								value="Power cells"
 								size={stackPower ? 16 : 17}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
@@ -686,7 +675,7 @@ function LabViewReady(props: LabProps) {
 								sizeConstraint={new UDim2(1, stackPower ? -8 : -(220 + ROW_RIGHT), 0, 24)}
 							/>
 							<Text
-								value="Bonuses apply at once. A new cell unlocks every 8 rebirths."
+								value="A new cell every 8 rebirths."
 								size={stackPower ? 11 : 10}
 								color={Palette.muted}
 								wrap={true}

@@ -106,8 +106,8 @@ local function phoneCases(phone: number)
 	local page = phone - PHONE_EDGE_MAX * 2 - PHONE_CONTENT_INSET * 2
 	local panel = page - 14 * 2
 	return {
-		{ file = "pages/PagesProgress/LabView.tsx", needle = "Move cells whenever you like.", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
-		{ file = "pages/PagesProgress/LabView.tsx", needle = "Bonuses apply at once. A new cell unlocks every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
+		{ file = "pages/PagesProgress/LabView.tsx", needle = "Power cells", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
+		{ file = "pages/PagesProgress/LabView.tsx", needle = "A new cell every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
 		{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = panel, phone = phone },
 	}
