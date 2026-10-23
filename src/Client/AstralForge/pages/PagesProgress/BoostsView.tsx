@@ -509,12 +509,16 @@ function BoostsView(props: BoostsViewProps) {
 	const heroStack = (stack && !chrome.landscape) || plan.split;
 	const barStack = stack || plan.split;
 	const ph = stack;
+	// the hero renders with phone metrics whenever heroStack is set (split desktop too), so it is
+	// measured with the same flag; measuring with `stack` left a ~57px empty band under Core Surge
+	const hph = heroStack === true;
+	const heroGap = hph ? 8 : 12;
 	const heroH =
 		activeBoost !== undefined
-			? panelHeight(ph, headingBlock(ph) + (ph ? 132 : 150) + (ph ? 8 : 12) + 10)
+			? panelHeight(hph, headingBlock(hph) + (hph ? 132 : 150) + heroGap + 10)
 			: pick === undefined
-				? panelHeight(ph, headingBlock(ph) + rowHeight(ph, true))
-				: panelHeight(ph, headingBlock(ph) + rowHeight(ph, true) + (ph ? 8 : 12) + (ph ? TapTarget : 44));
+				? panelHeight(hph, headingBlock(hph) + rowHeight(hph, true))
+				: panelHeight(hph, headingBlock(hph) + rowHeight(hph, true) + heroGap + (hph ? TapTarget : 44));
 	// split layout puts Stock in the narrow side column: one tile per row so values never run into a neighbour
 	const statCols = plan.split ? 1 : 2;
 	const statRows = 4 / statCols;

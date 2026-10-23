@@ -472,6 +472,9 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	for (const [r, row] of ipairs(rows)) {
 		order += 1;
 		const lead = r === 1;
+		const gap = roomy ? 70 : stack ? Space.sm : Space.lg;
+		// cells share the row after the list gaps (the old split ignored them and the row overflowed/overlapped)
+		const fitW = math.floor((contentW - gap * math.max(0, row.size() - 1)) / math.max(1, row.size()));
 		const rowH = (lead ? leadSize : ringSize) + 8 + (roomy ? (lead ? 26 : 21) : lead ? 21 : 18) + roleH;
 		body.push(
 			<frame key={`r${r}`} Size={new UDim2(1, 0, 0, rowH)} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
@@ -480,7 +483,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 					HorizontalAlignment={Enum.HorizontalAlignment.Center}
 					VerticalAlignment={Enum.VerticalAlignment.Bottom}
 					SortOrder={Enum.SortOrder.LayoutOrder}
-					Padding={new UDim(0, roomy ? 70 : stack ? Space.sm : Space.lg)}
+					Padding={new UDim(0, gap)}
 				/>
 				{row.map((credit, i) => {
 					index += 1;
@@ -491,7 +494,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							credit={credit}
 							still={STILLS[(credits.indexOf(credit) + STILLS.size()) % STILLS.size()]}
 							size={isLead ? leadSize : ringSize}
-							width={math.min(cellW, math.floor((contentW - Space.lg * 2) / math.max(1, row.size())))}
+							width={math.max(isLead ? leadSize : ringSize, math.min(cellW, fitW))}
 							lead={isLead}
 							order={i}
 							delay={MODEL.EntranceStagger !== false ? math.min(index, SurfaceMotion.staggerRows) * SurfaceMotion.stagger : 0}
@@ -501,7 +504,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				})}
 			</frame>,
 		);
-		contentH += rowH + Space.sm;
+		contentH += rowH + Space.xs;
 	}
 	if (credits.size() === 0) {
 		order += 1;
@@ -517,7 +520,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				zIndex={6}
 			/>,
 		);
-		contentH += 40 + Space.sm;
+		contentH += 40 + Space.xs;
 	}
 	const smallPrint = table.clone(MODEL.Acknowledgements);
 	if (MODEL.Footer !== "") {
@@ -526,7 +529,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	if (thanks.size() > 0 || smallPrint.size() > 0) {
 		order += 1;
 		body.push(<Hairline key="rule" order={order} width={math.floor(contentW * 0.82)} />);
-		contentH += 14 + Space.sm;
+		contentH += 14 + Space.xs;
 	}
 	if (thanks.size() > 0) {
 		order += 1;
@@ -546,7 +549,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				zIndex={6}
 			/>,
 		);
-		contentH += 20 * lines + Space.sm;
+		contentH += 20 * lines + Space.xs;
 	}
 	if (smallPrint.size() > 0) {
 		order += 1;
@@ -708,7 +711,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 						>
 							<frame Size={new UDim2(0, contentW, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} ZIndex={322}>
 								<uipadding PaddingTop={new UDim(0, Space.lg)} />
-								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.sm)} />
+								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.xs)} />
 								{body}
 							</frame>
 						</scrollingframe>

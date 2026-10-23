@@ -114,7 +114,7 @@ function StatCell(p: { icon: string; label: string; value: string | React.Bindin
 		);
 	}
 	return (
-		<frame Size={new UDim2(1 / 3, -7, 0, STAT_H)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={p.order}>
+		<frame Size={new UDim2(1 / 3, -20 / 3, 0, STAT_H)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={p.order}>
 			<RowSurface />
 			<uipadding PaddingLeft={new UDim(0, 16)} PaddingRight={new UDim(0, 16)} PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} />
 			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 4)} SortOrder={Enum.SortOrder.LayoutOrder} />
@@ -333,7 +333,7 @@ export function OverviewView({ state, config, dispatch, reducedMotion, effectsPa
 	const grid = (
 		<frame Size={new UDim2(1, 0, 0, phone ? 44 * 2 + 6 : STAT_H * 2 + 10)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
 			<uigridlayout
-				CellSize={phone ? new UDim2(0.5, -3, 0, 44) : new UDim2(1 / 3, -7, 0, STAT_H)}
+				CellSize={phone ? new UDim2(0.5, -3, 0, 44) : new UDim2(1 / 3, -20 / 3, 0, STAT_H)}
 				CellPadding={phone ? UDim2.fromOffset(6, 6) : UDim2.fromOffset(10, 10)}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>

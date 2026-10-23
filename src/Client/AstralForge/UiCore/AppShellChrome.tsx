@@ -660,7 +660,7 @@ function AppShell(props: ShellProps) {
 					<frame Size={UDim2.fromOffset(186, 44)} Position={hideAmount.map((amount) => new UDim2(0, edgePad, 0, -64 + math.floor(amount * (topPad + 64))))} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={200}>
 						<Button text="SHOW UI  ( ` )" icon="Hide.2" onClick={showUI} color={accent} textColor={Palette.ink} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
 					</frame>
-					{!state.Flags.TutorialDone && tutorial !== undefined && <TutorialOverlay copy={tutorial} step={tutorialStep} count={TUTORIAL_STEPS.size()} reducedMotion={reducedMotion}
+					{!state.Flags.TutorialDone && tutorial !== undefined && <TutorialOverlay copy={tutorial} step={tutorialStep} count={TUTORIAL_STEPS.size()} reducedMotion={reducedMotion} hudTop={topPad + topbarHeight} hudBottom={chrome.stack ? tabBarH + chrome.bottomSafe : 0}
 						live={{ page, cash: compactNumber(state.Cash), vault: compactNumber(state.Vault), vaultFlux: asFlux(state.Vault), production: compactNumber(state.Production), ownedMachines, buyAmount }}
 						ctaLabel={tutorial.ctaLabel} onCta={tutorial.cta === "collect" ? () => dispatch("CollectVault") : tutorial.cta === "workshop" ? () => navigate("Workshop") : tutorial.cta === "research" ? () => navigate("Research") : undefined}
 						onBack={() => moveTutorial(math.max(1, tutorialStep - 1), "stepBack")}

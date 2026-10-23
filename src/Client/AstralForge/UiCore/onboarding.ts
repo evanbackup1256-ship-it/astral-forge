@@ -195,6 +195,9 @@ interface TutorialOverlayProps {
 	onBack: () => void;
 	onSkip: () => void;
 	live?: unknown;
+	/** shell units covered by the HUD top bar / bottom tab bar: the callout card is placed between them */
+	hudTop?: number;
+	hudBottom?: number;
 }
 
 interface GuideState {
@@ -328,8 +331,8 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 	const cardW = math.min(CARD_W, viewport.width - 24);
 	const innerW = cardW - 32;
 	const hasCta = ctaLabel !== undefined && onCta !== undefined && needsAction && !met;
-	const layoutRef = React.useRef({ cardW: 0, top: 0, bottom: 0 });
-	layoutRef.current = { cardW, top: viewport.topInset, bottom: viewport.bottomInset };
+	const layoutRef = React.useRef({ cardW: 0, top: 0, bottom: 0, hudTop: 0, hudBottom: 0 });
+	layoutRef.current = { cardW, top: viewport.topInset, bottom: viewport.bottomInset, hudTop: param.hudTop ?? 0, hudBottom: param.hudBottom ?? 0 };
 
 	const rootRef = React.useRef<Frame>();
 	const probeRef = React.useRef<Frame>();
@@ -479,8 +482,9 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 				screenH,
 				layout.cardW,
 				cardH,
-				layout.top / k,
-				layout.bottom / k,
+				// the HUD bars are off limits: the card used to dock over the top bar (TutorialClaimActions overlap)
+				math.max(layout.top / k, layout.hudTop),
+				math.max(layout.bottom / k, layout.hudBottom),
 			);
 			if (g.card === undefined) {
 				g.card = { x: goalX, y: goalY };
