@@ -106,7 +106,7 @@ function OrderRow(props: {
 	const meterSize = stack ? new UDim2(1, 0, 0, 8) : new UDim2(1, -(BTN_W + ROW_RIGHT + 12), 0, 8);
 	const textW = stack ? -(58 + 12) : -(BTN_W + 74 + ROW_RIGHT);
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={new UDim2(1, 0, 0, rowH)}
 			accent={config.Color}
 			background={Palette.panelRaised}
@@ -504,7 +504,7 @@ function LabViewReady(props: LabProps) {
 		</>
 	);
 	const hero = (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={Palette.mint}
 			background={Palette.panelRaised}
@@ -669,7 +669,7 @@ function LabViewReady(props: LabProps) {
 					id: "power",
 					height: powerBoardH,
 					element: (
-						<Panel
+						<Panel radius={18} rule
 							size={UDim2.fromScale(1, 1)}
 							accent={Palette.mango}
 							background={Palette.panelRaised}
@@ -758,7 +758,7 @@ function LabView(props: LabProps) {
 	React.useRef<Frame>();
 	if (props.state.Lab === undefined) {
 		return (
-			<Panel size={new UDim2(1, 0, 0, 160)} accent={Palette.mint} background={Palette.panelRaised} padding={20}>
+			<Panel radius={18} rule size={new UDim2(1, 0, 0, 160)} accent={Palette.mint} background={Palette.panelRaised} padding={20}>
 				<Text value="Loading the Lab..." size={15} color={Palette.creamSoft} wrap={true} />
 			</Panel>
 		);

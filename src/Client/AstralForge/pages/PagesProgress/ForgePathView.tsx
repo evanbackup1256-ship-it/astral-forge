@@ -180,7 +180,7 @@ function ForgePathRow({
 			LayoutOrder={index}
 			ClipsDescendants={false}
 		>
-			<Panel
+			<Panel radius={18} rule
 				size={UDim2.fromScale(1, 1)}
 				accent={accent}
 				background={Palette.panel}
@@ -323,7 +323,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 	}, [ready, complete, step !== undefined ? step.Step : 0]);
 	if (complete) {
 		return (
-			<Panel
+			<Panel radius={18} rule
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.mint}
 				background={Palette.panelRaised}
@@ -344,7 +344,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 	}
 	if (step === undefined) {
 		return (
-			<Panel
+			<Panel radius={18} rule
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.violet}
 				background={Palette.panelRaised}
@@ -366,7 +366,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 	const progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1);
 	const needXp = !ready && xp < step.XPCost;
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={ready ? step.Color : Palette.violet}
 			background={Palette.panelRaised}
@@ -566,7 +566,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 					id: "hero",
 					height: headerH,
 					element: (
-						<Panel
+						<Panel radius={18} rule
 							size={UDim2.fromScale(1, 1)}
 							accent={Palette.violet}
 							background={Palette.panelRaised}

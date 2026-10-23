@@ -207,7 +207,7 @@ function ActiveReactor(props: ActiveReactorProps) {
 	const [big, small] = headline(boost);
 	const gaugeSize = stack ? 132 : 150;
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={accent}
 			background={Palette.panelRaised}
@@ -316,7 +316,7 @@ function IdleBay(props: IdleBayProps) {
 	const stack = props.stack;
 	if (pick === undefined) {
 		return (
-			<Panel
+			<Panel radius={18} rule
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.muted}
 				background={Palette.panelRaised}
@@ -348,7 +348,7 @@ function IdleBay(props: IdleBayProps) {
 	const accent = pick.boost.Color ?? Palette.pink;
 	const [big, small] = headline(pick.boost);
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={accent}
 			background={Palette.panelRaised}
@@ -476,7 +476,7 @@ function BoostCard(props: BoostCardProps) {
 	const shown = owned > 0 ? accent : Palette.muted;
 	const [big, small] = headline(boost);
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={shown}
 			background={Palette.panelRaised}

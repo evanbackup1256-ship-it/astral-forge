@@ -154,7 +154,7 @@ const ResearchNode = React.memo(
 				ClipsDescendants={false}
 			>
 				{index > 0 && <ResearchConnector active={entry.unlocked} accent={accent} />}
-				<Panel
+				<Panel radius={18} rule
 					size={new UDim2(1, 0, 0, rowH)}
 					position={UDim2.fromOffset(0, CONNECTOR_HEIGHT)}
 					accent={entry.unlocked ? accent : Palette.lineSoft}
@@ -384,7 +384,7 @@ function ResearchView(props: ResearchProps) {
 					id: "hero",
 					height: headerH,
 					element: (
-						<Panel
+						<Panel radius={18} rule
 							size={UDim2.fromScale(1, 1)}
 							accent={Palette.cyan}
 							background={Palette.panelRaised}

@@ -187,7 +187,7 @@ export function ProgramsPanel(props: { state: ProgramsState; dispatch: Dispatch;
 	const rules = programs.Rules;
 	const top = 26;
 	return (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.coral} background={Palette.panelRaised} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
+		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.coral} background={Palette.panelRaised} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
 			<Text
 				value={programs.Paused === true ? "Programs are paused for a moment" : `Programs  ${rules.size()}/${programs.Max}`}
 				size={14}

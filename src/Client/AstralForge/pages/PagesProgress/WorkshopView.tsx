@@ -161,7 +161,7 @@ function MachineRowImpl(props: MachineRowProps) {
 			BackgroundTransparency={1}
 			BorderSizePixel={0}
 		>
-			<Panel
+			<Panel radius={18} rule
 				size={UDim2.fromScale(1, 1)}
 				accent={accent}
 				background={Palette.panel}
@@ -506,7 +506,7 @@ function UpgradeBoard(props: {
 	const stackFilterY = stackControlsY + (controlH + 6) * 2;
 	const buyAll = () => (onBuyAll !== undefined ? onBuyAll() : undefined);
 	const headerPanel = (
-		<Panel
+		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
 			accent={accent}
 			background={Palette.panelRaised}
@@ -809,7 +809,7 @@ function UpgradeBoard(props: {
 			BorderSizePixel={0}
 			ClipsDescendants={false}
 		>
-			<Panel
+			<Panel radius={18} rule
 				size={UDim2.fromScale(1, 1)}
 				accent={Palette.cyan}
 				background={Palette.panel}
@@ -934,7 +934,7 @@ function AutoForgePanel(props: {
 	const reserveW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, -8, 0, 42);
 	const buttonW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, 0, 0, 42);
 	return (
-		<Panel
+		<Panel radius={18} rule
 			size={new UDim2(1, -4, 0, height)}
 			accent={Palette.mango}
 			background={darken(Palette.mango, 0.9)}
