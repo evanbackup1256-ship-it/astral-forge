@@ -20,19 +20,19 @@ interface UiKit {
 	Badge: LuauComponent;
 	EmptyState: LuauComponent;
 }
-const { IconTile, Panel, Button, Text, Meter, Badge, EmptyState } = kitMember<UiKit>("UiCore", "ui");
+const { EmptyState } = kitMember<UiKit>("UiCore", "ui");
 import { SplitColumns, splitColumns, StackBlocks } from "../../UiCore/ui";
+import { Bar, BODY_BOLD, Glyph, MockPanel, PanelHeading, spaced } from "../../UiCore/mockKit";
+import { Grid, headingBlock, MockBtn, MockRow, panelHeight, RowFace, rowHeight, Rise } from "../mockRows";
 
 type ColumnSection = { id: string; height: number; element: React.Element };
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const { FlatList } = kitMember<{ FlatList: LuauComponent }>("LayoutKit", "virtualizedList");
-const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
 const Browse = clientModule<BrowseApi>("BrowseKit");
 
-const STEP_ROW_HEIGHT = 168;
-const STEP_ROW_HEIGHT_STACK = 224;
-const SPOTLIGHT_H = 148;
-const SPOTLIGHT_H_STACK = 188;
+// 15-rewards rows: two-line .row (56 / 46 phone)
+const STEP_ROW_HEIGHT = 56;
+const STEP_ROW_HEIGHT_STACK = 46;
 const EMPTY_FORGE_PATH: { ClaimedSteps: number[]; XP: number } = { ClaimedSteps: [], XP: 0 };
 
 interface ForgePathGuide {
@@ -81,67 +81,6 @@ function effectLabel(step: DecoratedForgePathStep): string {
 	return `+${step.EffectAmount}% ${noun}`;
 }
 
-function rewardChips(reward: Reward | undefined, accent: Color3): React.Element[] {
-	const chips: { label: string; icon: string }[] = [];
-	const cash = reward?.Cash ?? 0;
-	const stardust = reward?.Stardust ?? 0;
-	const cores = reward?.Cores ?? 0;
-	const essence = reward?.Essence ?? 0;
-	if (cash > 0) chips.push({ label: `${compactNumber(cash)} flux`, icon: "Flux.14" });
-	if (stardust > 0) chips.push({ label: `${compactNumber(stardust)} dust`, icon: "Dust.2" });
-	if (cores > 0) chips.push({ label: `${compactNumber(cores)} cores`, icon: "Core.5" });
-	if (essence > 0) chips.push({ label: `${compactNumber(essence)} essence`, icon: "StarGrid.4" });
-	if (reward?.Boost !== undefined) chips.push({ label: reward.Boost, icon: "Boost.13" });
-	return chips.map((chip, index) => (
-		<frame
-			key={index}
-			Size={UDim2.fromOffset(0, 26)}
-			AutomaticSize={Enum.AutomaticSize.X}
-			BackgroundColor3={darken(accent, 0.55)}
-			BorderSizePixel={0}
-			LayoutOrder={index}
-			ClipsDescendants={false}
-		>
-			<uicorner CornerRadius={new UDim(0, 6)} />
-			<uigradient Color={new ColorSequence(lighten(darken(accent, 0.5), 0.06), darken(accent, 0.2))} Rotation={90} />
-			<uipadding
-				PaddingLeft={new UDim(0, 6)}
-				PaddingRight={new UDim(0, 8)}
-				PaddingTop={new UDim(0, 4)}
-				PaddingBottom={new UDim(0, 4)}
-			/>
-			<uilistlayout
-				FillDirection={Enum.FillDirection.Horizontal}
-				Padding={new UDim(0, 6)}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-				VerticalAlignment={Enum.VerticalAlignment.Center}
-			/>
-			<frame
-				Size={UDim2.fromOffset(16, 16)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				LayoutOrder={0}
-				ClipsDescendants={true}
-			>
-				<Icon kind={chip.icon} color={Palette.cream} accent={accent} size={16} spin={false} clipSafe={true} />
-			</frame>
-			<textlabel
-				Size={UDim2.fromOffset(0, 18)}
-				AutomaticSize={Enum.AutomaticSize.X}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				Text={chip.label}
-				TextColor3={Palette.cream}
-				TextSize={11}
-				FontFace={Font.fromEnum(Enum.Font.BuilderSansBold)}
-				TextXAlignment={Enum.TextXAlignment.Left}
-				TextYAlignment={Enum.TextYAlignment.Center}
-				LayoutOrder={1}
-			/>
-		</frame>
-	));
-}
-
 interface ForgePathRowProps {
 	step: DecoratedForgePathStep;
 	claimed: boolean;
@@ -168,125 +107,48 @@ function ForgePathRow({
 	const reveal = useStagger(index, reducedMotion, 0.015, 0.12);
 	const ready = !claimed && unlockedForClaim && affordable;
 	const locked = !claimed && !unlockedForClaim;
-	const accent = claimed ? Palette.muted : ready ? step.Color : Palette.mango;
-	const progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1);
-	const rowH = stack ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT;
-	const textW = stack ? -48 : -200;
+	const phone = stack === true;
 	return (
-		<frame
-			Size={new UDim2(1, -4, 0, rowH)}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			LayoutOrder={index}
-			ClipsDescendants={false}
-		>
-			<Panel radius={18} rule
-				size={UDim2.fromScale(1, 1)}
-				accent={accent}
-				background={Palette.panel}
-				padding={18}
-				reveal={reveal}
-				highlight={ready}
-				reducedMotion={reducedMotion}
-				clips={false}
-			>
-				<IconTile
-					kind={step.Icon}
-					accent={claimed ? Palette.muted : step.Color}
-					size={38}
-					radius={10}
-					position={UDim2.fromOffset(0, 4)}
-					spin={false}
-					reducedMotion={reducedMotion}
-				/>
-				<Text
-					value={tostring(step.Step)}
-					size={12}
-					color={claimed ? Palette.muted : step.Color}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					position={UDim2.fromOffset(48, 2)}
-					sizeConstraint={new UDim2(1, textW, 0, 16)}
-				/>
-				<Text
-					value={effectLabel(step)}
-					size={14}
-					color={claimed ? Palette.muted : Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					position={UDim2.fromOffset(48, 20)}
-					sizeConstraint={new UDim2(1, textW, 0, 20)}
-				/>
-				<frame
-					Size={new UDim2(1, textW, 0, 26)}
-					Position={UDim2.fromOffset(48, 46)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-				>
-					<uilistlayout
-						FillDirection={Enum.FillDirection.Horizontal}
-						Padding={new UDim(0, 10)}
-						SortOrder={Enum.SortOrder.LayoutOrder}
-						VerticalAlignment={Enum.VerticalAlignment.Center}
-					/>
-					{rewardChips(step.Reward as Reward | undefined, claimed ? Palette.muted : step.Color)}
+		<Rise reveal={reveal} height={phone ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT} layoutOrder={index}>
+			<MockRow
+				phone={phone}
+				height={phone ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT}
+				icon={claimed ? "Check" : locked ? "Lock" : step.Icon}
+				accent={claimed ? Palette.muted : step.Color}
+				dim={claimed || locked}
+				title={`Step ${step.Step} · ${effectLabel(step)}`}
+				sub={formatReward(step.Reward as Reward | undefined)}
+				value={claimed ? "Claimed" : `${compactNumber(math.min(xp, step.XPCost))} / ${compactNumber(step.XPCost)} XP`}
+				valueColor={claimed ? Palette.muted : ready ? step.Color : Palette.creamSoft}
+				outline={ready ? Palette.mango : undefined}
+				rightWidth={ready ? (phone ? 84 : 110) : undefined}
+				right={ready ? <MockBtn text="Claim" accent={step.Color} sm={true} phone={phone} width={phone ? 84 : 110} onClick={() => onClaim(step.Step)} reducedMotion={reducedMotion} /> : undefined}
+			/>
+		</Rise>
+	);
+}
+
+/** 15-rewards "This week" cell: label, glyph, figure, Claim on the live one; claimed cells at .55. */
+const DAY_CELL_H = 148;
+const DAY_CELL_H_PHONE = 118;
+function DayCell(p: { step: DecoratedForgePathStep; claimed: boolean; ready: boolean; next: boolean; phone: boolean; onClaim: (step: number) => unknown; reducedMotion?: boolean; order: number }) {
+	const { step, phone } = p;
+	return (
+		<canvasgroup BackgroundTransparency={1} GroupTransparency={p.claimed ? 0.45 : 0} LayoutOrder={p.order}>
+			<frame BackgroundColor3={Palette.white} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)}>
+				<RowFace outline={p.next ? Palette.mango : undefined} strong={p.next} />
+				<uipadding PaddingTop={new UDim(0, phone ? 10 : 14)} PaddingBottom={new UDim(0, phone ? 10 : 14)} PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<textlabel BackgroundTransparency={1} Text={spaced(`STEP ${step.Step}`)} TextSize={phone ? 10 : 11} FontFace={BODY_BOLD} TextColor3={Palette.muted} Size={new UDim2(1, 0, 0, 14)} LayoutOrder={0} />
+				<frame BackgroundTransparency={1} Size={UDim2.fromOffset(phone ? 22 : 28, phone ? 22 : 28)} LayoutOrder={1}>
+					<Glyph kind={p.claimed ? "Check" : step.Icon} size={phone ? 22 : 28} color={p.claimed ? Palette.mint : step.Color} />
 				</frame>
-				<Meter
-					value={claimed ? 1 : progressFrac}
-					color={accent}
-					reducedMotion={reducedMotion}
-					shimmer={ready}
-					position={UDim2.fromOffset(0, stack ? 98 : 104)}
-					size={new UDim2(1, stack ? 0 : -200, 0, 8)}
-				/>
-				{stack ? (
-					claimed ? (
-						<Badge
-							value="Done"
-							accent={Palette.muted}
-							filled={true}
-							size={new UDim2(1, 0, 0, TapTarget)}
-							position={new UDim2(0, 0, 1, -TapTarget)}
-						/>
-					) : (
-						<Button
-							text={ready ? "Claim" : locked ? "Locked" : "XP"}
-							icon={ready ? "Check.4" : undefined}
-							onClick={() => onClaim(step.Step)}
-							color={ready ? step.Color : Palette.panelSoft}
-							textColor={ready ? Palette.ink : Palette.muted}
-							size={new UDim2(1, 0, 0, TapTarget)}
-							position={new UDim2(0, 0, 1, -TapTarget)}
-							reducedMotion={reducedMotion}
-							disabled={!ready}
-							highlight={ready}
-						/>
-					)
-				) : claimed ? (
-					<Badge
-						value="Done"
-						accent={Palette.muted}
-						filled={true}
-						position={new UDim2(1, -150, 0, 26)}
-						size={UDim2.fromOffset(140, 32)}
-					/>
-				) : (
-					<Button
-						text={ready ? "Claim" : locked ? "Locked" : "XP"}
-						icon={ready ? "Check.5" : undefined}
-						onClick={() => onClaim(step.Step)}
-						color={ready ? step.Color : Palette.panelSoft}
-						textColor={ready ? Palette.ink : Palette.muted}
-						size={UDim2.fromOffset(140, 32)}
-						position={new UDim2(1, -150, 0, 26)}
-						reducedMotion={reducedMotion}
-						disabled={!ready}
-						highlight={ready}
-					/>
-				)}
-			</Panel>
-		</frame>
+				<textlabel BackgroundTransparency={1} Text={`+${step.EffectAmount}%`} TextSize={phone ? 13 : 15} FontFace={BODY_BOLD} TextColor3={Palette.cream} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 18)} LayoutOrder={2} />
+				{p.ready ? (
+					<MockBtn text="Claim" sm={true} phone={false} fill={true} onClick={() => p.onClaim(step.Step)} reducedMotion={p.reducedMotion} layoutOrder={3} />
+				) : undefined}
+			</frame>
+		</canvasgroup>
 	);
 }
 
@@ -321,141 +183,41 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 			pcall(task.cancel, selectJob);
 		};
 	}, [ready, complete, step !== undefined ? step.Step : 0]);
-	if (complete) {
+	const phone = stack === true;
+	if (complete || step === undefined) {
 		return (
-			<Panel radius={18} rule
-				size={UDim2.fromScale(1, 1)}
-				accent={Palette.mint}
-				background={Palette.panelRaised}
-				padding={stack ? 18 : 24}
-				clips={false}
-			>
-				<EmptyState
-					icon="Check.6"
-					title="Forge Path complete"
-					body={guide?.Complete ?? "Path cleared. Permanent bonuses stay through rebirth."}
-					accent={Palette.mint}
-					compact={true}
-					size={UDim2.fromScale(1, 1)}
-					reducedMotion={reducedMotion}
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={complete ? Palette.mint : Palette.violet} reducedMotion={reducedMotion} name="ForgePathNext">
+				<PanelHeading icon={complete ? "Check" : "Forge"} title={complete ? "Path complete" : "Next step"} accent={complete ? Palette.mint : Palette.violet} phone={phone} layoutOrder={0} />
+				<MockRow
+					phone={phone}
+					icon="Info"
+					accent={complete ? Palette.mint : Palette.violet}
+					title={complete ? (guide?.Complete ?? "Path cleared. Permanent bonuses stay through rebirth.") : "Forge Path isn't ready"}
+					sub={complete ? undefined : "Check back in a moment."}
+					layoutOrder={1}
 				/>
-			</Panel>
-		);
-	}
-	if (step === undefined) {
-		return (
-			<Panel radius={18} rule
-				size={UDim2.fromScale(1, 1)}
-				accent={Palette.violet}
-				background={Palette.panelRaised}
-				padding={stack ? 18 : 24}
-				clips={false}
-			>
-				<EmptyState
-					icon="Forge.11"
-					title="Forge Path isn't ready"
-					body="Check back in a moment."
-					accent={Palette.violet}
-					compact={true}
-					size={UDim2.fromScale(1, 1)}
-					reducedMotion={reducedMotion}
-				/>
-			</Panel>
+			</MockPanel>
 		);
 	}
 	const progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1);
 	const needXp = !ready && xp < step.XPCost;
 	return (
-		<Panel radius={18} rule
-			size={UDim2.fromScale(1, 1)}
-			accent={ready ? step.Color : Palette.violet}
-			background={Palette.panelRaised}
-			padding={stack ? 18 : 24}
-			highlight={ready}
-			reducedMotion={reducedMotion}
-			clips={false}
-		>
-			<Text
-				value={effectLabel(step)}
-				size={stack ? 18 : 22}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				position={UDim2.fromOffset(0, 8)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 30)}
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ready ? step.Color : Palette.violet} glow={ready ? step.Color : undefined} reducedMotion={reducedMotion} name="ForgePathNext">
+			<PanelHeading icon={step.Icon} title={`Step ${step.Step}`} note="Next step" accent={step.Color} phone={phone} layoutOrder={0} />
+			<MockRow phone={phone} icon={step.Icon} accent={step.Color} title={effectLabel(step)} value={`${compactNumber(math.min(xp, step.XPCost))} / ${compactNumber(step.XPCost)}`} layoutOrder={1} />
+			<MockRow
+				phone={phone}
+				icon="Gift"
+				accent={Palette.mango}
+				title={needXp ? (guide?.NeedXp ?? "Bank Flux to earn Forge Path XP.") : "Reward"}
+				value={needXp ? undefined : formatReward(step.Reward as Reward | undefined)}
+				layoutOrder={2}
 			/>
-			<Text
-				value={needXp ? (guide?.NeedXp ?? "Bank Flux to earn Forge Path XP.") : formatReward(step.Reward as Reward | undefined)}
-				size={11}
-				color={needXp ? Palette.creamSoft : Palette.mango}
-				wrap={true}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(0, 46)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 32)}
-			/>
-			<Meter
-				value={progressFrac}
-				color={ready ? step.Color : Palette.violet}
-				reducedMotion={reducedMotion}
-				shimmer={ready}
-				position={UDim2.fromOffset(0, stack ? 96 : 92)}
-				size={new UDim2(1, stack ? 0 : -180, 0, 8)}
-			/>
-			<Text
-				value={`${compactNumber(math.min(xp, step.XPCost))} / ${compactNumber(step.XPCost)}`}
-				size={10}
-				color={Palette.muted}
-				weight={Enum.FontWeight.Bold}
-				position={UDim2.fromOffset(0, stack ? 110 : 106)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 16)}
-			/>
-			{stack ? (
-				<frame
-					{...named("ForgePathClaimActions")}
-					Size={new UDim2(1, 0, 0, TapTarget)}
-					Position={new UDim2(0, 0, 1, -TapTarget)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-					ref={claimHostRef}
-				>
-					<Button
-						text={ready ? "Claim" : "XP"}
-						icon={ready ? "Check.7" : undefined}
-						onClick={() => onClaim(step.Step)}
-						color={ready ? step.Color : Palette.panelSoft}
-						textColor={ready ? Palette.ink : Palette.muted}
-						size={UDim2.fromScale(1, 1)}
-						reducedMotion={reducedMotion}
-						disabled={!ready}
-						highlight={ready}
-					/>
-				</frame>
-			) : (
-				<frame
-					{...named("ForgePathClaimActions")}
-					Size={UDim2.fromOffset(160, TapTarget)}
-					Position={new UDim2(1, -160, 0.5, -TapTarget / 2)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-					ref={claimHostRef}
-				>
-					<Button
-						text={ready ? "Claim" : "XP"}
-						icon={ready ? "Check.8" : undefined}
-						onClick={() => onClaim(step.Step)}
-						color={ready ? step.Color : Palette.panelSoft}
-						textColor={ready ? Palette.ink : Palette.muted}
-						size={UDim2.fromScale(1, 1)}
-						reducedMotion={reducedMotion}
-						disabled={!ready}
-						highlight={ready}
-					/>
-				</frame>
-			)}
-		</Panel>
+			<Bar fill={progressFrac} color={ready ? step.Color : Palette.violet} layoutOrder={3} />
+			<frame {...named("ForgePathClaimActions")} Size={new UDim2(1, 0, 0, phone ? TapTarget : 44)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} ref={claimHostRef} LayoutOrder={4}>
+				<MockBtn text={ready ? "Claim" : "Earning XP"} icon={ready ? "Check" : undefined} accent={step.Color} phone={phone} fill={true} disabled={!ready} onClick={() => onClaim(step.Step)} reducedMotion={reducedMotion} />
+			</frame>
+		</MockPanel>
 	);
 }
 
@@ -492,9 +254,15 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 	const pathComplete = totalCount > 0 && claimedCount >= totalCount;
 	const onClaim = (step: number) => dispatch("ClaimForgePathStep", { Step: step });
 	const headerReveal = useStagger(0, softMotion);
-	const listGap = stack ? chrome.panelGap : Layout.panelGap;
-	const headerH = stack ? 148 : 128;
-	const spotlightH = stack ? SPOTLIGHT_H_STACK : SPOTLIGHT_H;
+	const listGap = stack ? 8 : 12;
+	const g = stack ? 8 : 12;
+	const rowH = rowHeight(stack);
+	const spotlightH = pathComplete || nextStep === undefined ? panelHeight(stack, headingBlock(stack) + rowHeight(stack, true)) : panelHeight(stack, headingBlock(stack) + rowH * 2 + g * 3 + 10 + (stack ? TapTarget : 44));
+	const progressH = panelHeight(stack, headingBlock(stack) + rowH * 3 + g * 2);
+	const headerH = stack ? progressH : math.max(spotlightH, progressH);
+	const dayCols = stack ? 4 : 7;
+	const dayH = stack ? DAY_CELL_H_PHONE : DAY_CELL_H;
+	const weekH = panelHeight(stack, headingBlock(stack) + dayH);
 	// phones in landscape have the width for the side-by-side step row (claim on the right)
 	const rowStack = stack && !chrome.landscape;
 	const stepRowHeight = rowStack ? STEP_ROW_HEIGHT_STACK : STEP_ROW_HEIGHT;
@@ -562,78 +330,46 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 				)}
 			/>
 		);
+	// the 7-step window around the next claim (15-rewards "This week")
+	const nextIndex = nextStep !== undefined ? steps.indexOf(nextStep) : pathComplete ? totalCount - 1 : 0;
+	const windowStart = math.clamp(nextIndex - 3, 0, math.max(0, totalCount - dayCols));
+	const windowSteps = steps.filter((_, i) => i >= windowStart && i < windowStart + dayCols);
+	const weekSection: ColumnSection = {
+		id: "week",
+		height: weekH,
+		element: (
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={stack} accent={Palette.violet} reveal={headerReveal} reducedMotion={softMotion} name="ForgePathWeek">
+				<PanelHeading icon="Forge" title="Forge Path" note={`${claimedCount} of ${totalCount} claimed`} accent={Palette.violet} phone={stack} layoutOrder={0} />
+				<Grid columns={dayCols} gap={stack ? 8 : 12} cellHeight={dayH} count={dayCols} layoutOrder={1}>
+					{windowSteps.map((step, i) => (
+						<DayCell
+							key={step.Step}
+							step={step}
+							claimed={claimedSet.has(step.Step)}
+							next={nextStep !== undefined && step.Step === nextStep.Step}
+							ready={nextStep !== undefined && step.Step === nextStep.Step && nextReady}
+							phone={stack}
+							onClaim={onClaim}
+							reducedMotion={softMotion}
+							order={i}
+						/>
+					))}
+				</Grid>
+			</MockPanel>
+		),
+	};
 	const heroSection: ColumnSection = {
-					id: "hero",
-					height: headerH,
-					element: (
-						<Panel radius={18} rule
-							size={UDim2.fromScale(1, 1)}
-							accent={Palette.violet}
-							background={Palette.panelRaised}
-							padding={stack ? 18 : 24}
-							reveal={headerReveal}
-							clips={false}
-						>
-							<IconTile
-								kind="Forge"
-								accent={Palette.violet}
-								size={stack ? 48 : 56}
-								radius={18}
-								position={UDim2.fromOffset(0, stack ? 4 : 18)}
-								glow={true}
-								spin={false}
-								reducedMotion={softMotion}
-							/>
-							<Text
-								value={heroBlurb}
-								size={stack ? 16 : 18}
-								color={Palette.cream}
-								weight={Enum.FontWeight.Heavy}
-								fit={true}
-								minSize={10}
-								wrap={true}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 64 : 6)}
-								sizeConstraint={new UDim2(1, stack ? -8 : -292, 0, 44)}
-							/>
-							<Meter
-								value={progressFrac}
-								color={Palette.violet}
-								reducedMotion={softMotion}
-								shimmer={nextReady}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 114 : 56)}
-								size={new UDim2(1, stack ? -8 : -292, 0, 8)}
-							/>
-							<Text
-								value={`${claimedCount} / ${totalCount}`}
-								size={11}
-								color={Palette.creamSoft}
-								wrap={true}
-								fit={true}
-								minSize={9}
-								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 126 : 70)}
-								sizeConstraint={new UDim2(1, stack ? -8 : -292, 0, 24)}
-							/>
-							{!stack && (
-								<frame
-									Size={new UDim2(0, 200, 0, 40)}
-									Position={new UDim2(1, -200, 0.5, -20)}
-									BackgroundTransparency={1}
-									BorderSizePixel={0}
-								>
-									<Text
-										value={`${compactNumber(forgePath.XP)}`}
-										size={34}
-										color={Palette.violet}
-										weight={Enum.FontWeight.Heavy}
-										fit={true}
-										position={UDim2.fromOffset(0, 0)}
-										sizeConstraint={new UDim2(1, 0, 0, 40)}
-									/>
-								</frame>
-							)}
-						</Panel>
-					),
-				};
+		id: "hero",
+		height: headerH,
+		element: (
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={stack} accent={Palette.violet} reducedMotion={softMotion} name="ForgePathProgress">
+				<PanelHeading icon="Milestone" title="Progress" accent={Palette.violet} phone={stack} layoutOrder={0} />
+				<MockRow phone={stack} icon="Forge" accent={Palette.violet} title="Forge Path XP" value={compactNumber(forgePath.XP)} layoutOrder={1} />
+				<MockRow phone={stack} icon="Check" accent={Palette.violet} title="Steps claimed" value={`${claimedCount} / ${totalCount}`} layoutOrder={2} />
+				<MockRow phone={stack} icon="Info" accent={Palette.violet} title={heroBlurb} value={`${math.floor(progressFrac * 100)}%`} layoutOrder={3} />
+			</MockPanel>
+		),
+	};
 	const spotlightSection: ColumnSection = {
 					id: "spotlight",
 					height: spotlightH,
@@ -650,10 +386,9 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 						/>
 					),
 				};
-	// wide desktops: progress and the next claim side by side, steps list full width below
-	const topPlan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.45), listGap, 1280);
-	const topH = math.max(headerH, spotlightH);
-	// gamepad: the next-step claim first, then search/filters, then the steps list; hero <-> claim side by side
+	// desktop: the next claim and progress side by side (.flexr of two f1 panels) under the step strip
+	const topPlan = splitColumns(stack ? 0 : viewport.width, math.floor((viewport.width - 18) / 2), 18, 900);
+	const topH = headerH;
 	const pageHostRef = React.useRef<Frame>();
 	useFocusOrder(
 		pageHostRef,
@@ -662,6 +397,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 	);
 	const topSections: ColumnSection[] = topPlan.split
 		? [
+				weekSection,
 				{
 					id: "top",
 					height: topH,
@@ -669,17 +405,18 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 						<SplitColumns
 							height={topH}
 							plan={topPlan}
-							side={<StackBlocks riseFrom={0} blocks={[{ ...heroSection, height: topH, rise: 0 }]} />}
-							main={<StackBlocks riseFrom={0} blocks={[{ ...spotlightSection, height: topH, rise: 1 }]} />}
+							sideOnRight={true}
+							side={<StackBlocks riseFrom={1} blocks={[{ ...heroSection, height: topH, rise: 1 }]} />}
+							main={<StackBlocks riseFrom={1} blocks={[{ ...spotlightSection, height: topH, rise: 2 }]} />}
 						/>
 					),
 				},
 			]
-		: [heroSection, spotlightSection];
+		: [weekSection, spotlightSection, { ...heroSection, height: progressH }];
 	return (
 		<frame ref={pageHostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<PageScaffold
-				gap={listGap}
+				gap={stack ? 8 : 18}
 				tailPad={scrollTail(stack, chrome.bottomSafe, 48)}
 				scrollBarColor={Palette.violet}
 				scrollBarThickness={4}
