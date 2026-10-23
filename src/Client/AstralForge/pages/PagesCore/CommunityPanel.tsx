@@ -125,7 +125,7 @@ export function CommunityPanel(props: {
 		rows.push({
 			key: "group",
 			icon: "Guild",
-			accent: Palette.cyan,
+			accent: Palette.mango,
 			title: claimed ? `In the ${groupName} group` : `Join the ${groupName} group`,
 			detail: claimed ? "Reward collected. Thanks for joining." : formatReward(state.GroupReward),
 			button: claimed ? "Claimed" : "Check & claim",
@@ -232,8 +232,8 @@ export function CommunityPanel(props: {
 		);
 	});
 	return (
-		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
-			<Text value="Community" size={13} color={Palette.cyan} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
+		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.mango} background={Palette.panel} padding={14} reducedMotion={props.reducedMotion} clips={false}>
+			<Text value="Community" size={13} color={Palette.mango} weight={Enum.FontWeight.SemiBold} fit={false} sizeConstraint={new UDim2(1, 0, 0, 16)} />
 			{children}
 		</Panel>
 	);
