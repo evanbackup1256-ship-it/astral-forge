@@ -95,7 +95,7 @@ function WorldRow(props: WorldRowProps) {
 			costBits.push(`${compactNumber(zone.Cost)} flux`);
 		}
 	}
-	const costLine = costBits.size() > 0 ? costBits.join(" · ") : undefined;
+	const costLine = costBits.size() > 0 ? costBits.join(", ") : undefined;
 	const missing =
 		!unlocked && !current
 			? !rebirthOk
@@ -118,6 +118,9 @@ function WorldRow(props: WorldRowProps) {
 	const btnColor = current ? Palette.green : unlocked ? Palette.green : canUnlock ? Palette.mango : Palette.panelSoft;
 	const btnText = current || unlocked || canUnlock ? Palette.ink : Palette.muted;
 	const rowH = PageBoardHeights.World(stack);
+	// desktop: the name/feature/cost block and the icon sit centred in the 88 px card body
+	const bodyH = costLine !== undefined ? 82 : 56;
+	const bodyY = stack ? 4 : math.max(0, math.floor((rowH - 44 - bodyH) / 2));
 	return (
 		<frame
 			Size={new UDim2(1, -4, 0, rowH)}
@@ -142,15 +145,15 @@ function WorldRow(props: WorldRowProps) {
 					accent={zone.Color}
 					size={stack ? 48 : 56}
 					radius={14}
-					position={UDim2.fromOffset(0, stack ? 12 : 30)}
+					position={UDim2.fromOffset(0, stack ? 12 : math.floor((rowH - 44 - 56) / 2))}
 					spin={false}
 					glow={current || canUnlock}
 					filled={current}
 					reducedMotion={reducedMotion}
 				/>
 				<frame
-					Size={stack ? new UDim2(1, -64, 0, 126) : new UDim2(1, -200, 1, -6)}
-					Position={UDim2.fromOffset(stack ? 60 : 72, stack ? 4 : 6)}
+					Size={stack ? new UDim2(1, -64, 0, 90) : new UDim2(1, -200, 0, bodyH)}
+					Position={UDim2.fromOffset(stack ? 60 : 72, bodyY)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					ClipsDescendants={false}
@@ -185,8 +188,8 @@ function WorldRow(props: WorldRowProps) {
 						)}
 					</frame>
 					<Text
-						value={`${feature}  ·  ${AppHelpers.formatWorldMultiplier(tonumber(zone.Multiplier) ?? 0)}x`}
-						size={stack ? 13 : 11}
+						value={`${feature}   ${AppHelpers.formatWorldMultiplier(tonumber(zone.Multiplier) ?? 0)}x`}
+						size={stack ? 13 : 12}
 						color={zone.Color}
 						weight={Enum.FontWeight.Bold}
 						fit={false}
@@ -250,7 +253,8 @@ function WorldsView(props: WorldsViewProps) {
 	const sideColumn = plan.split;
 	const headerStack = stack || sideColumn;
 	const barH = Browse.barHeight(headerStack, true);
-	const headerHeight = (headerStack ? 168 : 112) + barH + 10;
+	// stacked header: title, FIND CURRENT, search; 168 left a 44 px empty band between title and button
+	const headerHeight = (headerStack ? 132 : 112) + barH + 10;
 	const rowHeight = PageBoardHeights.World(stack);
 	const rowGap = rowGapFor(stack, chrome.panelGap);
 	const listPad = Layout.stackGap * 2;
