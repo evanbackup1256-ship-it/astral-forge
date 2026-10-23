@@ -106,7 +106,7 @@ interface Response {
 }
 
 const TEST_BOT_USER_ID = 771133001;
-const ROW_H = 60;
+const ROW_H = 52;
 // phones (card narrower than this): one-line rows, so about a third more players fit on screen
 const COMPACT_W = 340;
 const COMPACT_ROW_H = 44;
@@ -324,7 +324,7 @@ function PlayerRow(param: PlayerRowProps) {
 	const detailsH = detailsHeight(row, width);
 	const compact = width < COMPACT_W;
 	const rowH = compact ? COMPACT_ROW_H : ROW_H;
-	const avatarSize = compact ? 28 : 40;
+	const avatarSize = compact ? 28 : 34;
 	// rank column ahead of the avatar; everything after it shifts right by this much
 	const rankW = compact ? 22 : 28;
 	const topRank = param.rank === 1;
@@ -530,13 +530,14 @@ function PlayerRow(param: PlayerRowProps) {
 			ref: rowRef,
 			Size: openAmount.map((amount) => new UDim2(1, 0, 0, rowH + math.round(detailsH * math.clamp(amount, 0, 1)))),
 			LayoutOrder: param.order,
-			BackgroundColor3: hover.map((amount) => Palette.panel.Lerp(darken(accent, 0.7), math.clamp(amount, 0, 1) * 0.8)),
+			// 24-playerlist .row: radius 11, a faint top-lit fill on the panel (no brass rule on rows)
+			BackgroundColor3: hover.map((amount) => Palette.panelRaised.Lerp(darken(accent, 0.7), math.clamp(amount, 0, 1) * 0.8)),
+			BackgroundTransparency: 0.35,
 			BorderSizePixel: 0,
 			ClipsDescendants: true,
 			ZIndex: 620,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 18) }),
-		h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
+		h("uicorner", { CornerRadius: new UDim(0, 11) }),
 		h(
 			"uistroke",
 			{
@@ -630,8 +631,8 @@ function PlayerRow(param: PlayerRowProps) {
 					reactionKey: `${artifact.Name}:${artifact.Level}`,
 				}),
 			h(Text, {
-				value: `#${param.rank}`,
-				size: compact ? 12 : 14,
+				value: tostring(param.rank),
+				size: compact ? 14 : 18,
 				color: topRank ? Palette.mango : Palette.muted,
 				weight: Enum.FontWeight.Heavy,
 				align: Enum.TextXAlignment.Center,
@@ -678,7 +679,7 @@ function PlayerRow(param: PlayerRowProps) {
 				weight: Enum.FontWeight.Heavy,
 				fit: true,
 				minSize: 11,
-				position: compact ? UDim2.fromOffset(46 + rankW, 12) : UDim2.fromOffset(60 + rankW, 9),
+				position: compact ? UDim2.fromOffset(46 + rankW, 12) : UDim2.fromOffset(56 + rankW, 7),
 				sizeConstraint: compact
 					? new UDim2(1, -46 - rankW - 96, 0, 20)
 					: new UDim2(1, -150 - rankW - (param.crewmate ? 24 : 0), 0, 20),
@@ -702,7 +703,7 @@ function PlayerRow(param: PlayerRowProps) {
 				weight: Enum.FontWeight.Bold,
 				fit: true,
 				minSize: 8,
-				position: UDim2.fromOffset(60 + rankW, 32),
+				position: UDim2.fromOffset(56 + rankW, 28),
 				sizeConstraint: new UDim2(1, -150 - rankW, 0, 16),
 				zIndex: 623,
 			}),
