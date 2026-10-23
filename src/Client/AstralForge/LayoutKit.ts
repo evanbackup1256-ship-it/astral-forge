@@ -1333,6 +1333,8 @@ __defs["pageScaffold"] = () => {
 				return undefined;
 			}
 			host.SetAttribute("LayoutOwner", _param.owner ?? "PageScaffold");
+			// LayoutGuard adaptive fit: every page host opts in (Workspace LayoutAutoFit = false turns it off)
+			game.GetService("CollectionService").AddTag(host, "AutoFit");
 			const sync = () => {
 				const height = math.max(0, math.floor(host.AbsoluteSize.Y + 0.5));
 				setAvailable((current) => (current === height ? current : height));

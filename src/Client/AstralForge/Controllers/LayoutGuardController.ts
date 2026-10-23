@@ -31,6 +31,7 @@ import { runMatrix, summarizeMatrix } from "../LayoutGuard/matrix";
 import { Overlay } from "../LayoutGuard/overlay";
 import { recover, recoveryStats } from "../LayoutGuard/recovery";
 import { Report, buildReport, reportText } from "../LayoutGuard/report";
+import { autoFitStats } from "./AutoFitController";
 import { Finding, Profile, RuleConfig, Snapshot } from "../LayoutGuard/types";
 
 const Players = game.GetService("Players");
@@ -446,6 +447,7 @@ class LayoutGuardController implements OnInit, OnStart {
 		const pathOf = (id: number) => snap?.byId.get(id)?.path ?? "?";
 		const s: Record<string, number> = {};
 		for (const [k, v] of pairs(stats)) s[k as string] = v as number;
+		for (const [k, v] of pairs(autoFitStats())) if (typeIs(v, "number")) s[`autoFit.${k}`] = v;
 		return buildReport(snap, this.active, this.matrix, this.mode, s, pathOf);
 	}
 
