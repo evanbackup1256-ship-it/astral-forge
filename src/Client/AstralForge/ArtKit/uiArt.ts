@@ -17,16 +17,4 @@ export const HEADER_ART = {
 
 export type HeaderArtName = keyof typeof HEADER_ART;
 
-/** companion idle sheets: 1024px, 6x6 grid, 36 frames at 24 fps (same timing as the element sheets) */
-export const COMPANION_SHEETS = {
-	Cinder: "rbxassetid://96721820700576",
-	Frostlet: "rbxassetid://102982024064892",
-	Tidepup: "rbxassetid://112367869722042",
-	BrassOwl: "rbxassetid://92141659344017",
-	Lumen: "rbxassetid://125440001868646",
-	Voidmote: "rbxassetid://111706636066465",
-} as const;
-
-export type CompanionSheetName = keyof typeof COMPANION_SHEETS;
-
-export const COMPANION_SHEET_GRID = { columns: 6, count: 36, frameRate: 24, frame: 1024 / 6 } as const;
+// Companion idle sheets live in Shared/ElementSprites.ts (COMPANIONS); that table is the one source.

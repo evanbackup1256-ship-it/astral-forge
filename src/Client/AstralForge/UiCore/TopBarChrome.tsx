@@ -1261,8 +1261,15 @@ function TopBarImpl(_param: TopBarProps) {
 		(showFeedbackControl ? feedbackControlGap + feedbackControlW : 0);
 	const sessionControlGap = feedbackControlGap;
 	const sessionControlW = micro || stacked || width < 1180 ? SHELL_CHROME.topbarControl : 118;
+	// 01-hud-session: Shop pill, leftmost of the controls (dropped first on the narrowest bars)
+	const shopControlW = _param.navigate === undefined || width < 420 ? 0 : micro || stacked || width < 1380 ? SHELL_CHROME.topbarControl : 96;
+	const shopSlot = shopControlW > 0 ? sessionControlGap + shopControlW : 0;
 	const controlsW =
-		controlsBeforeSearch + (searchControlW > 0 ? feedbackControlGap + searchControlW : 0) + sessionControlGap + sessionControlW;
+		controlsBeforeSearch +
+		(searchControlW > 0 ? feedbackControlGap + searchControlW : 0) +
+		sessionControlGap +
+		sessionControlW +
+		shopSlot;
 	const fixedSingleRow =
 		edgePad * 2 +
 		(logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) +
@@ -1795,7 +1802,7 @@ function TopBarImpl(_param: TopBarProps) {
 					Size: UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
 					Position: new UDim2(
 						1,
-						-(controlsRight + controlsW - sessionControlGap - sessionControlW),
+						-(controlsRight + controlsW - shopSlot - sessionControlGap - sessionControlW),
 						0,
 						math.floor((row1H - SHELL_CHROME.topbarControl) / 2),
 					),
@@ -1829,12 +1836,39 @@ function TopBarImpl(_param: TopBarProps) {
 			{
 				Name: "SessionButton",
 				Size: UDim2.fromOffset(sessionControlW, SHELL_CHROME.topbarControl),
-				Position: new UDim2(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+				Position: new UDim2(1, -(controlsRight + controlsW - shopSlot), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
 				BackgroundTransparency: 1,
 				ZIndex: 22,
 			},
 			h(SessionToggle, { width: sessionControlW, reducedMotion: reducedMotion }),
 		),
+		shopControlW > 0 &&
+			h(
+				"frame",
+				{
+					Name: "ShopButton",
+					Size: UDim2.fromOffset(shopControlW, SHELL_CHROME.topbarControl),
+					Position: new UDim2(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+					BackgroundTransparency: 1,
+					ZIndex: 22,
+				},
+				h(Button, {
+					text: shopControlW > SHELL_CHROME.topbarControl ? "SHOP" : "",
+					icon: "Shop.11",
+					tooltip: { title: "Shop", body: "Passes, boosts and Flux packs." },
+					onClick: () => _param.navigate?.("Shop"),
+					color: darken(Palette.mango, 0.5),
+					textColor: Palette.mango,
+					outline: true,
+					size: UDim2.fromScale(1, 1),
+					reducedMotion: reducedMotion,
+					motion: resolvePressMotion({
+						text: shopControlW > SHELL_CHROME.topbarControl ? "SHOP" : "",
+						icon: "Shop.12",
+						size: UDim2.fromOffset(shopControlW, SHELL_CHROME.topbarControl),
+					}),
+				}),
+			),
 	);
 }
 

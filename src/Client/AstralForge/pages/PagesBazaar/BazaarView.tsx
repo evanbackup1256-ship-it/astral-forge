@@ -7,6 +7,7 @@ import { counted, memoRow, sameFields } from "../../UiCore/rowMemo";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
 import { useFocusOrder } from "../../CoreKit/focusOrder";
 import type { Session } from "../../state";
+import { HeaderArt } from "../../UiCore/HeaderArt";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 
 const Ui = loadUi();
@@ -597,6 +598,7 @@ function BazaarView(props: BazaarProps) {
 			background={Palette.panelRaised}
 			reducedMotion={props.reducedMotion}
 		>
+			<HeaderArt art="market" inset={16} />
 			<Ui.Text
 				value={expired ? "Fresh stock" : "This shipment"}
 				size={28}

@@ -1,4 +1,5 @@
 import { counted } from "../../UiCore/rowMemo";
+import { HeaderArt } from "../../UiCore/HeaderArt";
 import React from "@rbxts/react";
 import Tools = require("../../UpgradeTools");
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -48,7 +49,6 @@ function splitSections<S extends { id: string; height: number; element: React.El
 
 
 // header-forge.png (1024x120), already uploaded (assets/uploaded.md)
-const FORGE_HEADER_IMAGE = "rbxassetid://129306695928995";
 const UserInputService = game.GetService("UserInputService");
 const { AmountToggle, Badge, Button, Dropdown, EmptyState, IconTile, Panel, Text, SearchField } = loadUi();
 const PageScaffold = loadPageScaffold();
@@ -517,41 +517,7 @@ function UpgradeBoard(props: {
 		>
 			{/* port 03-forge hero: the uploaded header-forge art behind the title (ScaleType Crop), with the
 			    depth built in code: a left-to-right panel fade so the title reads, and a bottom shade */}
-			<frame
-				Size={new UDim2(1, (headerStack ? chrome.cardPadding : 14) * 2, 1, (headerStack ? chrome.cardPadding : 14) * 2)}
-				Position={UDim2.fromOffset(-(headerStack ? chrome.cardPadding : 14), -(headerStack ? chrome.cardPadding : 14))}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={true}
-				ZIndex={0}
-			>
-				<uicorner CornerRadius={new UDim(0, 18)} />
-				<imagelabel
-					Size={UDim2.fromScale(1, 1)}
-					BackgroundTransparency={1}
-					Image={FORGE_HEADER_IMAGE}
-					ScaleType={Enum.ScaleType.Crop}
-					ImageTransparency={0.3}
-					ZIndex={0}
-				/>
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.panelRaised} BorderSizePixel={0} ZIndex={0}>
-					<uigradient
-						Transparency={
-							new NumberSequence([
-								new NumberSequenceKeypoint(0, 0.05),
-								new NumberSequenceKeypoint(0.45, 0.55),
-								new NumberSequenceKeypoint(1, 0.9),
-							])
-						}
-					/>
-				</frame>
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ZIndex={0}>
-					<uigradient
-						Rotation={90}
-						Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.6, 1), new NumberSequenceKeypoint(1, 0.45)])}
-					/>
-				</frame>
-			</frame>
+			<HeaderArt art="forge" inset={headerStack ? chrome.cardPadding : 14} />
 			<Text
 				value={title}
 				size={headerStack ? (stackCompact ? 18 : 20) : 24}
