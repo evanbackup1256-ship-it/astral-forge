@@ -301,7 +301,7 @@ function ResearchView(props: ResearchProps) {
 				},
 				{
 					id: "research-controls",
-					height: heroStack ? 164 : 96,
+					height: Tools.controlsHeight(heroStack),
 					element: (
 						<Tools.ResearchControls
 							query={query}

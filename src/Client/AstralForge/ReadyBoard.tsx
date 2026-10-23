@@ -3,6 +3,7 @@
 import React from "@rbxts/react";
 import * as theme from "./CoreKit/theme";
 import CrewStore = require("./CrewStore");
+import { SEC } from "./pages/mockRows";
 import { useChangePop, useHoverPress, useListStagger } from "./MotionKit/motion";
 
 const TextService = game.GetService("TextService");
@@ -189,7 +190,9 @@ function Pill(props: PillProps): React.Element {
 			Size: UDim2.fromOffset(0, props.height),
 			AutomaticSize: Enum.AutomaticSize.X,
 			LayoutOrder: props.layoutOrder,
-			BackgroundColor3: hovered ? theme.darken(entry.accent, 0.45) : theme.darken(entry.accent, 0.62),
+			// .chip.a: accent at 20% over the panel, 60% accent rim, cream text
+			BackgroundColor3: entry.accent,
+			BackgroundTransparency: hovered ? 0.7 : 0.8,
 			BorderSizePixel: 0,
 			AutoButtonColor: false,
 			Text: "",
@@ -204,10 +207,10 @@ function Pill(props: PillProps): React.Element {
 		h("uiscale", {
 			Scale: React.joinBindings([hoverScale, arrive]).map(([s, a]) => s * (0.86 + 0.14 * math.clamp(a, 0, 1.05))),
 		}),
-		h("uicorner", { CornerRadius: new UDim(0, 12) }),
+		h("uicorner", { CornerRadius: new UDim(0, 8) }),
 		h("uistroke", {
 			Color: entry.accent,
-			Transparency: hovered ? 0.1 : 0.45,
+			Transparency: hovered ? 0.2 : 0.4,
 			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 		}),
 		h("uipadding", {
@@ -250,7 +253,7 @@ function Pill(props: PillProps): React.Element {
 				LayoutOrder: 2,
 			},
 			h("uiscale", { Scale: countPop }),
-			h("uicorner", { CornerRadius: new UDim(1, 0) }),
+			h("uicorner", { CornerRadius: new UDim(0, 6) }),
 			h("uipadding", {
 				PaddingLeft: new UDim(0, 12),
 				PaddingRight: new UDim(0, 12),
@@ -350,7 +353,7 @@ function Strip(props: StripProps): React.Element {
 		children.more = h("textbutton", {
 			Size: UDim2.fromOffset(56, pillH),
 			LayoutOrder: shownList.size() + 1,
-			BackgroundColor3: Palette.panelSoft,
+			BackgroundColor3: SEC,
 			BorderSizePixel: 0,
 			AutoButtonColor: false,
 			Text: `+${hidden}`,
@@ -378,11 +381,10 @@ function Strip(props: StripProps): React.Element {
 	return h("frame", {
 		Size: UDim2.fromScale(1, 1),
 		BackgroundColor3: Palette.panel,
-		BackgroundTransparency: 0.15,
 		BorderSizePixel: 0,
-	}, h("uicorner", { CornerRadius: new UDim(0, 12) }), h("uistroke", {
-		Color: Palette.lineSoft,
-		Transparency: 0.6,
+	}, h("uicorner", { CornerRadius: new UDim(0, props.compact ? 12 : 16) }), h("uistroke", {
+		Color: Palette.brass,
+		Transparency: 0.75,
 		ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 	}), h("textlabel", {
 		Size: UDim2.fromOffset(props.compact ? 0 : 92, pillH),
@@ -390,10 +392,10 @@ function Strip(props: StripProps): React.Element {
 		AnchorPoint: new Vector2(0, 0.5),
 		BackgroundTransparency: 1,
 		Visible: !props.compact,
-		Text: list.size() > 0 ? `Ready · ${total(list)}` : "Ready",
-		TextSize: 12,
-		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
-		TextColor3: list.size() > 0 ? Palette.green : Palette.muted,
+		Text: list.size() > 0 ? `R E A D Y  ·  ${total(list)}` : "R E A D Y",
+		TextSize: 11,
+		FontFace: Font.fromName("BuilderSans", Enum.FontWeight.Bold),
+		TextColor3: list.size() > 0 ? Palette.mango : Palette.muted,
 		TextXAlignment: Enum.TextXAlignment.Left,
 	}), h("scrollingframe", {
 		Name: "ReadyStrip",
@@ -411,7 +413,7 @@ function Strip(props: StripProps): React.Element {
 		Size: UDim2.fromOffset(findW, pillH),
 		Position: new UDim2(1, -10, 0.5, 0),
 		AnchorPoint: new Vector2(1, 0.5),
-		BackgroundColor3: Palette.panelSoft,
+		BackgroundColor3: SEC,
 		BorderSizePixel: 0,
 		AutoButtonColor: false,
 		Text: "",

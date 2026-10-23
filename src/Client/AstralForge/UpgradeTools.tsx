@@ -2,15 +2,15 @@ import React from "@rbxts/react";
 import { Palette, TapTarget } from "./CoreKit/theme";
 import { amountPayload, compactNumber } from "./CoreKit/format";
 import { Dict, OmegaMathApi } from "./lua";
+import { BODY, Line, MockPanel, PanelHeading } from "./UiCore/mockKit";
+import { MockRow, panelHeight } from "./pages/mockRows";
 import createModel = require("./UpgradeModel");
 import createQueue = require("./PurchaseQueue");
 
 type Loose = (props: Dict) => React.Element | undefined;
 interface UiKit {
-	Panel: Loose;
 	SearchField: Loose;
 	Dropdown: Loose;
-	Text: Loose;
 }
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
@@ -81,49 +81,54 @@ interface ResearchControlsProps {
 	count: number;
 }
 
+function controlsHeight(stack?: boolean): number {
+	const phone = stack === true;
+	return panelHeight(phone, (phone ? TapTarget * 2 + 8 : 36) + 8 + 16);
+}
+
+function batchLine(batch: Batch, count: number): string {
+	if (batch.busy || batch.status !== "") {
+		return batch.status;
+	}
+	return `${count} shown · next batch buys ${batch.count} ${batch.count === 1 ? "upgrade" : "upgrades"}`;
+}
+
+// .pn with the search field and filter on one line, status line under it
 function ResearchControls(props: ResearchControlsProps) {
-	const height = props.stack ? 164 : 96;
+	const phone = props.stack === true;
+	const fieldsH = phone ? TapTarget * 2 + 8 : 36;
 	return (
-		<ui.Panel radius={18} rule accent={Palette.cyan} size={UDim2.fromScale(1, 1)} clips={false}>
-			<ui.SearchField
-				value={props.query}
-				onChange={props.setQuery}
-				placeholder="Search research and bonuses"
-				accent={Palette.cyan}
-				reducedMotion={props.reducedMotion}
-				position={UDim2.fromOffset(0, 0)}
-				size={props.stack ? new UDim2(1, 0, 0, TapTarget) : new UDim2(1, -220, 0, 36)}
-				zIndex={32}
-			/>
-			<ui.Dropdown
-				options={[
-					{ id: "Available", label: "Available" },
-					{ id: "Affordable", label: "Can afford" },
-					{ id: "Owned", label: "Owned" },
-					{ id: "Next", label: "Coming up" },
-					{ id: "All", label: "All research" },
-				]}
-				value={props.filter}
-				onChange={props.setFilter}
-				accent={Palette.cyan}
-				reducedMotion={props.reducedMotion}
-				position={props.stack ? UDim2.fromOffset(0, TapTarget + 8) : new UDim2(1, -208, 0, 0)}
-				size={props.stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(208, 36)}
-				zIndex={44}
-			/>
-			<ui.Text
-				value={
-					props.batch.busy || props.batch.status !== ""
-						? props.batch.status
-						: `${props.count} shown · next batch buys ${props.batch.count} ${props.batch.count === 1 ? "upgrade" : "upgrades"}`
-				}
-				size={11}
-				color={Palette.creamSoft}
-				fit={true}
-				position={UDim2.fromOffset(0, props.stack ? height - 44 : 46)}
-				sizeConstraint={new UDim2(1, 0, 0, 20)}
-			/>
-		</ui.Panel>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.cyan} reducedMotion={props.reducedMotion} gap={8} name="ResearchControls">
+			<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, fieldsH)} LayoutOrder={0} ZIndex={30}>
+				<ui.SearchField
+					value={props.query}
+					onChange={props.setQuery}
+					placeholder="Search research and bonuses"
+					accent={Palette.cyan}
+					reducedMotion={props.reducedMotion}
+					position={UDim2.fromOffset(0, 0)}
+					size={phone ? new UDim2(1, 0, 0, TapTarget) : new UDim2(1, -220, 0, 36)}
+					zIndex={32}
+				/>
+				<ui.Dropdown
+					options={[
+						{ id: "Available", label: "Available" },
+						{ id: "Affordable", label: "Can afford" },
+						{ id: "Owned", label: "Owned" },
+						{ id: "Next", label: "Coming up" },
+						{ id: "All", label: "All research" },
+					]}
+					value={props.filter}
+					onChange={props.setFilter}
+					accent={Palette.cyan}
+					reducedMotion={props.reducedMotion}
+					position={phone ? UDim2.fromOffset(0, TapTarget + 8) : new UDim2(1, -208, 0, 0)}
+					size={phone ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(208, 36)}
+					zIndex={44}
+				/>
+			</frame>
+			<Line text={batchLine(props.batch, props.count)} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={16} layoutOrder={1} />
+		</MockPanel>
 	);
 }
 
@@ -133,8 +138,10 @@ interface PlannerProps {
 	cash: unknown;
 	accent?: Color3;
 	batch: Batch;
+	phone?: boolean;
 }
 
+// 03-forge Output panel shape: heading, the best pick as a .row, batch line
 function Planner(props: PlannerProps) {
 	let best: Entry | undefined;
 	for (const entry of props.entries) {
@@ -145,46 +152,23 @@ function Planner(props: PlannerProps) {
 			best = entry;
 		}
 	}
+	const phone = props.phone === true;
+	const accent = props.accent ?? Palette.mango;
+	const batchText =
+		props.batch.busy || props.batch.status !== ""
+			? props.batch.status
+			: props.batch.count > 0
+				? `${props.batch.count} ${props.batch.count === 1 ? "upgrade" : "upgrades"}, ${compactNumber(props.batch.remaining)} Flux left after`
+				: "Nothing fits this amount. Try a smaller amount or collect your vault.";
 	return (
-		<ui.Panel radius={18} rule accent={props.accent} size={UDim2.fromScale(1, 1)}>
-			<ui.Text
-				value={best ? `BEST NEXT-LEVEL RETURN · ${best.config.Name}` : "PLAN YOUR NEXT PURCHASE"}
-				size={13}
-				weight={Enum.FontWeight.Heavy}
-				color={Palette.cream}
-				fit={true}
-				sizeConstraint={new UDim2(1, 0, 0, 24)}
-			/>
-			<ui.Text
-				value={
-					props.batch.busy || props.batch.status !== ""
-						? props.batch.status
-						: props.batch.count > 0
-							? `Next batch: ${props.batch.count} ${props.batch.count === 1 ? "upgrade" : "upgrades"}, ${compactNumber(props.batch.remaining)} Flux left after`
-							: "No upgrades fit your selected amount. Try a smaller amount or collect your vault."
-				}
-				size={12}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 30)}
-				sizeConstraint={new UDim2(1, 0, 0, 34)}
-			/>
-			<ui.Text
-				value="A batch buys up to 24 upgrades. On Max, your Flux is split between them, 50 levels at most each."
-				size={10}
-				color={Palette.muted}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 70)}
-				sizeConstraint={new UDim2(1, 0, 0, 28)}
-			/>
-		</ui.Panel>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} name="Planner">
+			<PanelHeading icon="Forge" title="Plan" note="Up to 24 per batch" accent={accent} phone={phone} layoutOrder={0} />
+			<MockRow phone={phone} icon="Production" accent={accent} title="Best next level" sub={best ? best.config.Name : "Nothing ready"} layoutOrder={1} />
+			<MockRow phone={phone} icon="Flux" accent={accent} title="Next batch" sub={batchText} layoutOrder={2} />
+		</MockPanel>
 	);
 }
 
-const Tools = { Model, useBatch, ResearchControls, Planner };
+const Tools = { Model, useBatch, ResearchControls, Planner, controlsHeight };
 
 export = Tools;

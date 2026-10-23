@@ -6,10 +6,12 @@ import * as theme from "./CoreKit/theme";
 import { compactNumber as compact } from "./CoreKit/format";
 import * as GamepadNavigationService from "./CoreKit/GamepadNavigationService";
 import { useViewport, MotionSettingsContext } from "./MotionKit/motion";
+import { Bar, BODY, MockPanel, PanelHeading } from "./UiCore/mockKit";
+import { Grid, headingBlock, MockBtn, MockRow, panelHeight, rowHeight } from "./pages/mockRows";
 
 const P = theme.Palette;
+const TapTarget = theme.TapTarget;
 
-type Loose = (props: Dict) => React.Element | undefined;
 
 const DescribeGenerated = require(
 	game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("DescribeGenerated") as ModuleScript,
@@ -17,12 +19,6 @@ const DescribeGenerated = require(
 	milestoneName(this: void, tier: number): string;
 };
 
-interface UiKit {
-	Panel: Loose;
-	Text: Loose;
-	Button: Loose;
-	Meter: Loose;
-}
 
 interface Section {
 	id: string;
@@ -152,8 +148,6 @@ const Math = require(
 ) as OmegaMathApi;
 const Model = createModel(Math);
 
-const UiCore = require(script.Parent!.WaitForChild("UiCore") as ModuleScript) as (name: string) => unknown;
-const ui = UiCore("ui") as UiKit;
 
 const LayoutKit = require(script.Parent!.WaitForChild("LayoutKit") as ModuleScript) as (name: string) => unknown;
 const { PageScaffold } = LayoutKit("pageScaffold") as { PageScaffold: React.FunctionComponent<PageScaffoldProps> };
@@ -197,58 +191,68 @@ function useAction(
 	return $tuple(busy, status, run, setStatus);
 }
 
-function copy(value: unknown, y: number, height: number, size = 14, color: Color3 = P.creamSoft, heavy = false) {
-	return (
-		<ui.Text
-			value={value}
-			position={UDim2.fromOffset(0, y)}
-			sizeConstraint={new UDim2(1, 0, 0, height)}
-			size={size}
-			color={color}
-			wrap={true}
-			fit={heavy}
-			minSize={14}
-			weight={heavy ? Enum.FontWeight.Heavy : Enum.FontWeight.Medium}
-		/>
-	);
+// 03-forge pattern: each section is a .pn (heading, .row lines, thin bar, button); heights come
+// from the pieces so the scaffold never clips. `phone` is set at the top of each view's render.
+let phone = false;
+type Piece = [(order: number) => React.Element, number];
+
+function row(title: string, sub?: string, value?: string, icon?: string, accent?: Color3): Piece {
+	return [
+		(order) => <MockRow phone={phone} title={title} sub={sub} value={value} icon={icon} accent={accent} layoutOrder={order} />,
+		rowHeight(phone, sub !== undefined),
+	];
 }
 
-function panel(accent: Color3, children: React.ReactNode) {
-	return (
-		<ui.Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={accent} padding={16} background={P.panelRaised} clips={true}>
-			{children}
-		</ui.Panel>
-	);
+function para(text: string, color: Color3 = P.creamSoft): Piece {
+	const height = phone ? 34 : 40;
+	return [
+		(order) => (
+			<textlabel
+				BackgroundTransparency={1}
+				Text={text}
+				TextSize={phone ? 13 : 15}
+				FontFace={BODY}
+				TextColor3={color}
+				TextWrapped={true}
+				TextXAlignment={Enum.TextXAlignment.Left}
+				TextYAlignment={Enum.TextYAlignment.Top}
+				Size={new UDim2(1, 0, 0, height)}
+				LayoutOrder={order}
+			/>
+		),
+		height,
+	];
 }
 
-function button(text: unknown, y: number, action: () => void, disabled: boolean, accent?: Color3) {
-	return (
-		<ui.Button
-			text={text}
-			position={UDim2.fromOffset(0, y)}
-			size={new UDim2(1, 0, 0, 48)}
-			onClick={action}
-			disabled={disabled}
-			color={accent ?? P.cyan}
-			highlight={!disabled}
-		/>
+function bar(value: number, accent: Color3): Piece {
+	return [(order) => <Bar fill={value} color={accent} thin={true} layoutOrder={order} />, 6];
+}
+
+function button(text: string, action: () => void, disabled: boolean, accent?: Color3, sec?: boolean): Piece {
+	return [
+		(order) => <MockBtn text={text} onClick={action} disabled={disabled} accent={accent ?? P.cyan} sec={sec} fill={true} phone={phone} layoutOrder={order} />,
+		phone ? TapTarget : 44,
+	];
+}
+
+function pn(id: string, accent: Color3, icon: string, title: string, note: string | undefined, pieces: Piece[]): Section {
+	const gap = phone ? 8 : 12;
+	let content = headingBlock(phone);
+	for (const [index, piece] of ipairs(pieces)) {
+		content += piece[1] + (index > 1 ? gap : 0);
+	}
+	return section(
+		id,
+		panelHeight(phone, content),
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent}>
+			<PanelHeading icon={icon} title={title} note={note} accent={accent} phone={phone} layoutOrder={0} />
+			{pieces.map((piece, index) => piece[0](index + 1))}
+		</MockPanel>,
 	);
 }
 
 function section(id: string, height: number, element: React.Element): Section {
 	return { id, height, element };
-}
-
-function meter(value: number, y: number, accent: Color3) {
-	return (
-		<ui.Meter
-			value={value}
-			position={UDim2.fromOffset(0, y)}
-			size={new UDim2(1, 0, 0, 10)}
-			color={accent}
-			reducedMotion={true}
-		/>
-	);
 }
 
 function pairedSections(sections: Section[], viewport: theme.ChromeViewport): Section[] {
@@ -269,8 +273,8 @@ function pairedSections(sections: Section[], viewport: theme.ChromeViewport): Se
 			for (const [column, item] of ipairs([first, second])) {
 				children.push(
 					<frame
-						Size={new UDim2(0.5, -6, 1, 0)}
-						Position={new UDim2((column - 1) * 0.5, column === 1 ? 0 : 6, 0, 0)}
+						Size={new UDim2(0.5, -9, 1, 0)}
+						Position={new UDim2((column - 1) * 0.5, column === 1 ? 0 : 9, 0, 0)}
 						BackgroundTransparency={1}
 					>
 						{item.element}
@@ -327,7 +331,7 @@ function scaffold(sections: Section[], viewport: theme.ChromeViewport, props: Pl
 			<MotionSettingsContext.Provider value={motion}>
 				<PageScaffold
 					sections={sections}
-					gap={16}
+					gap={phone ? 8 : 18}
 					tailPad={theme.scrollTail(chrome.stack, chrome.bottomSafe, 40)}
 					scrollBarColor={P.cyan}
 					scrollBarThickness={4}
@@ -339,6 +343,7 @@ function scaffold(sections: Section[], viewport: theme.ChromeViewport, props: Pl
 
 function NextPlan(props: PlanProps) {
 	const viewport = useViewport();
+	phone = theme.chromeFor(viewport).stack === true;
 	const { state, config } = props;
 	const rank = (state.Continuum as Record<string, unknown> | undefined) ?? {};
 	const plan = Model.nextRank(state, config) as NextRankPlan;
@@ -351,98 +356,48 @@ function NextPlan(props: PlanProps) {
 		: plan.ready
 		? "You can afford it. Ranking up raises permanent bonuses and keeps your machines."
 		: `Still needed: ${compact(plan.flux)} Flux + ${compact(plan.dust)} Stardust.`;
+	const fluxNeed = rank.FluxCost ?? 0;
+	const dustNeed = rank.StardustCost ?? 0;
+	const mult = (key: string, factor: unknown) =>
+		`${compact(rank[key] ?? 1)}x to ${compact(Math.Mul((rank[key] as OmegaValue | undefined) ?? 1, factor as OmegaValue))}x`;
 	const sections = new Array<Section>();
 	sections.push(
-		section(
-			"next-plan",
-			232,
-			panel(P.pink, [
-				copy("Continuum", 0, 22, 12, P.pink, true),
-				copy(`Continuum ${plan.rank} to ${plan.nextRank}`, 30, 38, 24, P.cream, true),
-				copy(missing, 78, 66, 14),
-				button(
-					busy ? "UPGRADING…" : plan.capped ? "RANK LIMIT" : "RAISE RANK",
-					152,
-					() => run("UpgradeContinuum", {}),
-					busy || !plan.ready,
-					P.pink,
-				),
-			]),
-		),
+		pn("next-plan", P.pink, "Continuum", `Continuum ${plan.rank} to ${plan.nextRank}`, plan.ready ? "Ready" : undefined, [
+			para(missing),
+			button(busy ? "Upgrading…" : plan.capped ? "Rank limit" : "Raise rank", () => run("UpgradeContinuum", {}), busy || !plan.ready, P.pink),
+		]),
 	);
 	sections.push(
-		section(
-			"rank-costs",
-			218,
-			panel(P.cyan, [
-				copy("Cost", 0, 24, 13, P.cyan, true),
-				copy(`Flux · ${compact(state.Cash)} / ${compact(rank.FluxCost ?? 0)}`, 34, 32, 14),
-				meter(plan.fluxProgress, 72, P.cyan),
-				copy(`Stardust · ${compact(state.Stardust)} / ${compact(rank.StardustCost ?? 0)}`, 96, 32, 14),
-				meter(plan.dustProgress, 136, P.pink),
-				copy(
-					plan.milestone
-						? "Next rank includes the milestone production bonus."
-						: `Production milestone: rank ${plan.milestoneRank}.`,
-					154,
-					32,
-					12,
-					P.muted,
-				),
-			]),
-		),
+		pn("rank-costs", P.cyan, "Flux", "Cost", undefined, [
+			row("Flux", undefined, `${compact(state.Cash)} / ${compact(fluxNeed)}`, "Flux", P.cyan),
+			bar(plan.fluxProgress, P.cyan),
+			row("Stardust", undefined, `${compact(state.Stardust)} / ${compact(dustNeed)}`, "Dust", P.pink),
+			bar(plan.dustProgress, P.pink),
+			para(plan.milestone ? "Next rank includes the milestone production bonus." : `Production milestone: rank ${plan.milestoneRank}.`, P.muted),
+		]),
 	);
 	sections.push(
-		section(
-			"rank-benefits",
-			246,
-			panel(P.mint, [
-				copy("Next rank", 0, 24, 13, P.mint, true),
-				copy(
-					`Production · ${compact(rank.ProductionMultiplier ?? 1)}× to ${compact(
-						Math.Mul((rank.ProductionMultiplier as OmegaValue | undefined) ?? 1, plan.production),
-					)}×`,
-					34,
-					36,
-				),
-				copy(
-					`Vault capacity · ${compact(rank.CapacityMultiplier ?? 1)}× to ${compact(
-						Math.Mul((rank.CapacityMultiplier as OmegaValue | undefined) ?? 1, plan.capacity),
-					)}×`,
-					76,
-					36,
-				),
-				copy(
-					`Strike power · ${compact(rank.TapMultiplier ?? 1)}× to ${compact(
-						Math.Mul((rank.TapMultiplier as OmegaValue | undefined) ?? 1, plan.tap),
-					)}×`,
-					118,
-					36,
-				),
-				copy(
-					`${string.format("%.2f", ((rank.OfflineBonus as number | undefined) ?? 0) * 100)}% to ${string.format(
-						"%.2f",
-						plan.offline * 100,
-					)}%`,
-					160,
-					36,
-				),
-			]),
-		),
+		pn("rank-benefits", P.mint, "Production", "Next rank", undefined, [
+			row("Production", undefined, mult("ProductionMultiplier", plan.production), "Production", P.mint),
+			row("Vault capacity", undefined, mult("CapacityMultiplier", plan.capacity), "Vault", P.mint),
+			row("Strike power", undefined, mult("TapMultiplier", plan.tap), "Overcharge", P.mint),
+			row(
+				"Offline",
+				undefined,
+				`${string.format("%.2f", ((rank.OfflineBonus as number | undefined) ?? 0) * 100)}% to ${string.format("%.2f", plan.offline * 100)}%`,
+				"Timer",
+				P.mint,
+			),
+		]),
 	);
 	// only when something is short: where to get it
 	if (!plan.ready && !plan.capped) {
 		sections.push(
-			section(
-				"rank-route",
-				254,
-				panel(P.mango, [
-					copy("Short on flux or stardust?", 0, 24, 13, P.mango, true),
-					copy(status !== "" ? status : "Rewards, banked reactor shifts and better machines all bring more in.", 32, 64, 14),
-					button("Open reactor", 106, () => navigate("Anomaly"), false, P.pink),
-					button("Open workshop", 166, () => navigate("Workshop"), false, P.cyan),
-				]),
-			),
+			pn("rank-route", P.mango, "Info", "Short on flux or stardust?", undefined, [
+				para(status !== "" ? status : "Rewards, banked reactor shifts and better machines all bring more in."),
+				button("Open reactor", () => navigate("Anomaly"), false, P.pink),
+				button("Open workshop", () => navigate("Workshop"), false, P.cyan, true),
+			]),
 		);
 	}
 	return scaffold(sections, viewport, props, "ContinuumClaimActions");
@@ -450,6 +405,7 @@ function NextPlan(props: PlanProps) {
 
 function ShiftPlan(props: PlanProps) {
 	const viewport = useViewport();
+	phone = theme.chromeFor(viewport).stack === true;
 	const { state, config } = props;
 	const anomaly = (state.Anomaly as Record<string, unknown> | undefined) ?? {};
 	const plan = Model.shift(state, config) as ShiftPlan;
@@ -457,72 +413,55 @@ function ShiftPlan(props: PlanProps) {
 	const [pane, setPane] = React.useState("Directives");
 	const sections = new Array<Section>();
 	sections.push(
-		section(
-			"shift-next",
-			240,
-			panel(P.pink, [
-				copy("Next step", 0, 22, 12, P.pink, true),
-				copy(plan.title ?? "", 30, 58, 23, P.cream, true),
-				copy(status !== "" ? status : ((plan.body as string | undefined) ?? ""), 96, 58, 14),
-				button(
-					busy ? "WORKING…" : plan.action === "PulseAnomaly" ? "PULSE CHARGE" : "COLLECT REWARD",
-					160,
-					() => run(plan.action ?? "", plan.payload ?? {}),
-					busy,
-					P.pink,
-				),
-			]),
-		),
+		pn("shift-next", P.pink, "Anomaly", "Next step", undefined, [
+			row(plan.title ?? "", undefined, undefined, "Anomaly", P.pink),
+			para(status !== "" ? status : ((plan.body as string | undefined) ?? "")),
+			button(
+				busy ? "Working…" : plan.action === "PulseAnomaly" ? "Pulse charge" : "Collect reward",
+				() => run(plan.action ?? "", plan.payload ?? {}),
+				busy,
+				P.pink,
+			),
+		]),
 	);
 	sections.push(
-		section(
-			"shift-meter",
-			238,
-			panel(P.mint, [
-				copy(`Charge · ${math.floor(plan.charge * 100)}%`, 0, 24, 14, P.mint, true),
-				meter(plan.charge, 34, P.pink),
-				copy(
-					`${compact(anomaly.Charge as OmegaValue | undefined ?? 0)} / ${compact(
-						anomaly.Target as OmegaValue | undefined ?? 0,
-					)} · Combo ${(anomaly.Combo as number | undefined) ?? 0} / ${(anomaly.ComboMax as number | undefined) ?? 20}`,
-					56,
-					42,
-				),
-				copy(
-					`${compact(anomaly.Fragments as OmegaValue | undefined ?? 0)} fragments · ${(anomaly.Stabilizations as number | undefined) ??
-						0} stabilized · core tier ${(anomaly.CoreTier as number | undefined) ?? 1}`,
-					106,
-					42,
-				),
-				button(
-					"STABILIZE",
-					158,
-					() => run("StabilizeAnomaly", {}),
-					busy || !(anomaly.Ready as boolean | undefined),
-					P.mint,
-				),
-			]),
-		),
+		pn("shift-meter", P.mint, "Anomaly", "Charge", `${math.floor(plan.charge * 100)}%`, [
+			bar(plan.charge, P.pink),
+			row(
+				"Charge",
+				`Combo ${(anomaly.Combo as number | undefined) ?? 0} / ${(anomaly.ComboMax as number | undefined) ?? 20}`,
+				`${compact((anomaly.Charge as OmegaValue | undefined) ?? 0)} / ${compact((anomaly.Target as OmegaValue | undefined) ?? 0)}`,
+				"Reactor",
+				P.mint,
+			),
+			row(
+				"Fragments",
+				`${(anomaly.Stabilizations as number | undefined) ?? 0} stabilized · core tier ${(anomaly.CoreTier as number | undefined) ?? 1}`,
+				compact((anomaly.Fragments as OmegaValue | undefined) ?? 0),
+				"Core",
+				P.mint,
+			),
+			button("Stabilize", () => run("StabilizeAnomaly", {}), busy || !(anomaly.Ready as boolean | undefined), P.mint),
+		]),
 	);
 	const compactTabs = viewport.width < 760;
-	const tabs: React.Element[] = [];
-	tabs.push(copy("Reactor", 0, 24, 13, P.cyan, true));
-	for (const [index, id] of ipairs(["Directives", "Loadout", "Milestones", "Protocols"])) {
-		const columns = compactTabs ? 2 : 4;
-		const column = (index - 1) % columns;
-		const row = math.floor((index - 1) / columns);
-		tabs.push(
-			<ui.Button
-				text={id}
-				size={new UDim2(1 / columns, -6, 0, 48)}
-				position={new UDim2(column / columns, column === 0 ? 0 : 6, 0, 34 + row * 56)}
-				color={pane === id ? P.cyan : P.panelSoft}
-				textColor={pane === id ? P.ink : P.cream}
-				onClick={() => setPane(id)}
-			/>,
-		);
-	}
-	sections.push(section("shift-workbench", compactTabs ? 174 : 118, panel(P.cyan, tabs)));
+	const tabColumns = compactTabs ? 2 : 4;
+	const tabH = phone ? TapTarget : 36;
+	const tabIds = ["Directives", "Loadout", "Milestones", "Protocols"];
+	sections.push(
+		pn("shift-workbench", P.cyan, "Anomaly", "Reactor", undefined, [
+			[
+				(order) => (
+					<Grid columns={tabColumns} gap={8} cellHeight={tabH} count={tabIds.size()} layoutOrder={order}>
+						{tabIds.map((id, index) => (
+							<MockBtn text={id} sm={true} fill={true} phone={phone} sec={pane !== id} accent={P.cyan} onClick={() => setPane(id)} layoutOrder={index} />
+						))}
+					</Grid>
+				),
+				math.ceil(tabIds.size() / tabColumns) * tabH + (math.ceil(tabIds.size() / tabColumns) - 1) * 8,
+			],
+		]),
+	);
 	const channels = new Array<ChannelEntry>();
 	const channelsConfig = ((config.Anomalies as Record<string, unknown> | undefined)?.Channels as
 		| Record<string, ChannelDefinition>
@@ -536,123 +475,90 @@ function ShiftPlan(props: PlanProps) {
 		equipped.add(id);
 	}
 	const used = equipped.size();
-	const channelChildren: React.Element[] = [];
-	channelChildren.push(
-		copy(`CHANNEL LOADOUT · ${used} / ${(anomaly.LoadoutSlots as number | undefined) ?? 1} slots`, 0, 26, 13, P.cyan, true),
-	);
-	channelChildren.push(
-		copy("Mix boosts for your current goal. Unequip one to make room; at least one stays active.", 34, 58, 14),
-	);
-	for (const [index, channel] of ipairs(channels)) {
-		const y = 102 + (index - 1) * 124;
-		channelChildren.push(
-			button(
-				`${equipped.has(channel.id) ? "UNEQUIP · " : "EQUIP · "}${channel.definition.Name}`,
-				y,
-				() => {
-					const [loadout, problem] = Model.toggleLoadout(anomaly as AnomalyState, channel.id);
-					if (loadout) {
-						run("SetAnomalyLoadout", { Loadout: loadout });
-					} else {
-						setStatus(problem ?? "");
-					}
-				},
-				busy || (!equipped.has(channel.id) && used >= ((anomaly.LoadoutSlots as number | undefined) ?? 1)),
-				channel.definition.Color,
-			),
-		);
-		channelChildren.push(copy(channel.definition.Description, y + 56, 46, 13, P.muted));
-	}
+	const slots = (anomaly.LoadoutSlots as number | undefined) ?? 1;
 	if (pane === "Loadout") {
-		sections.push(section("shift-loadout", 134 + channels.size() * 124, panel(P.cyan, channelChildren)));
+		const pieces: Piece[] = [para("Mix boosts for your current goal. Unequip one to make room; at least one stays active.")];
+		const btnW = phone ? 110 : 140;
+		for (const channel of channels) {
+			const on = equipped.has(channel.id);
+			pieces.push([
+				(order) => (
+					<MockRow
+						phone={phone}
+						title={channel.definition.Name}
+						sub={channel.definition.Description}
+						icon="Anomaly"
+						accent={channel.definition.Color}
+						outline={on ? channel.definition.Color : undefined}
+						rightWidth={btnW}
+						right={
+							<MockBtn
+								text={on ? "Unequip" : "Equip"}
+								sm={true}
+								width={btnW}
+								sec={on}
+								accent={channel.definition.Color}
+								disabled={busy || (!on && used >= slots)}
+								onClick={() => {
+									const [loadout, problem] = Model.toggleLoadout(anomaly as AnomalyState, channel.id);
+									if (loadout) {
+										run("SetAnomalyLoadout", { Loadout: loadout });
+									} else {
+										setStatus(problem ?? "");
+									}
+								}}
+							/>
+						}
+						layoutOrder={order}
+					/>
+				),
+				rowHeight(phone, true),
+			]);
+		}
+		sections.push(pn("shift-loadout", P.cyan, "Anomaly", "Channel loadout", `${used} / ${slots} slots`, pieces));
 	}
 	for (const [_, job] of ipairs(plan.jobs)) {
 		if (pane !== "Directives") break;
 		const progress = Model.ratio(job.Progress, job.Target);
+		const accent = (job.Color as Color3 | undefined) ?? P.mango;
 		sections.push(
-			section(
-				`directive-${job.Id}`,
-				254,
-				panel((job.Color as Color3 | undefined) ?? P.mango, [
-					copy("Daily task", 0, 20, 11, P.mango, true),
-					copy(job.Name as string, 26, 42, 19, P.cream, true),
-					copy((job.Description as string | undefined) ?? (job.Kind as string | undefined) ?? "", 74, 56, 14),
-					meter(progress, 136, (job.Color as Color3 | undefined) ?? P.mango),
-					copy(`${compact(job.Progress)} / ${compact(job.Target)} · ${math.floor(progress * 100)}%`, 152, 22, 12),
-					button(
-						progress >= 1 ? "CLAIM TASK" : "NOT YET",
-						184,
-						() => run("ClaimAnomalyDirective", { Id: job.Id }),
-						busy || progress < 1,
-						(job.Color as Color3 | undefined) ?? P.mango,
-					),
-				]),
-			),
+			pn(`directive-${job.Id}`, accent, "Mission", job.Name as string, "Daily task", [
+				para((job.Description as string | undefined) ?? (job.Kind as string | undefined) ?? ""),
+				row("Progress", undefined, `${compact(job.Progress)} / ${compact(job.Target)}`, "Mission", accent),
+				bar(progress, accent),
+				button(progress >= 1 ? "Claim task" : "Not yet", () => run("ClaimAnomalyDirective", { Id: job.Id }), busy || progress < 1, accent),
+			]),
 		);
 	}
 	for (const [index, milestone] of ipairs(plan.milestones)) {
 		if (pane !== "Milestones") break;
 		if (index > 3) break;
-		const ready = ((anomaly.Stabilizations as number | undefined) ?? 0) >= milestone.Required;
+		const done = (anomaly.Stabilizations as number | undefined) ?? 0;
+		const ready = done >= milestone.Required;
 		sections.push(
-			section(
-				`milestone-${milestone.Tier}`,
-				172,
-				panel(P.mint, [
-					copy(`Tier ${milestone.Tier} · ${DescribeGenerated.milestoneName(milestone.Tier)}`, 0, 26, 13, P.mint, true),
-					copy(`${(anomaly.Stabilizations as number | undefined) ?? 0} / ${milestone.Required} stabilizations`, 34, 36, 14),
-					meter(Model.ratio(anomaly.Stabilizations, milestone.Required), 80, P.mint),
-					button(
-						ready ? "CLAIM MILESTONE" : "KEEP STABILIZING",
-						104,
-						() => run("ClaimAnomalyMilestone", { Tier: milestone.Tier }),
-						busy || !ready,
-						P.mint,
-					),
-				]),
-			),
+			pn(`milestone-${milestone.Tier}`, P.mint, "Milestone", `Tier ${milestone.Tier} · ${DescribeGenerated.milestoneName(milestone.Tier)}`, undefined, [
+				row("Stabilizations", undefined, `${done} / ${milestone.Required}`, "Milestone", P.mint),
+				bar(Model.ratio(anomaly.Stabilizations, milestone.Required), P.mint),
+				button(ready ? "Claim milestone" : "Keep stabilizing", () => run("ClaimAnomalyMilestone", { Tier: milestone.Tier }), busy || !ready, P.mint),
+			]),
 		);
 	}
 	for (const protocol of plan.protocols) {
 		if (pane !== "Protocols") break;
 		const definition = protocol.definition as ProtocolDefinition & { Name: string; Description: string; Color: Color3 };
 		sections.push(
-			section(
-				`protocol-${definition.Id}`,
-				218,
-				panel(definition.Color, [
-					copy(`${definition.Name} · Lv ${compact(protocol.level)}`, 0, 42, 18, P.cream, true),
-					copy(definition.Description, 50, 54, 14),
-					copy(
-						protocol.capped
-							? "Maximum level reached."
-							: `Next level: ${compact(protocol.cost)} fragments`,
-						110,
-						32,
-						13,
-						P.muted,
-					),
-					button(
-						protocol.capped ? "MAXED" : "BUY NEXT LEVEL",
-						150,
-						() => run("BuyAnomalyProtocol", { Id: definition.Id }),
-						busy || !protocol.ready,
-						definition.Color,
-					),
-				]),
-			),
+			pn(`protocol-${definition.Id}`, definition.Color, "Command", definition.Name, `Lv ${compact(protocol.level)}`, [
+				para(definition.Description),
+				row("Next level", undefined, protocol.capped ? "Max" : `${compact(protocol.cost)} fragments`, "Core", definition.Color),
+				button(protocol.capped ? "Maxed" : "Buy next level", () => run("BuyAnomalyProtocol", { Id: definition.Id }), busy || !protocol.ready, definition.Color),
+			]),
 		);
 	}
 	if (pane === "Directives" && plan.jobs.size() === 0) {
 		sections.push(
-			section(
-				"directives-complete",
-				110,
-				panel(P.mint, [
-					copy("All of today's tasks are done", 0, 34, 20, P.cream, true),
-					copy("New tasks arrive tomorrow. Keep charging the reactor until then.", 42, 42, 14),
-				]),
-			),
+			pn("directives-complete", P.mint, "Check", "All of today's tasks are done", undefined, [
+				para("New tasks arrive tomorrow. Keep charging the reactor until then."),
+			]),
 		);
 	}
 	return scaffold(sections, viewport, props, "AnomalyClaimActions");
