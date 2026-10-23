@@ -99,13 +99,6 @@ const REBIRTH_ICONS: Record<string, string | undefined> = {
 	KeepOther: "Loadout.rebirthKeepOther",
 };
 const GRADE_COLOR: Record<string, Color3 | undefined> = { S: Palette.mango, A: Palette.mint, B: Palette.cyan, C: Palette.muted };
-const GRADE_LINE: Record<string, string | undefined> = {
-	S: "A new best, with the vow kept.",
-	A: "A new best or a kept vow.",
-	B: "At least half your best run.",
-	C: "Under half your best run.",
-};
-
 interface RunEntry {
 	Cores?: number;
 	Grade: string;
@@ -359,7 +352,9 @@ function Section(props: SectionProps) {
 				color={props.accent ?? Palette.creamSoft}
 				weight={Enum.FontWeight.SemiBold}
 				fit={false}
-				sizeConstraint={narrow && props.note !== undefined ? new UDim2(0.55, -4, 0, 16) : new UDim2(1, -120, 0, 16)}
+				sizeConstraint={
+					props.note === undefined ? new UDim2(1, 0, 0, 16) : narrow ? new UDim2(0.55, -4, 0, 16) : new UDim2(1, -228, 0, 16)
+				}
 				zIndex={904}
 			/>
 			{props.note !== undefined && (
@@ -442,7 +437,7 @@ function ChoiceCard(props: ChoiceCardProps) {
 				weight={Enum.FontWeight.Heavy}
 				fit={false}
 				position={UDim2.fromOffset(iconSize + 18, 9)}
-				sizeConstraint={new UDim2(1, -(iconSize + 26), 0, 17)}
+				sizeConstraint={new UDim2(1, -(iconSize + 26 + (props.tag !== undefined ? 92 : 0)), 0, 17)}
 				zIndex={906}
 			/>
 			<Text
@@ -740,7 +735,10 @@ export function RebirthChamber(props: ChamberProps) {
 	const bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 10;
 	const height = math.min(720, viewport.height - top - bottom);
 	// narrow phones: Rebirth gets the whole row and Close/Cancel/Stop sits under it
-	const footerH = narrowSheet ? TapTarget * 2 + 40 : TapTarget + 30;
+	// short landscape phones (286-390 px tall): a 56 px header and a tighter footer leave the body room to scroll
+	const shortSheet = height < 330;
+	const headerH = shortSheet ? 58 : 84;
+	const footerH = narrowSheet ? TapTarget * 2 + 40 : shortSheet ? TapTarget + 20 : TapTarget + 30;
 	const claimShare = narrowSheet ? 1 : stack ? 0.62 : 0.7;
 	const vow = RebirthMath.vow(info.Vow);
 
@@ -808,7 +806,7 @@ export function RebirthChamber(props: ChamberProps) {
 			/>
 			{canRebirth && (
 				<Text
-					value={`+${compactNumber(info.Stardust)} stardust  ·  ${GRADE_LINE[info.Grade] ?? ""}`}
+					value={`+${compactNumber(info.Stardust)} stardust`}
 					size={12}
 					color={Palette.mint}
 					fit={false}
@@ -818,7 +816,7 @@ export function RebirthChamber(props: ChamberProps) {
 				/>
 			)}
 			<Text
-				value={reasons.join("   ·   ")}
+				value={reasons.join("; ")}
 				size={10}
 				color={Palette.creamSoft}
 				wrap={true}
@@ -918,7 +916,7 @@ export function RebirthChamber(props: ChamberProps) {
 						? `${def.Line} ×${"%.2f".format(RebirthMath.vowMultiplier({ Kept: info.KeptVows, Stars: info.Stars }, id))} ${def.Pays.lower()}.`
 						: art.line!
 				}
-				tag={def && kept > 0 ? `Kept ${kept}${mastery > 0 ? " · M" + mastery : ""}` : undefined}
+				tag={def && kept > 0 ? `Kept ${kept}${mastery > 0 ? ", M" + mastery : ""}` : undefined}
 				tooltip={
 					def
 						? {
@@ -947,7 +945,6 @@ export function RebirthChamber(props: ChamberProps) {
 			order={3}
 			height={22 + vowRows * vowCardH + (vowRows - 1) * vowGap}
 			title="Vow for the next run"
-			note="keep for more"
 		>
 			{vowCards}
 		</Section>
@@ -1003,12 +1000,24 @@ export function RebirthChamber(props: ChamberProps) {
 			);
 		}
 		const rows = math.max(1, math.ceil(math.min(owned.size(), 9) / cols));
+		const hidden = owned.size() - 9;
+		if (hidden > 0) {
+			chips.more = (
+				<Badge
+					value={`+${hidden} more`}
+					accent={Palette.muted}
+					position={UDim2.fromOffset(0, rows * (chipH + 8))}
+					size={UDim2.fromOffset(84, 28)}
+					zIndex={905}
+				/>
+			);
+		}
 		sections.keep = (
 			<Section
 				name="RebirthKeepsakes"
 				order={4}
-				height={22 + rows * chipH + (rows - 1) * 8}
-				title={`Keepsakes · ${keep.size()} of ${slots}`}
+				height={22 + rows * chipH + (rows - 1) * 8 + (hidden > 0 ? 8 + 28 : 0)}
+				title={`Keepsakes ${keep.size()}/${slots}`}
 				note={`keeps ${math.floor(fxShare * 100 + 0.5)}% of the level`}
 			>
 				{chips}
@@ -1100,7 +1109,7 @@ export function RebirthChamber(props: ChamberProps) {
 			order={6}
 			height={22 + 110}
 			title={`Last ${math.min(runs.size(), RebirthMath.LOG_LIMIT)} runs`}
-			note={runs.size() > 0 ? `best ${compactNumber(info.BestCores)} cores · fastest ${clock(info.FastestSeconds)}` : undefined}
+			note={runs.size() > 0 ? `best ${compactNumber(info.BestCores)}, fastest ${clock(info.FastestSeconds)}` : undefined}
 		>
 			{runs.size() > 0 ? (
 				<RunLog runs={runs} grow={grow.map((amount) => math.clamp(amount, 0, 1))} />
@@ -1127,7 +1136,7 @@ export function RebirthChamber(props: ChamberProps) {
 		const block = blockOf(id, sections[id]);
 		if (block !== undefined) column.push(block);
 	}
-	const plan = splitColumns(twoColumn ? width - 28 : 0, (width - 28 - 22) / 2, 22, 900);
+	const plan = splitColumns(twoColumn ? width - 28 - 9 : 0, (width - 28 - 9 - 22) / 2, 22, 900);
 	if (plan.split) {
 		// layout engine: level the two columns (payout/stars/vows vs keep/ledger/log)
 		const [l, r] = balanceColumns(leftBlocks, rightBlocks, 22);
@@ -1144,7 +1153,7 @@ export function RebirthChamber(props: ChamberProps) {
 			: confirming
 				? "Ignite rebirth"
 				: canRebirth
-					? `REBIRTH · ${vowName(nextVow)} next`
+					? `Rebirth: ${vowName(nextVow)}`
 					: "Not ready";
 	return ReactRoblox.createPortal(
 		<frame key="RebirthChamber" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={900}>
@@ -1172,8 +1181,8 @@ export function RebirthChamber(props: ChamberProps) {
 			>
 				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
-				<ChargeDial size={54} position={UDim2.fromOffset(16, 14)} accent={accent} fill={ignite} charge={ignite} zIndex={903}>
-					<Icon kind="Rebirth.rebirthChamber" size={34} position={UDim2.fromOffset(10, 10)} zIndex={904} />
+				<ChargeDial size={shortSheet ? 40 : 54} position={UDim2.fromOffset(16, shortSheet ? 9 : 14)} accent={accent} fill={ignite} charge={ignite} zIndex={903}>
+					<Icon kind="Rebirth.rebirthChamber" size={shortSheet ? 26 : 34} position={UDim2.fromOffset(7, 7)} zIndex={904} />
 				</ChargeDial>
 				<Text
 					value={igniting ? "Igniting" : confirming ? "Check your rebirth" : `Rebirth ${(tonumber(info.Lifetime) ?? 0) + 1}`}
@@ -1181,8 +1190,8 @@ export function RebirthChamber(props: ChamberProps) {
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
 					fit={false}
-					position={UDim2.fromOffset(84, 18)}
-					sizeConstraint={new UDim2(1, -(84 + TapTarget + 20), 0, 14)}
+					position={UDim2.fromOffset(shortSheet ? 66 : 84, shortSheet ? 8 : 18)}
+					sizeConstraint={new UDim2(1, -((shortSheet ? 66 : 84) + TapTarget + 20), 0, 14)}
 					zIndex={903}
 				/>
 				<Text
@@ -1190,10 +1199,10 @@ export function RebirthChamber(props: ChamberProps) {
 					size={stack ? 18 : 22}
 					color={Palette.cream}
 					weight={Enum.FontWeight.Heavy}
-					fit={narrowSheet}
+					fit={narrowSheet || shortSheet}
 					minSize={12}
-					position={UDim2.fromOffset(84, 34)}
-					sizeConstraint={new UDim2(1, -(84 + TapTarget + 20), 0, 28)}
+					position={UDim2.fromOffset(shortSheet ? 66 : 84, shortSheet ? 22 : 34)}
+					sizeConstraint={new UDim2(1, -((shortSheet ? 66 : 84) + TapTarget + 20), 0, shortSheet ? 26 : 28)}
 					zIndex={903}
 				/>
 				<Button
@@ -1204,15 +1213,15 @@ export function RebirthChamber(props: ChamberProps) {
 					textColor={Palette.cream}
 					outline={true}
 					size={UDim2.fromOffset(TapTarget, TapTarget)}
-					position={new UDim2(1, -(TapTarget + 16), 0, 18)}
+					position={new UDim2(1, -(TapTarget + 16), 0, shortSheet ? 7 : 18)}
 					reducedMotion={softMotion}
 					disabled={igniting || busy}
 					zIndex={903}
 				/>
 				<scrollingframe
 					key="Body"
-					Position={UDim2.fromOffset(20, 84)}
-					Size={new UDim2(1, -28, 1, -(84 + footerH + 6))}
+					Position={UDim2.fromOffset(20, headerH)}
+					Size={new UDim2(1, -28, 1, -(headerH + footerH + 6))}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					CanvasSize={UDim2.fromOffset(0, 0)}
@@ -1220,8 +1229,10 @@ export function RebirthChamber(props: ChamberProps) {
 					ScrollingDirection={Enum.ScrollingDirection.Y}
 					ScrollBarThickness={3}
 					ScrollBarImageColor3={accent}
+					VerticalScrollBarInset={Enum.ScrollBarInset.ScrollBar}
 					ZIndex={902}
 				>
+					{twoColumn && <uipadding PaddingRight={new UDim(0, 6)} PaddingBottom={new UDim(0, 12)} />}
 					{twoColumn ? (
 						<SplitColumns
 							name="RebirthSplit"
@@ -1238,7 +1249,7 @@ export function RebirthChamber(props: ChamberProps) {
 				<frame
 					key="RebirthClaimActions"
 					AnchorPoint={new Vector2(0, 1)}
-					Position={new UDim2(0, 20, 1, -16)}
+					Position={new UDim2(0, 20, 1, shortSheet ? -8 : -16)}
 					Size={new UDim2(1, -40, 0, narrowSheet ? TapTarget * 2 + 18 : TapTarget + 8)}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
@@ -1369,7 +1380,10 @@ export function RebirthPanel({
 	}
 	for (const line of notes) history.push(line);
 	const historyTip = history.size() > 0 ? { title: "Runs", body: history.join("\n"), accent } : undefined;
-	const colW = stack ? 0 : 286;
+	// landscape phones (248 px panel): stacking the actions under the copy needs 266 px, so they keep a side column
+	const side = stack && chrome.landscape;
+	const colW = side ? 188 : stack ? 0 : 286;
+	const stackBody = stack && !side;
 	const lively = canRebirth && !effectsPaused && !softMotion;
 	return (
 		<Panel
@@ -1396,14 +1410,14 @@ export function RebirthPanel({
 				/>
 			</ChargeDial>
 			<frame
-				Size={new UDim2(1, -((stack ? 66 : 76) + colW + (stack ? 0 : 16)), 0, stack ? 134 : height - 36)}
+				Size={new UDim2(1, -((stack ? 66 : 76) + colW + (stackBody ? 0 : stack ? 12 : 16)), 0, stackBody ? 134 : height - 36)}
 				Position={UDim2.fromOffset(stack ? 66 : 76, 0)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				ClipsDescendants={false}
 			>
 				<Text
-					value={`${rebirths}  ·  ${clock(seconds)}`}
+					value={`Rebirth ${rebirths}   ${clock(seconds)}`}
 					size={10}
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
@@ -1471,8 +1485,8 @@ export function RebirthPanel({
 				/>
 			</frame>
 			<frame
-				Size={stack ? new UDim2(1, 0, 0, TapTarget * 2 + 44) : UDim2.fromOffset(colW, height - 36)}
-				Position={stack ? new UDim2(0, 0, 1, -(TapTarget * 2 + 44)) : new UDim2(1, -colW, 0, 0)}
+				Size={stackBody ? new UDim2(1, 0, 0, TapTarget * 2 + 44) : UDim2.fromOffset(colW, height - 36)}
+				Position={stackBody ? new UDim2(0, 0, 1, -(TapTarget * 2 + 44)) : new UDim2(1, -colW, 0, 0)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				ClipsDescendants={false}
