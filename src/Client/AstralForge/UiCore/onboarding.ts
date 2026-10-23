@@ -169,7 +169,7 @@ function findTarget(name: string | string[] | undefined): GuiObject | undefined 
 }
 
 // the task box's check, shown when the player does the thing (icons hold still: no stamp-in scale)
-function StampedCheck(_props: { scale: React.Binding<number> }) {
+function StampedCheck() {
 	return h(
 		"frame",
 		{
