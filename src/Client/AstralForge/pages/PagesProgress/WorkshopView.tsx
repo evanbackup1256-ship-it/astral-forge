@@ -1,58 +1,19 @@
-import { counted } from "../../UiCore/rowMemo";
-import { HeaderArt } from "../../UiCore/HeaderArt";
 import React from "@rbxts/react";
 import Tools = require("../../UpgradeTools");
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
-import { useClock, useStagger, useViewport } from "../../MotionKit/motion";
-import { useTooltip } from "../../Tooltip";
-import { chromeFor, darken, ensureContrast, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
+import { useStagger, useViewport } from "../../MotionKit/motion";
+import { chromeFor, darken, Palette, TapTarget } from "../../CoreKit/theme";
 import { bulkCost, compactNumber, compareFlux, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
-import * as PageBoardHeights from "../../CoreKit/pageBoardHeights";
-import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
-import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
+import { asFlux } from "../../CoreKit/format";
+import * as VaultCollectEligibility from "../../CoreKit/vaultCollectEligibility";
+import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, ItemTile, Line, MockPanel, NUM, PanelHeading, RowSurface, mockGap, panelPad } from "../../UiCore/mockKit";
+import { loadUi } from "../luauDeps";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
-
-// desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
-function pagePlan(width: number, stack: boolean): SplitPlan {
-	return splitColumns(stack ? 0 : width, width >= 1600 ? 400 : 360, 18, 1100);
-}
-
-// folds scaffold sections into one SplitColumns section: all but the last `mainCount` go on the
-// side; each column is a SelectionGroup so gamepad focus stays in a column until moved across
-function splitSections<S extends { id: string; height: number; element: React.Element }>(
-	plan: SplitPlan,
-	sections: S[],
-	name: string,
-	mainCount = 1,
-): Array<{ id: string; height: number; element: React.Element }> {
-	if (!plan.split || sections.size() <= mainCount) {
-		return sections;
-	}
-	const cut = sections.size() - mainCount;
-	const side = sections.filter((_, index) => index < cut);
-	const main = sections.filter((_, index) => index >= cut);
-	const height = math.max(stackHeight(side.map((s) => s.height), plan.gap), stackHeight(main.map((s) => s.height), plan.gap));
-	const column = (blocks: S[]) => (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} SelectionGroup={true}>
-			{blocks.size() === 1 ? blocks[0].element : <StackBlocks gap={plan.gap} blocks={blocks} />}
-		</frame>
-	);
-	return [
-		{
-			id: `${name}-split`,
-			height,
-			element: <SplitColumns height={height} plan={plan} side={column(side)} main={column(main)} name={name} />,
-		},
-	];
-}
-
 
 // header-forge.png (1024x120), already uploaded (assets/uploaded.md)
 const UserInputService = game.GetService("UserInputService");
-const { AmountToggle, Badge, Button, Dropdown, EmptyState, IconTile, Panel, Text, SearchField } = loadUi();
-const PageScaffold = loadPageScaffold();
-const VirtualGrid = luauKit<{ VirtualGrid: Component }>("LayoutKit", "scrolling").VirtualGrid;
+const { Badge, Button, Dropdown, IconTile, Panel, Text } = loadUi();
 
 interface MachineConfig extends UpgradeConfig {
 	Accent?: Color3;
@@ -74,761 +35,6 @@ interface WorkshopState {
 	Rebirths: number;
 	AutoForge?: { Enabled: boolean; MachineId: string; Reserve: number; Bought: number };
 	[key: string]: unknown;
-}
-
-// phones in landscape get the side-by-side machine card. The card and the list's row height
-// both call this, so they can't disagree about which layout a row is in.
-function machineRowStack(chrome: ReturnType<typeof chromeFor>): boolean {
-	return chrome.contentStack && !chrome.landscape;
-}
-
-interface MachineRowProps {
-	machine: MachineConfig;
-	level: number;
-	cash: Flux;
-	buyAmount: number;
-	reducedMotion?: boolean;
-	onBuy: () => unknown;
-	y?: number;
-	x?: UDim2;
-	width?: UDim2;
-	unlocked: boolean;
-	lockReason: string;
-	lockShort?: string;
-}
-
-function MachineRowImpl(props: MachineRowProps) {
-	const { machine, level, cash, buyAmount, onBuy, y, x, width, unlocked, lockReason } = props;
-	const lockShort = props.lockShort ?? "";
-	const viewport = useViewport();
-	const chrome = chromeFor(viewport);
-	const stack = machineRowStack(chrome);
-	const softMotion = props.reducedMotion;
-	const rowH = PageBoardHeights.Machine(stack);
-	const price = bulkCost(machine.BaseCost, machine.CostScale, level, buyAmount, machine.MaxLevel, cash);
-	const maxed = level >= machine.MaxLevel;
-	const ready = unlocked && gteFlux(cash, price) && !maxed;
-	const accent = machine.Accent ?? machine.Color;
-	const running = level > 0;
-	const flow = useClock(running, 0.55, 1);
-	const buyLabel = !unlocked
-		? lockShort !== ""
-			? lockShort
-			: "Locked"
-		: maxed
-			? "Maxed"
-			: ready
-				? level < 1
-					? "Buy this"
-					: "Buy level"
-				: `Need ${compactNumber(price)} Flux`;
-	const production = machine.BaseProduction ?? 0;
-	const hasOutput = production > 0;
-	const rateLine = !unlocked
-		? lockReason
-		: hasOutput
-			? level < 1
-				? `+${compactNumber(production)} Flux/sec once bought`
-				: `${compactNumber(production)} Flux/sec, level ${compactNumber(level)}`
-			: maxed
-				? `Level ${compactNumber(level)}, maxed`
-				: `Level ${compactNumber(level)}, next ${compactNumber(price)}`;
-	// a locked card still says what it will give, so it isn't half empty
-	const lockedGain = !unlocked && hasOutput ? `+${compactNumber(machine.BaseProduction)} Flux/sec once unlocked` : undefined;
-	// machine accents can be deep (violet, indigo); lift them until the line reads on the card
-	const rateColor = ensureContrast(Palette.panel, accent, 4.5);
-	const cardWidth = width !== undefined ? width.X.Offset + width.X.Scale * viewport.width : viewport.width;
-	const buttonBesideText = !stack && cardWidth >= 360;
-	const absolute = y !== undefined || x !== undefined;
-	const layoutY = y === undefined ? 0 : y;
-	const tip = useTooltip({
-		title: machine.Name,
-		body: unlocked ? machine.Description : lockReason,
-		hint: !unlocked
-			? undefined
-			: maxed
-				? "Fully upgraded."
-				: hasOutput
-					? `Next ${buyAmount > 1 ? `${buyAmount} levels` : "level"}: ${compactNumber(price)} Flux`
-					: `Next: ${compactNumber(price)} Flux`,
-		accent: accent,
-	});
-	return (
-		<frame
-			Event={tip}
-			Size={absolute ? (width ?? new UDim2(1, 0, 0, rowH)) : UDim2.fromScale(1, 1)}
-			Position={x !== undefined ? new UDim2(x.X.Scale, x.X.Offset, 0, layoutY) : UDim2.fromOffset(0, layoutY)}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-		>
-			<Panel radius={18} rule
-				size={UDim2.fromScale(1, 1)}
-				accent={accent}
-				background={Palette.panel}
-				padding={stack ? chrome.cardPadding : 14}
-				interactive={true}
-				reducedMotion={softMotion}
-			>
-				<IconTile
-					kind={unlocked ? (machine.Icon ?? "Forge") : "Lock"}
-					accent={unlocked ? machine.Color : Palette.muted}
-					size={46}
-					radius={18}
-					position={UDim2.fromOffset(0, stack ? 6 : 16)}
-					glow={unlocked && running && ready && !softMotion}
-					filled={running}
-					spin={false}
-					reducedMotion={softMotion}
-				/>
-				<frame
-					Size={buttonBesideText ? new UDim2(1, -226, 1, -4) : new UDim2(1, -60, 0, 78)}
-					Position={UDim2.fromOffset(58, stack || !buttonBesideText ? 2 : 4)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-				>
-					<frame Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
-						<uilistlayout
-							FillDirection={Enum.FillDirection.Horizontal}
-							Padding={new UDim(0, 8)}
-							SortOrder={Enum.SortOrder.LayoutOrder}
-							VerticalAlignment={Enum.VerticalAlignment.Center}
-						/>
-						<Text
-							value={machine.Name}
-							size={stack ? 17 : 16}
-							color={unlocked ? Palette.cream : Palette.muted}
-							weight={Enum.FontWeight.Heavy}
-							fit={true}
-							minSize={11}
-							layoutOrder={0}
-							sizeConstraint={new UDim2(1, level > 0 ? -66 : 0, 0, 22)}
-						/>
-						{level > 0 && (
-							<Badge
-								value={maxed ? "Max" : `Lv ${compactNumber(level)}`}
-								accent={maxed ? Palette.cyan : accent}
-								size={UDim2.fromOffset(58, 18)}
-								filled={true}
-								layoutOrder={1}
-							/>
-						)}
-					</frame>
-					<Text
-						value={unlocked ? machine.Description : lockReason}
-						size={stack ? chrome.labelText : 11}
-						color={unlocked ? Palette.muted : machine.Color}
-						weight={unlocked ? Enum.FontWeight.Regular : Enum.FontWeight.Bold}
-						wrap={true}
-						fit={true}
-						minSize={10}
-						position={UDim2.fromOffset(0, 24)}
-						sizeConstraint={new UDim2(1, -4, 0, stack ? 42 : 34)}
-					/>
-					{(unlocked || lockedGain !== undefined) && (
-						<Text
-							value={unlocked ? rateLine : lockedGain}
-							size={stack ? chrome.labelText : 11}
-							color={unlocked ? rateColor : Palette.muted}
-							weight={Enum.FontWeight.Bold}
-							fit={true}
-							minSize={9}
-							position={UDim2.fromOffset(0, stack ? 72 : 64)}
-							sizeConstraint={new UDim2(1, -4, 0, 16)}
-						/>
-					)}
-					{running && (
-						<frame
-							Size={new UDim2(1, 0, 0, 5)}
-							Position={UDim2.fromOffset(0, stack || !buttonBesideText ? 86 : 82)}
-							BackgroundColor3={Palette.ink}
-							BackgroundTransparency={0.2}
-							BorderSizePixel={0}
-							ClipsDescendants={true}
-						>
-							<uicorner CornerRadius={new UDim(1, 0)} />
-							{/* port 03-forge: the level track (level / max) in brass, under the existing flow sweep */}
-							<frame
-								Size={UDim2.fromScale(math.clamp(level / math.max(1, machine.MaxLevel), 0.02, 1), 1)}
-								BackgroundColor3={Palette.brass}
-								BorderSizePixel={0}
-							>
-								<uicorner CornerRadius={new UDim(1, 0)} />
-								<uigradient Color={new ColorSequence(Palette.brassDeep, Palette.brass)} />
-							</frame>
-							<frame
-								Size={new UDim2(0.28, 0, 1, 0)}
-								Position={flow.map((phase) => new UDim2(phase * 1.4 - 0.32, 0, 0, 0))}
-								BackgroundColor3={accent}
-								BorderSizePixel={0}
-							>
-								<uicorner CornerRadius={new UDim(1, 0)} />
-								<uigradient
-									Transparency={
-										new NumberSequence([
-											new NumberSequenceKeypoint(0, 1),
-											new NumberSequenceKeypoint(0.5, 0.1),
-											new NumberSequenceKeypoint(1, 1),
-										])
-									}
-								/>
-							</frame>
-						</frame>
-					)}
-				</frame>
-				{!ready && unlocked && !maxed ? (
-					<Button
-						text={buyLabel}
-						icon="Flux.10"
-						onClick={onBuy}
-						color={Palette.panelSoft}
-						textColor={Palette.creamSoft}
-						size={buttonBesideText ? UDim2.fromOffset(150, TapTarget) : new UDim2(1, 0, 0, TapTarget)}
-						position={buttonBesideText ? new UDim2(1, -158, 0.5, -TapTarget / 2) : new UDim2(0, 0, 1, -(TapTarget + 4))}
-						reducedMotion={softMotion}
-						disabled={true}
-						highlight={false}
-					/>
-				) : (
-					<Button
-						text={buyLabel}
-						icon={unlocked ? "Flux.11" : "Lock.4"}
-						onClick={onBuy}
-						color={ready ? Palette.brass : Palette.panelSoft}
-						textColor={ready ? Palette.ink : Palette.creamSoft}
-						size={buttonBesideText ? UDim2.fromOffset(150, TapTarget) : new UDim2(1, 0, 0, TapTarget)}
-						position={buttonBesideText ? new UDim2(1, -158, 0.5, -TapTarget / 2) : new UDim2(0, 0, 1, -(TapTarget + 4))}
-						reducedMotion={softMotion}
-						disabled={!ready}
-						highlight={ready}
-					/>
-				)}
-			</Panel>
-		</frame>
-	);
-}
-
-// what cash changes on a machine card: the price text and whether BUY is live
-function machineQuote(p: MachineRowProps): LuaTuple<[string, boolean]> {
-	const price = bulkCost(p.machine.BaseCost, p.machine.CostScale, p.level, p.buyAmount, p.machine.MaxLevel, p.cash);
-	const maxed = p.level >= p.machine.MaxLevel;
-	return $tuple(compactNumber(price), p.unlocked && gteFlux(p.cash, price) && !maxed);
-}
-
-// Every state push hands the list a new cash value and a fresh onBuy arrow per row, so each
-// card re-rendered on every push. The arrow only calls the batch's buy (stable for the life of
-// the queue) with this row's machine id, so it's skipped here; everything the card draws from
-// cash is compared through machineQuote.
-const MachineRow = React.memo(counted("Machine", MachineRowImpl), (a, b) => {
-	if (
-		a.machine !== b.machine ||
-		a.level !== b.level ||
-		a.buyAmount !== b.buyAmount ||
-		a.reducedMotion !== b.reducedMotion ||
-		a.y !== b.y ||
-		a.x !== b.x ||
-		a.width !== b.width ||
-		a.unlocked !== b.unlocked ||
-		a.lockReason !== b.lockReason ||
-		a.lockShort !== b.lockShort
-	) {
-		return false;
-	}
-	if (a.cash === b.cash) {
-		return true;
-	}
-	const [priceA, readyA] = machineQuote(a);
-	const [priceB, readyB] = machineQuote(b);
-	return priceA === priceB && readyA === readyB;
-});
-
-const SORT_OPTIONS = [
-	{ id: "Return", label: "Best level return" },
-	{ id: "Default", label: "Tier order" },
-	{ id: "Cheapest", label: "Cheapest first" },
-	{ id: "Output", label: "Biggest level gain" },
-	{ id: "Level", label: "Highest level" },
-];
-
-function UpgradeBoard(props: {
-	title: string;
-	blurb: string;
-	accent: Color3;
-	entries: Entry[];
-	state: WorkshopState;
-	buyAmount: number;
-	setBuyAmount: (amount: number) => void;
-	reducedMotion?: boolean;
-	dispatch: Dispatch;
-	featurePanel?: React.Element;
-	featurePanelHeight?: number;
-}) {
-	const { title, blurb, accent, entries, state, buyAmount, setBuyAmount, featurePanel } = props;
-	const featurePanelHeight = props.featurePanelHeight ?? 0;
-	const viewport = useViewport();
-	const chrome = chromeFor(viewport);
-	const softMotion = props.reducedMotion;
-	const reducedMotion = softMotion;
-	const workshopHostReveal = useStagger(4, softMotion);
-	const workshopBuyHostRef = React.useRef<Frame>();
-	React.useEffect(() => {
-		if (!UserInputService.GamepadEnabled) {
-			return undefined;
-		}
-		const host = workshopBuyHostRef.current;
-		if (host === undefined) {
-			return undefined;
-		}
-		const selectJob = task.defer(() => {
-			if (host.Parent === undefined) {
-				return;
-			}
-			GamepadNavigationService.FocusClaim(host);
-		});
-		return () => {
-			pcall(task.cancel, selectJob);
-		};
-	}, [buyAmount, entries.size()]);
-	const Browse = loadBrowse();
-	const [query, setQuery] = Browse.useLinkedQuery("Workshop");
-	const [sort, setSort] = React.useState("Default");
-	const [filter, setFilter] = React.useState("All");
-	const headerReveal = useStagger(0, softMotion);
-	useStagger(1, softMotion);
-	useStagger(2, softMotion);
-	useStagger(3, softMotion);
-	const cash = state.Cash;
-	const canBuy = (entry: Entry) => Tools.Model.quote(entry as unknown as ModelEntry, buyAmount, cash).ready;
-	const affordableCount = entries.reduce((total, entry) => total + (canBuy(entry) ? 1 : 0), 0);
-	const ownedCount = entries.reduce((total, entry) => total + (entry.level > 0 ? 1 : 0), 0);
-	const near = AppHelpers.trimFarLockedUpgrades(entries);
-	const nextCount = near.reduce((total, entry) => total + (!entry.unlocked ? 1 : 0), 0);
-	const filterOptions = [
-		{ id: "All", label: "Near unlocks", count: near.size() },
-		{ id: "Affordable", label: "Can afford", count: affordableCount },
-		{ id: "Owned", label: "Owned", count: ownedCount },
-		{ id: "Next", label: "Coming up", count: nextCount },
-	];
-	const needle = (query.match("^%s*(.-)%s*$")[0] as string).lower();
-	const pool = needle !== "" ? entries : near;
-	const visible: Entry[] = [];
-	for (const entry of pool) {
-		if (filter === "Affordable" && !canBuy(entry)) {
-			continue;
-		}
-		if (filter === "Owned" && entry.level <= 0) {
-			continue;
-		}
-		if (filter === "Next" && entry.unlocked) {
-			continue;
-		}
-		if (needle !== "" && !loadBrowse().matches(needle, entry.config.Name, entry.config.Description)) {
-			continue;
-		}
-		visible.push(entry);
-	}
-	visible.sort((left, right) => {
-		if (sort === "Return") {
-			const leftRank = canBuy(left) ? 0 : left.unlocked && !left.maxed ? 1 : 2;
-			const rightRank = canBuy(right) ? 0 : right.unlocked && !right.maxed ? 1 : 2;
-			if (leftRank !== rightRank) {
-				return leftRank < rightRank;
-			}
-			const a = Tools.Model.returnScore(left as unknown as ModelEntry);
-			const b = Tools.Model.returnScore(right as unknown as ModelEntry);
-			if (a !== b) {
-				return a > b;
-			}
-		} else if (sort === "Cheapest") {
-			const comparison = compareFlux(
-				Tools.Model.quote(left as unknown as ModelEntry, buyAmount, cash).cost as Flux,
-				Tools.Model.quote(right as unknown as ModelEntry, buyAmount, cash).cost as Flux,
-			);
-			if (comparison !== 0) {
-				return comparison < 0;
-			}
-		} else if (sort === "Output") {
-			const a = Tools.Model.gainScore(left as unknown as ModelEntry);
-			const b = Tools.Model.gainScore(right as unknown as ModelEntry);
-			if (a !== b) {
-				return a > b;
-			}
-		} else if (sort === "Level" && left.level !== right.level) {
-			return left.level > right.level;
-		}
-		return left.order < right.order;
-	});
-	const batch = Tools.useBatch(props.dispatch, "BuyMachine", visible as unknown as ModelEntries, buyAmount, cash);
-	const onBuy = batch.buy;
-	const onBuyAll: (() => boolean) | undefined = batch.start;
-	const stack = chrome.contentStack;
-	// wide desktop: header, purchase plan and Auto-Forge in a side column, machines in the main
-	// one. The side column reuses the stacked header arrangement built for narrow widths.
-	const plan = pagePlan(viewport.width, stack);
-	const headerStack = stack || plan.split;
-	const gridWidth = plan.split ? plan.main : viewport.width;
-	const touchLayout = chrome.mobile;
-	const searchW = 252;
-	const sortW = 176;
-	const filterW = 176;
-	const controlGap = 12;
-	const controlsWrap = !stack && viewport.width < 900;
-	const stackControlsY = chrome.landscape ? 40 : 56;
-	const headerHeight = chrome.landscape && stack ? 136 : headerStack ? 268 : controlsWrap ? 232 : 188;
-	const rowH = PageBoardHeights.Machine(machineRowStack(chrome));
-	const gap = stack ? chrome.panelGap : Layout.panelGap;
-	// machine cards put their buy button beside the text; below ~460px a card can't fit both, so add columns late
-	const columns = stack ? 1 : gridWidth >= 2400 ? 4 : gridWidth >= 1750 ? 3 : gridWidth >= 900 ? 2 : 1;
-	const columnWidth = new UDim2(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH);
-	const gridRows = math.ceil(math.max(1, visible.size()) / columns);
-	const machinesBlock =
-		visible.size() === 0
-			? 150 + (filter === "Affordable" && affordableCount === 0 ? TapTarget + 12 : 0)
-			: gridRows * rowH + math.max(0, gridRows - 1) * gap;
-	const machineScrollTail = stack
-		? scrollTail(stack, chrome.bottomSafe, chrome.landscape ? 52 : 80)
-		: scrollTail(stack, chrome.bottomSafe, 28);
-	const scrollRef = React.useRef<ScrollingFrame>();
-	React.useEffect(() => {
-		const host = scrollRef.current;
-		if (host) {
-			host.CanvasPosition = Vector2.zero;
-		}
-	}, [query, sort, filter]);
-	const controlH = TapTarget;
-	const desktopControlH = touchLayout ? TapTarget : 40;
-	const controlsY = controlsWrap ? 98 : 100;
-	const sortX = searchW + controlGap;
-	const filterX = sortX + sortW + controlGap;
-	const wrapRowY = controlsY + desktopControlH + 6;
-	const stackCompact = stack && chrome.landscape;
-	const stackSearchY = stackControlsY + controlH + 6;
-	const stackFilterY = stackControlsY + (controlH + 6) * 2;
-	const buyAll = () => (onBuyAll !== undefined ? onBuyAll() : undefined);
-	const headerPanel = (
-		<Panel radius={18} rule
-			size={UDim2.fromScale(1, 1)}
-			accent={accent}
-			background={Palette.panelRaised}
-			padding={headerStack ? chrome.cardPadding : 14}
-			reveal={headerReveal}
-			zIndex={30}
-			clips={false}
-		>
-			{/* port 03-forge hero: the uploaded header-forge art behind the title (ScaleType Crop), with the
-			    depth built in code: a left-to-right panel fade so the title reads, and a bottom shade */}
-			<HeaderArt art="forge" inset={headerStack ? chrome.cardPadding : 14} />
-			<Text
-				value={title}
-				size={headerStack ? (stackCompact ? 18 : 20) : 24}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(0, headerStack ? 6 : 8)}
-				sizeConstraint={new UDim2(1, plan.split ? -124 : headerStack ? -8 : -248, 0, headerStack ? 26 : 30)}
-			/>
-			{plan.split && (
-				<Text
-					value={compactNumber(state.Production) + " / sec"}
-					size={14}
-					color={accent}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={10}
-					position={new UDim2(1, -116, 0, 10)}
-					sizeConstraint={new UDim2(0, 112, 0, 18)}
-					align={Enum.TextXAlignment.Right}
-				/>
-			)}
-			{!stackCompact && (
-				<Text
-					value={blurb}
-					size={headerStack ? chrome.labelText : 12}
-					color={Palette.creamSoft}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, headerStack ? 42 : 46)}
-					sizeConstraint={new UDim2(1, headerStack ? -8 : -248, 0, headerStack ? 20 : 34)}
-				/>
-			)}
-			{!headerStack && (
-				<>
-					<Text
-						value={compactNumber(state.Production) + " / sec"}
-						size={14}
-						color={accent}
-						weight={Enum.FontWeight.Heavy}
-						fit={false}
-						position={new UDim2(1, -236, 0, 2)}
-						sizeConstraint={new UDim2(0, 228, 0, 18)}
-						align={Enum.TextXAlignment.Right}
-					/>
-					<AmountToggle
-						value={buyAmount}
-						onChange={setBuyAmount}
-						accent={accent}
-						position={new UDim2(1, -236, 0, 22)}
-						size={UDim2.fromOffset(228, desktopControlH)}
-						reducedMotion={reducedMotion}
-					/>
-					<Button
-						text={batch.busy ? batch.status : batch.count > 0 ? `Buy batch (${batch.count})` : "Nothing to buy yet"}
-						icon="Flux.12"
-						onClick={buyAll}
-						color={affordableCount > 0 ? accent : Palette.panelSoft}
-						textColor={affordableCount > 0 ? Palette.ink : Palette.muted}
-						size={UDim2.fromOffset(228, 30)}
-						position={new UDim2(1, -236, 0, 66)}
-						disabled={batch.count <= 0 || batch.busy || onBuyAll === undefined}
-						reducedMotion={reducedMotion}
-						highlight={affordableCount > 0}
-					/>
-					<SearchField
-						value={query}
-						onChange={setQuery}
-						accent={accent}
-						placeholder="Search upgrades"
-						position={UDim2.fromOffset(0, controlsY)}
-						size={UDim2.fromOffset(searchW, desktopControlH)}
-						reducedMotion={reducedMotion}
-						zIndex={31}
-					/>
-					{controlsWrap ? (
-						<>
-							<Dropdown
-								options={SORT_OPTIONS}
-								value={sort}
-								onChange={setSort}
-								accent={accent}
-								position={UDim2.fromOffset(0, wrapRowY)}
-								size={UDim2.fromOffset(sortW, desktopControlH)}
-								reducedMotion={reducedMotion}
-								zIndex={44}
-							/>
-							<Dropdown
-								options={filterOptions}
-								value={filter}
-								onChange={setFilter}
-								accent={accent}
-								position={UDim2.fromOffset(sortW + controlGap, wrapRowY)}
-								size={UDim2.fromOffset(filterW, desktopControlH)}
-								reducedMotion={reducedMotion}
-								zIndex={42}
-							/>
-						</>
-					) : (
-						<>
-							<Dropdown
-								options={SORT_OPTIONS}
-								value={sort}
-								onChange={setSort}
-								accent={accent}
-								position={UDim2.fromOffset(sortX, controlsY)}
-								size={UDim2.fromOffset(sortW, desktopControlH)}
-								reducedMotion={reducedMotion}
-								zIndex={44}
-							/>
-							<Dropdown
-								options={filterOptions}
-								value={filter}
-								onChange={setFilter}
-								accent={accent}
-								position={UDim2.fromOffset(filterX, controlsY)}
-								size={UDim2.fromOffset(filterW, desktopControlH)}
-								reducedMotion={reducedMotion}
-								zIndex={42}
-							/>
-						</>
-					)}
-				</>
-			)}
-			{headerStack && (
-				<>
-					<AmountToggle
-						value={buyAmount}
-						onChange={setBuyAmount}
-						accent={accent}
-						position={new UDim2(0, 0, 0, stackControlsY)}
-						size={new UDim2(0.62, -6, 0, controlH)}
-						reducedMotion={reducedMotion}
-					/>
-					<Button
-						text={batch.busy ? batch.status : batch.count > 0 ? `Buy batch (${batch.count})` : "Nothing to buy"}
-						icon="Flux.13"
-						onClick={buyAll}
-						color={affordableCount > 0 ? accent : Palette.panelSoft}
-						textColor={affordableCount > 0 ? Palette.ink : Palette.muted}
-						size={new UDim2(0.38, -6, 0, controlH)}
-						position={new UDim2(0.62, 6, 0, stackControlsY)}
-						disabled={batch.count <= 0 || batch.busy || onBuyAll === undefined}
-						reducedMotion={reducedMotion}
-						highlight={affordableCount > 0}
-					/>
-					{!stackCompact && (
-						<SearchField
-							value={query}
-							onChange={setQuery}
-							accent={accent}
-							placeholder="Search upgrades"
-							position={new UDim2(0, 0, 0, stackSearchY)}
-							size={new UDim2(1, 0, 0, controlH)}
-							reducedMotion={reducedMotion}
-							zIndex={31}
-						/>
-					)}
-					{!stackCompact && (
-						<Dropdown
-							options={SORT_OPTIONS}
-							value={sort}
-							onChange={setSort}
-							accent={accent}
-							position={new UDim2(0, 0, 0, stackFilterY)}
-							size={new UDim2(0.5, -4, 0, controlH)}
-							reducedMotion={reducedMotion}
-							zIndex={44}
-						/>
-					)}
-					{!stackCompact && (
-						<Dropdown
-							options={filterOptions}
-							value={filter}
-							onChange={setFilter}
-							accent={accent}
-							position={new UDim2(0.5, 4, 0, stackFilterY)}
-							size={new UDim2(0.5, -4, 0, controlH)}
-							reducedMotion={reducedMotion}
-							zIndex={42}
-						/>
-					)}
-				</>
-			)}
-		</Panel>
-	);
-	let machinesElement: React.Element;
-	// the button sits under the empty state instead of on top of its last line
-	const showNextButton = filter === "Affordable" && affordableCount === 0;
-	if (visible.size() === 0) {
-		machinesElement = (
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<EmptyState
-					icon="Forge.9"
-					title={
-						needle !== ""
-							? "Nothing matches"
-							: filter === "Affordable"
-								? "Can't afford a machine yet"
-								: filter !== "All"
-									? "Nothing matches"
-									: "No machines to show"
-					}
-					body={
-						needle !== ""
-							? "Clear the search to see the machines again."
-							: filter === "Affordable"
-								? "Collect Flux on Overview, then come back to buy the next machine."
-								: filter !== "All"
-									? "Switch the filter back to Near unlocks."
-									: "Buy a machine to start earning Flux into your vault."
-					}
-					accent={accent}
-					size={showNextButton ? new UDim2(1, 0, 1, -(TapTarget + 12)) : UDim2.fromScale(1, 1)}
-				/>
-				{showNextButton && (
-					<Button
-						text="Show next machines"
-						icon="Forge.10"
-						onClick={() => setFilter("All")}
-						color={accent}
-						textColor={Palette.ink}
-						size={new UDim2(1, 0, 0, TapTarget)}
-						position={new UDim2(0, 0, 1, -(TapTarget + 8))}
-						reducedMotion={reducedMotion}
-						highlight={true}
-					/>
-				)}
-			</frame>
-		);
-	} else {
-		machinesElement = (
-			<VirtualGrid
-				scrollRef={scrollRef}
-				count={visible.size()}
-				columns={columns}
-				cellHeight={rowH}
-				gap={gap}
-				overscanRows={softMotion ? 0 : stack ? 2 : 3}
-				itemKey={(index: number) => {
-					const entry = visible[index] as Entry | undefined;
-					return entry !== undefined ? entry.config.Id : `machine-${index}`;
-				}}
-				renderItem={(index: number) => {
-					const entry = visible[index];
-					return (
-						<MachineRow
-							machine={entry.config}
-							level={entry.level}
-							cash={state.Cash as Flux}
-							buyAmount={buyAmount}
-							reducedMotion={reducedMotion}
-							onBuy={() => onBuy(entry.config.Id)}
-							width={columnWidth}
-							unlocked={entry.unlocked}
-							lockReason={entry.lockReason}
-							lockShort={entry.lockShort}
-						/>
-					);
-				}}
-			/>
-		);
-	}
-	const sections: Array<{ id: string; height: number; element: React.Element }> = [
-		{ id: "header", height: headerHeight, element: headerPanel },
-		{
-			id: "purchase-plan",
-			height: 128,
-			element: <Tools.Planner entries={visible as unknown as ModelEntries} amount={buyAmount} cash={cash} batch={batch} accent={accent} />,
-		},
-		{ id: "machines", height: machinesBlock, element: machinesElement },
-	];
-	if (featurePanel !== undefined) {
-		const autoforge = { id: "autoforge", height: featurePanelHeight, element: featurePanel };
-		if (plan.split) {
-			// side column: header, plan, Auto-Forge; main column: the machine grid
-			sections.insert(2, autoforge);
-		} else {
-			sections.push(autoforge);
-		}
-	}
-	return (
-		<frame
-			{...named("WorkshopBuyClaim")}
-			ref={workshopBuyHostRef}
-			Size={UDim2.fromScale(1, 1)}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			ClipsDescendants={false}
-		>
-			<Panel radius={18} rule
-				size={UDim2.fromScale(1, 1)}
-				accent={Palette.cyan}
-				background={Palette.panel}
-				padding={0}
-				reveal={workshopHostReveal}
-				reducedMotion={reducedMotion}
-				clips={false}
-			>
-				<PageScaffold
-					hostRef={scrollRef}
-					gap={gap}
-					tailPad={machineScrollTail}
-					scrollBarColor={accent}
-					scrollBarThickness={4}
-					sections={splitSections(plan, sections, "Workshop")}
-				/>
-			</Panel>
-		</frame>
-	);
 }
 
 const AUTO_FORGE_RESERVES = [
@@ -1046,116 +252,337 @@ function listedFluxPerSec(machine: unknown): number {
 	return base;
 }
 
+// Forge, ported from design/03-forge (desktop.html 1920x1080, phone.html).
+// Desktop: Machines panel (flex) with a Next upgrades grid under a brass rule; a 520px column with
+// the Output panel (glow top-right, 58px rate) and Auto-Forge under it. Gap 18 everywhere.
+// Phone (landscape): Machines panel and a 236px Output panel. Portrait: the two stacked.
+function machineGain(machine: MachineConfig, level: number): number {
+	const base = listedFluxPerSec(machine);
+	const growth = tonumber((machine as unknown as { Growth?: unknown }).Growth) ?? 0;
+	return base * (1 + 2 * growth * level);
+}
+
+function MachineLine(p: {
+	entry: Entry;
+	phone: boolean;
+	ready: boolean;
+	onBuy: () => unknown;
+	order: number;
+	reducedMotion?: boolean;
+}) {
+	const { entry, phone } = p;
+	const machine = entry.config;
+	const rowH = phone ? 52 : 64;
+	const color = machine.Accent ?? machine.Color ?? Palette.mango;
+	const name = typeIs(machine.Name, "string") ? machine.Name : machine.Id;
+	const tail = !entry.unlocked ? "Locked" : `Lv ${compactNumber(entry.level)}`;
+	const fill = machine.MaxLevel > 0 ? entry.level / machine.MaxLevel : 0;
+	const rate = listedFluxPerSec(machine);
+	const value = !entry.unlocked ? (entry.lockShort !== "" ? entry.lockShort : "Locked") : rate > 0 ? `+${compactNumber(rate)}/s` : entry.maxed ? "Maxed" : "";
+	const label = entry.maxed ? "Maxed" : entry.level < 1 ? "Buy" : "Upgrade";
+	return (
+		<frame Size={new UDim2(1, 0, 0, rowH)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={p.order}>
+			<RowSurface />
+			<uipadding PaddingLeft={new UDim(0, phone ? 10 : 12)} PaddingRight={new UDim(0, phone ? 10 : 12)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 14)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<ItemTile color={color} icon={entry.unlocked ? (machine.Icon ?? "Forge") : "Lock"} width={phone ? 44 : 56} compact={true} locked={!entry.unlocked} layoutOrder={0} />
+			<frame Size={new UDim2(0, 0, 0, phone ? 30 : 32)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<textlabel
+					BackgroundTransparency={1}
+					Size={new UDim2(1, 0, 0, phone ? 17 : 19)}
+					RichText={true}
+					Text={`${name} <font color="#B2A0A6" weight="500">· ${tail}</font>`}
+					TextSize={phone ? 13 : 15}
+					FontFace={BODY_SEMI}
+					TextColor3={Palette.cream}
+					TextXAlignment={Enum.TextXAlignment.Left}
+					TextTruncate={Enum.TextTruncate.AtEnd}
+				/>
+				<Bar fill={fill} thin={true} color={Palette.mango} position={new UDim2(0, 0, 1, -6)} />
+			</frame>
+			<Line text={value} size={17} font={NUM} color={Palette.mango} layoutOrder={2} />
+			<Button
+				text={phone ? undefined : label}
+				icon={entry.level < 1 ? "Forge" : "Production"}
+				onClick={() => p.onBuy()}
+				disabled={!p.ready}
+				color={Palette.mango}
+				textColor={Color3.fromRGB(27, 15, 8)}
+				hug={!phone}
+				size={phone ? UDim2.fromOffset(44, 36) : UDim2.fromOffset(0, 36)}
+				reducedMotion={p.reducedMotion}
+				tooltip={!entry.unlocked ? entry.lockReason : p.ready ? undefined : `Costs ${compactNumber(entry.price)} Flux`}
+			/>
+		</frame>
+	);
+}
+
 function WorkshopView(props: {
 	state: WorkshopState;
-	config?: { Machines?: unknown };
+	config?: { Machines?: unknown; Boosts?: unknown };
 	dispatch: Dispatch;
 	buyAmount: number;
 	setBuyAmount: (amount: number) => void;
 	reducedMotion?: boolean;
 }) {
-	const { state, config, dispatch, buyAmount, setBuyAmount, reducedMotion } = props;
+	const { state, config, dispatch, buyAmount, reducedMotion } = props;
 	const machines = (config !== undefined && typeIs(config.Machines, "table") ? config.Machines : []) as MachineConfig[];
 	const viewport = useViewport();
-	const chainStack = chromeFor(viewport).contentStack;
-	const stellarLevel = state.Machines.StellarCore ?? 0;
-	const firstMachine = stellarLevel < 1;
-	let ownedMachines = 0;
-	for (const machine of machines) {
-		if ((tonumber(state.Machines[machine.Id]) ?? 0) > 0) {
-			ownedMachines += 1;
-		}
-	}
-	let chainLine: string | undefined;
-	if (!firstMachine) {
-		const names: Record<string, string> = {};
-		for (const machine of machines) {
-			if (typeIs(machine, "table") && typeIs(machine.Id, "string")) {
-				names[machine.Id] = typeIs(machine.Name, "string") ? machine.Name : machine.Id;
-			}
-		}
-		for (const machine of machines) {
-			if (!typeIs(machine, "table") || !typeIs(machine.PreviousId, "string")) {
-				continue;
-			}
-			const rawNeed: unknown = machine.PreviousLevel;
-			const needLevel = typeIs(rawNeed, "number") ? rawNeed : 1;
-			const rawHave: unknown = state.Machines[machine.PreviousId];
-			const haveLevel = typeIs(rawHave, "number") ? rawHave : 0;
-			const rawRebirthsNeed: unknown = machine.RequiredRebirths;
-			const rebirthsNeed = typeIs(rawRebirthsNeed, "number") ? rawRebirthsNeed : 0;
-			const rawZoneNeed: unknown = machine.RequiredZone;
-			const zoneNeed = typeIs(rawZoneNeed, "number") ? rawZoneNeed : 1;
-			const rawRebirthsHave: unknown = state.Rebirths;
-			const rebirthsHave = typeIs(rawRebirthsHave, "number") ? rawRebirthsHave : 0;
-			const rawZoneHave: unknown = state.Zone;
-			const zoneHave = typeIs(rawZoneHave, "number") ? rawZoneHave : 1;
-			const machineName = typeIs(machine.Name, "string") ? machine.Name : machine.Id;
-			const rate = listedFluxPerSec(machine);
-			const earns = rate > 0 ? ` earns ${compactNumber(rate)} Flux/sec` : "";
-			const rateBit = rate > 0 ? ` +${compactNumber(rate)}/sec` : "";
-			if (rebirthsHave < rebirthsNeed) {
-				chainLine = chainStack
-					? `${machineName}${rateBit}. ${rebirthsHave}/${rebirthsNeed} rebirths.`
-					: `${machineName}${earns}. Needs ${rebirthsNeed} rebirth${rebirthsNeed === 1 ? "" : "s"}. You have ${rebirthsHave}.`;
-				break;
-			} else if (zoneHave < zoneNeed) {
-				chainLine = chainStack
-					? `${machineName}${rateBit}. World ${zoneHave}/${zoneNeed}.`
-					: `${machineName}${earns}. Needs world ${zoneNeed}. You are on world ${zoneHave}.`;
-				break;
-			} else if (haveLevel < needLevel) {
-				const prevName = names[machine.PreviousId] ?? machine.PreviousId;
-				chainLine = chainStack
-					? `Next: ${machineName}${rateBit}. ${prevName} ${haveLevel}/${needLevel}.`
-					: rate > 0
-						? `Next: ${machineName} earns ${compactNumber(rate)} Flux/sec. Get ${prevName} to level ${needLevel}. You have ${haveLevel}.`
-						: `Next: ${machineName}. Get ${prevName} to level ${needLevel}. You have ${haveLevel}.`;
-				break;
-			}
-		}
-	}
+	const chrome = chromeFor(viewport);
+	const phone = chrome.stack;
+	const portrait = phone && !chrome.landscape;
+	const gap = mockGap(phone);
+	const pad = panelPad(phone);
+	const machinesReveal = useStagger(0, reducedMotion);
+	const outputReveal = useStagger(1, reducedMotion);
 	const entries = React.useMemo(
 		() => AppHelpers.buildUpgradeEntries(machines, state.Machines, state as NavState),
 		[machines, state.Machines, state.Zone, state.Rebirths],
 	);
-	// stacked: controlY 104 + picker 44 + 26 + row 44 = 218, plus 2 x 14 padding; desktop: 102 + 42 + 28
-	// in the desktop side column Auto-Forge and Programs use their narrow (stacked) arrangement
-	const featureStack = chromeFor(viewport).stack || pagePlan(viewport.width, chainStack).split;
-	const featureHeight = featureStack ? 246 : 172;
-	// Forge Programs sit under Auto-Forge once they unlock
-	const programsHeight = programsPanelHeight(state as ProgramsState, featureStack);
-	return (
-		<UpgradeBoard
-			title={firstMachine ? "Buy a machine" : `${ownedMachines} machine${ownedMachines === 1 ? "" : "s"} running`}
-			blurb={
-				firstMachine
-					? "A machine earns Flux into your vault every second."
-					: chainLine !== undefined
-						? chainLine
-						: "More machines = more Flux, even while you're AFK."
-			}
-			accent={Palette.coral}
-			entries={entries}
-			state={state}
-			buyAmount={buyAmount}
-			setBuyAmount={setBuyAmount}
+	const cash = state.Cash;
+	const near = AppHelpers.trimFarLockedUpgrades(entries);
+	const batch = Tools.useBatch(dispatch, "BuyMachine", near as unknown as ModelEntries, buyAmount, cash);
+	const ready = (entry: Entry) => Tools.Model.quote(entry as unknown as ModelEntry, buyAmount, cash).ready;
+	let running = 0;
+	for (const entry of entries) {
+		if (entry.level > 0) running += 1;
+	}
+
+	// gamepad lands on the first machine row
+	const listRef = React.useRef<ScrollingFrame>();
+	React.useEffect(() => {
+		if (!UserInputService.GamepadEnabled) return undefined;
+		const host = listRef.current;
+		if (host === undefined) return undefined;
+		const job = task.defer(() => {
+			if (host.Parent !== undefined) GamepadNavigationService.FocusClaim(host);
+		});
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [near.size()]);
+
+	// Next upgrades: the three cheapest levels you can work toward right now
+	const upgrades = near.filter((e) => e.unlocked && !e.maxed);
+	upgrades.sort((a, b) => compareFlux(a.price, b.price) < 0);
+	const nextThree = upgrades.filter((_, i) => i < 3);
+
+	const rowH = phone ? 52 : 64;
+	const rowGap = phone ? 8 : 12;
+	const listH = near.size() * rowH + math.max(0, near.size() - 1) * rowGap;
+	const upgradeCellH = 14 + 19 + 6 + 16 + 6 + 36 + 14;
+	const showUpgrades = !phone && nextThree.size() > 0;
+	const lowerH = showUpgrades ? 12 + 12 + 12 + 22 + 12 + upgradeCellH : 0;
+	const headH = phone ? 18 : 22;
+
+	const machinesPanel = (
+		<MockPanel
+			size={portrait ? new UDim2(1, 0, 0, pad.y * 2 + headH + pad.gap + math.min(listH, 3 * rowH + 2 * rowGap)) : new UDim2(0, 0, 1, 0)}
+			flex={!portrait}
+			phone={phone}
+			layoutOrder={0}
+			reveal={machinesReveal}
 			reducedMotion={reducedMotion}
-			dispatch={dispatch}
-			featurePanelHeight={featureHeight + (programsHeight > 0 ? programsHeight + 12 : 0)}
-			featurePanel={
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<frame Size={new UDim2(1, 0, 0, featureHeight)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={featureHeight} stack={featureStack} />
-					</frame>
-					{programsHeight > 0 && (
-						<frame Size={new UDim2(1, 0, 0, programsHeight)} Position={UDim2.fromOffset(0, featureHeight + 12)} BackgroundTransparency={1} BorderSizePixel={0}>
-							<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={featureStack} reducedMotion={reducedMotion} />
-						</frame>
-					)}
+			name="ForgeMachines"
+		>
+			<PanelHeading icon="Forge" title="Machines" note={phone ? `${running} of ${entries.size()}` : `${running} of ${entries.size()} running`} phone={phone} layoutOrder={0} />
+			<scrollingframe
+				ref={listRef}
+				Size={new UDim2(1, 0, 1, -(headH + pad.gap + lowerH))}
+				CanvasSize={UDim2.fromOffset(0, listH)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ScrollBarThickness={4}
+				ScrollBarImageColor3={Palette.brass}
+				ScrollingDirection={Enum.ScrollingDirection.Y}
+				VerticalScrollBarInset={Enum.ScrollBarInset.ScrollBar}
+				LayoutOrder={1}
+				SelectionGroup={true}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, rowGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{near.size() === 0 ? (
+					<Line text="No machines yet." size={14} color={Palette.muted} />
+				) : (
+					near.map((entry, i) => (
+						<MachineLine
+							key={entry.config.Id}
+							entry={entry}
+							phone={phone}
+							ready={ready(entry)}
+							onBuy={() => batch.buy(entry.config.Id)}
+							order={i}
+							reducedMotion={reducedMotion}
+						/>
+					))
+				)}
+			</scrollingframe>
+			{showUpgrades && <DiamondRule layoutOrder={2} />}
+			{showUpgrades && <PanelHeading icon="Production" title="Next upgrades" phone={false} layoutOrder={3} />}
+			{showUpgrades && (
+				<frame Size={new UDim2(1, 0, 0, upgradeCellH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+					<uigridlayout CellSize={new UDim2(1 / 3, -7, 0, upgradeCellH)} CellPadding={UDim2.fromOffset(10, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					{nextThree.map((entry, i) => {
+						const m = entry.config;
+						const gain = machineGain(m, entry.level);
+						return (
+							<frame key={m.Id} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i}>
+								<RowSurface />
+								<uipadding PaddingLeft={new UDim(0, 14)} PaddingRight={new UDim(0, 14)} PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} />
+								<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+								<Line text={`${typeIs(m.Name, "string") ? m.Name : m.Id} level ${compactNumber(entry.level + 1)}`} size={15} font={BODY_SEMI} width={new UDim(1, 0)} height={19} layoutOrder={0} />
+								<Line
+									text={gain > 0 ? `+${compactNumber(gain)} Flux/sec` : entry.level < 1 ? "Starts earning" : "Raises its level cap"}
+									size={13}
+									font={BODY}
+									color={Palette.muted}
+									width={new UDim(1, 0)}
+									height={16}
+									layoutOrder={1}
+								/>
+								<Button
+									text={`${compactNumber(entry.price)}`}
+									icon="Flux"
+									onClick={() => batch.buy(m.Id)}
+									disabled={!ready(entry)}
+									size={new UDim2(1, 0, 0, 36)}
+									reducedMotion={reducedMotion}
+								/>
+							</frame>
+						);
+					})}
 				</frame>
-			}
-		/>
+			)}
+		</MockPanel>
+	);
+
+	// Output: production, multipliers, vault fill, collect + overcharge
+	const s = state as WorkshopState & { Vault?: Flux; Capacity?: Flux; PermanentMultiplier?: Flux; TapPower?: number; ActiveBoost?: { Id?: string; EndsAt?: unknown } };
+	const rateText = compactNumber(s.Production ?? 0);
+	const vault = tonumber(s.Vault) ?? 0;
+	const capacity = tonumber(s.Capacity) ?? 0;
+	const vaultFill = capacity > 0 ? vault / capacity : 0;
+	const canCollect = VaultCollectEligibility.isEligible(asFlux(s.Vault ?? 0));
+	const chips: Array<{ text: string; on: boolean }> = [];
+	const perm = tonumber(s.PermanentMultiplier) ?? 1;
+	if (perm > 1) chips.push({ text: `x${compactNumber(perm)} rebirth`, on: true });
+	const boosts = (config !== undefined && typeIs(config.Boosts, "table") ? config.Boosts : {}) as Record<string, { Multiplier?: unknown } | undefined>;
+	const boostId = s.ActiveBoost?.Id ?? "";
+	const boostEnds = (s.ActiveBoost !== undefined ? tonumber(s.ActiveBoost.EndsAt) : undefined) ?? 0;
+	const [okNow, nowValue] = pcall(() => game.GetService("Workspace").GetServerTimeNow());
+	const now = okNow && typeIs(nowValue, "number") ? nowValue : os.time();
+	if (boostId !== "" && boostEnds > now) {
+		const mult = tonumber(boosts[boostId]?.Multiplier) ?? 1;
+		if (mult > 1) chips.push({ text: `x${compactNumber(mult)} boost`, on: false });
+	}
+	const [overchargeAt, setOverchargeAt] = React.useState(0);
+	const overcharge = () => {
+		if (os.clock() < overchargeAt) return;
+		setOverchargeAt(os.clock() + 0.45);
+		dispatch("Overcharge", undefined);
+	};
+	const collect = () => {
+		if (canCollect) dispatch("CollectVault", undefined);
+	};
+	const bigSize = phone ? 34 : 58;
+	const outputH = phone
+		? undefined
+		: pad.y * 2 + 22 + 12 + 62 + 12 + (chips.size() > 0 ? 28 + 12 : 0) + 10 + 12 + 44;
+	const outputPanel = (
+		<MockPanel
+			size={phone ? (portrait ? new UDim2(1, 0, 0, pad.y * 2 + 18 + 8 + 40 + 8 + 10 + 8 + 44) : new UDim2(0, 236, 1, 0)) : new UDim2(1, 0, 0, outputH!)}
+			phone={phone}
+			layoutOrder={phone ? 1 : 0}
+			glow={phone ? undefined : Palette.mango}
+			reveal={outputReveal}
+			reducedMotion={reducedMotion}
+			name="ForgeOutput"
+		>
+			<PanelHeading icon="Production" title="Output" phone={phone} layoutOrder={0} />
+			<frame Size={new UDim2(1, 0, 0, phone ? 40 : 62)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 4 : 10)} VerticalAlignment={Enum.VerticalAlignment.Bottom} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={rateText} size={bigSize} font={NUM} color={Palette.mango} height={phone ? 40 : 62} layoutOrder={0} />
+				<Line text={phone ? "/s" : "per second"} size={phone ? 15 : 16} font={BODY_SEMI} color={Palette.muted} height={phone ? 30 : 46} layoutOrder={1} />
+			</frame>
+			{!phone && chips.size() > 0 && (
+				<frame Size={new UDim2(1, 0, 0, 28)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					{chips.map((c, i) => (
+						<Chip key={c.text} text={c.text} accent={c.on ? Palette.mango : undefined} layoutOrder={i} />
+					))}
+				</frame>
+			)}
+			<Bar fill={vaultFill} layoutOrder={3} />
+			<frame Size={new UDim2(1, 0, 0, 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} HorizontalFlex={Enum.UIFlexAlignment.Fill} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Button
+					text={phone ? "Collect" : `Collect ${compactNumber(s.Vault ?? 0)}`}
+					icon="Collect"
+					onClick={collect}
+					disabled={!canCollect}
+					highlight={canCollect && vaultFill >= 0.85}
+					color={Palette.mango}
+					textColor={Color3.fromRGB(27, 15, 8)}
+					size={new UDim2(1, 0, 0, 44)}
+					reducedMotion={reducedMotion}
+				/>
+				{!phone && (
+					<Button
+						text="Overcharge"
+						icon="Overcharge"
+						onClick={overcharge}
+						hug={true}
+						size={UDim2.fromOffset(0, 44)}
+						reducedMotion={reducedMotion}
+						tooltip={s.TapPower !== undefined ? `+${compactNumber(s.TapPower)} Flux per tap` : undefined}
+					/>
+				)}
+			</frame>
+		</MockPanel>
+	);
+
+	if (phone) {
+		return (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uilistlayout
+					FillDirection={portrait ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
+					Padding={new UDim(0, gap)}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+				/>
+				{portrait ? outputPanel : machinesPanel}
+				{portrait ? machinesPanel : outputPanel}
+			</frame>
+		);
+	}
+	// desktop: Auto-Forge (narrow arrangement) and Forge Programs share the rest of the 520 column
+	const featureHeight = 246;
+	const programsHeight = programsPanelHeight(state as ProgramsState, true);
+	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{machinesPanel}
+			<scrollingframe
+				Size={new UDim2(0, 520, 1, 0)}
+				CanvasSize={UDim2.fromOffset(0, outputH! + gap + featureHeight + (programsHeight > 0 ? gap + programsHeight : 0))}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ScrollBarThickness={0}
+				ScrollingDirection={Enum.ScrollingDirection.Y}
+				LayoutOrder={1}
+				SelectionGroup={true}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{outputPanel}
+				<frame Size={new UDim2(1, 0, 0, featureHeight)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={featureHeight} stack={true} />
+				</frame>
+				{programsHeight > 0 && (
+					<frame Size={new UDim2(1, 0, 0, programsHeight)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+						<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={true} reducedMotion={reducedMotion} />
+					</frame>
+				)}
+			</scrollingframe>
+		</frame>
 	);
 }
 
