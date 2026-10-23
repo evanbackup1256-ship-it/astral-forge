@@ -31,7 +31,7 @@ local function check(ok: boolean, msg: string)
 end
 
 -- width, height, name, expected shape
-type Size = { w: number, h: number, name: string, kind: string, inset: number? }
+type Size = { w: number, h: number, name: string, kind: string, inset: number?, side: number? }
 local SIZES: { Size } = {
 	{ w = 286, h = 640, name = "286 portrait", kind = "portrait" },
 	{ w = 360, h = 800, name = "360 portrait", kind = "portrait", inset = 24 },
@@ -39,6 +39,11 @@ local SIZES: { Size } = {
 	{ w = 640, h = 286, name = "286 landscape", kind = "landscape" },
 	{ w = 800, h = 360, name = "360 landscape", kind = "landscape", inset = 21 },
 	{ w = 896, h = 414, name = "414 landscape", kind = "landscape", inset = 21 },
+	-- iPhone 12-15 landscape (most common modern phone): side ~47 (notch), bottom 21 (home bar).
+	-- `h` is the raw screen; the app's ScreenGui uses CoreUISafeInsets, so the live plan height is
+	-- the core-safe area (screen minus Roblox's 44px top bar). The second row feeds that height.
+	{ w = 844, h = 390, name = "844 landscape", kind = "landscape", inset = 21, side = 47 },
+	{ w = 844, h = 346, name = "844 landscape core-safe", kind = "landscape", inset = 21, side = 47 },
 	{ w = 768, h = 1024, name = "tablet portrait", kind = "tablet" },
 	{ w = 820, h = 1180, name = "tablet 820 portrait", kind = "tablet" },
 	{ w = 1024, h = 768, name = "tablet landscape", kind = "desktop-touch" },
@@ -56,7 +61,7 @@ for _, s in SIZES do
 		short = s.h < 740,
 		desktop = not touch,
 		bottomInset = s.inset or 0,
-		sideInset = if s.kind == "landscape" then (s.inset or 0) else 0,
+		sideInset = if s.kind == "landscape" then (s.side or s.inset or 0) else 0,
 	})
 	local n = s.name
 	if s.kind == "portrait" then
