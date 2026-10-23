@@ -195,7 +195,7 @@ function measureButtonLabel(label: string): number {
 	buttonLabelWidthCacheCount += 1;
 	return width;
 }
-function buttonContentWidth(label: string, hasIcon: boolean): number {
+export function buttonContentWidth(label: string, hasIcon: boolean): number {
 	const textW = measureButtonLabel(label);
 	return hasIcon ? 10 + 22 + 8 + textW + 10 : 10 + textW + 10;
 }
@@ -976,56 +976,46 @@ export function IconTile({
 }: IconTileProps) {
 	const effectsPaused = React.useContext(UiEffectsPausedContext);
 	const interactionMotion = reducedMotion || effectsPaused;
-	const background = filled ? darken(accent, 0.22) : darken(accent, 0.42).Lerp(Palette.panelSoft, 0.28);
-	const glyph = Palette.cream;
+	// af.css .row icon well (03-forge / mockRows IconWell): a dark rgba(0,0,0,.35) well with a 1px
+	// white .08 inner line and the glyph in the accent. The pre-revamp tile (accent-filled block,
+	// cream glyph, accent outline) was the most visible old-UI leftover across the HUD, nav and pages.
+	// `filled` keeps an accent-tinted well (.chip.a: accent .2 fill, .6 line); `glow` breathes the line.
+	const wellColor = filled ? accent : Color3.fromRGB(0, 0, 0);
+	const wellTransparency = filled ? 0.8 : 0.65;
+	const glyph = accent.Lerp(Palette.white, 0.12);
 	const strokeTransparency = useGlowStroke(glow && !interactionMotion, interactionMotion, 0.6, 0.4, 0.7, 2.1);
-	const corner = radius ?? math.floor(size * 0.26);
-	const inset = 2;
-	const inner = math.max(12, size - inset * 2);
+	const corner = radius ?? math.floor(size / 4);
+	const glyphSize = math.max(12, math.floor(size * 0.62));
 	return (
 		<frame
 			Size={UDim2.fromOffset(size, size)}
 			Position={position}
 			AnchorPoint={anchorPoint}
-			BackgroundTransparency={1}
+			BackgroundColor3={wellColor}
+			BackgroundTransparency={wellTransparency}
 			BorderSizePixel={0}
 			ZIndex={zIndex}
 			ClipsDescendants={false}
 		>
-			<frame
-				Size={UDim2.fromOffset(inner, inner)}
-				Position={UDim2.fromOffset(inset, inset)}
-				BackgroundColor3={background}
-				BorderSizePixel={0}
-				ClipsDescendants={true}
-			>
-				<uicorner CornerRadius={new UDim(0, math.max(1, corner - 1))} />
-				<uigradient Color={surfaceGradient(background, 0.62)} Rotation={90} />
-				<Icon
-					kind={kind}
-					color={glyph}
-					accent={accent}
-					size={inner}
-					spin={spin}
-					still={still}
-					hoverAmount={hoverAmount}
-					clipSafe={true}
-					reducedMotion={reducedMotion}
-					position={UDim2.fromScale(0.5, 0.5)}
-					anchorPoint={new Vector2(0.5, 0.5)}
-				/>
-			</frame>
-			<frame
-				Size={UDim2.fromOffset(inner, inner)}
-				Position={UDim2.fromOffset(inset, inset)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ZIndex={zIndex + 1}
-				ClipsDescendants={false}
-			>
-				<uicorner CornerRadius={new UDim(0, math.max(1, corner - 1))} />
-				<Stroke color={accent} thickness={1} transparency={glow ? strokeTransparency : filled ? 0.6 : 0.75} />
-			</frame>
+			<uicorner CornerRadius={new UDim(0, math.min(corner, math.floor(size / 2)))} />
+			{glow ? (
+				<Stroke color={accent} thickness={1} transparency={strokeTransparency} />
+			) : (
+				<uistroke Color={filled ? accent : Palette.white} Transparency={filled ? 0.4 : 0.92} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			)}
+			<Icon
+				kind={kind}
+				color={glyph}
+				accent={accent}
+				size={glyphSize}
+				spin={spin}
+				still={still}
+				hoverAmount={hoverAmount}
+				clipSafe={true}
+				reducedMotion={reducedMotion}
+				position={UDim2.fromScale(0.5, 0.5)}
+				anchorPoint={new Vector2(0.5, 0.5)}
+			/>
 		</frame>
 	);
 }
@@ -1044,8 +1034,10 @@ export function Badge(props: {
 	}
 	const text = value as string;
 	const { accent = Palette.cyan, filled = false, position, size = UDim2.fromOffset(78, 26), zIndex = 3 } = props;
-	const fill = filled ? darken(accent, 0.28) : Palette.panelRaised;
-	const label = ensureContrast(fill, filled ? Palette.cream : lighten(accent, 0.18));
+	// af.css .chip / .chip.a: radius 8, white .05 (or accent .2) fill, 1px white .1 (or accent .6) line,
+	// bold 12px cream. Replaces the pre-revamp opaque panel pill with its accent sliver.
+	const fill = filled ? accent : Palette.white;
+	const label = filled ? Palette.cream : ensureContrast(Palette.panel, lighten(accent, 0.18));
 	const compressLabel = text.size() > 7;
 	// the badge hops when its label changes; a filled badge catches a glint now and then
 	const effectsPaused = React.useContext(UiEffectsPausedContext);
@@ -1056,34 +1048,18 @@ export function Badge(props: {
 			Size={size}
 			Position={position}
 			BackgroundColor3={fill}
-			BackgroundTransparency={filled ? 0 : 0.04}
+			BackgroundTransparency={filled ? 0.8 : 0.95}
 			BorderSizePixel={0}
 			ZIndex={zIndex}
 			ClipsDescendants={false}
 		>
 			<uiscale Scale={pop} />
-			<uicorner CornerRadius={new UDim(0, 6)} />
-			<uigradient Color={surfaceGradient(fill, 0.55)} Rotation={90} />
+			<uicorner CornerRadius={new UDim(0, 8)} />
+			<uistroke Color={filled ? accent : Palette.white} Transparency={filled ? 0.4 : 0.9} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 			{filled && (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.cream} BackgroundTransparency={0} BorderSizePixel={0} ZIndex={zIndex + 1} Active={false}>
-					<uicorner CornerRadius={new UDim(0, 6)} />
+					<uicorner CornerRadius={new UDim(0, 8)} />
 					<uigradient Transparency={GLINT_TRANSPARENCY} Rotation={20} Offset={glint.map((x) => new Vector2(x, 0))} />
-				</frame>
-			)}
-			<frame Size={new UDim2(1, -2, 1, -2)} Position={UDim2.fromOffset(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex}>
-				<uicorner CornerRadius={new UDim(0, 6)} />
-				<Stroke color={accent} thickness={1} transparency={filled ? 0.36 : 0.28} />
-			</frame>
-			{filled && (
-				<frame
-					Size={new UDim2(0.38, 0, 0, 2)}
-					Position={UDim2.fromOffset(8, 0)}
-					BackgroundColor3={accent}
-					BorderSizePixel={0}
-					ZIndex={zIndex + 1}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-					<uigradient Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.04), new NumberSequenceKeypoint(1, 1)])} />
 				</frame>
 			)}
 			{/* badges are small: the label always fits inside the box (the global text floor would push it out) */}
@@ -2422,8 +2398,7 @@ export function Button(props: ButtonProps) {
 									</frame>
 									<textlabel
 										ref={pinButtonLabel}
-										Size={new UDim2(1, -38, 1, 0)}
-										Position={UDim2.fromOffset(32, 0)}
+										Size={UDim2.fromScale(1, 1)}
 										BackgroundTransparency={1}
 										BorderSizePixel={0}
 										Text={text}
@@ -2437,14 +2412,16 @@ export function Button(props: ButtonProps) {
 										TextScaled={false}
 										TextTruncate={Enum.TextTruncate.AtEnd}
 										ZIndex={zIndex + 3}
-									/>
+									>
+										{/* padding instead of a (1, -38) width: a narrow button can no longer give the label a negative size */}
+										<uipadding PaddingLeft={new UDim(0, 32)} PaddingRight={new UDim(0, 6)} />
+									</textlabel>
 								</frame>
 							)}
 							{!iconOnly && !hasIcon && (
 								<textlabel
 									ref={pinButtonLabel}
-									Size={new UDim2(1, -14, 1, 0)}
-									Position={UDim2.fromOffset(7, 0)}
+									Size={UDim2.fromScale(1, 1)}
 									BackgroundTransparency={1}
 									BorderSizePixel={0}
 									Text={text}
@@ -2458,7 +2435,10 @@ export function Button(props: ButtonProps) {
 									TextScaled={false}
 									TextTruncate={Enum.TextTruncate.AtEnd}
 									ZIndex={zIndex + 3}
-								/>
+								>
+									{/* padding instead of a (1, -14) width: a narrow button can no longer give the label a negative size */}
+									<uipadding PaddingLeft={new UDim(0, 7)} PaddingRight={new UDim(0, 7)} />
+								</textlabel>
 							)}
 						</frame>
 						{loading && (

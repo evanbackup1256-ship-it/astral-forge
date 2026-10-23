@@ -7,13 +7,13 @@ import { bulkCost, compactNumber, compareFlux, Flux, gteFlux } from "../../CoreK
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
 import { asFlux } from "../../CoreKit/format";
 import * as VaultCollectEligibility from "../../CoreKit/vaultCollectEligibility";
-import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, GlyphWell, ItemTile, Line, MockPanel, NUM, PanelHeading, PnSurface, RowSurface, mockGap, panelPad } from "../../UiCore/mockKit";
+import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, ItemTile, Line, MockPanel, NUM, PanelHeading, PnSurface, RowSurface, mockGap, panelPad } from "../../UiCore/mockKit";
 import { loadUi } from "../luauDeps";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
 // header-forge.png (1024x120), already uploaded (assets/uploaded.md)
 const UserInputService = game.GetService("UserInputService");
-const { Badge, Button, Dropdown, Text } = loadUi();
+const { Button, Dropdown, Text } = loadUi();
 
 interface MachineConfig extends UpgradeConfig {
 	Accent?: Color3;
@@ -140,64 +140,53 @@ function AutoForgePanel(props: {
 	const reserveW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, -8, 0, 42);
 	const buttonW = stack ? new UDim2(0.5, -5, 0, TapTarget) : new UDim2(0.28, 0, 0, 42);
 	return (
-		<PnSurface radius={18} rule
+		<PnSurface radius={stack ? 12 : 16} rule
 			size={new UDim2(1, -4, 0, height)}
-			accent={Palette.mango}
-			background={darken(Palette.mango, 0.9)}
+			accent={Palette.brass}
+			background={Palette.panel}
 			padding={14}
 			layoutOrder={1}
 			reducedMotion={softMotion}
 			zIndex={24}
 			clips={false}
 		>
-			<GlyphWell
-				kind="Forge"
-				accent={queue.Enabled ? Palette.mango : Palette.muted}
-				size={48}
-				radius={18}
-				position={UDim2.fromOffset(0, 0)}
-				spin={queue.Enabled}
-				reducedMotion={softMotion}
-			/>
-			<Text
-				value="Auto-Forge"
-				size={18}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={stack}
-				minSize={12}
-				position={UDim2.fromOffset(62, stack ? 26 : 8)}
-				sizeConstraint={new UDim2(1, stack ? -62 : -220, 0, stack ? 22 : 24)}
-			/>
-			<Text
-				value={
-					"Buys one level at a time and never spends your reserve."
-				}
-				size={11}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(stack ? 0 : 62, stack ? 54 : 42)}
-				sizeConstraint={new UDim2(1, stack ? 0 : -(62 + 220), 0, 28)}
-			/>
-			<Badge
-				value={stack ? badgeStatus : status}
-				accent={queue.Enabled ? Palette.mint : Palette.muted}
-				position={stack ? new UDim2(1, -92, 0, 0) : new UDim2(1, -210, 0, 4)}
-				size={stack ? UDim2.fromOffset(88, 24) : UDim2.fromOffset(200, 22)}
-			/>
-			{!stack && (
-				<Text
-					value={`${compactNumber(queue.Bought)} AUTO LEVELS`}
-					size={10}
-					color={Palette.muted}
-					weight={Enum.FontWeight.Bold}
-					align={Enum.TextXAlignment.Right}
-					position={new UDim2(1, -210, 0, 30)}
-					sizeConstraint={new UDim2(0, 210, 0, 16)}
+			{/* .pn h3 + .chip (03-forge kit) in place of the pre-revamp IconTile / Badge header; the old
+			    desktop copy reserved a fixed 220px column and went negative under ~300px of panel */}
+			<frame Size={new UDim2(1, 0, 0, stack ? 18 : 22)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<PanelHeading
+					icon="Forge"
+					title="Auto-Forge"
+					note={stack ? undefined : `${compactNumber(queue.Bought)} auto levels`}
+					accent={queue.Enabled ? Palette.mango : Palette.muted}
+					phone={stack}
 				/>
-			)}
+			</frame>
+			<frame
+				Size={UDim2.fromOffset(0, stack ? 24 : 28)}
+				AutomaticSize={Enum.AutomaticSize.X}
+				Position={stack ? new UDim2(1, 0, 0, 24) : new UDim2(1, 0, 0, 30)}
+				AnchorPoint={new Vector2(1, 0)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+			>
+				<Chip text={stack ? badgeStatus : status} accent={queue.Enabled ? Palette.mint : undefined} phone={stack} />
+			</frame>
+			<frame
+				Size={new UDim2(1, stack ? 0 : -150, 0, stack ? 40 : 44)}
+				Position={UDim2.fromOffset(0, stack ? 52 : 34)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+			>
+				<Text
+					value={"Buys one level at a time and never spends your reserve."}
+					size={stack ? 11 : 12}
+					color={Palette.creamSoft}
+					wrap={true}
+					fit={true}
+					minSize={9}
+					sizeConstraint={UDim2.fromScale(1, 1)}
+				/>
+			</frame>
 			<Dropdown
 				options={machineOptions}
 				value={target?.Id ?? machineOptions[0]?.id ?? "StellarCore"}

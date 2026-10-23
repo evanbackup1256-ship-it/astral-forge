@@ -505,6 +505,10 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 	const dim = (key: string, sizeFn: (f: GuideFrame) => UDim2, posFn: (f: GuideFrame) => UDim2) =>
 		h("textbutton", {
 			key: key,
+			// the four spotlight scrims are deliberate input shields around the target: tell
+			// LayoutGuard they are not content (they were reported as ActionCollision with the top
+			// bar, quick actions, level bar and every control they dim)
+			ref: (instance: Instance | undefined) => instance?.SetAttribute("LayoutGuardIgnore", true),
 			Text: "",
 			AutoButtonColor: false,
 			Selectable: false,

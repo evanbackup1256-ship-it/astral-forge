@@ -1786,7 +1786,6 @@ interface VirtualGridProps {
 __defs["scrolling"] = () => {
 	const React = loadReact();
 	const h = React.createElement as unknown as LooseCreate;
-	const LayoutUtil = loadLayoutUtil();
 	const GuiService = game.GetService("GuiService");
 	const Players = game.GetService("Players");
 	const RunService = game.GetService("RunService");
@@ -2129,6 +2128,7 @@ __defs["scrolling"] = () => {
 		}
 		boundScrolls.add(frame);
 		let resizeConnection: RBXScriptConnection | undefined;
+		let owned = false;
 		const apply = () => {
 			if (frame.Parent === undefined) {
 				return undefined;
@@ -2141,21 +2141,37 @@ __defs["scrolling"] = () => {
 			if (layout === undefined) {
 				return undefined;
 			}
-			if (layout.IsA("UIGridLayout")) {
-				pcall(() => {
-					LayoutUtil.grid(layout, frame.AbsoluteSize);
-				});
+			// Only size canvases nobody owns: AutomaticCanvasSize hosts and hosts with an explicit
+			// CanvasSize (WorkshopView, InventoryView side rail, ConfirmDialog, SessionPanel, levelRoadmap,
+			// onboarding, NavChrome strip...) compute their own canvas, and overwriting it with the bare
+			// AbsoluteContentSize dropped their UIPadding/tail so the last rows could never be scrolled to.
+			// (The old UIGridLayout aspect constraint is gone too: it froze every grid's cells at the
+			// aspect of its first CellSize, so AutoGrid/breakpoint re-sizing squashed or overlapped cards.)
+			if (frame.AutomaticCanvasSize !== Enum.AutomaticSize.None) {
+				return undefined;
 			}
-			const axis =
-				frame.ScrollingDirection === Enum.ScrollingDirection.X
-					? Enum.AutomaticSize.X
-					: frame.ScrollingDirection === Enum.ScrollingDirection.XY
-						? Enum.AutomaticSize.XY
-						: Enum.AutomaticSize.Y;
-			const [ok, connection] = pcall(() => LayoutUtil.resize(frame, layout, axis));
-			if (ok && typeIs(connection, "RBXScriptConnection")) {
-				resizeConnection = connection;
+			const canvas = frame.CanvasSize;
+			if (!owned && (canvas.X.Offset !== 0 || canvas.Y.Offset !== 0 || canvas.X.Scale !== 0 || canvas.Y.Scale !== 0)) {
+				return undefined;
 			}
+			owned = true;
+			const padding = frame.FindFirstChildWhichIsA("UIPadding");
+			const sync = () => {
+				const content = layout.AbsoluteContentSize;
+				const padX = padding !== undefined ? padding.PaddingLeft.Offset + padding.PaddingRight.Offset : 0;
+				const padY = padding !== undefined ? padding.PaddingTop.Offset + padding.PaddingBottom.Offset : 0;
+				const width = math.ceil(content.X + padX);
+				const height = math.ceil(content.Y + padY);
+				const direction = frame.ScrollingDirection;
+				frame.CanvasSize =
+					direction === Enum.ScrollingDirection.X
+						? UDim2.fromOffset(width, 0)
+						: direction === Enum.ScrollingDirection.XY
+							? UDim2.fromOffset(width, height)
+							: UDim2.fromOffset(0, height);
+			};
+			sync();
+			resizeConnection = layout.GetPropertyChangedSignal("AbsoluteContentSize").Connect(sync);
 		};
 		let applyScheduled = false;
 		const scheduleApply = () => {

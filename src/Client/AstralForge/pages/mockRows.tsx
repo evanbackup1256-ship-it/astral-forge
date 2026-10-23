@@ -2,7 +2,7 @@
 // Local to the progression and economy pages; the shared mockKit stays untouched.
 import React from "@rbxts/react";
 import { Palette, TapTarget } from "../CoreKit/theme";
-import { Button } from "../UiCore/ui";
+import { Button, buttonContentWidth } from "../UiCore/ui";
 import { Bar, BODY, BODY_SEMI, Glyph, Line, NUM, PanelHeading, TITLE_FACE } from "../UiCore/mockKit";
 
 /** .btn.sec base #3a2e3e */
@@ -45,7 +45,11 @@ export function MockBtn(p: {
 }) {
 	const height = p.phone === true ? TapTarget : p.sm === true ? 36 : 44;
 	const sec = p.sec === true || p.disabled === true;
-	const width = p.fill === true ? new UDim(1, 0) : new UDim(0, p.width ?? 0);
+	// a hugging button used to sit in a 0px-wide wrapper and spill past it, so list layouts (row
+	// trailing slots, action strips) packed the next sibling on top of it; the wrapper now takes the
+	// width the kit Button would hug to
+	const hug = p.width === undefined && p.fill !== true;
+	const width = p.fill === true ? new UDim(1, 0) : new UDim(0, p.width ?? buttonContentWidth(p.text, p.icon !== undefined));
 	return (
 		<frame
 			Size={new UDim2(width, new UDim(0, height))}
@@ -62,7 +66,7 @@ export function MockBtn(p: {
 				color={sec ? SEC : p.accent ?? Palette.mango}
 				textColor={sec ? Palette.cream : Palette.ink}
 				size={UDim2.fromScale(1, 1)}
-				hug={p.width === undefined && p.fill !== true}
+				hug={hug}
 				disabled={p.disabled}
 				selectable={p.disabled !== true}
 				highlight={!sec}
@@ -94,8 +98,7 @@ export function MockRow(p: {
 	const h = p.height ?? rowHeight(phone, p.sub !== undefined);
 	const accent = p.accent ?? Palette.mango;
 	const wellSize = phone ? 30 : 36;
-	const left = p.icon !== undefined ? wellSize + 12 : 0;
-	const right = (p.rightWidth ?? 0) + (p.value !== undefined ? (phone ? 110 : 170) : 0);
+	const valueSize = phone ? 14 : 17;
 	const titleSize = phone ? 13 : p.serif === true ? 17 : 15;
 	const subSize = phone ? 11 : 12;
 	const block = titleSize + 4 + (p.sub !== undefined ? 2 + subSize + 3 : 0);
@@ -109,43 +112,30 @@ export function MockRow(p: {
 		>
 			<RowFace outline={p.outline} />
 			<uipadding PaddingLeft={new UDim(0, phone ? 10 : 12)} PaddingRight={new UDim(0, phone ? 10 : 12)} />
+			{/* flex row: well, text (fills), value (hugs), trailing slot. The old absolute layout reserved a
+			    fixed 170px value column, so in a two-column stat grid the text block went negative
+			    and the value slid over the icon */}
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
 			{p.icon !== undefined && (
-				<frame Size={UDim2.fromOffset(wellSize, wellSize)} Position={new UDim2(0, 0, 0.5, 0)} AnchorPoint={new Vector2(0, 0.5)} BackgroundTransparency={1}>
+				<frame Size={UDim2.fromOffset(wellSize, wellSize)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 					<IconWell icon={p.icon} accent={p.dim === true ? Palette.muted : accent} size={wellSize} />
 				</frame>
 			)}
-			<frame
-				Size={new UDim2(1, -(left + right + (right > 0 ? 12 : 0)), 0, block)}
-				Position={new UDim2(0, left, 0.5, 0)}
-				AnchorPoint={new Vector2(0, 0.5)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-			>
+			<frame Size={new UDim2(0, 0, 0, block)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<Line text={p.title} size={titleSize} font={p.serif === true ? TITLE_FACE : BODY_SEMI} width={new UDim(1, 0)} color={p.dim === true ? Palette.creamSoft : Palette.cream} />
 				{p.sub !== undefined && (
 					<Line text={p.sub} size={subSize} font={BODY} color={Palette.muted} width={new UDim(1, 0)} position={UDim2.fromOffset(0, titleSize + 6)} height={subSize + 3} />
 				)}
 			</frame>
 			{p.value !== undefined && (
-				<Line
-					text={p.value}
-					size={phone ? 14 : 17}
-					font={NUM}
-					color={p.valueColor ?? accent}
-					width={new UDim(0, phone ? 110 : 170)}
-					align={Enum.TextXAlignment.Right}
-					position={new UDim2(1, -(p.rightWidth ?? 0) - (p.rightWidth !== undefined ? 12 : 0), 0.5, 0)}
-					anchor={new Vector2(1, 0.5)}
-				/>
+				<frame Size={UDim2.fromOffset(0, valueSize + 6)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uisizeconstraint MaxSize={new Vector2(phone ? 110 : 170, math.huge)} />
+					<Line text={p.value} size={valueSize} font={NUM} color={p.valueColor ?? accent} align={Enum.TextXAlignment.Right} height={valueSize + 6} />
+				</frame>
 			)}
 			{p.right !== undefined && (
-				<frame
-					Size={UDim2.fromOffset(p.rightWidth ?? 0, h)}
-					Position={new UDim2(1, 0, 0.5, 0)}
-					AnchorPoint={new Vector2(1, 0.5)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
+				<frame Size={UDim2.fromOffset(p.rightWidth ?? 0, h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
 					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Right} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{p.right}
 				</frame>
