@@ -222,7 +222,6 @@ export function SessionPanel(props: SessionPanelProps) {
 
 	return (
 		<frame
-			Name="SessionPanel"
 			Size={UDim2.fromOffset(width, height)}
 			Position={new UDim2(1, -(props.edgePad + sideInset + 4), 0, props.top + 8)}
 			AnchorPoint={new Vector2(1, 0)}
