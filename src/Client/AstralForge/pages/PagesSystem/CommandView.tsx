@@ -250,8 +250,7 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 	const effectName = `${tierLabel}  ${fxLabel}`;
 	const equip = React.useCallback(() => props.dispatch("EquipTitle", { Id: props.id }), [props.dispatch, props.id]);
 	const actionHeight = props.stack ? TapTarget : 34;
-	const actionSize = new UDim2(1, -14, 0, actionHeight);
-	const actionPosition = new UDim2(0, 7, 1, -(actionHeight + 7));
+	const actionSize = UDim2.fromScale(1, 1);
 	const descText = props.description ?? "This is how the title looks in chat and on your nameplate.";
 	return (
 		<frame
@@ -268,15 +267,23 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 				Thickness={props.equipped ? 1.8 : 1}
 				Transparency={props.equipped ? 0.08 : props.unlocked ? 0.48 : 0.58}
 			/>
-			<frame Size={new UDim2(1, -16, 0, 16)} Position={UDim2.fromOffset(8, 6)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<frame
-					Size={UDim2.fromOffset(6, 6)}
-					Position={new UDim2(0, 2, 0.5, 0)}
-					AnchorPoint={new Vector2(0, 0.5)}
-					Rotation={45}
-					BackgroundColor3={props.unlocked ? accent : Palette.muted}
-					BorderSizePixel={0}
-				/>
+			{/* tier strip, preview, description, spacer, action: one vertical list */}
+			<uipadding PaddingLeft={new UDim(0, 7)} PaddingRight={new UDim(0, 7)} PaddingTop={new UDim(0, 6)} PaddingBottom={new UDim(0, 7)} />
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 2)} HorizontalAlignment={Enum.HorizontalAlignment.Center} />
+			<frame key="Tier" Size={new UDim2(1, -2, 0, 16)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+				<frame Size={UDim2.fromOffset(8, 8)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<frame
+						Size={UDim2.fromOffset(6, 6)}
+						Position={UDim2.fromScale(0.5, 0.5)}
+						AnchorPoint={new Vector2(0.5, 0.5)}
+						Rotation={45}
+						BackgroundColor3={props.unlocked ? accent : Palette.muted}
+						BorderSizePixel={0}
+					/>
+				</frame>
+				<frame Size={new UDim2(0, 0, 0, 14)} BackgroundTransparency={1} LayoutOrder={1}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<Text
 					value={effectName}
 					size={9}
@@ -285,9 +292,10 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 					weight={Enum.FontWeight.Heavy}
 					fit={true}
 					align={Enum.TextXAlignment.Left}
-					position={UDim2.fromOffset(14, 1)}
-					sizeConstraint={new UDim2(1, -68, 0, 14)}
+					sizeConstraint={new UDim2(1, 0, 0, 14)}
 				/>
+				</frame>
+				<frame Size={UDim2.fromOffset(52, 14)} BackgroundTransparency={1} LayoutOrder={2}>
 				<Text
 					value={props.equipped ? "ACTIVE" : props.unlocked ? "OWNED" : "LOCKED"}
 					size={8}
@@ -296,11 +304,11 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 					weight={Enum.FontWeight.Heavy}
 					fit={true}
 					align={Enum.TextXAlignment.Right}
-					position={new UDim2(1, -52, 0, 1)}
 					sizeConstraint={UDim2.fromOffset(52, 14)}
 				/>
+				</frame>
 			</frame>
-			<frame Size={new UDim2(1, -14, 0, 36)} Position={UDim2.fromOffset(7, 23)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+			<frame key="Preview" Size={new UDim2(1, 0, 0, 36)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} LayoutOrder={1}>
 				<AnimatedTitlePreview
 					text={props.name}
 					fx={props.fx}
@@ -310,6 +318,7 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 					transparency={props.unlocked ? 0 : 0.42}
 				/>
 			</frame>
+			<Slot height={46} layoutOrder={2}>
 			<Text
 				value={descText}
 				size={10}
@@ -318,9 +327,14 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 				fit={true}
 				minSize={9}
 				align={Enum.TextXAlignment.Center}
-				position={UDim2.fromOffset(9, 62)}
-				sizeConstraint={new UDim2(1, -18, 0, 46)}
+				sizeConstraint={new UDim2(1, -4, 0, 46)}
+				position={UDim2.fromOffset(2, 0)}
 			/>
+			</Slot>
+			<frame key="Spacer" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} LayoutOrder={3}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+			</frame>
+			<Slot height={actionHeight} layoutOrder={4}>
 			{props.unlocked && !props.equipped ? (
 				<Button
 					text="Equip crest"
@@ -329,11 +343,10 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 					color={accent}
 					textColor={Palette.ink}
 					size={actionSize}
-					position={actionPosition}
 					reducedMotion={props.reducedMotion}
 				/>
 			) : (
-				<frame Size={actionSize} Position={actionPosition} BackgroundColor3={Palette.panelSoft} BorderSizePixel={0} Active={false}>
+				<frame Size={actionSize} BackgroundColor3={Palette.panelSoft} BorderSizePixel={0} Active={false}>
 					<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
 					<uistroke Color={props.equipped ? accent : Palette.lineSoft} Thickness={1} Transparency={0.52} />
 					<Text
@@ -348,6 +361,7 @@ const CommandTitleCard = React.memo((props: TitleCardProps) => {
 					/>
 				</frame>
 			)}
+			</Slot>
 		</frame>
 	);
 });
