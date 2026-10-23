@@ -199,8 +199,8 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 							<textlabel Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Text={spaced(props.title.upper())} TextSize={15} FontFace={TITLE_FACE} TextColor3={Palette.cream} TextWrapped={true} TextXAlignment={Enum.TextXAlignment.Left} TextYAlignment={Enum.TextYAlignment.Top} ZIndex={z + 4} />
 						</frame>
 						<textbutton
-							Size={UDim2.fromOffset(24, 24)}
-							Position={new UDim2(1, 0, 0, -1)}
+							Size={UDim2.fromOffset(44, 44)}
+							Position={new UDim2(1, 10, 0, -11)}
 							AnchorPoint={new Vector2(1, 0)}
 							BackgroundTransparency={1}
 							Text=""
@@ -209,7 +209,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 							ZIndex={z + 5}
 							Event={{ Activated: () => resolve(false) }}
 						>
-							<Glyph kind="Close" size={18} color={Palette.muted} position={UDim2.fromOffset(3, 3)} />
+							<Glyph kind="Close" size={18} color={Palette.muted} position={UDim2.fromOffset(13, 13)} />
 						</textbutton>
 						{props.body !== undefined && (
 							<scrollingframe
