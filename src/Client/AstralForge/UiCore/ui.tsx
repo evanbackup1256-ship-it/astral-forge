@@ -3534,10 +3534,7 @@ export function EmptyState({
 				LayoutOrder={0}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
-				Rotation={reveal.map((amount) => (1 - math.clamp(amount, 0, 1)) * -14)}
 			>
-				{/* the icon settles in with a small overshoot and tilt before the words fade up */}
-				<uiscale Scale={reveal.map((amount) => 0.6 + 0.4 * easeOutBackMicro(math.clamp(amount, 0, 1)))} />
 				<Icon kind={icon} color={Palette.muted} accent={accent} size={resolvedIcon} spin={false} clipSafe={true} />
 			</frame>
 			<Text
@@ -3590,12 +3587,6 @@ export function EmptyState({
 			) : undefined}
 		</frame>
 	);
-}
-
-function easeOutBackMicro(x: number): number {
-	const c1 = 1.4;
-	const c3 = c1 + 1;
-	return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2;
 }
 
 // ---------- Dropdown ----------

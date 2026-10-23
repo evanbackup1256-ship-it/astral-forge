@@ -5,7 +5,7 @@ import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationServic
 import { compactNumber, formatReward } from "../../CoreKit/format";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
-import { useEntrance, useFlash, useViewport } from "../../MotionKit/motion";
+import { useEntrance, useViewport } from "../../MotionKit/motion";
 import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
 import {
 	ProgressCloseGlow,
@@ -31,18 +31,6 @@ function milestoneRowH(stack: boolean): number {
 	return stack ? 220 : 148;
 }
 
-function useReadyPop(ready: boolean, reducedMotion?: boolean) {
-	const wasReady = React.useRef(ready);
-	const [trigger, setTrigger] = React.useState(0);
-	React.useEffect(() => {
-		if (ready && !wasReady.current) {
-			setTrigger((current) => current + 1);
-		}
-		wasReady.current = ready;
-	}, [ready]);
-	return useFlash(trigger, reducedMotion, 0.6);
-}
-
 interface MilestoneRowProps {
 	achievement: TaskEntry;
 	dispatch: Dispatch;
@@ -66,8 +54,6 @@ function MilestoneRowImpl({ achievement, dispatch, reducedMotion, position, stac
 	const progressFrac = math.clamp(achievement.Progress / math.max(1, achievement.Target), 0, 1);
 	const meterSize = new UDim2(1, stack ? 0 : -182, 0, 8);
 	const meterPosition = UDim2.fromOffset(0, meterY);
-	const readyPop = useReadyPop(ready, softMotion);
-	const iconScale = readyPop.map((amount) => 1 + amount * 0.22);
 	const claimText = achievement.Claimed ? "CLAIMED" : ready ? "CLAIM REWARD" : "LOCKED";
 	const claim = () => dispatch("ClaimAchievement", { Id: achievement.Id });
 	return (
@@ -82,7 +68,6 @@ function MilestoneRowImpl({ achievement, dispatch, reducedMotion, position, stac
 			reducedMotion={softMotion}
 		>
 			<frame Size={UDim2.fromOffset(42, 42)} Position={UDim2.fromOffset(0, stack ? 4 : 10)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uiscale Scale={iconScale} />
 				<IconTile
 					kind="Milestone"
 					accent={achievement.Claimed ? Palette.mango : accent}

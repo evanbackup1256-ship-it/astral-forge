@@ -701,13 +701,6 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 	} else if (hasCta) {
 		primary = { text: ctaLabel!, color: Palette.mango, onClick: onCta! };
 	}
-	const stampScale = frame.map((f) => {
-		const age = f.stampAge ?? 99;
-		if (!goalDone) {
-			return 0;
-		}
-		return 1 + (1 - easeOut(age / 0.26)) * 0.9;
-	});
 	const taskRow =
 		needsAction &&
 		h(
@@ -729,7 +722,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 					Thickness: 1.5,
 					Transparency: goalDone ? 0 : frame.map((f) => 0.2 + (math.sin(f.t * 4) + 1) * 0.25),
 				}),
-				goalDone && h(StampedCheck, { scale: stampScale }),
+				goalDone && h(StampedCheck),
 			),
 			h(Text, {
 				value: copy.task ?? copy.title,

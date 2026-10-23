@@ -3,7 +3,7 @@ import { glyphButton } from "../../UiCore/glyphIcons";
 import { useAntilag } from "../../MotionKit/antilag";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, compactNumber, formatReward, Reward } from "../../CoreKit/format";
-import { useFlash, useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
+import { useStagger, useViewport, useWallClock } from "../../MotionKit/motion";
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
@@ -78,8 +78,7 @@ function OrderRow(props: {
 	const fill = meterFill(state.Progress, state.Target, state.Claimed || ready);
 	const reducedMotion = props.reducedMotion;
 	const reveal = useStagger(order, reducedMotion);
-	const [claimTrigger, setClaimTrigger] = React.useState(0);
-	const claimFlash = useFlash(claimTrigger, reducedMotion, 0.4);
+	const [, setClaimTrigger] = React.useState(0);
 	// one claim in flight per order: the button spins until the server answers, a refusal shakes it
 	const [claiming, setClaiming] = React.useState(false);
 	const [refused, setRefused] = React.useState(0);
@@ -119,7 +118,6 @@ function OrderRow(props: {
 			reducedMotion={reducedMotion}
 		>
 			<frame Size={UDim2.fromOffset(46, 46)} Position={UDim2.fromOffset(0, stack ? 4 : 10)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uiscale Scale={claimFlash.map((amount) => 1 + amount * 0.18)} />
 				<IconTile kind="Mission" accent={config.Color} size={46} radius={14} glow={ready} reducedMotion={reducedMotion} />
 			</frame>
 			<Text

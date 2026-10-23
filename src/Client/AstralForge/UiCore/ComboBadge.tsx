@@ -115,7 +115,6 @@ export function ComboBadge(props: {
 			),
 		[presence, intensitySpring, punch],
 	);
-	const iconScale = React.useMemo(() => punch.map((amount) => 1 + amount * 0.28), [punch]);
 	const rise = React.useMemo(() => presence.map((amount) => math.round((1 - amount) * 18)), [presence]);
 	const fade = React.useMemo(() => presence.map((amount) => 1 - amount), [presence]);
 	if (!everVisible) {
@@ -181,7 +180,6 @@ export function ComboBadge(props: {
 							ZIndex={zIndex + 1}
 						>
 							<uicorner CornerRadius={new UDim(0, 10)} />
-							<ScaleFromCenter scale={iconScale} zIndex={zIndex + 1}>
 								<Icon
 									kind="Overcharge.9"
 									color={Palette.cream}
@@ -192,7 +190,6 @@ export function ComboBadge(props: {
 									position={UDim2.fromScale(0.5, 0.5)}
 									anchorPoint={new Vector2(0.5, 0.5)}
 								/>
-							</ScaleFromCenter>
 						</frame>
 					</frame>
 					<Text

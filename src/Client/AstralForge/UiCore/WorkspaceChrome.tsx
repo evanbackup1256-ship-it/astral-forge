@@ -732,11 +732,9 @@ export function Workspace(_param: WorkspaceProps) {
 					"frame",
 					{
 						Size: UDim2.fromOffset(headerIconSize, headerIconSize),
-						Position: enter.map((amount) =>
-							UDim2.fromOffset(
-								(keyboardCompact ? 8 : chrome.stack ? 14 : 20) - math.round((1 - math.clamp(amount, 0, 1)) * 10),
-								math.floor((headerHeight - headerIconSize) / 2),
-							),
+						Position: UDim2.fromOffset(
+							keyboardCompact ? 8 : chrome.stack ? 14 : 20,
+							math.floor((headerHeight - headerIconSize) / 2),
 						),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
