@@ -18,6 +18,8 @@ import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { CrateDropTable, crateDropTableHeight } from "./CrateDropTable";
 import { SpriteCard } from "./views/PortSpriteCard";
+import { HeaderArt } from "../UiCore/HeaderArt";
+import type { HeaderArtName } from "../ArtKit/uiArt";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../UiCore/ui";
 import { FocusPlan, useFocusOrder } from "../CoreKit/focusOrder";
 import {
@@ -1667,6 +1669,7 @@ interface HeroProps {
 	reveal?: React.Binding<number>;
 	reducedMotion?: boolean;
 	extra?: unknown;
+	art?: HeaderArtName;
 }
 
 function Hero(props: HeroProps) {
@@ -1684,6 +1687,7 @@ function Hero(props: HeroProps) {
 			reducedMotion: props.reducedMotion,
 			clips: false,
 		},
+		props.art !== undefined && h(HeaderArt, { art: props.art, inset: 18, radius: Layout.cardRadius }),
 		h(IconTile, {
 			kind: props.icon,
 			accent: props.accent,
@@ -2665,6 +2669,7 @@ function CratesSection(props: SectionProps) {
 		height: heroHeight(stack),
 		element: h(Hero, {
 			title: "Crates",
+			art: "crates",
 			body: crate.PityAfter !== undefined && crate.PityRarity !== undefined
 				? `${crate.PityRarity}+ in ${math.max(1, crate.PityAfter - (items.Pity?.[crate.Id] ?? 0))} opens`
 				: "Odds for every crate, up to Astral. Your equipped skin opens them all.",
