@@ -2515,7 +2515,7 @@ export function Button(props: ButtonProps) {
 						ZIndex={zIndex + 5}
 					>
 						{corner}
-						<Stroke color={Palette.cream} thickness={4} transparency={focusRingTransparency} />
+						<Stroke color={Palette.brass} thickness={4} transparency={focusRingTransparency} />
 					</frame>
 				</frame>
 			</imagebutton>
@@ -3213,7 +3213,7 @@ function SegmentedTabHit({
 				<uistroke
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 					LineJoinMode={Enum.LineJoinMode.Round}
-					Color={Palette.cream}
+					Color={Palette.brass}
 					Thickness={3}
 					Transparency={chrome.focusRing.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.95)}
 				/>
