@@ -6,22 +6,23 @@ import { useFlash, useStagger, useViewport, useWallClock } from "../../MotionKit
 import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "../../UiCore/ui";
+import { Bar, Chip, MockPanel, NUM, PanelHeading } from "../../UiCore/mockKit";
+import { BigFigure, ChipRow, HEADING_SECTION_H, HeadingSection, headingBlock, MockBtn, MockRow, panelHeight, SEC, TILE_ROW_H, TileRow, Rise } from "../mockRows";
 
 const UserInputService = game.GetService("UserInputService");
 const PageScaffold = loadPageScaffold();
 const FlatList = luauKit<{ FlatList: Component }>("LayoutKit", "virtualizedList").FlatList;
 const ui = loadUi();
-const { Badge, Button, EmptyState, IconTile, Meter, Panel, SectionLabel, Text } = ui;
+const { Button, EmptyState } = ui;
 const meterFill = (ui as unknown as { meterFill: (this: void, progress: number, target: number, done: boolean) => number })
 	.meterFill;
 
-const ORDER_HEIGHT = 168;
-const ORDER_HEIGHT_STACK = 224;
-const ORDER_GAP = Layout.panelGap;
+// 03-forge machine rows
+const ORDER_HEIGHT = TILE_ROW_H;
+const ORDER_HEIGHT_STACK = 56;
+const ORDER_GAP = 10;
 const CHANNEL_IDS = ["Production", "Storage", "Tap"];
 const SCROLL_PAD = 36 + 16;
-const SECTION_LABEL_H = 28;
-const BTN_W = 176;
 const SCROLL_BAR = 4;
 const ROW_RIGHT = SCROLL_BAR + 10;
 
@@ -97,118 +98,40 @@ function OrderRow(props: {
 			}
 		});
 	};
-	const rowH = stack ? ORDER_HEIGHT_STACK : ORDER_HEIGHT;
-	const pad = stack ? 14 : Layout.cardPadding;
-	const contentH = rowH - pad * 2;
-	const btnReserve = stack ? TapTarget + 14 : 0;
-	const meterY = stack ? contentH - btnReserve - 8 : 118;
-	const progressY = meterY - 18;
-	const meterSize = stack ? new UDim2(1, 0, 0, 8) : new UDim2(1, -(BTN_W + ROW_RIGHT + 12), 0, 8);
-	const textW = stack ? -(58 + 12) : -(BTN_W + 74 + ROW_RIGHT);
 	return (
-		<Panel radius={18} rule
-			size={new UDim2(1, 0, 0, rowH)}
-			accent={config.Color}
-			background={Palette.panelRaised}
-			padding={pad}
-			layoutOrder={order}
-			reveal={reveal}
-			interactive={true}
-			highlight={ready}
-			reducedMotion={reducedMotion}
-		>
-			<frame Size={UDim2.fromOffset(46, 46)} Position={UDim2.fromOffset(0, stack ? 4 : 10)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uiscale Scale={claimFlash.map((amount) => 1 + amount * 0.18)} />
-				<IconTile kind="Mission" accent={config.Color} size={46} radius={14} glow={ready} reducedMotion={reducedMotion} />
-			</frame>
-			<Text
-				value={config.Name}
-				size={17}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={11}
-				position={UDim2.fromOffset(58, 2)}
-				sizeConstraint={new UDim2(1, textW, 0, 24)}
-			/>
-			<Text
-				value={config.Description}
-				size={stack ? 12 : 11}
-				color={Palette.muted}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(58, 28)}
-				sizeConstraint={new UDim2(1, textW, 0, stack ? 36 : 28)}
-			/>
-			<Text
-				value={formatReward(config.Reward)}
-				size={11}
-				color={config.Color}
-				weight={Enum.FontWeight.Bold}
-				fit={false}
-				position={UDim2.fromOffset(58, stack ? 68 : 60)}
-				sizeConstraint={new UDim2(1, textW, 0, 16)}
-			/>
-			<Text
+		<Rise reveal={reveal} height={stack ? ORDER_HEIGHT_STACK : ORDER_HEIGHT} layoutOrder={order}>
+			<uiscale Scale={claimFlash.map((amount) => 1 + amount * 0.02)} />
+			<TileRow
+				phone={stack}
+				icon="Mission"
+				accent={config.Color}
+				title={config.Name}
+				meta={formatReward(config.Reward)}
+				fill={fill}
+				barColor={config.Color}
 				value={`${compactNumber(state.Progress)} / ${compactNumber(state.Target)}`}
-				size={11}
-				color={Palette.creamSoft}
-				weight={Enum.FontWeight.Bold}
-				fit={true}
-				minSize={8}
-				position={UDim2.fromOffset(0, progressY)}
-				sizeConstraint={UDim2.fromOffset(180, 16)}
+				valueColor={ready ? Palette.mint : Palette.creamSoft}
+				outline={ready ? Palette.mint : undefined}
+				rightWidth={stack ? 96 : 130}
+				right={
+					<Button
+						text={state.Claimed ? "Collected" : ready ? "Collect" : "Not yet"}
+						icon={ready ? "Gift" : undefined}
+						onClick={fireClaim}
+						loading={claiming}
+						shakeToken={refused}
+						color={ready ? Palette.mint : SEC}
+						textColor={ready ? Palette.ink : Palette.cream}
+						size={UDim2.fromScale(1, 1)}
+						disabled={!ready}
+						reducedMotion={reducedMotion}
+						highlight={ready}
+					/>
+				}
 			/>
-			<Meter
-				value={fill}
-				color={config.Color}
-				position={UDim2.fromOffset(0, meterY)}
-				size={meterSize}
-				reducedMotion={reducedMotion}
-				shimmer={ready || state.Claimed}
-			/>
-			{stack ? (
-				<Button
-					text={state.Claimed ? "COLLECTED" : ready ? "COLLECT" : "NOT YET"}
-					icon="Gift.5"
-					onClick={fireClaim}
-					loading={claiming}
-					shakeToken={refused}
-					color={ready ? config.Color : Palette.panelSoft}
-					textColor={ready ? Palette.ink : Palette.creamSoft}
-					size={new UDim2(1, 0, 0, TapTarget)}
-					position={new UDim2(0, 0, 1, -(TapTarget + 6))}
-					disabled={!ready}
-					reducedMotion={reducedMotion}
-					highlight={ready}
-				/>
-			) : (
-				<Button
-					text={state.Claimed ? "COLLECTED" : ready ? "COLLECT" : "NOT YET"}
-					icon="Gift.6"
-					onClick={fireClaim}
-					loading={claiming}
-					shakeToken={refused}
-					color={ready ? config.Color : Palette.panelSoft}
-					textColor={ready ? Palette.ink : Palette.creamSoft}
-					size={UDim2.fromOffset(BTN_W, 48)}
-					position={new UDim2(1, -(BTN_W + ROW_RIGHT), 0.5, -24)}
-					disabled={!ready}
-					reducedMotion={reducedMotion}
-					highlight={ready}
-				/>
-			)}
-		</Panel>
+		</Rise>
 	);
 }
-
-const POWER_ROW_H = 76;
-const POWER_ROW_H_STACK = 96;
-const POWER_ROW_STRIDE = 82;
-const POWER_ROW_STRIDE_STACK = 104;
-const POWER_ROW_START = 48;
-const POWER_BTN = 44;
 
 function PowerRow(props: {
 	id: string;
@@ -218,121 +141,34 @@ function PowerRow(props: {
 	available: number;
 	dispatch: Dispatch;
 	reducedMotion?: boolean;
-	y: number;
-	stack: boolean;
+	phone: boolean;
+	layoutOrder: number;
 }) {
-	const { id, config, value, effect, available, dispatch, reducedMotion, y, stack } = props;
-	const rowH = stack ? POWER_ROW_H_STACK : POWER_ROW_H;
-	const badgeX = POWER_BTN + 94 + ROW_RIGHT;
-	const minusX = POWER_BTN * 2 + 100 + 8 + ROW_RIGHT;
+	const { id, config, value, effect, available, dispatch, reducedMotion, phone } = props;
 	const route = (delta: number) => () => dispatch("RouteLabPower", { Channel: id, Delta: delta });
+	const btn = phone ? TapTarget : 36;
 	return (
-		<frame
-			Size={new UDim2(1, 0, 0, rowH)}
-			Position={UDim2.fromOffset(0, y)}
-			BackgroundColor3={Palette.ink}
-			BackgroundTransparency={0.25}
-			BorderSizePixel={0}
-			ClipsDescendants={true}
-		>
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<uistroke Color={config.Color} Thickness={1} Transparency={0.68} />
-			<IconTile
-				kind={id === "Production" ? "Forge" : id === "Storage" ? "Vault" : "Command"}
-				accent={config.Color}
-				size={38}
-				radius={10}
-				position={UDim2.fromOffset(10, stack ? 10 : 15)}
-				reducedMotion={reducedMotion}
-			/>
-			<Text
-				value={config.Name}
-				size={14}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(58, stack ? 8 : 10)}
-				sizeConstraint={new UDim2(1, stack ? -(58 + 20) : -(minusX + 12), 0, 21)}
-			/>
-			<Text
-				value={`${config.Description}  /  +${math.floor(effect * 100)}% active`}
-				size={11}
-				color={config.Color}
-				weight={Enum.FontWeight.Bold}
-				wrap={true}
-				fit={true}
-				minSize={8}
-				position={UDim2.fromOffset(58, stack ? 32 : 34)}
-				sizeConstraint={new UDim2(1, stack ? -(58 + 20) : -(minusX + 12), 0, stack ? 28 : 17)}
-			/>
-			{stack ? (
-				<frame
-					Size={new UDim2(1, -(20 + ROW_RIGHT), 0, POWER_BTN)}
-					Position={new UDim2(0, 10, 1, -(POWER_BTN + 8))}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					<uilistlayout
-						FillDirection={Enum.FillDirection.Horizontal}
-						HorizontalAlignment={Enum.HorizontalAlignment.Right}
-						VerticalAlignment={Enum.VerticalAlignment.Center}
-						Padding={new UDim(0, 8)}
-					/>
-					<Button
-						text="−"
-						onClick={route(-1)}
-						color={Palette.panelSoft}
-						textColor={value > 0 ? Palette.cream : Palette.muted}
-						outline={true}
-						size={UDim2.fromOffset(POWER_BTN, POWER_BTN)}
-						disabled={value <= 0}
-						reducedMotion={reducedMotion}
-					/>
-					<Badge value={`${value} CELLS`} accent={config.Color} filled={true} size={UDim2.fromOffset(86, 28)} />
-					<Button
-						text="+"
-						onClick={route(1)}
-						color={config.Color}
-						textColor={Palette.ink}
-						size={UDim2.fromOffset(POWER_BTN, POWER_BTN)}
-						disabled={available <= 0}
-						reducedMotion={reducedMotion}
-					/>
-				</frame>
-			) : (
+		<MockRow
+			phone={phone}
+			height={phone ? 56 : 56}
+			icon={id === "Production" ? "Forge" : id === "Storage" ? "Vault" : "Command"}
+			accent={config.Color}
+			title={config.Name}
+			sub={`${config.Description} · +${math.floor(effect * 100)}% now`}
+			rightWidth={btn * 2 + 44 + 16}
+			layoutOrder={props.layoutOrder}
+			right={
 				<>
-					<Button
-						text="−"
-						onClick={route(-1)}
-						color={Palette.panelSoft}
-						textColor={value > 0 ? Palette.cream : Palette.muted}
-						outline={true}
-						size={UDim2.fromOffset(POWER_BTN, POWER_BTN)}
-						position={new UDim2(1, -minusX, 0.5, -POWER_BTN / 2)}
-						disabled={value <= 0}
-						reducedMotion={reducedMotion}
-					/>
-					<Badge
-						value={`${value} CELLS`}
-						accent={config.Color}
-						filled={true}
-						position={new UDim2(1, -badgeX, 0.5, -14)}
-						size={UDim2.fromOffset(86, 28)}
-					/>
-					<Button
-						text="+"
-						onClick={route(1)}
-						color={config.Color}
-						textColor={Palette.ink}
-						size={UDim2.fromOffset(POWER_BTN, POWER_BTN)}
-						position={new UDim2(1, -(ROW_RIGHT + POWER_BTN), 0.5, -POWER_BTN / 2)}
-						disabled={available <= 0}
-						reducedMotion={reducedMotion}
-					/>
+					<frame BackgroundTransparency={1} Size={UDim2.fromOffset(btn, btn)} LayoutOrder={0}>
+						<MockBtn text="-" sec={true} sm={true} phone={phone} fill={true} disabled={value <= 0} onClick={route(-1)} reducedMotion={reducedMotion} />
+					</frame>
+					<textlabel BackgroundTransparency={1} Text={`${value}`} TextSize={phone ? 14 : 17} FontFace={NUM} TextColor3={config.Color} Size={UDim2.fromOffset(44, btn)} LayoutOrder={1} />
+					<frame BackgroundTransparency={1} Size={UDim2.fromOffset(btn, btn)} LayoutOrder={2}>
+						<MockBtn text="+" accent={config.Color} sm={true} phone={phone} fill={true} disabled={available <= 0} onClick={route(1)} reducedMotion={reducedMotion} />
+					</frame>
 				</>
-			)}
-		</frame>
+			}
+		/>
 	);
 }
 
@@ -349,10 +185,8 @@ function LabViewReady(props: LabProps) {
 	// stacked row with its button underneath fills too much of a 360px-tall screen
 	const rowStack = stack && !chrome.landscape;
 	// desktop: orders on the left, the power board beside them (its rows use the compact layout)
-	const plan = splitColumns(stack ? 0 : viewport.width, math.floor(viewport.width * 0.4), ORDER_GAP + 4);
+	const plan = splitColumns(stack ? 0 : viewport.width, viewport.width >= 1600 ? 520 : 420, 18);
 	const wide = plan.split;
-	const stackPower = stack || wide;
-	const powerStart = POWER_ROW_START + (wide ? 34 : 0);
 	const lab = props.state.Lab!;
 	const antilag = useAntilag();
 	const softMotion = reducedMotion;
@@ -409,125 +243,24 @@ function LabViewReady(props: LabProps) {
 	const orderH = rowStack ? ORDER_HEIGHT_STACK : ORDER_HEIGHT;
 	let orderBlock =
 		lab.Orders.size() > 0 ? lab.Orders.size() * orderH + math.max(0, lab.Orders.size() - 1) * ORDER_GAP : 160;
-	const powerStride = stackPower ? POWER_ROW_STRIDE_STACK : POWER_ROW_STRIDE;
-	const powerBoardH = powerStart + CHANNEL_IDS.size() * powerStride + 10 + 28;
-	const heroHeight = stack ? (chrome.landscape ? 156 : 188) : 132;
 	const paidCount = lab.Orders.filter((order) => order.Claimed === true).size();
-	const heroBody = stack ? (
-		<>
-			<Text value={resetText} size={12} color={Palette.mint} weight={Enum.FontWeight.Bold} fit={false} sizeConstraint={new UDim2(1, -8, 0, 18)} />
-			<Text
-				value="Clear today's jobs, then dump spare cells into output, vault, or taps."
-				size={12}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 24)}
-				sizeConstraint={new UDim2(1, -8, 0, chrome.landscape ? 28 : 40)}
-			/>
-			<frame Size={new UDim2(1, 0, 0, 28)} Position={new UDim2(0, 0, 1, -36)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} />
-				<Badge value={`${paidCount} / ${lab.Orders.size()} PAID`} accent={Palette.mint} filled={true} size={UDim2.fromOffset(120, 26)} />
-				<Badge value={`${lab.AvailableCells} FREE`} accent={Palette.mango} size={UDim2.fromOffset(100, 24)} />
-			</frame>
-		</>
-	) : (
-		<>
-			<Text
-				value="WORKSHOP LAB"
-				size={10}
-				color={Palette.mint}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(68, 0)}
-				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 16)}
-			/>
-			<Text
-				value={`${lab.AvailableCells} power cell${lab.AvailableCells === 1 ? "" : "s"} free`}
-				size={22}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(68, 16)}
-				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 30)}
-			/>
-			<Text
-				value="Clear today's jobs, then dump spare cells into output, vault, or taps."
-				size={10}
-				color={Palette.creamSoft}
-				wrap={true}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(68, 46)}
-				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 26)}
-			/>
-			<Text
-				value={resetText}
-				size={11}
-				color={Palette.mint}
-				weight={Enum.FontWeight.Bold}
-				fit={false}
-				position={UDim2.fromOffset(68, 80)}
-				sizeConstraint={new UDim2(1, -(270 + ROW_RIGHT), 0, 18)}
-			/>
-			<Badge
-				value={`${paidCount} / ${lab.Orders.size()} PAID`}
-				accent={Palette.mint}
-				filled={true}
-				position={new UDim2(1, -(156 + ROW_RIGHT), 0, 12)}
-				size={UDim2.fromOffset(148, 26)}
-			/>
-			{/* the headline already says how many cells are free, so no separate badge for it */}
-			{readyOrders > 0 && (
-				<frame
-					{...named("LabClaimActions")}
-					Size={UDim2.fromOffset(148, 36)}
-					Position={new UDim2(1, -(156 + ROW_RIGHT), 0, 46)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ClipsDescendants={false}
-					ref={labClaimHostRef}
-				>
-					<Button
-						text={`CLAIM ALL · ${readyOrders}`}
-						icon="Gift.7"
-						onClick={claimAllOrders}
-						color={Palette.mint}
-						textColor={Palette.ink}
-						size={UDim2.fromScale(1, 1)}
-						reducedMotion={softMotion}
-						highlight={true}
-					/>
-				</frame>
-			)}
-		</>
-	);
+	const g = stack ? 8 : 12;
+	const heroHeight = panelHeight(stack, headingBlock(stack) + (stack ? 38 : 62) + g + (stack ? 24 : 28) + g + 10 + g + (stack ? TapTarget : 44));
+	const powerBoardH = panelHeight(stack, headingBlock(stack) + CHANNEL_IDS.size() * (56 + g) - g);
+	// 03-forge Output panel: free cells as the big figure, paid/reset chips, the paid bar, Claim all
 	const hero = (
-		<Panel radius={18} rule
-			size={UDim2.fromScale(1, 1)}
-			accent={Palette.mint}
-			background={Palette.panelRaised}
-			padding={16}
-			reveal={reducedMotion ? boardReveal : headerReveal}
-			highlight={!labSoft}
-			reducedMotion={softMotion}
-			clips={false}
-		>
-			{!stack && (
-				<IconTile
-					kind="Lab"
-					accent={Palette.mint}
-					size={52}
-					radius={18}
-					position={UDim2.fromOffset(0, 10)}
-					spin={false}
-					glow={true}
-					reducedMotion={softMotion}
-				/>
-			)}
-			{heroBody}
-		</Panel>
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={stack} accent={Palette.mint} glow={Palette.mint} reveal={reducedMotion ? boardReveal : headerReveal} reducedMotion={softMotion} name="LabSummary">
+			<PanelHeading icon="Lab" title="Lab" note={resetText} accent={Palette.mint} phone={stack} layoutOrder={0} />
+			<BigFigure value={`${lab.AvailableCells}`} unit={`power cell${lab.AvailableCells === 1 ? "" : "s"} free of ${lab.TotalCells}`} color={Palette.mint} phone={stack} layoutOrder={1} />
+			<ChipRow height={stack ? 24 : 28} layoutOrder={2}>
+				<Chip text={`${paidCount} of ${lab.Orders.size()} paid`} accent={Palette.mint} phone={stack} layoutOrder={0} />
+				<Chip text="A new cell every 8 rebirths" phone={stack} layoutOrder={1} />
+			</ChipRow>
+			<Bar fill={lab.Orders.size() > 0 ? paidCount / lab.Orders.size() : 0} color={Palette.mint} layoutOrder={3} />
+			<frame {...named("LabClaimActions")} BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, stack ? TapTarget : 44)} LayoutOrder={4} ref={labClaimHostRef}>
+				<MockBtn text={readyOrders > 0 ? `Claim all · ${readyOrders}` : "Nothing to claim"} icon={readyOrders > 0 ? "Gift" : undefined} accent={Palette.mint} phone={stack} fill={true} disabled={readyOrders <= 0} onClick={claimAllOrders} reducedMotion={softMotion} />
+			</frame>
+		</MockPanel>
 	);
 	const Browse = loadBrowse();
 	const orderBrowse = Browse.useBrowse<OrderState>({
@@ -633,15 +366,15 @@ function LabViewReady(props: LabProps) {
 					available={lab.AvailableCells}
 					dispatch={dispatch}
 					reducedMotion={reducedMotion}
-					y={powerStart + index * powerStride}
-					stack={stackPower}
+					phone={stack}
+					layoutOrder={1 + index}
 				/>
 			)
 		);
 	});
 	const heroSection = { id: "hero", height: heroHeight, element: hero };
 	const orderSections = [
-		{ id: "orders-label", height: SECTION_LABEL_H, element: <SectionLabel value="Today's orders" color={Palette.mint} /> },
+		{ id: "orders-label", height: HEADING_SECTION_H, element: <HeadingSection icon="Mission" title="Today's orders" note={`${readyOrders} ready`} accent={Palette.mint} phone={stack} /> },
 				{
 					id: "orders-filter",
 					height: lab.Orders.size() > 2 ? Browse.CHIP_H : 0,
@@ -664,77 +397,38 @@ function LabViewReady(props: LabProps) {
 					: { id: "orders", height: virtOrders ? math.min(orderBlock, orderStride * 4) : orderBlock, element: ordersBlock },
 	];
 	const powerSections = [
-		{ id: "power-label", height: SECTION_LABEL_H, element: <SectionLabel value="Power board" color={Palette.mango} /> },
 		{
-					id: "power",
-					height: powerBoardH,
-					element: (
-						<Panel radius={18} rule
-							size={UDim2.fromScale(1, 1)}
-							accent={Palette.mango}
-							background={Palette.panelRaised}
-							padding={stackPower ? 14 : Layout.cardPadding}
-							clips={false}
-						>
-							<Text
-								value="Power cells"
-								size={stackPower ? 16 : 17}
-								color={Palette.cream}
-								weight={Enum.FontWeight.Heavy}
-								fit={true}
-								minSize={12}
-								sizeConstraint={new UDim2(1, stackPower ? -8 : -(220 + ROW_RIGHT), 0, 24)}
-							/>
-							<Text
-								value="A new cell every 8 rebirths."
-								size={stackPower ? 11 : 10}
-								color={Palette.muted}
-								wrap={true}
-								fit={true}
-								minSize={10}
-								position={UDim2.fromOffset(0, 24)}
-								sizeConstraint={new UDim2(1, stackPower ? -8 : -(220 + ROW_RIGHT), 0, stackPower ? 32 : 16)}
-							/>
-							{!stack && (
-								<>
-									<Badge
-										value={`${lab.TotalCells} TOTAL`}
-										accent={Palette.mango}
-										filled={true}
-										position={wide ? UDim2.fromOffset(0, 62) : new UDim2(1, -(196 + ROW_RIGHT), 0, 3)}
-										size={UDim2.fromOffset(92, 26)}
-									/>
-									<Badge
-										value={`${lab.AvailableCells} FREE`}
-										accent={Palette.mint}
-										position={wide ? UDim2.fromOffset(100, 62) : new UDim2(1, -(94 + ROW_RIGHT), 0, 3)}
-										size={UDim2.fromOffset(94, 26)}
-									/>
-								</>
-							)}
-							{powerRows}
-						</Panel>
-					),
-				},
+			id: "power",
+			height: powerBoardH,
+			element: (
+				<MockPanel size={UDim2.fromScale(1, 1)} phone={stack} accent={Palette.mango} reducedMotion={softMotion} name="PowerBoard">
+					<PanelHeading icon="Production" title="Power cells" note={`${lab.AvailableCells} free · ${lab.TotalCells} total`} accent={Palette.mango} phone={stack} layoutOrder={0} />
+					{powerRows}
+				</MockPanel>
+			),
+		},
 	];
+	// desktop (03): orders in the wide column, the summary and power board in a 520px column on the right
+	const sideBlocks = [heroSection, ...powerSections];
+	const columnsH = math.max(stackHeight(orderSections.map((b) => b.height), 18), stackHeight(sideBlocks.map((b) => b.height), 18));
 	return (
 		<PageScaffold
-			gap={ORDER_GAP}
+			gap={stack ? 8 : 18}
 			tailPad={scrollTail(stack, chrome.bottomSafe, SCROLL_PAD)}
 			scrollBarColor={Palette.lineSoft}
 			scrollBarThickness={SCROLL_BAR}
 			sections={
 				wide
-					? [heroSection, {
+					? [{
 			id: "lab-columns",
-			height: math.max(stackHeight(orderSections.map((b) => b.height), ORDER_GAP + 4), stackHeight(powerSections.map((b) => b.height), ORDER_GAP + 4)),
+			height: columnsH,
 			element: (
 				<SplitColumns
 					plan={plan}
-					height={math.max(stackHeight(orderSections.map((b) => b.height), ORDER_GAP + 4), stackHeight(powerSections.map((b) => b.height), ORDER_GAP + 4))}
+					height={columnsH}
 					sideOnRight={true}
-					main={<StackBlocks gap={ORDER_GAP + 4} riseFrom={1} blocks={orderSections.map((b, i) => ({ ...b, rise: 0 + i }))} />}
-					side={<StackBlocks gap={ORDER_GAP + 4} riseFrom={1} blocks={powerSections.map((b, i) => ({ ...b, rise: orderSections.size() + i }))} />}
+					main={<StackBlocks gap={18} riseFrom={0} blocks={orderSections.map((b, i) => ({ ...b, rise: 0 + i }))} />}
+					side={<StackBlocks gap={18} riseFrom={0} blocks={sideBlocks.map((b, i) => ({ ...b, rise: orderSections.size() + i }))} />}
 				/>
 			),
 		}]
@@ -758,9 +452,9 @@ function LabView(props: LabProps) {
 	React.useRef<Frame>();
 	if (props.state.Lab === undefined) {
 		return (
-			<Panel radius={18} rule size={new UDim2(1, 0, 0, 160)} accent={Palette.mint} background={Palette.panelRaised} padding={20}>
-				<Text value="Loading the Lab..." size={15} color={Palette.creamSoft} wrap={true} />
-			</Panel>
+			<MockPanel size={new UDim2(1, 0, 0, 120)} phone={false} accent={Palette.mint} name="LabLoading">
+				<PanelHeading icon="Lab" title="Lab" note="Loading" accent={Palette.mint} phone={false} />
+			</MockPanel>
 		);
 	}
 	return <LabViewReady {...props} />;
