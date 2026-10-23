@@ -1973,7 +1973,7 @@ export function OverviewView({
 																onClick={action}
 																color={accent}
 																textColor={Palette.ink}
-																size={new UDim2(1, -16, 0, 36)}
+																size={new UDim2(1, -16, 0, TapTarget)}
 																position={UDim2.fromOffset(8, 64)}
 																reducedMotion={softMotion}
 																highlight={meter >= 0.99}

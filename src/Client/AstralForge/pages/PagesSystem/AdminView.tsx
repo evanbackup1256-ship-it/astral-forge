@@ -443,6 +443,18 @@ function OpsPanel(props: {
 					position={new UDim2(1, -56, 0, -2)}
 				/>
 			)}
+			{props.onBack !== undefined && (
+				<textbutton
+					Size={UDim2.fromOffset(64, 44)}
+					Position={new UDim2(1, -60, 0, -15)}
+					BackgroundTransparency={1}
+					Text=""
+					Selectable={false}
+					AutoButtonColor={false}
+					ZIndex={8}
+					Event={{ Activated: props.onBack }}
+				/>
+			)}
 			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
 				{rows.size() === 0 ? (

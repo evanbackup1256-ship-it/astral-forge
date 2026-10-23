@@ -408,7 +408,7 @@ BuffStrip.Strip = function (props: StripProps): React.Element {
 
 const COMPACT_H = 44;
 const EVENT_H = 62;
-const ROW_H = 40;
+const ROW_H = 44;
 
 function easeOutBack(x: number): number {
 	const c1 = 1.5;
