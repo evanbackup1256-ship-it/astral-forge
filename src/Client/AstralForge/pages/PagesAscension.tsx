@@ -134,8 +134,7 @@ function isPress(input: InputObject) {
 	return (
 		input.UserInputType === Enum.UserInputType.MouseButton1 ||
 		input.UserInputType === Enum.UserInputType.Touch ||
-		input.KeyCode === Enum.KeyCode.ButtonA ||
-		input.KeyCode === Enum.KeyCode.ButtonR2
+		input.KeyCode === Enum.KeyCode.ButtonA
 	);
 }
 
