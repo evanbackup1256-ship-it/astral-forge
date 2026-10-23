@@ -7,6 +7,7 @@ import { useFlipperSpring, useStagger, useViewport } from "../../MotionKit/motio
 import { openDesktopEditor } from "../../CoreKit/desktopLayout";
 import { MobileTabPinsEditor, mobileTabPinsEditorHeight } from "./MobileTabPinsEditor";
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedModule } from "../luauKits";
+import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
 
 const UserInputService = game.GetService("UserInputService");
 const { Audio } = kitMember<{ Audio: AudioPlayer }>("AudioKit", "audio");
@@ -626,7 +627,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	const chipsY = stack ? searchY + searchH + 8 : searchY + math.floor((searchH - Browse.CHIP_H) / 2);
 	const headerH = (stack ? chipsY + Browse.CHIP_H : searchY + math.max(searchH, Browse.CHIP_H)) + 32;
 	const header = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={22} reveal={reveal} reducedMotion={softMotion} clips={false}>
+		<Panel radius={FORGE_RADIUS} size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={22} reveal={reveal} reducedMotion={softMotion} clips={false}><BrassRule pad={22} />
 			<Text
 				value="Settings"
 				size={stack ? 22 : 26}
@@ -1014,14 +1015,14 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		);
 	}
 	const list = (
-		<Panel
+		<Panel radius={FORGE_RADIUS}
 			size={UDim2.fromScale(1, 1)}
 			accent={listing ? Palette.steel : accent}
 			background={Palette.panel}
 			padding={stack ? 18 : 28}
 			reducedMotion={softMotion}
 			clips={false}
-		>
+		><BrassRule pad={stack ? 18 : 28} />
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				{listChildren}
 			</frame>
@@ -1061,7 +1062,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 					<frame key="SettingsNav" Size={new UDim2(0, NAV_W, 0, bodyH)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<Panel size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
+						<Panel radius={FORGE_RADIUS} size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}><BrassRule pad={12} />
 							{navButtons}
 						</Panel>
 					</frame>
