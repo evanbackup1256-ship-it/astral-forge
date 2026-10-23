@@ -427,8 +427,12 @@ export function LevelRoadmap(props: { state: RoadmapState; config?: RoadmapConfi
 							ZIndex={472}
 							ClipsDescendants={true}
 						>
-							<uicorner CornerRadius={new UDim(0, 14)} />
+							<uicorner CornerRadius={new UDim(0, 18)} />
 							<uistroke ApplyStrokeMode={Enum.ApplyStrokeMode.Border} Color={Palette.lineSoft} Thickness={1} Transparency={0.35} />
+							<frame Size={new UDim2(1, -6, 1, -6)} Position={UDim2.fromOffset(3, 3)} BackgroundTransparency={1} BorderSizePixel={0} Active={false} ZIndex={472}>
+								<uicorner CornerRadius={new UDim(0, 15)} />
+								<uistroke Color={Palette.brass} Thickness={1} Transparency={fade.map((amount) => 0.75 + amount * 0.25)} />
+							</frame>
 						</frame>
 						<frame
 							Size={new UDim2(1, -pad * 2, 1, -pad * 2)}

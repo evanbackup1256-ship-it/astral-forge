@@ -535,7 +535,8 @@ function PlayerRow(param: PlayerRowProps) {
 			ClipsDescendants: true,
 			ZIndex: 620,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 14) }),
+		h("uicorner", { CornerRadius: new UDim(0, 18) }),
+		h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 		h(
 			"uistroke",
 			{
@@ -1309,7 +1310,8 @@ function ReportSheet(param: ReportSheetProps) {
 				ClipsDescendants: true,
 				ZIndex: 702,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, 18) }),
+			h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 			h("uistroke", { Color: Palette.coral, Thickness: 1.25, Transparency: 0.35 }),
 			h(
 				"scrollingframe",
@@ -1862,7 +1864,8 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					ClipsDescendants: true,
 					ZIndex: 610,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 14) }),
+				h("uicorner", { CornerRadius: new UDim(0, 18) }),
+				h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 				h("uistroke", { Color: Palette.cyan, Thickness: 1.25, Transparency: 0.55 }),
 				h(Icon, { kind: "Crew.18", color: Palette.cream, accent: Palette.cyan, size: 30, spin: false, position: UDim2.fromOffset(14, 14) }),
 				h(Text, {

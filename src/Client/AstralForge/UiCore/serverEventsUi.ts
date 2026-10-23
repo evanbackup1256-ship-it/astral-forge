@@ -687,7 +687,8 @@ function EventPanel(props: { event: ServerEvent; onClose: () => void }) {
 				ClipsDescendants: true,
 				ZIndex: 560,
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 14) }),
+			h("uicorner", { CornerRadius: new UDim(0, 18) }),
+			h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
 			h("uistroke", { Color: accent, Thickness: 1.5, Transparency: 0.3 }),
 			h(
 				"frame",

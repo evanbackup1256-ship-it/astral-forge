@@ -819,7 +819,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 			Active: true,
 			ZIndex: 400,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 12) }),
+		h("uicorner", { CornerRadius: new UDim(0, 18) }),
 		h("uistroke", { Color: Palette.mango, Thickness: 1.5, Transparency: 0.45 }),
 		h("uipadding", {
 			PaddingTop: new UDim(0, 16),
