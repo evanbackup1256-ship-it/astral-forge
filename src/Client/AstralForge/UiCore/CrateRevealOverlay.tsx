@@ -746,7 +746,7 @@ function ArtifactReveal(props: { info: ArtifactRevealInfo; config: CrateConfig; 
 					zIndex={509}
 				/>
 				<Text
-					value={info.fresh === false ? "Already held, so this restocks as upgrade fragments." : info.description ?? "Added to your artifacts."}
+					value={info.fresh === false ? "Duplicate: added as upgrade fragments." : info.description ?? "Added to your artifacts."}
 					size={14}
 					color={Palette.creamSoft}
 					wrap={true}
