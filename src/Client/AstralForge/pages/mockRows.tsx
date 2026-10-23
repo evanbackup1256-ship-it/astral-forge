@@ -390,3 +390,14 @@ export function ChipRow(p: { height?: number; layoutOrder?: number; children?: R
 		</frame>
 	);
 }
+
+/** Row entrance without a CanvasGroup per row: the row slides up 10px as `reveal` goes 0 -> 1. */
+export function Rise(p: { reveal: React.Binding<number>; height: number; layoutOrder?: number; children?: React.ReactNode }) {
+	return (
+		<frame Size={new UDim2(1, 0, 0, p.height)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false} LayoutOrder={p.layoutOrder ?? 0}>
+			<frame Size={UDim2.fromScale(1, 1)} Position={p.reveal.map((v) => UDim2.fromOffset(0, math.floor((1 - v) * 10)))} BackgroundTransparency={1} BorderSizePixel={0}>
+				{p.children}
+			</frame>
+		</frame>
+	);
+}

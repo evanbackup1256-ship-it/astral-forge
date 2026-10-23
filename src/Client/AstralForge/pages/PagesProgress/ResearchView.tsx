@@ -10,7 +10,7 @@ import { bulkCost, compactNumber, Flux, gteFlux } from "../../CoreKit/format";
 import { AppHelpers, NavState, UpgradeConfig, UpgradeEntry } from "../../CoreKit/appNav";
 import { SplitColumns, SplitPlan, StackBlocks, splitColumns, stackHeight } from "../../UiCore/ui";
 import { Bar, Chip, MockPanel, PanelHeading } from "../../UiCore/mockKit";
-import { BigFigure, ChipRow, HEADING_SECTION_H, HeadingSection, MockBtn, TILE_ROW_H, TileRow } from "../mockRows";
+import { BigFigure, ChipRow, HEADING_SECTION_H, HeadingSection, MockBtn, TILE_ROW_H, TileRow, Rise } from "../mockRows";
 import { Component, loadBrowse, loadPageScaffold, loadUi, luauKit, named } from "../luauDeps";
 
 // desktop two-column breakpoint for this page (ui4 helper in UiCore/ui.tsx): 1100px+, side 360/400px
@@ -130,7 +130,7 @@ const ResearchNode = React.memo(
 		const production = entry.config.BaseProduction ?? 0;
 		return (
 			<frame Size={new UDim2(1, 0, 0, (stack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT) + CONNECTOR_HEIGHT)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
-				<canvasgroup Size={new UDim2(1, 0, 0, stack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT)} BackgroundTransparency={1} GroupTransparency={reveal.map((v: number) => 1 - v)}>
+				<Rise reveal={reveal} height={stack ? NODE_ROW_HEIGHT_STACK : NODE_ROW_HEIGHT}>
 					<TileRow
 						event={tip}
 						phone={stack}
@@ -146,7 +146,7 @@ const ResearchNode = React.memo(
 						rightWidth={stack ? 84 : 120}
 						right={<MockBtn text={buyLabel} icon={entry.unlocked && !maxed ? "Flux" : undefined} accent={tint} sm={true} phone={stack} fill={true} disabled={!ready} onClick={buy} reducedMotion={reducedMotion} />}
 					/>
-				</canvasgroup>
+				</Rise>
 			</frame>
 		);
 	}),
