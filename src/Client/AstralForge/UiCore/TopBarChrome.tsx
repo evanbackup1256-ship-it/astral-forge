@@ -220,7 +220,7 @@ export function StatChip(_param: StatChipProps) {
 			"textlabel",
 			_attributes,
 			h("uitextsizeconstraint", {
-				MinTextSize: 10,
+				MinTextSize: 11,
 				MaxTextSize: valueSize,
 			}),
 		);

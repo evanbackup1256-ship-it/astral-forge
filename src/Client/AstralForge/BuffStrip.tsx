@@ -323,7 +323,7 @@ function Chip(props: ChipProps): React.Element {
 				ZIndex: 22,
 			},
 			h("uistroke", { Color: P.void, Thickness: 1.5, Transparency: 0.2 }),
-			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 9 }),
+			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 11 }),
 		),
 		timed &&
 			h(
@@ -337,14 +337,14 @@ function Chip(props: ChipProps): React.Element {
 					BorderSizePixel: 0,
 					Text: buff.value,
 					TextColor3: P.ink,
-					TextSize: 10,
+					TextSize: 11,
 					TextScaled: true,
 					TextWrapped: false,
 					FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 					ZIndex: 24,
 				},
 				h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				h("uitextsizeconstraint", { MaxTextSize: 10, MinTextSize: 7 }),
+				h("uitextsizeconstraint", { MaxTextSize: 11, MinTextSize: 11 }),
 			),
 	);
 }
@@ -519,7 +519,7 @@ function PerfSegment(props: PerfSegmentProps): React.Element {
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 9 }),
+			h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 11 }),
 		),
 	);
 }
@@ -628,7 +628,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 10 }),
+			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 11 }),
 		),
 		h(GainPop, { value: currency.value, rate: currency.rate, color: currency.color ?? P.mango }),
 	);
@@ -817,7 +817,7 @@ function CompactRow(props: CompactRowProps): React.Element {
 					TextXAlignment: Enum.TextXAlignment.Left,
 					FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				},
-				h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 8 }),
+				h("uitextsizeconstraint", { MaxTextSize: 12, MinTextSize: 11 }),
 			),
 			buff.endsAt !== undefined &&
 				buff.duration !== undefined &&
@@ -939,7 +939,7 @@ function Row(
 				TextXAlignment: Enum.TextXAlignment.Right,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 13, MinTextSize: 9 }),
+			h("uitextsizeconstraint", { MaxTextSize: 13, MinTextSize: 11 }),
 		),
 		extra !== undefined && extra !== false ? extra : undefined,
 	);
@@ -1526,7 +1526,7 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				ZIndex: 63,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 10 }),
+			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 11 }),
 		),
 		h(
 			"textlabel",
@@ -1547,7 +1547,7 @@ function LiveActivity(props: LiveActivityProps): React.Element {
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
 				ZIndex: 63,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 14, MinTextSize: 9 }),
+			h("uitextsizeconstraint", { MaxTextSize: 14, MinTextSize: 11 }),
 		),
 		h(
 			"frame",
@@ -2123,7 +2123,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				ZIndex: 61,
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 8 }),
+			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 11 }),
 		),
 	);
 	return h(React.Fragment, undefined, capsule, bubble);
