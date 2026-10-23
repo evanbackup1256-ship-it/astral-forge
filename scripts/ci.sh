@@ -66,6 +66,17 @@ if [ -n "$style_bad" ]; then
 fi
 log "   ok"
 
+# Import cycle guard: roblox-ts aborts the whole require chain on a circular top-level import
+# ("Failed to import! Detected a circular dependency chain"), so any cycle in out/ fails CI.
+log "== import cycle guard"
+cycle_out=$(node scripts/check_import_cycles.js out 2>&1)
+status=$?
+printf '%s\n' "$cycle_out" | tee -a "$REPORT"
+if [ "$status" -ne 0 ]; then
+	log "ci: circular imports found"
+	exit 1
+fi
+
 checks=()
 for file in scripts/verify_*.luau scripts/lint_locale.luau; do
 	name=$(basename "$file" .luau)

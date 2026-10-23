@@ -6,7 +6,7 @@
 // tips add stat rows (with signed deltas in mint/coral), and key hints for the current input.
 // A small arrow on the edge facing the target shows what the tip is about.
 import React from "@rbxts/react";
-import { TITLE_FACE } from "../ui";
+import { TITLE_FACE } from "../titleFace";
 import ReactRoblox from "@rbxts/react-roblox";
 import { Palette } from "../../CoreKit/theme";
 import { revealOffset, usePresence } from "../../MotionKit/motion";

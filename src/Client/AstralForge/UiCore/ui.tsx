@@ -3,7 +3,9 @@ import { glyphButton } from "./glyphIcons";
 import { useBindingListener } from "@rbxts/pretty-react-hooks";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
-import { TooltipContent, labelFor, mergeEvents, useTooltip } from "../Tooltip";
+import type { TooltipContent } from "./tooltip/content";
+import { labelFor } from "./tooltip/iconNames";
+import { mergeEvents, useTooltip } from "./tooltip/hooks";
 import ReactRoblox from "@rbxts/react-roblox";
 import { compactNumber } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -351,8 +353,8 @@ function fontFaceFor(font: Enum.Font): Font {
 	return face;
 }
 
-// Mockup titles are Cinzel (fallback: serif). Roblox ships no Cinzel; Merriweather is its closest serif.
-export const TITLE_FACE = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
+export { TITLE_FACE } from "./titleFace";
+import { TITLE_FACE } from "./titleFace";
 
 // ---------- Text ----------
 export interface TextProps {
