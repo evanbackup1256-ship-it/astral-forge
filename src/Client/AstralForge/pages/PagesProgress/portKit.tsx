@@ -10,7 +10,7 @@ import React from "@rbxts/react";
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import ElementFxModule = require("../../ElementFx");
 import { loadUi, named } from "../luauDeps";
-import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
+import { PnSurface } from "../../UiCore/mockKit";
 
 const { Text } = loadUi();
 const { ElementFx } = ElementFxModule;
@@ -103,66 +103,6 @@ export function PortPanel(p: {
 	);
 }
 
-/** Thin brass divider with a centre stud, as between the mockups' row groups. */
-export const INFO_ROW_H = 40;
-
-/** Label / value row: small still icon tile, label left, value right in the accent. */
-export function InfoRow(p: { icon: string; label: string; value: string; accent?: Color3; position?: UDim2; width?: UDim; layoutOrder?: number; reducedMotion?: boolean }) {
-	const accent = p.accent ?? Palette.pink;
-	// one horizontal list: icon tile, label (fills), value; works both in a UIListLayout and free-placed
-	return (
-		<frame
-			BackgroundColor3={Palette.panelRaised}
-			BackgroundTransparency={0.15}
-			BorderSizePixel={0}
-			Position={p.position ?? UDim2.fromOffset(0, 0)}
-			Size={new UDim2(p.width ?? new UDim(1, 0), new UDim(0, INFO_ROW_H))}
-			LayoutOrder={p.layoutOrder ?? 0}
-			ZIndex={2}
-		>
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<uistroke Color={Palette.line} Transparency={0.4} Thickness={1} />
-			<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 12)} />
-			<uilistlayout
-				FillDirection={Enum.FillDirection.Horizontal}
-				VerticalAlignment={Enum.VerticalAlignment.Center}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-				Padding={new UDim(0, 10)}
-			/>
-			<frame key="Icon" BackgroundTransparency={1} Size={UDim2.fromOffset(26, 26)} LayoutOrder={0}>
-				<GlyphWell kind={p.icon} accent={accent} size={26} radius={8} still={true} spin={false} position={UDim2.fromOffset(0, 0)} reducedMotion={p.reducedMotion} />
-			</frame>
-			<textlabel
-				key="Label"
-				BackgroundTransparency={1}
-				Size={new UDim2(0, 0, 0, 18)}
-				Text={p.label}
-				TextSize={13}
-				FontFace={BODY_BOLD}
-				TextColor3={Palette.creamSoft}
-				TextXAlignment={Enum.TextXAlignment.Left}
-				TextTruncate={Enum.TextTruncate.AtEnd}
-				LayoutOrder={1}
-				ZIndex={3}
-			>
-				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-			</textlabel>
-			<textlabel
-				key="Value"
-				BackgroundTransparency={1}
-				AutomaticSize={Enum.AutomaticSize.X}
-				Size={new UDim2(0, 0, 0, 18)}
-				Text={p.value}
-				TextSize={13}
-				FontFace={BODY_BOLD}
-				TextColor3={accent}
-				TextXAlignment={Enum.TextXAlignment.Right}
-				LayoutOrder={2}
-				ZIndex={3}
-			/>
-		</frame>
-	);
-}
 
 // deterministic sparse star field, drawn as 1-2px frames (no image)
 function hash(n: number): number {

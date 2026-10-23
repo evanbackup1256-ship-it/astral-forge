@@ -1028,10 +1028,13 @@ function CommandViewReady(props: CommandProps) {
 		);
 		const crewPanel = (
 				<PnSurface radius={16} rule={true} size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
-					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
+					<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 12)} />
+					<frame key="Title" Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} LayoutOrder={0}>
+						<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
+					</frame>
 					<frame
 						Size={new UDim2(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap)}
-						Position={UDim2.fromOffset(0, 36)}
+						LayoutOrder={1}
 						BackgroundTransparency={1}
 						BorderSizePixel={0}
 						Active={false}
@@ -1581,26 +1584,30 @@ function CommandViewReady(props: CommandProps) {
 								BackgroundTransparency={1}
 								BorderSizePixel={0}
 							>
+								<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+								<frame Size={new UDim2(0.5, -4, 1, 0)} BackgroundTransparency={1} LayoutOrder={0}>
 								<Button
 									text={equipped ? "IN USE" : "EQUIP"}
 									onClick={() => dispatch("EquipArtifact", { Id: artifact.Id })}
 									color={artifact.Color}
 									textColor={Palette.ink}
-									size={new UDim2(0.5, -4, 1, 0)}
+									size={UDim2.fromScale(1, 1)}
 									disabled={!owned || equipped}
 									reducedMotion={reducedMotion}
 								/>
+								</frame>
+								<frame Size={new UDim2(0.5, -4, 1, 0)} BackgroundTransparency={1} LayoutOrder={1}>
 								<Button
 									text={!owned ? "—" : owned.Level >= 10 ? "MAX" : `${dustCost} dust`}
 									onClick={() => dispatch("UpgradeArtifact", { Id: artifact.Id })}
 									color={Palette.mango}
 									textColor={Palette.ink}
-									size={new UDim2(0.5, -4, 1, 0)}
-									position={new UDim2(0.5, 4, 0, 0)}
+									size={UDim2.fromScale(1, 1)}
 									disabled={!canUpgrade}
 									reducedMotion={reducedMotion}
 									highlight={canUpgrade}
 								/>
+								</frame>
 							</frame>
 						</PnSurface>
 					);
@@ -1698,10 +1705,11 @@ function CommandViewReady(props: CommandProps) {
 					);
 					const claimButton = (
 						<>
-							<frame Size={new UDim2(0.5, -4, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+							<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+							<frame Size={new UDim2(0.5, -4, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 								{freeButton}
 							</frame>
-							<frame Size={new UDim2(0.5, -4, 1, 0)} Position={new UDim2(0.5, 4, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+							<frame Size={new UDim2(0.5, -4, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 								{passButton}
 							</frame>
 						</>
