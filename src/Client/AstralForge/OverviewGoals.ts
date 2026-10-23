@@ -65,7 +65,7 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 			if (reward[1] > 0 && unlocked(reward[0])) {
 				return {
 					title: `Claim your ${reward[2]}`,
-					body: `${reward[1]} ready to collect.`,
+					body: `${reward[1]} ready.`,
 					page: reward[0],
 					cta: "Open " + (reward[0] === "ForgePath" ? "Forge Path" : reward[0]),
 					value: tostring(reward[1]),
@@ -77,7 +77,7 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 		if (state.Domain && state.Domain.CanExpand !== undefined && state.Domain.CanExpand !== false) {
 			return {
 				title: "Your next Domain is ready",
-				body: "Review the reset and permanent bonuses before expanding your Domain.",
+				body: "Check bonuses before expanding.",
 				page: "Domain",
 				cta: "Review Domain",
 				value: "Ready",
@@ -88,7 +88,7 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 		if (Math.Gte(state.PrestigeReward ?? 0, 1) && unlocked("Rebirth")) {
 			return {
 				title: "Rebirth rewards are ready",
-				body: `Review the panel below to reset machines and collect ${compact(state.PrestigeReward)} Cores. Research stays permanent.`,
+				body: `Rebirth for ${compact(state.PrestigeReward)} Cores.`,
 				value: "+" + compact(state.PrestigeReward),
 				label: "Cores ready",
 				progress: 1,
@@ -121,7 +121,7 @@ export = (Math: BigMath, compact: (value: unknown) => string) => {
 		}
 		return {
 			title: "Buy more machines",
-			body: "Upgrade your best machine to raise production. Research stays through rebirths.",
+			body: "Upgrade your best machine.",
 			page: "Workshop",
 			cta: "Compare machines",
 			value: "Next",

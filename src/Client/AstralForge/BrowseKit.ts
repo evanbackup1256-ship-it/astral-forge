@@ -443,7 +443,7 @@ Kit.NoResults = function (props: NoResultsProps): React.Element {
 		body = props.emptyBody ?? "They will show up here.";
 	} else if (browse.searching && browse.matched === 0) {
 		title = `Nothing matches "${browse.query}"`;
-		body = "Check the spelling or try a shorter word.";
+		body = "Try a shorter word.";
 	} else if (browse.searching) {
 		title = `No ${browse.label().lower()} ${noun} match "${browse.query}"`;
 		body = `${browse.matched} found in other categories.`;

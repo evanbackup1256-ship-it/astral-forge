@@ -497,7 +497,7 @@ function ResearchView(props: ResearchProps) {
 						visible.size() === 0 ? (
 							<ui.EmptyState
 								title="No matching research"
-								body="Try another search or choose All research."
+								body="Try All research."
 								icon="Research.2"
 								accent={Palette.cyan}
 								reducedMotion={softMotion}

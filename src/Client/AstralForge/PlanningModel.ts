@@ -186,7 +186,7 @@ export = (Math: OmegaMathApi) => {
 			const firstMilestone = plan.milestones[0];
 			if (truthy(anomaly.Ready)) {
 				plan.title = "Bank your completed shift";
-				plan.body = "Charge is full. Collect your shift reward and start the next cycle.";
+				plan.body = "Charge full. Collect.";
 				plan.action = "StabilizeAnomaly";
 			} else if (firstJob && Model.ratio(firstJob.Progress, firstJob.Target) >= 1) {
 				plan.title = "Collect a finished directive";
@@ -200,7 +200,7 @@ export = (Math: OmegaMathApi) => {
 				plan.payload = { Tier: firstMilestone.Tier };
 			} else {
 				plan.title = "Build charge with a pulse";
-				plan.body = `Charge is ${math.floor(plan.charge * 100)}%. Pulses and game actions advance the current shift.`;
+				plan.body = `Charge ${math.floor(plan.charge * 100)}%.`;
 				plan.action = "PulseAnomaly";
 			}
 			return plan;

@@ -1692,7 +1692,7 @@ export function OverviewView({
 										const coreDust = firstRebirthStardust(config);
 										let title = "Push toward rebirth";
 										let fillLine = `Full bar pays 1 core + ${compactNumber(coreDust)} stardust.`;
-										let body = `Filling this bar pays 1 core + ${compactNumber(coreDust)} stardust. You keep earning for ${offlineHours}h away.`;
+										let body = `Pays 1 core + ${compactNumber(coreDust)} stardust.`;
 										let meter = progress;
 										let accent = Palette.cyan;
 										let cta = "";
@@ -1701,7 +1701,7 @@ export function OverviewView({
 										let statLabel = "Pays 1 core";
 										if (vaultFill >= 0.99) {
 											title = "Collect stored Flux";
-											body = "The vault is full, so machines stopped earning. Collect now, then buy another level.";
+											body = "Vault full. Collect.";
 											meter = 1;
 											accent = Palette.mango;
 											cta = "Collect stored Flux";
@@ -1747,7 +1747,7 @@ export function OverviewView({
 												const efficiency = state.Research.Efficiency ?? 0;
 												if (efficiency < 3) {
 													title = "Buy Efficiency to 3";
-													body = "When this bar fills, Storage unlocks. Efficiency stays after rebirth.";
+													body = "Unlocks Storage.";
 													fillLine = "Full bar unlocks Storage.";
 													meter = math.clamp(efficiency / 3, 0, 1);
 													cta = "Open Research";
@@ -1758,7 +1758,7 @@ export function OverviewView({
 													const storage = state.Research.Storage ?? 0;
 													if (storage < 3) {
 														title = "Buy Storage to 3";
-														body = "When this bar fills, the offline relay unlocks. Storage lets the vault hold more.";
+														body = "Unlocks the offline relay.";
 														fillLine = "Full bar unlocks the offline relay.";
 														meter = math.clamp(storage / 3, 0, 1);
 														cta = "Open Research";
@@ -1769,7 +1769,7 @@ export function OverviewView({
 														const offline = state.Research.Offline ?? 0;
 														if (offline < 1) {
 															title = "Buy the offline relay";
-															body = "When you buy this, Deep-Space Relay pays you for longer while you're away.";
+															body = "Longer offline pay.";
 															fillLine = "This buy pays you longer while you're away.";
 															meter = 0.15;
 															cta = "Open Research";
@@ -1780,7 +1780,7 @@ export function OverviewView({
 															const overcharge = state.Research.Overcharge ?? 0;
 															if (overcharge < 1) {
 																title = "Buy the tap bonus";
-																body = "When you buy this, Overcharge Coil makes the tap button stronger.";
+																body = "Stronger taps.";
 																fillLine = "This buy makes taps stronger.";
 																meter = 0.2;
 																cta = "Open Research";
@@ -1789,7 +1789,7 @@ export function OverviewView({
 																statLabel = "Stronger taps";
 															} else if (canRebirth) {
 																title = "Rebirth for Cores";
-																body = `Reset this run's machines and keep Research. Collect ${compactNumber(state.PrestigeReward)} Cores from the panel below.`;
+																body = `Rebirth for ${compactNumber(state.PrestigeReward)} Cores.`;
 																fillLine = `Collect ${compactNumber(state.PrestigeReward)} cores below.`;
 																meter = 1;
 																accent = Palette.pink;
@@ -1797,7 +1797,7 @@ export function OverviewView({
 																statLabel = "Cores ready";
 															} else if (progress < 0.45) {
 																title = "Buy more machines";
-																body = `Buy machines and collect often. Filling this bar pays 1 core + ${compactNumber(coreDust)} stardust.`;
+																body = `Pays 1 core + ${compactNumber(coreDust)} stardust.`;
 																fillLine = `Full bar pays 1 core + ${compactNumber(coreDust)} stardust.`;
 																cta = "Buy a machine";
 																ctaAction = openWorkshop;

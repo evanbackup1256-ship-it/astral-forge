@@ -354,7 +354,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				<EmptyState
 					icon="Forge.11"
 					title="Forge Path isn't ready"
-					body="Check back in a moment."
+					body="Soon."
 					accent={Palette.violet}
 					compact={true}
 					size={UDim2.fromScale(1, 1)}
@@ -533,7 +533,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 			<EmptyState
 				icon="Forge.13"
 				title="Forge Path isn't ready"
-				body="Check back in a moment."
+				body="Soon."
 				accent={Palette.violet}
 				reducedMotion={softMotion}
 			/>

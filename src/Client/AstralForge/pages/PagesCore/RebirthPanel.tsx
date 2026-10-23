@@ -856,7 +856,7 @@ export function RebirthChamber(props: ChamberProps) {
 					sound="reward"
 					tooltip={{
 						title: def.Name,
-						body: "Permanent, and it stacks with every other star you light. The other choice is gone for this star.",
+						body: "Permanent. The other choice is gone.",
 						hint: nextStar !== undefined ? `Next star at rebirth ${nextStar}.` : "This is the last star.",
 						accent: art.color,
 					}}
@@ -923,7 +923,7 @@ export function RebirthChamber(props: ChamberProps) {
 					def
 						? {
 								title: def.Name,
-								body: `Checked the moment you rebirth. Kept, it multiplies your ${def.Pays.lower()}; broken, you just get the normal payout.`,
+								body: `Kept: more ${def.Pays.lower()}.`,
 								hint:
 									mastery >= RebirthMath.MASTERY_MAX
 										? `Kept ${kept} times, fully mastered.`
@@ -947,7 +947,7 @@ export function RebirthChamber(props: ChamberProps) {
 			order={3}
 			height={22 + vowRows * vowCardH + (vowRows - 1) * vowGap}
 			title="Vow for the next run"
-			note="keep it and the payout grows"
+			note="keep for more"
 		>
 			{vowCards}
 		</Section>
@@ -1108,7 +1108,7 @@ export function RebirthChamber(props: ChamberProps) {
 				<EmptyState
 					icon="Rebirth"
 					title="No runs yet"
-					body="Rebirth once and your run shows up here."
+					body="No runs yet."
 					accent={Palette.violet}
 					compact={true}
 					size={new UDim2(1, 0, 0, 104)}

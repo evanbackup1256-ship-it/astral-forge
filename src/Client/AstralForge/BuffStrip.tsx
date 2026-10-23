@@ -157,7 +157,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			duration: surgeTable.DurationSeconds as number | undefined,
 			color: P.cyan,
 			name: "Flux surge",
-			note: `Everyone in this server makes ${multiplier}x flux until it ends.`,
+			note: `${multiplier}x flux, whole server.`,
 		});
 	}
 	const level = bag.Level;
@@ -179,7 +179,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			duration: surgeTable.DurationSeconds as number | undefined,
 			color: P.pink,
 			name: "Forge surge",
-			note: "From your last Forge Level. Production is multiplied until the timer runs out.",
+			note: "Forge Level bonus.",
 		});
 	}
 	const event = bag.ServerEvent;
@@ -192,7 +192,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			endsAt: eventTable.PhaseEndsAt,
 			color: P.mango,
 			name: (eventTable.Id as string).gsub("(%l)(%u)", "%1 %2")[0],
-			note: "A server event is live. Open the island to see it.",
+			note: "Server event live.",
 		});
 	}
 	const ascension = bag.Ascension;
@@ -204,7 +204,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `x${format.compactNumber(ascensionTable.Production ?? 1)}`,
 			color: P.mango,
 			name: "Ascension",
-			note: `Ascension rank ${ascensionTable.Rank}. Permanent.`,
+			note: `Ascension rank ${ascensionTable.Rank}.`,
 		});
 	}
 	const continuum = bag.Continuum;
@@ -219,7 +219,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `x${format.compactNumber(continuumTable.ProductionMultiplier)}`,
 			color: P.cyan,
 			name: "Star Foundry",
-			note: "From the Star Foundry. Permanent.",
+			note: "Star Foundry.",
 		});
 	}
 	if (format.asFlux((bag.PermanentMultiplier as number | string | undefined) ?? 1) > 1) {
@@ -229,7 +229,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `x${format.compactNumber(bag.PermanentMultiplier)}`,
 			color: P.violet,
 			name: "Cores and rebirths",
-			note: "Your cores and rebirths together. Permanent; every rebirth raises it.",
+			note: "Cores and rebirths.",
 		});
 	}
 	const guild = bag.GuildBonuses;
@@ -241,7 +241,7 @@ BuffStrip.list = function (state: unknown, config: unknown, now: number): BuffIn
 			value: `+${math.floor((tonumber(guildTable.Production) ?? 0) * 100 + 0.5)}%`,
 			color: P.mint,
 			name: "Guild",
-			note: "Your guild's production perk, while you're a member.",
+			note: "Guild perk.",
 		});
 	}
 	return list;
@@ -478,8 +478,8 @@ function PerfSegment(props: PerfSegmentProps): React.Element {
 		props.showFps === true && fps < 38 ? fpsColor(fps) : props.showPing === true ? pingColor(ping) : fpsColor(fps);
 	const perfTip = useTooltip({
 		title: "Frame rate and ping",
-		body: "Frames per second on your device, and the round trip to the server.",
-		hint: "Hide either one in Settings > Interface.",
+		body: "FPS and ping.",
+		hint: "Settings > Interface.",
 	});
 	return h(
 		"frame",

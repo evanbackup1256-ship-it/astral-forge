@@ -97,7 +97,7 @@ const GROUPS: GroupMeta[] = [
 	{ id: "Social", label: "Guilds", icon: "Guild.2" },
 ];
 
-const GUILD_META: BoardMeta = { id: "Guilds", short: "Guilds", label: "Guild Halls", icon: "Guild.3", accent: P.violet, group: "Social", description: "Guild activity earned by banking and building together." };
+const GUILD_META: BoardMeta = { id: "Guilds", short: "Guilds", label: "Guild Halls", icon: "Guild.3", accent: P.violet, group: "Social", description: "Guild activity." };
 const PODIUM_ORDER = [2, 1, 3];
 const PODIUM_LIFT: Record<number, number> = { [1]: 1, [2]: 0.74, [3]: 0.56 };
 const MEDAL: Record<number, Color3> = {

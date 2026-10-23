@@ -881,7 +881,7 @@ function BazaarView(props: BazaarProps) {
 				<Ui.EmptyState
 					icon="Search"
 					title="Nothing here"
-					body="No supplies match that search. Try another word or clear the filter."
+					body="No matches."
 					accent={Palette.violet}
 					compact={true}
 					size={UDim2.fromScale(1, 1)}
