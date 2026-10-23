@@ -215,7 +215,8 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			/>
 		);
 	});
-	const rh = rowH(phone) + (phone ? 0 : 4);
+	const rowGap = phone ? 0 : 4;
+	const rh = rowH(phone) + rowGap;
 	const listH = (n: number) => n * rh + math.max(0, n - 1) * (phone ? 8 : 12);
 	const giftsH = (phone ? 20 : 36) + (phone ? 18 : 22) + (phone ? 8 : 12) + listH(math.max(1, timedEntries.size()));
 

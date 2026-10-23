@@ -144,7 +144,8 @@ export function MilestonesView({ state, dispatch, reducedMotion }: MilestonesVie
 	const introH = stack ? 40 : 64;
 	const claimRowH = stack && counts.Ready > 0 ? TapTarget + 10 : 0;
 	const headerHeight = (stack ? 32 : 44) + introH + claimRowH + 10 + barH;
-	const rowStride = milestoneRowH(rowStack) + (stack ? 8 : 12);
+	const rowGap = stack ? 8 : 12;
+	const rowStride = milestoneRowH(rowStack) + rowGap;
 	const pageGap = stack ? chrome.panelGap : 18;
 	const headerPanel = (
 		<Panel radius={18} rule

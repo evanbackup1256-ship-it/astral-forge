@@ -79,26 +79,6 @@ export function AvatarRing(p: { name: string; layoutOrder?: number; image?: stri
 	);
 }
 
-/** Small .chip with a coloured label and no fill tint (Admin kind chips, status chips). */
-export function TextChip(p: { text: string; color?: Color3; layoutOrder?: number; phone?: boolean; fill?: boolean }) {
-	return (
-		<frame
-			Size={new UDim2(0, 0, 0, p.phone === true ? 24 : 28)}
-			AutomaticSize={p.fill === true ? Enum.AutomaticSize.None : Enum.AutomaticSize.X}
-			BackgroundColor3={Palette.white}
-			BackgroundTransparency={0.95}
-			BorderSizePixel={0}
-			LayoutOrder={p.layoutOrder ?? 0}
-		>
-			{p.fill === true && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
-			<uicorner CornerRadius={new UDim(0, 8)} />
-			<uistroke Color={Palette.white} Transparency={0.9} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
-			<uipadding PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
-			<Line text={p.text} size={12} color={p.color ?? Palette.creamSoft} height={p.phone === true ? 24 : 28} width={p.fill === true ? new UDim(1, 0) : undefined} />
-		</frame>
-	);
-}
-
 export interface GcRowProps {
 	title: string | React.Binding<string>;
 	sub?: string | React.Binding<string>;
@@ -165,34 +145,6 @@ export function GcRow(p: GcRowProps) {
 				</frame>
 			)}
 		</frame>
-	);
-}
-
-/** Settings toggle: 52x30 pill, #271F2A off / mint on, 24px cream knob 3px in. */
-export function Toggle(p: { on: boolean; onChange: (next: boolean) => void; layoutOrder?: number; disabled?: boolean }) {
-	return (
-		<textbutton
-			Text=""
-			AutoButtonColor={false}
-			Size={UDim2.fromOffset(52, 30)}
-			BackgroundColor3={p.on ? Palette.mint : Color3.fromRGB(39, 31, 42)}
-			BackgroundTransparency={p.disabled === true ? 0.5 : 0}
-			BorderSizePixel={0}
-			LayoutOrder={p.layoutOrder ?? 0}
-			Selectable={true}
-			Event={{ Activated: () => (p.disabled === true ? undefined : p.onChange(!p.on)) }}
-		>
-			<uicorner CornerRadius={new UDim(0, 15)} />
-			<uistroke Color={Palette.void} Transparency={0.6} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
-			<frame
-				Size={UDim2.fromOffset(24, 24)}
-				Position={p.on ? new UDim2(1, -27, 0, 3) : UDim2.fromOffset(3, 3)}
-				BackgroundColor3={Color3.fromRGB(252, 247, 240)}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-			</frame>
-		</textbutton>
 	);
 }
 

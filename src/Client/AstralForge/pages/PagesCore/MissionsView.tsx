@@ -427,7 +427,8 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	// phones in landscape have the width for the side-by-side row; the tall stacked row
 	// (claim button underneath) would fill most of a 360px-tall screen on its own
 	const rowStack = stack && !chrome.landscape;
-	const rowStride = missionRowH(rowStack) + (stack ? 8 : 12);
+	const rowGap = stack ? 8 : 12;
+	const rowStride = missionRowH(rowStack) + rowGap;
 	const pageGap = 10;
 	// wide desktop: header, summary, claim-all and browse controls in a side column; the list
 	// fills the main column at full height
