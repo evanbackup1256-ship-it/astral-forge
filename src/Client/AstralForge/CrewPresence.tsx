@@ -1,10 +1,12 @@
-// Crewmates in the world: a nameplate (serif name plus a CREW · rebirths · world chip) above each
+// Crewmates in the world: a nameplate (title-font name plus a rebirths · world chip) above each
 // crewmate's head so you can find them.
 // 100% React declarative component driven by CrewStore.
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
 import CrewStore = require("./CrewStore");
 import { named } from "./lua";
+import { Palette } from "./CoreKit/theme";
+import { BODY_BOLD, TITLE_FACE } from "./UiCore/mockKit";
 
 const Players = game.GetService("Players");
 
@@ -14,10 +16,6 @@ interface CrewMember {
 interface CrewShape {
 	crew?: { Members?: CrewMember[] };
 }
-
-// nameplate serif (closest Roblox serif to the design's Cinzel)
-const PLATE_SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
-const CHIP_FONT = Font.fromEnum(Enum.Font.GothamBold);
 
 // rebirths come from leaderstats, the world from the CurrentZone attribute; both replicate live
 function useProgress(player: Player | undefined): [number, number] {
@@ -63,7 +61,8 @@ function useProgress(player: Player | undefined): [number, number] {
 
 function CrewTag(props: { head: BasePart; name: string; player?: Player }) {
 	const [rebirths, zone] = useProgress(props.player);
-	const chipText = `CREW · ${rebirths} RB · WORLD ${zone}`;
+	// design/28-world: ".chip" with rebirths and world (no world-name lookup on the client, so the number stands in)
+	const chipText = `R${rebirths} · World ${zone}`;
 	return (
 		<billboardgui
 			{...named("AF_CrewTag")}
@@ -71,58 +70,53 @@ function CrewTag(props: { head: BasePart; name: string; player?: Player }) {
 			AlwaysOnTop={false}
 			LightInfluence={0}
 			MaxDistance={60}
-			Size={UDim2.fromOffset(200, 54)}
+			Size={UDim2.fromOffset(200, 58)}
 			StudsOffsetWorldSpace={new Vector3(0, 5.4, 0)}
 			ResetOnSpawn={false}
 		>
 			<textlabel
 				key="NameDrop"
-				Size={new UDim2(1, 0, 0, 26)}
-				Position={UDim2.fromOffset(2, 2)}
+				Size={new UDim2(1, 0, 0, 24)}
+				Position={UDim2.fromOffset(0, 2)}
 				BackgroundTransparency={1}
 				TextColor3={new Color3(0, 0, 0)}
-				TextTransparency={0.2}
-				FontFace={PLATE_SERIF}
-				TextScaled={true}
+				FontFace={TITLE_FACE}
+				TextSize={18}
 				TextTruncate={Enum.TextTruncate.AtEnd}
 				Text={props.name}
 				ZIndex={1}
-			>
-				<uitextsizeconstraint key="Fit" MaxTextSize={22} MinTextSize={12} />
-			</textlabel>
+			/>
 			<textlabel
 				key="Name"
-				Size={new UDim2(1, 0, 0, 26)}
+				Size={new UDim2(1, 0, 0, 24)}
 				BackgroundTransparency={1}
-				TextColor3={Color3.fromRGB(244, 236, 220)}
-				FontFace={PLATE_SERIF}
-				TextScaled={true}
+				TextColor3={Palette.cream}
+				FontFace={TITLE_FACE}
+				TextSize={18}
 				TextTruncate={Enum.TextTruncate.AtEnd}
 				Text={props.name}
 				ZIndex={2}
-			>
-				<uitextsizeconstraint key="Fit" MaxTextSize={22} MinTextSize={12} />
-			</textlabel>
+			/>
 			<frame
 				key="Chip"
 				AnchorPoint={new Vector2(0.5, 0)}
-				Position={new UDim2(0.5, 0, 0, 30)}
-				Size={UDim2.fromOffset(0, 20)}
+				Position={new UDim2(0.5, 0, 0, 28)}
+				Size={UDim2.fromOffset(0, 28)}
 				AutomaticSize={Enum.AutomaticSize.X}
-				BackgroundColor3={Color3.fromRGB(28, 70, 52)}
-				BackgroundTransparency={0.15}
+				BackgroundColor3={new Color3(1, 1, 1)}
+				BackgroundTransparency={0.95}
 				ZIndex={2}
 			>
-				<uicorner key="Corner" CornerRadius={new UDim(1, 0)} />
-				<uistroke key="Stroke" Color={Color3.fromRGB(110, 240, 170)} Transparency={0.3} />
+				<uicorner key="Corner" CornerRadius={new UDim(0, 8)} />
+				<uistroke key="Stroke" Color={new Color3(1, 1, 1)} Transparency={0.9} Thickness={1} />
 				<uipadding key="Pad" PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
 				<textlabel
 					key="Text"
 					Size={UDim2.fromScale(0, 1)}
 					AutomaticSize={Enum.AutomaticSize.X}
 					BackgroundTransparency={1}
-					TextColor3={Color3.fromRGB(150, 255, 200)}
-					FontFace={CHIP_FONT}
+					TextColor3={Palette.creamSoft}
+					FontFace={BODY_BOLD}
 					TextSize={12}
 					Text={chipText}
 					ZIndex={3}
