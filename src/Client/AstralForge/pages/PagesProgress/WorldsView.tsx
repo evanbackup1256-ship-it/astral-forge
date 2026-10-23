@@ -474,8 +474,6 @@ function WorldsView(props: WorldsViewProps) {
 			{rows}
 		</frame>
 	);
-	const currentId = state.CurrentZone ?? state.Zone;
-	const currentDef = resolveZone(currentId);
 	const sections: Section[] = [
 		{
 			id: "header",
@@ -492,40 +490,19 @@ function WorldsView(props: WorldsViewProps) {
 					layoutOrder={0}
 					clips={false}
 				>
-					{/* current-world hero (forge-ui-5 Worlds R1): world tile, name, multiplier */}
-					<IconTile
-						kind="World"
-						accent={currentDef?.Color ?? Palette.mint}
-						size={44}
-						radius={12}
-						position={UDim2.fromOffset(0, 4)}
-						spin={false}
-						glow={true}
-						filled={true}
-						reducedMotion={softMotion}
-					/>
 					<Text
-						value={`World ${compactNumber(currentId)}${currentDef !== undefined ? `  ${currentDef.Name}` : ""}`}
+						value={
+							state.CurrentZone !== undefined && state.CurrentZone !== state.Zone
+								? `You are on World ${compactNumber(state.CurrentZone)} (Farthest: World ${compactNumber(state.Zone)})`
+								: `You are on World ${compactNumber(state.CurrentZone ?? state.Zone)}`
+						}
 						size={headerStack ? chrome.titleText : 22}
 						color={Palette.cream}
 						weight={Enum.FontWeight.Heavy}
-						fit={true}
+						fit={headerStack}
 						minSize={13}
-						position={UDim2.fromOffset(56, 2)}
-						sizeConstraint={new UDim2(1, headerStack ? -64 : -376, 0, 28)}
-					/>
-					<Text
-						value={
-							(currentDef !== undefined ? `${AppHelpers.formatWorldMultiplier(tonumber(currentDef.Multiplier) ?? 0)}x` : "") +
-							(currentId !== state.Zone ? `   Farthest: World ${compactNumber(state.Zone)}` : "")
-						}
-						size={14}
-						color={currentDef?.Color ?? Palette.mint}
-						weight={Enum.FontWeight.Bold}
-						fit={true}
-						minSize={11}
-						position={UDim2.fromOffset(56, 30)}
-						sizeConstraint={new UDim2(1, headerStack ? -64 : -376, 0, 18)}
+						position={UDim2.fromOffset(0, 10)}
+						sizeConstraint={new UDim2(1, headerStack ? -8 : -320, 0, 30)}
 					/>
 					{!headerStack && (
 						<frame
