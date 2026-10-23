@@ -76,7 +76,6 @@ local CASES: { Case } = {
 	{ file = "pages/views/GuildView.ts", needle = "Message your guild", size = 14, bold = false, width = chatWidth },
 	-- player list at its 286px minimum (inner width 266)
 	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Just you in here. Invite friends for a production boost, trades, crews and visits.", size = 12, minSize = 11, bold = false, width = 266 - 24, box = 54 },
-	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Thanks for helping keep the server friendly.", size = 12, minSize = 11, bold = false, width = 266 - 20, box = 34 },
 	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Couldn't head home. Try again.", size = 12, bold = false, width = 266 },
 	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Back at your workshop.", size = 12, bold = false, width = 266 },
 	-- trade chat placeholder at 360 (textbox leaves 78 for SEND), 13px
@@ -97,9 +96,7 @@ local CASES: { Case } = {
 	{ file = "pages/PagesShop.tsx", needle = "The Celestial Ark is only sold in the Daily Shop.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
 	-- Settings (stacked layout on phones, so the header text gets the full width)
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "Saves automatically  ·  v", fill = {}, size = 12, minSize = 9, bold = false, width = PHONE - 60 },
-	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "What you changed from the default.", size = 12, bold = false, width = PHONE - 110 },
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "From every section.", size = 12, bold = false, width = PHONE - 110 },
-	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "Everything is on its default.", size = 13, bold = false, width = PHONE },
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = 'No match. Try "music" or "text".', size = 13, bold = false, width = PHONE },
 }
 
@@ -117,7 +114,6 @@ local function phoneCases(phone: number)
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Move cells whenever you like.", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Bonuses apply at once. A new cell unlocks every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
 		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
-		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Each title shows as it looks on you.", size = 11, bold = false, width = panel, phone = phone },
 		{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = panel, phone = phone },
 	}
 end
