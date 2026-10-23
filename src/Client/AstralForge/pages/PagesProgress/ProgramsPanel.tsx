@@ -4,8 +4,10 @@ import React from "@rbxts/react";
 import Programs = require("../../../../Shared/AstralForge/Shared/ForgePrograms");
 import { Palette, TapTarget } from "../../CoreKit/theme";
 import { loadUi } from "../luauDeps";
+import { MockPanel, PanelHeading } from "../../UiCore/mockKit";
+import { headingBlock, MockBtn, MockRow, panelHeight, rowHeight, SEC } from "../mockRows";
 
-const { Button, Dropdown, Panel, Text } = loadUi();
+const { Button, Dropdown, Text } = loadUi();
 
 type Dispatch = (action: unknown, payload: unknown, reply?: (response: unknown) => void) => unknown;
 
@@ -19,9 +21,9 @@ export interface ProgramsState {
 	ForgePrograms?: { Unlocked: boolean; Rules: Rule[]; Max: number; Paused?: boolean };
 }
 
-const PAD = 14;
-const ROW_H = TapTarget;
-const ROW_GAP = 6;
+// 03-forge .pn with .row rules: 48px rows (44 phone), 12/8 gap
+const rowH = (stack: boolean) => rowHeight(stack);
+const gapOf = (stack: boolean) => (stack ? 8 : 12);
 
 // phones: action, trigger, amount and "Add rule" each get their own row
 function builderHeight(stack: boolean): number {
@@ -37,8 +39,9 @@ export function programsPanelHeight(state: ProgramsState, stack: boolean): numbe
 	const programs = state.ForgePrograms;
 	if (programs === undefined || !programs.Unlocked) return 0;
 	const rows = programs.Rules.size();
-	const builder = rows < programs.Max ? builderHeight(stack) + 10 : 0;
-	return PAD * 2 + 26 + rows * (ROW_H + ROW_GAP) + builder;
+	const g = gapOf(stack);
+	const builder = rows < programs.Max ? builderHeight(stack) + g : 0;
+	return panelHeight(stack, headingBlock(stack) + rows * (rowH(stack) + g) - (rows > 0 && builder === 0 ? g : 0) + builder);
 }
 
 function sentence(rule: Rule): string {
@@ -48,45 +51,42 @@ function sentence(rule: Rule): string {
 	return `${when?.Name ?? rule.When}${arg}: ${string.lower(action?.Name ?? rule.Do)}`;
 }
 
-function RuleRow(props: { rule: Rule; index: number; dispatch: Dispatch; reducedMotion?: boolean; y: number; stack: boolean }) {
+function RuleRow(props: { rule: Rule; index: number; dispatch: Dispatch; reducedMotion?: boolean; layoutOrder: number; stack: boolean }) {
 	const on = props.rule.Enabled !== false;
 	const toggleW = toggleWidth(props.stack);
+	const btn = props.stack ? TapTarget : 36;
 	return (
-		<frame Size={new UDim2(1, 0, 0, ROW_H)} Position={UDim2.fromOffset(0, props.y)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<Text
-				value={sentence(props.rule)}
-				size={13}
-				color={on ? Palette.cream : Palette.muted}
-				fit={true}
-				minSize={10}
-				sizeConstraint={new UDim2(1, -(toggleW + 8 + TapTarget + 8), 1, 0)}
-			/>
-			<Button
-				text={on ? "On" : "Off"}
-				onClick={() => props.dispatch("ProgramAct", { Op: "Toggle", Index: props.index })}
-				color={on ? Palette.mint : Palette.panelSoft}
-				textColor={on ? Palette.ink : Palette.cream}
-				outline={!on}
-				size={UDim2.fromOffset(toggleW, TapTarget)}
-				position={new UDim2(1, -(toggleW + 8 + TapTarget), 0, 0)}
-				reducedMotion={props.reducedMotion}
-			/>
-			<Button
-				text=""
-				icon="Close.7"
-				onClick={() => props.dispatch("ProgramAct", { Op: "Delete", Index: props.index })}
-				color={Palette.panelSoft}
-				textColor={Palette.cream}
-				outline={true}
-				size={UDim2.fromOffset(TapTarget, TapTarget)}
-				position={new UDim2(1, -TapTarget, 0, 0)}
-				reducedMotion={props.reducedMotion}
-			/>
-		</frame>
+		<MockRow
+			phone={props.stack}
+			icon="Command"
+			accent={Palette.coral}
+			dim={!on}
+			title={sentence(props.rule)}
+			layoutOrder={props.layoutOrder}
+			rightWidth={toggleW + 8 + btn}
+			right={
+				<>
+					<frame BackgroundTransparency={1} Size={UDim2.fromOffset(toggleW, btn)} LayoutOrder={0}>
+						<MockBtn text={on ? "On" : "Off"} accent={Palette.mint} sec={!on} sm={true} phone={props.stack} fill={true} onClick={() => props.dispatch("ProgramAct", { Op: "Toggle", Index: props.index })} reducedMotion={props.reducedMotion} />
+					</frame>
+					<frame BackgroundTransparency={1} Size={UDim2.fromOffset(btn, btn)} LayoutOrder={1}>
+						<Button
+							text=""
+							icon="Close.7"
+							onClick={() => props.dispatch("ProgramAct", { Op: "Delete", Index: props.index })}
+							color={SEC}
+							textColor={Palette.cream}
+							size={UDim2.fromScale(1, 1)}
+							reducedMotion={props.reducedMotion}
+						/>
+					</frame>
+				</>
+			}
+		/>
 	);
 }
 
-function Builder(props: { dispatch: Dispatch; stack: boolean; reducedMotion?: boolean; y: number }) {
+function Builder(props: { dispatch: Dispatch; stack: boolean; reducedMotion?: boolean; layoutOrder: number }) {
 	const [doId, setDo] = React.useState(Programs.ACTIONS[0].Id);
 	const action = Programs.actionOf(doId) ?? Programs.ACTIONS[0];
 	const [whenId, setWhen] = React.useState(action.Whens[0]);
@@ -101,7 +101,7 @@ function Builder(props: { dispatch: Dispatch; stack: boolean; reducedMotion?: bo
 	const third = props.stack ? new UDim2(1, 0, 0, TapTarget) : new UDim2(1 / 3, -8, 0, TapTarget);
 	const at = (i: number) => (props.stack ? UDim2.fromOffset(0, i * (TapTarget + 8)) : new UDim2(i / 3, i * 4, 0, 0));
 	return (
-		<frame Size={new UDim2(1, 0, 0, builderHeight(props.stack))} Position={UDim2.fromOffset(0, props.y)} BackgroundTransparency={1} BorderSizePixel={0}>
+		<frame Size={new UDim2(1, 0, 0, builderHeight(props.stack))} LayoutOrder={props.layoutOrder} BackgroundTransparency={1} BorderSizePixel={0}>
 			<Dropdown
 				options={Programs.ACTIONS.map((a) => ({ id: a.Id, label: a.Name }))}
 				value={action.Id}
@@ -133,7 +133,7 @@ function Builder(props: { dispatch: Dispatch; stack: boolean; reducedMotion?: bo
 			<frame Size={third} Position={at(2)} BackgroundTransparency={1} BorderSizePixel={0}>
 				{value !== undefined && (
 					<>
-						<Button text="-" onClick={() => step(-1)} color={Palette.panelSoft} textColor={Palette.cream} outline={true} size={UDim2.fromOffset(TapTarget, TapTarget)} reducedMotion={props.reducedMotion} />
+						<Button text="-" onClick={() => step(-1)} color={SEC} textColor={Palette.cream} size={UDim2.fromOffset(TapTarget, TapTarget)} reducedMotion={props.reducedMotion} />
 						<Text
 							value={tostring(value)}
 							size={14}
@@ -145,9 +145,8 @@ function Builder(props: { dispatch: Dispatch; stack: boolean; reducedMotion?: bo
 						<Button
 							text="+"
 							onClick={() => step(1)}
-							color={Palette.panelSoft}
+							color={SEC}
 							textColor={Palette.cream}
-							outline={true}
 							size={UDim2.fromOffset(TapTarget, TapTarget)}
 							position={UDim2.fromOffset(TapTarget + 48, 0)}
 							reducedMotion={props.reducedMotion}
@@ -185,22 +184,20 @@ export function ProgramsPanel(props: { state: ProgramsState; dispatch: Dispatch;
 	const programs = props.state.ForgePrograms;
 	if (programs === undefined || !programs.Unlocked) return undefined;
 	const rules = programs.Rules;
-	const top = 26;
 	return (
-		<Panel radius={18} rule size={UDim2.fromScale(1, 1)} accent={Palette.coral} background={Palette.panelRaised} padding={PAD} reducedMotion={props.reducedMotion} clips={false}>
-			<Text
-				value={programs.Paused === true ? "Programs are paused for a moment" : `Programs  ${rules.size()}/${programs.Max}`}
-				size={14}
-				color={programs.Paused === true ? Palette.mango : Palette.cream}
-				weight={Enum.FontWeight.Bold}
-				sizeConstraint={new UDim2(1, 0, 0, 20)}
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={props.stack} accent={Palette.coral} reducedMotion={props.reducedMotion} name="ForgePrograms">
+			<PanelHeading
+				icon="Command"
+				title="Programs"
+				note={programs.Paused === true ? "Paused for a moment" : `${rules.size()} of ${programs.Max}`}
+				accent={Palette.coral}
+				phone={props.stack}
+				layoutOrder={0}
 			/>
 			{rules.map((rule, i) => (
-				<RuleRow key={`${i}:${rule.Do}`} rule={rule} index={i + 1} dispatch={props.dispatch} reducedMotion={props.reducedMotion} y={top + i * (ROW_H + ROW_GAP)} stack={props.stack} />
+				<RuleRow key={`${i}:${rule.Do}`} rule={rule} index={i + 1} dispatch={props.dispatch} reducedMotion={props.reducedMotion} layoutOrder={1 + i} stack={props.stack} />
 			))}
-			{rules.size() < programs.Max && (
-				<Builder dispatch={props.dispatch} stack={props.stack} reducedMotion={props.reducedMotion} y={top + rules.size() * (ROW_H + ROW_GAP) + 4} />
-			)}
-		</Panel>
+			{rules.size() < programs.Max && <Builder dispatch={props.dispatch} stack={props.stack} reducedMotion={props.reducedMotion} layoutOrder={100} />}
+		</MockPanel>
 	);
 }
