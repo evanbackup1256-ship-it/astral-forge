@@ -52,461 +52,18 @@ import * as NavRoutes from "../../../Shared/AstralForge/Shared/NavRoutes";
 import * as K from "./GameKits";
 import * as ResetSpec from "../../../Shared/AstralForge/Shared/ResetSpec";
 import * as TradeDomain from "./Gameplay/TradeDomain";
-
-// Most of what GameService touches comes back from kits as opaque values, so module tables are typed as dot-called functions and service instances as
-// colon-called methods. Values coming back are narrowed where they are used.
-type Fn = (this: void, ...args: unknown[]) => unknown;
-type Method = (this: object, ...args: unknown[]) => unknown;
-type Kit = Record<string, Fn>;
-type Svc = Record<string, Method>;
-type Profile = Dict;
-type Response = Dict;
-
-
-// per-player server-side state kept between requests
-type Runtime = Dict;
-
-// Luau `a or b()`: b only runs when a is nil or false
-function orElse<T, U>(value: T, fallback: () => U): Exclude<T, undefined | false> | U {
-	return truthy(value) ? (value as Exclude<T, undefined | false>) : fallback();
-}
-
-// Luau `x or {}` for a value read as a table
-function orEmpty(value: unknown, fallback: () => object): Dict {
-	return (truthy(value) ? value : fallback()) as Dict;
-}
-
-const Players = game.GetService("Players");
-const ReplicatedStorage = game.GetService("ReplicatedStorage");
-const RunService = game.GetService("RunService");
-const MarketplaceService = game.GetService("MarketplaceService");
-const HttpService = game.GetService("HttpService");
-const ServerStorage = game.GetService("ServerStorage");
-const Workspace = game.GetService("Workspace");
-
-// The limited event this server is running, or undefined. In Studio, setting the Workspace attribute
-// AstralForgeEventPreview to an event id runs that event now so its stall can be checked early.
-function liveEvent(now: number): LimitedEvents.LimitedEvent | undefined {
-	if (RunService.IsStudio()) {
-		const preview = LimitedEvents.byId(Workspace.GetAttribute("AstralForgeEventPreview"));
-		if (preview !== undefined) {
-			return preview;
-		}
-	}
-	return LimitedEvents.activeAt(now);
-}
-
-function limitedEventPublic(profile: Profile, now: number) {
-	const event = HotFlags.Get("LimitedEventsPaused") ? undefined : liveEvent(now);
-	const upcoming = LimitedEvents.nextAfter(now);
-	const bag = profile.LimitedEvent as Dict | undefined;
-	const mine = event !== undefined && typeIs(bag, "table") && bag.Id === event.Id;
-	return {
-		Id: event?.Id,
-		Paused: HotFlags.Get("LimitedEventsPaused"),
-		Tokens: mine ? bag!.Tokens : 0,
-		DayEarned: mine && bag!.Day === math.floor(now / 86400) ? bag!.DayEarned : 0,
-		Bought: mine ? bag!.Bought : {},
-		NextId: upcoming?.Id,
-	};
-}
-
-function communityConfig(): CommunityRewards.CommunityConfig {
-	return {
-		GroupId: typeIs(K.ServerConfig.CommunityGroupId, "number") ? K.ServerConfig.CommunityGroupId : 0,
-		GroupName: tostring(K.ServerConfig.CommunityGroupName),
-		GroupReward: K.ServerConfig.GroupReward as unknown as Dict,
-		Likes: typeIs(K.ServerConfig.CommunityLikes, "number") ? K.ServerConfig.CommunityLikes : 0,
-		LikeGoals: K.ServerConfig.LikeGoals as unknown as ReadonlyArray<CommunityRewards.LikeGoal>,
-		NotifyEnabled: K.ServerConfig.NotifyOptInRewardEnabled === true,
-		NotifyReward: K.ServerConfig.NotifyReward as unknown as Dict,
-	};
-}
-// read-only stand-in for an empty anomaly action queue (the 5 Hz tick reads it every pass)
-const NO_PENDING_ACTIONS: ReadonlyArray<string> = table.freeze([]);
-
-// guild kick/ban/reconcile paths reset bonuses
-const emptyBonuses = () => K.GuildMath.EmptyBonuses();
-
-const MAX_SAFE_CURRENCY = 1e308;
-const AUTO_FORGE_INTERVAL = 2;
-const PROFILE_MAINTENANCE_INTERVAL = 10;
-const GUILD_REFRESH_INTERVAL = 30;
-const GLOBAL_LB_PAGE = 25;
-// store pages are re-read at most once a minute per board; failed reads back off from 30s
-const boardReader = new Deps.LeaderboardService({
-	pageSize: GLOBAL_LB_PAGE,
-	pageTtl: 60,
-	retryAfter: 30,
-	decode: (raw) => K.LeaderboardCodec.Decode(raw),
-	greater: (a, b) => truthy(K.Economy.Gt(a, b)),
-});
-const RANK_PING = {
-	INTERVAL: 20,
-	BOARD: "Flux",
-	BOARD_LABEL: "Lifetime Flux",
-	BRACKETS: K.RankBracket.DEFAULT_BRACKETS,
-	UNRANKED: K.RankBracket.UNRANKED,
-};
-const GUILD_ACTIVITY_MILESTONE_STEP = 250_000;
-
-const applySocialBoost = (profile: Profile, friendCount: number, premium: boolean): boolean =>
-	K.SocialBoost.Apply(profile, friendCount, premium, K.GameConfig.Social) as boolean;
-
-const GENERAL_BOARD_STORE_NAMES: Record<string, string> = {
-	Flux: K.ServerConfig.LeaderboardStoreName as string,
-	Rebirths: K.ServerConfig.RebirthLeaderboardStoreName as string,
-	PlayTime: K.ServerConfig.PlayTimeLeaderboardStoreName as string,
-	Dust: K.ServerConfig.DustLeaderboardStoreName as string,
-	Cores: K.ServerConfig.CoresLeaderboardStoreName as string,
-	Domain: K.ServerConfig.DomainLeaderboardStoreName as string,
-	Worlds: K.ServerConfig.WorldLeaderboardStoreName as string,
-	Crates: K.ServerConfig.CratesLeaderboardStoreName as string,
-	Finds: K.ServerConfig.FindsLeaderboardStoreName as string,
-	Ore: K.ServerConfig.OreLeaderboardStoreName as string,
-	Wardens: K.ServerConfig.WardensLeaderboardStoreName as string,
-	Orders: K.ServerConfig.OrdersLeaderboardStoreName as string,
-	Stars: K.ServerConfig.StarsLeaderboardStoreName as string,
-	Cipher: K.ServerConfig.CipherLeaderboardStoreName as string,
-};
-
-const generalBoardValue = (profile: Profile, id: string) => K.GeneralBoardValue.Of(profile, id, K.Economy.Persist);
-
-const anomalyChargeByAction = K.ActionFeatureMaps.ANOMALY_CHARGE as Record<string, unknown>;
-
-const encodeTelemetry = (
-	revision: unknown,
-	settings: unknown,
-	cash: unknown,
-	vault: unknown,
-	production: unknown,
-	capacity: unknown,
-	cores: unknown,
-	stardust: unknown,
-) => K.TelemetryMath.Encode(revision, settings, cash, vault, production, capacity, cores, stardust, K.Economy.AsNumber);
-
-const anomalySignalByAction = K.ActionFeatureMaps.ANOMALY_SIGNAL as Record<string, unknown>;
-const featureByAction = K.ActionFeatureMaps.FEATURE as Record<string, unknown>;
-
-const enforceUnlimitedMoney = (profile: Profile) => {
-	K.UnlimitedMoneySeal.Apply(profile, MAX_SAFE_CURRENCY, K.Economy);
-};
-
-const itemById: Record<string, Dict> = {};
-const crateById: Record<string, Dict> = {};
-const itemOfferById: Record<string, Dict> = {};
-const storyById: Record<string, Dict> = {};
-const mailById: Record<string, Dict> = {};
-for (const [, definition] of pairs(K.GameConfig.Items.Definitions as Dict[])) {
-	itemById[definition.Id as string] = definition;
-}
-for (const [, crate] of pairs(K.GameConfig.Items.Crates as Dict[])) {
-	crateById[crate.Id as string] = crate;
-}
-for (const [, offer] of pairs(K.GameConfig.Items.ShopOffers as Dict[])) {
-	itemOfferById[offer.Id as string] = offer;
-}
-for (const [, chapter] of pairs(K.GameConfig.Story)) {
-	storyById[chapter.Id as string] = chapter;
-}
-for (const [, message] of pairs(K.GameConfig.Mail)) {
-	mailById[message.Id as string] = message;
-}
-
-const utcDay = (): number => K.UtcClockMath.Day(os.time()) as number;
-
-const nextUtcMidnight = (): number => K.UtcClockMath.NextMidnight(os.time()) as number;
-
-const offerStockMax = (offer: unknown): number => K.ShopGrantEligibility.StockMax(offer) as number;
-
-const inventoryCount = (profile: Profile): number => {
-	const items = K.ProfileBagMath.EnsureItems(profile) as Dict;
-	return K.ShopGrantEligibility.InventoryCount(items.Inventory) as number;
-};
-
-const ensureItemShop = (profile: Profile): boolean => {
-	const items = K.ProfileBagMath.EnsureItems(profile) as Dict;
-	return K.ShopGrantEligibility.EnsureShop(items.Shop, K.GameConfig.Items.ShopOffers, utcDay()) as boolean;
-};
-
-const ensureStats = (profile: Profile) => K.ProfileBagMath.EnsureStats(profile) as Dict;
-
-const bumpStat = (profile: Profile, key: string, amount?: number) => K.ProfileBagMath.BumpStat(profile, key, amount);
-
-// first time a relic rig is fully socketed: mark it, pay it, and describe it
-const grantLitRigs = (profile: Profile): LuaTuple<[number, string]> => {
-	const fresh = K.RelicRigs.Settle(profile) as Array<{ Name: string; Reward: Dict; Percent: number; Kind: string }>;
-	if (fresh.size() === 0) {
-		return $tuple(0, "");
-	}
-	const parts: string[] = [];
-	for (const entry of fresh) {
-		const paid = K.ProgressionService.ApplyReward(profile, entry.Reward, K.Economy.Production(profile)) as string;
-		const effect = K.RelicRigs.effectText(entry) as string;
-		if (typeIs(paid, "string") && paid !== "") {
-			parts.push(`${entry.Name}: ${effect} (${paid})`);
-		} else {
-			parts.push(`${entry.Name}: ${effect}`);
-		}
-	}
-	return $tuple(fresh.size(), parts.join(", "));
-};
-
-const ensureActiveBoost = (profile: Profile) => K.ProfileBagMath.EnsureActiveBoost(profile) as Dict;
-
-const ensureBoostInventory = (profile: Profile) => K.ProfileBagMath.EnsureBoostInventory(profile) as Dict;
-
-const ensureCommandMastery = (profile: Profile) => {
-	const command = K.CommandMath.Ensure(profile.Command, K.GameConfig.Operations.SeasonId) as Dict;
-	profile.Command = command;
-	return command.MachineMastery as Dict;
-};
-
-const copyDictionary = (source: unknown) => K.DataSanitizeMath.DeepCopy(source);
-
-const responseError = (message: unknown): Response => K.ActionResponse.Error(message) as Response;
-
-// session fields that legitimately change when the client retries a TxnId
-const TXN_PRINT_IGNORE: Record<string, boolean> = { Gen: true, N: true, TxnId: true };
-
-const responseSuccess = (message?: unknown, extra?: unknown): Response => K.ActionResponse.Success(message, extra) as Response;
-
-const publicPlayerRecord = (player: Player, profile: Profile, viewer: Player, presence: unknown) =>
-	K.PublicPlayerRecord.Build(player, profile, viewer, presence, {
-		Economy: K.Economy,
-	}) as Dict;
-
-const buildVisitSnapshot = (player: Player, profile: Profile) => K.VisitSnapshot.Build(player, profile, K.Economy);
-
-// extracts a user id the way every social action does: ExtractUserId when present, then coerce
-const extractUserId = (raw: unknown): unknown => (RemoteFirewall.ExtractUserId !== undefined ? RemoteFirewall.ExtractUserId(raw) : raw);
-
-const PRESENCE_PAGES: Record<string, boolean> = {
-	Overview: true,
-	Workshop: true,
-	Inventory: true,
-	Research: true,
-	StarGrid: true,
-	Echoes: true,
-	Continuum: true,
-	Lab: true,
-	Anomaly: true,
-	Worlds: true,
-	Missions: true,
-	Wheel: true,
-	Bazaar: true,
-	Rewards: true,
-	Command: true,
-	Story: true,
-	Mail: true,
-	Chat: true,
-	Crew: true,
-	Milestones: true,
-	Convergence: true,
-	Leaderboards: true,
-	Trade: true,
-	Credits: true,
-	Admin: true,
-	Settings: true,
-	Shop: true,
-};
-
-// the Studio check every social action uses; never throws
-const studioCheck = (): boolean => {
-	let isStudio = false;
-	pcall(() => {
-		const rs = game.GetService("RunService");
-		if (rs && typeIs((rs as unknown as Dict).IsStudio, "function")) {
-			isStudio = rs.IsStudio();
-		}
-	});
-	return isStudio;
-};
-
-const StoreAccess = require(K.root.WaitForChild("Modules").WaitForChild("StoreAccess") as ModuleScript) as Kit;
-
-function resetContext(carry?: Dict): ResetSpec.ResetContext {
-	return {
-		StartingCash: K.GameConfig.Economy.StartingCash as number,
-		LabBaseCells: ((K.GameConfig.Lab as unknown as Dict).Power as Dict).BaseCells as number,
-		Carry: carry !== undefined ? { Cash: carry.Cash, Machines: carry.Machines } : undefined,
-	};
-}
-const getOrderedStore = StoreAccess.ordered;
-
-const reportLedger = K.ReportLedger.new() as Svc;
-Players.PlayerRemoving.Connect((leaving) => {
-	reportLedger.forgetReporter(leaving.UserId);
-});
-
-const itemSalvageValue = (instance: Dict, definition: Dict): number => {
-	const rarity = (K.GameConfig.Items.Rarities as Record<string, Dict | undefined>)[definition.Rarity as string];
-	const rank = rarity && truthy(rarity.Rank) ? rarity.Rank : 1;
-	return K.ItemSalvage.Value(instance.Level, rank) as number;
-};
-
-const shopShared = (): LuaTuple<[Kit, Kit]> => {
-	return $tuple(K.SharedDataSuite("ShopCatalog") as Kit, K.SharedDataSuite("RelicSystem") as Kit);
-};
-
-const spendShopCurrency = (profile: Profile, currency: string, price: number): string | undefined => {
-	if (currency !== "Stardust" && currency !== "Cores") {
-		return T("GameService.ThatOfferCanTBe", tostring(currency));
-	}
-	const have = tonumber(profile[currency]) ?? 0;
-	if (have < price) {
-		return string.format("You need %s more %s.", (K.Format.Number as Fn)(price - have) as string, string.lower(currency));
-	}
-	profile[currency] = have - price;
-	return undefined;
-};
-
-const ensureAutoSalvage = (profile: Profile) => K.ProfileBagMath.EnsureAutoSalvage(profile) as Dict;
-
-const progressionNumber = (value: unknown): number => K.Economy.AsNumber(value) as number;
-
-const clampProgressionNumbers = (profile: Profile) => {
-	K.ProfileClampMath.ClampProgressionNumbers(profile, K.Economy.Persist, MAX_SAFE_CURRENCY);
-};
-
-const OVERCHARGE_COMBO_WINDOW = K.GameConfig.Overcharge.ComboWindow as number;
-const OVERCHARGE_COMBO_MAX = K.GameConfig.Overcharge.ComboMax as number;
-const OVERCHARGE_COMBO_BONUS = K.GameConfig.Overcharge.ComboBonusPerStack as number;
-
-const overchargeComboWindow = (_profile: unknown): number => K.OverchargeCombo.Window(OVERCHARGE_COMBO_WINDOW) as number;
-
-const overchargeComboMultiplier = (_profile: unknown, combo: number): number =>
-	K.OverchargeCombo.Multiplier(combo, OVERCHARGE_COMBO_MAX, OVERCHARGE_COMBO_BONUS) as number;
-
-// The full snapshot is ~350 KB (the star grid alone is ~200 KB) and goes out every few seconds.
-// Sections that are identical to the ones this player was last sent are left out and listed in
-// `Reused`; the client fills them back in from its previous copy. Every so often a full snapshot
-// goes out anyway so the two sides can never drift.
-const FULL_SNAPSHOT_EVERY = 60;
-// true = same, false = different, nil = no differences found but a shared table was met: the
-// very same table may have been edited in place since it was sent, so it can't vouch for itself
-const sameValue = (left: unknown, right: unknown, depth: number): boolean | undefined => {
-	if (!typeIs(left, "table") || !typeIs(right, "table")) {
-		return left === right;
-	}
-	if (rawequal(left, right) || depth > 24) {
-		return undefined;
-	}
-	let unsure = false;
-	for (const [key, value] of pairs(left as Dict)) {
-		const verdict = sameValue(value, rawget(right, key), depth + 1);
-		if (verdict === false) {
-			return false;
-		} else if (verdict === undefined) {
-			unsure = true;
-		}
-	}
-	for (const [key] of pairs(right as Dict)) {
-		if (rawget(left, key) === undefined) {
-			return false;
-		}
-	}
-	return unsure ? undefined : true;
-};
-const fingerprint = (value: unknown): string | undefined => {
-	const [ok, encoded] = pcall(() => HttpService.JSONEncode(value));
-	return ok ? encoded : undefined;
-};
-
-// runs one AnomalyService call inside a mutation and hands back what it reported
-const anomalyCall = (
-	owner: { _mutate(player: Player, callback: (profile: Profile) => unknown, incrementRevision?: boolean): Response },
-	player: Player,
-	run: (profile: Profile) => LuaTuple<[unknown, unknown, unknown]>,
-): LuaTuple<[Response, Dict | undefined]> => {
-	let details: Dict | undefined = undefined;
-	const result = owner._mutate(player, (profile: Profile) => {
-		const [success, message, payload] = run(profile);
-		details = payload as Dict | undefined;
-		return truthy(success) ? responseSuccess(message, payload) : responseError(message);
-	});
-	return $tuple(result, details as Dict | undefined);
-};
-
-// the rebirth ledger, normalized; saves from before it start counting from the rebirths already spent
-const rebirthLedger = (profile: Profile, now: number): Dict => {
-	let seed: number | undefined = undefined;
-	if (profile.Rebirth === undefined) {
-		seed =
-			(num(profile.Rebirths) ?? 0) +
-			(isTable(profile.Domain) ? (num(profile.Domain.TotalRebirthsSpent) ?? 0) : 0) +
-			(isTable(profile.Ascension) ? (num(profile.Ascension.RebirthsSpent) ?? 0) : 0);
-	}
-	profile.Rebirth = K.RebirthMath.ensure(profile.Rebirth, now, seed);
-	return profile.Rebirth as Dict;
-};
-
-// the facts a vow is judged on, and the flux this run would convert
-const rebirthRun = (profile: Profile, now: number, ledger: Dict): LuaTuple<[Dict, unknown]> => {
-	let kinds = 0;
-	for (const [, level] of pairs(orEmpty(profile.Machines, () => ({})))) {
-		if (typeIs(level, "number") && level >= 1) {
-			kinds += 1;
-		}
-	}
-	const rebirthConfig = orEmpty(K.GameConfig.Economy.Rebirth, () => ({}));
-	const bank = rebirthConfig.BankVaultIntoRun !== false ? K.Economy.Add(profile.RunCash, profile.Vault) : profile.RunCash;
-	const ratio = (K.Economy.AsNumber(bank) as number) / math.max(1, K.Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0) as number);
-	return $tuple({ Seconds: now - (ledger.RunStartedAt as number), Zone: profile.Zone, MachineKinds: kinds, Ratio: ratio }, bank);
-};
-
-// BALANCE v8: one rebirth's cores past Rebirth.CoreSoftCap grow with a square root
-const softCapCores = (reward: unknown): unknown => {
-	const rebirthConfig = orEmpty(K.GameConfig.Economy.Rebirth, () => ({})) as Dict;
-	const cap = num(rebirthConfig.CoreSoftCap);
-	const exponent = num(rebirthConfig.CoreSoftExponent) ?? 0.5;
-	if (cap === undefined || cap <= 0 || !truthy(K.Economy.Gt(reward, cap))) {
-		return reward;
-	}
-	return K.OmegaMath.Floor(K.OmegaMath.Mul(cap, K.OmegaMath.Pow(K.OmegaMath.Div(reward, cap), exponent)));
-};
-
-// BALANCE v8: Stardust price to run a boost without an owned charge, or undefined when it isn't sold
-const stardustBoostPrice = (profile: Profile, boostId: string): number | undefined => {
-	const rebirthConfig = orEmpty(K.GameConfig.Economy.Rebirth, () => ({})) as Dict;
-	const prices = rebirthConfig.StardustBoostPrices as Record<string, number> | undefined;
-	const base = prices !== undefined ? prices[boostId] : undefined;
-	if (!typeIs(base, "number") || base <= 0) {
-		return undefined;
-	}
-	const perRebirth = num(rebirthConfig.StardustBoostPerRebirth) ?? 0;
-	return math.floor(base * (1 + math.max(0, num(profile.Rebirths) ?? 0) * perRebirth));
-};
-
-// cores and stardust before the ledger's own multipliers, or nil when the run can't convert yet
-const rebirthBase = (profile: Profile, bank: unknown): LuaTuple<[unknown, number]> => {
-	let reward = K.Economy.PrestigeReward(bank, num(profile.Rebirths) ?? 0);
-	if (!truthy(K.RebirthGate.CanRebirth(reward, K.Economy.Gte))) {
-		return $tuple(undefined, 0);
-	}
-	reward = softCapCores(reward);
-	reward = K.Economy.Max(1, K.Economy.Floor(K.Economy.Mul(reward, 1 + (K.Economy.DomainTreeBonus(profile, "RebirthYield") as number))));
-	reward = K.Economy.Floor(K.Economy.Mul(reward, K.Economy.AscensionEffect(profile, "Cores")));
-	const rebirthConfig = orEmpty(K.GameConfig.Economy.Rebirth, () => ({}));
-	const dust = K.RebirthGate.StardustReward(
-		K.Economy.AsNumber(reward),
-		num(rebirthConfig.StardustSqrtScale) ?? 5,
-		num(rebirthConfig.StardustMinimum) ?? 4,
-	) as number;
-	return $tuple(reward, dust);
-};
-
-// machines a keepsake may carry: ones that live in the first world and are open after this rebirth
-const keepsakeAllowed = (profile: Profile) => {
-	return (id: string): boolean => {
-		const machine = K.Economy.GetMachine(id) as Dict | undefined;
-		return (
-			machine !== undefined &&
-			(num(machine.RequiredZone) ?? 1) <= 1 &&
-			truthy(K.RebirthGate.MeetsRequired((num(profile.Rebirths) ?? 0) + 1, machine.RequiredRebirths))
-		);
-	};
-};
+import { orElse, orEmpty, Players, ReplicatedStorage, RunService, MarketplaceService, HttpService, ServerStorage, Workspace, liveEvent, limitedEventPublic, communityConfig, NO_PENDING_ACTIONS, emptyBonuses, MAX_SAFE_CURRENCY, AUTO_FORGE_INTERVAL, PROFILE_MAINTENANCE_INTERVAL, GUILD_REFRESH_INTERVAL, GLOBAL_LB_PAGE, boardReader, RANK_PING, GUILD_ACTIVITY_MILESTONE_STEP, applySocialBoost, GENERAL_BOARD_STORE_NAMES, generalBoardValue, anomalyChargeByAction, encodeTelemetry, anomalySignalByAction, featureByAction, enforceUnlimitedMoney, itemById, crateById, itemOfferById, storyById, mailById, utcDay, nextUtcMidnight, offerStockMax, inventoryCount, ensureItemShop, ensureStats, bumpStat, grantLitRigs, ensureActiveBoost, ensureBoostInventory, ensureCommandMastery, copyDictionary, responseError, TXN_PRINT_IGNORE, responseSuccess, publicPlayerRecord, buildVisitSnapshot, extractUserId, PRESENCE_PAGES, studioCheck, StoreAccess, resetContext, getOrderedStore, reportLedger, itemSalvageValue, shopShared, spendShopCurrency, ensureAutoSalvage, progressionNumber, clampProgressionNumbers, OVERCHARGE_COMBO_WINDOW, OVERCHARGE_COMBO_MAX, OVERCHARGE_COMBO_BONUS, overchargeComboWindow, overchargeComboMultiplier, FULL_SNAPSHOT_EVERY, sameValue, fingerprint, anomalyCall, rebirthLedger, rebirthRun, softCapCores, stardustBoostPrice, rebirthBase, keepsakeAllowed } from "./GameServiceCore";
+import type { Fn, Method, Kit, Svc, Profile, Response, Runtime } from "./GameServiceCore";
+import * as Snapshot from "./Gameplay/Snapshot";
+import * as DomainExpansion from "./Gameplay/DomainExpansion";
+import * as Rebirth from "./Gameplay/Rebirth";
+import * as Leaderstats from "./Gameplay/Leaderstats";
+import * as Moderation from "./Gameplay/Moderation";
+import * as CrateOpening from "./Gameplay/CrateOpening";
+import * as ShopDomain from "./Gameplay/ShopDomain";
+import * as BoostDomain from "./Gameplay/BoostDomain";
+import * as Automation from "./Gameplay/Automation";
+import * as GuildActions from "./Gameplay/GuildActions";
 
 @Service({ loadOrder: 4 })
 export class GameService {
@@ -937,197 +494,11 @@ export class GameService {
 	}
 
 	_submitFeedback(player: Player, rawPayload: unknown) {
-		const payload = rawPayload as Dict | undefined;
-		const endpoint = ServerStorage.GetAttribute(K.ServerConfig.FeedbackWebhookAttribute as string);
-		if (!typeIs(endpoint, "string") || endpoint.match("^https://")[0] === undefined) {
-			return responseError(T("GameService.FeedbackIsnTSetUp"));
-		}
-		const category = payload ? payload.Category : undefined;
-		const raw = payload ? payload.Message : undefined;
-		if (!typeIs(category, "string") || !typeIs(raw, "string")) {
-			return responseError(T("GameService.WriteAShortNoteBefore"));
-		}
-		const body0 = payload as Dict;
-		const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(player, raw, player.UserId, 600) as LuaTuple<[unknown, unknown]>;
-		if (!truthy(filteredOk) || !typeIs(filtered, "string") || filtered.size() < 1) {
-			return responseError(T("GameService.ThatNoteCouldnTBe"));
-		}
-		const profile = this._data.Get(player) as Profile | undefined;
-		const categoryColors: Record<string, number | undefined> = {
-			Bug: 15548997,
-			Suggestion: 5959144,
-			Balance: 16762880,
-			Performance: 10181046,
-			Interface: 3447003,
-			Other: 9807270,
-		};
-		const impactLabels: Record<number, string | undefined> = {
-			1: "Minor",
-			2: "Noticeable",
-			3: "Annoying",
-			4: "Major",
-			5: "Blocking",
-		};
-		const impact = payload ? payload.Impact : undefined;
-		const fields: Dict[] = [
-			{
-				name: "Player",
-				value: "%s (@%s) · %d".format(player.DisplayName, player.Name, player.UserId),
-				inline: false,
-			},
-			{
-				name: "Progress",
-				value: "World %d · %d rebirths".format(
-					orElse(profile && profile.Zone, () => 1) as number,
-					orElse(profile && profile.Rebirths, () => 0) as number,
-				),
-				inline: true,
-			},
-			{ name: "Server", value: game.JobId !== "" ? game.JobId : "Studio", inline: true },
-		];
-		if (typeIs(impact, "number") && impactLabels[impact] !== undefined) {
-			fields.push({ name: "Impact", value: "%s (%d/5)".format(impactLabels[impact]!, impact), inline: true });
-		}
-		if (typeIs(body0.Device, "string")) {
-			const screen = typeIs(body0.Screen, "string") ? " · " + body0.Screen : "";
-			fields.push({ name: "Device", value: body0.Device + screen, inline: true });
-		}
-		if (typeIs(body0.Page, "string")) {
-			fields.push({ name: "Page", value: body0.Page, inline: true });
-		}
-		const body = {
-			username: "Astral Forge Feedback",
-			allowed_mentions: { parse: {} },
-			embeds: [
-				{
-					title: category + " feedback",
-					description: filtered,
-					color: categoryColors[category] ?? 5959144,
-					fields: fields,
-					footer: { text: "Astral Forge " + tostring(K.GameConfig.Game.Version) },
-					timestamp: DateTime.now().ToIsoDate(),
-				},
-			],
-		};
-		this._spawnWorker(() => {
-			const [ok, response] = pcall(() =>
-				HttpService.RequestAsync({
-					Url: endpoint,
-					Method: "POST",
-					Headers: { ["Content-Type"]: "application/json" },
-					Body: HttpService.JSONEncode(body),
-				}),
-			);
-			if (!ok || !typeIs(response, "table") || response.Success !== true) {
-				K.ModuleLog.Every("feedback-webhook", 30, "Feedback", "A player note could not be delivered");
-			}
-		});
-		return responseSuccess(T("GameService.ThanksYourFeedbackWasSent"));
+		return Moderation.submitFeedback(this, player, rawPayload);
 	}
 
 	_reportPlayer(player: Player, rawPayload: unknown) {
-		const payload = rawPayload as Dict | undefined;
-		const reason = payload ? payload.Reason : undefined;
-		if (!truthy(K.ReportLedger.isReason(reason))) {
-			return responseError(T("GameService.PickAReasonBeforeSending"));
-		}
-		const rawTarget = payload ? payload.UserId : undefined;
-		const extracted = extractUserId(rawTarget);
-		const targetUserId = orElse(RemoteFirewall.CoerceUserId(extracted), () => RemoteFirewall.CoerceUserId(rawTarget)) as number | undefined;
-		if (targetUserId === undefined) {
-			return responseError(T("GameService.CouldnTFindThatPlayer"));
-		}
-		if (targetUserId === player.UserId) {
-			return responseError(T("GameService.YouCanTReportYourself"));
-		}
-		const target = Players.GetPlayerByUserId(targetUserId);
-		if (!target) {
-			return responseError(T("TradeSuite.ThatPlayerIsNoLonger"));
-		}
-		const body0 = payload as Dict;
-		const now = os.time();
-		const [allowed, refusal] = reportLedger.canReport(player.UserId, targetUserId, now) as LuaTuple<[unknown, unknown]>;
-		if (!truthy(allowed)) {
-			return responseError(refusal);
-		}
-		const rawDetails = body0.Details;
-		let details = "";
-		if (typeIs(rawDetails, "string") && rawDetails.size() > 0) {
-			const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(player, rawDetails, player.UserId, 400) as LuaTuple<
-				[unknown, unknown]
-			>;
-			details = truthy(filteredOk) && typeIs(filtered, "string") ? filtered : "";
-		}
-		const [reportCount, reporterCount] = reportLedger.record(player.UserId, targetUserId, reason, now) as LuaTuple<[number, number]>;
-		const severity = body0.Severity === "Serious" || body0.Severity === "Urgent" ? (body0.Severity as string) : "Minor";
-		const when = body0.When === "Earlier" || body0.When === "Repeated" ? (body0.When as string) : "Now";
-		const where = body0.Where === "Chat" || body0.Where === "Trade" || body0.Where === "Guild" ? (body0.Where as string) : "World";
-		const endpoint = ServerStorage.GetAttribute(K.ServerConfig.ReportWebhookAttribute as string);
-		if (!typeIs(endpoint, "string") || endpoint.match("^https://")[0] === undefined) {
-			K.ModuleLog.Every(
-				"report:%d".format(targetUserId),
-				5,
-				"Report",
-				"%s reported %s (%d) for %s; %d reports from %d players this hour".format(
-					player.Name,
-					target.Name,
-					targetUserId,
-					reason as string,
-					reportCount,
-					reporterCount,
-				),
-			);
-			return responseSuccess(T("GameService.ReportReceivedThanksForHelping"), { Reported: targetUserId });
-		}
-		const reporterProfile = this._data.Get(player) as Profile | undefined;
-		const targetProfile = this._data.Get(target) as Profile | undefined;
-		const progressOf = (p: Profile | undefined) =>
-			"World %d · %d rebirths".format(orElse(p && p.Zone, () => 1) as number, orElse(p && p.Rebirths, () => 0) as number);
-		const body = {
-			username: "Astral Forge Reports",
-			allowed_mentions: { parse: {} },
-			embeds: [
-				{
-					title: "[%s] Player report: %s".format(severity, reason as string),
-					description: details !== "" ? details : "(no details provided)",
-					color: (K.ReportLedger.SEVERITY_COLORS as unknown as Record<string, number | undefined>)[severity] ?? 15548997,
-					fields: [
-						{
-							name: "Reported",
-							value: "%s (@%s) · %d".format(target.DisplayName, target.Name, target.UserId),
-							inline: true,
-						},
-						{
-							name: "Reported by",
-							value: "%s (@%s) · %d".format(player.DisplayName, player.Name, player.UserId),
-							inline: true,
-						},
-						{ name: "Target progress", value: progressOf(targetProfile), inline: true },
-						{ name: "Reporter progress", value: progressOf(reporterProfile), inline: true },
-						{ name: "This hour", value: "%d reports from %d players".format(reportCount, reporterCount), inline: true },
-						{ name: "Target account", value: "%d days old".format(target.AccountAge), inline: true },
-						{ name: "Context", value: "%s · %s".format(where, when), inline: true },
-						{ name: "Server", value: game.JobId !== "" ? game.JobId : "Studio", inline: true },
-					],
-					footer: { text: "Astral Forge " + tostring(K.GameConfig.Game.Version) },
-					timestamp: DateTime.now().ToIsoDate(),
-				},
-			],
-		};
-		this._spawnWorker(() => {
-			const [ok, response] = pcall(() =>
-				HttpService.RequestAsync({
-					Url: endpoint,
-					Method: "POST",
-					Headers: { ["Content-Type"]: "application/json" },
-					Body: HttpService.JSONEncode(body),
-				}),
-			);
-			if (!ok || !typeIs(response, "table") || response.Success !== true) {
-				K.ModuleLog.Every("report-webhook", 30, "Report", "A player report could not be delivered");
-			}
-		});
-		return responseSuccess(T("GameService.ReportSentThanksForHelping"), { Reported: targetUserId });
+		return Moderation.reportPlayer(this, player, rawPayload);
 	}
 
 	_spawnWorker(callback: () => void) {
@@ -1239,110 +610,7 @@ export class GameService {
 	}
 
 	_syncLeaderstats(player: Player, profile: unknown) {
-		if (player.Parent !== Players || !isTable(profile)) {
-			return;
-		}
-		const leaderstats = player.FindFirstChild("leaderstats");
-		if (leaderstats) {
-			const flux = leaderstats.FindFirstChild("Flux");
-			const cores = leaderstats.FindFirstChild("Cores");
-			const rebirths = leaderstats.FindFirstChild("Rebirths");
-			if (flux && flux.IsA("NumberValue")) {
-				flux.Value = math.floor(progressionNumber(profile.Cash));
-			}
-			if (cores && cores.IsA("NumberValue")) {
-				cores.Value = math.floor(progressionNumber(profile.Cores));
-			}
-			if (rebirths && rebirths.IsA("NumberValue")) {
-				rebirths.Value = math.floor(progressionNumber(profile.Rebirths));
-			}
-		}
-		player.SetAttribute(
-			"ProductionPerSecond",
-			progressionNumber(
-				K.Economy.Mul(
-					K.Economy.Production(profile),
-					(this._convergence.Multiplier() as number) *
-						(this._events.ProductionMultiplier() as number) *
-						(this._crews.Multiplier(player) as number),
-				),
-			),
-		);
-		player.SetAttribute("CurrentZone", profile.CurrentZone as AttributeValue);
-		if (K.GameConfig.Operations.TitlesEnabled === false) {
-			player.SetAttribute("EquippedTitle", undefined);
-			player.SetAttribute("EquippedTitleName", undefined);
-			player.SetAttribute("EquippedTitleFx", undefined);
-		} else {
-			let titleId = "Cadet";
-			const commandState = profile.Command as Dict | undefined;
-			if (truthy(commandState) && typeIs(commandState.EquippedTitle, "string") && commandState.EquippedTitle !== "") {
-				titleId = commandState.EquippedTitle;
-			}
-			let titleName: unknown = "Forge Cadet";
-			let titleFx = "";
-			for (const [, title] of pairs(K.GameConfig.Operations.Titles as Dict[])) {
-				if (title.Id === titleId) {
-					titleName = title.Name;
-					titleFx = typeIs(title.Fx, "string") ? title.Fx : "";
-					break;
-				}
-			}
-			player.SetAttribute("EquippedTitle", titleId);
-			player.SetAttribute("EquippedTitleName", titleName as AttributeValue);
-			player.SetAttribute("EquippedTitleFx", titleFx);
-		}
-		// profile style is public too: nameplates, the player list and chat tint by it
-		const profileStyle = ProfileStyle.read(profile.Cosmetics);
-		player.SetAttribute("ProfileAccent", profileStyle.Accent);
-		player.SetAttribute("ProfileFrame", profileStyle.Frame);
-		// the equipped artifact is public: every client reads these for the overhead aura, the
-		// player list and chat, so it has to be visible to the whole server, not just its owner
-		const command = profile.Command as Dict | undefined;
-		const artifactId =
-			truthy(command) && typeIs(command.EquippedArtifact, "string") && truthy(command.EquippedArtifact) ? command.EquippedArtifact : "";
-		const artifactFound = artifactId !== "" ? K.Economy.GetArtifact(artifactId) : undefined;
-		const artifact = truthy(artifactFound) ? (artifactFound as Dict) : undefined;
-		const artifacts = command ? command.Artifacts : undefined;
-		const ownedFound = artifact && isTable(artifacts) ? artifacts[artifactId] : undefined;
-		const owned = truthy(ownedFound) ? ownedFound : undefined;
-		if (artifact && isTable(owned)) {
-			const level = math.max(1, math.floor(num(owned.Level) ?? 1));
-			const power = (num(artifact.EffectPerLevel) ?? 0) * level;
-			const effectText =
-				artifact.EffectKind === "OfflineHours"
-					? "+%.1fh offline".format(power)
-					: "+%.0f%% %s".format(power * 100, tostring(artifact.EffectKind).lower());
-			player.SetAttribute("EquippedArtifactName", tostring(artifact.Name));
-			player.SetAttribute("EquippedArtifactElement", tostring(orElse(artifact.Element, () => "")));
-			player.SetAttribute("EquippedArtifactRarity", tostring(orElse(artifact.Rarity, () => "COMMON")));
-			player.SetAttribute("EquippedArtifactLevel", level);
-			player.SetAttribute("EquippedArtifactColor", typeIs(artifact.Color, "Color3") ? artifact.Color : Color3.fromRGB(170, 139, 255));
-			player.SetAttribute("EquippedArtifactEffect", effectText);
-			player.SetAttribute("EquippedArtifact", artifactId);
-		} else if (player.GetAttribute("EquippedArtifact") !== undefined) {
-			for (const key of [
-				"EquippedArtifact",
-				"EquippedArtifactName",
-				"EquippedArtifactElement",
-				"EquippedArtifactRarity",
-				"EquippedArtifactLevel",
-				"EquippedArtifactColor",
-				"EquippedArtifactEffect",
-			]) {
-				player.SetAttribute(key, undefined);
-			}
-		}
-		// the companion is public too, so the player list can show who brought what
-		const companion = CompanionRelic.describe(profile.Items);
-		const companionName = companion !== undefined ? companion.Name : undefined;
-		if (player.GetAttribute("Companion") !== companionName) {
-			player.SetAttribute("Companion", companionName);
-		}
-		const companionRank = companion !== undefined && companion.Rank > 1 ? companion.Rank : undefined;
-		if (player.GetAttribute("CompanionRank") !== companionRank) {
-			player.SetAttribute("CompanionRank", companionRank);
-		}
+		return Leaderstats.syncLeaderstats(this, player, profile);
 	}
 
 	_announceServerEvent(phase: string, def: Dict) {
@@ -1500,325 +768,7 @@ export class GameService {
 	}
 
 	_snapshot(player: Player): Dict | undefined {
-		let profile = this._data.Get(player) as Profile | undefined;
-		const runtime = this._runtime.get(player);
-		if (!profile) {
-			return undefined;
-		}
-		if (
-			(!runtime || os.clock() >= ((runtime.BazaarRecoveryRetryAt as number | undefined) ?? 0)) &&
-			truthy(K.BazaarService.NeedsRecovery(profile, player.UserId))
-		) {
-			const recovered = this._mutate(player, (draft: Profile) => {
-				const [ok, message] = K.BazaarService.Roll(draft, os.time(), player.UserId) as LuaTuple<[unknown, unknown]>;
-				return truthy(ok) ? responseSuccess(message) : responseError(message);
-			});
-			if (!truthy(recovered.ok)) {
-				if (runtime) {
-					runtime.BazaarRecoveryRetryAt = os.clock() + 30;
-				}
-				K.ModuleLog.Every(
-					"legacy-refund:" + player.UserId,
-					30,
-					"BlackMarket",
-					"Legacy refund could not be committed for " + player.UserId + ": " + tostring(recovered.error),
-				);
-			}
-			profile = this._data.Get(player) as Profile | undefined;
-			if (!profile) {
-				return undefined;
-			}
-		}
-		const now = os.time();
-		const baseProduction = K.Economy.Production(profile, now);
-		const production = K.Economy.Mul(
-			baseProduction,
-			(this._convergence.Multiplier() as number) *
-				(this._events.ProductionMultiplier() as number) *
-				(this._crews.Multiplier(player) as number),
-		);
-		const capacity = K.Economy.Capacity(profile, now);
-		const prestigeReward = softCapCores(K.Economy.PrestigeReward(K.Economy.Add(profile.RunCash, profile.Vault), num(profile.Rebirths) ?? 0));
-		const domain = orEmpty(profile.Domain, () => ({
-			Rank: 0,
-			Essence: 0,
-			LastExpandedAt: 0,
-			TotalRebirthsSpent: 0,
-			TotalCoresSpent: 0,
-		}));
-		const domainRank = math.max(0, math.floor(num(domain.Rank) ?? 0));
-		const [domainRequiredRebirths, domainRequiredCores] = K.Economy.DomainRequirements(domainRank) as LuaTuple<[unknown, unknown]>;
-		const [domainEssenceReward, domainStardustReward] = K.Economy.DomainRewards(domainRank) as LuaTuple<[unknown, unknown]>;
-		const continuum = orEmpty(profile.Continuum, () => ({ Rank: 0, TotalFluxSpent: 0, TotalStardustSpent: 0 }));
-		const continuumRank = math.max(0, math.floor(num(continuum.Rank) ?? 0));
-		const [continuumFluxCost, continuumStardustCost] = K.Economy.ContinuumCosts(continuumRank) as LuaTuple<[unknown, unknown]>;
-		const [continuumProduction, continuumCapacity, continuumTap, continuumOffline] = K.Economy.ContinuumEffects(profile) as LuaTuple<
-			[unknown, unknown, unknown, unknown]
-		>;
-		if (runtime) {
-			runtime.SnapshotId = ((runtime.SnapshotId as number | undefined) ?? 0) + 1;
-		}
-		const itemShop: Record<number, unknown> = {};
-		ensureItemShop(profile);
-		const items = profile.Items as Dict;
-		(K.GameConfig.Items.ShopOffers as Dict[]).forEach((offer, i) => {
-			const state = copyDictionary(offer) as Dict;
-			const stockMax = offerStockMax(offer);
-			const stock = K.ShopGrantEligibility.RemainingStock(((items.Shop as Dict).Stock as Dict)[offer.Id as string], stockMax) as number;
-			state.Stock = stock;
-			state.StockMax = stockMax;
-			state.DailyRefresh = offer.DailyRefresh === true;
-			state.Purchased = stock <= 0;
-			itemShop[i + 1] = state;
-		});
-		const featureUnlocks = K.ProgressionGate.FeatureStates(profile) as Record<string, Dict>;
-		const levelState = K.ProgressionGate.LevelState(profile) as Dict;
-		if (runtime) {
-			const newlyUnlocked: Array<{ Id: string; State: Dict }> = [];
-			const previousUnlocks = runtime.FeatureUnlocks as Record<string, unknown> | undefined;
-			if (truthy(previousUnlocks)) {
-				for (const [id, state] of pairs(featureUnlocks)) {
-					if (truthy(state.Unlocked) && previousUnlocks[id] !== true) {
-						newlyUnlocked.push({ Id: id, State: state });
-					}
-				}
-			}
-			const leveledUp = runtime.ForgeLevel !== undefined && (levelState.Level as number) > (runtime.ForgeLevel as number);
-			runtime.ForgeLevel = levelState.Level;
-			if (leveledUp) {
-				const names: string[] = [];
-				for (const entry of newlyUnlocked) {
-					names.push(entry.State.Name as string);
-				}
-				table.sort(names);
-				// the milestone card on the client names what opened and what it paid; no toast on top
-				this._effect.fire(player, {
-					Type: "LevelUp",
-					Level: levelState.Level,
-					Tier: levelState.Tier,
-					Names: names,
-				});
-			} else if (newlyUnlocked.size() > 0) {
-				const names: string[] = [];
-				for (const entry of newlyUnlocked) {
-					names.push(entry.State.Name as string);
-				}
-				const single = newlyUnlocked.size() === 1 ? newlyUnlocked[0] : undefined;
-				this._toastPlayer(
-					player,
-					single ? (single.State.Name as string) + " unlocked" : T("GameService.NewSystemsUnlocked"),
-					single ? T("GameService.YouCanOpenItFrom") : names.join(", ") + " are ready in the Forge menu.",
-					"Special",
-				);
-				this._effect.fire(player, {
-					Type: "FeatureUnlocked",
-					Id: single ? single.Id : undefined,
-					Name: single ? single.State.Name : names.join(", "),
-					Count: newlyUnlocked.size(),
-				});
-			}
-			const current: Record<string, unknown> = {};
-			for (const [id, state] of pairs(featureUnlocks)) {
-				current[id] = state.Unlocked;
-			}
-			runtime.FeatureUnlocks = current;
-		}
-		levelState.Progression = this._settleProgression(player, profile, levelState, production);
-		const storyState = K.StoryMailSnapshot.BuildStory(profile, K.GameConfig.Story, K.ProgressionGate);
-		const [mailState, unreadMail] = K.StoryMailSnapshot.BuildMailbox(profile, K.GameConfig.Mail, K.ProgressionGate) as LuaTuple<
-			[unknown, unknown]
-		>;
-		const guildMembership = profile.Guild as Dict | undefined;
-		const guildId = (truthy(guildMembership) && truthy(guildMembership.Id) ? guildMembership.Id : "") as string;
-		const guildCachedPublic = guildId !== "" ? this._guilds.GetCachedPublic(guildId) : undefined;
-		const guildSnapshot = K.GuildMath.SnapshotPublic(guildMembership, guildCachedPublic) as Dict | undefined;
-		if (truthy(guildSnapshot) && guildId !== "") {
-			guildSnapshot.Community = this._guildCommunity.Snapshot(guildId);
-		}
-		const [overchargeCombo, overchargeMultiplier] = this._overchargeCombo(runtime, profile);
-		const sky = orEmpty(profile.Sky, () => ({}));
-		const charts = orEmpty(sky.Charts, () => ({}));
-		const cipher = orEmpty(sky.Cipher, () => ({}));
-		const dailyShop = profile.DailyShop;
-		const cosmetics = profile.Cosmetics;
-		const meta = profile.Meta as Dict;
-		const finalProfile = profile;
-
-		return {
-			Game: {
-				Name: K.GameConfig.Game.Name,
-				Version: K.GameConfig.Game.Version,
-				Update: K.GameConfig.Game.Update,
-			},
-			Cash: profile.Cash,
-			Vault: profile.Vault,
-			Cores: profile.Cores,
-			Stardust: profile.Stardust,
-			Rebirths: profile.Rebirths,
-			Domain: K.ContinuumDomainMath.SnapshotDomainPublic({
-				domain: domain,
-				rank: domainRank,
-				requiredRebirths: domainRequiredRebirths,
-				requiredCores: domainRequiredCores,
-				essenceReward: domainEssenceReward,
-				stardustReward: domainStardustReward,
-				rebirths: profile.Rebirths,
-				cores: profile.Cores,
-				domainConfig: K.GameConfig.Domain,
-				MeetsRequired: K.RebirthGate.MeetsRequired,
-				Gte: K.Economy.Gte,
-				DomainTreeBonus: (kind: unknown) => K.Economy.DomainTreeBonus(finalProfile, kind),
-			}),
-			Foundry: K.FoundryService.State(profile, Workspace.GetServerTimeNow()),
-			Continuum: K.ContinuumDomainMath.SnapshotContinuumPublic({
-				rank: continuumRank,
-				totalFluxSpent: continuum.TotalFluxSpent,
-				totalStardustSpent: continuum.TotalStardustSpent,
-				fluxCost: continuumFluxCost,
-				stardustCost: continuumStardustCost,
-				cash: profile.Cash,
-				stardust: profile.Stardust,
-				production: continuumProduction,
-				capacity: continuumCapacity,
-				tap: continuumTap,
-				offline: continuumOffline,
-				milestoneEvery: K.GameConfig.Continuum.MilestoneEvery,
-				Gte: K.Economy.Gte,
-			}),
-			ForgeEchoes: K.ForgeEchoService.State(profile),
-			ExpeditionBoard: ExpeditionBoardService.State(profile as Dict),
-			ForgePrograms: ForgeProgramsService.State(profile as Dict),
-			Ascension: this._ascensionPublic(profile),
-			RunCash: profile.RunCash,
-			LifetimeCash: profile.LifetimeCash,
-			Zone: profile.Zone,
-			CurrentZone: profile.CurrentZone,
-			Machines: copyDictionary(profile.Machines),
-			Research: copyDictionary(profile.Research),
-			GridUpgrades: copyDictionary(profile.GridUpgrades),
-			Specialization: K.Specializations.Snapshot(profile, K.Economy, os.time(), runtime, {
-				Production: baseProduction,
-				Capacity: capacity,
-			}),
-			BoostInventory: copyDictionary(profile.BoostInventory),
-			ActiveBoost: copyDictionary(profile.ActiveBoost),
-			Quests: copyDictionary((profile.Quests as Dict).Items),
-			Achievements: K.ProgressionService.AchievementStates(profile),
-			Daily: K.ProgressionService.DailyState(profile),
-			Wheel: K.ProgressionService.WheelState(profile),
-			Bazaar: K.BazaarService.State(profile, os.time(), player.UserId),
-			Sky: {
-				Retired: true,
-				Plotted: table.clone(orEmpty(charts.Plotted, () => ({}))),
-				Cipher: {
-					Solves: orElse(cipher.Solves, () => 0),
-					Best: orElse(cipher.Best, () => 0),
-				},
-			},
-			Command: K.ProgressionService.CommandState(profile),
-			ForgePath: K.ProgressionService.ForgePathState(profile),
-			TimedRewards: K.ProgressionService.TimedRewardState(profile),
-			Items: {
-				Inventory: copyDictionary(items.Inventory),
-				Equipped: copyDictionary(items.Equipped),
-				Essence: items.Essence,
-				Keys: copyDictionary(items.Keys),
-				Pity: copyDictionary(items.Pity),
-				InventoryLimit: K.GameConfig.Items.InventoryLimit,
-				Shop: itemShop,
-				ShopRefreshAt: nextUtcMidnight(),
-				AutoSalvage: K.AutoSalvageSnapshot.Public(items.AutoSalvage, copyDictionary),
-				Effects: K.ItemLoadoutMath.EffectsPublic(profile, K.Economy),
-				Discovered: copyDictionary(orElse(items.Discovered, () => ({}))),
-				CodexBonus: K.Economy.CodexBonus(profile),
-				Rigs: K.RelicRigs.Public(profile),
-				Recipes: { ...RelicRecipes.ensure(items.Recipes, os.time()), Paused: HotFlags.Get("RecipesPaused") },
-				EngravingPaused: HotFlags.Get("EngravingPaused"),
-			},
-			DailyShop: {
-				Day: isTable(dailyShop) && truthy(dailyShop.Day) ? dailyShop.Day : -1,
-				Bought: copyDictionary(isTable(dailyShop) && truthy(dailyShop.Bought) ? dailyShop.Bought : {}),
-				Owned: isTable(dailyShop) && isTable(dailyShop.Owned) ? copyDictionary(dailyShop.Owned) : undefined,
-			},
-			Cosmetics: {
-				CrateSkins: copyDictionary(isTable(cosmetics) && truthy(cosmetics.CrateSkins) ? cosmetics.CrateSkins : { Classic: true }),
-				CrateSkin: isTable(cosmetics) && truthy(cosmetics.CrateSkin) ? cosmetics.CrateSkin : "Classic",
-				ProfileAccent: ProfileStyle.read(cosmetics).Accent,
-				ProfileFrame: ProfileStyle.read(cosmetics).Frame,
-				// milestone counts the style picker shows unlocks against; the server re-checks on every pick
-				Facts: ProfileStyle.factsOf(profile),
-			},
-			Anomaly: K.AnomalyService.State(profile),
-			Lab: K.LabService.State(profile),
-			Guild: guildSnapshot,
-			GuildBonuses: copyDictionary(profile.GuildBonuses),
-			SocialBoost: K.SocialBoost.PublicSnapshot(profile.SocialBoost, K.GameConfig.Social.MaxBoostedFriends, copyDictionary),
-			SocialRewards: K.SocialBoost.CreatorRewardsPublic(profile.SocialRewards, K.ServerConfig.CreatorUsername),
-			Community: CommunityRewards.publicState(profile.SocialRewards, communityConfig()),
-			AutoForge: K.AutoSalvageSnapshot.PublicAutoForge(profile.AutoForge, copyDictionary),
-			Trade: truthy(this._trades) ? this._trades.StatePublic(profile, player, now) : K.TradeDesk.LockedPublic(),
-			Convergence: this._convergence.State(player, profile),
-			FeatureUnlocks: featureUnlocks,
-			Level: levelState,
-			Story: storyState,
-			Mailbox: K.StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
-			LimitedEvent: limitedEventPublic(profile, now),
-			Constellations: { ...Constellations.publicView(profile), Paused: HotFlags.Get("ConstellationsPaused") },
-			WeeklyBoard: {
-				Score: WeeklyBoard.scoreOf(profile, now),
-				EndsAt: WeeklyBoard.weekEndsAt(WeeklyBoard.weekOf(now)),
-			},
-			Admin: orElse(this._admin ? this._admin.State(player) : undefined, () => ({ Access: false })),
-			Settings: copyDictionary(profile.Settings),
-			Flags: copyDictionary(profile.Flags),
-			Stats: copyDictionary(profile.Stats),
-			Shop: K.ShopGrantEligibility.CatalogPublic(profile.OwnedPasses, copyDictionary),
-			Production: production,
-			RawProduction: K.Economy.RawProduction(profile),
-			Capacity: capacity,
-			CapacitySeconds: K.Economy.CapacitySeconds(profile, now),
-			SteadyProduction: K.Economy.SteadyProduction(profile, now),
-			FluxSurge: orElse(this._fluxSurge ? this._fluxSurge.State(now) : undefined, () => FluxSurgeService.IdleState()),
-			ServerEvent: this._events.State(player),
-			PermanentMultiplier: K.Economy.PermanentMultiplier(profile),
-			AutoCollectRate: K.Economy.AutoCollectRate(profile),
-			OfflineHours: K.Economy.OfflineHours(profile),
-			OfflineEfficiency: K.Economy.OfflineEfficiency(profile),
-			TapPower: K.Economy.TapPower(profile, now),
-			CriticalChance: K.Economy.CriticalChance(profile),
-			CriticalMultiplier: K.Economy.CriticalMultiplier(profile),
-			Overcharge: K.OverchargeCombo.PublicSnapshot({
-				combo: overchargeCombo,
-				comboMultiplier: overchargeMultiplier,
-				comboMax: K.GameConfig.Overcharge.ComboMax,
-				comboWindow: overchargeComboWindow(profile),
-				comboBonusPerStack: K.GameConfig.Overcharge.ComboBonusPerStack,
-			}),
-			PrestigeReward: prestigeReward,
-			NextPrestigeTarget: K.Economy.NextPrestigeTarget(K.Economy.PrestigeReward(K.Economy.Add(profile.RunCash, profile.Vault), num(profile.Rebirths) ?? 0), num(profile.Rebirths) ?? 0),
-			Rebirth: this._rebirthPublic(profile, now),
-			Revision: meta.Revision,
-			SnapshotId: runtime && truthy(runtime.SnapshotId) ? runtime.SnapshotId : 0,
-			ServerTime: now,
-			Telemetry: encodeTelemetry(
-				meta.Revision,
-				profile.Settings,
-				profile.Cash,
-				profile.Vault,
-				production,
-				capacity,
-				profile.Cores,
-				profile.Stardust,
-			),
-			Offline: K.OfflineProjection.PublicSnapshot({
-				runtime: runtime,
-				production: production,
-				vault: profile.Vault,
-				offlineHours: K.Economy.OfflineHours(profile),
-			}),
-			Visitors: this._visitorList(player),
-			Visit: K.VisitSnapshot.Resolve(this._visiting.get(player), Players.GetPlayers(), (host: Player) => this._data.Get(host), K.Economy),
-		};
+		return Snapshot.snapshot(this, player);
 	}
 
 	_trimUnchangedSections(runtime: Runtime | undefined, snapshot: Dict, force?: boolean) {
@@ -2440,81 +1390,7 @@ export class GameService {
 	}
 
 	_overcharge(player: Player) {
-		const runtime = this._runtime.get(player);
-		if (!runtime) {
-			return responseError(T("GameService.ShopSStillLoading"));
-		}
-		const profileForCombo = this._data.Get(player);
-		const nowClock = os.clock();
-		if (nowClock - (runtime.LastTap as number) < 0.06) {
-			return responseError(T("GameService.OverchargeIsCoolingDown"));
-		}
-		let previousCombo = math.max(0, math.floor(num(runtime.TapCombo) ?? 0));
-		if (
-			nowClock - (runtime.LastTap as number) >
-			overchargeComboWindow(profileForCombo) * (this._events.ComboWindowMultiplier() as number)
-		) {
-			previousCombo = 0;
-		}
-		const combo = math.min(OVERCHARGE_COMBO_MAX, previousCombo + 1);
-		const comboMultiplier = overchargeComboMultiplier(profileForCombo, combo);
-		runtime.LastTap = nowClock;
-		runtime.TapCombo = combo;
-
-		const result = this._mutate(
-			player,
-			(profile: Profile) => {
-				const capacity = K.Economy.Capacity(profile);
-				const room = K.Economy.Sub(capacity, profile.Vault);
-				if (truthy(K.Economy.Lte(room, 0.01))) {
-					return responseError(T("GameService.YourVaultIsFullBank"));
-				}
-				const critical = this._random.NextNumber() <= (K.Economy.CriticalChance(profile) as number) + (this._events.CritBonus() as number);
-				let amount = K.Economy.TapPower(profile);
-				const eventTap = this._events.TapMultiplier();
-				if (eventTap !== 1) {
-					amount = K.Economy.Mul(amount, eventTap);
-				}
-				if (critical) {
-					amount = K.Economy.Mul(amount, K.Economy.CriticalMultiplier(profile));
-				}
-				if (comboMultiplier > 1) {
-					amount = K.Economy.Mul(amount, comboMultiplier);
-				}
-				amount = K.Economy.Min(room, amount);
-				profile.Vault = K.Economy.Add(profile.Vault, amount);
-				bumpStat(profile, "Taps", 1);
-				K.LabService.Progress(profile, "Tap", 1);
-				K.ProgressionService.Progress(profile, "Tap", 1);
-				K.ProgressionService.AwardCommandXP(profile, 1);
-				K.ForgeEchoService.Record(profile, "Surge", 1);
-				return responseSuccess(undefined, {
-					Amount: amount,
-					Critical: critical,
-					Combo: combo,
-					ComboMultiplier: comboMultiplier,
-					ComboMax: OVERCHARGE_COMBO_MAX,
-					ComboWindow: overchargeComboWindow(profile) * (this._events.ComboWindowMultiplier() as number),
-				});
-			},
-			false,
-			"overcharge",
-		);
-		if (truthy(result.ok)) {
-			this._events.OnTap(player);
-			this._effect.fire(player, {
-				Type: "Overcharge",
-				Amount: result.Amount,
-				Critical: result.Critical,
-				Combo: result.Combo,
-				ComboMultiplier: result.ComboMultiplier,
-				ComboMax: result.ComboMax,
-				ComboWindow: result.ComboWindow,
-			});
-		} else {
-			runtime.TapCombo = previousCombo;
-		}
-		return result;
+		return BoostDomain.overcharge(this, player);
 	}
 
 	_buyMachine(player: Player, machineId: unknown, requestedAmount?: unknown) {
@@ -2608,73 +1484,7 @@ export class GameService {
 
 	// Forge Programs: carry out the rules that are due, each through the same action a button uses
 	_tickForgePrograms(player: Player, runtime: Runtime) {
-		const live = this._data.Get(player) as Profile | undefined;
-		if (live === undefined || !ForgePrograms.unlocked(live) || ForgePrograms.rulesOf(live).size() === 0) {
-			return;
-		}
-		const now = os.time();
-		const cash = live.Cash;
-		let cheapest: string | undefined;
-		let cheapestCost: unknown;
-		for (const machine of K.GameConfig.Machines as unknown as Dict[]) {
-			const id = machine.Id as string;
-			const level = (num((live.Machines as Dict)[id]) ?? 0) as number;
-			if (level >= (machine.MaxLevel as number) || truthy(K.ProgressionGate.UpgradeReason(live, machine, live.Machines))) {
-				continue;
-			}
-			const cost = K.Economy.MachineCost(id, level);
-			if (truthy(K.Economy.Gt(cost, cash))) {
-				continue;
-			}
-			if (cheapest === undefined || truthy(K.Economy.Lt(cost, cheapestCost))) {
-				cheapest = id;
-				cheapestCost = cost;
-			}
-		}
-		const items = live.Items as Dict;
-		const busy = new Set<unknown>();
-		for (const [, uid] of pairs(items.Equipped as Dict)) busy.add(uid);
-		const commons: { Uid: string; At: number }[] = [];
-		for (const [uid, instance] of pairs(items.Inventory as Dict)) {
-			const inst = instance as Dict;
-			const definition = itemById[inst.DefinitionId as string] as Dict | undefined;
-			if (definition !== undefined && definition.Rarity === "Common" && inst.Locked !== true && !busy.has(uid)) {
-				commons.push({ Uid: uid as string, At: (num(inst.AcquiredAt) ?? 0) as number });
-			}
-		}
-		const quote = this._rebirthPublic(live, now);
-		const runs = quote.Runs as Array<{ Cores?: unknown }> | undefined;
-		const last = runs !== undefined && runs.size() > 0 ? runs[runs.size() - 1] : undefined;
-		const steps = ForgeProgramsService.Due(live as Dict, runtime as Dict, {
-			Now: now,
-			Rebirths: (num(live.Rebirths) ?? 0) as number,
-			RebirthReady: quote.Ready === true,
-			RebirthCores: K.Economy.AsNumber(quote.Cores) as number,
-			LastRunCores: last !== undefined ? (K.Economy.AsNumber(last.Cores ?? 0) as number) : 0,
-			CheapestAffordable: cheapest,
-			CommonCount: commons.size(),
-		});
-		let changed = false;
-		for (const step of steps) {
-			let result: Response | undefined;
-			if (step.Do === "BuyCheapestMachine" && cheapest !== undefined) {
-				result = this._buyMachine(player, cheapest, 1);
-			} else if (step.Do === "Rebirth") {
-				result = this._rebirth(player, {});
-			} else if (step.Do === "SalvageCommons") {
-				// the oldest commons go first, down to the number the rule keeps
-				commons.sort((a, b) => (a.At !== b.At ? a.At < b.At : a.Uid < b.Uid));
-				const uids: string[] = [];
-				for (let i = 0; i < math.min(48, commons.size() - (step.Arg ?? 50)); i++) uids.push(commons[i].Uid);
-				if (uids.size() > 0) result = this._bulkSalvageItems(player, uids);
-			} else if (step.Do === "EquipBest") {
-				result = this._equipBestItems(player);
-			}
-			changed = changed || (result !== undefined && truthy(result.ok));
-		}
-		if (changed) {
-			this._queueStatePush(player);
-		}
+		return Automation.tickForgePrograms(this, player, runtime);
 	}
 
 	_programAct(player: Player, payload: unknown) {
@@ -2685,71 +1495,7 @@ export class GameService {
 	}
 
 	_tickAutoForge(player: Player) {
-		const live = this._data.Get(player) as Profile | undefined;
-		const queue = live ? live.AutoForge : undefined;
-		if (!live || !isTable(queue) || queue.Enabled !== true) {
-			return;
-		}
-		const machineFound = K.Economy.GetMachine(queue.MachineId);
-		if (!truthy(machineFound)) {
-			return;
-		}
-		const machine = machineFound as Dict;
-		const machineId = machine.Id as string;
-		const maxLevel = machine.MaxLevel as number;
-		const level = orElse((live.Machines as Dict)[machineId], () => 0) as number;
-		const reserve = math.clamp(num(queue.Reserve) ?? 0.25, 0, 0.9);
-		if (level < maxLevel) {
-			const lockReason = K.ProgressionGate.UpgradeReason(live, machine, live.Machines);
-			const cost = K.Economy.MachineCost(machineId, level);
-			if (truthy(lockReason) || truthy(K.Economy.Gt(cost, K.Economy.Mul(live.Cash, 1 - reserve)))) {
-				return;
-			}
-		}
-
-		const [ok, result] = this._data.AtomicUpdate(
-			player,
-			(profile: Profile) => {
-				const current = profile.AutoForge;
-				if (!isTable(current) || current.Enabled !== true || current.MachineId !== machineId) {
-					return responseError(T("GameService.AutoForgeChangedBeforePurchase"));
-				}
-				const machines = profile.Machines as Dict;
-				const currentLevel = orElse(machines[machineId], () => 0) as number;
-				if (currentLevel >= maxLevel) {
-					current.Enabled = false;
-					return responseSuccess(T("GameService.AutoForgePausedAtMaximum"));
-				}
-				if (truthy(K.ProgressionGate.UpgradeReason(profile, machine, profile.Machines))) {
-					return responseError(T("GameService.AutoForgeTargetIsStill"));
-				}
-				const currentReserve = math.clamp(num(current.Reserve) ?? 0.25, 0, 0.9);
-				const remaining = maxLevel - currentLevel;
-				const spendable = K.Economy.Mul(profile.Cash, 1 - currentReserve);
-				const [count, cost] = K.Economy.AffordableMachineLevels(machineId, currentLevel, spendable, remaining) as LuaTuple<[number, unknown]>;
-				if (count < 1) {
-					return responseError(T("GameService.AutoForgeIsPreservingIts"));
-				}
-				profile.Cash = K.Economy.Sub(profile.Cash, cost);
-				machines[machineId] = currentLevel + count;
-				bumpStat(profile, "MachinesBought", count);
-				current.Bought = math.max(0, math.floor(num(current.Bought) ?? 0)) + count;
-				K.LabService.Progress(profile, "BuyLevels", count);
-				const mastery = ensureCommandMastery(profile);
-				mastery[machineId] = (num(mastery[machineId]) ?? 0) + count;
-				K.ProgressionService.Progress(profile, "BuyMachine", count);
-				K.ProgressionService.AwardCommandXP(profile, count * 5);
-				K.ForgeEchoService.Record(profile, "Build", math.clamp(2 + count * 0.8, 2, 12));
-				enforceUnlimitedMoney(profile);
-				this._antiCheat.Observe(player, "AutoForge", profile);
-				return responseSuccess(count === 1 ? T("GameService.AutoForgeBoughtAMachine") : T("GameService.AutoForgeBoughtDMachine", count));
-			},
-			true,
-			"auto-forge",
-		) as LuaTuple<[unknown, unknown]>;
-		if (truthy(ok) && isTable(result) && result.ok === true) {
-			this._queueStatePush(player);
-		}
+		return Automation.tickAutoForge(this, player);
 	}
 
 	_buyResearch(player: Player, researchId: unknown, requestedAmount?: unknown) {
@@ -2905,111 +1651,7 @@ export class GameService {
 	}
 
 	_rebirth(player: Player, rawPayload: unknown) {
-		const payload = (typeIs(rawPayload, "table") ? rawPayload : {}) as Dict;
-		const result = this._mutate(player, (profile: Profile) => {
-			const now = os.time();
-			const rebirthConfig = (K.GameConfig.Economy.Rebirth as Dict | undefined) ?? ({} as Dict);
-			const ledger = rebirthLedger(profile, now);
-			const [run, bank] = rebirthRun(profile, now, ledger) as LuaTuple<[Dict, unknown]>;
-			const [baseReward, stardustBase] = rebirthBase(profile, bank) as LuaTuple<[unknown, number]>;
-			if (baseReward === undefined) {
-				return responseError(T("GameService.BankAtLeastSRun", (K.Format.Number as Fn)(K.Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0))));
-			}
-			if (payload.Keep !== undefined) {
-				K.RebirthMath.setKeep(ledger, payload.Keep);
-			}
-			const quote = K.RebirthMath.quote(
-				ledger,
-				{
-					Cores: K.Economy.AsNumber(baseReward),
-					Stardust: stardustBase,
-				},
-				run,
-			) as Dict;
-			const reward = K.Economy.Max(1, K.Economy.Floor(K.Economy.Mul(baseReward, quote.CoreMultiplier)));
-			const stardustReward = quote.Stardust as number;
-			const bankedVault = profile.Vault;
-			const multiplierBefore = K.Economy.PermanentMultiplier(profile);
-			// cores are capped at 1e14 like Stardust (DataService clamps on load and save)
-			profile.Cores = math.clamp((num(profile.Cores) ?? 0) + math.max(0, (K.Economy.AsNumber(reward) as number)), 0, 1e14);
-			profile.Stardust = math.clamp((tonumber(profile.Stardust) ?? 0) + stardustReward, 0, 1e14);
-			if (!typeIs(profile.BoostInventory, "table")) {
-				profile.BoostInventory = {};
-			}
-			const boostInventory = profile.BoostInventory as Dict;
-			const celebrationBoost = (rebirthConfig.CelebrationBoostId as string | undefined) ?? "Overdrive";
-			const bonusCount = math.max(0, math.floor(tonumber(rebirthConfig.BonusOverdrive) ?? 1));
-			if (bonusCount > 0 && truthy(K.GameConfig.Boosts[celebrationBoost])) {
-				boostInventory[celebrationBoost] = ((boostInventory[celebrationBoost] as number | undefined) ?? 0) + bonusCount;
-			}
-			const carry = K.RebirthMath.carry(
-				ledger,
-				profile.Machines,
-				K.Economy.AsNumber(profile.Vault),
-				K.GameConfig.Economy.StartingCash,
-				keepsakeAllowed(profile),
-			) as Dict;
-			const entry = K.RebirthMath.close(ledger, quote, now, typeIs(payload.Vow, "string") ? payload.Vow : undefined, undefined) as Dict;
-			// BALANCE v8: a run shorter than MinCountedRunSeconds pays out but doesn't move the rebirth count
-			const minCounted = num(rebirthConfig.MinCountedRunSeconds) ?? 0;
-			const counted = (num(run.Seconds) ?? 0) >= minCounted;
-			if (counted) {
-				profile.Rebirths = (profile.Rebirths as number) + 1;
-			}
-			ResetSpec.applyReset(ResetSpec.Rebirth, profile as Dict, resetContext(carry));
-			const vow = K.RebirthMath.vow(quote.Vow) as Dict | undefined;
-			const vowLine =
-				vow !== undefined && truthy(quote.Kept)
-					? " " + (vow.Name as string) + " kept."
-					: vow !== undefined
-						? " " + (vow.Name as string) + " broken."
-						: "";
-			// reward can be a persisted big-number string, so %d would throw on late-game rebirths
-			return responseSuccess(
-				"Rebirth " +
-					tostring(entry.N) +
-					", grade " +
-					tostring(quote.Grade) +
-					". +" +
-					(K.Format.Number as Fn)(reward) +
-					" cores, +" +
-					(K.Format.Number as Fn)(stardustReward) +
-					" Stardust." +
-					vowLine,
-				{
-					Rebirths: profile.Rebirths,
-					MultiplierBefore: multiplierBefore,
-					MultiplierAfter: K.Economy.PermanentMultiplier(profile),
-					Reward: reward,
-					StardustReward: stardustReward,
-					BankedVault: bankedVault,
-					CelebrationBoost: bonusCount > 0 ? celebrationBoost : undefined,
-					NextTarget: K.Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0),
-					Counted: counted,
-					Grade: quote.Grade,
-					Vow: quote.Vow,
-					VowKept: quote.Kept,
-					Seconds: entry.Seconds,
-					Carried: carry.Machines,
-					NextVow: ledger.Vow,
-					StarLit: (K.RebirthMath.pendingStars(ledger) as unknown[]).size() > 0,
-				},
-			);
-		});
-		if (truthy(result.ok)) {
-			this._effect.broadcast({
-				Type: "Rebirth",
-				UserId: player.UserId,
-				Position: this._world.GetPlotPosition(player),
-				Reward: result.Reward,
-				StardustReward: result.StardustReward,
-				BankedVault: result.BankedVault,
-				CelebrationBoost: result.CelebrationBoost,
-				Grade: result.Grade,
-				VowKept: result.VowKept,
-			});
-		}
-		return result;
+		return Rebirth.rebirth(this, player, rawPayload);
 	}
 
 	// between rebirths: light a star, swear or drop a vow, choose keepsakes
@@ -3564,88 +2206,7 @@ export class GameService {
 	}
 
 	_buyDailyOffer(player: Player, slot: unknown) {
-		if (!typeIs(slot, "number") || slot !== slot) {
-			return responseError(T("GameService.ThatDailyOfferDoesNot"));
-		}
-		const [ShopCatalog] = shopShared();
-		const now = os.time();
-		const day = ShopCatalog.day(now);
-		const policy = PolicyGate.Get(player);
-		return this._mutate(player, (profile: Profile) => {
-			const cosmetics = K.ProfileBagMath.EnsureCosmetics(profile, (id: unknown) => ShopCatalog.skin(id) !== undefined) as Dict;
-			const shop = K.ProfileBagMath.EnsureDailyShop(profile, day, cosmetics.CrateSkins) as Dict;
-			const offers = ShopCatalog.roll(player.UserId, day, shop.Owned) as Dict[];
-			const offer = offers[math.floor(slot) - 1];
-			if (offer === undefined) {
-				return responseError(T("GameService.ThatDailyOfferDoesNot"));
-			}
-			const policyNote = PlayPolicy.offerBlocked(policy, offer);
-			if (policyNote !== undefined) {
-				return responseError(policyNote);
-			}
-			const bought = shop.Bought as Dict;
-			if ((ShopCatalog.remaining(offer, bought) as number) <= 0) {
-				return responseError(T("GameService.YouVeBoughtAllOf"));
-			}
-			const crateSkins = cosmetics.CrateSkins as Dict;
-			if (offer.Kind === "Skin" && crateSkins[offer.SkinId as string] === true) {
-				return responseError(T("GameService.YouAlreadyOwnThatSkin"));
-			}
-			if (offer.Kind === "Cache" && (inventoryCount(profile) as number) >= (K.GameConfig.Items.InventoryLimit as number)) {
-				return responseError(T("GameService.YourRelicInventoryIsFull"));
-			}
-			const denied = spendShopCurrency(profile, offer.Currency as string, offer.Price as number);
-			if (denied !== undefined) {
-				return responseError(denied);
-			}
-			const items = K.ProfileBagMath.EnsureItems(profile) as Dict;
-			const keys = items.Keys as Dict;
-			const detail: Dict = { Slot: offer.Slot, Kind: offer.Kind };
-			if (offer.Kind === "Key") {
-				keys[offer.CrateId as string] = ((keys[offer.CrateId as string] as number | undefined) ?? 0) + (offer.Amount as number);
-			} else if (offer.Kind === "Essence") {
-				items.Essence = (items.Essence as number) + (offer.Amount as number);
-			} else if (offer.Kind === "Boost") {
-				const inventory = ensureBoostInventory(profile) as Dict;
-				inventory[offer.BoostId as string] = math.floor(tonumber(inventory[offer.BoostId as string]) ?? 0) + (offer.Amount as number);
-			} else if (offer.Kind === "Flux") {
-				const generated = K.Economy.Max(500, K.Economy.Mul(K.Economy.SteadyProduction(profile), 60 * (offer.Minutes as number)));
-				profile.Cash = K.Economy.Add(profile.Cash, generated);
-				profile.RunCash = K.Economy.Add(profile.RunCash, generated);
-				profile.LifetimeCash = K.Economy.Add(profile.LifetimeCash, generated);
-			} else if (offer.Kind === "Skin") {
-				crateSkins[offer.SkinId as string] = true;
-			} else if (offer.Kind === "Cache") {
-				const candidates = RelicModel.definitionsOfRarity(offer.Rarity) as unknown as Dict[];
-				if (candidates.size() === 0) {
-					return responseError(T("GameService.ThatCacheIsEmpty"));
-				}
-				const definition = candidates[this._random.NextInteger(0, candidates.size() - 1)];
-				const discovered = typeIs(items.Discovered, "table") ? (items.Discovered as Dict) : ({} as Dict);
-				const wasOwned = discovered[definition.Id as string] === true;
-				const uid = this._createItem(profile, definition.Id as string);
-				if (uid === undefined) {
-					return responseError(T("GameService.YourRelicInventoryIsFull"));
-				}
-				detail.Rolls = [
-					{
-						Uid: uid,
-						DefinitionId: definition.Id,
-						Rarity: definition.Rarity,
-						New: !wasOwned,
-						Pity: false,
-						AutoSalvaged: false,
-						Essence: 0,
-					},
-				];
-			} else {
-				return responseError(T("GameService.ThatOfferIsMisconfigured"));
-			}
-			const key = tostring(offer.Slot);
-			bought[key] = ((bought[key] as number | undefined) ?? 0) + 1;
-			bumpStat(profile, "ShopPurchases", 1);
-			return responseSuccess((offer.Name as string) + " bought.", detail);
-		});
+		return ShopDomain.buyDailyOffer(this, player, slot);
 	}
 
 	_buyCrateSkin(player: Player, id: unknown) {
@@ -3734,96 +2295,7 @@ export class GameService {
 	}
 
 	_openItemCrate(player: Player, crateId: unknown, rawCount: unknown) {
-		if (HotFlags.Get("CratesPaused")) {
-			return responseError(T("GameService.CrateDecodingIsPausedFor"));
-		}
-		if (!typeIs(crateId, "string") || crateById[crateId] === undefined) {
-			return responseError(T("GameService.ThatCrateChannelDoesNot"));
-		}
-		const [count, countError] = K.CrateRoll.NormalizeOpenCount(rawCount) as LuaTuple<[number | undefined, unknown]>;
-		if (count === undefined) {
-			return responseError(truthy(countError) ? countError : T("GameService.CratesCanBeOpenedOne"));
-		}
-		const crate = crateById[crateId] as Dict;
-		return this._mutate(player, (profile: Profile) => {
-			const items = K.ProfileBagMath.EnsureItems(profile) as Dict;
-			const keys = items.Keys as Dict;
-			if (((keys[crateId] as number | undefined) ?? 0) < count) {
-				return responseError(
-					T("GameService.YouNeedDMoreS", count - ((keys[crateId] as number | undefined) ?? 0), crate.Name as string),
-				);
-			}
-			const autoRules = ensureAutoSalvage(profile) as Dict;
-			const ownedPasses = profile.OwnedPasses as Dict | undefined;
-			const autoEnabled = autoRules.Enabled === true && ownedPasses !== undefined && ownedPasses.AutoSalvage === true;
-
-			const guaranteedRecycle = K.CrateRoll.GuaranteedRecycle(crate.Weights, autoEnabled, autoRules.KeepNew, autoRules.Rarities);
-			const requiredSlots = K.CrateRoll.RequiredSlots(count, guaranteedRecycle) as number;
-			if ((inventoryCount(profile) as number) + requiredSlots > (K.GameConfig.Items.InventoryLimit as number)) {
-				return responseError(T("GameService.YourItemInventoryDoesNot"));
-			}
-			keys[crateId] = (keys[crateId] as number) - count;
-			const rolls: Dict[] = [];
-			const cosmetics = K.ProfileBagMath.EnsureCosmetics(profile) as Dict;
-			const shopCatalog = K.SharedDataSuite("ShopCatalog") as Kit;
-			const equippedSkin = shopCatalog.skin(cosmetics.CrateSkin) as Dict | undefined;
-			const pityStep = K.CrateExpansion.pityStep(cosmetics, equippedSkin) as number;
-			const rarities = autoRules.Rarities as Dict;
-			const pityBag = items.Pity as Dict;
-			for (let index = 0; index < count; index++) {
-				const pity = (pityBag[crateId] as number | undefined) ?? 0;
-				const [definition, rarity, pityHit] = this._rollItemDefinition(crate, pity) as LuaTuple<[Dict | undefined, string, unknown]>;
-				if (definition === undefined) {
-					return responseError(T("GameService.ThatCrateHasNoValid"));
-				}
-				if (!typeIs(items.Discovered, "table")) {
-					items.Discovered = {};
-				}
-				const discovered = items.Discovered as Dict;
-				const wasOwned = discovered[definition.Id as string] === true;
-				const shouldAutoSalvage = autoEnabled && rarities[rarity] === true && !(autoRules.KeepNew !== false && !wasOwned);
-				let uid: string | undefined;
-				let autoEssence = 0;
-				if (shouldAutoSalvage) {
-					autoEssence = K.CrateExpansion.salvageEssence(
-						cosmetics,
-						equippedSkin,
-						itemSalvageValue({ Level: 1 } as Dict, definition),
-					) as number;
-					items.Essence = (items.Essence as number) + autoEssence;
-					bumpStat(profile, "ItemsFound", 1);
-					bumpStat(profile, "ItemsSalvaged", 1);
-					discovered[definition.Id as string] = true;
-					uid = string.format("AUTO%07d", items.NextId as number);
-					items.NextId = (items.NextId as number) + 1;
-				} else {
-					uid = this._createItem(profile, definition.Id as string);
-					if (uid === undefined) {
-						return responseError(T("GameService.TheCrateDecoderRanOut"));
-					}
-				}
-				pityBag[crateId] = truthy(pityHit) ? 0 : pity + pityStep;
-				rolls[index] = {
-					Uid: uid,
-					DefinitionId: definition.Id,
-					Rarity: rarity,
-					New: !wasOwned,
-					Pity: pityHit,
-					AutoSalvaged: shouldAutoSalvage,
-					Essence: autoEssence,
-				};
-			}
-			const skinBonus = K.CrateExpansion.openBonus(cosmetics, equippedSkin, count) as number;
-			items.Essence = (items.Essence as number) + skinBonus;
-			bumpStat(profile, "CratesOpened", count);
-			K.LabService.Progress(profile, "OpenCrate", count);
-			return responseSuccess(T("GameService.DecodedDSS", count, crate.Name as string, count === 1 ? "" : "s"), {
-				Rolls: rolls,
-				CrateId: crateId,
-				Pity: pityBag[crateId],
-				SkinEssence: skinBonus,
-			});
-		});
+		return CrateOpening.openItemCrate(this, player, crateId, rawCount);
 	}
 
 	_equipItem(player: Player, uid: unknown, target: unknown) {
@@ -4328,134 +2800,7 @@ export class GameService {
 	}
 
 	_domainExpansion(player: Player) {
-		let details: Dict | undefined;
-		const result = this._mutate(player, (profile: Profile) => {
-			if (!typeIs(profile.Domain, "table")) {
-				profile.Domain = {
-					Rank: 0,
-					Essence: 0,
-					LastExpandedAt: 0,
-					TotalRebirthsSpent: 0,
-					TotalCoresSpent: 0,
-				};
-			}
-			const domain = profile.Domain as Dict;
-			const expansion = ((K.GameConfig.Domain as Dict).Expansion as Dict | undefined) ?? ({} as Dict);
-			const cooldown = math.max(1, math.floor(tonumber(expansion.CooldownSeconds) ?? 6));
-			const rank = math.max(0, math.floor(tonumber(domain.Rank) ?? 0));
-			if (os.time() - math.max(0, math.floor(tonumber(domain.LastExpandedAt) ?? 0)) < cooldown) {
-				return responseError(T("GameService.RealityIsStillSettling"));
-			}
-			const [requiredRebirths, requiredCores] = K.Economy.DomainRequirements(rank) as LuaTuple<[number, number]>;
-			if (!truthy(K.RebirthGate.MeetsRequired(profile.Rebirths, requiredRebirths))) {
-				return responseError(T("GameService.DomainRankDRequiresD", rank + 1, requiredRebirths));
-			}
-			if ((profile.Cores as number) < requiredCores) {
-				return responseError(T("GameService.DomainRankDRequiresD2", rank + 1, requiredCores));
-			}
-
-			const [baseEssence, baseStardust] = K.Economy.DomainRewards(rank) as LuaTuple<[number, number]>;
-			let essenceReward = baseEssence;
-			const spentRebirths = profile.Rebirths as number;
-			const spentCores = profile.Cores as number;
-			const overflowRebirths = math.max(0, spentRebirths - requiredRebirths);
-			const overflowCores = math.max(0, spentCores - requiredCores);
-			const overflowRebirthScale = tonumber(expansion.OverflowRebirthScale) ?? 18;
-			const overflowCoreScale = tonumber(expansion.OverflowCoreSqrtScale) ?? 6;
-			const overflowReward = math.floor(overflowRebirths * overflowRebirthScale + math.sqrt(overflowCores) * overflowCoreScale);
-			const nextRank = rank + 1;
-			domain.Rank = nextRank;
-			if (!typeIs(domain.Links, "table")) {
-				domain.Links = {};
-			}
-			domain.SkillPoints =
-				math.max(0, math.floor(tonumber(domain.SkillPoints) ?? 0)) +
-				(((K.GameConfig.Domain as Dict).SkillPointPerRank as number | undefined) ?? 2);
-			essenceReward += K.Economy.DomainTreeBonus(profile, "EssenceGain") as number;
-			essenceReward = math.floor(
-				math.min(1e300, essenceReward * math.max(1, K.Economy.AsNumber(K.Economy.AscensionEffect(profile, "Essence") as number) as number)),
-			);
-			domain.Essence = math.max(0, math.floor(tonumber(domain.Essence) ?? 0)) + essenceReward;
-			domain.LastExpandedAt = os.time();
-			domain.TotalRebirthsSpent = math.max(0, math.floor(tonumber(domain.TotalRebirthsSpent) ?? 0)) + spentRebirths;
-			domain.TotalCoresSpent = math.max(0, math.floor(tonumber(domain.TotalCoresSpent) ?? 0)) + spentCores;
-
-			K.ForgeEchoService.Record(profile, "Explore", 14);
-
-			profile.Cash = K.GameConfig.Economy.StartingCash;
-			profile.Vault = 0;
-			profile.Cores = 0;
-			profile.Rebirths = 0;
-			profile.RunCash = 0;
-			profile.Zone = 1;
-			profile.CurrentZone = 1;
-			profile.Machines = { StellarCore: 1 };
-			const autoForge = profile.AutoForge as Dict | undefined;
-			if (autoForge !== undefined) {
-				autoForge.Enabled = false;
-				autoForge.MachineId = "StellarCore";
-			}
-			const items = profile.Items as Dict | undefined;
-			if (items !== undefined && typeIs(items.Equipped, "table")) {
-				const equipped = items.Equipped as Dict;
-				for (const [target] of pairs(equipped)) {
-					const [slot] = tostring(target).match("^(%a+):");
-					if (slot === "Machine") {
-						equipped[target as string] = undefined;
-					}
-				}
-			}
-			const lab = profile.Lab as Dict | undefined;
-			if (lab !== undefined) {
-				lab.Routing = {
-					Production: ((K.GameConfig.Lab as unknown as Dict).Power as Dict).BaseCells,
-					Storage: 0,
-					Tap: 0,
-				};
-			}
-
-			const stardustReward = baseStardust + overflowReward;
-			profile.Stardust = math.clamp((tonumber(profile.Stardust) ?? 0) + stardustReward, 0, 1e14);
-			const freeSpins = math.max(0, math.floor(tonumber(expansion.FreeSpins) ?? 3));
-			const wheel = profile.Wheel as Dict;
-			wheel.FreeSpins = ((wheel.FreeSpins as number | undefined) ?? 0) + freeSpins;
-			const bonusBoostId = (expansion.BonusBoostId as string | undefined) ?? (K.GameConfig.Domain as Dict).SurgeBoostId;
-			const bonusBoostCount = math.max(1, math.floor(tonumber(expansion.BonusBoostCount) ?? 1));
-			const boostInventory = profile.BoostInventory as Dict;
-			if (truthy(K.GameConfig.Boosts[bonusBoostId as string])) {
-				boostInventory[bonusBoostId as string] = ((boostInventory[bonusBoostId as string] as number | undefined) ?? 0) + bonusBoostCount;
-			}
-			boostInventory.Hyperdrive = ((boostInventory.Hyperdrive as number | undefined) ?? 0) + 2;
-			boostInventory.Overdrive = ((boostInventory.Overdrive as number | undefined) ?? 0) + 3;
-			boostInventory.VaultSurge = ((boostInventory.VaultSurge as number | undefined) ?? 0) + 2;
-			const surge = K.GameConfig.Boosts[(K.GameConfig.Domain as Dict).SurgeBoostId as string] as Dict;
-			profile.ActiveBoost = { Id: surge.Id, EndsAt: os.time() + (surge.Duration as number) };
-
-			details = {
-				DomainRank: nextRank,
-				DomainEssence: essenceReward,
-				StardustReward: stardustReward,
-				OverflowReward: overflowReward,
-				ConsumedRebirths: spentRebirths,
-				ConsumedCores: spentCores,
-				BoostEndsAt: (profile.ActiveBoost as Dict).EndsAt,
-				FreeSpins: freeSpins,
-				BonusBoost: bonusBoostId,
-			};
-			const [nextRequiredRebirths, nextRequiredCores] = K.Economy.DomainRequirements(nextRank) as LuaTuple<[number, number]>;
-			details.NextRequiredRebirths = nextRequiredRebirths;
-			details.NextRequiredCores = nextRequiredCores;
-			return responseSuccess(T("GameService.DomainDEstablishedRealityNow", nextRank), details);
-		});
-		if (truthy(result.ok)) {
-			this._effect.broadcast({
-				Type: "DomainExpansion",
-				UserId: player.UserId,
-				Rank: details !== undefined ? details.DomainRank : 0,
-				Position: this._world.GetPlotPosition(player),
-			});
-		}
-		return result;
+		return DomainExpansion.domainExpansion(this, player);
 	}
 
 	// Ascension: the infinite final reset. Resets the Domain, rebirths, cores and the run; pays Aether.
@@ -4985,241 +3330,7 @@ export class GameService {
 	}
 
 	_guildAction(player: Player, action: string, rawPayload: unknown) {
-		let payload = (typeIs(rawPayload, "table") ? rawPayload : {}) as Dict;
-		if (
-			action === K.Protocol.Actions.SendGuildChat ||
-			action === K.Protocol.Actions.GetGuildChatHistory ||
-			action === K.Protocol.Actions.GetGuildAnnouncements ||
-			action === K.Protocol.Actions.GetGuildSettings ||
-			action === K.Protocol.Actions.GetGuildLogoReview ||
-			action === K.Protocol.Actions.SetGuildSettings ||
-			action === K.Protocol.Actions.CreateGuildAnnouncement ||
-			action === K.Protocol.Actions.EditGuildAnnouncement ||
-			action === K.Protocol.Actions.PinGuildAnnouncement ||
-			action === K.Protocol.Actions.ArchiveGuildAnnouncement ||
-			action === K.Protocol.Actions.SetGuildAnnouncementExpiry ||
-			action === K.Protocol.Actions.MuteGuildMember ||
-			action === K.Protocol.Actions.UnmuteGuildMember ||
-			action === K.Protocol.Actions.BanGuildMember ||
-			action === K.Protocol.Actions.UnbanGuildMember ||
-			action === K.Protocol.Actions.UploadGuildLogo ||
-			action === K.Protocol.Actions.ModerateGuildLogo
-		) {
-			return this._guildCommunity.Handle(player, action, payload);
-		}
-
-		if (
-			action === K.Protocol.Actions.KickGuildMember ||
-			action === K.Protocol.Actions.SetGuildRole ||
-			action === K.Protocol.Actions.BuyGuildUpgrade
-		) {
-			const profile = this._data.Get(player) as Profile | undefined;
-			if (profile === undefined) {
-				return responseError(T("GuildCommunity.YourProfileIsNotReady"));
-			}
-			let ok: unknown;
-			let message: unknown;
-			let guild: unknown;
-			let previousActivity = 0;
-			if (action === K.Protocol.Actions.BuyGuildUpgrade) {
-				const before = this._guilds.GetCachedPublic(typeIs(profile.Guild, "table") ? (profile.Guild as Dict).Id : "") as Dict | undefined;
-				previousActivity = before !== undefined ? (tonumber(before.Activity) ?? 0) : 0;
-			}
-			if (action === K.Protocol.Actions.KickGuildMember) {
-				const [kicked, kickMessage, kickGuild] = this._guilds.Kick(player, profile, payload.UserId ?? payload.Id) as LuaTuple<
-					[unknown, unknown, unknown]
-				>;
-				ok = kicked;
-				message = kickMessage;
-				guild = kickGuild;
-				if (truthy(ok)) {
-					const target = Players.GetPlayerByUserId(tonumber(payload.UserId ?? payload.Id) ?? 0);
-					if (target !== undefined) {
-						this._data.AtomicUpdate(
-							target,
-							(victimProfile: Profile) => {
-								victimProfile.Guild = { Id: "", Role: "", JoinedAt: 0, Tag: "" };
-								victimProfile.GuildBonuses = emptyBonuses();
-								return { ok: true };
-							},
-							true,
-							"guild-kick",
-						);
-						this._pushState(target);
-					}
-				}
-			} else if (action === K.Protocol.Actions.SetGuildRole) {
-				const [setOk, setMessage, setGuild] = this._guilds.SetRole(player, profile, payload.UserId ?? payload.Id, payload.Role) as LuaTuple<
-					[unknown, unknown, unknown]
-				>;
-				ok = setOk;
-				message = setMessage;
-				guild = setGuild;
-			} else {
-				const [buyOk, buyMessage, buyGuild] = this._guilds.BuyUpgrade(player, profile, payload.Id) as LuaTuple<[unknown, unknown, unknown]>;
-				ok = buyOk;
-				message = buyMessage;
-				guild = buyGuild;
-			}
-			if (!truthy(ok)) {
-				return responseError(message);
-			}
-			if (action === K.Protocol.Actions.BuyGuildUpgrade) {
-				const expectedGuildId = typeIs(profile.Guild, "table") ? ((profile.Guild as Dict).Id as string) : "";
-				const bonuses = this._guilds.GetCachedBonuses(expectedGuildId);
-				this._data.AtomicUpdate(
-					player,
-					(current: Profile) => {
-						const currentGuild = current.Guild as Dict | undefined;
-						if (currentGuild === undefined || currentGuild.Id !== expectedGuildId) {
-							return { ok: false, noop: true };
-						}
-						current.GuildBonuses = copyDictionary(bonuses);
-						return { ok: true };
-					},
-					true,
-					"guild-bonus",
-				);
-				const definition = (K.GameConfig.Guild as Dict).Upgrades as Dict;
-				const upgradeDef = definition[payload.Id as string] as Dict | undefined;
-				const upgradeName = upgradeDef !== undefined ? (upgradeDef.Name as string) : "a hall upgrade";
-				const guildBag = guild as Dict | undefined;
-				const level =
-					guildBag !== undefined && typeIs(guildBag.Upgrades, "table")
-						? tonumber((guildBag.Upgrades as Dict)[payload.Id as string])
-						: undefined;
-				this._toastGuild(
-					expectedGuildId,
-					"Guild upgrade",
-					level !== undefined
-						? string.format("Your guild unlocked %s (level %d)!", upgradeName, level)
-						: string.format("Guild unlocked %s.", upgradeName),
-					"Special",
-				);
-				this._announceGuildActivity(expectedGuildId, previousActivity, guild);
-			}
-			return responseSuccess(message, { Guild: guild });
-		}
-		if (action === K.Protocol.Actions.CreateGuild || action === K.Protocol.Actions.RenameGuild) {
-			const rawName = typeIs(payload.Name, "string") ? payload.Name : "";
-			const [filteredOk, filtered] = (this._security.Filter as Svc).Apply(player, rawName, player.UserId, 28) as LuaTuple<
-				[unknown, unknown]
-			>;
-			if (!truthy(filteredOk) || !typeIs(filtered, "string") || filtered.size() < 3) {
-				return responseError(T("GameService.ThatGuildNameCouldnT"));
-			}
-			payload = table.clone(payload) as Dict;
-			payload.Name = filtered;
-		}
-		let contributeActivity = 0;
-		let contributeGuildId = "";
-		if (action === K.Protocol.Actions.ContributeGuild) {
-			const existing = this._data.Get(player) as Profile | undefined;
-			contributeGuildId = existing !== undefined && typeIs(existing.Guild, "table") ? ((existing.Guild as Dict).Id as string) : "";
-			const before = this._guilds.GetCachedPublic(contributeGuildId) as Dict | undefined;
-			contributeActivity = before !== undefined ? (tonumber(before.Activity) ?? 0) : 0;
-		}
-		let renameGuildId = "";
-		if (action === K.Protocol.Actions.RenameGuild) {
-			const existing = this._data.Get(player) as Profile | undefined;
-			renameGuildId = existing !== undefined && typeIs(existing.Guild, "table") ? ((existing.Guild as Dict).Id as string) : "";
-		}
-		if (action === K.Protocol.Actions.JoinGuild) {
-			const [canJoin, joinError] = this._guildCommunity.CanJoinByTag(payload.Tag, player.UserId) as LuaTuple<[unknown, unknown]>;
-			if (!truthy(canJoin)) {
-				return responseError(truthy(joinError) ? joinError : T("GameService.YouCannotJoinThatGuild"));
-			}
-		}
-		const result = this._mutate(player, (profile: Profile) => {
-			let ok: unknown;
-			let message: unknown;
-			let guild: unknown;
-			if (action === K.Protocol.Actions.CreateGuild) {
-				const [a, b, c] = this._guilds.Create(player, profile, payload.Name, payload.Tag) as LuaTuple<[unknown, unknown, unknown]>;
-				ok = a;
-				message = b;
-				guild = c;
-			} else if (action === K.Protocol.Actions.JoinGuild) {
-				const [a, b, c] = this._guilds.JoinByTag(player, profile, payload.Tag) as LuaTuple<[unknown, unknown, unknown]>;
-				ok = a;
-				message = b;
-				guild = c;
-			} else if (action === K.Protocol.Actions.LeaveGuild) {
-				const [a, b, c] = this._guilds.Leave(player, profile) as LuaTuple<[unknown, unknown, unknown]>;
-				ok = a;
-				message = b;
-				guild = c;
-			} else if (action === K.Protocol.Actions.DisbandGuild) {
-				const [a, b, c] = this._guilds.Disband(player, profile) as LuaTuple<[unknown, unknown, unknown]>;
-				ok = a;
-				message = b;
-				guild = c;
-			} else if (action === K.Protocol.Actions.RenameGuild) {
-				const [a, b, c] = this._guilds.Rename(player, profile, payload.Name, payload.Tag) as LuaTuple<[unknown, unknown, unknown]>;
-				ok = a;
-				message = b;
-				guild = c;
-			} else if (action === K.Protocol.Actions.ContributeGuild) {
-				const balanceField = payload.Currency === "Cash" ? "Cash" : "Stardust";
-				let amount = payload.Amount as number;
-				if (typeIs(payload.Fraction, "number")) {
-					amount = math.max(1, math.floor((tonumber(profile[balanceField]) ?? 0) * payload.Fraction));
-				}
-				const [a, b, c] = this._guilds.ContributeBank(player, profile, math.floor(amount), payload.Currency) as LuaTuple<
-					[unknown, unknown, unknown]
-				>;
-				ok = a;
-				message = b;
-				guild = c;
-			} else if (action === K.Protocol.Actions.ClaimGuildGoal) {
-				const [a, b, c, reward] = this._guilds.ClaimGoal(player, profile) as LuaTuple<[unknown, unknown, unknown, unknown]>;
-				ok = a;
-				message = b;
-				guild = c;
-				if (truthy(ok) && truthy(reward)) {
-					const rewardText = K.ProgressionService.ApplyReward(profile, reward, K.Economy.Production(profile));
-					if (tostring(rewardText) !== "") {
-						message = T("GameService.GuildGoalDoneS", tostring(rewardText));
-					}
-				}
-			}
-			if (truthy(ok)) {
-				profile.GuildBonuses = this._guilds.GetCachedBonuses((profile.Guild as Dict).Id);
-				return responseSuccess(message, { Guild: guild });
-			}
-			return responseError(message);
-		});
-		if (truthy(result.ok) && action === K.Protocol.Actions.ContributeGuild && contributeGuildId !== "") {
-			this._announceGuildActivity(contributeGuildId, contributeActivity, result.Guild);
-		}
-		if (truthy(result.ok) && action === K.Protocol.Actions.RenameGuild && renameGuildId !== "" && truthy(result.Guild)) {
-			const guild = result.Guild as Dict;
-			const auditLog = guild.AuditLog as Dict[] | undefined;
-			const first = auditLog !== undefined && typeIs(auditLog[0], "table") ? auditLog[0] : undefined;
-			const oldTag = first !== undefined ? first.FromTag : undefined;
-			const newTag = first !== undefined ? first.ToTag : undefined;
-			const tagText =
-				oldTag !== undefined && newTag !== undefined && oldTag !== newTag
-					? string.format(" Tag changed from %s to %s.", tostring(oldTag), tostring(newTag))
-					: "";
-			this._toastGuild(
-				renameGuildId,
-				"Guild renamed",
-				string.format("%s renamed the guild to %s.%s", player.DisplayName, (guild.Name as string | undefined) ?? "", tagText),
-				"Special",
-				player,
-			);
-			for (const online of Players.GetPlayers()) {
-				if (online !== player) {
-					const onlineProfile = this._data.Get(online) as Profile | undefined;
-					const onlineGuild = onlineProfile !== undefined ? (onlineProfile.Guild as Dict | undefined) : undefined;
-					if (onlineProfile !== undefined && onlineGuild !== undefined && onlineGuild.Id === renameGuildId) {
-						this._pushState(online);
-					}
-				}
-			}
-		}
-		return result;
+		return GuildActions.guildAction(this, player, action, rawPayload);
 	}
 
 	_resolvePlayerName(userId: number): string {
@@ -6193,8 +4304,11 @@ export class GameService {
 			}
 			this._visitors.delete(player.UserId);
 		}
+		// Leave flush order (todo500 #14): 1) cancel open trades, 2) guild state (nothing to flush: GuildService writes guild docs on each change),
+		// 3) analytics and per-player caches, 4) release the profile with a final save.
 		const profile = this._data.Get(player) as Profile | undefined;
 		this._convergence.PlayerRemoving(player);
+		// 1) trade cancel
 		if (this._trades !== undefined) {
 			const notify = this._trades.Drop(player.UserId) as number[];
 			for (const userId of notify) {
@@ -6225,6 +4339,7 @@ export class GameService {
 		}
 		this._analytics.Forget(player);
 		this._badges.Forget(player);
+		// 4) profile release
 		if (!truthy(this._data.Save(player, true))) {
 			this._spawnWorker(() => {
 				for (let attempt = 1; attempt <= 3; attempt++) {
@@ -6305,7 +4420,32 @@ export class GameService {
 		});
 	}
 
+	// Per-system player tick steps, run in this order every heartbeat (todo500 #6). Each step owns its accumulator.
+	_playerTickStepCache?: ReadonlyArray<[string, (player: Player, runtime: Runtime) => void]>;
+	_playerTickSteps(): ReadonlyArray<[string, (player: Player, runtime: Runtime) => void]> {
+		if (this._playerTickStepCache !== undefined) {
+			return this._playerTickStepCache;
+		}
+		this._playerTickStepCache = [
+			["Maintenance", (player, runtime) => this._playerTickMaintenance(player, runtime)],
+			["GuildRefresh", (player, runtime) => this._playerTickGuildRefresh(player, runtime)],
+			["Production", (player, runtime) => this._playerTickProduction(player, runtime)],
+			["Automation", (player, runtime) => this._playerTickAutomation(player, runtime)],
+			["Dirty", (player, runtime) => this._playerTickDirty(player, runtime)],
+			["StatePush", (player, runtime) => this._playerTickStatePush(player, runtime)],
+		];
+		return this._playerTickStepCache;
+	}
+
 	_processPlayerTick(player: Player, runtime: Runtime) {
+		for (const [name, step] of this._playerTickSteps()) {
+			debug.profilebegin("PlayerTick." + name);
+			step(player, runtime);
+			debug.profileend();
+		}
+	}
+
+	_playerTickMaintenance(player: Player, runtime: Runtime) {
 		if ((runtime.MaintenanceAccumulator as number) >= PROFILE_MAINTENANCE_INTERVAL && !truthy(this._data.IsBusy(player))) {
 			runtime.MaintenanceAccumulator = (runtime.MaintenanceAccumulator as number) % PROFILE_MAINTENANCE_INTERVAL;
 			let changed = false;
@@ -6337,10 +4477,16 @@ export class GameService {
 			}
 			this._payWeeklyBoard(player);
 		}
+	}
+
+	_playerTickGuildRefresh(player: Player, runtime: Runtime) {
 		if ((runtime.GuildRefreshAccumulator as number) >= GUILD_REFRESH_INTERVAL) {
 			runtime.GuildRefreshAccumulator = (runtime.GuildRefreshAccumulator as number) % GUILD_REFRESH_INTERVAL;
 			this._queueGuildMembershipRefresh(player, runtime);
 		}
+	}
+
+	_playerTickProduction(player: Player, runtime: Runtime) {
 		if ((runtime.ProductionAccumulator as number) >= (K.GameConfig.Game.ProductionTick as number)) {
 			const step = runtime.ProductionAccumulator as number;
 			const pendingAnomalyActions = (runtime.PendingAnomalyActions as ReadonlyArray<string> | undefined) ?? NO_PENDING_ACTIONS;
@@ -6445,17 +4591,24 @@ export class GameService {
 				}
 			}
 		}
+	}
 
+	_playerTickAutomation(player: Player, runtime: Runtime) {
 		if ((runtime.AutoForgeAccumulator as number) >= AUTO_FORGE_INTERVAL) {
 			runtime.AutoForgeAccumulator = (runtime.AutoForgeAccumulator as number) % AUTO_FORGE_INTERVAL;
 			this._tickAutoForge(player);
 			this._tickForgePrograms(player, runtime);
 		}
+	}
 
+	_playerTickDirty(player: Player, runtime: Runtime) {
 		if ((runtime.DirtyAccumulator as number) >= 5) {
 			runtime.DirtyAccumulator = 0;
 			this._data.MarkDirty(player);
 		}
+	}
+
+	_playerTickStatePush(player: Player, runtime: Runtime) {
 		if ((runtime.PushAccumulator as number) >= (K.GameConfig.Game.StatePushSeconds as number)) {
 			runtime.PushAccumulator = 0;
 			const profile = this._data.Get(player) as Profile | undefined;
@@ -6558,8 +4711,20 @@ export class GameService {
 			return;
 		}
 		this._running = true;
+		// Boot steps (todo500 #5), in the original order.
+		this._bootLiveOps();
+		this._bootPurchases();
+		this._bootRemotes();
+		this._bootPlayers();
+		this._bootTicks();
+	}
+
+	_bootLiveOps() {
 		this._convergence.Start();
 		PolicyGate.Start();
+	}
+
+	_bootPurchases() {
 		MarketplaceService.PromptGamePassPurchaseFinished.Connect((player, passId, purchased) => {
 			const [ok, err] = pcall(() => this._grantPurchasedPass(player, passId, purchased));
 			if (!ok) {
@@ -6574,6 +4739,9 @@ export class GameService {
 			K.ModuleLog.Warn("Shop", "ProcessReceipt errored: " + tostring(decision));
 			return Enum.ProductPurchaseDecision.NotProcessedYet;
 		};
+	}
+
+	_bootRemotes() {
 		this._matter.Start(this);
 		this._world.SetInteractionHandler((player: Player, action: string, payload: unknown) => {
 			if (action === "Collect") {
@@ -6763,7 +4931,9 @@ export class GameService {
 			}
 			return resultBag;
 		});
+	}
 
+	_bootPlayers() {
 		this._playerAddedConnection = Players.PlayerAdded.Connect((player) => {
 			this._spawnWorker(() => {
 				this._safePlayerAdded(player);
@@ -6778,6 +4948,9 @@ export class GameService {
 				this._safePlayerAdded(player);
 			});
 		}
+	}
+
+	_bootTicks() {
 		this._heartbeat = RunService.Heartbeat.Connect((deltaTime) => {
 			if (!this._running) {
 				return;
