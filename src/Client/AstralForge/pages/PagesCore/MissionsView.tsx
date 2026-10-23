@@ -1,5 +1,7 @@
 ﻿import { SplitColumns, splitColumns } from "../../UiCore/ui";
 import React from "@rbxts/react";
+import { BODY, BODY_SEMI, Line, NUM, RowSurface } from "../../UiCore/mockKit";
+import { IconWell } from "../gcKit";
 import { counted, sameFields } from "../../UiCore/rowMemo";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
@@ -104,152 +106,104 @@ function RowArrive(props: { index: number; reducedMotion?: boolean; children?: R
 }
 
 // one place for the row height so the list stride can't drift from the row again
+// design/16-season "This week" row: .row with icon well, .tt (name, thin bar), .v progress, Claim
 function missionRowH(stack: boolean): number {
-	return stack ? 226 : 148;
+	return stack ? 64 : 76;
 }
 
 function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: MissionRowProps) {
+	return <TaskRow quest={quest} icon="Mission" onClaim={() => dispatch("ClaimQuest", { Id: quest.Id })} reducedMotion={reducedMotion} position={position} stack={stack} />;
+}
+
+/** The Missions / Milestones row (design/16-season "This week" .row with a thin bar). */
+export function TaskRow({
+	quest,
+	icon,
+	onClaim,
+	reducedMotion,
+	position,
+	stack,
+	claimHostRef,
+}: {
+	quest: TaskEntry;
+	icon: string;
+	onClaim: () => void;
+	reducedMotion?: boolean;
+	position: UDim2;
+	stack: boolean;
+	claimHostRef?: React.Ref<Frame>;
+}) {
 	const softMotion = reducedMotion;
 	const ready = !quest.Claimed && quest.Progress >= quest.Target;
 	const reward = formatReward(quest.Reward);
-	const accent = quest.Claimed ? Palette.muted : ready ? Palette.green : Palette.cyan;
+	const accent = quest.Claimed ? Palette.muted : ready ? Palette.mint : Palette.mango;
 	const rowH = missionRowH(stack);
-	const pad = stack ? 14 : 16;
-	const contentH = rowH - pad * 2;
-	const btnReserve = stack ? TapTarget + 14 : 0;
-	const meterY = stack ? contentH - btnReserve - 8 : 108;
-	const progressY = meterY - 18;
 	const progressFrac = math.clamp(quest.Progress / math.max(1, quest.Target), 0, 1);
-	const meterSize = new UDim2(1, stack ? 0 : -182, 0, 8);
-	const meterPosition = UDim2.fromOffset(0, meterY);
 	const readyPop = useReadyPop(ready, softMotion);
 	const iconScale = readyPop.map((amount) => 1 + amount * 0.22);
-	const claimText = quest.Claimed ? "CLAIMED" : ready ? "CLAIM" : "NOT YET";
-	const claim = () => dispatch("ClaimQuest", { Id: quest.Id });
+	const claim = onClaim;
+	const valueText = quest.Claimed ? "Done" : `${compactNumber(quest.Progress)} / ${compactNumber(quest.Target)}`;
+	const btnW = stack ? 92 : 120;
+	const valueW = stack ? 84 : 120;
+	const left = stack ? 42 : 48;
+	const meterSize = new UDim2(1, -(left + valueW + btnW + 24), 0, 6);
+	const meterPosition = new UDim2(0, left, 0, stack ? 40 : 50);
 	return (
-		<Panel radius={18} rule
-			size={new UDim2(1, 0, 0, rowH)}
-			position={position}
-			accent={accent}
-			background={Palette.panel}
-			padding={pad}
-			interactive={true}
-			highlight={ready}
-			reducedMotion={softMotion}
-		>
-			<frame Size={UDim2.fromOffset(42, 42)} Position={UDim2.fromOffset(0, stack ? 4 : 10)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uiscale Scale={iconScale} />
-				<IconTile
-					kind="Mission"
-					accent={quest.Claimed ? Palette.cyan : accent}
-					size={42}
-					radius={10}
-					glow={ready}
-					filled={ready}
-					reducedMotion={softMotion}
-				/>
-			</frame>
-			<Text
-				value={quest.Name}
-				size={stack ? 17 : 16}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={stack}
-				minSize={12}
-				position={UDim2.fromOffset(56, 2)}
-				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 28 : 22)}
-			/>
-			<Text
-				value={quest.Description ?? ""}
-				size={stack ? 12 : 11}
-				color={Palette.muted}
-				wrap={true}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(56, stack ? 32 : 26)}
-				sizeConstraint={new UDim2(1, stack ? -(56 + 12) : -182, 0, stack ? 36 : 28)}
-			/>
-			{reward !== "" && (
-				<frame
-					Size={UDim2.fromOffset(math.min(stack ? 170 : 220, reward.size() * 7 + 24), 20)}
-					Position={UDim2.fromOffset(56, stack ? 72 : 56)}
-					BackgroundColor3={Palette.ink}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(0, 6)} />
-					<uistroke Color={Palette.cyan} Thickness={1} Transparency={0.65} />
-					<Text
-						value={reward}
-						size={11}
-						color={Palette.cyan}
-						weight={Enum.FontWeight.Heavy}
-						fit={true}
-						minSize={9}
-						position={UDim2.fromOffset(6, 2)}
-						sizeConstraint={new UDim2(1, -12, 1, -4)}
-					/>
+		<frame Size={new UDim2(1, 0, 0, rowH)} Position={position} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+			<RowSurface />
+			{quest.Claimed && <uigradient Transparency={new NumberSequence(0.55)} />}
+			{ready && (
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={2}>
+					<uicorner CornerRadius={new UDim(0, 11)} />
+					<uistroke Color={Palette.mint} Thickness={2} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				</frame>
 			)}
-			<Text
-				value={
-					ready
-						? "Reward ready"
-						: quest.Claimed
-							? "Claimed"
-							: `${compactNumber(quest.Progress)} / ${compactNumber(quest.Target)}  ·  ${math.floor(progressFrac * 100)}%`
-				}
-				size={11}
+			<uipadding PaddingLeft={new UDim(0, stack ? 10 : 12)} PaddingRight={new UDim(0, stack ? 10 : 12)} />
+			<frame Size={UDim2.fromOffset(stack ? 30 : 36, stack ? 30 : 36)} Position={new UDim2(0, 0, 0.5, 0)} AnchorPoint={new Vector2(0, 0.5)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uiscale Scale={iconScale} />
+				<IconWell icon={quest.Claimed ? "Check" : icon} accent={accent} size={stack ? 30 : 36} />
+			</frame>
+			<Line text={quest.Name} size={stack ? 13 : 15} font={BODY_SEMI} width={new UDim(1, -(left + valueW + btnW + 24))} position={UDim2.fromOffset(left, stack ? 8 : 10)} />
+			<Line
+				text={reward !== "" ? `${quest.Description ?? ""}${quest.Description !== undefined && quest.Description !== "" ? "  ·  " : ""}${reward}` : quest.Description ?? ""}
+				size={stack ? 11 : 12}
+				font={BODY}
 				color={Palette.muted}
-				weight={Enum.FontWeight.Bold}
-				fit={true}
-				minSize={8}
-				position={UDim2.fromOffset(0, progressY)}
-				sizeConstraint={stack ? new UDim2(1, 0, 0, 16) : new UDim2(1, -182, 0, 16)}
+				width={new UDim(1, -(left + valueW + btnW + 24))}
+				position={UDim2.fromOffset(left, stack ? 24 : 30)}
 			/>
 			<Meter
 				value={quest.Claimed || ready ? 1 : progressFrac}
-				color={quest.Claimed ? Palette.muted : accent}
+				color={accent}
 				reducedMotion={softMotion}
 				shimmer={ready}
 				position={meterPosition}
 				size={meterSize}
 			/>
-			<ProgressCloseGlow
-				progress={progressFrac}
-				ready={ready}
-				accent={accent}
-				reducedMotion={softMotion}
-				position={meterPosition}
-				size={meterSize}
+			<ProgressCloseGlow progress={progressFrac} ready={ready} accent={accent} reducedMotion={softMotion} position={meterPosition} size={meterSize} />
+			<Line
+				text={valueText}
+				size={stack ? 15 : 17}
+				font={NUM}
+				color={quest.Claimed ? Palette.muted : Palette.mango}
+				width={new UDim(0, valueW)}
+				align={Enum.TextXAlignment.Right}
+				position={new UDim2(1, -(btnW + 12), 0.5, 0)}
+				anchor={new Vector2(1, 0.5)}
 			/>
-			{stack ? (
+			<frame Size={UDim2.fromOffset(btnW, 36)} Position={new UDim2(1, -btnW, 0.5, -18)} BackgroundTransparency={1} BorderSizePixel={0} ref={ready ? claimHostRef : undefined}>
 				<Button
-					text={claimText}
-					icon="Mission.4"
+					text={quest.Claimed ? "Claimed" : ready ? "Claim" : "Not yet"}
 					onClick={claim}
-					color={ready ? Palette.green : Palette.panelSoft}
-					textColor={ready ? Palette.ink : Palette.creamSoft}
-					size={new UDim2(1, 0, 0, TapTarget)}
-					position={new UDim2(0, 0, 1, -(TapTarget + 6))}
+					color={ready ? Palette.mango : undefined}
+					textColor={ready ? Color3.fromRGB(27, 15, 8) : Palette.creamSoft}
+					size={UDim2.fromScale(1, 1)}
 					reducedMotion={softMotion}
 					disabled={quest.Claimed || !ready}
 					highlight={ready}
 				/>
-			) : (
-				<Button
-					text={claimText}
-					icon="Mission.5"
-					onClick={claim}
-					color={ready ? Palette.green : Palette.panelSoft}
-					textColor={ready ? Palette.ink : Palette.creamSoft}
-					size={UDim2.fromOffset(166, 44)}
-					position={new UDim2(1, -166, 0.5, -22)}
-					reducedMotion={softMotion}
-					disabled={quest.Claimed || !ready}
-					highlight={ready}
-				/>
-			)}
-		</Panel>
+			</frame>
+		</frame>
 	);
 }
 
@@ -473,7 +427,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	// phones in landscape have the width for the side-by-side row; the tall stacked row
 	// (claim button underneath) would fill most of a 360px-tall screen on its own
 	const rowStack = stack && !chrome.landscape;
-	const rowStride = missionRowH(rowStack) + 16;
+	const rowStride = missionRowH(rowStack) + (stack ? 8 : 12);
 	const pageGap = 10;
 	// wide desktop: header, summary, claim-all and browse controls in a side column; the list
 	// fills the main column at full height
@@ -487,9 +441,9 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const sidePanel = (
 		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
-			accent={Palette.cyan}
-			background={Palette.panelRaised}
-			padding={16}
+			accent={Palette.brass}
+			background={Palette.panel}
+			padding={stack ? 10 : 18}
 			reveal={enter}
 			reducedMotion={softMotion}
 			zIndex={30}
@@ -508,7 +462,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			<TaskSummary
 				done={counts.Done}
 				total={quests.size()}
-				accent={Palette.cyan}
+				accent={Palette.mango}
 				reducedMotion={softMotion}
 				position={UDim2.fromOffset(0, 40)}
 				size={new UDim2(1, 0, 0, 56)}
@@ -524,11 +478,11 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					ref={missionClaimHostRef}
 				>
 					<Button
-						text={`CLAIM ALL · ${counts.Ready}`}
+						text={`Claim all · ${counts.Ready}`}
 						icon="Gift.4"
 						onClick={claimAllReady}
-						color={Palette.green}
-						textColor={Palette.ink}
+						color={Palette.mango}
+						textColor={Color3.fromRGB(27, 15, 8)}
 						size={UDim2.fromScale(1, 1)}
 						reducedMotion={softMotion}
 						highlight={true}
@@ -538,7 +492,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			<Browse.BrowseBar
 				browse={browse}
 				placeholder="Search missions and rewards"
-				accent={Palette.cyan}
+				accent={Palette.mango}
 				stack={true}
 				chipLines={2}
 				reducedMotion={softMotion}
@@ -550,9 +504,9 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 	const headerPanel = (
 		<Panel radius={18} rule
 			size={UDim2.fromScale(1, 1)}
-			accent={Palette.cyan}
-			background={Palette.panelRaised}
-			padding={16}
+			accent={Palette.brass}
+			background={Palette.panel}
+			padding={stack ? 10 : 18}
 			reveal={enter}
 			reducedMotion={softMotion}
 			zIndex={30}
@@ -562,7 +516,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 				<Text
 					value="Today's missions"
 					size={13}
-					color={counts.Ready > 0 ? Palette.green : Palette.creamSoft}
+					color={counts.Ready > 0 ? Palette.mango : Palette.creamSoft}
 					weight={Enum.FontWeight.Bold}
 					wrap={true} fit={true} minSize={10}
 					sizeConstraint={new UDim2(1, -8, 0, 34)}
@@ -591,7 +545,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					<TaskSummary
 						done={counts.Done}
 						total={quests.size()}
-						accent={Palette.cyan}
+						accent={Palette.mango}
 						reducedMotion={softMotion}
 						position={new UDim2(1, -190, 0, 4)}
 						size={UDim2.fromOffset(190, 56)}
@@ -609,11 +563,11 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 					ref={missionClaimHostRef}
 				>
 					<Button
-						text={`CLAIM ALL · ${counts.Ready}`}
+						text={`Claim all · ${counts.Ready}`}
 						icon="Gift.4"
 						onClick={claimAllReady}
-						color={Palette.green}
-						textColor={Palette.ink}
+						color={Palette.mango}
+						textColor={Color3.fromRGB(27, 15, 8)}
 						size={UDim2.fromScale(1, 1)}
 						reducedMotion={softMotion}
 						highlight={true}
@@ -623,7 +577,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			<Browse.BrowseBar
 				browse={browse}
 				placeholder="Search missions and rewards"
-				accent={Palette.cyan}
+				accent={Palette.mango}
 				stack={stack}
 				reducedMotion={softMotion}
 				position={UDim2.fromOffset(0, introH + claimRowH + 10)}
@@ -639,7 +593,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 			overscan={softMotion ? 0 : antilag.constrained ? 1 : 2}
 			canvasTail={8}
 			Size={UDim2.fromScale(1, 1)}
-			scrollBarColor={Palette.cyan}
+			scrollBarColor={Palette.brass}
 			scrollBarThickness={3}
 			scrollBarTransparency={0.28}
 			keyExtractor={(quest: TaskEntry) => quest.Id}
@@ -656,7 +610,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 						icon="Mission.6"
 						emptyBody={guide?.EmptyNone ?? "New dailies land at reset."}
 						filteredBody={guide?.EmptyFilter ?? "Switch the filter back to All."}
-						accent={Palette.cyan}
+						accent={Palette.mango}
 						reducedMotion={softMotion}
 						size={UDim2.fromScale(1, 1)}
 					/>
@@ -668,7 +622,7 @@ export function MissionsView({ state, config, dispatch, reducedMotion }: Mission
 		<PageScaffold
 			gap={pageGap}
 			tailPad={scrollTail(stack, chrome.bottomSafe, 24)}
-			scrollBarColor={Palette.cyan}
+			scrollBarColor={Palette.brass}
 			scrollBarThickness={4}
 			sections={
 				plan.split
