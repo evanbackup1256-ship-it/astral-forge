@@ -657,7 +657,7 @@ function QuickFindPanel(props: QuickFindComponentProps & { onClosed: () => void 
 				Active={true}
 				ZIndex={2}
 			>
-				<Surface appear={show} padding={0} active={true} zIndex={2}>
+				<Surface appear={show} padding={0} active={true} zIndex={2} radius={18} rule={true}>
 					{/* search field */}
 					<SearchField
 						value={query}

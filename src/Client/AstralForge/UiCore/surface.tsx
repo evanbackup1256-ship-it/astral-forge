@@ -101,6 +101,10 @@ export interface SurfaceProps {
 	active?: boolean;
 	frameRef?: React.Ref<Frame>;
 	children?: React.ReactNode;
+	/** corner radius override (forge cards use 18) */
+	radius?: number;
+	/** forge card treatment: 1px brass inner rule 3px inside the edge */
+	rule?: boolean;
 }
 
 export function Surface(props: SurfaceProps) {
@@ -125,7 +129,24 @@ export function Surface(props: SurfaceProps) {
 			Selectable={false}
 			ZIndex={props.zIndex}
 		>
-			<uicorner CornerRadius={new UDim(0, inset ? SurfaceMetrics.innerRadius : SurfaceMetrics.radius)} />
+			<uicorner CornerRadius={new UDim(0, props.radius ?? (inset ? SurfaceMetrics.innerRadius : SurfaceMetrics.radius))} />
+			{props.rule === true && (
+				<frame
+					Size={new UDim2(1, pad * 2 - 6, 1, pad * 2 - 6)}
+					Position={UDim2.fromOffset(3 - pad, 3 - pad)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+					Active={false}
+					ZIndex={props.zIndex}
+				>
+					<uicorner CornerRadius={new UDim(0, math.max(1, (props.radius ?? SurfaceMetrics.radius) - 3))} />
+					<uistroke
+						Color={Palette.brass}
+						Thickness={1}
+						Transparency={appear !== undefined ? appear.map((a) => 1 - 0.25 * clamp01(a)) : 0.75}
+					/>
+				</frame>
+			)}
 			<uistroke
 				Color={props.accent ?? Palette.lineSoft}
 				Thickness={1}
