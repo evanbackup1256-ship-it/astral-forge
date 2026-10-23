@@ -5,6 +5,8 @@
 -- its allowance (every other file has 0) fails the build.
 
 local fs = require("@lune/fs")
+-- Windows checkouts (core.autocrlf) carry CRLF; patterns here anchor on \n and $
+local function readFile(path: string): string return (string.gsub(fs.readFile(path), "\r", "")) end
 
 local ROOT = "src/Client/AstralForge"
 -- other workstreams own these; they're listed but not counted (day-a areas are counted since batch 30)
@@ -57,7 +59,7 @@ table.sort(files)
 local total, perFile = 0, {}
 for _, path in files do
 	if not skipped(path) then
-		local source = fs.readFile(path)
+		local source = readFile(path)
 		local count = 0
 		local pos = 1
 		while true do

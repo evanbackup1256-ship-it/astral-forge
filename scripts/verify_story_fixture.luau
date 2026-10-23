@@ -3,6 +3,8 @@
 -- Description as GameConfig, so the preview never shows a stale label.
 
 local fs = require("@lune/fs")
+-- Windows checkouts (core.autocrlf) carry CRLF; patterns here anchor on \n and $
+local function readFile(path: string): string return (string.gsub(fs.readFile(path), "\r", "")) end
 
 -- the text of `Achievements: {`/`[` up to its matching close, so ids shared with
 -- shop items or machines elsewhere in the file can't be mixed in
@@ -46,8 +48,8 @@ local function rows(source: string): { [string]: { name: string?, desc: string? 
 	return out
 end
 
-local config = rows(findBlock(fs.readFile("src/Shared/AstralForge/Shared/GameConfig.ts")))
-local fixture = rows(findBlock(fs.readFile("src/Stories/StorySnapshot.ts")))
+local config = rows(findBlock(readFile("src/Shared/AstralForge/Shared/GameConfig.ts")))
+local fixture = rows(findBlock(readFile("src/Stories/StorySnapshot.ts")))
 
 local checked, failures = 0, {}
 for id, shown in fixture do
@@ -72,9 +74,9 @@ print(`story fixture: {checked} entries match GameConfig`)
 -- Quests: the server builds daily quests from a fixed set of templates, so every
 -- quest in the fixture must use a Name (and Description) that the server can send.
 -- templates live in QuestEngine since rewrite 13; Progression still sends a few of its own
-local progression = fs.readFile("src/Server/AstralForge/Services/Gameplay/Progression.ts")
-	.. "\n" .. fs.readFile("src/Server/AstralForge/Modules/QuestEngine.ts")
-local fixtureSource = fs.readFile("src/Stories/StorySnapshot.ts")
+local progression = readFile("src/Server/AstralForge/Services/Gameplay/Progression.ts")
+	.. "\n" .. readFile("src/Server/AstralForge/Modules/QuestEngine.ts")
+local fixtureSource = readFile("src/Stories/StorySnapshot.ts")
 local questBlock = findBlock(fixtureSource, "Quests")
 local questCount, questFailures = 0, {}
 for _, line in string.split(questBlock, "\n") do
@@ -94,7 +96,7 @@ assert(questCount >= 1, "story fixture has no quests to check")
 
 -- Chapters: every chapter id in the fixture is a real chapter in GameConfig.Story.
 local storyIds = {}
-for id in string.gmatch(findBlock(fs.readFile("src/Shared/AstralForge/Shared/GameConfig.ts"), "Story", "%["), '\n%s*Id: "([%w%-_]+)"') do
+for id in string.gmatch(findBlock(readFile("src/Shared/AstralForge/Shared/GameConfig.ts"), "Story", "%["), '\n%s*Id: "([%w%-_]+)"') do
 	storyIds[id] = true
 end
 local chapterBlock = string.match(fixtureSource, "\n\tStory: (%b{})")
