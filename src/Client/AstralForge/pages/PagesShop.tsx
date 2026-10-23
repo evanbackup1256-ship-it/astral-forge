@@ -975,7 +975,8 @@ function ShopView(props: ShopViewProps) {
 	const offerRows: OfferRow[] = [];
 	if (tab !== "Codes") {
 		const passList = tab === "Featured" ? featuredPasses : tab === "Passes" ? passes : [];
-		const productList = tab === "Featured" ? featuredProducts : tab === "Supplies" ? products : [];
+		// on Featured, the first featured product gets the wide card above the grid
+		const productList = tab === "Featured" ? featuredProducts.filter((_, index) => index > 0) : tab === "Supplies" ? products : [];
 		const flatOffers: { kind: string; key: string; pass?: GamePass; product?: DevProduct }[] = [];
 		for (const pass of passList) {
 			flatOffers.push({
@@ -1398,6 +1399,7 @@ function ShopView(props: ShopViewProps) {
 			reducedMotion: reducedMotion,
 		}),
 	});
+	const featuredProduct = tab === "Featured" ? featuredProducts[0] : undefined;
 	const sections: { id: string; height: number; element: unknown }[] = [
 		{
 			id: "hero",
@@ -1409,12 +1411,35 @@ function ShopView(props: ShopViewProps) {
 			height: tabRowH,
 			element: tabsBar,
 		},
+	];
+	if (featuredProduct !== undefined) {
+		const unavailable = featuredProduct.ProductId <= 0 && !RunService.IsStudio();
+		sections.push({
+			id: "featured",
+			height: stack ? 184 : 168,
+			element: h(OfferTile, {
+				key: `featured-${featuredProduct.Key}`,
+				layoutOrder: 0,
+				staggerIndex: 0,
+				title: featuredProduct.Name,
+				detail: featuredProduct.Description,
+				meta: rewardLine(featuredProduct.Reward) !== "" ? `Featured · ${rewardLine(featuredProduct.Reward)}` : "Featured",
+				accent: accentOf(featuredProduct.Accent),
+				icon: iconOf(featuredProduct.Icon),
+				cta: priceText(featuredProduct.PriceLabel, featuredProduct.StudioPrice, featuredProduct.ProductId),
+				disabled: unavailable || busy,
+				onClick: () => promptProduct(featuredProduct),
+				reducedMotion: reducedMotion,
+			}),
+		});
+	}
+	sections.push(
 		{
 			id: "label",
 			height: sectionLabelH,
 			element: sectionLabel,
 		},
-	];
+	);
 	if (tab === "Codes") {
 		sections.push({
 			id: "list",
