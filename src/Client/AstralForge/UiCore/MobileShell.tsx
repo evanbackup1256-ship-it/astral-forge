@@ -768,6 +768,9 @@ interface MobileHeaderProps {
 	topPad: number;
 	barHeight: number;
 	edgePad: number;
+	// landscape phones: the bar sits inside Roblox's top-bar row (GuiService.TopbarInset), screen px
+	left?: number;
+	barWidth?: number;
 	reducedMotion?: boolean;
 	openPlayerlist: () => void;
 }
@@ -784,7 +787,7 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 	const viewport = useViewport();
 	const entry = AppHelpers.pageEntry(page);
 	const short = barHeight <= 40;
-	const width = viewport.width - edgePad * 2;
+	const width = _param.barWidth ?? viewport.width - edgePad * 2;
 	const chipH = short ? 24 : 30;
 	let chipW = short ? 84 : 96;
 	const playersW = math.min(44, barHeight);
@@ -840,8 +843,8 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 		{
 			Name: "MobileHeader",
 			ref: regionRef,
-			Size: new UDim2(1, -edgePad * 2, 0, barHeight),
-			Position: UDim2.fromOffset(edgePad, topPad),
+			Size: _param.barWidth !== undefined ? UDim2.fromOffset(_param.barWidth, barHeight) : new UDim2(1, -edgePad * 2, 0, barHeight),
+			Position: UDim2.fromOffset(_param.left ?? edgePad, topPad),
 			BackgroundColor3: Palette.panel,
 			BorderSizePixel: 0,
 			ClipsDescendants: true,
