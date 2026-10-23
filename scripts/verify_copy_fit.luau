@@ -86,8 +86,8 @@ local CASES: { Case } = {
 	{ file = "pages/PagesShop.tsx", needle = "Type a code to claim it. Each one works once.", size = 12, minSize = 10, bold = false, width = shopPanel, box = 26 },
 	{ file = "pages/PagesShop.tsx", needle = "Follow the creator on Roblox, then check here for a one-time reward.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
 	{ file = "pages/PagesShop.tsx", needle = "Reward claimed. Thanks for the follow.", size = 11, minSize = 9, bold = false, width = shopPanel - 52, box = 42 },
-	{ file = "pages/PagesShop.tsx", needle = "Six offers a day. The first is the Deal of the Day.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
-	{ file = "pages/PagesShop.tsx", needle = "Odds for every crate, up to Astral.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
+	{ file = "pages/PagesShop.tsx", needle = "Six offers a day.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
+	{ file = "pages/PagesShop.tsx", needle = "Crate odds.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
 	{ file = "pages/PagesShop.tsx", needle = "The Celestial Ark is only sold in the Daily Shop.", size = 12, minSize = 10, bold = false, width = heroWidth, box = 34 },
 	-- Settings (stacked layout on phones, so the header text gets the full width)
 	{ file = "pages/PagesSystem/SettingsView.tsx", needle = "Saves automatically  ·  v", fill = {}, size = 12, minSize = 9, bold = false, width = PHONE - 60 },
