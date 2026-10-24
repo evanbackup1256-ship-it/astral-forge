@@ -13,6 +13,8 @@ import { ScreenFx } from "../../UiCore/screenFx";
 import { loadPageScaffold, loadUi, named } from "../luauDeps";
 import { StackBlocks, stackHeight } from "../../UiCore/ui";
 import { BODY, BODY_SEMI, Bar, GlyphWell, MockPanel, PanelHeading, PnSurface } from "../../UiCore/mockKit";
+import { useHeroShown, useHeroSlot } from "../../UiCore/heroSlot";
+import { PHONE_HEAD_H, PhoneHead } from "../mockLayout";
 import { headingBlock, IconWell, MockBtn, MockRow, panelHeight, rowHeight } from "../mockRows";
 import ElementFxModule = require("../../ElementFx");
 import { itemIconKind } from "../../ArtKit/Icon";
@@ -537,6 +539,9 @@ function ExpeditionsView(props: Props) {
 	const openSlots = slots.filter((slot) => slot.Id === "");
 	const [pickSlot, setPickSlot] = React.useState<number | undefined>(undefined);
 	const planSlot = openSlots.find((slot) => slot.Slot === pickSlot) ?? openSlots[0];
+	const outLine = `${out} of ${slots.size()} crews out`;
+	useHeroSlot("Expeditions", { kicker: outLine });
+	const heroShown = useHeroShown();
 	const rowGap = phone ? 8 : L.Crews.gap;
 	const crewH = phone ? CREW_ROW_H_PHONE : CREW_ROW_H;
 	const note = `${out} of ${slots.size()} crews out${streak > 0 ? ` · streak ${streak} (${string.format("+%d%%", math.min(streak, Board.STREAK_CAP) * Board.STREAK_STEP * 100)})` : ""}`;
@@ -579,6 +584,9 @@ function ExpeditionsView(props: Props) {
 		});
 	}
 	const sections: { id: string; height: number; element: React.Element }[] = [];
+	if (phone && !heroShown) {
+		sections.push({ id: "head", height: PHONE_HEAD_H, element: <PhoneHead line={outLine} accent={Palette.mint} reducedMotion={props.reducedMotion} /> });
+	}
 	const sideW = L.Haul.w;
 	const sideH = stackHeight(side.map((b) => b.height), 18);
 	if (!phone && side.size() > 0 && viewport.width >= 1000) {
