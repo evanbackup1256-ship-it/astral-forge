@@ -1,3 +1,4 @@
+import { useHeroShown, useHeroSlot } from "../../UiCore/heroSlot";
 import React from "@rbxts/react";
 import { FocusPlan, useFocusOrder } from "../../CoreKit/focusOrder";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
@@ -741,6 +742,18 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			/>
 		);
 	});
+	// design/18-settings .hero .tabs: the schema sections are the hero tabs; the nav column only stays
+	// where the shell hero isn't drawn (phone/compact gets the section chips instead)
+	const pickSection = (id: string) => {
+		setQuery("");
+		setChangedOnly(false);
+		setActiveSection(id);
+	};
+	useHeroSlot("Settings", {
+		kicker: `v${state.Game.Version} · saves automatically`,
+		tabs: { options: sections.map((entry) => ({ id: entry.id, label: entry.label })), value: listing ? "" : activeSection, onChange: pickSection, accent },
+	});
+	const heroShown = useHeroShown();
 	const navRows = stack ? math.ceil(sections.size() / navCols) : sections.size();
 	const navH = stack ? navRows * (TapTarget + 6) + 12 : sections.size() * 48 + 24;
 
@@ -1054,23 +1067,25 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		scaffold.push({ id: "list", height: listPanelH, element: list });
 	} else {
 		// wide desktop: the Controls panel takes a 520px right column (design/18-settings)
-		const withControls = viewport.width >= 1500;
+		const showNav = !heroShown;
+		const navW = showNav ? NAV_W + 24 : 0;
+		const withControls = viewport.width >= (showNav ? 1500 : 1200);
 		const controlsW = withControls ? L.Controls.w + L.Body.gap : 0;
-		const bodyH = math.max(listPanelH, navH, withControls ? controlsPanelHeight() : 0);
+		const bodyH = math.max(listPanelH, showNav ? navH : 0, withControls ? controlsPanelHeight() : 0);
 		scaffold.push({
 			id: "body",
 			height: bodyH,
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-					<frame key="SettingsNav" Size={new UDim2(0, NAV_W, 0, bodyH)} BackgroundTransparency={1} BorderSizePixel={0}>
+					{showNav && <frame key="SettingsNav" Size={new UDim2(0, NAV_W, 0, bodyH)} BackgroundTransparency={1} BorderSizePixel={0}>
 						<PnSurface radius={FORGE_RADIUS} size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
 							{/* own list host: the panel's rule/plate siblings never take a list slot or paint over the section chips */}
 							<frame key="SectionList" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={3}>
 								{navButtons}
 							</frame>
 						</PnSurface>
-					</frame>
-					<frame key="SettingsList" Size={new UDim2(1, -(NAV_W + 24 + controlsW), 0, listPanelH)} Position={UDim2.fromOffset(NAV_W + 24, 0)} BackgroundTransparency={1}>
+					</frame>}
+					<frame key="SettingsList" Size={new UDim2(1, -(navW + controlsW), 0, listPanelH)} Position={UDim2.fromOffset(navW, 0)} BackgroundTransparency={1}>
 						{list}
 					</frame>
 					{withControls && (
