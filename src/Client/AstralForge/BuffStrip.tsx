@@ -449,7 +449,9 @@ function useArrive(key: unknown): React.Binding<number> {
 const telemetryHook = usePerformanceTelemetry;
 
 const PERF_W = 104;
-const CURRENCY_W = 104;
+// 02-nav-shell .top .cur pill: 123x38, 19 radius, 28px gem, 18px value, 24px add square (7 radius)
+const CURRENCY_W = 123;
+const CUR_H = 38;
 // 25-toasts .chip: glyph, value and time left in one 28px chip
 const BUFF_W = 96;
 const SEP_W = 21;
@@ -542,6 +544,7 @@ interface CurrencySegmentProps {
 	currency: CurrencyEntry;
 	order: number;
 	reducedMotion?: boolean;
+	navigate?: (destination: string) => void;
 }
 
 // a claim-sized jump rolls up over a moment; normal ticking and reduced motion just set the number
@@ -584,37 +587,61 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 	});
 	const flash = motion.useFlash(format.asFlux(currency.value as number | string), props.reducedMotion, 0.45);
 	const rolling = useRollingValue(format.asFlux(currency.value as number | string), rate, props.reducedMotion);
+	const cc = currency.color ?? P.mango;
+	const destination = currency.target === "FLUX" ? "Workshop" : currency.target === "DUST" ? "StarGrid" : "Overview";
 	return h(
 		"frame",
 		{
 			ref,
 			Event: tip,
-			Size: UDim2.fromOffset(CURRENCY_W, COMPACT_H),
+			Size: UDim2.fromOffset(CURRENCY_W, CUR_H),
 			LayoutOrder: props.order,
-			BackgroundTransparency: 1,
+			BackgroundColor3: Color3.fromRGB(255, 255, 255),
+			BorderSizePixel: 0,
 		},
 		h("uiscale", {
 			Scale: bump.map((b) => 1 + math.sin(b * math.pi) * 0.16),
 		}),
+		h("uicorner", { CornerRadius: new UDim(0, CUR_H / 2) }),
+		h("uigradient", {
+			Rotation: 90,
+			Color: new ColorSequence(Color3.fromRGB(45, 35, 48), Color3.fromRGB(21, 16, 23)),
+		}),
+		// 0 0 0 1px var(--cc)40 ring; the flash brightens it as before
+		h("uistroke", {
+			Color: cc,
+			Thickness: 1,
+			ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
+			Transparency: flash.map((v) => 0.75 - v * 0.5),
+		}),
+		h("uipadding", { PaddingLeft: new UDim(0, 5), PaddingRight: new UDim(0, 6) }),
+		h("uilistlayout", {
+			FillDirection: Enum.FillDirection.Horizontal,
+			VerticalAlignment: Enum.VerticalAlignment.Center,
+			Padding: new UDim(0, 7),
+			SortOrder: Enum.SortOrder.LayoutOrder,
+		}),
 		h(
 			"frame",
 			{
-				Size: UDim2.fromOffset(24, 24),
-				Position: new UDim2(0, 0, 0.5, 0),
-				AnchorPoint: new Vector2(0, 0.5),
-				BackgroundColor3: theme.darken(currency.color ?? P.mango, 0.6),
+				Size: UDim2.fromOffset(28, 28),
+				BackgroundColor3: cc,
 				BorderSizePixel: 0,
+				LayoutOrder: 1,
 			},
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			h("uistroke", {
-				Color: currency.color,
-				Thickness: 1,
-				Transparency: flash.map((v) => 0.55 - v * 0.5),
+			h("uigradient", {
+				Rotation: 45,
+				Color: new ColorSequence([
+					new ColorSequenceKeypoint(0, cc.Lerp(Color3.fromRGB(255, 255, 255), 0.4)),
+					new ColorSequenceKeypoint(0.45, cc),
+					new ColorSequenceKeypoint(1, cc.Lerp(Color3.fromRGB(0, 0, 0), 0.6)),
+				]),
 			}),
 			h(Icon, {
 				kind: currency.icon,
-				color: P.cream,
-				accent: currency.color,
+				color: Color3.fromRGB(26, 16, 21),
+				accent: cc,
 				size: 16,
 				position: UDim2.fromScale(0.5, 0.5),
 				anchorPoint: new Vector2(0.5, 0.5),
@@ -624,20 +651,42 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 		h(
 			"textlabel",
 			{
-				Size: new UDim2(1, -30, 1, 0),
-				Position: UDim2.fromOffset(30, 0),
+				Size: new UDim2(0, 0, 1, 0),
 				BackgroundTransparency: 1,
+				LayoutOrder: 2,
 				Text: rolling.map((v) => format.compactNumber(v)),
-				TextColor3: flash.map((v) => P.cream.Lerp(theme.lighten(currency.color ?? P.mango, 0.4), v)),
-				TextSize: 15,
+				TextColor3: flash.map((v) => P.cream.Lerp(theme.lighten(cc, 0.4), v)),
+				TextSize: 18,
 				TextScaled: true,
 				TextWrapped: false,
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			},
-			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 10 }),
+			h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+			h("uitextsizeconstraint", { MaxTextSize: 18, MinTextSize: 10 }),
 		),
-		h(GainPop, { value: currency.value, rate: currency.rate, color: currency.color ?? P.mango }),
+		// .add: opens where that currency is earned (same destinations as the expanded balance list)
+		h(
+			"textbutton",
+			{
+				Size: UDim2.fromOffset(24, 24),
+				BackgroundColor3: cc,
+				BorderSizePixel: 0,
+				AutoButtonColor: false,
+				Text: "+",
+				TextColor3: Color3.fromRGB(20, 12, 16),
+				TextSize: 16,
+				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+				LayoutOrder: 3,
+				Event: { Activated: () => props.navigate?.(destination) },
+			},
+			h("uicorner", { CornerRadius: new UDim(0, 7) }),
+			h("uigradient", {
+				Rotation: 90,
+				Color: new ColorSequence(cc.Lerp(Color3.fromRGB(255, 255, 255), 0.2), cc),
+			}),
+		),
+		h(GainPop, { value: currency.value, rate: currency.rate, color: cc }),
 	);
 }
 
@@ -655,7 +704,7 @@ function Separator(order: number): React.Element {
 function planCompact(props: IslandProps, buffs: BuffInfo[]): CompactPlan {
 	const currencies = props.currencies ?? [];
 	const perfOn = props.perf !== undefined && (props.perf.showFps === true || props.perf.showPing === true);
-	let width = 32 + currencies.size() * (CURRENCY_W + 10);
+	let width = 32 + currencies.size() * (CURRENCY_W + 12);
 	const showPerf = perfOn && width + PERF_W + SEP_W <= (props.maxWidth ?? 9999);
 	if (showPerf) {
 		width += PERF_W + SEP_W;
@@ -720,6 +769,7 @@ interface CompactRowProps {
 	vaultFull?: boolean;
 	clock: React.Binding<number>;
 	reducedMotion?: boolean;
+	navigate?: (destination: string) => void;
 }
 
 // the resting look: a slim bar with coins, counters and whatever is running
@@ -731,7 +781,7 @@ function CompactRow(props: CompactRowProps): React.Element {
 			FillDirection: Enum.FillDirection.Horizontal,
 			HorizontalAlignment: Enum.HorizontalAlignment.Center,
 			VerticalAlignment: Enum.VerticalAlignment.Center,
-			Padding: new UDim(0, 10),
+			Padding: new UDim(0, 12),
 			SortOrder: Enum.SortOrder.LayoutOrder,
 		}),
 	};
@@ -754,6 +804,7 @@ function CompactRow(props: CompactRowProps): React.Element {
 			order: nextOrder(),
 			currency,
 			reducedMotion: props.reducedMotion,
+			navigate: props.navigate,
 		});
 	}
 	if (props.vaultFull === true) {
@@ -2033,6 +2084,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 									vaultFull: props.vaultFull,
 									clock,
 									reducedMotion: props.reducedMotion,
+									navigate: props.navigate,
 								}),
 								h(ExpandedList, {
 									key: "list",
@@ -2053,6 +2105,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 									vaultFull: props.vaultFull,
 									clock,
 									reducedMotion: props.reducedMotion,
+									navigate: props.navigate,
 								})
 							: undefined;
 	const momentRim = event !== undefined && event.style === "moment";
