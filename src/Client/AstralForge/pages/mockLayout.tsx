@@ -211,3 +211,34 @@ export function CardBody(p: {
 		</frame>
 	);
 }
+
+/**
+ * phone.html .ph-head: 40px row, the 12px muted line on the left and the .tabs on the right. The h1 is
+ * the mobile shell's own page title, so it isn't drawn twice here.
+ */
+export const PHONE_HEAD_H = 40;
+export function PhoneHead(p: {
+	line?: string;
+	options?: { id: string; label: string }[];
+	value?: string;
+	onChange?: (id: string) => void;
+	accent: Color3;
+	tabsWidth?: number;
+	reducedMotion?: boolean;
+	layoutOrder?: number;
+}) {
+	const tabs = p.options !== undefined && p.options.size() > 0;
+	const w = p.tabsWidth ?? (tabs ? p.options!.size() * 78 + 8 : 0);
+	return (
+		<FlexRow height={PHONE_HEAD_H} gap={10} align={Enum.VerticalAlignment.Center} layoutOrder={p.layoutOrder} name="PhoneHead">
+			<FlexFill layoutOrder={0}>
+				{p.line !== undefined && <Line text={p.line} size={12} font={BODY_SEMI} color={Palette.muted} width={new UDim(1, 0)} height={PHONE_HEAD_H} />}
+			</FlexFill>
+			{tabs && (
+				<FlexFixed width={w} height={TapTarget} layoutOrder={1}>
+					<SegmentedTabs options={p.options} value={p.value} onChange={p.onChange} accent={p.accent} gap={4} size={UDim2.fromScale(1, 1)} reducedMotion={p.reducedMotion} />
+				</FlexFixed>
+			)}
+		</FlexRow>
+	);
+}

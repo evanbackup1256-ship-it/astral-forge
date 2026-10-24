@@ -1,15 +1,17 @@
-// Season (design/16-season): hero, the tier track (free row over the Star Pass row, tier numbers,
+// Season (design/16-season): shell hero (via heroSlot), the tier track (free row over the Star Pass row, tier numbers,
 // XP bar), "This week" directives and the Star Pass card. Reads Command season data and config
 // Operations.SeasonTiers; claims go through ClaimSeasonTier / ClaimSeasonPremium.
 import React from "@rbxts/react";
 import { compactNumber, formatReward, Reward } from "../CoreKit/format";
 import { chromeFor, Palette, scrollTail } from "../CoreKit/theme";
 import { useViewport } from "../MotionKit/motion";
-import { Bar, BODY, BODY_SEMI, Glyph, Line, MockPanel, NUM, PanelHeading, spaced, TITLE_FACE } from "../UiCore/mockKit";
+import { Bar, BODY, BODY_SEMI, Glyph, Line, MockPanel, NUM, PanelHeading } from "../UiCore/mockKit";
 // generated from design/16-season by scripts/gen_from_layout.js (scripts/layout/season.spec.json)
 import { SeasonLayout as L } from "./generated/SeasonLayout";
 import SeasonPremium = require("../../../Shared/AstralForge/Shared/SeasonPremium");
-import { MockBtn, panelHeight, headingBlock, RowFace } from "./mockRows";
+import { MockBtn, panelHeight, headingBlock, RowFace, useWidth } from "./mockRows";
+import { PHONE_HEAD_H, PhoneHead } from "./mockLayout";
+import { useHeroShown, useHeroSlot } from "../UiCore/heroSlot";
 import { loadPageScaffold } from "./luauDeps";
 import { PlaceholderPage } from "./routePlaceholder";
 
@@ -43,10 +45,9 @@ interface SeasonViewProps {
 }
 
 const ACCENT = Palette.pink;
-const CELL_W = L.TierCol.w;
-const CELL_GAP = L.TrackRow.gap;
-// the weekly row value column: wide enough for "31B / 50B" at 17px
-const VALUE_W = 96;
+// the track shows 8 tiers across the panel on desktop, 6 on phone (design/16-season desktop / phone)
+const VISIBLE = 8;
+const VISIBLE_PHONE = 6;
 
 function premiumText(tier: number): string {
 	const r = SeasonPremium.Reward(tier);
@@ -56,24 +57,35 @@ function premiumText(tier: number): string {
 	return "Pass";
 }
 
-function TierCell(p: { top: string; label: string; state: "done" | "ready" | "locked"; current: boolean; onClick?: () => void; h: number; order: number }) {
-	const icon = p.state === "done" ? "Check" : p.state === "locked" ? "Lock" : p.top;
+// .row cell, column flex, padding 10, gap 4: glyph over the small label. Claimed tiers sit at
+// opacity .55, the current tier gets the 2px inset pink ring, pass cells the pink .18 wash.
+function TierCell(p: { glyph: string; label: string; state: "done" | "ready" | "locked"; current: boolean; pass: boolean; onClick?: () => void; h: number; phone: boolean; order: number }) {
+	const icon = p.state === "done" ? "Check" : p.state === "locked" ? "Lock" : p.glyph;
+	const fade = p.state === "done" ? 0.45 : 0;
 	return (
-		<textbutton
-			Size={new UDim2(1, 0, 0, p.h)}
-			BackgroundColor3={Palette.white}
-			BorderSizePixel={0}
-			Text=""
-			AutoButtonColor={false}
-			Active={p.state === "ready"}
-			LayoutOrder={p.order}
-			Event={{ Activated: () => p.state === "ready" && p.onClick?.() }}
-		>
-			<RowFace outline={p.current || p.state === "ready" ? ACCENT : undefined} />
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, L.TierCell.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<Glyph kind={icon} size={L.TierGlyph.w} color={p.state === "locked" ? Palette.muted : Palette.cream} layoutOrder={0} />
-			<Line text={p.label} size={L.TierLabel.text.size} height={L.TierLabel.h} font={BODY} color={p.state === "locked" ? Palette.muted : Palette.creamSoft} width={new UDim(1, -8)} align={Enum.TextXAlignment.Center} layoutOrder={1} />
-		</textbutton>
+		<canvasgroup Size={new UDim2(1, 0, 0, p.h)} BackgroundTransparency={1} GroupTransparency={fade} LayoutOrder={p.order}>
+			<textbutton
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundColor3={Palette.white}
+				BorderSizePixel={0}
+				Text=""
+				AutoButtonColor={false}
+				Active={p.state === "ready"}
+				Event={{ Activated: () => p.state === "ready" && p.onClick?.() }}
+			>
+				<RowFace outline={p.current ? ACCENT : p.state === "ready" ? ACCENT : undefined} strong={p.current} />
+				{p.pass && (
+					<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={ACCENT} BorderSizePixel={0} ZIndex={0}>
+						<uicorner CornerRadius={new UDim(0, L.TierCell.radius)} />
+						<uigradient Rotation={90} Transparency={new NumberSequence(0.82, 1)} />
+					</frame>
+				)}
+				<uipadding PaddingTop={new UDim(0, L.TierCell.pad.top)} PaddingBottom={new UDim(0, L.TierCell.pad.bottom)} PaddingLeft={new UDim(0, L.TierCell.pad.left)} PaddingRight={new UDim(0, L.TierCell.pad.right)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, L.TierCell.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{!p.phone && <Glyph kind={icon} size={L.TierGlyph.w} color={L.TierGlyph.icon.color} layoutOrder={0} />}
+				<Line text={p.label} size={p.phone ? 11 : L.TierLabel.text.size} height={L.TierLabel.h} font={BODY} color={L.TierLabel.text.color} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={1} />
+			</textbutton>
+		</canvasgroup>
 	);
 }
 
@@ -81,44 +93,50 @@ function SeasonView(props: SeasonViewProps) {
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
 	const phone = chrome.contentStack;
+	const heroShown = useHeroShown();
+	const [trackW, onTrackSize] = useWidth(1560);
 	const tiers = props.config?.Operations?.SeasonTiers;
 	const command = props.state?.Command;
+	const xp = command?.SeasonXP ?? 0;
+	const passOwned = command?.SeasonPassOwned === true;
+	let reached = 0;
+	for (const t of tiers ?? []) if (xp >= t.RequiredXP) reached = t.Tier;
+	const name = props.config?.Operations?.SeasonName ?? "Season";
+	// .hero: kicker "Free and Star Pass", the season name as the title, tier and xp on the line
+	useHeroSlot("Season", tiers !== undefined && command !== undefined ? { kicker: passOwned ? "Free and Star Pass" : "Free track", title: name, line: `Tier ${reached} of ${tiers.size()} · ${compactNumber(xp)} XP` } : undefined);
 	if (tiers === undefined || tiers.size() === 0 || command === undefined) {
 		return (
 			<PlaceholderPage id="Season" icon="Season.1" title="Season" body="The season track opens with the next season." accent={Palette.violet} navigate={props.navigate} reducedMotion={props.reducedMotion} />
 		);
 	}
-	const xp = command.SeasonXP ?? 0;
 	const claims = command.SeasonClaims ?? {};
 	const pclaims = command.PremiumClaims ?? {};
-	const passOwned = command.SeasonPassOwned === true;
 	const dispatch = props.dispatch;
-	let reached = 0;
-	for (const t of tiers) if (xp >= t.RequiredXP) reached = t.Tier;
 	const nextTier = tiers.find((t) => xp < t.RequiredXP);
 	const prevXP = tiers.find((t) => t.Tier === reached)?.RequiredXP ?? 0;
 	const fill = nextTier === undefined ? 1 : math.clamp((xp - prevXP) / math.max(1, nextTier.RequiredXP - prevXP), 0, 1);
 	const currentTier = nextTier?.Tier ?? reached;
-	const name = props.config?.Operations?.SeasonName ?? "Season";
 
-	const cellH = phone ? 46 : L.TierCell.h;
-	const colGap = phone ? 8 : L.TierCol.gap;
+	const visible = phone ? VISIBLE_PHONE : VISIBLE;
+	const colGapX = phone ? 8 : L.TrackRow.gap;
+	// columns flex to fill the panel like the mockup; the rest of the season scrolls sideways
+	const cellW = math.max(40, (trackW - (visible - 1) * colGapX) / visible);
+	const cellH = phone ? 40 : L.TierCell.h;
+	const colGap = L.TierCol.gap;
 	const numH = phone ? 16 : L.TierNum.h;
 	const colH = cellH * 2 + colGap * 2 + numH;
-	const heroH = phone ? 110 : 150;
-	const trackH = panelHeight(phone, headingBlock(phone) + colH + (phone ? 8 : L.Track.gap) + L.TrackBar.h);
+	const gapY = phone ? 8 : L.Track.gap;
+	const trackH = panelHeight(phone, headingBlock(phone) + colH + gapY + L.TrackBar.h);
 	const weekly = command.Weekly ?? [];
-	const weekH = panelHeight(phone, headingBlock(phone) + math.max(1, weekly.size()) * L.WeekRow.h + math.max(0, weekly.size() - 1) * (phone ? 8 : L.Week.gap));
-	const passH = panelHeight(phone, headingBlock(phone) + L.PassBody.h + L.Pass.gap + L.PassBtn.h);
+	const rowH = phone ? 44 : L.WeekRow.h;
+	const weekH = panelHeight(phone, headingBlock(phone) + math.max(1, weekly.size()) * rowH + math.max(0, weekly.size() - 1) * gapY);
+	const artW = phone ? 96 : L.PassArt.w;
+	const passH = panelHeight(phone, headingBlock(phone) + artW + gapY + (phone ? 44 : L.PassBtn.h));
 
-	const hero = (
-		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} glow={ACCENT} reducedMotion={props.reducedMotion} name="SeasonHero">
-			<Line text={spaced(passOwned ? "FREE AND STAR PASS" : "FREE TRACK")} size={11} color={ACCENT} layoutOrder={0} />
-			<Line text={name} size={phone ? 28 : 40} font={TITLE_FACE} height={phone ? 32 : 46} layoutOrder={1} />
-			<Line text={`Tier ${reached} of ${tiers.size()} · ${compactNumber(xp)} XP`} size={13} font={BODY} color={Palette.creamSoft} layoutOrder={2} />
-		</MockPanel>
-	);
-
+	const currentIndex = math.max(0, tiers.findIndex((t) => t.Tier === currentTier));
+	const startIndex = math.clamp(currentIndex - 3, 0, math.max(0, tiers.size() - visible));
+	const first = tiers[startIndex]?.Tier ?? 1;
+	const last = tiers[math.min(tiers.size() - 1, startIndex + visible - 1)]?.Tier ?? first;
 	const columns = tiers.map((t, i) => {
 		const tk = tostring(t.Tier);
 		const unlocked = xp >= t.RequiredXP;
@@ -126,37 +144,38 @@ function SeasonView(props: SeasonViewProps) {
 		const passState = passOwned && pclaims[tk] === true ? "done" : passOwned && unlocked ? "ready" : "locked";
 		const current = t.Tier === currentTier;
 		return (
-			<frame key={tk} Size={UDim2.fromOffset(CELL_W, colH)} BackgroundTransparency={1} LayoutOrder={i}>
+			<frame key={tk} Size={UDim2.fromOffset(cellW, colH)} BackgroundTransparency={1} LayoutOrder={i}>
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, colGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<TierCell top="Gift" label={t.Reward !== undefined ? formatReward(t.Reward) : `Tier ${t.Tier}`} state={freeState} current={current} h={cellH} order={0} onClick={() => dispatch?.("ClaimSeasonTier", { Tier: t.Tier })} />
-				<TierCell top="Gem" label={passOwned ? premiumText(t.Tier) : "Pass"} state={passState} current={false} h={cellH} order={1} onClick={() => dispatch?.("ClaimSeasonPremium", { Tier: t.Tier })} />
+				<TierCell glyph="Gift" label={t.Reward !== undefined ? formatReward(t.Reward) : `Tier ${t.Tier}`} state={freeState} current={current} pass={false} h={cellH} phone={phone} order={0} onClick={() => dispatch?.("ClaimSeasonTier", { Tier: t.Tier })} />
+				<TierCell glyph="Gem" label={passOwned ? premiumText(t.Tier) : "Pass"} state={passState} current={false} pass={true} h={cellH} phone={phone} order={1} onClick={() => dispatch?.("ClaimSeasonPremium", { Tier: t.Tier })} />
 				<Line text={tk} size={phone ? 12 : L.TierNum.text.size} height={numH} font={NUM} color={current ? ACCENT : L.TierNum.text.color} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
 			</frame>
 		);
 	});
-	const startIndex = math.max(0, tiers.findIndex((t) => t.Tier === currentTier) - 2);
+	const toNext = nextTier !== undefined ? ` · ${compactNumber(nextTier.RequiredXP - xp)} XP to tier ${nextTier.Tier}` : " · Complete";
 	const track = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} reducedMotion={props.reducedMotion} name="SeasonTrack">
-			<PanelHeading icon="Season.1" title="Track" note={nextTier !== undefined ? `${compactNumber(nextTier.RequiredXP - xp)} XP to tier ${nextTier.Tier}` : "Complete"} accent={ACCENT} phone={phone} layoutOrder={0} />
+			<PanelHeading icon="Season.1" title="Track" note={`Tiers ${first}–${last}${toNext}`} accent={ACCENT} phone={phone} layoutOrder={0} />
 			<scrollingframe
 				Size={new UDim2(1, 0, 0, colH)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				CanvasSize={new UDim2()}
 				AutomaticCanvasSize={Enum.AutomaticSize.X}
-				CanvasPosition={new Vector2(startIndex * (CELL_W + CELL_GAP), 0)}
+				CanvasPosition={new Vector2(startIndex * (cellW + colGapX), 0)}
 				ScrollingDirection={Enum.ScrollingDirection.X}
 				ScrollBarThickness={0}
-				ScrollBarImageColor3={ACCENT}
 				LayoutOrder={1}
+				Change={{ AbsoluteSize: onTrackSize }}
 			>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, CELL_GAP)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, colGapX)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				{columns}
 			</scrollingframe>
 			<Bar fill={fill} color={ACCENT} layoutOrder={2} />
 		</MockPanel>
 	);
 
+	// .row: .tt.f1 (b, then the thin bar 6px under it) and the .v value hugging its text
 	const week = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} reducedMotion={props.reducedMotion} name="SeasonWeek">
 			<PanelHeading icon="Timer" title="This week" accent={ACCENT} phone={phone} layoutOrder={0} />
@@ -164,48 +183,69 @@ function SeasonView(props: SeasonViewProps) {
 			{weekly.map((d, i) => {
 				const done = d.Progress >= d.Target;
 				return (
-					<frame key={d.Id} Size={new UDim2(1, 0, 0, L.WeekRow.h)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i + 1}>
+					<frame key={d.Id} Size={new UDim2(1, 0, 0, rowH)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i + 1}>
 						<RowFace />
-						<uipadding PaddingLeft={new UDim(0, L.WeekRow.pad.left)} PaddingRight={new UDim(0, L.WeekRow.pad.right)} />
-						<Line text={d.Name} size={L.WeekName.text.size} height={L.WeekName.h} font={BODY_SEMI} color={L.WeekName.text.color} width={new UDim(1, -(VALUE_W + L.WeekRow.gap))} position={UDim2.fromOffset(0, L.WeekName.y - L.WeekRow.y)} />
-						<Line text={done ? "Done" : `${compactNumber(d.Progress)} / ${compactNumber(d.Target)}`} size={L.WeekValue.text.size} height={L.WeekValue.h} font={NUM} color={ACCENT} width={new UDim(0, VALUE_W)} align={Enum.TextXAlignment.Right} position={new UDim2(1, -VALUE_W, 0.5, 0)} anchor={new Vector2(0, 0.5)} />
-						<frame Size={new UDim2(1, -(VALUE_W + L.WeekRow.gap), 0, L.WeekBar.h)} Position={UDim2.fromOffset(0, L.WeekBar.y - L.WeekRow.y)} BackgroundTransparency={1} BorderSizePixel={0}>
-							<Bar fill={math.clamp(d.Progress / math.max(1, d.Target), 0, 1)} color={ACCENT} thin={true} />
+						<uipadding PaddingLeft={new UDim(0, phone ? 10 : L.WeekRow.pad.left)} PaddingRight={new UDim(0, phone ? 10 : L.WeekRow.pad.right)} />
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, L.WeekRow.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<frame Size={new UDim2(0, 0, 0, L.WeekName.h + 6 + L.WeekBar.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+							<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+							<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+							<Line text={d.Name} size={phone ? 13 : L.WeekName.text.size} height={L.WeekName.h} font={BODY_SEMI} color={L.WeekName.text.color} width={new UDim(1, 0)} layoutOrder={0} />
+							<Bar fill={math.clamp(d.Progress / math.max(1, d.Target), 0, 1)} color={ACCENT} thin={true} layoutOrder={1} />
 						</frame>
+						<textlabel
+							Text={done ? "Done" : `${compactNumber(d.Progress)} / ${compactNumber(d.Target)}`}
+							TextSize={phone ? 14 : L.WeekValue.text.size}
+							FontFace={NUM}
+							TextColor3={L.WeekValue.text.color}
+							BackgroundTransparency={1}
+							AutomaticSize={Enum.AutomaticSize.X}
+							Size={UDim2.fromOffset(0, L.WeekValue.h)}
+							TextXAlignment={Enum.TextXAlignment.Right}
+							LayoutOrder={1}
+						/>
 					</frame>
 				);
 			})}
 		</MockPanel>
 	);
 
+	// Star Pass: .flexr (160px art | 15px copy, centred), then the pink .btn
 	const pass = (
-		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} glow={Palette.violet} reducedMotion={props.reducedMotion} name="SeasonPass">
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} glow={ACCENT} glowBox={{ w: 600, h: 400, cx: 0.8, cy: 0.4, transparency: 0.8 }} reducedMotion={props.reducedMotion} name="SeasonPass">
 			<PanelHeading icon="Gem" title="Star Pass" note={passOwned ? "Owned" : undefined} accent={ACCENT} phone={phone} layoutOrder={0} />
-			<frame Size={new UDim2(1, 0, 0, L.PassBody.h)} BackgroundTransparency={1} LayoutOrder={1}>
-				<Glyph kind="Gem" size={L.PassArt.w / 2} color={Palette.violet} position={UDim2.fromOffset(L.PassArt.w / 4, L.PassArt.h / 4)} />
-				<textlabel
-					Text="A pass reward on every tier: dust, signals, crates and cores."
-					TextSize={L.PassText.text.size}
-					FontFace={BODY}
-					TextColor3={L.PassText.text.color}
-					TextWrapped={true}
-					TextXAlignment={Enum.TextXAlignment.Left}
-					BackgroundTransparency={1}
-					Size={new UDim2(1, -(L.PassArt.w + L.PassBody.gap), 0, L.PassText.h)}
-					Position={new UDim2(0, L.PassArt.w + L.PassBody.gap, 0.5, 0)}
-					AnchorPoint={new Vector2(0, 0.5)}
-				/>
+			<frame Size={new UDim2(1, 0, 0, artW)} BackgroundTransparency={1} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, L.PassBody.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={UDim2.fromOffset(artW, artW)} BackgroundTransparency={1} LayoutOrder={0}>
+					<Glyph kind="Gem" size={artW / 2} color={Palette.violet} position={UDim2.fromOffset(artW / 4, artW / 4)} />
+				</frame>
+				<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} LayoutOrder={1}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<textlabel
+						Text="A pass reward on every tier: dust, signals, crates and cores."
+						TextSize={phone ? 13 : L.PassText.text.size}
+						FontFace={BODY}
+						TextColor3={L.PassText.text.color}
+						TextWrapped={true}
+						TextXAlignment={Enum.TextXAlignment.Left}
+						BackgroundTransparency={1}
+						Size={new UDim2(1, 0, 0, L.PassText.h)}
+						Position={UDim2.fromScale(0, 0.5)}
+						AnchorPoint={new Vector2(0, 0.5)}
+					/>
+				</frame>
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, L.PassBtn.h)} BackgroundTransparency={1} LayoutOrder={2}>
+			<frame Size={new UDim2(1, 0, 0, phone ? 44 : L.PassBtn.h)} BackgroundTransparency={1} LayoutOrder={2}>
 				<MockBtn text={passOwned ? "Pass active" : "Get Star Pass"} icon="Gem" accent={ACCENT} phone={phone} fill={true} disabled={passOwned} onClick={() => props.navigate?.("Shop")} reducedMotion={props.reducedMotion} />
 			</frame>
 		</MockPanel>
 	);
 
-	const sections: Array<{ id: string; height: number; element: React.Element }> = [
-		{ id: "hero", height: heroH, element: hero },
-		{ id: "track", height: trackH, element: track },
-	];
+	const sections: Array<{ id: string; height: number; element: React.Element }> = [];
+	if (!heroShown) {
+		sections.push({ id: "head", height: PHONE_HEAD_H, element: <PhoneHead line={`${name} · Tier ${reached} of ${tiers.size()}`} accent={ACCENT} /> });
+	}
+	sections.push({ id: "track", height: trackH, element: track });
 	if (phone) {
 		sections.push({ id: "week", height: weekH, element: week }, { id: "pass", height: passH, element: pass });
 	} else {

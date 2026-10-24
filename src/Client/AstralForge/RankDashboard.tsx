@@ -1,17 +1,16 @@
-// Ranks: grouped categories, podium, your-standing card and scaled rows.
+// Ranks (design/17-leaderboards): group + board tabs, Top three podium beside the board rows, your row pinned under the rule.
 import React from "@rbxts/react";
 import * as ProfileStyle from "../../Shared/AstralForge/Shared/ProfileStyle";
-import { frameStroke } from "./CoreKit/profileFrame";
 import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import { useViewport } from "./MotionKit/motion";
 import { KeyLabel } from "./CoreKit/GamepadNavigationService";
 import { useFocusOrder } from "./CoreKit/focusOrder";
 import { OmegaMathApi } from "./lua";
-import { FittedView } from "./UiCore/viewportKit";
-import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "./UiCore/ui";
+import { kitMember, LuauComponent } from "./pages/luauKits";
+import { useHeroShown, useHeroSlot } from "./UiCore/heroSlot";
 
-import { BODY_BOLD, BODY_SEMI, DiamondRule, NUM, PanelHeading, PnSurface, RowSurface, TITLE_FACE } from "./UiCore/mockKit";
+import { BODY_BOLD, BODY_SEMI, DiamondRule, MockPanel, NUM, PanelHeading, RowSurface, TITLE_FACE } from "./UiCore/mockKit";
 // generated from design/17-leaderboards by scripts/gen_from_layout.js (scripts/layout/leaderboards.spec.json)
 import { LeaderboardsLayout as L } from "./pages/generated/LeaderboardsLayout";
 const Players = game.GetService("Players");
@@ -36,12 +35,6 @@ interface UiApi {
 const UiCore = require(script.Parent!.FindFirstChild("UiCore")! as ModuleScript) as CallableFunction;
 const ui = UiCore("ui") as UiApi;
 
-interface ArtApi {
-	PlayerMark: unknown;
-	Icon: unknown;
-}
-const ArtKit = require(script.Parent!.FindFirstChild("ArtKit")! as ModuleScript) as CallableFunction;
-const Art = ArtKit("Icon") as ArtApi;
 
 interface ScaffoldApi {
 	PageScaffold: unknown;
@@ -50,6 +43,7 @@ const LayoutKit = require(script.Parent!.FindFirstChild("LayoutKit")! as ModuleS
 const Scaffold = (LayoutKit("pageScaffold") as ScaffoldApi).PageScaffold;
 
 const P = theme.Palette;
+const { SegmentedTabs } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const e = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
 interface RankRow {
@@ -108,39 +102,6 @@ const MEDAL: Record<number, Color3> = {
 };
 const PODIUM_HEIGHT: Record<number, number> = { [1]: 210, [2]: 150, [3]: 110 };
 
-// 17-leaderboards card: radius 18 with a thin brass inner rule over the padded panel
-const FORGE_RADIUS = 18;
-function BrassRule(props: { pad: number }): React.Element {
-	return e("frame", {
-		Size: new UDim2(1, props.pad * 2 - 4, 1, props.pad * 2 - 4), Position: UDim2.fromScale(0.5, 0.5), AnchorPoint: new Vector2(0.5, 0.5),
-		BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 1,
-	}, {
-		Corner: e("uicorner", { CornerRadius: new UDim(0, FORGE_RADIUS - 2) }),
-		Rule: e("uistroke", { Color: P.brass, Thickness: 1, Transparency: 0.75 }),
-	});
-}
-
-// 17-leaderboards type: serif for titles and podium numerals, GothamBold for numbers
-const SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
-const NUMERIC = Font.fromEnum(Enum.Font.GothamBold);
-function face(font: Font, value: string, size: number, color: Color3, position: UDim2, box: UDim2, align?: Enum.TextXAlignment): React.Element {
-	return e("textlabel", {
-		Text: value, FontFace: font, TextColor3: color, TextScaled: true, TextWrapped: false, TextTruncate: Enum.TextTruncate.AtEnd,
-		TextXAlignment: align ?? Enum.TextXAlignment.Left, BackgroundTransparency: 1, BorderSizePixel: 0, Position: position, Size: box, ZIndex: 3,
-	}, { Fit: e("uitextsizeconstraint", { MaxTextSize: size, MinTextSize: 9 }) });
-}
-
-function share(value: unknown, top: unknown): number {
-	if (!Math.Gt(top, 0)) {
-		return 0;
-	}
-	const ratio = Math.ToNumber(Math.Div(value, top));
-	if (ratio !== ratio) {
-		return 0;
-	}
-	return math.clamp(ratio, 0, 1);
-}
-
 function matchesRank(row: RankRow, query: string): boolean {
 	const [trimmed] = tostring(query ?? "").lower().match("^%s*(.-)%s*$");
 	const needle = typeIs(trimmed, "string") ? trimmed : "";
@@ -150,15 +111,6 @@ function matchesRank(row: RankRow, query: string): boolean {
 	const haystack: string = `${name} ${tag} ${id}`.lower();
 	const [found] = string.find(haystack, needle, 1, true);
 	return needle === "" || found !== undefined;
-}
-
-function bar(ratio: number, color: Color3, position: UDim2, size: UDim2): React.Element {
-	return e("frame", { BackgroundColor3: P.ink, BackgroundTransparency: 0.1, BorderSizePixel: 0, Position: position, Size: size }, {
-		Corner: e("uicorner", { CornerRadius: new UDim(1, 0) }),
-		Fill: e("frame", { BackgroundColor3: color, BorderSizePixel: 0, Size: UDim2.fromScale(math.max(ratio, 0.015), 1) }, {
-			Corner: e("uicorner", { CornerRadius: new UDim(1, 0) }),
-		}),
-	});
 }
 
 interface ChipProps {
@@ -180,159 +132,6 @@ function chip(props: ChipProps): React.Element {
 		position: props.position, size: props.size, disabled: props.disabled,
 		reducedMotion: props.reducedMotion, onClick: props.onClick,
 	});
-}
-
-interface AvatarViewProps {
-	userId: number;
-	accent: Color3;
-	reducedMotion?: boolean;
-	size: UDim2;
-	position?: UDim2;
-}
-
-function AvatarView(props: AvatarViewProps): React.Element {
-	const ref = React.useRef<ViewportFrame>();
-	const scene = React.useRef<{ view: FittedView; target: Vector3; size: Vector3 } | undefined>(undefined);
-	const [status, setStatus] = React.useState<string | undefined>("Loading avatar…");
-	const [revision, retry] = React.useState(0);
-	const [angle, turn] = React.useState(0);
-	const previousAngle = React.useRef(0);
-
-	React.useEffect(() => {
-		const viewport = ref.current;
-		if (viewport === undefined) {
-			return undefined;
-		}
-		let alive = true;
-		const world = new Instance("WorldModel");
-		world.Parent = viewport;
-		const view = new FittedView(viewport, 34);
-		setStatus("Loading avatar…");
-		const timeout = task.delay(12, () => {
-			if (alive && scene.current === undefined) {
-				setStatus("Avatar taking too long. Retry.");
-			}
-		});
-		task.spawn(() => {
-			const [ok, model] = pcall(() => Players.CreateHumanoidModelFromUserIdAsync(User.fromId(props.userId)));
-			if (!alive) {
-				if (ok && typeIs(model, "Instance")) {
-					model.Destroy();
-				}
-				return;
-			}
-			if (!ok) {
-				warn(`Ranks avatar ${props.userId}: ${model}`);
-				setStatus("Avatar unavailable. Retry.");
-				return;
-			}
-			const humanoidModel = model as Model;
-			for (const item of humanoidModel.GetDescendants()) {
-				if (item.IsA("LuaSourceContainer")) {
-					item.Destroy();
-				} else if (item.IsA("BasePart")) {
-					item.Anchored = item.Name === "HumanoidRootPart";
-					item.CanCollide = false;
-				}
-			}
-			humanoidModel.PivotTo(new CFrame());
-			humanoidModel.Parent = world;
-			task.wait();
-			if (!alive) {
-				humanoidModel.Destroy();
-				return;
-			}
-			const [bounds, size] = humanoidModel.GetBoundingBox();
-			view.setModel(humanoidModel);
-			scene.current = { view, target: bounds.Position, size };
-			setStatus(undefined);
-		});
-		return () => {
-			alive = false;
-			task.cancel(timeout);
-			scene.current = undefined;
-			viewport.CurrentCamera = undefined;
-			world.Destroy();
-			view.destroy();
-		};
-	}, [props.userId, revision]);
-
-	React.useEffect(() => {
-		const viewport = ref.current!;
-		const current = scene.current!;
-		if (current === undefined || viewport === undefined) {
-			return undefined;
-		}
-		let tween: Tween | undefined;
-		function fit(animate: boolean) {
-			if (!current.view.ready()) {
-				return;
-			}
-			if (tween !== undefined) {
-				tween.Cancel();
-			}
-			const yaw = math.rad(angle);
-			// face the avatar from this yaw, slightly above, with a little air around it
-			const orientation = CFrame.lookAt(new Vector3(math.sin(yaw), 0.08, -math.cos(yaw)), Vector3.zero);
-			const target = current.view.frame(orientation, 0.08);
-			if (animate && !props.reducedMotion) {
-				tween = TweenService.Create(current.view.camera, new TweenInfo(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { CFrame: target });
-				tween.Play();
-			} else {
-				current.view.camera.CFrame = target;
-			}
-		}
-		fit(previousAngle.current !== angle);
-		previousAngle.current = angle;
-		current.view.onFit = () => fit(false);
-		return () => {
-			current.view.onFit = undefined;
-			if (tween !== undefined) {
-				tween.Cancel();
-			}
-		};
-	}, [status, angle, props.reducedMotion]);
-
-	return e("frame", { Name: "RankAvatar", Size: props.size, Position: props.position, BackgroundTransparency: 1 }, {
-		View: e("viewportframe", {
-			Name: "AvatarViewport", ref, Size: new UDim2(1, 0, 1, -54), BackgroundTransparency: 1,
-			Ambient: Color3.fromRGB(180, 185, 205), LightColor: Color3.fromRGB(255, 235, 215), LightDirection: new Vector3(-1, -1, -2),
-		}),
-		Status: status !== undefined ? e(ui.Text, { value: status, size: 11, color: P.creamSoft, wrap: true, fit: true, minSize: 9, align: Enum.TextXAlignment.Center, position: UDim2.fromOffset(0, 8), sizeConstraint: new UDim2(1, 0, 1, -62) }) : undefined,
-		Turn: e(ui.Button, {
-			text: status !== undefined && status !== "Loading avatar…" ? "Retry" : "Turn",
-			icon: status !== undefined ? "Refresh.6" : "Crew.11", color: props.accent, outline: true,
-			size: new UDim2(1, 0, 0, 48), position: new UDim2(0, 0, 1, -48),
-			disabled: status === "Loading avatar…", reducedMotion: props.reducedMotion,
-			onClick: () => {
-				if (status !== undefined) {
-					retry((v) => v + 1);
-				} else {
-					turn((v) => (v === 0 ? 30 : v === 30 ? -30 : 0));
-				}
-			},
-		}),
-	});
-}
-
-interface MarkProps {
-	row: RankRow;
-	guildBoard: boolean;
-	accent: Color3;
-	size: number;
-	position: UDim2;
-}
-
-function mark(props: MarkProps): React.Element {
-	const { row, guildBoard, accent, size, position } = props;
-	if (guildBoard) {
-		return e("frame", { BackgroundColor3: accent, BackgroundTransparency: 0.7, BorderSizePixel: 0, AnchorPoint: new Vector2(0.5, 0), Position: position, Size: UDim2.fromOffset(size, size) }, {
-			Corner: e("uicorner", { CornerRadius: new UDim(0, math.floor(size * 0.28)) }),
-			Stroke: e("uistroke", { Color: accent, Transparency: 0.2, Thickness: 1.5 }),
-			Tag: e(ui.Text, { value: tostring(row.Tag ?? "?"), size: math.max(11, math.floor(size * 0.3)), weight: Enum.FontWeight.Bold, align: Enum.TextXAlignment.Center, sizeConstraint: UDim2.fromScale(1, 1) }),
-		});
-	}
-	return e(Art.PlayerMark, { userId: row.UserId, accent, size, position, anchorPoint: new Vector2(0.5, 0) });
 }
 
 /**
@@ -427,9 +226,6 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			return () => connection.Disconnect();
 		}, []);
 
-		// wide desktop: standing, categories and controls sit in a left column beside podium + rows
-		const plan = splitColumns(measuredWidth, 360, L.Body.gap, 1060);
-		let narrow = measuredWidth < 620;
 		// phones: one-line rows (place, mark, name, value) with the share bar along the bottom edge
 		const phoneRow = measuredWidth < 420;
 		const rankRowH = phoneRow ? 44 : L.Row.h;
@@ -445,9 +241,8 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		useFocusOrder(
 			hostRef,
 			{
-				regions: ["rank-standing", "rank-categories", "rank-controls", "rank-you", "rank-podium", "rank-row-*", "rank-no-match", "rank-empty"],
-				first: ["rank-categories", "rank-controls"],
-				columns: [["Side", "Main"]],
+				regions: ["rank-tabs", "rank-controls", "rank-podium", "rank-row-*", "rank-no-match", "rank-empty", "rank-you"],
+				first: ["rank-tabs", "rank-controls"],
 			},
 			[selected, scope],
 		);
@@ -480,6 +275,14 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		const meta = guildBoard ? GUILD_META : helpers.metaFor(selected);
 		const group = groupOf(selected);
 		const localId = Players.LocalPlayer.UserId;
+		// wide desktop: the board tabs sit in the shell .hero (kicker = group, line = what the board counts)
+		const heroShown = useHeroShown();
+		const heroBoards = boardsIn(group);
+		useHeroSlot("Leaderboards", {
+			kicker: GROUPS.find((entry) => entry.id === group)?.label ?? group,
+			line: meta.description,
+			tabs: { options: heroBoards.map((board) => ({ id: board.id, label: board.short ?? board.label })), value: selected, onChange: (id: string) => setSelected(id), accent: meta.accent, width: math.min(760, heroBoards.size() * 104 + 8) },
+		});
 
 		React.useEffect(() => {
 			let alive = true;
@@ -564,229 +367,212 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		reducedRef.current = reducedMotion === true;
 		const ahead = personalIndex !== undefined ? rows[personalIndex - 2] : undefined;
 		const gap = ahead !== undefined ? Math.Max(0, Math.ToNumber(Math.Sub(ahead.Value, own))) : 0;
-		const top = rows[0]?.Value ?? 0;
-		const sections: Section[] = [];
-		function text(value: string, x: number, y: number, w: number, h: number, size?: number, color?: Color3, extra?: Record<string, unknown>): React.Element {
-			const textProps: Record<string, unknown> = { value, position: new UDim2(0, x, 0, y), sizeConstraint: new UDim2(w, w === 1 ? -x : 0, 0, h), size: size ?? 14, color: color ?? P.cream, wrap: true };
-			if (extra !== undefined) {
-				for (const [k, v] of pairs(extra)) {
-					textProps[k] = v;
-				}
-			}
-			return e(ui.Text, textProps);
-		}
-		function section(id: string, height: number, children: Record<string, React.Element | undefined>, accent?: Color3) {
-			sections.push({ id, height, element: e(PnSurface, { size: UDim2.fromScale(1, 1), padding: 22, radius: FORGE_RADIUS, background: P.panel, accent: accent ?? P.brass }, { BrassRule: e(BrassRule, { pad: 22 }), ...children }) });
-		}
+		// design/17-leaderboards: .tabs strip (hero row), then .flexr [Top three .pn 640 | board .pn.f1];
+		// phone.html: tabs, then one .pn of rows with the top three's numbers in medal colours
+		const phone = measuredWidth < 1060;
+		const pad = phone ? { x: 12, y: 10, gap: 8 } : { x: L.Board.pad.left, y: L.Board.pad.top, gap: L.Board.gap };
+		const headH = phone ? 18 : 22;
+		const ctlH = phone ? theme.TapTarget : 48;
+		const nameOf = (row: RankRow) => `${row.Name ?? "Unknown pilot"}${isMine(row) ? " (you)" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`;
 
-		const mainNarrow = plan.split ? plan.main < 620 : narrow;
-		const panelWidth = plan.split ? plan.side : measuredWidth;
-		narrow = narrow || plan.split;
-		// Standing card: your rank, your score and the climb to the next seat.
-		const nextRatio = ahead !== undefined ? share(own, ahead.Value) : personalIndex === 1 ? 1 : share(own, top);
-		const standing = personalIndex !== undefined ? `#${personalIndex}` : "—";
-		section("rank-standing", narrow ? 190 : 168, {
-			Icon: e(Art.Icon, { kind: meta.icon ?? "Leaderboard.2", color: meta.accent, accent: meta.accent, size: 28, spin: false, position: UDim2.fromOffset(0, 2) }),
-			Title: face(SERIF, meta.label, 24, P.cream, UDim2.fromOffset(44, 0), new UDim2(1, -44, 0, 32)),
-			Seat: face(SERIF, standing, 44, personalIndex === 1 ? MEDAL[1] : P.brass, UDim2.fromOffset(0, narrow ? 56 : 24), new UDim2(1, 0, 0, 48), Enum.TextXAlignment.Right),
-			Score: face(NUMERIC, valueText(own), 16, P.cream, UDim2.fromOffset(0, narrow ? 70 : 64), new UDim2(0.6, 0, 0, 22)),
-			Climb: bar(nextRatio, personalIndex === 1 ? MEDAL[1] : P.brass, new UDim2(0, 0, 0, narrow ? 112 : 100), new UDim2(1, 0, 0, 6)),
-			Gap: text(Math.ToNumber(gap) > 0 ? `+${format.compactNumber(gap)} to #${personalIndex! - 1}` : personalIndex === undefined && rows.size() > 0 ? `${valueText(rows[rows.size() - 1].Value)} to #${rows.size()}` : "", 0, narrow ? 126 : 114, 1, 18, 11, P.creamSoft),
-		});
-
-		// Category picker: group strip, then the boards inside the group.
-		const groupKids: Record<string, React.Element> = {};
-		const groupCols = panelWidth < 480 ? 2 : panelWidth < 1000 ? 3 : 6;
-		for (let index = 0; index < GROUPS.size(); index++) {
-			const entry = GROUPS[index];
-			const col = index % groupCols;
-			const rowIndex = math.floor(index / groupCols);
-			groupKids[entry.id] = chip({
-				text: entry.label, icon: entry.icon, accent: group === entry.id ? meta.accent : P.muted, active: group === entry.id,
-				position: new UDim2(col / groupCols, 2, 0, rowIndex * 56), size: new UDim2(1 / groupCols, -8, 0, 48), reducedMotion,
-				onClick: () => {
-					const first = boardsIn(entry.id)[0];
-					if (first !== undefined) {
-						setSelected(first.id);
-					}
-				},
-			});
-		}
-		const groupRows = math.ceil(GROUPS.size() / groupCols);
-		const inGroup = boardsIn(group);
-		const boardCols = math.min(inGroup.size(), narrow ? 2 : 4);
-		for (let index = 0; index < inGroup.size(); index++) {
-			const board = inGroup[index];
-			const col = index % boardCols;
-			const rowIndex = math.floor(index / boardCols);
-			groupKids[`board-${board.id}`] = chip({
-				text: board.short ?? board.label, icon: board.icon, accent: board.accent, active: selected === board.id,
-				position: new UDim2(col / boardCols, 2, 0, groupRows * 56 + 14 + rowIndex * 56), size: new UDim2(1 / boardCols, -8, 0, 48), reducedMotion,
-				onClick: () => setSelected(board.id),
-			});
-		}
-		groupKids.Divider = e("frame", { BackgroundColor3: P.brass, BackgroundTransparency: 0.6, BorderSizePixel: 0, Position: new UDim2(0, 0, 0, groupRows * 56 + 5), Size: new UDim2(1, 0, 0, 1) });
-		section("rank-categories", groupRows * 56 + 14 + math.ceil(inGroup.size() / boardCols) * 56 + 32, groupKids);
-
-		// Scope, refresh and search in one card.
-		const controls: Record<string, React.Element> = { Status: text(result.status ?? "Rankings unavailable.", 0, 0, 1, 18, 11, P.creamSoft) };
-		for (let index = 0; index < 2; index++) {
-			const id = (["Global", "Server"] as const)[index];
-			controls[id] = chip({
-				text: id === "Global" ? "Global" : "This server", icon: id === "Global" ? "World.10" : "Command.5", accent: meta.accent, active: scope === id && !guildBoard,
-				position: new UDim2((index) / 3, 2, 0, 24), size: new UDim2(1 / 3, -8, 0, 48), disabled: guildBoard, reducedMotion,
-				onClick: () => {
-					if (!guildBoard) {
-						setScope(id);
-					}
-				},
-			});
-		}
-		controls.Refresh = e(ui.Button, { text: result.loading ? "Loading…" : "Refresh", position: new UDim2(2 / 3, 2, 0, 24), size: new UDim2(1 / 3, -8, 0, 48), disabled: result.loading, reducedMotion, onClick: () => reload((v) => v + 1), color: P.mint });
-		controls.Search = e(ui.SearchField, { value: query, onChange: setQuery, placeholder: guildBoard ? "Find a guild or tag" : "Find a player or user ID", accent: meta.accent, reducedMotion, position: new UDim2(0, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(2 / 3, -8, 0, 48) });
-		controls.Mine = e(ui.Button, { text: mineOnly ? "Show everyone" : "Only me", icon: "Crew.12", color: P.mint, outline: !mineOnly, reducedMotion, position: narrow ? new UDim2(0, 2, 0, 140) : new UDim2(2 / 3, 2, 0, 84), size: narrow ? new UDim2(1, -8, 0, 48) : new UDim2(1 / 3, -8, 0, 48), onClick: () => setMineOnly((v) => !v) });
-		section("rank-controls", narrow ? 220 : 164, controls);
-		const sideEnd = sections.size();
-		narrow = mainNarrow;
-
-		function rankRow(row: RankRow, place: number | undefined, pinned: boolean): React.Element {
+		function rankRow(row: RankRow, place: number | undefined): React.Element {
 			const mine = isMine(row);
 			const styled = rankRowStyle(row, guildBoard);
-			const accent = styled?.accent ?? (mine ? P.mint : meta.accent);
-			// same frame treatment as the player list card (thickness, gradient frames, a bit more opaque)
-			const ring = frameStroke(styled?.frame, accent, pinned ? 2 : 1);
-			// design/17-leaderboards .row: 44px num rank (22px, muted), name, .v value; your row ringed mango,
-			// profile-style rank rings keep their own colours
-			const ringColor = mine ? P.mango : ring.color;
-			const ringT = mine ? 0 : ring.framed ? 0.45 : 0.95;
-			return e("frame", {
-				BackgroundColor3: P.white, BackgroundTransparency: 0, BorderSizePixel: 0, Size: new UDim2(1, 0, 0, rankRowH),
-			}, {
-				Surface: e(RowSurface, {}),
-				Stroke: e("uistroke", { Color: ringColor, Transparency: ringT, Thickness: mine ? 2 : ring.thickness, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }, !mine && ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
-				Place: e("textlabel", { Text: place !== undefined ? tostring(place) : "–", FontFace: NUM, TextSize: phoneRow ? 18 : L.RowNum.text.size, TextColor3: L.RowNum.text.color, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(L.Row.pad.left, 0), Size: new UDim2(0, L.RowNum.w, 1, 0) }),
-				Mark: mark({ row, guildBoard, accent, size: phoneRow ? 24 : 30, position: new UDim2(0, 12 + 44 + 12, 0.5, phoneRow ? -12 : -15) }),
-				Name: e("textlabel", { Text: `${row.Name ?? "Unknown pilot"}${mine ? " (you)" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, FontFace: BODY_SEMI, TextSize: phoneRow ? 13 : 15, TextColor3: styled?.accent ?? P.cream, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(12 + 44 + 12 + (phoneRow ? 24 : 30) + 12, 0), Size: new UDim2(1, -(12 + 44 + 12 + (phoneRow ? 24 : 30) + 12 + 110), 1, 0) }),
-				Value: e("textlabel", { Text: valueText(row.Value), FontFace: NUM, TextSize: phoneRow ? 15 : 17, TextColor3: P.mango, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Right, Position: new UDim2(1, -110, 0, 0), Size: new UDim2(0, 98, 1, 0) }),
-			});
+			const numColor = phone && place !== undefined && place <= 3 ? MEDAL[place] : L.RowNum.text.color;
+			return (
+				<frame BackgroundColor3={P.white} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)}>
+					<RowSurface />
+					{mine && <uistroke Color={P.mango} Thickness={2} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />}
+					<uipadding PaddingLeft={new UDim(0, L.Row.pad.left)} PaddingRight={new UDim(0, L.Row.pad.right)} />
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, L.Row.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<textlabel LayoutOrder={0} Text={place !== undefined ? tostring(place) : "–"} FontFace={NUM} TextSize={L.RowNum.text.size} TextColor3={numColor} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} Size={UDim2.fromOffset(L.RowNum.w, L.RowNum.h)} />
+					<frame LayoutOrder={1} BackgroundTransparency={1} Size={new UDim2(0, 0, 0, L.RowName.h)}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<textlabel Text={nameOf(row)} FontFace={BODY_SEMI} TextSize={phone ? 13 : L.RowName.text.size} TextColor3={styled?.accent ?? L.RowName.text.color} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Size={UDim2.fromScale(1, 1)} />
+					</frame>
+					<textlabel LayoutOrder={2} Text={valueText(row.Value)} FontFace={NUM} TextSize={phone ? 15 : L.RowValue.text.size} TextColor3={L.RowValue.text.color} BackgroundTransparency={1} AutomaticSize={Enum.AutomaticSize.X} TextXAlignment={Enum.TextXAlignment.Right} Size={UDim2.fromOffset(0, L.RowValue.h)} />
+				</frame>
+			);
 		}
+		const rowSlot = (key: string, order: number, child: React.Element) => (
+			<frame key={key} LayoutOrder={order} BackgroundTransparency={1} Size={new UDim2(1, 0, 0, rankRowH)}>
+				{child}
+			</frame>
+		);
 
-		if (rows.size() === 0) {
-			section("rank-empty", 96, {
-				title: text(result.loading ? "…" : "—", 0, 0, 1, 30, 18),
-			});
+		// .tabs: board groups, then the boards of the group (the mockup's Cash/Rebirths/Crates/Friends slot)
+		const groupOptions = GROUPS.map((entry) => ({ id: entry.id, label: entry.label }));
+		const inGroup = boardsIn(group);
+		const boardOptions = inGroup.map((board) => ({ id: board.id, label: board.short ?? board.label }));
+		const pickGroup = (id: string) => {
+			const first = boardsIn(id)[0];
+			if (first !== undefined) setSelected(first.id);
+		};
+		const groupsW = GROUPS.size() * (phone ? 84 : 112);
+		const boardsW = math.min(phone ? measuredWidth : 900, math.max(200, inGroup.size() * (phone ? 84 : 104)));
+		const boardsInBody = !heroShown;
+		const tabsH = phone ? ctlH * (boardsInBody ? 2 : 1) + (boardsInBody ? 8 : 0) : 48;
+		const tabs = (
+			<frame BackgroundTransparency={1} Size={UDim2.fromScale(1, 1)}>
+				<uilistlayout FillDirection={phone ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal} HorizontalAlignment={phone ? Enum.HorizontalAlignment.Left : Enum.HorizontalAlignment.Right} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame LayoutOrder={0} BackgroundTransparency={1} Size={phone ? new UDim2(1, 0, 0, ctlH) : UDim2.fromOffset(groupsW, 48)}>
+					<SegmentedTabs options={groupOptions} value={group} onChange={pickGroup} accent={meta.accent} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
+				</frame>
+				{boardsInBody && (
+					<frame LayoutOrder={1} BackgroundTransparency={1} Size={phone ? new UDim2(1, 0, 0, ctlH) : UDim2.fromOffset(boardsW, 48)}>
+						<SegmentedTabs options={boardOptions} value={selected} onChange={(id: string) => setSelected(id)} accent={meta.accent} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
+					</frame>
+				)}
+			</frame>
+		);
+
+		// board .pn: heading (board name, status note), scope / search / only-me / refresh row, rows, .rule, your row
+		const boardKids: React.Element[] = [];
+		boardKids.push(<PanelHeading key="head" icon={meta.icon ?? "Leaderboard.2"} title={meta.label} note={result.status} phone={phone} layoutOrder={0} />);
+		const ctlKids: React.Element[] = [];
+		const scopes = ["Global", "Server"] as const;
+		scopes.forEach((id, index) => {
+			ctlKids.push(
+				<frame key={id} LayoutOrder={index} BackgroundTransparency={1} Size={new UDim2(0, phone ? 0 : 140, 1, 0)}>
+					{phone && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
+					{chip({ text: id === "Global" ? "Global" : "This server", icon: id === "Global" ? "World.10" : "Command.5", accent: meta.accent, active: scope === id && !guildBoard, size: UDim2.fromScale(1, 1), disabled: guildBoard, reducedMotion, onClick: () => { if (!guildBoard) setScope(id); } })}
+				</frame>,
+			);
+		});
+		const search = e(ui.SearchField, { value: query, onChange: setQuery, placeholder: guildBoard ? "Find a guild or tag" : "Find a player or user ID", accent: meta.accent, reducedMotion, size: UDim2.fromScale(1, 1) });
+		const mineBtn = e(ui.Button, { text: mineOnly ? "Show everyone" : "Only me", icon: "Crew.12", color: P.mint, outline: !mineOnly, reducedMotion, size: UDim2.fromScale(1, 1), onClick: () => setMineOnly((v) => !v) });
+		const refreshBtn = e(ui.Button, { text: result.loading ? "Loading…" : "Refresh", size: UDim2.fromScale(1, 1), disabled: result.loading, reducedMotion, onClick: () => reload((v) => v + 1), color: P.mint });
+		if (!phone) {
+			ctlKids.push(<frame key="search" LayoutOrder={2} BackgroundTransparency={1} Size={new UDim2(0, 0, 1, 0)}><uiflexitem FlexMode={Enum.UIFlexMode.Fill} />{search}</frame>);
+			ctlKids.push(<frame key="mine" LayoutOrder={3} BackgroundTransparency={1} Size={new UDim2(0, 150, 1, 0)}>{mineBtn}</frame>);
+			ctlKids.push(<frame key="refresh" LayoutOrder={4} BackgroundTransparency={1} Size={new UDim2(0, 120, 1, 0)}>{refreshBtn}</frame>);
 		} else {
-			// Podium (design/17-leaderboards "Top three"): name, muted num value, then a plinth 150/210/110 tall,
-			// medal colour fading to #1B151D, with the place in 40px title type
-			const podium: Record<string, React.Element> = {};
-			const podiumScale = narrow ? 0.6 : 1;
-			const seatGap = narrow ? 10 : L.Seat.gap;
-			const nameH = narrow ? 18 : L.SeatName.h;
-			const valueH = narrow ? 16 : L.SeatValue.h;
-			const podiumH = math.floor(210 * podiumScale) + seatGap * 2 + nameH + valueH;
-			const seatsGap = narrow ? 10 : L.PodiumSeats.gap;
-			for (const place of PODIUM_ORDER) {
-				const row = rows[place - 1];
-				if (row !== undefined) {
-					const slot = PODIUM_ORDER.indexOf(place);
-					const plinthH = math.floor((PODIUM_HEIGHT[place] ?? 110) * podiumScale);
-					podium[`seat${place}`] = e("frame", { Name: `PodiumSeat${place}`, BackgroundTransparency: 1, Position: new UDim2(slot / 3, (slot * seatsGap) / 3, 0, 0), Size: new UDim2(1 / 3, -((2 * seatsGap) / 3), 1, 0) }, {
-						Name: e("textlabel", { Text: `${row.Name ?? "Unknown"}${isMine(row) ? " (you)" : ""}`, FontFace: BODY_BOLD, TextSize: narrow ? 14 : L.SeatName.text.size, TextColor3: rankRowStyle(row, guildBoard)?.accent ?? P.cream, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + seatGap + valueH + seatGap)), Size: new UDim2(1, 0, 0, nameH) }),
-						Value: e("textlabel", { Text: valueText(row.Value), FontFace: NUM, TextSize: narrow ? 12 : L.SeatValue.text.size, TextColor3: L.SeatValue.text.color, BackgroundTransparency: 1, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + seatGap)), Size: new UDim2(1, 0, 0, valueH) }),
-						Plinth: e("frame", { BackgroundColor3: P.white, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: UDim2.fromScale(0, 1), Size: new UDim2(1, 0, 0, plinthH) }, {
-							Corner: e("uicorner", { CornerRadius: new UDim(0, L.Plinth3.radius) }),
-							Fade: e("uigradient", { Rotation: 90, Color: new ColorSequence(MEDAL[place], Color3.fromRGB(27, 21, 29)) }),
-							Place: e("textlabel", { Text: tostring(place), FontFace: TITLE_FACE, TextSize: narrow ? 28 : 40, TextColor3: Color3.fromRGB(12, 9, 14), BackgroundTransparency: 1, Position: UDim2.fromOffset(0, L.Plinth3.pad.top), Size: new UDim2(1, 0, 0, narrow ? 30 : 42) }),
-						}),
-					});
-				}
-			}
-			section("rank-podium", podiumH + 44, { Heading: e(PanelHeading, { icon: "Leaderboard.2", title: "Top three", phone: narrow }), Seats: e("frame", { BackgroundTransparency: 1, Position: UDim2.fromOffset(0, 44), Size: new UDim2(1, 0, 0, podiumH) }, podium) }, P.brass);
-
-			// Remaining rows: compact, with a share-of-leader bar.
-			let shown = 0;
-			const rankRows: Record<string, React.Element> = {};
-			const start = query !== "" || mineOnly ? 0 : 3;
-			for (let index = start; index < rows.size(); index++) {
-				const row = rows[index];
-				const mine = isMine(row);
-				if (!matchesRank(row, query) || (mineOnly && !mine)) {
-					continue;
-				}
-				shown += 1;
-				rankRows[`rank-row-${index + 1}`] = e("frame", { Name: `rank-row-${index + 1}`, BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, rankRowH), LayoutOrder: index }, { Row: rankRow(row, index + 1, false) });
-			}
-			if (shown > 0) {
-				// design/17: ranked rows sit 12px apart inside one block (the page scaffold gap is 22)
-				const rankRowGap = L.Board.gap;
-				sections.push({
-					id: "rank-rows",
-					height: shown * rankRowH + (shown - 1) * rankRowGap,
-					element: e("frame", { BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, {
-						List: e("uilistlayout", { Padding: new UDim(0, rankRowGap), SortOrder: Enum.SortOrder.LayoutOrder }),
-						...rankRows,
-					}),
-				});
-			}
-			if (shown === 0 && (query !== "" || mineOnly)) {
-				section("rank-no-match", 84, {
-					title: text("—", 0, 0, 1, 28, 16),
-				});
-			}
+			ctlKids.push(<frame key="refresh" LayoutOrder={2} BackgroundTransparency={1} Size={new UDim2(0, 0, 1, 0)}><uiflexitem FlexMode={Enum.UIFlexMode.Fill} />{refreshBtn}</frame>);
 		}
-		// Your row, pinned under the list after a diamond rule (design/17-leaderboards).
-		if (rows.size() > 0 && !mineOnly && query === "") {
+		const ctlRow = (key: string, order: number, kids: React.Element[]) => (
+			<frame key={key === "ctl" ? "rank-controls" : key} LayoutOrder={order} BackgroundTransparency={1} Size={new UDim2(1, 0, 0, ctlH)}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{kids}
+			</frame>
+		);
+		boardKids.push(ctlRow("ctl", 1, ctlKids));
+		let boardContent = headH + pad.gap + ctlH;
+		if (phone) {
+			boardKids.push(ctlRow("ctl2", 2, [
+				<frame key="search" LayoutOrder={0} BackgroundTransparency={1} Size={new UDim2(0, 0, 1, 0)}><uiflexitem FlexMode={Enum.UIFlexMode.Fill} />{search}</frame>,
+				<frame key="mine" LayoutOrder={1} BackgroundTransparency={1} Size={new UDim2(0, 130, 1, 0)}>{mineBtn}</frame>,
+			]));
+			boardContent += pad.gap + ctlH;
+		}
+		const start = phone || query !== "" || mineOnly ? 0 : 3;
+		let shown = 0;
+		for (let index = start; index < rows.size(); index++) {
+			const row = rows[index];
+			if (!matchesRank(row, query) || (mineOnly && !isMine(row))) continue;
+			shown += 1;
+			boardKids.push(rowSlot(`rank-row-${index + 1}`, 10 + index, rankRow(row, index + 1)));
+			boardContent += pad.gap + rankRowH;
+		}
+		if (shown === 0) {
+			const empty = rows.size() === 0 ? (result.loading ? "…" : "—") : "No match";
+			boardKids.push(
+				<textlabel key={rows.size() === 0 ? "rank-empty" : "rank-no-match"} LayoutOrder={9} Text={empty} FontFace={BODY_SEMI} TextSize={15} TextColor3={P.muted} BackgroundTransparency={1} Size={new UDim2(1, 0, 0, rankRowH)} />,
+			);
+			boardContent += pad.gap + rankRowH;
+		}
+		// your row, pinned under the diamond rule; the gap to the seat above and Find me share the line under it
+		if (rows.size() > 0 && !mineOnly && query === "" && (!guildBoard || guildId !== undefined)) {
 			const you: RankRow = personalIndex !== undefined
 				? rows[personalIndex - 1]
 				: { Name: guildBoard ? "Your guild" : Players.LocalPlayer.DisplayName, UserId: guildBoard ? undefined : localId, Id: guildBoard ? guildId : undefined, Value: own };
-			if (!guildBoard || guildId !== undefined) {
-				// Find me: only when you're on the board below; jumps the list to your own row
-				const findable = personalIndex !== undefined;
-				sections.push({
-					id: "rank-you",
-					height: L.Rule.h + L.Board.gap + rankRowH + (findable ? theme.TapTarget + 8 : 0),
-					element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, {
-						Rule: e("frame", { BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, L.Rule.h) }, { Rule: e(DiamondRule, {}) }),
-						Row: e("frame", { BackgroundTransparency: 1, Position: UDim2.fromOffset(0, L.Rule.h + L.Board.gap), Size: new UDim2(1, 0, 0, rankRowH) }, { Row: rankRow(you, personalIndex, true) }),
-						Find: findable
-							? e(ui.Button, {
+			const findable = personalIndex !== undefined;
+			const gapLine = Math.ToNumber(gap) > 0 ? `+${format.compactNumber(gap)} to #${personalIndex! - 1}` : personalIndex === undefined ? `${valueText(rows[rows.size() - 1].Value)} to #${rows.size()}` : "";
+			boardKids.push(<DiamondRule key="rule" layoutOrder={100000} />);
+			boardKids.push(
+				<frame key="RankPinnedYou" LayoutOrder={100001} BackgroundTransparency={1} Size={new UDim2(1, 0, 0, rankRowH)}>
+					{rankRow(you, personalIndex)}
+				</frame>,
+			);
+			boardContent += pad.gap + L.Rule.h + pad.gap + rankRowH;
+			if (findable || gapLine !== "") {
+				const findW = UserInputService.GamepadEnabled ? 168 : 132;
+				boardKids.push(
+					<frame key="rank-you" LayoutOrder={100002} BackgroundTransparency={1} Size={new UDim2(1, 0, 0, theme.TapTarget)}>
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<frame LayoutOrder={0} BackgroundTransparency={1} Size={new UDim2(0, 0, 1, 0)}>
+							<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+							<textlabel Text={gapLine} FontFace={BODY_SEMI} TextSize={12} TextColor3={P.muted} BackgroundTransparency={1} TextXAlignment={Enum.TextXAlignment.Left} Size={UDim2.fromScale(1, 1)} />
+						</frame>
+						{findable && (
+							<frame LayoutOrder={1} BackgroundTransparency={1} Size={UDim2.fromOffset(findW, theme.TapTarget)}>
+								{e(ui.Button, {
 									// with a pad connected, name the shortcut the way the hint bar does
 									text: UserInputService.GamepadEnabled ? `Find me · ${KeyLabel(Enum.KeyCode.ButtonR3, "R3")}` : "Find me",
-									icon: "Crew.12",
-									color: P.mint,
-									outline: true,
-									reducedMotion,
-									size: UDim2.fromOffset(UserInputService.GamepadEnabled ? 168 : 132, theme.TapTarget),
-									position: new UDim2(1, UserInputService.GamepadEnabled ? -168 : -132, 0, L.Rule.h + L.Board.gap + rankRowH + 8),
+									icon: "Crew.12", color: P.mint, outline: true, reducedMotion, size: UDim2.fromScale(1, 1),
 									onClick: () => scrollToRankRow(personalIndex!, reducedMotion === true),
-								})
-							: undefined,
-					}),
-				});
+								})}
+							</frame>
+						)}
+					</frame>,
+				);
+				boardContent += pad.gap + theme.TapTarget;
 			}
 		}
+		const boardH = boardContent + pad.y * 2;
 
-		let planned = sections;
-		if (plan.split) {
-			const side = sections.filter((_, index) => index < sideEnd);
-			const main = sections.filter((_, index) => index >= sideEnd);
-			const rowH = math.max(stackHeight(side.map((entry) => entry.height), L.Main.gap), stackHeight(main.map((entry) => entry.height), L.Main.gap));
-			planned = [
-				{
-					id: "rank-split",
-					height: rowH,
-					element: e(SplitColumns, {
-						name: "RankSplit",
-						height: rowH,
-						plan,
-						side: e(StackBlocks, { gap: L.Main.gap, blocks: side as never }),
-						main: e(StackBlocks, { gap: L.Main.gap, blocks: main as never }),
-					}),
-				} as never,
-			];
+		// Top three .pn: name / muted num value / plinth 150-210-110, medal colour fading to #1B151D, seats on the floor
+		const podiumH = 210 + L.Seat.gap * 2 + L.SeatName.h + L.SeatValue.h;
+		const seats: React.Element[] = [];
+		for (const place of PODIUM_ORDER) {
+			const row = rows[place - 1];
+			const slot = PODIUM_ORDER.indexOf(place);
+			const plinthH = PODIUM_HEIGHT[place] ?? 110;
+			seats.push(
+				<frame key={`PodiumSeat${place}`} LayoutOrder={slot} BackgroundTransparency={1} Size={new UDim2(1 / 3, -((2 * L.PodiumSeats.gap) / 3), 1, 0)}>
+					{row !== undefined && (
+						<>
+							<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalAlignment={Enum.VerticalAlignment.Bottom} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, L.Seat.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+							<textlabel LayoutOrder={0} Text={nameOf(row)} FontFace={BODY_BOLD} TextSize={L.SeatName.text.size} TextColor3={rankRowStyle(row, guildBoard)?.accent ?? L.SeatName.text.color} BackgroundTransparency={1} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, L.SeatName.h)} />
+							<textlabel LayoutOrder={1} Text={valueText(row.Value)} FontFace={NUM} TextSize={L.SeatValue.text.size} TextColor3={L.SeatValue.text.color} BackgroundTransparency={1} Size={new UDim2(1, 0, 0, L.SeatValue.h)} />
+							<frame LayoutOrder={2} BackgroundColor3={P.white} BorderSizePixel={0} Size={new UDim2(1, 0, 0, plinthH)}>
+								<uicorner CornerRadius={new UDim(0, L.Plinth3.radius)} />
+								<uigradient Rotation={90} Color={new ColorSequence(MEDAL[place], Color3.fromRGB(27, 21, 29))} />
+								<textlabel Text={tostring(place)} FontFace={TITLE_FACE} TextSize={L.Plinth3.text.size} TextColor3={L.Plinth3.text.color} BackgroundTransparency={1} Position={UDim2.fromOffset(0, L.Plinth3.pad.top)} Size={new UDim2(1, 0, 0, L.Plinth3.text.size + 2)} />
+							</frame>
+						</>
+					)}
+				</frame>,
+			);
 		}
+		const podiumPanelH = headH + pad.gap + podiumH + pad.y * 2;
+		const bodyH = phone ? boardH : math.max(boardH, podiumPanelH);
+
+		const board = (
+			<MockPanel name="RankBoard" size={phone ? UDim2.fromScale(1, 1) : new UDim2(0, 0, 1, 0)} flex={!phone} phone={phone} layoutOrder={1} accent={meta.accent}>
+				{boardKids}
+			</MockPanel>
+		);
+		const body = phone ? (
+			board
+		) : (
+			<frame BackgroundTransparency={1} Size={UDim2.fromScale(1, 1)}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.Body.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<MockPanel name="rank-podium" size={new UDim2(0, L.Podium.w, 1, 0)} phone={false} layoutOrder={0}>
+					<PanelHeading icon="Leaderboard.2" title="Top three" phone={false} layoutOrder={0} />
+					<frame LayoutOrder={1} BackgroundTransparency={1} Size={new UDim2(1, 0, 1, -(headH + pad.gap))}>
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.PodiumSeats.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+						{seats}
+					</frame>
+				</MockPanel>
+				{board}
+			</frame>
+		);
+		const planned: Section[] = [
+			{ id: "rank-tabs", height: tabsH, element: tabs },
+			{ id: "rank-body", height: bodyH, element: body },
+		];
 		return e("frame", { Name: "RankDashboard", ref: hostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ClipsDescendants: false }, {
-			Content: e(Scaffold, { sections: planned, gap: L.Main.gap, tailPad: 80, scrollBarColor: P.brass, scrollBarThickness: 4 }),
+			Content: e(Scaffold, { sections: planned, gap: phone ? 8 : L.Main.gap, tailPad: 80, scrollBarColor: P.brass, scrollBarThickness: 4 }),
 		});
 	};
 }

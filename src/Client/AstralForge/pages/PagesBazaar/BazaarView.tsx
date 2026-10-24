@@ -10,7 +10,7 @@ import { HeaderArt } from "../../UiCore/HeaderArt";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 import { BODY, BODY_BOLD, BODY_SEMI, Bar, GlyphWell, Line, MockPanel, NUM, PanelHeading, PnSurface, ROW_RADIUS } from "../../UiCore/mockKit";
 import { HEADING_SECTION_H, HeadingSection, headingBlock, MockBtn, MockRow, panelHeight, rowHeight, RowFace, SEC, TileWell } from "../mockRows";
-import { useHeroTabs } from "../../UiCore/heroTabs";
+import { useHeroTabs } from "../../UiCore/heroSlot";
 import { MockTabs } from "../socialKit";
 // generated from design/06-bazaar by scripts/gen_from_layout.js (scripts/layout/bazaar.spec.json)
 import { BazaarLayout as L } from "../generated/BazaarLayout";

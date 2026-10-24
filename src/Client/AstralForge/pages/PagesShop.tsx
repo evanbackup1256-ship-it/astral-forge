@@ -51,7 +51,7 @@ import { Grid as MockGrid, headingBlock, IconWell, MockBtn, RowFace } from "./mo
 import { ShopLayout as L } from "./generated/ShopLayout";
 // generated from design/07-crates by scripts/gen_from_layout.js (scripts/layout/crates.spec.json)
 import { CratesLayout as CL } from "./generated/CratesLayout";
-import { useHeroTabs } from "../UiCore/heroTabs";
+import { useHeroTabs } from "../UiCore/heroSlot";
 import { MockTabs } from "./socialKit";
 
 const MarketplaceService = game.GetService("MarketplaceService");

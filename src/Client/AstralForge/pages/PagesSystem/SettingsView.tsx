@@ -270,7 +270,9 @@ function SettingRow(props: SettingRowProps) {
 	} else {
 		// desktop: title and bar split the row evenly around the .v value (design/18 .tt / .f1 flex)
 		const labelW = 110;
-		const valueW = 44;
+		// .v hugs its text: tabular digits are ~0.6em each, so the column tracks "7" / "45" / "100"
+		const valueText = tostring(math.floor(draft * 100 + 0.5));
+		const valueW = math.ceil(valueText.size() * L.SliderValue.text.size * 0.6);
 		const half = (padX * 2 + valueW + gapX * 2) / 2;
 		titleW = stack ? UDim2.fromOffset(labelW, lineH - 12) : new UDim2(0.5, -half, 0, lineH - 12);
 		control = (
@@ -292,7 +294,7 @@ function SettingRow(props: SettingRowProps) {
 					Size={UDim2.fromOffset(valueW, 30)}
 					Position={new UDim2(1, gapX, 0, 0)}
 					BackgroundTransparency={1}
-					Text={tostring(math.floor(draft * 100 + 0.5))}
+					Text={valueText}
 					TextColor3={Palette.mango}
 					TextSize={L.SliderValue.text.size}
 					FontFace={NUM}

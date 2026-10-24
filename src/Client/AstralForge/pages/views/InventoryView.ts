@@ -14,7 +14,7 @@ import { InspectHead, PanelTitle } from "./InventoryInspectHead";
 import { RelicGridColumns, RelicGridRows, RelicCardGap } from "../../CoreKit/inventoryMath";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
-import { useHeroTabs } from "../../UiCore/heroTabs";
+import { useHeroTabs } from "../../UiCore/heroSlot";
 import { MockTabs } from "../socialKit";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;

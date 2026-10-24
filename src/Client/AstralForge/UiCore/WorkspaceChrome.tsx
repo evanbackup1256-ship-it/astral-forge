@@ -16,7 +16,6 @@ import {
 } from "../MotionKit/motion";
 import * as PageTransition from "../MotionKit/pageTransition";
 import { HeaderArt } from "./HeaderArt";
-import { HERO_TABS_BOTTOM, HERO_TABS_RIGHT, useHeroTabSlot } from "./heroTabs";
 import type { HeaderArtName } from "../ArtKit/uiArt";
 import { featureNames, openRoadmap, progressFraction, readLevelState, tierAccent } from "./levelRoadmap";
 import {
@@ -29,6 +28,8 @@ import {
 	resolvePressMotion,
 } from "./ui";
 import { GlyphWell } from "./mockKit";
+import { HERO_TABS_BOTTOM, HERO_TABS_RIGHT, reportHeroShown, useHeroFor, useHeroTabElement } from "./heroSlot";
+import { MockTabs } from "../pages/socialKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -686,6 +687,9 @@ export function Workspace(_param: WorkspaceProps) {
 	// how far the strip's tap area may reach below it: up to TapTarget, never past the content inset
 	const stripTapH = math.min(TapTarget, unlockH + inset);
 	const vaultBtn = chrome.stack ? TapTarget : 44;
+	// page-supplied .hero kicker / line / .tabs (UiCore/heroSlot)
+	const heroInfo = useHeroFor(page);
+	const heroTabElement = useHeroTabElement();
 	const ready = VaultCollectEligibility.isEligible(asFlux(state.Vault));
 	const vaultCollectHostRef = React.useRef<GuiObject>();
 	React.useEffect(() => {
@@ -723,7 +727,7 @@ export function Workspace(_param: WorkspaceProps) {
 	});
 	// 03-forge .hero: 178px painted header, art on the right, kicker / 54px title / line bottom-left
 	const hero = !keyboardCompact && !chrome.stack && !chrome.landscape && headerHeight >= 150;
-	const heroTabs = useHeroTabSlot();
+	React.useEffect(() => reportHeroShown(hero), [hero]);
 	const heroArt: HeaderArtName = HERO_ART[page] ?? "forge";
 	const titleLeft = hero ? 30 : keyboardCompact ? 54 : chrome.stack ? 66 : 84;
 	const titleReserve = keyboardCompact
@@ -785,14 +789,6 @@ export function Workspace(_param: WorkspaceProps) {
 					BorderSizePixel: 0,
 				}),
 				hero && h(HeaderArt, { art: heroArt, inset: 0, radius: 18, fill: Palette.ink, transparency: 0 }),
-				// header tab slot (heroTabs.ts): a page's tabs sit bottom-right in the hero, as in the mockups
-				hero &&
-					heroTabs !== undefined &&
-					h(
-						"frame",
-						{ Name: "HeroTabs", AnchorPoint: new Vector2(1, 1), Position: new UDim2(1, -HERO_TABS_RIGHT, 1, -HERO_TABS_BOTTOM), Size: UDim2.fromOffset(0, 0), AutomaticSize: Enum.AutomaticSize.XY, BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 30 },
-						heroTabs,
-					),
 				// .hero::after: 2px accent rule along the bottom, fading out past the middle
 				hero &&
 					h(
@@ -843,7 +839,7 @@ export function Workspace(_param: WorkspaceProps) {
 					},
 					hero &&
 						h(Text, {
-							value: string.upper(heroKicker(page, state, entry.eyebrow)),
+							value: string.upper(heroInfo?.kicker ?? heroKicker(page, state, entry.eyebrow)),
 							size: 12,
 							color: ensureContrast(Palette.ink, accent),
 							weight: Enum.FontWeight.Bold,
@@ -854,7 +850,7 @@ export function Workspace(_param: WorkspaceProps) {
 							transparency: revealFade,
 						}),
 					h(ShimmerText, {
-						value: entry.label === "Ranks" ? "Leaderboards" : SOCIAL_TITLE_PAGES[page] ? "Social" : entry.label,
+						value: hero && heroInfo?.title !== undefined ? heroInfo.title : entry.label === "Ranks" ? "Leaderboards" : SOCIAL_TITLE_PAGES[page] ? "Social" : entry.label,
 						title: hero,
 						size: hero ? 54 : chrome.stack ? chrome.titleText : denseHeader ? 20 : 24,
 						color: ensureContrast(Palette.panel, Palette.cream),
@@ -874,7 +870,7 @@ export function Workspace(_param: WorkspaceProps) {
 					// restated the page name, so the title stands alone
 					hero &&
 						h(Text, {
-							value: heroLine(page, state),
+							value: heroInfo?.line ?? heroLine(page, state),
 							size: 15,
 							color: ensureContrast(Palette.ink, Palette.creamSoft),
 							weight: Enum.FontWeight.Medium,
@@ -906,6 +902,23 @@ export function Workspace(_param: WorkspaceProps) {
 							transparency: revealFade,
 						}),
 				),
+				// design .hero .tabs (heroSlot.ts): bottom-right, 24px up, kept clear of the vault pill
+				hero &&
+					(heroInfo?.tabs !== undefined || heroTabElement !== undefined) &&
+					h(
+						"frame",
+						{ Name: "HeroTabs", AnchorPoint: new Vector2(1, 1), Position: new UDim2(1, -HERO_TABS_RIGHT, 1, -HERO_TABS_BOTTOM), Size: UDim2.fromOffset(0, 0), AutomaticSize: Enum.AutomaticSize.XY, BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 21 },
+						heroInfo?.tabs !== undefined
+							? h(MockTabs, {
+									options: heroInfo.tabs.options,
+									value: heroInfo.tabs.value,
+									onChange: (id: string) => heroInfo.tabs?.onChange(id),
+									accent: heroInfo.tabs.accent ?? accent,
+									phone: false,
+									reducedMotion: reducedMotion,
+								})
+							: heroTabElement,
+					),
 				!chrome.stack &&
 					h(VaultPill, {
 						state: state,

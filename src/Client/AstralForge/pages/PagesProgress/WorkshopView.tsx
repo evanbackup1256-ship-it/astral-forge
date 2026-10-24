@@ -11,7 +11,7 @@ import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, ItemTile, Line, MockPanel, NUM
 import { loadUi } from "../luauDeps";
 // generated from design/03-forge by scripts/gen_from_layout.js (scripts/layout/forge.spec.json)
 import { ForgeLayout as L } from "../generated/ForgeLayout";
-import { useHeroTabs } from "../../UiCore/heroTabs";
+import { useHeroTabs } from "../../UiCore/heroSlot";
 import { MockTabs } from "../socialKit";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
