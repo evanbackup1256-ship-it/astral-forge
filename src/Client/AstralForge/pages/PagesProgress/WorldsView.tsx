@@ -10,6 +10,8 @@ import { useStagger, useViewport } from "../../MotionKit/motion";
 import { loadPageScaffold, named } from "../luauDeps";
 import { Planet } from "./portKit";
 import { BODY, Chip, DiamondRule, Line, MockPanel, mockGap, PanelHeading, panelPad, RowSurface, TITLE_FACE } from "../../UiCore/mockKit";
+import { useHeroShown, useHeroSlot } from "../../UiCore/heroSlot";
+import { PHONE_HEAD_H, PhoneHead } from "../mockLayout";
 import { headingBlock, MockBtn, MockRow, panelHeight, rowHeight, useWidth } from "../mockRows";
 
 const PageScaffold = loadPageScaffold();
@@ -311,6 +313,16 @@ function WorldsView(props: WorldsViewProps) {
 		</MockPanel>
 	);
 	const bodyH = phone ? gridH + panelGap + infoH : panelHeight(false, headingBlock(false) + gridH + panelGap + infoH);
+	const openCount = math.min(state.Zone, catalogTotal);
+	const openLine = `${openCount} of ${catalogTotal} open`;
+	useHeroSlot("Worlds", { kicker: openLine });
+	const heroShown = useHeroShown();
+	const hereName = resolveZone(state.CurrentZone ?? state.Zone)?.Name;
+	const sections: Section[] = [];
+	if (phone && !heroShown) {
+		sections.push({ id: "head", height: PHONE_HEAD_H, element: <PhoneHead line={hereName !== undefined ? `${hereName} · ${openLine}` : openLine} accent={Palette.mango} reducedMotion={softMotion} /> });
+	}
+	sections.push({ id: "map", height: bodyH, element: body });
 	useFocusOrder(worldsHostRef, { regions: ["map"], first: ["map"] }, [state.CurrentZone, state.Zone, range.start]);
 	return (
 		<frame ref={worldsHostRef} {...named("WorldsTravelClaim")} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
@@ -320,7 +332,7 @@ function WorldsView(props: WorldsViewProps) {
 				tailPad={scrollTail(phone, chrome.bottomSafe, 40) + Layout.stackGap * 2}
 				scrollBarColor={Palette.mango}
 				scrollBarThickness={4}
-				sections={[{ id: "map", height: bodyH, element: body }]}
+				sections={sections}
 			/>
 		</frame>
 	);
