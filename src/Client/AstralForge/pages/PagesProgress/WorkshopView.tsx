@@ -268,7 +268,7 @@ function MachineLine(p: {
 }) {
 	const { entry, phone } = p;
 	const machine = entry.config;
-	const rowH = phone ? 52 : L.Row.h;
+	const rowH = phone ? 64 : L.Row.h; // phone.html .row: 56 .it + 4px padding
 	const color = machine.Accent ?? machine.Color ?? Palette.mango;
 	const name = typeIs(machine.Name, "string") ? machine.Name : machine.Id;
 	const tail = !entry.unlocked ? "Locked" : `Lv ${compactNumber(entry.level)}`;
@@ -281,7 +281,7 @@ function MachineLine(p: {
 			<RowSurface />
 			<uipadding PaddingLeft={new UDim(0, phone ? 10 : L.Row.pad.left)} PaddingRight={new UDim(0, phone ? 10 : L.Row.pad.right)} />
 			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 14 : L.Row.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<ItemTile color={color} icon={entry.unlocked ? (machine.Icon ?? "Forge") : "Lock"} width={phone ? 44 : L.RowTile.w} compact={true} locked={!entry.unlocked} layoutOrder={0} />
+			<ItemTile color={color} icon={entry.unlocked ? (machine.Icon ?? "Forge") : "Lock"} width={phone ? 56 : L.RowTile.w} compact={true} locked={!entry.unlocked} layoutOrder={0} />
 			<frame Size={new UDim2(0, 0, 0, phone ? 30 : L.RowText.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<textlabel
@@ -383,7 +383,7 @@ function WorkshopView(props: {
 	upgrades.sort((a, b) => compareFlux(a.price, b.price) < 0);
 	const nextThree = upgrades.filter((_, i) => i < 3);
 
-	const rowH = phone ? 52 : L.Row.h;
+	const rowH = phone ? 64 : L.Row.h; // phone.html .row: 56 .it + 4px padding
 	const rowGap = phone ? 8 : L.Row2.y - (L.Row.y + L.Row.h);
 	const listH = near.size() * rowH + math.max(0, near.size() - 1) * rowGap;
 	const upgradeCellH = L.Upgrade.h; // 14 + 19 + 6 + 16 + 6 + 36 + 14
@@ -559,34 +559,22 @@ function WorkshopView(props: {
 		</MockPanel>
 	);
 
-	if (phone) {
-		return (
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uilistlayout
-					FillDirection={portrait ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
-					Padding={new UDim(0, gap)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-				/>
-				{portrait ? outputPanel : machinesPanel}
-				{portrait ? machinesPanel : outputPanel}
-			</frame>
-		);
-	}
 	// desktop .flexr: the tab's .pn.f1 on the left, the 520px column with Output on the right
-	const upgradeRows = math.ceil(upgrades.size() / 3);
+	const upgradeCols = phone ? 2 : 3;
+	const upgradeRows = math.ceil(upgrades.size() / upgradeCols);
 	const upgradeGridH = upgradeRows * upgradeCellH + math.max(0, upgradeRows - 1) * L.UpgradeGrid.gap;
-	const programsHeight = programsPanelHeight(state as ProgramsState, false);
+	const programsHeight = programsPanelHeight(state as ProgramsState, phone);
 	const autoH = 246;
 	let left: React.Element;
 	if (tab === "Upgrades") {
 		left = (
-			<MockPanel size={new UDim2(0, 0, 1, 0)} flex={true} phone={false} layoutOrder={0} reveal={machinesReveal} reducedMotion={reducedMotion} name="ForgeUpgrades">
-				<PanelHeading icon="Production" title="Upgrades" note={`${upgrades.size()} available`} phone={false} layoutOrder={0} />
+			<MockPanel size={new UDim2(0, 0, 1, 0)} flex={true} phone={phone} layoutOrder={0} reveal={machinesReveal} reducedMotion={reducedMotion} name="ForgeUpgrades">
+				<PanelHeading icon="Production" title="Upgrades" note={`${upgrades.size()} available`} phone={phone} layoutOrder={0} />
 				{upgrades.size() === 0 ? (
 					<Line text="Every unlocked machine is maxed." size={14} color={Palette.muted} layoutOrder={1} />
 				) : (
 					<scrollingframe Size={new UDim2(1, 0, 1, -(headH + pad.gap))} CanvasSize={UDim2.fromOffset(0, upgradeGridH)} BackgroundTransparency={1} BorderSizePixel={0} ScrollBarThickness={4} ScrollBarImageColor3={Palette.brass} ScrollingDirection={Enum.ScrollingDirection.Y} LayoutOrder={1} SelectionGroup={true}>
-						<uigridlayout CellSize={new UDim2(1 / 3, -math.ceil((L.UpgradeGrid.gap * 2) / 3), 0, upgradeCellH)} CellPadding={UDim2.fromOffset(L.UpgradeGrid.gap, L.UpgradeGrid.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<uigridlayout CellSize={new UDim2(1 / upgradeCols, -math.ceil((L.UpgradeGrid.gap * (upgradeCols - 1)) / upgradeCols), 0, upgradeCellH)} CellPadding={UDim2.fromOffset(L.UpgradeGrid.gap, L.UpgradeGrid.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 						{upgrades.map((entry, i) => upgradeCell(entry, i))}
 					</scrollingframe>
 				)}
@@ -598,17 +586,57 @@ function WorkshopView(props: {
 				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<frame Size={new UDim2(1, 0, 0, autoH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
-					<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={autoH} stack={false} />
+					<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={autoH} stack={phone} />
 				</frame>
 				{programsHeight > 0 && (
 					<frame Size={new UDim2(1, 0, 0, programsHeight)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-						<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={false} reducedMotion={reducedMotion} />
+						<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={phone} reducedMotion={reducedMotion} />
 					</frame>
 				)}
 			</scrollingframe>
 		);
 	} else {
 		left = machinesPanel;
+	}
+	if (phone) {
+		// 03-forge phone.html .ph-head: 12px muted line on the left, the .tabs on the right (h1 is the shell title);
+		// then the .flexr body: the tab's panel and the 236px Output panel (portrait stacks Output first)
+		const phoneHeadH = TapTarget + 8;
+		return (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={new UDim2(1, 0, 0, phoneHeadH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<Line text={`${running} of ${entries.size()} machines running`} size={12} font={BODY_SEMI} color={Palette.muted} height={phoneHeadH} layoutOrder={0} />
+					</frame>
+					<MockTabs
+						options={[
+							{ id: "Machines", label: "Machines" },
+							{ id: "Upgrades", label: "Upgrades" },
+							{ id: "Auto", label: "Auto" },
+						]}
+						value={tab}
+						onChange={setTab}
+						accent={Palette.mango}
+						phone={true}
+						reducedMotion={reducedMotion}
+						layoutOrder={1}
+					/>
+				</frame>
+				<frame Size={new UDim2(1, 0, 1, -(phoneHeadH + gap))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout
+						FillDirection={portrait ? Enum.FillDirection.Vertical : Enum.FillDirection.Horizontal}
+						Padding={new UDim(0, gap)}
+						HorizontalFlex={portrait ? Enum.UIFlexAlignment.Fill : Enum.UIFlexAlignment.None}
+						SortOrder={Enum.SortOrder.LayoutOrder}
+					/>
+					{portrait ? outputPanel : left}
+					{portrait ? left : outputPanel}
+				</frame>
+			</frame>
+		);
 	}
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
