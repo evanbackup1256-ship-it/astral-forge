@@ -18,7 +18,7 @@ import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi } from "./luauDeps";
-import { Chip, GlyphWell, Label, NUM, PanelHeading, PnSurface, ROW_RADIUS, rowFace, panelHeadingH } from "../UiCore/mockKit";
+import { BODY_SEMI, Chip, GlyphWell, Label, Line, NUM, PanelHeading, PnSurface, ROW_RADIUS, rowFace, panelHeadingH } from "../UiCore/mockKit";
 import { SEC } from "./mockRows";
 
 const Players = game.GetService("Players");
@@ -2280,7 +2280,6 @@ __defs["TradeView"] = () => {
 			accent: accent,
 			phone: phone,
 			reducedMotion: reducedMotion,
-			fill: phone,
 			layoutOrder: 1,
 		});
 		const tradeHero = (eyebrow: string, subline: string) =>
@@ -2403,13 +2402,30 @@ __defs["TradeView"] = () => {
 					!phone ? deskTabs : undefined,
 				),
 			);
-		const heroSections = (eyebrow: string, subline: string) => {
-			const list: { id: string; height: number; element: unknown; fill?: boolean; minHeight?: number }[] = [
-				{ id: "hero", height: heroH, element: tradeHero(eyebrow, subline) },
-			];
-			if (phone) {
-				list.push({ id: "desk-tabs", height: TapTarget + 8, element: deskTabs });
-			}
+		// 08 phone.html .ph-head: a muted 12px line ("With <partner>") with the .tabs pushed right; the h1 is the
+		// shell title, so phones drop the hero card
+		const phoneHead = (line: string) =>
+			h(
+				"frame",
+				{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
+				h("uilistlayout", {
+					FillDirection: Enum.FillDirection.Horizontal,
+					Padding: new UDim(0, 10),
+					VerticalAlignment: Enum.VerticalAlignment.Center,
+					SortOrder: Enum.SortOrder.LayoutOrder,
+				}),
+				h(
+					"frame",
+					{ Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 0 },
+					h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
+					h(Line, { text: line, size: 12, font: BODY_SEMI, color: Palette.muted, height: TapTarget + 8, layoutOrder: 0 }),
+				),
+				deskTabs,
+			);
+		const heroSections = (eyebrow: string, subline: string, phoneLine: string) => {
+			const list: { id: string; height: number; element: unknown; fill?: boolean; minHeight?: number }[] = phone
+				? [{ id: "ph-head", height: TapTarget + 8, element: phoneHead(phoneLine) }]
+				: [{ id: "hero", height: heroH, element: tradeHero(eyebrow, subline) }];
 			return list;
 		};
 		// completed trades, newest first: who, when, what changed hands
@@ -2506,7 +2522,11 @@ __defs["TradeView"] = () => {
 				session.ThemConfirmed === true ? "Confirmed" : session.ThemReady === true ? "Ready" : "Still choosing";
 			const themAccent =
 				session.ThemConfirmed === true ? Palette.mango : session.ThemReady === true ? Palette.mint : undefined;
-			const sections = heroSections(`Trade with ${session.PartnerName}`, "Both sides lock in before anything moves.");
+			const sections = heroSections(
+				`Trade with ${session.PartnerName}`,
+				"Both sides lock in before anything moves.",
+				`With ${session.PartnerName}`,
+			);
 			if (deskTab === "Trade") {
 				sections.push({
 					id: "status",
@@ -3009,7 +3029,7 @@ __defs["TradeView"] = () => {
 				: undefined;
 		const rosterStride = rosterRowH + (chrome.landscape ? 8 : Layout.stackGap);
 		const rosterFloor = visibleRows.size() === 0 ? 140 : visibleRows.size() * rosterStride;
-		const sections = heroSections("Social", "Both sides lock in before anything moves.");
+		const sections = heroSections("Social", "Both sides lock in before anything moves.", "Both sides lock in before anything moves.");
 		const pushRequests = () => {
 			if (inviteElement !== undefined) {
 				sections.push({
