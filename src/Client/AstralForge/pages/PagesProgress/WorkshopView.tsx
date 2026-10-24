@@ -11,6 +11,8 @@ import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, ItemTile, Line, MockPanel, NUM
 import { loadUi } from "../luauDeps";
 // generated from design/03-forge by scripts/gen_from_layout.js (scripts/layout/forge.spec.json)
 import { ForgeLayout as L } from "../generated/ForgeLayout";
+import { useHeroTabs } from "../../UiCore/heroTabs";
+import { MockTabs } from "../socialKit";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
 // header-forge.png (1024x120), already uploaded (assets/uploaded.md)
@@ -329,6 +331,25 @@ function WorkshopView(props: {
 	const gap = mockGap(phone);
 	const pad = panelPad(phone);
 	const machinesReveal = useStagger(0, reducedMotion);
+	// 03-forge .hero .tabs: Machines / Upgrades / Auto filter the page's own sections
+	const [tab, setTab] = React.useState("Machines");
+	useHeroTabs(
+		phone ? undefined : (
+			<MockTabs
+				options={[
+					{ id: "Machines", label: "Machines" },
+					{ id: "Upgrades", label: "Upgrades" },
+					{ id: "Auto", label: "Auto" },
+				]}
+				value={tab}
+				onChange={setTab}
+				accent={Palette.mango}
+				phone={false}
+				reducedMotion={reducedMotion}
+				layoutOrder={0}
+			/>
+		),
+	);
 	const outputReveal = useStagger(1, reducedMotion);
 	const entries = React.useMemo(
 		() => AppHelpers.buildUpgradeEntries(machines, state.Machines, state as NavState),
@@ -370,6 +391,36 @@ function WorkshopView(props: {
 	// panel gap, .rule 12, gap, h3 21, gap, grid
 	const lowerH = showUpgrades ? L.Machines.gap + L.Rule.h + L.Machines.gap + L.UpgradesHeading.h + L.Machines.gap + upgradeCellH : 0;
 	const headH = phone ? 18 : L.Heading.h;
+
+	const upgradeCell = (entry: Entry, i: number) => {
+		const m = entry.config;
+		const gain = machineGain(m, entry.level);
+		return (
+			<frame key={m.Id} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i}>
+				<RowSurface />
+				<uipadding PaddingLeft={new UDim(0, L.Upgrade.pad.left)} PaddingRight={new UDim(0, L.Upgrade.pad.right)} PaddingTop={new UDim(0, L.Upgrade.pad.top)} PaddingBottom={new UDim(0, L.Upgrade.pad.bottom)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, L.Upgrade.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={`${typeIs(m.Name, "string") ? m.Name : m.Id} level ${compactNumber(entry.level + 1)}`} size={L.UpgradeName.text.size} font={BODY_SEMI} width={new UDim(1, 0)} height={L.UpgradeName.h} layoutOrder={0} />
+				<Line
+					text={gain > 0 ? `+${compactNumber(gain)} Flux/sec` : entry.level < 1 ? "Starts earning" : "Raises its level cap"}
+					size={L.UpgradeLine.text.size}
+					font={BODY}
+					color={L.UpgradeLine.text.color}
+					width={new UDim(1, 0)}
+					height={L.UpgradeLine.h}
+					layoutOrder={1}
+				/>
+				<Button
+					text={`${compactNumber(entry.price)}`}
+					icon="Flux"
+					onClick={() => batch.buy(m.Id)}
+					disabled={!ready(entry)}
+					size={new UDim2(1, 0, 0, L.UpgradeBuy.h)}
+					reducedMotion={reducedMotion}
+				/>
+			</frame>
+		);
+	};
 
 	const machinesPanel = (
 		<MockPanel
@@ -417,35 +468,7 @@ function WorkshopView(props: {
 			{showUpgrades && (
 				<frame Size={new UDim2(1, 0, 0, upgradeCellH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
 					<uigridlayout CellSize={new UDim2(1 / 3, -math.ceil((L.UpgradeGrid.gap * 2) / 3), 0, upgradeCellH)} CellPadding={UDim2.fromOffset(L.UpgradeGrid.gap, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
-					{nextThree.map((entry, i) => {
-						const m = entry.config;
-						const gain = machineGain(m, entry.level);
-						return (
-							<frame key={m.Id} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i}>
-								<RowSurface />
-								<uipadding PaddingLeft={new UDim(0, L.Upgrade.pad.left)} PaddingRight={new UDim(0, L.Upgrade.pad.right)} PaddingTop={new UDim(0, L.Upgrade.pad.top)} PaddingBottom={new UDim(0, L.Upgrade.pad.bottom)} />
-								<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, L.Upgrade.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-								<Line text={`${typeIs(m.Name, "string") ? m.Name : m.Id} level ${compactNumber(entry.level + 1)}`} size={L.UpgradeName.text.size} font={BODY_SEMI} width={new UDim(1, 0)} height={L.UpgradeName.h} layoutOrder={0} />
-								<Line
-									text={gain > 0 ? `+${compactNumber(gain)} Flux/sec` : entry.level < 1 ? "Starts earning" : "Raises its level cap"}
-									size={L.UpgradeLine.text.size}
-									font={BODY}
-									color={L.UpgradeLine.text.color}
-									width={new UDim(1, 0)}
-									height={L.UpgradeLine.h}
-									layoutOrder={1}
-								/>
-								<Button
-									text={`${compactNumber(entry.price)}`}
-									icon="Flux"
-									onClick={() => batch.buy(m.Id)}
-									disabled={!ready(entry)}
-									size={new UDim2(1, 0, 0, L.UpgradeBuy.h)}
-									reducedMotion={reducedMotion}
-								/>
-							</frame>
-						);
-					})}
+					{nextThree.map((entry, i) => upgradeCell(entry, i))}
 				</frame>
 			)}
 		</MockPanel>
@@ -549,34 +572,52 @@ function WorkshopView(props: {
 			</frame>
 		);
 	}
-	// desktop: Auto-Forge (narrow arrangement) and Forge Programs share the rest of the 520 column
-	const featureHeight = 246;
-	const programsHeight = programsPanelHeight(state as ProgramsState, true);
-	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-			{machinesPanel}
-			<scrollingframe
-				Size={new UDim2(0, L.Column.w, 1, 0)}
-				CanvasSize={UDim2.fromOffset(0, outputH! + gap + featureHeight + (programsHeight > 0 ? gap + programsHeight : 0))}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ScrollBarThickness={0}
-				ScrollingDirection={Enum.ScrollingDirection.Y}
-				LayoutOrder={1}
-				SelectionGroup={true}
-			>
+	// desktop .flexr: the tab's .pn.f1 on the left, the 520px column with Output on the right
+	const upgradeRows = math.ceil(upgrades.size() / 3);
+	const upgradeGridH = upgradeRows * upgradeCellH + math.max(0, upgradeRows - 1) * L.UpgradeGrid.gap;
+	const programsHeight = programsPanelHeight(state as ProgramsState, false);
+	const autoH = 246;
+	let left: React.Element;
+	if (tab === "Upgrades") {
+		left = (
+			<MockPanel size={new UDim2(0, 0, 1, 0)} flex={true} phone={false} layoutOrder={0} reveal={machinesReveal} reducedMotion={reducedMotion} name="ForgeUpgrades">
+				<PanelHeading icon="Production" title="Upgrades" note={`${upgrades.size()} available`} phone={false} layoutOrder={0} />
+				{upgrades.size() === 0 ? (
+					<Line text="Every unlocked machine is maxed." size={14} color={Palette.muted} layoutOrder={1} />
+				) : (
+					<scrollingframe Size={new UDim2(1, 0, 1, -(headH + pad.gap))} CanvasSize={UDim2.fromOffset(0, upgradeGridH)} BackgroundTransparency={1} BorderSizePixel={0} ScrollBarThickness={4} ScrollBarImageColor3={Palette.brass} ScrollingDirection={Enum.ScrollingDirection.Y} LayoutOrder={1} SelectionGroup={true}>
+						<uigridlayout CellSize={new UDim2(1 / 3, -math.ceil((L.UpgradeGrid.gap * 2) / 3), 0, upgradeCellH)} CellPadding={UDim2.fromOffset(L.UpgradeGrid.gap, L.UpgradeGrid.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+						{upgrades.map((entry, i) => upgradeCell(entry, i))}
+					</scrollingframe>
+				)}
+			</MockPanel>
+		);
+	} else if (tab === "Auto") {
+		left = (
+			<scrollingframe Size={new UDim2(0, 0, 1, 0)} CanvasSize={UDim2.fromOffset(0, autoH + (programsHeight > 0 ? gap + programsHeight : 0))} BackgroundTransparency={1} BorderSizePixel={0} ScrollBarThickness={0} ScrollingDirection={Enum.ScrollingDirection.Y} LayoutOrder={0} SelectionGroup={true}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				{outputPanel}
-				<frame Size={new UDim2(1, 0, 0, featureHeight)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-					<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={featureHeight} stack={true} />
+				<frame Size={new UDim2(1, 0, 0, autoH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<AutoForgePanel state={state} machines={machines} dispatch={dispatch} reducedMotion={reducedMotion} height={autoH} stack={false} />
 				</frame>
 				{programsHeight > 0 && (
-					<frame Size={new UDim2(1, 0, 0, programsHeight)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
-						<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={true} reducedMotion={reducedMotion} />
+					<frame Size={new UDim2(1, 0, 0, programsHeight)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+						<ProgramsPanel state={state as ProgramsState} dispatch={dispatch} stack={false} reducedMotion={reducedMotion} />
 					</frame>
 				)}
 			</scrollingframe>
+		);
+	} else {
+		left = machinesPanel;
+	}
+	return (
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{left}
+			<frame Size={new UDim2(0, L.Column.w, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{outputPanel}
+			</frame>
 		</frame>
 	);
 }
