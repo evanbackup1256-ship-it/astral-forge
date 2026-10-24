@@ -54,10 +54,11 @@ log "   ok"
 
 # Old-style guard: pre-revamp palette values (67a49bfd ForgeTheme) and the old 14px card radius
 # must not come back into the client UI; use Palette tokens and radius 18 (IconTile glyph tiles aside).
+# pages/generated/*Layout.ts is measured from the design mockups (scripts/gen_from_layout.js), so its radii are the mockup's own.
 log "== old style guard"
 old_rgb='11,\s*12,\s*18|110,\s*112,\s*138|112,\s*164,\s*240|116,\s*210,\s*152|120,\s*214,\s*170|138,\s*90,\s*34|16,\s*17,\s*25|170,\s*146,\s*240|178,\s*172,\s*182|19,\s*20,\s*29|200,\s*210,\s*232|218,\s*209,\s*194|23,\s*24,\s*34|232,\s*122,\s*172|236,\s*182,\s*92|238,\s*116,\s*100|242,\s*176,\s*72|246,\s*104,\s*72|246,\s*238,\s*224|32,\s*33,\s*46|47,\s*48,\s*65|60,\s*62,\s*82|8,\s*9,\s*14|96,\s*206,\s*222'
 style_bad=$(grep -rnE "(fromRGB|rgb)\\(($old_rgb)\\)" src/Client || true)
-style_bad="$style_bad$(grep -rnE 'radius=\{14\}|radius: 14\b|cardRadius: 14' src/Client | grep -v IconTile || true)"
+style_bad="$style_bad$(grep -rnE 'radius=\{14\}|radius: 14\b|cardRadius: 14' src/Client | grep -v IconTile | grep -v '/generated/' || true)"
 style_bad="$style_bad$(grep -nE '^\s*lg: 14,' src/Client/AstralForge/CoreKit/theme.ts || true)"
 if [ -n "$style_bad" ]; then
 	printf '%s\n' "$style_bad" | tee -a "$REPORT"

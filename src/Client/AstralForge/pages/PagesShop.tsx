@@ -48,6 +48,8 @@ import {
 	TITLE_FACE,
 } from "../UiCore/mockKit";
 import { Grid as MockGrid, headingBlock, IconWell, MockBtn, RowFace } from "./mockRows";
+// generated from design/05-shop by scripts/gen_from_layout.js (scripts/layout/shop.spec.json)
+import { ShopLayout as L } from "./generated/ShopLayout";
 
 const MarketplaceService = game.GetService("MarketplaceService");
 const Players = game.GetService("Players");
@@ -543,22 +545,69 @@ function PillTabs(p: {
 	);
 }
 
+/** 05-shop .tabs segmented control (ShopLayout.Tabs / TabOn / Tab): dark 48px well, tabs hug their label. */
+function SegTabs(p: { options: { id: string; label: string }[]; value: string; onChange: (id: string) => void }) {
+	const tabs: React.Element[] = [];
+	for (const [index, option] of ipairs(p.options)) {
+		const on = option.id === p.value;
+		tabs.push(
+			<textbutton
+				key={option.id}
+				Size={UDim2.fromOffset(0, L.Tab.h)}
+				AutomaticSize={Enum.AutomaticSize.X}
+				BackgroundColor3={Palette.white}
+				BackgroundTransparency={on ? 0 : 1}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Text={option.label}
+				TextSize={L.Tab.text.size}
+				FontFace={BODY_BOLD}
+				TextColor3={on ? L.TabOn.text.color : L.Tab.text.color}
+				LayoutOrder={index}
+				Event={{
+					Activated: () => {
+						if (!on) {
+							Audio.play("tabSwitch");
+							p.onChange(option.id);
+						}
+					},
+				}}
+			>
+				<uicorner CornerRadius={new UDim(0, L.Tab.radius)} />
+				<uipadding PaddingLeft={new UDim(0, L.Tab.pad.left)} PaddingRight={new UDim(0, L.Tab.pad.right)} />
+				{on && <uigradient Rotation={L.TabOn.gradient.rotation} Color={L.TabOn.gradient.color} Transparency={L.TabOn.gradient.transparency} />}
+			</textbutton>,
+		);
+	}
+	return (
+		<frame key="Tabs" Size={UDim2.fromOffset(0, L.Tabs.h)} AutomaticSize={Enum.AutomaticSize.X} BackgroundColor3={L.Tabs.fill!.color} BackgroundTransparency={L.Tabs.fill!.transparency} BorderSizePixel={0} LayoutOrder={1}>
+			<uicorner CornerRadius={new UDim(0, L.Tabs.radius)} />
+			<uistroke Color={L.Tabs.stroke!.color} Transparency={L.Tabs.stroke!.transparency} Thickness={L.Tabs.stroke!.thickness} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			<uipadding PaddingTop={new UDim(0, L.Tabs.pad.top)} PaddingBottom={new UDim(0, L.Tabs.pad.bottom)} PaddingLeft={new UDim(0, L.Tabs.pad.left)} PaddingRight={new UDim(0, L.Tabs.pad.right)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.Tabs.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{tabs}
+		</frame>
+	);
+}
+
 // ---- Shop (mockup 05-shop, design/system/af.css at 1920x1080; phone = the .p rules) ----
 // Every block is a list or grid child: no hand-placed offsets, so nothing can drift onto a sibling.
 //   .flexr        featured .pn (620px) | catalog .pn (flex 1), both as tall as the page
 //   .pn h3        PanelHeading           grid 2x1fr / 4x1fr   Grid (mockRows) with LayoutOrder cells
 //   .row column   UpgradeCard / PackCard (RowFace + padding + vertical UIListLayout)
-const SHOP_FEATURED_W = 620;
+const SHOP_FEATURED_W = L.Featured.w;
 const SHOP_UPGRADE_COLS = 2;
 
 function upgradeCardHeight(phone: boolean): number {
 	// .row padding 16, gap 10: 22px head, 18px detail, .btn 44 (phone: tap target)
-	return phone ? 12 + 22 + 8 + 18 + 8 + TapTarget + 12 : 16 + 22 + 10 + 18 + 10 + 44 + 16;
+	// desktop: the 05-shop .row box (141 = pad 16 + head 28 + 10 + line 17 + 10 + .btn 44 + pad 16)
+	return phone ? 12 + 22 + 8 + 18 + 8 + TapTarget + 12 : L.UpgradeCard.h;
 }
 
 function packCardHeight(phone: boolean): number {
 	// .row column padding 14, gap 6: 20px glyph, 26px .big figure (+4 line), 16px unit, .btn.sm 36
-	return phone ? 10 + 18 + 4 + 24 + 4 + 16 + 4 + TapTarget + 10 : 14 + 20 + 6 + 30 + 6 + 16 + 6 + 36 + 14;
+	// desktop: the 05-shop gem .row box (122 = pad 14 + glyph 20 + 6 + .big 26 + 6 + .btn.sm 36 + pad 14)
+	return phone ? 10 + 18 + 4 + 24 + 4 + 16 + 4 + TapTarget + 10 : L.GemCard.h;
 }
 
 /** Card entrance: the face rides `reveal` up 8px inside its grid cell (the cell itself never moves). */
@@ -597,25 +646,26 @@ interface UpgradeCardProps {
 // .row (column): glyph + 17px name + chip pushed right / 14px muted line / full-width .btn in the accent
 function UpgradeCardImpl(props: UpgradeCardProps) {
 	const phone = props.phone;
-	const pad = phone ? 12 : 16;
+	const pad = phone ? 12 : L.UpgradeCard.pad.top;
+	const headH = phone ? 22 : L.UpgradeHead.h;
 	const reveal = useStagger(props.staggerIndex ?? 0, props.reducedMotion, 0.036, 0.26);
 	const canBuy = props.owned !== true && props.disabled !== true;
 	return (
 		<CardCell name="Offer" layoutOrder={props.layoutOrder} reveal={reveal}>
 			<RowFace />
 			<uipadding PaddingTop={new UDim(0, pad)} PaddingBottom={new UDim(0, pad)} PaddingLeft={new UDim(0, pad)} PaddingRight={new UDim(0, pad)} />
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, phone ? 8 : 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<frame key="Head" Size={new UDim2(1, 0, 0, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<Glyph kind={props.icon} size={18} color={props.accent} layoutOrder={1} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, phone ? 8 : L.UpgradeCard.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame key="Head" Size={new UDim2(1, 0, 0, headH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.UpgradeHead.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Glyph kind={props.icon} size={phone ? 18 : L.UpgradeIcon.w} color={props.accent} layoutOrder={1} />
 				<frame key="Name" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
 					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-					<Line text={props.title} size={phone ? 15 : 17} font={BODY_BOLD} width={new UDim(1, 0)} height={22} />
+					<Line text={props.title} size={phone ? 15 : L.UpgradeName.text.size} font={BODY_BOLD} color={L.UpgradeName.text.color} width={new UDim(1, 0)} height={phone ? 22 : L.UpgradeName.h} />
 				</frame>
 				{props.chip !== undefined && <Chip text={props.chip} accent={props.chipColor ?? Palette.mango} phone={true} layoutOrder={3} />}
 			</frame>
-			<Line text={props.detail} size={phone ? 13 : 14} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={2} />
-			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
+			<Line text={props.detail} size={phone ? 13 : L.UpgradeLine.text.size} font={BODY} color={L.UpgradeLine.text.color} width={new UDim(1, 0)} height={phone ? 18 : L.UpgradeLine.h} layoutOrder={2} />
+			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : L.UpgradeBuy.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
 				<MockBtn
 					text={props.cta}
 					icon={props.owned === true ? "Check.10" : props.disabled === true ? "Lock.6" : undefined}
@@ -652,7 +702,7 @@ interface PackCardProps {
 // .row (column, centred): glyph / .big 26px figure / unit / .btn.sm pink price pill
 function PackCardImpl(props: PackCardProps) {
 	const phone = props.phone;
-	const pad = phone ? 10 : 14;
+	const pad = phone ? 10 : L.GemCard.pad.top;
 	const reveal = useStagger(props.staggerIndex ?? 0, props.reducedMotion, 0.036, 0.26);
 	const canBuy = props.disabled !== true;
 	return (
@@ -661,18 +711,19 @@ function PackCardImpl(props: PackCardProps) {
 			<uipadding PaddingTop={new UDim(0, pad)} PaddingBottom={new UDim(0, pad)} PaddingLeft={new UDim(0, pad)} PaddingRight={new UDim(0, pad)} />
 			<uilistlayout
 				FillDirection={Enum.FillDirection.Vertical}
-				Padding={new UDim(0, phone ? 4 : 6)}
+				Padding={new UDim(0, phone ? 4 : L.GemCard.gap)}
 				HorizontalAlignment={Enum.HorizontalAlignment.Center}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
-			<Glyph kind={props.icon} size={phone ? 18 : 20} color={props.accent} layoutOrder={1} />
-			<Line text={props.figure} size={phone ? 20 : 26} font={NUM} width={new UDim(1, 0)} height={phone ? 24 : 30} align={Enum.TextXAlignment.Center} layoutOrder={2} />
-			<Line text={props.unit} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={16} align={Enum.TextXAlignment.Center} layoutOrder={3} />
-			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : 36)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+			<Glyph kind={props.icon} size={phone ? 18 : L.GemIcon.w} color={props.accent} layoutOrder={1} />
+			<Line text={props.figure} size={phone ? 20 : L.GemFigure.text.size} font={NUM} color={L.GemFigure.text.color} width={new UDim(1, 0)} height={phone ? 24 : L.GemFigure.h} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+			{/* desktop 05-shop gem card is glyph / figure / price: the unit reads from the glyph; phone keeps its line */}
+			{phone && <Line text={props.unit} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={16} align={Enum.TextXAlignment.Center} layoutOrder={3} />}
+			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : L.GemBuy.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
 				<MockBtn
 					text={props.cta}
 					icon={canBuy ? undefined : "Lock.6"}
-					accent={Palette.pink}
+					accent={L.GemBuy.accent}
 					sec={!canBuy}
 					disabled={!canBuy}
 					sm={true}
@@ -719,39 +770,51 @@ interface FeaturedPanelProps {
 	reducedMotion?: boolean;
 }
 
-// the 620px "this week" .pn: 12px kicker, 46px title face, 16px line, art (flex 1), a 58px price button
+// the 05-shop "this week" .pn (ShopLayout.Featured*): 12px kicker, 46px title face, 16px line, art
+// (flex 1, the 300px figure centred), 58px price button; the amber radial wash at 75% / 30%
 function FeaturedPanel(props: FeaturedPanelProps) {
 	const product = props.product;
 	const phone = props.phone;
 	const accent = accentOf(product.Accent);
-	const titleSize = phone ? 26 : 46;
+	const titleSize = phone ? 26 : L.FeaturedTitle.text.size;
 	const detail = product.Description !== "" ? product.Description : rewardLine(product.Reward);
+	const glow = L.Featured.radialGlow;
 	return (
 		<MockPanel
 			name="Featured"
 			size={phone ? new UDim2(1, 0, 0, props.height) : new UDim2(0, SHOP_FEATURED_W, 0, props.height)}
 			phone={phone}
 			accent={Palette.mango}
-			glow={Palette.mango}
+			glow={glow.color}
+			glowBox={phone ? undefined : glow}
+			gap={phone ? undefined : L.Featured.gap}
 			reveal={props.reveal}
 			reducedMotion={props.reducedMotion}
 			layoutOrder={props.layoutOrder}
 		>
-			<Line text={spaced("THIS WEEK")} size={12} font={BODY_BOLD} color={Palette.mango} width={new UDim(1, 0)} height={14} layoutOrder={1} />
-			<Line text={product.Name} size={titleSize} font={TITLE_FACE} width={new UDim(1, 0)} height={titleSize + 4} layoutOrder={2} />
+			<Line
+				text={spaced(L.FeaturedKick.text.value)}
+				size={L.FeaturedKick.text.size}
+				font={BODY_BOLD}
+				color={L.FeaturedKick.text.color}
+				width={new UDim(1, 0)}
+				height={L.FeaturedKick.h}
+				layoutOrder={1}
+			/>
+			<Line text={product.Name} size={titleSize} font={TITLE_FACE} color={L.FeaturedTitle.text.color} width={new UDim(1, 0)} height={phone ? titleSize + 4 : L.FeaturedTitle.h} layoutOrder={2} />
 			<textlabel
 				key="Detail"
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				Text={detail}
-				TextSize={phone ? 13 : 16}
+				TextSize={phone ? 13 : L.FeaturedLine.text.size}
 				FontFace={BODY}
-				TextColor3={Palette.creamSoft}
+				TextColor3={L.FeaturedLine.text.color}
 				TextXAlignment={Enum.TextXAlignment.Left}
 				TextYAlignment={Enum.TextYAlignment.Top}
 				TextWrapped={true}
 				TextTruncate={Enum.TextTruncate.AtEnd}
-				Size={new UDim2(1, 0, 0, phone ? 34 : 42)}
+				Size={new UDim2(1, 0, 0, phone ? 34 : L.FeaturedLine.h)}
 				LayoutOrder={3}
 			/>
 			<frame key="Art" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
@@ -760,18 +823,19 @@ function FeaturedPanel(props: FeaturedPanelProps) {
 					kind: iconOf(product.Icon),
 					color: Palette.cream,
 					accent: accent,
-					size: phone ? 72 : 200,
+					size: phone ? 72 : L.FeaturedArt.w,
 					spin: false,
 					position: UDim2.fromScale(0.5, 0.5),
 					anchorPoint: new Vector2(0.5, 0.5),
 					reducedMotion: props.reducedMotion,
 				})}
 			</frame>
-			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : 58)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={5}>
+			{/* .flexr: price button (flex 1); the struck-through "was" chip needs a sale price the catalog doesn't carry */}
+			<frame key="ShopBuyCta" Size={new UDim2(1, 0, 0, phone ? TapTarget : L.FeaturedBuy.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={5}>
 				<MockBtn
 					text={props.cta}
 					icon={props.disabled ? "Lock.6" : undefined}
-					accent={Palette.mango}
+					accent={L.FeaturedBuy.accent}
 					sec={props.disabled}
 					disabled={props.disabled}
 					fill={true}
@@ -1159,7 +1223,7 @@ function ShopView(props: ShopViewProps) {
 	const phone = stack;
 	const pad = panelPad(phone);
 	const pageGap = mockGap(phone);
-	const tabRowH = phone ? TapTarget : 40;
+	const tabRowH = phone ? TapTarget : L.Tabs.h;
 	const tailPad = scrollTail(stack, chrome.bottomSafe, SCROLL_PAD);
 	const passCta = (pass: GamePass) => (owned[pass.Key] === true ? "Owned" : priceText(pass.PriceLabel, pass.StudioPrice, pass.PassId));
 	const upgradeCell = (pass: GamePass, index: number) => {
@@ -1209,7 +1273,12 @@ function ShopView(props: ShopViewProps) {
 	const upgradeList = tab === "Featured" ? passes.filter((_, index) => index < 4) : tab === "Passes" ? passes : [];
 	const packList =
 		tab === "Featured"
-			? products.filter((_, index) => index > 0 && index <= 4)
+			? (() => {
+					// 05-shop lists four gem packs under the upgrades; fall back to any packs if none are gems
+					const rest = products.filter((_, index) => index > 0);
+					const gems = rest.filter((product) => isGemPack(product));
+					return (gems.size() > 0 ? gems : rest).filter((_, index) => index < 4);
+				})()
 			: tab === "Flux"
 				? products.filter((product) => !isGemPack(product))
 				: tab === "Gems"
@@ -1232,7 +1301,7 @@ function ShopView(props: ShopViewProps) {
 		blocks.push({
 			name: "Packs",
 			icon: tab === "Flux" ? "Flux" : "Dust",
-			title: tab === "Flux" ? "Flux" : tab === "Gems" ? "Gems" : "Packs",
+			title: tab === "Flux" ? "Flux" : tab === "Gems" || packList.every((product) => isGemPack(product)) ? "Gems" : "Packs",
 			columns: packCols,
 			cellHeight: packCardHeight(phone),
 			count: packList.size(),
@@ -1435,7 +1504,10 @@ function ShopView(props: ShopViewProps) {
 		</frame>
 	);
 	// Featured / Flux / Gems / Passes (+ Codes) pill tabs, right-aligned like the hero .tabs
-	const tabsW = phone ? undefined : SHOP_TABS.size() * 96 + (SHOP_TABS.size() - 1) * 6;
+	const pickTab = (entry: string) => {
+		setTab(entry);
+		setBanner(SHOP_DEFAULT_LINE);
+	};
 	const tabsRow = (
 		<frame key="ShopTabs" Size={new UDim2(1, 0, 0, tabRowH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 			<uilistlayout
@@ -1444,20 +1516,13 @@ function ShopView(props: ShopViewProps) {
 				VerticalAlignment={Enum.VerticalAlignment.Center}
 				SortOrder={Enum.SortOrder.LayoutOrder}
 			/>
-			<frame key="Tabs" Size={tabsW !== undefined ? UDim2.fromOffset(tabsW, tabRowH) : UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				<PillTabs
-					options={SHOP_TAB_OPTIONS}
-					value={tab}
-					onChange={(entry) => {
-						setTab(entry);
-						setBanner(SHOP_DEFAULT_LINE);
-					}}
-					accent={Palette.mango}
-					columns={SHOP_TABS.size()}
-					gap={6}
-					strip={phone}
-				/>
-			</frame>
+			{phone ? (
+				<frame key="Tabs" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<PillTabs options={SHOP_TAB_OPTIONS} value={tab} onChange={pickTab} accent={Palette.mango} columns={SHOP_TABS.size()} gap={6} strip={true} />
+				</frame>
+			) : (
+				<SegTabs options={SHOP_TAB_OPTIONS} value={tab} onChange={pickTab} />
+			)}
 		</frame>
 	);
 	let body: React.Element;

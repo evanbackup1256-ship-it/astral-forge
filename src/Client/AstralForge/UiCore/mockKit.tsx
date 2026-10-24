@@ -119,6 +119,8 @@ export function MockPanel(p: {
 	layoutOrder?: number;
 	accent?: Color3;
 	glow?: Color3;
+	/** mockup radial-gradient(w/2 h/2 at cx cy, color alpha, transparent) in panel fractions; replaces the default top-right ellipse */
+	glowBox?: { w: number; h: number; cx: number; cy: number; transparency: number };
 	reveal?: React.Binding<number>;
 	reducedMotion?: boolean;
 	flex?: boolean;
@@ -140,7 +142,10 @@ export function MockPanel(p: {
 		>
 			{p.flex === true && <uiflexitem FlexMode={Enum.UIFlexMode.Fill} />}
 			<Panel size={UDim2.fromScale(1, 1)} radius={pad.radius} padding={pad.y} rule={true} accent={p.accent ?? Palette.brass} background={Palette.panel} reveal={p.reveal} reducedMotion={p.reducedMotion}>
-				{p.glow !== undefined && (
+				{p.glow !== undefined && p.glowBox !== undefined && (
+					<RadialGlow color={p.glow} box={p.glowBox} inset={pad.y} />
+				)}
+				{p.glow !== undefined && p.glowBox === undefined && (
 					// radial-gradient(300px 160px at 80% 0%, accent .22): a soft ellipse in the top-right
 					<frame
 						Size={UDim2.fromOffset(600, 320)}
@@ -167,6 +172,52 @@ export function MockPanel(p: {
 					{p.children}
 				</frame>
 			</Panel>
+		</frame>
+	);
+}
+
+/**
+ * CSS radial-gradient glow as concentric rounded frames (the depth.tsx SoftShadow technique: stacked
+ * layers with falling opacity, no baked image). `box` is the ellipse (full w x h px) centred at
+ * (cx, cy) of the host's outer box; `inset` cancels the host's UIPadding.
+ */
+export function RadialGlow(p: { color: Color3; box: { w: number; h: number; cx: number; cy: number; transparency: number }; inset?: number }) {
+	const layers = 7;
+	const inset = p.inset ?? 0;
+	// each layer adds an equal share, so the centre (all layers) reaches the stop's opacity and the
+	// rim (outer layer only) fades to almost nothing, like the CSS falloff to transparent
+	const share = 1 - math.pow(1 - (1 - p.box.transparency), 1 / layers);
+	const items: React.Element[] = [];
+	for (let index = 0; index < layers; index++) {
+		const t = (index + 1) / layers;
+		items.push(
+			<frame
+				key={`g${index}`}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				Position={UDim2.fromScale(p.box.cx, p.box.cy)}
+				Size={UDim2.fromOffset(math.round(p.box.w * t), math.round(p.box.h * t))}
+				BackgroundColor3={p.color}
+				BackgroundTransparency={1 - share}
+				BorderSizePixel={0}
+				ZIndex={0}
+			>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>,
+		);
+	}
+	// clipped to the host's outer box like a CSS background layer
+	return (
+		<frame
+			key="RadialGlow"
+			Position={UDim2.fromOffset(-inset, -inset)}
+			Size={new UDim2(1, inset * 2, 1, inset * 2)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			ClipsDescendants={true}
+			Active={false}
+			ZIndex={0}
+		>
+			{items}
 		</frame>
 	);
 }
