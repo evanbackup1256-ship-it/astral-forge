@@ -11,11 +11,13 @@ import { Rarity } from "../../../../Shared/AstralForge/Shared/ForgeTheme";
 import { clientModule, kitMember, LuauComponent } from "../luauKits";
 import { Bar, DiamondRule, Line, PanelHeading, PnSurface, spaced, TITLE_FACE } from "../../UiCore/mockKit";
 import { MockBtn, MockRow, rowHeight } from "../mockRows";
+import { useHeroShown, useHeroSlot } from "../../UiCore/heroSlot";
+import { PHONE_HEAD_H, PhoneHead } from "../mockLayout";
 
 const TweenService = game.GetService("TweenService");
 import { MotionFX } from "../../UiCore/screenFx";
 
-const { SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const ElementFxModule = clientModule<{
 	ElementFx: LuauComponent;
@@ -24,7 +26,6 @@ const ElementFxModule = clientModule<{
 const ElementFx = ElementFxModule.ElementFx;
 const elementSheet = ElementFxModule.sheet;
 
-const SERIF = Font.fromName("Merriweather", Enum.FontWeight.Bold);
 // generated from design/14-companions by scripts/gen_from_layout.js (scripts/layout/companions.spec.json)
 import { CompanionsLayout as L } from "../generated/CompanionsLayout";
 const MAX_LEVEL = 10;
@@ -246,47 +247,6 @@ function SpriteCard(props: SpriteCardProps) {
 }
 
 // ---------- header ----------
-function HeaderStars(props: { reducedMotion?: boolean }) {
-	// 7 dots, alpha tweened on their own 2 to 5 s periods; still under reduced motion
-	const refs = React.useRef<Frame[]>([]);
-	const spots = [
-		[0.52, 0.22],
-		[0.58, 0.62],
-		[0.63, 0.35],
-		[0.69, 0.78],
-		[0.74, 0.18],
-		[0.9, 0.3],
-		[0.97, 0.7],
-	];
-	React.useEffect(() => {
-		if (props.reducedMotion) return;
-		const tweens: Tween[] = [];
-		refs.current.forEach((dot, index) => {
-			const tween = MotionFX.tween(dot, new TweenInfo(2 + ((index * 7) % 4), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-				BackgroundTransparency: 0.85,
-			}, false);
-			if (tween) tweens.push(tween);
-		});
-		return () => tweens.forEach((tween) => tween.Cancel());
-	}, [props.reducedMotion]);
-	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={0}>
-			{spots.map((spot, index) => (
-				<frame
-					key={`Star${index}`}
-					ref={(dot: Frame | undefined) => {
-						if (dot) refs.current[index] = dot;
-					}}
-					Size={UDim2.fromOffset(index % 3 === 0 ? 3 : 2, index % 3 === 0 ? 3 : 2)}
-					Position={UDim2.fromScale(spot[0], spot[1])}
-					BackgroundColor3={Palette.cream}
-					BackgroundTransparency={0.3}
-					BorderSizePixel={0}
-				/>
-			))}
-		</frame>
-	);
-}
 
 const TABS = [
 	{ id: "Owned", label: "Owned" },
@@ -325,44 +285,11 @@ export function CompanionsView(props: CompanionsProps) {
 	const cardW = stack ? 104 : L.Card.w;
 	const cardH = stack ? 134 : L.Card.h;
 	const gap = stack ? 10 : L.GridWrap.gap;
-	const heroH = stack ? 64 : 118;
 
-	const hero = (
-		<PnSurface size={UDim2.fromScale(1, 1)} accent={Palette.brass} background={Palette.panelRaised} padding={stack ? 12 : 20} radius={18} reveal={enter} reducedMotion={reducedMotion} clips={true}>
-			<HeaderStars reducedMotion={reducedMotion} />
-			{!stack && (
-				<Text value={`${foundCount} OF ${totalCount} FOUND`} size={11} color={Palette.mint} weight={Enum.FontWeight.Heavy} sizeConstraint={new UDim2(0.5, 0, 0, 14)} />
-			)}
-			<textlabel
-				Text="Companions"
-				FontFace={SERIF}
-				TextSize={stack ? 24 : 34}
-				TextColor3={Palette.cream}
-				TextXAlignment={Enum.TextXAlignment.Left}
-				BackgroundTransparency={1}
-				Position={UDim2.fromOffset(0, stack ? 0 : 16)}
-				Size={new UDim2(0, stack ? 180 : 360, 0, stack ? 30 : 42)}
-			/>
-			<Text
-				value={followName !== undefined ? `${followName} is following you` : "Pick one to follow you around the forge"}
-				size={stack ? 12 : 13}
-				color={Palette.muted}
-				fit={true}
-				minSize={10}
-				position={stack ? UDim2.fromOffset(0, 32) : UDim2.fromOffset(0, 60)}
-				sizeConstraint={new UDim2(1, stack ? -190 : -320, 0, 18)}
-			/>
-			<SegmentedTabs
-				options={TABS}
-				value={tab}
-				onChange={setTab}
-				accent={Palette.mint}
-				size={UDim2.fromOffset(stack ? 170 : 200, TapTarget)}
-				position={new UDim2(1, stack ? -170 : -200, 0.5, -TapTarget / 2)}
-				reducedMotion={reducedMotion}
-			/>
-		</PnSurface>
-	);
+	// mockup 14 .hero: kicker + .tabs live in the shell hero slot; phone gets the .ph-head line + tabs
+	const followLine = followName !== undefined ? `${followName} is following you` : "Pick one to follow you around the forge";
+	useHeroSlot("Companions", { kicker: `${foundCount} of ${totalCount} found`, line: followLine, tabs: { options: TABS, value: tab, onChange: setTab, accent: Palette.mint } });
+	const heroShown = useHeroShown();
 
 	// mockup 14 right column: one .pn with the OWNED h3 + card wrap, a diamond rule, then the FUSE h3 + its row.
 	// The game has no three-of-a-kind fuse action, so the row is the level-up (sparks + stardust -> next level).
@@ -611,8 +538,10 @@ export function CompanionsView(props: CompanionsProps) {
 		: L.StageArt.h + L.StageName.h + L.StageDesc.h + rowHeight(stack) * 2 + L.StageBar.h + L.StageBtns.h + L.Stage.gap * 6 + L.Stage.pad.top * 2;
 
 	const sections: { id: string; height?: number; fill?: boolean; minHeight?: number; element: React.Element }[] = [
-		{ id: "hero", height: heroH, element: hero },
 	];
+	if (!heroShown) {
+		sections.push({ id: "head", height: PHONE_HEAD_H, element: <PhoneHead line={followLine} options={TABS} value={tab} onChange={setTab} accent={Palette.mint} reducedMotion={reducedMotion} /> });
+	}
 	if (stack) {
 		const g = grid(viewport.width - 24);
 		sections.push({ id: "grid", height: gridPad * 2 + 22 + 12 + g.wrapH + (fuseRow !== undefined ? 12 + 12 + fuseH : 0), element: gridPanel(g.wrapH) });
