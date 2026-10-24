@@ -2273,7 +2273,8 @@ function crateRangeLine(crate: CrateConfig): string {
 
 // crate card (.row column, centred): desktop metrics from the generated 07-crates CratesLayout.Card
 function crateCardHeight(phone: boolean): number {
-	return phone ? 12 + 64 + 8 + 20 + 8 + 16 + 8 + TapTarget + 12 : CL.Card.h;
+	// 07 phone.html: .row column, 16px padding, 10px gaps, 92px art, 17px name, 13px odds line, stretched sm button
+	return phone ? 16 + 92 + 10 + 22 + 10 + 18 + 10 + TapTarget + 16 : CL.Card.h;
 }
 
 interface CrateCardProps {
@@ -2310,13 +2311,13 @@ function CrateCard(props: CrateCardProps) {
 				Event={{ Activated: pick }}
 			>
 				<RowFace outline={selected ? accent : undefined} strong={selected} />
-				<CardBody pad={phone ? 12 : CL.Card.pad.top} gap={phone ? 8 : CL.Card.gap} center={true}>
-					<frame key="Well" Size={phone ? UDim2.fromOffset(80, 64) : UDim2.fromOffset(selected ? CL.CardArtOn.w : CL.CardArt.w, selected ? CL.CardArtOn.h : CL.CardArt.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<CardBody pad={phone ? 16 : CL.Card.pad.top} gap={phone ? 10 : CL.Card.gap} center={true}>
+					<frame key="Well" Size={phone ? UDim2.fromOffset(92, 92) : UDim2.fromOffset(selected ? CL.CardArtOn.w : CL.CardArt.w, selected ? CL.CardArtOn.h : CL.CardArt.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 						<uilistlayout HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-						<CrateGlyph accent={accent} side={phone ? 56 : selected ? CL.CardArtOn.w : CL.CardArt.w} layoutOrder={1} />
+						<CrateGlyph accent={accent} side={phone ? 92 : selected ? CL.CardArtOn.w : CL.CardArt.w} layoutOrder={1} />
 					</frame>
-					<Line text={crate.Name} size={phone ? 15 : CL.CardName.text.size} font={BODY_BOLD} width={new UDim(1, 0)} height={phone ? 20 : CL.CardName.h} align={Enum.TextXAlignment.Center} layoutOrder={2} />
-					<Line text={crateRangeLine(crate)} size={phone ? 12 : CL.CardRange.text.size} font={BODY} color={phone ? Palette.muted : CL.CardRange.text.color} width={new UDim(1, 0)} height={phone ? 16 : CL.CardRange.h} align={Enum.TextXAlignment.Center} layoutOrder={3} />
+					<Line text={crate.Name} size={phone ? 17 : CL.CardName.text.size} font={BODY_BOLD} width={new UDim(1, 0)} height={phone ? 22 : CL.CardName.h} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+					<Line text={crateRangeLine(crate)} size={phone ? 13 : CL.CardRange.text.size} font={BODY} color={phone ? Palette.muted : CL.CardRange.text.color} width={new UDim(1, 0)} height={phone ? 18 : CL.CardRange.h} align={Enum.TextXAlignment.Center} layoutOrder={3} />
 					<frame key="Keys" Size={new UDim2(1, 0, 0, phone ? TapTarget : CL.CardBtn.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
 						<MockBtn
 							text={props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys"}
@@ -2387,8 +2388,7 @@ function CratesSection(props: SectionProps) {
 			accent={Palette.violet}
 			phone={phone}
 			reducedMotion={props.reducedMotion}
-			fill={phone}
-			layoutOrder={0}
+			layoutOrder={1}
 		/>
 	);
 	useHeroTabs(phone ? undefined : crateTabs);
@@ -2560,10 +2560,11 @@ function CratesSection(props: SectionProps) {
 			</frame>
 		);
 	};
-	const mainContent = headingBlock(phone) + gridH + pad.gap + openH;
+	// phones: the .ph-head line carries the title context (the h1 is the shell title), so no panel heading
+	const mainContent = (phone ? 0 : headingBlock(phone)) + gridH + pad.gap + openH;
 	const mainPanel = (
 		<MockPanel name="CratesPanel" size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reveal={props.reveal} reducedMotion={props.reducedMotion}>
-			<PanelHeading icon="Crate" title="Crates" note={plan.split ? undefined : pityNote} accent={Palette.violet} phone={phone} layoutOrder={1} />
+			{!phone && <PanelHeading icon="Crate" title="Crates" note={plan.split ? undefined : pityNote} accent={Palette.violet} phone={phone} layoutOrder={1} />}
 			<frame Size={new UDim2(1, 0, 0, gridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2} {...{ Name: "chips" }}>
 				<MockGrid columns={columns} gap={pad.gap} cellHeight={cardH} count={crates.size()}>
 					{cards}
@@ -2629,8 +2630,14 @@ function CratesSection(props: SectionProps) {
 	const dropsH = headingBlock(phone) + oddsH;
 	const pullsH = headingBlock(phone) + pullsGridH;
 	const sideContent = dropsH;
+	// 07 phone.html .ph-head: muted line on the left; the Crates/History .tabs sit right (History stays reachable)
 	const phoneTabs = phone && (
-		<frame key="CrateTabs" Size={new UDim2(1, 0, 0, TapTarget)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+		<frame key="CrateTabs" Size={new UDim2(1, 0, 0, TapTarget + 8)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+				<Line text={`${crate.Name} odds shown before you open`} size={12} font={BODY_SEMI} color={Palette.muted} height={TapTarget + 8} layoutOrder={0} />
+			</frame>
 			{crateTabs}
 		</frame>
 	);
