@@ -106,6 +106,7 @@ const BuffStrip = {} as {
 	Strip(this: void, props: StripProps): React.Element;
 	Island(this: void, props: IslandProps): React.Element;
 	MomentBanner(this: void, props: { reducedMotion?: boolean; position?: UDim2 }): React.Element | undefined;
+	CurrencyRow(this: void, props: CurrencyRowProps): React.Element;
 };
 
 const CHIP_W = 58;
@@ -2367,6 +2368,49 @@ BuffStrip.MomentBanner = function (props: { reducedMotion?: boolean; position?: 
 				FontFace: BODY,
 				ZIndex: 63,
 			}),
+	);
+};
+
+// 02-nav-shell .top: the .cur pills sit straight after the logo in the bar's 12px flex gap
+interface CurrencyRowProps {
+	currencies: CurrencyEntry[];
+	position: UDim2;
+	reducedMotion?: boolean;
+	navigate?: (destination: string) => void;
+}
+BuffStrip.CurrencyRow = function (props: CurrencyRowProps): React.Element {
+	let liveKey: string | undefined;
+	for (const currency of props.currencies) {
+		if (currency.liveKey !== undefined) liveKey = currency.liveKey;
+	}
+	const liveValue = useLiveSessionValue(liveKey);
+	const items: Record<string, React.Element> = {
+		list: h("uilistlayout", {
+			FillDirection: Enum.FillDirection.Horizontal,
+			SortOrder: Enum.SortOrder.LayoutOrder,
+			VerticalAlignment: Enum.VerticalAlignment.Center,
+			Padding: new UDim(0, 12),
+		}),
+	};
+	props.currencies.forEach((currency, index) => {
+		items[`c${currency.target}`] = h(CurrencySegment, {
+			order: index,
+			currency: currency.liveKey !== undefined ? { ...currency, value: liveValue } : currency,
+			reducedMotion: props.reducedMotion,
+			navigate: props.navigate,
+		});
+	});
+	return h(
+		"frame",
+		{
+			Name: "TopbarCurrencies",
+			Size: UDim2.fromOffset(props.currencies.size() * (CURRENCY_W + 12) - 12, CUR_H),
+			Position: props.position,
+			AnchorPoint: new Vector2(0, 0.5),
+			BackgroundTransparency: 1,
+			ZIndex: 22,
+		},
+		items,
 	);
 };
 

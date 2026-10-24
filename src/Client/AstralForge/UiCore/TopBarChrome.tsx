@@ -43,7 +43,7 @@ interface JuiceFxModule {
 }
 const JuiceFx = require(AstralForge.WaitForChild("JuiceFx") as ModuleScript) as JuiceFxModule;
 
-const BuffStrip = require(AstralForge.WaitForChild("BuffStrip") as ModuleScript) as { Island: unknown };
+const BuffStrip = require(AstralForge.WaitForChild("BuffStrip") as ModuleScript) as { Island: unknown; CurrencyRow: unknown };
 
 const CHIP_TIPS: Record<string, { title: string; body: string } | undefined> = {
 	FLUX: {
@@ -1474,11 +1474,32 @@ function TopBarImpl(_param: TopBarProps) {
 					h("uiscale", { Scale: islandScale }),
 					child,
 				);
+	// 02-nav-shell: the .cur pills start at x260 (logo 20 + 228 + the bar's 12 gap), as many as fit
+	// before the right cluster; the island keeps toasts, FPS/ping and the layout editor
+	const barCurrencyLeft = logoLeft + logoWidth + 12;
+	const barCurrencyFit = math.max(
+		0,
+		math.floor((width - edgePad * 2 - barCurrencyLeft - islandRight + 12) / (123 + 12)),
+	);
+	const barCurrencies: typeof islandCurrencies = [];
+	for (let index = islandCurrencies.size() - 1; index >= 0 && barCurrencies.size() < barCurrencyFit; index--) {
+		barCurrencies.push(islandCurrencies[index]);
+	}
+	const barCurrencyRow =
+		mockTop &&
+		barCurrencies.size() > 0 &&
+		h(BuffStrip.CurrencyRow, {
+			currencies: barCurrencies,
+			position: new UDim2(0, barCurrencyLeft, 0, math.floor(row1H / 2)),
+			reducedMotion: reducedMotion,
+			navigate: _param.navigate,
+		});
 	const islandElement =
 		!stacked &&
 		h(
 			React.Fragment,
 			undefined,
+			barCurrencyRow,
 			islandWrap(h(BuffStrip.Island, {
 				state: state,
 				config: _param.config,
