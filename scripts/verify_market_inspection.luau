@@ -84,6 +84,7 @@ local function render(width, inspected, offers)
 			return tall <= 0 or (tall - math.min(a, b)) / tall <= (tolerance or 0.18)
 		end,
 		SplitColumns = "SplitColumns", StackBlocks = "StackBlocks",
+		useHeroTabs = function() end, MockTabs = "MockTabs", -- header tab slot needs the live shell
 		useFocusOrder = function() end, -- gamepad focus wiring needs live instances
 		-- 06 mockup pieces (mockKit/mockRows): components as tags, sizes from the same maths
 		TapTarget = 48, SEC = roblox.Color3.fromRGB(58, 46, 62), HEADING_SECTION_H = 30,

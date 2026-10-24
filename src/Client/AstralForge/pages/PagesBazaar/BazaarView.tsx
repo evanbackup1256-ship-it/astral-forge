@@ -10,6 +10,8 @@ import { HeaderArt } from "../../UiCore/HeaderArt";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
 import { BODY, BODY_BOLD, BODY_SEMI, Bar, GlyphWell, Line, MockPanel, NUM, PanelHeading, PnSurface, ROW_RADIUS } from "../../UiCore/mockKit";
 import { HEADING_SECTION_H, HeadingSection, headingBlock, MockBtn, MockRow, panelHeight, rowHeight, RowFace, SEC, TileWell } from "../mockRows";
+import { useHeroTabs } from "../../UiCore/heroTabs";
+import { MockTabs } from "../socialKit";
 // generated from design/06-bazaar by scripts/gen_from_layout.js (scripts/layout/bazaar.spec.json)
 import { BazaarLayout as L } from "../generated/BazaarLayout";
 
@@ -424,6 +426,26 @@ function BazaarView(props: BazaarProps) {
 	const chrome = chromeFor(useViewport());
 	const bazaarTail = chrome.stack ? scrollTail(true, chrome.bottomSafe, 32) : 72;
 	const scrollRef = React.useRef<GuiObject>();
+	// 06-bazaar .hero .tabs: Buy is this market; players can't sell or keep a stall here, so those two
+	// tabs open an honest empty state instead of invented listings
+	const [bazaarTab, setBazaarTab] = React.useState("Buy");
+	useHeroTabs(
+		chrome.stack ? undefined : (
+			<MockTabs
+				options={[
+					{ id: "Buy", label: "Buy" },
+					{ id: "Sell", label: "Sell" },
+					{ id: "Stall", label: "My stall" },
+				]}
+				value={bazaarTab}
+				onChange={setBazaarTab}
+				accent={Palette.violet}
+				phone={false}
+				reducedMotion={props.reducedMotion}
+				layoutOrder={0}
+			/>
+		),
+	);
 	// gamepad: header > search > categories > sort/quantity > (Close inspection) > shelf; the shelf
 	// (Main) and the inspection column (Side, right) step left/right on desktop. First focus: an offer.
 	useFocusOrder(
@@ -786,6 +808,25 @@ function BazaarView(props: BazaarProps) {
 			accent={Palette.violet}
 		/>,
 	);
+	if (!chrome.stack && bazaarTab !== "Buy") {
+		const emptySections: Section[] = [
+			{
+				id: "tab-empty",
+				height: 160,
+				element: (
+					<Ui.EmptyState
+						icon="Shop"
+						title={bazaarTab === "Sell" ? "Nothing to sell here" : "No stall yet"}
+						body="The bazaar sells supplies from the market. Player listings aren't part of the game yet."
+						accent={Palette.violet}
+						compact={true}
+						size={UDim2.fromScale(1, 1)}
+					/>
+				),
+			},
+		];
+		return <PageScaffold hostRef={scrollRef} sections={emptySections} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;
+	}
 	if (category === "Requests") {
 		const procure = market && market.Procure;
 		const canProcure = reputation && reputation.CanProcure;
