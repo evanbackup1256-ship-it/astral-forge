@@ -591,7 +591,7 @@ function AppShell(props: ShellProps) {
 							<frame Size={UDim2.fromOffset(420, 420)} Position={new UDim2(0, -170, 0, -130)} AnchorPoint={new Vector2(0.5, 0.5)} BackgroundColor3={Palette.cyan}
 								BackgroundTransparency={1 - 0.025 * math.clamp(glowIntensity, 0, 1)} BorderSizePixel={0}><uicorner CornerRadius={new UDim(1, 0)} /></frame>}
 						{!keyboardShellCompact && mobileShell && <>
-							<MobileHeader state={state} page={page} accent={accent} topPad={topPad} barHeight={topbarHeight} edgePad={edgePad} reducedMotion={softMotion} openPlayerlist={openPlayerlist} />
+							<MobileHeader state={state} page={page} accent={accent} topPad={topPad} barHeight={topbarHeight} edgePad={edgePad} reducedMotion={softMotion} openPlayerlist={openPlayerlist} navigate={navigateLatest} />
 							<BuffStrip.Island state={state} config={config} reducedMotion={softMotion} restHidden={true} maxWidth={viewport.width - edgePad * 2}
 								position={new UDim2(0.5, 0, 0, topPad + topbarHeight + 6)} anchorPoint={TOP_CENTER_ANCHOR} />
 						</>}
@@ -639,7 +639,7 @@ function AppShell(props: ShellProps) {
 							onReturn={returnToTrade} />}
 						{mobileShell && <MobileTabBar page={page} setPage={navigateLatest} state={state} chatUnread={chat.unread} tutorialPage={tutorial?.page} reducedMotion={reducedMotion}
 							height={phoneRail ? chrome.tabBarH : tabBarH} bottomSafe={chrome.bottomSafe} visible={!keyboardShellCompact}
-							railTop={phoneRail ? topPad + topbarHeight + 4 : undefined} railWidth={phoneRail ? phoneRailW : undefined} />}
+							railTop={phoneRail ? topPad + topbarHeight : undefined} railWidth={phoneRail ? phoneRailW : undefined} accent={accent} />}
 						{!keyboardShellCompact && !mobileShell && !hidden && <frame Size={new UDim2(0, 0, 0, 0)}
 							Position={railWidth.map((w) => new UDim2(0, shellLeft + w + 16, 1, -(bottomPad + gamepadReserve + 16)))} BackgroundTransparency={1} ZIndex={60}>
 							<BuffStrip.Island state={state} config={config} reducedMotion={softMotion} role="buffs" liveVaultFull={true} navigate={setPage}

@@ -1,4 +1,3 @@
-import { useLiveSessionValue } from "./liveSession";
 import { countRedraw, redrawCounterEnabled } from "./devRedrawCounter";
 import { sameChromeProps, MOBILE_STATE_KEYS } from "./chromeMemo";
 import React from "@rbxts/react";
@@ -24,6 +23,8 @@ const h = React.createElement as unknown as (component: unknown, props?: object,
 const UserInputService = game.GetService("UserInputService");
 
 const AstralForge = script.Parent!.Parent!;
+// 02 phone.html .p .top: the 32px .cur pills come from BuffStrip.CurrencyRow (phone mode)
+const BuffStrip = require(AstralForge.WaitForChild("BuffStrip") as ModuleScript) as { CurrencyRow: unknown };
 const loadKit = (name: string) => require(AstralForge.WaitForChild(name) as ModuleScript) as (member: string) => unknown;
 
 const Icon = (loadKit("ArtKit")("Icon") as { Icon: LooseComponent }).Icon;
@@ -33,16 +34,14 @@ interface AudioApi {
 }
 const Audio = (loadKit("AudioKit")("audio") as { Audio: AudioApi }).Audio;
 
-interface JuiceFxModule {
-	useTarget(this: void, name: string): LuaTuple<[React.MutableRefObject<GuiObject | undefined>, React.Binding<number>]>;
-}
-const JuiceFx = require(AstralForge.WaitForChild("JuiceFx") as ModuleScript) as JuiceFxModule;
-
 const SHEET_SWIPE_CLOSE = 90;
 
 /** Phone landscape (design/02-nav-shell phone.png): a 64px icon rail on the left instead of the bottom bar. */
 export const PHONE_RAIL_W = 64;
-const RAIL_TAB_H = 54;
+// .ri: 56px items, 2px apart inside 6px rail padding
+const RAIL_TAB_H = 56;
+const RAIL_PAD = 6;
+const RAIL_BG = Color3.fromRGB(18, 13, 20);
 // short rail names; the sheet and the desktop rail keep the full ones
 const RAIL_LABEL: Record<string, string | undefined> = { Overview: "Home", Workshop: "Forge", Inventory: "Items", Leaderboards: "Ranks" };
 const OVERCHARGE_REPEAT = 0.11;
@@ -77,8 +76,10 @@ interface TabButtonProps {
 	compact?: boolean;
 	size: UDim2;
 	order: number;
-	/** rail cell: brass rounded tile behind the active tab, short label */
+	/** rail cell (.ri): accent tile behind the active tab, short label */
 	rail?: boolean;
+	/** the page accent (--acc) for the .ri.on tile */
+	railAccent?: Color3;
 }
 
 function TabButtonInner(_param: TabButtonProps) {
@@ -194,6 +195,7 @@ function railTab(
 	const active = _param.active;
 	const badge = _param.badge ?? 0;
 	const label = RAIL_LABEL[entry.id] ?? entry.label;
+	const accent = _param.railAccent ?? entry.accent ?? Palette.cyan;
 	return h(
 		"imagebutton",
 		{
@@ -220,57 +222,57 @@ function railTab(
 			},
 		},
 		h("uiscale", { Scale: press.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.06) }),
-		// active tile: brass outline over a warm tint, fading in with the selection spring
+		// .ri.on: accent gradient (30% to 8%) with a 45% accent inset stroke, fading in with the selection spring
 		h(
 			"frame",
 			{
-				Size: new UDim2(1, -8, 1, -4),
-				Position: UDim2.fromScale(0.5, 0.5),
-				AnchorPoint: new Vector2(0.5, 0.5),
-				BackgroundColor3: Palette.brassDeep,
-				BackgroundTransparency: selection.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.6),
+				Size: UDim2.fromScale(1, 1),
+				BackgroundColor3: accent,
+				BackgroundTransparency: selection.map((amount) => 1 - math.clamp(amount, 0, 1)),
 				BorderSizePixel: 0,
 				ZIndex: 42,
 			},
 			h("uicorner", { CornerRadius: new UDim(0, 10) }),
 			h("uigradient", {
 				Rotation: 90,
-				Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.55)]),
+				Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0.7), new NumberSequenceKeypoint(1, 0.92)]),
 			}),
 			h("uistroke", {
-				Color: Palette.brass,
+				Color: accent,
 				Thickness: 1,
-				Transparency: selection.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.5),
+				ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
+				Transparency: selection.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.45),
 			}),
 		),
+		// column: 20px icon, 3px gap, 600 10px label, centred in the 56px item
 		h(
 			"frame",
 			{
-				Size: UDim2.fromOffset(22, 22),
-				Position: new UDim2(0.5, 0, 0, 7),
+				Size: UDim2.fromOffset(20, 20),
+				Position: new UDim2(0.5, 0, 0, 10),
 				AnchorPoint: new Vector2(0.5, 0),
 				BackgroundTransparency: 1,
 				ZIndex: 43,
 			},
 			h(Icon, {
 				kind: entry.icon,
-				color: active ? Palette.cream : Palette.creamSoft,
-				accent: active ? Palette.brass : Palette.muted,
-				size: 22,
+				color: active ? Palette.cream : Palette.muted,
+				accent: active ? accent : Palette.muted,
+				size: 20,
 				spin: false,
 			}),
 			badge > 0 && h(CountBadge, { count: badge, zIndex: 46, compact: true }),
 		),
 		h("textlabel", {
-			Size: new UDim2(1, -4, 0, 14),
+			Size: new UDim2(1, -4, 0, 13),
 			Position: new UDim2(0.5, 0, 0, 33),
 			AnchorPoint: new Vector2(0.5, 0),
 			BackgroundTransparency: 1,
 			Text: label,
-			TextColor3: active ? Palette.brass : Palette.muted,
-			TextSize: 11,
+			TextColor3: active ? Palette.cream : Palette.muted,
+			TextSize: 10,
 			TextTruncate: Enum.TextTruncate.AtEnd,
-			FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", active ? Enum.FontWeight.Heavy : Enum.FontWeight.Bold),
+			FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
 			ZIndex: 43,
 		}),
 	);
@@ -391,13 +393,13 @@ function flatMenuCell(_param: { entry: NavEntry; active: boolean; badge?: number
 			h(Icon, { kind: entry.icon, color: Palette.cream, accent: active ? Palette.brass : Palette.creamSoft, size: 20, spin: false }),
 		),
 		h("textlabel", {
-			Size: new UDim2(1, -8, 0, 18),
-			Position: new UDim2(0.5, 0, 1, -6),
-			AnchorPoint: new Vector2(0.5, 1),
+			Size: new UDim2(1, -8, 0, 16),
+			Position: new UDim2(0.5, 0, 0, 8 + 20 + 4),
+			AnchorPoint: new Vector2(0.5, 0),
 			BackgroundTransparency: 1,
 			Text: RAIL_LABEL[entry.id] ?? entry.label,
-			TextColor3: Palette.cream,
-			TextSize: 14,
+			TextColor3: Palette.muted,
+			TextSize: 11,
 			TextTruncate: Enum.TextTruncate.AtEnd,
 			FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium),
 			ZIndex: 513,
@@ -448,11 +450,12 @@ function DockedMenuSheet(_param: MenuSheetProps) {
 	const entries = allNav(state, _param.tutorialPage).filter((entry) => !onBar[entry.id]);
 	const sheetW = math.max(0, viewport.width - dock.left - dock.right);
 	const sheetH = math.max(0, viewport.height - dock.top - dock.bottom);
+	// 02 phone.html More .pn: a 5-column grid, 6px gaps; each .row is a column (8px pad, 20px icon, 4px gap, 11px small)
 	const pad = 12;
-	const cellGap = 8;
-	const cols = math.clamp(math.floor((sheetW - pad * 2 + cellGap) / (120 + cellGap)), 3, 6);
+	const cellGap = 6;
+	const cols = 5;
 	const cellW = math.floor((sheetW - pad * 2 - cellGap * (cols - 1)) / cols);
-	const cellH = math.max(TapTarget, 54);
+	const cellH = math.max(TapTarget, 8 + 20 + 4 + 16 + 8);
 	const cells: Record<string, unknown> = {};
 	cells.grid = h("uigridlayout", {
 		CellSize: UDim2.fromOffset(cellW, cellH),
@@ -858,6 +861,8 @@ interface MobileTabBarProps {
 	/** phone landscape: draw a vertical rail this wide, starting this far down */
 	railTop?: number;
 	railWidth?: number;
+	/** page accent for the active .ri */
+	accent?: Color3;
 }
 
 function MobileTabBarImpl(_param: MobileTabBarProps) {
@@ -884,7 +889,7 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 		byId[entry.id] = entry;
 	}
 	const slots = rail
-		? math.clamp(math.floor((viewport.height - (railTop ?? 0) - bottomSafe) / RAIL_TAB_H), 3, 6)
+		? math.clamp(math.floor((viewport.height - (railTop ?? 0) - bottomSafe - RAIL_PAD * 2 + 2) / (RAIL_TAB_H + 2)), 3, 6)
 		: math.clamp(chrome.tabBarSlots, 4, 6);
 	const availableIds: Record<string, boolean> = {};
 	for (const [id] of pairs(byId)) {
@@ -930,6 +935,7 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 			badge: AppHelpers.navBadge(entry, state, chatUnread),
 			compact: compact,
 			rail: rail,
+			railAccent: _param.accent,
 			reducedMotion: reducedMotion,
 			onClick: () => {
 				setMenuOpen(false);
@@ -945,6 +951,7 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 		badge: menuBadge,
 		compact: compact,
 		rail: rail,
+		railAccent: _param.accent,
 		reducedMotion: reducedMotion,
 		onClick: () => {
 			Audio.play(menuOpen ? "dropdownClose" : "dropdownOpen");
@@ -972,7 +979,7 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 		},
 	});
 	if (rail) {
-		// left icon rail: night surface, a hairline on its right edge, tabs from the top
+		// .rail: #120d14, inset -1px 0 0 #000 on its right edge, 6px padding, .ri items 2px apart from the top
 		return h(
 			React.Fragment,
 			undefined,
@@ -982,19 +989,19 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 					Name: "MobileTabBar",
 					Size: new UDim2(0, railWidth, 1, -(railTop ?? 0)),
 					Position: enter.map((value) => UDim2.fromOffset(-math.round((1 - math.clamp(value, 0, 1)) * railWidth), railTop ?? 0)),
-					BackgroundColor3: Palette.night,
+					BackgroundColor3: RAIL_BG,
 					BorderSizePixel: 0,
 					Active: true,
 					Visible: visible,
 					ZIndex: 40,
 					ref: regionRef,
 				},
-				h("frame", { Size: new UDim2(0, 1, 1, 0), Position: new UDim2(1, -1, 0, 0), BackgroundColor3: Palette.line, BackgroundTransparency: 0.3, BorderSizePixel: 0, ZIndex: 41 }),
+				h("frame", { Size: new UDim2(0, 1, 1, 0), Position: new UDim2(1, -1, 0, 0), BackgroundColor3: Color3.fromRGB(0, 0, 0), BorderSizePixel: 0, ZIndex: 41 }),
 				h(
 					"frame",
 					{
-						Size: new UDim2(1, -(railWidth - PHONE_RAIL_W) - 4, 1, -(bottomSafe + 6)),
-						Position: UDim2.fromOffset(railWidth - PHONE_RAIL_W + 2, 6),
+						Size: new UDim2(1, -(railWidth - PHONE_RAIL_W) - RAIL_PAD * 2, 1, -(bottomSafe + RAIL_PAD * 2)),
+						Position: UDim2.fromOffset(railWidth - PHONE_RAIL_W + RAIL_PAD, RAIL_PAD),
 						BackgroundTransparency: 1,
 						ZIndex: 41,
 					},
@@ -1042,61 +1049,6 @@ function MobileTabBarImpl(_param: MobileTabBarProps) {
 	);
 }
 
-function Chip(_param: { target?: string; width: number; height: number; order: number; value: unknown; liveKey?: string; accent: Color3 }) {
-	// live session field (B35): only this chip redraws on a cash tick
-	const liveValue = useLiveSessionValue(_param.liveKey);
-	const value = _param.liveKey !== undefined ? liveValue : _param.value;
-	const [juiceRef, juiceBump] = JuiceFx.useTarget(_param.target ?? "");
-	return h(
-		"frame",
-		{
-			Size: UDim2.fromOffset(_param.width, _param.height),
-			LayoutOrder: _param.order,
-			BackgroundColor3: Palette.panelSoft,
-			BorderSizePixel: 0,
-			ZIndex: 22,
-			ref: juiceRef,
-		},
-		h("uiscale", {
-			Scale: juiceBump.map((b) => 1 + math.sin(b * math.pi) * 0.16),
-		}),
-		h("uicorner", {
-			CornerRadius: new UDim(0, 10),
-		}),
-		h(
-			"frame",
-			{
-				Size: UDim2.fromOffset(6, 6),
-				Position: new UDim2(0, 7, 0.5, 0),
-				AnchorPoint: new Vector2(0, 0.5),
-				BackgroundColor3: _param.accent,
-				BorderSizePixel: 0,
-				ZIndex: 23,
-			},
-			h("uicorner", {
-				CornerRadius: new UDim(1, 0),
-			}),
-		),
-		h(
-			"textlabel",
-			{
-				Size: new UDim2(1, -20, 1, 0),
-				Position: UDim2.fromOffset(16, 0),
-				BackgroundTransparency: 1,
-				Text: compactNumber(value),
-				TextColor3: Palette.cream,
-				TextScaled: true,
-				FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
-				ZIndex: 23,
-			},
-			h("uitextsizeconstraint", {
-				MaxTextSize: 13,
-				MinTextSize: 11,
-			}),
-		),
-	);
-}
-
 interface MobileHeaderProps {
 	state: MobileState;
 	page: string;
@@ -1106,6 +1058,8 @@ interface MobileHeaderProps {
 	edgePad: number;
 	reducedMotion?: boolean;
 	openPlayerlist: () => void;
+	/** the .add squares open where each currency is earned */
+	navigate?: (page: string) => void;
 }
 
 function MobileHeaderImpl(_param: MobileHeaderProps) {
@@ -1121,18 +1075,19 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 	const entry = AppHelpers.pageEntry(page);
 	const short = barHeight <= 40;
 	const width = viewport.width - edgePad * 2;
-	const chipH = short ? 24 : 30;
-	let chipW = short ? 84 : 96;
+	// .p .cur: 32px pills, 107px wide (5 + 24 gem + 7 + 38 value + 7 + 20 add + 6), 6px apart
+	const chipH = 32;
+	const chipW = 107;
 	const playersW = math.min(44, barHeight);
 	const iconSize = short ? 24 : 30;
-	const wanted: { key: string; target: string; value: unknown; liveKey?: string; accent: Color3 }[] = [
-		{ key: "flux", target: "FLUX", value: undefined, liveKey: "Cash", accent: Palette.cyan },
+	const wanted: { target: string; name: string; value: unknown; liveKey?: string; icon: string; color: Color3 }[] = [
+		{ target: "FLUX", name: "Flux", value: undefined, liveKey: "Cash", icon: "Flux.21", color: Palette.cyan },
 	];
 	if (AppHelpers.featureUnlocked(state, "StarGrid")) {
-		wanted.push({ key: "dust", target: "DUST", value: state.Stardust, accent: Palette.mango });
+		wanted.push({ target: "DUST", name: "Stardust", value: state.Stardust, icon: "Dust.13", color: Palette.mango });
 	}
 	if (AppHelpers.featureUnlocked(state, "Rebirth")) {
-		wanted.push({ key: "cores", target: "CORES", value: state.Cores, accent: Palette.violet });
+		wanted.push({ target: "CORES", name: "Cores", value: state.Cores, icon: "Core.8", color: Palette.violet });
 	}
 	const visitors = typeIs(state.Visitors, "table") ? (state.Visitors as unknown[]).size() : 0;
 	const liveEvent = useServerEvent(state.ServerEvent);
@@ -1142,27 +1097,21 @@ function MobileHeaderImpl(_param: MobileHeaderProps) {
 	const eventW = (eventDef !== undefined ? playersW + 6 : 0) + playersW + 6;
 	const titleMin = width < 440 ? 60 : 110;
 	const room = width - (8 + iconSize + 8 + titleMin + playersW + eventW + 22);
-	// narrow phones shrink the chips so every currency stays readable without scrolling
-	chipW = math.clamp(math.floor((room - math.max(0, wanted.size() - 1) * 6) / math.max(1, wanted.size())), 58, chipW);
+	// narrow phones scroll the pill row sideways instead of shrinking the pills
 	const chips: Record<string, unknown> = {};
 	chips.layout = h("uilistlayout", {
 		FillDirection: Enum.FillDirection.Horizontal,
 		HorizontalAlignment: Enum.HorizontalAlignment.Left,
 		VerticalAlignment: Enum.VerticalAlignment.Center,
-		Padding: new UDim(0, 6),
 		SortOrder: Enum.SortOrder.LayoutOrder,
 	});
-	for (const [index, item] of ipairs(wanted)) {
-		chips[item.key] = h(Chip, {
-			order: index,
-			value: item.value,
-			liveKey: item.liveKey,
-			accent: item.accent,
-			target: item.target,
-			width: chipW,
-			height: chipH,
-		});
-	}
+	chips.pills = h(BuffStrip.CurrencyRow, {
+		currencies: wanted,
+		phone: true,
+		layoutOrder: 0,
+		reducedMotion: reducedMotion,
+		navigate: _param.navigate,
+	});
 	const contentW = wanted.size() * chipW + math.max(0, wanted.size() - 1) * 6;
 	const chipsW = math.min(contentW, math.max(48, room));
 	const [level, _tier, nextStep] = readLevelState(state);
