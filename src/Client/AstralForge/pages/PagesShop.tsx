@@ -1,5 +1,6 @@
 // PagesShop.luau — compiled page bundle for the Shop tab.
 // Members are required lazily: PagesShop("WheelView") only pays for that page's code.
+import { PHONE_HEAD_H, PhoneHead } from "./mockLayout";
 import React from "@rbxts/react";
 import { counted, memoRow, sameFields } from "../UiCore/rowMemo";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
@@ -2632,13 +2633,18 @@ function CratesSection(props: SectionProps) {
 	const sideContent = dropsH;
 	// 07 phone.html .ph-head: muted line on the left; the Crates/History .tabs sit right (History stays reachable)
 	const phoneTabs = phone && (
-		<frame key="CrateTabs" Size={new UDim2(1, 0, 0, TapTarget + 8)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
-				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-				<Line text={`${crate.Name} odds shown before you open`} size={12} font={BODY_SEMI} color={Palette.muted} height={TapTarget + 8} layoutOrder={0} />
-			</frame>
-			{crateTabs}
+		<frame key="CrateTabs" Size={new UDim2(1, 0, 0, PHONE_HEAD_H)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+			<PhoneHead
+				line={`${crate.Name} odds shown before you open`}
+				options={[
+					{ id: "Crates", label: "Crates" },
+					{ id: "History", label: "History" },
+				]}
+				value={view}
+				onChange={(id) => setView(id)}
+				accent={Palette.violet}
+				reducedMotion={props.reducedMotion}
+			/>
 		</frame>
 	);
 	if (view === "History") {

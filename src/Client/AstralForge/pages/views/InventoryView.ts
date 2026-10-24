@@ -16,6 +16,7 @@ import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, 
 import { BODY_SEMI, GlyphWell, Line, PnSurface } from "../../UiCore/mockKit";
 import { useHeroTabs } from "../../UiCore/heroSlot";
 import { MockTabs } from "../socialKit";
+import { PHONE_HEAD_H, PhoneHead } from "../mockLayout";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
 }
@@ -999,7 +1000,7 @@ function __member(): unknown {
 		let pageGap: unknown = (luaTruthy(stack) ? ROW_GAP : luaProp(Layout, "panelGap"));
 		let toolPad: unknown = (luaTruthy(stack) ? 8 : 12);
 		let toolGap: unknown = (luaTruthy(stack) ? 8 : 10);
-		let tabH: unknown = (luaTruthy(stack) ? (TapTarget as number) + 8 : 0);
+		let tabH: unknown = (luaTruthy(stack) ? PHONE_HEAD_H : 0);
 		let fieldH: unknown = (luaTruthy(stack) ? (math.max as unknown as (...a: unknown[]) => unknown)(TapTarget, 52) : TOOL_FIELD_DESK);
 		let toolsH: unknown = ((tab === "Relics") ? ((((((((((toolPad as unknown as number) * (2 as unknown as number)) as unknown as number) + (((luaTruthy(stack) ? ((26 as unknown as number) + (toolGap as unknown as number)) : 0)) as unknown as number)) as unknown as number) + (((luaTruthy(stack) ? ((((fieldH as unknown as number) * (2 as unknown as number)) as unknown as number) + (toolGap as unknown as number)) : fieldH)) as unknown as number)) as unknown as number) + (toolGap as unknown as number)) as unknown as number) + (fieldH as unknown as number)) : 0);
 		let _exp_5: unknown = function(this: void): unknown | undefined {
@@ -1376,18 +1377,13 @@ function __member(): unknown {
 			}
 		}, accent: luaProp(Palette, "violet") as Color3, phone: false, reducedMotion: softMotion as boolean, layoutOrder: 0 }) as React.Element;
 		useHeroTabs(luaTruthy(stack) ? undefined : heroTabs);
-		const phoneHead = reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
-			reactLoose.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, Padding: new UDim(0, 10), VerticalAlignment: Enum.VerticalAlignment.Center, SortOrder: Enum.SortOrder.LayoutOrder }),
-			reactLoose.createElement("frame", { Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 0 },
-				reactLoose.createElement("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
-				reactLoose.createElement(Line, { text: `${filled} of ${limit} slots`, size: 12, font: BODY_SEMI, color: (Palette as { muted: Color3 }).muted, height: (tabH as number), layoutOrder: 0 })),
-			reactLoose.createElement(MockTabs, { options: (TABS as string[]).map((id) => ({ id: id, label: id })), value: tab as string, onChange: (entry: string) => {
-				luaCall(setTab, entry);
-				if ((entry !== "Relics")) {
-					luaCall(setBulkMode, false);
-					luaCall(setAutoOpen, false);
-				}
-			}, accent: (Palette as { violet: Color3 }).violet, phone: true, reducedMotion: softMotion as boolean, layoutOrder: 1 })) as React.Element;
+		const phoneHead = reactLoose.createElement(PhoneHead, { line: `${filled} of ${limit} slots`, options: (TABS as string[]).map((id) => ({ id: id, label: id })), value: tab as string, onChange: (entry: string) => {
+			luaCall(setTab, entry);
+			if ((entry !== "Relics")) {
+				luaCall(setBulkMode, false);
+				luaCall(setAutoOpen, false);
+			}
+		}, accent: (Palette as { violet: Color3 }).violet, reducedMotion: softMotion as boolean }) as React.Element;
 		let toolsBar: unknown = reactLoose.createElement(InventoryTools, { search: search, setSearch: setSearch, filter: filter, setFilter: setFilter, rarity: rarity, setRarity: setRarity, sort: sort, setSort: setSort, bulkMode: bulkMode, setBulkMode: setBulkMode, autoOpen: autoOpen, setAutoOpen: setAutoOpen, equipBest: function(this: void): unknown | undefined {
 			return luaCall(dispatch, "EquipBestItems");
 			return undefined;

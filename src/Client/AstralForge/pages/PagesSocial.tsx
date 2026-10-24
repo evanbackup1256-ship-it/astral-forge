@@ -1,5 +1,6 @@
 // PagesSocial.luau — compiled page bundle for the Social tab.
 // Members are required lazily: PagesSocial("TradeView") only pays for that page's code.
+import { PHONE_HEAD_H, PhoneHead } from "./mockLayout";
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { unixNow } from "../CoreKit/deadlines";
@@ -2405,26 +2406,22 @@ __defs["TradeView"] = () => {
 		// 08 phone.html .ph-head: a muted 12px line ("With <partner>") with the .tabs pushed right; the h1 is the
 		// shell title, so phones drop the hero card
 		const phoneHead = (line: string) =>
-			h(
-				"frame",
-				{ Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0 },
-				h("uilistlayout", {
-					FillDirection: Enum.FillDirection.Horizontal,
-					Padding: new UDim(0, 10),
-					VerticalAlignment: Enum.VerticalAlignment.Center,
-					SortOrder: Enum.SortOrder.LayoutOrder,
-				}),
-				h(
-					"frame",
-					{ Size: new UDim2(0, 0, 1, 0), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 0 },
-					h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
-					h(Line, { text: line, size: 12, font: BODY_SEMI, color: Palette.muted, height: TapTarget + 8, layoutOrder: 0 }),
-				),
-				deskTabs,
-			);
+			h(PhoneHead, {
+				line: line,
+				options: [
+					{ id: "Trade", label: "Trade" },
+					{ id: "Requests", label: "Requests" },
+					{ id: "History", label: "History" },
+				],
+				value: deskTab,
+				onChange: (id: string) => setDeskTab(id),
+				accent: accent,
+				reducedMotion: reducedMotion,
+			});
+
 		const heroSections = (eyebrow: string, subline: string, phoneLine: string) => {
 			const list: { id: string; height: number; element: unknown; fill?: boolean; minHeight?: number }[] = phone
-				? [{ id: "ph-head", height: TapTarget + 8, element: phoneHead(phoneLine) }]
+				? [{ id: "ph-head", height: PHONE_HEAD_H, element: phoneHead(phoneLine) }]
 				: [{ id: "hero", height: heroH, element: tradeHero(eyebrow, subline) }];
 			return list;
 		};
