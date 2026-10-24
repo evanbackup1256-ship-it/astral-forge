@@ -43,8 +43,10 @@ export function MockBtn(p: {
 	layoutOrder?: number;
 	position?: UDim2;
 	anchor?: Vector2;
+	/** explicit height (e.g. the 60px hero action); default .btn 44 / .sm 36 / phone tap target */
+	height?: number;
 }) {
-	const height = p.phone === true ? TapTarget : p.sm === true ? 36 : 44;
+	const height = p.height ?? (p.phone === true ? TapTarget : p.sm === true ? 36 : 44);
 	const sec = p.sec === true || p.disabled === true;
 	// a hugging button used to sit in a 0px-wide wrapper and spill past it, so list layouts (row
 	// trailing slots, action strips) packed the next sibling on top of it; the wrapper now takes the
@@ -87,6 +89,9 @@ export function MockRow(p: {
 	valueColor?: Color3;
 	right?: React.ReactNode;
 	rightWidth?: number;
+	/** leading slot before the well (.row > span.num, e.g. #14 in a history row) */
+	lead?: React.ReactNode;
+	leadWidth?: number;
 	phone: boolean;
 	height?: number;
 	layoutOrder?: number;
@@ -117,6 +122,11 @@ export function MockRow(p: {
 			    fixed 170px value column, so in a two-column stat grid the text block went negative
 			    and the value slid over the icon */}
 			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			{p.lead !== undefined && (
+				<frame Size={UDim2.fromOffset(p.leadWidth ?? 48, h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={-1}>
+					{p.lead}
+				</frame>
+			)}
 			{p.icon !== undefined && (
 				<frame Size={UDim2.fromOffset(wellSize, wellSize)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 					<IconWell icon={p.icon} accent={p.dim === true ? Palette.muted : accent} size={wellSize} />

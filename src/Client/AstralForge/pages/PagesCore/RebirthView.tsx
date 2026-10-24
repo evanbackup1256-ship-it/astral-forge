@@ -4,9 +4,11 @@
 import React from "@rbxts/react";
 import { asFlux, compactNumber } from "../../CoreKit/format";
 import { useFocusOrder } from "../../CoreKit/focusOrder";
-import { chromeFor, darken, Palette, TapTarget } from "../../CoreKit/theme";
-import { Bar, BODY_SEMI, ItemTile, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, spaced, TITLE_FACE } from "../../UiCore/mockKit";
-import { headingBlock, MockRow, panelHeight, rowHeight, SEC } from "../mockRows";
+import { chromeFor, Palette, TapTarget } from "../../CoreKit/theme";
+import { Bar, BODY_BOLD, BODY_SEMI, ItemTile, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, RadialGlow, spaced } from "../../UiCore/mockKit";
+import { useHeroShown, useHeroSlot } from "../../UiCore/heroSlot";
+import { FlexFill, FlexFixed, FlexRow, PHONE_HEAD_H, PhoneHead } from "../mockLayout";
+import { headingBlock, MockBtn, MockRow, panelHeight, rowHeight } from "../mockRows";
 import { useClock, useViewport } from "../../MotionKit/motion";
 import { splitColumns } from "../../UiCore/ui";
 import { splitSection, PageBlock } from "../layoutRise";
@@ -29,7 +31,8 @@ const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit",
 const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
 const meterFill = (Ui as unknown as { meterFill: (this: void, a: number, b: number) => number }).meterFill;
 
-const RING_SEGMENTS = 48;
+const RING_SEGMENTS = 96;
+const RING_A = Color3.fromRGB(255, 200, 240);
 const GRADE_COLOR: Record<string, Color3 | undefined> = { S: Palette.mango, A: Palette.mint, B: Palette.cyan, C: Palette.muted };
 
 interface RebirthViewProps {
@@ -39,47 +42,86 @@ interface RebirthViewProps {
 	reducedMotion?: boolean;
 }
 
-// Swept charge ring: segments fill clockwise with progress; a soft glow breathes behind it.
+// 09-rebirth dial svg (400 box): radial pink glow r162, 60 brass ticks outside (every 5th long, .8),
+// the 14px track r182 (#271F2A) with the pink->violet progress arc over it, a dotted brass ring r148.
+// The arc is short segments laid end to end; the glow breathes on the existing clock.
+const TRACK = Color3.fromRGB(39, 31, 42);
 function SweptRing(props: { size: number; fill: number; accent: Color3; softMotion?: boolean; children?: React.ReactNode }) {
 	const breathe = useClock(!props.softMotion, 0.5, math.pi * 2);
-	const radius = props.size * 0.5 - 6;
-	const segs: Record<string, React.Element> = {};
-	const segLen = math.max(4, (math.pi * 2 * radius) / RING_SEGMENTS - 3);
+	const k = props.size / 400;
+	const r = 182 * k;
+	const band = math.max(6, 14 * k);
+	const parts: React.Element[] = [];
+	const segLen = (math.pi * 2 * r) / RING_SEGMENTS + 1;
 	for (let i = 0; i < RING_SEGMENTS; i++) {
-		const t = i / RING_SEGMENTS;
+		const t = (i + 0.5) / RING_SEGMENTS;
 		const angle = -math.pi / 2 + t * math.pi * 2;
-		const lit = t < props.fill;
-		segs["s" + i] = (
+		const lit = t <= props.fill;
+		parts.push(
 			<frame
+				key={"s" + i}
 				AnchorPoint={new Vector2(0.5, 0.5)}
-				Position={new UDim2(0.5, math.cos(angle) * radius, 0.5, math.sin(angle) * radius)}
-				Size={UDim2.fromOffset(segLen, lit ? 8 : 3)}
+				Position={new UDim2(0.5, math.cos(angle) * r, 0.5, math.sin(angle) * r)}
+				Size={UDim2.fromOffset(segLen, band)}
 				Rotation={math.deg(angle) + 90}
-				BackgroundColor3={lit ? props.accent.Lerp(Palette.violet, t) : Palette.lineSoft}
-				BackgroundTransparency={lit ? 0 : 0.6}
+				BackgroundColor3={lit ? (t < 0.5 ? RING_A.Lerp(props.accent, t * 2) : props.accent.Lerp(Palette.violet, (t - 0.5) * 2)) : TRACK}
 				BorderSizePixel={0}
-				ZIndex={3}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-			</frame>
+				ZIndex={lit ? 4 : 3}
+			/>,
 		);
 	}
+	for (let i = 0; i < 60; i++) {
+		const angle = -math.pi / 2 + (i / 60) * math.pi * 2;
+		const major = i % 5 === 0;
+		const len = (major ? 6 : 3) * k;
+		const rr = (major ? 195 : 196.5) * k;
+		parts.push(
+			<frame
+				key={"t" + i}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				Position={new UDim2(0.5, math.cos(angle) * rr, 0.5, math.sin(angle) * rr)}
+				Size={UDim2.fromOffset(math.max(1, 2 * k), math.max(1, len))}
+				Rotation={math.deg(angle) + 90}
+				BackgroundColor3={Palette.mango}
+				BackgroundTransparency={major ? 0.2 : 0.65}
+				BorderSizePixel={0}
+				ZIndex={3}
+			/>,
+		);
+	}
+	const dots = math.floor((math.pi * 2 * 148 * k) / (8 * math.max(0.6, k)));
+	for (let i = 0; i < dots; i++) {
+		const angle = (i / dots) * math.pi * 2;
+		parts.push(
+			<frame
+				key={"d" + i}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				Position={new UDim2(0.5, math.cos(angle) * 148 * k, 0.5, math.sin(angle) * 148 * k)}
+				Size={UDim2.fromOffset(1, 1)}
+				BackgroundColor3={Palette.mango}
+				BackgroundTransparency={0.7}
+				BorderSizePixel={0}
+				ZIndex={3}
+			/>,
+		);
+	}
+	const glow = 324 * k;
 	return (
 		<frame Size={UDim2.fromOffset(props.size, props.size)} Position={UDim2.fromScale(0.5, 0)} AnchorPoint={new Vector2(0.5, 0)} BackgroundTransparency={1}>
 			<frame
-				Size={UDim2.fromScale(0.78, 0.78)}
+				Size={UDim2.fromOffset(glow, glow)}
 				Position={UDim2.fromScale(0.5, 0.5)}
 				AnchorPoint={new Vector2(0.5, 0.5)}
-				BackgroundColor3={darken(props.accent, 0.7)}
-				BackgroundTransparency={breathe.map((a) => 0.35 + (math.sin(a) + 1) * 0.12)}
+				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				ZIndex={1}
 			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uigradient Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.7)])} Rotation={90} />
-				<uistroke Color={props.accent} Thickness={1} Transparency={0.7} />
+				<RadialGlow color={props.accent} box={{ w: glow, h: glow, cx: 0.5, cy: 0.5, transparency: 0.55 }} />
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={props.accent} BackgroundTransparency={breathe.map((a) => 0.9 + math.sin(a) * 0.05)} BorderSizePixel={0}>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+				</frame>
 			</frame>
-			{segs}
+			{parts}
 			{props.children}
 		</frame>
 	);
@@ -94,6 +136,7 @@ function RebirthBoard(props: RebirthViewProps) {
 	const gap = mockGap(phone);
 	const pad = panelPad(phone);
 	const info = rebirthOf(state);
+	const heroShown = useHeroShown();
 	const [chamberOpen, setChamberOpen] = React.useState(false);
 	const rebirths = math.max(0, math.floor(tonumber(state.Rebirths) ?? 0));
 	const ready = info.Ready === true;
@@ -106,37 +149,29 @@ function RebirthBoard(props: RebirthViewProps) {
 	const head = headingBlock(phone);
 
 	// .pn dial: 400px ring, bar + earned / needed, 60px pink button
-	const dialSize = phone ? 200 : L.DialRing.w;
+	const dialSize = phone ? 196 : L.DialRing.w;
+	const k = dialSize / 400;
 	const btnH = phone ? TapTarget : L.DialBtn.h;
+	useHeroSlot("Rebirth", { kicker: `Rebirth ${rebirths} → ${rebirths + 1}` });
 	const meterH = phone ? 10 + 8 + 18 : L.DialMeter.h;
-	const dialContent = dialSize + L.Dial.gap + meterH + L.Dial.gap + btnH;
+	const dialContent = phone ? dialSize : dialSize + L.Dial.gap + meterH + L.Dial.gap + btnH;
 	const dialPanel = (
-		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} reducedMotion={reducedMotion} gap={L.Dial.gap} name="RebirthDial">
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} glowBox={L.Dial.radialGlow} reducedMotion={reducedMotion} gap={L.Dial.gap} name="RebirthDial">
 			<frame Size={new UDim2(1, 0, 0, dialSize)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 				<SweptRing size={dialSize} fill={progress} accent={accent} softMotion={reducedMotion}>
-					<Line text={spaced(`REBIRTH ${rebirths + 1}`)} size={phone ? 11 : 13} color={Palette.muted} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, phone ? -40 : -70)} zIndex={4} />
-					<Line text={ready ? "Ready" : `${math.floor(progress * 100)}%`} size={phone ? 40 : 72} font={TITLE_FACE} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, 0)} anchor={new Vector2(0, 0.5)} zIndex={4} />
-					<Line text={`+${compactNumber(info.Cores)} cores`} size={phone ? 12 : 15} font={BODY_SEMI} color={accent} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, phone ? 26 : 48)} zIndex={4} />
+					<Line text={spaced(`REBIRTH ${rebirths + 1}`)} size={math.floor(20 * k)} font={BODY_BOLD} color={Palette.muted} width={new UDim(1, 0)} height={math.ceil(24 * k)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0, 152 * k)} zIndex={5} />
+					<Line text={ready ? "Ready" : `${math.floor(progress * 100)}%`} size={math.floor(68 * k)} font={NUM} width={new UDim(1, 0)} height={math.ceil(68 * k)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0, 178 * k)} zIndex={5} />
+					<Line text={`+${compactNumber(info.Cores)} cores · +${compactNumber(info.Stardust)} dust`} size={math.floor(18 * k)} font={BODY_SEMI} color={accent} width={new UDim(1, 0)} height={math.ceil(22 * k)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0, 242 * k)} zIndex={5} />
 				</SweptRing>
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, meterH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+			{!phone && (<frame Size={new UDim2(1, 0, 0, meterH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				<Bar fill={progress} color={accent} />
 				<Line text={`${compactNumber(earned)} cash earned`} size={L.DialEarned.text.size} font={BODY_SEMI} color={L.DialEarned.text.color} position={UDim2.fromOffset(0, meterH - L.DialEarned.h)} />
 				<Line text={`${compactNumber(target)} needed`} size={L.DialEarned.text.size} font={BODY_SEMI} color={L.DialEarned.text.color} position={new UDim2(1, 0, 0, meterH - L.DialEarned.h)} anchor={new Vector2(1, 0)} width={new UDim(0.5, 0)} align={Enum.TextXAlignment.Right} />
-			</frame>
-			<frame Size={new UDim2(1, 0, 0, btnH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
-				<Ui.Button
-					text={ready ? "Rebirth now" : "Plan rebirth"}
-					icon="Rebirth.rebirthPlan"
-					sound="page"
-					color={ready ? accent : SEC}
-					textColor={ready ? Palette.ink : Palette.cream}
-					highlight={ready && !reducedMotion}
-					reducedMotion={reducedMotion}
-					size={UDim2.fromScale(1, 1)}
-					onClick={() => setChamberOpen(true)}
-				/>
-			</frame>
+			</frame>)}
+			{!phone && (<frame Size={new UDim2(1, 0, 0, btnH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				<MockBtn text={ready ? "Rebirth now" : "Plan rebirth"} icon="Rebirth.rebirthPlan" accent={accent} sec={!ready} fill={true} height={btnH} phone={phone} reducedMotion={reducedMotion} onClick={() => setChamberOpen(true)} />
+			</frame>)}
 		</MockPanel>
 	);
 
@@ -145,6 +180,7 @@ function RebirthBoard(props: RebirthViewProps) {
 	let levels = 0;
 	for (const [, level] of pairs(machines)) levels += tonumber(level) ?? 0;
 	const listH = panelHeight(phone, head + rowH * 2 + rowH2 + pad.gap * 2);
+	const getH = phone ? panelHeight(true, head + rowH * 2 + rowH2 + pad.gap * 3 + TapTarget) : listH;
 	const getPanel = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.mint} reducedMotion={reducedMotion} name="YouGet">
 			<PanelHeading icon="Collect" title="You get" accent={Palette.mint} phone={phone} layoutOrder={0} />
@@ -159,6 +195,9 @@ function RebirthBoard(props: RebirthViewProps) {
 				valueColor={GRADE_COLOR[info.Grade] ?? Palette.cream}
 				layoutOrder={3}
 			/>
+			{phone && (
+				<MockBtn text={`Rebirth · ${compactNumber(earned)} / ${compactNumber(target)}`} icon="Rebirth.rebirthPlan" accent={accent} sec={!ready} fill={true} phone={true} reducedMotion={reducedMotion} onClick={() => setChamberOpen(true)} layoutOrder={4} />
+			)}
 		</MockPanel>
 	);
 	const losePanel = (
@@ -221,8 +260,8 @@ function RebirthBoard(props: RebirthViewProps) {
 				title={clock(run.Seconds)}
 				value={`${run.Grade}  +${compactNumber(run.Cores ?? 0)}`}
 				valueColor={GRADE_COLOR[run.Grade] ?? Palette.cream}
-				right={<Line text={`#${rebirths - i}`} size={phone ? 14 : L.HistNum.text.size} font={NUM} color={L.HistNum.text.color} width={new UDim(0, L.HistNum.w)} />}
-				rightWidth={0}
+				lead={<Line text={`#${rebirths - i}`} size={phone ? 14 : L.HistNum.text.size} font={NUM} color={L.HistNum.text.color} width={new UDim(0, L.HistNum.w)} height={rowH} />}
+				leadWidth={L.HistNum.w}
 				layoutOrder={i + 1}
 			/>,
 		);
@@ -294,51 +333,57 @@ function RebirthBoard(props: RebirthViewProps) {
 
 	const pair = (left: React.Element, right: React.Element, rightWidth: number | undefined, height: number, id: string): PageBlock => ({
 		id,
-		height: phone ? height * 2 + gap : height,
+		height,
 		element: (
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<frame Size={phone ? new UDim2(1, 0, 0, height) : new UDim2(1, -(rightWidth ?? 0) - gap, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-					{left}
-				</frame>
-				<frame
-					Size={phone ? new UDim2(1, 0, 0, height) : new UDim2(0, rightWidth ?? 0, 1, 0)}
-					Position={phone ? UDim2.fromOffset(0, height + gap) : new UDim2(1, -(rightWidth ?? 0), 0, 0)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					{right}
-				</frame>
-			</frame>
+			<FlexRow height={height} gap={gap} name={id}>
+				<FlexFill layoutOrder={0} height={height}>{left}</FlexFill>
+				{rightWidth !== undefined ? (
+					<FlexFixed width={rightWidth} height={height} layoutOrder={1}>{right}</FlexFixed>
+				) : (
+					<FlexFill layoutOrder={1} height={height}>{right}</FlexFill>
+				)}
+			</FlexRow>
 		),
 	});
-	const right: PageBlock[] = [];
-	// You get / You lose split evenly: give each half the same width
-	right.push({
-		id: "gainLose",
-		height: phone ? listH * 2 + gap : listH,
-		element: (
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<frame Size={phone ? new UDim2(1, 0, 0, listH) : new UDim2(0.5, -gap / 2, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-					{getPanel}
-				</frame>
-				<frame Size={phone ? new UDim2(1, 0, 0, listH) : new UDim2(0.5, -gap / 2, 1, 0)} Position={phone ? UDim2.fromOffset(0, listH + gap) : new UDim2(0.5, gap / 2, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-					{losePanel}
-				</frame>
-			</frame>
-		),
-	});
-	right.push(pair(keepPanel, historyPanel, L.History.w, keepH, "keepHistory"));
-	right.push({ id: "milestones", height: milestonesH, element: milestones });
-	let rightH = 0;
-	for (const block of right) rightH += block.height + gap;
-	rightH -= gap;
-	const dialH = phone ? panelHeight(true, dialContent) : math.max(panelHeight(false, dialContent), rightH);
-	const dialBlock: PageBlock = { id: "dial", height: dialH, element: dialPanel };
-	const wide = !phone && viewport.width >= 1280;
-	const plan = splitColumns(wide ? viewport.width - 40 : 0, L.Dial.w, gap, 900);
-	const body: PageBlock[] = plan.split
-		? [splitSection("RebirthSplit", plan, gap, [dialBlock], right, false, ["dial", "gainLose", "keepHistory", "milestones"])]
-		: [dialBlock, ...right];
+	let body: PageBlock[];
+	if (phone) {
+		// phone.html: .ph-head, then .flexr { 250px dial .pn | .pn.f1 You get + the pink button }; the rest of
+		// the real data (You lose, Keepsakes, History, Milestones) follows as single panels
+		const rowH0 = math.max(getH, panelHeight(true, dialSize));
+		const narrow = viewport.width < 560;
+		body = [];
+		if (!heroShown) body.push({ id: "head", height: PHONE_HEAD_H, element: <PhoneHead line="Reset cash and machines for a bigger multiplier" accent={accent} /> });
+		if (narrow) {
+			body.push({ id: "dial", height: panelHeight(true, dialSize), element: dialPanel }, { id: "gainLose", height: getH, element: getPanel });
+		} else {
+			body.push({
+				id: "dial",
+				height: rowH0,
+				element: (
+					<FlexRow height={rowH0} gap={gap} name="dialRow">
+						<FlexFixed width={250} height={rowH0} layoutOrder={0}>{dialPanel}</FlexFixed>
+						<FlexFill layoutOrder={1} height={rowH0}>{getPanel}</FlexFill>
+					</FlexRow>
+				),
+			});
+		}
+		body.push(
+			{ id: "lose", height: listH, element: losePanel },
+			{ id: "keepHistory", height: panelHeight(true, head + tileH), element: keepPanel },
+			{ id: "history", height: histH, element: historyPanel },
+			{ id: "milestones", height: milestonesH, element: milestones },
+		);
+	} else {
+		// desktop.html: .flexr { 640px dial .pn | .flexc.f1 { .flexr{You get, You lose}, .flexr{Keepsakes, 340 History}, Milestones } }
+		const right: PageBlock[] = [pair(getPanel, losePanel, undefined, listH, "gainLose"), pair(keepPanel, historyPanel, L.History.w, keepH, "keepHistory"), { id: "milestones", height: milestonesH, element: milestones }];
+		let rightH = 0;
+		for (const block of right) rightH += block.height + gap;
+		rightH -= gap;
+		const dialH = math.max(panelHeight(false, dialContent), rightH);
+		const dialBlock: PageBlock = { id: "dial", height: dialH, element: dialPanel };
+		const plan = splitColumns(viewport.width >= 1280 ? viewport.width - 40 : 0, L.Dial.w, gap, 900);
+		body = plan.split ? [splitSection("RebirthSplit", plan, gap, [dialBlock], right, false, ["dial", "gainLose", "keepHistory", "milestones"])] : [dialBlock, ...right];
+	}
 	return (
 		<>
 			<PageScaffold sections={body} gap={gap} tailPad={72} scrollBarColor={accent} owner="RebirthView" />
@@ -351,7 +396,7 @@ function RebirthBoard(props: RebirthViewProps) {
 
 export function RebirthView(props: RebirthViewProps) {
 	const hostRef = React.useRef<Frame>();
-	useFocusOrder(hostRef, { regions: ["dial", "gainLose", "keepHistory", "milestones"], first: ["dial"], columns: [["Side", "Main"]] }, [
+	useFocusOrder(hostRef, { regions: ["dial", "gainLose", "lose", "keepHistory", "history", "milestones"], first: ["dial"], columns: [["Side", "Main"]] }, [
 		rebirthOf(props.state).Ready === true,
 	]);
 	return (
