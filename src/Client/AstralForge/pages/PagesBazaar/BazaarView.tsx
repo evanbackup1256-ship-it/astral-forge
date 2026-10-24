@@ -448,6 +448,35 @@ function BazaarView(props: BazaarProps) {
 	);
 	// gamepad: header > search > categories > sort/quantity > (Close inspection) > shelf; the shelf
 	// (Main) and the inspection column (Side, right) step left/right on desktop. First focus: an offer.
+	// 06-bazaar phone.html .ph-head: muted line + Buy/Sell .tabs (the h1 is the shell title)
+	const phoneHeadH = TapTarget + 8;
+	const phoneHead: Section | undefined = chrome.stack
+		? {
+				id: "ph-head",
+				height: phoneHeadH,
+				element: (
+					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
+						<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+						<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+							<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+							<Line text="Market supplies, flux only" size={12} font={BODY_SEMI} color={Palette.muted} height={phoneHeadH} layoutOrder={0} />
+						</frame>
+						<MockTabs
+							options={[
+								{ id: "Buy", label: "Buy" },
+								{ id: "Sell", label: "Sell" },
+							]}
+							value={bazaarTab}
+							onChange={setBazaarTab}
+							accent={Palette.violet}
+							phone={true}
+							reducedMotion={props.reducedMotion}
+							layoutOrder={1}
+						/>
+					</frame>
+				),
+			}
+		: undefined;
 	useFocusOrder(
 		scrollRef,
 		{
@@ -569,6 +598,7 @@ function BazaarView(props: BazaarProps) {
 		});
 	};
 	const sections: Section[] = [];
+	if (phoneHead) sections.push(phoneHead);
 	const add = (id: string, height: number, element: React.Element) => {
 		sections.push({ id, height, element });
 	};
@@ -808,9 +838,9 @@ function BazaarView(props: BazaarProps) {
 			accent={Palette.violet}
 		/>,
 	);
-	if (!chrome.stack && bazaarTab !== "Buy") {
-		const emptySections: Section[] = [
-			{
+	if (bazaarTab !== "Buy") {
+		const emptySections: Section[] = phoneHead ? [phoneHead] : [];
+		emptySections.push({
 				id: "tab-empty",
 				height: 160,
 				element: (
@@ -824,7 +854,7 @@ function BazaarView(props: BazaarProps) {
 					/>
 				),
 			},
-		];
+		);
 		return <PageScaffold hostRef={scrollRef} sections={emptySections} gap={12} tailPad={bazaarTail} scrollBarColor={Palette.violet} />;
 	}
 	if (category === "Requests") {
