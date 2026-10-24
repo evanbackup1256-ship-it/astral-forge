@@ -11,7 +11,8 @@ export const SEC = Color3.fromRGB(58, 46, 62);
 /** .row min-height: 48 desktop, 44 phone. */
 export function rowHeight(phone: boolean, twoLine = false): number {
 	if (phone) return twoLine ? 46 : 44;
-	return twoLine ? 56 : 48;
+	// af.css .row: 6px pad around the 36px well, with or without the small sub line
+	return 48;
 }
 
 /** 36px dark well with the accent glyph (rgba(0,0,0,.35), 1px white .08 inset, radius 9). */

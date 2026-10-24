@@ -1,0 +1,4 @@
+{"name":"ConstellationsLayout","source":"design/11-constellations/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/ConstellationsLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Tabs":".tabs","TabOn":".tab.on","Tab":".tab:1","Body":".main .flexr","Chart":".main .flexr .pn.f1","ChartArt":".main .flexr .pn.f1 svg",
+"Detail":".main .flexr .pn:1","DetailHead":".main .flexr .pn:1 h3","DetailNote":".main .flexr .pn:1 h3 small","Blurb":".main .flexr .pn:1 div:0","Row":".main .flexr .pn:1 .row","RowValue":".main .flexr .pn:1 .row .v","Btn":".main .flexr .pn:1 .btn","Rule":".main .flexr .pn:1 .rule"}}

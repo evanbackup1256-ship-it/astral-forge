@@ -356,8 +356,11 @@ function OpenSlot(p: { props: Props; slot: SlotState; routes: Route[]; busyRoute
 	);
 }
 
+// generated from design/13-expeditions by scripts/gen_from_layout.js (scripts/layout/expeditions.spec.json)
+import { ExpeditionsLayout as L } from "../generated/ExpeditionsLayout";
+
 // 13-expeditions .row (min-height 76): 64px sprite, route + crew/time line, thin mint bar, sm button
-const CREW_ROW_H = 76;
+const CREW_ROW_H = L.CrewRow.h;
 const CREW_ROW_H_PHONE = 64;
 
 function CrewRow(p: {
@@ -383,7 +386,10 @@ function CrewRow(p: {
 	const names = p.slot.Crew.map((uid) => p.defs.get(inventory[uid]?.DefinitionId ?? "")?.Name ?? "Relic");
 	const leadId = p.slot.Crew.size() > 0 ? (inventory[p.slot.Crew[0]]?.DefinitionId ?? "") : "";
 	const leadDef = p.defs.get(leadId);
-	const sprite = p.phone ? 48 : 64;
+	const sprite = p.phone ? 48 : L.CrewSprite.w;
+	const rowGap = L.CrewRow.gap;
+	const subY = L.CrewSub.y - L.CrewText.y;
+	const barY = L.CrewBar.y - L.CrewText.y;
 	const odds = [string.format("x%.2f", p.slot.Yield ?? 1)];
 	if ((p.slot.Risk ?? 0) > 0) odds.push(`${pct(p.slot.Risk ?? 0)} risk`);
 	const act = (op: "Claim" | "Recall") => {
@@ -404,7 +410,7 @@ function CrewRow(p: {
 	const h = p.phone ? CREW_ROW_H_PHONE : CREW_ROW_H;
 	return (
 		<frame {...named(`Crew${p.slot.Slot}`)} BackgroundColor3={Palette.white} BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, h)} LayoutOrder={p.layoutOrder}>
-			<uicorner CornerRadius={new UDim(0, 11)} />
+			<uicorner CornerRadius={new UDim(0, L.CrewRow.radius)} />
 			<uigradient
 				Rotation={90}
 				Color={new ColorSequence(Palette.white, Palette.void)}
@@ -417,7 +423,7 @@ function CrewRow(p: {
 				Thickness={p.selected === true || done ? 1.5 : 1}
 				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 			/>
-			<uipadding PaddingLeft={new UDim(0, p.phone ? 10 : 14)} PaddingRight={new UDim(0, p.phone ? 10 : 14)} />
+			<uipadding PaddingLeft={new UDim(0, p.phone ? 10 : L.CrewRow.pad.left)} PaddingRight={new UDim(0, p.phone ? 10 : L.CrewRow.pad.right)} />
 			<frame BackgroundTransparency={1} BorderSizePixel={0} AnchorPoint={new Vector2(0, 0.5)} Position={new UDim2(0, 0, 0.5, 0)} Size={UDim2.fromOffset(sprite, sprite)}>
 				{open ? (
 					<frame BackgroundTransparency={1} Size={UDim2.fromScale(1, 1)}>
@@ -427,10 +433,10 @@ function CrewRow(p: {
 					<CrewSprite def={leadDef} definitionId={leadId} reducedMotion={p.props.reducedMotion} size={sprite} />
 				)}
 			</frame>
-			<frame BackgroundTransparency={1} BorderSizePixel={0} AnchorPoint={new Vector2(0, 0.5)} Position={new UDim2(0, sprite + 14, 0.5, 0)} Size={new UDim2(1, -(sprite + 14 + btnW + 14), 0, 48)}>
-				<textlabel BackgroundTransparency={1} Text={open ? "Open slot" : (p.route?.Name ?? p.slot.Id)} TextSize={p.phone ? 14 : 15} FontFace={BODY_SEMI} TextColor3={Palette.cream} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, 18)} />
-				<textlabel BackgroundTransparency={1} Text={sub} TextSize={12} FontFace={BODY} TextColor3={Palette.muted} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Position={UDim2.fromOffset(0, 19)} Size={new UDim2(1, 0, 0, 15)} />
-				<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(0, 40)} Size={new UDim2(1, 0, 0, 6)}>
+			<frame BackgroundTransparency={1} BorderSizePixel={0} AnchorPoint={new Vector2(0, 0.5)} Position={new UDim2(0, sprite + rowGap, 0.5, 0)} Size={new UDim2(1, -(sprite + rowGap + btnW + rowGap), 0, L.CrewText.h)}>
+				<textlabel BackgroundTransparency={1} Text={open ? "Open slot" : (p.route?.Name ?? p.slot.Id)} TextSize={p.phone ? 14 : L.CrewTitle.text.size} FontFace={BODY_SEMI} TextColor3={L.CrewTitle.text.color} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Size={new UDim2(1, 0, 0, L.CrewTitle.h)} />
+				<textlabel BackgroundTransparency={1} Text={sub} TextSize={L.CrewSub.text.size} FontFace={BODY} TextColor3={L.CrewSub.text.color} TextXAlignment={Enum.TextXAlignment.Left} TextTruncate={Enum.TextTruncate.AtEnd} Position={UDim2.fromOffset(0, subY)} Size={new UDim2(1, 0, 0, L.CrewSub.h)} />
+				<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(0, barY)} Size={new UDim2(1, 0, 0, L.CrewBar.h)}>
 					<Bar fill={open ? 0 : 1 - left / total} color={Palette.mint} thin={true} />
 				</frame>
 			</frame>
@@ -441,7 +447,7 @@ function CrewRow(p: {
 				BorderSizePixel={0}
 				AnchorPoint={new Vector2(1, 0.5)}
 				Position={new UDim2(1, 0, 0.5, 0)}
-				Size={UDim2.fromOffset(btnW, 36)}
+				Size={UDim2.fromOffset(btnW, L.CrewBtn.h)}
 			>
 				{open ? (
 					<MockBtn text="Send" sec={true} sm={true} phone={p.phone} fill={true} onClick={() => p.onSend?.()} />
@@ -531,7 +537,7 @@ function ExpeditionsView(props: Props) {
 	const openSlots = slots.filter((slot) => slot.Id === "");
 	const [pickSlot, setPickSlot] = React.useState<number | undefined>(undefined);
 	const planSlot = openSlots.find((slot) => slot.Slot === pickSlot) ?? openSlots[0];
-	const rowGap = phone ? 8 : 12;
+	const rowGap = phone ? 8 : L.Crews.gap;
 	const crewH = phone ? CREW_ROW_H_PHONE : CREW_ROW_H;
 	const note = `${out} of ${slots.size()} crews out${streak > 0 ? ` · streak ${streak} (${string.format("+%d%%", math.min(streak, Board.STREAK_CAP) * Board.STREAK_STEP * 100)})` : ""}`;
 	const crewsH = panelHeight(phone, headingBlock(phone) + math.max(1, slots.size()) * (crewH + rowGap) - rowGap + (board?.Paused === true ? rowGap + 18 : 0));
@@ -573,7 +579,7 @@ function ExpeditionsView(props: Props) {
 		});
 	}
 	const sections: { id: string; height: number; element: React.Element }[] = [];
-	const sideW = 500;
+	const sideW = L.Haul.w;
 	const sideH = stackHeight(side.map((b) => b.height), 18);
 	if (!phone && side.size() > 0 && viewport.width >= 1000) {
 		const h = math.max(crewsH, sideH);

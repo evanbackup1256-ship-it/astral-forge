@@ -1,0 +1,4 @@
+{"name":"WorldsLayout","source":"design/12-worlds/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/WorldsLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Map":".main .pn.f1","MapHead":".main .pn.f1 h3","Grid":".main .pn.f1 div:0","Card":".main .pn.f1 .row","CardArt":".main .pn.f1 .row svg","CardFoot":".main .pn.f1 .row div","CardText":".main .pn.f1 .row .tt","CardTitle":".main .pn.f1 .row .tt b","CardSub":".main .pn.f1 .row .tt small","CardChip":".main .pn.f1 .row .chip","CardBtn":".main .pn.f1 .row:1 .btn.sm",
+"Rule":".main .pn.f1 .rule","InfoRow":".main .pn.f1 .row:4","InfoValue":".main .pn.f1 .row:4 .v"}}

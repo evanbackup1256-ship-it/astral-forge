@@ -1,0 +1,6 @@
+{"name":"RebirthLayout","source":"design/09-rebirth/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/RebirthLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Body":".main .flexr","Dial":".main .flexr .pn","DialRing":".main .flexr .pn svg","DialMeter":".main .flexr .pn div:0","DialBar":".bar","DialEarned":".bar .. span","DialBtn":".main .flexr .pn .btn",
+"Right":".flexc.f1","GainLose":".flexc.f1 .flexr","Get":".pn.f1:0","GetHead":".pn.f1:0 h3","GetRow":".pn.f1:0 .row","GetWell":".pn.f1:0 .row div","GetTitle":".pn.f1:0 .row b","GetSub":".pn.f1:0 .row small","GetValue":".pn.f1:0 .row .v",
+"KeepHist":".flexc.f1 .flexr:1","Keep":".pn.f1:2","KeepNote":".pn.f1:2 h3 small","KeepGrid":".wrap","KeepTile":".it","History":".flexc.f1 .flexr:1 .pn:1","HistRow":".flexc.f1 .flexr:1 .pn:1 .row","HistNum":".num","HistValue":".flexc.f1 .flexr:1 .pn:1 .row .v",
+"Milestones":".flexc.f1 .pn:4","MileTrack":".flexc.f1 .pn:4 div:0","MileLine":".flexc.f1 .pn:4 div:1","MileStep":".flexc.f1 .pn:4 div:2","MileNode":".flexc.f1 .pn:4 div:3","MileName":".flexc.f1 .pn:4 b"}}

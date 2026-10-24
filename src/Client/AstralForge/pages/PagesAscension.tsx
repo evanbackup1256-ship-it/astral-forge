@@ -34,6 +34,8 @@ const SIGIL_ICONS: Record<string, string | undefined> = {
 	Crown: "Domain",
 	Lodestar: "StarGrid",
 };
+// generated from design/10-ascension by scripts/gen_from_layout.js (scripts/layout/ascension.spec.json)
+import { AscensionLayout as L } from "./generated/AscensionLayout";
 const GAP = 18;
 const HOLD_SECONDS = 1.6;
 
@@ -413,11 +415,12 @@ function AscensionViewBoard(props: AscensionViewProps) {
 		["StarGrid", "Aether gain", "Paid when you ascend", `+${compact(state.Gain)}`, state.CanAscend],
 		["Forge", "Next tier", "Production multiplier", `×${compact(state.NextRankProduction)}`, false],
 	];
-	const btnH = phone ? TapTarget : 44;
-	const perksContent = head + reqRows.size() * (rowH2 + pad.gap) + pad.gap + 10 + pad.gap + btnH;
+	const btnH = phone ? TapTarget : L.PerksBtn.h;
+	const perksContent = head + reqRows.size() * (rowH2 + pad.gap) + pad.gap + L.PerksBar.h + pad.gap + btnH;
 	const perksH = panelHeight(phone, perksContent);
-	const diagramH = phone ? 220 : 400;
-	const orbitContent = diagramH + 12 + 20;
+	const diagramH = phone ? 220 : L.OrbitArt.h;
+	const statsH = L.Stats.h;
+	const orbitContent = diagramH + L.Orbit.gap + statsH;
 	const boardH = phone ? panelHeight(true, orbitContent) + gap + perksH : math.max(panelHeight(false, orbitContent), perksH);
 	const perks = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reducedMotion={softMotion} name="TierPerks">
@@ -444,11 +447,11 @@ function AscensionViewBoard(props: AscensionViewProps) {
 			<frame Size={new UDim2(1, 0, 0, diagramH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={true}>
 				<OrbitDiagram rank={state.Rank} height={diagramH} />
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, 20)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, 30)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<Line text={`Domain ${state.DomainRank} / ${state.RequiredDomainRank}`} size={15} font={BODY_SEMI} color={Palette.cream} layoutOrder={0} />
-				<Line text={`Aether ${compact(state.Aether)}`} size={15} font={BODY_SEMI} color={Palette.cream} layoutOrder={1} />
-				<Line text={`Production ×${compact(state.Production)}`} size={15} font={BODY_SEMI} color={Palette.muted} layoutOrder={2} />
+			<frame Size={new UDim2(1, 0, 0, statsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, L.Stats.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={`Domain ${state.DomainRank} / ${state.RequiredDomainRank}`} size={L.Stat.text.size} font={BODY_SEMI} color={Palette.cream} layoutOrder={0} />
+				<Line text={`Aether ${compact(state.Aether)}`} size={L.Stat.text.size} font={BODY_SEMI} color={Palette.cream} layoutOrder={1} />
+				<Line text={`Production ×${compact(state.Production)}`} size={L.Stat.text.size} font={BODY_SEMI} color={L.Stat.text.color} layoutOrder={2} />
 			</frame>
 		</MockPanel>
 	);
@@ -456,10 +459,10 @@ function AscensionViewBoard(props: AscensionViewProps) {
 		"ascend",
 		boardH,
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<frame Size={phone ? new UDim2(1, 0, 0, boardH - perksH - gap) : new UDim2(1, -(480 + gap), 1, 0)} BackgroundTransparency={1}>
+			<frame Size={phone ? new UDim2(1, 0, 0, boardH - perksH - gap) : new UDim2(1, -(L.Perks.w + gap), 1, 0)} BackgroundTransparency={1}>
 				{diagram}
 			</frame>
-			<frame Size={phone ? new UDim2(1, 0, 0, perksH) : new UDim2(0, 480, 1, 0)} Position={phone ? new UDim2(0, 0, 1, -perksH) : new UDim2(1, -480, 0, 0)} BackgroundTransparency={1}>
+			<frame Size={phone ? new UDim2(1, 0, 0, perksH) : new UDim2(0, L.Perks.w, 1, 0)} Position={phone ? new UDim2(0, 0, 1, -perksH) : new UDim2(1, -L.Perks.w, 0, 0)} BackgroundTransparency={1}>
 				{perks}
 			</frame>
 		</frame>,

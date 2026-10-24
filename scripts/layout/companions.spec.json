@@ -1,0 +1,4 @@
+{"name":"CompanionsLayout","source":"design/14-companions/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/CompanionsLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Tabs":".tabs","TabOn":".tab.on","Tab":".tab:1","Body":".main .flexr","Stage":".main .flexr .pn","StageArt":".main .flexr .pn div:0","StageSprite":".main .flexr .pn img","StageName":".main .flexr .pn div:2","StageTag":".main .flexr .pn .chip","StageDesc":".main .flexr .pn div:3","StageRow":".main .flexr .pn .row","StageBar":".main .flexr .pn .bar","StageBtns":".main .flexr .pn .flexr","StageBtn":".main .flexr .pn .btn","StageBtnSec":".main .flexr .pn .btn.sec",
+"Grid":".main .flexr .pn.f1","GridWrap":".main .flexr .pn.f1 .wrap","Card":".sc","CardWell":".sc .w","CardLevel":".sc .lv","CardName":".sc b","CardTag":".sc .tg"}}

@@ -9,7 +9,7 @@ import { clockText, formatReward, Reward } from "../../CoreKit/format";
 import { chromeFor, Palette } from "../../CoreKit/theme";
 import { useStagger, useViewport } from "../../MotionKit/motion";
 import { Button } from "../../UiCore/ui";
-import { BODY, BODY_BOLD, Glyph, Line, MockPanel, PanelHeading, RowSurface, panelHeadingH } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, Glyph, Line, MockPanel, PanelHeading, RowSurface, panelHeadingH, spaced } from "../../UiCore/mockKit";
 import { Flex, GcRow, GcScroll, Note, rowH } from "../gcKit";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
 import { EventDispatch, EventPanel, eventPanelHeight, EventState } from "./EventPanel";
@@ -62,6 +62,9 @@ function minutesText(seconds: number): string {
 	return `${m} minutes`;
 }
 
+// generated from design/15-rewards by scripts/gen_from_layout.js (scripts/layout/rewards.spec.json)
+import { RewardsLayout as L } from "../generated/RewardsLayout";
+
 // .row column cell: lbl "Day n", 20px glyph, 700 15px reward, then a check (claimed) or Claim (today)
 function DayCell(p: {
 	day: number;
@@ -81,21 +84,21 @@ function DayCell(p: {
 			{p.claimed && <uigradient Transparency={new NumberSequence(0.55)} />}
 			{p.today && (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={2}>
-					<uicorner CornerRadius={new UDim(0, 11)} />
+					<uicorner CornerRadius={new UDim(0, L.Day.radius)} />
 					<uistroke Color={Palette.mango} Thickness={2} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 				</frame>
 			)}
 			{/* content sits in its own frame so the highlight ring above is not stacked as a list item */}
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<uipadding PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 8)} HorizontalAlignment={Enum.HorizontalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<Line text={`DAY ${p.day}`} size={11} color={Palette.muted} layoutOrder={0} />
-				<Glyph kind={rewardGlyph(p.reward)} size={20} color={p.today ? Palette.mango : Palette.cream} layoutOrder={1} />
-				<Line text={text !== "" ? text : "-"} size={15} font={BODY_BOLD} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
-				{p.claimed && <Glyph kind="Check" size={20} color={Palette.muted} layoutOrder={3} />}
+					<uipadding PaddingTop={new UDim(0, L.Day.pad.top)} PaddingBottom={new UDim(0, L.Day.pad.bottom)} PaddingLeft={new UDim(0, L.Day.pad.left)} PaddingRight={new UDim(0, L.Day.pad.right)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, L.Day.gap)} HorizontalAlignment={Enum.HorizontalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={spaced(`DAY ${p.day}`)} size={L.DayLabel.text.size} font={BODY_BOLD} color={L.DayLabel.text.color} height={L.DayLabel.h} layoutOrder={0} />
+				<Glyph kind={rewardGlyph(p.reward)} size={L.DayGlyph.w} color={p.today ? Palette.mango : Palette.cream} layoutOrder={1} />
+				<Line text={text !== "" ? text : "-"} size={L.DayReward.text.size} font={BODY_BOLD} height={L.DayReward.h} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+				{p.claimed && <Glyph kind="Check" size={L.DayGlyph.w} color={Palette.muted} layoutOrder={3} />}
 				{p.today && (
-					<frame Size={UDim2.fromOffset(0, 36)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} ref={p.claimRef}>
-						<Button text="Claim" onClick={p.claim} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, 36)} reducedMotion={p.reducedMotion} highlight={true} />
+					<frame Size={UDim2.fromOffset(0, L.DayClaim.h)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} ref={p.claimRef}>
+						<Button text="Claim" onClick={p.claim} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, L.DayClaim.h)} reducedMotion={p.reducedMotion} highlight={true} />
 					</frame>
 				)}
 			</frame>
@@ -149,9 +152,9 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const current = math.max(1, dailyReady ? (tonumber(daily.NextStreak) ?? 1) : (tonumber(daily.Streak) ?? 0));
 	const weekStart = math.floor((current - 1) / 7) * 7 + 1;
 	const cols = phone ? 4 : 7;
-	const cellH = phone ? 138 : 152;
+	const cellH = phone ? 138 : L.Day.h;
 	const gridRows = math.ceil(7 / cols);
-	const gap = 12;
+	const gap = L.WeekGrid.gap;
 	const days: React.Element[] = [];
 	for (let offset = 0; offset < 7; offset++) {
 		const day = weekStart + offset;
@@ -218,9 +221,9 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			/>
 		);
 	});
-	const rowGap = phone ? 0 : 4;
+	const rowGap = 0;
 	const rh = rowH(phone) + rowGap;
-	const listH = (n: number) => n * rh + math.max(0, n - 1) * (phone ? 8 : 12);
+	const listH = (n: number) => n * rh + math.max(0, n - 1) * (phone ? 8 : L.Gifts.gap);
 	const giftsH = (phone ? 20 : 36) + panelHeadingH(phone) + (phone ? 8 : 12) + listH(math.max(1, timedEntries.size()));
 
 	// --- Codes ---------------------------------------------------------------------------------
@@ -235,18 +238,19 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			setCodeNote(response.message ?? (response.ok === true ? "Code claimed." : "That code didn't work."));
 		});
 	};
-	const codesH = (phone ? 20 : 36) + panelHeadingH(phone) + (phone ? 8 : 12) * 2 + rowH(phone) + 18;
+	const codeBarH = phone ? rowH(phone) : L.CodeBar.h;
+	const codesH = (phone ? 20 : 36) + panelHeadingH(phone) + (phone ? 8 : L.Codes.gap) * 2 + codeBarH + (phone ? 18 : L.CodeNote.h);
 	const codeField = (
-		<frame Size={new UDim2(1, 0, 0, rowH(phone))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 8 : 18)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+		<frame Size={new UDim2(1, 0, 0, codeBarH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 8 : L.CodeBar.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
 			<frame Size={new UDim2(0, 0, 1, 0)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={0}>
 				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<RowSurface />
-				<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
+				<uipadding PaddingLeft={new UDim(0, L.CodeInput.pad.left)} PaddingRight={new UDim(0, L.CodeInput.pad.right)} />
 				<Glyph kind="Code" size={20} color={Palette.muted} position={new UDim2(0, 0, 0.5, -10)} />
 				<textbox
-					Size={new UDim2(1, -32, 1, 0)}
-					Position={UDim2.fromOffset(32, 0)}
+					Size={new UDim2(1, -(20 + L.CodeInput.gap), 1, 0)}
+					Position={UDim2.fromOffset(20 + L.CodeInput.gap, 0)}
 					BackgroundTransparency={1}
 					Text={code}
 					PlaceholderText="Enter a code"
@@ -260,8 +264,8 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 					Event={{ FocusLost: (_, enter) => (enter ? redeem() : undefined) }}
 				/>
 			</frame>
-			<frame Size={UDim2.fromOffset(0, 44)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				<Button text="Redeem" onClick={redeem} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, 44)} reducedMotion={reducedMotion} />
+			<frame Size={UDim2.fromOffset(0, phone ? 44 : L.CodeBtn.h)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<Button text="Redeem" onClick={redeem} color={Palette.mango} textColor={Color3.fromRGB(27, 15, 8)} hug={true} size={UDim2.fromOffset(0, phone ? 44 : L.CodeBtn.h)} reducedMotion={reducedMotion} />
 			</frame>
 		</frame>
 	);

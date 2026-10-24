@@ -1,0 +1,5 @@
+{"name":"SeasonLayout","source":"design/16-season/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/SeasonLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Track":".main .pn","TrackRow":".main .pn .flexr","TierCol":".main .pn .flexr div","TierCell":".main .pn .flexr .row","TierGlyph":".main .pn .flexr .row svg","TierLabel":".main .pn .flexr .row small","TierNum":".main .pn .flexr .num","TrackBar":".main .pn .bar",
+"Lower":".main .flexr:1","Week":".main .flexr:1 .pn.f1","WeekRow":".main .flexr:1 .pn.f1 .row","WeekName":".main .flexr:1 .pn.f1 .row b","WeekBar":".main .flexr:1 .pn.f1 .row .bar","WeekValue":".main .flexr:1 .pn.f1 .row .v",
+"Pass":".main .flexr:1 .pn:1","PassBody":".main .flexr:1 .pn:1 .flexr","PassArt":".main .flexr:1 .pn:1 img","PassText":".main .flexr:1 .pn:1 .flexr div","PassBtn":".main .flexr:1 .pn:1 .btn"}}

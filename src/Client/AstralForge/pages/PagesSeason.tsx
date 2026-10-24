@@ -5,7 +5,9 @@ import React from "@rbxts/react";
 import { compactNumber, formatReward, Reward } from "../CoreKit/format";
 import { chromeFor, Palette, scrollTail } from "../CoreKit/theme";
 import { useViewport } from "../MotionKit/motion";
-import { Bar, BODY, BODY_BOLD, Glyph, Line, MockPanel, NUM, PanelHeading, spaced, TITLE_FACE } from "../UiCore/mockKit";
+import { Bar, BODY, BODY_SEMI, Glyph, Line, MockPanel, NUM, PanelHeading, spaced, TITLE_FACE } from "../UiCore/mockKit";
+// generated from design/16-season by scripts/gen_from_layout.js (scripts/layout/season.spec.json)
+import { SeasonLayout as L } from "./generated/SeasonLayout";
 import SeasonPremium = require("../../../Shared/AstralForge/Shared/SeasonPremium");
 import { MockBtn, panelHeight, headingBlock, RowFace } from "./mockRows";
 import { loadPageScaffold } from "./luauDeps";
@@ -41,8 +43,10 @@ interface SeasonViewProps {
 }
 
 const ACCENT = Palette.pink;
-const CELL_W = 96;
-const CELL_GAP = 10;
+const CELL_W = L.TierCol.w;
+const CELL_GAP = L.TrackRow.gap;
+// the weekly row value column: wide enough for "31B / 50B" at 17px
+const VALUE_W = 96;
 
 function premiumText(tier: number): string {
 	const r = SeasonPremium.Reward(tier);
@@ -66,9 +70,9 @@ function TierCell(p: { top: string; label: string; state: "done" | "ready" | "lo
 			Event={{ Activated: () => p.state === "ready" && p.onClick?.() }}
 		>
 			<RowFace outline={p.current || p.state === "ready" ? ACCENT : undefined} />
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 4)} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<Glyph kind={icon} size={14} color={p.state === "locked" ? Palette.muted : Palette.cream} layoutOrder={0} />
-			<Line text={p.label} size={11} font={BODY} color={p.state === "locked" ? Palette.muted : Palette.creamSoft} width={new UDim(1, -8)} align={Enum.TextXAlignment.Center} layoutOrder={1} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, L.TierCell.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<Glyph kind={icon} size={L.TierGlyph.w} color={p.state === "locked" ? Palette.muted : Palette.cream} layoutOrder={0} />
+			<Line text={p.label} size={L.TierLabel.text.size} height={L.TierLabel.h} font={BODY} color={p.state === "locked" ? Palette.muted : Palette.creamSoft} width={new UDim(1, -8)} align={Enum.TextXAlignment.Center} layoutOrder={1} />
 		</textbutton>
 	);
 }
@@ -97,13 +101,15 @@ function SeasonView(props: SeasonViewProps) {
 	const currentTier = nextTier?.Tier ?? reached;
 	const name = props.config?.Operations?.SeasonName ?? "Season";
 
-	const cellH = phone ? 46 : 52;
-	const trackInner = cellH * 2 + 8 + 16 + 8 + 6;
+	const cellH = phone ? 46 : L.TierCell.h;
+	const colGap = phone ? 8 : L.TierCol.gap;
+	const numH = phone ? 16 : L.TierNum.h;
+	const colH = cellH * 2 + colGap * 2 + numH;
 	const heroH = phone ? 110 : 150;
-	const trackH = panelHeight(phone, headingBlock(phone) + trackInner + 14);
+	const trackH = panelHeight(phone, headingBlock(phone) + colH + (phone ? 8 : L.Track.gap) + L.TrackBar.h);
 	const weekly = command.Weekly ?? [];
-	const weekH = panelHeight(phone, headingBlock(phone) + math.max(1, weekly.size()) * 48);
-	const passH = panelHeight(phone, headingBlock(phone) + 140 + 44);
+	const weekH = panelHeight(phone, headingBlock(phone) + math.max(1, weekly.size()) * L.WeekRow.h + math.max(0, weekly.size() - 1) * (phone ? 8 : L.Week.gap));
+	const passH = panelHeight(phone, headingBlock(phone) + L.PassBody.h + L.Pass.gap + L.PassBtn.h);
 
 	const hero = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} glow={ACCENT} reducedMotion={props.reducedMotion} name="SeasonHero">
@@ -120,11 +126,11 @@ function SeasonView(props: SeasonViewProps) {
 		const passState = passOwned && pclaims[tk] === true ? "done" : passOwned && unlocked ? "ready" : "locked";
 		const current = t.Tier === currentTier;
 		return (
-			<frame key={tk} Size={UDim2.fromOffset(CELL_W, trackInner - 14)} BackgroundTransparency={1} LayoutOrder={i}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame key={tk} Size={UDim2.fromOffset(CELL_W, colH)} BackgroundTransparency={1} LayoutOrder={i}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, colGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<TierCell top="Gift" label={t.Reward !== undefined ? formatReward(t.Reward) : `Tier ${t.Tier}`} state={freeState} current={current} h={cellH} order={0} onClick={() => dispatch?.("ClaimSeasonTier", { Tier: t.Tier })} />
 				<TierCell top="Gem" label={passOwned ? premiumText(t.Tier) : "Pass"} state={passState} current={false} h={cellH} order={1} onClick={() => dispatch?.("ClaimSeasonPremium", { Tier: t.Tier })} />
-				<Line text={tk} size={12} font={NUM} color={current ? ACCENT : Palette.muted} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+				<Line text={tk} size={phone ? 12 : L.TierNum.text.size} height={numH} font={NUM} color={current ? ACCENT : L.TierNum.text.color} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} layoutOrder={2} />
 			</frame>
 		);
 	});
@@ -133,14 +139,14 @@ function SeasonView(props: SeasonViewProps) {
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} reducedMotion={props.reducedMotion} name="SeasonTrack">
 			<PanelHeading icon="Season.1" title="Track" note={nextTier !== undefined ? `${compactNumber(nextTier.RequiredXP - xp)} XP to tier ${nextTier.Tier}` : "Complete"} accent={ACCENT} phone={phone} layoutOrder={0} />
 			<scrollingframe
-				Size={new UDim2(1, 0, 0, trackInner - 6)}
+				Size={new UDim2(1, 0, 0, colH)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				CanvasSize={new UDim2()}
 				AutomaticCanvasSize={Enum.AutomaticSize.X}
 				CanvasPosition={new Vector2(startIndex * (CELL_W + CELL_GAP), 0)}
 				ScrollingDirection={Enum.ScrollingDirection.X}
-				ScrollBarThickness={3}
+				ScrollBarThickness={0}
 				ScrollBarImageColor3={ACCENT}
 				LayoutOrder={1}
 			>
@@ -158,12 +164,14 @@ function SeasonView(props: SeasonViewProps) {
 			{weekly.map((d, i) => {
 				const done = d.Progress >= d.Target;
 				return (
-					<frame key={d.Id} Size={new UDim2(1, 0, 0, 40)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i + 1}>
+					<frame key={d.Id} Size={new UDim2(1, 0, 0, L.WeekRow.h)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i + 1}>
 						<RowFace />
-						<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} PaddingTop={new UDim(0, 6)} PaddingBottom={new UDim(0, 6)} />
-						<Line text={d.Name} size={12} font={BODY_BOLD} width={new UDim(1, -90)} />
-						<Line text={done ? "Done" : `${compactNumber(d.Progress)} / ${compactNumber(d.Target)}`} size={11} font={NUM} color={ACCENT} width={new UDim(0, 86)} align={Enum.TextXAlignment.Right} position={new UDim2(1, -86, 0, 0)} />
-						<Bar fill={math.clamp(d.Progress / math.max(1, d.Target), 0, 1)} color={ACCENT} thin={true} position={new UDim2(0, 0, 1, -4)} />
+						<uipadding PaddingLeft={new UDim(0, L.WeekRow.pad.left)} PaddingRight={new UDim(0, L.WeekRow.pad.right)} />
+						<Line text={d.Name} size={L.WeekName.text.size} height={L.WeekName.h} font={BODY_SEMI} color={L.WeekName.text.color} width={new UDim(1, -(VALUE_W + L.WeekRow.gap))} position={UDim2.fromOffset(0, L.WeekName.y - L.WeekRow.y)} />
+						<Line text={done ? "Done" : `${compactNumber(d.Progress)} / ${compactNumber(d.Target)}`} size={L.WeekValue.text.size} height={L.WeekValue.h} font={NUM} color={ACCENT} width={new UDim(0, VALUE_W)} align={Enum.TextXAlignment.Right} position={new UDim2(1, -VALUE_W, 0.5, 0)} anchor={new Vector2(0, 0.5)} />
+						<frame Size={new UDim2(1, -(VALUE_W + L.WeekRow.gap), 0, L.WeekBar.h)} Position={UDim2.fromOffset(0, L.WeekBar.y - L.WeekRow.y)} BackgroundTransparency={1} BorderSizePixel={0}>
+							<Bar fill={math.clamp(d.Progress / math.max(1, d.Target), 0, 1)} color={ACCENT} thin={true} />
+						</frame>
 					</frame>
 				);
 			})}
@@ -173,11 +181,22 @@ function SeasonView(props: SeasonViewProps) {
 	const pass = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={ACCENT} glow={Palette.violet} reducedMotion={props.reducedMotion} name="SeasonPass">
 			<PanelHeading icon="Gem" title="Star Pass" note={passOwned ? "Owned" : undefined} accent={ACCENT} phone={phone} layoutOrder={0} />
-			<frame Size={new UDim2(1, 0, 0, 140)} BackgroundTransparency={1} LayoutOrder={1}>
-				<Glyph kind="Gem" size={64} color={Palette.violet} position={UDim2.fromOffset(8, 38)} />
-				<Line text="A pass reward on every tier: dust, signals, crates and cores." size={13} font={BODY} color={Palette.creamSoft} width={new UDim(1, -96)} position={UDim2.fromOffset(92, 52)} />
+			<frame Size={new UDim2(1, 0, 0, L.PassBody.h)} BackgroundTransparency={1} LayoutOrder={1}>
+				<Glyph kind="Gem" size={L.PassArt.w / 2} color={Palette.violet} position={UDim2.fromOffset(L.PassArt.w / 4, L.PassArt.h / 4)} />
+				<textlabel
+					Text="A pass reward on every tier: dust, signals, crates and cores."
+					TextSize={L.PassText.text.size}
+					FontFace={BODY}
+					TextColor3={L.PassText.text.color}
+					TextWrapped={true}
+					TextXAlignment={Enum.TextXAlignment.Left}
+					BackgroundTransparency={1}
+					Size={new UDim2(1, -(L.PassArt.w + L.PassBody.gap), 0, L.PassText.h)}
+					Position={new UDim2(0, L.PassArt.w + L.PassBody.gap, 0.5, 0)}
+					AnchorPoint={new Vector2(0, 0.5)}
+				/>
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, 44)} BackgroundTransparency={1} LayoutOrder={2}>
+			<frame Size={new UDim2(1, 0, 0, L.PassBtn.h)} BackgroundTransparency={1} LayoutOrder={2}>
 				<MockBtn text={passOwned ? "Pass active" : "Get Star Pass"} icon="Gem" accent={ACCENT} phone={phone} fill={true} disabled={passOwned} onClick={() => props.navigate?.("Shop")} reducedMotion={props.reducedMotion} />
 			</frame>
 		</MockPanel>
@@ -196,19 +215,19 @@ function SeasonView(props: SeasonViewProps) {
 			height: h,
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 18)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.Lower.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} LayoutOrder={0}>
 						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 						{week}
 					</frame>
-					<frame Size={new UDim2(0, 300, 1, 0)} BackgroundTransparency={1} LayoutOrder={1}>
+					<frame Size={new UDim2(0, L.Pass.w, 1, 0)} BackgroundTransparency={1} LayoutOrder={1}>
 						{pass}
 					</frame>
 				</frame>
 			),
 		});
 	}
-	return <PageScaffold gap={phone ? 8 : 18} tailPad={scrollTail(phone, chrome.bottomSafe, 48)} scrollBarColor={ACCENT} scrollBarThickness={4} sections={sections} />;
+	return <PageScaffold gap={phone ? 8 : L.Main.gap} tailPad={scrollTail(phone, chrome.bottomSafe, 48)} scrollBarColor={ACCENT} scrollBarThickness={4} sections={sections} />;
 }
 
 export = () => ({ SeasonView });

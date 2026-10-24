@@ -21,6 +21,8 @@ import {
 	RebirthState,
 	RunEntry,
 } from "./RebirthPanel";
+// generated from design/09-rebirth by scripts/gen_from_layout.js (scripts/layout/rebirth.spec.json)
+import { RebirthLayout as L } from "../generated/RebirthLayout";
 
 const Ui = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
@@ -104,11 +106,12 @@ function RebirthBoard(props: RebirthViewProps) {
 	const head = headingBlock(phone);
 
 	// .pn dial: 400px ring, bar + earned / needed, 60px pink button
-	const dialSize = phone ? 200 : 400;
-	const btnH = phone ? TapTarget : 60;
-	const dialContent = dialSize + 18 + 10 + 8 + 18 + 18 + btnH;
+	const dialSize = phone ? 200 : L.DialRing.w;
+	const btnH = phone ? TapTarget : L.DialBtn.h;
+	const meterH = phone ? 10 + 8 + 18 : L.DialMeter.h;
+	const dialContent = dialSize + L.Dial.gap + meterH + L.Dial.gap + btnH;
 	const dialPanel = (
-		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} reducedMotion={reducedMotion} gap={18} name="RebirthDial">
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={accent} glow={accent} reducedMotion={reducedMotion} gap={L.Dial.gap} name="RebirthDial">
 			<frame Size={new UDim2(1, 0, 0, dialSize)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 				<SweptRing size={dialSize} fill={progress} accent={accent} softMotion={reducedMotion}>
 					<Line text={spaced(`REBIRTH ${rebirths + 1}`)} size={phone ? 11 : 13} color={Palette.muted} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, phone ? -40 : -70)} zIndex={4} />
@@ -116,10 +119,10 @@ function RebirthBoard(props: RebirthViewProps) {
 					<Line text={`+${compactNumber(info.Cores)} cores`} size={phone ? 12 : 15} font={BODY_SEMI} color={accent} width={new UDim(1, 0)} align={Enum.TextXAlignment.Center} position={new UDim2(0, 0, 0.5, phone ? 26 : 48)} zIndex={4} />
 				</SweptRing>
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, 10 + 8 + 18)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+			<frame Size={new UDim2(1, 0, 0, meterH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				<Bar fill={progress} color={accent} />
-				<Line text={`${compactNumber(earned)} cash earned`} size={14} font={BODY_SEMI} color={Palette.muted} position={UDim2.fromOffset(0, 18)} />
-				<Line text={`${compactNumber(target)} needed`} size={14} font={BODY_SEMI} color={Palette.muted} position={UDim2.fromScale(1, 0)} anchor={new Vector2(1, 0)} width={new UDim(0.5, 0)} align={Enum.TextXAlignment.Right} />
+				<Line text={`${compactNumber(earned)} cash earned`} size={L.DialEarned.text.size} font={BODY_SEMI} color={L.DialEarned.text.color} position={UDim2.fromOffset(0, meterH - L.DialEarned.h)} />
+				<Line text={`${compactNumber(target)} needed`} size={L.DialEarned.text.size} font={BODY_SEMI} color={L.DialEarned.text.color} position={new UDim2(1, 0, 0, meterH - L.DialEarned.h)} anchor={new Vector2(1, 0)} width={new UDim(0.5, 0)} align={Enum.TextXAlignment.Right} />
 			</frame>
 			<frame Size={new UDim2(1, 0, 0, btnH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
 				<Ui.Button
@@ -173,7 +176,7 @@ function RebirthBoard(props: RebirthViewProps) {
 	const levelsOf = state.Machines ?? {};
 	for (const machine of (config?.Machines ?? []) as MachineConfig[]) names.set(machine.Id, machine.Name ?? machine.Id);
 	const slots = math.max(keep.size(), info.KeepSlots ?? 0);
-	const tileW = phone ? 96 : 132;
+	const tileW = phone ? 96 : L.KeepTile.w;
 	const tiles: React.Element[] = [];
 	for (let i = 0; i < math.max(1, slots); i++) {
 		const id = keep[i];
@@ -201,7 +204,7 @@ function RebirthBoard(props: RebirthViewProps) {
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reducedMotion={reducedMotion} name="Keepsakes">
 			<PanelHeading icon="Loadout" title="Keepsakes" note="Survive every rebirth" phone={phone} layoutOrder={0} />
 			<frame Size={new UDim2(1, 0, 0, tileH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 6 : 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 6 : L.KeepGrid.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				{tiles}
 			</frame>
 		</MockPanel>
@@ -218,7 +221,7 @@ function RebirthBoard(props: RebirthViewProps) {
 				title={clock(run.Seconds)}
 				value={`${run.Grade}  +${compactNumber(run.Cores ?? 0)}`}
 				valueColor={GRADE_COLOR[run.Grade] ?? Palette.cream}
-				right={<Line text={`#${rebirths - i}`} size={phone ? 14 : 17} font={NUM} color={accent} width={new UDim(0, 48)} />}
+				right={<Line text={`#${rebirths - i}`} size={phone ? 14 : L.HistNum.text.size} font={NUM} color={L.HistNum.text.color} width={new UDim(0, L.HistNum.w)} />}
 				rightWidth={0}
 				layoutOrder={i + 1}
 			/>,
@@ -250,8 +253,10 @@ function RebirthBoard(props: RebirthViewProps) {
 	const track = steps.filter((_, i) => i >= first && i < first + 4);
 	let doneCount = 0;
 	for (const step of track) if (step.need <= rebirths) doneCount += 1;
-	const node = phone ? 34 : 44;
-	const trackH = node + 8 + 18;
+	const node = phone ? 34 : L.MileNode.w;
+	const nameGap = phone ? 8 : L.MileStep.gap;
+	const nameH = phone ? 18 : L.MileName.h;
+	const trackH = node + nameGap + nameH;
 	const nodes: React.Element[] = [];
 	track.forEach((step, i) => {
 		const done = step.need <= rebirths;
@@ -261,9 +266,9 @@ function RebirthBoard(props: RebirthViewProps) {
 					<uicorner CornerRadius={new UDim(1, 0)} />
 					{done && <uigradient Rotation={90} Color={new ColorSequence(Color3.fromRGB(255, 200, 240), accent)} />}
 					<uistroke Color={done ? accent : Color3.fromRGB(74, 58, 80)} Thickness={2} />
-					<Line text={tostring(step.need)} size={phone ? 14 : 17} font={NUM} color={done ? Color3.fromRGB(42, 15, 29) : Palette.muted} width={new UDim(1, 0)} height={node} align={Enum.TextXAlignment.Center} zIndex={4} />
+					<Line text={tostring(step.need)} size={phone ? 14 : L.MileNode.text.size} font={NUM} color={done ? Color3.fromRGB(42, 15, 29) : Palette.muted} width={new UDim(1, 0)} height={node} align={Enum.TextXAlignment.Center} zIndex={4} />
 				</frame>
-				<Line text={step.name} size={phone ? 12 : 14} font={BODY_SEMI} color={done ? Palette.cream : Palette.muted} width={new UDim(1, -8)} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(4, node + 8)} height={18} />
+				<Line text={step.name} size={phone ? 12 : L.MileName.text.size} font={BODY_SEMI} color={done ? L.MileName.text.color : Palette.muted} width={new UDim(1, -8)} align={Enum.TextXAlignment.Center} position={UDim2.fromOffset(4, node + nameGap)} height={nameH} />
 			</frame>,
 		);
 	});
@@ -275,7 +280,7 @@ function RebirthBoard(props: RebirthViewProps) {
 			<frame Size={new UDim2(1, 0, 0, trackH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				{track.size() > 0 ? (
 					<>
-						<frame Size={new UDim2(0.76, 0, 0, 2)} Position={new UDim2(0.12, 0, 0, node / 2 - 1)} BackgroundColor3={Color3.fromRGB(74, 58, 80)} BorderSizePixel={0}>
+						<frame Size={new UDim2(L.MileLine.w / L.MileTrack.w, 0, 0, L.MileLine.h)} Position={new UDim2((L.MileLine.x - L.MileTrack.x) / L.MileTrack.w, 0, 0, node / 2 - L.MileLine.h / 2)} BackgroundColor3={Color3.fromRGB(74, 58, 80)} BorderSizePixel={0}>
 							<frame Size={UDim2.fromScale(lit, 1)} BackgroundColor3={accent} BorderSizePixel={0} />
 						</frame>
 						{nodes}
@@ -322,7 +327,7 @@ function RebirthBoard(props: RebirthViewProps) {
 			</frame>
 		),
 	});
-	right.push(pair(keepPanel, historyPanel, 340, keepH, "keepHistory"));
+	right.push(pair(keepPanel, historyPanel, L.History.w, keepH, "keepHistory"));
 	right.push({ id: "milestones", height: milestonesH, element: milestones });
 	let rightH = 0;
 	for (const block of right) rightH += block.height + gap;
@@ -330,7 +335,7 @@ function RebirthBoard(props: RebirthViewProps) {
 	const dialH = phone ? panelHeight(true, dialContent) : math.max(panelHeight(false, dialContent), rightH);
 	const dialBlock: PageBlock = { id: "dial", height: dialH, element: dialPanel };
 	const wide = !phone && viewport.width >= 1280;
-	const plan = splitColumns(wide ? viewport.width - 40 : 0, 640, gap, 900);
+	const plan = splitColumns(wide ? viewport.width - 40 : 0, L.Dial.w, gap, 900);
 	const body: PageBlock[] = plan.split
 		? [splitSection("RebirthSplit", plan, gap, [dialBlock], right, false, ["dial", "gainLose", "keepHistory", "milestones"])]
 		: [dialBlock, ...right];

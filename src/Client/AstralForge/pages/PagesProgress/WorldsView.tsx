@@ -64,9 +64,12 @@ interface WorldCardProps {
 	artHeight: number;
 }
 
+// generated from design/12-worlds by scripts/gen_from_layout.js (scripts/layout/worlds.spec.json)
+import { WorldsLayout as L } from "../generated/WorldsLayout";
+
 // 12-worlds map card: .row column, 300x140 engraved art (#110C13), then a 12/14 padded footer
 function worldCardHeight(phone: boolean, artHeight: number): number {
-	return artHeight + (phone ? 10 : 12) * 2 + (phone ? TapTarget : 38);
+	return artHeight + (phone ? 10 : L.CardFoot.pad.top) * 2 + (phone ? TapTarget : L.CardText.h);
 }
 
 function WorldCard(props: WorldCardProps) {
@@ -75,9 +78,11 @@ function WorldCard(props: WorldCardProps) {
 	const skipMotion = props.reducedMotion === true || props.layoutOrder > 8 || antilag.skipEntrance;
 	const reveal = useStagger(math.min(props.layoutOrder, 8), skipMotion, 0.03, 0.2);
 	const locked = !current && !unlocked;
-	const padY = phone ? 10 : 12;
-	const padX = phone ? 12 : 14;
-	const titleSize = phone ? 15 : 17;
+	const padY = phone ? 10 : L.CardFoot.pad.top;
+	const padX = phone ? 12 : L.CardFoot.pad.left;
+	const titleSize = phone ? 15 : L.CardTitle.text.size;
+	const footH = phone ? TapTarget : L.CardText.h;
+	const subY = L.CardSub.y - L.CardText.y;
 	const action = current ? (
 		<Chip text="Here" accent={Palette.mango} />
 	) : unlocked ? (
@@ -104,19 +109,20 @@ function WorldCard(props: WorldCardProps) {
 				GroupTransparency={reveal.map((v: number) => (locked ? 0.28 : 0) + (1 - math.clamp(v, 0, 1)) * 0.7)}
 			>
 				<uicorner CornerRadius={new UDim(0, 11)} />
-				<frame Size={new UDim2(1, 0, 0, artHeight)} BackgroundColor3={Color3.fromRGB(17, 12, 19)} BorderSizePixel={0} ClipsDescendants={true}>
+				<frame Size={new UDim2(1, 0, 0, artHeight)} BackgroundColor3={L.CardArt.fill!.color} BorderSizePixel={0} ClipsDescendants={true}>
 					<Planet color={zone.Color} size={math.floor(artHeight * 0.6)} position={UDim2.fromScale(0.68, 0.5)} dim={locked} />
 				</frame>
-				<frame Size={new UDim2(1, -padX * 2, 0, phone ? TapTarget : 38)} Position={UDim2.fromOffset(padX, artHeight + padY)} BackgroundTransparency={1} BorderSizePixel={0}>
-					<Line text={zone.Name} size={titleSize} font={TITLE_FACE} width={new UDim(1, -(phone ? 120 : 130))} height={titleSize + 4} position={new UDim2(0, 0, 0.5, -titleSize / 2 - 6)} anchor={new Vector2(0, 0.5)} />
+				<frame Size={new UDim2(1, -padX * 2, 0, footH)} Position={UDim2.fromOffset(padX, artHeight + padY)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<Line text={zone.Name} size={titleSize} font={TITLE_FACE} width={new UDim(1, -(phone ? 120 : 130))} height={phone ? titleSize + 4 : L.CardTitle.h} position={phone ? new UDim2(0, 0, 0.5, -titleSize / 2 - 6) : UDim2.fromOffset(0, (footH - L.CardText.h) / 2)} anchor={phone ? new Vector2(0, 0.5) : new Vector2(0, 0)} />
 					<Line
 						text={`Cash x${compactNumber(zone.Multiplier ?? 1)}`}
-						size={phone ? 11 : 12}
+						size={phone ? 11 : L.CardSub.text.size}
 						font={BODY}
-						color={Palette.muted}
+						color={L.CardSub.text.color}
 						width={new UDim(1, -(phone ? 120 : 130))}
-						position={new UDim2(0, 0, 0.5, 10)}
-						anchor={new Vector2(0, 0.5)}
+						position={phone ? new UDim2(0, 0, 0.5, 10) : UDim2.fromOffset(0, (footH - L.CardText.h) / 2 + subY)}
+						height={phone ? undefined : L.CardSub.h}
+						anchor={phone ? new Vector2(0, 0.5) : new Vector2(0, 0)}
 					/>
 					<frame Size={UDim2.fromScale(0, 1)} AutomaticSize={Enum.AutomaticSize.X} Position={UDim2.fromScale(1, 0)} AnchorPoint={new Vector2(1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
 						<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} HorizontalAlignment={Enum.HorizontalAlignment.Right} />
@@ -195,10 +201,10 @@ function WorldsView(props: WorldsViewProps) {
 	};
 	// .pn grid: repeat(4, 1fr) gap 12 on desktop; the phone shows two cards a row with no panel around them
 	const columns = phone ? 2 : viewport.width >= 1200 ? 4 : viewport.width >= 800 ? 3 : 2;
-	const cardGap = phone ? gap : 12;
+	const cardGap = phone ? gap : L.Grid.gap;
 	const [gridWidth, onGridSize] = useWidth(phone ? 700 : 1500);
 	const cellWidth = math.max(120, (gridWidth - cardGap * (columns - 1)) / columns);
-	const artHeight = math.floor((cellWidth * 140) / 300);
+	const artHeight = math.floor((cellWidth * L.CardArt.h) / L.CardArt.w);
 	const cardH = worldCardHeight(phone, artHeight);
 	const cards: React.Element[] = [];
 	let nextLocked: ZoneDef | undefined;

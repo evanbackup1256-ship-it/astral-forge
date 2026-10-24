@@ -1,0 +1,4 @@
+{"name":"AscensionLayout","source":"design/10-ascension/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/AscensionLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Body":".main .flexr","Orbit":".main .flexr .pn.f1","OrbitArt":".main .flexr .pn.f1 svg","Stats":".main .flexr .pn.f1 div","Stat":".main .flexr .pn.f1 div span","StatValue":".main .flexr .pn.f1 div span b",
+"Perks":".main .flexr .pn:1","PerksHead":".main .flexr .pn:1 h3","PerkRow":".main .flexr .pn:1 .row","PerkTitle":".main .flexr .pn:1 .row b","PerkSub":".main .flexr .pn:1 .row small","PerkValue":".main .flexr .pn:1 .row .v","PerksBar":".main .flexr .pn:1 .bar","PerksBtn":".main .flexr .pn:1 .btn"}}

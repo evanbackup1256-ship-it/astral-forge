@@ -1,0 +1,4 @@
+{"name":"ExpeditionsLayout","source":"design/13-expeditions/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/ExpeditionsLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Body":".main .flexr","Crews":".main .flexr .pn.f1","CrewRow":".main .flexr .pn.f1 .row","CrewSprite":".main .flexr .pn.f1 .row img","CrewText":".main .flexr .pn.f1 .row .tt","CrewTitle":".main .flexr .pn.f1 .row .tt b","CrewSub":".main .flexr .pn.f1 .row .tt small","CrewBar":".main .flexr .pn.f1 .row .bar","CrewBtn":".main .flexr .pn.f1 .row .btn",
+"Haul":".main .flexr .pn:1","HaulGrid":".main .flexr .pn:1 .wrap","HaulCard":".main .flexr .pn:1 .sc","HaulRow":".main .flexr .pn:1 .row","HaulBtn":".main .flexr .pn:1 .btn"}}

@@ -1,0 +1,3 @@
+{"name":"SettingsLayout","source":"design/18-settings/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/SettingsLayout.ts",
+"nodes":{"Main":".main","Body":".main .flexr","Panel":".main .flexr .pn.f1","Row":".main .flexr .pn.f1 .row","RowTitle":".main .flexr .pn.f1 .row b","SliderTrack":".main .flexr .pn.f1 .row .f1","SliderBar":".main .flexr .pn.f1 .row .bar","SliderValue":".main .flexr .pn.f1 .row .v","Controls":".main .flexr .pn:1"}}

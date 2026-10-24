@@ -12,6 +12,8 @@ import { FittedView } from "./UiCore/viewportKit";
 import { SplitColumns, splitColumns, StackBlocks, stackHeight } from "./UiCore/ui";
 
 import { BODY_BOLD, BODY_SEMI, DiamondRule, NUM, PanelHeading, PnSurface, RowSurface, TITLE_FACE } from "./UiCore/mockKit";
+// generated from design/17-leaderboards by scripts/gen_from_layout.js (scripts/layout/leaderboards.spec.json)
+import { LeaderboardsLayout as L } from "./pages/generated/LeaderboardsLayout";
 const Players = game.GetService("Players");
 const TweenService = game.GetService("TweenService");
 const ContextActionService = game.GetService("ContextActionService");
@@ -426,11 +428,11 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		}, []);
 
 		// wide desktop: standing, categories and controls sit in a left column beside podium + rows
-		const plan = splitColumns(measuredWidth, 360, 22, 1060);
+		const plan = splitColumns(measuredWidth, 360, L.Body.gap, 1060);
 		let narrow = measuredWidth < 620;
 		// phones: one-line rows (place, mark, name, value) with the share bar along the bottom edge
 		const phoneRow = measuredWidth < 420;
-		const rankRowH = phoneRow ? 44 : 48;
+		const rankRowH = phoneRow ? 44 : L.Row.h;
 		const reducedMotion = props.reducedMotion;
 		const [selected, setSelected] = React.useState("Flux");
 		const [scope, setScope] = React.useState("Global");
@@ -662,7 +664,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			}, {
 				Surface: e(RowSurface, {}),
 				Stroke: e("uistroke", { Color: ringColor, Transparency: ringT, Thickness: mine ? 2 : ring.thickness, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }, !mine && ring.gradient !== undefined ? { Gradient: e("uigradient", { Color: ring.gradient, Rotation: 35 }) } : undefined),
-				Place: e("textlabel", { Text: place !== undefined ? tostring(place) : "–", FontFace: NUM, TextSize: phoneRow ? 18 : 22, TextColor3: P.muted, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(12, 0), Size: new UDim2(0, 44, 1, 0) }),
+				Place: e("textlabel", { Text: place !== undefined ? tostring(place) : "–", FontFace: NUM, TextSize: phoneRow ? 18 : L.RowNum.text.size, TextColor3: L.RowNum.text.color, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, Position: UDim2.fromOffset(L.Row.pad.left, 0), Size: new UDim2(0, L.RowNum.w, 1, 0) }),
 				Mark: mark({ row, guildBoard, accent, size: phoneRow ? 24 : 30, position: new UDim2(0, 12 + 44 + 12, 0.5, phoneRow ? -12 : -15) }),
 				Name: e("textlabel", { Text: `${row.Name ?? "Unknown pilot"}${mine ? " (you)" : ""}${guildBoard && row.Tag ? ` [${row.Tag}]` : ""}`, FontFace: BODY_SEMI, TextSize: phoneRow ? 13 : 15, TextColor3: styled?.accent ?? P.cream, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Left, TextTruncate: Enum.TextTruncate.AtEnd, Position: UDim2.fromOffset(12 + 44 + 12 + (phoneRow ? 24 : 30) + 12, 0), Size: new UDim2(1, -(12 + 44 + 12 + (phoneRow ? 24 : 30) + 12 + 110), 1, 0) }),
 				Value: e("textlabel", { Text: valueText(row.Value), FontFace: NUM, TextSize: phoneRow ? 15 : 17, TextColor3: P.mango, BackgroundTransparency: 1, TextXAlignment: Enum.TextXAlignment.Right, Position: new UDim2(1, -110, 0, 0), Size: new UDim2(0, 98, 1, 0) }),
@@ -678,19 +680,23 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			// medal colour fading to #1B151D, with the place in 40px title type
 			const podium: Record<string, React.Element> = {};
 			const podiumScale = narrow ? 0.6 : 1;
-			const podiumH = math.floor(210 * podiumScale) + 10 + 22 + 10 + 18 + 10;
+			const seatGap = narrow ? 10 : L.Seat.gap;
+			const nameH = narrow ? 18 : L.SeatName.h;
+			const valueH = narrow ? 16 : L.SeatValue.h;
+			const podiumH = math.floor(210 * podiumScale) + seatGap * 2 + nameH + valueH;
+			const seatsGap = narrow ? 10 : L.PodiumSeats.gap;
 			for (const place of PODIUM_ORDER) {
 				const row = rows[place - 1];
 				if (row !== undefined) {
 					const slot = PODIUM_ORDER.indexOf(place);
 					const plinthH = math.floor((PODIUM_HEIGHT[place] ?? 110) * podiumScale);
-					podium[`seat${place}`] = e("frame", { Name: `PodiumSeat${place}`, BackgroundTransparency: 1, Position: new UDim2(slot / 3, slot === 0 ? 0 : 7, 0, 0), Size: new UDim2(1 / 3, -10, 1, 0) }, {
-						Name: e("textlabel", { Text: `${row.Name ?? "Unknown"}${isMine(row) ? " (you)" : ""}`, FontFace: BODY_BOLD, TextSize: narrow ? 14 : 18, TextColor3: rankRowStyle(row, guildBoard)?.accent ?? P.cream, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + 10 + 18 + 10)), Size: new UDim2(1, 0, 0, 22) }),
-						Value: e("textlabel", { Text: valueText(row.Value), FontFace: NUM, TextSize: narrow ? 12 : 14, TextColor3: P.muted, BackgroundTransparency: 1, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + 10)), Size: new UDim2(1, 0, 0, 18) }),
+					podium[`seat${place}`] = e("frame", { Name: `PodiumSeat${place}`, BackgroundTransparency: 1, Position: new UDim2(slot / 3, (slot * seatsGap) / 3, 0, 0), Size: new UDim2(1 / 3, -((2 * seatsGap) / 3), 1, 0) }, {
+						Name: e("textlabel", { Text: `${row.Name ?? "Unknown"}${isMine(row) ? " (you)" : ""}`, FontFace: BODY_BOLD, TextSize: narrow ? 14 : L.SeatName.text.size, TextColor3: rankRowStyle(row, guildBoard)?.accent ?? P.cream, BackgroundTransparency: 1, TextTruncate: Enum.TextTruncate.AtEnd, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + seatGap + valueH + seatGap)), Size: new UDim2(1, 0, 0, nameH) }),
+						Value: e("textlabel", { Text: valueText(row.Value), FontFace: NUM, TextSize: narrow ? 12 : L.SeatValue.text.size, TextColor3: L.SeatValue.text.color, BackgroundTransparency: 1, AnchorPoint: new Vector2(0, 1), Position: new UDim2(0, 0, 1, -(plinthH + seatGap)), Size: new UDim2(1, 0, 0, valueH) }),
 						Plinth: e("frame", { BackgroundColor3: P.white, BorderSizePixel: 0, AnchorPoint: new Vector2(0, 1), Position: UDim2.fromScale(0, 1), Size: new UDim2(1, 0, 0, plinthH) }, {
-							Corner: e("uicorner", { CornerRadius: new UDim(0, 12) }),
+							Corner: e("uicorner", { CornerRadius: new UDim(0, L.Plinth3.radius) }),
 							Fade: e("uigradient", { Rotation: 90, Color: new ColorSequence(MEDAL[place], Color3.fromRGB(27, 21, 29)) }),
-							Place: e("textlabel", { Text: tostring(place), FontFace: TITLE_FACE, TextSize: narrow ? 28 : 40, TextColor3: Color3.fromRGB(12, 9, 14), BackgroundTransparency: 1, Position: UDim2.fromOffset(0, 12), Size: new UDim2(1, 0, 0, narrow ? 30 : 42) }),
+							Place: e("textlabel", { Text: tostring(place), FontFace: TITLE_FACE, TextSize: narrow ? 28 : 40, TextColor3: Color3.fromRGB(12, 9, 14), BackgroundTransparency: 1, Position: UDim2.fromOffset(0, L.Plinth3.pad.top), Size: new UDim2(1, 0, 0, narrow ? 30 : 42) }),
 						}),
 					});
 				}
@@ -712,7 +718,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 			}
 			if (shown > 0) {
 				// design/17: ranked rows sit 12px apart inside one block (the page scaffold gap is 22)
-				const rankRowGap = 12;
+				const rankRowGap = L.Board.gap;
 				sections.push({
 					id: "rank-rows",
 					height: shown * rankRowH + (shown - 1) * rankRowGap,
@@ -738,10 +744,10 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 				const findable = personalIndex !== undefined;
 				sections.push({
 					id: "rank-you",
-					height: 9 + 12 + rankRowH + (findable ? theme.TapTarget + 8 : 0),
+					height: L.Rule.h + L.Board.gap + rankRowH + (findable ? theme.TapTarget + 8 : 0),
 					element: e("frame", { Name: "RankPinnedYou", BackgroundTransparency: 1, Size: UDim2.fromScale(1, 1) }, {
-						Rule: e("frame", { BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, 9) }, { Rule: e(DiamondRule, {}) }),
-						Row: e("frame", { BackgroundTransparency: 1, Position: UDim2.fromOffset(0, 21), Size: new UDim2(1, 0, 0, rankRowH) }, { Row: rankRow(you, personalIndex, true) }),
+						Rule: e("frame", { BackgroundTransparency: 1, Size: new UDim2(1, 0, 0, L.Rule.h) }, { Rule: e(DiamondRule, {}) }),
+						Row: e("frame", { BackgroundTransparency: 1, Position: UDim2.fromOffset(0, L.Rule.h + L.Board.gap), Size: new UDim2(1, 0, 0, rankRowH) }, { Row: rankRow(you, personalIndex, true) }),
 						Find: findable
 							? e(ui.Button, {
 									// with a pad connected, name the shortcut the way the hint bar does
@@ -751,7 +757,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 									outline: true,
 									reducedMotion,
 									size: UDim2.fromOffset(UserInputService.GamepadEnabled ? 168 : 132, theme.TapTarget),
-									position: new UDim2(1, UserInputService.GamepadEnabled ? -168 : -132, 0, 21 + rankRowH + 8),
+									position: new UDim2(1, UserInputService.GamepadEnabled ? -168 : -132, 0, L.Rule.h + L.Board.gap + rankRowH + 8),
 									onClick: () => scrollToRankRow(personalIndex!, reducedMotion === true),
 								})
 							: undefined,
@@ -764,7 +770,7 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 		if (plan.split) {
 			const side = sections.filter((_, index) => index < sideEnd);
 			const main = sections.filter((_, index) => index >= sideEnd);
-			const rowH = math.max(stackHeight(side.map((entry) => entry.height), 22), stackHeight(main.map((entry) => entry.height), 22));
+			const rowH = math.max(stackHeight(side.map((entry) => entry.height), L.Main.gap), stackHeight(main.map((entry) => entry.height), L.Main.gap));
 			planned = [
 				{
 					id: "rank-split",
@@ -773,14 +779,14 @@ function RankDashboard(helpers: Helpers): (props: Props) => React.Element {
 						name: "RankSplit",
 						height: rowH,
 						plan,
-						side: e(StackBlocks, { gap: 22, blocks: side as never }),
-						main: e(StackBlocks, { gap: 22, blocks: main as never }),
+						side: e(StackBlocks, { gap: L.Main.gap, blocks: side as never }),
+						main: e(StackBlocks, { gap: L.Main.gap, blocks: main as never }),
 					}),
 				} as never,
 			];
 		}
 		return e("frame", { Name: "RankDashboard", ref: hostRef, Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ClipsDescendants: false }, {
-			Content: e(Scaffold, { sections: planned, gap: 22, tailPad: 80, scrollBarColor: P.brass, scrollBarThickness: 4 }),
+			Content: e(Scaffold, { sections: planned, gap: L.Main.gap, tailPad: 80, scrollBarColor: P.brass, scrollBarThickness: 4 }),
 		});
 	};
 }

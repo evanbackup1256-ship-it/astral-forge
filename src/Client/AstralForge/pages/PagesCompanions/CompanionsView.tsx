@@ -25,6 +25,8 @@ const ElementFx = ElementFxModule.ElementFx;
 const elementSheet = ElementFxModule.sheet;
 
 const SERIF = Font.fromName("Merriweather", Enum.FontWeight.Bold);
+// generated from design/14-companions by scripts/gen_from_layout.js (scripts/layout/companions.spec.json)
+import { CompanionsLayout as L } from "../generated/CompanionsLayout";
 const MAX_LEVEL = 10;
 
 interface ArtifactDef {
@@ -129,7 +131,7 @@ function SpriteCard(props: SpriteCardProps) {
 	return (
 		<frame Size={props.size} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={props.layoutOrder}>
 			<frame ref={liftRef} Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0}>
-				<uicorner CornerRadius={new UDim(0, 14)} />
+				<uicorner CornerRadius={new UDim(0, L.Card.radius)} />
 				<uistroke Color={color} Thickness={1.5} Transparency={props.selected ? 0 : 0.4} ApplyStrokeMode={Enum.ApplyStrokeMode.Border}>
 					{sheen && (
 						<uigradient
@@ -166,14 +168,14 @@ function SpriteCard(props: SpriteCardProps) {
 				</frame>
 				<frame
 					key="Well"
-					Size={new UDim2(1, -12, 1, -50)}
-					Position={UDim2.fromOffset(6, 6)}
+					Size={new UDim2(1, -L.Card.pad.left - L.Card.pad.right, 1, -(L.Card.h - L.CardWell.h - L.Card.pad.top))}
+					Position={UDim2.fromOffset(L.Card.pad.left, L.Card.pad.top)}
 					BackgroundColor3={Palette.void}
 					BackgroundTransparency={0.2}
 					BorderSizePixel={0}
 					ClipsDescendants={true}
 				>
-					<uicorner CornerRadius={new UDim(0, 10)} />
+					<uicorner CornerRadius={new UDim(0, L.CardWell.radius)} />
 					<uigradient
 						Rotation={90}
 						Color={new ColorSequence(color.Lerp(Palette.void, 0.82), Palette.void)}
@@ -190,10 +192,10 @@ function SpriteCard(props: SpriteCardProps) {
 						reactionKey={props.selected}
 					/>
 					{props.level !== undefined && (
-						<frame Size={UDim2.fromOffset(42, 18)} Position={UDim2.fromOffset(5, 5)} BackgroundColor3={Palette.void} BackgroundTransparency={0.15} BorderSizePixel={0}>
-							<uicorner CornerRadius={new UDim(0, 6)} />
+						<frame Size={UDim2.fromOffset(42, L.CardLevel.h)} Position={UDim2.fromOffset(L.CardLevel.x - L.CardWell.x, L.CardLevel.y - L.CardWell.y)} BackgroundColor3={Palette.void} BackgroundTransparency={0.15} BorderSizePixel={0}>
+							<uicorner CornerRadius={new UDim(0, L.CardLevel.radius)} />
 							<uistroke Color={Palette.line} Thickness={1} />
-							<Text value={`Lv ${props.level}`} size={11} color={Palette.cream} weight={Enum.FontWeight.Bold} align={Enum.TextXAlignment.Center} sizeConstraint={UDim2.fromScale(1, 1)} />
+							<Text value={`Lv ${props.level}`} size={L.CardLevel.text.size} color={Palette.cream} weight={Enum.FontWeight.Bold} align={Enum.TextXAlignment.Center} sizeConstraint={UDim2.fromScale(1, 1)} />
 						</frame>
 					)}
 					{props.following && (
@@ -204,27 +206,27 @@ function SpriteCard(props: SpriteCardProps) {
 				</frame>
 				<Text
 					value={props.found ? props.name : "Not found yet"}
-					size={12}
-					color={props.found ? Palette.cream : Palette.muted}
+					size={L.CardName.text.size}
+					color={props.found ? L.CardName.text.color : Palette.muted}
 					weight={Enum.FontWeight.Bold}
 					align={Enum.TextXAlignment.Center}
 					fit={true}
 					minSize={9}
-					position={new UDim2(0, 6, 1, -42)}
-					sizeConstraint={new UDim2(1, -12, 0, 16)}
+					position={new UDim2(0, L.Card.pad.left, 1, -(L.Card.y + L.Card.h - L.CardName.y))}
+					sizeConstraint={new UDim2(1, -L.Card.pad.left * 2, 0, L.CardName.h)}
 				/>
 				<frame
-					Size={UDim2.fromOffset(math.max(44, rarityName(props.rarity).size() * 7 + 14), 15)}
-					Position={new UDim2(0.5, 0, 1, -22)}
+					Size={UDim2.fromOffset(math.max(44, rarityName(props.rarity).size() * 7 + L.CardTag.pad!.left * 2), L.CardTag.h)}
+					Position={new UDim2(0.5, 0, 1, -(L.Card.y + L.Card.h - L.CardTag.y))}
 					AnchorPoint={new Vector2(0.5, 0)}
 					BackgroundColor3={color}
 					BackgroundTransparency={props.found ? 0.15 : 0.7}
 					BorderSizePixel={0}
 				>
-					<uicorner CornerRadius={new UDim(0, 4)} />
+					<uicorner CornerRadius={new UDim(0, L.CardTag.radius)} />
 					<Text
 						value={rarityName(props.rarity).upper()}
-						size={9}
+						size={L.CardTag.text.size}
 						color={Palette.ink}
 						weight={Enum.FontWeight.Heavy}
 						align={Enum.TextXAlignment.Center}
@@ -320,9 +322,9 @@ export function CompanionsView(props: CompanionsProps) {
 	}
 	const followName = defs.find((artifact) => artifact.Id === following)?.Name;
 
-	const cardW = stack ? 104 : 124;
-	const cardH = stack ? 134 : 152;
-	const gap = stack ? 10 : 12;
+	const cardW = stack ? 104 : L.Card.w;
+	const cardH = stack ? 134 : L.Card.h;
+	const gap = stack ? 10 : L.GridWrap.gap;
 	const heroH = stack ? 64 : 118;
 
 	const hero = (
@@ -429,7 +431,7 @@ export function CompanionsView(props: CompanionsProps) {
 			</frame>
 		);
 	})();
-	const gridPad = stack ? 10 : 16;
+	const gridPad = stack ? 10 : L.Grid.pad.left;
 	const gridCount = shown.size() + shownNamed.size();
 	const grid = (gridW: number) => {
 		const cols = math.max(1, math.floor((gridW - gridPad * 2 + gap) / (cardW + gap)));
@@ -439,7 +441,7 @@ export function CompanionsView(props: CompanionsProps) {
 	};
 	const gridPanel = (wrapH: number) => (
 		<PnSurface size={UDim2.fromScale(1, 1)} radius={16} rule={true} accent={Palette.brass} background={Palette.panel} padding={gridPad} reducedMotion={reducedMotion}>
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, L.Grid.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 			<PanelHeading
 				icon="Artifact"
 				title={tab === "Owned" ? "Owned" : "Index"}
@@ -527,12 +529,12 @@ export function CompanionsView(props: CompanionsProps) {
 				if (response.ok && after) after();
 			});
 		};
-		const spriteH = stack ? 150 : 230;
+		const spriteH = stack ? 150 : L.StageArt.h;
 		const tag = `${rarityName(artifact.Rarity)} · ${sheet !== undefined ? sheet.Label.sub(1, 1) + sheet.Label.sub(2).lower() : ""}`;
 		const rh = rowHeight(stack);
 		stage = (
-			<PnSurface size={UDim2.fromScale(1, 1)} radius={16} rule={true} accent={Palette.brass} background={Palette.panel} padding={stack ? 14 : 18} reveal={enter} reducedMotion={reducedMotion} clips={false}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, stack ? 8 : 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<PnSurface size={UDim2.fromScale(1, 1)} radius={16} rule={true} accent={Palette.brass} background={Palette.panel} padding={stack ? 14 : L.Stage.pad.left} reveal={enter} reducedMotion={reducedMotion} clips={false}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, stack ? 8 : L.Stage.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<frame Size={new UDim2(1, 0, 0, spriteH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 					<frame
 						key="EquipRing"
@@ -554,17 +556,17 @@ export function CompanionsView(props: CompanionsProps) {
 						reactionKey={`${artifact.Id}:${equipNonce}`}
 					/>
 				</frame>
-				<frame Size={new UDim2(1, 0, 0, stack ? 26 : 32)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
-					<Line text={spaced(artifact.Name)} size={stack ? 20 : 26} font={TITLE_FACE} layoutOrder={0} />
-					<frame Size={UDim2.fromOffset(0, 20)} AutomaticSize={Enum.AutomaticSize.X} BackgroundColor3={color.Lerp(Palette.ink, 0.7)} BorderSizePixel={0} LayoutOrder={1}>
-						<uicorner CornerRadius={new UDim(0, 6)} />
+				<frame Size={new UDim2(1, 0, 0, stack ? 26 : L.StageName.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, L.Body.gap - 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<Line text={spaced(artifact.Name)} size={stack ? 20 : L.StageName.text.size} font={TITLE_FACE} layoutOrder={0} />
+					<frame Size={UDim2.fromOffset(0, stack ? 20 : L.StageTag.h)} AutomaticSize={Enum.AutomaticSize.X} BackgroundColor3={color.Lerp(Palette.ink, 0.7)} BorderSizePixel={0} LayoutOrder={1}>
+						<uicorner CornerRadius={new UDim(0, L.StageTag.radius)} />
 						<uistroke Color={color} Thickness={1} Transparency={0.4} />
-						<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
-						<Line text={tag} size={11} color={color} height={20} />
+						<uipadding PaddingLeft={new UDim(0, L.StageTag.pad.left)} PaddingRight={new UDim(0, L.StageTag.pad.right)} />
+						<Line text={tag} size={stack ? 11 : L.StageTag.text.size} color={color} height={stack ? 20 : L.StageTag.h} />
 					</frame>
 				</frame>
-				<Line text={artifact.Description ?? ""} size={13} color={Palette.muted} width={new UDim(1, 0)} height={18} layoutOrder={2} />
+				<Line text={artifact.Description ?? ""} size={stack ? 13 : L.StageDesc.text.size} color={L.StageDesc.text.color} width={new UDim(1, 0)} height={stack ? 18 : L.StageDesc.h} layoutOrder={2} />
 				<MockRow title={kindLabel(artifact.EffectKind)} icon="Boost" accent={Palette.mint} value={effectText(artifact, mine.Level)} valueColor={Palette.mint} phone={stack} height={rh} layoutOrder={3} />
 				<MockRow
 					title="Level"
@@ -576,8 +578,8 @@ export function CompanionsView(props: CompanionsProps) {
 					layoutOrder={4}
 				/>
 				<Bar fill={mine.Level / MAX_LEVEL} color={Palette.mango} layoutOrder={5} />
-				<frame Size={new UDim2(1, 0, 0, stack ? TapTarget : 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={6}>
-					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={new UDim2(1, 0, 0, stack ? TapTarget : L.StageBtns.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={6}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, stack ? 10 : L.StageBtns.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
 						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 						<MockBtn
@@ -604,7 +606,9 @@ export function CompanionsView(props: CompanionsProps) {
 			</PnSurface>
 		);
 	}
-	const stageMinH = (stack ? 150 : 230) + (stack ? 26 : 32) + 18 + rowHeight(stack) * 2 + 10 + (stack ? TapTarget : 44) + (stack ? 8 : 10) * 6 + (stack ? 28 : 36);
+	const stageMinH = stack
+		? 150 + 26 + 18 + rowHeight(stack) * 2 + 10 + TapTarget + 8 * 6 + 28
+		: L.StageArt.h + L.StageName.h + L.StageDesc.h + rowHeight(stack) * 2 + L.StageBar.h + L.StageBtns.h + L.Stage.gap * 6 + L.Stage.pad.top * 2;
 
 	const sections: { id: string; height?: number; fill?: boolean; minHeight?: number; element: React.Element }[] = [
 		{ id: "hero", height: heroH, element: hero },
@@ -614,7 +618,7 @@ export function CompanionsView(props: CompanionsProps) {
 		sections.push({ id: "grid", height: gridPad * 2 + 22 + 12 + g.wrapH + (fuseRow !== undefined ? 12 + 12 + fuseH : 0), element: gridPanel(g.wrapH) });
 		sections.push({ id: "stage", height: stageMinH, element: stage });
 	} else {
-		const stageW = math.clamp(math.floor(viewport.width * 0.36), 320, 560);
+		const stageW = math.clamp(math.floor(viewport.width * 0.36), 320, L.Stage.w);
 		const g = grid(math.max(200, viewport.width - 300 - stageW - 14));
 		sections.push({
 			id: "body",
@@ -625,7 +629,7 @@ export function CompanionsView(props: CompanionsProps) {
 					<frame Size={new UDim2(0, stageW, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
 						{stage}
 					</frame>
-					<frame Size={new UDim2(1, -(stageW + 14), 1, 0)} Position={UDim2.fromOffset(stageW + 14, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<frame Size={new UDim2(1, -(stageW + L.Body.gap), 1, 0)} Position={UDim2.fromOffset(stageW + L.Body.gap, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
 						{gridPanel(g.wrapH)}
 					</frame>
 				</frame>
@@ -635,7 +639,7 @@ export function CompanionsView(props: CompanionsProps) {
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<PageScaffold
-				gap={stack ? chrome.panelGap : 14}
+				gap={stack ? chrome.panelGap : L.Main.gap}
 				tailPad={scrollTail(stack, chrome.bottomSafe, 24)}
 				scrollBarColor={Palette.brass}
 				scrollBarThickness={4}

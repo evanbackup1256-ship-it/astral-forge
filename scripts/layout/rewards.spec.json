@@ -1,0 +1,4 @@
+{"name":"RewardsLayout","source":"design/15-rewards/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main",
+"out":"src/Client/AstralForge/pages/generated/RewardsLayout.ts",
+"nodes":{"Main":".main","Hero":".hero","Tabs":".tabs","TabOn":".tab.on","Tab":".tab:1","Week":".main .pn","WeekHead":".main .pn h3","WeekGrid":".main .pn div:0","Day":".main .pn .row","DayLabel":".main .pn .row .lbl","DayGlyph":".main .pn .row svg","DayReward":".main .pn .row b","DayToday":".main .pn .row:3","DayClaim":".main .pn .row:3 .btn",
+"Body":".main .flexr","Gifts":".main .flexr .pn.f1","GiftRow":".main .flexr .pn.f1 .row","Codes":".main .flexr .pn.f1:1","CodeBar":".main .flexr .pn.f1:1 .flexr","CodeInput":".main .flexr .pn.f1:1 .row","CodeBtn":".main .flexr .pn.f1:1 .btn","CodeNote":".main .flexr .pn.f1:1 span"}}

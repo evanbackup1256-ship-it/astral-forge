@@ -22,6 +22,8 @@ export interface ConstellationState {
 	Paused?: boolean;
 }
 
+// generated from design/11-constellations by scripts/gen_from_layout.js (scripts/layout/constellations.spec.json)
+import { ConstellationsLayout as L } from "../generated/ConstellationsLayout";
 const GAP = 18;
 const HEAD_H = 22;
 const ROW_GAP = 8;
@@ -31,8 +33,11 @@ const ROW_MODE_MIN = 560;
 const GRAPH_H_COLUMN = 240;
 // full detail: header 40, blurb 36, cost + gives rows, button, divider, three status rows
 // 11-constellations detail .pn (460px): h3 + note, 15px blurb, Cost / Gives rows, violet button, rule, three status rows
-const DETAIL_PAD = 18;
-const DETAIL_FULL_H = DETAIL_PAD * 2 + 22 + 12 + 40 + 12 + (48 + 12) * 2 + 44 + 12 + 12 + 12 + 48 * 3 + 12 * 2;
+const DETAIL_PAD = L.Detail.pad.top;
+// the blurb keeps room for a second line: chart blurbs run longer than the mockup sample
+const BLURB_H = L.Blurb.h * 2;
+const DG = L.Detail.gap;
+const DETAIL_FULL_H = DETAIL_PAD * 2 + L.DetailHead.h + DG + BLURB_H + DG + (L.Row.h + DG) * 2 + L.Btn.h + DG + L.Rule.h + DG + L.Row.h * 3 + DG * 2;
 // compact detail (phones): next star row, status row, the Light button
 const COMPACT_PAD = 10;
 const DETAIL_COMPACT_H = COMPACT_PAD * 2 + 44 * 2 + 8 * 2 + TapTarget;
@@ -75,7 +80,7 @@ function layoutFor(stack: boolean, width: number, phone: boolean): Layout {
 	const tabColumns = width >= 520 ? count : 3;
 	const tabRows = math.ceil(count / tabColumns);
 	const tabsH = tabRows * TapTarget + (tabRows - 1) * 6;
-	const sideW = phone ? math.clamp(math.floor(width * 0.36), 220, 300) : math.clamp(math.floor(width * 0.4), 300, 460);
+	const sideW = phone ? math.clamp(math.floor(width * 0.36), 220, 300) : math.clamp(math.floor(width * 0.4), 300, L.Detail.w);
 	const detailH = compact ? DETAIL_COMPACT_H : DETAIL_FULL_H;
 	const bodyH = rowMode ? (phone ? math.max(PHONE_BODY_H, detailH) : detailH) : GRAPH_H_COLUMN + GAP + detailH;
 	const total = HEAD_H + ROW_GAP + tabsH + GAP + bodyH;
@@ -309,13 +314,13 @@ function ChartDetail(p: {
 			<textlabel
 				BackgroundTransparency={1}
 				Text={chart.Blurb}
-				TextSize={15}
+				TextSize={L.Blurb.text.size}
 				FontFace={BODY}
-				TextColor3={Palette.creamSoft}
+				TextColor3={L.Blurb.text.color}
 				TextWrapped={true}
 				TextXAlignment={Enum.TextXAlignment.Left}
 				TextYAlignment={Enum.TextYAlignment.Top}
-				Size={new UDim2(1, 0, 0, 40)}
+				Size={new UDim2(1, 0, 0, BLURB_H)}
 				LayoutOrder={1}
 			/>
 			{nextStar !== undefined ? (
@@ -331,7 +336,7 @@ function ChartDetail(p: {
 				value={nextStar !== undefined ? `+${pct(chart.PerStar)}${last ? ` (+${pct(chart.Completion)} to finish)` : ""}` : `+${pct(chart.PerStar)} per star`}
 				layoutOrder={3}
 			/>
-			<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, 44)} LayoutOrder={4}>
+			<frame BackgroundTransparency={1} BorderSizePixel={0} Size={new UDim2(1, 0, 0, L.Btn.h)} LayoutOrder={4}>
 				<Button
 					text={buttonText}
 					icon="StarGrid.2"

@@ -10,6 +10,8 @@ import { MobileTabPinsEditor, mobileTabPinsEditorHeight } from "./MobileTabPinsE
 import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent, sharedModule } from "../luauKits";
 import { BrassRule, FORGE_RADIUS } from "../../UiCore/forgeCard";
 import { BODY, BODY_SEMI, NUM, PnSurface, RowSurface } from "../../UiCore/mockKit";
+// generated from design/18-settings by scripts/gen_from_layout.js (scripts/layout/settings.spec.json)
+import { SettingsLayout as L } from "../generated/SettingsLayout";
 
 const UserInputService = game.GetService("UserInputService");
 const { Audio } = kitMember<{ Audio: AudioPlayer }>("AudioKit", "audio");
@@ -233,12 +235,13 @@ function SettingRow(props: SettingRowProps) {
 	};
 	// design/18-settings .row: sliders are title (160px) | thin bar | .v value; toggles and choices are title + help | control
 	const rowH = settingRowH(entry, stack);
-	const lineH = stack ? 44 : 48;
-	const padX = 12;
+	const lineH = stack ? 44 : L.Row.h;
+	const padX = L.Row.pad.left;
+	const gapX = stack ? 12 : L.Row.gap;
 	let control: React.Element;
 	let titleW: UDim2;
 	if (entry.kind === "toggle") {
-		titleW = new UDim2(1, -(SWITCH_W + 10 + 12), 0, lineH - 12);
+		titleW = new UDim2(1, -(SWITCH_W + gapX + padX * 2), 0, lineH - 12);
 		control = (
 			<Switch
 				on={draft >= 0.5}
@@ -265,13 +268,15 @@ function SettingRow(props: SettingRowProps) {
 			/>
 		);
 	} else {
-		const labelW = stack ? 110 : 160;
+		// desktop: title and bar split the row evenly around the .v value (design/18 .tt / .f1 flex)
+		const labelW = 110;
 		const valueW = 44;
-		titleW = UDim2.fromOffset(labelW, lineH - 12);
+		const half = (padX * 2 + valueW + gapX * 2) / 2;
+		titleW = stack ? UDim2.fromOffset(labelW, lineH - 12) : new UDim2(0.5, -half, 0, lineH - 12);
 		control = (
 			<frame
-				Size={new UDim2(1, -(padX + labelW + 12 + valueW + 12 + padX), 0, 30)}
-				Position={new UDim2(0, padX + labelW + 12, 0, lineH / 2)}
+				Size={stack ? new UDim2(1, -(padX + labelW + gapX + valueW + gapX + padX), 0, 30) : new UDim2(0.5, -half, 0, 30)}
+				Position={stack ? new UDim2(0, padX + labelW + gapX, 0, lineH / 2) : new UDim2(0.5, padX + gapX - half, 0, lineH / 2)}
 				AnchorPoint={new Vector2(0, 0.5)}
 				BackgroundTransparency={1}
 			>
@@ -285,11 +290,11 @@ function SettingRow(props: SettingRowProps) {
 				/>
 				<textlabel
 					Size={UDim2.fromOffset(valueW, 30)}
-					Position={new UDim2(1, 12, 0, 0)}
+					Position={new UDim2(1, gapX, 0, 0)}
 					BackgroundTransparency={1}
 					Text={tostring(math.floor(draft * 100 + 0.5))}
 					TextColor3={Palette.mango}
-					TextSize={17}
+					TextSize={L.SliderValue.text.size}
 					FontFace={NUM}
 					TextXAlignment={Enum.TextXAlignment.Right}
 				/>
@@ -304,11 +309,11 @@ function SettingRow(props: SettingRowProps) {
 				<uilistlayout FillDirection={Enum.FillDirection.Vertical} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<textlabel
 					LayoutOrder={1}
-					Size={new UDim2(1, 0, 0, 19)}
+					Size={new UDim2(1, 0, 0, L.RowTitle.h)}
 					BackgroundTransparency={1}
 					Text={entry.label}
 					TextColor3={Palette.cream}
-					TextSize={stack ? 13 : 15}
+					TextSize={stack ? 13 : L.RowTitle.text.size}
 					FontFace={BODY_SEMI}
 					TextXAlignment={Enum.TextXAlignment.Left}
 					TextTruncate={Enum.TextTruncate.AtEnd}
@@ -334,7 +339,7 @@ function SettingRow(props: SettingRowProps) {
 
 // one place for the row height so the list stride can't drift from the row
 function settingRowH(entry: SchemaEntry, stack: boolean): number {
-	const lineH = stack ? 44 : 48;
+	const lineH = stack ? 44 : L.Row.h;
 	return entry.kind === "choice" && stack ? lineH + TapTarget + 8 : lineH;
 }
 
@@ -1048,7 +1053,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	} else {
 		// wide desktop: the Controls panel takes a 520px right column (design/18-settings)
 		const withControls = viewport.width >= 1500;
-		const controlsW = withControls ? CONTROLS_W + 18 : 0;
+		const controlsW = withControls ? L.Controls.w + L.Body.gap : 0;
 		const bodyH = math.max(listPanelH, navH, withControls ? controlsPanelHeight() : 0);
 		scaffold.push({
 			id: "body",
@@ -1078,7 +1083,7 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 
 	return (
 		<frame ref={pageHostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<PageScaffold gap={stack ? 16 : 24} tailPad={scrollTail(stack, chrome.bottomSafe, 64)} scrollBarColor={accent} scrollBarThickness={4} sections={scaffold} />
+			<PageScaffold gap={stack ? 16 : L.Main.gap} tailPad={scrollTail(stack, chrome.bottomSafe, 64)} scrollBarColor={accent} scrollBarThickness={4} sections={scaffold} />
 			{mobileHudAvailable && (
 				<MobileControls
 					visible={mobileEdit}
